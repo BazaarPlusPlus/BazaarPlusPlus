@@ -1,0 +1,260 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Build properties -->
+  <PropertyGroup>
+    <AssemblyName>BazaarPlusPlus</AssemblyName>
+    <Description>BazaarPlusPlus - Game Enhancement Mod</Description>
+    <RootNamespace>BazaarPlusPlus</RootNamespace>
+    <Version>2.3.6</Version>
+    <LangVersion>12</LangVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    <RestoreAdditionalProjectSources>
+      https://api.nuget.org/v3/index.json;
+      https://nuget.bepinex.dev/v3/index.json;
+    </RestoreAdditionalProjectSources>
+    <NoWarn>CS0436</NoWarn>
+  </PropertyGroup>
+
+  <!-- Embedded resources -->
+  <!-- Exclude decompiled and installer files -->
+  <ItemGroup>
+    <Compile Remove="tests/**" />
+    <EmbeddedResource Remove="tests/**" />
+    <None Remove="tests/**" />
+    <Compile Remove="decompiled/**" />
+    <EmbeddedResource Remove="decompiled/**" />
+    <None Remove="decompiled/**" />
+    <Compile Remove="ModCFServer/**" />
+    <EmbeddedResource Remove="ModCFServer/**" />
+    <None Remove="ModCFServer/**" />
+  </ItemGroup>
+  <!-- Project paths -->
+  <PropertyGroup>
+    <ProjectRoot>$(MSBuildThisFileDirectory)</ProjectRoot>
+    <BPPInstallerSourcePath>$(ProjectRoot)/../bazaarplusplus-installer/src-tauri/resources</BPPInstallerSourcePath>
+    <HostArchitecture>$([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString().ToLowerInvariant())</HostArchitecture>
+    <MacSqliteRuntimeRid>osx-x64</MacSqliteRuntimeRid>
+    <FixedMacSqliteNativeFile>$(BPPInstallerSourcePath)/SourceForBuild/macos/BepInEx/plugins/libe_sqlite3.dylib</FixedMacSqliteNativeFile>
+    <FixedWindowsSqliteNativeFile>$(BPPInstallerSourcePath)/SourceForBuild/windows/BepInEx/plugins/e_sqlite3.dll</FixedWindowsSqliteNativeFile>
+  </PropertyGroup>
+  <!-- Candidate install paths for common Steam locations -->
+  <PropertyGroup>
+    <!-- macOS -->
+    <MacSteamManagedDefault>$(HOME)/Library/Application Support/Steam/steamapps/common/The Bazaar/TheBazaar.app/Contents/Resources/Data/Managed</MacSteamManagedDefault>
+    <MacGamePathDefault>$(HOME)/Library/Application Support/Steam/steamapps/common/The Bazaar</MacGamePathDefault>
+    <!-- Windows -->
+    <WinSteamManagedC>C:\Program Files (x86)\Steam\steamapps\common\The Bazaar\TheBazaar_Data\Managed</WinSteamManagedC>
+    <WinGamePathC>C:\Program Files (x86)\Steam\steamapps\common\The Bazaar</WinGamePathC>
+    <WinSteamManagedD>D:\Program Files (x86)\Steam\steamapps\common\The Bazaar\TheBazaar_Data\Managed</WinSteamManagedD>
+    <WinGamePathD>D:\Program Files (x86)\Steam\steamapps\common\The Bazaar</WinGamePathD>
+    <WinSteamManagedE>E:\Program Files (x86)\Steam\steamapps\common\The Bazaar\TheBazaar_Data\Managed</WinSteamManagedE>
+    <WinGamePathE>E:\Program Files (x86)\Steam\steamapps\common\The Bazaar</WinGamePathE>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(ManagedPath)' == '' and Exists('$(WinSteamManagedC)\Assembly-CSharp.dll')">
+    <ManagedPath>$(WinSteamManagedC)</ManagedPath>
+    <GamePath>$(WinGamePathC)</GamePath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(ManagedPath)' == '' and Exists('$(WinSteamManagedD)\Assembly-CSharp.dll')">
+    <ManagedPath>$(WinSteamManagedD)</ManagedPath>
+    <GamePath>$(WinGamePathD)</GamePath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(ManagedPath)' == '' and Exists('$(WinSteamManagedE)\Assembly-CSharp.dll')">
+    <ManagedPath>$(WinSteamManagedE)</ManagedPath>
+    <GamePath>$(WinGamePathE)</GamePath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(ManagedPath)' == '' and Exists('$(MacSteamManagedDefault)/Assembly-CSharp.dll')">
+    <ManagedPath>$(MacSteamManagedDefault)</ManagedPath>
+    <GamePath>$(MacGamePathDefault)</GamePath>
+  </PropertyGroup>
+
+  <!-- Package references -->
+  <ItemGroup>
+    <PackageReference Include="BepInEx.Analyzers" Version="1.*" PrivateAssets="all" />
+    <PackageReference Include="BepInEx.Core" Version="5.*" />
+    <PackageReference Include="BepInEx.PluginInfoProps" Version="2.*" />
+    <PackageReference Include="Krafs.Publicizer" Version="2.3.0" PrivateAssets="all" />
+    <PackageReference Include="UnityEngine.Modules" Version="2022.3.40" IncludeAssets="compile" />
+    <PackageReference Include="NETStandard.Library" Version="2.0.3" />
+    <PackageReference
+      Include="System.Runtime.CompilerServices.Unsafe"
+      Version="6.0.0"
+      PrivateAssets="all"
+      ExcludeAssets="runtime"
+    />
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.0" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+  </ItemGroup>
+
+  <!-- Game assembly references -->
+  <ItemGroup>
+    <Reference Include="Assembly-CSharp">
+      <HintPath>$(ManagedPath)\Assembly-CSharp.dll</HintPath>
+    </Reference>
+    <Reference Include="BazaarBattleService">
+      <HintPath>$(ManagedPath)\BazaarBattleService.dll</HintPath>
+    </Reference>
+    <Reference Include="BazaarGameClient">
+      <HintPath>$(ManagedPath)\BazaarGameClient.dll</HintPath>
+    </Reference>
+    <Reference Include="BazaarGameShared">
+      <HintPath>$(ManagedPath)\BazaarGameShared.dll</HintPath>
+    </Reference>
+    <Reference Include="TheBazaarRuntime">
+      <HintPath>$(ManagedPath)\TheBazaarRuntime.dll</HintPath>
+    </Reference>
+    <Reference Include="Addressables">
+      <HintPath>$(ManagedPath)\Unity.Addressables.dll</HintPath>
+    </Reference>
+    <Reference Include="ResourceManager">
+      <HintPath>$(ManagedPath)\Unity.ResourceManager.dll</HintPath>
+    </Reference>
+    <Reference Include="Unity.InputSystem">
+      <HintPath>$(ManagedPath)\Unity.InputSystem.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.UI">
+      <HintPath>$(ManagedPath)\UnityEngine.UI.dll</HintPath>
+    </Reference>
+    <Reference Include="Unity.TextMeshPro">
+      <HintPath>$(ManagedPath)\Unity.TextMeshPro.dll</HintPath>
+    </Reference>
+    <Reference Include="MessagePack">
+      <HintPath>$(ManagedPath)\MessagePack.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
+  <!-- Publicize all game assemblies -->
+  <PropertyGroup>
+    <PublicizeAll>true</PublicizeAll>
+  </PropertyGroup>
+
+  <!-- Debug build -->
+  <Target
+    Name="CopyToBepInExPlugins"
+    AfterTargets="Build"
+    Condition="'$(Configuration)' == 'Debug'"
+  >
+    <Message Text="[BazaarPlusPlus] Building for Debug" Importance="high" />
+    <ItemGroup>
+      <FilesToDelete Include="$(GamePath)\BepInEx\plugins\$(TargetName).dll" />
+      <FilesToDelete Include="$(GamePath)\BepInEx\plugins\$(TargetName).version" />
+      <FilesToDelete Include="$(GamePath)\BepInEx\plugins\Microsoft.Data.Sqlite.dll" />
+      <FilesToDelete Include="$(GamePath)\BepInEx\plugins\SQLitePCLRaw.batteries_v2.dll" />
+      <FilesToDelete Include="$(GamePath)\BepInEx\plugins\SQLitePCLRaw.core.dll" />
+      <FilesToDelete Include="$(GamePath)\BepInEx\plugins\SQLitePCLRaw.provider.e_sqlite3.dll" />
+      <FilesToDelete Include="$(GamePath)\BepInEx\plugins\e_sqlite3.dll" />
+      <FilesToDelete Include="$(GamePath)\BepInEx\plugins\libe_sqlite3.dylib" />
+    </ItemGroup>
+    <ItemGroup>
+      <PluginManagedRuntimeFiles Include="$(TargetDir)Microsoft.Data.Sqlite.dll" />
+      <PluginManagedRuntimeFiles Include="$(TargetDir)SQLitePCLRaw.batteries_v2.dll" />
+      <PluginManagedRuntimeFiles Include="$(TargetDir)SQLitePCLRaw.core.dll" />
+      <PluginManagedRuntimeFiles Include="$(TargetDir)SQLitePCLRaw.provider.e_sqlite3.dll" />
+      <MacSqliteNativeFile Include="$(FixedMacSqliteNativeFile)" />
+      <WindowsSqliteNativeFile Include="$(FixedWindowsSqliteNativeFile)" />
+    </ItemGroup>
+    <Delete Files="@(FilesToDelete)" />
+    <Copy
+      SourceFiles="$(TargetDir)$(TargetName).dll"
+      DestinationFiles="$(GamePath)\BepInEx\plugins\$(TargetName).dll"
+    />
+    <Copy
+      SourceFiles="@(PluginManagedRuntimeFiles)"
+      DestinationFolder="$(GamePath)\BepInEx\plugins"
+      SkipUnchangedFiles="true"
+      Condition="'@(PluginManagedRuntimeFiles)' != ''"
+    />
+    <Copy
+      SourceFiles="@(MacSqliteNativeFile)"
+      DestinationFiles="$(GamePath)\BepInEx\plugins\libe_sqlite3.dylib"
+      SkipUnchangedFiles="true"
+      Condition="'@(MacSqliteNativeFile)' != ''"
+    />
+    <Copy
+      SourceFiles="@(WindowsSqliteNativeFile)"
+      DestinationFiles="$(GamePath)\BepInEx\plugins\e_sqlite3.dll"
+      SkipUnchangedFiles="true"
+      Condition="'@(WindowsSqliteNativeFile)' != ''"
+    />
+    <WriteLinesToFile
+      File="$(GamePath)\BepInEx\plugins\$(TargetName).version"
+      Lines="$(Version).t$([System.DateTime]::Now.ToString('yyyyMMdd.HHmmss')).dev"
+      Overwrite="true"
+    />
+    <Message
+      Text="[BazaarPlusPlus] Successfully copied DLL to BepInEx plugins folder!!!"
+      Importance="high"
+    />
+  </Target>
+
+  <!-- Release build -->
+  <Target
+    Name="CopyToInstallerSource"
+    AfterTargets="Build"
+    Condition="'$(Configuration)' == 'Release' and Exists('$(BPPInstallerSourcePath)')"
+  >
+    <Message Text="[BazaarPlusPlus] Building for Release" Importance="high" />
+    <WriteLinesToFile
+      File="$(TargetDir)$(TargetName).version"
+      Lines="$(Version).prod"
+      Overwrite="true"
+    />
+    <ItemGroup>
+      <PluginManagedRuntimeFiles Include="$(TargetDir)Microsoft.Data.Sqlite.dll" />
+      <PluginManagedRuntimeFiles Include="$(TargetDir)SQLitePCLRaw.batteries_v2.dll" />
+      <PluginManagedRuntimeFiles Include="$(TargetDir)SQLitePCLRaw.core.dll" />
+      <PluginManagedRuntimeFiles Include="$(TargetDir)SQLitePCLRaw.provider.e_sqlite3.dll" />
+      <MacSqliteNativeFile Include="$(FixedMacSqliteNativeFile)" />
+      <WindowsSqliteNativeFile Include="$(FixedWindowsSqliteNativeFile)" />
+    </ItemGroup>
+    <Copy
+      SourceFiles="$(TargetDir)$(TargetName).dll"
+      DestinationFiles="$(BPPInstallerSourcePath)/SourceForBuild/macos/BepInEx/plugins/$(TargetName).dll"
+    />
+    <Copy
+      SourceFiles="$(TargetDir)$(TargetName).dll"
+      DestinationFiles="$(BPPInstallerSourcePath)/SourceForBuild/windows/BepInEx/plugins/$(TargetName).dll"
+    />
+    <Copy
+      SourceFiles="$(TargetDir)$(TargetName).version"
+      DestinationFiles="$(BPPInstallerSourcePath)/SourceForBuild/macos/BepInEx/plugins/$(TargetName).version"
+    />
+    <Copy
+      SourceFiles="$(TargetDir)$(TargetName).version"
+      DestinationFiles="$(BPPInstallerSourcePath)/SourceForBuild/windows/BepInEx/plugins/$(TargetName).version"
+    />
+    <Copy
+      SourceFiles="@(PluginManagedRuntimeFiles)"
+      DestinationFolder="$(BPPInstallerSourcePath)/SourceForBuild/macos/BepInEx/plugins"
+      SkipUnchangedFiles="true"
+      Condition="'@(PluginManagedRuntimeFiles)' != ''"
+    />
+    <Copy
+      SourceFiles="@(PluginManagedRuntimeFiles)"
+      DestinationFolder="$(BPPInstallerSourcePath)/SourceForBuild/windows/BepInEx/plugins"
+      SkipUnchangedFiles="true"
+      Condition="'@(PluginManagedRuntimeFiles)' != ''"
+    />
+    <ZipDirectory
+      SourceDirectory="$(BPPInstallerSourcePath)/SourceForBuild/macos"
+      DestinationFile="$(BPPInstallerSourcePath)/BepInExSource/macos/BepInEx.zip"
+      Overwrite="true"
+    />
+    <ZipDirectory
+      SourceDirectory="$(BPPInstallerSourcePath)/SourceForBuild/windows"
+      DestinationFile="$(BPPInstallerSourcePath)/BepInExSource/windows/BepInEx.zip"
+      Overwrite="true"
+    />
+    <Message
+      Text="[BazaarPlusPlus] Successfully built mod zip and copied to installer source folder!!!"
+      Importance="high"
+    />
+  </Target>
+
+  <!-- Build all -->
+  <Target Name="BuildAll">
+    <MSBuild Projects="$(MSBuildProjectFile)" Targets="Build" Properties="Configuration=Debug" />
+    <MSBuild Projects="$(MSBuildProjectFile)" Targets="Build" Properties="Configuration=Release" />
+  </Target>
+</Project>

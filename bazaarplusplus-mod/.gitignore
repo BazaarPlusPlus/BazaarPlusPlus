@@ -1,0 +1,34 @@
+# Build output
+dist/
+bin/
+obj/
+
+# Dependencies
+libs/
+decompiled/
+
+# IDE
+.idea/
+.vs/
+.vscode/
+*.user
+*.suo
+.dotnet-home/
+.nuget-packages/
+.npm-cache/
+.wrangler
+__pycache__/
+
+# Generated mod files
+**/plugins/BazaarPlusPlus.dll
+**/plugins/BazaarPlusPlus.version
+**/BepInEx.zip
+
+# OS
+.DS_Store
+Thumbs.db
+
+.dotnet
+.build-verify
+.sandbox-home
+tools/local_r2_clone/runtime/
