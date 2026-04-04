@@ -1,0 +1,10 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "bundle": {
+    "targets": ["dmg"],
+    "icon": ["icons/icon.icns"],
+    "resources": {
+      "resources/BepInExSource/macos/BepInEx.zip": "BepInExSource/BepInEx.zip"
+    }
+  }
+}

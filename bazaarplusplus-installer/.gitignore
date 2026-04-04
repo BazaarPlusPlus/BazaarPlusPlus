@@ -1,0 +1,55 @@
+# Dependencies
+/node_modules/
+
+# Frontend build output and caches
+/build/
+/dist/
+/.svelte-kit/
+/package/
+/coverage/
+/.vite/
+*.tsbuildinfo
+vite.config.js.timestamp-*
+vite.config.ts.timestamp-*
+
+# Tauri / Rust build output
+/src-tauri/target/
+/src-tauri/gen/schemas/
+/src-tauri/**/*.rs.bk
+
+# Environment and local overrides
+.env
+.env.*
+!.env.example
+!.env.sample
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Editors and local tooling
+.idea/
+.vscode/
+.fleet/
+.zed/
+*.iml
+*.swp
+*.swo
+*~
+.cache/
+.eslintcache
+.wrangler/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Top-level local packaging artifacts
+BepInEx.zip
+BazaarPlusPlus.dll
+BazaarPlusPlus.version
+
+signing-secrets

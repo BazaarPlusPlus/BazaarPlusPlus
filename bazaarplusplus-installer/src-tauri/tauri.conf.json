@@ -1,0 +1,36 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "BazaarPlusPlus Installer",
+  "version": "2.3.6",
+  "identifier": "com.bazaarplusplus.bppinstaller",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "npm run prebuild-check && npm run build",
+    "frontendDist": "../build"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "BazaarPlusPlus Installer",
+        "width": 680,
+        "height": 820
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "createUpdaterArtifacts": true
+  },
+  "plugins": {
+    "updater": {
+      "endpoints": [
+        "https://example.com/latest.json"
+      ],
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEY1RTAyMzg1RUFEQUNFRUYKUldUdnp0cnFoU1BnOVEzYjFlMFZMcEpmQ014VUZkNWtoRGtybW9pU0UwVjhIUmJmRjdoSmFSTVoK"
+    }
+  }
+}

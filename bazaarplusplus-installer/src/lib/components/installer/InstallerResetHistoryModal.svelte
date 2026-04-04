@@ -1,0 +1,178 @@
+<script lang="ts">
+  import AppModal from '$lib/components/AppModal.svelte';
+  import { locale } from '$lib/locale';
+
+  export let open: boolean;
+  export let acknowledged: boolean;
+  export let confirming = false;
+  export let body: string;
+  export let onConfirm: () => void | Promise<void>;
+  export let onCancel: () => void | Promise<void>;
+</script>
+
+<AppModal
+  {open}
+  eyebrow="BazaarPlusPlus"
+  title={$locale === 'zh' ? '重置战绩记录' : 'Reset Match History'}
+  confirmText={$locale === 'zh' ? '确认重置' : 'Confirm Reset'}
+  cancelText={$locale === 'zh' ? '关闭' : 'Close'}
+  confirmBusy={confirming}
+  confirmBusyText={$locale === 'zh' ? '重置战绩记录中...' : 'Resetting match history...'}
+  confirmDisabled={!acknowledged || confirming}
+  showCancel={true}
+  bodyClass="reset-history"
+  wide={true}
+  {onConfirm}
+  {onCancel}
+>
+  <section class="reset-history-warning">
+    <p class="reset-history-kicker">
+      {$locale === 'zh' ? '危险操作' : 'Dangerous Action'}
+    </p>
+    <p class="reset-history-body">{body}</p>
+  </section>
+
+  <label class="reset-history-acknowledge">
+    <input class="reset-history-acknowledge-input" bind:checked={acknowledged} type="checkbox" />
+    <span class="reset-history-acknowledge-box" aria-hidden="true"></span>
+    <span>
+      {$locale === 'zh'
+        ? '我已知晓此操作会永久删除当前战绩记录，并确认继续'
+        : 'I understand this will permanently delete the current match history, and I want to continue.'}
+    </span>
+  </label>
+</AppModal>
+
+<style>
+  .reset-history-warning {
+    display: grid;
+    gap: 0.45rem;
+    padding: 0.92rem 1rem;
+    text-align: left;
+    border: 1px solid rgba(191, 104, 81, 0.22);
+    border-radius: 4px;
+    background:
+      linear-gradient(
+        180deg,
+        rgba(191, 104, 81, 0.08),
+        rgba(191, 104, 81, 0.025)
+      ),
+      rgba(12, 8, 4, 0.78);
+    box-shadow: inset 0 0 0 1px rgba(255, 198, 98, 0.03);
+  }
+
+  .reset-history-kicker {
+    margin: 0;
+    font-family: 'Cinzel', serif;
+    font-size: 0.6rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: rgba(240, 178, 162, 0.88);
+  }
+
+  .reset-history-body {
+    margin: 0;
+    font-size: 0.84rem;
+    line-height: 1.65;
+    color: rgba(228, 216, 191, 0.82);
+    white-space: pre-line;
+  }
+
+  .reset-history-acknowledge {
+    display: grid;
+    grid-template-columns: auto auto 1fr;
+    gap: 0.7rem;
+    align-items: start;
+    padding: 0.8rem 0.88rem;
+    border: 1px solid rgba(191, 104, 81, 0.24);
+    border-radius: 4px;
+    background:
+      linear-gradient(
+        180deg,
+        rgba(191, 104, 81, 0.08),
+        rgba(191, 104, 81, 0.025)
+      ),
+      rgba(12, 8, 4, 0.78);
+    box-shadow: inset 0 0 0 1px rgba(255, 198, 98, 0.04);
+    text-align: left;
+    color: rgba(228, 216, 191, 0.8);
+    font-size: 0.8rem;
+    line-height: 1.45;
+    cursor: pointer;
+  }
+
+  .reset-history-acknowledge-input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .reset-history-acknowledge-box {
+    width: 1.15rem;
+    height: 1.15rem;
+    margin-top: 0.08rem;
+    border: 1px solid rgba(244, 227, 188, 0.58);
+    border-radius: 0.28rem;
+    background: linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.09),
+      rgba(255, 255, 255, 0.03)
+    );
+    box-shadow:
+      0 0 0 1px rgba(255, 198, 98, 0.05) inset,
+      0 2px 10px rgba(0, 0, 0, 0.16);
+    position: relative;
+    transition:
+      border-color 0.15s ease,
+      background 0.15s ease,
+      box-shadow 0.15s ease,
+      transform 0.15s ease;
+  }
+
+  .reset-history-acknowledge-box::after {
+    content: '';
+    position: absolute;
+    left: 0.33rem;
+    top: 0.14rem;
+    width: 0.32rem;
+    height: 0.62rem;
+    border-right: 2px solid transparent;
+    border-bottom: 2px solid transparent;
+    transform: rotate(45deg);
+    transition: border-color 0.15s ease;
+  }
+
+  .reset-history-acknowledge-input:checked + .reset-history-acknowledge-box {
+    border-color: rgba(240, 201, 120, 0.62);
+    background: linear-gradient(
+      180deg,
+      rgba(212, 160, 64, 0.28),
+      rgba(158, 92, 30, 0.22)
+    );
+    box-shadow:
+      0 0 0 1px rgba(255, 198, 98, 0.12) inset,
+      0 4px 14px rgba(170, 100, 25, 0.24);
+  }
+
+  .reset-history-acknowledge-input:checked + .reset-history-acknowledge-box::after {
+    border-color: #fff2ca;
+  }
+
+  .reset-history-acknowledge:hover .reset-history-acknowledge-box {
+    border-color: rgba(255, 214, 140, 0.8);
+    transform: translateY(-1px);
+  }
+
+  .reset-history-acknowledge-input:focus-visible + .reset-history-acknowledge-box {
+    outline: 2px solid rgba(255, 214, 140, 0.9);
+    outline-offset: 2px;
+  }
+
+  @media (max-width: 520px) {
+    .reset-history-warning,
+    .reset-history-acknowledge {
+      padding-left: 0.85rem;
+      padding-right: 0.85rem;
+    }
+  }
+</style>

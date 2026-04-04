@@ -1,0 +1,39 @@
+{
+  "name": "bppinstaller",
+  "version": "2.3.6",
+  "description": "BazaarPlusPlus Mod Installer",
+  "type": "module",
+  "scripts": {
+    "dev": "vite dev",
+    "version:sync": "node scripts/version-sync.mjs",
+    "prebuild-check": "node scripts/prebuild-check.mjs",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "node --test",
+    "format": "prettier --write \"*.json\" \"src/**/*.{ts,svelte,html}\" \"static/**/*.json\" \"scripts/**/*.mjs\" \"src-tauri/*.json\" \"src-tauri/capabilities/**/*.json\" \"svelte.config.js\" \"vite.config.js\"",
+    "format:check": "prettier --check \"*.json\" \"src/**/*.{ts,svelte,html}\" \"static/**/*.json\" \"scripts/**/*.mjs\" \"src-tauri/*.json\" \"src-tauri/capabilities/**/*.json\" \"svelte.config.js\" \"vite.config.js\"",
+    "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+    "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
+    "tauri": "tauri"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@tauri-apps/api": "^2.10.1",
+    "@tauri-apps/plugin-dialog": "^2.6.0",
+    "@tauri-apps/plugin-opener": "^2.5.3",
+    "@tauri-apps/plugin-updater": "^2.10.0"
+  },
+  "devDependencies": {
+    "@sveltejs/adapter-static": "^3.0.10",
+    "@sveltejs/kit": "^2.55.0",
+    "@sveltejs/vite-plugin-svelte": "^5.1.1",
+    "@tauri-apps/cli": "^2.10.1",
+    "@types/node": "^25.5.0",
+    "prettier": "^3.8.1",
+    "prettier-plugin-svelte": "^3.5.1",
+    "svelte": "^5.55.0",
+    "svelte-check": "^4.4.5",
+    "typescript": "^5.9.3",
+    "vite": "^6.4.1"
+  }
+}

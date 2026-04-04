@@ -1,0 +1,15 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "bundle": {
+    "targets": ["nsis"],
+    "icon": ["icons/icon.ico"],
+    "resources": {
+      "resources/BepInExSource/windows/BepInEx.zip": "BepInExSource/BepInEx.zip"
+    },
+    "windows": {
+      "nsis": {
+        "installerIcon": "icons/installer.ico"
+      }
+    }
+  }
+}

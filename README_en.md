@@ -17,6 +17,7 @@ Website: [BazaarPlusPlus.com](https://bazaarplusplus.com)
 
 - `bazaarplusplus-mod/`: source directory for the BazaarPlusPlus mod itself.
 - `bepinex-mac-patcher/`: macOS patcher included as a Git submodule.
+- `bazaarplusplus-installer/`: source directory for the desktop installer, built with Tauri, SvelteKit, and TypeScript.
 
 ## Supporters
 
