@@ -19,6 +19,11 @@ Website: [BazaarPlusPlus.com](https://bazaarplusplus.com)
 - `bepinex-mac-patcher/`: macOS patcher included as a Git submodule.
 - `bazaarplusplus-installer/`: source directory for the desktop installer, built with Tauri, SvelteKit, and TypeScript.
 
+## Derivative Work Notice
+
+If you plan to build on top of this project or create derivative mods from it, make sure your work complies with *The Bazaar* official Mod Policy:
+[The Bazaar Mod Policy](https://www.playthebazaar.com/mod-policy)
+
 ## Supporters
 
 Thanks to everyone who supports BazaarPlusPlus. Their support helps keep the project maintained, improved, and publicly available.
