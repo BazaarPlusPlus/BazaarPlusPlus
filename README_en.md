@@ -4,6 +4,8 @@
 
 BazaarPlusPlus is a BepInEx mod project for *The Bazaar*, featuring combat UI enhancements, monster and tooltip previews, a history panel, and combat replay.
 
+The bulk of BazaarPlusPlus development is led by Codex, with Claude Code contributing in collaboration; the author only provides requirements and supervision.
+
 Website: [BazaarPlusPlus.com](https://bazaarplusplus.com)
 
 ## Features

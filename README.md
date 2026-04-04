@@ -4,6 +4,8 @@
 
 BazaarPlusPlus 是一个面向《The Bazaar》的 BepInEx 模组项目，提供战斗 UI 增强、怪物与 tooltip 预览、历史面板与战斗回放等功能。
 
+BazaarPlusPlus 的主要开发工作由 Codex 主导，并由 Claude Code 协作完成；作者仅负责提出需求并进行监督。
+
 官网：[BazaarPlusPlus.com](https://bazaarplusplus.com)
 
 ## 功能概览
