@@ -353,10 +353,11 @@ ENTEOF
 fi
 
 if [ -n "${is_apple_silicon}" ]; then
-    # Force x86_64 (Rosetta) so Harmony can use mprotect W+X for patching.
-    # On arm64, Apple Silicon hardware enforces W^X at CPU level, blocking all Harmony patches.
+    # Force arm64 native execution. Steam may launch as x86_64, causing child
+    # processes to inherit Rosetta. HarmonyX >= 2.15.0 + MonoMod.Core handle
+    # W^X natively via pthread_jit_write_protect_np on MAP_JIT pages.
     # arch strips DYLD_INSERT_LIBRARIES so pass it manually via -e.
-    exec arch -x86_64 -e DYLD_INSERT_LIBRARIES="${DYLD_INSERT_LIBRARIES}" "$executable_path" "$@"
+    exec arch -arm64 -e DYLD_INSERT_LIBRARIES="${DYLD_INSERT_LIBRARIES}" "$executable_path" "$@"
 else
     exec "$executable_path" "$@"
 fi
