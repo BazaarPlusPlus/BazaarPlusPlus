@@ -18,7 +18,6 @@ BazaarPlusPlus 的主要开发工作由 Codex 主导，并由 Claude Code 协作
 ## 仓库结构
 
 - `bazaarplusplus-mod/`：BazaarPlusPlus mod 本体源码目录。
-- `bepinex-mac-patcher/`：用于 macOS 的 patcher，以 Git submodule 形式引入。
 - `bazaarplusplus-installer/`：桌面安装器源码目录，基于 Tauri、SvelteKit 和 TypeScript。
 
 ## 二次开发说明
