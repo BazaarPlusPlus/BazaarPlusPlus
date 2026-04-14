@@ -45,14 +45,7 @@ public static class CardTooltipDataPassivePatch
             if (__result.Item1 == null)
                 return;
 
-            if (Data.IsInCombat)
-                return;
-
-            if (BppHotkeyService.IsHeld(BppHotkeyActionId.HoldUpgradePreview))
-                return;
-
-            var alwaysShow = BppRuntimeHost.Config.EnchantPreviewAlwaysShowConfig?.Value ?? true;
-            if (!alwaysShow && !BppHotkeyService.IsHeld(BppHotkeyActionId.HoldEnchantPreview))
+            if (ItemEnchantPreviewDisplayState.IsPreviewSuppressed())
                 return;
 
             var previewSegments = ItemEnchantPreviewService.BuildPreviewSegments(
@@ -67,7 +60,15 @@ public static class CardTooltipDataPassivePatch
                 passiveBuilder.Append('\n');
             }
 
-            passiveBuilder.Append("Bazaar++\n");
+            AppendTooltipText(
+                passiveBuilder,
+                ItemEnchantPreviewDisplayState.BuildInlineHintMarkup(
+                    ItemEnchantPreviewDisplayState.IsPreviewVisible()
+                )
+            );
+
+            if (!ItemEnchantPreviewDisplayState.IsPreviewVisible())
+                return;
 
             foreach (var segment in previewSegments)
             {

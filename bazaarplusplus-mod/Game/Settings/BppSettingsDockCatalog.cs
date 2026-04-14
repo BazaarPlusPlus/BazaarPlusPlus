@@ -35,8 +35,11 @@ internal static class BppSettingsDockCatalog
         ),
         new(
             "EnchantPreview",
-            EnchantPreviewSettingsMenuLabel.Resolve,
-            new SettingsMenuToggleBridge(ReadEnchantPreviewEnabled, WriteEnchantPreviewEnabled)
+            ResolveEnchantPreviewLabel,
+            ResolveEnchantPreviewStatus,
+            IsEnchantPreviewModeHighlighted,
+            CycleEnchantPreviewMode,
+            collapseAfterActivate: false
         ),
         new(
             "CombatStatusBar",
@@ -110,7 +113,7 @@ internal static class BppSettingsDockCatalog
 
     private static bool ReadEnchantPreviewEnabled()
     {
-        return BppRuntimeHost.Config.EnchantPreviewAlwaysShowConfig?.Value ?? false;
+        return BppRuntimeHost.Config.EnchantPreviewAlwaysShowConfig?.Value ?? true;
     }
 
     private static void WriteEnchantPreviewEnabled(bool enabled)
@@ -118,6 +121,28 @@ internal static class BppSettingsDockCatalog
         var config = BppRuntimeHost.Config.EnchantPreviewAlwaysShowConfig;
         if (config != null)
             config.Value = enabled;
+    }
+
+    private static string ResolveEnchantPreviewLabel(string languageCode)
+    {
+        return ReadEnchantPreviewEnabled()
+            ? EnchantPreviewSettingsMenuLabel.ResolveAlwaysShow(languageCode)
+            : EnchantPreviewSettingsMenuLabel.ResolveHoldToShow(languageCode);
+    }
+
+    private static string ResolveEnchantPreviewStatus(string _)
+    {
+        return ReadEnchantPreviewEnabled() ? "ON" : "OFF";
+    }
+
+    private static bool IsEnchantPreviewModeHighlighted()
+    {
+        return ReadEnchantPreviewEnabled();
+    }
+
+    private static void CycleEnchantPreviewMode()
+    {
+        WriteEnchantPreviewEnabled(!ReadEnchantPreviewEnabled());
     }
 
     private static bool ReadUseNativeMonsterPreview()

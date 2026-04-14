@@ -1,8 +1,8 @@
 #nullable enable
 using System;
 using BazaarGameClient.Domain.Models.Cards;
-using BazaarPlusPlus.Core.Config;
 using BazaarPlusPlus.Game.Input;
+using BazaarPlusPlus.Game.ItemEnchantPreview;
 using TheBazaar;
 using TheBazaar.Tooltips;
 using TheBazaar.UI.Tooltips;
@@ -20,12 +20,6 @@ internal sealed class TooltipModifierRefreshController : MonoBehaviour
     }
 
     private TooltipModifierMode _lastMode;
-    private IBppConfig? _config;
-
-    internal void Initialize(IBppConfig config)
-    {
-        _config = config ?? throw new ArgumentNullException(nameof(config));
-    }
 
     private void Update()
     {
@@ -49,8 +43,7 @@ internal sealed class TooltipModifierRefreshController : MonoBehaviour
         if (BppHotkeyService.IsHeld(BppHotkeyActionId.HoldUpgradePreview))
             return TooltipModifierMode.Upgrade;
 
-        var alwaysShowEnchant = _config?.EnchantPreviewAlwaysShowConfig?.Value ?? true;
-        if (alwaysShowEnchant || BppHotkeyService.IsHeld(BppHotkeyActionId.HoldEnchantPreview))
+        if (ItemEnchantPreviewDisplayState.IsPreviewVisible())
             return TooltipModifierMode.Enchant;
 
         return TooltipModifierMode.Normal;

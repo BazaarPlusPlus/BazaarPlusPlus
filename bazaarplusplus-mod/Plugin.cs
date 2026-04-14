@@ -115,9 +115,7 @@ public class Plugin : BaseUnityPlugin
         gameObject.AddComponent<MonsterLockShowcaseRuntime>();
 
         BppLog.Info("Plugin", "Adding TooltipModifierRefreshController");
-        var tooltipModifierRefreshController =
-            gameObject.AddComponent<TooltipModifierRefreshController>();
-        tooltipModifierRefreshController.Initialize(services.Config);
+        gameObject.AddComponent<TooltipModifierRefreshController>();
         BppLog.Info("Plugin", "TooltipModifierRefreshController initialized");
     }
 }
