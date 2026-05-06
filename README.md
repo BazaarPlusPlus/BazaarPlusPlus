@@ -4,9 +4,9 @@
 
 **因热爱而生** · 为 [《The Bazaar》](https://www.playthebazaar.com) 打造的 BepInEx 模组与桌面安装器
 
-[English](README_en.md) · [官网](https://bazaarplusplus.com) · [更新日志](https://bazaarplusplus.com/changelog) · [Ko-fi](https://ko-fi.com/cauyxy)
+[English](README_en.md) · [官网](https://bazaarplusplus.com) · [使用教程](https://bazaarplusplus.com/tutorial) · [Ko-fi](https://ko-fi.com/cauyxy)
 
-[![Version](https://img.shields.io/badge/version-3.3.0-6dd9a0?style=flat-square)](https://bazaarplusplus.com/changelog)
+[![Version](https://img.shields.io/badge/version-3.3.0-6dd9a0?style=flat-square)](https://bazaarplusplus.com)
 [![License](https://img.shields.io/badge/license-MIT-e8c87a?style=flat-square)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS-c1875a?style=flat-square)](https://bazaarplusplus.com/download)
 [![BepInEx](https://img.shields.io/badge/BepInEx-5.x-8a6d3b?style=flat-square)](https://github.com/BepInEx/BepInEx)
