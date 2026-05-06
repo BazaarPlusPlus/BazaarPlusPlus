@@ -8,7 +8,7 @@
 
 [![Version](https://img.shields.io/badge/version-3.3.0-6dd9a0?style=flat-square)](https://bazaarplusplus.com/changelog)
 [![License](https://img.shields.io/badge/license-MIT-e8c87a?style=flat-square)](LICENSE)
-[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS-c1875a?style=flat-square)](https://bazaarplusplus.com/install)
+[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS-c1875a?style=flat-square)](https://bazaarplusplus.com/download)
 [![BepInEx](https://img.shields.io/badge/BepInEx-5.x-8a6d3b?style=flat-square)](https://github.com/BepInEx/BepInEx)
 [![.NET](https://img.shields.io/badge/.NET-Standard%202.1-512bd4?style=flat-square)](https://learn.microsoft.com/dotnet/standard/net-standard)
 [![Tauri](https://img.shields.io/badge/Tauri-2.x-24c8d8?style=flat-square)](https://tauri.app)
@@ -23,7 +23,7 @@ BazaarPlusPlus layers combat UI enhancements, opponent and tooltip previews, a h
 
 ## Quick Start
 
-The easiest way to install is to grab the desktop installer from [bazaarplusplus.com/install](https://bazaarplusplus.com/install):
+The easiest way to install is to grab the desktop installer from [bazaarplusplus.com/download](https://bazaarplusplus.com/download):
 
 1. Launch the installer — it auto-detects *The Bazaar* under the Steam install directory.
 2. Click **Install**. The installer deploys BepInEx and BazaarPlusPlus, and patches Steam launch options.
