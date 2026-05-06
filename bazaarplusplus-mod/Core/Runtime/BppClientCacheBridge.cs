@@ -81,6 +81,18 @@ internal static class BppClientCacheBridge
         return !string.IsNullOrWhiteSpace(rank) || rating.HasValue;
     }
 
+    public static bool TryGetPlayerLeaderboardPosition(out int? position)
+    {
+        position = null;
+
+        if (!TryGetObservableValue("Leaderboard", out var hasData, out var value) || !hasData)
+            return false;
+
+        position =
+            ReadNullableIntMember(value, "position") ?? ReadNullableIntMember(value, "Position");
+        return position.HasValue;
+    }
+
     private static object? TryGetProfileValue()
     {
         return TryGetObservableValue("Profile", out _, out var value) ? value : null;

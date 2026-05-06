@@ -10,7 +10,10 @@
 - The main mod project and most test projects resolve game assemblies through `ManagedPath`; if auto-detection does not match the local install, pass `ManagedPath` explicitly instead of changing project references or treating the failure as a code regression
 - Do not edit files under `decompiled/`; treat them as read-only reference code for understanding game behavior and APIs
 - On Windows, require PowerShell 7.6.0 or later before proceeding; check `PSVersionTable.PSVersion.ToString()` to confirm the installed version
+- Preserve the build-and-copy behavior in `BazaarPlusPlus.csproj`; do not change the Debug `BepInEx/plugins` copy flow or the Release installer copy flow unless the task is explicitly about packaging
 - Keep agent-authored docs minimal; do not add or rewrite README-style files unless the task explicitly requires user-facing documentation
+- When a model is serialized with MessagePack in the Unity/Mono runtime, keep the serialized DTO graph `public`; `internal` DTOs can still fail at runtime with `MethodAccessException` even when their properties are public
+- When designing server-side SQL, analyze each query for scan shape before shipping: determine whether it can degrade into a full table scan, estimate the expected read/write count cost at production scale, and check for fan-out or write/read amplification on hot paths
 
 # Pull Request Hygiene
 

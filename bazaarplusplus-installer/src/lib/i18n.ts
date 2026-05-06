@@ -42,6 +42,12 @@ export type MessageKey =
   | 'launchOptionsWarningTitle'
   | 'launchOptionsWarningBody'
   | 'actionClose'
+  | 'installRiskTitle'
+  | 'installRiskSteamDetected'
+  | 'installRiskBody'
+  | 'actionInstallAtRisk'
+  | 'actionContinueInstall'
+  | 'actionGoBack'
   | 'gameQuitTitle'
   | 'gameQuitBody'
   | 'actionGameClosed'
@@ -69,14 +75,28 @@ export type MessageKey =
   | 'updaterReviewCancel'
   | 'updaterInstalling'
   | 'updaterInstalledTitle'
-  | 'updaterInstalledBody';
+  | 'updaterInstalledBody'
+  | 'navHome'
+  | 'navInstall'
+  | 'navStream'
+  | 'navChangelog'
+  | 'navAbout'
+  | 'homeTitle'
+  | 'homeIntro'
+  | 'homeOpenInstall'
+  | 'homeOpenStream'
+  | 'homeInstallHint'
+  | 'homeStreamHint'
+  | 'homeChangelogHint'
+  | 'homeAboutHint'
+  | 'streamTitle';
 
 export const defaultLocale: Locale = 'zh';
 
 export const messages: Record<Locale, Record<MessageKey, string>> = {
   en: {
     htmlLang: 'en',
-    pageTitle: 'BazaarPlusPlus Installer',
+    pageTitle: 'BazaarPlusPlus',
     kicker: 'Born of Passion',
     subtitle: 'Mod Installation',
     stepBpp: 'BazaarPlusPlus',
@@ -120,6 +140,14 @@ export const messages: Record<Locale, Record<MessageKey, string>> = {
     launchOptionsWarningBody:
       'BazaarPlusPlus finished installing, but the installer could not confirm that Steam saved the new launch options. Please reopen Steam and verify the game launch command if the mod does not start.',
     actionClose: 'Close',
+    installRiskTitle: 'Steam Might Still Be Running',
+    installRiskSteamDetected:
+      'The installer detected that Steam may still be running.',
+    installRiskBody:
+      'This check can occasionally report a false positive.\nIf you continue anyway, installation may fail, files may stay locked, or Steam launch options may not update correctly.\nOnly continue if you understand the risk.',
+    actionInstallAtRisk: 'Install Anyway',
+    actionContinueInstall: 'Continue Install',
+    actionGoBack: 'Go Back',
     gameQuitTitle: 'Close The Bazaar First',
     gameQuitBody:
       'The Bazaar is still running.\nClose the game completely, then continue once it has fully exited.\nIf installation still fails after closing it, try restarting your PC.',
@@ -152,11 +180,29 @@ export const messages: Record<Locale, Record<MessageKey, string>> = {
     updaterInstalling: 'Installing update...',
     updaterInstalledTitle: 'Update Ready to Apply',
     updaterInstalledBody:
-      'Version {version} is installed. Restart the app to apply it.'
+      'Version {version} is installed. Restart the app to apply it.',
+    navHome: 'Home',
+    navInstall: 'Install & Repair',
+    navStream: 'Stream Mode',
+    navChangelog: 'Changelog',
+    navAbout: 'About',
+    homeTitle: 'BazaarPlusPlus Control Room',
+    homeIntro:
+      'Use the installer when you need setup work. Use Stream Mode only when you want a localhost overlay page for OBS.',
+    homeOpenInstall: 'Open Install & Repair',
+    homeOpenStream: 'Open Stream Mode',
+    homeInstallHint:
+      'Install, repair, or remove BazaarPlusPlus from the current game directory.',
+    homeStreamHint:
+      'Start the local OBS service, copy the browser-source URL, and verify end-of-run records captured after stream start are loading.',
+    homeChangelogHint:
+      'Review the current release notes and update highlights.',
+    homeAboutHint: 'Project credits, dependencies, and support information.',
+    streamTitle: 'Stream Mode'
   },
   zh: {
     htmlLang: 'zh-CN',
-    pageTitle: 'BazaarPlusPlus 安装器',
+    pageTitle: 'BazaarPlusPlus',
     kicker: '因热爱而生',
     subtitle: '模组安装',
     stepBpp: 'BazaarPlusPlus',
@@ -198,6 +244,13 @@ export const messages: Record<Locale, Record<MessageKey, string>> = {
     launchOptionsWarningBody:
       'BazaarPlusPlus 已完成安装，但安装器无法确认 Steam 已正确保存新的启动项。如果模组没有生效，请重新打开 Steam 后检查游戏启动命令。',
     actionClose: '关闭',
+    installRiskTitle: 'Steam 可能仍在运行',
+    installRiskSteamDetected: '安装器检测到 Steam 可能仍在运行。',
+    installRiskBody:
+      '这项检测偶尔会出现误报。\n如果你仍然继续安装，可能会出现安装失败、文件被占用，或 Steam 启动项未正确更新的问题。\n只有在你了解这些风险时才继续。',
+    actionInstallAtRisk: '已知风险，仍然安装',
+    actionContinueInstall: '继续安装',
+    actionGoBack: '返回处理',
     gameQuitTitle: '请先关闭 The Bazaar',
     gameQuitBody:
       '检测到 The Bazaar 仍在运行。\n请先完全关闭游戏，确认退出后再继续安装。\n如果关闭后仍无法安装，请尝试重启电脑。',
@@ -228,7 +281,23 @@ export const messages: Record<Locale, Record<MessageKey, string>> = {
     updaterReviewCancel: '稍后再说',
     updaterInstalling: '正在安装更新...',
     updaterInstalledTitle: '更新已准备就绪',
-    updaterInstalledBody: '新版本 {version} 已安装完成。重启应用后即可生效。'
+    updaterInstalledBody: '新版本 {version} 已安装完成。重启应用后即可生效。',
+    navHome: '首页',
+    navInstall: '安装与修复',
+    navStream: '直播模式',
+    navChangelog: '更新日志',
+    navAbout: '关于',
+    homeTitle: 'BazaarPlusPlus 控制台',
+    homeIntro:
+      '安装与修复用于一次性的部署维护；直播模式只在你需要给 OBS 提供本地网页时再开启。',
+    homeOpenInstall: '进入安装与修复',
+    homeOpenStream: '进入直播模式',
+    homeInstallHint: '安装、修复或卸载当前游戏目录中的 BazaarPlusPlus。',
+    homeStreamHint:
+      '启动本地 OBS 服务、复制浏览器源地址，并确认开播后的 End of Run 记录是否正常读取。',
+    homeChangelogHint: '查看当前版本的更新记录与功能亮点。',
+    homeAboutHint: '查看项目说明、依赖信息与支持入口。',
+    streamTitle: '直播模式'
   }
 };
 

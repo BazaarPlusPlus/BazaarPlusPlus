@@ -1,4 +1,4 @@
-namespace BazaarPlusPlus.Game.MonsterPreview;
+namespace BazaarPlusPlus.Game.PreviewSurface;
 
 internal enum PreviewCardKind
 {

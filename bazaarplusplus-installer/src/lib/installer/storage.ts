@@ -1,4 +1,5 @@
 const CUSTOM_GAME_PATH_STORAGE_KEY = 'bppinstaller:custom-game-path';
+const DETECTED_GAME_PATH_STORAGE_KEY = 'bppinstaller:detected-game-path';
 
 function getLocalStorage(): Storage | null {
   if (typeof window === 'undefined') return null;
@@ -18,4 +19,19 @@ export function persistCustomGamePath(path: string) {
     return;
   }
   localStorage.removeItem(CUSTOM_GAME_PATH_STORAGE_KEY);
+}
+
+export function loadPersistedDetectedGamePath(): string {
+  return getLocalStorage()?.getItem(DETECTED_GAME_PATH_STORAGE_KEY)?.trim() ?? '';
+}
+
+export function persistDetectedGamePath(path: string) {
+  const localStorage = getLocalStorage();
+  if (!localStorage) return;
+  const normalizedPath = path.trim();
+  if (normalizedPath) {
+    localStorage.setItem(DETECTED_GAME_PATH_STORAGE_KEY, normalizedPath);
+    return;
+  }
+  localStorage.removeItem(DETECTED_GAME_PATH_STORAGE_KEY);
 }

@@ -4,17 +4,31 @@ namespace BazaarPlusPlus.Game.Settings;
 
 internal static class LanguageCodeMatcher
 {
-    internal static bool IsSimplifiedChinese(string languageCode) =>
-        Matches(languageCode, "zh-CN", "zh-Hans", "zh");
+    internal static bool IsChinese(string languageCode) =>
+        Matches(
+            languageCode,
+            "zh",
+            "zh-CN",
+            "zh-Hans",
+            "zh-SG",
+            "zh-TW",
+            "zh-Hant",
+            "zh-HK",
+            "zh-MO"
+        );
 
-    internal static bool IsGerman(string languageCode) => Matches(languageCode, "de-DE", "de");
+    internal static bool IsSimplifiedChinese(string languageCode) =>
+        Matches(languageCode, "zh-CN", "zh-Hans", "zh-SG");
+
+    internal static bool IsGerman(string languageCode) =>
+        Matches(languageCode, "de", "de-DE", "de-AT", "de-CH");
 
     internal static bool IsPortuguese(string languageCode) =>
-        Matches(languageCode, "pt-BR", "pt-PT", "pt");
+        Matches(languageCode, "pt", "pt-BR", "pt-PT");
 
-    internal static bool IsKorean(string languageCode) => Matches(languageCode, "ko-KR", "ko");
+    internal static bool IsKorean(string languageCode) => Matches(languageCode, "ko", "ko-KR");
 
-    internal static bool IsItalian(string languageCode) => Matches(languageCode, "it-IT", "it");
+    internal static bool IsItalian(string languageCode) => Matches(languageCode, "it", "it-IT");
 
     private static bool Matches(string languageCode, params string[] candidates)
     {

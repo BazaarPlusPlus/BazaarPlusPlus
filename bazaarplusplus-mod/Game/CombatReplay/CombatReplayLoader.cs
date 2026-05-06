@@ -16,24 +16,24 @@ internal sealed class CombatReplayLoader
             throw new ArgumentNullException(nameof(payload));
 
         return new CombatSequenceMessages(
-            DeserializeGameSim(payload.SpawnMessageBase64),
-            DeserializeGameSim(payload.DespawnMessageBase64),
-            DeserializeCombatSim(payload.CombatMessageBase64)
+            DeserializeGameSim(payload.SpawnMessageBytes),
+            DeserializeGameSim(payload.DespawnMessageBytes),
+            DeserializeCombatSim(payload.CombatMessageBytes)
         );
     }
 
-    private static NetMessageGameSim DeserializeGameSim(string payload)
+    private static NetMessageGameSim DeserializeGameSim(byte[] payload)
     {
         return MessagePackSerializer.Deserialize<NetMessageGameSim>(
-            Convert.FromBase64String(payload),
+            payload,
             MessagePackConfig.Options
         );
     }
 
-    private static NetMessageCombatSim DeserializeCombatSim(string payload)
+    private static NetMessageCombatSim DeserializeCombatSim(byte[] payload)
     {
         return MessagePackSerializer.Deserialize<NetMessageCombatSim>(
-            Convert.FromBase64String(payload),
+            payload,
             MessagePackConfig.Options
         );
     }

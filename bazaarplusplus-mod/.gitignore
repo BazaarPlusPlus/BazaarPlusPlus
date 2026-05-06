@@ -2,6 +2,7 @@
 dist/
 bin/
 obj/
+exports/
 
 # Dependencies
 libs/
@@ -31,4 +32,6 @@ Thumbs.db
 .dotnet
 .build-verify
 .sandbox-home
-tools/local_r2_clone/runtime/
+report-ui
+tools
+.claude

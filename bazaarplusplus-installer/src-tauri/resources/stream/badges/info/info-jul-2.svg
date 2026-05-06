@@ -1,0 +1,12 @@
+<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 160 160' fill='none'>
+  <defs>
+    <linearGradient id='bg' x1='80' y1='0' x2='80' y2='160' gradientUnits='userSpaceOnUse'>
+      <stop stop-color='#BC49EE'/>
+      <stop offset='1' stop-color='#8227AF'/>
+    </linearGradient>
+  </defs>
+  <rect x='3' y='3' width='154' height='154' rx='28' fill='url(#bg)' stroke='#E9B5FF' stroke-width='6'/>
+  <rect x='14' y='14' width='132' height='132' rx='20' fill='rgba(255,255,255,0.03)' stroke='rgba(255,255,255,0.06)' stroke-width='2'/>
+  <text x='80' y='82' text-anchor='middle' font-family='Baskerville, Georgia, Palatino Linotype, serif' font-size='84' font-weight='700' fill='#FFF8F2'>2</text>
+  <text x='80' y='122' text-anchor='middle' font-family='Baskerville, Georgia, Palatino Linotype, serif' font-size='24' font-weight='700' letter-spacing='4' fill='#FFF8F2'>JUL</text>
+</svg>

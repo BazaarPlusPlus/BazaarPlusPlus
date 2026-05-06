@@ -55,11 +55,16 @@ internal static class RandomHeroSkinPoolTogglePatch
 internal static class RandomHeroSkinPoolEquipItemPatch
 {
     [HarmonyPostfix]
-    private static void Postfix(CosmeticsListManager __instance, EquipableItem item)
+    private static void Postfix(CosmeticsListManager __instance, object[] __args)
     {
         try
         {
-            var collectionType = item.itemData.CollectionType;
+            if (__args.Length == 0 || __args[0] is not EquipableItem item)
+                return;
+
+            var itemData = item.itemData;
+            var hero = item.hero;
+            var collectionType = itemData.CollectionType;
             if (!RandomHeroSkinPoolRuntime.IsSupported(collectionType))
                 return;
 
@@ -68,16 +73,16 @@ internal static class RandomHeroSkinPoolEquipItemPatch
                 return;
 
             RandomHeroSkinPoolRuntime.EnsureSelected(
-                item.hero,
+                hero,
                 collectionType,
-                item.itemData.CollectionItemID,
+                itemData.CollectionItemID,
                 collectionManager
             );
             RandomHeroSkinPoolPanelController.NotifyCollectibleSelected(
                 __instance,
                 collectionType,
-                item.hero,
-                item.itemData.CollectionItemID
+                hero,
+                itemData.CollectionItemID
             );
         }
         catch (Exception ex)

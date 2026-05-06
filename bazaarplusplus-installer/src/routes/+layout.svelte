@@ -7,6 +7,25 @@
 <slot />
 
 <style>
+  :global(:root) {
+    /* RGB triplets — combine with rgba() for alpha variations. */
+    --color-accent-rgb: 200, 148, 55;
+    --color-cream-rgb: 228, 216, 191;
+    --color-warm-rgb: 255, 214, 140;
+    --color-warm-bright-rgb: 255, 198, 98;
+    --color-muted-gold-rgb: 200, 170, 120;
+
+    /* Solid named tokens. */
+    --color-bg: #0b0906;
+    --color-text: #e8dcc8;
+    --color-gold-text: #e8c87a;
+    --color-soft-gold: #f3d38d;
+    --color-gold-button: #d4a040;
+    --color-pale-gold: #f6ebd1;
+    --color-gold-deep: #bf852e;
+    --color-gold-dark: #9e5c1e;
+  }
+
   :global(*, *::before, *::after) {
     box-sizing: border-box;
   }
@@ -22,7 +41,7 @@
     height: 100%;
     overflow-y: auto;
     overscroll-behavior: none;
-    background-color: #0b0906;
+    background-color: var(--color-bg);
     background-image:
       radial-gradient(
         ellipse 70% 42% at 50% -4%,
@@ -34,7 +53,7 @@
         rgba(120, 60, 20, 0.1) 0%,
         transparent 60%
       );
-    color: #e8dcc8;
+    color: var(--color-text);
     font-family:
       'IM Fell English', 'Noto Serif SC', 'Songti SC', Georgia, serif;
     -webkit-font-smoothing: antialiased;

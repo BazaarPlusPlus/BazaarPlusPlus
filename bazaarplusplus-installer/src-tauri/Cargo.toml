@@ -1,7 +1,7 @@
 [package]
 name = "bppinstaller"
-version = "2.3.6"
-description = "BazaarPlusPlus Mod Installer"
+version = "3.3.0"
+description = "BazaarPlusPlus Desktop App"
 authors = ["cauyxy <cauyxy@gmail.com>"]
 edition = "2021"
 
@@ -18,16 +18,23 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = [] }
+tauri = { version = "2", features = ["tray-icon"] }
 tauri-plugin-opener = "2"
 tauri-plugin-dialog = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+base64 = "0.22"
 dirs = "6"
 keyvalues-parser = "0.2"
-reqwest = { version = "0.12", default-features = false, features = ["blocking", "rustls-tls"] }
 zip = { version = "6.0.0", default-features = false, features = ["deflate"] }
-uuid = { version = "1", features = ["v4"] }
+axum = "0.8"
+tower-http = { version = "0.6", features = ["cors"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "net"] }
+rusqlite = { version = "0.32", features = ["bundled"] }
+chrono = { version = "0.4", features = ["clock", "serde"] }
+image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp"] }
+include_dir = "0.7"
+ts-rs = "12"
 
 [target.'cfg(windows)'.dependencies]
 winreg = "0.52"

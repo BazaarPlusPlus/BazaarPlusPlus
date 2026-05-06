@@ -5,7 +5,7 @@ namespace BazaarPlusPlus.Core.Config;
 
 internal sealed class BppConfig : IBppConfig
 {
-    public ConfigEntry<bool>? UseNativeMonsterPreviewConfig { get; private set; }
+    public ConfigEntry<string>? ItemBoardAnchoredPositionConfig { get; private set; }
 
     public ConfigEntry<bool>? EnableNameOverrideConfig { get; private set; }
 
@@ -19,15 +19,27 @@ internal sealed class BppConfig : IBppConfig
 
     public ConfigEntry<string>? UpgradePreviewHotkeyPathConfig { get; private set; }
 
-    public ConfigEntry<bool>? EnableCommunityContributionConfig { get; private set; }
+    public ConfigEntry<BppChineseLocaleMode>? ChineseLocaleModeConfig { get; private set; }
+
+    public ConfigEntry<LegendaryPositionDisplayMode>? LegendaryPositionDisplayModeConfig
+    {
+        get;
+        private set;
+    }
+
+    public ConfigEntry<string>? ModApiV3BaseUrlConfig { get; private set; }
+
+    public ConfigEntry<string>? FinalBuildsRemoteUrlConfig { get; private set; }
+
+    public ConfigEntry<string>? SponsorListUrlConfig { get; private set; }
 
     public void Initialize(ConfigFile config)
     {
-        UseNativeMonsterPreviewConfig = config.Bind(
-            "MonsterPreview",
-            "UseNativePreview",
-            true,
-            "Whether monster preview should use the game's native preview instead of the BazaarPlusPlus overlay. Does not affect history panel battle previews."
+        ItemBoardAnchoredPositionConfig = config.Bind(
+            "ItemBoard",
+            "AnchoredPosition",
+            "auto",
+            "Anchored position override for the standalone item board overlay. Use 'auto' to follow the source tooltip, or 'x,y' such as '320,-40'."
         );
         EnableNameOverrideConfig = config.Bind(
             "StreamerMode",
@@ -65,11 +77,35 @@ internal sealed class BppConfig : IBppConfig
             "<Keyboard>/shift",
             "Binding path for upgrade preview tooltip mode."
         );
-        EnableCommunityContributionConfig = config.Bind(
-            "CommunityContribution",
-            "Enabled",
-            false,
-            "Whether to participate in BazaarPlusPlus community data contribution features, including background uploads and History Review access while out of a live run."
+        ChineseLocaleModeConfig = config.Bind(
+            "Localization",
+            "ChineseLocaleMode",
+            BppChineseLocaleMode.Mainland,
+            "Chinese locale variant for BazaarPlusPlus UI when the game language is Chinese. Cycles between Mainland, Taiwan, and HongKong."
+        );
+        LegendaryPositionDisplayModeConfig = config.Bind(
+            "LegendaryPositionDisplay",
+            "Mode",
+            LegendaryPositionDisplayMode.Default,
+            "How BazaarPlusPlus should rewrite native Legendary leaderboard position labels. Default keeps the original value, Blank clears it, Fixed999999 forces 999999, and PositionWithRating shows '#position | rating'."
+        );
+        ModApiV3BaseUrlConfig = config.Bind(
+            "Network",
+            "ModApiV3BaseUrl",
+            "https://api.example.com",
+            "Base URL for V3 mod API endpoints. Override to route uploads/ghost services to another host."
+        );
+        FinalBuildsRemoteUrlConfig = config.Bind(
+            "Network",
+            "FinalBuildsRemoteUrl",
+            "https://api.example.com/final_builds_for_mod.json",
+            "Remote URL for downloading final build recommendations used by monster preview."
+        );
+        SponsorListUrlConfig = config.Bind(
+            "Network",
+            "SponsorListUrl",
+            "https://api.example.com/supporter-list.json",
+            "Remote URL for downloading supporter list used by monster sponsor banner."
         );
     }
 }

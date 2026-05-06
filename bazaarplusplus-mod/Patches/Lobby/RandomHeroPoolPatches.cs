@@ -3,7 +3,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
 using BazaarGameShared.Domain.Core.Types;
 using BazaarPlusPlus.Game.Lobby.RandomHeroPool;
 using HarmonyLib;
@@ -38,22 +37,15 @@ internal static class RandomHeroPoolAwakePatch
 internal static class RandomHeroPoolRefreshButtonsPatch
 {
     [HarmonyPostfix]
-    private static void Postfix(HeroSelectButtonsView __instance, Task __result)
+    private static void Postfix(HeroSelectButtonsView __instance)
     {
-        if (__result == null)
-            return;
-
         try
         {
-            RandomHeroPoolPanelController.ScheduleRosterRefresh(
-                __instance,
-                __result,
-                forceRebuild: true
-            );
+            RandomHeroPoolPanelController.NotifyRosterChanged(__instance, forceRebuild: true);
         }
         catch (Exception ex)
         {
-            BppLog.Warn("RandomHeroPool", $"Failed to schedule random hero pool refresh: {ex}");
+            BppLog.Warn("RandomHeroPool", $"Failed to refresh random hero pool: {ex}");
         }
     }
 }

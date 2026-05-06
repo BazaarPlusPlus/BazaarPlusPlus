@@ -5,7 +5,7 @@ namespace BazaarPlusPlus.Core.Config;
 
 internal interface IBppConfig
 {
-    ConfigEntry<bool>? UseNativeMonsterPreviewConfig { get; }
+    ConfigEntry<string>? ItemBoardAnchoredPositionConfig { get; }
 
     ConfigEntry<bool>? EnableNameOverrideConfig { get; }
 
@@ -19,5 +19,13 @@ internal interface IBppConfig
 
     ConfigEntry<string>? UpgradePreviewHotkeyPathConfig { get; }
 
-    ConfigEntry<bool>? EnableCommunityContributionConfig { get; }
+    ConfigEntry<BppChineseLocaleMode>? ChineseLocaleModeConfig { get; }
+
+    ConfigEntry<LegendaryPositionDisplayMode>? LegendaryPositionDisplayModeConfig { get; }
+
+    ConfigEntry<string>? ModApiV3BaseUrlConfig { get; }
+
+    ConfigEntry<string>? FinalBuildsRemoteUrlConfig { get; }
+
+    ConfigEntry<string>? SponsorListUrlConfig { get; }
 }

@@ -8,7 +8,6 @@ using BazaarGameShared.Domain.Core;
 using BazaarGameShared.Domain.Core.Types;
 using BazaarGameShared.Domain.Players;
 using BazaarPlusPlus.Core.RunContext;
-using BazaarPlusPlus.Core.Runtime;
 using BazaarPlusPlus.Game.RunLogging.Models;
 using TheBazaar;
 
@@ -16,13 +15,24 @@ namespace BazaarPlusPlus.Game.RunLogging;
 
 internal static class RunLoggingGameDataReader
 {
+    private static IRunContext? _runContext;
+
+    public static void Install(IRunContext runContext) =>
+        _runContext = runContext ?? throw new ArgumentNullException(nameof(runContext));
+
+    private static IRunContext RunContext =>
+        _runContext
+        ?? throw new InvalidOperationException(
+            "RunLoggingGameDataReader.Install must be called at startup."
+        );
+
     public static bool TryCreateRunLogCreateRequest(out RunLogCreateRequest request)
     {
         request = null!;
         if (Data.Run?.Player == null)
             return false;
 
-        var serverRunId = BppRuntimeHost.RunContext.CurrentServerRunId;
+        var serverRunId = RunContext.CurrentServerRunId;
         if (string.IsNullOrWhiteSpace(serverRunId))
             return false;
 
@@ -45,7 +55,11 @@ internal static class RunLoggingGameDataReader
     {
         try
         {
-            return BppClientCacheBridge.TryGetPlayerRankSnapshot(out rank, out rating, out _);
+            return BazaarPlusPlus.Core.Runtime.BppClientCacheBridge.TryGetPlayerRankSnapshot(
+                out rank,
+                out rating,
+                out _
+            );
         }
         catch
         {
@@ -75,9 +89,7 @@ internal static class RunLoggingGameDataReader
     public static RunLogCompletion BuildRunLogCompletion(string reason)
     {
         var status =
-            BppRuntimeHost.RunContext.LastRunExitKind == RunExitKind.Interrupted
-                ? "abandoned"
-                : "completed";
+            RunContext.LastRunExitKind == RunExitKind.Interrupted ? "abandoned" : "completed";
         TryBuildRunLogPlayerStats(out var stats);
         TryGetPlayerRankSnapshot(out var finalPlayerRank, out var finalPlayerRating);
         return new RunLogCompletion

@@ -102,7 +102,7 @@
       rgba(35, 22, 10, 0.98),
       rgba(16, 10, 5, 0.96)
     );
-    border: 1px solid rgba(200, 148, 55, 0.24);
+    border: 1px solid rgba(var(--color-accent-rgb), 0.24);
     border-radius: 4px;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.48);
     display: grid;
@@ -137,14 +137,14 @@
     font-family: 'Cinzel Decorative', serif;
     font-size: 1.55rem;
     line-height: 1.1;
-    color: #e8c87a;
+    color: var(--color-gold-text);
   }
 
   .modal-body {
     margin: 0;
     font-size: 0.92rem;
     line-height: 1.6;
-    color: rgba(228, 216, 191, 0.8);
+    color: rgba(var(--color-cream-rgb), 0.8);
     white-space: pre-line;
   }
 
@@ -160,11 +160,11 @@
     letter-spacing: 0.18em;
     text-transform: uppercase;
     color: #1c0e03;
-    background: linear-gradient(135deg, #d4a040 0%, #9e5c1e 50%, #d4a040 100%);
+    background: linear-gradient(135deg, var(--color-gold-button) 0%, var(--color-gold-dark) 50%, var(--color-gold-button) 100%);
     border: 1px solid rgba(210, 158, 60, 0.45);
     border-radius: 2px;
     box-shadow:
-      0 0 0 1px rgba(255, 198, 98, 0.14) inset,
+      0 0 0 1px rgba(var(--color-warm-bright-rgb), 0.14) inset,
       0 4px 22px rgba(170, 100, 25, 0.3);
     cursor: pointer;
   }
@@ -183,22 +183,22 @@
     font-size: 0.66rem;
     letter-spacing: 0.16em;
     text-transform: uppercase;
-    color: rgba(228, 216, 191, 0.82);
-    background: rgba(200, 148, 55, 0.06);
+    color: rgba(var(--color-cream-rgb), 0.82);
+    background: rgba(var(--color-accent-rgb), 0.06);
     border: 1px solid rgba(180, 130, 48, 0.18);
     border-radius: 2px;
     cursor: pointer;
   }
 
   .modal-cancel:hover {
-    background: rgba(200, 148, 55, 0.12);
-    border-color: rgba(200, 148, 55, 0.34);
+    background: rgba(var(--color-accent-rgb), 0.12);
+    border-color: rgba(var(--color-accent-rgb), 0.34);
   }
 
   .modal-confirm:hover {
     transform: translateY(-1px);
     box-shadow:
-      0 0 0 1px rgba(255, 198, 98, 0.2) inset,
+      0 0 0 1px rgba(var(--color-warm-bright-rgb), 0.2) inset,
       0 6px 30px rgba(170, 100, 25, 0.45);
   }
 
@@ -207,12 +207,12 @@
     cursor: not-allowed;
     transform: none;
     box-shadow:
-      0 0 0 1px rgba(255, 198, 98, 0.14) inset,
+      0 0 0 1px rgba(var(--color-warm-bright-rgb), 0.14) inset,
       0 4px 22px rgba(170, 100, 25, 0.18);
   }
 
   .modal-confirm:focus-visible {
-    outline: 2px solid rgba(255, 214, 140, 0.9);
+    outline: 2px solid rgba(var(--color-warm-rgb), 0.9);
     outline-offset: 2px;
   }
 
@@ -226,7 +226,7 @@
   }
 
   .modal-cancel:focus-visible {
-    outline: 2px solid rgba(255, 214, 140, 0.9);
+    outline: 2px solid rgba(var(--color-warm-rgb), 0.9);
     outline-offset: 2px;
   }
 

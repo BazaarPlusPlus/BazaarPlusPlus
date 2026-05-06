@@ -36,8 +36,13 @@ WINDOWS_CONFIG="$SCRIPT_DIR/src-tauri/tauri.windows.conf.json"
 MACOS_CONFIG="$SCRIPT_DIR/src-tauri/tauri.macos.conf.json"
 WINDOWS_ZIP="$SCRIPT_DIR/src-tauri/resources/BepInExSource/windows/BepInEx.zip"
 MACOS_ZIP="$SCRIPT_DIR/src-tauri/resources/BepInExSource/macos/BepInEx.zip"
-SIGNING_KEY_PATH="$SCRIPT_DIR/signing-secrets/tauri-updater.key"
-SIGNING_KEY_PASSWORD_PATH="$SCRIPT_DIR/signing-secrets/tauri-updater.password"
+SIGNING_SECRETS_DIR="$SCRIPT_DIR/signing-secrets"
+SIGNING_KEY_PATH="$SIGNING_SECRETS_DIR/tauri-updater.key"
+SIGNING_KEY_PASSWORD_PATH="$SIGNING_SECRETS_DIR/tauri-updater.password"
+APPLE_API_ISSUER_PATH="$SIGNING_SECRETS_DIR/apple-api-issuer"
+APPLE_API_KEY_ID_PATH="$SIGNING_SECRETS_DIR/apple-api-key"
+APPLE_API_KEY_PATH_PATH="$SIGNING_SECRETS_DIR/apple-api-key-path"
+APPLE_SIGNING_IDENTITY_PATH="$SIGNING_SECRETS_DIR/apple-signing-identity"
 
 assert_command() {
     local name="$1"
@@ -77,6 +82,40 @@ trim_trailing_newlines() {
     done
 
     printf '%s' "$value"
+}
+
+set_exported_env() {
+    local name="$1"
+    local value="$2"
+
+    printf -v "$name" '%s' "$value"
+    export "$name"
+}
+
+load_required_secret_env() {
+    local name="$1"
+    local path="$2"
+    local value="${!name:-}"
+
+    if [ -n "$value" ]; then
+        echo "==> Reusing existing $name from environment"
+    elif [ -f "$path" ]; then
+        echo "==> Loading $name from signing-secrets"
+        value="$(<"$path")"
+    else
+        echo "Error: Missing $name." >&2
+        echo "Set $name or create $path" >&2
+        exit 1
+    fi
+
+    value="$(trim_trailing_newlines "$value")"
+    if [ -z "$value" ]; then
+        echo "Error: Empty $name." >&2
+        echo "Set $name or write a value to $path" >&2
+        exit 1
+    fi
+
+    set_exported_env "$name" "$value"
 }
 
 current_platform() {
@@ -183,7 +222,8 @@ install_dependencies() {
     if [ "$CLEAN_DEPS" = false ] \
         && [ -d "$SCRIPT_DIR/node_modules" ] \
         && [ -d "$SCRIPT_DIR/node_modules/@tauri-apps/cli" ] \
-        && { [ -f "$SCRIPT_DIR/node_modules/.bin/tauri" ] || [ -f "$SCRIPT_DIR/node_modules/.bin/tauri.cmd" ]; }; then
+        && { [ -f "$SCRIPT_DIR/node_modules/.bin/tauri" ] || [ -f "$SCRIPT_DIR/node_modules/.bin/tauri.cmd" ]; } \
+        && npm ls --depth=0 >/dev/null 2>&1; then
         echo "==> Reusing existing npm dependencies"
         echo "    Remove node_modules or rerun with --clean-deps to force a reinstall."
         return
@@ -246,8 +286,167 @@ load_updater_signing_env() {
         echo "==> Loading TAURI_SIGNING_PRIVATE_KEY_PASSWORD from signing-secrets"
         TAURI_SIGNING_PRIVATE_KEY_PASSWORD="$(<"$SIGNING_KEY_PASSWORD_PATH")"
         TAURI_SIGNING_PRIVATE_KEY_PASSWORD="$(trim_trailing_newlines "$TAURI_SIGNING_PRIVATE_KEY_PASSWORD")"
-        export TAURI_SIGNING_PRIVATE_KEY_PASSWORD
+    else
+        echo "==> No updater key password configured; using empty password"
+        TAURI_SIGNING_PRIVATE_KEY_PASSWORD=""
     fi
+
+    export TAURI_SIGNING_PRIVATE_KEY_PASSWORD
+}
+
+detect_developer_id_application_identity() {
+    security find-identity -v -p codesigning 2>/dev/null \
+        | sed -n 's/.*"\(Developer ID Application: [^"]*\)".*/\1/p' \
+        | sort -u
+}
+
+load_apple_signing_identity_env() {
+    local value="${APPLE_SIGNING_IDENTITY:-}"
+    local identities=""
+    local identity_count=""
+
+    if [ -n "$value" ]; then
+        echo "==> Reusing existing APPLE_SIGNING_IDENTITY from environment"
+    elif [ -f "$APPLE_SIGNING_IDENTITY_PATH" ]; then
+        echo "==> Loading APPLE_SIGNING_IDENTITY from signing-secrets"
+        value="$(<"$APPLE_SIGNING_IDENTITY_PATH")"
+    else
+        identities="$(detect_developer_id_application_identity)"
+        identity_count="$(printf '%s\n' "$identities" | sed '/^$/d' | wc -l | tr -d ' ')"
+
+        case "$identity_count" in
+            1)
+                echo "==> Auto-detected APPLE_SIGNING_IDENTITY from keychain"
+                value="$identities"
+                ;;
+            0)
+                echo "Error: Missing APPLE_SIGNING_IDENTITY." >&2
+                echo "Set APPLE_SIGNING_IDENTITY, create $APPLE_SIGNING_IDENTITY_PATH, or install a Developer ID Application certificate." >&2
+                exit 1
+                ;;
+            *)
+                echo "Error: Multiple Developer ID Application identities found." >&2
+                echo "Set APPLE_SIGNING_IDENTITY or create $APPLE_SIGNING_IDENTITY_PATH with the exact identity to use." >&2
+                printf '%s\n' "$identities" >&2
+                exit 1
+                ;;
+        esac
+    fi
+
+    value="$(trim_trailing_newlines "$value")"
+    if [ -z "$value" ]; then
+        echo "Error: Empty APPLE_SIGNING_IDENTITY." >&2
+        echo "Set APPLE_SIGNING_IDENTITY or write a value to $APPLE_SIGNING_IDENTITY_PATH" >&2
+        exit 1
+    fi
+
+    set_exported_env APPLE_SIGNING_IDENTITY "$value"
+}
+
+load_apple_api_key_path_env() {
+    local value="${APPLE_API_KEY_PATH:-}"
+    local inferred_path=""
+
+    if [ -n "$value" ]; then
+        echo "==> Reusing existing APPLE_API_KEY_PATH from environment"
+    elif [ -f "$APPLE_API_KEY_PATH_PATH" ]; then
+        echo "==> Loading APPLE_API_KEY_PATH from signing-secrets"
+        value="$(<"$APPLE_API_KEY_PATH_PATH")"
+    else
+        inferred_path="$SIGNING_SECRETS_DIR/AuthKey_${APPLE_API_KEY}.p8"
+        if [ -f "$inferred_path" ]; then
+            echo "==> Inferring APPLE_API_KEY_PATH from signing-secrets"
+            value="$inferred_path"
+        else
+            echo "Error: Missing APPLE_API_KEY_PATH." >&2
+            echo "Set APPLE_API_KEY_PATH, create $APPLE_API_KEY_PATH_PATH, or place AuthKey_${APPLE_API_KEY}.p8 in $SIGNING_SECRETS_DIR" >&2
+            exit 1
+        fi
+    fi
+
+    value="$(trim_trailing_newlines "$value")"
+    if [ -z "$value" ]; then
+        echo "Error: Empty APPLE_API_KEY_PATH." >&2
+        echo "Set APPLE_API_KEY_PATH or write a value to $APPLE_API_KEY_PATH_PATH" >&2
+        exit 1
+    fi
+
+    set_exported_env APPLE_API_KEY_PATH "$value"
+    assert_file "$APPLE_API_KEY_PATH" "Apple API key file"
+}
+
+load_macos_developer_id_env() {
+    load_apple_signing_identity_env
+    load_required_secret_env APPLE_API_ISSUER "$APPLE_API_ISSUER_PATH"
+    load_required_secret_env APPLE_API_KEY "$APPLE_API_KEY_ID_PATH"
+    load_apple_api_key_path_env
+}
+
+is_macho_file() {
+    local file_path="$1"
+
+    file "$file_path" | grep -q 'Mach-O'
+}
+
+# Pre-signs Mach-O binaries that live inside BepInEx.zip. Tauri treats the zip
+# as opaque resource data, so its outer .app signing never reaches these. The
+# game later loads them under hardened runtime + library validation, which
+# rejects unsigned dylibs.
+sign_macos_resource_binaries() {
+    local payload_dir="$1"
+    local binary_path=""
+    local relative_path=""
+
+    while IFS= read -r -d '' binary_path; do
+        if ! is_macho_file "$binary_path"; then
+            continue
+        fi
+
+        relative_path="${binary_path#$payload_dir/}"
+        invoke_step "Signing macOS resource binary $relative_path" \
+            codesign --force --options runtime --timestamp \
+            --sign "$APPLE_SIGNING_IDENTITY" "$binary_path"
+    done < <(find "$payload_dir" -type f -print0)
+}
+
+create_zip_from_directory() {
+    local source_dir="$1"
+    local output_zip="$2"
+
+    (
+        cd "$source_dir"
+        zip -qry -X "$output_zip" .
+    )
+}
+
+prepare_signed_macos_resource_zip() {
+    local resource_zip="$1"
+    local temp_dir=""
+    local payload_dir=""
+    local signed_zip=""
+
+    assert_command ditto "Install macOS command line tools first."
+    assert_command zip "Install zip first."
+    assert_command file "Install file first."
+    assert_command codesign "Install Xcode command line tools first."
+    assert_file "$resource_zip" "macOS resource zip"
+
+    temp_dir="$(mktemp -d)"
+    payload_dir="$temp_dir/payload"
+    signed_zip="$temp_dir/BepInEx.zip"
+    mkdir -p "$payload_dir"
+    trap 'rm -rf "$temp_dir"' RETURN
+
+    invoke_step "Extracting macOS resource zip for signing" \
+        ditto -x -k "$resource_zip" "$payload_dir"
+    sign_macos_resource_binaries "$payload_dir"
+    invoke_step "Repacking signed macOS resource zip" \
+        create_zip_from_directory "$payload_dir" "$signed_zip"
+    invoke_step "Replacing macOS resource zip with signed copy" \
+        mv "$signed_zip" "$resource_zip"
+
+    rm -rf "$temp_dir"
+    trap - RETURN
 }
 
 run_release_prechecks() {
@@ -307,21 +506,8 @@ upload_release_assets() {
         "$version/$platform_key/updater/$(basename "$updater_sig")"
 
     fragment_file="$SCRIPT_DIR/src-tauri/target/platform-manifest.$platform_key.json"
-    node - <<'EOF' "$fragment_file" "$platform_key" "$base_url" "$version" "$updater_file" "$updater_sig"
-const fs = require('fs');
-
-const [outputPath, platformKey, baseUrl, version, updaterFile, updaterSig] =
-  process.argv.slice(2);
-
-const fragment = {
-  version,
-  platform: platformKey,
-  url: `${baseUrl}/${version}/${platformKey}/updater/${require('path').basename(updaterFile)}`,
-  signature: fs.readFileSync(updaterSig, 'utf8').trim()
-};
-
-fs.writeFileSync(outputPath, `${JSON.stringify(fragment, null, 2)}\n`);
-EOF
+    node "$SCRIPT_DIR/scripts/generate-platform-manifest.mjs" \
+        "$fragment_file" "$platform_key" "$base_url" "$version" "$updater_file" "$updater_sig"
 
     upload_r2_object \
         "$fragment_file" \
@@ -354,89 +540,8 @@ generate_latest_manifest() {
         --file "$temp_dir/existing-latest.json" \
         --remote >/dev/null 2>&1 || true
 
-    node - <<'EOF' "$latest_file" "$version" "$base_url" "$temp_dir"
-const fs = require('fs');
-
-const [outputPath, version, baseUrl, tempDir] = process.argv.slice(2);
-const platforms = ['windows-x86_64', 'darwin-aarch64'];
-
-function readJsonIfExists(path) {
-  if (!fs.existsSync(path)) {
-    return null;
-  }
-  const raw = fs.readFileSync(path, 'utf8').trim();
-  if (!raw) {
-    return null;
-  }
-  try {
-    return JSON.parse(raw);
-  } catch {
-    return null;
-  }
-}
-
-function main() {
-  const fragments = [];
-  const missingPlatforms = [];
-
-  for (const platform of platforms) {
-    const fragment = readJsonIfExists(`${tempDir}/${platform}.json`);
-    if (!fragment) {
-      missingPlatforms.push(platform);
-      continue;
-    }
-    if (
-      fragment.version !== version ||
-      fragment.platform !== platform ||
-      typeof fragment.url !== 'string' ||
-      typeof fragment.signature !== 'string'
-    ) {
-      missingPlatforms.push(platform);
-      continue;
-    }
-    fragments.push(fragment);
-  }
-
-  if (fragments.length === 0) {
-    throw new Error(`No uploaded platform manifest fragments found for ${version}`);
-  }
-
-  const existingLatest = readJsonIfExists(`${tempDir}/existing-latest.json`);
-
-  const latest = {
-    version,
-    notes:
-      existingLatest && existingLatest.version === version && typeof existingLatest.notes === 'string'
-        ? existingLatest.notes
-        : `Release ${version}`,
-    pub_date:
-      existingLatest && existingLatest.version === version && typeof existingLatest.pub_date === 'string'
-        ? existingLatest.pub_date
-        : new Date().toISOString(),
-    platforms: {}
-  };
-
-  for (const fragment of fragments) {
-    latest.platforms[fragment.platform] = {
-      url: fragment.url,
-      signature: fragment.signature
-    };
-  }
-
-  fs.writeFileSync(outputPath, `${JSON.stringify(latest, null, 2)}\n`);
-  console.log(`latest.json platforms: ${fragments.map((fragment) => fragment.platform).join(', ')}`);
-  if (missingPlatforms.length > 0) {
-    console.log(`latest.json skipped platforms: ${missingPlatforms.join(', ')}`);
-  }
-}
-
-try {
-  main();
-} catch (error) {
-  console.error(error instanceof Error ? error.message : String(error));
-  process.exit(1);
-}
-EOF
+    node "$SCRIPT_DIR/scripts/generate-latest-manifest.mjs" \
+        "$latest_file" "$version" "$base_url" "$temp_dir"
 
     echo "==> Generated latest.json preview"
     cat "$latest_file"
@@ -469,7 +574,7 @@ build_prod() {
         macos)
             config="$MACOS_CONFIG"
             resource_zip="$MACOS_ZIP"
-            bundle_target="dmg"
+            bundle_target="app,dmg"
             bundle_output="$SCRIPT_DIR/src-tauri/target/aarch64-apple-darwin/release/bundle/dmg"
             bundle_cleanup_path="$SCRIPT_DIR/src-tauri/target/aarch64-apple-darwin/release/bundle"
             release_binary="$SCRIPT_DIR/src-tauri/target/aarch64-apple-darwin/release/bppinstaller"
@@ -501,6 +606,10 @@ build_prod() {
     fi
 
     invoke_step "Building $platform app binary" "${build_command[@]}"
+
+    if [ "$platform" = "macos" ]; then
+        prepare_signed_macos_resource_zip "$resource_zip"
+    fi
 
     invoke_step "Bundling $platform installer" "${bundle_command[@]}"
 
@@ -575,6 +684,9 @@ main() {
         fi
 
         load_updater_signing_env
+        if [ "$platform" = "macos" ]; then
+            load_macos_developer_id_env
+        fi
         run_release_prechecks
         ensure_required_rust_targets "$platform"
         version="$(package_version)"

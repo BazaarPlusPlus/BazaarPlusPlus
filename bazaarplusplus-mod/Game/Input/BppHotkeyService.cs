@@ -2,7 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using BazaarPlusPlus.Core.Runtime;
+using BazaarPlusPlus.Core.Config;
 using TheBazaar;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.Controls;
@@ -20,6 +20,16 @@ internal static class BppHotkeyService
     private const string MiddleMouseButtonName = "middleButton";
     private const string BackMouseButtonName = "backButton";
     private const string ForwardMouseButtonName = "forwardButton";
+    private static IBppConfig? _config;
+
+    public static void Install(IBppConfig config) =>
+        _config = config ?? throw new ArgumentNullException(nameof(config));
+
+    private static IBppConfig Config =>
+        _config
+        ?? throw new InvalidOperationException(
+            "BppHotkeyService.Install must be called at startup."
+        );
 
     private static readonly IReadOnlyDictionary<string, string> BindingDisplayAliases =
         new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
@@ -430,12 +440,8 @@ internal static class BppHotkeyService
     {
         return actionId switch
         {
-            BppHotkeyActionId.HoldEnchantPreview => BppRuntimeHost
-                .Config
-                .EnchantPreviewHotkeyPathConfig,
-            BppHotkeyActionId.HoldUpgradePreview => BppRuntimeHost
-                .Config
-                .UpgradePreviewHotkeyPathConfig,
+            BppHotkeyActionId.HoldEnchantPreview => Config.EnchantPreviewHotkeyPathConfig,
+            BppHotkeyActionId.HoldUpgradePreview => Config.UpgradePreviewHotkeyPathConfig,
             _ => null,
         };
     }

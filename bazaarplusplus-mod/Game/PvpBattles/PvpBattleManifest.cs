@@ -3,7 +3,7 @@ using System;
 
 namespace BazaarPlusPlus.Game.PvpBattles;
 
-internal sealed class PvpBattleManifest
+public sealed class PvpBattleManifest
 {
     public string BattleId { get; set; } = string.Empty;
 

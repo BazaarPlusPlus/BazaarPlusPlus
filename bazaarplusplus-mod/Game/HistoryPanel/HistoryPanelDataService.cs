@@ -3,9 +3,8 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using BazaarPlusPlus.Core.Runtime;
 using BazaarPlusPlus.Game.HistoryPanel.Ghost;
-using TheBazaar;
+using BazaarPlusPlus.Game.MonsterPreview;
 
 namespace BazaarPlusPlus.Game.HistoryPanel;
 
@@ -13,18 +12,14 @@ internal sealed class HistoryPanelDataService
 {
     private readonly HistoryPanelRepository? _repository;
     private readonly GhostBattleSyncService? _ghostSyncService;
-    private readonly Func<string?> _currentPlayerAccountIdAccessor;
 
     public HistoryPanelDataService(
         HistoryPanelRepository? repository,
-        GhostBattleSyncService? ghostSyncService = null,
-        Func<string?>? currentPlayerAccountIdAccessor = null
+        GhostBattleSyncService? ghostSyncService = null
     )
     {
         _repository = repository;
         _ghostSyncService = ghostSyncService;
-        _currentPlayerAccountIdAccessor =
-            currentPlayerAccountIdAccessor ?? TryGetCurrentPlayerAccountId;
     }
 
     public bool IsAvailable => _repository != null;
@@ -45,7 +40,7 @@ internal sealed class HistoryPanelDataService
 
         if (_repository == null)
         {
-            statusMessage = "Run log database path is unavailable.";
+            statusMessage = HistoryPanelText.RunLogDatabasePathUnavailable();
             return false;
         }
 
@@ -53,13 +48,13 @@ internal sealed class HistoryPanelDataService
         {
             runs = _repository.ListRecentRuns(limit);
             statusMessage = _repository.DatabaseExists
-                ? $"Loaded {runs.Count} runs from sqlite."
-                : "Database file does not exist yet.";
+                ? HistoryPanelText.LoadedRuns(runs.Count)
+                : HistoryPanelText.DatabaseFileMissing();
             return true;
         }
         catch (Exception ex)
         {
-            statusMessage = $"History load failed: {ex.Message}";
+            statusMessage = HistoryPanelText.HistoryLoadFailed(ex.Message);
             error = ex;
             return false;
         }
@@ -100,7 +95,7 @@ internal sealed class HistoryPanelDataService
 
         if (_repository == null)
         {
-            error = new InvalidOperationException("Run log repository is unavailable.");
+            error = new InvalidOperationException(HistoryPanelText.RunLogRepositoryUnavailable());
             return false;
         }
 
@@ -132,75 +127,100 @@ internal sealed class HistoryPanelDataService
 
         if (_repository == null)
         {
-            statusMessage = "Run log database path is unavailable.";
+            statusMessage = HistoryPanelText.RunLogDatabasePathUnavailable();
             return false;
         }
 
         try
         {
-            var localPlayerAccountId = _currentPlayerAccountIdAccessor();
-            if (string.IsNullOrWhiteSpace(localPlayerAccountId))
-            {
-                statusMessage = "Current player account is unavailable.";
-                return false;
-            }
-
-            battles = _repository.ListRecentGhostBattles(localPlayerAccountId, limit);
-            statusMessage = $"Loaded {battles.Count} ghost battles from sqlite.";
+            battles = _repository.ListRecentGhostBattles(limit);
+            statusMessage = HistoryPanelText.LoadedGhostBattles(battles.Count);
             return true;
         }
         catch (Exception ex)
         {
-            statusMessage = $"Ghost history load failed: {ex.Message}";
+            statusMessage = HistoryPanelText.GhostHistoryLoadFailed(ex.Message);
             error = ex;
             return false;
         }
     }
 
-    public async Task<HistoryPanelGhostSyncAttemptResult> SyncGhostBattlesAsync(
+    public async Task<HistoryPanelAttemptResult> SyncGhostBattlesAsync(
         CancellationToken cancellationToken
     )
     {
         if (_ghostSyncService == null)
-            return HistoryPanelGhostSyncAttemptResult.Failure("Ghost sync is unavailable.");
+            return HistoryPanelAttemptResult.Failure(
+                HistoryPanelText.GhostSyncUnavailable()
+            );
 
         try
         {
             var result = await _ghostSyncService.SyncRecentBattlesAsync(cancellationToken);
             if (!result.Succeeded)
-                return HistoryPanelGhostSyncAttemptResult.Failure(
-                    $"Ghost sync failed: {result.Error ?? "unknown_error"}"
+                return HistoryPanelAttemptResult.Failure(
+                    HistoryPanelText.GhostSyncFailed(result.Error ?? HistoryPanelText.Unknown())
                 );
 
-            return HistoryPanelGhostSyncAttemptResult.Success(
-                $"Synced {result.ImportedCount} ghost battles."
+            return HistoryPanelAttemptResult.Success(
+                HistoryPanelText.GhostSyncSucceeded(result.ImportedCount)
             );
         }
         catch (Exception ex)
         {
-            return HistoryPanelGhostSyncAttemptResult.Failure(
-                $"Ghost sync failed: {ex.Message}",
+            return HistoryPanelAttemptResult.Failure(
+                HistoryPanelText.GhostSyncFailed(ex.Message),
                 ex
             );
         }
     }
 
-    private static string? TryGetCurrentPlayerAccountId()
+    public async Task<HistoryPanelAttemptResult> RefreshFinalBuildsAsync(
+        CancellationToken cancellationToken
+    )
     {
         try
         {
-            return BppClientCacheBridge.TryGetProfileAccountId();
+            var result = await Task.Run(
+                    () =>
+                    {
+                        var succeeded = CardSetBuildDataRepository.TryRefreshFinalBuildsFromRemote(
+                            out var error
+                        );
+                        return (Succeeded: succeeded, Error: error);
+                    },
+                    cancellationToken
+                )
+                .ConfigureAwait(false);
+
+            if (!result.Succeeded)
+                return HistoryPanelAttemptResult.Failure(
+                    HistoryPanelText.FinalBuildRefreshFailed(
+                        result.Error ?? HistoryPanelText.Unknown()
+                    )
+                );
+
+            return HistoryPanelAttemptResult.Success(
+                HistoryPanelText.FinalBuildRefreshSucceeded()
+            );
         }
-        catch
+        catch (OperationCanceledException)
         {
-            return null;
+            throw;
+        }
+        catch (Exception ex)
+        {
+            return HistoryPanelAttemptResult.Failure(
+                HistoryPanelText.FinalBuildRefreshFailed(ex.Message),
+                ex
+            );
         }
     }
 }
 
-internal readonly struct HistoryPanelGhostSyncAttemptResult
+internal readonly struct HistoryPanelAttemptResult
 {
-    private HistoryPanelGhostSyncAttemptResult(
+    private HistoryPanelAttemptResult(
         bool succeeded,
         string statusMessage,
         Exception? error
@@ -217,11 +237,12 @@ internal readonly struct HistoryPanelGhostSyncAttemptResult
 
     public Exception? Error { get; }
 
-    public static HistoryPanelGhostSyncAttemptResult Success(string statusMessage) =>
+    public static HistoryPanelAttemptResult Success(string statusMessage) =>
         new(true, statusMessage, null);
 
-    public static HistoryPanelGhostSyncAttemptResult Failure(
+    public static HistoryPanelAttemptResult Failure(
         string statusMessage,
         Exception? error = null
     ) => new(false, statusMessage, error);
 }
+

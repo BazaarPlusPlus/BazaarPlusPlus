@@ -1,0 +1,277 @@
+:root {
+  color-scheme: dark;
+  font-family: 'Palatino Linotype', 'Book Antiqua', Georgia, serif;
+  --bpp-text: #f2e3bf;
+  --bpp-soft: rgba(236, 219, 184, 0.72);
+  --bpp-dim: rgba(210, 188, 146, 0.54);
+  --bpp-accent: #d9aa58;
+  --bpp-panel: rgba(14, 10, 6, 0.95);
+  --bpp-edge: rgba(178, 134, 64, 0.18);
+  --crop-left: 34.2%;
+  --crop-top: 31.3%;
+  --crop-width: 58%;
+  --crop-height: 22%;
+  --crop-image-width: 172.4138%;
+  --crop-translate-x: -34.2%;
+  --crop-translate-y: -31.3%;
+  --crop-stage-aspect-ratio: 4.6875;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top, rgba(217, 170, 88, 0.08), transparent 26%),
+    linear-gradient(180deg, #080604, #120c07 38%, #090603);
+  color: var(--bpp-text);
+}
+
+.settings-shell {
+  width: min(100%, 92rem);
+  margin: 0 auto;
+  padding: 1.25rem;
+  display: grid;
+  gap: 1rem;
+}
+
+.page-header,
+.workspace,
+.panel-heading,
+.preview-panel,
+.controls-panel,
+.control-list,
+.actions {
+  display: grid;
+}
+
+.page-header {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 1rem;
+}
+
+.eyebrow,
+.page-status,
+.panel-eyebrow,
+.section-label,
+.selected-meta {
+  margin: 0;
+}
+
+.eyebrow,
+.panel-eyebrow,
+.section-label {
+  font-size: 0.56rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(217, 170, 88, 0.86);
+}
+
+h1,
+h2 {
+  margin: 0.15rem 0 0;
+  font-family: 'Palatino Linotype', 'Book Antiqua', Georgia, serif;
+  color: var(--bpp-text);
+}
+
+h1 {
+  font-size: 2rem;
+}
+
+h2 {
+  font-size: 1rem;
+}
+
+.page-status,
+.selected-meta {
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--bpp-soft);
+}
+
+.header-note,
+button {
+  font-size: 0.76rem;
+}
+
+.header-note {
+  max-width: 19rem;
+  margin: 0;
+  padding: 0.7rem 0.9rem;
+  border-radius: 8px;
+  border: 1px solid rgba(183, 132, 57, 0.16);
+  background: rgba(192, 138, 54, 0.08);
+  color: rgba(240, 227, 198, 0.82);
+  line-height: 1.45;
+}
+
+button {
+  min-height: 2.5rem;
+  padding: 0.65rem 0.9rem;
+  border-radius: 8px;
+  border: 1px solid rgba(183, 132, 57, 0.16);
+  background: rgba(192, 138, 54, 0.08);
+  color: rgba(240, 227, 198, 0.88);
+  font-family: 'Palatino Linotype', 'Book Antiqua', Georgia, serif;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.primary-button {
+  background: linear-gradient(180deg, rgba(199, 145, 58, 0.28), rgba(116, 68, 24, 0.32));
+  border-color: rgba(216, 164, 82, 0.3);
+}
+
+.workspace {
+  grid-template-columns: minmax(0, 1fr) 19rem;
+  gap: 1rem;
+  align-items: start;
+}
+
+.preview-panel,
+.controls-panel {
+  gap: 0.85rem;
+  padding: 1rem;
+  border-radius: 14px;
+  border: 1px solid var(--bpp-edge);
+  background: linear-gradient(180deg, rgba(18, 13, 8, 0.95), rgba(10, 7, 4, 0.95));
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.18);
+}
+
+.preview-empty {
+  padding: 0.8rem 0.9rem;
+  border: 1px dashed rgba(178, 134, 64, 0.22);
+  border-radius: 12px;
+  color: var(--bpp-soft);
+}
+
+.preview-workspace {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.full-preview-card {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.full-preview-stage {
+  position: relative;
+  overflow: hidden;
+  border-radius: 12px;
+  border: 1px solid rgba(178, 134, 64, 0.16);
+  background: rgba(3, 3, 3, 0.72);
+}
+
+.full-preview-stage img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.crop-box {
+  position: absolute;
+  left: var(--crop-left);
+  top: var(--crop-top);
+  width: var(--crop-width);
+  height: var(--crop-height);
+  border: 2px solid rgba(217, 170, 88, 0.98);
+  box-shadow:
+    0 0 0 999px rgba(0, 0, 0, 0.62),
+    0 0 0 1px rgba(255, 236, 196, 0.22) inset;
+}
+
+.control-list {
+  gap: 0.6rem;
+}
+
+.control-row {
+  display: grid;
+  gap: 0.28rem;
+}
+
+.control-topline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.control-row span,
+.control-row output {
+  font-size: 0.74rem;
+  color: var(--bpp-soft);
+}
+
+.control-row output {
+  color: var(--bpp-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.control-row input[type='range'] {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  appearance: none;
+  background: transparent;
+}
+
+.control-row input[type='range']::-webkit-slider-runnable-track {
+  height: 0.4rem;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(217, 170, 88, 0.85), rgba(79, 54, 22, 0.95));
+}
+
+.control-row input[type='range']::-webkit-slider-thumb {
+  appearance: none;
+  width: 1rem;
+  height: 1rem;
+  margin-top: -0.3rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 233, 194, 0.48);
+  background: #f2deb1;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.24);
+}
+
+.control-row input[type='range']::-moz-range-track {
+  height: 0.4rem;
+  border: none;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(217, 170, 88, 0.85), rgba(79, 54, 22, 0.95));
+}
+
+.control-row input[type='range']::-moz-range-thumb {
+  width: 1rem;
+  height: 1rem;
+  border: 1px solid rgba(255, 233, 194, 0.48);
+  border-radius: 999px;
+  background: #f2deb1;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.24);
+}
+
+.actions {
+  grid-template-columns: 1fr 1fr;
+  gap: 0.55rem;
+}
+
+.code-block {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.settings-code-text {
+  display: block;
+  overflow-wrap: anywhere;
+  color: var(--bpp-text);
+  font-family: 'Fira Code', monospace;
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
+@media (max-width: 1080px) {
+  .workspace {
+    grid-template-columns: 1fr;
+  }
+}

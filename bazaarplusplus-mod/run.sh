@@ -9,10 +9,12 @@ RESET='\033[0m'
 case "$(uname -s)" in
     Darwin)
         PLATFORM="macOS"
+        GAME_ROOT="$HOME/Library/Application Support/Steam/steamapps/common/The Bazaar"
         MANAGED="$HOME/Library/Application Support/Steam/steamapps/common/The Bazaar/TheBazaar.app/Contents/Resources/Data/Managed"
         ;;
     MINGW*|MSYS*|CYGWIN*)
         PLATFORM="Windows (Git Bash)"
+        GAME_ROOT="/c/Program Files (x86)/Steam/steamapps/common/The Bazaar"
         MANAGED="/c/Program Files (x86)/Steam/steamapps/common/The Bazaar/TheBazaar_Data/Managed"
         ;;
     *)
@@ -23,12 +25,55 @@ esac
 
 echo -e "${CYAN}== Building on ${GREEN}${PLATFORM}${CYAN} ==${RESET}"
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+INSTALLER_SQLITE="$SCRIPT_DIR/../bazaarplusplus-installer/src-tauri/resources/SourceForBuild/macos/BepInEx/plugins/libe_sqlite3.dylib"
+GAME_SQLITE="$GAME_ROOT/BepInEx/plugins/libe_sqlite3.dylib"
+
+clear_macos_sqlite_quarantine() {
+    [[ "$PLATFORM" == "macOS" ]] || return 0
+
+    local target
+    for target in "$INSTALLER_SQLITE" "$GAME_SQLITE"; do
+        [[ -f "$target" ]] || continue
+        xattr -d com.apple.quarantine "$target" 2>/dev/null || true
+    done
+}
+
 build() {
     dotnet build -verbosity detailed
 }
 
 build_all() {
+    clear_macos_sqlite_quarantine
     dotnet build -t:BuildAll -verbosity detailed
+    clear_macos_sqlite_quarantine
+}
+
+test_all() {
+    clear_macos_sqlite_quarantine
+
+    local project
+    local failures=()
+    while IFS= read -r project; do
+        echo -e "${CYAN}== Testing ${GREEN}${project}${CYAN} ==${RESET}"
+        if grep -q "Microsoft.NET.Test.Sdk" "$project"; then
+            if ! dotnet test "$project"; then
+                failures+=("$project")
+            fi
+        else
+            if ! dotnet run --project "$project"; then
+                failures+=("$project")
+            fi
+        fi
+    done < <(find tests -mindepth 2 -maxdepth 2 -name '*.csproj' | sort)
+
+    clear_macos_sqlite_quarantine
+
+    if ((${#failures[@]} > 0)); then
+        echo -e "${RED}Failed test projects:${RESET}" >&2
+        printf '  %s\n' "${failures[@]}" >&2
+        return 1
+    fi
 }
 
 format() {
@@ -60,11 +105,12 @@ decompile_all() {
 case "$1" in
     all)  build_all ;;
     build)      build ;;
+    test)       test_all ;;
     format)     format ;;
     decompile)  decompile "$@" ;;
     decompile-all) decompile_all ;;
     *)
-        echo "Usage: $0 {all|build|format|decompile [DllName]|decompile-all}"
+        echo "Usage: $0 {all|build|test|format|decompile [DllName]|decompile-all}"
         exit 1
         ;;
 esac

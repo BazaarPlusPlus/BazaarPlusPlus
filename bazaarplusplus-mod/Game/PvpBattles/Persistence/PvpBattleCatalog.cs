@@ -26,6 +26,11 @@ internal sealed class PvpBattleCatalog : IPvpBattleCatalog
         _store.Delete(battleId);
     }
 
+    public void AttachToRun(string battleId, string runId)
+    {
+        _store.AttachToRun(battleId, runId);
+    }
+
     public PvpBattleManifest? TryLoad(string battleId)
     {
         return _store.TryLoad(battleId);
@@ -39,5 +44,10 @@ internal sealed class PvpBattleCatalog : IPvpBattleCatalog
     public IReadOnlyList<PvpBattleManifest> ListRecentBattles(int limit)
     {
         return _store.ListRecentBattles(limit);
+    }
+
+    public IReadOnlyList<PvpBattleManifest> ListByRunId(string runId)
+    {
+        return _store.ListByRunId(runId);
     }
 }

@@ -1,8 +1,8 @@
 #pragma warning disable CS0436
 using System.Text;
-using BazaarPlusPlus.Core.Runtime;
 using BazaarPlusPlus.Game.Input;
 using BazaarPlusPlus.Game.ItemEnchantPreview;
+using BazaarPlusPlus.Patches;
 using HarmonyLib;
 using TheBazaar;
 using TheBazaar.Tooltips;
@@ -45,7 +45,15 @@ public static class CardTooltipDataPassivePatch
             if (__result.Item1 == null)
                 return;
 
-            if (ItemEnchantPreviewDisplayState.IsPreviewSuppressed())
+            if (Data.IsInCombat)
+                return;
+
+            if (BppHotkeyService.IsHeld(BppHotkeyActionId.HoldUpgradePreview))
+                return;
+
+            var alwaysShow =
+                BppPatchHost.Services.Config.EnchantPreviewAlwaysShowConfig?.Value ?? true;
+            if (!alwaysShow && !BppHotkeyService.IsHeld(BppHotkeyActionId.HoldEnchantPreview))
                 return;
 
             var previewSegments = ItemEnchantPreviewService.BuildPreviewSegments(
@@ -60,15 +68,7 @@ public static class CardTooltipDataPassivePatch
                 passiveBuilder.Append('\n');
             }
 
-            AppendTooltipText(
-                passiveBuilder,
-                ItemEnchantPreviewDisplayState.BuildInlineHintMarkup(
-                    ItemEnchantPreviewDisplayState.IsPreviewVisible()
-                )
-            );
-
-            if (!ItemEnchantPreviewDisplayState.IsPreviewVisible())
-                return;
+            passiveBuilder.Append("Bazaar++\n");
 
             foreach (var segment in previewSegments)
             {

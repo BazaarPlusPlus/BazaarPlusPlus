@@ -1,7 +1,7 @@
 #nullable enable
 namespace BazaarPlusPlus.Game.PvpBattles;
 
-internal sealed class PvpBattleSnapshots
+public sealed class PvpBattleSnapshots
 {
     public PvpBattleCardSetCapture PlayerHand { get; set; } = new();
 

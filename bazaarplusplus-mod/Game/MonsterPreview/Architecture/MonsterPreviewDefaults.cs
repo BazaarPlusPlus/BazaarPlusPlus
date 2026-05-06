@@ -1,4 +1,5 @@
 #pragma warning disable CS0436
+using BazaarPlusPlus.Game.PreviewSurface;
 using UnityEngine;
 
 namespace BazaarPlusPlus.Game.MonsterPreview;

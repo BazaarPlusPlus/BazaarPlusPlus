@@ -1,20 +1,24 @@
 #nullable enable
+using System;
 using System.Collections;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using BazaarPlusPlus;
 using BazaarPlusPlus.Game.MonsterPreview;
-using TMPro;
+using BazaarPlusPlus.Game.PreviewSurface;
 using UnityEngine;
-using UnityEngine.UI;
+using Object = UnityEngine.Object;
 
 namespace BazaarPlusPlus.Game.HistoryPanel;
 
 internal sealed class HistoryPanelPreviewRenderer
 {
+    // Temporary manual tuning entrypoint for HistoryPanel preview.
+    // Change these defaults directly, rebuild, then verify in game.
     private const int PreviewLayer = 30;
-    private const int TextureWidth = 1536;
-    private const int TextureHeight = 768;
+    private const int TextureWidth = 2688;
+    private const int TextureHeight = 640;
     private const int PreviewSettleFrames = 6;
     private const float BackdropHeight = 0.02f;
     private const float BackdropPaddingX = 0.45f;
@@ -22,13 +26,13 @@ internal sealed class HistoryPanelPreviewRenderer
     private const float BackdropDepthOffset = 0.08f;
     private const float DefaultBoardHorizontalOffset = 0.5f;
     private const float DefaultBoardDepth = 6f;
-    private const float DefaultBoardVerticalOffset = 0.1f;
-    private const float DefaultCameraDepth = 14.00f;
-    private const float DefaultCameraVerticalCenter = 0.3f;
-    private const float DefaultCameraFieldOfView = 58f;
-    private const float DefaultCardWidthScale = 0.88f;
-    private const float DefaultCardHeightScale = 2.3f;
-    private const float DefaultCardSpacingX = 1.1f;
+    private const float DefaultBoardVerticalOffset = -0.10f;
+    private const float DefaultCameraDepth = 9.95f;
+    private const float DefaultCameraVerticalCenter = 0.08f;
+    private const float DefaultCameraFieldOfView = 54f;
+    private const float DefaultCardWidthScale = 0.92f;
+    private const float DefaultCardHeightScale = 0.96f;
+    private const float DefaultCardSpacingX = 0.92f;
 
     private GameObject? _rootObject;
     private Camera? _camera;
@@ -36,8 +40,10 @@ internal sealed class HistoryPanelPreviewRenderer
     private Light? _fillLight;
     private RenderTexture? _texture;
     private GameObject? _backdropPlate;
-    private MonsterPreviewBoard? _playerBoard;
-    private MonsterPreviewBoard? _opponentBoard;
+    private PreviewBoardSurface? _playerBoardSurface;
+    private PreviewBoardSurface? _opponentBoardSurface;
+    private PreviewBoardRenderTarget? _playerBoardRenderTarget;
+    private PreviewBoardRenderTarget? _opponentBoardRenderTarget;
     private string? _renderedBattleId;
     private int _generation;
     private float _boardHorizontalOffset = DefaultBoardHorizontalOffset;
@@ -49,6 +55,8 @@ internal sealed class HistoryPanelPreviewRenderer
     private float _cardWidthScale = DefaultCardWidthScale;
     private float _cardHeightScale = DefaultCardHeightScale;
     private float _cardSpacingX = DefaultCardSpacingX;
+
+    public Texture? CurrentTexture => _texture;
 
     public void CancelPending()
     {
@@ -122,15 +130,9 @@ internal sealed class HistoryPanelPreviewRenderer
         return $"boardSpacing={_boardHorizontalOffset:0.00}, cardSpacingX={_cardSpacingX:0.00}, camDepth={_cameraDepth:0.00}, camZ={_cameraVerticalCenter:0.00}, fov={_cameraFieldOfView:0.0}, cardW={_cardWidthScale:0.00}, cardH={_cardHeightScale:0.00}";
     }
 
-    public void RenderLiveFrame(RawImage? target)
+    public void RenderLiveFrame()
     {
-        if (
-            target == null
-            || _camera == null
-            || _texture == null
-            || _rootObject == null
-            || !_rootObject.activeSelf
-        )
+        if (_camera == null || _texture == null || _rootObject == null || !_rootObject.activeSelf)
             return;
 
         if (string.IsNullOrWhiteSpace(_renderedBattleId))
@@ -142,12 +144,9 @@ internal sealed class HistoryPanelPreviewRenderer
         if (_camera.targetTexture != _texture)
             _camera.targetTexture = _texture;
 
-        ApplyLayerRecursively(_playerBoard?.RootTransform, PreviewLayer);
-        ApplyLayerRecursively(_opponentBoard?.RootTransform, PreviewLayer);
+        ApplyLayerRecursively(_playerBoardSurface?.RootTransform, PreviewLayer);
+        ApplyLayerRecursively(_opponentBoardSurface?.RootTransform, PreviewLayer);
         _camera.Render();
-        if (target.texture != _texture)
-            target.texture = _texture;
-        target.color = Color.white;
     }
 
     public void Hide()
@@ -155,11 +154,11 @@ internal sealed class HistoryPanelPreviewRenderer
         CancelPending();
         _renderedBattleId = null;
 
-        if (_playerBoard != null)
-            _playerBoard.SetVisible(false);
+        if (_playerBoardRenderTarget != null)
+            _playerBoardRenderTarget.SetVisible(false);
 
-        if (_opponentBoard != null)
-            _opponentBoard.SetVisible(false);
+        if (_opponentBoardRenderTarget != null)
+            _opponentBoardRenderTarget.SetVisible(false);
 
         if (_rootObject != null)
             _rootObject.SetActive(false);
@@ -169,11 +168,13 @@ internal sealed class HistoryPanelPreviewRenderer
     {
         CancelPending();
 
-        _playerBoard?.Dispose();
-        _playerBoard = null;
+        _playerBoardRenderTarget?.Dispose();
+        _playerBoardRenderTarget = null;
+        _playerBoardSurface = null;
 
-        _opponentBoard?.Dispose();
-        _opponentBoard = null;
+        _opponentBoardRenderTarget?.Dispose();
+        _opponentBoardRenderTarget = null;
+        _opponentBoardSurface = null;
 
         if (_texture != null)
         {
@@ -199,70 +200,70 @@ internal sealed class HistoryPanelPreviewRenderer
     public IEnumerator RenderPreview(
         string? renderId,
         HistoryBattlePreviewData? previewData,
-        RawImage? target,
-        TextMeshProUGUI? status
+        Action<string?, bool> setStatus,
+        Action? onRendered = null
     )
     {
         CancelPending();
         var generation = _generation;
 
-        if (target == null || status == null)
-            yield break;
-
         if (string.IsNullOrWhiteSpace(renderId) || previewData == null)
         {
-            ClearTarget(target, status, "Select a run or battle to preview recorded cards.");
+            setStatus(HistoryPanelText.PreviewSelectRunOrBattle(), true);
             Hide();
+            onRendered?.Invoke();
             yield break;
         }
 
         if (!previewData.HasRenderableCards)
         {
-            ClearTarget(
-                target,
-                status,
-                "No locally renderable cards were recorded for this selection."
-            );
+            setStatus(HistoryPanelText.NoLocallyRenderableCards(), true);
             Hide();
+            onRendered?.Invoke();
             yield break;
         }
 
         EnsureInitialized();
         EnsureRenderTexture();
-        if (_camera == null || _texture == null || _playerBoard == null || _opponentBoard == null)
+        if (
+            _camera == null
+            || _texture == null
+            || _playerBoardSurface == null
+            || _opponentBoardSurface == null
+            || _playerBoardRenderTarget == null
+            || _opponentBoardRenderTarget == null
+        )
         {
-            ClearTarget(target, status, "Preview renderer failed to initialize.");
+            setStatus(HistoryPanelText.PreviewRendererInitFailed(), true);
             yield break;
         }
 
         if (_renderedBattleId == renderId)
         {
-            target.texture = _texture;
-            target.color = Color.white;
-            status.gameObject.SetActive(false);
+            setStatus(null, false);
+            onRendered?.Invoke();
             yield break;
         }
 
-        status.text = "Loading preview...";
-        status.gameObject.SetActive(true);
-        target.texture = null;
-        target.color = new Color(1f, 1f, 1f, 0.18f);
+        setStatus(HistoryPanelText.LoadingPreview(), true);
 
         _rootObject!.SetActive(true);
         var layout = ConfigureBoards(previewData);
 
         var playerTask = layout.ShowPlayerBoard
-            ? _playerBoard.RebuildAsync(
-                previewData.PlayerBoard.ItemCards,
-                previewData.PlayerBoard.SkillCards,
-                () => generation != _generation
+            ? QueueBoardRenderAsync(
+                _playerBoardRenderTarget,
+                previewData.PlayerBoard,
+                CreatePresentation(),
+                layout.PlayerX
             )
             : Task.CompletedTask;
         var opponentTask = layout.ShowOpponentBoard
-            ? _opponentBoard.RebuildAsync(
-                previewData.OpponentBoard.ItemCards,
-                previewData.OpponentBoard.SkillCards,
-                () => generation != _generation
+            ? QueueBoardRenderAsync(
+                _opponentBoardRenderTarget,
+                previewData.OpponentBoard,
+                CreatePresentation(),
+                layout.OpponentX
             )
             : Task.CompletedTask;
 
@@ -270,17 +271,22 @@ internal sealed class HistoryPanelPreviewRenderer
             yield return null;
 
         if (generation != _generation)
-            yield break;
-
-        if (playerTask.IsFaulted || opponentTask.IsFaulted)
         {
-            ClearTarget(target, status, "Failed to build the selected battle preview.");
-            Hide();
+            _playerBoardRenderTarget.SetVisible(false);
+            _opponentBoardRenderTarget.SetVisible(false);
             yield break;
         }
 
-        ApplyLayerRecursively(_playerBoard.RootTransform, PreviewLayer);
-        ApplyLayerRecursively(_opponentBoard.RootTransform, PreviewLayer);
+        if (playerTask.IsFaulted || opponentTask.IsFaulted)
+        {
+            setStatus(HistoryPanelText.PreviewBuildFailed(), true);
+            Hide();
+            onRendered?.Invoke();
+            yield break;
+        }
+
+        ApplyLayerRecursively(_playerBoardSurface.RootTransform, PreviewLayer);
+        ApplyLayerRecursively(_opponentBoardSurface.RootTransform, PreviewLayer);
 
         for (var frame = 0; frame < PreviewSettleFrames && generation == _generation; frame++)
             yield return null;
@@ -294,13 +300,12 @@ internal sealed class HistoryPanelPreviewRenderer
         if (generation != _generation)
             yield break;
 
-        ApplyLayerRecursively(_playerBoard.RootTransform, PreviewLayer);
-        ApplyLayerRecursively(_opponentBoard.RootTransform, PreviewLayer);
+        ApplyLayerRecursively(_playerBoardSurface.RootTransform, PreviewLayer);
+        ApplyLayerRecursively(_opponentBoardSurface.RootTransform, PreviewLayer);
         _camera.Render();
         _renderedBattleId = renderId;
-        target.texture = _texture;
-        target.color = Color.white;
-        status.gameObject.SetActive(false);
+        setStatus(null, false);
+        onRendered?.Invoke();
     }
 
     private void EnsureInitialized()
@@ -352,30 +357,32 @@ internal sealed class HistoryPanelPreviewRenderer
             Vector3.forward
         );
 
-        _playerBoard = new MonsterPreviewBoard(
+        _playerBoardSurface = new PreviewBoardSurface(
             "HistoryPanelPlayerBoard",
-            new MonsterPreviewItemCardFactory(),
-            new MonsterPreviewSkillCardFactory()
+            new PreviewItemCardSurface(),
+            new PreviewSkillCardSurface()
         );
-        _opponentBoard = new MonsterPreviewBoard(
+        _playerBoardRenderTarget = new PreviewBoardRenderTarget(_playerBoardSurface);
+        _opponentBoardSurface = new PreviewBoardSurface(
             "HistoryPanelOpponentBoard",
-            new MonsterPreviewItemCardFactory(),
-            new MonsterPreviewSkillCardFactory()
+            new PreviewItemCardSurface(),
+            new PreviewSkillCardSurface()
         );
+        _opponentBoardRenderTarget = new PreviewBoardRenderTarget(_opponentBoardSurface);
 
-        _playerBoard.SetVisible(false);
-        _opponentBoard.SetVisible(false);
+        _playerBoardRenderTarget.SetVisible(false);
+        _opponentBoardRenderTarget.SetVisible(false);
 
         _backdropPlate = CreateBackdropPlate(_rootObject.transform);
 
-        if (_playerBoard.RootTransform != null)
-            _playerBoard.RootTransform.SetParent(_rootObject.transform, false);
+        if (_playerBoardSurface.RootTransform != null)
+            _playerBoardSurface.RootTransform.SetParent(_rootObject.transform, false);
 
-        if (_opponentBoard.RootTransform != null)
-            _opponentBoard.RootTransform.SetParent(_rootObject.transform, false);
+        if (_opponentBoardSurface.RootTransform != null)
+            _opponentBoardSurface.RootTransform.SetParent(_rootObject.transform, false);
 
-        ApplyLayerRecursively(_playerBoard.RootTransform, PreviewLayer);
-        ApplyLayerRecursively(_opponentBoard.RootTransform, PreviewLayer);
+        ApplyLayerRecursively(_playerBoardSurface.RootTransform, PreviewLayer);
+        ApplyLayerRecursively(_opponentBoardSurface.RootTransform, PreviewLayer);
     }
 
     private static GameObject CreatePreviewCameraObject(Transform parent)
@@ -451,32 +458,52 @@ internal sealed class HistoryPanelPreviewRenderer
 
     private BoardLayout ConfigureBoards(HistoryBattlePreviewData previewData)
     {
-        if (_camera == null || _playerBoard == null || _opponentBoard == null)
+        if (_camera == null || _playerBoardSurface == null || _opponentBoardSurface == null)
             return BoardLayout.Hidden;
 
         var presentation = CreatePresentation();
         var layout = ResolveBoardLayout(previewData);
 
-        _playerBoard.SetPresentation(ClonePresentation(presentation));
-        _opponentBoard.SetPresentation(ClonePresentation(presentation));
-        _playerBoard.SetMonsterInfo(previewData.PlayerBoard);
-        _opponentBoard.SetMonsterInfo(previewData.OpponentBoard);
-        _playerBoard.UpdateAnchor(
+        _playerBoardSurface.SetPresentation(ClonePresentation(presentation));
+        _opponentBoardSurface.SetPresentation(ClonePresentation(presentation));
+        _playerBoardSurface.UpdateAnchor(
             new Vector3(layout.PlayerX, _boardDepth, _boardVerticalOffset),
             Quaternion.identity
         );
-        _opponentBoard.UpdateAnchor(
+        _opponentBoardSurface.UpdateAnchor(
             new Vector3(layout.OpponentX, _boardDepth, _boardVerticalOffset),
             Quaternion.identity
         );
-        _playerBoard.SetVisible(layout.ShowPlayerBoard);
-        _opponentBoard.SetVisible(layout.ShowOpponentBoard);
+        _playerBoardSurface.SetVisible(layout.ShowPlayerBoard);
+        _opponentBoardSurface.SetVisible(layout.ShowOpponentBoard);
         ConfigureBackdrop(layout, presentation);
 
         _camera.fieldOfView = _cameraFieldOfView;
         _camera.transform.position = new Vector3(0f, _cameraDepth, _cameraVerticalCenter);
         _camera.transform.rotation = Quaternion.LookRotation(-Vector3.up, Vector3.forward);
         return layout;
+    }
+
+    private Task QueueBoardRenderAsync(
+        PreviewBoardRenderTarget renderTarget,
+        PreviewBoardModel model,
+        PreviewBoardPresentation presentation,
+        float boardX
+    )
+    {
+        return renderTarget.QueueRenderAsync(
+            new BoardRenderModel
+            {
+                Data = model,
+                Presentation = ClonePresentation(presentation),
+                Debug = new PreviewBoardDebugOptions(),
+                Pose = new BoardPose
+                {
+                    Position = new Vector3(boardX, _boardDepth, _boardVerticalOffset),
+                    Rotation = Quaternion.identity,
+                },
+            }
+        );
     }
 
     private PreviewBoardPresentation CreatePresentation()
@@ -495,6 +522,8 @@ internal sealed class HistoryPanelPreviewRenderer
             (_cardWidthScale + _cardHeightScale) * 0.5f,
             _cardHeightScale
         );
+        presentation.BoardSize = new Vector2(16.0f, 2.65f);
+        presentation.SkillBoardWidth = 1.55f;
         return presentation;
     }
 
@@ -517,14 +546,6 @@ internal sealed class HistoryPanelPreviewRenderer
             BorderThickness = source.BorderThickness,
             BorderHeight = source.BorderHeight,
         };
-    }
-
-    private static void ClearTarget(RawImage target, TextMeshProUGUI status, string message)
-    {
-        target.texture = null;
-        target.color = new Color(1f, 1f, 1f, 0.12f);
-        status.text = message;
-        status.gameObject.SetActive(true);
     }
 
     private static void ApplyLayerRecursively(Transform? root, int layer)
@@ -580,19 +601,21 @@ internal sealed class HistoryPanelPreviewRenderer
     {
         return _rootObject != null
             && _camera != null
-            && _playerBoard != null
-            && _playerBoard.IsAlive
-            && _opponentBoard != null
-            && _opponentBoard.IsAlive;
+            && _playerBoardSurface != null
+            && _playerBoardSurface.IsAlive
+            && _opponentBoardSurface != null
+            && _opponentBoardSurface.IsAlive;
     }
 
     private void DisposeRuntimeObjects()
     {
-        _playerBoard?.Dispose();
-        _playerBoard = null;
+        _playerBoardRenderTarget?.Dispose();
+        _playerBoardRenderTarget = null;
+        _playerBoardSurface = null;
 
-        _opponentBoard?.Dispose();
-        _opponentBoard = null;
+        _opponentBoardRenderTarget?.Dispose();
+        _opponentBoardRenderTarget = null;
+        _opponentBoardSurface = null;
 
         if (_camera != null)
             Object.Destroy(_camera.gameObject);

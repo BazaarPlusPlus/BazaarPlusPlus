@@ -3,7 +3,7 @@ using BazaarPlusPlus.Game.PvpBattles;
 
 namespace BazaarPlusPlus.Game.HistoryPanel.Ghost;
 
-internal sealed class GhostBattlePayload
+public sealed class GhostBattlePayload
 {
     public string BattleId { get; set; } = string.Empty;
 

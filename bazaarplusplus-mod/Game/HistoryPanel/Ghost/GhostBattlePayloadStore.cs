@@ -1,13 +1,12 @@
 #nullable enable
 using System;
 using System.IO;
-using BazaarPlusPlus.Game.ModApi;
-using Newtonsoft.Json;
 
 namespace BazaarPlusPlus.Game.HistoryPanel.Ghost;
 
 internal sealed class GhostBattlePayloadStore
 {
+    private const string FileSuffix = ".ghost.mpack.gz";
     private readonly string _rootPath;
 
     public GhostBattlePayloadStore(string rootPath)
@@ -26,9 +25,9 @@ internal sealed class GhostBattlePayloadStore
         if (string.IsNullOrWhiteSpace(payload.BattleId))
             throw new ArgumentException("Battle id is required.", nameof(payload));
 
-        File.WriteAllText(
+        WriteAllBytesAtomically(
             GetFilePath(payload.BattleId),
-            JsonConvert.SerializeObject(payload, ModApiSerialization.SerializerSettings)
+            GhostBattlePayloadCodec.Serialize(payload)
         );
     }
 
@@ -43,10 +42,8 @@ internal sealed class GhostBattlePayloadStore
 
         try
         {
-            return JsonConvert.DeserializeObject<GhostBattlePayload>(
-                File.ReadAllText(filePath),
-                ModApiSerialization.SerializerSettings
-            );
+            var payloadBytes = File.ReadAllBytes(filePath);
+            return GhostBattlePayloadCodec.Deserialize(payloadBytes);
         }
         catch (Exception ex)
         {
@@ -70,6 +67,32 @@ internal sealed class GhostBattlePayloadStore
 
     private string GetFilePath(string battleId)
     {
-        return Path.Combine(_rootPath, $"{battleId}.ghost.json");
+        return Path.Combine(_rootPath, $"{battleId}{FileSuffix}");
+    }
+
+    private static void WriteAllBytesAtomically(string filePath, byte[] bytes)
+    {
+        var directoryPath =
+            Path.GetDirectoryName(filePath)
+            ?? throw new InvalidOperationException(
+                "Ghost payload path must have a parent directory."
+            );
+        var tempPath = Path.Combine(
+            directoryPath,
+            $"{Path.GetFileName(filePath)}.{Guid.NewGuid():N}.tmp"
+        );
+        File.WriteAllBytes(tempPath, bytes);
+        try
+        {
+            if (File.Exists(filePath))
+                File.Replace(tempPath, filePath, null, ignoreMetadataErrors: true);
+            else
+                File.Move(tempPath, filePath);
+        }
+        finally
+        {
+            if (File.Exists(tempPath))
+                File.Delete(tempPath);
+        }
     }
 }

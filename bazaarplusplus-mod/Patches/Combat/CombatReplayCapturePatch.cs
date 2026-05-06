@@ -1,7 +1,7 @@
 #pragma warning disable CS0436
 using BazaarGameShared.Infra.Messages;
 using BazaarPlusPlus.Core.Events;
-using BazaarPlusPlus.Core.Runtime;
+using BazaarPlusPlus.Patches;
 using HarmonyLib;
 using TheBazaar;
 
@@ -16,6 +16,6 @@ internal static class CombatReplayCapturePatch
         if (message is not NetMessageGameSim && message is not NetMessageCombatSim)
             return;
 
-        BppRuntimeHost.EventBus.Publish(new NetMessageObserved { Message = message });
+        BppPatchHost.Services.EventBus.Publish(new NetMessageObserved { Message = message });
     }
 }

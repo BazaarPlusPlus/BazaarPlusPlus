@@ -34,7 +34,7 @@ internal static class HistoryPanelSettingsMenuLabel
 
     private static readonly LocalizedTextSet InRunStatuses = new(
         "UNAVAILABLE",
-        "对局中不可用",
+        "战斗中不可用",
         "VORUBERGEHEND NICHT VERFUGBAR",
         "INDISPONIVEL",
         "대국 중 일시 사용 불가",

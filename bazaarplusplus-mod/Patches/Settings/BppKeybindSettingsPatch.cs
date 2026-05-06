@@ -33,16 +33,11 @@ internal static class BppKeybindSettingsAwakePatch
     [HarmonyPostfix]
     private static void Postfix(OptionsDialogController __instance)
     {
-        BppKeybindSettingsRefreshDriver.Attach(__instance).RequestRefresh();
-
-        try
-        {
-            EnsureKeybindRows(__instance);
-        }
-        catch (Exception ex)
-        {
-            BppLog.Error("BppKeybindSettings", "Failed to install keybind rows", ex);
-        }
+        BppKeybindSettingsPatchSupport.RunRefresh(
+            __instance,
+            "Failed to install keybind rows",
+            instance => EnsureKeybindRows(instance)
+        );
     }
 
     internal static void EnsureKeybindRows(OptionsDialogController instance)
@@ -165,16 +160,11 @@ internal static class BppKeybindSettingsOnEnablePatch
     [HarmonyPostfix]
     private static void Postfix(OptionsDialogController __instance)
     {
-        BppKeybindSettingsRefreshDriver.Attach(__instance).RequestRefresh();
-
-        try
-        {
-            BppKeybindSettingsAwakePatch.EnsureKeybindRows(__instance);
-        }
-        catch (Exception ex)
-        {
-            BppLog.Error("BppKeybindSettings", "Failed to refresh keybind rows", ex);
-        }
+        BppKeybindSettingsPatchSupport.RunRefresh(
+            __instance,
+            "Failed to refresh keybind rows",
+            BppKeybindSettingsAwakePatch.EnsureKeybindRows
+        );
     }
 }
 
@@ -184,20 +174,35 @@ internal static class BppKeybindSettingsGameplayOpenPatch
     [HarmonyPostfix]
     private static void Postfix(OptionsDialogController __instance)
     {
-        BppKeybindSettingsRefreshDriver.Attach(__instance).RequestRefresh();
+        BppKeybindSettingsPatchSupport.RunRefresh(
+            __instance,
+            "Failed to refresh keybind rows after gameplay menu opened",
+            instance =>
+            {
+                BppKeybindSettingsAwakePatch.EnsureKeybindRows(instance);
+                NativeKeybindLabelAwakePatch.TryUpdateLabels(instance);
+            }
+        );
+    }
+}
+
+internal static class BppKeybindSettingsPatchSupport
+{
+    internal static void RunRefresh(
+        OptionsDialogController instance,
+        string failureLogMessage,
+        Action<OptionsDialogController> action
+    )
+    {
+        BppKeybindSettingsRefreshDriver.Attach(instance).RequestRefresh();
 
         try
         {
-            BppKeybindSettingsAwakePatch.EnsureKeybindRows(__instance);
-            NativeKeybindLabelAwakePatch.TryUpdateLabels(__instance);
+            action(instance);
         }
         catch (Exception ex)
         {
-            BppLog.Error(
-                "BppKeybindSettings",
-                "Failed to refresh keybind rows after gameplay menu opened",
-                ex
-            );
+            BppLog.Error("BppKeybindSettings", failureLogMessage, ex);
         }
     }
 }

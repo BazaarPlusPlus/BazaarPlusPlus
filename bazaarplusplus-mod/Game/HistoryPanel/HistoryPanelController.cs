@@ -49,7 +49,7 @@ internal sealed partial class HistoryPanel
     {
         if (_coordinator == null)
         {
-            reason = "History panel is unavailable.";
+            reason = HistoryPanelText.PanelUnavailable();
             return false;
         }
 
@@ -60,7 +60,7 @@ internal sealed partial class HistoryPanel
     {
         if (_coordinator == null)
         {
-            reason = "History panel is unavailable.";
+            reason = HistoryPanelText.PanelUnavailable();
             return false;
         }
 
@@ -78,6 +78,12 @@ internal sealed partial class HistoryPanel
         _coordinator?.TryDeleteSelectedRun(SelectedRun);
     }
 
+    private void TryRefreshFinalBuilds()
+    {
+        if (_coordinator != null)
+            _ = _coordinator.TryRefreshFinalBuildsAsync();
+    }
+
     private void ClearDeleteRunConfirmation()
     {
         _state.DeleteRunConfirmationRunId = null;
@@ -91,12 +97,6 @@ internal sealed partial class HistoryPanel
 
     private string GetDatabaseChipText()
     {
-        return _coordinator?.GetDatabaseChipText() ?? "Unavailable";
-    }
-
-    private void TrySyncGhostBattles()
-    {
-        if (_coordinator != null)
-            _ = _coordinator.TrySyncGhostBattlesAsync();
+        return _coordinator?.GetDatabaseChipText() ?? HistoryPanelText.DatabaseUnavailable();
     }
 }

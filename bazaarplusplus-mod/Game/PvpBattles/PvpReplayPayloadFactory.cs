@@ -14,25 +14,24 @@ internal sealed class PvpReplayPayloadFactory
         {
             BattleId = battleId,
             Version = 1,
-            SpawnMessageBase64 = SerializeMessage(
+            SpawnMessageBytes = SerializeMessage(
                 window.SpawnMessage
                     ?? throw new InvalidOperationException("Spawn message is required.")
             ),
-            CombatMessageBase64 = SerializeMessage(
+            CombatMessageBytes = SerializeMessage(
                 window.CombatMessage
                     ?? throw new InvalidOperationException("Combat message is required.")
             ),
-            DespawnMessageBase64 = SerializeMessage(
+            DespawnMessageBytes = SerializeMessage(
                 window.DespawnMessage
                     ?? throw new InvalidOperationException("Despawn message is required.")
             ),
         };
     }
 
-    private static string SerializeMessage<TMessage>(TMessage message)
+    private static byte[] SerializeMessage<TMessage>(TMessage message)
         where TMessage : INetMessage
     {
-        var bytes = MessagePackSerializer.Serialize(message, MessagePackConfig.Options);
-        return Convert.ToBase64String(bytes);
+        return MessagePackSerializer.Serialize(message, MessagePackConfig.Options);
     }
 }

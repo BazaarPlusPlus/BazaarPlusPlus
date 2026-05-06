@@ -61,13 +61,25 @@ internal sealed class PvpBattleSnapshotCollector
 
     public void CaptureLiveSnapshots(CombatReplaySequenceCandidate candidate)
     {
-        if (!candidate.PlayerHandCardsCapturedFromOpening && candidate.PlayerHandCards.Count == 0)
+        if (
+            ShouldRefreshPlayerCapture(
+                candidate.PlayerHandCardsCapturedFromOpening,
+                candidate.PlayerHandCardsCapturedLive,
+                candidate.PlayerHandCards
+            )
+        )
         {
             (candidate.PlayerHandCardsCapturedLive, candidate.PlayerHandCards) =
                 CapturePlayerHandCards();
         }
 
-        if (!candidate.PlayerSkillsCapturedFromOpening && candidate.PlayerSkills.Count == 0)
+        if (
+            ShouldRefreshPlayerCapture(
+                candidate.PlayerSkillsCapturedFromOpening,
+                candidate.PlayerSkillsCapturedLive,
+                candidate.PlayerSkills
+            )
+        )
         {
             (candidate.PlayerSkillsCapturedLive, candidate.PlayerSkills) = CapturePlayerSkills();
         }
@@ -178,6 +190,18 @@ internal sealed class PvpBattleSnapshotCollector
             Status = PvpBattleCaptureStatus.Missing,
             Source = PvpBattleCaptureSource.Unknown,
         };
+    }
+
+    private static bool ShouldRefreshPlayerCapture(
+        bool capturedFromOpening,
+        bool capturedLive,
+        IReadOnlyCollection<CombatReplayCardSnapshot> snapshots
+    )
+    {
+        if (capturedLive)
+            return false;
+
+        return !capturedFromOpening || snapshots.Count == 0;
     }
 
     private static (
@@ -427,17 +451,8 @@ internal sealed class PvpBattleSnapshotCollector
         };
     }
 
-    private static Card? TryGetExistingCardSafe(string instanceId)
-    {
-        try
-        {
-            return Data.GetCard(instanceId);
-        }
-        catch
-        {
-            return null;
-        }
-    }
+    private static Card? TryGetExistingCardSafe(string instanceId) =>
+        Safe(() => Data.GetCard(instanceId), fallback: null);
 
     private static string? ResolvePlayerResult(NetMessageCombatSim message)
     {
@@ -448,54 +463,27 @@ internal sealed class PvpBattleSnapshotCollector
         return null;
     }
 
-    private static string? TryGetPlayerNameSafe()
-    {
-        try
-        {
-            return BppClientCacheBridge.TryGetProfileUsername();
-        }
-        catch
-        {
-            return null;
-        }
-    }
+    private static string? TryGetPlayerNameSafe() =>
+        Safe<string?>(BppClientCacheBridge.TryGetProfileUsername, fallback: null);
 
-    private static string? TryGetPlayerAccountIdSafe()
-    {
-        try
-        {
-            return BppClientCacheBridge.TryGetProfileAccountId();
-        }
-        catch
-        {
-            return null;
-        }
-    }
+    private static string? TryGetPlayerAccountIdSafe() =>
+        Safe<string?>(BppClientCacheBridge.TryGetProfileAccountId, fallback: null);
 
-    private static string? TryGetPlayerHeroSafe()
-    {
-        try
-        {
-            var hero = Data.Run?.Player?.Hero.ToString();
-            return string.IsNullOrWhiteSpace(hero) ? null : hero;
-        }
-        catch
-        {
-            return null;
-        }
-    }
+    private static string? TryGetPlayerHeroSafe() =>
+        Safe<string?>(
+            () =>
+            {
+                var hero = Data.Run?.Player?.Hero.ToString();
+                return string.IsNullOrWhiteSpace(hero) ? null : hero;
+            },
+            fallback: null
+        );
 
-    private static int? TryGetPlayerLevelSafe()
-    {
-        try
-        {
-            return Data.Run?.Player?.GetAttributeValue(EPlayerAttributeType.Level);
-        }
-        catch
-        {
-            return null;
-        }
-    }
+    private static int? TryGetPlayerLevelSafe() =>
+        Safe<int?>(
+            () => Data.Run?.Player?.GetAttributeValue(EPlayerAttributeType.Level),
+            fallback: null
+        );
 
     private static (
         string? Name,
@@ -506,27 +494,38 @@ internal sealed class PvpBattleSnapshotCollector
         string? AccountId
     ) CaptureOpponentIdentityAtOpening(NetMessageGameSim? message)
     {
+        return Safe(
+            () =>
+            {
+                var opponent = message?.Data.CurrentState?.PvpOpponent ?? Data.SimPvpOpponent;
+                var name = opponent?.Name;
+                var hero = opponent?.Hero.ToString() ?? Data.Run?.Opponent?.Hero.ToString();
+                var rank = opponent?.Rank?.ToString();
+                int? rating = opponent != null ? opponent.Rating : null;
+                int? level = opponent != null ? opponent.Level : null;
+                var accountId = opponent?.PlayerLoadout?.accountId;
+                return (
+                    string.IsNullOrWhiteSpace(name) ? null : name,
+                    string.IsNullOrWhiteSpace(hero) ? null : hero,
+                    string.IsNullOrWhiteSpace(rank) ? null : rank,
+                    rating,
+                    level,
+                    string.IsNullOrWhiteSpace(accountId) ? null : accountId
+                );
+            },
+            fallback: (null, null, null, null, null, null)
+        );
+    }
+
+    private static T Safe<T>(Func<T> getter, T fallback)
+    {
         try
         {
-            var opponent = message?.Data.CurrentState?.PvpOpponent ?? Data.SimPvpOpponent;
-            var name = opponent?.Name;
-            var hero = opponent?.Hero.ToString() ?? Data.Run?.Opponent?.Hero.ToString();
-            var rank = opponent?.Rank?.ToString();
-            int? rating = opponent != null ? opponent.Rating : null;
-            int? level = opponent != null ? opponent.Level : null;
-            var accountId = opponent?.PlayerLoadout?.accountId;
-            return (
-                string.IsNullOrWhiteSpace(name) ? null : name,
-                string.IsNullOrWhiteSpace(hero) ? null : hero,
-                string.IsNullOrWhiteSpace(rank) ? null : rank,
-                rating,
-                level,
-                string.IsNullOrWhiteSpace(accountId) ? null : accountId
-            );
+            return getter();
         }
         catch
         {
-            return (null, null, null, null, null, null);
+            return fallback;
         }
     }
 }

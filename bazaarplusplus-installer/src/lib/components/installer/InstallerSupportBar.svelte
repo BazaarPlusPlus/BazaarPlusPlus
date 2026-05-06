@@ -1,23 +1,8 @@
 <script lang="ts">
   import { openUrl } from '@tauri-apps/plugin-opener';
-  import AppModal from '$lib/components/AppModal.svelte';
-  import SupporterListModal from '$lib/components/supporters/SupporterListModal.svelte';
+  import PaymentCodeModal from '$lib/components/supporters/PaymentCodeModal.svelte';
   import { locale } from '$lib/locale';
   import { hasTauriRuntime } from '$lib/installer/runtime';
-
-  type CopyKey =
-    | 'title'
-    | 'body'
-    | 'wechat'
-    | 'wechatAction'
-    | 'kofi'
-    | 'kofiAction'
-    | 'supporters'
-    | 'supportersAction'
-    | 'supportQrTitle'
-    | 'supportQrBody'
-    | 'supportQrHint'
-    | 'close';
 
   const copy = {
     en: {
@@ -59,73 +44,63 @@
   } as const;
 
   const KOFI_URL = 'https://ko-fi.com/cauyxy';
+  const SUPPORTERS_URL_EN = 'https://bazaarplusplus.com/support?lang=en';
+  const SUPPORTERS_URL_ZH = 'https://bazaarplusplus.com/support';
 
   let showPaymentCodes = false;
-  let showSupporterList = false;
 
   $: currentCopy = $locale === 'zh' ? copy.zh : copy.en;
+  $: supportPaymentMethods = [
+    {
+      id: 'wechat',
+      src: '/support/wechat-pay.svg',
+      alt: currentCopy.wechat,
+      accent: 'payment-card-wechat'
+    }
+  ];
 
   function openPaymentCodes() {
     showPaymentCodes = true;
   }
 
-  async function openKoFi() {
+  async function openExternal(url: string) {
     if (!hasTauriRuntime()) {
       if (typeof window !== 'undefined') {
-        window.open(KOFI_URL, '_blank', 'noopener,noreferrer');
+        window.open(url, '_blank', 'noopener,noreferrer');
       }
       return;
     }
 
     try {
-      await openUrl(KOFI_URL);
+      await openUrl(url);
     } catch (error) {
       console.error(error);
     }
   }
 
-  function openSupporterList() {
-    showSupporterList = true;
+  async function openKoFi() {
+    await openExternal(KOFI_URL);
+  }
+
+  async function openSupporterList() {
+    await openExternal(
+      $locale === 'zh' ? SUPPORTERS_URL_ZH : SUPPORTERS_URL_EN
+    );
   }
 </script>
 
-<AppModal
+<PaymentCodeModal
   open={showPaymentCodes}
-  eyebrow="BazaarPlusPlus"
   title={currentCopy.supportQrTitle}
   bodyClass="support-modal-body"
-  confirmText={currentCopy.close}
-  onConfirm={() => {
-    showPaymentCodes = false;
-  }}
->
-  <section class="support-modal-shell">
-    <div class="payment-grid">
-      <article class="payment-card payment-card-wechat">
-        <div class="payment-frame">
-          <img
-            class="payment-image"
-            src="/support/wechat-pay.svg"
-            alt={currentCopy.wechat}
-          />
-        </div>
-
-        <div class="payment-copy">
-          <h3>{currentCopy.supportQrCardTitle}</h3>
-          <p>{currentCopy.supportQrCardBody}</p>
-        </div>
-      </article>
-    </div>
-
-    <p class="payment-support-note">{currentCopy.supportQrBody}</p>
-    <p class="payment-support-tip">{currentCopy.supportQrHint}</p>
-  </section>
-</AppModal>
-
-<SupporterListModal
-  open={showSupporterList}
+  closeLabel={currentCopy.close}
+  cardTitle={currentCopy.supportQrCardTitle}
+  cardBody={currentCopy.supportQrCardBody}
+  supportNote={currentCopy.supportQrBody}
+  supportTip={currentCopy.supportQrHint}
+  methods={supportPaymentMethods}
   onClose={() => {
-    showSupporterList = false;
+    showPaymentCodes = false;
   }}
 />
 
@@ -157,67 +132,67 @@
 
 <style>
   .support-strip {
-    padding: 0.95rem 1.05rem;
+    padding: 0.78rem 0.92rem;
     background:
       radial-gradient(
         circle at top left,
-        rgba(255, 214, 140, 0.08),
+        rgba(var(--color-warm-rgb), 0.04),
         transparent 42%
       ),
-      linear-gradient(180deg, rgba(20, 12, 6, 0.96), rgba(12, 7, 4, 0.94));
-    border: 1px solid rgba(200, 148, 55, 0.15);
+      linear-gradient(180deg, rgba(18, 11, 6, 0.88), rgba(11, 7, 4, 0.86));
+    border: 1px solid rgba(var(--color-accent-rgb), 0.11);
     border-radius: 3px;
-    box-shadow:
-      0 8px 28px rgba(0, 0, 0, 0.3),
-      inset 0 0 0 1px rgba(255, 214, 140, 0.04);
+    box-shadow: inset 0 0 0 1px rgba(var(--color-warm-rgb), 0.03);
     display: grid;
-    gap: 0.85rem;
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+    gap: 0.85rem 1rem;
+    align-items: end;
   }
 
   .support-copy {
     display: grid;
-    gap: 0.2rem;
+    gap: 0.14rem;
   }
 
   .support-eyebrow {
     margin: 0;
     font-family: 'Cinzel', serif;
-    font-size: 0.5rem;
+    font-size: 0.46rem;
     letter-spacing: 0.24em;
     text-transform: uppercase;
-    color: rgba(200, 148, 55, 0.52);
+    color: rgba(var(--color-accent-rgb), 0.44);
   }
 
   .support-copy h2 {
     margin: 0;
     font-family: 'Cinzel', serif;
-    font-size: 0.82rem;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: rgba(232, 220, 194, 0.92);
+    font-size: 0.9rem;
+    letter-spacing: 0.03em;
+    color: rgba(232, 220, 194, 0.9);
   }
 
   .support-body {
     margin: 0;
-    font-size: 0.78rem;
-    line-height: 1.55;
-    color: rgba(208, 188, 150, 0.74);
+    max-width: 36rem;
+    font-size: 0.75rem;
+    line-height: 1.5;
+    color: rgba(208, 188, 150, 0.62);
   }
 
   .support-actions {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 0.6rem;
+    gap: 0.42rem;
   }
 
   .support-action {
-    padding: 0.7rem 0.8rem;
-    border: 1px solid rgba(200, 148, 55, 0.14);
+    padding: 0.58rem 0.68rem;
+    border: 1px solid rgba(var(--color-accent-rgb), 0.11);
     border-radius: 3px;
     background: linear-gradient(
       180deg,
-      rgba(200, 148, 55, 0.06),
-      rgba(200, 148, 55, 0.02)
+      rgba(var(--color-accent-rgb), 0.04),
+      rgba(var(--color-accent-rgb), 0.01)
     );
     display: grid;
     gap: 0.14rem;
@@ -229,142 +204,39 @@
   }
 
   .support-action:hover {
-    border-color: rgba(220, 168, 76, 0.28);
+    border-color: rgba(220, 168, 76, 0.22);
     background: linear-gradient(
       180deg,
-      rgba(200, 148, 55, 0.12),
-      rgba(200, 148, 55, 0.05)
+      rgba(var(--color-accent-rgb), 0.09),
+      rgba(var(--color-accent-rgb), 0.03)
     );
     transform: translateY(-1px);
   }
 
   .support-action:focus-visible {
-    outline: 2px solid rgba(255, 214, 140, 0.9);
+    outline: 2px solid rgba(var(--color-warm-rgb), 0.9);
     outline-offset: 2px;
   }
 
   .support-action-title {
     font-family: 'Cinzel', serif;
-    font-size: 0.66rem;
-    letter-spacing: 0.1em;
+    font-size: 0.6rem;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: rgba(236, 224, 196, 0.9);
+    color: rgba(236, 224, 196, 0.86);
   }
 
   .support-action-subtitle {
     font-family: 'Fira Code', monospace;
-    font-size: 0.62rem;
-    color: rgba(200, 170, 120, 0.58);
+    font-size: 0.58rem;
+    color: rgba(var(--color-muted-gold-rgb), 0.5);
   }
 
-  :global(.support-modal-body) {
-    padding-top: 0.1rem;
-  }
-
-  .support-modal-shell {
-    display: grid;
-    gap: 0.9rem;
-    text-align: left;
-  }
-
-  .payment-grid {
-    display: grid;
-    grid-template-columns: minmax(0, 260px);
-    justify-content: center;
-    gap: 0.8rem;
-  }
-
-  .payment-support-note {
-    margin: -0.1rem 0 0;
-    text-align: center;
-    font-size: 0.76rem;
-    line-height: 1.6;
-    color: rgba(214, 190, 146, 0.76);
-  }
-
-  .payment-support-tip {
-    margin: -0.2rem auto 0;
-    max-width: 28rem;
-    text-align: center;
-    font-size: 0.72rem;
-    line-height: 1.65;
-    color: rgba(240, 220, 184, 0.82);
-  }
-
-  .payment-card {
-    position: relative;
-    padding: 0.75rem;
-    background:
-      radial-gradient(
-        circle at top,
-        rgba(255, 232, 174, 0.08),
-        transparent 54%
-      ),
-      linear-gradient(180deg, rgba(34, 20, 8, 0.96), rgba(16, 9, 4, 0.98));
-    border: 1px solid rgba(200, 148, 55, 0.16);
-    border-radius: 4px;
-    display: grid;
-    gap: 0.65rem;
-    box-shadow: inset 0 0 0 1px rgba(255, 198, 98, 0.05);
-  }
-
-  .payment-card::after {
-    content: '';
-    position: absolute;
-    inset: 0.45rem;
-    border: 1px solid rgba(255, 220, 155, 0.05);
-    border-radius: 2px;
-    pointer-events: none;
-  }
-
-  .payment-card-wechat {
-    box-shadow:
-      inset 0 0 0 1px rgba(255, 198, 98, 0.05),
-      0 10px 32px rgba(42, 110, 78, 0.14);
-  }
-
-  .payment-frame {
-    aspect-ratio: 1 / 1;
-    padding: 0.8rem;
-    background: linear-gradient(
-      135deg,
-      rgba(255, 248, 231, 0.98),
-      rgba(245, 238, 220, 0.98)
-    );
-    border-radius: 3px;
-    box-shadow:
-      inset 0 0 0 1px rgba(95, 65, 19, 0.08),
-      0 10px 24px rgba(0, 0, 0, 0.22);
-  }
-
-  .payment-copy {
-    display: grid;
-    gap: 0.18rem;
-    text-align: center;
-  }
-
-  .payment-copy h3 {
-    margin: 0;
-    font-family: 'Cinzel', serif;
-    font-size: 0.82rem;
-    letter-spacing: 0.04em;
-    color: rgba(238, 220, 182, 0.94);
-  }
-
-  .payment-copy p {
-    margin: 0;
-    font-size: 0.66rem;
-    line-height: 1.45;
-    color: rgba(200, 170, 120, 0.8);
-  }
-
-  .payment-image {
-    width: 100%;
-    height: 100%;
-    display: block;
-    object-fit: contain;
-    background: #fff;
-    border-radius: 2px;
+  @media (max-width: 760px) {
+    .support-strip {
+      grid-template-columns: 1fr;
+      align-items: stretch;
+    }
   }
 
   button {
@@ -375,10 +247,6 @@
 
   @media (max-width: 520px) {
     .support-actions {
-      grid-template-columns: 1fr;
-    }
-
-    .payment-grid {
       grid-template-columns: 1fr;
     }
   }

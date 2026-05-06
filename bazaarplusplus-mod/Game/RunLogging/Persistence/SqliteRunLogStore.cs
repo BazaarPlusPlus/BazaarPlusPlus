@@ -1,6 +1,5 @@
 #nullable enable
 using System;
-using System.IO;
 using BazaarPlusPlus.Game.RunLogging.Models;
 using BazaarPlusPlus.Game.RunLogging.Persistence.Sqlite;
 using Microsoft.Data.Sqlite;
@@ -9,7 +8,7 @@ using Newtonsoft.Json.Serialization;
 
 namespace BazaarPlusPlus.Game.RunLogging.Persistence;
 
-public sealed class SqliteRunLogStore : IRunLogStore
+public sealed class SqliteRunLogStore : SqlitePersistenceStoreBase, IRunLogStore
 {
     private static readonly JsonSerializerSettings SerializerSettings = new()
     {
@@ -22,24 +21,8 @@ public sealed class SqliteRunLogStore : IRunLogStore
         DateFormatString = "yyyy-MM-dd'T'HH:mm:ss.fffK",
     };
 
-    private readonly string _databasePath;
-
     public SqliteRunLogStore(string databasePath)
-    {
-        if (string.IsNullOrWhiteSpace(databasePath))
-            throw new ArgumentException("Database path is required.", nameof(databasePath));
-
-        _databasePath = databasePath;
-        var directory = Path.GetDirectoryName(_databasePath);
-        if (!string.IsNullOrWhiteSpace(directory))
-            Directory.CreateDirectory(directory);
-
-        using var connection = OpenConnection();
-        EnableWriteAheadLogging(connection);
-        using var command = CreateCommand(connection);
-        command.CommandText = RunLogSqliteSchema.BootstrapSql;
-        command.ExecuteNonQuery();
-    }
+        : base(databasePath) { }
 
     public RunLogSessionState? TryResumeActiveRun()
     {
@@ -422,77 +405,5 @@ public sealed class SqliteRunLogStore : IRunLogStore
             Gold = GetNullableInt32(reader, "gold"),
             Completed = false,
         };
-    }
-
-    private SqliteConnection OpenConnection()
-    {
-        var connection = new SqliteConnection($"Data Source={_databasePath}");
-        try
-        {
-            connection.Open();
-            using var command = CreateCommand(connection);
-            command.CommandText = """
-                PRAGMA foreign_keys = ON;
-                PRAGMA busy_timeout = 2000;
-                """;
-            command.ExecuteNonQuery();
-            return connection;
-        }
-        catch
-        {
-            connection.Dispose();
-            throw;
-        }
-    }
-
-    private static SqliteCommand CreateCommand(
-        SqliteConnection connection,
-        SqliteTransaction? transaction = null
-    )
-    {
-        var command = connection.CreateCommand();
-        command.CommandTimeout = 2;
-        command.Transaction = transaction;
-        return command;
-    }
-
-    private static void EnableWriteAheadLogging(SqliteConnection connection)
-    {
-        using var command = CreateCommand(connection);
-        command.CommandText = "PRAGMA journal_mode = WAL;";
-        command.ExecuteNonQuery();
-    }
-
-    private static void AddNullableInt32(SqliteCommand command, string name, int? value)
-    {
-        command.Parameters.AddWithValue(name, value.HasValue ? value.Value : DBNull.Value);
-    }
-
-    private static void AddNullableInt64(SqliteCommand command, string name, long? value)
-    {
-        command.Parameters.AddWithValue(name, value.HasValue ? value.Value : DBNull.Value);
-    }
-
-    private static void AddNullableString(SqliteCommand command, string name, string? value)
-    {
-        command.Parameters.AddWithValue(name, value ?? (object)DBNull.Value);
-    }
-
-    private static int? GetNullableInt32(SqliteDataReader reader, string columnName)
-    {
-        var ordinal = reader.GetOrdinal(columnName);
-        return reader.IsDBNull(ordinal) ? null : reader.GetInt32(ordinal);
-    }
-
-    private static long? GetNullableInt64(SqliteDataReader reader, string columnName)
-    {
-        var ordinal = reader.GetOrdinal(columnName);
-        return reader.IsDBNull(ordinal) ? null : reader.GetInt64(ordinal);
-    }
-
-    private static string? GetNullableString(SqliteDataReader reader, string columnName)
-    {
-        var ordinal = reader.GetOrdinal(columnName);
-        return reader.IsDBNull(ordinal) ? null : reader.GetString(ordinal);
     }
 }

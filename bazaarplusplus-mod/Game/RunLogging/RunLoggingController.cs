@@ -2,6 +2,7 @@
 using System;
 using BazaarPlusPlus.Core.Runtime;
 using BazaarPlusPlus.Game.CombatReplay;
+using BazaarPlusPlus.Game.PvpBattles.Persistence;
 using BazaarPlusPlus.Game.RunLogging.Models;
 using BazaarPlusPlus.Game.RunLogging.Persistence;
 using BazaarPlusPlus.Game.RunLogging.Upload;
@@ -11,6 +12,7 @@ namespace BazaarPlusPlus.Game.RunLogging;
 
 internal sealed class RunLoggingController : MonoBehaviour
 {
+    private IBppServices? _services;
     private IRunLogStore? _store;
     private RunLogSessionManager? _sessionManager;
     private RunLogCaptureService? _captureService;
@@ -23,28 +25,43 @@ internal sealed class RunLoggingController : MonoBehaviour
 
     private void Awake()
     {
+        // Wait for Initialize() — core logic moved to InitializeCore
+    }
+
+    public void Initialize(IBppServices services)
+    {
+        _services = services ?? throw new ArgumentNullException(nameof(services));
+        InitializeCore();
+    }
+
+    private void InitializeCore()
+    {
+        var services = _services!;
         var runLogDatabasePath =
-            BppRuntimeHost.Paths.RunLogDatabasePath
+            services.Paths.RunLogDatabasePath
             ?? throw new InvalidOperationException("Run log database path is not initialized.");
         var sqliteStore = new SqliteRunLogStore(runLogDatabasePath);
-        var uploadStore = new RunUploadSqliteStore(runLogDatabasePath);
+        var uploadStore = new RunSyncStateSqliteStore(runLogDatabasePath);
+        var battleCatalog = new PvpBattleCatalog(runLogDatabasePath);
         _store = new QueuedRunLogStore(new ReplicatedRunLogStore(sqliteStore, uploadStore));
         _sessionManager = new RunLogSessionManager(_store);
         _sessionManager.RestoreActiveSession();
         _captureService = new RunLogCaptureService();
         _core = new RunLoggingControllerCore(_sessionManager, _captureService);
         _module = new RunLoggingModule(
-            BppRuntimeHost.EventBus,
+            services.EventBus,
+            services.RunContext,
             _sessionManager,
             _core,
             () => CombatReplayRuntime.Instance?.HasPendingPersistence == true,
             EnsureActiveRunFromGame,
+            battleCatalog.AttachToRun,
             buildRunLogAbandonment: RunLoggingGameDataReader.BuildRunLogAbandonment
         );
         _module.Start();
         BppLog.Info(
             "RunLoggingController",
-            $"Initialized run logging database: {BppRuntimeHost.Paths.RunLogDatabasePath}"
+            $"Initialized run logging database: {services.Paths.RunLogDatabasePath}"
         );
     }
 

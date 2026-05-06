@@ -1,19 +1,23 @@
 {
   "name": "bppinstaller",
-  "version": "2.3.6",
-  "description": "BazaarPlusPlus Mod Installer",
+  "version": "3.3.0",
+  "description": "BazaarPlusPlus Desktop App",
   "type": "module",
   "scripts": {
-    "dev": "vite dev",
+    "generate:bindings": "node scripts/generate-bindings.mjs",
+    "dev": "npm run generate:bindings && vite dev",
     "version:sync": "node scripts/version-sync.mjs",
     "prebuild-check": "node scripts/prebuild-check.mjs",
-    "build": "vite build",
+    "build": "npm run generate:bindings && vite build",
     "preview": "vite preview",
-    "test": "node --test",
+    "test": "npm run generate:bindings && npm run test:rust && npm run test:unit",
+    "test:rust": "cargo test --manifest-path src-tauri/Cargo.toml",
+    "test:unit": "vitest run",
+    "test:watch": "vitest",
     "format": "prettier --write \"*.json\" \"src/**/*.{ts,svelte,html}\" \"static/**/*.json\" \"scripts/**/*.mjs\" \"src-tauri/*.json\" \"src-tauri/capabilities/**/*.json\" \"svelte.config.js\" \"vite.config.js\"",
     "format:check": "prettier --check \"*.json\" \"src/**/*.{ts,svelte,html}\" \"static/**/*.json\" \"scripts/**/*.mjs\" \"src-tauri/*.json\" \"src-tauri/capabilities/**/*.json\" \"svelte.config.js\" \"vite.config.js\"",
-    "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
-    "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
+    "check": "npm run generate:bindings && svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+    "check:watch": "npm run generate:bindings && svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
     "tauri": "tauri"
   },
   "license": "MIT",
@@ -34,6 +38,7 @@
     "svelte": "^5.55.0",
     "svelte-check": "^4.4.5",
     "typescript": "^5.9.3",
-    "vite": "^6.4.1"
+    "vite": "^6.4.1",
+    "vitest": "^4.1.4"
   }
 }

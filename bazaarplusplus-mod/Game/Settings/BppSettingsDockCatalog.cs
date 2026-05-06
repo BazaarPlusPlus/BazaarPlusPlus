@@ -1,11 +1,11 @@
 #nullable enable
+using System;
 using System.Collections.Generic;
-using BazaarPlusPlus.Core.Runtime;
+using BazaarPlusPlus.Core.Config;
 using BazaarPlusPlus.Game.CombatStatusBar;
 using BazaarPlusPlus.Game.ItemEnchantPreview;
-using BazaarPlusPlus.Game.MonsterPreview;
+using BazaarPlusPlus.Game.LegendaryPosition;
 using BazaarPlusPlus.Game.NameOverride;
-using BazaarPlusPlus.Game.RunLogging.Upload;
 using CombatStatusBarFeature = BazaarPlusPlus.Game.CombatStatusBar.CombatStatusBar;
 using HistoryPanelFeature = BazaarPlusPlus.Game.HistoryPanel.HistoryPanel;
 using HistoryPanelLabel = BazaarPlusPlus.Game.HistoryPanel.HistoryPanelSettingsMenuLabel;
@@ -14,6 +14,17 @@ namespace BazaarPlusPlus.Game.Settings;
 
 internal static class BppSettingsDockCatalog
 {
+    private static IBppConfig? _config;
+
+    public static void Install(IBppConfig config) =>
+        _config = config ?? throw new ArgumentNullException(nameof(config));
+
+    private static IBppConfig Config =>
+        _config
+        ?? throw new InvalidOperationException(
+            "BppSettingsDockCatalog.Install must be called at startup."
+        );
+
     internal static IReadOnlyList<BppSettingsDockDefinition> Definitions { get; } =
     [
         new(
@@ -34,12 +45,21 @@ internal static class BppSettingsDockCatalog
             )
         ),
         new(
-            "EnchantPreview",
-            ResolveEnchantPreviewLabel,
-            ResolveEnchantPreviewStatus,
-            IsEnchantPreviewModeHighlighted,
-            CycleEnchantPreviewMode,
+            "LegendaryPositionDisplay",
+            LegendaryPositionSettingsMenuLabel.Resolve,
+            languageCode =>
+                ResolveLegendaryPositionDisplayStatus(
+                    ReadLegendaryPositionDisplayMode(),
+                    languageCode
+                ),
+            IsLegendaryPositionDisplayOverrideActive,
+            CycleLegendaryPositionDisplayMode,
             collapseAfterActivate: false
+        ),
+        new(
+            "EnchantPreview",
+            EnchantPreviewSettingsMenuLabel.Resolve,
+            new SettingsMenuToggleBridge(ReadEnchantPreviewEnabled, WriteEnchantPreviewEnabled)
         ),
         new(
             "CombatStatusBar",
@@ -50,36 +70,23 @@ internal static class BppSettingsDockCatalog
             )
         ),
         new(
-            "NativeMonsterPreview",
-            MonsterPreviewSettingsMenuLabel.Resolve,
-            new SettingsMenuToggleBridge(
-                ReadUseNativeMonsterPreview,
-                WriteUseNativeMonsterPreview,
-                MonsterPreviewModeSwitchCoordinator.Apply
-            )
-        ),
-        new(
-            "CommunityContribution",
-            RunUploadSettingsMenuLabel.Resolve,
-            _ => ReadCommunityContributionEnabled() ? "ON" : "OFF",
-            ReadCommunityContributionEnabled,
-            () => WriteCommunityContributionEnabled(!ReadCommunityContributionEnabled()),
-            collapseAfterActivate: false,
-            requiresCtrlToActivate: true
+            "ChineseLocaleMode",
+            ResolveChineseLocaleModeLabel,
+            _ => BppChineseLocalization.ResolveModeStatus(ReadChineseLocaleMode()),
+            IsChineseLocaleOverrideActive,
+            CycleChineseLocaleMode,
+            collapseAfterActivate: false
         ),
     ];
 
     private static bool ReadNameOverrideEnabled()
     {
-        return BppRuntimeHost.Config.EnableNameOverrideConfig?.Value ?? false;
+        return Config.EnableNameOverrideConfig?.Value ?? false;
     }
 
     private static string ResolveHistoryPanelStatus(string languageCode)
     {
-        if (!ReadCommunityContributionEnabled())
-            return "OFF";
-
-        if (BppRuntimeHost.RunContext.IsInGameRun)
+        if (TheBazaar.Data.IsInCombat)
             return HistoryPanelLabel.ResolveInRunStatus(languageCode);
 
         return HistoryPanelFeature.IsVisible
@@ -89,71 +96,105 @@ internal static class BppSettingsDockCatalog
 
     private static bool IsHistoryPanelActionable()
     {
-        return ReadCommunityContributionEnabled() && !BppRuntimeHost.RunContext.IsInGameRun;
-    }
-
-    private static bool ReadCommunityContributionEnabled()
-    {
-        return BppRuntimeHost.Config.EnableCommunityContributionConfig?.Value ?? false;
-    }
-
-    private static void WriteCommunityContributionEnabled(bool enabled)
-    {
-        var config = BppRuntimeHost.Config.EnableCommunityContributionConfig;
-        if (config != null)
-            config.Value = enabled;
+        return !TheBazaar.Data.IsInCombat;
     }
 
     private static void WriteNameOverrideEnabled(bool enabled)
     {
-        var config = BppRuntimeHost.Config.EnableNameOverrideConfig;
+        var config = Config.EnableNameOverrideConfig;
         if (config != null)
             config.Value = enabled;
     }
 
     private static bool ReadEnchantPreviewEnabled()
     {
-        return BppRuntimeHost.Config.EnchantPreviewAlwaysShowConfig?.Value ?? true;
+        return Config.EnchantPreviewAlwaysShowConfig?.Value ?? false;
     }
 
     private static void WriteEnchantPreviewEnabled(bool enabled)
     {
-        var config = BppRuntimeHost.Config.EnchantPreviewAlwaysShowConfig;
+        var config = Config.EnchantPreviewAlwaysShowConfig;
         if (config != null)
             config.Value = enabled;
     }
 
-    private static string ResolveEnchantPreviewLabel(string languageCode)
+    private static string ResolveChineseLocaleModeLabel(string languageCode)
     {
-        return ReadEnchantPreviewEnabled()
-            ? EnchantPreviewSettingsMenuLabel.ResolveAlwaysShow(languageCode)
-            : EnchantPreviewSettingsMenuLabel.ResolveHoldToShow(languageCode);
+        return new LocalizedTextSet("Chinese Locale", "中文模式").Resolve(languageCode);
     }
 
-    private static string ResolveEnchantPreviewStatus(string _)
+    private static BppChineseLocaleMode ReadChineseLocaleMode()
     {
-        return ReadEnchantPreviewEnabled() ? "ON" : "OFF";
+        return Config.ChineseLocaleModeConfig?.Value ?? BppChineseLocaleMode.Mainland;
     }
 
-    private static bool IsEnchantPreviewModeHighlighted()
+    private static void CycleChineseLocaleMode()
     {
-        return ReadEnchantPreviewEnabled();
-    }
-
-    private static void CycleEnchantPreviewMode()
-    {
-        WriteEnchantPreviewEnabled(!ReadEnchantPreviewEnabled());
-    }
-
-    private static bool ReadUseNativeMonsterPreview()
-    {
-        return BppRuntimeHost.Config.UseNativeMonsterPreviewConfig?.Value ?? false;
-    }
-
-    private static void WriteUseNativeMonsterPreview(bool enabled)
-    {
-        var config = BppRuntimeHost.Config.UseNativeMonsterPreviewConfig;
+        var config = Config.ChineseLocaleModeConfig;
         if (config != null)
-            config.Value = enabled;
+            config.Value = BppChineseLocalization.GetNextMode(config.Value);
+
+        HistoryPanelFeature.RefreshLocalization();
+    }
+
+    private static bool IsChineseLocaleOverrideActive()
+    {
+        return ReadChineseLocaleMode() != BppChineseLocaleMode.Mainland;
+    }
+
+    private static LegendaryPositionDisplayMode ReadLegendaryPositionDisplayMode()
+    {
+        return Config.LegendaryPositionDisplayModeConfig?.Value
+            ?? LegendaryPositionDisplayMode.Default;
+    }
+
+    private static void CycleLegendaryPositionDisplayMode()
+    {
+        var config = Config.LegendaryPositionDisplayModeConfig;
+        if (config == null)
+            return;
+
+        config.Value = config.Value switch
+        {
+            LegendaryPositionDisplayMode.Default => LegendaryPositionDisplayMode.Blank,
+            LegendaryPositionDisplayMode.Blank => LegendaryPositionDisplayMode.Fixed999999,
+            LegendaryPositionDisplayMode.Fixed999999 =>
+                LegendaryPositionDisplayMode.PositionWithRating,
+            _ => LegendaryPositionDisplayMode.Default,
+        };
+
+        LegendaryPositionUiRefresh.TryRefreshVisibleDisplays();
+    }
+
+    private static bool IsLegendaryPositionDisplayOverrideActive()
+    {
+        return ReadLegendaryPositionDisplayMode() != LegendaryPositionDisplayMode.Default;
+    }
+
+    private static string ResolveLegendaryPositionDisplayStatus(
+        LegendaryPositionDisplayMode mode,
+        string languageCode
+    )
+    {
+        if (LanguageCodeMatcher.IsChinese(languageCode))
+        {
+            return mode switch
+            {
+                LegendaryPositionDisplayMode.Default => "默认",
+                LegendaryPositionDisplayMode.Blank => "无人知晓",
+                LegendaryPositionDisplayMode.Fixed999999 => "战力爆表",
+                LegendaryPositionDisplayMode.PositionWithRating => "双显模式",
+                _ => "默认",
+            };
+        }
+
+        return mode switch
+        {
+            LegendaryPositionDisplayMode.Default => "DEF",
+            LegendaryPositionDisplayMode.Blank => "BLANK",
+            LegendaryPositionDisplayMode.Fixed999999 => "999999",
+            LegendaryPositionDisplayMode.PositionWithRating => "P|R",
+            _ => "DEF",
+        };
     }
 }

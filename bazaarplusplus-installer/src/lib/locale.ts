@@ -5,8 +5,15 @@ import {
   type Locale,
   defaultLocale
 } from './i18n';
+import { call } from './bridge/commands';
 
-function createLocaleStore() {
+type SyncTrayLocale = (nextLocale: Locale) => Promise<unknown>;
+
+export function createLocaleStore({
+  syncTrayLocale = syncTrayLocaleToTauri
+}: {
+  syncTrayLocale?: SyncTrayLocale;
+} = {}) {
   const { subscribe, set, update } = writable<Locale>(defaultLocale);
 
   function apply(nextLocale: Locale) {
@@ -17,6 +24,7 @@ function createLocaleStore() {
     if (typeof window !== 'undefined') {
       window.localStorage.setItem('locale', nextLocale);
     }
+    void syncTrayLocale(nextLocale);
   }
 
   function toggle() {
@@ -35,6 +43,14 @@ function createLocaleStore() {
 }
 
 export const locale = createLocaleStore();
+
+async function syncTrayLocaleToTauri(nextLocale: Locale) {
+  try {
+    await call('set_tray_locale', { locale: nextLocale });
+  } catch {
+    // Locale still applies in the web UI when the Tauri backend is unavailable.
+  }
+}
 
 export function handleLocaleToggle(event: MouseEvent) {
   event.preventDefault();

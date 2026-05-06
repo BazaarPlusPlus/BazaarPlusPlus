@@ -4,7 +4,7 @@
     <AssemblyName>BazaarPlusPlus</AssemblyName>
     <Description>BazaarPlusPlus - Game Enhancement Mod</Description>
     <RootNamespace>BazaarPlusPlus</RootNamespace>
-    <Version>2.3.6</Version>
+    <Version>3.3.0</Version>
     <LangVersion>12</LangVersion>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <TargetFramework>netstandard2.1</TargetFramework>
@@ -17,17 +17,21 @@
   </PropertyGroup>
 
   <!-- Embedded resources -->
+  <ItemGroup>
+    <EmbeddedResource Include="Data\BuildRecommendations\final-builds-top50.json" />
+  </ItemGroup>
+
   <!-- Exclude decompiled and installer files -->
   <ItemGroup>
     <Compile Remove="tests/**" />
     <EmbeddedResource Remove="tests/**" />
     <None Remove="tests/**" />
+    <Compile Remove="tools/**" />
+    <EmbeddedResource Remove="tools/**" />
+    <None Remove="tools/**" />
     <Compile Remove="decompiled/**" />
     <EmbeddedResource Remove="decompiled/**" />
     <None Remove="decompiled/**" />
-    <Compile Remove="ModCFServer/**" />
-    <EmbeddedResource Remove="ModCFServer/**" />
-    <None Remove="ModCFServer/**" />
   </ItemGroup>
   <!-- Project paths -->
   <PropertyGroup>
@@ -115,6 +119,15 @@
     </Reference>
     <Reference Include="UnityEngine.UI">
       <HintPath>$(ManagedPath)\UnityEngine.UI.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.UIElementsModule">
+      <HintPath>$(ManagedPath)\UnityEngine.UIElementsModule.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.TextCoreTextEngineModule">
+      <HintPath>$(ManagedPath)\UnityEngine.TextCoreTextEngineModule.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.TextCoreFontEngineModule">
+      <HintPath>$(ManagedPath)\UnityEngine.TextCoreFontEngineModule.dll</HintPath>
     </Reference>
     <Reference Include="Unity.TextMeshPro">
       <HintPath>$(ManagedPath)\Unity.TextMeshPro.dll</HintPath>

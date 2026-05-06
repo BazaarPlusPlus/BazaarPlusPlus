@@ -8,14 +8,17 @@ namespace BazaarPlusPlus.Game.CombatReplay;
 internal sealed class CombatReplayModule : IBppFeature
 {
     private readonly IBppEventBus _eventBus;
-    private readonly Func<CombatReplayRuntime?> _runtimeAccessor;
+    private CombatReplayRuntime? _runtime;
     private IDisposable? _messageSubscription;
 
-    public CombatReplayModule(IBppEventBus eventBus, Func<CombatReplayRuntime?> runtimeAccessor)
+    public CombatReplayModule(IBppEventBus eventBus)
     {
         _eventBus = eventBus ?? throw new ArgumentNullException(nameof(eventBus));
-        _runtimeAccessor =
-            runtimeAccessor ?? throw new ArgumentNullException(nameof(runtimeAccessor));
+    }
+
+    public void AttachRuntime(CombatReplayRuntime runtime)
+    {
+        _runtime = runtime ?? throw new ArgumentNullException(nameof(runtime));
     }
 
     public void Start()
@@ -31,6 +34,6 @@ internal sealed class CombatReplayModule : IBppFeature
 
     private void OnNetMessageObserved(NetMessageObserved observed)
     {
-        _runtimeAccessor()?.ObserveMessage(observed.Message);
+        _runtime?.ObserveMessage(observed.Message);
     }
 }

@@ -6,6 +6,8 @@ namespace BazaarPlusPlus.Game.CombatReplay;
 
 internal sealed class CombatReplaySequenceCandidate
 {
+    public string? BattleId { get; set; }
+
     public string? RunId { get; set; }
 
     public string? PlayerHero { get; set; }

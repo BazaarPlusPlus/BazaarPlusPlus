@@ -4,7 +4,7 @@ using BazaarPlusPlus.Game.CombatReplay;
 
 namespace BazaarPlusPlus.Game.PvpBattles;
 
-internal sealed class PvpBattleCardSetCapture
+public sealed class PvpBattleCardSetCapture
 {
     public IList<CombatReplayCardSnapshot> Items { get; set; } =
         new List<CombatReplayCardSnapshot>();

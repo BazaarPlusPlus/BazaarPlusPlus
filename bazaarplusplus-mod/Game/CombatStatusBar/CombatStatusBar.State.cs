@@ -49,7 +49,7 @@ internal sealed partial class CombatStatusBar
 
     internal static TimeSpan GetCombatLogicalElapsed()
     {
-        return TimeSpan.FromMilliseconds(ProcessedCombatFrames * 50d);
+        return TimeSpan.FromMilliseconds(GetCurrentCombatFrameIndex() * 50d);
     }
 
     internal static float StepCombatSpeed(int direction)
@@ -79,7 +79,7 @@ internal sealed partial class CombatStatusBar
 
     internal static bool ShouldRenderForState(bool enabled)
     {
-        return enabled && BppRuntimeHost.RunContext.IsInGameRun;
+        return enabled && (_services?.RunContext.IsInGameRun ?? false);
     }
 
     internal static bool CanStepCombatSpeed(int direction)
@@ -108,7 +108,9 @@ internal sealed partial class CombatStatusBar
 
     internal static string GetDisplayedFrameText()
     {
-        return IsCombatPlaybackActive ? ProcessedCombatFrames.ToString() : "Standby";
+        return IsCombatPlaybackActive
+            ? GetCurrentCombatFrameIndex().ToString()
+            : "Standby";
     }
 
     internal static float AdvanceVisualBlend(float current, bool active, float deltaTime)
@@ -160,6 +162,11 @@ internal sealed partial class CombatStatusBar
     {
         var minutes = (int)elapsed.TotalMinutes;
         return $"{minutes}:{elapsed.Seconds:00}:{elapsed.Milliseconds / 10:00}";
+    }
+
+    private static int GetCurrentCombatFrameIndex()
+    {
+        return Math.Max(ProcessedCombatFrames - 1, 0);
     }
 
     private static int GetCurrentSpeedStepIndex()

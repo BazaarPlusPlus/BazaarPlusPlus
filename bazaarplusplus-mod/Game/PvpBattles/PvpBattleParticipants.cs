@@ -1,7 +1,7 @@
 #nullable enable
 namespace BazaarPlusPlus.Game.PvpBattles;
 
-internal sealed class PvpBattleParticipants
+public sealed class PvpBattleParticipants
 {
     public string? PlayerName { get; set; }
 

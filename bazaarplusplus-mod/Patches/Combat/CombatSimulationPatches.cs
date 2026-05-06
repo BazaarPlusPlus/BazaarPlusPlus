@@ -2,7 +2,7 @@
 using System.Threading;
 using BazaarGameShared.Infra.Messages;
 using BazaarPlusPlus.Core.Events;
-using BazaarPlusPlus.Core.Runtime;
+using BazaarPlusPlus.Patches;
 using HarmonyLib;
 using TheBazaar;
 
@@ -15,7 +15,7 @@ class CombatSimPatch
     [HarmonyPrefix]
     static void Prefix(NetMessageCombatSim message, CancellationTokenSource cancellationToken)
     {
-        BppRuntimeHost.EventBus.Publish(new CombatSimObserved { Message = message });
+        BppPatchHost.Services.EventBus.Publish(new CombatSimObserved { Message = message });
     }
 }
 
@@ -25,6 +25,6 @@ class CombatFrameAdvancePatch
     [HarmonyPostfix]
     static void Postfix()
     {
-        BppRuntimeHost.EventBus.Publish(new CombatFrameAdvanced());
+        BppPatchHost.Services.EventBus.Publish(new CombatFrameAdvanced());
     }
 }

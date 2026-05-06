@@ -1,9 +1,8 @@
 #nullable enable
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
+using BazaarPlusPlus.Game.Lobby;
 using HarmonyLib;
 using TheBazaar;
 using TheBazaar.UI;
@@ -24,11 +23,6 @@ internal sealed class RandomHeroPoolPanelController : MonoBehaviour
     private const string EntryPrefix = "BPP_RandomHeroPoolHero_";
     private const int EntryColumnCount = 3;
     private const float PanelWidth = 236f;
-    private const float PanelHorizontalPadding = 10f;
-    private const float PanelTopPadding = 8f;
-    private const float PanelBottomPadding = 10f;
-    private const float HeaderHeight = 18f;
-    private const float HeaderToEntriesSpacing = 8f;
     private const float EntryWidth = 66f;
     private const float EntryHeight = 32f;
     private const float EntryHorizontalSpacing = 6f;
@@ -65,7 +59,6 @@ internal sealed class RandomHeroPoolPanelController : MonoBehaviour
     private bool _warnedMissingHeroUnlockStateField;
     private bool _warnedMissingRandomHeroToggleField;
     private bool _subscribedToEvents;
-    private Coroutine? _pendingRosterRefreshCoroutine;
 
     internal static void Attach(HeroSelectButtonsView view)
     {
@@ -89,20 +82,6 @@ internal sealed class RandomHeroPoolPanelController : MonoBehaviour
         controller.UpdatePanelVisibility();
     }
 
-    internal static void ScheduleRosterRefresh(
-        HeroSelectButtonsView view,
-        Task refreshTask,
-        bool forceRebuild
-    )
-    {
-        if (view == null || refreshTask == null)
-            return;
-
-        var controller = GetOrCreateController(view);
-        controller.TryAttach(view);
-        controller.ScheduleRosterRefresh(refreshTask, forceRebuild);
-    }
-
     internal static void NotifyVisibilityChanged(HeroSelectButtonsView view)
     {
         if (view == null)
@@ -113,7 +92,6 @@ internal sealed class RandomHeroPoolPanelController : MonoBehaviour
 
     private void OnDestroy()
     {
-        CancelPendingRosterRefresh();
         UnsubscribeFromEvents();
         UnbindToggle();
     }
@@ -288,7 +266,7 @@ internal sealed class RandomHeroPoolPanelController : MonoBehaviour
         outline.effectDistance = new Vector2(1.5f, -1.5f);
         outline.useGraphicAlpha = true;
 
-        _headerLabel = CreateText(
+        _headerLabel = LobbyPanelLayout.CreateText(
             HeaderObjectName,
             panelRect,
             fontSize: 15f,
@@ -305,8 +283,14 @@ internal sealed class RandomHeroPoolPanelController : MonoBehaviour
         headerRect.anchorMin = new Vector2(0f, 1f);
         headerRect.anchorMax = new Vector2(1f, 1f);
         headerRect.pivot = new Vector2(0f, 1f);
-        headerRect.offsetMin = new Vector2(PanelHorizontalPadding, -PanelTopPadding - HeaderHeight);
-        headerRect.offsetMax = new Vector2(-PanelHorizontalPadding, -PanelTopPadding);
+        headerRect.offsetMin = new Vector2(
+            LobbyPanelLayout.PanelHorizontalPadding,
+            -LobbyPanelLayout.PanelTopPadding - LobbyPanelLayout.HeaderHeight
+        );
+        headerRect.offsetMax = new Vector2(
+            -LobbyPanelLayout.PanelHorizontalPadding,
+            -LobbyPanelLayout.PanelTopPadding
+        );
 
         var entriesObject = new GameObject(EntriesRootObjectName, typeof(RectTransform));
         _entriesRoot = entriesObject.GetComponent<RectTransform>();
@@ -316,11 +300,15 @@ internal sealed class RandomHeroPoolPanelController : MonoBehaviour
         _entriesRoot.pivot = new Vector2(0f, 1f);
         _entriesRoot.sizeDelta = Vector2.zero;
         _entriesRoot.anchoredPosition = new Vector2(
-            PanelHorizontalPadding,
-            -(PanelTopPadding + HeaderHeight + HeaderToEntriesSpacing)
+            LobbyPanelLayout.PanelHorizontalPadding,
+            -(
+                LobbyPanelLayout.PanelTopPadding
+                + LobbyPanelLayout.HeaderHeight
+                + LobbyPanelLayout.HeaderToEntriesSpacing
+            )
         );
 
-        _emptyLabel = CreateText(
+        _emptyLabel = LobbyPanelLayout.CreateText(
             EmptyLabelObjectName,
             panelRect,
             fontSize: 13f,
@@ -338,12 +326,12 @@ internal sealed class RandomHeroPoolPanelController : MonoBehaviour
         emptyRect.anchorMax = new Vector2(1f, 1f);
         emptyRect.pivot = new Vector2(0.5f, 1f);
         emptyRect.offsetMin = new Vector2(
-            PanelHorizontalPadding,
-            -PanelTopPadding - HeaderHeight - 38f
+            LobbyPanelLayout.PanelHorizontalPadding,
+            -LobbyPanelLayout.PanelTopPadding - LobbyPanelLayout.HeaderHeight - 38f
         );
         emptyRect.offsetMax = new Vector2(
-            -PanelHorizontalPadding,
-            -PanelTopPadding - HeaderHeight - 8f
+            -LobbyPanelLayout.PanelHorizontalPadding,
+            -LobbyPanelLayout.PanelTopPadding - LobbyPanelLayout.HeaderHeight - 8f
         );
         _emptyLabel.text = "No heroes";
         _emptyLabel.gameObject.SetActive(false);
@@ -377,33 +365,6 @@ internal sealed class RandomHeroPoolPanelController : MonoBehaviour
         {
             return false;
         }
-    }
-
-    private void ScheduleRosterRefresh(Task refreshTask, bool forceRebuild)
-    {
-        CancelPendingRosterRefresh();
-        _pendingRosterRefreshCoroutine = StartCoroutine(
-            WaitForRosterRefresh(refreshTask, forceRebuild)
-        );
-    }
-
-    private void CancelPendingRosterRefresh()
-    {
-        if (_pendingRosterRefreshCoroutine == null)
-            return;
-
-        StopCoroutine(_pendingRosterRefreshCoroutine);
-        _pendingRosterRefreshCoroutine = null;
-    }
-
-    private IEnumerator WaitForRosterRefresh(Task refreshTask, bool forceRebuild)
-    {
-        while (!refreshTask.IsCompleted)
-            yield return null;
-
-        _pendingRosterRefreshCoroutine = null;
-        if (_view != null)
-            NotifyRosterChanged(_view, forceRebuild);
     }
 
     private void SyncPanelPlacement()
@@ -521,12 +482,7 @@ internal sealed class RandomHeroPoolPanelController : MonoBehaviour
             return;
 
         _heroEntryViews.Clear();
-        for (var index = _entriesRoot.childCount - 1; index >= 0; index--)
-        {
-            var child = _entriesRoot.GetChild(index);
-            if (child != null)
-                UnityEngine.Object.Destroy(child.gameObject);
-        }
+        LobbyPanelLayout.ClearChildren(_entriesRoot);
 
         for (var index = 0; index < _heroAvailabilities.Length; index++)
             CreateHeroEntry(_heroAvailabilities[index], index);
@@ -535,7 +491,7 @@ internal sealed class RandomHeroPoolPanelController : MonoBehaviour
         var entriesHeight =
             rows <= 0 ? 0f : (rows * EntryHeight) + ((rows - 1) * EntryVerticalSpacing);
         _entriesRoot.sizeDelta = new Vector2(
-            PanelWidth - (PanelHorizontalPadding * 2f),
+            PanelWidth - (LobbyPanelLayout.PanelHorizontalPadding * 2f),
             entriesHeight
         );
         _panelRoot.sizeDelta = new Vector2(PanelWidth, CalculatePanelHeight(rows));
@@ -562,9 +518,13 @@ internal sealed class RandomHeroPoolPanelController : MonoBehaviour
         entryRect.anchorMax = new Vector2(0f, 1f);
         entryRect.pivot = new Vector2(0f, 1f);
         entryRect.sizeDelta = new Vector2(EntryWidth, EntryHeight);
-        entryRect.anchoredPosition = new Vector2(
-            (index % EntryColumnCount) * (EntryWidth + EntryHorizontalSpacing),
-            -(index / EntryColumnCount) * (EntryHeight + EntryVerticalSpacing)
+        entryRect.anchoredPosition = LobbyPanelLayout.GridAnchoredPosition(
+            index,
+            EntryColumnCount,
+            EntryWidth,
+            EntryHeight,
+            EntryHorizontalSpacing,
+            EntryVerticalSpacing
         );
 
         var background = entryObject.GetComponent<Image>();
@@ -581,7 +541,7 @@ internal sealed class RandomHeroPoolPanelController : MonoBehaviour
         button.transition = Selectable.Transition.None;
         button.navigation = new Navigation { mode = Navigation.Mode.None };
 
-        var label = CreateText(
+        var label = LobbyPanelLayout.CreateText(
             "Label",
             entryRect,
             fontSize: 16f,
@@ -718,37 +678,8 @@ internal sealed class RandomHeroPoolPanelController : MonoBehaviour
         return heroItemView.HeroButton != null && heroItemView.HeroButton.interactable;
     }
 
-    private static TextMeshProUGUI? CreateText(
-        string objectName,
-        Transform parent,
-        float fontSize,
-        TextAlignmentOptions alignment,
-        Color color
-    )
-    {
-        var textObject = new GameObject(objectName, typeof(RectTransform), typeof(TextMeshProUGUI));
-        var textRect = textObject.GetComponent<RectTransform>();
-        textRect.SetParent(parent, worldPositionStays: false);
-
-        var text = textObject.GetComponent<TextMeshProUGUI>();
-        text.fontSize = fontSize;
-        text.alignment = alignment;
-        text.color = color;
-        text.raycastTarget = false;
-        text.textWrappingMode = TextWrappingModes.NoWrap;
-        return text;
-    }
-
-    private static float CalculatePanelHeight(int rows)
-    {
-        var entriesHeight =
-            rows <= 0 ? 24f : (rows * EntryHeight) + ((rows - 1) * EntryVerticalSpacing);
-        return PanelTopPadding
-            + HeaderHeight
-            + HeaderToEntriesSpacing
-            + entriesHeight
-            + PanelBottomPadding;
-    }
+    private static float CalculatePanelHeight(int rows) =>
+        LobbyPanelLayout.CalculatePanelHeight(rows, EntryHeight, EntryVerticalSpacing);
 
     private static HeroBadgeStyle GetHeroBadgeStyle(string? heroName)
     {

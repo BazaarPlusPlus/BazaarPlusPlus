@@ -4,16 +4,19 @@ use std::path::Path;
 use std::process::Command;
 use std::time::Duration;
 
-#[cfg(target_os = "macos")]
+#[cfg_attr(not(any(target_os = "windows", test)), allow(dead_code))]
+const STEAM_PROCESS_NAME: &str = "steam.exe";
+#[cfg(any(target_os = "macos", target_os = "windows"))]
 const STEAM_EXIT_WAIT_ATTEMPTS: usize = 60;
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "windows"))]
 const STEAM_EXIT_WAIT_INTERVAL: Duration = Duration::from_millis(500);
 
 pub fn supports_launch_option_updates(steam_path: &Path) -> bool {
     steam_path.join("userdata").is_dir()
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ts_rs::TS)]
+#[ts(export)]
 pub struct SteamRunningInfo {
     pub running: bool,
 }
@@ -38,6 +41,13 @@ fn steam_running_from_pgrep(
             }
         }
     }
+}
+
+#[cfg_attr(not(any(target_os = "windows", test)), allow(dead_code))]
+fn tasklist_output_indicates_steam_running(stdout: &[u8]) -> bool {
+    let output = String::from_utf8_lossy(stdout);
+
+    output.lines().any(|line| line.contains(STEAM_PROCESS_NAME))
 }
 
 fn ensure_process_stopped_with<IsRunning, RequestQuit, Sleep>(
@@ -81,6 +91,31 @@ fn is_steam_running() -> Result<bool, String> {
     steam_running_from_pgrep(output.status.code(), &output.stdout, &output.stderr)
 }
 
+#[cfg(target_os = "windows")]
+fn is_steam_running() -> Result<bool, String> {
+    let output = Command::new("tasklist")
+        .args([
+            "/FI",
+            &format!("IMAGENAME eq {STEAM_PROCESS_NAME}"),
+            "/FO",
+            "CSV",
+            "/NH",
+        ])
+        .output()
+        .map_err(|err| format!("Failed to inspect Steam process state: {err}"))?;
+
+    if output.status.success() {
+        return Ok(tasklist_output_indicates_steam_running(&output.stdout));
+    }
+
+    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+    if stderr.is_empty() {
+        Err("Failed to inspect Steam process state.".to_string())
+    } else {
+        Err(format!("Failed to inspect Steam process state: {stderr}"))
+    }
+}
+
 #[tauri::command]
 pub fn detect_steam_running() -> Result<SteamRunningInfo, String> {
     #[cfg(target_os = "macos")]
@@ -88,7 +123,12 @@ pub fn detect_steam_running() -> Result<SteamRunningInfo, String> {
         return is_steam_running().map(|running| SteamRunningInfo { running });
     }
 
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(target_os = "windows")]
+    {
+        return is_steam_running().map(|running| SteamRunningInfo { running });
+    }
+
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
     {
         Ok(SteamRunningInfo { running: false })
     }
@@ -113,8 +153,59 @@ fn request_steam_quit() -> Result<(), String> {
     }
 }
 
-#[cfg(target_os = "macos")]
-pub fn prepare_steam_for_launch_option_update(steam_path: &Path) -> Result<(), String> {
+#[cfg(target_os = "windows")]
+fn request_steam_quit() -> Result<(), String> {
+    let output = Command::new("taskkill")
+        .args(["/IM", STEAM_PROCESS_NAME, "/T"])
+        .output()
+        .map_err(|err| format!("Failed to ask Steam to quit: {err}"))?;
+
+    if output.status.success() {
+        return Ok(());
+    }
+
+    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+    if stderr.is_empty() {
+        Err("Failed to ask Steam to quit.".to_string())
+    } else {
+        Err(format!("Failed to ask Steam to quit: {stderr}"))
+    }
+}
+
+#[cfg(any(target_os = "macos", target_os = "windows"))]
+fn close_steam_internal() -> Result<bool, String> {
+    ensure_process_stopped_with(
+        "Steam",
+        is_steam_running,
+        request_steam_quit,
+        std::thread::sleep,
+        STEAM_EXIT_WAIT_ATTEMPTS,
+        STEAM_EXIT_WAIT_INTERVAL,
+    )
+}
+
+#[tauri::command]
+pub fn close_steam() -> Result<(), String> {
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    {
+        let stopped = close_steam_internal()?;
+        if stopped {
+            debug_log!("Steam was running and has been closed.");
+        }
+        return Ok(());
+    }
+
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    {
+        Ok(())
+    }
+}
+
+#[cfg(any(target_os = "macos", target_os = "windows"))]
+pub fn prepare_steam_for_launch_option_update(
+    steam_path: &Path,
+    skip_shutdown: bool,
+) -> Result<(), String> {
     if !supports_launch_option_updates(steam_path) {
         debug_log!(
             "Skipping Steam shutdown because Steam userdata was not found at {}.",
@@ -123,14 +214,12 @@ pub fn prepare_steam_for_launch_option_update(steam_path: &Path) -> Result<(), S
         return Ok(());
     }
 
-    let stopped = ensure_process_stopped_with(
-        "Steam",
-        is_steam_running,
-        request_steam_quit,
-        std::thread::sleep,
-        STEAM_EXIT_WAIT_ATTEMPTS,
-        STEAM_EXIT_WAIT_INTERVAL,
-    )?;
+    if skip_shutdown {
+        debug_log!("Allowing Steam to keep running during launch option update.");
+        return Ok(());
+    }
+
+    let stopped = close_steam_internal()?;
 
     if stopped {
         debug_log!("Steam was running and has been closed.");
@@ -139,14 +228,20 @@ pub fn prepare_steam_for_launch_option_update(steam_path: &Path) -> Result<(), S
     Ok(())
 }
 
-#[cfg(not(target_os = "macos"))]
-pub fn prepare_steam_for_launch_option_update(_steam_path: &Path) -> Result<(), String> {
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
+pub fn prepare_steam_for_launch_option_update(
+    _steam_path: &Path,
+    _skip_shutdown: bool,
+) -> Result<(), String> {
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{ensure_process_stopped_with, steam_running_from_pgrep};
+    use super::{
+        ensure_process_stopped_with, steam_running_from_pgrep,
+        tasklist_output_indicates_steam_running,
+    };
     use std::time::Duration;
 
     #[test]
@@ -165,6 +260,20 @@ mod tests {
         let running = steam_running_from_pgrep(Some(0), stdout, b"").unwrap();
 
         assert!(!running);
+    }
+
+    #[test]
+    fn test_tasklist_output_indicates_steam_running_detects_steam_process() {
+        let stdout = b"\"steam.exe\",\"15432\",\"Console\",\"1\",\"512,340 K\"\r\n";
+
+        assert!(tasklist_output_indicates_steam_running(stdout));
+    }
+
+    #[test]
+    fn test_tasklist_output_indicates_steam_running_returns_false_when_missing() {
+        let stdout = b"INFO: No tasks are running which match the specified criteria.\r\n";
+
+        assert!(!tasklist_output_indicates_steam_running(stdout));
     }
 
     #[test]

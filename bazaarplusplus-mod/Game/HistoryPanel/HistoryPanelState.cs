@@ -47,11 +47,15 @@ internal sealed class HistoryPanelState
 
     public float DeleteRunConfirmationUntil { get; set; }
 
+    public bool DeleteRunConfirmationStatusActive { get; set; }
+
     public PreviewSelectionMode PreviewSelectionMode { get; set; } = PreviewSelectionMode.Run;
 
     public HistorySectionMode SectionMode { get; set; } = HistorySectionMode.Runs;
 
     public bool GhostSyncInProgress { get; set; }
+
+    public bool FinalBuildRefreshInProgress { get; set; }
 
     public bool ReplayActionInProgress { get; set; }
 
@@ -61,10 +65,27 @@ internal sealed class HistoryPanelState
 
     public bool ShouldClearStatusWhenDeleteConfirmationExpires()
     {
-        return StatusMessage != null
-            && StatusMessage.StartsWith(
-                "Click Delete Run again within 5s to remove ",
-                StringComparison.Ordinal
-            );
+        return DeleteRunConfirmationStatusActive;
+    }
+
+    public HistoryRunRecord? GetSelectedRun() => SafeIndex(Runs, SelectedRunIndex);
+
+    public HistoryBattleRecord? GetSelectedBattle() => SafeIndex(Battles, SelectedBattleIndex);
+
+    public HistoryBattleRecord? GetSelectedGhostBattle(
+        IReadOnlyList<HistoryBattleRecord> filteredGhostBattles
+    ) => SafeIndex(filteredGhostBattles, SelectedGhostBattleIndex);
+
+    private static T? SafeIndex<T>(IReadOnlyList<T> list, int index)
+        where T : class
+    {
+        if (list.Count == 0)
+            return null;
+
+        if (index < 0)
+            return list[0];
+        if (index >= list.Count)
+            return list[list.Count - 1];
+        return list[index];
     }
 }

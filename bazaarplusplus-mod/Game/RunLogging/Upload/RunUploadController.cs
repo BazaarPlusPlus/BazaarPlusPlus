@@ -1,10 +1,9 @@
 #nullable enable
 using System;
 using System.Threading;
-using System.Threading.Tasks;
 using BazaarPlusPlus.Core.Events;
 using BazaarPlusPlus.Core.Runtime;
-using BazaarPlusPlus.Game.ModApi;
+using BazaarPlusPlus.Game.Online;
 using BazaarPlusPlus.Game.Upload;
 using UnityEngine;
 
@@ -12,7 +11,8 @@ namespace BazaarPlusPlus.Game.RunLogging.Upload;
 
 internal sealed class RunUploadController : MonoBehaviour
 {
-    private RunSummaryUploadService? _uploadService;
+    private IBppServices? _services;
+    private RunBundleUploadService? _uploadService;
     private CancellationTokenSource? _shutdown;
     private StartupUploadAttemptGate? _startupGate;
     private IDisposable? _runLifecycleSubscription;
@@ -24,47 +24,44 @@ internal sealed class RunUploadController : MonoBehaviour
         "Startup upload failed"
     );
 
-    private void Awake()
+    private void Awake() { }
+
+    public void Initialize(IBppServices services)
+    {
+        _services = services;
+        InitializeCore();
+    }
+
+    private void InitializeCore()
     {
         try
         {
-            if (BppRuntimeHost.Config.EnableCommunityContributionConfig?.Value != true)
-                return;
+            var services = _services!;
+            var databasePath = services.Paths.RunLogDatabasePath;
+            var replayRootPath = services.Paths.CombatReplayDirectoryPath;
 
-            var databasePath = BppRuntimeHost.Paths.RunLogDatabasePath;
-            var identityPath = BppRuntimeHost.Paths.RunUploadInstallIdentityPath;
-            var clientStatePath = BppRuntimeHost.Paths.RunUploadClientStatePath;
-            var privateKeyPath = BppRuntimeHost.Paths.RunUploadPrivateKeyPath;
-
-            var startupDelaySeconds = Math.Max(5, ModApiDefaults.StartupDelaySeconds);
-            var retryIntervalSeconds = Math.Max(1, ModApiDefaults.IntervalSeconds);
-            var batchSize = Math.Max(1, ModApiDefaults.BatchSize);
-            var requestTimeoutSeconds = Math.Max(10, ModApiDefaults.RequestTimeoutSeconds);
-            var context = ModApiBootstrapContext.TryCreate(
-                databasePath,
-                replayRootPath: null,
-                identityPath,
-                clientStatePath,
-                privateKeyPath,
-                ModApiDefaults.ApiBaseUrl
-            );
-            if (context == null)
+            var startupDelaySeconds = Math.Max(5, V3UploadDefaults.StartupDelaySeconds);
+            var retryIntervalSeconds = Math.Max(1, V3UploadDefaults.IntervalSeconds);
+            var requestTimeoutSeconds = Math.Max(10, V3UploadDefaults.RequestTimeoutSeconds);
+            if (
+                string.IsNullOrWhiteSpace(databasePath) || string.IsNullOrWhiteSpace(replayRootPath)
+            )
             {
                 BppLog.Warn(
                     "RunUploadController",
-                    "Run upload is enabled but local auth/state paths or endpoints are invalid."
+                    "Run bundle upload is enabled but local replay or database paths are invalid."
                 );
                 return;
             }
 
-            var uploadStore = new RunUploadSqliteStore(context.DatabasePath);
-            _uploadService = new RunSummaryUploadService(
+            var routes = V3Routes.TryCreate(V3UploadDefaults.ApiBaseUrl);
+            if (routes == null)
+                return;
+
+            var uploadStore = new RunBundleUploadStore(databasePath, replayRootPath);
+            _uploadService = new RunBundleUploadService(
                 uploadStore,
-                context.CreateIdentityStore(),
-                context.CreateClientStateStore(),
-                context.CreateKeyStore(),
-                context.Routes,
-                batchSize,
+                routes,
                 timeout: TimeSpan.FromSeconds(requestTimeoutSeconds)
             );
             _shutdown = new CancellationTokenSource();
@@ -72,16 +69,16 @@ internal sealed class RunUploadController : MonoBehaviour
                 Time.unscaledTime + startupDelaySeconds,
                 retryIntervalSeconds
             );
-            _runLifecycleSubscription = BppRuntimeHost.EventBus.Subscribe<RunLifecycleChanged>(
+            _runLifecycleSubscription = services.EventBus.Subscribe<RunLifecycleChanged>(
                 OnRunLifecycleChanged
             );
             _replayPersistenceDrainedSubscription =
-                BppRuntimeHost.EventBus.Subscribe<CombatReplayPersistenceDrained>(
+                services.EventBus.Subscribe<CombatReplayPersistenceDrained>(
                     OnCombatReplayPersistenceDrained
                 );
             BppLog.Info(
                 "RunUploadController",
-                $"Startup run upload armed. timeout={requestTimeoutSeconds}s, batch_size={batchSize}, startup_delay={startupDelaySeconds}s, retry_interval={retryIntervalSeconds}s."
+                $"Startup run-bundle upload armed. timeout={requestTimeoutSeconds}s, startup_delay={startupDelaySeconds}s, retry_interval={retryIntervalSeconds}s."
             );
         }
         catch (Exception ex)
@@ -92,13 +89,19 @@ internal sealed class RunUploadController : MonoBehaviour
 
     private void Update()
     {
-        if (_uploadService == null || _shutdown == null || _startupGate == null)
+        if (
+            _uploadService == null
+            || _shutdown == null
+            || _startupGate == null
+            || _services == null
+        )
             return;
+
         _startupRunner.Tick(
             _startupGate,
             Time.unscaledTime,
-            BppRuntimeHost.RunContext.IsInGameRun,
-            _uploadService.UploadPendingRunSummariesAsync,
+            _services!.RunContext.IsInGameRun,
+            _uploadService.UploadPendingRunBundlesAsync,
             _shutdown.Token
         );
     }
@@ -131,7 +134,7 @@ internal sealed class RunUploadController : MonoBehaviour
 
     private void OnCombatReplayPersistenceDrained(CombatReplayPersistenceDrained _)
     {
-        if (BppRuntimeHost.RunContext.IsInGameRun)
+        if (_services!.RunContext.IsInGameRun)
             return;
 
         _startupGate?.ArmImmediateAttempt(Time.unscaledTime);

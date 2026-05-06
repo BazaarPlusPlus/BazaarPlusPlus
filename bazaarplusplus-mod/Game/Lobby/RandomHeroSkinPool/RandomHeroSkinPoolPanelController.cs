@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using BazaarGameShared;
 using BazaarGameShared.Domain.Core.Types;
+using BazaarPlusPlus.Game.Lobby;
 using HarmonyLib;
 using TheBazaar;
 using TheBazaar.AppFramework;
@@ -24,13 +25,8 @@ internal sealed class RandomHeroSkinPoolPanelController : MonoBehaviour
     private const string EntryPrefix = "BPP_RandomCollectiblePoolEntry_";
     private const int EntryColumnCount = 2;
     private const float PanelWidth = 252f;
-    private const float PanelHorizontalPadding = 10f;
-    private const float PanelTopPadding = 8f;
-    private const float PanelBottomPadding = 10f;
     private const float PanelHorizontalGap = 12f;
     private const float PanelVerticalOffset = 0f;
-    private const float HeaderHeight = 18f;
-    private const float HeaderToEntriesSpacing = 8f;
     private const float EntryWidth = 110f;
     private const float EntryHeight = 42f;
     private const float EntryHorizontalSpacing = 8f;
@@ -256,13 +252,12 @@ internal sealed class RandomHeroSkinPoolPanelController : MonoBehaviour
         outline.effectDistance = new Vector2(1.5f, -1.5f);
         outline.useGraphicAlpha = true;
 
-        _headerLabel = CreateText(
+        _headerLabel = LobbyPanelLayout.CreateText(
             HeaderObjectName,
             panelRect,
             15f,
             TextAlignmentOptions.Left,
-            new Color(0.72f, 0.96f, 0.87f, 1f),
-            wrap: false
+            new Color(0.72f, 0.96f, 0.87f, 1f)
         );
         if (_headerLabel == null)
             return false;
@@ -271,8 +266,14 @@ internal sealed class RandomHeroSkinPoolPanelController : MonoBehaviour
         headerRect.anchorMin = new Vector2(0f, 1f);
         headerRect.anchorMax = new Vector2(1f, 1f);
         headerRect.pivot = new Vector2(0f, 1f);
-        headerRect.offsetMin = new Vector2(PanelHorizontalPadding, -PanelTopPadding - HeaderHeight);
-        headerRect.offsetMax = new Vector2(-PanelHorizontalPadding, -PanelTopPadding);
+        headerRect.offsetMin = new Vector2(
+            LobbyPanelLayout.PanelHorizontalPadding,
+            -LobbyPanelLayout.PanelTopPadding - LobbyPanelLayout.HeaderHeight
+        );
+        headerRect.offsetMax = new Vector2(
+            -LobbyPanelLayout.PanelHorizontalPadding,
+            -LobbyPanelLayout.PanelTopPadding
+        );
 
         var entriesObject = new GameObject(EntriesRootObjectName, typeof(RectTransform));
         _entriesRoot = entriesObject.GetComponent<RectTransform>();
@@ -281,11 +282,15 @@ internal sealed class RandomHeroSkinPoolPanelController : MonoBehaviour
         _entriesRoot.anchorMax = new Vector2(0f, 1f);
         _entriesRoot.pivot = new Vector2(0f, 1f);
         _entriesRoot.anchoredPosition = new Vector2(
-            PanelHorizontalPadding,
-            -(PanelTopPadding + HeaderHeight + HeaderToEntriesSpacing)
+            LobbyPanelLayout.PanelHorizontalPadding,
+            -(
+                LobbyPanelLayout.PanelTopPadding
+                + LobbyPanelLayout.HeaderHeight
+                + LobbyPanelLayout.HeaderToEntriesSpacing
+            )
         );
 
-        _emptyLabel = CreateText(
+        _emptyLabel = LobbyPanelLayout.CreateText(
             EmptyLabelObjectName,
             panelRect,
             13f,
@@ -301,12 +306,12 @@ internal sealed class RandomHeroSkinPoolPanelController : MonoBehaviour
         emptyRect.anchorMax = new Vector2(1f, 1f);
         emptyRect.pivot = new Vector2(0.5f, 1f);
         emptyRect.offsetMin = new Vector2(
-            PanelHorizontalPadding,
-            -PanelTopPadding - HeaderHeight - 40f
+            LobbyPanelLayout.PanelHorizontalPadding,
+            -LobbyPanelLayout.PanelTopPadding - LobbyPanelLayout.HeaderHeight - 40f
         );
         emptyRect.offsetMax = new Vector2(
-            -PanelHorizontalPadding,
-            -PanelTopPadding - HeaderHeight - 8f
+            -LobbyPanelLayout.PanelHorizontalPadding,
+            -LobbyPanelLayout.PanelTopPadding - LobbyPanelLayout.HeaderHeight - 8f
         );
         _emptyLabel.text = "No skins";
         _emptyLabel.gameObject.SetActive(false);
@@ -420,12 +425,7 @@ internal sealed class RandomHeroSkinPoolPanelController : MonoBehaviour
             return;
 
         _entryViews.Clear();
-        for (var index = _entriesRoot.childCount - 1; index >= 0; index--)
-        {
-            var child = _entriesRoot.GetChild(index);
-            if (child != null)
-                Destroy(child.gameObject);
-        }
+        LobbyPanelLayout.ClearChildren(_entriesRoot);
 
         for (var index = 0; index < _availableSkins.Length; index++)
             CreateEntry(_availableSkins[index], index);
@@ -434,7 +434,7 @@ internal sealed class RandomHeroSkinPoolPanelController : MonoBehaviour
         var entriesHeight =
             rows <= 0 ? 0f : (rows * EntryHeight) + ((rows - 1) * EntryVerticalSpacing);
         _entriesRoot.sizeDelta = new Vector2(
-            PanelWidth - (PanelHorizontalPadding * 2f),
+            PanelWidth - (LobbyPanelLayout.PanelHorizontalPadding * 2f),
             entriesHeight
         );
         _panelRoot.sizeDelta = new Vector2(PanelWidth, CalculatePanelHeight(rows));
@@ -461,9 +461,13 @@ internal sealed class RandomHeroSkinPoolPanelController : MonoBehaviour
         entryRect.anchorMax = new Vector2(0f, 1f);
         entryRect.pivot = new Vector2(0f, 1f);
         entryRect.sizeDelta = new Vector2(EntryWidth, EntryHeight);
-        entryRect.anchoredPosition = new Vector2(
-            (index % EntryColumnCount) * (EntryWidth + EntryHorizontalSpacing),
-            -(index / EntryColumnCount) * (EntryHeight + EntryVerticalSpacing)
+        entryRect.anchoredPosition = LobbyPanelLayout.GridAnchoredPosition(
+            index,
+            EntryColumnCount,
+            EntryWidth,
+            EntryHeight,
+            EntryHorizontalSpacing,
+            EntryVerticalSpacing
         );
 
         var background = entryObject.GetComponent<Image>();
@@ -480,7 +484,7 @@ internal sealed class RandomHeroSkinPoolPanelController : MonoBehaviour
         button.onClick.RemoveAllListeners();
         button.onClick.AddListener(() => OnEntryClicked(saleItem.CollectionItemID));
 
-        var label = CreateText(
+        var label = LobbyPanelLayout.CreateText(
             "Label",
             entryRect,
             11f,
@@ -624,38 +628,8 @@ internal sealed class RandomHeroSkinPoolPanelController : MonoBehaviour
         return collectionManager.GetEquippedSaleItem(collectionType, hero).CollectionItemID;
     }
 
-    private static TextMeshProUGUI? CreateText(
-        string objectName,
-        Transform parent,
-        float fontSize,
-        TextAlignmentOptions alignment,
-        Color color,
-        bool wrap
-    )
-    {
-        var textObject = new GameObject(objectName, typeof(RectTransform), typeof(TextMeshProUGUI));
-        var textRect = textObject.GetComponent<RectTransform>();
-        textRect.SetParent(parent, worldPositionStays: false);
-
-        var text = textObject.GetComponent<TextMeshProUGUI>();
-        text.fontSize = fontSize;
-        text.alignment = alignment;
-        text.color = color;
-        text.raycastTarget = false;
-        text.textWrappingMode = wrap ? TextWrappingModes.Normal : TextWrappingModes.NoWrap;
-        return text;
-    }
-
-    private static float CalculatePanelHeight(int rows)
-    {
-        var entriesHeight =
-            rows <= 0 ? 24f : (rows * EntryHeight) + ((rows - 1) * EntryVerticalSpacing);
-        return PanelTopPadding
-            + HeaderHeight
-            + HeaderToEntriesSpacing
-            + entriesHeight
-            + PanelBottomPadding;
-    }
+    private static float CalculatePanelHeight(int rows) =>
+        LobbyPanelLayout.CalculatePanelHeight(rows, EntryHeight, EntryVerticalSpacing);
 
     private sealed class SkinPoolEntryView
     {

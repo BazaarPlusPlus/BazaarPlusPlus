@@ -187,7 +187,8 @@ function ensureZipLooksValid(zipPath, platform) {
 
 export function runPrebuildCheck(rootDir, platformEnv) {
   console.log('Running prebuild check...');
-  assertVersionsAreAligned(collectVersionSnapshot(rootDir));
+  const snapshot = collectVersionSnapshot(rootDir);
+  assertVersionsAreAligned(snapshot);
   const platforms = resolveTargetPlatforms(platformEnv);
 
   for (const platform of platforms) {

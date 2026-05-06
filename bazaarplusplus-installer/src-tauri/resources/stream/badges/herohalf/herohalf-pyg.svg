@@ -1,0 +1,11 @@
+<svg xmlns='http://www.w3.org/2000/svg' width='160' height='80' viewBox='0 0 160 80' fill='none'>
+  <defs>
+    <linearGradient id='bg' x1='80' y1='0' x2='80' y2='80' gradientUnits='userSpaceOnUse'>
+      <stop stop-color='#3C79D9'/>
+      <stop offset='1' stop-color='#2451A8'/>
+    </linearGradient>
+  </defs>
+  <rect x='3' y='3' width='154' height='74' rx='22' fill='url(#bg)' stroke='#8BB4FF' stroke-width='6'/>
+  <rect x='14' y='12' width='132' height='56' rx='16' fill='rgba(255,255,255,0.03)' stroke='rgba(255,255,255,0.06)' stroke-width='2'/>
+  <text x='80' y='43' text-anchor='middle' dominant-baseline='middle' font-family='Baskerville, Georgia, Palatino Linotype, serif' font-size='34' font-weight='700' letter-spacing='6' fill='#FFF8F2'>PYG</text>
+</svg>

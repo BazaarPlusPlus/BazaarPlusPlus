@@ -10,7 +10,7 @@ public static class ItemEnchantPreviewFormatting
 {
     private const int PrefixSizePercent = 60;
     private const int EffectSizePercent = 55;
-    private const string EnchantmentPrefix = "";
+    private const string EnchantmentPrefix = "\u00A0\u00A0· ";
 
     private static readonly Regex SizeTagRegex = new Regex(
         "<size=(\\d+)%>",
@@ -27,7 +27,7 @@ public static class ItemEnchantPreviewFormatting
         var scaledText = ScaleInlineSizes(renderedText, EffectSizePercent / 100f);
 
         return new TooltipSegment(
-            $"<size={PrefixSizePercent}%>{EnchantmentPrefix}<color=#{colorHex}>{enchantmentLabel}</color></size><size={EffectSizePercent}%>: {scaledText}</size>",
+            $"<size={PrefixSizePercent}%>{EnchantmentPrefix}<color=#{colorHex}>{enchantmentLabel}</color>: </size><size={EffectSizePercent}%>{scaledText}</size>",
             null,
             null,
             -1
@@ -68,18 +68,18 @@ public static class ItemEnchantPreviewFormatting
     {
         return enchantmentType switch
         {
-            EEnchantmentType.Heavy => "CAA77A",
-            EEnchantmentType.Golden => "E9C45E",
-            EEnchantmentType.Icy => "67C8E6",
-            EEnchantmentType.Turbo => "46D6C8",
-            EEnchantmentType.Shielded => "D9C05C",
-            EEnchantmentType.Restorative => "95D46B",
-            EEnchantmentType.Toxic => "63BE67",
-            EEnchantmentType.Fiery => "E9A15B",
-            EEnchantmentType.Shiny => "A9B2F1",
-            EEnchantmentType.Deadly => "E36E5A",
-            EEnchantmentType.Radiant => "A9B2F1",
-            EEnchantmentType.Obsidian => "AE6D89",
+            EEnchantmentType.Heavy => "CB9F6E",
+            EEnchantmentType.Golden => "FFCD19",
+            EEnchantmentType.Icy => "3FC8F7",
+            EEnchantmentType.Turbo => "00ECC3",
+            EEnchantmentType.Shielded => "F4CF20",
+            EEnchantmentType.Restorative => "8EEA31",
+            EEnchantmentType.Toxic => "0EBE4F",
+            EEnchantmentType.Fiery => "FF9F45",
+            EEnchantmentType.Shiny => "98A8FE",
+            EEnchantmentType.Deadly => "F5503D",
+            EEnchantmentType.Radiant => "98A8FE",
+            EEnchantmentType.Obsidian => "9D4A6F",
             _ => "FFFFFF",
         };
     }

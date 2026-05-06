@@ -4,7 +4,7 @@ using BazaarGameShared.Domain.Core.Types;
 
 namespace BazaarPlusPlus.Game.CombatReplay;
 
-internal sealed class CombatReplayCardSnapshot
+public sealed class CombatReplayCardSnapshot
 {
     public string InstanceId { get; set; } = string.Empty;
 

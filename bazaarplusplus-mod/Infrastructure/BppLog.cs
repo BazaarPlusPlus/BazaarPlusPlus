@@ -19,7 +19,14 @@ internal static class BppLog
     private static int _activeSequenceIndex;
     private static int _activeSequenceRepeatCount;
 
-    private static ManualLogSource? Logger => BppRuntimeHost.Logger;
+    private static ManualLogSource? _logger;
+
+    public static void Install(ManualLogSource logger)
+    {
+        _logger = logger;
+    }
+
+    private static ManualLogSource? Logger => _logger;
 
     private readonly struct BufferedLogEntry
     {

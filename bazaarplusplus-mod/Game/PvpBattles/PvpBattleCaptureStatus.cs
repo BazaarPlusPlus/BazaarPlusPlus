@@ -1,7 +1,7 @@
 #nullable enable
 namespace BazaarPlusPlus.Game.PvpBattles;
 
-internal enum PvpBattleCaptureStatus
+public enum PvpBattleCaptureStatus
 {
     Missing,
     CapturedEmpty,

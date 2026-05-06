@@ -1,83 +1,40 @@
 ﻿<script lang="ts">
   import { getVersion } from '@tauri-apps/api/app';
+  import { openUrl } from '@tauri-apps/plugin-opener';
   import { onMount } from 'svelte';
-  import AppModal from '$lib/components/AppModal.svelte';
+  import LocaleToggle from '$lib/components/LocaleToggle.svelte';
+  import PaymentCodeModal from '$lib/components/supporters/PaymentCodeModal.svelte';
   import { formatMessage, messages } from '$lib/i18n';
-  import { locale, handleLocaleToggle } from '$lib/locale';
-  import SupporterListModal from '$lib/components/supporters/SupporterListModal.svelte';
+  import { locale } from '$lib/locale';
+  import { hasTauriRuntime } from '$lib/installer/runtime';
+  import {
+    authors,
+    dataSources,
+    frontendDependencies,
+    inspiredBy,
+    paymentMethods,
+    projectDependencies,
+    rustDependencies,
+    supportLinks
+  } from '$lib/about/content';
+  import {
+    createAboutPageModel,
+    type AboutPageModel
+  } from '$lib/about/page-model';
+
+  const SUPPORTERS_URL_EN = 'https://bazaarplusplus.com/support?lang=en';
+  const SUPPORTERS_URL_ZH = 'https://bazaarplusplus.com/support';
 
   let appVersion = '0.0.0';
   let showPaymentCodes = false;
-  let showSupporterList = false;
-  let hiddenPaymentImages: Record<string, boolean> = {};
+  let pageModel: AboutPageModel = createAboutPageModel('en');
 
-  $: t = (
+  function t(
     key: keyof typeof messages.en,
     params?: Record<string, string | number>
-  ): string => formatMessage($locale, key, params);
-
-  $: localeBadge = $locale === 'zh' ? '中' : 'EN';
-  $: localeButtonLabel = $locale === 'zh' ? 'Switch to English' : '切换到中文';
-
-  const paymentMethods = [
-    {
-      id: 'wechat',
-      zhName: '微信收款码',
-      enName: 'WePay',
-      src: '/support/wechat-pay.svg',
-      accent: 'payment-card-wechat'
-    }
-  ];
-
-  const inspiredBy = [
-    { name: 'BazaarHelper', url: 'https://github.com/Duangi/BazaarHelper' },
-    {
-      name: 'BazaarPlannerMod',
-      url: 'https://github.com/oceanseth/BazaarPlannerMod'
-    }
-  ];
-
-  const dataSources = [{ name: 'BazaarDB', url: 'https://bazaardb.gg' }];
-
-  const projectDeps = [
-    {
-      name: 'BepInEx',
-      license: 'LGPL-2.1',
-      url: 'https://github.com/BepInEx/BepInEx'
-    }
-  ];
-
-  const frontendDeps = [
-    { name: 'Svelte', license: 'MIT', url: 'https://svelte.dev' },
-    { name: 'SvelteKit', license: 'MIT', url: 'https://kit.svelte.dev' },
-    { name: 'Vite', license: 'MIT', url: 'https://vitejs.dev' },
-    { name: 'Tauri', license: 'MIT / Apache-2.0', url: 'https://tauri.app' }
-  ];
-
-  const rustDeps = [
-    { name: 'serde', license: 'MIT / Apache-2.0', url: 'https://serde.rs' },
-    {
-      name: 'reqwest',
-      license: 'MIT / Apache-2.0',
-      url: 'https://github.com/seanmonstar/reqwest'
-    },
-    { name: 'zip', license: 'MIT', url: 'https://github.com/zip-rs/zip2' },
-    {
-      name: 'dirs',
-      license: 'MIT / Apache-2.0',
-      url: 'https://github.com/dirs-dev/dirs-rs'
-    },
-    {
-      name: 'keyvalues-parser',
-      license: 'MIT',
-      url: 'https://github.com/CosmicHorrorDev/keyvalues-rs'
-    },
-    {
-      name: 'winreg',
-      license: 'MIT',
-      url: 'https://github.com/gentoo90/winreg-rs'
-    }
-  ];
+  ): string {
+    return formatMessage($locale, key, params);
+  }
 
   locale.init();
 
@@ -95,7 +52,6 @@
   }
 
   function openPaymentCodes() {
-    hiddenPaymentImages = {};
     showPaymentCodes = true;
   }
 
@@ -103,81 +59,50 @@
     showPaymentCodes = false;
   }
 
-  function openSupporterList() {
-    showSupporterList = true;
+  async function openSupporterList() {
+    const url = $locale === 'zh' ? SUPPORTERS_URL_ZH : SUPPORTERS_URL_EN;
+    if (!hasTauriRuntime()) {
+      if (typeof window !== 'undefined') {
+        window.open(url, '_blank', 'noopener,noreferrer');
+      }
+      return;
+    }
+
+    try {
+      await openUrl(url);
+    } catch (error) {
+      console.error(error);
+    }
   }
 
-  function closeSupporterList() {
-    showSupporterList = false;
-  }
-
-  function handlePaymentImageError(methodId: string) {
-    hiddenPaymentImages = {
-      ...hiddenPaymentImages,
-      [methodId]: true
-    };
-  }
+  $: pageModel = createAboutPageModel($locale);
+  $: paymentModalMethods = paymentMethods.map((method) => ({
+    id: method.id,
+    src: method.src,
+    alt: $locale === 'zh' ? method.name.zh : method.name.en,
+    accent: method.accent
+  }));
 </script>
 
 <svelte:head>
   <title>{t('aboutTitle')} - BazaarPlusPlus</title>
 </svelte:head>
 
-<AppModal
+<PaymentCodeModal
   open={showPaymentCodes}
-  eyebrow="BazaarPlusPlus"
-  title={$locale === 'zh' ? '支持项目' : 'Support the Project'}
-  bodyClass="payment-modal-body"
-  confirmText={$locale === 'zh' ? '关闭' : 'Close'}
-  onConfirm={closePaymentCodes}
->
-  <section class="payment-modal-shell">
-    <div class="payment-grid">
-      {#each paymentMethods as method}
-        <article class={`payment-card ${method.accent}`}>
-          <div class="payment-frame">
-            {#if !hiddenPaymentImages[method.id]}
-              <img
-                class="payment-image"
-                src={method.src}
-                alt={$locale === 'zh' ? method.zhName : method.enName}
-                onerror={() => handlePaymentImageError(method.id)}
-              />
-            {:else}
-              <div class="payment-placeholder" aria-hidden="true"></div>
-            {/if}
-          </div>
-
-          <div class="payment-copy">
-            <h3>{$locale === 'zh' ? '支持项目' : 'Support the Project'}</h3>
-            <p>
-              {$locale === 'zh'
-                ? '请 Bazaar++ 喝一杯'
-                : 'Buy Bazaar++ a drink.'}
-            </p>
-          </div>
-        </article>
-      {/each}
-    </div>
-
-    <p class="payment-support-note">
-      {$locale === 'zh'
-        ? '有你支持，Bazaar++ 会冒出更多好东西'
-        : 'With your support, Bazaar++ gets to grow more good stuff.'}
-    </p>
-    <p class="payment-support-tip">
-      {$locale === 'zh'
-        ? '如果愿意，欢迎在备注里留一个支持者 ID'
-        : 'If you want, you can leave a supporter ID in the payment note.'}
-    </p>
-  </section>
-</AppModal>
-
-<SupporterListModal open={showSupporterList} onClose={closeSupporterList} />
+  title={pageModel.paymentModalTitle}
+  closeLabel={pageModel.paymentModalCloseLabel}
+  cardTitle={pageModel.paymentCardTitle}
+  cardBody={pageModel.paymentCardBody}
+  supportNote={pageModel.paymentSupportNote}
+  supportTip={pageModel.paymentSupportTip}
+  methods={paymentModalMethods}
+  onClose={closePaymentCodes}
+/>
 
 <main class="shell">
   <header class="header">
-    <a class="back-btn" href="/">
+    <a class="back-btn" href="/install">
       <svg class="back-icon" viewBox="0 0 24 24" aria-hidden="true">
         <path
           d="M15 18l-6-6 6-6"
@@ -191,21 +116,10 @@
       {t('aboutBack')}
     </a>
 
-    <button
-      class="locale-toggle"
-      onclick={handleLocaleToggle}
-      type="button"
-      aria-label={localeButtonLabel}
-      title={localeButtonLabel}
-    >
-      <svg class="locale-icon" viewBox="0 0 24 24" aria-hidden="true">
-        <path
-          d="M12 3a9 9 0 1 0 9 9a9 9 0 0 0-9-9Zm5.9 8h-2.2a14.3 14.3 0 0 0-1.2-4A7.1 7.1 0 0 1 17.9 11Zm-5.9-5.8c.7.9 1.7 2.9 2.1 5.8H9.9c.4-2.9 1.4-4.9 2.1-5.8ZM6.5 7a14.3 14.3 0 0 0-1.2 4H3.1A7.1 7.1 0 0 1 6.5 7ZM3.1 13h2.2a14.3 14.3 0 0 0 1.2 4A7.1 7.1 0 0 1 3.1 13Zm8.9 5.8c-.7-.9-1.7-2.9-2.1-5.8h4.2c-.4 2.9-1.4 4.9-2.1 5.8Zm2.5-1.8a14.3 14.3 0 0 0 1.2-4h2.2a7.1 7.1 0 0 1-3.4 4Z"
-          fill="currentColor"
-        />
-      </svg>
-      <span class="locale-badge">{localeBadge}</span>
-    </button>
+    <LocaleToggle
+      label={pageModel.localeButtonLabel}
+      badge={pageModel.localeBadge}
+    />
 
     <div class="sigil" aria-hidden="true">
       <svg width="32" height="32" viewBox="0 0 44 44" fill="none">
@@ -255,7 +169,6 @@
           >
             BazaarPlusPlus
           </a>
-          <span>Installer</span>
         </p>
         <p class="info-meta-line">
           <span class="version-label">Version</span>
@@ -267,10 +180,10 @@
       </div>
       <button class="supporter-entry" type="button" onclick={openSupporterList}>
         <span class="supporter-entry-title"
-          >{$locale === 'zh' ? '支持者名单' : 'Supporters'}</span
+          >{pageModel.supporterEntryTitle}</span
         >
         <span class="supporter-entry-subtitle"
-          >{$locale === 'zh' ? '查看名单' : 'Open list'}</span
+          >{pageModel.supporterEntrySubtitle}</span
         >
       </button>
     </div>
@@ -279,39 +192,19 @@
   <section class="card">
     <h2 class="section-title">{t('aboutAuthors')}</h2>
     <ul class="dep-list">
-      <li>
-        <a
-          class="dep-item dep-item-link"
-          href="https://github.com/cauyxy"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <span class="dep-name">cauyxy</span>
-          <span class="dep-role">{t('aboutAuthorRole')}</span>
-        </a>
-      </li>
-      <li>
-        <a
-          class="dep-item dep-item-link"
-          href="https://openai.com/codex"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <span class="dep-name">Codex</span>
-          <span class="dep-role">{t('aboutCocreatorRole')}</span>
-        </a>
-      </li>
-      <li>
-        <a
-          class="dep-item dep-item-link"
-          href="https://claude.com/product/claude-code"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <span class="dep-name">Claude Code</span>
-          <span class="dep-role">{t('aboutCocreatorRole')}</span>
-        </a>
-      </li>
+      {#each authors as author}
+        <li>
+          <a
+            class="dep-item dep-item-link"
+            href={author.url}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <span class="dep-name">{author.name}</span>
+            <span class="dep-role">{t(author.roleKey)}</span>
+          </a>
+        </li>
+      {/each}
     </ul>
   </section>
 
@@ -324,23 +217,25 @@
           type="button"
           onclick={openPaymentCodes}
         >
-          <span class="dep-name">{$locale === 'zh' ? '微信' : 'Wepay'}</span>
-          <span class="dep-link-label"
-            >{$locale === 'zh' ? '感谢支持' : 'Support'}</span
-          >
+          <span class="dep-name">{pageModel.paymentActionLabel}</span>
+          <span class="dep-link-label">{pageModel.paymentActionHint}</span>
         </button>
       </li>
-      <li>
-        <a
-          class="dep-item dep-item-link"
-          href="https://ko-fi.com/cauyxy"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <span class="dep-name">Ko-fi</span>
-          <span class="dep-link-label">ko-fi.com/cauyxy</span>
-        </a>
-      </li>
+      {#each supportLinks as supportLink}
+        <li>
+          <a
+            class="dep-item dep-item-link"
+            href={supportLink.url}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <span class="dep-name">{supportLink.name}</span>
+            <span class="dep-link-label"
+              >{supportLink.url.replace('https://', '')}</span
+            >
+          </a>
+        </li>
+      {/each}
     </ul>
   </section>
 
@@ -385,7 +280,7 @@
   <section class="card">
     <h2 class="section-title">{t('aboutDependencies')}</h2>
     <ul class="dep-list">
-      {#each projectDeps as dep}
+      {#each projectDependencies as dep}
         <li class="dep-item">
           <span class="dep-name">{dep.name}</span>
           <span class="dep-license">{dep.license}</span>
@@ -399,7 +294,7 @@
 
     <h3 class="group-title">Frontend</h3>
     <ul class="dep-list">
-      {#each frontendDeps as dep}
+      {#each frontendDependencies as dep}
         <li class="dep-item">
           <span class="dep-name">{dep.name}</span>
           <span class="dep-license">{dep.license}</span>
@@ -409,7 +304,7 @@
 
     <h3 class="group-title">Rust / Backend</h3>
     <ul class="dep-list">
-      {#each rustDeps as dep}
+      {#each rustDependencies as dep}
         <li class="dep-item">
           <span class="dep-name">{dep.name}</span>
           <span class="dep-license">{dep.license}</span>
@@ -457,10 +352,10 @@
       rgba(38, 23, 9, 0.92),
       rgba(16, 10, 5, 0.88)
     );
-    border: 1px solid rgba(200, 148, 55, 0.18);
+    border: 1px solid rgba(var(--color-accent-rgb), 0.18);
     border-radius: 3px;
     box-shadow:
-      0 0 0 1px rgba(200, 148, 55, 0.06) inset,
+      0 0 0 1px rgba(var(--color-accent-rgb), 0.06) inset,
       0 24px 64px rgba(0, 0, 0, 0.5);
     display: grid;
     gap: 0.15rem;
@@ -473,14 +368,14 @@
     left: 0.9rem;
     height: 2rem;
     padding: 0.3rem 0.55rem;
-    border: 1px solid rgba(200, 148, 55, 0.24);
+    border: 1px solid rgba(var(--color-accent-rgb), 0.24);
     border-radius: 2px;
     background: linear-gradient(
       180deg,
-      rgba(200, 148, 55, 0.12),
-      rgba(200, 148, 55, 0.06)
+      rgba(var(--color-accent-rgb), 0.12),
+      rgba(var(--color-accent-rgb), 0.06)
     );
-    color: rgba(228, 216, 191, 0.82);
+    color: rgba(var(--color-cream-rgb), 0.82);
     font-family: 'Cinzel', serif;
     font-size: 0.54rem;
     letter-spacing: 0.14em;
@@ -489,7 +384,7 @@
     align-items: center;
     justify-content: center;
     gap: 0.3rem;
-    box-shadow: 0 0 0 1px rgba(255, 198, 98, 0.08) inset;
+    box-shadow: 0 0 0 1px rgba(var(--color-warm-bright-rgb), 0.08) inset;
     z-index: 2;
     text-decoration: none;
     transition:
@@ -500,14 +395,14 @@
   .back-btn:hover {
     background: linear-gradient(
       180deg,
-      rgba(200, 148, 55, 0.2),
-      rgba(200, 148, 55, 0.1)
+      rgba(var(--color-accent-rgb), 0.2),
+      rgba(var(--color-accent-rgb), 0.1)
     );
-    border-color: rgba(200, 148, 55, 0.4);
+    border-color: rgba(var(--color-accent-rgb), 0.4);
   }
 
   .back-btn:focus-visible {
-    outline: 2px solid rgba(255, 214, 140, 0.9);
+    outline: 2px solid rgba(var(--color-warm-rgb), 0.9);
     outline-offset: 2px;
   }
 
@@ -516,65 +411,6 @@
     height: 0.9rem;
     flex-shrink: 0;
     opacity: 0.9;
-  }
-
-  .locale-toggle {
-    position: absolute;
-    top: 0.9rem;
-    right: 0.9rem;
-    min-width: 3.2rem;
-    height: 2rem;
-    padding: 0.3rem 0.55rem;
-    border: 1px solid rgba(200, 148, 55, 0.24);
-    border-radius: 2px;
-    background: linear-gradient(
-      180deg,
-      rgba(200, 148, 55, 0.12),
-      rgba(200, 148, 55, 0.06)
-    );
-    color: rgba(228, 216, 191, 0.82);
-    font-family: 'Cinzel', serif;
-    font-size: 0.54rem;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.35rem;
-    box-shadow: 0 0 0 1px rgba(255, 198, 98, 0.08) inset;
-    z-index: 2;
-    cursor: pointer;
-    border-style: solid;
-    font: inherit;
-  }
-
-  .locale-toggle:hover {
-    background: linear-gradient(
-      180deg,
-      rgba(200, 148, 55, 0.2),
-      rgba(200, 148, 55, 0.1)
-    );
-    border-color: rgba(200, 148, 55, 0.4);
-  }
-
-  .locale-toggle:focus-visible {
-    outline: 2px solid rgba(255, 214, 140, 0.9);
-    outline-offset: 2px;
-  }
-
-  .locale-icon {
-    width: 0.9rem;
-    height: 0.9rem;
-    flex-shrink: 0;
-    opacity: 0.9;
-  }
-
-  .locale-badge {
-    min-width: 1.1rem;
-    text-align: center;
-    font-family: 'Fira Code', monospace;
-    font-size: 0.62rem;
-    letter-spacing: 0.05em;
   }
 
   .sigil {
@@ -599,7 +435,12 @@
     font-size: clamp(1.35rem, 4.2vw, 2.1rem);
     font-weight: 700;
     line-height: 1;
-    background: linear-gradient(155deg, #e8c87a 0%, #bf852e 55%, #e8c87a 100%);
+    background: linear-gradient(
+      155deg,
+      var(--color-gold-text) 0%,
+      var(--color-gold-deep) 55%,
+      var(--color-gold-text) 100%
+    );
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -611,7 +452,7 @@
     display: flex;
     align-items: center;
     gap: 0.65rem;
-    color: rgba(200, 148, 55, 0.35);
+    color: rgba(var(--color-accent-rgb), 0.35);
   }
 
   .rule span:first-child,
@@ -621,8 +462,8 @@
     background: linear-gradient(
       90deg,
       transparent,
-      rgba(200, 148, 55, 0.3) 40%,
-      rgba(200, 148, 55, 0.3) 60%,
+      rgba(var(--color-accent-rgb), 0.3) 40%,
+      rgba(var(--color-accent-rgb), 0.3) 60%,
       transparent
     );
   }
@@ -660,14 +501,14 @@
     font-size: 0.6rem;
     letter-spacing: 0.1em;
     text-transform: uppercase;
-    color: rgba(200, 148, 55, 0.55);
+    color: rgba(var(--color-accent-rgb), 0.55);
   }
 
   .info-line {
     margin: 0;
     font-family: 'Fira Code', monospace;
     font-size: 0.78rem;
-    color: rgba(228, 216, 191, 0.82);
+    color: rgba(var(--color-cream-rgb), 0.82);
     display: flex;
     align-items: center;
     gap: 0.6rem;
@@ -689,7 +530,7 @@
   }
 
   .info-link:focus-visible {
-    outline: 2px solid rgba(255, 214, 140, 0.9);
+    outline: 2px solid rgba(var(--color-warm-rgb), 0.9);
     outline-offset: 2px;
   }
 
@@ -715,22 +556,14 @@
     flex-wrap: wrap;
   }
 
-  .info-dot {
-    width: 0.22rem;
-    height: 0.22rem;
-    border-radius: 999px;
-    background: rgba(200, 170, 120, 0.38);
-    flex-shrink: 0;
-  }
-
   .info-divider {
     width: 1px;
     height: 0.9rem;
     background: linear-gradient(
       180deg,
       transparent,
-      rgba(200, 170, 120, 0.45) 20%,
-      rgba(200, 170, 120, 0.45) 80%,
+      rgba(var(--color-muted-gold-rgb), 0.45) 20%,
+      rgba(var(--color-muted-gold-rgb), 0.45) 80%,
       transparent
     );
     flex-shrink: 0;
@@ -741,7 +574,7 @@
     font-size: 0.6rem;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: rgba(200, 170, 120, 0.5);
+    color: rgba(var(--color-muted-gold-rgb), 0.5);
   }
 
   .tag-version {
@@ -756,7 +589,7 @@
   .info-muted {
     margin: 0;
     font-size: 0.78rem;
-    color: rgba(200, 170, 120, 0.5);
+    color: rgba(var(--color-muted-gold-rgb), 0.5);
   }
 
   .dep-list {
@@ -773,25 +606,25 @@
     justify-content: space-between;
     padding: 0.45rem 0.6rem;
     border-radius: 2px;
-    background: rgba(200, 148, 55, 0.04);
+    background: rgba(var(--color-accent-rgb), 0.04);
     border: 1px solid rgba(180, 130, 48, 0.08);
     transition: background 0.15s ease;
   }
 
   .dep-item:hover {
-    background: rgba(200, 148, 55, 0.08);
+    background: rgba(var(--color-accent-rgb), 0.08);
   }
 
   .dep-name {
     font-family: 'Fira Code', monospace;
     font-size: 0.75rem;
-    color: rgba(228, 216, 191, 0.85);
+    color: rgba(var(--color-cream-rgb), 0.85);
   }
 
   .dep-license {
     font-family: 'Fira Code', monospace;
     font-size: 0.62rem;
-    color: rgba(200, 170, 120, 0.45);
+    color: rgba(var(--color-muted-gold-rgb), 0.45);
     flex-shrink: 0;
   }
 
@@ -805,7 +638,7 @@
     min-width: 9.4rem;
     padding: 0.6rem 0.75rem;
     border-radius: 3px;
-    border: 1px solid rgba(200, 148, 55, 0.2);
+    border: 1px solid rgba(var(--color-accent-rgb), 0.2);
     background:
       radial-gradient(
         circle at top,
@@ -817,7 +650,7 @@
     display: grid;
     gap: 0.15rem;
     justify-items: center;
-    box-shadow: inset 0 0 0 1px rgba(255, 214, 140, 0.04);
+    box-shadow: inset 0 0 0 1px rgba(var(--color-warm-rgb), 0.04);
     cursor: pointer;
     transition:
       background 0.15s ease,
@@ -865,7 +698,7 @@
   .dep-link-label {
     font-family: 'Fira Code', monospace;
     font-size: 0.62rem;
-    color: rgba(200, 170, 120, 0.55);
+    color: rgba(var(--color-muted-gold-rgb), 0.55);
     flex-shrink: 0;
   }
 
@@ -874,14 +707,14 @@
     font-size: 0.56rem;
     letter-spacing: 0.1em;
     text-transform: uppercase;
-    color: rgba(200, 170, 120, 0.45);
+    color: rgba(var(--color-muted-gold-rgb), 0.45);
     flex-shrink: 0;
   }
 
   .dep-link {
     font-family: 'Fira Code', monospace;
     font-size: 0.62rem;
-    color: rgba(200, 170, 120, 0.55);
+    color: rgba(var(--color-muted-gold-rgb), 0.55);
     text-decoration: none;
     flex-shrink: 0;
     transition: color 0.15s ease;
@@ -889,136 +722,6 @@
 
   .dep-link:hover {
     color: rgba(220, 180, 100, 0.85);
-  }
-
-  .payment-modal-body {
-    padding-top: 0.1rem;
-  }
-
-  .payment-modal-shell {
-    display: grid;
-    gap: 0.9rem;
-    text-align: left;
-  }
-
-  .payment-grid {
-    display: grid;
-    grid-template-columns: minmax(0, 260px);
-    justify-content: center;
-    gap: 0.8rem;
-  }
-
-  .payment-support-note {
-    margin: -0.1rem 0 0;
-    text-align: center;
-    font-size: 0.76rem;
-    line-height: 1.6;
-    color: rgba(214, 190, 146, 0.76);
-  }
-
-  .payment-support-tip {
-    margin: -0.2rem auto 0;
-    max-width: 28rem;
-    text-align: center;
-    font-size: 0.72rem;
-    line-height: 1.65;
-    color: rgba(240, 220, 184, 0.82);
-  }
-
-  .payment-card {
-    position: relative;
-    padding: 0.75rem;
-    background:
-      radial-gradient(
-        circle at top,
-        rgba(255, 232, 174, 0.08),
-        transparent 54%
-      ),
-      linear-gradient(180deg, rgba(34, 20, 8, 0.96), rgba(16, 9, 4, 0.98));
-    border: 1px solid rgba(200, 148, 55, 0.16);
-    border-radius: 4px;
-    display: grid;
-    gap: 0.65rem;
-    box-shadow: inset 0 0 0 1px rgba(255, 198, 98, 0.05);
-  }
-
-  .payment-card::after {
-    content: '';
-    position: absolute;
-    inset: 0.45rem;
-    border: 1px solid rgba(255, 220, 155, 0.05);
-    border-radius: 2px;
-    pointer-events: none;
-  }
-
-  .payment-card-wechat {
-    box-shadow:
-      inset 0 0 0 1px rgba(255, 198, 98, 0.05),
-      0 10px 32px rgba(42, 110, 78, 0.14);
-  }
-
-  .payment-frame {
-    aspect-ratio: 1 / 1;
-    padding: 0.8rem;
-    background: linear-gradient(
-      135deg,
-      rgba(255, 248, 231, 0.98),
-      rgba(245, 238, 220, 0.98)
-    );
-    border-radius: 3px;
-    box-shadow:
-      inset 0 0 0 1px rgba(95, 65, 19, 0.08),
-      0 10px 24px rgba(0, 0, 0, 0.22);
-  }
-
-  .payment-image,
-  .payment-placeholder {
-    width: 100%;
-    height: 100%;
-    border-radius: 2px;
-  }
-
-  .payment-image {
-    display: block;
-    object-fit: contain;
-    background: #fff;
-  }
-
-  .payment-placeholder {
-    background:
-      linear-gradient(90deg, rgba(0, 0, 0, 0.05) 1px, transparent 1px),
-      linear-gradient(rgba(0, 0, 0, 0.05) 1px, transparent 1px),
-      radial-gradient(
-        circle at center,
-        rgba(0, 0, 0, 0.08),
-        rgba(255, 255, 255, 0.94) 62%
-      );
-    background-size:
-      16px 16px,
-      16px 16px,
-      cover;
-    border: 1px dashed rgba(96, 74, 29, 0.28);
-  }
-
-  .payment-copy {
-    display: grid;
-    gap: 0.18rem;
-    text-align: center;
-  }
-
-  .payment-copy h3 {
-    margin: 0;
-    font-family: 'Cinzel', serif;
-    font-size: 0.82rem;
-    letter-spacing: 0.04em;
-    color: rgba(238, 220, 182, 0.94);
-  }
-
-  .payment-copy p {
-    margin: 0;
-    font-size: 0.66rem;
-    line-height: 1.45;
-    color: rgba(200, 170, 120, 0.8);
   }
 
   .footer {
@@ -1045,7 +748,7 @@
   button:focus-visible,
   .dep-item-link:focus-visible,
   .dep-link:focus-visible {
-    outline: 2px solid rgba(255, 214, 140, 0.9);
+    outline: 2px solid rgba(var(--color-warm-rgb), 0.9);
     outline-offset: 2px;
   }
 
@@ -1070,15 +773,6 @@
     .back-btn {
       top: 0.7rem;
       left: 0.7rem;
-    }
-
-    .locale-toggle {
-      top: 0.7rem;
-      right: 0.7rem;
-    }
-
-    .payment-grid {
-      grid-template-columns: 1fr;
     }
   }
 </style>

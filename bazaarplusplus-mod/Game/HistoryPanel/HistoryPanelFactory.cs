@@ -1,28 +1,28 @@
 #nullable enable
 using System;
-using BazaarPlusPlus.Core.Runtime;
 using BazaarPlusPlus.Game.HistoryPanel.Ghost;
-using BazaarPlusPlus.Game.ModApi;
+using BazaarPlusPlus.Game.Online;
 
 namespace BazaarPlusPlus.Game.HistoryPanel;
 
 internal static class HistoryPanelFactory
 {
-    public static HistoryPanelDependencies Create(IHistoryPanelRuntime runtime)
+    public static HistoryPanelDependencies Create(
+        IHistoryPanelRuntime runtime,
+        ModOnlineClient onlineClient
+    )
     {
         if (runtime == null)
             throw new ArgumentNullException(nameof(runtime));
+        if (onlineClient == null)
+            throw new ArgumentNullException(nameof(onlineClient));
 
         HistoryPanelRepository? repository = null;
         if (!string.IsNullOrWhiteSpace(runtime.RunLogDatabasePath))
             repository = new HistoryPanelRepository(runtime.RunLogDatabasePath);
 
-        var ghostSyncService = CreateGhostSyncService(runtime, repository);
-        var dataService = new HistoryPanelDataService(
-            repository,
-            ghostSyncService,
-            TryGetCurrentPlayerAccountId
-        );
+        var ghostSyncService = CreateGhostSyncService(repository, onlineClient);
+        var dataService = new HistoryPanelDataService(repository, ghostSyncService);
         var replayService = new HistoryPanelReplayService(
             runtime.CombatReplayRuntimeAccessor,
             () => runtime.CombatReplayDirectoryPath,
@@ -32,49 +32,13 @@ internal static class HistoryPanelFactory
     }
 
     private static GhostBattleSyncService? CreateGhostSyncService(
-        IHistoryPanelRuntime runtime,
-        HistoryPanelRepository? repository
+        HistoryPanelRepository? repository,
+        ModOnlineClient onlineClient
     )
     {
-        if (
-            repository == null
-            || BppRuntimeHost.Config.EnableCommunityContributionConfig?.Value != true
-        )
+        if (repository == null)
             return null;
 
-        var identityPath = BppRuntimeHost.Paths.RunUploadInstallIdentityPath;
-        var clientStatePath = BppRuntimeHost.Paths.RunUploadClientStatePath;
-        var privateKeyPath = BppRuntimeHost.Paths.RunUploadPrivateKeyPath;
-        var context = ModApiBootstrapContext.TryCreate(
-            runtime.RunLogDatabasePath,
-            runtime.CombatReplayDirectoryPath,
-            identityPath,
-            clientStatePath,
-            privateKeyPath,
-            ModApiDefaults.ApiBaseUrl
-        );
-        if (context == null)
-            return null;
-
-        return new GhostBattleSyncService(
-            repository,
-            context.CreateIdentityStore(),
-            context.CreateClientStateStore(),
-            context.CreateKeyStore(),
-            context.Routes,
-            timeout: TimeSpan.FromSeconds(10)
-        );
-    }
-
-    private static string? TryGetCurrentPlayerAccountId()
-    {
-        try
-        {
-            return BppClientCacheBridge.TryGetProfileAccountId();
-        }
-        catch
-        {
-            return null;
-        }
+        return new GhostBattleSyncService(repository, onlineClient);
     }
 }

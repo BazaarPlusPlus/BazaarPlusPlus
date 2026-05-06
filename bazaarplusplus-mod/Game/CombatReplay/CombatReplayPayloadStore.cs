@@ -2,12 +2,13 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using Newtonsoft.Json;
+using BazaarPlusPlus.Game.PvpBattles;
 
 namespace BazaarPlusPlus.Game.CombatReplay;
 
 internal sealed class CombatReplayPayloadStore
 {
+    private const string FileSuffix = ".payload.mpack.gz";
     private readonly string _rootPath;
 
     public CombatReplayPayloadStore(string rootPath)
@@ -19,7 +20,7 @@ internal sealed class CombatReplayPayloadStore
         Directory.CreateDirectory(_rootPath);
     }
 
-    public void Save(BazaarPlusPlus.Game.PvpBattles.PvpReplayPayload payload)
+    public void Save(PvpReplayPayload payload)
     {
         if (payload == null)
             throw new ArgumentNullException(nameof(payload));
@@ -28,11 +29,10 @@ internal sealed class CombatReplayPayloadStore
 
         Directory.CreateDirectory(_rootPath);
         var filePath = GetFilePath(payload.BattleId);
-        var json = JsonConvert.SerializeObject(payload, Formatting.Indented);
-        File.WriteAllText(filePath, json);
+        WriteAllBytesAtomically(filePath, PvpReplayPayloadCodec.Serialize(payload));
     }
 
-    public BazaarPlusPlus.Game.PvpBattles.PvpReplayPayload? Load(string battleId)
+    public PvpReplayPayload? Load(string battleId)
     {
         if (string.IsNullOrWhiteSpace(battleId))
             return null;
@@ -43,9 +43,8 @@ internal sealed class CombatReplayPayloadStore
 
         try
         {
-            return JsonConvert.DeserializeObject<BazaarPlusPlus.Game.PvpBattles.PvpReplayPayload>(
-                File.ReadAllText(filePath)
-            );
+            var payloadBytes = File.ReadAllBytes(filePath);
+            return PvpReplayPayloadCodec.Deserialize(payloadBytes);
         }
         catch (Exception ex)
         {
@@ -78,21 +77,45 @@ internal sealed class CombatReplayPayloadStore
     {
         Directory.CreateDirectory(_rootPath);
 
-        foreach (var filePath in Directory.EnumerateFiles(_rootPath, "*.payload.json"))
+        foreach (var filePath in Directory.EnumerateFiles(_rootPath, $"*{FileSuffix}"))
         {
             var fileName = Path.GetFileName(filePath);
             if (
-                fileName.EndsWith(".payload.json", StringComparison.OrdinalIgnoreCase)
-                && fileName.Length > ".payload.json".Length
+                fileName.EndsWith(FileSuffix, StringComparison.OrdinalIgnoreCase)
+                && fileName.Length > FileSuffix.Length
             )
             {
-                yield return fileName[..^".payload.json".Length];
+                yield return fileName[..^FileSuffix.Length];
             }
         }
     }
 
     private string GetFilePath(string battleId)
     {
-        return Path.Combine(_rootPath, $"{battleId}.payload.json");
+        return Path.Combine(_rootPath, $"{battleId}{FileSuffix}");
+    }
+
+    private static void WriteAllBytesAtomically(string filePath, byte[] bytes)
+    {
+        var directoryPath =
+            Path.GetDirectoryName(filePath)
+            ?? throw new InvalidOperationException("Payload path must have a parent directory.");
+        var tempPath = Path.Combine(
+            directoryPath,
+            $"{Path.GetFileName(filePath)}.{Guid.NewGuid():N}.tmp"
+        );
+        File.WriteAllBytes(tempPath, bytes);
+        try
+        {
+            if (File.Exists(filePath))
+                File.Replace(tempPath, filePath, null, ignoreMetadataErrors: true);
+            else
+                File.Move(tempPath, filePath);
+        }
+        finally
+        {
+            if (File.Exists(tempPath))
+                File.Delete(tempPath);
+        }
     }
 }

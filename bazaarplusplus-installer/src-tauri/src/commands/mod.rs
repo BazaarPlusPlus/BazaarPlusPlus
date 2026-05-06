@@ -1,8 +1,9 @@
 pub mod bepinex;
 pub mod detect;
-pub mod game;
+pub mod game_process;
+pub mod startup;
 pub mod steam;
-pub mod supporters;
+pub mod stream;
 pub mod vdf;
 
 macro_rules! debug_log {

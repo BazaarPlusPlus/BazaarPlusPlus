@@ -1,23 +1,36 @@
 <script lang="ts">
   import AppModal from '$lib/components/AppModal.svelte';
   import { locale } from '$lib/locale';
+  import { describeRepairError, type RepairError } from '$lib/installer/repair-errors';
 
   export let open: boolean;
   export let acknowledged: boolean;
   export let confirming = false;
   export let body: string;
+  export let error: RepairError | null = null;
   export let onConfirm: () => void | Promise<void>;
   export let onCancel: () => void | Promise<void>;
+
+  function localized(zh: string, en: string): string {
+    return $locale === 'zh' ? zh : en;
+  }
+
+  $: errorCopy = error ? describeRepairError(error, localized) : null;
+  $: confirmText = errorCopy
+    ? errorCopy.retryLabel
+    : localized('确认重置', 'Confirm Reset');
 </script>
 
 <AppModal
   {open}
   eyebrow="BazaarPlusPlus"
   title={$locale === 'zh' ? '重置战绩记录' : 'Reset Match History'}
-  confirmText={$locale === 'zh' ? '确认重置' : 'Confirm Reset'}
+  {confirmText}
   cancelText={$locale === 'zh' ? '关闭' : 'Close'}
   confirmBusy={confirming}
-  confirmBusyText={$locale === 'zh' ? '重置战绩记录中...' : 'Resetting match history...'}
+  confirmBusyText={$locale === 'zh'
+    ? '重置战绩记录中...'
+    : 'Resetting match history...'}
   confirmDisabled={!acknowledged || confirming}
   showCancel={true}
   bodyClass="reset-history"
@@ -32,8 +45,27 @@
     <p class="reset-history-body">{body}</p>
   </section>
 
+  {#if errorCopy}
+    <section class="reset-history-error" role="alert" aria-live="polite">
+      <p class="reset-history-error-title">{errorCopy.title}</p>
+      <p class="reset-history-error-body">{errorCopy.body}</p>
+      {#if errorCopy.paths && errorCopy.paths.length > 0}
+        <p class="reset-history-error-list-label">{errorCopy.pathListLabel}</p>
+        <ul class="reset-history-error-list">
+          {#each errorCopy.paths as path (path)}
+            <li class="reset-history-error-list-item" title={path}>{path}</li>
+          {/each}
+        </ul>
+      {/if}
+    </section>
+  {/if}
+
   <label class="reset-history-acknowledge">
-    <input class="reset-history-acknowledge-input" bind:checked={acknowledged} type="checkbox" />
+    <input
+      class="reset-history-acknowledge-input"
+      bind:checked={acknowledged}
+      type="checkbox"
+    />
     <span class="reset-history-acknowledge-box" aria-hidden="true"></span>
     <span>
       {$locale === 'zh'
@@ -58,7 +90,7 @@
         rgba(191, 104, 81, 0.025)
       ),
       rgba(12, 8, 4, 0.78);
-    box-shadow: inset 0 0 0 1px rgba(255, 198, 98, 0.03);
+    box-shadow: inset 0 0 0 1px rgba(var(--color-warm-bright-rgb), 0.03);
   }
 
   .reset-history-kicker {
@@ -74,8 +106,64 @@
     margin: 0;
     font-size: 0.84rem;
     line-height: 1.65;
-    color: rgba(228, 216, 191, 0.82);
+    color: rgba(var(--color-cream-rgb), 0.82);
     white-space: pre-line;
+  }
+
+  .reset-history-error {
+    display: grid;
+    gap: 0.5rem;
+    padding: 0.92rem 1rem;
+    border: 1px solid rgba(220, 90, 70, 0.42);
+    border-radius: 4px;
+    background: linear-gradient(
+        180deg,
+        rgba(220, 90, 70, 0.16),
+        rgba(220, 90, 70, 0.05)
+      ),
+      rgba(20, 8, 4, 0.85);
+    box-shadow: 0 0 0 1px rgba(255, 181, 166, 0.08) inset;
+  }
+
+  .reset-history-error-title {
+    margin: 0;
+    font-family: 'Cinzel', serif;
+    font-size: 0.7rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: rgba(255, 200, 188, 0.95);
+  }
+
+  .reset-history-error-body {
+    margin: 0;
+    font-size: 0.82rem;
+    line-height: 1.6;
+    color: rgba(var(--color-cream-rgb), 0.86);
+  }
+
+  .reset-history-error-list-label {
+    margin: 0.2rem 0 0;
+    font-size: 0.7rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgba(240, 178, 162, 0.78);
+  }
+
+  .reset-history-error-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: grid;
+    gap: 0.2rem;
+    max-height: 8rem;
+    overflow-y: auto;
+  }
+
+  .reset-history-error-list-item {
+    font-family: 'Fira Code', monospace;
+    font-size: 0.7rem;
+    color: rgba(225, 210, 185, 0.88);
+    word-break: break-all;
   }
 
   .reset-history-acknowledge {
@@ -93,9 +181,9 @@
         rgba(191, 104, 81, 0.025)
       ),
       rgba(12, 8, 4, 0.78);
-    box-shadow: inset 0 0 0 1px rgba(255, 198, 98, 0.04);
+    box-shadow: inset 0 0 0 1px rgba(var(--color-warm-bright-rgb), 0.04);
     text-align: left;
-    color: rgba(228, 216, 191, 0.8);
+    color: rgba(var(--color-cream-rgb), 0.8);
     font-size: 0.8rem;
     line-height: 1.45;
     cursor: pointer;
@@ -119,7 +207,7 @@
       rgba(255, 255, 255, 0.03)
     );
     box-shadow:
-      0 0 0 1px rgba(255, 198, 98, 0.05) inset,
+      0 0 0 1px rgba(var(--color-warm-bright-rgb), 0.05) inset,
       0 2px 10px rgba(0, 0, 0, 0.16);
     position: relative;
     transition:
@@ -150,21 +238,23 @@
       rgba(158, 92, 30, 0.22)
     );
     box-shadow:
-      0 0 0 1px rgba(255, 198, 98, 0.12) inset,
+      0 0 0 1px rgba(var(--color-warm-bright-rgb), 0.12) inset,
       0 4px 14px rgba(170, 100, 25, 0.24);
   }
 
-  .reset-history-acknowledge-input:checked + .reset-history-acknowledge-box::after {
+  .reset-history-acknowledge-input:checked
+    + .reset-history-acknowledge-box::after {
     border-color: #fff2ca;
   }
 
   .reset-history-acknowledge:hover .reset-history-acknowledge-box {
-    border-color: rgba(255, 214, 140, 0.8);
+    border-color: rgba(var(--color-warm-rgb), 0.8);
     transform: translateY(-1px);
   }
 
-  .reset-history-acknowledge-input:focus-visible + .reset-history-acknowledge-box {
-    outline: 2px solid rgba(255, 214, 140, 0.9);
+  .reset-history-acknowledge-input:focus-visible
+    + .reset-history-acknowledge-box {
+    outline: 2px solid rgba(var(--color-warm-rgb), 0.9);
     outline-offset: 2px;
   }
 

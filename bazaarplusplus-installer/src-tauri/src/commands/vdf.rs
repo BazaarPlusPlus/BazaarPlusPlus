@@ -9,7 +9,8 @@ use super::{debug_error, debug_log};
 const THE_BAZAAR_APP_ID: &str = "1617400";
 const LAUNCH_OPTIONS_KEY: &str = "LaunchOptions";
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ts_rs::TS)]
+#[ts(export)]
 pub struct LaunchOptionsPatchResult {
     pub verified: bool,
 }
@@ -517,6 +518,7 @@ pub fn patch_launch_options(
     _app: tauri::AppHandle,
     _steam_path: String,
     _game_path: String,
+    skip_steam_shutdown: bool,
 ) -> Result<LaunchOptionsPatchResult, String> {
     let game_path = PathBuf::from(&_game_path);
     let args = launch_options_args(&game_path);
@@ -535,7 +537,10 @@ pub fn patch_launch_options(
         return Ok(LaunchOptionsPatchResult { verified: true });
     }
 
-    crate::commands::steam::prepare_steam_for_launch_option_update(steam_path)?;
+    crate::commands::steam::prepare_steam_for_launch_option_update(
+        steam_path,
+        skip_steam_shutdown,
+    )?;
 
     #[cfg(target_os = "macos")]
     {

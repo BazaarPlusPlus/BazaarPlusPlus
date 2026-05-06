@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using BazaarGameClient.Domain.Models.Cards;
+using BazaarGameShared.Domain.Players;
 using BazaarGameShared.Domain.Values;
 using TheBazaar;
 using TheBazaar.AppFramework;
@@ -49,6 +50,16 @@ internal static class CardTooltipDataFactory
 
     internal static CardTooltipData Create(Card card, CardTooltipData source)
     {
+        return Create(card, source, MonsterField.GetValue(source) as TMonster);
+    }
+
+    internal static TMonster? GetMonster(CardTooltipData tooltipData)
+    {
+        return tooltipData != null ? MonsterField.GetValue(tooltipData) as TMonster : null;
+    }
+
+    internal static CardTooltipData Create(Card card, CardTooltipData source, TMonster? monster)
+    {
         if (card == null)
             throw new ArgumentNullException(nameof(card));
         if (source == null)
@@ -59,7 +70,7 @@ internal static class CardTooltipDataFactory
 
         CardInstanceField.SetValue(tooltipData, card);
         CardTemplateField.SetValue(tooltipData, source.CardTemplate);
-        MonsterField.SetValue(tooltipData, MonsterField.GetValue(source));
+        MonsterField.SetValue(tooltipData, monster);
         ValueContextField.SetValue(tooltipData, new ValueContext(Data.Run, card));
         CompiledTooltipsField.SetValue(tooltipData, CreateCompiledTooltipsCache());
         LocalizationServiceField.SetValue(

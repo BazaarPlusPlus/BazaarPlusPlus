@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>BazaarPlusPlus Overlay Calibration</title>
+    <link rel="stylesheet" href="/assets/settings.css" />
+    <script type="module" src="/assets/settings.js"></script>
+  </head>
+  <body>
+    <main class="settings-shell">
+      <header class="page-header">
+        <div>
+          <p class="eyebrow">Stream Overlay</p>
+          <h1>Crop Calibration</h1>
+          <p id="page-status" class="page-status">Loading the selected stream record...</p>
+        </div>
+        <p class="header-note">Adjust the crop directly on the source screenshot, then save or copy the code.</p>
+      </header>
+
+      <section class="workspace">
+        <section class="preview-panel">
+          <div class="panel-heading">
+            <p class="panel-eyebrow">Preview</p>
+            <h2>Adjust once, preview everywhere</h2>
+          </div>
+
+          <div id="preview-empty" class="preview-empty">
+            Waiting for screenshots with end-of-run crops.
+          </div>
+
+          <div id="preview-workspace" class="preview-workspace" hidden>
+            <div class="full-preview-card">
+              <p class="section-label">Source image</p>
+              <p id="selected-meta" class="selected-meta">No sample selected</p>
+              <div class="full-preview-stage">
+                <img id="full-preview-image" alt="Selected end-of-run record image" />
+                <div id="crop-box" class="crop-box" aria-hidden="true"></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <aside class="controls-panel">
+          <div class="panel-heading">
+            <p class="panel-eyebrow">Controls</p>
+            <h2>Crop ratios</h2>
+          </div>
+
+          <form id="crop-form" class="control-list">
+            <label class="control-row">
+              <span class="control-topline">
+                <span>Left</span>
+                <output id="crop-left-value" for="crop-left">0.342</output>
+              </span>
+              <input id="crop-left" name="left" type="range" min="0" max="0.8" step="0.001" />
+            </label>
+            <label class="control-row">
+              <span class="control-topline">
+                <span>Top</span>
+                <output id="crop-top-value" for="crop-top">0.313</output>
+              </span>
+              <input id="crop-top" name="top" type="range" min="0" max="0.8" step="0.001" />
+            </label>
+            <label class="control-row">
+              <span class="control-topline">
+                <span>Width</span>
+                <output id="crop-width-value" for="crop-width">0.580</output>
+              </span>
+              <input id="crop-width" name="width" type="range" min="0.1" max="0.95" step="0.001" />
+            </label>
+            <label class="control-row">
+              <span class="control-topline">
+                <span>Height</span>
+                <output id="crop-height-value" for="crop-height">0.220</output>
+              </span>
+              <input id="crop-height" name="height" type="range" min="0.05" max="0.5" step="0.001" />
+            </label>
+          </form>
+
+          <div class="actions">
+            <button id="save-button" class="primary-button" type="button">Save Crop</button>
+            <button id="copy-button" type="button">Copy Base64 Code</button>
+          </div>
+
+          <div class="code-block">
+            <span class="section-label">Settings code</span>
+            <code id="settings-code" class="settings-code-text"></code>
+          </div>
+        </aside>
+      </section>
+    </main>
+  </body>
+</html>

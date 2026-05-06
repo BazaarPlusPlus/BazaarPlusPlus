@@ -34,14 +34,14 @@ internal sealed class HistoryPanelReplayService
     {
         if (battle == null)
         {
-            reason = "Select a battle to replay.";
+            reason = HistoryPanelText.SelectBattleToReplay();
             return false;
         }
 
         var runtime = _runtimeAccessor();
         if (runtime == null)
         {
-            reason = "Combat replay runtime is unavailable.";
+            reason = HistoryPanelText.CombatReplayRuntimeUnavailable();
             return false;
         }
 
@@ -56,7 +56,7 @@ internal sealed class HistoryPanelReplayService
                 return true;
             }
 
-            reason = "Replay payload for the selected ghost battle is unavailable.";
+            reason = HistoryPanelText.GhostReplayPayloadUnavailable();
             return false;
         }
 
@@ -69,8 +69,8 @@ internal sealed class HistoryPanelReplayService
             battle?.Source == HistoryBattleSource.Ghost
             && !battle.ReplayDownloaded
             && battle.ReplayAvailable
-            ? "Download Replay"
-            : "Replay";
+            ? HistoryPanelText.DownloadReplay()
+            : HistoryPanelText.Replay();
     }
 
     public async Task<HistoryPanelReplayAttemptResult> ReplayBattleAsync(
@@ -79,7 +79,7 @@ internal sealed class HistoryPanelReplayService
     )
     {
         if (battle == null)
-            return HistoryPanelReplayAttemptResult.Failure("Select a battle to replay.");
+            return HistoryPanelReplayAttemptResult.Failure(HistoryPanelText.SelectBattleToReplay());
 
         if (!CanReplayBattle(battle, out var reason))
             return HistoryPanelReplayAttemptResult.Failure(reason);
@@ -89,14 +89,18 @@ internal sealed class HistoryPanelReplayService
 
         var runtime = _runtimeAccessor();
         if (runtime == null)
-            return HistoryPanelReplayAttemptResult.Failure("Combat replay runtime is unavailable.");
+            return HistoryPanelReplayAttemptResult.Failure(
+                HistoryPanelText.CombatReplayRuntimeUnavailable()
+            );
 
         if (!runtime.ReplaySaved(battle.BattleId))
             return HistoryPanelReplayAttemptResult.Failure(
-                $"Replay rejected for battle {battle.BattleId}."
+                HistoryPanelText.ReplayRejectedForBattle(battle.BattleId)
             );
 
-        return HistoryPanelReplayAttemptResult.Success($"Starting replay for {battle.BattleId}.");
+        return HistoryPanelReplayAttemptResult.Success(
+            HistoryPanelText.StartingReplayForBattle(battle.BattleId)
+        );
     }
 
     private async Task<HistoryPanelReplayAttemptResult> ReplayGhostBattleAsync(
@@ -106,19 +110,21 @@ internal sealed class HistoryPanelReplayService
     {
         var runtime = _runtimeAccessor();
         if (runtime == null)
-            return HistoryPanelReplayAttemptResult.Failure("Combat replay runtime is unavailable.");
+            return HistoryPanelReplayAttemptResult.Failure(
+                HistoryPanelText.CombatReplayRuntimeUnavailable()
+            );
 
         var replayDirectoryPath = _replayDirectoryPathAccessor();
         if (string.IsNullOrWhiteSpace(replayDirectoryPath))
             return HistoryPanelReplayAttemptResult.Failure(
-                "Combat replay directory path is unavailable."
+                HistoryPanelText.CombatReplayDirectoryUnavailable()
             );
 
         if (!battle.ReplayDownloaded)
         {
             if (_ghostSyncService == null)
                 return HistoryPanelReplayAttemptResult.Failure(
-                    "Ghost replay download is unavailable."
+                    HistoryPanelText.GhostReplayDownloadUnavailable()
                 );
 
             var downloadResult = await _ghostSyncService.DownloadReplayAsync(
@@ -128,7 +134,9 @@ internal sealed class HistoryPanelReplayService
             );
             if (!downloadResult.Succeeded)
                 return HistoryPanelReplayAttemptResult.Failure(
-                    $"Failed to download ghost replay: {downloadResult.Error ?? "unknown_error"}"
+                    HistoryPanelText.FailedToDownloadGhostReplay(
+                        downloadResult.Error ?? HistoryPanelText.Unknown()
+                    )
                 );
         }
 
@@ -139,7 +147,7 @@ internal sealed class HistoryPanelReplayService
         var manifest = ghostPayload?.BattleManifest;
         if (manifest == null)
             return HistoryPanelReplayAttemptResult.Failure(
-                $"Ghost manifest for battle {battle.BattleId} is unavailable."
+                HistoryPanelText.GhostManifestUnavailable(battle.BattleId)
             );
 
         var payload = ghostPayload?.ReplayPayload;
@@ -150,18 +158,18 @@ internal sealed class HistoryPanelReplayService
         }
         if (payload == null)
             return HistoryPanelReplayAttemptResult.Failure(
-                $"Replay payload for battle {battle.BattleId} is unavailable."
+                HistoryPanelText.ReplayPayloadUnavailable(battle.BattleId)
             );
 
         if (!runtime.ReplayImportedBattle(manifest, payload))
             return HistoryPanelReplayAttemptResult.Failure(
-                $"Replay rejected for ghost battle {battle.BattleId}."
+                HistoryPanelText.ReplayRejectedForGhostBattle(battle.BattleId)
             );
 
         return HistoryPanelReplayAttemptResult.Success(
             battle.ReplayDownloaded
-                ? $"Starting replay for {battle.BattleId}."
-                : $"Downloaded and starting replay for {battle.BattleId}."
+                ? HistoryPanelText.StartingReplayForBattle(battle.BattleId)
+                : HistoryPanelText.DownloadedAndStartingReplay(battle.BattleId)
         );
     }
 
@@ -189,7 +197,7 @@ internal sealed class HistoryPanelReplayService
             {
                 BppLog.Warn(
                     "HistoryPanel",
-                    $"Failed to delete replay payload for battle {battleId}: {ex.Message}"
+                    HistoryPanelText.DeletePayloadFailed(battleId, ex.Message)
                 );
             }
         }

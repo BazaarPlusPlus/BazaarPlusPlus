@@ -3,7 +3,7 @@ import {
   type DownloadEvent,
   type Update
 } from '@tauri-apps/plugin-updater';
-import { hasTauriRuntime } from '$lib/installer/runtime';
+import { hasTauriRuntime } from './installer/runtime.ts';
 
 export type UpdaterStatus =
   | 'unsupported'

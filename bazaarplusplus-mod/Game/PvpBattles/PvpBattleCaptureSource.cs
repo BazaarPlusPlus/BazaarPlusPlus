@@ -1,7 +1,7 @@
 #nullable enable
 namespace BazaarPlusPlus.Game.PvpBattles;
 
-internal enum PvpBattleCaptureSource
+public enum PvpBattleCaptureSource
 {
     Unknown,
     OpeningMessage,

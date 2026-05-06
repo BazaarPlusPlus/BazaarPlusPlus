@@ -70,16 +70,16 @@
     align-items: center;
     padding: 0.92rem 1rem;
     text-align: left;
-    border: 1px solid rgba(200, 148, 55, 0.14);
+    border: 1px solid rgba(var(--color-accent-rgb), 0.14);
     border-radius: 4px;
     background:
       linear-gradient(
         180deg,
-        rgba(200, 148, 55, 0.04),
-        rgba(200, 148, 55, 0.015)
+        rgba(var(--color-accent-rgb), 0.04),
+        rgba(var(--color-accent-rgb), 0.015)
       ),
       rgba(12, 8, 4, 0.78);
-    box-shadow: inset 0 0 0 1px rgba(255, 198, 98, 0.03);
+    box-shadow: inset 0 0 0 1px rgba(var(--color-warm-bright-rgb), 0.03);
   }
 
   .install-impact-copy {
@@ -101,7 +101,7 @@
     margin: 0;
     font-size: 0.82rem;
     line-height: 1.55;
-    color: rgba(200, 170, 120, 0.7);
+    color: rgba(var(--color-muted-gold-rgb), 0.7);
   }
 
   .install-impact-action {
@@ -119,8 +119,8 @@
     border-radius: 3px;
     background: linear-gradient(
       180deg,
-      rgba(200, 148, 55, 0.12),
-      rgba(200, 148, 55, 0.06)
+      rgba(var(--color-accent-rgb), 0.12),
+      rgba(var(--color-accent-rgb), 0.06)
     );
     color: rgba(236, 225, 202, 0.88);
     text-decoration: none;
@@ -137,15 +137,15 @@
   .install-impact-link:hover {
     background: linear-gradient(
       180deg,
-      rgba(200, 148, 55, 0.2),
-      rgba(200, 148, 55, 0.1)
+      rgba(var(--color-accent-rgb), 0.2),
+      rgba(var(--color-accent-rgb), 0.1)
     );
-    border-color: rgba(200, 148, 55, 0.4);
+    border-color: rgba(var(--color-accent-rgb), 0.4);
     transform: translateY(-1px);
   }
 
   .install-impact-link:focus-visible {
-    outline: 2px solid rgba(255, 214, 140, 0.9);
+    outline: 2px solid rgba(var(--color-warm-rgb), 0.9);
     outline-offset: 2px;
   }
 
@@ -155,18 +155,18 @@
     gap: 0.7rem;
     align-items: start;
     padding: 0.8rem 0.88rem;
-    border: 1px solid rgba(200, 148, 55, 0.18);
+    border: 1px solid rgba(var(--color-accent-rgb), 0.18);
     border-radius: 4px;
     background:
       linear-gradient(
         180deg,
-        rgba(200, 148, 55, 0.055),
-        rgba(200, 148, 55, 0.015)
+        rgba(var(--color-accent-rgb), 0.055),
+        rgba(var(--color-accent-rgb), 0.015)
       ),
       rgba(12, 8, 4, 0.78);
-    box-shadow: inset 0 0 0 1px rgba(255, 198, 98, 0.04);
+    box-shadow: inset 0 0 0 1px rgba(var(--color-warm-bright-rgb), 0.04);
     text-align: left;
-    color: rgba(228, 216, 191, 0.78);
+    color: rgba(var(--color-cream-rgb), 0.78);
     font-size: 0.8rem;
     line-height: 1.45;
     cursor: pointer;
@@ -190,7 +190,7 @@
       rgba(255, 255, 255, 0.03)
     );
     box-shadow:
-      0 0 0 1px rgba(255, 198, 98, 0.05) inset,
+      0 0 0 1px rgba(var(--color-warm-bright-rgb), 0.05) inset,
       0 2px 10px rgba(0, 0, 0, 0.16);
     position: relative;
     transition:
@@ -221,7 +221,7 @@
       rgba(158, 92, 30, 0.22)
     );
     box-shadow:
-      0 0 0 1px rgba(255, 198, 98, 0.12) inset,
+      0 0 0 1px rgba(var(--color-warm-bright-rgb), 0.12) inset,
       0 4px 14px rgba(170, 100, 25, 0.24);
   }
 
@@ -230,12 +230,12 @@
   }
 
   .install-acknowledge:hover .install-acknowledge-box {
-    border-color: rgba(255, 214, 140, 0.8);
+    border-color: rgba(var(--color-warm-rgb), 0.8);
     transform: translateY(-1px);
   }
 
   .install-acknowledge-input:focus-visible + .install-acknowledge-box {
-    outline: 2px solid rgba(255, 214, 140, 0.9);
+    outline: 2px solid rgba(var(--color-warm-rgb), 0.9);
     outline-offset: 2px;
   }
 

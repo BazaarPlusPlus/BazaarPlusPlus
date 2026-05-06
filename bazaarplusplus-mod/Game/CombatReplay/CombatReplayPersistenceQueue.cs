@@ -25,6 +25,7 @@ internal sealed class CombatReplayPersistenceQueue : IDisposable
     private int _stopRequested;
     private int _stopAcceptingNewWork;
     private int _disposeStarted;
+    private int _cleanupStarted;
 
     public CombatReplayPersistenceQueue(
         Action<PvpReplayPayload> savePayload,
@@ -80,24 +81,26 @@ internal sealed class CombatReplayPersistenceQueue : IDisposable
             _signal.Release();
         }
 
-        if (!_worker.Wait(ShutdownDrainTimeout))
+        if (_worker.Wait(ShutdownDrainTimeout))
         {
-            var abandonedCount = Volatile.Read(ref _pendingSaveCount);
-            if (abandonedCount > 0)
-            {
-                BppLog.Warn(
-                    "CombatReplayPersistenceQueue",
-                    $"Abandoning {abandonedCount} pending replay persistence request(s) after shutdown timeout."
-                );
-            }
-
-            _shutdown.Cancel();
-            _worker.Wait();
+            CleanupWorkerResources();
+            return;
         }
 
+        var pendingQueuedCount = _pending.Count;
+        BppLog.Warn(
+            "CombatReplayPersistenceQueue",
+            $"Timed out while waiting for replay persistence shutdown; allowing the in-flight write to finish asynchronously and abandoning {pendingQueuedCount} queued request(s)."
+        );
+        _shutdown.Cancel();
         EnqueueAbandonedPendingResults();
-        _signal.Dispose();
-        _shutdown.Dispose();
+        _ = _worker.ContinueWith(
+            static (_, state) => ((CombatReplayPersistenceQueue)state!).CleanupWorkerResources(),
+            this,
+            CancellationToken.None,
+            TaskContinuationOptions.ExecuteSynchronously,
+            TaskScheduler.Default
+        );
     }
 
     private async Task ProcessLoopAsync()
@@ -174,6 +177,15 @@ internal sealed class CombatReplayPersistenceQueue : IDisposable
             );
             Interlocked.Decrement(ref _pendingSaveCount);
         }
+    }
+
+    private void CleanupWorkerResources()
+    {
+        if (Interlocked.Exchange(ref _cleanupStarted, 1) == 1)
+            return;
+
+        _signal.Dispose();
+        _shutdown.Dispose();
     }
 
     private readonly struct CombatReplayPersistenceRequest

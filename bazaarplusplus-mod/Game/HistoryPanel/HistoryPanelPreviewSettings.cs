@@ -9,6 +9,7 @@ internal static class HistoryPanelPreviewSettings
     private static ConfigEntry<bool>? _showMonsterInfoBoard;
     private static ConfigEntry<bool>? _showBrandingBoard;
     private static ConfigEntry<bool>? _dynamicPreviewEnabled;
+    private static ConfigEntry<string>? _uiFontAssetName;
 
     public static void Initialize(ConfigFile config)
     {
@@ -36,6 +37,12 @@ internal static class HistoryPanelPreviewSettings
             true,
             "Continuously re-render the History Panel preview while visible."
         );
+        _uiFontAssetName = config.Bind(
+            "HistoryPanelUi",
+            "FontAssetName",
+            "Microsoft YaHei UI",
+            "Fixed font name for History Panel text. Accepts a loaded TMP font asset name or a Windows OS font name."
+        );
     }
 
     public static bool ShowSkillBoard => _showSkillBoard?.Value ?? false;
@@ -45,6 +52,15 @@ internal static class HistoryPanelPreviewSettings
     public static bool ShowBrandingBoard => _showBrandingBoard?.Value ?? false;
 
     public static bool DynamicPreviewEnabled => _dynamicPreviewEnabled?.Value ?? false;
+
+    public static string UiFontAssetName
+    {
+        get
+        {
+            var configured = _uiFontAssetName?.Value?.Trim();
+            return string.IsNullOrWhiteSpace(configured) ? "Microsoft YaHei UI" : configured;
+        }
+    }
 
     public static void SetDynamicPreviewEnabled(bool enabled)
     {

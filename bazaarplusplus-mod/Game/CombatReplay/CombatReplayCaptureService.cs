@@ -124,7 +124,7 @@ internal sealed class CombatReplayCaptureService
         CaptureLiveSnapshots(candidate);
 
         var snapshots = _collector.BuildSnapshots(candidate);
-        var battleId = _manifestFactory.CreateBattleId();
+        var battleId = candidate.BattleId ?? _manifestFactory.CreateBattleId();
         var manifest = _manifestFactory.Create(
             battleId,
             sequenceWindow,
@@ -143,7 +143,9 @@ internal sealed class CombatReplayCaptureService
         string? runId
     )
     {
-        return _collector.CreateOpeningCandidate(message, runId);
+        var candidate = _collector.CreateOpeningCandidate(message, runId);
+        candidate.BattleId = _manifestFactory.CreateBattleId();
+        return candidate;
     }
 
     private void CaptureLiveSnapshots(CombatReplaySequenceCandidate candidate)

@@ -2,8 +2,11 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using BazaarPlusPlus.Game.HistoryPanel.Ghost;
 using BazaarPlusPlus.Game.Input;
+using TheBazaar;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
 using Coroutine = UnityEngine.Coroutine;
@@ -12,6 +15,14 @@ namespace BazaarPlusPlus.Game.HistoryPanel;
 
 internal sealed partial class HistoryPanel : MonoBehaviour
 {
+    private const string ToggleHistoryPanelBindingPath = "<Keyboard>/f8";
+    private static readonly HashSet<string> UiDiagnosticScenes = new(StringComparer.Ordinal)
+    {
+        "CollectionUIScene",
+        "CollectionWheelScene",
+        "ChestSelectScene",
+    };
+
     internal static HistoryPanel? Instance { get; private set; }
 
     private readonly HistoryPanelState _state = new();
@@ -25,23 +36,16 @@ internal sealed partial class HistoryPanel : MonoBehaviour
     private float _previewDebugOverlayUntil;
     private string _lastSceneToken = string.Empty;
     private bool _initialized;
+    private bool _uiFontPrewarmedForScene;
 
     public static bool IsVisible { get; private set; }
 
-    private HistoryRunRecord? SelectedRun =>
-        _runs.Count == 0 ? null : _runs[Mathf.Clamp(_selectedRunIndex, 0, _runs.Count - 1)];
+    private HistoryRunRecord? SelectedRun => _state.GetSelectedRun();
 
-    private HistoryBattleRecord? SelectedBattle =>
-        _battles.Count == 0
-            ? null
-            : _battles[Mathf.Clamp(_selectedBattleIndex, 0, _battles.Count - 1)];
+    private HistoryBattleRecord? SelectedBattle => _state.GetSelectedBattle();
 
     private HistoryBattleRecord? SelectedGhostBattle =>
-        FilteredGhostBattles.Count == 0
-            ? null
-            : FilteredGhostBattles[
-                Mathf.Clamp(_selectedGhostBattleIndex, 0, FilteredGhostBattles.Count - 1)
-            ];
+        _state.GetSelectedGhostBattle(FilteredGhostBattles);
 
     private HistoryBattleRecord? ActiveSelectedBattle =>
         _sectionMode == HistorySectionMode.Ghost ? SelectedGhostBattle : SelectedBattle;
@@ -85,7 +89,11 @@ internal sealed partial class HistoryPanel : MonoBehaviour
     private string? _statusMessage
     {
         get => _state.StatusMessage;
-        set => _state.StatusMessage = value;
+        set
+        {
+            _state.StatusMessage = value;
+            _state.DeleteRunConfirmationStatusActive = false;
+        }
     }
 
     private string? _deleteRunConfirmationRunId
@@ -167,7 +175,6 @@ internal sealed partial class HistoryPanel : MonoBehaviour
 
         _coordinator?.Dispose();
         DisposePreviewRenderer();
-        _dependencies?.GhostSyncService?.Dispose();
         _dependencies = null;
         DisposeUi();
     }
@@ -176,8 +183,20 @@ internal sealed partial class HistoryPanel : MonoBehaviour
     {
         DetectSceneChange();
 
+        if (IsVisible && Data.IsInCombat)
+        {
+            SetHistoryVisible(false);
+            return;
+        }
+
         if (IsVisible)
             _coordinator?.Tick(Time.unscaledTime);
+
+        if (BppHotkeyService.WasPressedThisFrame(ToggleHistoryPanelBindingPath))
+        {
+            ToggleFromHotkey();
+            return;
+        }
 
         var keyboard = Keyboard.current;
         if (keyboard == null)
@@ -186,11 +205,8 @@ internal sealed partial class HistoryPanel : MonoBehaviour
         if (!IsVisible)
             return;
 
-        if (_previewDebugText != null)
-            _previewDebugText.gameObject.SetActive(Time.unscaledTime < _previewDebugOverlayUntil);
-
-        if (HistoryPanelPreviewSettings.DynamicPreviewEnabled)
-            _previewRenderer?.RenderLiveFrame(_previewSurface);
+        _previewRenderer?.RenderLiveFrame();
+        UpdatePreviewUiTick(Time.unscaledTime < _previewDebugOverlayUntil);
 
         if (TryHandlePreviewDebugHotkeys(keyboard))
             return;
@@ -201,6 +217,9 @@ internal sealed partial class HistoryPanel : MonoBehaviour
 
     private void SetHistoryVisible(bool visible)
     {
+        if (visible)
+            EnsureUi();
+
         IsVisible = visible;
         if (visible)
             _coordinator?.OnPanelShown();
@@ -242,6 +261,14 @@ internal sealed partial class HistoryPanel : MonoBehaviour
         Instance.OpenFromDockEntryInternal();
     }
 
+    internal static void RefreshLocalization()
+    {
+        if (Instance == null || !IsVisible)
+            return;
+
+        Instance.RefreshLocalizationInternal();
+    }
+
     internal void OpenFromUiEntry()
     {
         OpenFromDockEntryInternal();
@@ -255,7 +282,7 @@ internal sealed partial class HistoryPanel : MonoBehaviour
         {
             BppLog.Warn(
                 "HistoryPanel",
-                "Ignored History Review open request because community contribution is disabled or a live run is active."
+                "Ignored History Review open request because combat is active."
             );
             return;
         }
@@ -270,19 +297,15 @@ internal sealed partial class HistoryPanel : MonoBehaviour
         }
     }
 
+    private void RefreshLocalizationInternal()
+    {
+        RefreshUi();
+        UpdatePreviewUiTick(Time.unscaledTime < _previewDebugOverlayUntil);
+    }
+
     private bool CanOpenHistoryReview()
     {
-        return HistoryPanelAccessPolicy.CanOpen(
-            _runtime?.IsInGameRun == true,
-            BazaarPlusPlus
-                .Core
-                .Runtime
-                .BppRuntimeHost
-                .Config
-                .EnableCommunityContributionConfig
-                ?.Value
-                ?? false
-        );
+        return HistoryPanelAccessPolicy.CanOpen(Data.IsInCombat);
     }
 
     private void RefreshSelectedBattlePreview()
@@ -296,7 +319,7 @@ internal sealed partial class HistoryPanel : MonoBehaviour
         }
 
         EnsurePreviewRenderer();
-        if (_previewRenderer == null || _previewSurface == null || _previewStatusText == null)
+        if (_previewRenderer == null)
             return;
 
         var previewRequest = BuildPreviewRequest();
@@ -304,8 +327,8 @@ internal sealed partial class HistoryPanel : MonoBehaviour
             _previewRenderer.RenderPreview(
                 previewRequest.RenderId,
                 previewRequest.PreviewData,
-                _previewSurface,
-                _previewStatusText
+                SetPreviewStatus,
+                () => UpdatePreviewUiTick(Time.unscaledTime < _previewDebugOverlayUntil)
             )
         );
     }
@@ -341,8 +364,7 @@ internal sealed partial class HistoryPanel : MonoBehaviour
         _initialized = true;
         Instance = this;
         _lastSceneToken = GetSceneToken(SceneManager.GetActiveScene());
-        EnsureUi();
-        SetUiVisible(false);
+        PrewarmUiFontState($"init:{source}");
     }
 
     private void DetectSceneChange()
@@ -352,7 +374,10 @@ internal sealed partial class HistoryPanel : MonoBehaviour
             return;
 
         _lastSceneToken = currentSceneToken;
-        if (IsVisible && _runtime?.IsInGameRun == true)
+        _uiFontPrewarmedForScene = false;
+        PrewarmUiFontState("scene-change");
+        LogEventSystemDiagnostics(SceneManager.GetActiveScene());
+        if (IsVisible && Data.IsInCombat)
             SetHistoryVisible(false);
 
         DisposePreviewRenderer();
@@ -368,23 +393,63 @@ internal sealed partial class HistoryPanel : MonoBehaviour
         return $"{scene.name}|{scene.path}|{scene.buildIndex}|{scene.isLoaded}";
     }
 
-    private void ToggleDynamicPreviewFromUi()
+    private void PrewarmUiFontState(string reason)
     {
-        var enabled = HistoryPanelPreviewSettings.ToggleDynamicPreviewEnabled();
-        _statusMessage = enabled ? "Dynamic preview enabled." : "Dynamic preview disabled.";
-        RefreshUi();
-
-        if (!IsVisible)
+        if (_uiFontPrewarmedForScene)
             return;
 
-        if (enabled)
+        BppLog.Info(
+            "HistoryPanel",
+            $"[UiToolkit] PrewarmUiFontState noop reason={reason} scene='{_lastSceneToken}'."
+        );
+        _uiFontPrewarmedForScene = true;
+    }
+
+    private static void LogEventSystemDiagnostics(Scene scene)
+    {
+        if (!UiDiagnosticScenes.Contains(scene.name))
+            return;
+
+        try
         {
-            EnsurePreviewRenderer();
-            _previewRenderer?.RenderLiveFrame(_previewSurface);
-            return;
-        }
+            var eventSystems = Resources.FindObjectsOfTypeAll<EventSystem>();
+            if (eventSystems == null || eventSystems.Length == 0)
+            {
+                BppLog.Warn(
+                    "HistoryPanel",
+                    $"[Diag][EventSystem] scene='{GetSceneToken(scene)}' found no EventSystem instances."
+                );
+                return;
+            }
 
-        RefreshSelectedBattlePreview();
+            var summaries = eventSystems.Select(
+                (eventSystem, index) => DescribeEventSystem(eventSystem, index)
+            );
+            var currentSummary = DescribeEventSystem(EventSystem.current, null);
+            BppLog.Info(
+                "HistoryPanel",
+                $"[Diag][EventSystem] scene='{GetSceneToken(scene)}' count={eventSystems.Length} current={currentSummary} entries={string.Join(" || ", summaries)}"
+            );
+        }
+        catch (Exception ex)
+        {
+            BppLog.Error("HistoryPanel", "[Diag][EventSystem] Enumeration failed", ex);
+        }
+    }
+
+    private static string DescribeEventSystem(EventSystem? eventSystem, int? index)
+    {
+        var prefix = index.HasValue ? $"#{index.Value}:" : string.Empty;
+        if (eventSystem == null)
+            return $"{prefix}<null>";
+
+        var modules = eventSystem
+            .GetComponents<BaseInputModule>()
+            .Select(module =>
+                $"{module.GetType().Name}(enabled={module.enabled},active={module.isActiveAndEnabled})"
+            );
+
+        return $"{prefix}{eventSystem.GetType().Name}(name='{eventSystem.name}',activeSelf={eventSystem.gameObject.activeSelf},activeInHierarchy={eventSystem.gameObject.activeInHierarchy},enabled={eventSystem.enabled},isCurrent={ReferenceEquals(EventSystem.current, eventSystem)},scene='{eventSystem.gameObject.scene.name}',modules=[{string.Join(", ", modules)}])";
     }
 
     private bool TryHandlePreviewDebugHotkeys(Keyboard keyboard)
@@ -439,9 +504,7 @@ internal sealed partial class HistoryPanel : MonoBehaviour
             return false;
 
         _statusMessage =
-            "Preview tune: "
-            + _previewRenderer.GetDebugSummary()
-            + " | Ctrl+Left/Right board spacing, Ctrl+[ / ] card spacing, Ctrl+Up/Down zoom, Ctrl+PgUp/PgDn vertical, Ctrl+Q/E or Home/End card width, Ctrl+Alt+Q/E or Home/End card height, Ctrl+-/= FOV, Ctrl+Backspace reset.";
+            $"{HistoryPanelText.PreviewTuneStatus(_previewRenderer.GetDebugSummary())} | {HistoryPanelText.PreviewTuneHelp()}";
         ShowPreviewDebugOverlay(_previewRenderer.GetDebugSummary());
         RefreshUi();
         RefreshSelectedBattlePreview();
@@ -450,11 +513,7 @@ internal sealed partial class HistoryPanel : MonoBehaviour
 
     private void ShowPreviewDebugOverlay(string summary)
     {
-        if (_previewDebugText == null)
-            return;
-
-        _previewDebugText.text = summary;
-        _previewDebugText.gameObject.SetActive(true);
+        SetPreviewDebugText(summary, true);
         _previewDebugOverlayUntil = Time.unscaledTime + 6f;
     }
 
@@ -462,10 +521,11 @@ internal sealed partial class HistoryPanel : MonoBehaviour
     {
         if (_previewSelectionMode == PreviewSelectionMode.Battle && ActiveSelectedBattle != null)
         {
-            return new PreviewRequest(
-                $"battle:{ActiveSelectedBattle.BattleId}",
-                ActiveSelectedBattle.PreviewData.OpponentHandOnly()
-            );
+            var previewData =
+                _sectionMode == HistorySectionMode.Ghost
+                    ? ResolveGhostPreviewData(ActiveSelectedBattle)
+                    : ActiveSelectedBattle.PreviewData.OpponentHandOnly();
+            return new PreviewRequest($"battle:{ActiveSelectedBattle.BattleId}", previewData);
         }
 
         var runPreviewBattle = GetRunPreviewBattle();
@@ -478,6 +538,39 @@ internal sealed partial class HistoryPanel : MonoBehaviour
         }
 
         return new PreviewRequest(null, null);
+    }
+
+    private HistoryBattlePreviewData ResolveGhostPreviewData(HistoryBattleRecord battle)
+    {
+        if (battle.Source != HistoryBattleSource.Ghost)
+            return battle.PreviewData;
+
+        if (battle.PreviewData.HasRenderableCards)
+            return battle.PreviewData.PlayerHandOnly();
+
+        var replayDirectoryPath = _runtime?.CombatReplayDirectoryPath;
+        if (string.IsNullOrWhiteSpace(replayDirectoryPath))
+            return battle.PreviewData.PlayerHandOnly();
+
+        var ghostPayloadStore = new GhostBattlePayloadStore(
+            BuildGhostBattlePayloadDirectoryPath(replayDirectoryPath)
+        );
+        var ghostPayload = ghostPayloadStore.Load(battle.BattleId);
+        var snapshots = ghostPayload?.BattleManifest?.Snapshots;
+        if (snapshots == null)
+            return battle.PreviewData.PlayerHandOnly();
+
+        // Ghost replay payload snapshots stay in the uploader's original perspective.
+        // For the local "against me" view, our board is stored on the opponent side.
+        return HistoryPanelRepository.BuildPreviewData(snapshots).OpponentHandOnly();
+    }
+
+    private static string BuildGhostBattlePayloadDirectoryPath(string replayDirectoryPath)
+    {
+        var parentDirectory = System.IO.Path.GetDirectoryName(replayDirectoryPath);
+        return string.IsNullOrWhiteSpace(parentDirectory)
+            ? System.IO.Path.Combine(replayDirectoryPath, "GhostBattlePayloads")
+            : System.IO.Path.Combine(parentDirectory, "GhostBattlePayloads");
     }
 
     private HistoryBattleRecord? GetRunPreviewBattle()

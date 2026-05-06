@@ -1,122 +1,53 @@
 #nullable enable
 using System;
-using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using BazaarPlusPlus.Core.Runtime;
 using BazaarPlusPlus.Game.CombatReplay;
-using BazaarPlusPlus.Game.ModApi;
-using TheBazaar;
+using BazaarPlusPlus.Game.Online;
 
 namespace BazaarPlusPlus.Game.HistoryPanel.Ghost;
 
-internal sealed class GhostBattleSyncService : IDisposable
+internal sealed class GhostBattleSyncService
 {
-    private static readonly TimeSpan CheckpointLookbackPadding = TimeSpan.FromHours(24);
-    private const int InitialSyncLookbackDays = 3;
-    private const int MaxSyncLookbackDays = 14;
     private const int MaxSyncBattleLimit = 200;
 
     private readonly HistoryPanelRepository _repository;
-    private readonly ModApiIdentityStore _identityStore;
-    private readonly ModApiClientStateStore _clientStateStore;
-    private readonly ModApiKeyStore _keyStore;
-    private readonly ModApiRoutes _routes;
-    private readonly HttpClient _httpClient;
+    private readonly ModOnlineClient _onlineClient;
 
     public GhostBattleSyncService(
         HistoryPanelRepository repository,
-        ModApiIdentityStore identityStore,
-        ModApiClientStateStore clientStateStore,
-        ModApiKeyStore keyStore,
-        ModApiRoutes routes,
-        TimeSpan timeout
+        ModOnlineClient onlineClient
     )
     {
         _repository = repository ?? throw new ArgumentNullException(nameof(repository));
-        _identityStore = identityStore ?? throw new ArgumentNullException(nameof(identityStore));
-        _clientStateStore =
-            clientStateStore ?? throw new ArgumentNullException(nameof(clientStateStore));
-        _keyStore = keyStore ?? throw new ArgumentNullException(nameof(keyStore));
-        _routes = routes ?? throw new ArgumentNullException(nameof(routes));
-        _httpClient = new HttpClient { Timeout = timeout };
+        _onlineClient = onlineClient ?? throw new ArgumentNullException(nameof(onlineClient));
     }
 
     public async Task<GhostBattleSyncResult> SyncRecentBattlesAsync(
         CancellationToken cancellationToken
     )
     {
-        var localPlayerAccountId = TryGetCurrentPlayerAccountId();
-        if (string.IsNullOrWhiteSpace(localPlayerAccountId))
+        var playerAccountId = ResolvePlayerAccountId();
+        if (string.IsNullOrWhiteSpace(playerAccountId))
             return GhostBattleSyncResult.Failure("player_account_id_unavailable");
 
-        var installId = _identityStore.GetOrCreateInstallId();
-        var apiClient = new GhostBattleApiClient(
-            _httpClient,
-            new ModApiRequestSigner(_keyStore),
-            _routes
-        );
-        var routeClient = CreateAuthenticatedRouteClient();
+        var apiClient = new GhostBattleApiClient(_onlineClient.HttpClient, _onlineClient.Routes);
         var syncStartedAtUtc = DateTimeOffset.UtcNow;
-        var checkpointUtc = _repository.TryGetGhostSyncCheckpointUtc(localPlayerAccountId);
-        var lookbackDays = CalculateLookbackDays(checkpointUtc, syncStartedAtUtc);
-        var requestResult = await routeClient.SendAsync(
-            installId,
-            async (clientId, token) =>
-            {
-                var bindingResult = await EnsurePlayerBindingAsync(
-                    clientId,
-                    installId,
-                    localPlayerAccountId,
-                    token
-                );
-                if (!bindingResult.Succeeded)
-                {
-                    BppLog.Warn(
-                        "GhostBattleSync",
-                        $"Binding failed for ghost sync on client {clientId}: {bindingResult.Error ?? "binding_failed"}. Continuing with query attempt."
-                    );
-                }
-
-                var queryResult = await apiClient.QueryAgainstMeAsync(
-                    clientId,
-                    installId,
-                    lookbackDays,
-                    MaxSyncBattleLimit,
-                    token
-                );
-                if (
-                    !bindingResult.Succeeded
-                    && !queryResult.Succeeded
-                    && ShouldTreatGhostErrorAsBindingFailure(queryResult.Error)
-                )
-                {
-                    return GhostBattleApiResult.Failure(
-                        bindingResult.Error ?? "binding_failed",
-                        bindingResult.ShouldFallback || queryResult.ShouldFallback,
-                        bindingResult.ShouldReRegister || queryResult.ShouldReRegister
-                    );
-                }
-
-                return queryResult;
-            },
+        var queryResult = await apiClient.QueryAgainstMeAsync(
+            playerAccountId!,
+            MaxSyncBattleLimit,
             cancellationToken
         );
-        if (!requestResult.RegistrationAvailable)
-        {
-            return GhostBattleSyncResult.Failure("registration_failed");
-        }
-
-        var queryResult = requestResult.Response;
         if (!queryResult.Succeeded)
         {
             return GhostBattleSyncResult.Failure(queryResult.Error ?? "ghost_sync_failed");
         }
 
-        _repository.UpsertGhostBattles(localPlayerAccountId, queryResult.Battles);
-        _repository.MarkOldUndownloadedGhostBattlesDeleted(localPlayerAccountId, syncStartedAtUtc);
-        if (ShouldAdvanceCheckpoint(queryResult.Battles.Count, MaxSyncBattleLimit, lookbackDays))
-            _repository.SaveGhostSyncCheckpointUtc(localPlayerAccountId, syncStartedAtUtc);
+        _repository.UpsertGhostBattles(playerAccountId!, queryResult.Battles);
+        _repository.MarkOldUndownloadedGhostBattlesDeleted(syncStartedAtUtc);
+        if (ShouldAdvanceCheckpoint(queryResult.Battles.Count, MaxSyncBattleLimit))
+            _repository.SaveGhostSyncCheckpointUtc(playerAccountId!, syncStartedAtUtc);
         return GhostBattleSyncResult.Success(queryResult.Battles.Count);
     }
 
@@ -130,64 +61,12 @@ internal sealed class GhostBattleSyncService : IDisposable
             return GhostBattleReplayDownloadResult.Failure("battle_id_required");
         if (string.IsNullOrWhiteSpace(replayDirectoryPath))
             return GhostBattleReplayDownloadResult.Failure("replay_directory_required");
-        var localPlayerAccountId = TryGetCurrentPlayerAccountId();
-        if (string.IsNullOrWhiteSpace(localPlayerAccountId))
-            return GhostBattleReplayDownloadResult.Failure("player_account_id_unavailable");
 
-        var installId = _identityStore.GetOrCreateInstallId();
-        var apiClient = new GhostBattleApiClient(
-            _httpClient,
-            new ModApiRequestSigner(_keyStore),
-            _routes
-        );
-        var routeClient = CreateAuthenticatedRouteClient();
-        var requestResult = await routeClient.SendAsync(
-            installId,
-            async (clientId, token) =>
-            {
-                var bindingResult = await EnsurePlayerBindingAsync(
-                    clientId,
-                    installId,
-                    localPlayerAccountId,
-                    token
-                );
-                if (!bindingResult.Succeeded)
-                {
-                    BppLog.Warn(
-                        "GhostBattleSync",
-                        $"Binding failed for ghost replay download on client {clientId}: {bindingResult.Error ?? "binding_failed"}. Continuing with replay link request."
-                    );
-                }
-
-                var linkResult = await apiClient.RequestReplayDownloadLinkAsync(
-                    battleId,
-                    clientId,
-                    installId,
-                    token
-                );
-                if (
-                    !bindingResult.Succeeded
-                    && !linkResult.Succeeded
-                    && ShouldTreatGhostErrorAsBindingFailure(linkResult.Error)
-                )
-                {
-                    return GhostBattleReplayDownloadLinkResult.Failure(
-                        bindingResult.Error ?? "binding_failed",
-                        bindingResult.ShouldFallback || linkResult.ShouldFallback,
-                        bindingResult.ShouldReRegister || linkResult.ShouldReRegister
-                    );
-                }
-
-                return linkResult;
-            },
+        var apiClient = new GhostBattleApiClient(_onlineClient.HttpClient, _onlineClient.Routes);
+        var linkResult = await apiClient.RequestReplayDownloadLinkAsync(
+            battleId,
             cancellationToken
         );
-        if (!requestResult.RegistrationAvailable)
-        {
-            return GhostBattleReplayDownloadResult.Failure("registration_failed");
-        }
-
-        var linkResult = requestResult.Response;
         if (!linkResult.Succeeded)
         {
             return GhostBattleReplayDownloadResult.Failure(
@@ -196,6 +75,7 @@ internal sealed class GhostBattleSyncService : IDisposable
         }
 
         var payloadResult = await apiClient.DownloadReplayPayloadAsync(
+            battleId,
             linkResult.DownloadUrl!,
             cancellationToken
         );
@@ -220,88 +100,25 @@ internal sealed class GhostBattleSyncService : IDisposable
             BuildGhostBattlePayloadDirectoryPath(replayDirectoryPath)
         );
         payloadStore.Save(payloadResult.Payload);
-        _repository.MarkGhostReplayDownloaded(localPlayerAccountId, battleId);
+        _repository.MarkGhostReplayDownloaded(battleId);
         return GhostBattleReplayDownloadResult.Success();
     }
 
-    public void Dispose()
-    {
-        _httpClient.Dispose();
-    }
-
-    private async Task<ModApiPlayerBindingResult> EnsurePlayerBindingAsync(
-        string clientId,
-        string installId,
-        string playerAccountId,
-        CancellationToken cancellationToken
-    )
-    {
-        var bindingClient = new ModApiPlayerBindingClient(
-            _httpClient,
-            new ModApiRequestSigner(_keyStore),
-            _routes.BindPlayer
-        );
-        var result = await bindingClient.BindPlayerAccountAsync(
-            clientId,
-            installId,
-            playerAccountId,
-            cancellationToken
-        );
-        if (result.Succeeded)
-        {
-            _clientStateStore.SaveBoundPlayerAccountId(playerAccountId);
-        }
-
-        return result;
-    }
-
-    private ModApiAuthenticatedSession CreateAuthenticatedRouteClient()
-    {
-        var registrationClient = new ModApiRegistrationClient(
-            _httpClient,
-            _clientStateStore,
-            _keyStore,
-            _routes.RegisterClient
-        );
-        return new ModApiAuthenticatedSession(registrationClient, _clientStateStore);
-    }
-
-    private static int CalculateLookbackDays(DateTimeOffset? checkpointUtc, DateTimeOffset nowUtc)
-    {
-        if (checkpointUtc == null)
-            return InitialSyncLookbackDays;
-
-        var fromUtc = checkpointUtc.Value - CheckpointLookbackPadding;
-        var totalDays = Math.Ceiling((nowUtc - fromUtc).TotalDays);
-        if (double.IsNaN(totalDays) || double.IsInfinity(totalDays))
-            return MaxSyncLookbackDays;
-
-        return Math.Clamp((int)Math.Max(1, totalDays), 1, MaxSyncLookbackDays);
-    }
-
-    private static bool ShouldAdvanceCheckpoint(int importedCount, int limit, int lookbackDays)
-    {
-        return importedCount < limit;
-    }
-
-    private static bool ShouldTreatGhostErrorAsBindingFailure(string? error)
-    {
-        if (string.IsNullOrWhiteSpace(error))
-            return false;
-
-        return error.Contains("battle_forbidden", StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static string? TryGetCurrentPlayerAccountId()
+    private static string? ResolvePlayerAccountId()
     {
         try
         {
-            return BppClientCacheBridge.TryGetProfileAccountId();
+            return BppClientCacheBridge.TryGetProfileAccountId()?.Trim();
         }
         catch
         {
             return null;
         }
+    }
+
+    private static bool ShouldAdvanceCheckpoint(int importedCount, int limit)
+    {
+        return importedCount < limit;
     }
 
     private static string BuildGhostBattlePayloadDirectoryPath(string replayDirectoryPath)

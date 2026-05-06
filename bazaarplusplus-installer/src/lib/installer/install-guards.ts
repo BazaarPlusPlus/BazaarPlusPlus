@@ -1,48 +1,29 @@
-export type InstallConfirmationStep =
-  | 'proceed'
-  | 'confirm_game_quit'
-  | 'confirm_steam_quit';
-
-export type InstallContinuationAction =
-  | 'install'
-  | 'show_game_quit_modal'
-  | 'show_steam_quit_modal';
+export type InstallRuntimeRisk = 'steam_running';
 
 export interface InstallConfirmationInput {
   hasTauriRuntime: boolean;
-  gameRunning: boolean;
   steamLaunchOptionsSupported: boolean;
   steamRunning: boolean;
 }
 
-export function resolveInstallConfirmationStep(
+export function getInstallRuntimeRisks(
   input: InstallConfirmationInput
-): InstallConfirmationStep {
+): InstallRuntimeRisk[] {
   if (!input.hasTauriRuntime) {
-    return 'proceed';
+    return [];
   }
 
-  if (input.gameRunning) {
-    return 'confirm_game_quit';
-  }
+  const risks: InstallRuntimeRisk[] = [];
 
   if (input.steamLaunchOptionsSupported && input.steamRunning) {
-    return 'confirm_steam_quit';
+    risks.push('steam_running');
   }
 
-  return 'proceed';
+  return risks;
 }
 
-export function resolveInstallContinuationAction(
-  step: InstallConfirmationStep
-): InstallContinuationAction {
-  if (step === 'confirm_game_quit') {
-    return 'show_game_quit_modal';
-  }
-
-  if (step === 'confirm_steam_quit') {
-    return 'show_steam_quit_modal';
-  }
-
-  return 'install';
+export function shouldShowInstallRiskModal(
+  risks: InstallRuntimeRisk[]
+): boolean {
+  return risks.length > 0;
 }

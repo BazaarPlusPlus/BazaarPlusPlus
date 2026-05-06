@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using BazaarPlusPlus.Game.Input;
+using BazaarPlusPlus.Game.Screenshots;
 using TMPro;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -9,7 +10,7 @@ using UnityEngine.UI;
 
 namespace BazaarPlusPlus.Game.Settings;
 
-internal sealed class BppSettingsDockController : MonoBehaviour
+internal sealed partial class BppSettingsDockController : MonoBehaviour
 {
     private const string LogCategory = "BppSettingsDock";
     private const string DockButtonObjectName = "BPP_SettingsDockButton";
@@ -41,6 +42,8 @@ internal sealed class BppSettingsDockController : MonoBehaviour
     private TMP_FontAsset? _uiFont;
     private Material? _uiFontMaterial;
     private bool _isExpanded;
+    private int _screenshotSuppressionCount;
+    private static bool _fontResolutionLogged;
 
     internal static void Attach(Button anchorButton)
     {
@@ -51,6 +54,21 @@ internal sealed class BppSettingsDockController : MonoBehaviour
             anchorButton.GetComponent<BppSettingsDockController>()
             ?? anchorButton.gameObject.AddComponent<BppSettingsDockController>();
         controller.Initialize(anchorButton);
+    }
+
+    internal static IDisposable? BeginScreenshotSuppression()
+    {
+        var controllers = UnityEngine.Object.FindObjectsOfType<BppSettingsDockController>(
+            includeInactive: true
+        );
+        if (controllers.Length == 0)
+            return null;
+
+        var suppressionActions = new Func<IDisposable?>[controllers.Length];
+        for (var index = 0; index < controllers.Length; index++)
+            suppressionActions[index] = controllers[index].BeginInstanceScreenshotSuppression;
+
+        return ScreenshotUiSuppressionScope.Begin(suppressionActions);
     }
 
     internal static void RefreshAll()
@@ -79,6 +97,7 @@ internal sealed class BppSettingsDockController : MonoBehaviour
 
     private void OnEnable()
     {
+        ApplyScreenshotSuppressionVisibility();
         RefreshView();
     }
 
@@ -113,6 +132,7 @@ internal sealed class BppSettingsDockController : MonoBehaviour
             ConfigureDockButtonRect(existingRect);
             ConfigureDockButtonVisual(existingRect.gameObject);
             SyncDockButtonPlacement();
+            ApplyScreenshotSuppressionVisibility();
             return true;
         }
 
@@ -137,7 +157,30 @@ internal sealed class BppSettingsDockController : MonoBehaviour
 
         CreateDockButtonLabel(dockRect);
         SyncDockButtonPlacement();
+        ApplyScreenshotSuppressionVisibility();
         return true;
+    }
+
+    private IDisposable BeginInstanceScreenshotSuppression()
+    {
+        _screenshotSuppressionCount++;
+        ApplyScreenshotSuppressionVisibility();
+        return new ScreenshotSuppressionLease(this);
+    }
+
+    private void EndInstanceScreenshotSuppression()
+    {
+        if (_screenshotSuppressionCount > 0)
+            _screenshotSuppressionCount--;
+
+        ApplyScreenshotSuppressionVisibility();
+    }
+
+    private void ApplyScreenshotSuppressionVisibility()
+    {
+        var shouldBeVisible = _screenshotSuppressionCount == 0;
+        if (_dockButtonRect != null && _dockButtonRect.gameObject.activeSelf != shouldBeVisible)
+            _dockButtonRect.gameObject.SetActive(shouldBeVisible);
     }
 
     private bool TryEnsurePanel()
@@ -380,215 +423,28 @@ internal sealed class BppSettingsDockController : MonoBehaviour
 
     private void SyncDockButtonPlacement()
     {
-        if (_dockButtonRect == null || _anchorButton == null)
+        if (_anchorButton == null)
             return;
 
-        var parentRect = _dockButtonRect.parent as RectTransform;
+        var referenceRect = _dockButtonRect;
+        if (referenceRect == null)
+            return;
+
+        var parentRect = referenceRect.parent as RectTransform;
         var anchorRect = _anchorButton.transform as RectTransform;
         if (parentRect == null || anchorRect == null)
             return;
-
-        _dockButtonRect.anchorMin = new Vector2(0.5f, 0.5f);
-        _dockButtonRect.anchorMax = new Vector2(0.5f, 0.5f);
-        _dockButtonRect.pivot = new Vector2(0.5f, 0.5f);
-        _dockButtonRect.localScale = Vector3.one;
-        _dockButtonRect.localRotation = Quaternion.identity;
 
         var corners = new Vector3[4];
         anchorRect.GetWorldCorners(corners);
         var anchorCenterWorld = (corners[0] + corners[2]) * 0.5f;
         var anchorCenterLocal = parentRect.InverseTransformPoint(anchorCenterWorld);
-        _dockButtonRect.localPosition = new Vector3(
-            anchorCenterLocal.x + DockButtonOffsetX,
-            anchorCenterLocal.y + DockButtonOffsetY,
-            _dockButtonRect.localPosition.z
+        SyncFloatingButton(
+            _dockButtonRect,
+            anchorCenterLocal,
+            DockButtonOffsetX,
+            DockButtonOffsetY
         );
-    }
-
-    private static void ConfigureDockButtonRect(RectTransform rectTransform)
-    {
-        rectTransform.anchorMin = new Vector2(0.5f, 0.5f);
-        rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
-        rectTransform.pivot = new Vector2(0.5f, 0.5f);
-        rectTransform.localScale = Vector3.one;
-        rectTransform.localRotation = Quaternion.identity;
-        rectTransform.sizeDelta = new Vector2(DockButtonWidth, DockButtonHeight);
-        rectTransform.anchoredPosition = new Vector2(DockButtonOffsetX, DockButtonOffsetY);
-    }
-
-    private static void ConfigurePanelRect(RectTransform rectTransform)
-    {
-        rectTransform.anchorMin = new Vector2(0f, 0.5f);
-        rectTransform.anchorMax = new Vector2(0f, 0.5f);
-        rectTransform.pivot = new Vector2(1f, 0.5f);
-        rectTransform.localScale = Vector3.one;
-        rectTransform.localRotation = Quaternion.identity;
-        rectTransform.anchoredPosition = new Vector2(-8f, 0f);
-        rectTransform.sizeDelta = new Vector2(
-            PanelWidth,
-            CalculatePanelHeight(BppSettingsDockCatalog.Definitions.Count)
-        );
-    }
-
-    private static void ConfigurePanelVisual(GameObject panelObject)
-    {
-        var background = panelObject.GetComponent<Image>();
-        if (background != null)
-        {
-            background.color = new Color(0.09f, 0.09f, 0.11f, 0.96f);
-            background.raycastTarget = true;
-        }
-
-        var outline = panelObject.GetComponent<Outline>();
-        if (outline != null)
-        {
-            outline.effectColor = new Color(0.76f, 0.45f, 0.14f, 0.75f);
-            outline.effectDistance = new Vector2(1.5f, -1.5f);
-            outline.useGraphicAlpha = true;
-        }
-    }
-
-    private static void ConfigureHeaderRect(RectTransform headerRect)
-    {
-        headerRect.anchorMin = new Vector2(0f, 1f);
-        headerRect.anchorMax = new Vector2(1f, 1f);
-        headerRect.pivot = new Vector2(0f, 1f);
-        headerRect.offsetMin = new Vector2(PanelPadding, -PanelTopPadding - HeaderHeight);
-        headerRect.offsetMax = new Vector2(-PanelPadding, -PanelTopPadding);
-    }
-
-    private static void ConfigureRowRect(RectTransform rowRect, int index)
-    {
-        var rowTop =
-            PanelTopPadding + HeaderHeight + HeaderSpacing + (index * (RowHeight + RowSpacing));
-        rowRect.offsetMin = new Vector2(PanelPadding, -(rowTop + RowHeight));
-        rowRect.offsetMax = new Vector2(-PanelPadding, -rowTop);
-    }
-
-    private static void ConfigureDockButtonVisual(GameObject dockButtonObject)
-    {
-        var background = dockButtonObject.GetComponent<Image>();
-        background.color = new Color(0.16f, 0.16f, 0.18f, 0.95f);
-        background.raycastTarget = true;
-
-        var outline = dockButtonObject.GetComponent<Outline>();
-        outline.effectColor = new Color(0f, 0f, 0f, 0.50f);
-        outline.effectDistance = new Vector2(1f, -1f);
-        outline.useGraphicAlpha = true;
-    }
-
-    private void CreateDockButtonLabel(Transform parent)
-    {
-        var label = CreateText(
-            DockButtonLabelObjectName,
-            parent,
-            13f,
-            TextAlignmentOptions.Center,
-            new Color(0.98f, 0.94f, 0.82f, 1f)
-        );
-        if (label == null)
-            return;
-
-        var labelRect = label.rectTransform;
-        labelRect.anchorMin = Vector2.zero;
-        labelRect.anchorMax = Vector2.one;
-        labelRect.offsetMin = Vector2.zero;
-        labelRect.offsetMax = Vector2.zero;
-        label.text = "BazaarPlusPlus";
-        label.textWrappingMode = TextWrappingModes.NoWrap;
-        label.overflowMode = TextOverflowModes.Ellipsis;
-    }
-
-    private TextMeshProUGUI? CreateText(
-        string objectName,
-        Transform parent,
-        float fontSize,
-        TextAlignmentOptions alignment,
-        Color color
-    )
-    {
-        var textObject = new GameObject(objectName, typeof(RectTransform), typeof(TextMeshProUGUI));
-        var textRect = textObject.GetComponent<RectTransform>();
-        textRect.SetParent(parent, worldPositionStays: false);
-
-        var text = textObject.GetComponent<TextMeshProUGUI>();
-        ApplyTextStyle(text);
-        text.fontSize = fontSize;
-        text.alignment = alignment;
-        text.color = color;
-        text.raycastTarget = false;
-        return text;
-    }
-
-    private void ResolveTextStyle()
-    {
-        if (_anchorButton == null)
-            return;
-
-        var template = FindTemplateText(_anchorButton.transform);
-        if (template == null)
-        {
-            var hostRect = _anchorButton.transform.parent;
-            if (hostRect != null)
-                template = FindTemplateText(hostRect);
-        }
-
-        if (template == null)
-        {
-            foreach (var candidate in Resources.FindObjectsOfTypeAll<TextMeshProUGUI>())
-            {
-                if (candidate != null && candidate.font != null)
-                {
-                    template = candidate;
-                    break;
-                }
-            }
-        }
-
-        if (template == null)
-            return;
-
-        _uiFont = template.font;
-        _uiFontMaterial = template.fontSharedMaterial;
-    }
-
-    private static TextMeshProUGUI? FindTemplateText(Transform root)
-    {
-        foreach (var candidate in root.GetComponentsInChildren<TextMeshProUGUI>(true))
-        {
-            if (candidate != null && candidate.font != null)
-                return candidate;
-        }
-
-        return null;
-    }
-
-    private void ApplyTextStyle(TextMeshProUGUI text)
-    {
-        _uiFont ??= TMP_Settings.defaultFontAsset;
-        if (_uiFont != null)
-            text.font = _uiFont;
-
-        if (_uiFontMaterial != null)
-            text.fontSharedMaterial = _uiFontMaterial;
-
-        text.richText = false;
-    }
-
-    private static float CalculatePanelHeight(int rowCount)
-    {
-        var rowsHeight = rowCount > 0 ? (rowCount * RowHeight) + ((rowCount - 1) * RowSpacing) : 0f;
-        return PanelTopPadding + HeaderHeight + HeaderSpacing + rowsHeight + PanelBottomPadding;
-    }
-
-    private static string ResolveHeader(string languageCode)
-    {
-        return "BazaarPlusPlus";
-    }
-
-    private static bool IsCtrlHeld()
-    {
-        return KeyBindings.Modifiers.IsCtrlPressed(Keyboard.current);
     }
 
     private sealed class DockSettingRowView
@@ -621,5 +477,20 @@ internal sealed class BppSettingsDockController : MonoBehaviour
         internal TextMeshProUGUI Label { get; }
 
         internal TextMeshProUGUI Status { get; }
+    }
+
+    private sealed class ScreenshotSuppressionLease(BppSettingsDockController controller)
+        : IDisposable
+    {
+        private bool _disposed;
+
+        public void Dispose()
+        {
+            if (_disposed)
+                return;
+
+            _disposed = true;
+            controller.EndInstanceScreenshotSuppression();
+        }
     }
 }

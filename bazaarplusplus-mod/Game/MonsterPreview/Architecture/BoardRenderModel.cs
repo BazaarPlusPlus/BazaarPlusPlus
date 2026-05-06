@@ -1,4 +1,6 @@
 #pragma warning disable CS0436
+using BazaarPlusPlus.Game.PreviewSurface;
+
 namespace BazaarPlusPlus.Game.MonsterPreview;
 
 internal sealed class BoardRenderModel

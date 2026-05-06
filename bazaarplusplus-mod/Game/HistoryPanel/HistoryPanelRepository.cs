@@ -1,48 +1,18 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using System.Reflection;
-using BazaarGameShared.Domain.Cards.Socket;
-using BazaarGameShared.Domain.Core.Types;
-using BazaarGameShared.Domain.Effect.AuraActions;
-using BazaarPlusPlus;
-using BazaarPlusPlus.Game.CombatReplay;
 using BazaarPlusPlus.Game.HistoryPanel.Ghost;
-using BazaarPlusPlus.Game.MonsterPreview;
 using BazaarPlusPlus.Game.PvpBattles;
 using BazaarPlusPlus.Game.RunLogging.Persistence.Sqlite;
 using Microsoft.Data.Sqlite;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Converters;
-using Newtonsoft.Json.Serialization;
-using TheBazaar;
 
 namespace BazaarPlusPlus.Game.HistoryPanel;
 
-internal sealed class HistoryPanelRepository
+internal sealed partial class HistoryPanelRepository
 {
     private const string RecentGhostSyncScopePrefix = "recent_against_me";
     private static readonly TimeSpan GhostRetentionWindow = TimeSpan.FromDays(14);
-    private static readonly object SocketEffectTemplateLock = new();
-    private static readonly Dictionary<
-        (Guid TemplateId, int Tier),
-        ECardAttributeType?
-    > SocketEffectAttributeTypeCache = new();
-    private static object? _staticGameData;
-
-    private static readonly JsonSerializerSettings SerializerSettings = new()
-    {
-        ContractResolver = new DefaultContractResolver
-        {
-            NamingStrategy = new SnakeCaseNamingStrategy(),
-        },
-        Converters = new List<JsonConverter> { new StringEnumConverter() },
-        NullValueHandling = NullValueHandling.Ignore,
-        Formatting = Formatting.None,
-        DateFormatString = "yyyy-MM-dd'T'HH:mm:ss.fffK",
-    };
 
     private readonly string _databasePath;
 
@@ -268,7 +238,8 @@ internal sealed class HistoryPanelRepository
                             opponentSkills
                         ),
                         BuildPreviewData(playerHand, playerSkills, opponentHand, opponentSkills),
-                        HistoryBattleSource.Local,
+                        isBundleFinalBattle: false,
+                        source: HistoryBattleSource.Local,
                         replayAvailable: true,
                         replayDownloaded: true
                     )
@@ -286,15 +257,12 @@ internal sealed class HistoryPanelRepository
         return records;
     }
 
-    public IReadOnlyList<HistoryBattleRecord> ListRecentGhostBattles(
-        string localPlayerAccountId,
-        int limit
-    )
+    public IReadOnlyList<HistoryBattleRecord> ListRecentGhostBattles(int limit)
     {
-        if (!DatabaseExists || string.IsNullOrWhiteSpace(localPlayerAccountId))
+        if (!DatabaseExists)
             return Array.Empty<HistoryBattleRecord>();
 
-        MarkOldUndownloadedGhostBattlesDeleted(localPlayerAccountId, DateTimeOffset.UtcNow);
+        MarkOldUndownloadedGhostBattlesDeleted(DateTimeOffset.UtcNow);
 
         using var connection = OpenConnection();
         using var command = connection.CreateCommand();
@@ -307,6 +275,8 @@ internal sealed class HistoryPanelRepository
                 day,
                 hour,
                 encounter_id,
+                player_name,
+                player_account_id,
                 player_hero,
                 player_rank,
                 player_rating,
@@ -321,16 +291,15 @@ internal sealed class HistoryPanelRepository
                 result,
                 winner_combatant_id,
                 loser_combatant_id,
+                is_bundle_final_battle,
                 replay_available,
                 replay_downloaded
             FROM {RunLogSqliteSchema.BattlesTableName}
             WHERE source = 'GHOST'
-              AND local_player_account_id = $localPlayerAccountId
               AND deleted_at_utc IS NULL
             ORDER BY recorded_at_utc DESC, battle_id DESC
             LIMIT $limit;
             """;
-        command.Parameters.AddWithValue("$localPlayerAccountId", localPlayerAccountId);
         command.Parameters.AddWithValue("$limit", limit);
 
         using var reader = command.ExecuteReader();
@@ -339,30 +308,27 @@ internal sealed class HistoryPanelRepository
         {
             var battleId = SafeGetNullableString(reader, "battle_id") ?? "unknown";
             records.Add(
-                new HistoryBattleRecord(
+                GhostBattleLocalProjector.CreateHistoryBattleRecord(
                     battleId,
-                    string.Empty,
                     DateTimeOffset.Parse(reader.GetString(reader.GetOrdinal("recorded_at_utc"))),
                     GetNullableInt32(reader, "day"),
                     GetNullableInt32(reader, "hour"),
                     GetNullableString(reader, "encounter_id"),
+                    GetNullableString(reader, "player_name"),
+                    GetNullableString(reader, "player_account_id"),
                     GetNullableString(reader, "player_hero"),
                     GetNullableString(reader, "player_rank"),
                     GetNullableInt32(reader, "player_rating"),
                     GetNullableInt32(reader, "player_level"),
-                    GetNullableString(reader, "opponent_name"),
                     GetNullableString(reader, "opponent_hero"),
                     GetNullableString(reader, "opponent_rank"),
                     GetNullableInt32(reader, "opponent_rating"),
                     GetNullableInt32(reader, "opponent_level"),
-                    GetNullableString(reader, "opponent_account_id"),
                     GetNullableString(reader, "combat_kind"),
                     GetNullableString(reader, "result"),
                     GetNullableString(reader, "winner_combatant_id"),
                     GetNullableString(reader, "loser_combatant_id"),
-                    string.Empty,
-                    BuildEmptyPreviewData(),
-                    HistoryBattleSource.Ghost,
+                    isBundleFinalBattle: GetNullableInt32(reader, "is_bundle_final_battle") == 1,
                     replayAvailable: GetNullableInt32(reader, "replay_available") == 1,
                     replayDownloaded: GetNullableInt32(reader, "replay_downloaded") == 1
                 )
@@ -409,6 +375,8 @@ internal sealed class HistoryPanelRepository
                     day,
                     hour,
                     encounter_id,
+                    player_name,
+                    player_account_id,
                     player_hero,
                     player_rank,
                     player_rating,
@@ -423,6 +391,7 @@ internal sealed class HistoryPanelRepository
                     result,
                     winner_combatant_id,
                     loser_combatant_id,
+                    is_bundle_final_battle,
                     replay_available,
                     replay_downloaded,
                     last_synced_at_utc
@@ -435,6 +404,8 @@ internal sealed class HistoryPanelRepository
                     $day,
                     $hour,
                     $encounterId,
+                    $playerName,
+                    $playerAccountId,
                     $playerHero,
                     $playerRank,
                     $playerRating,
@@ -449,6 +420,7 @@ internal sealed class HistoryPanelRepository
                     $result,
                     $winnerCombatantId,
                     $loserCombatantId,
+                    $isBundleFinalBattle,
                     $replayAvailable,
                     $replayDownloaded,
                     $lastSyncedAtUtc
@@ -461,6 +433,8 @@ internal sealed class HistoryPanelRepository
                     day = excluded.day,
                     hour = excluded.hour,
                     encounter_id = excluded.encounter_id,
+                    player_name = excluded.player_name,
+                    player_account_id = excluded.player_account_id,
                     player_hero = excluded.player_hero,
                     player_rank = excluded.player_rank,
                     player_rating = excluded.player_rating,
@@ -475,6 +449,7 @@ internal sealed class HistoryPanelRepository
                     result = excluded.result,
                     winner_combatant_id = excluded.winner_combatant_id,
                     loser_combatant_id = excluded.loser_combatant_id,
+                    is_bundle_final_battle = excluded.is_bundle_final_battle,
                     replay_available = excluded.replay_available,
                     replay_downloaded = MAX(
                         {RunLogSqliteSchema.GhostBattlesTableName}.replay_downloaded,
@@ -501,6 +476,14 @@ internal sealed class HistoryPanelRepository
             insertCommand.Parameters.AddWithValue(
                 "$encounterId",
                 (object?)battle.EncounterId ?? DBNull.Value
+            );
+            insertCommand.Parameters.AddWithValue(
+                "$playerName",
+                (object?)battle.PlayerName ?? DBNull.Value
+            );
+            insertCommand.Parameters.AddWithValue(
+                "$playerAccountId",
+                (object?)battle.PlayerAccountId ?? DBNull.Value
             );
             insertCommand.Parameters.AddWithValue(
                 "$playerHero",
@@ -556,6 +539,10 @@ internal sealed class HistoryPanelRepository
                 (object?)battle.LoserCombatantId ?? DBNull.Value
             );
             insertCommand.Parameters.AddWithValue(
+                "$isBundleFinalBattle",
+                battle.IsBundleFinalBattle ? 1 : 0
+            );
+            insertCommand.Parameters.AddWithValue(
                 "$replayAvailable",
                 battle.ReplayAvailable ? 1 : 0
             );
@@ -573,14 +560,8 @@ internal sealed class HistoryPanelRepository
         transaction.Commit();
     }
 
-    public void MarkOldUndownloadedGhostBattlesDeleted(
-        string localPlayerAccountId,
-        DateTimeOffset nowUtc
-    )
+    public void MarkOldUndownloadedGhostBattlesDeleted(DateTimeOffset nowUtc)
     {
-        if (string.IsNullOrWhiteSpace(localPlayerAccountId))
-            return;
-
         using var connection = OpenConnection(ensureSchema: true);
         using var command = connection.CreateCommand();
         command.CommandTimeout = 2;
@@ -588,12 +569,10 @@ internal sealed class HistoryPanelRepository
             UPDATE {RunLogSqliteSchema.BattlesTableName}
             SET deleted_at_utc = COALESCE(deleted_at_utc, $deletedAtUtc)
             WHERE source = 'GHOST'
-              AND local_player_account_id = $localPlayerAccountId
               AND replay_downloaded = 0
               AND deleted_at_utc IS NULL
               AND recorded_at_utc < $staleCutoffUtc;
             """;
-        command.Parameters.AddWithValue("$localPlayerAccountId", localPlayerAccountId);
         command.Parameters.AddWithValue("$deletedAtUtc", nowUtc.ToString("o"));
         command.Parameters.AddWithValue(
             "$staleCutoffUtc",
@@ -651,9 +630,9 @@ internal sealed class HistoryPanelRepository
         command.ExecuteNonQuery();
     }
 
-    public void MarkGhostReplayDownloaded(string localPlayerAccountId, string battleId)
+    public void MarkGhostReplayDownloaded(string battleId)
     {
-        if (string.IsNullOrWhiteSpace(localPlayerAccountId) || string.IsNullOrWhiteSpace(battleId))
+        if (string.IsNullOrWhiteSpace(battleId))
             return;
 
         using var connection = OpenConnection(ensureSchema: true);
@@ -663,10 +642,8 @@ internal sealed class HistoryPanelRepository
             UPDATE {RunLogSqliteSchema.BattlesTableName}
             SET replay_downloaded = 1
             WHERE source = 'GHOST'
-              AND local_player_account_id = $localPlayerAccountId
               AND battle_id = $battleId;
             """;
-        command.Parameters.AddWithValue("$localPlayerAccountId", localPlayerAccountId);
         command.Parameters.AddWithValue("$battleId", battleId);
         command.ExecuteNonQuery();
     }
@@ -723,10 +700,13 @@ internal sealed class HistoryPanelRepository
         pragma.ExecuteNonQuery();
         if (ensureSchema)
         {
-            using var bootstrap = connection.CreateCommand();
-            bootstrap.CommandTimeout = 2;
-            bootstrap.CommandText = RunLogSqliteSchema.BootstrapSql;
-            bootstrap.ExecuteNonQuery();
+            RunLogSqliteSchema.EnsureInitialized(connection);
+            EnsureColumnExists(
+                connection,
+                RunLogSqliteSchema.BattlesTableName,
+                "is_bundle_final_battle",
+                "INTEGER NOT NULL DEFAULT 0"
+            );
         }
         return connection;
     }
@@ -788,351 +768,6 @@ internal sealed class HistoryPanelRepository
                 ),
             },
         };
-    }
-
-    private static string BuildSnapshotSummary(
-        PvpBattleCardSetCapture playerHand,
-        PvpBattleCardSetCapture playerSkills,
-        PvpBattleCardSetCapture opponentHand,
-        PvpBattleCardSetCapture opponentSkills
-    )
-    {
-        var playerItems = CountSnapshotItems(playerHand);
-        var playerSkillCount = CountSnapshotItems(playerSkills);
-        var opponentItems = CountSnapshotItems(opponentHand);
-        var opponentSkillCount = CountSnapshotItems(opponentSkills);
-        return $"YOU {playerItems} {Pluralize(playerItems, "item", "items")} · {playerSkillCount} {Pluralize(playerSkillCount, "skill", "skills")}"
-            + $"  |  OPP {opponentItems} {Pluralize(opponentItems, "item", "items")} · {opponentSkillCount} {Pluralize(opponentSkillCount, "skill", "skills")}";
-    }
-
-    private static string Pluralize(int count, string singular, string plural)
-    {
-        return count == 1 ? singular : plural;
-    }
-
-    private static HistoryBattlePreviewData BuildEmptyPreviewData()
-    {
-        return new HistoryBattlePreviewData(
-            new PreviewBoardModel
-            {
-                ItemCards = new List<PreviewCardSpec>(),
-                SkillCards = new List<PreviewCardSpec>(),
-                Metadata = new Dictionary<string, string>(),
-                Signature = string.Empty,
-            },
-            new PreviewBoardModel
-            {
-                ItemCards = new List<PreviewCardSpec>(),
-                SkillCards = new List<PreviewCardSpec>(),
-                Metadata = new Dictionary<string, string>(),
-                Signature = string.Empty,
-            }
-        );
-    }
-
-    private static HistoryBattlePreviewData BuildPreviewData(
-        PvpBattleCardSetCapture playerHand,
-        PvpBattleCardSetCapture playerSkills,
-        PvpBattleCardSetCapture opponentHand,
-        PvpBattleCardSetCapture opponentSkills
-    )
-    {
-        var playerBoard = BuildPreviewBoard(playerHand, playerSkills);
-        var opponentBoard = BuildPreviewBoard(opponentHand, opponentSkills);
-        return new HistoryBattlePreviewData(playerBoard, opponentBoard);
-    }
-
-    private static PreviewBoardModel BuildPreviewBoard(
-        PvpBattleCardSetCapture itemCapture,
-        PvpBattleCardSetCapture skillCapture
-    )
-    {
-        var itemSnapshots = itemCapture?.Items;
-        var socketEffectsBySocket = BuildSocketEffectMap(itemSnapshots);
-        var model = new PreviewBoardModel
-        {
-            ItemCards = PreviewCardSpecFilter.FilterLocallyRenderable(
-                BuildPreviewCardSpecs(itemSnapshots, isSkill: false, socketEffectsBySocket)
-            ),
-            SkillCards = PreviewCardSpecFilter.FilterLocallyRenderable(
-                BuildPreviewCardSpecs(skillCapture?.Items, isSkill: true, null)
-            ),
-            Metadata = new Dictionary<string, string>(),
-        };
-        model.Signature = PreviewBoardSignature.Build(model);
-        return model;
-    }
-
-    private static List<PreviewCardSpec> BuildPreviewCardSpecs(
-        IEnumerable<CombatReplayCardSnapshot>? snapshots,
-        bool isSkill,
-        IReadOnlyDictionary<EContainerSocketId, HashSet<ECardAttributeType>>? socketEffectsBySocket
-    )
-    {
-        var specs = new List<PreviewCardSpec>();
-        if (snapshots == null)
-            return specs;
-
-        foreach (
-            var snapshot in snapshots
-                .Select((snapshot, index) => new { snapshot, index })
-                .OrderBy(entry => entry.snapshot?.Socket.HasValue == true ? 0 : 1)
-                .ThenBy(entry =>
-                    entry.snapshot?.Socket.HasValue == true
-                        ? (int)entry.snapshot.Socket!.Value
-                        : int.MaxValue
-                )
-                .ThenBy(entry => entry.index)
-                .Select(entry => entry.snapshot)
-        )
-        {
-            if (snapshot == null || string.IsNullOrWhiteSpace(snapshot.TemplateId))
-                continue;
-
-            var spec = BuildPreviewCardSpec(snapshot, isSkill, socketEffectsBySocket);
-            if (spec != null)
-                specs.Add(spec);
-        }
-
-        return specs;
-    }
-
-    private static PreviewCardSpec? BuildPreviewCardSpec(
-        CombatReplayCardSnapshot snapshot,
-        bool isSkill,
-        IReadOnlyDictionary<EContainerSocketId, HashSet<ECardAttributeType>>? socketEffectsBySocket
-    )
-    {
-        if (snapshot == null || string.IsNullOrWhiteSpace(snapshot.TemplateId))
-            return null;
-
-        if (isSkill)
-        {
-            if (snapshot.Type != ECardType.Skill)
-                return null;
-        }
-        else if (snapshot.Type != ECardType.Item)
-            return null;
-
-        var attributes = new Dictionary<int, int>();
-        if (snapshot.Attributes != null)
-        {
-            foreach (var pair in snapshot.Attributes)
-            {
-                if (
-                    Enum.TryParse<ECardAttributeType>(
-                        pair.Key,
-                        ignoreCase: false,
-                        out var attributeType
-                    )
-                )
-                {
-                    attributes[(int)attributeType] = pair.Value;
-                }
-            }
-        }
-
-        if (!isSkill)
-            ApplySocketEffectAttributes(snapshot, attributes, socketEffectsBySocket);
-
-        return new PreviewCardSpec
-        {
-            TemplateId = snapshot.TemplateId,
-            SourceName = snapshot.Name ?? string.Empty,
-            Tier = ParseTier(snapshot.Tier),
-            Size = isSkill ? 1 : ParseSize(snapshot.Size),
-            Enchant = string.IsNullOrWhiteSpace(snapshot.Enchant) ? "None" : snapshot.Enchant!,
-            Attributes = attributes,
-        };
-    }
-
-    private static IReadOnlyDictionary<
-        EContainerSocketId,
-        HashSet<ECardAttributeType>
-    > BuildSocketEffectMap(IEnumerable<CombatReplayCardSnapshot>? snapshots)
-    {
-        var result = new Dictionary<EContainerSocketId, HashSet<ECardAttributeType>>();
-        if (snapshots == null)
-            return result;
-
-        foreach (var snapshot in snapshots)
-        {
-            if (
-                snapshot == null
-                || snapshot.Type != ECardType.SocketEffect
-                || !snapshot.Socket.HasValue
-                || string.IsNullOrWhiteSpace(snapshot.TemplateId)
-            )
-                continue;
-
-            var effectType = ResolveSocketEffectAttributeType(snapshot);
-            if (!effectType.HasValue)
-                continue;
-
-            if (!result.TryGetValue(snapshot.Socket.Value, out var effects))
-            {
-                effects = new HashSet<ECardAttributeType>();
-                result[snapshot.Socket.Value] = effects;
-            }
-
-            effects.Add(effectType.Value);
-        }
-
-        return result;
-    }
-
-    private static void ApplySocketEffectAttributes(
-        CombatReplayCardSnapshot snapshot,
-        IDictionary<int, int> attributes,
-        IReadOnlyDictionary<EContainerSocketId, HashSet<ECardAttributeType>>? socketEffectsBySocket
-    )
-    {
-        if (
-            snapshot == null
-            || attributes == null
-            || socketEffectsBySocket == null
-            || !snapshot.Socket.HasValue
-        )
-            return;
-
-        foreach (var socket in EnumerateOccupiedSockets(snapshot.Socket.Value, snapshot.Size))
-        {
-            if (!socketEffectsBySocket.TryGetValue(socket, out var effectTypes))
-                continue;
-
-            foreach (var effectType in effectTypes)
-            {
-                var key = (int)effectType;
-                if (!attributes.TryGetValue(key, out var currentValue) || currentValue <= 0)
-                    attributes[key] = 1;
-            }
-        }
-    }
-
-    private static IEnumerable<EContainerSocketId> EnumerateOccupiedSockets(
-        EContainerSocketId startSocket,
-        ECardSize size
-    )
-    {
-        var span = ParseSize(size);
-        var start = Math.Max(0, (int)startSocket);
-        var end = Math.Min(9, start + Math.Max(1, span) - 1);
-        for (var value = start; value <= end; value++)
-            yield return (EContainerSocketId)value;
-    }
-
-    private static ECardAttributeType? ResolveSocketEffectAttributeType(
-        CombatReplayCardSnapshot snapshot
-    )
-    {
-        if (snapshot == null || string.IsNullOrWhiteSpace(snapshot.TemplateId))
-            return null;
-
-        if (!Guid.TryParse(snapshot.TemplateId, out var templateId))
-            return null;
-
-        var tier = ParseTier(snapshot.Tier);
-        var cacheKey = (templateId, tier);
-        lock (SocketEffectTemplateLock)
-        {
-            if (SocketEffectAttributeTypeCache.TryGetValue(cacheKey, out var cachedType))
-                return cachedType;
-        }
-
-        ECardAttributeType? resolvedType = null;
-        try
-        {
-            var staticData = GetStaticGameData();
-            var template = GetTemplate(staticData, templateId) as TCardSocketEffect;
-            if (template != null)
-            {
-                var auras = template.GetAuraTemplatesByTier((ETier)Math.Max(0, tier));
-                foreach (var aura in auras)
-                {
-                    if (
-                        aura?.Action is TAuraActionCardModifyAttribute action
-                        && (
-                            action.AttributeType == ECardAttributeType.Heated
-                            || action.AttributeType == ECardAttributeType.Chilled
-                        )
-                    )
-                    {
-                        resolvedType = action.AttributeType;
-                        break;
-                    }
-                }
-            }
-        }
-        catch { }
-
-        lock (SocketEffectTemplateLock)
-            SocketEffectAttributeTypeCache[cacheKey] = resolvedType;
-
-        return resolvedType;
-    }
-
-    private static object? GetStaticGameData()
-    {
-        lock (SocketEffectTemplateLock)
-        {
-            if (_staticGameData != null)
-                return _staticGameData;
-        }
-
-        var staticData = Data.GetStatic().GetAwaiter().GetResult();
-        lock (SocketEffectTemplateLock)
-        {
-            _staticGameData ??= staticData;
-            return _staticGameData;
-        }
-    }
-
-    private static object? GetTemplate(object? staticData, Guid templateId)
-    {
-        if (staticData == null)
-            return null;
-
-        var method = staticData
-            .GetType()
-            .GetMethod(
-                "GetCardById",
-                BindingFlags.Public | BindingFlags.Instance,
-                null,
-                new[] { typeof(Guid) },
-                null
-            );
-        return method?.Invoke(staticData, new object[] { templateId });
-    }
-
-    private static PvpBattleCardSetCapture DeserializeCapture(string json)
-    {
-        return JsonConvert.DeserializeObject<PvpBattleCardSetCapture>(json, SerializerSettings)
-            ?? new PvpBattleCardSetCapture();
-    }
-
-    private static int ParseTier(string? value)
-    {
-        return
-            !string.IsNullOrWhiteSpace(value)
-            && Enum.TryParse<ETier>(value, ignoreCase: false, out var tier)
-            ? (int)tier
-            : 0;
-    }
-
-    private static int ParseSize(ECardSize size)
-    {
-        return size switch
-        {
-            ECardSize.Small => 1,
-            ECardSize.Medium => 2,
-            ECardSize.Large => 3,
-            _ => 1,
-        };
-    }
-
-    private static int CountSnapshotItems(PvpBattleCardSetCapture? capture)
-    {
-        return capture?.Items?.Count ?? 0;
     }
 
     private static void EnsureColumnExists(
@@ -1207,295 +842,5 @@ internal sealed class HistoryPanelRepository
     {
         var ordinal = reader.GetOrdinal(columnName);
         return reader.IsDBNull(ordinal) ? null : DateTimeOffset.Parse(reader.GetString(ordinal));
-    }
-}
-
-internal sealed class HistoryRunRecord
-{
-    public HistoryRunRecord(
-        string runId,
-        string hero,
-        string gameMode,
-        DateTimeOffset startedAtUtc,
-        DateTimeOffset? endedAtUtc,
-        DateTimeOffset lastSeenAtUtc,
-        int? finalDay,
-        int? finalHour,
-        int? maxHealth,
-        int? prestige,
-        int? level,
-        int? income,
-        int? gold,
-        string? playerRank,
-        int? playerRating,
-        int? victories,
-        int? losses,
-        string rawStatus,
-        int battleCount
-    )
-    {
-        RunId = runId;
-        Hero = hero;
-        GameMode = gameMode;
-        StartedAtUtc = startedAtUtc;
-        EndedAtUtc = endedAtUtc;
-        LastSeenAtUtc = lastSeenAtUtc;
-        FinalDay = finalDay;
-        FinalHour = finalHour;
-        MaxHealth = maxHealth;
-        Prestige = prestige;
-        Level = level;
-        Income = income;
-        Gold = gold;
-        PlayerRank = playerRank;
-        PlayerRating = playerRating;
-        Victories = victories;
-        Losses = losses;
-        RawStatus = rawStatus;
-        BattleCount = battleCount;
-    }
-
-    public string RunId { get; }
-
-    public string Hero { get; }
-
-    public string GameMode { get; }
-
-    public DateTimeOffset StartedAtUtc { get; }
-
-    public DateTimeOffset? EndedAtUtc { get; }
-
-    public DateTimeOffset LastSeenAtUtc { get; }
-
-    public int? FinalDay { get; }
-
-    public int? FinalHour { get; }
-
-    public int? MaxHealth { get; }
-
-    public int? Prestige { get; }
-
-    public int? Level { get; }
-
-    public int? Income { get; }
-
-    public int? Gold { get; }
-
-    public string? PlayerRank { get; }
-
-    public int? PlayerRating { get; }
-
-    public int? Victories { get; }
-
-    public int? Losses { get; }
-
-    public string RawStatus { get; }
-
-    public int BattleCount { get; }
-}
-
-internal sealed class HistoryBattleRecord
-{
-    public HistoryBattleRecord(
-        string battleId,
-        string runId,
-        DateTimeOffset recordedAtUtc,
-        int? day,
-        int? hour,
-        string? encounterId,
-        string? playerHero,
-        string? playerRank,
-        int? playerRating,
-        int? playerLevel,
-        string? opponentName,
-        string? opponentHero,
-        string? opponentRank,
-        int? opponentRating,
-        int? opponentLevel,
-        string? opponentAccountId,
-        string? combatKind,
-        string? result,
-        string? winnerCombatantId,
-        string? loserCombatantId,
-        string snapshotSummary,
-        HistoryBattlePreviewData previewData,
-        HistoryBattleSource source,
-        bool replayAvailable,
-        bool replayDownloaded
-    )
-    {
-        BattleId = battleId;
-        RunId = runId;
-        RecordedAtUtc = recordedAtUtc;
-        Day = day;
-        Hour = hour;
-        EncounterId = encounterId;
-        PlayerHero = playerHero;
-        PlayerRank = playerRank;
-        PlayerRating = playerRating;
-        PlayerLevel = playerLevel;
-        OpponentName = opponentName;
-        OpponentHero = opponentHero;
-        OpponentRank = opponentRank;
-        OpponentRating = opponentRating;
-        OpponentLevel = opponentLevel;
-        OpponentAccountId = opponentAccountId;
-        CombatKind = combatKind;
-        Result = result;
-        WinnerCombatantId = winnerCombatantId;
-        LoserCombatantId = loserCombatantId;
-        SnapshotSummary = snapshotSummary;
-        PreviewData = previewData;
-        Source = source;
-        ReplayAvailable = replayAvailable;
-        ReplayDownloaded = replayDownloaded;
-    }
-
-    public string BattleId { get; }
-
-    public string RunId { get; }
-
-    public DateTimeOffset RecordedAtUtc { get; }
-
-    public int? Day { get; }
-
-    public int? Hour { get; }
-
-    public string? EncounterId { get; }
-
-    public string? PlayerHero { get; }
-
-    public string? PlayerRank { get; }
-
-    public int? PlayerRating { get; }
-
-    public int? PlayerLevel { get; }
-
-    public string? OpponentName { get; }
-
-    public string? OpponentHero { get; }
-
-    public string? OpponentRank { get; }
-
-    public int? OpponentRating { get; }
-
-    public int? OpponentLevel { get; }
-
-    public string? OpponentAccountId { get; }
-
-    public string? CombatKind { get; }
-
-    public string? Result { get; }
-
-    public string? WinnerCombatantId { get; }
-
-    public string? LoserCombatantId { get; }
-
-    public string SnapshotSummary { get; }
-
-    public HistoryBattlePreviewData PreviewData { get; }
-
-    public HistoryBattleSource Source { get; }
-
-    public bool ReplayAvailable { get; }
-
-    public bool ReplayDownloaded { get; }
-}
-
-internal enum HistoryBattleSource
-{
-    Local,
-    Ghost,
-}
-
-internal sealed class HistoryBattlePreviewData
-{
-    private static readonly PreviewBoardModel EmptyBoard = new PreviewBoardModel
-    {
-        ItemCards = new List<PreviewCardSpec>(),
-        SkillCards = new List<PreviewCardSpec>(),
-        Metadata = new Dictionary<string, string>(),
-        Signature = string.Empty,
-    };
-
-    public HistoryBattlePreviewData(PreviewBoardModel playerBoard, PreviewBoardModel opponentBoard)
-    {
-        PlayerBoard = playerBoard ?? CloneBoard(EmptyBoard);
-        OpponentBoard = opponentBoard ?? CloneBoard(EmptyBoard);
-    }
-
-    public PreviewBoardModel PlayerBoard { get; }
-
-    public PreviewBoardModel OpponentBoard { get; }
-
-    public bool HasRenderablePlayerBoard => CountRenderableCards(PlayerBoard) > 0;
-
-    public bool HasRenderableOpponentBoard => CountRenderableCards(OpponentBoard) > 0;
-
-    public bool HasRenderableCards => HasRenderablePlayerBoard || HasRenderableOpponentBoard;
-
-    public HistoryBattlePreviewData PlayerOnly()
-    {
-        return new HistoryBattlePreviewData(CloneBoard(PlayerBoard), CloneBoard(EmptyBoard));
-    }
-
-    public HistoryBattlePreviewData OpponentOnly()
-    {
-        return new HistoryBattlePreviewData(CloneBoard(EmptyBoard), CloneBoard(OpponentBoard));
-    }
-
-    public HistoryBattlePreviewData PlayerHandOnly()
-    {
-        return new HistoryBattlePreviewData(CloneItemBoard(PlayerBoard), CloneBoard(EmptyBoard));
-    }
-
-    public HistoryBattlePreviewData OpponentHandOnly()
-    {
-        return new HistoryBattlePreviewData(CloneBoard(EmptyBoard), CloneItemBoard(OpponentBoard));
-    }
-
-    private static int CountRenderableCards(PreviewBoardModel board)
-    {
-        if (board == null)
-            return 0;
-
-        return (board.ItemCards?.Count ?? 0) + (board.SkillCards?.Count ?? 0);
-    }
-
-    private static PreviewBoardModel CloneBoard(PreviewBoardModel source)
-    {
-        return new PreviewBoardModel
-        {
-            ItemCards =
-                source?.ItemCards != null
-                    ? new List<PreviewCardSpec>(source.ItemCards)
-                    : new List<PreviewCardSpec>(),
-            SkillCards =
-                source?.SkillCards != null
-                    ? new List<PreviewCardSpec>(source.SkillCards)
-                    : new List<PreviewCardSpec>(),
-            Metadata =
-                source?.Metadata != null
-                    ? new Dictionary<string, string>(source.Metadata)
-                    : new Dictionary<string, string>(),
-            Signature = source?.Signature ?? string.Empty,
-        };
-    }
-
-    private static PreviewBoardModel CloneItemBoard(PreviewBoardModel source)
-    {
-        return new PreviewBoardModel
-        {
-            ItemCards =
-                source?.ItemCards != null
-                    ? new List<PreviewCardSpec>(source.ItemCards)
-                    : new List<PreviewCardSpec>(),
-            SkillCards = new List<PreviewCardSpec>(),
-            Metadata =
-                source?.Metadata != null
-                    ? new Dictionary<string, string>(source.Metadata)
-                    : new Dictionary<string, string>(),
-            Signature = source?.Signature ?? string.Empty,
-        };
     }
 }
