@@ -129,6 +129,7 @@ If you plan to build on top of this project or release derivative mods, make sur
 - **Inspiration**: [BazaarHelper](https://github.com/Duangi/BazaarHelper), [BazaarPlannerMod](https://github.com/oceanseth/BazaarPlannerMod)
 - **Data reference**: [bazaardb.gg](https://bazaardb.gg)
 - **Runtime dependencies**: [BepInEx](https://github.com/BepInEx/BepInEx), [Harmony](https://github.com/pardeike/Harmony), [Tauri](https://tauri.app), [SvelteKit](https://kit.svelte.dev)
+- **Font**: [LXGW WenKai](https://github.com/lxgw/LxgwWenKai) (SIL Open Font License 1.1)
 - **Co-creators**: [Codex](https://openai.com/codex), [Claude Code](https://claude.com/product/claude-code)
 
 ## Supporters

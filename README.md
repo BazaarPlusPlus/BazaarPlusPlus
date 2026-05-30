@@ -129,6 +129,7 @@ npm run format
 - **灵感来源**：[BazaarHelper](https://github.com/Duangi/BazaarHelper)、[BazaarPlannerMod](https://github.com/oceanseth/BazaarPlannerMod)
 - **数据来源**：[bazaardb.gg](https://bazaardb.gg)
 - **运行依赖**：[BepInEx](https://github.com/BepInEx/BepInEx)、[Harmony](https://github.com/pardeike/Harmony)、[Tauri](https://tauri.app)、[SvelteKit](https://kit.svelte.dev)
+- **字体**：[LXGW WenKai](https://github.com/lxgw/LxgwWenKai)（SIL Open Font License 1.1）
 - **共创**：[Codex](https://openai.com/codex)、[Claude Code](https://claude.com/product/claude-code)
 
 ## 支持者
