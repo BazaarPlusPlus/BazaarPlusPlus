@@ -1,13 +1,10 @@
 use std::path::{Path, PathBuf};
 
-#[cfg(target_os = "windows")]
-use crate::config::STEAM_LIBRARY_FALLBACK_CANDIDATES;
-pub(crate) use crate::config::{
-    BAZAAR_DATA_DIRECTORY as DATA_DIRECTORY, DATABASE_FILE_NAME, SCREENSHOTS_DIRECTORY,
-};
+use crate::services::game_path::fallback_game_candidates;
+use crate::services::paths;
 
 pub fn resolve_database_path(game_path: &Path) -> Result<PathBuf, String> {
-    let data_dir = game_path.join(DATA_DIRECTORY);
+    let data_dir = paths::bpp_data_dir(game_path);
     if !data_dir.exists() {
         return Err(format!(
             "BazaarPlusPlus data directory not found: {}",
@@ -15,7 +12,7 @@ pub fn resolve_database_path(game_path: &Path) -> Result<PathBuf, String> {
         ));
     }
 
-    let candidate = data_dir.join(DATABASE_FILE_NAME);
+    let candidate = paths::database_path(game_path);
     if candidate.exists() {
         return Ok(candidate);
     }
@@ -26,16 +23,11 @@ pub fn resolve_database_path(game_path: &Path) -> Result<PathBuf, String> {
     ))
 }
 
-pub(super) fn find_database_path_anywhere() -> Result<PathBuf, String> {
-    #[cfg(target_os = "windows")]
-    {
-        for candidate in STEAM_LIBRARY_FALLBACK_CANDIDATES {
-            let db = PathBuf::from(candidate)
-                .join(DATA_DIRECTORY)
-                .join(DATABASE_FILE_NAME);
-            if db.exists() {
-                return Ok(db);
-            }
+pub fn find_database_path_anywhere() -> Result<PathBuf, String> {
+    for candidate in fallback_game_candidates() {
+        let db = paths::database_path(&candidate);
+        if db.exists() {
+            return Ok(db);
         }
     }
     Err(

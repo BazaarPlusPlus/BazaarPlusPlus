@@ -23,7 +23,14 @@ export function resolveBundleCleanupPath(rootDir, platformEnv) {
   }
 
   if (platform === 'windows') {
-    return path.join(rootDir, 'src-tauri', 'target', 'release', 'bundle', 'nsis');
+    return path.join(
+      rootDir,
+      'src-tauri',
+      'target',
+      'release',
+      'bundle',
+      'nsis'
+    );
   }
 
   return null;
@@ -44,23 +51,35 @@ export function cleanupBundleArtifacts(rootDir, platformEnv) {
 }
 
 function main() {
-  const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+  const rootDir = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    '..'
+  );
   const platformEnv = process.env.TAURI_ENV_PLATFORM ?? process.platform;
   const { cleanupPath, removed } = cleanupBundleArtifacts(rootDir, platformEnv);
 
   if (!cleanupPath) {
-    console.log(`before-bundle-cleanup: skipping unsupported platform ${platformEnv}`);
+    console.log(
+      `before-bundle-cleanup: skipping unsupported platform ${platformEnv}`
+    );
     return;
   }
 
   if (removed) {
-    console.log(`before-bundle-cleanup: removed stale bundle artifacts at ${cleanupPath}`);
+    console.log(
+      `before-bundle-cleanup: removed stale bundle artifacts at ${cleanupPath}`
+    );
     return;
   }
 
-  console.log(`before-bundle-cleanup: no stale bundle artifacts at ${cleanupPath}`);
+  console.log(
+    `before-bundle-cleanup: no stale bundle artifacts at ${cleanupPath}`
+  );
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (
+  process.argv[1] &&
+  path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+) {
   main();
 }

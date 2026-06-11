@@ -29,13 +29,19 @@ function isValidFragment(fragment, expectedVersion, expectedPlatform) {
   );
 }
 
-export function buildLatestManifest({ version, fragments, existingLatest, now = new Date() }) {
+export function buildLatestManifest({
+  version,
+  fragments,
+  existingLatest,
+  now = new Date()
+}) {
   if (fragments.length === 0) {
-    throw new Error(`No uploaded platform manifest fragments found for ${version}`);
+    throw new Error(
+      `No uploaded platform manifest fragments found for ${version}`
+    );
   }
 
-  const reuseExisting =
-    existingLatest && existingLatest.version === version;
+  const reuseExisting = existingLatest && existingLatest.version === version;
 
   const latest = {
     version,
@@ -73,7 +79,9 @@ export function writeLatestManifest({ outputPath, version, tempDir }) {
     fragments.push(fragment);
   }
 
-  const existingLatest = readJsonIfExists(path.join(tempDir, 'existing-latest.json'));
+  const existingLatest = readJsonIfExists(
+    path.join(tempDir, 'existing-latest.json')
+  );
   const latest = buildLatestManifest({ version, fragments, existingLatest });
 
   fs.writeFileSync(outputPath, `${JSON.stringify(latest, null, 2)}\n`);
@@ -81,6 +89,9 @@ export function writeLatestManifest({ outputPath, version, tempDir }) {
 }
 
 function main() {
+  // argv[3] (<baseUrl>) is accepted but intentionally unused; build.sh passes it
+  // positionally (build.sh:558), so it stays in the usage string to keep
+  // <tempDir> at position 4.
   const [outputPath, version, , tempDir] = process.argv.slice(2);
 
   if (!outputPath || !version || !tempDir) {
@@ -100,7 +111,9 @@ function main() {
       `latest.json platforms: ${fragments.map((f) => f.platform).join(', ')}`
     );
     if (missingPlatforms.length > 0) {
-      console.log(`latest.json skipped platforms: ${missingPlatforms.join(', ')}`);
+      console.log(
+        `latest.json skipped platforms: ${missingPlatforms.join(', ')}`
+      );
     }
   } catch (error) {
     console.error(error instanceof Error ? error.message : String(error));
@@ -108,6 +121,9 @@ function main() {
   }
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (
+  process.argv[1] &&
+  path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+) {
   main();
 }

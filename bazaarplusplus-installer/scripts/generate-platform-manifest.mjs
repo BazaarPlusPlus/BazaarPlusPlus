@@ -41,7 +41,14 @@ function main() {
   const [outputPath, platformKey, baseUrl, version, updaterFile, updaterSig] =
     process.argv.slice(2);
 
-  if (!outputPath || !platformKey || !baseUrl || !version || !updaterFile || !updaterSig) {
+  if (
+    !outputPath ||
+    !platformKey ||
+    !baseUrl ||
+    !version ||
+    !updaterFile ||
+    !updaterSig
+  ) {
     console.error(
       'Usage: generate-platform-manifest.mjs <output> <platform> <baseUrl> <version> <updaterFile> <updaterSig>'
     );
@@ -58,6 +65,9 @@ function main() {
   });
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (
+  process.argv[1] &&
+  path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+) {
   main();
 }

@@ -4,7 +4,8 @@
     "targets": ["dmg"],
     "icon": ["icons/icon.icns"],
     "resources": {
-      "resources/BepInExSource/macos/BepInEx.zip": "BepInExSource/BepInEx.zip"
+      "resources/BepInExSource/macos/BepInEx.zip": "BepInExSource/BepInEx.zip",
+      "resources/Trampoline/macos/bpp_launcher": "Trampoline/bpp_launcher"
     }
   }
 }

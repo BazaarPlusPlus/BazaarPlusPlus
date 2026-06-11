@@ -1,0 +1,148 @@
+@import "tailwindcss";
+@import "./fonts.css";
+
+@theme {
+  --color-bg: #0b0906;
+  --color-text: #e8dcc8;
+  --color-gold-text: #e8c87a;
+  --color-soft-gold: #f3d38d;
+  --color-gold-button: #d4a040;
+  --color-pale-gold: #f6ebd1;
+  --color-gold-deep: #bf852e;
+  --color-gold-dark: #9e5c1e;
+}
+
+:root {
+  --color-accent-rgb: 200, 148, 55;
+  --color-cream-rgb: 228, 216, 191;
+  --color-warm-rgb: 255, 214, 140;
+  --color-warm-bright-rgb: 255, 198, 98;
+  --color-muted-gold-rgb: 200, 170, 120;
+}
+
+html, body {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  font-family: 'IM Fell English', 'Noto Serif SC', 'Songti SC', Georgia, serif;
+}
+
+#root {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.cinzel { font-family: 'Cinzel', serif; }
+.cinzel-decorative { font-family: 'Cinzel Decorative', serif; }
+.fira-code { font-family: 'Fira Code', monospace; }
+
+/* ── Native-feel base: this is a desktop app, not a web page ─────────── */
+@layer base {
+  /* Desktop apps use the arrow cursor everywhere; only text fields get a
+     caret. Listed explicitly so this beats Preflight's button cursor, while
+     Tailwind cursor-* utilities (utilities layer) still win where opted in. */
+  *, *::before, *::after {
+    cursor: default;
+  }
+  a, button, [role="button"], label, summary, select {
+    cursor: default;
+  }
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  textarea,
+  [contenteditable="true"] {
+    cursor: text;
+  }
+
+  /* Chrome is not selectable; opt real content back in with .selectable. */
+  :root {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  input:not([type="checkbox"]):not([type="radio"]),
+  textarea,
+  [contenteditable="true"] {
+    -webkit-user-select: text;
+    user-select: text;
+  }
+
+  /* Keep keyboard focus visible even where a component restyles focus. */
+  :focus-visible {
+    outline: 2px solid var(--color-gold-text);
+    outline-offset: 2px;
+  }
+
+  /* Subtle native "press" feedback on every button. Tailwind active:*
+     utilities (e.g. brightness on primary buttons) layer on top of this. */
+  button:not(:disabled):active {
+    transform: translateY(0.5px);
+  }
+}
+
+.selectable,
+.user-content,
+.user-content * {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+/* Respect the OS "reduce motion" setting. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Native modal via <dialog>: top-layer, Escape-to-close, focus trap and a
+   real backdrop, all from the platform. The dialog fills the viewport and
+   centers its card; ::backdrop draws the dim. */
+.bpp-dialog {
+  width: 100vw;
+  height: 100vh;
+  max-width: 100vw;
+  max-height: 100vh;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  overflow: visible;
+  align-items: center;
+  justify-content: center;
+}
+.bpp-dialog[open] {
+  display: flex;
+}
+.bpp-dialog:focus {
+  outline: none;
+}
+.bpp-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.6);
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+}
+
+/* Thin, themed scrollbar for in-app scroll regions. */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(200, 148, 55, 0.35) transparent;
+}
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: rgba(200, 148, 55, 0.28);
+  border-radius: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(200, 148, 55, 0.45);
+}

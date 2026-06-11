@@ -120,7 +120,7 @@ function renderPreview() {
   writeCropToInputs(crop);
   setCropVariables(crop);
 
-  if (!selectedRecord?.image_url) {
+  if (!selectedRecord?.id) {
     if (previewEmpty) {
       previewEmpty.hidden = false;
     }
@@ -137,7 +137,7 @@ function renderPreview() {
     previewWorkspace.hidden = false;
   }
   if (fullPreviewImage) {
-    fullPreviewImage.src = selectedRecord.image_url;
+    fullPreviewImage.src = `/images/${encodeURIComponent(selectedRecord.id)}`;
   }
   if (selectedMeta) {
     selectedMeta.textContent = [
@@ -162,7 +162,7 @@ async function loadCropSettings() {
 }
 
 async function loadRecords() {
-  const endpoint = new URL('/api/records/latest', window.location.origin);
+  const endpoint = new URL('/api/stream/records/latest', window.location.origin);
   if (requestedOffset > 0) {
     endpoint.searchParams.set('offset', String(requestedOffset));
   }
@@ -173,7 +173,7 @@ async function loadRecords() {
   }
 
   const payload = await response.json();
-  return payload?.image_url ? payload : null;
+  return payload?.id ? payload : null;
 }
 
 async function saveCrop() {

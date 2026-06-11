@@ -5,18 +5,15 @@ use serde::Serialize;
 use super::image::resolve_overlay_image_path;
 use super::repo::OverlayRecordRow;
 
-#[derive(Clone, Debug, Serialize, ts_rs::TS)]
-#[ts(export, rename = "StreamRecordSummary")]
+#[derive(Clone, Debug, Serialize)]
 pub struct OverlayRecord {
     pub id: String,
     pub title: String,
     pub subtitle: String,
     pub captured_at: String,
     pub captured_at_utc: String,
-    pub image_url: Option<String>,
-    pub image_path: Option<String>,
+    pub strip_url: Option<String>,
     pub wins: Option<i64>,
-    pub position: Option<i64>,
     pub battle_count: Option<i64>,
     pub rank: Option<String>,
     pub rating: Option<i64>,
@@ -26,8 +23,9 @@ pub(super) fn to_overlay_record(game_path: Option<&Path>, row: OverlayRecordRow)
     let image_path =
         resolve_overlay_image_path(game_path.map(PathBuf::from), row.image_path.as_deref())
             .filter(|path| path.exists());
-    let image_url = image_path.as_ref().map(|_| format!("/images/{}", row.id));
-    let image_path = image_path.map(|path| path.to_string_lossy().into_owned());
+    let strip_url = image_path
+        .as_ref()
+        .map(|_| format!("/images/{}/strip", row.id));
 
     OverlayRecord {
         id: row.id,
@@ -35,10 +33,8 @@ pub(super) fn to_overlay_record(game_path: Option<&Path>, row: OverlayRecordRow)
         subtitle: build_subtitle(&row.game_mode, row.wins, row.battle_count),
         captured_at: row.captured_at,
         captured_at_utc: row.captured_at_utc,
-        image_url,
-        image_path,
+        strip_url,
         wins: row.wins,
-        position: row.position,
         battle_count: row.battle_count,
         rank: row.rank,
         rating: row.rating,

@@ -35,7 +35,10 @@ test('cleanupBundleArtifacts removes stale macOS bundle outputs', () => {
   );
 
   fs.mkdirSync(bundleDir, { recursive: true });
-  fs.writeFileSync(path.join(bundleDir, 'BazaarPlusPlus_3.1.0_aarch64.dmg'), 'stale');
+  fs.writeFileSync(
+    path.join(bundleDir, 'BazaarPlusPlus_3.1.0_aarch64.dmg'),
+    'stale'
+  );
 
   try {
     const result = cleanupBundleArtifacts(rootDir, 'macos');
@@ -69,10 +72,20 @@ test('cleanupBundleArtifacts removes stale macOS bundle outputs', () => {
 
 test('cleanupBundleArtifacts removes stale Windows installer outputs', () => {
   const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), 'bpp-cleanup-'));
-  const nsisDir = path.join(rootDir, 'src-tauri', 'target', 'release', 'bundle', 'nsis');
+  const nsisDir = path.join(
+    rootDir,
+    'src-tauri',
+    'target',
+    'release',
+    'bundle',
+    'nsis'
+  );
 
   fs.mkdirSync(nsisDir, { recursive: true });
-  fs.writeFileSync(path.join(nsisDir, 'BazaarPlusPlus_3.1.0_x64-setup.exe'), 'stale');
+  fs.writeFileSync(
+    path.join(nsisDir, 'BazaarPlusPlus_3.1.0_x64-setup.exe'),
+    'stale'
+  );
 
   try {
     const result = cleanupBundleArtifacts(rootDir, 'windows');

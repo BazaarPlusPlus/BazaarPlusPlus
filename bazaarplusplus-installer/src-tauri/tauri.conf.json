@@ -1,11 +1,11 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "BazaarPlusPlus",
-  "version": "3.3.0",
+  "version": "4.2.0",
   "identifier": "com.bazaarplusplus.bppinstaller",
   "build": {
     "beforeDevCommand": "npm run dev",
-    "devUrl": "http://localhost:1420",
+    "devUrl": "http://localhost:14207",
     "beforeBuildCommand": "npm run prebuild-check && npm run build",
     "beforeBundleCommand": "node scripts/before-bundle-cleanup.mjs",
     "frontendDist": "../build"
@@ -14,8 +14,10 @@
     "windows": [
       {
         "title": "BazaarPlusPlus",
-        "width": 680,
-        "height": 960
+        "width": 1000,
+        "height": 720,
+        "minWidth": 900,
+        "minHeight": 640
       }
     ],
     "security": {

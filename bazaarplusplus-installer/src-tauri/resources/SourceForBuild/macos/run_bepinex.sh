@@ -331,11 +331,15 @@ if [[ $(basename "$app_path") != *.app ]]; then
     cp -ca "${app_path}/Contents/" "${target_path}/"
 fi
 
-# gib: workaround to ensure game is not codesigned so that doorstop can inject BepInEx
-# macOS 26+: sign with JIT entitlements so Harmony can write to executable memory (mprotect W+X)
+# macOS 26+: replace the app signature with JIT entitlements so Harmony can write
+# to executable memory (mprotect W+X) while Doorstop injects BepInEx.
 app_path="${executable_path%/Contents/MacOS*}"
 if command -v codesign &>/dev/null; then
-    _entitlements_file="$(mktemp /tmp/bepinex_ents.XXXXXX.plist)"
+    _entitlements_file="$(mktemp "${TMPDIR:-/tmp}/bepinex_ents.XXXXXX")"
+    cleanup_entitlements() {
+        rm -f "$_entitlements_file"
+    }
+    trap cleanup_entitlements EXIT HUP INT TERM
     cat > "$_entitlements_file" << 'ENTEOF'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -347,9 +351,9 @@ if command -v codesign &>/dev/null; then
 </dict>
 </plist>
 ENTEOF
-    codesign --remove-signature "$app_path" 2>/dev/null || true
     codesign --force --deep --sign - --entitlements "$_entitlements_file" "$app_path"
-    rm -f "$_entitlements_file"
+    cleanup_entitlements
+    trap - EXIT HUP INT TERM
 fi
 
 if [ -n "${is_apple_silicon}" ]; then

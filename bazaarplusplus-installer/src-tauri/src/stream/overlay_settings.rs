@@ -2,8 +2,7 @@ use base64::{engine::general_purpose::STANDARD, Engine as _};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-const SETTINGS_DIRECTORY: &str = "BazaarPlusPlus";
-const SETTINGS_FILE_NAME: &str = "stream-overlay-crop.json";
+const OVERLAY_SETTINGS_VERSION: u8 = 4;
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, ts_rs::TS)]
 #[ts(export, rename = "StreamOverlayCropSettings")]
@@ -27,7 +26,6 @@ pub enum OverlayDisplayMode {
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq)]
 pub struct OverlaySettings {
     pub crop: OverlayCropSettings,
-    #[serde(default)]
     pub display_mode: OverlayDisplayMode,
 }
 
@@ -90,20 +88,44 @@ impl OverlaySettingsStore {
             return Ok(OverlaySettings::default());
         }
 
-        let raw = std::fs::read_to_string(&self.path).map_err(|err| {
-            format!(
-                "Failed to read overlay crop settings from {}: {err}",
-                self.path.display()
-            )
-        })?;
-        let document = serde_json::from_str::<OverlayCropDocument>(&raw).map_err(|err| {
-            format!(
-                "Failed to parse overlay crop settings from {}: {err}",
-                self.path.display()
-            )
-        })?;
+        let raw = match std::fs::read_to_string(&self.path) {
+            Ok(raw) => raw,
+            Err(err) => {
+                crate::services::debug_error!(
+                    "Failed to read overlay crop settings from {}: {err}",
+                    self.path.display()
+                );
+                return Ok(OverlaySettings::default());
+            }
+        };
+        let document = match serde_json::from_str::<OverlayCropDocument>(&raw) {
+            Ok(document) => document,
+            Err(err) => {
+                crate::services::debug_error!(
+                    "Failed to parse overlay crop settings from {}: {err}",
+                    self.path.display()
+                );
+                return Ok(OverlaySettings::default());
+            }
+        };
+        if document.v != OVERLAY_SETTINGS_VERSION {
+            crate::services::debug_error!(
+                "Unsupported overlay crop settings version {}.",
+                document.v
+            );
+            return Ok(OverlaySettings::default());
+        }
 
-        let crop = validate_crop_settings(document.settings.crop)?;
+        let crop = match validate_crop_settings(document.settings.crop) {
+            Ok(crop) => crop,
+            Err(err) => {
+                crate::services::debug_error!(
+                    "Invalid overlay crop settings in {}: {err}",
+                    self.path.display()
+                );
+                return Ok(OverlaySettings::default());
+            }
+        };
         Ok(OverlaySettings {
             crop,
             display_mode: document.settings.display_mode,
@@ -116,28 +138,7 @@ impl OverlaySettingsStore {
             .load()
             .map(|settings| settings.display_mode)
             .unwrap_or_default();
-        let settings = OverlaySettings { crop, display_mode };
-        let document = OverlayCropDocument { v: 1, settings };
-        let raw = serde_json::to_string_pretty(&document)
-            .map_err(|err| format!("Failed to serialize overlay crop settings: {err}"))?;
-
-        if let Some(parent) = self.path.parent() {
-            std::fs::create_dir_all(parent).map_err(|err| {
-                format!(
-                    "Failed to create overlay settings directory {}: {err}",
-                    parent.display()
-                )
-            })?;
-        }
-
-        std::fs::write(&self.path, raw).map_err(|err| {
-            format!(
-                "Failed to write overlay crop settings to {}: {err}",
-                self.path.display()
-            )
-        })?;
-
-        Ok(self.payload(settings))
+        self.write_settings(OverlaySettings { crop, display_mode })
     }
 
     pub fn save_display_mode(
@@ -148,8 +149,17 @@ impl OverlaySettingsStore {
             .load()
             .map(|settings| settings.crop)
             .unwrap_or_default();
-        let settings = OverlaySettings { crop, display_mode };
-        let document = OverlayCropDocument { v: 1, settings };
+        self.write_settings(OverlaySettings { crop, display_mode })
+    }
+
+    fn write_settings(
+        &self,
+        settings: OverlaySettings,
+    ) -> Result<OverlayCropSettingsPayload, String> {
+        let document = OverlayCropDocument {
+            v: OVERLAY_SETTINGS_VERSION,
+            settings,
+        };
         let raw = serde_json::to_string_pretty(&document)
             .map_err(|err| format!("Failed to serialize overlay crop settings: {err}"))?;
 
@@ -192,10 +202,7 @@ impl OverlaySettingsStore {
 }
 
 fn default_settings_path() -> PathBuf {
-    let base = dirs::config_dir()
-        .or_else(dirs::data_local_dir)
-        .unwrap_or_else(std::env::temp_dir);
-    base.join(SETTINGS_DIRECTORY).join(SETTINGS_FILE_NAME)
+    crate::services::paths::overlay_settings_path()
 }
 
 pub fn validate_crop_settings(crop: OverlayCropSettings) -> Result<OverlayCropSettings, String> {
@@ -227,7 +234,7 @@ pub fn validate_crop_settings(crop: OverlayCropSettings) -> Result<OverlayCropSe
 
 pub fn encode_crop_code(crop: OverlayCropSettings) -> String {
     let document = OverlayCropDocument {
-        v: 1,
+        v: OVERLAY_SETTINGS_VERSION,
         settings: OverlaySettings {
             crop,
             display_mode: OverlayDisplayMode::Current,
@@ -250,7 +257,7 @@ pub fn decode_crop_code(code: &str) -> Result<OverlayCropSettings, String> {
     let document = serde_json::from_slice::<OverlayCropDocument>(&bytes)
         .map_err(|err| format!("Overlay crop code payload is invalid JSON: {err}"))?;
 
-    if document.v != 1 {
+    if document.v != OVERLAY_SETTINGS_VERSION {
         return Err(format!(
             "Unsupported overlay crop code version {}.",
             document.v
@@ -317,9 +324,9 @@ mod tests {
     }
 
     #[test]
-    fn store_loads_legacy_crop_document_with_current_mode() {
+    fn store_uses_default_for_old_crop_document() {
         let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("legacy-overlay.json");
+        let path = dir.path().join("old-overlay.json");
         let store = OverlaySettingsStore::new(path.clone());
 
         std::fs::write(
@@ -334,7 +341,7 @@ mod tests {
 
         let loaded = store.load_payload().unwrap();
 
-        assert_eq!(loaded.crop, sample_crop());
+        assert_eq!(loaded.crop, OverlayCropSettings::default());
         assert_eq!(loaded.display_mode, OverlayDisplayMode::Current);
     }
 

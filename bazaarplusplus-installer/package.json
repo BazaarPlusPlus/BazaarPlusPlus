@@ -1,6 +1,6 @@
 {
   "name": "bppinstaller",
-  "version": "3.3.0",
+  "version": "4.2.0",
   "description": "BazaarPlusPlus Desktop App",
   "type": "module",
   "scripts": {
@@ -14,31 +14,35 @@
     "test:rust": "cargo test --manifest-path src-tauri/Cargo.toml",
     "test:unit": "vitest run",
     "test:watch": "vitest",
-    "format": "prettier --write \"*.json\" \"src/**/*.{ts,svelte,html}\" \"static/**/*.json\" \"scripts/**/*.mjs\" \"src-tauri/*.json\" \"src-tauri/capabilities/**/*.json\" \"svelte.config.js\" \"vite.config.js\"",
-    "format:check": "prettier --check \"*.json\" \"src/**/*.{ts,svelte,html}\" \"static/**/*.json\" \"scripts/**/*.mjs\" \"src-tauri/*.json\" \"src-tauri/capabilities/**/*.json\" \"svelte.config.js\" \"vite.config.js\"",
-    "check": "npm run generate:bindings && svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
-    "check:watch": "npm run generate:bindings && svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
+    "format": "prettier --write \"*.json\" \"src/**/*.{ts,tsx,html}\" \"scripts/**/*.mjs\" \"src-tauri/*.json\" \"src-tauri/capabilities/**/*.json\" \"vite.config.ts\"",
+    "format:check": "prettier --check \"*.json\" \"src/**/*.{ts,tsx,html}\" \"scripts/**/*.mjs\" \"src-tauri/*.json\" \"src-tauri/capabilities/**/*.json\" \"vite.config.ts\"",
+    "check": "npm run generate:bindings && tsc --noEmit",
+    "check:watch": "npm run generate:bindings && tsc --noEmit --watch",
     "tauri": "tauri"
   },
   "license": "MIT",
   "dependencies": {
-    "@tauri-apps/api": "^2.10.1",
-    "@tauri-apps/plugin-dialog": "^2.6.0",
-    "@tauri-apps/plugin-opener": "^2.5.3",
-    "@tauri-apps/plugin-updater": "^2.10.0"
+    "@tauri-apps/api": "^2.11.0",
+    "@tauri-apps/plugin-opener": "^2.5.4",
+    "@tauri-apps/plugin-process": "^2.3.1",
+    "@tauri-apps/plugin-updater": "^2.10.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^1.17.0",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "react-router-dom": "^7.17.0"
   },
   "devDependencies": {
-    "@sveltejs/adapter-static": "^3.0.10",
-    "@sveltejs/kit": "^2.55.0",
-    "@sveltejs/vite-plugin-svelte": "^5.1.1",
-    "@tauri-apps/cli": "^2.10.1",
-    "@types/node": "^25.5.0",
-    "prettier": "^3.8.1",
-    "prettier-plugin-svelte": "^3.5.1",
-    "svelte": "^5.55.0",
-    "svelte-check": "^4.4.5",
-    "typescript": "^5.9.3",
-    "vite": "^6.4.1",
-    "vitest": "^4.1.4"
+    "@tailwindcss/vite": "^4.3.0",
+    "@tauri-apps/cli": "^2.11.2",
+    "@types/node": "^25.9.2",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.2",
+    "prettier": "^3.8.3",
+    "tailwindcss": "^4.3.0",
+    "typescript": "^6.0.3",
+    "vite": "^8.0.16",
+    "vitest": "^4.1.8"
   }
 }

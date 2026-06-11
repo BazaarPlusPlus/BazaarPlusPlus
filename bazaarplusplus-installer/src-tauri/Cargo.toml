@@ -1,6 +1,6 @@
 [package]
 name = "bppinstaller"
-version = "3.3.0"
+version = "4.2.0"
 description = "BazaarPlusPlus Desktop App"
 authors = ["cauyxy <cauyxy@gmail.com>"]
 edition = "2021"
@@ -21,29 +21,41 @@ tauri-build = { version = "2", features = [] }
 tauri = { version = "2", features = ["tray-icon"] }
 tauri-plugin-opener = "2"
 tauri-plugin-dialog = "2"
+tauri-plugin-process = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 base64 = "0.22"
 dirs = "6"
 keyvalues-parser = "0.2"
-zip = { version = "6.0.0", default-features = false, features = ["deflate"] }
-axum = "0.8"
+zip = { version = "8", default-features = false, features = ["deflate"] }
+axum = { version = "0.8", features = ["multipart"] }
 tower-http = { version = "0.6", features = ["cors"] }
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "net"] }
-rusqlite = { version = "0.32", features = ["bundled"] }
+rusqlite = { version = "0.40", features = ["bundled"] }
 chrono = { version = "0.4", features = ["clock", "serde"] }
 image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp"] }
 include_dir = "0.7"
 ts-rs = "12"
+tempfile = "3"
 
 [target.'cfg(windows)'.dependencies]
-winreg = "0.52"
+# Aligned with the `winreg` version `embed-resource` (a tauri-build
+# build-dependency) already pulls in, to avoid a duplicate major version.
+winreg = "0.55"
+# Aligned with the `windows` version Tauri already pulls in transitively
+# (see Cargo.lock) to avoid a duplicate major version.
+windows = { version = "0.61", features = [
+    "Win32_Foundation",
+    "Win32_Storage_FileSystem",
+    "Win32_System_Diagnostics_ToolHelp",
+] }
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-updater = "2"
+tauri-plugin-single-instance = "2"
+tauri-plugin-window-state = "2.4.1"
 
 [dev-dependencies]
-tempfile = "3"
 
 [profile.release]
 opt-level = "z"

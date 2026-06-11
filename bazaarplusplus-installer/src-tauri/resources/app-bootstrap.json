@@ -1,0 +1,27 @@
+{
+  "links": {
+    "github": "https://github.com/cauyxy/BazaarPlusPlus",
+    "x": "https://x.com/yxinyu715",
+    "bilibili_project": "https://space.bilibili.com/3546978457750467",
+    "bilibili_author": "https://space.bilibili.com/1564408396",
+    "xiaohongshu": "https://www.xiaohongshu.com/user/profile/5d414f64000000000100a5f6",
+    "kofi": "https://ko-fi.com/cauyxy",
+    "supporter_list": "https://bazaarplusplus.com/support"
+  },
+  "credits": [
+    { "name": "cauyxy", "role": "AUTHOR" },
+    { "name": "Trae", "role": "CO-CREATOR" },
+    { "name": "Codex", "role": "CO-CREATOR" },
+    { "name": "Claude Code", "role": "CO-CREATOR" },
+    { "name": "BazaarDB", "role": "GAMEDATA SOURCE" },
+    { "name": "BazaarHelper", "role": "INSPIRATION" },
+    { "name": "BazaarPlannerMod", "role": "INSPIRATION" }
+  ],
+  "licenses": [
+    { "name": "BepInEx", "license": "LGPL-2.1", "category": "runtime" },
+    { "name": "FFmpeg", "license": "GPL", "category": "runtime" },
+    { "name": "React", "license": "MIT", "category": "frontend" },
+    { "name": "Tauri", "license": "MIT", "category": "backend" },
+    { "name": "Tailwind CSS", "license": "MIT", "category": "frontend" }
+  ]
+}

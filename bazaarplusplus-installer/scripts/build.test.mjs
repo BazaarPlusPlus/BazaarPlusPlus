@@ -1,46 +1,97 @@
 import { test, expect } from 'vitest';
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync
+} from 'node:fs';
 
-function runShell(script) {
-  return execFileSync('bash', ['-lc', script], {
-    cwd: projectDir,
-    encoding: 'utf8'
-  });
+const projectDir = process.cwd();
+const signingSecretsDir = `${projectDir}/signing-secrets`;
+
+// Resolve a usable bash. On Windows, `bash` is frequently absent from the PATH
+// that npm spawns with (PowerShell/cmd), so fall back to the Git for Windows
+// install before giving up.
+function resolveBashCommand() {
+  if (process.platform !== 'win32') {
+    return 'bash';
+  }
+  const candidates = [];
+  if (process.env.BPP_BASH) {
+    candidates.push(process.env.BPP_BASH);
+  }
+  try {
+    const execPath = execFileSync('git', ['--exec-path'], {
+      encoding: 'utf8'
+    }).trim();
+    const gitRoot = execPath.replace(/[/\\](mingw\d+|usr)[/\\].*$/i, '');
+    if (gitRoot && gitRoot !== execPath) {
+      candidates.push(`${gitRoot}/bin/bash.exe`);
+    }
+  } catch {
+    // git not on PATH; fall back to the well-known install locations below.
+  }
+  candidates.push(
+    'C:/Program Files/Git/bin/bash.exe',
+    'C:/Program Files (x86)/Git/bin/bash.exe'
+  );
+  return (
+    candidates.find((candidate) => candidate && existsSync(candidate)) ?? 'bash'
+  );
 }
 
-const projectDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const signingSecretsDir = `${projectDir}/signing-secrets`;
+const bashCommand = resolveBashCommand();
+
+// Git Bash treats `E:\foo` as a relative path, so any path we hand to build.sh
+// through a config file must be POSIX-style absolute (`/e/foo`) on Windows.
+function toBashPath(p) {
+  return p
+    .replace(/\\/g, '/')
+    .replace(/^([A-Za-z]):/, (_, drive) => `/${drive.toLowerCase()}`);
+}
+
+const signingSecretsDirBash =
+  process.platform === 'win32'
+    ? toBashPath(signingSecretsDir)
+    : signingSecretsDir;
+
+function runShell(script) {
+  return execFileSync(bashCommand, ['-lc', script], {
+    cwd: projectDir,
+    encoding: 'utf8',
+    timeout: 120000
+  });
+}
 
 function withSigningSecretFiles(files, fn) {
   const backups = new Map();
 
   for (const name of Object.keys(files)) {
-    const secretPath = path.join(signingSecretsDir, name);
+    const path = `${signingSecretsDir}/${name}`;
     backups.set(
       name,
-      existsSync(secretPath)
-        ? { existed: true, content: readFileSync(secretPath, 'utf8') }
+      existsSync(path)
+        ? { existed: true, content: readFileSync(path, 'utf8') }
         : { existed: false }
     );
   }
 
   mkdirSync(signingSecretsDir, { recursive: true });
   for (const [name, content] of Object.entries(files)) {
-    writeFileSync(path.join(signingSecretsDir, name), content);
+    writeFileSync(`${signingSecretsDir}/${name}`, content);
   }
 
   try {
     fn();
   } finally {
     for (const [name, backup] of backups.entries()) {
-      const secretPath = path.join(signingSecretsDir, name);
+      const path = `${signingSecretsDir}/${name}`;
       if (backup.existed) {
-        writeFileSync(secretPath, backup.content);
+        writeFileSync(path, backup.content);
       } else {
-        rmSync(secretPath, { force: true });
+        rmSync(path, { force: true });
       }
     }
   }
@@ -53,6 +104,9 @@ test('macOS production build targets arm64 artifacts', () => {
     assert_file() { :; }
     prepare_signed_macos_resource_zip() {
       printf 'Preparing signed macos resource zip|%s\\n' "$*"
+    }
+    prepare_signed_macos_resource_binary() {
+      printf 'Preparing signed macos resource binary|%s\\n' "$*"
     }
     invoke_step() {
       local label="$1"
@@ -69,6 +123,9 @@ test('macOS production build targets arm64 artifacts', () => {
     /Preparing signed macos resource zip\|.*src-tauri\/resources\/BepInExSource\/macos\/BepInEx\.zip/
   );
   expect(output).toMatch(
+    /Preparing signed macos resource binary\|.*src-tauri\/resources\/Trampoline\/macos\/bpp_launcher/
+  );
+  expect(output).toMatch(
     /Bundling macos installer\|npm run tauri bundle -- --bundles app,dmg --config .*src-tauri\/tauri\.macos\.conf\.json --target aarch64-apple-darwin/
   );
   expect(output).not.toMatch(/Notarizing macos|notarytool|stapler/);
@@ -81,8 +138,7 @@ test('macOS production build targets arm64 artifacts', () => {
 });
 
 test('macOS production build removes the entire bundle directory before rebundling', () => {
-  const bundleDir =
-    path.join(projectDir, 'src-tauri', 'target', 'aarch64-apple-darwin', 'release', 'bundle');
+  const bundleDir = `${projectDir}/src-tauri/target/aarch64-apple-darwin/release/bundle`;
   const staleDir = `${bundleDir}/macos`;
   const staleFile = `${staleDir}/rw.test.BazaarPlusPlus_2.0.0_aarch64.dmg`;
 
@@ -95,6 +151,7 @@ test('macOS production build removes the entire bundle directory before rebundli
       source ./build.sh
       assert_file() { :; }
       prepare_signed_macos_resource_zip() { :; }
+      prepare_signed_macos_resource_binary() { :; }
       invoke_step() {
         local label="$1"
         shift
@@ -193,12 +250,44 @@ test('macOS resource signing applies Developer ID timestamp only to Mach-O files
   expect(output).not.toContain('readme.txt');
 });
 
+test('macOS loose resource signing applies Developer ID timestamp to trampoline stub', () => {
+  const output = runShell(`
+    set -euo pipefail
+    source ./build.sh
+    payload="$(mktemp -d)"
+    trap 'rm -rf "$payload"' EXIT
+    stub="$payload/bpp_launcher"
+    touch "$stub"
+    APPLE_SIGNING_IDENTITY='Developer ID Application: Example Builder (TEAMID1234)'
+    export APPLE_SIGNING_IDENTITY
+    file() {
+      printf '%s: Mach-O 64-bit executable arm64\\n' "$1"
+    }
+    codesign() {
+      printf 'codesign|%s\\n' "$*"
+    }
+    invoke_step() {
+      local label="$1"
+      shift
+      printf '%s|%s\\n' "$label" "$*"
+      "$@"
+    }
+    prepare_signed_macos_resource_binary "$stub"
+  `);
+
+  expect(output).toContain('Signing macOS resource binary');
+  expect(output).toContain(
+    'codesign|--force --options runtime --timestamp --sign Developer ID Application: Example Builder (TEAMID1234)'
+  );
+  expect(output).toContain('bpp_launcher');
+});
+
 test('macOS Developer ID env loads from signing-secrets files', () => {
   withSigningSecretFiles(
     {
       'apple-api-issuer': 'issuer-from-file\n',
       'apple-api-key': 'KEYFROMFILE\n',
-      'apple-api-key-path': `${signingSecretsDir}/AuthKey_KEYFROMFILE.p8\n`,
+      'apple-api-key-path': `${signingSecretsDirBash}/AuthKey_KEYFROMFILE.p8\n`,
       'apple-signing-identity':
         'Developer ID Application: Example Builder (TEAMID1234)\n',
       'AuthKey_KEYFROMFILE.p8': 'private key'
@@ -226,11 +315,38 @@ test('macOS Developer ID env loads from signing-secrets files', () => {
       );
       expect(output).toContain('issuer=issuer-from-file');
       expect(output).toContain('key=KEYFROMFILE');
-      expect(output).toContain(
-        `key_path=${signingSecretsDir}/AuthKey_KEYFROMFILE.p8`
+      expect(output).toMatch(
+        /key_path=.*[/\\]signing-secrets[/\\]AuthKey_KEYFROMFILE\.p8/
       );
       expect(output).toContain(
         'identity=Developer ID Application: Example Builder (TEAMID1234)'
+      );
+    }
+  );
+});
+
+test('macOS Developer ID env exports relative API key paths as absolute paths', () => {
+  withSigningSecretFiles(
+    {
+      'apple-api-issuer': 'issuer-from-file\n',
+      'apple-api-key': 'RELKEY\n',
+      'apple-api-key-path': 'signing-secrets/AuthKey_RELKEY.p8\n',
+      'apple-signing-identity':
+        'Developer ID Application: Example Builder (TEAMID1234)\n',
+      'AuthKey_RELKEY.p8': 'private key'
+    },
+    () => {
+      const output = runShell(`
+        set -euo pipefail
+        unset APPLE_API_ISSUER APPLE_API_KEY APPLE_API_KEY_PATH APPLE_SIGNING_IDENTITY
+        source ./build.sh
+        load_macos_developer_id_env >/tmp/bpp-apple-env-test.out
+        cat /tmp/bpp-apple-env-test.out
+        printf 'key_path=%s\\n' "$APPLE_API_KEY_PATH"
+      `);
+
+      expect(output).toMatch(
+        /key_path=.*[/\\]signing-secrets[/\\]AuthKey_RELKEY\.p8/
       );
     }
   );
@@ -269,8 +385,8 @@ test('macOS Developer ID env detects identity and infers API key path', () => {
       expect(output).toContain(
         'Inferring APPLE_API_KEY_PATH from signing-secrets'
       );
-      expect(output).toContain(
-        `key_path=${signingSecretsDir}/AuthKey_AUTOKEY.p8`
+      expect(output).toMatch(
+        /key_path=.*[/\\]signing-secrets[/\\]AuthKey_AUTOKEY\.p8/
       );
       expect(output).toContain(
         'identity=Developer ID Application: Example Builder (TEAMID1234)'
@@ -280,8 +396,7 @@ test('macOS Developer ID env detects identity and infers API key path', () => {
 });
 
 test('Windows upload uses installer and updater R2 paths under the version directory', () => {
-  const bundleDir =
-    path.join(projectDir, 'src-tauri', 'target', 'release', 'bundle', 'nsis');
+  const bundleDir = `${projectDir}/src-tauri/target/release/bundle/nsis`;
   const installerFile = `${bundleDir}/BazaarPlusPlus_2.1.0_x64-setup.exe`;
   const signatureFile = `${installerFile}.sig`;
 

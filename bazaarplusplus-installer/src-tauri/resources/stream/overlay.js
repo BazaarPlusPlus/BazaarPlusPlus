@@ -251,8 +251,8 @@ function buildRowMarkup(record) {
     </div>
   `;
   const imageUrl =
-    typeof record?.image_url === 'string' && record.image_url
-      ? `${record.image_url}/strip`
+    typeof record?.strip_url === 'string' && record.strip_url
+      ? record.strip_url
       : '';
   const image = imageUrl
     ? `<figure class="run-visual"><div class="visual-frame"><div class="visual-stage"><img src="${escapeHtml(imageUrl)}" alt="${title} run strip" loading="eager" /></div></div></figure>`
@@ -386,7 +386,7 @@ function getRecordKey(record) {
     record?.captured_at ?? '',
     record?.wins ?? '',
     record?.battle_count ?? '',
-    record?.image_url ?? ''
+    record?.strip_url ?? ''
   ].join('::');
 }
 
@@ -404,14 +404,14 @@ async function loadOverlaySettings() {
 async function refresh() {
   try {
     const settingsPromise = loadOverlaySettings().catch(() => currentDisplayMode);
-    const endpoint = new URL('/api/records/list', window.location.origin);
+    const endpoint = new URL('/api/stream/records', window.location.origin);
     const response = await fetch(endpoint, { cache: 'no-store' });
     if (!response.ok) {
       const message = (await response.text()).trim();
       throw new Error(message || `unexpected status ${response.status}`);
     }
     const payload = await response.json();
-    const records = Array.isArray(payload) ? payload.filter((r) => r && r.image_url) : [];
+    const records = Array.isArray(payload) ? payload.filter((r) => r && r.strip_url) : [];
 
     const nextDisplayMode = await settingsPromise;
     const modeChanged = nextDisplayMode !== currentDisplayMode;
