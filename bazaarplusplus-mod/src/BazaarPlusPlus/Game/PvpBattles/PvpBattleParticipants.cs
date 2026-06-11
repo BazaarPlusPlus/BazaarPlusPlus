@@ -1,0 +1,37 @@
+#nullable enable
+namespace BazaarPlusPlus.Game.PvpBattles;
+
+public sealed class PvpBattleParticipants
+{
+    public string? PlayerName { get; set; }
+
+    public string? PlayerAccountId { get; set; }
+
+    public string? PlayerHero { get; set; }
+
+    public string? PlayerRank { get; set; }
+
+    public int? PlayerRating { get; set; }
+
+    public int? PlayerLevel { get; set; }
+
+    public int? PlayerPrestige { get; set; }
+
+    public int? PlayerVictories { get; set; }
+
+    public string? OpponentName { get; set; }
+
+    public string? OpponentHero { get; set; }
+
+    public string? OpponentRank { get; set; }
+
+    public int? OpponentRating { get; set; }
+
+    public int? OpponentLevel { get; set; }
+
+    public int? OpponentPrestige { get; set; }
+
+    public int? OpponentVictories { get; set; }
+
+    public string? OpponentAccountId { get; set; }
+}

@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <AssemblyName>BazaarPlusPlus.Localization</AssemblyName>
+    <RootNamespace>BazaarPlusPlus.Localization</RootNamespace>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <LangVersion>12</LangVersion>
+    <Nullable>enable</Nullable>
+    <Version>$(BppVersion)</Version>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="NETStandard.Library" Version="2.0.3" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,6 @@
+<Project>
+  <PropertyGroup>
+    <BppVersion>4.2.0</BppVersion>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+  </PropertyGroup>
+</Project>

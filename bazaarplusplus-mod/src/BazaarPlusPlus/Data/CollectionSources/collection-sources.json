@@ -1,0 +1,1937 @@
+{
+  "schemaVersion": 4,
+  "groups": [
+    "generalist",
+    "tier-specialist",
+    "size-specialist",
+    "other-hero",
+    "all-hero",
+    "tag-type-specialist",
+    "trainer"
+  ],
+  "entries": [
+    {
+      "kind": "Merchant",
+      "group": "tag-type-specialist",
+      "order": 1,
+      "name": "Aero",
+      "availableHeroes": [
+        "Stelle"
+      ],
+      "description": "Sells Vehicles or Drones",
+      "portraitTemplateId": "847b1294-649d-4f02-ab04-0ee9f838c462",
+      "sourceTemplateIds": [
+        "847b1294-649d-4f02-ab04-0ee9f838c462"
+      ],
+      "offerSegments": [
+        {
+          "key": "normal",
+          "kind": "Normal",
+          "rule": {
+            "heroMode": "SelectedHero",
+            "tagsAny": [
+              "Vehicle",
+              "Drone"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "kind": "Merchant",
+      "group": "tag-type-specialist",
+      "order": 0,
+      "name": "Aila",
+      "availableHeroes": [],
+      "description": "Sells Weapons",
+      "portraitTemplateId": "0cb20108-dcbb-48e2-8294-519d09c60b3e",
+      "sourceTemplateIds": [
+        "0cb20108-dcbb-48e2-8294-519d09c60b3e",
+        "3155d09b-1440-4a95-a64e-68243735421d",
+        "3e22799f-87df-4c9f-bd45-769e14753caa",
+        "47a149e6-a8e2-4e33-aa88-e76246c45696",
+        "97b6aca1-f1f5-492b-afd8-fcab7752ef7c",
+        "9cac2384-2020-4ae9-8375-15c5d07da446",
+        "abf614d4-4700-41f3-a05a-68c7e843cb1a",
+        "dc12f4bd-6c33-41f0-b7ad-d62a0be09a47"
+      ],
+      "offerSegments": [
+        {
+          "key": "normal",
+          "kind": "Normal",
+          "rule": {
+            "heroMode": "SelectedHero",
+            "tagsAny": [
+              "Weapon"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "kind": "Merchant",
+      "group": "all-hero",
+      "order": 2,
+      "name": "Aimbot",
+      "availableHeroes": [
+        "Dooley",
+        "Jules",
+        "Karnok",
+        "Mak",
+        "Stelle",
+        "Vanessa"
+      ],
+      "description": "Sells Crit items from any Hero",
+      "portraitTemplateId": "f22fd14f-7e00-40cb-9e44-a46f34d64764",
+      "sourceTemplateIds": [
+        "f22fd14f-7e00-40cb-9e44-a46f34d64764"
+      ],
+      "offerSegments": [
+        {
+          "key": "normal",
+          "kind": "Normal",
+          "rule": {
+            "heroMode": "AllHeroes",
+            "hiddenTagGroupsAny": [
+              "Crit"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "kind": "Merchant",
+      "group": "size-specialist",
+      "order": 0,
+      "name": "Ande",
+      "availableHeroes": [],
+      "description": "Sells Small items",
+      "portraitTemplateId": "60e67364-7aab-4ffa-9751-db5ec0caf452",
+      "sourceTemplateIds": [
+        "60e67364-7aab-4ffa-9751-db5ec0caf452",
+        "705c0d8e-8513-49ce-82e8-81782cdac316",
+        "70915950-ad96-47c8-a139-48b913b80750",
+        "b649cc9a-9ea4-46d3-9ee5-8d57626260cf",
+        "e3bbe96b-7108-4343-9584-3bade7f004a5"
+      ],
+      "offerSegments": [
+        {
+          "key": "normal",
+          "kind": "Normal",
+          "rule": {
+            "heroMode": "SelectedHero",
+            "sizesAny": [
+              "Small"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "kind": "Merchant",
+      "group": "size-specialist",
+      "order": 4,
+      "name": "Barkun",
+      "availableHeroes": [],
+      "description": "Sells Medium and Large items. Buys your Small items at +1 Value",
+      "portraitTemplateId": "8f0aea10-9894-4ded-a726-72b23142589c",
+      "sourceTemplateIds": [
+        "8f0aea10-9894-4ded-a726-72b23142589c"
+      ],
+      "offerSegments": [
+        {
+          "key": "normal",
+          "kind": "Normal",
+          "rule": {
+            "heroMode": "SelectedHero",
+            "sizesAny": [
+              "Medium",
+              "Large"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "kind": "Merchant",
+      "group": "tag-type-specialist",
+      "order": 12,
+      "name": "Chronos",
+      "availableHeroes": [],
+      "description": "Sells Haste items",
+      "portraitTemplateId": "3346b0d5-20a0-4aa4-a7d4-b86ad0109e59",
+      "sourceTemplateIds": [
+        "3346b0d5-20a0-4aa4-a7d4-b86ad0109e59",
+        "b1288f12-2cf9-4473-a43e-4dd521703990"
+      ],
+      "offerSegments": [
+        {
+          "key": "normal",
+          "kind": "Normal",
+          "rule": {
+            "heroMode": "SelectedHero",
+            "hiddenTagGroupsAny": [
+              "Haste"
+            ]
+          }
+        },
+        {
+          "key": "rare-turbo",
+          "kind": "Enchanted",
+          "rarityLabel": "Rare",
+          "rule": {
+            "heroMode": "SelectedHero",
+            "enchantmentTypesAny": [
+              "Turbo"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "kind": "Merchant",
+      "group": "tag-type-specialist",
+      "order": 13,
+      "name": "Cobweb",
+      "availableHeroes": [],
+      "description": "Sells Slow items",
+      "portraitTemplateId": "b10f79af-da26-4b27-88da-3e7fea49a3b9",
+      "sourceTemplateIds": [
+        "b10f79af-da26-4b27-88da-3e7fea49a3b9",
+        "ef25f92c-484a-48de-b6de-8fc6429823ca"
+      ],
+      "offerSegments": [
+        {
+          "key": "normal",
+          "kind": "Normal",
+          "rule": {
+            "heroMode": "SelectedHero",
+            "hiddenTagGroupsAny": [
+              "Slow"
+            ]
+          }
+        },
+        {
+          "key": "rare-heavy",
+          "kind": "Enchanted",
+          "rarityLabel": "Rare",
+          "rule": {
+            "heroMode": "SelectedHero",
+            "enchantmentTypesAny": [
+              "Heavy"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "kind": "Merchant",
+      "group": "tag-type-specialist",
+      "order": 18,
+      "name": "Colt",
+      "availableHeroes": [
+        "Vanessa"
+      ],
+      "description": "Sells Ammo items",
+      "portraitTemplateId": "816e6ba0-8f5f-412e-9756-8e1901dd9d49",
+      "sourceTemplateIds": [
+        "816e6ba0-8f5f-412e-9756-8e1901dd9d49"
+      ],
+      "offerSegments": [
+        {
+          "key": "normal",
+          "kind": "Normal",
+          "rule": {
+            "heroMode": "SelectedHero",
+            "hiddenTagGroupsAny": [
+              "Ammo"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "kind": "Merchant",
+      "group": "tier-specialist",
+      "order": 1,
+      "name": "Curio",
+      "availableHeroes": [],
+      "description": "Sells Bronze-tier Neutral items",
+      "portraitTemplateId": "c6cffe25-8e94-4a7b-a821-3e3c7093333b",
+      "sourceTemplateIds": [
+        "c6cffe25-8e94-4a7b-a821-3e3c7093333b"
+      ],
+      "offerSegments": [
+        {
+          "key": "normal",
+          "kind": "Normal",
+          "rule": {
+            "heroMode": "NeutralOnly",
+            "startingTier": {
+              "mode": "AtMost",
+              "tier": "Bronze"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "kind": "Merchant",
+      "group": "other-hero",
+      "order": 1,
+      "name": "Dooley",
+      "availableHeroes": [
+        "Jules",
+        "Karnok",
+        "Mak",
+        "Pygmalien",
+        "Stelle",
+        "Vanessa"
+      ],
+      "description": "Sells items from this Hero",
+      "portraitTemplateId": "4580fb31-b2ea-4f9b-9ab9-2979602f83d8",
+      "sourceTemplateIds": [
+        "4580fb31-b2ea-4f9b-9ab9-2979602f83d8"
+      ],
+      "offerSegments": [
+        {
+          "key": "normal",
+          "kind": "Normal",
+          "rule": {
+            "heroMode": "FixedHero",
+            "hero": "Dooley"
+          }
+        }
+      ]
+    },
+    {
+      "kind": "Merchant",
+      "group": "tag-type-specialist",
+      "order": 5,
+      "name": "Eli",
+      "availableHeroes": [
+        "Mak"
+      ],
+      "description": "Sells Potions",
+      "portraitTemplateId": "0ff275f7-60ef-4428-acb6-1a138d03152d",
+      "sourceTemplateIds": [
+        "0ff275f7-60ef-4428-acb6-1a138d03152d"
+      ],
+      "offerSegments": [
+        {
+          "key": "normal",
+          "kind": "Normal",
+          "rule": {
+            "heroMode": "SelectedHero",
+            "tagsAny": [
+              "Potion"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "kind": "Merchant",
+      "group": "tag-type-specialist",
+      "order": 10,
+      "name": "Flex",
+      "availableHeroes": [
+        "Karnok",
+        "Pygmalien"
+      ],
+      "description": "Sells Max Health items",
+      "portraitTemplateId": "7bd967dd-4631-4252-bdff-ee0bd5e3ddb7",
+      "sourceTemplateIds": [
+        "7bd967dd-4631-4252-bdff-ee0bd5e3ddb7"
+      ],
+      "offerSegments": [
+        {
+          "key": "normal",
+          "kind": "Normal",
+          "rule": {
+            "heroMode": "SelectedHero",
+            "hiddenTagGroupsAny": [
+              "Health"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "kind": "Merchant",
+      "group": "tag-type-specialist",
+      "order": 17,
+      "name": "Freiya",
+      "availableHeroes": [],
+      "description": "Sells Freeze items",
+      "portraitTemplateId": "c246ee53-51ea-40c1-ac2f-71435e179531",
+      "sourceTemplateIds": [
+        "c246ee53-51ea-40c1-ac2f-71435e179531"
+      ],
+      "offerSegments": [
+        {
+          "key": "normal",
+          "kind": "Normal",
+          "rule": {
+            "heroMode": "SelectedHero",
+            "hiddenTagGroupsAny": [
+              "Freeze"
+            ]
+          }
+        },
+        {
+          "key": "rare-icy",
+          "kind": "Enchanted",
+          "rarityLabel": "Rare",
+          "rule": {
+            "heroMode": "SelectedHero",
+            "enchantmentTypesAny": [
+              "Icy"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "kind": "Merchant",
+      "group": "all-hero",
+      "order": 4,
+      "name": "Gaseo",
+      "availableHeroes": [],
+      "description": "Sells Apparel from any Hero",
+      "portraitTemplateId": "9fc8b5a3-f522-4999-b310-26a0fadc7708",
+      "sourceTemplateIds": [
+        "9fc8b5a3-f522-4999-b310-26a0fadc7708"
+      ],
+      "offerSegments": [
+        {
+          "key": "normal",
+          "kind": "Normal",
+          "rule": {
+            "heroMode": "AllHeroes",
+            "tagsAny": [
+              "Apparel"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "kind": "Merchant",
+      "group": "tag-type-specialist",
+      "order": 7,
+      "name": "Gastro",
+      "availableHeroes": [
+        "Jules"
+      ],
+      "description": "Sells Foods",
+      "portraitTemplateId": "c3d9c329-0db6-478e-ad0f-ef2ae78834ce",
+      "sourceTemplateIds": [
+        "c3d9c329-0db6-478e-ad0f-ef2ae78834ce"
+      ],
+      "offerSegments": [
+        {
+          "key": "normal",
+          "kind": "Normal",
+          "rule": {
+            "heroMode": "SelectedHero",
+            "tagsAny": [
+              "Food"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "kind": "Merchant",
+      "group": "tier-specialist",
+      "order": 3,
+      "name": "Goldie",
+      "availableHeroes": [],
+      "description": "Sells Gold-tier items",
+      "portraitTemplateId": "1f72700a-fe11-4792-8a47-9e52b9387f29",
+      "sourceTemplateIds": [
+        "1f72700a-fe11-4792-8a47-9e52b9387f29",
+        "50292930-5e68-47a2-8cc5-fde69aadc5aa"
+      ],
+      "offerSegments": [
+        {
+          "key": "normal",
+          "kind": "Normal",
+          "rule": {
+            "heroMode": "SelectedHero",
+            "startingTier": {
+              "mode": "AtMost",
+              "tier": "Gold"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "kind": "Merchant",
+      "group": "tag-type-specialist",
+      "order": 15,
+      "name": "Hef",
+      "availableHeroes": [],
+      "description": "Sells Burn items",
+      "portraitTemplateId": "43dbd6ed-6989-4ae4-acdc-f8bfcb8a008f",
+      "sourceTemplateIds": [
+        "43dbd6ed-6989-4ae4-acdc-f8bfcb8a008f",
+        "55e0f929-071a-4e51-b60e-51fcc792f0b9"
+      ],
+      "offerSegments": [
+        {
+          "key": "normal",
+          "kind": "Normal",
+          "rule": {
+            "heroMode": "SelectedHero",
+            "hiddenTagGroupsAny": [
+              "Burn"
+            ]
+          }
+        },
+        {
+          "key": "rare-fiery",
+          "kind": "Enchanted",
+          "rarityLabel": "Rare",
+          "rule": {
+            "heroMode": "SelectedHero",
+            "enchantmentTypesAny": [
+              "Fiery"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "kind": "Merchant",
+      "group": "tag-type-specialist",
+      "order": 11,
+      "name": "Herma",
+      "availableHeroes": [
+        "Jules",
+        "Karnok",
+        "Mak",
+        "Pygmalien"
+      ],
+      "description": "Sells Heal and Regen items",
+      "portraitTemplateId": "2708055d-a8be-4c2f-a8d6-574e884a254e",
+      "sourceTemplateIds": [
+        "2708055d-a8be-4c2f-a8d6-574e884a254e"
+      ],
+      "offerSegments": [
+        {
+          "key": "normal",
+          "kind": "Normal",
+          "rule": {
+            "heroMode": "SelectedHero",
+            "hiddenTagGroupsAny": [
+              "Heal",
+              "Regen"
+            ],
+            "hiddenTagsAny": [
+              "HealthRegen"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "kind": "Merchant",
+      "group": "generalist",
+      "order": 0,
+      "name": "Jay Jay",
+      "availableHeroes": [],
+      "description": "Sells items",
+      "portraitTemplateId": "00b9bc97-b751-48c3-b3ae-6d96adf7a929",
+      "sourceTemplateIds": [
+        "00b9bc97-b751-48c3-b3ae-6d96adf7a929",
+        "2f885e4a-bbb5-4233-8798-7224dd126f6e",
+        "5406f2e4-d22e-4aca-84c5-87fc81883d6e",
+        "74d81658-9f44-45e6-8f7c-fd6ced634e63",
+        "85db60ee-3619-4e39-bfb2-2f4ac56f172b",
+        "89d7bbcd-bf3e-48e5-a2ab-013d23452378",
+        "96cf61f6-9b9b-453c-9fc0-ea9268a0b71d",
+        "e25617c8-7366-428d-a3c2-b721fb9aa722",
+        "e34024e3-4380-4689-b9c6-b3db7faeaec5",
+        "eb1453e4-2307-4b6f-9a15-f8f30c849eb4",
+        "fa533c05-c89a-4849-8562-b560532f1431"
+      ],
+      "offerSegments": [
+        {
+          "key": "normal",
+          "kind": "Normal",
+          "rule": {
+            "heroMode": "SelectedHero"
+          }
+        }
+      ]
+    },
+    {
+      "kind": "Merchant",
+      "group": "other-hero",
+      "order": 6,
+      "name": "Jules",
+      "availableHeroes": [
+        "Dooley",
+        "Karnok",
+        "Mak",
+        "Pygmalien",
+        "Stelle",
+        "Vanessa"
+      ],
+      "description": "Sells items from this Hero",
+      "portraitTemplateId": "7fdc233f-b81f-4216-a646-4c807c2240da",
+      "sourceTemplateIds": [
+        "7fdc233f-b81f-4216-a646-4c807c2240da"
+      ],
+      "offerSegments": [
+        {
+          "key": "normal",
+          "kind": "Normal",
+          "rule": {
+            "heroMode": "FixedHero",
+            "hero": "Jules"
+          }
+        }
+      ]
+    },
+    {
+      "kind": "Merchant",
+      "group": "other-hero",
+      "order": 3,
+      "name": "Karnok",
+      "availableHeroes": [
+        "Dooley",
+        "Jules",
+        "Mak",
+        "Pygmalien",
+        "Stelle",
+        "Vanessa"
+      ],
+      "description": "Sells items from this Hero",
+      "portraitTemplateId": "379d881b-4524-4db9-a606-47bd35749f44",
+      "sourceTemplateIds": [
+        "379d881b-4524-4db9-a606-47bd35749f44"
+      ],
+      "offerSegments": [
+        {
+          "key": "normal",
+          "kind": "Normal",
+          "rule": {
+            "heroMode": "FixedHero",
+            "hero": "Karnok"
+          }
+        }
+      ]
+    },
+    {
+      "kind": "Merchant",
+      "group": "tag-type-specialist",
+      "order": 9,
+      "name": "Kev's Armory",
+      "availableHeroes": [
+        "Dooley",
+        "Jules",
+        "Karnok",
+        "Pygmalien",
+        "Stelle",
+        "Vanessa"
+      ],
+      "description": "Sells Health and Shield items",
+      "portraitTemplateId": "a4fa13f8-6beb-4b6c-839b-60af167628d9",
+      "sourceTemplateIds": [
+        "a4fa13f8-6beb-4b6c-839b-60af167628d9"
+      ],
+      "offerSegments": [
+        {
+          "key": "normal",
+          "kind": "Normal",
+          "rule": {
+            "heroMode": "SelectedHero",
+            "hiddenTagGroupsAny": [
+              "Health",
+              "Shield"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "kind": "Merchant",
+      "group": "tier-specialist",
+      "order": 0,
+      "name": "Kina",
+      "availableHeroes": [],
+      "description": "Sells non-Weapon items",
+      "portraitTemplateId": "3ab184ce-bdb8-4dee-9169-8b383a25eae6",
+      "sourceTemplateIds": [
+        "3ab184ce-bdb8-4dee-9169-8b383a25eae6",
+        "5b7c5fc4-c942-44fe-9ca8-726dc36a2ad6",
+        "79fe1693-1e6d-4ed6-b376-794baca19262",
+        "7b598c89-fdf2-4e83-bc4c-6f16d86fbe04"
+      ],
+      "offerSegments": [
+        {
+          "key": "normal",
+          "kind": "Normal",
+          "rule": {
+            "heroMode": "SelectedHero",
+            "tagsNone": [
+              "Weapon"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "kind": "Merchant",
+      "group": "tag-type-specialist",
+      "order": 16,
+      "name": "Knightshade",
+      "availableHeroes": [],
+      "description": "Sells Poison items",
+      "portraitTemplateId": "2745a661-095c-44a5-bb6e-8dc76e07bda2",
+      "sourceTemplateIds": [
+        "2745a661-095c-44a5-bb6e-8dc76e07bda2",
+        "d86e22d9-b54d-4be9-8b5b-f3fe93d4c133"
+      ],
+      "offerSegments": [
+        {
+          "key": "normal",
+          "kind": "Normal",
+          "rule": {
+            "heroMode": "SelectedHero",
+            "hiddenTagGroupsAny": [
+              "Poison"
+            ]
+          }
+        },
+        {
+          "key": "rare-toxic",
+          "kind": "Enchanted",
+          "rarityLabel": "Rare",
+          "rule": {
+            "heroMode": "SelectedHero",
+            "enchantmentTypesAny": [
+              "Toxic"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "kind": "Merchant",
+      "group": "tier-specialist",
+      "order": 4,
+      "name": "Luxe",
+      "availableHeroes": [],
+      "description": "Sells Diamond-tier items",
+      "portraitTemplateId": "892de564-d894-4e07-ab21-959e16e8cdf8",
+      "sourceTemplateIds": [
+        "892de564-d894-4e07-ab21-959e16e8cdf8"
+      ],
+      "offerSegments": [
+        {
+          "key": "normal",
+          "kind": "Normal",
+          "rule": {
+            "heroMode": "SelectedHero",
+            "startingTier": {
+              "mode": "AtMost",
+              "tier": "Diamond"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "kind": "Merchant",
+      "group": "other-hero",
+      "order": 4,
+      "name": "Mak",
+      "availableHeroes": [
+        "Dooley",
+        "Jules",
+        "Karnok",
+        "Pygmalien",
+        "Stelle",
+        "Vanessa"
+      ],
+      "description": "Sells items from this Hero",
+      "portraitTemplateId": "4475cff5-6105-4f4a-978c-b282e36173eb",
+      "sourceTemplateIds": [
+        "4475cff5-6105-4f4a-978c-b282e36173eb"
+      ],
+      "offerSegments": [
+        {
+          "key": "normal",
+          "kind": "Normal",
+          "rule": {
+            "heroMode": "FixedHero",
+            "hero": "Mak"
+          }
+        }
+      ]
+    },
+    {
+      "kind": "Merchant",
+      "group": "size-specialist",
+      "order": 3,
+      "name": "Midsworth",
+      "availableHeroes": [],
+      "description": "Sells Small and Large items. Buys your Medium items at +2 value",
+      "portraitTemplateId": "214fe1d5-c583-4766-99c5-c621598c83ce",
+      "sourceTemplateIds": [
+        "214fe1d5-c583-4766-99c5-c621598c83ce",
+        "b8f55bb0-536e-4d5f-a328-d38f88c6d479"
+      ],
+      "offerSegments": [
+        {
+          "key": "normal",
+          "kind": "Normal",
+          "rule": {
+            "heroMode": "SelectedHero",
+            "sizesAny": [
+              "Small",
+              "Large"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "kind": "Merchant",
+      "group": "size-specialist",
+      "order": 1,
+      "name": "Mittel",
+      "availableHeroes": [],
+      "description": "Sells Medium items",
+      "portraitTemplateId": "912c8b09-3b76-4aa1-8e21-245e0dfb5046",
+      "sourceTemplateIds": [
+        "912c8b09-3b76-4aa1-8e21-245e0dfb5046",
+        "ab14e395-2bef-42f1-a5ad-9947e56bb3f2",
+        "cca9281a-d259-4771-9747-ea7af6de8dcf",
+        "e1e3e229-9806-4d2d-99e7-d25592fe14b6"
+      ],
+      "offerSegments": [
+        {
+          "key": "normal",
+          "kind": "Normal",
+          "rule": {
+            "heroMode": "SelectedHero",
+            "sizesAny": [
+              "Medium"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "kind": "Merchant",
+      "group": "tag-type-specialist",
+      "order": 8,
+      "name": "Mr. Morland",
+      "availableHeroes": [
+        "Pygmalien"
+      ],
+      "description": "Sells Property items",
+      "portraitTemplateId": "e30d8bef-5bea-4e95-b4c2-e29e17325a82",
+      "sourceTemplateIds": [
+        "e30d8bef-5bea-4e95-b4c2-e29e17325a82"
+      ],
+      "offerSegments": [
+        {
+          "key": "normal",
+          "kind": "Normal",
+          "rule": {
+            "heroMode": "SelectedHero",
+            "tagsAny": [
+              "Property"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "kind": "Merchant",
+      "group": "tag-type-specialist",
+      "order": 2,
+      "name": "Nautica",
+      "availableHeroes": [
+        "Vanessa"
+      ],
+      "description": "Sells Aquatic items",
+      "portraitTemplateId": "1a21931f-6183-4251-914b-c8f83dc58a30",
+      "sourceTemplateIds": [
+        "1a21931f-6183-4251-914b-c8f83dc58a30"
+      ],
+      "offerSegments": [
+        {
+          "key": "normal",
+          "kind": "Normal",
+          "rule": {
+            "heroMode": "SelectedHero",
+            "tagsAny": [
+              "Aquatic"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "kind": "Merchant",
+      "group": "tag-type-specialist",
+      "order": 6,
+      "name": "Orion",
+      "availableHeroes": [],
+      "description": "Sells Tools",
+      "portraitTemplateId": "d3727a3a-3dd2-4ea7-a396-515e2c41c1b0",
+      "sourceTemplateIds": [
+        "d3727a3a-3dd2-4ea7-a396-515e2c41c1b0",
+        "d61f942a-6da4-48bd-a4db-1bde45174aba"
+      ],
+      "offerSegments": [
+        {
+          "key": "normal",
+          "kind": "Normal",
+          "rule": {
+            "heroMode": "SelectedHero",
+            "tagsAny": [
+              "Tool"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "kind": "Merchant",
+      "group": "all-hero",
+      "order": 5,
+      "name": "Pinfeather",
+      "availableHeroes": [
+        "Dooley",
+        "Karnok",
+        "Mak",
+        "Pygmalien",
+        "Stelle",
+        "Vanessa"
+      ],
+      "description": "Sells Flying items from any Hero",
+      "portraitTemplateId": "7066e72e-40b7-4104-b521-159de457f2d0",
+      "sourceTemplateIds": [
+        "7066e72e-40b7-4104-b521-159de457f2d0"
+      ],
+      "offerSegments": [
+        {
+          "key": "normal",
+          "kind": "Normal",
+          "rule": {
+            "heroMode": "AllHeroes",
+            "hiddenTagGroupsAny": [
+              "Flying"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "kind": "Merchant",
+      "group": "size-specialist",
+      "order": 5,
+      "name": "Pol",
+      "availableHeroes": [],
+      "description": "Sells Large items",
+      "portraitTemplateId": "065f6793-8607-4f02-abfe-db6afb221ab2",
+      "sourceTemplateIds": [
+        "065f6793-8607-4f02-abfe-db6afb221ab2"
+      ],
+      "offerSegments": [
+        {
+          "key": "normal",
+          "kind": "Normal",
+          "rule": {
+            "heroMode": "SelectedHero",
+            "sizesAny": [
+              "Large"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "kind": "Merchant",
+      "group": "all-hero",
+      "order": 0,
+      "name": "Prospero",
+      "availableHeroes": [
+        "Pygmalien"
+      ],
+      "description": "Sells Economic items from any hero",
+      "portraitTemplateId": "bcdaa6d4-9057-4ea1-8110-a2dae217c55f",
+      "sourceTemplateIds": [
+        "bcdaa6d4-9057-4ea1-8110-a2dae217c55f"
+      ],
+      "offerSegments": [
+        {
+          "key": "normal",
+          "kind": "Normal",
+          "rule": {
+            "heroMode": "AllHeroes",
+            "hiddenTagsAny": [
+              "EconomyReference",
+              "Gold",
+              "Income",
+              "Value",
+              "BuyPrice",
+              "SellPrice"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "kind": "Merchant",
+      "group": "other-hero",
+      "order": 2,
+      "name": "Pygmalien",
+      "availableHeroes": [
+        "Dooley",
+        "Jules",
+        "Karnok",
+        "Mak",
+        "Stelle",
+        "Vanessa"
+      ],
+      "description": "Sells items from this Hero",
+      "portraitTemplateId": "f9074804-1812-445a-8688-b8c86f9c7711",
+      "sourceTemplateIds": [
+        "f9074804-1812-445a-8688-b8c86f9c7711"
+      ],
+      "offerSegments": [
+        {
+          "key": "normal",
+          "kind": "Normal",
+          "rule": {
+            "heroMode": "FixedHero",
+            "hero": "Pygmalien"
+          }
+        }
+      ]
+    },
+    {
+      "kind": "Merchant",
+      "group": "size-specialist",
+      "order": 2,
+      "name": "Quixel",
+      "availableHeroes": [],
+      "description": "Sells Small and Medium items. Buys your Large items at +3 value",
+      "portraitTemplateId": "323e2c05-f077-4774-84a5-9e89d8d1c9b9",
+      "sourceTemplateIds": [
+        "323e2c05-f077-4774-84a5-9e89d8d1c9b9",
+        "e7cac33d-864c-45c9-8a3e-c3218aa0febe"
+      ],
+      "offerSegments": [
+        {
+          "key": "normal",
+          "kind": "Normal",
+          "rule": {
+            "heroMode": "SelectedHero",
+            "sizesAny": [
+              "Small",
+              "Medium"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "kind": "Merchant",
+      "group": "generalist",
+      "order": 2,
+      "name": "Serafina",
+      "availableHeroes": [],
+      "description": "Sells Enchanted items",
+      "portraitTemplateId": "b690812d-108b-49ce-82f3-e1a41379022c",
+      "sourceTemplateIds": [
+        "b690812d-108b-49ce-82f3-e1a41379022c"
+      ],
+      "offerSegments": [
+        {
+          "key": "normal",
+          "kind": "Normal",
+          "rule": {
+            "heroMode": "SelectedHero",
+            "enchantableOnly": true
+          }
+        }
+      ]
+    },
+    {
+      "kind": "Merchant",
+      "group": "tag-type-specialist",
+      "order": 3,
+      "name": "Shelter Shelby",
+      "availableHeroes": [
+        "Karnok",
+        "Vanessa"
+      ],
+      "description": "Sells Friend items",
+      "portraitTemplateId": "9459a01b-edf5-432b-81cd-1fd2cacfadad",
+      "sourceTemplateIds": [
+        "9459a01b-edf5-432b-81cd-1fd2cacfadad"
+      ],
+      "offerSegments": [
+        {
+          "key": "normal",
+          "kind": "Normal",
+          "rule": {
+            "heroMode": "SelectedHero",
+            "tagsAny": [
+              "Friend"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "kind": "Merchant",
+      "group": "tier-specialist",
+      "order": 2,
+      "name": "Silvia",
+      "availableHeroes": [],
+      "description": "Sells Silver-tier items",
+      "portraitTemplateId": "5fcd3081-0daa-4e50-b749-c884b405ef9c",
+      "sourceTemplateIds": [
+        "5fcd3081-0daa-4e50-b749-c884b405ef9c",
+        "ec81a27c-590c-43a1-a353-804a23b5e5d9"
+      ],
+      "offerSegments": [
+        {
+          "key": "normal",
+          "kind": "Normal",
+          "rule": {
+            "heroMode": "SelectedHero",
+            "startingTier": {
+              "mode": "AtMost",
+              "tier": "Silver"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "kind": "Merchant",
+      "group": "other-hero",
+      "order": 5,
+      "name": "Stelle",
+      "availableHeroes": [
+        "Dooley",
+        "Jules",
+        "Karnok",
+        "Mak",
+        "Pygmalien",
+        "Vanessa"
+      ],
+      "description": "Sells items from this Hero",
+      "portraitTemplateId": "e48b3243-1e7e-4a97-bf4f-0699fd0b4616",
+      "sourceTemplateIds": [
+        "e48b3243-1e7e-4a97-bf4f-0699fd0b4616"
+      ],
+      "offerSegments": [
+        {
+          "key": "normal",
+          "kind": "Normal",
+          "rule": {
+            "heroMode": "FixedHero",
+            "hero": "Stelle"
+          }
+        }
+      ]
+    },
+    {
+      "kind": "Merchant",
+      "group": "all-hero",
+      "order": 6,
+      "name": "Tatiana",
+      "availableHeroes": [],
+      "description": "Sells Toys from any Hero",
+      "portraitTemplateId": "22bb0004-5131-4588-a567-03ee3c96003b",
+      "sourceTemplateIds": [
+        "22bb0004-5131-4588-a567-03ee3c96003b"
+      ],
+      "offerSegments": [
+        {
+          "key": "normal",
+          "kind": "Normal",
+          "rule": {
+            "heroMode": "AllHeroes",
+            "tagsAny": [
+              "Toy"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "kind": "Merchant",
+      "group": "all-hero",
+      "order": 3,
+      "name": "The Antiquarian",
+      "availableHeroes": [],
+      "description": "Sells Relics from any Hero",
+      "portraitTemplateId": "e840f7a3-0a04-455d-852c-286dc5011efc",
+      "sourceTemplateIds": [
+        "e840f7a3-0a04-455d-852c-286dc5011efc"
+      ],
+      "offerSegments": [
+        {
+          "key": "normal",
+          "kind": "Normal",
+          "rule": {
+            "heroMode": "AllHeroes",
+            "tagsAny": [
+              "Relic"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "kind": "Merchant",
+      "group": "all-hero",
+      "order": 1,
+      "name": "The Tester",
+      "availableHeroes": [
+        "Dooley",
+        "Stelle",
+        "Vanessa"
+      ],
+      "description": "Sells Tech items from any Hero",
+      "portraitTemplateId": "41cdf4ee-7790-4da1-96f8-a46d3391a0d9",
+      "sourceTemplateIds": [
+        "41cdf4ee-7790-4da1-96f8-a46d3391a0d9"
+      ],
+      "offerSegments": [
+        {
+          "key": "normal",
+          "kind": "Normal",
+          "rule": {
+            "heroMode": "AllHeroes",
+            "tagsAny": [
+              "Tech"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "kind": "Merchant",
+      "group": "tag-type-specialist",
+      "order": 4,
+      "name": "Tinker",
+      "availableHeroes": [
+        "Dooley"
+      ],
+      "description": "Sells Friend items",
+      "portraitTemplateId": "b1b1f445-e625-4397-b4e2-ee4feeb729fa",
+      "sourceTemplateIds": [
+        "b1b1f445-e625-4397-b4e2-ee4feeb729fa"
+      ],
+      "offerSegments": [
+        {
+          "key": "normal",
+          "kind": "Normal",
+          "rule": {
+            "heroMode": "SelectedHero",
+            "tagsAny": [
+              "Friend"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "kind": "Merchant",
+      "group": "tag-type-specialist",
+      "order": 14,
+      "name": "Tok's Clocks",
+      "availableHeroes": [
+        "Dooley",
+        "Jules",
+        "Karnok",
+        "Mak",
+        "Stelle",
+        "Vanessa"
+      ],
+      "description": "Sells Haste, Slow and Cooldown items",
+      "portraitTemplateId": "3e871bbb-fb25-417f-8643-cb43456c3fc7",
+      "sourceTemplateIds": [
+        "3e871bbb-fb25-417f-8643-cb43456c3fc7"
+      ],
+      "offerSegments": [
+        {
+          "key": "normal",
+          "kind": "Normal",
+          "rule": {
+            "heroMode": "SelectedHero",
+            "hiddenTagGroupsAny": [
+              "Haste",
+              "Slow",
+              "Cooldown"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "kind": "Merchant",
+      "group": "generalist",
+      "order": 1,
+      "name": "Valpak",
+      "availableHeroes": [],
+      "description": "Sells items. Always sells discounted items",
+      "portraitTemplateId": "e3b894b0-a078-4b1d-8793-ac6459a8361a",
+      "sourceTemplateIds": [
+        "e3b894b0-a078-4b1d-8793-ac6459a8361a"
+      ],
+      "offerSegments": [
+        {
+          "key": "normal",
+          "kind": "Normal",
+          "rule": {
+            "heroMode": "SelectedHero"
+          }
+        }
+      ]
+    },
+    {
+      "kind": "Merchant",
+      "group": "other-hero",
+      "order": 0,
+      "name": "Vanessa",
+      "availableHeroes": [
+        "Dooley",
+        "Jules",
+        "Karnok",
+        "Mak",
+        "Pygmalien",
+        "Stelle"
+      ],
+      "description": "Sells items from this Hero",
+      "portraitTemplateId": "580ba494-a852-4d80-a82d-5cd66fcfd2f3",
+      "sourceTemplateIds": [
+        "580ba494-a852-4d80-a82d-5cd66fcfd2f3"
+      ],
+      "offerSegments": [
+        {
+          "key": "normal",
+          "kind": "Normal",
+          "rule": {
+            "heroMode": "FixedHero",
+            "hero": "Vanessa"
+          }
+        }
+      ]
+    },
+    {
+      "kind": "Trainer",
+      "group": "trainer",
+      "order": 11,
+      "name": "Adira",
+      "availableHeroes": [],
+      "description": "Teaches Diamond-tier Skills",
+      "portraitTemplateId": "a7b60dc3-36a1-46e8-ba7e-c34f255513c8",
+      "sourceTemplateIds": [
+        "a7b60dc3-36a1-46e8-ba7e-c34f255513c8"
+      ],
+      "offerSegments": [
+        {
+          "key": "normal",
+          "kind": "Normal",
+          "rule": {
+            "heroMode": "SelectedHero",
+            "startingTier": {
+              "mode": "AtMost",
+              "tier": "Diamond"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "kind": "Trainer",
+      "group": "trainer",
+      "order": 9,
+      "name": "Argenta",
+      "availableHeroes": [],
+      "description": "Teaches Silver-tier Skills",
+      "portraitTemplateId": "4c3d4b9d-e5b7-469c-be91-67b213c5a975",
+      "sourceTemplateIds": [
+        "4c3d4b9d-e5b7-469c-be91-67b213c5a975",
+        "8d5c8a08-45cf-43d2-b1ec-a37d3bd5542b"
+      ],
+      "offerSegments": [
+        {
+          "key": "normal",
+          "kind": "Normal",
+          "rule": {
+            "heroMode": "SelectedHero",
+            "startingTier": {
+              "mode": "AtMost",
+              "tier": "Silver"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "kind": "Trainer",
+      "group": "trainer",
+      "order": 19,
+      "name": "Bjorn",
+      "availableHeroes": [
+        "Dooley",
+        "Jules",
+        "Mak",
+        "Vanessa"
+      ],
+      "description": "Teaches Freeze skills",
+      "portraitTemplateId": "0417372b-77dc-4040-9f29-33d709c591a5",
+      "sourceTemplateIds": [
+        "0417372b-77dc-4040-9f29-33d709c591a5"
+      ],
+      "offerSegments": [
+        {
+          "key": "normal",
+          "kind": "Normal",
+          "rule": {
+            "heroMode": "SelectedHero",
+            "hiddenTagsAny": [
+              "Freeze",
+              "FreezeReference"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "kind": "Trainer",
+      "group": "trainer",
+      "order": 20,
+      "name": "C4",
+      "availableHeroes": [
+        "Vanessa"
+      ],
+      "description": "Teaches Ammo skills",
+      "portraitTemplateId": "54e27892-1eb3-4b1d-9824-51f9fa0bf51a",
+      "sourceTemplateIds": [
+        "54e27892-1eb3-4b1d-9824-51f9fa0bf51a"
+      ],
+      "offerSegments": [
+        {
+          "key": "normal",
+          "kind": "Normal",
+          "rule": {
+            "heroMode": "SelectedHero",
+            "hiddenTagsAny": [
+              "Ammo",
+              "AmmoReference"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "kind": "Trainer",
+      "group": "trainer",
+      "order": 1,
+      "name": "Cymon",
+      "availableHeroes": [
+        "Dooley"
+      ],
+      "description": "Teaches skills unique to Dooley",
+      "portraitTemplateId": "77cd5ccd-be81-49fb-a697-58da76571c0a",
+      "sourceTemplateIds": [
+        "77cd5ccd-be81-49fb-a697-58da76571c0a"
+      ],
+      "offerSegments": [
+        {
+          "key": "normal",
+          "kind": "Normal",
+          "rule": {
+            "heroMode": "FixedHero",
+            "hero": "Dooley"
+          }
+        }
+      ]
+    },
+    {
+      "kind": "Trainer",
+      "group": "trainer",
+      "order": 13,
+      "name": "Fortis",
+      "availableHeroes": [
+        "Dooley",
+        "Jules",
+        "Karnok",
+        "Pygmalien",
+        "Stelle"
+      ],
+      "description": "Teaches Shield skills",
+      "portraitTemplateId": "d3a78867-fd60-4a67-b03a-4200ba58674c",
+      "sourceTemplateIds": [
+        "d3a78867-fd60-4a67-b03a-4200ba58674c"
+      ],
+      "offerSegments": [
+        {
+          "key": "normal",
+          "kind": "Normal",
+          "rule": {
+            "heroMode": "SelectedHero",
+            "hiddenTagsAny": [
+              "Shield",
+              "ShieldReference"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "kind": "Trainer",
+      "group": "trainer",
+      "order": 3,
+      "name": "Kelsa",
+      "availableHeroes": [
+        "Karnok"
+      ],
+      "description": "Teaches skills unique to Karnok",
+      "portraitTemplateId": "de175e34-df34-4581-a13a-46767e1c7c6b",
+      "sourceTemplateIds": [
+        "de175e34-df34-4581-a13a-46767e1c7c6b"
+      ],
+      "offerSegments": [
+        {
+          "key": "normal",
+          "kind": "Normal",
+          "rule": {
+            "heroMode": "FixedHero",
+            "hero": "Karnok"
+          }
+        }
+      ]
+    },
+    {
+      "kind": "Trainer",
+      "group": "trainer",
+      "order": 17,
+      "name": "Malafang",
+      "availableHeroes": [
+        "Dooley",
+        "Jules",
+        "Karnok",
+        "Mak",
+        "Pygmalien",
+        "Stelle",
+        "Vanessa"
+      ],
+      "description": "Teaches Burn skills",
+      "portraitTemplateId": "294f81dd-eb9f-47a9-9b9c-fa9766291485",
+      "sourceTemplateIds": [
+        "294f81dd-eb9f-47a9-9b9c-fa9766291485"
+      ],
+      "offerSegments": [
+        {
+          "key": "normal",
+          "kind": "Normal",
+          "rule": {
+            "heroMode": "SelectedHero",
+            "hiddenTagsAny": [
+              "Burn",
+              "BurnReference"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "kind": "Trainer",
+      "group": "trainer",
+      "order": 2,
+      "name": "Mr. Tuskari",
+      "availableHeroes": [
+        "Pygmalien"
+      ],
+      "description": "Teaches skills unique to Pygmalien",
+      "portraitTemplateId": "35e74c18-1bd6-4c91-ab21-2fd64adf6cc6",
+      "sourceTemplateIds": [
+        "35e74c18-1bd6-4c91-ab21-2fd64adf6cc6"
+      ],
+      "offerSegments": [
+        {
+          "key": "normal",
+          "kind": "Normal",
+          "rule": {
+            "heroMode": "FixedHero",
+            "hero": "Pygmalien"
+          }
+        }
+      ]
+    },
+    {
+      "kind": "Trainer",
+      "group": "trainer",
+      "order": 6,
+      "name": "Nonna",
+      "availableHeroes": [
+        "Jules"
+      ],
+      "description": "Teaches Jules Skills",
+      "portraitTemplateId": "c4e01347-bcbc-e164-c848-544774f80599",
+      "sourceTemplateIds": [
+        "c4e01347-bcbc-e164-c848-544774f80599"
+      ],
+      "offerSegments": [
+        {
+          "key": "normal",
+          "kind": "Normal",
+          "rule": {
+            "heroMode": "FixedHero",
+            "hero": "Jules"
+          }
+        }
+      ]
+    },
+    {
+      "kind": "Trainer",
+      "group": "trainer",
+      "order": 7,
+      "name": "Nufu",
+      "availableHeroes": [],
+      "description": "Sells Skills",
+      "portraitTemplateId": "210003fa-a20d-4ad1-9ada-d5fad5bf9f89",
+      "sourceTemplateIds": [
+        "210003fa-a20d-4ad1-9ada-d5fad5bf9f89"
+      ],
+      "offerSegments": [
+        {
+          "key": "normal",
+          "kind": "Normal",
+          "rule": {
+            "heroMode": "SelectedHero"
+          }
+        }
+      ]
+    },
+    {
+      "kind": "Trainer",
+      "group": "trainer",
+      "order": 0,
+      "name": "Old Zane",
+      "availableHeroes": [
+        "Vanessa"
+      ],
+      "description": "Teaches skills unique to Vanessa",
+      "portraitTemplateId": "845d2051-cca0-4533-947a-aa290f364e0a",
+      "sourceTemplateIds": [
+        "845d2051-cca0-4533-947a-aa290f364e0a"
+      ],
+      "offerSegments": [
+        {
+          "key": "normal",
+          "kind": "Normal",
+          "rule": {
+            "heroMode": "FixedHero",
+            "hero": "Vanessa"
+          }
+        }
+      ]
+    },
+    {
+      "kind": "Trainer",
+      "group": "trainer",
+      "order": 10,
+      "name": "Orlin",
+      "availableHeroes": [],
+      "description": "Teaches Gold-tier Skills",
+      "portraitTemplateId": "a07fbe69-c1d0-41a3-af72-d517e7706718",
+      "sourceTemplateIds": [
+        "a07fbe69-c1d0-41a3-af72-d517e7706718"
+      ],
+      "offerSegments": [
+        {
+          "key": "normal",
+          "kind": "Normal",
+          "rule": {
+            "heroMode": "SelectedHero",
+            "startingTier": {
+              "mode": "AtMost",
+              "tier": "Gold"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "kind": "Trainer",
+      "group": "trainer",
+      "order": 8,
+      "name": "Pip",
+      "availableHeroes": [],
+      "description": "Gives you 2 Gold and teaches Bronze-tier Skills",
+      "portraitTemplateId": "61be3473-6546-427f-ac13-9dee4c43d23c",
+      "sourceTemplateIds": [
+        "61be3473-6546-427f-ac13-9dee4c43d23c",
+        "bc75676c-032f-441a-a6a2-35b1ccc2eb80",
+        "e2fc8bd4-b97d-485b-8bb6-5c966d336c4a"
+      ],
+      "offerSegments": [
+        {
+          "key": "normal",
+          "kind": "Normal",
+          "rule": {
+            "heroMode": "SelectedHero",
+            "startingTier": {
+              "mode": "AtMost",
+              "tier": "Bronze"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "kind": "Trainer",
+      "group": "trainer",
+      "order": 18,
+      "name": "Professor Riggle",
+      "availableHeroes": [
+        "Dooley",
+        "Karnok",
+        "Mak",
+        "Vanessa"
+      ],
+      "description": "Teaches Poison skills",
+      "portraitTemplateId": "f1892cf4-3dcb-4d41-b137-d670f44a65f8",
+      "sourceTemplateIds": [
+        "f1892cf4-3dcb-4d41-b137-d670f44a65f8"
+      ],
+      "offerSegments": [
+        {
+          "key": "normal",
+          "kind": "Normal",
+          "rule": {
+            "heroMode": "SelectedHero",
+            "hiddenTagsAny": [
+              "Poison",
+              "PoisonReference"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "kind": "Trainer",
+      "group": "trainer",
+      "order": 14,
+      "name": "Regenald",
+      "availableHeroes": [
+        "Jules",
+        "Karnok",
+        "Mak",
+        "Pygmalien"
+      ],
+      "description": "Teaches Health, Heal and Regen skills",
+      "portraitTemplateId": "b46b862e-ba64-4e05-ad5e-b8dbc90517c9",
+      "sourceTemplateIds": [
+        "b46b862e-ba64-4e05-ad5e-b8dbc90517c9"
+      ],
+      "offerSegments": [
+        {
+          "key": "normal",
+          "kind": "Normal",
+          "rule": {
+            "heroMode": "SelectedHero",
+            "hiddenTagsAny": [
+              "Health",
+              "HealthReference",
+              "Heal",
+              "HealReference",
+              "Regen",
+              "RegenReference",
+              "HealthRegen"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "kind": "Trainer",
+      "group": "trainer",
+      "order": 12,
+      "name": "Ryukon",
+      "availableHeroes": [],
+      "description": "Teaches Weapon Skills",
+      "portraitTemplateId": "bfe9db96-a189-4bdf-84e5-fc1743ff8569",
+      "sourceTemplateIds": [
+        "bfe9db96-a189-4bdf-84e5-fc1743ff8569"
+      ],
+      "offerSegments": [
+        {
+          "key": "normal",
+          "kind": "Normal",
+          "rule": {
+            "heroMode": "SelectedHero",
+            "tagsAny": [
+              "Weapon"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "kind": "Trainer",
+      "group": "trainer",
+      "order": 16,
+      "name": "Slohmor Lumbra",
+      "availableHeroes": [
+        "Dooley",
+        "Jules",
+        "Karnok",
+        "Mak",
+        "Stelle",
+        "Vanessa"
+      ],
+      "description": "Teaches Slow skills",
+      "portraitTemplateId": "18f8471a-3914-419a-9296-14e624e86ac6",
+      "sourceTemplateIds": [
+        "18f8471a-3914-419a-9296-14e624e86ac6"
+      ],
+      "offerSegments": [
+        {
+          "key": "normal",
+          "kind": "Normal",
+          "rule": {
+            "heroMode": "SelectedHero",
+            "hiddenTagsAny": [
+              "Slow",
+              "SlowReference"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "kind": "Trainer",
+      "group": "trainer",
+      "order": 5,
+      "name": "Uncle Odi",
+      "availableHeroes": [
+        "Stelle"
+      ],
+      "description": "Teaches skills unique to Stelle",
+      "portraitTemplateId": "3e0f0266-e92b-4a9a-b0b8-dba816e51647",
+      "sourceTemplateIds": [
+        "3e0f0266-e92b-4a9a-b0b8-dba816e51647"
+      ],
+      "offerSegments": [
+        {
+          "key": "normal",
+          "kind": "Normal",
+          "rule": {
+            "heroMode": "FixedHero",
+            "hero": "Stelle"
+          }
+        }
+      ]
+    },
+    {
+      "kind": "Trainer",
+      "group": "trainer",
+      "order": 21,
+      "name": "Vermir",
+      "availableHeroes": [
+        "Dooley",
+        "Jules",
+        "Karnok",
+        "Mak",
+        "Vanessa"
+      ],
+      "description": "Teaches Crit skills",
+      "portraitTemplateId": "922b9031-c859-479c-95c4-18234a366c63",
+      "sourceTemplateIds": [
+        "922b9031-c859-479c-95c4-18234a366c63"
+      ],
+      "offerSegments": [
+        {
+          "key": "normal",
+          "kind": "Normal",
+          "rule": {
+            "heroMode": "SelectedHero",
+            "hiddenTagsAny": [
+              "Crit",
+              "CritReference"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "kind": "Trainer",
+      "group": "trainer",
+      "order": 15,
+      "name": "Zara",
+      "availableHeroes": [
+        "Dooley",
+        "Jules",
+        "Karnok",
+        "Mak",
+        "Stelle",
+        "Vanessa"
+      ],
+      "description": "Teaches Haste and Charge skills",
+      "portraitTemplateId": "86907ad1-f67a-48db-ac30-e5afe2de237a",
+      "sourceTemplateIds": [
+        "86907ad1-f67a-48db-ac30-e5afe2de237a"
+      ],
+      "offerSegments": [
+        {
+          "key": "normal",
+          "kind": "Normal",
+          "rule": {
+            "heroMode": "SelectedHero",
+            "hiddenTagsAny": [
+              "Haste",
+              "HasteReference",
+              "Charge"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "kind": "Trainer",
+      "group": "trainer",
+      "order": 4,
+      "name": "Zosima",
+      "availableHeroes": [
+        "Mak"
+      ],
+      "description": "Teaches skills unique to Mak",
+      "portraitTemplateId": "054e937d-553e-41a5-951b-62550f870f93",
+      "sourceTemplateIds": [
+        "054e937d-553e-41a5-951b-62550f870f93"
+      ],
+      "offerSegments": [
+        {
+          "key": "normal",
+          "kind": "Normal",
+          "rule": {
+            "heroMode": "FixedHero",
+            "hero": "Mak"
+          }
+        }
+      ]
+    }
+  ]
+}

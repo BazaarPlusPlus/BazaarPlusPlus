@@ -1,0 +1,4 @@
+# Build output of build.sh. The consumed prebuilt lives in the installer repo at
+# SourceForBuild/macos/BepInEx/plugins/ (alongside libe_sqlite3.dylib) and is referenced
+# by BazaarPlusPlus.csproj via BPPInstallerSourcePath — the mod build never reads this copy.
+*.dylib
