@@ -155,22 +155,34 @@ pub fn uninstall_bpp(
         )?;
     }
 
-    // Restore the vanilla bundle BEFORE removing siblings. Call uninstall_trampoline
-    // UNCONDITIONALLY (not gated on is_trampolined): it self-classifies — a no-op
-    // when already vanilla, a restore when a `.orig` exists, and a hard error in the
-    // broken stub-without-backup state. A prior `if is_trampolined().unwrap_or(false)`
-    // gate hid both that documented error (is_trampolined returns false the moment
-    // `.orig` is gone) and any plutil read failure. If this fails, abort so we never
-    // strand a stubbed bundle whose `.orig` we then can't recover. No-op off macOS.
-    trampoline::uninstall_trampoline(game_path)?;
+    let keep_shared_bootstrap = payload::has_third_party_plugins(game_path);
 
-    payload::uninstall_payload(game_path)?;
-    trampoline::remove_launch_mode_marker(game_path)?;
+    // Restore the vanilla bundle only when BPP is the last installed plugin. If
+    // another mod remains, the trampoline / launch options are shared BepInEx
+    // bootstrap state and removing them would disable that mod.
+    if !keep_shared_bootstrap {
+        // Call uninstall_trampoline UNCONDITIONALLY (not gated on is_trampolined):
+        // it self-classifies — a no-op when already vanilla, a restore when a
+        // `.orig` exists, and a hard error in the broken stub-without-backup state.
+        // If this fails, abort so we never strand a stubbed bundle whose `.orig`
+        // we then can't recover. No-op off macOS.
+        trampoline::uninstall_trampoline(game_path)?;
+    }
 
-    #[cfg(target_os = "macos")]
-    {
-        if !_steam_path.trim().is_empty() {
-            crate::services::vdf::clear_launch_options_for_steam(Path::new(&_steam_path))?;
+    if keep_shared_bootstrap {
+        payload::uninstall_payload_preserving_shared_dependencies(game_path)?;
+    } else {
+        payload::uninstall_payload(game_path)?;
+    }
+
+    if !keep_shared_bootstrap {
+        trampoline::remove_launch_mode_marker(game_path)?;
+
+        #[cfg(target_os = "macos")]
+        {
+            if !_steam_path.trim().is_empty() {
+                crate::services::vdf::clear_launch_options_for_steam(Path::new(&_steam_path))?;
+            }
         }
     }
 

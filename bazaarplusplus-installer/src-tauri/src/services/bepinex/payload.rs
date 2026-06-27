@@ -7,6 +7,33 @@ use crate::config::BAZAAR_DATA_DIRECTORY;
 
 pub(super) const BPP_CONFIG_RELATIVE_PATH: &str = "BepInEx/config/BazaarPlusPlus.cfg";
 
+const BPP_PRIVATE_RELATIVE_PATHS: &[&str] = &[
+    BPP_CONFIG_RELATIVE_PATH,
+    "BepInEx/plugins/BazaarPlusPlus.dll",
+    "BepInEx/plugins/BazaarPlusPlus.version",
+    "BepInEx/plugins/BazaarPlusPlus.ModApi.dll",
+    "BepInEx/plugins/BazaarPlusPlus.Storage.dll",
+    "BepInEx/plugins/BazaarPlusPlus.Localization.dll",
+    "BepInEx/plugins/libBppMacAudio.dylib",
+];
+
+const BPP_BUNDLED_DEPENDENCY_RELATIVE_PATHS: &[&str] = &[
+    "BepInEx/plugins/Microsoft.Data.Sqlite.dll",
+    "BepInEx/plugins/SQLitePCLRaw.batteries_v2.dll",
+    "BepInEx/plugins/SQLitePCLRaw.core.dll",
+    "BepInEx/plugins/SQLitePCLRaw.provider.e_sqlite3.dll",
+    "BepInEx/plugins/SixLabors.ImageSharp.dll",
+    "BepInEx/plugins/System.Buffers.dll",
+    "BepInEx/plugins/System.Memory.dll",
+    "BepInEx/plugins/System.Numerics.Vectors.dll",
+    "BepInEx/plugins/System.Text.Encoding.CodePages.dll",
+    "BepInEx/plugins/e_sqlite3.dll",
+    "BepInEx/plugins/libe_sqlite3.dylib",
+    "BepInEx/plugins/ffmpeg",
+    "BepInEx/plugins/ffmpeg.exe",
+    "BepInEx/plugins/ffmpeg-LICENSE.txt",
+];
+
 /// Backoff used between retries when a file/directory removal fails. The first
 /// retry runs immediately, the second after a short pause, and the last after
 /// a longer pause. Windows often releases ERROR_SHARING_VIOLATION holds inside
@@ -228,21 +255,64 @@ pub(crate) fn remove_dir_with_retry(root: &Path) -> RemovalReport {
 }
 
 pub(super) fn uninstall_payload(game_path: &Path) -> Result<(), String> {
-    remove_path_if_exists(&game_path.join("BepInEx"))?;
+    remove_bpp_files(game_path, true)
+}
 
-    #[cfg(target_os = "macos")]
-    {
-        remove_path_if_exists(&game_path.join("run_bepinex.sh"))?;
-        remove_path_if_exists(&game_path.join("libdoorstop.dylib"))?;
+pub(super) fn uninstall_payload_preserving_shared_dependencies(
+    game_path: &Path,
+) -> Result<(), String> {
+    remove_bpp_files(game_path, false)
+}
+
+fn remove_bpp_files(game_path: &Path, remove_bundled_dependencies: bool) -> Result<(), String> {
+    for relative_path in BPP_PRIVATE_RELATIVE_PATHS {
+        remove_path_if_exists(&game_path.join(relative_path))?;
     }
 
-    #[cfg(target_os = "windows")]
-    {
-        remove_path_if_exists(&game_path.join("doorstop_config.ini"))?;
-        remove_path_if_exists(&game_path.join("winhttp.dll"))?;
+    if remove_bundled_dependencies {
+        for relative_path in BPP_BUNDLED_DEPENDENCY_RELATIVE_PATHS {
+            remove_path_if_exists(&game_path.join(relative_path))?;
+        }
     }
+
+    remove_empty_dir_if_exists(&game_path.join("BepInEx/config"))?;
+    remove_empty_dir_if_exists(&game_path.join("BepInEx/plugins"))?;
+    remove_empty_dir_if_exists(&game_path.join("BepInEx"))?;
 
     Ok(())
+}
+
+fn remove_empty_dir_if_exists(path: &Path) -> Result<(), String> {
+    match std::fs::remove_dir(path) {
+        Ok(()) => Ok(()),
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(err) if err.kind() == std::io::ErrorKind::DirectoryNotEmpty => Ok(()),
+        Err(err) => Err(format!(
+            "Cannot remove empty directory {}: {err}",
+            path.display()
+        )),
+    }
+}
+
+pub(super) fn has_third_party_plugins(game_path: &Path) -> bool {
+    let plugins_dir = game_path.join("BepInEx/plugins");
+    let Ok(entries) = std::fs::read_dir(&plugins_dir) else {
+        return false;
+    };
+
+    entries.filter_map(Result::ok).any(|entry| {
+        let Ok(relative) = entry.path().strip_prefix(game_path).map(Path::to_path_buf) else {
+            return false;
+        };
+        let relative = relative.to_string_lossy().replace('\\', "/");
+        relative != "BepInEx/plugins/.gitkeep"
+            && !BPP_PRIVATE_RELATIVE_PATHS
+                .iter()
+                .any(|owned| owned.eq_ignore_ascii_case(&relative))
+            && !BPP_BUNDLED_DEPENDENCY_RELATIVE_PATHS
+                .iter()
+                .any(|owned| owned.eq_ignore_ascii_case(&relative))
+    })
 }
 
 pub(super) fn ensure_valid_game_path(game_path: &Path) -> Result<(), String> {
@@ -327,7 +397,7 @@ mod tests {
     }
 
     #[test]
-    fn test_prepare_install_target_cleans_previous_payload() {
+    fn test_prepare_install_target_cleans_previous_bpp_files_only() {
         let tmp = tempfile::tempdir().unwrap();
 
         #[cfg(target_os = "macos")]
@@ -347,19 +417,28 @@ mod tests {
         }
 
         std::fs::write(tmp.path().join("BepInEx/plugins/old.dll"), b"dll").unwrap();
+        std::fs::write(
+            tmp.path().join("BepInEx/plugins/BazaarPlusPlus.dll"),
+            b"bpp",
+        )
+        .unwrap();
 
         prepare_install_target(tmp.path()).unwrap();
 
-        assert!(!tmp.path().join("BepInEx").exists());
+        assert!(tmp.path().join("BepInEx/plugins/old.dll").exists());
+        assert!(!tmp
+            .path()
+            .join("BepInEx/plugins/BazaarPlusPlus.dll")
+            .exists());
         #[cfg(target_os = "macos")]
         {
-            assert!(!tmp.path().join("run_bepinex.sh").exists());
-            assert!(!tmp.path().join("libdoorstop.dylib").exists());
+            assert!(tmp.path().join("run_bepinex.sh").exists());
+            assert!(tmp.path().join("libdoorstop.dylib").exists());
         }
         #[cfg(target_os = "windows")]
         {
-            assert!(!tmp.path().join("doorstop_config.ini").exists());
-            assert!(!tmp.path().join("winhttp.dll").exists());
+            assert!(tmp.path().join("doorstop_config.ini").exists());
+            assert!(tmp.path().join("winhttp.dll").exists());
         }
     }
 
@@ -395,7 +474,7 @@ mod tests {
         backup.restore(tmp.path()).unwrap();
 
         assert!(tmp.path().join("BepInEx/plugins/old.dll").exists());
-        assert!(!tmp.path().join("BepInEx/plugins/new.dll").exists());
+        assert!(tmp.path().join("BepInEx/plugins/new.dll").exists());
         #[cfg(target_os = "macos")]
         assert_eq!(
             std::fs::read(tmp.path().join("run_bepinex.sh")).unwrap(),
@@ -440,7 +519,7 @@ mod tests {
     }
 
     #[test]
-    fn test_uninstall_payload_removes_platform_files() {
+    fn test_uninstall_payload_removes_bpp_files_only() {
         let tmp = tempfile::tempdir().unwrap();
         std::fs::create_dir_all(tmp.path().join("BepInEx/plugins")).unwrap();
         std::fs::write(
@@ -448,6 +527,7 @@ mod tests {
             b"dll",
         )
         .unwrap();
+        std::fs::write(tmp.path().join("BepInEx/plugins/OtherMod.dll"), b"dll").unwrap();
 
         #[cfg(target_os = "macos")]
         {
@@ -463,17 +543,36 @@ mod tests {
 
         uninstall_payload(tmp.path()).unwrap();
 
-        assert!(!tmp.path().join("BepInEx").exists());
+        assert!(!tmp
+            .path()
+            .join("BepInEx/plugins/BazaarPlusPlus.dll")
+            .exists());
+        assert!(tmp.path().join("BepInEx/plugins/OtherMod.dll").exists());
         #[cfg(target_os = "macos")]
         {
-            assert!(!tmp.path().join("run_bepinex.sh").exists());
-            assert!(!tmp.path().join("libdoorstop.dylib").exists());
+            assert!(tmp.path().join("run_bepinex.sh").exists());
+            assert!(tmp.path().join("libdoorstop.dylib").exists());
         }
         #[cfg(target_os = "windows")]
         {
-            assert!(!tmp.path().join("doorstop_config.ini").exists());
-            assert!(!tmp.path().join("winhttp.dll").exists());
+            assert!(tmp.path().join("doorstop_config.ini").exists());
+            assert!(tmp.path().join("winhttp.dll").exists());
         }
+    }
+
+    #[test]
+    fn test_has_third_party_plugins_ignores_bpp_owned_files() {
+        let tmp = tempfile::tempdir().unwrap();
+        let plugins_dir = tmp.path().join("BepInEx/plugins");
+        std::fs::create_dir_all(&plugins_dir).unwrap();
+        std::fs::write(plugins_dir.join("BazaarPlusPlus.dll"), b"dll").unwrap();
+        std::fs::write(plugins_dir.join("Microsoft.Data.Sqlite.dll"), b"dll").unwrap();
+
+        assert!(!super::has_third_party_plugins(tmp.path()));
+
+        std::fs::write(plugins_dir.join("OtherMod.dll"), b"dll").unwrap();
+
+        assert!(super::has_third_party_plugins(tmp.path()));
     }
 
     #[test]
