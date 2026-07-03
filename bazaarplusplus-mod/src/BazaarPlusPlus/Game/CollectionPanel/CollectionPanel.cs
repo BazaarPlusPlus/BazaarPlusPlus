@@ -69,11 +69,8 @@ internal sealed class CollectionPanel : MonoBehaviour
     private IBppConfig _config = null!;
     private CollectionPanelView? _view;
     private CollectionGridOverlay? _overlay;
-    private CollectionCardPool? _pool;
     private CollectionCardFactory? _factory;
     private CollectionGridVirtualizer? _virtualizer;
-    private CollectionCardArtCache? _artCache;
-    private CollectionCardMaterialCache? _materialCache;
 
     private IBppServices _services = null!;
     private IReadOnlyList<CollectionCardVm> _catalogCards = Array.Empty<CollectionCardVm>();
@@ -468,20 +465,12 @@ internal sealed class CollectionPanel : MonoBehaviour
         CancelPanelLoad();
         _virtualizer?.Dispose();
         _virtualizer = null;
-        // Destroy card GameObjects first so their patched OnDestroy can null _cardMaterial
-        // and Release art-cache refcounts BEFORE we tear the caches down.
-        _pool?.DestroyAll();
-        _pool = null;
+        _factory?.DestroyAll();
         _factory = null;
         _overlay?.Dispose();
         _overlay = null;
         _view?.Dispose();
         _view = null;
-        CollectionCardCacheHost.Uninstall(_artCache, _materialCache);
-        _materialCache?.DisposeAll();
-        _materialCache = null;
-        _artCache?.DisposeAll();
-        _artCache = null;
     }
 
     private void EnsureView()
@@ -502,12 +491,10 @@ internal sealed class CollectionPanel : MonoBehaviour
         _overlay = new CollectionGridOverlay();
         _overlay.EnsureInitialized();
 
-        _artCache = new CollectionCardArtCache();
-        _materialCache = new CollectionCardMaterialCache();
-        CollectionCardCacheHost.Install(_artCache, _materialCache);
-
-        _pool = new CollectionCardPool(CollectionGridOverlay.DefaultLayer);
-        _factory = new CollectionCardFactory(_pool, _overlay.BoardRoot!);
+        _factory = new CollectionCardFactory(
+            _overlay.BoardRoot!,
+            CollectionGridOverlay.DefaultLayer
+        );
         _virtualizer = new CollectionGridVirtualizer(_overlay, _factory);
     }
 

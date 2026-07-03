@@ -1,6 +1,7 @@
 #nullable enable
 using System;
 using System.Reflection;
+using System.Threading;
 using System.Threading.Tasks;
 using BazaarGameShared.Domain.Cards;
 using BazaarGameShared.Domain.Core.Types;
@@ -80,7 +81,7 @@ internal static class NativeCardPreviewRuntime
 
         try
         {
-            var raw = method.Invoke(card, new object[] { template, false, instance });
+            var raw = method.Invoke(card, BuildSetUpArguments(method, template, instance));
             if (raw is Task task)
                 await task;
         }
@@ -100,5 +101,44 @@ internal static class NativeCardPreviewRuntime
             );
             throw;
         }
+    }
+
+    internal static object[] BuildSetUpArgumentsForTest(
+        MethodInfo method,
+        TCardBase template,
+        TCardInstance instance
+    ) => BuildSetUpArguments(method, template, instance);
+
+    private static object[] BuildSetUpArguments(
+        MethodInfo method,
+        TCardBase template,
+        TCardInstance instance
+    )
+    {
+        var parameters = method.GetParameters();
+        if (
+            parameters.Length == 4
+            && typeof(TCardBase).IsAssignableFrom(parameters[0].ParameterType)
+            && parameters[1].ParameterType == typeof(bool)
+            && typeof(TCardInstance).IsAssignableFrom(parameters[2].ParameterType)
+            && parameters[3].ParameterType == typeof(CancellationToken)
+        )
+        {
+            return new object[] { template, false, instance, CancellationToken.None };
+        }
+
+        if (
+            parameters.Length == 3
+            && typeof(TCardBase).IsAssignableFrom(parameters[0].ParameterType)
+            && parameters[1].ParameterType == typeof(bool)
+            && typeof(TCardInstance).IsAssignableFrom(parameters[2].ParameterType)
+        )
+        {
+            return new object[] { template, false, instance };
+        }
+
+        throw new InvalidOperationException(
+            $"Unsupported CardPreviewBase.SetUp signature: {method}."
+        );
     }
 }

@@ -1,6 +1,8 @@
 #nullable enable
 using System;
 using System.Reflection;
+using System.Threading;
+using BazaarGameShared.Domain.Cards;
 using HarmonyLib;
 using UnityEngine;
 
@@ -14,8 +16,7 @@ internal static class NativeCardPreviewReflection
         CardPreviewBaseTypeName
     );
 
-    public static readonly MethodInfo? SetUpMethod =
-        CardPreviewBaseType != null ? AccessTools.Method(CardPreviewBaseType, "SetUp") : null;
+    public static readonly MethodInfo? SetUpMethod = ResolveSetUpMethod();
 
     public static readonly MethodInfo? ShowMethod =
         CardPreviewBaseType != null ? AccessTools.Method(CardPreviewBaseType, "Show") : null;
@@ -53,5 +54,44 @@ internal static class NativeCardPreviewReflection
             if (child != null)
                 ApplyLayerRecursive(child.gameObject, layer);
         }
+    }
+
+    private static MethodInfo? ResolveSetUpMethod()
+    {
+        if (CardPreviewBaseType == null)
+            return null;
+
+        MethodInfo? legacy = null;
+        foreach (
+            var method in CardPreviewBaseType.GetMethods(
+                BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance
+            )
+        )
+        {
+            if (!string.Equals(method.Name, "SetUp", StringComparison.Ordinal))
+                continue;
+
+            var parameters = method.GetParameters();
+            if (IsSetUpSignature(parameters, includeCancellationToken: true))
+                return method;
+
+            if (legacy == null && IsSetUpSignature(parameters, includeCancellationToken: false))
+                legacy = method;
+        }
+
+        return legacy;
+    }
+
+    private static bool IsSetUpSignature(ParameterInfo[] parameters, bool includeCancellationToken)
+    {
+        var expectedLength = includeCancellationToken ? 4 : 3;
+        return parameters.Length == expectedLength
+            && typeof(TCardBase).IsAssignableFrom(parameters[0].ParameterType)
+            && parameters[1].ParameterType == typeof(bool)
+            && typeof(TCardInstance).IsAssignableFrom(parameters[2].ParameterType)
+            && (
+                !includeCancellationToken
+                || parameters[3].ParameterType == typeof(CancellationToken)
+            );
     }
 }

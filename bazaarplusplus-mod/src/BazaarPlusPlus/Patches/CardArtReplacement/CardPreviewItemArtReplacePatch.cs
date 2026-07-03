@@ -45,6 +45,10 @@ internal static class CardPreviewItemArtReplacePatch
             instance._cardMaterial = customMaterial;
             if (instance._cardImage != null)
                 instance._cardImage.material = customMaterial;
+
+            var marker = instance.GetComponent<CollectionPanelOwnedMarker>();
+            if (marker != null)
+                marker.SharedPreviewMaterial = customMaterial;
         }
         catch (Exception ex)
         {

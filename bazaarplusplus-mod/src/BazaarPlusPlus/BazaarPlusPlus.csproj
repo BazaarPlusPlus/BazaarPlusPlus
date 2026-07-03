@@ -170,7 +170,7 @@
   <Target
     Name="CopyToBepInExPlugins"
     AfterTargets="Build"
-    Condition="'$(Configuration)' == 'Debug'"
+    Condition="'$(Configuration)' == 'Debug' and '$(DisableBppPostBuildCopy)' != 'true'"
   >
     <Message Text="[BazaarPlusPlus] Building for Debug" Importance="high" />
     <ItemGroup>
@@ -278,7 +278,7 @@
   <Target
     Name="CopyToInstallerSource"
     AfterTargets="Build"
-    Condition="'$(Configuration)' == 'Release' and Exists('$(BPPInstallerSourcePath)')"
+    Condition="'$(Configuration)' == 'Release' and Exists('$(BPPInstallerSourcePath)') and '$(DisableBppPostBuildCopy)' != 'true'"
   >
     <Message Text="[BazaarPlusPlus] Building for Release" Importance="high" />
     <WriteLinesToFile
@@ -358,7 +358,7 @@
   <Target
     Name="PackageInstallerSource"
     AfterTargets="CopyToInstallerSource"
-    Condition="'$(Configuration)' == 'Release' and Exists('$(BPPInstallerSourcePath)') and '$(BuildProductionPackage)' == 'true'"
+    Condition="'$(Configuration)' == 'Release' and Exists('$(BPPInstallerSourcePath)') and '$(BuildProductionPackage)' == 'true' and '$(DisableBppPostBuildCopy)' != 'true'"
   >
     <Message Text="[BazaarPlusPlus] Building production installer package" Importance="high" />
     <!-- Unzip the per-platform bundled FFmpeg into each payload tree's plugins dir -->

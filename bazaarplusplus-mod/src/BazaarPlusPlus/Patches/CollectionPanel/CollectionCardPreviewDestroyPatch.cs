@@ -7,14 +7,9 @@ using TheBazaar.UI;
 namespace BazaarPlusPlus.Patches.CollectionPanel;
 
 // CardPreviewBase.OnDestroy ends with `if (_cardMaterial) Object.Destroy(_cardMaterial)`.
-// For tracked collection-panel cards that material is owned by CollectionCardMaterialCache
-// and is shared across instances; if the game destroyed it the next card using the same
-// artKey would render with a null material. We null the field in a prefix so the original
-// destroy branch becomes a no-op; the cache itself destroys all shared materials when the
-// panel runtime is torn down.
-//
-// Also Release the L2 art-cache refcount so the LRU eviction can reclaim entries that no
-// longer back any live card.
+// Collection cards normally let the game's native material lifecycle run unchanged. The only
+// exception is BPP custom package-card preview material: CardArtReplacementFeature owns that
+// shared material cache, so collection-owned previews must not destroy those cached instances.
 [HarmonyPatch(typeof(CardPreviewBase), "OnDestroy")]
 internal static class CollectionCardPreviewDestroyPatch
 {
@@ -25,15 +20,11 @@ internal static class CollectionCardPreviewDestroyPatch
         if (marker == null)
             return;
 
-        var artCache = CollectionCardCacheHost.ArtCache;
-        var materialCache = CollectionCardCacheHost.MaterialCache;
-        if (artCache != null && !string.IsNullOrEmpty(marker.CurrentArtKey))
-        {
-            artCache.Release(marker.CurrentArtKey!);
-            materialCache?.Release(marker.CurrentArtKey!);
-            marker.CurrentArtKey = null;
-        }
-
-        __instance._cardMaterial = null!;
+        if (
+            marker.SharedPreviewMaterial != null
+            && ReferenceEquals(__instance._cardMaterial, marker.SharedPreviewMaterial)
+        )
+            __instance._cardMaterial = null!;
+        marker.SharedPreviewMaterial = null;
     }
 }

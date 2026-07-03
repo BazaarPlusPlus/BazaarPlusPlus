@@ -43,6 +43,7 @@ internal static class CollectionGridConstants
     // Per-frame wall-clock budget for cold cell binds (cards entering window for the first
     // time). Reposition is free; bind triggers Addressables loads on the Item path.
     public const float ColdBindBudgetMs = 3f;
+    public const float CardFadeInSeconds = 0.06f;
 
     // Sorting layers: UITK panel below native cards, with optional foreground chrome above.
     // Anything we put between them (e.g., a full-screen GraphicRaycaster blocker) intercepts
@@ -63,10 +64,6 @@ internal static class CollectionGridConstants
     // `static readonly` (not `const`) so the unused branch does not dead-code-warn when the
     // flag is flipped in source.
     public static readonly bool UsePolledHover = true;
-
-    // Animation tuning. All durations are characteristic times for an exponential lerp
-    // (t = 1 - exp(-dt / tau)), so the visible motion finishes within ~3*tau seconds.
-    public const float CardFadeInSeconds = 0.18f;
 
     // Open is a presentation (deliberate); close is a dismissal (snappy). With out at 0.04
     // the close-fade visually settles in ~120ms, fast enough not to feel like the panel
