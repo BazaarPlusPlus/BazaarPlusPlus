@@ -133,7 +133,11 @@ internal sealed class ItemBoardPreviewSurface : IDisposable
         ApplyTransform();
         ReturnActiveCardsToPool();
         _activeSetUpTasks.Clear();
-        SpawnCards(cards);
+        var spawnTask = SpawnCardsAsync(cards, snapshot);
+        while (!spawnTask.IsCompleted && _generation.IsCurrent(snapshot))
+            yield return null;
+        if (!_generation.IsCurrent(snapshot))
+            yield break;
         if (_active.Count == 0)
         {
             onPhase?.Invoke(ItemBoardPreviewPhase.Empty);
@@ -369,12 +373,14 @@ internal sealed class ItemBoardPreviewSurface : IDisposable
         _boardRect.localScale = Vector3.one * _cardScale;
     }
 
-    private void SpawnCards(IReadOnlyList<NativeCardPreviewSpec> cards)
+    private async Task SpawnCardsAsync(IReadOnlyList<NativeCardPreviewSpec> cards, int generationSnapshot)
     {
         if (_factory == null || _sockets == null)
             return;
 
         var fallbackIndex = 0;
+        var createTasks = new List<Task<NativeCardPreviewHandle?>>();
+
         foreach (var spec in cards)
         {
             if (!_factory.TryResolveSpan(spec, out var span))
@@ -389,13 +395,30 @@ internal sealed class ItemBoardPreviewSurface : IDisposable
             if (socketIndex < 0)
                 continue;
 
-            var handle = _factory.TryCreate(spec, _sockets[socketIndex], fallbackIndex);
+            createTasks.Add(_factory.TryCreateAsync(spec, _sockets[socketIndex], fallbackIndex));
+            fallbackIndex++;
+        }
+
+        await Task.WhenAll(createTasks);
+
+        // If the generation moved while cards were being created, return them all and bail.
+        if (!_generation.IsCurrent(generationSnapshot))
+        {
+            foreach (var task in createTasks)
+            {
+                if (task.Result != null)
+                    _factory.Return(task.Result);
+            }
+            return;
+        }
+
+        foreach (var task in createTasks)
+        {
+            var handle = task.Result;
             if (handle == null)
                 continue;
-
             _active.Add(handle);
             _activeSetUpTasks.Add(handle.SetUpTask);
-            fallbackIndex++;
         }
     }
 

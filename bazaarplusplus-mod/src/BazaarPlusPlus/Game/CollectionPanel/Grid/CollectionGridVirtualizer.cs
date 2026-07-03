@@ -22,8 +22,8 @@ namespace BazaarPlusPlus.Game.CollectionPanel.Grid;
 // its native card and request a fresh one for the cell entering it.
 //
 // Cancellation race: AssetLoader creates native card UI asynchronously. The factory returns
-// a binding immediately; ShowWhenReady awaits it and checks the generation before binding
-// hover/source adornments or flipping the cell active. If a cell is recycled mid-create,
+// a binding immediately; Tick polls readiness before binding hover/source adornments or
+// flipping the cell active. If a cell is recycled mid-create,
 // the late card is destroyed instead of reused.
 //
 // Filter/tab changes cancel everything in flight by bumping the global generation guard
@@ -788,7 +788,7 @@ internal sealed class CollectionGridVirtualizer
             }
             catch
             {
-                // Faulted tasks are counted below; ShowWhenReady owns the per-card debug log.
+                // Faulted tasks are counted below; activation owns the per-card debug log.
             }
 
             var faulted = 0;

@@ -47,14 +47,14 @@ internal sealed class NativeCardPreviewFactory
         return true;
     }
 
-    public NativeCardPreviewHandle? TryCreate(
+    public Task<NativeCardPreviewHandle?> TryCreateAsync(
         NativeCardPreviewSpec? spec,
         Transform parent,
         int instanceIndex
     )
     {
         if (parent == null || !TryResolveTemplate(spec, out var template) || spec == null)
-            return null;
+            return Task.FromResult<NativeCardPreviewHandle?>(null);
 
         if (!TryResolveKind(template, out var kind))
         {
@@ -62,13 +62,13 @@ internal sealed class NativeCardPreviewFactory
                 _logComponent,
                 $"Unsupported card preview type={template.Type} size={template.Size} template={template.Id}."
             );
-            return null;
+            return Task.FromResult<NativeCardPreviewHandle?>(null);
         }
 
         var instance = BuildSyntheticInstance(spec, kind, instanceIndex);
         var handle = new NativeCardPreviewHandle(kind, spec);
         _ = CreateCardAsync(handle, parent, instance, kind, instanceIndex);
-        return handle;
+        return Task.FromResult<NativeCardPreviewHandle?>(handle);
 
         async Task CreateCardAsync(
             NativeCardPreviewHandle previewHandle,

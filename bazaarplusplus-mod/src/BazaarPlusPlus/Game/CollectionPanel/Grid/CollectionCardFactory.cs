@@ -71,7 +71,6 @@ internal sealed class CollectionCardFactory
             vm.Type == ECardType.Skill
                 ? NativeCardPreviewKind.ForSkill()
                 : NativeCardPreviewKind.ForItem(vm.Size);
-
         var instanceIndex = ++_instanceCounter;
         var instance = BuildSyntheticInstance(vm, instanceIndex);
         var binding = TakeBinding(kind, instanceIndex);
