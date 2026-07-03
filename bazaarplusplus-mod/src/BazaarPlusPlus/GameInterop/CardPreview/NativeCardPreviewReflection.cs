@@ -26,7 +26,7 @@ internal static class NativeCardPreviewReflection
     public static readonly PropertyInfo? SizeProperty =
         CardPreviewBaseType != null ? AccessTools.Property(CardPreviewBaseType, "Size") : null;
 
-    public static MethodInfo? ResolvePublicInstanceMethod(string name)
+public static MethodInfo? ResolvePublicInstanceMethod(string name)
     {
         if (CardPreviewBaseType == null || string.IsNullOrWhiteSpace(name))
             return null;

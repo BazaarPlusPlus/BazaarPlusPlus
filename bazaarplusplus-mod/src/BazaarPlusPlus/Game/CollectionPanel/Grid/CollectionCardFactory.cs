@@ -33,7 +33,7 @@ internal sealed class CollectionCardFactory
 
     public bool ReflectionReady => NativeCardPreviewReflection.SetUpMethod != null;
 
-    public CollectionCardBinding? TryBind(CollectionCardVm vm)
+    public async Task<CollectionCardBinding?> TryBindAsync(CollectionCardVm vm)
     {
         if (vm == null)
             return null;
@@ -56,17 +56,18 @@ internal sealed class CollectionCardFactory
             vm.Type == ECardType.Skill
                 ? NativeCardPreviewKind.ForSkill()
                 : NativeCardPreviewKind.ForItem(vm.Size);
-        var card = _pool.Take(kind, _parent);
+
+        var instance = BuildSyntheticInstance(vm);
+        var (card, isNew) = await _pool.TakeAsync(kind, instance, _parent);
         if (card == null)
             return null;
 
-        var instance = BuildSyntheticInstance(vm);
-        var setUpTask = NativeCardPreviewRuntime.InvokeSetUpSafe(
-            card,
-            template,
-            instance,
-            "CollectionCardFactory"
-        );
+        // New cards from InstantiateUICardAsync already had SetUp called internally — skip the
+        // redundant second SetUp and signal ready immediately. Recycled pool-hit cards need SetUp
+        // to rebind to the new template/instance before they can be shown.
+        var setUpTask = isNew
+            ? Task.CompletedTask
+            : NativeCardPreviewRuntime.InvokeSetUpSafe(card, template, instance, "CollectionCardFactory");
         return new CollectionCardBinding(card, kind, setUpTask);
     }
 

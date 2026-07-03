@@ -1,7 +1,8 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
-using BazaarGameShared.Domain.Core.Types;
+using System.Threading.Tasks;
+using BazaarGameShared.Domain.Cards;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
@@ -41,12 +42,15 @@ internal sealed class NativeCardPreviewPool
         );
     }
 
-    public Component? Take(NativeCardPreviewKind kind, Transform parent)
+    // Returns (card, isNew). isNew=true means the card was freshly created by InstantiateUICardAsync
+    // and already has SetUp called internally; callers must NOT call SetUp again for new cards.
+    // isNew=false means the card was recycled from the pool and needs SetUp for rebinding.
+    public async Task<(Component? card, bool isNew)> TakeAsync(
+        NativeCardPreviewKind kind,
+        TCardInstance instance,
+        Transform parent
+    )
     {
-        var requireSkill = kind.Type == ECardType.Skill;
-        if (!TryEnsurePrefabRefs(requireSkill))
-            return null;
-
         if (!_pool.TryGetValue(kind, out var queue))
         {
             queue = new Queue<Component>();
@@ -64,40 +68,29 @@ internal sealed class NativeCardPreviewPool
             }
         }
 
-        if (card == null)
+        var isNew = card == null;
+        if (isNew)
         {
-            if (
-                !NativeCardPreviewPrefabResolver.TryGetPrefab(
-                    kind,
-                    requireSkill,
-                    _requireSockets,
-                    _logComponent,
-                    out var prefab
-                )
-                || prefab == null
-            )
-            {
-                return null;
-            }
-
-            card = Object.Instantiate(prefab, parent, worldPositionStays: false);
-            if (card != null)
-                card.name = $"BppNativeCardPreview_{kind}";
+            card = await NativeCardPreviewPrefabResolver.TryCreateCardAsync(
+                instance,
+                parent,
+                _logComponent
+            );
+            if (card == null)
+                return (null, false);
+            card.name = $"BppNativeCardPreview_{kind}";
         }
         else
         {
-            card.transform.SetParent(parent, worldPositionStays: false);
+            card!.transform.SetParent(parent, worldPositionStays: false);
         }
 
-        if (card == null)
-            return null;
-
-        card.transform.localScale = Vector3.one;
+        card!.transform.localScale = Vector3.one;
         card.transform.localRotation = Quaternion.identity;
         card.gameObject.SetActive(true);
         NativeCardPreviewReflection.ApplyLayerRecursive(card.gameObject, _layer);
         NativeCardPreviewRuntime.Resize(card, _logComponent);
-        return card;
+        return (card, isNew);
     }
 
     public void Return(NativeCardPreviewHandle? handle)

@@ -1,21 +1,20 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
+using BazaarGameShared.Domain.Cards;
 using BazaarPlusPlus.GameInterop.CardPreview;
+using BazaarPlusPlus.Infrastructure;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
 namespace BazaarPlusPlus.Game.CollectionPanel.Grid;
 
-// Per-kind pool of CardPreviewBase instances cloned from MonsterBoardTooltip's four prefab
-// fields (_smallItemReference / _mediumItemReference / _largeItemReference / _skillReference).
-// Mirrors the native card-preview Take/Return/eviction shape, but is keyed by
-// (ECardType, ECardSize) instead of just ECardSize so the Skill prefab can be served without
-// pretending it is an Item.
-//
-// Prefab refs are resolved via reflection through Harmony.AccessTools to keep the mod
-// resilient to future game-side renames; if the lookup fails the panel logs and stays
-// closed rather than crashing.
+// Per-kind pool of CardPreviewBase instances created via AssetLoader.InstantiateUICardAsync.
+// Pool hits are dequeued and reparented synchronously; pool misses await the AssetLoader
+// call on the first Take for each kind, after which the card is tagged with
+// CollectionPanelOwnedMarker so the cached LoadArt path activates on every subsequent
+// SetUp (pool reuse).
 internal sealed class CollectionCardPool
 {
     private const int DefaultMaxPoolSizePerKind = 30;
@@ -37,11 +36,15 @@ internal sealed class CollectionCardPool
             "CollectionCardPool"
         );
 
-    public Component? Take(NativeCardPreviewKind kind, Transform parent)
+    // Returns (card, isNew). isNew=true means the card was freshly created by InstantiateUICardAsync
+    // and already has SetUp called internally; callers must NOT call SetUp again for new cards.
+    // isNew=false means the card was recycled from the pool and needs SetUp for rebinding.
+    public async Task<(Component? card, bool isNew)> TakeAsync(
+        NativeCardPreviewKind kind,
+        TCardInstance instance,
+        Transform parent
+    )
     {
-        if (!TryEnsurePrefabRefs())
-            return null;
-
         if (!_pool.TryGetValue(kind, out var queue))
         {
             queue = new Queue<Component>();
@@ -59,57 +62,42 @@ internal sealed class CollectionCardPool
             }
         }
 
-        if (card == null)
+        var isNew = card == null;
+        if (isNew)
         {
-            if (
-                !NativeCardPreviewPrefabResolver.TryGetPrefab(
-                    kind,
-                    requireSkill: true,
-                    requireSockets: false,
-                    "CollectionCardPool",
-                    out var prefab
-                )
-                || prefab == null
-            )
-                return null;
+            card = await NativeCardPreviewPrefabResolver.TryCreateCardAsync(
+                instance,
+                parent,
+                "CollectionCardPool"
+            );
+            if (card == null)
+                return (null, false);
 
-            card = Object.Instantiate(prefab, parent, worldPositionStays: false);
-            if (card != null)
-            {
-                card.name = $"CollectionPanelCard_{kind}";
-                // Stamp the marker once at instantiation; the OnDestroy + LoadArt patches use
-                // it to gate cache participation, and the marker survives every Take/Return
-                // cycle so the gating stays consistent across pool reuse.
-                if (card.gameObject.GetComponent<CollectionPanelOwnedMarker>() == null)
-                    card.gameObject.AddComponent<CollectionPanelOwnedMarker>();
-                // CanvasGroup drives the per-card fade-in. Added once at instantiation;
-                // alpha is reset to 0 below on every Take so each rebind starts invisible
-                // and the virtualizer's TickFades ramps it back up to 1 after Show.
-                if (card.gameObject.GetComponent<CanvasGroup>() == null)
-                    card.gameObject.AddComponent<CanvasGroup>();
-            }
+            card.name = $"CollectionPanelCard_{kind}";
+            // Marker gates CollectionItemLoadArtPatch and survives every Take/Return cycle.
+            if (card.gameObject.GetComponent<CollectionPanelOwnedMarker>() == null)
+                card.gameObject.AddComponent<CollectionPanelOwnedMarker>();
+            // CanvasGroup drives the per-card fade-in; alpha reset to 0 each Take.
+            if (card.gameObject.GetComponent<CanvasGroup>() == null)
+                card.gameObject.AddComponent<CanvasGroup>();
+
         }
         else
         {
-            card.transform.SetParent(parent, worldPositionStays: false);
+            card!.transform.SetParent(parent, worldPositionStays: false);
         }
 
-        if (card == null)
-            return null;
-
-        card.transform.localScale = Vector3.one;
+        card!.transform.localScale = Vector3.one;
         card.transform.localRotation = Quaternion.identity;
         card.gameObject.SetActive(true);
         NativeCardPreviewReflection.ApplyLayerRecursive(card.gameObject, _layer);
 
-        // Start each (re)bind invisible so the fade ramp owns the perceived appearance.
         var canvasGroup = card.gameObject.GetComponent<CanvasGroup>();
         if (canvasGroup != null)
             canvasGroup.alpha = 0f;
 
         NativeCardPreviewRuntime.Resize(card, "CollectionCardPool");
-
-        return card;
+        return (card, isNew);
     }
 
     public void Return(Component? card, NativeCardPreviewKind kind)

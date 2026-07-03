@@ -80,7 +80,13 @@ internal static class NativeCardPreviewRuntime
 
         try
         {
-            var raw = method.Invoke(card, new object[] { template, false, instance });
+            // SetUp gained a CancellationToken 4th parameter in a game update.
+            // Detect at runtime so the mod compiles against any version.
+            var paramCount = method.GetParameters().Length;
+            var args = paramCount >= 4
+                ? new object[] { template, false, instance, default(System.Threading.CancellationToken) }
+                : new object[] { template, false, instance };
+            var raw = method.Invoke(card, args);
             if (raw is Task task)
                 await task;
         }

@@ -1,97 +1,126 @@
 #nullable enable
-using System.Collections.Generic;
+using System;
 using System.Reflection;
-using BazaarGameShared.Domain.Core.Types;
+using System.Threading;
+using System.Threading.Tasks;
+using BazaarGameShared.Domain.Cards;
 using BazaarPlusPlus.Infrastructure;
 using HarmonyLib;
+using TheBazaar.AppFramework;
 using UnityEngine;
 
 namespace BazaarPlusPlus.GameInterop.CardPreview;
 
+// Card prefab references (_smallItemReference / _mediumItemReference / etc.) were removed
+// from MonsterBoardTooltip in a game update. We now create card instances via
+// AssetLoader.InstantiateUICardAsync instead of cloning serialised prefabs.
+// The _sockets field still exists and is still captured here for socket-layout sizing.
 internal static class NativeCardPreviewPrefabResolver
 {
     private const string MonsterBoardTooltipTypeName = "TheBazaar.UI.Tooltips.MonsterBoardTooltip";
 
     private static readonly object Lock = new();
-    private static readonly Dictionary<NativeCardPreviewKind, Component> PrefabRefs = new();
     private static NativeCardPreviewSocketTemplate[]? _socketTemplates;
-    private static bool _resolved;
+    private static bool _socketsResolved;
 
-    private static readonly System.Type? MonsterBoardTooltipType = AccessTools.TypeByName(
+    private static readonly Type? MonsterBoardTooltipType = AccessTools.TypeByName(
         MonsterBoardTooltipTypeName
     );
-
-    private static readonly FieldInfo? SmallItemReferenceField =
-        MonsterBoardTooltipType != null
-            ? AccessTools.Field(MonsterBoardTooltipType, "_smallItemReference")
-            : null;
-
-    private static readonly FieldInfo? MediumItemReferenceField =
-        MonsterBoardTooltipType != null
-            ? AccessTools.Field(MonsterBoardTooltipType, "_mediumItemReference")
-            : null;
-
-    private static readonly FieldInfo? LargeItemReferenceField =
-        MonsterBoardTooltipType != null
-            ? AccessTools.Field(MonsterBoardTooltipType, "_largeItemReference")
-            : null;
-
-    private static readonly FieldInfo? SkillReferenceField =
-        MonsterBoardTooltipType != null
-            ? AccessTools.Field(MonsterBoardTooltipType, "_skillReference")
-            : null;
 
     private static readonly FieldInfo? SocketsField =
         MonsterBoardTooltipType != null
             ? AccessTools.Field(MonsterBoardTooltipType, "_sockets")
             : null;
 
-    public static bool TryGetPrefab(
-        NativeCardPreviewKind kind,
-        bool requireSkill,
-        bool requireSockets,
-        string logComponent,
-        out Component? prefab
-    )
-    {
-        prefab = null;
-        if (!TryEnsureResolved(requireSkill, requireSockets, logComponent))
-            return false;
-
-        lock (Lock)
-            return PrefabRefs.TryGetValue(kind, out prefab) && prefab != null;
-    }
-
     public static NativeCardPreviewSocketTemplate[]? TryGetSocketTemplates()
     {
         lock (Lock)
-            return _resolved ? _socketTemplates : null;
+            return _socketsResolved ? _socketTemplates : null;
     }
 
+    // Returns true when all required resources are available:
+    //   • AssetLoader service is reachable (always required for card creation)
+    //   • If requireSockets: socket templates captured from MonsterBoardTooltip._sockets
+    // requireSkill is kept for API symmetry; AssetLoader handles all card kinds uniformly.
     public static bool TryEnsureResolved(
         bool requireSkill,
         bool requireSockets,
         string logComponent
     )
     {
-        lock (Lock)
-        {
-            if (_resolved && HasRequiredRefs(requireSkill, requireSockets))
-                return true;
-        }
-
-        if (
-            MonsterBoardTooltipType == null
-            || SmallItemReferenceField == null
-            || MediumItemReferenceField == null
-            || LargeItemReferenceField == null
-            || (requireSkill && SkillReferenceField == null)
-            || (requireSockets && SocketsField == null)
-        )
+        var assetLoader = Services.Get<AssetLoader>();
+        if (assetLoader == null)
         {
             BppLog.Warn(
                 logComponent,
-                $"{MonsterBoardTooltipTypeName} reflection metadata missing; native card preview unavailable on this game version."
+                "AssetLoader service unavailable; native card preview unavailable on this game version."
+            );
+            return false;
+        }
+
+        if (!requireSockets)
+            return true;
+
+        lock (Lock)
+        {
+            if (_socketsResolved)
+                return true;
+        }
+
+        return TryCaptureSocketTemplates(logComponent);
+    }
+
+    // Creates a card via AssetLoader.InstantiateUICardAsync and returns its CardPreviewBase
+    // component. On pool-miss the caller receives a fully-instantiated (and initially SetUp)
+    // card; the caller then calls InvokeSetUpSafe again to bind it to the target card data.
+    public static async Task<Component?> TryCreateCardAsync(
+        TCardInstance instance,
+        Transform? parent,
+        string logComponent
+    )
+    {
+        try
+        {
+            var assetLoader = Services.Get<AssetLoader>();
+            if (assetLoader == null)
+            {
+                BppLog.Warn(logComponent, "AssetLoader unavailable for card creation.");
+                return null;
+            }
+
+            var go = await assetLoader.InstantiateUICardAsync(instance, parent, CancellationToken.None);
+            if (go == null)
+            {
+                BppLog.Warn(logComponent, "AssetLoader.InstantiateUICardAsync returned null.");
+                return null;
+            }
+
+            var cardPreviewBaseType = NativeCardPreviewReflection.CardPreviewBaseType;
+            if (cardPreviewBaseType == null)
+            {
+                BppLog.Warn(logComponent, "CardPreviewBaseType is null — type lookup failed.");
+                return null;
+            }
+
+            var component = go.GetComponent(cardPreviewBaseType);
+            if (component == null)
+                BppLog.Warn(logComponent, $"GetComponent({cardPreviewBaseType.Name}) returned null on GO '{go.name}'.");
+            return component;
+        }
+        catch (Exception ex)
+        {
+            BppLog.Warn(logComponent, $"Card creation via AssetLoader failed: {ex.Message}");
+            return null;
+        }
+    }
+
+    private static bool TryCaptureSocketTemplates(string logComponent)
+    {
+        if (MonsterBoardTooltipType == null || SocketsField == null)
+        {
+            BppLog.Warn(
+                logComponent,
+                $"{MonsterBoardTooltipTypeName}._sockets reflection missing; socket layout will use fallback sizing."
             );
             return false;
         }
@@ -105,56 +134,24 @@ internal static class NativeCardPreviewPrefabResolver
             if (tooltipObj is not Component tooltip || tooltip == null)
                 continue;
 
-            var small = SmallItemReferenceField.GetValue(tooltip) as Component;
-            var medium = MediumItemReferenceField.GetValue(tooltip) as Component;
-            var large = LargeItemReferenceField.GetValue(tooltip) as Component;
-            var skill = SkillReferenceField?.GetValue(tooltip) as Component;
-            var sockets = SocketsField?.GetValue(tooltip) as RectTransform[];
-
-            if (
-                small == null
-                || medium == null
-                || large == null
-                || (requireSkill && skill == null)
-                || (requireSockets && (sockets == null || sockets.Length == 0))
-            )
+            var sockets = SocketsField.GetValue(tooltip) as RectTransform[];
+            if (sockets == null || sockets.Length == 0)
                 continue;
 
             lock (Lock)
             {
-                PrefabRefs[NativeCardPreviewKind.ForItem(ECardSize.Small)] = small;
-                PrefabRefs[NativeCardPreviewKind.ForItem(ECardSize.Medium)] = medium;
-                PrefabRefs[NativeCardPreviewKind.ForItem(ECardSize.Large)] = large;
-                if (skill != null)
-                    PrefabRefs[NativeCardPreviewKind.ForSkill()] = skill;
-                if (sockets != null && sockets.Length > 0)
-                    _socketTemplates = CaptureSocketTemplates(sockets);
-                _resolved = true;
+                _socketTemplates = CaptureSocketTemplates(sockets);
+                _socketsResolved = true;
             }
 
             BppLog.Info(
                 logComponent,
-                $"Acquired native card preview refs (small='{small.name}', medium='{medium.name}', large='{large.name}', skill='{skill?.name ?? "(none)"}', sockets={sockets?.Length ?? 0})."
+                $"Acquired socket templates from {MonsterBoardTooltipTypeName} (sockets={sockets.Length})."
             );
             return true;
         }
 
         return false;
-    }
-
-    private static bool HasRequiredRefs(bool requireSkill, bool requireSockets)
-    {
-        if (!PrefabRefs.ContainsKey(NativeCardPreviewKind.ForItem(ECardSize.Small)))
-            return false;
-        if (!PrefabRefs.ContainsKey(NativeCardPreviewKind.ForItem(ECardSize.Medium)))
-            return false;
-        if (!PrefabRefs.ContainsKey(NativeCardPreviewKind.ForItem(ECardSize.Large)))
-            return false;
-        if (requireSkill && !PrefabRefs.ContainsKey(NativeCardPreviewKind.ForSkill()))
-            return false;
-        if (requireSockets && (_socketTemplates == null || _socketTemplates.Length == 0))
-            return false;
-        return true;
     }
 
     private static NativeCardPreviewSocketTemplate[] CaptureSocketTemplates(RectTransform[] sockets)

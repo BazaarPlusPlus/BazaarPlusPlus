@@ -40,7 +40,7 @@ internal sealed class NativeCardPreviewFactory
         return true;
     }
 
-    public NativeCardPreviewHandle? TryCreate(
+    public async Task<NativeCardPreviewHandle?> TryCreateAsync(
         NativeCardPreviewSpec? spec,
         Transform parent,
         int instanceIndex
@@ -58,7 +58,8 @@ internal sealed class NativeCardPreviewFactory
             return null;
         }
 
-        var card = _pool.Take(kind, parent);
+        var instance = BuildSyntheticInstance(spec, kind, instanceIndex);
+        var (card, isNew) = await _pool.TakeAsync(kind, instance, parent);
         if (card == null)
             return null;
 
@@ -69,13 +70,12 @@ internal sealed class NativeCardPreviewFactory
             return null;
         }
 
-        var instance = BuildSyntheticInstance(spec, kind, instanceIndex);
-        var setUpTask = NativeCardPreviewRuntime.InvokeSetUpSafe(
-            card,
-            template,
-            instance,
-            _logComponent
-        );
+        // New cards from InstantiateUICardAsync already had SetUp called internally — skip the
+        // redundant second SetUp and signal ready immediately. Recycled pool-hit cards need SetUp
+        // to rebind to the new template/instance before they can be shown.
+        var setUpTask = isNew
+            ? Task.CompletedTask
+            : NativeCardPreviewRuntime.InvokeSetUpSafe(card, template, instance, _logComponent);
         return new NativeCardPreviewHandle(card, rect, kind, setUpTask, spec);
     }
 

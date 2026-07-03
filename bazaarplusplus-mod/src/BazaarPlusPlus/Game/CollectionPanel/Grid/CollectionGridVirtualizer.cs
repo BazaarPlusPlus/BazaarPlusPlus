@@ -37,6 +37,7 @@ internal sealed class CollectionGridVirtualizer
     private readonly CollectionGridOverlay _overlay;
     private readonly CollectionCardFactory _factory;
     private readonly Dictionary<int, RealizedCell> _realized = new();
+    private readonly HashSet<int> _pendingRealize = new();
     private readonly List<int> _recycleScratch = new();
     private readonly List<CollectionGridRect> _slotRects = new();
     private readonly CollectionGridSlotLayer? _slots;
@@ -340,44 +341,85 @@ internal sealed class CollectionGridVirtualizer
 
     private void TryRealize(int index)
     {
-        var vm = _visible[index];
-        var bindStartedAt = _firstWindowDiagnostics?.StartBind(index) ?? 0L;
-        var binding = _factory.TryBind(vm);
-        _firstWindowDiagnostics?.RecordBind(index, bindStartedAt, binding);
-        if (binding == null)
+        if (_realized.ContainsKey(index) || _pendingRealize.Contains(index))
             return;
-        var card = binding.Value.Card;
-        var rect = card.transform as RectTransform;
-        if (rect == null)
+        _pendingRealize.Add(index);
+        _ = TryRealizeAsync(index, _generation);
+    }
+
+    private async Task TryRealizeAsync(int index, int generationSnapshot)
+    {
+        try
         {
-            _factory.Return(card, binding.Value.Kind);
-            return;
+            if (index >= _visible.Count)
+                return;
+
+            var vm = _visible[index];
+            var bindStartedAt = _firstWindowDiagnostics?.StartBind(index) ?? 0L;
+
+            CollectionCardBinding? binding;
+            try
+            {
+                binding = await _factory.TryBindAsync(vm);
+            }
+            catch
+            {
+                binding = null;
+            }
+
+            _firstWindowDiagnostics?.RecordBind(index, bindStartedAt, binding);
+
+            if (!binding.HasValue || generationSnapshot != _generation)
+            {
+                if (binding.HasValue)
+                    _factory.Return(binding.Value.Card, binding.Value.Kind);
+                return;
+            }
+
+            // Guard against a concurrent TryRealizeAsync for the same index that completed first.
+            if (_realized.ContainsKey(index))
+            {
+                _factory.Return(binding.Value.Card, binding.Value.Kind);
+                return;
+            }
+
+            var card = binding.Value.Card;
+            var rect = card.transform as RectTransform;
+            if (rect == null)
+            {
+                _factory.Return(card, binding.Value.Kind);
+                return;
+            }
+
+            var hover = card.gameObject.GetComponent<CollectionCardHoverRelay>();
+            if (hover == null)
+                hover = card.gameObject.AddComponent<CollectionCardHoverRelay>();
+            hover.Bind(card);
+            _sourceMatchesByCardId.TryGetValue(vm.Id, out var sourceMatches);
+            CollectionSourceAttributionBadge.Bind(card.gameObject, sourceMatches);
+
+            if (!CollectionGridConstants.UsePolledHover)
+                EnsureHitTarget(card.gameObject);
+
+            var cell = new RealizedCell(
+                index,
+                vm,
+                binding.Value.Card,
+                binding.Value.Kind,
+                binding.Value.SetUpTask,
+                ++_perCellGeneration,
+                hover,
+                rect
+            );
+            _realized[index] = cell;
+            Reposition(index, cell);
+            ApplyCellScale(index, cell);
+            _ = ShowWhenReady(cell, _generation);
         }
-
-        var hover = card.gameObject.GetComponent<CollectionCardHoverRelay>();
-        if (hover == null)
-            hover = card.gameObject.AddComponent<CollectionCardHoverRelay>();
-        hover.Bind(card);
-        _sourceMatchesByCardId.TryGetValue(vm.Id, out var sourceMatches);
-        CollectionSourceAttributionBadge.Bind(card.gameObject, sourceMatches);
-
-        if (!CollectionGridConstants.UsePolledHover)
-            EnsureHitTarget(card.gameObject);
-
-        var cell = new RealizedCell(
-            index,
-            vm,
-            binding.Value.Card,
-            binding.Value.Kind,
-            binding.Value.SetUpTask,
-            ++_perCellGeneration,
-            hover,
-            rect
-        );
-        _realized[index] = cell;
-        Reposition(index, cell);
-        ApplyCellScale(index, cell);
-        _ = ShowWhenReady(cell, _generation);
+        finally
+        {
+            _pendingRealize.Remove(index);
+        }
     }
 
     // Scale the native card to fit its span cell, centered, never stretched. The cell is shrunk
@@ -389,18 +431,25 @@ internal sealed class CollectionGridVirtualizer
             return;
         var cellRect = _layout.ContentRectFor(index, _unit, _gap, _originX, _originY);
         var inset = CollectionGridConstants.CellContentInset;
-        var sizeDelta = rect.sizeDelta;
-        var natW = Mathf.Max(1f, sizeDelta.x);
-        var natH = Mathf.Max(1f, sizeDelta.y);
-
-        // Scale to the cell HEIGHT so every card in a shelf renders the same height. Native item
-        // cards share one prefab height and a shelf shares one cell height, so a height-based
-        // scale aligns small/medium/large tops and bottoms — the old min(w,h) fit left the
-        // narrow small cards width-limited and therefore slightly shorter. Clamp so a card never
-        // grows past its cell width + one gutter (prevents overlapping the neighbour); because
-        // that bound is exactly span*(unit+gap), the clamped scale is identical across spans, so
-        // the uniform height survives even when a card is width-limited.
+        var targetW = Mathf.Max(1f, cellRect.Width * (1f - 2f * inset));
         var targetH = Mathf.Max(1f, cellRect.Height * (1f - 2f * inset));
+        var sizeDelta = rect.sizeDelta;
+
+        // Cards created via InstantiateUICardAsync have sizeDelta=(0,0) on the root RectTransform
+        // because the prefab relies on anchor-stretch inside the game's own card slot. After we
+        // reparent into the overlay board and switch to a fixed-point anchor, that stretch is
+        // gone and the card renders at 0×0. In that case assign the target size directly and
+        // leave localScale at 1 so the prefab's internal anchor-stretch fills the new rect.
+        if (sizeDelta.x <= 0f || sizeDelta.y <= 0f)
+        {
+            rect.sizeDelta = new Vector2(targetW, targetH);
+            rect.localScale = Vector3.one;
+            return;
+        }
+
+        // Prefab has intrinsic dimensions: scale to fit cell height, clamped by cell width.
+        var natW = sizeDelta.x;
+        var natH = sizeDelta.y;
         var scale = targetH / natH;
         var maxWidth = cellRect.Width + _gap;
         if (natW * scale > maxWidth)
@@ -494,9 +543,8 @@ internal sealed class CollectionGridVirtualizer
                 show: true,
                 logComponent: "CollectionGridVirtualizer"
             );
-            // Show(true) re-activates _cardImage / _frameContainer; the CanvasGroup at the
-            // root was zeroed on Take, so the card still renders transparent. Hand the cell
-            // off to TickFades to ramp it up.
+            // Show(true) re-activates _cardImage / _frameContainer; hand the cell off to
+            // TickFades to ramp the CanvasGroup alpha from 0 → 1.
             cell.FadeAlpha = 0f;
             cell.FadeActive = true;
         }
@@ -558,7 +606,11 @@ internal sealed class CollectionGridVirtualizer
         _realized.Clear();
     }
 
-    private void BumpGeneration() => _generation++;
+    private void BumpGeneration()
+    {
+        _generation++;
+        _pendingRealize.Clear();
+    }
 
     // Derive the per-viewport base unit and display-case origin. The grid width is shared across
     // tabs first, then the active tab's column count maps that envelope to a unit size; once the
