@@ -25,6 +25,14 @@ internal static class CollectionItemLoadArtPatch
         if (marker == null)
             return true;
 
+        // The game now resolves card art through its AssetLoader rather than direct
+        // Addressables calls. Let the native LoadArt path run so new address-resolution
+        // behavior is preserved; the cache-backed replacement below is intentionally
+        // disabled until it can mirror the native loader exactly again.
+        marker.CurrentArtKey = null;
+        return true;
+
+#pragma warning disable CS0162
         var artCache = CollectionCardCacheHost.ArtCache;
         var materialCache = CollectionCardCacheHost.MaterialCache;
         if (artCache == null || materialCache == null)
@@ -32,6 +40,7 @@ internal static class CollectionItemLoadArtPatch
 
         __result = LoadArtFromCache(__instance, marker, artCache, materialCache);
         return false;
+#pragma warning restore CS0162
     }
 
     private static async Task LoadArtFromCache(

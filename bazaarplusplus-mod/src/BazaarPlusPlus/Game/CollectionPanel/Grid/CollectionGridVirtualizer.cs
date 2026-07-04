@@ -342,15 +342,21 @@ internal sealed class CollectionGridVirtualizer
     {
         var vm = _visible[index];
         var bindStartedAt = _firstWindowDiagnostics?.StartBind(index) ?? 0L;
-        var binding = _factory.TryBind(vm);
+        var container = CreateCellContainer(index);
+        RepositionContainer(index, container);
+        var binding = _factory.TryBind(vm, container);
         _firstWindowDiagnostics?.RecordBind(index, bindStartedAt, binding);
         if (binding == null)
+        {
+            UnityEngine.Object.Destroy(container.gameObject);
             return;
+        }
         var card = binding.Value.Card;
         var rect = card.transform as RectTransform;
         if (rect == null)
         {
             _factory.Return(card, binding.Value.Kind);
+            UnityEngine.Object.Destroy(container.gameObject);
             return;
         }
 
@@ -372,12 +378,26 @@ internal sealed class CollectionGridVirtualizer
             binding.Value.SetUpTask,
             ++_perCellGeneration,
             hover,
-            rect
+            rect,
+            container
         );
         _realized[index] = cell;
         Reposition(index, cell);
         ApplyCellScale(index, cell);
         _ = ShowWhenReady(cell, _generation);
+    }
+
+    private RectTransform CreateCellContainer(int index)
+    {
+        var host = new GameObject($"CollectionPanelCell_{index}", typeof(RectTransform));
+        host.layer = _overlay.BoardRoot != null ? _overlay.BoardRoot.gameObject.layer : host.layer;
+        host.transform.SetParent(_overlay.BoardRoot, worldPositionStays: false);
+        var rect = host.GetComponent<RectTransform>();
+        rect.anchorMin = new Vector2(0f, 1f);
+        rect.anchorMax = new Vector2(0f, 1f);
+        rect.pivot = new Vector2(0.5f, 0.5f);
+        rect.localScale = Vector3.one;
+        return rect;
     }
 
     // Scale the native card to fit its span cell, centered, never stretched. The cell is shrunk
@@ -389,9 +409,9 @@ internal sealed class CollectionGridVirtualizer
             return;
         var cellRect = _layout.ContentRectFor(index, _unit, _gap, _originX, _originY);
         var inset = CollectionGridConstants.CellContentInset;
-        var sizeDelta = rect.sizeDelta;
-        var natW = Mathf.Max(1f, sizeDelta.x);
-        var natH = Mathf.Max(1f, sizeDelta.y);
+        var nativeSize = ResolveNativeCardSize(rect);
+        var natW = Mathf.Max(1f, nativeSize.x);
+        var natH = Mathf.Max(1f, nativeSize.y);
 
         // Scale to the cell HEIGHT so every card in a shelf renders the same height. Native item
         // cards share one prefab height and a shelf shares one cell height, so a height-based
@@ -410,11 +430,26 @@ internal sealed class CollectionGridVirtualizer
         rect.localScale = new Vector3(scale, scale, 1f);
     }
 
+    private static Vector2 ResolveNativeCardSize(RectTransform rect)
+    {
+        var size = rect.sizeDelta;
+        if (size.x > 1f && size.y > 1f)
+            return size;
+
+        var currentRect = rect.rect;
+        if (currentRect.width > 1f && currentRect.height > 1f)
+            return new Vector2(currentRect.width, currentRect.height);
+
+        return new Vector2(420f, 620f);
+    }
+
     private void Reposition(int index, RealizedCell cell)
     {
-        var rect = cell.CachedRect;
-        if (rect == null)
-            return;
+        RepositionContainer(index, cell.ContainerRect);
+    }
+
+    private void RepositionContainer(int index, RectTransform rect)
+    {
         var cellRect = _layout.ContentRectFor(index, _unit, _gap, _originX, _originY);
         var screenTop = cellRect.Y - _scrollY;
         // Board pivot is top-left, so y goes negative. Place card pivot at cell center.
@@ -425,6 +460,7 @@ internal sealed class CollectionGridVirtualizer
             cellRect.X + cellRect.Width * 0.5f,
             -(screenTop + cellRect.Height * 0.5f)
         );
+        rect.sizeDelta = new Vector2(cellRect.Width, cellRect.Height);
     }
 
     // Push the visible window's board-local cell rects to the slot layer. Driven by the layout
@@ -488,6 +524,12 @@ internal sealed class CollectionGridVirtualizer
             return;
         try
         {
+            Reposition(cell.Index, cell);
+            NativeCardPreviewRuntime.Resize(
+                cell.Card,
+                logComponent: "CollectionGridVirtualizer"
+            );
+            ApplyCellScale(cell.Index, cell);
             cell.Card.gameObject.SetActive(true);
             NativeCardPreviewRuntime.Show(
                 cell.Card,
@@ -548,7 +590,11 @@ internal sealed class CollectionGridVirtualizer
     private void CompleteRecycle(RealizedCell cell)
     {
         cell.HoverRelay?.Clear();
+        if (cell.Card != null && _overlay.BoardRoot != null)
+            cell.Card.transform.SetParent(_overlay.BoardRoot, worldPositionStays: false);
         _factory.Return(cell.Card, cell.Kind);
+        if (cell.ContainerRect != null)
+            UnityEngine.Object.Destroy(cell.ContainerRect.gameObject);
     }
 
     private void RecycleAll()
@@ -588,7 +634,8 @@ internal sealed class CollectionGridVirtualizer
             Task setUpTask,
             int generation,
             CollectionCardHoverRelay hoverRelay,
-            RectTransform cachedRect
+            RectTransform cachedRect,
+            RectTransform containerRect
         )
         {
             Index = index;
@@ -599,6 +646,7 @@ internal sealed class CollectionGridVirtualizer
             Generation = generation;
             HoverRelay = hoverRelay;
             CachedRect = cachedRect;
+            ContainerRect = containerRect;
         }
 
         public int Index { get; }
@@ -609,6 +657,7 @@ internal sealed class CollectionGridVirtualizer
         public int Generation { get; }
         public CollectionCardHoverRelay HoverRelay { get; }
         public RectTransform CachedRect { get; }
+        public RectTransform ContainerRect { get; }
         public bool PendingReturn { get; set; }
 
         // Fade state. ShowWhenReady sets FadeActive=true with FadeAlpha=0 right after the

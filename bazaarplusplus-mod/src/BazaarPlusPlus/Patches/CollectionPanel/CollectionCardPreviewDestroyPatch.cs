@@ -34,6 +34,7 @@ internal static class CollectionCardPreviewDestroyPatch
             marker.CurrentArtKey = null;
         }
 
-        __instance._cardMaterial = null!;
+        if (materialCache != null && materialCache.Contains(__instance._cardMaterial))
+            __instance._cardMaterial = null!;
     }
 }

@@ -33,7 +33,7 @@ internal sealed class CollectionCardFactory
 
     public bool ReflectionReady => NativeCardPreviewReflection.SetUpMethod != null;
 
-    public CollectionCardBinding? TryBind(CollectionCardVm vm)
+    public CollectionCardBinding? TryBind(CollectionCardVm vm, Transform? parent = null)
     {
         if (vm == null)
             return null;
@@ -56,7 +56,7 @@ internal sealed class CollectionCardFactory
             vm.Type == ECardType.Skill
                 ? NativeCardPreviewKind.ForSkill()
                 : NativeCardPreviewKind.ForItem(vm.Size);
-        var card = _pool.Take(kind, _parent);
+        var card = _pool.Take(kind, parent ?? _parent);
         if (card == null)
             return null;
 

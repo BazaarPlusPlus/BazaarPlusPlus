@@ -227,7 +227,7 @@
         Condition="Exists('$(TargetDir)BazaarPlusPlus.Storage.dll')"
       />
     </ItemGroup>
-    <Delete Files="@(FilesToDelete)" />
+    <Delete Files="@(FilesToDelete)" Condition="'$(BppCleanPluginBeforeCopy)' == 'true'" />
     <Copy
       SourceFiles="$(TargetDir)$(TargetName).dll"
       DestinationFiles="$(GamePath)\BepInEx\plugins\$(TargetName).dll"

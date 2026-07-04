@@ -1,6 +1,7 @@
 #nullable enable
 using System;
 using System.Reflection;
+using System.Threading;
 using System.Threading.Tasks;
 using BazaarGameShared.Domain.Cards;
 using BazaarGameShared.Domain.Core.Types;
@@ -80,7 +81,12 @@ internal static class NativeCardPreviewRuntime
 
         try
         {
-            var raw = method.Invoke(card, new object[] { template, false, instance });
+            var parameterCount = method.GetParameters().Length;
+            var parameters =
+                parameterCount >= 4
+                    ? new object[] { template, false, instance, CancellationToken.None }
+                    : new object[] { template, false, instance };
+            var raw = method.Invoke(card, parameters);
             if (raw is Task task)
                 await task;
         }
