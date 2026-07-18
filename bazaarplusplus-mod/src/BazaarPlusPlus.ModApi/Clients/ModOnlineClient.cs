@@ -1,7 +1,4 @@
 #nullable enable
-using System;
-using System.Net.Http;
-
 namespace BazaarPlusPlus.ModApi.Clients;
 
 public sealed class ModOnlineClient : IDisposable

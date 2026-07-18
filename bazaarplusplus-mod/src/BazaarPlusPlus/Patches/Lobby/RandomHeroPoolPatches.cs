@@ -1,13 +1,9 @@
 #pragma warning disable CS0436
 #nullable enable
-using System;
-using System.Collections.Generic;
-using BazaarGameShared.Domain.Core.Types;
+using BazaarPlusPlus.Game.Lobby;
 using BazaarPlusPlus.Game.Lobby.RandomHeroPool;
-using BazaarPlusPlus.Infrastructure;
 using HarmonyLib;
 using TheBazaar.UI;
-using UnityEngine;
 
 namespace BazaarPlusPlus.Patches.Lobby;
 
@@ -15,20 +11,21 @@ namespace BazaarPlusPlus.Patches.Lobby;
 internal static class RandomHeroPoolAwakePatch
 {
     [HarmonyPostfix]
-    private static void Postfix(HeroSelectButtonsView __instance)
-    {
-        AttachWithGuard(__instance);
-    }
+    private static void Postfix(HeroSelectButtonsView __instance) => RefreshWithGuard(__instance);
 
-    private static void AttachWithGuard(HeroSelectButtonsView instance)
+    internal static void RefreshWithGuard(HeroSelectButtonsView instance)
     {
         try
         {
-            RandomHeroPoolPanelController.Attach(instance);
+            RandomHeroPoolNativeController.Attach(instance);
         }
         catch (Exception ex)
         {
-            BppLog.Warn("RandomHeroPool", $"Failed to attach random hero pool panel: {ex}");
+            LobbyLogWriter.ReportHeroPoolDegraded(
+                HeroPoolOperation.Attach,
+                LobbyLogReasonCode.OperationException,
+                ex
+            );
         }
     }
 }
@@ -37,17 +34,8 @@ internal static class RandomHeroPoolAwakePatch
 internal static class RandomHeroPoolRefreshButtonsPatch
 {
     [HarmonyPostfix]
-    private static void Postfix(HeroSelectButtonsView __instance)
-    {
-        try
-        {
-            RandomHeroPoolPanelController.NotifyRosterChanged(__instance, forceRebuild: true);
-        }
-        catch (Exception ex)
-        {
-            BppLog.Warn("RandomHeroPool", $"Failed to refresh random hero pool: {ex}");
-        }
-    }
+    private static void Postfix(HeroSelectButtonsView __instance) =>
+        RandomHeroPoolAwakePatch.RefreshWithGuard(__instance);
 }
 
 [HarmonyPatch(typeof(HeroSelectButtonsView), "ShowHeroesButtons")]
@@ -56,30 +44,115 @@ internal static class RandomHeroPoolShowHeroesButtonsPatch
     [HarmonyPostfix]
     private static void Postfix(HeroSelectButtonsView __instance, bool show)
     {
-        if (!show)
-            return;
-
-        RandomHeroPoolPanelController.NotifyRosterChanged(__instance, forceRebuild: true);
+        if (show)
+            RandomHeroPoolAwakePatch.RefreshWithGuard(__instance);
     }
 }
 
-[HarmonyPatch(typeof(HeroSelectButtonsView), "OnHeroPurchased")]
-internal static class RandomHeroPoolOnHeroPurchasedPatch
+[HarmonyPatch(typeof(HeroSelectButtonsView), "OnRandomHeroToggleChanged")]
+internal static class RandomHeroPoolTogglePatch
 {
     [HarmonyPostfix]
-    private static void Postfix(HeroSelectButtonsView __instance, EHero hero)
-    {
-        RandomHeroPoolPanelController.NotifyRosterChanged(__instance, forceRebuild: true);
-    }
+    private static void Postfix(HeroSelectButtonsView __instance) =>
+        RandomHeroPoolAwakePatch.RefreshWithGuard(__instance);
 }
 
 [HarmonyPatch(typeof(HeroSelectButtonsView), "OnHeroSelected")]
 internal static class RandomHeroPoolOnHeroSelectedPatch
 {
     [HarmonyPostfix]
-    private static void Postfix(HeroSelectButtonsView __instance, EHero hero)
+    private static void Postfix(HeroSelectButtonsView __instance) =>
+        RandomHeroPoolAwakePatch.RefreshWithGuard(__instance);
+}
+
+[HarmonyPatch(typeof(HeroSelectButtonsView), "OnHeroPurchased")]
+internal static class RandomHeroPoolOnHeroPurchasedPatch
+{
+    [HarmonyPrefix]
+    private static void Prefix(HeroSelectButtonsView __instance, out int __state)
     {
-        RandomHeroPoolPanelController.NotifyVisibilityChanged(__instance);
+        __state = HeroProgrammaticSelectionScope.Enter(__instance);
+    }
+
+    [HarmonyPostfix]
+    private static void Postfix(HeroSelectButtonsView __instance) =>
+        RandomHeroPoolAwakePatch.RefreshWithGuard(__instance);
+
+    [HarmonyFinalizer]
+    private static Exception? Finalizer(
+        HeroSelectButtonsView __instance,
+        int __state,
+        Exception? __exception
+    )
+    {
+        HeroProgrammaticSelectionScope.Restore(__instance, __state);
+        return __exception;
+    }
+}
+
+[HarmonyPatch(typeof(HeroItemView), "Start")]
+internal static class RandomHeroPoolHeroItemStartPatch
+{
+    [HarmonyPostfix]
+    private static void Postfix(HeroItemView __instance)
+    {
+        try
+        {
+            RandomHeroPoolNativeController.NotifyItemStarted(__instance);
+        }
+        catch (Exception ex)
+        {
+            LobbyLogWriter.ReportHeroPoolDegraded(
+                HeroPoolOperation.ProjectInitialVisual,
+                LobbyLogReasonCode.OperationException,
+                ex
+            );
+        }
+    }
+}
+
+[HarmonyPatch(typeof(HeroItemView), "UpdateView")]
+internal static class RandomHeroPoolHeroItemUpdateViewPatch
+{
+    [HarmonyPrefix]
+    private static bool Prefix(HeroItemView __instance)
+    {
+        try
+        {
+            return !RandomHeroPoolNativeController.TryProjectRandomModeItem(__instance);
+        }
+        catch (Exception ex)
+        {
+            LobbyLogWriter.ReportHeroPoolDegraded(
+                HeroPoolOperation.ProjectVisualUpdate,
+                LobbyLogReasonCode.OperationException,
+                ex
+            );
+            return true;
+        }
+    }
+}
+
+[HarmonyPatch(typeof(HeroItemView), nameof(HeroItemView.OnItemSelected))]
+internal static class RandomHeroPoolHeroItemSelectedPatch
+{
+    [HarmonyPrefix]
+    private static bool Prefix(HeroItemView __instance)
+    {
+        try
+        {
+            var route = RandomHeroPoolNativeController.RouteSelection(__instance);
+            return NativePoolInteractionRouting.ShouldRunNativeAction(route);
+        }
+        catch (Exception ex)
+        {
+            LobbyLogWriter.ReportHeroPoolDegraded(
+                HeroPoolOperation.RouteCardClick,
+                LobbyLogReasonCode.OperationException,
+                ex
+            );
+            return true;
+        }
     }
 }
 
@@ -103,7 +176,11 @@ internal static class RandomHeroPoolSelectRandomHeroImmediatePatch
         }
         catch (Exception ex)
         {
-            BppLog.Warn("RandomHeroPool", $"Failed to route random hero selection: {ex}");
+            LobbyLogWriter.ReportHeroPoolDegraded(
+                HeroPoolOperation.RouteRandomSelection,
+                LobbyLogReasonCode.OperationException,
+                ex
+            );
             return true;
         }
     }
@@ -130,15 +207,11 @@ internal static class RandomHeroPoolSelectRandomHeroImmediatePatch
         }
 
         if (unlockedHeroViews.Count == 0)
-        {
             return false;
-        }
 
         var candidateHeroIds = RandomHeroPoolPlayerPrefs.ResolveEffectivePool(unlockedHeroIds);
         if (candidateHeroIds.Count == 0)
-        {
             return false;
-        }
 
         var randomIndex = UnityEngine.Random.Range(0, candidateHeroIds.Count);
         var selectedHeroId = Selector.SelectHero(candidateHeroIds, randomIndex);
@@ -153,9 +226,7 @@ internal static class RandomHeroPoolSelectRandomHeroImmediatePatch
         }
 
         if (selectedHeroView == null || IsProgrammaticSelectionField == null)
-        {
             return false;
-        }
 
         IsProgrammaticSelectionField.SetValue(instance, true);
         try

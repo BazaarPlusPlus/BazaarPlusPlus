@@ -1,0 +1,163 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Build properties -->
+  <PropertyGroup>
+    <AssemblyName>BazaarPlusPlus.BazaarAgentHost</AssemblyName>
+    <RootNamespace>BazaarPlusPlus.BazaarAgentHost</RootNamespace>
+    <Description>BazaarPlusPlus BazaarAgent host - optional automation bridge plugin</Description>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <LangVersion>12</LangVersion>
+    <Nullable>enable</Nullable>
+    <Version>$(BppVersion)</Version>
+    <BepInExPluginGuid>BazaarPlusPlus.BazaarAgent</BepInExPluginGuid>
+    <BepInExPluginName>BazaarPlusPlus BazaarAgent Host</BepInExPluginName>
+    <BepInExPluginVersion>$(BppVersion)</BepInExPluginVersion>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+    <!-- Krafs.Publicizer generates IgnoresAccessChecksToAttribute into AssemblyInfo, while
+         the referenced BazaarPlusPlus plugin provides the same type. Scope this generated-
+         source conflict to the publicized host project instead of weakening the warning gate. -->
+    <NoWarn>$(NoWarn);CS0436</NoWarn>
+  </PropertyGroup>
+
+  <!-- Project-specific paths. Shared game assembly and game-root discovery lives in
+       build/ManagedPath.props. -->
+  <PropertyGroup>
+    <ProjectRoot>$(MSBuildThisFileDirectory)</ProjectRoot>
+    <BPPInstallerSourcePath>$(ProjectRoot)/../../../bazaarplusplus-installer/src-tauri/resources</BPPInstallerSourcePath>
+  </PropertyGroup>
+  <!-- Package references -->
+  <ItemGroup>
+    <PackageReference Include="BepInEx.Core" />
+    <PackageReference Include="BepInEx.PluginInfoProps" />
+    <PackageReference Include="Krafs.Publicizer" PrivateAssets="all" />
+    <PackageReference Include="UnityEngine.Modules" IncludeAssets="compile" />
+    <PackageReference Include="NETStandard.Library" />
+  </ItemGroup>
+
+  <!-- The host adapters reach a few internal game members directly (the rest is reflection),
+       so the game assemblies are publicized here exactly as the main project does. -->
+  <PropertyGroup>
+    <PublicizeAll>true</PublicizeAll>
+  </PropertyGroup>
+
+  <!-- The pure core ships with the host (host owns its copy); the main plugin is a
+       runtime-provided dependency, referenced for the public facade but not copied. -->
+  <ItemGroup>
+    <ProjectReference Include="../BazaarPlusPlus.BazaarAgent/BazaarPlusPlus.BazaarAgent.csproj" />
+    <ProjectReference Include="../BazaarPlusPlus/BazaarPlusPlus.csproj" Private="false" />
+  </ItemGroup>
+
+  <!-- Game assembly references (resolved via ManagedPath, like the main project) -->
+  <ItemGroup>
+    <Reference Include="Assembly-CSharp">
+      <HintPath>$(ManagedPath)\Assembly-CSharp.dll</HintPath>
+    </Reference>
+    <Reference Include="BazaarBattleService">
+      <HintPath>$(ManagedPath)\BazaarBattleService.dll</HintPath>
+    </Reference>
+    <Reference Include="BazaarGameClient">
+      <HintPath>$(ManagedPath)\BazaarGameClient.dll</HintPath>
+    </Reference>
+    <Reference Include="BazaarGameShared">
+      <HintPath>$(ManagedPath)\BazaarGameShared.dll</HintPath>
+    </Reference>
+    <Reference Include="TheBazaarRuntime">
+      <HintPath>$(ManagedPath)\TheBazaarRuntime.dll</HintPath>
+    </Reference>
+    <Reference Include="Unity.InputSystem">
+      <HintPath>$(ManagedPath)\Unity.InputSystem.dll</HintPath>
+    </Reference>
+    <Reference Include="MessagePack">
+      <HintPath>$(ManagedPath)\MessagePack.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
+  <!-- Debug: copy the host + pure-core dlls into the live BepInEx plugins folder.
+       The main project owns the (unconditional) DELETE of these two dlls; this target
+       only re-copies them, and runs after the main build because the host references it. -->
+  <Target
+    Name="CopyHostToBepInExPlugins"
+    AfterTargets="Build"
+    Condition="'$(Configuration)' == 'Debug' and '$(GamePath)' != ''"
+  >
+    <Message Text="[BazaarAgentHost] Copying host plugin to BepInEx plugins" Importance="high" />
+    <ItemGroup>
+      <HostArtifacts Include="$(TargetDir)BazaarPlusPlus.BazaarAgentHost.dll" />
+      <HostArtifacts Include="$(TargetDir)BazaarPlusPlus.BazaarAgent.dll" />
+    </ItemGroup>
+    <Copy
+      SourceFiles="@(HostArtifacts)"
+      DestinationFolder="$(GamePath)\BepInEx\plugins"
+      SkipUnchangedFiles="true"
+    />
+    <Message
+      Text="[BazaarAgentHost] Host plugin copied to BepInEx plugins folder."
+      Importance="high"
+    />
+  </Target>
+
+  <!-- Release: copy the host + pure-core dlls into both installer payload trees. -->
+  <Target
+    Name="CopyHostToInstallerSource"
+    AfterTargets="Build"
+    Condition="'$(Configuration)' == 'Release' and Exists('$(BPPInstallerSourcePath)') and '$(BuildProductionPackage)' == 'true'"
+  >
+    <Message Text="[BazaarAgentHost] Copying host plugin to installer source" Importance="high" />
+    <ItemGroup>
+      <HostArtifacts Include="$(TargetDir)BazaarPlusPlus.BazaarAgentHost.dll" />
+      <HostArtifacts Include="$(TargetDir)BazaarPlusPlus.BazaarAgent.dll" />
+    </ItemGroup>
+    <Copy
+      SourceFiles="@(HostArtifacts)"
+      DestinationFolder="$(BPPInstallerSourcePath)/SourceForBuild/macos/BepInEx/plugins"
+      SkipUnchangedFiles="true"
+    />
+    <Copy
+      SourceFiles="@(HostArtifacts)"
+      DestinationFolder="$(BPPInstallerSourcePath)/SourceForBuild/windows/BepInEx/plugins"
+      SkipUnchangedFiles="true"
+    />
+    <Message
+      Text="[BazaarAgentHost] Host plugin copied to installer source folders."
+      Importance="high"
+    />
+  </Target>
+
+  <!-- Production packaging: the main project creates BepInEx.zip before this host
+       project has copied the optional dlls into SourceForBuild. Re-zip after the
+       host artifacts are present so BazaarAgent production builds include them. -->
+  <Target
+    Name="PackageHostInstallerSource"
+    AfterTargets="CopyHostToInstallerSource"
+    Condition="'$(Configuration)' == 'Release' and Exists('$(BPPInstallerSourcePath)') and '$(BuildProductionPackage)' == 'true'"
+  >
+    <Message
+      Text="[BazaarAgentHost] Rebuilding production installer package with BazaarAgent"
+      Importance="high"
+    />
+    <ZipDirectory
+      SourceDirectory="$(BPPInstallerSourcePath)/SourceForBuild/macos"
+      DestinationFile="$(BPPInstallerSourcePath)/BepInExSource/macos/BepInEx.zip"
+      Overwrite="true"
+    />
+    <ZipDirectory
+      SourceDirectory="$(BPPInstallerSourcePath)/SourceForBuild/windows"
+      DestinationFile="$(BPPInstallerSourcePath)/BepInExSource/windows/BepInEx.zip"
+      Overwrite="true"
+    />
+    <Message
+      Text="[BazaarAgentHost] Successfully rebuilt mod zip with BazaarAgent host artifacts."
+      Importance="high"
+    />
+  </Target>
+
+  <!-- Build both Debug and Release of the host (and its main/core deps) in one pass. -->
+  <Target Name="BuildAll">
+    <MSBuild Projects="$(MSBuildProjectFile)" Targets="Build" Properties="Configuration=Debug" />
+    <MSBuild
+      Projects="$(MSBuildProjectFile)"
+      Targets="Build"
+      Properties="Configuration=Release;BuildProductionPackage=$(BuildProductionPackage)"
+    />
+  </Target>
+</Project>

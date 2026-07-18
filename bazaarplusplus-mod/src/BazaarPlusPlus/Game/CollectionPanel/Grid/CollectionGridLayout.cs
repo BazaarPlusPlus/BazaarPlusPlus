@@ -1,6 +1,4 @@
 #nullable enable
-using System;
-using System.Collections.Generic;
 using BazaarGameShared.Domain.Core.Types;
 using BazaarPlusPlus.Game.CollectionPanel.Data;
 
@@ -59,9 +57,10 @@ internal sealed class CollectionGridLayout
 
     public static CollectionGridLayout Build(
         IReadOnlyList<CollectionCardVm> visible,
-        ECardType activeType
+        CollectionTabKind activeTab
     )
     {
+        var activeType = activeTab.CardType();
         if (visible == null || visible.Count == 0)
             return new CollectionGridLayout(
                 EmptyCells,

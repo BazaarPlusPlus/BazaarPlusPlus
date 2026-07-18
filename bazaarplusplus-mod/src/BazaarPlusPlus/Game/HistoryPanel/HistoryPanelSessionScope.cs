@@ -1,7 +1,4 @@
 #nullable enable
-using System;
-using System.Threading;
-
 namespace BazaarPlusPlus.Game.HistoryPanel;
 
 // Owns the cancellation token + version stamp shared by the panel's long-running async actions

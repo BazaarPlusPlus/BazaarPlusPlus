@@ -1,6 +1,4 @@
 #nullable enable
-using System;
-using System.Collections.Generic;
 using BazaarGameShared.Domain.Core.Types;
 
 namespace BazaarPlusPlus.Game.CollectionPanel.Data;
@@ -39,8 +37,10 @@ internal sealed partial class CollectionCardVm
     public IReadOnlyCollection<ECardTag> Tags { get; init; } = Array.Empty<ECardTag>();
     public IReadOnlyCollection<EHiddenTag> HiddenTags { get; init; } = Array.Empty<EHiddenTag>();
     public string DisplayName { get; init; } = string.Empty;
+    public string Description { get; init; } = string.Empty;
     public string InternalName { get; init; } = string.Empty;
     public string ArtKey { get; init; } = string.Empty;
+    public string SearchText { get; init; } = string.Empty;
     public bool IsEnchantable { get; init; }
     public IReadOnlyDictionary<
         EEnchantmentType,

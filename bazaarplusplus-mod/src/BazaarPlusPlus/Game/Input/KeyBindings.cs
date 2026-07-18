@@ -13,6 +13,12 @@ internal static class KeyBindings
                 && (keyboard.leftCtrlKey.isPressed || keyboard.rightCtrlKey.isPressed);
         }
 
+        public static bool IsAltPressed(Keyboard? keyboard)
+        {
+            return keyboard != null
+                && (keyboard.leftAltKey.isPressed || keyboard.rightAltKey.isPressed);
+        }
+
         public static bool IsShiftPressed(Keyboard? keyboard)
         {
             return keyboard != null

@@ -1,6 +1,30 @@
 <Project>
+  <Import Project="$(MSBuildThisFileDirectory)build/ManagedPath.props" />
+
   <PropertyGroup>
-    <BppVersion>4.2.0</BppVersion>
+    <BppVersion>4.6.0</BppVersion>
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(BppEnableWarningGate)' == 'true'">
+    <!-- Source files are linked into test projects. Keep their implicit-using context identical so
+         IDE0005 does not produce contradictory results for the same file. -->
+    <ImplicitUsings>enable</ImplicitUsings>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <!-- XML output is enabled so Roslyn can analyze IDE0005. Public API documentation is
+         not a repository deliverable, so suppress only the resulting missing-doc warning. -->
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+
+  <!-- macOS-only build accelerator: hardlink copy-local and obj->bin copies
+       (measured: warm touch-rebuild 5.9s -> 2.2s). Must stay off on Windows:
+       there, builds that mix hardlink and plain-copy modes (IDE builds force
+       these properties off) overwrite THROUGH shared inodes, silently corrupting
+       the NuGet cache and the game's Managed dir. macOS File.Copy unlinks the
+       destination first, so mixed mode is safe on APFS. -->
+  <PropertyGroup Condition="$([MSBuild]::IsOSPlatform('OSX'))">
+    <CreateHardLinksForCopyFilesToOutputDirectoryIfPossible>true</CreateHardLinksForCopyFilesToOutputDirectoryIfPossible>
+    <CreateHardLinksForCopyLocalIfPossible>true</CreateHardLinksForCopyLocalIfPossible>
   </PropertyGroup>
 </Project>

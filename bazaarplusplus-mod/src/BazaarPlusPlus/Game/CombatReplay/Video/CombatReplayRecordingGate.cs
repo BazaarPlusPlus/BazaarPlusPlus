@@ -34,8 +34,8 @@ internal readonly struct CombatReplayRecordingGateResult
 /// The single source of truth for "can a replay video recording actually start": async GPU
 /// readback support, a resolvable FFmpeg, and a configured video directory. The recorder enforces
 /// it at capture time (and bails silently when blocked), so every pre-check that promises a
-/// recording must evaluate this same gate — a drifted copy would promise recordings that silently
-/// never happen.
+/// recording (HistoryPanel record button, the BazaarAgent record endpoint's 202) must evaluate
+/// this same gate — a drifted copy would promise recordings that silently never happen.
 /// <see cref="FfmpegLocator.Resolve"/> probes (~2s) on its first process-wide call; callers on
 /// the main thread must prewarm it off-thread first.
 /// </summary>

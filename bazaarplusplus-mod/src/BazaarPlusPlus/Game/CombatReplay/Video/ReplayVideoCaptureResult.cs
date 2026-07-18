@@ -1,6 +1,4 @@
 #nullable enable
-using System;
-
 namespace BazaarPlusPlus.Game.CombatReplay.Video;
 
 internal sealed class ReplayVideoCaptureResult
@@ -21,9 +19,9 @@ internal sealed class ReplayVideoCaptureResult
 
     public string Codec { get; init; } = "libx264";
 
-    public int Crf { get; init; }
+    public int? Crf { get; init; }
 
-    public string Preset { get; init; } = string.Empty;
+    public string? Preset { get; init; }
 
     public DateTimeOffset StartedAtUtc { get; init; }
 
@@ -40,6 +38,16 @@ internal sealed class ReplayVideoCaptureResult
     public ReplayVideoCaptureStatus Status { get; init; }
 
     public string? Error { get; init; }
+
+    public ReplayVideoRecordingReasonCode ReasonCode { get; init; }
+
+    public int? ExitCode { get; init; }
+
+    public string? StderrTail { get; init; }
+
+    public Exception? Exception { get; init; }
+
+    public bool Degraded { get; init; }
 }
 
 internal enum ReplayVideoCaptureStatus

@@ -1,6 +1,4 @@
 #nullable enable
-using System;
-using System.IO;
 using BazaarPlusPlus.Infrastructure;
 
 namespace BazaarPlusPlus.Game.HistoryPanel.Ghost;
@@ -9,7 +7,7 @@ internal sealed class GhostBattlePayloadStore
 {
     private const string FileSuffix = ".ghost.mpack.gz";
     private const string DirectoryName = "GhostBattlePayloads";
-    private readonly string _rootPath;
+    private readonly FileBackedPayloadStore<GhostBattlePayload> _store;
 
     // Resolves the ghost-payload directory as a sibling of the combat replay directory, falling
     // back to a child directory when the replay path has no parent. Single source of truth for
@@ -27,8 +25,12 @@ internal sealed class GhostBattlePayloadStore
         if (string.IsNullOrWhiteSpace(rootPath))
             throw new ArgumentException("Root path is required.", nameof(rootPath));
 
-        _rootPath = rootPath;
-        Directory.CreateDirectory(_rootPath);
+        _store = new FileBackedPayloadStore<GhostBattlePayload>(
+            rootPath,
+            FileSuffix,
+            GhostBattlePayloadCodec.Serialize,
+            GhostBattlePayloadCodec.TryDeserialize
+        );
     }
 
     public void Save(GhostBattlePayload payload)
@@ -38,83 +40,21 @@ internal sealed class GhostBattlePayloadStore
         if (string.IsNullOrWhiteSpace(payload.BattleId))
             throw new ArgumentException("Battle id is required.", nameof(payload));
 
-        WriteAllBytesAtomically(
-            GetFilePath(payload.BattleId),
-            GhostBattlePayloadCodec.Serialize(payload)
-        );
+        _store.Save(payload.BattleId, payload);
     }
 
     public GhostBattlePayload? Load(string battleId)
     {
-        if (string.IsNullOrWhiteSpace(battleId))
-            return null;
+        return _store.Load(battleId);
+    }
 
-        var filePath = GetFilePath(battleId);
-        if (!File.Exists(filePath))
-            return null;
-
-        try
-        {
-            var payloadBytes = File.ReadAllBytes(filePath);
-            if (
-                GhostBattlePayloadCodec.TryDeserialize(payloadBytes, out var payload, out var error)
-            )
-                return payload;
-
-            BppLog.Warn(
-                "GhostBattlePayloadStore",
-                $"Skipping invalid ghost payload '{filePath}': {error ?? "unknown_error"}"
-            );
-            return null;
-        }
-        catch (Exception ex)
-        {
-            BppLog.Warn(
-                "GhostBattlePayloadStore",
-                $"Skipping unreadable ghost payload '{filePath}': {ex.Message}"
-            );
-            return null;
-        }
+    internal FileBackedPayloadLoadResult<GhostBattlePayload> LoadDetailed(string battleId)
+    {
+        return _store.LoadDetailed(battleId);
     }
 
     public void Delete(string battleId)
     {
-        if (string.IsNullOrWhiteSpace(battleId))
-            return;
-
-        var filePath = GetFilePath(battleId);
-        if (File.Exists(filePath))
-            File.Delete(filePath);
-    }
-
-    private string GetFilePath(string battleId)
-    {
-        return Path.Combine(_rootPath, $"{battleId}{FileSuffix}");
-    }
-
-    private static void WriteAllBytesAtomically(string filePath, byte[] bytes)
-    {
-        var directoryPath =
-            Path.GetDirectoryName(filePath)
-            ?? throw new InvalidOperationException(
-                "Ghost payload path must have a parent directory."
-            );
-        var tempPath = Path.Combine(
-            directoryPath,
-            $"{Path.GetFileName(filePath)}.{Guid.NewGuid():N}.tmp"
-        );
-        File.WriteAllBytes(tempPath, bytes);
-        try
-        {
-            if (File.Exists(filePath))
-                File.Replace(tempPath, filePath, null, ignoreMetadataErrors: true);
-            else
-                File.Move(tempPath, filePath);
-        }
-        finally
-        {
-            if (File.Exists(tempPath))
-                File.Delete(tempPath);
-        }
+        _store.Delete(battleId);
     }
 }

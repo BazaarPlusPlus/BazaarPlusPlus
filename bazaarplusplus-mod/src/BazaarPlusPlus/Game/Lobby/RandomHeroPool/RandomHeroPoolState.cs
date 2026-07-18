@@ -1,6 +1,4 @@
 #nullable enable
-using System.Collections.Generic;
-
 namespace BazaarPlusPlus.Game.Lobby.RandomHeroPool;
 
 public sealed class RandomHeroPoolState : SelectionPoolState<RandomHeroPoolState>

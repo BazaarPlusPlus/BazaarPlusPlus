@@ -1,6 +1,4 @@
 #nullable enable
-using System;
-using System.Collections.Generic;
 using BazaarPlusPlus.Core.Config;
 
 namespace BazaarPlusPlus.Game.Settings;

@@ -1,5 +1,4 @@
 #nullable enable
-using System;
 using BazaarPlusPlus.Game.PvpBattles;
 
 namespace BazaarPlusPlus.Game.HistoryPanel.Data;

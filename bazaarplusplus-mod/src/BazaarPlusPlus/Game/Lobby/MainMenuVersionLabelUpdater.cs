@@ -1,6 +1,5 @@
 #nullable enable
 using BazaarPlusPlus.Infrastructure;
-using BazaarPlusPlus.Infrastructure.Fonts;
 using TMPro;
 using UnityEngine;
 
@@ -22,7 +21,6 @@ internal static class MainMenuVersionLabelUpdater
             MainMenuVersionUpdateState.Current.UpdateAvailable
         );
         versionLabel.text = text;
-        BppTmpFont.TryApply(versionLabel, text);
     }
 
     public static void RefreshCurrent()

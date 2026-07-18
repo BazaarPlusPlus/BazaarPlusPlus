@@ -1,5 +1,4 @@
 #nullable enable
-using System.Collections.Generic;
 using Newtonsoft.Json;
 
 namespace BazaarPlusPlus.Game.CollectionPanel.Sources;

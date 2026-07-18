@@ -2,13 +2,13 @@
 //
 // The whole point of this dylib is to keep every CoreAudio interaction (the ObjC
 // CATapDescription, the realtime IOProc, the planar->interleave fixup and a
-// lock-free SPSC FIFO) on the native side, so the C# layer degenerates into the
-// same pull loop it uses for WASAPI loopback and never drags the CoreAudio
-// realtime thread into the Mono runtime.
+// lock-free SPSC FIFO) on the native side, so the consumer degenerates into a
+// plain pull loop and never drags the CoreAudio realtime thread into the
+// managed runtime.
 //
 // All four entry points are plain C (extern "C", default visibility). The C#
-// side binds them by name via [DllImport("BppMacAudio")] — resolved on
-// Unity-Mono through the lib{name}.dylib probe, exactly like libe_sqlite3.dylib.
+// side binds them by name via [DllImport("BppMacAudio")], resolved on
+// Unity-Mono through the lib{name}.dylib probe.
 
 #ifndef BPP_MAC_AUDIO_H
 #define BPP_MAC_AUDIO_H

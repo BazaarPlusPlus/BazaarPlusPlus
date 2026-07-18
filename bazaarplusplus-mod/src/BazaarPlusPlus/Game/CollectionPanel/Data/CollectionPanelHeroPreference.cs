@@ -1,5 +1,4 @@
 #nullable enable
-using System;
 using BazaarGameShared.Domain.Core.Types;
 
 namespace BazaarPlusPlus.Game.CollectionPanel.Data;

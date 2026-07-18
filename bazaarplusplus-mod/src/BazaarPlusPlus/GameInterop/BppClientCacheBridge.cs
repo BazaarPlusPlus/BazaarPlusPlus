@@ -1,18 +1,14 @@
 #nullable enable
-using System;
 using System.Collections.Concurrent;
 using System.Reflection;
 using BazaarGameShared.TempoNet.Enums;
 using BazaarGameShared.TempoNet.Models;
-using BazaarGameShared.TempoNet.Responses;
-using BazaarPlusPlus.Infrastructure;
 using HarmonyLib;
 
 namespace BazaarPlusPlus.GameInterop;
 
 internal static class BppClientCacheBridge
 {
-    private const string LogComponent = "BppClientCacheBridge";
     private static readonly ConcurrentDictionary<string, MemberAccessor> MemberAccessors = new();
     private static Type? _clientCacheType;
     private static bool _clientCacheTypeResolved;
@@ -46,13 +42,7 @@ internal static class BppClientCacheBridge
             if (!string.IsNullOrWhiteSpace(displayName))
                 return displayName;
         }
-        catch (Exception ex)
-        {
-            BppLog.Debug(
-                LogComponent,
-                $"TryGetProfileDisplayUsername: GetDisplayUsername reflection failed, falling back to Username: {ex.Message}"
-            );
-        }
+        catch { }
 
         return ReadStringMember(profile, "Username");
     }
@@ -148,12 +138,8 @@ internal static class BppClientCacheBridge
             value = ReadMember(observable, "Value");
             return true;
         }
-        catch (Exception ex)
+        catch
         {
-            BppLog.Debug(
-                LogComponent,
-                $"TryGetObservableValue('{memberName}'): reflection read failed, treating as unavailable: {ex.Message}"
-            );
             return false;
         }
     }

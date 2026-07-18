@@ -1,6 +1,4 @@
 #nullable enable
-using System;
-using System.Collections.Generic;
 using BazaarGameShared.Domain.Core.Types;
 using BazaarPlusPlus.Game.CollectionPanel.Data;
 using BazaarPlusPlus.Game.CollectionPanel.Sources;
@@ -46,7 +44,8 @@ internal static class CollectionPanelOpenSelectionResolver
     private static CollectionPanelSelectionState ResolveOutOfRunSelection(EHero? rememberedHero)
     {
         var hero =
-            rememberedHero.HasValue && CollectionPanelHeroPreference.IsSupportedHero(rememberedHero.Value)
+            rememberedHero.HasValue
+            && CollectionPanelHeroPreference.IsSupportedHero(rememberedHero.Value)
                 ? rememberedHero.Value
                 : CollectionPanelSelectionState.DefaultHero;
 

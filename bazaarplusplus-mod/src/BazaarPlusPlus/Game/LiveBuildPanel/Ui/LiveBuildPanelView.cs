@@ -1,14 +1,13 @@
 #nullable enable
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
+using System.Globalization;
 using BazaarGameShared.Domain.Core.Types;
 using BazaarPlusPlus.Game.LiveBuildPanel.Data;
 using BazaarPlusPlus.Game.Supporters.Ui;
+using BazaarPlusPlus.GameInterop.Fonts;
+using BazaarPlusPlus.GameInterop.Heroes;
 using BazaarPlusPlus.GameInterop.ItemBoardPreview;
 using BazaarPlusPlus.Infrastructure;
-using BazaarPlusPlus.Infrastructure.Fonts;
 using BazaarPlusPlus.Infrastructure.UiTokens;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -40,16 +39,27 @@ internal sealed class LiveBuildPanelView : IDisposable
     private GameObject? _foregroundRootObject;
     private UIDocument? _foregroundDocument;
     private PanelSettings? _foregroundPanelSettings;
+    private NativeGameTypography.PanelScope? _typography;
+    private NativeGameTypography.PanelScope? _foregroundTypography;
+    private NativeGameTitleOverlay? _titleOverlay;
     private VisualElement? _foregroundRoot;
     private VisualElement? _root;
     private Label? _title;
     private VisualElement? _subtitle;
-    private Label? _candidateCount;
     private Label? _corpusCardTitle;
     private Button? _finalBuildRefreshButton;
     private Label? _corpusStatus;
+    private VisualElement? _corpusDashboard;
+    private Label? _corpusFreshness;
+    private VisualElement? _heroStrip;
     private Label? _resultCardTitle;
-    private Label? _recommendationStatus;
+    private Label? _matchesPager;
+    private VisualElement? _matchesStats;
+    private Label? _matchesGuidance;
+    private Label? _rateValue;
+    private Label? _sampleValue;
+    private Label? _finalDayValue;
+    private Label? _matchedValue;
     private Button? _previousButton;
     private Button? _nextButton;
     private Button? _closeButton;
@@ -78,31 +88,61 @@ internal sealed class LiveBuildPanelView : IDisposable
         if (_rootObject != null)
             return;
 
+        _panelSettings = CreatePanelSettings(BppOverlaySorting.PanelUiToolkit);
+        if (
+            NativeGameTypography.TryAttachPanel(_panelSettings, out _typography)
+                != NativeGameTypography.Outcome.Ready
+            || _typography == null
+        )
+        {
+            AbandonPanelSettingsCreation();
+            return;
+        }
+
+        _foregroundPanelSettings = CreatePanelSettings(BppOverlaySorting.PanelForeground);
+        if (
+            NativeGameTypography.TryAttachPanel(_foregroundPanelSettings, out _foregroundTypography)
+                != NativeGameTypography.Outcome.Ready
+            || _foregroundTypography == null
+        )
+        {
+            AbandonPanelSettingsCreation();
+            return;
+        }
+        if (
+            !NativeGameTitleOverlay.TryCreate(
+                "LiveBuildPanelNativeTitle",
+                _parent,
+                BppOverlaySorting.NativeCardPreview,
+                Sizes.FontTitle,
+                Colors.GameTitleText,
+                out _titleOverlay
+            )
+            || _titleOverlay == null
+        )
+        {
+            AbandonPanelSettingsCreation();
+            return;
+        }
+
         _rootObject = new GameObject("LiveBuildPanelUiToolkitRoot");
         _rootObject.transform.SetParent(_parent, false);
-        _panelSettings = CreatePanelSettings(BppOverlaySorting.PanelUiToolkit);
-
         _document = _rootObject.AddComponent<UIDocument>();
         _document.panelSettings = _panelSettings;
         _root = _document.rootVisualElement;
         ConfigureDocumentRoot(_root, PickingMode.Position);
-        _root.style.unityFont = BppUiFont.Default;
+        _typography.Apply(_root);
 
         _foregroundRootObject = new GameObject("LiveBuildPanelForegroundUiToolkitRoot");
         _foregroundRootObject.transform.SetParent(_parent, false);
-        _foregroundPanelSettings = CreatePanelSettings(BppOverlaySorting.PanelForeground);
         _foregroundDocument = _foregroundRootObject.AddComponent<UIDocument>();
         _foregroundDocument.panelSettings = _foregroundPanelSettings;
         _foregroundRoot = _foregroundDocument.rootVisualElement;
         ConfigureDocumentRoot(_foregroundRoot, PickingMode.Ignore);
-        _foregroundRoot.style.unityFont = BppUiFont.Default;
+        _foregroundTypography.Apply(_foregroundRoot);
 
-        BppUiFont.RequestCharactersInTexture(
-            LiveBuildPanelText.FontAtlasSample(),
-            Sizes.FontButton,
-            FontStyle.Normal
-        );
         BuildTree(_root);
+        _titleOverlay.Attach(_title!);
     }
 
     public void SetVisible(bool visible)
@@ -111,6 +151,7 @@ internal sealed class LiveBuildPanelView : IDisposable
             _root.style.display = visible ? DisplayStyle.Flex : DisplayStyle.None;
         if (_foregroundRoot != null)
             _foregroundRoot.style.display = visible ? DisplayStyle.Flex : DisplayStyle.None;
+        _titleOverlay?.SetVisible(visible);
     }
 
     public void Refresh(LiveBuildPanelSnapshot snapshot)
@@ -119,28 +160,21 @@ internal sealed class LiveBuildPanelView : IDisposable
             return;
 
         _title!.text = LiveBuildPanelText.Title();
+        _titleOverlay?.SetText(_title.text);
         _closeButton!.text = LiveBuildPanelText.Close();
         BPPSupporterAttributionRow.Bind(
             _subtitle!,
             snapshot.Supporters,
-            LiveBuildPanelText.Subtitle()
+            LiveBuildPanelText.Subtitle(),
+            _typography!
         );
-        _candidateCount!.text = LiveBuildPanelText.CandidateCount(
-            snapshot.CandidateTemplateIds.Count
-        );
-        _candidateCount.tooltip = _candidateCount.text;
         _corpusCardTitle!.text = LiveBuildPanelText.CorpusCardTitle();
         _finalBuildRefreshButton!.text = snapshot.FinalBuildRefreshButtonText;
         _finalBuildRefreshButton.tooltip = snapshot.FinalBuildRefreshButtonText;
         _finalBuildRefreshButton.SetEnabled(snapshot.FinalBuildRefreshButtonEnabled);
-        _corpusStatus!.text = StablePanelText.Compact(snapshot.CorpusStatusText, 96);
-        _corpusStatus.tooltip = string.IsNullOrWhiteSpace(snapshot.CorpusStatusTooltip)
-            ? snapshot.CorpusStatusText
-            : snapshot.CorpusStatusTooltip;
-        _corpusStatus.style.color = ResolveRefreshStatusColor(snapshot.CorpusStatusSeverity);
+        RefreshCorpusCard(snapshot);
         _resultCardTitle!.text = LiveBuildPanelText.ResultCardTitle();
-        _recommendationStatus!.text = StablePanelText.Compact(snapshot.RecommendationStatus, 96);
-        _recommendationStatus.tooltip = snapshot.RecommendationStatus;
+        RefreshMatchesCard(snapshot);
         _previousButton!.text = LiveBuildPanelText.Previous();
         _previousButton.tooltip = LiveBuildPanelText.Previous();
         _nextButton!.text = LiveBuildPanelText.Next();
@@ -153,14 +187,147 @@ internal sealed class LiveBuildPanelView : IDisposable
             RefreshRow(row, candidates);
     }
 
+    // The corpus card swaps between the per-hero dashboard (summary) and a single status line
+    // (pending/failure/empty) by toggling display only — the card is fixed-height, so no reflow.
+    private void RefreshCorpusCard(LiveBuildPanelSnapshot snapshot)
+    {
+        var isSummary = snapshot.CorpusState == LiveBuildCorpusState.Summary;
+        _corpusDashboard!.style.display = isSummary ? DisplayStyle.Flex : DisplayStyle.None;
+        _corpusStatus!.style.display = isSummary ? DisplayStyle.None : DisplayStyle.Flex;
+
+        if (isSummary)
+        {
+            _corpusFreshness!.text = snapshot.CorpusFreshnessText;
+            _corpusFreshness.tooltip = snapshot.CorpusFreshnessTooltip;
+            _corpusFreshness.style.color = ResolveRefreshStatusColor(
+                snapshot.CorpusFreshnessSeverity
+            );
+            RebuildHeroStrip(snapshot.CorpusSummary);
+            return;
+        }
+
+        _corpusStatus.text = StablePanelText.Compact(snapshot.CorpusStatusText, 96);
+        _corpusStatus.tooltip = string.IsNullOrWhiteSpace(snapshot.CorpusStatusTooltip)
+            ? snapshot.CorpusStatusText
+            : snapshot.CorpusStatusTooltip;
+        _corpusStatus.style.color = ResolveRefreshStatusColor(snapshot.CorpusStatusSeverity);
+    }
+
+    private void RebuildHeroStrip(TenWinCorpusSummary? summary)
+    {
+        _heroStrip!.Clear();
+        if (summary is not { } value)
+            return;
+
+        foreach (var entry in value.HeroBuildCounts)
+        {
+            if (!HeroVisual.IsPlayableHero(entry.Hero))
+                continue;
+
+            _heroStrip.Add(BuildHeroTile(entry));
+        }
+    }
+
+    private static VisualElement BuildHeroTile(TenWinHeroBuildCount entry)
+    {
+        var badge = HeroVisual.Resolve(entry.Hero);
+        var count = entry.BuildCount.ToString("N0", CultureInfo.CurrentCulture);
+
+        var tile = new VisualElement();
+        tile.style.flexGrow = 1f;
+        tile.style.flexBasis = 0f;
+        tile.style.minWidth = 0f;
+        tile.style.alignItems = Align.Center;
+        tile.style.overflow = Overflow.Hidden;
+        tile.tooltip = $"{entry.Hero} {count}";
+
+        var countLabel = CreateLabel(14, FontStyle.Bold, Colors.HistoryProgressText);
+        countLabel.text = count;
+        countLabel.style.unityTextAlign = TextAnchor.MiddleCenter;
+        countLabel.style.whiteSpace = WhiteSpace.NoWrap;
+        tile.Add(countLabel);
+
+        var chip = CreateLabel(11, FontStyle.Bold, badge.Text);
+        chip.text = badge.ShortCode;
+        chip.style.marginTop = 2f;
+        chip.style.height = 18f;
+        chip.style.backgroundColor = badge.Background;
+        chip.style.unityTextAlign = TextAnchor.MiddleCenter;
+        chip.style.whiteSpace = WhiteSpace.NoWrap;
+        UiStyle.HorizontalPadding(chip.style, 3f);
+        UiStyle.Radius(chip.style, Radii.InfoChip);
+        tile.Add(chip);
+
+        return tile;
+    }
+
+    // The Matches card swaps between the per-recommendation stat rows (has recommendation) and a
+    // single guidance line (no run / no candidates / no matching build) by toggling display only.
+    private void RefreshMatchesCard(LiveBuildPanelSnapshot snapshot)
+    {
+        var hasRecommendation = snapshot.MatchesState == LiveBuildMatchesState.HasRecommendation;
+        _matchesStats!.style.display = hasRecommendation ? DisplayStyle.Flex : DisplayStyle.None;
+        _matchesPager!.style.display = hasRecommendation ? DisplayStyle.Flex : DisplayStyle.None;
+        _matchesGuidance!.style.display = hasRecommendation ? DisplayStyle.None : DisplayStyle.Flex;
+
+        if (hasRecommendation)
+        {
+            _matchesPager.text = LiveBuildPanelText.RecommendationCount(
+                snapshot.RecommendationIndex,
+                snapshot.RecommendationCount
+            );
+            _rateValue!.text = LiveBuildPanelText.MatchRateValue(snapshot.MatchTenWinRateBps);
+            _sampleValue!.text = LiveBuildPanelText.MatchSampleValue(snapshot.MatchTenWinRunCount);
+            _finalDayValue!.text = LiveBuildPanelText.MatchFinalDayValue(snapshot.MatchP75FinalDay);
+            _matchedValue!.text = LiveBuildPanelText.MatchMatchedValue(
+                snapshot.MatchMatchedCardCount,
+                snapshot.CandidateTemplateIds.Count
+            );
+            return;
+        }
+
+        _matchesGuidance.text = StablePanelText.Compact(snapshot.MatchesGuidance, 96);
+        _matchesGuidance.tooltip = snapshot.MatchesGuidance;
+    }
+
+    private static Label AddStatRow(VisualElement parent, string label)
+    {
+        var row = new VisualElement();
+        row.style.flexDirection = FlexDirection.Row;
+        row.style.alignItems = Align.Center;
+        row.style.marginBottom = 4f;
+
+        var labelElement = CreateLabel(13, FontStyle.Normal, Colors.HistoryFooterSecondaryText);
+        labelElement.text = label;
+        labelElement.style.flexGrow = 1f;
+        labelElement.style.flexShrink = 1f;
+        labelElement.style.minWidth = 0f;
+        labelElement.style.whiteSpace = WhiteSpace.NoWrap;
+        labelElement.style.overflow = Overflow.Hidden;
+        row.Add(labelElement);
+
+        var value = CreateLabel(13, FontStyle.Bold, Colors.HistoryProgressText);
+        value.style.flexShrink = 0f;
+        value.style.marginLeft = 8f;
+        value.style.unityTextAlign = TextAnchor.MiddleRight;
+        value.style.whiteSpace = WhiteSpace.NoWrap;
+        row.Add(value);
+
+        parent.Add(row);
+        return value;
+    }
+
     public void Dispose()
     {
         if (_rootObject != null)
             UnityEngine.Object.Destroy(_rootObject);
+        _titleOverlay?.Dispose();
+        _typography?.Dispose();
         if (_panelSettings != null)
             UnityEngine.Object.Destroy(_panelSettings);
         if (_foregroundRootObject != null)
             UnityEngine.Object.Destroy(_foregroundRootObject);
+        _foregroundTypography?.Dispose();
         if (_foregroundPanelSettings != null)
             UnityEngine.Object.Destroy(_foregroundPanelSettings);
 
@@ -171,8 +338,27 @@ internal sealed class LiveBuildPanelView : IDisposable
         _foregroundRootObject = null;
         _foregroundDocument = null;
         _foregroundPanelSettings = null;
+        _typography = null;
+        _foregroundTypography = null;
+        _titleOverlay = null;
         _foregroundRoot = null;
         _root = null;
+    }
+
+    private void AbandonPanelSettingsCreation()
+    {
+        _typography?.Dispose();
+        _foregroundTypography?.Dispose();
+        _titleOverlay?.Dispose();
+        if (_panelSettings != null)
+            UnityEngine.Object.DestroyImmediate(_panelSettings);
+        if (_foregroundPanelSettings != null)
+            UnityEngine.Object.DestroyImmediate(_foregroundPanelSettings);
+        _panelSettings = null;
+        _foregroundPanelSettings = null;
+        _typography = null;
+        _foregroundTypography = null;
+        _titleOverlay = null;
     }
 
     private void BuildTree(VisualElement root)
@@ -182,10 +368,10 @@ internal sealed class LiveBuildPanelView : IDisposable
         panel.style.minHeight = 0f;
         panel.style.flexDirection = FlexDirection.Row;
         panel.style.backgroundColor = Colors.HistoryPanelBackground;
-        panel.style.paddingLeft = 34f;
-        panel.style.paddingRight = 34f;
-        panel.style.paddingTop = 28f;
-        panel.style.paddingBottom = 28f;
+        panel.style.paddingLeft = UiSpacing.PanelPadding;
+        panel.style.paddingRight = UiSpacing.PanelPadding;
+        panel.style.paddingTop = UiSpacing.PanelPadding;
+        panel.style.paddingBottom = UiSpacing.PanelPadding;
         root.Add(panel);
 
         var boardArea = new VisualElement();
@@ -220,20 +406,14 @@ internal sealed class LiveBuildPanelView : IDisposable
         row.style.minHeight = 0f;
         row.style.marginBottom = 12f;
         row.style.backgroundColor = Colors.HistoryPreviewBackground;
-        row.style.borderBottomColor = Colors.HistoryListFrameBorder;
-        row.style.borderTopColor = Colors.HistoryListFrameBorder;
-        row.style.borderLeftColor = Colors.HistoryListFrameBorder;
-        row.style.borderRightColor = Colors.HistoryListFrameBorder;
-        row.style.borderBottomWidth = 1f;
-        row.style.borderTopWidth = 1f;
-        row.style.borderLeftWidth = 1f;
-        row.style.borderRightWidth = 1f;
+        UiStyle.Border(row.style, Borders.Thin, Colors.HistoryListFrameBorder);
+        UiStyle.Radius(row.style, Radii.Row);
         row.style.flexDirection = FlexDirection.Row;
         row.style.overflow = Overflow.Hidden;
         parent.Add(row);
 
         var labelColumn = new VisualElement();
-        labelColumn.style.width = 160f;
+        labelColumn.style.width = 144f;
         labelColumn.style.flexShrink = 0f;
         labelColumn.style.paddingLeft = 14f;
         labelColumn.style.paddingRight = 12f;
@@ -241,7 +421,7 @@ internal sealed class LiveBuildPanelView : IDisposable
         labelColumn.style.overflow = Overflow.Hidden;
         row.Add(labelColumn);
 
-        var title = CreateLabel(18, FontStyle.Bold, Colors.HistorySectionTitleText);
+        var title = CreateLabel(16, FontStyle.Bold, Colors.HistorySectionTitleText);
         title.style.whiteSpace = WhiteSpace.NoWrap;
         title.style.overflow = Overflow.Hidden;
         labelColumn.Add(title);
@@ -298,10 +478,16 @@ internal sealed class LiveBuildPanelView : IDisposable
 
     private void BuildRail(VisualElement parent)
     {
+        // Match the house info-rail sizing (HistoryPanel / CollectionPanel use the OperationRail
+        // tokens) so the right column lines up across panels; LiveBuild runs a slightly narrower
+        // 25% basis to suit its more compact content.
         var rail = new VisualElement();
-        rail.style.width = 330f;
+        rail.style.flexGrow = 0f;
         rail.style.flexShrink = 0f;
-        rail.style.marginLeft = 24f;
+        rail.style.flexBasis = Length.Percent(Sizes.LiveBuildRailWidthPercent);
+        rail.style.minWidth = Sizes.OperationRailMinWidth;
+        rail.style.maxWidth = Sizes.OperationRailMaxWidth;
+        rail.style.marginLeft = UiSpacing.ColumnGap;
         rail.style.minHeight = 0f;
         rail.style.overflow = Overflow.Hidden;
         rail.style.flexDirection = FlexDirection.Column;
@@ -312,7 +498,7 @@ internal sealed class LiveBuildPanelView : IDisposable
         titleRow.style.alignItems = Align.Center;
         rail.Add(titleRow);
 
-        _title = CreateLabel(28, FontStyle.Bold, Colors.HistoryTitleText);
+        _title = CreateLabel(Sizes.FontTitle, FontStyle.Normal, Colors.GameTitleText);
         _title.style.flexGrow = 1f;
         _title.style.flexShrink = 1f;
         _title.style.minWidth = 0f;
@@ -322,30 +508,18 @@ internal sealed class LiveBuildPanelView : IDisposable
 
         _closeButton = CreateButton(LiveBuildPanelText.Close(), _close);
         _closeButton.style.width = 86f;
-        _closeButton.style.backgroundColor = Colors.CloseBackground;
-        _closeButton.style.color = Colors.CloseText;
+        StyleButton(_closeButton, Colors.CloseBackground, Colors.CloseText);
         titleRow.Add(_closeButton);
 
         _subtitle = BPPSupporterAttributionRow.Create();
-        _subtitle.style.marginTop = 8f;
+        _subtitle.style.marginTop = 10f;
         rail.Add(_subtitle);
 
-        _candidateCount = CreateLabel(16, FontStyle.Bold, Colors.HistoryChipText);
-        _candidateCount.style.marginTop = 22f;
-        _candidateCount.style.height = 34f;
-        _candidateCount.style.whiteSpace = WhiteSpace.NoWrap;
-        _candidateCount.style.overflow = Overflow.Hidden;
-        _candidateCount.style.backgroundColor = Colors.HistoryChipBackground;
-        _candidateCount.style.unityTextAlign = TextAnchor.MiddleCenter;
-        rail.Add(_candidateCount);
-
-        // Corpus card: pull action + corpus state in one block. Fixed height on purpose — the
-        // body swaps copy in place (pending/failure/guidance/summary) instead of showing/hiding
-        // sibling boxes, so the rail never reflows on status changes. Refresh feedback stays in
-        // the rail (never a board-row empty text): row copy feeds geometry callbacks and would
-        // re-trigger preview redraws on every status change.
+        // Corpus card: ten-win coverage (freshness + per-hero tiles) with the pull action in its
+        // header, next to the data it refreshes. Fixed height on purpose — the body swaps the
+        // dashboard vs a single status line (pending/failure/empty) in place, so the rail never reflows.
         var corpusCard = new VisualElement();
-        corpusCard.style.marginTop = 12f;
+        corpusCard.style.marginTop = 14f;
         corpusCard.style.height = Sizes.LiveBuildCorpusCardHeight;
         corpusCard.style.minHeight = Sizes.LiveBuildCorpusCardHeight;
         corpusCard.style.maxHeight = Sizes.LiveBuildCorpusCardHeight;
@@ -355,6 +529,8 @@ internal sealed class LiveBuildPanelView : IDisposable
         corpusCard.style.paddingTop = 10f;
         corpusCard.style.paddingBottom = 10f;
         corpusCard.style.overflow = Overflow.Hidden;
+        UiStyle.Border(corpusCard.style, Borders.Thin, Colors.HistoryStatusBorder);
+        UiStyle.Radius(corpusCard.style, Radii.Md);
         rail.Add(corpusCard);
 
         var corpusHeader = new VisualElement();
@@ -375,15 +551,28 @@ internal sealed class LiveBuildPanelView : IDisposable
             _refreshFinalBuilds
         );
         _finalBuildRefreshButton.style.marginLeft = 8f;
-        _finalBuildRefreshButton.style.width = Sizes.LiveBuildRefreshButtonWidth;
-        _finalBuildRefreshButton.style.minWidth = Sizes.LiveBuildRefreshButtonWidth;
-        _finalBuildRefreshButton.style.maxWidth = Sizes.LiveBuildRefreshButtonWidth;
-        _finalBuildRefreshButton.style.height = Sizes.LiveBuildRefreshButtonHeight;
-        _finalBuildRefreshButton.style.minHeight = Sizes.LiveBuildRefreshButtonHeight;
-        _finalBuildRefreshButton.style.maxHeight = Sizes.LiveBuildRefreshButtonHeight;
+        UiStyle.FixedWidth(_finalBuildRefreshButton.style, Sizes.LiveBuildRefreshButtonWidth);
+        UiStyle.FixedHeight(_finalBuildRefreshButton.style, Sizes.LiveBuildRefreshButtonHeight);
         _finalBuildRefreshButton.style.flexGrow = 0f;
         _finalBuildRefreshButton.style.flexShrink = 0f;
         corpusHeader.Add(_finalBuildRefreshButton);
+
+        _corpusDashboard = new VisualElement();
+        _corpusDashboard.style.marginTop = 8f;
+        _corpusDashboard.style.flexDirection = FlexDirection.Column;
+        _corpusDashboard.style.overflow = Overflow.Hidden;
+        corpusCard.Add(_corpusDashboard);
+
+        _corpusFreshness = CreateLabel(12, FontStyle.Normal, Colors.HistoryFooterSecondaryText);
+        _corpusFreshness.style.whiteSpace = WhiteSpace.NoWrap;
+        _corpusFreshness.style.overflow = Overflow.Hidden;
+        _corpusDashboard.Add(_corpusFreshness);
+
+        _heroStrip = new VisualElement();
+        _heroStrip.style.flexDirection = FlexDirection.Row;
+        _heroStrip.style.marginTop = 8f;
+        _heroStrip.style.overflow = Overflow.Hidden;
+        _corpusDashboard.Add(_heroStrip);
 
         _corpusStatus = CreateLabel(13, FontStyle.Normal, Colors.HistoryStatusText);
         _corpusStatus.style.marginTop = 8f;
@@ -402,19 +591,50 @@ internal sealed class LiveBuildPanelView : IDisposable
         resultCard.style.paddingTop = 10f;
         resultCard.style.paddingBottom = 10f;
         resultCard.style.overflow = Overflow.Hidden;
+        UiStyle.Border(resultCard.style, Borders.Thin, Colors.HistoryStatusBorder);
+        UiStyle.Radius(resultCard.style, Radii.Md);
         rail.Add(resultCard);
 
+        var resultHeader = new VisualElement();
+        resultHeader.style.flexDirection = FlexDirection.Row;
+        resultHeader.style.alignItems = Align.Center;
+        resultCard.Add(resultHeader);
+
         _resultCardTitle = CreateLabel(15, FontStyle.Bold, Colors.HistorySectionTitleText);
+        _resultCardTitle.style.flexGrow = 1f;
+        _resultCardTitle.style.flexShrink = 1f;
+        _resultCardTitle.style.minWidth = 0f;
         _resultCardTitle.style.whiteSpace = WhiteSpace.NoWrap;
         _resultCardTitle.style.overflow = Overflow.Hidden;
-        resultCard.Add(_resultCardTitle);
+        resultHeader.Add(_resultCardTitle);
 
-        _recommendationStatus = CreateLabel(15, FontStyle.Normal, Colors.HistoryStatusText);
-        _recommendationStatus.style.marginTop = 8f;
-        _recommendationStatus.style.whiteSpace = WhiteSpace.Normal;
-        _recommendationStatus.style.maxHeight = Sizes.LiveBuildRecommendationStatusMaxHeight;
-        _recommendationStatus.style.overflow = Overflow.Hidden;
-        resultCard.Add(_recommendationStatus);
+        _matchesPager = CreateLabel(12, FontStyle.Bold, Colors.HistoryChipText);
+        _matchesPager.style.flexShrink = 0f;
+        _matchesPager.style.height = Sizes.InfoChipHeight;
+        _matchesPager.style.unityTextAlign = TextAnchor.MiddleCenter;
+        _matchesPager.style.backgroundColor = Colors.HistoryChipBackground;
+        UiStyle.HorizontalPadding(_matchesPager.style, 8f);
+        UiStyle.Radius(_matchesPager.style, Radii.InfoChip);
+        resultHeader.Add(_matchesPager);
+
+        _matchesStats = new VisualElement();
+        _matchesStats.style.marginTop = 8f;
+        _matchesStats.style.flexDirection = FlexDirection.Column;
+        _matchesStats.style.overflow = Overflow.Hidden;
+        resultCard.Add(_matchesStats);
+
+        _rateValue = AddStatRow(_matchesStats, LiveBuildPanelText.MatchRateLabel());
+        _rateValue.style.color = Colors.StatusCompletedText;
+        _sampleValue = AddStatRow(_matchesStats, LiveBuildPanelText.MatchSampleLabel());
+        _finalDayValue = AddStatRow(_matchesStats, LiveBuildPanelText.MatchFinalDayLabel());
+        _matchedValue = AddStatRow(_matchesStats, LiveBuildPanelText.MatchMatchedLabel());
+
+        _matchesGuidance = CreateLabel(14, FontStyle.Normal, Colors.HistoryStatusText);
+        _matchesGuidance.style.marginTop = 8f;
+        _matchesGuidance.style.whiteSpace = WhiteSpace.Normal;
+        _matchesGuidance.style.maxHeight = Sizes.LiveBuildRecommendationStatusMaxHeight;
+        _matchesGuidance.style.overflow = Overflow.Hidden;
+        resultCard.Add(_matchesGuidance);
 
         var nav = new VisualElement();
         nav.style.flexDirection = FlexDirection.Row;
@@ -621,7 +841,6 @@ internal sealed class LiveBuildPanelView : IDisposable
     {
         var label = new Label();
         label.style.fontSize = fontSize;
-        label.style.unityFont = BppUiFont.Default;
         label.style.unityFontStyleAndWeight = fontStyle;
         label.style.color = color;
         label.style.unityTextAlign = TextAnchor.MiddleLeft;
@@ -634,21 +853,14 @@ internal sealed class LiveBuildPanelView : IDisposable
         button.style.height = 40f;
         button.style.minWidth = 0f;
         button.style.flexShrink = 1f;
-        button.style.unityFont = BppUiFont.Default;
         button.style.unityTextAlign = TextAnchor.MiddleCenter;
         button.style.justifyContent = Justify.Center;
         button.style.alignItems = Align.Center;
         button.style.overflow = Overflow.Hidden;
         button.style.backgroundColor = Colors.HistoryButtonBackground;
         button.style.color = Colors.White;
-        button.style.borderBottomColor = Colors.HistoryButtonBorder;
-        button.style.borderTopColor = Colors.HistoryButtonBorder;
-        button.style.borderLeftColor = Colors.HistoryButtonBorder;
-        button.style.borderRightColor = Colors.HistoryButtonBorder;
-        button.style.borderBottomWidth = 1f;
-        button.style.borderTopWidth = 1f;
-        button.style.borderLeftWidth = 1f;
-        button.style.borderRightWidth = 1f;
+        UiStyle.Border(button.style, Borders.Thin, Colors.HistoryButtonBorder);
+        UiStyle.Radius(button.style, Radii.Md);
         var textElement = button.Q<TextElement>();
         if (textElement != null)
         {
@@ -658,9 +870,15 @@ internal sealed class LiveBuildPanelView : IDisposable
             textElement.style.minWidth = 0f;
             textElement.style.whiteSpace = WhiteSpace.NoWrap;
             textElement.style.overflow = Overflow.Hidden;
-            textElement.style.unityFont = BppUiFont.Default;
         }
         button.tooltip = text;
         return button;
+    }
+
+    private static void StyleButton(Button button, Color background, Color textColor)
+    {
+        button.style.backgroundColor = background;
+        button.style.color = textColor;
+        UiStyle.BorderColor(button.style, Colors.ButtonBorderFor(background));
     }
 }

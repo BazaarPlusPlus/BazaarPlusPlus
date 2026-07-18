@@ -1,7 +1,4 @@
 #nullable enable
-using System;
-using System.IO;
-using System.Threading.Tasks;
 using BazaarPlusPlus.Infrastructure;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
@@ -27,61 +24,42 @@ internal sealed class ScreenshotService
             return Task.FromResult<ScreenshotCaptureResult?>(null);
         if (request == null)
             throw new ArgumentNullException(nameof(request));
+        if (string.IsNullOrWhiteSpace(request.ScreenshotId))
+            throw new ArgumentException("Screenshot id is required.", nameof(request));
 
-        try
+        var capturedAtLocal = _nowProvider();
+        var capturedAtUtc = capturedAtLocal.ToUniversalTime();
+        var relativePath = ScreenshotPathBuilder.BuildRelativePath(request.RunId, capturedAtLocal);
+        var filePath = Path.Combine(_directoryPath, relativePath);
+
+        var result = new ScreenshotCaptureResult
         {
-            var capturedAtLocal = _nowProvider();
-            var capturedAtUtc = capturedAtLocal.ToUniversalTime();
-            var screenshotId = Guid.NewGuid().ToString("N");
-            var relativePath = ScreenshotPathBuilder.BuildRelativePath(
-                request.RunId,
-                capturedAtLocal
+            ScreenshotId = request.ScreenshotId,
+            RunId = request.RunId,
+            HeroName = request.HeroName,
+            BattleId = request.BattleId,
+            CaptureSource = request.CaptureSource,
+            RelativePath = relativePath,
+            FilePath = filePath,
+            CapturedAtLocal = capturedAtLocal,
+            CapturedAtUtc = capturedAtUtc,
+        };
+        return CaptureAndWriteCurrentFrameAsync(filePath, request.ScreenshotId)
+            .ContinueWith(
+                task =>
+                {
+                    if (task.IsFaulted)
+                        throw task.Exception!.GetBaseException();
+                    if (task.IsCanceled || !task.Result)
+                        return null;
+
+                    return result;
+                },
+                TaskScheduler.Default
             );
-            var filePath = Path.Combine(_directoryPath, relativePath);
-
-            var result = new ScreenshotCaptureResult
-            {
-                ScreenshotId = screenshotId,
-                RunId = request.RunId,
-                HeroName = request.HeroName,
-                BattleId = request.BattleId,
-                CaptureSource = request.CaptureSource,
-                RelativePath = relativePath,
-                FilePath = filePath,
-                CapturedAtLocal = capturedAtLocal,
-                CapturedAtUtc = capturedAtUtc,
-            };
-            return CaptureAndWriteCurrentFrameAsync(filePath)
-                .ContinueWith(
-                    task =>
-                    {
-                        if (task.IsFaulted)
-                        {
-                            BppLog.Error(
-                                "ScreenshotService",
-                                "Failed to capture screenshot.",
-                                task.Exception!.GetBaseException()
-                            );
-                            return null;
-                        }
-
-                        if (task.IsCanceled || !task.Result)
-                            return null;
-
-                        BppLog.Info("ScreenshotService", $"Saved screenshot: {filePath}");
-                        return result;
-                    },
-                    TaskScheduler.Default
-                );
-        }
-        catch (Exception ex)
-        {
-            BppLog.Error("ScreenshotService", "Failed to capture screenshot.", ex);
-            return Task.FromResult<ScreenshotCaptureResult?>(null);
-        }
     }
 
-    private static Task<bool> CaptureAndWriteCurrentFrameAsync(string filePath)
+    private static Task<bool> CaptureAndWriteCurrentFrameAsync(string filePath, string screenshotId)
     {
         var width = Screen.width;
         var height = Screen.height;
@@ -125,13 +103,14 @@ internal sealed class ScreenshotService
                         width,
                         height,
                         filePath,
+                        screenshotId,
                         completion
                     )
             );
         }
         catch
         {
-            ReleaseRenderTexture(renderTexture);
+            ReleaseRenderTexture(renderTexture, screenshotId, filePath);
             throw;
         }
 
@@ -144,6 +123,7 @@ internal sealed class ScreenshotService
         int width,
         int height,
         string filePath,
+        string screenshotId,
         TaskCompletionSource<bool> completion
     )
     {
@@ -181,7 +161,7 @@ internal sealed class ScreenshotService
         }
         finally
         {
-            ReleaseRenderTexture(renderTexture);
+            ReleaseRenderTexture(renderTexture, screenshotId, filePath);
         }
     }
 
@@ -202,7 +182,11 @@ internal sealed class ScreenshotService
         );
     }
 
-    private static void ReleaseRenderTexture(RenderTexture? renderTexture)
+    private static void ReleaseRenderTexture(
+        RenderTexture? renderTexture,
+        string screenshotId,
+        string filePath
+    )
     {
         if (renderTexture == null)
             return;
@@ -215,9 +199,11 @@ internal sealed class ScreenshotService
         }
         catch (Exception ex)
         {
-            BppLog.Debug(
-                "ScreenshotService",
-                $"Failed to release screenshot RenderTexture: {ex.Message}"
+            ScreenshotCaptureDiagnostics.ReportCleanupFailed(
+                ScreenshotCaptureCleanupStage.RenderTextureRelease,
+                screenshotId,
+                filePath,
+                ex
             );
         }
     }

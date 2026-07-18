@@ -1,6 +1,5 @@
 #nullable enable
 #pragma warning disable CS0436
-using System;
 using BazaarPlusPlus.Game.HistoryPanel;
 using BazaarPlusPlus.Game.Settings;
 using BazaarPlusPlus.Infrastructure;
@@ -16,17 +15,19 @@ internal static class OptionsDialogLanguageRefreshPatch
     {
         try
         {
-            BppSettingsDockController.RefreshAll();
+            BppNativeSettingsSectionController.RefreshAll();
             BppKeybindSettingsAwakePatch.RefreshLanguage(__instance);
-            NativeKeybindLabelAwakePatch.TryUpdateLabels(__instance);
             HistoryPanel.RefreshLocalization();
         }
         catch (Exception ex)
         {
-            BppLog.Error(
-                "SettingsMenu",
-                "Failed to refresh custom settings after language changed",
-                ex
+            BppLog.WarnEvent(
+                SettingsLogEvents.PatchDegraded,
+                ex,
+                SettingsLogEvents.PatchDegradedOperation.Bind(
+                    SettingsPatchOperation.LanguageRefresh
+                ),
+                SettingsLogEvents.PatchDegradedReasonCode.Bind(SettingsLogReasonCode.PatchException)
             );
         }
     }

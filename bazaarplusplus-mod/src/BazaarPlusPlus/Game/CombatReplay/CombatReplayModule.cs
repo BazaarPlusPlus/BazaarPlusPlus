@@ -1,5 +1,4 @@
 #nullable enable
-using System;
 using BazaarPlusPlus.Core.Events;
 using BazaarPlusPlus.Core.Runtime;
 using BazaarPlusPlus.GameInterop.Events;

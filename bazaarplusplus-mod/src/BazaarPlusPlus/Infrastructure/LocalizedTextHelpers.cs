@@ -11,8 +11,7 @@ internal static class LocalizedTextHelpers
     public static string FormatSimple(
         string english,
         string chineseMainland,
-        string? chineseTaiwan,
-        string? chineseHongKong
+        string? chineseTraditional
     )
     {
         var languageCode = L.CurrentLanguageCode;
@@ -20,8 +19,7 @@ internal static class LocalizedTextHelpers
         {
             return ChineseScriptConverter.Convert(
                 chineseMainland,
-                chineseTaiwan,
-                chineseHongKong,
+                chineseTraditional,
                 L.CurrentMode
             );
         }

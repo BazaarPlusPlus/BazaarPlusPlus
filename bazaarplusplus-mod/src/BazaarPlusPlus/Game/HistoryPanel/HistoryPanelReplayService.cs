@@ -1,13 +1,8 @@
 #nullable enable
-using System;
-using System.Collections.Generic;
-using System.Threading;
-using System.Threading.Tasks;
 using BazaarPlusPlus.Game.CombatReplay;
 using BazaarPlusPlus.Game.CombatReplay.Video;
 using BazaarPlusPlus.Game.HistoryPanel.Data;
 using BazaarPlusPlus.Game.HistoryPanel.Ghost;
-using BazaarPlusPlus.Game.PvpBattles;
 using BazaarPlusPlus.Infrastructure;
 
 namespace BazaarPlusPlus.Game.HistoryPanel;
@@ -42,14 +37,33 @@ internal sealed class HistoryPanelReplayService
         _ghostSyncService = ghostSyncService;
     }
 
-    // FfmpegLocator.Resolve performs a ~2s liveness probe on its first call and caches the
-    // result process-wide. Kick that off the UI thread (panel open) so the per-refresh
-    // CanRecordReplay gate below only ever reads the warm cache. Safe off the Unity thread:
-    // Resolve does no Unity API calls.
+    // Capture the Unity-owned dimensions/FPS on the UI thread, then resolve FFmpeg and its
+    // actual-settings encoder profile in the background. Per-refresh gates only read warm state.
     public void PrewarmRecordingAvailability()
     {
         var pluginsDirectoryPath = _pluginsDirectoryPathAccessor();
-        _ = Task.Run(() => FfmpegLocator.Resolve(pluginsDirectoryPath));
+        var videoDirectoryPath = _videoDirectoryPathAccessor();
+        var hasSettings = ReplayVideoCaptureSettingsCache.TryCaptureCurrent(
+            out var captureSettings
+        );
+        _ = Task.Run(() =>
+        {
+            var ffmpegExecutable = FfmpegLocator.Resolve(pluginsDirectoryPath);
+            if (
+                hasSettings
+                && !string.IsNullOrWhiteSpace(ffmpegExecutable)
+                && !string.IsNullOrWhiteSpace(videoDirectoryPath)
+            )
+            {
+                FfmpegVideoEncoderSelector.Prewarm(
+                    ffmpegExecutable,
+                    videoDirectoryPath,
+                    captureSettings.Width,
+                    captureSettings.Height,
+                    captureSettings.Fps
+                );
+            }
+        });
     }
 
     // Recording is feasible only when the replay itself can run AND the shared recording gate
@@ -58,8 +72,20 @@ internal sealed class HistoryPanelReplayService
     // on the UI thread).
     public bool CanRecordReplay(HistoryBattleRecord? battle, out string reason)
     {
+        return CanRecordReplay(battle, out reason, out _);
+    }
+
+    internal bool CanRecordReplay(
+        HistoryBattleRecord? battle,
+        out string reason,
+        out HistoryPanelReplayReasonCode reasonCode
+    )
+    {
         if (!CanReplayBattle(battle, out reason))
+        {
+            reasonCode = HistoryPanelReplayReasonCode.ReplayUnavailable;
             return false;
+        }
 
         var gate = CombatReplayRecordingGate.Evaluate(
             _pluginsDirectoryPathAccessor(),
@@ -68,10 +94,12 @@ internal sealed class HistoryPanelReplayService
         if (!gate.CanRecord)
         {
             reason = HistoryPanelText.RecordingUnavailable();
+            reasonCode = HistoryPanelReplayReasonCode.RecordingUnavailable;
             return false;
         }
 
         reason = string.Empty;
+        reasonCode = HistoryPanelReplayReasonCode.RecordingAvailable;
         return true;
     }
 
@@ -125,10 +153,16 @@ internal sealed class HistoryPanelReplayService
     )
     {
         if (battle == null)
-            return HistoryPanelReplayAttemptResult.Failure(HistoryPanelText.SelectBattleToReplay());
+            return HistoryPanelReplayAttemptResult.Failure(
+                HistoryPanelText.SelectBattleToReplay(),
+                HistoryPanelReplayReasonCode.ReplayUnavailable
+            );
 
         if (!CanReplayBattle(battle, out var reason))
-            return HistoryPanelReplayAttemptResult.Failure(reason);
+            return HistoryPanelReplayAttemptResult.Failure(
+                reason,
+                HistoryPanelReplayReasonCode.ReplayUnavailable
+            );
 
         if (battle.Source == HistoryBattleSource.Ghost)
             return await ReplayGhostBattleAsync(battle, recordVideo, cancellationToken);
@@ -136,12 +170,14 @@ internal sealed class HistoryPanelReplayService
         var runtime = _runtimeAccessor();
         if (runtime == null)
             return HistoryPanelReplayAttemptResult.Failure(
-                HistoryPanelText.CombatReplayRuntimeUnavailable()
+                HistoryPanelText.CombatReplayRuntimeUnavailable(),
+                HistoryPanelReplayReasonCode.RuntimeUnavailable
             );
 
         if (!runtime.ReplaySaved(battle.BattleId, recordVideo))
             return HistoryPanelReplayAttemptResult.Failure(
-                HistoryPanelText.ReplayRejectedForBattle(battle.BattleId)
+                HistoryPanelText.ReplayRejectedForBattle(battle.BattleId),
+                HistoryPanelReplayReasonCode.ReplayRejected
             );
 
         return HistoryPanelReplayAttemptResult.Success(
@@ -158,20 +194,23 @@ internal sealed class HistoryPanelReplayService
         var runtime = _runtimeAccessor();
         if (runtime == null)
             return HistoryPanelReplayAttemptResult.Failure(
-                HistoryPanelText.CombatReplayRuntimeUnavailable()
+                HistoryPanelText.CombatReplayRuntimeUnavailable(),
+                HistoryPanelReplayReasonCode.RuntimeUnavailable
             );
 
         var replayDirectoryPath = _replayDirectoryPathAccessor();
         if (string.IsNullOrWhiteSpace(replayDirectoryPath))
             return HistoryPanelReplayAttemptResult.Failure(
-                HistoryPanelText.CombatReplayDirectoryUnavailable()
+                HistoryPanelText.CombatReplayDirectoryUnavailable(),
+                HistoryPanelReplayReasonCode.ReplayDirectoryUnavailable
             );
 
         if (!battle.ReplayDownloaded)
         {
             if (_ghostSyncService == null)
                 return HistoryPanelReplayAttemptResult.Failure(
-                    HistoryPanelText.GhostReplayDownloadUnavailable()
+                    HistoryPanelText.GhostReplayDownloadUnavailable(),
+                    HistoryPanelReplayReasonCode.GhostDownloadUnavailable
                 );
 
             var downloadResult = await _ghostSyncService.DownloadReplayAsync(
@@ -183,34 +222,72 @@ internal sealed class HistoryPanelReplayService
                 return HistoryPanelReplayAttemptResult.Failure(
                     HistoryPanelText.FailedToDownloadGhostReplay(
                         downloadResult.Error ?? HistoryPanelText.Unknown()
-                    )
+                    ),
+                    downloadResult.ReasonCode,
+                    downloadResult.Exception
                 );
         }
 
         var ghostPayloadStore = new GhostBattlePayloadStore(
             GhostBattlePayloadStore.ResolveDirectory(replayDirectoryPath)
         );
-        var ghostPayload = ghostPayloadStore.Load(battle.BattleId);
+        var ghostPayloadResult = ghostPayloadStore.LoadDetailed(battle.BattleId);
+        if (ghostPayloadResult.Status == FileBackedPayloadLoadStatus.Invalid)
+        {
+            return HistoryPanelReplayAttemptResult.Failure(
+                HistoryPanelText.ReplayPayloadUnavailable(battle.BattleId),
+                HistoryPanelReplayReasonCode.ReplayPayloadInvalid
+            );
+        }
+        if (ghostPayloadResult.Status == FileBackedPayloadLoadStatus.Unreadable)
+        {
+            return HistoryPanelReplayAttemptResult.Failure(
+                HistoryPanelText.ReplayPayloadUnavailable(battle.BattleId),
+                HistoryPanelReplayReasonCode.ReplayPayloadUnreadable,
+                ghostPayloadResult.Exception
+            );
+        }
+
+        var ghostPayload = ghostPayloadResult.Payload;
         var manifest = ghostPayload?.BattleManifest;
         if (manifest == null)
             return HistoryPanelReplayAttemptResult.Failure(
-                HistoryPanelText.GhostManifestUnavailable(battle.BattleId)
+                HistoryPanelText.GhostManifestUnavailable(battle.BattleId),
+                HistoryPanelReplayReasonCode.GhostManifestUnavailable
             );
 
         var payload = ghostPayload?.ReplayPayload;
         if (payload == null)
         {
             var payloadStore = new CombatReplayPayloadStore(replayDirectoryPath);
-            payload = payloadStore.Load(battle.BattleId);
+            var payloadResult = payloadStore.LoadDetailed(battle.BattleId);
+            if (payloadResult.Status == FileBackedPayloadLoadStatus.Invalid)
+            {
+                return HistoryPanelReplayAttemptResult.Failure(
+                    HistoryPanelText.ReplayPayloadUnavailable(battle.BattleId),
+                    HistoryPanelReplayReasonCode.ReplayPayloadInvalid
+                );
+            }
+            if (payloadResult.Status == FileBackedPayloadLoadStatus.Unreadable)
+            {
+                return HistoryPanelReplayAttemptResult.Failure(
+                    HistoryPanelText.ReplayPayloadUnavailable(battle.BattleId),
+                    HistoryPanelReplayReasonCode.ReplayPayloadUnreadable,
+                    payloadResult.Exception
+                );
+            }
+            payload = payloadResult.Payload;
         }
         if (payload == null)
             return HistoryPanelReplayAttemptResult.Failure(
-                HistoryPanelText.ReplayPayloadUnavailable(battle.BattleId)
+                HistoryPanelText.ReplayPayloadUnavailable(battle.BattleId),
+                HistoryPanelReplayReasonCode.ReplayPayloadMissing
             );
 
         if (!runtime.ReplayImportedBattle(manifest, payload, recordVideo))
             return HistoryPanelReplayAttemptResult.Failure(
-                HistoryPanelText.ReplayRejectedForGhostBattle(battle.BattleId)
+                HistoryPanelText.ReplayRejectedForGhostBattle(battle.BattleId),
+                HistoryPanelReplayReasonCode.ReplayRejected
             );
 
         return HistoryPanelReplayAttemptResult.Success(
@@ -220,52 +297,66 @@ internal sealed class HistoryPanelReplayService
         );
     }
 
-    public void CleanupReplayPayloads(IReadOnlyList<string> battleIds)
+    public ReplayPayloadCleanupResult CleanupReplayPayloads(IReadOnlyList<string> battleIds)
     {
         if (battleIds.Count == 0)
-            return;
+            return new ReplayPayloadCleanupResult(0, null);
 
         var replayDirectoryPath = _replayDirectoryPathAccessor();
         if (string.IsNullOrWhiteSpace(replayDirectoryPath))
-            return;
-
-        var payloadStore = new CombatReplayPayloadStore(replayDirectoryPath);
-        var ghostPayloadStore = new GhostBattlePayloadStore(
-            GhostBattlePayloadStore.ResolveDirectory(replayDirectoryPath)
-        );
-        foreach (var battleId in battleIds)
         {
-            try
-            {
-                payloadStore.Delete(battleId);
-                ghostPayloadStore.Delete(battleId);
-            }
-            catch (Exception ex)
-            {
-                BppLog.Warn(
-                    "HistoryPanel",
-                    HistoryPanelText.DeletePayloadFailed(battleId, ex.Message)
-                );
-            }
+            return new ReplayPayloadCleanupResult(
+                battleIds.Count,
+                new InvalidOperationException("Replay directory unavailable.")
+            );
+        }
+
+        try
+        {
+            var payloadStore = new CombatReplayPayloadStore(replayDirectoryPath);
+            var ghostPayloadStore = new GhostBattlePayloadStore(
+                GhostBattlePayloadStore.ResolveDirectory(replayDirectoryPath)
+            );
+            return HistoryPanelReplayCleanup.Execute(
+                battleIds,
+                payloadStore.Delete,
+                ghostPayloadStore.Delete
+            );
+        }
+        catch (Exception ex)
+        {
+            return new ReplayPayloadCleanupResult(battleIds.Count, ex);
         }
     }
 }
 
 internal readonly struct HistoryPanelReplayAttemptResult
 {
-    private HistoryPanelReplayAttemptResult(bool succeeded, string statusMessage)
+    private HistoryPanelReplayAttemptResult(
+        bool succeeded,
+        string statusMessage,
+        HistoryPanelReplayReasonCode reasonCode,
+        Exception? exception
+    )
     {
         Succeeded = succeeded;
         StatusMessage = statusMessage;
+        ReasonCode = reasonCode;
+        Exception = exception;
     }
 
     public bool Succeeded { get; }
 
     public string StatusMessage { get; }
+    public HistoryPanelReplayReasonCode ReasonCode { get; }
+    public Exception? Exception { get; }
 
     public static HistoryPanelReplayAttemptResult Success(string statusMessage) =>
-        new(true, statusMessage);
+        new(true, statusMessage, HistoryPanelReplayReasonCode.Completed, null);
 
-    public static HistoryPanelReplayAttemptResult Failure(string statusMessage) =>
-        new(false, statusMessage);
+    public static HistoryPanelReplayAttemptResult Failure(
+        string statusMessage,
+        HistoryPanelReplayReasonCode reasonCode,
+        Exception? exception = null
+    ) => new(false, statusMessage, reasonCode, exception);
 }

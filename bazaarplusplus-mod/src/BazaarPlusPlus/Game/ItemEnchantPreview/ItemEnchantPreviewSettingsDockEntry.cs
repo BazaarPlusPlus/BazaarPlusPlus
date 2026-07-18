@@ -1,19 +1,30 @@
 #nullable enable
-using System;
 using BazaarPlusPlus.Core.Config;
 using BazaarPlusPlus.Game.Settings;
-using BepInEx.Configuration;
 
 namespace BazaarPlusPlus.Game.ItemEnchantPreview;
 
-internal sealed class ItemEnchantPreviewSettingsDockEntry : PreviewVisibilityModeDockEntry
+internal static class ItemEnchantPreviewSettingsDockEntry
 {
-    public override int Order => BppSettingsDockOrder.EnchantPreview;
-
-    protected override string Key => "EnchantPreview";
-
-    protected override Func<string, string> ResolveLabel => EnchantPreviewSettingsMenuLabel.Resolve;
-
-    protected override ConfigEntry<PreviewVisibilityMode>? GetModeConfig(IBppConfig config) =>
-        config.EnchantPreviewModeConfig;
+    internal static CyclingSettingsDockEntry<PreviewVisibilityMode> Create() =>
+        new(
+            BppSettingsDockOrder.EnchantPreview,
+            "EnchantPreview",
+            EnchantPreviewSettingsMenuLabel.Resolve,
+            new[]
+            {
+                PreviewVisibilityMode.Off,
+                PreviewVisibilityMode.AutoOnPedestalChoice,
+                PreviewVisibilityMode.Always,
+            },
+            config => config.EnchantPreviewModeConfig?.Value ?? BppConfig.DefaultEnchantPreviewMode,
+            (config, mode) =>
+            {
+                var entry = config.EnchantPreviewModeConfig;
+                if (entry != null)
+                    entry.Value = mode;
+            },
+            mode => mode != PreviewVisibilityMode.Off,
+            BppSettingsDockCatalog.ResolvePreviewVisibilityModeStatus
+        );
 }

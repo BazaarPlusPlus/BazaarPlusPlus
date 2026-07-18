@@ -1,12 +1,11 @@
-// BppMacAudio.m — CoreAudio process-tap capture wrapper for The Bazaar mod.
+// BppMacAudio.m — CoreAudio process-tap capture wrapper.
 //
-// Architecture (see docs/design/archive/2026-05-31-combat-replay-audio-macos-process-tap.md
-// sections 4 & 5): the realtime IOProc, the lock-free SPSC FIFO and the
-// planar->interleave fixup all live here in native code. The IOProc is a
-// CoreAudio realtime thread; it must never malloc, lock, send an ObjC message,
-// touch CF/Foundation, log, or make a blocking syscall. The C# side only calls
-// Read on its own background thread, so no external realtime thread ever enters
-// Mono.
+// The realtime IOProc, the lock-free SPSC FIFO and the planar->interleave
+// fixup all live here in native code. The IOProc is a CoreAudio realtime
+// thread; it must never malloc, lock, send an ObjC message, touch
+// CF/Foundation, log, or make a blocking syscall. The consumer only calls
+// Read on its own background thread, so no external realtime thread ever
+// enters the managed runtime.
 
 #import <Foundation/Foundation.h>
 #import <CoreAudio/CoreAudio.h>
@@ -21,9 +20,8 @@
 #include "BppMacAudio.h"
 
 // ---------------------------------------------------------------------------
-// Lock-free single-producer / single-consumer ring of float. Mirrors the
-// semantics of Game/CombatReplay/Audio/AudioRingBuffer.cs: each cursor is
-// strictly single-writer. The producer (IOProc) owns writePos and NEVER reads
+// Lock-free single-producer / single-consumer ring of float. Each cursor is
+// strictly single-writer: the producer (IOProc) owns writePos and NEVER reads
 // readPos; the consumer (Read) owns readPos and, on overrun, fast-forwards its
 // OWN cursor past the clobbered region so the newest audio always wins. Cursors
 // are 64-bit monotonic; the physical slot is pos & mask.
@@ -203,8 +201,8 @@ static void bpp_destroy_ctx(BppCtx *ctx) {
 // these weak-imported APIs (CATapDescription / AudioHardwareCreateProcessTap,
 // macOS 12.0/13.0/14.2) are only ever reached on a new-enough OS. BppMacAudio_Start
 // calls this solely from inside an `if (@available(macOS 15.0, *))` check, which
-// mirrors the C# >=15 gate (design section 7) and keeps the dylib self-defensive:
-// on older systems the weak symbols are NULL and must never be called.
+// matches the IsSupported gate and keeps the dylib self-defensive: on older
+// systems the weak symbols are NULL and must never be called.
 API_AVAILABLE(macos(15.0))
 static void *bpp_start_tap(int32_t *outSampleRate, int32_t *outChannels) {
     BppCtx *ctx = (BppCtx *)calloc(1, sizeof(BppCtx));

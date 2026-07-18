@@ -1,38 +1,122 @@
 #nullable enable
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.Globalization;
 using BazaarPlusPlus.Infrastructure;
 
 namespace BazaarPlusPlus.Game.CollectionPanel;
 
 internal sealed class CollectionPanelLoadDiagnostics
 {
-    private readonly long _startedAt = Stopwatch.GetTimestamp();
-    private readonly List<string> _segments = new();
+    private readonly Func<long> _timestampProvider;
+    private readonly long _startedAt;
+    private double? _catalogAcquireDurationMs;
+    private double? _catalogDurationMs;
+    private double? _filterDurationMs;
+    private double? _refreshDurationMs;
+    private bool? _catalogCacheHit;
+    private int? _sourceTemplateCount;
+    private int? _acceptedCount;
+    private int? _rejectedCount;
+    private int? _catalogCardCount;
+    private int? _visibleCardCount;
 
-    public long Now() => Stopwatch.GetTimestamp();
+    internal CollectionPanelLoadDiagnostics()
+        : this(Stopwatch.GetTimestamp) { }
 
-    public void AddSegment(string name, long startedAt)
+    internal CollectionPanelLoadDiagnostics(Func<long> timestampProvider)
     {
-        var elapsed = ElapsedMs(startedAt, Stopwatch.GetTimestamp());
-        _segments.Add($"{name}={FormatMs(elapsed)}");
+        _timestampProvider =
+            timestampProvider ?? throw new ArgumentNullException(nameof(timestampProvider));
+#if DEBUG
+        _startedAt = _timestampProvider();
+#else
+        _startedAt = 0L;
+#endif
     }
 
-    public void AddValue(string name, int value) => _segments.Add($"{name}={value}");
-
-    public void AddValue(string name, string value) => _segments.Add($"{name}={value}");
-
-    public void Log(string outcome)
+    public long Now()
     {
-        var total = ElapsedMs(_startedAt, Stopwatch.GetTimestamp());
-        var detail = _segments.Count == 0 ? string.Empty : ", " + string.Join(", ", _segments);
-        BppLog.Info("CollectionPanelLoad", $"outcome={outcome}, total={FormatMs(total)}{detail}");
+#if DEBUG
+        return _timestampProvider();
+#else
+        return 0L;
+#endif
+    }
+
+    [Conditional("DEBUG")]
+    internal void AddSegment(CollectionPanelLoadSegment segment, long startedAt)
+    {
+        var elapsed = ElapsedMs(startedAt, _timestampProvider());
+        switch (segment)
+        {
+            case CollectionPanelLoadSegment.CatalogAcquire:
+                _catalogAcquireDurationMs = elapsed;
+                break;
+            case CollectionPanelLoadSegment.Catalog:
+                _catalogDurationMs = elapsed;
+                break;
+            case CollectionPanelLoadSegment.Filter:
+                _filterDurationMs = elapsed;
+                break;
+            case CollectionPanelLoadSegment.Refresh:
+                _refreshDurationMs = elapsed;
+                break;
+        }
+    }
+
+    [Conditional("DEBUG")]
+    internal void SetCatalogResult(
+        bool cacheHit,
+        int sourceTemplateCount,
+        int acceptedCount,
+        int rejectedCount
+    )
+    {
+        _catalogCacheHit = cacheHit;
+        _sourceTemplateCount = sourceTemplateCount;
+        _acceptedCount = acceptedCount;
+        _rejectedCount = rejectedCount;
+    }
+
+    [Conditional("DEBUG")]
+    internal void SetFinalCounts(int catalogCardCount, int visibleCardCount)
+    {
+        _catalogCardCount = catalogCardCount;
+        _visibleCardCount = visibleCardCount;
+    }
+
+    [Conditional("DEBUG")]
+    internal void Complete(
+        CollectionPanelLoadPhase phase,
+        CollectionPanelLoadOutcome outcome,
+        CollectionPanelLogReasonCode? reasonCode
+    )
+    {
+        BppLog.DebugEvent(
+            CollectionPanelLogEvents.LoadCompleted,
+            () =>
+                [
+                    CollectionPanelLogEvents.LoadPhase.Bind(phase),
+                    CollectionPanelLogEvents.LoadOutcome.Bind(outcome),
+                    CollectionPanelLogEvents.LoadReasonCode.Bind(reasonCode),
+                    CollectionPanelLogEvents.LoadDurationMs.Bind(
+                        ElapsedMs(_startedAt, _timestampProvider())
+                    ),
+                    CollectionPanelLogEvents.LoadCatalogAcquireDurationMs.Bind(
+                        _catalogAcquireDurationMs
+                    ),
+                    CollectionPanelLogEvents.LoadCatalogDurationMs.Bind(_catalogDurationMs),
+                    CollectionPanelLogEvents.LoadFilterDurationMs.Bind(_filterDurationMs),
+                    CollectionPanelLogEvents.LoadRefreshDurationMs.Bind(_refreshDurationMs),
+                    CollectionPanelLogEvents.LoadCatalogCacheHit.Bind(_catalogCacheHit),
+                    CollectionPanelLogEvents.LoadSourceTemplateCount.Bind(_sourceTemplateCount),
+                    CollectionPanelLogEvents.LoadAcceptedCount.Bind(_acceptedCount),
+                    CollectionPanelLogEvents.LoadRejectedCount.Bind(_rejectedCount),
+                    CollectionPanelLogEvents.LoadCatalogCardCount.Bind(_catalogCardCount),
+                    CollectionPanelLogEvents.LoadVisibleCardCount.Bind(_visibleCardCount),
+                ]
+        );
     }
 
     private static double ElapsedMs(long start, long end) =>
         (end - start) * 1000.0 / Stopwatch.Frequency;
-
-    private static string FormatMs(double value) =>
-        value.ToString("0.0", CultureInfo.InvariantCulture) + "ms";
 }

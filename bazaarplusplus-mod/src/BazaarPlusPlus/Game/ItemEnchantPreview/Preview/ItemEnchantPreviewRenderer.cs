@@ -1,6 +1,4 @@
 #nullable enable
-using System;
-using System.Collections.Generic;
 using System.Reflection;
 using System.Text;
 using BazaarGameClient.Domain.Models.Cards;
@@ -9,7 +7,6 @@ using BazaarGameShared.Domain.Cards;
 using BazaarGameShared.Domain.Cards.Enchantments;
 using BazaarGameShared.Domain.Core;
 using BazaarGameShared.Domain.Core.Types;
-using BazaarGameShared.Domain.Tooltips;
 using BazaarGameShared.Domain.Values;
 using BazaarPlusPlus.Infrastructure;
 using TheBazaar;
@@ -59,7 +56,8 @@ public static class ItemEnchantPreviewRenderer
 
     private static string RenderTooltipText(ItemCard previewCard, TLocalizableText content)
     {
-        var localized = GetLocalizedText(content);
+        var enchantment = previewCard.Enchantment ?? EEnchantmentType.Heavy;
+        var localized = GetLocalizedText(content, enchantment);
         if (string.IsNullOrWhiteSpace(localized))
             return string.Empty;
 
@@ -69,9 +67,16 @@ public static class ItemEnchantPreviewRenderer
         }
         catch (Exception ex)
         {
-            BppLog.Debug(
-                "ItemEnchantPreview",
-                $"RenderWithCardTooltipData failed, falling back to TooltipBuilder: {ex}"
+            BppLog.WarnEvent(
+                ItemEnchantPreviewLogEvents.RenderDegraded,
+                ex,
+                ItemEnchantPreviewLogEvents.RenderDegradedStage.Bind(
+                    ItemEnchantRenderStage.CardTooltipData
+                ),
+                ItemEnchantPreviewLogEvents.RenderDegradedReasonCode.Bind(
+                    ItemEnchantLogReasonCode.RenderFallback
+                ),
+                ItemEnchantPreviewLogEvents.RenderDegradedEnchantment.Bind(enchantment)
             );
             try
             {
@@ -88,9 +93,16 @@ public static class ItemEnchantPreviewRenderer
             }
             catch (Exception innerEx)
             {
-                BppLog.Debug(
-                    "ItemEnchantPreview",
-                    $"TooltipBuilder fallback failed, returning raw localized text: {innerEx}"
+                BppLog.WarnEvent(
+                    ItemEnchantPreviewLogEvents.RenderDegraded,
+                    innerEx,
+                    ItemEnchantPreviewLogEvents.RenderDegradedStage.Bind(
+                        ItemEnchantRenderStage.TooltipBuilder
+                    ),
+                    ItemEnchantPreviewLogEvents.RenderDegradedReasonCode.Bind(
+                        ItemEnchantLogReasonCode.RawTextFallback
+                    ),
+                    ItemEnchantPreviewLogEvents.RenderDegradedEnchantment.Bind(enchantment)
                 );
                 return localized;
             }
@@ -147,7 +159,7 @@ public static class ItemEnchantPreviewRenderer
         field?.SetValue(context, value);
     }
 
-    private static string GetLocalizedText(TLocalizableText content)
+    private static string GetLocalizedText(TLocalizableText content, EEnchantmentType enchantment)
     {
         try
         {
@@ -155,9 +167,16 @@ public static class ItemEnchantPreviewRenderer
         }
         catch (Exception ex)
         {
-            BppLog.Debug(
-                "ItemEnchantPreview",
-                $"GetLocalizedText failed, falling back to raw text: {ex}"
+            BppLog.WarnEvent(
+                ItemEnchantPreviewLogEvents.RenderDegraded,
+                ex,
+                ItemEnchantPreviewLogEvents.RenderDegradedStage.Bind(
+                    ItemEnchantRenderStage.Localization
+                ),
+                ItemEnchantPreviewLogEvents.RenderDegradedReasonCode.Bind(
+                    ItemEnchantLogReasonCode.LocalizationFallback
+                ),
+                ItemEnchantPreviewLogEvents.RenderDegradedEnchantment.Bind(enchantment)
             );
             return content.Text ?? string.Empty;
         }

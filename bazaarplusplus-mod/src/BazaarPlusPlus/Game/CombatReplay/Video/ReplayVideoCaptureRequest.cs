@@ -1,11 +1,9 @@
 #nullable enable
-using System;
-
 namespace BazaarPlusPlus.Game.CombatReplay.Video;
 
 internal sealed class ReplayVideoCaptureRequest
 {
-    public string VideoId { get; init; } = Guid.NewGuid().ToString("N");
+    public string VideoId { get; init; } = string.Empty;
 
     public string BattleId { get; init; } = string.Empty;
 
@@ -15,6 +13,8 @@ internal sealed class ReplayVideoCaptureRequest
 
     public string OutputFilePath { get; init; } = string.Empty;
 
+    public string FinalOutputFilePath { get; init; } = string.Empty;
+
     public string OutputDirectoryPath { get; init; } = string.Empty;
 
     public int Width { get; init; }
@@ -23,9 +23,8 @@ internal sealed class ReplayVideoCaptureRequest
 
     public int Fps { get; init; }
 
-    public int Crf { get; init; }
+    public FfmpegVideoEncoderProfile EncoderProfile { get; init; } =
+        FfmpegVideoEncoderProfile.Libx264();
 
-    public string Preset { get; init; } = "veryfast";
-
-    public int MaxQueuedFrames { get; init; }
+    public ReplayVideoBufferPlan BufferPlan { get; init; } = ReplayVideoBufferPlan.Create(2, 2);
 }

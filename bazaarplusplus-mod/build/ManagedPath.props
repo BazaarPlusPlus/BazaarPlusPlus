@@ -1,0 +1,31 @@
+<Project>
+  <!-- Keep game assembly and game-root discovery identical for every production and
+       test project. Callers may override either property explicitly with -p. -->
+  <PropertyGroup>
+    <MacSteamManagedDefault>$(HOME)/Library/Application Support/Steam/steamapps/common/The Bazaar/TheBazaar.app/Contents/Resources/Data/Managed</MacSteamManagedDefault>
+    <MacGamePathDefault>$(HOME)/Library/Application Support/Steam/steamapps/common/The Bazaar</MacGamePathDefault>
+    <WinSteamManagedC>C:\Program Files (x86)\Steam\steamapps\common\The Bazaar\TheBazaar_Data\Managed</WinSteamManagedC>
+    <WinGamePathC>C:\Program Files (x86)\Steam\steamapps\common\The Bazaar</WinGamePathC>
+    <WinSteamManagedD>D:\Program Files (x86)\Steam\steamapps\common\The Bazaar\TheBazaar_Data\Managed</WinSteamManagedD>
+    <WinGamePathD>D:\Program Files (x86)\Steam\steamapps\common\The Bazaar</WinGamePathD>
+    <WinSteamManagedE>E:\Program Files (x86)\Steam\steamapps\common\The Bazaar\TheBazaar_Data\Managed</WinSteamManagedE>
+    <WinGamePathE>E:\Program Files (x86)\Steam\steamapps\common\The Bazaar</WinGamePathE>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(ManagedPath)' == '' and Exists('$(WinSteamManagedC)\Assembly-CSharp.dll')">
+    <ManagedPath>$(WinSteamManagedC)</ManagedPath>
+    <GamePath>$(WinGamePathC)</GamePath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(ManagedPath)' == '' and Exists('$(WinSteamManagedD)\Assembly-CSharp.dll')">
+    <ManagedPath>$(WinSteamManagedD)</ManagedPath>
+    <GamePath>$(WinGamePathD)</GamePath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(ManagedPath)' == '' and Exists('$(WinSteamManagedE)\Assembly-CSharp.dll')">
+    <ManagedPath>$(WinSteamManagedE)</ManagedPath>
+    <GamePath>$(WinGamePathE)</GamePath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(ManagedPath)' == '' and Exists('$(MacSteamManagedDefault)/Assembly-CSharp.dll')">
+    <ManagedPath>$(MacSteamManagedDefault)</ManagedPath>
+    <GamePath>$(MacGamePathDefault)</GamePath>
+  </PropertyGroup>
+</Project>

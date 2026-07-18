@@ -1,5 +1,4 @@
 #nullable enable
-using System;
 using BazaarGameClient.Domain.Models.Cards;
 using BazaarPlusPlus.GameInterop.StaticCards;
 using TheBazaar;

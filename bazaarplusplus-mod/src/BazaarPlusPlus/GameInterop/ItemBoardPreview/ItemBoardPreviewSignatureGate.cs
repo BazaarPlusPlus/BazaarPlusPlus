@@ -1,6 +1,4 @@
 #nullable enable
-using System.Threading.Tasks;
-
 namespace BazaarPlusPlus.GameInterop.ItemBoardPreview;
 
 internal static class ItemBoardPreviewSignatureGate

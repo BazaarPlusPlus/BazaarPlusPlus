@@ -1,74 +1,109 @@
 #pragma warning disable CS0436
 #nullable enable
-using System;
-using BazaarPlusPlus.Core.Runtime;
+using System.Diagnostics;
+using BazaarPlusPlus.Infrastructure.Logging;
+using BepInEx;
 using BepInEx.Logging;
 
 namespace BazaarPlusPlus.Infrastructure;
 
 internal static class BppLog
 {
-    private const string Prefix = "[BPP]";
-
     private static ManualLogSource? _logger;
-    private static readonly LogRepeatSuppressor Suppressor = new LogRepeatSuppressor(
-        writeSink: WriteToLogger,
-        formatSummary: (text, _) => Format("Logger", text)
-    );
+    private static readonly BppLogEmitter StructuredEmitter = new();
 
     public static void Install(ManualLogSource logger)
     {
-        _logger = logger;
-    }
-
-    public static string Format(string component, string message) =>
-        $"{Prefix}[{component}] {message}";
-
-    public static string FormatError(string component, string message, Exception ex) =>
-        $"{Format(component, message)}{Environment.NewLine}{ex}";
-
-    public static void Debug(string component, string message)
-    {
-        if (BppBuild.IsDebug)
-            Emit(LogLevel.Debug, Format(component, message));
-    }
-
-    public static void Info(string component, string message) =>
-        Emit(LogLevel.Info, Format(component, message));
-
-    public static void Warn(string component, string message) =>
-        Emit(LogLevel.Warning, Format(component, message));
-
-    public static void Error(string component, string message) =>
-        Emit(LogLevel.Error, Format(component, message));
-
-    public static void Error(string component, string message, Exception ex) =>
-        Emit(LogLevel.Error, FormatError(component, message, ex));
-
-    public static void Flush()
-    {
-        if (_logger == null)
-            return;
-
-        Suppressor.Flush();
-    }
-
-    private static void Emit(LogLevel level, string message)
-    {
-        if (_logger == null)
-            return;
-
-        Suppressor.Write((int)level, message);
-    }
-
-    private static void WriteToLogger(int level, string message)
-    {
-        var logger = _logger;
         if (logger == null)
             return;
 
-        var bepLevel = (LogLevel)level;
-        switch (bepLevel)
+        try
+        {
+            Volatile.Write(ref _logger, logger);
+            StructuredEmitter.Install(
+                new BppLogPipeline(
+                    new BppLogEventRenderer(CreateRedactionRoots()),
+                    WriteStructuredToLogger,
+                    () => DateTimeOffset.UtcNow
+                )
+            );
+        }
+        catch
+        {
+            // Logging installation must never prevent plugin startup.
+        }
+    }
+
+    [Conditional("DEBUG")]
+    public static void DebugEvent(
+        BppLogEventDefinition definition,
+        Func<BppLogFieldValue[]> valuesFactory
+    ) => StructuredEmitter.Debug(definition, valuesFactory);
+
+    [Conditional("DEBUG")]
+    public static void DebugEvent(
+        BppLogEventDefinition definition,
+        Exception exception,
+        Func<BppLogFieldValue[]> valuesFactory
+    ) => StructuredEmitter.Debug(definition, exception, valuesFactory);
+
+    public static void InfoEvent(
+        BppLogEventDefinition definition,
+        params BppLogFieldValue[] values
+    ) => StructuredEmitter.Emit(BppLogSeverity.Info, definition, values);
+
+    public static void WarnEvent(
+        BppLogEventDefinition definition,
+        params BppLogFieldValue[] values
+    ) => StructuredEmitter.Emit(BppLogSeverity.Warning, definition, values);
+
+    public static void WarnEvent(
+        BppLogEventDefinition definition,
+        Exception exception,
+        params BppLogFieldValue[] values
+    ) => StructuredEmitter.Emit(BppLogSeverity.Warning, definition, values, exception);
+
+    public static void ErrorEvent(
+        BppLogEventDefinition definition,
+        params BppLogFieldValue[] values
+    ) => StructuredEmitter.Emit(BppLogSeverity.Error, definition, values);
+
+    public static void ErrorEvent(
+        BppLogEventDefinition definition,
+        Exception exception,
+        params BppLogFieldValue[] values
+    ) => StructuredEmitter.Emit(BppLogSeverity.Error, definition, values, exception);
+
+    public static void RecoverStorm(BppLogEventDefinition definition) =>
+        StructuredEmitter.RecoverStorm(definition);
+
+    public static void RecoverStorm(
+        BppLogEventDefinition definition,
+        params BppLogFieldValue[] values
+    ) => StructuredEmitter.RecoverStorm(definition, values);
+
+    public static void Flush() => StructuredEmitter.Flush();
+
+    private static void WriteStructuredToLogger(BppLogSeverity severity, string message)
+    {
+        var logger = Volatile.Read(ref _logger);
+        if (logger == null)
+            throw new InvalidOperationException("The BepInEx logger is not installed.");
+
+        var level = severity switch
+        {
+            BppLogSeverity.Debug => LogLevel.Debug,
+            BppLogSeverity.Info => LogLevel.Info,
+            BppLogSeverity.Warning => LogLevel.Warning,
+            BppLogSeverity.Error => LogLevel.Error,
+            _ => throw new ArgumentOutOfRangeException(nameof(severity)),
+        };
+        WriteToLoggerCore(logger, level, message);
+    }
+
+    private static void WriteToLoggerCore(ManualLogSource logger, LogLevel level, string message)
+    {
+        switch (level)
         {
             case LogLevel.Debug:
                 logger.LogDebug(message);
@@ -83,8 +118,44 @@ internal static class BppLog
                 logger.LogError(message);
                 return;
             default:
-                logger.Log(bepLevel, message);
+                logger.Log(level, message);
                 return;
+        }
+    }
+
+    private static BppLogRedactionRoots CreateRedactionRoots()
+    {
+        var gameRoot = SafePath(() => Paths.GameRootPath);
+        var dataRoot = SafeCombine(gameRoot, "BazaarPlusPlusV4");
+        var pluginRoot = SafePath(() => Paths.PluginPath);
+        var homeRoot = SafePath(() =>
+            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)
+        );
+        return new BppLogRedactionRoots(gameRoot, dataRoot, pluginRoot, homeRoot);
+    }
+
+    private static string? SafePath(Func<string> pathFactory)
+    {
+        try
+        {
+            var path = pathFactory();
+            return string.IsNullOrWhiteSpace(path) ? null : path;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static string? SafeCombine(string? root, string child)
+    {
+        try
+        {
+            return string.IsNullOrWhiteSpace(root) ? null : Path.Combine(root, child);
+        }
+        catch
+        {
+            return null;
         }
     }
 }

@@ -1,9 +1,9 @@
 #nullable enable
-using System;
 using BazaarGameClient.Domain.Models.Cards;
 using BazaarPlusPlus.Core.Config;
 using BazaarPlusPlus.Core.GameState;
 using BazaarPlusPlus.Game.Input;
+using BazaarPlusPlus.GameInterop.CardPreview;
 using BazaarPlusPlus.Infrastructure;
 using TheBazaar;
 using TheBazaar.Tooltips;
@@ -17,13 +17,20 @@ internal sealed class TooltipModifierRefreshController : MonoBehaviour
     private TooltipPreviewMode _lastMode;
     private IBppConfig? _config;
     private IEncounterStateProbe? _encounterState;
+    private INativeCardPreviewHost? _nativeCardPreviewHost;
     private bool _hasResolvedInputs;
     private ResolveInputs _lastInputs;
 
-    internal void Initialize(IBppConfig config, IEncounterStateProbe encounterState)
+    internal void Initialize(
+        IBppConfig config,
+        IEncounterStateProbe encounterState,
+        INativeCardPreviewHost nativeCardPreviewHost
+    )
     {
         _config = config ?? throw new ArgumentNullException(nameof(config));
         _encounterState = encounterState ?? throw new ArgumentNullException(nameof(encounterState));
+        _nativeCardPreviewHost =
+            nativeCardPreviewHost ?? throw new ArgumentNullException(nameof(nativeCardPreviewHost));
     }
 
     private void Update()
@@ -50,11 +57,18 @@ internal sealed class TooltipModifierRefreshController : MonoBehaviour
                 return;
 
             _lastMode = mode;
-            TryRefreshCurrentItemTooltip(_config, _encounterState);
+            TryRefreshCurrentItemTooltip(_config, _encounterState, ToLogMode(_lastMode));
         }
         catch (Exception ex)
         {
-            BppLog.Error("TooltipPreview", "Tooltip modifier update failed", ex);
+            BppLog.WarnEvent(
+                TooltipLogEvents.PreviewRefreshDegraded,
+                ex,
+                TooltipLogEvents.PreviewRefreshReasonCode.Bind(
+                    TooltipLogReasonCode.PreviewRefreshException
+                ),
+                TooltipLogEvents.PreviewRefreshMode.Bind(ToLogMode(_lastMode))
+            );
         }
     }
 
@@ -72,7 +86,8 @@ internal sealed class TooltipModifierRefreshController : MonoBehaviour
         )
         {
             pedestalKind =
-                _encounterState?.GetChoicePedestal().Kind ?? ChoiceScreenPedestalKind.None;
+                TooltipEncounterProbeReader.ReadChoice(_encounterState)?.Kind
+                ?? ChoiceScreenPedestalKind.None;
         }
 
         return new ResolveInputs(holdUpgrade, holdEnchant, enchantMode, pedestalKind);
@@ -85,9 +100,10 @@ internal sealed class TooltipModifierRefreshController : MonoBehaviour
         ChoiceScreenPedestalKind PedestalKind
     );
 
-    private static void TryRefreshCurrentItemTooltip(
+    private void TryRefreshCurrentItemTooltip(
         IBppConfig? config,
-        IEncounterStateProbe? encounterState
+        IEncounterStateProbe? encounterState,
+        TooltipPreviewRefreshMode mode
     )
     {
         var tooltipParent = Data.TooltipParentComponent;
@@ -97,10 +113,17 @@ internal sealed class TooltipModifierRefreshController : MonoBehaviour
         if (tooltipParent.HasAnyLockedTooltipControllers())
             return;
 
+        if (TryRefreshHoveredPreviewTooltip(tooltipParent, mode))
+            return;
+
         if (!TryResolveRefreshTarget(tooltipParent, out var target))
             return;
 
-        var refreshedTooltipData = CardTooltipDataFactory.Create(target.Card, target.TooltipData);
+        var refreshedTooltipData = CardTooltipDataFactory.Create(
+            target.Card,
+            target.TooltipData,
+            mode
+        );
 
         tooltipParent.HideCardTooltipController();
         tooltipParent.ShowCardTooltipController(
@@ -114,6 +137,40 @@ internal sealed class TooltipModifierRefreshController : MonoBehaviour
             encounterState,
             refreshedTooltipData
         );
+    }
+
+    private bool TryRefreshHoveredPreviewTooltip(
+        TooltipParentComponent tooltipParent,
+        TooltipPreviewRefreshMode mode
+    )
+    {
+        if (_nativeCardPreviewHost == null)
+            return false;
+
+        var result = _nativeCardPreviewHost.RefreshHoveredTooltip(
+            new NativeTooltipRefreshRequest(
+                tooltipParent,
+                mode switch
+                {
+                    TooltipPreviewRefreshMode.Enchant => NativeTooltipRefreshMode.Enchant,
+                    TooltipPreviewRefreshMode.Upgrade => NativeTooltipRefreshMode.Upgrade,
+                    _ => NativeTooltipRefreshMode.Normal,
+                }
+            )
+        );
+        if (result.Status == NativeTooltipRefreshStatus.Refreshed && result.Card != null)
+        {
+            TooltipPreviewTargetResolver.Report(
+                TooltipPreviewTargetOutcome.Resolved,
+                TooltipLogReasonCode.PreviewCardMatched,
+                result.Card
+            );
+            return true;
+        }
+
+        return result.Status
+            is NativeTooltipRefreshStatus.NoChange
+                or NativeTooltipRefreshStatus.Failed;
     }
 
     private static bool TryResolveRefreshTarget(
@@ -161,4 +218,12 @@ internal sealed class TooltipModifierRefreshController : MonoBehaviour
         target = default;
         return false;
     }
+
+    private static TooltipPreviewRefreshMode ToLogMode(TooltipPreviewMode mode) =>
+        mode switch
+        {
+            TooltipPreviewMode.Enchant => TooltipPreviewRefreshMode.Enchant,
+            TooltipPreviewMode.Upgrade => TooltipPreviewRefreshMode.Upgrade,
+            _ => TooltipPreviewRefreshMode.Normal,
+        };
 }

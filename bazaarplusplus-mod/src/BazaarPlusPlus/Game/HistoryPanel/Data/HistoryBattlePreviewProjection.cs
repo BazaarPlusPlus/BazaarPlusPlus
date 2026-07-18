@@ -1,8 +1,4 @@
 #nullable enable
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using BazaarGameShared.Domain.Cards.Enchantments;
 using BazaarGameShared.Domain.Cards.Socket;
 using BazaarGameShared.Domain.Core.Types;
 using BazaarGameShared.Domain.Effect.AuraActions;
@@ -10,7 +6,6 @@ using BazaarPlusPlus.Game.PvpBattles;
 using BazaarPlusPlus.GameInterop.ItemBoardPreview;
 using BazaarPlusPlus.GameInterop.StaticCards;
 using BazaarPlusPlus.Infrastructure;
-using TheBazaar;
 
 namespace BazaarPlusPlus.Game.HistoryPanel.Data;
 
@@ -316,9 +311,13 @@ internal static class HistoryBattlePreviewProjection
         }
         catch (Exception ex)
         {
-            BppLog.Warn(
-                "HistoryPanel",
-                $"Failed to resolve socket-effect attribute type for {snapshot.TemplateId}: {ex.Message}"
+            BppLog.WarnEvent(
+                HistoryPanelLogEvents.PreviewSocketEffectDegraded,
+                ex,
+                HistoryPanelLogEvents.PreviewTemplateId.Bind(snapshot.TemplateId),
+                HistoryPanelLogEvents.PreviewSocketReasonCode.Bind(
+                    HistoryPanelPreviewReasonCode.SocketEffectLookupFailed
+                )
             );
         }
 
@@ -341,10 +340,12 @@ internal static class HistoryBattlePreviewProjection
         }
         catch (Exception ex)
         {
-            BppLog.Error(
-                "HistoryBattlePreviewProjection",
-                "Failed to load static game data for battle preview filtering",
-                ex
+            BppLog.WarnEvent(
+                HistoryPanelLogEvents.PreviewStaticDataDegraded,
+                ex,
+                HistoryPanelLogEvents.PreviewStaticDataReasonCode.Bind(
+                    HistoryPanelPreviewReasonCode.StaticDataAccessFailed
+                )
             );
             return null;
         }
@@ -360,7 +361,15 @@ internal static class HistoryBattlePreviewProjection
 
         var staticData = BppStaticDataAccess.TryGetReadyManagerObject();
         if (staticData == null)
+        {
+            BppLog.WarnEvent(
+                HistoryPanelLogEvents.PreviewStaticDataDegraded,
+                HistoryPanelLogEvents.PreviewStaticDataReasonCode.Bind(
+                    HistoryPanelPreviewReasonCode.StaticDataUnavailable
+                )
+            );
             return null;
+        }
 
         lock (SocketEffectTemplateLock)
         {

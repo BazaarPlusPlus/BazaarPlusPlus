@@ -1,7 +1,4 @@
 #nullable enable
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using BazaarPlusPlus.GameInterop;
 using BazaarPlusPlus.Infrastructure;
 using Newtonsoft.Json;
@@ -13,7 +10,7 @@ internal static class RandomPoolPrefsHelpers
 {
     private const string AnonymousAccountScope = "anonymous";
 
-    public static IReadOnlyCollection<string>? LoadIdCollection(string key, string logScope)
+    public static IReadOnlyCollection<string>? LoadIdCollection(string key, RandomPoolKind poolKind)
     {
         if (!PlayerPrefs.HasKey(key))
             return null;
@@ -28,7 +25,14 @@ internal static class RandomPoolPrefsHelpers
         }
         catch (Exception ex)
         {
-            BppLog.Warn(logScope, $"Failed to parse saved pool '{key}': {ex.Message}");
+            BppLog.WarnEvent(
+                LobbyLogEvents.RandomPoolPreferencesDegraded,
+                ex,
+                LobbyLogEvents.RandomPoolPreferencesDegradedPoolKind.Bind(poolKind),
+                LobbyLogEvents.RandomPoolPreferencesDegradedReasonCode.Bind(
+                    LobbyLogReasonCode.PreferenceParseException
+                )
+            );
             return null;
         }
     }
@@ -47,7 +51,7 @@ internal static class RandomPoolPrefsHelpers
     public static string[] NormalizeIds(IEnumerable<string> ids) =>
         ids.Where(id => !string.IsNullOrWhiteSpace(id)).Distinct(StringComparer.Ordinal).ToArray();
 
-    public static string ResolveAccountScopeForPrefs(string logScope)
+    public static string ResolveAccountScopeForPrefs(RandomPoolKind poolKind)
     {
         try
         {
@@ -61,9 +65,13 @@ internal static class RandomPoolPrefsHelpers
         }
         catch (Exception ex)
         {
-            BppLog.Warn(
-                logScope,
-                $"Failed to resolve account scope; falling back to anonymous: {ex.Message}"
+            BppLog.WarnEvent(
+                LobbyLogEvents.RandomPoolPreferencesDegraded,
+                ex,
+                LobbyLogEvents.RandomPoolPreferencesDegradedPoolKind.Bind(poolKind),
+                LobbyLogEvents.RandomPoolPreferencesDegradedReasonCode.Bind(
+                    LobbyLogReasonCode.AccountScopeException
+                )
             );
         }
 

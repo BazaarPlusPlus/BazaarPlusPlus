@@ -1,13 +1,7 @@
 #nullable enable
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Reflection;
-using System.Threading;
-using System.Threading.Tasks;
 using BazaarGameShared.Domain.Core.Types;
 using BazaarGameShared.Infra.Messages.CombatSimEvents;
-using BazaarPlusPlus.Infrastructure;
 using TheBazaar;
 using TheBazaar.AppFramework;
 using UnityEngine;
@@ -19,17 +13,15 @@ internal static class CombatVfxWarmer
 {
     internal static async Task WarmCombatVfxAsync(
         CombatSequenceMessages sequence,
-        ReplayWarmupStats stats
+        ReplayWarmupStats stats,
+        IReplayPlaybackOutcomeSink outcome
     )
     {
         Services.TryGet<AssetLoader>(out var assetLoader);
         Services.TryGet<VFXManager>(out var vfxManager);
         if (assetLoader == null || vfxManager == null)
         {
-            BppLog.Warn(
-                "CombatVfxWarmer",
-                "Saved replay combat VFX warmup skipped because replay asset services are unavailable."
-            );
+            outcome.ReportDegradation(ReplayPlaybackReasonCode.CombatVfxWarmupFailed);
             return;
         }
 
@@ -47,7 +39,9 @@ internal static class CombatVfxWarmer
 
         foreach (var action in actionTypes)
         {
-            vfxTasks.Add(WarmActionVfxAsync(assetLoader, vfxManager, action, vfxSemaphore, stats));
+            vfxTasks.Add(
+                WarmActionVfxAsync(assetLoader, vfxManager, action, vfxSemaphore, stats, outcome)
+            );
         }
 
         foreach (
@@ -63,7 +57,8 @@ internal static class CombatVfxWarmer
                     actionTypes,
                     overrideKey,
                     vfxSemaphore,
-                    stats
+                    stats,
+                    outcome
                 )
             );
         }
@@ -75,13 +70,20 @@ internal static class CombatVfxWarmer
         VFXManager vfxManager,
         ActionType action,
         SemaphoreSlim semaphore,
-        ReplayWarmupStats stats
+        ReplayWarmupStats stats,
+        IReplayPlaybackOutcomeSink outcome
     )
     {
         var vfxConfig = GetVfxConfig(vfxManager);
         if (vfxConfig == null)
         {
-            await WarmVfxReferenceAsync(assetLoader, vfxManager.GetVFX(action), semaphore, stats);
+            await WarmVfxReferenceAsync(
+                assetLoader,
+                vfxManager.GetVFX(action),
+                semaphore,
+                stats,
+                outcome
+            );
             return;
         }
 
@@ -93,12 +95,19 @@ internal static class CombatVfxWarmer
                     assetLoader,
                     TryGetMappedActionVfx(vfxConfig, size, action),
                     semaphore,
-                    stats
+                    stats,
+                    outcome
                 );
             }
         }
 
-        await WarmVfxReferenceAsync(assetLoader, vfxManager.GetVFX(action), semaphore, stats);
+        await WarmVfxReferenceAsync(
+            assetLoader,
+            vfxManager.GetVFX(action),
+            semaphore,
+            stats,
+            outcome
+        );
     }
 
     private static async Task WarmOverrideVfxAsync(
@@ -107,7 +116,8 @@ internal static class CombatVfxWarmer
         IReadOnlyCollection<ActionType> actionTypes,
         string overrideKey,
         SemaphoreSlim semaphore,
-        ReplayWarmupStats stats
+        ReplayWarmupStats stats,
+        IReplayPlaybackOutcomeSink outcome
     )
     {
         var vfxConfig = GetVfxConfig(vfxManager);
@@ -122,7 +132,8 @@ internal static class CombatVfxWarmer
                     assetLoader,
                     await TryGetOverrideActionVfxAsync(vfxConfig, action, size, overrideKey),
                     semaphore,
-                    stats
+                    stats,
+                    outcome
                 );
             }
         }
@@ -204,7 +215,8 @@ internal static class CombatVfxWarmer
         AssetLoader assetLoader,
         AssetReference? assetReference,
         SemaphoreSlim semaphore,
-        ReplayWarmupStats stats
+        ReplayWarmupStats stats,
+        IReplayPlaybackOutcomeSink outcome
     )
     {
         if (assetReference == null || !assetReference.RuntimeKeyIsValid())
@@ -229,9 +241,12 @@ internal static class CombatVfxWarmer
         {
             WarmupCache.ReleaseCacheKey(WarmupCache.PrewarmedVfxKeys, key);
             stats.VfxFailed++;
-            BppLog.Debug(
-                "CombatVfxWarmer",
-                $"Saved replay VFX warmup skipped for '{key}': {ex.Message}"
+            outcome.ReportDegradation(ReplayPlaybackReasonCode.CombatVfxWarmupFailed, ex);
+            ReplayWarmupLogging.AssetSkipped(
+                ReplayWarmupStage.CombatVfx,
+                key,
+                ReplayWarmupAssetReasonCode.AssetLoadFailed,
+                ex
             );
         }
         finally

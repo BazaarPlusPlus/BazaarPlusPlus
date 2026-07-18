@@ -5,4 +5,7 @@ internal enum BppHotkeyActionId
 {
     HoldEnchantPreview,
     HoldUpgradePreview,
+    ToggleCollectionPanel,
+    ToggleLiveBuildPanel,
+    ToggleHistoryPanel,
 }

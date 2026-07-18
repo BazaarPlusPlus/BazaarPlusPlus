@@ -16,5 +16,7 @@ internal interface IBppServices
     IRunContext RunContext { get; }
     IGameStateProbe GameStateProbe { get; }
     IEncounterStateProbe EncounterState { get; }
+    IRunSnapshotProbe RunSnapshot { get; }
+    IGameBuildInfo GameBuild { get; }
     ManualLogSource Logger { get; }
 }

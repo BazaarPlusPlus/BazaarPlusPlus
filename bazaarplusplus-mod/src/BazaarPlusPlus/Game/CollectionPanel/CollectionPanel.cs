@@ -1,8 +1,5 @@
 #nullable enable
-using System;
 using System.Collections;
-using System.Collections.Generic;
-using System.Threading.Tasks;
 using BazaarGameShared.Domain.Core.Types;
 using BazaarPlusPlus.Core.Config;
 using BazaarPlusPlus.Core.GameState;
@@ -11,22 +8,25 @@ using BazaarPlusPlus.Game.CollectionPanel.Data;
 using BazaarPlusPlus.Game.CollectionPanel.Grid;
 using BazaarPlusPlus.Game.CollectionPanel.Sources;
 using BazaarPlusPlus.Game.CollectionPanel.Ui;
+using BazaarPlusPlus.Game.Encounters;
+using BazaarPlusPlus.Game.Input;
 using BazaarPlusPlus.Game.OverlayPanels;
 using BazaarPlusPlus.Game.Supporters;
+using BazaarPlusPlus.GameInterop.CardPreview;
+using BazaarPlusPlus.GameInterop.StaticCards;
 using BazaarPlusPlus.GameInterop.TagTypography;
 using BazaarPlusPlus.Infrastructure;
-using BazaarPlusPlus.Infrastructure.UiTokens;
 using UnityEngine;
 using UnityEngine.InputSystem;
-using UnityEngine.SceneManagement;
+using UnityEngine.InputSystem.LowLevel;
 
 namespace BazaarPlusPlus.Game.CollectionPanel;
 
 internal sealed class CollectionPanel : MonoBehaviour
 {
     private const float CatalogBuildFrameBudgetMs = 4f;
+    private const float SearchRefreshDebounceSeconds = 0.16f;
     private const string OverlayPanelId = "CollectionPanel";
-    private const int OverlaySortingBand = BppOverlaySorting.MainOverlayPanelBand;
 
     private static CollectionPanel? _instance;
     public static bool IsVisible => _instance != null && _instance._isVisible;
@@ -60,17 +60,28 @@ internal sealed class CollectionPanel : MonoBehaviour
         ECardSize.Large,
     };
 
-    private readonly CollectionCatalog _catalog = new();
+    private CollectionCatalog _catalog = null!;
     private readonly CollectionFilterState _filter = new();
+    private readonly CollectionSearchRefreshGate _searchRefreshGate = new(
+        SearchRefreshDebounceSeconds
+    );
+    private Keyboard? _imeKeyboard;
+    private bool _isImeComposing;
     private readonly CollectionSourceOfferPoolCache _offerPoolCache = new();
+    private readonly ICollectionSourceCatalog _sourceCatalog = new StaticCollectionSourceCatalog();
     private readonly ICollectionPanelHeroPreferenceStore _heroPreferenceStore =
         new CollectionPanelHeroPreferenceStore();
+    private readonly CollectionPanelSelectionLogState _selectionLogState = new();
 
     private IBppConfig _config = null!;
+    private INativeCardPreviewHost _nativeCardPreviewHost = null!;
     private CollectionPanelView? _view;
     private CollectionGridOverlay? _overlay;
-    private CollectionCardFactory? _factory;
+    private INativeCardPreviewScope? _previewScope;
     private CollectionGridVirtualizer? _virtualizer;
+    private CollectionCardArtCache? _artCache;
+    private CollectionCardMaterialCache? _materialCache;
+    private CollectionCardCacheSession? _cacheSession;
 
     private IBppServices _services = null!;
     private IReadOnlyList<CollectionCardVm> _catalogCards = Array.Empty<CollectionCardVm>();
@@ -85,9 +96,9 @@ internal sealed class CollectionPanel : MonoBehaviour
         IReadOnlyList<CollectionSourceOptionViewModel> Sources
     )? _availableSourcesCache;
     private IReadOnlyList<BPPSupporterSample> _supporters = Array.Empty<BPPSupporterSample>();
+    private IOverlayPanelHandle? _overlayHandle;
     private bool _isVisible;
     private bool _initialized;
-    private string _lastSceneToken = string.Empty;
     private bool _statusVisible;
     private string? _statusMessage;
     private bool _viewportBoundsDirty;
@@ -108,55 +119,112 @@ internal sealed class CollectionPanel : MonoBehaviour
     // DayTierSchedule.OutOfRunDay. Recomputed on every open.
     private int? _currentRunDay;
 
-    public void Initialize(IBppServices services)
+    public void Initialize(
+        IBppServices services,
+        BppStaticCardMapProvider cardMapProvider,
+        INativeCardPreviewHost nativeCardPreviewHost
+    )
     {
         if (_initialized)
             return;
+        if (services == null)
+            throw new ArgumentNullException(nameof(services));
+        if (cardMapProvider == null)
+            throw new ArgumentNullException(nameof(cardMapProvider));
+        if (nativeCardPreviewHost == null)
+            throw new ArgumentNullException(nameof(nativeCardPreviewHost));
+
         _initialized = true;
         _instance = this;
         _services = services;
         _config = services.Config;
-        _lastSceneToken = GetSceneToken(SceneManager.GetActiveScene());
-        BppOverlayPanelMutex.Register(
-            new BppOverlayPanelRegistration(
+        _nativeCardPreviewHost = nativeCardPreviewHost;
+        _catalog = new CollectionCatalog(cardMapProvider);
+    }
+
+    internal void AttachToOverlayHost(OverlayPanelHost overlayHost)
+    {
+        if (_overlayHandle != null)
+            return;
+
+        _overlayHandle = overlayHost.Register(
+            new OverlayPanelRegistration(
                 OverlayPanelId,
-                OverlaySortingBand,
-                () => _instance?._isVisible == true,
-                () => _instance?.Close()
+                BppHotkeyActionId.ToggleCollectionPanel,
+                onOpen: Open,
+                onClose: Close,
+                tick: Tick
             )
+            {
+                OnSceneChanged = DisposeUnityRuntime,
+                HotkeyGuard = () => !IsVisible || !IsTextInputFocused(),
+            }
         );
     }
+
+    private bool IsTextInputFocused() => _view?.IsTextInputFocused() == true;
 
     internal static void NotifyLocaleChanged()
     {
         if (_instance == null)
             return;
-        _instance.InvalidateCatalog("locale-change");
+        _instance.InvalidateCatalog(CollectionPanelLogReasonCode.LocaleChange);
         if (_instance._isVisible)
             _instance.StartPanelLoad();
     }
 
     internal static void OpenFromDockButton()
     {
-        if (_instance == null)
+        if (_instance?._overlayHandle == null)
         {
-            BppLog.Warn("CollectionPanel", "Dock button requested before CollectionPanel mounted.");
+            BppLog.ErrorEvent(
+                CollectionPanelLogEvents.OpenFailed,
+                CollectionPanelLogEvents.OpenFailedReasonCode.Bind(
+                    CollectionPanelLogReasonCode.NotMounted
+                )
+            );
             return;
         }
-        _instance.Open(_instance.ResolveOpenSelection());
-    }
 
-    internal static CollectionPanelSelectionState GetCurrentSelectionState() =>
-        _instance?._filter.ToSelectionState() ?? CollectionPanelSelectionState.Default;
+        var outcome = _instance._overlayHandle.RequestOpen();
+        switch (outcome)
+        {
+            case OverlayRequestOutcome.Executed:
+            case OverlayRequestOutcome.AlreadyInState:
+                return;
+            case OverlayRequestOutcome.SuppressedByCombat:
+                BppLog.DebugEvent(
+                    CollectionPanelLogEvents.OpenSkipped,
+                    static () =>
+                        [
+                            CollectionPanelLogEvents.OpenSkippedReasonCode.Bind(
+                                CollectionPanelLogReasonCode.CombatActive
+                            ),
+                        ]
+                );
+                return;
+            case OverlayRequestOutcome.UnknownPanel:
+            default:
+                BppLog.ErrorEvent(
+                    CollectionPanelLogEvents.OpenFailed,
+                    CollectionPanelLogEvents.OpenFailedReasonCode.Bind(
+                        CollectionPanelLogReasonCode.UnknownPanel
+                    )
+                );
+                return;
+        }
+    }
 
     private void Open() => Open(ResolveOpenSelection());
 
     private CollectionPanelSelectionState ResolveOpenSelection()
     {
-        var isInGameRun = IsInGameRunForOpen();
+        var failures = new List<CollectionPanelSelectionProbeFailure>(4);
+        var isInGameRun = TryReadIsInGameRunForOpen(failures);
         var rememberedHero = isInGameRun ? null : _heroPreferenceStore.Load();
-        var hero = isInGameRun ? TryReadCurrentHero() : null;
-        var encounterIds = isInGameRun ? TryReadEncounterIds() : EncounterIdsSnapshot.Empty;
+        var hero = isInGameRun ? TryReadCurrentHero(failures) : null;
+        var encounterIds = isInGameRun ? TryReadEncounterIds(failures) : EncounterIdsSnapshot.Empty;
+        _currentRunDay = isInGameRun ? TryReadCurrentDay(failures) : null;
         var selection = CollectionPanelOpenSelectionResolver.Resolve(
             isInGameRun,
             hero,
@@ -166,34 +234,29 @@ internal sealed class CollectionPanel : MonoBehaviour
             rememberedHero
         );
 
-        BppLog.Debug(
-            "CollectionPanel",
-            "Open selection resolved "
-                + $"inRun={isInGameRun} "
-                + $"hero={selection.SelectedHero?.ToString() ?? "none"} "
-                + $"rememberedHero={rememberedHero?.ToString() ?? "none"} "
-                + $"currentEncounterId={encounterIds.CurrentEncounterId ?? "none"} "
-                + $"currentEncounterTemplateId={encounterIds.CurrentEncounterTemplateId?.ToString() ?? "none"} "
-                + $"sourceKind={selection.SelectedSourceKind} "
-                + $"source={selection.SelectedSourceKey ?? "none"} "
-                + $"matched={IsMatchedOpenSelection(selection)}"
+        _selectionLogState.ObserveOpen(
+            failures.Count == 0
+                ? CollectionPanelSelectionOpenObservation.Complete()
+                : CollectionPanelSelectionOpenObservation.Degraded(failures)
         );
-
-        // The day does not change while the panel is open, so capture it once here. Both Open()
-        // entry paths call ResolveOpenSelection before applying the selection.
-        _currentRunDay = isInGameRun ? TryReadCurrentDay() : null;
+        BppLog.DebugEvent(
+            CollectionPanelLogEvents.SelectionResolved,
+            () =>
+                [
+                    CollectionPanelLogEvents.SelectionResolvedSource.Bind(
+                        selection.SelectedSourceKey
+                    ),
+                    CollectionPanelLogEvents.SelectionResolvedHero.Bind(selection.SelectedHero),
+                    CollectionPanelLogEvents.SelectionResolvedDay.Bind(_currentRunDay),
+                    CollectionPanelLogEvents.SelectionResolvedEncounterId.Bind(
+                        encounterIds.CurrentEncounterTemplateId
+                    ),
+                ]
+        );
         return selection;
     }
 
-    private static bool IsMatchedOpenSelection(CollectionPanelSelectionState selection) =>
-        selection.SelectedSourceKind != CollectionSourceKind.Merchant
-        || !string.Equals(
-            selection.SelectedSourceKey,
-            CollectionPanelSelectionState.DefaultMerchantSourceKey,
-            StringComparison.Ordinal
-        );
-
-    private bool IsInGameRunForOpen()
+    private bool TryReadIsInGameRunForOpen(List<CollectionPanelSelectionProbeFailure> failures)
     {
         try
         {
@@ -202,12 +265,12 @@ internal sealed class CollectionPanel : MonoBehaviour
         }
         catch (Exception ex)
         {
-            BppLog.Warn("CollectionPanel", $"Open selection run-state read failed: {ex.Message}");
+            failures.Add(Failure(CollectionPanelSelectionProbe.RunState, ex));
             return _services.RunContext.IsInGameRun;
         }
     }
 
-    private static EHero? TryReadCurrentHero()
+    private static EHero? TryReadCurrentHero(List<CollectionPanelSelectionProbeFailure> failures)
     {
         try
         {
@@ -222,12 +285,12 @@ internal sealed class CollectionPanel : MonoBehaviour
         }
         catch (Exception ex)
         {
-            BppLog.Warn("CollectionPanel", $"Open selection hero read failed: {ex.Message}");
+            failures.Add(Failure(CollectionPanelSelectionProbe.Hero, ex));
             return null;
         }
     }
 
-    private static int? TryReadCurrentDay()
+    private static int? TryReadCurrentDay(List<CollectionPanelSelectionProbeFailure> failures)
     {
         try
         {
@@ -235,58 +298,65 @@ internal sealed class CollectionPanel : MonoBehaviour
         }
         catch (Exception ex)
         {
-            BppLog.Warn("CollectionPanel", $"Open selection day read failed: {ex.Message}");
+            failures.Add(Failure(CollectionPanelSelectionProbe.Day, ex));
             return null;
         }
     }
 
-    private EncounterIdsSnapshot TryReadEncounterIds()
+    private EncounterIdsSnapshot TryReadEncounterIds(
+        List<CollectionPanelSelectionProbeFailure> failures
+    )
     {
         try
         {
+            if (_services.EncounterState is ITypedEncounterIdsProbe typedProbe)
+            {
+                var outcome = typedProbe.GetEncounterIdsOutcome();
+                if (outcome.IsSuccess)
+                    return outcome.Snapshot;
+
+                failures.Add(
+                    Failure(
+                        CollectionPanelSelectionProbe.Encounter,
+                        outcome.Exception
+                            ?? new InvalidOperationException("Encounter ID probe failed.")
+                    )
+                );
+                return outcome.Snapshot;
+            }
+
             return _services.EncounterState.GetEncounterIds();
         }
         catch (Exception ex)
         {
-            BppLog.Warn("CollectionPanel", $"Open selection encounter read failed: {ex.Message}");
+            failures.Add(Failure(CollectionPanelSelectionProbe.Encounter, ex));
             return EncounterIdsSnapshot.Empty;
         }
     }
 
+    private static CollectionPanelSelectionProbeFailure Failure(
+        CollectionPanelSelectionProbe probe,
+        Exception exception
+    ) => new(probe, CollectionPanelLogReasonCode.ProbeReadFailed, exception);
+
     private void Open(CollectionPanelSelectionState selection)
     {
-        if (TheBazaar.Data.IsInCombat)
-        {
-            BppLog.Info("CollectionPanel", "Open suppressed: combat is active.");
-            return;
-        }
-
-        BppOverlayPanelMutex.CloseOthers(OverlayPanelId, OverlaySortingBand);
-
         ApplyOpenSelection(selection);
         // Temporary main-path probe: EnsureView() is heavy one-time UITK construction (visual
         // tree + CJK glyph raster + cold OTF extract) that runs on the click frame BEFORE the
         // panel is shown and is invisible to CollectionPanelLoadDiagnostics (created later in the
         // coroutine). Time the first construction so its click-frame cost is attributable.
-        var ensureViewStartedAt = System.Diagnostics.Stopwatch.GetTimestamp();
         var firstViewConstruction = _view == null;
+        var openPrologueDiagnostics = firstViewConstruction
+            ? new CollectionPanelLoadDiagnostics()
+            : null;
         EnsureView();
         if (firstViewConstruction)
-        {
-            var ensureViewMs =
-                (System.Diagnostics.Stopwatch.GetTimestamp() - ensureViewStartedAt)
-                * 1000.0
-                / System.Diagnostics.Stopwatch.Frequency;
-            BppLog.Info(
-                "CollectionPanelLoad",
-                "openPrologue ensureView="
-                    + ensureViewMs.ToString(
-                        "0.0",
-                        System.Globalization.CultureInfo.InvariantCulture
-                    )
-                    + "ms (first view construction)"
+            openPrologueDiagnostics!.Complete(
+                CollectionPanelLoadPhase.OpenPrologue,
+                CollectionPanelLoadOutcome.Completed,
+                null
             );
-        }
         _supporters = BPPSupporters.SampleMany(4);
         _isVisible = true;
         // SetVisible starts the fade-in ramp; overlay activates so its CanvasGroup starts
@@ -301,9 +371,9 @@ internal sealed class CollectionPanel : MonoBehaviour
     private void ApplyOpenSelection(CollectionPanelSelectionState selection)
     {
         _filter.ApplySelection(selection);
-        // The Day toggle's on/off persists across opens (like the package toggle); when it is on,
-        // re-pin it to the freshly-read day. _currentRunDay was just captured in
-        // ResolveOpenSelection, which always runs before this.
+        // The Day toggle's on/off persists across opens; when it is on, re-pin it to the
+        // freshly-read day. _currentRunDay was just captured in ResolveOpenSelection, which always
+        // runs before this.
         if (_filter.SelectedRunDay != null)
             _filter.SelectedRunDay = _currentRunDay ?? DayTierSchedule.OutOfRunDay;
         PruneInvisibleSourceSelections();
@@ -314,6 +384,10 @@ internal sealed class CollectionPanel : MonoBehaviour
     {
         if (!_isVisible)
             return;
+        _searchRefreshGate.Cancel();
+        // Drop composition state with the panel: a composition whose terminating Count==0
+        // event never arrives would otherwise keep Advance() blocked after the next Open().
+        DetachImeKeyboard();
         CancelPanelLoad();
         _isVisible = false;
         HideNativeCardLayerImmediately();
@@ -323,31 +397,32 @@ internal sealed class CollectionPanel : MonoBehaviour
         _view?.SetVisible(false);
     }
 
-    private void Update()
+    private void RequestCloseFromUi()
     {
-        DetectSceneChange();
+        if (_overlayHandle == null)
+        {
+            Close();
+            return;
+        }
 
+        // The visible close button is a lifecycle request, not just a local hide. If this
+        // bypasses the host, the dock button's later RequestOpen() sees the panel as still open.
+        var outcome = _overlayHandle.RequestClose();
+        if (outcome == OverlayRequestOutcome.AlreadyInState && _isVisible)
+            Close();
+    }
+
+    // Lifecycle (scene change, combat gate, hotkey, escape) is owned by the Overlay Panel Host;
+    // this tick carries the panel's own per-frame content work, including closed-state work
+    // (fade-out completion, catalog warmup, deferred native cleanup).
+    private void Tick(float dt, bool isVisible)
+    {
         // Opportunistically warm the card catalog off-thread once static data is ready, so the
         // first panel open does not pay the full-table card read (JsonGameDataManager.GetCardMap
         // -> ReadAllCards) on the main thread. The catalog kicks a single shared Task per
         // static-data source; the first open then awaits it instead of blocking.
         if (!_catalog.HasCardMapLoadStarted)
             _catalog.BeginCardMapLoad(out _);
-
-        if (_isVisible && TheBazaar.Data.IsInCombat)
-        {
-            Close();
-            return;
-        }
-
-        var keyboard = Keyboard.current;
-        if (keyboard != null && IsPlainTabPressed(keyboard))
-        {
-            ToggleFromHotkey();
-            return;
-        }
-
-        var dt = Time.unscaledDeltaTime;
 
         // Drive the panel fade every frame regardless of _isVisible so a Close mid-frame
         // can finish its fade-out animation before we tear runtime down.
@@ -368,10 +443,11 @@ internal sealed class CollectionPanel : MonoBehaviour
             return;
         }
 
-        if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame)
+        if (_searchRefreshGate.Advance(dt, isComposing: IsImeCompositionActive()))
         {
-            Close();
-            return;
+            _scrollY = 0f;
+            ApplyFilters();
+            RefreshView();
         }
 
         // Startup self-heal for tag typography: a refresh that ran inside the game's async
@@ -421,62 +497,138 @@ internal sealed class CollectionPanel : MonoBehaviour
         _overlay?.SetVisible(false);
     }
 
-    private static bool IsPlainTabPressed(Keyboard keyboard) =>
-        keyboard.tabKey.wasPressedThisFrame
-        && keyboard.ctrlKey.isPressed == false
-        && keyboard.altKey.isPressed == false
-        && keyboard.shiftKey.isPressed == false;
-
-    private void ToggleFromHotkey()
-    {
-        if (_isVisible)
-            Close();
-        else
-            Open();
-    }
-
-    private void DetectSceneChange()
-    {
-        var token = GetSceneToken(SceneManager.GetActiveScene());
-        if (string.Equals(token, _lastSceneToken, StringComparison.Ordinal))
-            return;
-        _lastSceneToken = token;
-        if (_isVisible)
-            Close();
-        DisposeUnityRuntime();
-    }
-
     private void OnDestroy()
     {
+        DetachImeKeyboard();
         if (ReferenceEquals(_instance, this))
             _instance = null;
-        BppOverlayPanelMutex.Unregister(OverlayPanelId);
+        _overlayHandle?.Dispose();
+        _overlayHandle = null;
         DisposeRuntime();
+    }
+
+    private bool IsImeCompositionActive()
+    {
+        var keyboard = Keyboard.current;
+        if (ReferenceEquals(_imeKeyboard, keyboard))
+            return _isImeComposing;
+
+        DetachImeKeyboard();
+        _imeKeyboard = keyboard;
+        if (_imeKeyboard != null)
+            _imeKeyboard.onIMECompositionChange += OnImeCompositionChange;
+        return false;
+    }
+
+    private void OnImeCompositionChange(IMECompositionString composition) =>
+        _isImeComposing = composition.Count > 0;
+
+    private void DetachImeKeyboard()
+    {
+        if (_imeKeyboard != null)
+            _imeKeyboard.onIMECompositionChange -= OnImeCompositionChange;
+        _imeKeyboard = null;
+        _isImeComposing = false;
     }
 
     private void DisposeRuntime()
     {
         DisposeUnityRuntime();
-        InvalidateCatalog("runtime-dispose");
+        InvalidateCatalog(CollectionPanelLogReasonCode.RuntimeDispose);
     }
 
     private void DisposeUnityRuntime()
     {
+        _searchRefreshGate.Cancel();
         CancelPanelLoad();
-        _virtualizer?.Dispose();
+        var virtualizer = _virtualizer;
+        var overlay = _overlay;
+        var previewScope = _previewScope;
+        var artCache = _artCache;
+        var materialCache = _materialCache;
+        var cacheSession = _cacheSession;
+
+        virtualizer?.Dispose();
+        overlay?.SetAlpha(0f);
+        overlay?.SetVisible(false);
+
         _virtualizer = null;
-        _factory?.DestroyAll();
-        _factory = null;
-        _overlay?.Dispose();
+        _previewScope = null;
         _overlay = null;
         _view?.Dispose();
         _view = null;
+        _materialCache = null;
+        _artCache = null;
+        _cacheSession = null;
+
+        var previewCleanup = previewScope?.DisposeAsync().AsTask() ?? Task.CompletedTask;
+        var cleanupBarrier = Task.WhenAll(
+            virtualizer?.WhenPendingBindsSettled ?? Task.CompletedTask,
+            previewCleanup
+        );
+        if (cleanupBarrier.IsCompletedSuccessfully)
+        {
+            DestroyCollectionRuntimeObjects(overlay, cacheSession, artCache, materialCache);
+            return;
+        }
+
+        _ = DestroyCollectionRuntimeObjectsWhenReadyAsync(
+            cleanupBarrier,
+            overlay,
+            cacheSession,
+            artCache,
+            materialCache
+        );
+    }
+
+    private static async Task DestroyCollectionRuntimeObjectsWhenReadyAsync(
+        Task cleanupBarrier,
+        CollectionGridOverlay? overlay,
+        CollectionCardCacheSession? cacheSession,
+        CollectionCardArtCache? artCache,
+        CollectionCardMaterialCache? materialCache
+    )
+    {
+        try
+        {
+            await cleanupBarrier;
+        }
+        catch (Exception ex)
+        {
+            BppLog.WarnEvent(
+                CollectionPanelLogEvents.CleanupDegraded,
+                ex,
+                CollectionPanelLogEvents.CleanupDegradedReasonCode.Bind(
+                    CollectionPanelLogReasonCode.PendingBindWaitFailed
+                )
+            );
+        }
+
+        DestroyCollectionRuntimeObjects(overlay, cacheSession, artCache, materialCache);
+    }
+
+    private static void DestroyCollectionRuntimeObjects(
+        CollectionGridOverlay? overlay,
+        CollectionCardCacheSession? cacheSession,
+        CollectionCardArtCache? artCache,
+        CollectionCardMaterialCache? materialCache
+    )
+    {
+        // Scope disposal synchronously releases each card's feature-owned tooltip/art/material
+        // state before scheduling its GameObject destruction, so cache teardown is now safe.
+        overlay?.Dispose();
+        CollectionCardCacheHost.Uninstall(cacheSession);
+        materialCache?.DisposeAll();
+        artCache?.DisposeAll();
     }
 
     private void EnsureView()
     {
         if (_view != null)
+        {
+            _view.EnsureCreated();
             return;
+        }
 
         _view = new CollectionPanelView(transform, new PanelCommands(this));
 
@@ -491,11 +643,13 @@ internal sealed class CollectionPanel : MonoBehaviour
         _overlay = new CollectionGridOverlay();
         _overlay.EnsureInitialized();
 
-        _factory = new CollectionCardFactory(
-            _overlay.BoardRoot!,
-            CollectionGridOverlay.DefaultLayer
-        );
-        _virtualizer = new CollectionGridVirtualizer(_overlay, _factory);
+        _artCache = new CollectionCardArtCache();
+        _materialCache = new CollectionCardMaterialCache();
+        _cacheSession = CollectionCardCacheHost.Install(_artCache, _materialCache);
+
+        var previewOwner = new CollectionNativeCardPreviewOwner(_overlay.BoardRoot!, _cacheSession);
+        _previewScope = _nativeCardPreviewHost.OpenScope(previewOwner);
+        _virtualizer = new CollectionGridVirtualizer(_overlay, _previewScope);
     }
 
     private static CollectionFacetMatchMode ToggleMatchMode(CollectionFacetMatchMode mode) =>
@@ -505,11 +659,11 @@ internal sealed class CollectionPanel : MonoBehaviour
 
     private sealed class PanelCommands(CollectionPanel panel) : ICollectionPanelCommands
     {
-        public void Close() => panel.Close();
+        public void Close() => panel.RequestCloseFromUi();
 
-        public void SetActiveType(ECardType type)
+        public void SetActiveTab(CollectionTabKind tab)
         {
-            if (!panel._filter.SelectActiveType(type))
+            if (!panel._filter.SelectTab(tab))
                 return;
             panel.PruneInvisibleSourceSelections();
             panel._scrollY = 0f;
@@ -596,18 +750,7 @@ internal sealed class CollectionPanel : MonoBehaviour
 
         public void ToggleSource(string sourceKey)
         {
-            panel._filter.ToggleSource(panel._filter.ActiveType, sourceKey);
-            panel._scrollY = 0f;
-            panel.ApplyFilters();
-            panel.RefreshView();
-        }
-
-        public void TogglePackagesOnly()
-        {
-            if (!panel._filter.SelectPackagesOnly())
-                return;
-
-            panel.PruneInvisibleSourceSelections();
+            panel._filter.ToggleSource(panel._filter.ActiveTab, sourceKey);
             panel._scrollY = 0f;
             panel.ApplyFilters();
             panel.RefreshView();
@@ -621,6 +764,16 @@ internal sealed class CollectionPanel : MonoBehaviour
             panel._scrollY = 0f;
             panel.ApplyFilters();
             panel.RefreshView();
+        }
+
+        public void SetSearchQuery(string query)
+        {
+            query ??= string.Empty;
+            if (string.Equals(panel._filter.SearchQuery, query, StringComparison.Ordinal))
+                return;
+
+            panel._filter.SearchQuery = query;
+            panel._searchRefreshGate.Schedule();
         }
     }
 
@@ -657,6 +810,7 @@ internal sealed class CollectionPanel : MonoBehaviour
 
         var started = diagnostics.Now();
         CollectionCatalogBuildResult? catalogResult = null;
+        CollectionPanelLogReasonCode? unavailableReason = null;
         if (_catalog.TryGetCached(out var cached))
         {
             catalogResult = cached;
@@ -682,27 +836,10 @@ internal sealed class CollectionPanel : MonoBehaviour
                     yield return null;
                 }
             }
-            diagnostics.AddSegment("catalogAcquire", acquireStarted);
+            diagnostics.AddSegment(CollectionPanelLoadSegment.CatalogAcquire, acquireStarted);
+            var mapOutcome = CollectionCardMapLoadOutcome.From(source, loadTask);
 
-            var map = loadTask is { Status: TaskStatus.RanToCompletion } ? loadTask.Result : null;
-            if (loadTask is { IsFaulted: true })
-            {
-                // A faulted Task always carries a non-null AggregateException.
-                BppLog.Error(
-                    "CollectionPanel",
-                    "Off-thread card map load failed.",
-                    loadTask.Exception!.GetBaseException()
-                );
-            }
-
-            if (
-                _catalog.TryCreateBuildSession(
-                    source,
-                    map,
-                    out var session,
-                    out var unavailableReason
-                )
-            )
+            if (_catalog.TryCreateBuildSession(mapOutcome, out var session, out unavailableReason))
             {
                 var buildSession = session!;
                 using (buildSession)
@@ -726,16 +863,17 @@ internal sealed class CollectionPanel : MonoBehaviour
             {
                 SetCatalogCards(Array.Empty<CollectionCardVm>());
                 SetStatus(CollectionPanelText.CatalogUnavailable());
-                diagnostics.AddValue("unavailableReason", unavailableReason);
             }
         }
-        diagnostics.AddSegment("catalog", started);
+        diagnostics.AddSegment(CollectionPanelLoadSegment.Catalog, started);
         if (catalogResult != null)
         {
-            diagnostics.AddValue("catalogCacheHit", catalogResult.WasCacheHit ? "true" : "false");
-            diagnostics.AddValue("sourceTemplates", catalogResult.SourceTemplateCount);
-            diagnostics.AddValue("accepted", catalogResult.AcceptedCount);
-            diagnostics.AddValue("rejected", catalogResult.RejectedCount);
+            diagnostics.SetCatalogResult(
+                catalogResult.WasCacheHit,
+                catalogResult.SourceTemplateCount,
+                catalogResult.AcceptedCount,
+                catalogResult.RejectedCount
+            );
         }
 
         if (!IsLoadGenerationCurrent(generation))
@@ -743,17 +881,22 @@ internal sealed class CollectionPanel : MonoBehaviour
 
         started = diagnostics.Now();
         ApplyFilters();
-        diagnostics.AddSegment("filter", started);
+        diagnostics.AddSegment(CollectionPanelLoadSegment.Filter, started);
 
         started = diagnostics.Now();
         _isLoadingCatalog = false;
         if (_catalogCards.Count > 0)
             ClearStatus();
         RefreshView();
-        diagnostics.AddSegment("refresh", started);
-        diagnostics.AddValue("catalogCards", _catalogCards.Count);
-        diagnostics.AddValue("visibleCards", _virtualizer?.VisibleCount ?? 0);
-        diagnostics.Log(_catalogCards.Count > 0 ? "loaded" : "unavailable");
+        diagnostics.AddSegment(CollectionPanelLoadSegment.Refresh, started);
+        diagnostics.SetFinalCounts(_catalogCards.Count, _virtualizer?.VisibleCount ?? 0);
+        diagnostics.Complete(
+            CollectionPanelLoadPhase.PanelLoad,
+            _catalogCards.Count > 0
+                ? CollectionPanelLoadOutcome.Loaded
+                : CollectionPanelLoadOutcome.Unavailable,
+            unavailableReason
+        );
         _loadCoroutine = null;
     }
 
@@ -774,65 +917,52 @@ internal sealed class CollectionPanel : MonoBehaviour
         if (_virtualizer == null)
             return;
 
-        _virtualizer.SetVisible(Array.Empty<CollectionCardVm>(), _filter.ActiveType);
+        _virtualizer.SetVisible(Array.Empty<CollectionCardVm>(), _filter.ActiveTab);
         _view?.ResetScroll();
         _scrollY = 0f;
     }
 
     private void ApplyFilters()
     {
+        _searchRefreshGate.Cancel();
         if (_virtualizer == null)
             return;
+
         if (_catalogCards.Count == 0)
         {
-            _virtualizer.SetVisible(Array.Empty<CollectionCardVm>(), _filter.ActiveType);
+            _virtualizer.SetVisible(Array.Empty<CollectionCardVm>(), _filter.ActiveTab);
         }
         else
         {
-            TrimUnavailableFacetSelections();
-            var sourceEntry = _filter.PackagesOnly ? null : ResolveSelectedSourceEntry();
-            var hasSelectedSource = sourceEntry != null;
-            IReadOnlyCollection<Guid>? offeredCardIds = null;
-            IReadOnlyDictionary<
-                Guid,
-                IReadOnlyList<CollectionSourceOfferMatch>
-            >? offerMatchesByCardId = null;
-            if (sourceEntry != null)
-            {
-                var offerPoolResult = _offerPoolCache.GetOrResolve(
-                    sourceEntry,
-                    _filter.SelectedHero,
-                    _catalogCards
-                );
-                if (offerPoolResult.Status == CollectionSourceOfferPoolStatus.Ready)
-                {
-                    offeredCardIds = offerPoolResult.OfferedCardIds;
-                    offerMatchesByCardId = offerPoolResult.OfferMatchesByCardId;
-                }
-            }
-
             if (!_isLoadingCatalog)
                 ClearStatus();
-            var ordered = CollectionFilterEngine.Apply(
+            var query = CollectionQuery.Run(
                 _catalogCards,
                 _filter,
-                new CollectionFilterContext
-                {
-                    OfferedCardIds = offeredCardIds,
-                    ApplyHeroFilter =
-                        !_filter.PackagesOnly
-                        && (!hasSelectedSource || _filter.ActiveType == ECardType.Skill),
-                    // A source whose offer rule pins a starting tier deals that tier on any
-                    // day; only exempt once its pool is actually narrowing the result.
-                    SuppressDayGate =
-                        !_filter.PackagesOnly
-                        && offeredCardIds != null
-                        && sourceEntry!.SuppressDayGate,
-                }
+                _facetAvailability,
+                _sourceCatalog,
+                _offerPoolCache
             );
-            _virtualizer.SetVisible(ordered, _filter.ActiveType, offerMatchesByCardId);
+            AdoptNormalization(query.Normalization);
+            _virtualizer.SetVisible(query.Cards, _filter.ActiveTab, query.OfferMatchesByCardId);
         }
         ResetVisibleScroll();
+    }
+
+    private void AdoptNormalization(CollectionFilterNormalization normalization)
+    {
+        if (normalization.ClearSelectedSource)
+            _filter.ClearSelectedSource();
+        if (normalization.RetainedTags != null)
+        {
+            _filter.Tags.Clear();
+            _filter.Tags.UnionWith(normalization.RetainedTags);
+        }
+        if (normalization.RetainedKeywords != null)
+        {
+            _filter.Keywords.Clear();
+            _filter.Keywords.UnionWith(normalization.RetainedKeywords);
+        }
     }
 
     private void RefreshView()
@@ -840,9 +970,14 @@ internal sealed class CollectionPanel : MonoBehaviour
         if (_view == null || _virtualizer == null)
             return;
 
-        var profile = CollectionTabProfile.For(_filter.ActiveType);
+        var profile = CollectionTabProfile.For(_filter.ActiveTab);
         var availableTags = _facetAvailability.ItemTags;
         var availableKeywords = _facetAvailability.KeywordsFor(_filter.ActiveType);
+        var dayFilterPresentation = CollectionDayFilterPresentation.For(
+            profile,
+            _filter.SelectedRunDay != null
+        );
+        var heroFilterPresentation = CollectionHeroFilterPresentation.For(profile);
         var model = new CollectionPanelViewModel
         {
             Title = CollectionPanelText.Title(),
@@ -851,8 +986,11 @@ internal sealed class CollectionPanel : MonoBehaviour
             CountText = CollectionPanelText.MatchCount(_virtualizer.VisibleCount),
             StatusMessage = _statusVisible ? _statusMessage : null,
             IsLoading = _isLoadingCatalog,
+            ActiveTab = _filter.ActiveTab,
             ActiveType = _filter.ActiveType,
             TabProfile = profile,
+            HeroFilterVisible = heroFilterPresentation.IsVisible,
+            HeroFilterEnabled = heroFilterPresentation.IsEnabled,
             // The view only does Contains lookups on these inside the synchronous Refresh and
             // never retains the model, so the live filter sets are shared instead of copied.
             SelectedHeroes = _filter.Heroes,
@@ -862,18 +1000,20 @@ internal sealed class CollectionPanel : MonoBehaviour
             SelectedKeywords = _filter.Keywords,
             TagMatchMode = _filter.TagMatchMode,
             KeywordMatchMode = _filter.KeywordMatchMode,
-            SelectedSourceKey = _filter.PackagesOnly ? null : _filter.SelectedSourceKey,
-            PackagesOnly = _filter.PackagesOnly,
-            SourceSelectorEnabled = !_isLoadingCatalog && !_filter.PackagesOnly,
+            SearchQuery = _filter.SearchQuery,
+            SelectedSourceKey = profile.ShowSourceFilter ? _filter.SelectedSourceKey : null,
+            SourceSelectorEnabled = profile.ShowSourceFilter && !_isLoadingCatalog,
             SortPriority = _filter.SortPriority,
-            DayFilterActive = _filter.SelectedRunDay != null,
+            DayFilterVisible = dayFilterPresentation.IsVisible,
+            DayFilterEnabled = dayFilterPresentation.IsEnabled,
+            DayFilterActive = dayFilterPresentation.IsActive,
             DayFilterValue = _currentRunDay ?? DayTierSchedule.OutOfRunDay,
             AvailableHeroes = HeroOrder,
             AvailableTiers = TierOrder,
             AvailableSizes = SizeOrder,
             AvailableTags = availableTags,
             AvailableKeywords = availableKeywords,
-            AvailableSources = AvailableSourcesFor(_filter.ActiveType),
+            AvailableSources = AvailableSourcesFor(_filter.ActiveTab),
             ContentHeight = _virtualizer.ContentHeight,
         };
         // Record whether this render has native typography; while it does not, Update polls for
@@ -886,28 +1026,15 @@ internal sealed class CollectionPanel : MonoBehaviour
         _view.Refresh(model);
     }
 
-    private void TrimUnavailableFacetSelections()
+    private IReadOnlyList<CollectionSourceOptionViewModel> AvailableSourcesFor(
+        CollectionTabKind activeTab
+    )
     {
-        var profile = CollectionTabProfile.For(_filter.ActiveType);
-        // ShowTagFilter is true only for the Item profile, so ItemTags matches what
-        // TagsFor(_catalogCards, _filter.ActiveType) would compute here.
-        if (profile.ShowTagFilter)
-            TrimSet(_filter.Tags, _facetAvailability.ItemTags);
-        if (profile.ShowKeywordFilter)
-            TrimSet(_filter.Keywords, _facetAvailability.KeywordsFor(_filter.ActiveType));
-    }
+        var sourceKind = CollectionTabProfile.For(activeTab).SourceKind;
+        if (!sourceKind.HasValue)
+            return Array.Empty<CollectionSourceOptionViewModel>();
 
-    private static void TrimSet<T>(HashSet<T> selected, IReadOnlyList<T> available)
-    {
-        if (selected.Count == 0)
-            return;
-        var allowed = available as HashSet<T> ?? new HashSet<T>(available);
-        selected.RemoveWhere(value => !allowed.Contains(value));
-    }
-
-    private IReadOnlyList<CollectionSourceOptionViewModel> AvailableSourcesFor(ECardType activeType)
-    {
-        var kind = CollectionTabProfile.For(activeType).SourceKind;
+        var kind = sourceKind.Value;
         var selectedHero = _filter.SelectedHero;
         if (
             _availableSourcesCache is { } cached
@@ -939,10 +1066,11 @@ internal sealed class CollectionPanel : MonoBehaviour
     private bool PruneInvisibleSourceSelections()
     {
         var selectedHero = _filter.SelectedHero;
-        var visibleSources = SourceKeysFor(
-            CollectionTabProfile.For(_filter.ActiveType).SourceKind,
-            selectedHero
-        );
+        var sourceKind = CollectionTabProfile.For(_filter.ActiveTab).SourceKind;
+        if (!sourceKind.HasValue)
+            return _filter.ClearSelectedSource();
+
+        var visibleSources = SourceKeysFor(sourceKind.Value, selectedHero);
         return _filter.PruneSelectedSource(visibleSources);
     }
 
@@ -955,35 +1083,6 @@ internal sealed class CollectionPanel : MonoBehaviour
         foreach (var entry in CollectionSourceCatalog.For(kind, selectedHero))
             keys.Add(entry.SourceKey);
         return keys;
-    }
-
-    private CollectionSourceEntry? ResolveSelectedSourceEntry()
-    {
-        var sourceKey = _filter.SelectedSourceKey;
-        if (string.IsNullOrWhiteSpace(sourceKey))
-            return null;
-
-        if (!CollectionSourceCatalog.TryGetBySourceKey(sourceKey!, out var entry) || entry == null)
-        {
-            _filter.ClearSelectedSource();
-            return null;
-        }
-
-        var expectedKind = CollectionTabProfile.For(_filter.ActiveType).SourceKind;
-        if (entry.Kind != expectedKind)
-        {
-            _filter.ClearSelectedSource();
-            return null;
-        }
-
-        var selectedHero = _filter.SelectedHero;
-        if (selectedHero.HasValue && !entry.AppliesToHero(selectedHero.Value))
-        {
-            _filter.ClearSelectedSource();
-            return null;
-        }
-
-        return entry;
     }
 
     private void ResetVisibleScroll()
@@ -1007,11 +1106,11 @@ internal sealed class CollectionPanel : MonoBehaviour
         _statusVisible = false;
     }
 
-    private void InvalidateCatalog(string reason)
+    private void InvalidateCatalog(CollectionPanelLogReasonCode reasonCode)
     {
         SetCatalogCards(Array.Empty<CollectionCardVm>());
         _offerPoolCache.Clear();
-        _catalog.InvalidateCache(reason);
+        _catalog.InvalidateCache(reasonCode);
     }
 
     // Facet availability is a pure projection of the immutable catalog, so it is recomputed
@@ -1021,7 +1120,4 @@ internal sealed class CollectionPanel : MonoBehaviour
         _catalogCards = cards;
         _facetAvailability = CollectionFacetAvailability.SnapshotFor(cards);
     }
-
-    private static string GetSceneToken(Scene scene) =>
-        $"{scene.name}|{scene.path}|{scene.buildIndex}|{scene.isLoaded}";
 }

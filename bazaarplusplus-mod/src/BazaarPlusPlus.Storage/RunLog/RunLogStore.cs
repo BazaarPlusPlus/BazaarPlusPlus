@@ -1,5 +1,4 @@
 #nullable enable
-using System;
 using BazaarPlusPlus.Storage.Paths;
 using BazaarPlusPlus.Storage.Sqlite;
 using Microsoft.Data.Sqlite;
@@ -51,7 +50,8 @@ public sealed class RunLogStore : SqliteStoreBase, IRunLogStore
                 player_rating,
                 day,
                 hour,
-                last_seq
+                last_seq,
+                build_channel
             ) VALUES (
                 $runId,
                 $startedAtUtc,
@@ -65,7 +65,8 @@ public sealed class RunLogStore : SqliteStoreBase, IRunLogStore
                 $playerRating,
                 $day,
                 $hour,
-                0
+                0,
+                $buildChannel
             )
             ON CONFLICT(run_id) DO UPDATE SET
                 hero = excluded.hero,
@@ -89,6 +90,7 @@ public sealed class RunLogStore : SqliteStoreBase, IRunLogStore
         AddNullableInt32(command, "$playerRating", request.PlayerRating);
         AddNullableInt32(command, "$day", request.Day);
         AddNullableInt32(command, "$hour", request.Hour);
+        AddNullableString(command, "$buildChannel", request.BuildChannel);
         command.ExecuteNonQuery();
 
         var session =

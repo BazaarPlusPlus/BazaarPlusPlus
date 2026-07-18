@@ -1,5 +1,4 @@
 #nullable enable
-using System;
 using BazaarPlusPlus.Game.CombatReplay;
 
 namespace BazaarPlusPlus.Game.HistoryPanel;

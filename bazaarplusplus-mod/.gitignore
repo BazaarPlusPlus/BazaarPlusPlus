@@ -7,8 +7,10 @@ exports/
 # Dependencies
 libs/
 decompiled/
+decompiled-v*/
 
 # IDE
+.trae/
 .idea/
 .vs/
 .vscode/
@@ -25,6 +27,11 @@ __pycache__/
 **/plugins/BazaarPlusPlus.version
 **/BepInEx.zip
 
+# Local generated package card art
+/artifacts/
+/results/
+/results_atlas/
+
 # OS
 .DS_Store
 Thumbs.db
@@ -35,3 +42,8 @@ Thumbs.db
 report-ui
 tools
 .claude
+.superpowers/
+*.lscache
+.agents/
+skills-lock.json
+game-libs/

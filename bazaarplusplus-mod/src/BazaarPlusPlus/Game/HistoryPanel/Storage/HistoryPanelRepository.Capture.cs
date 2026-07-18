@@ -1,5 +1,4 @@
 #nullable enable
-using BazaarPlusPlus.Game.HistoryPanel.Data;
 using BazaarPlusPlus.Game.PvpBattles;
 using BazaarPlusPlus.Storage;
 using Newtonsoft.Json;

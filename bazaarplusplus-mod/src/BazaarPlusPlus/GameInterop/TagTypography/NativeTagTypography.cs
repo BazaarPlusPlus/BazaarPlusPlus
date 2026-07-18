@@ -1,9 +1,6 @@
 #nullable enable
-using System;
-using System.Collections.Generic;
 using System.Reflection;
 using BazaarGameShared.Domain.Core.Types;
-using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Localization;
 using HarmonyLib;
 using TheBazaar;
@@ -24,17 +21,11 @@ namespace BazaarPlusPlus.GameInterop.TagTypography;
 /// </summary>
 internal static class NativeTagTypography
 {
-    private static readonly LocalizedTextSet ReferenceSuffixText = new(
-        " Related",
-        "相关",
-        "相關",
-        "相關"
-    );
+    private static readonly LocalizedTextSet ReferenceSuffixText = new(" Related", "相关", "相關");
 
     private static readonly LocalizedTextSet EconomyReferenceBaseText = new(
         "Economy",
         "经济",
-        "經濟",
         "經濟"
     );
 
@@ -52,7 +43,7 @@ internal static class NativeTagTypography
     // reference a natural invalidation key) plus the mod-side language code. Results resolved
     // while typography is null are NOT cached, so the table self-heals once the game's async
     // typography registration completes. The BPP Chinese script mode is deliberately NOT part
-    // of the key: tag labels show the game's native zh-CN text as-is in Taiwan/HongKong modes
+    // of the key: tag labels show the game's native zh-CN text as-is in Taiwan mode
     // (per-character conversion of game vocabulary was judged worse than the script mismatch).
     private static readonly Dictionary<string, NativeTagDisplay> Cache = new(
         StringComparer.Ordinal
@@ -63,6 +54,7 @@ internal static class NativeTagTypography
     // One-time fail-closed switch for the reflection path (game update renamed the member or
     // changed its shape): labels keep flowing through the game string table, colors are lost.
     private static bool _configurationPathBroken;
+    private static NativeTagTypographyFailure? _pendingFailure;
 
     /// <summary>True once the game's async typography registration has completed (or after a
     /// locale change rebuilt the instance). While false, <see cref="Resolve(string)"/> degrades
@@ -87,6 +79,13 @@ internal static class NativeTagTypography
 
     public static NativeTagDisplay Resolve(string key) =>
         Resolve(key, aliasKey: null, overrideConfigurationStyle: false);
+
+    internal static bool TryTakeFailure(out NativeTagTypographyFailure failure)
+    {
+        failure = _pendingFailure!;
+        _pendingFailure = null;
+        return failure != null;
+    }
 
     private static NativeTagDisplay Resolve(
         string key,
@@ -179,43 +178,24 @@ internal static class NativeTagTypography
     )
     {
         referenceDisplay = default;
-        if (!TryGetReferenceBaseTag(tag, out var baseTag))
+        if (!ReferenceTagBaseResolver.TryResolve(tag, out var referenceBase))
             return false;
 
-        var baseDisplay = Resolve(baseTag);
-        var label = ReferenceLabel(tag, baseDisplay.Label);
-        referenceDisplay = new NativeTagDisplay(label, baseDisplay.AccentColor, baseDisplay.IconName);
-        return true;
-    }
+        NativeTagDisplay baseDisplay;
+        if (referenceBase.HiddenTag.HasValue)
+            baseDisplay = Resolve(referenceBase.HiddenTag.Value);
+        else if (referenceBase.CardTag.HasValue)
+            baseDisplay = Resolve(referenceBase.CardTag.Value);
+        else
+            return false;
 
-    private static bool TryGetReferenceBaseTag(EHiddenTag tag, out EHiddenTag baseTag)
-    {
-        baseTag = tag switch
-        {
-            EHiddenTag.DamageReference => EHiddenTag.Damage,
-            EHiddenTag.HealReference => EHiddenTag.Heal,
-            EHiddenTag.BurnReference => EHiddenTag.Burn,
-            EHiddenTag.PoisonReference => EHiddenTag.Poison,
-            EHiddenTag.JoyReference => EHiddenTag.Joy,
-            EHiddenTag.ShieldReference => EHiddenTag.Shield,
-            EHiddenTag.RegenReference => EHiddenTag.Regen,
-            EHiddenTag.HealthReference => EHiddenTag.Health,
-            EHiddenTag.FreezeReference => EHiddenTag.Freeze,
-            EHiddenTag.HasteReference => EHiddenTag.Haste,
-            EHiddenTag.SlowReference => EHiddenTag.Slow,
-            EHiddenTag.EconomyReference => EHiddenTag.Income,
-            EHiddenTag.CooldownReference => EHiddenTag.Cooldown,
-            EHiddenTag.AmmoReference => EHiddenTag.Ammo,
-            EHiddenTag.CritReference => EHiddenTag.Crit,
-            EHiddenTag.QuestReference => EHiddenTag.Quest,
-            EHiddenTag.FlyingReference => EHiddenTag.Flying,
-            EHiddenTag.RageReference => EHiddenTag.Rage,
-            EHiddenTag.HeatedReference => EHiddenTag.Heated,
-            EHiddenTag.ChilledReference => EHiddenTag.Chilled,
-            EHiddenTag.TempoReference => EHiddenTag.Tempo,
-            _ => tag,
-        };
-        return baseTag != tag;
+        var label = ReferenceLabel(tag, baseDisplay.Label);
+        referenceDisplay = new NativeTagDisplay(
+            label,
+            baseDisplay.AccentColor,
+            baseDisplay.IconName
+        );
+        return true;
     }
 
     private static string ReferenceLabel(EHiddenTag tag, string baseLabel)
@@ -254,7 +234,8 @@ internal static class NativeTagTypography
         if (GetConfigurationMethod == null)
         {
             ReportConfigurationPathBroken(
-                "TooltipTypography.GetConfiguration(string) was not found via reflection."
+                NativeTagTypographyFailureReason.ConfigurationMethodUnavailable,
+                exception: null
             );
             return null;
         }
@@ -267,20 +248,21 @@ internal static class NativeTagTypography
         catch (Exception ex)
         {
             ReportConfigurationPathBroken(
-                $"TooltipTypography.GetConfiguration(string) invocation failed: {ex.Message}"
+                NativeTagTypographyFailureReason.ConfigurationInvocationException,
+                ex
             );
             return null;
         }
     }
 
     // Only reachable while the broken flag is still unset, so this warns exactly once.
-    private static void ReportConfigurationPathBroken(string reason)
+    private static void ReportConfigurationPathBroken(
+        NativeTagTypographyFailureReason reason,
+        Exception? exception
+    )
     {
         _configurationPathBroken = true;
-        BppLog.Warn(
-            "NativeTagTypography",
-            $"{reason} Tag labels fall back to the game string table without keyword colors."
-        );
+        _pendingFailure = new NativeTagTypographyFailure(reason, exception);
     }
 
     private static string LocalizeConfiguredText(
@@ -313,4 +295,25 @@ internal static class NativeTagTypography
             return key;
         }
     }
+}
+
+internal enum NativeTagTypographyFailureReason
+{
+    ConfigurationMethodUnavailable,
+    ConfigurationInvocationException,
+}
+
+internal sealed class NativeTagTypographyFailure
+{
+    internal NativeTagTypographyFailure(
+        NativeTagTypographyFailureReason reason,
+        Exception? exception
+    )
+    {
+        Reason = reason;
+        Exception = exception;
+    }
+
+    internal NativeTagTypographyFailureReason Reason { get; }
+    internal Exception? Exception { get; }
 }

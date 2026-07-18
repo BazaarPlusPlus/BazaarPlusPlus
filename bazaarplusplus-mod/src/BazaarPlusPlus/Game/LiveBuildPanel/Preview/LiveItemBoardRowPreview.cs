@@ -1,6 +1,8 @@
 #nullable enable
 
 using System.Collections;
+using BazaarPlusPlus.Game.Tooltips;
+using BazaarPlusPlus.GameInterop.CardPreview;
 using BazaarPlusPlus.GameInterop.ItemBoardPreview;
 using UnityEngine;
 
@@ -12,16 +14,24 @@ internal sealed class LiveItemBoardRowPreview
     private Rect _bounds;
     private bool _hasBounds;
 
-    public LiveItemBoardRowPreview(BppItemBoardId id, int layer, int sortingOrder)
+    public LiveItemBoardRowPreview(
+        INativeCardPreviewHost nativeCardPreviewHost,
+        BppItemBoardId id,
+        int layer,
+        int sortingOrder
+    )
     {
         _preview = new BppItemBoardPreview(
+            nativeCardPreviewHost,
             new ItemBoardPreviewOptions
             {
                 Layer = layer,
                 SortingOrder = sortingOrder,
                 LayoutMode = ItemBoardPreviewLayoutMode.SlotGrid,
                 ShowHover = true,
-                LogComponent = $"LiveBuildPanel:{id}",
+                CardPreviewFailureReporter = LiveBuildPreviewLogWriter.ReportCardPreview,
+                HoverFailureReporter = TooltipCardPreviewLogWriter.Reporter,
+                ItemBoardFailureReporter = LiveBuildPreviewLogWriter.ReportItemBoard,
             }
         );
     }

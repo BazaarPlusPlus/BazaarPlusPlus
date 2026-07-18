@@ -14,6 +14,7 @@ internal enum CollectionSourceHeroMode
     AllHeroes,
     FixedHero,
     NeutralOnly,
+    OtherHeroes,
 }
 
 internal enum CollectionSourceStartingTierMode

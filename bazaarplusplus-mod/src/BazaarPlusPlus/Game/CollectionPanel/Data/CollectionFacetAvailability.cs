@@ -1,7 +1,6 @@
 #nullable enable
-using System;
-using System.Collections.Generic;
 using BazaarGameShared.Domain.Core.Types;
+using BazaarPlusPlus.Game.CardTags;
 
 namespace BazaarPlusPlus.Game.CollectionPanel.Data;
 
@@ -73,50 +72,10 @@ internal static class CollectionFacetAvailability
         );
     }
 
-    public static IReadOnlyList<ECardTag> TagsFor(
-        IReadOnlyList<CollectionCardVm> cards,
-        ECardType type
-    )
-    {
-        if (cards.Count == 0)
-            return Array.Empty<ECardTag>();
-
-        var present = new HashSet<ECardTag>();
-        foreach (var card in cards)
-        {
-            if (!IsFacetSource(card, type))
-                continue;
-            foreach (var tag in card.Tags)
-                present.Add(tag);
-        }
-
-        return OrderedTags(present);
-    }
-
-    public static IReadOnlyList<EHiddenTag> KeywordsFor(
-        IReadOnlyList<CollectionCardVm> cards,
-        ECardType type
-    )
-    {
-        if (cards.Count == 0)
-            return Array.Empty<EHiddenTag>();
-
-        var present = new HashSet<EHiddenTag>();
-        foreach (var card in cards)
-        {
-            if (!IsFacetSource(card, type))
-                continue;
-            foreach (var keyword in card.HiddenTags)
-                present.Add(keyword);
-        }
-
-        return OrderedKeywords(present);
-    }
-
     private static IReadOnlyList<ECardTag> OrderedTags(HashSet<ECardTag> present)
     {
-        var available = new List<ECardTag>(CollectionTagWhitelist.Ordered.Count);
-        foreach (var tag in CollectionTagWhitelist.Ordered)
+        var available = new List<ECardTag>(PlayerFacingCardTags.Ordered.Count);
+        foreach (var tag in PlayerFacingCardTags.Ordered)
             if (present.Contains(tag))
                 available.Add(tag);
         return available;
@@ -130,7 +89,4 @@ internal static class CollectionFacetAvailability
                 available.Add(keyword);
         return available;
     }
-
-    private static bool IsFacetSource(CollectionCardVm card, ECardType type) =>
-        card.Type == type && !card.IsPackage;
 }

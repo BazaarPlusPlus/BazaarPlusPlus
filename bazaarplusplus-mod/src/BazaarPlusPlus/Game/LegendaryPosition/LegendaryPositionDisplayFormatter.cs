@@ -1,5 +1,4 @@
 #nullable enable
-using System;
 using BazaarPlusPlus.Core.Config;
 using BazaarPlusPlus.GameInterop;
 

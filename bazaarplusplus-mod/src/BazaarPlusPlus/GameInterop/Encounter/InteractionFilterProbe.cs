@@ -1,7 +1,6 @@
 #nullable enable
-using System;
 using System.Reflection;
-using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Core.GameState;
 using HarmonyLib;
 using TheBazaar;
 
@@ -19,9 +18,8 @@ internal static class InteractionFilterProbe
     private static readonly string[] EmptyArray = System.Array.Empty<string>();
 
     /// <summary>Main thread only. Returns the current filter as an immutable
-    /// snapshot. Empty result means either no filter is active or reflection
-    /// couldn't reach the field; callers treat both the same.</summary>
-    public static System.Collections.Generic.IReadOnlyList<string> ReadCurrentFilter()
+    /// snapshot and preserves reflection failures as a typed outcome.</summary>
+    public static InteractionFilterProbeOutcome ReadCurrentFilter()
     {
         try
         {
@@ -31,27 +29,53 @@ internal static class InteractionFilterProbe
                 _filterField = AccessTools.Field(typeof(AppState), "_iteractionFilter");
                 if (_filterField is null)
                 {
-                    BppLog.Info(
-                        "Encounter",
-                        "AppState._iteractionFilter field not found via reflection"
+                    return InteractionFilterProbeOutcome.Failure(
+                        EncounterProbeFailureReason.InteractionFilterReflectionUnavailable,
+                        exception: null
                     );
                 }
             }
             if (_filterField is null)
-                return EmptyArray;
-            if (_filterField.GetValue(null) is not System.Collections.IList list)
-                return EmptyArray;
+                return InteractionFilterProbeOutcome.Failure(
+                    EncounterProbeFailureReason.InteractionFilterReflectionUnavailable,
+                    exception: null
+                );
+            if (
+                !EncounterReflectionCollection.TryGetList(_filterField.GetValue(null), out var list)
+            )
+                return InteractionFilterProbeOutcome.Failure(
+                    EncounterProbeFailureReason.InteractionFilterReflectionUnavailable,
+                    exception: null
+                );
             if (list.Count == 0)
-                return EmptyArray;
+                return InteractionFilterProbeOutcome.Success(EmptyArray);
             var copy = new string[list.Count];
             for (var i = 0; i < list.Count; i++)
                 copy[i] = list[i]?.ToString() ?? "";
-            return copy;
+            return InteractionFilterProbeOutcome.Success(copy);
         }
         catch (Exception ex)
         {
-            BppLog.Error("Encounter", "ReadCurrentFilter reflection failed", ex);
-            return EmptyArray;
+            return InteractionFilterProbeOutcome.Failure(
+                EncounterProbeFailureReason.InteractionFilterReadException,
+                ex
+            );
         }
     }
+}
+
+internal readonly record struct InteractionFilterProbeOutcome(
+    bool IsSuccess,
+    IReadOnlyList<string> TemplateIds,
+    EncounterProbeFailureReason FailureReason,
+    Exception? Exception
+)
+{
+    internal static InteractionFilterProbeOutcome Success(IReadOnlyList<string> templateIds) =>
+        new(true, templateIds, EncounterProbeFailureReason.None, null);
+
+    internal static InteractionFilterProbeOutcome Failure(
+        EncounterProbeFailureReason reason,
+        Exception? exception
+    ) => new(false, Array.Empty<string>(), reason, exception);
 }

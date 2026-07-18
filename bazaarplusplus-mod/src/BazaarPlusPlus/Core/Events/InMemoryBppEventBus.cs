@@ -1,8 +1,4 @@
 #nullable enable
-using System;
-using System.Collections.Generic;
-using System.Threading;
-
 namespace BazaarPlusPlus.Core.Events;
 
 internal sealed class InMemoryBppEventBus : IBppEventBus
@@ -61,15 +57,18 @@ internal sealed class InMemoryBppEventBus : IBppEventBus
             }
             catch (Exception ex)
             {
-                var method = registration.Method;
-                var handlerName =
-                    method.DeclaringType?.FullName != null
-                        ? $"{method.DeclaringType.FullName}.{method.Name}"
-                        : method.Name;
-                global::BazaarPlusPlus.Infrastructure.BppLog.Error(
-                    "EventBus",
-                    $"Handler failed for event {typeof(TEvent).FullName}: {handlerName}",
-                    ex
+                global::BazaarPlusPlus.Infrastructure.BppLog.WarnEvent(
+                    global::BazaarPlusPlus.PluginLogEvents.EventHandlerDegraded,
+                    ex,
+                    global::BazaarPlusPlus.PluginLogEvents.EventHandlerDegradedEventId.Bind(
+                        global::BazaarPlusPlus.PluginLogIdentity.EventId(typeof(TEvent))
+                    ),
+                    global::BazaarPlusPlus.PluginLogEvents.EventHandlerDegradedHandlerId.Bind(
+                        global::BazaarPlusPlus.PluginLogIdentity.HandlerId(registration.Method)
+                    ),
+                    global::BazaarPlusPlus.PluginLogEvents.EventHandlerDegradedReasonCode.Bind(
+                        global::BazaarPlusPlus.PluginLogReasonCode.HandlerException
+                    )
                 );
             }
         }

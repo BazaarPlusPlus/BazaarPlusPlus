@@ -1,29 +1,13 @@
 #nullable enable
-using System;
-
 namespace BazaarPlusPlus.Localization;
 
 internal readonly struct LocalizedTextSet
 {
     internal LocalizedTextSet(string english, string chineseMainland)
-        : this(english, chineseMainland, null, null, english, english, english, english) { }
+        : this(english, chineseMainland, null, english, english, english, english) { }
 
-    internal LocalizedTextSet(
-        string english,
-        string chineseMainland,
-        string chineseTaiwan,
-        string chineseHongKong
-    )
-        : this(
-            english,
-            chineseMainland,
-            chineseTaiwan,
-            chineseHongKong,
-            english,
-            english,
-            english,
-            english
-        ) { }
+    internal LocalizedTextSet(string english, string chineseMainland, string chineseTraditional)
+        : this(english, chineseMainland, chineseTraditional, english, english, english, english) { }
 
     internal LocalizedTextSet(
         string english,
@@ -33,13 +17,12 @@ internal readonly struct LocalizedTextSet
         string korean,
         string italian
     )
-        : this(english, chineseMainland, null, null, german, portuguese, korean, italian) { }
+        : this(english, chineseMainland, null, german, portuguese, korean, italian) { }
 
     internal LocalizedTextSet(
         string english,
         string chineseMainland,
-        string? chineseTaiwan,
-        string? chineseHongKong,
+        string? chineseTraditional,
         string german,
         string portuguese,
         string korean,
@@ -49,8 +32,7 @@ internal readonly struct LocalizedTextSet
         English = english ?? throw new ArgumentNullException(nameof(english));
         ChineseMainland =
             chineseMainland ?? throw new ArgumentNullException(nameof(chineseMainland));
-        ChineseTaiwan = chineseTaiwan;
-        ChineseHongKong = chineseHongKong;
+        ChineseTraditional = chineseTraditional;
         German = german ?? throw new ArgumentNullException(nameof(german));
         Portuguese = portuguese ?? throw new ArgumentNullException(nameof(portuguese));
         Korean = korean ?? throw new ArgumentNullException(nameof(korean));
@@ -61,9 +43,7 @@ internal readonly struct LocalizedTextSet
 
     internal string ChineseMainland { get; }
 
-    internal string? ChineseTaiwan { get; }
-
-    internal string? ChineseHongKong { get; }
+    internal string? ChineseTraditional { get; }
 
     internal string German { get; }
 
@@ -77,12 +57,7 @@ internal readonly struct LocalizedTextSet
     {
         if (LanguageCodeMatcher.IsChinese(languageCode))
         {
-            return ChineseScriptConverter.Convert(
-                ChineseMainland,
-                ChineseTaiwan,
-                ChineseHongKong,
-                mode
-            );
+            return ChineseScriptConverter.Convert(ChineseMainland, ChineseTraditional, mode);
         }
 
         if (LanguageCodeMatcher.IsGerman(languageCode))

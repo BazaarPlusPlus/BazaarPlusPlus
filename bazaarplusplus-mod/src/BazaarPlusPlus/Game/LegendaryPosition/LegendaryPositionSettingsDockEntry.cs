@@ -5,43 +5,41 @@ using BazaarPlusPlus.Localization;
 
 namespace BazaarPlusPlus.Game.LegendaryPosition;
 
-internal sealed class LegendaryPositionSettingsDockEntry : ISettingsDockEntry
+internal static class LegendaryPositionSettingsDockEntry
 {
-    public int Order => BppSettingsDockOrder.LegendaryPosition;
-
-    public BppSettingsDockDefinition Build(IBppConfig config) =>
-        new(
+    internal static CyclingSettingsDockEntry<LegendaryPositionDisplayMode> Create(
+        Action? refreshUi = null
+    ) =>
+        new CyclingSettingsDockEntry<LegendaryPositionDisplayMode>(
+            BppSettingsDockOrder.LegendaryPosition,
             "LegendaryPositionDisplay",
             LegendaryPositionSettingsMenuLabel.Resolve,
-            languageCode => ResolveStatus(ReadMode(config), languageCode),
-            () => IsOverrideActive(config),
-            () => CycleMode(config),
-            collapseAfterActivate: false
-        );
-
-    private static LegendaryPositionDisplayMode ReadMode(IBppConfig config) =>
-        config.LegendaryPositionDisplayModeConfig?.Value ?? LegendaryPositionDisplayMode.Default;
-
-    private static bool IsOverrideActive(IBppConfig config) =>
-        ReadMode(config) != LegendaryPositionDisplayMode.Default;
-
-    private static void CycleMode(IBppConfig config)
-    {
-        var entry = config.LegendaryPositionDisplayModeConfig;
-        if (entry == null)
-            return;
-
-        entry.Value = entry.Value switch
-        {
-            LegendaryPositionDisplayMode.Default => LegendaryPositionDisplayMode.Blank,
-            LegendaryPositionDisplayMode.Blank => LegendaryPositionDisplayMode.Fixed999999,
-            LegendaryPositionDisplayMode.Fixed999999 =>
+            new[]
+            {
+                LegendaryPositionDisplayMode.Default,
+                LegendaryPositionDisplayMode.Blank,
+                LegendaryPositionDisplayMode.Fixed999999,
                 LegendaryPositionDisplayMode.PositionWithRating,
-            _ => LegendaryPositionDisplayMode.Default,
-        };
-
-        LegendaryPositionUiRefresh.TryRefreshVisibleDisplays();
-    }
+            },
+            config =>
+                config.LegendaryPositionDisplayModeConfig?.Value
+                ?? LegendaryPositionDisplayMode.Default,
+            (config, mode) =>
+            {
+                var entry = config.LegendaryPositionDisplayModeConfig;
+                if (entry != null)
+                    entry.Value = mode;
+            },
+            mode => mode != LegendaryPositionDisplayMode.Default,
+            ResolveStatus,
+            onChanged: _ =>
+            {
+                if (refreshUi != null)
+                    refreshUi();
+                else
+                    LegendaryPositionUiRefresh.TryRefreshVisibleDisplays();
+            }
+        );
 
     private static string ResolveStatus(LegendaryPositionDisplayMode mode, string languageCode)
     {

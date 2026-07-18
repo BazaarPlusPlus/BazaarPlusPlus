@@ -1,18 +1,24 @@
 #nullable enable
-using System;
+using BazaarPlusPlus.Core.GameState;
 using BazaarPlusPlus.Storage.RunLog;
 
 namespace BazaarPlusPlus.Game.RunLogging;
 
-public sealed class RunLogSessionManager
+internal sealed class RunLogSessionManager
 {
     private readonly IRunLogStore _store;
     private readonly Func<DateTimeOffset> _utcNow;
+    private readonly Func<PlayerStatsSnapshot?>? _statsProvider;
 
-    public RunLogSessionManager(IRunLogStore store, Func<DateTimeOffset>? utcNow = null)
+    public RunLogSessionManager(
+        IRunLogStore store,
+        Func<DateTimeOffset>? utcNow = null,
+        Func<PlayerStatsSnapshot?>? statsProvider = null
+    )
     {
         _store = store ?? throw new ArgumentNullException(nameof(store));
         _utcNow = utcNow ?? (() => DateTimeOffset.UtcNow);
+        _statsProvider = statsProvider;
     }
 
     public RunLogSessionState? ActiveSession { get; private set; }
@@ -80,7 +86,8 @@ public sealed class RunLogSessionManager
     {
         var session =
             ActiveSession ?? throw new InvalidOperationException("No active run session.");
-        if (RunLoggingGameDataReader.TryBuildRunLogPlayerStats(out var stats))
+        var stats = _statsProvider?.Invoke();
+        if (stats != null)
         {
             session.MaxHealth = stats.MaxHealth;
             session.Prestige = stats.Prestige;

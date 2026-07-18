@@ -1,6 +1,8 @@
 #pragma warning disable CS0436
 #nullable enable
-using System;
+using System.Diagnostics;
+using System.Runtime.CompilerServices;
+using BazaarPlusPlus.Game.Settings;
 using BazaarPlusPlus.Infrastructure;
 using UnityEngine;
 using UnityEngine.UI;
@@ -10,6 +12,7 @@ namespace BazaarPlusPlus.Patches.Settings;
 internal static class SettingsMenuLayoutUtility
 {
     private const float FallbackSpacing = 8f;
+    private static readonly ConditionalWeakTable<Transform, LayoutSnapshot> LastLayouts = new();
 
     internal static void Rebuild(RectTransform rectTransform)
     {
@@ -21,7 +24,12 @@ internal static class SettingsMenuLayoutUtility
         }
     }
 
-    internal static void ArrangeRow(Transform anchorRow, Transform cloneRow)
+    internal static void ArrangeRow(
+        Transform anchorRow,
+        Transform cloneRow,
+        SettingsRowId rowId,
+        bool emitObservation
+    )
     {
         if (anchorRow == null || cloneRow == null)
             return;
@@ -34,8 +42,20 @@ internal static class SettingsMenuLayoutUtility
 
         if (HasAutomaticLayout(parentRect))
         {
-            BppLog.Debug("SettingsMenu", $"Using automatic layout for {cloneRow.name}");
             Rebuild(parentRect);
+            if (emitObservation)
+            {
+                var automaticRect = cloneRow as RectTransform;
+                ReportLayout(
+                    cloneRow,
+                    SettingsRowLayoutMode.Automatic,
+                    rowId,
+                    GetAdditionalRowIndex(parentRect, anchorRow, cloneRow) + 1,
+                    0f,
+                    automaticRect?.anchoredPosition.x ?? 0f,
+                    automaticRect?.anchoredPosition.y ?? 0f
+                );
+            }
             return;
         }
 
@@ -59,11 +79,93 @@ internal static class SettingsMenuLayoutUtility
         cloneRect.localScale = anchorRect.localScale;
         cloneRect.localRotation = anchorRect.localRotation;
 
-        BppLog.Info(
-            "SettingsMenu",
-            $"Positioned {cloneRow.name} below {anchorRow.name}: index={additionalIndex + 1}, step={step:F1}, position={cloneRect.anchoredPosition}"
-        );
+        if (emitObservation)
+        {
+            ReportLayout(
+                cloneRow,
+                SettingsRowLayoutMode.Manual,
+                rowId,
+                additionalIndex + 1,
+                step,
+                cloneRect.anchoredPosition.x,
+                cloneRect.anchoredPosition.y
+            );
+        }
         ExpandParentIfNeeded(parentRect, anchorRect, step, additionalIndex + 1);
+    }
+
+    [Conditional("DEBUG")]
+    private static void ReportLayout(
+        Transform cloneRow,
+        SettingsRowLayoutMode mode,
+        SettingsRowId rowId,
+        int additionalIndex,
+        float step,
+        float positionX,
+        float positionY
+    )
+    {
+        var snapshot = LastLayouts.GetOrCreateValue(cloneRow);
+        if (snapshot.Matches(mode, rowId, additionalIndex, step, positionX, positionY))
+            return;
+        snapshot.Set(mode, rowId, additionalIndex, step, positionX, positionY);
+        BppLog.DebugEvent(
+            SettingsLogEvents.RowLayoutApplied,
+            () =>
+                [
+                    SettingsLogEvents.RowLayoutAppliedLayoutMode.Bind(mode),
+                    SettingsLogEvents.RowLayoutAppliedRowId.Bind(rowId),
+                    SettingsLogEvents.RowLayoutAppliedAdditionalIndex.Bind(additionalIndex),
+                    SettingsLogEvents.RowLayoutAppliedStepPx.Bind(step),
+                    SettingsLogEvents.RowLayoutAppliedPositionXPx.Bind(positionX),
+                    SettingsLogEvents.RowLayoutAppliedPositionYPx.Bind(positionY),
+                ]
+        );
+    }
+
+    private sealed class LayoutSnapshot
+    {
+        private bool _initialized;
+        private SettingsRowLayoutMode _mode;
+        private SettingsRowId _rowId;
+        private int _additionalIndex;
+        private float _step;
+        private float _positionX;
+        private float _positionY;
+
+        internal bool Matches(
+            SettingsRowLayoutMode mode,
+            SettingsRowId rowId,
+            int additionalIndex,
+            float step,
+            float positionX,
+            float positionY
+        ) =>
+            _initialized
+            && _mode == mode
+            && _rowId == rowId
+            && _additionalIndex == additionalIndex
+            && Math.Abs(_step - step) < 0.01f
+            && Math.Abs(_positionX - positionX) < 0.01f
+            && Math.Abs(_positionY - positionY) < 0.01f;
+
+        internal void Set(
+            SettingsRowLayoutMode mode,
+            SettingsRowId rowId,
+            int additionalIndex,
+            float step,
+            float positionX,
+            float positionY
+        )
+        {
+            _initialized = true;
+            _mode = mode;
+            _rowId = rowId;
+            _additionalIndex = additionalIndex;
+            _step = step;
+            _positionX = positionX;
+            _positionY = positionY;
+        }
     }
 
     private static bool HasAutomaticLayout(RectTransform rectTransform)

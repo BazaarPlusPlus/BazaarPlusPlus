@@ -1,7 +1,4 @@
 #nullable enable
-using System;
-using System.IO;
-
 namespace BazaarPlusPlus.Game.CombatReplay.Audio;
 
 /// <summary>

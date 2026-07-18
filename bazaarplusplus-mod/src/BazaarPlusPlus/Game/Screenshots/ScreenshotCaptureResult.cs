@@ -1,5 +1,4 @@
 #nullable enable
-using System;
 using BazaarPlusPlus.Storage.RunScreenshot;
 
 namespace BazaarPlusPlus.Game.Screenshots;

@@ -1,9 +1,7 @@
 #pragma warning disable CS0436
 #nullable enable
 using BazaarPlusPlus.Game.Tooltips;
-using BazaarPlusPlus.Patches;
 using HarmonyLib;
-using TheBazaar;
 
 namespace BazaarPlusPlus.Patches.Tooltips;
 

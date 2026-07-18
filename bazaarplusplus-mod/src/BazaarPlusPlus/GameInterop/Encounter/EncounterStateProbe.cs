@@ -1,9 +1,6 @@
 #nullable enable
-using System;
-using System.Collections.Generic;
 using BazaarGameShared.Domain.Core;
 using BazaarPlusPlus.Core.GameState;
-using BazaarPlusPlus.Infrastructure;
 using TheBazaar;
 using UnityEngine;
 
@@ -11,67 +8,109 @@ namespace BazaarPlusPlus.GameInterop.Encounter;
 
 /// <summary>Read-only encounter state module. Keep the id and choice reads cheap;
 /// target-selection reads are isolated behind <see cref="GetTargetingState"/>.</summary>
-internal sealed class EncounterStateProbe : IEncounterStateProbe
+internal sealed class EncounterStateProbe : IEncounterStateProbe, ITypedEncounterStateProbe
 {
     private int _encounterIdsFrame = int.MinValue;
     private int _choicePedestalFrame = int.MinValue;
     private int _targetingFrame = int.MinValue;
-    private EncounterIdsSnapshot _encounterIdsSnapshot = EncounterIdsSnapshot.Empty;
-    private ChoicePedestalSnapshot _choicePedestalSnapshot = ChoicePedestalSnapshot.Empty;
-    private EncounterTargetingSnapshot _targetingSnapshot = EncounterTargetingSnapshot.Empty;
+    private EncounterIdsProbeOutcome _encounterIdsOutcome = EncounterIdsProbeOutcome.Success(
+        EncounterIdsSnapshot.Empty
+    );
+    private ChoicePedestalProbeOutcome _choicePedestalOutcome = ChoicePedestalProbeOutcome.Success(
+        ChoicePedestalSnapshot.Empty
+    );
+    private EncounterTargetingProbeOutcome _targetingOutcome =
+        EncounterTargetingProbeOutcome.Success(EncounterTargetingSnapshot.Empty);
 
     public EncounterIdsSnapshot GetEncounterIds()
     {
+        return GetEncounterIdsOutcome().Snapshot;
+    }
+
+    public EncounterIdsProbeOutcome GetEncounterIdsOutcome()
+    {
         var frame = Time.frameCount;
         if (_encounterIdsFrame == frame)
-            return _encounterIdsSnapshot;
+            return _encounterIdsOutcome;
 
-        _encounterIdsSnapshot = ReadEncounterIds();
+        _encounterIdsOutcome = ReadEncounterIds();
         _encounterIdsFrame = frame;
-        return _encounterIdsSnapshot;
+        return _encounterIdsOutcome;
     }
 
     public ChoicePedestalSnapshot GetChoicePedestal()
     {
+        return GetChoicePedestalOutcome().Snapshot;
+    }
+
+    public ChoicePedestalProbeOutcome GetChoicePedestalOutcome()
+    {
         var frame = Time.frameCount;
         if (_choicePedestalFrame == frame)
-            return _choicePedestalSnapshot;
+            return _choicePedestalOutcome;
 
-        var ids = GetEncounterIds();
-        if (!ids.IsSelectionState)
+        try
         {
-            _choicePedestalSnapshot =
-                AppState.CurrentState is PedestalState && ids.CurrentEncounterTemplateId.HasValue
-                    ? CreateChoicePedestalSnapshot(
-                        ChoiceScreenPedestalResolver.ResolveDetailedFromTemplateIds(
-                            new[] { ids.CurrentEncounterTemplateId.Value }
+            var idsOutcome = GetEncounterIdsOutcome();
+            if (!idsOutcome.IsSuccess)
+            {
+                _choicePedestalOutcome = ChoicePedestalProbeOutcome.Failure(
+                    idsOutcome.FailureReason,
+                    idsOutcome.Exception
+                );
+            }
+            else if (!idsOutcome.Snapshot.IsSelectionState)
+            {
+                _choicePedestalOutcome = ChoicePedestalProbeOutcome.Success(
+                    AppState.CurrentState is PedestalState
+                    && idsOutcome.Snapshot.CurrentEncounterTemplateId.HasValue
+                        ? CreateChoicePedestalSnapshot(
+                            ChoiceScreenPedestalResolver.ResolveDetailedFromTemplateIds(
+                                new[] { idsOutcome.Snapshot.CurrentEncounterTemplateId.Value }
+                            )
                         )
-                    )
-                    : ChoicePedestalSnapshot.Empty;
-            _choicePedestalFrame = frame;
-            return _choicePedestalSnapshot;
+                        : ChoicePedestalSnapshot.Empty
+                );
+            }
+            else
+            {
+                var choice = ChoiceScreenPedestalResolver.ResolveDetailedFromTemplateIds(
+                    idsOutcome.Snapshot.ChoiceSelectionTemplateIds
+                );
+                _choicePedestalOutcome = ChoicePedestalProbeOutcome.Success(
+                    CreateChoicePedestalSnapshot(choice)
+                );
+            }
+        }
+        catch (Exception ex)
+        {
+            _choicePedestalOutcome = ChoicePedestalProbeOutcome.Failure(
+                EncounterProbeFailureReason.ChoiceResolutionException,
+                ex
+            );
         }
 
-        var choice = ChoiceScreenPedestalResolver.ResolveDetailedFromTemplateIds(
-            ids.ChoiceSelectionTemplateIds
-        );
-        _choicePedestalSnapshot = CreateChoicePedestalSnapshot(choice);
         _choicePedestalFrame = frame;
-        return _choicePedestalSnapshot;
+        return _choicePedestalOutcome;
     }
 
     public EncounterTargetingSnapshot GetTargetingState()
     {
-        var frame = Time.frameCount;
-        if (_targetingFrame == frame)
-            return _targetingSnapshot;
-
-        _targetingSnapshot = ReadTargetingState();
-        _targetingFrame = frame;
-        return _targetingSnapshot;
+        return GetTargetingStateOutcome().Snapshot;
     }
 
-    private static EncounterIdsSnapshot ReadEncounterIds()
+    public EncounterTargetingProbeOutcome GetTargetingStateOutcome()
+    {
+        var frame = Time.frameCount;
+        if (_targetingFrame == frame)
+            return _targetingOutcome;
+
+        _targetingOutcome = ReadTargetingState();
+        _targetingFrame = frame;
+        return _targetingOutcome;
+    }
+
+    private static EncounterIdsProbeOutcome ReadEncounterIds()
     {
         try
         {
@@ -90,15 +129,17 @@ internal sealed class EncounterStateProbe : IEncounterStateProbe
                 || runState.SelectionSet.Count == 0
             )
             {
-                return new EncounterIdsSnapshot
-                {
-                    CurrentEncounterId = currentEncounterId,
-                    CurrentEncounterTemplateId = currentEncounterTemplateId,
-                    IsChoiceState = isChoiceState,
-                    IsSelectionState = isSelectionState,
-                    ChoiceSelectionEntryIds = Array.Empty<string>(),
-                    ChoiceSelectionTemplateIds = Array.Empty<Guid>(),
-                };
+                return EncounterIdsProbeOutcome.Success(
+                    new EncounterIdsSnapshot
+                    {
+                        CurrentEncounterId = currentEncounterId,
+                        CurrentEncounterTemplateId = currentEncounterTemplateId,
+                        IsChoiceState = isChoiceState,
+                        IsSelectionState = isSelectionState,
+                        ChoiceSelectionEntryIds = Array.Empty<string>(),
+                        ChoiceSelectionTemplateIds = Array.Empty<Guid>(),
+                    }
+                );
             }
 
             var entryIds = new List<string>(runState.SelectionSet.Count);
@@ -114,47 +155,69 @@ internal sealed class EncounterStateProbe : IEncounterStateProbe
                     templateIds.Add(templateId.Value);
             }
 
-            return new EncounterIdsSnapshot
-            {
-                CurrentEncounterId = currentEncounterId,
-                CurrentEncounterTemplateId = currentEncounterTemplateId,
-                IsChoiceState = isChoiceState,
-                IsSelectionState = true,
-                ChoiceSelectionEntryIds =
-                    entryIds.Count == 0 ? Array.Empty<string>() : entryIds.ToArray(),
-                ChoiceSelectionTemplateIds =
-                    templateIds.Count == 0 ? Array.Empty<Guid>() : templateIds.ToArray(),
-            };
+            return EncounterIdsProbeOutcome.Success(
+                new EncounterIdsSnapshot
+                {
+                    CurrentEncounterId = currentEncounterId,
+                    CurrentEncounterTemplateId = currentEncounterTemplateId,
+                    IsChoiceState = isChoiceState,
+                    IsSelectionState = true,
+                    ChoiceSelectionEntryIds =
+                        entryIds.Count == 0 ? Array.Empty<string>() : entryIds.ToArray(),
+                    ChoiceSelectionTemplateIds =
+                        templateIds.Count == 0 ? Array.Empty<Guid>() : templateIds.ToArray(),
+                }
+            );
         }
         catch (Exception ex)
         {
-            BppLog.Error("Encounter", "ReadEncounterIds failed", ex);
-            return EncounterIdsSnapshot.Empty;
+            return EncounterIdsProbeOutcome.Failure(ex);
         }
     }
 
-    private static EncounterTargetingSnapshot ReadTargetingState()
+    private static EncounterTargetingProbeOutcome ReadTargetingState()
     {
         try
         {
             var appState = AppState.CurrentState;
-            var filter = InteractionFilterProbe.ReadCurrentFilter();
-            var isPedestalState = appState is PedestalState;
-            var pedestalEligible = appState is PedestalState ped
-                ? PedestalEligibilityProbe.ReadEligibleInstanceIds(ped)
-                : new HashSet<string>();
-
-            return new EncounterTargetingSnapshot
+            var filterOutcome = InteractionFilterProbe.ReadCurrentFilter();
+            if (!filterOutcome.IsSuccess)
             {
-                InteractionFilterTemplateIds = filter,
-                PedestalEligibleInstanceIds = pedestalEligible,
-                IsPedestalState = isPedestalState,
-            };
+                return EncounterTargetingProbeOutcome.Failure(
+                    filterOutcome.FailureReason,
+                    filterOutcome.Exception
+                );
+            }
+            var isPedestalState = appState is PedestalState;
+            var pedestalEligible = new HashSet<string>();
+            if (appState is PedestalState ped)
+            {
+                var pedestalOutcome = PedestalEligibilityProbe.ReadEligibleInstanceIds(ped);
+                if (!pedestalOutcome.IsSuccess)
+                {
+                    return EncounterTargetingProbeOutcome.Failure(
+                        pedestalOutcome.FailureReason,
+                        pedestalOutcome.Exception
+                    );
+                }
+                pedestalEligible = pedestalOutcome.InstanceIds;
+            }
+
+            return EncounterTargetingProbeOutcome.Success(
+                new EncounterTargetingSnapshot
+                {
+                    InteractionFilterTemplateIds = filterOutcome.TemplateIds,
+                    PedestalEligibleInstanceIds = pedestalEligible,
+                    IsPedestalState = isPedestalState,
+                }
+            );
         }
         catch (Exception ex)
         {
-            BppLog.Error("Encounter", "ReadTargetingState failed", ex);
-            return EncounterTargetingSnapshot.Empty;
+            return EncounterTargetingProbeOutcome.Failure(
+                EncounterProbeFailureReason.TargetingReadException,
+                ex
+            );
         }
     }
 

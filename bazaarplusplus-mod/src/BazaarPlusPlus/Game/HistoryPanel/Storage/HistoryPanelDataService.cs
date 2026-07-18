@@ -1,10 +1,7 @@
 #nullable enable
-using System;
-using System.Collections.Generic;
-using System.Threading;
-using System.Threading.Tasks;
 using BazaarPlusPlus.Game.HistoryPanel.Data;
 using BazaarPlusPlus.Game.HistoryPanel.Ghost;
+using BazaarPlusPlus.Infrastructure;
 
 namespace BazaarPlusPlus.Game.HistoryPanel.Storage;
 
@@ -12,14 +9,23 @@ internal sealed class HistoryPanelDataService
 {
     private readonly HistoryPanelRepository? _repository;
     private readonly GhostBattleSyncService? _ghostSyncService;
+    private readonly Func<string?>? _replayDirectoryPathAccessor;
 
     public HistoryPanelDataService(
         HistoryPanelRepository? repository,
         GhostBattleSyncService? ghostSyncService = null
     )
+        : this(repository, ghostSyncService, replayDirectoryPathAccessor: null) { }
+
+    public HistoryPanelDataService(
+        HistoryPanelRepository? repository,
+        GhostBattleSyncService? ghostSyncService,
+        Func<string?>? replayDirectoryPathAccessor = null
+    )
     {
         _repository = repository;
         _ghostSyncService = ghostSyncService;
+        _replayDirectoryPathAccessor = replayDirectoryPathAccessor;
     }
 
     public bool IsAvailable => _repository != null;
@@ -134,6 +140,8 @@ internal sealed class HistoryPanelDataService
         try
         {
             battles = _repository.ListRecentGhostBattles(limit);
+            if (BackfillDownloadedGhostBattleCounts(battles))
+                battles = _repository.ListRecentGhostBattles(limit);
             statusMessage = HistoryPanelText.LoadedGhostBattles(battles.Count);
             return true;
         }
@@ -145,29 +153,87 @@ internal sealed class HistoryPanelDataService
         }
     }
 
+    private bool BackfillDownloadedGhostBattleCounts(IReadOnlyList<HistoryBattleRecord> battles)
+    {
+        if (_repository == null || battles.Count == 0)
+            return false;
+
+        var replayDirectoryPath = _replayDirectoryPathAccessor?.Invoke();
+        if (string.IsNullOrWhiteSpace(replayDirectoryPath))
+            return false;
+
+        GhostBattlePayloadStore? payloadStore = null;
+        var updated = false;
+        foreach (var battle in battles)
+        {
+            if (
+                battle.Source != HistoryBattleSource.Ghost
+                || !battle.ReplayDownloaded
+                || battle.SnapshotCounts.HasAnyRecordedCard
+            )
+                continue;
+
+            payloadStore ??= new GhostBattlePayloadStore(
+                GhostBattlePayloadStore.ResolveDirectory(replayDirectoryPath)
+            );
+            var loadResult = payloadStore.LoadDetailed(battle.BattleId);
+            if (loadResult.Status != FileBackedPayloadLoadStatus.Loaded)
+                continue;
+
+            var snapshots = loadResult.Payload?.BattleManifest?.Snapshots;
+            if (snapshots == null)
+                continue;
+
+            var counts = HistoryBattlePreviewProjection.CountSnapshots(
+                snapshots.PlayerHand,
+                snapshots.PlayerSkills,
+                snapshots.OpponentHand,
+                snapshots.OpponentSkills
+            );
+            if (!counts.HasAnyRecordedCard)
+                continue;
+
+            _repository.MarkGhostReplayDownloaded(battle.BattleId, counts);
+            updated = true;
+        }
+
+        return updated;
+    }
+
     public async Task<HistoryPanelAttemptResult> SyncGhostBattlesAsync(
         CancellationToken cancellationToken
     )
     {
         if (_ghostSyncService == null)
-            return HistoryPanelAttemptResult.Failure(HistoryPanelText.GhostSyncUnavailable());
+            return HistoryPanelAttemptResult.Failure(
+                HistoryPanelText.GhostSyncUnavailable(),
+                HistoryPanelGhostSyncReasonCode.SyncUnavailable
+            );
 
         try
         {
             var result = await _ghostSyncService.SyncRecentBattlesAsync(cancellationToken);
             if (!result.Succeeded)
                 return HistoryPanelAttemptResult.Failure(
-                    HistoryPanelText.GhostSyncFailed(result.Error ?? HistoryPanelText.Unknown())
+                    HistoryPanelText.GhostSyncFailed(result.Error ?? HistoryPanelText.Unknown()),
+                    result.ReasonCode,
+                    result.Exception
                 );
 
             return HistoryPanelAttemptResult.Success(
-                HistoryPanelText.GhostSyncSucceeded(result.ImportedCount)
+                HistoryPanelText.GhostSyncSucceeded(result.ImportedCount),
+                result.ImportedCount
             );
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
         }
         catch (Exception ex)
         {
             return HistoryPanelAttemptResult.Failure(
                 HistoryPanelText.GhostSyncFailed(ex.Message),
+                HistoryPanelGhostSyncReasonCode.UnexpectedException,
                 ex
             );
         }
@@ -176,24 +242,35 @@ internal sealed class HistoryPanelDataService
 
 internal readonly struct HistoryPanelAttemptResult
 {
-    private HistoryPanelAttemptResult(bool succeeded, string statusMessage, Exception? error)
+    private HistoryPanelAttemptResult(
+        bool succeeded,
+        string statusMessage,
+        int importedCount,
+        HistoryPanelGhostSyncReasonCode reasonCode,
+        Exception? error
+    )
     {
         Succeeded = succeeded;
         StatusMessage = statusMessage;
+        ImportedCount = importedCount;
+        ReasonCode = reasonCode;
         Error = error;
     }
 
     public bool Succeeded { get; }
 
     public string StatusMessage { get; }
+    public int ImportedCount { get; }
+    public HistoryPanelGhostSyncReasonCode ReasonCode { get; }
 
     public Exception? Error { get; }
 
-    public static HistoryPanelAttemptResult Success(string statusMessage) =>
-        new(true, statusMessage, null);
+    public static HistoryPanelAttemptResult Success(string statusMessage, int importedCount) =>
+        new(true, statusMessage, importedCount, HistoryPanelGhostSyncReasonCode.Completed, null);
 
     public static HistoryPanelAttemptResult Failure(
         string statusMessage,
+        HistoryPanelGhostSyncReasonCode reasonCode,
         Exception? error = null
-    ) => new(false, statusMessage, error);
+    ) => new(false, statusMessage, 0, reasonCode, error);
 }

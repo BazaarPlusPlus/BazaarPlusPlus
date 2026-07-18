@@ -1,5 +1,4 @@
 #nullable enable
-using System;
 using BazaarPlusPlus.Core.Config;
 using BazaarPlusPlus.Core.Events;
 using BazaarPlusPlus.Core.GameState;
@@ -18,6 +17,8 @@ internal sealed class BppRuntimeServices : IBppServices
         IRunContext runContext,
         IGameStateProbe gameStateProbe,
         IEncounterStateProbe encounterState,
+        IRunSnapshotProbe runSnapshot,
+        IGameBuildInfo gameBuild,
         ManualLogSource logger
     )
     {
@@ -27,6 +28,8 @@ internal sealed class BppRuntimeServices : IBppServices
         RunContext = runContext ?? throw new ArgumentNullException(nameof(runContext));
         GameStateProbe = gameStateProbe ?? throw new ArgumentNullException(nameof(gameStateProbe));
         EncounterState = encounterState ?? throw new ArgumentNullException(nameof(encounterState));
+        RunSnapshot = runSnapshot ?? throw new ArgumentNullException(nameof(runSnapshot));
+        GameBuild = gameBuild ?? throw new ArgumentNullException(nameof(gameBuild));
         Logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -36,5 +39,7 @@ internal sealed class BppRuntimeServices : IBppServices
     public IRunContext RunContext { get; }
     public IGameStateProbe GameStateProbe { get; }
     public IEncounterStateProbe EncounterState { get; }
+    public IRunSnapshotProbe RunSnapshot { get; }
+    public IGameBuildInfo GameBuild { get; }
     public ManualLogSource Logger { get; }
 }

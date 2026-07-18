@@ -1,6 +1,4 @@
 #nullable enable
-using System;
-using System.Collections.Generic;
 using BazaarPlusPlus.Core.Config;
 using BazaarPlusPlus.Localization;
 
@@ -30,15 +28,6 @@ internal static class BppSettingsDockCatalog
     public static void Reset() => _definitions.Clear();
 
     internal static IReadOnlyList<BppSettingsDockDefinition> Definitions => _definitions;
-
-    internal static PreviewVisibilityMode NextPreviewVisibilityMode(PreviewVisibilityMode mode) =>
-        mode switch
-        {
-            PreviewVisibilityMode.Off => PreviewVisibilityMode.AutoOnPedestalChoice,
-            PreviewVisibilityMode.AutoOnPedestalChoice => PreviewVisibilityMode.Always,
-            PreviewVisibilityMode.Always => PreviewVisibilityMode.Off,
-            _ => PreviewVisibilityMode.AutoOnPedestalChoice,
-        };
 
     internal static string ResolvePreviewVisibilityModeStatus(
         PreviewVisibilityMode mode,

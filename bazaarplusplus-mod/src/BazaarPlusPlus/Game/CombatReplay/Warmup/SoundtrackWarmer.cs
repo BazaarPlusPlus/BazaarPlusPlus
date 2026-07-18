@@ -1,11 +1,6 @@
 #nullable enable
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Reflection;
-using System.Threading.Tasks;
 using Assets.Scripts.Audio;
-using BazaarPlusPlus.Infrastructure;
 using TheBazaar;
 using TheBazaar.Assets.Scripts.ScriptableObjectsScripts;
 using UnityEngine.AddressableAssets;
@@ -18,17 +13,19 @@ internal static class SoundtrackWarmer
         SoundManager soundManager,
         CollectionManager? collectionManager,
         IReadOnlyCollection<BoardAssetDataSO> boardAssets,
-        ReplayAudioWarmupStats stats
+        ReplayAudioWarmupStats stats,
+        IReplayPlaybackOutcomeSink outcome
     )
     {
         var warmedAny = false;
         var warmedSoundtracks = new HashSet<string>(StringComparer.Ordinal);
         warmedAny |= await WarmSoundtrackAsync(
             soundManager,
-            await TryGetSoundtrackAsync(collectionManager),
+            await TryGetSoundtrackAsync(collectionManager, outcome),
             stats,
             warmedSoundtracks,
-            setPlayingSoundtrack: true
+            setPlayingSoundtrack: true,
+            outcome: outcome
         );
 
         foreach (var boardAsset in boardAssets)
@@ -38,42 +35,35 @@ internal static class SoundtrackWarmer
                 boardAsset.soundtrack,
                 stats,
                 warmedSoundtracks,
-                setPlayingSoundtrack: soundManager.PlayingSoundTrackSO == null
+                setPlayingSoundtrack: soundManager.PlayingSoundTrackSO == null,
+                outcome: outcome
             );
         }
 
         if (!warmedAny)
         {
             stats.SoundtrackBanksSkipped++;
-            BppLog.Warn(
-                "SoundtrackWarmer",
-                "Saved replay audio warmup could not resolve any soundtrack; replay combat music fallback may be incomplete."
-            );
+            outcome.ReportDegradation(ReplayPlaybackReasonCode.SoundtrackWarmupFailed);
         }
     }
 
     internal static async Task WarmBoardAudioAsync(
         SoundManager soundManager,
         BoardAssetDataSO boardAsset,
-        ReplayAudioWarmupStats stats
+        ReplayAudioWarmupStats stats,
+        IReplayPlaybackOutcomeSink outcome
     )
     {
         if (string.IsNullOrWhiteSpace(boardAsset.boardBank))
         {
-            BppLog.Warn(
-                "SoundtrackWarmer",
-                $"Board '{boardAsset.name}' has no boardBank; replay SFX may be incomplete."
-            );
+            outcome.ReportDegradation(ReplayPlaybackReasonCode.SoundtrackWarmupFailed);
             stats.BoardBanksSkipped++;
             return;
         }
 
         if (string.IsNullOrWhiteSpace(boardAsset.boardAssetBank))
         {
-            BppLog.Warn(
-                "SoundtrackWarmer",
-                $"Board '{boardAsset.name}' has no boardAssetBank; replay SFX may be incomplete."
-            );
+            outcome.ReportDegradation(ReplayPlaybackReasonCode.SoundtrackWarmupFailed);
             stats.BoardBanksSkipped++;
             return;
         }
@@ -83,10 +73,6 @@ internal static class SoundtrackWarmer
             boardAsset.boardAssetBank,
             isMetadata: false
         );
-        BppLog.Info(
-            "SoundtrackWarmer",
-            $"Warm replay audio bank: board='{boardAsset.name}', metadata='{boardAsset.boardBank}', asset='{boardAsset.boardAssetBank}'"
-        );
         var loaded = await soundManager.LoadBankAsync(
             FModBank.EBankType.SFX,
             boardAsset.boardBank,
@@ -95,6 +81,7 @@ internal static class SoundtrackWarmer
         if (!loaded)
         {
             stats.BoardBanksFailed++;
+            outcome.ReportDegradation(ReplayPlaybackReasonCode.SoundtrackWarmupFailed);
             return;
         }
 
@@ -119,7 +106,8 @@ internal static class SoundtrackWarmer
     }
 
     internal static async Task<BoardAssetDataSO?> TryGetPlayerBoardAsync(
-        CollectionManager? collectionManager
+        CollectionManager? collectionManager,
+        IReplayPlaybackOutcomeSink outcome
     )
     {
         if (collectionManager == null)
@@ -131,16 +119,14 @@ internal static class SoundtrackWarmer
         }
         catch (Exception ex)
         {
-            BppLog.Warn(
-                "SoundtrackWarmer",
-                $"Saved replay audio warmup could not resolve player board audio: {ex.Message}"
-            );
+            outcome.ReportDegradation(ReplayPlaybackReasonCode.SoundtrackWarmupFailed, ex);
             return null;
         }
     }
 
     internal static async Task<BoardAssetDataSO?> TryGetOpponentBoardAsync(
-        CollectionManager? collectionManager
+        CollectionManager? collectionManager,
+        IReplayPlaybackOutcomeSink outcome
     )
     {
         var loadout = Data.SimPvpOpponent?.PlayerLoadout;
@@ -155,10 +141,7 @@ internal static class SoundtrackWarmer
         }
         catch (Exception ex)
         {
-            BppLog.Warn(
-                "SoundtrackWarmer",
-                $"Saved replay audio warmup could not resolve opponent board audio: {ex.Message}"
-            );
+            outcome.ReportDegradation(ReplayPlaybackReasonCode.SoundtrackWarmupFailed, ex);
             return null;
         }
     }
@@ -168,7 +151,8 @@ internal static class SoundtrackWarmer
         SoundtrackSO? soundtrack,
         ReplayAudioWarmupStats stats,
         ISet<string> warmedSoundtracks,
-        bool setPlayingSoundtrack
+        bool setPlayingSoundtrack,
+        IReplayPlaybackOutcomeSink outcome
     )
     {
         if (soundtrack == null)
@@ -180,7 +164,7 @@ internal static class SoundtrackWarmer
         if (!string.IsNullOrWhiteSpace(key) && warmedSoundtracks.Contains(key))
             return true;
 
-        var loadedSoundtrack = await TryLoadSoundtrackAssetAsync(soundtrack);
+        var loadedSoundtrack = await TryLoadSoundtrackAssetAsync(soundtrack, outcome);
         if (loadedSoundtrack == null)
         {
             stats.SoundtrackBanksFailed++;
@@ -193,10 +177,7 @@ internal static class SoundtrackWarmer
         if (loadedSoundtrack.MusicTracks == null || loadedSoundtrack.MusicTracks.Length == 0)
         {
             stats.SoundtrackBanksSkipped++;
-            BppLog.Warn(
-                "SoundtrackWarmer",
-                $"Saved replay soundtrack '{loadedSoundtrack.name}' has no music tracks to warm."
-            );
+            outcome.ReportDegradation(ReplayPlaybackReasonCode.SoundtrackWarmupFailed);
             return false;
         }
 
@@ -205,14 +186,21 @@ internal static class SoundtrackWarmer
 
         for (uint trackIndex = 0; trackIndex < loadedSoundtrack.MusicTracks.Length; trackIndex++)
         {
-            await WarmSoundtrackTrackAsync(soundManager, loadedSoundtrack, trackIndex, stats);
+            await WarmSoundtrackTrackAsync(
+                soundManager,
+                loadedSoundtrack,
+                trackIndex,
+                stats,
+                outcome
+            );
         }
 
         return true;
     }
 
     private static async Task<SoundtrackSO?> TryGetSoundtrackAsync(
-        CollectionManager? collectionManager
+        CollectionManager? collectionManager,
+        IReplayPlaybackOutcomeSink outcome
     )
     {
         if (collectionManager == null)
@@ -225,15 +213,15 @@ internal static class SoundtrackWarmer
         }
         catch (Exception ex)
         {
-            BppLog.Warn(
-                "SoundtrackWarmer",
-                $"Saved replay audio warmup could not resolve equipped soundtrack: {ex.Message}"
-            );
+            outcome.ReportDegradation(ReplayPlaybackReasonCode.SoundtrackWarmupFailed, ex);
             return null;
         }
     }
 
-    private static async Task<SoundtrackSO?> TryLoadSoundtrackAssetAsync(SoundtrackSO soundtrack)
+    private static async Task<SoundtrackSO?> TryLoadSoundtrackAssetAsync(
+        SoundtrackSO soundtrack,
+        IReplayPlaybackOutcomeSink outcome
+    )
     {
         if (string.IsNullOrWhiteSpace(soundtrack.SoundtrackPath))
             return soundtrack;
@@ -248,18 +236,12 @@ internal static class SoundtrackWarmer
             )
                 return handle.Result;
 
-            BppLog.Warn(
-                "SoundtrackWarmer",
-                $"Saved replay soundtrack load failed for path '{soundtrack.SoundtrackPath}'."
-            );
+            outcome.ReportDegradation(ReplayPlaybackReasonCode.SoundtrackWarmupFailed);
             return soundtrack;
         }
         catch (Exception ex)
         {
-            BppLog.Warn(
-                "SoundtrackWarmer",
-                $"Saved replay soundtrack load failed for path '{soundtrack.SoundtrackPath}': {ex.Message}"
-            );
+            outcome.ReportDegradation(ReplayPlaybackReasonCode.SoundtrackWarmupFailed, ex);
             return soundtrack;
         }
     }
@@ -268,7 +250,8 @@ internal static class SoundtrackWarmer
         SoundtrackSO soundtrack,
         uint trackIndex,
         out string? metadataBank,
-        out string? assetBank
+        out string? assetBank,
+        IReplayPlaybackOutcomeSink outcome
     )
     {
         metadataBank = null;
@@ -314,10 +297,7 @@ internal static class SoundtrackWarmer
         }
         catch (Exception ex)
         {
-            BppLog.Warn(
-                "SoundtrackWarmer",
-                $"Saved replay soundtrack '{soundtrack.name}' track {trackIndex} bank metadata lookup failed: {ex.Message}"
-            );
+            outcome.ReportDegradation(ReplayPlaybackReasonCode.SoundtrackWarmupFailed, ex);
             return false;
         }
     }
@@ -326,7 +306,8 @@ internal static class SoundtrackWarmer
         SoundManager soundManager,
         SoundtrackSO soundtrack,
         uint trackIndex,
-        ReplayAudioWarmupStats stats
+        ReplayAudioWarmupStats stats,
+        IReplayPlaybackOutcomeSink outcome
     )
     {
         if (
@@ -334,15 +315,13 @@ internal static class SoundtrackWarmer
                 soundtrack,
                 trackIndex,
                 out var metadataBank,
-                out var assetBank
+                out var assetBank,
+                outcome
             )
         )
         {
             stats.SoundtrackBanksSkipped++;
-            BppLog.Warn(
-                "SoundtrackWarmer",
-                $"Saved replay soundtrack '{soundtrack.name}' track {trackIndex} has incomplete bank metadata."
-            );
+            outcome.ReportDegradation(ReplayPlaybackReasonCode.SoundtrackWarmupFailed);
             return;
         }
 
@@ -356,6 +335,7 @@ internal static class SoundtrackWarmer
         if (!loaded)
         {
             stats.SoundtrackBanksFailed++;
+            outcome.ReportDegradation(ReplayPlaybackReasonCode.SoundtrackWarmupFailed);
             return;
         }
 

@@ -19,14 +19,12 @@ internal static partial class HistoryPanelText
     private static readonly LocalizedTextSet SelectBattleForFooterText = new(
         "Select one battle to inspect it, then use Replay when you want to jump back into it.",
         "选择一场战斗进行查看，想重新进入时再使用回放。",
-        "選擇一場戰鬥進行檢視，想重新進入時再使用重播。",
         "選擇一場戰鬥進行檢視，想重新進入時再使用重播。"
     );
 
     private static readonly LocalizedTextSet SelectedBattleText = new(
         "Selected",
         "当前战斗",
-        "當前戰鬥",
         "當前戰鬥"
     );
 
@@ -38,32 +36,28 @@ internal static partial class HistoryPanelText
     private static readonly LocalizedTextSet PreviewSelectBattleText = new(
         "Select a battle to preview its recorded cards.",
         "选择一场战斗以预览其记录卡牌。",
-        "選擇一場戰鬥以預覽其記錄卡牌。",
         "選擇一場戰鬥以預覽其記錄卡牌。"
     );
 
     private static readonly LocalizedTextSet NoGhostBattlesText = new(
         "No ghost battles synced yet.",
         "还没有同步到幽灵战斗。",
-        "還沒有同步到幽靈戰鬥。",
         "還沒有同步到幽靈戰鬥。"
     );
 
-    private static readonly LocalizedTextSet WinText = new("Win", "胜利", "勝利", "勝利");
+    private static readonly LocalizedTextSet WinText = new("Win", "胜利", "勝利");
 
-    private static readonly LocalizedTextSet LossText = new("Loss", "失败", "失敗", "失敗");
+    private static readonly LocalizedTextSet LossText = new("Loss", "失败", "失敗");
 
     private static readonly LocalizedTextSet GhostOpponentEliminatedNoticeText = new(
         "After this battle, the opponent is eliminated.",
         "打完这场战斗后，对手直接出局。",
-        "打完這場戰鬥後，對手直接出局。",
         "打完這場戰鬥後，對手直接出局。"
     );
 
     private static readonly LocalizedTextSet GhostOpponentEliminatedShortText = new(
         "Knocked Out",
         "对手出局",
-        "對手出局",
         "對手出局"
     );
 
@@ -91,15 +85,15 @@ internal static partial class HistoryPanelText
     internal static string GhostOpponentEliminatedShort() =>
         Resolve(GhostOpponentEliminatedShortText);
 
-    internal static string PlayerSideShort() => FormatSimple("YOU", "我方", "我方", "我方");
+    internal static string PlayerSideShort() => FormatSimple("YOU", "我方", "我方");
 
-    internal static string OpponentSideShort() => FormatSimple("OPP", "对手", "對手", "對手");
+    internal static string OpponentSideShort() => FormatSimple("OPP", "对手", "對手");
 
     internal static string PlayerHeroPill(string shortCode)
     {
         var languageCode = L.CurrentLanguageCode;
         if (LanguageCodeMatcher.IsChinese(languageCode))
-            return ResolveChinese($"我方 {shortCode}", $"我方 {shortCode}", $"我方 {shortCode}");
+            return ResolveChinese($"我方 {shortCode}", $"我方 {shortCode}");
 
         return $"YOU {shortCode}";
     }
@@ -116,7 +110,6 @@ internal static partial class HistoryPanelText
         {
             return ResolveChinese(
                 $"我方 {playerHero} Lv{playerLevel}  |  对手 {opponentHero} Lv{opponentLevel}",
-                $"我方 {playerHero} Lv{playerLevel}  |  對手 {opponentHero} Lv{opponentLevel}",
                 $"我方 {playerHero} Lv{playerLevel}  |  對手 {opponentHero} Lv{opponentLevel}"
             );
         }
@@ -136,7 +129,6 @@ internal static partial class HistoryPanelText
         {
             return ResolveChinese(
                 $"我方 {playerItems} 件物品 · {playerSkills} 个技能  |  对手 {opponentItems} 件物品 · {opponentSkills} 个技能",
-                $"我方 {playerItems} 件物品 · {playerSkills} 個技能  |  對手 {opponentItems} 件物品 · {opponentSkills} 個技能",
                 $"我方 {playerItems} 件物品 · {playerSkills} 個技能  |  對手 {opponentItems} 件物品 · {opponentSkills} 個技能"
             );
         }
@@ -230,7 +222,6 @@ internal static partial class HistoryPanelText
         return FormatSimple(
             "FFmpeg not detected; recording is unavailable.",
             "未检测到 FFmpeg，无法录制。",
-            "未偵測到 FFmpeg，無法錄製。",
             "未偵測到 FFmpeg，無法錄製。"
         );
     }

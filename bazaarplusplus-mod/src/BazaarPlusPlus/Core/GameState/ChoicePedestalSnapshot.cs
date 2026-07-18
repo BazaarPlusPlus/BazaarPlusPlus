@@ -1,7 +1,4 @@
 #nullable enable
-using System;
-using System.Collections.Generic;
-
 namespace BazaarPlusPlus.Core.GameState;
 
 internal readonly struct ChoicePedestalSnapshot

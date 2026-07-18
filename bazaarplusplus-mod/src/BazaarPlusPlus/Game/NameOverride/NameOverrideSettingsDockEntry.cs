@@ -4,19 +4,22 @@ using BazaarPlusPlus.Game.Settings;
 
 namespace BazaarPlusPlus.Game.NameOverride;
 
-internal sealed class NameOverrideSettingsDockEntry : ISettingsDockEntry
+internal static class NameOverrideSettingsDockEntry
 {
-    public int Order => BppSettingsDockOrder.NameOverride;
-
-    public BppSettingsDockDefinition Build(IBppConfig config) =>
-        new(
+    internal static CyclingSettingsDockEntry<bool> Create(Action? refreshUi = null) =>
+        CyclingSettingsDockEntry<bool>.Toggle(
+            BppSettingsDockOrder.NameOverride,
             "NameOverride",
             NameOverrideSettingsMenuLabel.Resolve,
-            new NameOverrideSettingsMenuBridge(
-                () => ReadEnabled(config),
-                enabled => WriteEnabled(config, enabled),
-                NameOverrideUiRefresh.TryRefreshVisibleHeroBanners
-            )
+            ReadEnabled,
+            WriteEnabled,
+            _ =>
+            {
+                if (refreshUi != null)
+                    refreshUi();
+                else
+                    NameOverrideUiRefresh.TryRefreshVisibleHeroBanners();
+            }
         );
 
     private static bool ReadEnabled(IBppConfig config) =>

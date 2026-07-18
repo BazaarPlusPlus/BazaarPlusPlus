@@ -1,7 +1,4 @@
 #nullable enable
-using System;
-using System.Collections.Generic;
-using BazaarPlusPlus.Infrastructure;
 using TMPro;
 using UnityEngine;
 
@@ -32,14 +29,14 @@ internal static class KeywordIconSpriteProvider
         _freshScanAllowedThisPass = true;
     }
 
-    public static Sprite? Resolve(string iconName)
+    public static KeywordIconResolveOutcome Resolve(string iconName)
     {
         if (string.IsNullOrWhiteSpace(iconName))
-            return null;
+            return KeywordIconResolveOutcome.Ready(null, iconName);
         if (Cache.TryGetValue(iconName, out var cached))
-            return cached;
+            return KeywordIconResolveOutcome.Ready(cached, iconName);
         if (MissesThisPass.Contains(iconName))
-            return null;
+            return KeywordIconResolveOutcome.Ready(null, iconName);
 
         try
         {
@@ -47,7 +44,7 @@ internal static class KeywordIconSpriteProvider
             if (asset == null)
             {
                 MissesThisPass.Add(iconName);
-                return null;
+                return KeywordIconResolveOutcome.Ready(null, iconName);
             }
 
             var sprite = ExtractSprite(asset, iconName);
@@ -55,15 +52,11 @@ internal static class KeywordIconSpriteProvider
                 Cache[iconName] = sprite;
             else
                 MissesThisPass.Add(iconName);
-            return sprite;
+            return KeywordIconResolveOutcome.Ready(sprite, iconName);
         }
         catch (Exception ex)
         {
-            BppLog.Warn(
-                "KeywordIconSpriteProvider",
-                $"Icon '{iconName}' failed to resolve: {ex.Message}"
-            );
-            return null;
+            return KeywordIconResolveOutcome.Degraded(iconName, ex);
         }
     }
 
@@ -149,4 +142,25 @@ internal static class KeywordIconSpriteProvider
             SpriteMeshType.FullRect
         );
     }
+}
+
+internal sealed class KeywordIconResolveOutcome
+{
+    private KeywordIconResolveOutcome(Sprite? sprite, string iconName, Exception? exception)
+    {
+        Sprite = sprite;
+        IconName = iconName;
+        Exception = exception;
+    }
+
+    internal Sprite? Sprite { get; }
+    internal string IconName { get; }
+    internal Exception? Exception { get; }
+    internal bool IsDegraded => Exception != null;
+
+    internal static KeywordIconResolveOutcome Ready(Sprite? sprite, string iconName) =>
+        new(sprite, iconName, null);
+
+    internal static KeywordIconResolveOutcome Degraded(string iconName, Exception exception) =>
+        new(null, iconName, exception);
 }

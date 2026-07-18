@@ -2,6 +2,7 @@
 using BazaarPlusPlus.Infrastructure;
 using UnityEngine;
 using UnityEngine.UI;
+using Object = UnityEngine.Object;
 
 namespace BazaarPlusPlus.Game.Settings;
 
@@ -9,8 +10,6 @@ internal interface IBppNativeSettingsButtonCloneOwner;
 
 internal static class BppNativeSettingsButtonClone
 {
-    private const string LogCategory = "BppNativeSettingsButtonClone";
-
     internal static RectTransform? FindOrCreate(
         Button anchorButton,
         BppSettingsDockPlacement placement
@@ -27,11 +26,17 @@ internal static class BppNativeSettingsButtonClone
         if (existing != null)
         {
             ConfigureRect(existing, anchorButton.transform as RectTransform);
+            var nativeVisualStateComponent =
+                existing.GetComponent<BppDockButtonNativeVisualState>();
+            nativeVisualStateComponent?.ResetToNormal();
+            var existingVisualState =
+                nativeVisualStateComponent?.CapturedNativeState
+                ?? BppDockButtonVisualState.Capture(existing.GetComponent<Button>());
             BppDockButtonVisuals.Apply(
                 existing.gameObject,
-                placement.ButtonIconKind,
                 explicitIcon: null,
-                freshClone: false
+                freshClone: false,
+                nativeState: existingVisualState
             );
             return existing;
         }
@@ -44,12 +49,17 @@ internal static class BppNativeSettingsButtonClone
         cloneObject.name = placement.DockButtonObjectName;
 
         var nativeIcon = BppDockButtonVisuals.ResolveNativeIconImage(cloneObject);
+        var nativeButtonController = cloneObject.GetComponent<BazaarButtonController>();
+        var nativeVisualState = BppDockButtonVisualState.Capture(
+            cloneObject.GetComponent<Button>(),
+            nativeButtonController?.DefaultImage
+        );
         StripNativeButtonBehavior(cloneObject);
         BppDockButtonVisuals.Apply(
             cloneObject,
-            placement.ButtonIconKind,
             nativeIcon,
-            freshClone: true
+            freshClone: true,
+            nativeState: nativeVisualState
         );
 
         var rect = cloneObject.GetComponent<RectTransform>();
@@ -58,12 +68,9 @@ internal static class BppNativeSettingsButtonClone
 
         ConfigureRect(rect, anchorButton.transform as RectTransform);
 
-        BppLog.Debug(
-            LogCategory,
-            $"Clone '{placement.Key}': hasCloneOwner={HasCloneOwner(cloneObject)}, "
-                + $"hasBazaarButtonController={cloneObject.GetComponent<BazaarButtonController>() != null}, "
-                + $"hasButtonCustom={cloneObject.GetComponent<ButtonCustom>() != null}, "
-                + $"localScale={rect.localScale}, lossyScale={rect.lossyScale}"
+        BppLog.DebugEvent(
+            SettingsLogEvents.NativeButtonCloned,
+            () => [SettingsLogEvents.NativeButtonClonedButtonId.Bind(placement.ButtonId)]
         );
 
         return rect;

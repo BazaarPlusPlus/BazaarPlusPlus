@@ -1,5 +1,4 @@
 #nullable enable
-using System;
 using BazaarGameShared.Domain.Core.Types;
 using BazaarPlusPlus.Game.CollectionPanel.Data;
 using BazaarPlusPlus.Game.CollectionPanel.Grid;
@@ -48,7 +47,7 @@ internal sealed partial class CollectionPanelView
         titleRow.style.alignItems = Align.Center;
         rail.Add(titleRow);
 
-        _title = CreateLabel(Sizes.FontTitle, FontStyle.Bold, Colors.HistoryTitleText);
+        _title = CreateLabel(Sizes.FontTitle, FontStyle.Normal, Colors.GameTitleText);
         _title.style.flexGrow = 1f;
         _title.style.flexShrink = 1f;
         _title.style.minWidth = 0f;
@@ -72,25 +71,24 @@ internal sealed partial class CollectionPanelView
         _subtitle = BPPSupporterAttributionRow.Create();
         rail.Add(_subtitle);
 
+        rail.Add(CreateSearchField());
+
         var primaryControlsRow = CreateOperationRow(UiSpacing.Sm);
         rail.Add(primaryControlsRow);
 
         _itemTabButton = CreateButton(
             CollectionPanelText.ItemsTab(),
-            () => _commands.SetActiveType(ECardType.Item),
+            () => _commands.SetActiveTab(CollectionTabKind.Items),
             Sizes.RunsTabWidth,
             Sizes.ButtonStandardHeight
         );
         _skillTabButton = CreateButton(
             CollectionPanelText.SkillsTab(),
-            () => _commands.SetActiveType(ECardType.Skill),
+            () => _commands.SetActiveTab(CollectionTabKind.Skills),
             Sizes.RunsTabWidth,
             Sizes.ButtonStandardHeight
         );
         primaryControlsRow.Add(_itemTabButton);
-        _packageToggleButton = CreatePackageTabButton();
-        _packageToggleButton.style.marginLeft = UiSpacing.Md;
-        primaryControlsRow.Add(_packageToggleButton);
         _skillTabButton.style.marginLeft = UiSpacing.Md;
         primaryControlsRow.Add(_skillTabButton);
 
@@ -139,7 +137,7 @@ internal sealed partial class CollectionPanelView
         rail.Add(controlsScroll);
 
         // Hero filter.
-        CreateFilterSection(
+        _heroFilterSection = CreateFilterSection(
             controlsScroll,
             CollectionPanelText.HeroHeader(),
             UiSpacing.Xl,
@@ -151,7 +149,7 @@ internal sealed partial class CollectionPanelView
         _heroChipRow.RegisterCallback<GeometryChangedEvent>(OnHeroChipRowGeometryChanged);
 
         // Size + tier filter. On Skills, Refresh hides Size and lets Quality fill the row.
-        CreateFilterSection(
+        _tierFilterSection = CreateFilterSection(
             controlsScroll,
             CollectionPanelText.TierSizeHeader(),
             UiSpacing.Lg,
@@ -170,7 +168,7 @@ internal sealed partial class CollectionPanelView
         _tierChipRow.style.justifyContent = Justify.FlexStart;
 
         // Keyword filter (EHiddenTag gameplay keywords). This is the common secondary filter for
-        // Items, Packages, and Skills, so keep it directly below Quality.
+        // Items and Skills, so keep it directly below Quality.
         _keywordFilterSection = CreateFilterSection(
             controlsScroll,
             CollectionPanelText.KeywordHeader(),
@@ -184,7 +182,7 @@ internal sealed partial class CollectionPanelView
         _keywordChipRow.style.flexWrap = Wrap.Wrap;
         _keywordChipRow.style.justifyContent = Justify.FlexStart;
 
-        // Tag filter (player-facing item categories). Items/Packages show this below gameplay
+        // Tag filter (player-facing item categories). Items show this below gameplay
         // keywords; Skills hide it and source filters move up naturally.
         _tagFilterSection = CreateFilterSection(
             controlsScroll,
@@ -259,6 +257,139 @@ internal sealed partial class CollectionPanelView
         return spacer;
     }
 
+    private VisualElement CreateSearchField()
+    {
+        var container = new VisualElement();
+        container.style.flexDirection = FlexDirection.Column;
+        container.style.marginTop = UiSpacing.Md;
+        container.style.marginBottom = UiSpacing.Sm;
+        container.style.flexShrink = 0f;
+        container.style.width = Length.Percent(100f);
+
+        _searchLabel = CreateLabel(Sizes.FontSmall, FontStyle.Bold, Colors.HistorySubtitleText);
+        _searchLabel.text = CollectionPanelText.SearchLabel();
+        _searchLabel.style.marginBottom = UiSpacing.Xs;
+        container.Add(_searchLabel);
+
+        var frame = new VisualElement();
+        frame.style.flexDirection = FlexDirection.Row;
+        frame.style.alignItems = Align.Center;
+        frame.style.height = Sizes.ButtonStandardHeight;
+        frame.style.backgroundColor = Colors.HistoryStatusBackground;
+        UiStyle.Border(frame.style, Borders.Thin, Colors.HistoryListFrameBorder);
+        UiStyle.Radius(frame.style, Radii.Md);
+        UiStyle.HorizontalPadding(frame.style, UiSpacing.Md);
+        container.Add(frame);
+
+        var field = new TextField { label = string.Empty };
+        _searchField = field;
+        field.tooltip = CollectionPanelText.SearchTooltip();
+        field.style.flexGrow = 1f;
+        field.style.flexShrink = 1f;
+        field.style.minWidth = 0f;
+        field.style.height = Length.Percent(100f);
+        field.style.backgroundColor = Color.clear;
+        field.style.color = Colors.HistoryChipText;
+        _typography!.Apply(field);
+        field.style.fontSize = Sizes.FontSmall;
+        field.style.borderLeftWidth = 0f;
+        field.style.borderRightWidth = 0f;
+        field.style.borderTopWidth = 0f;
+        field.style.borderBottomWidth = 0f;
+        UiStyle.Padding(field.style, UiSpacing.None, UiSpacing.None);
+        frame.Add(field);
+
+        field.RegisterValueChangedCallback(evt => _commands.SetSearchQuery(evt.newValue));
+        var hovered = false;
+        var focused = false;
+        void RefreshFrame()
+        {
+            var background = Colors.HistoryStatusBackground;
+            var border = Colors.HistoryListFrameBorder;
+            if (focused)
+            {
+                background = Colors.ButtonHoverBackgroundFor(Colors.HistoryStatusBackground);
+                border = Colors.ButtonHoverBorderFor(Colors.HistoryStatusBackground);
+            }
+            else if (hovered)
+            {
+                background = Colors.RowHoverBackgroundFor(Colors.HistoryStatusBackground);
+                border = Colors.RowHoverBorderFor(Colors.HistoryStatusBorder);
+            }
+
+            frame.style.backgroundColor = background;
+            UiStyle.BorderColor(frame.style, border);
+        }
+
+        field.RegisterCallback<MouseEnterEvent>(_ =>
+        {
+            hovered = true;
+            RefreshFrame();
+        });
+        field.RegisterCallback<MouseLeaveEvent>(_ =>
+        {
+            hovered = false;
+            RefreshFrame();
+        });
+        field.RegisterCallback<FocusInEvent>(_ =>
+        {
+            focused = true;
+            RefreshFrame();
+        });
+        field.RegisterCallback<FocusOutEvent>(_ =>
+        {
+            focused = false;
+            RefreshFrame();
+        });
+        RefreshFrame();
+
+        field.RegisterCallback<GeometryChangedEvent>(_ => StyleSearchField(field));
+        return container;
+    }
+
+    private void StyleSearchField(TextField field)
+    {
+        var label = field.Q<Label>();
+        if (label != null)
+        {
+            label.style.display = DisplayStyle.None;
+        }
+
+        var input = field.Q(TextField.textInputUssName);
+        if (input != null)
+        {
+            input.style.flexGrow = 1f;
+            input.style.height = Length.Percent(100f);
+            input.style.alignSelf = Align.Stretch;
+            input.style.backgroundColor = Color.clear;
+            input.style.color = Colors.HistoryChipText;
+            _typography!.Apply(input);
+            input.style.fontSize = Sizes.FontSmall;
+            input.style.unityTextAlign = TextAnchor.MiddleLeft;
+            input.style.borderLeftWidth = 0f;
+            input.style.borderRightWidth = 0f;
+            input.style.borderTopWidth = 0f;
+            input.style.borderBottomWidth = 0f;
+            input.style.marginLeft = UiSpacing.None;
+            input.style.marginRight = UiSpacing.None;
+            input.style.marginTop = UiSpacing.None;
+            input.style.marginBottom = UiSpacing.None;
+            UiStyle.Padding(input.style, UiSpacing.None, UiSpacing.None);
+        }
+
+        var text = input?.Q<TextElement>();
+        if (text != null)
+        {
+            text.style.flexGrow = 1f;
+            text.style.height = Length.Percent(100f);
+            text.style.alignSelf = Align.Stretch;
+            text.style.color = Colors.HistoryChipText;
+            _typography!.Apply(text);
+            text.style.fontSize = Sizes.FontSmall;
+            text.style.unityTextAlign = TextAnchor.MiddleLeft;
+        }
+    }
+
     private static Label CreateCountLabel()
     {
         var label = CreateLabel(Sizes.FontSmall, FontStyle.Bold, Colors.HistoryStatusText);
@@ -278,7 +409,12 @@ internal sealed partial class CollectionPanelView
 
     private static Button CreateInlineSortButton(string text, Action onClick)
     {
-        var button = CreateButton(text, onClick, Sizes.RunsTabWidth, Sizes.ButtonStandardHeight);
+        var button = CreateButton(
+            text,
+            onClick,
+            Sizes.CollectionSortButtonWidth,
+            Sizes.ButtonStandardHeight
+        );
         button.style.flexShrink = 0f;
         StyleButton(button, Colors.HistoryChipBackground, Colors.HistoryChipText);
         return button;
@@ -377,18 +513,6 @@ internal sealed partial class CollectionPanelView
         divider.style.backgroundColor = Colors.HistoryButtonBorder;
         divider.style.opacity = 0.72f;
         return divider;
-    }
-
-    private Button CreatePackageTabButton()
-    {
-        var button = CreateButton(
-            CollectionPanelText.PackagesToggle(),
-            _commands.TogglePackagesOnly,
-            Sizes.RunsTabWidth,
-            Sizes.ButtonStandardHeight
-        );
-        StyleButton(button, Colors.RunsTabBackground, Colors.White);
-        return button;
     }
 
     // Compact day-number "icon": shows the effective day (current run day, or OutOfRunDay) and

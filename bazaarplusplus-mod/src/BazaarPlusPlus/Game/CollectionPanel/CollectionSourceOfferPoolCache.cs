@@ -1,13 +1,11 @@
 #nullable enable
-using System;
-using System.Collections.Generic;
 using BazaarGameShared.Domain.Core.Types;
 using BazaarPlusPlus.Game.CollectionPanel.Data;
 using BazaarPlusPlus.Game.CollectionPanel.Sources;
 
 namespace BazaarPlusPlus.Game.CollectionPanel;
 
-internal sealed class CollectionSourceOfferPoolCache
+internal sealed class CollectionSourceOfferPoolCache : ICollectionOfferPoolResolver
 {
     private readonly Dictionary<string, CollectionSourceOfferPoolResult> _cache = new(
         StringComparer.Ordinal

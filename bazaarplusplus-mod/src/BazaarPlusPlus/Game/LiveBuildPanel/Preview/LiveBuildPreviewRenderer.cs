@@ -1,9 +1,8 @@
 #nullable enable
 
-using System;
 using System.Collections;
-using System.Collections.Generic;
 using BazaarPlusPlus.Game.LiveBuildPanel.Data;
+using BazaarPlusPlus.GameInterop.CardPreview;
 using BazaarPlusPlus.GameInterop.ItemBoardPreview;
 using BazaarPlusPlus.Infrastructure.UiTokens;
 using UnityEngine;
@@ -15,6 +14,11 @@ internal sealed class LiveBuildPreviewRenderer : IDisposable
     private const int PreviewLayer = 30;
     private const int PreviewSortingOrder = BppOverlaySorting.NativeCardPreview;
     private readonly Dictionary<BppItemBoardId, LiveItemBoardRowPreview> _rows = new();
+    private readonly INativeCardPreviewHost _nativeCardPreviewHost;
+
+    internal LiveBuildPreviewRenderer(INativeCardPreviewHost nativeCardPreviewHost) =>
+        _nativeCardPreviewHost =
+            nativeCardPreviewHost ?? throw new ArgumentNullException(nameof(nativeCardPreviewHost));
 
     public bool SetBounds(BppItemBoardId id, Rect bounds) => Row(id).SetBounds(bounds);
 
@@ -49,7 +53,12 @@ internal sealed class LiveBuildPreviewRenderer : IDisposable
     {
         if (!_rows.TryGetValue(id, out var row))
         {
-            row = new LiveItemBoardRowPreview(id, PreviewLayer, PreviewSortingOrder);
+            row = new LiveItemBoardRowPreview(
+                _nativeCardPreviewHost,
+                id,
+                PreviewLayer,
+                PreviewSortingOrder
+            );
             _rows[id] = row;
         }
 

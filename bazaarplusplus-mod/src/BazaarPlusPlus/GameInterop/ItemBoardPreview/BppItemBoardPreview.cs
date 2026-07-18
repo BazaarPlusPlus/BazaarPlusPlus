@@ -1,18 +1,21 @@
 #nullable enable
 
-using System;
 using System.Collections;
+using BazaarPlusPlus.GameInterop.CardPreview;
 using UnityEngine;
 
 namespace BazaarPlusPlus.GameInterop.ItemBoardPreview;
 
 internal sealed class BppItemBoardPreview : IDisposable
 {
-    private readonly ItemBoardPreviewSurface _surface = new();
+    private readonly ItemBoardPreviewSurface _surface;
     private readonly ItemBoardPreviewOptions _options;
 
-    public BppItemBoardPreview(ItemBoardPreviewOptions options)
+    public BppItemBoardPreview(INativeCardPreviewHost previewHost, ItemBoardPreviewOptions options)
     {
+        _surface = new ItemBoardPreviewSurface(
+            previewHost ?? throw new ArgumentNullException(nameof(previewHost))
+        );
         _options = options ?? new ItemBoardPreviewOptions();
     }
 

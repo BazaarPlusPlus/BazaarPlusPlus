@@ -1,5 +1,4 @@
 #nullable enable
-using System;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -25,14 +24,11 @@ internal readonly struct BppDockButtonColorSpec(
 internal static class BppDockButtonVisuals
 {
     private const string IconObjectName = "BPP_DockButtonIcon";
-    private const string SettingsPanelPrefix = "BPP_SettingsDockPanel_";
-
-    private static readonly Color SettingsHover = new(1f, 0.9f, 0.58f, 1f);
     private static readonly Color CollectionHover = new(0.62f, 0.86f, 1f, 1f);
 
-    internal static BppDockButtonColorSpec ResolveColors(BppDockButtonIconKind kind)
+    internal static BppDockButtonColorSpec ResolveColors()
     {
-        var hover = kind == BppDockButtonIconKind.CollectionPanel ? CollectionHover : SettingsHover;
+        var hover = CollectionHover;
         return new BppDockButtonColorSpec(
             normal: Color.white,
             highlighted: hover,
@@ -40,6 +36,31 @@ internal static class BppDockButtonVisuals
             selected: hover,
             disabled: new Color(1f, 1f, 1f, 0.34f),
             fadeDuration: 0.08f
+        );
+    }
+
+    internal static BppDockButtonVisualState ResolveButtonState(
+        BppDockButtonVisualState? nativeState
+    )
+    {
+        if (nativeState.HasValue)
+            return nativeState.Value;
+
+        var spec = ResolveColors();
+        return BppDockButtonVisualState.Capture(
+            Selectable.Transition.ColorTint,
+            new ColorBlock
+            {
+                normalColor = spec.Normal,
+                highlightedColor = spec.Highlighted,
+                pressedColor = spec.Pressed,
+                selectedColor = spec.Selected,
+                disabledColor = spec.Disabled,
+                colorMultiplier = 1f,
+                fadeDuration = spec.FadeDuration,
+            },
+            new SpriteState(),
+            new AnimationTriggers()
         );
     }
 
@@ -52,16 +73,16 @@ internal static class BppDockButtonVisuals
 
     internal static void Apply(
         GameObject cloneObject,
-        BppDockButtonIconKind kind,
         Image? explicitIcon,
-        bool freshClone
+        bool freshClone,
+        BppDockButtonVisualState? nativeState
     )
     {
         if (cloneObject == null)
             return;
 
         var frame = cloneObject.GetComponent<Image>() ?? cloneObject.AddComponent<Image>();
-        var sprite = BppDockButtonSpriteProvider.Get(kind);
+        var sprite = BppDockButtonSpriteProvider.Get();
         var icon = explicitIcon ?? FindMarkedIconImage(cloneObject) ?? FindIconImage(cloneObject);
         if (sprite != null && icon != null)
             ApplyIcon(icon, sprite);
@@ -72,33 +93,22 @@ internal static class BppDockButtonVisuals
             DisableUnusedChildRaycasts(cloneObject.transform);
 
         var button = cloneObject.GetComponent<Button>() ?? cloneObject.AddComponent<Button>();
-        button.targetGraphic = frame;
-        button.transition = Selectable.Transition.ColorTint;
         button.navigation = new Navigation { mode = Navigation.Mode.None };
         button.interactable = true;
+        var resolvedState = ResolveButtonState(nativeState);
+        resolvedState.ApplyTo(button, frame);
 
-        var spec = ResolveColors(kind);
-        button.colors = new ColorBlock
-        {
-            normalColor = spec.Normal,
-            highlightedColor = spec.Highlighted,
-            pressedColor = spec.Pressed,
-            selectedColor = spec.Selected,
-            disabledColor = spec.Disabled,
-            colorMultiplier = 1f,
-            fadeDuration = spec.FadeDuration,
-        };
+        var nativeVisualState =
+            button.GetComponent<BppDockButtonNativeVisualState>()
+            ?? button.gameObject.AddComponent<BppDockButtonNativeVisualState>();
+        nativeVisualState.Initialize(button, resolvedState);
     }
 
     private static Image? FindMarkedIconImage(GameObject cloneObject)
     {
-        var root = cloneObject.transform;
         foreach (var image in cloneObject.GetComponentsInChildren<Image>(includeInactive: true))
         {
             if (!image.gameObject.name.Equals(IconObjectName, StringComparison.Ordinal))
-                continue;
-
-            if (IsInsideSettingsPanel(image.transform, root))
                 continue;
 
             return image;
@@ -111,13 +121,9 @@ internal static class BppDockButtonVisuals
     {
         Image? best = null;
         var bestArea = float.MaxValue;
-        var root = cloneObject.transform;
         foreach (var image in cloneObject.GetComponentsInChildren<Image>(includeInactive: true))
         {
             if (image.gameObject == cloneObject)
-                continue;
-
-            if (IsInsideSettingsPanel(image.transform, root))
                 continue;
 
             if (image.transform is not RectTransform rect)
@@ -135,21 +141,7 @@ internal static class BppDockButtonVisuals
         return best;
     }
 
-    private static bool IsInsideSettingsPanel(Transform candidate, Transform cloneRoot)
-    {
-        var current = candidate;
-        while (current != null && current != cloneRoot)
-        {
-            if (current.name.StartsWith(SettingsPanelPrefix, StringComparison.Ordinal))
-                return true;
-
-            current = current.parent;
-        }
-
-        return false;
-    }
-
-    private static void ApplyIcon(Image icon, Sprite sprite)
+    internal static void ApplyIcon(Image icon, Sprite sprite)
     {
         icon.gameObject.name = IconObjectName;
         icon.enabled = true;
@@ -165,9 +157,6 @@ internal static class BppDockButtonVisuals
         for (var index = 0; index < root.childCount; index++)
         {
             var child = root.GetChild(index);
-            if (child.name.StartsWith(SettingsPanelPrefix, StringComparison.Ordinal))
-                continue;
-
             foreach (var graphic in child.GetComponentsInChildren<Graphic>(includeInactive: true))
                 graphic.raycastTarget = false;
         }

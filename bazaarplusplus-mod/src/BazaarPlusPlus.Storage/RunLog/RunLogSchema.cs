@@ -1,5 +1,4 @@
 #nullable enable
-using System;
 using BazaarPlusPlus.Storage.Paths;
 using Microsoft.Data.Sqlite;
 
@@ -7,11 +6,11 @@ namespace BazaarPlusPlus.Storage.RunLog;
 
 public static class RunLogSchema
 {
-    public static int LocalDatabaseSchemaVersion => 16;
+    public static int LocalDatabaseSchemaVersion => 18;
 
     public static int RowSchemaVersion => 11;
 
-    public static int UploadPayloadSchemaVersion => 5;
+    public static int UploadPayloadSchemaVersion => 6;
 
     public static int CurrentSchemaVersion => LocalDatabaseSchemaVersion;
 
@@ -83,7 +82,8 @@ public static class RunLogSchema
                 final_player_rank TEXT NULL,
                 final_player_rating INTEGER NULL,
                 final_player_rating_delta INTEGER NULL,
-                reason TEXT NULL
+                reason TEXT NULL,
+                build_channel TEXT NULL
             );
 
             CREATE TABLE IF NOT EXISTS {RunEventsTableName} (
@@ -113,7 +113,11 @@ public static class RunLogSchema
                 player_rating INTEGER NULL,
                 player_level INTEGER NULL,
                 player_prestige INTEGER NULL,
+                player_income INTEGER NULL,
+                player_gold INTEGER NULL,
                 player_victories INTEGER NULL,
+                player_hand_item_count INTEGER NULL,
+                player_skill_count INTEGER NULL,
                 opponent_name TEXT NULL,
                 opponent_account_id TEXT NULL,
                 opponent_hero TEXT NULL,
@@ -122,6 +126,8 @@ public static class RunLogSchema
                 opponent_level INTEGER NULL,
                 opponent_prestige INTEGER NULL,
                 opponent_victories INTEGER NULL,
+                opponent_hand_item_count INTEGER NULL,
+                opponent_skill_count INTEGER NULL,
                 result TEXT NULL,
                 winner_combatant_id TEXT NULL,
                 loser_combatant_id TEXT NULL,
@@ -166,7 +172,8 @@ public static class RunLogSchema
                 player_rank TEXT NULL,
                 player_rating INTEGER NULL,
                 player_position INTEGER NULL,
-                victories_at_capture INTEGER NULL
+                victories_at_capture INTEGER NULL,
+                build_channel TEXT NULL
             );
 
             CREATE TABLE IF NOT EXISTS {CombatReplayVideosTableName} (
@@ -275,5 +282,52 @@ public static class RunLogSchema
             command.CommandText = BootstrapSql;
             command.ExecuteNonQuery();
         }
+
+        // CREATE TABLE IF NOT EXISTS only shapes fresh databases; columns added to an
+        // existing table need an explicit ALTER on every opener's path.
+        EnsureColumnExists(connection, RunsTableName, "build_channel", "TEXT NULL");
+        EnsureColumnExists(connection, RunScreenshotsTableName, "build_channel", "TEXT NULL");
+        EnsureColumnExists(connection, BattlesTableName, "player_hand_item_count", "INTEGER NULL");
+        EnsureColumnExists(connection, BattlesTableName, "player_skill_count", "INTEGER NULL");
+        EnsureColumnExists(connection, BattlesTableName, "player_income", "INTEGER NULL");
+        EnsureColumnExists(connection, BattlesTableName, "player_gold", "INTEGER NULL");
+        EnsureColumnExists(
+            connection,
+            BattlesTableName,
+            "opponent_hand_item_count",
+            "INTEGER NULL"
+        );
+        EnsureColumnExists(connection, BattlesTableName, "opponent_skill_count", "INTEGER NULL");
+    }
+
+    private static void EnsureColumnExists(
+        SqliteConnection connection,
+        string tableName,
+        string columnName,
+        string columnDefinition
+    )
+    {
+        using (var command = connection.CreateCommand())
+        {
+            command.CommandText = $"PRAGMA table_info({tableName});";
+            using var reader = command.ExecuteReader();
+            while (reader.Read())
+            {
+                if (
+                    string.Equals(
+                        reader.GetString(reader.GetOrdinal("name")),
+                        columnName,
+                        StringComparison.Ordinal
+                    )
+                )
+                {
+                    return;
+                }
+            }
+        }
+
+        using var alter = connection.CreateCommand();
+        alter.CommandText = $"ALTER TABLE {tableName} ADD COLUMN {columnName} {columnDefinition};";
+        alter.ExecuteNonQuery();
     }
 }

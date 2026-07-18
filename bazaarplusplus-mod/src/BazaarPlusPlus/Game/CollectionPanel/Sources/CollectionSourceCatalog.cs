@@ -1,8 +1,4 @@
 #nullable enable
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 using System.Reflection;
 using BazaarGameShared.Domain.Core.Types;
 using BazaarPlusPlus.Infrastructure;
@@ -13,7 +9,6 @@ namespace BazaarPlusPlus.Game.CollectionPanel.Sources;
 internal static class CollectionSourceCatalog
 {
     private const int ExpectedSchemaVersion = 4;
-    private const string LogComponent = "CollectionSourceCatalog";
     private const string ResourceSuffix = "collection-sources.json";
 
     private static readonly object SyncRoot = new();
@@ -67,29 +62,50 @@ internal static class CollectionSourceCatalog
             if (_loaded)
                 return;
 
-            try
+            var load = LoadEmbeddedCatalog(ResourceSuffix);
+            if (load.Entries != null)
             {
-                var json = ReadEmbeddedJson(ResourceSuffix);
-                if (!string.IsNullOrEmpty(json))
+                var entries = load.Entries;
+                _entries = entries;
+                _bySourceTemplateId = BuildSourceTemplateIndex(entries);
+                _bySourceKey = BuildSourceKeyIndex(entries);
+                BppLog.DebugEvent(
+                    CollectionPanelLogEvents.SourceCatalogLoaded,
+                    () =>
+                        [
+                            CollectionPanelLogEvents.SourceCatalogLoadedEntryCount.Bind(
+                                entries.Count
+                            ),
+                            CollectionPanelLogEvents.SourceCatalogLoadedSourceTemplateCount.Bind(
+                                _bySourceTemplateId.Count
+                            ),
+                        ]
+                );
+            }
+            else
+            {
+                var fields = new[]
                 {
-                    var entries = Build(json!);
-                    _entries = entries;
-                    _bySourceTemplateId = BuildSourceTemplateIndex(entries);
-                    _bySourceKey = BuildSourceKeyIndex(entries);
-                    BppLog.Info(
-                        LogComponent,
-                        $"Loaded source catalog entries={entries.Count} sourceTemplateIds={_bySourceTemplateId.Count}"
+                    CollectionPanelLogEvents.SourceCatalogLoadFailedReasonCode.Bind(
+                        load.ReasonCode
+                    ),
+                    CollectionPanelLogEvents.SourceCatalogLoadFailedResourceSuffix.Bind(
+                        ResourceSuffix
+                    ),
+                };
+                if (load.Exception == null)
+                    BppLog.ErrorEvent(CollectionPanelLogEvents.SourceCatalogLoadFailed, fields);
+                else
+                {
+                    BppLog.ErrorEvent(
+                        CollectionPanelLogEvents.SourceCatalogLoadFailed,
+                        load.Exception,
+                        fields
                     );
                 }
             }
-            catch (Exception ex)
-            {
-                BppLog.Error(LogComponent, "Failed to load source catalog", ex);
-            }
-            finally
-            {
-                _loaded = true;
-            }
+
+            _loaded = true;
         }
     }
 
@@ -475,24 +491,58 @@ internal static class CollectionSourceCatalog
         return chars.Count == 0 ? "unknown" : new string(chars.ToArray());
     }
 
-    private static string? ReadEmbeddedJson(string suffix)
+    private static SourceCatalogLoadOutcome LoadEmbeddedCatalog(string suffix)
     {
-        var assembly = Assembly.GetExecutingAssembly();
-        var resourceName = assembly
-            .GetManifestResourceNames()
-            .FirstOrDefault(name => name.EndsWith(suffix, StringComparison.OrdinalIgnoreCase));
-        if (resourceName == null)
+        try
         {
-            BppLog.Warn(LogComponent, $"Embedded catalog resource not found suffix={suffix}");
-            return null;
+            var assembly = Assembly.GetExecutingAssembly();
+            var resourceName = assembly
+                .GetManifestResourceNames()
+                .FirstOrDefault(name => name.EndsWith(suffix, StringComparison.OrdinalIgnoreCase));
+            if (resourceName == null)
+            {
+                return SourceCatalogLoadOutcome.Failed(
+                    CollectionPanelLogReasonCode.ResourceMissing,
+                    null
+                );
+            }
+
+            using var stream = assembly.GetManifestResourceStream(resourceName);
+            if (stream == null)
+            {
+                return SourceCatalogLoadOutcome.Failed(
+                    CollectionPanelLogReasonCode.ResourceStreamUnavailable,
+                    null
+                );
+            }
+
+            using var reader = new StreamReader(stream);
+            var json = reader.ReadToEnd();
+            return SourceCatalogLoadOutcome.Loaded(Build(json));
         }
+        catch (Exception ex)
+        {
+            return SourceCatalogLoadOutcome.Failed(
+                CollectionPanelLogReasonCode.SourceCatalogInvalid,
+                ex
+            );
+        }
+    }
 
-        using var stream = assembly.GetManifestResourceStream(resourceName);
-        if (stream == null)
-            return null;
+    private readonly record struct SourceCatalogLoadOutcome(
+        IReadOnlyList<CollectionSourceEntry>? Entries,
+        CollectionPanelLogReasonCode? ReasonCode,
+        Exception? Exception
+    )
+    {
+        internal static SourceCatalogLoadOutcome Loaded(
+            IReadOnlyList<CollectionSourceEntry> entries
+        ) => new(entries, null, null);
 
-        using var reader = new StreamReader(stream);
-        return reader.ReadToEnd();
+        internal static SourceCatalogLoadOutcome Failed(
+            CollectionPanelLogReasonCode reasonCode,
+            Exception? exception
+        ) => new(null, reasonCode, exception);
     }
 
     private sealed class EntryBuildCandidate

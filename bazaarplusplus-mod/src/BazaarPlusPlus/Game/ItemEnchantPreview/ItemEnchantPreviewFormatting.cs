@@ -1,9 +1,7 @@
 #nullable enable
-using System;
 using System.Text.RegularExpressions;
 using BazaarGameShared.Domain.Core.Types;
 using BazaarPlusPlus.Infrastructure;
-using BazaarPlusPlus.Infrastructure.Fonts;
 using TheBazaar.Tooltips;
 using TheBazaar.Utilities;
 
@@ -11,20 +9,16 @@ namespace BazaarPlusPlus.Game.ItemEnchantPreview;
 
 public static class ItemEnchantPreviewFormatting
 {
-    public const string PreviewHeaderText = "BazaarPlusPlus";
-
-    private const string LogComponent = "ItemEnchantPreview";
     private const int PrefixSizePercent = 60;
     private const int EffectSizePercent = 55;
-    private const string EnchantmentPrefix = "\u00A0\u00A0· ";
-    private const string CjkLineHeight = "<line-height=1.15em>";
+    private const string NativeLineHeight = "<line-height=1.6em>";
+    private const string WrappedLineHeight = "<line-height=1.9em>";
+    private const string EntryBreakLineHeight = "<line-height=2.1em>";
+    private const string LineHeightEnd = "</line-height>";
+    private static readonly string EntryBreak = BuildEntryBreak(EntryBreakLineHeight);
 
     private static readonly Regex SizeTagRegex = new Regex(
         "<size=(\\d+)%>",
-        RegexOptions.Compiled | RegexOptions.CultureInvariant
-    );
-    private static readonly Regex NativeLineHeightRegex = new Regex(
-        "<line-height=1\\.6em>",
         RegexOptions.Compiled | RegexOptions.CultureInvariant
     );
 
@@ -35,28 +29,35 @@ public static class ItemEnchantPreviewFormatting
     {
         var enchantmentLabel = GetEnchantmentLabel(enchantmentType);
         var colorHex = GetEnchantmentColorHex(enchantmentType);
-        var scaledText = ScaleInlineSizes(
-            NormalizeNativeLineHeight(renderedText),
-            EffectSizePercent / 100f
-        );
+        var normalizedText = renderedText.Replace(NativeLineHeight, WrappedLineHeight);
+        var scaledText = ScaleInlineSizes(normalizedText, EffectSizePercent / 100f);
 
         return new TooltipSegment(
-            $"<size={PrefixSizePercent}%>{EnchantmentPrefix}<color=#{colorHex}>{enchantmentLabel}</color>: </size><size={EffectSizePercent}%>{scaledText}</size>",
+            $"<size={PrefixSizePercent}%><color=#{colorHex}>{enchantmentLabel}</color>: </size><size={EffectSizePercent}%>{WrappedLineHeight}{scaledText}{LineHeightEnd}</size>",
             null,
             null,
             -1
         );
     }
 
-    internal static string NormalizeNativeLineHeight(string text)
+    public static string BuildSectionText(IReadOnlyList<TooltipSegment> segments)
     {
-        if (!BppTmpFontPolicy.ShouldUseEmbeddedCjkFont(text))
-            return text;
+        if (segments == null || segments.Count == 0)
+            return string.Empty;
 
-        return NativeLineHeightRegex.Replace(text, CjkLineHeight);
+        var lines = segments
+            .Where(segment => !string.IsNullOrWhiteSpace(segment.Text))
+            .Select(segment => NormalizeEntryLineEndings(segment.Text));
+        return string.Join(EntryBreak, lines);
     }
 
-    private static string ScaleInlineSizes(string text, float scale)
+    private static string BuildEntryBreak(string lineHeight) =>
+        $"<size={EffectSizePercent}%>{lineHeight}\n{LineHeightEnd}</size>";
+
+    private static string NormalizeEntryLineEndings(string text) =>
+        text.Replace("\r\n", "\n").Replace('\r', '\n').Trim('\n');
+
+    internal static string ScaleInlineSizes(string text, float scale)
     {
         if (string.IsNullOrEmpty(text))
             return text;
@@ -82,9 +83,16 @@ public static class ItemEnchantPreviewFormatting
         }
         catch (Exception ex)
         {
-            BppLog.Debug(
-                LogComponent,
-                $"GetEnchantmentLabel: localization failed for enchant '{enchantmentType}', using raw name: {ex.Message}"
+            BppLog.WarnEvent(
+                ItemEnchantPreviewLogEvents.RenderDegraded,
+                ex,
+                ItemEnchantPreviewLogEvents.RenderDegradedStage.Bind(
+                    ItemEnchantRenderStage.Localization
+                ),
+                ItemEnchantPreviewLogEvents.RenderDegradedReasonCode.Bind(
+                    ItemEnchantLogReasonCode.LocalizationFallback
+                ),
+                ItemEnchantPreviewLogEvents.RenderDegradedEnchantment.Bind(enchantmentType)
             );
             return enchantmentType.ToString();
         }

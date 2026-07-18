@@ -1,6 +1,5 @@
 #pragma warning disable CS0436
 #nullable enable
-using System;
 using BazaarPlusPlus.Game.Lobby;
 using BazaarPlusPlus.Infrastructure;
 using HarmonyLib;
@@ -28,7 +27,13 @@ internal static class MainMenuVersionLabelBuildPatch
         }
         catch (Exception ex)
         {
-            BppLog.Warn("MainMenuVersionLabel", $"Failed to refresh version label: {ex.Message}");
+            BppLog.WarnEvent(
+                LobbyLogEvents.VersionLabelDegraded,
+                ex,
+                LobbyLogEvents.VersionLabelDegradedReasonCode.Bind(
+                    LobbyLogReasonCode.LabelRefreshException
+                )
+            );
         }
     }
 }

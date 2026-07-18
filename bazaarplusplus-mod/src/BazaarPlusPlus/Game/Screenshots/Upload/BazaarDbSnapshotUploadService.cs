@@ -1,10 +1,5 @@
 #nullable enable
-using System;
-using System.Net.Http;
-using System.Threading;
-using System.Threading.Tasks;
 using BazaarPlusPlus.GameInterop;
-using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.ModApi;
 using BazaarPlusPlus.ModApi.Clients;
 
@@ -18,12 +13,23 @@ internal sealed class BazaarDbSnapshotUploadService
     private readonly ModApiRoutes _routes;
     private readonly HttpClient _httpClient;
     private readonly Func<string?> _playerAccountIdResolver;
+    private readonly ScreenshotUploadLogState _logState;
 
     public BazaarDbSnapshotUploadService(
         BazaarDbSnapshotUploadStore store,
         ModApiRoutes routes,
         HttpClient httpClient,
         Func<string?> playerAccountIdResolver
+    )
+        : this(store, routes, httpClient, playerAccountIdResolver, new ScreenshotUploadLogState())
+    { }
+
+    internal BazaarDbSnapshotUploadService(
+        BazaarDbSnapshotUploadStore store,
+        ModApiRoutes routes,
+        HttpClient httpClient,
+        Func<string?> playerAccountIdResolver,
+        ScreenshotUploadLogState logState
     )
     {
         _store = store ?? throw new ArgumentNullException(nameof(store));
@@ -32,6 +38,7 @@ internal sealed class BazaarDbSnapshotUploadService
         _playerAccountIdResolver =
             playerAccountIdResolver
             ?? throw new ArgumentNullException(nameof(playerAccountIdResolver));
+        _logState = logState ?? throw new ArgumentNullException(nameof(logState));
     }
 
     public Task UploadPendingAsync(CancellationToken cancellationToken) =>
@@ -61,20 +68,11 @@ internal sealed class BazaarDbSnapshotUploadService
 
         var pending = _store.GetPendingSnapshotIds(BatchSize);
         if (pending.Count == 0)
-        {
-            BppLog.Info(
-                "BazaarDbSnapshotUploadService",
-                "No screenshots are waiting for BazaarDB upload."
-            );
             return;
-        }
 
         if (string.IsNullOrWhiteSpace(playerAccountId))
         {
-            BppLog.Info(
-                "BazaarDbSnapshotUploadService",
-                $"Skipping {pending.Count} pending screenshot(s): player account id not yet available."
-            );
+            _logState.ReportWaiting(pending.Count);
             return;
         }
 
@@ -83,18 +81,14 @@ internal sealed class BazaarDbSnapshotUploadService
             .ConfigureAwait(false);
         if (!healthProbe.Succeeded)
         {
-            BppLog.Warn(
-                "BazaarDbSnapshotUploadService",
-                $"Bazaar++ service health probe failed error={healthProbe.Error ?? "unknown"} rtt_ms={healthProbe.RoundTripMilliseconds} probed_at_utc={healthProbe.ProbedAtUtc:O}; retrying later."
+            _logState.ReportHealthDegraded(
+                ScreenshotUploadLogValues.HealthProbeFailed,
+                healthProbe.RoundTripMilliseconds
             );
             return;
         }
 
-        var serverTimeUtc = healthProbe.ServerTimeUtc?.ToString("O") ?? "unknown";
-        BppLog.Debug(
-            "BazaarDbSnapshotUploadService",
-            $"Bazaar++ service health ok rtt_ms={healthProbe.RoundTripMilliseconds} server_time_utc={serverTimeUtc} probed_at_utc={healthProbe.ProbedAtUtc:O}."
-        );
+        _logState.ReportHealthRecovered();
 
         var client = new BazaarDbSnapshotClient(_httpClient, _routes);
         foreach (var snapshotId in pending)

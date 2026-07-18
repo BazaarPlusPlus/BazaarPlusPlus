@@ -1,17 +1,11 @@
 #nullable enable
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Reflection;
 using BazaarGameClient.Domain.Models.Cards;
-using BazaarGameShared.Domain.Cards.Enchantments;
 using BazaarGameShared.Domain.Core.Types;
 using BazaarGameShared.Domain.Players;
 using BazaarGameShared.Infra.Messages;
 using BazaarGameShared.Infra.Messages.GameSimEvents;
-using BazaarGameShared.TempoNet.Enums;
-using BazaarGameShared.TempoNet.Models;
 using BazaarPlusPlus.Game.PvpBattles;
 using BazaarPlusPlus.Infrastructure;
 using TheBazaar;
@@ -22,16 +16,14 @@ internal static class SnapshotRehydrator
 {
     internal static void RehydratePlayerCards(
         PvpBattleManifest manifest,
-        NetMessageGameSim spawnMessage
+        NetMessageGameSim spawnMessage,
+        IReplayPlaybackOutcomeSink outcome
     )
     {
         var capture = manifest.Snapshots.PlayerHand;
         if (capture.Status == PvpBattleCaptureStatus.Missing)
         {
-            BppLog.Warn(
-                "SnapshotRehydrator",
-                $"Saved replay {manifest.BattleId} does not contain player-hand snapshots; player cards may be missing. Re-capture this fight with the current mod build."
-            );
+            outcome.ReportDegradation(ReplayPlaybackReasonCode.PlayerSnapshotUnavailable);
             return;
         }
 
@@ -40,16 +32,14 @@ internal static class SnapshotRehydrator
 
     internal static void RehydrateOpponentCards(
         PvpBattleManifest manifest,
-        NetMessageGameSim spawnMessage
+        NetMessageGameSim spawnMessage,
+        IReplayPlaybackOutcomeSink outcome
     )
     {
         var capture = manifest.Snapshots.OpponentHand;
         if (capture.Status == PvpBattleCaptureStatus.Missing)
         {
-            BppLog.Warn(
-                "SnapshotRehydrator",
-                $"Saved replay {manifest.BattleId} does not contain opponent-hand snapshots; opponent cards may be missing. Re-capture this fight with the current mod build."
-            );
+            outcome.ReportDegradation(ReplayPlaybackReasonCode.OpponentSnapshotUnavailable);
             return;
         }
 
@@ -58,16 +48,14 @@ internal static class SnapshotRehydrator
 
     internal static void RehydratePlayerSkills(
         PvpBattleManifest manifest,
-        NetMessageGameSim spawnMessage
+        NetMessageGameSim spawnMessage,
+        IReplayPlaybackOutcomeSink outcome
     )
     {
         var capture = manifest.Snapshots.PlayerSkills;
         if (capture.Status == PvpBattleCaptureStatus.Missing)
         {
-            BppLog.Warn(
-                "SnapshotRehydrator",
-                $"Saved replay {manifest.BattleId} does not contain player-skill snapshots; player skills may be missing. Re-capture this fight with the current mod build."
-            );
+            outcome.ReportDegradation(ReplayPlaybackReasonCode.PlayerSkillsUnavailable);
             return;
         }
 
@@ -77,16 +65,14 @@ internal static class SnapshotRehydrator
 
     internal static void RehydrateOpponentSkills(
         PvpBattleManifest manifest,
-        NetMessageGameSim spawnMessage
+        NetMessageGameSim spawnMessage,
+        IReplayPlaybackOutcomeSink outcome
     )
     {
         var capture = manifest.Snapshots.OpponentSkills;
         if (capture.Status == PvpBattleCaptureStatus.Missing)
         {
-            BppLog.Warn(
-                "SnapshotRehydrator",
-                $"Saved replay {manifest.BattleId} does not contain opponent-skill snapshots; opponent skills may be missing. Re-capture this fight with the current mod build."
-            );
+            outcome.ReportDegradation(ReplayPlaybackReasonCode.OpponentSkillsUnavailable);
             return;
         }
 
@@ -94,7 +80,7 @@ internal static class SnapshotRehydrator
         ReplaceSkillCollection(Data.Run?.Opponent, skills);
     }
 
-    internal static void SanitizeSpawnEvents(CombatSequenceMessages sequence)
+    internal static void SanitizeSpawnEvents(CombatSequenceMessages sequence, string? battleId)
     {
         var events = sequence.SpawnMessage?.Data?.Events;
         if (events == null || events.Count == 0)
@@ -102,12 +88,15 @@ internal static class SnapshotRehydrator
 
         var removedCount = events.RemoveAll(ShouldRemoveSpawnEvent);
         if (removedCount > 0)
-        {
-            BppLog.Info(
-                "SnapshotRehydrator",
-                $"Removed {removedCount} non-combat opponent spawn events from saved replay bootstrap."
+            BppLog.DebugEvent(
+                CombatReplayLogEvents.PlaybackCleanupObserved,
+                () =>
+                    [
+                        CombatReplayLogEvents.CleanupObservedStage.Bind("spawn_sanitization"),
+                        CombatReplayLogEvents.CleanupObservedRemovedCount.Bind(removedCount),
+                        CombatReplayLogEvents.CleanupObservedBattleId.Bind(battleId),
+                    ]
             );
-        }
     }
 
     private static bool ShouldRemoveSpawnEvent(IGameSimEvent gameSimEvent)
@@ -116,6 +105,7 @@ internal static class SnapshotRehydrator
             is GameSimEventCardSpawned
             {
                 CombatantId: ECombatantId.Opponent,
+                Type: not ECardType.SocketEffect,
                 Section: not EInventorySection.Hand,
             };
     }

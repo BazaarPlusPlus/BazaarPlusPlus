@@ -1,5 +1,4 @@
 #nullable enable
-using System;
 using BazaarPlusPlus.Game.HistoryPanel.Ghost;
 using BazaarPlusPlus.Game.HistoryPanel.Storage;
 using BazaarPlusPlus.ModApi.Clients;
@@ -11,6 +10,13 @@ internal static class HistoryPanelFactory
     public static HistoryPanelDependencies Create(
         IHistoryPanelRuntime runtime,
         ModOnlineClient onlineClient
+    ) => Create(runtime, onlineClient, null);
+
+    public static HistoryPanelDependencies Create(
+        IHistoryPanelRuntime runtime,
+        ModOnlineClient onlineClient,
+        BazaarDbLinkClient? accountLinkClient,
+        Func<bool>? isBazaarDbAccountLinkAvailable = null
     )
     {
         if (runtime == null)
@@ -23,7 +29,11 @@ internal static class HistoryPanelFactory
             repository = new HistoryPanelRepository(runtime.RunLogDatabasePath);
 
         var ghostSyncService = CreateGhostSyncService(repository, onlineClient);
-        var dataService = new HistoryPanelDataService(repository, ghostSyncService);
+        var dataService = new HistoryPanelDataService(
+            repository,
+            ghostSyncService,
+            () => runtime.CombatReplayDirectoryPath
+        );
         var replayService = new HistoryPanelReplayService(
             runtime.CombatReplayRuntimeAccessor,
             () => runtime.CombatReplayDirectoryPath,
@@ -37,7 +47,9 @@ internal static class HistoryPanelFactory
             dataService,
             replayService,
             ghostSyncService,
-            serverHealthProbe
+            serverHealthProbe,
+            accountLinkClient,
+            isBazaarDbAccountLinkAvailable
         );
     }
 

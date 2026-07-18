@@ -1,6 +1,4 @@
 #nullable enable
-using System;
-using System.IO;
 using System.Text;
 
 namespace BazaarPlusPlus.Game.Screenshots;

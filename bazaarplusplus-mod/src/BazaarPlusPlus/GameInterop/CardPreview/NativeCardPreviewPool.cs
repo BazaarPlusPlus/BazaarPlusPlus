@@ -1,8 +1,4 @@
 #nullable enable
-using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
-using BazaarGameShared.Domain.Cards;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
@@ -12,51 +8,23 @@ internal sealed class NativeCardPreviewPool
 {
     private const int DefaultMaxPoolSizePerKind = 30;
 
-    private readonly int _layer;
-    private readonly bool _requireSockets;
-    private readonly string _logComponent;
     private readonly int _maxPoolSizePerKind;
     private readonly Dictionary<NativeCardPreviewKind, Queue<Component>> _pool = new();
 
-    public NativeCardPreviewPool(
-        int layer,
-        bool requireSockets,
-        string logComponent,
-        int maxPoolSizePerKind = DefaultMaxPoolSizePerKind
-    )
-    {
-        _layer = layer;
-        _requireSockets = requireSockets;
-        _logComponent = string.IsNullOrWhiteSpace(logComponent)
-            ? "NativeCardPreviewPool"
-            : logComponent;
+    internal NativeCardPreviewPool(int maxPoolSizePerKind = DefaultMaxPoolSizePerKind) =>
         _maxPoolSizePerKind = Math.Max(1, maxPoolSizePerKind);
-    }
 
-    public bool TryEnsurePrefabRefs(bool requireSkill)
-    {
-        return NativeCardPreviewPrefabResolver.TryEnsureResolved(
-            requireSkill,
-            _requireSockets,
-            _logComponent
-        );
-    }
-
-    // Returns (card, isNew). isNew=true means the card was freshly created by InstantiateUICardAsync
-    // and already has SetUp called internally; callers must NOT call SetUp again for new cards.
-    // isNew=false means the card was recycled from the pool and needs SetUp for rebinding.
-    public async Task<(Component? card, bool isNew)> TakeAsync(
+    internal async Task<Component?> TakeInactiveAsync(
         NativeCardPreviewKind kind,
-        TCardInstance instance,
-        Transform parent
+        Transform parent,
+        Func<Task<Component?>> instantiateAsync,
+        CancellationToken token = default
     )
     {
-        if (!_pool.TryGetValue(kind, out var queue))
-        {
-            queue = new Queue<Component>();
-            _pool[kind] = queue;
-        }
+        if (parent == null)
+            return null;
 
+        var queue = QueueFor(kind);
         Component? card = null;
         while (queue.Count > 0)
         {
@@ -68,50 +36,30 @@ internal sealed class NativeCardPreviewPool
             }
         }
 
-        var isNew = card == null;
-        if (isNew)
-        {
-            card = await NativeCardPreviewPrefabResolver.TryCreateCardAsync(
-                instance,
-                parent,
-                _logComponent
-            );
-            if (card == null)
-                return (null, false);
-            card.name = $"BppNativeCardPreview_{kind}";
-        }
-        else
-        {
-            card!.transform.SetParent(parent, worldPositionStays: false);
-        }
+        card ??= await instantiateAsync();
+        if (card == null)
+            return null;
 
-        card!.transform.localScale = Vector3.one;
-        card.transform.localRotation = Quaternion.identity;
-        card.gameObject.SetActive(true);
-        NativeCardPreviewReflection.ApplyLayerRecursive(card.gameObject, _layer);
-        NativeCardPreviewRuntime.Resize(card, _logComponent);
-        return (card, isNew);
+        return NativeCardPreviewPoolSettlement.Prepare(
+            card,
+            candidate =>
+            {
+                candidate.gameObject.SetActive(false);
+                candidate.transform.SetParent(parent, worldPositionStays: false);
+            },
+            candidate => Return(candidate, kind),
+            Destroy,
+            token
+        );
     }
 
-    public void Return(NativeCardPreviewHandle? handle)
-    {
-        if (handle == null)
-            return;
-        Return(handle.Card, handle.Kind);
-    }
-
-    public void Return(Component? card, NativeCardPreviewKind kind)
+    internal void Return(Component? card, NativeCardPreviewKind kind)
     {
         if (card == null)
             return;
 
         card.gameObject.SetActive(false);
-        if (!_pool.TryGetValue(kind, out var queue))
-        {
-            queue = new Queue<Component>();
-            _pool[kind] = queue;
-        }
-
+        var queue = QueueFor(kind);
         if (queue.Count >= _maxPoolSizePerKind)
         {
             var evicted = queue.Dequeue();
@@ -122,18 +70,30 @@ internal sealed class NativeCardPreviewPool
         queue.Enqueue(card);
     }
 
-    public void DestroyAll()
+    internal static void Destroy(Component? card)
+    {
+        if (card != null)
+            Object.Destroy(card.gameObject);
+    }
+
+    internal void DestroyAll()
     {
         foreach (var queue in _pool.Values)
         {
             while (queue.Count > 0)
-            {
-                var card = queue.Dequeue();
-                if (card != null)
-                    Object.Destroy(card.gameObject);
-            }
+                Destroy(queue.Dequeue());
         }
 
         _pool.Clear();
+    }
+
+    private Queue<Component> QueueFor(NativeCardPreviewKind kind)
+    {
+        if (_pool.TryGetValue(kind, out var queue))
+            return queue;
+
+        queue = new Queue<Component>();
+        _pool[kind] = queue;
+        return queue;
     }
 }

@@ -1,6 +1,4 @@
 #nullable enable
-using System.Collections.Generic;
-using System.Linq;
 using BazaarPlusPlus.Game.HistoryPanel.Data;
 using BazaarPlusPlus.Game.HistoryPanel.Ui;
 using BazaarPlusPlus.Game.Supporters;
@@ -26,10 +24,15 @@ internal sealed partial class HistoryPanel
                 () => TryReplaySelectedBattle(true),
                 TryDeleteSelectedRun,
                 TryCheckServerHealth,
+                SubmitAccountLinkCode,
+                ToggleAccountLinkForm,
+                MarkAccountLinkedManually,
                 SelectRun,
                 SelectBattle,
                 SetSectionMode,
-                SetGhostBattleFilter
+                SetGhostBattleFilter,
+                SetRunHero,
+                ToggleGhostDayMin10
             );
             _uiView.PreviewContainerBoundsChanged += OnPreviewContainerBoundsChanged;
 
@@ -65,6 +68,11 @@ internal sealed partial class HistoryPanel
         _uiView?.SetVisible(visible);
     }
 
+    private bool IsTextInputFocused()
+    {
+        return _uiView?.IsTextInputFocused() == true;
+    }
+
     private void RefreshUi()
     {
         _uiView?.Refresh(BuildUiModel());
@@ -86,13 +94,32 @@ internal sealed partial class HistoryPanel
         var canReplaySelectedBattle = CanReplaySelectedBattle(out var replayUnavailableReason);
         var canRecordSelectedBattle = CanRecordSelectedBattle(out _);
         var canDeleteSelectedRun = CanDeleteSelectedRun(out _);
+        var filteredRuns = FilteredRuns;
+        var visibleRuns = filteredRuns.ToList();
         var visibleBattles =
-            _sectionMode == HistorySectionMode.Ghost
+            _state.SectionMode == HistorySectionMode.Ghost
                 ? FilteredGhostBattles.ToList()
-                : _battles.ToList();
+                : _state.Battles.ToList();
 
         var selectedBattle = ActiveSelectedBattle;
         var hasSelectedBattle = selectedBattle != null;
+        var selectedRun = SelectedRun;
+        var now = Time.unscaledTime;
+        var databaseChip =
+            _coordinator?.ResolveDatabaseChip()
+            ?? HistoryPanelDecisions.ResolveDatabaseChip(false, false);
+        var buttons = HistoryPanelButtonModel.Build(
+            _state.ReplayActionInProgress,
+            canReplaySelectedBattle,
+            replayUnavailableReason,
+            _coordinator?.GetReplayActionLabel(selectedBattle) ?? HistoryPanelText.Replay(),
+            _runtime?.IsInGameRun == true,
+            canRecordSelectedBattle,
+            _state.SectionMode == HistorySectionMode.Runs
+                && selectedRun != null
+                && _coordinator?.IsDeleteRunConfirmationActive(selectedRun.RunId, now) == true,
+            canDeleteSelectedRun
+        );
 
         var detailResultText = hasSelectedBattle
             ? HistoryPanelFormatter.FormatBattleResult(selectedBattle!)
@@ -122,9 +149,11 @@ internal sealed partial class HistoryPanel
         var serverHealthDisplay = _state.ServerHealthProbeInProgress
             ? HistoryPanelServerHealthFormatter.Checking()
             : HistoryPanelServerHealthFormatter.Idle();
+        var isBazaarDbLinked = _state.LocalLinkedHint;
+        var hasAccount = !string.IsNullOrWhiteSpace(_state.CachedAccountId);
+        var accountFormVisible = hasAccount && _state.AccountLinkExpanded;
 
         var statusSeverity = _state.StatusSeverity;
-        var databaseChipSeverity = ResolveDatabaseChipSeverity();
 
         return new HistoryPanelUiToolkitModel
         {
@@ -132,48 +161,66 @@ internal sealed partial class HistoryPanel
             Subtitle = HistoryPanelText.Subtitle(),
             Supporters = _supporters,
             CountChipText =
-                _sectionMode == HistorySectionMode.Ghost
+                _state.SectionMode == HistorySectionMode.Ghost
                     ? HistoryPanelText.CountGhost(FilteredGhostBattles.Count)
-                    : HistoryPanelText.CountRuns(_runs.Count),
+                    : HistoryPanelText.CountRuns(filteredRuns.Count),
             BattleChipText =
-                _sectionMode == HistorySectionMode.Ghost
+                _state.SectionMode == HistorySectionMode.Ghost
                     ? HistoryPanelText.CountBattles(FilteredGhostBattles.Count)
-                    : HistoryPanelText.CountBattles(_battles.Count),
-            DatabaseChipText = HistoryPanelText.DatabaseChip(GetDatabaseChipText()),
-            DatabaseChipSeverity = databaseChipSeverity,
+                    : HistoryPanelText.CountBattles(_state.Battles.Count),
+            DatabaseChipText = databaseChip.Text,
+            DatabaseChipSeverity = databaseChip.Severity,
             ServerHealthButtonText = serverHealthDisplay.ButtonText,
             ServerHealthButtonEnabled = serverHealthDisplay.ButtonEnabled,
-            SectionMode = _sectionMode,
-            GhostBattleFilter = _ghostBattleFilter,
-            StatusMessage = _statusMessage,
+            AccountCardVisible = _dependencies?.IsBazaarDbAccountLinkAvailable?.Invoke() ?? false,
+            IsBazaarDbLinked = isBazaarDbLinked,
+            AccountTitleText = HistoryPanelText.AccountLink.Title(),
+            AccountWhyText = HistoryPanelText.AccountLink.Why(),
+            AccountHintText = HistoryPanelText.AccountLink.Hint(),
+            AccountRowStatusText =
+                !hasAccount ? HistoryPanelText.AccountLink.SignedOut()
+                : isBazaarDbLinked ? HistoryPanelText.AccountLink.Linked()
+                : HistoryPanelText.AccountLink.NotLinked(),
+            AccountRowActionText = isBazaarDbLinked
+                ? HistoryPanelText.AccountLink.Relink()
+                : HistoryPanelText.AccountLink.RowBind(),
+            AccountRowActionVisible = hasAccount,
+            AccountLinkCollapseText = HistoryPanelText.AccountLink.Collapse(),
+            AccountLinkButtonText = _state.AccountLinkInProgress
+                ? HistoryPanelText.AccountLink.Linking()
+                : HistoryPanelText.AccountLink.Button(),
+            AccountAlreadyLinkedButtonText =
+                HistoryPanelText.AccountLink.AlreadyLinkedElsewhereButton(),
+            AccountAlreadyLinkedButtonVisible =
+                accountFormVisible && !isBazaarDbLinked && !_state.AccountLinkInProgress,
+            AccountLinkButtonEnabled = !_state.AccountLinkInProgress && hasAccount,
+            AccountLinkInputEnabled = !_state.AccountLinkInProgress && hasAccount,
+            AccountLinkBannerText = _state.AccountLinkBannerMessage,
+            AccountLinkBannerSeverity = _state.AccountLinkBannerSeverity,
+            AccountLinkFormVisible = accountFormVisible,
+            SectionMode = _state.SectionMode,
+            GhostBattleFilter = _state.GhostBattleFilter,
+            SelectedRunHero = _state.SelectedRunHero,
+            GhostDayMin10 = _state.GhostDayMin10,
+            StatusMessage = _state.StatusMessage,
             StatusSeverity = statusSeverity,
-            Runs = _runs,
+            Runs = visibleRuns,
             VisibleBattles = visibleBattles,
-            SelectedRunIndex = _selectedRunIndex,
+            SelectedRunIndex = _state.SelectedRunIndex,
             SelectedBattleIndex =
-                _sectionMode == HistorySectionMode.Ghost
-                    ? _selectedGhostBattleIndex
-                    : _selectedBattleIndex,
+                _state.SectionMode == HistorySectionMode.Ghost
+                    ? _state.SelectedGhostBattleIndex
+                    : _state.SelectedBattleIndex,
             RunsBattleSubtitle =
-                SelectedRun == null
+                selectedRun == null
                     ? HistoryPanelText.SelectRunSubtitle()
-                    : $"{SelectedRun.Hero} | {HistoryPanelFormatter.FormatDayOnly(SelectedRun.FinalDay)}",
-            ReplayButtonText = _replayActionInProgress
-                ? HistoryPanelText.Working()
-                : GetReplayButtonLabel(
-                    ActiveSelectedBattle,
-                    canReplaySelectedBattle,
-                    replayUnavailableReason
-                ),
-            ReplayButtonEnabled = canReplaySelectedBattle && !_replayActionInProgress,
-            RecordAndReplayButtonText = HistoryPanelText.RecordAndReplay(),
-            RecordAndReplayButtonEnabled = canRecordSelectedBattle && !_replayActionInProgress,
-            DeleteButtonText = GetDeleteRunButtonLabel(
-                _sectionMode == HistorySectionMode.Runs
-                    && SelectedRun != null
-                    && IsDeleteRunConfirmationActive(SelectedRun.RunId)
-            ),
-            DeleteButtonEnabled = canDeleteSelectedRun,
+                    : $"{selectedRun.Hero} | {HistoryPanelFormatter.FormatDayOnly(selectedRun.FinalDay)}",
+            ReplayButtonText = buttons.ReplayButtonText,
+            ReplayButtonEnabled = buttons.ReplayButtonEnabled,
+            RecordAndReplayButtonText = buttons.RecordAndReplayButtonText,
+            RecordAndReplayButtonEnabled = buttons.RecordAndReplayButtonEnabled,
+            DeleteButtonText = buttons.DeleteButtonText,
+            DeleteButtonEnabled = buttons.DeleteButtonEnabled,
             HasSelectedBattle = hasSelectedBattle,
             DetailResultText = detailResultText,
             DetailResultSeverity = detailResultSeverity,
@@ -184,37 +231,6 @@ internal sealed partial class HistoryPanel
             DetailPlaceholderText = detailPlaceholderText,
             GhostOpponentEliminatedNoticeText = ghostOpponentEliminatedNoticeText,
         };
-    }
-
-    private static string GetDeleteRunButtonLabel(bool confirming)
-    {
-        return confirming ? HistoryPanelText.DeleteConfirm() : HistoryPanelText.Delete();
-    }
-
-    private string GetReplayButtonLabel(
-        HistoryBattleRecord? battle,
-        bool canReplaySelectedBattle,
-        string replayUnavailableReason
-    )
-    {
-        if (canReplaySelectedBattle)
-            return _replayService.GetReplayActionLabel(battle);
-
-        if (_runtime?.IsInGameRun == true)
-            return HistoryPanelText.ReplayDisabledInRun();
-
-        return string.IsNullOrWhiteSpace(replayUnavailableReason)
-            ? _replayService.GetReplayActionLabel(battle)
-            : HistoryPanelText.ReplayUnavailable();
-    }
-
-    // Connected -> Success(green); Missing (fresh install, File.Exists=false) -> Neutral, NOT an
-    // error; Unavailable (repository uninitialized) -> Failure. Reads each flag once.
-    private StatusSeverity ResolveDatabaseChipSeverity()
-    {
-        if (!_dataService.IsAvailable)
-            return StatusSeverity.Failure;
-        return _dataService.DatabaseExists ? StatusSeverity.Success : StatusSeverity.Neutral;
     }
 
     private static StatusSeverity ResolveBattleResultSeverity(HistoryBattleRecord? battle)
@@ -255,9 +271,47 @@ internal sealed class HistoryPanelUiToolkitModel
 
     public bool ServerHealthButtonEnabled { get; set; }
 
+    public bool AccountCardVisible { get; set; }
+
+    public bool IsBazaarDbLinked { get; set; }
+
+    public string AccountTitleText { get; set; } = string.Empty;
+
+    public string AccountWhyText { get; set; } = string.Empty;
+
+    public string AccountHintText { get; set; } = string.Empty;
+
+    public string AccountRowStatusText { get; set; } = string.Empty;
+
+    public string AccountRowActionText { get; set; } = string.Empty;
+
+    public bool AccountRowActionVisible { get; set; }
+
+    public string AccountLinkCollapseText { get; set; } = string.Empty;
+
+    public string AccountLinkButtonText { get; set; } = string.Empty;
+
+    public string AccountAlreadyLinkedButtonText { get; set; } = string.Empty;
+
+    public bool AccountAlreadyLinkedButtonVisible { get; set; }
+
+    public bool AccountLinkButtonEnabled { get; set; }
+
+    public bool AccountLinkInputEnabled { get; set; }
+
+    public string? AccountLinkBannerText { get; set; }
+
+    public StatusSeverity AccountLinkBannerSeverity { get; set; }
+
+    public bool AccountLinkFormVisible { get; set; }
+
     public HistorySectionMode SectionMode { get; set; }
 
     public GhostBattleFilter GhostBattleFilter { get; set; }
+
+    public string? SelectedRunHero { get; set; }
+
+    public bool GhostDayMin10 { get; set; }
 
     public string? StatusMessage { get; set; }
 

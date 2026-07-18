@@ -1,8 +1,5 @@
 #nullable enable
-using System;
 using System.Runtime.InteropServices;
-using System.Threading;
-using BazaarPlusPlus.Infrastructure;
 
 namespace BazaarPlusPlus.Game.CombatReplay.Audio;
 
@@ -28,20 +25,23 @@ namespace BazaarPlusPlus.Game.CombatReplay.Audio;
 /// </summary>
 internal sealed class CoreAudioProcessTapCaptureTap : IReplayAudioCaptureTap
 {
-    private const string Component = "CombatReplayAudio";
-
     private readonly string _wavFilePath;
 
     private WavStreamWriter? _wav;
     private Thread? _thread;
     private volatile bool _running;
     private bool _stopped;
+    private int _cleanupCompleted;
     private IntPtr _handle;
 
     private long _totalFloats;
     private double _sumSquares;
     private long _statSampleCount;
     private float _peakAbs;
+    private int _sampleRate;
+    private int _channels;
+    private ReplayAudioFailureReasonCode _failureReason;
+    private Exception? _failureException;
 
     public CoreAudioProcessTapCaptureTap(string wavFilePath)
     {
@@ -51,22 +51,31 @@ internal sealed class CoreAudioProcessTapCaptureTap : IReplayAudioCaptureTap
     public bool IsCapturing { get; private set; }
     public string WavFilePath => _wavFilePath;
     public string CapturePointLabel => "coreaudio-process-tap";
+    public ReplayAudioBackend Backend => ReplayAudioBackend.CoreAudioProcessTap;
+    public int SampleRateHz => _sampleRate;
+    public int Channels => _channels;
+    public string SampleFormat => "float32";
+    public ReplayAudioFailureReasonCode FailureReason => _failureReason;
+    public Exception? FailureException => _failureException;
     public bool CapturedAnySamples => Interlocked.Read(ref _totalFloats) > 0;
     public long CapturedSampleFloats => Interlocked.Read(ref _totalFloats);
     public double RmsAmplitude =>
         _statSampleCount > 0 ? Math.Sqrt(_sumSquares / _statSampleCount) : 0.0;
     public float PeakAmplitude => _peakAbs;
 
-    public bool TryStart()
+    public ReplayAudioCaptureStartOutcome TryStart()
     {
         try
         {
             _handle = BppMacAudio_Start(out var rate, out var ch);
             if (_handle == IntPtr.Zero)
             {
-                BppLog.Warn(Component, "CoreAudio tap start failed.");
-                return false;
+                _failureReason = ReplayAudioFailureReasonCode.BackendStartFailed;
+                return ReplayAudioCaptureStartOutcome.Failure(_failureReason);
             }
+
+            _sampleRate = rate;
+            _channels = ch;
 
             // The tap is already 32-bit float interleaved PCM — no format conversion needed.
             _wav = new WavStreamWriter(_wavFilePath, rate, ch);
@@ -80,14 +89,14 @@ internal sealed class CoreAudioProcessTapCaptureTap : IReplayAudioCaptureTap
             _thread.Start();
 
             IsCapturing = true;
-            BppLog.Info(Component, $"CoreAudio tap capture started rate={rate} channels={ch}");
-            return true;
+            return ReplayAudioCaptureStartOutcome.Success();
         }
         catch (Exception ex)
         {
-            BppLog.Warn(Component, $"CoreAudio tap start failed: {ex.Message}");
+            _failureReason = ReplayAudioFailureReasonCode.BackendStartFailed;
+            _failureException = ex;
             SafeStopInternal();
-            return false;
+            return ReplayAudioCaptureStartOutcome.Failure(_failureReason, ex);
         }
     }
 
@@ -100,12 +109,61 @@ internal sealed class CoreAudioProcessTapCaptureTap : IReplayAudioCaptureTap
         _running = false;
         try
         {
-            _thread?.Join(3000);
+            if (
+                !ReplayAudioCaptureThreadJoiner.TryJoin(
+                    _thread,
+                    ReplayAudioCaptureThreadJoiner.StopTimeoutMs,
+                    out var timeoutException
+                )
+            )
+            {
+                _failureReason = ReplayAudioFailureReasonCode.BackendStopFailed;
+                _failureException = timeoutException;
+                ScheduleDeferredCleanup(_thread);
+                IsCapturing = false;
+                return;
+            }
         }
-        catch
+        catch (Exception ex)
         {
-            // A failed join must not block teardown.
+            _failureReason = ReplayAudioFailureReasonCode.BackendStopFailed;
+            _failureException = ex;
         }
+
+        CleanupResources(deleteWav: false);
+        IsCapturing = false;
+    }
+
+    private void ScheduleDeferredCleanup(Thread? captureThread)
+    {
+        if (captureThread == null)
+        {
+            CleanupResources(deleteWav: true);
+            return;
+        }
+
+        var cleanupThread = new Thread(() =>
+        {
+            try
+            {
+                while (!captureThread.Join(ReplayAudioCaptureThreadJoiner.StopTimeoutMs)) { }
+            }
+            finally
+            {
+                CleanupResources(deleteWav: true);
+            }
+        })
+        {
+            IsBackground = true,
+            Name = "BPP.CombatReplayAudio.CoreAudioDeferredCleanup",
+        };
+        cleanupThread.Start();
+    }
+
+    private void CleanupResources(bool deleteWav)
+    {
+        if (Interlocked.Exchange(ref _cleanupCompleted, 1) != 0)
+            return;
 
         if (_handle != IntPtr.Zero)
         {
@@ -113,23 +171,35 @@ internal sealed class CoreAudioProcessTapCaptureTap : IReplayAudioCaptureTap
             {
                 BppMacAudio_Stop(_handle);
             }
-            catch
+            catch (Exception ex)
             {
-                // Native teardown is idempotent; never let it escape.
+                _failureReason = ReplayAudioFailureReasonCode.BackendStopFailed;
+                _failureException = ex;
             }
             _handle = IntPtr.Zero;
         }
-
         try
         {
             _wav?.Dispose();
         }
         catch (Exception ex)
         {
-            BppLog.Warn(Component, $"CoreAudio tap: WAV close failed: {ex.Message}");
+            _failureReason = ReplayAudioFailureReasonCode.WavCloseFailed;
+            _failureException = ex;
         }
-
-        IsCapturing = false;
+        _wav = null;
+        if (deleteWav)
+        {
+            try
+            {
+                if (File.Exists(_wavFilePath))
+                    File.Delete(_wavFilePath);
+            }
+            catch
+            {
+                // Deferred cleanup is best-effort after the typed stop failure is recorded.
+            }
+        }
     }
 
     public void Dispose() => Stop();
@@ -180,7 +250,8 @@ internal sealed class CoreAudioProcessTapCaptureTap : IReplayAudioCaptureTap
         }
         catch (Exception ex)
         {
-            BppLog.Warn(Component, $"CoreAudio tap capture loop error: {ex.Message}");
+            _failureReason = ReplayAudioFailureReasonCode.CaptureLoopFailed;
+            _failureException = ex;
         }
     }
 

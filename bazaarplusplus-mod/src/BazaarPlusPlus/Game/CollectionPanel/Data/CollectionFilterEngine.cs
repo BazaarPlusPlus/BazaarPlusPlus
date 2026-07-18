@@ -1,7 +1,6 @@
 #nullable enable
-using System;
-using System.Collections.Generic;
 using BazaarGameShared.Domain.Core.Types;
+using BazaarPlusPlus.Game.Encounters;
 
 namespace BazaarPlusPlus.Game.CollectionPanel.Data;
 
@@ -25,7 +24,7 @@ internal static class CollectionFilterEngine
                 ? null
                 : context.OfferedCardIds as HashSet<Guid>
                     ?? new HashSet<Guid>(context.OfferedCardIds);
-        var profile = CollectionTabProfile.For(filter.ActiveType);
+        var profile = CollectionTabProfile.For(filter.ActiveTab);
         var heroFilterCount = context.ApplyHeroFilter ? filter.Heroes.Count : 0;
         var tierFilterCount = filter.Tiers.Count;
         var tagFilterCount = profile.ShowTagFilter ? filter.Tags.Count : 0;
@@ -39,12 +38,6 @@ internal static class CollectionFilterEngine
         {
             if (card.Type != filter.ActiveType)
                 continue;
-            if (filter.PackagesOnly)
-            {
-                if (card.IsPackage)
-                    result.Add(card);
-                continue;
-            }
             if (card.IsPackage)
                 continue;
             if (offerPoolSet != null && !offerPoolSet.Contains(card.Id))
@@ -63,6 +56,8 @@ internal static class CollectionFilterEngine
             )
                 continue;
             if (sizeFilterCount > 0 && !filter.Sizes.Contains(card.Size))
+                continue;
+            if (!CollectionCardSearch.Matches(card, filter.SearchQuery))
                 continue;
             result.Add(card);
         }

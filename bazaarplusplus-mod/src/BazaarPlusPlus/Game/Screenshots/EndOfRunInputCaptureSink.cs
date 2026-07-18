@@ -27,6 +27,9 @@ internal sealed class EndOfRunInputCaptureSink
 {
     public void CaptureFocus()
     {
+        if (this == null)
+            return;
+
         var eventSystem = EventSystem.current;
         if (
             eventSystem == null
@@ -39,6 +42,9 @@ internal sealed class EndOfRunInputCaptureSink
 
     public void ReleaseFocus()
     {
+        if (this == null)
+            return;
+
         var eventSystem = EventSystem.current;
         if (
             eventSystem == null
@@ -52,7 +58,6 @@ internal sealed class EndOfRunInputCaptureSink
     public void OnPointerClick(PointerEventData eventData)
     {
         CaptureFocus();
-        EndOfRunScreenshotController.NotifyBlockerClick();
         eventData.Use();
     }
 

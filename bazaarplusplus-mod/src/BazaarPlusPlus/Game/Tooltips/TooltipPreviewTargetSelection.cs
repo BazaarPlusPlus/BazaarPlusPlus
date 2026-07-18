@@ -33,20 +33,4 @@ internal static class TooltipPreviewTargetSelection
 
         return cardTooltipData;
     }
-
-    internal static bool ShouldAllowImplicitUpgradeSchedule(
-        Card? controllerCard,
-        bool isCursorOverCard,
-        bool isHovering,
-        Card? activePrimaryCard
-    )
-    {
-        if (controllerCard == null)
-            return false;
-
-        if (activePrimaryCard != null)
-            return AreSameCard(controllerCard, activePrimaryCard);
-
-        return isCursorOverCard || isHovering;
-    }
 }

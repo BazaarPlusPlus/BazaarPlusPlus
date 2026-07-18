@@ -1,5 +1,4 @@
 #nullable enable
-using System;
 using BazaarPlusPlus.Game.HistoryPanel.Data;
 
 namespace BazaarPlusPlus.Game.HistoryPanel;
@@ -22,6 +21,14 @@ internal static class HistoryPanelGhostBattleFilter
             GhostBattleFilter.ILost => outcome == HistoryPanelGhostBattleOutcome.Lost,
             _ => true,
         };
+    }
+
+    public static bool Matches(GhostBattleFilter filter, bool dayMin10, HistoryBattleRecord battle)
+    {
+        if (!Matches(filter, battle))
+            return false;
+
+        return !dayMin10 || (battle.Day.HasValue && battle.Day.Value >= 10);
     }
 
     public static HistoryPanelGhostBattleOutcome ResolveOutcomeForCompatibility(

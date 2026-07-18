@@ -1,7 +1,7 @@
 #nullable enable
-using System.Collections.Generic;
 using BazaarGameShared.Domain.Core.Types;
 using BazaarPlusPlus.Game.CollectionPanel.Sources;
+using BazaarPlusPlus.Game.Encounters;
 
 namespace BazaarPlusPlus.Game.CollectionPanel.Data;
 
@@ -21,7 +21,15 @@ internal enum CollectionFacetMatchMode
 // this and produces an ordered visible set.
 internal sealed class CollectionFilterState
 {
-    public ECardType ActiveType { get; set; } = ECardType.Item;
+    public CollectionTabKind ActiveTab { get; private set; } = CollectionTabKind.Items;
+
+    public ECardType ActiveType
+    {
+        get => ActiveTab.CardType();
+        set =>
+            ActiveTab =
+                value == ECardType.Skill ? CollectionTabKind.Skills : CollectionTabKind.Items;
+    }
     public HashSet<EHero> Heroes { get; } = new();
     public HashSet<ETier> Tiers { get; } = new();
     public HashSet<ECardTag> Tags { get; } = new();
@@ -33,7 +41,7 @@ internal sealed class CollectionFilterState
     // shown and applied.
     public HashSet<ECardSize> Sizes { get; } = new();
     public string? SelectedSourceKey { get; set; }
-    public bool PackagesOnly { get; set; }
+    public string SearchQuery { get; set; } = string.Empty;
 
     // User-selected run "Day" filter; null means no day filtering. Starts enabled so the panel
     // binds it to Data.Run.Day on open; outside a run, OutOfRunDay keeps the toggle visibly active
@@ -56,24 +64,20 @@ internal sealed class CollectionFilterState
     public string? GetSelectedSourceKey(ECardType activeType) =>
         activeType == ActiveType ? SelectedSourceKey : null;
 
-    public bool SelectActiveType(ECardType activeType)
+    public bool SelectTab(CollectionTabKind tab)
     {
-        if (ActiveType == activeType && !PackagesOnly)
+        if (ActiveTab == tab)
             return false;
 
-        ActiveType = activeType;
-        PackagesOnly = false;
+        ActiveTab = tab;
         return true;
     }
 
-    public bool SelectPackagesOnly()
+    public bool SelectActiveType(ECardType activeType)
     {
-        if (ActiveType == ECardType.Item && PackagesOnly)
-            return false;
-
-        ActiveType = ECardType.Item;
-        PackagesOnly = true;
-        return true;
+        return SelectTab(
+            activeType == ECardType.Skill ? CollectionTabKind.Skills : CollectionTabKind.Items
+        );
     }
 
     public void ApplySelection(CollectionPanelSelectionState selection)
@@ -86,13 +90,12 @@ internal sealed class CollectionFilterState
 
         if (selection.SelectedSourceKind == CollectionSourceKind.Trainer)
         {
-            ActiveType = ECardType.Skill;
-            PackagesOnly = false;
+            ActiveTab = CollectionTabKind.Skills;
             SelectedSourceKey = selection.SelectedSourceKey;
             return;
         }
 
-        ActiveType = ECardType.Item;
+        ActiveTab = CollectionTabKind.Items;
         SelectedSourceKey = selection.SelectedSourceKey;
     }
 
@@ -101,7 +104,7 @@ internal sealed class CollectionFilterState
         return new CollectionPanelSelectionState(
             SelectedHero,
             SelectedSourceKey,
-            CollectionTabProfile.For(ActiveType).SourceKind
+            CollectionTabProfile.For(ActiveTab).SourceKind ?? CollectionSourceKind.Merchant
         );
     }
 
@@ -117,14 +120,12 @@ internal sealed class CollectionFilterState
         Heroes.Add(hero);
     }
 
-    public void ToggleSource(ECardType activeType, string sourceKey)
+    public void ToggleSource(CollectionTabKind activeTab, string sourceKey)
     {
         if (string.IsNullOrWhiteSpace(sourceKey))
             return;
 
-        ActiveType = activeType;
-        if (ActiveType == ECardType.Skill)
-            PackagesOnly = false;
+        ActiveTab = activeTab;
 
         SelectedSourceKey = string.Equals(
             SelectedSourceKey,

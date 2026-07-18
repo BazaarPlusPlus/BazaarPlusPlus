@@ -1,5 +1,4 @@
 #nullable enable
-using System.Collections.Generic;
 using Newtonsoft.Json;
 
 namespace BazaarPlusPlus.ModApi.Models;
@@ -71,7 +70,6 @@ public sealed class RunProjection
 
     [JsonProperty("final_player_position")]
     public int? FinalPlayerPosition { get; set; }
-
 }
 
 public sealed class BattleProjection
@@ -108,6 +106,12 @@ public sealed class BattleProjection
 
     [JsonProperty("player_prestige")]
     public int? PlayerPrestige { get; set; }
+
+    [JsonProperty("player_income")]
+    public int? PlayerIncome { get; set; }
+
+    [JsonProperty("player_gold")]
+    public int? PlayerGold { get; set; }
 
     [JsonProperty("player_victories")]
     public int? PlayerVictories { get; set; }
@@ -228,6 +232,12 @@ public sealed class BattleParticipantsArtifact
 
     [JsonProperty("player_prestige")]
     public int? PlayerPrestige { get; set; }
+
+    [JsonProperty("player_income")]
+    public int? PlayerIncome { get; set; }
+
+    [JsonProperty("player_gold")]
+    public int? PlayerGold { get; set; }
 
     [JsonProperty("player_victories")]
     public int? PlayerVictories { get; set; }

@@ -1,7 +1,5 @@
 #nullable enable
-using System;
 using System.Reflection;
-using System.Threading.Tasks;
 using BazaarGameShared.Domain.Core.Types;
 using BazaarGameShared.Infra.Messages;
 using BazaarGameShared.Infra.Messages.GameSimEvents;
@@ -28,7 +26,10 @@ internal sealed class OpponentPortraitController
         _destroyHandle = destroyHandle ?? throw new ArgumentNullException(nameof(destroyHandle));
     }
 
-    public async Task EnsureTemporaryOpponentPortraitAsync(PvpBattleManifest manifest)
+    public async Task EnsureTemporaryOpponentPortraitAsync(
+        PvpBattleManifest manifest,
+        IReplayPlaybackOutcomeSink outcome
+    )
     {
         if (_portrait != null)
         {
@@ -41,10 +42,7 @@ internal sealed class OpponentPortraitController
         var boardManager = Singleton<BoardManager>.Instance;
         if (boardManager == null)
         {
-            BppLog.Warn(
-                "ReplayOpponentPortrait",
-                $"Replay temp portrait: board manager unavailable for battle={manifest.BattleId}"
-            );
+            outcome.ReportDegradation(ReplayPlaybackReasonCode.OpponentPortraitUnavailable);
             return;
         }
 
@@ -53,10 +51,7 @@ internal sealed class OpponentPortraitController
         {
             if (!TryParseHeroName(manifest.Participants.OpponentHero, out var parsedHero))
             {
-                BppLog.Warn(
-                    "ReplayOpponentPortrait",
-                    $"Replay temp portrait: opponent hero unavailable for battle={manifest.BattleId}"
-                );
+                outcome.ReportDegradation(ReplayPlaybackReasonCode.OpponentPortraitUnavailable);
                 return;
             }
 
@@ -83,10 +78,7 @@ internal sealed class OpponentPortraitController
 #pragma warning restore CS0618
         if (skinData == null)
         {
-            BppLog.Warn(
-                "ReplayOpponentPortrait",
-                $"Replay temp portrait: skin load returned null for hero={hero.Value} battle={manifest.BattleId}"
-            );
+            outcome.ReportDegradation(ReplayPlaybackReasonCode.OpponentPortraitUnavailable);
             return;
         }
 
@@ -98,10 +90,7 @@ internal sealed class OpponentPortraitController
         );
         if (portraitController == null)
         {
-            BppLog.Warn(
-                "ReplayOpponentPortrait",
-                $"Replay temp portrait: portrait load failed for hero={hero.Value} battle={manifest.BattleId}"
-            );
+            outcome.ReportDegradation(ReplayPlaybackReasonCode.OpponentPortraitUnavailable);
             return;
         }
 
@@ -115,7 +104,7 @@ internal sealed class OpponentPortraitController
         PlaybackUiState.ActiveOpponentPortrait = _portrait;
     }
 
-    public void Cleanup()
+    public void Cleanup(string? battleId = null)
     {
         if (_portrait != null)
         {
@@ -125,9 +114,15 @@ internal sealed class OpponentPortraitController
             }
             catch (Exception ex)
             {
-                BppLog.Warn(
-                    "ReplayOpponentPortrait",
-                    $"Replay temp portrait cleanup failed: {ex.Message}"
+                BppLog.DebugEvent(
+                    CombatReplayLogEvents.PlaybackCleanupObserved,
+                    ex,
+                    () =>
+                        [
+                            CombatReplayLogEvents.CleanupObservedStage.Bind("opponent_portrait"),
+                            CombatReplayLogEvents.CleanupObservedRemovedCount.Bind(0),
+                            CombatReplayLogEvents.CleanupObservedBattleId.Bind(battleId),
+                        ]
                 );
             }
 
@@ -174,7 +169,8 @@ internal sealed class OpponentPortraitController
 
     public static void EnsureOpponentIdentity(
         PvpBattleManifest manifest,
-        NetMessageGameSim spawnMessage
+        NetMessageGameSim spawnMessage,
+        IReplayPlaybackOutcomeSink outcome
     )
     {
         if (manifest?.Participants == null)
@@ -185,10 +181,7 @@ internal sealed class OpponentPortraitController
 
         if (!TryParseHeroName(manifest.Participants.OpponentHero, out var opponentHero))
         {
-            BppLog.Warn(
-                "ReplayOpponentPortrait",
-                $"Replay opponent hero was unavailable for battle {manifest.BattleId}."
-            );
+            outcome.ReportDegradation(ReplayPlaybackReasonCode.OpponentIdentityUnavailable);
             return;
         }
 

@@ -1,11 +1,7 @@
 #nullable enable
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Net.Http;
-using System.Threading.Tasks;
+using BazaarPlusPlus.Core.Config;
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 using BazaarPlusPlus.ModApi.Http;
 using Newtonsoft.Json;
 
@@ -40,19 +36,62 @@ internal static class BPPSupporterCatalog
     };
 
     private static IReadOnlyList<BPPSupporterEntry>? _cachedEntries;
+    private static readonly OperationalHealthTracker<
+        SupporterCatalogOperation,
+        SupporterCatalogFailure
+    > CatalogHealth = new();
+    private static readonly OperationalHealthTracker<
+        SupporterCacheOperation,
+        SupporterLogReasonCode
+    > CacheWriteHealth = new();
     private static DateTime _cacheExpiresAtUtc = DateTime.MinValue;
     private static Task? _refreshTask;
     private static bool _attemptedDiskCacheLoad;
+    private static IBppConfig? _config;
+    private static int _generation;
+
+    public static void Install(IBppConfig config)
+    {
+        lock (SyncRoot)
+        {
+            _config = config ?? throw new ArgumentNullException(nameof(config));
+            _generation++;
+            _refreshTask = null;
+        }
+    }
+
+    public static void Reset()
+    {
+        lock (SyncRoot)
+        {
+            _config = null;
+            _generation++;
+            _refreshTask = null;
+            CatalogHealth.Reset();
+            CacheWriteHealth.Reset();
+        }
+    }
 
     public static IReadOnlyList<BPPSupporterEntry> GetCurrentEntries()
     {
+        if (IsFixedListEnabled())
+            return BPPSupporterFixedList.Entries;
+
         EnsureRefreshScheduled();
         lock (SyncRoot)
         {
             TryLoadDiskCacheUnderLock();
-            return _cachedEntries?.Count > 0 ? _cachedEntries : FallbackEntries;
+            return BPPSupporterListSourcePolicy.ResolveEntries(
+                useFixedList: false,
+                _cachedEntries,
+                FallbackEntries
+            );
         }
     }
+
+    private static bool IsFixedListEnabled() =>
+        _config?.UseFixedSupporterListConfig?.Value
+        ?? BPPSupporterListSourcePolicy.DefaultUseFixedList;
 
     private static void EnsureRefreshScheduled()
     {
@@ -64,53 +103,66 @@ internal static class BPPSupporterCatalog
                 return;
 
             var now = DateTime.UtcNow;
-            if (_cachedEntries != null && now < _cacheExpiresAtUtc)
+            if (now < _cacheExpiresAtUtc)
                 return;
 
-            _refreshTask = RefreshAsync();
+            _refreshTask = RefreshAsync(_generation);
         }
     }
 
-    private static async Task RefreshAsync()
+    private static async Task RefreshAsync(int generation)
     {
         try
         {
             var responseBody = await HttpClient
                 .GetStringAsync(SupporterListUrl)
                 .ConfigureAwait(false);
+            if (!IsCurrentGeneration(generation))
+                return;
             var parsed =
                 JsonConvert.DeserializeObject<List<BPPSupporterEntry>>(responseBody)
                 ?? new List<BPPSupporterEntry>();
             var sanitized = parsed.Where(IsRenderable).ToList();
             if (sanitized.Count == 0)
+            {
+                ReportCatalogFailure(
+                    SupporterCatalogSource.Remote,
+                    SupporterLogReasonCode.EmptyPayload,
+                    generation: generation
+                );
                 return;
+            }
 
-            TryWriteDiskCache(responseBody);
+            TryWriteDiskCache(responseBody, generation);
             lock (SyncRoot)
             {
+                if (generation != _generation)
+                    return;
                 _cachedEntries = sanitized;
                 _cacheExpiresAtUtc = DateTime.UtcNow.Add(CacheDuration);
             }
 
-            BppLog.Info(
-                "BPPSupporterCatalog",
-                $"Loaded supporter list from remote count={sanitized.Count} expiresAtUtc={_cacheExpiresAtUtc:O}"
-            );
+            ReportCatalogSuccess(SupporterCatalogSource.Remote, sanitized.Count, generation);
         }
         catch (Exception ex)
         {
-            BppLog.Warn(
-                "BPPSupporterCatalog",
-                $"Failed to refresh supporter list from {SupporterListUrl}: {ex.Message}"
+            ReportCatalogFailure(
+                SupporterCatalogSource.Remote,
+                SupporterLogReasonCode.RefreshException,
+                ex,
+                generation
             );
         }
         finally
         {
             lock (SyncRoot)
             {
-                _refreshTask = null;
-                if (_cachedEntries == null)
-                    _cacheExpiresAtUtc = DateTime.UtcNow.AddMinutes(5);
+                if (generation == _generation)
+                {
+                    _refreshTask = null;
+                    if (_cachedEntries == null)
+                        _cacheExpiresAtUtc = DateTime.UtcNow.AddMinutes(5);
+                }
             }
         }
     }
@@ -132,39 +184,156 @@ internal static class BPPSupporterCatalog
                 ?? new List<BPPSupporterEntry>();
             var sanitized = parsed.Where(IsRenderable).ToList();
             if (sanitized.Count == 0)
+            {
+                ReportCatalogFailure(
+                    SupporterCatalogSource.DiskCache,
+                    SupporterLogReasonCode.EmptyPayload
+                );
                 return;
+            }
 
             var lastWriteUtc = File.GetLastWriteTimeUtc(CacheFilePath);
             _cachedEntries = sanitized;
             _cacheExpiresAtUtc = lastWriteUtc.Add(CacheDuration);
-            BppLog.Info(
-                "BPPSupporterCatalog",
-                $"Loaded supporter list from temp cache path={CacheFilePath} count={sanitized.Count} expiresAtUtc={_cacheExpiresAtUtc:O}"
-            );
+            ReportCatalogSuccess(SupporterCatalogSource.DiskCache, sanitized.Count);
         }
         catch (Exception ex)
         {
-            BppLog.Warn(
-                "BPPSupporterCatalog",
-                $"Failed to read temp cache {CacheFilePath}: {ex.Message}"
+            ReportCatalogFailure(
+                SupporterCatalogSource.DiskCache,
+                SupporterLogReasonCode.ReadException,
+                ex
             );
         }
     }
 
-    private static void TryWriteDiskCache(string responseBody)
+    private static void TryWriteDiskCache(string responseBody, int generation)
     {
         try
         {
-            Directory.CreateDirectory(CacheDirectoryPath);
-            File.WriteAllText(CacheFilePath, responseBody);
+            lock (SyncRoot)
+            {
+                if (generation != _generation)
+                    return;
+                Directory.CreateDirectory(CacheDirectoryPath);
+                File.WriteAllText(CacheFilePath, responseBody);
+                if (
+                    CacheWriteHealth.ObserveSuccess(
+                        SupporterCacheOperation.Write,
+                        out var reasonCode
+                    )
+                )
+                {
+                    BppLog.RecoverStorm(
+                        SupporterLogEvents.CacheWriteDegraded,
+                        SupporterLogEvents.CacheWriteDegradedReasonCode.Bind(reasonCode)
+                    );
+                    BppLog.InfoEvent(
+                        SupporterLogEvents.CacheWriteRecovered,
+                        SupporterLogEvents.CacheWriteRecoveredPath.Bind(CacheFilePath)
+                    );
+                }
+            }
         }
         catch (Exception ex)
         {
-            BppLog.Warn(
-                "BPPSupporterCatalog",
-                $"Failed to write temp cache {CacheFilePath}: {ex.Message}"
+            lock (SyncRoot)
+            {
+                if (generation != _generation)
+                    return;
+                if (
+                    CacheWriteHealth.ObserveFailure(
+                        SupporterCacheOperation.Write,
+                        SupporterLogReasonCode.WriteException
+                    )
+                )
+                {
+                    BppLog.WarnEvent(
+                        SupporterLogEvents.CacheWriteDegraded,
+                        ex,
+                        SupporterLogEvents.CacheWriteDegradedPath.Bind(CacheFilePath),
+                        SupporterLogEvents.CacheWriteDegradedReasonCode.Bind(
+                            SupporterLogReasonCode.WriteException
+                        )
+                    );
+                }
+            }
+        }
+    }
+
+    private static void ReportCatalogFailure(
+        SupporterCatalogSource source,
+        SupporterLogReasonCode reasonCode,
+        Exception? exception = null,
+        int? generation = null
+    )
+    {
+        lock (SyncRoot)
+        {
+            if (generation.HasValue && generation.Value != _generation)
+                return;
+            if (
+                !CatalogHealth.ObserveFailure(
+                    SupporterCatalogOperation.Load,
+                    new SupporterCatalogFailure(source, reasonCode)
+                )
+            )
+                return;
+
+            var fields = new[]
+            {
+                SupporterLogEvents.CatalogDegradedSource.Bind(source),
+                SupporterLogEvents.CatalogDegradedReasonCode.Bind(reasonCode),
+                SupporterLogEvents.CatalogDegradedCachePath.Bind(CacheFilePath),
+            };
+            if (exception == null)
+                BppLog.WarnEvent(SupporterLogEvents.CatalogDegraded, fields);
+            else
+                BppLog.WarnEvent(SupporterLogEvents.CatalogDegraded, exception, fields);
+        }
+    }
+
+    private static void ReportCatalogSuccess(
+        SupporterCatalogSource source,
+        int entryCount,
+        int? generation = null
+    )
+    {
+        lock (SyncRoot)
+        {
+            if (generation.HasValue && generation.Value != _generation)
+                return;
+            if (!CatalogHealth.ObserveSuccess(SupporterCatalogOperation.Load, out var failure))
+            {
+                BppLog.DebugEvent(
+                    SupporterLogEvents.CatalogLoaded,
+                    () =>
+                        [
+                            SupporterLogEvents.CatalogLoadedSource.Bind(source),
+                            SupporterLogEvents.CatalogLoadedEntryCount.Bind(entryCount),
+                        ]
+                );
+                return;
+            }
+
+            BppLog.RecoverStorm(
+                SupporterLogEvents.CatalogDegraded,
+                SupporterLogEvents.CatalogDegradedSource.Bind(failure.Source),
+                SupporterLogEvents.CatalogDegradedReasonCode.Bind(failure.Reason)
+            );
+
+            BppLog.InfoEvent(
+                SupporterLogEvents.CatalogRecovered,
+                SupporterLogEvents.CatalogRecoveredSource.Bind(source),
+                SupporterLogEvents.CatalogRecoveredEntryCount.Bind(entryCount)
             );
         }
+    }
+
+    private static bool IsCurrentGeneration(int generation)
+    {
+        lock (SyncRoot)
+            return generation == _generation;
     }
 
     private static bool IsRenderable(BPPSupporterEntry? entry)

@@ -1,7 +1,5 @@
 #nullable enable
 using System.Collections;
-using System.Collections.Generic;
-using System.Linq;
 using HarmonyLib;
 using TheBazaar.UI;
 using TMPro;
@@ -14,6 +12,8 @@ namespace BazaarPlusPlus.Game.Input;
 internal sealed class BppKeyBindRowController : MonoBehaviour
 {
     private static BppKeyBindRowController? _activeController;
+
+    internal static bool IsRebindCaptureActive => _activeController != null;
 
     private readonly List<GameObject> _displayObjects = [];
     private readonly List<GameObject> _editObjects = [];
@@ -43,6 +43,7 @@ internal sealed class BppKeyBindRowController : MonoBehaviour
         }
 
         FindFallbackReferences();
+        ScrubNativeLocalizers();
 
         if (_keybindButton != null)
         {
@@ -66,6 +67,26 @@ internal sealed class BppKeyBindRowController : MonoBehaviour
             _activeController = null;
 
         DisposeRebindResources();
+    }
+
+    // The cloned native row keeps the game's LocalizableTextComponent drivers, which re-apply
+    // the template's serialized text (e.g. "Sell Item") over mod-owned labels on every enable
+    // and LocaleChanged event. Disabling is not enough — the LocaleChanged subscription fires
+    // on disabled components — so destroy them on the elements this controller owns. The
+    // rebind-hint subtext keeps its driver so the native prompt stays game-translated.
+    private void ScrubNativeLocalizers()
+    {
+        DestroyNativeLocalizer(_labelText);
+        DestroyNativeLocalizer(_warningText);
+    }
+
+    private static void DestroyNativeLocalizer(TextMeshProUGUI? text)
+    {
+        if (text == null)
+            return;
+
+        if (text.TryGetComponent<TheBazaar.UIScripts.LocalizableTextComponent>(out var localizer))
+            Destroy(localizer);
     }
 
     internal void RefreshLanguage()

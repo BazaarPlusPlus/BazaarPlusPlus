@@ -1,7 +1,4 @@
 #nullable enable
-using System;
-using System.Collections.Generic;
-
 namespace BazaarPlusPlus.Core.Runtime;
 
 internal sealed class BppFeatureRegistry
@@ -23,10 +20,15 @@ internal sealed class BppFeatureRegistry
             }
             catch (Exception ex)
             {
-                global::BazaarPlusPlus.Infrastructure.BppLog.Error(
-                    "FeatureRegistry",
-                    $"Feature failed to start: {feature.GetType().FullName}",
-                    ex
+                global::BazaarPlusPlus.Infrastructure.BppLog.WarnEvent(
+                    global::BazaarPlusPlus.PluginLogEvents.FeatureStartDegraded,
+                    ex,
+                    global::BazaarPlusPlus.PluginLogEvents.FeatureDegradedFeature.Bind(
+                        global::BazaarPlusPlus.PluginLogIdentity.FeatureId(feature.GetType())
+                    ),
+                    global::BazaarPlusPlus.PluginLogEvents.FeatureDegradedReasonCode.Bind(
+                        global::BazaarPlusPlus.PluginLogReasonCode.FeatureException
+                    )
                 );
             }
         }
@@ -42,10 +44,15 @@ internal sealed class BppFeatureRegistry
             }
             catch (Exception ex)
             {
-                global::BazaarPlusPlus.Infrastructure.BppLog.Error(
-                    "FeatureRegistry",
-                    $"Feature failed to stop: {_features[i].GetType().FullName}",
-                    ex
+                global::BazaarPlusPlus.Infrastructure.BppLog.WarnEvent(
+                    global::BazaarPlusPlus.PluginLogEvents.FeatureStopDegraded,
+                    ex,
+                    global::BazaarPlusPlus.PluginLogEvents.FeatureDegradedFeature.Bind(
+                        global::BazaarPlusPlus.PluginLogIdentity.FeatureId(_features[i].GetType())
+                    ),
+                    global::BazaarPlusPlus.PluginLogEvents.FeatureDegradedReasonCode.Bind(
+                        global::BazaarPlusPlus.PluginLogReasonCode.FeatureException
+                    )
                 );
             }
         }

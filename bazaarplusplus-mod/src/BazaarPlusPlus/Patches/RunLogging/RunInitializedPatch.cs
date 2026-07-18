@@ -1,19 +1,23 @@
 #nullable enable
 #pragma warning disable CS0436
+using System.Reflection;
 using BazaarGameShared.Infra.Messages;
 using BazaarPlusPlus.Core.Events;
-using BazaarPlusPlus.Patches;
 using HarmonyLib;
-using TheBazaar;
 
 namespace BazaarPlusPlus.Patches.RunLogging;
 
-[HarmonyPatch(typeof(NetMessageProcessor), "ReceiveOrQueue")]
+[HarmonyPatch]
 internal static class RunInitializedPatch
 {
+    private static MethodBase? TargetMethod() => NetMessageDispatchSeam.ResolveTarget();
+
     [HarmonyPrefix]
-    private static void Prefix(INetMessage message)
+    private static void Prefix(INetMessage message, object[] __args)
     {
+        if (NetMessageDispatchSeam.IsSpectatePlayback(__args))
+            return;
+
         if (message is not NetMessageRunInitialized runInitialized)
             return;
 

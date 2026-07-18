@@ -1,8 +1,5 @@
 #nullable enable
-using System;
 using System.Runtime.InteropServices;
-using System.Threading;
-using BazaarPlusPlus.Infrastructure;
 
 namespace BazaarPlusPlus.Game.CombatReplay.Audio;
 
@@ -23,8 +20,6 @@ namespace BazaarPlusPlus.Game.CombatReplay.Audio;
 /// </summary>
 internal sealed class WasapiLoopbackCaptureTap : IReplayAudioCaptureTap
 {
-    private const string Component = "CombatReplayAudio";
-
     private const int CLSCTX_ALL = 0x17;
     private const int AUDCLNT_SHAREMODE_SHARED = 0;
     private const int AUDCLNT_STREAMFLAGS_LOOPBACK = 0x00020000;
@@ -62,7 +57,10 @@ internal sealed class WasapiLoopbackCaptureTap : IReplayAudioCaptureTap
     private double _sumSquares;
     private long _statSampleCount;
     private float _peakAbs;
+    private ReplayAudioFailureReasonCode _failureReason;
+    private Exception? _failureException;
     private bool _stopped;
+    private int _cleanupCompleted;
 
     public WasapiLoopbackCaptureTap(string wavFilePath)
     {
@@ -72,13 +70,19 @@ internal sealed class WasapiLoopbackCaptureTap : IReplayAudioCaptureTap
     public bool IsCapturing { get; private set; }
     public string WavFilePath => _wavFilePath;
     public string CapturePointLabel => "wasapi-loopback";
+    public ReplayAudioBackend Backend => ReplayAudioBackend.WasapiLoopback;
+    public int SampleRateHz => _sampleRate;
+    public int Channels => _channels;
+    public string SampleFormat => _isFloat ? "float32" : $"pcm{_bytesPerSample * 8}";
+    public ReplayAudioFailureReasonCode FailureReason => _failureReason;
+    public Exception? FailureException => _failureException;
     public bool CapturedAnySamples => Interlocked.Read(ref _totalFloats) > 0;
     public long CapturedSampleFloats => Interlocked.Read(ref _totalFloats);
     public double RmsAmplitude =>
         _statSampleCount > 0 ? Math.Sqrt(_sumSquares / _statSampleCount) : 0.0;
     public float PeakAmplitude => _peakAbs;
 
-    public bool TryStart()
+    public ReplayAudioCaptureStartOutcome TryStart()
     {
         IntPtr mixFormat = IntPtr.Zero;
         try
@@ -94,12 +98,8 @@ internal sealed class WasapiLoopbackCaptureTap : IReplayAudioCaptureTap
             );
             if (hr != 0 || enumObj == null)
             {
-                BppLog.Warn(
-                    Component,
-                    $"Loopback: CoCreateInstance(MMDeviceEnumerator) hr=0x{hr:X}."
-                );
                 SafeStopInternal();
-                return false;
+                return FailStart();
             }
 
             _enumerator = (IMMDeviceEnumerator)enumObj;
@@ -108,18 +108,16 @@ internal sealed class WasapiLoopbackCaptureTap : IReplayAudioCaptureTap
             hr = _enumerator.GetDefaultAudioEndpoint(0, 0, out _device);
             if (hr != 0 || _device == null)
             {
-                BppLog.Warn(Component, $"Loopback: GetDefaultAudioEndpoint hr=0x{hr:X}.");
                 SafeStopInternal();
-                return false;
+                return FailStart();
             }
 
             var iidClient = IID_IAudioClient;
             hr = _device.Activate(ref iidClient, CLSCTX_ALL, IntPtr.Zero, out var clientPtr);
             if (hr != 0 || clientPtr == IntPtr.Zero)
             {
-                BppLog.Warn(Component, $"Loopback: Activate(IAudioClient) hr=0x{hr:X}.");
                 SafeStopInternal();
-                return false;
+                return FailStart();
             }
             _audioClient = (IAudioClient)Marshal.GetObjectForIUnknown(clientPtr);
             Marshal.Release(clientPtr);
@@ -127,9 +125,8 @@ internal sealed class WasapiLoopbackCaptureTap : IReplayAudioCaptureTap
             hr = _audioClient.GetMixFormat(out mixFormat);
             if (hr != 0 || mixFormat == IntPtr.Zero)
             {
-                BppLog.Warn(Component, $"Loopback: GetMixFormat hr=0x{hr:X}.");
                 SafeStopInternal();
-                return false;
+                return FailStart();
             }
 
             ParseWaveFormat(mixFormat);
@@ -144,18 +141,16 @@ internal sealed class WasapiLoopbackCaptureTap : IReplayAudioCaptureTap
             );
             if (hr != 0)
             {
-                BppLog.Warn(Component, $"Loopback: IAudioClient.Initialize hr=0x{hr:X}.");
                 SafeStopInternal();
-                return false;
+                return FailStart();
             }
 
             var iidCapture = IID_IAudioCaptureClient;
             hr = _audioClient.GetService(ref iidCapture, out var capturePtr);
             if (hr != 0 || capturePtr == IntPtr.Zero)
             {
-                BppLog.Warn(Component, $"Loopback: GetService(IAudioCaptureClient) hr=0x{hr:X}.");
                 SafeStopInternal();
-                return false;
+                return FailStart();
             }
             _captureClient = (IAudioCaptureClient)Marshal.GetObjectForIUnknown(capturePtr);
             Marshal.Release(capturePtr);
@@ -165,9 +160,8 @@ internal sealed class WasapiLoopbackCaptureTap : IReplayAudioCaptureTap
             hr = _audioClient.Start();
             if (hr != 0)
             {
-                BppLog.Warn(Component, $"Loopback: IAudioClient.Start hr=0x{hr:X}.");
                 SafeStopInternal();
-                return false;
+                return FailStart();
             }
 
             _running = true;
@@ -179,17 +173,14 @@ internal sealed class WasapiLoopbackCaptureTap : IReplayAudioCaptureTap
             _thread.Start();
 
             IsCapturing = true;
-            BppLog.Info(
-                Component,
-                $"Loopback capture started rate={_sampleRate} channels={_channels} format={(_isFloat ? "float" : _bytesPerSample * 8 + "bit-pcm")}"
-            );
-            return true;
+            return ReplayAudioCaptureStartOutcome.Success();
         }
         catch (Exception ex)
         {
-            BppLog.Warn(Component, $"Loopback capture start failed: {ex.Message}");
+            _failureReason = ReplayAudioFailureReasonCode.BackendStartFailed;
+            _failureException = ex;
             SafeStopInternal();
-            return false;
+            return ReplayAudioCaptureStartOutcome.Failure(_failureReason, ex);
         }
         finally
         {
@@ -207,12 +198,61 @@ internal sealed class WasapiLoopbackCaptureTap : IReplayAudioCaptureTap
         _running = false;
         try
         {
-            _thread?.Join(3000);
+            if (
+                !ReplayAudioCaptureThreadJoiner.TryJoin(
+                    _thread,
+                    ReplayAudioCaptureThreadJoiner.StopTimeoutMs,
+                    out var timeoutException
+                )
+            )
+            {
+                _failureReason = ReplayAudioFailureReasonCode.BackendStopFailed;
+                _failureException = timeoutException;
+                ScheduleDeferredCleanup(_thread);
+                IsCapturing = false;
+                return;
+            }
         }
-        catch
+        catch (Exception ex)
         {
-            // A failed join must not block teardown.
+            _failureReason = ReplayAudioFailureReasonCode.BackendStopFailed;
+            _failureException = ex;
         }
+
+        CleanupResources(deleteWav: false);
+        IsCapturing = false;
+    }
+
+    private void ScheduleDeferredCleanup(Thread? captureThread)
+    {
+        if (captureThread == null)
+        {
+            CleanupResources(deleteWav: true);
+            return;
+        }
+
+        var cleanupThread = new Thread(() =>
+        {
+            try
+            {
+                while (!captureThread.Join(ReplayAudioCaptureThreadJoiner.StopTimeoutMs)) { }
+            }
+            finally
+            {
+                CleanupResources(deleteWav: true);
+            }
+        })
+        {
+            IsBackground = true,
+            Name = "BPP.CombatReplayAudio.WasapiDeferredCleanup",
+        };
+        cleanupThread.Start();
+    }
+
+    private void CleanupResources(bool deleteWav)
+    {
+        if (Interlocked.Exchange(ref _cleanupCompleted, 1) != 0)
+            return;
 
         try
         {
@@ -220,9 +260,9 @@ internal sealed class WasapiLoopbackCaptureTap : IReplayAudioCaptureTap
         }
         catch (Exception ex)
         {
-            BppLog.Warn(Component, $"Loopback: IAudioClient.Stop failed: {ex.Message}");
+            _failureReason = ReplayAudioFailureReasonCode.BackendStopFailed;
+            _failureException = ex;
         }
-
         ReleaseCom(ref _captureClient);
         ReleaseCom(ref _audioClient);
         ReleaseCom(ref _device);
@@ -234,10 +274,22 @@ internal sealed class WasapiLoopbackCaptureTap : IReplayAudioCaptureTap
         }
         catch (Exception ex)
         {
-            BppLog.Warn(Component, $"Loopback: WAV close failed: {ex.Message}");
+            _failureReason = ReplayAudioFailureReasonCode.WavCloseFailed;
+            _failureException = ex;
         }
-
-        IsCapturing = false;
+        _wav = null;
+        if (deleteWav)
+        {
+            try
+            {
+                if (File.Exists(_wavFilePath))
+                    File.Delete(_wavFilePath);
+            }
+            catch
+            {
+                // Deferred cleanup is best-effort after the typed stop failure is recorded.
+            }
+        }
     }
 
     public void Dispose() => Stop();
@@ -311,8 +363,15 @@ internal sealed class WasapiLoopbackCaptureTap : IReplayAudioCaptureTap
         }
         catch (Exception ex)
         {
-            BppLog.Warn(Component, $"Loopback capture loop error: {ex.Message}");
+            _failureReason = ReplayAudioFailureReasonCode.CaptureLoopFailed;
+            _failureException = ex;
         }
+    }
+
+    private ReplayAudioCaptureStartOutcome FailStart()
+    {
+        _failureReason = ReplayAudioFailureReasonCode.BackendStartFailed;
+        return ReplayAudioCaptureStartOutcome.Failure(_failureReason);
     }
 
     private void ConvertToFloat(IntPtr src, float[] dst, int count)

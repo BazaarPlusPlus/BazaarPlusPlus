@@ -1,16 +1,12 @@
 #nullable enable
-using System;
-using System.Collections.Generic;
 using BazaarGameShared;
 using BazaarGameShared.Domain.Core.Types;
-using BazaarPlusPlus.Game.Lobby;
 
 namespace BazaarPlusPlus.Game.Lobby.RandomHeroSkinPool;
 
 internal static class RandomHeroSkinPoolPlayerPrefs
 {
     private const string SelectedPoolPrefsKeyPrefix = "BPP.RandomCollectiblePool.Selected";
-    private const string LogScope = "RandomHeroSkinPool";
 
     public static IReadOnlyCollection<string>? LoadSelectedIds(
         EHero hero,
@@ -19,7 +15,7 @@ internal static class RandomHeroSkinPoolPlayerPrefs
     {
         return RandomPoolPrefsHelpers.LoadIdCollection(
             BuildScopedPrefsKey(hero, collectionType),
-            LogScope
+            RandomPoolKind.Collectible
         );
     }
 
@@ -37,7 +33,7 @@ internal static class RandomHeroSkinPoolPlayerPrefs
         BazaarInventoryTypes.ECollectionType collectionType
     )
     {
-        var scope = RandomPoolPrefsHelpers.ResolveAccountScopeForPrefs(LogScope);
+        var scope = RandomPoolPrefsHelpers.ResolveAccountScopeForPrefs(RandomPoolKind.Collectible);
         return $"{SelectedPoolPrefsKeyPrefix}.{Uri.EscapeDataString(collectionType.ToString())}.{Uri.EscapeDataString(hero.ToString())}.{scope}";
     }
 }

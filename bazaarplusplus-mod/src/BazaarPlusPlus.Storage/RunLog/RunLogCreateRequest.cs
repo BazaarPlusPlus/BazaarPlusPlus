@@ -1,6 +1,4 @@
 #nullable enable
-using System;
-
 namespace BazaarPlusPlus.Storage.RunLog;
 
 public sealed class RunLogCreateRequest
@@ -26,4 +24,8 @@ public sealed class RunLogCreateRequest
     public int? Seed { get; set; }
 
     public string Status { get; set; } = "active";
+
+    // Game build channel the run was recorded on ("Online" / "Ptr" / "Unknown");
+    // rows tagged "Ptr" are permanently excluded from server uploads.
+    public string? BuildChannel { get; set; }
 }

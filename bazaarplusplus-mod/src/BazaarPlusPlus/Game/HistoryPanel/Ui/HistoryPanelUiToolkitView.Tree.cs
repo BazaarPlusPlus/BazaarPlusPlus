@@ -1,6 +1,6 @@
 #nullable enable
-using BazaarPlusPlus.Game.HistoryPanel.Data;
 using BazaarPlusPlus.Game.Supporters.Ui;
+using BazaarPlusPlus.GameInterop.Heroes;
 using BazaarPlusPlus.Infrastructure.UiTokens;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -185,6 +185,48 @@ internal sealed partial class HistoryPanelUiToolkitView
         _subtitle.style.flexShrink = 0f;
         rail.Add(_subtitle); // VIS-2: no extra marginTop; component owns its Sm(6)
 
+        BuildAccountLinkCard(rail);
+
+        BuildFilterSlot(rail);
+
+        // ── Overview: read-only chips + the connectivity probe, as one fixed row ─────
+        // Pinned directly under the filters so the run/battle counts, DB status, and the
+        // one-shot "is my data path healthy?" probe stay visible without scrolling. The probe
+        // still hits the remote /health endpoint and reports its result into the footer banner.
+        var overviewGroup = new VisualElement();
+        overviewGroup.style.flexDirection = FlexDirection.Column;
+        overviewGroup.style.flexShrink = 0f;
+        overviewGroup.style.marginTop = UiSpacing.Xl;
+        rail.Add(overviewGroup);
+
+        var statsChipRow = new VisualElement();
+        statsChipRow.style.flexDirection = FlexDirection.Row;
+        statsChipRow.style.flexWrap = Wrap.Wrap;
+        statsChipRow.style.alignItems = Align.Center;
+        overviewGroup.Add(statsChipRow);
+
+        _countChip = CreateChip();
+        _countChip.style.minWidth = Sizes.ChipMinWidth;
+        _battleChip = CreateChip();
+        _battleChip.style.minWidth = Sizes.ChipMinWidth;
+        _battleChip.style.marginLeft = UiSpacing.Sm;
+        _databaseChip = CreateChip();
+        _databaseChip.style.minWidth = Sizes.ChipMinWidth;
+        _databaseChip.style.marginLeft = UiSpacing.Sm;
+        statsChipRow.Add(_countChip);
+        statsChipRow.Add(_battleChip);
+        statsChipRow.Add(_databaseChip);
+
+        _checkServerHealthButton = CreateButton(
+            HistoryPanelText.CheckServerHealth(),
+            _checkServerHealth,
+            Sizes.ServerHealthButtonWidth,
+            Sizes.ButtonStandardHeight
+        );
+        StyleButton(_checkServerHealthButton, Colors.ReplayBackground, Colors.ReplayText);
+        _checkServerHealthButton.style.marginLeft = UiSpacing.Sm;
+        statsChipRow.Add(_checkServerHealthButton);
+
         // ── Flexible body. railBody (plain element, flexGrow=1) reliably fills the
         //    rail's vertical slack — unlike a ScrollView contentContainer, which
         //    collapses to content height (see CollectionPanelView.Tree.cs:283-315).
@@ -199,39 +241,37 @@ internal sealed partial class HistoryPanelUiToolkitView
         // Selected-battle detail card: the rail's primary flex-growing element.
         var selectedDetailCard = new VisualElement();
         selectedDetailCard.style.flexDirection = FlexDirection.Column;
-        selectedDetailCard.style.flexGrow = 1f;
-        selectedDetailCard.style.flexShrink = 1f;
+        selectedDetailCard.style.flexGrow = 0f;
+        selectedDetailCard.style.flexShrink = 0f;
         selectedDetailCard.style.minHeight = 0f;
         selectedDetailCard.style.overflow = Overflow.Hidden;
         selectedDetailCard.style.backgroundColor = Colors.HistoryFooterBackground;
         UiStyle.Radius(selectedDetailCard.style, Radii.Md);
         UiStyle.Border(selectedDetailCard.style, Borders.Thin, Colors.HistoryListFrameBorder);
-        UiStyle.Padding(selectedDetailCard.style, UiSpacing.Xl);
+        UiStyle.Padding(selectedDetailCard.style, UiSpacing.Lg);
         railBody.Add(selectedDetailCard);
-
-        _detailTitle = CreateSectionTitle(HistoryPanelText.SelectedBattle());
-        _detailTitle.style.display = DisplayStyle.None;
-        selectedDetailCard.Add(_detailTitle);
 
         var resultRow = new VisualElement();
         resultRow.style.flexDirection = FlexDirection.Row;
-        resultRow.style.flexWrap = Wrap.Wrap;
+        resultRow.style.flexWrap = Wrap.NoWrap;
         resultRow.style.alignItems = Align.Center;
-        resultRow.style.marginTop = UiSpacing.Sm;
         selectedDetailCard.Add(resultRow);
 
         _resultPill = CreateDetailPill(resultRow, Sizes.InlinePillMinWidth);
         _resultPill.style.display = DisplayStyle.None;
-        _dayPill = CreateDetailPill(resultRow, Sizes.RunProgressPillWidth);
-        _dayPill.style.display = DisplayStyle.None;
 
         _opponentName = CreateLabel(Sizes.FontFooterPrimary, FontStyle.Bold, Colors.White);
+        _opponentName.style.flexGrow = 1f;
         _opponentName.style.flexShrink = 1f;
         _opponentName.style.minWidth = 0f;
         _opponentName.style.whiteSpace = WhiteSpace.NoWrap;
         _opponentName.style.overflow = Overflow.Hidden; // RESP-4: truncate, tooltip carries full name
         _opponentName.style.display = DisplayStyle.None;
         resultRow.Add(_opponentName);
+
+        _dayPill = CreateDetailPill(resultRow, Sizes.RunProgressPillWidth);
+        _dayPill.style.marginLeft = UiSpacing.Sm;
+        _dayPill.style.display = DisplayStyle.None;
 
         _detailMeta = CreateLabel(
             Sizes.FontSmall,
@@ -241,7 +281,7 @@ internal sealed partial class HistoryPanelUiToolkitView
         _detailMeta.style.whiteSpace = WhiteSpace.Normal;
         _detailMeta.style.maxHeight = Sizes.DetailTextMaxHeight;
         _detailMeta.style.overflow = Overflow.Hidden;
-        _detailMeta.style.marginTop = UiSpacing.Sm;
+        _detailMeta.style.marginTop = UiSpacing.Xs;
         _detailMeta.style.display = DisplayStyle.None;
         selectedDetailCard.Add(_detailMeta);
 
@@ -270,10 +310,6 @@ internal sealed partial class HistoryPanelUiToolkitView
         _detailPlaceholder.style.display = DisplayStyle.None;
         selectedDetailCard.Add(_detailPlaceholder);
 
-        var detailFlex = new VisualElement();
-        detailFlex.style.flexGrow = 1f; // pushes the notice to the card bottom when content is short
-        selectedDetailCard.Add(detailFlex);
-
         _ghostOpponentEliminatedNotice = CreateLabel(
             Sizes.FontBody,
             FontStyle.Bold,
@@ -293,121 +329,6 @@ internal sealed partial class HistoryPanelUiToolkitView
         );
         _ghostOpponentEliminatedNotice.style.display = DisplayStyle.None;
         selectedDetailCard.Add(_ghostOpponentEliminatedNotice);
-
-        // Secondary groups live in a ScrollView so only they scroll on short screens.
-        var railScroll = new ScrollView(ScrollViewMode.Vertical);
-        railScroll.style.flexGrow = 1f;
-        railScroll.style.flexShrink = 1f;
-        railScroll.style.minHeight = 0f;
-        railScroll.style.marginTop = UiSpacing.Xl;
-        railScroll.horizontalScrollerVisibility = ScrollerVisibility.Hidden;
-        railScroll.verticalScrollerVisibility = ScrollerVisibility.Auto;
-        railScroll.mouseWheelScrollSize = 120f; // match CollectionPanel grid scroll feel
-        railScroll.contentContainer.style.flexDirection = FlexDirection.Column;
-        railBody.Add(railScroll);
-
-        // ── Overview: read-only chips + one-shot tools ───────────────────────
-        var overviewGroup = new VisualElement();
-        overviewGroup.style.flexDirection = FlexDirection.Column;
-        overviewGroup.style.flexShrink = 0f;
-        railScroll.Add(overviewGroup);
-
-        var statsChipRow = new VisualElement();
-        statsChipRow.style.flexDirection = FlexDirection.Row;
-        statsChipRow.style.flexWrap = Wrap.Wrap;
-        statsChipRow.style.alignItems = Align.Center;
-        overviewGroup.Add(statsChipRow);
-
-        _countChip = CreateChip();
-        _countChip.style.minWidth = Sizes.ChipMinWidth;
-        _battleChip = CreateChip();
-        _battleChip.style.minWidth = Sizes.ChipMinWidth;
-        _battleChip.style.marginLeft = UiSpacing.Sm;
-        _databaseChip = CreateChip();
-        _databaseChip.style.minWidth = Sizes.ChipMinWidth;
-        _databaseChip.style.marginLeft = UiSpacing.Sm;
-        statsChipRow.Add(_countChip);
-        statsChipRow.Add(_battleChip);
-        statsChipRow.Add(_databaseChip);
-
-        // The server health probe lives on the same overview row as the DB chip: both answer "is
-        // my data path healthy", but they stay separate signals — the chip reads the local run-log
-        // DB, the button probes the remote /health endpoint and reports into the status banner.
-        _checkServerHealthButton = CreateButton(
-            HistoryPanelText.CheckServerHealth(),
-            _checkServerHealth,
-            Sizes.ServerHealthButtonWidth,
-            Sizes.ButtonStandardHeight
-        );
-        StyleButton(_checkServerHealthButton, Colors.ReplayBackground, Colors.ReplayText);
-        _checkServerHealthButton.style.marginLeft = UiSpacing.Sm;
-        statsChipRow.Add(_checkServerHealthButton);
-
-        // ── Navigation: mode tabs + ghost filter ─────────────────────────────
-        var navGroup = new VisualElement();
-        navGroup.style.flexDirection = FlexDirection.Column;
-        navGroup.style.flexShrink = 0f;
-        navGroup.style.marginTop = UiSpacing.Xl;
-        railScroll.Add(navGroup);
-
-        var tabsRow = new VisualElement();
-        tabsRow.style.flexDirection = FlexDirection.Row;
-        tabsRow.style.flexWrap = Wrap.NoWrap;
-        tabsRow.style.alignItems = Align.Center;
-        navGroup.Add(tabsRow);
-
-        _runsTabButton = CreateButton(
-            HistoryPanelText.RunsTab(),
-            () => _setSectionMode(HistorySectionMode.Runs),
-            0f,
-            Sizes.ButtonStandardHeight,
-            fixedWidth: false
-        );
-        _ghostTabButton = CreateButton(
-            HistoryPanelText.GhostTab(),
-            () => _setSectionMode(HistorySectionMode.Ghost),
-            0f,
-            Sizes.ButtonStandardHeight,
-            fixedWidth: false
-        );
-        tabsRow.Add(_runsTabButton);
-        _ghostTabButton.style.marginLeft = UiSpacing.Sm;
-        tabsRow.Add(_ghostTabButton);
-
-        _ghostFilterRow = new VisualElement();
-        _ghostFilterRow.style.flexDirection = FlexDirection.Row;
-        _ghostFilterRow.style.flexWrap = Wrap.NoWrap;
-        _ghostFilterRow.style.alignItems = Align.Center;
-        _ghostFilterRow.style.display = DisplayStyle.None;
-        _ghostFilterRow.style.marginTop = UiSpacing.Sm;
-        navGroup.Add(_ghostFilterRow);
-
-        _ghostAllButton = CreateButton(
-            HistoryPanelText.FilterAll(),
-            () => _setGhostFilter(GhostBattleFilter.All),
-            0f,
-            Sizes.ButtonCompactHeight,
-            fixedWidth: false
-        );
-        _ghostWonButton = CreateButton(
-            HistoryPanelText.FilterIWon(),
-            () => _setGhostFilter(GhostBattleFilter.IWon),
-            0f,
-            Sizes.ButtonCompactHeight,
-            fixedWidth: false
-        );
-        _ghostLostButton = CreateButton(
-            HistoryPanelText.FilterILost(),
-            () => _setGhostFilter(GhostBattleFilter.ILost),
-            0f,
-            Sizes.ButtonCompactHeight,
-            fixedWidth: false
-        );
-        _ghostFilterRow.Add(_ghostAllButton);
-        _ghostWonButton.style.marginLeft = UiSpacing.Sm;
-        _ghostFilterRow.Add(_ghostWonButton);
-        _ghostLostButton.style.marginLeft = UiSpacing.Sm;
-        _ghostFilterRow.Add(_ghostLostButton);
 
         // ── Fixed footer: status banner directly above its actions ───────────
         _statusLabel = CreateLabel(Sizes.FontCorner, FontStyle.Normal, Colors.HistoryStatusText);
@@ -458,6 +379,442 @@ internal sealed partial class HistoryPanelUiToolkitView
 
         _deleteButton.style.marginTop = UiSpacing.Md;
         actions.Add(_deleteButton);
+    }
+
+    private const int LinkCodeLength = 10;
+
+    private void BuildAccountLinkCard(VisualElement rail)
+    {
+        _accountCard = new VisualElement();
+        _accountCard.style.flexDirection = FlexDirection.Column;
+        _accountCard.style.flexShrink = 0f;
+        _accountCard.style.marginTop = UiSpacing.Xl;
+        rail.Add(_accountCard);
+
+        _accountCollapsedRow = new VisualElement();
+        _accountCollapsedRow.style.flexDirection = FlexDirection.Row;
+        _accountCollapsedRow.style.alignItems = Align.Center;
+        _accountCollapsedRow.style.minWidth = 0f;
+        _accountCard.Add(_accountCollapsedRow);
+
+        _accountRowStatus = CreateLabel(
+            Sizes.FontSmall,
+            FontStyle.Normal,
+            Colors.HistoryFooterSecondaryText
+        );
+        _accountRowStatus.style.flexGrow = 1f;
+        _accountRowStatus.style.flexShrink = 1f;
+        _accountRowStatus.style.minWidth = 0f;
+        _accountRowStatus.style.whiteSpace = WhiteSpace.NoWrap;
+        _accountRowStatus.style.overflow = Overflow.Hidden;
+        _accountCollapsedRow.Add(_accountRowStatus);
+
+        _accountRowAction = CreateButton(
+            HistoryPanelText.AccountLink.RowBind(),
+            _toggleAccountLinkForm,
+            0f,
+            Sizes.ButtonCompactHeight,
+            fixedWidth: false
+        );
+        _accountRowAction.style.flexGrow = 0f;
+        _accountRowAction.style.flexShrink = 0f;
+        _accountRowAction.style.flexBasis = StyleKeyword.Auto;
+        _accountRowAction.style.minWidth = Sizes.InlinePillMinWidth;
+        _accountRowAction.style.marginLeft = UiSpacing.Sm;
+        StyleButton(
+            _accountRowAction,
+            Colors.HistoryButtonBackground,
+            Colors.HistoryFooterSecondaryText
+        );
+        _accountCollapsedRow.Add(_accountRowAction);
+
+        var titleRow = new VisualElement();
+        titleRow.style.flexDirection = FlexDirection.Row;
+        titleRow.style.alignItems = Align.Center;
+        titleRow.style.minWidth = 0f;
+        _accountCard.Add(titleRow);
+
+        _accountTitle = CreateLabel(Sizes.FontBody, FontStyle.Bold, Colors.HistoryTitleText);
+        _accountTitle.style.flexGrow = 1f;
+        _accountTitle.style.flexShrink = 1f;
+        _accountTitle.style.minWidth = 0f;
+        _accountTitle.style.whiteSpace = WhiteSpace.NoWrap;
+        _accountTitle.style.overflow = Overflow.Hidden;
+        titleRow.Add(_accountTitle);
+
+        _accountCollapseButton = CreateButton(
+            HistoryPanelText.AccountLink.Collapse(),
+            _toggleAccountLinkForm,
+            0f,
+            Sizes.ButtonCompactHeight,
+            fixedWidth: false
+        );
+        _accountCollapseButton.style.flexGrow = 0f;
+        _accountCollapseButton.style.flexShrink = 0f;
+        _accountCollapseButton.style.flexBasis = StyleKeyword.Auto;
+        _accountCollapseButton.style.minWidth = Sizes.InlinePillMinWidth;
+        _accountCollapseButton.style.marginLeft = UiSpacing.Sm;
+        StyleButton(
+            _accountCollapseButton,
+            Colors.HistoryButtonBackground,
+            Colors.HistoryFooterSecondaryText
+        );
+        titleRow.Add(_accountCollapseButton);
+
+        _accountWhy = CreateLabel(
+            Sizes.FontSmall,
+            FontStyle.Normal,
+            Colors.HistoryFooterSecondaryText
+        );
+        _accountWhy.style.whiteSpace = WhiteSpace.Normal;
+        _accountWhy.style.maxHeight = Sizes.DetailTextMaxHeight;
+        _accountWhy.style.overflow = Overflow.Hidden;
+        _accountWhy.style.marginTop = UiSpacing.Xxs;
+        _accountCard.Add(_accountWhy);
+
+        _accountCodeRow = new VisualElement();
+        _accountCodeRow.style.flexDirection = FlexDirection.Row;
+        _accountCodeRow.style.alignItems = Align.Center;
+        _accountCodeRow.style.marginTop = UiSpacing.Lg;
+        _accountCard.Add(_accountCodeRow);
+
+        // Segmented 10-cell code input — the focal point. Each cell holds one character; typing
+        // auto-advances, Backspace clears then steps back, and pasting a full code fills every cell.
+        _accountCodeCells = new TextField[LinkCodeLength];
+        for (var i = 0; i < LinkCodeLength; i++)
+        {
+            var index = i;
+            var cell = new TextField();
+            cell.maxLength = LinkCodeLength; // allow a full paste in one cell; redistributed below
+            cell.isDelayed = false;
+            cell.selectAllOnFocus = true;
+            cell.style.flexGrow = 1f;
+            cell.style.flexShrink = 1f;
+            cell.style.minWidth = 0f;
+            cell.style.height = Sizes.ButtonFooterHeight;
+            cell.style.marginLeft = index == 0 ? 0f : UiSpacing.Xxs;
+            // The visible single box is the cell's own Radius/Border on the de-chromed root.
+            UiStyle.Radius(cell.style, Radii.Row);
+            UiStyle.Border(cell.style, Borders.Thin, Colors.HistoryListFrameBorder);
+            // Centering + font must reach the inner 'unity-text-input' element (the game's USS
+            // overrides the inherited cascade), and the inner chrome must be stripped. Defer to
+            // AttachToPanelEvent so cell.Q(...) resolves a non-null inner element.
+            cell.RegisterCallback<AttachToPanelEvent>(_ =>
+                StyleCodeCell(cell, Sizes.FontButton, Colors.White)
+            );
+            cell.RegisterValueChangedCallback(evt => OnCodeCellChanged(index, evt.newValue));
+            cell.RegisterCallback<KeyDownEvent>(evt => OnCodeCellKeyDown(index, evt));
+            _accountCodeCells[index] = cell;
+            _accountCodeRow.Add(cell);
+        }
+
+        _accountLinkButton = CreateButton(
+            HistoryPanelText.AccountLink.Button(),
+            SubmitAccountLink,
+            0f,
+            Sizes.ButtonFooterHeight,
+            fixedWidth: false
+        );
+        // Full-width primary CTA. flexGrow stays 0 so it does not stretch vertically as a column
+        // child (the button-in-column flex trap); width 100% makes it span the card instead.
+        _accountLinkButton.style.flexGrow = 0f;
+        _accountLinkButton.style.flexShrink = 0f;
+        _accountLinkButton.style.flexBasis = StyleKeyword.Auto;
+        _accountLinkButton.style.width = Length.Percent(100f);
+        _accountLinkButton.style.marginTop = UiSpacing.Lg;
+        StyleButton(_accountLinkButton, Colors.ReplayBackground, Colors.ReplayText);
+        _accountCard.Add(_accountLinkButton);
+
+        _accountAlreadyLinkedButton = CreateButton(
+            HistoryPanelText.AccountLink.AlreadyLinkedElsewhereButton(),
+            () => _markAccountLinkedManually(),
+            0f,
+            Sizes.ButtonCompactHeight,
+            fixedWidth: false
+        );
+        _accountAlreadyLinkedButton.style.flexGrow = 0f;
+        _accountAlreadyLinkedButton.style.flexShrink = 0f;
+        _accountAlreadyLinkedButton.style.flexBasis = StyleKeyword.Auto;
+        _accountAlreadyLinkedButton.style.width = Length.Percent(100f);
+        _accountAlreadyLinkedButton.style.marginTop = UiSpacing.Xs;
+        StyleButton(
+            _accountAlreadyLinkedButton,
+            Colors.HistoryButtonBackground,
+            Colors.HistoryFooterSecondaryText
+        );
+        _accountCard.Add(_accountAlreadyLinkedButton);
+
+        _accountHint = CreateLabel(
+            Sizes.FontCorner,
+            FontStyle.Normal,
+            Colors.HistoryFooterSecondaryText
+        );
+        _accountHint.style.whiteSpace = WhiteSpace.Normal;
+        _accountHint.style.maxHeight = Sizes.DetailTextMaxHeight;
+        _accountHint.style.overflow = Overflow.Hidden;
+        _accountHint.style.marginTop = UiSpacing.Xs;
+        _accountCard.Add(_accountHint);
+
+        _accountBanner = CreateLabel(Sizes.FontCorner, FontStyle.Normal, Colors.HistoryStatusText);
+        _accountBanner.style.display = DisplayStyle.None;
+        _accountBanner.style.flexGrow = 0f;
+        _accountBanner.style.flexShrink = 0f;
+        _accountBanner.style.whiteSpace = WhiteSpace.Normal;
+        _accountBanner.style.minHeight = Sizes.StatusHeight;
+        _accountBanner.style.maxHeight = Sizes.PanelStatusMaxHeight;
+        _accountBanner.style.overflow = Overflow.Hidden;
+        _accountBanner.style.width = Length.Percent(100f);
+        _accountBanner.style.marginTop = UiSpacing.Sm;
+        _accountBanner.style.alignSelf = Align.Stretch;
+        UiStyle.Padding(_accountBanner.style, UiSpacing.Xl, UiSpacing.Sm);
+        _accountBanner.style.unityTextAlign = TextAnchor.MiddleLeft;
+        _accountBanner.style.backgroundColor = Colors.HistoryStatusBackground;
+        UiStyle.Radius(_accountBanner.style, Radii.Md);
+        UiStyle.Border(_accountBanner.style, Borders.Thin, Colors.HistoryStatusBorder);
+        _accountCard.Add(_accountBanner);
+    }
+
+    private void OnCodeCellChanged(int index, string? newValue)
+    {
+        if (_suppressCellNotify || _accountCodeCells == null)
+            return;
+
+        // Strip whitespace only — the redeem alphabet is case-sensitive, so never transform case.
+        var text = StripWhitespace(newValue);
+        _suppressCellNotify = true;
+        try
+        {
+            if (text.Length <= 1)
+            {
+                _accountCodeCells[index].SetValueWithoutNotify(text);
+                if (text.Length == 1 && index < LinkCodeLength - 1)
+                    _accountCodeCells[index + 1].Focus();
+            }
+            else
+            {
+                DistributeCode(text, index);
+            }
+        }
+        finally
+        {
+            _suppressCellNotify = false;
+        }
+
+        UpdateAccountCodeFeedback();
+    }
+
+    private void OnCodeCellKeyDown(int index, KeyDownEvent evt)
+    {
+        if (_accountCodeCells == null)
+            return;
+
+        if (evt.keyCode == KeyCode.Return || evt.keyCode == KeyCode.KeypadEnter)
+        {
+            evt.StopPropagation();
+            SubmitAccountLink();
+            return;
+        }
+
+        if (evt.keyCode == KeyCode.Backspace)
+        {
+            // Own Backspace fully: native TextField deletion would eat the char before we can step
+            // back on an empty cell, forcing a second press. One press clears the current char; on an
+            // already-empty cell it steps back and clears the previous cell.
+            evt.StopPropagation();
+            _suppressCellNotify = true;
+            try
+            {
+                if (!string.IsNullOrEmpty(_accountCodeCells[index].value))
+                {
+                    _accountCodeCells[index].SetValueWithoutNotify(string.Empty);
+                }
+                else if (index > 0)
+                {
+                    _accountCodeCells[index - 1].SetValueWithoutNotify(string.Empty);
+                    _accountCodeCells[index - 1].Focus();
+                }
+            }
+            finally
+            {
+                _suppressCellNotify = false;
+            }
+
+            UpdateAccountCodeFeedback();
+        }
+        else if (evt.keyCode == KeyCode.LeftArrow && index > 0)
+        {
+            evt.StopPropagation();
+            _accountCodeCells[index - 1].Focus();
+        }
+        else if (evt.keyCode == KeyCode.RightArrow && index < LinkCodeLength - 1)
+        {
+            evt.StopPropagation();
+            _accountCodeCells[index + 1].Focus();
+        }
+    }
+
+    // Spreads a multi-character value (a paste, or fast typing) across the cells from startIndex, one
+    // character per cell, then focuses the next empty cell. Letter case is preserved.
+    private void DistributeCode(string text, int startIndex)
+    {
+        if (_accountCodeCells == null)
+            return;
+
+        var writeIndex = startIndex;
+        foreach (var ch in text)
+        {
+            if (writeIndex >= LinkCodeLength)
+                break;
+
+            _accountCodeCells[writeIndex].SetValueWithoutNotify(ch.ToString());
+            writeIndex++;
+        }
+
+        var focusIndex = writeIndex < LinkCodeLength ? writeIndex : LinkCodeLength - 1;
+        _accountCodeCells[focusIndex].Focus();
+    }
+
+    private void ClearCodeCells()
+    {
+        if (_accountCodeCells == null)
+            return;
+
+        _suppressCellNotify = true;
+        foreach (var cell in _accountCodeCells)
+            cell.SetValueWithoutNotify(string.Empty);
+        _suppressCellNotify = false;
+    }
+
+    private string CombinedAccountCode()
+    {
+        if (_accountCodeCells == null)
+            return string.Empty;
+
+        var code = string.Empty;
+        foreach (var cell in _accountCodeCells)
+            code += cell.value ?? string.Empty;
+
+        return code.Trim();
+    }
+
+    private static string StripWhitespace(string? value)
+    {
+        if (string.IsNullOrEmpty(value))
+            return string.Empty;
+
+        var result = string.Empty;
+        foreach (var ch in value)
+        {
+            if (!char.IsWhiteSpace(ch))
+                result += ch;
+        }
+
+        return result;
+    }
+
+    private void BuildFilterSlot(VisualElement rail)
+    {
+        _filterSlot = new VisualElement();
+        _filterSlot.style.flexDirection = FlexDirection.Column;
+        _filterSlot.style.flexShrink = 0f;
+        _filterSlot.style.marginTop = UiSpacing.Xl;
+        _filterSlot.style.backgroundColor = Colors.HistorySectionBackground;
+        UiStyle.Radius(_filterSlot.style, Radii.Md);
+        UiStyle.Padding(_filterSlot.style, UiSpacing.Md);
+        rail.Add(_filterSlot);
+
+        var tabsRow = new VisualElement();
+        tabsRow.style.flexDirection = FlexDirection.Row;
+        tabsRow.style.flexWrap = Wrap.NoWrap;
+        tabsRow.style.alignItems = Align.Center;
+        _filterSlot.Add(tabsRow);
+
+        _runsTabButton = CreateButton(
+            HistoryPanelText.RunsTab(),
+            () => _setSectionMode(HistorySectionMode.Runs),
+            0f,
+            Sizes.ButtonStandardHeight,
+            fixedWidth: false
+        );
+        _ghostTabButton = CreateButton(
+            HistoryPanelText.GhostTab(),
+            () => _setSectionMode(HistorySectionMode.Ghost),
+            0f,
+            Sizes.ButtonStandardHeight,
+            fixedWidth: false
+        );
+        tabsRow.Add(_runsTabButton);
+        _ghostTabButton.style.marginLeft = UiSpacing.Sm;
+        tabsRow.Add(_ghostTabButton);
+
+        _runsFilterRow = new VisualElement();
+        _runsFilterRow.style.flexDirection = FlexDirection.Row;
+        _runsFilterRow.style.flexWrap = Wrap.NoWrap;
+        _runsFilterRow.style.alignItems = Align.Center;
+        _runsFilterRow.style.marginTop = UiSpacing.Sm;
+        _filterSlot.Add(_runsFilterRow);
+
+        _heroChips = new Button[HeroRoster.Length];
+        for (var i = 0; i < HeroRoster.Length; i++)
+        {
+            var heroName = HeroRoster[i];
+            var heroChip = CreateButton(
+                HeroVisual.Resolve(heroName).ShortCode,
+                () => _setRunHero(heroName),
+                0f,
+                Sizes.ButtonCompactHeight,
+                fixedWidth: false
+            );
+            heroChip.tooltip = heroName;
+            if (i > 0)
+                heroChip.style.marginLeft = UiSpacing.Xs;
+            _runsFilterRow.Add(heroChip);
+            _heroChips[i] = heroChip;
+        }
+
+        _ghostFilterRow = new VisualElement();
+        _ghostFilterRow.style.flexDirection = FlexDirection.Row;
+        _ghostFilterRow.style.flexWrap = Wrap.NoWrap;
+        _ghostFilterRow.style.alignItems = Align.Center;
+        _ghostFilterRow.style.display = DisplayStyle.None;
+        _ghostFilterRow.style.marginTop = UiSpacing.Sm;
+        _filterSlot.Add(_ghostFilterRow);
+
+        _ghostAllButton = CreateButton(
+            HistoryPanelText.FilterAll(),
+            () => _setGhostFilter(GhostBattleFilter.All),
+            0f,
+            Sizes.ButtonCompactHeight,
+            fixedWidth: false
+        );
+        _ghostWonButton = CreateButton(
+            HistoryPanelText.FilterIWon(),
+            () => _setGhostFilter(GhostBattleFilter.IWon),
+            0f,
+            Sizes.ButtonCompactHeight,
+            fixedWidth: false
+        );
+        _ghostLostButton = CreateButton(
+            HistoryPanelText.FilterILost(),
+            () => _setGhostFilter(GhostBattleFilter.ILost),
+            0f,
+            Sizes.ButtonCompactHeight,
+            fixedWidth: false
+        );
+        _ghostDayButton = CreateButton(
+            HistoryPanelText.FilterDayMin10(),
+            _toggleGhostDayMin10,
+            0f,
+            Sizes.ButtonCompactHeight,
+            fixedWidth: false
+        );
+        _ghostFilterRow.Add(_ghostAllButton);
+        _ghostWonButton.style.marginLeft = UiSpacing.Sm;
+        _ghostFilterRow.Add(_ghostWonButton);
+        _ghostLostButton.style.marginLeft = UiSpacing.Sm;
+        _ghostFilterRow.Add(_ghostLostButton);
+        _ghostDayButton.style.marginLeft = UiSpacing.Md;
+        _ghostFilterRow.Add(_ghostDayButton);
     }
 
     private ListView CreateRunList()

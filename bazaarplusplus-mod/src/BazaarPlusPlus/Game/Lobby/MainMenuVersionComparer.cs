@@ -1,5 +1,4 @@
 #nullable enable
-using System;
 using System.Text.RegularExpressions;
 
 namespace BazaarPlusPlus.Game.Lobby;

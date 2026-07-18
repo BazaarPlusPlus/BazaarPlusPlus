@@ -1,7 +1,4 @@
 #nullable enable
-using System;
-using System.Threading;
-using System.Threading.Tasks;
 using BazaarPlusPlus.ModApi.Clients;
 
 namespace BazaarPlusPlus.Game.HistoryPanel;

@@ -1,8 +1,5 @@
 #nullable enable
-using System;
-using System.Net.Http;
-using System.Threading;
-using System.Threading.Tasks;
+using BazaarPlusPlus.Game.Upload;
 using BazaarPlusPlus.GameInterop;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.ModApi;
@@ -13,25 +10,45 @@ namespace BazaarPlusPlus.Game.RunLogging.Upload;
 
 internal sealed class RunBundleUploadService : IDisposable
 {
-    private readonly RunBundleUploadStore _store;
+    private readonly IRunBundleUploadStore _store;
     private readonly ModApiRoutes _routes;
     private readonly HttpClient _httpClient;
+    private readonly Func<string?> _playerAccountIdResolver;
 
     public RunBundleUploadService(RunBundleUploadStore store, ModApiRoutes routes, TimeSpan timeout)
+        : this(
+            store,
+            routes,
+            BppHttpClientFactory.Create(
+                productVersion: BppPluginVersion.Current,
+                userAgentSuffix: "RunBundleUpload",
+                timeout: timeout
+            ),
+            BppClientCacheBridge.TryGetProfileAccountId
+        ) { }
+
+    internal RunBundleUploadService(
+        IRunBundleUploadStore store,
+        ModApiRoutes routes,
+        HttpClient httpClient,
+        Func<string?> playerAccountIdResolver
+    )
     {
         _store = store ?? throw new ArgumentNullException(nameof(store));
         _routes = routes ?? throw new ArgumentNullException(nameof(routes));
-        _httpClient = BppHttpClientFactory.Create(
-            productVersion: BppPluginVersion.Current,
-            userAgentSuffix: "RunBundleUpload",
-            timeout: timeout
-        );
+        _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
+        _playerAccountIdResolver =
+            playerAccountIdResolver
+            ?? throw new ArgumentNullException(nameof(playerAccountIdResolver));
     }
 
-    public Task UploadPendingRunBundlesAsync(CancellationToken cancellationToken) =>
-        UploadPendingRunBundlesAsync(ResolvePlayerAccountId(), cancellationToken);
+    public Task<UploadAttemptResult> UploadPendingRunBundlesAsync(
+        CancellationToken cancellationToken
+    ) => UploadPendingRunBundlesAsync(ResolvePlayerAccountId(), cancellationToken);
 
-    public Task UploadPendingRunBundlesInBackgroundAsync(CancellationToken cancellationToken)
+    public Task<UploadAttemptResult> UploadPendingRunBundlesInBackgroundAsync(
+        CancellationToken cancellationToken
+    )
     {
         var playerAccountId = ResolvePlayerAccountId();
         return Task.Run(
@@ -40,41 +57,48 @@ internal sealed class RunBundleUploadService : IDisposable
         );
     }
 
-    private async Task UploadPendingRunBundlesAsync(
+    private async Task<UploadAttemptResult> UploadPendingRunBundlesAsync(
         string? playerAccountId,
         CancellationToken cancellationToken
     )
     {
         var pendingRunIds = _store.GetPendingCompletedRunIds(3);
         if (pendingRunIds.Count == 0)
-        {
-            BppLog.Info(
-                "RunBundleUploadService",
-                "No completed runs are waiting for bundle upload."
-            );
-            return;
-        }
+            return UploadAttemptResult.NoWork();
 
         if (string.IsNullOrWhiteSpace(playerAccountId))
-        {
-            BppLog.Info(
-                "RunBundleUploadService",
-                $"Skipping {pendingRunIds.Count} pending run bundle(s): player account id not yet available."
+            return UploadAttemptResult.From(
+                UploadAttemptObservation.Deferred(
+                    UploadLogReasonCode.AccountUnavailable,
+                    pendingRunIds.Count
+                )
             );
-            return;
-        }
 
         var client = new RunBundleClient(_httpClient, _routes);
+        var observations = new List<UploadAttemptObservation>(pendingRunIds.Count);
         foreach (var runId in pendingRunIds)
         {
             cancellationToken.ThrowIfCancellationRequested();
             var attemptedAtUtc = DateTimeOffset.UtcNow;
             try
             {
-                var snapshot = _store.TryBuildRunBundleSnapshot(runId, playerAccountId);
-                if (snapshot == null)
+                var buildResult = _store.BuildRunBundleSnapshot(runId, playerAccountId);
+                var snapshot = buildResult.Snapshot;
+                if (buildResult.Status == RunBundleBuildStatus.NotReady)
                 {
                     _store.MarkRunUploadFailed(runId, attemptedAtUtc, "run_bundle_not_ready");
+                    observations.Add(
+                        UploadAttemptObservation.Deferred(UploadLogReasonCode.RunBundleNotReady)
+                    );
+                    continue;
+                }
+                if (buildResult.Status == RunBundleBuildStatus.IntegrityFailed || snapshot == null)
+                {
+                    _store.MarkRunUploadFailed(
+                        runId,
+                        attemptedAtUtc,
+                        buildResult.ReasonCode?.ToString() ?? "run_bundle_build_failed"
+                    );
                     continue;
                 }
 
@@ -85,10 +109,16 @@ internal sealed class RunBundleUploadService : IDisposable
                 );
                 if (!result.Succeeded)
                 {
-                    _store.MarkRunUploadFailed(
-                        runId,
-                        attemptedAtUtc,
-                        result.Error ?? "run_bundle_upload_failed"
+                    var error = result.Error ?? "run_bundle_upload_failed";
+                    if (result.Permanent)
+                        _store.MarkRunUploadPermanentlyFailed(runId, attemptedAtUtc, error);
+                    else
+                        _store.MarkRunUploadFailed(runId, attemptedAtUtc, error);
+                    observations.Add(
+                        UploadAttemptObservation.Degraded(
+                            runId,
+                            UploadLogReasonCode.RemoteUploadFailed
+                        )
                     );
                     continue;
                 }
@@ -100,6 +130,7 @@ internal sealed class RunBundleUploadService : IDisposable
                     snapshot.BattleIds,
                     DateTimeOffset.UtcNow
                 );
+                observations.Add(UploadAttemptObservation.Succeeded(runId));
             }
             catch (OperationCanceledException)
             {
@@ -108,8 +139,19 @@ internal sealed class RunBundleUploadService : IDisposable
             catch (Exception ex)
             {
                 _store.MarkRunUploadFailed(runId, attemptedAtUtc, ex.Message);
+                observations.Add(
+                    UploadAttemptObservation.Degraded(
+                        runId,
+                        UploadLogReasonCode.AttemptException,
+                        ex
+                    )
+                );
             }
         }
+
+        return observations.Count == 0
+            ? UploadAttemptResult.NoHealthSignal()
+            : UploadAttemptResult.From(observations);
     }
 
     public void Dispose()
@@ -117,19 +159,41 @@ internal sealed class RunBundleUploadService : IDisposable
         _httpClient.Dispose();
     }
 
-    private static string? ResolvePlayerAccountId()
+    private string? ResolvePlayerAccountId()
     {
         try
         {
-            return BppClientCacheBridge.TryGetProfileAccountId()?.Trim();
+            return _playerAccountIdResolver()?.Trim();
         }
         catch (Exception ex)
         {
-            BppLog.Debug(
-                "RunBundleUpload",
-                $"ResolvePlayerAccountId failed: {ex.GetType().Name}: {ex.Message}"
+            BppLog.DebugEvent(
+                UploadLogEvents.AccountProbeFailed,
+                ex,
+                () =>
+                    [
+                        UploadLogEvents.AccountProbeFailedFeed.Bind(UploadFeedKind.RunBundle),
+                        UploadLogEvents.AccountProbeFailedReasonCode.Bind(
+                            UploadLogReasonCode.AccountProbeException
+                        ),
+                    ]
             );
             return null;
         }
     }
+}
+
+internal interface IRunBundleUploadStore
+{
+    IReadOnlyList<string> GetPendingCompletedRunIds(int limit);
+    RunBundleBuildResult BuildRunBundleSnapshot(string runId, string playerAccountId);
+    void MarkRunUploadFailed(string runId, DateTimeOffset attemptedAtUtc, string error);
+    void MarkRunUploadPermanentlyFailed(string runId, DateTimeOffset attemptedAtUtc, string error);
+    void MarkRunUploaded(
+        string runId,
+        long uploadedSeq,
+        string? uploadedStatus,
+        IReadOnlyList<string> battleIds,
+        DateTimeOffset uploadedAtUtc
+    );
 }

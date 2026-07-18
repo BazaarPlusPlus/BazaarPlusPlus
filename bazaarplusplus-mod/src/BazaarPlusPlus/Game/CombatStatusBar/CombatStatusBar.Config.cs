@@ -1,6 +1,5 @@
 #nullable enable
 
-using BazaarPlusPlus.Core.Runtime;
 using BazaarPlusPlus.Infrastructure;
 
 namespace BazaarPlusPlus.Game.CombatStatusBar;
@@ -19,9 +18,15 @@ internal sealed partial class CombatStatusBar
 
         _configStateInitialized = true;
         CombatSpeedMultiplier = _services.Config.CombatStatusBarSpeedMultiplierConfig?.Value ?? 1f;
-        BppLog.Info(
-            "CombatStatusBar",
-            $"Combat config initialized: enabled={IsEnabled()}, speed={CombatSpeedMultiplier:F2}x"
+        BppLog.DebugEvent(
+            CombatStatusBarLogEvents.ConfigLoaded,
+            () =>
+                [
+                    CombatStatusBarLogEvents.ConfigLoadedEnabled.Bind(IsEnabled()),
+                    CombatStatusBarLogEvents.ConfigLoadedSpeedMultiplier.Bind(
+                        ToLogCategory(CombatSpeedMultiplier)
+                    ),
+                ]
         );
     }
 
@@ -47,5 +52,16 @@ internal sealed partial class CombatStatusBar
         var config = _services?.Config.CombatStatusBarSpeedMultiplierConfig;
         if (config != null)
             config.Value = speed;
+    }
+
+    private static CombatSpeedLogCategory ToLogCategory(float speed)
+    {
+        if (System.Math.Abs(speed - 0.5f) < 0.001f)
+            return CombatSpeedLogCategory.Half;
+        if (System.Math.Abs(speed - 0.67f) < 0.001f)
+            return CombatSpeedLogCategory.TwoThirds;
+        if (System.Math.Abs(speed - 1f) < 0.001f)
+            return CombatSpeedLogCategory.Normal;
+        return CombatSpeedLogCategory.Custom;
     }
 }

@@ -1,7 +1,7 @@
 #nullable enable
 using BazaarPlusPlus.GameInterop;
 using TheBazaar;
-using UnityEngine;
+using Object = UnityEngine.Object;
 
 namespace BazaarPlusPlus.Game.NameOverride;
 

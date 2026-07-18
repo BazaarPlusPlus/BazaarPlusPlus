@@ -5,6 +5,7 @@ internal enum CollectionCardEligibilityReason
 {
     Accepted,
     UnsupportedType,
+    NeverSpawnEligibility,
     MissingArtKey,
     InvalidArtKey,
     PlaceholderArtKey,

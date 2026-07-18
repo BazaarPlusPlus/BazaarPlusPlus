@@ -1,5 +1,4 @@
 #nullable enable
-using System.Collections.Generic;
 using BazaarGameShared.Domain.Core.Types;
 
 namespace BazaarPlusPlus.Game.PvpBattles;

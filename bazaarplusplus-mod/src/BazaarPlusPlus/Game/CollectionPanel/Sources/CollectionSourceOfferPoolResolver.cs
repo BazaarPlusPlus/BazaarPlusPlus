@@ -1,6 +1,4 @@
 #nullable enable
-using System;
-using System.Collections.Generic;
 using BazaarGameShared.Domain.Core.Types;
 using BazaarPlusPlus.Game.CollectionPanel.Data;
 
@@ -175,6 +173,9 @@ internal static class CollectionSourceOfferPoolResolver
             case CollectionSourceHeroMode.NeutralOnly:
                 return Contains(cardHeroes, EHero.Common);
 
+            case CollectionSourceHeroMode.OtherHeroes:
+                return MatchesOtherHero(cardHeroes, selectedHero);
+
             case CollectionSourceHeroMode.SelectedHero:
                 if (!selectedHero.HasValue)
                     return true;
@@ -187,6 +188,30 @@ internal static class CollectionSourceOfferPoolResolver
 
     private static bool MatchesExclusiveHero(IReadOnlyCollection<EHero> cardHeroes, EHero hero) =>
         cardHeroes.Count == 1 && Contains(cardHeroes, hero);
+
+    private static bool MatchesOtherHero(IReadOnlyCollection<EHero> cardHeroes, EHero? selectedHero)
+    {
+        if (Contains(cardHeroes, EHero.Common))
+            return false;
+
+        if (!ContainsConcreteHero(cardHeroes))
+            return false;
+
+        if (!selectedHero.HasValue || selectedHero.Value == EHero.Common)
+            return true;
+
+        return !Contains(cardHeroes, selectedHero.Value);
+    }
+
+    private static bool ContainsConcreteHero(IReadOnlyCollection<EHero> cardHeroes)
+    {
+        foreach (var hero in cardHeroes)
+        {
+            if (hero != EHero.Common)
+                return true;
+        }
+        return false;
+    }
 
     private static bool MatchesStartingTier(
         CollectionSourceStartingTierRule rule,

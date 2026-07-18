@@ -1,6 +1,4 @@
 #nullable enable
-using System;
-using System.Collections.Generic;
 using BazaarPlusPlus.Storage;
 using BazaarPlusPlus.Storage.RunLog;
 using BazaarPlusPlus.Storage.Sqlite;
@@ -31,6 +29,8 @@ internal sealed class PvpBattleSqliteStore : SqliteStoreBase
             b.player_rating,
             b.player_level,
             b.player_prestige,
+            b.player_income,
+            b.player_gold,
             b.player_victories,
             b.opponent_name,
             b.opponent_hero,
@@ -86,6 +86,8 @@ internal sealed class PvpBattleSqliteStore : SqliteStoreBase
                 player_rating,
                 player_level,
                 player_prestige,
+                player_income,
+                player_gold,
                 player_victories,
                 opponent_name,
                 opponent_hero,
@@ -115,6 +117,8 @@ internal sealed class PvpBattleSqliteStore : SqliteStoreBase
                 $playerRating,
                 $playerLevel,
                 $playerPrestige,
+                $playerIncome,
+                $playerGold,
                 $playerVictories,
                 $opponentName,
                 $opponentHero,
@@ -143,6 +147,8 @@ internal sealed class PvpBattleSqliteStore : SqliteStoreBase
                 player_rating = excluded.player_rating,
                 player_level = excluded.player_level,
                 player_prestige = excluded.player_prestige,
+                player_income = excluded.player_income,
+                player_gold = excluded.player_gold,
                 player_victories = excluded.player_victories,
                 opponent_name = excluded.opponent_name,
                 opponent_hero = excluded.opponent_hero,
@@ -186,6 +192,8 @@ internal sealed class PvpBattleSqliteStore : SqliteStoreBase
         AddNullableInt32(command, "$playerRating", manifest.Participants.PlayerRating);
         AddNullableInt32(command, "$playerLevel", manifest.Participants.PlayerLevel);
         AddNullableInt32(command, "$playerPrestige", manifest.Participants.PlayerPrestige);
+        AddNullableInt32(command, "$playerIncome", manifest.Participants.PlayerIncome);
+        AddNullableInt32(command, "$playerGold", manifest.Participants.PlayerGold);
         AddNullableInt32(command, "$playerVictories", manifest.Participants.PlayerVictories);
         command.Parameters.AddWithValue(
             "$opponentName",
@@ -427,6 +435,8 @@ internal sealed class PvpBattleSqliteStore : SqliteStoreBase
                 PlayerRating = GetNullableInt32(reader, "player_rating"),
                 PlayerLevel = GetNullableInt32(reader, "player_level"),
                 PlayerPrestige = GetNullableInt32(reader, "player_prestige"),
+                PlayerIncome = GetNullableInt32(reader, "player_income"),
+                PlayerGold = GetNullableInt32(reader, "player_gold"),
                 PlayerVictories = GetNullableInt32(reader, "player_victories"),
                 OpponentName = GetNullableString(reader, "opponent_name"),
                 OpponentHero = GetNullableString(reader, "opponent_hero"),

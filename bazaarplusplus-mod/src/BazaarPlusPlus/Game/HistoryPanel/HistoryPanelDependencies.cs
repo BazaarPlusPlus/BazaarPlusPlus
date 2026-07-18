@@ -1,6 +1,7 @@
 #nullable enable
 using BazaarPlusPlus.Game.HistoryPanel.Ghost;
 using BazaarPlusPlus.Game.HistoryPanel.Storage;
+using BazaarPlusPlus.ModApi.Clients;
 
 namespace BazaarPlusPlus.Game.HistoryPanel;
 
@@ -21,12 +22,43 @@ internal sealed class HistoryPanelDependencies
         GhostBattleSyncService? ghostSyncService,
         IHistoryPanelServerHealthProbe? serverHealthProbe
     )
+        : this(runtime, dataService, replayService, ghostSyncService, serverHealthProbe, null) { }
+
+    public HistoryPanelDependencies(
+        IHistoryPanelRuntime runtime,
+        HistoryPanelDataService dataService,
+        HistoryPanelReplayService replayService,
+        GhostBattleSyncService? ghostSyncService,
+        IHistoryPanelServerHealthProbe? serverHealthProbe,
+        BazaarDbLinkClient? accountLinkClient
+    )
+        : this(
+            runtime,
+            dataService,
+            replayService,
+            ghostSyncService,
+            serverHealthProbe,
+            accountLinkClient,
+            null
+        ) { }
+
+    public HistoryPanelDependencies(
+        IHistoryPanelRuntime runtime,
+        HistoryPanelDataService dataService,
+        HistoryPanelReplayService replayService,
+        GhostBattleSyncService? ghostSyncService,
+        IHistoryPanelServerHealthProbe? serverHealthProbe,
+        BazaarDbLinkClient? accountLinkClient,
+        Func<bool>? isBazaarDbAccountLinkAvailable
+    )
     {
         Runtime = runtime;
         DataService = dataService;
         ReplayService = replayService;
         GhostSyncService = ghostSyncService;
         ServerHealthProbe = serverHealthProbe;
+        AccountLinkClient = accountLinkClient;
+        IsBazaarDbAccountLinkAvailable = isBazaarDbAccountLinkAvailable;
     }
 
     public IHistoryPanelRuntime Runtime { get; }
@@ -38,4 +70,8 @@ internal sealed class HistoryPanelDependencies
     public GhostBattleSyncService? GhostSyncService { get; }
 
     public IHistoryPanelServerHealthProbe? ServerHealthProbe { get; }
+
+    public BazaarDbLinkClient? AccountLinkClient { get; }
+
+    public Func<bool>? IsBazaarDbAccountLinkAvailable { get; }
 }

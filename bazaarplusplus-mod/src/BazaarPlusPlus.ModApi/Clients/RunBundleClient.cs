@@ -1,8 +1,4 @@
 #nullable enable
-using System;
-using System.Net.Http;
-using System.Threading;
-using System.Threading.Tasks;
 using BazaarPlusPlus.ModApi.Http;
 using BazaarPlusPlus.ModApi.Models;
 
@@ -34,25 +30,35 @@ public sealed class RunBundleClient
             return RunBundleUploadResult.Success();
 
         var responseBody = await response.Content.ReadAsStringAsync();
-        return RunBundleUploadResult.Failure(
-            ModApiErrorFormatter.FormatHttpFailure((int)response.StatusCode, responseBody)
-        );
+        var statusCode = (int)response.StatusCode;
+        var error = ModApiErrorFormatter.FormatHttpFailure(statusCode, responseBody);
+        return IsPermanentClientError(statusCode)
+            ? RunBundleUploadResult.PermanentFailure(error)
+            : RunBundleUploadResult.TransientFailure(error);
     }
+
+    private static bool IsPermanentClientError(int statusCode) =>
+        statusCode >= 400 && statusCode < 500 && statusCode != 408 && statusCode != 429;
 }
 
 public readonly struct RunBundleUploadResult
 {
-    private RunBundleUploadResult(bool succeeded, string? error)
+    private RunBundleUploadResult(bool succeeded, bool permanent, string? error)
     {
         Succeeded = succeeded;
+        Permanent = permanent;
         Error = error;
     }
 
     public bool Succeeded { get; }
 
+    public bool Permanent { get; }
+
     public string? Error { get; }
 
-    public static RunBundleUploadResult Success() => new(true, null);
+    public static RunBundleUploadResult Success() => new(true, false, null);
 
-    public static RunBundleUploadResult Failure(string error) => new(false, error);
+    public static RunBundleUploadResult TransientFailure(string error) => new(false, false, error);
+
+    public static RunBundleUploadResult PermanentFailure(string error) => new(false, true, error);
 }

@@ -1,5 +1,4 @@
 #nullable enable
-using System;
 using BazaarPlusPlus.Game.CombatReplay;
 using BazaarPlusPlus.GameInterop;
 

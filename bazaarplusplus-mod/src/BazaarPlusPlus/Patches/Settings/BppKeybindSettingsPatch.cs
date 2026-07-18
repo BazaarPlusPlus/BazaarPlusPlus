@@ -1,9 +1,9 @@
 #pragma warning disable CS0436
 #nullable enable
-using System;
 using System.Collections;
 using System.Reflection;
 using BazaarPlusPlus.Game.Input;
+using BazaarPlusPlus.Game.Settings;
 using BazaarPlusPlus.Infrastructure;
 using HarmonyLib;
 using TheBazaar.UI;
@@ -14,28 +14,27 @@ namespace BazaarPlusPlus.Patches.Settings;
 [HarmonyPatch(typeof(OptionsDialogController), "Awake")]
 internal static class BppKeybindSettingsAwakePatch
 {
-    private const string EnchantPreviewEnglishLabel = "Show Enchant Preview";
-    private const string UpgradePreviewEnglishLabel = "Show Upgrade Preview";
     internal const string EnchantPreviewObjectName = "BPP_Keybind_EnchantPreview";
     internal const string UpgradePreviewObjectName = "BPP_Keybind_UpgradePreview";
+    internal const string ToggleCollectionPanelObjectName = "BPP_Keybind_ToggleCollectionPanel";
+    internal const string ToggleLiveBuildPanelObjectName = "BPP_Keybind_ToggleLiveBuildPanel";
+    internal const string ToggleHistoryPanelObjectName = "BPP_Keybind_ToggleHistoryPanel";
 
     private static readonly BppKeybindDefinition[] Definitions =
     [
-        new(
-            EnchantPreviewObjectName,
-            BppHotkeyActionId.HoldEnchantPreview,
-            EnchantPreviewEnglishLabel
-        ),
-        new(
-            UpgradePreviewObjectName,
-            BppHotkeyActionId.HoldUpgradePreview,
-            UpgradePreviewEnglishLabel
-        ),
+        new(EnchantPreviewObjectName, BppHotkeyActionId.HoldEnchantPreview),
+        new(UpgradePreviewObjectName, BppHotkeyActionId.HoldUpgradePreview),
+        new(ToggleCollectionPanelObjectName, BppHotkeyActionId.ToggleCollectionPanel),
+        new(ToggleLiveBuildPanelObjectName, BppHotkeyActionId.ToggleLiveBuildPanel),
+        new(ToggleHistoryPanelObjectName, BppHotkeyActionId.ToggleHistoryPanel),
     ];
-    private static readonly string[] DefinitionObjectNames =
+    internal static readonly string[] DefinitionObjectNames =
     [
         EnchantPreviewObjectName,
         UpgradePreviewObjectName,
+        ToggleCollectionPanelObjectName,
+        ToggleLiveBuildPanelObjectName,
+        ToggleHistoryPanelObjectName,
     ];
     private static readonly FieldInfo? KeybindObjectsField = AccessTools.Field(
         typeof(OptionsDialogController),
@@ -45,27 +44,21 @@ internal static class BppKeybindSettingsAwakePatch
     [HarmonyPostfix]
     private static void Postfix(OptionsDialogController __instance)
     {
-        BppKeybindSettingsPatchSupport.RunRefresh(
-            __instance,
-            "Failed to install keybind rows",
-            instance => EnsureKeybindRows(instance)
-        );
+        BppKeybindSettingsPatchSupport.RunRefresh(__instance);
     }
 
-    internal static void EnsureKeybindRows(OptionsDialogController instance)
+    internal static bool EnsureKeybindRows(OptionsDialogController instance)
     {
         var templateRow = GetTemplateRow(instance);
         if (templateRow == null)
-        {
-            BppLog.Warn("BppKeybindSettings", "Could not find keybind template row");
-            return;
-        }
+            return false;
 
         Transform anchorRow = templateRow;
         foreach (var definition in Definitions)
             anchorRow = EnsureKeybindRow(definition, templateRow, anchorRow) ?? anchorRow;
 
-        ArrangeRows(templateRow, DefinitionObjectNames);
+        ArrangeRows(templateRow, Definitions);
+        return true;
     }
 
     internal static void RefreshLanguage(OptionsDialogController instance)
@@ -91,7 +84,12 @@ internal static class BppKeybindSettingsAwakePatch
         if (existing != null)
         {
             ConfigureRow(existing.gameObject, definition);
-            SettingsMenuLayoutUtility.ArrangeRow(anchorRow, existing);
+            SettingsMenuLayoutUtility.ArrangeRow(
+                anchorRow,
+                existing,
+                ToRowId(definition.ActionId),
+                emitObservation: false
+            );
             return existing;
         }
 
@@ -99,7 +97,12 @@ internal static class BppKeybindSettingsAwakePatch
         cloneObject.name = definition.ObjectName;
 
         ConfigureRow(cloneObject, definition);
-        SettingsMenuLayoutUtility.ArrangeRow(anchorRow, cloneObject.transform);
+        SettingsMenuLayoutUtility.ArrangeRow(
+            anchorRow,
+            cloneObject.transform,
+            ToRowId(definition.ActionId),
+            emitObservation: false
+        );
         return cloneObject.transform;
     }
 
@@ -133,9 +136,12 @@ internal static class BppKeybindSettingsAwakePatch
         return templateRow;
     }
 
-    private static void ArrangeRows(Transform templateRow, params string[] rowObjectNames)
+    private static void ArrangeRows(
+        Transform templateRow,
+        params BppKeybindDefinition[] definitions
+    )
     {
-        if (templateRow == null || rowObjectNames == null || rowObjectNames.Length == 0)
+        if (templateRow == null || definitions == null || definitions.Length == 0)
             return;
 
         var parent = templateRow.parent;
@@ -143,33 +149,43 @@ internal static class BppKeybindSettingsAwakePatch
             return;
 
         var currentAnchor = templateRow;
-        foreach (var rowObjectName in rowObjectNames)
+        foreach (var definition in definitions)
         {
-            var row = parent.Find(rowObjectName);
+            var row = parent.Find(definition.ObjectName);
             if (row == null)
                 continue;
 
-            SettingsMenuLayoutUtility.ArrangeRow(currentAnchor, row);
+            SettingsMenuLayoutUtility.ArrangeRow(
+                currentAnchor,
+                row,
+                ToRowId(definition.ActionId),
+                emitObservation: true
+            );
             currentAnchor = row;
         }
     }
 
+    private static SettingsRowId ToRowId(BppHotkeyActionId actionId) =>
+        actionId switch
+        {
+            BppHotkeyActionId.HoldEnchantPreview => SettingsRowId.HoldEnchantPreview,
+            BppHotkeyActionId.HoldUpgradePreview => SettingsRowId.HoldUpgradePreview,
+            BppHotkeyActionId.ToggleCollectionPanel => SettingsRowId.CollectionPanel,
+            BppHotkeyActionId.ToggleLiveBuildPanel => SettingsRowId.LiveBuildPanel,
+            BppHotkeyActionId.ToggleHistoryPanel => SettingsRowId.HistoryPanel,
+            _ => SettingsRowId.Unknown,
+        };
+
     private sealed class BppKeybindDefinition
     {
-        internal BppKeybindDefinition(
-            string objectName,
-            BppHotkeyActionId actionId,
-            string englishLabel
-        )
+        internal BppKeybindDefinition(string objectName, BppHotkeyActionId actionId)
         {
             ObjectName = objectName;
             ActionId = actionId;
-            EnglishLabel = englishLabel;
         }
 
         internal string ObjectName { get; }
         internal BppHotkeyActionId ActionId { get; }
-        internal string EnglishLabel { get; }
     }
 }
 
@@ -179,11 +195,7 @@ internal static class BppKeybindSettingsOnEnablePatch
     [HarmonyPostfix]
     private static void Postfix(OptionsDialogController __instance)
     {
-        BppKeybindSettingsPatchSupport.RunRefresh(
-            __instance,
-            "Failed to refresh keybind rows",
-            BppKeybindSettingsAwakePatch.EnsureKeybindRows
-        );
+        BppKeybindSettingsPatchSupport.RunRefresh(__instance);
     }
 }
 
@@ -193,37 +205,14 @@ internal static class BppKeybindSettingsGameplayOpenPatch
     [HarmonyPostfix]
     private static void Postfix(OptionsDialogController __instance)
     {
-        BppKeybindSettingsPatchSupport.RunRefresh(
-            __instance,
-            "Failed to refresh keybind rows after gameplay menu opened",
-            instance =>
-            {
-                BppKeybindSettingsAwakePatch.EnsureKeybindRows(instance);
-                NativeKeybindLabelAwakePatch.TryUpdateLabels(instance);
-            }
-        );
+        BppKeybindSettingsPatchSupport.RunRefresh(__instance);
     }
 }
 
 internal static class BppKeybindSettingsPatchSupport
 {
-    internal static void RunRefresh(
-        OptionsDialogController instance,
-        string failureLogMessage,
-        Action<OptionsDialogController> action
-    )
-    {
+    internal static void RunRefresh(OptionsDialogController instance) =>
         BppKeybindSettingsRefreshDriver.Attach(instance).RequestRefresh();
-
-        try
-        {
-            action(instance);
-        }
-        catch (Exception ex)
-        {
-            BppLog.Error("BppKeybindSettings", failureLogMessage, ex);
-        }
-    }
 }
 
 internal sealed class BppKeybindSettingsRefreshDriver : MonoBehaviour
@@ -232,7 +221,6 @@ internal sealed class BppKeybindSettingsRefreshDriver : MonoBehaviour
 
     private OptionsDialogController? _controller;
     private Coroutine? _refreshCoroutine;
-    private bool _nativeLabelsUpdated;
 
     internal static BppKeybindSettingsRefreshDriver Attach(OptionsDialogController controller)
     {
@@ -248,7 +236,6 @@ internal sealed class BppKeybindSettingsRefreshDriver : MonoBehaviour
         if (_refreshCoroutine != null)
             StopCoroutine(_refreshCoroutine);
 
-        _nativeLabelsUpdated = false;
         _refreshCoroutine = StartCoroutine(RefreshRoutine());
     }
 
@@ -263,39 +250,50 @@ internal sealed class BppKeybindSettingsRefreshDriver : MonoBehaviour
 
     private IEnumerator RefreshRoutine()
     {
+        Exception? lastException = null;
+        var lastStage = SettingsKeybindStage.TemplateDiscovery;
         for (var frame = 0; frame < RetryFrames; frame++)
         {
             if (_controller == null)
                 yield break;
 
+            var completed = false;
             try
             {
-                BppKeybindSettingsAwakePatch.EnsureKeybindRows(_controller);
-                BppKeybindSettingsAwakePatch.RefreshLanguage(_controller);
-                if (!_nativeLabelsUpdated)
-                    _nativeLabelsUpdated = NativeKeybindLabelAwakePatch.TryUpdateLabels(
-                        _controller
-                    );
-
-                if (HasInstalledRows(_controller))
+                lastStage = SettingsKeybindStage.TemplateDiscovery;
+                if (BppKeybindSettingsAwakePatch.EnsureKeybindRows(_controller))
                 {
-                    _refreshCoroutine = null;
-                    yield break;
+                    lastStage = SettingsKeybindStage.Refresh;
+                    BppKeybindSettingsAwakePatch.RefreshLanguage(_controller);
+                    completed = HasInstalledRows(_controller);
                 }
             }
             catch (Exception ex)
             {
-                BppLog.Error(
-                    "BppKeybindSettings",
-                    "Failed during deferred keybind row refresh",
-                    ex
-                );
+                lastException = ex;
+            }
+
+            if (completed)
+            {
+                _refreshCoroutine = null;
+                yield break;
             }
 
             yield return null;
         }
 
         _refreshCoroutine = null;
+        var fields = new[]
+        {
+            SettingsLogEvents.KeybindRowsDegradedStage.Bind(lastStage),
+            SettingsLogEvents.KeybindRowsDegradedReasonCode.Bind(
+                SettingsLogReasonCode.RetryExhausted
+            ),
+        };
+        if (lastException == null)
+            BppLog.WarnEvent(SettingsLogEvents.KeybindRowsDegraded, fields);
+        else
+            BppLog.WarnEvent(SettingsLogEvents.KeybindRowsDegraded, lastException, fields);
     }
 
     private static bool HasInstalledRows(OptionsDialogController controller)
@@ -304,7 +302,12 @@ internal sealed class BppKeybindSettingsRefreshDriver : MonoBehaviour
         if (container == null)
             return false;
 
-        return container.Find(BppKeybindSettingsAwakePatch.EnchantPreviewObjectName) != null
-            && container.Find(BppKeybindSettingsAwakePatch.UpgradePreviewObjectName) != null;
+        foreach (var objectName in BppKeybindSettingsAwakePatch.DefinitionObjectNames)
+        {
+            if (container.Find(objectName) == null)
+                return false;
+        }
+
+        return true;
     }
 }

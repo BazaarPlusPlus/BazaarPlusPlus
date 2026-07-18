@@ -1,5 +1,4 @@
 #nullable enable
-using System;
 using BazaarGameShared.Domain.Core.Types;
 using BazaarPlusPlus.Game.CollectionPanel.Data;
 using BazaarPlusPlus.GameInterop;
@@ -17,7 +16,8 @@ internal interface ICollectionPanelHeroPreferenceStore
 
 internal sealed class CollectionPanelHeroPreferenceStore : ICollectionPanelHeroPreferenceStore
 {
-    private const string LogScope = "CollectionPanelHeroPrefs";
+    private readonly HashSet<CollectionPanelLogReasonCode> _reportedPreferenceReasons = [];
+    private bool _scopeDegradedReported;
 
     public EHero? Load()
     {
@@ -29,7 +29,7 @@ internal sealed class CollectionPanelHeroPreferenceStore : ICollectionPanelHeroP
         if (CollectionPanelHeroPreference.TryParse(raw, out var hero))
             return hero;
 
-        BppLog.Warn(LogScope, $"Ignoring invalid saved hero '{raw}' for key '{key}'.");
+        ReportPreferenceDegraded(CollectionPanelLogReasonCode.InvalidSavedHero, null);
         PlayerPrefs.DeleteKey(key);
         PlayerPrefs.Save();
         return null;
@@ -39,7 +39,7 @@ internal sealed class CollectionPanelHeroPreferenceStore : ICollectionPanelHeroP
     {
         if (!CollectionPanelHeroPreference.IsSupportedHero(hero))
         {
-            BppLog.Warn(LogScope, $"Ignoring unsupported hero '{hero}'.");
+            ReportPreferenceDegraded(CollectionPanelLogReasonCode.UnsupportedHero, hero);
             return;
         }
 
@@ -47,12 +47,12 @@ internal sealed class CollectionPanelHeroPreferenceStore : ICollectionPanelHeroP
         PlayerPrefs.Save();
     }
 
-    private static string BuildScopedPrefsKey()
+    private string BuildScopedPrefsKey()
     {
         return CollectionPanelHeroPreference.BuildPrefsKey(ResolveAccountScopeForPrefs());
     }
 
-    private static string? ResolveAccountScopeForPrefs()
+    private string? ResolveAccountScopeForPrefs()
     {
         try
         {
@@ -66,12 +66,42 @@ internal sealed class CollectionPanelHeroPreferenceStore : ICollectionPanelHeroP
         }
         catch (Exception ex)
         {
-            BppLog.Warn(
-                LogScope,
-                $"Failed to resolve account scope; using anonymous CollectionPanel hero preference: {ex.Message}"
-            );
+            ReportScopeDegraded(ex);
+            return null;
         }
 
+        ReportScopeDegraded(null);
         return null;
+    }
+
+    private void ReportPreferenceDegraded(CollectionPanelLogReasonCode reasonCode, EHero? hero)
+    {
+        if (!_reportedPreferenceReasons.Add(reasonCode))
+            return;
+
+        BppLog.WarnEvent(
+            CollectionPanelLogEvents.HeroPreferenceDegraded,
+            CollectionPanelLogEvents.HeroPreferenceDegradedReasonCode.Bind(reasonCode),
+            CollectionPanelLogEvents.HeroPreferenceDegradedHero.Bind(hero)
+        );
+    }
+
+    private void ReportScopeDegraded(Exception? exception)
+    {
+        if (_scopeDegradedReported)
+            return;
+
+        _scopeDegradedReported = true;
+        var field = CollectionPanelLogEvents.HeroPreferenceScopeDegradedReasonCode.Bind(
+            CollectionPanelLogReasonCode.IdentityUnavailable
+        );
+        if (exception == null)
+            BppLog.WarnEvent(CollectionPanelLogEvents.HeroPreferenceScopeDegraded, field);
+        else
+            BppLog.WarnEvent(
+                CollectionPanelLogEvents.HeroPreferenceScopeDegraded,
+                exception,
+                field
+            );
     }
 }

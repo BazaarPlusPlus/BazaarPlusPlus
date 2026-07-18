@@ -1,0 +1,178 @@
+<Project>
+  <PropertyGroup>
+    <VoiceLinesRemoteUrl Condition="'$(VoiceLinesRemoteUrl)' == ''"
+      >https://bazaarline-installer.bazaarplusplus.com/data/voice-lines.json</VoiceLinesRemoteUrl>
+    <TenWinBuildsRemoteUrl Condition="'$(TenWinBuildsRemoteUrl)' == ''"
+      >https://bpp-metrics.bazaarplusplus.com/analyzer-v4/mod/tenwin_builds.json</TenWinBuildsRemoteUrl>
+    <RemoteEmbeddedDataDirectory Condition="'$(RemoteEmbeddedDataDirectory)' == ''"
+      >$(MSBuildThisFileDirectory)obj/remote-data</RemoteEmbeddedDataDirectory>
+    <ForceRemoteEmbeddedDataRefresh Condition="'$(ForceRemoteEmbeddedDataRefresh)' == ''"
+      >false</ForceRemoteEmbeddedDataRefresh>
+    <RemoteEmbeddedDataPrepared Condition="'$(RemoteEmbeddedDataPrepared)' == ''"
+      >false</RemoteEmbeddedDataPrepared>
+    <_ForceRemoteEmbeddedDataRefresh
+      Condition="'$(ForceRemoteEmbeddedDataRefresh)' == 'true' or ('$(BuildProductionPackage)' == 'true' and '$(RemoteEmbeddedDataPrepared)' != 'true')"
+      >true</_ForceRemoteEmbeddedDataRefresh>
+    <_ForceRemoteEmbeddedDataRefresh Condition="'$(_ForceRemoteEmbeddedDataRefresh)' == ''"
+      >false</_ForceRemoteEmbeddedDataRefresh>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <RemoteEmbeddedData Include="voice-lines.json">
+      <Url>$(VoiceLinesRemoteUrl)</Url>
+      <LogicalName>BazaarPlusPlus.Data.VoiceSubtitles.voice-lines.json</LogicalName>
+      <MinBytes>102400</MinBytes>
+      <DestinationPath>$(RemoteEmbeddedDataDirectory)/voice-lines.json</DestinationPath>
+    </RemoteEmbeddedData>
+    <RemoteEmbeddedData Include="tenwin_builds.json">
+      <Url>$(TenWinBuildsRemoteUrl)</Url>
+      <LogicalName>BazaarPlusPlus.Data.BuildRecommendations.tenwin_builds.json</LogicalName>
+      <MinBytes>51200</MinBytes>
+      <DestinationPath>$(RemoteEmbeddedDataDirectory)/tenwin_builds.json</DestinationPath>
+    </RemoteEmbeddedData>
+
+    <EmbeddedResource Include="@(RemoteEmbeddedData->'%(DestinationPath)')" />
+  </ItemGroup>
+
+  <UsingTask
+    TaskName="DownloadAndValidateRemoteEmbeddedData"
+    TaskFactory="RoslynCodeTaskFactory"
+    AssemblyFile="$(MSBuildToolsPath)/Microsoft.Build.Tasks.Core.dll"
+  >
+    <ParameterGroup>
+      <Items ParameterType="Microsoft.Build.Framework.ITaskItem[]" Required="true" />
+      <Force ParameterType="System.Boolean" Required="true" />
+    </ParameterGroup>
+    <Task>
+      <Using Namespace="System" />
+      <Using Namespace="System.IO" />
+      <Using Namespace="System.Net.Http" />
+      <Using Namespace="System.Text" />
+      <Using Namespace="Microsoft.Build.Framework" />
+      <Code Type="Fragment" Language="cs">
+        <![CDATA[
+        using var client = new HttpClient
+        {
+            Timeout = TimeSpan.FromMinutes(2),
+        };
+
+        foreach (var item in Items)
+        {
+            var destinationPath = item.GetMetadata("DestinationPath");
+            if (!Force && File.Exists(destinationPath))
+            {
+                continue;
+            }
+
+            var url = item.GetMetadata("Url");
+            var minBytesText = item.GetMetadata("MinBytes");
+            if (!long.TryParse(minBytesText, out var minBytes))
+            {
+                Log.LogError($"[BazaarPlusPlus] Invalid MinBytes '{minBytesText}' for {item.ItemSpec}.");
+                continue;
+            }
+
+            Directory.CreateDirectory(Path.GetDirectoryName(destinationPath)!);
+            var temporaryPath = destinationPath + "." + Guid.NewGuid().ToString("N") + ".tmp";
+            Log.LogMessage(
+                MessageImportance.High,
+                $"[BazaarPlusPlus] Downloading remote embedded data from {url} to {destinationPath}"
+            );
+
+            try
+            {
+                using (var response = client.GetAsync(url, HttpCompletionOption.ResponseHeadersRead)
+                           .GetAwaiter()
+                           .GetResult())
+                {
+                    response.EnsureSuccessStatusCode();
+                    using var input = response.Content.ReadAsStreamAsync().GetAwaiter().GetResult();
+                    using var output = new FileStream(
+                        temporaryPath,
+                        FileMode.CreateNew,
+                        FileAccess.Write,
+                        FileShare.None
+                    );
+                    input.CopyTo(output);
+                }
+
+                var length = new FileInfo(temporaryPath).Length;
+                if (length < minBytes)
+                {
+                    throw new InvalidDataException(
+                        $"downloaded {length} bytes, below the required minimum of {minBytes} bytes"
+                    );
+                }
+
+                using (var reader = new StreamReader(
+                           temporaryPath,
+                           Encoding.UTF8,
+                           detectEncodingFromByteOrderMarks: true
+                       ))
+                {
+                    int next;
+                    do
+                    {
+                        next = reader.Read();
+                    } while (next >= 0 && char.IsWhiteSpace((char)next));
+
+                    if (next != '{' && next != '[')
+                    {
+                        throw new InvalidDataException(
+                            "the first non-whitespace character is neither '{' nor '['"
+                        );
+                    }
+                }
+
+                if (File.Exists(destinationPath))
+                {
+                    File.Replace(temporaryPath, destinationPath, null);
+                }
+                else
+                {
+                    try
+                    {
+                        File.Move(temporaryPath, destinationPath);
+                    }
+                    catch (IOException) when (File.Exists(destinationPath))
+                    {
+                        File.Replace(temporaryPath, destinationPath, null);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.LogError(
+                    $"[BazaarPlusPlus] Failed to fetch valid remote embedded data for {item.ItemSpec} from {url}: {ex.Message} Restore network access and retry, or run ./run.sh fetch-data."
+                );
+            }
+            finally
+            {
+                if (File.Exists(temporaryPath))
+                {
+                    File.Delete(temporaryPath);
+                }
+            }
+        }
+
+      ]]>
+      </Code>
+    </Task>
+  </UsingTask>
+
+  <Target Name="EnsureRemoteEmbeddedData" BeforeTargets="AssignTargetPaths">
+    <ItemGroup>
+      <_RemoteEmbeddedDataToFetch
+        Include="@(RemoteEmbeddedData)"
+        Condition="'$(_ForceRemoteEmbeddedDataRefresh)' == 'true' or !Exists('%(RemoteEmbeddedData.DestinationPath)')"
+      />
+    </ItemGroup>
+    <DownloadAndValidateRemoteEmbeddedData
+      Items="@(_RemoteEmbeddedDataToFetch)"
+      Force="$(_ForceRemoteEmbeddedDataRefresh)"
+      Condition="'@(_RemoteEmbeddedDataToFetch)' != ''"
+    />
+  </Target>
+
+  <Target Name="FetchRemoteEmbeddedData" DependsOnTargets="EnsureRemoteEmbeddedData" />
+</Project>

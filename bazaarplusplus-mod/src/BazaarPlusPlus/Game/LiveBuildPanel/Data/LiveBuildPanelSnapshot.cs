@@ -1,7 +1,5 @@
 #nullable enable
 
-using System;
-using System.Collections.Generic;
 using BazaarGameShared.Domain.Core.Types;
 using BazaarPlusPlus.Game.Supporters;
 using BazaarPlusPlus.GameInterop.ItemBoardPreview;
@@ -22,7 +20,17 @@ internal sealed class LiveBuildPanelSnapshot
 
     public IReadOnlyCollection<Guid> CandidateTemplateIds { get; init; } = Array.Empty<Guid>();
 
-    public string RecommendationStatus { get; init; } = string.Empty;
+    public LiveBuildMatchesState MatchesState { get; init; }
+
+    public string MatchesGuidance { get; init; } = string.Empty;
+
+    public int? MatchTenWinRateBps { get; init; }
+
+    public int MatchTenWinRunCount { get; init; }
+
+    public int? MatchP75FinalDay { get; init; }
+
+    public int MatchMatchedCardCount { get; init; }
 
     public int RecommendationIndex { get; init; }
 
@@ -37,6 +45,16 @@ internal sealed class LiveBuildPanelSnapshot
     public string CorpusStatusTooltip { get; init; } = string.Empty;
 
     public LiveBuildRefreshSeverity CorpusStatusSeverity { get; init; }
+
+    public LiveBuildCorpusState CorpusState { get; init; }
+
+    public TenWinCorpusSummary? CorpusSummary { get; init; }
+
+    public string CorpusFreshnessText { get; init; } = string.Empty;
+
+    public string CorpusFreshnessTooltip { get; init; } = string.Empty;
+
+    public LiveBuildRefreshSeverity CorpusFreshnessSeverity { get; init; }
 
     public IReadOnlyList<BPPSupporterSample> Supporters { get; init; } =
         Array.Empty<BPPSupporterSample>();

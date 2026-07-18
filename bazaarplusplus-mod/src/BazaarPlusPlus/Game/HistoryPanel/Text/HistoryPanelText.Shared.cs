@@ -20,36 +20,21 @@ internal static partial class HistoryPanelText
 
     private static string FormatSimple(string english, string chineseMainland)
     {
-        return FormatSimple(english, chineseMainland, null, null);
+        return FormatSimple(english, chineseMainland, null);
     }
 
     private static string FormatSimple(
         string english,
         string chineseMainland,
-        string? chineseTaiwan,
-        string? chineseHongKong
+        string? chineseTraditional
     )
     {
-        return LocalizedTextHelpers.FormatSimple(
-            english,
-            chineseMainland,
-            chineseTaiwan,
-            chineseHongKong
-        );
+        return LocalizedTextHelpers.FormatSimple(english, chineseMainland, chineseTraditional);
     }
 
-    private static string ResolveChinese(
-        string chineseMainland,
-        string? chineseTaiwan,
-        string? chineseHongKong
-    )
+    private static string ResolveChinese(string chineseMainland, string? chineseTraditional)
     {
-        return ChineseScriptConverter.Convert(
-            chineseMainland,
-            chineseTaiwan,
-            chineseHongKong,
-            L.CurrentMode
-        );
+        return ChineseScriptConverter.Convert(chineseMainland, chineseTraditional, L.CurrentMode);
     }
 
     private static string Pluralize(int count, string singular, string plural)

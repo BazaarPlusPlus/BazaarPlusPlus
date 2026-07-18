@@ -1,8 +1,5 @@
 #nullable enable
-using System;
 using System.Collections.Concurrent;
-using System.Threading;
-using System.Threading.Tasks;
 using BazaarPlusPlus.Game.PvpBattles;
 using BazaarPlusPlus.Infrastructure;
 
@@ -27,6 +24,8 @@ internal sealed class CombatReplayPersistenceQueue : IDisposable
     private int _stopAcceptingNewWork;
     private int _disposeStarted;
     private int _cleanupStarted;
+    private CombatReplayPersistenceRequest? _inFlight;
+    private Action? _lateResultsAvailable;
 
     public CombatReplayPersistenceQueue(
         Action<PvpReplayPayload> savePayload,
@@ -41,6 +40,14 @@ internal sealed class CombatReplayPersistenceQueue : IDisposable
     }
 
     public bool HasPendingPersistence => Volatile.Read(ref _outstandingPersistenceCount) > 0;
+
+    public void SetLateResultsAvailableCallback(Action callback)
+    {
+        Volatile.Write(
+            ref _lateResultsAvailable,
+            callback ?? throw new ArgumentNullException(nameof(callback))
+        );
+    }
 
     public void Enqueue(PvpReplayPayload payload, PvpBattleManifest manifest)
     {
@@ -88,15 +95,28 @@ internal sealed class CombatReplayPersistenceQueue : IDisposable
             return;
         }
 
-        var pendingQueuedCount = _pending.Count;
-        BppLog.Warn(
-            "CombatReplayPersistenceQueue",
-            $"Timed out while waiting for replay persistence shutdown; allowing the in-flight write to finish asynchronously and abandoning {pendingQueuedCount} queued request(s)."
-        );
+        int pendingQueuedCount;
+        bool inFlight;
         _shutdown.Cancel();
-        EnqueueAbandonedPendingResults();
+        lock (_lifecycleGate)
+        {
+            pendingQueuedCount = _pending.Count;
+            inFlight = _inFlight != null;
+            EnqueueAbandonedPendingResults();
+        }
+        BppLog.DebugEvent(
+            CombatReplayLogEvents.PersistenceShutdownIncomplete,
+            () =>
+                [
+                    CombatReplayLogEvents.ShutdownPendingCount.Bind(pendingQueuedCount),
+                    CombatReplayLogEvents.ShutdownInFlight.Bind(inFlight),
+                    CombatReplayLogEvents.ShutdownTimeoutMs.Bind(
+                        (long)ShutdownDrainTimeout.TotalMilliseconds
+                    ),
+                ]
+        );
         _ = _worker.ContinueWith(
-            static (_, state) => ((CombatReplayPersistenceQueue)state!).CleanupWorkerResources(),
+            static (_, state) => ((CombatReplayPersistenceQueue)state!).CompleteTimedOutShutdown(),
             this,
             CancellationToken.None,
             TaskContinuationOptions.ExecuteSynchronously,
@@ -104,19 +124,39 @@ internal sealed class CombatReplayPersistenceQueue : IDisposable
         );
     }
 
+    private void CompleteTimedOutShutdown()
+    {
+        CleanupWorkerResources();
+        try
+        {
+            Volatile.Read(ref _lateResultsAvailable)?.Invoke();
+        }
+        catch
+        {
+            // A teardown observer must not fault the worker continuation.
+        }
+    }
+
     private async Task ProcessLoopAsync()
     {
         while (true)
         {
-            while (!_shutdown.IsCancellationRequested && _pending.TryDequeue(out var request))
+            while (!_shutdown.IsCancellationRequested)
             {
+                CombatReplayPersistenceRequest? request;
+                lock (_lifecycleGate)
+                {
+                    if (_shutdown.IsCancellationRequested || !_pending.TryDequeue(out request))
+                        break;
+                    _inFlight = request;
+                }
                 var payloadSaved = false;
                 try
                 {
                     _savePayload(request.Payload);
                     payloadSaved = true;
                     _saveManifest(request.Manifest);
-                    _completed.Enqueue(CombatReplayPersistenceResult.Success(request.Manifest));
+                    Complete(request, CombatReplayPersistenceResult.Success(request.Manifest));
                 }
                 catch (Exception ex)
                 {
@@ -128,17 +168,28 @@ internal sealed class CombatReplayPersistenceQueue : IDisposable
                         }
                         catch (Exception rollbackEx)
                         {
-                            BppLog.Warn(
-                                "CombatReplayPersistenceQueue",
-                                $"Failed to delete replay payload {request.Payload.BattleId} after manifest persistence failure: {rollbackEx.Message}"
+                            BppLog.DebugEvent(
+                                CombatReplayLogEvents.PersistenceRollbackCleanupFailed,
+                                rollbackEx,
+                                () =>
+                                    [
+                                        CombatReplayLogEvents.RollbackCleanupBattleId.Bind(
+                                            request.Payload.BattleId
+                                        ),
+                                    ]
                             );
                         }
                     }
 
-                    _completed.Enqueue(CombatReplayPersistenceResult.Failure(request.Manifest, ex));
+                    Complete(request, CombatReplayPersistenceResult.Failure(request.Manifest, ex));
                 }
                 finally
                 {
+                    lock (_lifecycleGate)
+                    {
+                        if (ReferenceEquals(_inFlight, request))
+                            _inFlight = null;
+                    }
                     Interlocked.Decrement(ref _pendingSaveCount);
                 }
             }
@@ -168,16 +219,29 @@ internal sealed class CombatReplayPersistenceQueue : IDisposable
     {
         while (_pending.TryDequeue(out var request))
         {
-            _completed.Enqueue(
-                CombatReplayPersistenceResult.Failure(
-                    request.Manifest,
-                    new OperationCanceledException(
-                        $"Replay persistence for {request.Manifest.BattleId} was abandoned during shutdown."
-                    )
-                )
-            );
+            CompleteAsAbandoned(request);
             Interlocked.Decrement(ref _pendingSaveCount);
         }
+    }
+
+    private void CompleteAsAbandoned(CombatReplayPersistenceRequest request)
+    {
+        Complete(
+            request,
+            CombatReplayPersistenceResult.Failure(
+                request.Manifest,
+                new OperationCanceledException("Replay persistence was abandoned during shutdown.")
+            )
+        );
+    }
+
+    private void Complete(
+        CombatReplayPersistenceRequest request,
+        CombatReplayPersistenceResult result
+    )
+    {
+        if (request.CompletionGate.TryComplete())
+            _completed.Enqueue(result);
     }
 
     private void CleanupWorkerResources()
@@ -189,7 +253,7 @@ internal sealed class CombatReplayPersistenceQueue : IDisposable
         _shutdown.Dispose();
     }
 
-    private readonly struct CombatReplayPersistenceRequest
+    private sealed class CombatReplayPersistenceRequest
     {
         public CombatReplayPersistenceRequest(PvpReplayPayload payload, PvpBattleManifest manifest)
         {
@@ -200,6 +264,8 @@ internal sealed class CombatReplayPersistenceQueue : IDisposable
         public PvpReplayPayload Payload { get; }
 
         public PvpBattleManifest Manifest { get; }
+
+        internal ReplayPersistenceCompletionGate CompletionGate { get; } = new();
     }
 }
 

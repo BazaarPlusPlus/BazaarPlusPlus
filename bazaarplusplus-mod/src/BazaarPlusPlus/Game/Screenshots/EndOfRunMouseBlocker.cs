@@ -28,22 +28,49 @@ internal sealed class EndOfRunMouseBlocker
             return;
 
         _owner = screenController;
-        _blockerCanvasObject?.SetActive(true);
-        _blockerObject?.SetActive(true);
-        _inputSink?.CaptureFocus();
+        if (_blockerCanvasObject != null)
+            _blockerCanvasObject.SetActive(true);
+        if (_blockerObject != null)
+            _blockerObject.SetActive(true);
+        if (_inputSink != null)
+            _inputSink.CaptureFocus();
         _isAttached = true;
     }
 
     public void Detach()
     {
-        if (!_isAttached)
+        if (!_isAttached && _blockerCanvasObject == null && _blockerObject == null)
             return;
 
-        _inputSink?.ReleaseFocus();
-        _blockerCanvasObject?.SetActive(false);
-        _blockerObject?.SetActive(false);
+        Exception? failure = null;
+        try
+        {
+            _inputSink?.ReleaseFocus();
+        }
+        catch (Exception ex)
+        {
+            failure = ex;
+        }
+        try
+        {
+            _blockerCanvasObject?.SetActive(false);
+        }
+        catch (Exception ex)
+        {
+            failure ??= ex;
+        }
+        try
+        {
+            _blockerObject?.SetActive(false);
+        }
+        catch (Exception ex)
+        {
+            failure ??= ex;
+        }
         _isAttached = false;
         _owner = null;
+        if (failure != null)
+            throw failure;
     }
 
     public void Destroy()
@@ -105,9 +132,39 @@ internal sealed class EndOfRunMouseBlocker
 
     private void DestroyBlocker()
     {
-        _inputSink?.ReleaseFocus();
-        if (_blockerCanvasObject != null)
-            Object.Destroy(_blockerCanvasObject);
+        try
+        {
+            _inputSink?.ReleaseFocus();
+        }
+        catch
+        {
+            // Teardown is best-effort and must never strand input focus.
+        }
+        try
+        {
+            _blockerCanvasObject?.SetActive(false);
+        }
+        catch
+        {
+            // Destroy below remains the final cleanup path.
+        }
+        try
+        {
+            _blockerObject?.SetActive(false);
+        }
+        catch
+        {
+            // Destroy below remains the final cleanup path.
+        }
+        try
+        {
+            if (_blockerCanvasObject != null)
+                UnityEngine.Object.Destroy(_blockerCanvasObject);
+        }
+        catch
+        {
+            // Unity teardown must not escape plugin disposal.
+        }
 
         _blockerCanvasObject = null;
         _blockerObject = null;

@@ -1,11 +1,8 @@
 #nullable enable
 
-using System;
-using System.Linq;
 using System.Reflection;
 using BazaarGameShared.Domain.Core.Types;
-using BazaarGameShared.TempoNet.Models;
-using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Game.PvpBattles;
 using TheBazaar;
 using TheBazaar.UI.Components;
 
@@ -13,18 +10,83 @@ namespace BazaarPlusPlus.Game.CombatReplay.PlaybackUi;
 
 internal static class PlayerAttributeRepairer
 {
-    internal static void EnsureSequencePlayerAttributes(CombatSequenceMessages sequence)
+    internal static void EnsureSequencePlayerAttributes(
+        CombatSequenceMessages sequence,
+        IReplayPlaybackOutcomeSink outcome
+    )
     {
-        EnsurePlayerAttributes(sequence.SpawnMessage?.Data?.Player, ECombatantId.Player);
-        EnsurePlayerAttributes(sequence.SpawnMessage?.Data?.Opponent, ECombatantId.Opponent);
-        EnsurePlayerAttributes(sequence.DespawnMessage?.Data?.Player, ECombatantId.Player);
-        EnsurePlayerAttributes(sequence.DespawnMessage?.Data?.Opponent, ECombatantId.Opponent);
+        EnsurePlayerAttributes(sequence.SpawnMessage?.Data?.Player, ECombatantId.Player, outcome);
+        EnsurePlayerAttributes(
+            sequence.SpawnMessage?.Data?.Opponent,
+            ECombatantId.Opponent,
+            outcome
+        );
+        EnsurePlayerAttributes(sequence.DespawnMessage?.Data?.Player, ECombatantId.Player, outcome);
+        EnsurePlayerAttributes(
+            sequence.DespawnMessage?.Data?.Opponent,
+            ECombatantId.Opponent,
+            outcome
+        );
     }
 
-    internal static void EnsureRunPlayerAttributes()
+    internal static void EnsureRunPlayerAttributes(IReplayPlaybackOutcomeSink outcome)
     {
-        EnsurePlayerAttributes(Data.Run?.Player, ECombatantId.Player);
-        EnsurePlayerAttributes(Data.Run?.Opponent, ECombatantId.Opponent);
+        EnsurePlayerAttributes(Data.Run?.Player, ECombatantId.Player, outcome);
+        EnsurePlayerAttributes(Data.Run?.Opponent, ECombatantId.Opponent, outcome);
+    }
+
+    internal static void RestoreRecordedPlayerAttributes(
+        PvpBattleManifest manifest,
+        IReplayPlaybackOutcomeSink? outcome = null
+    )
+    {
+        if (manifest == null)
+            return;
+
+        var player = Data.Run?.Player;
+        if (player == null)
+            return;
+
+        try
+        {
+            var attributesProperty = player
+                .GetType()
+                .GetProperty(
+                    "Attributes",
+                    BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic
+                );
+            if (
+                attributesProperty?.GetValue(player)
+                is not System.Collections.IDictionary attributes
+            )
+                return;
+
+            ApplyRecordedAttribute(
+                attributes,
+                EPlayerAttributeType.Level,
+                manifest.Participants.PlayerLevel
+            );
+            ApplyRecordedAttribute(
+                attributes,
+                EPlayerAttributeType.Prestige,
+                manifest.Participants.PlayerPrestige
+            );
+            ApplyRecordedAttribute(
+                attributes,
+                EPlayerAttributeType.Income,
+                manifest.Participants.PlayerIncome
+            );
+            ApplyRecordedAttribute(
+                attributes,
+                EPlayerAttributeType.Gold,
+                manifest.Participants.PlayerGold
+            );
+            RefreshRecordedAttributePresentation();
+        }
+        catch (Exception ex)
+        {
+            outcome?.ReportDegradation(ReplayPlaybackReasonCode.PlayerAttributesUnavailable, ex);
+        }
     }
 
     internal static void RecalculateHealthBarDividers(BoardUIController controller, object? player)
@@ -39,7 +101,11 @@ internal static class PlayerAttributeRepairer
         ApplyHealthBarMaxValue(healthBar, player);
     }
 
-    internal static void InitializeBoardUiHealthBar(BoardUIController controller, object? player)
+    internal static void InitializeBoardUiHealthBar(
+        BoardUIController controller,
+        object? player,
+        IReplayPlaybackOutcomeSink? outcome = null
+    )
     {
         if (player == null)
             return;
@@ -64,14 +130,17 @@ internal static class PlayerAttributeRepairer
         }
         catch (TargetInvocationException ex)
         {
-            BppLog.Warn(
-                "PlayerAttributeRepairer",
-                $"Skipping health bar init for {controller.combatantId}: {ex.InnerException?.Message ?? ex.Message}"
+            outcome?.ReportDegradation(
+                ReplayPlaybackReasonCode.PlayerAttributesUnavailable,
+                ex.InnerException ?? ex
             );
         }
     }
 
-    internal static void UnregisterPlayerPortraitPlacedHandler(BoardUIController controller)
+    internal static void UnregisterPlayerPortraitPlacedHandler(
+        BoardUIController controller,
+        IReplayPlaybackOutcomeSink? outcome = null
+    )
     {
         try
         {
@@ -96,14 +165,15 @@ internal static class PlayerAttributeRepairer
         }
         catch (Exception ex)
         {
-            BppLog.Warn(
-                "PlayerAttributeRepairer",
-                $"Failed to unregister PlayerPortraitPlaced handler: {ex.Message}"
-            );
+            outcome?.ReportDegradation(ReplayPlaybackReasonCode.PlayerAttributesUnavailable, ex);
         }
     }
 
-    internal static void EnsurePlayerAttributes(object? player, ECombatantId combatantId)
+    internal static void EnsurePlayerAttributes(
+        object? player,
+        ECombatantId combatantId,
+        IReplayPlaybackOutcomeSink? outcome = null
+    )
     {
         if (player == null)
             return;
@@ -127,10 +197,7 @@ internal static class PlayerAttributeRepairer
         }
         catch (Exception ex)
         {
-            BppLog.Warn(
-                "PlayerAttributeRepairer",
-                $"Failed to backfill replay player attributes for {combatantId}: {ex.Message}"
-            );
+            outcome?.ReportDegradation(ReplayPlaybackReasonCode.PlayerAttributesUnavailable, ex);
         }
     }
 
@@ -172,6 +239,32 @@ internal static class PlayerAttributeRepairer
     {
         if (!attributes.Contains(attributeType))
             attributes[attributeType] = defaultValue;
+    }
+
+    private static void ApplyRecordedAttribute(
+        System.Collections.IDictionary attributes,
+        EPlayerAttributeType attributeType,
+        int? value
+    )
+    {
+        if (!value.HasValue)
+            return;
+
+        attributes[attributeType] = value.Value;
+    }
+
+    private static void RefreshRecordedAttributePresentation()
+    {
+        foreach (var prestigeBar in UnityEngine.Object.FindObjectsOfType<PrestigeBarController>())
+        {
+            prestigeBar?.ImmediateUpdate();
+        }
+
+        var updateUiFlags = BindingFlags.Instance | BindingFlags.NonPublic;
+        foreach (var bank in UnityEngine.Object.FindObjectsOfType<BankToyController>())
+        {
+            bank?.GetType().GetMethod("UpdateUI", updateUiFlags)?.Invoke(bank, null);
+        }
     }
 
     private static void ApplyHealthBarMaxValue(object healthBar, object player)

@@ -1,55 +1,44 @@
 #nullable enable
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using BazaarPlusPlus.Game.HistoryPanel.Data;
+using BazaarPlusPlus.Game.HistoryPanel.Ghost;
 using BazaarPlusPlus.Game.HistoryPanel.Storage;
 using BazaarPlusPlus.Game.Input;
 using BazaarPlusPlus.Game.OverlayPanels;
 using BazaarPlusPlus.Game.Supporters;
+using BazaarPlusPlus.Game.Tooltips;
+using BazaarPlusPlus.GameInterop.CardPreview;
 using BazaarPlusPlus.GameInterop.ItemBoardPreview;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.UiTokens;
-using TheBazaar;
 using UnityEngine;
-using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
-using UnityEngine.SceneManagement;
 using Coroutine = UnityEngine.Coroutine;
 
 namespace BazaarPlusPlus.Game.HistoryPanel;
 
 internal sealed partial class HistoryPanel : MonoBehaviour
 {
-    private const string ToggleHistoryPanelBindingPath = "<Keyboard>/f8";
     private const string OverlayPanelId = "HistoryPanel";
-    private const int OverlaySortingBand = BppOverlaySorting.MainOverlayPanelBand;
-    private static readonly HashSet<string> UiDiagnosticScenes = new(StringComparer.Ordinal)
-    {
-        "CollectionUIScene",
-        "CollectionWheelScene",
-        "ChestSelectScene",
-    };
 
     internal static HistoryPanel? Instance { get; private set; }
 
     private readonly HistoryPanelState _state = new();
+    private readonly HistoryPanelPayloadFailureLogGate _payloadFailureLogGate = new();
     private HistoryPanelDependencies? _dependencies;
     private HistoryPanelCoordinator? _coordinator;
     private HistoryPanelDataService _dataService = null!;
     private HistoryPanelReplayService _replayService = null!;
-    private HistoryPanelPreviewSource? _previewSource;
+    private INativeCardPreviewHost _nativeCardPreviewHost = null!;
     private BppItemBoardPreview? _battleBoardPreview;
     private IHistoryPanelRuntime? _runtime;
     private Coroutine? _previewCoroutine;
     private IReadOnlyList<BPPSupporterSample> _supporters = Array.Empty<BPPSupporterSample>();
-    private string _lastSceneToken = string.Empty;
+    private IOverlayPanelHandle? _overlayHandle;
     private bool _initialized;
-    private bool _uiFontPrewarmedForScene;
 
     public static bool IsVisible { get; private set; }
 
-    private HistoryRunRecord? SelectedRun => _state.GetSelectedRun();
+    private HistoryRunRecord? SelectedRun => _state.GetSelectedRun(FilteredRuns);
 
     private HistoryBattleRecord? SelectedBattle => _state.GetSelectedBattle();
 
@@ -57,83 +46,29 @@ internal sealed partial class HistoryPanel : MonoBehaviour
         _state.GetSelectedGhostBattle(FilteredGhostBattles);
 
     private HistoryBattleRecord? ActiveSelectedBattle =>
-        _sectionMode == HistorySectionMode.Ghost ? SelectedGhostBattle : SelectedBattle;
+        _state.SectionMode == HistorySectionMode.Ghost ? SelectedGhostBattle : SelectedBattle;
 
     private IReadOnlyList<HistoryBattleRecord> FilteredGhostBattles => GetFilteredGhostBattles();
 
-    private List<HistoryRunRecord> _runs => _state.Runs;
-
-    private List<HistoryBattleRecord> _battles => _state.Battles;
-
-    private List<HistoryBattleRecord> _ghostBattles => _state.GhostBattles;
-
-    private List<HistoryBattleRecord> _filteredGhostBattles => _state.FilteredGhostBattles;
-
-    private int _selectedRunIndex
-    {
-        get => _state.SelectedRunIndex;
-        set => _state.SelectedRunIndex = value;
-    }
-
-    private int _selectedBattleIndex
-    {
-        get => _state.SelectedBattleIndex;
-        set => _state.SelectedBattleIndex = value;
-    }
-
-    private int _selectedGhostBattleIndex
-    {
-        get => _state.SelectedGhostBattleIndex;
-        set => _state.SelectedGhostBattleIndex = value;
-    }
-
-    private GhostBattleFilter _ghostBattleFilter
-    {
-        get => _state.GhostBattleFilter;
-        set => _state.GhostBattleFilter = value;
-    }
-
-    private string? _statusMessage
-    {
-        get => _state.StatusMessage;
-        set
-        {
-            _state.StatusMessage = value;
-            _state.DeleteRunConfirmationStatusActive = false;
-        }
-    }
-
-    private PreviewSelectionMode _previewSelectionMode
-    {
-        get => _state.PreviewSelectionMode;
-        set => _state.PreviewSelectionMode = value;
-    }
-
-    private HistorySectionMode _sectionMode
-    {
-        get => _state.SectionMode;
-        set => _state.SectionMode = value;
-    }
-
-    private bool _replayActionInProgress
-    {
-        get => _state.ReplayActionInProgress;
-        set => _state.ReplayActionInProgress = value;
-    }
+    private IReadOnlyList<HistoryRunRecord> FilteredRuns => GetFilteredRuns();
 
     private void Awake()
     {
-        EnsureInitialized("Awake");
+        EnsureInitialized();
     }
 
-    internal void Configure(HistoryPanelDependencies dependencies)
+    internal void Configure(
+        HistoryPanelDependencies dependencies,
+        INativeCardPreviewHost nativeCardPreviewHost
+    )
     {
-        EnsureInitialized("Configure");
+        EnsureInitialized();
         _dependencies = dependencies ?? throw new ArgumentNullException(nameof(dependencies));
         _runtime = dependencies.Runtime;
         _dataService = dependencies.DataService;
         _replayService = dependencies.ReplayService;
-        _previewSource = new HistoryPanelPreviewSource(_runtime);
+        _nativeCardPreviewHost =
+            nativeCardPreviewHost ?? throw new ArgumentNullException(nameof(nativeCardPreviewHost));
         _coordinator = new HistoryPanelCoordinator(
             _state,
             dependencies,
@@ -145,8 +80,10 @@ internal sealed partial class HistoryPanel : MonoBehaviour
 
     private void OnDisable()
     {
+        // Route through the host so its open-panel state cannot desync; the unconditional
+        // hide below also covers the not-open case (matching the historical force-hide).
+        _overlayHandle?.RequestClose();
         IsVisible = false;
-        _coordinator?.OnPanelHidden();
         StopPreviewRender();
         _battleBoardPreview?.Hide();
         SetUiVisible(false);
@@ -157,95 +94,62 @@ internal sealed partial class HistoryPanel : MonoBehaviour
         if (ReferenceEquals(Instance, this))
             Instance = null;
 
-        BppOverlayPanelMutex.Unregister(OverlayPanelId);
+        _overlayHandle?.Dispose();
+        _overlayHandle = null;
         _coordinator?.Dispose();
         DisposePreviewRenderer();
         _dependencies = null;
         DisposeUi();
     }
 
-    private void Update()
+    // Lifecycle (scene change, combat gate, hotkey, escape) is owned by the Overlay Panel Host;
+    // this tick only carries the panel's own per-frame content work.
+    private void Tick(float dt, bool isVisible)
     {
-        DetectSceneChange();
-
-        if (IsVisible && TheBazaar.Data.IsInCombat)
-        {
-            SetHistoryVisible(false);
-            return;
-        }
-
-        if (IsVisible)
-            _coordinator?.Tick(Time.unscaledTime);
-
-        if (BppHotkeyService.WasPressedThisFrame(ToggleHistoryPanelBindingPath))
-        {
-            ToggleFromHotkey();
-            return;
-        }
-
-        var keyboard = Keyboard.current;
-        if (keyboard == null)
+        if (!isVisible)
             return;
 
-        if (!IsVisible)
-            return;
-
-        if (keyboard.escapeKey.wasPressedThisFrame)
-        {
-            SetHistoryVisible(false);
-            return;
-        }
-
+        _coordinator?.Tick(Time.unscaledTime);
         PollPreviewHover();
     }
 
     private void SetHistoryVisible(bool visible)
     {
-        var wasVisible = IsVisible;
-        if (visible && !wasVisible)
-            BppOverlayPanelMutex.CloseOthers(OverlayPanelId, OverlaySortingBand);
-
         if (visible)
-            EnsureUi();
-
-        if (visible && !wasVisible)
-            _supporters = BPPSupporters.SampleMany(4);
-
-        IsVisible = visible;
-        if (visible)
-            _coordinator?.OnPanelShown();
+            _overlayHandle?.RequestOpen();
         else
-        {
-            _coordinator?.OnPanelHidden();
-            DisposePreviewRenderer();
-        }
+            _overlayHandle?.RequestClose();
+    }
 
-        SetUiVisible(visible);
+    private void OnOverlayOpen()
+    {
+        EnsureUi();
+        _supporters = BPPSupporters.SampleMany(4);
+        IsVisible = true;
+        _coordinator?.OnPanelShown();
+        SetUiVisible(true);
         RefreshUi();
     }
 
-    internal void ToggleFromHotkey()
+    private void OnOverlayClose()
     {
-        EnsureInitialized("ToggleFromHotkey");
-
-        if (!CanOpenHistoryReview())
-            return;
-
-        try
-        {
-            SetHistoryVisible(!IsVisible);
-        }
-        catch (Exception ex)
-        {
-            BppLog.Error("HistoryPanel", "ToggleFromHotkey failed", ex);
-        }
+        IsVisible = false;
+        _coordinator?.OnPanelHidden();
+        DisposePreviewRenderer();
+        SetUiVisible(false);
+        RefreshUi();
     }
 
     internal static void OpenFromDockEntry()
     {
         if (Instance == null)
         {
-            BppLog.Warn("HistoryPanel", "Dock entry requested while HistoryPanel is unavailable.");
+            BppLog.ErrorEvent(
+                HistoryPanelLogEvents.OpenFailed,
+                HistoryPanelLogEvents.OpenReasonCode.Bind(
+                    HistoryPanelOpenReasonCode.InstanceUnavailable
+                )
+            );
             return;
         }
 
@@ -267,35 +171,59 @@ internal sealed partial class HistoryPanel : MonoBehaviour
 
     private void OpenFromDockEntryInternal()
     {
-        EnsureInitialized("OpenFromDockEntry");
-
-        if (!CanOpenHistoryReview())
-        {
-            BppLog.Warn(
-                "HistoryPanel",
-                "Ignored History Review open request because combat is active."
-            );
-            return;
-        }
+        EnsureInitialized();
 
         try
         {
-            SetHistoryVisible(true);
+            if (_overlayHandle == null)
+            {
+                BppLog.ErrorEvent(
+                    HistoryPanelLogEvents.OpenFailed,
+                    HistoryPanelLogEvents.OpenReasonCode.Bind(
+                        HistoryPanelOpenReasonCode.OverlayHandleUnavailable
+                    )
+                );
+                return;
+            }
+
+            var outcome = _overlayHandle.RequestOpen();
+            if (outcome == OverlayRequestOutcome.SuppressedByCombat)
+            {
+                BppLog.DebugEvent(
+                    HistoryPanelLogEvents.OpenSkipped,
+                    () =>
+                        [
+                            HistoryPanelLogEvents.OpenReasonCode.Bind(
+                                HistoryPanelOpenReasonCode.CombatActive
+                            ),
+                        ]
+                );
+            }
+            else if (outcome == OverlayRequestOutcome.UnknownPanel)
+            {
+                BppLog.ErrorEvent(
+                    HistoryPanelLogEvents.OpenFailed,
+                    HistoryPanelLogEvents.OpenReasonCode.Bind(
+                        HistoryPanelOpenReasonCode.UnknownPanel
+                    )
+                );
+            }
         }
         catch (Exception ex)
         {
-            BppLog.Error("HistoryPanel", "OpenFromDockEntry failed", ex);
+            BppLog.ErrorEvent(
+                HistoryPanelLogEvents.OpenFailed,
+                ex,
+                HistoryPanelLogEvents.OpenReasonCode.Bind(
+                    HistoryPanelOpenReasonCode.RequestException
+                )
+            );
         }
     }
 
     private void RefreshLocalizationInternal()
     {
         RefreshUi();
-    }
-
-    private bool CanOpenHistoryReview()
-    {
-        return HistoryPanelAccessPolicy.CanOpen(TheBazaar.Data.IsInCombat);
     }
 
     private void RefreshSelectedBattlePreview()
@@ -309,19 +237,108 @@ internal sealed partial class HistoryPanel : MonoBehaviour
         }
 
         EnsurePreviewRenderer();
-        if (_battleBoardPreview == null || _previewSource == null)
+        if (_battleBoardPreview == null)
             return;
 
-        var previewData = _previewSource.Build(
-            _previewSelectionMode,
-            _sectionMode,
-            ActiveSelectedBattle,
-            SelectedRun,
-            _battles
-        );
+        var previewData = BuildSelectedBattlePreviewData();
         _previewCoroutine = StartCoroutine(
             _battleBoardPreview.Render(previewData.Board, OnPreviewPhase)
         );
+    }
+
+    private HistoryBattlePreviewData BuildSelectedBattlePreviewData()
+    {
+        var activeSelectedBattle = ActiveSelectedBattle;
+        if (
+            _state.PreviewSelectionMode == PreviewSelectionMode.Battle
+            && activeSelectedBattle != null
+        )
+        {
+            var signature = $"battle:{activeSelectedBattle.BattleId}";
+            return _state.SectionMode == HistorySectionMode.Ghost
+                ? ResolveGhostPreviewData(activeSelectedBattle, signature)
+                : HistoryBattlePreviewProjection.BuildOpponent(
+                    activeSelectedBattle.Snapshots,
+                    signature
+                );
+        }
+
+        var runPreviewBattle = PickRunPreviewBattle(_state.Battles);
+        if (runPreviewBattle != null)
+        {
+            return HistoryBattlePreviewProjection.BuildPlayer(
+                runPreviewBattle.Snapshots,
+                $"run:{SelectedRun?.RunId}:{runPreviewBattle.BattleId}"
+            );
+        }
+
+        return HistoryBattlePreviewData.Empty;
+    }
+
+    // Ghost replay payload snapshots stay in the uploader's original perspective.
+    // For the local "against me" view, our board is stored on the opponent side.
+    private HistoryBattlePreviewData ResolveGhostPreviewData(
+        HistoryBattleRecord battle,
+        string signature
+    )
+    {
+        if (battle.Source != HistoryBattleSource.Ghost)
+            return HistoryBattlePreviewProjection.BuildOpponent(battle.Snapshots, signature);
+
+        var replayDirectoryPath = _runtime?.CombatReplayDirectoryPath;
+        if (string.IsNullOrWhiteSpace(replayDirectoryPath))
+            return HistoryBattlePreviewProjection.BuildEmpty(signature);
+
+        var ghostPayloadStore = new GhostBattlePayloadStore(
+            GhostBattlePayloadStore.ResolveDirectory(replayDirectoryPath)
+        );
+        var ghostPayloadResult = ghostPayloadStore.LoadDetailed(battle.BattleId);
+        if (ghostPayloadResult.Status == FileBackedPayloadLoadStatus.Invalid)
+        {
+            _payloadFailureLogGate.Report(
+                battle.BattleId,
+                ghostPayloadResult.Fingerprint ?? "unavailable",
+                HistoryPanelPreviewPayloadReasonCode.PayloadInvalid,
+                ghostPayloadResult.Exception
+            );
+            return HistoryBattlePreviewProjection.BuildEmpty(signature);
+        }
+        if (ghostPayloadResult.Status == FileBackedPayloadLoadStatus.Unreadable)
+        {
+            _payloadFailureLogGate.Report(
+                battle.BattleId,
+                ghostPayloadResult.Fingerprint ?? "unavailable",
+                HistoryPanelPreviewPayloadReasonCode.PayloadUnreadable,
+                ghostPayloadResult.Exception
+            );
+            return HistoryBattlePreviewProjection.BuildEmpty(signature);
+        }
+
+        if (
+            ghostPayloadResult.Status == FileBackedPayloadLoadStatus.Missing
+            || ghostPayloadResult.Status == FileBackedPayloadLoadStatus.Loaded
+        )
+            _payloadFailureLogGate.Clear(battle.BattleId);
+        var ghostPayload = ghostPayloadResult.Payload;
+        var snapshots = ghostPayload?.BattleManifest?.Snapshots;
+        if (snapshots == null)
+            return HistoryBattlePreviewProjection.BuildEmpty(signature);
+
+        return HistoryBattlePreviewProjection.BuildOpponent(snapshots, signature);
+    }
+
+    private static HistoryBattleRecord? PickRunPreviewBattle(
+        IReadOnlyList<HistoryBattleRecord> runBattles
+    )
+    {
+        if (runBattles.Count == 0)
+            return null;
+
+        return runBattles
+            .OrderByDescending(battle => battle.Day ?? int.MinValue)
+            .ThenByDescending(battle => battle.Hour ?? int.MinValue)
+            .ThenByDescending(battle => battle.RecordedAtUtc)
+            .FirstOrDefault();
     }
 
     private void OnPreviewPhase(ItemBoardPreviewPhase phase)
@@ -357,13 +374,21 @@ internal sealed partial class HistoryPanel : MonoBehaviour
     private void EnsurePreviewRenderer()
     {
         _battleBoardPreview ??= new BppItemBoardPreview(
+            _nativeCardPreviewHost,
             new ItemBoardPreviewOptions
             {
                 Layer = 30,
                 SortingOrder = BppOverlaySorting.NativeCardPreview,
                 LayoutMode = ItemBoardPreviewLayoutMode.SlotGrid,
                 ShowHover = true,
-                LogComponent = "HistoryPanelPreview",
+                CardPreviewFailureReporter = HistoryPanelPreviewLogWriter.ReportCardPreview,
+                HoverFailureReporter = TooltipCardPreviewLogWriter.Reporter,
+                ItemBoardFailureReporter = HistoryPanelPreviewLogWriter.ReportItemBoard,
+                // The ~2:1 preview container always lands in the board-cap regime, where the
+                // default ratio reproduces the native board's frame interleaving; this panel
+                // reads that as overlap, so it opts into full frame-border separation.
+                SlotGridMaxHeightRatio =
+                    ItemBoardPreviewOptions.FrameSeparationSlotGridMaxHeightRatio,
             }
         );
         if (_hasPreviewContainerBounds)
@@ -409,107 +434,52 @@ internal sealed partial class HistoryPanel : MonoBehaviour
         _battleBoardPreview?.PollHover(mouse.position.ReadValue());
     }
 
-    private void EnsureInitialized(string source)
+    private void EnsureInitialized()
     {
         if (_initialized)
             return;
 
         _initialized = true;
         Instance = this;
-        _lastSceneToken = GetSceneToken(SceneManager.GetActiveScene());
-        BppOverlayPanelMutex.Register(
-            new BppOverlayPanelRegistration(
-                OverlayPanelId,
-                OverlaySortingBand,
-                () => IsVisible,
-                () => Instance?.SetHistoryVisible(false)
-            )
-        );
-        PrewarmUiFontState($"init:{source}");
     }
 
-    private void DetectSceneChange()
+    internal void AttachToOverlayHost(OverlayPanelHost overlayHost)
     {
-        var currentSceneToken = GetSceneToken(SceneManager.GetActiveScene());
-        if (string.Equals(currentSceneToken, _lastSceneToken, StringComparison.Ordinal))
+        if (_overlayHandle != null)
             return;
 
-        _lastSceneToken = currentSceneToken;
-        _uiFontPrewarmedForScene = false;
-        PrewarmUiFontState("scene-change");
-        LogEventSystemDiagnostics(SceneManager.GetActiveScene());
-        if (IsVisible && TheBazaar.Data.IsInCombat)
-            SetHistoryVisible(false);
+        _overlayHandle = overlayHost.Register(
+            new OverlayPanelRegistration(
+                OverlayPanelId,
+                BppHotkeyActionId.ToggleHistoryPanel,
+                onOpen: OnOverlayOpen,
+                onClose: OnOverlayClose,
+                tick: Tick
+            )
+            {
+                // Historical behavior: the panel stays open across non-combat scene changes.
+                SceneChangeClose = SceneChangeClosePolicy.OnlyWhenInCombat,
+                // Swallow the toggle entirely (open AND close) while the search box has focus.
+                HotkeyGuard = () => !IsVisible || !IsTextInputFocused(),
+                OnSceneChanged = OnOverlaySceneChanged,
+            }
+        );
+    }
 
+    private void OnOverlaySceneChanged()
+    {
+        // The preview renderer is scene-bound; it is lazily recreated by the next
+        // RefreshSelectedBattlePreview when the panel stays open (non-combat scene change).
         DisposePreviewRenderer();
     }
 
     private IReadOnlyList<HistoryBattleRecord> GetFilteredGhostBattles()
     {
-        return _coordinator?.GetFilteredGhostBattles() ?? _filteredGhostBattles;
+        return _coordinator?.GetFilteredGhostBattles() ?? Array.Empty<HistoryBattleRecord>();
     }
 
-    private static string GetSceneToken(Scene scene)
+    private IReadOnlyList<HistoryRunRecord> GetFilteredRuns()
     {
-        return $"{scene.name}|{scene.path}|{scene.buildIndex}|{scene.isLoaded}";
-    }
-
-    private void PrewarmUiFontState(string reason)
-    {
-        if (_uiFontPrewarmedForScene)
-            return;
-
-        BppLog.Info(
-            "HistoryPanel",
-            $"[UiToolkit] PrewarmUiFontState noop reason={reason} scene='{_lastSceneToken}'."
-        );
-        _uiFontPrewarmedForScene = true;
-    }
-
-    private static void LogEventSystemDiagnostics(Scene scene)
-    {
-        if (!UiDiagnosticScenes.Contains(scene.name))
-            return;
-
-        try
-        {
-            var eventSystems = Resources.FindObjectsOfTypeAll<EventSystem>();
-            if (eventSystems == null || eventSystems.Length == 0)
-            {
-                BppLog.Warn(
-                    "HistoryPanel",
-                    $"[Diag][EventSystem] scene='{GetSceneToken(scene)}' found no EventSystem instances."
-                );
-                return;
-            }
-
-            var summaries = eventSystems.Select(
-                (eventSystem, index) => DescribeEventSystem(eventSystem, index)
-            );
-            var currentSummary = DescribeEventSystem(EventSystem.current, null);
-            BppLog.Info(
-                "HistoryPanel",
-                $"[Diag][EventSystem] scene='{GetSceneToken(scene)}' count={eventSystems.Length} current={currentSummary} entries={string.Join(" || ", summaries)}"
-            );
-        }
-        catch (Exception ex)
-        {
-            BppLog.Error("HistoryPanel", "[Diag][EventSystem] Enumeration failed", ex);
-        }
-    }
-
-    private static string DescribeEventSystem(EventSystem? eventSystem, int? index)
-    {
-        var prefix = index.HasValue ? $"#{index.Value}:" : string.Empty;
-        if (eventSystem == null)
-            return $"{prefix}<null>";
-
-        var modules = eventSystem
-            .GetComponents<BaseInputModule>()
-            .Select(module =>
-                $"{module.GetType().Name}(enabled={module.enabled},active={module.isActiveAndEnabled})"
-            );
-
-        return $"{prefix}{eventSystem.GetType().Name}(name='{eventSystem.name}',activeSelf={eventSystem.gameObject.activeSelf},activeInHierarchy={eventSystem.gameObject.activeInHierarchy},enabled={eventSystem.enabled},isCurrent={ReferenceEquals(EventSystem.current, eventSystem)},scene='{eventSystem.gameObject.scene.name}',modules=[{string.Join(", ", modules)}])";
+        return _coordinator?.GetFilteredRuns() ?? Array.Empty<HistoryRunRecord>();
     }
 }

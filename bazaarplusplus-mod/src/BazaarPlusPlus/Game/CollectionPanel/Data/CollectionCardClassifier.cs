@@ -1,5 +1,4 @@
 #nullable enable
-using System;
 using BazaarGameShared.Domain.Cards;
 using BazaarGameShared.Domain.Core.Types;
 using BazaarPlusPlus.GameInterop.Cards;
@@ -11,14 +10,24 @@ internal static class CollectionCardClassifier
 {
     public static bool IsCatalogCard(TCardBase template) => Classify(template).IsCatalogCard;
 
-    public static bool IsCatalogCard(ECardType type, string? artKey, string? internalName)
+    public static bool IsCatalogCard(
+        ECardType type,
+        ESpawnEligibility spawningEligibility,
+        string? artKey,
+        string? internalName
+    )
     {
-        return Classify(type, artKey, internalName).IsCatalogCard;
+        return Classify(type, spawningEligibility, artKey, internalName).IsCatalogCard;
     }
 
     public static CollectionCardClassification Classify(TCardBase template)
     {
-        var classification = Classify(template.Type, template.ArtKey, template.InternalName);
+        var classification = Classify(
+            template.Type,
+            template.SpawningEligibility,
+            template.ArtKey,
+            template.InternalName
+        );
         return new CollectionCardClassification
         {
             IsCatalogCard = classification.IsCatalogCard,
@@ -29,12 +38,15 @@ internal static class CollectionCardClassifier
 
     public static CollectionCardClassification Classify(
         ECardType type,
+        ESpawnEligibility spawningEligibility,
         string? artKey,
         string? internalName
     )
     {
         if (type != ECardType.Item && type != ECardType.Skill)
             return Rejected(CollectionCardEligibilityReason.UnsupportedType, internalName);
+        if (spawningEligibility == ESpawnEligibility.Never)
+            return Rejected(CollectionCardEligibilityReason.NeverSpawnEligibility, internalName);
         if (string.IsNullOrEmpty(artKey))
             return Rejected(CollectionCardEligibilityReason.MissingArtKey, internalName);
         if (string.Equals(artKey, "Invalid", StringComparison.Ordinal))

@@ -11,7 +11,5 @@ public interface IPathProvider
 
     string? CombatReplayVideoDirectoryPath { get; }
 
-    string? CustomCardArtDirectoryPath { get; }
-
     string? PluginsDirectoryPath { get; }
 }

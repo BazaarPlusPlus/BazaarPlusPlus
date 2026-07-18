@@ -1,5 +1,4 @@
 #nullable enable
-using BazaarPlusPlus.Game.Settings;
 using BazaarPlusPlus.Localization;
 
 namespace BazaarPlusPlus.Game.Input;
@@ -24,6 +23,33 @@ internal static class BppKeybindLabelResolver
         "Mostra anteprima upgrade"
     );
 
+    private static readonly LocalizedTextSet ToggleCollectionPanelLabel = new(
+        "Toggle Card Collection",
+        "开关卡牌图鉴",
+        "Kartensammlung umschalten",
+        "Alternar colecao de cartas",
+        "카드 도감 열기/닫기",
+        "Mostra/nascondi collezione carte"
+    );
+
+    private static readonly LocalizedTextSet ToggleLiveBuildPanelLabel = new(
+        "Toggle Final Build",
+        "开关终局阵容",
+        "Endaufstellung umschalten",
+        "Alternar build final",
+        "최종 빌드 열기/닫기",
+        "Mostra/nascondi build finale"
+    );
+
+    private static readonly LocalizedTextSet ToggleHistoryPanelLabel = new(
+        "Toggle Game History",
+        "开关对局历史",
+        "Spielverlauf umschalten",
+        "Alternar historico de partidas",
+        "게임 전적 열기/닫기",
+        "Mostra/nascondi cronologia partite"
+    );
+
     private static readonly LocalizedTextSet RebindPrompt = new(
         "Press a key or mouse button",
         "按下一个键或鼠标按钮",
@@ -42,6 +68,15 @@ internal static class BppKeybindLabelResolver
         "Tasto non supportato"
     );
 
+    private static readonly LocalizedTextSet ConflictWarningFormat = new(
+        "{0} conflicts with {1}",
+        "{0} 与 {1} 冲突",
+        "{0} steht in Konflikt mit {1}",
+        "{0} conflita com {1}",
+        "{0}이(가) {1}과(와) 충돌합니다",
+        "{0} in conflitto con {1}"
+    );
+
     internal static string ResolveActionLabel(BppHotkeyActionId actionId, string languageCode)
     {
         return actionId switch
@@ -51,6 +86,18 @@ internal static class BppKeybindLabelResolver
                 L.CurrentMode
             ),
             BppHotkeyActionId.HoldUpgradePreview => UpgradePreviewLabel.Resolve(
+                languageCode,
+                L.CurrentMode
+            ),
+            BppHotkeyActionId.ToggleCollectionPanel => ToggleCollectionPanelLabel.Resolve(
+                languageCode,
+                L.CurrentMode
+            ),
+            BppHotkeyActionId.ToggleLiveBuildPanel => ToggleLiveBuildPanelLabel.Resolve(
+                languageCode,
+                L.CurrentMode
+            ),
+            BppHotkeyActionId.ToggleHistoryPanel => ToggleHistoryPanelLabel.Resolve(
                 languageCode,
                 L.CurrentMode
             ),
@@ -66,5 +113,18 @@ internal static class BppKeybindLabelResolver
     internal static string ResolveUnsupportedKey(string languageCode)
     {
         return UnsupportedKey.Resolve(languageCode, L.CurrentMode);
+    }
+
+    internal static string ResolveConflictWarning(
+        BppHotkeyActionId actionId,
+        BppHotkeyActionId conflictingActionId,
+        string languageCode
+    )
+    {
+        return string.Format(
+            ConflictWarningFormat.Resolve(languageCode, L.CurrentMode),
+            ResolveActionLabel(actionId, languageCode),
+            ResolveActionLabel(conflictingActionId, languageCode)
+        );
     }
 }

@@ -1,6 +1,4 @@
 #nullable enable
-using System;
-
 namespace BazaarPlusPlus.Infrastructure;
 
 internal static class Rgba32FrameTransforms

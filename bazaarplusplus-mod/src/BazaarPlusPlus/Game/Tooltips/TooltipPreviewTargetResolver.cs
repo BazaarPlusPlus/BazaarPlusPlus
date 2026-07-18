@@ -1,5 +1,4 @@
 #nullable enable
-using System.Collections.Generic;
 using BazaarGameClient.Domain.Models.Cards;
 using BazaarPlusPlus.Infrastructure;
 using HarmonyLib;
@@ -47,7 +46,11 @@ internal static class TooltipPreviewTargetResolver
             .GetValue<CardTooltipController>();
         if (primaryController == null)
         {
-            BppLog.Debug("TooltipPreview", "ResolverSkipped reason=no-primary-controller");
+            Report(
+                TooltipPreviewTargetOutcome.Skipped,
+                TooltipLogReasonCode.NoPrimaryController,
+                card: null
+            );
             return false;
         }
 
@@ -57,9 +60,10 @@ internal static class TooltipPreviewTargetResolver
         );
         if (tooltipData?.CardInstance is not ItemCard itemCard)
         {
-            BppLog.Debug(
-                "TooltipPreview",
-                $"ResolverSkipped reason=no-item-tooltip-data primaryCurrentCard={DescribeCard(primaryController.CurrentCard)} primaryTooltipCard={DescribeTooltipDataCard(primaryController.CurrentTooltipData)}"
+            Report(
+                TooltipPreviewTargetOutcome.Skipped,
+                TooltipLogReasonCode.NoItemTooltipData,
+                primaryController.CurrentCard
             );
             return false;
         }
@@ -67,26 +71,29 @@ internal static class TooltipPreviewTargetResolver
         var cardController = TryResolveCardController(itemCard, primaryController.CurrentCard);
         if (cardController?.CardData is not ItemCard controllerItemCard)
         {
-            BppLog.Debug(
-                "TooltipPreview",
-                $"ResolverSkipped reason=no-card-controller tooltipCard={DescribeCard(itemCard)} primaryCurrentCard={DescribeCard(primaryController.CurrentCard)}"
+            Report(
+                TooltipPreviewTargetOutcome.Skipped,
+                TooltipLogReasonCode.NoCardController,
+                itemCard
             );
             return false;
         }
 
         if (!TooltipPreviewTargetSelection.AreSameCard(controllerItemCard, itemCard))
         {
-            BppLog.Debug(
-                "TooltipPreview",
-                $"ResolverSkipped reason=controller-card-mismatch tooltipCard={DescribeCard(itemCard)} controllerCard={DescribeCard(controllerItemCard)} tooltipInstance={itemCard.InstanceId} controllerInstance={controllerItemCard.InstanceId}"
+            Report(
+                TooltipPreviewTargetOutcome.Skipped,
+                TooltipLogReasonCode.ControllerCardMismatch,
+                itemCard
             );
             return false;
         }
 
         target = new TooltipRefreshTarget(cardController, controllerItemCard, tooltipData);
-        BppLog.Debug(
-            "TooltipPreview",
-            $"ResolverMatched tooltipCard={DescribeCard(itemCard)} controllerCard={DescribeCard(controllerItemCard)} tooltipInstance={itemCard.InstanceId} controllerInstance={controllerItemCard.InstanceId} primaryCurrentCard={DescribeCard(primaryController.CurrentCard)}"
+        Report(
+            TooltipPreviewTargetOutcome.Resolved,
+            TooltipLogReasonCode.PrimaryCardMatched,
+            controllerItemCard
         );
         return true;
     }
@@ -137,21 +144,19 @@ internal static class TooltipPreviewTargetResolver
         return null;
     }
 
-    private static string DescribeTooltipDataCard(ITooltipData? tooltipData)
-    {
-        return tooltipData is CardTooltipData cardTooltipData
-            ? DescribeCard(cardTooltipData.CardInstance)
-            : tooltipData?.GetType().Name ?? "null";
-    }
-
-    private static string DescribeCard(Card? card)
-    {
-        if (card == null)
-            return "null";
-
-        var templateName = card.Template?.InternalName;
-        return !string.IsNullOrWhiteSpace(templateName)
-            ? templateName
-            : $"{card.TemplateId}:{card.InstanceId}";
-    }
+    internal static void Report(
+        TooltipPreviewTargetOutcome outcome,
+        TooltipLogReasonCode reasonCode,
+        Card? card
+    ) =>
+        BppLog.DebugEvent(
+            TooltipLogEvents.PreviewTargetResolvedOrSkipped,
+            () =>
+                [
+                    TooltipLogEvents.PreviewTargetOutcome.Bind(outcome),
+                    TooltipLogEvents.PreviewTargetReasonCode.Bind(reasonCode),
+                    TooltipLogEvents.PreviewTargetTemplateId.Bind(card?.TemplateId),
+                    TooltipLogEvents.PreviewTargetCardInstanceId.Bind(card?.InstanceId.ToString()),
+                ]
+        );
 }

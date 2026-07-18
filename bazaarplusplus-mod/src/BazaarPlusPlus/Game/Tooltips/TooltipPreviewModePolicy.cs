@@ -1,5 +1,4 @@
 #nullable enable
-using System.Collections.Generic;
 using BazaarPlusPlus.Core.Config;
 using BazaarPlusPlus.Core.GameState;
 using BazaarPlusPlus.Game.Input;
@@ -31,7 +30,7 @@ internal static class TooltipPreviewModePolicy
     )
     {
         var choicePedestal = ShouldReadChoicePedestal(config, holdUpgrade, holdEnchant)
-            ? encounterState?.GetChoicePedestal()
+            ? TooltipEncounterProbeReader.ReadChoice(encounterState)
             : null;
         return Resolve(config, choicePedestal, holdUpgrade, holdEnchant);
     }

@@ -1,0 +1,12 @@
+# Normalize all text files to LF in the repo; let the OS handle checkout endings
+* text=auto eol=lf
+
+# Binaries — never touch
+*.dll binary
+*.exe binary
+*.png binary
+*.jpg binary
+*.gif binary
+*.ico binary
+*.zip binary
+*.nupkg binary

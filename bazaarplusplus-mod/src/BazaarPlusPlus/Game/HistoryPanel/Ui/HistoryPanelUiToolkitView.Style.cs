@@ -1,7 +1,5 @@
 #nullable enable
-using System;
-using BazaarPlusPlus.Game.HistoryPanel.Data;
-using BazaarPlusPlus.Infrastructure.Fonts;
+using BazaarPlusPlus.GameInterop.Fonts;
 using BazaarPlusPlus.Infrastructure.UiTokens;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -76,7 +74,6 @@ internal sealed partial class HistoryPanelUiToolkitView
     {
         var label = new Label();
         label.style.fontSize = fontSize;
-        label.style.unityFont = GetUiFont();
         label.style.unityFontStyleAndWeight = fontStyle;
         label.style.color = color;
         label.style.unityTextAlign = TextAnchor.MiddleLeft;
@@ -102,7 +99,6 @@ internal sealed partial class HistoryPanelUiToolkitView
         button.style.height = height;
         button.style.flexGrow = fixedWidth ? 0f : 1f;
         button.style.flexShrink = fixedWidth ? 0f : 1f;
-        button.style.unityFont = GetUiFont();
         button.style.unityTextAlign = TextAnchor.MiddleCenter;
         button.style.justifyContent = Justify.Center;
         button.style.alignItems = Align.Center;
@@ -121,10 +117,10 @@ internal sealed partial class HistoryPanelUiToolkitView
             textElement.style.minWidth = 0f;
             textElement.style.whiteSpace = WhiteSpace.NoWrap;
             textElement.style.overflow = Overflow.Hidden;
-            textElement.style.unityFont = GetUiFont();
         }
         button.tooltip = text;
         button.style.overflow = Overflow.Hidden;
+        UiHover.ApplyButtonPalette(button, Colors.HistoryButtonBackground, Colors.White);
         return button;
     }
 
@@ -135,7 +131,6 @@ internal sealed partial class HistoryPanelUiToolkitView
         button.style.height = Sizes.ButtonFooterHeight;
         button.style.flexGrow = 0f;
         button.style.flexShrink = 0f;
-        button.style.unityFont = GetUiFont();
         button.style.unityTextAlign = TextAnchor.MiddleCenter;
         button.style.justifyContent = Justify.Center;
         button.style.alignItems = Align.Center;
@@ -154,10 +149,10 @@ internal sealed partial class HistoryPanelUiToolkitView
             textElement.style.minWidth = 0f;
             textElement.style.whiteSpace = WhiteSpace.NoWrap;
             textElement.style.overflow = Overflow.Hidden;
-            textElement.style.unityFont = GetUiFont();
         }
         button.tooltip = text;
         button.style.overflow = Overflow.Hidden;
+        UiHover.ApplyButtonPalette(button, Colors.HistoryButtonBackground, Colors.White);
         return button;
     }
 
@@ -172,12 +167,71 @@ internal sealed partial class HistoryPanelUiToolkitView
 
     private static void StyleButton(Button button, Color background, Color textColor)
     {
-        button.style.backgroundColor = background;
-        button.style.color = textColor;
-        UiStyle.BorderColor(button.style, Colors.ButtonBorderFor(background));
+        UiHover.ApplyButtonPalette(button, background, textColor);
     }
 
-    private static Font GetUiFont() => BppUiFont.Default;
+    private NativeGameTypography.PanelScope GetTypography() =>
+        _typography
+        ?? throw new InvalidOperationException("Native game typography is unavailable.");
+
+    // Styles one segmented code cell so it reads as a single clean box with a centered glyph in the
+    // game UI font. The game's USS gives the inner 'unity-text-input' explicit font/align/chrome that
+    // beats the inherited cascade, so de-chrome the root AND re-apply the text props on the queried
+    // inner element (which then re-inherits to its 'unity-text-element' child). Call after the field
+    // is attached so Q(...) resolves a non-null inner element.
+    private void StyleCodeCell(TextField cell, int fontSize, Color textColor)
+    {
+        cell.style.marginLeft = 0f;
+        cell.style.marginRight = 0f;
+        cell.style.marginTop = 0f;
+        cell.style.marginBottom = 0f;
+        cell.style.paddingLeft = 0f;
+        cell.style.paddingRight = 0f;
+        cell.style.paddingTop = 0f;
+        cell.style.paddingBottom = 0f;
+
+        GetTypography().Apply(cell);
+        cell.style.unityTextAlign = TextAnchor.MiddleCenter;
+        cell.style.fontSize = fontSize;
+        cell.style.color = textColor;
+
+        var input = cell.Q(TextField.textInputUssName);
+        if (input == null)
+            return;
+
+        input.style.flexGrow = 1f; // fill the cell so centered text is centered within the box
+        input.style.backgroundColor = Color.clear;
+        input.style.borderLeftWidth = 0f;
+        input.style.borderRightWidth = 0f;
+        input.style.borderTopWidth = 0f;
+        input.style.borderBottomWidth = 0f;
+        input.style.marginLeft = 0f;
+        input.style.marginRight = 0f;
+        input.style.marginTop = 0f;
+        input.style.marginBottom = 0f;
+        input.style.paddingLeft = 0f;
+        input.style.paddingRight = 0f;
+        input.style.paddingTop = 0f;
+        input.style.paddingBottom = 0f;
+
+        GetTypography().Apply(input);
+        input.style.unityTextAlign = TextAnchor.MiddleCenter;
+        input.style.fontSize = fontSize;
+        input.style.color = textColor;
+
+        // The glyphs render in the inner TextElement, which carries an explicit alignment from the
+        // game USS that beats the inherited value — set alignment directly there and let it fill the
+        // input so MiddleCenter centers vertically as well as horizontally.
+        var glyphs = input.Q<TextElement>();
+        if (glyphs == null)
+            return;
+
+        glyphs.style.flexGrow = 1f;
+        GetTypography().Apply(glyphs);
+        glyphs.style.unityTextAlign = TextAnchor.MiddleCenter;
+        glyphs.style.fontSize = fontSize;
+        glyphs.style.color = textColor;
+    }
 
     private static VisualElement CreateSpacer()
     {

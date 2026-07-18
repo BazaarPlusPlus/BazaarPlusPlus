@@ -17,6 +17,10 @@ public sealed class PvpBattleParticipants
 
     public int? PlayerPrestige { get; set; }
 
+    public int? PlayerIncome { get; set; }
+
+    public int? PlayerGold { get; set; }
+
     public int? PlayerVictories { get; set; }
 
     public string? OpponentName { get; set; }

@@ -1,6 +1,5 @@
 #nullable enable
 using System.Collections;
-using System.Collections.Generic;
 using BazaarGameClient.Domain.Models.Cards;
 using BazaarPlusPlus.Core.Config;
 using BazaarPlusPlus.Core.GameState;
@@ -126,7 +125,11 @@ internal static class UpgradeTooltipScheduler
         if (tooltipParent.GetCardTooltipController(card) == null)
             return;
 
-        var refreshedTooltipData = CardTooltipDataFactory.Create(card, tooltipData);
+        var refreshedTooltipData = CardTooltipDataFactory.Create(
+            card,
+            tooltipData,
+            TooltipPreviewRefreshMode.Upgrade
+        );
         tooltipParent.HideCardTooltipController();
 
         if (

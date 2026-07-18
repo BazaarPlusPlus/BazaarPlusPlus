@@ -1,7 +1,4 @@
 #nullable enable
-using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
 using BazaarGameShared.Domain.Cards;
 using BazaarPlusPlus.GameInterop.StaticCards;
 using BazaarPlusPlus.Infrastructure;
@@ -10,11 +7,17 @@ namespace BazaarPlusPlus.Game.CollectionPanel.Data;
 
 internal sealed class CollectionCatalog
 {
+    private readonly BppStaticCardMapProvider _cardMapProvider;
     private IReadOnlyList<CollectionCardVm>? _cache;
     private object? _cacheSource;
     private int _cacheSourceTemplateCount;
-    private Task<Dictionary<Guid, ITCard>?>? _cardMapTask;
-    private object? _cardMapTaskSource;
+    private readonly CollectionCatalogLogState _logState = new();
+
+    public CollectionCatalog(BppStaticCardMapProvider cardMapProvider)
+    {
+        _cardMapProvider =
+            cardMapProvider ?? throw new ArgumentNullException(nameof(cardMapProvider));
+    }
 
     public bool TryGetCached(out CollectionCatalogBuildResult result)
     {
@@ -25,7 +28,7 @@ internal sealed class CollectionCatalog
 
         if (!ReferenceEquals(source, _cacheSource))
         {
-            InvalidateCache("static-data-manager-changed");
+            InvalidateCache(CollectionPanelLogReasonCode.StaticDataManagerChanged);
             return false;
         }
 
@@ -37,17 +40,13 @@ internal sealed class CollectionCatalog
             Math.Max(0, _cacheSourceTemplateCount - _cache.Count),
             wasCacheHit: true
         );
-        BppLog.Info(
-            "CollectionCatalog",
-            $"Catalog cache hit: {result.AcceptedCount} cards from {result.SourceTemplateCount} templates."
-        );
         return true;
     }
 
     /// <summary>
     /// True once an off-thread card-map load has been kicked for the current static-data source.
     /// </summary>
-    public bool HasCardMapLoadStarted => _cardMapTask != null;
+    public bool HasCardMapLoadStarted => _cardMapProvider.HasLoadStartedForCurrentSource;
 
     /// <summary>
     /// Kicks (or returns the in-flight) off-thread load of the full game card map so the heavy
@@ -58,53 +57,48 @@ internal sealed class CollectionCatalog
     /// </summary>
     public Task<Dictionary<Guid, ITCard>?>? BeginCardMapLoad(out object? source)
     {
-        source = BppStaticDataAccess.TryGetReadyManagerObject();
-        if (source == null)
-            return null;
-
-        if (_cardMapTask != null && ReferenceEquals(_cardMapTaskSource, source))
-            return _cardMapTask;
-
-        var captured = source;
-        _cardMapTaskSource = source;
-        _cardMapTask = Task.Run(() => BppStaticDataAccess.LoadCardMap(captured));
-        return _cardMapTask;
+        return _cardMapProvider.BeginLoad(out source);
     }
 
     /// <summary>
     /// Builds a catalog session from a card map already materialised by
     /// <see cref="BeginCardMapLoad"/> (kept off the main thread). The session then enumerates the
-    /// map on the time-sliced build loop. Exceptions from the off-thread load are surfaced by the
-    /// caller via the Task; a null <paramref name="map"/> yields an unavailable reason here.
+    /// map on the time-sliced build loop. <paramref name="outcome"/> retains any off-thread
+    /// failure so this catalog remains the sole owner of the unavailable-state transition.
     /// </summary>
     public bool TryCreateBuildSession(
-        object? source,
-        Dictionary<Guid, ITCard>? map,
+        CollectionCardMapLoadOutcome outcome,
         out CollectionCatalogBuildSession? session,
-        out string unavailableReason
+        out CollectionPanelLogReasonCode? unavailableReason
     )
     {
         session = null;
-        unavailableReason = string.Empty;
+        unavailableReason = outcome.FailureReason;
 
-        if (source == null)
+        if (outcome.Source == null)
         {
-            unavailableReason = "static-data-not-ready";
-            BppLog.Debug(
-                "CollectionCatalog",
-                "Static data manager not yet ready; catalog build deferred."
+            unavailableReason = CollectionPanelLogReasonCode.StaticDataNotReady;
+            BppLog.DebugEvent(
+                CollectionPanelLogEvents.CatalogBuildDeferred,
+                static () =>
+                    [
+                        CollectionPanelLogEvents.CatalogBuildDeferredReasonCode.Bind(
+                            CollectionPanelLogReasonCode.StaticDataNotReady
+                        ),
+                    ]
             );
             return false;
         }
 
-        if (map == null)
+        if (!outcome.IsAvailable || outcome.Map == null)
         {
-            unavailableReason = "card-map-null";
-            BppLog.Warn("CollectionCatalog", "GetCardMap() returned null.");
+            var reason = outcome.FailureReason ?? CollectionPanelLogReasonCode.CardMapNull;
+            unavailableReason = reason;
+            _logState.ReportDegraded(reason, outcome.Exception);
             return false;
         }
 
-        session = new CollectionCatalogBuildSession(source, map);
+        session = new CollectionCatalogBuildSession(outcome.Source, outcome.Map);
         return true;
     }
 
@@ -127,17 +121,18 @@ internal sealed class CollectionCatalog
             session.RejectedCount,
             wasCacheHit: false
         );
-        BppLog.Info(
-            "CollectionCatalog",
-            $"Catalog built: {result.AcceptedCount} cards from {result.SourceTemplateCount} templates, rejected={result.RejectedCount}."
+        _logState.ReportBuilt(
+            result.AcceptedCount,
+            result.RejectedCount,
+            result.SourceTemplateCount
         );
         return result;
     }
 
-    public void InvalidateCache(string reason)
+    public void InvalidateCache(CollectionPanelLogReasonCode reasonCode)
     {
         if (_cache != null)
-            BppLog.Info("CollectionCatalog", $"Catalog cache invalidated: reason={reason}.");
+            _logState.ReportInvalidated(reasonCode);
         _cache = null;
         _cacheSource = null;
         _cacheSourceTemplateCount = 0;

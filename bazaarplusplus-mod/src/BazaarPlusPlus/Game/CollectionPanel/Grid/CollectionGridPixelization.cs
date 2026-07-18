@@ -1,6 +1,4 @@
 #nullable enable
-using System;
-
 namespace BazaarPlusPlus.Game.CollectionPanel.Grid;
 
 // Converts the active tab's fixed grid spec into overlay-pixel geometry. Kept Unity-free so the
@@ -29,10 +27,7 @@ internal readonly struct CollectionGridPixelization
         var pad = CollectionGridConstants.GridOuterPadding;
         if (viewportWidth <= 0f)
         {
-            var zeroViewportGridWidth = GridWidthFor(
-                columns,
-                CollectionGridConstants.MinUnitWidth
-            );
+            var zeroViewportGridWidth = GridWidthFor(columns, CollectionGridConstants.MinUnitWidth);
             return new CollectionGridPixelization(
                 CollectionGridConstants.MinUnitWidth,
                 pad,
@@ -45,8 +40,7 @@ internal readonly struct CollectionGridPixelization
         var targetGridWidth = Math.Min(availableGridWidth, SharedMaxGridWidth);
         var minGridWidth = GridWidthFor(columns, CollectionGridConstants.MinUnitWidth);
         targetGridWidth = Math.Max(targetGridWidth, minGridWidth);
-        var rawUnit =
-            (targetGridWidth - (columns - 1) * CollectionGridConstants.GridGap) / columns;
+        var rawUnit = (targetGridWidth - (columns - 1) * CollectionGridConstants.GridGap) / columns;
         var unit = Clamp(rawUnit, CollectionGridConstants.MinUnitWidth, maxUnitWidth);
         var gridWidth = GridWidthFor(columns, unit);
         var originX = Math.Max(pad, (viewportWidth - gridWidth) * 0.5f);

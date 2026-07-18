@@ -1,7 +1,5 @@
 #nullable enable
-using System;
 using System.Diagnostics;
-using System.IO;
 using BazaarPlusPlus.Infrastructure;
 
 namespace BazaarPlusPlus.Game.CombatReplay.Video;
@@ -11,6 +9,22 @@ internal static class FfmpegLocator
     private static readonly object SyncRoot = new();
     private static bool _resolved;
     private static string? _resolvedPath;
+    private static Exception? _lastProbeException;
+
+    private enum ProbeSource
+    {
+        Bundled,
+        Path,
+        None,
+    }
+
+    private enum ProbeReasonCode
+    {
+        Available,
+        NotFound,
+        ProbeFailed,
+        ProbeTimeout,
+    }
 
     public static string? Resolve(string? pluginsDirectoryPath)
     {
@@ -19,19 +33,61 @@ internal static class FfmpegLocator
             if (_resolved)
                 return _resolvedPath;
 
-            _resolvedPath = TryResolveBundled(pluginsDirectoryPath) ?? TryResolveOnPath();
-            _resolved = true;
-
-            if (string.IsNullOrEmpty(_resolvedPath))
+            var stopwatch = Stopwatch.StartNew();
+            _lastProbeException = null;
+            var source = ProbeSource.None;
+            var reason = ProbeReasonCode.NotFound;
+            _resolvedPath = TryResolveBundled(pluginsDirectoryPath);
+            if (!string.IsNullOrWhiteSpace(_resolvedPath))
+                source = ProbeSource.Bundled;
+            else
             {
-                BppLog.Info(
-                    "CombatReplayVideo",
-                    $"FFmpeg not detected. Drop a binary next to the mod in '{pluginsDirectoryPath}' or install it on PATH to enable replay video recording."
+                _resolvedPath = TryResolveOnPath();
+                if (!string.IsNullOrWhiteSpace(_resolvedPath))
+                    source = ProbeSource.Path;
+            }
+            if (!string.IsNullOrWhiteSpace(_resolvedPath))
+                reason = ProbeReasonCode.Available;
+            else if (_lastProbeException is TimeoutException)
+                reason = ProbeReasonCode.ProbeTimeout;
+            else if (_lastProbeException != null)
+                reason = ProbeReasonCode.ProbeFailed;
+            _resolved = true;
+            stopwatch.Stop();
+            if (_lastProbeException == null)
+            {
+                BppLog.DebugEvent(
+                    CombatReplayVideoLogEvents.FfmpegProbeCompleted,
+                    () =>
+                        [
+                            CombatReplayVideoLogEvents.FfmpegProbeAvailable.Bind(
+                                !string.IsNullOrWhiteSpace(_resolvedPath)
+                            ),
+                            CombatReplayVideoLogEvents.FfmpegProbeSource.Bind(source),
+                            CombatReplayVideoLogEvents.FfmpegProbeExecutable.Bind(_resolvedPath),
+                            CombatReplayVideoLogEvents.FfmpegProbeReasonCode.Bind(reason),
+                            CombatReplayVideoLogEvents.FfmpegProbeDurationMs.Bind(
+                                stopwatch.ElapsedMilliseconds
+                            ),
+                        ]
                 );
             }
             else
             {
-                BppLog.Info("CombatReplayVideo", $"FFmpeg detected: {_resolvedPath}");
+                BppLog.DebugEvent(
+                    CombatReplayVideoLogEvents.FfmpegProbeCompleted,
+                    _lastProbeException,
+                    () =>
+                        [
+                            CombatReplayVideoLogEvents.FfmpegProbeAvailable.Bind(false),
+                            CombatReplayVideoLogEvents.FfmpegProbeSource.Bind(source),
+                            CombatReplayVideoLogEvents.FfmpegProbeExecutable.Bind(_resolvedPath),
+                            CombatReplayVideoLogEvents.FfmpegProbeReasonCode.Bind(reason),
+                            CombatReplayVideoLogEvents.FfmpegProbeDurationMs.Bind(
+                                stopwatch.ElapsedMilliseconds
+                            ),
+                        ]
+                );
             }
 
             return _resolvedPath;
@@ -44,6 +100,7 @@ internal static class FfmpegLocator
         {
             _resolved = false;
             _resolvedPath = null;
+            _lastProbeException = null;
         }
     }
 
@@ -109,10 +166,7 @@ internal static class FfmpegLocator
         }
         catch (Exception ex)
         {
-            BppLog.Debug(
-                "CombatReplayVideo",
-                $"Failed to set executable bit on '{path}': {ex.GetType().Name} {ex.Message}"
-            );
+            _lastProbeException = ex;
         }
     }
 
@@ -147,21 +201,18 @@ internal static class FfmpegLocator
                     // ignore
                 }
 
-                BppLog.Warn(
-                    "CombatReplayVideo",
-                    $"FFmpeg probe timed out: {executable}. Treating as unavailable."
-                );
+                _lastProbeException = new TimeoutException("FFmpeg probe timed out.");
                 return false;
             }
 
-            return process.ExitCode == 0;
+            var succeeded = process.ExitCode == 0;
+            if (succeeded)
+                _lastProbeException = null;
+            return succeeded;
         }
         catch (Exception ex)
         {
-            BppLog.Debug(
-                "CombatReplayVideo",
-                $"FFmpeg probe failed for '{executable}': {ex.GetType().Name} {ex.Message}"
-            );
+            _lastProbeException = ex;
             return false;
         }
     }

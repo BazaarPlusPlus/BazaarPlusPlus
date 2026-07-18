@@ -1,7 +1,5 @@
 #nullable enable
-using System;
 using System.Runtime.InteropServices;
-using BazaarPlusPlus.Infrastructure;
 
 namespace BazaarPlusPlus.Game.CombatReplay.Audio;
 
@@ -68,17 +66,18 @@ internal sealed class UnsupportedPlatformAudioCapture : IReplayAudioCaptureTap
     public long CapturedSampleFloats => 0;
     public string WavFilePath => _wavFilePath;
     public string CapturePointLabel => "unsupported-platform";
+    public ReplayAudioBackend Backend => ReplayAudioBackend.Unsupported;
+    public int SampleRateHz => 0;
+    public int Channels => 0;
+    public string SampleFormat => "none";
+    public ReplayAudioFailureReasonCode FailureReason =>
+        ReplayAudioFailureReasonCode.UnsupportedPlatform;
+    public Exception? FailureException => null;
     public double RmsAmplitude => 0.0;
     public float PeakAmplitude => 0f;
 
-    public bool TryStart()
-    {
-        BppLog.Warn(
-            "CombatReplayAudio",
-            $"Replay audio capture is not implemented on '{RuntimeInformation.OSDescription}'; recording a silent video."
-        );
-        return false;
-    }
+    public ReplayAudioCaptureStartOutcome TryStart() =>
+        ReplayAudioCaptureStartOutcome.Failure(ReplayAudioFailureReasonCode.UnsupportedPlatform);
 
     public void Stop() { }
 

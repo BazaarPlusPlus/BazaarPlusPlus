@@ -1,6 +1,4 @@
 #nullable enable
-using System.Collections.Generic;
-
 namespace BazaarPlusPlus.Game.Lobby.RandomHeroSkinPool;
 
 internal sealed class RandomHeroSkinPoolState : SelectionPoolState<RandomHeroSkinPoolState>

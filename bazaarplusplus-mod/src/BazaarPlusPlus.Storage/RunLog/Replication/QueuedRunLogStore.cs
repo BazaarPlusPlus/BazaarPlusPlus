@@ -1,8 +1,5 @@
 #nullable enable
-using System;
 using System.Collections.Concurrent;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace BazaarPlusPlus.Storage.RunLog.Replication;
 
@@ -13,6 +10,7 @@ public sealed class QueuedRunLogStore : IRunLogStore, IDisposable
     private readonly IRunLogStore _innerStore;
     private readonly IRunLogStoreLogger? _logger;
     private readonly TimeSpan _shutdownDrainTimeout;
+    private readonly Func<Task> _waitForSignalAsync;
     private readonly object _lifecycleGate = new();
     private readonly ConcurrentQueue<QueuedWrite> _pending = new();
     private readonly SemaphoreSlim _signal = new(0);
@@ -20,6 +18,8 @@ public sealed class QueuedRunLogStore : IRunLogStore, IDisposable
     private int _stopRequested;
     private int _stopAcceptingNewWork;
     private int _disposeStarted;
+    private int _activeWrites;
+    private int _shutdownDrainTimedOut;
 
     public QueuedRunLogStore(IRunLogStore innerStore, IRunLogStoreLogger? logger = null)
         : this(innerStore, DefaultShutdownDrainTimeout, logger) { }
@@ -29,6 +29,14 @@ public sealed class QueuedRunLogStore : IRunLogStore, IDisposable
         TimeSpan shutdownDrainTimeout,
         IRunLogStoreLogger? logger = null
     )
+        : this(innerStore, shutdownDrainTimeout, logger, waitForSignalAsync: null) { }
+
+    internal QueuedRunLogStore(
+        IRunLogStore innerStore,
+        TimeSpan shutdownDrainTimeout,
+        IRunLogStoreLogger? logger,
+        Func<Task>? waitForSignalAsync
+    )
     {
         _innerStore = innerStore ?? throw new ArgumentNullException(nameof(innerStore));
         _logger = logger;
@@ -36,8 +44,11 @@ public sealed class QueuedRunLogStore : IRunLogStore, IDisposable
             shutdownDrainTimeout <= TimeSpan.Zero
                 ? DefaultShutdownDrainTimeout
                 : shutdownDrainTimeout;
+        _waitForSignalAsync = waitForSignalAsync ?? (() => _signal.WaitAsync());
         _worker = Task.Run(ProcessLoopAsync);
     }
+
+    internal Task WorkerCompletion => _worker;
 
     public RunLogSessionState? TryResumeActiveRun()
     {
@@ -51,26 +62,31 @@ public sealed class QueuedRunLogStore : IRunLogStore, IDisposable
 
     public void AppendEvent(string runId, RunLogEvent entry)
     {
-        EnqueueWrite($"append event for run {runId}", () => _innerStore.AppendEvent(runId, entry));
+        EnqueueWrite(
+            RunLogStoreWriteOperation.AppendEvent,
+            runId,
+            () => _innerStore.AppendEvent(runId, entry)
+        );
     }
 
     public void SaveCheckpoint(string runId, RunLogCheckpoint checkpoint)
     {
         EnqueueWrite(
-            $"save checkpoint for run {runId}",
+            RunLogStoreWriteOperation.SaveCheckpoint,
+            runId,
             () => _innerStore.SaveCheckpoint(runId, checkpoint)
         );
     }
 
     public void CompleteRun(string runId, RunLogCompletion completion)
     {
-        DrainPendingWrites();
+        DrainPendingWrites(runId);
         _innerStore.CompleteRun(runId, completion);
     }
 
     public void MarkRunAbandoned(string runId, RunLogAbandonment abandonment)
     {
-        DrainPendingWrites();
+        DrainPendingWrites(runId);
         _innerStore.MarkRunAbandoned(runId, abandonment);
     }
 
@@ -86,11 +102,37 @@ public sealed class QueuedRunLogStore : IRunLogStore, IDisposable
             _signal.Release();
         }
 
-        if (!_worker.Wait(_shutdownDrainTimeout))
+        var workerCompleted = false;
+        try
         {
-            _logger?.Warn(
-                "QueuedRunLogStore",
-                "Timed out while draining queued run logging writes during shutdown."
+            workerCompleted = _worker.Wait(_shutdownDrainTimeout);
+        }
+        catch (AggregateException) when (_worker.IsCompleted)
+        {
+            // ProcessLoopAsync already emitted the authoritative typed worker diagnostic. Dispose
+            // still owns the synchronization primitive and must finish cleanup without surfacing a
+            // second terminal failure to the feature teardown path.
+            workerCompleted = true;
+        }
+
+        if (!workerCompleted)
+        {
+            // The timeout is the authoritative shutdown terminal. Any active write or worker
+            // exception that follows (Mono aborts background threads during process exit) is a
+            // consequence of this same episode and must not emit a second terminal record.
+            Volatile.Write(ref _shutdownDrainTimedOut, 1);
+            _logger?.Emit(
+                RunLogStoreDiagnostic.ShutdownDrainTimedOut(
+                    _shutdownDrainTimeout,
+                    PendingWriteCount()
+                )
+            );
+            _ = _worker.ContinueWith(
+                static (_, state) => ((SemaphoreSlim)state!).Dispose(),
+                _signal,
+                CancellationToken.None,
+                TaskContinuationOptions.ExecuteSynchronously,
+                TaskScheduler.Default
             );
             return;
         }
@@ -98,10 +140,10 @@ public sealed class QueuedRunLogStore : IRunLogStore, IDisposable
         _signal.Dispose();
     }
 
-    private void DrainPendingWrites()
+    private void DrainPendingWrites(string runId)
     {
         using var drained = new ManualResetEventSlim(false);
-        EnqueueWrite("drain barrier", drained.Set);
+        EnqueueWrite(RunLogStoreWriteOperation.DrainBarrier, runId, drained.Set);
         if (!drained.Wait(_shutdownDrainTimeout))
         {
             throw new TimeoutException(
@@ -110,7 +152,7 @@ public sealed class QueuedRunLogStore : IRunLogStore, IDisposable
         }
     }
 
-    private void EnqueueWrite(string description, Action action)
+    private void EnqueueWrite(RunLogStoreWriteOperation operation, string runId, Action action)
     {
         if (action == null)
             throw new ArgumentNullException(nameof(action));
@@ -121,11 +163,11 @@ public sealed class QueuedRunLogStore : IRunLogStore, IDisposable
             {
                 throw new ObjectDisposedException(
                     nameof(QueuedRunLogStore),
-                    $"Cannot queue write after shutdown: {description}."
+                    $"Cannot queue {operation} after shutdown."
                 );
             }
 
-            _pending.Enqueue(new QueuedWrite(description, action));
+            _pending.Enqueue(new QueuedWrite(operation, runId, action));
             _signal.Release();
         }
     }
@@ -138,42 +180,54 @@ public sealed class QueuedRunLogStore : IRunLogStore, IDisposable
             {
                 while (_pending.TryDequeue(out var write))
                 {
+                    Interlocked.Increment(ref _activeWrites);
                     try
                     {
                         write.Execute();
                     }
                     catch (Exception ex)
                     {
-                        _logger?.Error("QueuedRunLogStore", $"Failed to {write.Description}.", ex);
+                        if (Volatile.Read(ref _shutdownDrainTimedOut) == 0)
+                        {
+                            _logger?.Emit(
+                                RunLogStoreDiagnostic.WriteFailed(write.Operation, write.RunId, ex)
+                            );
+                        }
+                    }
+                    finally
+                    {
+                        Interlocked.Decrement(ref _activeWrites);
                     }
                 }
 
                 if (Volatile.Read(ref _stopRequested) == 1 && _pending.IsEmpty)
                     return;
 
-                await _signal.WaitAsync().ConfigureAwait(false);
+                await _waitForSignalAsync().ConfigureAwait(false);
             }
         }
         catch (Exception ex)
         {
-            _logger?.Error(
-                "QueuedRunLogStore",
-                "Queue worker terminated unexpectedly; queued run logging writes will no longer be processed.",
-                ex
-            );
+            if (Volatile.Read(ref _shutdownDrainTimedOut) == 0)
+                _logger?.Emit(RunLogStoreDiagnostic.WorkerFailed(PendingWriteCount(), ex));
             throw;
         }
     }
 
+    private int PendingWriteCount() => _pending.Count + Volatile.Read(ref _activeWrites);
+
     private readonly struct QueuedWrite
     {
-        public QueuedWrite(string description, Action action)
+        public QueuedWrite(RunLogStoreWriteOperation operation, string runId, Action action)
         {
-            Description = description;
+            Operation = operation;
+            RunId = runId;
             Action = action;
         }
 
-        public string Description { get; }
+        public RunLogStoreWriteOperation Operation { get; }
+
+        public string RunId { get; }
 
         private Action Action { get; }
 

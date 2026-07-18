@@ -1,5 +1,4 @@
 #nullable enable
-using System;
 using BazaarPlusPlus.GameInterop.ItemBoardPreview;
 
 namespace BazaarPlusPlus.Game.HistoryPanel.Data;

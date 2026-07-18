@@ -1,5 +1,4 @@
 #nullable enable
-using System.Collections.Generic;
 using BazaarGameShared.Infra.Messages;
 
 namespace BazaarPlusPlus.Game.PvpBattles;
@@ -21,6 +20,10 @@ internal sealed class PvpBattleSequenceCandidate
     public int? PlayerLevel { get; set; }
 
     public int? PlayerPrestige { get; set; }
+
+    public int? PlayerIncome { get; set; }
+
+    public int? PlayerGold { get; set; }
 
     public int? PlayerVictories { get; set; }
 

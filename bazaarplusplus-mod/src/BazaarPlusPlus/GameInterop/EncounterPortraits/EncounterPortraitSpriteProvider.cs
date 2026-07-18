@@ -1,7 +1,4 @@
 #nullable enable
-using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
 using BazaarPlusPlus.GameInterop.StaticCards;
 using BazaarPlusPlus.Infrastructure;
 using TheBazaar.AppFramework;
@@ -12,38 +9,33 @@ namespace BazaarPlusPlus.GameInterop.EncounterPortraits;
 
 internal static class EncounterPortraitSpriteProvider
 {
-    private const string LogComponent = "EncounterPortrait";
+    private static readonly AsyncLoadCache<Guid, EncounterPortraitLoadOutcome> Portraits = new(
+        LoadPortraitCoreAsync
+    );
 
-    private static readonly Dictionary<Guid, Sprite?> CachedSprites = new();
-    private static readonly Dictionary<Guid, Task<Sprite?>> InFlightLoads = new();
-
-    internal static bool TryGetCached(Guid sourceTemplateId, out Sprite? sprite)
+    internal static bool TryGetCached(
+        Guid sourceTemplateId,
+        out EncounterPortraitLoadOutcome? outcome
+    )
     {
-        sprite = null;
+        outcome = null;
         return sourceTemplateId != Guid.Empty
-            && CachedSprites.TryGetValue(sourceTemplateId, out sprite);
+            && Portraits.TryGetCached(sourceTemplateId, out outcome);
     }
 
-    internal static Task<Sprite?> LoadPortraitAsync(Guid sourceTemplateId)
+    internal static Task<EncounterPortraitLoadOutcome?> LoadPortraitAsync(Guid sourceTemplateId)
     {
         if (sourceTemplateId == Guid.Empty)
-            return Task.FromResult<Sprite?>(null);
+            return Task.FromResult<EncounterPortraitLoadOutcome?>(null);
 
-        if (CachedSprites.TryGetValue(sourceTemplateId, out var cached))
-            return Task.FromResult(cached);
-
-        if (InFlightLoads.TryGetValue(sourceTemplateId, out var inFlight))
-            return inFlight;
-
-        var task = LoadAndMaybeCacheAsync(sourceTemplateId);
-        InFlightLoads[sourceTemplateId] = task;
-        return task;
+        return Portraits.GetOrLoadAsync(sourceTemplateId);
     }
 
-    private static async Task<Sprite?> LoadAndMaybeCacheAsync(Guid sourceTemplateId)
+    private static async Task<AsyncLoadResult<EncounterPortraitLoadOutcome>> LoadPortraitCoreAsync(
+        Guid sourceTemplateId
+    )
     {
-        Sprite? result = null;
-        var shouldCacheResult = false;
+        var shouldCache = false;
         try
         {
             var staticData = BppStaticDataAccess.TryGetReadyManagerObject();
@@ -54,52 +46,104 @@ internal static class EncounterPortraitSpriteProvider
                 || template.ArtKey == "Invalid"
             )
             {
-                shouldCacheResult = staticData != null;
-                BppLog.Warn(
-                    LogComponent,
-                    $"No encounter art key sourceTemplateId={sourceTemplateId}; using text fallback."
+                shouldCache = staticData != null;
+                return new AsyncLoadResult<EncounterPortraitLoadOutcome>(
+                    EncounterPortraitLoadOutcome.Degraded(
+                        EncounterPortraitFailureReason.ArtKeyUnavailable,
+                        template?.ArtKey
+                    ),
+                    shouldCache
                 );
-                return null;
             }
 
             if (!Services.TryGet<AssetLoader>(out var assetLoader) || assetLoader == null)
             {
-                BppLog.Warn(
-                    LogComponent,
-                    $"AssetLoader unavailable sourceTemplateId={sourceTemplateId}; using text fallback."
+                return new AsyncLoadResult<EncounterPortraitLoadOutcome>(
+                    EncounterPortraitLoadOutcome.Degraded(
+                        EncounterPortraitFailureReason.AssetLoaderUnavailable,
+                        template.ArtKey
+                    ),
+                    shouldCache
                 );
-                return null;
             }
 
-            shouldCacheResult = true;
+            shouldCache = true;
             var encounterData = await assetLoader.LoadAssetAsyncByAddress<EncounterAssetDataSO>(
                 template.ArtKey
             );
             if (encounterData == null)
             {
-                BppLog.Warn(
-                    LogComponent,
-                    $"Encounter asset unavailable artKey={template.ArtKey}; using text fallback."
+                return new AsyncLoadResult<EncounterPortraitLoadOutcome>(
+                    EncounterPortraitLoadOutcome.Degraded(
+                        EncounterPortraitFailureReason.EncounterAssetUnavailable,
+                        template.ArtKey
+                    ),
+                    shouldCache
                 );
-                return null;
             }
 
-            result = await encounterData.LoadPortraitSpriteAsync();
-            return result;
+            var result = await encounterData.LoadPortraitSpriteAsync();
+            return new AsyncLoadResult<EncounterPortraitLoadOutcome>(
+                result == null
+                    ? EncounterPortraitLoadOutcome.Degraded(
+                        EncounterPortraitFailureReason.PortraitUnavailable,
+                        template.ArtKey
+                    )
+                    : EncounterPortraitLoadOutcome.Ready(result, template.ArtKey),
+                shouldCache
+            );
         }
         catch (Exception ex)
         {
-            BppLog.Warn(
-                LogComponent,
-                $"Failed to load encounter portrait sourceTemplateId={sourceTemplateId}: {ex.Message}"
+            return new AsyncLoadResult<EncounterPortraitLoadOutcome>(
+                EncounterPortraitLoadOutcome.Degraded(
+                    EncounterPortraitFailureReason.LoadException,
+                    artKey: null,
+                    ex
+                ),
+                shouldCache
             );
-            return null;
-        }
-        finally
-        {
-            InFlightLoads.Remove(sourceTemplateId);
-            if (shouldCacheResult)
-                CachedSprites[sourceTemplateId] = result;
         }
     }
+}
+
+internal enum EncounterPortraitFailureReason
+{
+    None,
+    ArtKeyUnavailable,
+    AssetLoaderUnavailable,
+    EncounterAssetUnavailable,
+    PortraitUnavailable,
+    LoadException,
+}
+
+internal sealed class EncounterPortraitLoadOutcome
+{
+    private EncounterPortraitLoadOutcome(
+        Sprite? sprite,
+        EncounterPortraitFailureReason reason,
+        string? artKey,
+        Exception? exception
+    )
+    {
+        Sprite = sprite;
+        Reason = reason;
+        ArtKey = artKey;
+        Exception = exception;
+    }
+
+    internal Sprite? Sprite { get; }
+    internal EncounterPortraitFailureReason Reason { get; }
+    internal string? ArtKey { get; }
+    internal Exception? Exception { get; }
+    internal bool IsDegraded => Reason != EncounterPortraitFailureReason.None;
+
+    internal static EncounterPortraitLoadOutcome Ready(Sprite sprite, string artKey) =>
+        new(sprite, EncounterPortraitFailureReason.None, artKey, null);
+
+    internal static EncounterPortraitLoadOutcome Degraded(
+        EncounterPortraitFailureReason reason,
+        string? artKey,
+        Exception? exception = null
+    ) => new(null, reason, artKey, exception);
 }

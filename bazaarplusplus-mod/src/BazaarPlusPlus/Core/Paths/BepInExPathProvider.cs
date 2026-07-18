@@ -13,8 +13,6 @@ internal sealed class BepInExPathProvider : IPathProvider
 
     public string? CombatReplayVideoDirectoryPath { get; private set; }
 
-    public string? CustomCardArtDirectoryPath { get; private set; }
-
     public string? PluginsDirectoryPath { get; private set; }
 
     public void Initialize()
@@ -38,11 +36,6 @@ internal sealed class BepInExPathProvider : IPathProvider
             BepInEx.Paths.GameRootPath,
             "BazaarPlusPlusV4",
             "CombatReplayVideos"
-        );
-        CustomCardArtDirectoryPath = System.IO.Path.Combine(
-            BepInEx.Paths.GameRootPath,
-            "BazaarPlusPlusV4",
-            "CustomCardArt"
         );
         PluginsDirectoryPath = BepInEx.Paths.PluginPath;
     }

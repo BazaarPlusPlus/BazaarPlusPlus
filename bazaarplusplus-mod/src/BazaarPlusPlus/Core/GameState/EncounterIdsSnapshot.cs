@@ -1,7 +1,4 @@
 #nullable enable
-using System;
-using System.Collections.Generic;
-
 namespace BazaarPlusPlus.Core.GameState;
 
 /// <summary>Lightweight read of the currently available encounter ids.</summary>

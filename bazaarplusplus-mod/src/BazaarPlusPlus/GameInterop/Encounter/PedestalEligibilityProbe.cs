@@ -1,10 +1,7 @@
 #nullable enable
-using System;
-using System.Collections;
-using System.Collections.Generic;
 using System.Reflection;
 using BazaarGameClient.Domain.Models.Cards;
-using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Core.GameState;
 using HarmonyLib;
 using TheBazaar;
 
@@ -26,9 +23,10 @@ internal static class PedestalEligibilityProbe
     private static readonly HashSet<string> EmptySet = new();
 
     /// <summary>Main thread only. Returns the set of InstanceIds the pedestal would
-    /// accept right now. Empty when not on a pedestal, reflection fails, or no
-    /// owned card satisfies the template's SelectionCriteria.</summary>
-    public static HashSet<string> ReadEligibleInstanceIds(PedestalState pedestalState)
+    /// accept right now and preserves reflection failures as a typed outcome.</summary>
+    public static PedestalEligibilityProbeOutcome ReadEligibleInstanceIds(
+        PedestalState pedestalState
+    )
     {
         try
         {
@@ -37,20 +35,26 @@ internal static class PedestalEligibilityProbe
                 _reflectionAttempted = true;
                 _validateCardsMethod = AccessTools.Method(typeof(PedestalState), "ValidateCards");
                 _validCardsField = AccessTools.Field(typeof(PedestalState), "_validCards");
-                if (_validateCardsMethod is null)
-                    BppLog.Info(
-                        "Encounter",
-                        "PedestalState.ValidateCards not found via reflection"
-                    );
-                if (_validCardsField is null)
-                    BppLog.Info("Encounter", "PedestalState._validCards not found via reflection");
             }
             if (_validateCardsMethod is null || _validCardsField is null)
-                return EmptySet;
+                return PedestalEligibilityProbeOutcome.Failure(
+                    EncounterProbeFailureReason.PedestalReflectionUnavailable,
+                    exception: null
+                );
 
             _validateCardsMethod.Invoke(pedestalState, null);
-            if (_validCardsField.GetValue(pedestalState) is not IList list || list.Count == 0)
-                return EmptySet;
+            if (
+                !EncounterReflectionCollection.TryGetList(
+                    _validCardsField.GetValue(pedestalState),
+                    out var list
+                )
+            )
+                return PedestalEligibilityProbeOutcome.Failure(
+                    EncounterProbeFailureReason.PedestalReflectionUnavailable,
+                    exception: null
+                );
+            if (list.Count == 0)
+                return PedestalEligibilityProbeOutcome.Success(EmptySet);
 
             var ids = new HashSet<string>(list.Count);
             foreach (var entry in list)
@@ -62,15 +66,30 @@ internal static class PedestalEligibilityProbe
                         ids.Add(iid);
                 }
             }
-            return ids;
+            return PedestalEligibilityProbeOutcome.Success(ids);
         }
         catch (Exception ex)
         {
-            BppLog.Info(
-                "Encounter",
-                $"PedestalEligibilityProbe transient failure: {ex.GetType().Name}: {ex.Message}"
+            return PedestalEligibilityProbeOutcome.Failure(
+                EncounterProbeFailureReason.PedestalReadException,
+                ex
             );
-            return EmptySet;
         }
     }
+}
+
+internal readonly record struct PedestalEligibilityProbeOutcome(
+    bool IsSuccess,
+    HashSet<string> InstanceIds,
+    EncounterProbeFailureReason FailureReason,
+    Exception? Exception
+)
+{
+    internal static PedestalEligibilityProbeOutcome Success(HashSet<string> instanceIds) =>
+        new(true, instanceIds, EncounterProbeFailureReason.None, null);
+
+    internal static PedestalEligibilityProbeOutcome Failure(
+        EncounterProbeFailureReason reason,
+        Exception? exception
+    ) => new(false, new HashSet<string>(), reason, exception);
 }

@@ -1,6 +1,4 @@
 #nullable enable
-using System.Collections.Generic;
-
 namespace BazaarPlusPlus.Game.CollectionPanel.Data;
 
 internal sealed class CollectionCatalogBuildResult

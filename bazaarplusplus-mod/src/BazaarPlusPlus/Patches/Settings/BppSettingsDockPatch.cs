@@ -1,6 +1,5 @@
 #pragma warning disable CS0436
 #nullable enable
-using System;
 using BazaarPlusPlus.Game.CollectionPanel;
 using BazaarPlusPlus.Game.Settings;
 using BazaarPlusPlus.Infrastructure;
@@ -10,7 +9,7 @@ using UnityEngine.UI;
 namespace BazaarPlusPlus.Patches.Settings;
 
 [HarmonyPatch(typeof(SettingDialogsView), "Awake")]
-internal static class BppSettingsDockAwakePatch
+internal static class CollectionPanelDockButtonAwakePatch
 {
     private static readonly System.Reflection.FieldInfo? MainMenuSettingOptionButtonField =
         AccessTools.Field(typeof(SettingDialogsView), "MainMenuSettingOptionButton");
@@ -23,42 +22,42 @@ internal static class BppSettingsDockAwakePatch
     {
         try
         {
-            AttachButtons(
+            AttachButton(
                 MainMenuSettingOptionButtonField?.GetValue(__instance) as Button,
-                "MainMenu"
+                "MainMenu",
+                SettingsNativeButtonId.MainMenu
             );
-            AttachButtons(
+            AttachButton(
                 HeroSelectSettingOptionButtonField?.GetValue(__instance) as Button,
-                "HeroSelect"
+                "HeroSelect",
+                SettingsNativeButtonId.HeroSelect
             );
         }
         catch (Exception ex)
         {
-            BppLog.Error("BppSettingsDock", "Failed to attach BPP settings dock", ex);
+            BppLog.WarnEvent(
+                SettingsLogEvents.PatchDegraded,
+                ex,
+                SettingsLogEvents.PatchDegradedOperation.Bind(SettingsPatchOperation.DockAwake),
+                SettingsLogEvents.PatchDegradedReasonCode.Bind(SettingsLogReasonCode.PatchException)
+            );
         }
     }
 
-    private static void AttachButtons(Button? button, string key)
+    private static void AttachButton(Button? button, string key, SettingsNativeButtonId buttonId)
     {
         if (button == null)
             return;
 
         CollectionPanelDockButtonController.Attach(
             button,
-            BppSettingsDockPlacement.AboveSettingButton(
-                $"CollectionPanel_{key}",
-                BppDockButtonIconKind.CollectionPanel
-            )
-        );
-        BppSettingsDockController.Attach(
-            button,
-            BppSettingsDockPlacement.LeftOfSettingButton(key, BppDockButtonIconKind.SettingsDock)
+            BppSettingsDockPlacement.ForButton($"CollectionPanel_{key}", buttonId)
         );
     }
 }
 
 [HarmonyPatch(typeof(FightMenuDialog), "Start")]
-internal static class BppSettingsDockFightMenuPatch
+internal static class CollectionPanelDockButtonFightMenuPatch
 {
     private static readonly System.Reflection.FieldInfo? SettingButtonField = AccessTools.Field(
         typeof(FightMenuDialog),
@@ -76,23 +75,21 @@ internal static class BppSettingsDockFightMenuPatch
             {
                 CollectionPanelDockButtonController.Attach(
                     button,
-                    BppSettingsDockPlacement.AboveSettingButton(
+                    BppSettingsDockPlacement.ForButton(
                         "CollectionPanel_FightMenu",
-                        BppDockButtonIconKind.CollectionPanel
-                    )
-                );
-                BppSettingsDockController.Attach(
-                    button,
-                    BppSettingsDockPlacement.LeftOfSettingButton(
-                        "FightMenu",
-                        BppDockButtonIconKind.SettingsDock
+                        SettingsNativeButtonId.FightMenu
                     )
                 );
             }
         }
         catch (Exception ex)
         {
-            BppLog.Error("BppSettingsDock", "Failed to attach BPP settings dock in fight menu", ex);
+            BppLog.WarnEvent(
+                SettingsLogEvents.PatchDegraded,
+                ex,
+                SettingsLogEvents.PatchDegradedOperation.Bind(SettingsPatchOperation.DockOpen),
+                SettingsLogEvents.PatchDegradedReasonCode.Bind(SettingsLogReasonCode.PatchException)
+            );
         }
     }
 }

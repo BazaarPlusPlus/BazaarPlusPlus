@@ -1,12 +1,8 @@
 #nullable enable
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Threading;
+using BazaarPlusPlus.Core.Runtime;
 using BazaarPlusPlus.ModApi.Models;
 using BazaarPlusPlus.Storage.RunLog;
 using BazaarPlusPlus.Storage.Sqlite;
-using Microsoft.Data.Sqlite;
 
 namespace BazaarPlusPlus.Game.Screenshots.Upload;
 
@@ -71,6 +67,7 @@ internal sealed class BazaarDbSnapshotUploadStore : SqliteStoreBase
             SELECT s.screenshot_id, 'pending', 0, NULL, NULL, NULL
             FROM {RunLogSchema.RunScreenshotsTableName} AS s
             WHERE s.capture_source = $captureSource
+              AND (s.build_channel IS NULL OR s.build_channel <> '{nameof(GameBuildChannel.Ptr)}')
               AND NOT EXISTS (
                   SELECT 1
                   FROM {RunLogSchema.BazaarDbSnapshotUploadsTableName} AS u
@@ -95,6 +92,7 @@ internal sealed class BazaarDbSnapshotUploadStore : SqliteStoreBase
                 ON u.snapshot_id = s.screenshot_id
             WHERE s.capture_source = $captureSource
               AND u.status = 'pending'
+              AND (s.build_channel IS NULL OR s.build_channel <> '{nameof(GameBuildChannel.Ptr)}')
             ORDER BY s.captured_at_utc ASC, s.screenshot_id ASC
             LIMIT $limit;
             """;
@@ -113,8 +111,12 @@ internal sealed class BazaarDbSnapshotUploadStore : SqliteStoreBase
         using var connection = OpenConnection();
         using var command = CreateCommand(connection);
         command.CommandText = $"""
-            SELECT 1 FROM {RunLogSchema.BazaarDbSnapshotUploadsTableName}
-            WHERE status = 'pending'
+            SELECT 1
+            FROM {RunLogSchema.BazaarDbSnapshotUploadsTableName} AS u
+            INNER JOIN {RunLogSchema.RunScreenshotsTableName} AS s
+                ON s.screenshot_id = u.snapshot_id
+            WHERE u.status = 'pending'
+              AND (s.build_channel IS NULL OR s.build_channel <> '{nameof(GameBuildChannel.Ptr)}')
             LIMIT 1;
             """;
         return command.ExecuteScalar() != null;

@@ -1,6 +1,4 @@
 #nullable enable
-using System;
-using System.Collections.Generic;
 using BazaarGameShared.Domain.Cards;
 
 namespace BazaarPlusPlus.Game.CollectionPanel.Data;

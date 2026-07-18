@@ -1,13 +1,10 @@
 #nullable enable
-using System;
-using System.Collections.Generic;
 using BazaarGameShared.Domain.Core.Types;
 using BazaarPlusPlus.Game.CollectionPanel.Data;
 using BazaarPlusPlus.GameInterop.EncounterPortraits;
 using BazaarPlusPlus.GameInterop.HeroPortraits;
 using BazaarPlusPlus.GameInterop.TagTypography;
 using BazaarPlusPlus.Infrastructure;
-using BazaarPlusPlus.Infrastructure.Fonts;
 using BazaarPlusPlus.Infrastructure.UiTokens;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -16,6 +13,15 @@ namespace BazaarPlusPlus.Game.CollectionPanel.Ui;
 
 internal sealed partial class CollectionPanelView
 {
+    private static readonly CollectionPortraitFailureGate<
+        EHero,
+        CollectionPortraitReasonCode
+    > HeroPortraitFailures = new();
+    private static readonly CollectionPortraitFailureGate<
+        Guid,
+        CollectionPortraitReasonCode
+    > EncounterPortraitFailures = new();
+
     private void EnsureHeroChips(IReadOnlyList<EHero> heroes)
     {
         if (_heroChipRow == null)
@@ -139,7 +145,7 @@ internal sealed partial class CollectionPanelView
             {
                 var captured = tag;
                 var chip = CreateTagFacetChipButton(() => _commands.ToggleTag(captured));
-                ApplyTagChipContent(chip, NativeTagTypography.Resolve(captured));
+                ApplyTagChipContent(chip, ResolveTagDisplay(captured));
                 _tagChips[captured] = chip;
                 _tagChipOrder.Add(captured);
                 _tagChipRow.Add(chip);
@@ -154,19 +160,19 @@ internal sealed partial class CollectionPanelView
         if (!KeywordChipsMatch(keywords))
         {
             ClearKeywordFacetRow();
-            var hasReferenceSection = false;
+            var hasRelatedSection = false;
             foreach (var keyword in keywords)
             {
-                if (!hasReferenceSection && CollectionKeywordWhitelist.IsReferenceKeyword(keyword))
+                if (!hasRelatedSection && CollectionKeywordWhitelist.IsRelatedKeyword(keyword))
                 {
-                    _keywordReferenceSectionLabel = CreateKeywordReferenceSectionLabel();
-                    _keywordChipRow.Add(_keywordReferenceSectionLabel);
-                    hasReferenceSection = true;
+                    _keywordRelatedSectionLabel = CreateKeywordRelatedSectionLabel();
+                    _keywordChipRow.Add(_keywordRelatedSectionLabel);
+                    hasRelatedSection = true;
                 }
 
                 var captured = keyword;
                 var chip = CreateTagFacetChipButton(() => _commands.ToggleKeyword(captured));
-                ApplyTagChipContent(chip, NativeTagTypography.Resolve(captured));
+                ApplyTagChipContent(chip, ResolveTagDisplay(captured));
                 _keywordChips[captured] = chip;
                 _keywordChipOrder.Add(captured);
                 _keywordChipRow.Add(chip);
@@ -215,14 +221,14 @@ internal sealed partial class CollectionPanelView
         }
         _keywordChips.Clear();
         _keywordChipOrder.Clear();
-        _keywordReferenceSectionLabel = null;
+        _keywordRelatedSectionLabel = null;
         _keywordChipRow?.Clear();
     }
 
-    private static Label CreateKeywordReferenceSectionLabel()
+    private static Label CreateKeywordRelatedSectionLabel()
     {
         var label = CreateLabel(Sizes.FontTiny, FontStyle.Bold, Colors.HistoryStatusText);
-        label.text = CollectionPanelText.KeywordReferenceSection();
+        label.text = CollectionPanelText.KeywordRelatedSection();
         label.style.width = Length.Percent(100f);
         label.style.flexBasis = Length.Percent(100f);
         label.style.marginTop = UiSpacing.Xs;
@@ -384,10 +390,9 @@ internal sealed partial class CollectionPanelView
         );
         if (fillRow)
         {
-            chip.style.flexBasis = 0f;
+            // Preserve the content-based flex basis so shorter labels yield room to longer ones.
             chip.style.flexGrow = 1f;
             chip.style.flexShrink = 1f;
-            chip.style.minWidth = 0f;
         }
         chip.style.marginRight = fillRow ? 0f : UiSpacing.Sm;
         chip.style.marginBottom = UiSpacing.Xs;
@@ -417,7 +422,6 @@ internal sealed partial class CollectionPanelView
 
         var label = new Label { name = TagChipLabelName, pickingMode = PickingMode.Ignore };
         label.style.fontSize = Sizes.FontSmall;
-        label.style.unityFont = BppUiFont.Default;
         label.style.unityFontStyleAndWeight = FontStyle.Normal;
         label.style.unityTextAlign = TextAnchor.MiddleCenter;
         label.style.flexShrink = 1f;
@@ -442,10 +446,21 @@ internal sealed partial class CollectionPanelView
         if (icon == null)
             return;
 
-        var sprite = KeywordIconSpriteProvider.Resolve(display.IconName);
-        if (sprite != null)
+        var outcome = KeywordIconSpriteProvider.Resolve(display.IconName);
+        if (outcome.IsDegraded)
         {
-            icon.style.backgroundImage = new StyleBackground(sprite);
+            BppLog.WarnEvent(
+                CollectionPanelLogEvents.KeywordIconDegraded,
+                outcome.Exception!,
+                CollectionPanelLogEvents.KeywordIconDegradedReasonCode.Bind(
+                    CollectionTypographyReasonCode.IconResolveException
+                ),
+                CollectionPanelLogEvents.KeywordIconDegradedIconName.Bind(outcome.IconName)
+            );
+        }
+        if (outcome.Sprite != null)
+        {
+            icon.style.backgroundImage = new StyleBackground(outcome.Sprite);
             icon.style.display = DisplayStyle.Flex;
             icon.MarkDirtyRepaint();
             return;
@@ -453,6 +468,42 @@ internal sealed partial class CollectionPanelView
 
         icon.style.backgroundImage = new StyleBackground(StyleKeyword.Null);
         icon.style.display = DisplayStyle.None;
+    }
+
+    private static NativeTagDisplay ResolveTagDisplay(ECardTag tag)
+    {
+        var display = NativeTagTypography.Resolve(tag);
+        ReportTagTypographyFailure();
+        return display;
+    }
+
+    private static NativeTagDisplay ResolveTagDisplay(EHiddenTag tag)
+    {
+        var display = NativeTagTypography.Resolve(tag);
+        ReportTagTypographyFailure();
+        return display;
+    }
+
+    private static void ReportTagTypographyFailure()
+    {
+        if (!NativeTagTypography.TryTakeFailure(out var failure))
+            return;
+        var reasonCode =
+            failure.Reason == NativeTagTypographyFailureReason.ConfigurationMethodUnavailable
+                ? CollectionTypographyReasonCode.ConfigurationMethodUnavailable
+                : CollectionTypographyReasonCode.ConfigurationInvocationException;
+        var fields = new[]
+        {
+            CollectionPanelLogEvents.TagTypographyDegradedReasonCode.Bind(reasonCode),
+        };
+        if (failure.Exception == null)
+            BppLog.WarnEvent(CollectionPanelLogEvents.TagTypographyDegraded, fields);
+        else
+            BppLog.WarnEvent(
+                CollectionPanelLogEvents.TagTypographyDegraded,
+                failure.Exception,
+                fields
+            );
     }
 
     private Button CreateHeroChipButton(EHero hero, Action onClick)
@@ -651,7 +702,8 @@ internal sealed partial class CollectionPanelView
 
         if (HeroPortraitSpriteProvider.TryGetCached(hero, out var cached))
         {
-            ApplyHeroChipIcon(icon, cached);
+            ReportHeroPortraitOutcome(hero, cached);
+            ApplyHeroChipIcon(icon, cached?.Sprite);
             return;
         }
 
@@ -669,7 +721,8 @@ internal sealed partial class CollectionPanelView
 
         if (EncounterPortraitSpriteProvider.TryGetCached(representativeTemplateId, out var cached))
         {
-            ApplySourceChipIcon(icon, cached);
+            ReportEncounterPortraitOutcome(representativeTemplateId, cached);
+            ApplySourceChipIcon(icon, cached?.Sprite);
             return;
         }
 
@@ -682,10 +735,11 @@ internal sealed partial class CollectionPanelView
         VisualElement icon
     )
     {
-        var sprite = await HeroPortraitSpriteProvider.LoadDefaultPortraitAsync(hero);
+        var outcome = await HeroPortraitSpriteProvider.LoadDefaultPortraitAsync(hero);
         if (!Equals(icon.userData, hero))
             return;
-        ApplyHeroChipIcon(icon, sprite);
+        ReportHeroPortraitOutcome(hero, outcome);
+        ApplyHeroChipIcon(icon, outcome?.Sprite);
     }
 
     private static async System.Threading.Tasks.Task ApplySourceChipIconWhenLoadedAsync(
@@ -694,12 +748,104 @@ internal sealed partial class CollectionPanelView
         VisualElement icon
     )
     {
-        var sprite = await EncounterPortraitSpriteProvider.LoadPortraitAsync(
+        var outcome = await EncounterPortraitSpriteProvider.LoadPortraitAsync(
             representativeTemplateId
         );
         if (!Equals(icon.userData, sourceKey))
             return;
-        ApplySourceChipIcon(icon, sprite);
+        ReportEncounterPortraitOutcome(representativeTemplateId, outcome);
+        ApplySourceChipIcon(icon, outcome?.Sprite);
+    }
+
+    private static void ReportHeroPortraitOutcome(EHero hero, HeroPortraitLoadOutcome? outcome)
+    {
+        if (outcome == null)
+            return;
+        if (!outcome.IsDegraded)
+        {
+            HeroPortraitFailures.Clear(hero);
+            return;
+        }
+        var reasonCode = outcome.Reason switch
+        {
+            HeroPortraitFailureReason.CollectionManagerUnavailable =>
+                CollectionPortraitReasonCode.CollectionManagerUnavailable,
+            HeroPortraitFailureReason.DefaultSkinUnavailable =>
+                CollectionPortraitReasonCode.DefaultSkinUnavailable,
+            HeroPortraitFailureReason.PortraitUnavailable =>
+                CollectionPortraitReasonCode.PortraitUnavailable,
+            _ => CollectionPortraitReasonCode.LoadException,
+        };
+        if (!HeroPortraitFailures.ShouldReport(hero, reasonCode))
+            return;
+        if (outcome.Reason == HeroPortraitFailureReason.PortraitUnavailable)
+        {
+            BppLog.DebugEvent(
+                CollectionPanelLogEvents.HeroPortraitFallbackObserved,
+                () =>
+                    [
+                        CollectionPanelLogEvents.HeroPortraitFallbackHero.Bind(hero),
+                        CollectionPanelLogEvents.HeroPortraitFallbackReasonCode.Bind(reasonCode),
+                    ]
+            );
+            return;
+        }
+
+        var fields = new[]
+        {
+            CollectionPanelLogEvents.HeroPortraitDegradedHero.Bind(hero),
+            CollectionPanelLogEvents.HeroPortraitDegradedReasonCode.Bind(reasonCode),
+        };
+        if (outcome.Exception == null)
+            BppLog.WarnEvent(CollectionPanelLogEvents.HeroPortraitDegraded, fields);
+        else
+            BppLog.WarnEvent(
+                CollectionPanelLogEvents.HeroPortraitDegraded,
+                outcome.Exception,
+                fields
+            );
+    }
+
+    private static void ReportEncounterPortraitOutcome(
+        Guid templateId,
+        EncounterPortraitLoadOutcome? outcome
+    )
+    {
+        if (outcome == null)
+            return;
+        if (!outcome.IsDegraded)
+        {
+            EncounterPortraitFailures.Clear(templateId);
+            return;
+        }
+        var reasonCode = outcome.Reason switch
+        {
+            EncounterPortraitFailureReason.ArtKeyUnavailable =>
+                CollectionPortraitReasonCode.ArtKeyUnavailable,
+            EncounterPortraitFailureReason.AssetLoaderUnavailable =>
+                CollectionPortraitReasonCode.AssetLoaderUnavailable,
+            EncounterPortraitFailureReason.EncounterAssetUnavailable =>
+                CollectionPortraitReasonCode.EncounterAssetUnavailable,
+            EncounterPortraitFailureReason.PortraitUnavailable =>
+                CollectionPortraitReasonCode.PortraitUnavailable,
+            _ => CollectionPortraitReasonCode.LoadException,
+        };
+        if (!EncounterPortraitFailures.ShouldReport(templateId, reasonCode))
+            return;
+        var fields = new[]
+        {
+            CollectionPanelLogEvents.EncounterPortraitDegradedTemplateId.Bind(templateId),
+            CollectionPanelLogEvents.EncounterPortraitDegradedReasonCode.Bind(reasonCode),
+            CollectionPanelLogEvents.EncounterPortraitDegradedArtKey.Bind(outcome.ArtKey),
+        };
+        if (outcome.Exception == null)
+            BppLog.WarnEvent(CollectionPanelLogEvents.EncounterPortraitDegraded, fields);
+        else
+            BppLog.WarnEvent(
+                CollectionPanelLogEvents.EncounterPortraitDegraded,
+                outcome.Exception,
+                fields
+            );
     }
 
     private static void ApplyHeroChipIcon(VisualElement icon, Sprite? sprite)
@@ -758,28 +904,21 @@ internal sealed partial class CollectionPanelView
     // state keeps the gold highlight regardless so selection always reads the same way.
     private static void RefreshChip(Button chip, bool selected, Color? unselectedTextColor = null)
     {
-        if (selected)
-        {
-            chip.style.backgroundColor = Colors.ButtonSelectedBackground;
-            chip.style.color = Colors.ButtonSelectedText;
-            UiStyle.BorderColor(
-                chip.style,
-                Colors.ButtonBorderFor(Colors.ButtonSelectedBackground)
-            );
-        }
-        else
-        {
-            chip.style.backgroundColor = Colors.HistoryChipBackground;
-            chip.style.color = unselectedTextColor ?? Colors.HistoryChipText;
-            UiStyle.BorderColor(chip.style, Colors.ButtonBorderFor(Colors.HistoryChipBackground));
-        }
+        StyleButton(
+            chip,
+            selected ? Colors.ButtonSelectedBackground : Colors.HistoryChipBackground,
+            selected ? Colors.ButtonSelectedText : unselectedTextColor ?? Colors.HistoryChipText
+        );
     }
 
     private static void RefreshTierChip(ETier tier, Button chip, bool selected)
     {
         var textColor = TierTextColor(tier);
-        RefreshChip(chip, selected, textColor);
-        chip.style.color = textColor;
+        StyleButton(
+            chip,
+            selected ? Colors.ButtonSelectedBackground : Colors.HistoryChipBackground,
+            textColor
+        );
     }
 
     private static Color TierTextColor(ETier tier) =>
@@ -792,14 +931,6 @@ internal sealed partial class CollectionPanelView
             ETier.Legendary => Colors.FromRgb(255, 69, 0, 1f),
             _ => Colors.HistoryChipText,
         };
-
-    private void RefreshPackageToggle(bool selected)
-    {
-        if (_packageToggleButton == null)
-            return;
-
-        RefreshTabButton(_packageToggleButton, selected);
-    }
 
     private static void RefreshMatchModeButton(
         Button? button,
@@ -847,7 +978,6 @@ internal sealed partial class CollectionPanelView
     {
         var label = new Label();
         label.style.fontSize = fontSize;
-        label.style.unityFont = BppUiFont.Default;
         label.style.unityFontStyleAndWeight = fontStyle;
         label.style.color = color;
         label.style.unityTextAlign = TextAnchor.MiddleLeft;
@@ -868,11 +998,11 @@ internal sealed partial class CollectionPanelView
         button.style.height = height;
         button.style.flexGrow = 0f;
         button.style.flexShrink = 0f;
-        button.style.unityFont = BppUiFont.Default;
         button.style.unityTextAlign = TextAnchor.MiddleCenter;
         button.style.justifyContent = Justify.Center;
         button.style.alignItems = Align.Center;
         button.style.overflow = Overflow.Hidden;
+        button.style.whiteSpace = WhiteSpace.NoWrap;
         UiStyle.Padding(button.style, UiSpacing.None);
         button.style.backgroundColor = Colors.HistoryButtonBackground;
         button.style.color = Colors.White;
@@ -888,16 +1018,14 @@ internal sealed partial class CollectionPanelView
             textElement.style.minWidth = 0f;
             textElement.style.whiteSpace = WhiteSpace.NoWrap;
             textElement.style.overflow = Overflow.Hidden;
-            textElement.style.unityFont = BppUiFont.Default;
         }
         button.tooltip = text;
+        UiHover.ApplyButtonPalette(button, Colors.HistoryButtonBackground, Colors.White);
         return button;
     }
 
     private static void StyleButton(Button button, Color background, Color textColor)
     {
-        button.style.backgroundColor = background;
-        button.style.color = textColor;
-        UiStyle.BorderColor(button.style, Colors.ButtonBorderFor(background));
+        UiHover.ApplyButtonPalette(button, background, textColor);
     }
 }

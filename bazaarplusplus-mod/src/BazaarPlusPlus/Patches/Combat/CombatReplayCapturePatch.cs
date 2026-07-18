@@ -1,19 +1,23 @@
 #nullable enable
 #pragma warning disable CS0436
+using System.Reflection;
 using BazaarGameShared.Infra.Messages;
 using BazaarPlusPlus.GameInterop.Events;
-using BazaarPlusPlus.Patches;
 using HarmonyLib;
-using TheBazaar;
 
 namespace BazaarPlusPlus.Patches.Combat;
 
-[HarmonyPatch(typeof(NetMessageProcessor), "ReceiveOrQueue")]
+[HarmonyPatch]
 internal static class CombatReplayCapturePatch
 {
+    private static MethodBase? TargetMethod() => NetMessageDispatchSeam.ResolveTarget();
+
     [HarmonyPostfix]
-    private static void Postfix(INetMessage message)
+    private static void Postfix(INetMessage message, object[] __args)
     {
+        if (NetMessageDispatchSeam.IsSpectatePlayback(__args))
+            return;
+
         if (message is not NetMessageGameSim && message is not NetMessageCombatSim)
             return;
 

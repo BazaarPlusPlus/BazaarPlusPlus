@@ -1,6 +1,6 @@
 #nullable enable
-using System;
 using BazaarPlusPlus.Game.HistoryPanel.Data;
+using BazaarPlusPlus.GameInterop.Heroes;
 using BazaarPlusPlus.Infrastructure.UiTokens;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -64,7 +64,7 @@ internal sealed partial class HistoryPanelUiToolkitView
             return;
         }
 
-        var heroStyle = GetHeroBadgeStyle(hero);
+        var heroStyle = HeroVisual.Resolve(hero);
         ConfigurePill(pill, heroStyle.ShortCode, heroStyle.Background, heroStyle.Text, true);
     }
 
@@ -126,6 +126,18 @@ internal sealed partial class HistoryPanelUiToolkitView
         );
     }
 
+    private static void RefreshHeroChip(Button button, string heroName, bool selected)
+    {
+        var heroStyle = HeroVisual.Resolve(heroName);
+        button.text = heroStyle.ShortCode;
+        button.tooltip = heroName;
+        StyleButton(
+            button,
+            selected ? heroStyle.Background : Colors.GhostFilterBackground,
+            selected ? heroStyle.Text : Colors.White
+        );
+    }
+
     private static void RefreshDeleteButton(Button button, string text, bool enabled)
     {
         var isConfirmState = string.Equals(
@@ -150,16 +162,26 @@ internal sealed partial class HistoryPanelUiToolkitView
 
     private static void ApplyRunRowState(RunRowRefs refs, bool selected)
     {
-        refs.Root.style.backgroundColor = selected
-            ? Colors.RunRowSelectedBackground
-            : Colors.HistoryRowBackground;
+        var background = selected ? Colors.RunRowSelectedBackground : Colors.HistoryRowBackground;
+        if (refs.Pressed)
+            background = Colors.RowPressedBackgroundFor(background);
+        else if (refs.Hovered)
+            background = Colors.RowHoverBackgroundFor(background);
+
+        refs.Root.style.backgroundColor = background;
         refs.Accent.style.backgroundColor = selected
             ? Colors.RunRowSelectedAccent
             : Colors.RunRowDefaultAccent;
         var borderColor = selected ? Colors.RunRowSelectedBorder : Colors.RunRowDefaultBorder;
+        if (refs.Pressed)
+            borderColor = Colors.RowPressedBorderFor(borderColor);
+        else if (refs.Hovered)
+            borderColor = Colors.RowHoverBorderFor(borderColor);
+
         UiStyle.BorderColor(refs.Root.style, borderColor);
         UiStyle.BorderColor(refs.OutcomeBubble.style, borderColor);
         refs.OutcomeBubble.style.opacity = selected ? 1f : 0.96f;
+        refs.Root.style.opacity = refs.Pressed ? 0.96f : 1f;
     }
 
     private static void ApplyBattleRowState(
@@ -171,17 +193,24 @@ internal sealed partial class HistoryPanelUiToolkitView
         var isWin = HistoryPanelFormatter.IsBattleWin(battle);
         var isLoss = HistoryPanelFormatter.IsBattleLoss(battle);
         var isEliminated = HistoryPanelFormatter.IsGhostOpponentEliminated(battle);
-        refs.Root.style.backgroundColor = GetBattleRowBackground(
-            selected,
-            isEliminated,
-            isWin,
-            isLoss
-        );
+        var background = GetBattleRowBackground(selected, isEliminated, isWin, isLoss);
+        if (refs.Pressed)
+            background = Colors.RowPressedBackgroundFor(background);
+        else if (refs.Hovered)
+            background = Colors.RowHoverBackgroundFor(background);
+
+        refs.Root.style.backgroundColor = background;
         refs.Accent.style.backgroundColor = GetBattleAccent(isEliminated, isWin, isLoss);
         var borderColor = GetBattleBorder(isEliminated, isWin, isLoss);
+        if (refs.Pressed)
+            borderColor = Colors.RowPressedBorderFor(borderColor);
+        else if (refs.Hovered)
+            borderColor = Colors.RowHoverBorderFor(borderColor);
+
         UiStyle.BorderColor(refs.Root.style, borderColor);
         refs.DayBubble.style.backgroundColor = GetBattleDayBackground(isEliminated, isWin, isLoss);
         UiStyle.BorderColor(refs.DayBubble.style, borderColor);
+        refs.Root.style.opacity = refs.Pressed ? 0.96f : 1f;
     }
 
     // Categorized status banner: writes all four border sides each call (UiStyle.Border sets four
@@ -233,6 +262,28 @@ internal sealed partial class HistoryPanelUiToolkitView
         {
             banner.style.borderLeftWidth = Borders.Accent;
             banner.style.borderLeftColor = edge;
+        }
+    }
+
+    private void ApplyAccountCardChrome(bool expanded)
+    {
+        if (_accountCard == null)
+            return;
+
+        var s = _accountCard.style;
+        if (expanded)
+        {
+            s.backgroundColor = Colors.HistoryFooterBackground;
+            UiStyle.Radius(s, Radii.Panel);
+            UiStyle.Border(s, Borders.Accent, Colors.HistoryTitleText);
+            UiStyle.Padding(s, UiSpacing.Xl);
+        }
+        else
+        {
+            s.backgroundColor = Colors.HistorySectionBackground;
+            UiStyle.Radius(s, Radii.Md);
+            UiStyle.Border(s, 0f, Colors.HistorySectionBackground);
+            UiStyle.Padding(s, UiSpacing.Md);
         }
     }
 

@@ -1,10 +1,5 @@
 #nullable enable
-using System;
-using System.Collections.Generic;
-using System.Net.Http;
 using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
 using BazaarPlusPlus.ModApi.Models;
 using Newtonsoft.Json.Linq;
 
@@ -194,6 +189,19 @@ public sealed class GhostBattleClient
             PlayerLevel = battle["player_level"]?.Value<int?>(),
             PlayerPrestige = battle["player_prestige"]?.Value<int?>(),
             PlayerVictories = battle["player_victories"]?.Value<int?>(),
+            PlayerHandItemCount = ReadNullableInt(
+                battle,
+                "player_hand_item_count",
+                "player_item_count",
+                "player_items_count",
+                "player_items"
+            ),
+            PlayerSkillCount = ReadNullableInt(
+                battle,
+                "player_skill_count",
+                "player_skills_count",
+                "player_skills"
+            ),
             OpponentName = battle["opponent_name"]?.Value<string>(),
             OpponentHero = battle["opponent_hero"]?.Value<string>(),
             OpponentRank = battle["opponent_rank"]?.Value<string>(),
@@ -201,6 +209,19 @@ public sealed class GhostBattleClient
             OpponentLevel = battle["opponent_level"]?.Value<int?>(),
             OpponentPrestige = battle["opponent_prestige"]?.Value<int?>(),
             OpponentVictories = battle["opponent_victories"]?.Value<int?>(),
+            OpponentHandItemCount = ReadNullableInt(
+                battle,
+                "opponent_hand_item_count",
+                "opponent_item_count",
+                "opponent_items_count",
+                "opponent_items"
+            ),
+            OpponentSkillCount = ReadNullableInt(
+                battle,
+                "opponent_skill_count",
+                "opponent_skills_count",
+                "opponent_skills"
+            ),
             OpponentAccountId = battle["opponent_account_id"]?.Value<string>(),
             CombatKind = battle["combat_kind"]?.Value<string>()?.Trim() ?? "PVPCombat",
             Result = battle["result"]?.Value<string>()?.Trim(),
@@ -211,6 +232,20 @@ public sealed class GhostBattleClient
             ReplayDownloaded = false,
             LastSyncedAtUtc = DateTimeOffset.UtcNow,
         };
+    }
+
+    private static int? ReadNullableInt(JObject source, params string[] propertyNames)
+    {
+        foreach (var propertyName in propertyNames)
+        {
+            var token = source[propertyName];
+            if (token == null || token.Type == JTokenType.Null)
+                continue;
+
+            return token.Value<int?>();
+        }
+
+        return null;
     }
 }
 

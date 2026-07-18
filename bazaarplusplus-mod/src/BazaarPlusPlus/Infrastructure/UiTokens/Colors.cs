@@ -12,6 +12,7 @@ internal static class Colors
     public static Color HistorySectionBackground => Rgba(0.11f, 0.13f, 0.18f, 0.98f);
     public static Color HistoryListFrameBackground => Rgba(0.09f, 0.11f, 0.15f, 0.96f);
     public static Color HistoryListFrameBorder => Rgba(0.24f, 0.29f, 0.38f, 0.55f);
+    public static Color GameTitleText => Rgba(1f, 0.8352941f, 0.6745098f, 1f);
     public static Color HistoryTitleText => Rgba(0.97f, 0.85f, 0.57f, 1f);
     public static Color HistorySubtitleText => Rgba(0.82f, 0.86f, 0.91f, 0.94f);
     public static Color HistorySectionTitleText => Rgba(0.76f, 0.91f, 1f, 1f);
@@ -147,6 +148,32 @@ internal static class Colors
             0.58f
         );
 
+    public static Color ButtonHoverBackgroundFor(Color background) =>
+        Mix(background, Color.white, 0.12f, Mathf.Clamp01(background.a + 0.02f));
+
+    public static Color ButtonPressedBackgroundFor(Color background) =>
+        Mix(background, Color.black, 0.10f, background.a);
+
+    public static Color ButtonHoverBorderFor(Color background) =>
+        Rgba(
+            Mathf.Clamp01(background.r + 0.18f),
+            Mathf.Clamp01(background.g + 0.18f),
+            Mathf.Clamp01(background.b + 0.18f),
+            0.78f
+        );
+
+    public static Color RowHoverBackgroundFor(Color background) =>
+        Mix(background, Color.white, 0.07f, background.a);
+
+    public static Color RowPressedBackgroundFor(Color background) =>
+        Mix(background, Color.black, 0.06f, background.a);
+
+    public static Color RowHoverBorderFor(Color border) =>
+        Mix(border, HistoryLevelAccent, 0.32f, Mathf.Clamp01(border.a + 0.18f));
+
+    public static Color RowPressedBorderFor(Color border) =>
+        Mix(border, ButtonSelectedBackground, 0.36f, Mathf.Clamp01(border.a + 0.14f));
+
     public static Color InfoChipBackground(Color accent) =>
         Rgba(
             Mathf.Lerp(0.14f, accent.r, 0.10f),
@@ -170,6 +197,14 @@ internal static class Colors
 
     public static Color FromRgb(int r, int g, int b, float alpha = 0.98f) =>
         Rgba(r / 255f, g / 255f, b / 255f, alpha);
+
+    private static Color Mix(Color from, Color to, float amount, float alpha) =>
+        Rgba(
+            Mathf.Lerp(from.r, to.r, amount),
+            Mathf.Lerp(from.g, to.g, amount),
+            Mathf.Lerp(from.b, to.b, amount),
+            alpha
+        );
 
     private static Color Rgba(float r, float g, float b, float a) => new(r, g, b, a);
 }

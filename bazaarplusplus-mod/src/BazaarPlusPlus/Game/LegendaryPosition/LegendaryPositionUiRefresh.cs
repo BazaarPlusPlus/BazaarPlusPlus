@@ -4,7 +4,7 @@ using BazaarPlusPlus.GameInterop;
 using HarmonyLib;
 using TheBazaar;
 using TheBazaar.UI.EndOfRun;
-using UnityEngine;
+using Object = UnityEngine.Object;
 
 namespace BazaarPlusPlus.Game.LegendaryPosition;
 

@@ -1,21 +1,17 @@
 #nullable enable
-using BazaarPlusPlus.Core.Config;
 using BazaarPlusPlus.Game.Settings;
 using CombatStatusBarFeature = BazaarPlusPlus.Game.CombatStatusBar.CombatStatusBar;
 
 namespace BazaarPlusPlus.Game.CombatStatusBar;
 
-internal sealed class CombatStatusBarSettingsDockEntry : ISettingsDockEntry
+internal static class CombatStatusBarSettingsDockEntry
 {
-    public int Order => BppSettingsDockOrder.CombatStatusBar;
-
-    public BppSettingsDockDefinition Build(IBppConfig config) =>
-        new(
+    internal static CyclingSettingsDockEntry<bool> Create() =>
+        CyclingSettingsDockEntry<bool>.Toggle(
+            BppSettingsDockOrder.CombatStatusBar,
             "CombatStatusBar",
             CombatStatusBarSettingsMenuLabel.Resolve,
-            new CombatStatusBarSettingsMenuBridge(
-                CombatStatusBarFeature.GetEnabledSettingValue,
-                CombatStatusBarFeature.SetEnabledSettingValue
-            )
+            _ => CombatStatusBarFeature.GetEnabledSettingValue(),
+            (_, enabled) => CombatStatusBarFeature.SetEnabledSettingValue(enabled)
         );
 }

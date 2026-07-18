@@ -1,8 +1,4 @@
 #nullable enable
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Threading;
 using BazaarPlusPlus.Infrastructure;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats.Jpeg;

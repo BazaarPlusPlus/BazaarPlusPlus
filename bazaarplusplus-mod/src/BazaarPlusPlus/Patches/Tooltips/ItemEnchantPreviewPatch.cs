@@ -1,11 +1,10 @@
 #nullable enable
 #pragma warning disable CS0436
-using System.Text;
 using BazaarPlusPlus.Core.GameState;
 using BazaarPlusPlus.Game.ItemEnchantPreview;
 using BazaarPlusPlus.Game.Tooltips;
 using BazaarPlusPlus.Infrastructure;
-using BazaarPlusPlus.Patches;
+using BazaarPlusPlus.Infrastructure.Logging;
 using HarmonyLib;
 using TheBazaar;
 using TheBazaar.Tooltips;
@@ -13,103 +12,271 @@ using TheBazaar.UI.Tooltips;
 
 namespace BazaarPlusPlus.Patches.Tooltips;
 
-// Item enchant preview: append BazaarPlusPlus-generated text into passive tooltip block
-[HarmonyPatch(typeof(CardTooltipData), nameof(CardTooltipData.GetPassiveTooltipBlock))]
-public static class CardTooltipDataPassivePatch
+// Renders the enchant preview beneath the native passive-effect block.
+[HarmonyPatch(
+    typeof(CardTooltipController),
+    nameof(CardTooltipController.RenderPassiveEffectTextBlock)
+)]
+internal static class BppTooltipSectionRenderPatch
 {
-    private static void AppendTooltipText(StringBuilder builder, string text)
+    internal const string EnchantWithNativeSectionKey = "enchant-preview-with-native";
+    internal const string EnchantAfterQuestSectionKey = "enchant-preview-after-quest";
+    internal const string EnchantWithoutNativeSectionKey = "enchant-preview-without-native";
+
+    private static readonly BppTooltipSections.Style EnchantWithNativeStyle =
+        CreateEnchantWithNativeStyle(sectionTopPaddingScale: 1f, sourceBottomPaddingScale: 0.5f);
+
+    private static readonly BppTooltipSections.Style EnchantAfterQuestStyle =
+        CreateEnchantWithNativeStyle(
+            sectionTopPaddingScale: 0f,
+            sourceBottomPaddingScale: 0f,
+            questGroupBottomPaddingScale: 0f
+        );
+
+    private static readonly BppTooltipSections.Style EnchantWithoutNativeStyle = new()
     {
-        if (builder == null || string.IsNullOrWhiteSpace(text))
-            return;
-
-        var lineStart = 0;
-        for (var index = 0; index < text.Length; index++)
-        {
-            var character = text[index];
-            if (character != '\r' && character != '\n')
-                continue;
-
-            AppendLine(builder, text, lineStart, index - lineStart);
-            if (character == '\r' && index + 1 < text.Length && text[index + 1] == '\n')
-                index++;
-            lineStart = index + 1;
-        }
-
-        AppendLine(builder, text, lineStart, text.Length - lineStart);
-    }
-
-    private static void AppendLine(StringBuilder builder, string text, int startIndex, int length)
-    {
-        if (length <= 0)
-            return;
-
-        for (var index = startIndex; index < startIndex + length; index++)
-        {
-            if (char.IsWhiteSpace(text[index]))
-                continue;
-
-            builder.Append(text, startIndex, length);
-            builder.Append('\n');
-            return;
-        }
-    }
+        SectionTopPaddingScale = 1.25f,
+        SectionBottomPaddingScale = 1.75f,
+        ParagraphSpacing = 4f,
+        FontScale = 1.2f,
+    };
+    private static readonly OperationalHealthTracker<
+        ItemEnchantEncounterProbe,
+        EncounterProbeFailureReason
+    > EncounterHealth = new();
 
     [HarmonyPostfix]
-    static void Postfix(
-        CardTooltipData __instance,
-        ref System.ValueTuple<StringBuilder, TooltipSegment?> __result
+    [HarmonyPriority(Priority.Last)]
+    private static void Postfix(
+        CardTooltipController __instance,
+        string text,
+        List<CardQuestGroupData>? questData
     )
     {
         try
         {
-            if (__result.Item1 == null)
+            ItemEnchantPreviewTooltipLifecycle.Hide(__instance);
+
+            // ResetValues is the only native caller that passes null quest data.
+            // Bail out before reading CurrentTooltipData, which is still stale then.
+            if (questData == null)
                 return;
 
-            if (Data.IsInCombat)
+            var enchantContent = BuildEnchantContent(__instance);
+            if (string.IsNullOrEmpty(enchantContent))
                 return;
 
-            var services = BppPatchHost.Services;
-            ChoicePedestalSnapshot? choicePedestal =
-                TooltipPreviewModePolicy.ShouldReadChoicePedestal(services.Config)
-                    ? services.EncounterState?.GetChoicePedestal()
-                    : null;
-            var mode = TooltipPreviewModePolicy.Resolve(services.Config, choicePedestal);
-            if (mode != TooltipPreviewMode.Enchant)
-                return;
+            var (sectionKey, sectionStyle) = ResolveSectionLayout(text, questData.Count);
 
-            // On an enchant pedestal choice screen, restrict the preview to the
-            // enchant type(s) that pedestal would apply; empty otherwise (manual
-            // Ctrl / Always) so the full preview is kept.
-            var restrictTo = TooltipPreviewModePolicy.ResolveEnchantRestriction(
-                services.Config,
-                choicePedestal
-            );
-
-            var previewSegments = ItemEnchantPreviewService.BuildPreviewSegments(
-                __instance.CardInstance,
-                restrictTo
-            );
-            if (previewSegments.Count == 0)
-                return;
-
-            var passiveBuilder = __result.Item1;
-            if (passiveBuilder.Length > 0 && passiveBuilder[passiveBuilder.Length - 1] != '\n')
-            {
-                passiveBuilder.Append('\n');
-            }
-
-            passiveBuilder.Append(ItemEnchantPreviewFormatting.PreviewHeaderText);
-            passiveBuilder.Append('\n');
-
-            foreach (var segment in previewSegments)
-            {
-                if (!string.IsNullOrWhiteSpace(segment.Text))
-                    AppendTooltipText(passiveBuilder, segment.Text);
-            }
+            if (
+                BppTooltipSections.TryShow(
+                    __instance,
+                    sectionKey,
+                    __instance.passiveEffectParent,
+                    enchantContent!,
+                    sectionStyle
+                )
+            )
+                TooltipLayerOverride.SetElevated(__instance, elevated: true);
         }
-        catch (System.Exception ex)
+        catch (Exception ex)
         {
-            BppLog.Error("ItemEnchantPreview", "Failed to append passive tooltip previews", ex);
+            ReportSectionDegraded(TooltipSectionId.EnchantPreview, ex);
         }
+    }
+
+    internal static bool HasNativeContent(string passiveText, int questGroupCount) =>
+        !string.IsNullOrWhiteSpace(passiveText) || questGroupCount > 0;
+
+    internal static (string SectionKey, BppTooltipSections.Style Style) ResolveSectionLayout(
+        string passiveText,
+        int questGroupCount
+    )
+    {
+        if (!string.IsNullOrWhiteSpace(passiveText))
+            return (EnchantWithNativeSectionKey, EnchantWithNativeStyle);
+        if (questGroupCount > 0)
+            return (EnchantAfterQuestSectionKey, EnchantAfterQuestStyle);
+        return (EnchantWithoutNativeSectionKey, EnchantWithoutNativeStyle);
+    }
+
+    private static BppTooltipSections.Style CreateEnchantWithNativeStyle(
+        float sectionTopPaddingScale,
+        float sourceBottomPaddingScale,
+        float? questGroupBottomPaddingScale = null
+    ) =>
+        new()
+        {
+            SectionTopPaddingScale = sectionTopPaddingScale,
+            SectionBottomPaddingScale = 1.75f,
+            SourceBottomPaddingScale = sourceBottomPaddingScale,
+            QuestGroupBottomPaddingScale = questGroupBottomPaddingScale,
+            ParagraphSpacing = 4f,
+            FontScale = 1.2f,
+            ShowNativeDivider = true,
+            DividerHorizontalInset = 12f,
+        };
+
+    internal static void ResetEncounterHealth() => EncounterHealth.Reset();
+
+    private static void ReportSectionDegraded(TooltipSectionId sectionId, Exception exception) =>
+        BppLog.WarnEvent(
+            TooltipLogEvents.SectionDegraded,
+            exception,
+            TooltipLogEvents.SectionDegradedSectionId.Bind(sectionId),
+            TooltipLogEvents.SectionDegradedReasonCode.Bind(TooltipLogReasonCode.RenderException)
+        );
+
+    private static string? BuildEnchantContent(CardTooltipController controller)
+    {
+        if (Data.IsInCombat || controller.CurrentTooltipData is not CardTooltipData tooltipData)
+            return null;
+
+        var services = BppPatchHost.Services;
+        ChoicePedestalSnapshot? choicePedestal = TooltipPreviewModePolicy.ShouldReadChoicePedestal(
+            services.Config
+        )
+            ? ReadChoicePedestal(services.EncounterState)
+            : null;
+        if (
+            TooltipPreviewModePolicy.Resolve(services.Config, choicePedestal)
+            != TooltipPreviewMode.Enchant
+        )
+            return null;
+
+        var restrictTo = TooltipPreviewModePolicy.ResolveEnchantRestriction(
+            services.Config,
+            choicePedestal
+        );
+        var segments = ItemEnchantPreviewService.BuildPreviewSegments(
+            tooltipData.CardInstance,
+            restrictTo
+        );
+        return ItemEnchantPreviewFormatting.BuildSectionText(segments);
+    }
+
+    private static ChoicePedestalSnapshot? ReadChoicePedestal(IEncounterStateProbe? probe)
+    {
+        if (probe == null)
+            return null;
+        if (probe is not ITypedEncounterStateProbe typed)
+        {
+            ReportEncounterSuccess();
+            return probe.GetChoicePedestal();
+        }
+
+        var outcome = typed.GetChoicePedestalOutcome();
+        if (outcome.IsSuccess)
+        {
+            ReportEncounterSuccess();
+            return outcome.Snapshot;
+        }
+
+        if (
+            EncounterHealth.ObserveFailure(
+                ItemEnchantEncounterProbe.Encounter,
+                outcome.FailureReason
+            )
+        )
+        {
+            var fields = new[]
+            {
+                ItemEnchantPreviewLogEvents.EncounterProbeDegradedProbe.Bind(
+                    ItemEnchantEncounterProbe.Encounter
+                ),
+                ItemEnchantPreviewLogEvents.EncounterProbeDegradedReasonCode.Bind(
+                    outcome.FailureReason
+                ),
+            };
+            if (outcome.Exception == null)
+                BppLog.WarnEvent(ItemEnchantPreviewLogEvents.EncounterProbeDegraded, fields);
+            else
+                BppLog.WarnEvent(
+                    ItemEnchantPreviewLogEvents.EncounterProbeDegraded,
+                    outcome.Exception,
+                    fields
+                );
+        }
+        return outcome.Snapshot;
+    }
+
+    private static void ReportEncounterSuccess()
+    {
+        if (
+            !EncounterHealth.ObserveSuccess(ItemEnchantEncounterProbe.Encounter, out var reasonCode)
+        )
+            return;
+        BppLog.RecoverStorm(
+            ItemEnchantPreviewLogEvents.EncounterProbeDegraded,
+            ItemEnchantPreviewLogEvents.EncounterProbeDegradedProbe.Bind(
+                ItemEnchantEncounterProbe.Encounter
+            ),
+            ItemEnchantPreviewLogEvents.EncounterProbeDegradedReasonCode.Bind(reasonCode)
+        );
+        BppLog.InfoEvent(
+            ItemEnchantPreviewLogEvents.EncounterProbeRecovered,
+            ItemEnchantPreviewLogEvents.EncounterProbeRecoveredProbe.Bind(
+                ItemEnchantEncounterProbe.Encounter
+            )
+        );
+    }
+}
+
+[HarmonyPatch(typeof(CardTooltipController), nameof(CardTooltipController.ResetValues))]
+internal static class BppTooltipSectionResetPatch
+{
+    [HarmonyPrefix]
+    private static void Prefix(CardTooltipController __instance) =>
+        ItemEnchantPreviewTooltipLifecycle.Hide(__instance);
+
+    [HarmonyFinalizer]
+    private static void Finalizer(CardTooltipController __instance) =>
+        ItemEnchantPreviewTooltipLifecycle.Hide(__instance);
+}
+
+[HarmonyPatch(typeof(CardTooltipController), nameof(CardTooltipController.ClearCurrentCard))]
+internal static class BppTooltipSectionClearPatch
+{
+    [HarmonyPrefix]
+    private static void Prefix(CardTooltipController __instance) =>
+        ItemEnchantPreviewTooltipLifecycle.Hide(__instance);
+}
+
+[HarmonyPatch(typeof(CardTooltipController), "OnDisable")]
+internal static class BppTooltipSectionDisablePatch
+{
+    [HarmonyPrefix]
+    private static void Prefix(CardTooltipController __instance) =>
+        ItemEnchantPreviewTooltipLifecycle.Hide(__instance);
+}
+
+[HarmonyPatch(typeof(CardTooltipController), nameof(CardTooltipController.OnDestroy))]
+internal static class BppTooltipSectionDestroyPatch
+{
+    [HarmonyPrefix]
+    private static void Prefix(CardTooltipController __instance)
+    {
+        TooltipLayerOverride.SetElevated(__instance, elevated: false);
+        BppTooltipSections.ReleaseAll(__instance);
+    }
+}
+
+internal static class ItemEnchantPreviewTooltipLifecycle
+{
+    internal static void Hide(CardTooltipController controller)
+    {
+        BppTooltipSections.Hide(
+            controller,
+            BppTooltipSectionRenderPatch.EnchantWithNativeSectionKey
+        );
+        BppTooltipSections.Hide(
+            controller,
+            BppTooltipSectionRenderPatch.EnchantAfterQuestSectionKey
+        );
+        BppTooltipSections.Hide(
+            controller,
+            BppTooltipSectionRenderPatch.EnchantWithoutNativeSectionKey
+        );
+        TooltipLayerOverride.SetElevated(controller, elevated: false);
     }
 }

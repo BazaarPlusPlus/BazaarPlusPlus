@@ -1,9 +1,4 @@
 #nullable enable
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Reflection;
 using BazaarPlusPlus.Infrastructure;
 using UnityEngine;
 
@@ -11,31 +6,62 @@ namespace BazaarPlusPlus.Game.Settings;
 
 internal static class BppDockButtonSpriteProvider
 {
-    private const string LogCategory = "BppDockButtonSprite";
+    private static readonly Dictionary<BppDockButtonSpriteId, Sprite?> CachedSprites = [];
 
-    private static readonly Dictionary<BppDockButtonIconKind, Sprite?> _cache = new();
-
-    internal static Sprite? Get(BppDockButtonIconKind kind)
+    internal static Sprite? Get(
+        BppDockButtonSpriteId spriteId = BppDockButtonSpriteId.CollectionPanel
+    )
     {
-        if (_cache.TryGetValue(kind, out var cached))
-            return cached;
+        if (CachedSprites.TryGetValue(spriteId, out var cachedSprite))
+            return cachedSprite;
 
-        var suffix = kind switch
-        {
-            BppDockButtonIconKind.SettingsDock => "Resources.DockButtons.bpp-settings-icon.png",
-            BppDockButtonIconKind.CollectionPanel =>
-                "Resources.DockButtons.collection-panel-icon.png",
-            _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null),
-        };
-
-        var sprite = LoadSprite(suffix, kind.ToString());
-        _cache[kind] = sprite;
+        var spec = Resolve(spriteId);
+        var sprite = LoadSprite(spec.ResourceSuffix, spec.SpriteName, spec.ResourceId);
+        CachedSprites[spriteId] = sprite;
         return sprite;
     }
 
-    private static Sprite? LoadSprite(string resourceSuffix, string spriteName)
+    private static (
+        string ResourceSuffix,
+        string SpriteName,
+        SettingsDockSpriteResourceId ResourceId
+    ) Resolve(BppDockButtonSpriteId spriteId) =>
+        spriteId switch
+        {
+            BppDockButtonSpriteId.ReplayExport => (
+                "Resources.DockButtons.replay-export-icon.png",
+                "ReplayExport",
+                SettingsDockSpriteResourceId.ReplayExportIcon
+            ),
+            BppDockButtonSpriteId.ReplayRecording => (
+                "Resources.DockButtons.replay-recording-icon.png",
+                "ReplayRecording",
+                SettingsDockSpriteResourceId.ReplayRecordingIcon
+            ),
+            BppDockButtonSpriteId.ReplayView => (
+                "Resources.DockButtons.replay-view-icon.png",
+                "ReplayView",
+                SettingsDockSpriteResourceId.ReplayViewIcon
+            ),
+            BppDockButtonSpriteId.ReplayRetry => (
+                "Resources.DockButtons.replay-retry-icon.png",
+                "ReplayRetry",
+                SettingsDockSpriteResourceId.ReplayRetryIcon
+            ),
+            _ => (
+                "Resources.DockButtons.collection-panel-icon.png",
+                "CollectionPanel",
+                SettingsDockSpriteResourceId.CollectionPanelIcon
+            ),
+        };
+
+    private static Sprite? LoadSprite(
+        string resourceSuffix,
+        string spriteName,
+        SettingsDockSpriteResourceId resourceId
+    )
     {
-        var assembly = Assembly.GetExecutingAssembly();
+        var assembly = typeof(BppDockButtonSpriteProvider).Assembly;
         var resourceName = assembly
             .GetManifestResourceNames()
             .FirstOrDefault(name =>
@@ -43,13 +69,16 @@ internal static class BppDockButtonSpriteProvider
             );
         if (resourceName == null)
         {
-            BppLog.Warn(LogCategory, $"Embedded sprite resource not found suffix={resourceSuffix}");
+            ReportDegraded(SettingsLogReasonCode.ResourceMissing, resourceId);
             return null;
         }
 
         using var stream = assembly.GetManifestResourceStream(resourceName);
         if (stream == null)
+        {
+            ReportDegraded(SettingsLogReasonCode.ResourceStreamUnavailable, resourceId);
             return null;
+        }
 
         using var bytes = new MemoryStream();
         stream.CopyTo(bytes);
@@ -64,7 +93,7 @@ internal static class BppDockButtonSpriteProvider
         if (!texture.LoadImage(bytes.ToArray(), markNonReadable: false))
         {
             UnityEngine.Object.Destroy(texture);
-            BppLog.Warn(LogCategory, $"Failed to decode embedded sprite resource {resourceName}");
+            ReportDegraded(SettingsLogReasonCode.ResourceDecodeFailed, resourceId);
             return null;
         }
 
@@ -80,4 +109,23 @@ internal static class BppDockButtonSpriteProvider
         sprite.name = $"BPP_{spriteName}_Sprite";
         return sprite;
     }
+
+    private static void ReportDegraded(
+        SettingsLogReasonCode reasonCode,
+        SettingsDockSpriteResourceId resourceId
+    ) =>
+        BppLog.WarnEvent(
+            SettingsLogEvents.DockSpriteDegraded,
+            SettingsLogEvents.DockSpriteDegradedReasonCode.Bind(reasonCode),
+            SettingsLogEvents.DockSpriteDegradedResourceId.Bind(resourceId)
+        );
+}
+
+internal enum BppDockButtonSpriteId
+{
+    CollectionPanel,
+    ReplayExport,
+    ReplayRecording,
+    ReplayView,
+    ReplayRetry,
 }

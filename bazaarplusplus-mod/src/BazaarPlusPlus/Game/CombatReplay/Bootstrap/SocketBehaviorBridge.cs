@@ -1,29 +1,33 @@
 #nullable enable
 
-using System;
-using System.Collections.Generic;
 using System.Reflection;
-using System.Threading.Tasks;
 using BazaarGameShared.Infra.Messages;
-using BazaarPlusPlus.Infrastructure;
 using TheBazaar;
-using TheBazaar.AppFramework;
 
 namespace BazaarPlusPlus.Game.CombatReplay.Bootstrap;
 
 internal static class SocketBehaviorBridge
 {
-    internal static object EnsureSocketBehavior()
+    internal static object EnsureSocketBehavior(IReplayPlaybackOutcomeSink outcome)
     {
-        var socketBehavior = TryGetSocketBehavior();
+        var socketBehavior = TryGetSocketBehavior(outcome);
         if (socketBehavior != null)
             return socketBehavior;
 
         throw new InvalidOperationException("SocketBehavior is unavailable.");
     }
 
-    internal static object? TryGetSocketBehavior()
+    internal static object? TryGetSocketBehavior(IReplayPlaybackOutcomeSink? outcome = null)
     {
+        return TryGetSocketBehavior(out _, outcome);
+    }
+
+    private static object? TryGetSocketBehavior(
+        out Exception? failure,
+        IReplayPlaybackOutcomeSink? outcome
+    )
+    {
+        failure = null;
         try
         {
             var replayHostType = ResolveReplayHostType();
@@ -41,21 +45,23 @@ internal static class SocketBehaviorBridge
         }
         catch (Exception ex)
         {
-            BppLog.Warn(
-                "SocketBehaviorBridge",
-                $"Failed to resolve SocketBehavior via runtime API: {ex.Message}"
-            );
+            failure = ex;
+            outcome?.ReportDegradation(ReplayPlaybackReasonCode.SocketResolutionFailed, ex);
             return null;
         }
     }
 
-    internal static void DisposeSocketBehavior()
+    internal static ReplaySocketCleanupOutcome DisposeSocketBehavior(
+        IReplayPlaybackOutcomeSink? outcome = null
+    )
     {
         try
         {
-            var socketBehavior = TryGetSocketBehavior();
+            var socketBehavior = TryGetSocketBehavior(out var resolutionFailure, outcome);
+            if (resolutionFailure != null)
+                return ReplaySocketCleanupOutcome.Failure(resolutionFailure);
             if (socketBehavior == null)
-                return;
+                return ReplaySocketCleanupOutcome.Success();
             var disposeMethod = socketBehavior
                 .GetType()
                 .GetMethod(
@@ -63,19 +69,18 @@ internal static class SocketBehaviorBridge
                     BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic
                 );
             disposeMethod?.Invoke(socketBehavior, null);
+            return ReplaySocketCleanupOutcome.Success();
         }
         catch (Exception ex)
         {
-            BppLog.Warn(
-                "SocketBehaviorBridge",
-                $"Failed to dispose socket during replay rollback: {ex.Message}"
-            );
+            return ReplaySocketCleanupOutcome.Failure(ex);
         }
     }
 
     internal static NetMessageProcessor GetProcessor(object? socketBehavior)
     {
-        socketBehavior ??= EnsureSocketBehavior();
+        if (socketBehavior == null)
+            throw new InvalidOperationException("SocketBehavior is unavailable.");
 
         var method = socketBehavior
             .GetType()
@@ -206,4 +211,12 @@ internal static class SocketBehaviorBridge
 
         return null;
     }
+}
+
+internal readonly record struct ReplaySocketCleanupOutcome(bool Succeeded, Exception? Exception)
+{
+    internal static ReplaySocketCleanupOutcome Success() => new(true, null);
+
+    internal static ReplaySocketCleanupOutcome Failure(Exception exception) =>
+        new(false, exception ?? throw new ArgumentNullException(nameof(exception)));
 }

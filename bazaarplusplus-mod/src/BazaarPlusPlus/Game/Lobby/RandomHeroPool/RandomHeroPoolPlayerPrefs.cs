@@ -1,17 +1,12 @@
 #nullable enable
-using System;
-using System.Collections.Generic;
-using System.Linq;
-
 namespace BazaarPlusPlus.Game.Lobby.RandomHeroPool;
 
 internal static class RandomHeroPoolPlayerPrefs
 {
     private const string SelectedPoolPrefsKeyPrefix = "BPP.RandomHeroPool.Selected";
-    private const string LogScope = "RandomHeroPool";
 
     public static IReadOnlyCollection<string>? LoadSelectedHeroIds() =>
-        RandomPoolPrefsHelpers.LoadIdCollection(BuildScopedPrefsKey(), LogScope);
+        RandomPoolPrefsHelpers.LoadIdCollection(BuildScopedPrefsKey(), RandomPoolKind.Hero);
 
     public static void SaveSelectedHeroIds(IEnumerable<string> heroIds) =>
         RandomPoolPrefsHelpers.SaveIdCollection(BuildScopedPrefsKey(), heroIds);
@@ -48,5 +43,5 @@ internal static class RandomHeroPoolPlayerPrefs
     }
 
     private static string BuildScopedPrefsKey() =>
-        $"{SelectedPoolPrefsKeyPrefix}.{RandomPoolPrefsHelpers.ResolveAccountScopeForPrefs(LogScope)}";
+        $"{SelectedPoolPrefsKeyPrefix}.{RandomPoolPrefsHelpers.ResolveAccountScopeForPrefs(RandomPoolKind.Hero)}";
 }

@@ -1,5 +1,4 @@
 #nullable enable
-using System;
 using BazaarPlusPlus.Core.Events;
 using BazaarPlusPlus.Core.GameState;
 using BazaarPlusPlus.Core.RunContext;
@@ -12,9 +11,12 @@ namespace BazaarPlusPlus.Game.RunLifecycle;
 
 internal sealed class RunLifecycleModule : IBppFeature
 {
+    private const int MaximumRecentRunIds = 256;
     private readonly IBppEventBus _eventBus;
     private readonly IGameStateProbe _gameStateProbe;
     private readonly IRunContext _runContext;
+    private readonly HashSet<string> _loggedRunIds = new(StringComparer.Ordinal);
+    private readonly Queue<string> _loggedRunIdOrder = new();
     private IDisposable? _runInitializedSubscription;
 
     public RunLifecycleModule(
@@ -36,7 +38,6 @@ internal sealed class RunLifecycleModule : IBppFeature
         _runInitializedSubscription = _eventBus.Subscribe<RunInitializedObserved>(
             OnRunInitializedObserved
         );
-        BppLog.Info("RunLifecycle", "Subscribed to run lifecycle events");
     }
 
     public void Stop()
@@ -61,7 +62,18 @@ internal sealed class RunLifecycleModule : IBppFeature
     private void OnRunInitializedObserved(RunInitializedObserved observed)
     {
         SetCurrentServerRunId(observed.RunId);
-        BppLog.Info("RunLifecycle", $"Captured server run id: {observed.RunId}");
+        if (string.IsNullOrWhiteSpace(observed.RunId))
+            return;
+        if (!_loggedRunIds.Add(observed.RunId))
+            return;
+
+        _loggedRunIdOrder.Enqueue(observed.RunId);
+        if (_loggedRunIdOrder.Count > MaximumRecentRunIds)
+            _loggedRunIds.Remove(_loggedRunIdOrder.Dequeue());
+        BppLog.InfoEvent(
+            RunLifecycleLogEvents.RunStarted,
+            RunLifecycleLogEvents.RunId.Bind(observed.RunId)
+        );
     }
 
     private void OnRunStarted()
@@ -102,9 +114,32 @@ internal sealed class RunLifecycleModule : IBppFeature
             }
         );
 
-        BppLog.Debug(
-            "RunLifecycle",
-            $"{reason}; IsInGameRun={_runContext.IsInGameRun}, appState={AppState.CurrentState?.GetType().Name ?? "null"}, runState={Data.CurrentState?.StateName.ToString() ?? "null"}, hasActiveRun={Data.HasActiveRun}"
+        BppLog.DebugEvent(
+            RunLifecycleLogEvents.StateChanged,
+            () =>
+                new[]
+                {
+                    RunLifecycleLogEvents.StateChangeReasonCode.Bind(ToLogReason(reason)),
+                    RunLifecycleLogEvents.IsInGameRun.Bind(_runContext.IsInGameRun),
+                    RunLifecycleLogEvents.AppState.Bind(
+                        AppState.CurrentState?.GetType().Name ?? "null"
+                    ),
+                    RunLifecycleLogEvents.RunState.Bind(
+                        Data.CurrentState?.StateName.ToString() ?? "null"
+                    ),
+                    RunLifecycleLogEvents.HasActiveRun.Bind(Data.HasActiveRun),
+                }
         );
+    }
+
+    private static RunLifecycleLogReason ToLogReason(string reason)
+    {
+        if (string.Equals(reason, "Run started", StringComparison.Ordinal))
+            return RunLifecycleLogReason.RunStarted;
+        if (string.Equals(reason, RunLifecycleReasons.RunEnded, StringComparison.Ordinal))
+            return RunLifecycleLogReason.RunEnded;
+        if (string.Equals(reason, RunLifecycleReasons.RunInterrupted, StringComparison.Ordinal))
+            return RunLifecycleLogReason.RunInterrupted;
+        return RunLifecycleLogReason.StateReconciled;
     }
 }

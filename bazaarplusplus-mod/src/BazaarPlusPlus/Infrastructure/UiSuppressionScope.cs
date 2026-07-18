@@ -1,7 +1,4 @@
 #nullable enable
-using System;
-using System.Collections.Generic;
-
 namespace BazaarPlusPlus.Infrastructure;
 
 internal sealed class UiSuppressionScope : IDisposable

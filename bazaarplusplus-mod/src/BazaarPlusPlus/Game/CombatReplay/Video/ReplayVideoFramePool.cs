@@ -1,7 +1,5 @@
 #nullable enable
-using System;
 using System.Collections.Concurrent;
-using System.Threading;
 
 namespace BazaarPlusPlus.Game.CombatReplay.Video;
 

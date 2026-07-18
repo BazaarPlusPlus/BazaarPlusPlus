@@ -1,6 +1,4 @@
 #nullable enable
-using System;
-
 namespace BazaarPlusPlus.Localization;
 
 internal static class LanguageCodeMatcher

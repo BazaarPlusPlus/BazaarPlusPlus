@@ -1,6 +1,4 @@
 #nullable enable
-using System;
-
 namespace BazaarPlusPlus.Storage.RunLog;
 
 public sealed class RunLogSessionState

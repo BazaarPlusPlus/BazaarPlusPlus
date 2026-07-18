@@ -1,6 +1,4 @@
 #nullable enable
-using System.Collections.Generic;
-
 namespace BazaarPlusPlus.Game.PvpBattles;
 
 public sealed class PvpBattleCardSetCapture

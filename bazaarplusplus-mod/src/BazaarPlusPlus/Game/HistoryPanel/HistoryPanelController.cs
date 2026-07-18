@@ -29,6 +29,16 @@ internal sealed partial class HistoryPanel
         _coordinator?.SetGhostBattleFilter(filter);
     }
 
+    private void SetRunHero(string hero)
+    {
+        _coordinator?.SetRunHeroFilter(hero);
+    }
+
+    private void ToggleGhostDayMin10()
+    {
+        _coordinator?.ToggleGhostDayMin10();
+    }
+
     private void SelectRun(int index)
     {
         _coordinator?.SelectRun(index);
@@ -94,19 +104,19 @@ internal sealed partial class HistoryPanel
             _ = _coordinator.TryCheckServerHealthAsync();
     }
 
-    private void ClearDeleteRunConfirmation()
+    private void SubmitAccountLinkCode(string? code)
     {
-        _state.DeleteRunConfirmationRunId = null;
-        _state.DeleteRunConfirmationUntil = 0f;
+        if (_coordinator != null)
+            _ = _coordinator.TryRedeemBazaarDbAccountAsync(code);
     }
 
-    private bool IsDeleteRunConfirmationActive(string runId)
+    private void ToggleAccountLinkForm()
     {
-        return _coordinator?.IsDeleteRunConfirmationActive(runId) == true;
+        _coordinator?.ToggleAccountLinkForm();
     }
 
-    private string GetDatabaseChipText()
+    private void MarkAccountLinkedManually()
     {
-        return _coordinator?.GetDatabaseChipText() ?? HistoryPanelText.DatabaseUnavailable();
+        _coordinator?.MarkAccountLinkedManually();
     }
 }

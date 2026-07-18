@@ -1,9 +1,8 @@
 #nullable enable
-using System.Collections.Generic;
-using System.Linq;
 using BazaarPlusPlus.Game.CollectionPanel.Sources;
-using BazaarPlusPlus.Infrastructure.Fonts;
+using BazaarPlusPlus.GameInterop.Fonts;
 using BazaarPlusPlus.Infrastructure.UiTokens;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -13,6 +12,8 @@ internal static class CollectionSourceAttributionBadge
 {
     private const string BadgeName = "BppCollectionSourceAttributionBadge";
     private const string LabelName = "BppCollectionSourceAttributionLabel";
+    private const float BadgeRootHeightScale =
+        CollectionGridVirtualizer.FallbackNativeCardHeight / 200f;
 
     public static void Bind(
         GameObject host,
@@ -20,6 +21,8 @@ internal static class CollectionSourceAttributionBadge
     )
     {
         var badge = EnsureBadge(host);
+        if (badge == null)
+            return;
         var text = AttributionText(sourceMatches);
         if (string.IsNullOrWhiteSpace(text))
         {
@@ -28,16 +31,22 @@ internal static class CollectionSourceAttributionBadge
         }
 
         badge.SetActive(true);
-        var label = badge.GetComponentInChildren<Text>(includeInactive: true);
+        var label = badge.GetComponentInChildren<TextMeshProUGUI>(includeInactive: true);
         if (label != null)
             label.text = text;
     }
 
-    private static GameObject EnsureBadge(GameObject host)
+    private static GameObject? EnsureBadge(GameObject host)
     {
         var existing = host.transform.Find(BadgeName);
         if (existing != null)
             return existing.gameObject;
+        if (
+            NativeGameTypography.PrepareOwnedText(out var typography)
+                != NativeGameTypography.Outcome.Ready
+            || typography == null
+        )
+            return null;
 
         var badge = new GameObject(BadgeName, typeof(RectTransform), typeof(Image));
         badge.transform.SetParent(host.transform, worldPositionStays: false);
@@ -45,31 +54,38 @@ internal static class CollectionSourceAttributionBadge
         rect.anchorMin = new Vector2(1f, 1f);
         rect.anchorMax = new Vector2(1f, 1f);
         rect.pivot = new Vector2(1f, 1f);
-        rect.anchoredPosition = new Vector2(-10f, -12f);
-        rect.sizeDelta = new Vector2(132f, 28f);
+        rect.anchoredPosition = new Vector2(
+            -10f * BadgeRootHeightScale,
+            -12f * BadgeRootHeightScale
+        );
+        rect.sizeDelta = new Vector2(132f * BadgeRootHeightScale, 28f * BadgeRootHeightScale);
         rect.localScale = Vector3.one;
 
         var image = badge.GetComponent<Image>();
         image.color = new Color(0.07f, 0.08f, 0.1f, 0.9f);
         image.raycastTarget = false;
 
-        var labelObject = new GameObject(LabelName, typeof(RectTransform), typeof(Text));
+        var labelObject = new GameObject(LabelName, typeof(RectTransform), typeof(CanvasRenderer));
         labelObject.transform.SetParent(badge.transform, worldPositionStays: false);
         var labelRect = labelObject.GetComponent<RectTransform>();
         labelRect.anchorMin = Vector2.zero;
         labelRect.anchorMax = Vector2.one;
-        labelRect.offsetMin = new Vector2(6f, 0f);
-        labelRect.offsetMax = new Vector2(-6f, 0f);
+        labelRect.offsetMin = new Vector2(6f * BadgeRootHeightScale, 0f);
+        labelRect.offsetMax = new Vector2(-6f * BadgeRootHeightScale, 0f);
         labelRect.localScale = Vector3.one;
 
-        var label = labelObject.GetComponent<Text>();
-        label.font = BppUiFont.Default;
-        label.fontSize = 12;
-        label.fontStyle = FontStyle.Bold;
-        label.alignment = TextAnchor.MiddleCenter;
+        var label = labelObject.AddComponent<TextMeshProUGUI>();
+        if (typography.Apply(label) != NativeGameTypography.Outcome.Applied)
+        {
+            UnityEngine.Object.Destroy(badge);
+            return null;
+        }
+        label.fontSize = Mathf.RoundToInt(12f * BadgeRootHeightScale);
+        label.fontStyle = FontStyles.Bold;
+        label.alignment = TextAlignmentOptions.Center;
         label.color = Colors.HistoryTitleText;
-        label.horizontalOverflow = HorizontalWrapMode.Overflow;
-        label.verticalOverflow = VerticalWrapMode.Truncate;
+        label.textWrappingMode = TextWrappingModes.NoWrap;
+        label.overflowMode = TextOverflowModes.Overflow;
         label.raycastTarget = false;
         return badge;
     }

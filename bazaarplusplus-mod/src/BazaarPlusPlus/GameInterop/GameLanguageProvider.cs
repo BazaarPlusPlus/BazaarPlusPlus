@@ -1,6 +1,5 @@
 #nullable enable
 using BazaarPlusPlus.Localization;
-using TheBazaar;
 
 namespace BazaarPlusPlus.GameInterop;
 

@@ -1,5 +1,4 @@
 #nullable enable
-using BazaarPlusPlus.Game.HistoryPanel.Data;
 using BazaarPlusPlus.Infrastructure.UiTokens;
 using UnityEngine;
 
@@ -7,22 +6,6 @@ namespace BazaarPlusPlus.Game.HistoryPanel.Ui;
 
 internal sealed partial class HistoryPanelUiToolkitView
 {
-    private readonly struct HeroBadgeStyle
-    {
-        public HeroBadgeStyle(string shortCode, Color background, Color text)
-        {
-            ShortCode = shortCode;
-            Background = background;
-            Text = text;
-        }
-
-        public string ShortCode { get; }
-
-        public Color Background { get; }
-
-        public Color Text { get; }
-    }
-
     private static (Color Background, Color Text) GetRankBadgePalette(string rank)
     {
         return rank switch
@@ -96,35 +79,5 @@ internal sealed partial class HistoryPanelUiToolkitView
             : isWin ? Colors.BattleDayWinBackground
             : isLoss ? Colors.BattleDayLossBackground
             : Colors.BattleDayNeutralBackground;
-    }
-
-    private static HeroBadgeStyle GetHeroBadgeStyle(string? heroName)
-    {
-        if (string.IsNullOrWhiteSpace(heroName))
-            return new HeroBadgeStyle("UNK", Colors.HeroUnknownBackground, Colors.White);
-
-        return heroName.Trim() switch
-        {
-            "Vanessa" => BuildHeroBadgeStyle("VAN", Colors.HeroVanessaBackground),
-            "Pygmalien" => BuildHeroBadgeStyle("PYG", Colors.HeroPygmalienBackground),
-            "Dooley" => BuildHeroBadgeStyle("DOO", Colors.HeroDooleyBackground),
-            "Mak" => BuildHeroBadgeStyle("MAK", Colors.HeroMakBackground),
-            "Jules" => BuildHeroBadgeStyle("JUL", Colors.HeroJulesBackground),
-            "Karnok" => BuildHeroBadgeStyle("KAR", Colors.HeroKarnokBackground),
-            "Stelle" => BuildHeroBadgeStyle("STE", Colors.HeroStelleBackground),
-            _ => BuildHeroBadgeStyle(
-                heroName.Length <= 3
-                    ? heroName.ToUpperInvariant()
-                    : heroName[..3].ToUpperInvariant(),
-                Colors.HeroDefaultBackground
-            ),
-        };
-    }
-
-    private static HeroBadgeStyle BuildHeroBadgeStyle(string shortCode, Color background)
-    {
-        var luminance = (0.299f * background.r) + (0.587f * background.g) + (0.114f * background.b);
-        var text = luminance > 0.62f ? Colors.HeroDarkText : Colors.White;
-        return new HeroBadgeStyle(shortCode, background, text);
     }
 }
