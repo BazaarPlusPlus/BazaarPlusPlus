@@ -41,6 +41,22 @@ fn test_inject_launch_options_inserts_when_missing() {
 }
 
 #[test]
+fn test_launch_options_supports_uppercase_apps_key() {
+    let vdf = fixture_vdf().replace("\"apps\"", "\"Apps\"");
+    let args = "MY_ARGS";
+
+    let rendered = inject_launch_options(&vdf, args).unwrap().unwrap();
+    assert!(rendered.contains("\"Apps\""));
+    assert_eq!(
+        verify_launch_options_in_content(&rendered, args).unwrap(),
+        Some(true)
+    );
+
+    let cleared = clear_launch_options(&rendered).unwrap().unwrap();
+    assert!(!cleared.contains("LaunchOptions"));
+}
+
+#[test]
 fn test_inject_launch_options_replaces_existing() {
     let vdf_with_lo = fixture_vdf().replace(
         "\"LastPlayed\"",

@@ -100,7 +100,9 @@ fn join_lines(lines: &[String]) -> String {
 }
 
 fn find_apps_block(lines: &[String]) -> Option<(usize, usize)> {
-    let start = lines.iter().position(|line| line.trim() == "\"apps\"")?;
+    let start = lines
+        .iter()
+        .position(|line| line.trim().eq_ignore_ascii_case("\"apps\""))?;
     let open = (start + 1..lines.len()).find(|&idx| lines[idx].trim() == "{")?;
     let mut depth = 0usize;
 
