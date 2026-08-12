@@ -6,19 +6,19 @@ namespace BazaarPlusPlus.Game.LiveBuildPanel.Data;
 internal readonly struct TenWinCorpusSummary
 {
     public TenWinCorpusSummary(
-        DateTimeOffset? windowEndUtc,
+        DateTimeOffset? generatedAtUtc,
         int buildCount,
         int heroCount,
         IReadOnlyList<TenWinHeroBuildCount>? heroBuildCounts = null
     )
     {
-        WindowEndUtc = windowEndUtc;
+        GeneratedAtUtc = generatedAtUtc;
         BuildCount = buildCount;
         HeroCount = heroCount;
         HeroBuildCounts = heroBuildCounts ?? Array.Empty<TenWinHeroBuildCount>();
     }
 
-    public DateTimeOffset? WindowEndUtc { get; }
+    public DateTimeOffset? GeneratedAtUtc { get; }
 
     public int BuildCount { get; }
 
