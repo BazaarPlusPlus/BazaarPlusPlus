@@ -494,10 +494,10 @@ internal sealed class LiveBuildPanel : MonoBehaviour
     {
         if (_buildRefreshSucceeded)
             return LiveBuildRefreshSeverity.Success;
-        if (summary?.GeneratedAtUtc is not { } generatedAt)
+        if (summary?.WindowEndUtc is not { } windowEnd)
             return LiveBuildRefreshSeverity.Failure;
 
-        var age = nowUtc - generatedAt;
+        var age = nowUtc - windowEnd;
         if (age <= TimeSpan.FromHours(24))
             return LiveBuildRefreshSeverity.Success;
         if (age <= TimeSpan.FromDays(7))
