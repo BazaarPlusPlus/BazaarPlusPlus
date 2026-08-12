@@ -1,0 +1,94 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>LiveBuildRecommendations.Tests</AssemblyName>
+    <RootNamespace>LiveBuildRecommendations.Tests</RootNamespace>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>12</LangVersion>
+    <NuGetAudit>false</NuGetAudit>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(RemoteEmbeddedDataPrepared)' == 'true'">
+    <DefineConstants>$(DefineConstants);REMOTE_EMBEDDED_DATA_PREPARED</DefineConstants>
+    <RemoteEmbeddedDataDirectory Condition="'$(RemoteEmbeddedDataDirectory)' == ''"
+      >$(MSBuildThisFileDirectory)../../src/BazaarPlusPlus/obj/remote-data</RemoteEmbeddedDataDirectory>
+    <TenWinBuildsDownloadedPath Condition="'$(TenWinBuildsDownloadedPath)' == ''"
+      >$(RemoteEmbeddedDataDirectory)/analyzer-v5-builds-latest.json</TenWinBuildsDownloadedPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile
+      Include="../../src/BazaarPlusPlus/Game/LiveBuildPanel/Data/TenWinCorpusSummary.cs"
+      Link="Product/TenWinCorpusSummary.cs"
+    />
+    <Compile
+      Include="../../src/BazaarPlusPlus/Game/LiveBuildPanel/Text/LiveBuildPanelText.Refresh.cs"
+      Link="Product/LiveBuildPanelText.Refresh.cs"
+    />
+    <Compile
+      Include="../../src/BazaarPlusPlus/Game/LiveBuildPanel/Recommendations/BuildLiveState.cs"
+      Link="Product/BuildLiveState.cs"
+    />
+    <Compile
+      Include="../../src/BazaarPlusPlus/Game/LiveBuildPanel/Recommendations/BuildRecommendation.cs"
+      Link="Product/BuildRecommendation.cs"
+    />
+    <Compile
+      Include="../../src/BazaarPlusPlus/Game/LiveBuildPanel/Recommendations/BuildRecommendationRepository.cs"
+      Link="Product/BuildRecommendationRepository.cs"
+    />
+    <Compile
+      Include="../../src/BazaarPlusPlus/Game/LiveBuildPanel/Recommendations/TenWinBuildCorpus.cs"
+      Link="Product/TenWinBuildCorpus.cs"
+    />
+    <Compile
+      Include="../../src/BazaarPlusPlus/GameInterop/ItemBoardPreview/BppItemBoard.cs"
+      Link="Product/BppItemBoard.cs"
+    />
+    <Compile
+      Include="../../src/BazaarPlusPlus/GameInterop/ItemBoardPreview/BppItemBoardCard.cs"
+      Link="Product/BppItemBoardCard.cs"
+    />
+    <Compile
+      Include="../../src/BazaarPlusPlus/GameInterop/ItemBoardPreview/BppItemBoardId.cs"
+      Link="Product/BppItemBoardId.cs"
+    />
+    <Compile
+      Include="../../src/BazaarPlusPlus/GameInterop/ItemBoardPreview/BppItemBoardSlotPlanner.cs"
+      Link="Product/BppItemBoardSlotPlanner.cs"
+    />
+    <Compile
+      Include="../../src/BazaarPlusPlus/GameInterop/ItemBoardPreview/BppItemBoardType.cs"
+      Link="Product/BppItemBoardType.cs"
+    />
+    <Compile
+      Include="../../src/BazaarPlusPlus/Infrastructure/RemoteEmbeddedCatalog/RemoteEmbeddedCatalog.cs"
+      Link="Product/RemoteEmbeddedCatalog.cs"
+    />
+    <Compile
+      Include="../../src/BazaarPlusPlus/Infrastructure/RemoteEmbeddedCatalog/RemoteEmbeddedCatalogContracts.cs"
+      Link="Product/RemoteEmbeddedCatalogContracts.cs"
+    />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource
+      Include="Fixtures/analyzer-v5-schema2-contract.json"
+      LogicalName="LiveBuildRecommendations.Tests.analyzer-v5-schema2-contract.json"
+    />
+    <None
+      Include="$(TenWinBuildsDownloadedPath)"
+      Link="PreparedData/analyzer-v5-builds-latest.json"
+      CopyToOutputDirectory="PreserveNewest"
+      Condition="'$(RemoteEmbeddedDataPrepared)' == 'true'"
+    />
+  </ItemGroup>
+</Project>
