@@ -6,8 +6,9 @@ using Newtonsoft.Json.Linq;
 namespace BazaarPlusPlus.Game.LiveBuildPanel.Recommendations;
 
 /// <summary>
-/// Parsed, in-memory view of the analyzer-v5 ten-win build corpus
-/// (<c>analyzer-v5/builds/latest.json</c>).
+/// Parsed, in-memory view of the analyzer-v4 ten-win build corpus
+/// (<c>analyzer-v4/mod/tenwin_builds.json</c>, emitted by
+/// <c>bazaarplusplus-analyzers/src/bpp/stages/analyze/mod_builds.py</c>).
 ///
 /// The payload is a compact, schema-driven format: top-level string tables (<c>cards</c>,
 /// <c>enchantments</c>) plus per-hero builds encoded as positional array rows whose column order
@@ -22,12 +23,15 @@ namespace BazaarPlusPlus.Game.LiveBuildPanel.Recommendations;
 internal sealed class TenWinBuildCorpus
 {
     private const int ExpectedSchemaVersion = 2;
-    private const string ExpectedKind = "ten_win_builds";
-    private const int BoardSlotCount = 10;
-    private const int MaximumWindowDays = 7;
 
-    private static readonly string[] ExpectedBuildSchema = { "card_refs", "layout", "stats" };
-    private static readonly string[] ExpectedLayoutSchema =
+    private static readonly string[] DefaultBuildSchema =
+    {
+        "card_refs",
+        "layout",
+        "stats",
+        "selection",
+    };
+    private static readonly string[] DefaultLayoutSchema =
     {
         "card_ref",
         "slot",
@@ -35,12 +39,18 @@ internal sealed class TenWinBuildCorpus
         "enchant_ref",
         "size",
     };
-    private static readonly string[] ExpectedStatsSchema =
+    private static readonly string[] DefaultStatsSchema =
     {
         "completed_run_count",
         "ten_win_run_count",
         "ten_win_rate_bps",
+        "avg_ten_win_final_day_tenth",
         "p75_ten_win_final_day",
+        "avg_ten_win_final_losses_tenth",
+        "elite_completed_run_count",
+        "elite_ten_win_run_count",
+        "elite_ten_win_rate_bps",
+        "elite_avg_ten_win_final_day_tenth",
         "score",
     };
 
@@ -52,15 +62,13 @@ internal sealed class TenWinBuildCorpus
         IReadOnlyList<Guid?> cards,
         IReadOnlyDictionary<Guid, int> refByTemplateId,
         IReadOnlyDictionary<string, TenWinHero> heroes,
-        DateTimeOffset generatedAtUtc,
-        DateTimeOffset windowEndUtc
+        DateTimeOffset? generatedAtUtc
     )
     {
         _cards = cards;
         _refByTemplateId = refByTemplateId;
         _heroes = heroes;
         GeneratedAtUtc = generatedAtUtc;
-        WindowEndUtc = windowEndUtc;
         BuildCount = heroes.Values.Sum(hero => hero.Builds.Count);
         HeroBuildCounts = heroes
             .Select(pair => new TenWinHeroBuildCount(pair.Key, pair.Value.Builds.Count))
@@ -71,11 +79,8 @@ internal sealed class TenWinBuildCorpus
 
     public int HeroCount => _heroes.Count;
 
-    /// <summary>Analyzer emission time from top-level <c>generated_at</c>.</summary>
-    public DateTimeOffset GeneratedAtUtc { get; }
-
-    /// <summary>Last included data day from <c>window.end</c>, used for corpus freshness.</summary>
-    public DateTimeOffset WindowEndUtc { get; }
+    /// <summary>Analyzer emission time (top-level <c>generatedAt</c>); null when absent/invalid.</summary>
+    public DateTimeOffset? GeneratedAtUtc { get; }
 
     public int BuildCount { get; }
 
@@ -94,13 +99,7 @@ internal sealed class TenWinBuildCorpus
         JObject root;
         try
         {
-            root = JObject.Parse(
-                json,
-                new JsonLoadSettings
-                {
-                    DuplicatePropertyNameHandling = DuplicatePropertyNameHandling.Error,
-                }
-            );
+            root = JObject.Parse(json);
         }
         catch
         {
@@ -109,35 +108,28 @@ internal sealed class TenWinBuildCorpus
 
         // Gate on the wire schema version so a future format change fails loudly
         // instead of silently mis-decoding. Greenfield: only v2 is accepted.
-        if (
-            !TryReadInt(root["schema_version"], out var schemaVersion)
-            || schemaVersion != ExpectedSchemaVersion
-            || root["kind"]?.Type != JTokenType.String
-            || !string.Equals(root["kind"]!.Value<string>(), ExpectedKind, StringComparison.Ordinal)
-        )
+        if (root["schema_version"]?.Value<int?>() != ExpectedSchemaVersion)
             return null;
 
         if (root["heroes"] is not JObject heroesObj)
             return null;
 
-        var generatedAtUtc = ParseGeneratedAt(root);
-        if (!generatedAtUtc.HasValue || !TryParseWindow(root["window"], out var windowEndUtc))
-            return null;
-
-        if (
-            !TryParseCards(root["cards"], out var cards)
-            || !TryParseEnchantments(root["enchantments"], out var enchantments)
-        )
-            return null;
+        var cards = ParseCards(root["cards"] as JArray);
+        var enchantments = ParseEnchantments(root["enchantments"] as JArray);
 
         if (root["schemas"] is not JObject schemas)
             return null;
 
-        if (
-            !HasExactSchema(schemas, "build", ExpectedBuildSchema)
-            || !HasExactSchema(schemas, "layout", ExpectedLayoutSchema)
-            || !HasExactSchema(schemas, "stats", ExpectedStatsSchema)
-        )
+        var buildSchema = ResolveSchema(schemas, "build", DefaultBuildSchema);
+        var layoutSchema = ResolveSchema(schemas, "layout", DefaultLayoutSchema);
+        var statsSchema = ResolveSchema(schemas, "stats", DefaultStatsSchema);
+        if (buildSchema == null || layoutSchema == null || statsSchema == null)
+            return null;
+
+        var build = new BuildColumns(buildSchema);
+        var layout = new LayoutColumns(layoutSchema);
+        var stats = new StatsColumns(statsSchema);
+        if (!build.IsComplete || !layout.IsComplete || !stats.IsComplete)
             return null;
 
         var refByTemplateId = new Dictionary<Guid, int>();
@@ -150,75 +142,22 @@ internal sealed class TenWinBuildCorpus
         var heroes = new Dictionary<string, TenWinHero>(StringComparer.Ordinal);
         foreach (var heroProperty in heroesObj.Properties())
         {
-            if (
-                string.IsNullOrWhiteSpace(heroProperty.Name)
-                || heroProperty.Value is not JObject heroObj
-                || !TryParseBuilds(
-                    heroObj["builds"],
-                    cards,
-                    enchantments,
-                    out var builds,
-                    out var buildCardRefs
-                )
-                || !TryParseCardIndex(
-                    heroObj["card_index"],
-                    cards.Count,
-                    buildCardRefs,
-                    out var cardIndex
-                )
-            )
-                return null;
+            if (heroProperty.Value is not JObject heroObj)
+                continue;
 
+            var builds = ParseBuilds(
+                heroObj["builds"] as JArray,
+                cards,
+                enchantments,
+                build,
+                layout,
+                stats
+            );
+            var cardIndex = ParseCardIndex(heroObj["card_index"] as JArray);
             heroes[heroProperty.Name] = new TenWinHero(builds, cardIndex);
         }
 
-        return new TenWinBuildCorpus(
-            cards,
-            refByTemplateId,
-            heroes,
-            generatedAtUtc.Value,
-            windowEndUtc
-        );
-    }
-
-    private static bool TryParseWindow(JToken? token, out DateTimeOffset windowEndUtc)
-    {
-        windowEndUtc = default;
-        if (
-            token is not JObject window
-            || !TryReadDate(window["start"], out var start)
-            || !TryReadDate(window["end"], out var end)
-            || !TryReadInt(window["days"], out var days)
-            || days is < 1 or > MaximumWindowDays
-            || end < start
-            || (end - start).Days + 1 != days
-        )
-            return false;
-
-        windowEndUtc = new DateTimeOffset(
-            DateTime.SpecifyKind(end, DateTimeKind.Unspecified),
-            TimeSpan.Zero
-        );
-        return true;
-    }
-
-    private static bool TryReadDate(JToken? token, out DateTime date)
-    {
-        date = default;
-        if (token?.Type == JTokenType.Date)
-        {
-            date = token.Value<DateTime>().Date;
-            return true;
-        }
-
-        return token?.Type == JTokenType.String
-            && DateTime.TryParseExact(
-                token.Value<string>(),
-                "yyyy-MM-dd",
-                CultureInfo.InvariantCulture,
-                DateTimeStyles.None,
-                out date
-            );
+        return new TenWinBuildCorpus(cards, refByTemplateId, heroes, ParseGeneratedAt(root));
     }
 
     // Json.NET eagerly converts ISO-8601 strings to Date tokens during JObject.Parse, so both
@@ -333,328 +272,243 @@ internal sealed class TenWinBuildCorpus
         return result;
     }
 
-    private static bool TryParseCards(JToken? token, out List<Guid?> result)
+    private static List<Guid?> ParseCards(JArray? cards)
     {
-        result = new List<Guid?>();
-        if (token is not JArray cards)
-            return false;
+        var result = new List<Guid?>();
+        if (cards == null)
+            return result;
 
-        var seen = new HashSet<Guid>();
-        foreach (var cardToken in cards)
+        foreach (var token in cards)
         {
-            if (
-                cardToken.Type != JTokenType.String
-                || !Guid.TryParse(cardToken.Value<string>(), out var guid)
-                || guid == Guid.Empty
-                || !seen.Add(guid)
-            )
-                return false;
-            result.Add(guid);
+            var text = token.Type == JTokenType.Null ? null : token.Value<string?>();
+            result.Add(Guid.TryParse(text, out var guid) ? guid : (Guid?)null);
         }
 
-        return true;
+        return result;
     }
 
-    private static bool TryParseEnchantments(JToken? token, out List<string?> result)
+    private static List<string?> ParseEnchantments(JArray? enchantments)
     {
-        result = new List<string?>();
-        if (
-            token is not JArray enchantments
-            || enchantments.Count == 0
-            || enchantments[0].Type != JTokenType.Null
-        )
-            return false;
+        var result = new List<string?>();
+        if (enchantments == null)
+            return result;
 
-        result.Add(null);
-        var seen = new HashSet<string>(StringComparer.Ordinal);
-        for (var index = 1; index < enchantments.Count; index++)
+        foreach (var token in enchantments)
         {
-            var value = enchantments[index];
-            if (value.Type != JTokenType.String)
-                return false;
-
-            var text = value.Value<string>()?.Trim();
-            if (string.IsNullOrWhiteSpace(text) || !seen.Add(text!))
-                return false;
-            result.Add(text);
+            var text = token.Type == JTokenType.Null ? null : token.Value<string?>();
+            result.Add(CleanEnchant(text));
         }
 
-        return true;
+        return result;
     }
 
-    private static bool HasExactSchema(JObject schemas, string key, IReadOnlyList<string> expected)
+    private static string? CleanEnchant(string? value)
     {
-        if (schemas[key] is not JArray actual || actual.Count != expected.Count)
-            return false;
-
-        for (var index = 0; index < expected.Count; index++)
-        {
-            if (
-                actual[index].Type != JTokenType.String
-                || !string.Equals(
-                    actual[index].Value<string>(),
-                    expected[index],
-                    StringComparison.Ordinal
-                )
-            )
-                return false;
-        }
-
-        return true;
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+        var trimmed = value!.Trim();
+        return string.Equals(trimmed, "None", StringComparison.OrdinalIgnoreCase) ? null : trimmed;
     }
 
-    private static bool TryParseBuilds(
-        JToken? token,
+    private static List<string>? ResolveSchema(JObject schemas, string key, string[] fallback)
+    {
+        if (schemas[key] is not JArray array)
+            return null;
+
+        var names = array
+            .Where(token => token.Type == JTokenType.String)
+            .Select(token => token.Value<string>()!)
+            .ToList();
+        return names.Count > 0 ? names : fallback.ToList();
+    }
+
+    private static List<TenWinBuild> ParseBuilds(
+        JArray? builds,
         IReadOnlyList<Guid?> cards,
         IReadOnlyList<string?> enchantments,
-        out List<TenWinBuild> result,
-        out List<HashSet<int>> buildCardRefs
+        BuildColumns buildColumns,
+        LayoutColumns layoutColumns,
+        StatsColumns statsColumns
     )
     {
-        result = new List<TenWinBuild>();
-        buildCardRefs = new List<HashSet<int>>();
-        if (token is not JArray builds)
-            return false;
+        var result = new List<TenWinBuild>();
+        if (builds == null)
+            return result;
 
         for (var buildId = 0; buildId < builds.Count; buildId++)
         {
-            if (
-                builds[buildId] is not JArray { Count: 3 } row
-                || row[0] is not JArray cardRefs
-                || row[1] is not JArray layoutRows
-                || row[2] is not JArray statsRow
-            )
-                return false;
+            if (builds[buildId] is not JArray row)
+                continue;
+
+            var cardRefs = TokenAt(row, buildColumns.CardRefs) as JArray;
+            var layoutRows = TokenAt(row, buildColumns.Layout) as JArray;
+            var statsRow = TokenAt(row, buildColumns.Stats) as JArray;
 
             var templateIdSet = new HashSet<Guid>();
-            var refs = new HashSet<int>();
-            foreach (var refToken in cardRefs)
+            if (cardRefs != null)
             {
-                if (!TryReadRef(refToken, cards.Count, out var cardRef))
-                    return false;
-                refs.Add(cardRef);
-                templateIdSet.Add(cards[cardRef]!.Value);
+                foreach (var refToken in cardRefs)
+                {
+                    var resolved = ResolveCard(cards, refToken.Value<int?>());
+                    if (resolved != Guid.Empty)
+                        templateIdSet.Add(resolved);
+                }
             }
 
-            if (
-                !TryParseLayout(
-                    layoutRows,
-                    cards,
-                    enchantments,
-                    out var layout,
-                    out var layoutCardRefs
-                )
-                || !refs.SetEquals(layoutCardRefs)
-                || !TryParseStats(statsRow, out var stats)
-            )
-                return false;
-
+            var layout = ParseLayout(layoutRows, cards, enchantments, layoutColumns);
+            var stats = ParseStats(statsRow, statsColumns);
             result.Add(new TenWinBuild(buildId, templateIdSet, layout, stats));
-            buildCardRefs.Add(refs);
         }
 
-        return true;
+        return result;
     }
 
-    private static bool TryParseLayout(
-        JArray layoutRows,
+    private static List<TenWinLayoutItem> ParseLayout(
+        JArray? layoutRows,
         IReadOnlyList<Guid?> cards,
         IReadOnlyList<string?> enchantments,
-        out List<TenWinLayoutItem> result,
-        out HashSet<int> layoutCardRefs
+        LayoutColumns columns
     )
     {
-        result = new List<TenWinLayoutItem>();
-        layoutCardRefs = new HashSet<int>();
-        var occupied = new bool[BoardSlotCount];
+        var result = new List<TenWinLayoutItem>();
+        if (layoutRows == null)
+            return result;
 
         foreach (var token in layoutRows)
         {
-            if (
-                token is not JArray { Count: 5 } row
-                || !TryReadRef(row[0], cards.Count, out var cardRef)
-                || !TryReadInt(row[1], out var slot)
-                || !TryReadInt(row[2], out var tier)
-                || !TryReadRef(row[3], enchantments.Count, out var enchantRef)
-                || !TryReadInt(row[4], out var size)
-                || slot < 0
-                || size is < 1 or > 3
-                || slot + size > BoardSlotCount
-                || tier is < 1 or > 5
-            )
-                return false;
+            if (token is not JArray row)
+                continue;
 
-            for (var socket = slot; socket < slot + size; socket++)
-            {
-                if (occupied[socket])
-                    return false;
-                occupied[socket] = true;
-            }
+            var templateId = ResolveCard(cards, IntAt(row, columns.CardRef));
+            if (templateId == Guid.Empty)
+                continue;
 
-            layoutCardRefs.Add(cardRef);
+            var enchantRef = IntAt(row, columns.EnchantRef) ?? 0;
             result.Add(
                 new TenWinLayoutItem(
-                    cards[cardRef]!.Value,
-                    slot,
-                    tier,
+                    templateId,
+                    IntAt(row, columns.Slot),
+                    IntAt(row, columns.Tier),
                     ResolveEnchant(enchantments, enchantRef),
-                    size
+                    IntAt(row, columns.Size)
                 )
             );
         }
 
-        return occupied.All(value => value);
+        return result;
     }
 
-    private static bool TryParseStats(JArray stats, out TenWinStats result)
+    private static TenWinStats ParseStats(JArray? stats, StatsColumns columns)
     {
-        result = TenWinStats.Empty;
-        if (
-            stats.Count != 5
-            || !TryReadInt(stats[0], out var completedRunCount)
-            || !TryReadInt(stats[1], out var tenWinRunCount)
-            || !TryReadInt(stats[2], out var tenWinRateBps)
-            || !TryReadNullableInt(stats[3], out var p75TenWinFinalDay)
-            || !TryReadLong(stats[4], out var score)
-            || completedRunCount < 0
-            || tenWinRunCount < 0
-            || tenWinRunCount > completedRunCount
-            || tenWinRateBps is < 0 or > 10000
-            || p75TenWinFinalDay < 0
-            || score is < 0 or > 1000000
-        )
-            return false;
+        if (stats == null)
+            return TenWinStats.Empty;
 
-        result = new TenWinStats(
-            completedRunCount,
-            tenWinRunCount,
-            tenWinRateBps,
-            p75TenWinFinalDay,
-            score
+        return new TenWinStats(
+            IntAt(stats, columns.CompletedRunCount) ?? 0,
+            IntAt(stats, columns.TenWinRunCount) ?? 0,
+            IntAt(stats, columns.TenWinRateBps),
+            IntAt(stats, columns.P75TenWinFinalDay),
+            LongAt(stats, columns.Score) ?? 0
         );
-        return true;
     }
 
-    private static bool TryParseCardIndex(
-        JToken? token,
-        int cardCount,
-        IReadOnlyList<HashSet<int>> buildCardRefs,
-        out Dictionary<int, IReadOnlyList<int>> result
-    )
+    private static Dictionary<int, IReadOnlyList<int>> ParseCardIndex(JArray? cardIndex)
     {
-        result = new Dictionary<int, IReadOnlyList<int>>();
-        if (token is not JArray cardIndex)
-            return false;
+        var result = new Dictionary<int, IReadOnlyList<int>>();
+        if (cardIndex == null)
+            return result;
 
-        var previousCardRef = -1;
-        foreach (var indexToken in cardIndex)
+        foreach (var token in cardIndex)
         {
-            if (
-                indexToken is not JArray { Count: 2 } pair
-                || !TryReadRef(pair[0], cardCount, out var cardRef)
-                || cardRef <= previousCardRef
-                || pair[1] is not JArray { Count: > 0 } ids
-            )
-                return false;
+            if (token is not JArray pair || pair.Count < 2)
+                continue;
 
-            var buildIds = new List<int>(ids.Count);
-            var previousBuildId = -1;
-            foreach (var id in ids)
-            {
-                if (
-                    !TryReadRef(id, buildCardRefs.Count, out var buildId)
-                    || buildId <= previousBuildId
-                    || !buildCardRefs[buildId].Contains(cardRef)
-                )
-                    return false;
-                buildIds.Add(buildId);
-                previousBuildId = buildId;
-            }
+            var cardRef = pair[0].Value<int?>();
+            if (cardRef is not { } refValue || pair[1] is not JArray ids)
+                continue;
 
-            result[cardRef] = buildIds;
-            previousCardRef = cardRef;
+            var buildIds = ids.Select(id => id.Value<int?>())
+                .Where(id => id.HasValue)
+                .Select(id => id!.Value)
+                .ToList();
+            if (buildIds.Count > 0)
+                result[refValue] = buildIds;
         }
 
-        var expected = new Dictionary<int, List<int>>();
-        for (var buildId = 0; buildId < buildCardRefs.Count; buildId++)
-        {
-            foreach (var cardRef in buildCardRefs[buildId])
-            {
-                if (!expected.TryGetValue(cardRef, out var buildIds))
-                {
-                    buildIds = new List<int>();
-                    expected[cardRef] = buildIds;
-                }
-                buildIds.Add(buildId);
-            }
-        }
-
-        var parsed = result;
-        return expected.Count == parsed.Count
-            && expected.All(pair =>
-                parsed.TryGetValue(pair.Key, out var buildIds) && pair.Value.SequenceEqual(buildIds)
-            );
+        return result;
     }
+
+    private static Guid ResolveCard(IReadOnlyList<Guid?> cards, int? cardRef) =>
+        cardRef is { } ref_ && ref_ >= 0 && ref_ < cards.Count && cards[ref_] is { } guid
+            ? guid
+            : Guid.Empty;
 
     private static string? ResolveEnchant(IReadOnlyList<string?> enchantments, int enchantRef) =>
-        enchantRef == 0 ? null : enchantments[enchantRef];
+        enchantRef > 0 && enchantRef < enchantments.Count ? enchantments[enchantRef] : null;
 
-    private static bool TryReadRef(JToken? token, int count, out int value) =>
-        TryReadInt(token, out value) && value >= 0 && value < count;
+    private static JToken? TokenAt(JArray array, int index) =>
+        index >= 0 && index < array.Count ? array[index] : null;
 
-    private static bool TryReadNullableInt(JToken? token, out int? value)
+    private static int? IntAt(JArray array, int index) =>
+        index >= 0 && index < array.Count ? array[index].Value<int?>() : null;
+
+    private static long? LongAt(JArray array, int index) =>
+        index >= 0 && index < array.Count ? array[index].Value<long?>() : null;
+
+    private readonly struct BuildColumns
     {
-        if (token?.Type == JTokenType.Null)
+        public BuildColumns(List<string> schema)
         {
-            value = null;
-            return true;
+            CardRefs = schema.IndexOf("card_refs");
+            Layout = schema.IndexOf("layout");
+            Stats = schema.IndexOf("stats");
         }
 
-        if (TryReadInt(token, out var integer))
-        {
-            value = integer;
-            return true;
-        }
+        public int CardRefs { get; }
+        public int Layout { get; }
+        public int Stats { get; }
 
-        value = null;
-        return false;
+        public bool IsComplete => CardRefs >= 0 && Layout >= 0 && Stats >= 0;
     }
 
-    private static bool TryReadInt(JToken? token, out int value)
+    private readonly struct LayoutColumns
     {
-        value = default;
-        if (token?.Type != JTokenType.Integer)
-            return false;
+        public LayoutColumns(List<string> schema)
+        {
+            CardRef = schema.IndexOf("card_ref");
+            Slot = schema.IndexOf("slot");
+            Tier = schema.IndexOf("tier");
+            EnchantRef = schema.IndexOf("enchant_ref");
+            Size = schema.IndexOf("size");
+        }
 
-        long integer;
-        try
-        {
-            integer = token.Value<long>();
-        }
-        catch
-        {
-            return false;
-        }
-        if (integer < int.MinValue || integer > int.MaxValue)
-            return false;
-        value = (int)integer;
-        return true;
+        public int CardRef { get; }
+        public int Slot { get; }
+        public int Tier { get; }
+        public int EnchantRef { get; }
+        public int Size { get; }
+
+        public bool IsComplete => CardRef >= 0;
     }
 
-    private static bool TryReadLong(JToken? token, out long value)
+    private readonly struct StatsColumns
     {
-        value = default;
-        if (token?.Type != JTokenType.Integer)
-            return false;
-        try
+        public StatsColumns(List<string> schema)
         {
-            value = token.Value<long>();
-            return true;
+            CompletedRunCount = schema.IndexOf("completed_run_count");
+            TenWinRunCount = schema.IndexOf("ten_win_run_count");
+            TenWinRateBps = schema.IndexOf("ten_win_rate_bps");
+            P75TenWinFinalDay = schema.IndexOf("p75_ten_win_final_day");
+            Score = schema.IndexOf("score");
         }
-        catch
-        {
-            return false;
-        }
+
+        public int CompletedRunCount { get; }
+        public int TenWinRunCount { get; }
+        public int TenWinRateBps { get; }
+        public int P75TenWinFinalDay { get; }
+        public int Score { get; }
+
+        public bool IsComplete => Score >= 0;
     }
 }
 

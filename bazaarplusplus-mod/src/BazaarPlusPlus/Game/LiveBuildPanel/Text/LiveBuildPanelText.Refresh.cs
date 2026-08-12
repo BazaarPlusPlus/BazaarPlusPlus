@@ -58,16 +58,16 @@ internal static partial class LiveBuildPanelText
     // The corpus dashboard's freshness line: a localized relative-updated phrase plus the build
     // total. The absolute timestamp and per-hero breakdown stay on the tooltip (CorpusSummaryTooltip).
     public static string CorpusFreshnessLine(TenWinCorpusSummary summary, DateTimeOffset nowUtc) =>
-        $"{RelativeUpdated(summary.WindowEndUtc, nowUtc)} · "
+        $"{RelativeUpdated(summary.GeneratedAtUtc, nowUtc)} · "
         + $"{summary.BuildCount.ToString("N0", CultureInfo.CurrentCulture)} "
         + L.Resolve(CorpusBuildCountUnitText);
 
-    private static string RelativeUpdated(DateTimeOffset? windowEndUtc, DateTimeOffset nowUtc)
+    private static string RelativeUpdated(DateTimeOffset? generatedAtUtc, DateTimeOffset nowUtc)
     {
-        if (!windowEndUtc.HasValue)
+        if (!generatedAtUtc.HasValue)
             return L.Resolve(new LocalizedTextSet("updated —", "更新时间未知", "更新時間未知"));
 
-        var delta = nowUtc - windowEndUtc.Value;
+        var delta = nowUtc - generatedAtUtc.Value;
         if (delta < TimeSpan.Zero)
             delta = TimeSpan.Zero;
 
@@ -131,10 +131,10 @@ internal static partial class LiveBuildPanelText
     private static List<string> CorpusSummaryParts(TenWinCorpusSummary summary)
     {
         var parts = new List<string>();
-        if (summary.WindowEndUtc.HasValue)
+        if (summary.GeneratedAtUtc.HasValue)
         {
             var localTime = summary
-                .WindowEndUtc.Value.ToLocalTime()
+                .GeneratedAtUtc.Value.ToLocalTime()
                 .ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture);
             parts.Add($"{L.Resolve(CorpusDataTimeLabelText)} {localTime}");
         }
