@@ -3,12 +3,9 @@
     <VoiceLinesRemoteUrl Condition="'$(VoiceLinesRemoteUrl)' == ''"
       >https://bazaarline-installer.bazaarplusplus.com/data/voice-lines.json</VoiceLinesRemoteUrl>
     <TenWinBuildsRemoteUrl Condition="'$(TenWinBuildsRemoteUrl)' == ''"
-      >https://bpp-metrics.bazaarplusplus.com/analyzer-v5/builds/latest.json</TenWinBuildsRemoteUrl>
+      >https://bpp-metrics.bazaarplusplus.com/analyzer-v4/mod/tenwin_builds.json</TenWinBuildsRemoteUrl>
     <RemoteEmbeddedDataDirectory Condition="'$(RemoteEmbeddedDataDirectory)' == ''"
       >$(MSBuildThisFileDirectory)obj/remote-data</RemoteEmbeddedDataDirectory>
-    <TenWinBuildsEmbeddedSeed>$(MSBuildThisFileDirectory)Data/BuildRecommendations/tenwin_builds.json</TenWinBuildsEmbeddedSeed>
-    <TenWinBuildsDownloadedPath Condition="'$(TenWinBuildsDownloadedPath)' == ''"
-      >$(RemoteEmbeddedDataDirectory)/analyzer-v5-builds-latest.json</TenWinBuildsDownloadedPath>
     <ForceRemoteEmbeddedDataRefresh Condition="'$(ForceRemoteEmbeddedDataRefresh)' == ''"
       >false</ForceRemoteEmbeddedDataRefresh>
     <RemoteEmbeddedDataPrepared Condition="'$(RemoteEmbeddedDataPrepared)' == ''"
@@ -18,11 +15,6 @@
       >true</_ForceRemoteEmbeddedDataRefresh>
     <_ForceRemoteEmbeddedDataRefresh Condition="'$(_ForceRemoteEmbeddedDataRefresh)' == ''"
       >false</_ForceRemoteEmbeddedDataRefresh>
-    <TenWinBuildsEmbeddedPath
-      Condition="'$(RemoteEmbeddedDataPrepared)' == 'true' or '$(_ForceRemoteEmbeddedDataRefresh)' == 'true' or Exists('$(TenWinBuildsDownloadedPath)')"
-      >$(TenWinBuildsDownloadedPath)</TenWinBuildsEmbeddedPath>
-    <TenWinBuildsEmbeddedPath Condition="'$(TenWinBuildsEmbeddedPath)' == ''"
-      >$(TenWinBuildsEmbeddedSeed)</TenWinBuildsEmbeddedPath>
   </PropertyGroup>
 
   <ItemGroup>
@@ -30,25 +22,16 @@
       <Url>$(VoiceLinesRemoteUrl)</Url>
       <LogicalName>BazaarPlusPlus.Data.VoiceSubtitles.voice-lines.json</LogicalName>
       <MinBytes>102400</MinBytes>
-      <FetchWhenMissing>true</FetchWhenMissing>
       <DestinationPath>$(RemoteEmbeddedDataDirectory)/voice-lines.json</DestinationPath>
     </RemoteEmbeddedData>
     <RemoteEmbeddedData Include="tenwin_builds.json">
       <Url>$(TenWinBuildsRemoteUrl)</Url>
       <LogicalName>BazaarPlusPlus.Data.BuildRecommendations.tenwin_builds.json</LogicalName>
-      <MinBytes>256</MinBytes>
-      <FetchWhenMissing>false</FetchWhenMissing>
-      <DestinationPath>$(TenWinBuildsDownloadedPath)</DestinationPath>
+      <MinBytes>51200</MinBytes>
+      <DestinationPath>$(RemoteEmbeddedDataDirectory)/tenwin_builds.json</DestinationPath>
     </RemoteEmbeddedData>
 
-    <EmbeddedResource
-      Include="$(RemoteEmbeddedDataDirectory)/voice-lines.json"
-      LogicalName="BazaarPlusPlus.Data.VoiceSubtitles.voice-lines.json"
-    />
-    <EmbeddedResource
-      Include="$(TenWinBuildsEmbeddedPath)"
-      LogicalName="BazaarPlusPlus.Data.BuildRecommendations.tenwin_builds.json"
-    />
+    <EmbeddedResource Include="@(RemoteEmbeddedData->'%(DestinationPath)')" />
   </ItemGroup>
 
   <UsingTask
@@ -181,7 +164,7 @@
     <ItemGroup>
       <_RemoteEmbeddedDataToFetch
         Include="@(RemoteEmbeddedData)"
-        Condition="'$(_ForceRemoteEmbeddedDataRefresh)' == 'true' or ('%(RemoteEmbeddedData.FetchWhenMissing)' == 'true' and !Exists('%(RemoteEmbeddedData.DestinationPath)'))"
+        Condition="'$(_ForceRemoteEmbeddedDataRefresh)' == 'true' or !Exists('%(RemoteEmbeddedData.DestinationPath)')"
       />
     </ItemGroup>
     <DownloadAndValidateRemoteEmbeddedData

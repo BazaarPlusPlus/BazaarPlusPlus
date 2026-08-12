@@ -9,7 +9,7 @@ using BazaarPlusPlus.Localization;
 namespace BazaarPlusPlus.Game.LiveBuildPanel.Recommendations;
 
 /// <summary>
-/// Consumes the analyzer-v5 ten-win build catalog, answers recommendation queries against the live
+/// Consumes the analyzer-v4 ten-win build catalog, answers recommendation queries against the live
 /// state, and projects matched builds onto renderable item boards. The corpus is a static package —
 /// recommendation queries read the catalog snapshot and never hit the server.
 /// </summary>
@@ -168,8 +168,8 @@ internal sealed class BuildRecommendationRepository
     private static string ResolveFinalBuildLabel() => L.Resolve(FinalBuildLabel);
 
     /// <summary>
-    /// Snapshot of the currently loaded corpus's provenance (data window end, build/hero counts)
-    /// for status surfaces; null while no corpus is loaded.
+    /// Snapshot of the currently loaded corpus's provenance (analyzer emission time, build/hero
+    /// counts) for status surfaces; null while no corpus is loaded.
     /// </summary>
     public TenWinCorpusSummary? GetCorpusSummary()
     {
@@ -177,7 +177,7 @@ internal sealed class BuildRecommendationRepository
         return corpus == null
             ? (TenWinCorpusSummary?)null
             : new TenWinCorpusSummary(
-                corpus.WindowEndUtc,
+                corpus.GeneratedAtUtc,
                 corpus.BuildCount,
                 corpus.HeroCount,
                 corpus.HeroBuildCounts
