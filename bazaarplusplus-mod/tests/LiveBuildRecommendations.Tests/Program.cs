@@ -44,6 +44,7 @@ internal static class Program
         ("catalog refresh publishes and caches valid remote data", PreservesRemoteRefreshBehavior),
         ("catalog refresh keeps fallback on invalid remote data", RejectsInvalidRemoteRefresh),
         ("remote URL configuration points at analyzer-v5 latest", UsesAnalyzerV5Url),
+        ("optional live sample follows the same parser path", ParsesOptionalLiveSample),
     };
 
     private static async Task<int> Main()
@@ -466,6 +467,23 @@ internal static class Program
         var matches = corpus.FindBuilds("Vanessa", new[] { FirstCard }, BuildLiveState.Empty);
         Equal(1, matches.Count, "match count");
         return matches[0];
+    }
+
+    // Set BPP_TENWIN_SAMPLE_PATH to a downloaded builds/latest.json to assert the
+    // production payload parses; without it the test is a no-op so CI stays hermetic.
+    private static Task ParsesOptionalLiveSample()
+    {
+        var path = Environment.GetEnvironmentVariable("BPP_TENWIN_SAMPLE_PATH");
+        if (string.IsNullOrWhiteSpace(path))
+            return Task.CompletedTask;
+
+        var corpus = RequireCorpus(File.ReadAllText(path));
+        True(corpus.HeroCount >= 1, "live sample exposes at least one hero");
+        True(corpus.BuildCount >= 1, "live sample exposes at least one build");
+        Console.WriteLine(
+            $"     live sample: heroes={corpus.HeroCount} builds={corpus.BuildCount}"
+        );
+        return Task.CompletedTask;
     }
 
     private static TenWinBuildCorpus RequireCorpus(string json) =>
