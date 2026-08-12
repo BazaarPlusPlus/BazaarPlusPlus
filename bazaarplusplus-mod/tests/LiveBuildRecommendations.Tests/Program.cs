@@ -21,6 +21,12 @@ internal static class Program
     private static readonly (string Name, Func<Task> Run)[] Tests =
     {
         ("parser accepts the analyzer-v5 schema-2 contract", AcceptsContract),
+        ("parser accepts a one-day window", AcceptsOneDayWindow),
+        ("parser accepts a five-day window", AcceptsFiveDayWindow),
+        ("parser accepts a seven-day window", AcceptsSevenDayWindow),
+        ("parser rejects a zero-day window", RejectsZeroDayWindow),
+        ("parser rejects an eight-day window", RejectsEightDayWindow),
+        ("parser rejects an inconsistent window", RejectsInconsistentWindow),
         ("parser handles null enchant refs and nullable p75", HandlesNullableFieldsAndEmptyHero),
         ("parser rejects unsupported schema versions and heroes arrays", RejectsWrongTopLevelShape),
         ("parser requires the exact positional schemas", RejectsNonExactSchemas),
@@ -105,6 +111,42 @@ internal static class Program
             corpus.FindBuilds("Dooley", new[] { FirstCard }, BuildLiveState.Empty).Count,
             "empty hero recall"
         );
+        return Task.CompletedTask;
+    }
+
+    private static Task AcceptsOneDayWindow()
+    {
+        AcceptWindow("2026-08-11", "2026-08-11", 1);
+        return Task.CompletedTask;
+    }
+
+    private static Task AcceptsFiveDayWindow()
+    {
+        AcceptWindow("2026-08-07", "2026-08-11", 5);
+        return Task.CompletedTask;
+    }
+
+    private static Task AcceptsSevenDayWindow()
+    {
+        AcceptWindow("2026-08-05", "2026-08-11", 7);
+        return Task.CompletedTask;
+    }
+
+    private static Task RejectsZeroDayWindow()
+    {
+        RejectWindow("2026-08-11", "2026-08-11", 0);
+        return Task.CompletedTask;
+    }
+
+    private static Task RejectsEightDayWindow()
+    {
+        RejectWindow("2026-08-04", "2026-08-11", 8);
+        return Task.CompletedTask;
+    }
+
+    private static Task RejectsInconsistentWindow()
+    {
+        RejectWindow("2026-08-07", "2026-08-11", 4);
         return Task.CompletedTask;
     }
 
@@ -429,6 +471,36 @@ internal static class Program
     private static TenWinBuildCorpus RequireCorpus(string json) =>
         TenWinBuildCorpus.Parse(json)
         ?? throw new InvalidOperationException("payload was rejected");
+
+    private static void AcceptWindow(string start, string end, int days)
+    {
+        var root = ContractObject();
+        root["window"] = new JObject
+        {
+            ["start"] = start,
+            ["end"] = end,
+            ["days"] = days,
+        };
+        True(
+            TenWinBuildCorpus.Parse(root.ToString(Formatting.None)) != null,
+            $"{days}-day window should be accepted"
+        );
+    }
+
+    private static void RejectWindow(string start, string end, int days)
+    {
+        var root = ContractObject();
+        root["window"] = new JObject
+        {
+            ["start"] = start,
+            ["end"] = end,
+            ["days"] = days,
+        };
+        True(
+            TenWinBuildCorpus.Parse(root.ToString(Formatting.None)) == null,
+            $"{days}-day window should be rejected"
+        );
+    }
 
     private static void Reject(Action<JObject> mutate, string scenario)
     {

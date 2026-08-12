@@ -24,6 +24,7 @@ internal sealed class TenWinBuildCorpus
     private const int ExpectedSchemaVersion = 2;
     private const string ExpectedKind = "ten_win_builds";
     private const int BoardSlotCount = 10;
+    private const int MaximumWindowDays = 7;
 
     private static readonly string[] ExpectedBuildSchema = { "card_refs", "layout", "stats" };
     private static readonly string[] ExpectedLayoutSchema =
@@ -188,7 +189,7 @@ internal sealed class TenWinBuildCorpus
             || !TryReadDate(window["start"], out var start)
             || !TryReadDate(window["end"], out var end)
             || !TryReadInt(window["days"], out var days)
-            || days <= 0
+            || days is < 1 or > MaximumWindowDays
             || end < start
             || (end - start).Days + 1 != days
         )

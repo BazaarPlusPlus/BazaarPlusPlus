@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from datetime import date
 from pathlib import Path
 
 
@@ -19,6 +20,20 @@ CANONICAL_HEROES = (
 )
 
 
+def validate_window(payload: dict[str, object]) -> None:
+    window = payload.get("window")
+    if not isinstance(window, dict):
+        raise ValueError("window must be an object")
+
+    start = date.fromisoformat(str(window.get("start")))
+    end = date.fromisoformat(str(window.get("end")))
+    days = window.get("days")
+    if not isinstance(days, int) or isinstance(days, bool) or not 1 <= days <= 7:
+        raise ValueError("window.days must be an integer from 1 through 7")
+    if (end - start).days + 1 != days:
+        raise ValueError("window.start/window.end must span window.days inclusively")
+
+
 def render_seed(repository_root: Path) -> str:
     fixture_path = (
         repository_root
@@ -28,6 +43,7 @@ def render_seed(repository_root: Path) -> str:
         / "analyzer-v5-schema2-contract.json"
     )
     payload = json.loads(fixture_path.read_text(encoding="utf-8"))
+    validate_window(payload)
     fixture_heroes = payload["heroes"]
     payload["heroes"] = {
         hero: fixture_heroes.get(hero, {"builds": [], "card_index": []})
