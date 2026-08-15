@@ -24,5 +24,14 @@ internal static class KeyBindings
             return keyboard != null
                 && (keyboard.leftShiftKey.isPressed || keyboard.rightShiftKey.isPressed);
         }
+
+        public static bool WasShiftPressedThisFrame(Keyboard? keyboard)
+        {
+            return keyboard != null
+                && (
+                    keyboard.leftShiftKey.wasPressedThisFrame
+                    || keyboard.rightShiftKey.wasPressedThisFrame
+                );
+        }
     }
 }

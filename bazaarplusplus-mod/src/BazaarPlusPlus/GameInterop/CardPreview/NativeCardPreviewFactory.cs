@@ -200,6 +200,7 @@ internal sealed class NativeCardPreviewFactory
                 card,
                 template,
                 instance,
+                owner.UsePremiumVisuals,
                 token
             );
             if (setUpFailure != null)
@@ -238,7 +239,7 @@ internal sealed class NativeCardPreviewFactory
             {
                 try
                 {
-                    if (prepared)
+                    if (prepared && card != null)
                     {
                         try
                         {

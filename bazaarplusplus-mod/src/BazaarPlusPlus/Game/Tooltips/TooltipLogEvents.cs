@@ -214,30 +214,25 @@ internal static class TooltipLogEvents
         [CardPreviewHoverFailedOperation, CardPreviewHoverFailedReasonCode]
     );
 
+    internal static readonly BppLogFieldDefinition PackageMerchantSummaryReasonCode = PublicLow(
+        0,
+        "reason_code"
+    );
+    internal static readonly BppLogFieldDefinition PackageMerchantSummaryMerchantTemplateId =
+        PublicHigh(1, "merchant_template_id");
+    internal static readonly BppLogEventDefinition PackageMerchantSummaryDegraded = new(
+        BppLogFeatureScope.Tooltips,
+        "tooltips.package_merchant_summary.degraded",
+        [PackageMerchantSummaryReasonCode, PackageMerchantSummaryMerchantTemplateId],
+        new BppLogStormPolicy([PackageMerchantSummaryReasonCode])
+    );
+
     private static BppLogFieldDefinition PublicLow(int order, string name) =>
-        new(
-            order,
-            name,
-            BppLogFieldPrivacy.Public,
-            BppLogCorrelationPolicy.None,
-            BppLogCardinality.Low
-        );
+        new(order, name, BppLogCorrelationPolicy.None, BppLogCardinality.Low);
 
     private static BppLogFieldDefinition PublicHigh(int order, string name) =>
-        new(
-            order,
-            name,
-            BppLogFieldPrivacy.Public,
-            BppLogCorrelationPolicy.None,
-            BppLogCardinality.High
-        );
+        new(order, name, BppLogCorrelationPolicy.None, BppLogCardinality.High);
 
     private static BppLogFieldDefinition HashedPublicHigh(int order, string name) =>
-        new(
-            order,
-            name,
-            BppLogFieldPrivacy.Public,
-            BppLogCorrelationPolicy.Hash,
-            BppLogCardinality.High
-        );
+        new(order, name, BppLogCorrelationPolicy.Hash, BppLogCardinality.High);
 }

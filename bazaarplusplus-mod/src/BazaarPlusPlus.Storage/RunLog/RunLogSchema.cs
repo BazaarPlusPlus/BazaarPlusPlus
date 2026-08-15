@@ -6,49 +6,26 @@ namespace BazaarPlusPlus.Storage.RunLog;
 
 public static class RunLogSchema
 {
-    public static int LocalDatabaseSchemaVersion => 18;
+    public const int LocalDatabaseSchemaVersion = 1;
+    public const int RowSchemaVersion = 1;
 
-    public static int RowSchemaVersion => 11;
-
-    public static int UploadPayloadSchemaVersion => 6;
+    public const string RunsTableName = "runs";
+    public const string RunEventsTableName = "run_events";
+    public const string BattlesTableName = "battles";
+    public const string BattleSnapshotsTableName = "battle_snapshots";
+    public const string RunScreenshotsTableName = "run_screenshots";
+    public const string CombatReplayVideosTableName = "combat_replay_videos";
+    public const string BundleSealJobsTableName = "bundle_seal_jobs";
+    public const string BundleOutboxTableName = "bundle_outbox";
+    public const string CaptureSourceEndOfRunAuto = "end_of_run_auto";
+    public const string GameModeRanked = "Ranked";
 
     public static int CurrentSchemaVersion => LocalDatabaseSchemaVersion;
-
     public static string DatabaseFileName => PathConstants.RunLogDatabaseFileName;
-
-    public static string RunsTableName => "runs";
-
-    public static string RunEventsTableName => "run_events";
-
-    public static string BattlesTableName => "battles";
-
-    public static string BattleSnapshotsTableName => "battle_snapshots";
-
-    public static string RunScreenshotsTableName => "run_screenshots";
-
-    public static string CombatReplayVideosTableName => "combat_replay_videos";
-
-    public static string SyncCursorsTableName => "sync_cursors";
-
-    public static string RunSyncStateTableName => "run_sync_state";
-
-    public static string BazaarDbSnapshotUploadsTableName => "bazaardb_snapshot_uploads";
-
-    public static string CaptureSourceEndOfRunAuto => "end_of_run_auto";
-
-    public static string GameModeRanked => "Ranked";
-
     public static string RunCheckpointsTableName => RunsTableName;
-
     public static string RunStatusTableName => RunsTableName;
-
     public static string PvpBattlesTableName => BattlesTableName;
-
     public static string GhostBattlesTableName => BattlesTableName;
-
-    public static string GhostSyncStateTableName => SyncCursorsTableName;
-
-    public static string ReplaySyncStateTableName => BattlesTableName;
 
     public static string BootstrapSql =>
         $"""
@@ -83,7 +60,10 @@ public static class RunLogSchema
                 final_player_rating INTEGER NULL,
                 final_player_rating_delta INTEGER NULL,
                 reason TEXT NULL,
-                build_channel TEXT NULL
+                build_channel TEXT NULL,
+                player_account_id TEXT NULL,
+                bundle_screenshot_requested INTEGER NOT NULL DEFAULT 0,
+                mod_version TEXT NULL
             );
 
             CREATE TABLE IF NOT EXISTS {RunEventsTableName} (
@@ -98,6 +78,8 @@ public static class RunLogSchema
 
             CREATE TABLE IF NOT EXISTS {BattlesTableName} (
                 battle_id TEXT PRIMARY KEY,
+                remote_battle_id TEXT NULL,
+                uploader_account_id TEXT NULL,
                 source TEXT NOT NULL,
                 run_id TEXT NULL,
                 local_player_account_id TEXT NULL,
@@ -132,20 +114,23 @@ public static class RunLogSchema
                 winner_combatant_id TEXT NULL,
                 loser_combatant_id TEXT NULL,
                 is_final_battle INTEGER NOT NULL DEFAULT 0,
-                replay_available INTEGER NOT NULL DEFAULT 0,
-                replay_downloaded INTEGER NOT NULL DEFAULT 0,
                 has_local_payload INTEGER NOT NULL DEFAULT 0,
-                replay_dirty INTEGER NOT NULL DEFAULT 0,
-                replay_last_attempt_at_utc TEXT NULL,
-                replay_last_uploaded_at_utc TEXT NULL,
-                replay_retry_count INTEGER NOT NULL DEFAULT 0,
-                replay_last_error TEXT NULL,
-                last_synced_at_utc TEXT NULL,
+                bundle_id TEXT NULL,
+                download_url TEXT NULL,
+                download_url_expires_at_ms INTEGER NULL,
+                ghost_replay_state TEXT NULL,
+                ghost_replay_unavailable_reason TEXT NULL,
                 deleted_at_utc TEXT NULL,
                 FOREIGN KEY (run_id) REFERENCES {RunsTableName}(run_id) ON DELETE CASCADE,
                 CHECK (
-                    (source = 'LOCAL') OR
-                    (source = 'GHOST' AND run_id IS NULL)
+                    (source = 'LOCAL' AND remote_battle_id IS NULL AND uploader_account_id IS NULL)
+                    OR
+                    (source = 'GHOST' AND run_id IS NULL AND remote_battle_id IS NOT NULL AND uploader_account_id IS NOT NULL)
+                ),
+                CHECK (
+                    ghost_replay_state IS NULL OR ghost_replay_state IN (
+                        'remote_available', 'local_ready', 'unavailable_payload', 'expired'
+                    )
                 )
             );
 
@@ -197,137 +182,87 @@ public static class RunLogSchema
                 error TEXT NULL
             );
 
-            CREATE TABLE IF NOT EXISTS {SyncCursorsTableName} (
-                scope TEXT PRIMARY KEY,
-                cursor_value TEXT NOT NULL,
-                updated_at_utc TEXT NOT NULL
-            );
-
-            CREATE TABLE IF NOT EXISTS {RunSyncStateTableName} (
+            CREATE TABLE IF NOT EXISTS {BundleSealJobsTableName} (
                 run_id TEXT PRIMARY KEY,
-                dirty INTEGER NOT NULL,
-                uploaded_seq INTEGER NULL,
-                uploaded_status TEXT NULL,
+                state TEXT NOT NULL DEFAULT 'waiting',
+                player_account_id TEXT NULL,
+                screenshot_requested INTEGER NOT NULL,
+                screenshot_state TEXT NOT NULL DEFAULT 'waiting',
+                input_deadline_at_utc TEXT NOT NULL,
+                bundle_id TEXT NULL UNIQUE,
+                created_at_ms INTEGER NULL,
+                attempts INTEGER NOT NULL DEFAULT 0,
                 last_attempt_at_utc TEXT NULL,
-                last_uploaded_at_utc TEXT NULL,
-                retry_count INTEGER NOT NULL DEFAULT 0,
-                last_error TEXT NULL,
-                FOREIGN KEY (run_id) REFERENCES {RunsTableName}(run_id) ON DELETE CASCADE
+                last_error_code TEXT NULL,
+                last_error_detail TEXT NULL,
+                FOREIGN KEY (run_id) REFERENCES {RunsTableName}(run_id) ON DELETE CASCADE,
+                CHECK (state IN ('waiting', 'sealing', 'terminal_failure')),
+                CHECK (screenshot_state IN ('not_requested', 'waiting', 'available', 'unavailable', 'timed_out'))
             );
 
-            CREATE TABLE IF NOT EXISTS {BazaarDbSnapshotUploadsTableName} (
-                snapshot_id            TEXT PRIMARY KEY,
-                status                 TEXT NOT NULL,
-                attempts               INTEGER NOT NULL DEFAULT 0,
-                last_attempted_at_utc  TEXT NULL,
-                last_error             TEXT NULL,
-                uploaded_at_utc        TEXT NULL,
-                FOREIGN KEY (snapshot_id) REFERENCES {RunScreenshotsTableName}(screenshot_id) ON DELETE CASCADE
+            CREATE TABLE IF NOT EXISTS {BundleOutboxTableName} (
+                bundle_id TEXT PRIMARY KEY,
+                run_id TEXT NOT NULL,
+                file_name TEXT NOT NULL UNIQUE,
+                content_sha256_hex TEXT NOT NULL,
+                content_digest TEXT NOT NULL,
+                total_bytes INTEGER NOT NULL,
+                has_screenshot INTEGER NOT NULL,
+                sealed_at_utc TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'pending',
+                attempts INTEGER NOT NULL DEFAULT 0,
+                last_attempt_at_utc TEXT NULL,
+                next_attempt_at_utc TEXT NULL,
+                failed_at_utc TEXT NULL,
+                last_error_code TEXT NULL,
+                last_error_detail TEXT NULL,
+                server_request_id TEXT NULL,
+                server_outcome TEXT NULL,
+                uploaded_at_utc TEXT NULL,
+                CHECK (status IN ('pending', 'uploaded', 'permanent_failure'))
             );
 
             CREATE INDEX IF NOT EXISTS idx_{RunEventsTableName}_ts_utc
                 ON {RunEventsTableName}(ts_utc);
-
             CREATE INDEX IF NOT EXISTS idx_{RunsTableName}_status_last_seen
                 ON {RunsTableName}(status, last_seen_at_utc DESC);
-
             CREATE INDEX IF NOT EXISTS idx_{RunsTableName}_started_at_utc
                 ON {RunsTableName}(started_at_utc DESC);
-
             CREATE INDEX IF NOT EXISTS idx_{BattlesTableName}_run_id_recorded
                 ON {BattlesTableName}(run_id, recorded_at_utc DESC);
-
             CREATE INDEX IF NOT EXISTS idx_{BattlesTableName}_source_recorded
                 ON {BattlesTableName}(source, recorded_at_utc DESC);
-
             CREATE INDEX IF NOT EXISTS idx_{BattlesTableName}_local_player_recent
                 ON {BattlesTableName}(local_player_account_id, recorded_at_utc DESC);
-
-            CREATE INDEX IF NOT EXISTS idx_{BattlesTableName}_replay_dirty
-                ON {BattlesTableName}(replay_dirty, replay_last_attempt_at_utc);
-
-            CREATE INDEX IF NOT EXISTS idx_{RunSyncStateTableName}_dirty
-                ON {RunSyncStateTableName}(dirty, last_attempt_at_utc);
-
-            CREATE INDEX IF NOT EXISTS idx_run_sync_state_dirty_retry
-                ON {RunSyncStateTableName}(dirty, retry_count, last_attempt_at_utc, run_id);
-
-            CREATE INDEX IF NOT EXISTS idx_battles_source_run_recorded
-                ON {BattlesTableName}(source, run_id, recorded_at_utc ASC, battle_id ASC);
-
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_battles_ghost_identity
+                ON {BattlesTableName}(uploader_account_id, remote_battle_id)
+                WHERE source = 'GHOST';
+            CREATE INDEX IF NOT EXISTS idx_battles_ghost_discovery
+                ON {BattlesTableName}(local_player_account_id, source, recorded_at_utc DESC);
             CREATE INDEX IF NOT EXISTS idx_{RunScreenshotsTableName}_run_id_captured_at_utc
                 ON {RunScreenshotsTableName}(run_id, captured_at_utc DESC);
-
             CREATE INDEX IF NOT EXISTS idx_run_screenshots_source_captured
                 ON {RunScreenshotsTableName}(capture_source, captured_at_utc ASC, screenshot_id ASC);
-
             CREATE UNIQUE INDEX IF NOT EXISTS idx_run_screenshots_primary_run
                 ON {RunScreenshotsTableName}(run_id)
                 WHERE is_primary = 1 AND run_id IS NOT NULL;
-
             CREATE INDEX IF NOT EXISTS idx_{CombatReplayVideosTableName}_battle
                 ON {CombatReplayVideosTableName}(battle_id, started_at_utc DESC);
-
-            CREATE INDEX IF NOT EXISTS idx_{BazaarDbSnapshotUploadsTableName}_status
-                ON {BazaarDbSnapshotUploadsTableName}(status);
+            CREATE INDEX IF NOT EXISTS idx_bundle_seal_jobs_state
+                ON {BundleSealJobsTableName}(state, input_deadline_at_utc, run_id);
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_bundle_outbox_active_run
+                ON {BundleOutboxTableName}(run_id)
+                WHERE status = 'pending';
+            CREATE INDEX IF NOT EXISTS idx_bundle_outbox_due
+                ON {BundleOutboxTableName}(status, next_attempt_at_utc, attempts, sealed_at_utc);
             """;
 
     public static void EnsureInitialized(SqliteConnection connection)
     {
         if (connection == null)
             throw new ArgumentNullException(nameof(connection));
-
-        using (var command = connection.CreateCommand())
-        {
-            command.CommandText = BootstrapSql;
-            command.ExecuteNonQuery();
-        }
-
-        // CREATE TABLE IF NOT EXISTS only shapes fresh databases; columns added to an
-        // existing table need an explicit ALTER on every opener's path.
-        EnsureColumnExists(connection, RunsTableName, "build_channel", "TEXT NULL");
-        EnsureColumnExists(connection, RunScreenshotsTableName, "build_channel", "TEXT NULL");
-        EnsureColumnExists(connection, BattlesTableName, "player_hand_item_count", "INTEGER NULL");
-        EnsureColumnExists(connection, BattlesTableName, "player_skill_count", "INTEGER NULL");
-        EnsureColumnExists(connection, BattlesTableName, "player_income", "INTEGER NULL");
-        EnsureColumnExists(connection, BattlesTableName, "player_gold", "INTEGER NULL");
-        EnsureColumnExists(
-            connection,
-            BattlesTableName,
-            "opponent_hand_item_count",
-            "INTEGER NULL"
-        );
-        EnsureColumnExists(connection, BattlesTableName, "opponent_skill_count", "INTEGER NULL");
-    }
-
-    private static void EnsureColumnExists(
-        SqliteConnection connection,
-        string tableName,
-        string columnName,
-        string columnDefinition
-    )
-    {
-        using (var command = connection.CreateCommand())
-        {
-            command.CommandText = $"PRAGMA table_info({tableName});";
-            using var reader = command.ExecuteReader();
-            while (reader.Read())
-            {
-                if (
-                    string.Equals(
-                        reader.GetString(reader.GetOrdinal("name")),
-                        columnName,
-                        StringComparison.Ordinal
-                    )
-                )
-                {
-                    return;
-                }
-            }
-        }
-
-        using var alter = connection.CreateCommand();
-        alter.CommandText = $"ALTER TABLE {tableName} ADD COLUMN {columnName} {columnDefinition};";
-        alter.ExecuteNonQuery();
+        using var command = connection.CreateCommand();
+        command.CommandText = BootstrapSql;
+        command.ExecuteNonQuery();
     }
 }

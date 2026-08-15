@@ -76,6 +76,28 @@ public sealed class RunScreenshotSqliteStore : SqliteStoreBase
         command.ExecuteNonQuery();
     }
 
+    public RunScreenshotArtifact? TryGetLatestPrimaryForRun(string runId)
+    {
+        if (string.IsNullOrWhiteSpace(runId))
+            throw new ArgumentException("Run id is required.", nameof(runId));
+        using var connection = OpenConnection();
+        using var command = CreateCommand(connection);
+        command.CommandText = $"""
+            SELECT image_relative_path, captured_at_utc
+            FROM {RunLogSchema.RunScreenshotsTableName}
+            WHERE run_id = $runId AND is_primary = 1
+            ORDER BY captured_at_utc DESC LIMIT 1;
+            """;
+        command.Parameters.AddWithValue("$runId", runId);
+        using var reader = command.ExecuteReader();
+        return reader.Read()
+            ? new RunScreenshotArtifact(
+                reader.GetString(0),
+                DateTimeOffset.Parse(reader.GetString(1))
+            )
+            : null;
+    }
+
     private static string GetStorageValue()
     {
         return RunLogSchema.CaptureSourceEndOfRunAuto;

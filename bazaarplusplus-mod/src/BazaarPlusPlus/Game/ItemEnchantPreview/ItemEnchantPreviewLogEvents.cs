@@ -66,11 +66,5 @@ internal static class ItemEnchantPreviewLogEvents
     );
 
     private static BppLogFieldDefinition PublicLow(int order, string name) =>
-        new(
-            order,
-            name,
-            BppLogFieldPrivacy.Public,
-            BppLogCorrelationPolicy.None,
-            BppLogCardinality.Low
-        );
+        new(order, name, BppLogCorrelationPolicy.None, BppLogCardinality.Low);
 }

@@ -6,13 +6,7 @@ namespace BazaarPlusPlus.Game.PvpBattles;
 
 internal sealed class PvpBattleSequenceMatcher
 {
-    public bool IsPvpCombatOpeningMessage(NetMessageGameSim message)
-    {
-        var state = message.Data.CurrentState?.StateName;
-        return state == ERunState.PVPCombat;
-    }
-
-    public bool IsAnyCombatOpeningMessage(NetMessageGameSim message)
+    public bool IsCombatOpeningMessage(NetMessageGameSim message)
     {
         var state = message.Data.CurrentState?.StateName;
         return state == ERunState.Combat || state == ERunState.PVPCombat;

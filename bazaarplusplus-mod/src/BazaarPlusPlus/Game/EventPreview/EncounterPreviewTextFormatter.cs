@@ -1,7 +1,7 @@
 #nullable enable
 using System.Globalization;
 using BazaarGameShared.Domain.Core.Types;
-using BazaarPlusPlus.Game.Encounters;
+using BazaarPlusPlus.GameInterop.DayTiers;
 
 namespace BazaarPlusPlus.Game.EventPreview;
 
@@ -25,8 +25,7 @@ internal static class EncounterPreviewTextFormatter
     public static string Build(
         EncounterOption option,
         Func<string, string>? colorizeResult = null,
-        ETier? dayTierCeiling = null,
-        TierDistribution? dayTierDistribution = null
+        GameDataDayTierTable? dayTiers = null
     )
     {
         if (option == null)
@@ -36,12 +35,7 @@ internal static class EncounterPreviewTextFormatter
         string Colorize(string text) => TooltipMarkup.NormalizeInlineFragment(rawColorize(text));
 
         if (option.HasOutcomeGroups)
-            return BuildOutcomes(
-                option.OutcomeGroups!,
-                Colorize,
-                dayTierCeiling,
-                dayTierDistribution
-            );
+            return BuildOutcomes(option.OutcomeGroups!, Colorize, dayTiers);
         if (!option.HasChoiceDetails)
             return string.Empty;
 
@@ -52,11 +46,11 @@ internal static class EncounterPreviewTextFormatter
             // render as one summary line instead of one line per member.
             if (choice.Pool is { } pool)
             {
-                lines.Add(ChoicePoolBlock(pool, Colorize, dayTierCeiling, dayTierDistribution));
+                lines.Add(ChoicePoolBlock(pool, Colorize, dayTiers));
                 continue;
             }
 
-            var result = ChoiceResultText(choice, dayTierCeiling, dayTierDistribution);
+            var result = ChoiceResultText(choice, dayTiers);
 
             // Prerequisite-unmet options render as one flat dimmed line (no accent, no
             // keyword coloring) at reduced size; the resolver already sorted them last.
@@ -89,24 +83,16 @@ internal static class EncounterPreviewTextFormatter
         return TooltipMarkup.Render(lines);
     }
 
-    public static string BuildQualityLine(
-        TierDistribution? dayTierDistribution,
-        ETier? fixedTier,
-        ETier? dayTierCeiling
-    )
+    public static string BuildQualityLine(GameDataDayTierTable? dayTiers, ETier? fixedTier)
     {
         string? line = null;
         if (fixedTier.HasValue)
         {
             line = ColorizeTier(fixedTier.Value, EncounterPreviewText.Tier(fixedTier.Value));
         }
-        else if (dayTierDistribution != null)
+        else if (dayTiers != null)
         {
-            line = FormatTierDistribution(dayTierDistribution, colorizeTiers: true);
-        }
-        else if (dayTierCeiling.HasValue)
-        {
-            line = EncounterPreviewText.EncounterTierCeilingLine(dayTierCeiling.Value);
+            line = FormatTierDistribution(dayTiers, colorizeTiers: true);
         }
 
         return string.IsNullOrWhiteSpace(line)
@@ -117,12 +103,11 @@ internal static class EncounterPreviewTextFormatter
     public static string BuildRewardQualityLine(
         EncounterRewardFilter? reward,
         string? resultText,
-        TierDistribution? dayTierDistribution,
-        ETier? dayTierCeiling
+        GameDataDayTierTable? dayTiers
     )
     {
         return reward != null && UsesDayTierDistribution(reward, resultText)
-            ? BuildQualityLine(dayTierDistribution, fixedTier: null, dayTierCeiling: dayTierCeiling)
+            ? BuildQualityLine(dayTiers, fixedTier: null)
             : string.Empty;
     }
 
@@ -131,8 +116,7 @@ internal static class EncounterPreviewTextFormatter
     private static string BuildOutcomes(
         IReadOnlyList<EncounterOutcomeView> outcomes,
         Func<string, string> colorize,
-        ETier? dayTierCeiling,
-        TierDistribution? dayTierDistribution
+        GameDataDayTierTable? dayTiers
     )
     {
         var items = new List<TooltipMarkup.ListItem>();
@@ -151,23 +135,14 @@ internal static class EncounterPreviewTextFormatter
             }
             else if (outcome.Details.Count == 1)
             {
-                content = DetailLine(
-                    outcome.Details[0],
-                    colorize,
-                    dayTierCeiling,
-                    dayTierDistribution
-                );
+                content = DetailLine(outcome.Details[0], colorize, dayTiers);
             }
             else
             {
                 content = EncounterPreviewText.OutcomeSubPool(outcome.Details.Count);
                 var entries = new List<TooltipMarkup.ListItem>();
                 foreach (var detail in outcome.Details)
-                    entries.Add(
-                        new TooltipMarkup.ListItem(
-                            DetailLine(detail, colorize, dayTierCeiling, dayTierDistribution)
-                        )
-                    );
+                    entries.Add(new TooltipMarkup.ListItem(DetailLine(detail, colorize, dayTiers)));
                 children = entries;
             }
 
@@ -204,8 +179,7 @@ internal static class EncounterPreviewTextFormatter
     private static TooltipMarkup.Block ChoicePoolBlock(
         EncounterChoicePool pool,
         Func<string, string> colorize,
-        ETier? dayTierCeiling,
-        TierDistribution? dayTierDistribution
+        GameDataDayTierTable? dayTiers
     )
     {
         if (pool.IsCombat)
@@ -221,7 +195,7 @@ internal static class EncounterPreviewTextFormatter
         var entries = new List<TooltipMarkup.ListItem>();
         foreach (var entry in pool.Entries)
         {
-            var result = ChoiceResultText(entry, dayTierCeiling, dayTierDistribution);
+            var result = ChoiceResultText(entry, dayTiers);
             entries.Add(
                 new TooltipMarkup.ListItem(
                     string.IsNullOrWhiteSpace(result)
@@ -246,11 +220,10 @@ internal static class EncounterPreviewTextFormatter
     private static string DetailLine(
         EncounterChoiceDetail detail,
         Func<string, string> colorize,
-        ETier? dayTierCeiling,
-        TierDistribution? dayTierDistribution
+        GameDataDayTierTable? dayTiers
     )
     {
-        var result = ChoiceResultText(detail, dayTierCeiling, dayTierDistribution);
+        var result = ChoiceResultText(detail, dayTiers);
         if (string.IsNullOrWhiteSpace(result))
             return detail.DisplayName;
         return string.IsNullOrWhiteSpace(detail.DisplayName)
@@ -262,8 +235,7 @@ internal static class EncounterPreviewTextFormatter
     // the day-tier suffix where the pool is day-driven.
     private static string ChoiceResultText(
         EncounterChoiceDetail choice,
-        ETier? dayTierCeiling,
-        TierDistribution? dayTierDistribution
+        GameDataDayTierTable? dayTiers
     )
     {
         var result = choice.ResultText;
@@ -273,7 +245,7 @@ internal static class EncounterPreviewTextFormatter
         result = EncounterPreviewText.NormalizeRewardSpacing(
             CollapseWhitespace(result.Replace("\r", string.Empty).Replace('\n', ' '))
         );
-        var suffix = DayTierSuffix(choice, dayTierCeiling, dayTierDistribution);
+        var suffix = DayTierSuffix(choice, dayTiers);
         if (suffix == null)
             return result;
         // Full-width punctuation carries its own visual gap; an ASCII space in
@@ -296,13 +268,12 @@ internal static class EncounterPreviewTextFormatter
         return builder.ToString();
     }
 
-    // A pool with no tier constraint (or one spanning every dealable tier) is day-driven:
-    // show the runtime GameData distribution when available, otherwise retain the old
-    // ceiling summary as a fallback. Narrow constraints already state the tier explicitly.
+    // A pool with no tier constraint (or one spanning every dealable tier) is day-driven: show
+    // the runtime GameData distribution when available. Narrow constraints already state the tier
+    // explicitly, and unavailable GameData adds no BPP-authored tier claim.
     private static string? DayTierSuffix(
         EncounterChoiceDetail choice,
-        ETier? dayTierCeiling,
-        TierDistribution? dayTierDistribution
+        GameDataDayTierTable? dayTiers
     )
     {
         if (
@@ -311,25 +282,11 @@ internal static class EncounterPreviewTextFormatter
         )
             return null;
 
-        if (dayTierDistribution != null)
+        if (dayTiers != null)
             return EncounterPreviewText.EncounterTierDistributionSuffix(
-                FormatTierDistribution(dayTierDistribution, colorizeTiers: false)
+                FormatTierDistribution(dayTiers, colorizeTiers: false)
             );
-
-        if (!dayTierCeiling.HasValue)
-            return null;
-
-        var ceilingRank = TierOrder.Rank(dayTierCeiling.Value);
-        var effective = new List<ETier>();
-        foreach (var tier in DealableTiers)
-            if (TierOrder.Rank(tier) <= ceilingRank)
-                effective.Add(tier);
-
-        if (effective.Count == 0)
-            return null;
-        return effective.Count == 1
-            ? EncounterPreviewText.EncounterTierExact(effective[0])
-            : EncounterPreviewText.EncounterDayTierSuffix(effective[^1]);
+        return null;
     }
 
     private static bool UsesDayTierDistribution(EncounterRewardFilter reward, string? resultText)
@@ -342,7 +299,10 @@ internal static class EncounterPreviewTextFormatter
             && !HasExplicitTierDescriptor(resultText);
     }
 
-    private static string FormatTierDistribution(TierDistribution distribution, bool colorizeTiers)
+    private static string FormatTierDistribution(
+        GameDataDayTierTable distribution,
+        bool colorizeTiers
+    )
     {
         var entries = new List<string>(distribution.Entries.Count);
         foreach (var entry in distribution.Entries)

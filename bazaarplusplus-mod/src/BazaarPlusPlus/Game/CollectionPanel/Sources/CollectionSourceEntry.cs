@@ -1,6 +1,7 @@
 #nullable enable
 using System.Text;
 using BazaarGameShared.Domain.Core.Types;
+using BazaarPlusPlus.GameInterop.Heroes;
 
 namespace BazaarPlusPlus.Game.CollectionPanel.Sources;
 
@@ -55,6 +56,19 @@ internal sealed class CollectionSourceEntry
 
     public bool SuppressDayGate { get; }
 
+    public bool HasAllHeroesOfferSegment
+    {
+        get
+        {
+            foreach (var segment in OfferSegments)
+            {
+                if (segment.Rule.HeroMode == CollectionSourceHeroMode.AllHeroes)
+                    return true;
+            }
+            return false;
+        }
+    }
+
     public string Group { get; }
 
     public int Order { get; }
@@ -63,6 +77,21 @@ internal sealed class CollectionSourceEntry
 
     public bool AppliesToHero(EHero hero) =>
         AvailableHeroes.Count == 0 || AvailableHeroes.Contains(hero);
+
+    public bool IsVisibleForHero(EHero hero)
+    {
+        if (!AppliesToHero(hero))
+            return false;
+        if (hero != EHero.Common)
+            return true;
+
+        foreach (var segment in OfferSegments)
+        {
+            if (segment.Rule.HeroMode != CollectionSourceHeroMode.OtherHeroes)
+                return true;
+        }
+        return false;
+    }
 
     private static string BuildOfferRuleFingerprint(
         IReadOnlyList<CollectionSourceOfferSegment> segments
@@ -90,7 +119,11 @@ internal sealed class CollectionSourceEntry
         builder
             .Append(rule.HeroMode)
             .Append('|')
-            .Append(rule.Hero?.ToString() ?? string.Empty)
+            .Append(
+                rule.Hero.HasValue
+                    ? TheDragonsHeroIdentity.ToCanonicalId(rule.Hero.Value)
+                    : string.Empty
+            )
             .Append('|')
             .Append(rule.StartingTier?.Mode.ToString() ?? string.Empty)
             .Append(':')

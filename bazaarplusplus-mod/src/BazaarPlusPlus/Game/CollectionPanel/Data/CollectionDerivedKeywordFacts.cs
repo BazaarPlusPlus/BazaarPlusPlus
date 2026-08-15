@@ -19,13 +19,22 @@ internal static class CollectionDerivedKeywordFacts
     public static IReadOnlyCollection<EHiddenTag> ProjectHiddenTags(TCardBase template)
     {
         var hiddenTags = template.HiddenTags;
-        if (hiddenTags.Contains(EHiddenTag.Lifesteal))
+        var item = template as TCardItem;
+        var hasQuest = item?.Quests?.Count > 0;
+        var needsLifesteal =
+            !hiddenTags.Contains(EHiddenTag.Lifesteal)
+            && item != null
+            && HasPositiveLifesteal(item);
+
+        if (!hasQuest && !needsLifesteal)
             return hiddenTags;
 
-        if (template is not TCardItem item || !HasPositiveLifesteal(item))
-            return hiddenTags;
-
-        return new HashSet<EHiddenTag>(hiddenTags) { EHiddenTag.Lifesteal };
+        var projected = new HashSet<EHiddenTag>(hiddenTags);
+        if (hasQuest)
+            projected.Add(EHiddenTag.Quest);
+        if (needsLifesteal)
+            projected.Add(EHiddenTag.Lifesteal);
+        return projected;
     }
 
     private static bool HasPositiveLifesteal(TCardItem item)

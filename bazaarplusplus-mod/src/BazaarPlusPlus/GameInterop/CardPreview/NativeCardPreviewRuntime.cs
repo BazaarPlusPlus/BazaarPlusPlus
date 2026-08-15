@@ -95,6 +95,7 @@ internal static class NativeCardPreviewRuntime
         Component card,
         TCardBase template,
         TCardInstance instance,
+        bool usePremiumVisuals,
         CancellationToken token = default
     )
     {
@@ -108,7 +109,10 @@ internal static class NativeCardPreviewRuntime
 
         try
         {
-            var raw = method.Invoke(card, new object[] { template, false, instance, token });
+            var raw = method.Invoke(
+                card,
+                new object[] { template, usePremiumVisuals, instance, token }
+            );
             if (raw is Task task)
                 await task;
             token.ThrowIfCancellationRequested();

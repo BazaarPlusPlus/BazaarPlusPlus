@@ -34,7 +34,7 @@ internal sealed class CurrentReplayRecordingState
     private string? _recordingId;
     private string? _finalFilePath;
     private string? _reason;
-    private bool _battlePersisted;
+    private bool _replaySourceReady;
     private bool _replayStateActive;
     private bool _availabilityReady;
     private bool _nativeReplayStarted;
@@ -60,7 +60,7 @@ internal sealed class CurrentReplayRecordingState
         _recordingId = null;
         _finalFilePath = null;
         _reason = null;
-        _battlePersisted = false;
+        _replaySourceReady = false;
         _availabilityReady = false;
         _nativeReplayStarted = false;
         Phase = CurrentReplayRecordingPhase.AwaitingBattlePersistence;
@@ -77,11 +77,22 @@ internal sealed class CurrentReplayRecordingState
         if (!MatchesBattle(battleId) || HasActiveSession)
             return;
 
-        _battlePersisted = succeeded;
+        _replaySourceReady = succeeded;
         _reason = succeeded ? null : reason;
         Phase = succeeded
             ? CurrentReplayRecordingPhase.Preparing
             : CurrentReplayRecordingPhase.Failed;
+        RefreshReadyPhase();
+    }
+
+    internal void MarkCurrentNativeReady(string battleId)
+    {
+        if (!MatchesBattle(battleId) || HasActiveSession)
+            return;
+
+        _replaySourceReady = true;
+        _reason = null;
+        Phase = CurrentReplayRecordingPhase.Preparing;
         RefreshReadyPhase();
     }
 
@@ -100,7 +111,7 @@ internal sealed class CurrentReplayRecordingState
         if (!ready)
         {
             _reason = reason;
-            if (_battlePersisted && Phase != CurrentReplayRecordingPhase.Failed)
+            if (_replaySourceReady && Phase != CurrentReplayRecordingPhase.Failed)
                 Phase = CurrentReplayRecordingPhase.Preparing;
             return;
         }
@@ -117,7 +128,7 @@ internal sealed class CurrentReplayRecordingState
         if (
             string.IsNullOrWhiteSpace(recordingId)
             || !_replayStateActive
-            || !_battlePersisted
+            || !_replaySourceReady
             || !_availabilityReady
             || Phase
                 is not (CurrentReplayRecordingPhase.Ready or CurrentReplayRecordingPhase.Failed)
@@ -161,7 +172,7 @@ internal sealed class CurrentReplayRecordingState
         _nativeReplayStarted = false;
         _reason = reason;
         Phase =
-            _battlePersisted && _availabilityReady
+            _replaySourceReady && _availabilityReady
                 ? CurrentReplayRecordingPhase.Ready
                 : CurrentReplayRecordingPhase.Failed;
     }
@@ -229,7 +240,7 @@ internal sealed class CurrentReplayRecordingState
                     or CurrentReplayRecordingPhase.Degraded;
         var canStart =
             visible
-            && _battlePersisted
+            && _replaySourceReady
             && _availabilityReady
             && Phase is CurrentReplayRecordingPhase.Ready or CurrentReplayRecordingPhase.Failed;
         return new CurrentReplayRecordingSnapshot(
@@ -253,7 +264,7 @@ internal sealed class CurrentReplayRecordingState
 
     private void RefreshReadyPhase()
     {
-        if (_battleId == null || HasActiveSession || !_battlePersisted)
+        if (_battleId == null || HasActiveSession || !_replaySourceReady)
             return;
 
         Phase =
@@ -268,10 +279,37 @@ internal sealed class CurrentReplayRecordingState
         _recordingId = null;
         _finalFilePath = null;
         _reason = null;
-        _battlePersisted = false;
+        _replaySourceReady = false;
         _replayStateActive = false;
         _availabilityReady = false;
         _nativeReplayStarted = false;
         Phase = CurrentReplayRecordingPhase.Unavailable;
     }
+}
+
+internal static class ReplayRecordingButtonSnapshotPolicy
+{
+    internal static CurrentReplayRecordingSnapshot OrdinaryManagedReplay(
+        string battleId,
+        bool recorderReady,
+        bool replayReady,
+        string? unavailableReason
+    ) =>
+        new(
+            recorderReady && replayReady
+                ? CurrentReplayRecordingPhase.Ready
+                : CurrentReplayRecordingPhase.Preparing,
+            battleId,
+            RecordingId: null,
+            FinalFilePath: null,
+            Reason: recorderReady && replayReady ? null : unavailableReason,
+            Visible: true,
+            CanStart: recorderReady && replayReady,
+            CanReveal: false
+        );
+
+    internal static CurrentReplayRecordingSnapshot Resolve(
+        CurrentReplayRecordingSnapshot managedSnapshot,
+        CurrentReplayRecordingSnapshot currentNativeSnapshot
+    ) => managedSnapshot.Visible ? managedSnapshot : currentNativeSnapshot;
 }

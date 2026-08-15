@@ -9,10 +9,10 @@ namespace BazaarPlusPlus.Game.LiveBuildPanel.Recommendations;
 internal static class TenWinBuildCatalogFactory
 {
     internal const string EmbeddedResourceName =
-        "BazaarPlusPlus.Data.BuildRecommendations.tenwin_builds.json";
+        "BazaarPlusPlus.Data.BuildRecommendations.builds.json";
     private const string RemoteUrl =
-        "https://bpp-metrics.bazaarplusplus.com/analyzer-v4/mod/tenwin_builds.json";
-    private const string CacheFileName = "tenwin_builds.json";
+        "https://bpp-metrics.bazaarplusplus.com/analyzer-v5/builds/latest.json";
+    private const string CacheFileName = "builds.json";
     private static readonly TimeSpan CacheDuration = TimeSpan.FromHours(20);
     private static readonly HttpClient HttpClient = BppHttpClientFactory.Create(
         productVersion: BppPluginVersion.Current,
@@ -20,9 +20,9 @@ internal static class TenWinBuildCatalogFactory
         timeout: TimeSpan.FromSeconds(10)
     );
 
-    internal static IRemoteEmbeddedCatalog<TenWinBuildCorpus> Create(string gameRootPath)
+    internal static IRemoteEmbeddedCatalog<TenWinBuildCorpus> Create(string dataRootPath)
     {
-        var cache = new FileCatalogCache(BuildCacheFilePath(gameRootPath));
+        var cache = new FileCatalogCache(BuildCacheFilePath(dataRootPath));
         return new RemoteEmbeddedCatalog<TenWinBuildCorpus>(
             new TenWinBuildCatalogParser(),
             new AssemblyResourceCatalogSource(
@@ -38,8 +38,8 @@ internal static class TenWinBuildCatalogFactory
         );
     }
 
-    internal static string BuildCacheFilePath(string gameRootPath) =>
-        Path.Combine(gameRootPath, "BazaarPlusPlusV4", CacheFileName);
+    internal static string BuildCacheFilePath(string dataRootPath) =>
+        Path.Combine(dataRootPath, CacheFileName);
 }
 
 internal sealed class TenWinBuildCatalogParser : ICatalogParser<TenWinBuildCorpus>

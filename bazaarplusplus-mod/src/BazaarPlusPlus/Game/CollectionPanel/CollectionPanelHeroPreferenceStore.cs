@@ -7,32 +7,51 @@ using UnityEngine;
 
 namespace BazaarPlusPlus.Game.CollectionPanel;
 
-internal interface ICollectionPanelHeroPreferenceStore
-{
-    EHero? Load();
-
-    void Save(EHero hero);
-}
-
 internal sealed class CollectionPanelHeroPreferenceStore : ICollectionPanelHeroPreferenceStore
 {
     private readonly HashSet<CollectionPanelLogReasonCode> _reportedPreferenceReasons = [];
     private bool _scopeDegradedReported;
 
-    public EHero? Load()
+    public CollectionPanelHeroPreferenceLoadResult Load(
+        CollectionCatalogReadiness catalogReadiness,
+        IReadOnlyCollection<EHero> availableHeroes
+    )
     {
         var key = BuildScopedPrefsKey();
         if (!PlayerPrefs.HasKey(key))
-            return null;
+        {
+            return CollectionPanelHeroPreference.ResolveStored(
+                hasStoredValue: false,
+                raw: null,
+                catalogReadiness,
+                availableHeroes
+            );
+        }
 
         var raw = PlayerPrefs.GetString(key, string.Empty);
-        if (CollectionPanelHeroPreference.TryParse(raw, out var hero))
-            return hero;
+        var result = CollectionPanelHeroPreference.ResolveStored(
+            hasStoredValue: true,
+            raw,
+            catalogReadiness,
+            availableHeroes
+        );
+        if (result.Status != CollectionPanelHeroPreferenceLoadStatus.Invalid)
+        {
+            if (
+                result.CanonicalRaw != null
+                && !string.Equals(raw, result.CanonicalRaw, StringComparison.Ordinal)
+            )
+            {
+                PlayerPrefs.SetString(key, result.CanonicalRaw);
+                PlayerPrefs.Save();
+            }
+            return result;
+        }
 
         ReportPreferenceDegraded(CollectionPanelLogReasonCode.InvalidSavedHero, null);
         PlayerPrefs.DeleteKey(key);
         PlayerPrefs.Save();
-        return null;
+        return result;
     }
 
     public void Save(EHero hero)

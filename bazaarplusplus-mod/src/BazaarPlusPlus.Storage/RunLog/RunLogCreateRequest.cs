@@ -28,4 +28,10 @@ public sealed class RunLogCreateRequest
     // Game build channel the run was recorded on ("Online" / "Ptr" / "Unknown");
     // rows tagged "Ptr" are permanently excluded from server uploads.
     public string? BuildChannel { get; set; }
+
+    public string? PlayerAccountId { get; set; }
+
+    public bool BundleScreenshotRequested { get; set; }
+
+    public string? ModVersion { get; set; }
 }

@@ -8,6 +8,8 @@ namespace BazaarPlusPlus.Game.CombatReplay.Bootstrap;
 
 internal static class AppStateHandlerInstaller
 {
+    private static readonly TimeSpan PresentationReadyTimeout = TimeSpan.FromSeconds(5);
+
     internal static void EnsureAppStateHandlersInitialized(NetMessageProcessor? processor = null)
     {
         if (ReplayBootstrap.TryGetAppStateField<GameSimHandler>("_gameSimHandler") != null)
@@ -79,11 +81,9 @@ internal static class AppStateHandlerInstaller
                     && !boardManager.IsCarpetUnrolling
                     && !boardManager.HasCardsToReveal();
             },
-            timeout: TimeSpan.FromSeconds(5)
+            timeout: PresentationReadyTimeout
         );
 
-        // Let one more frame pass so ReplayState.OnEnter fire-and-forget spawn work can settle
-        // before combat sim playback starts.
-        await Task.Delay(100);
+        await ReplayItemPresentationReadiness.WaitForTrackedTasksAsync(PresentationReadyTimeout);
     }
 }

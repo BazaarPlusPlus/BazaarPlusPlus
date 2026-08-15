@@ -36,8 +36,8 @@ internal sealed partial class HistoryPanel
             );
             _uiView.PreviewContainerBoundsChanged += OnPreviewContainerBoundsChanged;
 
-            // First panel open: warm the FFmpeg locator cache off the UI thread so the record
-            // button's per-refresh availability gate never incurs the ~2s liveness probe.
+            // First panel open: load the macOS native plugin on the UI thread, or warm the
+            // Warm the native recorder before per-refresh gating.
             _coordinator?.PrewarmRecordingAvailability();
         }
         _uiView.EnsureCreated();
@@ -113,7 +113,7 @@ internal sealed partial class HistoryPanel
             canReplaySelectedBattle,
             replayUnavailableReason,
             _coordinator?.GetReplayActionLabel(selectedBattle) ?? HistoryPanelText.Replay(),
-            _runtime?.IsInGameRun == true,
+            _runState?.IsInGameRun == true,
             canRecordSelectedBattle,
             _state.SectionMode == HistorySectionMode.Runs
                 && selectedRun != null
@@ -129,13 +129,20 @@ internal sealed partial class HistoryPanel
             ? HistoryPanelFormatter.FormatDayOnly(selectedBattle!.Day)
             : string.Empty;
         var detailOpponentName = hasSelectedBattle
-            ? (selectedBattle!.OpponentName ?? HistoryPanelText.UnknownOpponent())
+            ? selectedBattle!.Source == HistoryBattleSource.Ghost
+                ? HistoryPanelText.GhostChallengedYou(
+                    selectedBattle.OpponentName ?? HistoryPanelText.UnknownOpponent()
+                )
+                : (selectedBattle.OpponentName ?? HistoryPanelText.UnknownOpponent())
             : string.Empty;
         var detailMetaText = hasSelectedBattle
             ? HistoryPanelFormatter.FormatTimestamp(selectedBattle!.RecordedAtUtc)
             : string.Empty;
         var detailSnapshotText = hasSelectedBattle
-            ? HistoryPanelFormatter.FormatSnapshotSummary(selectedBattle!.SnapshotCounts)
+            ? HistoryPanelFormatter.FormatSnapshotSummary(
+                selectedBattle!.SnapshotCounts,
+                selectedBattle.Source
+            )
             : string.Empty;
         var detailPlaceholderText = hasSelectedBattle
             ? string.Empty
@@ -214,7 +221,7 @@ internal sealed partial class HistoryPanel
             RunsBattleSubtitle =
                 selectedRun == null
                     ? HistoryPanelText.SelectRunSubtitle()
-                    : $"{selectedRun.Hero} | {HistoryPanelFormatter.FormatDayOnly(selectedRun.FinalDay)}",
+                    : $"{HistoryPanelHeroPresentation.DisplayName(selectedRun.Hero)} | {HistoryPanelFormatter.FormatDayOnly(selectedRun.FinalDay)}",
             ReplayButtonText = buttons.ReplayButtonText,
             ReplayButtonEnabled = buttons.ReplayButtonEnabled,
             RecordAndReplayButtonText = buttons.RecordAndReplayButtonText,

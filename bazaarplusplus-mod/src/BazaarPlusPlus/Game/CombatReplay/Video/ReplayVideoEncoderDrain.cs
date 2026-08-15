@@ -4,7 +4,7 @@ using BazaarPlusPlus.Infrastructure;
 namespace BazaarPlusPlus.Game.CombatReplay.Video;
 
 internal sealed record ReplayVideoEncoderDrainInput(
-    FfmpegRawVideoEncoder? Encoder,
+    IReplayVideoEncoder? Encoder,
     ReplayVideoCaptureRequest Request,
     DateTimeOffset StartedAtUtc,
     int CapturedFrames,
@@ -14,6 +14,7 @@ internal sealed record ReplayVideoEncoderDrainInput(
     ReplayVideoRecordingReasonCode? DegradationReasonCode,
     Exception? FailureException,
     int FrameByteLength,
+    int NativeSlotCount,
     int ReadbackBackpressureSkips,
     int MaxOutstandingReadbacks,
     long ReadbackCopyP95Us,
@@ -48,7 +49,6 @@ internal sealed class ReplayVideoEncoderDrain
         var failureException = _input.FailureException;
         var exitCode = (int?)null;
         var stderrTail = (string?)null;
-        var encoderFailed = false;
         var encoder = _input.Encoder;
 
         if (encoder != null)
@@ -60,14 +60,12 @@ internal sealed class ReplayVideoEncoderDrain
                 stderrTail = outcome.StderrTail;
                 if (!outcome.Succeeded)
                 {
-                    encoderFailed = true;
                     failureReasonCode ??= MapReason(outcome.ReasonCode);
                     failureException ??= outcome.Exception;
                 }
             }
             catch (Exception ex)
             {
-                encoderFailed = true;
                 failureReasonCode ??= ReplayVideoRecordingReasonCode.EncoderWriterFailed;
                 failureException ??= ex;
             }
@@ -75,22 +73,11 @@ internal sealed class ReplayVideoEncoderDrain
             {
                 encoder.Dispose();
             }
-
-            if (encoderFailed && request.EncoderProfile.HardwareAccelerated)
-            {
-                FfmpegVideoEncoderSelector.Invalidate(
-                    request.FfmpegExecutable,
-                    request.Width,
-                    request.Height,
-                    request.Fps,
-                    request.EncoderProfile.Codec
-                );
-            }
         }
 
         var endedAt = DateTimeOffset.UtcNow;
         var durationMs = (long)Math.Max(0, (endedAt - _input.StartedAtUtc).TotalMilliseconds);
-        var fileSize = FfmpegRawVideoEncoder.TryGetFileSize(request.OutputFilePath);
+        var fileSize = ReplayVideoFileHelpers.TryGetFileSize(request.OutputFilePath);
         var status =
             failureReasonCode.HasValue || fileSize <= 0
                 ? ReplayVideoCaptureStatus.Failed
@@ -140,6 +127,22 @@ internal sealed class ReplayVideoEncoderDrain
     private void LogCaptureFinalized(ReplayVideoCaptureResult result)
     {
         var request = _input.Request;
+        var usesNativeSlots = _input.NativeSlotCount > 0;
+        var frameByteLength = usesNativeSlots
+            ? checked((int)((long)request.Width * request.Height * 3 / 2))
+            : _input.FrameByteLength;
+        var poolCapacity = usesNativeSlots
+            ? _input.NativeSlotCount
+            : request.BufferPlan.PoolCapacity;
+        var queueCapacity = usesNativeSlots
+            ? _input.NativeSlotCount
+            : request.BufferPlan.QueueCapacity;
+        var poolPayloadBytes = usesNativeSlots
+            ? checked((long)frameByteLength * poolCapacity)
+            : request.BufferPlan.PoolPayloadBytes;
+        var poolBudgetExceeded = usesNativeSlots
+            ? poolPayloadBytes > ReplayVideoBufferPlan.DefaultPoolBudgetBytes
+            : request.BufferPlan.BudgetExceeded;
         BppLog.DebugEvent(
             CombatReplayVideoLogEvents.VideoCaptureStatsObserved,
             () =>
@@ -161,19 +164,11 @@ internal sealed class ReplayVideoEncoderDrain
                     CombatReplayVideoLogEvents.StatsRateControl.Bind(
                         request.EncoderProfile.RateControlSummary
                     ),
-                    CombatReplayVideoLogEvents.StatsFrameBytes.Bind(_input.FrameByteLength),
-                    CombatReplayVideoLogEvents.StatsPoolCapacity.Bind(
-                        request.BufferPlan.PoolCapacity
-                    ),
-                    CombatReplayVideoLogEvents.StatsQueueCapacity.Bind(
-                        request.BufferPlan.QueueCapacity
-                    ),
-                    CombatReplayVideoLogEvents.StatsPoolPayloadBytes.Bind(
-                        request.BufferPlan.PoolPayloadBytes
-                    ),
-                    CombatReplayVideoLogEvents.StatsPoolBudgetExceeded.Bind(
-                        request.BufferPlan.BudgetExceeded
-                    ),
+                    CombatReplayVideoLogEvents.StatsFrameBytes.Bind(frameByteLength),
+                    CombatReplayVideoLogEvents.StatsPoolCapacity.Bind(poolCapacity),
+                    CombatReplayVideoLogEvents.StatsQueueCapacity.Bind(queueCapacity),
+                    CombatReplayVideoLogEvents.StatsPoolPayloadBytes.Bind(poolPayloadBytes),
+                    CombatReplayVideoLogEvents.StatsPoolBudgetExceeded.Bind(poolBudgetExceeded),
                     CombatReplayVideoLogEvents.StatsReadbackBackpressureSkips.Bind(
                         _input.ReadbackBackpressureSkips
                     ),
@@ -184,26 +179,28 @@ internal sealed class ReplayVideoEncoderDrain
                         _input.ReadbackCopyP95Us
                     ),
                     CombatReplayVideoLogEvents.StatsCfrCopyP95Us.Bind(_input.CfrCopyP95Us),
-                    CombatReplayVideoLogEvents.StatsStagingBufferBytes.Bind(_input.FrameByteLength),
+                    CombatReplayVideoLogEvents.StatsStagingBufferBytes.Bind(
+                        usesNativeSlots ? 0 : frameByteLength
+                    ),
                     CombatReplayVideoLogEvents.StatsMaxReadbackPayloadBytes.Bind(
-                        (long)_input.MaxOutstandingReadbacks * _input.FrameByteLength
+                        (long)_input.MaxOutstandingReadbacks * frameByteLength
                     ),
                     CombatReplayVideoLogEvents.StatsRenderTextureEstimatedBytes.Bind(
-                        _input.FrameByteLength
+                        usesNativeSlots ? 0 : frameByteLength
                     ),
                 ]
         );
     }
 
     internal static ReplayVideoRecordingReasonCode MapReason(
-        FfmpegEncoderFailureReasonCode reasonCode
+        ReplayVideoEncoderFailureReasonCode reasonCode
     ) =>
         reasonCode switch
         {
-            FfmpegEncoderFailureReasonCode.NonZeroExit =>
+            ReplayVideoEncoderFailureReasonCode.NonZeroExit =>
                 ReplayVideoRecordingReasonCode.EncoderNonZeroExit,
-            FfmpegEncoderFailureReasonCode.WriterTimeout
-            or FfmpegEncoderFailureReasonCode.ProcessTimeout =>
+            ReplayVideoEncoderFailureReasonCode.WriterTimeout
+            or ReplayVideoEncoderFailureReasonCode.ProcessTimeout =>
                 ReplayVideoRecordingReasonCode.EncoderTimeout,
             _ => ReplayVideoRecordingReasonCode.EncoderWriterFailed,
         };

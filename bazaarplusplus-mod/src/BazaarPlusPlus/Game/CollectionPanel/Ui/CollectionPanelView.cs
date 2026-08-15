@@ -2,8 +2,6 @@
 using BazaarGameShared.Domain.Core.Types;
 using BazaarPlusPlus.Game.CollectionPanel.Data;
 using BazaarPlusPlus.Game.CollectionPanel.Grid;
-using BazaarPlusPlus.Game.CollectionPanel.Sources;
-using BazaarPlusPlus.Game.Supporters;
 using BazaarPlusPlus.Game.Supporters.Ui;
 using BazaarPlusPlus.GameInterop.Fonts;
 using BazaarPlusPlus.GameInterop.TagTypography;
@@ -14,66 +12,25 @@ using UnityEngine.UIElements;
 
 namespace BazaarPlusPlus.Game.CollectionPanel.Ui;
 
-internal sealed class CollectionPanelViewModel
-{
-    public string Title { get; set; } = string.Empty;
-    public string Subtitle { get; set; } = string.Empty;
-    public IReadOnlyList<BPPSupporterSample> Supporters { get; set; } =
-        Array.Empty<BPPSupporterSample>();
-    public string CountText { get; set; } = string.Empty;
-    public string? StatusMessage { get; set; }
-    public bool IsLoading { get; set; }
-    public CollectionTabKind ActiveTab { get; set; } = CollectionTabKind.Items;
-    public ECardType ActiveType { get; set; } = ECardType.Item;
-    public CollectionTabProfile TabProfile { get; set; } =
-        CollectionTabProfile.For(CollectionTabKind.Items);
-    public bool HeroFilterVisible { get; set; } = true;
-    public bool HeroFilterEnabled { get; set; } = true;
-    public HashSet<EHero> SelectedHeroes { get; set; } = new();
-    public HashSet<ETier> SelectedTiers { get; set; } = new();
-    public HashSet<ECardSize> SelectedSizes { get; set; } = new();
-    public HashSet<ECardTag> SelectedTags { get; set; } = new();
-    public HashSet<EHiddenTag> SelectedKeywords { get; set; } = new();
-    public CollectionFacetMatchMode TagMatchMode { get; set; } = CollectionFacetMatchMode.Any;
-    public CollectionFacetMatchMode KeywordMatchMode { get; set; } = CollectionFacetMatchMode.Any;
-    public string SearchQuery { get; set; } = string.Empty;
-    public string? SelectedSourceKey { get; set; }
-    public bool SourceSelectorEnabled { get; set; } = true;
-    public CollectionSortPriority SortPriority { get; set; } = CollectionSortPriority.Quality;
-
-    // Day filter icon: DayFilterValue is the number shown (current run day, or OutOfRunDay);
-    // DayFilterActive highlights it when the day participates in filtering.
-    public bool DayFilterVisible { get; set; } = true;
-    public bool DayFilterEnabled { get; set; } = true;
-    public bool DayFilterActive { get; set; }
-    public int DayFilterValue { get; set; }
-    public IReadOnlyList<EHero> AvailableHeroes { get; set; } = Array.Empty<EHero>();
-    public IReadOnlyList<ETier> AvailableTiers { get; set; } = Array.Empty<ETier>();
-    public IReadOnlyList<ECardSize> AvailableSizes { get; set; } = Array.Empty<ECardSize>();
-    public IReadOnlyList<ECardTag> AvailableTags { get; set; } = Array.Empty<ECardTag>();
-    public IReadOnlyList<EHiddenTag> AvailableKeywords { get; set; } = Array.Empty<EHiddenTag>();
-    public IReadOnlyList<CollectionSourceOptionViewModel> AvailableSources { get; set; } =
-        Array.Empty<CollectionSourceOptionViewModel>();
-    public float ContentHeight { get; set; }
-}
-
-internal sealed class CollectionSourceOptionViewModel
-{
-    public string SourceKey { get; init; } = string.Empty;
-    public string DisplayName { get; init; } = string.Empty;
-    public string Description { get; init; } = string.Empty;
-    public CollectionSourceKind Kind { get; init; }
-    public Guid RepresentativeTemplateId { get; init; }
-}
-
 internal sealed partial class CollectionPanelView : IDisposable
 {
+    private const string StagingIdCopyHint = "STAGING · 悬停卡牌后按 Ctrl+C 复制 template ID";
     private const string SourceChipInitialsName = "bpp-source-chip-initials";
     private const string TagChipIconName = "bpp-tag-chip-icon";
     private const string TagChipLabelName = "bpp-tag-chip-label";
+    private const string SizeChipLabelName = "bpp-size-chip-label";
+    private const string FacetMatchAnyName = "bpp-facet-match-any";
+    private const string FacetMatchAllName = "bpp-facet-match-all";
+    private const string FacetMatchLabelName = "bpp-facet-match-label";
+    private const string FacetChoiceDividerName = "bpp-facet-choice-divider";
+    private const string SortQualityButtonName = "bpp-collection-sort-quality";
+    private const string SortSizeButtonName = "bpp-collection-sort-size";
+    private const string SortButtonIconName = "bpp-collection-sort-icon";
+    private const string SortButtonLabelName = "bpp-collection-sort-label";
 
     private readonly Transform _parent;
     private readonly ICollectionPanelCommands _commands;
+    private readonly bool _stagingItemIdCopyEnabled;
 
     private GameObject? _rootObject;
     private UIDocument? _document;
@@ -83,29 +40,31 @@ internal sealed partial class CollectionPanelView : IDisposable
     private VisualElement? _root;
     private Label? _title;
     private VisualElement? _subtitle;
-    private Label? _countLabel;
+    private Label? _stagingIdCopyLabel;
     private Label? _statusLabel;
     private Label? _disclaimerLabel;
-    private Button? _itemTabButton;
-    private Button? _skillTabButton;
+    private VisualElement? _tabModeControl;
     private Button? _closeButton;
-    private Label? _searchLabel;
+    private VisualElement? _standardOperationControls;
+    private VisualElement? _searchInputContainer;
+    private VisualElement? _searchFrame;
     private TextField? _searchField;
+    private Label? _searchPlaceholderLabel;
     private Button? _dayToggleButton;
-    private Label? _sortLabel;
+    private VisualElement? _dayToggleContent;
+    private Label? _dayToggleCaption;
+    private Label? _dayToggleValue;
     private Button? _sortQualityButton;
     private Button? _sortSizeButton;
     private Label? _heroFilterLabel;
+    private Button? _allHeroesButton;
     private Label? _tierFilterLabel;
-    private Label? _tagFilterLabel;
     private Label? _keywordFilterLabel;
-    private Label? _keywordRelatedSectionLabel;
-    private Button? _tagMatchModeButton;
-    private Button? _keywordMatchModeButton;
+    private VisualElement? _keywordMatchModeButton;
+    private VisualElement? _tagMatchModeButton;
     private VisualElement? _heroChipRow;
     private VisualElement? _tierChipRow;
     private VisualElement? _sizeChipRow;
-    private VisualElement? _tierSizeDivider;
     private VisualElement? _tagChipRow;
     private VisualElement? _keywordChipRow;
     private Label? _sourceFilterLabel;
@@ -116,8 +75,11 @@ internal sealed partial class CollectionPanelView : IDisposable
     private VisualElement? _heroFilterSection;
     private VisualElement? _tierFilterSection;
     private ScrollView? _controlsScrollView;
+    private VisualElement? _controlsScrollShadow;
+    private ScrollViewDragScroller? _controlsDragScroller;
     private VisualElement? _gridViewport;
     private ScrollView? _gridScrollView;
+    private ScrollViewDragScroller? _gridDragScroller;
     private VisualElement? _gridContentSpacer;
     private Label? _emptyLabel;
     private Label? _loadingLabel;
@@ -125,6 +87,9 @@ internal sealed partial class CollectionPanelView : IDisposable
     private string _loadingMessage = string.Empty;
     private float _loadingFrameElapsed;
     private int _loadingFrameIndex;
+    private int _stagingIdCopyFeedbackGeneration;
+    private bool _searchFocused;
+    private float _searchFocusPulseElapsed;
 
     private readonly Dictionary<EHero, Button> _heroChips = new();
     private readonly Dictionary<EHero, VisualElement> _heroChipIcons = new();
@@ -132,8 +97,8 @@ internal sealed partial class CollectionPanelView : IDisposable
     private readonly Dictionary<ECardSize, Button> _sizeChips = new();
     private readonly Dictionary<ECardTag, Button> _tagChips = new();
     private readonly List<ECardTag> _tagChipOrder = new();
-    private readonly Dictionary<EHiddenTag, Button> _keywordChips = new();
-    private readonly List<EHiddenTag> _keywordChipOrder = new();
+    private readonly Dictionary<CollectionKeywordFacetOption, Button> _keywordChips = new();
+    private readonly List<CollectionKeywordFacetOption> _keywordChipOrder = new();
 
     private readonly Dictionary<string, Button> _sourceChips = new(StringComparer.Ordinal);
     private readonly Dictionary<string, VisualElement> _sourceChipIcons = new(
@@ -154,10 +119,31 @@ internal sealed partial class CollectionPanelView : IDisposable
 
     public event Action<Rect>? GridViewportBoundsChanged;
 
-    public CollectionPanelView(Transform parent, ICollectionPanelCommands commands)
+    public CollectionPanelView(
+        Transform parent,
+        ICollectionPanelCommands commands,
+        bool stagingItemIdCopyEnabled = false
+    )
     {
         _parent = parent ?? throw new ArgumentNullException(nameof(parent));
         _commands = commands ?? throw new ArgumentNullException(nameof(commands));
+        _stagingItemIdCopyEnabled = stagingItemIdCopyEnabled;
+    }
+
+    internal void ShowStagingTemplateIdCopied(string displayName, string templateId)
+    {
+        if (_stagingIdCopyLabel == null)
+            return;
+
+        var generation = ++_stagingIdCopyFeedbackGeneration;
+        _stagingIdCopyLabel.text = $"已复制 {displayName}: {templateId}";
+        _stagingIdCopyLabel
+            .schedule.Execute(() =>
+            {
+                if (generation == _stagingIdCopyFeedbackGeneration && _stagingIdCopyLabel != null)
+                    _stagingIdCopyLabel.text = StagingIdCopyHint;
+            })
+            .StartingIn(2500);
     }
 
     public void EnsureCreated()
@@ -188,7 +174,10 @@ internal sealed partial class CollectionPanelView : IDisposable
                 _parent,
                 BppOverlaySorting.NativeCardPreview,
                 Sizes.FontTitle,
-                Colors.GameTitleText,
+                Colors.White,
+                UnicodeFontCoverage.ContainsCjk(CollectionPanelText.Title())
+                    ? NativeGameTypography.OwnedTextRole.Body
+                    : NativeGameTypography.OwnedTextRole.Heading,
                 out _titleOverlay
             )
             || _titleOverlay == null
@@ -250,6 +239,7 @@ internal sealed partial class CollectionPanelView : IDisposable
     {
         if (_root == null || deltaSeconds <= 0f)
             return;
+        TickSearchFocusPulse(deltaSeconds);
         if (Mathf.Approximately(_opacity, _targetOpacity))
         {
             if (_targetOpacity <= 0f && _root.style.display.value != DisplayStyle.None)
@@ -320,6 +310,15 @@ internal sealed partial class CollectionPanelView : IDisposable
             _controlsScrollView.scrollOffset = new Vector2(_controlsScrollView.scrollOffset.x, 0f);
     }
 
+    public void TickControlsScrollShadow()
+    {
+        if (_controlsScrollShadow == null || _controlsScrollView == null)
+            return;
+
+        _controlsScrollShadow.style.display =
+            _controlsScrollView.scrollOffset.y > 0.5f ? DisplayStyle.Flex : DisplayStyle.None;
+    }
+
     public void Refresh(CollectionPanelViewModel model)
     {
         if (_root == null)
@@ -328,7 +327,6 @@ internal sealed partial class CollectionPanelView : IDisposable
         _title!.text = model.Title;
         _titleOverlay?.SetText(model.Title);
         BPPSupporterAttributionRow.Bind(_subtitle!, model.Supporters, model.Subtitle, _typography!);
-        _countLabel!.text = model.CountText;
         _statusLabel!.text = StablePanelText.Compact(model.StatusMessage, 150);
         _statusLabel.tooltip = model.StatusMessage ?? string.Empty;
         _statusLabel.style.display = string.IsNullOrWhiteSpace(model.StatusMessage)
@@ -338,15 +336,16 @@ internal sealed partial class CollectionPanelView : IDisposable
         _loadingMessage = model.StatusMessage ?? CollectionPanelText.CatalogLoading();
         if (_searchField != null && !string.Equals(_searchField.value, model.SearchQuery))
             _searchField.SetValueWithoutNotify(model.SearchQuery);
+        RefreshSearchPlaceholder(model.SearchQuery);
+        RefreshSearchMode(model);
         if (_loadingLabel != null)
         {
             _loadingLabel.style.display = model.IsLoading ? DisplayStyle.Flex : DisplayStyle.None;
             UpdateLoadingLabelText();
         }
 
-        RefreshTabButton(_itemTabButton!, model.ActiveTab == CollectionTabKind.Items);
-        RefreshTabButton(_skillTabButton!, model.ActiveTab == CollectionTabKind.Skills);
-        RefreshChromeTexts();
+        RefreshChromeTexts(model.ActiveType);
+        RefreshTabChoiceControl(model);
 
         KeywordIconSpriteProvider.BeginResolvePass();
         EnsureHeroChips(model.AvailableHeroes);
@@ -354,24 +353,21 @@ internal sealed partial class CollectionPanelView : IDisposable
         EnsureSizeChips(model.AvailableSizes);
         RefreshFacetChips(model);
         EnsureSourceChips(model.AvailableSources);
-        RefreshMatchModeButton(
-            _tagMatchModeButton,
-            model.TagMatchMode,
-            CollectionPanelText.TagMatchModeTooltip(model.TagMatchMode)
-        );
-        RefreshMatchModeButton(
-            _keywordMatchModeButton,
-            model.KeywordMatchMode,
-            CollectionPanelText.KeywordMatchModeTooltip(model.KeywordMatchMode)
-        );
+        RefreshTextMatchModeControl(_keywordMatchModeButton, model.KeywordMatchMode);
+        RefreshTextMatchModeControl(_tagMatchModeButton, model.TagMatchMode);
         // Chip text is reset unconditionally on every Refresh: the Ensure*Chips early-exit
         // compares only keys, so a locale change while the chips survive would otherwise leave
         // their labels in the previous language (same P4 mechanism as RefreshChromeTexts).
         foreach (var pair in _heroChips)
         {
             pair.Value.tooltip = CollectionPanelText.Hero(pair.Key);
-            RefreshHeroChip(pair.Key, pair.Value, model.SelectedHeroes.Contains(pair.Key));
+            RefreshHeroChip(
+                pair.Key,
+                pair.Value,
+                model.AllHeroesSelected || model.SelectedHero == pair.Key
+            );
         }
+        RefreshAllHeroesButton(model.AllHeroesSelected);
         foreach (var pair in _tierChips)
         {
             pair.Value.text = CollectionPanelText.Tier(pair.Key);
@@ -379,8 +375,16 @@ internal sealed partial class CollectionPanelView : IDisposable
         }
         foreach (var pair in _sizeChips)
         {
-            pair.Value.text = CollectionPanelText.Size(pair.Key);
-            RefreshChip(pair.Value, model.SelectedSizes.Contains(pair.Key));
+            pair.Value.text = string.Empty;
+            var icon = pair.Value.Q<VisualElement>(SizeChipIconName);
+            if (icon != null)
+                icon.style.display = CollectionPanelText.IsChineseLanguage()
+                    ? DisplayStyle.Flex
+                    : DisplayStyle.None;
+            var label = pair.Value.Q<Label>(SizeChipLabelName);
+            if (label != null)
+                label.text = CollectionPanelText.Size(pair.Key);
+            RefreshSizeChip(pair.Value, model.SelectedSizes.Contains(pair.Key));
         }
         foreach (var pair in _tagChips)
         {
@@ -391,15 +395,23 @@ internal sealed partial class CollectionPanelView : IDisposable
         foreach (var pair in _keywordChips)
         {
             var display = ResolveTagDisplay(pair.Key);
-            ApplyTagChipContent(pair.Value, display);
-            RefreshChip(pair.Value, model.SelectedKeywords.Contains(pair.Key), display.AccentColor);
+            ApplyTagChipContent(pair.Value, display, TagIconSize(pair.Key));
+            RefreshChip(pair.Value, IsKeywordOptionSelected(pair.Key, model), display.AccentColor);
         }
         foreach (var pair in _sourceChips)
         {
-            RefreshChip(
-                pair.Value,
-                string.Equals(pair.Key, model.SelectedSourceKey, StringComparison.Ordinal)
+            var selected = string.Equals(
+                pair.Key,
+                model.SelectedSourceKey,
+                StringComparison.Ordinal
             );
+            RefreshSourceChip(pair.Value, selected);
+            RefreshSourceSelectionRing(pair.Value, selected);
+            if (_sourceChipIcons.TryGetValue(pair.Key, out var sourceIcon))
+                RefreshSourceEncounterHighlight(
+                    sourceIcon,
+                    model.EncounteredMerchantSourceKeys.Contains(pair.Key) && !selected
+                );
             pair.Value.SetEnabled(model.SourceSelectorEnabled);
             pair.Value.style.opacity = model.SourceSelectorEnabled ? 1f : 0.58f;
         }
@@ -413,9 +425,13 @@ internal sealed partial class CollectionPanelView : IDisposable
             _dayToggleButton.style.opacity = model.DayFilterEnabled ? 1f : 0.58f;
         }
         if (_sortQualityButton != null)
-            RefreshChip(_sortQualityButton, model.SortPriority == CollectionSortPriority.Quality);
+            RefreshSortChip(
+                _sortQualityButton,
+                model.SortPriority == CollectionSortPriority.Quality
+            );
         if (_sortSizeButton != null)
-            RefreshChip(_sortSizeButton, model.SortPriority == CollectionSortPriority.Size);
+            RefreshSortChip(_sortSizeButton, model.SortPriority == CollectionSortPriority.Size);
+        ApplySortGroupLayout(model.SortPriority);
 
         // Size/tags only narrow Items. On Skills, let Quality fill the row and let source filters
         // move up naturally instead of reserving dead space.
@@ -440,10 +456,6 @@ internal sealed partial class CollectionPanelView : IDisposable
             _sizeChipRow.SetEnabled(showSizeChips);
             _sizeChipRow.pickingMode = showSizeChips ? PickingMode.Position : PickingMode.Ignore;
         }
-        if (_tierSizeDivider != null)
-            _tierSizeDivider.style.display = showSizeChips ? DisplayStyle.Flex : DisplayStyle.None;
-        if (_tierChipRow != null)
-            _tierChipRow.style.marginLeft = 0f;
         if (_tagFilterSection != null)
             _tagFilterSection.style.display = model.TabProfile.ShowTagFilter
                 ? DisplayStyle.Flex
@@ -463,12 +475,8 @@ internal sealed partial class CollectionPanelView : IDisposable
             _tierFilterLabel.text = showSizeChips
                 ? CollectionPanelText.TierSizeHeader()
                 : CollectionPanelText.TierHeader();
-        if (_tagFilterLabel != null)
-            _tagFilterLabel.text = CollectionPanelText.TagHeader();
         if (_keywordFilterLabel != null)
             _keywordFilterLabel.text = CollectionPanelText.KeywordHeader();
-        if (_keywordRelatedSectionLabel != null)
-            _keywordRelatedSectionLabel.text = CollectionPanelText.KeywordRelatedSection();
 
         UpdateContentSpacerHeight(model.ContentHeight);
 
@@ -482,40 +490,101 @@ internal sealed partial class CollectionPanelView : IDisposable
         }
     }
 
+    private static string TabLabel(
+        CollectionTabKind tab,
+        CollectionTabKind activeTab,
+        int visibleCount
+    )
+    {
+        var label =
+            tab == CollectionTabKind.Items
+                ? CollectionPanelText.ItemsTab()
+                : CollectionPanelText.SkillsTab();
+        return tab == activeTab ? $"{label}({visibleCount})" : label;
+    }
+
+    private void RefreshTabChoiceControl(CollectionPanelViewModel model)
+    {
+        var itemsSelected = model.ActiveTab == CollectionTabKind.Items;
+        RefreshFacetChoiceControl(
+            _tabModeControl,
+            itemsSelected,
+            TabLabel(CollectionTabKind.Items, model.ActiveTab, model.VisibleCount),
+            TabLabel(CollectionTabKind.Skills, model.ActiveTab, model.VisibleCount),
+            fontSize: Sizes.FontBody,
+            slanted: false
+        );
+        if (_tabModeControl == null)
+            return;
+
+        var items = _tabModeControl.Q<Button>(FacetMatchAnyName);
+        var skills = _tabModeControl.Q<Button>(FacetMatchAllName);
+        var divider = _tabModeControl.Q<VisualElement>(FacetChoiceDividerName);
+        if (items == null || skills == null || divider == null)
+            return;
+
+        var itemsWidth = itemsSelected
+            ? Sizes.CollectionTabActiveWidth
+            : Sizes.CollectionTabInactiveWidth;
+        var skillsWidth = itemsSelected
+            ? Sizes.CollectionTabInactiveWidth
+            : Sizes.CollectionTabActiveWidth;
+        UiStyle.FixedWidth(_tabModeControl.style, itemsWidth + skillsWidth);
+        UiStyle.FixedWidth(items.style, itemsWidth);
+        UiStyle.FixedWidth(skills.style, skillsWidth);
+        UiStyle.HorizontalPadding(items.style, itemsSelected ? UiSpacing.Sm : UiSpacing.Xs);
+        UiStyle.HorizontalPadding(skills.style, itemsSelected ? UiSpacing.Xs : UiSpacing.Sm);
+        divider.style.left = itemsWidth;
+    }
+
     // P4 fix: these chrome strings used to be set only at construction, so a locale change
     // while the view was alive (BPP Chinese script mode, or a non-restart game-language switch)
     // left them in the previous language. Re-resolving on every Refresh matches the existing
     // Title/Subtitle/Count per-refresh pattern.
-    private void RefreshChromeTexts()
+    private void RefreshSearchMode(CollectionPanelViewModel _)
+    {
+        if (_standardOperationControls != null)
+        {
+            _standardOperationControls.SetEnabled(true);
+            _standardOperationControls.pickingMode = PickingMode.Position;
+            _standardOperationControls.style.display = DisplayStyle.Flex;
+        }
+
+        if (_searchInputContainer != null)
+        {
+            _searchInputContainer.SetEnabled(true);
+            _searchInputContainer.pickingMode = PickingMode.Position;
+            _searchInputContainer.style.display = DisplayStyle.Flex;
+        }
+    }
+
+    private void RefreshChromeTexts(ECardType activeType)
     {
         if (_closeButton != null)
-            _closeButton.text = CollectionPanelText.Close();
-        if (_searchLabel != null)
-            _searchLabel.text = CollectionPanelText.SearchLabel();
+            _closeButton.tooltip = CollectionPanelText.Close();
         if (_searchField != null)
             _searchField.tooltip = CollectionPanelText.SearchTooltip();
-        if (_itemTabButton != null)
-            _itemTabButton.text = CollectionPanelText.ItemsTab();
-        if (_skillTabButton != null)
-            _skillTabButton.text = CollectionPanelText.SkillsTab();
-        if (_sortLabel != null)
-            _sortLabel.text = CollectionPanelText.SortHeader();
+        if (_searchPlaceholderLabel != null)
+            _searchPlaceholderLabel.text = CollectionPanelText.SearchPlaceholder(activeType);
         if (_sortQualityButton != null)
-            _sortQualityButton.text = CollectionPanelText.SortQuality();
+            SetSortButtonText(_sortQualityButton, CollectionPanelText.SortQuality());
         if (_sortSizeButton != null)
-            _sortSizeButton.text = CollectionPanelText.SortSize();
+            SetSortButtonText(_sortSizeButton, CollectionPanelText.SortSize());
         if (_dayToggleButton != null)
             _dayToggleButton.tooltip = CollectionPanelText.DayHeader();
         if (_heroFilterLabel != null)
             _heroFilterLabel.text = CollectionPanelText.HeroHeader();
+        if (_allHeroesButton != null)
+        {
+            _allHeroesButton.text = CollectionPanelText.FacetMatchMode(
+                CollectionFacetMatchMode.All
+            );
+            _allHeroesButton.tooltip = CollectionPanelText.AllHeroesTooltip();
+        }
         if (_tierFilterLabel != null)
             _tierFilterLabel.text = CollectionPanelText.TierSizeHeader();
-        if (_tagFilterLabel != null)
-            _tagFilterLabel.text = CollectionPanelText.TagHeader();
         if (_keywordFilterLabel != null)
             _keywordFilterLabel.text = CollectionPanelText.KeywordHeader();
-        if (_keywordRelatedSectionLabel != null)
-            _keywordRelatedSectionLabel.text = CollectionPanelText.KeywordRelatedSection();
         if (_disclaimerLabel != null)
         {
             _disclaimerLabel.text = CollectionPanelText.SourceDisclaimer();
@@ -523,6 +592,14 @@ internal sealed partial class CollectionPanelView : IDisposable
         }
         if (_emptyLabel != null)
             _emptyLabel.text = CollectionPanelText.NoMatches();
+    }
+
+    private void RefreshSearchPlaceholder(string? query)
+    {
+        if (_searchPlaceholderLabel != null)
+            _searchPlaceholderLabel.style.display = string.IsNullOrEmpty(query)
+                ? DisplayStyle.Flex
+                : DisplayStyle.None;
     }
 
     public void UpdateContentSpacerHeight(float contentHeightPixels)
@@ -576,6 +653,9 @@ internal sealed partial class CollectionPanelView : IDisposable
 
     public void Dispose()
     {
+        _stagingIdCopyFeedbackGeneration++;
+        _controlsDragScroller?.Dispose();
+        _gridDragScroller?.Dispose();
         if (_rootObject != null)
             UnityEngine.Object.Destroy(_rootObject);
         _titleOverlay?.Dispose();
@@ -588,7 +668,16 @@ internal sealed partial class CollectionPanelView : IDisposable
         _typography = null;
         _titleOverlay = null;
         _root = null;
+        _searchFrame = null;
+        _searchField = null;
+        _searchPlaceholderLabel = null;
+        _searchFocused = false;
+        _searchFocusPulseElapsed = 0f;
+        _stagingIdCopyLabel = null;
         _controlsScrollView = null;
+        _controlsScrollShadow = null;
+        _controlsDragScroller = null;
+        _gridDragScroller = null;
     }
 
     private void OnGridViewportGeometryChanged(GeometryChangedEvent evt)

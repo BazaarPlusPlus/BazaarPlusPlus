@@ -73,6 +73,7 @@ internal static class ReplayBootstrap
         Func<ReplayPlaybackPublishOutcome>? publishStarting = null
     )
     {
+        using var setupTracking = ReplayItemPresentationReadiness.BeginTracking();
         ReplaySavedStateNormalizer.Normalize(manifest, sequence);
         ObserveQualityStep(
             () => PlayerAttributeRepairer.EnsureSequencePlayerAttributes(sequence, outcome),
@@ -146,6 +147,7 @@ internal static class ReplayBootstrap
         );
         Singleton<BoardManager>.Instance.ToggleOpponentPortrait(isVisible: true);
         await AppStateHandlerInstaller.WaitForPresentationReadyAsync();
+        setupTracking.Dispose();
         await ObserveQualityStepAsync(
             () => PresentationWarmer.WarmPresentationAssetsAsync(manifest, sequence, outcome),
             outcome,

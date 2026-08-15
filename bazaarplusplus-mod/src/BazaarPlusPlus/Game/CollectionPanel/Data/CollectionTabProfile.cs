@@ -59,7 +59,7 @@ internal readonly struct CollectionTabProfile
                 showHeroFilter: true,
                 showTierFilter: true,
                 showSizeFilter: false,
-                showTagFilter: false,
+                showTagFilter: true,
                 showKeywordFilter: true,
                 showDayFilter: true
             ),

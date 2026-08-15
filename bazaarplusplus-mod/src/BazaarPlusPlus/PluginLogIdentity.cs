@@ -20,6 +20,7 @@ internal static class PluginLogIdentity
             "PvpBattleRecorded" => PluginEventId.PvpBattleRecorded,
             "RunInitializedObserved" => PluginEventId.RunInitializedObserved,
             "RunLifecycleChanged" => PluginEventId.RunLifecycleChanged,
+            "UploadArmRequested" => PluginEventId.UploadArmRequested,
             _ => PluginEventId.Unknown,
         };
 
@@ -47,8 +48,6 @@ internal static class PluginLogIdentity
             return PluginHandlerId.EndOfRunCaptureDriver;
         if (OwnedBy(declaringTypeName, "BazaarPlusPlus.Game.HistoryPanel.HistoryPanelMount"))
             return PluginHandlerId.HistoryPanelMount;
-        if (OwnedBy(declaringTypeName, "BazaarPlusPlus.Game.RunLogging.Upload.RunBundleUploadFeed"))
-            return PluginHandlerId.RunBundleUploadFeed;
         if (OwnedBy(declaringTypeName, "BazaarPlusPlus.Game.RunLifecycle.RunLifecycleModule"))
             return PluginHandlerId.RunLifecycleModule;
         if (OwnedBy(declaringTypeName, "BazaarPlusPlus.Game.RunLogging.RunLoggingModule"))

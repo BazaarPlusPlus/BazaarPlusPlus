@@ -9,7 +9,15 @@ internal static class UiHover
 {
     private static readonly ConditionalWeakTable<Button, ButtonState> ButtonStates = new();
 
-    public static void ApplyButtonPalette(Button button, Color background, Color textColor)
+    public static void ApplyButtonPalette(
+        Button button,
+        Color background,
+        Color textColor,
+        Color? border = null,
+        Color? hoverBorder = null,
+        Color? hoverBackground = null,
+        Color? pressedBackground = null
+    )
     {
         var state = ButtonStates.GetValue(button, _ => new ButtonState());
         if (!state.Registered)
@@ -40,10 +48,11 @@ internal static class UiHover
 
         state.Background = background;
         state.TextColor = textColor;
-        state.Border = Colors.ButtonBorderFor(background);
-        state.HoverBackground = Colors.ButtonHoverBackgroundFor(background);
-        state.PressedBackground = Colors.ButtonPressedBackgroundFor(background);
-        state.HoverBorder = Colors.ButtonHoverBorderFor(background);
+        state.Border = border ?? Colors.ButtonBorderFor(background);
+        state.HoverBackground = hoverBackground ?? Colors.ButtonHoverBackgroundFor(background);
+        state.PressedBackground =
+            pressedBackground ?? Colors.ButtonPressedBackgroundFor(background);
+        state.HoverBorder = hoverBorder ?? Colors.ButtonHoverBorderFor(background);
         RefreshButton(button, state);
     }
 

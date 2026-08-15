@@ -1,38 +1,36 @@
 #nullable enable
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.ReleaseManifest;
 using BazaarPlusPlus.ModApi.Http;
-using Newtonsoft.Json;
 using UnityEngine;
 
 namespace BazaarPlusPlus.Game.Lobby;
 
 internal sealed class MainMenuVersionCheckController : MonoBehaviour
 {
-    private const string LatestManifestUrl = "https://bppinstaller.bazaarplusplus.com/latest.json";
+    private static readonly Uri LatestManifestEndpoint = new(
+        "https://bppinstaller.bazaarplusplus.com/latest.json"
+    );
     private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(5);
 
-    private CancellationTokenSource? _shutdown;
-    private HttpClient? _httpClient;
+    private readonly ReleaseManifestCheckLifecycle _lifecycle = new();
     private Task? _checkTask;
     private int _observedRevision;
-    private int _generation;
 
     private void Awake() { }
 
     public void Initialize()
     {
-        _shutdown?.Cancel();
-        _shutdown?.Dispose();
-        var generation = Interlocked.Increment(ref _generation);
-        MainMenuVersionUpdateState.Reset();
-        _observedRevision = MainMenuVersionUpdateState.Current.Revision;
-        _shutdown = new CancellationTokenSource();
-        _httpClient = BppHttpClientFactory.Create(
+        var httpClient = BppHttpClientFactory.Create(
             productVersion: BppPluginVersion.Current,
             userAgentSuffix: "VersionCheck",
             timeout: RequestTimeout
         );
-        _checkTask = CheckLatestVersionAsync(generation, _shutdown.Token);
+        var lease = _lifecycle.Begin(httpClient);
+        MainMenuVersionUpdateState.Reset();
+        _observedRevision = MainMenuVersionUpdateState.Current.Revision;
+        var client = new ReleaseManifestClient(httpClient, LatestManifestEndpoint);
+        _checkTask = _lifecycle.RunAsync(lease, client.FetchAsync, ApplyLatestManifestResult);
     }
 
     private void Update()
@@ -43,16 +41,7 @@ internal sealed class MainMenuVersionCheckController : MonoBehaviour
 
     private void OnDestroy()
     {
-        Interlocked.Increment(ref _generation);
-        if (_shutdown != null)
-        {
-            _shutdown.Cancel();
-            _shutdown.Dispose();
-            _shutdown = null;
-        }
-
-        _httpClient?.Dispose();
-        _httpClient = null;
+        _lifecycle.Dispose();
     }
 
     private void RefreshLabelIfStateChanged()
@@ -74,7 +63,6 @@ internal sealed class MainMenuVersionCheckController : MonoBehaviour
         {
             _checkTask.GetAwaiter().GetResult();
         }
-        catch (OperationCanceledException) { }
         catch (Exception) { }
         finally
         {
@@ -82,117 +70,55 @@ internal sealed class MainMenuVersionCheckController : MonoBehaviour
         }
     }
 
-    private async Task CheckLatestVersionAsync(int generation, CancellationToken cancellationToken)
+    private void ApplyLatestManifestResult(ReleaseManifestFetchResult result)
     {
-        try
+        if (!result.Succeeded)
         {
-            var httpClient = _httpClient;
-            if (httpClient == null)
-                return;
-
-            using var response = await httpClient
-                .GetAsync(LatestManifestUrl, cancellationToken)
-                .ConfigureAwait(false);
-            if (!IsCurrent(generation, cancellationToken))
-                return;
-            if (!response.IsSuccessStatusCode)
-            {
-                ReportDegraded(
-                    generation,
-                    cancellationToken,
-                    LobbyLogReasonCode.HttpFailureStatus,
-                    (int)response.StatusCode
-                );
-                return;
-            }
-
-            var body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-            if (!IsCurrent(generation, cancellationToken))
-                return;
-            var parsed = JsonConvert.DeserializeObject<LatestManifest>(body);
-            var latestVersion = parsed?.Version;
-            if (string.IsNullOrWhiteSpace(latestVersion))
-            {
-                ReportDegraded(
-                    generation,
-                    cancellationToken,
-                    LobbyLogReasonCode.ManifestVersionMissing
-                );
-                return;
-            }
-
-            var updateAvailable = MainMenuVersionComparer.IsUpdateAvailable(
-                BppPluginVersion.Current,
-                latestVersion
-            );
-            if (!IsCurrent(generation, cancellationToken))
-                return;
-            MainMenuVersionUpdateState.SetUpdateAvailable(updateAvailable);
-            BppLog.DebugEvent(
-                LobbyLogEvents.VersionCheckCompleted,
-                () =>
-                    [
-                        LobbyLogEvents.VersionCheckCompletedCurrentVersion.Bind(
-                            BppPluginVersion.Current
-                        ),
-                        LobbyLogEvents.VersionCheckCompletedLatestVersion.Bind(
-                            latestVersion.Trim()
-                        ),
-                        LobbyLogEvents.VersionCheckCompletedUpdateAvailable.Bind(updateAvailable),
-                    ]
-            );
+            if (result.FailureKind != ReleaseManifestFailureKind.Cancelled)
+                ReportDegraded(result);
+            return;
         }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
-        catch (TaskCanceledException ex)
-        {
-            ReportDegraded(
-                generation,
-                cancellationToken,
-                LobbyLogReasonCode.RequestTimedOut,
-                exception: ex
-            );
-        }
-        catch (Exception ex)
-        {
-            ReportDegraded(
-                generation,
-                cancellationToken,
-                LobbyLogReasonCode.RequestException,
-                exception: ex
-            );
-        }
+
+        var latestVersion = result.Version!;
+        var updateAvailable = MainMenuVersionComparer.IsUpdateAvailable(
+            BppPluginVersion.Current,
+            latestVersion
+        );
+        MainMenuVersionUpdateState.SetUpdateAvailable(updateAvailable);
+        BppLog.DebugEvent(
+            LobbyLogEvents.VersionCheckCompleted,
+            () =>
+                [
+                    LobbyLogEvents.VersionCheckCompletedCurrentVersion.Bind(
+                        BppPluginVersion.Current
+                    ),
+                    LobbyLogEvents.VersionCheckCompletedLatestVersion.Bind(latestVersion),
+                    LobbyLogEvents.VersionCheckCompletedUpdateAvailable.Bind(updateAvailable),
+                ]
+        );
     }
 
-    private bool IsCurrent(int generation, CancellationToken cancellationToken) =>
-        !cancellationToken.IsCancellationRequested && Volatile.Read(ref _generation) == generation;
-
-    private void ReportDegraded(
-        int generation,
-        CancellationToken cancellationToken,
-        LobbyLogReasonCode reasonCode,
-        int? httpStatus = null,
-        Exception? exception = null
-    )
+    private static void ReportDegraded(ReleaseManifestFetchResult result)
     {
-        if (!IsCurrent(generation, cancellationToken))
-            return;
+        var reasonCode = result.FailureKind switch
+        {
+            ReleaseManifestFailureKind.HttpFailureStatus => LobbyLogReasonCode.HttpFailureStatus,
+            ReleaseManifestFailureKind.ManifestVersionMissing =>
+                LobbyLogReasonCode.ManifestVersionMissing,
+            ReleaseManifestFailureKind.RequestTimedOut => LobbyLogReasonCode.RequestTimedOut,
+            _ => LobbyLogReasonCode.RequestException,
+        };
         var fields = new[]
         {
             LobbyLogEvents.VersionCheckDegradedReasonCode.Bind(reasonCode),
-            LobbyLogEvents.VersionCheckDegradedHttpStatus.Bind(httpStatus),
+            LobbyLogEvents.VersionCheckDegradedHttpStatus.Bind(result.HttpStatus),
             LobbyLogEvents.VersionCheckDegradedTimeoutMs.Bind(
                 (int)RequestTimeout.TotalMilliseconds
             ),
         };
-        if (exception == null)
+        if (result.Exception == null)
             BppLog.WarnEvent(LobbyLogEvents.VersionCheckDegraded, fields);
         else
-            BppLog.WarnEvent(LobbyLogEvents.VersionCheckDegraded, exception, fields);
-    }
-
-    private sealed class LatestManifest
-    {
-        [JsonProperty("version")]
-        public string? Version { get; set; }
+            BppLog.WarnEvent(LobbyLogEvents.VersionCheckDegraded, result.Exception, fields);
     }
 }

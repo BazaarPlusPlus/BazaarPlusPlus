@@ -17,7 +17,6 @@ internal static class RunLifecycleLogEvents
     internal static readonly BppLogFieldDefinition RunId = new(
         0,
         "run_id",
-        BppLogFieldPrivacy.Public,
         BppLogCorrelationPolicy.Short,
         BppLogCardinality.High
     );
@@ -25,7 +24,6 @@ internal static class RunLifecycleLogEvents
     internal static readonly BppLogFieldDefinition StateChangeReasonCode = new(
         0,
         "reason_code",
-        BppLogFieldPrivacy.Public,
         BppLogCorrelationPolicy.None,
         BppLogCardinality.Low
     );
@@ -33,7 +31,6 @@ internal static class RunLifecycleLogEvents
     internal static readonly BppLogFieldDefinition IsInGameRun = new(
         1,
         "is_in_game_run",
-        BppLogFieldPrivacy.Public,
         BppLogCorrelationPolicy.None,
         BppLogCardinality.Low
     );
@@ -41,7 +38,6 @@ internal static class RunLifecycleLogEvents
     internal static readonly BppLogFieldDefinition AppState = new(
         2,
         "app_state",
-        BppLogFieldPrivacy.Public,
         BppLogCorrelationPolicy.None,
         BppLogCardinality.Low
     );
@@ -49,7 +45,6 @@ internal static class RunLifecycleLogEvents
     internal static readonly BppLogFieldDefinition RunState = new(
         3,
         "run_state",
-        BppLogFieldPrivacy.Public,
         BppLogCorrelationPolicy.None,
         BppLogCardinality.Low
     );
@@ -57,7 +52,6 @@ internal static class RunLifecycleLogEvents
     internal static readonly BppLogFieldDefinition HasActiveRun = new(
         4,
         "has_active_run",
-        BppLogFieldPrivacy.Public,
         BppLogCorrelationPolicy.None,
         BppLogCardinality.Low
     );

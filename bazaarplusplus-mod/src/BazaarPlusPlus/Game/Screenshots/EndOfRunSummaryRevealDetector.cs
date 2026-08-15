@@ -17,7 +17,8 @@ internal enum EndOfRunSummaryRevealState
 internal readonly record struct EndOfRunSummaryRevealOutcome(
     EndOfRunSummaryRevealState State,
     ScreenshotCaptureReasonCode? ReasonCode,
-    Exception? Exception
+    Exception? Exception,
+    bool SkillsSettled
 );
 
 internal static class EndOfRunSummaryRevealDetector
@@ -40,7 +41,7 @@ internal static class EndOfRunSummaryRevealDetector
     {
         try
         {
-            var state = GetRevealStateCore(screenController);
+            var state = GetRevealStateCore(screenController, out var skillsSettled);
             return new EndOfRunSummaryRevealOutcome(
                 state,
                 state
@@ -48,7 +49,8 @@ internal static class EndOfRunSummaryRevealDetector
                         or EndOfRunSummaryRevealState.DetectionFailed
                     ? ScreenshotCaptureReasonCode.RevealProbeFailed
                     : null,
-                null
+                null,
+                skillsSettled
             );
         }
         catch (Exception ex)
@@ -56,13 +58,18 @@ internal static class EndOfRunSummaryRevealDetector
             return new EndOfRunSummaryRevealOutcome(
                 EndOfRunSummaryRevealState.DetectionFailed,
                 ScreenshotCaptureReasonCode.RevealProbeFailed,
-                ex
+                ex,
+                SkillsSettled: false
             );
         }
     }
 
-    private static EndOfRunSummaryRevealState GetRevealStateCore(object? screenController)
+    private static EndOfRunSummaryRevealState GetRevealStateCore(
+        object? screenController,
+        out bool skillsSettled
+    )
     {
+        skillsSettled = false;
         if (!TryGetSummaryController(screenController, out var activeController))
             return EndOfRunSummaryRevealState.TargetDetectionFailed;
         if (activeController == null)
@@ -77,6 +84,7 @@ internal static class EndOfRunSummaryRevealDetector
             return EndOfRunSummaryRevealState.DetectionFailed;
 
         var loadedCardCount = 0;
+        var allLoadedCardsFaceUp = true;
         foreach (var loadedCard in loadedCards)
         {
             if (loadedCard == null)
@@ -87,13 +95,16 @@ internal static class EndOfRunSummaryRevealDetector
                 return EndOfRunSummaryRevealState.DetectionFailed;
             }
             if (animator == null)
-                return EndOfRunSummaryRevealState.RevealInProgress;
+            {
+                allLoadedCardsFaceUp = false;
+                continue;
+            }
             if (!TryInvokeAnimatorGetBool(animator, FaceUpParamName, out var isFaceUp))
             {
                 return EndOfRunSummaryRevealState.DetectionFailed;
             }
             if (!isFaceUp)
-                return EndOfRunSummaryRevealState.RevealInProgress;
+                allLoadedCardsFaceUp = false;
         }
 
         if (!TryGetFieldValue(activeController, SkillSequenceFieldName, out var skillSequence))
@@ -127,6 +138,10 @@ internal static class EndOfRunSummaryRevealDetector
             if (!isComplete)
                 return EndOfRunSummaryRevealState.RevealInProgress;
         }
+
+        skillsSettled = true;
+        if (!allLoadedCardsFaceUp)
+            return EndOfRunSummaryRevealState.RevealInProgress;
 
         return loadedCardCount == 0
             ? EndOfRunSummaryRevealState.NoLoadedCards

@@ -24,7 +24,8 @@ internal static class LevelUpPreviewTextFormatter
         Func<Guid, EncounterPreviewTemplatePlan?> resolveTemplate,
         EHero? currentHero,
         Func<string, string>? colorizeResult = null,
-        int? currentLevel = null
+        int? currentLevel = null,
+        LiveAbilityValueResolver? resolveLiveValue = null
     )
     {
         if (levelUp == null)
@@ -71,7 +72,14 @@ internal static class LevelUpPreviewTextFormatter
                     uniformPool.AddRange(poolIds);
                     continue;
                 }
-                CollectGroup(candidates, group, resolveTemplate, currentHero, Colorize);
+                CollectGroup(
+                    candidates,
+                    group,
+                    resolveTemplate,
+                    currentHero,
+                    Colorize,
+                    resolveLiveValue
+                );
             }
             if (uniformPool.Count > 0)
                 CollectCandidates(
@@ -80,7 +88,8 @@ internal static class LevelUpPreviewTextFormatter
                     limit: 1,
                     resolveTemplate,
                     currentHero,
-                    Colorize
+                    Colorize,
+                    resolveLiveValue
                 );
         }
 
@@ -132,7 +141,8 @@ internal static class LevelUpPreviewTextFormatter
         LevelUpPreviewGroup group,
         Func<Guid, EncounterPreviewTemplatePlan?> resolveTemplate,
         EHero? currentHero,
-        Func<string, string> colorize
+        Func<string, string> colorize,
+        LiveAbilityValueResolver? resolveLiveValue
     )
     {
         if (!PassesPrerequisites(group, currentHero))
@@ -143,7 +153,15 @@ internal static class LevelUpPreviewTextFormatter
         if (ids.Count == 0)
             return;
 
-        CollectCandidates(candidates, ids, group.Limit, resolveTemplate, currentHero, colorize);
+        CollectCandidates(
+            candidates,
+            ids,
+            group.Limit,
+            resolveTemplate,
+            currentHero,
+            colorize,
+            resolveLiveValue
+        );
     }
 
     private static void CollectCandidates(
@@ -152,7 +170,8 @@ internal static class LevelUpPreviewTextFormatter
         int limit,
         Func<Guid, EncounterPreviewTemplatePlan?> resolveTemplate,
         EHero? currentHero,
-        Func<string, string> colorize
+        Func<string, string> colorize,
+        LiveAbilityValueResolver? resolveLiveValue
     )
     {
         // Spawn filtering also honours each reward card's own Heroes field (the group's
@@ -179,7 +198,10 @@ internal static class LevelUpPreviewTextFormatter
 
             var template = eligible[0];
             var title = EventPreviewLocalization.ResolveTitle(template) ?? template.InternalName;
-            var description = EventPreviewLocalization.ResolveDescription(template);
+            var description = EventPreviewLocalization.ResolveDescription(
+                template,
+                resolveLiveValue
+            );
             if (string.IsNullOrWhiteSpace(title) && string.IsNullOrWhiteSpace(description))
                 return;
 
@@ -225,7 +247,7 @@ internal static class LevelUpPreviewTextFormatter
                 var entryTitle =
                     EventPreviewLocalization.ResolveTitle(template) ?? template.InternalName;
                 var entryDescription = EventPreviewLocalization
-                    .ResolveDescription(template)
+                    .ResolveDescription(template, resolveLiveValue)
                     ?.Replace("\r", string.Empty)
                     .Replace('\n', ' ');
                 entries.Add(

@@ -7,14 +7,12 @@ namespace BazaarPlusPlus.BazaarAgent;
 
 public static class BazaarAgentSchema
 {
-    public const string Version = "2.2.0";
+    public const string Version = "2.5.0";
 }
 
 public enum BazaarAgentActionKind
 {
-    Wait,
     StartOrContinueRun,
-    AbandonRun,
     SelectItem,
     SelectSkill,
     SelectEncounter,
@@ -25,19 +23,6 @@ public enum BazaarAgentActionKind
     ExitState,
     ReturnToMenu,
     Continue,
-}
-
-public enum BazaarAgentActionGroup
-{
-    Wait,
-    Flow,
-    Offer,
-    Route,
-    Pedestal,
-    Move,
-    Sell,
-    Reroll,
-    Exit,
 }
 
 public enum BazaarAgentRunStateName
@@ -109,10 +94,10 @@ public sealed class BazaarAgentCardSnapshot
     public int Order { get; init; }
     public IReadOnlyList<string> Tags { get; init; } = System.Array.Empty<string>();
     public IReadOnlyList<string> HiddenTags { get; init; } = System.Array.Empty<string>();
-    public IReadOnlyDictionary<string, int> Attributes { get; init; } =
-        new Dictionary<string, int>();
-    public IReadOnlyList<BazaarAgentCardAbilitySnapshot> ActiveAbilities { get; init; } =
-        System.Array.Empty<BazaarAgentCardAbilitySnapshot>();
+    public string? Description { get; init; }
+    public double? CooldownSeconds { get; init; }
+    public int? Ammo { get; init; }
+    public int? AmmoMax { get; init; }
 
     // Selection-only fields
     public int? BuyPrice { get; init; }
@@ -127,26 +112,29 @@ public sealed class BazaarAgentCardSnapshot
     public string? TargetSockets { get; init; }
     public string? UnavailableReason { get; init; }
 
+    // Combat-encounter selection only. This mirrors the native right-click monster board preview
+    // so an agent can compare the three PvE opponents before it commits to one.
+    public BazaarAgentCombatOpponentPreview? OpponentPreview { get; init; }
+
     // Owned (Board/Chest/Skill)
     public bool? CanSell { get; init; }
 }
 
-public sealed class BazaarAgentCardAbilitySnapshot
+public sealed class BazaarAgentCombatOpponentPreview
 {
-    public string Id { get; init; } = "";
-    public string? InternalName { get; init; }
-    public string? InternalDescription { get; init; }
-    public string? Trigger { get; init; }
-    public string? Action { get; init; }
-    public string? ActiveIn { get; init; }
-    public string? WorksIn { get; init; }
-    public string? Priority { get; init; }
+    public IReadOnlyList<BazaarAgentCardSnapshot> Board { get; init; } =
+        System.Array.Empty<BazaarAgentCardSnapshot>();
+
+    public IReadOnlyList<BazaarAgentCardSnapshot> Skills { get; init; } =
+        System.Array.Empty<BazaarAgentCardSnapshot>();
+
+    public int? Health { get; init; }
+    public int? MaxHealth { get; init; }
 }
 
 public sealed class BazaarAgentDecisionOption
 {
     public BazaarAgentActionKind ActionKind { get; init; }
-    public BazaarAgentActionGroup Group { get; init; }
     public string DisplayKey { get; init; } = "";
     public string? CardInstanceId { get; init; }
     public BazaarAgentTargetSection? TargetSection { get; init; }
@@ -168,6 +156,7 @@ public sealed class BazaarAgentContext
     public bool IsClientBusy { get; init; }
 
     public string? RunId { get; init; }
+    public string? GameModeId { get; init; }
     public BazaarAgentRunStateName StateName { get; init; }
     public string? PlayerHero { get; init; }
     public int? Day { get; init; }
@@ -190,7 +179,7 @@ public sealed class BazaarAgentContext
     public double ActionCooldownRemainingSeconds { get; init; }
 
     /// <summary>Where combat-replay playback currently is; <c>finishedAwaitingContinue</c> means
-    /// <c>POST /v1/replay/continue</c> will finalize the replay (and any recording).</summary>
+    /// the V3 <c>continue</c> action will finalize the replay (and any recording).</summary>
     public BazaarAgentReplayPhase ReplayPhase { get; init; }
 
     /// <summary>Battle id of the active replay session, when one is active.</summary>
@@ -203,6 +192,7 @@ public sealed class BazaarAgentContext
         System.Array.Empty<BazaarAgentCardSnapshot>();
     public IReadOnlyList<BazaarAgentCardSnapshot> ChestItems { get; init; } =
         System.Array.Empty<BazaarAgentCardSnapshot>();
+    public IReadOnlyList<string> LockedBoardSockets { get; init; } = System.Array.Empty<string>();
     public IReadOnlyList<BazaarAgentCardSnapshot> PlayerSkills { get; init; } =
         System.Array.Empty<BazaarAgentCardSnapshot>();
     public IReadOnlyList<BazaarAgentCardSnapshot> SellableItems { get; init; } =
@@ -211,6 +201,9 @@ public sealed class BazaarAgentContext
         System.Array.Empty<BazaarAgentCardSnapshot>();
     public IReadOnlyList<BazaarAgentDecisionOption> AvailableActions { get; init; } =
         System.Array.Empty<BazaarAgentDecisionOption>();
+
+    /// <summary>One-shot summary supplied with the first actionable state after a live combat.</summary>
+    public BazaarAgentBattleSummary? LastBattle { get; init; }
 }
 
 public sealed class BazaarAgentAction

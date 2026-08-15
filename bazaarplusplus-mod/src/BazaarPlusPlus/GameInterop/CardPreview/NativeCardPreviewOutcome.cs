@@ -15,6 +15,7 @@ internal enum NativeCardPreviewOperation
     GetClientCard,
     CreateTooltipData,
     SetTooltipData,
+    ApplyTooltipData,
     InvokeHover,
     InvokeHoverOut,
     Release,

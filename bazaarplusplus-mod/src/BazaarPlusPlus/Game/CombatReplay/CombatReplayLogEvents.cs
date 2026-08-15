@@ -88,6 +88,12 @@ internal enum ReplayWarmupAssetReasonCode
     InvalidAssetKey,
 }
 
+internal enum CurrentReplayPresentationGateOutcome
+{
+    Ready,
+    TimedOut,
+}
+
 [BppLogEventSource]
 internal static class CombatReplayLogEvents
 {
@@ -154,6 +160,46 @@ internal static class CombatReplayLogEvents
             CurrentRecordingUiCloneActive,
             CurrentRecordingUiNativeReplayBound,
             CurrentRecordingUiIconAvailable,
+        ]
+    );
+
+    internal static readonly BppLogFieldDefinition CurrentRecordingPresentationGateRecordingId =
+        Public(0, "recording_id", BppLogCardinality.High, BppLogCorrelationPolicy.Short);
+    internal static readonly BppLogFieldDefinition CurrentRecordingPresentationGateOutcome = Public(
+        1,
+        "outcome",
+        BppLogCardinality.Low
+    );
+    internal static readonly BppLogFieldDefinition CurrentRecordingPresentationGateExpectedItems =
+        Public(2, "expected_items", BppLogCardinality.Low);
+    internal static readonly BppLogFieldDefinition CurrentRecordingPresentationGateVisibleItems =
+        Public(3, "visible_items", BppLogCardinality.Low);
+    internal static readonly BppLogFieldDefinition CurrentRecordingPresentationGateFaceUpItems =
+        Public(4, "face_up_items", BppLogCardinality.Low);
+    internal static readonly BppLogFieldDefinition CurrentRecordingPresentationGateSettledItems =
+        Public(5, "settled_items", BppLogCardinality.Low);
+    internal static readonly BppLogFieldDefinition CurrentRecordingPresentationGateExpectedSkills =
+        Public(6, "expected_skills", BppLogCardinality.Low);
+    internal static readonly BppLogFieldDefinition CurrentRecordingPresentationGateRegisteredSkills =
+        Public(7, "registered_skills", BppLogCardinality.Low);
+    internal static readonly BppLogFieldDefinition CurrentRecordingPresentationGateReadySkills =
+        Public(8, "ready_skills", BppLogCardinality.Low);
+    internal static readonly BppLogFieldDefinition CurrentRecordingPresentationGateElapsedMs =
+        Public(9, "elapsed_ms", BppLogCardinality.High);
+    internal static readonly BppLogEventDefinition CurrentRecordingPresentationGateResolved = new(
+        BppLogFeatureScope.CombatReplay,
+        "combat_replay.current_recording.presentation_gate_resolved",
+        [
+            CurrentRecordingPresentationGateRecordingId,
+            CurrentRecordingPresentationGateOutcome,
+            CurrentRecordingPresentationGateExpectedItems,
+            CurrentRecordingPresentationGateVisibleItems,
+            CurrentRecordingPresentationGateFaceUpItems,
+            CurrentRecordingPresentationGateSettledItems,
+            CurrentRecordingPresentationGateExpectedSkills,
+            CurrentRecordingPresentationGateRegisteredSkills,
+            CurrentRecordingPresentationGateReadySkills,
+            CurrentRecordingPresentationGateElapsedMs,
         ]
     );
 
@@ -552,7 +598,6 @@ internal static class CombatReplayLogEvents
     internal static readonly BppLogFieldDefinition WarmupAssetKey = new(
         1,
         "asset_key",
-        BppLogFieldPrivacy.UntrustedText,
         BppLogCorrelationPolicy.None,
         BppLogCardinality.High
     );
@@ -572,5 +617,5 @@ internal static class CombatReplayLogEvents
         string name,
         BppLogCardinality cardinality,
         BppLogCorrelationPolicy correlation = BppLogCorrelationPolicy.None
-    ) => new(order, name, BppLogFieldPrivacy.Public, correlation, cardinality);
+    ) => new(order, name, correlation, cardinality);
 }

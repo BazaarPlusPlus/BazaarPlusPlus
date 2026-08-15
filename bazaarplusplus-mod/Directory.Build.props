@@ -2,8 +2,19 @@
   <Import Project="$(MSBuildThisFileDirectory)build/ManagedPath.props" />
 
   <PropertyGroup>
-    <BppVersion>4.6.0</BppVersion>
+    <BppVersion>5.2.1</BppVersion>
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <!-- Building the assembly graph is side-effect free by default. Only run.sh build opts in to
+         writing the live game installation; tests, IDE builds, matrix builds, and publish staging
+         must never inherit deployment accidentally. -->
+    <BppDeployToGame Condition="'$(BppDeployToGame)' == ''">false</BppDeployToGame>
+  </PropertyGroup>
+
+  <!-- Source-shadow scenario capsules intentionally remain separate assemblies: several define
+       incompatible game/runtime shims or mutate process-global state. ScenarioRunner.Tests is the
+       only xUnit project that executes them, one child process at a time. -->
+  <PropertyGroup>
+    <BppScenarioRunnerProjects>BundlePipeline.Tests;BundleQueueSqliteStore.Tests;BundleSealConvergence.Tests;BundleV5Codec.Tests;ChoiceScreenPedestalResolver.Tests;CollectionFilterEngine.Tests;CollectionGridLayout.Tests;CollectionSourceFiltering.Tests;CollectionViewState.Tests;CombatReplayAudioVideo.Tests;CombatReplayRecording.Tests;EndOfRunScreenshotGate.Tests;GhostBattleSync.Tests;HistoryPanelDecisions.Tests;HistoryPanelFactory.Tests;HistoryPanelFiltering.Tests;HistoryPanelPreview.Tests;HistoryPanelRepository.Tests;HistoryPanelServerHealth.Tests;HotkeyBindingPath.Tests;ItemEnchantPreview.Tests;LiveBuildPanel.Tests;LiveBuildRecommendations.Tests;MacosTrampolineRepair.Tests;MainMenuVersionLabel.Tests;ModApi.Tests;NativeRandomPoolInteraction.Tests;OverlayPanelLifecycle.Tests;RandomHeroPoolState.Tests;ReleaseManifestClient.Tests;RemoteEmbeddedDataPipeline.Tests;RunLifecycleState.Tests;RunLoggingCapture.Tests;RunLoggingModule.Tests;RunLoggingSession.Tests;RunLoggingSqliteRecovery.Tests;RunLoggingSqliteStore.Tests;RunScreenshotSqliteStore.Tests;StartupUploadRunner.Tests;Storage.Tests;SupporterCatalogModule.Tests;Supporters.Tests;TooltipPreviewTargetResolver.Tests;UiFoundation.Tests;UpgradePreviewTooltip.Tests</BppScenarioRunnerProjects>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(BppEnableWarningGate)' == 'true'">

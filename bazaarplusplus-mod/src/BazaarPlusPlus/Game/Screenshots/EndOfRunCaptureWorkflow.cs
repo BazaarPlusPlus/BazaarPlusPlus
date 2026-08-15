@@ -2,6 +2,7 @@
 using System.Reflection;
 using BazaarPlusPlus.Core.Events;
 using BazaarPlusPlus.Core.Runtime;
+using BazaarPlusPlus.GameInterop.Heroes;
 using TheBazaar;
 using TheBazaar.UI.EndOfRun;
 
@@ -47,7 +48,8 @@ internal sealed class EndOfRunCaptureWorkflow : IEndOfRunCaptureWorkflow, IDispo
             new EndOfRunArtifactPersistence(services),
             new UnityEndOfRunCaptureClock(),
             new SystemEndOfRunCaptureFileSystem(),
-            EndOfRunCapturePolicy.Default
+            EndOfRunCapturePolicy.Default,
+            terminal => services.EventBus.Publish(terminal)
         );
         RefreshBufferedRunContext();
     }
@@ -150,7 +152,8 @@ internal sealed class EndOfRunCaptureWorkflow : IEndOfRunCaptureWorkflow, IDispo
 
     internal static EndOfRunCaptureReadinessOutcome ReadReadiness(
         object? screen,
-        bool hasSummaryRevealStarted
+        bool hasSummaryRevealStarted,
+        bool hasVisuallySettledCards
     )
     {
         if (screen == null)
@@ -187,8 +190,10 @@ internal sealed class EndOfRunCaptureWorkflow : IEndOfRunCaptureWorkflow, IDispo
             var state = reveal.State switch
             {
                 EndOfRunSummaryRevealState.NoLoadedCards => EndOfRunCaptureReadinessState.Ready,
-                EndOfRunSummaryRevealState.RevealInProgress =>
-                    EndOfRunCaptureReadinessState.RevealInProgress,
+                EndOfRunSummaryRevealState.RevealInProgress => hasVisuallySettledCards
+                && reveal.SkillsSettled
+                    ? EndOfRunCaptureReadinessState.Ready
+                    : EndOfRunCaptureReadinessState.RevealInProgress,
                 EndOfRunSummaryRevealState.RevealComplete => EndOfRunCaptureReadinessState.Ready,
                 _ => EndOfRunCaptureReadinessState.DetectionFailed,
             };
@@ -229,7 +234,9 @@ internal sealed class EndOfRunCaptureWorkflow : IEndOfRunCaptureWorkflow, IDispo
         if (!string.IsNullOrWhiteSpace(runId))
             _bufferedRunId = runId;
 
-        var heroName = Data.Run?.Player?.Hero.ToString();
+        var heroName = Data.Run?.Player is { } player
+            ? TheDragonsHeroIdentity.ToCanonicalId(player.Hero)
+            : null;
         if (!string.IsNullOrWhiteSpace(heroName))
             _bufferedHeroName = heroName;
     }

@@ -13,10 +13,9 @@ internal sealed class BppLogEventRenderer
     private readonly BppLogExceptionProjector _exceptionProjector;
     private readonly BppLogValueFormatter _valueFormatter;
 
-    internal BppLogEventRenderer(BppLogRedactionRoots? roots = null)
+    internal BppLogEventRenderer()
     {
-        var redactor = new BppLogRedactor(roots ?? BppLogRedactionRoots.Empty);
-        _valueFormatter = new BppLogValueFormatter(redactor);
+        _valueFormatter = new BppLogValueFormatter();
         _exceptionProjector = new BppLogExceptionProjector(_valueFormatter);
     }
 
@@ -77,11 +76,11 @@ internal sealed class BppLogEventRenderer
         }
     }
 
-    internal bool TryFingerprint(BppLogFieldDefinition field, object? value, out string fingerprint)
+    internal bool TryFingerprintValue(object? value, out string fingerprint)
     {
         try
         {
-            return _valueFormatter.TryFingerprint(field, value, out fingerprint);
+            return _valueFormatter.TryFingerprintValue(value, out fingerprint);
         }
         catch
         {
@@ -138,7 +137,6 @@ internal sealed class BppLogEventRenderer
                 field == null
                 || field.Order < 0
                 || !BppLogSchemaRules.IsSnakeIdentifier(field.Name)
-                || !BppLogSchemaRules.IsKnownPrivacy(field.Privacy)
                 || !BppLogSchemaRules.IsKnownCorrelation(field.Correlation)
                 || !BppLogSchemaRules.IsKnownCardinality(field.Cardinality)
             )
