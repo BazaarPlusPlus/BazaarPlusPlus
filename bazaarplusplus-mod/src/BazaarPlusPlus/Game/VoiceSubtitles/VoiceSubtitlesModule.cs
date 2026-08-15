@@ -9,8 +9,8 @@ internal sealed class VoiceSubtitlesModule : IBppFeature
 {
     private readonly IRemoteEmbeddedCatalog<VoiceLine[]> _catalog;
 
-    internal VoiceSubtitlesModule()
-        : this(VoiceLinesCatalogFactory.Create(BepInEx.Paths.GameRootPath)) { }
+    internal VoiceSubtitlesModule(string dataRootPath)
+        : this(VoiceLinesCatalogFactory.Create(dataRootPath)) { }
 
     internal VoiceSubtitlesModule(IRemoteEmbeddedCatalog<VoiceLine[]> catalog)
     {

@@ -9,8 +9,6 @@ internal sealed class ReplayVideoCaptureRequest
 
     public CombatReplayPlaybackSource Source { get; init; }
 
-    public string FfmpegExecutable { get; init; } = string.Empty;
-
     public string OutputFilePath { get; init; } = string.Empty;
 
     public string FinalOutputFilePath { get; init; } = string.Empty;
@@ -23,8 +21,8 @@ internal sealed class ReplayVideoCaptureRequest
 
     public int Fps { get; init; }
 
-    public FfmpegVideoEncoderProfile EncoderProfile { get; init; } =
-        FfmpegVideoEncoderProfile.Libx264();
+    public ReplayVideoEncoderProfile EncoderProfile { get; init; } =
+        ReplayVideoEncoderProfile.NativeForCurrentPlatform(2, 2, 30);
 
     public ReplayVideoBufferPlan BufferPlan { get; init; } = ReplayVideoBufferPlan.Create(2, 2);
 }

@@ -4,6 +4,7 @@ using BazaarGameClient.Domain.Models.Cards;
 using HarmonyLib;
 using TheBazaar.Tooltips;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace BazaarPlusPlus.GameInterop.CardPreview;
 
@@ -38,6 +39,30 @@ internal static class NativeCardPreviewReflection
 
     private static readonly FieldInfo? ClientCardField =
         CardPreviewBaseType != null ? AccessTools.Field(CardPreviewBaseType, "_clientCard") : null;
+
+    private static readonly FieldInfo? CardImageField =
+        CardPreviewBaseType != null ? AccessTools.Field(CardPreviewBaseType, "_cardImage") : null;
+
+    public static bool TryGetArtworkRect(RectTransform preview, out RectTransform artwork)
+    {
+        artwork = null!;
+        if (preview == null || CardPreviewBaseType == null || CardImageField == null)
+            return false;
+
+        try
+        {
+            var cardPreview = preview.GetComponent(CardPreviewBaseType);
+            if (cardPreview == null || CardImageField.GetValue(cardPreview) is not RawImage image)
+                return false;
+
+            artwork = image.rectTransform;
+            return artwork != null && artwork.gameObject.activeInHierarchy;
+        }
+        catch
+        {
+            return false;
+        }
+    }
 
     public static bool TryGetTooltipData(
         Component cardPreview,

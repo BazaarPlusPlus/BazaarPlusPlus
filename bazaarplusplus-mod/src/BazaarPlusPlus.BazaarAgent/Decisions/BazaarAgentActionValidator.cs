@@ -30,6 +30,8 @@ public static class BazaarAgentActionValidator
         "Dooley",
         "Mak",
         "Karnok",
+        "TheDragons",
+        "Hero8",
     };
 
     private static readonly HashSet<string> _validPlayModes = new(StringComparer.OrdinalIgnoreCase)
@@ -71,8 +73,24 @@ public static class BazaarAgentActionValidator
         if (!Enum.IsDefined(typeof(BazaarAgentActionKind), kind))
             return Fail(BazaarAgentValidationCode.Invalid, 400, "unknown actionKind");
 
-        // ── Rule 2: actionKind in AvailableActions (Wait exempt) ──────────────
-        if (kind != BazaarAgentActionKind.Wait)
+        // The context reader suppresses actions while busy, but retain this independent check for
+        // callers holding a synthetic or older snapshot.
+        if (snapshot.Context.IsClientBusy)
+            return Fail(BazaarAgentValidationCode.Unavailable, 503, "client busy");
+
+        if (
+            snapshot.Context.StateName == BazaarAgentRunStateName.Replay
+            && kind != BazaarAgentActionKind.Continue
+        )
+        {
+            return Fail(
+                BazaarAgentValidationCode.StaleOrUnavailable,
+                409,
+                "action not allowed during replay"
+            );
+        }
+
+        // ── Rule 2: actionKind in AvailableActions ────────────────────────────
         {
             var found = false;
             foreach (var opt in snapshot.Context.AvailableActions)
@@ -83,6 +101,10 @@ public static class BazaarAgentActionValidator
                     break;
                 }
             }
+            if (!found && kind == BazaarAgentActionKind.MoveItem)
+                found =
+                    BazaarAgentLayoutMoveValidator.Validate(snapshot, action).Code
+                    == BazaarAgentValidationCode.Ok;
             if (!found)
                 return Fail(
                     BazaarAgentValidationCode.StaleOrUnavailable,
@@ -111,12 +133,16 @@ public static class BazaarAgentActionValidator
                 }
             }
             if (matchedOption is null)
+            {
+                if (kind == BazaarAgentActionKind.MoveItem)
+                    return BazaarAgentLayoutMoveValidator.Validate(snapshot, action);
                 return Fail(
                     BazaarAgentValidationCode.StaleOrUnavailable,
                     409,
                     "no matching option for card-bearing action",
                     new Dictionary<string, object?> { ["currentTickId"] = snapshot.TickId }
                 );
+            }
         }
 
         // ── Rule 4: Hero / PlayMode (StartOrContinueRun only) ─────────────────
@@ -190,8 +216,8 @@ public static class BazaarAgentActionValidator
                 new Dictionary<string, object?> { ["currentTickId"] = snapshot.TickId }
             );
 
-        // ── Rule 8: cooldown (Wait exempt) ────────────────────────────────────
-        if (kind != BazaarAgentActionKind.Wait && cooldownRemainingSeconds > 0)
+        // ── Rule 8: cooldown ──────────────────────────────────────────────────
+        if (cooldownRemainingSeconds > 0)
             return Fail(
                 BazaarAgentValidationCode.Cooldown,
                 429,

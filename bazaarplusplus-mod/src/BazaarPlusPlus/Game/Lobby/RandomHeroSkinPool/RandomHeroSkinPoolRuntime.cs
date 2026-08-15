@@ -71,23 +71,50 @@ internal static class RandomHeroSkinPoolRuntime
         if (request == null)
             throw new ArgumentNullException(nameof(request));
 
-        foreach (var collectionType in SupportedCollectionTypes)
-        {
-            var availableItems = GetAvailableCollectibles(hero, collectionType, collectionManager);
-            if (availableItems.Length == 0)
-                continue;
+        ApplyToRandomizedLoadout(
+            request,
+            collectionType =>
+                GetAvailableCollectibles(hero, collectionType, collectionManager)
+                    .Select(item => new RandomizedCollectibleCandidate(
+                        item.CollectionItemID,
+                        item.IsDefault
+                    )),
+            collectionType => RandomHeroSkinPoolPlayerPrefs.LoadSelectedIds(hero, collectionType),
+            (collectionType, selectedIds) =>
+                RandomHeroSkinPoolPlayerPrefs.SaveSelectedIds(hero, collectionType, selectedIds),
+            candidateCount => UnityEngine.Random.Range(0, candidateCount),
+            (collectionType, _) =>
+                LobbyLogWriter.ReportCollectiblePoolDegraded(
+                    CollectiblePoolOperation.ApplyRandomizedLoadout,
+                    LobbyLogWriter.CollectionKind(collectionType)
+                )
+        );
+    }
 
-            var state = ResolveState(hero, collectionType, availableItems);
-            var selectedItems = availableItems
-                .Where(item => state.IsSelected(item.CollectionItemID))
-                .ToArray();
-            if (selectedItems.Length == 0)
-                continue;
+    internal static void ApplyToRandomizedLoadout(
+        BazaarGameShared.TempoNet.Models.EquipLoadoutRequest request,
+        Func<
+            BazaarInventoryTypes.ECollectionType,
+            IEnumerable<RandomizedCollectibleCandidate>
+        > getAvailableCandidates,
+        Func<BazaarInventoryTypes.ECollectionType, IEnumerable<string>?> loadSelectedIds,
+        Action<BazaarInventoryTypes.ECollectionType, IReadOnlyCollection<string>> saveSelectedIds,
+        Func<int, int> selectIndex,
+        Action<BazaarInventoryTypes.ECollectionType, Exception> reportFailure
+    )
+    {
+        if (request == null)
+            throw new ArgumentNullException(nameof(request));
 
-            var randomItem = selectedItems[UnityEngine.Random.Range(0, selectedItems.Length)];
-            var selectedId = randomItem.IsDefault ? null : randomItem.CollectionItemID;
-            ApplySelection(request, collectionType, selectedId);
-        }
+        RandomizedCollectibleLoadoutCore.Apply(
+            SupportedCollectionTypes,
+            getAvailableCandidates,
+            loadSelectedIds,
+            saveSelectedIds,
+            selectIndex,
+            (collectionType, selectedId) => ApplySelection(request, collectionType, selectedId),
+            reportFailure
+        );
     }
 
     public static void EnsureSelected(

@@ -18,19 +18,22 @@ internal sealed class ReplayVideoCopyTimingAccumulator
 
     internal int SampleCount => _count;
 
-    internal long P95Microseconds
-    {
-        get
-        {
-            if (_count == 0)
-                return 0;
+    internal long P50Microseconds => PercentileMicroseconds(0.50d);
 
-            var snapshot = new long[_count];
-            Array.Copy(_samples, snapshot, _count);
-            Array.Sort(snapshot);
-            var index = Math.Max(0, (int)Math.Ceiling(snapshot.Length * 0.95d) - 1);
-            return snapshot[index];
-        }
+    internal long P95Microseconds => PercentileMicroseconds(0.95d);
+
+    internal long P99Microseconds => PercentileMicroseconds(0.99d);
+
+    private long PercentileMicroseconds(double percentile)
+    {
+        if (_count == 0)
+            return 0;
+
+        var snapshot = new long[_count];
+        Array.Copy(_samples, snapshot, _count);
+        Array.Sort(snapshot);
+        var index = Math.Max(0, (int)Math.Ceiling(snapshot.Length * percentile) - 1);
+        return snapshot[index];
     }
 
     internal void ObserveSince(long startedTimestamp)

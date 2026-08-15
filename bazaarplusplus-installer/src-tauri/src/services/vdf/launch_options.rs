@@ -1,61 +1,20 @@
 use std::path::{Path, PathBuf};
 
-use crate::services::{debug_error, debug_log};
-use serde::Serialize;
+use crate::services::debug_log;
 
-use super::parse::{
-    clear_launch_options, inject_launch_options, verify_launch_options_in_content,
-    THE_BAZAAR_APP_ID,
-};
+use super::parse::{clear_launch_options, launch_options_empty_in_content, THE_BAZAAR_APP_ID};
 
-#[derive(Debug, Serialize)]
-pub struct LaunchOptionsPatchResult {
-    pub verified: bool,
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum SteamLaunchOptionsState {
+    Empty,
+    NonEmpty,
+    Unavailable,
 }
 
 struct LocalconfigUpdate {
     path: PathBuf,
     original_content: String,
     new_content: String,
-}
-
-#[cfg(target_os = "macos")]
-pub(crate) fn launch_options_args(game_path: &Path) -> String {
-    format!(
-        "\"{}\" %command%",
-        game_path.join("run_bepinex.sh").display()
-    )
-}
-
-#[cfg(target_os = "windows")]
-pub(crate) fn launch_options_args(_game_path: &Path) -> String {
-    String::new()
-}
-
-#[cfg(not(any(target_os = "macos", target_os = "windows")))]
-pub(crate) fn launch_options_args(_game_path: &Path) -> String {
-    String::new()
-}
-
-#[cfg(target_os = "macos")]
-pub(crate) fn ensure_launcher_executable(script_path: &Path) -> Result<(), String> {
-    use std::os::unix::fs::PermissionsExt;
-
-    let metadata = std::fs::metadata(script_path)
-        .map_err(|err| format!("Cannot access {}: {err}", script_path.display()))?;
-    let mut permissions = metadata.permissions();
-    permissions.set_mode(permissions.mode() | 0o111);
-    std::fs::set_permissions(script_path, permissions).map_err(|err| {
-        format!(
-            "Cannot set executable permission on {}: {err}",
-            script_path.display()
-        )
-    })
-}
-
-#[cfg(not(target_os = "macos"))]
-fn ensure_launcher_executable(_script_path: &Path) -> Result<(), String> {
-    Ok(())
 }
 
 pub fn find_localconfig_paths(steam_path: &Path) -> Vec<PathBuf> {
@@ -157,98 +116,49 @@ fn apply_localconfig_updates(updates: Vec<LocalconfigUpdate>) -> Result<usize, S
     Ok(applied.len())
 }
 
-pub(crate) fn patch_localconfigs(steam_path: &Path, args: &str) -> Result<usize, String> {
-    let planned =
-        plan_localconfig_updates(steam_path, |content| inject_launch_options(content, args))?;
-    if planned.is_empty() {
+fn inspect_launch_options_for_steam_raw(
+    steam_path: &Path,
+) -> Result<SteamLaunchOptionsState, String> {
+    let localconfigs = find_localconfig_paths(steam_path);
+    if localconfigs.is_empty() {
         return Err(format!(
-            "Could not find app {} in any localconfig.vdf under Steam/userdata",
-            THE_BAZAAR_APP_ID
+            "Could not find any localconfig.vdf under {}",
+            steam_path.join("userdata").display()
         ));
     }
 
-    apply_localconfig_updates(planned)
-}
-
-fn verify_patched_localconfigs(steam_path: &Path, expected_args: &str) -> Result<bool, String> {
-    let localconfigs = find_localconfig_paths(steam_path);
-    let mut checked = false;
-
     for localconfig in localconfigs {
         let content = std::fs::read_to_string(&localconfig).map_err(|err| err.to_string())?;
-        match verify_launch_options_in_content(&content, expected_args)? {
-            Some(true) => {
-                checked = true;
-            }
-            Some(false) => {
-                debug_error!(
-                    "Launch option verification mismatch in {}.",
-                    localconfig.display()
-                );
-                return Ok(false);
-            }
-            None => {}
+        if launch_options_empty_in_content(&content)? == Some(false) {
+            return Ok(SteamLaunchOptionsState::NonEmpty);
         }
     }
 
-    Ok(checked)
+    Ok(SteamLaunchOptionsState::Empty)
+}
+
+pub(crate) fn inspect_launch_options_for_steam(steam_path: &Path) -> SteamLaunchOptionsState {
+    match inspect_launch_options_for_steam_raw(steam_path) {
+        Ok(state) => state,
+        Err(_err) => {
+            debug_log!("Cannot inspect Steam launch options: {_err}");
+            SteamLaunchOptionsState::Unavailable
+        }
+    }
 }
 
 pub fn clear_launch_options_for_steam(steam_path: &Path) -> Result<(), String> {
-    if !crate::services::steam::supports_launch_option_updates(steam_path) {
-        debug_log!(
-            "Skipping launch option cleanup because Steam userdata was not found at {}.",
-            steam_path.display()
-        );
-        return Ok(());
-    }
-
     let planned = plan_localconfig_updates(steam_path, clear_launch_options)?;
-    if planned.is_empty() {
-        return Ok(());
+    if !planned.is_empty() {
+        apply_localconfig_updates(planned)?;
     }
-
-    apply_localconfig_updates(planned)?;
-    Ok(())
-}
-
-pub fn patch_launch_options(
-    _app: tauri::AppHandle,
-    _steam_path: String,
-    _game_path: String,
-) -> Result<LaunchOptionsPatchResult, String> {
-    let game_path = PathBuf::from(&_game_path);
-    let args = launch_options_args(&game_path);
-
-    if args.is_empty() {
-        debug_log!("Skipping launch option patch for this platform.");
-        return Ok(LaunchOptionsPatchResult { verified: true });
+    match inspect_launch_options_for_steam_raw(steam_path)? {
+        SteamLaunchOptionsState::Empty => Ok(()),
+        SteamLaunchOptionsState::NonEmpty => Err(format!(
+            "Steam launch options for app {THE_BAZAAR_APP_ID} are still non-empty after cleanup"
+        )),
+        SteamLaunchOptionsState::Unavailable => {
+            unreachable!("raw inspection never returns unavailable")
+        }
     }
-
-    let steam_path = Path::new(&_steam_path);
-    if !crate::services::steam::supports_launch_option_updates(steam_path) {
-        debug_log!(
-            "Skipping launch option patch because Steam userdata was not found at {}.",
-            steam_path.display()
-        );
-        return Ok(LaunchOptionsPatchResult { verified: true });
-    }
-
-    crate::services::steam::prepare_steam_for_launch_option_update(steam_path, true)?;
-
-    debug_log!("Locating localconfig.vdf files...");
-    let updated = patch_localconfigs(steam_path, &args).map_err(|err| {
-        debug_error!("{err}");
-        err
-    })?;
-    if updated > 0 {
-        debug_log!("Updated {} localconfig.vdf file(s).", updated);
-    }
-
-    let verified = verify_patched_localconfigs(steam_path, &args)?;
-    if !verified {
-        debug_error!("Launch option verification failed after write.");
-    }
-
-    Ok(LaunchOptionsPatchResult { verified })
 }

@@ -1,21 +1,11 @@
-import { invokeCommand } from '../../api/tauri';
+import { commandClient } from '../../api/commandClient';
 import { hasTauriRuntime } from '../../api/runtime';
-import type { AppBootstrap } from '../../types/backend';
-import bootstrapResource from '../../../src-tauri/resources/app-bootstrap.json';
+import type { AppBootstrapLoadResult } from './appBootstrap';
 
-export const fallbackBootstrap: AppBootstrap = {
-  ...(bootstrapResource as Pick<
-    AppBootstrap,
-    'links' | 'credits' | 'licenses'
-  >),
-  app_version: __FRONTEND_VERSION__,
-  bundled_bpp_version: null
-};
-
-export async function loadAppBootstrap() {
-  if (!hasTauriRuntime()) {
-    return fallbackBootstrap;
-  }
-
-  return invokeCommand('get_app_bootstrap');
+export async function loadAppBootstrap(): Promise<AppBootstrapLoadResult> {
+  const data = await commandClient.getAppBootstrap();
+  return {
+    source: hasTauriRuntime() ? 'native' : 'preview',
+    data
+  };
 }

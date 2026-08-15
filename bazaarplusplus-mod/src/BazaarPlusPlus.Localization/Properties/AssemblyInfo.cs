@@ -8,5 +8,5 @@ using System.Runtime.CompilerServices;
 [assembly: InternalsVisibleTo("HistoryPanelDecisions.Tests")]
 [assembly: InternalsVisibleTo("HistoryPanelServerHealth.Tests")]
 [assembly: InternalsVisibleTo("LiveBuildRecommendations.Tests")]
-[assembly: InternalsVisibleTo("SettingsDockRegistry.Tests")]
+[assembly: InternalsVisibleTo("RuntimeIntegration.Tests")]
 [assembly: InternalsVisibleTo("CollectionEncounterTooltip.Tests")]

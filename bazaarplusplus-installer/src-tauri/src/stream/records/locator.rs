@@ -1,6 +1,7 @@
 use std::path::{Path, PathBuf};
 
-use crate::services::game_path::fallback_game_candidates;
+use crate::config::DATABASE_FILE_NAME;
+use crate::services::game_path::find_fallback_game_path_with_database;
 use crate::services::paths;
 
 pub fn resolve_database_path(game_path: &Path) -> Result<PathBuf, String> {
@@ -18,20 +19,16 @@ pub fn resolve_database_path(game_path: &Path) -> Result<PathBuf, String> {
     }
 
     Err(format!(
-        "Expected stream database at {}, but bazaarplusplus.db was not found.",
+        "Expected stream database at {}, but {DATABASE_FILE_NAME} was not found.",
         candidate.display()
     ))
 }
 
 pub fn find_database_path_anywhere() -> Result<PathBuf, String> {
-    for candidate in fallback_game_candidates() {
-        let db = paths::database_path(&candidate);
-        if db.exists() {
-            return Ok(db);
-        }
+    if let Some(game_path) = find_fallback_game_path_with_database() {
+        return Ok(paths::database_path(&game_path));
     }
-    Err(
-        "bazaarplusplus.db not found: game path is not configured and no known Steam library path contains it."
-            .to_string(),
-    )
+    Err(format!(
+        "{DATABASE_FILE_NAME} not found: game path is not configured and no known Steam library path contains it."
+    ))
 }

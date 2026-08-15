@@ -35,3 +35,15 @@ public sealed class RunScreenshotRecord
     // rows tagged "Ptr" are permanently excluded from server uploads.
     public string? BuildChannel { get; set; }
 }
+
+public sealed class RunScreenshotArtifact
+{
+    public RunScreenshotArtifact(string imageRelativePath, DateTimeOffset capturedAtUtc)
+    {
+        ImageRelativePath = imageRelativePath;
+        CapturedAtUtc = capturedAtUtc;
+    }
+
+    public string ImageRelativePath { get; }
+    public DateTimeOffset CapturedAtUtc { get; }
+}

@@ -65,7 +65,7 @@ internal static class PedestalEnchantCatalog
     };
 
     // Upgrade pedestals (B1&B2, Sterling, Forja, base + Level Up). Kept for completeness;
-    // upgrade preview is hold-Shift only, so the policy does not auto-fire on these.
+    // upgrade preview is key-only, so the policy does not auto-fire on these.
     private static readonly HashSet<Guid> UpgradeTemplateIds = new()
     {
         G("2e1e5a86-3ace-4f78-8b73-6641ca59e834"),

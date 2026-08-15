@@ -21,3 +21,19 @@ pub(crate) fn is_bazaar_running_best_effort() -> bool {
         false
     }
 }
+
+/// Kill any leftover game process, returning whether one was actually
+/// terminated. The game can keep the mod database open after its window closes;
+/// the user's only other recourse is `taskkill` or a reboot.
+pub(crate) fn terminate_game() -> Result<bool, String> {
+    #[cfg(target_os = "windows")]
+    {
+        crate::services::process_snapshot::terminate_processes(BAZAAR_PROCESS_NAME)
+            .map(|terminated| terminated > 0)
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        Err("Ending the game process is not supported on this platform.".to_string())
+    }
+}

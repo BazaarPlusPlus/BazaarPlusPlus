@@ -23,14 +23,12 @@ internal enum BppLogCatalogViolationKind
     DuplicateFieldOrder,
     DuplicateFieldName,
     InvalidFieldName,
-    InvalidPrivacy,
     InvalidCorrelation,
     InvalidCardinality,
     StormKeyNotDeclared,
     DuplicateStormKey,
     StormKeyNotLowCardinality,
     StormKeyCorrelated,
-    StormKeySensitive,
 }
 
 internal sealed class BppLogCatalogViolation
@@ -253,13 +251,6 @@ internal sealed class BppLogEventCatalog
                     definition.EventId,
                     field.Name
                 );
-            if (!BppLogSchemaRules.IsKnownPrivacy(field.Privacy))
-                Add(
-                    violations,
-                    BppLogCatalogViolationKind.InvalidPrivacy,
-                    definition.EventId,
-                    field.Name
-                );
             if (!BppLogSchemaRules.IsKnownCorrelation(field.Correlation))
                 Add(
                     violations,
@@ -318,13 +309,6 @@ internal sealed class BppLogEventCatalog
                 Add(
                     violations,
                     BppLogCatalogViolationKind.StormKeyCorrelated,
-                    definition.EventId,
-                    key.Name
-                );
-            if (key.Privacy == BppLogFieldPrivacy.Sensitive)
-                Add(
-                    violations,
-                    BppLogCatalogViolationKind.StormKeySensitive,
                     definition.EventId,
                     key.Name
                 );

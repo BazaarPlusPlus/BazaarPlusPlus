@@ -1,16 +1,15 @@
 mod image;
 mod locator;
 mod mapper;
-mod repo;
 
+use crate::history::screenshots::{
+    load_latest_overlay_snapshot, load_overlay_snapshot_by_id, load_overlay_snapshot_count,
+    load_overlay_snapshot_list,
+};
 use image::resolve_overlay_image_path;
 pub use locator::{find_database_path_anywhere, resolve_database_path};
 use mapper::to_overlay_record;
 pub use mapper::OverlayRecord;
-use repo::{
-    load_latest_overlay_record, load_overlay_record_by_id, load_overlay_record_count,
-    load_overlay_record_list,
-};
 use std::path::PathBuf;
 
 #[derive(Clone, Debug)]
@@ -29,13 +28,13 @@ impl OverlayRecordRepository {
         offset: usize,
     ) -> Result<Option<OverlayRecord>, String> {
         let database_path = self.database_path()?;
-        Ok(load_latest_overlay_record(&database_path, from, offset)?
+        Ok(load_latest_overlay_snapshot(&database_path, from, offset)?
             .map(|row| to_overlay_record(self.game_path.as_deref(), row)))
     }
 
     pub fn count_since(&self, from: Option<&str>) -> Result<usize, String> {
         let database_path = self.database_path()?;
-        load_overlay_record_count(&database_path, from)
+        load_overlay_snapshot_count(&database_path, from)
     }
 
     pub fn load_record_list(
@@ -44,7 +43,7 @@ impl OverlayRecordRepository {
         limit: Option<usize>,
     ) -> Result<Vec<OverlayRecord>, String> {
         let database_path = self.database_path()?;
-        Ok(load_overlay_record_list(&database_path, from, limit)?
+        Ok(load_overlay_snapshot_list(&database_path, from, limit)?
             .into_iter()
             .map(|row| to_overlay_record(self.game_path.as_deref(), row))
             .collect())
@@ -61,7 +60,7 @@ impl OverlayRecordRepository {
 
     pub fn load_image_path(&self, record_id: &str) -> Result<Option<PathBuf>, String> {
         let database_path = self.database_path()?;
-        let Some(row) = load_overlay_record_by_id(&database_path, record_id)? else {
+        let Some(row) = load_overlay_snapshot_by_id(&database_path, record_id)? else {
             return Ok(None);
         };
 
@@ -85,11 +84,12 @@ impl OverlayRecordRepository {
 #[cfg(test)]
 mod tests {
     use super::OverlayRecordRepository;
-    use crate::config::DATABASE_FILE_NAME;
+    use crate::services::paths;
 
     fn create_run_screenshots_table(conn: &rusqlite::Connection) {
-        conn.execute(
-            "create table run_screenshots (
+        conn.execute_batch(
+            "pragma user_version = 1;
+             create table run_screenshots (
                 screenshot_id text primary key,
                 run_id text,
                 battle_id text,
@@ -103,23 +103,38 @@ mod tests {
                 player_rating integer,
                 player_position integer,
                 victories_at_capture integer,
-                hero_name text
-            )",
-            [],
+                hero_name text,
+                build_channel text
+            );",
         )
         .unwrap();
+    }
+
+    #[test]
+    fn repository_rejects_unsupported_database_schema() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let game_path = temp_dir.path().join("TheBazaar");
+        let data_dir = paths::bpp_data_dir(&game_path);
+        std::fs::create_dir_all(&data_dir).unwrap();
+        rusqlite::Connection::open(paths::database_path(&game_path)).unwrap();
+
+        let error = OverlayRecordRepository::new(Some(game_path))
+            .load_record_at_offset(None, 0)
+            .unwrap_err();
+
+        assert!(error.contains("found=0"), "{error}");
+        assert!(error.contains("expected=1"), "{error}");
     }
 
     #[test]
     fn repository_sets_strip_url_when_relative_image_exists() {
         let temp_dir = tempfile::tempdir().unwrap();
         let game_path = temp_dir.path().join("TheBazaar");
-        let data_dir = game_path.join("BazaarPlusPlusV4");
-        let screenshots_dir = data_dir.join("Screenshots");
+        let screenshots_dir = paths::screenshots_dir(&game_path);
         std::fs::create_dir_all(&screenshots_dir).unwrap();
         std::fs::write(screenshots_dir.join("match-1.png"), b"png").unwrap();
 
-        let database_path = data_dir.join(DATABASE_FILE_NAME);
+        let database_path = paths::database_path(&game_path);
         let conn = rusqlite::Connection::open(&database_path).unwrap();
         create_run_screenshots_table(&conn);
         conn.execute(
@@ -144,10 +159,10 @@ mod tests {
     fn repository_preserves_optional_snapshot_metrics() {
         let temp_dir = tempfile::tempdir().unwrap();
         let game_path = temp_dir.path().join("TheBazaar");
-        let data_dir = game_path.join("BazaarPlusPlusV4");
+        let data_dir = paths::bpp_data_dir(&game_path);
         std::fs::create_dir_all(&data_dir).unwrap();
 
-        let database_path = data_dir.join(DATABASE_FILE_NAME);
+        let database_path = paths::database_path(&game_path);
         let conn = rusqlite::Connection::open(&database_path).unwrap();
         create_run_screenshots_table(&conn);
         conn.execute(
@@ -170,5 +185,34 @@ mod tests {
         assert_eq!(latest.battle_count, Some(14));
         assert_eq!(latest.rank.as_deref(), Some("Diamond"));
         assert_eq!(latest.rating, Some(500));
+    }
+
+    #[test]
+    fn repository_canonicalizes_the_dragons_legacy_hero_name() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let game_path = temp_dir.path().join("TheBazaar");
+        let data_dir = paths::bpp_data_dir(&game_path);
+        std::fs::create_dir_all(&data_dir).unwrap();
+
+        let database_path = paths::database_path(&game_path);
+        let conn = rusqlite::Connection::open(&database_path).unwrap();
+        create_run_screenshots_table(&conn);
+        conn.execute(
+            "insert into run_screenshots (
+                screenshot_id, run_id, capture_source, image_relative_path, captured_at_local,
+                captured_at_utc, hero_name
+             ) values (
+                'snap-dra', 'run-dra', 'end_of_run_auto', 'dragons.png',
+                '2026-08-06T20:30:05+00:00', '2026-08-06T20:30:05+00:00', 'Hero8'
+             )",
+            [],
+        )
+        .unwrap();
+
+        let repository = OverlayRecordRepository::new(Some(game_path));
+        let latest = repository.load_record_at_offset(None, 0).unwrap().unwrap();
+
+        assert_eq!(latest.hero_id, "TheDragons");
+        assert_eq!(latest.title, "The Dragons");
     }
 }

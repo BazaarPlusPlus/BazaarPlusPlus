@@ -5,8 +5,7 @@ namespace BazaarPlusPlus.Game.Upload;
 
 internal enum UploadFeedKind
 {
-    RunBundle,
-    BazaarDbSnapshot,
+    Bundle,
 }
 
 internal enum UploadAttemptObservationKind
@@ -24,7 +23,7 @@ internal enum UploadLogReasonCode
     InitializationException,
     LiveRunActive,
     AccountUnavailable,
-    RunBundleNotReady,
+    BundleNotReady,
     AccountProbeException,
     AttemptException,
     RemoteUploadFailed,
@@ -39,6 +38,11 @@ internal enum UploadCleanupPhase
 {
     ActivationDispose,
 }
+
+internal readonly record struct UploadPumpCadence(
+    int StartupDelaySeconds,
+    int RetryIntervalSeconds
+);
 
 internal readonly record struct UploadAttemptObservation(
     UploadAttemptObservationKind Kind,
@@ -97,22 +101,35 @@ internal sealed class UploadAttemptResult
     ) => new(observations ?? Array.Empty<UploadAttemptObservation>());
 }
 
+/// <summary>
+/// Feed factory: the pump supplies real cadence and receives a behavior session (or null when
+/// activation fails). PTR channel gating stays on the pump as an activation precondition.
+/// </summary>
 internal interface IUploadFeed
 {
     UploadFeedKind Kind { get; }
-    UploadFeedActivation? Activate(IBppServices services, UploadFeedLogState logState);
+
+    IUploadFeedSession? Activate(
+        IBppServices services,
+        UploadFeedLogState logState,
+        UploadPumpCadence cadence
+    );
 }
 
-internal sealed class UploadFeedActivation
+/// <summary>
+/// Feed-owned behavior for one pump lifetime: enablement, one attempt, feed-private arm signals,
+/// and attempt-resource disposal. The pump owns Unity cadence, shared arms, and shutdown drain.
+/// </summary>
+internal interface IUploadFeedSession : IDisposable
 {
-    public Func<
-        CancellationToken,
-        Task<UploadAttemptResult>
-    > UploadInBackgroundAsync { get; init; } =
-        _ => throw new InvalidOperationException("Upload delegate is not configured.");
-    public Func<bool> IsEnabled { get; init; } = static () => true;
-    public IDisposable? Disposable { get; init; }
-    public UploadArmHook? ExtraArmHook { get; init; }
-}
+    bool IsEnabled { get; }
 
-internal sealed record UploadArmHook(Func<IBppServices, Action, IDisposable> Subscribe);
+    Task<UploadAttemptResult> RunAttemptAsync(CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Subscribe feed-private arm signals. Returns null when the feed has none.
+    /// The pump holds the handle and disposes it first on shutdown; session.Dispose only owns
+    /// attempt resources and may dispose this handle as an idempotent fallback.
+    /// </summary>
+    IDisposable? SubscribeArmSignals(Action arm);
+}

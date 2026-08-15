@@ -36,6 +36,7 @@ internal sealed partial class CollectionCardVm
                 string.Join(" ", tooltipSearchTexts)
             );
         var hiddenTags = CollectionDerivedKeywordFacts.ProjectHiddenTags(template);
+        var mechanics = CollectionMechanicFacts.Project(template);
         var enchantments =
             template is TCardItem item && item.Enchantments != null
                 ? ProjectEnchantments(item.Enchantments)
@@ -50,6 +51,7 @@ internal sealed partial class CollectionCardVm
             Heroes = template.Heroes,
             Tags = template.Tags,
             HiddenTags = hiddenTags,
+            Mechanics = mechanics,
             DisplayName = displayName,
             Description = description,
             InternalName = template.InternalName,
@@ -67,6 +69,7 @@ internal sealed partial class CollectionCardVm
                     Heroes = template.Heroes,
                     Tags = template.Tags,
                     HiddenTags = hiddenTags,
+                    Mechanics = mechanics,
                     DisplayName = string.Join(" ", titleSearchTexts),
                     Description = searchableContent,
                     InternalName = template.InternalName,

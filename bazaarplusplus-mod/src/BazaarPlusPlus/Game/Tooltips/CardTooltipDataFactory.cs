@@ -90,13 +90,28 @@ internal static class CardTooltipDataFactory
         CardInstanceField!.SetValue(tooltipData, card);
         CardTemplateField!.SetValue(tooltipData, source.CardTemplate);
         MonsterField!.SetValue(tooltipData, monster);
-        ValueContextField!.SetValue(tooltipData, new ValueContext(Data.Run, card));
+        var valueContext = new ValueContext(Data.Run, card);
+        ValueContextField!.SetValue(tooltipData, valueContext);
         CompiledTooltipsField!.SetValue(tooltipData, CreateCompiledTooltipsCache());
         LocalizationServiceField!.SetValue(
             tooltipData,
             LocalizationServiceField.GetValue(source) ?? Services.Get<LocalizationService>()
         );
         tooltipData.CanFuse = source.CanFuse;
+
+        if (
+            mode == TooltipPreviewRefreshMode.Upgrade
+            && card is ItemCard itemCard
+            && UpgradePreviewValueProjection.TryCreate(
+                itemCard,
+                source.CardTemplate,
+                valueContext,
+                out var projection
+            )
+        )
+        {
+            UpgradePreviewValueRegistry.Register(tooltipData, projection);
+        }
 
         return tooltipData;
     }

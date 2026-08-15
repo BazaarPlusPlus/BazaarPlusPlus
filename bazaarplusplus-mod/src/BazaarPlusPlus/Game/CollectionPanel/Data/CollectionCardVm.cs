@@ -36,6 +36,7 @@ internal sealed partial class CollectionCardVm
     public IReadOnlyCollection<EHero> Heroes { get; init; } = Array.Empty<EHero>();
     public IReadOnlyCollection<ECardTag> Tags { get; init; } = Array.Empty<ECardTag>();
     public IReadOnlyCollection<EHiddenTag> HiddenTags { get; init; } = Array.Empty<EHiddenTag>();
+    public CollectionMechanic Mechanics { get; init; }
     public string DisplayName { get; init; } = string.Empty;
     public string Description { get; init; } = string.Empty;
     public string InternalName { get; init; } = string.Empty;

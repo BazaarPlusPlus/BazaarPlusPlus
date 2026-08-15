@@ -20,33 +20,23 @@ The process-tap APIs are a macOS 14.2+ feature; this module gates itself at macO
 `BppMacAudio_IsSupported` (NSProcessInfo product version) and weak-imports the tap symbols
 so the dylib still loads and degrades cleanly on older systems.
 
-## Files
-
-| File | Role |
-| --- | --- |
-| `BppMacAudio.m` / `.h` | dylib source + C ABI (`BppMacAudio_IsSupported` / `_Start` / `_Read` / `_Stop`) |
-| `build.sh` | builds `libBppMacAudio.dylib` and copies it into the installer repo |
-| `libBppMacAudio.dylib` | build output — **gitignored here** (the committed copy lives in the installer repo) |
-
 ## Build
 
 ```bash
 ./build.sh
 ```
 
-Requirements: macOS + Xcode / Command Line Tools SDK, Apple Silicon (arm64). The script
-runs one `clang` command, then copies the dylib into the installer repo (see below).
+Requirements: macOS + Xcode / Command Line Tools SDK, Apple Silicon (arm64), and Node.js for
+reading the shared native artifact catalog. The script builds into `build/` by default and runs
+the architecture, deployment-target, weak-import, dependency, ABI export, load, and ad-hoc-signing
+checks without writing the installer repository.
 
-Load-bearing `clang` flags — do not change without understanding why:
+Every `clang` flag in `build.sh` is load-bearing, and the two whose reasons are not obvious from
+the flag itself — the `lib` output prefix and `-mmacosx-version-min=12.0` — carry that reason in a
+comment directly above the command. Read them there before changing the invocation.
 
-- `-arch arm64` — the only supported target (Apple Silicon).
-- `-fobjc-arc` — ARC manages the ObjC objects (`CATapDescription`, the aggregate-device dict).
-- `-framework CoreAudio -framework Foundation` — the tap APIs are in CoreAudio; the
-  `NSProcessInfo` version gate is in Foundation.
-- `-mmacosx-version-min=11.0` — **NOT 14.2.** This weak-imports the macOS 14.2 tap symbols so
-  the dylib *loads* on macOS 11–14 and `IsSupported` cleanly returns 0 there; the tap symbols
-  are only ever called after the in-dylib `>= 15` gate (`NSProcessInfo`). Bumping it to 14.2
-  would make the dylib fail to load on older systems instead of degrading to a silent video.
+Those are producer checks. The final acceptance judgement is not one of them: it remains a
+sample-bearing AAC track with audible in-game audio in the finished recording.
 
 ## Where it ships (two-repo split)
 
@@ -58,20 +48,15 @@ like `libe_sqlite3.dylib`:
 bazaarplusplus-installer/src-tauri/resources/SourceForBuild/macos/BepInEx/plugins/libBppMacAudio.dylib
 ```
 
-`build.sh` auto-copies there. The default destination assumes the standard sibling-repo
-workspace layout; override it for a non-standard layout:
+`./run.sh publish` reuses that staged copy only when both the macOS input digest and the staged
+artifacts still match the installer manifest; otherwise it rebuilds through this script and promotes
+the result. The freshness contract and the full promotion sequence are in
+[`docs/architecture/native-artifacts.md`](../../docs/architecture/native-artifacts.md). A direct
+build may choose another side-effect-free output directory with its first argument:
 
 ```bash
-BPP_INSTALLER_PLUGINS_DIR=/path/to/installer/.../BepInEx/plugins ./build.sh
+./build.sh /absolute/output/directory
 ```
-
-If the installer dir is absent (e.g. a mod-only checkout) the copy is skipped with a note —
-the dylib still builds locally and that is not an error.
-
-> **After changing the native source, rebuild and commit the refreshed dylib in the installer
-> repo** — it is a committed prebuilt, like `libe_sqlite3.dylib`; the mod repo carries source
-> only. `clang` output is deterministic for a given toolchain/SDK, so unchanged source yields
-> a byte-identical dylib and no installer diff; a toolchain update alone can change the bytes.
 
 ## Naming + packaging
 
@@ -79,16 +64,5 @@ the dylib still builds locally and that is not an error.
   `[DllImport("BppMacAudio")]`; Unity-Mono resolves it via its `lib{name}.dylib` probe — the
   same path that loads `libe_sqlite3.dylib` from `[DllImport("e_sqlite3")]`.
 - The csproj mirrors sqlite: a **Debug-target** `<Copy>` into the game's `BepInEx/plugins/`,
-  and **no Release-target `<Copy>`** — the committed dylib is packed by the Release
-  `ZipDirectory` step.
-
-## Verify
-
-```bash
-./build.sh
-nm -gU libBppMacAudio.dylib | grep BppMacAudio   # expect the four _BppMacAudio_* exports
-```
-
-A bare-process `Start`/`Read`/`Stop` smoke test exercises the tap / aggregate-device / IOProc /
-FIFO plumbing (it captures silence — a CLI process emits no audio). The real acceptance check
-is `ffmpeg volumedetect` on an in-game recording.
+  and **no Release-target native `<Copy>`** — the promoted dylib is packed by the installer-owned
+  archive preparation step.

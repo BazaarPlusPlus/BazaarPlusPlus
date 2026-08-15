@@ -1,18 +1,24 @@
 #nullable enable
 using BazaarGameShared.Domain.Core.Types;
 using BazaarPlusPlus.Game.CollectionPanel.Sources;
+using BazaarPlusPlus.GameInterop.Heroes;
 
 namespace BazaarPlusPlus.Game.CollectionPanel;
 
 internal static class CollectionSourceOfferPoolCacheKey
 {
-    public static string Build(CollectionSourceEntry source, EHero? selectedHero) =>
+    public static string Build(CollectionSourceEntry source, EHero effectiveHero) =>
         string.Join(
             "|",
             source.SourceKey,
             BuildTemplateIdsFingerprint(source.SourceTemplateIds),
             source.OfferRuleFingerprint,
-            BuildHeroKey(selectedHero)
+            TheDragonsHeroIdentity.TryCanonicalize(
+                effectiveHero.ToString(),
+                out var canonicalHeroId
+            )
+                ? canonicalHeroId
+                : effectiveHero.ToString()
         );
 
     private static string BuildTemplateIdsFingerprint(IReadOnlyList<Guid> templateIds) =>
@@ -20,11 +26,4 @@ internal static class CollectionSourceOfferPoolCacheKey
             "-",
             templateIds.OrderBy(id => id).Select(id => id.ToString("N").Substring(0, 12))
         );
-
-    private static string BuildHeroKey(EHero? selectedHero)
-    {
-        if (!selectedHero.HasValue)
-            return "no-selected-hero";
-        return selectedHero.Value.ToString();
-    }
 }

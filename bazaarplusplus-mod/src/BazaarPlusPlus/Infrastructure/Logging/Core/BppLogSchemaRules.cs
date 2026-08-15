@@ -5,13 +5,6 @@ internal static class BppLogSchemaRules
 {
     internal const int MaximumFields = 128;
 
-    internal static bool IsKnownPrivacy(BppLogFieldPrivacy privacy) =>
-        privacy == BppLogFieldPrivacy.Public
-        || privacy == BppLogFieldPrivacy.UntrustedText
-        || privacy == BppLogFieldPrivacy.Sensitive
-        || privacy == BppLogFieldPrivacy.LocalPath
-        || privacy == BppLogFieldPrivacy.RemoteUri;
-
     internal static bool IsKnownCorrelation(BppLogCorrelationPolicy correlation) =>
         correlation == BppLogCorrelationPolicy.None
         || correlation == BppLogCorrelationPolicy.Full

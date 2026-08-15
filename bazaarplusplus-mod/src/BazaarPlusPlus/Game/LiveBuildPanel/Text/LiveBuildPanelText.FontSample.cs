@@ -41,11 +41,12 @@ internal static partial class LiveBuildPanelText
                 [
                     new TenWinHeroBuildCount("Vanessa", 1234567890),
                     new TenWinHeroBuildCount("Dooley", 987654321),
+                    new TenWinHeroBuildCount("TheDragons", 876543210),
                 ]
             )
         )
         // Hero short codes for the corpus dashboard tiles.
-        + "VAN DOO PYG MAK JUL KAR STE UNK"
+        + "VAN DOO PYG MAK JUL KAR STE DRA UNK"
         // Relative-time freshness buckets (latin + CJK) and the thousands separator.
         + "updated m h d w ago — 1,234"
         + "更新于 更新於 分钟前 分鐘前 小时前 小時前 天前 周前 週前 更新时间未知 更新時間未知"

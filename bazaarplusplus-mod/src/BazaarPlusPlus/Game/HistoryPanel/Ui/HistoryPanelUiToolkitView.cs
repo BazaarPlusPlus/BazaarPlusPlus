@@ -25,16 +25,8 @@ internal sealed partial class HistoryPanelUiToolkitView : IDisposable
     private readonly Action<GhostBattleFilter> _setGhostFilter;
     private readonly Action<string> _setRunHero;
     private readonly Action _toggleGhostDayMin10;
-    private static readonly string[] HeroRoster =
-    {
-        "Vanessa",
-        "Pygmalien",
-        "Dooley",
-        "Mak",
-        "Jules",
-        "Karnok",
-        "Stelle",
-    };
+    private static IReadOnlyList<string> HeroRoster =>
+        HistoryPanelHeroPresentation.RunFilterHeroIds;
 
     private GameObject? _rootObject;
     private UIDocument? _document;
@@ -390,13 +382,13 @@ internal sealed partial class HistoryPanelUiToolkitView : IDisposable
             model.SectionMode == HistorySectionMode.Runs ? DisplayStyle.Flex : DisplayStyle.None;
         _ghostFilterRow!.style.display =
             model.SectionMode == HistorySectionMode.Ghost ? DisplayStyle.Flex : DisplayStyle.None;
-        for (var i = 0; i < _heroChips.Length && i < HeroRoster.Length; i++)
+        for (var i = 0; i < _heroChips.Length && i < HeroRoster.Count; i++)
         {
             var heroName = HeroRoster[i];
             RefreshHeroChip(
                 _heroChips[i],
                 heroName,
-                string.Equals(model.SelectedRunHero, heroName, StringComparison.OrdinalIgnoreCase)
+                HistoryPanelHeroPresentation.IsSelected(model.SelectedRunHero, heroName)
             );
         }
         RefreshGhostFilterButton(

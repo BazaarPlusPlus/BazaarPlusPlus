@@ -82,9 +82,6 @@ internal static class EncounterEventTooltipPatch
         };
     }
 
-    private static string? Available(EncounterPreviewResult preview) =>
-        preview.Availability == EventPreviewAvailability.Available ? preview.Content : null;
-
-    private static string? Available(EncounterStepPreviewResult preview) =>
+    private static string? Available(EventPreviewResult preview) =>
         preview.Availability == EventPreviewAvailability.Available ? preview.Content : null;
 }

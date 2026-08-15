@@ -94,29 +94,11 @@ internal static class SupporterLogEvents
     );
 
     private static BppLogFieldDefinition PublicLow(int order, string name) =>
-        new(
-            order,
-            name,
-            BppLogFieldPrivacy.Public,
-            BppLogCorrelationPolicy.None,
-            BppLogCardinality.Low
-        );
+        new(order, name, BppLogCorrelationPolicy.None, BppLogCardinality.Low);
 
     private static BppLogFieldDefinition PublicHigh(int order, string name) =>
-        new(
-            order,
-            name,
-            BppLogFieldPrivacy.Public,
-            BppLogCorrelationPolicy.None,
-            BppLogCardinality.High
-        );
+        new(order, name, BppLogCorrelationPolicy.None, BppLogCardinality.High);
 
     private static BppLogFieldDefinition LocalPath(int order, string name) =>
-        new(
-            order,
-            name,
-            BppLogFieldPrivacy.LocalPath,
-            BppLogCorrelationPolicy.None,
-            BppLogCardinality.High
-        );
+        new(order, name, BppLogCorrelationPolicy.None, BppLogCardinality.High);
 }

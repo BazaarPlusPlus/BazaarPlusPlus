@@ -1,14 +1,12 @@
 use serde::Serialize;
 
-#[derive(Clone, Debug, PartialEq, Serialize, ts_rs::TS)]
-#[ts(export)]
+#[derive(Clone, Debug, PartialEq, Serialize, specta::Type)]
 pub struct HistoryRunList {
     pub summary: HistorySummary,
     pub runs: Vec<HistoryRunRow>,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, ts_rs::TS)]
-#[ts(export)]
+#[derive(Clone, Debug, PartialEq, Serialize, specta::Type)]
 pub struct HistorySummary {
     pub runs: i64,
     pub videos: i64,
@@ -16,8 +14,7 @@ pub struct HistorySummary {
     pub win_rate: Option<f64>,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, ts_rs::TS)]
-#[ts(export)]
+#[derive(Clone, Debug, PartialEq, Serialize, specta::Type)]
 pub struct HistoryRunRow {
     pub run_id: String,
     pub hero: String,
@@ -36,15 +33,13 @@ pub struct HistoryRunRow {
     pub video_count: i64,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, ts_rs::TS)]
-#[ts(export)]
+#[derive(Clone, Debug, PartialEq, Serialize, specta::Type)]
 pub struct HistoryRunDetail {
     pub run: HistoryRunDetailRow,
     pub battles: Vec<HistoryBattleRow>,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, ts_rs::TS)]
-#[ts(export)]
+#[derive(Clone, Debug, PartialEq, Serialize, specta::Type)]
 pub struct HistoryRunDetailRow {
     pub run_id: String,
     pub hero: String,
@@ -66,8 +61,7 @@ pub struct HistoryRunDetailRow {
     pub player_name: Option<String>,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, ts_rs::TS)]
-#[ts(export)]
+#[derive(Clone, Debug, PartialEq, Serialize, specta::Type)]
 pub struct HistoryBattleRow {
     pub battle_id: String,
     pub day: Option<i64>,
@@ -80,8 +74,7 @@ pub struct HistoryBattleRow {
     pub video: Option<HistoryBattleVideo>,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, ts_rs::TS)]
-#[ts(export)]
+#[derive(Clone, Debug, PartialEq, Serialize, specta::Type)]
 pub struct HistoryBattleVideo {
     pub video_id: String,
     pub status: String,

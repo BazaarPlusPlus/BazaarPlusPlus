@@ -10,10 +10,11 @@ const STEAM_EXIT_WAIT_ATTEMPTS: usize = 60;
 #[cfg(any(target_os = "macos", target_os = "windows"))]
 const STEAM_EXIT_WAIT_INTERVAL: Duration = Duration::from_millis(500);
 
-pub fn supports_launch_option_updates(steam_path: &Path) -> bool {
+fn has_steam_userdata(steam_path: &Path) -> bool {
     steam_path.join("userdata").is_dir()
 }
 
+#[cfg(any(target_os = "macos", test))]
 fn steam_running_from_pgrep(
     status_code: Option<i32>,
     stdout: &[u8],
@@ -133,21 +134,12 @@ fn close_steam_internal() -> Result<bool, String> {
 }
 
 #[cfg(any(target_os = "macos", target_os = "windows"))]
-pub fn prepare_steam_for_launch_option_update(
-    steam_path: &Path,
-    skip_shutdown: bool,
-) -> Result<(), String> {
-    if !supports_launch_option_updates(steam_path) {
-        debug_log!(
-            "Skipping Steam shutdown because Steam userdata was not found at {}.",
+pub fn prepare_steam_for_config_update(steam_path: &Path) -> Result<(), String> {
+    if !has_steam_userdata(steam_path) {
+        return Err(format!(
+            "Steam userdata was not found at {}",
             steam_path.display()
-        );
-        return Ok(());
-    }
-
-    if skip_shutdown {
-        debug_log!("Allowing Steam to keep running during launch option update.");
-        return Ok(());
+        ));
     }
 
     let stopped = close_steam_internal()?;
@@ -160,10 +152,7 @@ pub fn prepare_steam_for_launch_option_update(
 }
 
 #[cfg(not(any(target_os = "macos", target_os = "windows")))]
-pub fn prepare_steam_for_launch_option_update(
-    _steam_path: &Path,
-    _skip_shutdown: bool,
-) -> Result<(), String> {
+pub fn prepare_steam_for_config_update(_steam_path: &Path) -> Result<(), String> {
     Ok(())
 }
 
@@ -205,7 +194,7 @@ mod tests {
             Duration::from_millis(1),
         );
 
-        assert_eq!(result.unwrap(), false);
+        assert!(!result.unwrap());
         assert!(!quit_called);
     }
 
@@ -229,7 +218,7 @@ mod tests {
             Duration::from_millis(1),
         );
 
-        assert_eq!(result.unwrap(), true);
+        assert!(result.unwrap());
         assert!(quit_called);
     }
 

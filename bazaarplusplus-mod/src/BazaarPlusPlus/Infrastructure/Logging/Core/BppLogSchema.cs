@@ -12,6 +12,8 @@ internal sealed class BppLogFeatureScope
     internal static BppLogFeatureScope RunLifecycle { get; } = new("RunLifecycle", "run_lifecycle");
     internal static BppLogFeatureScope RunLogging { get; } = new("RunLogging", "run_logging");
     internal static BppLogFeatureScope Upload { get; } = new("Upload", "upload");
+    internal static BppLogFeatureScope BundlePipeline { get; } =
+        new("BundlePipeline", "bundle_pipeline");
     internal static BppLogFeatureScope PvpBattles { get; } = new("PvpBattles", "pvp_battles");
     internal static BppLogFeatureScope CombatReplay { get; } = new("CombatReplay", "combat_replay");
     internal static BppLogFeatureScope Screenshots { get; } = new("Screenshots", "screenshots");
@@ -30,12 +32,16 @@ internal sealed class BppLogFeatureScope
         new("ItemEnchantPreview", "item_enchant_preview");
     internal static BppLogFeatureScope CombatStatusBar { get; } =
         new("CombatStatusBar", "combat_status_bar");
+    internal static BppLogFeatureScope PostCombatImpact { get; } =
+        new("PostCombatImpact", "post_combat_impact");
     internal static BppLogFeatureScope BilingualItemNames { get; } =
         new("BilingualItemNames", "bilingual_item_names");
     internal static BppLogFeatureScope NameOverride { get; } = new("NameOverride", "name_override");
     internal static BppLogFeatureScope Lobby { get; } = new("Lobby", "lobby");
     internal static BppLogFeatureScope Settings { get; } = new("Settings", "settings");
     internal static BppLogFeatureScope Supporters { get; } = new("Supporters", "supporters");
+    internal static BppLogFeatureScope GraphicsUpscaling { get; } =
+        new("GraphicsUpscaling", "graphics_upscaling");
 
     private static readonly BppLogFeatureScope[] DeclaredScopes =
     [
@@ -44,6 +50,7 @@ internal sealed class BppLogFeatureScope
         RunLifecycle,
         RunLogging,
         Upload,
+        BundlePipeline,
         PvpBattles,
         CombatReplay,
         Screenshots,
@@ -56,11 +63,13 @@ internal sealed class BppLogFeatureScope
         EventPreview,
         ItemEnchantPreview,
         CombatStatusBar,
+        PostCombatImpact,
         BilingualItemNames,
         NameOverride,
         Lobby,
         Settings,
         Supporters,
+        GraphicsUpscaling,
     ];
 
     private BppLogFeatureScope(string prefixName, string eventIdPrefix)
@@ -87,15 +96,6 @@ internal sealed class BppLogFeatureScope
     }
 }
 
-internal enum BppLogFieldPrivacy
-{
-    Public,
-    UntrustedText,
-    Sensitive,
-    LocalPath,
-    RemoteUri,
-}
-
 internal enum BppLogCorrelationPolicy
 {
     None,
@@ -112,21 +112,19 @@ internal enum BppLogCardinality
 
 /// <summary>
 /// Defines one ordered field. The definition token owns its name and governance metadata; runtime
-/// values bind to this exact token so callers cannot override privacy or correlation policy.
+/// values bind to this exact token so callers cannot override correlation policy.
 /// </summary>
 internal sealed class BppLogFieldDefinition
 {
     internal BppLogFieldDefinition(
         int order,
         string name,
-        BppLogFieldPrivacy privacy,
         BppLogCorrelationPolicy correlation,
         BppLogCardinality cardinality
     )
     {
         Order = order;
         Name = name;
-        Privacy = privacy;
         Correlation = correlation;
         Cardinality = cardinality;
     }
@@ -134,8 +132,6 @@ internal sealed class BppLogFieldDefinition
     internal int Order { get; }
 
     internal string Name { get; }
-
-    internal BppLogFieldPrivacy Privacy { get; }
 
     internal BppLogCorrelationPolicy Correlation { get; }
 

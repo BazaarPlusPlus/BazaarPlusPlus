@@ -19,8 +19,7 @@ internal sealed class CollectionGridLayout
         EmptyCells,
         EmptyShelves,
         CollectionGridConstants.ItemRowSpan,
-        CollectionGridConstants.ItemColumns,
-        CollectionGridConstants.ItemMaxUnitWidth
+        CollectionGridConstants.ItemColumns
     );
 
     private readonly CollectionGridCell[] _cells;
@@ -30,23 +29,20 @@ internal sealed class CollectionGridLayout
         CollectionGridCell[] cells,
         CollectionGridShelf[] shelves,
         int shelfHeightUnits,
-        int columns,
-        float maxUnitWidth
+        int columns
     )
     {
         _cells = cells;
         _shelves = shelves;
         ShelfHeightUnits = shelfHeightUnits;
         Columns = columns;
-        MaxUnitWidth = maxUnitWidth;
     }
 
     public int Count => _cells.Length;
 
     // Per-tab geometry carried on the layout so the virtualizer pixelizes with the right column
-    // count and size cap without re-deriving the active type.
+    // count without re-deriving the active type.
     public int Columns { get; }
-    public float MaxUnitWidth { get; }
     public int ShelfHeightUnits { get; }
     public int ShelfCount => _shelves.Length;
     public int TotalRowUnits => _shelves.Length * ShelfHeightUnits;
@@ -66,8 +62,7 @@ internal sealed class CollectionGridLayout
                 EmptyCells,
                 EmptyShelves,
                 CollectionGridConstants.RowSpanFor(activeType),
-                CollectionGridConstants.ColumnsFor(activeType),
-                CollectionGridConstants.MaxUnitWidthFor(activeType)
+                CollectionGridConstants.ColumnsFor(activeType)
             );
 
         return activeType == ECardType.Skill ? BuildSkill(visible) : BuildItem(visible);
@@ -94,8 +89,7 @@ internal sealed class CollectionGridLayout
             cells,
             shelves,
             CollectionGridConstants.SkillRowSpan,
-            columns,
-            CollectionGridConstants.SkillMaxUnitWidth
+            columns
         );
     }
 
@@ -129,8 +123,7 @@ internal sealed class CollectionGridLayout
             cells,
             shelves.ToArray(),
             CollectionGridConstants.ItemRowSpan,
-            columns,
-            CollectionGridConstants.ItemMaxUnitWidth
+            columns
         );
     }
 

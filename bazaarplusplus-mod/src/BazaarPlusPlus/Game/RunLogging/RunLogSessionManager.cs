@@ -61,6 +61,13 @@ internal sealed class RunLogSessionManager
         return ActiveSession;
     }
 
+    public void SetPlayerAccountIdOnce(string? playerAccountId)
+    {
+        var session =
+            ActiveSession ?? throw new InvalidOperationException("No active run session.");
+        _store.SetPlayerAccountIdOnce(session.RunId, playerAccountId);
+    }
+
     public RunLogEvent? AppendEvent(RunLogEvent entry)
     {
         var session =

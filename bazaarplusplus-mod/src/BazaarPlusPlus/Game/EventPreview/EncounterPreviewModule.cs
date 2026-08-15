@@ -2,6 +2,7 @@
 using System.Diagnostics;
 using BazaarGameShared.Domain.Core.Types;
 using BazaarPlusPlus.Core.Runtime;
+using BazaarPlusPlus.GameInterop.DayTiers;
 using BazaarPlusPlus.GameInterop.StaticCards;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
@@ -23,26 +24,16 @@ internal enum EventPreviewAvailability
     Unavailable,
 }
 
-internal readonly record struct EncounterPreviewResult(
-    EventPreviewAvailability Availability,
-    string? Content
-);
-
-internal readonly record struct EncounterStepPreviewResult(
-    EventPreviewAvailability Availability,
-    string? Content
-);
-
-internal readonly record struct LevelUpPreviewResult(
+internal readonly record struct EventPreviewResult(
     EventPreviewAvailability Availability,
     string? Content
 );
 
 internal interface IEncounterPreviewModule
 {
-    EncounterPreviewResult ResolveEvent(EventPreviewQuery query);
-    EncounterStepPreviewResult ResolveStep(EncounterStepPreviewQuery query);
-    LevelUpPreviewResult ResolveLevelUp(LevelUpPreviewQuery query);
+    EventPreviewResult ResolveEvent(EventPreviewQuery query);
+    EventPreviewResult ResolveStep(EncounterStepPreviewQuery query);
+    EventPreviewResult ResolveLevelUp(LevelUpPreviewQuery query);
 }
 
 internal enum EncounterPreviewModuleStatus
@@ -71,10 +62,11 @@ internal sealed class EncounterPreviewModule : IEncounterPreviewModule, IDisposa
     internal EncounterPreviewModule(
         IBppServices services,
         BppStaticCardMapProvider cardMapProvider,
+        IGameDataDayTierResolver dayTierResolver,
         string cachePath
     )
         : this(
-            new EncounterPreviewGameRuntime(cardMapProvider),
+            new EncounterPreviewGameRuntime(cardMapProvider, dayTierResolver),
             new EncounterPreviewPlanRegistry(),
             new EncounterPreviewCacheStore(cachePath),
             services?.GameBuild.RawVersion ?? throw new ArgumentNullException(nameof(services)),
@@ -260,115 +252,141 @@ internal sealed class EncounterPreviewModule : IEncounterPreviewModule, IDisposa
         }
     }
 
-    public EncounterPreviewResult ResolveEvent(EventPreviewQuery query)
+    public EventPreviewResult ResolveEvent(EventPreviewQuery query)
     {
         try
         {
             if (!TryGetSnapshot(out var source, out var snapshot, out var unavailable))
-                return new EncounterPreviewResult(unavailable, null);
+                return new EventPreviewResult(unavailable, null);
             if (query.TemplateId == Guid.Empty)
-                return new EncounterPreviewResult(EventPreviewAvailability.Missing, null);
+                return new EventPreviewResult(EventPreviewAvailability.Missing, null);
 
-            var currentDay = _runtime.ReadCurrentDay();
-            var dayTierCeiling = _runtime.ReadDayTierCeiling(currentDay);
-            var dayTierDistribution = _runtime.ReadDayTierDistribution(source, currentDay);
+            var dayTiers = _runtime.ResolveDayTiers(source);
+            var currentDay = dayTiers.Day;
             var template = _runtime.GetCardTemplate(source, query.TemplateId);
             if (template?.Tags?.Contains(ECardTag.Merchant) == true)
             {
                 var policy = EncounterMerchantTierResolver.Resolve(template);
                 if (!policy.FixedTier.HasValue && !policy.UsesDayDistribution)
-                    return new EncounterPreviewResult(EventPreviewAvailability.Unsupported, null);
+                    return new EventPreviewResult(EventPreviewAvailability.Unsupported, null);
 
                 var merchantContent = EncounterPreviewTextFormatter.BuildQualityLine(
-                    policy.UsesDayDistribution ? dayTierDistribution : null,
-                    policy.FixedTier,
-                    policy.UsesDayDistribution ? dayTierCeiling : null
+                    policy.UsesDayDistribution ? dayTiers.Table : null,
+                    policy.FixedTier
                 );
                 return Presentation(merchantContent);
             }
 
             if (!snapshot.TryGetEvent(query.TemplateId, out var eventPlan))
-                return new EncounterPreviewResult(EventPreviewAvailability.Missing, null);
+                return new EventPreviewResult(EventPreviewAvailability.Missing, null);
 
             var option = EncounterEventDetailResolver.TryResolve(
                 eventPlan,
                 snapshot,
                 _runtime.ReadCurrentHero(),
                 _runtime.ReadInventory(),
-                currentDay
+                currentDay,
+                ResolveLiveValue
             );
             if (option == null || (!option.HasChoiceDetails && !option.HasOutcomeGroups))
-                return new EncounterPreviewResult(EventPreviewAvailability.Unsupported, null);
+                return new EventPreviewResult(EventPreviewAvailability.Unsupported, null);
 
             return Presentation(
-                EncounterPreviewTextFormatter.Build(
-                    option,
-                    _runtime.ColorKeywords,
-                    dayTierCeiling,
-                    dayTierDistribution
-                )
+                EncounterPreviewTextFormatter.Build(option, _runtime.ColorKeywords, dayTiers.Table)
             );
+
+            bool ResolveLiveValue(
+                Guid templateId,
+                string effectId,
+                bool isAura,
+                out string valueText,
+                out string? unit
+            ) =>
+                _runtime.TryEvaluateAbilityValue(
+                    source,
+                    templateId,
+                    effectId,
+                    isAura,
+                    out valueText,
+                    out unit
+                );
         }
         catch (Exception)
         {
-            return new EncounterPreviewResult(EventPreviewAvailability.Unavailable, null);
+            return new EventPreviewResult(EventPreviewAvailability.Unavailable, null);
         }
     }
 
-    public EncounterStepPreviewResult ResolveStep(EncounterStepPreviewQuery query)
+    public EventPreviewResult ResolveStep(EncounterStepPreviewQuery query)
     {
         try
         {
             if (!TryGetSnapshot(out var source, out var snapshot, out var unavailable))
-                return new EncounterStepPreviewResult(unavailable, null);
+                return new EventPreviewResult(unavailable, null);
             if (
                 query.TemplateId == Guid.Empty
                 || !snapshot.TryGetTemplate(query.TemplateId, out var stepPlan)
             )
-                return new EncounterStepPreviewResult(EventPreviewAvailability.Missing, null);
+                return new EventPreviewResult(EventPreviewAvailability.Missing, null);
             if (stepPlan.Kind != EncounterPreviewTemplateKind.EncounterStep)
-                return new EncounterStepPreviewResult(EventPreviewAvailability.Unsupported, null);
+                return new EventPreviewResult(EventPreviewAvailability.Unsupported, null);
 
-            var currentDay = _runtime.ReadCurrentDay();
+            var dayTiers = _runtime.ResolveDayTiers(source);
             var content = EncounterPreviewTextFormatter.BuildRewardQualityLine(
                 stepPlan.RewardFilter,
                 query.NativeText,
-                _runtime.ReadDayTierDistribution(source, currentDay),
-                _runtime.ReadDayTierCeiling(currentDay)
+                dayTiers.Table
             );
             return string.IsNullOrWhiteSpace(content)
-                ? new EncounterStepPreviewResult(EventPreviewAvailability.Unsupported, null)
-                : new EncounterStepPreviewResult(EventPreviewAvailability.Available, content);
+                ? new EventPreviewResult(EventPreviewAvailability.Unsupported, null)
+                : new EventPreviewResult(EventPreviewAvailability.Available, content);
         }
         catch (Exception)
         {
-            return new EncounterStepPreviewResult(EventPreviewAvailability.Unavailable, null);
+            return new EventPreviewResult(EventPreviewAvailability.Unavailable, null);
         }
     }
 
-    public LevelUpPreviewResult ResolveLevelUp(LevelUpPreviewQuery query)
+    public EventPreviewResult ResolveLevelUp(LevelUpPreviewQuery query)
     {
         try
         {
-            if (!TryGetSnapshot(out _, out var snapshot, out var unavailable))
-                return new LevelUpPreviewResult(unavailable, null);
+            if (!TryGetSnapshot(out var source, out var snapshot, out var unavailable))
+                return new EventPreviewResult(unavailable, null);
             if (!snapshot.TryGetLevelUp(query.CurrentLevel, out var levelUpPlan))
-                return new LevelUpPreviewResult(EventPreviewAvailability.Missing, null);
+                return new EventPreviewResult(EventPreviewAvailability.Missing, null);
 
             var content = LevelUpPreviewTextFormatter.Build(
                 levelUpPlan,
                 id => snapshot.TryGetTemplate(id, out var template) ? template : null,
                 _runtime.ReadCurrentHero(),
                 _runtime.ColorKeywords,
-                query.CurrentLevel
+                query.CurrentLevel,
+                ResolveLiveValue
             );
             return string.IsNullOrWhiteSpace(content)
-                ? new LevelUpPreviewResult(EventPreviewAvailability.Unsupported, null)
-                : new LevelUpPreviewResult(EventPreviewAvailability.Available, content);
+                ? new EventPreviewResult(EventPreviewAvailability.Unsupported, null)
+                : new EventPreviewResult(EventPreviewAvailability.Available, content);
+
+            bool ResolveLiveValue(
+                Guid templateId,
+                string effectId,
+                bool isAura,
+                out string valueText,
+                out string? unit
+            ) =>
+                _runtime.TryEvaluateAbilityValue(
+                    source,
+                    templateId,
+                    effectId,
+                    isAura,
+                    out valueText,
+                    out unit
+                );
         }
         catch (Exception)
         {
-            return new LevelUpPreviewResult(EventPreviewAvailability.Unavailable, null);
+            return new EventPreviewResult(EventPreviewAvailability.Unavailable, null);
         }
     }
 
@@ -405,10 +423,10 @@ internal sealed class EncounterPreviewModule : IEncounterPreviewModule, IDisposa
         return false;
     }
 
-    private static EncounterPreviewResult Presentation(string? content) =>
+    private static EventPreviewResult Presentation(string? content) =>
         string.IsNullOrWhiteSpace(content)
-            ? new EncounterPreviewResult(EventPreviewAvailability.Unsupported, null)
-            : new EncounterPreviewResult(EventPreviewAvailability.Available, content);
+            ? new EventPreviewResult(EventPreviewAvailability.Unsupported, null)
+            : new EventPreviewResult(EventPreviewAvailability.Available, content);
 
     private void ReportPublishedTerminal(
         EventPreviewPlanSource source,

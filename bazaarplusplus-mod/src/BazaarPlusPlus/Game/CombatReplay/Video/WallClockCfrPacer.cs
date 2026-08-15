@@ -3,11 +3,11 @@ namespace BazaarPlusPlus.Game.CombatReplay.Video;
 
 /// <summary>
 /// Pure, deterministic constant-frame-rate pacer for the replay video capture
-/// session. Capture (ScreenCapture + AsyncGPUReadback) updates a "latest frame"
-/// staging slot at whatever rhythm the GPU allows; this pacer is driven by an
-/// injected wall-clock value (seconds) and decides, per tick, how many CFR slots
-/// elapsed and whether each emitted slot is a brand-new source frame or a repeat
-/// of the previous one. It also counts capture slots lost to a catch-up resync.
+/// session. The platform capture backend presents its latest GPU frame at whatever
+/// rhythm rendering allows; this pacer is driven by an injected wall-clock value
+/// (seconds) and decides, per tick, how many CFR slots elapsed and whether each
+/// emitted slot is a brand-new source frame or a repeat of the previous one. It
+/// also counts capture slots lost to a catch-up resync.
 ///
 /// The pacer holds no Unity, FMOD, or game references and performs no I/O, so it
 /// is fully unit-testable. The caller owns the actual Rent/copy/enqueue work and

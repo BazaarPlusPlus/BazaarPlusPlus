@@ -12,22 +12,12 @@ internal sealed class BppLogValueFormatter
 
     private const int ScalarInputBudget = 4096;
     private const int ExceptionInputBudget = 16384;
-    private const int DiagnosticSanitizationInputLimit = 1024 * 1024;
-
-    private readonly BppLogRedactor _redactor;
-
-    internal BppLogValueFormatter(BppLogRedactor redactor)
-    {
-        _redactor = redactor;
-    }
+    private const int DiagnosticInputLimit = 1024 * 1024;
 
     internal RenderedValue Render(BppLogFieldDefinition field, object? value)
     {
         if (value == null)
             return new RenderedValue("null", false);
-
-        if (field.Privacy == BppLogFieldPrivacy.Sensitive)
-            return new RenderedValue("<redacted>", false);
 
         string raw;
         try
@@ -50,19 +40,6 @@ internal sealed class BppLogValueFormatter
             }
 
             raw = BoundHead(raw, ScalarInputBudget, out var inputTruncated);
-            switch (field.Privacy)
-            {
-                case BppLogFieldPrivacy.LocalPath:
-                    raw = _redactor.SanitizePath(raw);
-                    break;
-                case BppLogFieldPrivacy.RemoteUri:
-                    raw = _redactor.SanitizeRemoteUri(raw);
-                    break;
-                case BppLogFieldPrivacy.UntrustedText:
-                    raw = _redactor.SanitizeDiagnosticText(raw);
-                    break;
-            }
-
             raw = ApplyCorrelation(raw, field.Correlation);
             var rendered = EscapeAndQuote(raw, DefaultValueBudget, preserveTail: false);
             return new RenderedValue(rendered.Text, inputTruncated || rendered.Truncated);
@@ -77,11 +54,10 @@ internal sealed class BppLogValueFormatter
     {
         try
         {
-            if (raw.Length > DiagnosticSanitizationInputLimit)
+            if (raw.Length > DiagnosticInputLimit)
                 return new RenderedValue("<diagnostic-too-large>", true);
-            var sanitized = _redactor.SanitizeDiagnosticText(raw);
             var bounded = BoundDiagnosticInput(
-                sanitized,
+                raw,
                 ExceptionInputBudget,
                 preserveTail,
                 out var inputTruncated
@@ -95,10 +71,10 @@ internal sealed class BppLogValueFormatter
         }
     }
 
-    internal bool TryFingerprint(BppLogFieldDefinition field, object? value, out string fingerprint)
+    internal bool TryFingerprintValue(object? value, out string fingerprint)
     {
         fingerprint = string.Empty;
-        if (value == null || field.Privacy == BppLogFieldPrivacy.Sensitive)
+        if (value == null)
             return false;
 
         try

@@ -1,8 +1,11 @@
+mod operation;
+mod plan;
 mod types;
 
+pub(crate) use operation::{install, InstallRequest};
 pub use types::{
-    FileActionResult, GameDirectorySelection, InstallActions, InstallCompatState, InstallGameState,
-    InstallModState, InstallState, InstallWarning, ResetBppDataResult,
+    FileActionResult, GameDirectorySelection, InstallActions, InstallGameState, InstallModState,
+    InstallState, InstallWarning, InstallWarningCode, ResetBepinexResult, ResetBppDataResult,
 };
 
 use std::process::Command;
@@ -12,14 +15,18 @@ use tauri::Manager;
 use std::path::Path;
 
 use crate::services::{
-    bepinex::{self, install_bepinex, reset_bpp_data, uninstall_bpp, LaunchMode},
+    bepinex::{
+        reset_bepinex_folder, reset_bpp_data, uninstall_bpp, RESET_BEPINEX_ERR_GAME_RUNNING,
+        RESET_BEPINEX_ERR_PARTIAL_FAILURE, RESET_BPP_DATA_ERR_GAME_RUNNING,
+        RESET_BPP_DATA_ERR_PARTIAL_FAILURE,
+    },
     detect::detect_for_install,
-    macos_version::use_trampoline,
     startup::InstallerContextState,
-    steam::prepare_steam_for_launch_option_update,
-    vdf::{clear_launch_options_for_steam, patch_launch_options},
 };
-use crate::stream::state::StreamRuntimeState;
+use crate::{
+    problem::{SemanticProblem, SemanticProblemCode},
+    stream::runtime::StreamRuntime,
+};
 
 const STEAM_BAZAAR_URL: &str = "steam://rungameid/1617400";
 
@@ -27,106 +34,28 @@ pub fn build_install_state(
     app: tauri::AppHandle,
     state: tauri::State<'_, InstallerContextState>,
     game_path: Option<String>,
-) -> Result<InstallState, String> {
-    crate::services::tempo::recover_orphaned_backups_best_effort();
-    let snapshot = detect_for_install(app, state, game_path)?;
-    Ok(install_state_from_snapshot(snapshot))
+) -> Result<InstallState, SemanticProblem> {
+    build_install_state_raw(app, state, game_path).map_err(install_detection_problem)
 }
 
-pub async fn run_install(
+pub(super) fn build_install_state_raw(
     app: tauri::AppHandle,
     state: tauri::State<'_, InstallerContextState>,
-    game_path: String,
-    compat_opt_in: bool,
+    game_path: Option<String>,
 ) -> Result<InstallState, String> {
-    let before = detect_for_install(app.clone(), state, Some(game_path.clone()))?;
-    let detected_game_path = before
-        .game_path
-        .as_deref()
-        .filter(|path| !path.trim().is_empty())
-        .or(Some(game_path.as_str()));
-    let launch_flow = resolve_launch_flow(before.steam_path.as_deref(), detected_game_path);
-    let steam_path = if launch_flow == LaunchFlow::Steam {
-        before.steam_path.clone().unwrap_or_default()
-    } else {
-        String::new()
-    };
-    let has_steam_path = launch_flow == LaunchFlow::Steam && !steam_path.trim().is_empty();
-
-    // Version-forced on macOS 27+, or <= 26 opt-in. Always false off macOS.
-    let wants_trampoline = use_trampoline(compat_opt_in);
-    let was_trampolined = bepinex::is_trampolined(Path::new(&game_path)).unwrap_or(false);
-
-    let app_for_task = app.clone();
-    let game_path_for_task = game_path.clone();
-    let patch_launch_options_supported = before.steam_launch_options_supported;
-    tauri::async_runtime::spawn_blocking(move || {
-        let steam = Path::new(&steam_path);
-        let game = Path::new(&game_path_for_task);
-
-        if wants_trampoline {
-            // Trampoline mode MUTATES the .app and needs a reliable localconfig
-            // clear -> Steam MUST be closed.
-            if has_steam_path {
-                prepare_steam_for_launch_option_update(steam, false)?;
-            }
-            install_bepinex(
-                app_for_task.clone(),
-                steam_path.clone(),
-                game_path_for_task.clone(),
-            )?;
-            bepinex::install_trampoline(&app_for_task, game)?;
-            // Persist the desired mode AS SOON AS the bundle is trampolined, before
-            // the Steam step below — otherwise a clear-launch-options failure would
-            // leave a trampolined bundle with no marker, which a later detect would
-            // mislabel as `trampoline_reverted` on macOS <= 26.
-            bepinex::write_launch_mode_marker(game, LaunchMode::Trampoline)?;
-            // LaunchOptions are driven by the MODE: trampoline => cleared (the
-            // empty/vanilla launch the stub needs).
-            if has_steam_path {
-                clear_launch_options_for_steam(steam)?;
-            }
-        } else {
-            // Prefix mode. Close Steam ONLY to un-apply a previous trampoline (mode
-            // switch); a plain <= 26 prefix install keeps today's behavior exactly
-            // (Steam stays up; patch_launch_options does its own prepare(.., true)).
-            if was_trampolined && has_steam_path {
-                prepare_steam_for_launch_option_update(steam, false)?;
-            }
-            install_bepinex(
-                app_for_task.clone(),
-                steam_path.clone(),
-                game_path_for_task.clone(),
-            )?;
-            if was_trampolined {
-                bepinex::uninstall_trampoline(game)?;
-            }
-            if patch_launch_options_supported && has_steam_path {
-                let _ = patch_launch_options(
-                    app_for_task,
-                    steam_path.clone(),
-                    game_path_for_task.clone(),
-                )?;
-            }
-            bepinex::write_launch_mode_marker(game, LaunchMode::Prefix)?;
-        }
-        Ok::<(), String>(())
-    })
-    .await
-    .map_err(|err| format!("failed to run install task: {err}"))??;
-
-    let app_for_state = app.clone();
-    let state = app_for_state.state::<InstallerContextState>();
-    build_install_state(app, state, Some(game_path))
+    let snapshot = detect_for_install(app, state, game_path)?;
+    Ok(install_state_from_snapshot(snapshot))
 }
 
 pub async fn run_reset_bpp_data(
     app: tauri::AppHandle,
     install_state: tauri::State<'_, InstallerContextState>,
-    stream_state: tauri::State<'_, StreamRuntimeState>,
+    stream_runtime: tauri::State<'_, StreamRuntime>,
     game_path: String,
-) -> Result<ResetBppDataResult, String> {
-    let removed_data = reset_bpp_data(stream_state, game_path.clone()).await?;
+) -> Result<ResetBppDataResult, SemanticProblem> {
+    let removed_data = reset_bpp_data(stream_runtime, game_path.clone())
+        .await
+        .map_err(|diagnostic| install_action_problem("reset_bpp_data", diagnostic))?;
     let state = build_install_state(app, install_state, Some(game_path))?;
     Ok(ResetBppDataResult {
         state,
@@ -134,30 +63,36 @@ pub async fn run_reset_bpp_data(
     })
 }
 
+pub async fn run_reset_bepinex(
+    app: tauri::AppHandle,
+    install_state: tauri::State<'_, InstallerContextState>,
+    game_path: String,
+) -> Result<ResetBepinexResult, SemanticProblem> {
+    let removed = reset_bepinex_folder(game_path.clone())
+        .await
+        .map_err(|diagnostic| install_action_problem("reset_bepinex", diagnostic))?;
+    let state = build_install_state(app, install_state, Some(game_path))?;
+    Ok(ResetBepinexResult { state, removed })
+}
+
 pub async fn run_uninstall(
     app: tauri::AppHandle,
     state: tauri::State<'_, InstallerContextState>,
     game_path: String,
-) -> Result<InstallState, String> {
-    let before = detect_for_install(app.clone(), state, Some(game_path.clone()))?;
+) -> Result<InstallState, SemanticProblem> {
+    let before = detect_for_install(app.clone(), state, Some(game_path.clone()))
+        .map_err(install_detection_problem)?;
     let app_for_task = app.clone();
-    let detected_game_path = before
-        .game_path
-        .as_deref()
-        .filter(|path| !path.trim().is_empty())
-        .or(Some(game_path.as_str()));
-    let launch_flow = resolve_launch_flow(before.steam_path.as_deref(), detected_game_path);
-    let steam_path = if launch_flow == LaunchFlow::Steam {
-        before.steam_path.clone().unwrap_or_default()
-    } else {
-        String::new()
-    };
+    let steam_path = before.steam_path.clone().unwrap_or_default();
     let game_path_for_task = game_path.clone();
     tauri::async_runtime::spawn_blocking(move || {
         uninstall_bpp(app_for_task, steam_path, game_path_for_task)
     })
     .await
-    .map_err(|err| format!("failed to run uninstall task: {err}"))??;
+    .map_err(|err| {
+        install_action_problem("uninstall", format!("failed to run uninstall task: {err}"))
+    })?
+    .map_err(|diagnostic| install_action_problem("uninstall", diagnostic))?;
 
     let app_for_state = app.clone();
     let state = app_for_state.state::<InstallerContextState>();
@@ -166,48 +101,6 @@ pub async fn run_uninstall(
 
 pub fn launch_game_via_steam() -> Result<(), String> {
     open_url(STEAM_BAZAAR_URL)
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum LaunchFlow {
-    Steam,
-    TempoNative,
-}
-
-/// Steam flow only when BOTH a Steam client is detected AND the resolved game
-/// dir is a Steam copy (has a `steamapps` path component). Everything else,
-/// including a Tempo-native copy on a machine that also has Steam, uses the
-/// Tempo capture flow so files are never removed from one copy while Tempo
-/// validates another.
-pub(crate) fn resolve_launch_flow(steam_path: Option<&str>, game_path: Option<&str>) -> LaunchFlow {
-    let under_steamapps = game_path.map(path_contains_steamapps).unwrap_or(false);
-    if steam_path.is_some() && under_steamapps {
-        LaunchFlow::Steam
-    } else {
-        LaunchFlow::TempoNative
-    }
-}
-
-fn path_contains_steamapps(path: &str) -> bool {
-    path.split(['/', '\\'])
-        .any(|component| component.eq_ignore_ascii_case("steamapps"))
-}
-
-pub fn launch_game_auto(
-    app: tauri::AppHandle,
-    state: tauri::State<'_, InstallerContextState>,
-    game_path: Option<String>,
-) -> Result<(), String> {
-    let snapshot = detect_for_install(app.clone(), state, game_path)?;
-    match resolve_launch_flow(
-        snapshot.steam_path.as_deref(),
-        snapshot.game_path.as_deref(),
-    ) {
-        LaunchFlow::Steam => launch_game_via_steam(),
-        LaunchFlow::TempoNative => {
-            crate::services::tempo::launch_game_via_tempo(app, snapshot.game_path.clone(), None)
-        }
-    }
 }
 
 fn install_state_from_snapshot(
@@ -221,48 +114,27 @@ fn install_state_from_snapshot(
         (None, _) => false,
         (_, None) => installed,
     };
-    // The bundle's actual launch mode must match the desired one. A Steam "Verify
-    // integrity"/game update that reverts the trampoline (or a macOS 26->27 upgrade
-    // after a prefix install) leaves the plugin DLL version matching yet the launch
-    // broken; folding consistency into `version_matches` routes the UI to Reinstall
-    // (Repair). On non-macOS (and matched macOS) `trampoline_consistent` is true, so
-    // this reduces to today's plugin-version check.
-    let trampoline_consistent = env.trampoline_desired == env.trampoline_applied;
-    let version_matches = plugin_version_matches && trampoline_consistent;
-    let needs_trampoline_repair = installed && !trampoline_consistent;
+    let launch_options_empty =
+        env.steam_launch_options == crate::services::vdf::SteamLaunchOptionsState::Empty;
+    let platform_bootstrap_ready = !cfg!(target_os = "macos")
+        || (env.trampoline_current
+            && launch_options_empty
+            && !env.obsolete_macos_artifacts_present);
+    let ready = installed && plugin_version_matches && platform_bootstrap_ready;
     let can_launch = game_found && env.game_path_valid;
     let has_resettable_data = has_resettable_bpp_data(env.game_path.as_deref());
-    let launch_flow = match resolve_launch_flow(env.steam_path.as_deref(), env.game_path.as_deref())
-    {
-        LaunchFlow::Steam => "steam".to_string(),
-        LaunchFlow::TempoNative => "tempo".to_string(),
-    };
-    let mut warnings = Vec::new();
-    if !game_found || !env.game_path_valid {
-        warnings.push(InstallWarning {
-            code: "game_missing".to_string(),
-            message: "未找到有效的 The Bazaar 安装目录。".to_string(),
-        });
-    }
-    if launch_flow == "steam" && !env.steam_launch_options_supported {
-        warnings.push(InstallWarning {
-            code: "launch_options_unsupported".to_string(),
-            message: "当前平台或 Steam 目录不支持自动写入启动项。".to_string(),
-        });
-    }
-    if needs_trampoline_repair {
-        warnings.push(InstallWarning {
-            code: "trampoline_reverted".to_string(),
-            message: "检测到游戏文件已被还原，BazaarPlusPlus 的启动配置需要修复，请点击重新安装。"
-                .to_string(),
-        });
-    }
+    let has_bepinex_files = has_bepinex_directory(env.game_path.as_deref());
+    let warnings = install_warnings(
+        game_found,
+        env.game_path_valid,
+        env.steam_launch_options,
+        env.trampoline_current,
+        env.obsolete_macos_artifacts_present,
+    );
 
     InstallState {
         selected_game_path,
         steam_path: env.steam_path,
-        steam_launch_options_supported: env.steam_launch_options_supported,
-        launch_flow,
         game: InstallGameState {
             found: game_found,
             path_valid: env.game_path_valid,
@@ -272,30 +144,116 @@ fn install_state_from_snapshot(
             installed,
             installed_version: env.bpp_version,
             bundled_version: env.bundled_bpp_version,
-            version_matches,
-        },
-        compat: InstallCompatState {
-            mode_available: env.compat_mode_available,
-            forced: env.trampoline_forced,
-            desired: env.trampoline_desired,
-            applied: env.trampoline_applied,
+            ready,
         },
         actions: InstallActions {
             can_install: can_launch && !installed,
             can_reinstall: can_launch && installed,
             can_reset_data: can_launch && has_resettable_data,
+            can_reset_bepinex: can_launch && has_bepinex_files,
             can_uninstall: can_launch && installed,
             can_launch,
         },
         has_resettable_data,
+        has_bepinex_files,
         warnings,
     }
+}
+
+fn install_warnings(
+    game_found: bool,
+    game_path_valid: bool,
+    steam_launch_options: crate::services::vdf::SteamLaunchOptionsState,
+    trampoline_current: bool,
+    obsolete_macos_artifacts_present: bool,
+) -> Vec<InstallWarning> {
+    let mut warnings = Vec::new();
+    if !game_found || !game_path_valid {
+        warnings.push(InstallWarning {
+            code: InstallWarningCode::GameMissing,
+            params: Default::default(),
+        });
+    }
+    if cfg!(target_os = "macos") {
+        match steam_launch_options {
+            crate::services::vdf::SteamLaunchOptionsState::Empty => {}
+            crate::services::vdf::SteamLaunchOptionsState::NonEmpty => {
+                warnings.push(InstallWarning {
+                    code: InstallWarningCode::LaunchOptionsNotEmpty,
+                    params: Default::default(),
+                });
+            }
+            crate::services::vdf::SteamLaunchOptionsState::Unavailable => {
+                warnings.push(InstallWarning {
+                    code: InstallWarningCode::SteamConfigUnavailable,
+                    params: Default::default(),
+                });
+            }
+        }
+        if !trampoline_current {
+            warnings.push(InstallWarning {
+                code: InstallWarningCode::TrampolineNotReady,
+                params: Default::default(),
+            });
+        }
+        if obsolete_macos_artifacts_present {
+            warnings.push(InstallWarning {
+                code: InstallWarningCode::ObsoleteMacosArtifacts,
+                params: Default::default(),
+            });
+        }
+    }
+    warnings
+}
+
+fn install_detection_problem(diagnostic: String) -> SemanticProblem {
+    SemanticProblem::new(SemanticProblemCode::InstallDetectionFailed)
+        .with_param("operation", "detect_state")
+        .with_diagnostic(diagnostic)
+}
+
+pub(crate) fn install_action_problem(operation: &str, diagnostic: String) -> SemanticProblem {
+    if diagnostic == RESET_BPP_DATA_ERR_GAME_RUNNING || diagnostic == RESET_BEPINEX_ERR_GAME_RUNNING
+    {
+        return SemanticProblem::new(SemanticProblemCode::InstallGameRunning)
+            .with_param("operation", operation);
+    }
+
+    for prefix in [
+        RESET_BPP_DATA_ERR_PARTIAL_FAILURE,
+        RESET_BEPINEX_ERR_PARTIAL_FAILURE,
+    ] {
+        if let Some(paths) = diagnostic
+            .strip_prefix(prefix)
+            .and_then(|remainder| remainder.strip_prefix(':'))
+        {
+            let count = paths
+                .split('\u{1f}')
+                .filter(|path| !path.trim().is_empty())
+                .count();
+            return SemanticProblem::new(SemanticProblemCode::InstallPartialFailure)
+                .with_param("operation", operation)
+                .with_param("count", count.to_string())
+                .with_param("paths", paths);
+        }
+    }
+
+    SemanticProblem::new(SemanticProblemCode::InstallActionFailed)
+        .with_param("operation", operation)
+        .with_diagnostic(diagnostic)
 }
 
 fn has_resettable_bpp_data(game_path: Option<&str>) -> bool {
     game_path
         .map(Path::new)
         .map(|path| crate::services::paths::bpp_data_dir(path).exists())
+        .unwrap_or(false)
+}
+
+fn has_bepinex_directory(game_path: Option<&str>) -> bool {
+    game_path
+        .map(Path::new)
+        .map(|path| path.join("BepInEx").is_dir())
         .unwrap_or(false)
 }
 
@@ -306,7 +264,7 @@ fn open_url(url: &str) -> Result<(), String> {
             .args(["/C", "start", "", url])
             .spawn()
             .map_err(|err| format!("failed to open URL: {err}"))?;
-        return Ok(());
+        Ok(())
     }
 
     #[cfg(target_os = "macos")]
@@ -315,7 +273,7 @@ fn open_url(url: &str) -> Result<(), String> {
             .arg(url)
             .spawn()
             .map_err(|err| format!("failed to open URL: {err}"))?;
-        return Ok(());
+        Ok(())
     }
 
     #[cfg(all(not(target_os = "windows"), not(target_os = "macos")))]
@@ -331,38 +289,13 @@ fn open_url(url: &str) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::{
-        has_resettable_bpp_data, path_contains_steamapps, resolve_launch_flow, LaunchFlow,
+        has_bepinex_directory, has_resettable_bpp_data, install_action_problem, install_warnings,
+        InstallWarningCode,
     };
-
-    #[test]
-    fn steam_flow_when_steam_present_and_game_under_steamapps() {
-        assert_eq!(
-            resolve_launch_flow(
-                Some("/Users/a/Library/Application Support/Steam"),
-                Some("/Users/a/Library/Application Support/Steam/steamapps/common/The Bazaar"),
-            ),
-            LaunchFlow::Steam
-        );
-    }
-
-    #[test]
-    fn tempo_flow_for_tempo_native_game_dir_even_with_steam_installed() {
-        assert_eq!(
-            resolve_launch_flow(
-                Some("C:\\Program Files (x86)\\Steam"),
-                Some("C:\\Users\\a\\AppData\\Roaming\\Tempo Launcher - Beta\\game\\buildx64"),
-            ),
-            LaunchFlow::TempoNative
-        );
-    }
-
-    #[test]
-    fn tempo_flow_when_steam_missing() {
-        assert_eq!(
-            resolve_launch_flow(None, Some("/anything/steamapps/common/The Bazaar")),
-            LaunchFlow::TempoNative
-        );
-    }
+    use crate::problem::SemanticProblemCode;
+    use crate::services::bepinex::{
+        RESET_BEPINEX_ERR_GAME_RUNNING, RESET_BPP_DATA_ERR_PARTIAL_FAILURE,
+    };
 
     #[test]
     fn test_has_resettable_bpp_data_detects_existing_data_directory() {
@@ -383,10 +316,101 @@ mod tests {
     }
 
     #[test]
-    fn steamapps_component_match_is_case_insensitive_and_component_exact() {
-        assert!(path_contains_steamapps(
-            "D:\\SteamLibrary\\SteamApps\\common\\The Bazaar"
-        ));
-        assert!(!path_contains_steamapps("/Users/a/my-steamapps-notes/game"));
+    fn test_has_bepinex_directory_detects_existing_folder() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = tmp.path().to_string_lossy().into_owned();
+        assert!(!has_bepinex_directory(Some(path.as_str())));
+
+        std::fs::create_dir_all(tmp.path().join("BepInEx")).unwrap();
+
+        assert!(has_bepinex_directory(Some(path.as_str())));
+        assert!(!has_bepinex_directory(None));
+    }
+
+    #[test]
+    fn install_warnings_are_semantic_codes_without_backend_copy() {
+        let warnings = install_warnings(
+            false,
+            false,
+            crate::services::vdf::SteamLaunchOptionsState::Empty,
+            true,
+            false,
+        );
+
+        assert_eq!(
+            warnings
+                .iter()
+                .map(|warning| warning.code)
+                .collect::<Vec<_>>(),
+            vec![InstallWarningCode::GameMissing]
+        );
+        assert!(warnings.iter().all(|warning| warning.params.is_empty()));
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn install_warnings_include_macos_bootstrap_problems() {
+        let warnings = install_warnings(
+            true,
+            true,
+            crate::services::vdf::SteamLaunchOptionsState::Unavailable,
+            false,
+            true,
+        );
+
+        assert_eq!(
+            warnings
+                .iter()
+                .map(|warning| warning.code)
+                .collect::<Vec<_>>(),
+            vec![
+                InstallWarningCode::SteamConfigUnavailable,
+                InstallWarningCode::TrampolineNotReady,
+                InstallWarningCode::ObsoleteMacosArtifacts,
+            ]
+        );
+        assert!(warnings.iter().all(|warning| warning.params.is_empty()));
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    #[test]
+    fn install_warnings_ignore_macos_bootstrap_inputs_on_other_platforms() {
+        let warnings = install_warnings(
+            true,
+            true,
+            crate::services::vdf::SteamLaunchOptionsState::Unavailable,
+            false,
+            true,
+        );
+
+        assert!(warnings.is_empty());
+    }
+
+    #[test]
+    fn install_failures_classify_known_reset_conditions_and_generic_actions() {
+        let blocked =
+            install_action_problem("reset_bepinex", RESET_BEPINEX_ERR_GAME_RUNNING.to_string());
+        assert_eq!(blocked.code, SemanticProblemCode::InstallGameRunning);
+        assert_eq!(
+            blocked.params.get("operation").map(String::as_str),
+            Some("reset_bepinex")
+        );
+        assert_eq!(blocked.diagnostic, None);
+
+        let partial = install_action_problem(
+            "reset_bpp_data",
+            format!("{RESET_BPP_DATA_ERR_PARTIAL_FAILURE}:/tmp/a\u{1f}/tmp/b"),
+        );
+        assert_eq!(partial.code, SemanticProblemCode::InstallPartialFailure);
+        assert_eq!(partial.params.get("count").map(String::as_str), Some("2"));
+        assert_eq!(
+            partial.params.get("paths").map(String::as_str),
+            Some("/tmp/a\u{1f}/tmp/b")
+        );
+        assert_eq!(partial.diagnostic, None);
+
+        let generic = install_action_problem("install", "permission denied".to_string());
+        assert_eq!(generic.code, SemanticProblemCode::InstallActionFailed);
+        assert_eq!(generic.diagnostic.as_deref(), Some("permission denied"));
     }
 }

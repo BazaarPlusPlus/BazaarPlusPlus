@@ -18,11 +18,7 @@ internal readonly struct CollectionGridPixelization
     public float OriginY { get; }
     public float GridWidth { get; }
 
-    public static CollectionGridPixelization ForViewport(
-        float viewportWidth,
-        int columns,
-        float maxUnitWidth
-    )
+    public static CollectionGridPixelization ForViewport(float viewportWidth, int columns)
     {
         var pad = CollectionGridConstants.GridOuterPadding;
         if (viewportWidth <= 0f)
@@ -37,31 +33,15 @@ internal readonly struct CollectionGridPixelization
         }
 
         var availableGridWidth = viewportWidth - 2f * pad;
-        var targetGridWidth = Math.Min(availableGridWidth, SharedMaxGridWidth);
         var minGridWidth = GridWidthFor(columns, CollectionGridConstants.MinUnitWidth);
-        targetGridWidth = Math.Max(targetGridWidth, minGridWidth);
+        var targetGridWidth = Math.Max(availableGridWidth, minGridWidth);
         var rawUnit = (targetGridWidth - (columns - 1) * CollectionGridConstants.GridGap) / columns;
-        var unit = Clamp(rawUnit, CollectionGridConstants.MinUnitWidth, maxUnitWidth);
+        var unit = Math.Max(rawUnit, CollectionGridConstants.MinUnitWidth);
         var gridWidth = GridWidthFor(columns, unit);
         var originX = Math.Max(pad, (viewportWidth - gridWidth) * 0.5f);
         return new CollectionGridPixelization(unit, originX, pad, gridWidth);
     }
 
-    public static float SharedMaxGridWidth =>
-        Math.Min(
-            GridWidthFor(
-                CollectionGridConstants.ItemColumns,
-                CollectionGridConstants.ItemMaxUnitWidth
-            ),
-            GridWidthFor(
-                CollectionGridConstants.SkillColumns,
-                CollectionGridConstants.SkillMaxUnitWidth
-            )
-        );
-
     public static float GridWidthFor(int columns, float unit) =>
         columns * unit + (columns - 1) * CollectionGridConstants.GridGap;
-
-    private static float Clamp(float value, float min, float max) =>
-        Math.Max(min, Math.Min(max, value));
 }

@@ -10,17 +10,18 @@ namespace BazaarPlusPlus.Game.Upload;
 internal sealed class BackgroundUploadPump : MonoBehaviour
 {
     private static readonly TimeSpan ShutdownDrainTimeout = TimeSpan.FromMilliseconds(500);
-    private static readonly Dictionary<UploadFeedKind, BackgroundUploadPump> CurrentByFeed = new();
 
     private IBppServices? _services;
     private IUploadFeed? _feed;
-    private UploadFeedActivation? _activation;
+    private IUploadFeedSession? _session;
     private CancellationTokenSource? _shutdown;
     private StartupUploadAttemptGate? _startupGate;
     private StartupUploadAttemptRunner? _startupRunner;
     private UploadFeedLogState? _logState;
     private IDisposable? _runLifecycleSubscription;
-    private IDisposable? _extraArmHookSubscription;
+    private IDisposable? _uploadArmSubscription;
+    private IDisposable? _feedArmSubscription;
+    private int _armRequested;
 
     private void Awake() { }
 
@@ -31,29 +32,16 @@ internal sealed class BackgroundUploadPump : MonoBehaviour
 
         var feedKind = _feed.Kind;
         _logState = new UploadFeedLogState(feedKind);
-        if (services.GameBuild.Channel == GameBuildChannel.Ptr)
-        {
-            // Session gate: no upload feed arms on the PTR build. The durable defense
-            // is the build_channel row filter in the upload stores — it keeps
-            // PTR-recorded rows out of uploads even after switching back to online.
-            BppLog.DebugEvent(
-                UploadLogEvents.FeedSkipped,
-                () =>
-                    [
-                        UploadLogEvents.FeedSkippedFeed.Bind(feedKind),
-                        UploadLogEvents.FeedSkippedReasonCode.Bind(UploadLogReasonCode.PtrBuild),
-                    ]
-            );
-            return;
-        }
-        var activation = _feed.Activate(_services, _logState);
-        if (activation == null)
-            return;
 
         var startupDelaySeconds = Math.Max(5, ModApiUploadDefaults.StartupDelaySeconds);
         var retryIntervalSeconds = Math.Max(1, ModApiUploadDefaults.IntervalSeconds);
+        var cadence = new UploadPumpCadence(startupDelaySeconds, retryIntervalSeconds);
 
-        _activation = activation;
+        var session = UploadPumpBootstrap.ActivateIfAllowed(_services, _feed, _logState, cadence);
+        if (session == null)
+            return;
+
+        _session = session;
         _shutdown = new CancellationTokenSource();
         _startupGate = new StartupUploadAttemptGate(
             Time.unscaledTime + startupDelaySeconds,
@@ -63,14 +51,16 @@ internal sealed class BackgroundUploadPump : MonoBehaviour
         _runLifecycleSubscription = _services.EventBus.Subscribe<RunLifecycleChanged>(
             OnRunLifecycleChanged
         );
-        _extraArmHookSubscription = activation.ExtraArmHook?.Subscribe(_services, ArmImmediate);
-        CurrentByFeed[feedKind] = this;
+        _uploadArmSubscription = _services.EventBus.Subscribe<UploadArmRequested>(
+            OnUploadArmRequested
+        );
+        _feedArmSubscription = session.SubscribeArmSignals(ArmImmediate);
     }
 
     private void Update()
     {
         if (
-            _activation == null
+            _session == null
             || _shutdown == null
             || _startupGate == null
             || _startupRunner == null
@@ -78,24 +68,32 @@ internal sealed class BackgroundUploadPump : MonoBehaviour
         )
             return;
 
-        if (!_activation.IsEnabled())
+        if (!_session.IsEnabled)
             return;
+
+        if (Interlocked.Exchange(ref _armRequested, 0) == 1)
+            _startupGate.ArmImmediateAttempt(Time.unscaledTime);
 
         _startupRunner.Tick(
             _startupGate,
             Time.unscaledTime,
             _services.RunContext.IsInGameRun,
-            _activation.UploadInBackgroundAsync,
+            _session.RunAttemptAsync,
             _shutdown.Token
         );
     }
 
     private void OnDestroy()
     {
+        // Two-point dispose contract (must not collapse into a single Dispose):
+        // 1) Unsubscribe arm signals first so a half-torn pump cannot be re-armed.
+        // 2) Cancel the in-flight attempt, drain, then dispose session attempt resources.
         _runLifecycleSubscription?.Dispose();
         _runLifecycleSubscription = null;
-        _extraArmHookSubscription?.Dispose();
-        _extraArmHookSubscription = null;
+        _uploadArmSubscription?.Dispose();
+        _uploadArmSubscription = null;
+        _feedArmSubscription?.Dispose();
+        _feedArmSubscription = null;
 
         if (_shutdown != null)
         {
@@ -105,18 +103,12 @@ internal sealed class BackgroundUploadPump : MonoBehaviour
         }
 
         var feedKind = _feed?.Kind;
-        var activation = _activation;
-        _activation = null;
-        Action? disposeActivation =
-            activation?.Disposable == null ? null : activation.Disposable.Dispose;
+        var session = _session;
+        _session = null;
+        Action? disposeSession = session == null ? null : session.Dispose;
         if (_startupRunner != null)
         {
-            if (
-                !_startupRunner.TryDrainPendingTaskOnShutdown(
-                    ShutdownDrainTimeout,
-                    disposeActivation
-                )
-            )
+            if (!_startupRunner.TryDrainPendingTaskOnShutdown(ShutdownDrainTimeout, disposeSession))
             {
                 BppLog.WarnEvent(
                     UploadLogEvents.ShutdownDrainDegraded,
@@ -131,13 +123,7 @@ internal sealed class BackgroundUploadPump : MonoBehaviour
             }
         }
         else
-            disposeActivation?.Invoke();
-
-        if (feedKind.HasValue && CurrentByFeed.TryGetValue(feedKind.Value, out var current))
-        {
-            if (ReferenceEquals(current, this))
-                CurrentByFeed.Remove(feedKind.Value);
-        }
+            disposeSession?.Invoke();
 
         _startupGate = null;
         _startupRunner = null;
@@ -146,20 +132,22 @@ internal sealed class BackgroundUploadPump : MonoBehaviour
         _feed = null;
     }
 
-    public static void ArmImmediate(UploadFeedKind feed)
-    {
-        if (CurrentByFeed.TryGetValue(feed, out var current))
-            current.ArmImmediate();
-    }
-
     private void ArmImmediate()
     {
-        _startupGate?.ArmImmediateAttempt(Time.unscaledTime);
+        Interlocked.Exchange(ref _armRequested, 1);
     }
 
     private void OnRunLifecycleChanged(RunLifecycleChanged change)
     {
         if (change.IsInGameRun)
+            return;
+
+        ArmImmediate();
+    }
+
+    private void OnUploadArmRequested(UploadArmRequested request)
+    {
+        if (_feed == null || request == null)
             return;
 
         ArmImmediate();

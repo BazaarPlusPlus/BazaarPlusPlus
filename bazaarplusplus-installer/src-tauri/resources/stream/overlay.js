@@ -159,6 +159,7 @@ function getHeroBadgeStyle(heroName) {
     };
   }
 
+  const theDragonsStyle = { shortCode: 'DRA', background: 'rgb(45, 210, 208)', text: 'rgb(26, 31, 38)', assetKey: 'dra' };
   const map = {
     Vanessa: { shortCode: 'VAN', background: 'rgb(192, 33, 33)', text: '#ffffff', assetKey: 'van' },
     Pygmalien: { shortCode: 'PYG', background: 'rgb(39, 103, 192)', text: '#ffffff', assetKey: 'pyg' },
@@ -166,7 +167,9 @@ function getHeroBadgeStyle(heroName) {
     Mak: { shortCode: 'MAK', background: 'rgb(190, 230, 91)', text: 'rgb(26, 31, 38)', assetKey: 'mak' },
     Jules: { shortCode: 'JUL', background: 'rgb(180, 52, 236)', text: '#ffffff', assetKey: 'jul' },
     Karnok: { shortCode: 'KAR', background: 'rgb(59, 136, 156)', text: '#ffffff', assetKey: 'kar' },
-    Stelle: { shortCode: 'STE', background: 'rgb(255, 235, 24)', text: 'rgb(26, 31, 38)', assetKey: 'ste' }
+    Stelle: { shortCode: 'STE', background: 'rgb(255, 235, 24)', text: 'rgb(26, 31, 38)', assetKey: 'ste' },
+    TheDragons: theDragonsStyle,
+    Hero8: theDragonsStyle
   };
 
   if (map[normalized]) {
@@ -231,7 +234,7 @@ function getHeroModeAsset(heroKey, displayMode) {
 function buildRowMarkup(record) {
   const title = escapeHtml(record?.title || 'Unknown hero');
   const stats = buildStats(record);
-  const heroBadge = getHeroBadgeStyle(record?.title);
+  const heroBadge = getHeroBadgeStyle(record?.hero_id);
   const secondBadgeSrc =
     currentDisplayMode === 'current'
       ? getInfoBadgeAsset(heroBadge.assetKey, stats.battles)

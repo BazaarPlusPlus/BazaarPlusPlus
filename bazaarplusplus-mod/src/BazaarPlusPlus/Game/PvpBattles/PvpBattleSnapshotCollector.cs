@@ -4,6 +4,7 @@ using BazaarGameShared.Domain.Core.Types;
 using BazaarGameShared.Infra.Messages;
 using BazaarGameShared.Infra.Messages.GameSimEvents;
 using BazaarPlusPlus.GameInterop;
+using BazaarPlusPlus.GameInterop.Heroes;
 using BazaarPlusPlus.Infrastructure;
 using TheBazaar;
 
@@ -529,7 +530,9 @@ internal sealed class PvpBattleSnapshotCollector
         Safe<string?>(
             () =>
             {
-                var hero = Data.Run?.Player?.Hero.ToString();
+                var hero = Data.Run?.Player is { } player
+                    ? TheDragonsHeroIdentity.ToCanonicalId(player.Hero)
+                    : null;
                 return string.IsNullOrWhiteSpace(hero) ? null : hero;
             },
             fallback: null
@@ -578,7 +581,10 @@ internal sealed class PvpBattleSnapshotCollector
             {
                 var opponent = message?.Data.CurrentState?.PvpOpponent ?? Data.SimPvpOpponent;
                 var name = opponent?.Name;
-                var hero = opponent?.Hero.ToString() ?? Data.Run?.Opponent?.Hero.ToString();
+                var opponentHero = opponent != null ? opponent.Hero : Data.Run?.Opponent?.Hero;
+                var hero = opponentHero is { } resolvedHero
+                    ? TheDragonsHeroIdentity.ToCanonicalId(resolvedHero)
+                    : null;
                 var rank = opponent?.Rank?.ToString();
                 int? rating = opponent != null ? opponent.Rating : null;
                 int? level = opponent != null ? opponent.Level : null;

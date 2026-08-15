@@ -2,12 +2,16 @@ use std::path::{Path, PathBuf};
 
 use serde::Serialize;
 
+use crate::history::hero::{canonical_hero_id, hero_display_name};
+use crate::history::mapper::strip_url_for_screenshot;
+use crate::history::screenshots::OverlaySnapshotRow;
+
 use super::image::resolve_overlay_image_path;
-use super::repo::OverlayRecordRow;
 
 #[derive(Clone, Debug, Serialize)]
 pub struct OverlayRecord {
     pub id: String,
+    pub hero_id: String,
     pub title: String,
     pub subtitle: String,
     pub captured_at: String,
@@ -19,17 +23,23 @@ pub struct OverlayRecord {
     pub rating: Option<i64>,
 }
 
-pub(super) fn to_overlay_record(game_path: Option<&Path>, row: OverlayRecordRow) -> OverlayRecord {
+pub(super) fn to_overlay_record(
+    game_path: Option<&Path>,
+    row: OverlaySnapshotRow,
+) -> OverlayRecord {
     let image_path =
         resolve_overlay_image_path(game_path.map(PathBuf::from), row.image_path.as_deref())
             .filter(|path| path.exists());
     let strip_url = image_path
         .as_ref()
-        .map(|_| format!("/images/{}/strip", row.id));
+        .map(|_| strip_url_for_screenshot(&row.id));
+    let hero_id = canonical_hero_id(&row.hero);
+    let title = hero_display_name(&hero_id).to_string();
 
     OverlayRecord {
         id: row.id,
-        title: row.hero.clone(),
+        hero_id,
+        title,
         subtitle: build_subtitle(&row.game_mode, row.wins, row.battle_count),
         captured_at: row.captured_at,
         captured_at_utc: row.captured_at_utc,

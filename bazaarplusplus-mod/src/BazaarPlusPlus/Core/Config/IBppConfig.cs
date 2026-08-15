@@ -36,6 +36,8 @@ internal interface IBppConfig
 
     ConfigEntry<string>? UpgradePreviewHotkeyPathConfig { get; }
 
+    ConfigEntry<HotkeyActivationMode>? UpgradePreviewActivationModeConfig { get; }
+
     ConfigEntry<string>? ToggleCollectionPanelHotkeyPathConfig { get; }
 
     ConfigEntry<string>? ToggleLiveBuildPanelHotkeyPathConfig { get; }
@@ -45,6 +47,10 @@ internal interface IBppConfig
     ConfigEntry<BppChineseLocaleMode>? ChineseLocaleModeConfig { get; }
 
     ConfigEntry<LegendaryPositionDisplayMode>? LegendaryPositionDisplayModeConfig { get; }
+
+    ConfigEntry<GraphicsUpscalingMode>? GraphicsUpscalingModeConfig { get; }
+
+    ConfigEntry<float>? GraphicsUpscalingSharpnessConfig { get; }
 
     ConfigEntry<bool>? BazaarDbUploadEnabled { get; }
 

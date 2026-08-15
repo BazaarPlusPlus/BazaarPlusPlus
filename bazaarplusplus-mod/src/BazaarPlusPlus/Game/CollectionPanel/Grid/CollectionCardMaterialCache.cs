@@ -1,6 +1,7 @@
 #nullable enable
 using BazaarPlusPlus.Infrastructure;
 using TheBazaar.Assets.Scripts.ScriptableObjectsScripts;
+using TheBazaar.Utilities.Shaders;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
@@ -9,8 +10,8 @@ namespace BazaarPlusPlus.Game.CollectionPanel.Grid;
 // L3 of the design's four-layer cache stack (§7). CardPreviewItem.UpdateCardImageMaterial
 // allocates a new Material per Item card; for 40+ Items visible at once that means as many
 // distinct Materials and no uGUI dynamic batching. With this cache the same artKey hands out
-// one shared Material instance across all Item cards, so all cells with the same art (and
-// non-premium / no-enchant) share a draw call.
+// one shared Material instance across all Item cards, so all cells with the same art and visual
+// mode share a draw call.
 //
 // Lifecycle: shared Materials are owned by the cache. The collection panel's per-card
 // OnDestroy Harmony prefix nulls the card's _cardMaterial field before the original
@@ -39,20 +40,37 @@ internal sealed class CollectionCardMaterialCache
         _lru.Release(artKey);
     }
 
-    public Material? GetOrCreate(string artKey, CardAssetDataSO assetData, Shader? shaderOverride)
+    public Material? GetOrCreate(
+        string artKey,
+        CardAssetDataSO assetData,
+        Shader? shaderOverride,
+        bool usePremiumVisuals
+    )
     {
         if (string.IsNullOrEmpty(artKey) || assetData == null || assetData.cardMaterial == null)
             return null;
 
         if (_materials.TryGetValue(artKey, out var cached) && cached != null)
+        {
+            ApplyVisualMode(cached, usePremiumVisuals);
             return cached;
+        }
 
         var material = new Material(assetData.cardMaterial);
         if (shaderOverride != null)
             material.shader = shaderOverride;
+        ApplyVisualMode(material, usePremiumVisuals);
         material.name = $"CollectionPanelMaterial[{artKey}]";
         _materials[artKey] = material;
         return material;
+    }
+
+    private static void ApplyVisualMode(Material material, bool usePremiumVisuals)
+    {
+        if (usePremiumVisuals)
+            material.EnableKeyword(CardArtShaderVariables.PremiumShaderKeyword);
+        else
+            material.DisableKeyword(CardArtShaderVariables.PremiumShaderKeyword);
     }
 
     public bool Contains(Material? material)

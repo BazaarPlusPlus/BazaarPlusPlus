@@ -7,10 +7,26 @@
     <Nullable>enable</Nullable>
     <Version>$(BppVersion)</Version>
     <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+    <BazaarAgentDashboardDistPath Condition="'$(BazaarAgentDashboardDistPath)' == ''"
+      >$(MSBuildThisFileDirectory)Dashboard/dist</BazaarAgentDashboardDistPath>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="NETStandard.Library" />
     <PackageReference Include="Newtonsoft.Json" />
   </ItemGroup>
+
+  <ItemGroup Condition="Exists('$(BazaarAgentDashboardDistPath)')">
+    <EmbeddedResource Include="$(BazaarAgentDashboardDistPath)/**/*">
+      <LogicalName>BazaarPlusPlus.BazaarAgent.Dashboard.%(RecursiveDir)%(Filename)%(Extension)</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
+
+  <Target
+    Name="ValidateBazaarAgentDashboardEmbed"
+    BeforeTargets="PrepareResources"
+    Condition="'$(RequireBazaarAgentDashboard)' == 'true' and !Exists('$(BazaarAgentDashboardDistPath)/index.html')"
+  >
+    <Error Text="BazaarAgent dashboard dist is missing from src/BazaarPlusPlus.BazaarAgent/Dashboard/dist. Refresh the tracked dashboard assets, or pass -p:BazaarAgentDashboardDistPath=&lt;dist-dir&gt;." />
+  </Target>
 </Project>

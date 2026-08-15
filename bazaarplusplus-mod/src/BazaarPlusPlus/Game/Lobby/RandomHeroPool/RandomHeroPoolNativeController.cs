@@ -78,7 +78,7 @@ internal sealed class RandomHeroPoolNativeController : MonoBehaviour
             HeroSelectButtonsView.IsRandomHeroEnabled,
             controller._unlockedItems.Contains(item),
             origin,
-            item.Hero.ToString()
+            RandomHeroPoolPlayerPrefs.NormalizeHeroId(item.Hero.ToString())
         );
         if (route == NativePoolInteractionRoute.PoolEdit)
             controller.ApplyVisuals();
@@ -136,7 +136,9 @@ internal sealed class RandomHeroPoolNativeController : MonoBehaviour
                 _unlockedItems.Add(item);
         }
 
-        var unlockedIds = _unlockedItems.Select(item => item.Hero.ToString()).ToArray();
+        var unlockedIds = _unlockedItems
+            .Select(item => RandomHeroPoolPlayerPrefs.NormalizeHeroId(item.Hero.ToString()))
+            .ToArray();
         if (!RandomHeroPoolPlayerPrefs.TryResolveState(unlockedIds, out var state) || state == null)
         {
             _coordinator = null;
@@ -167,8 +169,9 @@ internal sealed class RandomHeroPoolNativeController : MonoBehaviour
     private void ApplyItemVisual(HeroItemView item, bool poolModeEnabled)
     {
         var nativeSelected = Data.SelectedHero == item.Hero;
+        var heroId = RandomHeroPoolPlayerPrefs.NormalizeHeroId(item.Hero.ToString());
         var selected =
-            _coordinator?.IsVisuallySelected(poolModeEnabled, item.Hero.ToString(), nativeSelected)
+            _coordinator?.IsVisuallySelected(poolModeEnabled, heroId, nativeSelected)
             ?? (!poolModeEnabled && nativeSelected);
         if (selected && (!poolModeEnabled || _unlockedItems.Contains(item)))
         {

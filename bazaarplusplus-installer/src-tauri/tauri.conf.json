@@ -1,23 +1,26 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "BazaarPlusPlus",
-  "version": "4.2.0",
+  "version": "5.2.1",
   "identifier": "com.bazaarplusplus.bppinstaller",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:14207",
-    "beforeBuildCommand": "npm run prebuild-check && npm run build",
-    "beforeBundleCommand": "node scripts/before-bundle-cleanup.mjs",
+    "beforeBuildCommand": "npm run build",
+    "beforeBundleCommand": "node scripts/release/before-bundle-cleanup.mjs && node scripts/release/compile-macos-icon.mjs",
     "frontendDist": "../build"
   },
   "app": {
     "windows": [
       {
         "title": "BazaarPlusPlus",
-        "width": 1000,
-        "height": 720,
+        "width": 1020,
+        "height": 680,
         "minWidth": 900,
-        "minHeight": 640
+        "minHeight": 600,
+        "resizable": true,
+        "maximizable": true,
+        "fullscreen": false
       }
     ],
     "security": {
@@ -30,9 +33,7 @@
   },
   "plugins": {
     "updater": {
-      "endpoints": [
-        "https://bppinstaller.bazaarplusplus.com/latest.json"
-      ],
+      "endpoints": ["https://bppinstaller.bazaarplusplus.com/latest.json"],
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEY1RTAyMzg1RUFEQUNFRUYKUldUdnp0cnFoU1BnOVEzYjFlMFZMcEpmQ014VUZkNWtoRGtybW9pU0UwVjhIUmJmRjdoSmFSTVoK"
     }
   }

@@ -63,7 +63,10 @@ internal sealed class PvpBattleSqliteStore : SqliteStoreBase
         if (string.IsNullOrWhiteSpace(manifest.BattleId))
             throw new ArgumentException("Battle id is required.", nameof(manifest));
         if (!string.Equals(manifest.CombatKind, "PVPCombat", StringComparison.Ordinal))
-            return;
+            throw new ArgumentException(
+                "Only PVPCombat manifests can be saved to the PvP battle catalog.",
+                nameof(manifest)
+            );
 
         using var connection = OpenConnection();
         using var transaction = connection.BeginTransaction();

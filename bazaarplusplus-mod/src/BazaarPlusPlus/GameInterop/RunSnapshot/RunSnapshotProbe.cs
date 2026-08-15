@@ -1,6 +1,7 @@
 #nullable enable
 using BazaarGameShared.Domain.Core.Types;
 using BazaarPlusPlus.Core.GameState;
+using BazaarPlusPlus.GameInterop.Heroes;
 using TheBazaar;
 
 namespace BazaarPlusPlus.GameInterop.RunSnapshot;
@@ -20,7 +21,9 @@ internal sealed class RunSnapshotProbe : IRunSnapshotProbe
             Hour = (int?)run.Hour,
             Victories = unchecked((int)run.Victories),
             Losses = unchecked((int)run.Losses),
-            Hero = run.Player?.Hero.ToString(),
+            Hero = run.Player is { } player
+                ? TheDragonsHeroIdentity.ToCanonicalId(player.Hero)
+                : null,
             GameMode = Data.SelectedPlayMode.ToString(),
         };
         return true;

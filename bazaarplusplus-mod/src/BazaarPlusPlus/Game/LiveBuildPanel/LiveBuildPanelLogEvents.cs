@@ -137,7 +137,6 @@ internal static class LiveBuildPanelLogEvents
     internal static readonly BppLogFieldDefinition CorpusDegradedCachePath = new(
         4,
         "cache_path",
-        BppLogFieldPrivacy.LocalPath,
         BppLogCorrelationPolicy.None,
         BppLogCardinality.High
     );
@@ -210,7 +209,6 @@ internal static class LiveBuildPanelLogEvents
     internal static readonly BppLogFieldDefinition CorpusCacheLoadedCachePath = new(
         2,
         "cache_path",
-        BppLogFieldPrivacy.LocalPath,
         BppLogCorrelationPolicy.None,
         BppLogCardinality.High
     );
@@ -239,7 +237,6 @@ internal static class LiveBuildPanelLogEvents
     internal static readonly BppLogFieldDefinition CacheWriteDegradedPath = new(
         0,
         "path",
-        BppLogFieldPrivacy.LocalPath,
         BppLogCorrelationPolicy.None,
         BppLogCardinality.High
     );
@@ -352,5 +349,5 @@ internal static class LiveBuildPanelLogEvents
         string name,
         BppLogCardinality cardinality,
         BppLogCorrelationPolicy correlation = BppLogCorrelationPolicy.None
-    ) => new(order, name, BppLogFieldPrivacy.Public, correlation, cardinality);
+    ) => new(order, name, correlation, cardinality);
 }

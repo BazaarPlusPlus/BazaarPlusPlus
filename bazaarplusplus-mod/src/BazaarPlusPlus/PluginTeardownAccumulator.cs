@@ -9,6 +9,7 @@ internal enum PluginTeardownStep
     DestroyCombatReplayRuntime,
     DisposeComposition,
     DisposeOnlineServices,
+    ReleaseRunLogDatabase,
     UninstallStaticUtilities,
     ResetPatchHost,
 }

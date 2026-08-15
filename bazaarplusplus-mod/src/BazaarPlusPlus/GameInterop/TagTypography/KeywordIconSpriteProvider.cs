@@ -29,6 +29,32 @@ internal static class KeywordIconSpriteProvider
         _freshScanAllowedThisPass = true;
     }
 
+    /// <summary>
+    /// Resolves the TMP sprite asset containing <paramref name="iconName"/>, for consumers that
+    /// render the icon inline via TMP sprite markup (which keeps the game's own baseline
+    /// alignment) instead of extracting a standalone Sprite. Null when unknown.
+    /// </summary>
+    public static TMP_SpriteAsset? ResolveAsset(string iconName)
+    {
+        if (string.IsNullOrWhiteSpace(iconName) || MissesThisPass.Contains(iconName))
+            return null;
+
+        try
+        {
+            var asset = ResolveSpriteAsset(iconName);
+            if (asset == null)
+                MissesThisPass.Add(iconName);
+            return asset;
+        }
+        catch
+        {
+            // Callers run per frame; record the miss so a throwing icon name is not
+            // re-attempted (and re-thrown) every frame within the same pass.
+            MissesThisPass.Add(iconName);
+            return null;
+        }
+    }
+
     public static KeywordIconResolveOutcome Resolve(string iconName)
     {
         if (string.IsNullOrWhiteSpace(iconName))

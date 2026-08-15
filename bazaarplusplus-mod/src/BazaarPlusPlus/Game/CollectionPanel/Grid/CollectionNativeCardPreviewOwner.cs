@@ -23,6 +23,11 @@ internal sealed class CollectionNativeCardPreviewOwner : INativeCardPreviewOwner
 
     public int Layer => CollectionGridOverlay.DefaultLayer;
 
+    // The Collection display intentionally shows the game's premium/dynamic card-art path.
+    // This is an owner-scoped preview intent; it does not alter the player's equipped skins
+    // or the visual mode used by any other native preview consumer.
+    public bool UsePremiumVisuals => true;
+
     public Transform ResolveParent(NativeCardPreviewSubject subject) => _parent;
 
     public void PrepareWhileInactive(NativeCardPreviewOwnerContext context)
@@ -32,6 +37,11 @@ internal sealed class CollectionNativeCardPreviewOwner : INativeCardPreviewOwner
             marker = context.Root.AddComponent<CollectionPanelOwnedMarker>();
         marker.CacheOwner = _cacheSession;
         marker.PreviewOwner = this;
+
+        var hoverScale = context.Root.GetComponent<CollectionCardHoverScaleController>();
+        if (hoverScale == null)
+            hoverScale = context.Root.AddComponent<CollectionCardHoverScaleController>();
+        hoverScale.ResetImmediate();
 
         var canvasGroup = context.Root.GetComponent<CanvasGroup>();
         if (canvasGroup == null)
@@ -53,6 +63,7 @@ internal sealed class CollectionNativeCardPreviewOwner : INativeCardPreviewOwner
 
     public void BeforeRelease(NativeCardPreviewOwnerContext context)
     {
+        context.Root.GetComponent<CollectionCardHoverScaleController>()?.ResetImmediate();
         var marker = context.Root.GetComponent<CollectionPanelOwnedMarker>();
         var cardPreview = context.Root.GetComponent<CardPreviewBase>();
         ReleaseOwnedState(marker, cardPreview, context.TooltipData ?? cardPreview?._tooltipData);
@@ -119,6 +130,8 @@ internal sealed class CollectionNativeCardPreviewOwner : INativeCardPreviewOwner
         }
 
         marker?.ReleaseCurrentArtKey();
+        if (marker != null)
+            marker.OnArtLoaded = null;
         if (cardPreview != null && marker?.CardMaterialOwnedByCache == true)
             cardPreview._cardMaterial = null!;
     }

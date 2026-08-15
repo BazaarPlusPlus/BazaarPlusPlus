@@ -5,11 +5,20 @@ internal static class RandomHeroPoolPlayerPrefs
 {
     private const string SelectedPoolPrefsKeyPrefix = "BPP.RandomHeroPool.Selected";
 
-    public static IReadOnlyCollection<string>? LoadSelectedHeroIds() =>
-        RandomPoolPrefsHelpers.LoadIdCollection(BuildScopedPrefsKey(), RandomPoolKind.Hero);
+    public static IReadOnlyCollection<string>? LoadSelectedHeroIds()
+    {
+        var stored = RandomPoolPrefsHelpers.LoadIdCollection(
+            BuildScopedPrefsKey(),
+            RandomPoolKind.Hero
+        );
+        return stored == null ? null : NormalizeHeroIds(stored);
+    }
 
     public static void SaveSelectedHeroIds(IEnumerable<string> heroIds) =>
-        RandomPoolPrefsHelpers.SaveIdCollection(BuildScopedPrefsKey(), heroIds);
+        RandomPoolPrefsHelpers.SaveIdCollection(BuildScopedPrefsKey(), NormalizeHeroIds(heroIds));
+
+    internal static string NormalizeHeroId(string heroId) =>
+        RandomHeroPoolHeroIdentity.Normalize(heroId);
 
     public static bool TryResolveState(
         IEnumerable<string> unlockedHeroIds,
@@ -19,7 +28,7 @@ internal static class RandomHeroPoolPlayerPrefs
         if (unlockedHeroIds is null)
             throw new ArgumentNullException(nameof(unlockedHeroIds));
 
-        var normalizedUnlockedHeroIds = RandomPoolPrefsHelpers.NormalizeIds(unlockedHeroIds);
+        var normalizedUnlockedHeroIds = NormalizeHeroIds(unlockedHeroIds);
         if (normalizedUnlockedHeroIds.Length == 0)
         {
             state = null;
@@ -44,4 +53,7 @@ internal static class RandomHeroPoolPlayerPrefs
 
     private static string BuildScopedPrefsKey() =>
         $"{SelectedPoolPrefsKeyPrefix}.{RandomPoolPrefsHelpers.ResolveAccountScopeForPrefs(RandomPoolKind.Hero)}";
+
+    private static string[] NormalizeHeroIds(IEnumerable<string> heroIds) =>
+        RandomPoolPrefsHelpers.NormalizeIds(heroIds.Select(NormalizeHeroId));
 }

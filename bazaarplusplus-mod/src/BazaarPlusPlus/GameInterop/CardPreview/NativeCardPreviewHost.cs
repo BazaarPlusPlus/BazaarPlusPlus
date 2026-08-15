@@ -1,5 +1,6 @@
 #nullable enable
 using System.Runtime.ExceptionServices;
+using BazaarPlusPlus.GameInterop.Tooltips;
 using HarmonyLib;
 using TheBazaar.UI.Tooltips;
 
@@ -101,24 +102,12 @@ internal sealed class NativeCardPreviewHost : INativeCardPreviewHost
         )
             return Result(NativeTooltipRefreshStatus.TooltipMismatch);
 
-        if (!NativeCardPreviewReflection.CanInvokeOnHover(resource.Card))
-        {
-            var unavailableFailure = new NativeCardPreviewFailure(
-                NativeCardPreviewOperation.InvokeHover,
-                NativeCardPreviewFailureReason.ReflectionUnavailable,
-                resource.Subject.TemplateId
-            );
-            SafeReport(resource.Owner, unavailableFailure);
-            return Result(NativeTooltipRefreshStatus.Failed, unavailableFailure);
-        }
-
         reflectionFailure = null;
         var transaction = NativeTooltipRefreshTransaction.Execute(
             currentTooltipData,
             () => _tooltipDataFactory.Create(clientCard, currentTooltipData, request.Mode),
             value => NativeCardPreviewReflection.TrySetTooltipData(resource.Card, value, Report),
-            tooltipParent.HideCardTooltipController,
-            () => NativeCardPreviewReflection.TryInvokeOnHover(resource.Card, Report)
+            value => NativeCardTooltipContentRefresher.TryApply(primaryController, value)
         );
         if (transaction.Status == NativeTooltipRefreshTransactionStatus.Refreshed)
         {
@@ -145,8 +134,8 @@ internal sealed class NativeCardPreviewHost : INativeCardPreviewHost
                 {
                     NativeTooltipRefreshTransactionStatus.CreateFailed =>
                         NativeCardPreviewOperation.CreateTooltipData,
-                    NativeTooltipRefreshTransactionStatus.RehoverFailed =>
-                        NativeCardPreviewOperation.InvokeHover,
+                    NativeTooltipRefreshTransactionStatus.ApplyFailed =>
+                        NativeCardPreviewOperation.ApplyTooltipData,
                     _ => NativeCardPreviewOperation.SetTooltipData,
                 },
                 NativeCardPreviewFailureReason.ReflectionException,
@@ -354,7 +343,11 @@ internal sealed class NativeCardPreviewHost : INativeCardPreviewHost
 
         internal bool Release(NativeCardPreviewResource resource) => _lifetime.Release(resource);
 
-        internal NativePreviewActionResult Show(NativeCardPreviewResource resource, bool show)
+        internal NativePreviewActionResult Show(
+            NativeCardPreviewResource resource,
+            bool show,
+            bool revealSupplementalVisualsOnSuccess = true
+        )
         {
             if (!IsActive(resource))
                 return new NativePreviewActionResult(NativePreviewActionStatus.Released, null);
@@ -363,6 +356,7 @@ internal sealed class NativeCardPreviewHost : INativeCardPreviewHost
             {
                 var result = NativePreviewPresentationTransaction.Apply(
                     show,
+                    revealSupplementalVisualsOnSuccess,
                     ApplyNative,
                     resource.Presentation.RevealSupplementalVisuals,
                     resource.Presentation.ConcealSupplementalVisuals
@@ -539,12 +533,28 @@ internal sealed class NativeCardPreviewHost : INativeCardPreviewHost
                 () => _scope.Show(_resource, true)
             );
 
+        public NativePreviewActionResult ShowArtworkOnly() =>
+            _actions.SetShown(
+                _scope.IsActive(_resource),
+                show: true,
+                () => _scope.Show(_resource, show: true, revealSupplementalVisualsOnSuccess: false)
+            );
+
         public NativePreviewActionResult Hide() =>
             _actions.SetShown(
                 _scope.IsActive(_resource),
                 show: false,
                 () => _scope.Show(_resource, false)
             );
+
+        public NativeCardPreviewSlotFitResult FitInto(
+            UnityEngine.RectTransform slot,
+            NativeCardPreviewHorizontalAlignment horizontalAlignment =
+                NativeCardPreviewHorizontalAlignment.Center
+        ) =>
+            _scope.IsActive(_resource)
+                ? NativeCardPreviewSlotFitter.Fit(_resource.Rect, slot, horizontalAlignment)
+                : NativeCardPreviewSlotFitResult.Unavailable;
 
         public NativePreviewActionResult HoverEnter()
         {

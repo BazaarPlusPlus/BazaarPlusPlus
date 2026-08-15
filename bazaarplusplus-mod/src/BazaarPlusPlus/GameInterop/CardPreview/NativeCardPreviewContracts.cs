@@ -26,14 +26,27 @@ internal interface INativeCardPreviewSession : IDisposable
     GameObject Root { get; }
     RectTransform Rect { get; }
     NativePreviewActionResult Show();
+    NativePreviewActionResult ShowArtworkOnly();
     NativePreviewActionResult Hide();
+    NativeCardPreviewSlotFitResult FitInto(
+        RectTransform slot,
+        NativeCardPreviewHorizontalAlignment horizontalAlignment =
+            NativeCardPreviewHorizontalAlignment.Center
+    );
     NativePreviewActionResult HoverEnter();
     NativePreviewActionResult HoverExit();
+}
+
+internal enum NativeCardPreviewSlotFitResult
+{
+    Applied,
+    Unavailable,
 }
 
 internal interface INativeCardPreviewOwner
 {
     int Layer { get; }
+    bool UsePremiumVisuals { get; }
     Transform? ResolveParent(NativeCardPreviewSubject subject);
     void PrepareWhileInactive(NativeCardPreviewOwnerContext context);
     void OnAcquired(NativeCardPreviewOwnerContext context);

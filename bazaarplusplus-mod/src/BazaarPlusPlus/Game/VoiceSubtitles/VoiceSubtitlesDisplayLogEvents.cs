@@ -362,14 +362,14 @@ internal static class VoiceSubtitlesDisplayLogEvents
         string name,
         BppLogCardinality cardinality,
         BppLogCorrelationPolicy correlation = BppLogCorrelationPolicy.None
-    ) => new(order, name, BppLogFieldPrivacy.Public, correlation, cardinality);
+    ) => new(order, name, correlation, cardinality);
 
     private static BppLogFieldDefinition UntrustedField(
         int order,
         string name,
         BppLogCardinality cardinality,
         BppLogCorrelationPolicy correlation = BppLogCorrelationPolicy.None
-    ) => new(order, name, BppLogFieldPrivacy.UntrustedText, correlation, cardinality);
+    ) => new(order, name, correlation, cardinality);
 }
 
 internal sealed class VoiceSubtitlesSettingsLogState

@@ -1,14 +1,31 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
+  "app": {
+    "windows": [
+      {
+        "title": "BazaarPlusPlus",
+        "width": 972,
+        "height": 612,
+        "minWidth": 900,
+        "minHeight": 600,
+        "resizable": true,
+        "maximizable": true,
+        "fullscreen": false,
+        "decorations": false,
+        "shadow": false,
+        "visible": false
+      }
+    ]
+  },
   "bundle": {
     "targets": ["nsis"],
-    "icon": ["icons/icon.ico"],
+    "icon": ["icons/app-icon.ico"],
     "resources": {
       "resources/BepInExSource/windows/BepInEx.zip": "BepInExSource/BepInEx.zip"
     },
     "windows": {
       "nsis": {
-        "installerIcon": "icons/installer.ico"
+        "installerIcon": "icons/app-icon.ico"
       }
     }
   }

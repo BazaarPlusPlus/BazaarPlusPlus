@@ -11,6 +11,10 @@ internal sealed class CollectionCatalog
     private IReadOnlyList<CollectionCardVm>? _cache;
     private object? _cacheSource;
     private int _cacheSourceTemplateCount;
+    private CollectionCatalogBuildSession? _buildSession;
+    private object? _buildSource;
+    private object? _unavailableSource;
+    private CollectionPanelLogReasonCode? _unavailableReason;
     private readonly CollectionCatalogLogState _logState = new();
 
     public CollectionCatalog(BppStaticCardMapProvider cardMapProvider)
@@ -43,10 +47,103 @@ internal sealed class CollectionCatalog
         return true;
     }
 
+    public CollectionCatalogWarmupStatus WarmupStatus { get; private set; } =
+        CollectionCatalogWarmupStatus.WaitingForStaticData;
+
+    public CollectionPanelLogReasonCode? WarmupFailureReason => _unavailableReason;
+
     /// <summary>
-    /// True once an off-thread card-map load has been kicked for the current static-data source.
+    /// Advances the shared catalog build by at most <paramref name="frameBudgetMs"/> on the
+    /// Unity main thread. The card-map acquisition remains in the provider's worker task; only
+    /// the projection of game templates into collection VMs is time-sliced here. The closed-panel
+    /// warmup tick and the open-panel loading path observe the same session, which can only be
+    /// committed once.
     /// </summary>
-    public bool HasCardMapLoadStarted => _cardMapProvider.HasLoadStartedForCurrentSource;
+    public CollectionCatalogWarmupStatus AdvanceBuild(
+        float frameBudgetMs,
+        out CollectionCatalogBuildResult? completed
+    )
+    {
+        completed = null;
+        if (TryGetCached(out _))
+        {
+            WarmupStatus = CollectionCatalogWarmupStatus.Ready;
+            return WarmupStatus;
+        }
+
+        var loadTask = BeginCardMapLoad(out var source);
+        if (source == null || loadTask == null)
+        {
+            WarmupStatus = CollectionCatalogWarmupStatus.WaitingForStaticData;
+            return WarmupStatus;
+        }
+
+        if (_unavailableSource != null && !ReferenceEquals(source, _unavailableSource))
+            ClearBuildState();
+        if (_buildSession != null && !ReferenceEquals(source, _buildSource))
+            ClearBuildState();
+
+        if (_unavailableSource != null && ReferenceEquals(source, _unavailableSource))
+        {
+            WarmupStatus = CollectionCatalogWarmupStatus.Unavailable;
+            return WarmupStatus;
+        }
+
+        if (!loadTask.IsCompleted)
+        {
+            WarmupStatus = CollectionCatalogWarmupStatus.LoadingCardMap;
+            return WarmupStatus;
+        }
+
+        if (_buildSession == null)
+        {
+            var outcome = CollectionCardMapLoadOutcome.From(source, loadTask);
+            if (!TryCreateBuildSession(outcome, out var session, out var unavailableReason))
+            {
+                _unavailableSource = source;
+                _unavailableReason = unavailableReason;
+                WarmupStatus = CollectionCatalogWarmupStatus.Unavailable;
+                return WarmupStatus;
+            }
+
+            _buildSession = session!;
+            _buildSource = source;
+        }
+
+        var startedAt = System.Diagnostics.Stopwatch.GetTimestamp();
+        var sessionCompleted = _buildSession.Step(
+            () =>
+            {
+                var elapsedMs =
+                    (System.Diagnostics.Stopwatch.GetTimestamp() - startedAt)
+                    * 1000.0
+                    / System.Diagnostics.Stopwatch.Frequency;
+                return elapsedMs >= Math.Max(0f, frameBudgetMs);
+            },
+            minimumTemplates: frameBudgetMs <= 1f ? 8 : 32
+        );
+        if (!sessionCompleted)
+        {
+            WarmupStatus = CollectionCatalogWarmupStatus.Building;
+            return WarmupStatus;
+        }
+
+        var buildSession = _buildSession;
+        _buildSession = null;
+        _buildSource = null;
+        _unavailableSource = null;
+        _unavailableReason = null;
+        try
+        {
+            completed = Commit(buildSession);
+            WarmupStatus = CollectionCatalogWarmupStatus.Ready;
+        }
+        finally
+        {
+            buildSession.Dispose();
+        }
+        return WarmupStatus;
+    }
 
     /// <summary>
     /// Kicks (or returns the in-flight) off-thread load of the full game card map so the heavy
@@ -136,6 +233,17 @@ internal sealed class CollectionCatalog
         _cache = null;
         _cacheSource = null;
         _cacheSourceTemplateCount = 0;
+        ClearBuildState();
+        WarmupStatus = CollectionCatalogWarmupStatus.WaitingForStaticData;
+    }
+
+    private void ClearBuildState()
+    {
+        _buildSession?.Dispose();
+        _buildSession = null;
+        _buildSource = null;
+        _unavailableSource = null;
+        _unavailableReason = null;
     }
 
     private static CollectionCatalogBuildResult EmptyResult(bool wasCacheHit) =>

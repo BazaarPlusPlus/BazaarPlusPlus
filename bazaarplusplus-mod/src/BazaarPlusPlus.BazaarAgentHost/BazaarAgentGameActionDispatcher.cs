@@ -14,6 +14,19 @@ namespace BazaarPlusPlus.BazaarAgentHost;
 
 internal sealed class BazaarAgentGameActionDispatcher : IBazaarAgentActionDispatcher
 {
+    private readonly IBazaarAgentGameProbe _gameProbe;
+    private readonly BazaarAgentPedestalVisualRefresh _pedestalVisualRefresh;
+
+    internal BazaarAgentGameActionDispatcher(
+        IBazaarAgentGameProbe gameProbe,
+        BazaarAgentPedestalVisualRefresh pedestalVisualRefresh
+    )
+    {
+        _gameProbe = gameProbe ?? throw new ArgumentNullException(nameof(gameProbe));
+        _pedestalVisualRefresh =
+            pedestalVisualRefresh ?? throw new ArgumentNullException(nameof(pedestalVisualRefresh));
+    }
+
     /// <summary>Main thread only. Routes the action through AppState.CurrentState.*Command()
     /// so the game's UI animation + state-validation chain runs the same way a real click does.</summary>
     public BazaarAgentDispatchResult Execute(
@@ -36,23 +49,65 @@ internal sealed class BazaarAgentGameActionDispatcher : IBazaarAgentActionDispat
         }
     }
 
-    private static BazaarAgentDispatchResult Dispatch(
+    private BazaarAgentDispatchResult Dispatch(
         BazaarAgentAction action,
         BazaarAgentContextSnapshot snapshot
     )
     {
+        if (AppState.IsWaitingForServerResponse || AppState.BlockInput)
+        {
+            return new(
+                false,
+                "client busy",
+                FailureKind: BazaarAgentDispatchFailureKind.Unavailable
+            );
+        }
+
+        if (
+            AppState.CurrentState is ReplayState
+            && action.ActionKind != BazaarAgentActionKind.Continue
+        )
+        {
+            return new(
+                false,
+                "action not allowed during replay",
+                FailureKind: BazaarAgentDispatchFailureKind.Unavailable
+            );
+        }
+
+        if (AppState.CurrentState is CombatState or PVPCombatState)
+        {
+            return new(
+                false,
+                "action not allowed during combat",
+                FailureKind: BazaarAgentDispatchFailureKind.Unavailable
+            );
+        }
+
         switch (action.ActionKind)
         {
-            case BazaarAgentActionKind.Wait:
-                return new(true, null);
-
             case BazaarAgentActionKind.StartOrContinueRun:
             {
                 if (action.Hero is { } heroStr)
                 {
-                    if (!Enum.TryParse<EHero>(heroStr, ignoreCase: true, out var hero))
-                        return new(false, "unknown hero");
-                    var setHeroErr = SetRunConfigSelectedHero(hero);
+                    var heroResolution = _gameProbe.ResolveHero(heroStr);
+                    if (heroResolution.Status == BazaarAgentHeroResolutionStatus.Unavailable)
+                    {
+                        return new(
+                            false,
+                            "hero unavailable in this game build",
+                            FailureKind: BazaarAgentDispatchFailureKind.Unavailable
+                        );
+                    }
+                    if (heroResolution.Status != BazaarAgentHeroResolutionStatus.Resolved)
+                    {
+                        return new(
+                            false,
+                            "unknown hero",
+                            FailureKind: BazaarAgentDispatchFailureKind.Invalid
+                        );
+                    }
+                    var setHeroErr = SetRunConfigSelectedHero(heroResolution.Hero);
                     if (setHeroErr is not null)
                         return new(false, setHeroErr);
                 }
@@ -69,9 +124,6 @@ internal sealed class BazaarAgentGameActionDispatcher : IBazaarAgentActionDispat
                 GameInstance.Instance.StartNewRun();
                 return new(true, null);
             }
-
-            case BazaarAgentActionKind.AbandonRun:
-                return InvokeAppStateCommand("AbandonRunCommand");
 
             case BazaarAgentActionKind.SelectItem:
             {
@@ -99,10 +151,17 @@ internal sealed class BazaarAgentGameActionDispatcher : IBazaarAgentActionDispat
                 );
 
             case BazaarAgentActionKind.CommitToPedestal:
-                return InvokeAppStateCommand(
-                    "CommitToPedestalCommand",
-                    new InstanceId(action.CardInstanceId ?? "")
-                );
+            {
+                var card = ResolveCard<ItemCard>(action.CardInstanceId);
+                if (card is null)
+                    return new(false, "item not found in Data.Entities");
+
+                _pedestalVisualRefresh.Arm(card);
+                var result = InvokeAppStateCommand("CommitToPedestalCommand", card.InstanceId);
+                if (!result.Executed)
+                    _pedestalVisualRefresh.Cancel(card);
+                return result;
+            }
 
             case BazaarAgentActionKind.MoveItem:
             {

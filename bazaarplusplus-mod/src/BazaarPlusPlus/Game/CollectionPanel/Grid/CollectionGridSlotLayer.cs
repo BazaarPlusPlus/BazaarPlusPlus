@@ -7,7 +7,7 @@ namespace BazaarPlusPlus.Game.CollectionPanel.Grid;
 
 // Display-case slot visuals drawn behind the native cards on the overlay board: a weak
 // translucent rounded rect per visible cell (so the fixed grid order reads even before art
-// loads) plus a single brighter hover highlight that glows around the pointed cell.
+// loads) plus an intentionally transparent hover layer kept for pooled layout compatibility.
 //
 // Purely decorative. Every Image has raycastTarget = false — re-enabling it would let the
 // overlay swallow the wheel/click events UITK relies on, which was the P1/P2 regression in the

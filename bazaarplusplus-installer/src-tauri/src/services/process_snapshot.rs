@@ -52,6 +52,54 @@ pub(crate) fn process_is_running(target: &str) -> Result<bool, String> {
     }
 }
 
+/// Terminate every running process with the given image name and return how
+/// many were killed. Windows-only. Used to clear a game process that outlived
+/// its window and still holds the mod database open; a process that exits on
+/// its own between the snapshot and the kill is not an error.
+#[cfg(target_os = "windows")]
+pub(crate) fn terminate_processes(target: &str) -> Result<u32, String> {
+    use windows::Win32::Foundation::CloseHandle;
+    use windows::Win32::System::Diagnostics::ToolHelp::{
+        CreateToolhelp32Snapshot, Process32FirstW, Process32NextW, PROCESSENTRY32W,
+        TH32CS_SNAPPROCESS,
+    };
+    use windows::Win32::System::Threading::{OpenProcess, TerminateProcess, PROCESS_TERMINATE};
+
+    // SAFETY: the snapshot is iterated with a correctly-sized PROCESSENTRY32W and
+    // every handle opened here is closed before the loop advances; the snapshot
+    // handle is closed before return.
+    unsafe {
+        let snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0)
+            .map_err(|err| format!("Failed to inspect process state: {err}"))?;
+
+        let mut entry = PROCESSENTRY32W {
+            dwSize: std::mem::size_of::<PROCESSENTRY32W>() as u32,
+            ..Default::default()
+        };
+
+        let mut terminated = 0u32;
+        if Process32FirstW(snapshot, &mut entry).is_ok() {
+            loop {
+                if image_name_matches(&image_name_from_entry(&entry), target) {
+                    if let Ok(process) = OpenProcess(PROCESS_TERMINATE, false, entry.th32ProcessID)
+                    {
+                        if TerminateProcess(process, 1).is_ok() {
+                            terminated += 1;
+                        }
+                        let _ = CloseHandle(process);
+                    }
+                }
+                if Process32NextW(snapshot, &mut entry).is_err() {
+                    break;
+                }
+            }
+        }
+
+        let _ = CloseHandle(snapshot);
+        Ok(terminated)
+    }
+}
+
 /// Decode the NUL-terminated UTF-16 `szExeFile` field into a Rust string.
 #[cfg(target_os = "windows")]
 fn image_name_from_entry(

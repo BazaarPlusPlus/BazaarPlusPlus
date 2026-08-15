@@ -30,7 +30,8 @@ internal sealed partial class HistoryPanel : MonoBehaviour
     private HistoryPanelReplayService _replayService = null!;
     private INativeCardPreviewHost _nativeCardPreviewHost = null!;
     private BppItemBoardPreview? _battleBoardPreview;
-    private IHistoryPanelRuntime? _runtime;
+    private IHistoryPanelRunState? _runState;
+    private string _combatReplayDirectoryPath = string.Empty;
     private Coroutine? _previewCoroutine;
     private IReadOnlyList<BPPSupporterSample> _supporters = Array.Empty<BPPSupporterSample>();
     private IOverlayPanelHandle? _overlayHandle;
@@ -64,7 +65,8 @@ internal sealed partial class HistoryPanel : MonoBehaviour
     {
         EnsureInitialized();
         _dependencies = dependencies ?? throw new ArgumentNullException(nameof(dependencies));
-        _runtime = dependencies.Runtime;
+        _runState = dependencies.RunState;
+        _combatReplayDirectoryPath = dependencies.CombatReplayDirectoryPath ?? string.Empty;
         _dataService = dependencies.DataService;
         _replayService = dependencies.ReplayService;
         _nativeCardPreviewHost =
@@ -276,7 +278,7 @@ internal sealed partial class HistoryPanel : MonoBehaviour
     }
 
     // Ghost replay payload snapshots stay in the uploader's original perspective.
-    // For the local "against me" view, our board is stored on the opponent side.
+    // The preview shows the uploader's board, which is stored on the player side.
     private HistoryBattlePreviewData ResolveGhostPreviewData(
         HistoryBattleRecord battle,
         string signature
@@ -285,7 +287,7 @@ internal sealed partial class HistoryPanel : MonoBehaviour
         if (battle.Source != HistoryBattleSource.Ghost)
             return HistoryBattlePreviewProjection.BuildOpponent(battle.Snapshots, signature);
 
-        var replayDirectoryPath = _runtime?.CombatReplayDirectoryPath;
+        var replayDirectoryPath = _combatReplayDirectoryPath;
         if (string.IsNullOrWhiteSpace(replayDirectoryPath))
             return HistoryBattlePreviewProjection.BuildEmpty(signature);
 
@@ -319,12 +321,12 @@ internal sealed partial class HistoryPanel : MonoBehaviour
             || ghostPayloadResult.Status == FileBackedPayloadLoadStatus.Loaded
         )
             _payloadFailureLogGate.Clear(battle.BattleId);
-        var ghostPayload = ghostPayloadResult.Payload;
+        var ghostPayload = GhostBattlePayloadReader.Normalize(ghostPayloadResult.Payload);
         var snapshots = ghostPayload?.BattleManifest?.Snapshots;
         if (snapshots == null)
             return HistoryBattlePreviewProjection.BuildEmpty(signature);
 
-        return HistoryBattlePreviewProjection.BuildOpponent(snapshots, signature);
+        return HistoryBattlePreviewProjection.BuildPlayer(snapshots, signature);
     }
 
     private static HistoryBattleRecord? PickRunPreviewBattle(

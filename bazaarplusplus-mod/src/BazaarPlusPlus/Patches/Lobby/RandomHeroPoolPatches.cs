@@ -203,7 +203,7 @@ internal static class RandomHeroPoolSelectRandomHeroImmediatePatch
                 continue;
 
             unlockedHeroViews.Add(view);
-            unlockedHeroIds.Add(view.Hero.ToString());
+            unlockedHeroIds.Add(RandomHeroPoolPlayerPrefs.NormalizeHeroId(view.Hero.ToString()));
         }
 
         if (unlockedHeroViews.Count == 0)
@@ -218,7 +218,7 @@ internal static class RandomHeroPoolSelectRandomHeroImmediatePatch
         HeroItemView? selectedHeroView = null;
         foreach (var view in unlockedHeroViews)
         {
-            if (!string.Equals(view.Hero.ToString(), selectedHeroId, StringComparison.Ordinal))
+            if (!RandomHeroPoolHeroIdentity.Matches(view.Hero.ToString(), selectedHeroId))
                 continue;
 
             selectedHeroView = view;

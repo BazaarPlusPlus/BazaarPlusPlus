@@ -838,6 +838,8 @@ internal sealed class ItemBoardPreviewSurface : IDisposable
 
         public int Layer => _options.Layer;
 
+        public bool UsePremiumVisuals => false;
+
         public Transform? ResolveParent(NativeCardPreviewSubject subject)
         {
             if (!subject.SocketId.HasValue)

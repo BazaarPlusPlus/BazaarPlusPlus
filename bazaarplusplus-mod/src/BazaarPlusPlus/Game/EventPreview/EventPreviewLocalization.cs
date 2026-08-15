@@ -6,6 +6,14 @@ using BazaarPlusPlus.GameInterop.Cards;
 
 namespace BazaarPlusPlus.Game.EventPreview;
 
+internal delegate bool LiveAbilityValueResolver(
+    Guid templateId,
+    string effectId,
+    bool isAura,
+    out string valueText,
+    out string? unit
+);
+
 internal static class EventPreviewLocalization
 {
     internal static Func<string, string?>? AttributeUnitLocalizer { get; set; }
@@ -13,11 +21,18 @@ internal static class EventPreviewLocalization
     internal static string? ResolveTitle(EncounterPreviewTemplatePlan template) =>
         template == null ? null : PickText(template.Title);
 
-    internal static string? ResolveDescription(EncounterPreviewTemplatePlan template)
+    internal static string? ResolveDescription(
+        EncounterPreviewTemplatePlan template,
+        LiveAbilityValueResolver? resolveLiveValue = null
+    )
     {
         if (template == null)
             return null;
-        return FormatAbilityPlaceholders(template, PickText(template.Description));
+        return FormatAbilityPlaceholders(
+            template,
+            PickText(template.Description),
+            resolveLiveValue
+        );
     }
 
     internal static IReadOnlyDictionary<string, EncounterPreviewAbilityValue> CaptureAbilityValues(
@@ -26,13 +41,22 @@ internal static class EventPreviewLocalization
     {
         var result = new Dictionary<string, EncounterPreviewAbilityValue>(StringComparer.Ordinal);
         var abilities = template.Abilities;
-        if (abilities == null)
-            return result;
-
-        foreach (var abilityId in abilities.Keys)
+        if (abilities != null)
         {
-            AddAbilityValue(abilityId);
-            AddAbilityValue($"{abilityId}.mod");
+            foreach (var abilityId in abilities.Keys)
+            {
+                AddAbilityValue(abilityId);
+                AddAbilityValue($"{abilityId}.mod");
+            }
+        }
+        var auras = template.Auras;
+        if (auras != null)
+        {
+            foreach (var auraId in auras.Keys)
+            {
+                AddAuraValue(auraId);
+                AddAuraValue($"{auraId}.mod");
+            }
         }
         return result;
 
@@ -40,6 +64,19 @@ internal static class EventPreviewLocalization
         {
             if (CardAbilityValueReader.TryRead(template, placeholder, out var value))
                 result[placeholder] = new EncounterPreviewAbilityValue(value.ValueText, value.Unit);
+        }
+
+        void AddAuraValue(string placeholder)
+        {
+            if (CardAbilityValueReader.TryReadAura(template, placeholder, out var value))
+            {
+                // Keep the existing plan/cache model; namespacing only aura keys avoids
+                // colliding with legacy unprefixed ability ids.
+                result[$"aura.{placeholder}"] = new EncounterPreviewAbilityValue(
+                    value.ValueText,
+                    value.Unit
+                );
+            }
         }
     }
 
@@ -68,7 +105,8 @@ internal static class EventPreviewLocalization
 
     private static string? FormatAbilityPlaceholders(
         EncounterPreviewTemplatePlan template,
-        string? text
+        string? text,
+        LiveAbilityValueResolver? resolveLiveValue
     ) =>
         FormatAbilityPlaceholders(
             text,
@@ -80,6 +118,21 @@ internal static class EventPreviewLocalization
                     unit = value.Unit;
                     return true;
                 }
+
+                const string AuraPrefix = "aura.";
+                var isAura = abilityId.StartsWith(AuraPrefix, StringComparison.Ordinal);
+                var effectId = isAura ? abilityId[AuraPrefix.Length..] : abilityId;
+                if (
+                    resolveLiveValue != null
+                    && resolveLiveValue(
+                        template.TemplateId,
+                        effectId,
+                        isAura,
+                        out valueText,
+                        out unit
+                    )
+                )
+                    return true;
 
                 valueText = string.Empty;
                 unit = null;
@@ -99,16 +152,24 @@ internal static class EventPreviewLocalization
     )
     {
         if (
-            string.IsNullOrWhiteSpace(text) || !text.Contains("{ability.", StringComparison.Ordinal)
+            string.IsNullOrWhiteSpace(text)
+            || (
+                !text.Contains("{ability.", StringComparison.Ordinal)
+                && !text.Contains("{aura.", StringComparison.Ordinal)
+            )
         )
             return text;
 
         var formatted = Regex.Replace(
             text!,
-            @"\{ability\.([^}]+)\}",
+            @"\{(ability|aura)\.([^}]+)\}",
             match =>
             {
-                if (!resolveAbilityValue(match.Groups[1].Value, out var value, out var unit))
+                var placeholder =
+                    match.Groups[1].Value == "ability"
+                        ? match.Groups[2].Value
+                        : $"aura.{match.Groups[2].Value}";
+                if (!resolveAbilityValue(placeholder, out var value, out var unit))
                     return string.Empty;
                 if (unit == null)
                     return value;

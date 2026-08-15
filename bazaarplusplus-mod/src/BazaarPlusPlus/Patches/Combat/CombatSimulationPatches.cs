@@ -2,6 +2,7 @@
 #pragma warning disable CS0436
 using BazaarGameShared.Infra.Messages;
 using BazaarPlusPlus.Core.Events;
+using BazaarPlusPlus.Game.CombatReplay;
 using BazaarPlusPlus.GameInterop.Events;
 using HarmonyLib;
 using TheBazaar;
@@ -13,9 +14,28 @@ namespace BazaarPlusPlus.Patches.Combat;
 class CombatSimPatch
 {
     [HarmonyPrefix]
-    static void Prefix(NetMessageCombatSim message, CancellationTokenSource cancellationToken)
+    static bool Prefix(
+        CombatSimHandler __instance,
+        NetMessageCombatSim message,
+        CancellationTokenSource cancellationToken,
+        ref Task __result
+    )
     {
+        if (
+            CombatReplayRuntime.Instance?.TryDeferCurrentReplaySimulation(
+                __instance,
+                message,
+                cancellationToken,
+                out var deferredSimulation
+            ) == true
+        )
+        {
+            __result = deferredSimulation;
+            return false;
+        }
+
         BppPatchHost.Services.EventBus.Publish(new CombatSimObserved { Message = message });
+        return true;
     }
 }
 

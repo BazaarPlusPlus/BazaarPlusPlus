@@ -4,7 +4,7 @@ namespace BazaarPlusPlus.Game.Settings;
 
 internal readonly struct BppSettingsDockPlacement
 {
-    internal const float DefaultSiblingGap = 18f;
+    internal const float DefaultSiblingGap = 8f;
 
     private BppSettingsDockPlacement(string key, SettingsNativeButtonId buttonId)
     {
