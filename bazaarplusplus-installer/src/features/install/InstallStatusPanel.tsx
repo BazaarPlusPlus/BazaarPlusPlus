@@ -1,77 +1,167 @@
-import { FolderOpen } from 'lucide-react';
-import type { useInstallPage } from './useInstallPage';
-import { InstallStatusCard } from './InstallStatusCard';
+import { CircleAlert, Copy, Folder } from 'lucide-react';
+import { useState } from 'react';
+import type { ReactNode } from 'react';
+import { Button } from '../../components/ui/Button';
+import { StatusBanner } from '../../components/ui/StatusBanner';
 import { useI18n } from '../../i18n/LocaleProvider';
+import { PrimaryInstallActionButton } from './PrimaryInstallActionButton';
+import { presentInstallWarning } from './installProblems';
+import type {
+  InstallPageSnapshot,
+  InstallWorkflowIntents
+} from './installWorkflow';
 
-type InstallPage = ReturnType<typeof useInstallPage>;
-
-export function InstallStatusPanel({ page }: { page: InstallPage }) {
+export function InstallStatusPanel({
+  snapshot,
+  intents,
+  appVersion
+}: {
+  snapshot: Extract<InstallPageSnapshot, { phase: 'ready' }>;
+  intents: InstallWorkflowIntents;
+  appVersion: string;
+}) {
   const { t } = useI18n();
-  return (
-    <div className="col-span-7 flex flex-col gap-6">
-      <div className="p-5 bg-[rgba(18,11,5,0.88)] border border-[rgba(180,130,48,0.13)] rounded-sm shadow-[0_6px_28px_rgba(0,0,0,0.35)] flex flex-col gap-6 h-full">
-        <section>
-          <h3 className="cinzel text-xs tracking-widest text-[rgba(220,195,145,0.8)] mb-3 uppercase">
-            {t('currentStatusHeading')}
-          </h3>
-          <div className="grid gap-3">
-            <InstallStatusCard
-              title="The Bazaar"
-              detail={
-                page.state.game.display_version ??
-                page.state.selected_game_path ??
-                '-'
-              }
-              label={page.status.gameLabel}
-              tone={page.status.gameTone}
-            />
-            <InstallStatusCard
-              title="BazaarPlusPlus"
-              detail={page.status.modVersion}
-              label={page.status.modLabel}
-              tone={page.status.modTone}
-            />
-          </div>
-        </section>
+  const [copied, setCopied] = useState(false);
+  const state = snapshot.data;
+  const installed = state.mod_state.installed;
+  const healthy = state.mod_state.ready;
+  const needsReinstall = installed && !state.mod_state.ready;
+  const heroState = healthy
+    ? t('installed')
+    : needsReinstall
+      ? t('modNeedsReinstall')
+      : t('notInstalled');
+  const heroDescription = healthy
+    ? t('installOverviewHealthyShort')
+    : needsReinstall
+      ? t('installOverviewUpdateDescription')
+      : t('installOverviewNotInstalledDescription');
+  const selectedPath = state.selected_game_path;
 
-        <section className="mt-auto">
-          <h3 className="cinzel text-xs tracking-widest text-[rgba(220,195,145,0.8)] mb-3 uppercase">
-            {t('gamePathHeading')}
-          </h3>
-          <div className="p-4 bg-[rgba(18,11,5,0.88)] border border-[rgba(180,130,48,0.13)] rounded-sm shadow-[0_6px_28px_rgba(0,0,0,0.35)]">
-            <div className="flex items-center gap-3 fira-code text-sm text-[#e8dcc8] mb-4 overflow-hidden">
-              <FolderOpen
-                size={16}
-                className="text-[rgba(200,170,120,0.8)] shrink-0"
-              />
-              <span
-                className="truncate"
-                title={page.state.selected_game_path ?? t('notSelected')}
-              >
-                {page.state.selected_game_path ?? t('gamePathEmpty')}
-              </span>
-            </div>
-            <div className="flex gap-2">
-              <button
+  const copyPath = async () => {
+    if (!selectedPath) return;
+    await navigator.clipboard.writeText(selectedPath);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1600);
+  };
+
+  return (
+    <div className="flex min-w-0 flex-col gap-3">
+      <section className="bpp-install-hero">
+        <div className="bpp-install-hero-summary">
+          <div className="min-w-0">
+            <p className="bpp-install-hero-title">
+              <span className="bpp-mod-name">BazaarPlusPlus</span>
+              <span className="ml-2">{heroState}</span>
+            </p>
+            <p
+              id="install-hero-description"
+              className="bpp-install-hero-description"
+            >
+              {heroDescription}
+            </p>
+          </div>
+        </div>
+        <div className="bpp-install-hero-divider" aria-hidden="true" />
+        <div className="bpp-install-primary-slot">
+          <PrimaryInstallActionButton
+            snapshot={snapshot}
+            intents={intents}
+            descriptionId="install-hero-description"
+            descriptionText={heroDescription}
+          />
+        </div>
+      </section>
+
+      <div className="bpp-install-info-grid">
+        <InfoCard
+          icon={<Folder size={19} />}
+          title={t('installationDirectoryHeading')}
+        >
+          <div className="bpp-install-directory-field">
+            <p
+              className={
+                selectedPath
+                  ? 'selectable bpp-install-path'
+                  : 'bpp-install-path is-empty'
+              }
+              title={selectedPath ?? undefined}
+            >
+              {selectedPath ?? t('gamePathEmpty')}
+            </p>
+            <div className="bpp-install-path-actions">
+              <Button
                 type="button"
-                disabled={page.busy}
-                onClick={page.chooseDirectory}
-                className="px-4 py-1.5 text-xs bg-[rgba(200,148,55,0.04)] border border-[rgba(180,130,48,0.2)] rounded-sm hover:bg-[rgba(200,148,55,0.1)] disabled:opacity-40 transition-colors text-[#e8dcc8]"
+                size="small"
+                disabled={!selectedPath}
+                onClick={() => void copyPath()}
+                title={copied ? t('pathCopied') : t('copyPath')}
+                aria-label={copied ? t('pathCopied') : t('copyPath')}
               >
-                {t('chooseAgain')}
-              </button>
-              <button
+                <Copy size={14} />
+                {copied ? t('pathCopied') : t('copyPath')}
+              </Button>
+              <Button
                 type="button"
-                disabled={page.busy}
-                onClick={() => page.refresh()}
-                className="px-4 py-1.5 text-xs bg-[rgba(200,148,55,0.04)] border border-[rgba(180,130,48,0.2)] rounded-sm hover:bg-[rgba(200,148,55,0.1)] disabled:opacity-40 transition-colors text-[#e8dcc8]"
+                size="small"
+                disabled={!snapshot.actions.chooseDirectory}
+                onClick={() => void intents.chooseDirectory()}
+                title={t('selectDirectory')}
+                aria-label={t('selectDirectory')}
               >
-                {t('recheck')}
-              </button>
+                <Folder size={14} />
+                {t('selectDirectory')}
+              </Button>
             </div>
           </div>
-        </section>
+        </InfoCard>
+
+        <InfoCard title={t('applicationVersionHeading')}>
+          <div className="mt-0.5 flex items-center gap-2.5">
+            <span className="bpp-install-version-value">{appVersion}</span>
+            <span className="bpp-install-build-badge">
+              {import.meta.env.DEV ? t('developmentBuild') : t('stableBuild')}
+            </span>
+          </div>
+          <p className="bpp-install-version-meta">BazaarPlusPlus Desktop</p>
+        </InfoCard>
       </div>
+
+      {state.warnings.length > 0 && (
+        <StatusBanner
+          tone="warning"
+          message={
+            <div className="bpp-install-warning-list">
+              {state.warnings.map((warning) => (
+                <p key={warning.code} className="m-0 flex items-start gap-2">
+                  <CircleAlert size={14} className="mt-0.5 shrink-0" />
+                  <span>{presentInstallWarning(warning, t)}</span>
+                </p>
+              ))}
+            </div>
+          }
+        />
+      )}
     </div>
+  );
+}
+
+function InfoCard({
+  icon,
+  title,
+  children
+}: {
+  icon?: ReactNode;
+  title: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className="bpp-install-info-card">
+      <h3 className="bpp-install-info-title">
+        {icon && <span className="bpp-install-info-icon">{icon}</span>}
+        {title}
+      </h3>
+      {children}
+    </section>
   );
 }

@@ -1,9 +1,8 @@
-import { describe, expect, it } from 'vitest';
 import type { DownloadEvent } from '@tauri-apps/plugin-updater';
+import { describe, expect, it } from 'vitest';
 import {
   createUpdaterMachine,
   initialUpdaterSnapshot,
-  isUpdateModalPhase,
   type UpdateHandle,
   type UpdaterImpl
 } from './updater';
@@ -57,7 +56,7 @@ function drivableDownload() {
 }
 
 describe('createUpdaterMachine checkNow', () => {
-  it('captures version, notes and the update handle when an update is available', async () => {
+  it('publishes one consistent available snapshot with version and notes', async () => {
     const update = fakeUpdate({ version: '5.0.0', body: 'fixes' });
     const { machine, snapshot } = harness(
       fakeImpl({ check: async () => update })
@@ -65,18 +64,22 @@ describe('createUpdaterMachine checkNow', () => {
 
     await machine.checkNow();
 
-    expect(snapshot().phase).toBe('available');
-    expect(snapshot().version).toBe('5.0.0');
-    expect(snapshot().notes).toBe('fixes');
+    expect(snapshot()).toEqual({
+      phase: 'available',
+      version: '5.0.0',
+      notes: 'fixes',
+      progress: null,
+      problem: null
+    });
   });
 
-  it('reports current when no update is available', async () => {
+  it('reports checking then current when no update is available', async () => {
     const { machine, phases, snapshot } = harness(fakeImpl());
 
     await machine.checkNow();
 
     expect(phases).toEqual(['checking', 'current']);
-    expect(snapshot().error).toBeNull();
+    expect(snapshot().problem).toBeNull();
   });
 
   it('short-circuits to preview outside the Tauri runtime', async () => {
@@ -97,7 +100,7 @@ describe('createUpdaterMachine checkNow', () => {
     expect(checked).toBe(false);
   });
 
-  it('surfaces manual check failures as a check-sourced error', async () => {
+  it('classifies manual check failures without exposing diagnostics as state copy', async () => {
     const { machine, snapshot } = harness(
       fakeImpl({
         check: async () => {
@@ -108,10 +111,12 @@ describe('createUpdaterMachine checkNow', () => {
 
     await machine.checkNow();
 
-    expect(snapshot().phase).toBe('error');
-    expect(snapshot().errorSource).toBe('check');
-    expect(snapshot().error).toBe('endpoint unreachable');
-    expect(isUpdateModalPhase(snapshot())).toBe(false);
+    expect(snapshot().phase).toBe('failed');
+    expect(snapshot().problem).toMatchObject({
+      code: 'updater_check_failed',
+      params: { operation: 'check' },
+      diagnostic: 'endpoint unreachable'
+    });
   });
 
   it('keeps silent startup checks quiet unless an update is available', async () => {
@@ -133,13 +138,13 @@ describe('createUpdaterMachine checkNow', () => {
 });
 
 describe('createUpdaterMachine install', () => {
-  it('walks downloading → installing → ready and accumulates progress', async () => {
+  it('walks downloading → installing → ready-to-restart and accumulates progress', async () => {
     const download = drivableDownload();
-    const update = fakeUpdate({
-      downloadAndInstall: download.downloadAndInstall
-    });
     const { machine, phases, snapshot } = harness(
-      fakeImpl({ check: async () => update })
+      fakeImpl({
+        check: async () =>
+          fakeUpdate({ downloadAndInstall: download.downloadAndInstall })
+      })
     );
     await machine.checkNow();
 
@@ -157,17 +162,20 @@ describe('createUpdaterMachine install', () => {
 
     download.finish();
     await installed;
-    expect(snapshot().phase).toBe('ready');
-    expect(phases).toContain('downloading');
+    expect(snapshot().phase).toBe('ready-to-restart');
+    expect(snapshot().version).toBe('9.9.9');
+    expect(phases).toEqual(
+      expect.arrayContaining(['downloading', 'installing', 'ready-to-restart'])
+    );
   });
 
   it('keeps an indeterminate total when Started has no contentLength', async () => {
     const download = drivableDownload();
-    const update = fakeUpdate({
-      downloadAndInstall: download.downloadAndInstall
-    });
     const { machine, snapshot } = harness(
-      fakeImpl({ check: async () => update })
+      fakeImpl({
+        check: async () =>
+          fakeUpdate({ downloadAndInstall: download.downloadAndInstall })
+      })
     );
     await machine.checkNow();
 
@@ -181,26 +189,7 @@ describe('createUpdaterMachine install', () => {
     await installed;
   });
 
-  it('relaunches automatically on Windows instead of waiting in ready', async () => {
-    let relaunched = 0;
-    const { machine, snapshot } = harness(
-      fakeImpl({
-        check: async () => fakeUpdate(),
-        isWindows: () => true,
-        relaunch: async () => {
-          relaunched += 1;
-        }
-      })
-    );
-    await machine.checkNow();
-
-    await machine.install();
-
-    expect(relaunched).toBe(1);
-    expect(snapshot().phase).not.toBe('ready');
-  });
-
-  it('moves to an install-sourced error and re-checks for a fresh handle on retry', async () => {
+  it('classifies a failure before Finished as download failure and retries with a fresh handle', async () => {
     let checks = 0;
     const brokenDownload = drivableDownload();
     const broken = fakeUpdate({
@@ -226,19 +215,20 @@ describe('createUpdaterMachine install', () => {
     brokenDownload.fail(new Error('signature mismatch'));
     await failed;
 
-    expect(snapshot().phase).toBe('error');
-    expect(snapshot().errorSource).toBe('install');
-    expect(snapshot().error).toBe('signature mismatch');
-    expect(isUpdateModalPhase(snapshot())).toBe(true);
+    expect(snapshot().phase).toBe('failed');
+    expect(snapshot().problem).toMatchObject({
+      code: 'updater_download_failed',
+      params: { operation: 'download', version: '9.9.9' },
+      diagnostic: 'signature mismatch'
+    });
 
-    // Retry: the consumed handle must not be reused — a fresh check runs.
     await machine.install();
     expect(checks).toBe(2);
     expect(healthyInstalls).toBe(1);
-    expect(snapshot().phase).toBe('ready');
+    expect(snapshot().phase).toBe('ready-to-restart');
   });
 
-  it('falls back to the check outcome when retrying after the update disappeared', async () => {
+  it('classifies a failure after Finished as install failure', async () => {
     const download = drivableDownload();
     const { machine, snapshot } = harness(
       fakeImpl({
@@ -247,29 +237,84 @@ describe('createUpdaterMachine install', () => {
       })
     );
     await machine.checkNow();
+
     const failed = machine.install();
-    download.fail(new Error('boom'));
+    download.emit({ event: 'Finished' });
+    download.fail(new Error('installer rejected package'));
     await failed;
 
-    const noUpdate = harness(fakeImpl({ check: async () => null }));
-    await noUpdate.machine.install();
-    expect(noUpdate.snapshot().phase).toBe('current');
-    expect(snapshot().phase).toBe('error');
+    expect(snapshot().phase).toBe('failed');
+    expect(snapshot().problem).toMatchObject({
+      code: 'updater_install_failed',
+      params: { operation: 'install', version: '9.9.9' },
+      diagnostic: 'installer rejected package'
+    });
   });
-});
 
-describe('createUpdaterMachine guards and actions', () => {
-  it('ignores checkNow and a second install while busy', async () => {
+  it('falls back to current when retrying after the update disappeared', async () => {
     let checks = 0;
     const download = drivableDownload();
-    const update = fakeUpdate({
-      downloadAndInstall: download.downloadAndInstall
-    });
     const { machine, snapshot } = harness(
       fakeImpl({
         check: async () => {
           checks += 1;
-          return update;
+          return checks === 1
+            ? fakeUpdate({ downloadAndInstall: download.downloadAndInstall })
+            : null;
+        }
+      })
+    );
+    await machine.checkNow();
+    const failed = machine.install();
+    download.fail(new Error('boom'));
+    await failed;
+
+    await machine.install();
+    expect(snapshot().phase).toBe('current');
+  });
+});
+
+describe('createUpdaterMachine restart, dismissal, and guards', () => {
+  it('publishes restarting before relaunch and retains the installed result on failure', async () => {
+    let attempts = 0;
+    const { machine, phases, snapshot } = harness(
+      fakeImpl({
+        check: async () => fakeUpdate({ version: '5.1.0' }),
+        relaunch: async () => {
+          attempts += 1;
+          if (attempts === 1) throw new Error('spawn failed');
+        }
+      })
+    );
+    await machine.checkNow();
+    await machine.install();
+    expect(snapshot().phase).toBe('ready-to-restart');
+
+    await machine.restart();
+    expect(phases).toContain('restarting');
+    expect(snapshot().phase).toBe('failed');
+    expect(snapshot().version).toBe('5.1.0');
+    expect(snapshot().problem).toMatchObject({
+      code: 'updater_restart_failed',
+      params: { operation: 'restart', version: '5.1.0' },
+      diagnostic: 'spawn failed'
+    });
+
+    await machine.restart();
+    expect(attempts).toBe(2);
+    expect(snapshot().phase).toBe('restarting');
+  });
+
+  it('blocks check, duplicate install, and dismissal during native work', async () => {
+    let checks = 0;
+    const download = drivableDownload();
+    const { machine, snapshot } = harness(
+      fakeImpl({
+        check: async () => {
+          checks += 1;
+          return fakeUpdate({
+            downloadAndInstall: download.downloadAndInstall
+          });
         }
       })
     );
@@ -288,38 +333,21 @@ describe('createUpdaterMachine guards and actions', () => {
     await installed;
   });
 
-  it('dismiss returns to idle from a dismissable phase', async () => {
-    const { machine, snapshot } = harness(
-      fakeImpl({ check: async () => fakeUpdate() })
-    );
-    await machine.checkNow();
-    expect(snapshot().phase).toBe('available');
+  it('dismisses available and failed phases back to a clean idle snapshot', async () => {
+    const available = harness(fakeImpl({ check: async () => fakeUpdate() }));
+    await available.machine.checkNow();
+    available.machine.dismiss();
+    expect(available.snapshot()).toEqual(initialUpdaterSnapshot);
 
-    machine.dismiss();
-    expect(snapshot().phase).toBe('idle');
-    expect(isUpdateModalPhase(snapshot())).toBe(false);
-  });
-
-  it('restart relaunches and keeps the phase with an inline error on failure', async () => {
-    let relaunched = 0;
-    const ok = harness(
+    const failed = harness(
       fakeImpl({
-        relaunch: async () => {
-          relaunched += 1;
+        check: async () => {
+          throw new Error('offline');
         }
       })
     );
-    await ok.machine.restart();
-    expect(relaunched).toBe(1);
-
-    const failing = harness(
-      fakeImpl({
-        relaunch: async () => {
-          throw new Error('spawn failed');
-        }
-      })
-    );
-    await failing.machine.restart();
-    expect(failing.snapshot().error).toBe('spawn failed');
+    await failed.machine.checkNow();
+    failed.machine.dismiss();
+    expect(failed.snapshot()).toEqual(initialUpdaterSnapshot);
   });
 });

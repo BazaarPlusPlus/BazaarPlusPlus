@@ -1,0 +1,283 @@
+{
+  "schemaVersion": 1,
+  "platform": "macos",
+  "zipSha256": "0b6d8b64a2e0317d2a1799dc6dd16616433177297f71e8485e8273f2bd4cad83",
+  "entries": [
+    {
+      "path": "BepInEx/core/0Harmony.dll",
+      "size": 289792,
+      "sha256": "f1b2477fe2c11e2c58d979dd76c12b049eb65a01fe858da46d7bc4d600c43d2c",
+      "mode": 420
+    },
+    {
+      "path": "BepInEx/core/0Harmony.xml",
+      "size": 325591,
+      "sha256": "05fbca75c28a4d134ef42038304583e8dc966a5d5aebe4308b71919b935f7c63",
+      "mode": 420
+    },
+    {
+      "path": "BepInEx/core/0Harmony20.dll",
+      "size": 112640,
+      "sha256": "3013f54b2cd8a48be3a2df792690a9e55514b147868a47ee27a0a99c614d80d8",
+      "mode": 420
+    },
+    {
+      "path": "BepInEx/core/BepInEx.dll",
+      "size": 129536,
+      "sha256": "5a0db732f06f2bb547be33ce97b61c72ad80be264429f41abb3fbaa8efd619a7",
+      "mode": 420
+    },
+    {
+      "path": "BepInEx/core/BepInEx.Harmony.dll",
+      "size": 6656,
+      "sha256": "cab2f32a7c2b2411b2e3568b9dd3ff5cd53850c744502b63ee06d5b520e90544",
+      "mode": 420
+    },
+    {
+      "path": "BepInEx/core/BepInEx.Harmony.xml",
+      "size": 3970,
+      "sha256": "aaf1b113e16b2d2f375a2cadc349cde0e88219fea1f8ed095822c6ee47fa95f1",
+      "mode": 420
+    },
+    {
+      "path": "BepInEx/core/BepInEx.Preloader.dll",
+      "size": 41984,
+      "sha256": "9b60fafa8d36d6b86de4c98a80c5903a1eb0fa85e429472a70ed0d5a15d46829",
+      "mode": 420
+    },
+    {
+      "path": "BepInEx/core/BepInEx.Preloader.xml",
+      "size": 7534,
+      "sha256": "cd364d1e9caabf5979e657b7ba71406b97d5fd35dfcb3029e883fa7c70973aab",
+      "mode": 420
+    },
+    {
+      "path": "BepInEx/core/BepInEx.xml",
+      "size": 88098,
+      "sha256": "ddc070a79c7b843db4820581d2140bb305b64d3fc8a78abff260db9c1a163698",
+      "mode": 420
+    },
+    {
+      "path": "BepInEx/core/HarmonyXInterop.dll",
+      "size": 23552,
+      "sha256": "1de8982de2d37466b3cab040ffe3f560f464217ba4dc72bc0e5146112373a613",
+      "mode": 420
+    },
+    {
+      "path": "BepInEx/core/Mono.Cecil.dll",
+      "size": 339456,
+      "sha256": "7ae470288fff4a402899c254d0a76cefef55877f5c54f96e83c797cc5bb6e2f6",
+      "mode": 420
+    },
+    {
+      "path": "BepInEx/core/Mono.Cecil.Mdb.dll",
+      "size": 43008,
+      "sha256": "5896d1898f616701fff18f3b2c71e6b844d2390ef9f41e1c5fccce8cb27c698e",
+      "mode": 420
+    },
+    {
+      "path": "BepInEx/core/Mono.Cecil.Pdb.dll",
+      "size": 86528,
+      "sha256": "174db44a067f58561510af746f3caeb032037762c57a31c8d9ee32db25174984",
+      "mode": 420
+    },
+    {
+      "path": "BepInEx/core/Mono.Cecil.Rocks.dll",
+      "size": 27648,
+      "sha256": "54ac539fb5ddc8b44c0e9acd0fcb7324f89d1a072edf8ebc1b06dd691e3d3927",
+      "mode": 420
+    },
+    {
+      "path": "BepInEx/core/MonoMod.Backports.dll",
+      "size": 242688,
+      "sha256": "689c38424ffa30089957f3f3f8942ebf179c15f7330f3f90e479054d0b0d6003",
+      "mode": 420
+    },
+    {
+      "path": "BepInEx/core/MonoMod.Backports.xml",
+      "size": 507289,
+      "sha256": "5c8e3fff76a48665fe2d386aebd3ccc3de57129069598f07855fd17a8501a245",
+      "mode": 420
+    },
+    {
+      "path": "BepInEx/core/MonoMod.Core.dll",
+      "size": 433152,
+      "sha256": "b07b9fdc4af34db27a75a17d0be5dc1bfb73433111cff38b6ff07ae5f2878536",
+      "mode": 420
+    },
+    {
+      "path": "BepInEx/core/MonoMod.Core.xml",
+      "size": 155320,
+      "sha256": "fe07e898ded05fc0f6732c8f4e6148805558962d806395eb5a43f8dbe196cc61",
+      "mode": 420
+    },
+    {
+      "path": "BepInEx/core/MonoMod.Iced.dll",
+      "size": 647680,
+      "sha256": "1d4ca3e659f084609e1ca87ca600cd2cc8b4c250820f4d397455f5dc0bab35ff",
+      "mode": 420
+    },
+    {
+      "path": "BepInEx/core/MonoMod.Iced.xml",
+      "size": 1788528,
+      "sha256": "c77ea5d17d3409cc3057d77182454082d0e60ae2155cb1c932de8f83c6728ac4",
+      "mode": 420
+    },
+    {
+      "path": "BepInEx/core/MonoMod.ILHelpers.dll",
+      "size": 6656,
+      "sha256": "8353ade0183f57ca1df618d2aed117262366fd2fe98e1776373f392b8d33c9f9",
+      "mode": 420
+    },
+    {
+      "path": "BepInEx/core/MonoMod.RuntimeDetour.dll",
+      "size": 74240,
+      "sha256": "dfa9704070eb1983453427ae322c1c7fa9fd75a681b4b953c9dd3165b45439e0",
+      "mode": 420
+    },
+    {
+      "path": "BepInEx/core/MonoMod.RuntimeDetour.xml",
+      "size": 98568,
+      "sha256": "f8427394c1de804e8243683f79110dbee441449ff4648bba176eba081f0c976b",
+      "mode": 420
+    },
+    {
+      "path": "BepInEx/core/MonoMod.Utils.dll",
+      "size": 329216,
+      "sha256": "b233e786b0ea84f5606bae092edd6d2a3ef761b10d115b71fd3ebf496306ec70",
+      "mode": 420
+    },
+    {
+      "path": "BepInEx/core/MonoMod.Utils.xml",
+      "size": 382507,
+      "sha256": "39e975bbed9d126a01a529f6f7a2be3a8ffc1cfcbe7374be459330e8d9c6c8f0",
+      "mode": 420
+    },
+    {
+      "path": "BepInEx/plugins/.gitkeep",
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "mode": 420
+    },
+    {
+      "path": "BepInEx/plugins/BazaarPlusPlus.dll",
+      "size": 5123072,
+      "sha256": "22535b80e8d296899d23f678dde15f5152eb32f08a24eb5e1342a8976ee065ae",
+      "mode": 420
+    },
+    {
+      "path": "BepInEx/plugins/BazaarPlusPlus.Localization.dll",
+      "size": 19456,
+      "sha256": "d94bfa29d077721cfe6438028524ce8555c0b9ff88cfa08b574d28217adb3c2e",
+      "mode": 420
+    },
+    {
+      "path": "BepInEx/plugins/BazaarPlusPlus.ModApi.dll",
+      "size": 107008,
+      "sha256": "1d7a8e495e9e7c3ec6c265161f1bdf026a0c94785b27cd001a9c6522ecf2451b",
+      "mode": 420
+    },
+    {
+      "path": "BepInEx/plugins/BazaarPlusPlus.Storage.dll",
+      "size": 84480,
+      "sha256": "e4a7370576a9df68c155060e3fd63b71bb4b063c051bbdd78bac5eba88060950",
+      "mode": 420
+    },
+    {
+      "path": "BepInEx/plugins/BazaarPlusPlus.version",
+      "size": 11,
+      "sha256": "7b6664d740226fd9a78d13e76e26208c231a32b16eeadae89c49a3d1bed0f4ac",
+      "mode": 420
+    },
+    {
+      "path": "BepInEx/plugins/libBppMacAudio.dylib",
+      "size": 71888,
+      "sha256": "72842194bcff416187a53c349e3c9c362e27914491e2e6650d09260adb32ca75",
+      "mode": 493
+    },
+    {
+      "path": "BepInEx/plugins/libe_sqlite3.dylib",
+      "size": 1669808,
+      "sha256": "2907de1d670a66d39b5d64cc86c5b03c6c7b2f5e983bde30b8589026a4362533",
+      "mode": 484
+    },
+    {
+      "path": "BepInEx/plugins/Microsoft.Data.Sqlite.dll",
+      "size": 173880,
+      "sha256": "f7e147a62a090a68f4b76623204a1c5a1b02768c96d844ef9f454854008dfe9e",
+      "mode": 484
+    },
+    {
+      "path": "BepInEx/plugins/SixLabors.ImageSharp.dll",
+      "size": 1719808,
+      "sha256": "7c206c21a178864c269682e848bc8d86dd9ba132bf87bfa21f63e8d7c20a34f6",
+      "mode": 484
+    },
+    {
+      "path": "BepInEx/plugins/SQLitePCLRaw.batteries_v2.dll",
+      "size": 5632,
+      "sha256": "e83aed1d42d8ae806abeb02f0233a477275b82b5db92c92aa0c243255ab6a793",
+      "mode": 484
+    },
+    {
+      "path": "BepInEx/plugins/SQLitePCLRaw.core.dll",
+      "size": 51712,
+      "sha256": "3c55cf9ba9784469375c625608af772b85a352ec91723fe2a882532fdeb7cfc9",
+      "mode": 484
+    },
+    {
+      "path": "BepInEx/plugins/SQLitePCLRaw.provider.e_sqlite3.dll",
+      "size": 40960,
+      "sha256": "c97285eff57ddfbc6418c4e1278e73f1703e902071ce59af98318b010e0b39ff",
+      "mode": 484
+    },
+    {
+      "path": "BepInEx/plugins/System.Buffers.dll",
+      "size": 21376,
+      "sha256": "c65fff603b283dc966d1a8b730c11d5e5e750e8021bd24640612f6cc3f2c6fb7",
+      "mode": 484
+    },
+    {
+      "path": "BepInEx/plugins/System.Memory.dll",
+      "size": 142752,
+      "sha256": "11590d8bb3b12f29f4202b3ef8593229a5cd6debb61e76cba9ac5493a82ee382",
+      "mode": 484
+    },
+    {
+      "path": "BepInEx/plugins/System.Numerics.Vectors.dll",
+      "size": 163464,
+      "sha256": "17924e5dc87e0d6229d2dd0bcfc1fdfabd820901b13a68baa89fcb80c4d1a67f",
+      "mode": 484
+    },
+    {
+      "path": "BepInEx/plugins/System.Text.Encoding.CodePages.dll",
+      "size": 756096,
+      "sha256": "51ce387387a8998b2f27a55a82175a696a46ff294e0dc33bf2690e2d03e456cf",
+      "mode": 484
+    },
+    {
+      "path": "libdoorstop.dylib",
+      "size": 138672,
+      "sha256": "65e37527b0b82c94bc1bbef92ef596be1f99879edd4cf0072f31a8225bcf5f45",
+      "mode": 420
+    },
+    {
+      "path": "TheBazaar.app/Contents/Plugins/GfxPluginBppReplayVideoToolbox.bundle/Contents/_CodeSignature/CodeResources",
+      "size": 2200,
+      "sha256": "6686de10a28a2fe11b36cbb86dcbacc827cfc4ea116b4dabf1845e5aee629e9b",
+      "mode": 420
+    },
+    {
+      "path": "TheBazaar.app/Contents/Plugins/GfxPluginBppReplayVideoToolbox.bundle/Contents/Info.plist",
+      "size": 765,
+      "sha256": "39447564e34055078259dd199bd70a32b51f7cefb5d1e43946d4824cd737f80f",
+      "mode": 420
+    },
+    {
+      "path": "TheBazaar.app/Contents/Plugins/GfxPluginBppReplayVideoToolbox.bundle/Contents/MacOS/GfxPluginBppReplayVideoToolbox",
+      "size": 120560,
+      "sha256": "a5d882c21ea876227ee36b0b53baac283fb29a16c9795b5a938e7055aad91948",
+      "mode": 493
+    }
+  ]
+}

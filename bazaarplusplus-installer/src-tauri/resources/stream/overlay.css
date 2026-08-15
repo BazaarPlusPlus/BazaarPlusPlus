@@ -1,3 +1,15 @@
+/* The overlay is a standalone page served by the stream HTTP server, so it
+   cannot reach the app's src/styles/fonts.css. Serve the brand face here from
+   /assets/fonts so the wordmark matches the installer UI. Latin subset only:
+   the only Cinzel text is the ASCII wordmark. */
+@font-face {
+  font-family: 'Cinzel';
+  font-style: normal;
+  font-weight: 400 600;
+  font-display: swap;
+  src: url('/assets/fonts/cinzel-latin.woff2') format('woff2');
+}
+
 :root {
   color-scheme: dark;
   font-family: 'Palatino Linotype', 'Book Antiqua', Georgia, serif;

@@ -1,1 +1,1 @@
-export type * from './generated';
+export type * from './generated/commands';

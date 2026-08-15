@@ -9,8 +9,7 @@ pub(crate) fn is_bepinex_installed(game_path: &Path) -> bool {
     }
 
     #[cfg(target_os = "macos")]
-    return game_path.join("run_bepinex.sh").exists()
-        && game_path.join("libdoorstop.dylib").exists();
+    return game_path.join("libdoorstop.dylib").exists();
 
     #[cfg(target_os = "windows")]
     return game_path.join("doorstop_config.ini").exists()
@@ -79,7 +78,6 @@ mod tests {
 
         #[cfg(target_os = "macos")]
         {
-            std::fs::write(tmp.path().join("run_bepinex.sh"), b"#!/bin/sh\n").unwrap();
             std::fs::write(tmp.path().join("libdoorstop.dylib"), b"dylib").unwrap();
         }
 

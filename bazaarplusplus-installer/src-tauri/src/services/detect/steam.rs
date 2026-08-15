@@ -5,7 +5,6 @@ use std::path::{Path, PathBuf};
 pub(crate) struct SteamInstallPaths {
     pub(crate) steam_path: Option<PathBuf>,
     pub(crate) game_path: Option<PathBuf>,
-    pub(crate) steam_launch_options_supported: bool,
 }
 
 #[cfg(debug_assertions)]
@@ -219,19 +218,12 @@ fn get_game_path_from_detected_steam_roots(
 
     #[cfg(target_os = "windows")]
     {
-        let fallback_candidates = crate::services::game_path::fallback_game_candidates();
-        crate::services::debug_log!(
-            "[detect::steam] probing common Windows candidates count={}",
-            fallback_candidates.len()
-        );
-        for path in fallback_candidates {
-            if path.exists() {
-                crate::services::debug_log!(
-                    "[detect::steam] hit from common Windows candidate game_path={}",
-                    path.display()
-                );
-                return Some(path);
-            }
+        if let Some(path) = crate::services::game_path::find_existing_fallback_game_path() {
+            crate::services::debug_log!(
+                "[detect::steam] hit from common Windows candidate game_path={}",
+                path.display()
+            );
+            return Some(path);
         }
     }
 
@@ -245,22 +237,15 @@ pub(crate) fn detect_installation_paths() -> SteamInstallPaths {
     let game_path = steam_path
         .as_deref()
         .and_then(|path| get_game_path_from_detected_steam_roots(path, &steam_roots));
-    let steam_launch_options_supported = steam_path
-        .as_deref()
-        .map(crate::services::steam::supports_launch_option_updates)
-        .unwrap_or(false);
-
     crate::services::debug_log!(
-        "[detect::steam] detected startup paths steam_path={:?} game_path={:?} launch_options_supported={}",
+        "[detect::steam] detected startup paths steam_path={:?} game_path={:?}",
         steam_path.as_ref().map(|path| path.display().to_string()),
-        game_path.as_ref().map(|path| path.display().to_string()),
-        steam_launch_options_supported
+        game_path.as_ref().map(|path| path.display().to_string())
     );
 
     SteamInstallPaths {
         steam_path,
         game_path,
-        steam_launch_options_supported,
     }
 }
 

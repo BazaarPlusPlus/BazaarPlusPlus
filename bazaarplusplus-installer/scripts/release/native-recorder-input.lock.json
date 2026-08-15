@@ -1,0 +1,108 @@
+{
+  "schemaVersion": 3,
+  "sourceRepository": "BazaarPlusPlus/bazaarplusplus-mod",
+  "platforms": {
+    "macos": {
+      "inputDigest": "sha256:fc91a594d31eb6c341ec684464a34cc2fffad69706c9d786bc85b814e2246f08",
+      "inputFiles": {
+        "native/mac-audio-tap/BppMacAudio.h": "346ea70328a8c170d307069e15abe7b384645477afd7f5be1ce2fa92e96dfe85",
+        "native/mac-audio-tap/BppMacAudio.m": "41b8899dbee04fb7c53e0ae2fef09f5b093448fa05a12f563f349f5b098bf104",
+        "native/mac-audio-tap/build.sh": "ab91b19131610b590feac0a5ab472b5ef79cb9c132232b13765d51fe00b02c51",
+        "native/macos/BppNativeLoadSmoke.c": "373a15caacb8fda639ab4109721c38fe30f10827a2b3133c32b57a13dc89b0f3",
+        "native/macos/BppReplayAudioMuxer.mm": "c87afdaa4d2f8731aa59dfba198d8ff66e79740e1ea662c73181fc96b23f7cac",
+        "native/macos/BppReplayVideoToolbox.h": "8a2cad31234ba454bd1c8e76c76fabdc02c3517134360f63f77d7a8f9b9902d2",
+        "native/macos/BppReplayVideoToolbox.mm": "430686c04b00254760190e884c1ac15e1a77ac1a926baf87dccba9b9c243fedc",
+        "native/macos/Info.plist": "39447564e34055078259dd199bd70a32b51f7cefb5d1e43946d4824cd737f80f",
+        "native/macos/build.sh": "a9b4aec8cf34ff02ef50a127939709c40b8d3e3bc978d092eb151c3a40a9d228",
+        "native/macos/verify.sh": "4bc8d86f29b1ca4281843340240ecf869d2fd88363d12eb59b496615c4e013d3",
+        "src/BazaarPlusPlus/Game/CombatReplay/Audio/CoreAudioProcessTapCaptureTap.cs": "4e59c27fdff84be3fa64efbf69a2cb31cd9743a8a5cf37aeef28fa4b8b9c49d6",
+        "src/BazaarPlusPlus/Game/CombatReplay/Audio/ReplayAudioCaptureFactory.cs": "e697c5dfe6e88a3f79100bce7a6cd9ddc7969980f58e179ba008b7d2e3bfed34",
+        "src/BazaarPlusPlus/Game/CombatReplay/Video/MacMetalVideoEncoder.cs": "b37bc6113e1b0bc1a60e9f9e3d3a753efd5e4c414e00e417f85a30906a1680d7",
+        "src/BazaarPlusPlus/Game/CombatReplay/Video/MacNativeReplayAudioMuxer.cs": "2eb6987fc81db5438146f262fc9edf1644f95c1ce2dc5e1c850aa83bdc3528ab"
+      },
+      "policy": {
+        "architecture": "arm64",
+        "deploymentTarget": "12.0",
+        "signing": "adhoc"
+      },
+      "producer": {
+        "repository": "BazaarPlusPlus/bazaarplusplus-mod",
+        "commit": "316a45df08dcce5cbe4ff4288edf530c81dd354c",
+        "dirty": true
+      },
+      "artifacts": {
+        "mac-audio": {
+          "destinationPath": "src-tauri/resources/SourceForBuild/macos/BepInEx/plugins/libBppMacAudio.dylib",
+          "content": {
+            "kind": "file",
+            "size": 53760,
+            "sha256": "3a2dabc7b7106a45291a38cd9690024eb59377d362e2bb750dab9833488347bf"
+          }
+        },
+        "mac-replay": {
+          "destinationPath": "src-tauri/resources/SourceForBuild/macos/TheBazaar.app/Contents/Plugins/GfxPluginBppReplayVideoToolbox.bundle",
+          "content": {
+            "kind": "directory",
+            "entries": {
+              "Contents": {
+                "kind": "directory"
+              },
+              "Contents/Info.plist": {
+                "kind": "file",
+                "size": 765,
+                "sha256": "39447564e34055078259dd199bd70a32b51f7cefb5d1e43946d4824cd737f80f"
+              },
+              "Contents/MacOS": {
+                "kind": "directory"
+              },
+              "Contents/MacOS/GfxPluginBppReplayVideoToolbox": {
+                "kind": "file",
+                "size": 102368,
+                "sha256": "c3cf098a7fc1209310c64a95341cdeeef014c105e69d340452f44cc93f922ab5"
+              },
+              "Contents/_CodeSignature": {
+                "kind": "directory"
+              },
+              "Contents/_CodeSignature/CodeResources": {
+                "kind": "file",
+                "size": 2200,
+                "sha256": "6686de10a28a2fe11b36cbb86dcbacc827cfc4ea116b4dabf1845e5aee629e9b"
+              }
+            }
+          }
+        }
+      }
+    },
+    "windows": {
+      "inputDigest": "sha256:d5412ebdb57341a4230255129133dfbe439d97cdb13db28364c557b9023b4f7d",
+      "inputFiles": {
+        "native/windows/BppReplayMediaFoundation.cpp": "2f0395be1e5e8d9c008745db420b9351dccfad197db3ab2c26b5c516414546ef",
+        "native/windows/BppReplayMediaFoundation.h": "977b6070ac230e7c44a62bc756f9fee7bb74489ff8845928908ca0b6b573b660",
+        "native/windows/BppReplayMediaFoundationSmoke.cpp": "71f52734ad638350df2272d8a0ad5dd2fa1402220198c179792c4fee71e7d0b5",
+        "native/windows/build.ps1": "75b2a0bdb143a975fceb80c96b95e7218fce3fb926dff0badccc6d9c04bdb295",
+        "native/windows/test.ps1": "8556acb4b93c05aae7ffc4e83aa30321206a34961c95543bc976db76a4b43164",
+        "src/BazaarPlusPlus/Game/CombatReplay/Video/WindowsMediaFoundationVideoEncoder.cs": "6936949b69661e73519811bb32ae708f535833fae6073f4a808fd707a7bf802b",
+        "src/BazaarPlusPlus/Game/CombatReplay/Video/WindowsNativeReplayAudioMuxer.cs": "41fa3e3f8cc809f187498a82cb53056afc6c25dc1a5c3b86ff1e57e114f0b4d8"
+      },
+      "policy": {
+        "architecture": "x64",
+        "signing": "unsigned"
+      },
+      "producer": {
+        "repository": "BazaarPlusPlus/bazaarplusplus-mod",
+        "commit": "3884a4f2144d75e6b22875b1434620206a0ebb3b",
+        "dirty": true
+      },
+      "artifacts": {
+        "windows-replay": {
+          "destinationPath": "src-tauri/resources/SourceForBuild/windows/TheBazaar_Data/Plugins/x86_64/GfxPluginBppReplayMediaFoundation.dll",
+          "content": {
+            "kind": "file",
+            "size": 202752,
+            "sha256": "6bd46cefe264febbdc9ef7cb0730e8c7dbcecf78a365c7abd536c48fb9d5c0d1"
+          }
+        }
+      }
+    }
+  }
+}

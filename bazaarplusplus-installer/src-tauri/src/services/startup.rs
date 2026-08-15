@@ -9,15 +9,14 @@ use super::detect::detect_installation_paths;
 /// Startup-time installer context.
 ///
 /// These inputs don't change during a session, so we read them once, cache the
-/// result, and let every subsequent `detect_environment` call reuse the cached
-/// values. Before this split, each detect_environment re-read the bundled
-/// `BepInEx.zip`, which on Windows was a dominant source of detect-flow latency
-/// because Defender scans the zip on every `CreateFile`.
+/// result, and let every subsequent `resolve_game_path` or `detect_for_install`
+/// call reuse the cached values. Before this split, each detection pass re-read
+/// the bundled `BepInEx.zip`, which on Windows was a dominant source of
+/// detect-flow latency because Defender scans the zip on every `CreateFile`.
 pub(crate) struct InstallerStartup {
     pub(crate) bundled_bpp_version: Option<String>,
     pub(crate) steam_path: Option<PathBuf>,
     pub(crate) game_path: Option<PathBuf>,
-    pub(crate) steam_launch_options_supported: bool,
 }
 
 #[derive(Default)]
@@ -38,7 +37,7 @@ fn compute_startup(app: &AppHandle) -> InstallerStartup {
     let detected_paths = detect_installation_paths();
 
     crate::services::debug_log!(
-        "[startup] initialized bundled_bpp_version={:?} steam_path={:?} game_path={:?} launch_options_supported={}",
+        "[startup] initialized bundled_bpp_version={:?} steam_path={:?} game_path={:?}",
         bundled_bpp_version,
         detected_paths
             .steam_path
@@ -48,13 +47,11 @@ fn compute_startup(app: &AppHandle) -> InstallerStartup {
             .game_path
             .as_ref()
             .map(|path| path.display().to_string()),
-        detected_paths.steam_launch_options_supported,
     );
 
     InstallerStartup {
         bundled_bpp_version,
         steam_path: detected_paths.steam_path,
         game_path: detected_paths.game_path,
-        steam_launch_options_supported: detected_paths.steam_launch_options_supported,
     }
 }

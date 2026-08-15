@@ -1,0 +1,129 @@
+{
+  "fill" : "system-dark",
+  "groups" : [
+    {
+      "layers" : [
+        {
+          "glass" : false,
+          "image-name" : "batch 2.png",
+          "name" : "batch 2",
+          "position" : {
+            "scale" : 0.9,
+            "translation-in-points" : [
+              0,
+              263.5045456616438
+            ]
+          }
+        }
+      ],
+      "position" : {
+        "scale" : 1,
+        "translation-in-points" : [
+          0,
+          17.313480085524816
+        ]
+      },
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.6
+      },
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.2
+      }
+    },
+    {
+      "hidden" : false,
+      "layers" : [
+        {
+          "image-name" : "s1.png",
+          "name" : "s1",
+          "position" : {
+            "scale" : 1,
+            "translation-in-points" : [
+              62.69565217391312,
+              60.99999999999994
+            ]
+          }
+        },
+        {
+          "hidden" : false,
+          "image-name" : "s3.png",
+          "name" : "s3",
+          "position" : {
+            "scale" : 1,
+            "translation-in-points" : [
+              -50.04347826086945,
+              62
+            ]
+          }
+        },
+        {
+          "hidden" : true,
+          "image-name" : "s2.png",
+          "name" : "s2",
+          "position" : {
+            "scale" : 1,
+            "translation-in-points" : [
+              -51.04347826086956,
+              61
+            ]
+          }
+        }
+      ],
+      "position" : {
+        "scale" : 1.15,
+        "translation-in-points" : [
+          0,
+          17.313480085524816
+        ]
+      },
+      "shadow" : {
+        "kind" : "layer-color",
+        "opacity" : 0.6
+      },
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.2
+      }
+    },
+    {
+      "layers" : [
+        {
+          "glass" : true,
+          "hidden" : false,
+          "image-name" : "IconLogo-1000x1000.png",
+          "name" : "IconLogo-1000x1000",
+          "position" : {
+            "scale" : 1,
+            "translation-in-points" : [
+              0,
+              -76.43679342032033
+            ]
+          }
+        }
+      ],
+      "position" : {
+        "scale" : 0.7,
+        "translation-in-points" : [
+          0,
+          17.313480085524816
+        ]
+      },
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.6
+      },
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.2
+      }
+    }
+  ],
+  "supported-platforms" : {
+    "circles" : [
+      "watchOS"
+    ],
+    "squares" : "shared"
+  }
+}

@@ -6,6 +6,9 @@ use tauri::{
     Manager,
 };
 
+#[cfg(target_os = "macos")]
+const MACOS_TRAY_ICON: &[u8] = include_bytes!("../icons/tray-macos-template.png");
+
 pub fn build_tray(app: &tauri::AppHandle) -> tauri::Result<()> {
     let labels = tray_menu_labels(TrayLocale::Zh);
     let show_window = MenuItemBuilder::with_id("show_window", labels.show_window).build(app)?;
@@ -32,16 +35,16 @@ pub fn build_tray(app: &tauri::AppHandle) -> tauri::Result<()> {
         .on_menu_event(|app, event| match event.id().as_ref() {
             "show_window" => show_main_window(app),
             "copy_obs_url" => {
-                let state = app.state::<crate::stream::state::StreamRuntimeState>();
-                if let Some(url) = state.snapshot().overlay_url {
+                let runtime = app.state::<crate::stream::runtime::StreamRuntime>();
+                if let Some(url) = runtime.snapshot().overlay_url {
                     let _ = copy_text_to_clipboard(&url);
                 }
             }
             "stop_stream_service" => {
                 let app_handle = app.clone();
                 tauri::async_runtime::spawn(async move {
-                    let state = app_handle.state::<crate::stream::state::StreamRuntimeState>();
-                    let _ = crate::stream::server::stop(state.inner()).await;
+                    let runtime = app_handle.state::<crate::stream::runtime::StreamRuntime>();
+                    let _ = runtime.stop().await;
                 });
             }
             "quit_app" => quit_app(app),
@@ -53,6 +56,13 @@ pub fn build_tray(app: &tauri::AppHandle) -> tauri::Result<()> {
             }
         });
 
+    #[cfg(target_os = "macos")]
+    {
+        let icon = tauri::image::Image::from_bytes(MACOS_TRAY_ICON)?;
+        tray = tray.icon(icon).icon_as_template(true);
+    }
+
+    #[cfg(not(target_os = "macos"))]
     if let Some(icon) = app.default_window_icon().cloned() {
         tray = tray.icon(icon);
     }
@@ -144,13 +154,13 @@ impl TrayMenuState {
     }
 }
 
-#[derive(Clone, Debug, serde::Serialize, ts_rs::TS)]
-#[ts(export)]
+#[derive(Clone, Debug, serde::Serialize, specta::Type)]
 pub struct AppLocalePayload {
     locale: String,
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn set_app_locale(
     state: tauri::State<'_, TrayMenuState>,
     locale: String,
@@ -181,18 +191,14 @@ fn should_show_main_window_for_tray_event(event: &TrayIconEvent) -> bool {
 fn quit_app(app: &tauri::AppHandle) {
     let app_handle = app.clone();
     tauri::async_runtime::spawn(async move {
-        let state = app_handle.state::<crate::stream::state::StreamRuntimeState>();
-        let _ = crate::stream::server::stop(state.inner()).await;
+        let runtime = app_handle.state::<crate::stream::runtime::StreamRuntime>();
+        let _ = runtime.stop().await;
         app_handle.exit(0);
     });
 }
 
 fn show_main_window(app: &tauri::AppHandle) {
-    if let Some(window) = app.get_webview_window("main") {
-        let _ = window.show();
-        let _ = window.unminimize();
-        let _ = window.set_focus();
-    }
+    crate::main_window::restore(app);
 }
 
 fn copy_text_to_clipboard(text: &str) -> Result<(), String> {
@@ -215,7 +221,7 @@ fn copy_text_to_clipboard(text: &str) -> Result<(), String> {
         child
             .wait()
             .map_err(|err| format!("failed to wait for pbcopy: {err}"))?;
-        return Ok(());
+        Ok(())
     }
 
     #[cfg(target_os = "windows")]
@@ -238,7 +244,7 @@ fn copy_text_to_clipboard(text: &str) -> Result<(), String> {
         child
             .wait()
             .map_err(|err| format!("failed to wait for clip: {err}"))?;
-        return Ok(());
+        Ok(())
     }
 
     #[cfg(not(any(target_os = "macos", target_os = "windows")))]
