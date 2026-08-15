@@ -1,6 +1,6 @@
 use super::overlay_settings::{validate_crop_settings, OverlayCropSettings, OverlaySettingsStore};
 use super::records::OverlayRecordRepository;
-use super::state::StreamRuntimeState;
+use super::runtime::StreamRuntime;
 use axum::http::StatusCode;
 use axum::{
     extract::{Path, Query, State},
@@ -26,12 +26,26 @@ const SETTINGS_HTML: &str = include_str!("../../resources/stream/settings.html")
 const SETTINGS_CSS: &str = include_str!("../../resources/stream/settings.css");
 const SETTINGS_JS: &str = include_str!("../../resources/stream/settings.js");
 static BADGES_DIR: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/resources/stream/badges");
+const CINZEL_FONT: &[u8] = include_bytes!("../../resources/stream/fonts/cinzel-latin.woff2");
+const OVERLAY_ROUTE: &str = "/overlay";
+const SETTINGS_ROUTE: &str = "/settings";
+const LATEST_RECORD_ROUTE: &str = "/api/stream/records/latest";
+const RECORD_LIST_ROUTE: &str = "/api/stream/records";
+const CROP_CONFIG_ROUTE: &str = "/api/overlay/crop-config";
+const STRIP_IMAGE_ROUTE: &str = "/images/{record_id}/strip";
+const RECORD_IMAGE_ROUTE: &str = "/images/{record_id}";
+const OVERLAY_CSS_ROUTE: &str = "/assets/overlay.css";
+const OVERLAY_JS_ROUTE: &str = "/assets/overlay.js";
+const SETTINGS_CSS_ROUTE: &str = "/assets/settings.css";
+const SETTINGS_JS_ROUTE: &str = "/assets/settings.js";
+const BADGE_ROUTE: &str = "/assets/badges/{category}/{file_name}";
+const CINZEL_FONT_ROUTE: &str = "/assets/fonts/cinzel-latin.woff2";
 
 #[derive(Clone)]
-pub struct HttpAppState {
-    pub overlay_records: OverlayRecordRepository,
-    pub runtime: StreamRuntimeState,
-    pub overlay_settings: OverlaySettingsStore,
+struct HttpAppState {
+    overlay_records: OverlayRecordRepository,
+    runtime: StreamRuntime,
+    overlay_settings: OverlaySettingsStore,
 }
 
 #[derive(Debug, Deserialize)]
@@ -60,9 +74,9 @@ struct StripPreviewQuery {
     preview: Option<bool>,
 }
 
-pub fn router(
+pub(super) fn router(
     overlay_records: OverlayRecordRepository,
-    runtime: StreamRuntimeState,
+    runtime: StreamRuntime,
     overlay_settings: OverlaySettingsStore,
 ) -> Router {
     let cors = CorsLayer::new()
@@ -73,21 +87,22 @@ pub fn router(
         .allow_headers([header::CONTENT_TYPE]);
 
     Router::new()
-        .route("/overlay", get(overlay_page))
-        .route("/settings", get(settings_page))
-        .route("/api/stream/records/latest", get(latest_record))
-        .route("/api/stream/records", get(record_list))
+        .route(OVERLAY_ROUTE, get(overlay_page))
+        .route(SETTINGS_ROUTE, get(settings_page))
+        .route(LATEST_RECORD_ROUTE, get(latest_record))
+        .route(RECORD_LIST_ROUTE, get(record_list))
         .route(
-            "/api/overlay/crop-config",
+            CROP_CONFIG_ROUTE,
             get(get_crop_config).post(save_crop_config),
         )
-        .route("/images/{record_id}/strip", get(record_strip_image))
-        .route("/images/{record_id}", get(record_image))
-        .route("/assets/overlay.css", get(overlay_css))
-        .route("/assets/overlay.js", get(overlay_js))
-        .route("/assets/settings.css", get(settings_css))
-        .route("/assets/settings.js", get(settings_js))
-        .route("/assets/badges/{category}/{file_name}", get(badge_asset))
+        .route(STRIP_IMAGE_ROUTE, get(record_strip_image))
+        .route(RECORD_IMAGE_ROUTE, get(record_image))
+        .route(OVERLAY_CSS_ROUTE, get(overlay_css))
+        .route(OVERLAY_JS_ROUTE, get(overlay_js))
+        .route(SETTINGS_CSS_ROUTE, get(settings_css))
+        .route(SETTINGS_JS_ROUTE, get(settings_js))
+        .route(BADGE_ROUTE, get(badge_asset))
+        .route(CINZEL_FONT_ROUTE, get(cinzel_font))
         .layer(cors)
         .with_state(HttpAppState {
             overlay_records,
@@ -244,7 +259,11 @@ async fn record_strip_image(
         })
         .await
     } else {
-        run_strip_image_task(move || load_or_create_strip_cache(&record_id, &path, crop)).await
+        let cache_directory = overlay_cache_directory();
+        run_strip_image_task(move || {
+            load_or_create_strip_cache(&cache_directory, &record_id, &path, crop)
+        })
+        .await
     };
     let strip_bytes = match strip_result {
         Ok(bytes) => bytes,
@@ -323,6 +342,7 @@ fn sanitized_cache_name(value: &str) -> String {
 }
 
 fn crop_cache_path(
+    cache_directory: &FsPath,
     record_id: &str,
     source_path: &FsPath,
     crop: OverlayCropSettings,
@@ -350,15 +370,16 @@ fn crop_cache_path(
         (crop.height * 10_000.0).round() as i64
     );
 
-    Ok(overlay_cache_directory().join(cache_name))
+    Ok(cache_directory.join(cache_name))
 }
 
 fn load_or_create_strip_cache(
+    cache_directory: &FsPath,
     record_id: &str,
     source_path: &FsPath,
     crop: OverlayCropSettings,
 ) -> Result<Vec<u8>, String> {
-    let cache_path = crop_cache_path(record_id, source_path, crop)?;
+    let cache_path = crop_cache_path(cache_directory, record_id, source_path, crop)?;
     if cache_path.exists() {
         return std::fs::read(&cache_path).map_err(|err| {
             format!(
@@ -476,6 +497,20 @@ async fn settings_js() -> Response {
         .into_response()
 }
 
+async fn cinzel_font() -> Response {
+    (
+        [
+            (header::CONTENT_TYPE, HeaderValue::from_static("font/woff2")),
+            (
+                header::CACHE_CONTROL,
+                HeaderValue::from_static("public, max-age=31536000, immutable"),
+            ),
+        ],
+        CINZEL_FONT,
+    )
+        .into_response()
+}
+
 async fn badge_asset(Path((category, file_name)): Path<(String, String)>) -> Response {
     if !file_name.ends_with(".svg") {
         return StatusCode::NOT_FOUND.into_response();
@@ -514,7 +549,10 @@ async fn badge_asset(Path((category, file_name)): Path<(String, String)>) -> Res
 mod tests {
     use super::{
         crop_cache_path, crop_dynamic_image, is_allowed_cors_origin, load_or_create_strip_cache,
-        overlay_asset_path,
+        overlay_asset_path, BADGES_DIR, BADGE_ROUTE, CINZEL_FONT, CINZEL_FONT_ROUTE,
+        CROP_CONFIG_ROUTE, LATEST_RECORD_ROUTE, OVERLAY_CSS, OVERLAY_CSS_ROUTE, OVERLAY_JS_ROUTE,
+        OVERLAY_ROUTE, RECORD_IMAGE_ROUTE, RECORD_LIST_ROUTE, SETTINGS_CSS_ROUTE,
+        SETTINGS_JS_ROUTE, SETTINGS_ROUTE, STRIP_IMAGE_ROUTE,
     };
     use crate::stream::overlay_settings::OverlayCropSettings;
     use axum::http::HeaderValue;
@@ -525,6 +563,74 @@ mod tests {
         let path = overlay_asset_path("overlay.js");
 
         assert!(path.ends_with("resources/stream/overlay.js"));
+    }
+
+    #[test]
+    fn embedded_badge_assets_are_complete_for_every_hero() {
+        for hero_key in [
+            "van", "pyg", "doo", "mak", "jul", "kar", "ste", "dra", "unk",
+        ] {
+            for path in [
+                format!("heroes/hero-{hero_key}.svg"),
+                format!("herohalf/herohalf-{hero_key}.svg"),
+            ] {
+                assert!(BADGES_DIR.get_file(&path).is_some(), "missing {path}");
+            }
+
+            for battle_count in 0..=20 {
+                let path = format!("info/info-{hero_key}-{battle_count}.svg");
+                assert!(BADGES_DIR.get_file(&path).is_some(), "missing {path}");
+            }
+        }
+    }
+
+    #[test]
+    fn production_routes_remain_stable() {
+        assert_eq!(
+            [
+                OVERLAY_ROUTE,
+                SETTINGS_ROUTE,
+                LATEST_RECORD_ROUTE,
+                RECORD_LIST_ROUTE,
+                CROP_CONFIG_ROUTE,
+                STRIP_IMAGE_ROUTE,
+                RECORD_IMAGE_ROUTE,
+                OVERLAY_CSS_ROUTE,
+                OVERLAY_JS_ROUTE,
+                SETTINGS_CSS_ROUTE,
+                SETTINGS_JS_ROUTE,
+                BADGE_ROUTE,
+                CINZEL_FONT_ROUTE,
+            ],
+            [
+                "/overlay",
+                "/settings",
+                "/api/stream/records/latest",
+                "/api/stream/records",
+                "/api/overlay/crop-config",
+                "/images/{record_id}/strip",
+                "/images/{record_id}",
+                "/assets/overlay.css",
+                "/assets/overlay.js",
+                "/assets/settings.css",
+                "/assets/settings.js",
+                "/assets/badges/{category}/{file_name}",
+                "/assets/fonts/cinzel-latin.woff2",
+            ]
+        );
+    }
+
+    #[test]
+    fn overlay_css_font_url_resolves_to_a_served_route() {
+        assert!(
+            OVERLAY_CSS.contains(&format!("url('{CINZEL_FONT_ROUTE}')")),
+            "overlay.css must load the brand face from the route the server exposes"
+        );
+        assert_eq!(
+            &CINZEL_FONT[..4],
+            b"wOF2",
+            "the embedded brand face must be a woff2 payload"
+        );
     }
 
     #[test]
@@ -571,13 +677,15 @@ mod tests {
     fn strip_cache_hit_does_not_decode_source_image() {
         let temp_dir = tempfile::tempdir().unwrap();
         let source_path = temp_dir.path().join("source.png");
+        let cache_directory = temp_dir.path().join("cache");
         let crop = OverlayCropSettings::default();
         std::fs::write(&source_path, b"not an image").unwrap();
-        let cache_path = crop_cache_path("shot-1", &source_path, crop).unwrap();
+        let cache_path = crop_cache_path(&cache_directory, "shot-1", &source_path, crop).unwrap();
         std::fs::create_dir_all(cache_path.parent().unwrap()).unwrap();
         std::fs::write(&cache_path, b"cached strip").unwrap();
 
-        let bytes = load_or_create_strip_cache("shot-1", &source_path, crop).unwrap();
+        let bytes =
+            load_or_create_strip_cache(&cache_directory, "shot-1", &source_path, crop).unwrap();
 
         assert_eq!(bytes, b"cached strip");
     }

@@ -133,7 +133,6 @@ internal static class VoiceCatalogLogEvents
     internal static readonly BppLogFieldDefinition CatalogRowSkippedStem = new(
         3,
         "stem",
-        BppLogFieldPrivacy.UntrustedText,
         BppLogCorrelationPolicy.None,
         BppLogCardinality.High
     );
@@ -152,5 +151,5 @@ internal static class VoiceCatalogLogEvents
         int order,
         string name,
         BppLogCardinality cardinality
-    ) => new(order, name, BppLogFieldPrivacy.Public, BppLogCorrelationPolicy.None, cardinality);
+    ) => new(order, name, BppLogCorrelationPolicy.None, cardinality);
 }

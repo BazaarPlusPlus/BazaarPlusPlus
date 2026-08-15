@@ -7,8 +7,7 @@ internal static class NativeTooltipRefreshTransaction
         T current,
         Func<T> createReplacement,
         Func<T, bool> write,
-        Action beforeRehover,
-        Func<bool> rehover
+        Func<T, bool> apply
     )
         where T : class
     {
@@ -38,7 +37,7 @@ internal static class NativeTooltipRefreshTransaction
         }
         catch (Exception ex)
         {
-            var rollback = RollBack(current, write, beforeRehover, rehover, restoreTooltip: false);
+            var rollback = RollBack(current, write, apply, restoreTooltip: false);
             return new NativeTooltipRefreshTransactionResult(
                 rollback.Succeeded
                     ? NativeTooltipRefreshTransactionStatus.WriteFailed
@@ -49,7 +48,7 @@ internal static class NativeTooltipRefreshTransaction
 
         if (!wroteReplacement)
         {
-            var rollback = RollBack(current, write, beforeRehover, rehover, restoreTooltip: false);
+            var rollback = RollBack(current, write, apply, restoreTooltip: false);
             return new NativeTooltipRefreshTransactionResult(
                 rollback.Succeeded
                     ? NativeTooltipRefreshTransactionStatus.WriteFailed
@@ -60,8 +59,7 @@ internal static class NativeTooltipRefreshTransaction
 
         try
         {
-            beforeRehover();
-            if (rehover())
+            if (apply(replacement))
             {
                 return new NativeTooltipRefreshTransactionResult(
                     NativeTooltipRefreshTransactionStatus.Refreshed,
@@ -71,35 +69,28 @@ internal static class NativeTooltipRefreshTransaction
         }
         catch (Exception ex)
         {
-            var rollback = RollBack(current, write, beforeRehover, rehover, restoreTooltip: true);
+            var rollback = RollBack(current, write, apply, restoreTooltip: true);
             return new NativeTooltipRefreshTransactionResult(
                 rollback.Succeeded
-                    ? NativeTooltipRefreshTransactionStatus.RehoverFailed
+                    ? NativeTooltipRefreshTransactionStatus.ApplyFailed
                     : NativeTooltipRefreshTransactionStatus.RollbackFailed,
                 rollback.Exception ?? ex
             );
         }
 
-        var failedRehoverRollback = RollBack(
-            current,
-            write,
-            beforeRehover,
-            rehover,
-            restoreTooltip: true
-        );
+        var failedApplyRollback = RollBack(current, write, apply, restoreTooltip: true);
         return new NativeTooltipRefreshTransactionResult(
-            failedRehoverRollback.Succeeded
-                ? NativeTooltipRefreshTransactionStatus.RehoverFailed
+            failedApplyRollback.Succeeded
+                ? NativeTooltipRefreshTransactionStatus.ApplyFailed
                 : NativeTooltipRefreshTransactionStatus.RollbackFailed,
-            failedRehoverRollback.Exception
+            failedApplyRollback.Exception
         );
     }
 
     private static RollbackResult RollBack<T>(
         T current,
         Func<T, bool> write,
-        Action beforeRehover,
-        Func<bool> rehover,
+        Func<T, bool> apply,
         bool restoreTooltip
     )
         where T : class
@@ -108,12 +99,8 @@ internal static class NativeTooltipRefreshTransaction
         {
             if (!write(current))
                 return new RollbackResult(false, null);
-            if (restoreTooltip)
-            {
-                beforeRehover();
-                if (!rehover())
-                    return new RollbackResult(false, null);
-            }
+            if (restoreTooltip && !apply(current))
+                return new RollbackResult(false, null);
             return new RollbackResult(true, null);
         }
         catch (Exception ex)
@@ -131,7 +118,7 @@ internal enum NativeTooltipRefreshTransactionStatus
     NoChange,
     CreateFailed,
     WriteFailed,
-    RehoverFailed,
+    ApplyFailed,
     RollbackFailed,
 }
 

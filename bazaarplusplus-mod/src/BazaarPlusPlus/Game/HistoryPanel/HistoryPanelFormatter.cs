@@ -1,5 +1,7 @@
 #nullable enable
+using System.Globalization;
 using BazaarPlusPlus.Game.HistoryPanel.Data;
+using BazaarPlusPlus.Localization;
 using UnityEngine;
 
 namespace BazaarPlusPlus.Game.HistoryPanel;
@@ -147,20 +149,60 @@ internal static class HistoryPanelFormatter
 
     public static string FormatTimestamp(DateTimeOffset value)
     {
-        return value.ToLocalTime().ToString("MM-dd HH:mm");
+        return value.ToLocalTime().ToString("g", ResolveTimestampCulture());
     }
 
-    public static string FormatSnapshotSummary(HistoryBattleSnapshotCounts counts)
+    private static CultureInfo ResolveTimestampCulture()
     {
+        var languageCode = L.CurrentLanguageCode?.Trim().Replace('_', '-') ?? string.Empty;
+        if (LanguageCodeMatcher.IsChinese(languageCode))
+            languageCode = L.CurrentMode == BppChineseLocaleMode.Taiwan ? "zh-TW" : "zh-CN";
+
+        return TryResolveSpecificCulture(languageCode, out var culture)
+            ? culture
+            : CultureInfo.CurrentCulture;
+    }
+
+    private static bool TryResolveSpecificCulture(string cultureName, out CultureInfo culture)
+    {
+        try
+        {
+            culture = CultureInfo.GetCultureInfo(cultureName);
+            if (culture.IsNeutralCulture)
+                culture = CultureInfo.CreateSpecificCulture(cultureName);
+            return true;
+        }
+        catch (CultureNotFoundException)
+        {
+            culture = CultureInfo.CurrentCulture;
+            return false;
+        }
+    }
+
+    public static string FormatSnapshotSummary(
+        HistoryBattleSnapshotCounts counts,
+        HistoryBattleSource source
+    )
+    {
+        if (!counts.Known)
+            return HistoryPanelText.SnapshotCountsUnknown();
+
         if (!counts.HasAnyRecordedCard)
             return string.Empty;
 
-        return HistoryPanelText.SnapshotSummary(
-            counts.PlayerHandItemCount,
-            counts.PlayerSkillCount,
-            counts.OpponentHandItemCount,
-            counts.OpponentSkillCount
-        );
+        return source == HistoryBattleSource.Ghost
+            ? HistoryPanelText.GhostSnapshotSummary(
+                counts.PlayerHandItemCount,
+                counts.PlayerSkillCount,
+                counts.OpponentHandItemCount,
+                counts.OpponentSkillCount
+            )
+            : HistoryPanelText.SnapshotSummary(
+                counts.PlayerHandItemCount,
+                counts.PlayerSkillCount,
+                counts.OpponentHandItemCount,
+                counts.OpponentSkillCount
+            );
     }
 
     public static string? NormalizeRank(string? rawRank)

@@ -10,83 +10,245 @@
   <body>
     <main class="settings-shell">
       <header class="page-header">
-        <div>
-          <p class="eyebrow">Stream Overlay</p>
-          <h1>Crop Calibration</h1>
-          <p id="page-status" class="page-status">Loading the selected stream record...</p>
+        <div class="page-heading">
+          <p class="eyebrow" data-i18n="eyebrow">Stream Overlay</p>
+          <h1 data-i18n="heading">Crop Calibration</h1>
+          <p class="page-intro" data-i18n="pageIntro">
+            Define the exact part of the end-of-run screenshot that appears in
+            your stream overlay.
+          </p>
         </div>
-        <p class="header-note">Adjust the crop directly on the source screenshot, then save or copy the code.</p>
+
+        <ol
+          class="calibration-steps"
+          data-i18n-aria-label="stepsLabel"
+          aria-label="Calibration steps"
+        >
+          <li>
+            <span class="step-number" aria-hidden="true">1</span>
+            <span>
+              <strong data-i18n="stepAdjustTitle">Adjust</strong>
+              <small data-i18n="stepAdjustDetail">Frame the result</small>
+            </span>
+          </li>
+          <li>
+            <span class="step-number" aria-hidden="true">2</span>
+            <span>
+              <strong data-i18n="stepPreviewTitle">Preview</strong>
+              <small data-i18n="stepPreviewDetail">Check the output</small>
+            </span>
+          </li>
+          <li>
+            <span class="step-number" aria-hidden="true">3</span>
+            <span>
+              <strong data-i18n="stepSaveTitle">Save</strong>
+              <small data-i18n="stepSaveDetail">Apply to the overlay</small>
+            </span>
+          </li>
+        </ol>
       </header>
 
+      <div
+        id="page-status"
+        class="page-status"
+        role="status"
+        aria-live="polite"
+        data-state="loading"
+      >
+        <span class="status-indicator" aria-hidden="true"></span>
+        <span id="page-status-text" data-i18n="statusLoading"
+          >Loading the selected stream record...</span
+        >
+      </div>
+
       <section class="workspace">
-        <section class="preview-panel">
+        <section class="preview-panel" aria-labelledby="preview-heading">
           <div class="panel-heading">
-            <p class="panel-eyebrow">Preview</p>
-            <h2>Adjust once, preview everywhere</h2>
+            <div>
+              <p class="panel-eyebrow" data-i18n="previewEyebrow">Preview</p>
+              <h2 id="preview-heading" data-i18n="previewHeading">
+                Frame your overlay precisely
+              </h2>
+            </div>
+            <p id="selected-meta" class="selected-meta" data-i18n="noSample">
+              No sample selected
+            </p>
           </div>
 
-          <div id="preview-empty" class="preview-empty">
+          <div
+            id="preview-empty"
+            class="preview-empty"
+            data-i18n="previewEmpty"
+          >
             Waiting for screenshots with end-of-run crops.
           </div>
 
           <div id="preview-workspace" class="preview-workspace" hidden>
-            <div class="full-preview-card">
-              <p class="section-label">Source image</p>
-              <p id="selected-meta" class="selected-meta">No sample selected</p>
+            <figure class="preview-card full-preview-card">
+              <figcaption>
+                <span class="section-label" data-i18n="sourceImage"
+                  >Source image</span
+                >
+                <span class="preview-caption" data-i18n="sourceHint"
+                  >The highlighted frame is the selected area.</span
+                >
+              </figcaption>
               <div class="full-preview-stage">
-                <img id="full-preview-image" alt="Selected end-of-run record image" />
+                <img id="full-preview-image" alt="" data-i18n-alt="imageAlt" />
                 <div id="crop-box" class="crop-box" aria-hidden="true"></div>
               </div>
-            </div>
+            </figure>
+
+            <figure class="preview-card result-preview-card">
+              <figcaption>
+                <span class="section-label" data-i18n="resultImage"
+                  >Overlay output</span
+                >
+                <span class="preview-caption" data-i18n="resultHint"
+                  >This is what viewers will see.</span
+                >
+              </figcaption>
+              <div class="result-preview-stage">
+                <img
+                  id="strip-preview-image"
+                  alt=""
+                  data-i18n-alt="resultAlt"
+                />
+              </div>
+            </figure>
           </div>
         </section>
 
-        <aside class="controls-panel">
+        <aside class="controls-panel" aria-labelledby="controls-heading">
           <div class="panel-heading">
-            <p class="panel-eyebrow">Controls</p>
-            <h2>Crop ratios</h2>
+            <div>
+              <p class="panel-eyebrow" data-i18n="controlsEyebrow">Controls</p>
+              <h2 id="controls-heading" data-i18n="controlsHeading">
+                Fine-tune the crop
+              </h2>
+            </div>
           </div>
 
           <form id="crop-form" class="control-list">
-            <label class="control-row">
-              <span class="control-topline">
-                <span>Left</span>
-                <output id="crop-left-value" for="crop-left">0.342</output>
-              </span>
-              <input id="crop-left" name="left" type="range" min="0" max="0.8" step="0.001" />
-            </label>
-            <label class="control-row">
-              <span class="control-topline">
-                <span>Top</span>
-                <output id="crop-top-value" for="crop-top">0.313</output>
-              </span>
-              <input id="crop-top" name="top" type="range" min="0" max="0.8" step="0.001" />
-            </label>
-            <label class="control-row">
-              <span class="control-topline">
-                <span>Width</span>
-                <output id="crop-width-value" for="crop-width">0.580</output>
-              </span>
-              <input id="crop-width" name="width" type="range" min="0.1" max="0.95" step="0.001" />
-            </label>
-            <label class="control-row">
-              <span class="control-topline">
-                <span>Height</span>
-                <output id="crop-height-value" for="crop-height">0.220</output>
-              </span>
-              <input id="crop-height" name="height" type="range" min="0.05" max="0.5" step="0.001" />
-            </label>
+            <fieldset class="control-group">
+              <legend data-i18n="positionGroup">Position</legend>
+              <label class="control-row">
+                <span class="control-topline">
+                  <span id="crop-left-label" data-i18n="cropLeft"
+                    >Horizontal start</span
+                  >
+                  <output id="crop-left-value" for="crop-left">34.2%</output>
+                </span>
+                <input
+                  id="crop-left"
+                  name="left"
+                  type="range"
+                  min="0"
+                  max="0.8"
+                  step="0.001"
+                  aria-labelledby="crop-left-label"
+                />
+              </label>
+              <label class="control-row">
+                <span class="control-topline">
+                  <span id="crop-top-label" data-i18n="cropTop"
+                    >Vertical start</span
+                  >
+                  <output id="crop-top-value" for="crop-top">31.3%</output>
+                </span>
+                <input
+                  id="crop-top"
+                  name="top"
+                  type="range"
+                  min="0"
+                  max="0.8"
+                  step="0.001"
+                  aria-labelledby="crop-top-label"
+                />
+              </label>
+            </fieldset>
+
+            <fieldset class="control-group">
+              <legend data-i18n="sizeGroup">Size</legend>
+              <label class="control-row">
+                <span class="control-topline">
+                  <span id="crop-width-label" data-i18n="cropWidth">Width</span>
+                  <output id="crop-width-value" for="crop-width">58.0%</output>
+                </span>
+                <input
+                  id="crop-width"
+                  name="width"
+                  type="range"
+                  min="0.1"
+                  max="0.95"
+                  step="0.001"
+                  aria-labelledby="crop-width-label"
+                />
+              </label>
+              <label class="control-row">
+                <span class="control-topline">
+                  <span id="crop-height-label" data-i18n="cropHeight"
+                    >Height</span
+                  >
+                  <output id="crop-height-value" for="crop-height"
+                    >22.0%</output
+                  >
+                </span>
+                <input
+                  id="crop-height"
+                  name="height"
+                  type="range"
+                  min="0.05"
+                  max="0.5"
+                  step="0.001"
+                  aria-labelledby="crop-height-label"
+                />
+              </label>
+            </fieldset>
+
+            <p class="control-hint" data-i18n="controlHint">
+              Tip: focus a slider and use the arrow keys for precise
+              adjustments.
+            </p>
+
+            <div class="actions">
+              <button
+                id="save-button"
+                class="primary-button"
+                type="button"
+                data-i18n="saveButton"
+                disabled
+              >
+                Save changes
+              </button>
+              <button
+                id="reset-button"
+                type="button"
+                data-i18n="resetButton"
+                disabled
+              >
+                Undo changes
+              </button>
+            </div>
           </form>
 
-          <div class="actions">
-            <button id="save-button" class="primary-button" type="button">Save Crop</button>
-            <button id="copy-button" type="button">Copy Base64 Code</button>
-          </div>
-
-          <div class="code-block">
-            <span class="section-label">Settings code</span>
-            <code id="settings-code" class="settings-code-text"></code>
-          </div>
+          <details class="code-disclosure">
+            <summary>
+              <span data-i18n="settingsCodeSummary"
+                >Advanced: configuration code</span
+              >
+              <span class="code-format">Base64</span>
+            </summary>
+            <div class="code-block">
+              <p data-i18n="settingsCodeHint">
+                Use this code to transfer the same crop to another setup.
+              </p>
+              <code id="settings-code" class="settings-code-text"></code>
+              <button id="copy-button" type="button" data-i18n="copyButton">
+                Copy code
+              </button>
+            </div>
+          </details>
         </aside>
       </section>
     </main>

@@ -77,6 +77,7 @@ internal static class BppTooltipSections
             return false;
         }
         section.Text.SetText(content);
+        section.Text.gameObject.SetActive(true);
         var siblingIndex = anchor.transform.GetSiblingIndex() + 1;
         if (section.Divider != null)
         {

@@ -1,7 +1,8 @@
 #nullable enable
+using System.Text;
 using BazaarPlusPlus.ModApi.Http;
 using BazaarPlusPlus.ModApi.Models;
-using Newtonsoft.Json.Linq;
+using Newtonsoft.Json;
 
 namespace BazaarPlusPlus.ModApi.Clients;
 
@@ -17,18 +18,20 @@ public enum BazaarDbLinkOutcome
 
 public readonly struct BazaarDbLinkResult
 {
-    private BazaarDbLinkResult(BazaarDbLinkOutcome outcome, int? statusCode, string? error)
+    private BazaarDbLinkResult(BazaarDbLinkOutcome outcome, int? statusCode, ModApiFailure? failure)
     {
         Outcome = outcome;
         StatusCode = statusCode;
-        Error = error;
+        Failure = failure;
     }
 
     public BazaarDbLinkOutcome Outcome { get; }
 
     public int? StatusCode { get; }
 
-    public string? Error { get; }
+    public ModApiFailure? Failure { get; }
+    public string? Error => Failure?.UserCode;
+    public Exception? DiagnosticException => Failure?.DiagnosticException;
 
     public bool Succeeded => Outcome == BazaarDbLinkOutcome.Linked;
 
@@ -36,7 +39,13 @@ public readonly struct BazaarDbLinkResult
         new(BazaarDbLinkOutcome.Linked, statusCode, null);
 
     public static BazaarDbLinkResult From(BazaarDbLinkOutcome o, int? status, string? error) =>
-        new(o, status, error);
+        new(o, status, error == null ? null : new ModApiFailure(error));
+
+    internal static BazaarDbLinkResult Failed(
+        BazaarDbLinkOutcome outcome,
+        int? statusCode,
+        ModApiFailure failure
+    ) => new(outcome, statusCode, failure);
 }
 
 /// <summary>
@@ -79,14 +88,25 @@ public sealed class BazaarDbLinkClient : IDisposable
         };
         try
         {
-            var result = await ModApiJsonPost
-                .PostJsonAsync(_httpClient, _redeemEndpoint.AbsoluteUri, payload, cancellationToken)
+            var bodyBytes = Encoding.UTF8.GetBytes(
+                JsonConvert.SerializeObject(payload, ModApiSerialization.SerializerSettings)
+            );
+            using var request = new HttpRequestMessage(HttpMethod.Post, _redeemEndpoint)
+            {
+                Content = new ByteArrayContent(bodyBytes),
+            };
+            request.Content.Headers.ContentType = new("application/json");
+            using var response = await _httpClient
+                .SendAsync(request, cancellationToken)
+                .ConfigureAwait(false);
+            var result = await ModApiResponse
+                .ReadAsync(response, ModApiBodyReadPolicy.Json, cancellationToken)
                 .ConfigureAwait(false);
 
             if (result.IsSuccess)
                 return BazaarDbLinkResult.Linked(result.StatusCode);
 
-            return Classify(result.StatusCode, result.FailureBody!);
+            return Classify(result);
         }
         catch (OperationCanceledException)
         {
@@ -94,33 +114,49 @@ public sealed class BazaarDbLinkClient : IDisposable
         }
         catch (Exception ex)
         {
-            return BazaarDbLinkResult.From(
+            return BazaarDbLinkResult.Failed(
                 BazaarDbLinkOutcome.Transport,
                 null,
-                ModApiErrorFormatter.Truncate(ex.Message)
+                new ModApiFailure("transport_error", diagnosticException: ex)
             );
         }
     }
 
-    private static BazaarDbLinkResult Classify(int statusCode, string failureBody)
+    private static BazaarDbLinkResult Classify(ModApiResponse response)
     {
-        var error = ExtractErrorCode(failureBody);
-        var detail = ModApiErrorFormatter.FormatHttpFailure(statusCode, failureBody);
+        var statusCode = response.StatusCode;
+        var error = response.Error.Code;
 
         if (error == "already_linked" || statusCode == 409)
-            return BazaarDbLinkResult.From(BazaarDbLinkOutcome.AlreadyLinked, statusCode, detail);
+            return BazaarDbLinkResult.Failed(
+                BazaarDbLinkOutcome.AlreadyLinked,
+                statusCode,
+                new ModApiFailure("already_linked", response: response)
+            );
         if (error == "invalid_or_expired")
-            return BazaarDbLinkResult.From(
+            return BazaarDbLinkResult.Failed(
                 BazaarDbLinkOutcome.InvalidOrExpired,
                 statusCode,
-                detail
+                new ModApiFailure("invalid_or_expired", response: response)
             );
         if (IsMissingFieldError(error))
-            return BazaarDbLinkResult.From(BazaarDbLinkOutcome.MissingFields, statusCode, detail);
+            return BazaarDbLinkResult.Failed(
+                BazaarDbLinkOutcome.MissingFields,
+                statusCode,
+                new ModApiFailure("missing_field", response: response)
+            );
         if (statusCode >= 500)
-            return BazaarDbLinkResult.From(BazaarDbLinkOutcome.ServerError, statusCode, detail);
+            return BazaarDbLinkResult.Failed(
+                BazaarDbLinkOutcome.ServerError,
+                statusCode,
+                new ModApiFailure("server_error", response: response)
+            );
 
-        return BazaarDbLinkResult.From(BazaarDbLinkOutcome.InvalidOrExpired, statusCode, detail);
+        return BazaarDbLinkResult.Failed(
+            BazaarDbLinkOutcome.InvalidOrExpired,
+            statusCode,
+            new ModApiFailure("invalid_or_expired", response: response)
+        );
     }
 
     private static bool IsMissingFieldError(string? error)
@@ -130,21 +166,5 @@ public sealed class BazaarDbLinkClient : IDisposable
 
         return error.StartsWith("Missing", StringComparison.Ordinal)
             || error.StartsWith("missing_", StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static string? ExtractErrorCode(string body)
-    {
-        if (string.IsNullOrWhiteSpace(body))
-            return null;
-
-        try
-        {
-            var error = JObject.Parse(body)["error"]?.Value<string>()?.Trim();
-            return string.IsNullOrWhiteSpace(error) ? null : error;
-        }
-        catch (Newtonsoft.Json.JsonException)
-        {
-            return null;
-        }
     }
 }

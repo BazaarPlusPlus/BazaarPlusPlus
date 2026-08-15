@@ -1,52 +1,157 @@
-import { NavLink } from 'react-router-dom';
-import type { ReactNode } from 'react';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
+import type { CSSProperties, MouseEvent, ReactNode } from 'react';
 import { Download, History, Info, MonitorPlay } from 'lucide-react';
 import clsx from 'clsx';
 import { useI18n } from '../i18n/LocaleProvider';
+import { messages } from '../i18n/messages';
 
 export function ShellNavRail() {
-  const { t } = useI18n();
+  const { locale, t } = useI18n();
+  const { pathname } = useLocation();
+  const activeIndex = pathname.startsWith('/history')
+    ? 1
+    : pathname.startsWith('/stream')
+      ? 2
+      : pathname.startsWith('/about')
+        ? 3
+        : 0;
+
   return (
-    <nav className="flex-none w-48 border-r border-[rgba(200,148,55,0.18)] bg-[#0b0906] flex flex-col py-6 z-0">
-      <RailItem to="/" icon={<Download size={18} />} label={t('navInstall')} />
+    <nav className="bpp-nav" aria-label={t('primaryNavigation')}>
+      <div
+        className="bpp-nav-active-slider"
+        aria-hidden="true"
+        style={{ '--bpp-nav-index': activeIndex } as CSSProperties}
+      />
+      <RailItem
+        to="/"
+        index={0}
+        activeIndex={activeIndex}
+        icon={<Download size={21} />}
+        label={t('navInstall')}
+        secondary={locale === 'zh' ? 'INSTALL' : undefined}
+      />
       <RailItem
         to="/history"
-        icon={<History size={18} />}
+        index={1}
+        activeIndex={activeIndex}
+        icon={<History size={21} />}
         label={t('navHistory')}
+        secondary={locale === 'zh' ? 'HISTORY' : undefined}
       />
       <RailItem
         to="/stream"
-        icon={<MonitorPlay size={18} />}
+        index={2}
+        activeIndex={activeIndex}
+        icon={<MonitorPlay size={21} />}
         label={t('navStream')}
+        secondary={locale === 'zh' ? 'STREAM' : undefined}
       />
-      <RailItem to="/about" icon={<Info size={18} />} label={t('navAbout')} />
+      <RailItem
+        to="/about"
+        index={3}
+        activeIndex={activeIndex}
+        icon={<Info size={21} />}
+        label={t('navAbout')}
+        secondary={locale === 'zh' ? 'ABOUT' : undefined}
+      />
+      <div className="bpp-nav-footer">
+        <span>◆</span> {t('kicker')}
+        {locale === 'zh' && (
+          <>
+            <br />
+            {messages.en.kicker}
+          </>
+        )}
+      </div>
     </nav>
   );
 }
 
 function RailItem({
   to,
+  index,
+  activeIndex,
   icon,
-  label
+  label,
+  secondary
 }: {
   to: string;
+  index: number;
+  activeIndex: number;
   icon: ReactNode;
   label: string;
+  secondary?: string;
 }) {
+  const navigate = useNavigate();
+
+  const navigateWithTransition = (event: MouseEvent<HTMLAnchorElement>) => {
+    if (
+      event.button !== 0 ||
+      event.metaKey ||
+      event.ctrlKey ||
+      event.shiftKey ||
+      event.altKey ||
+      index === activeIndex
+    ) {
+      return;
+    }
+
+    event.preventDefault();
+    const root = document.documentElement;
+    if (root.dataset.bppNavTransition === 'running') return;
+
+    const direction = index > activeIndex ? 'forward' : 'backward';
+    const page = document.querySelector<HTMLElement>('.bpp-route-page');
+    if (
+      !page ||
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    ) {
+      navigate(to);
+      return;
+    }
+
+    root.dataset.bppNavTransition = 'running';
+    page.classList.add(
+      direction === 'forward' ? 'is-leaving-up' : 'is-leaving-down'
+    );
+
+    let completed = false;
+    const finish = () => {
+      if (completed) return;
+      completed = true;
+      window.clearTimeout(fallbackTimer);
+      page.removeEventListener('animationend', onAnimationEnd);
+      delete root.dataset.bppNavTransition;
+      navigate(to);
+    };
+    const onAnimationEnd = (animationEvent: AnimationEvent) => {
+      if (
+        animationEvent.target === page &&
+        animationEvent.animationName.startsWith('bpp-page-leave-')
+      ) {
+        finish();
+      }
+    };
+    page.addEventListener('animationend', onAnimationEnd);
+    const fallbackTimer = window.setTimeout(finish, 240);
+  };
+
   return (
     <NavLink
       to={to}
+      onClick={navigateWithTransition}
       className={({ isActive }) =>
-        clsx(
-          'flex items-center gap-3 px-6 py-3 cinzel tracking-widest transition-colors',
-          isActive
-            ? 'bg-[rgba(200,148,55,0.1)] text-[#e8c87a] border-r-2 border-[#e8c87a]'
-            : 'text-[rgba(228,216,191,0.6)] hover:bg-[rgba(200,148,55,0.05)] hover:text-[#e8dcc8] border-r-2 border-transparent'
-        )
+        clsx('bpp-nav-item', isActive && 'is-active')
       }
     >
-      {icon}
-      <span className="text-sm mt-0.5">{label}</span>
+      <span className="bpp-nav-icon relative z-[2] flex items-center">
+        {icon}
+      </span>
+      <span className="relative z-[2]">
+        <span className="bpp-nav-primary">{label}</span>
+        {secondary && <span className="bpp-nav-secondary">{secondary}</span>}
+      </span>
     </NavLink>
   );
 }

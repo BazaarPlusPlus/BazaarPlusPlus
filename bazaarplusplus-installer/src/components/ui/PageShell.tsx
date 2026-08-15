@@ -5,15 +5,17 @@ export function PageShell({
   eyebrow,
   title,
   action,
+  className,
   children
 }: {
-  eyebrow: string;
+  eyebrow?: string;
   title: string;
   action?: ReactNode;
+  className?: string;
   children: ReactNode;
 }) {
   return (
-    <div className="flex flex-col gap-6 w-full h-full max-w-5xl mx-auto">
+    <div className={`bpp-page ${className ?? ''}`}>
       <PageHeader eyebrow={eyebrow} title={title} action={action} />
       {children}
     </div>

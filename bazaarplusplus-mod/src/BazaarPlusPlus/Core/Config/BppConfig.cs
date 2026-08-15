@@ -7,7 +7,10 @@ namespace BazaarPlusPlus.Core.Config;
 internal sealed class BppConfig : IBppConfig
 {
     internal const PreviewVisibilityMode DefaultEnchantPreviewMode = PreviewVisibilityMode.Always;
+    internal const HotkeyActivationMode DefaultUpgradePreviewActivationMode =
+        HotkeyActivationMode.Hold;
     internal const SubtitlePosition DefaultVoiceSubtitlesPosition = SubtitlePosition.TopCenter;
+    internal const float DefaultFsrSharpness = 0.92f;
 
     public ConfigEntry<bool>? EnableNameOverrideConfig { get; private set; }
 
@@ -39,6 +42,12 @@ internal sealed class BppConfig : IBppConfig
 
     public ConfigEntry<string>? UpgradePreviewHotkeyPathConfig { get; private set; }
 
+    public ConfigEntry<HotkeyActivationMode>? UpgradePreviewActivationModeConfig
+    {
+        get;
+        private set;
+    }
+
     public ConfigEntry<string>? ToggleCollectionPanelHotkeyPathConfig { get; private set; }
 
     public ConfigEntry<string>? ToggleLiveBuildPanelHotkeyPathConfig { get; private set; }
@@ -52,6 +61,10 @@ internal sealed class BppConfig : IBppConfig
         get;
         private set;
     }
+
+    public ConfigEntry<GraphicsUpscalingMode>? GraphicsUpscalingModeConfig { get; private set; }
+
+    public ConfigEntry<float>? GraphicsUpscalingSharpnessConfig { get; private set; }
 
     public ConfigEntry<bool>? BazaarDbUploadEnabled { get; private set; }
 
@@ -155,6 +168,12 @@ internal sealed class BppConfig : IBppConfig
             "<Keyboard>/shift",
             "Binding path for upgrade preview tooltip mode."
         );
+        UpgradePreviewActivationModeConfig = config.Bind(
+            "Hotkeys",
+            "UpgradePreviewActivationMode",
+            DefaultUpgradePreviewActivationMode,
+            "How Shift behaves across BazaarPlusPlus preview features. Hold = active only while Shift is held. Toggle = each Shift press switches the upgrade preview and music-note overlay on or off."
+        );
         ToggleCollectionPanelHotkeyPathConfig = config.Bind(
             "Hotkeys",
             "ToggleCollectionPanel",
@@ -187,6 +206,21 @@ internal sealed class BppConfig : IBppConfig
             "Mode",
             LegendaryPositionDisplayMode.Default,
             "How BazaarPlusPlus should rewrite native Legendary leaderboard position labels. Default keeps the original value, Blank clears it, Fixed999999 forces 999999, and PositionWithRating shows '#position | rating'."
+        );
+        GraphicsUpscalingModeConfig = config.Bind(
+            "Graphics",
+            "UpscalingMode",
+            GraphicsUpscalingMode.Native,
+            "Desktop FSR 1 render-resolution upscaling mode for macOS and Windows. Native preserves the game's original URP settings. Ultra Quality renders at 77%, Quality at 67%, Balanced at 59%, and Performance at 50% per axis."
+        );
+        GraphicsUpscalingSharpnessConfig = config.Bind(
+            "Graphics",
+            "FsrSharpness",
+            DefaultFsrSharpness,
+            new ConfigDescription(
+                "FSR 1 RCAS sharpening strength. 0 is softest and 1 is sharpest.",
+                new AcceptableValueRange<float>(0f, 1f)
+            )
         );
         // BazaarDB
         BazaarDbUploadEnabled = config.Bind(

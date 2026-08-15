@@ -22,6 +22,7 @@ public sealed class BazaarAgentHostPlugin : BaseUnityPlugin
 
     private BazaarAgentRuntimeController? _controller;
     private BazaarAgentBepInExLogger? _hostLogger;
+    private BazaarAgentPedestalVisualRefresh? _pedestalVisualRefresh;
 
     private void Awake()
     {
@@ -36,16 +37,13 @@ public sealed class BazaarAgentHostPlugin : BaseUnityPlugin
 
         var options = new BazaarAgentBepInExOptions();
         var contextReader = new BazaarAgentGameContextReader(gameProbe, logger);
-        var dispatcher = new BazaarAgentGameActionDispatcher();
-        // Replay control (record/continue) is the only path that may exit ReplayState, and only
-        // on an explicit POST /v1/replay/continue. No tick-driven replay auto-advance exists.
-        var replaySink = new BazaarAgentGameReplayControlSink();
-
+        var pedestalVisualRefresh = gameObject.AddComponent<BazaarAgentPedestalVisualRefresh>();
+        _pedestalVisualRefresh = pedestalVisualRefresh;
+        var dispatcher = new BazaarAgentGameActionDispatcher(gameProbe, pedestalVisualRefresh);
         _controller = new BazaarAgentRuntimeController(
             options,
             contextReader,
             dispatcher,
-            replaySink,
             logger,
             new SystemBazaarAgentClock()
         );
@@ -59,6 +57,7 @@ public sealed class BazaarAgentHostPlugin : BaseUnityPlugin
     {
         _controller?.Dispose();
         _controller = null;
+        _pedestalVisualRefresh = null;
         _hostLogger?.Dispose();
         _hostLogger = null;
     }

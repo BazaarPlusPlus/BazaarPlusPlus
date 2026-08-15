@@ -6,9 +6,9 @@ using BazaarPlusPlus.Game.PvpBattles;
 using BazaarPlusPlus.Game.PvpBattles.Persistence;
 using BazaarPlusPlus.GameInterop;
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Storage.Paths;
 using BazaarPlusPlus.Storage.RunLog;
 using BazaarPlusPlus.Storage.RunLog.Replication;
-using BazaarPlusPlus.Storage.Upload;
 
 namespace BazaarPlusPlus.Game.RunLogging;
 
@@ -29,6 +29,9 @@ internal sealed class RunLoggingModule : IBppFeature
     private readonly Func<bool> _hasPendingReplayPersistence;
     private readonly Func<DateTime> _utcNow;
     private readonly Func<TimeSpan, Action, IDisposable> _scheduleDeferredCompletion;
+    private readonly Func<string?> _playerAccountIdResolver;
+    private readonly Func<bool> _bundleScreenshotRequestedResolver;
+    private readonly Func<string?> _modVersionResolver;
     private IDisposable? _storeLifetime;
     private RunLogSessionManager? _sessionManager;
     private IDisposable? _runLifecycleSubscription;
@@ -58,8 +61,12 @@ internal sealed class RunLoggingModule : IBppFeature
             battleCatalog,
             hasPendingReplayPersistence,
             static () => DateTime.UtcNow,
-            services.Paths.RunLogDatabasePath,
-            scheduleDeferredCompletion: null
+            PathConstants.RunLogDatabase(services.Paths.RequireDataRoot()),
+            scheduleDeferredCompletion: null,
+            playerAccountIdResolver: BppClientCacheBridge.TryGetProfileAccountId,
+            bundleScreenshotRequestedResolver: () =>
+                services.Config.BazaarDbUploadEnabled?.Value ?? false,
+            modVersionResolver: () => BppPluginVersion.Current
         ) { }
 
     internal RunLoggingModule(
@@ -72,7 +79,10 @@ internal sealed class RunLoggingModule : IBppFeature
         Func<bool> hasPendingReplayPersistence,
         Func<DateTime>? utcNow = null,
         string? databasePath = null,
-        Func<TimeSpan, Action, IDisposable>? scheduleDeferredCompletion = null
+        Func<TimeSpan, Action, IDisposable>? scheduleDeferredCompletion = null,
+        Func<string?>? playerAccountIdResolver = null,
+        Func<bool>? bundleScreenshotRequestedResolver = null,
+        Func<string?>? modVersionResolver = null
     )
         : this(
             eventBus,
@@ -84,7 +94,10 @@ internal sealed class RunLoggingModule : IBppFeature
             hasPendingReplayPersistence,
             utcNow,
             databasePath,
-            scheduleDeferredCompletion
+            scheduleDeferredCompletion,
+            playerAccountIdResolver,
+            bundleScreenshotRequestedResolver,
+            modVersionResolver
         ) { }
 
     internal RunLoggingModule(
@@ -97,7 +110,10 @@ internal sealed class RunLoggingModule : IBppFeature
         Func<bool> hasPendingReplayPersistence,
         Func<DateTime>? utcNow = null,
         string? databasePath = null,
-        Func<TimeSpan, Action, IDisposable>? scheduleDeferredCompletion = null
+        Func<TimeSpan, Action, IDisposable>? scheduleDeferredCompletion = null,
+        Func<string?>? playerAccountIdResolver = null,
+        Func<bool>? bundleScreenshotRequestedResolver = null,
+        Func<string?>? modVersionResolver = null
     )
     {
         _eventBus = eventBus ?? throw new ArgumentNullException(nameof(eventBus));
@@ -113,6 +129,9 @@ internal sealed class RunLoggingModule : IBppFeature
         _utcNow = utcNow ?? (() => DateTime.UtcNow);
         _scheduleDeferredCompletion =
             scheduleDeferredCompletion ?? ScheduleDeferredCompletionWithTimer;
+        _playerAccountIdResolver = playerAccountIdResolver ?? (() => null);
+        _bundleScreenshotRequestedResolver = bundleScreenshotRequestedResolver ?? (() => false);
+        _modVersionResolver = modVersionResolver ?? (() => null);
     }
 
     public void Start()
@@ -230,11 +249,7 @@ internal sealed class RunLoggingModule : IBppFeature
     private static IRunLogStore CreateStore(IBppServices services)
     {
         var sqliteStore = new RunLogStore(services.Paths);
-        var uploadStore = new RunSyncStateStore(services.Paths);
-        return new QueuedRunLogStore(
-            new ReplicatedRunLogStore(sqliteStore, uploadStore),
-            new RunLogStoreLoggerBridge()
-        );
+        return new QueuedRunLogStore(sqliteStore, new RunLogStoreLoggerBridge());
     }
 
     private static IDisposable ScheduleDeferredCompletionWithTimer(
@@ -475,7 +490,11 @@ internal sealed class RunLoggingModule : IBppFeature
         }
 
         var sessionManager = RequireSessionManager();
+        request.PlayerAccountId = _playerAccountIdResolver();
+        request.BundleScreenshotRequested = _bundleScreenshotRequestedResolver();
+        request.ModVersion = _modVersionResolver();
         var session = sessionManager.EnsureActiveSession(request);
+        sessionManager.SetPlayerAccountIdOnce(_playerAccountIdResolver());
         if (string.Equals(_startedEventRunId, session.RunId, StringComparison.Ordinal))
             return session;
 
@@ -605,6 +624,7 @@ internal sealed class RunLoggingModule : IBppFeature
         }
 
         var completedRunId = activeSession.RunId;
+        sessionManager.SetPlayerAccountIdOnce(_playerAccountIdResolver());
         sessionManager.CompleteRun(_deferredRunCompletion);
         _startedEventRunId = null;
         ClearDeferredRunCompletion();

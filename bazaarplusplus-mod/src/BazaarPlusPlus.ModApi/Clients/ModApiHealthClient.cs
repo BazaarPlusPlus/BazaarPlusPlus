@@ -1,11 +1,12 @@
 #nullable enable
 using System.Diagnostics;
+using BazaarPlusPlus.ModApi.Http;
 using BazaarPlusPlus.ModApi.Models;
 using Newtonsoft.Json;
 
 namespace BazaarPlusPlus.ModApi.Clients;
 
-public sealed class ModApiHealthClient
+internal sealed class ModApiHealthClient
 {
     private readonly HttpClient _httpClient;
     private readonly ModApiRoutes _routes;
@@ -25,17 +26,31 @@ public sealed class ModApiHealthClient
             using var response = await _httpClient
                 .GetAsync(_routes.Health, cancellationToken)
                 .ConfigureAwait(false);
-            var body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+            var parsedResponse = await ModApiResponse
+                .ReadAsync(response, ModApiBodyReadPolicy.Json, cancellationToken)
+                .ConfigureAwait(false);
             stopwatch.Stop();
 
-            if (!response.IsSuccessStatusCode)
+            if (!parsedResponse.IsSuccess)
+                return ModApiHealthProbeResult.FailureFrom(
+                    startedAtUtc,
+                    stopwatch.ElapsedMilliseconds,
+                    new ModApiFailure(parsedResponse.UserCode, response: parsedResponse)
+                );
+
+            ModApiHealthResponse? parsed;
+            try
+            {
+                parsed = JsonConvert.DeserializeObject<ModApiHealthResponse>(parsedResponse.Body);
+            }
+            catch (JsonException)
+            {
                 return ModApiHealthProbeResult.Failure(
                     startedAtUtc,
                     stopwatch.ElapsedMilliseconds,
-                    $"http_{(int)response.StatusCode}"
+                    "server_time_invalid"
                 );
-
-            var parsed = JsonConvert.DeserializeObject<ModApiHealthResponse>(body);
+            }
             if (
                 parsed == null
                 || !string.Equals(parsed.Status, "ok", StringComparison.OrdinalIgnoreCase)
@@ -48,18 +63,33 @@ public sealed class ModApiHealthClient
                 );
             }
 
-            if (!DateTime.TryParse(parsed.ServerTimeUtc, out var serverTimeUtc))
+            DateTime serverTimeUtc;
+            if (!parsed.ServerTimeMs.HasValue)
                 return ModApiHealthProbeResult.Failure(
                     startedAtUtc,
                     stopwatch.ElapsedMilliseconds,
                     "server_time_invalid"
                 );
+            try
+            {
+                serverTimeUtc = DateTimeOffset
+                    .FromUnixTimeMilliseconds(parsed.ServerTimeMs.Value)
+                    .UtcDateTime;
+            }
+            catch (ArgumentOutOfRangeException)
+            {
+                return ModApiHealthProbeResult.Failure(
+                    startedAtUtc,
+                    stopwatch.ElapsedMilliseconds,
+                    "server_time_invalid"
+                );
+            }
 
             return ModApiHealthProbeResult.Success(
                 startedAtUtc,
                 stopwatch.ElapsedMilliseconds,
                 parsed.Status,
-                serverTimeUtc.ToUniversalTime()
+                serverTimeUtc
             );
         }
         catch (OperationCanceledException)
@@ -69,10 +99,10 @@ public sealed class ModApiHealthClient
         catch (Exception ex)
         {
             stopwatch.Stop();
-            return ModApiHealthProbeResult.Failure(
+            return ModApiHealthProbeResult.FailureFrom(
                 startedAtUtc,
                 stopwatch.ElapsedMilliseconds,
-                ModApiErrorFormatter.Truncate(ex.Message)
+                new ModApiFailure("transport_error", diagnosticException: ex)
             );
         }
     }
@@ -86,7 +116,7 @@ public readonly struct ModApiHealthProbeResult
         long roundTripMilliseconds,
         string? status,
         DateTime? serverTimeUtc,
-        string? error
+        ModApiFailure? failure
     )
     {
         Succeeded = succeeded;
@@ -94,7 +124,7 @@ public readonly struct ModApiHealthProbeResult
         RoundTripMilliseconds = roundTripMilliseconds;
         Status = status;
         ServerTimeUtc = serverTimeUtc;
-        Error = error;
+        FailureInfo = failure;
     }
 
     public bool Succeeded { get; }
@@ -102,7 +132,9 @@ public readonly struct ModApiHealthProbeResult
     public long RoundTripMilliseconds { get; }
     public string? Status { get; }
     public DateTime? ServerTimeUtc { get; }
-    public string? Error { get; }
+    public ModApiFailure? FailureInfo { get; }
+    public string? Error => FailureInfo?.UserCode;
+    public Exception? DiagnosticException => FailureInfo?.DiagnosticException;
 
     public static ModApiHealthProbeResult Success(
         DateTime probedAtUtc,
@@ -115,5 +147,11 @@ public readonly struct ModApiHealthProbeResult
         DateTime probedAtUtc,
         long roundTripMilliseconds,
         string error
-    ) => new(false, probedAtUtc, roundTripMilliseconds, null, null, error);
+    ) => FailureFrom(probedAtUtc, roundTripMilliseconds, new ModApiFailure(error));
+
+    internal static ModApiHealthProbeResult FailureFrom(
+        DateTime probedAtUtc,
+        long roundTripMilliseconds,
+        ModApiFailure failure
+    ) => new(false, probedAtUtc, roundTripMilliseconds, null, null, failure);
 }

@@ -1,0 +1,7 @@
+[
+  { "name": "Bronze Sponsor A", "tier": 2 },
+  { "name": "Bronze Sponsor B", "tier": 2 },
+  { "name": "Silver Sponsor A", "tier": 3 },
+  { "name": "Silver Sponsor B", "tier": 3 },
+  { "name": "Gold Sponsor A", "tier": 4 }
+]

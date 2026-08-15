@@ -21,7 +21,6 @@ internal enum HistoryPanelMountDependency
 {
     CombatReplayRuntime,
     OverlayPanelHost,
-    OnlineClient,
 }
 
 internal enum HistoryPanelMountReasonCode

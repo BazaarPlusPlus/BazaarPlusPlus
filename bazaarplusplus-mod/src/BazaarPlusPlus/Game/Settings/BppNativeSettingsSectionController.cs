@@ -370,6 +370,8 @@ internal sealed class BppNativeSettingsSectionController : MonoBehaviour
         {
             presentationHash = (presentationHash * 31) ^ row.Definition.Key.GetHashCode();
             presentationHash = (presentationHash * 31) ^ row.Definition.IsActive().GetHashCode();
+            presentationHash =
+                (presentationHash * 31) ^ row.Definition.ResolveLabel(languageCode).GetHashCode();
             switch (row.Definition.ControlKind)
             {
                 case BppSettingsControlKind.Toggle:

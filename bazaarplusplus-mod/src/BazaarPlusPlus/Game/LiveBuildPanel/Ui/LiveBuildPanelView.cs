@@ -216,22 +216,15 @@ internal sealed class LiveBuildPanelView : IDisposable
     private void RebuildHeroStrip(TenWinCorpusSummary? summary)
     {
         _heroStrip!.Clear();
-        if (summary is not { } value)
-            return;
-
-        foreach (var entry in value.HeroBuildCounts)
-        {
-            if (!HeroVisual.IsPlayableHero(entry.Hero))
-                continue;
-
+        foreach (var entry in LiveBuildHeroPresentation.SelectHeroBuildCounts(summary))
             _heroStrip.Add(BuildHeroTile(entry));
-        }
     }
 
     private static VisualElement BuildHeroTile(TenWinHeroBuildCount entry)
     {
         var badge = HeroVisual.Resolve(entry.Hero);
         var count = entry.BuildCount.ToString("N0", CultureInfo.CurrentCulture);
+        var displayName = LiveBuildHeroPresentation.DisplayName(entry.Hero);
 
         var tile = new VisualElement();
         tile.style.flexGrow = 1f;
@@ -239,7 +232,7 @@ internal sealed class LiveBuildPanelView : IDisposable
         tile.style.minWidth = 0f;
         tile.style.alignItems = Align.Center;
         tile.style.overflow = Overflow.Hidden;
-        tile.tooltip = $"{entry.Hero} {count}";
+        tile.tooltip = $"{displayName} {count}";
 
         var countLabel = CreateLabel(14, FontStyle.Bold, Colors.HistoryProgressText);
         countLabel.text = count;

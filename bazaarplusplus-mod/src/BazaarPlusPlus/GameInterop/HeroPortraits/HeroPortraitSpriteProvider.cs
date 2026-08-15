@@ -15,7 +15,7 @@ internal static class HeroPortraitSpriteProvider
     );
 
     internal static bool IsRenderableHero(EHero hero) =>
-        hero != EHero.Common && !string.Equals(hero.ToString(), "Hero8", StringComparison.Ordinal);
+        hero != EHero.Common && Enum.IsDefined(typeof(EHero), hero);
 
     internal static bool TryGetCached(EHero hero, out HeroPortraitLoadOutcome? outcome)
     {

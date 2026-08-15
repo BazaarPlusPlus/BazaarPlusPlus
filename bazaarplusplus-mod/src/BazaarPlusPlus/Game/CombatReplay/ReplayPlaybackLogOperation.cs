@@ -46,7 +46,7 @@ internal sealed class ReplayPlaybackLogOperation : IReplayPlaybackOutcomeSink
     private readonly Func<long> _monotonicMilliseconds;
     private readonly long _startedAtMilliseconds;
     private readonly CombatReplayPlaybackSource _source;
-    private readonly bool _recordVideo;
+    private bool _recordVideo;
     private bool _started;
     private bool _terminal;
     private int _degradationCount;
@@ -68,6 +68,26 @@ internal sealed class ReplayPlaybackLogOperation : IReplayPlaybackOutcomeSink
     }
 
     public string BattleId { get; }
+    internal bool RecordVideo
+    {
+        get
+        {
+            lock (_gate)
+                return _recordVideo;
+        }
+    }
+
+    internal bool TryPromoteToRecording()
+    {
+        lock (_gate)
+        {
+            if (_terminal)
+                return false;
+
+            _recordVideo = true;
+            return true;
+        }
+    }
 
     internal bool IsTerminal
     {

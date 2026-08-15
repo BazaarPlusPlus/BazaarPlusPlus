@@ -16,23 +16,6 @@ internal sealed class BppStaticCardMapProvider
     private Task _loadTail = Task.CompletedTask;
 
     /// <summary>
-    /// True when the currently ready static-data manager already has a shared load task.
-    /// A manager replacement therefore returns false until its own load is kicked.
-    /// </summary>
-    public bool HasLoadStartedForCurrentSource
-    {
-        get
-        {
-            var source = BppStaticDataAccess.TryGetReadyManagerObject();
-            if (source == null)
-                return false;
-
-            lock (_syncRoot)
-                return ReferenceEquals(source, _currentSource) && _currentLoad != null;
-        }
-    }
-
-    /// <summary>
     /// Starts or returns the shared load for the currently ready static-data manager. Returns
     /// <c>null</c> without blocking when static data is not ready yet.
     /// </summary>

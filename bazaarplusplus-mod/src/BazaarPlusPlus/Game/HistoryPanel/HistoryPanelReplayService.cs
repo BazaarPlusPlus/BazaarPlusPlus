@@ -10,66 +10,45 @@ namespace BazaarPlusPlus.Game.HistoryPanel;
 internal sealed class HistoryPanelReplayService
 {
     private readonly Func<CombatReplayRuntime?> _runtimeAccessor;
-    private readonly Func<string?> _replayDirectoryPathAccessor;
-    private readonly Func<string?> _pluginsDirectoryPathAccessor;
-    private readonly Func<string?> _videoDirectoryPathAccessor;
+    private readonly string _replayDirectoryPath;
+    private readonly string _pluginsDirectoryPath;
+    private readonly string _videoDirectoryPath;
     private readonly GhostBattleSyncService? _ghostSyncService;
 
     public HistoryPanelReplayService(
         Func<CombatReplayRuntime?> runtimeAccessor,
-        Func<string?> replayDirectoryPathAccessor,
-        Func<string?> pluginsDirectoryPathAccessor,
-        Func<string?> videoDirectoryPathAccessor,
+        string replayDirectoryPath,
+        string pluginsDirectoryPath,
+        string videoDirectoryPath,
         GhostBattleSyncService? ghostSyncService = null
     )
     {
         _runtimeAccessor =
             runtimeAccessor ?? throw new ArgumentNullException(nameof(runtimeAccessor));
-        _replayDirectoryPathAccessor =
-            replayDirectoryPathAccessor
-            ?? throw new ArgumentNullException(nameof(replayDirectoryPathAccessor));
-        _pluginsDirectoryPathAccessor =
-            pluginsDirectoryPathAccessor
-            ?? throw new ArgumentNullException(nameof(pluginsDirectoryPathAccessor));
-        _videoDirectoryPathAccessor =
-            videoDirectoryPathAccessor
-            ?? throw new ArgumentNullException(nameof(videoDirectoryPathAccessor));
+        // Paths are startup-stable strings (no Func wrappers). Null coalesces to empty so
+        // downstream IsNullOrWhiteSpace checks stay fail-open without ArgumentNullException.
+        _replayDirectoryPath = replayDirectoryPath ?? string.Empty;
+        _pluginsDirectoryPath = pluginsDirectoryPath ?? string.Empty;
+        _videoDirectoryPath = videoDirectoryPath ?? string.Empty;
         _ghostSyncService = ghostSyncService;
     }
 
-    // Capture the Unity-owned dimensions/FPS on the UI thread, then resolve FFmpeg and its
-    // actual-settings encoder profile in the background. Per-refresh gates only read warm state.
+    // Capture Unity-owned dimensions/FPS and load the desktop native plugin on the UI thread.
     public void PrewarmRecordingAvailability()
     {
-        var pluginsDirectoryPath = _pluginsDirectoryPathAccessor();
-        var videoDirectoryPath = _videoDirectoryPathAccessor();
-        var hasSettings = ReplayVideoCaptureSettingsCache.TryCaptureCurrent(
-            out var captureSettings
-        );
-        _ = Task.Run(() =>
+        ReplayVideoCaptureSettingsCache.TryCaptureCurrent(out _);
+        var backend = ReplayVideoBackendPolicy.Current;
+        if (backend == ReplayVideoBackend.MacNative)
         {
-            var ffmpegExecutable = FfmpegLocator.Resolve(pluginsDirectoryPath);
-            if (
-                hasSettings
-                && !string.IsNullOrWhiteSpace(ffmpegExecutable)
-                && !string.IsNullOrWhiteSpace(videoDirectoryPath)
-            )
-            {
-                FfmpegVideoEncoderSelector.Prewarm(
-                    ffmpegExecutable,
-                    videoDirectoryPath,
-                    captureSettings.Width,
-                    captureSettings.Height,
-                    captureSettings.Fps
-                );
-            }
-        });
+            MacMetalVideoEncoder.TryGetAvailability(out _);
+            return;
+        }
+        if (backend == ReplayVideoBackend.WindowsNative)
+            WindowsMediaFoundationVideoEncoder.TryGetAvailability(out _);
     }
 
     // Recording is feasible only when the replay itself can run AND the shared recording gate
-    // passes (async GPU readback + ffmpeg + video directory — the same gate the recorder
-    // enforces at capture time). FfmpegLocator.Resolve hits the prewarmed cache here (no probe
-    // on the UI thread).
+    // passes (a native desktop encoder plus a video directory). The backend probe is warm here.
     public bool CanRecordReplay(HistoryBattleRecord? battle, out string reason)
     {
         return CanRecordReplay(battle, out reason, out _);
@@ -87,10 +66,7 @@ internal sealed class HistoryPanelReplayService
             return false;
         }
 
-        var gate = CombatReplayRecordingGate.Evaluate(
-            _pluginsDirectoryPathAccessor(),
-            _videoDirectoryPathAccessor()
-        );
+        var gate = CombatReplayRecordingGate.Evaluate(_pluginsDirectoryPath, _videoDirectoryPath);
         if (!gate.CanRecord)
         {
             reason = HistoryPanelText.RecordingUnavailable();
@@ -198,35 +174,34 @@ internal sealed class HistoryPanelReplayService
                 HistoryPanelReplayReasonCode.RuntimeUnavailable
             );
 
-        var replayDirectoryPath = _replayDirectoryPathAccessor();
+        var replayDirectoryPath = _replayDirectoryPath;
         if (string.IsNullOrWhiteSpace(replayDirectoryPath))
             return HistoryPanelReplayAttemptResult.Failure(
                 HistoryPanelText.CombatReplayDirectoryUnavailable(),
                 HistoryPanelReplayReasonCode.ReplayDirectoryUnavailable
             );
 
-        if (!battle.ReplayDownloaded)
-        {
-            if (_ghostSyncService == null)
-                return HistoryPanelReplayAttemptResult.Failure(
-                    HistoryPanelText.GhostReplayDownloadUnavailable(),
-                    HistoryPanelReplayReasonCode.GhostDownloadUnavailable
-                );
-
-            var downloadResult = await _ghostSyncService.DownloadReplayAsync(
-                battle.BattleId,
-                replayDirectoryPath,
-                cancellationToken
+        if (_ghostSyncService == null)
+            return HistoryPanelReplayAttemptResult.Failure(
+                HistoryPanelText.GhostReplayDownloadUnavailable(),
+                HistoryPanelReplayReasonCode.GhostDownloadUnavailable
             );
-            if (!downloadResult.Succeeded)
-                return HistoryPanelReplayAttemptResult.Failure(
-                    HistoryPanelText.FailedToDownloadGhostReplay(
-                        downloadResult.Error ?? HistoryPanelText.Unknown()
-                    ),
-                    downloadResult.ReasonCode,
-                    downloadResult.Exception
-                );
-        }
+
+        // Always pass through the sync service so a local_ready row with a missing or corrupt
+        // cache file can be validated and recovered instead of becoming a permanent dead row.
+        var downloadResult = await _ghostSyncService.DownloadReplayAsync(
+            battle.BattleId,
+            replayDirectoryPath,
+            cancellationToken
+        );
+        if (!downloadResult.Succeeded)
+            return HistoryPanelReplayAttemptResult.Failure(
+                HistoryPanelText.FailedToDownloadGhostReplay(
+                    downloadResult.Error ?? HistoryPanelText.Unknown()
+                ),
+                downloadResult.ReasonCode,
+                downloadResult.Exception
+            );
 
         var ghostPayloadStore = new GhostBattlePayloadStore(
             GhostBattlePayloadStore.ResolveDirectory(replayDirectoryPath)
@@ -248,7 +223,7 @@ internal sealed class HistoryPanelReplayService
             );
         }
 
-        var ghostPayload = ghostPayloadResult.Payload;
+        var ghostPayload = GhostBattlePayloadReader.Normalize(ghostPayloadResult.Payload);
         var manifest = ghostPayload?.BattleManifest;
         if (manifest == null)
             return HistoryPanelReplayAttemptResult.Failure(
@@ -302,7 +277,7 @@ internal sealed class HistoryPanelReplayService
         if (battleIds.Count == 0)
             return new ReplayPayloadCleanupResult(0, null);
 
-        var replayDirectoryPath = _replayDirectoryPathAccessor();
+        var replayDirectoryPath = _replayDirectoryPath;
         if (string.IsNullOrWhiteSpace(replayDirectoryPath))
         {
             return new ReplayPayloadCleanupResult(

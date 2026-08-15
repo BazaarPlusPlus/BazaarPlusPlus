@@ -1,55 +1,44 @@
-import { invokeCommand } from '../../api/tauri';
-import { hasTauriRuntime } from '../../api/runtime';
-import type { HistoryRunDetail, HistoryRunList } from '../../types/backend';
-
-export const emptyHistoryRunList: HistoryRunList = {
-  summary: {
-    runs: 0,
-    videos: 0,
-    last_run_at_utc: null,
-    win_rate: null
-  },
-  runs: []
-};
+import { commandClient } from '../../api/commandClient';
+import type {
+  StorageCleanupPreset,
+  StorageCleanupScope
+} from '../../types/backend';
 
 export async function listHistoryRuns(limit = 50) {
-  if (!hasTauriRuntime()) {
-    return emptyHistoryRunList;
-  }
-
-  return invokeCommand('list_history_runs', { limit });
+  return commandClient.listHistoryRuns(limit);
 }
 
-export async function loadHistoryRunDetail(
-  runId: string
-): Promise<HistoryRunDetail | null> {
-  if (!hasTauriRuntime()) {
-    return null;
-  }
+/** Resolves to whether a leftover game process was actually terminated. */
+export async function endGameProcess() {
+  return commandClient.endGameProcess();
+}
 
-  return invokeCommand('get_history_run_detail', { runId });
+export async function loadHistoryRunDetail(runId: string) {
+  return commandClient.getHistoryRunDetail(runId);
 }
 
 export async function revealRunScreenshot(runId: string) {
-  if (!hasTauriRuntime()) {
-    return;
-  }
-
-  await invokeCommand('reveal_run_screenshot', { runId });
+  await commandClient.revealRunScreenshot(runId);
 }
 
 export async function revealBattleVideo(battleId: string, videoId?: string) {
-  if (!hasTauriRuntime()) {
-    return;
-  }
-
-  await invokeCommand('reveal_battle_video', { battleId, videoId });
+  await commandClient.revealBattleVideo(battleId, videoId ?? null);
 }
 
 export async function deleteBattleVideo(battleId: string, videoId: string) {
-  if (!hasTauriRuntime()) {
-    return null;
-  }
+  return commandClient.deleteBattleVideo(battleId, videoId);
+}
 
-  return invokeCommand('delete_battle_video', { battleId, videoId });
+export async function previewStorageCleanup(
+  scope: StorageCleanupScope,
+  preset: StorageCleanupPreset
+) {
+  return commandClient.previewStorageCleanup(scope, preset);
+}
+
+export async function executeStorageCleanup(
+  scope: StorageCleanupScope,
+  preset: StorageCleanupPreset
+) {
+  return commandClient.executeStorageCleanup(scope, preset);
 }

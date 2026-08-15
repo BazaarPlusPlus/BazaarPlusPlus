@@ -15,7 +15,7 @@ internal sealed class CombatReplayCaptureService
         CaptureOpponentSkillsFromOpening(message)
         GameSimEventCardSpawned
         GameSimEventPlayerSkillEquipped
-        return state == ERunState.PVPCombat;
+        return state == ERunState.Combat || state == ERunState.PVPCombat;
         OpponentName = candidate.OpponentName
         OpponentAccountId = candidate.OpponentAccountId
         CapturedEmpty
@@ -59,7 +59,7 @@ internal sealed class CombatReplayCaptureService
     {
         if (_candidate.SpawnMessage == null)
         {
-            if (_matcher.IsPvpCombatOpeningMessage(message))
+            if (_matcher.IsCombatOpeningMessage(message))
             {
                 _candidate = CreateOpeningCandidate(message, runId);
             }
@@ -69,7 +69,7 @@ internal sealed class CombatReplayCaptureService
 
         if (_candidate.CombatMessage == null)
         {
-            if (_matcher.IsPvpCombatOpeningMessage(message))
+            if (_matcher.IsCombatOpeningMessage(message))
             {
                 _candidate = CreateOpeningCandidate(message, runId);
             }
@@ -81,11 +81,9 @@ internal sealed class CombatReplayCaptureService
             return null;
         }
 
-        if (_matcher.IsAnyCombatOpeningMessage(message))
+        if (_matcher.IsCombatOpeningMessage(message))
         {
-            _candidate = _matcher.IsPvpCombatOpeningMessage(message)
-                ? CreateOpeningCandidate(message, runId)
-                : _matcher.ResetCandidate();
+            _candidate = CreateOpeningCandidate(message, runId);
             return null;
         }
 

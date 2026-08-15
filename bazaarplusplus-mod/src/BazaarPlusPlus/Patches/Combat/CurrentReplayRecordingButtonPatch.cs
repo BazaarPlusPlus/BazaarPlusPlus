@@ -36,6 +36,8 @@ internal static class CurrentReplayRecordingButtonPatch
         var replayButton = ReplayButtonField?.GetValue(__instance) as Button;
         var recapButton = RecapButtonField?.GetValue(__instance) as Button;
         var backButton = BackButtonField?.GetValue(__instance) as Button;
+        if (recapButton != null)
+            CombatReplayRuntime.Instance?.BindNativeRecapAction(recapButton.onClick.Invoke);
         if (replayButton != null && recapButton != null && backButton != null)
         {
             CurrentReplayRecordingButtonController.BindNativeActions(

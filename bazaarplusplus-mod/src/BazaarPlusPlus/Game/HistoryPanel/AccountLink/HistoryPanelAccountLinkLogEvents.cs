@@ -9,7 +9,6 @@ internal static class HistoryPanelAccountLinkLogEvents
     internal static readonly BppLogFieldDefinition RequestId = new(
         0,
         "request_id",
-        BppLogFieldPrivacy.Public,
         BppLogCorrelationPolicy.Short,
         BppLogCardinality.High
     );
@@ -17,7 +16,6 @@ internal static class HistoryPanelAccountLinkLogEvents
     internal static readonly BppLogFieldDefinition Method = new(
         1,
         "method",
-        BppLogFieldPrivacy.Public,
         BppLogCorrelationPolicy.None,
         BppLogCardinality.Low
     );
@@ -25,7 +23,6 @@ internal static class HistoryPanelAccountLinkLogEvents
     internal static readonly BppLogFieldDefinition FailureReasonCode = new(
         2,
         "reason_code",
-        BppLogFieldPrivacy.Public,
         BppLogCorrelationPolicy.None,
         BppLogCardinality.Low
     );
@@ -33,7 +30,6 @@ internal static class HistoryPanelAccountLinkLogEvents
     internal static readonly BppLogFieldDefinition SkippedReasonCode = new(
         1,
         "reason_code",
-        BppLogFieldPrivacy.Public,
         BppLogCorrelationPolicy.None,
         BppLogCardinality.Low
     );

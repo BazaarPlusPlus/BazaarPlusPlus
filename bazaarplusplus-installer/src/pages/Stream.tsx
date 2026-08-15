@@ -1,5 +1,6 @@
 import {
   AlertCircle,
+  AlertTriangle,
   Copy,
   ExternalLink,
   Maximize,
@@ -8,9 +9,18 @@ import {
   RefreshCw,
   Settings2
 } from 'lucide-react';
+import { useEffect } from 'react';
 import type { StreamOverlayDisplayMode } from '../types/backend';
+import { Button } from '../components/ui/Button';
 import { PageShell } from '../components/ui/PageShell';
+import { SegmentedControl } from '../components/ui/SegmentedControl';
+import { useToast, type ToastTone } from '../components/ui/Toast';
 import { useStreamPage } from '../features/stream/useStreamPage';
+import {
+  presentStreamProblem,
+  presentStreamSnapshot
+} from '../features/stream/streamPresentation';
+import type { StreamProblem } from '../features/stream/streamProblems';
 import { useI18n } from '../i18n/LocaleProvider';
 import type { MessageKey } from '../i18n/messages';
 
@@ -25,206 +35,209 @@ const displayModes: Array<{
 
 export default function Stream() {
   const { t } = useI18n();
-  const page = useStreamPage();
-  const { status, cropSettings, dbPath, viewModel } = page;
-  const feedbackIsError = Boolean(page.error || page.messageTone === 'error');
-  const dbLabel = dbPath.found ? t('dbConnected') : t('dbMissing');
-  const statusLabel = t(
-    viewModel.state === 'error'
-      ? 'streamStatusError'
-      : viewModel.state === 'starting'
-        ? 'streamStatusStarting'
-        : viewModel.state === 'running'
-          ? 'streamStatusRunning'
-          : 'streamStatusIdle'
+  const { snapshot, intents } = useStreamPage();
+  const presentation = presentStreamSnapshot(snapshot, t);
+  const status = snapshot.service.status;
+  const cropSettings = snapshot.crop.settings;
+  const statusTone = presentation.status.tone;
+
+  useStreamProblemToast(
+    snapshot.service.problem,
+    'stream:service',
+    'error',
+    t('streamRestart'),
+    intents.restart
   );
-  const statusDetail =
-    viewModel.state === 'error'
-      ? (viewModel.message ?? '')
-      : viewModel.state === 'starting'
-        ? t('streamStarting')
-        : viewModel.state === 'running' && status.port
-          ? t('streamPortDetail', { port: status.port })
-          : t('streamIdleDetail');
+  useStreamProblemToast(
+    snapshot.polling.problem,
+    'stream:polling',
+    'warning',
+    t('streamRetryStatus'),
+    intents.retryStatus
+  );
+  useStreamProblemToast(
+    snapshot.oneOff.problems.open_overlay,
+    'stream:open-overlay'
+  );
+  useStreamProblemToast(snapshot.oneOff.problems.copy, 'stream:copy');
+  useStreamProblemToast(snapshot.window.problem, 'stream:window');
+  useStreamProblemToast(
+    snapshot.crop.problem,
+    'stream:crop',
+    'error',
+    snapshot.crop.problem?.params.operation === 'load'
+      ? t('streamRetryCrop')
+      : undefined,
+    snapshot.crop.problem?.params.operation === 'load'
+      ? intents.reloadCropSettings
+      : undefined
+  );
+  useStreamProblemToast(
+    snapshot.oneOff.problems.open_settings,
+    'stream:open-settings'
+  );
+  useStreamNoticeToast(presentation.notice);
 
   return (
-    <PageShell eyebrow="Stream" title={t('streamTitle')}>
-      <div className="flex flex-col gap-6 flex-1 min-h-0 w-full">
-        <div className="p-6 bg-[rgba(18,11,5,0.88)] border border-[rgba(180,130,48,0.13)] rounded-sm shadow-[0_6px_28px_rgba(0,0,0,0.35)] flex flex-col gap-8 relative overflow-hidden">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div
-                className={`flex items-center justify-center w-8 h-8 rounded-full border ${
-                  viewModel.state === 'error'
-                    ? 'bg-[rgba(210,80,80,0.15)] border-[rgba(210,80,80,0.3)] text-[#d96d6d]'
-                    : status.running
-                      ? 'bg-[rgba(80,180,120,0.15)] border-[rgba(80,180,120,0.3)] text-[#6dd9a0]'
-                      : 'bg-[rgba(200,148,55,0.1)] border-[rgba(200,148,55,0.22)] text-[#e8c87a]'
-                }`}
-              >
-                {viewModel.state === 'error' ? (
+    <PageShell title={t('streamTitle')}>
+      <div className="bpp-stream-stack">
+        <section className="bpp-panel bpp-stream-panel">
+          <div className="bpp-stream-service-row">
+            <div className="bpp-stream-service-status">
+              <div className={`bpp-stream-status-icon is-${statusTone}`}>
+                {statusTone === 'degraded' ? (
                   <AlertCircle size={16} />
-                ) : status.running ? (
+                ) : statusTone === 'stale' ? (
+                  <AlertTriangle size={16} />
+                ) : statusTone === 'running' ? (
                   <Radio size={16} className="animate-pulse" />
                 ) : (
                   <RefreshCw
                     size={16}
-                    className={viewModel.isBusy ? 'animate-spin' : ''}
+                    className={
+                      snapshot.service.phase === 'loading' ||
+                      snapshot.service.operation === 'restart'
+                        ? 'animate-spin'
+                        : ''
+                    }
                   />
                 )}
               </div>
-              <div>
-                <h3 className="font-bold text-[#e8dcc8] flex items-center gap-2">
-                  {statusLabel}
+              <div className="min-w-0">
+                <h3 className="bpp-stream-status-title">
+                  {presentation.status.label}
                 </h3>
-                <p className="text-xs text-[rgba(200,170,120,0.8)] fira-code mt-0.5">
-                  {statusDetail}
-                  {status.running ? ` · ${dbLabel}` : ''}
+                <p className="bpp-stream-status-detail">
+                  {presentation.status.detail}
+                  {status?.running && snapshot.polling.freshness === 'fresh'
+                    ? ` · ${presentation.dbLabel}`
+                    : ''}
                 </p>
               </div>
             </div>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                disabled={!viewModel.canOpenOverlay}
-                onClick={page.openOverlay}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-[rgba(200,148,55,0.06)] border border-[rgba(180,130,48,0.2)] rounded-sm hover:bg-[rgba(200,148,55,0.12)] disabled:opacity-40 disabled:hover:bg-[rgba(200,148,55,0.06)] transition-colors text-xs text-[#e8dcc8]"
+            <div className="bpp-stream-service-actions">
+              <Button
+                disabled={!snapshot.oneOff.canOpenOverlay}
+                onClick={() => void intents.openOverlay()}
               >
                 <ExternalLink size={14} /> {t('streamOpenOverlay')}
-              </button>
-              <button
-                type="button"
-                disabled={!viewModel.canRestart}
-                onClick={page.restart}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-[rgba(200,148,55,0.06)] border border-[rgba(180,130,48,0.2)] rounded-sm hover:bg-[rgba(200,148,55,0.12)] disabled:opacity-40 disabled:hover:bg-[rgba(200,148,55,0.06)] transition-colors text-xs text-[#e8dcc8]"
+              </Button>
+              <Button
+                variant="primary"
+                disabled={!snapshot.service.canRestart}
+                onClick={() => void intents.restart()}
               >
                 <RefreshCw
                   size={14}
-                  className={page.action === 'restart' ? 'animate-spin' : ''}
+                  className={
+                    snapshot.service.operation === 'restart'
+                      ? 'animate-spin'
+                      : ''
+                  }
                 />
-                {t('streamRestart')}
-              </button>
+                {status?.running ? t('streamRestart') : t('streamStart')}
+              </Button>
             </div>
           </div>
 
-          <div className="h-px bg-gradient-to-r from-[rgba(200,148,55,0.3)] to-transparent opacity-50" />
-
-          <div className="flex flex-col gap-2">
+          <div className="bpp-stream-section">
             <span
               id="stream-obs-url-label"
-              className="cinzel text-[10px] tracking-widest text-[rgba(220,195,145,0.8)] uppercase"
+              className="bpp-stream-section-label"
             >
               {t('streamObsUrlLabel')}
             </span>
-            <div className="flex gap-2">
+            <div className="bpp-stream-obs-row">
               <div
                 id="stream-obs-url"
-                className="flex-1 px-3 py-2 bg-[rgba(0,0,0,0.4)] border border-[rgba(180,130,48,0.2)] rounded-sm fira-code text-sm text-[rgba(228,216,191,0.8)] overflow-hidden text-ellipsis whitespace-nowrap selectable"
+                className="bpp-input bpp-stream-obs-value selectable fira-code"
                 aria-labelledby="stream-obs-url-label"
               >
-                {viewModel.obsUrl ?? t('streamObsPlaceholder')}
+                {snapshot.oneOff.obsUrl ?? t('streamObsPlaceholder')}
               </div>
-              <button
-                type="button"
-                disabled={!viewModel.obsUrl}
-                onClick={page.copyObsUrl}
-                className="flex items-center gap-2 px-4 py-2 bg-[rgba(200,148,55,0.1)] border border-[rgba(180,130,48,0.3)] rounded-sm hover:bg-[rgba(200,148,55,0.2)] disabled:opacity-40 disabled:hover:bg-[rgba(200,148,55,0.1)] transition-colors text-sm text-[#e8dcc8]"
+              <Button
+                disabled={!snapshot.oneOff.canCopyObsUrl}
+                onClick={() => void intents.copyObsUrl()}
               >
                 <Copy size={16} /> {t('copy')}
-              </button>
+              </Button>
             </div>
-            {(page.message || page.error) && (
-              <p
-                role={feedbackIsError ? 'alert' : 'status'}
-                aria-live={feedbackIsError ? 'assertive' : 'polite'}
-                className={`m-0 text-xs ${
-                  feedbackIsError
-                    ? 'text-[#d96d6d]'
-                    : 'text-[rgba(109,217,160,0.86)]'
-                }`}
-              >
-                {page.error ?? page.message}
-              </p>
-            )}
+            <p className="bpp-stream-section-hint m-0 mt-2 text-[12px] leading-relaxed">
+              {t('streamObsGuide')}
+            </p>
           </div>
 
-          <div className="flex flex-col gap-4 bg-[rgba(200,148,55,0.02)] p-4 rounded-sm border border-[rgba(200,148,55,0.08)]">
-            <div className="flex justify-between items-center">
-              <span className="cinzel text-[10px] tracking-widest text-[rgba(220,195,145,0.8)] uppercase">
+          <div className="bpp-stream-section">
+            <div className="bpp-stream-section-heading">
+              <span className="bpp-stream-section-label">
                 {t('streamWindowSection')}
               </span>
-              <div className="flex items-center gap-4">
-                <span className="text-xs text-[rgba(200,170,120,0.8)]">
-                  {status.active_window_offset === 0
-                    ? t('streamWindowLatest')
-                    : t('streamWindowOffset', {
-                        count: status.active_window_offset
-                      })}
-                </span>
-                <div className="flex items-center gap-2 border-l border-[rgba(200,148,55,0.2)] pl-4">
-                  <button
-                    type="button"
-                    disabled={!status.running || page.action === 'window'}
-                    onClick={() => page.moveWindow(1)}
-                    className="flex items-center gap-1.5 px-2 py-1 bg-[rgba(200,148,55,0.06)] border border-[rgba(180,130,48,0.2)] rounded-sm hover:bg-[rgba(200,148,55,0.12)] disabled:opacity-40 disabled:hover:bg-[rgba(200,148,55,0.06)] transition-colors text-[10px] text-[#e8dcc8]"
+              <span className="bpp-stream-window-summary">
+                {presentation.windowLabel}
+              </span>
+            </div>
+            <div className="bpp-stream-metrics-grid">
+              <InfoMetric
+                label={t('streamInfoHost')}
+                value={status?.host ?? '-'}
+              />
+              <InfoMetric
+                label={t('streamInfoPort')}
+                value={status?.port ? String(status.port) : '-'}
+              />
+              <InfoMetric
+                label={t('streamInfoDb')}
+                value={presentation.dbLabel}
+              />
+              <div className="bpp-stream-window-metric">
+                <InfoMetric
+                  label={t('streamInfoWindow')}
+                  value={String(status?.active_window_offset ?? 0)}
+                />
+                <div className="bpp-stream-window-actions">
+                  <Button
+                    size="small"
+                    disabled={!snapshot.window.canMoveMoreHistory}
+                    onClick={() => void intents.moveWindow(1)}
                   >
                     <Maximize size={12} />
                     {t('streamMoreHistory')}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={
-                      !status.running ||
-                      status.active_window_offset === 0 ||
-                      page.action === 'window'
-                    }
-                    onClick={() => page.moveWindow(-1)}
-                    className="flex items-center gap-1.5 px-2 py-1 bg-[rgba(200,148,55,0.06)] border border-[rgba(180,130,48,0.2)] rounded-sm hover:bg-[rgba(200,148,55,0.12)] disabled:opacity-40 disabled:hover:bg-[rgba(200,148,55,0.06)] transition-colors text-[10px] text-[#e8dcc8]"
+                  </Button>
+                  <Button
+                    size="small"
+                    disabled={!snapshot.window.canMoveLessHistory}
+                    onClick={() => void intents.moveWindow(-1)}
                   >
                     <Minimize size={12} />
                     {t('streamLessHistory')}
-                  </button>
+                  </Button>
                 </div>
               </div>
             </div>
-
-            <div className="grid grid-cols-4 gap-4 mt-2 pt-4 border-t border-[rgba(200,148,55,0.1)]">
-              <InfoMetric label={t('streamInfoHost')} value={status.host} />
-              <InfoMetric
-                label={t('streamInfoPort')}
-                value={status.port ? String(status.port) : '-'}
-              />
-              <InfoMetric label={t('streamInfoDb')} value={dbLabel} />
-              <InfoMetric
-                label={t('streamInfoWindow')}
-                value={String(status.active_window_offset)}
-              />
-            </div>
           </div>
 
-          <div className="flex flex-col gap-4">
-            <span className="cinzel text-[10px] tracking-widest text-[rgba(220,195,145,0.8)] uppercase">
+          <div className="bpp-stream-section bpp-stream-config-section">
+            <span className="bpp-stream-section-label">
               {t('streamOverlayConfig')}
             </span>
 
-            <div className="flex gap-2">
-              {displayModes.map((mode) => (
-                <label key={mode.value} className="flex-1 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="displayMode"
-                    className="peer sr-only"
-                    checked={cropSettings.display_mode === mode.value}
-                    onChange={() => page.changeDisplayMode(mode.value)}
-                  />
-                  <div className="px-3 py-2 text-center text-sm border border-[rgba(180,130,48,0.3)] rounded-sm text-[rgba(228,216,191,0.6)] peer-checked:bg-[rgba(200,148,55,0.15)] peer-checked:text-[#e8c87a] peer-checked:border-[rgba(200,148,55,0.6)] transition-all">
-                    {t(mode.labelKey)}
-                  </div>
-                </label>
-              ))}
-            </div>
+            <span className="bpp-stream-metric-label">
+              {t('streamDisplayModeLabel')}
+            </span>
 
-            <div className="flex flex-wrap gap-2 mt-2">
+            <SegmentedControl
+              label={t('streamDisplayModeLabel')}
+              name="displayMode"
+              value={cropSettings.display_mode}
+              disabled={!snapshot.crop.canEdit}
+              options={displayModes.map((mode) => ({
+                value: mode.value,
+                label: t(mode.labelKey)
+              }))}
+              onChange={(mode) => void intents.changeDisplayMode(mode)}
+            />
+
+            <div className="bpp-stream-crop-row">
               <label htmlFor="stream-crop-code" className="sr-only">
                 {t('streamCropCodeLabel')}
               </label>
@@ -232,46 +245,82 @@ export default function Stream() {
                 id="stream-crop-code"
                 type="text"
                 placeholder={t('streamCropCodePlaceholder')}
-                value={page.cropCode}
-                onChange={(event) => page.setCropCode(event.target.value)}
-                className="flex-1 min-w-[12rem] px-3 py-2 bg-[rgba(0,0,0,0.4)] border border-[rgba(180,130,48,0.2)] rounded-sm fira-code text-sm text-[rgba(228,216,191,0.8)] focus:border-[rgba(200,148,55,0.6)]"
+                value={snapshot.crop.code}
+                disabled={!snapshot.crop.canEdit}
+                onChange={(event) => intents.setCropCode(event.target.value)}
+                className="bpp-input bpp-stream-crop-input fira-code"
               />
-              <button
-                type="button"
-                onClick={page.submitCropCode}
-                disabled={page.action === 'crop'}
-                className="shrink-0 whitespace-nowrap px-4 py-2 bg-[rgba(200,148,55,0.06)] border border-[rgba(180,130,48,0.2)] rounded-sm hover:bg-[rgba(200,148,55,0.12)] disabled:opacity-40 transition-colors text-sm text-[#e8dcc8]"
+              <Button
+                variant="primary"
+                onClick={() => void intents.submitCropCode()}
+                disabled={!snapshot.crop.canEdit}
               >
                 {t('streamApplyCrop')}
-              </button>
-              <button
-                type="button"
-                onClick={page.resetCropCode}
-                className="shrink-0 whitespace-nowrap px-4 py-2 bg-transparent border border-transparent hover:bg-[rgba(255,255,255,0.05)] rounded-sm transition-colors text-sm text-[rgba(200,170,120,0.8)]"
+              </Button>
+              <Button
+                onClick={() => void intents.resetCropCode()}
+                disabled={!snapshot.crop.canEdit}
               >
                 {t('streamResetCrop')}
-              </button>
-              <button
-                type="button"
-                disabled={!viewModel.canOpenSettings}
-                onClick={page.openSettings}
-                className="shrink-0 whitespace-nowrap px-4 py-2 bg-[rgba(200,148,55,0.06)] border border-[rgba(180,130,48,0.2)] rounded-sm hover:bg-[rgba(200,148,55,0.12)] disabled:opacity-40 transition-colors text-sm text-[#e8dcc8] flex items-center gap-2"
+              </Button>
+              <Button
+                disabled={!snapshot.oneOff.canOpenSettings}
+                onClick={() => void intents.openSettings()}
               >
                 <Settings2 size={16} /> {t('streamOpenSettings')}
-              </button>
+              </Button>
             </div>
           </div>
-        </div>
+        </section>
       </div>
     </PageShell>
   );
 }
 
+function useStreamProblemToast(
+  problem: StreamProblem | null,
+  id: string,
+  tone: Extract<ToastTone, 'error' | 'warning'> = 'error',
+  actionLabel?: string,
+  onAction?: () => void
+) {
+  const { t } = useI18n();
+  const { dismissToast, showToast } = useToast();
+
+  useEffect(() => {
+    if (!problem) {
+      dismissToast(id);
+      return;
+    }
+    showToast({
+      id,
+      tone,
+      message: presentStreamProblem(problem, t),
+      action:
+        actionLabel && onAction
+          ? { label: actionLabel, onClick: onAction }
+          : undefined
+    });
+  }, [actionLabel, dismissToast, id, onAction, problem, showToast, t, tone]);
+}
+
+function useStreamNoticeToast(notice: string | null) {
+  const { dismissToast, showToast } = useToast();
+
+  useEffect(() => {
+    if (!notice) {
+      dismissToast('stream:notice');
+      return;
+    }
+    showToast({ id: 'stream:notice', tone: 'success', message: notice });
+  }, [dismissToast, notice, showToast]);
+}
+
 function InfoMetric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex flex-col gap-1">
-      <span className="text-[10px] text-[rgba(200,170,120,0.8)]">{label}</span>
-      <span className="text-xs fira-code text-[#e8dcc8]">{value}</span>
+    <div className="bpp-stream-metric">
+      <span className="bpp-stream-metric-label">{label}</span>
+      <span className="bpp-stream-metric-value fira-code">{value}</span>
     </div>
   );
 }

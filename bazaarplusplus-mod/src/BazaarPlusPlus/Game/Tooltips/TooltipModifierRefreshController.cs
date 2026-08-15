@@ -37,12 +37,25 @@ internal sealed class TooltipModifierRefreshController : MonoBehaviour
     {
         try
         {
+            if (Singleton<BoardManager>.Instance?.IsRecapViewOpen == true)
+            {
+                UpgradePreviewCardLatch.ReleaseStale(previewActive: false);
+                _hasResolvedInputs = false;
+                return;
+            }
+
             // TooltipPreviewModePolicy.Resolve is a pure function of these inputs, so the
             // resolved mode cannot change unless one of them changes. Skip re-resolving
             // (and the downstream refresh check) on frames where the inputs are identical.
+            // The latch sweep still runs on those frames: hover moving off a card changes
+            // no resolve input, and the native hide path skips its upgrade-preview exit
+            // while a card-to-card tooltip transition is active.
             var inputs = ReadResolveInputs();
             if (_hasResolvedInputs && inputs.Equals(_lastInputs))
+            {
+                UpgradePreviewCardLatch.ReleaseStale(_lastMode == TooltipPreviewMode.Upgrade);
                 return;
+            }
 
             _hasResolvedInputs = true;
             _lastInputs = inputs;
@@ -53,11 +66,13 @@ internal sealed class TooltipModifierRefreshController : MonoBehaviour
                 inputs.HoldUpgrade,
                 inputs.HoldEnchant
             );
+            UpgradePreviewCardLatch.ReleaseStale(mode == TooltipPreviewMode.Upgrade);
             if (mode == _lastMode)
                 return;
 
+            var previousMode = _lastMode;
             _lastMode = mode;
-            TryRefreshCurrentItemTooltip(_config, _encounterState, ToLogMode(_lastMode));
+            TryRefreshCurrentItemTooltip(mode, previousMode);
         }
         catch (Exception ex)
         {
@@ -74,7 +89,7 @@ internal sealed class TooltipModifierRefreshController : MonoBehaviour
 
     private ResolveInputs ReadResolveInputs()
     {
-        var holdUpgrade = BppHotkeyService.IsHeld(BppHotkeyActionId.HoldUpgradePreview);
+        var holdUpgrade = BppHotkeyService.IsActive(BppHotkeyActionId.HoldUpgradePreview);
         var holdEnchant = BppHotkeyService.IsHeld(BppHotkeyActionId.HoldEnchantPreview);
         var enchantMode = _config?.EnchantPreviewModeConfig?.Value;
         var pedestalKind = ChoiceScreenPedestalKind.None;
@@ -101,9 +116,8 @@ internal sealed class TooltipModifierRefreshController : MonoBehaviour
     );
 
     private void TryRefreshCurrentItemTooltip(
-        IBppConfig? config,
-        IEncounterStateProbe? encounterState,
-        TooltipPreviewRefreshMode mode
+        TooltipPreviewMode mode,
+        TooltipPreviewMode previousMode
     )
     {
         var tooltipParent = Data.TooltipParentComponent;
@@ -119,29 +133,29 @@ internal sealed class TooltipModifierRefreshController : MonoBehaviour
         if (!TryResolveRefreshTarget(tooltipParent, out var target))
             return;
 
-        var refreshedTooltipData = CardTooltipDataFactory.Create(
+        // A primary tooltip can remain addressable briefly after native hover-out. Toggle mode
+        // stays active across that window, so refreshing it would re-enter upgrade preview after
+        // the native hide path already cleared the card and leave the fusion visual latched.
+        if (!target.Controller.IsCursorOverCard)
+            return;
+
+        var tooltipController = tooltipParent.GetCardTooltipController(target.Card);
+        if (tooltipController == null)
+            return;
+
+        TooltipPreviewContentRefresh.TryApply(
+            target.Controller,
+            tooltipController,
             target.Card,
             target.TooltipData,
-            mode
-        );
-
-        tooltipParent.HideCardTooltipController();
-        tooltipParent.ShowCardTooltipController(
-            target.Controller.transform,
-            target.Controller.TooltipOffset,
-            refreshedTooltipData
-        );
-        UpgradeTooltipScheduler.TryScheduleUpgradeTooltip(
-            target.Controller,
-            config,
-            encounterState,
-            refreshedTooltipData
+            mode,
+            previousMode
         );
     }
 
     private bool TryRefreshHoveredPreviewTooltip(
         TooltipParentComponent tooltipParent,
-        TooltipPreviewRefreshMode mode
+        TooltipPreviewMode mode
     )
     {
         if (_nativeCardPreviewHost == null)
@@ -152,8 +166,8 @@ internal sealed class TooltipModifierRefreshController : MonoBehaviour
                 tooltipParent,
                 mode switch
                 {
-                    TooltipPreviewRefreshMode.Enchant => NativeTooltipRefreshMode.Enchant,
-                    TooltipPreviewRefreshMode.Upgrade => NativeTooltipRefreshMode.Upgrade,
+                    TooltipPreviewMode.Enchant => NativeTooltipRefreshMode.Enchant,
+                    TooltipPreviewMode.Upgrade => NativeTooltipRefreshMode.Upgrade,
                     _ => NativeTooltipRefreshMode.Normal,
                 }
             )
@@ -198,7 +212,7 @@ internal sealed class TooltipModifierRefreshController : MonoBehaviour
             if (controller?.CardData is not ItemCard itemCard)
                 continue;
 
-            if (!controller.IsCursorOverCard && !controller.IsHovering)
+            if (!controller.IsCursorOverCard)
                 continue;
 
             if (tooltipParent.GetCardTooltipController(itemCard) == null)

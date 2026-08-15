@@ -1,4 +1,5 @@
 #nullable enable
+using BazaarPlusPlus.Infrastructure.UiTokens;
 using UnityEngine;
 using UnityEngine.UI;
 using Object = UnityEngine.Object;
@@ -27,6 +28,8 @@ internal sealed class CollectionGridOverlay
     private RectTransform? _rootRect;
     private RectTransform? _clipRect;
     private RectTransform? _boardRect;
+    private Image? _topOccluder;
+    private Image? _bottomOccluder;
 
     private Vector2 _position = Vector2.zero;
     private Vector2 _clipSize = new(1f, 1f);
@@ -46,6 +49,8 @@ internal sealed class CollectionGridOverlay
             && _rootRect != null
             && _clipRect != null
             && _boardRect != null
+            && _topOccluder != null
+            && _bottomOccluder != null
         )
         {
             ApplyTransform();
@@ -92,6 +97,13 @@ internal sealed class CollectionGridOverlay
         boardObject.layer = _layer;
         boardObject.transform.SetParent(_clipRect, worldPositionStays: false);
         _boardRect = boardObject.GetComponent<RectTransform>();
+
+        // Native item art and tier frames use game shaders that do not consume Unity UI's
+        // RectMask2D clip rectangle. Keep the real mask for standard Images (slot chrome), then
+        // cover only the vertical overflow with foreground panels. The grid has no horizontal
+        // scrolling, so left/right occluders would only risk covering the operation rail.
+        _bottomOccluder = CreateVerticalOccluder("CollectionPanelOverlayBottomOccluder");
+        _topOccluder = CreateVerticalOccluder("CollectionPanelOverlayTopOccluder");
 
         ApplyTransform();
         return true;
@@ -149,6 +161,8 @@ internal sealed class CollectionGridOverlay
             _rootRect = null;
             _clipRect = null;
             _boardRect = null;
+            _topOccluder = null;
+            _bottomOccluder = null;
         }
     }
 
@@ -179,5 +193,55 @@ internal sealed class CollectionGridOverlay
         _boardRect.anchoredPosition = Vector2.zero;
         _boardRect.sizeDelta = _clipSize;
         _boardRect.localScale = Vector3.one;
+
+        LayoutVerticalOccluders();
+    }
+
+    private Image CreateVerticalOccluder(string name)
+    {
+        var occluderObject = new GameObject(name, typeof(RectTransform));
+        occluderObject.layer = _layer;
+        occluderObject.transform.SetParent(_root!.transform, worldPositionStays: false);
+        var image = occluderObject.AddComponent<Image>();
+        image.color = Colors.CollectionPanelBackground;
+        image.raycastTarget = false;
+        return image;
+    }
+
+    private void LayoutVerticalOccluders()
+    {
+        if (_topOccluder == null || _bottomOccluder == null)
+            return;
+
+        var screenHeight = Mathf.Max(1f, Screen.height);
+        var viewportBottom = Mathf.Clamp(_position.y, 0f, screenHeight);
+        var viewportTop = Mathf.Clamp(_position.y + _clipSize.y, 0f, screenHeight);
+        LayoutOccluder(
+            _bottomOccluder,
+            new Vector2(_position.x, 0f),
+            new Vector2(_clipSize.x, viewportBottom)
+        );
+        LayoutOccluder(
+            _topOccluder,
+            new Vector2(_position.x, viewportTop),
+            new Vector2(_clipSize.x, screenHeight - viewportTop)
+        );
+    }
+
+    private static void LayoutOccluder(Image image, Vector2 position, Vector2 size)
+    {
+        var visible = size.x > 0.5f && size.y > 0.5f;
+        image.gameObject.SetActive(visible);
+        if (!visible)
+            return;
+
+        var rect = image.rectTransform;
+        rect.anchorMin = Vector2.zero;
+        rect.anchorMax = Vector2.zero;
+        rect.pivot = Vector2.zero;
+        rect.anchoredPosition = position;
+        rect.sizeDelta = size;
+        rect.localScale = Vector3.one;
+        rect.SetAsLastSibling();
     }
 }

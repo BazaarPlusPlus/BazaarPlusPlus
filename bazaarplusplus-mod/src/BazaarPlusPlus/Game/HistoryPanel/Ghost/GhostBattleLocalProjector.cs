@@ -77,7 +77,8 @@ internal static class GhostBattleLocalProjector
             rawCounts.OpponentHandItemCount,
             rawCounts.OpponentSkillCount,
             rawCounts.PlayerHandItemCount,
-            rawCounts.PlayerSkillCount
+            rawCounts.PlayerSkillCount,
+            rawCounts.Known
         );
     }
 
@@ -87,6 +88,9 @@ internal static class GhostBattleLocalProjector
             return rawResult;
 
         var trimmed = rawResult.Trim();
+        if (string.Equals(trimmed, "unknown", StringComparison.OrdinalIgnoreCase))
+            return null;
+
         if (
             string.Equals(trimmed, "Win", StringComparison.OrdinalIgnoreCase)
             || string.Equals(trimmed, "Won", StringComparison.OrdinalIgnoreCase)

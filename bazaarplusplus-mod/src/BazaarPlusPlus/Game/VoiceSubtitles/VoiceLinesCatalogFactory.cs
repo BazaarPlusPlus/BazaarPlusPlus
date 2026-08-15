@@ -20,9 +20,9 @@ internal static class VoiceLinesCatalogFactory
         timeout: TimeSpan.FromSeconds(10)
     );
 
-    internal static IRemoteEmbeddedCatalog<VoiceLine[]> Create(string gameRootPath)
+    internal static IRemoteEmbeddedCatalog<VoiceLine[]> Create(string dataRootPath)
     {
-        var cache = new FileCatalogCache(BuildCacheFilePath(gameRootPath));
+        var cache = new FileCatalogCache(BuildCacheFilePath(dataRootPath));
         return new RemoteEmbeddedCatalog<VoiceLine[]>(
             new VoiceLinesCatalogParser(),
             new AssemblyResourceCatalogSource(
@@ -38,8 +38,8 @@ internal static class VoiceLinesCatalogFactory
         );
     }
 
-    internal static string BuildCacheFilePath(string gameRootPath) =>
-        Path.Combine(gameRootPath, "BazaarPlusPlusV4", CacheFileName);
+    internal static string BuildCacheFilePath(string dataRootPath) =>
+        Path.Combine(dataRootPath, CacheFileName);
 }
 
 internal sealed class VoiceLinesCatalogParser : ICatalogParser<VoiceLine[]>

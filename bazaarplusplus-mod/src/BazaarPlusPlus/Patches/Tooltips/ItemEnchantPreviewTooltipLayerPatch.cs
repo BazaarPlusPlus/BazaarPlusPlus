@@ -28,12 +28,12 @@ internal static class TooltipLayerOverride
         if (controller == null)
             return;
 
-        // Probe evidence (docs/drafts/2026-07-08-tooltip-overlay-third-recurrence.md): the
-        // occluder is the OTHER pooled tooltip clone (the locked tooltip with its monster
-        // board), not something inside this clone, so sibling order inside this prefab is
-        // irrelevant. Every clone's root canvas shares one sorting order and overrideSorting
-        // is not settable on a root canvas, so the one working lever is raising this clone's
-        // root canvas order one step above the shared value while the preview is visible.
+        // Probe evidence: the occluder is the OTHER pooled tooltip clone (the locked tooltip
+        // with its monster board), not something inside this clone, so sibling order inside
+        // this prefab is irrelevant. Every clone's root canvas shares one sorting order and
+        // overrideSorting is not settable on a root canvas, so the one working lever is raising
+        // this clone's root canvas order one step above the shared value while the preview is
+        // visible.
         var ownerId = controller.GetInstanceID();
         Apply(controller.RootCanvasComponent, ownerId, elevated);
     }

@@ -3,8 +3,10 @@ using System.Collections;
 using BazaarGameShared.Domain.Cards;
 using BazaarGameShared.Domain.Core.Types;
 using BazaarGameShared.Domain.Game;
-using BazaarPlusPlus.Game.Encounters;
+using BazaarGameShared.Domain.Values;
 using BazaarPlusPlus.Game.Tooltips;
+using BazaarPlusPlus.GameInterop.Cards;
+using BazaarPlusPlus.GameInterop.DayTiers;
 using BazaarPlusPlus.GameInterop.StaticCards;
 using BazaarPlusPlus.Infrastructure;
 using TheBazaar;
@@ -19,19 +21,29 @@ internal interface IEncounterPreviewGameRuntime
     Task<Dictionary<Guid, ITCard>?> LoadCardMapAsync(object source);
     Dictionary<int, TLevelUp>? SnapshotLevelUps(object source);
     TCardBase? GetCardTemplate(object source, Guid templateId);
+    bool TryEvaluateAbilityValue(
+        object source,
+        Guid templateId,
+        string effectId,
+        bool isAura,
+        out string valueText,
+        out string? unit
+    );
     EHero? ReadCurrentHero();
     EncounterInventory? ReadInventory();
-    int? ReadCurrentDay();
-    ETier? ReadDayTierCeiling(int? currentDay);
-    TierDistribution? ReadDayTierDistribution(object source, int? currentDay);
+    GameDataDayTierResolution ResolveDayTiers(object source);
     string ColorKeywords(string text);
 }
 
-internal sealed class EncounterPreviewGameRuntime(BppStaticCardMapProvider cardMapProvider)
-    : IEncounterPreviewGameRuntime
+internal sealed class EncounterPreviewGameRuntime(
+    BppStaticCardMapProvider cardMapProvider,
+    IGameDataDayTierResolver dayTierResolver
+) : IEncounterPreviewGameRuntime
 {
     private readonly BppStaticCardMapProvider _cardMapProvider =
         cardMapProvider ?? throw new ArgumentNullException(nameof(cardMapProvider));
+    private readonly IGameDataDayTierResolver _dayTierResolver =
+        dayTierResolver ?? throw new ArgumentNullException(nameof(dayTierResolver));
 
     public bool IsInCombat => Data.IsInCombat;
 
@@ -48,6 +60,43 @@ internal sealed class EncounterPreviewGameRuntime(BppStaticCardMapProvider cardM
 
     public TCardBase? GetCardTemplate(object source, Guid templateId) =>
         BppStaticDataAccess.GetCardTemplate(source, templateId);
+
+    public bool TryEvaluateAbilityValue(
+        object source,
+        Guid templateId,
+        string effectId,
+        bool isAura,
+        out string valueText,
+        out string? unit
+    )
+    {
+        valueText = string.Empty;
+        unit = null;
+        var template = GetCardTemplate(source, templateId);
+        var run = Data.Run;
+        if (template == null || run == null)
+            return false;
+
+        try
+        {
+            var context = new ValueContext(run);
+            CardAbilityValue value;
+            var resolved = isAura
+                ? CardAbilityValueReader.TryEvaluateAura(template, effectId, context, out value)
+                : CardAbilityValueReader.TryEvaluate(template, effectId, context, out value);
+            if (!resolved)
+                return false;
+            valueText = value.ValueText;
+            unit = value.Unit;
+            return true;
+        }
+        catch (Exception)
+        {
+            // Unsupported live targets (for example, Self without a targeting card)
+            // degrade only this placeholder; the rest of the preview remains useful.
+            return false;
+        }
+    }
 
     public EHero? ReadCurrentHero()
     {
@@ -85,50 +134,8 @@ internal sealed class EncounterPreviewGameRuntime(BppStaticCardMapProvider cardM
         }
     }
 
-    public int? ReadCurrentDay()
-    {
-        try
-        {
-            return (int?)Data.Run?.Day;
-        }
-        catch (Exception)
-        {
-            return null;
-        }
-    }
-
-    public ETier? ReadDayTierCeiling(int? currentDay) =>
-        currentDay.HasValue ? DayTierSchedule.CeilingTier(currentDay.Value) : null;
-
-    public TierDistribution? ReadDayTierDistribution(object source, int? currentDay)
-    {
-        if (!currentDay.HasValue)
-            return null;
-
-        try
-        {
-            var run = Data.Run;
-            if (run == null)
-                return null;
-            var weights = BppStaticDataAccess.GetItemSkillSpawnTierProbabilities(
-                source,
-                run.GameModeId,
-                currentDay.Value
-            );
-            return weights == null
-                ? null
-                : TierDistribution.FromWeights(
-                    weights.Bronze,
-                    weights.Silver,
-                    weights.Gold,
-                    weights.Diamond
-                );
-        }
-        catch (Exception)
-        {
-            return null;
-        }
-    }
+    public GameDataDayTierResolution ResolveDayTiers(object source) =>
+        _dayTierResolver.Resolve(source);
 
     public string ColorKeywords(string text) => BppTooltipText.ColorKeywords(text);
 

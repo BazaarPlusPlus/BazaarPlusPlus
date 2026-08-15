@@ -10,18 +10,16 @@ internal interface IHistoryPanelServerHealthProbe
 
 internal sealed class HistoryPanelServerHealthProbe : IHistoryPanelServerHealthProbe
 {
-    private readonly ModOnlineClient _onlineClient;
+    private readonly ModApiSession _modApiSession;
 
-    public HistoryPanelServerHealthProbe(ModOnlineClient onlineClient)
+    public HistoryPanelServerHealthProbe(ModApiSession modApiSession)
     {
-        _onlineClient = onlineClient ?? throw new ArgumentNullException(nameof(onlineClient));
+        _modApiSession = modApiSession ?? throw new ArgumentNullException(nameof(modApiSession));
     }
 
     public Task<ModApiHealthProbeResult> ProbeAsync(CancellationToken cancellationToken)
     {
-        return new ModApiHealthClient(_onlineClient.HttpClient, _onlineClient.Routes).ProbeAsync(
-            cancellationToken
-        );
+        return _modApiSession.ProbeHealthAsync(cancellationToken);
     }
 }
 

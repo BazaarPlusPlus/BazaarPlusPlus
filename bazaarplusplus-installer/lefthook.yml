@@ -1,0 +1,13 @@
+pre-commit:
+  parallel: true
+  jobs:
+    - name: format
+      run: npm run format:check
+
+    - name: typescript
+      run: npm run check:ts
+
+pre-push:
+  jobs:
+    - name: source verification
+      run: npm run verify -- --source-only

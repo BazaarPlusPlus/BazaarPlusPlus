@@ -12,7 +12,7 @@ namespace BazaarPlusPlus.Game.HistoryPanel;
 internal sealed class HistoryPanelCoordinator : IDisposable
 {
     private readonly HistoryPanelState _state;
-    private readonly IHistoryPanelRuntime _runtime;
+    private readonly IHistoryPanelRunState _runState;
     private readonly HistoryPanelDataService _dataService;
     private readonly HistoryPanelReplayService _replayService;
     private readonly IHistoryPanelServerHealthProbe? _serverHealthProbe;
@@ -34,7 +34,7 @@ internal sealed class HistoryPanelCoordinator : IDisposable
         _state = state ?? throw new ArgumentNullException(nameof(state));
         if (dependencies == null)
             throw new ArgumentNullException(nameof(dependencies));
-        _runtime = dependencies.Runtime;
+        _runState = dependencies.RunState;
         _dataService = dependencies.DataService;
         _replayService = dependencies.ReplayService;
         _serverHealthProbe = dependencies.ServerHealthProbe;
@@ -217,14 +217,10 @@ internal sealed class HistoryPanelCoordinator : IDisposable
 
     public void SetRunHeroFilter(string hero)
     {
-        var selectedHero = string.IsNullOrEmpty(hero) ? null : hero;
+        var selectedHero = HistoryPanelHeroPresentation.CanonicalFilterId(hero);
         _state.SelectedRunHero =
             selectedHero != null
-            && !string.Equals(
-                _state.SelectedRunHero,
-                selectedHero,
-                StringComparison.OrdinalIgnoreCase
-            )
+            && !HistoryPanelHeroPresentation.IsSelected(_state.SelectedRunHero, selectedHero)
                 ? selectedHero
                 : null;
         InvalidateFilteredRuns();
@@ -317,8 +313,8 @@ internal sealed class HistoryPanelCoordinator : IDisposable
         return HistoryPanelDecisions.CanDeleteRun(
             _state.SectionMode,
             selectedRun,
-            _runtime.IsInGameRun,
-            _runtime.CurrentServerRunId,
+            _runState.IsInGameRun,
+            _runState.CurrentServerRunId,
             _dataService.IsAvailable,
             out reason
         );
@@ -677,7 +673,7 @@ internal sealed class HistoryPanelCoordinator : IDisposable
                 logOperation.TryComplete(
                     HistoryPanelServerHealthTerminalStatus.Failed,
                     HistoryPanelServerHealthReasonClassifier.Classify(result.Error),
-                    exception: null,
+                    result.DiagnosticException,
                     out var terminal
                 )
             )
@@ -833,7 +829,7 @@ internal sealed class HistoryPanelCoordinator : IDisposable
             logRequest.Succeeded();
         }
         else
-            logRequest.Failed(result.Outcome);
+            logRequest.Failed(result.Outcome, result.DiagnosticException);
 
         SetAccountLinkBanner(
             RedeemBannerMessage(result.Outcome),

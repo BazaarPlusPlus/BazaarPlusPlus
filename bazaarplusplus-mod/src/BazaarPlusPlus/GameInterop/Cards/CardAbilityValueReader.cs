@@ -2,6 +2,9 @@
 using System.Collections;
 using System.Globalization;
 using BazaarGameShared.Domain.Cards;
+using BazaarGameShared.Domain.Core.Types;
+using BazaarGameShared.Domain.Values;
+using BazaarGameShared.Domain.Values.ReferenceValues;
 
 namespace BazaarPlusPlus.GameInterop.Cards;
 
@@ -9,6 +12,9 @@ internal readonly record struct CardAbilityValue(string ValueText, string? Unit)
 
 internal static class CardAbilityValueReader
 {
+    private const string AbilitiesProperty = "Abilities";
+    private const string AurasProperty = "Auras";
+
     private static readonly HashSet<string> KnownAttributeUnits = new(StringComparer.Ordinal)
     {
         "Heal",
@@ -30,24 +36,95 @@ internal static class CardAbilityValueReader
         "Value",
     };
 
-    internal static bool TryRead(TCardBase template, string abilityId, out CardAbilityValue result)
+    internal static bool TryRead(
+        TCardBase template,
+        string abilityId,
+        out CardAbilityValue result
+    ) => TryRead(template, AbilitiesProperty, abilityId, out result);
+
+    internal static bool TryReadAura(
+        TCardBase template,
+        string auraId,
+        out CardAbilityValue result
+    ) => TryRead(template, AurasProperty, auraId, out result);
+
+    internal static bool TryEvaluate(
+        TCardBase template,
+        string abilityId,
+        ValueContext context,
+        out CardAbilityValue result
+    ) => TryEvaluate(template, AbilitiesProperty, abilityId, context, out result);
+
+    internal static bool TryEvaluateAura(
+        TCardBase template,
+        string auraId,
+        ValueContext context,
+        out CardAbilityValue result
+    ) => TryEvaluate(template, AurasProperty, auraId, context, out result);
+
+    // Static card data cannot resolve values backed by the current run (player
+    // attributes, owned-card counts, aggregate card attributes). The native game
+    // evaluates those ITValue graphs against a ValueContext; use that same graph at
+    // presentation time instead of reimplementing each reference-value subtype.
+    private static bool TryEvaluate(
+        TCardBase template,
+        string effectsProperty,
+        string effectId,
+        ValueContext context,
+        out CardAbilityValue result
+    )
     {
         result = default;
-        var abilities = template.GetType().GetProperty("Abilities")?.GetValue(template);
-        if (abilities is not IEnumerable enumerable)
+        if (effectId.IndexOf('.') >= 0)
             return false;
 
-        var dot = abilityId.IndexOf('.');
-        var baseAbilityId = dot > 0 ? abilityId[..dot] : abilityId;
-        var accessor = dot > 0 ? abilityId[(dot + 1)..] : null;
+        var effects = template.GetType().GetProperty(effectsProperty)?.GetValue(template);
+        if (effects is not IEnumerable enumerable)
+            return false;
+
         foreach (var entry in enumerable)
         {
-            if (!TryReadEntry(entry, out var key, out var ability))
+            if (!TryReadEntry(entry, out var key, out var effect))
                 continue;
-            if (!string.Equals(key?.ToString(), baseAbilityId, StringComparison.Ordinal))
+            if (!string.Equals(key?.ToString(), effectId, StringComparison.Ordinal))
                 continue;
 
-            var action = ability?.GetType().GetProperty("Action")?.GetValue(ability);
+            var action = effect?.GetType().GetProperty("Action")?.GetValue(effect);
+            if (action?.GetType().GetProperty("Value")?.GetValue(action) is not ITValue value)
+                return false;
+            if (!TryFormatScalar(value.GetValue(context), out var valueText))
+                return false;
+
+            result = new CardAbilityValue(valueText, ResolveAttributeUnit(action));
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool TryRead(
+        TCardBase template,
+        string effectsProperty,
+        string effectId,
+        out CardAbilityValue result
+    )
+    {
+        result = default;
+        var effects = template.GetType().GetProperty(effectsProperty)?.GetValue(template);
+        if (effects is not IEnumerable enumerable)
+            return false;
+
+        var dot = effectId.IndexOf('.');
+        var baseEffectId = dot > 0 ? effectId[..dot] : effectId;
+        var accessor = dot > 0 ? effectId[(dot + 1)..] : null;
+        foreach (var entry in enumerable)
+        {
+            if (!TryReadEntry(entry, out var key, out var effect))
+                continue;
+            if (!string.Equals(key?.ToString(), baseEffectId, StringComparison.Ordinal))
+                continue;
+
+            var action = effect?.GetType().GetProperty("Action")?.GetValue(effect);
             var value = action?.GetType().GetProperty("Value")?.GetValue(action);
             if (string.Equals(accessor, "mod", StringComparison.OrdinalIgnoreCase))
             {
@@ -70,6 +147,12 @@ internal static class CardAbilityValueReader
                 return true;
             }
 
+            if (TryReadCardAttributeReference(template, value, out var attributeText))
+            {
+                result = new CardAbilityValue(attributeText, ResolveAttributeUnit(action));
+                return true;
+            }
+
             var spawnContext = action?.GetType().GetProperty("SpawnContext")?.GetValue(action);
             var limit = spawnContext?.GetType().GetProperty("Limit")?.GetValue(spawnContext);
             var limitScalar = limit?.GetType().GetProperty("Value")?.GetValue(limit);
@@ -83,6 +166,44 @@ internal static class CardAbilityValueReader
         }
 
         return false;
+    }
+
+    private static bool TryReadCardAttributeReference(
+        TCardBase template,
+        object? value,
+        out string valueText
+    )
+    {
+        valueText = string.Empty;
+        ECardAttributeType attributeType;
+        TValueModifier? modifier;
+        switch (value)
+        {
+            case TReferenceValueCardAttribute reference:
+                attributeType = reference.AttributeType;
+                modifier = reference.Modifier;
+                break;
+            case TReferenceValueCardAttributeUnscaled reference:
+                attributeType = reference.AttributeType;
+                modifier = reference.Modifier;
+                break;
+            default:
+                return false;
+        }
+
+        var attributes = template.GetType().GetProperty("Attributes")?.GetValue(template);
+        if (
+            attributes is not IReadOnlyDictionary<ECardAttributeType, int> cardAttributes
+            || !cardAttributes.TryGetValue(attributeType, out var original)
+        )
+            return false;
+
+        if (modifier != null && modifier.Value is not TFixedValue)
+            return false;
+
+        var modified = modifier?.GetModifiedValue(original, default) ?? original;
+        valueText = FormatNumber(modified);
+        return true;
     }
 
     private static bool TryReadFromCardAttributes(

@@ -3,7 +3,9 @@ use std::{collections::HashMap, path::Path, time::Duration};
 use rusqlite::{params, params_from_iter, Connection, OpenFlags, OptionalExtension};
 
 use crate::history::dto::{HistoryBattleRow, HistorySummary};
-use crate::history::mapper::map_battle_row;
+use crate::history::mapper::{map_battle_row, BattleFields, BattleVideoFields};
+
+const UNSUPPORTED_SCHEMA_ERROR_PREFIX: &str = "Unsupported mod database schema: found=";
 
 pub struct RunRow {
     pub run_id: String,
@@ -26,18 +28,131 @@ pub struct VideoRef {
     pub relative_path: String,
 }
 
+/// Backoff before each retry of a transient open. The mod writes this database
+/// from the running game, so a read can land mid-checkpoint and fail once
+/// before succeeding.
+const OPEN_RETRY_BACKOFF: [Duration; 2] = [Duration::from_millis(50), Duration::from_millis(150)];
+
+/// Read connection for every history query.
+///
+/// Opened read-write on purpose. A read-only connection cannot create a missing
+/// `-shm` or recover a dirty WAL, and both are exactly what a game process that
+/// exited uncleanly leaves behind — so the read-only flag turns a recoverable
+/// database into an unreadable one. Write access is not a requirement of this
+/// path: when the file is write-protected SQLite opens it read-only by itself.
 pub fn open_connection(database_path: &Path) -> Result<Connection, String> {
-    let conn = Connection::open_with_flags(database_path, OpenFlags::SQLITE_OPEN_READ_ONLY)
-        .map_err(|err| err.to_string())?;
-    conn.busy_timeout(Duration::from_secs(2))
-        .map_err(|err| err.to_string())?;
-    Ok(conn)
+    open_with_retry(database_path, Writability::Optional)
 }
 
+/// Write connection for delete and cleanup paths. Because SQLite silently
+/// downgrades a write-protected database to read-only, an unwritable file would
+/// otherwise open cleanly here and only fail partway through a cleanup
+/// transaction; the writability check moves that failure to the open.
 pub fn open_write_connection(database_path: &Path) -> Result<Connection, String> {
-    let conn = Connection::open_with_flags(database_path, OpenFlags::SQLITE_OPEN_READ_WRITE)
-        .map_err(|err| err.to_string())?;
-    conn.busy_timeout(Duration::from_secs(2))
+    open_with_retry(database_path, Writability::Required)
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Writability {
+    Optional,
+    Required,
+}
+
+fn open_with_retry(database_path: &Path, writability: Writability) -> Result<Connection, String> {
+    let mut attempt = 0usize;
+    loop {
+        match open_probed(database_path, writability) {
+            Ok((conn, user_version)) => {
+                // A schema mismatch is a stable fact about the file, so it leaves
+                // the retry loop immediately with its own diagnostic.
+                validate_supported_schema(user_version)?;
+                return Ok(conn);
+            }
+            Err(err) => {
+                let Some(backoff) = OPEN_RETRY_BACKOFF.get(attempt).copied() else {
+                    return Err(describe_error(&err));
+                };
+                if !is_transient_error(&err) {
+                    return Err(describe_error(&err));
+                }
+                std::thread::sleep(backoff);
+                attempt += 1;
+            }
+        }
+    }
+}
+
+fn open_probed(
+    database_path: &Path,
+    writability: Writability,
+) -> Result<(Connection, i64), rusqlite::Error> {
+    let conn = Connection::open_with_flags(database_path, OpenFlags::SQLITE_OPEN_READ_WRITE)?;
+    conn.busy_timeout(Duration::from_secs(2))?;
+    // Opening is lazy: the first statement is what actually touches the database
+    // file, the WAL and the shared-memory index, so this probe is what proves the
+    // connection can read. It doubles as the schema check's only query.
+    let user_version = conn.query_row("PRAGMA user_version", [], |row| row.get::<_, i64>(0))?;
+    if writability == Writability::Required && conn.is_readonly(rusqlite::MAIN_DB)? {
+        return Err(rusqlite::Error::SqliteFailure(
+            rusqlite::ffi::Error::new(rusqlite::ffi::SQLITE_READONLY),
+            Some("The mod database is not writable.".to_string()),
+        ));
+    }
+    Ok((conn, user_version))
+}
+
+fn is_transient_error(error: &rusqlite::Error) -> bool {
+    use rusqlite::ffi::ErrorCode;
+
+    matches!(
+        error,
+        rusqlite::Error::SqliteFailure(inner, _)
+            if matches!(
+                inner.code,
+                ErrorCode::DatabaseBusy | ErrorCode::DatabaseLocked | ErrorCode::SystemIoFailure
+            )
+    )
+}
+
+/// Diagnostics carry the SQLite extended code: the bare message collapses a
+/// whole family of causes into "disk I/O error", which is not enough to tell a
+/// locked shared-memory index from a failed WAL recovery when triaging a report.
+fn describe_error(error: &rusqlite::Error) -> String {
+    match error {
+        rusqlite::Error::SqliteFailure(inner, _) => {
+            format!("{error} (sqlite extended_code={})", inner.extended_code)
+        }
+        other => other.to_string(),
+    }
+}
+
+fn validate_supported_schema(found: i64) -> Result<(), String> {
+    let expected = crate::config::SUPPORTED_MOD_DB_USER_VERSION;
+    if found == expected {
+        return Ok(());
+    }
+
+    Err(format!(
+        "{UNSUPPORTED_SCHEMA_ERROR_PREFIX}{found}, expected={expected}."
+    ))
+}
+
+pub(crate) fn unsupported_schema_versions(diagnostic: &str) -> Option<(i64, i64)> {
+    let versions = diagnostic.strip_prefix(UNSUPPORTED_SCHEMA_ERROR_PREFIX)?;
+    let (found, expected) = versions.split_once(", expected=")?;
+    Some((
+        found.parse().ok()?,
+        expected.strip_suffix('.')?.parse().ok()?,
+    ))
+}
+
+/// Write connection for cleanup operations. Unlike `open_write_connection`,
+/// this enables per-connection foreign-key enforcement so the mod schema's
+/// ON DELETE CASCADE chains (runs -> run_events/battles/bundle_seal_jobs,
+/// battles -> battle_snapshots) fire on our deletes.
+pub fn open_cleanup_connection(database_path: &Path) -> Result<Connection, String> {
+    let conn = open_write_connection(database_path)?;
+    conn.execute_batch("PRAGMA foreign_keys = ON;")
         .map_err(|err| err.to_string())?;
     Ok(conn)
 }
@@ -53,8 +168,7 @@ pub fn table_exists(conn: &Connection, table_name: &str) -> Result<bool, String>
 }
 
 pub fn sql_placeholders(count: usize) -> String {
-    std::iter::repeat("?")
-        .take(count)
+    std::iter::repeat_n("?", count)
         .collect::<Vec<_>>()
         .join(", ")
 }
@@ -65,8 +179,8 @@ pub fn load_summary(conn: &Connection) -> Result<HistorySummary, String> {
             "
             select
               count(*) as runs,
-              sum(case when status = 'completed' then 1 else 0 end) as completed_runs,
-              sum(case when status = 'completed' and coalesce(victories, 0) >= 10 then 1 else 0 end) as win_runs,
+              coalesce(sum(case when status = 'completed' then 1 else 0 end), 0) as completed_runs,
+              coalesce(sum(case when status = 'completed' and coalesce(victories, 0) >= 10 then 1 else 0 end), 0) as win_runs,
               max(coalesce(ended_at_utc, last_seen_at_utc, started_at_utc)) as last_run_at_utc
             from runs
             ",
@@ -148,6 +262,19 @@ fn map_run_row_from_statement(row: &rusqlite::Row<'_>) -> rusqlite::Result<RunRo
         final_hour: row.get(10)?,
         final_player_rank: row.get(11)?,
         final_player_rating: row.get(12)?,
+    })
+}
+
+fn map_battle_fields(row: &rusqlite::Row<'_>) -> rusqlite::Result<BattleFields> {
+    Ok(BattleFields {
+        battle_id: row.get(0)?,
+        day: row.get(1)?,
+        hour: row.get(2)?,
+        result: row.get::<_, Option<String>>(3)?,
+        opponent_hero: row.get(4)?,
+        opponent_name: row.get(5)?,
+        opponent_rank: row.get(6)?,
+        opponent_rating: row.get(7)?,
     })
 }
 
@@ -258,18 +385,13 @@ pub fn load_battle_rows(conn: &Connection, run_id: &str) -> Result<Vec<HistoryBa
             .query_map([run_id], |row| {
                 let video_id: Option<String> = row.get(8)?;
                 Ok(map_battle_row(
-                    row.get(0)?,
-                    row.get(1)?,
-                    row.get(2)?,
-                    row.get::<_, Option<String>>(3)?,
-                    row.get(4)?,
-                    row.get(5)?,
-                    row.get(6)?,
-                    row.get(7)?,
-                    video_id,
-                    row.get(9).ok().flatten(),
-                    row.get(10).ok().flatten(),
-                    row.get(11).ok().flatten(),
+                    map_battle_fields(row)?,
+                    video_id.map(|video_id| BattleVideoFields {
+                        video_id,
+                        status: row.get(9).ok().flatten(),
+                        file_size_bytes: row.get(10).ok().flatten(),
+                        duration_ms: row.get(11).ok().flatten(),
+                    }),
                 ))
             })
             .map_err(|err| err.to_string())?;
@@ -292,20 +414,7 @@ pub fn load_battle_rows(conn: &Connection, run_id: &str) -> Result<Vec<HistoryBa
         .map_err(|err| err.to_string())?;
     let rows = stmt
         .query_map([run_id], |row| {
-            Ok(map_battle_row(
-                row.get(0)?,
-                row.get(1)?,
-                row.get(2)?,
-                row.get::<_, Option<String>>(3)?,
-                row.get(4)?,
-                row.get(5)?,
-                row.get(6)?,
-                row.get(7)?,
-                None,
-                None,
-                None,
-                None,
-            ))
+            Ok(map_battle_row(map_battle_fields(row)?, None))
         })
         .map_err(|err| err.to_string())?;
     rows.collect::<Result<Vec<_>, _>>()
@@ -407,7 +516,7 @@ pub fn load_run_id_for_battle(
 
 #[cfg(test)]
 mod tests {
-    use super::open_connection;
+    use super::{open_connection, open_write_connection};
 
     #[test]
     fn open_connection_does_not_create_missing_database() {
@@ -416,5 +525,114 @@ mod tests {
 
         assert!(open_connection(&database_path).is_err());
         assert!(!database_path.exists());
+    }
+
+    #[test]
+    fn connections_reject_unsupported_mod_database_schema_versions() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let database_path = temp_dir.path().join("bazaarplusplus.db");
+        rusqlite::Connection::open(&database_path).unwrap();
+
+        for error in [
+            open_connection(&database_path).unwrap_err(),
+            open_write_connection(&database_path).unwrap_err(),
+        ] {
+            assert!(error.contains("found=0"), "{error}");
+            assert!(error.contains("expected=1"), "{error}");
+        }
+    }
+
+    #[test]
+    fn read_connection_still_opens_a_write_protected_database() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let database_path = temp_dir.path().join("bazaarplusplus.db");
+        rusqlite::Connection::open(&database_path)
+            .unwrap()
+            .execute_batch("pragma user_version = 1;")
+            .unwrap();
+        write_protect(&database_path);
+
+        // SQLite downgrades the read-write open to read-only, which is what keeps
+        // history readable when the game lives in a directory we cannot write.
+        assert!(open_connection(&database_path).is_ok());
+    }
+
+    #[test]
+    fn write_connection_refuses_a_write_protected_database_at_open() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let database_path = temp_dir.path().join("bazaarplusplus.db");
+        rusqlite::Connection::open(&database_path)
+            .unwrap()
+            .execute_batch("pragma user_version = 1; create table runs (run_id text primary key);")
+            .unwrap();
+        write_protect(&database_path);
+
+        let error = open_write_connection(&database_path).unwrap_err();
+
+        assert!(error.contains("not writable"), "{error}");
+    }
+
+    #[test]
+    fn open_failure_diagnostics_carry_the_sqlite_extended_code() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let database_path = temp_dir.path().join("bazaarplusplus.db");
+        std::fs::write(&database_path, b"this is not a sqlite database").unwrap();
+
+        let error = open_connection(&database_path).unwrap_err();
+
+        // 26 is SQLITE_NOTADB; without the code the message alone reads as a
+        // generic failure and cannot be triaged from a user report.
+        assert!(error.contains("extended_code=26"), "{error}");
+    }
+
+    fn write_protect(path: &std::path::Path) {
+        let mut permissions = std::fs::metadata(path).unwrap().permissions();
+        permissions.set_readonly(true);
+        std::fs::set_permissions(path, permissions).unwrap();
+    }
+
+    #[test]
+    fn connection_rejects_a_newer_mod_database_schema_version() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let database_path = temp_dir.path().join("bazaarplusplus.db");
+        rusqlite::Connection::open(&database_path)
+            .unwrap()
+            .execute_batch("pragma user_version = 2;")
+            .unwrap();
+
+        let error = open_connection(&database_path).unwrap_err();
+
+        assert!(error.contains("found=2"), "{error}");
+        assert!(error.contains("expected=1"), "{error}");
+    }
+
+    #[test]
+    fn cleanup_connection_enables_foreign_key_cascade() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let database_path = temp_dir.path().join("bazaarplusplus.db");
+        {
+            let conn = rusqlite::Connection::open(&database_path).unwrap();
+            conn.execute_batch(
+                "pragma user_version = 1;
+                 create table parents (id text primary key);
+                 create table children (
+                     id text primary key,
+                     parent_id text not null,
+                     foreign key (parent_id) references parents(id) on delete cascade
+                 );
+                 insert into parents values ('p1');
+                 insert into children values ('c1', 'p1');",
+            )
+            .unwrap();
+        }
+
+        let conn = super::open_cleanup_connection(&database_path).unwrap();
+        conn.execute("delete from parents where id = 'p1'", [])
+            .unwrap();
+
+        let remaining: i64 = conn
+            .query_row("select count(*) from children", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(remaining, 0, "cascade must fire on the cleanup connection");
     }
 }

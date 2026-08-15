@@ -19,6 +19,8 @@ using BazaarPlusPlus.ModApi.Clients;
 using BazaarPlusPlus.ModApi.Http;
 using BazaarPlusPlus.Patches;
 using BazaarPlusPlus.Patches.Tooltips;
+using BazaarPlusPlus.Storage.Paths;
+using BazaarPlusPlus.Storage.Sqlite;
 using BepInEx;
 using BepInEx.Configuration;
 using HarmonyLib;
@@ -31,10 +33,14 @@ public class Plugin : BaseUnityPlugin
 {
     private readonly Harmony _harmony = new Harmony(MyPluginInfo.PLUGIN_GUID);
     private BppComposition? _composition;
-    private ModOnlineClient? _onlineClient;
+    private ModApiSession? _modApiSession;
     private BazaarDbLinkClient? _bazaarDbLinkClient;
     private bool _patchesApplied;
     private bool _teardownStarted;
+
+    // Captured at startup because teardown releases the database after the
+    // composition that owns the path provider is already disposed.
+    private string? _runLogDatabasePath;
 
     protected virtual void Awake()
     {
@@ -52,6 +58,10 @@ public class Plugin : BaseUnityPlugin
             _composition = new BppComposition(Logger, configFile, gameBuild);
 
             var services = _composition.Services;
+            var dataRoot = services.Paths.DataRootDirectoryPath;
+            _runLogDatabasePath = string.IsNullOrWhiteSpace(dataRoot)
+                ? null
+                : PathConstants.RunLogDatabase(dataRoot!);
             BppPatchHost.Install(services, _composition.PatchFeatures);
 
             if (gameBuild.DetectionWarning != null)
@@ -91,7 +101,7 @@ public class Plugin : BaseUnityPlugin
 
             phase = PluginInitializationPhase.OnlineServices;
             BuildOnlineServices();
-            _composition.AttachOnlineClient(_onlineClient);
+            _composition.AttachModApiSession(_modApiSession);
             _composition.AttachAccountLinkClient(_bazaarDbLinkClient);
 
             phase = PluginInitializationPhase.Mountables;
@@ -172,6 +182,11 @@ public class Plugin : BaseUnityPlugin
             DestroyComponentIfPresent<CombatReplayRuntime>
         );
         failures.Run(PluginTeardownStep.DisposeOnlineServices, DisposeOnlineServices);
+        // After every writer is gone, so the checkpoint can reclaim the whole WAL.
+        failures.Run(
+            PluginTeardownStep.ReleaseRunLogDatabase,
+            () => SqliteShutdown.ReleaseRunLogDatabase(_runLogDatabasePath)
+        );
         failures.Run(PluginTeardownStep.UninstallStaticUtilities, UninstallStaticUtilities);
     }
 
@@ -214,7 +229,7 @@ public class Plugin : BaseUnityPlugin
     private void BuildOnlineServices()
     {
         // BazaarDB account linking targets a different host (bazaardb.gg) and is independent of the
-        // mod-api-v4 base URL, so build it regardless of mod-api routes validity. Its dedicated bare
+        // mod API base URL, so build it regardless of mod-api routes validity. Its dedicated bare
         // HttpClient carries no mod-api auth/base address; a 30s timeout keeps a hung redeem from
         // stalling the link card for the HttpClient default of ~100s.
         var linkHttpClient = BppHttpClientFactory.Create(
@@ -227,8 +242,13 @@ public class Plugin : BaseUnityPlugin
             new Uri(BazaarDbLinkClient.DefaultRedeemEndpoint)
         );
 
-        var routes = ModApiRoutes.TryCreate(ModApiUploadDefaults.ApiBaseUrl);
-        if (routes == null)
+        _modApiSession = ModApiSession.TryCreate(
+            ModApiUploadDefaults.ApiBaseUrl,
+            BppPluginVersion.Current,
+            "OnlineClient",
+            TimeSpan.FromSeconds(Math.Max(10, ModApiUploadDefaults.RequestTimeoutSeconds))
+        );
+        if (_modApiSession == null)
         {
             BppLog.WarnEvent(
                 PluginLogEvents.OnlineServicesDegraded,
@@ -239,13 +259,6 @@ public class Plugin : BaseUnityPlugin
             );
             return;
         }
-
-        var httpClient = BppHttpClientFactory.Create(
-            productVersion: BppPluginVersion.Current,
-            userAgentSuffix: "OnlineClient",
-            timeout: TimeSpan.FromSeconds(Math.Max(10, ModApiUploadDefaults.RequestTimeoutSeconds))
-        );
-        _onlineClient = new ModOnlineClient(httpClient, routes);
     }
 
     private void ApplyHarmonyPatches()
@@ -304,8 +317,8 @@ public class Plugin : BaseUnityPlugin
     {
         _bazaarDbLinkClient?.Dispose();
         _bazaarDbLinkClient = null;
-        _onlineClient?.Dispose();
-        _onlineClient = null;
+        _modApiSession?.Dispose();
+        _modApiSession = null;
     }
 
     private void UnpatchHarmony()

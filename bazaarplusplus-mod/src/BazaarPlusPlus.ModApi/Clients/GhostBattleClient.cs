@@ -1,11 +1,13 @@
 #nullable enable
-using System.Text;
+using System.Globalization;
+using BazaarPlusPlus.ModApi.Bundle;
+using BazaarPlusPlus.ModApi.Http;
 using BazaarPlusPlus.ModApi.Models;
 using Newtonsoft.Json.Linq;
 
 namespace BazaarPlusPlus.ModApi.Clients;
 
-public sealed class GhostBattleClient
+internal sealed class GhostBattleClient
 {
     private readonly HttpClient _httpClient;
     private readonly ModApiRoutes _routes;
@@ -22,50 +24,44 @@ public sealed class GhostBattleClient
         CancellationToken cancellationToken
     )
     {
+        if (string.IsNullOrWhiteSpace(playerAccountId))
+            return GhostBattleQueryResult.Failure("player_account_id_required");
+
         try
         {
-            if (string.IsNullOrWhiteSpace(playerAccountId))
-            {
-                return GhostBattleQueryResult.Failure("player_account_id_required");
-            }
-
             var endpoint = new UriBuilder(_routes.QueryGhostBattles)
             {
                 Query =
                     $"player_account_id={Uri.EscapeDataString(playerAccountId.Trim())}&limit={Math.Clamp(limit, 1, 200)}",
             }.Uri.ToString();
-            using var request = CreateRequest(HttpMethod.Get, endpoint);
-            using var response = await _httpClient.SendAsync(
-                request,
-                HttpCompletionOption.ResponseHeadersRead,
-                cancellationToken
-            );
-            var responseBody = await response.Content.ReadAsStringAsync();
-            if (!response.IsSuccessStatusCode)
+            using var request = new HttpRequestMessage(HttpMethod.Get, endpoint);
+            using var response = await _httpClient
+                .SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken)
+                .ConfigureAwait(false);
+            var parsed = await ModApiResponse
+                .ReadAsync(response, ModApiBodyReadPolicy.Json, cancellationToken)
+                .ConfigureAwait(false);
+            if (!parsed.IsSuccess)
             {
-                var statusCode = (int)response.StatusCode;
                 return GhostBattleQueryResult.Failure(
-                    ModApiErrorFormatter.FormatHttpFailure(statusCode, responseBody)
+                    new ModApiFailure(parsed.UserCode, response: parsed),
+                    parsed.StatusCode,
+                    parsed.RetryAfterSeconds
                 );
             }
 
-            var payload = JObject.Parse(responseBody);
-            var battlesToken = payload["battles"] as JArray;
-            var importRecords = new List<GhostBattleImportRecord>();
+            var battlesToken = JObject.Parse(parsed.Body)["battles"] as JArray;
+            var records = new List<GhostBattleImportRecord>();
             if (battlesToken != null)
             {
-                foreach (var battleChild in battlesToken)
+                foreach (var child in battlesToken)
                 {
-                    if (battleChild is not JObject battleToken)
-                        continue;
-
-                    var importRecord = TryParseBattle(battleToken);
-                    if (importRecord != null)
-                        importRecords.Add(importRecord);
+                    if (child is JObject battle && TryParseBattle(battle, out var record))
+                        records.Add(record);
                 }
             }
 
-            return GhostBattleQueryResult.Success(importRecords);
+            return GhostBattleQueryResult.Success(records);
         }
         catch (OperationCanceledException)
         {
@@ -73,78 +69,56 @@ public sealed class GhostBattleClient
         }
         catch (Exception ex)
         {
-            return GhostBattleQueryResult.Failure(ModApiErrorFormatter.Truncate(ex.Message));
-        }
-    }
-
-    public async Task<GhostBattleReplayLinkResult> RequestReplayDownloadLinkAsync(
-        string battleId,
-        CancellationToken cancellationToken
-    )
-    {
-        try
-        {
-            var endpoint = _routes.CreateReplayLink(battleId);
-            using var request = CreateRequest(HttpMethod.Post, endpoint);
-            using var response = await _httpClient.SendAsync(
-                request,
-                HttpCompletionOption.ResponseHeadersRead,
-                cancellationToken
+            return GhostBattleQueryResult.Failure(
+                new ModApiFailure("transport_error", diagnosticException: ex)
             );
-            var responseBody = await response.Content.ReadAsStringAsync();
-            if (!response.IsSuccessStatusCode)
-            {
-                var statusCode = (int)response.StatusCode;
-                return GhostBattleReplayLinkResult.Failure(
-                    ModApiErrorFormatter.FormatHttpFailure(statusCode, responseBody)
-                );
-            }
-
-            var payload = JObject.Parse(responseBody);
-            var downloadUrl = payload["download_url"]?.Value<string>()?.Trim();
-            if (string.IsNullOrWhiteSpace(downloadUrl))
-            {
-                return GhostBattleReplayLinkResult.Failure("download_url_missing");
-            }
-
-            return GhostBattleReplayLinkResult.Success(downloadUrl);
-        }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (Exception ex)
-        {
-            return GhostBattleReplayLinkResult.Failure(ModApiErrorFormatter.Truncate(ex.Message));
         }
     }
 
-    public async Task<GhostBattleReplayBytesResult> DownloadReplayBytesAsync(
+    public async Task<GhostBundleDownloadResult> DownloadBundleAsync(
         string downloadUrl,
         CancellationToken cancellationToken
     )
     {
+        if (!Uri.TryCreate(downloadUrl, UriKind.Absolute, out var uri))
+            return GhostBundleDownloadResult.Failure("download_url_invalid");
+
         try
         {
-            using var request = CreateRequest(HttpMethod.Get, downloadUrl);
-            using var response = await _httpClient.SendAsync(
-                request,
-                HttpCompletionOption.ResponseHeadersRead,
-                cancellationToken
-            );
-            var responseBytes = await response.Content.ReadAsByteArrayAsync();
+            using var request = new HttpRequestMessage(HttpMethod.Get, uri);
+            using var response = await _httpClient
+                .SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken)
+                .ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
             {
-                var statusCode = (int)response.StatusCode;
-                return GhostBattleReplayBytesResult.Failure(
-                    ModApiErrorFormatter.FormatHttpFailure(
-                        statusCode,
-                        Encoding.UTF8.GetString(responseBytes)
+                var parsed = await ModApiResponse
+                    .ReadAsync(
+                        response,
+                        new ModApiBodyReadPolicy(16 * 1024, "bundle_too_large"),
+                        cancellationToken
                     )
+                    .ConfigureAwait(false);
+                return GhostBundleDownloadResult.Failure(
+                    new ModApiFailure(parsed.UserCode, response: parsed),
+                    parsed.StatusCode
                 );
             }
 
-            return GhostBattleReplayBytesResult.Success(responseBytes);
+            var declaredLength = response.Content.Headers.ContentLength;
+            if (declaredLength.HasValue && declaredLength.Value > BundleLimitsV5.MaxBundleBytes)
+                return GhostBundleDownloadResult.Failure("bundle_too_large");
+
+            var bytes = await ReadBoundedAsync(
+                    response.Content,
+                    BundleLimitsV5.MaxBundleBytes,
+                    cancellationToken
+                )
+                .ConfigureAwait(false);
+            return GhostBundleDownloadResult.Success(bytes);
+        }
+        catch (GhostDownloadLimitException)
+        {
+            return GhostBundleDownloadResult.Failure("bundle_too_large");
         }
         catch (OperationCanceledException)
         {
@@ -152,101 +126,154 @@ public sealed class GhostBattleClient
         }
         catch (Exception ex)
         {
-            return GhostBattleReplayBytesResult.Failure(ModApiErrorFormatter.Truncate(ex.Message));
+            return GhostBundleDownloadResult.Failure(
+                new ModApiFailure("transport_error", diagnosticException: ex)
+            );
         }
     }
 
-    private static HttpRequestMessage CreateRequest(HttpMethod method, string endpoint)
+    private static async Task<byte[]> ReadBoundedAsync(
+        HttpContent content,
+        int maxBytes,
+        CancellationToken cancellationToken
+    )
     {
-        return new HttpRequestMessage(method, endpoint);
-    }
-
-    private static GhostBattleImportRecord? TryParseBattle(JObject battle)
-    {
-        var battleId = battle["battle_id"]?.Value<string>()?.Trim();
-        var recordedAtUtc = battle["recorded_at_utc"]?.Value<string>()?.Trim();
-        if (
-            string.IsNullOrWhiteSpace(battleId)
-            || string.IsNullOrWhiteSpace(recordedAtUtc)
-            || !DateTimeOffset.TryParse(recordedAtUtc, out var parsedRecordedAtUtc)
-        )
+        using var stream = await content.ReadAsStreamAsync().ConfigureAwait(false);
+        using var output = new MemoryStream();
+        var buffer = new byte[81920];
+        while (true)
         {
-            return null;
+            var read = await stream
+                .ReadAsync(buffer, 0, buffer.Length, cancellationToken)
+                .ConfigureAwait(false);
+            if (read == 0)
+                return output.ToArray();
+            if (output.Length + read > maxBytes)
+                throw new GhostDownloadLimitException();
+            output.Write(buffer, 0, read);
         }
+    }
 
-        return new GhostBattleImportRecord
+    private static bool TryParseBattle(JObject battle, out GhostBattleImportRecord record)
+    {
+        record = null!;
+        var battleId = ReadString(battle, "battle_id");
+        var bundleId = ReadString(battle, "bundle_id");
+        var downloadUrl = ReadString(battle, "download_url");
+        if (
+            string.IsNullOrEmpty(battleId)
+            || string.IsNullOrEmpty(bundleId)
+            || string.IsNullOrEmpty(downloadUrl)
+            || !TryReadUnixMilliseconds(battle["recorded_at_ms"], out var recordedAt)
+            || !TryReadUnixMilliseconds(battle["download_expires_at_ms"], out var expiresAt)
+            || battle["player"] is not JObject player
+            || battle["opponent"] is not JObject opponent
+        )
+            return false;
+
+        var uploaderAccountId = ReadString(player, "account_id");
+        var opponentAccountId = ReadString(opponent, "account_id");
+        if (string.IsNullOrEmpty(uploaderAccountId) || string.IsNullOrEmpty(opponentAccountId))
+            return false;
+
+        record = new GhostBattleImportRecord
         {
             BattleId = battleId,
-            RecordedAtUtc = parsedRecordedAtUtc,
-            Day = battle["day"]?.Value<int?>(),
-            Hour = battle["hour"]?.Value<int?>(),
-            EncounterId = battle["encounter_id"]?.Value<string>(),
-            PlayerName = battle["player_name"]?.Value<string>(),
-            PlayerAccountId = battle["player_account_id"]?.Value<string>(),
-            PlayerHero = battle["player_hero"]?.Value<string>(),
-            PlayerRank = battle["player_rank"]?.Value<string>(),
-            PlayerRating = battle["player_rating"]?.Value<int?>(),
-            PlayerLevel = battle["player_level"]?.Value<int?>(),
-            PlayerPrestige = battle["player_prestige"]?.Value<int?>(),
-            PlayerVictories = battle["player_victories"]?.Value<int?>(),
-            PlayerHandItemCount = ReadNullableInt(
-                battle,
-                "player_hand_item_count",
-                "player_item_count",
-                "player_items_count",
-                "player_items"
-            ),
-            PlayerSkillCount = ReadNullableInt(
-                battle,
-                "player_skill_count",
-                "player_skills_count",
-                "player_skills"
-            ),
-            OpponentName = battle["opponent_name"]?.Value<string>(),
-            OpponentHero = battle["opponent_hero"]?.Value<string>(),
-            OpponentRank = battle["opponent_rank"]?.Value<string>(),
-            OpponentRating = battle["opponent_rating"]?.Value<int?>(),
-            OpponentLevel = battle["opponent_level"]?.Value<int?>(),
-            OpponentPrestige = battle["opponent_prestige"]?.Value<int?>(),
-            OpponentVictories = battle["opponent_victories"]?.Value<int?>(),
-            OpponentHandItemCount = ReadNullableInt(
-                battle,
-                "opponent_hand_item_count",
-                "opponent_item_count",
-                "opponent_items_count",
-                "opponent_items"
-            ),
-            OpponentSkillCount = ReadNullableInt(
-                battle,
-                "opponent_skill_count",
-                "opponent_skills_count",
-                "opponent_skills"
-            ),
-            OpponentAccountId = battle["opponent_account_id"]?.Value<string>(),
-            CombatKind = battle["combat_kind"]?.Value<string>()?.Trim() ?? "PVPCombat",
-            Result = battle["result"]?.Value<string>()?.Trim(),
-            WinnerCombatantId = battle["winner_combatant_id"]?.Value<string>()?.Trim(),
-            LoserCombatantId = battle["loser_combatant_id"]?.Value<string>()?.Trim(),
+            BundleId = bundleId,
+            DownloadUrl = downloadUrl,
+            DownloadExpiresAtUtc = expiresAt,
+            RecordedAtUtc = recordedAt,
+            Day = ReadNonNegativeInt(battle, "day"),
+            Hour = ReadNonNegativeInt(battle, "hour"),
+            EncounterId = ReadString(battle, "encounter_id"),
+            PlayerName = ReadString(player, "display_name") ?? string.Empty,
+            PlayerAccountId = uploaderAccountId,
+            PlayerHero = ReadString(player, "hero_name"),
+            PlayerRank = ReadString(player, "rank"),
+            PlayerRating = ReadNonNegativeInt(player, "rating"),
+            PlayerLevel = ReadNonNegativeInt(player, "level"),
+            PlayerPrestige = ReadNonNegativeInt(player, "prestige"),
+            PlayerVictories = ReadNonNegativeInt(player, "victories"),
+            OpponentName = ReadString(opponent, "display_name") ?? string.Empty,
+            OpponentAccountId = opponentAccountId,
+            OpponentHero = ReadString(opponent, "hero_name"),
+            OpponentRank = ReadString(opponent, "rank"),
+            OpponentRating = ReadNonNegativeInt(opponent, "rating"),
+            OpponentLevel = ReadNonNegativeInt(opponent, "level"),
+            OpponentPrestige = ReadNonNegativeInt(opponent, "prestige"),
+            OpponentVictories = ReadNonNegativeInt(opponent, "victories"),
+            CombatKind = ReadString(battle, "combat_kind") ?? "pvp",
+            Result = NormalizeResult(ReadString(battle, "result")),
+            WinnerCombatantId = ReadString(battle, "winner_combatant_id"),
+            LoserCombatantId = ReadString(battle, "loser_combatant_id"),
             IsFinalBattle = battle["is_final_battle"]?.Value<bool?>() ?? false,
-            ReplayAvailable = true,
-            ReplayDownloaded = false,
+            ReplayAvailable = Uri.TryCreate(downloadUrl, UriKind.Absolute, out _),
+            ReplayState = "remote_available",
             LastSyncedAtUtc = DateTimeOffset.UtcNow,
         };
+        return record.Day.HasValue && record.Hour.HasValue;
     }
 
-    private static int? ReadNullableInt(JObject source, params string[] propertyNames)
+    private static string NormalizeResult(string? value) =>
+        value != null
+        && (
+            string.Equals(value, "win", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(value, "loss", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(value, "unknown", StringComparison.OrdinalIgnoreCase)
+        )
+            ? value.ToLowerInvariant()
+            : "unknown";
+
+    private static string? ReadString(JObject source, string name)
     {
-        foreach (var propertyName in propertyNames)
-        {
-            var token = source[propertyName];
-            if (token == null || token.Type == JTokenType.Null)
-                continue;
-
-            return token.Value<int?>();
-        }
-
-        return null;
+        var value =
+            source[name]?.Type == JTokenType.String ? source[name]?.Value<string>()?.Trim() : null;
+        return string.IsNullOrEmpty(value) ? null : value;
     }
+
+    private static int? ReadNonNegativeInt(JObject source, string name)
+    {
+        var token = source[name];
+        if (token == null || token.Type == JTokenType.Null)
+            return null;
+        if (
+            !long.TryParse(
+                token.ToString(),
+                NumberStyles.Integer,
+                CultureInfo.InvariantCulture,
+                out var value
+            )
+        )
+            return null;
+        return value is >= 0 and <= int.MaxValue ? (int)value : null;
+    }
+
+    private static bool TryReadUnixMilliseconds(JToken? token, out DateTimeOffset value)
+    {
+        value = default;
+        if (
+            token == null
+            || !long.TryParse(
+                token.ToString(),
+                NumberStyles.Integer,
+                CultureInfo.InvariantCulture,
+                out var milliseconds
+            )
+            || milliseconds < 0
+        )
+            return false;
+        try
+        {
+            value = DateTimeOffset.FromUnixTimeMilliseconds(milliseconds);
+            return true;
+        }
+        catch (ArgumentOutOfRangeException)
+        {
+            return false;
+        }
+    }
+
+    private sealed class GhostDownloadLimitException : Exception { }
 }
 
 public readonly struct GhostBattleQueryResult
@@ -254,63 +281,71 @@ public readonly struct GhostBattleQueryResult
     private GhostBattleQueryResult(
         bool succeeded,
         IReadOnlyList<GhostBattleImportRecord>? battles,
-        string? error
+        ModApiFailure? failure,
+        int? statusCode,
+        int? retryAfterSeconds
     )
     {
         Succeeded = succeeded;
         Battles = battles ?? Array.Empty<GhostBattleImportRecord>();
-        Error = error;
+        FailureInfo = failure;
+        StatusCode = statusCode;
+        RetryAfterSeconds = retryAfterSeconds;
     }
 
     public bool Succeeded { get; }
-
     public IReadOnlyList<GhostBattleImportRecord> Battles { get; }
-
-    public string? Error { get; }
+    public ModApiFailure? FailureInfo { get; }
+    public string? Error => FailureInfo?.UserCode;
+    public Exception? DiagnosticException => FailureInfo?.DiagnosticException;
+    public int? StatusCode { get; }
+    public int? RetryAfterSeconds { get; }
 
     public static GhostBattleQueryResult Success(IReadOnlyList<GhostBattleImportRecord> battles) =>
-        new(true, battles, null);
+        new(true, battles, null, null, null);
 
-    public static GhostBattleQueryResult Failure(string error) => new(false, null, error);
+    public static GhostBattleQueryResult Failure(
+        ModApiFailure failure,
+        int? statusCode = null,
+        int? retryAfterSeconds = null
+    ) => new(false, null, failure, statusCode, retryAfterSeconds);
+
+    public static GhostBattleQueryResult Failure(
+        string error,
+        int? statusCode = null,
+        int? retryAfterSeconds = null
+    ) => Failure(new ModApiFailure(error), statusCode, retryAfterSeconds);
 }
 
-public readonly struct GhostBattleReplayLinkResult
+public readonly struct GhostBundleDownloadResult
 {
-    private GhostBattleReplayLinkResult(bool succeeded, string? downloadUrl, string? error)
-    {
-        Succeeded = succeeded;
-        DownloadUrl = downloadUrl;
-        Error = error;
-    }
-
-    public bool Succeeded { get; }
-
-    public string? DownloadUrl { get; }
-
-    public string? Error { get; }
-
-    public static GhostBattleReplayLinkResult Success(string downloadUrl) =>
-        new(true, downloadUrl, null);
-
-    public static GhostBattleReplayLinkResult Failure(string error) => new(false, null, error);
-}
-
-public readonly struct GhostBattleReplayBytesResult
-{
-    private GhostBattleReplayBytesResult(bool succeeded, byte[]? bytes, string? error)
+    private GhostBundleDownloadResult(
+        bool succeeded,
+        byte[]? bytes,
+        ModApiFailure? failure,
+        int? statusCode
+    )
     {
         Succeeded = succeeded;
         Bytes = bytes;
-        Error = error;
+        FailureInfo = failure;
+        StatusCode = statusCode;
     }
 
     public bool Succeeded { get; }
-
     public byte[]? Bytes { get; }
+    public ModApiFailure? FailureInfo { get; }
+    public string? Error => FailureInfo?.UserCode;
+    public Exception? DiagnosticException => FailureInfo?.DiagnosticException;
+    public int? StatusCode { get; }
 
-    public string? Error { get; }
+    public static GhostBundleDownloadResult Success(byte[] bytes) => new(true, bytes, null, null);
 
-    public static GhostBattleReplayBytesResult Success(byte[] bytes) => new(true, bytes, null);
+    public static GhostBundleDownloadResult Failure(
+        ModApiFailure failure,
+        int? statusCode = null
+    ) => new(false, null, failure, statusCode);
 
-    public static GhostBattleReplayBytesResult Failure(string error) => new(false, null, error);
+    public static GhostBundleDownloadResult Failure(string error, int? statusCode = null) =>
+        Failure(new ModApiFailure(error), statusCode);
 }

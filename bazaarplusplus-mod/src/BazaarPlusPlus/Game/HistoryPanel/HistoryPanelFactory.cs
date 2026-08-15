@@ -1,4 +1,5 @@
 #nullable enable
+using BazaarPlusPlus.Game.CombatReplay;
 using BazaarPlusPlus.Game.HistoryPanel.Ghost;
 using BazaarPlusPlus.Game.HistoryPanel.Storage;
 using BazaarPlusPlus.ModApi.Clients;
@@ -8,59 +9,67 @@ namespace BazaarPlusPlus.Game.HistoryPanel;
 internal static class HistoryPanelFactory
 {
     public static HistoryPanelDependencies Create(
-        IHistoryPanelRuntime runtime,
-        ModOnlineClient onlineClient
-    ) => Create(runtime, onlineClient, null);
-
-    public static HistoryPanelDependencies Create(
-        IHistoryPanelRuntime runtime,
-        ModOnlineClient onlineClient,
-        BazaarDbLinkClient? accountLinkClient,
+        IHistoryPanelRunState runState,
+        ModApiSession? modApiSession,
+        Func<CombatReplayRuntime?> combatReplayRuntimeAccessor,
+        string runLogDatabasePath,
+        string combatReplayDirectoryPath,
+        string combatReplayVideoDirectoryPath,
+        string pluginsDirectoryPath,
+        BazaarDbLinkClient? accountLinkClient = null,
         Func<bool>? isBazaarDbAccountLinkAvailable = null
     )
     {
-        if (runtime == null)
-            throw new ArgumentNullException(nameof(runtime));
-        if (onlineClient == null)
-            throw new ArgumentNullException(nameof(onlineClient));
+        if (runState == null)
+            throw new ArgumentNullException(nameof(runState));
+        if (combatReplayRuntimeAccessor == null)
+            throw new ArgumentNullException(nameof(combatReplayRuntimeAccessor));
 
+        var databasePath = runLogDatabasePath ?? string.Empty;
+        var replayDirectoryPath = combatReplayDirectoryPath ?? string.Empty;
+        var videoDirectoryPath = combatReplayVideoDirectoryPath ?? string.Empty;
+        var pluginsPath = pluginsDirectoryPath ?? string.Empty;
+
+        // Null-degrade chain: empty/missing db path → no repository → no ghost sync →
+        // data + replay services still construct, just without ghost capabilities.
         HistoryPanelRepository? repository = null;
-        if (!string.IsNullOrWhiteSpace(runtime.RunLogDatabasePath))
-            repository = new HistoryPanelRepository(runtime.RunLogDatabasePath);
+        if (!string.IsNullOrWhiteSpace(databasePath))
+            repository = new HistoryPanelRepository(databasePath);
 
-        var ghostSyncService = CreateGhostSyncService(repository, onlineClient);
+        var ghostSyncService = CreateGhostSyncService(repository, modApiSession);
         var dataService = new HistoryPanelDataService(
             repository,
             ghostSyncService,
-            () => runtime.CombatReplayDirectoryPath
+            () => replayDirectoryPath
         );
         var replayService = new HistoryPanelReplayService(
-            runtime.CombatReplayRuntimeAccessor,
-            () => runtime.CombatReplayDirectoryPath,
-            () => runtime.PluginsDirectoryPath,
-            () => runtime.CombatReplayVideoDirectoryPath,
+            combatReplayRuntimeAccessor,
+            replayDirectoryPath,
+            pluginsPath,
+            videoDirectoryPath,
             ghostSyncService
         );
-        var serverHealthProbe = new HistoryPanelServerHealthProbe(onlineClient);
+        var serverHealthProbe =
+            modApiSession == null ? null : new HistoryPanelServerHealthProbe(modApiSession);
         return new HistoryPanelDependencies(
-            runtime,
+            runState,
             dataService,
             replayService,
-            ghostSyncService,
             serverHealthProbe,
             accountLinkClient,
-            isBazaarDbAccountLinkAvailable
+            isBazaarDbAccountLinkAvailable,
+            replayDirectoryPath
         );
     }
 
     private static GhostBattleSyncService? CreateGhostSyncService(
         HistoryPanelRepository? repository,
-        ModOnlineClient onlineClient
+        ModApiSession? modApiSession
     )
     {
-        if (repository == null)
+        if (repository == null || modApiSession == null)
             return null;
 
-        return new GhostBattleSyncService(repository, onlineClient);
+        return new GhostBattleSyncService(repository, modApiSession);
     }
 }

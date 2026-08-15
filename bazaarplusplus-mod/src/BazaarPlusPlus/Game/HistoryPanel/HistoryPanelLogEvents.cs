@@ -239,31 +239,13 @@ internal static class HistoryPanelLogEvents
     );
 
     private static BppLogFieldDefinition PublicLow(int order, string name) =>
-        new(
-            order,
-            name,
-            BppLogFieldPrivacy.Public,
-            BppLogCorrelationPolicy.None,
-            BppLogCardinality.Low
-        );
+        new(order, name, BppLogCorrelationPolicy.None, BppLogCardinality.Low);
 
     private static BppLogFieldDefinition PublicHigh(int order, string name) =>
-        new(
-            order,
-            name,
-            BppLogFieldPrivacy.Public,
-            BppLogCorrelationPolicy.None,
-            BppLogCardinality.High
-        );
+        new(order, name, BppLogCorrelationPolicy.None, BppLogCardinality.High);
 
     private static BppLogFieldDefinition PublicHighShort(int order, string name) =>
-        new(
-            order,
-            name,
-            BppLogFieldPrivacy.Public,
-            BppLogCorrelationPolicy.Short,
-            BppLogCardinality.High
-        );
+        new(order, name, BppLogCorrelationPolicy.Short, BppLogCardinality.High);
 
     private static BppLogFieldDefinition[] DeleteFields() =>
         [

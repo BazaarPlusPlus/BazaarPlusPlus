@@ -4,7 +4,7 @@ using BazaarPlusPlus.Core.Runtime;
 using BazaarPlusPlus.Game.PvpBattles;
 using BazaarPlusPlus.Game.PvpBattles.Persistence;
 using BazaarPlusPlus.Infrastructure;
-using BazaarPlusPlus.Storage.Upload;
+using BazaarPlusPlus.Storage.Paths;
 
 namespace BazaarPlusPlus.Game.CombatReplay;
 
@@ -13,7 +13,6 @@ internal sealed class ReplayPersistenceOrchestrator : IDisposable
     private readonly IBppServices _services;
     private readonly IPvpBattleCatalog _battleCatalog;
     private readonly CombatReplayPayloadStore _payloadStore;
-    private readonly BattleReplaySyncStateStore? _syncStateStore;
     private readonly CombatReplayPersistenceQueue _persistenceQueue;
     private readonly Action<PvpBattleManifest, bool, Exception?>? _resultObserver;
     private readonly object _drainGate = new();
@@ -29,14 +28,11 @@ internal sealed class ReplayPersistenceOrchestrator : IDisposable
         _battleCatalog = battleCatalog ?? throw new ArgumentNullException(nameof(battleCatalog));
         _resultObserver = resultObserver;
 
-        var combatReplayDirectoryPath =
-            services.Paths.CombatReplayDirectoryPath
-            ?? throw new InvalidOperationException(
-                "Combat replay directory path is not initialized."
-            );
+        var combatReplayDirectoryPath = PathConstants.CombatReplays(
+            services.Paths.RequireDataRoot()
+        );
 
         _payloadStore = new CombatReplayPayloadStore(combatReplayDirectoryPath);
-        _syncStateStore = new BattleReplaySyncStateStore(services.Paths);
         _persistenceQueue = new CombatReplayPersistenceQueue(
             _payloadStore.Save,
             _battleCatalog.Save,
@@ -56,7 +52,16 @@ internal sealed class ReplayPersistenceOrchestrator : IDisposable
         if (_disposed)
             return;
 
-        _persistenceQueue.Enqueue(payload, manifest);
+        ReplayPersistenceStateTracker.Enqueued(manifest.RunId);
+        try
+        {
+            _persistenceQueue.Enqueue(payload, manifest);
+        }
+        catch
+        {
+            ReplayPersistenceStateTracker.Completed(manifest.RunId);
+            throw;
+        }
     }
 
     public void DrainPendingResults()
@@ -77,6 +82,7 @@ internal sealed class ReplayPersistenceOrchestrator : IDisposable
             var processedAny = false;
             while (_persistenceQueue.TryDequeueResult(out var result))
             {
+                ReplayPersistenceStateTracker.Completed(result.Manifest.RunId);
                 processedAny = true;
                 if (!result.Succeeded)
                 {
@@ -124,7 +130,6 @@ internal sealed class ReplayPersistenceOrchestrator : IDisposable
                         _services.EventBus.Publish(
                             new PvpBattleRecorded { Manifest = result.Manifest }
                         );
-                        _syncStateStore?.MarkReplayDirty(result.Manifest.BattleId);
                     }
                     catch
                     {

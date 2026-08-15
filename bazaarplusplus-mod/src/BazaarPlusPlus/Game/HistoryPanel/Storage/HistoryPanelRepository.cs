@@ -10,8 +10,7 @@ namespace BazaarPlusPlus.Game.HistoryPanel.Storage;
 
 internal sealed partial class HistoryPanelRepository
 {
-    private const string RecentGhostSyncScopePrefix = "recent_against_me";
-    private static readonly TimeSpan GhostRetentionWindow = TimeSpan.FromDays(14);
+    private static readonly TimeSpan GhostRetentionWindow = TimeSpan.FromDays(5);
 
     private readonly string _databasePath;
 
@@ -37,7 +36,19 @@ internal sealed partial class HistoryPanelRepository
         using var connection = OpenConnection(ensureSchema: true);
         using var command = connection.CreateCommand();
         command.CommandTimeout = 2;
+        // The run window is selected before any battle work happens. Joining first would make
+        // every listing parse the snapshot documents of every battle ever recorded — json_valid()
+        // is a real parse, and neither runs nor battles are ever pruned, so that cost grows without
+        // bound over a save's lifetime while the panel only ever renders $limit rows.
         command.CommandText = $"""
+            WITH recent_runs AS (
+                SELECT *
+                FROM {RunLogSchema.RunsTableName}
+                ORDER BY
+                    COALESCE(ended_at_utc, last_seen_at_utc, started_at_utc) DESC,
+                    run_id DESC
+                LIMIT $limit
+            )
             SELECT
                 r.run_id,
                 r.hero,
@@ -60,16 +71,12 @@ internal sealed partial class HistoryPanelRepository
                 r.losses,
                 r.ended_at_utc,
                 COUNT(s.battle_id) AS battle_count
-            FROM {RunLogSchema.RunsTableName} AS r
+            FROM recent_runs AS r
             LEFT JOIN {RunLogSchema.BattlesTableName} AS pb
                 ON pb.run_id = r.run_id
                AND pb.source = 'LOCAL'
             LEFT JOIN {RunLogSchema.BattleSnapshotsTableName} AS s
                 ON s.battle_id = pb.battle_id
-               AND s.player_hand_json IS NOT NULL
-               AND s.player_skills_json IS NOT NULL
-               AND s.opponent_hand_json IS NOT NULL
-               AND s.opponent_skills_json IS NOT NULL
                AND json_valid(s.player_hand_json) = 1
                AND json_valid(s.player_skills_json) = 1
                AND json_valid(s.opponent_hand_json) = 1
@@ -97,8 +104,7 @@ internal sealed partial class HistoryPanelRepository
                 r.ended_at_utc
             ORDER BY
                 COALESCE(r.ended_at_utc, r.last_seen_at_utc, r.started_at_utc) DESC,
-                r.run_id DESC
-            LIMIT $limit;
+                r.run_id DESC;
             """;
         command.Parameters.AddWithValue("$limit", limit);
 
@@ -251,8 +257,8 @@ internal sealed partial class HistoryPanelRepository
                 winner_combatant_id,
                 loser_combatant_id,
                 is_final_battle,
-                replay_available,
-                replay_downloaded
+                CASE WHEN ghost_replay_state IN ('remote_available', 'local_ready') THEN 1 ELSE 0 END AS replay_available,
+                CASE WHEN ghost_replay_state = 'local_ready' THEN 1 ELSE 0 END AS replay_downloaded
             FROM {RunLogSchema.BattlesTableName}
             WHERE source = 'GHOST'
               AND deleted_at_utc IS NULL
@@ -299,6 +305,8 @@ internal sealed partial class HistoryPanelRepository
             insertCommand.CommandText = $"""
                 INSERT INTO {RunLogSchema.BattlesTableName} (
                     battle_id,
+                    remote_battle_id,
+                    uploader_account_id,
                     source,
                     run_id,
                     local_player_account_id,
@@ -331,11 +339,14 @@ internal sealed partial class HistoryPanelRepository
                     winner_combatant_id,
                     loser_combatant_id,
                     is_final_battle,
-                    replay_available,
-                    replay_downloaded,
-                    last_synced_at_utc
+                    bundle_id,
+                    download_url,
+                    download_url_expires_at_ms,
+                    ghost_replay_state
                 ) VALUES (
-                    $battleId,
+                    $localBattleId,
+                    $remoteBattleId,
+                    $uploaderAccountId,
                     'GHOST',
                     NULL,
                     $localPlayerAccountId,
@@ -368,13 +379,16 @@ internal sealed partial class HistoryPanelRepository
                     $winnerCombatantId,
                     $loserCombatantId,
                     $isFinalBattle,
-                    $replayAvailable,
-                    $replayDownloaded,
-                    $lastSyncedAtUtc
+                    $bundleId,
+                    $downloadUrl,
+                    $downloadUrlExpiresAtMs,
+                    'remote_available'
                 )
                 ON CONFLICT(battle_id) DO UPDATE SET
                     source = 'GHOST',
                     run_id = NULL,
+                    remote_battle_id = excluded.remote_battle_id,
+                    uploader_account_id = excluded.uploader_account_id,
                     local_player_account_id = excluded.local_player_account_id,
                     recorded_at_utc = excluded.recorded_at_utc,
                     day = excluded.day,
@@ -417,23 +431,29 @@ internal sealed partial class HistoryPanelRepository
                     winner_combatant_id = excluded.winner_combatant_id,
                     loser_combatant_id = excluded.loser_combatant_id,
                     is_final_battle = excluded.is_final_battle,
-                    replay_available = excluded.replay_available,
-                    replay_downloaded = MAX(
-                        {RunLogSchema.GhostBattlesTableName}.replay_downloaded,
-                        excluded.replay_downloaded
-                    ),
-                    last_synced_at_utc = excluded.last_synced_at_utc,
-                    deleted_at_utc = CASE
-                        WHEN excluded.recorded_at_utc >= $staleCutoffUtc THEN NULL
-                        ELSE {RunLogSchema.BattlesTableName}.deleted_at_utc
-                    END;
+                    bundle_id = excluded.bundle_id,
+                    download_url = excluded.download_url,
+                    download_url_expires_at_ms = excluded.download_url_expires_at_ms,
+                    ghost_replay_state = CASE
+                        WHEN {RunLogSchema.BattlesTableName}.ghost_replay_state = 'local_ready'
+                            THEN 'local_ready'
+                        WHEN {RunLogSchema.BattlesTableName}.ghost_replay_state = 'unavailable_payload'
+                            THEN 'unavailable_payload'
+                        ELSE 'remote_available'
+                    END,
+                    deleted_at_utc = NULL;
                 """;
-            insertCommand.Parameters.AddWithValue("$battleId", battle.BattleId);
-            insertCommand.Parameters.AddWithValue("$localPlayerAccountId", localPlayerAccountId);
-            insertCommand.Parameters.AddWithValue(
-                "$staleCutoffUtc",
-                DateTimeOffset.UtcNow.Subtract(GhostRetentionWindow).ToString("o")
+            var localBattleId = BuildGhostLocalBattleId(
+                battle.PlayerAccountId ?? string.Empty,
+                battle.BattleId
             );
+            insertCommand.Parameters.AddWithValue("$localBattleId", localBattleId);
+            insertCommand.Parameters.AddWithValue("$remoteBattleId", battle.BattleId);
+            insertCommand.Parameters.AddWithValue(
+                "$uploaderAccountId",
+                battle.PlayerAccountId ?? string.Empty
+            );
+            insertCommand.Parameters.AddWithValue("$localPlayerAccountId", localPlayerAccountId);
             insertCommand.Parameters.AddWithValue(
                 "$recordedAtUtc",
                 battle.RecordedAtUtc.ToString("o")
@@ -538,17 +558,11 @@ internal sealed partial class HistoryPanelRepository
                 (object?)battle.LoserCombatantId ?? DBNull.Value
             );
             insertCommand.Parameters.AddWithValue("$isFinalBattle", battle.IsFinalBattle ? 1 : 0);
+            insertCommand.Parameters.AddWithValue("$bundleId", battle.BundleId);
+            insertCommand.Parameters.AddWithValue("$downloadUrl", battle.DownloadUrl);
             insertCommand.Parameters.AddWithValue(
-                "$replayAvailable",
-                battle.ReplayAvailable ? 1 : 0
-            );
-            insertCommand.Parameters.AddWithValue(
-                "$replayDownloaded",
-                battle.ReplayDownloaded ? 1 : 0
-            );
-            insertCommand.Parameters.AddWithValue(
-                "$lastSyncedAtUtc",
-                battle.LastSyncedAtUtc.ToString("o")
+                "$downloadUrlExpiresAtMs",
+                battle.DownloadExpiresAtUtc.ToUnixTimeMilliseconds()
             );
             insertCommand.ExecuteNonQuery();
         }
@@ -563,9 +577,12 @@ internal sealed partial class HistoryPanelRepository
         command.CommandTimeout = 2;
         command.CommandText = $"""
             UPDATE {RunLogSchema.BattlesTableName}
-            SET deleted_at_utc = COALESCE(deleted_at_utc, $deletedAtUtc)
+            SET deleted_at_utc = COALESCE(deleted_at_utc, $deletedAtUtc),
+                ghost_replay_state = CASE
+                    WHEN ghost_replay_state = 'local_ready' THEN ghost_replay_state
+                    ELSE 'expired'
+                END
             WHERE source = 'GHOST'
-              AND replay_downloaded = 0
               AND deleted_at_utc IS NULL
               AND recorded_at_utc < $staleCutoffUtc;
             """;
@@ -574,55 +591,6 @@ internal sealed partial class HistoryPanelRepository
             "$staleCutoffUtc",
             nowUtc.Subtract(GhostRetentionWindow).ToString("o")
         );
-        command.ExecuteNonQuery();
-    }
-
-    public DateTimeOffset? TryGetGhostSyncCheckpointUtc(string localPlayerAccountId)
-    {
-        if (string.IsNullOrWhiteSpace(localPlayerAccountId))
-            return null;
-
-        using var connection = OpenConnection(ensureSchema: true);
-        using var command = connection.CreateCommand();
-        command.CommandTimeout = 2;
-        command.CommandText = $"""
-            SELECT cursor_value
-            FROM {RunLogSchema.SyncCursorsTableName}
-            WHERE scope = $scope
-            LIMIT 1;
-            """;
-        command.Parameters.AddWithValue("$scope", BuildGhostSyncScope(localPlayerAccountId));
-        var rawValue = command.ExecuteScalar() as string;
-        return DateTimeOffset.TryParse(rawValue, out var parsed) ? parsed : null;
-    }
-
-    public void SaveGhostSyncCheckpointUtc(string localPlayerAccountId, DateTimeOffset syncedAtUtc)
-    {
-        if (string.IsNullOrWhiteSpace(localPlayerAccountId))
-            throw new ArgumentException(
-                "Local player account id is required.",
-                nameof(localPlayerAccountId)
-            );
-
-        using var connection = OpenConnection(ensureSchema: true);
-        using var command = connection.CreateCommand();
-        command.CommandTimeout = 2;
-        command.CommandText = $"""
-            INSERT INTO {RunLogSchema.SyncCursorsTableName} (
-                scope,
-                cursor_value,
-                updated_at_utc
-            ) VALUES (
-                $scope,
-                $syncedAtUtc,
-                $syncedAtUtc
-            )
-            ON CONFLICT(scope) DO UPDATE SET
-                cursor_value = excluded.cursor_value,
-                updated_at_utc = excluded.updated_at_utc;
-            """;
-        command.Parameters.AddWithValue("$scope", BuildGhostSyncScope(localPlayerAccountId));
-        command.Parameters.AddWithValue("$syncedAtUtc", syncedAtUtc.ToString("o"));
         command.ExecuteNonQuery();
     }
 
@@ -644,7 +612,8 @@ internal sealed partial class HistoryPanelRepository
         command.CommandText = hasCounts
             ? $"""
                 UPDATE {RunLogSchema.BattlesTableName}
-                SET replay_downloaded = 1,
+                SET ghost_replay_state = 'local_ready',
+                    ghost_replay_unavailable_reason = NULL,
                     player_hand_item_count = $playerHandItemCount,
                     player_skill_count = $playerSkillCount,
                     opponent_hand_item_count = $opponentHandItemCount,
@@ -654,7 +623,8 @@ internal sealed partial class HistoryPanelRepository
                 """
             : $"""
                 UPDATE {RunLogSchema.BattlesTableName}
-                SET replay_downloaded = 1
+                SET ghost_replay_state = 'local_ready',
+                    ghost_replay_unavailable_reason = NULL
                 WHERE source = 'GHOST'
                   AND battle_id = $battleId;
                 """;
@@ -667,6 +637,60 @@ internal sealed partial class HistoryPanelRepository
             command.Parameters.AddWithValue("$opponentHandItemCount", counts.OpponentHandItemCount);
             command.Parameters.AddWithValue("$opponentSkillCount", counts.OpponentSkillCount);
         }
+        command.ExecuteNonQuery();
+    }
+
+    public GhostBundleReference? TryGetGhostBundleReference(string localBattleId)
+    {
+        if (string.IsNullOrWhiteSpace(localBattleId))
+            return null;
+
+        using var connection = OpenConnection(ensureSchema: true);
+        using var command = connection.CreateCommand();
+        command.CommandTimeout = 2;
+        command.CommandText = $"""
+            SELECT battle_id, remote_battle_id, uploader_account_id, bundle_id,
+                   download_url, download_url_expires_at_ms, ghost_replay_state,
+                   local_player_account_id
+            FROM {RunLogSchema.BattlesTableName}
+            WHERE source = 'GHOST' AND battle_id = $battleId
+            LIMIT 1;
+            """;
+        command.Parameters.AddWithValue("$battleId", localBattleId);
+        using var reader = command.ExecuteReader();
+        if (!reader.Read())
+            return null;
+        return new GhostBundleReference(
+            reader.GetString(0),
+            reader.GetString(1),
+            reader.GetString(2),
+            reader.GetString(3),
+            reader.GetString(4),
+            reader.GetInt64(5),
+            reader.GetString(6),
+            reader.GetString(7)
+        );
+    }
+
+    public void MarkGhostReplayUnavailable(string localBattleId, string state, string reason)
+    {
+        if (
+            string.IsNullOrWhiteSpace(localBattleId)
+            || (state != "unavailable_payload" && state != "expired")
+        )
+            return;
+        using var connection = OpenConnection(ensureSchema: true);
+        using var command = connection.CreateCommand();
+        command.CommandTimeout = 2;
+        command.CommandText = $"""
+            UPDATE {RunLogSchema.BattlesTableName}
+            SET ghost_replay_state = $state,
+                ghost_replay_unavailable_reason = $reason
+            WHERE source = 'GHOST' AND battle_id = $battleId;
+            """;
+        command.Parameters.AddWithValue("$battleId", localBattleId);
+        command.Parameters.AddWithValue("$state", state);
+        command.Parameters.AddWithValue("$reason", reason);
         command.ExecuteNonQuery();
     }
 
@@ -722,84 +746,30 @@ internal sealed partial class HistoryPanelRepository
         if (ensureSchema && !_schemaEnsured)
         {
             RunLogSchema.EnsureInitialized(connection);
-            EnsureColumnExists(
-                connection,
-                RunLogSchema.BattlesTableName,
-                "is_final_battle",
-                "INTEGER NOT NULL DEFAULT 0"
-            );
-            EnsureColumnExists(
-                connection,
-                RunLogSchema.BattlesTableName,
-                "player_hand_item_count",
-                "INTEGER NULL"
-            );
-            EnsureColumnExists(
-                connection,
-                RunLogSchema.BattlesTableName,
-                "player_skill_count",
-                "INTEGER NULL"
-            );
-            EnsureColumnExists(
-                connection,
-                RunLogSchema.BattlesTableName,
-                "opponent_hand_item_count",
-                "INTEGER NULL"
-            );
-            EnsureColumnExists(
-                connection,
-                RunLogSchema.BattlesTableName,
-                "opponent_skill_count",
-                "INTEGER NULL"
-            );
             _schemaEnsured = true;
         }
         return connection;
     }
 
-    private static string BuildGhostSyncScope(string localPlayerAccountId)
+    private static string BuildGhostLocalBattleId(string uploaderAccountId, string remoteBattleId)
     {
-        return $"{RecentGhostSyncScopePrefix}::{localPlayerAccountId.Trim()}";
-    }
-
-    private static void EnsureColumnExists(
-        SqliteConnection connection,
-        string tableName,
-        string columnName,
-        string columnDefinition
-    )
-    {
-        using (var exists = connection.CreateCommand())
-        {
-            exists.CommandTimeout = 2;
-            exists.CommandText =
-                "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = $tableName LIMIT 1;";
-            exists.Parameters.AddWithValue("$tableName", tableName);
-            if (exists.ExecuteScalar() == null)
-                return;
-        }
-
-        using var command = connection.CreateCommand();
-        command.CommandTimeout = 2;
-        command.CommandText = $"PRAGMA table_info({tableName});";
-        using var reader = command.ExecuteReader();
-        while (reader.Read())
-        {
-            if (
-                string.Equals(
-                    reader.GetString(reader.GetOrdinal("name")),
-                    columnName,
-                    StringComparison.Ordinal
-                )
-            )
-            {
-                return;
-            }
-        }
-
-        using var alter = connection.CreateCommand();
-        alter.CommandTimeout = 2;
-        alter.CommandText = $"ALTER TABLE {tableName} ADD COLUMN {columnName} {columnDefinition};";
-        alter.ExecuteNonQuery();
+        using var sha256 = System.Security.Cryptography.SHA256.Create();
+        var input = System.Text.Encoding.UTF8.GetBytes($"{uploaderAccountId}\n{remoteBattleId}");
+        return "gh_"
+            + BitConverter
+                .ToString(sha256.ComputeHash(input))
+                .Replace("-", string.Empty)
+                .ToLowerInvariant();
     }
 }
+
+internal sealed record GhostBundleReference(
+    string LocalBattleId,
+    string RemoteBattleId,
+    string UploaderAccountId,
+    string BundleId,
+    string DownloadUrl,
+    long DownloadExpiresAtMs,
+    string ReplayState,
+    string LocalPlayerAccountId
+);

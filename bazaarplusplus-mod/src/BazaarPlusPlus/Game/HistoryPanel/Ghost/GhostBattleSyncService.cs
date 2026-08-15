@@ -1,70 +1,68 @@
 #nullable enable
+using BazaarPlusPlus.Game.CombatReplay;
 using BazaarPlusPlus.Game.HistoryPanel.Data;
 using BazaarPlusPlus.Game.HistoryPanel.Storage;
 using BazaarPlusPlus.Game.PvpBattles;
 using BazaarPlusPlus.GameInterop;
 using BazaarPlusPlus.Infrastructure;
-using BazaarPlusPlus.ModApi;
+using BazaarPlusPlus.ModApi.Bundle;
 using BazaarPlusPlus.ModApi.Clients;
-using BazaarPlusPlus.ModApi.Models;
 
 namespace BazaarPlusPlus.Game.HistoryPanel.Ghost;
 
 internal sealed class GhostBattleSyncService
 {
     private const int MaxSyncBattleLimit = 200;
-
     private readonly HistoryPanelRepository _repository;
-    private readonly ModOnlineClient _onlineClient;
+    private readonly ModApiSession _modApiSession;
+    private readonly Func<string?> _playerAccountIdResolver;
+    private long _cooldownUntilUtcTicks;
+    private int _syncInFlight;
 
-    public GhostBattleSyncService(HistoryPanelRepository repository, ModOnlineClient onlineClient)
+    public GhostBattleSyncService(
+        HistoryPanelRepository repository,
+        ModApiSession modApiSession,
+        Func<string?>? playerAccountIdResolver = null
+    )
     {
         _repository = repository ?? throw new ArgumentNullException(nameof(repository));
-        _onlineClient = onlineClient ?? throw new ArgumentNullException(nameof(onlineClient));
+        _modApiSession = modApiSession ?? throw new ArgumentNullException(nameof(modApiSession));
+        _playerAccountIdResolver = playerAccountIdResolver ?? ResolvePlayerAccountId;
     }
 
     public async Task<GhostBattleSyncResult> SyncRecentBattlesAsync(
         CancellationToken cancellationToken
     )
     {
-        var playerAccountId = ResolvePlayerAccountId();
-        if (string.IsNullOrWhiteSpace(playerAccountId))
+        if (Interlocked.CompareExchange(ref _syncInFlight, 1, 0) != 0)
             return GhostBattleSyncResult.Failure(
-                "player_account_id_unavailable",
-                HistoryPanelGhostSyncReasonCode.IdentityUnavailable
-            );
-
-        var apiClient = new GhostBattleClient(_onlineClient.HttpClient, _onlineClient.Routes);
-        var syncStartedAtUtc = DateTimeOffset.UtcNow;
-        var queryResult = await apiClient.QueryAgainstMeAsync(
-            playerAccountId!,
-            MaxSyncBattleLimit,
-            cancellationToken
-        );
-        if (!queryResult.Succeeded)
-        {
-            return GhostBattleSyncResult.Failure(
-                queryResult.Error ?? "ghost_sync_failed",
+                "ghost_sync_already_running",
                 HistoryPanelGhostSyncReasonCode.QueryFailed
             );
-        }
 
         try
         {
-            _repository.UpsertGhostBattles(playerAccountId!, queryResult.Battles);
-            _repository.MarkOldUndownloadedGhostBattlesDeleted(syncStartedAtUtc);
-            if (ShouldAdvanceCheckpoint(queryResult.Battles.Count, MaxSyncBattleLimit))
-                _repository.SaveGhostSyncCheckpointUtc(playerAccountId!, syncStartedAtUtc);
+            var now = DateTimeOffset.UtcNow;
+            if (now.UtcTicks < Interlocked.Read(ref _cooldownUntilUtcTicks))
+                return GhostBattleSyncResult.Failure(
+                    "ghost_sync_rate_limited",
+                    HistoryPanelGhostSyncReasonCode.QueryFailed
+                );
+
+            var playerAccountId = _playerAccountIdResolver()?.Trim();
+            if (string.IsNullOrWhiteSpace(playerAccountId))
+                return GhostBattleSyncResult.Failure(
+                    "player_account_id_unavailable",
+                    HistoryPanelGhostSyncReasonCode.IdentityUnavailable
+                );
+
+            return await QueryAndPersistAsync(playerAccountId!, cancellationToken)
+                .ConfigureAwait(false);
         }
-        catch (Exception ex)
+        finally
         {
-            return GhostBattleSyncResult.Failure(
-                "ghost_sync_repository_failed",
-                HistoryPanelGhostSyncReasonCode.RepositoryFailed,
-                ex
-            );
+            Volatile.Write(ref _syncInFlight, 0);
         }
-        return GhostBattleSyncResult.Success(queryResult.Battles.Count);
     }
 
     public async Task<GhostBattleReplayDownloadResult> DownloadReplayAsync(
@@ -74,74 +72,234 @@ internal sealed class GhostBattleSyncService
     )
     {
         if (string.IsNullOrWhiteSpace(battleId))
-            return GhostBattleReplayDownloadResult.Failure(
-                "battle_id_required",
-                HistoryPanelReplayReasonCode.ReplayUnavailable
-            );
+            return Failure("battle_id_required", HistoryPanelReplayReasonCode.ReplayUnavailable);
         if (string.IsNullOrWhiteSpace(replayDirectoryPath))
-            return GhostBattleReplayDownloadResult.Failure(
+            return Failure(
                 "replay_directory_required",
                 HistoryPanelReplayReasonCode.ReplayDirectoryUnavailable
             );
 
-        var apiClient = new GhostBattleClient(_onlineClient.HttpClient, _onlineClient.Routes);
-        var linkResult = await apiClient.RequestReplayDownloadLinkAsync(
-            battleId,
-            cancellationToken
-        );
-        if (!linkResult.Succeeded)
-        {
-            return GhostBattleReplayDownloadResult.Failure(
-                linkResult.Error ?? "ghost_replay_link_failed",
-                HistoryPanelReplayReasonCode.GhostDownloadLinkFailed
-            );
-        }
+        var reference = _repository.TryGetGhostBundleReference(battleId);
+        if (reference == null)
+            return Failure("ghost_battle_missing", HistoryPanelReplayReasonCode.ReplayUnavailable);
 
-        var bytesResult = await apiClient.DownloadReplayBytesAsync(
-            linkResult.DownloadUrl!,
-            cancellationToken
+        var payloadStore = new GhostBattlePayloadStore(
+            GhostBattlePayloadStore.ResolveDirectory(replayDirectoryPath)
         );
-        if (!bytesResult.Succeeded || bytesResult.Bytes == null)
+        if (reference.ReplayState == "local_ready")
         {
-            return GhostBattleReplayDownloadResult.Failure(
-                bytesResult.Error ?? "ghost_replay_payload_failed",
+            var cached = payloadStore.LoadDetailed(reference.LocalBattleId);
+            if (cached.Status == FileBackedPayloadLoadStatus.Loaded)
+                return GhostBattleReplayDownloadResult.Success();
+        }
+        if (reference.ReplayState == "unavailable_payload" || reference.ReplayState == "expired")
+            return Failure(
+                $"ghost_replay_{reference.ReplayState}",
                 HistoryPanelReplayReasonCode.GhostDownloadFailed
             );
+
+        var refreshed = false;
+        if (reference.DownloadExpiresAtMs <= DateTimeOffset.UtcNow.ToUnixTimeMilliseconds())
+        {
+            reference = await RefreshReferenceAsync(reference, cancellationToken)
+                .ConfigureAwait(false);
+            refreshed = true;
+            if (reference == null)
+            {
+                _repository.MarkGhostReplayUnavailable(battleId, "expired", "url_expired");
+                return Failure(
+                    "ghost_replay_expired",
+                    HistoryPanelReplayReasonCode.GhostDownloadFailed
+                );
+            }
         }
 
-        var extraction = ExtractPayloadFromArtifact(battleId, bytesResult.Bytes);
-        var payload = extraction.Payload;
-        if (!extraction.Succeeded || !IsValidGhostBattlePayload(payload))
+        var download = await _modApiSession
+            .DownloadGhostBundleAsync(reference.DownloadUrl, cancellationToken)
+            .ConfigureAwait(false);
+        if (!download.Succeeded && download.StatusCode is 403 or 404 && !refreshed)
         {
-            return GhostBattleReplayDownloadResult.Failure(
-                "replay_payload_missing",
+            reference = await RefreshReferenceAsync(reference, cancellationToken)
+                .ConfigureAwait(false);
+            refreshed = true;
+            if (reference != null)
+                download = await _modApiSession
+                    .DownloadGhostBundleAsync(reference.DownloadUrl, cancellationToken)
+                    .ConfigureAwait(false);
+        }
+
+        if (!download.Succeeded || download.Bytes == null)
+        {
+            if (download.StatusCode is 403 or 404)
+                _repository.MarkGhostReplayUnavailable(battleId, "expired", "object_unavailable");
+            return Failure(
+                download.Error ?? "ghost_bundle_download_failed",
+                HistoryPanelReplayReasonCode.GhostDownloadFailed,
+                download.DiagnosticException
+            );
+        }
+
+        var extraction = ExtractPayload(reference!, download.Bytes);
+        if (!extraction.Succeeded || extraction.Payload == null)
+        {
+            _repository.MarkGhostReplayUnavailable(
+                battleId,
+                "unavailable_payload",
+                extraction.Error ?? "payload_invalid"
+            );
+            return Failure(
+                extraction.Error ?? "ghost_bundle_invalid",
                 extraction.ReasonCode,
                 extraction.Exception
             );
         }
 
-        if (!string.Equals(payload!.ReplayPayload!.BattleId, battleId, StringComparison.Ordinal))
-        {
-            return GhostBattleReplayDownloadResult.Failure(
-                "ghost_replay_battle_id_mismatch",
-                HistoryPanelReplayReasonCode.GhostBattleMismatch
-            );
-        }
-
-        var payloadStore = new GhostBattlePayloadStore(
-            GhostBattlePayloadStore.ResolveDirectory(replayDirectoryPath)
-        );
-        payloadStore.Save(payload);
+        payloadStore.Save(extraction.Payload);
+        // Ghost table player_*/opponent_* columns retain the recorder perspective.
         _repository.MarkGhostReplayDownloaded(
             battleId,
             HistoryBattlePreviewProjection.CountSnapshots(
-                payload.BattleManifest!.Snapshots.PlayerHand,
-                payload.BattleManifest.Snapshots.PlayerSkills,
-                payload.BattleManifest.Snapshots.OpponentHand,
-                payload.BattleManifest.Snapshots.OpponentSkills
+                extraction.Payload.BattleManifest.Snapshots.PlayerHand,
+                extraction.Payload.BattleManifest.Snapshots.PlayerSkills,
+                extraction.Payload.BattleManifest.Snapshots.OpponentHand,
+                extraction.Payload.BattleManifest.Snapshots.OpponentSkills
             )
         );
         return GhostBattleReplayDownloadResult.Success();
+    }
+
+    private async Task<GhostBattleSyncResult> QueryAndPersistAsync(
+        string playerAccountId,
+        CancellationToken cancellationToken
+    )
+    {
+        var result = await _modApiSession
+            .QueryGhostBattlesAgainstMeAsync(playerAccountId, MaxSyncBattleLimit, cancellationToken)
+            .ConfigureAwait(false);
+        if (!result.Succeeded)
+        {
+            if (result.StatusCode == 429)
+            {
+                var cooldown = TimeSpan.FromSeconds(Math.Max(1, result.RetryAfterSeconds ?? 60));
+                Interlocked.Exchange(
+                    ref _cooldownUntilUtcTicks,
+                    DateTimeOffset.UtcNow.Add(cooldown).UtcTicks
+                );
+            }
+            return GhostBattleSyncResult.Failure(
+                result.Error ?? "ghost_sync_failed",
+                HistoryPanelGhostSyncReasonCode.QueryFailed,
+                result.DiagnosticException
+            );
+        }
+
+        try
+        {
+            _repository.UpsertGhostBattles(playerAccountId, result.Battles);
+            _repository.MarkOldUndownloadedGhostBattlesDeleted(DateTimeOffset.UtcNow);
+            return GhostBattleSyncResult.Success(result.Battles.Count);
+        }
+        catch (Exception ex)
+        {
+            return GhostBattleSyncResult.Failure(
+                "ghost_sync_repository_failed",
+                HistoryPanelGhostSyncReasonCode.RepositoryFailed,
+                ex
+            );
+        }
+    }
+
+    private async Task<GhostBundleReference?> RefreshReferenceAsync(
+        GhostBundleReference reference,
+        CancellationToken cancellationToken
+    )
+    {
+        var result = await QueryAndPersistAsync(reference.LocalPlayerAccountId, cancellationToken)
+            .ConfigureAwait(false);
+        return result.Succeeded
+            ? _repository.TryGetGhostBundleReference(reference.LocalBattleId)
+            : null;
+    }
+
+    private static GhostPayloadExtraction ExtractPayload(
+        GhostBundleReference reference,
+        byte[] bundleBytes
+    )
+    {
+        try
+        {
+            var openResult = RunBundleV5Contract.Open(bundleBytes);
+            if (!openResult.Succeeded)
+            {
+                var runIdentityMismatch =
+                    openResult.FailureKind == RunBundleOpenFailureKind.RunIdentityMismatch;
+                return GhostPayloadExtraction.Failure(
+                    runIdentityMismatch
+                        ? "ghost_run_identity_mismatch"
+                        : openResult.Reason ?? "ghost_bundle_invalid",
+                    runIdentityMismatch
+                        ? HistoryPanelReplayReasonCode.GhostBattleMismatch
+                        : HistoryPanelReplayReasonCode.GhostArtifactInvalid,
+                    openResult.Exception
+                );
+            }
+
+            var opened = openResult.Value!;
+            if (
+                !string.Equals(
+                    opened.Bundle.Manifest.BundleId,
+                    reference.BundleId,
+                    StringComparison.Ordinal
+                )
+                || !string.Equals(
+                    opened.Bundle.Manifest.Run.PlayerAccountId,
+                    reference.UploaderAccountId,
+                    StringComparison.Ordinal
+                )
+            )
+                return GhostPayloadExtraction.Failure(
+                    "ghost_bundle_identity_mismatch",
+                    HistoryPanelReplayReasonCode.GhostBattleMismatch
+                );
+
+            if (!opened.TryGetReplayableBattle(reference.RemoteBattleId, out var battle))
+                return GhostPayloadExtraction.Failure(
+                    "ghost_battle_replay_incomplete",
+                    HistoryPanelReplayReasonCode.GhostArtifactInvalid
+                );
+
+            var replay = new PvpReplayPayload
+            {
+                BattleId = reference.LocalBattleId,
+                Version = battle!.Replay!.Version,
+                SpawnMessageBytes = battle.Replay.SpawnMessageBytes.ToArray(),
+                CombatMessageBytes = battle.Replay.CombatMessageBytes.ToArray(),
+                DespawnMessageBytes = battle.Replay.DespawnMessageBytes.ToArray(),
+            };
+            _ = new CombatReplayLoader().Load(replay);
+            var manifest = GhostManifestProjection.BuildRecorderPerspectiveManifest(
+                reference,
+                opened.Payload.RunId,
+                battle
+            );
+            return GhostPayloadExtraction.Success(
+                new GhostBattlePayload
+                {
+                    BattleId = reference.LocalBattleId,
+                    PerspectiveVersion = 1,
+                    BattleManifest = manifest,
+                    ReplayPayload = replay,
+                }
+            );
+        }
+        catch (Exception ex)
+        {
+            return GhostPayloadExtraction.Failure(
+                "ghost_bundle_invalid",
+                HistoryPanelReplayReasonCode.GhostArtifactInvalid,
+                ex
+            );
+        }
     }
 
     private static string? ResolvePlayerAccountId()
@@ -166,213 +324,11 @@ internal sealed class GhostBattleSyncService
         }
     }
 
-    private static bool ShouldAdvanceCheckpoint(int importedCount, int limit)
-    {
-        return importedCount < limit;
-    }
-
-    private static bool IsValidGhostBattlePayload(GhostBattlePayload? payload)
-    {
-        return payload?.ReplayPayload != null
-            && payload.BattleManifest != null
-            && !string.IsNullOrWhiteSpace(payload.ReplayPayload.BattleId);
-    }
-
-    // Compatibility seam retained for the existing artifact fidelity tests. The replay workflow
-    // consumes the typed result below so a malformed artifact reaches its single request owner.
-    private static GhostBattlePayload? TryExtractPayloadFromArtifact(
-        string battleId,
-        byte[] responseBytes
-    ) => ExtractPayloadFromArtifact(battleId, responseBytes).Payload;
-
-    private static GhostBattleArtifactExtractionResult ExtractPayloadFromArtifact(
-        string battleId,
-        byte[] responseBytes
-    )
-    {
-        if (
-            string.IsNullOrWhiteSpace(battleId)
-            || responseBytes == null
-            || responseBytes.Length == 0
-        )
-            return GhostBattleArtifactExtractionResult.Failure(
-                HistoryPanelReplayReasonCode.GhostArtifactInvalid
-            );
-
-        try
-        {
-            if (
-                !RunBundleArtifactCodec.TryDeserialize(responseBytes, out var artifact, out _)
-                || artifact == null
-            )
-            {
-                return GhostBattleArtifactExtractionResult.Failure(
-                    HistoryPanelReplayReasonCode.GhostArtifactInvalid
-                );
-            }
-
-            var battle = artifact.Battles?.FirstOrDefault(candidate =>
-                string.Equals(candidate.BattleId, battleId, StringComparison.Ordinal)
-            );
-            if (battle == null)
-                return GhostBattleArtifactExtractionResult.Failure(
-                    HistoryPanelReplayReasonCode.GhostArtifactInvalid
-                );
-
-            if (battle.ReplayPayload == null)
-                return GhostBattleArtifactExtractionResult.Failure(
-                    HistoryPanelReplayReasonCode.GhostArtifactInvalid
-                );
-
-            var replayPayload = new PvpReplayPayload
-            {
-                BattleId = battle.ReplayPayload.BattleId,
-                Version = battle.ReplayPayload.Version,
-                SpawnMessageBytes = battle.ReplayPayload.SpawnMessageBytes?.ToArray() ?? [],
-                CombatMessageBytes = battle.ReplayPayload.CombatMessageBytes?.ToArray() ?? [],
-                DespawnMessageBytes = battle.ReplayPayload.DespawnMessageBytes?.ToArray() ?? [],
-            };
-            if (
-                string.IsNullOrWhiteSpace(replayPayload.BattleId)
-                || replayPayload.SpawnMessageBytes.Length == 0
-                || replayPayload.CombatMessageBytes.Length == 0
-                || replayPayload.DespawnMessageBytes.Length == 0
-            )
-                return GhostBattleArtifactExtractionResult.Failure(
-                    HistoryPanelReplayReasonCode.GhostArtifactInvalid
-                );
-
-            var battleManifest = BuildBattleManifest(artifact, battleId, battle);
-            if (battleManifest == null)
-                return GhostBattleArtifactExtractionResult.Failure(
-                    HistoryPanelReplayReasonCode.GhostArtifactInvalid
-                );
-
-            return GhostBattleArtifactExtractionResult.Success(
-                new GhostBattlePayload
-                {
-                    BattleId = battleId,
-                    BattleManifest = battleManifest,
-                    ReplayPayload = replayPayload,
-                }
-            );
-        }
-        catch (Exception)
-        {
-            // Artifact content is untrusted; parser exception prose may echo private payload data.
-            return GhostBattleArtifactExtractionResult.Failure(
-                HistoryPanelReplayReasonCode.GhostArtifactInvalid
-            );
-        }
-    }
-
-    private static PvpBattleManifest? BuildBattleManifest(
-        RunArtifact artifact,
-        string battleId,
-        RunArtifactBattle battle
-    )
-    {
-        if (battle.Manifest == null || battle.Participants == null || battle.Snapshots == null)
-            return null;
-
-        return new PvpBattleManifest
-        {
-            BattleId = battleId,
-            RunId = artifact.RunId,
-            RecordedAtUtc = DateTimeOffset.Parse(battle.Manifest.RecordedAtUtc),
-            CombatKind = battle.Manifest.CombatKind,
-            Day = battle.Manifest.Day,
-            Hour = battle.Manifest.Hour,
-            EncounterId = battle.Manifest.EncounterId,
-            Participants = new PvpBattleParticipants
-            {
-                PlayerName = battle.Participants.PlayerName,
-                PlayerAccountId = battle.Participants.PlayerAccountId,
-                PlayerHero = battle.Participants.PlayerHero,
-                PlayerRank = battle.Participants.PlayerRank,
-                PlayerRating = battle.Participants.PlayerRating,
-                PlayerLevel = battle.Participants.PlayerLevel,
-                PlayerPrestige = battle.Participants.PlayerPrestige,
-                PlayerIncome = battle.Participants.PlayerIncome,
-                PlayerGold = battle.Participants.PlayerGold,
-                PlayerVictories = battle.Participants.PlayerVictories,
-                OpponentName = battle.Participants.OpponentName,
-                OpponentAccountId = battle.Participants.OpponentAccountId,
-                OpponentHero = battle.Participants.OpponentHero,
-                OpponentRank = battle.Participants.OpponentRank,
-                OpponentRating = battle.Participants.OpponentRating,
-                OpponentLevel = battle.Participants.OpponentLevel,
-                OpponentPrestige = battle.Participants.OpponentPrestige,
-                OpponentVictories = battle.Participants.OpponentVictories,
-            },
-            Outcome = new PvpBattleOutcome
-            {
-                Result = battle.Manifest.Result,
-                WinnerCombatantId = battle.Manifest.WinnerCombatantId,
-                LoserCombatantId = battle.Manifest.LoserCombatantId,
-            },
-            Snapshots = new PvpBattleSnapshots
-            {
-                PlayerHand = BuildCapture(battle.Snapshots, "player_hand"),
-                PlayerSkills = BuildCapture(battle.Snapshots, "player_skills"),
-                OpponentHand = BuildCapture(battle.Snapshots, "opponent_hand"),
-                OpponentSkills = BuildCapture(battle.Snapshots, "opponent_skills"),
-            },
-        };
-    }
-
-    private static PvpBattleCardSetCapture BuildCapture(
-        BattleSnapshotsArtifact snapshots,
-        string label
-    )
-    {
-        var capture = snapshots.CardSets?.FirstOrDefault(cardSet =>
-            string.Equals(cardSet.Label, label, StringComparison.Ordinal)
-        );
-
-        return new PvpBattleCardSetCapture
-        {
-            Status = ParseEnum(capture?.Status, PvpBattleCaptureStatus.Missing),
-            Source = ParseEnum(capture?.Source, PvpBattleCaptureSource.Unknown),
-            Items =
-                capture?.Items?.Select(MapToCardSnapshot).ToList()
-                ?? new List<PvpBattleCardSnapshot>(),
-        };
-    }
-
-    private static PvpBattleCardSnapshot MapToCardSnapshot(CardSetItemArtifact item)
-    {
-        return new PvpBattleCardSnapshot
-        {
-            InstanceId = item.InstanceId,
-            TemplateId = item.TemplateId,
-            Type = (BazaarGameShared.Domain.Core.Types.ECardType)item.Type,
-            Size = (BazaarGameShared.Domain.Core.Types.ECardSize)item.Size,
-            Section = item.Section.HasValue
-                ? (BazaarGameShared.Domain.Core.Types.EInventorySection?)item.Section.Value
-                : null,
-            Socket = item.Socket.HasValue
-                ? (BazaarGameShared.Domain.Core.Types.EContainerSocketId?)item.Socket.Value
-                : null,
-            Name = item.Name,
-            Tier = item.Tier,
-            Enchant = item.Enchant,
-            Tags = new List<string>(item.Tags ?? new List<string>()),
-            Attributes = new Dictionary<string, int>(
-                item.Attributes ?? new Dictionary<string, int>()
-            ),
-        };
-    }
-
-    private static TEnum ParseEnum<TEnum>(string? value, TEnum fallback)
-        where TEnum : struct
-    {
-        return
-            !string.IsNullOrWhiteSpace(value)
-            && Enum.TryParse<TEnum>(value.Trim(), true, out var parsed)
-            ? parsed
-            : fallback;
-    }
+    private static GhostBattleReplayDownloadResult Failure(
+        string error,
+        HistoryPanelReplayReasonCode reasonCode,
+        Exception? exception = null
+    ) => GhostBattleReplayDownloadResult.Failure(error, reasonCode, exception);
 }
 
 internal readonly struct GhostBattleSyncResult
@@ -393,9 +349,7 @@ internal readonly struct GhostBattleSyncResult
     }
 
     public bool Succeeded { get; }
-
     public int ImportedCount { get; }
-
     public string? Error { get; }
     public HistoryPanelGhostSyncReasonCode ReasonCode { get; }
     public Exception? Exception { get; }
@@ -426,7 +380,6 @@ internal readonly struct GhostBattleReplayDownloadResult
     }
 
     public bool Succeeded { get; }
-
     public string? Error { get; }
     public HistoryPanelReplayReasonCode ReasonCode { get; }
     public Exception? Exception { get; }
@@ -441,29 +394,33 @@ internal readonly struct GhostBattleReplayDownloadResult
     ) => new(false, error, reasonCode, exception);
 }
 
-internal readonly struct GhostBattleArtifactExtractionResult
+internal readonly struct GhostPayloadExtraction
 {
-    private GhostBattleArtifactExtractionResult(
+    private GhostPayloadExtraction(
         GhostBattlePayload? payload,
+        string? error,
         HistoryPanelReplayReasonCode reasonCode,
         Exception? exception
     )
     {
         Payload = payload;
+        Error = error;
         ReasonCode = reasonCode;
         Exception = exception;
     }
 
     internal bool Succeeded => Payload != null;
     internal GhostBattlePayload? Payload { get; }
+    internal string? Error { get; }
     internal HistoryPanelReplayReasonCode ReasonCode { get; }
     internal Exception? Exception { get; }
 
-    internal static GhostBattleArtifactExtractionResult Success(GhostBattlePayload payload) =>
-        new(payload, HistoryPanelReplayReasonCode.Completed, null);
+    internal static GhostPayloadExtraction Success(GhostBattlePayload payload) =>
+        new(payload, null, HistoryPanelReplayReasonCode.Completed, null);
 
-    internal static GhostBattleArtifactExtractionResult Failure(
+    internal static GhostPayloadExtraction Failure(
+        string error,
         HistoryPanelReplayReasonCode reasonCode,
         Exception? exception = null
-    ) => new(null, reasonCode, exception);
+    ) => new(null, error, reasonCode, exception);
 }

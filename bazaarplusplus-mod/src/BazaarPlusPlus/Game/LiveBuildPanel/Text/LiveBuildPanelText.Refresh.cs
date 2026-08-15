@@ -58,16 +58,16 @@ internal static partial class LiveBuildPanelText
     // The corpus dashboard's freshness line: a localized relative-updated phrase plus the build
     // total. The absolute timestamp and per-hero breakdown stay on the tooltip (CorpusSummaryTooltip).
     public static string CorpusFreshnessLine(TenWinCorpusSummary summary, DateTimeOffset nowUtc) =>
-        $"{RelativeUpdated(summary.GeneratedAtUtc, nowUtc)} · "
+        $"{RelativeUpdated(summary.WindowEndUtc, nowUtc)} · "
         + $"{summary.BuildCount.ToString("N0", CultureInfo.CurrentCulture)} "
         + L.Resolve(CorpusBuildCountUnitText);
 
-    private static string RelativeUpdated(DateTimeOffset? generatedAtUtc, DateTimeOffset nowUtc)
+    private static string RelativeUpdated(DateTimeOffset? windowEndUtc, DateTimeOffset nowUtc)
     {
-        if (!generatedAtUtc.HasValue)
+        if (!windowEndUtc.HasValue)
             return L.Resolve(new LocalizedTextSet("updated —", "更新时间未知", "更新時間未知"));
 
-        var delta = nowUtc - generatedAtUtc.Value;
+        var delta = nowUtc - windowEndUtc.Value;
         if (delta < TimeSpan.Zero)
             delta = TimeSpan.Zero;
 
@@ -123,7 +123,9 @@ internal static partial class LiveBuildPanelText
         parts.AddRange(
             summary
                 .HeroBuildCounts.Where(count => !string.IsNullOrWhiteSpace(count.Hero))
-                .Select(count => $"{count.Hero} {count.BuildCount}")
+                .Select(count =>
+                    $"{LiveBuildHeroPresentation.DisplayName(count.Hero)} {count.BuildCount}"
+                )
         );
         return string.Join(" · ", parts);
     }
@@ -131,10 +133,10 @@ internal static partial class LiveBuildPanelText
     private static List<string> CorpusSummaryParts(TenWinCorpusSummary summary)
     {
         var parts = new List<string>();
-        if (summary.GeneratedAtUtc.HasValue)
+        if (summary.WindowEndUtc.HasValue)
         {
             var localTime = summary
-                .GeneratedAtUtc.Value.ToLocalTime()
+                .WindowEndUtc.Value.ToLocalTime()
                 .ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture);
             parts.Add($"{L.Resolve(CorpusDataTimeLabelText)} {localTime}");
         }

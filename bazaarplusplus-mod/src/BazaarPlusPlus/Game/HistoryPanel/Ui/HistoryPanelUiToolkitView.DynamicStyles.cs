@@ -61,11 +61,13 @@ internal sealed partial class HistoryPanelUiToolkitView
         if (string.IsNullOrWhiteSpace(hero))
         {
             ConfigurePill(pill, string.Empty, Colors.Clear, Colors.Clear, false);
+            pill.tooltip = string.Empty;
             return;
         }
 
         var heroStyle = HeroVisual.Resolve(hero);
         ConfigurePill(pill, heroStyle.ShortCode, heroStyle.Background, heroStyle.Text, true);
+        pill.tooltip = HistoryPanelHeroPresentation.DisplayName(hero);
     }
 
     private static void BindBattleRankPill(Label pill, string? rawRank, int? rating)
@@ -130,7 +132,7 @@ internal sealed partial class HistoryPanelUiToolkitView
     {
         var heroStyle = HeroVisual.Resolve(heroName);
         button.text = heroStyle.ShortCode;
-        button.tooltip = heroName;
+        button.tooltip = HistoryPanelHeroPresentation.DisplayName(heroName);
         StyleButton(
             button,
             selected ? heroStyle.Background : Colors.GhostFilterBackground,

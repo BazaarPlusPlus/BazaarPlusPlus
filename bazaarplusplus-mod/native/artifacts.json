@@ -1,0 +1,141 @@
+{
+  "schemaVersion": 1,
+  "platforms": {
+    "macos": {
+      "architecture": "arm64",
+      "deploymentTarget": "12.0",
+      "signing": "adhoc",
+      "inputs": [
+        "native/mac-audio-tap/BppMacAudio.h",
+        "native/mac-audio-tap/BppMacAudio.m",
+        "native/mac-audio-tap/build.sh",
+        "native/macos/BppNativeLoadSmoke.c",
+        "native/macos/BppReplayAudioMuxer.mm",
+        "native/macos/BppReplayVideoToolbox.h",
+        "native/macos/BppReplayVideoToolbox.mm",
+        "native/macos/Info.plist",
+        "native/macos/build.sh",
+        "native/macos/verify.sh",
+        "src/BazaarPlusPlus/Game/CombatReplay/Audio/CoreAudioProcessTapCaptureTap.cs",
+        "src/BazaarPlusPlus/Game/CombatReplay/Audio/ReplayAudioCaptureFactory.cs",
+        "src/BazaarPlusPlus/Game/CombatReplay/Video/MacMetalVideoEncoder.cs",
+        "src/BazaarPlusPlus/Game/CombatReplay/Video/MacNativeReplayAudioMuxer.cs"
+      ],
+      "artifacts": [
+        {
+          "id": "mac-audio",
+          "buildScript": "native/mac-audio-tap/build.sh",
+          "outputPath": "libBppMacAudio.dylib",
+          "binaryPath": "libBppMacAudio.dylib",
+          "kind": "file",
+          "destinationPath": "src-tauri/resources/SourceForBuild/macos/BepInEx/plugins/libBppMacAudio.dylib",
+          "requiredExports": [
+            "BppMacAudio_IsSupported",
+            "BppMacAudio_Read",
+            "BppMacAudio_Start",
+            "BppMacAudio_Stop"
+          ],
+          "requiredWeakImports": [
+            "AudioHardwareCreateProcessTap",
+            "AudioHardwareDestroyProcessTap"
+          ],
+          "allowedDependencyPrefixes": [
+            "/System/Library/",
+            "/usr/lib/"
+          ]
+        },
+        {
+          "id": "mac-replay",
+          "buildScript": "native/macos/build.sh",
+          "outputPath": "GfxPluginBppReplayVideoToolbox.bundle",
+          "binaryPath": "GfxPluginBppReplayVideoToolbox.bundle/Contents/MacOS/GfxPluginBppReplayVideoToolbox",
+          "kind": "directory",
+          "destinationPath": "src-tauri/resources/SourceForBuild/macos/TheBazaar.app/Contents/Plugins/GfxPluginBppReplayVideoToolbox.bundle",
+          "requiredExports": [
+            "BppVtAcquireSlot",
+            "BppVtCanMuxAudio",
+            "BppVtCancelRenderEvent",
+            "BppVtCommitRenderEvent",
+            "BppVtCopyError",
+            "BppVtCreate",
+            "BppVtDestroy",
+            "BppVtDiscardRenderEvent",
+            "BppVtFinish",
+            "BppVtGetRenderEventFunc",
+            "BppVtGetSlotCount",
+            "BppVtGetStats",
+            "BppVtHasUnityMetalInterface",
+            "BppVtIsFailed",
+            "BppVtMuxAudio",
+            "BppVtPrepareRenderEvent",
+            "BppVtReleaseSlot",
+            "UnityPluginLoad",
+            "UnityPluginUnload"
+          ],
+          "requiredWeakImports": [],
+          "allowedDependencyPrefixes": [
+            "/System/Library/",
+            "/usr/lib/"
+          ]
+        }
+      ]
+    },
+    "windows": {
+      "architecture": "x64",
+      "signing": "unsigned",
+      "inputs": [
+        "native/windows/BppReplayMediaFoundation.cpp",
+        "native/windows/BppReplayMediaFoundation.h",
+        "native/windows/BppReplayMediaFoundationSmoke.cpp",
+        "native/windows/build.ps1",
+        "native/windows/test.ps1",
+        "src/BazaarPlusPlus/Game/CombatReplay/Video/WindowsMediaFoundationVideoEncoder.cs",
+        "src/BazaarPlusPlus/Game/CombatReplay/Video/WindowsNativeReplayAudioMuxer.cs"
+      ],
+      "artifacts": [
+        {
+          "id": "windows-replay",
+          "buildScript": "native/windows/build.ps1",
+          "outputPath": "GfxPluginBppReplayMediaFoundation.dll",
+          "binaryPath": "GfxPluginBppReplayMediaFoundation.dll",
+          "kind": "file",
+          "destinationPath": "src-tauri/resources/SourceForBuild/windows/TheBazaar_Data/Plugins/x86_64/GfxPluginBppReplayMediaFoundation.dll",
+          "requiredExports": [
+            "BppMfAcquireSlot",
+            "BppMfCanMuxAudio",
+            "BppMfCancelRenderEvent",
+            "BppMfCommitRenderEvent",
+            "BppMfCopyEncoderName",
+            "BppMfCopyError",
+            "BppMfCreate",
+            "BppMfDestroy",
+            "BppMfDiscardRenderEvent",
+            "BppMfFinish",
+            "BppMfGetRenderEventFunc",
+            "BppMfGetSlotCount",
+            "BppMfGetStats",
+            "BppMfHasUnityD3D11Interface",
+            "BppMfIsFailed",
+            "BppMfMuxAudio",
+            "BppMfPrepareRenderEvent",
+            "BppMfReleaseSlot",
+            "UnityPluginLoad",
+            "UnityPluginUnload"
+          ],
+          "allowedDependencies": [
+            "ADVAPI32.dll",
+            "D3D11.dll",
+            "DXGI.dll",
+            "EVR.dll",
+            "KERNEL32.dll",
+            "MFPlat.dll",
+            "MFReadWrite.dll",
+            "OLE32.dll",
+            "SHLWAPI.dll",
+            "USER32.dll"
+          ]
+        }
+      ]
+    }
+  }
+}

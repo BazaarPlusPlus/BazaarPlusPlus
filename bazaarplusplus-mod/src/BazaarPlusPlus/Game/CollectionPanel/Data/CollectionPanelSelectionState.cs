@@ -18,7 +18,8 @@ internal sealed class CollectionPanelSelectionState
         CollectionSourceKind selectedSourceKind
     )
     {
-        SelectedHero = selectedHero;
+        SelectedHero =
+            selectedHero.HasValue && selectedHero.Value != EHero.Common ? selectedHero.Value : null;
         SelectedSourceKey = NormalizeSourceKey(selectedSourceKey);
         SelectedSourceKind = selectedSourceKind;
     }

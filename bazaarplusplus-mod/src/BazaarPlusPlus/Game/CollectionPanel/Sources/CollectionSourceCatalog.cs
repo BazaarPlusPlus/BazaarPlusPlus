@@ -1,6 +1,7 @@
 #nullable enable
 using System.Reflection;
 using BazaarGameShared.Domain.Core.Types;
+using BazaarPlusPlus.GameInterop.Heroes;
 using BazaarPlusPlus.Infrastructure;
 using Newtonsoft.Json;
 
@@ -45,11 +46,11 @@ internal static class CollectionSourceCatalog
 
     public static IEnumerable<CollectionSourceEntry> For(
         CollectionSourceKind kind,
-        EHero? selectedHero
+        EHero effectiveHero
     )
     {
         EnsureLoaded();
-        return VisibleEntries(_entries, kind, selectedHero);
+        return VisibleEntries(_entries, kind, effectiveHero);
     }
 
     private static void EnsureLoaded()
@@ -109,8 +110,30 @@ internal static class CollectionSourceCatalog
         }
     }
 
-    internal static IReadOnlyList<CollectionSourceEntry> Build(string json)
+    internal static IReadOnlyList<CollectionSourceEntry> Build(string json) =>
+        BuildWithHeroParser(json, CollectionSourceHeroParser.Parse);
+
+    internal static IReadOnlyList<CollectionSourceEntry> Build(
+        string json,
+        Func<string, EHero?> resolveExactHeroName
+    )
     {
+        if (resolveExactHeroName == null)
+            throw new ArgumentNullException(nameof(resolveExactHeroName));
+        return BuildWithHeroParser(
+            json,
+            value => CollectionSourceHeroParser.Parse(value, resolveExactHeroName)
+        );
+    }
+
+    private static IReadOnlyList<CollectionSourceEntry> BuildWithHeroParser(
+        string json,
+        Func<string?, CollectionSourceHeroParseResult> parseHero
+    )
+    {
+        if (parseHero == null)
+            throw new ArgumentNullException(nameof(parseHero));
+
         var dto = JsonConvert.DeserializeObject<CollectionSourceCatalogDto>(json);
         if (dto == null)
             throw new InvalidOperationException("Collection source catalog JSON is empty.");
@@ -149,11 +172,19 @@ internal static class CollectionSourceCatalog
                 );
             if (entry.Order is not int order)
                 throw new InvalidOperationException($"entries[{i}].order is required.");
-            var availableHeroes = ParseEnumList<EHero>(
+            var availableHeroes = ParseHeroList(
                 entry.AvailableHeroes,
-                $"entries[{i}].availableHeroes"
+                $"entries[{i}].availableHeroes",
+                parseHero
             );
             var description = entry.Description ?? string.Empty;
+            var offerSegments = BuildOfferSegments(
+                entry.OfferSegments,
+                $"entries[{i}].offerSegments",
+                parseHero
+            );
+            if (availableHeroes == null || offerSegments == null)
+                continue;
             var portraitTemplateId = ParseGuid(
                 entry.PortraitTemplateId,
                 $"entries[{i}].portraitTemplateId"
@@ -174,11 +205,6 @@ internal static class CollectionSourceCatalog
                     );
                 usedSourceTemplateIds[sourceTemplateId] = $"entries[{i}]";
             }
-            var offerSegments = BuildOfferSegments(
-                entry.OfferSegments,
-                $"entries[{i}].offerSegments"
-            );
-
             candidates.Add(
                 new EntryBuildCandidate(
                     BuildBaseSourceKey(kind, name, availableHeroes),
@@ -239,22 +265,23 @@ internal static class CollectionSourceCatalog
     internal static IEnumerable<CollectionSourceEntry> VisibleEntries(
         IReadOnlyList<CollectionSourceEntry> entries,
         CollectionSourceKind kind,
-        EHero? selectedHero
+        EHero effectiveHero
     )
     {
         foreach (var entry in entries)
         {
             if (entry.Kind != kind)
                 continue;
-            if (selectedHero.HasValue && !entry.AppliesToHero(selectedHero.Value))
+            if (!entry.IsVisibleForHero(effectiveHero))
                 continue;
             yield return entry;
         }
     }
 
-    private static IReadOnlyList<CollectionSourceOfferSegment> BuildOfferSegments(
+    private static IReadOnlyList<CollectionSourceOfferSegment>? BuildOfferSegments(
         IReadOnlyList<CollectionSourceOfferSegmentDto>? dtos,
-        string path
+        string path,
+        Func<string?, CollectionSourceHeroParseResult> parseHero
     )
     {
         if (dtos == null || dtos.Count == 0)
@@ -262,6 +289,7 @@ internal static class CollectionSourceCatalog
 
         var segments = new List<CollectionSourceOfferSegment>(dtos.Count);
         var usedKeys = new HashSet<string>(StringComparer.Ordinal);
+        var hasUnavailableFixedHero = false;
         for (var i = 0; i < dtos.Count; i++)
         {
             var dto = dtos[i];
@@ -272,7 +300,12 @@ internal static class CollectionSourceCatalog
             if (!usedKeys.Add(key))
                 throw new InvalidOperationException($"{segmentPath}.key '{key}' is duplicated.");
             var kind = ParseEnum<CollectionSourceOfferSegmentKind>(dto.Kind, $"{segmentPath}.kind");
-            var rule = BuildOfferRule(dto.Rule, $"{segmentPath}.rule");
+            var rule = BuildOfferRule(dto.Rule, $"{segmentPath}.rule", parseHero);
+            if (rule == null)
+            {
+                hasUnavailableFixedHero = true;
+                continue;
+            }
             segments.Add(
                 new CollectionSourceOfferSegment(
                     key,
@@ -282,6 +315,9 @@ internal static class CollectionSourceCatalog
                 )
             );
         }
+
+        if (hasUnavailableFixedHero)
+            return null;
 
         var hasPinnedTier = segments.Any(segment => segment.Rule.StartingTier != null);
         var hasUnpinnedTier = segments.Any(segment => segment.Rule.StartingTier == null);
@@ -293,9 +329,10 @@ internal static class CollectionSourceCatalog
         return segments;
     }
 
-    private static CollectionSourceOfferRule BuildOfferRule(
+    private static CollectionSourceOfferRule? BuildOfferRule(
         CollectionSourceOfferRuleDto? dto,
-        string path
+        string path,
+        Func<string?, CollectionSourceHeroParseResult> parseHero
     )
     {
         if (dto == null)
@@ -304,7 +341,20 @@ internal static class CollectionSourceCatalog
         var heroMode = ParseEnum<CollectionSourceHeroMode>(dto.HeroMode, $"{path}.heroMode");
         EHero? hero = null;
         if (!string.IsNullOrWhiteSpace(dto.Hero))
-            hero = ParseEnum<EHero>(dto.Hero, $"{path}.hero");
+        {
+            var heroResult = parseHero(dto.Hero);
+            if (heroResult.Status == CollectionSourceHeroParseStatus.Invalid)
+                throw new InvalidOperationException($"{path}.hero has invalid value '{dto.Hero}'.");
+            if (heroResult.Status == CollectionSourceHeroParseStatus.KnownButUnavailable)
+            {
+                if (heroMode == CollectionSourceHeroMode.FixedHero)
+                    return null;
+                throw new InvalidOperationException(
+                    $"{path}.hero '{dto.Hero}' is known but unavailable in this game build."
+                );
+            }
+            hero = heroResult.Hero;
+        }
 
         if (heroMode == CollectionSourceHeroMode.FixedHero && !hero.HasValue)
             throw new InvalidOperationException($"{path}.hero is required for FixedHero rules.");
@@ -404,7 +454,7 @@ internal static class CollectionSourceCatalog
                 : string.Join(
                     "+",
                     heroes
-                        .Select(hero => hero.ToString())
+                        .Select(TheDragonsHeroIdentity.ToCanonicalId)
                         .OrderBy(value => value, StringComparer.Ordinal)
                 );
         return string.Join(":", kind.ToString().ToLowerInvariant(), Slug(name), Slug(heroKey));
@@ -446,6 +496,34 @@ internal static class CollectionSourceCatalog
         foreach (var value in values)
             result.Add(ParseEnum<TEnum>(value, path));
         return result;
+    }
+
+    private static IReadOnlyList<EHero>? ParseHeroList(
+        IReadOnlyList<string>? values,
+        string path,
+        Func<string?, CollectionSourceHeroParseResult> parseHero
+    )
+    {
+        if (values == null || values.Count == 0)
+            return Array.Empty<EHero>();
+
+        var result = new List<EHero>(values.Count);
+        foreach (var value in values)
+        {
+            var heroResult = parseHero(value);
+            if (heroResult.Status == CollectionSourceHeroParseStatus.Invalid)
+                throw new InvalidOperationException($"{path} has invalid value '{value}'.");
+            if (
+                heroResult.Status == CollectionSourceHeroParseStatus.Resolved
+                && heroResult.Hero.HasValue
+                && !result.Contains(heroResult.Hero.Value)
+            )
+            {
+                result.Add(heroResult.Hero.Value);
+            }
+        }
+
+        return result.Count == 0 ? null : result;
     }
 
     private static Guid ParseGuid(string? value, string path)

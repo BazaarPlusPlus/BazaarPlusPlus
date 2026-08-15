@@ -180,7 +180,8 @@ internal sealed class HistoryPanelDataService
             if (loadResult.Status != FileBackedPayloadLoadStatus.Loaded)
                 continue;
 
-            var snapshots = loadResult.Payload?.BattleManifest?.Snapshots;
+            var payload = GhostBattlePayloadReader.Normalize(loadResult.Payload);
+            var snapshots = payload?.BattleManifest?.Snapshots;
             if (snapshots == null)
                 continue;
 

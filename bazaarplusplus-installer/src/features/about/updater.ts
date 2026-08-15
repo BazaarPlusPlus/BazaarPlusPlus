@@ -1,7 +1,10 @@
 import { check, type Update } from '@tauri-apps/plugin-updater';
 import { relaunch } from '@tauri-apps/plugin-process';
 import { hasTauriRuntime } from '../../api/runtime';
-import { toErrorMessage } from '../shared/errors';
+import {
+  updaterProblemFromError,
+  type UpdaterProblem
+} from './updaterProblems';
 
 /**
  * Structural slice of the plugin-updater `Update` resource the machine needs.
@@ -65,42 +68,56 @@ export type UpdaterPhase =
   | 'available'
   | 'downloading'
   | 'installing'
-  | 'ready'
-  | 'error';
+  | 'ready-to-restart'
+  | 'restarting'
+  | 'failed';
 
-export type UpdaterSnapshot = {
-  phase: UpdaterPhase;
+type EmptyUpdaterSnapshot = {
+  phase: 'idle' | 'checking' | 'current' | 'preview';
+  version: null;
+  notes: null;
+  progress: null;
+  problem: null;
+};
+
+type KnownUpdateFields = {
+  version: string;
+  notes: string;
+  problem: null;
+};
+
+type KnownUpdateSnapshot = KnownUpdateFields &
+  (
+    | {
+        phase: 'available' | 'installing' | 'ready-to-restart' | 'restarting';
+        progress: null;
+      }
+    | {
+        phase: 'downloading';
+        progress: UpdateProgress | null;
+      }
+  );
+
+type FailedUpdaterSnapshot = {
+  phase: 'failed';
   version: string | null;
   notes: string | null;
-  progress: UpdateProgress | null;
-  error: string | null;
-  /** Check errors render inline in the header; install errors in the modal. */
-  errorSource: 'check' | 'install' | null;
+  progress: null;
+  problem: UpdaterProblem;
 };
+
+export type UpdaterSnapshot =
+  EmptyUpdaterSnapshot | KnownUpdateSnapshot | FailedUpdaterSnapshot;
 
 export const initialUpdaterSnapshot: UpdaterSnapshot = {
   phase: 'idle',
   version: null,
   notes: null,
   progress: null,
-  error: null,
-  errorSource: null
+  problem: null
 };
 
-/** Phases rendered inside the update modal (vs. inline header feedback). */
-export function isUpdateModalPhase(snapshot: UpdaterSnapshot): boolean {
-  switch (snapshot.phase) {
-    case 'available':
-    case 'downloading':
-    case 'installing':
-    case 'ready':
-      return true;
-    case 'error':
-      return snapshot.errorSource === 'install';
-    default:
-      return false;
-  }
-}
+type KnownUpdate = { version: string; notes: string };
 
 export type UpdaterMachine = {
   getSnapshot: () => UpdaterSnapshot;
@@ -114,19 +131,66 @@ export function createUpdaterMachine(
   impl: UpdaterImpl,
   onChange: (snapshot: UpdaterSnapshot) => void
 ): UpdaterMachine {
-  let snapshot = initialUpdaterSnapshot;
+  let snapshot: UpdaterSnapshot = initialUpdaterSnapshot;
+  let knownUpdate: KnownUpdate | null = null;
   let handle: UpdateHandle | null = null;
   let checkInFlight = false;
 
-  const set = (patch: Partial<UpdaterSnapshot>) => {
-    snapshot = { ...snapshot, ...patch };
+  const publish = (next: UpdaterSnapshot) => {
+    snapshot = next;
     onChange(snapshot);
+  };
+
+  const publishEmpty = (phase: EmptyUpdaterSnapshot['phase']) => {
+    publish({
+      phase,
+      version: null,
+      notes: null,
+      progress: null,
+      problem: null
+    });
+  };
+
+  const publishKnown = (
+    phase: Exclude<KnownUpdateSnapshot['phase'], 'downloading'>
+  ) => {
+    if (!knownUpdate) return;
+    publish({
+      phase,
+      ...knownUpdate,
+      progress: null,
+      problem: null
+    });
+  };
+
+  const publishDownloading = (progress: UpdateProgress | null = null) => {
+    if (!knownUpdate) return;
+    publish({
+      phase: 'downloading',
+      ...knownUpdate,
+      progress,
+      problem: null
+    });
+  };
+
+  const publishFailure = (
+    problem: UpdaterProblem,
+    update: KnownUpdate | null = knownUpdate
+  ) => {
+    publish({
+      phase: 'failed',
+      version: update?.version ?? null,
+      notes: update?.notes ?? null,
+      progress: null,
+      problem
+    });
   };
 
   const busy = () =>
     snapshot.phase === 'checking' ||
     snapshot.phase === 'downloading' ||
-    snapshot.phase === 'installing';
+    snapshot.phase === 'installing' ||
+    snapshot.phase === 'restarting';
 
   const replaceHandle = (next: UpdateHandle | null) => {
     const previous = handle;
@@ -136,122 +200,128 @@ export function createUpdaterMachine(
     }
   };
 
+  const canCheck = () =>
+    snapshot.phase === 'idle' ||
+    snapshot.phase === 'current' ||
+    snapshot.phase === 'preview' ||
+    (snapshot.phase === 'failed' &&
+      snapshot.problem.code === 'updater_check_failed');
+
   const checkNow = async (options?: { silent?: boolean }) => {
     const silent = options?.silent ?? false;
-    if (checkInFlight || busy()) return;
+    if (checkInFlight || busy() || !canCheck()) return;
     checkInFlight = true;
-    if (!silent) {
-      set({ phase: 'checking', error: null, errorSource: null });
-    }
+    if (!silent) publishEmpty('checking');
     try {
       const result = await runCheck(impl);
       if (result.status === 'available') {
+        knownUpdate = { version: result.version, notes: result.notes };
         replaceHandle(result.update);
-        set({
-          phase: 'available',
-          version: result.version,
-          notes: result.notes,
-          error: null,
-          errorSource: null
-        });
+        publishKnown('available');
         return;
       }
-      if (!silent) {
-        set({ phase: result.status });
-      }
+      replaceHandle(null);
+      knownUpdate = null;
+      if (!silent) publishEmpty(result.status);
     } catch (error) {
-      // Startup checks stay silent; manual checks surface inline in the header.
       if (!silent) {
-        set({
-          phase: 'error',
-          error: toErrorMessage(error),
-          errorSource: 'check'
-        });
+        knownUpdate = null;
+        publishFailure(updaterProblemFromError(error, 'check'), null);
       }
     } finally {
       checkInFlight = false;
     }
   };
 
+  const canInstall = () =>
+    snapshot.phase === 'available' ||
+    (snapshot.phase === 'failed' &&
+      (snapshot.problem.code === 'updater_download_failed' ||
+        snapshot.problem.code === 'updater_install_failed'));
+
   const install = async () => {
-    if (checkInFlight || busy()) return;
-    set({
-      phase: 'downloading',
-      progress: null,
-      error: null,
-      errorSource: null
-    });
+    if (checkInFlight || busy() || !canInstall() || !knownUpdate) return;
+    publishDownloading();
+    let operation: 'download' | 'install' = 'download';
     try {
       let update = handle;
       if (!update) {
-        // Retry path: a failed downloadAndInstall may have consumed the old
-        // handle, so fetch a fresh one instead of reusing it.
         const result = await runCheck(impl);
         if (result.status !== 'available') {
-          set({ phase: result.status, progress: null });
+          knownUpdate = null;
+          publishEmpty(result.status);
           return;
         }
+        knownUpdate = { version: result.version, notes: result.notes };
         replaceHandle(result.update);
         update = result.update;
-        set({ version: result.version, notes: result.notes });
+        publishDownloading();
       }
 
-      // The handle is consumed by downloadAndInstall either way; drop it so a
-      // failure re-checks instead of reusing a dead resource.
+      // The handle is consumed by downloadAndInstall either way. A retry must
+      // fetch a new resource instead of reusing the consumed native handle.
       handle = null;
       let downloaded = 0;
       await update.downloadAndInstall((event) => {
         if (event.event === 'Started') {
           downloaded = 0;
-          set({
-            progress: { downloaded, total: event.data.contentLength ?? null }
+          publishDownloading({
+            downloaded,
+            total: event.data.contentLength ?? null
           });
         } else if (event.event === 'Progress') {
           downloaded += event.data.chunkLength;
-          set({
-            progress: { downloaded, total: snapshot.progress?.total ?? null }
+          publishDownloading({
+            downloaded,
+            total: snapshot.progress?.total ?? null
           });
         } else {
-          // 'Finished': download done; the synthetic installing phase covers
-          // the gap until the downloadAndInstall promise resolves.
-          set({ phase: 'installing' });
+          operation = 'install';
+          publishKnown('installing');
         }
       });
 
       if (impl.isWindows()) {
-        // The NSIS installer owns closing and restarting the app on Windows;
-        // relaunch() is a best-effort fallback in case the app is still alive.
+        publishKnown('restarting');
         try {
           await impl.relaunch();
-        } catch {
-          set({ phase: 'ready', progress: null });
+        } catch (error) {
+          publishFailure(
+            updaterProblemFromError(error, 'restart', knownUpdate?.version)
+          );
         }
         return;
       }
-      set({ phase: 'ready', progress: null });
+      publishKnown('ready-to-restart');
     } catch (error) {
-      set({
-        phase: 'error',
-        error: toErrorMessage(error),
-        errorSource: 'install',
-        progress: null
-      });
+      publishFailure(
+        updaterProblemFromError(error, operation, knownUpdate?.version)
+      );
     }
   };
 
+  const canRestart = () =>
+    snapshot.phase === 'ready-to-restart' ||
+    (snapshot.phase === 'failed' &&
+      snapshot.problem.code === 'updater_restart_failed');
+
   const restart = async () => {
+    if (busy() || !canRestart() || !knownUpdate) return;
+    publishKnown('restarting');
     try {
       await impl.relaunch();
     } catch (error) {
-      // Rare; keep the ready phase and surface the failure so the user can
-      // restart manually.
-      set({ error: toErrorMessage(error) });
+      publishFailure(
+        updaterProblemFromError(error, 'restart', knownUpdate.version)
+      );
     }
   };
 
   const dismiss = () => {
     if (busy()) return;
-    set({ phase: 'idle', error: null, errorSource: null, progress: null });
+    replaceHandle(null);
+    knownUpdate = null;
+    publish(initialUpdaterSnapshot);
   };
 
   return {

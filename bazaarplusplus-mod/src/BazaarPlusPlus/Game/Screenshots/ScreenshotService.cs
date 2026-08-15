@@ -18,10 +18,15 @@ internal sealed class ScreenshotService
         _nowProvider = nowProvider ?? (() => DateTimeOffset.Now);
     }
 
-    public Task<ScreenshotCaptureResult?> CaptureCurrentFrameAsync(ScreenshotCaptureRequest request)
+    public ScreenshotCaptureSession BeginCaptureCurrentFrame(ScreenshotCaptureRequest request)
     {
         if (string.IsNullOrWhiteSpace(_directoryPath))
-            return Task.FromResult<ScreenshotCaptureResult?>(null);
+        {
+            return new ScreenshotCaptureSession(
+                Task.CompletedTask,
+                Task.FromResult<ScreenshotCaptureResult?>(null)
+            );
+        }
         if (request == null)
             throw new ArgumentNullException(nameof(request));
         if (string.IsNullOrWhiteSpace(request.ScreenshotId))
@@ -44,22 +49,35 @@ internal sealed class ScreenshotService
             CapturedAtLocal = capturedAtLocal,
             CapturedAtUtc = capturedAtUtc,
         };
-        return CaptureAndWriteCurrentFrameAsync(filePath, request.ScreenshotId)
-            .ContinueWith(
-                task =>
-                {
-                    if (task.IsFaulted)
-                        throw task.Exception!.GetBaseException();
-                    if (task.IsCanceled || !task.Result)
-                        return null;
+        var frameAcquired = new TaskCompletionSource<bool>(
+            TaskCreationOptions.RunContinuationsAsynchronously
+        );
+        var captureAndWrite = CaptureAndWriteCurrentFrameAsync(
+            filePath,
+            request.ScreenshotId,
+            frameAcquired
+        );
 
-                    return result;
-                },
-                TaskScheduler.Default
-            );
+        var completion = captureAndWrite.ContinueWith(
+            task =>
+            {
+                if (task.IsFaulted)
+                    throw task.Exception!.GetBaseException();
+                if (task.IsCanceled || !task.Result)
+                    return null;
+
+                return result;
+            },
+            TaskScheduler.Default
+        );
+        return new ScreenshotCaptureSession(frameAcquired.Task, completion);
     }
 
-    private static Task<bool> CaptureAndWriteCurrentFrameAsync(string filePath, string screenshotId)
+    private static Task<bool> CaptureAndWriteCurrentFrameAsync(
+        string filePath,
+        string screenshotId,
+        TaskCompletionSource<bool> frameAcquired
+    )
     {
         var width = Screen.width;
         var height = Screen.height;
@@ -104,6 +122,7 @@ internal sealed class ScreenshotService
                         height,
                         filePath,
                         screenshotId,
+                        frameAcquired,
                         completion
                     )
             );
@@ -124,6 +143,7 @@ internal sealed class ScreenshotService
         int height,
         string filePath,
         string screenshotId,
+        TaskCompletionSource<bool> frameAcquired,
         TaskCompletionSource<bool> completion
     )
     {
@@ -131,9 +151,9 @@ internal sealed class ScreenshotService
         {
             if (request.hasError)
             {
-                completion.TrySetException(
-                    new InvalidOperationException("AsyncGPUReadback returned an error.")
-                );
+                var failure = new InvalidOperationException("AsyncGPUReadback returned an error.");
+                frameAcquired.TrySetException(failure);
+                completion.TrySetException(failure);
                 return;
             }
 
@@ -142,6 +162,9 @@ internal sealed class ScreenshotService
             if (!SystemInfo.graphicsUVStartsAtTop)
                 Rgba32FrameTransforms.FlipVerticalRgba32(pixels, width, height);
 
+            // The settled frame is now detached from Unity. Navigation cannot change these
+            // pixels, so the caller may release input while PNG encoding continues off-thread.
+            frameAcquired.TrySetResult(true);
             _ = Task.Run(() =>
             {
                 try
@@ -157,6 +180,7 @@ internal sealed class ScreenshotService
         }
         catch (Exception ex)
         {
+            frameAcquired.TrySetException(ex);
             completion.TrySetException(ex);
         }
         finally

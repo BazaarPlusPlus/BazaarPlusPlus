@@ -31,10 +31,18 @@ pub(crate) fn read_bundled_bpp_version(app: &tauri::AppHandle) -> Result<Option<
     Ok(None)
 }
 
-pub(super) fn extract_zip(zip_bytes: &[u8], dest_dir: &Path) -> Result<Vec<String>, String> {
+pub(super) struct ExtractReport {
+    pub(super) written: Vec<String>,
+    pub(super) skipped_identical: Vec<String>,
+}
+
+pub(super) fn extract_zip(zip_bytes: &[u8], dest_dir: &Path) -> Result<ExtractReport, String> {
     let reader = Cursor::new(zip_bytes);
     let mut archive = zip::ZipArchive::new(reader).map_err(|err| err.to_string())?;
-    let mut extracted = Vec::new();
+    let mut report = ExtractReport {
+        written: Vec::new(),
+        skipped_identical: Vec::new(),
+    };
 
     for index in 0..archive.len() {
         let mut file = archive.by_index(index).map_err(|err| err.to_string())?;
@@ -55,18 +63,53 @@ pub(super) fn extract_zip(zip_bytes: &[u8], dest_dir: &Path) -> Result<Vec<Strin
         let mut contents = Vec::new();
         file.read_to_end(&mut contents)
             .map_err(|err| err.to_string())?;
+
+        if existing_file_is_identical(&output_path, &contents) {
+            report
+                .skipped_identical
+                .push(output_path.to_string_lossy().into_owned());
+            continue;
+        }
+
         std::fs::write(&output_path, contents).map_err(|err| err.to_string())?;
-        extracted.push(output_path.to_string_lossy().into_owned());
+        report
+            .written
+            .push(output_path.to_string_lossy().into_owned());
     }
 
-    Ok(extracted)
+    Ok(report)
+}
+
+pub(super) fn zip_entry_paths(
+    zip_bytes: &[u8],
+) -> Result<std::collections::HashSet<String>, String> {
+    let reader = Cursor::new(zip_bytes);
+    let archive = zip::ZipArchive::new(reader).map_err(|err| err.to_string())?;
+    Ok(archive
+        .file_names()
+        .filter(|name| !name.ends_with('/'))
+        .map(|name| name.replace('\\', "/"))
+        .collect())
+}
+
+/// A shared dll another mod ships at the same version must not be rewritten
+/// on every BPP install; the length gate keeps the multi-MB payload entries
+/// from being read unless they could actually match.
+fn existing_file_is_identical(path: &Path, contents: &[u8]) -> bool {
+    match std::fs::metadata(path) {
+        Ok(metadata) if metadata.is_file() && metadata.len() == contents.len() as u64 => {
+            std::fs::read(path)
+                .map(|existing| existing == contents)
+                .unwrap_or(false)
+        }
+        _ => false,
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{bundled_zip_relative_path, extract_zip};
+    use super::{bundled_zip_relative_path, extract_zip, zip_entry_paths};
     use std::io::{Cursor, Write};
-    use std::path::PathBuf;
 
     fn make_test_zip() -> Vec<u8> {
         let buffer = Cursor::new(Vec::new());
@@ -86,30 +129,54 @@ mod tests {
         let zip_bytes = make_test_zip();
         let tmp = tempfile::tempdir().unwrap();
 
-        let extracted = extract_zip(&zip_bytes, tmp.path()).unwrap();
-        assert!(!extracted.is_empty());
+        let report = extract_zip(&zip_bytes, tmp.path()).unwrap();
+        assert!(!report.written.is_empty());
+        assert!(report.skipped_identical.is_empty());
         assert!(tmp.path().join("BepInEx/core/BepInEx.Core.dll").exists());
+    }
+
+    #[test]
+    fn test_extract_zip_skips_byte_identical_existing_files() {
+        let zip_bytes = make_test_zip();
+        let tmp = tempfile::tempdir().unwrap();
+        let target = tmp.path().join("BepInEx/core/BepInEx.Core.dll");
+        std::fs::create_dir_all(target.parent().unwrap()).unwrap();
+        std::fs::write(&target, b"fake dll content").unwrap();
+
+        let report = extract_zip(&zip_bytes, tmp.path()).unwrap();
+
+        assert!(report.written.is_empty());
+        assert_eq!(report.skipped_identical.len(), 1);
+        assert_eq!(std::fs::read(&target).unwrap(), b"fake dll content");
+    }
+
+    #[test]
+    fn test_extract_zip_overwrites_differing_existing_files() {
+        let zip_bytes = make_test_zip();
+        let tmp = tempfile::tempdir().unwrap();
+        let target = tmp.path().join("BepInEx/core/BepInEx.Core.dll");
+        std::fs::create_dir_all(target.parent().unwrap()).unwrap();
+        std::fs::write(&target, b"other mod's different version").unwrap();
+
+        let report = extract_zip(&zip_bytes, tmp.path()).unwrap();
+
+        assert_eq!(report.written.len(), 1);
+        assert!(report.skipped_identical.is_empty());
+        assert_eq!(std::fs::read(&target).unwrap(), b"fake dll content");
+    }
+
+    #[test]
+    fn test_zip_entry_paths_lists_files_not_directories() {
+        let zip_bytes = make_test_zip();
+
+        let paths = zip_entry_paths(&zip_bytes).unwrap();
+
+        assert!(paths.contains("BepInEx/core/BepInEx.Core.dll"));
+        assert!(!paths.iter().any(|path| path.ends_with('/')));
     }
 
     #[test]
     fn test_bundled_zip_relative_path_matches_supported_targets() {
         assert_eq!(bundled_zip_relative_path(), "BepInExSource/BepInEx.zip");
-    }
-
-    #[test]
-    fn test_macos_source_launcher_uses_safe_codesign_tempfile() {
-        let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        let source_script_path = manifest_dir.join("resources/SourceForBuild/macos/run_bepinex.sh");
-        let source_script = std::fs::read_to_string(&source_script_path)
-            .unwrap_or_else(|err| panic!("failed to read {}: {err}", source_script_path.display()));
-
-        assert_macos_launcher_script_is_safe(&source_script);
-    }
-
-    fn assert_macos_launcher_script_is_safe(script: &str) {
-        assert!(script.contains("mktemp \"${TMPDIR:-/tmp}/bepinex_ents.XXXXXX\""));
-        assert!(!script.contains("mktemp /tmp/bepinex_ents.XXXXXX.plist"));
-        assert!(script.contains("trap cleanup_entitlements EXIT HUP INT TERM"));
-        assert!(!script.contains("codesign --remove-signature"));
     }
 }

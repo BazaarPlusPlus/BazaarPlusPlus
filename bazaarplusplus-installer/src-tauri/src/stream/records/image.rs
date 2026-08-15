@@ -53,16 +53,13 @@ fn is_unsafe_component(component: Component<'_>) -> bool {
 #[cfg(test)]
 mod tests {
     use super::resolve_overlay_image_path;
+    use crate::services::paths;
 
     #[test]
     fn resolve_overlay_image_path_rejects_absolute_inputs() {
         let temp_dir = tempfile::tempdir().unwrap();
         let game_path = temp_dir.path().join("TheBazaar");
-        let absolute_input = temp_dir
-            .path()
-            .join("BazaarPlusPlusV4")
-            .join("Screenshots")
-            .join("match-2.png");
+        let absolute_input = paths::screenshots_dir(temp_dir.path()).join("match-2.png");
 
         let absolute =
             resolve_overlay_image_path(Some(game_path), Some(absolute_input.to_str().unwrap()));
@@ -74,7 +71,7 @@ mod tests {
     fn resolve_overlay_image_path_supports_bazaarplusplus_screenshots_directory() {
         let temp_dir = tempfile::tempdir().unwrap();
         let game_path = temp_dir.path().join("TheBazaar");
-        let screenshots_dir = game_path.join("BazaarPlusPlusV4").join("Screenshots");
+        let screenshots_dir = paths::screenshots_dir(&game_path);
         std::fs::create_dir_all(&screenshots_dir).unwrap();
         std::fs::write(screenshots_dir.join("match-1.png"), b"png").unwrap();
 
@@ -87,7 +84,7 @@ mod tests {
     fn resolve_overlay_image_path_normalizes_nested_backslash_relative_paths() {
         let temp_dir = tempfile::tempdir().unwrap();
         let game_path = temp_dir.path().join("TheBazaar");
-        let screenshots_dir = game_path.join("BazaarPlusPlusV4").join("Screenshots");
+        let screenshots_dir = paths::screenshots_dir(&game_path);
         let dated_dir = screenshots_dir.join("2026-04-16");
         std::fs::create_dir_all(&dated_dir).unwrap();
         std::fs::write(dated_dir.join("match-1.png"), b"png").unwrap();

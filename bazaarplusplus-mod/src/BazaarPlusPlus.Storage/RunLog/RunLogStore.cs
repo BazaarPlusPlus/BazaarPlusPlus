@@ -12,10 +12,7 @@ public sealed class RunLogStore : SqliteStoreBase, IRunLogStore
         SerializerSettingsFactory.CreateSerializerSettings(includeStringEnumConverter: false);
 
     public RunLogStore(IPathProvider paths)
-        : base(
-            paths.RunLogDatabasePath
-                ?? throw new InvalidOperationException("RunLogDatabasePath is not set")
-        ) { }
+        : base(PathConstants.RunLogDatabase(paths.RequireDataRoot())) { }
 
     public RunLogSessionState? TryResumeActiveRun()
     {
@@ -51,7 +48,10 @@ public sealed class RunLogStore : SqliteStoreBase, IRunLogStore
                 day,
                 hour,
                 last_seq,
-                build_channel
+                build_channel,
+                player_account_id,
+                bundle_screenshot_requested,
+                mod_version
             ) VALUES (
                 $runId,
                 $startedAtUtc,
@@ -66,7 +66,10 @@ public sealed class RunLogStore : SqliteStoreBase, IRunLogStore
                 $day,
                 $hour,
                 0,
-                $buildChannel
+                $buildChannel,
+                $playerAccountId,
+                $bundleScreenshotRequested,
+                $modVersion
             )
             ON CONFLICT(run_id) DO UPDATE SET
                 hero = excluded.hero,
@@ -76,6 +79,7 @@ public sealed class RunLogStore : SqliteStoreBase, IRunLogStore
                 player_rating = COALESCE(excluded.player_rating, {RunLogSchema.RunsTableName}.player_rating),
                 day = COALESCE({RunLogSchema.RunsTableName}.day, excluded.day),
                 hour = COALESCE({RunLogSchema.RunsTableName}.hour, excluded.hour),
+                player_account_id = COALESCE({RunLogSchema.RunsTableName}.player_account_id, excluded.player_account_id),
                 status = excluded.status,
                 completed = 0;
             """;
@@ -91,6 +95,12 @@ public sealed class RunLogStore : SqliteStoreBase, IRunLogStore
         AddNullableInt32(command, "$day", request.Day);
         AddNullableInt32(command, "$hour", request.Hour);
         AddNullableString(command, "$buildChannel", request.BuildChannel);
+        AddNullableString(command, "$playerAccountId", NormalizeAccountId(request.PlayerAccountId));
+        command.Parameters.AddWithValue(
+            "$bundleScreenshotRequested",
+            request.BundleScreenshotRequested ? 1 : 0
+        );
+        AddNullableString(command, "$modVersion", request.ModVersion);
         command.ExecuteNonQuery();
 
         var session =
@@ -101,6 +111,24 @@ public sealed class RunLogStore : SqliteStoreBase, IRunLogStore
 
         transaction.Commit();
         return session;
+    }
+
+    public void SetPlayerAccountIdOnce(string runId, string? playerAccountId)
+    {
+        var normalizedAccountId = NormalizeAccountId(playerAccountId);
+        if (normalizedAccountId == null)
+            return;
+
+        using var connection = OpenConnection();
+        using var command = CreateCommand(connection);
+        command.CommandText = $"""
+            UPDATE {RunLogSchema.RunsTableName}
+            SET player_account_id = COALESCE(player_account_id, $playerAccountId)
+            WHERE run_id = $runId;
+            """;
+        command.Parameters.AddWithValue("$runId", runId);
+        command.Parameters.AddWithValue("$playerAccountId", normalizedAccountId);
+        command.ExecuteNonQuery();
     }
 
     public void AppendEvent(string runId, RunLogEvent entry)
@@ -401,5 +429,11 @@ public sealed class RunLogStore : SqliteStoreBase, IRunLogStore
             Gold = GetNullableInt32(reader, "gold"),
             Completed = false,
         };
+    }
+
+    private static string? NormalizeAccountId(string? playerAccountId)
+    {
+        var normalized = playerAccountId?.Trim();
+        return string.IsNullOrEmpty(normalized) ? null : normalized;
     }
 }

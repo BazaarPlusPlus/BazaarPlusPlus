@@ -88,6 +88,9 @@ internal static class BppTooltipSectionRenderPatch
     internal static bool HasNativeContent(string passiveText, int questGroupCount) =>
         !string.IsNullOrWhiteSpace(passiveText) || questGroupCount > 0;
 
+    internal static bool CanRenderEnchantPreview(bool isInCombat, bool isRecapViewOpen) =>
+        !isInCombat && !isRecapViewOpen;
+
     internal static (string SectionKey, BppTooltipSections.Style Style) ResolveSectionLayout(
         string passiveText,
         int questGroupCount
@@ -129,7 +132,12 @@ internal static class BppTooltipSectionRenderPatch
 
     private static string? BuildEnchantContent(CardTooltipController controller)
     {
-        if (Data.IsInCombat || controller.CurrentTooltipData is not CardTooltipData tooltipData)
+        if (
+            !CanRenderEnchantPreview(
+                Data.IsInCombat,
+                Singleton<BoardManager>.Instance?.IsRecapViewOpen == true
+            ) || controller.CurrentTooltipData is not CardTooltipData tooltipData
+        )
             return null;
 
         var services = BppPatchHost.Services;

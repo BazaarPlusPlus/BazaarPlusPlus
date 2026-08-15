@@ -45,7 +45,6 @@ internal static class CombatReplayVideoLogEvents
     internal static readonly BppLogFieldDefinition OutputPath = new(
         10,
         "output_path",
-        BppLogFieldPrivacy.LocalPath,
         BppLogCorrelationPolicy.None,
         BppLogCardinality.High
     );
@@ -53,7 +52,6 @@ internal static class CombatReplayVideoLogEvents
     internal static readonly BppLogFieldDefinition StderrTail = new(
         12,
         "stderr_tail",
-        BppLogFieldPrivacy.UntrustedText,
         BppLogCorrelationPolicy.None,
         BppLogCardinality.High
     );
@@ -172,7 +170,6 @@ internal static class CombatReplayVideoLogEvents
     internal static readonly BppLogFieldDefinition AudioCompletedWavPath = new(
         7,
         "wav_path",
-        BppLogFieldPrivacy.LocalPath,
         BppLogCorrelationPolicy.None,
         BppLogCardinality.High
     );
@@ -188,57 +185,6 @@ internal static class CombatReplayVideoLogEvents
             AudioCompletedPeakDb,
             AudioCompletedSizeBytes,
             AudioCompletedWavPath,
-        ]
-    );
-
-    internal static readonly BppLogFieldDefinition FfmpegProbeAvailable = Field(0, "available");
-    internal static readonly BppLogFieldDefinition FfmpegProbeSource = Field(1, "source");
-    internal static readonly BppLogFieldDefinition FfmpegProbeExecutable = new(
-        2,
-        "executable",
-        BppLogFieldPrivacy.LocalPath,
-        BppLogCorrelationPolicy.None,
-        BppLogCardinality.High
-    );
-    internal static readonly BppLogFieldDefinition FfmpegProbeReasonCode = Field(3, "reason_code");
-    internal static readonly BppLogFieldDefinition FfmpegProbeDurationMs = Field(
-        4,
-        "duration_ms",
-        BppLogCardinality.High
-    );
-    internal static readonly BppLogFieldDefinition FfmpegProbeCodec = Field(5, "codec");
-    internal static readonly BppLogFieldDefinition FfmpegProbeWidth = Field(
-        6,
-        "width",
-        BppLogCardinality.High
-    );
-    internal static readonly BppLogFieldDefinition FfmpegProbeHeight = Field(
-        7,
-        "height",
-        BppLogCardinality.High
-    );
-    internal static readonly BppLogFieldDefinition FfmpegProbeFps = Field(8, "fps");
-    internal static readonly BppLogFieldDefinition FfmpegProbeStderrTail = new(
-        9,
-        "stderr_tail",
-        BppLogFieldPrivacy.UntrustedText,
-        BppLogCorrelationPolicy.None,
-        BppLogCardinality.High
-    );
-    internal static readonly BppLogEventDefinition FfmpegProbeCompleted = new(
-        BppLogFeatureScope.CombatReplay,
-        "combat_replay.ffmpeg.probe_completed",
-        [
-            FfmpegProbeAvailable,
-            FfmpegProbeSource,
-            FfmpegProbeExecutable,
-            FfmpegProbeReasonCode,
-            FfmpegProbeDurationMs,
-            FfmpegProbeCodec,
-            FfmpegProbeWidth,
-            FfmpegProbeHeight,
-            FfmpegProbeFps,
-            FfmpegProbeStderrTail,
         ]
     );
 
@@ -312,7 +258,6 @@ internal static class CombatReplayVideoLogEvents
     internal static readonly BppLogFieldDefinition StatsOutputPath = new(
         10,
         "output_path",
-        BppLogFieldPrivacy.LocalPath,
         BppLogCorrelationPolicy.None,
         BppLogCardinality.High
     );
@@ -400,6 +345,111 @@ internal static class CombatReplayVideoLogEvents
         ]
     );
 
+    internal static readonly BppLogFieldDefinition NativeStatsRecordingId = Field(
+        0,
+        "recording_id",
+        BppLogCardinality.High,
+        BppLogCorrelationPolicy.Short
+    );
+    internal static readonly BppLogFieldDefinition NativeStatsStage = Field(1, "stage");
+    internal static readonly BppLogFieldDefinition NativeStatsBackpressureDroppedFrames = Field(
+        2,
+        "backpressure_dropped_frames",
+        BppLogCardinality.High
+    );
+    internal static readonly BppLogFieldDefinition NativeStatsDroppedFrames = Field(
+        3,
+        "dropped_frames",
+        BppLogCardinality.High
+    );
+    internal static readonly BppLogFieldDefinition NativeStatsLeaseMisses = Field(
+        4,
+        "lease_misses",
+        BppLogCardinality.High
+    );
+    internal static readonly BppLogFieldDefinition NativeStatsEnqueueRejects = Field(
+        5,
+        "enqueue_rejects",
+        BppLogCardinality.High
+    );
+    internal static readonly BppLogFieldDefinition NativeStatsPacerResyncDroppedFrames = Field(
+        6,
+        "pacer_resync_dropped_frames",
+        BppLogCardinality.High
+    );
+    internal static readonly BppLogFieldDefinition NativeStatsMaxInFlight = Field(
+        7,
+        "max_in_flight"
+    );
+    internal static readonly BppLogFieldDefinition NativeStatsFramesWritten = Field(
+        8,
+        "native_frames_written",
+        BppLogCardinality.High
+    );
+    internal static readonly BppLogFieldDefinition NativeStatsRenderFrameP50Us = Field(
+        9,
+        "render_frame_p50_us",
+        BppLogCardinality.High
+    );
+    internal static readonly BppLogFieldDefinition NativeStatsRenderFrameP95Us = Field(
+        10,
+        "render_frame_p95_us",
+        BppLogCardinality.High
+    );
+    internal static readonly BppLogFieldDefinition NativeStatsRenderFrameP99Us = Field(
+        11,
+        "render_frame_p99_us",
+        BppLogCardinality.High
+    );
+    internal static readonly BppLogFieldDefinition NativeStatsTextureCopyP50Us = Field(
+        12,
+        "texture_copy_p50_us",
+        BppLogCardinality.High
+    );
+    internal static readonly BppLogFieldDefinition NativeStatsTextureCopyP95Us = Field(
+        13,
+        "texture_copy_p95_us",
+        BppLogCardinality.High
+    );
+    internal static readonly BppLogFieldDefinition NativeStatsTextureCopyP99Us = Field(
+        14,
+        "texture_copy_p99_us",
+        BppLogCardinality.High
+    );
+    internal static readonly BppLogFieldDefinition NativeStatsBattleId = Field(
+        15,
+        "battle_id",
+        BppLogCardinality.High,
+        BppLogCorrelationPolicy.Short
+    );
+    internal static readonly BppLogFieldDefinition NativeStatsEncoderName = Field(
+        16,
+        "encoder_name"
+    );
+    internal static readonly BppLogEventDefinition VideoCaptureNativePipelineObserved = new(
+        BppLogFeatureScope.CombatReplay,
+        "combat_replay.video_capture.native_pipeline_observed",
+        [
+            NativeStatsRecordingId,
+            NativeStatsStage,
+            NativeStatsBackpressureDroppedFrames,
+            NativeStatsDroppedFrames,
+            NativeStatsLeaseMisses,
+            NativeStatsEnqueueRejects,
+            NativeStatsPacerResyncDroppedFrames,
+            NativeStatsMaxInFlight,
+            NativeStatsFramesWritten,
+            NativeStatsRenderFrameP50Us,
+            NativeStatsRenderFrameP95Us,
+            NativeStatsRenderFrameP99Us,
+            NativeStatsTextureCopyP50Us,
+            NativeStatsTextureCopyP95Us,
+            NativeStatsTextureCopyP99Us,
+            NativeStatsBattleId,
+            NativeStatsEncoderName,
+        ]
+    );
+
     internal static readonly BppLogFieldDefinition FrameRecordingId = Field(
         0,
         "recording_id",
@@ -429,7 +479,6 @@ internal static class CombatReplayVideoLogEvents
     internal static readonly BppLogFieldDefinition CleanupPath = new(
         2,
         "path",
-        BppLogFieldPrivacy.LocalPath,
         BppLogCorrelationPolicy.None,
         BppLogCardinality.High
     );
@@ -450,7 +499,6 @@ internal static class CombatReplayVideoLogEvents
     internal static readonly BppLogFieldDefinition MuxPath = new(
         3,
         "path",
-        BppLogFieldPrivacy.LocalPath,
         BppLogCorrelationPolicy.None,
         BppLogCardinality.High
     );
@@ -470,5 +518,5 @@ internal static class CombatReplayVideoLogEvents
         string name,
         BppLogCardinality cardinality = BppLogCardinality.Low,
         BppLogCorrelationPolicy correlation = BppLogCorrelationPolicy.None
-    ) => new(order, name, BppLogFieldPrivacy.Public, correlation, cardinality);
+    ) => new(order, name, correlation, cardinality);
 }

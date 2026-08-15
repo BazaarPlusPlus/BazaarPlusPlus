@@ -1,14 +1,13 @@
 #nullable enable
-using System.IO.Compression;
 using MessagePack;
 using MessagePack.Resolvers;
 
 namespace BazaarPlusPlus.ModApi;
 
 /// <summary>
-/// Shared MessagePack + gzip codec for every BPP payload that is persisted or uploaded as a
-/// gzipped MessagePack blob. Holds the single resolver option, the gzip framing, and the gzip
-/// magic-byte sniff in one place so the wire framing cannot silently diverge across callers.
+/// Compatibility wrapper for local BPP payloads that use contractless MessagePack inside gzip.
+/// V5 Run payloads keep their untrusted-data options, size cap, version gate, and closed error codes
+/// in <c>RunPayloadV5Codec</c>; only the framing loop is shared internally.
 /// </summary>
 public static class MessagePackGzipCodec
 {
@@ -23,14 +22,7 @@ public static class MessagePackGzipCodec
         if (payload == null)
             throw new ArgumentNullException(nameof(payload));
 
-        var messagePackBytes = MessagePackSerializer.Serialize(payload, Options);
-        using var output = new MemoryStream();
-        using (var gzip = new GZipStream(output, CompressionLevel.Optimal, leaveOpen: true))
-        {
-            gzip.Write(messagePackBytes, 0, messagePackBytes.Length);
-        }
-
-        return output.ToArray();
+        return MessagePackGzipFraming.Encode(payload, Options);
     }
 
     public static bool TryDeserialize<T>(byte[]? payloadBytes, out T? value, out string? error)
@@ -45,36 +37,22 @@ public static class MessagePackGzipCodec
             return false;
         }
 
-        if (!LooksLikeGzip(payloadBytes))
+        var result = MessagePackGzipFraming.TryDecode<T>(payloadBytes, Options);
+        if (result.Succeeded)
         {
-            error = "payload_not_gzip";
-            return false;
-        }
-
-        try
-        {
-            using var input = new MemoryStream(payloadBytes);
-            using var gzip = new GZipStream(input, CompressionMode.Decompress);
-            using var decompressed = new MemoryStream();
-            gzip.CopyTo(decompressed);
-            value = MessagePackSerializer.Deserialize<T>(decompressed.ToArray(), Options);
-            if (value == null)
-            {
-                error = "payload_deserialized_null";
-                return false;
-            }
-
+            value = result.Value;
             return true;
         }
-        catch (Exception ex)
-        {
-            error = $"{ex.GetType().Name}: {ex.Message}";
-            return false;
-        }
-    }
 
-    private static bool LooksLikeGzip(byte[] bytes)
-    {
-        return bytes.Length >= 2 && bytes[0] == 0x1F && bytes[1] == 0x8B;
+        error = result.FailureKind switch
+        {
+            MessagePackGzipFailureKind.Empty => "payload_empty",
+            MessagePackGzipFailureKind.NotGzip => "payload_not_gzip",
+            MessagePackGzipFailureKind.DeserializedNull => "payload_deserialized_null",
+            _ when result.Exception != null =>
+                $"{result.Exception.GetType().Name}: {result.Exception.Message}",
+            _ => "payload_decode_failed",
+        };
+        return false;
     }
 }

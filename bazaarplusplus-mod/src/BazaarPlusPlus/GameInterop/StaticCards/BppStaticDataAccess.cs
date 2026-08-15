@@ -31,37 +31,6 @@ internal static class BppStaticDataAccess
     }
 
     /// <summary>
-    /// Reads the current GameData generation's item/skill tier weights for one run day.
-    /// Returning the raw weights keeps normalization aligned with <see cref="TierTable"/>,
-    /// which rolls against the positive-weight sum rather than assuming a total of one.
-    /// </summary>
-    public static TieredSpawnProbabilities? GetItemSkillSpawnTierProbabilities(
-        object? staticData,
-        Guid gameModeId,
-        int day
-    )
-    {
-        if (staticData is not JsonGameDataManager manager || gameModeId == Guid.Empty || day <= 0)
-            return null;
-
-        try
-        {
-            var gameMode = manager.GetGameModeById(gameModeId);
-            return
-                gameMode?.ItemSkillSpawnTierPercantagesByDay.TryGetValue(
-                    (uint)day,
-                    out var probabilities
-                ) == true
-                ? probabilities
-                : null;
-        }
-        catch (Exception)
-        {
-            return null;
-        }
-    }
-
-    /// <summary>
     /// Non-blocking handle to the static data manager. Returns the manager as an opaque object
     /// only when it is fully materialised (created, and any task-returning <c>GetStatic()</c>
     /// already completed); returns <c>null</c> otherwise. Never blocks the main thread waiting

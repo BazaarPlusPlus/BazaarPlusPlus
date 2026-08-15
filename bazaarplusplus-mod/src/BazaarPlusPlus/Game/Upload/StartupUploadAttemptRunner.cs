@@ -117,15 +117,15 @@ internal sealed class StartupUploadAttemptRunner
         );
         try
         {
-            _task = startAsync(cancellationToken);
-            if (_task == null)
-            {
-                _logState.ReportDegraded(
-                    null,
-                    UploadLogReasonCode.AttemptException,
-                    new InvalidOperationException("Upload delegate returned no task.")
-                );
-            }
+            // An attempt's synchronous prefix (outbox scan, queue-store round trips, the first
+            // bundle's digest) runs before the delegate's first await, so invoking it inline
+            // would put that work on the Unity main-thread frame that armed the attempt.
+            _task = Task.Run(
+                () =>
+                    startAsync(cancellationToken)
+                    ?? throw new InvalidOperationException("Upload delegate returned no task."),
+                cancellationToken
+            );
         }
         catch (OperationCanceledException) { }
         catch (Exception ex)

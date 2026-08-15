@@ -32,6 +32,9 @@ internal static class HeroVisual
         if (string.IsNullOrWhiteSpace(heroName))
             return new HeroBadgeStyle("UNK", Colors.HeroUnknownBackground, Colors.White);
 
+        if (TheDragonsHeroIdentity.IsAlias(heroName))
+            return Build("DRA", Colors.HeroTheDragonsBackground);
+
         return heroName.Trim() switch
         {
             "Vanessa" => Build("VAN", Colors.HeroVanessaBackground),
@@ -50,10 +53,11 @@ internal static class HeroVisual
         };
     }
 
-    // The seven playable heroes. The corpus also keys a "Common" pool (and may carry other
-    // non-playable keys); callers filter on this so only real heroes surface.
+    // The corpus also keys a "Common" pool (and may carry other non-playable keys); callers filter
+    // on this so only real heroes surface.
     internal static bool IsPlayableHero(string? heroName) =>
-        heroName?.Trim() switch
+        TheDragonsHeroIdentity.IsAlias(heroName)
+        || heroName?.Trim() switch
         {
             "Vanessa" or "Pygmalien" or "Dooley" or "Mak" or "Jules" or "Karnok" or "Stelle" =>
                 true,

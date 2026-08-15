@@ -1,7 +1,6 @@
 #nullable enable
 using System.Globalization;
 using System.Text;
-using System.Text.RegularExpressions;
 using BazaarPlusPlus.BazaarAgent;
 
 namespace BazaarPlusPlus.BazaarAgentHost;
@@ -20,35 +19,6 @@ internal sealed class BazaarAgentLogRenderer
     private const int ExceptionStackBudget = 5000;
     private const string FallbackRecord = "[BazaarAgent] event=agent.render.failed";
     private const string RecordTruncationToken = " record_truncated=true";
-
-    private static readonly Regex RemoteUriPattern = new(
-        @"https?://(?:[^\s\""'<>?#,;=]+[?#][^\r\n]*|[^\s\""'<>?#,;=]+)",
-        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant
-    );
-    private static readonly Regex BodySensitivePattern = new(
-        @"(?<![\p{L}\p{N}_])[\""']?(?:headers?|request[-_ ]?body|response[-_ ]?body)[\""']?\s*[:=][\s\S]*",
-        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant
-    );
-    private static readonly Regex LineSensitivePattern = new(
-        @"(?<![\p{L}\p{N}_])[\""']?(?:authorization|proxy[-_ ]?authorization|cookie|set[-_ ]?cookie)[\""']?\s*[:=]\s*[^\r\n]*",
-        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant
-    );
-    private static readonly Regex SensitiveAssignmentPattern = new(
-        @"(?<![\p{L}\p{N}_])[\""']?(?:access[-_ ]?token|refresh[-_ ]?token|token|api[-_ ]?key|password|secret|account[-_ ]?id|user[-_ ]?name|username|display[-_ ]?name|link[-_ ]?code)[\""']?\s*[:=]\s*(?:(?:bearer|basic)\s+)?(?:\""(?:\\.|[^\""\\\r\n])*\""|'(?:\\.|[^'\\\r\n])*'|[^\s,;\r\n]+)",
-        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant
-    );
-    private static readonly Regex CredentialPattern = new(
-        @"\b(?:(?:bearer|basic)\s+[^\s,;\r\n]+|eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)\b",
-        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant
-    );
-    private static readonly Regex UnknownAbsolutePathPattern = new(
-        @"(?<![\p{L}\p{N}<>])(?:[A-Za-z]:[\\/]|\\{1,2}|/)[^\r\n]*",
-        RegexOptions.CultureInvariant
-    );
-    private static readonly Regex SlashProsePattern = new(
-        @"(?<=[\u3400-\u4DBF\u4E00-\u9FFF\u3040-\u30FF\uAC00-\uD7AF])(?:/|[ \t]+/[ \t]+)(?=[\u3400-\u4DBF\u4E00-\u9FFF\u3040-\u30FF\uAC00-\uD7AF]+(?:(?![/\\])[\p{P}\s]|$))",
-        RegexOptions.CultureInvariant
-    );
 
     internal string Render(BazaarAgentLogEvent logEvent)
     {
@@ -104,15 +74,6 @@ internal sealed class BazaarAgentLogRenderer
             var raw = FormatScalar(value);
             if (field.Correlation == BazaarAgentLogCorrelation.Short)
                 raw = TakeHead(raw, 8);
-            if (field.Privacy == BazaarAgentLogFieldPrivacy.UntrustedText)
-            {
-                return RenderDiagnosticText(
-                    raw,
-                    FieldCharacterBudget,
-                    preserveTail: false,
-                    ScalarInputCharacterBudget
-                );
-            }
             return EscapeAndBound(
                 raw,
                 FieldCharacterBudget,
@@ -185,7 +146,7 @@ internal sealed class BazaarAgentLogRenderer
         }
         else
         {
-            var rendered = RenderDiagnosticText(
+            var rendered = EscapeAndBound(
                 stack,
                 ExceptionStackBudget,
                 preserveTail: true,
@@ -221,7 +182,7 @@ internal sealed class BazaarAgentLogRenderer
             return;
         }
 
-        var rendered = RenderDiagnosticText(
+        var rendered = EscapeAndBound(
             message ?? string.Empty,
             messageBudget,
             preserveTail: false,
@@ -293,112 +254,6 @@ internal sealed class BazaarAgentLogRenderer
         {
             unavailable = true;
             return null;
-        }
-    }
-
-    private static RenderedValue RenderDiagnosticText(
-        string value,
-        int budget,
-        bool preserveTail,
-        int inputBudget
-    )
-    {
-        var bounded = BoundInput(value, inputBudget, preserveTail, out var inputTruncated);
-        var sanitized = SanitizeDiagnosticText(bounded);
-        return EscapeAndBound(sanitized, budget, preserveTail, inputBudget, inputTruncated);
-    }
-
-    private static string SanitizeDiagnosticText(string value)
-    {
-        try
-        {
-            var sanitized = BodySensitivePattern.Replace(value, "sensitive=<redacted>");
-            sanitized = LineSensitivePattern.Replace(sanitized, "sensitive=<redacted>");
-            sanitized = SensitiveAssignmentPattern.Replace(sanitized, "sensitive=<redacted>");
-            sanitized = CredentialPattern.Replace(sanitized, "<redacted>");
-
-            var remoteUris = new List<string>();
-            sanitized = RemoteUriPattern.Replace(
-                sanitized,
-                match =>
-                {
-                    var marker = "BPPAGENTURIMARKER" + remoteUris.Count + "END";
-                    remoteUris.Add(SanitizeRemoteUri(match.Value));
-                    return marker;
-                }
-            );
-
-            var slashProse = new List<string>();
-            sanitized = SlashProsePattern.Replace(
-                sanitized,
-                match =>
-                {
-                    var marker = "BPPAGENTSLASHMARKER" + slashProse.Count + "END";
-                    slashProse.Add(match.Value);
-                    return marker;
-                }
-            );
-            sanitized = UnknownAbsolutePathPattern.Replace(sanitized, "<absolute-path>");
-            for (var index = 0; index < remoteUris.Count; index++)
-            {
-                sanitized = sanitized.Replace(
-                    "BPPAGENTURIMARKER" + index + "END",
-                    remoteUris[index]
-                );
-            }
-            for (var index = 0; index < slashProse.Count; index++)
-            {
-                sanitized = sanitized.Replace(
-                    "BPPAGENTSLASHMARKER" + index + "END",
-                    slashProse[index]
-                );
-            }
-            return sanitized;
-        }
-        catch
-        {
-            return "<unavailable>";
-        }
-    }
-
-    private static string SanitizeRemoteUri(string rawUri)
-    {
-        try
-        {
-            var queryIndex = rawUri.IndexOf('?');
-            var fragmentIndex = rawUri.IndexOf('#');
-            var sensitiveSuffixIndex =
-                queryIndex < 0 ? fragmentIndex
-                : fragmentIndex < 0 ? queryIndex
-                : Math.Min(queryIndex, fragmentIndex);
-            var queryFree =
-                sensitiveSuffixIndex < 0 ? rawUri : rawUri.Substring(0, sensitiveSuffixIndex);
-            queryFree = queryFree.TrimEnd('.', ',', ';', ':', ')', ']', '}');
-
-            if (!Uri.TryCreate(queryFree, UriKind.Absolute, out var uri))
-                return "<invalid-url>";
-            if (
-                !string.Equals(uri.Scheme, Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase)
-                && !string.Equals(
-                    uri.Scheme,
-                    Uri.UriSchemeHttps,
-                    StringComparison.OrdinalIgnoreCase
-                )
-            )
-                return "<invalid-url>";
-
-            var builder = new UriBuilder(uri)
-            {
-                UserName = string.Empty,
-                Password = string.Empty,
-                Query = string.Empty,
-                Fragment = string.Empty,
-            };
-            return builder.Uri.GetLeftPart(UriPartial.Path);
-        }
-        catch
-        {
-            return "<invalid-url>";
         }
     }
 

@@ -26,17 +26,22 @@ internal static class LobbyLogWriter
     internal static void ReportCollectiblePoolDegraded(
         CollectiblePoolOperation operation,
         CollectiblePoolKind collectionKind,
-        Exception exception
-    ) =>
-        BppLog.WarnEvent(
-            LobbyLogEvents.CollectiblePoolDegraded,
-            exception,
+        Exception? exception = null
+    )
+    {
+        var fields = new[]
+        {
             LobbyLogEvents.CollectiblePoolDegradedOperation.Bind(operation),
             LobbyLogEvents.CollectiblePoolDegradedCollectionKind.Bind(collectionKind),
             LobbyLogEvents.CollectiblePoolDegradedReasonCode.Bind(
                 LobbyLogReasonCode.OperationException
-            )
-        );
+            ),
+        };
+        if (exception == null)
+            BppLog.WarnEvent(LobbyLogEvents.CollectiblePoolDegraded, fields);
+        else
+            BppLog.WarnEvent(LobbyLogEvents.CollectiblePoolDegraded, exception, fields);
+    }
 
     internal static CollectiblePoolKind CollectionKind(
         BazaarInventoryTypes.ECollectionType collectionType

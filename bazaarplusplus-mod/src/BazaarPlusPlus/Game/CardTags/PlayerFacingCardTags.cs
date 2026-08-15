@@ -14,7 +14,6 @@ internal static class PlayerFacingCardTags
         ECardTag.Friend,
         ECardTag.Aquatic,
         ECardTag.Tool,
-        ECardTag.Drone,
         ECardTag.Vehicle,
         ECardTag.Food,
         ECardTag.Trap,
@@ -26,10 +25,12 @@ internal static class PlayerFacingCardTags
         ECardTag.Core,
         ECardTag.Tech,
         ECardTag.Dinosaur,
-        ECardTag.Ray,
         ECardTag.Apparel,
         ECardTag.Merchant,
         ECardTag.Property,
         ECardTag.Loot,
+        ECardTag.Instrument,
+        ECardTag.Drone,
+        ECardTag.Ray,
     };
 }

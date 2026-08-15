@@ -1,12 +1,12 @@
 #nullable enable
 using BazaarGameShared.Domain.Core.Types;
-using BazaarPlusPlus.Game.Encounters;
+using BazaarPlusPlus.GameInterop.DayTiers;
 
 namespace BazaarPlusPlus.Game.CollectionPanel.Data;
 
 internal static class CollectionCardFacetRanks
 {
-    public static int TierRank(ETier tier) => TierOrder.Rank(tier);
+    public static int TierRank(ETier tier) => GameDataDayTierOrder.Rank(tier);
 
     public static int SizeRank(ECardSize size) =>
         size switch

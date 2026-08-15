@@ -1,10 +1,16 @@
-import viteConfig from './vite.config';
-import { defineConfig, mergeConfig } from 'vitest/config';
+import viteConfig from './vite.config.ts';
+import { configDefaults, defineConfig, mergeConfig } from 'vitest/config';
 
 export default defineConfig(
   mergeConfig(viteConfig, {
     test: {
-      environment: 'node'
+      environment: 'node',
+      exclude: [
+        ...configDefaults.exclude,
+        '.claude/**',
+        '.superpowers/**',
+        '.worktrees/**'
+      ]
     }
   })
 );

@@ -12,6 +12,9 @@ namespace BazaarPlusPlus.Game.CollectionPanel.Grid;
 // the exact cache session that acquired the ref so delayed destruction cannot release through a
 // newer panel runtime. CardMaterialOwnedByCache tracks ownership of the _cardMaterial field
 // itself: false means native created it and native OnDestroy must still destroy it.
+//
+// OnArtLoaded is set by the grid virtualizer so CollectionItemLoadArtPatch can invalidate the
+// per-cell visual-bounds cache when material assignment finishes (bounds may change).
 internal sealed class CollectionPanelOwnedMarker : MonoBehaviour
 {
     public CollectionNativeCardPreviewOwner? PreviewOwner;
@@ -19,6 +22,7 @@ internal sealed class CollectionPanelOwnedMarker : MonoBehaviour
     public string? CurrentArtKey;
     public bool CardMaterialOwnedByCache;
     public bool TooltipRegistered;
+    public Action? OnArtLoaded;
 
     public void ReleaseCurrentArtKey()
     {

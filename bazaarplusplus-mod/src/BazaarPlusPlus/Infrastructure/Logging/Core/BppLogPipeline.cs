@@ -254,9 +254,8 @@ internal sealed class BppLogPipeline
                 || !ContainsField(definition, field)
                 || field.Cardinality != BppLogCardinality.Low
                 || field.Correlation != BppLogCorrelationPolicy.None
-                || field.Privacy == BppLogFieldPrivacy.Sensitive
                 || !TryFindValue(field, values, out var value)
-                || !_renderer.TryFingerprint(field, value, out var fingerprint)
+                || !_renderer.TryFingerprintValue(value, out var fingerprint)
             )
                 return false;
 
@@ -286,7 +285,7 @@ internal sealed class BppLogPipeline
             var field = correlationFields[index];
             if (
                 !TryFindValue(field, values, out var value)
-                || !_renderer.TryFingerprint(field, value, out var fingerprint)
+                || !_renderer.TryFingerprintValue(value, out var fingerprint)
             )
                 return false;
             builder.Append('|').Append(field.Order).Append('=').Append(fingerprint);
@@ -611,28 +610,24 @@ internal static class BppLogRuntimeEvents
     internal static readonly BppLogFieldDefinition SourceEvent = new(
         0,
         "source_event",
-        BppLogFieldPrivacy.Public,
         BppLogCorrelationPolicy.None,
         BppLogCardinality.Low
     );
     internal static readonly BppLogFieldDefinition SuppressedCount = new(
         1,
         "suppressed_count",
-        BppLogFieldPrivacy.Public,
         BppLogCorrelationPolicy.None,
         BppLogCardinality.High
     );
     internal static readonly BppLogFieldDefinition WindowMilliseconds = new(
         2,
         "window_ms",
-        BppLogFieldPrivacy.Public,
         BppLogCorrelationPolicy.None,
         BppLogCardinality.Low
     );
     internal static readonly BppLogFieldDefinition FlushReason = new(
         3,
         "flush_reason",
-        BppLogFieldPrivacy.Public,
         BppLogCorrelationPolicy.None,
         BppLogCardinality.Low
     );

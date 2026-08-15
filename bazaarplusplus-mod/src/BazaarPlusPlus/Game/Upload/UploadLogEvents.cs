@@ -128,7 +128,11 @@ internal static class UploadLogEvents
         BppLogFeatureScope.Upload,
         "upload.cleanup.degraded",
         [CleanupDegradedFeed, CleanupDegradedPhase, CleanupDegradedReasonCode],
-        new BppLogStormPolicy([CleanupDegradedFeed, CleanupDegradedPhase])
+        new BppLogStormPolicy([
+            CleanupDegradedFeed,
+            CleanupDegradedPhase,
+            CleanupDegradedReasonCode,
+        ])
     );
 
     internal static readonly BppLogFieldDefinition FeedSkippedFeed = Field(
@@ -190,36 +194,12 @@ internal static class UploadLogEvents
         [FeedRecoveredFeed, FeedRecoveredRunId]
     );
 
-    internal static readonly BppLogFieldDefinition BundleBuildFailedRunId = Field(
-        0,
-        "run_id",
-        BppLogCardinality.High,
-        BppLogCorrelationPolicy.Short
-    );
-    internal static readonly BppLogFieldDefinition BundleBuildFailedBattleId = Field(
-        1,
-        "battle_id",
-        BppLogCardinality.High,
-        BppLogCorrelationPolicy.Short
-    );
-    internal static readonly BppLogFieldDefinition BundleBuildFailedReasonCode = Field(
-        2,
-        "reason_code",
-        BppLogCardinality.Low
-    );
-    internal static readonly BppLogEventDefinition BundleBuildFailed = new(
-        BppLogFeatureScope.Upload,
-        "upload.bundle.build_failed",
-        [BundleBuildFailedRunId, BundleBuildFailedBattleId, BundleBuildFailedReasonCode],
-        new BppLogStormPolicy(Array.Empty<BppLogFieldDefinition>())
-    );
-
     private static BppLogFieldDefinition Field(
         int order,
         string name,
         BppLogCardinality cardinality,
         BppLogCorrelationPolicy correlation = BppLogCorrelationPolicy.None
-    ) => new(order, name, BppLogFieldPrivacy.Public, correlation, cardinality);
+    ) => new(order, name, correlation, cardinality);
 }
 
 internal sealed class UploadFeedLogState
@@ -337,77 +317,4 @@ internal sealed class UploadFeedLogState
             UploadLogEvents.FeedRecoveredRunId.Bind(runId)
         );
     }
-}
-
-internal sealed class UploadPayloadFailureLogGate
-{
-    private const int MaximumEntries = 256;
-    private readonly Dictionary<PayloadFailureKey, PayloadFailureEntry> _entries = new();
-    private long _sequence;
-
-    internal int Count => _entries.Count;
-
-    internal void Report(
-        string runId,
-        string battleId,
-        string fingerprint,
-        UploadLogReasonCode reasonCode,
-        Exception? exception
-    )
-    {
-        var key = new PayloadFailureKey(runId, battleId);
-        if (
-            _entries.TryGetValue(key, out var previous)
-            && string.Equals(previous.Fingerprint, fingerprint, StringComparison.Ordinal)
-        )
-        {
-            _entries[key] = new PayloadFailureEntry(fingerprint, NextSequence());
-            return;
-        }
-
-        if (!_entries.ContainsKey(key) && _entries.Count >= MaximumEntries)
-            EvictLeastRecentlyUsed();
-        _entries[key] = new PayloadFailureEntry(fingerprint, NextSequence());
-        var fields = new[]
-        {
-            UploadLogEvents.BundleBuildFailedRunId.Bind(runId),
-            UploadLogEvents.BundleBuildFailedBattleId.Bind(battleId),
-            UploadLogEvents.BundleBuildFailedReasonCode.Bind(reasonCode),
-        };
-        if (exception == null)
-            BppLog.ErrorEvent(UploadLogEvents.BundleBuildFailed, fields);
-        else
-            BppLog.ErrorEvent(UploadLogEvents.BundleBuildFailed, exception, fields);
-    }
-
-    internal void Clear(string runId, string battleId)
-    {
-        _entries.Remove(new PayloadFailureKey(runId, battleId));
-    }
-
-    private long NextSequence() => unchecked(++_sequence);
-
-    private void EvictLeastRecentlyUsed()
-    {
-        var found = false;
-        var oldestKey = default(PayloadFailureKey);
-        var oldestSequence = long.MaxValue;
-        foreach (var pair in _entries)
-        {
-            if (found && pair.Value.LastTouchedSequence >= oldestSequence)
-                continue;
-            found = true;
-            oldestKey = pair.Key;
-            oldestSequence = pair.Value.LastTouchedSequence;
-        }
-        if (found)
-            _entries.Remove(oldestKey);
-    }
-
-    private readonly record struct PayloadFailureKey(string RunId, string BattleId);
-
-    private readonly record struct PayloadFailureEntry(
-        string Fingerprint,
-        long LastTouchedSequence
-    );
 }

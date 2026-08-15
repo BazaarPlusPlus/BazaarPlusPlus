@@ -5,6 +5,7 @@ internal static class NativePreviewPresentationTransaction
 {
     internal static NativePreviewActionResult Apply(
         bool show,
+        bool revealSupplementalVisualsOnSuccess,
         Func<NativePreviewActionResult> applyNative,
         Action revealSupplementalVisuals,
         Action concealSupplementalVisuals
@@ -34,7 +35,10 @@ internal static class NativePreviewPresentationTransaction
         // cannot expose a half-created preview.
         concealSupplementalVisuals();
         var result = applyNative();
-        if (result.Status == NativePreviewActionStatus.Applied)
+        if (
+            revealSupplementalVisualsOnSuccess
+            && result.Status == NativePreviewActionStatus.Applied
+        )
             revealSupplementalVisuals();
         return result;
     }

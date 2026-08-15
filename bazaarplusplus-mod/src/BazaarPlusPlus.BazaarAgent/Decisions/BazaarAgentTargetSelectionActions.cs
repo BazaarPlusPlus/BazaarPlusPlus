@@ -60,7 +60,6 @@ public static class BazaarAgentTargetSelectionActions
                 new BazaarAgentDecisionOption
                 {
                     ActionKind = BazaarAgentActionKind.SelectItem,
-                    Group = BazaarAgentActionGroup.Offer,
                     DisplayKey = "SelectItem:" + c.InstanceId + ":" + c.Section + socketSeg,
                     CardInstanceId = c.InstanceId,
                     TargetSection = c.Section,

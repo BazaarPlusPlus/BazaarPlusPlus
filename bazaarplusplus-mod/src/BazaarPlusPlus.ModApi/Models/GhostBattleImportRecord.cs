@@ -5,6 +5,12 @@ public sealed class GhostBattleImportRecord
 {
     public string BattleId { get; set; } = string.Empty;
 
+    public string BundleId { get; set; } = string.Empty;
+
+    public string DownloadUrl { get; set; } = string.Empty;
+
+    public DateTimeOffset DownloadExpiresAtUtc { get; set; }
+
     public DateTimeOffset RecordedAtUtc { get; set; }
 
     public int? Day { get; set; }
@@ -66,6 +72,8 @@ public sealed class GhostBattleImportRecord
     public bool ReplayAvailable { get; set; }
 
     public bool ReplayDownloaded { get; set; }
+
+    public string ReplayState { get; set; } = "remote_available";
 
     public DateTimeOffset LastSyncedAtUtc { get; set; }
 }

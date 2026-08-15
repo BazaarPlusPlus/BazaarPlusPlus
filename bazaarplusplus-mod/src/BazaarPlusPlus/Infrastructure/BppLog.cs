@@ -2,7 +2,6 @@
 #nullable enable
 using System.Diagnostics;
 using BazaarPlusPlus.Infrastructure.Logging;
-using BepInEx;
 using BepInEx.Logging;
 
 namespace BazaarPlusPlus.Infrastructure;
@@ -22,7 +21,7 @@ internal static class BppLog
             Volatile.Write(ref _logger, logger);
             StructuredEmitter.Install(
                 new BppLogPipeline(
-                    new BppLogEventRenderer(CreateRedactionRoots()),
+                    new BppLogEventRenderer(),
                     WriteStructuredToLogger,
                     () => DateTimeOffset.UtcNow
                 )
@@ -120,42 +119,6 @@ internal static class BppLog
             default:
                 logger.Log(level, message);
                 return;
-        }
-    }
-
-    private static BppLogRedactionRoots CreateRedactionRoots()
-    {
-        var gameRoot = SafePath(() => Paths.GameRootPath);
-        var dataRoot = SafeCombine(gameRoot, "BazaarPlusPlusV4");
-        var pluginRoot = SafePath(() => Paths.PluginPath);
-        var homeRoot = SafePath(() =>
-            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)
-        );
-        return new BppLogRedactionRoots(gameRoot, dataRoot, pluginRoot, homeRoot);
-    }
-
-    private static string? SafePath(Func<string> pathFactory)
-    {
-        try
-        {
-            var path = pathFactory();
-            return string.IsNullOrWhiteSpace(path) ? null : path;
-        }
-        catch
-        {
-            return null;
-        }
-    }
-
-    private static string? SafeCombine(string? root, string child)
-    {
-        try
-        {
-            return string.IsNullOrWhiteSpace(root) ? null : Path.Combine(root, child);
-        }
-        catch
-        {
-            return null;
         }
     }
 }

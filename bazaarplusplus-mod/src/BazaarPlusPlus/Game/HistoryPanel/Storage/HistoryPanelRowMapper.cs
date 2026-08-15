@@ -114,15 +114,32 @@ internal static class HistoryPanelRowMapper
             GetNullableString(reader, "result"),
             GetNullableString(reader, "winner_combatant_id"),
             GetNullableString(reader, "loser_combatant_id"),
-            new HistoryBattleSnapshotCounts(
-                GetNullableInt32(reader, "player_hand_item_count") ?? 0,
-                GetNullableInt32(reader, "player_skill_count") ?? 0,
-                GetNullableInt32(reader, "opponent_hand_item_count") ?? 0,
-                GetNullableInt32(reader, "opponent_skill_count") ?? 0
-            ),
+            ReadGhostSnapshotCounts(reader),
             isFinalBattle: GetNullableInt32(reader, "is_final_battle") == 1,
             replayAvailable: GetNullableInt32(reader, "replay_available") == 1,
             replayDownloaded: GetNullableInt32(reader, "replay_downloaded") == 1
+        );
+    }
+
+    private static HistoryBattleSnapshotCounts ReadGhostSnapshotCounts(SqliteDataReader reader)
+    {
+        var playerHand = GetNullableInt32(reader, "player_hand_item_count");
+        var playerSkills = GetNullableInt32(reader, "player_skill_count");
+        var opponentHand = GetNullableInt32(reader, "opponent_hand_item_count");
+        var opponentSkills = GetNullableInt32(reader, "opponent_skill_count");
+        if (
+            !playerHand.HasValue
+            || !playerSkills.HasValue
+            || !opponentHand.HasValue
+            || !opponentSkills.HasValue
+        )
+            return HistoryBattleSnapshotCounts.Unknown;
+
+        return new HistoryBattleSnapshotCounts(
+            playerHand.Value,
+            playerSkills.Value,
+            opponentHand.Value,
+            opponentSkills.Value
         );
     }
 

@@ -8,7 +8,6 @@ internal sealed class EncounterChoiceDetail
         string displayName,
         string resultText,
         EncounterRewardFilter? rewardFilter,
-        bool isSourceMatch,
         string prerequisiteSummary = "",
         bool isEligible = true,
         EncounterChoicePool? pool = null
@@ -18,7 +17,6 @@ internal sealed class EncounterChoiceDetail
         DisplayName = displayName;
         ResultText = resultText ?? string.Empty;
         RewardFilter = rewardFilter;
-        IsSourceMatch = isSourceMatch;
         PrerequisiteSummary = prerequisiteSummary ?? string.Empty;
         IsEligible = isEligible;
         Pool = pool;
@@ -31,8 +29,6 @@ internal sealed class EncounterChoiceDetail
     public string ResultText { get; }
 
     public EncounterRewardFilter? RewardFilter { get; }
-
-    public bool IsSourceMatch { get; }
 
     public string PrerequisiteSummary { get; }
 

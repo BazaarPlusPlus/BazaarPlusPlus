@@ -2,3 +2,9 @@
 [env]
 TS_RS_EXPORT_DIR = { value = "../src/types/generated/bindings", relative = true }
 TS_RS_LARGE_INT = "number"
+
+# Tauri builds this library as a cdylib as well as the application. MinGW's
+# default all-symbol export exceeds the PE export-ordinal limit, while the
+# application does not consume that cdylib's exports.
+[target.x86_64-pc-windows-gnu]
+rustflags = ["-C", "link-arg=-Wl,--exclude-all-symbols"]

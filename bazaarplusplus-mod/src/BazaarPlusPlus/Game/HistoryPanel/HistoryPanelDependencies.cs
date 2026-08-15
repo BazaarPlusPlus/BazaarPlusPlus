@@ -1,5 +1,4 @@
 #nullable enable
-using BazaarPlusPlus.Game.HistoryPanel.Ghost;
 using BazaarPlusPlus.Game.HistoryPanel.Storage;
 using BazaarPlusPlus.ModApi.Clients;
 
@@ -7,71 +6,38 @@ namespace BazaarPlusPlus.Game.HistoryPanel;
 
 internal sealed class HistoryPanelDependencies
 {
+    // Intentionally no ArgumentNullException guards: reflection-pinned tests pass null by
+    // position as a behavior anchor (ADR-0009 / issue #167). Direct assignment only.
     public HistoryPanelDependencies(
-        IHistoryPanelRuntime runtime,
+        IHistoryPanelRunState runState,
         HistoryPanelDataService dataService,
         HistoryPanelReplayService replayService,
-        GhostBattleSyncService? ghostSyncService
-    )
-        : this(runtime, dataService, replayService, ghostSyncService, null) { }
-
-    public HistoryPanelDependencies(
-        IHistoryPanelRuntime runtime,
-        HistoryPanelDataService dataService,
-        HistoryPanelReplayService replayService,
-        GhostBattleSyncService? ghostSyncService,
-        IHistoryPanelServerHealthProbe? serverHealthProbe
-    )
-        : this(runtime, dataService, replayService, ghostSyncService, serverHealthProbe, null) { }
-
-    public HistoryPanelDependencies(
-        IHistoryPanelRuntime runtime,
-        HistoryPanelDataService dataService,
-        HistoryPanelReplayService replayService,
-        GhostBattleSyncService? ghostSyncService,
-        IHistoryPanelServerHealthProbe? serverHealthProbe,
-        BazaarDbLinkClient? accountLinkClient
-    )
-        : this(
-            runtime,
-            dataService,
-            replayService,
-            ghostSyncService,
-            serverHealthProbe,
-            accountLinkClient,
-            null
-        ) { }
-
-    public HistoryPanelDependencies(
-        IHistoryPanelRuntime runtime,
-        HistoryPanelDataService dataService,
-        HistoryPanelReplayService replayService,
-        GhostBattleSyncService? ghostSyncService,
         IHistoryPanelServerHealthProbe? serverHealthProbe,
         BazaarDbLinkClient? accountLinkClient,
-        Func<bool>? isBazaarDbAccountLinkAvailable
+        Func<bool>? isBazaarDbAccountLinkAvailable,
+        string combatReplayDirectoryPath
     )
     {
-        Runtime = runtime;
+        RunState = runState;
         DataService = dataService;
         ReplayService = replayService;
-        GhostSyncService = ghostSyncService;
         ServerHealthProbe = serverHealthProbe;
         AccountLinkClient = accountLinkClient;
         IsBazaarDbAccountLinkAvailable = isBazaarDbAccountLinkAvailable;
+        CombatReplayDirectoryPath = combatReplayDirectoryPath;
     }
 
-    public IHistoryPanelRuntime Runtime { get; }
+    public IHistoryPanelRunState RunState { get; }
 
     public HistoryPanelDataService DataService { get; }
 
     public HistoryPanelReplayService ReplayService { get; }
-
-    public GhostBattleSyncService? GhostSyncService { get; }
 
     public IHistoryPanelServerHealthProbe? ServerHealthProbe { get; }
 
     public BazaarDbLinkClient? AccountLinkClient { get; }
 
     public Func<bool>? IsBazaarDbAccountLinkAvailable { get; }
+
+    public string CombatReplayDirectoryPath { get; }
 }

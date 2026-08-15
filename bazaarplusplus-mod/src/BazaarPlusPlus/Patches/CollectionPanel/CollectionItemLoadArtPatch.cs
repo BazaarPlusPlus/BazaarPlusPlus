@@ -20,6 +20,15 @@ internal static class CollectionItemLoadArtPatch
     [HarmonyPrefix]
     private static bool Prefix(CardPreviewItem __instance, bool isPremium, ref Task __result)
     {
+        // A scoped native preview can be released while CardPreviewBase.SetUp is still awaiting
+        // LoadArt. Unity then supplies a destroyed component to this global prefix; touching it
+        // before the ownership check throws instead of letting the cancelled preview disappear.
+        if (__instance == null)
+        {
+            __result = Task.CompletedTask;
+            return false;
+        }
+
         var marker = __instance.GetComponent<CollectionPanelOwnedMarker>();
         if (marker == null)
             return true;
@@ -28,14 +37,15 @@ internal static class CollectionItemLoadArtPatch
         if (cacheSession == null)
             return true;
 
-        __result = LoadArtFromCache(__instance, marker, cacheSession);
+        __result = LoadArtFromCache(__instance, marker, cacheSession, isPremium);
         return false;
     }
 
     private static async Task LoadArtFromCache(
         CardPreviewItem instance,
         CollectionPanelOwnedMarker marker,
-        CollectionCardCacheSession cacheSession
+        CollectionCardCacheSession cacheSession,
+        bool isPremium
     )
     {
         string? acquiredArtKey = null;
@@ -91,7 +101,8 @@ internal static class CollectionItemLoadArtPatch
             var material = cacheSession.MaterialCache.GetOrCreate(
                 artKey,
                 assetData,
-                instance._cardMaterialShader
+                instance._cardMaterialShader,
+                isPremium
             );
             if (material == null)
             {
@@ -130,6 +141,9 @@ internal static class CollectionItemLoadArtPatch
                 instance._cardImage.material = material;
 
             instance._gemGroupController?.Initialize(instance._clientCard);
+
+            // Bounds may change once art material is assigned; invalidate the cell fit cache.
+            marker.OnArtLoaded?.Invoke();
         }
         catch (Exception ex)
         {

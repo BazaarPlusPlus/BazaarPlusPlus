@@ -1,12 +1,9 @@
 //! macOS in-bundle Mach-O launch trampoline.
 //!
-//! On macOS 27+ Steam no longer spawns a prefix executable before `%command%`,
-//! so the `run_bepinex.sh` launch path is dead and injection must move inside the
-//! `.app`. This module installs a tiny arm64 stub (`bpp_launcher.c`, compiled at
-//! build time) as the bundle's `CFBundleExecutable`, renames the real Unity
+//! The trampoline is the only macOS launch bootstrap. This module installs a
+//! tiny arm64 stub as the bundle's `CFBundleExecutable`, renames the real Unity
 //! bootstrap to `<exe>.orig`, and re-signs the real binary with the JIT
-//! entitlements so Harmony can write executable memory. See
-//! `docs/macos27-bepinex-launch-trampoline.md`.
+//! entitlements so Harmony can write executable memory.
 //!
 //! Every behaviour here is macOS-only; the public API has no-op / `false` stubs on
 //! other platforms so the install orchestrator can call it unconditionally.
@@ -18,81 +15,8 @@ use std::path::PathBuf;
 
 use tauri::AppHandle;
 
-/// Game-dir sibling (OUTSIDE the `.app`) recording the chosen launch mode, so the
-/// installer still knows the desired mode after a Steam "Verify integrity" / game
-/// update reverts the bundle. Removed on uninstall.
-pub(crate) const MARKER_FILE: &str = ".bpp-launch-mode";
-
-/// Which launch mechanism an install applied. Persisted in [`MARKER_FILE`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum LaunchMode {
-    /// In-bundle Mach-O trampoline (macOS 27+ forced, or <= 26 opt-in).
-    Trampoline,
-    /// `run_bepinex.sh` prefix launcher (macOS <= 26 default).
-    Prefix,
-}
-
-impl LaunchMode {
-    fn as_marker(self) -> &'static str {
-        match self {
-            LaunchMode::Trampoline => "trampoline",
-            LaunchMode::Prefix => "prefix",
-        }
-    }
-
-    fn from_marker(value: &str) -> Option<Self> {
-        match value {
-            "trampoline" => Some(LaunchMode::Trampoline),
-            "prefix" => Some(LaunchMode::Prefix),
-            _ => None,
-        }
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Launch-mode marker (macOS only; no-ops elsewhere keep Windows byte-identical)
-// ---------------------------------------------------------------------------
-
 #[cfg(target_os = "macos")]
-pub(crate) fn write_launch_mode_marker(game_path: &Path, mode: LaunchMode) -> Result<(), String> {
-    let path = game_path.join(MARKER_FILE);
-    std::fs::write(&path, mode.as_marker())
-        .map_err(|err| format!("Cannot write launch-mode marker {}: {err}", path.display()))
-}
-
-#[cfg(target_os = "macos")]
-pub(crate) fn read_launch_mode_marker(game_path: &Path) -> Option<LaunchMode> {
-    let content = std::fs::read_to_string(game_path.join(MARKER_FILE)).ok()?;
-    LaunchMode::from_marker(content.trim())
-}
-
-#[cfg(target_os = "macos")]
-pub(crate) fn remove_launch_mode_marker(game_path: &Path) -> Result<(), String> {
-    let path = game_path.join(MARKER_FILE);
-    match std::fs::remove_file(&path) {
-        Ok(()) => Ok(()),
-        Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(()),
-        Err(err) => Err(format!(
-            "Cannot remove launch-mode marker {}: {err}",
-            path.display()
-        )),
-    }
-}
-
-#[cfg(not(target_os = "macos"))]
-pub(crate) fn write_launch_mode_marker(_game_path: &Path, _mode: LaunchMode) -> Result<(), String> {
-    Ok(())
-}
-
-#[cfg(not(target_os = "macos"))]
-pub(crate) fn read_launch_mode_marker(_game_path: &Path) -> Option<LaunchMode> {
-    None
-}
-
-#[cfg(not(target_os = "macos"))]
-pub(crate) fn remove_launch_mode_marker(_game_path: &Path) -> Result<(), String> {
-    Ok(())
-}
+const OBSOLETE_MACOS_ARTIFACTS: &[&str] = &["run_bepinex.sh", "bpp_launcher.c", ".bpp-launch-mode"];
 
 // ---------------------------------------------------------------------------
 // Trampoline install / uninstall (macOS)
@@ -105,8 +29,7 @@ mod imp {
     use tauri::Manager;
 
     /// The 3 JIT/library-validation entitlements that must live on the REAL binary
-    /// (the process that runs Harmony / `mprotect` W+X). Byte-identical to the keys
-    /// in `run_bepinex.sh`; a parity test guards against drift.
+    /// (the process that runs Harmony / `mprotect` W+X).
     pub(super) const TRAMPOLINE_ENTITLEMENTS: &str = r#"<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -193,7 +116,7 @@ mod imp {
         command_available("codesign", &["-h"])
     }
 
-    fn stub_resource_path(app: &AppHandle) -> Result<PathBuf, String> {
+    pub(super) fn stub_resource_path(app: &AppHandle) -> Result<PathBuf, String> {
         let stub = app
             .path()
             .resource_dir()
@@ -298,19 +221,6 @@ mod imp {
         Ok(())
     }
 
-    /// Clear the exec bits on `run_bepinex.sh` so its `--deep` re-sign (which would
-    /// strip the `.orig`'s entitlements) can never run while trampolined.
-    pub(super) fn disable_prefix_launcher(game_path: &Path) {
-        use std::os::unix::fs::PermissionsExt;
-
-        let script = game_path.join("run_bepinex.sh");
-        if let Ok(metadata) = std::fs::metadata(&script) {
-            let mut permissions = metadata.permissions();
-            permissions.set_mode(permissions.mode() & !0o111);
-            let _ = std::fs::set_permissions(&script, permissions);
-        }
-    }
-
     fn sign_real_binary(orig: &Path) -> Result<(), String> {
         let entitlements = tempfile::Builder::new()
             .prefix("bpp-ents-")
@@ -406,9 +316,11 @@ mod imp {
         let layout = bundle_paths(game_path)?;
         let stub = stub_resource_path(app)?;
 
-        // Step 1: already fully trampolined -> re-seal + verify only (idempotent).
+        // Step 1: already structurally trampolined -> refresh the stub from the
+        // current installer, then re-sign and verify. A differing stub is not a
+        // valid final state.
         if is_trampolined(game_path)? {
-            disable_prefix_launcher(game_path);
+            install_stub(&stub, &layout.exe_path)?;
             sign_real_binary(&layout.orig_path)?;
             seal_bundle(&layout.app_path)?;
             verify_bundle(&layout.app_path)?;
@@ -443,7 +355,6 @@ mod imp {
         // Steps 3-7 with rollback on any failure.
         let result = (|| -> Result<(), String> {
             swap_in_stub(&layout, &stub)?; // rename real -> .orig (if needed) + drop stub
-            disable_prefix_launcher(game_path);
             sign_real_binary(&layout.orig_path)?;
             seal_bundle(&layout.app_path)?;
             verify_bundle(&layout.app_path)?;
@@ -497,8 +408,13 @@ mod imp {
 }
 
 #[cfg(target_os = "macos")]
-pub(crate) fn is_trampolined(game_path: &Path) -> Result<bool, String> {
-    imp::is_trampolined(game_path)
+pub(crate) fn is_current_trampoline(app: &AppHandle, game_path: &Path) -> Result<bool, String> {
+    if !imp::is_trampolined(game_path)? {
+        return Ok(false);
+    }
+    let layout = imp::bundle_paths(game_path)?;
+    let bundled = imp::stub_resource_path(app)?;
+    trampoline_builds_match(&layout.exe_path, &bundled)
 }
 
 #[cfg(target_os = "macos")]
@@ -511,9 +427,122 @@ pub(crate) fn uninstall_trampoline(game_path: &Path) -> Result<(), String> {
     imp::uninstall_trampoline(game_path)
 }
 
+#[cfg(target_os = "macos")]
+pub(crate) fn obsolete_macos_artifacts_present(game_path: &Path) -> bool {
+    OBSOLETE_MACOS_ARTIFACTS
+        .iter()
+        .any(|relative| game_path.join(relative).exists())
+}
+
+#[cfg(target_os = "macos")]
+pub(crate) fn remove_obsolete_macos_artifacts(game_path: &Path) -> Result<(), String> {
+    for relative in OBSOLETE_MACOS_ARTIFACTS {
+        let path = game_path.join(relative);
+        match std::fs::remove_file(&path) {
+            Ok(()) => {}
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => {}
+            Err(err) => return Err(format!("Cannot remove obsolete {}: {err}", path.display())),
+        }
+    }
+    Ok(())
+}
+
+#[cfg(target_os = "macos")]
+fn trampoline_builds_match(left: &Path, right: &Path) -> Result<bool, String> {
+    Ok(read_macho_uuid(left)? == read_macho_uuid(right)?)
+}
+
+#[cfg(target_os = "macos")]
+fn read_macho_uuid(path: &Path) -> Result<[u8; 16], String> {
+    const MACH_HEADER_64_SIZE: usize = 32;
+    const MH_MAGIC_64: u32 = 0xfeedfacf;
+    const LC_UUID: u32 = 0x1b;
+    const LC_UUID_SIZE: usize = 24;
+
+    fn read_u32(bytes: &[u8], offset: usize) -> Option<u32> {
+        let value = bytes.get(offset..offset.checked_add(4)?)?;
+        Some(u32::from_le_bytes(value.try_into().ok()?))
+    }
+
+    let bytes = std::fs::read(path)
+        .map_err(|err| format!("Cannot read trampoline {}: {err}", path.display()))?;
+    if read_u32(&bytes, 0) != Some(MH_MAGIC_64) {
+        return Err(format!(
+            "Trampoline {} is not a 64-bit little-endian Mach-O image",
+            path.display()
+        ));
+    }
+
+    let command_count = read_u32(&bytes, 16).ok_or_else(|| {
+        format!(
+            "Trampoline {} has an incomplete Mach-O header",
+            path.display()
+        )
+    })?;
+    let command_bytes = read_u32(&bytes, 20).ok_or_else(|| {
+        format!(
+            "Trampoline {} has an incomplete Mach-O header",
+            path.display()
+        )
+    })? as usize;
+    let commands_end = MACH_HEADER_64_SIZE
+        .checked_add(command_bytes)
+        .filter(|end| *end <= bytes.len())
+        .ok_or_else(|| {
+            format!(
+                "Trampoline {} has invalid Mach-O load commands",
+                path.display()
+            )
+        })?;
+
+    let mut offset = MACH_HEADER_64_SIZE;
+    for _ in 0..command_count {
+        let command = read_u32(&bytes, offset).ok_or_else(|| {
+            format!(
+                "Trampoline {} has an incomplete Mach-O load command",
+                path.display()
+            )
+        })?;
+        let command_size = read_u32(&bytes, offset + 4).ok_or_else(|| {
+            format!(
+                "Trampoline {} has an incomplete Mach-O load command",
+                path.display()
+            )
+        })? as usize;
+        let next_offset = offset
+            .checked_add(command_size)
+            .filter(|next| command_size >= 8 && *next <= commands_end)
+            .ok_or_else(|| {
+                format!(
+                    "Trampoline {} has an invalid Mach-O load command",
+                    path.display()
+                )
+            })?;
+
+        if command == LC_UUID {
+            if command_size < LC_UUID_SIZE {
+                return Err(format!(
+                    "Trampoline {} has an invalid Mach-O UUID command",
+                    path.display()
+                ));
+            }
+            return bytes[offset + 8..offset + LC_UUID_SIZE]
+                .try_into()
+                .map_err(|_| format!("Cannot read Mach-O UUID from {}", path.display()));
+        }
+
+        offset = next_offset;
+    }
+
+    Err(format!(
+        "Trampoline {} has no Mach-O build UUID",
+        path.display()
+    ))
+}
+
 #[cfg(not(target_os = "macos"))]
-pub(crate) fn is_trampolined(_game_path: &Path) -> Result<bool, String> {
-    Ok(false)
+pub(crate) fn is_current_trampoline(_app: &AppHandle, _game_path: &Path) -> Result<bool, String> {
+    Ok(true)
 }
 
 #[cfg(not(target_os = "macos"))]
@@ -526,6 +555,16 @@ pub(crate) fn uninstall_trampoline(_game_path: &Path) -> Result<(), String> {
     Ok(())
 }
 
+#[cfg(not(target_os = "macos"))]
+pub(crate) fn obsolete_macos_artifacts_present(_game_path: &Path) -> bool {
+    false
+}
+
+#[cfg(not(target_os = "macos"))]
+pub(crate) fn remove_obsolete_macos_artifacts(_game_path: &Path) -> Result<(), String> {
+    Ok(())
+}
+
 #[cfg(test)]
 #[cfg(target_os = "macos")]
 mod tests {
@@ -534,6 +573,37 @@ mod tests {
         restore_vanilla_layout, swap_in_stub, RealBinarySource, TRAMPOLINE_ENTITLEMENTS,
     };
     use super::*;
+
+    fn write_macho_stub(path: &Path, uuid: [u8; 16], signature: &[u8]) {
+        const MACH_HEADER_64_SIZE: usize = 32;
+        const LC_UUID: u32 = 0x1b;
+        const LC_UUID_SIZE: u32 = 24;
+
+        let mut bytes = vec![0; MACH_HEADER_64_SIZE];
+        bytes[0..4].copy_from_slice(&0xfeedfacfu32.to_le_bytes());
+        bytes[16..20].copy_from_slice(&1u32.to_le_bytes());
+        bytes[20..24].copy_from_slice(&LC_UUID_SIZE.to_le_bytes());
+        bytes.extend_from_slice(&LC_UUID.to_le_bytes());
+        bytes.extend_from_slice(&LC_UUID_SIZE.to_le_bytes());
+        bytes.extend_from_slice(&uuid);
+        bytes.extend_from_slice(signature);
+        std::fs::write(path, bytes).unwrap();
+    }
+
+    #[test]
+    fn trampoline_build_identity_ignores_signatures_but_rejects_different_builds() {
+        let tmp = tempfile::tempdir().unwrap();
+        let bundled = tmp.path().join("bundled");
+        let installed = tmp.path().join("installed");
+        let outdated = tmp.path().join("outdated");
+
+        write_macho_stub(&bundled, [7; 16], b"developer-id-signature");
+        write_macho_stub(&installed, [7; 16], b"adhoc-bundle-signature");
+        write_macho_stub(&outdated, [8; 16], b"adhoc-bundle-signature");
+
+        assert!(trampoline_builds_match(&installed, &bundled).unwrap());
+        assert!(!trampoline_builds_match(&outdated, &bundled).unwrap());
+    }
 
     /// Build a minimal `TheBazaar.app` fixture with a fake main executable.
     fn make_bundle(real_contents: &[u8]) -> tempfile::TempDir {
@@ -635,33 +705,20 @@ mod tests {
     }
 
     #[test]
-    fn test_launch_mode_marker_round_trip() {
+    fn test_obsolete_macos_artifacts_are_detected_and_removed_without_parsing() {
         let tmp = tempfile::tempdir().unwrap();
-        assert_eq!(read_launch_mode_marker(tmp.path()), None);
+        for relative in OBSOLETE_MACOS_ARTIFACTS {
+            std::fs::write(tmp.path().join(relative), b"arbitrary old content").unwrap();
+        }
 
-        write_launch_mode_marker(tmp.path(), LaunchMode::Trampoline).unwrap();
-        assert_eq!(
-            read_launch_mode_marker(tmp.path()),
-            Some(LaunchMode::Trampoline)
-        );
-
-        write_launch_mode_marker(tmp.path(), LaunchMode::Prefix).unwrap();
-        assert_eq!(
-            read_launch_mode_marker(tmp.path()),
-            Some(LaunchMode::Prefix)
-        );
-
-        remove_launch_mode_marker(tmp.path()).unwrap();
-        assert_eq!(read_launch_mode_marker(tmp.path()), None);
-        // Removing a missing marker is a no-op success.
-        remove_launch_mode_marker(tmp.path()).unwrap();
+        assert!(obsolete_macos_artifacts_present(tmp.path()));
+        remove_obsolete_macos_artifacts(tmp.path()).unwrap();
+        assert!(!obsolete_macos_artifacts_present(tmp.path()));
+        remove_obsolete_macos_artifacts(tmp.path()).unwrap();
     }
 
     #[test]
-    fn test_entitlements_match_run_bepinex_script() {
-        // Keep the trampoline's entitlements byte-aligned with the prefix path so
-        // the two launch modes grant the real binary the SAME capabilities.
-        let script = include_str!("../../../resources/SourceForBuild/macos/run_bepinex.sh");
+    fn test_trampoline_entitlements_are_complete() {
         for key in [
             "com.apple.security.cs.allow-jit",
             "com.apple.security.cs.allow-unsigned-executable-memory",
@@ -671,15 +728,12 @@ mod tests {
                 TRAMPOLINE_ENTITLEMENTS.contains(key),
                 "trampoline entitlements missing {key}"
             );
-            assert!(script.contains(key), "run_bepinex.sh missing {key}");
         }
-        // Also assert COUNT parity so a 4th capability added to only one side is
-        // caught (containment alone would miss it).
-        let needle = "com.apple.security.cs.";
         assert_eq!(
-            TRAMPOLINE_ENTITLEMENTS.matches(needle).count(),
-            script.matches(needle).count(),
-            "trampoline entitlements and run_bepinex.sh have a different number of capability keys"
+            TRAMPOLINE_ENTITLEMENTS
+                .matches("com.apple.security.cs.")
+                .count(),
+            3
         );
     }
 }

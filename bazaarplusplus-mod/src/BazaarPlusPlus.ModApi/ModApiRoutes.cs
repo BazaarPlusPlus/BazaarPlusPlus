@@ -1,39 +1,23 @@
 #nullable enable
 namespace BazaarPlusPlus.ModApi;
 
-public sealed class ModApiRoutes
+internal sealed class ModApiRoutes
 {
     private ModApiRoutes(Uri apiBaseUri)
     {
         ApiBaseUri = apiBaseUri;
-        UploadRunBundle = BuildAbsolute("/run-bundles");
+        UploadBundle = BuildAbsolute("/bundles");
         QueryGhostBattles = BuildAbsolute("/ghost-battles");
         Health = BuildAbsolute("/health");
     }
 
     public Uri ApiBaseUri { get; }
 
-    public string UploadRunBundle { get; }
+    public string UploadBundle { get; }
 
     public string QueryGhostBattles { get; }
 
     public string Health { get; }
-
-    public string CreateReplayLink(string battleId)
-    {
-        if (string.IsNullOrWhiteSpace(battleId))
-            throw new ArgumentException("Battle id is required.", nameof(battleId));
-
-        return BuildAbsolute($"/ghost-battles/{Uri.EscapeDataString(battleId.Trim())}/replay-link");
-    }
-
-    public string CreateBazaarDbSnapshotUpload(string snapshotId)
-    {
-        if (string.IsNullOrWhiteSpace(snapshotId))
-            throw new ArgumentException("Snapshot id is required.", nameof(snapshotId));
-
-        return $"{ApiBaseUri.ToString().TrimEnd('/')}/bazaardb/snapshots/{Uri.EscapeDataString(snapshotId.Trim())}";
-    }
 
     public static ModApiRoutes? TryCreate(string? apiBaseUrl)
     {

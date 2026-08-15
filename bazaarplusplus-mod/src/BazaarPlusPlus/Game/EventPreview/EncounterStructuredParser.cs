@@ -3,7 +3,7 @@ using System.Collections;
 using System.Reflection;
 using BazaarGameShared.Domain.Core.Types;
 using BazaarGameShared.Domain.Spawning;
-using BazaarPlusPlus.Game.Encounters;
+using BazaarPlusPlus.GameInterop.DayTiers;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
@@ -1501,7 +1501,10 @@ internal static class EncounterStructuredParser
         if (tiers.Count == 1)
             return tiers[0].ToString();
         var ordered = new List<ETier>(tiers);
-        ordered.Sort((left, right) => TierOrder.Rank(left).CompareTo(TierOrder.Rank(right)));
+        ordered.Sort(
+            (left, right) =>
+                GameDataDayTierOrder.Rank(left).CompareTo(GameDataDayTierOrder.Rank(right))
+        );
         if (IsContiguous(ordered))
             return $"{ordered[0]}-{ordered[^1]}";
         return string.Join("/", ordered);
@@ -1510,7 +1513,7 @@ internal static class EncounterStructuredParser
     private static bool IsContiguous(IReadOnlyList<ETier> tiers)
     {
         for (var i = 1; i < tiers.Count; i++)
-            if (TierOrder.Rank(tiers[i]) != TierOrder.Rank(tiers[i - 1]) + 1)
+            if (GameDataDayTierOrder.Rank(tiers[i]) != GameDataDayTierOrder.Rank(tiers[i - 1]) + 1)
                 return false;
         return true;
     }

@@ -1,6 +1,7 @@
 #nullable enable
 using BazaarGameShared.Domain.Core.Types;
 using BazaarPlusPlus.Game.CollectionPanel.Sources;
+using BazaarPlusPlus.GameInterop.DayTiers;
 
 namespace BazaarPlusPlus.Game.CollectionPanel.Data;
 
@@ -8,7 +9,7 @@ internal interface ICollectionOfferPoolResolver
 {
     CollectionSourceOfferPoolResult GetOrResolve(
         CollectionSourceEntry source,
-        EHero? selectedHero,
+        EHero effectiveHero,
         IReadOnlyList<CollectionCardVm> catalogCards
     );
 }
@@ -16,6 +17,8 @@ internal interface ICollectionOfferPoolResolver
 internal interface ICollectionSourceCatalog
 {
     bool TryGetBySourceKey(string sourceKey, out CollectionSourceEntry? entry);
+
+    IEnumerable<CollectionSourceEntry> For(CollectionSourceKind kind, EHero effectiveHero);
 }
 
 internal sealed class CollectionFilterNormalization
@@ -23,12 +26,14 @@ internal sealed class CollectionFilterNormalization
     public CollectionFilterNormalization(
         bool clearSelectedSource,
         IReadOnlyCollection<ECardTag>? retainedTags,
-        IReadOnlyCollection<EHiddenTag>? retainedKeywords
+        IReadOnlyCollection<EHiddenTag>? retainedKeywords,
+        IReadOnlyCollection<CollectionMechanic>? retainedMechanics
     )
     {
         ClearSelectedSource = clearSelectedSource;
         RetainedTags = retainedTags;
         RetainedKeywords = retainedKeywords;
+        RetainedMechanics = retainedMechanics;
     }
 
     public bool ClearSelectedSource { get; }
@@ -36,27 +41,22 @@ internal sealed class CollectionFilterNormalization
     public IReadOnlyCollection<ECardTag>? RetainedTags { get; }
 
     public IReadOnlyCollection<EHiddenTag>? RetainedKeywords { get; }
+
+    public IReadOnlyCollection<CollectionMechanic>? RetainedMechanics { get; }
 }
 
 internal sealed class CollectionQueryResult
 {
     public CollectionQueryResult(
         IReadOnlyList<CollectionCardVm> cards,
-        IReadOnlyDictionary<Guid, IReadOnlyList<CollectionSourceOfferMatch>>? offerMatchesByCardId,
         CollectionFilterNormalization normalization
     )
     {
         Cards = cards;
-        OfferMatchesByCardId = offerMatchesByCardId;
         Normalization = normalization;
     }
 
     public IReadOnlyList<CollectionCardVm> Cards { get; }
-
-    public IReadOnlyDictionary<
-        Guid,
-        IReadOnlyList<CollectionSourceOfferMatch>
-    >? OfferMatchesByCardId { get; }
 
     public CollectionFilterNormalization Normalization { get; }
 }
@@ -68,7 +68,8 @@ internal static class CollectionQuery
         CollectionFilterState filter,
         CollectionFacetAvailabilitySnapshot facetAvailability,
         ICollectionSourceCatalog sourceCatalog,
-        ICollectionOfferPoolResolver offerPoolResolver
+        ICollectionOfferPoolResolver offerPoolResolver,
+        GameDataDayTierTable? dayTiers = null
     )
     {
         if (catalogCards == null)
@@ -84,26 +85,24 @@ internal static class CollectionQuery
 
         var retainedTags = RetainedTags(filter, facetAvailability);
         var retainedKeywords = RetainedKeywords(filter, facetAvailability);
+        var retainedMechanics = RetainedMechanics(filter, facetAvailability);
         var queryFilter =
-            retainedTags == null && retainedKeywords == null
+            retainedTags == null && retainedKeywords == null && retainedMechanics == null
                 ? filter
-                : CloneFilter(filter, retainedTags, retainedKeywords);
+                : CloneFilter(filter, retainedTags, retainedKeywords, retainedMechanics);
 
         var sourceResolution = ResolveSelectedSource(filter, sourceCatalog);
         IReadOnlyCollection<Guid>? offeredCardIds = null;
-        IReadOnlyDictionary<Guid, IReadOnlyList<CollectionSourceOfferMatch>>? offerMatchesByCardId =
-            null;
         if (sourceResolution.Source != null)
         {
             var offerPoolResult = offerPoolResolver.GetOrResolve(
                 sourceResolution.Source,
-                filter.SelectedHero,
+                filter.EffectiveHero,
                 catalogCards
             );
             if (offerPoolResult.Status == CollectionSourceOfferPoolStatus.Ready)
             {
                 offeredCardIds = offerPoolResult.OfferedCardIds;
-                offerMatchesByCardId = offerPoolResult.OfferMatchesByCardId;
             }
         }
 
@@ -115,7 +114,15 @@ internal static class CollectionQuery
             {
                 OfferedCardIds = offeredCardIds,
                 ApplyHeroFilter =
-                    !hasSelectedSource || filter.ActiveTab == CollectionTabKind.Skills,
+                    !filter.AllHeroesSelected
+                    && (
+                        !hasSelectedSource
+                        || (
+                            filter.ActiveTab == CollectionTabKind.Skills
+                            && !sourceResolution.Source!.HasAllHeroesOfferSegment
+                        )
+                    ),
+                DayTiers = dayTiers,
                 SuppressDayGate =
                     offeredCardIds != null && sourceResolution.Source!.SuppressDayGate,
             }
@@ -123,9 +130,10 @@ internal static class CollectionQuery
         var normalization = new CollectionFilterNormalization(
             sourceResolution.ClearSelectedSource,
             retainedTags,
-            retainedKeywords
+            retainedKeywords,
+            retainedMechanics
         );
-        return new CollectionQueryResult(ordered, offerMatchesByCardId, normalization);
+        return new CollectionQueryResult(ordered, normalization);
     }
 
     private static IReadOnlyCollection<ECardTag>? RetainedTags(
@@ -136,7 +144,7 @@ internal static class CollectionQuery
         var profile = CollectionTabProfile.For(filter.ActiveTab);
         if (!profile.ShowTagFilter || filter.Tags.Count == 0)
             return null;
-        return RetainedSet(filter.Tags, facetAvailability.ItemTags);
+        return RetainedSet(filter.Tags, facetAvailability.TagsFor(filter.ActiveType));
     }
 
     private static IReadOnlyCollection<EHiddenTag>? RetainedKeywords(
@@ -148,6 +156,17 @@ internal static class CollectionQuery
         if (!profile.ShowKeywordFilter || filter.Keywords.Count == 0)
             return null;
         return RetainedSet(filter.Keywords, facetAvailability.KeywordsFor(filter.ActiveType));
+    }
+
+    private static IReadOnlyCollection<CollectionMechanic>? RetainedMechanics(
+        CollectionFilterState filter,
+        CollectionFacetAvailabilitySnapshot facetAvailability
+    )
+    {
+        var profile = CollectionTabProfile.For(filter.ActiveTab);
+        if (!profile.ShowKeywordFilter || filter.Mechanics.Count == 0)
+            return null;
+        return RetainedSet(filter.Mechanics, facetAvailability.MechanicsFor(filter.ActiveType));
     }
 
     private static IReadOnlyCollection<T> RetainedSet<T>(
@@ -168,7 +187,8 @@ internal static class CollectionQuery
     private static CollectionFilterState CloneFilter(
         CollectionFilterState source,
         IReadOnlyCollection<ECardTag>? retainedTags,
-        IReadOnlyCollection<EHiddenTag>? retainedKeywords
+        IReadOnlyCollection<EHiddenTag>? retainedKeywords,
+        IReadOnlyCollection<CollectionMechanic>? retainedMechanics
     )
     {
         var clone = new CollectionFilterState
@@ -176,16 +196,20 @@ internal static class CollectionQuery
             ActiveType = source.ActiveType,
             SelectedSourceKey = source.SelectedSourceKey,
             SearchQuery = source.SearchQuery,
-            SelectedRunDay = source.SelectedRunDay,
+            UseRunDayFilter = source.UseRunDayFilter,
             SortPriority = source.SortPriority,
             TagMatchMode = source.TagMatchMode,
             KeywordMatchMode = source.KeywordMatchMode,
         };
-        clone.Heroes.UnionWith(source.Heroes);
+        if (source.SelectedHero.HasValue)
+            clone.ToggleHero(source.SelectedHero.Value);
+        if (source.AllHeroesSelected)
+            clone.ToggleAllHeroes();
         clone.Tiers.UnionWith(source.Tiers);
         clone.Sizes.UnionWith(source.Sizes);
         clone.Tags.UnionWith(retainedTags ?? source.Tags);
         clone.Keywords.UnionWith(retainedKeywords ?? source.Keywords);
+        clone.Mechanics.UnionWith(retainedMechanics ?? source.Mechanics);
         return clone;
     }
 
@@ -205,8 +229,7 @@ internal static class CollectionQuery
         if (!expectedKind.HasValue || entry.Kind != expectedKind.Value)
             return SourceResolution.Clear;
 
-        var selectedHero = filter.SelectedHero;
-        if (selectedHero.HasValue && !entry.AppliesToHero(selectedHero.Value))
+        if (!entry.IsVisibleForHero(filter.EffectiveHero))
             return SourceResolution.Clear;
 
         return new SourceResolution(entry, false);

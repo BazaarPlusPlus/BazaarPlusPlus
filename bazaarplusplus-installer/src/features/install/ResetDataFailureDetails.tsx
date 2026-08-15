@@ -34,7 +34,7 @@ export function ResetDataFailureDetails({ paths }: { paths: string[] }) {
   };
 
   return (
-    <details className="group selectable rounded-sm border border-[rgba(190,80,80,0.2)] bg-[rgba(160,50,50,0.06)] px-3 py-2 text-xs text-[rgba(245,220,220,0.86)]">
+    <details className="bpp-reset-failure-details group selectable px-3 py-2 text-xs">
       <summary className="cursor-pointer flex items-center gap-2 list-none">
         <ChevronRight
           size={14}
@@ -54,7 +54,7 @@ export function ResetDataFailureDetails({ paths }: { paths: string[] }) {
         <button
           type="button"
           onClick={copyDiagnostics}
-          className="self-start inline-flex items-center gap-2 rounded-sm border border-[rgba(190,80,80,0.24)] bg-[rgba(160,50,50,0.08)] px-3 py-1.5 text-[rgba(245,220,220,0.9)] hover:bg-[rgba(160,50,50,0.14)] transition-colors"
+          className="bpp-reset-failure-copy self-start inline-flex items-center gap-2 px-3 py-1.5 transition-colors"
         >
           <Clipboard size={13} />
           {copyState === 'copied'

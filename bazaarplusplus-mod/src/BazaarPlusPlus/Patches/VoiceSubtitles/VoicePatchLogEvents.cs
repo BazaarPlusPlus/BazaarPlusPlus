@@ -69,5 +69,5 @@ internal static class VoicePatchLogEvents
         int order,
         string name,
         BppLogCardinality cardinality
-    ) => new(order, name, BppLogFieldPrivacy.Public, BppLogCorrelationPolicy.None, cardinality);
+    ) => new(order, name, BppLogCorrelationPolicy.None, cardinality);
 }

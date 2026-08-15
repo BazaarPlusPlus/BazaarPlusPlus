@@ -104,5 +104,5 @@ internal static class OverlayPanelLogEvents
         string name,
         BppLogCardinality cardinality,
         BppLogCorrelationPolicy correlation = BppLogCorrelationPolicy.None
-    ) => new(order, name, BppLogFieldPrivacy.Public, correlation, cardinality);
+    ) => new(order, name, correlation, cardinality);
 }

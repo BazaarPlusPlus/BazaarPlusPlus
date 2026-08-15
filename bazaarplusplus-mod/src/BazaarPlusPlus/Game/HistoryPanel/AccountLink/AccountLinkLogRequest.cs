@@ -79,7 +79,8 @@ internal sealed class AccountLinkLogRequest
         );
     }
 
-    internal void Failed(BazaarDbLinkOutcome outcome) => Failed(MapFailure(outcome));
+    internal void Failed(BazaarDbLinkOutcome outcome, Exception? exception = null) =>
+        Failed(MapFailure(outcome), exception);
 
     internal void Failed(AccountLinkReason reason, Exception? exception = null)
     {

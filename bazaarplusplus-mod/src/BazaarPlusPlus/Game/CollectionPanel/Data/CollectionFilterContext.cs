@@ -1,4 +1,6 @@
 #nullable enable
+using BazaarPlusPlus.GameInterop.DayTiers;
+
 namespace BazaarPlusPlus.Game.CollectionPanel.Data;
 
 internal sealed class CollectionFilterContext
@@ -6,6 +8,8 @@ internal sealed class CollectionFilterContext
     public IReadOnlyCollection<Guid>? OfferedCardIds { get; init; }
 
     public bool ApplyHeroFilter { get; init; } = true;
+
+    public GameDataDayTierTable? DayTiers { get; init; }
 
     // True when the selected source deals a fixed-tier pool (its offer rule pins a starting
     // tier, e.g. Luxe/Goldie or the tier trainers). Such sources offer their tier regardless

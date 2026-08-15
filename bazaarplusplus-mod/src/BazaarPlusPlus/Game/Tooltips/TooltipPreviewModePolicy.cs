@@ -17,7 +17,7 @@ internal static class TooltipPreviewModePolicy
         return Resolve(
             config,
             encounterState,
-            BppHotkeyService.IsHeld(BppHotkeyActionId.HoldUpgradePreview),
+            BppHotkeyService.IsActive(BppHotkeyActionId.HoldUpgradePreview),
             BppHotkeyService.IsHeld(BppHotkeyActionId.HoldEnchantPreview)
         );
     }
@@ -43,7 +43,7 @@ internal static class TooltipPreviewModePolicy
         return Resolve(
             config,
             choicePedestal,
-            BppHotkeyService.IsHeld(BppHotkeyActionId.HoldUpgradePreview),
+            BppHotkeyService.IsActive(BppHotkeyActionId.HoldUpgradePreview),
             BppHotkeyService.IsHeld(BppHotkeyActionId.HoldEnchantPreview)
         );
     }
@@ -55,7 +55,7 @@ internal static class TooltipPreviewModePolicy
         bool holdEnchant
     )
     {
-        // Upgrade preview is hold-Shift only — it has no visibility mode of its own.
+        // Upgrade preview remains key-only; the shared key can be configured as hold or toggle.
         if (holdUpgrade)
             return TooltipPreviewMode.Upgrade;
         if (holdEnchant)
@@ -88,7 +88,7 @@ internal static class TooltipPreviewModePolicy
     {
         return ShouldReadChoicePedestal(
             config,
-            BppHotkeyService.IsHeld(BppHotkeyActionId.HoldUpgradePreview),
+            BppHotkeyService.IsActive(BppHotkeyActionId.HoldUpgradePreview),
             BppHotkeyService.IsHeld(BppHotkeyActionId.HoldEnchantPreview)
         );
     }

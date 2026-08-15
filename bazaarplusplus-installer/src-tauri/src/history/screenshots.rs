@@ -403,8 +403,9 @@ mod tests {
     };
 
     fn create_run_screenshots_table(conn: &rusqlite::Connection) {
-        conn.execute(
-            "create table run_screenshots (
+        conn.execute_batch(
+            "pragma user_version = 1;
+             create table run_screenshots (
                 screenshot_id text primary key,
                 run_id text,
                 battle_id text,
@@ -418,9 +419,9 @@ mod tests {
                 player_rating integer,
                 player_position integer,
                 victories_at_capture integer,
-                hero_name text
-            )",
-            [],
+                hero_name text,
+                build_channel text
+            );",
         )
         .unwrap();
     }

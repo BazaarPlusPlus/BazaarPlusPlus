@@ -3,13 +3,7 @@ namespace BazaarPlusPlus.Storage.Paths;
 
 public interface IPathProvider
 {
-    string? RunLogDatabasePath { get; }
-
-    string? CombatReplayDirectoryPath { get; }
-
-    string? ScreenshotsDirectoryPath { get; }
-
-    string? CombatReplayVideoDirectoryPath { get; }
+    string? DataRootDirectoryPath { get; }
 
     string? PluginsDirectoryPath { get; }
 }

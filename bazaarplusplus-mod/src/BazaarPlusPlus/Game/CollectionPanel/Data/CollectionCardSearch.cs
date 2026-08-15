@@ -6,43 +6,83 @@ using BazaarPlusPlus.GameInterop.TagTypography;
 
 namespace BazaarPlusPlus.Game.CollectionPanel.Data;
 
+// A query normalised once for a whole filter pass. The engine calls the search predicate for every
+// card on the active tab, so normalising and splitting inside the predicate repeated the same
+// character sweep hundreds of times per filter click.
+internal readonly struct CollectionSearchTerms
+{
+    internal static readonly CollectionSearchTerms Empty = new(
+        Array.Empty<string>(),
+        Array.Empty<string>()
+    );
+
+    private CollectionSearchTerms(string[] terms, string[] compactTerms)
+    {
+        Terms = terms;
+        CompactTerms = compactTerms;
+    }
+
+    internal string[] Terms { get; }
+
+    internal string[] CompactTerms { get; }
+
+    internal int Count => Terms.Length;
+
+    internal bool IsEmpty => Terms.Length == 0;
+
+    internal static CollectionSearchTerms From(string? query)
+    {
+        var normalized = CollectionCardSearch.Normalize(query);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return Empty;
+
+        var terms = normalized.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+        if (terms.Length == 0)
+            return Empty;
+
+        var compactTerms = new string[terms.Length];
+        for (var index = 0; index < terms.Length; index++)
+            compactTerms[index] = CollectionCardSearch.Compact(terms[index]);
+        return new CollectionSearchTerms(terms, compactTerms);
+    }
+}
+
 internal static class CollectionCardSearch
 {
     private const string RelatedTerms = "Reference Related 相关 相關";
 
-    public static bool Matches(CollectionCardVm card, string? query)
+    public static bool Matches(CollectionCardVm card, string? query) =>
+        Matches(card, CollectionSearchTerms.From(query));
+
+    public static bool Matches(CollectionCardVm card, CollectionSearchTerms terms)
     {
-        var normalizedQuery = Normalize(query);
-        if (string.IsNullOrWhiteSpace(normalizedQuery))
+        if (terms.IsEmpty)
             return true;
 
-        var normalizedCorpus = Normalize(
-            string.IsNullOrWhiteSpace(card.SearchText) ? BuildCorpus(card) : card.SearchText
-        );
+        var normalizedCorpus = card.NormalizedSearchCorpus;
         if (string.IsNullOrWhiteSpace(normalizedCorpus))
             return false;
 
-        var compactCorpus = Compact(normalizedCorpus);
-        foreach (
-            var term in normalizedQuery.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries)
-        )
+        string? compactCorpus = null;
+        for (var index = 0; index < terms.Count; index++)
         {
-            var compactTerm = Compact(term);
+            var compactTerm = terms.CompactTerms[index];
             if (string.IsNullOrEmpty(compactTerm))
                 continue;
 
-            if (normalizedCorpus.Contains(term, StringComparison.Ordinal))
+            if (normalizedCorpus.Contains(terms.Terms[index], StringComparison.Ordinal))
                 continue;
             if (MatchesInitialism(card, compactTerm))
                 continue;
-            if (
-                ContainsCjk(compactTerm)
-                && (
+            if (ContainsCjk(compactTerm))
+            {
+                compactCorpus ??= card.CompactSearchCorpus;
+                if (
                     compactCorpus.Contains(compactTerm, StringComparison.Ordinal)
                     || HasCjkFuzzyMatch(compactTerm, normalizedCorpus)
                 )
-            )
-                continue;
+                    continue;
+            }
 
             return false;
         }
@@ -55,25 +95,38 @@ internal static class CollectionCardSearch
         if (query.Length < 2 || ContainsCjk(query))
             return false;
 
-        return IsInitialism(query, card.DisplayName)
-            || IsInitialism(query, SplitIdentifierWords(card.InternalName))
-            || IsInitialism(query, SplitIdentifierWords(card.ArtKey));
+        var keys = card.InitialismKeys;
+        for (var index = 0; index < keys.Length; index++)
+            if (string.Equals(keys[index], query, StringComparison.Ordinal))
+                return true;
+        return false;
     }
 
-    private static bool IsInitialism(string query, string? phrase)
+    // One key per phrase: the leading character of each word, defined only for phrases of two or
+    // more words. A query matches as an initialism exactly when it equals one of these keys.
+    internal static string[] BuildInitialismKeys(CollectionCardVm card)
+    {
+        var keys = new List<string>(3);
+        AddInitialismKey(keys, card.DisplayName);
+        AddInitialismKey(keys, SplitIdentifierWords(card.InternalName));
+        AddInitialismKey(keys, SplitIdentifierWords(card.ArtKey));
+        return keys.Count == 0 ? Array.Empty<string>() : keys.ToArray();
+    }
+
+    private static void AddInitialismKey(List<string> keys, string? phrase)
     {
         var normalized = Normalize(phrase);
-        if (string.IsNullOrEmpty(normalized))
-            return false;
+        if (normalized.Length == 0)
+            return;
 
         var words = normalized.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
-        if (words.Length < 2 || words.Length != query.Length)
-            return false;
+        if (words.Length < 2)
+            return;
 
+        var builder = new StringBuilder(words.Length);
         for (var index = 0; index < words.Length; index++)
-            if (words[index][0] != query[index])
-                return false;
-        return true;
+            builder.Append(words[index][0]);
+        keys.Add(builder.ToString());
     }
 
     public static string BuildCorpus(CollectionCardVm card)
@@ -157,7 +210,7 @@ internal static class CollectionCardSearch
         return builder.ToString().Trim();
     }
 
-    private static string Compact(string value)
+    internal static string Compact(string value)
     {
         var builder = new StringBuilder(value.Length);
         foreach (var character in value)

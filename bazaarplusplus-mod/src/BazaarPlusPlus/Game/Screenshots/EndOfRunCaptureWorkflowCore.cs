@@ -39,6 +39,7 @@ internal readonly record struct EndOfRunCaptureAttemptOutcome(
 internal interface IEndOfRunCaptureAttempt
 {
     bool HasCaptureStarted { get; }
+    Task FrameAcquired { get; }
     Task<EndOfRunCaptureAttemptOutcome> Completion { get; }
     void RestoreUi();
     void Cancel();
@@ -84,6 +85,7 @@ internal sealed class EndOfRunCaptureWorkflowCore<TScreen>
     private readonly IEndOfRunCaptureClock _clock;
     private readonly IEndOfRunCaptureFileSystem _files;
     private readonly EndOfRunCapturePolicy _policy;
+    private readonly Action<ScreenshotCaptureTerminal>? _terminalObserver;
     private RunState _state = new(generation: 0);
     private IEndOfRunCaptureSurface<TScreen>? _surface;
 
@@ -91,13 +93,15 @@ internal sealed class EndOfRunCaptureWorkflowCore<TScreen>
         IEndOfRunArtifactPersistence persistence,
         IEndOfRunCaptureClock clock,
         IEndOfRunCaptureFileSystem files,
-        EndOfRunCapturePolicy policy
+        EndOfRunCapturePolicy policy,
+        Action<ScreenshotCaptureTerminal>? terminalObserver = null
     )
     {
         _persistence = persistence ?? throw new ArgumentNullException(nameof(persistence));
         _clock = clock ?? throw new ArgumentNullException(nameof(clock));
         _files = files ?? throw new ArgumentNullException(nameof(files));
         _policy = policy.MaxAttempts > 0 ? policy : EndOfRunCapturePolicy.Default;
+        _terminalObserver = terminalObserver;
     }
 
     internal void AttachSurface(IEndOfRunCaptureSurface<TScreen> surface)
@@ -164,6 +168,21 @@ internal sealed class EndOfRunCaptureWorkflowCore<TScreen>
 
     internal void OnFrame(EndOfRunCaptureContext context)
     {
+        if (
+            _state.HasFrameAcquired
+            && _state.Stage == WorkflowStage.Capturing
+            && _state.Screen != null
+        )
+        {
+            PollCapture(_state.Screen, context);
+            return;
+        }
+        if (_state.HasFrameAcquired && _state.Stage == WorkflowStage.Persisting)
+        {
+            PollPersistence();
+            return;
+        }
+
         var surface = _surface;
         if (surface == null || !surface.IsAvailable || !context.Enabled)
         {
@@ -211,7 +230,7 @@ internal sealed class EndOfRunCaptureWorkflowCore<TScreen>
         if (_state.Terminal)
             return;
         EnsureOperation(new EndOfRunCaptureContext(true, RunId: null, HeroName: null));
-        CancelOutstandingWork(cleanLateArtifact: true);
+        CancelOutstandingWork(cleanLateArtifact: !_state.HasFrameAcquired);
         var filePath = _state.Operation?.VerifiedArtifactPath;
         CompleteTerminal(
             string.IsNullOrWhiteSpace(filePath)
@@ -367,6 +386,7 @@ internal sealed class EndOfRunCaptureWorkflowCore<TScreen>
         }
 
         _state.Stage = WorkflowStage.Capturing;
+        _state.HasFrameAcquired = false;
         _state.CaptureDeadline = _state.ActiveAttempt.HasCaptureStarted
             ? _clock.RealtimeSeconds + Math.Max(0f, _policy.CaptureTimeoutSeconds)
             : null;
@@ -376,42 +396,106 @@ internal sealed class EndOfRunCaptureWorkflowCore<TScreen>
     {
         var surface = _surface;
         var attempt = _state.ActiveAttempt;
-        if (surface == null || attempt == null || !surface.IsScreenActive(screen))
+        if (
+            attempt == null
+            || (!_state.HasFrameAcquired && (surface == null || !surface.IsScreenActive(screen)))
+        )
         {
             CompleteContextExpired();
             return;
         }
 
-        var completion = attempt.Completion;
-        if (!completion.IsCompleted)
+        Task frameAcquired;
+        Task<EndOfRunCaptureAttemptOutcome> completion;
+        try
         {
-            if (!attempt.HasCaptureStarted)
-            {
-                SetContinueBlocked(screen, blocked: true);
-                return;
-            }
-
-            _state.CaptureDeadline ??=
-                _clock.RealtimeSeconds + Math.Max(0f, _policy.CaptureTimeoutSeconds);
-            if (_clock.RealtimeSeconds < _state.CaptureDeadline.Value)
-            {
-                SetContinueBlocked(screen, blocked: true);
-                return;
-            }
-
-            attempt.Cancel();
-            ObserveLateCapture(completion);
-            _state.ActiveAttempt = null;
-            CompleteTerminal(
-                CaptureTerminalKind.Failed,
-                ScreenshotCaptureReasonCode.CaptureTimeout,
-                ScreenshotArtifactStatus.Unavailable,
-                filePath: null,
-                exception: null
-            );
+            frameAcquired = attempt.FrameAcquired;
+            completion = attempt.Completion;
+        }
+        catch (Exception ex)
+        {
+            if (RestoreUiIfNeeded(attempt))
+                HandleAttemptFailure(ScreenshotCaptureReasonCode.CaptureTaskFaulted, ex);
             return;
         }
 
+        if (!_state.HasFrameAcquired)
+        {
+            if (frameAcquired.IsCompleted)
+            {
+                try
+                {
+                    frameAcquired.GetAwaiter().GetResult();
+                }
+                catch (Exception ex)
+                {
+                    if (completion.IsCompleted)
+                    {
+                        CompleteCaptureAttempt(attempt, completion, context);
+                        return;
+                    }
+                    attempt.Cancel();
+                    ObserveLateCapture(completion, deleteArtifact: true);
+                    if (RestoreUiIfNeeded(attempt))
+                        HandleAttemptFailure(ScreenshotCaptureReasonCode.CaptureTaskFaulted, ex);
+                    return;
+                }
+
+                _state.HasFrameAcquired = true;
+                if (!TryRestoreUi(attempt))
+                    return;
+                SetContinueBlocked(screen: null, blocked: false);
+            }
+            else
+            {
+                if (completion.IsCompleted)
+                {
+                    CompleteCaptureAttempt(attempt, completion, context);
+                    return;
+                }
+                if (!attempt.HasCaptureStarted)
+                {
+                    SetContinueBlocked(screen, blocked: true);
+                    return;
+                }
+
+                _state.CaptureDeadline ??=
+                    _clock.RealtimeSeconds + Math.Max(0f, _policy.CaptureTimeoutSeconds);
+                if (_clock.RealtimeSeconds < _state.CaptureDeadline.Value)
+                {
+                    SetContinueBlocked(screen, blocked: true);
+                    return;
+                }
+
+                attempt.Cancel();
+                ObserveLateCapture(completion, deleteArtifact: true);
+                _state.ActiveAttempt = null;
+                CompleteTerminal(
+                    CaptureTerminalKind.Failed,
+                    ScreenshotCaptureReasonCode.CaptureTimeout,
+                    ScreenshotArtifactStatus.Unavailable,
+                    filePath: null,
+                    exception: null
+                );
+                return;
+            }
+        }
+
+        if (!completion.IsCompleted)
+        {
+            SetContinueBlocked(screen: null, blocked: false);
+            return;
+        }
+
+        CompleteCaptureAttempt(attempt, completion, context);
+    }
+
+    private void CompleteCaptureAttempt(
+        IEndOfRunCaptureAttempt attempt,
+        Task<EndOfRunCaptureAttemptOutcome> completion,
+        EndOfRunCaptureContext context
+    )
+    {
         EndOfRunCaptureAttemptOutcome outcome;
         try
         {
@@ -419,34 +503,45 @@ internal sealed class EndOfRunCaptureWorkflowCore<TScreen>
         }
         catch (Exception ex)
         {
-            if (TryRestoreUi(attempt))
+            if (RestoreUiIfNeeded(attempt))
                 HandleAttemptFailure(ScreenshotCaptureReasonCode.CaptureTaskFaulted, ex);
             return;
         }
 
         if (outcome.FailureReason.HasValue)
         {
-            if (TryRestoreUi(attempt))
+            if (RestoreUiIfNeeded(attempt))
                 HandleAttemptFailure(outcome.FailureReason.Value, outcome.Exception);
             return;
         }
         if (outcome.Capture == null)
         {
-            if (TryRestoreUi(attempt))
+            if (RestoreUiIfNeeded(attempt))
                 HandleAttemptFailure(ScreenshotCaptureReasonCode.CaptureReturnedNull, null);
+            return;
+        }
+        if (!_state.HasFrameAcquired)
+        {
+            if (RestoreUiIfNeeded(attempt))
+            {
+                HandleAttemptFailure(
+                    ScreenshotCaptureReasonCode.CaptureTaskFaulted,
+                    new InvalidOperationException(
+                        "Screenshot capture completed before the frame-acquired signal."
+                    )
+                );
+            }
             return;
         }
         if (!IsUsablePng(outcome.Capture.FilePath))
         {
-            if (TryRestoreUi(attempt))
+            if (RestoreUiIfNeeded(attempt))
                 HandleAttemptFailure(ScreenshotCaptureReasonCode.CaptureArtifactUnavailable, null);
             return;
         }
 
         var operation = EnsureOperation(context);
         operation.VerifiedArtifactPath = outcome.Capture.FilePath;
-        if (!TryRestoreUi(attempt))
-            return;
         _state.ActiveAttempt = null;
         StartPersistence(outcome.Capture);
     }
@@ -507,7 +602,7 @@ internal sealed class EndOfRunCaptureWorkflowCore<TScreen>
         {
             if (_clock.RealtimeSeconds < _state.MetadataDeadline)
             {
-                SetContinueBlocked(_state.Screen, blocked: true);
+                SetContinueBlocked(screen: null, blocked: false);
                 return;
             }
 
@@ -591,11 +686,18 @@ internal sealed class EndOfRunCaptureWorkflowCore<TScreen>
         }
     }
 
+    private bool RestoreUiIfNeeded(IEndOfRunCaptureAttempt attempt) =>
+        _state.HasFrameAcquired || TryRestoreUi(attempt);
+
     private void HandleAttemptFailure(ScreenshotCaptureReasonCode reason, Exception? exception)
     {
         _state.ActiveAttempt = null;
         var attempts = _state.Operation?.AttemptCount ?? _policy.MaxAttempts;
-        if (IsRetryableCaptureFailure(reason) && attempts < _policy.MaxAttempts)
+        if (
+            !_state.HasFrameAcquired
+            && IsRetryableCaptureFailure(reason)
+            && attempts < _policy.MaxAttempts
+        )
         {
             _state.Stage = WorkflowStage.WaitingForRetry;
             _state.RetryAvailableAt =
@@ -651,7 +753,7 @@ internal sealed class EndOfRunCaptureWorkflowCore<TScreen>
             return;
         }
 
-        CancelOutstandingWork(cleanLateArtifact: true);
+        CancelOutstandingWork(cleanLateArtifact: !_state.HasFrameAcquired);
         var operation = _state.Operation;
         if (operation == null)
         {
@@ -697,6 +799,21 @@ internal sealed class EndOfRunCaptureWorkflowCore<TScreen>
         if (operation == null)
             return;
         ReportTerminal(operation, kind, reason, artifactStatus, filePath, exception);
+        try
+        {
+            _terminalObserver?.Invoke(
+                new ScreenshotCaptureTerminal
+                {
+                    RunId = operation.RunId,
+                    ArtifactStatus = artifactStatus,
+                    MetadataPersisted = artifactStatus == ScreenshotArtifactStatus.Complete,
+                }
+            );
+        }
+        catch
+        {
+            // Terminal observers only wake background work and cannot change capture outcome.
+        }
     }
 
     private void CancelOutstandingWork(bool cleanLateArtifact)
@@ -713,16 +830,13 @@ internal sealed class EndOfRunCaptureWorkflowCore<TScreen>
             {
                 // Cancellation is best-effort; the workflow still fails open.
             }
-            if (cleanLateArtifact)
+            try
             {
-                try
-                {
-                    ObserveLateCapture(attempt.Completion);
-                }
-                catch
-                {
-                    // A broken adapter cannot prevent terminal fail-open cleanup.
-                }
+                ObserveLateCapture(attempt.Completion, deleteArtifact: cleanLateArtifact);
+            }
+            catch
+            {
+                // A broken adapter cannot prevent terminal fail-open cleanup.
             }
         }
 
@@ -732,7 +846,10 @@ internal sealed class EndOfRunCaptureWorkflowCore<TScreen>
             ObserveLatePersistence(persistence);
     }
 
-    private void ObserveLateCapture(Task<EndOfRunCaptureAttemptOutcome> completion)
+    private void ObserveLateCapture(
+        Task<EndOfRunCaptureAttemptOutcome> completion,
+        bool deleteArtifact
+    )
     {
         var screenshotId = _state.Operation?.ScreenshotId;
         _ = completion.ContinueWith(
@@ -741,7 +858,8 @@ internal sealed class EndOfRunCaptureWorkflowCore<TScreen>
                 try
                 {
                     if (
-                        task.Status == TaskStatus.RanToCompletion
+                        deleteArtifact
+                        && task.Status == TaskStatus.RanToCompletion
                         && task.Result.Capture is { FilePath: { Length: > 0 } file }
                     )
                         _files.DeleteIfExists(file);
@@ -870,6 +988,7 @@ internal sealed class EndOfRunCaptureWorkflowCore<TScreen>
         internal bool SummaryObserved { get; set; }
         internal bool RevealStarted { get; set; }
         internal bool ContinueBlocked { get; set; }
+        internal bool HasFrameAcquired { get; set; }
         internal int ScreenId { get; set; }
         internal TScreen? Screen { get; set; }
         internal WorkflowStage Stage { get; set; }

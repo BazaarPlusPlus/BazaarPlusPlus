@@ -39,6 +39,15 @@ internal static class NativeTagTypography
         new[] { typeof(string) }
     );
 
+    // The attribute-keyed GetConfiguration overload searches each configuration's AttributeKeys,
+    // which is the exact mapping the game uses to style attribute values — the string overload
+    // only matches KeywordKey, so attribute enum names would miss most entries.
+    private static readonly MethodInfo? GetAttributeConfigurationMethod = AccessTools.Method(
+        typeof(TooltipTypography),
+        "GetConfiguration",
+        new[] { typeof(ECardAttributeType) }
+    );
+
     // Cache key: the typography instance reference (a new instance per locale change makes the
     // reference a natural invalidation key) plus the mod-side language code. Results resolved
     // while typography is null are NOT cached, so the table self-heals once the game's async
@@ -55,6 +64,11 @@ internal static class NativeTagTypography
     // changed its shape): labels keep flowing through the game string table, colors are lost.
     private static bool _configurationPathBroken;
     private static NativeTagTypographyFailure? _pendingFailure;
+
+    // Separate broken switch for the attribute-keyed overload: attribute icons are decorative,
+    // so a renamed overload degrades that path silently without disabling keyword-string
+    // resolution (and vice versa).
+    private static bool _attributeConfigurationPathBroken;
 
     /// <summary>True once the game's async typography registration has completed (or after a
     /// locale change rebuilt the instance). While false, <see cref="Resolve(string)"/> degrades
@@ -79,6 +93,92 @@ internal static class NativeTagTypography
 
     public static NativeTagDisplay Resolve(string key) =>
         Resolve(key, aliasKey: null, overrideConfigurationStyle: false);
+
+    /// <summary>
+    /// Resolves display data for a card attribute through the typography table's AttributeKeys
+    /// mapping (label, official accent color, keyword icon name). Degrades exactly like the
+    /// string path: no configuration (or reflection failure) yields a string-table label with
+    /// no color and no icon.
+    /// </summary>
+    public static NativeTagDisplay Resolve(ECardAttributeType attributeType)
+    {
+        var typography = Data.TooltipTypography;
+        var languageCode = L.CurrentLanguageCode;
+        // Prefixed so attribute entries can never collide with keyword-string cache keys.
+        var cacheKey = "attr:" + attributeType;
+
+        if (typography == null)
+            return ResolveAttributeUncached(null, attributeType);
+
+        if (
+            !ReferenceEquals(typography, _cachedTypography)
+            || !string.Equals(languageCode, _cachedLanguageCode, StringComparison.Ordinal)
+        )
+        {
+            Cache.Clear();
+            _cachedTypography = typography;
+            _cachedLanguageCode = languageCode;
+        }
+
+        if (Cache.TryGetValue(cacheKey, out var cached))
+            return cached;
+
+        var display = ResolveAttributeUncached(typography, attributeType);
+        Cache[cacheKey] = display;
+        return display;
+    }
+
+    private static NativeTagDisplay ResolveAttributeUncached(
+        TooltipTypography? typography,
+        ECardAttributeType attributeType
+    )
+    {
+        var configuration = GetAttributeConfigurationOrNull(typography, attributeType);
+        if (configuration == null)
+            return new NativeTagDisplay(
+                LocalizeThroughStringTable(attributeType.ToString()),
+                accentColor: null,
+                string.Empty
+            );
+
+        var label = LocalizeConfiguredText(configuration, attributeType.ToString());
+        if (configuration.MakeAllUppercase)
+            label = label.ToUpperInvariant();
+        return new NativeTagDisplay(
+            label,
+            configuration.Color,
+            configuration.IconName ?? string.Empty
+        );
+    }
+
+    private static KeywordIconColorConfiguration? GetAttributeConfigurationOrNull(
+        TooltipTypography? typography,
+        ECardAttributeType attributeType
+    )
+    {
+        if (
+            typography == null
+            || _attributeConfigurationPathBroken
+            || GetAttributeConfigurationMethod == null
+        )
+        {
+            _attributeConfigurationPathBroken |= GetAttributeConfigurationMethod == null;
+            return null;
+        }
+
+        try
+        {
+            return GetAttributeConfigurationMethod.Invoke(
+                    typography,
+                    new object[] { attributeType }
+                ) as KeywordIconColorConfiguration;
+        }
+        catch (Exception)
+        {
+            _attributeConfigurationPathBroken = true;
+            return null;
+        }
+    }
 
     internal static bool TryTakeFailure(out NativeTagTypographyFailure failure)
     {

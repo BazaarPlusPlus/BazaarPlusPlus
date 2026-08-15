@@ -8,21 +8,10 @@ namespace BazaarPlusPlus.Game.EventPreview;
 
 internal static class EncounterPreviewText
 {
-    private static readonly LocalizedTextSet DayTierSuffix = new(
-        "(up to {0})",
-        "（最高{0}）",
-        "（最高{0}）"
-    );
-    private static readonly LocalizedTextSet TierExact = new("({0})", "（{0}）", "（{0}）");
     private static readonly LocalizedTextSet TierDistributionSuffix = new(
         "({0})",
         "（{0}）",
         "（{0}）"
-    );
-    private static readonly LocalizedTextSet TierCeilingLine = new(
-        "up to {0}",
-        "最高{0}",
-        "最高{0}"
     );
     private static readonly LocalizedTextSet MaxHealth = new(
         "+ {0} Max Health",
@@ -81,17 +70,8 @@ internal static class EncounterPreviewText
         "+ {0} 個攤位格子"
     );
 
-    internal static string EncounterDayTierSuffix(ETier tier) =>
-        string.Format(Resolve(DayTierSuffix), Tier(tier));
-
-    internal static string EncounterTierExact(ETier tier) =>
-        string.Format(Resolve(TierExact), Tier(tier));
-
     internal static string EncounterTierDistributionSuffix(string distribution) =>
         string.Format(Resolve(TierDistributionSuffix), distribution);
-
-    internal static string EncounterTierCeilingLine(ETier tier) =>
-        string.Format(Resolve(TierCeilingLine), Tier(tier));
 
     internal static string LevelUpMaxHealth(int amount) =>
         string.Format(Resolve(MaxHealth), amount);

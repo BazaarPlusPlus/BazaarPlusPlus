@@ -22,17 +22,11 @@ internal static class CollectionGridConstants
 
     // Fixed gutter between cells (both axes) and inner padding of the display-case region, in
     // overlay pixels. The base unit (one column's width) is derived per-viewport so the grid
-    // fills the available width, then clamped to [Min, Max*]; any extra width is absorbed as
-    // centering margin rather than more columns. The per-tab max caps how large cells grow on
-    // very wide screens (Skills are allowed roughly twice the Item cap so icons read large).
-    // MinUnitWidth is only a degenerate floor: the columns are fixed, so on a narrow viewport
-    // the cells must shrink to stay inside the clip (there is no horizontal scroll) — keep it
-    // small enough that a real game window never clamps up and overflows the rightmost columns.
+    // fills the entire available width; the fixed column count stays unchanged on wide screens.
+    // MinUnitWidth is only a degenerate floor for an extremely narrow viewport.
     public const float GridGap = 14f;
     public const float GridOuterPadding = 18f;
     public const float MinUnitWidth = 24f;
-    public const float ItemMaxUnitWidth = 172f;
-    public const float SkillMaxUnitWidth = 272f;
 
     // Fraction of a cell kept as breathing room on every side so the native card sits inside
     // its slot (the slot background then reads as a frame around it) instead of touching edges.
@@ -67,6 +61,14 @@ internal static class CollectionGridConstants
     // Animation tuning. All durations are characteristic times for an exponential lerp
     // (t = 1 - exp(-dt / tau)), so the visible motion finishes within ~3*tau seconds.
     public const float CardFadeInSeconds = 0.18f;
+    public const float CardHoverScale = 1.2f;
+    public const float CardHoverScaleInSeconds = 0.08f;
+    public const float CardHoverScaleOutSeconds = 0.1f;
+    public const float CardHoverShadowAlpha = 0.2f;
+    public const float CardHoverShadowInSeconds = 0.06f;
+    public const float CardHoverShadowOutSeconds = 0.1f;
+    public const float CardHoverShadowPadding = 10f;
+    public const float CardHoverShadowOffsetY = -5f;
 
     // Open is a presentation (deliberate); close is a dismissal (snappy). With out at 0.04
     // the close-fade visually settles in ~120ms, fast enough not to feel like the panel
@@ -81,6 +83,8 @@ internal static class CollectionGridConstants
     public const float MouseWheelScrollPoints = 120f;
 
     // Unit width an item card occupies on the item grid. Skills never call this (always 1).
+    public const float ItemCardWidthScale = 0.96f;
+
     public static int ItemWidthSpan(ECardSize size) =>
         size switch
         {
@@ -96,7 +100,4 @@ internal static class CollectionGridConstants
 
     public static int ColumnsFor(ECardType type) =>
         type == ECardType.Skill ? SkillColumns : ItemColumns;
-
-    public static float MaxUnitWidthFor(ECardType type) =>
-        type == ECardType.Skill ? SkillMaxUnitWidth : ItemMaxUnitWidth;
 }

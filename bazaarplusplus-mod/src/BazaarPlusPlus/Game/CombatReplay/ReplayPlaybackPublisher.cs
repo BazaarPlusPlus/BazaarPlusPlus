@@ -21,6 +21,24 @@ internal sealed class ReplayPlaybackPublisher
     /// <summary>Battle id of the session currently between BeginSession and PublishEnded.</summary>
     public string? ActiveSessionBattleId => _activeBattleId;
 
+    /// <summary>Captured battle metadata for the active session, when available.</summary>
+    internal PvpBattleManifest? ActiveSessionManifest => _activeManifest;
+
+    internal bool TryPromoteActiveSessionToRecording(string battleId)
+    {
+        if (
+            string.IsNullOrWhiteSpace(battleId)
+            || !string.Equals(_activeBattleId, battleId, StringComparison.Ordinal)
+        )
+        {
+            return false;
+        }
+
+        _activeRecordVideo = true;
+        _startingPublished = false;
+        return true;
+    }
+
     public void BeginSession(
         string battleId,
         PvpBattleManifest? manifest,

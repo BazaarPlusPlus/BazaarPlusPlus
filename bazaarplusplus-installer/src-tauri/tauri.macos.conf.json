@@ -1,8 +1,16 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "bundle": {
-    "targets": ["dmg"],
-    "icon": ["icons/icon.icns"],
+    "targets": ["app", "dmg"],
+    "icon": ["icons/app-icon.icns"],
+    "macOS": {
+      "files": {
+        "Resources/AppIcon.icon": "icons/source/AppIcon.icon",
+        "Resources/Assets.car": "icons/macos-generated/Assets.car",
+        "Resources/AppIcon.icns": "icons/macos-generated/AppIcon.icns"
+      },
+      "infoPlist": "Info.plist"
+    },
     "resources": {
       "resources/BepInExSource/macos/BepInEx.zip": "BepInExSource/BepInEx.zip",
       "resources/Trampoline/macos/bpp_launcher": "Trampoline/bpp_launcher"

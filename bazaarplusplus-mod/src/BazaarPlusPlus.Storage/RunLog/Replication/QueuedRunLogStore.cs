@@ -60,6 +60,11 @@ public sealed class QueuedRunLogStore : IRunLogStore, IDisposable
         return _innerStore.CreateRun(request);
     }
 
+    public void SetPlayerAccountIdOnce(string runId, string? playerAccountId)
+    {
+        _innerStore.SetPlayerAccountIdOnce(runId, playerAccountId);
+    }
+
     public void AppendEvent(string runId, RunLogEvent entry)
     {
         EnqueueWrite(

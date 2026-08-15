@@ -198,11 +198,11 @@ static void bpp_destroy_ctx(BppCtx *ctx) {
 }
 
 // All of the tap-touching setup lives here, annotated so clang statically knows
-// these weak-imported APIs (CATapDescription / AudioHardwareCreateProcessTap,
-// macOS 12.0/13.0/14.2) are only ever reached on a new-enough OS. BppMacAudio_Start
-// calls this solely from inside an `if (@available(macOS 15.0, *))` check, which
+// CATapDescription (macOS 12) and the weak-imported process-tap functions
+// (macOS 14.2) are only ever used on a new-enough OS. BppMacAudio_Start calls
+// this solely from inside an `if (@available(macOS 15.0, *))` check, which
 // matches the IsSupported gate and keeps the dylib self-defensive: on older
-// systems the weak symbols are NULL and must never be called.
+// systems the weak function symbols are NULL and must never be called.
 API_AVAILABLE(macos(15.0))
 static void *bpp_start_tap(int32_t *outSampleRate, int32_t *outChannels) {
     BppCtx *ctx = (BppCtx *)calloc(1, sizeof(BppCtx));

@@ -1,5 +1,6 @@
 #nullable enable
 using BazaarPlusPlus.Core.Runtime;
+using BazaarPlusPlus.Storage.Paths;
 using BazaarPlusPlus.Storage.RunScreenshot;
 
 namespace BazaarPlusPlus.Game.Screenshots;
@@ -12,8 +13,9 @@ internal sealed class EndOfRunArtifactPersistence : IEndOfRunArtifactPersistence
     internal EndOfRunArtifactPersistence(IBppServices services)
     {
         _services = services ?? throw new ArgumentNullException(nameof(services));
-        if (!string.IsNullOrWhiteSpace(services.Paths.RunLogDatabasePath))
-            _store = new RunScreenshotSqliteStore(services.Paths.RunLogDatabasePath);
+        _store = new RunScreenshotSqliteStore(
+            PathConstants.RunLogDatabase(services.Paths.RequireDataRoot())
+        );
     }
 
     public Task<ScreenshotMetadataPersistenceOutcome> PersistAsync(
