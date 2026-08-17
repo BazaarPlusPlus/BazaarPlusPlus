@@ -15,8 +15,23 @@ internal static class NativeCardPreviewSlotFitter
             return NativeCardPreviewSlotFitResult.Unavailable;
 
         Canvas.ForceUpdateCanvases();
+        return FitWithSettledCanvas(preview, slot, horizontalAlignment, new Vector3[4]);
+    }
+
+    /// <summary>
+    /// Fits one preview after the caller has settled the Canvas shared by a larger layout batch.
+    /// </summary>
+    internal static NativeCardPreviewSlotFitResult FitWithSettledCanvas(
+        RectTransform preview,
+        RectTransform slot,
+        NativeCardPreviewHorizontalAlignment horizontalAlignment,
+        Vector3[] corners
+    )
+    {
+        if (preview == null || slot == null || corners == null || corners.Length < 4)
+            return NativeCardPreviewSlotFitResult.Unavailable;
+
         var frame = FindDescendant(preview, "FrameContainer") ?? preview;
-        var corners = new Vector3[4];
         frame.GetWorldCorners(corners);
         var minX = float.PositiveInfinity;
         var minY = float.PositiveInfinity;
@@ -67,6 +82,29 @@ internal static class NativeCardPreviewSlotFitter
             return false;
 
         Canvas.ForceUpdateCanvases();
+        return TryAlignVisibleArtworkLeftWithSettledCanvas(
+            preview,
+            slot,
+            new Vector3[4],
+            out visibleWidth
+        );
+    }
+
+    /// <summary>
+    /// Aligns visible artwork after the caller has settled the Canvas shared by a larger layout
+    /// batch.
+    /// </summary>
+    internal static bool TryAlignVisibleArtworkLeftWithSettledCanvas(
+        RectTransform preview,
+        RectTransform slot,
+        Vector3[] corners,
+        out float visibleWidth
+    )
+    {
+        visibleWidth = 0f;
+        if (preview == null || slot == null || corners == null || corners.Length < 4)
+            return false;
+
         // CardPreviewItem.Resize offsets wider cards inside their root, while the native frame
         // prefab itself can carry transparent horizontal inset. Align the actual artwork quad,
         // which is the stable visible seam shared by Small/Medium/Large previews, instead of the
@@ -74,7 +112,6 @@ internal static class NativeCardPreviewSlotFitter
         var frame = FindNativeArtwork(preview);
         if (frame == null)
             return false;
-        var corners = new Vector3[4];
         frame.GetWorldCorners(corners);
         var visibleMinX = float.PositiveInfinity;
         var visibleMaxX = float.NegativeInfinity;
