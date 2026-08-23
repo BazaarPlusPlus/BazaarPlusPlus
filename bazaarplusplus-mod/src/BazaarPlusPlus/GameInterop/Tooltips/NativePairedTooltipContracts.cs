@@ -153,9 +153,9 @@ internal readonly struct PlacementResult
 /// to the canvas.
 /// </summary>
 /// <remarks>
-/// The host owns measurement and layout rebuilds; the feature only answers "what do I drop next".
-/// This keeps the fit loop inside the host instead of having the feature call back into host
-/// measurement mid-placement.
+/// The host owns native-panel measurement and layout commits. The feature owns the geometry of its
+/// already-settled content tree, so it can apply the final trim prefix without asking the host to
+/// rebuild after every hidden row.
 /// </remarks>
 internal interface IPairedContentBudget
 {
@@ -163,7 +163,8 @@ internal interface IPairedContentBudget
     void RestoreAll();
 
     /// <summary>
-    /// Hide the next element in trim order. Returns false when nothing further can be dropped.
+    /// Read the settled content geometry and hide enough elements, in trim order, to reclaim the
+    /// requested local height. Returns true when any visibility changed.
     /// </summary>
-    bool TryShrinkOneStep();
+    bool ApplyHeightReduction(float requiredHeightReduction);
 }

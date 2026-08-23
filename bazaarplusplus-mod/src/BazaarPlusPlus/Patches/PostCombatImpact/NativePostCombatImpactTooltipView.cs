@@ -375,21 +375,18 @@ internal sealed class NativePostCombatImpactTooltipView : IPostCombatImpactToolt
     }
 
     /// <summary>
-    /// Combat Impact's trim order, driven by the host while it fits the panel to the canvas.
+    /// Combat Impact's batched height budget, driven by the host while it fits the panel.
     /// </summary>
     /// <remarks>
     /// Reproduces the original nested loop exactly: walk the blocks from last to first, dropping
     /// each block's detail rows from last to first, then the block itself (with its leading
-    /// divider). The host decides <i>whether</i> to keep trimming; this type only decides
-    /// <i>what</i> goes next, so no measurement crosses back over the boundary.
+    /// divider). Settled row heights are consumed in that order before the host commits one final
+    /// layout, instead of rebuilding the complete Tooltip after every dropped item.
     /// </remarks>
     private sealed class ImpactContentBudget : IPairedContentBudget
     {
         private readonly List<ImpactContentBlock> _blocks;
         private readonly TMP_Text? _moreText;
-        private int _blockIndex = -1;
-        private int _rowIndex = -1;
-        private int _hiddenCount;
         private bool _started;
 
         internal ImpactContentBudget(List<ImpactContentBlock> blocks, TMP_Text? moreText)
@@ -406,33 +403,79 @@ internal sealed class NativePostCombatImpactTooltipView : IPostCombatImpactToolt
             foreach (var block in _blocks)
                 block.Restore();
             _moreText.transform.parent.gameObject.SetActive(false);
-            _blockIndex = _blocks.Count - 1;
-            _rowIndex = _blockIndex >= 0 ? _blocks[_blockIndex].DetailRows.Count - 1 : -1;
-            _hiddenCount = 0;
             _started = true;
         }
 
-        public bool TryShrinkOneStep()
+        public bool ApplyHeightReduction(float requiredHeightReduction)
         {
-            if (_moreText == null || !_started || _blockIndex < 0)
+            if (
+                _moreText == null
+                || !_started
+                || _blocks.Count == 0
+                || requiredHeightReduction <= 0f
+                || _moreText.transform.parent is not RectTransform moreRoot
+                || moreRoot.parent is not RectTransform perspectiveRoot
+                || !perspectiveRoot.TryGetComponent<VerticalLayoutGroup>(out var perspectiveLayout)
+            )
                 return false;
 
-            var block = _blocks[_blockIndex];
-            if (_rowIndex >= 0)
+            // Revealing the disclosure row adds both its own preferred height and one spacing slot
+            // to the perspective root. Consume that cost before counting any reclaimed content.
+            var remainingReduction =
+                requiredHeightReduction
+                + PreferredHeight(moreRoot)
+                + Mathf.Max(0f, perspectiveLayout.spacing);
+            var hiddenCount = 0;
+            for (var blockIndex = _blocks.Count - 1; blockIndex >= 0; blockIndex--)
             {
-                block.DetailRows[_rowIndex].SetActive(false);
-                _rowIndex--;
-                ShowMoreRow(_moreText, ++_hiddenCount);
-                return true;
+                var block = _blocks[blockIndex];
+                var remainingBlockHeight = PreferredHeight(block.Root);
+                var blockSpacing = block.Root.TryGetComponent<VerticalLayoutGroup>(out var layout)
+                    ? Mathf.Max(0f, layout.spacing)
+                    : 0f;
+                for (var rowIndex = block.DetailRows.Count - 1; rowIndex >= 0; rowIndex--)
+                {
+                    var row = block.DetailRows[rowIndex];
+                    var reclaimedHeight = PreferredHeight(row) + blockSpacing;
+                    row.SetActive(false);
+                    hiddenCount++;
+                    remainingBlockHeight = Mathf.Max(0f, remainingBlockHeight - reclaimedHeight);
+                    remainingReduction -= reclaimedHeight;
+                    if (remainingReduction <= 0f)
+                        return CommitDisclosure(_moreText, hiddenCount);
+                }
+
+                var reclaimedBlockHeight =
+                    remainingBlockHeight + Mathf.Max(0f, perspectiveLayout.spacing);
+                if (block.LeadingDivider != null)
+                {
+                    reclaimedBlockHeight +=
+                        PreferredHeight(block.LeadingDivider)
+                        + Mathf.Max(0f, perspectiveLayout.spacing);
+                    block.LeadingDivider.SetActive(false);
+                }
+                block.Root.SetActive(false);
+                hiddenCount++;
+                remainingReduction -= reclaimedBlockHeight;
+                if (remainingReduction <= 0f)
+                    return CommitDisclosure(_moreText, hiddenCount);
             }
 
-            block.Root.SetActive(false);
-            block.LeadingDivider?.SetActive(false);
-            _blockIndex--;
-            _rowIndex = _blockIndex >= 0 ? _blocks[_blockIndex].DetailRows.Count - 1 : -1;
-            ShowMoreRow(_moreText, ++_hiddenCount);
+            ShowMoreRow(_moreText, hiddenCount);
             return true;
         }
+
+        private static bool CommitDisclosure(TMP_Text moreText, int hiddenCount)
+        {
+            ShowMoreRow(moreText, hiddenCount);
+            return true;
+        }
+
+        private static float PreferredHeight(GameObject gameObject) =>
+            gameObject.transform is RectTransform rect ? PreferredHeight(rect) : 0f;
+
+        private static float PreferredHeight(RectTransform rect) =>
+            Mathf.Max(0f, LayoutUtility.GetPreferredHeight(rect));
     }
 
     private void DisposeNativePreviews()
