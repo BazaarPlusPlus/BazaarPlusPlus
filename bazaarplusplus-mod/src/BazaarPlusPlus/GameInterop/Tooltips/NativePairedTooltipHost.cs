@@ -460,9 +460,11 @@ internal sealed class NativePairedTooltipSession
                 _options.PreferredContentWidth
             )
         );
-        Canvas.ForceUpdateCanvases();
-        TempoUIUtility.ForceRebuildRecursive(auxiliary.PositioningRectTransform);
-        LayoutRebuilder.ForceRebuildLayoutImmediate(auxiliary.PositioningRectTransform);
+        SetNativeBottomPadding(_nativeNormalBottomPadding);
+        content.RestoreAll();
+        // Restoring a previously trimmed perspective can reactivate nested ContentSizeFitters.
+        // Settle the complete tree once at its final width before deriving the trim budget.
+        ForceRebuildLayout(auxiliary);
         ApplyNativeHeight(auxiliary);
         FitContentToCanvas(auxiliary, canvasRect, canvasBounds, content);
 
@@ -882,11 +884,12 @@ internal sealed class NativePairedTooltipSession
     }
 
     /// <summary>
-    /// Drives the owner's trim strategy until the panel fits the canvas height.
+    /// Applies the owner's final trim prefix and commits the resulting panel height once.
     /// </summary>
     /// <remarks>
-    /// Measurement and relayout stay here; the owner only decides what to drop next. That keeps the
-    /// fit loop from bouncing back and forth across the host boundary once per trimmed row.
+    /// The complete tree has already settled at its final width. The host converts the panel's
+    /// canvas-space overflow into the owner's local height, while the owner uses its settled row
+    /// geometry to apply the whole trim prefix without intermediate layout rebuilds.
     /// </remarks>
     private void FitContentToCanvas(
         AuxiliaryTooltipController auxiliary,
@@ -895,45 +898,54 @@ internal sealed class NativePairedTooltipSession
         IPairedContentBudget content
     )
     {
-        SetNativeBottomPadding(_nativeNormalBottomPadding);
-        content.RestoreAll();
-        RebuildAfterHeightBudgetChange(auxiliary);
-        CompactNativeBottomPaddingIfDense(auxiliary, canvasRect, canvasBounds);
+        var canvasUnitsPerLocalUnit = CanvasUnitsPerLocalUnit(
+            auxiliary.PositioningRectTransform,
+            canvasRect
+        );
+        var panelHeight = GetCanvasLocalBounds(
+            auxiliary.backgroundImage.rectTransform,
+            canvasRect
+        ).height;
+        var reclaimedBottomPadding = CompactNativeBottomPaddingIfDense(
+            panelHeight,
+            canvasBounds.height,
+            canvasUnitsPerLocalUnit
+        );
+        var effectivePanelHeight = panelHeight - reclaimedBottomPadding * canvasUnitsPerLocalUnit;
+        var requiredHeightReduction = Mathf.Max(
+            0f,
+            (effectivePanelHeight - canvasBounds.height - NativePairedTooltipMetrics.Epsilon)
+                / canvasUnitsPerLocalUnit
+        );
+        var contentChanged = content.ApplyHeightReduction(requiredHeightReduction);
+        if (reclaimedBottomPadding <= 0f && !contentChanged)
+            return;
 
-        while (!FitsCanvasHeight(auxiliary, canvasRect, canvasBounds))
-        {
-            if (!content.TryShrinkOneStep())
-                return;
-            RebuildAfterHeightBudgetChange(auxiliary);
-        }
+        RebuildAfterHeightBudgetChange(auxiliary);
     }
 
-    private void CompactNativeBottomPaddingIfDense(
-        AuxiliaryTooltipController auxiliary,
-        RectTransform canvasRect,
-        Rect canvasBounds
+    private float CompactNativeBottomPaddingIfDense(
+        float panelHeight,
+        float availableHeight,
+        float canvasUnitsPerLocalUnit
     )
     {
         var denseBottomPadding = Mathf.Min(
             _nativeNormalBottomPadding,
             _options.NativeDenseBottomPaddingMaximum
         );
-        var canvasUnitsPerLocalUnit = CanvasUnitsPerLocalUnit(
-            auxiliary.PositioningRectTransform,
-            canvasRect
-        );
         if (
             !NativePairedTooltipPlacementMath.ShouldUseDenseBottomPadding(
-                GetCanvasLocalBounds(auxiliary.backgroundImage.rectTransform, canvasRect).height,
-                canvasBounds.height,
+                panelHeight,
+                availableHeight,
                 _nativeNormalBottomPadding * canvasUnitsPerLocalUnit,
                 denseBottomPadding * canvasUnitsPerLocalUnit
             )
         )
-            return;
+            return 0f;
 
         SetNativeBottomPadding(denseBottomPadding);
-        RebuildAfterHeightBudgetChange(auxiliary);
+        return Mathf.Max(0, _nativeNormalBottomPadding - denseBottomPadding);
     }
 
     private void SetNativeBottomPadding(int bottomPadding)
@@ -952,17 +964,14 @@ internal sealed class NativePairedTooltipSession
         );
     }
 
-    private bool FitsCanvasHeight(
-        AuxiliaryTooltipController auxiliary,
-        RectTransform canvasRect,
-        Rect canvasBounds
-    ) =>
-        GetCanvasLocalBounds(auxiliary.backgroundImage.rectTransform, canvasRect).height
-        <= canvasBounds.height + NativePairedTooltipMetrics.Epsilon;
-
     private void RebuildAfterHeightBudgetChange(AuxiliaryTooltipController auxiliary)
     {
-        ForceRebuildLayout(auxiliary);
+        // The visibility plan was computed from a fully settled tree, so only the final layout
+        // needs committing. The general rebuild path remains two-pass for newly activated nested
+        // ContentSizeFitters outside this measured height-budget path.
+        Canvas.ForceUpdateCanvases();
+        TempoUIUtility.ForceRebuildRecursive(auxiliary.PositioningRectTransform);
+        LayoutRebuilder.ForceRebuildLayoutImmediate(auxiliary.PositioningRectTransform);
         ApplyNativeHeight(auxiliary);
     }
 
