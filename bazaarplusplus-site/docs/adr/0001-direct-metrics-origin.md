@@ -15,7 +15,7 @@ Hero Metrics Dataset 的数据托管在 `https://bpp-metrics.bazaarplusplus.com`
 
 ## Decision
 
-删除 `remoteMetricsPlugin`，dev、preview、生产统一直连远端 R2 origin。`preview` 脚本不再注入 `VITE_METRICS_BASE`；`.env.example` 只保留 `VITE_METRICS_BASE` 作为指向其他 origin 的逃生阀。
+删除 `remoteMetricsPlugin`，dev、preview、生产统一直连远端 R2 origin。`preview` 脚本不再注入 `VITE_METRICS_BASE`。origin 只写在代码默认值里。
 
 前提是 origin 已正确下发 CORS。实测确认：带 `Origin: http://localhost:3000` 与 `Origin: https://bazaarplusplus.com` 的 GET 均回显对应 `access-control-allow-origin` 并带 `vary: Origin`，`OPTIONS` 预检返回 204 且 `access-control-allow-methods: GET`。
 

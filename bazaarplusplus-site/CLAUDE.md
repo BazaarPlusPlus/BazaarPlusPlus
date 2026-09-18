@@ -9,7 +9,7 @@ Read `docs/ARCHITECTURE.md` before changing routes, URL/history behavior, Hero m
 - Code changes run `npm test`, `npm run typecheck`, `npm run lint`, and `npm run format:check`.
 - Also run `npm run build` when bundling or code-splitting can change. Deploy only when asked.
 - Use the existing dev and preview scripts; both reserve port 3000 with `strictPort`.
-- Local Hero Analysis needs no credentials: dev and preview both read the production metrics origin directly over CORS. Point `VITE_METRICS_BASE` elsewhere to use a different origin.
+- Local Hero Analysis needs no credentials: dev and preview both read the production metrics origin directly over CORS.
 
 ## Project Rules
 

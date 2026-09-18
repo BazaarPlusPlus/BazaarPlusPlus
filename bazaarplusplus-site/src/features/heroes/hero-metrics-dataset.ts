@@ -94,8 +94,7 @@ type LoadDatasetOptions = {
   signal?: AbortSignal;
 };
 
-const DEFAULT_METRICS_BASE_URL =
-  import.meta.env.VITE_METRICS_BASE ?? 'https://bpp-metrics.bazaarplusplus.com';
+const DEFAULT_METRICS_BASE_URL = 'https://bpp-metrics.bazaarplusplus.com';
 const DEFAULT_REQUEST_TIMEOUT_MS = 15_000;
 const DEFAULT_REQUEST_RETRIES = 2;
 const DEFAULT_REQUEST_RETRY_DELAY_MS = 250;

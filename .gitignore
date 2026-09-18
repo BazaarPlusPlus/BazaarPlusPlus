@@ -48,7 +48,6 @@ src-tauri/target/
 .env
 .env.*
 !.env.example
-!.env.sample
 .dev.vars
 .dev.vars.*
 
