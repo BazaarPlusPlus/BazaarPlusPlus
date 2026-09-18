@@ -29,6 +29,8 @@ internal sealed class CombatReplayVideoRecorder : MonoBehaviour
     private ReplayVideoRecordingOperation? _activeOperation;
     private PreparedCurrentReplayRecording? _preparedCurrentReplay;
     private readonly ConcurrentQueue<CombatReplayVideoRecordingCompleted> _completionEvents = new();
+    private readonly ConcurrentDictionary<string, IDisposable> _artifactProtectionLeases = new();
+    private ReplayMaintenanceFlight? _videoMaintenanceFlight;
     private readonly object _availabilitySync = new();
     private CurrentReplayRecorderAvailability _currentReplayAvailability = new(
         CurrentReplayRecorderAvailabilityPhase.Unavailable,
@@ -61,6 +63,10 @@ internal sealed class CombatReplayVideoRecorder : MonoBehaviour
             try
             {
                 _metadataStore = new CombatReplayVideoMetadataStore(runLogDatabasePath);
+                StartVideoMaintenance(
+                    _metadataStore,
+                    PathConstants.CombatReplayVideos(services.Paths.RequireDataRoot())
+                );
             }
             catch (Exception ex)
             {
@@ -297,6 +303,8 @@ internal sealed class CombatReplayVideoRecorder : MonoBehaviour
 
     private void OnDestroy()
     {
+        _videoMaintenanceFlight?.Dispose();
+        _videoMaintenanceFlight = null;
         AbortActiveSession("recorder-destroyed");
 
         // Best-effort drain of any in-flight background finalize/mux tasks so a recording
@@ -383,11 +391,7 @@ internal sealed class CombatReplayVideoRecorder : MonoBehaviour
                 return;
             }
 
-            var pluginsDirectoryPath = services.Paths.PluginsDirectoryPath;
-            var gate = CombatReplayRecordingGate.Evaluate(
-                pluginsDirectoryPath,
-                VideoDirectory(services)
-            );
+            var gate = CombatReplayRecordingGate.Evaluate(VideoDirectory(services));
             if (!gate.CanRecord)
             {
                 CompletePreflightFailure(operation, MapGateBlocker(gate.Blocker));
@@ -828,6 +832,16 @@ internal sealed class CombatReplayVideoRecorder : MonoBehaviour
         IBppServices services
     )
     {
+        var protection = ReplayVideoInFlightArtifacts.Protect(
+            operation.RecordingId,
+            [
+                request.OutputFilePath,
+                request.FinalOutputFilePath,
+                ReplayVideoAudioTapPlan.DeriveAudioWavPath(request.OutputFilePath),
+            ]
+        );
+        if (!_artifactProtectionLeases.TryAdd(operation.RecordingId, protection))
+            protection.Dispose();
         var session = new ReplayVideoCaptureSession(request);
         _activeOperation = operation;
         _activeSession = session;
@@ -1045,31 +1059,13 @@ internal sealed class CombatReplayVideoRecorder : MonoBehaviour
 
     private static string ComputeRelativePath(string? rootDirectory, string filePath)
     {
-        if (string.IsNullOrWhiteSpace(rootDirectory) || string.IsNullOrWhiteSpace(filePath))
-            return filePath ?? string.Empty;
-
-        try
-        {
-            var rootFull = Path.GetFullPath(rootDirectory);
-            var fileFull = Path.GetFullPath(filePath);
-            if (
-                fileFull.StartsWith(rootFull, StringComparison.OrdinalIgnoreCase)
-                && fileFull.Length > rootFull.Length
-            )
-            {
-                var trimmed = fileFull.Substring(rootFull.Length);
-                return trimmed.TrimStart(
-                    Path.DirectorySeparatorChar,
-                    Path.AltDirectorySeparatorChar
-                );
-            }
-        }
-        catch
-        {
-            // fall through
-        }
-
-        return filePath;
+        return ReplayVideoManagedPath.TryMakeRelative(
+            rootDirectory ?? string.Empty,
+            filePath,
+            out var relativePath
+        )
+            ? relativePath
+            : string.Empty;
     }
 
     private IEnumerator CaptureLoop(ReplayVideoCaptureSession session)
@@ -1510,6 +1506,8 @@ internal sealed class CombatReplayVideoRecorder : MonoBehaviour
 
     private void OnOperationCompleted(ReplayVideoRecordingTerminal terminal)
     {
+        if (_artifactProtectionLeases.TryRemove(terminal.RecordingId, out var protection))
+            protection.Dispose();
         _completionEvents.Enqueue(
             new CombatReplayVideoRecordingCompleted
             {
@@ -1531,6 +1529,75 @@ internal sealed class CombatReplayVideoRecorder : MonoBehaviour
             }
         );
     }
+
+    private void StartVideoMaintenance(
+        CombatReplayVideoMetadataStore metadataStore,
+        string videoDirectoryPath
+    )
+    {
+        _videoMaintenanceFlight ??= new ReplayMaintenanceFlight();
+        _videoMaintenanceFlight.Start(token =>
+        {
+            try
+            {
+                var result = new ReplayVideoArtifactMaintenanceService(
+                    metadataStore,
+                    new ReplayVideoArtifactFiles(),
+                    videoDirectoryPath,
+                    ReplayVideoInFlightArtifacts.SnapshotPaths
+                ).Run(
+                    DateTimeOffset.UtcNow,
+                    ReplayVideoArtifactMaintenanceService.DefaultTemporaryRetention,
+                    token
+                );
+                var fields = BuildVideoMaintenanceFields(
+                    result.DeleteFailureCount == 0 ? "completed" : "degraded",
+                    result
+                );
+                if (result.DeleteFailureCount == 0)
+                    BppLog.DebugEvent(
+                        CombatReplayVideoLogEvents.VideoArtifactMaintenanceObserved,
+                        () => fields
+                    );
+                else
+                    BppLog.WarnEvent(
+                        CombatReplayVideoLogEvents.VideoArtifactMaintenanceObserved,
+                        fields
+                    );
+            }
+            catch (OperationCanceledException) when (token.IsCancellationRequested) { }
+            catch (Exception ex)
+            {
+                BppLog.WarnEvent(
+                    CombatReplayVideoLogEvents.VideoArtifactMaintenanceObserved,
+                    ex,
+                    BuildVideoMaintenanceFields("failed", default)
+                );
+            }
+        });
+    }
+
+    private static BazaarPlusPlus.Infrastructure.Logging.BppLogFieldValue[] BuildVideoMaintenanceFields(
+        string status,
+        ReplayVideoMaintenanceResult result
+    ) =>
+        [
+            CombatReplayVideoLogEvents.MaintenanceStatus.Bind(status),
+            CombatReplayVideoLogEvents.MaintenanceMetadataCount.Bind(result.MetadataCount),
+            CombatReplayVideoLogEvents.MaintenancePresentCount.Bind(result.PresentMetadataCount),
+            CombatReplayVideoLogEvents.MaintenanceMissingCount.Bind(result.MissingMetadataCount),
+            CombatReplayVideoLogEvents.MaintenanceUnknownMp4Count.Bind(
+                result.UnknownSuccessfulMp4Count
+            ),
+            CombatReplayVideoLogEvents.MaintenanceTempCandidateCount.Bind(
+                result.TempCandidateCount
+            ),
+            CombatReplayVideoLogEvents.MaintenanceTempDeletedCount.Bind(result.TempDeletedCount),
+            CombatReplayVideoLogEvents.MaintenanceFailedCount.Bind(result.DeleteFailureCount),
+            CombatReplayVideoLogEvents.MaintenanceUnmanagedCount.Bind(
+                result.UnmanagedMetadataCount
+            ),
+        ];
 
     private readonly struct MetadataWriteOutcome
     {

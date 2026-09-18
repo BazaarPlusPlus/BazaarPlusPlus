@@ -1,0 +1,53 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="MessagePack" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/BazaarPlusPlus/BazaarPlusPlus.csproj" />
+    <Reference Include="BazaarGameClient">
+      <HintPath>$(ManagedPath)/BazaarGameClient.dll</HintPath>
+    </Reference>
+    <Reference Include="BazaarGameShared">
+      <HintPath>$(ManagedPath)/BazaarGameShared.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Fixtures/*.mpack.gz" />
+    <Compile Remove="FixtureGenerator/**/*.cs" />
+    <!-- The whole Combat Impact accounting engine plus the runtime adapters it reads through.
+         Directory globs rather than a per-file list: splitting or adding a file in these folders
+         is an ordinary refactor and must not require editing this project. -->
+    <Compile
+      Include="../../src/BazaarPlusPlus/Game/PostCombatImpact/Data/*.cs"
+      Link="Data/%(Filename)%(Extension)"
+    />
+    <Compile
+      Include="../../src/BazaarPlusPlus/Game/PostCombatImpact/Ui/*.cs"
+      Link="Ui/%(Filename)%(Extension)"
+    />
+    <!-- The two files in those folders that bind Assembly-CSharp types this project does not
+         reference: the tooltip view interface (native tooltip controllers) and the entity
+         snapshot reader (the TheBazaar runtime namespace). -->
+    <Compile Remove="../../src/BazaarPlusPlus/Game/PostCombatImpact/Ui/IPostCombatImpactTooltipView.cs" />
+    <Compile Remove="../../src/BazaarPlusPlus/Game/PostCombatImpact/Data/CombatImpactEntitySnapshotReader.cs" />
+    <Compile
+      Include="../../src/BazaarPlusPlus/GameInterop/CombatSimulation/*.cs"
+      Link="CombatSimulation/%(Filename)%(Extension)"
+    />
+  </ItemGroup>
+</Project>

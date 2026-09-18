@@ -1,0 +1,111 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <AssemblyName>Architecture.Tests</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="coverlet.collector">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/BazaarPlusPlus.Storage/BazaarPlusPlus.Storage.csproj" />
+    <ProjectReference
+      Include="../CombatImpact.Corpus/CombatImpact.Corpus.csproj"
+      ReferenceOutputAssembly="false"
+    />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile
+      Include="../../src/BazaarPlusPlus/Infrastructure/Logging/Core/BppLogSchema.cs"
+      Link="Logging/Core/BppLogSchema.cs"
+    />
+    <Compile
+      Include="../../src/BazaarPlusPlus/Infrastructure/Logging/Core/BppLogEventCatalog.cs"
+      Link="Logging/Core/BppLogEventCatalog.cs"
+    />
+    <Compile
+      Include="../../src/BazaarPlusPlus/Infrastructure/Logging/Core/BppLogSchemaRules.cs"
+      Link="Logging/Core/BppLogSchemaRules.cs"
+    />
+    <Compile Include="../../src/BazaarPlusPlus/PluginLogEvents.cs" Link="PluginLogEvents.cs" />
+    <Compile
+      Include="../../src/BazaarPlusPlus/GameInterop/Fonts/NativeGameFontsLogEvents.cs"
+      Link="NativeGameFontsLogEvents.cs"
+    />
+    <Compile
+      Include="../../src/BazaarPlusPlus/GameInterop/StaticCards/StaticCardsLogEvents.cs"
+      Link="StaticCardsLogEvents.cs"
+    />
+    <Compile
+      Include="../../src/BazaarPlusPlus/PluginTeardownAccumulator.cs"
+      Link="PluginTeardownAccumulator.cs"
+    />
+    <Compile Include="../../src/BazaarPlusPlus/PluginLogIdentity.cs" Link="PluginLogIdentity.cs" />
+    <Compile
+      Include="../../src/BazaarPlusPlus/Game/Settings/SettingsLogEvents.cs"
+      Link="SettingsLogEvents.cs"
+    />
+    <Compile
+      Include="../../src/BazaarPlusPlus/Game/CombatStatusBar/CombatStatusBarLogEvents.cs"
+      Link="CombatStatusBarLogEvents.cs"
+    />
+    <Compile
+      Include="../../src/BazaarPlusPlus/Game/PostCombatImpact/PostCombatImpactLogEvents.cs"
+      Link="PostCombatImpactLogEvents.cs"
+    />
+    <Compile
+      Include="../../src/BazaarPlusPlus/Infrastructure/Logging/OperationalHealthTracker.cs"
+      Link="Logging/OperationalHealthTracker.cs"
+    />
+    <Compile
+      Include="../../src/BazaarPlusPlus/Core/GameState/EncounterReflectionCollection.cs"
+      Link="GameState/EncounterReflectionCollection.cs"
+    />
+    <Compile
+      Include="../../src/BazaarPlusPlus/Game/Lobby/LobbyLogEvents.cs"
+      Link="LobbyLogEvents.cs"
+    />
+    <Compile
+      Include="../../src/BazaarPlusPlus/Game/Supporters/SupporterLogEvents.cs"
+      Link="SupporterLogEvents.cs"
+    />
+    <Compile
+      Include="../../src/BazaarPlusPlus/GameInterop/Localization/BilingualItemNamesLogEvents.cs"
+      Link="BilingualItemNamesLogEvents.cs"
+    />
+    <Compile
+      Include="../../src/BazaarPlusPlus/Game/EventPreview/EventPreviewLogEvents.cs"
+      Link="EventPreviewLogEvents.cs"
+    />
+    <Compile
+      Include="../../src/BazaarPlusPlus/Patches/NameOverride/NameOverrideLogEvents.cs"
+      Link="NameOverrideLogEvents.cs"
+    />
+    <Compile
+      Include="../../src/BazaarPlusPlus/Game/Tooltips/TooltipLogEvents.cs"
+      Link="TooltipLogEvents.cs"
+    />
+    <Compile
+      Include="../../src/BazaarPlusPlus/Game/ItemEnchantPreview/ItemEnchantPreviewLogEvents.cs"
+      Link="ItemEnchantPreviewLogEvents.cs"
+    />
+    <Compile
+      Include="../../src/BazaarPlusPlus/Game/PvpBattles/PvpBattleLogEvents.cs"
+      Link="PvpBattleLogEvents.cs"
+    />
+  </ItemGroup>
+</Project>

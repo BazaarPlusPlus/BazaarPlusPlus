@@ -43,7 +43,7 @@ If you only need the frontend (no native shell), `npm run dev` starts a Vite dev
 | `npm run test` | Rust tests (`src-tauri`) + frontend Vitest |
 | `npm run format` | Prettier across the configured globs |
 | `npm run prebuild-check` | Validate versioning, bundled resources, and Tauri config |
-| `npm run docs:check` | Validate documentation structure and citations |
+| `npm run docs:check` | Check that cited paths, doc links, and `CONTEXT.md` topic coverage all resolve |
 
 One thing to know: the TypeScript client for Tauri commands is **generated** from the Rust command signatures into `src/types/generated/`. `dev`, `build`, `check`, and `test` regenerate it automatically — never edit those files by hand.
 
@@ -85,5 +85,5 @@ Platform facts (bundle paths, updater keys, Rust targets) are defined in `script
 
 - **Start with [`CONTEXT.md`](CONTEXT.md)** — the entry map: vocabulary plus pointers telling you which topic doc to open for which kind of work.
 - `docs/*.md` — current behavior, split by topic (architecture, install/reset, updater, release, …).
-- `docs/adr/` — architectural decisions that still constrain work.
+- `docs/adr/` — architectural decisions that still constrain work; [ADR-007](docs/adr/007-documentation-contract.md) defines this layout.
 - Doc-layout policy lives in `CLAUDE.md`; platform smoke-test gaps are tracked as GitHub issues labelled `manual-validation`.

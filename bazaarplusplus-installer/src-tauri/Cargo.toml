@@ -1,6 +1,6 @@
 [package]
 name = "bppinstaller"
-version = "5.2.1"
+version = "5.4.0"
 description = "BazaarPlusPlus Desktop App"
 authors = ["cauyxy <cauyxy@gmail.com>"]
 edition = "2021"
@@ -37,7 +37,7 @@ base64 = "0.23.1"
 dirs = "6"
 keyvalues-parser = "0.2"
 zip = { version = "8", default-features = false, features = ["deflate"] }
-axum = { version = "0.8", features = ["multipart"] }
+axum = "0.8"
 tower-http = { version = "0.7", features = ["cors"] }
 tokio = { version = "1.53.1", features = ["rt-multi-thread", "macros", "sync", "net"] }
 rusqlite = { version = "0.40.2", features = ["bundled"] }
@@ -48,6 +48,9 @@ specta = { version = "=2.0.0-rc.25", features = ["derive"] }
 specta-typescript = "=0.0.12"
 tauri-specta = { version = "=2.0.0-rc.25", features = ["typescript"] }
 tempfile = "3"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+sha2 = "0.10.9"
 
 [target.'cfg(windows)'.dependencies]
 winreg = "0.56"
@@ -64,8 +67,6 @@ windows = { version = "0.62", features = [
 tauri-plugin-updater = "2"
 tauri-plugin-single-instance = "2.4.3"
 tauri-plugin-window-state = "2.4.1"
-
-[dev-dependencies]
 
 [profile.release]
 opt-level = "z"

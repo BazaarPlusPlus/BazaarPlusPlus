@@ -25,12 +25,9 @@ public sealed class RunLogStore : SqliteStoreBase, IRunLogStore
         using var connection = OpenConnection();
         using var transaction = connection.BeginTransaction();
 
-        if (HasTerminalStatus(connection, transaction, request.RunId))
-        {
-            throw new InvalidOperationException(
-                $"Run {request.RunId} already has terminal status and cannot be recreated."
-            );
-        }
+        var effectiveRunId = HasTerminalStatus(connection, transaction, request.RunId)
+            ? RunLogRunIdentity.CreateCollisionId(request.RunId)
+            : request.RunId;
 
         using var command = CreateCommand(connection, transaction);
         command.CommandText = $"""
@@ -83,7 +80,7 @@ public sealed class RunLogStore : SqliteStoreBase, IRunLogStore
                 status = excluded.status,
                 completed = 0;
             """;
-        command.Parameters.AddWithValue("$runId", request.RunId);
+        command.Parameters.AddWithValue("$runId", effectiveRunId);
         command.Parameters.AddWithValue("$startedAtUtc", request.StartedAtUtc.ToString("o"));
         command.Parameters.AddWithValue("$lastSeenAtUtc", request.StartedAtUtc.ToString("o"));
         command.Parameters.AddWithValue("$status", request.Status);
@@ -104,9 +101,9 @@ public sealed class RunLogStore : SqliteStoreBase, IRunLogStore
         command.ExecuteNonQuery();
 
         var session =
-            TryReadActiveRun(connection, transaction, request.RunId)
+            TryReadActiveRun(connection, transaction, effectiveRunId)
             ?? throw new InvalidOperationException(
-                $"Run {request.RunId} could not be loaded after create."
+                $"Run {effectiveRunId} could not be loaded after create."
             );
 
         transaction.Commit();

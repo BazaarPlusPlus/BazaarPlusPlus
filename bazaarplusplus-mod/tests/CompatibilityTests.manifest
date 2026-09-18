@@ -1,0 +1,3 @@
+# requirement|label|project
+decompiled-online|native asset compatibility premises|tests/NativeAssetCompatibility.Tests/NativeAssetCompatibility.Tests.csproj
+decompiled-any|online/PTR source premises|tests/PtrCompatibility.Tests/PtrCompatibility.Tests.csproj

@@ -28,13 +28,6 @@ internal enum HistoryPanelMountReasonCode
     DependencyUnavailable,
 }
 
-internal enum HistoryPanelDataset
-{
-    RecentRuns,
-    GhostBattles,
-    SelectedRunBattles,
-}
-
 internal enum HistoryPanelReplayReasonCode
 {
     Completed,
@@ -45,7 +38,6 @@ internal enum HistoryPanelReplayReasonCode
     ReplayRejected,
     ReplayDirectoryUnavailable,
     GhostDownloadUnavailable,
-    GhostDownloadLinkFailed,
     GhostDownloadFailed,
     GhostArtifactInvalid,
     GhostBattleMismatch,
@@ -102,11 +94,6 @@ internal enum HistoryPanelPreviewPayloadReasonCode
 {
     PayloadInvalid,
     PayloadUnreadable,
-}
-
-internal enum HistoryPanelRowReasonCode
-{
-    SnapshotDeserializeFailed,
 }
 
 internal enum HistoryPanelOpenReasonCode

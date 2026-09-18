@@ -1,0 +1,37 @@
+# Enforce LF line endings across the repository (working tree + repo).
+# https://git-scm.com/docs/gitattributes
+* text=auto eol=lf
+
+# Shell scripts must stay LF or bash chokes on the carriage returns.
+*.sh    text eol=lf
+*.bash  text eol=lf
+
+# Windows batch scripts genuinely need CRLF.
+*.bat   text eol=crlf
+*.cmd   text eol=crlf
+
+# Binary assets: never normalize, never diff.
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.ico   binary
+*.icns  binary
+*.webp  binary
+*.bmp   binary
+*.zip   binary
+*.gz    binary
+*.7z    binary
+*.dll   binary
+*.exe   binary
+*.so    binary
+*.dylib binary
+*.lib   binary
+*.pdb   binary
+*.woff  binary
+*.woff2 binary
+*.ttf   binary
+*.otf   binary
+*.eot   binary
+*.pdf   binary
+*.wasm  binary

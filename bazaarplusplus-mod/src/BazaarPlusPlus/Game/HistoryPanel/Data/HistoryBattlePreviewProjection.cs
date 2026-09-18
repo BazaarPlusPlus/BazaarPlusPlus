@@ -18,47 +18,24 @@ internal static class HistoryBattlePreviewProjection
     > SocketEffectAttributeTypeCache = new();
     private static object? _staticGameData;
 
-    public static HistoryBattlePreviewData BuildEmpty(string signature = "")
-    {
-        return new HistoryBattlePreviewData(
-            new BppItemBoard(
-                BppItemBoardId.Historical,
-                BppItemBoardType.Reference,
-                Array.Empty<BppItemBoardCard>(),
-                signature
-            ),
-            signature
-        );
-    }
-
-    public static HistoryBattlePreviewData BuildPlayer(
-        PvpBattleSnapshots? snapshots,
-        string signature
-    )
+    public static BppItemBoard BuildPlayer(PvpBattleSnapshots? snapshots, string signature)
     {
         return Build(snapshots?.PlayerHand, signature);
     }
 
-    public static HistoryBattlePreviewData BuildOpponent(
-        PvpBattleSnapshots? snapshots,
-        string signature
-    )
+    public static BppItemBoard BuildOpponent(PvpBattleSnapshots? snapshots, string signature)
     {
         return Build(snapshots?.OpponentHand, signature);
     }
 
-    public static HistoryBattlePreviewData Build(
-        PvpBattleCardSetCapture? itemCapture,
-        string signature
-    )
+    public static BppItemBoard Build(PvpBattleCardSetCapture? itemCapture, string signature)
     {
-        var board = new BppItemBoard(
+        return new BppItemBoard(
             BppItemBoardId.Historical,
             BppItemBoardType.Reference,
             BuildItemBoardCards(itemCapture?.Items),
             signature
         );
-        return new HistoryBattlePreviewData(board, signature);
     }
 
     public static HistoryBattleSnapshotCounts CountSnapshots(

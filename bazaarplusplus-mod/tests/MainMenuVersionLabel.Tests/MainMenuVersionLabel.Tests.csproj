@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile
+      Include="../../src/BazaarPlusPlus/Game/Lobby/MainMenuVersionComparer.cs"
+      Link="MainMenuVersionComparer.cs"
+    />
+    <Compile
+      Include="../../src/BazaarPlusPlus/Game/Lobby/MainMenuVersionLabelFormatter.cs"
+      Link="MainMenuVersionLabelFormatter.cs"
+    />
+    <Compile Include="Program.cs" />
+  </ItemGroup>
+</Project>

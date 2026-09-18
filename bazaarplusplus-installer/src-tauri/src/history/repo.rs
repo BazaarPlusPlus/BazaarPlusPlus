@@ -8,13 +8,16 @@ use crate::history::dto::HistoryRunDetail as HistoryRunDetailDto;
 use crate::history::files::{remove_video_file, resolve_data_file_path, resolve_screenshot_path};
 use crate::history::mapper::{map_run_to_detail_row, map_run_to_list_row};
 use crate::history::queries::{
-    self, completed_video_count, completed_video_counts, list_run_rows, load_battle_rows,
-    load_battle_video_ref, load_run_row, load_run_video_refs, load_summary, local_player_name,
-    open_connection, open_write_connection, table_exists,
+    self, list_run_rows, load_battle_rows, load_battle_video_ref, load_run_row, load_summary,
+    local_player_name, open_connection, open_write_connection, table_exists,
 };
 use crate::history::screenshots::{primary_screenshot, primary_screenshot_ids};
 
-pub fn list_history_runs(database_path: &Path, limit: usize) -> Result<HistoryRunList, String> {
+pub fn list_history_runs(
+    database_path: &Path,
+    limit: usize,
+    offset: usize,
+) -> Result<HistoryRunList, String> {
     let empty = || HistoryRunList {
         summary: HistorySummary {
             runs: 0,
@@ -36,21 +39,19 @@ pub fn list_history_runs(database_path: &Path, limit: usize) -> Result<HistoryRu
 
     let summary = load_summary(&conn)?;
     let effective_limit = i64::try_from(limit.max(1)).map_err(|err| err.to_string())?;
-    let rows = list_run_rows(&conn, effective_limit)?;
+    let effective_offset = i64::try_from(offset).map_err(|err| err.to_string())?;
+    let rows = list_run_rows(&conn, effective_limit, effective_offset)?;
     let run_ids = rows
         .iter()
         .map(|row| row.run_id.clone())
         .collect::<Vec<_>>();
     let screenshot_ids = primary_screenshot_ids(&conn, &run_ids)?;
-    let video_counts = completed_video_counts(&conn, &run_ids)?;
 
     let runs = rows
         .into_iter()
         .map(|row| {
-            let run_id = row.run_id.clone();
-            let screenshot_id = screenshot_ids.get(&run_id).cloned();
-            let video_count = video_counts.get(&run_id).copied().unwrap_or(0);
-            map_run_to_list_row(row, screenshot_id, video_count)
+            let screenshot_id = screenshot_ids.get(&row.run_id).cloned();
+            map_run_to_list_row(row, screenshot_id)
         })
         .collect();
 
@@ -74,12 +75,11 @@ pub fn get_history_run_detail(
         return Ok(None);
     };
     let screenshot_id = primary_screenshot(&conn, run_id)?.map(|screenshot| screenshot.id);
-    let video_count = completed_video_count(&conn, run_id)?;
     let player_name = local_player_name(&conn, run_id)?;
     let battles = load_battle_rows(&conn, run_id)?;
 
     Ok(Some(HistoryRunDetailDto {
-        run: map_run_to_detail_row(row, screenshot_id, video_count, player_name),
+        run: map_run_to_detail_row(row, screenshot_id, player_name),
         battles,
     }))
 }
@@ -136,34 +136,9 @@ pub fn delete_battle_video(
     Ok(deleted > 0)
 }
 
-pub fn delete_run_videos(
-    database_path: &Path,
-    video_dir: &Path,
-    run_id: &str,
-) -> Result<usize, String> {
-    let mut conn = open_write_connection(database_path)?;
-    let videos = load_run_video_refs(&conn, run_id)?;
-    for video in &videos {
-        remove_video_file(video_dir, &video.relative_path)?;
-    }
-    let transaction = conn.transaction().map_err(|err| err.to_string())?;
-    for video in &videos {
-        transaction
-            .execute(
-                "delete from combat_replay_videos where video_id = ?1",
-                [&video.video_id],
-            )
-            .map_err(|err| err.to_string())?;
-    }
-    transaction.commit().map_err(|err| err.to_string())?;
-    Ok(videos.len())
-}
-
 #[cfg(test)]
 mod tests {
-    use super::{
-        delete_battle_video, delete_run_videos, get_history_run_detail, list_history_runs,
-    };
+    use super::{delete_battle_video, get_history_run_detail, list_history_runs};
     use crate::config::DATABASE_FILE_NAME;
     use crate::history::dto::{HistoryBattleRow, HistoryBattleVideo};
     use crate::services::paths;
@@ -171,7 +146,7 @@ mod tests {
     fn create_history_schema(conn: &rusqlite::Connection) {
         conn.execute_batch(
             "
-            pragma user_version = 1;
+            pragma user_version = 2;
             create table runs (
                 run_id text primary key,
                 started_at_utc text not null,
@@ -218,7 +193,20 @@ mod tests {
                 opponent_rating integer null,
                 result text null,
                 deleted_at_utc text null,
-                foreign key (run_id) references runs(run_id) on delete cascade
+                has_local_payload integer not null default 0,
+                local_payload_state text null,
+                local_payload_maintenance_at_utc text null,
+                foreign key (run_id) references runs(run_id) on delete cascade,
+                check (
+                    (source = 'LOCAL' and local_payload_state is not null and (
+                        (local_payload_state = 'ready' and has_local_payload = 1)
+                        or
+                        (local_payload_state in ('delete_pending', 'evicted', 'missing')
+                         and has_local_payload = 0)
+                    ))
+                    or
+                    (source <> 'LOCAL' and local_payload_state is null)
+                )
             );
             create table battle_snapshots (
                 battle_id text primary key,
@@ -255,8 +243,45 @@ mod tests {
                 started_at_utc text not null,
                 duration_ms integer null,
                 file_size_bytes integer null,
-                status text not null
+                status text not null,
+                attachment_state text not null default 'attached',
+                file_state text not null default 'pending',
+                detached_at_utc text null,
+                missing_at_utc text null,
+                last_reconciled_at_utc text null,
+                check (attachment_state in ('attached', 'detached')),
+                check (file_state in ('pending', 'present', 'missing', 'deleted'))
             );
+            create trigger trg_battles_local_payload_insert
+            before insert on battles
+            when not (
+                (new.source = 'LOCAL' and new.local_payload_state is not null and (
+                    (new.local_payload_state = 'ready' and new.has_local_payload = 1)
+                    or
+                    (new.local_payload_state in ('delete_pending', 'evicted', 'missing')
+                     and new.has_local_payload = 0)
+                ))
+                or
+                (new.source <> 'LOCAL' and new.local_payload_state is null)
+            )
+            begin
+                select raise(abort, 'invalid local payload lifecycle state');
+            end;
+            create trigger trg_battles_local_payload_update
+            before update of source, has_local_payload, local_payload_state on battles
+            when not (
+                (new.source = 'LOCAL' and new.local_payload_state is not null and (
+                    (new.local_payload_state = 'ready' and new.has_local_payload = 1)
+                    or
+                    (new.local_payload_state in ('delete_pending', 'evicted', 'missing')
+                     and new.has_local_payload = 0)
+                ))
+                or
+                (new.source <> 'LOCAL' and new.local_payload_state is null)
+            )
+            begin
+                select raise(abort, 'invalid local payload lifecycle state');
+            end;
             create table bundle_seal_jobs (
                 run_id text primary key,
                 state text not null default 'waiting',
@@ -301,7 +326,7 @@ mod tests {
     }
 
     #[test]
-    fn list_history_runs_derives_summary_results_video_counts_and_strip_urls() {
+    fn list_history_runs_derives_summary_results_and_strip_urls() {
         let temp_dir = tempfile::tempdir().unwrap();
         let database_path = temp_dir.path().join(DATABASE_FILE_NAME);
         let conn = rusqlite::Connection::open(&database_path).unwrap();
@@ -328,9 +353,11 @@ mod tests {
                  'win.png', '2026-05-20T11:00:00Z', '2026-05-20T19:00:00+08:00');
 
             insert into battles (
-                battle_id, source, run_id, recorded_at_utc, opponent_name
+                battle_id, source, run_id, recorded_at_utc, opponent_name,
+                has_local_payload, local_payload_state
             ) values
-                ('battle-1', 'LOCAL', 'run-win', '2026-05-20T10:30:00Z', 'Opponent');
+                ('battle-1', 'LOCAL', 'run-win', '2026-05-20T10:30:00Z', 'Opponent',
+                 0, 'missing');
 
             insert into combat_replay_videos (
                 video_id, battle_id, video_relative_path, started_at_utc,
@@ -342,7 +369,7 @@ mod tests {
         )
         .unwrap();
 
-        let payload = list_history_runs(&database_path, 20).unwrap();
+        let payload = list_history_runs(&database_path, 20, 0).unwrap();
 
         assert_eq!(payload.summary.runs, 3);
         assert_eq!(payload.summary.videos, 1);
@@ -360,9 +387,40 @@ mod tests {
             payload.runs[1].strip_url.as_deref(),
             Some("/images/shot-win/strip")
         );
-        assert_eq!(payload.runs[1].video_count, 1);
         assert_eq!(payload.runs[2].run_id, "run-loss");
         assert_eq!(payload.runs[2].result, "loss");
+    }
+
+    #[test]
+    fn history_pages_reach_older_runs_without_duplicates_and_keep_the_full_summary() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let database_path = temp_dir.path().join(DATABASE_FILE_NAME);
+        let conn = rusqlite::Connection::open(&database_path).unwrap();
+        create_history_schema(&conn);
+        for index in 0..235 {
+            conn.execute(
+                "insert into runs (run_id, started_at_utc, last_seen_at_utc, status, hero, game_mode)
+                 values (?1, '2026-09-12T10:00:00Z', '2026-09-12T11:00:00Z', 'active', 'Vanessa', 'Ranked')",
+                [format!("run-{index:03}")],
+            )
+            .unwrap();
+        }
+
+        let mut ids = Vec::new();
+        for offset in [0, 50, 100, 150, 200] {
+            let page = list_history_runs(&database_path, 50, offset).unwrap();
+            assert_eq!(page.summary.runs, 235);
+            assert_eq!(page.runs.len(), if offset == 200 { 35 } else { 50 });
+            ids.extend(page.runs.into_iter().map(|run| run.run_id));
+        }
+        let expected: Vec<_> = (0..235)
+            .rev()
+            .map(|index| format!("run-{index:03}"))
+            .collect();
+        assert_eq!(ids, expected);
+        let beyond_end = list_history_runs(&database_path, 50, 250).unwrap();
+        assert!(beyond_end.runs.is_empty());
+        assert_eq!(beyond_end.summary.runs, 235);
     }
 
     #[test]
@@ -400,14 +458,15 @@ mod tests {
 
             insert into battles (
                 battle_id, source, run_id, recorded_at_utc, day, hour,
-                player_name, opponent_hero, opponent_name, opponent_rank, opponent_rating, result
+                player_name, opponent_hero, opponent_name, opponent_rank, opponent_rating, result,
+                has_local_payload, local_payload_state
             ) values
                 ('battle-1', 'LOCAL', 'run-win', '2026-05-20T10:30:00Z', 8, 1,
-                 'cauyxy', 'Dooley', 'Opponent A', 'Diamond III', 1410, 'Won'),
+                 'cauyxy', 'Dooley', 'Opponent A', 'Diamond III', 1410, 'Won', 1, 'ready'),
                 ('battle-2', 'LOCAL', 'run-win', '2026-05-20T10:10:00Z', 7, 0,
-                 'cauyxy', 'Pygmalien', 'Opponent B', 'Diamond IV', 1360, 'Lost'),
+                 'cauyxy', 'Pygmalien', 'Opponent B', 'Diamond IV', 1360, 'Lost', 0, 'missing'),
                 ('battle-ghost', 'GHOST', 'run-win', '2026-05-20T10:40:00Z', 9, 0,
-                 'cauyxy', 'Mak', 'Ghost', 'Diamond I', 1500, 'Won');
+                 'cauyxy', 'Mak', 'Ghost', 'Diamond I', 1500, 'Won', 0, null);
 
             insert into combat_replay_videos (
                 video_id, battle_id, video_relative_path, started_at_utc,
@@ -428,7 +487,6 @@ mod tests {
             .unwrap()
             .unwrap();
         assert_eq!(detail.run.player_name.as_deref(), Some("cauyxy"));
-        assert_eq!(detail.run.final_hour, Some(7));
         assert_eq!(
             detail.run.strip_url.as_deref(),
             Some("/images/shot-win/strip")
@@ -470,15 +528,5 @@ mod tests {
                 .map(|video| video.video_id.as_str()),
             Some("video-old")
         );
-
-        assert_eq!(
-            delete_run_videos(&database_path, &video_dir, "run-win").unwrap(),
-            1
-        );
-        assert!(!dated_videos_dir.join("old.mp4").exists());
-        let detail = get_history_run_detail(&database_path, "run-win")
-            .unwrap()
-            .unwrap();
-        assert_eq!(detail.battles[0].video, None);
     }
 }

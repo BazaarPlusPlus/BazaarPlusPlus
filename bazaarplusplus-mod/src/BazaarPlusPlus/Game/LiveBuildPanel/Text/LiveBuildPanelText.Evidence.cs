@@ -7,7 +7,6 @@ namespace BazaarPlusPlus.Game.LiveBuildPanel;
 
 internal static partial class LiveBuildPanelText
 {
-    private static readonly LocalizedTextSet TenWinLabelText = new("10-win", "十胜", "十勝");
     private static readonly LocalizedTextSet MatchRateLabelText = new(
         "Ten-win rate",
         "十胜率",
@@ -29,9 +28,6 @@ internal static partial class LiveBuildPanelText
         "命中候選"
     );
     private static readonly LocalizedTextSet MissingValueText = new("—", "—", "—");
-
-    public static string RecommendationCount(int index, int count) =>
-        count <= 0 ? NoRecommendation() : $"{index + 1}/{count}";
 
     public static string MatchRateLabel() => L.Resolve(MatchRateLabelText);
 

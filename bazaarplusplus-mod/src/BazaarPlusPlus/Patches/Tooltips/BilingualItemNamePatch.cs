@@ -37,9 +37,7 @@ internal static class BilingualItemNamePatch
                 : ChineseTranslationCatalog.TryResolve(titleToken);
             var subtitle = BilingualItemNamePresentation.TryBuildSubtitle(
                 controller.headerText?.text,
-                secondaryTitle,
-                enabled,
-                isSupportedCard: true
+                secondaryTitle
             );
             if (subtitle == null)
             {

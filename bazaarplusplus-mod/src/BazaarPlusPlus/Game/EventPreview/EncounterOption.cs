@@ -30,8 +30,6 @@ internal sealed class EncounterOption
 
     public IReadOnlyList<EncounterChoiceDetail> ChoiceDetails { get; }
 
-    public bool HasRewardFilter => RewardFilter != null;
-
     public bool HasChoiceDetails => ChoiceDetails.Count > 0;
 
     // Non-null for random-outcome events (the event rolls one weighted group instead

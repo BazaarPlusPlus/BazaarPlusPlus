@@ -32,8 +32,6 @@ internal sealed class WavStreamWriter : IDisposable
 
     public string FilePath { get; }
 
-    public long DataByteLength => _dataByteLength;
-
     /// <summary>
     /// Appends <paramref name="floatCount"/> little-endian float samples starting
     /// at <paramref name="offset"/> within <paramref name="buffer"/>. Writer-thread only.
@@ -50,18 +48,6 @@ internal sealed class WavStreamWriter : IDisposable
         Buffer.BlockCopy(buffer, offset * 4, _scratch, 0, byteLen);
         _stream.Write(_scratch, 0, byteLen);
         _dataByteLength += byteLen;
-    }
-
-    /// <summary>
-    /// Overrides the channel count written into the final WAV header on <see cref="Dispose"/>.
-    /// The on-disk samples are channel-agnostic interleaved floats, so only the header fields
-    /// need the corrected count.
-    /// No-op for non-positive values. Owner only, before <see cref="Dispose"/>.
-    /// </summary>
-    public void SetChannelCount(int channels)
-    {
-        if (channels > 0)
-            _channels = channels;
     }
 
     /// <summary>

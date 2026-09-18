@@ -61,7 +61,6 @@ export type InstallNoticeCode =
 export type InstallNotice = {
   id: number;
   code: InstallNoticeCode;
-  params: Record<string, string>;
 };
 
 export type InstallActionAvailability = {
@@ -218,7 +217,7 @@ class DefaultInstallWorkflow implements InstallWorkflow {
     this.state = initialState();
     this.confirmation.clear();
     this.publish();
-    await this.loadState(null, lifecycle, 'refresh');
+    await this.loadState(null, lifecycle);
   }
 
   dispose() {
@@ -239,7 +238,7 @@ class DefaultInstallWorkflow implements InstallWorkflow {
       this.state.resource.kind === 'ready'
         ? (this.state.resource.data.selected_game_path ?? null)
         : null;
-    return this.loadState(path, lifecycle, 'refresh');
+    return this.loadState(path, lifecycle);
   }
 
   private async chooseDirectory(): Promise<boolean> {
@@ -437,14 +436,13 @@ class DefaultInstallWorkflow implements InstallWorkflow {
 
   private async loadState(
     gamePath: string | null,
-    lifecycle: number,
-    operation: Extract<InstallOperation, 'refresh'>
+    lifecycle: number
   ): Promise<boolean> {
     if (!this.isCurrentLifecycle(lifecycle)) return false;
     if (this.state.operation !== null) return false;
 
     const requestId = ++this.requestId;
-    this.state.operation = operation;
+    this.state.operation = 'refresh';
     this.state.actionProblem = null;
     this.state.reconciliationProblem = null;
     this.clearNotice();
@@ -524,7 +522,7 @@ class DefaultInstallWorkflow implements InstallWorkflow {
 
   private showNotice(code: InstallNoticeCode) {
     this.noticeId += 1;
-    this.state.notice = { id: this.noticeId, code, params: {} };
+    this.state.notice = { id: this.noticeId, code };
   }
 
   private clearNotice() {
@@ -566,7 +564,6 @@ class DefaultInstallWorkflow implements InstallWorkflow {
     const confirmationRunning = confirmation?.phase === 'running';
     const confirmationFailed = confirmation?.phase === 'failed';
     const confirmationConfirming = confirmation?.phase === 'confirming';
-    const data = this.readyData();
     const refreshing =
       this.state.resource.kind === 'ready' &&
       this.state.resource.refresh.phase === 'refreshing';
@@ -706,7 +703,7 @@ function operationForConfirmation(
   }
 }
 
-export function deriveInstallPrimaryAction(
+function deriveInstallPrimaryAction(
   state: InstallState,
   current: InstallOperation | null,
   blocked: boolean

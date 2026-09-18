@@ -5,9 +5,12 @@ internal sealed class PvpBattleCatalog : IPvpBattleCatalog
 {
     private readonly PvpBattleSqliteStore _store;
 
-    public PvpBattleCatalog(string databasePath)
+    public PvpBattleCatalog(
+        string databasePath,
+        Action<ReplayPayloadMaintenanceStorageEvent>? maintenanceDiagnostics = null
+    )
     {
-        _store = new PvpBattleSqliteStore(databasePath);
+        _store = new PvpBattleSqliteStore(databasePath, maintenanceDiagnostics);
     }
 
     public void Save(PvpBattleManifest manifest)
@@ -16,11 +19,6 @@ internal sealed class PvpBattleCatalog : IPvpBattleCatalog
             throw new ArgumentNullException(nameof(manifest));
 
         _store.Save(manifest);
-    }
-
-    public void Delete(string battleId)
-    {
-        _store.Delete(battleId);
     }
 
     public void AttachToRun(string battleId, string runId)
@@ -33,9 +31,30 @@ internal sealed class PvpBattleCatalog : IPvpBattleCatalog
         return _store.TryLoad(battleId);
     }
 
-    public IEnumerable<string> ListBattleIds()
+    public IReadOnlyList<ReplayPayloadMaintenanceRecord> ListReplayMaintenanceInventory()
     {
-        return _store.ListBattleIds();
+        return _store.ListReplayMaintenanceInventory();
+    }
+
+    public IReadOnlyList<string> ScheduleReplayPayloadDeletion(
+        IReadOnlyCollection<string> battleIds,
+        DateTimeOffset now
+    )
+    {
+        return _store.ScheduleReplayPayloadDeletion(battleIds, now);
+    }
+
+    public void CompleteReplayPayloadDeletion(
+        IReadOnlyCollection<string> battleIds,
+        DateTimeOffset now
+    )
+    {
+        _store.CompleteReplayPayloadDeletion(battleIds, now);
+    }
+
+    public void MarkReplayPayloadMissing(IReadOnlyCollection<string> battleIds, DateTimeOffset now)
+    {
+        _store.MarkReplayPayloadMissing(battleIds, now);
     }
 
     public IReadOnlyList<PvpBattleManifest> ListRecentBattles(int limit)

@@ -2,7 +2,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
-import { execFileSync } from 'node:child_process';
+import { runGit } from '../git-command.mjs';
 import { RELEASE_PLATFORMS } from './release-platforms.mjs';
 
 function platformDefinition(buildPlatform) {
@@ -19,15 +19,14 @@ function sha256(buffer) {
   return crypto.createHash('sha256').update(buffer).digest('hex');
 }
 
-function gitStateForRoot(rootDir) {
-  const commit = execFileSync('git', ['rev-parse', 'HEAD'], {
-    cwd: rootDir,
-    encoding: 'utf8'
-  }).trim();
-  const status = execFileSync(
-    'git',
-    ['status', '--porcelain', '--untracked-files=all'],
-    { cwd: rootDir, encoding: 'utf8' }
+export function gitStateForRoot(rootDir) {
+  const commit = runGit(['rev-parse', 'HEAD'], { cwd: rootDir }).trim();
+  // Pathspec `.` keeps this dirty bit on the project directory. In the
+  // snapshot monorepo the git root is the parent, and an unscoped status
+  // would treat a dirty sibling as an installer dirty tree.
+  const status = runGit(
+    ['status', '--porcelain', '--untracked-files=all', '--', '.'],
+    { cwd: rootDir }
   ).trim();
   return { commit, dirty: status.length > 0 };
 }

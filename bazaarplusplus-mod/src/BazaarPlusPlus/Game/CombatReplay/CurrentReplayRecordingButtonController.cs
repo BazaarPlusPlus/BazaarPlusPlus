@@ -1,11 +1,12 @@
 #nullable enable
 using BazaarPlusPlus.Game.CollectionPanel;
 using BazaarPlusPlus.Game.Settings;
+using BazaarPlusPlus.GameInterop.Scenes;
+using BazaarPlusPlus.Localization;
 using TheBazaar.Cues;
 using TheBazaar.SequenceFramework;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
-using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 namespace BazaarPlusPlus.Game.CombatReplay;
@@ -31,11 +32,14 @@ internal sealed class CurrentReplayRecordingButtonController : MonoBehaviour
     private BppDockButtonSpriteId? _lastSpriteId;
     private readonly BppDockButtonScreenLayout _screenLayout = new();
     private readonly CurrentReplayRecordingUiLogState _uiLogState = new();
+    private readonly CurrentReplayRecordingStartFailureFeedback _startFailureFeedback = new();
     private readonly BppScreenResizeSyncTracker _screenResizeSync = new(ScreenResizeSyncFrameCount);
     private readonly BppDockLayoutSyncTracker _layoutSync = new(LayoutImmediateSyncFrameCount);
+    private CollectionPanelDockButtonController? _dockAnchorController;
     private bool _layoutAvailable;
     private bool _anchorWasActive;
     private CurrentReplayRecordingUiLayoutReasonCode _layoutReasonCode;
+    private TooltipKey? _lastTooltipKey;
 
     internal static CurrentReplayRecordingButtonController? Attach(Button settingsButton)
     {
@@ -125,7 +129,7 @@ internal sealed class CurrentReplayRecordingButtonController : MonoBehaviour
         // which screenshot suppression toggles inactive outside of any scene or resolution change.
         var anchorIsActive = IsDockAnchorActive();
         var shouldSync = _layoutSync.ShouldSync(
-            SceneManager.GetActiveScene().name,
+            ActiveSceneNameCache.Current,
             Time.realtimeSinceStartup
         );
         shouldSync |= _screenResizeSync.ShouldSync(Screen.width, Screen.height);
@@ -138,13 +142,23 @@ internal sealed class CurrentReplayRecordingButtonController : MonoBehaviour
 
     private bool IsDockAnchorActive()
     {
-        if (_settingsButton == null)
-            return false;
-
-        var collectionRect = _settingsButton
-            .GetComponent<CollectionPanelDockButtonController>()
-            ?.DockButtonRect;
+        var collectionRect = ResolveDockAnchorController()?.DockButtonRect;
         return collectionRect != null && collectionRect.gameObject.activeInHierarchy;
+    }
+
+    // The sibling dock controller lives on the settings button's own GameObject and is stable once
+    // attached, so the component lookup is cached. Attach order is not guaranteed (only the
+    // FightMenu path orders the two attaches), so a still-missing sibling is re-probed.
+    private CollectionPanelDockButtonController? ResolveDockAnchorController()
+    {
+        if (_dockAnchorController != null)
+            return _dockAnchorController;
+
+        if (_settingsButton == null)
+            return null;
+
+        _dockAnchorController = _settingsButton.GetComponent<CollectionPanelDockButtonController>();
+        return _dockAnchorController;
     }
 
     private void OnDisable()
@@ -199,11 +213,9 @@ internal sealed class CurrentReplayRecordingButtonController : MonoBehaviour
         );
     }
 
-    private static Button ResolveDockAnchorButton(Button settingsButton)
+    private Button ResolveDockAnchorButton(Button settingsButton)
     {
-        var collectionRect = settingsButton
-            .GetComponent<CollectionPanelDockButtonController>()
-            ?.DockButtonRect;
+        var collectionRect = ResolveDockAnchorController()?.DockButtonRect;
         if (
             collectionRect != null
             && collectionRect.gameObject.activeInHierarchy
@@ -221,6 +233,7 @@ internal sealed class CurrentReplayRecordingButtonController : MonoBehaviour
         if (_clone == null || _button == null)
             return;
         var snapshot = GetDisplaySnapshot();
+        var startFailureStatusCode = _startFailureFeedback.Observe(snapshot);
         var visible = snapshot.Visible && _layoutAvailable;
         var wasActive = _clone.activeSelf;
         if (_clone.activeSelf != visible)
@@ -247,7 +260,25 @@ internal sealed class CurrentReplayRecordingButtonController : MonoBehaviour
 
         _button.interactable = snapshot.CanReveal || (nativeActionsBound && snapshot.CanStart);
         if (_cueActivator != null)
-            _cueActivator.defaultValue = CurrentReplayRecordingText.Tooltip(snapshot);
+        {
+            // The tooltip text is a pure function of these inputs, so it is rebuilt only when one
+            // of them changes rather than on every visible frame.
+            var tooltipKey = new TooltipKey(
+                snapshot.Phase,
+                snapshot.CanStart,
+                snapshot.StatusCode,
+                startFailureStatusCode,
+                L.CurrentLanguageCode,
+                L.CurrentMode
+            );
+            if (_lastTooltipKey != tooltipKey)
+            {
+                _lastTooltipKey = tooltipKey;
+                _cueActivator.defaultValue = startFailureStatusCode.HasValue
+                    ? CurrentReplayRecordingText.StartFailure(startFailureStatusCode.Value)
+                    : CurrentReplayRecordingText.Tooltip(snapshot);
+            }
+        }
         ApplyIcon(snapshot.Phase);
     }
 
@@ -276,12 +307,18 @@ internal sealed class CurrentReplayRecordingButtonController : MonoBehaviour
             return;
 
         if (snapshot.CanStart)
-            runtime.TryStartCurrentReplayRecording(
+        {
+            var started = runtime.TryStartCurrentReplayRecording(
                 nativeReplayButton.onClick.Invoke,
                 nativeRecapButton.onClick.Invoke,
                 nativeRecapBackButton.onClick.Invoke,
-                out _
+                out var startStatusCode
             );
+            if (started)
+                _startFailureFeedback.Clear();
+            else
+                _startFailureFeedback.ReportFailure(startStatusCode, GetDisplaySnapshot());
+        }
         Refresh();
     }
 
@@ -316,6 +353,15 @@ internal sealed class CurrentReplayRecordingButtonController : MonoBehaviour
             CurrentReplayRecordingPhase.Unavailable => BppDockButtonSpriteId.ReplayExport,
             _ => BppDockButtonSpriteId.ReplayExport,
         };
+
+    private readonly record struct TooltipKey(
+        CurrentReplayRecordingPhase Phase,
+        bool CanStart,
+        CurrentReplayRecordingStatusCode StatusCode,
+        CurrentReplayRecordingStatusCode? StartFailureStatusCode,
+        string LanguageCode,
+        BppChineseLocaleMode LocaleMode
+    );
 }
 
 internal sealed class CurrentReplayRecordingCueActivator : UICueActivator

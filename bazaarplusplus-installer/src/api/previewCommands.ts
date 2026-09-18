@@ -21,7 +21,7 @@ export function createPreviewCommands(native: CommandAdapter): CommandAdapter {
     resetBppData: (...args) => native.resetBppData(...args),
     resetBepinex: (...args) => native.resetBepinex(...args),
     uninstallMod: (...args) => native.uninstallMod(...args),
-    launchGame: async () => ({ ok: true }),
+    launchGame: async () => null,
     endGameProcess: async () => false,
     getStreamStatus: async () => idleStreamStatus,
     ensureStreamSession: async () => idleStreamStatus,
@@ -39,7 +39,6 @@ export function createPreviewCommands(native: CommandAdapter): CommandAdapter {
     revealRunScreenshot: async () => null,
     revealBattleVideo: async () => null,
     deleteBattleVideo: (...args) => native.deleteBattleVideo(...args),
-    deleteRunVideos: async () => emptyHistoryRunList,
     previewStorageCleanup: async (scope) =>
       scope === 'screenshots'
         ? { scope, preview: emptyScreenshotCleanupPreview }

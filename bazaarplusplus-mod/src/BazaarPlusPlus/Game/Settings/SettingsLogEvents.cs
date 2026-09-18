@@ -14,13 +14,9 @@ internal enum SettingsLogReasonCode
     ScrollSpyEntryUnavailable,
     InstallException,
     GeometryUnavailable,
-    PositionReadFailed,
     SupportBufferUnavailable,
     RetryExhausted,
     PatchException,
-    FontAssetUnavailable,
-    FontLoadException,
-    GlyphWarmupException,
 }
 
 internal enum SettingsDockSpriteResourceId
@@ -64,7 +60,6 @@ internal enum SettingsNativeButtonId
 internal enum SettingsKeybindStage
 {
     TemplateDiscovery,
-    RowInstall,
     Refresh,
 }
 
@@ -93,7 +88,6 @@ internal enum SettingsRowId
     ItemEnchantPreview,
     EventPreview,
     QuestPreview,
-    CombatStatusBar,
     VoiceSubtitles,
 }
 
@@ -118,24 +112,6 @@ internal static class SettingsLogEvents
         [HotkeyDegradedActionId, HotkeyDegradedBindingPath, HotkeyDegradedReasonCode],
         new BppLogStormPolicy([HotkeyDegradedReasonCode])
     );
-    internal static readonly BppLogFieldDefinition HotkeyModifierBindingPath = HashedUntrusted(
-        0,
-        "binding_path"
-    );
-    internal static readonly BppLogFieldDefinition HotkeyModifierLegacyPressed = PublicLow(
-        1,
-        "legacy_pressed"
-    );
-    internal static readonly BppLogFieldDefinition HotkeyModifierActionPressed = PublicLow(
-        2,
-        "action_pressed"
-    );
-    internal static readonly BppLogEventDefinition HotkeyModifierDisagreementObserved = new(
-        BppLogFeatureScope.Settings,
-        "settings.hotkey.modifier_disagreement_observed",
-        [HotkeyModifierBindingPath, HotkeyModifierLegacyPressed, HotkeyModifierActionPressed]
-    );
-
     internal static readonly BppLogFieldDefinition DockSpriteDegradedReasonCode = PublicLow(
         0,
         "reason_code"

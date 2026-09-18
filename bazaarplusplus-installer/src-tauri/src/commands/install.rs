@@ -83,9 +83,8 @@ pub async fn uninstall_mod(
 
 #[tauri::command(async)]
 #[specta::specta]
-pub fn launch_game() -> Result<FileActionResult, SemanticProblem> {
+pub fn launch_game() -> Result<(), SemanticProblem> {
     launch_game_via_steam().map_err(|diagnostic| {
         crate::services::install::install_action_problem("launch", diagnostic)
-    })?;
-    Ok(FileActionResult { ok: true })
+    })
 }

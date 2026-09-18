@@ -1,5 +1,6 @@
 #nullable enable
 using BazaarPlusPlus.Game.EventPreview;
+using BazaarPlusPlus.Game.HistoryPanel;
 using BazaarPlusPlus.Game.PostCombatImpact;
 using BazaarPlusPlus.Game.Screenshots;
 
@@ -21,6 +22,8 @@ internal sealed class BppPatchFeatures
         PostCombatImpact =
             postCombatImpact ?? throw new ArgumentNullException(nameof(postCombatImpact));
     }
+
+    internal HistoryPanelMenuEntry HistoryMenu { get; } = new();
 
     internal IEncounterPreviewModule EncounterPreview { get; }
     internal IEndOfRunCaptureWorkflow EndOfRunCaptureWorkflow { get; }

@@ -1,4 +1,5 @@
 #nullable enable
+using BazaarPlusPlus.GameInterop.AssetLoading;
 using BazaarPlusPlus.GameInterop.StaticCards;
 using BazaarPlusPlus.Infrastructure;
 using TheBazaar.AppFramework;
@@ -68,9 +69,11 @@ internal static class EncounterPortraitSpriteProvider
             }
 
             shouldCache = true;
-            var encounterData = await assetLoader.LoadAssetAsyncByAddress<EncounterAssetDataSO>(
-                template.ArtKey
-            );
+            var encounterData =
+                await NativeGlobalAssetLoader.LoadByAddressAsync<EncounterAssetDataSO>(
+                    assetLoader,
+                    template.ArtKey
+                );
             if (encounterData == null)
             {
                 return new AsyncLoadResult<EncounterPortraitLoadOutcome>(
@@ -82,7 +85,7 @@ internal static class EncounterPortraitSpriteProvider
                 );
             }
 
-            var result = await encounterData.LoadPortraitSpriteAsync();
+            var result = encounterData.portraitTextureReference;
             return new AsyncLoadResult<EncounterPortraitLoadOutcome>(
                 result == null
                     ? EncounterPortraitLoadOutcome.Degraded(

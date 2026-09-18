@@ -59,12 +59,14 @@ internal sealed class FileBackedPayloadStore<T>
     private readonly string _fileSuffix;
     private readonly Func<T, byte[]> _serialize;
     private readonly TryDeserialize<T> _tryDeserialize;
+    private readonly int? _maximumFileBytes;
 
     public FileBackedPayloadStore(
         string rootPath,
         string fileSuffix,
         Func<T, byte[]> serialize,
-        TryDeserialize<T> tryDeserialize
+        TryDeserialize<T> tryDeserialize,
+        int? maximumFileBytes = null
     )
     {
         if (string.IsNullOrWhiteSpace(rootPath))
@@ -72,6 +74,7 @@ internal sealed class FileBackedPayloadStore<T>
         if (string.IsNullOrWhiteSpace(fileSuffix))
             throw new ArgumentException("File suffix is required.", nameof(fileSuffix));
 
+        _maximumFileBytes = maximumFileBytes;
         _rootPath = rootPath;
         _fileSuffix = fileSuffix;
         _serialize = serialize ?? throw new ArgumentNullException(nameof(serialize));
@@ -100,7 +103,28 @@ internal sealed class FileBackedPayloadStore<T>
         byte[] payloadBytes;
         try
         {
-            payloadBytes = File.ReadAllBytes(filePath);
+            if (_maximumFileBytes is not { } maximum)
+                payloadBytes = File.ReadAllBytes(filePath);
+            else
+            {
+                using var stream = File.OpenRead(filePath);
+                if (stream.Length > maximum)
+                    throw new InvalidDataException(
+                        "Ghost payload exceeds the compressed size limit."
+                    );
+                using var output = new MemoryStream();
+                var buffer = new byte[64 * 1024];
+                int read;
+                while ((read = stream.Read(buffer, 0, buffer.Length)) > 0)
+                {
+                    if (output.Length + read > maximum)
+                        throw new InvalidDataException(
+                            "Ghost payload exceeds the compressed size limit."
+                        );
+                    output.Write(buffer, 0, read);
+                }
+                payloadBytes = output.ToArray();
+            }
         }
         catch (FileNotFoundException)
         {
@@ -121,10 +145,15 @@ internal sealed class FileBackedPayloadStore<T>
         var fingerprint = Fingerprint(payloadBytes);
         try
         {
-            if (_tryDeserialize(payloadBytes, out var payload, out _))
+            if (_tryDeserialize(payloadBytes, out var payload, out var reason))
                 return FileBackedPayloadLoadResult<T>.Loaded(payload, fingerprint);
 
-            return FileBackedPayloadLoadResult<T>.Invalid(fingerprint);
+            return FileBackedPayloadLoadResult<T>.Invalid(
+                fingerprint,
+                reason == "payload_too_large"
+                    ? new InvalidDataException("Ghost payload exceeds the decompressed size limit.")
+                    : null
+            );
         }
         catch (Exception ex)
         {

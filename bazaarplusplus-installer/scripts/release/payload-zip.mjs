@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
+import { parseArgs } from 'node:util';
 import zlib from 'node:zlib';
 import { resolveBuildPlatform } from './release-platforms.mjs';
 
@@ -16,6 +17,7 @@ export const REQUIRED_RELEASE_INPUTS = Object.freeze({
     'BepInEx/plugins/BazaarPlusPlus.Storage.dll',
     'BepInEx/plugins/BazaarPlusPlus.Localization.dll',
     'BepInEx/plugins/BazaarPlusPlus.version',
+    'BepInEx/plugins/BazaarPlusPlus.history-database.json',
     'BepInEx/plugins/libBppMacAudio.dylib',
     'TheBazaar.app/Contents/Plugins/GfxPluginBppReplayVideoToolbox.bundle/Contents/Info.plist',
     'TheBazaar.app/Contents/Plugins/GfxPluginBppReplayVideoToolbox.bundle/Contents/MacOS/GfxPluginBppReplayVideoToolbox',
@@ -27,6 +29,7 @@ export const REQUIRED_RELEASE_INPUTS = Object.freeze({
     'BepInEx/plugins/BazaarPlusPlus.Storage.dll',
     'BepInEx/plugins/BazaarPlusPlus.Localization.dll',
     'BepInEx/plugins/BazaarPlusPlus.version',
+    'BepInEx/plugins/BazaarPlusPlus.history-database.json',
     'TheBazaar_Data/Plugins/x86_64/GfxPluginBppReplayMediaFoundation.dll'
   ])
 });
@@ -51,22 +54,6 @@ const macosExecutablePaths = new Set([
 ]);
 const fixedDosDate = (1 << 5) | 1;
 const fixedDosTime = 0;
-
-const crcTable = Array.from({ length: 256 }, (_, value) => {
-  let crc = value;
-  for (let bit = 0; bit < 8; bit += 1) {
-    crc = (crc & 1) !== 0 ? 0xedb88320 ^ (crc >>> 1) : crc >>> 1;
-  }
-  return crc >>> 0;
-});
-
-function crc32(buffer) {
-  let crc = 0xffffffff;
-  for (const byte of buffer) {
-    crc = crcTable[(crc ^ byte) & 0xff] ^ (crc >>> 8);
-  }
-  return (crc ^ 0xffffffff) >>> 0;
-}
 
 function sha256(buffer) {
   return crypto.createHash('sha256').update(buffer).digest('hex');
@@ -196,6 +183,67 @@ function assertStagedModWritesV5DataRoot(sourceDir) {
   );
 }
 
+function readHistoryDatabaseCompatibility(rootDir) {
+  const compatibilityPath = path.join(
+    rootDir,
+    'src-tauri',
+    'history-database-compatibility.json'
+  );
+  const compatibility = JSON.parse(fs.readFileSync(compatibilityPath, 'utf8'));
+  const versions = compatibility.supportedUserVersions;
+  if (
+    compatibility.formatVersion !== 1 ||
+    !Array.isArray(versions) ||
+    versions.length === 0 ||
+    versions.some(
+      (version, index) =>
+        !Number.isSafeInteger(version) ||
+        version <= 0 ||
+        (index > 0 && version <= versions[index - 1])
+    )
+  ) {
+    throw new Error(
+      `Invalid installer history database compatibility contract: ${compatibilityPath}`
+    );
+  }
+  return versions;
+}
+
+function assertStagedHistoryDatabaseCompatibility(rootDir, sourceDir) {
+  const contractPath = path.join(
+    sourceDir,
+    'BepInEx',
+    'plugins',
+    'BazaarPlusPlus.history-database.json'
+  );
+  let contract;
+  try {
+    contract = JSON.parse(fs.readFileSync(contractPath, 'utf8'));
+  } catch (error) {
+    throw new Error(
+      `Cannot read BazaarPlusPlus history database contract at ${contractPath}: ${error instanceof Error ? error.message : String(error)}`
+    );
+  }
+  if (
+    contract.formatVersion !== 1 ||
+    !Number.isSafeInteger(contract.historyDatabaseUserVersion) ||
+    contract.historyDatabaseUserVersion <= 0 ||
+    !Number.isSafeInteger(contract.historyRowSchemaVersion) ||
+    contract.historyRowSchemaVersion <= 0
+  ) {
+    throw new Error(
+      `Invalid BazaarPlusPlus history database contract: ${contractPath}`
+    );
+  }
+
+  const supported = readHistoryDatabaseCompatibility(rootDir);
+  if (!supported.includes(contract.historyDatabaseUserVersion)) {
+    throw new Error(
+      `Staged BazaarPlusPlus database schema ${contract.historyDatabaseUserVersion} is incompatible with this installer, which supports ${supported.join(',')}. Run ./run.sh publish from a compatible mod revision or update the installer compatibility contract.`
+    );
+  }
+}
+
 function assertForbiddenStagingInputs(platform, sourceDir) {
   const present = (FORBIDDEN_RELEASE_INPUTS[platform] ?? []).filter(
     (relativePath) =>
@@ -242,7 +290,7 @@ export function buildZipBuffer(inputEntries) {
     const compressed = isDirectory
       ? Buffer.alloc(0)
       : zlib.deflateRawSync(data, { level: 9 });
-    const checksum = crc32(data);
+    const checksum = zlib.crc32(data);
     const local = Buffer.alloc(30);
     local.writeUInt32LE(0x04034b50, 0);
     local.writeUInt16LE(20, 4);
@@ -395,34 +443,7 @@ export function validateZipEntrySet(entries, expectedPaths) {
   }
 
   const expected = new Set(expectedPaths);
-  const direct = new Set(files.map(({ normalized }) => normalized));
-  let selected = files;
-  let actual = direct;
-
-  const directMissing = setDifference(expected, direct);
-  const directExtra = setDifference(direct, expected);
-  if (directMissing.length > 0 || directExtra.length > 0) {
-    const firstSegments = new Set(
-      files.map(({ normalized }) => normalized.split('/')[0])
-    );
-    if (
-      firstSegments.size === 1 &&
-      files.every(({ normalized }) => normalized.includes('/'))
-    ) {
-      const stripped = files.map(({ normalized, entry }) => ({
-        normalized: normalized.slice(normalized.indexOf('/') + 1),
-        entry
-      }));
-      const strippedSet = new Set(stripped.map(({ normalized }) => normalized));
-      if (
-        setDifference(expected, strippedSet).length === 0 &&
-        setDifference(strippedSet, expected).length === 0
-      ) {
-        selected = stripped;
-        actual = strippedSet;
-      }
-    }
-  }
+  const actual = new Set(files.map(({ normalized }) => normalized));
 
   const missing = setDifference(expected, actual);
   const extra = setDifference(actual, expected);
@@ -437,7 +458,7 @@ export function validateZipEntrySet(entries, expectedPaths) {
       `ZIP payload entries do not exactly match staging (${details})`
     );
   }
-  return new Map(selected.map(({ normalized, entry }) => [normalized, entry]));
+  return new Map(files.map(({ normalized, entry }) => [normalized, entry]));
 }
 
 export function preparePayloadZip({
@@ -451,7 +472,7 @@ export function preparePayloadZip({
   const { sourceDir, zipPath, manifestPath } = platformPaths(rootDir, platform);
   assertRequiredStagingInputs(sourceDir, requiredStagingPaths);
   assertStagedModWritesV5DataRoot(sourceDir);
-  assertForbiddenStagingInputs(platform, sourceDir);
+  assertStagedHistoryDatabaseCompatibility(rootDir, sourceDir);
   return writeDeterministicZip({
     sourceDir,
     outputPath: zipPath,
@@ -514,7 +535,6 @@ export function writeDeterministicZip({
   }
   return {
     zipPath: outputPath,
-    outputPath,
     manifestPath,
     manifest,
     sha256: sha256(buffer),
@@ -533,6 +553,7 @@ export function validatePayloadZip({
   const { sourceDir, zipPath, manifestPath } = platformPaths(rootDir, platform);
   assertRequiredStagingInputs(sourceDir, requiredStagingPaths);
   assertStagedModWritesV5DataRoot(sourceDir);
+  assertStagedHistoryDatabaseCompatibility(rootDir, sourceDir);
   assertForbiddenStagingInputs(platform, sourceDir);
   if (!fs.statSync(zipPath, { throwIfNoEntry: false })?.isFile()) {
     throw new Error(`Missing ${platform} release payload ZIP: ${zipPath}`);
@@ -592,22 +613,27 @@ export function validatePayloadZip({
 
 function main(args) {
   if (args[0] === 'pack') {
-    const sourceIndex = args.indexOf('--source');
-    const outputIndex = args.indexOf('--output');
-    const manifestIndex = args.indexOf('--manifest-output');
-    const platformIndex = args.indexOf('--platform');
-    const sourceDir = sourceIndex < 0 ? undefined : args[sourceIndex + 1];
-    const outputPath = outputIndex < 0 ? undefined : args[outputIndex + 1];
-    const manifestPath =
-      manifestIndex < 0 ? undefined : args[manifestIndex + 1];
+    const { values } = parseArgs({
+      args: args.slice(1),
+      strict: true,
+      options: {
+        source: { type: 'string' },
+        output: { type: 'string' },
+        'manifest-output': { type: 'string' },
+        platform: { type: 'string' }
+      }
+    });
+    const sourceDir = values.source;
+    const outputPath = values.output;
+    const manifestPath = values['manifest-output'];
     const platform =
-      platformIndex < 0
+      values.platform === undefined
         ? undefined
-        : resolveBuildPlatform(args[platformIndex + 1]);
+        : resolveBuildPlatform(values.platform);
     if (
       !sourceDir ||
       !outputPath ||
-      (manifestIndex >= 0 && (!manifestPath || !platform))
+      (manifestPath !== undefined && (!manifestPath || !platform))
     ) {
       throw new Error(
         'Usage: payload-zip.mjs pack --source <directory> --output <zip> [--manifest-output <json> --platform <macos|windows>]'
@@ -619,19 +645,25 @@ function main(args) {
       manifestPath,
       platform
     });
-    console.log(`payload-zip: wrote ${result.outputPath}`);
+    console.log(`payload-zip: wrote ${result.zipPath}`);
     if (result.manifestPath) {
       console.log(`payload-zip: wrote ${result.manifestPath}`);
     }
     return;
   }
-  if (args.length !== 2 || args[0] !== '--platform') {
+  const { values } = parseArgs({
+    args,
+    strict: true,
+    options: { platform: { type: 'string' } }
+  });
+  if (!values.platform) {
     throw new Error(
       'Usage: payload-zip.mjs --platform <macos|windows> | pack --source <directory> --output <zip> [--manifest-output <json> --platform <macos|windows>]'
     );
   }
-  const platform = resolveBuildPlatform(args[1]);
-  if (!platform) throw new Error(`Unsupported payload platform: ${args[1]}`);
+  const platform = resolveBuildPlatform(values.platform);
+  if (!platform)
+    throw new Error(`Unsupported payload platform: ${values.platform}`);
   const rootDir = path.resolve(import.meta.dirname, '..', '..');
   const result = preparePayloadZip({ rootDir, platform });
   console.log(`prepare:resources: wrote ${result.zipPath}`);

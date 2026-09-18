@@ -48,11 +48,7 @@ internal sealed class LiveBuildPanelSnapshot
 
     public LiveBuildCorpusState CorpusState { get; init; }
 
-    public TenWinCorpusSummary? CorpusSummary { get; init; }
-
     public string CorpusFreshnessText { get; init; } = string.Empty;
-
-    public string CorpusFreshnessTooltip { get; init; } = string.Empty;
 
     public LiveBuildRefreshSeverity CorpusFreshnessSeverity { get; init; }
 
@@ -67,20 +63,17 @@ internal sealed class LiveBuildPanelSnapshot
             new LiveItemBoardRowVm(
                 Shop,
                 LiveBuildPanelText.ShopRow(),
-                string.Empty,
                 HasActiveRun ? LiveBuildPanelText.EmptyShop() : string.Empty
-            ),
-            new LiveItemBoardRowVm(
-                Board,
-                LiveBuildPanelText.BoardRow(),
-                string.Empty,
-                HasActiveRun ? LiveBuildPanelText.EmptyBoard() : string.Empty
             ),
             new LiveItemBoardRowVm(
                 Stash,
                 LiveBuildPanelText.StashRow(),
-                string.Empty,
                 HasActiveRun ? LiveBuildPanelText.EmptyStash() : string.Empty
+            ),
+            new LiveItemBoardRowVm(
+                Board,
+                LiveBuildPanelText.BoardRow(),
+                HasActiveRun ? LiveBuildPanelText.EmptyBoard() : string.Empty
             ),
         ];
 }

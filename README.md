@@ -4,9 +4,9 @@
 
 **因热爱而生** · 为 [《The Bazaar》](https://www.playthebazaar.com) 打造的 BepInEx 模组与桌面安装器
 
-[English](README_en.md) · [官网](https://bazaarplusplus.com) · [下载](https://bazaarplusplus.com/download) · [使用教程](https://bazaarplusplus.com/tutorial) · [Release Notes](https://github.com/cauyxy/BazaarPlusPlus/releases) · [Ko-fi](https://ko-fi.com/cauyxy)
+[English](README_en.md) · [官网](https://bazaarplusplus.com) · [下载](https://bazaarplusplus.com/download) · [使用教程](https://bazaarplusplus.com/tutorial) · [Release Notes](https://github.com/BazaarPlusPlus/BazaarPlusPlus/releases) · [Ko-fi](https://ko-fi.com/cauyxy)
 
-[![Version](https://img.shields.io/badge/version-4.2.0-6dd9a0?style=flat-square)](https://bazaarplusplus.com)
+[![Version](https://img.shields.io/badge/version-5.4.0-6dd9a0?style=flat-square)](https://bazaarplusplus.com)
 [![License](https://img.shields.io/badge/license-MIT-e8c87a?style=flat-square)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS-c1875a?style=flat-square)](https://bazaarplusplus.com/download)
 [![BepInEx](https://img.shields.io/badge/BepInEx-5.x-8a6d3b?style=flat-square)](https://github.com/BepInEx/BepInEx)
@@ -18,7 +18,7 @@
 
 ---
 
-BazaarPlusPlus 是一个面向《The Bazaar》的开源项目：游戏内由 BepInEx 模组提供卡牌图鉴、对局历史、战斗回放、Tooltip 预览、匿名模式、中文术语等功能；桌面安装器负责下载、安装、修复、自动更新和直播叠层。
+BazaarPlusPlus 是一个面向《The Bazaar》的开源项目：游戏内由 BepInEx 模组提供卡牌图鉴、对局历史、战斗回放、Tooltip 预览、匿名模式、中文术语等功能；桌面安装器负责下载、安装、修复、自动更新和直播叠层；同仓库里还有上传后端、指标分析器和官网。
 
 普通玩家建议直接使用 [下载页](https://bazaarplusplus.com/download) 的安装器；本仓库面向想了解实现、提交改动或自行构建的开发者。
 
@@ -65,23 +65,25 @@ BazaarPlusPlus 是一个面向《The Bazaar》的开源项目：游戏内由 Bep
 │       ├── BazaarPlusPlus.ModApi/            # 与服务端通信的 API 客户端
 │       ├── BazaarPlusPlus.Storage/           # 本地运行日志、截图和 SQLite 存储
 │       └── BazaarPlusPlus.Localization/      # 中文术语与本地化引擎
-└── bazaarplusplus-installer/                 # 桌面安装器
-    ├── src/                                  # Vite + React 前端
-    │   ├── pages/ features/ layouts/ api/    # 页面、业务状态、壳层和 Tauri 调用
-    │   └── types/generated/                  # Rust -> TypeScript 绑定快照
-    ├── src-tauri/                            # Tauri 2 / Rust 后端
-    │   ├── src/commands/ services/ history/  # 安装、检测、历史、直播服务
-    │   └── resources/                        # BepInEx、FFmpeg、直播叠层和安装 payload
-    ├── scripts/                              # bindings、manifest、prebuild 脚本
-    └── build.sh                              # 本地开发与发布打包入口
+├── bazaarplusplus-installer/                 # 桌面安装器
+│   ├── src/                                  # Vite + React 前端
+│   ├── src-tauri/                            # Tauri 2 / Rust 后端
+│   └── build.sh                              # 本地开发与发布打包入口
+├── bazaarplusplus-server/                    # Cloudflare Worker：Bundle 上传与 Ghost 发现
+├── bazaarplusplus-analyzer/                  # 把 Bundle 收成 heroes / builds 快照
+└── bazaarplusplus-site/                      # bazaarplusplus.com
 ```
+
+日常开发在对应子目录里跑命令，不要从仓库根构建。每个子目录有自己的 `CLAUDE.md` / `AGENTS.md`。
 
 ## 从源码构建
 
 ### 环境要求
 
-- **模组**：.NET SDK 8+，以及本机 Steam 版《The Bazaar》（用于解析游戏程序集引用）。
+- **模组**：.NET SDK 10，以及本机 Steam 版《The Bazaar》（用于解析游戏程序集引用）。
 - **安装器**：Node.js 20+、Rust 工具链、Tauri 系统依赖（见 [Tauri prerequisites](https://tauri.app/start/prerequisites/)）。
+- **服务端 / 官网**：Node.js 20+，Cloudflare Wrangler。
+- **分析器**：Python 3.14 与 `uv`。
 - **Windows**：构建脚本与开发流程要求 PowerShell 7.6.0 或更高版本。
 
 ### 构建模组
@@ -117,7 +119,28 @@ npm run format
 ./build.sh --prod  # 本机平台生产打包
 ```
 
-发布签名、公证（notarization）、R2 上传等流程依赖本地环境变量与 `signing-secrets/`，这些内容不会提交到公开仓库；在缺少本机游戏、签名凭据或平台依赖的环境中，无法完成完整的发布构建。
+```bash
+cd bazaarplusplus-server
+npm install
+npm test
+# npm run dev 需要 gitignore 的 .dev.vars（R2 预签名密钥和两个服务 token）
+```
+
+```bash
+cd bazaarplusplus-analyzer
+uv sync --locked
+# 把 .env.example 复制为 .env 后再跑
+uv run pytest
+```
+
+```bash
+cd bazaarplusplus-site
+npm install
+npm test
+npm run build
+```
+
+发布签名、公证（notarization）、R2 上传等流程依赖本地环境变量与 `signing-secrets/`，这些内容不会提交到公开仓库；在缺少本机游戏、签名凭据或平台依赖的环境中，无法完成完整的发布构建。游戏反编译输出、`decompiled/`、`.env` 和 `.dev.vars` 同样不在此树中。
 
 ## 二次开发须知
 

@@ -1,0 +1,20 @@
+{
+  "bundle_id": "01J00000000000000000000901",
+  "bundle_version": 5,
+  "created_at_ms": 1785628800000,
+  "run": {
+    "run_id": "golden-run-001",
+    "player_account_id": "golden-account",
+    "run_format_version": 5,
+    "projection": {
+      "run": {},
+      "battles": []
+    },
+    "payload": {
+      "offset": 0,
+      "length": 9,
+      "sha256": "4fcfdda3275cc407cb2f2eb487acb1a41eb2493851f2e34eb74bef6b4160a5e5",
+      "content_type": "application/x-bpp-run-v5"
+    }
+  }
+}

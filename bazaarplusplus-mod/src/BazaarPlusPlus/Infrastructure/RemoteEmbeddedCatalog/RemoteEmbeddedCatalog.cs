@@ -972,29 +972,6 @@ internal sealed class RemoteEmbeddedCatalog<TSnapshot> : IRemoteEmbeddedCatalog<
         }
     }
 
-    private bool ObserveIfCurrent(
-        int generation,
-        int publicationVersion,
-        Action<IRemoteEmbeddedCatalogObserver<TSnapshot>> notify
-    )
-    {
-        lock (_observerSync)
-        {
-            lock (_sync)
-            {
-                if (
-                    _disposed
-                    || generation != _generation
-                    || publicationVersion != _publicationVersion
-                )
-                    return false;
-            }
-
-            Observe(notify);
-            return true;
-        }
-    }
-
     private bool ObserveRefreshIfCurrent(
         CatalogFlight flight,
         int generation,

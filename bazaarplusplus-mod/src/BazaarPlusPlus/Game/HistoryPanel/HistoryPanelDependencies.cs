@@ -7,7 +7,7 @@ namespace BazaarPlusPlus.Game.HistoryPanel;
 internal sealed class HistoryPanelDependencies
 {
     // Intentionally no ArgumentNullException guards: reflection-pinned tests pass null by
-    // position as a behavior anchor (ADR-0009 / issue #167). Direct assignment only.
+    // position as a behavior anchor (ADR-0003 / issue #167). Direct assignment only.
     public HistoryPanelDependencies(
         IHistoryPanelRunState runState,
         HistoryPanelDataService dataService,

@@ -21,6 +21,24 @@
 
   <Import Project="RemoteEmbeddedData.targets" />
 
+  <ItemGroup>
+    <EmbeddedResource
+      Include="Resources\HistoryPanel\run-state-badges.png"
+      LogicalName="BazaarPlusPlus.Resources.HistoryPanel.run-state-badges.png"
+    />
+    <EmbeddedResource
+      Include="Resources\HistoryPanel\battle-result-badges.png"
+      LogicalName="BazaarPlusPlus.Resources.HistoryPanel.battle-result-badges.png"
+    />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource
+      Include="Resources\HistoryPanel\history-menu.png"
+      LogicalName="BazaarPlusPlus.Resources.HistoryPanel.history-menu.png"
+    />
+  </ItemGroup>
+
   <!-- Embedded resources -->
   <ItemGroup>
     <EmbeddedResource Include="Data\CollectionSources\collection-sources.json" />
@@ -54,6 +72,7 @@
   <PropertyGroup>
     <ProjectRoot>$(MSBuildThisFileDirectory)</ProjectRoot>
     <BPPInstallerSourcePath>$(ProjectRoot)/../../../bazaarplusplus-installer/src-tauri/resources</BPPInstallerSourcePath>
+    <HistoryDatabaseContractFile>$(ProjectRoot)/../BazaarPlusPlus.Storage/BazaarPlusPlus.history-database.json</HistoryDatabaseContractFile>
     <HostArchitecture>$([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString().ToLowerInvariant())</HostArchitecture>
     <IsMacHost>$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::OSX)))</IsMacHost>
     <IsWindowsHost>$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Windows)))</IsWindowsHost>
@@ -131,6 +150,10 @@
     <Reference Include="Unity.InputSystem">
       <HintPath>$(ManagedPath)\Unity.InputSystem.dll</HintPath>
     </Reference>
+    <Reference Include="DOTween">
+      <HintPath>$(ManagedPath)\DOTween.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
     <Reference Include="UnityEngine.UI">
       <HintPath>$(ManagedPath)\UnityEngine.UI.dll</HintPath>
     </Reference>
@@ -161,7 +184,6 @@
   <PropertyGroup>
     <PublicizeAll>true</PublicizeAll>
   </PropertyGroup>
-
   <!-- Debug build -->
   <Target
     Name="CopyToBepInExPlugins"
@@ -169,13 +191,6 @@
     Condition="'$(Configuration)' == 'Debug' and '$(BppDeployToGame)' == 'true' and '$(GamePath)' != ''"
   >
     <Message Text="[BazaarPlusPlus] Building for Debug" Importance="high" />
-    <ItemGroup>
-      <!-- Scrub only the optional BazaarAgent assemblies (a default build must remove
-           them). Everything else this target ships is re-copied below with
-           SkipUnchangedFiles, which pre-deleting would defeat. -->
-      <FilesToDelete Include="$(GamePath)\BepInEx\plugins\BazaarPlusPlus.BazaarAgent.dll" />
-      <FilesToDelete Include="$(GamePath)\BepInEx\plugins\BazaarPlusPlus.BazaarAgentHost.dll" />
-    </ItemGroup>
     <ItemGroup>
       <PluginManagedRuntimeFiles Include="$(TargetDir)Microsoft.Data.Sqlite.dll" />
       <PluginManagedRuntimeFiles Include="$(TargetDir)SQLitePCLRaw.batteries_v2.dll" />
@@ -210,8 +225,8 @@
         Include="$(TargetDir)BazaarPlusPlus.Storage.dll"
         Condition="Exists('$(TargetDir)BazaarPlusPlus.Storage.dll')"
       />
+      <PluginManagedRuntimeFiles Include="$(HistoryDatabaseContractFile)" />
     </ItemGroup>
-    <Delete Files="@(FilesToDelete)" />
     <ItemGroup Condition="'$(IsMacHost)' == 'true'">
       <StaleMacRecordingFile Include="$(GamePath)/BepInEx/plugins/ffmpeg" />
       <StaleMacRecordingFile Include="$(GamePath)/BepInEx/plugins/ffmpeg-LICENSE.txt" />
@@ -354,12 +369,8 @@
         Include="$(TargetDir)BazaarPlusPlus.Storage.dll"
         Condition="Exists('$(TargetDir)BazaarPlusPlus.Storage.dll')"
       />
+      <PluginManagedRuntimeFiles Include="$(HistoryDatabaseContractFile)" />
     </ItemGroup>
-    <ItemGroup>
-      <InstallerFilesToDelete Include="$(BPPInstallerSourcePath)/SourceForBuild/$(BppReleasePlatform)/BepInEx/plugins/BazaarPlusPlus.BazaarAgent.dll" />
-      <InstallerFilesToDelete Include="$(BPPInstallerSourcePath)/SourceForBuild/$(BppReleasePlatform)/BepInEx/plugins/BazaarPlusPlus.BazaarAgentHost.dll" />
-    </ItemGroup>
-    <Delete Files="@(InstallerFilesToDelete)" />
     <Copy
       SourceFiles="$(TargetDir)$(TargetName).dll"
       DestinationFiles="$(BPPInstallerSourcePath)/SourceForBuild/$(BppReleasePlatform)/BepInEx/plugins/$(TargetName).dll"

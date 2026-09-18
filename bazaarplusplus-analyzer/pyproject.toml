@@ -1,0 +1,67 @@
+[project]
+name = "bazaarplusplus-analyzer"
+version = "0.3.0"
+description = "Single-process analyzer publishing two Analyzer V5 consumer snapshots"
+requires-python = "==3.14.*"
+dependencies = [
+    "boto3==1.43.69",
+    "click==8.4.2",
+    "duckdb==1.5.5",
+    "httpx==0.28.1",
+    "jsonschema==4.26.0",
+    "pyarrow==25.0.1",
+    "python-dotenv==1.2.2",
+]
+
+[project.scripts]
+bpp = "bppanalyzer.cli:main"
+
+[dependency-groups]
+dev = [
+    "pre-commit==4.6.2",
+    "pytest==9.1.1",
+    "pytest-cov==7.1.0",
+    "pytest-timeout==2.4.0",
+    "ruff==0.16.2",
+    "ty==0.0.70",
+]
+
+[build-system]
+requires = ["hatchling==1.32.0"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/bppanalyzer"]
+
+[tool.pytest.ini_options]
+addopts = [
+    "--cov=bppanalyzer",
+    "--cov-branch",
+    "--cov-fail-under=78",
+    "--cov-report=term-missing:skip-covered",
+]
+testpaths = ["tests"]
+
+[tool.coverage.report]
+fail_under = 78
+precision = 2
+show_missing = true
+skip_covered = true
+
+[tool.coverage.run]
+branch = true
+source = ["bppanalyzer"]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+target-version = "py314"
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I"]
+
+[tool.ty.environment]
+python-version = "3.14"
+
+[tool.ty.src]
+include = ["src", "scripts"]

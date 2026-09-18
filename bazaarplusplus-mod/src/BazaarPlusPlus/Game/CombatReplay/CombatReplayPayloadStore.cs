@@ -4,7 +4,14 @@ using BazaarPlusPlus.Infrastructure;
 
 namespace BazaarPlusPlus.Game.CombatReplay;
 
-internal sealed class CombatReplayPayloadStore
+internal interface IReplayPayloadFiles
+{
+    IReadOnlyList<string> ListBattleIds();
+
+    void Delete(string battleId);
+}
+
+internal sealed class CombatReplayPayloadStore : IReplayPayloadFiles
 {
     private const string FileSuffix = ".payload.mpack.gz";
     private readonly string _rootPath;
@@ -58,5 +65,10 @@ internal sealed class CombatReplayPayloadStore
     public IEnumerable<string> ListBattleIds()
     {
         return _store.ListIds();
+    }
+
+    IReadOnlyList<string> IReplayPayloadFiles.ListBattleIds()
+    {
+        return _store.ListIds().ToList();
     }
 }

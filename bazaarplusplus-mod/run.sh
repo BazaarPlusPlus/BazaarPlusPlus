@@ -40,8 +40,6 @@ PUBLISHED_PROJECTS=(
     src/BazaarPlusPlus.ModApi/BazaarPlusPlus.ModApi.csproj
     src/BazaarPlusPlus.Storage/BazaarPlusPlus.Storage.csproj
     src/BazaarPlusPlus/BazaarPlusPlus.csproj
-    src/BazaarPlusPlus.BazaarAgent/BazaarPlusPlus.BazaarAgent.csproj
-    src/BazaarPlusPlus.BazaarAgentHost/BazaarPlusPlus.BazaarAgentHost.csproj
 )
 
 clear_macos_sqlite_quarantine() {
@@ -55,15 +53,6 @@ clear_macos_sqlite_quarantine() {
     done
 }
 
-print_bazaaragent_mode() {
-    local bazaaragent="${1:-false}"
-    if [[ "$bazaaragent" == "true" ]]; then
-        echo -e "${CYAN}== BazaarAgent: ${GREEN}included${CYAN} ==${RESET}"
-    else
-        echo -e "${CYAN}== BazaarAgent: excluded ==${RESET}"
-    fi
-}
-
 repair_macos_trampoline() {
     [[ "$PLATFORM" == "macOS" ]] || return 0
 
@@ -75,9 +64,8 @@ repair_macos_trampoline() {
 }
 
 build() {
-    local bazaaragent="${1:-false}"
-    local fast="${2:-false}"
-    shift 2 || true
+    local fast="${1:-false}"
+    shift 1 || true
     local msbuild_args=("$@")
     local args=()
 
@@ -87,25 +75,10 @@ build() {
         args+=(--no-restore)
     fi
 
-    print_bazaaragent_mode "$bazaaragent"
     repair_macos_trampoline
-    # The host is its own plugin project that references the main plugin + the pure core,
-    # so building it builds and deploys all three. A default build builds only the main
-    # plugin, whose build actively scrubs both host dlls from the plugins folder.
-    if [[ "$bazaaragent" == "true" ]]; then
-        dotnet build src/BazaarPlusPlus.BazaarAgentHost/BazaarPlusPlus.BazaarAgentHost.csproj \
-            ${args[@]+"${args[@]}"} ${msbuild_args[@]+"${msbuild_args[@]}"} \
-            -p:BppDeployToGame=true -p:GamePath="$GAME_ROOT" \
-            -p:RequireBazaarAgentDashboard=true
-        # The main plugin deliberately scrubs optional host DLLs in its own Debug target.
-        # Re-run only the host copy target after the dependency graph has fully settled.
-        dotnet msbuild src/BazaarPlusPlus.BazaarAgentHost/BazaarPlusPlus.BazaarAgentHost.csproj \
-            -t:CopyHostToBepInExPlugins -p:BppDeployToGame=true -p:GamePath="$GAME_ROOT"
-    else
-        dotnet build src/BazaarPlusPlus/BazaarPlusPlus.csproj \
-            ${args[@]+"${args[@]}"} ${msbuild_args[@]+"${msbuild_args[@]}"} \
-            -p:BppDeployToGame=true -p:GamePath="$GAME_ROOT"
-    fi
+    dotnet build src/BazaarPlusPlus/BazaarPlusPlus.csproj \
+        ${args[@]+"${args[@]}"} ${msbuild_args[@]+"${msbuild_args[@]}"} \
+        -p:BppDeployToGame=true -p:GamePath="$GAME_ROOT"
 }
 
 # Production publishing copies the DLL into the installer resources that ship to
@@ -243,8 +216,6 @@ run_seed_gates() {
 }
 
 publish() {
-    local bazaaragent="${1:-false}"
-    shift || true
     local passthrough_args=("$@")
     local installer_source
     installer_source=$(resolve_installer_source ${passthrough_args[@]+"${passthrough_args[@]}"})
@@ -272,7 +243,6 @@ publish() {
         require_steam_branch public
     fi
 
-    print_bazaaragent_mode "$bazaaragent"
     ensure_native_release_inputs "$installer_source" "$release_platform"
     clear_macos_sqlite_quarantine "$installer_source"
     repair_macos_trampoline "$installer_source"
@@ -285,24 +255,17 @@ publish() {
         -p:BuildProductionPackage=true
         -p:RemoteEmbeddedDataPrepared=true
     )
-    if [[ "$bazaaragent" == "true" ]]; then
-        dotnet build src/BazaarPlusPlus.BazaarAgentHost/BazaarPlusPlus.BazaarAgentHost.csproj "${build_args[@]}" \
-            -p:RequireBazaarAgentDashboard=true
-    else
-        dotnet build src/BazaarPlusPlus/BazaarPlusPlus.csproj "${build_args[@]}"
-    fi
+    dotnet build src/BazaarPlusPlus/BazaarPlusPlus.csproj "${build_args[@]}"
     prepare_installer_resource_archives "$installer_source" "$release_platform"
     clear_macos_sqlite_quarantine "$installer_source"
 }
 
 parse_build_options() {
-    local bazaaragent=false
     local fast=false
     local msbuild_args=()
 
     while (($# > 0)); do
         case "$1" in
-            --with-bazaaragent) bazaaragent=true ;;
             --fast) fast=true ;;
             -p:*|--property:*) msbuild_args+=("$1") ;;
             *)
@@ -313,16 +276,14 @@ parse_build_options() {
         shift
     done
 
-    build "$bazaaragent" "$fast" ${msbuild_args[@]+"${msbuild_args[@]}"}
+    build "$fast" ${msbuild_args[@]+"${msbuild_args[@]}"}
 }
 
 parse_publish_options() {
-    local bazaaragent=false
     local msbuild_args=()
 
     while (($# > 0)); do
         case "$1" in
-            --with-bazaaragent) bazaaragent=true ;;
             -p:*|--property:*) msbuild_args+=("$1") ;;
             *)
                 usage
@@ -332,7 +293,7 @@ parse_publish_options() {
         shift
     done
 
-    publish "$bazaaragent" ${msbuild_args[@]+"${msbuild_args[@]}"}
+    publish ${msbuild_args[@]+"${msbuild_args[@]}"}
 }
 
 parse_fetch_data_options() {
@@ -447,8 +408,8 @@ test_compat() {
 }
 
 test_corpus() {
-    if (($# < 1 || $# > 2)); then
-        echo -e "${RED}Usage: ./run.sh test-corpus <replay-corpus-path> [report-path]${RESET}" >&2
+    if (($# < 1 || $# > 3)); then
+        echo -e "${RED}Usage: ./run.sh test-corpus <replay-corpus-path> [report-path] [--benchmark]${RESET}" >&2
         return 2
     fi
     local corpus_path="$1"
@@ -456,10 +417,25 @@ test_corpus() {
         echo -e "${RED}Replay corpus directory not found: '$corpus_path'.${RESET}" >&2
         return 2
     fi
-    local report_path="${2:-$SCRIPT_DIR/artifacts/combat-impact-corpus/report.json}"
+    local report_path="$SCRIPT_DIR/artifacts/combat-impact-corpus/report.json"
+    local benchmark_arg=()
+    if (($# >= 2)); then
+        if [[ "$2" == "--benchmark" ]]; then
+            benchmark_arg=("--benchmark")
+        else
+            report_path="$2"
+        fi
+    fi
+    if (($# == 3)); then
+        if [[ "$3" != "--benchmark" || "$2" == "--benchmark" ]]; then
+            echo -e "${RED}Usage: ./run.sh test-corpus <replay-corpus-path> [report-path] [--benchmark]${RESET}" >&2
+            return 2
+        fi
+        benchmark_arg=("--benchmark")
+    fi
     dotnet run --project tests/CombatImpact.Corpus/CombatImpact.Corpus.csproj \
         -p:BppDeployToGame=false -p:ManagedPath="$MANAGED" \
-        -- "$corpus_path" "$report_path"
+        -- "$corpus_path" "$report_path" "${benchmark_arg[@]}"
 }
 
 parse_test_options() {
@@ -631,15 +607,15 @@ build_matrix() {
 usage() {
     cat <<EOF
 Usage:
-  $0 build [--with-bazaaragent] [--fast] [-p:Name=Value ...]
+  $0 build [--fast] [-p:Name=Value ...]
       Debug build; copies into BepInEx/plugins/ when the game is found.
-  $0 publish [--with-bazaaragent] [-p:Name=Value ...]
+  $0 publish [-p:Name=Value ...]
       Production build: fetch remote embedded data, run the feature-owned seed
       gates, then Debug + Release with installer packaging.
   $0 fetch-data [-p:Name=Value ...]
       Refresh the remote embedded seeds without building.
   $0 restore-locks
-      Rewrite the committed NuGet lock files for the six published assemblies.
+      Rewrite the committed NuGet lock files for the four published assemblies.
       Run after every Directory.Packages.props change; test projects get none.
   $0 restore-locked
       Validate those restores in locked mode without rewriting the lock files.
@@ -647,7 +623,7 @@ Usage:
       Run the explicit default xUnit suite without deploying to the live game or fetching seeds.
   $0 test-compat [-p:ManagedPath=...]
       Run every compatibility check whose local game/decompiled prerequisites are available.
-  $0 test-corpus <replay-corpus-path> [report-path]
+  $0 test-corpus <replay-corpus-path> [report-path] [--benchmark]
       Run the opt-in offline Combat Impact corpus acceptance. A corpus is mandatory.
   $0 format
   $0 format-check
@@ -665,7 +641,6 @@ Usage:
       Build the source tree against every archived Managed snapshot.
 
 Options:
-  --with-bazaaragent  Build and copy the optional BazaarAgent assemblies.
   --fast              With build: skip NuGet restore (rerun without it after csproj edits or in a fresh worktree).
   -p:Name=Value       Forward an MSBuild property to build, publish, or fetch-data.
 EOF

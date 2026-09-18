@@ -7,6 +7,7 @@ import type { InstallProblem } from './installProblems';
 
 export function InstallConfirmModal({
   busy,
+  willCloseSteam,
   installAcknowledged,
   onAcknowledgedChange,
   problem,
@@ -14,6 +15,7 @@ export function InstallConfirmModal({
   onConfirm
 }: {
   busy: boolean;
+  willCloseSteam: boolean;
   installAcknowledged: boolean;
   onAcknowledgedChange: (acknowledged: boolean) => void;
   problem: InstallProblem | null;
@@ -25,7 +27,6 @@ export function InstallConfirmModal({
     <ConfirmDialog
       titleId="install-modal-title"
       title={t('installModalTitle')}
-      subtitle={t('installModalSubtitle')}
       tone="gold"
       acknowledge={{
         label: t('installAcknowledge'),
@@ -73,7 +74,9 @@ export function InstallConfirmModal({
           {t(
             isWindowsPlatform()
               ? 'installSteamNotice'
-              : 'installSteamNoticeMacos'
+              : willCloseSteam
+                ? 'installSteamNoticeMacos'
+                : 'installCloseGameNotice'
           )}
         </p>
       </section>

@@ -29,7 +29,8 @@ internal sealed class GhostBattlePayloadStore
             rootPath,
             FileSuffix,
             GhostBattlePayloadCodec.Serialize,
-            GhostBattlePayloadCodec.TryDeserialize
+            GhostBattlePayloadCodec.TryDeserialize,
+            maximumFileBytes: 16 * 1024 * 1024
         );
     }
 

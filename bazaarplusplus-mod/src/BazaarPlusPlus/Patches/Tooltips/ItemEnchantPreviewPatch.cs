@@ -85,9 +85,6 @@ internal static class BppTooltipSectionRenderPatch
         }
     }
 
-    internal static bool HasNativeContent(string passiveText, int questGroupCount) =>
-        !string.IsNullOrWhiteSpace(passiveText) || questGroupCount > 0;
-
     internal static bool CanRenderEnchantPreview(bool isInCombat, bool isRecapViewOpen) =>
         !isInCombat && !isRecapViewOpen;
 
@@ -233,10 +230,8 @@ internal static class BppTooltipSectionRenderPatch
 [HarmonyPatch(typeof(CardTooltipController), nameof(CardTooltipController.ResetValues))]
 internal static class BppTooltipSectionResetPatch
 {
-    [HarmonyPrefix]
-    private static void Prefix(CardTooltipController __instance) =>
-        ItemEnchantPreviewTooltipLifecycle.Hide(__instance);
-
+    // The finalizer covers both the normal and the throwing path, so a prefix doing the same
+    // Hide would only duplicate the work.
     [HarmonyFinalizer]
     private static void Finalizer(CardTooltipController __instance) =>
         ItemEnchantPreviewTooltipLifecycle.Hide(__instance);

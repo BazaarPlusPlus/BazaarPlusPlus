@@ -34,33 +34,18 @@ internal readonly record struct ReplayVideoEncoderCompletionOutcome(
 
 internal enum ReplayVideoLogStage
 {
-    EncoderStarted,
-    FrameConsumeCallback,
-    StderrReader,
     CaptureStarted,
     CaptureFinalized,
     Readback,
-    CaptureRequest,
     RenderTextureRelease,
     MuxCallback,
-    MuxProbe,
     MuxDrain,
     TempDelete,
-    WavDelete,
     UiSuppression,
     SessionStarted,
-    SessionEnded,
 }
 
 internal enum ReplayVideoDiagnosticReasonCode
 {
-    None,
-    CallbackException,
-    ReaderException,
-    ReadbackFailed,
-    ReadbackOutOfOrder,
-    CaptureException,
-    CleanupException,
-    ProbeFailed,
     DrainFailed,
 }

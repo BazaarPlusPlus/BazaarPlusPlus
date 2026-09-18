@@ -1,5 +1,13 @@
 import type { MessageKey } from '../../i18n/messages';
 import type { Locale } from '../../i18n/messages';
+import type { HistoryRunRow } from '../../types/backend';
+import type { Translate } from '../../i18n/LocaleProvider';
+
+export function formatGameMode(mode: string, t: Translate): string {
+  if (mode === 'Ranked') return t('runModeRanked');
+  if (mode === 'Normal') return t('runModeNormal');
+  return mode;
+}
 
 const dateTimeFormatters: Record<Locale, Intl.DateTimeFormat> = {
   zh: new Intl.DateTimeFormat('zh-CN', {
@@ -61,20 +69,38 @@ export function formatDateTime(
   return dateTimeFormatters[locale].format(date);
 }
 
-export function formatRunResultLabel(result: string): {
+type RunOutcomeTier = 'misfortune' | 'bronze' | 'silver' | 'gold' | 'diamond';
+
+export function formatRunResultLabel(
+  run: Pick<HistoryRunRow, 'result' | 'victories' | 'losses'>
+): {
   key: MessageKey;
-  tone: 'ok' | 'bad' | undefined;
+  tier: RunOutcomeTier | undefined;
+  state?: 'active' | 'abandoned';
 } {
-  switch (result) {
-    case 'win':
-      return { key: 'runResultVictory', tone: 'ok' };
-    case 'loss':
-      return { key: 'runResultDefeat', tone: 'bad' };
-    case 'abandoned':
-      return { key: 'runResultAbandoned', tone: undefined };
-    default:
-      return { key: 'runResultActive', tone: undefined };
+  if (run.result === 'abandoned') {
+    return { key: 'runResultAbandoned', tier: undefined, state: 'abandoned' };
   }
+  if (run.result !== 'win' && run.result !== 'loss') {
+    return { key: 'runResultActive', tier: undefined, state: 'active' };
+  }
+
+  // Match the mod's HistoryPanelFormatter.GetRunOutcomeTier, including null counts.
+  const wins = run.victories ?? 0;
+  const totalBattles = wins + (run.losses ?? 0);
+  if (wins === 10 && totalBattles === 10) {
+    return { key: 'runResultDiamond', tier: 'diamond' };
+  }
+  if (wins >= 10 && totalBattles > 10) {
+    return { key: 'runResultGold', tier: 'gold' };
+  }
+  if (wins >= 7) {
+    return { key: 'runResultSilver', tier: 'silver' };
+  }
+  if (wins >= 4) {
+    return { key: 'runResultBronze', tier: 'bronze' };
+  }
+  return { key: 'runResultMisfortune', tier: 'misfortune' };
 }
 
 export function formatBattleResult(result: string): {
@@ -91,8 +117,7 @@ export function formatBattleResult(result: string): {
   }
 }
 
-// One tone language for run verdict AND battle result. Neutral (undefined) is
-// muted-gold, NEVER red.
+// Unresolved battle results use a neutral tone.
 export function toneColorClass(tone: 'ok' | 'bad' | undefined): string {
   if (tone === 'ok') return 'text-[#6dd9a0]';
   if (tone === 'bad') return 'text-[#d96d6d]';

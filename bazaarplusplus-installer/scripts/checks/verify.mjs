@@ -30,11 +30,9 @@ export function verificationSteps({ mode, releasePlatform }) {
         );
 
   return [
-    npmStep('Generate bindings and run Rust tests', 'generate:bindings:test'),
-    npmStep('Check generated binding freshness', 'check:bindings'),
+    // Sub-second gates run first so the most common failures (formatting, a
+    // stale Cargo lock) are reported before the Rust test build starts.
     npmStep('Check formatting', 'format:check'),
-    npmStep('Type-check TypeScript', 'check:ts'),
-    npmStep('Run Vitest', 'test:unit'),
     {
       label: 'Check Rust formatting',
       command: 'cargo',
@@ -54,6 +52,10 @@ export function verificationSteps({ mode, releasePlatform }) {
       ],
       stdio: ['inherit', 'ignore', 'inherit']
     },
+    npmStep('Generate bindings and run Rust tests', 'generate:bindings:test'),
+    npmStep('Check generated binding freshness', 'check:bindings'),
+    npmStep('Type-check TypeScript', 'check:ts'),
+    npmStep('Run Vitest', 'test:unit'),
     {
       label: 'Run Rust Clippy',
       command: 'cargo',

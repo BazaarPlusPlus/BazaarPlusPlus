@@ -25,12 +25,10 @@ internal static class HistoryPanelHeroPresentation
 
     internal static string DisplayName(string? heroId)
     {
-        if (!TheDragonsHeroIdentity.IsAlias(heroId))
-            return heroId ?? string.Empty;
-
         return TheDragonsHeroIdentity.TryResolve(heroId, out var hero)
-            ? TheDragonsHeroIdentity.ResolveDisplayName(hero)
-            : TheDragonsHeroIdentity.FallbackDisplayName;
+                ? TheDragonsHeroIdentity.ResolveDisplayName(hero)
+            : TheDragonsHeroIdentity.IsAlias(heroId) ? TheDragonsHeroIdentity.FallbackDisplayName
+            : heroId ?? string.Empty;
     }
 
     internal static string? CanonicalFilterId(string? heroId) =>

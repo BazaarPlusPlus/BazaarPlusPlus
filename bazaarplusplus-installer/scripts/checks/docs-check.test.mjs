@@ -4,21 +4,13 @@ import path from 'node:path';
 import { test, expect } from 'vitest';
 
 import {
-  checkCitationBounds,
-  checkCodeCitations,
-  checkContextTopicCoverage,
-  checkCurrentDocMetadata,
-  checkFrontmatterCompleteness,
-  checkLastVerifiedHash,
-  checkLastVerifiedHashes,
+  checkCitedPaths,
+  checkEntryMapCoverage,
   checkMarkdownLinks,
-  checkPathExistence,
-  extractBacktickReferences,
+  extractCitedPaths,
   extractMarkdownLinks,
-  findMissingFrontmatterKeys,
-  listCurrentDocFiles,
-  listMarkdownFiles,
-  resolveAncestryRef
+  listDocs,
+  runDocsCheck
 } from './docs-check.mjs';
 
 function writeFile(rootDir, relativePath, content) {
@@ -28,388 +20,155 @@ function writeFile(rootDir, relativePath, content) {
 }
 
 function createFixtureRoot() {
-  return fs.mkdtempSync(path.join(os.tmpdir(), 'bpp-docs-check-'));
-}
-
-function writeRootDocFiles(rootDir) {
+  const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), 'bpp-docs-check-'));
   writeFile(rootDir, 'CLAUDE.md', '# Claude\n');
   writeFile(rootDir, 'CONTEXT.md', '# Context\n');
   writeFile(rootDir, 'README.md', '# Readme\n');
+  return rootDir;
 }
 
-const FRONTMATTER = (extra = '') =>
-  `---\nstatus: current\ntopic: sample\nlast-verified: deadbeef\n${extra}---\n`;
+// ---------- what counts as a cited path ----------
 
-// ---------- extraction ----------
-
-test('extractBacktickReferences finds a path:N-M citation and ignores an IP:port span', () => {
-  const content =
-    'See `src/lib.rs:3-8` for details. The overlay binds `127.0.0.1:17654`.';
-  const references = extractBacktickReferences(content);
-
-  expect(references).toHaveLength(1);
-  expect(references[0]).toMatchObject({
-    path: 'src/lib.rs',
-    start: 3,
-    end: 8
-  });
-});
-
-test('extractBacktickReferences captures a bare path with no line suffix', () => {
-  const content =
-    'Generated bindings live in `src/types/generated/commands.ts`.';
-  const references = extractBacktickReferences(content);
-
-  expect(references).toHaveLength(1);
-  expect(references[0]).toMatchObject({
-    path: 'src/types/generated/commands.ts',
-    start: undefined,
-    end: undefined
-  });
-});
-
-test('extractBacktickReferences ignores a dotted symbol citation', () => {
+test('a symbol citation is not treated as a path', () => {
   const content =
     'The window config is `app.windows`, set via `DefaultStreamWorkflow.deriveSnapshot`.';
-  expect(extractBacktickReferences(content)).toEqual([]);
+  expect(extractCitedPaths(content)).toEqual([]);
 });
 
-test('extractBacktickReferences ignores an external path with a slash but no citable extension', () => {
-  const content = 'Steam detection reads `steamapps/libraryfolders.vdf`.';
-  expect(extractBacktickReferences(content)).toEqual([]);
+test('a file this repo does not own is not treated as a path', () => {
+  const content =
+    'Steam detection reads `steamapps/libraryfolders.vdf` and launches `TheBazaar.exe`.';
+  expect(extractCitedPaths(content)).toEqual([]);
 });
 
-test('extractBacktickReferences accepts a bare root file when it carries a line suffix', () => {
-  const content = 'Upload happens in `build.sh:43`.';
-  const references = extractBacktickReferences(content);
-
-  expect(references).toHaveLength(1);
-  expect(references[0]).toMatchObject({ path: 'build.sh', start: 43, end: 43 });
+test('a root-relative source path is treated as a path', () => {
+  const content =
+    'Generated bindings live in `src/types/generated/commands.ts`.';
+  expect(extractCitedPaths(content)).toEqual([
+    { target: 'src/types/generated/commands.ts', line: 1 }
+  ]);
 });
 
-test('extractBacktickReferences still ignores a bare symbol span even with a colon-shaped extension guard', () => {
-  const content = 'Config lives at `scripts.build`.';
-  expect(extractBacktickReferences(content)).toEqual([]);
-});
+// ---------- seam 1: cited paths exist ----------
 
-// ---------- assertion 1: frontmatter completeness ----------
-
-test('findMissingFrontmatterKeys catches a missing key', () => {
-  const content = '---\nstatus: current\nlast-verified: deadbeef\n---\n# Doc\n';
-  expect(
-    findMissingFrontmatterKeys(content, ['status', 'topic', 'last-verified'])
-  ).toEqual(['topic']);
-});
-
-test('findMissingFrontmatterKeys passes when all keys are present', () => {
-  expect(
-    findMissingFrontmatterKeys(FRONTMATTER(), [
-      'status',
-      'topic',
-      'last-verified'
-    ])
-  ).toEqual([]);
-});
-
-test('checkFrontmatterCompleteness reports the offending file and key', () => {
+test('a cited path with no file behind it fails, reported at its line', () => {
   const rootDir = createFixtureRoot();
   writeFile(
     rootDir,
-    'docs/architecture.md',
-    '---\nstatus: current\n---\n# Architecture\n'
+    'CLAUDE.md',
+    '# Claude\n\nSee `src/does-not-exist.rs` for details.\n'
   );
 
-  const result = checkFrontmatterCompleteness(rootDir);
+  const result = checkCitedPaths(rootDir);
 
-  expect(result.failures).toHaveLength(2);
-  expect(result.failures).toContainEqual({
-    file: 'docs/architecture.md',
-    line: 1,
-    message: 'missing frontmatter key `topic`'
-  });
-  expect(result.failures).toContainEqual({
-    file: 'docs/architecture.md',
-    line: 1,
-    message: 'missing frontmatter key `last-verified`'
-  });
+  expect(result.failures).toHaveLength(1);
+  expect(result.failures[0]).toMatchObject({ file: 'CLAUDE.md', line: 3 });
+  expect(result.failures[0].message).toMatch(/src\/does-not-exist\.rs/);
 });
 
-test('checkCurrentDocMetadata requires current status and unique topics', () => {
+test('a cited path that resolves passes', () => {
+  const rootDir = createFixtureRoot();
+  writeFile(rootDir, 'src/lib.rs', 'fn main() {}\n');
+  writeFile(rootDir, 'docs/architecture.md', 'Entry point: `src/lib.rs`.\n');
+
+  const result = checkCitedPaths(rootDir);
+
+  expect(result.failures).toEqual([]);
+  expect(result.checked).toBe(1);
+});
+
+test('an ADR may name code that no longer exists', () => {
   const rootDir = createFixtureRoot();
   writeFile(
     rootDir,
-    'docs/architecture.md',
-    FRONTMATTER().replace('status: current', 'status: truth')
+    'docs/adr/003-steam-only-launch.md',
+    'It worked through `src/services/tempo.rs`, since removed.\n'
   );
-  writeFile(rootDir, 'docs/frontend.md', FRONTMATTER());
 
-  const result = checkCurrentDocMetadata(rootDir);
-
-  expect(result.failures).toContainEqual({
-    file: 'docs/architecture.md',
-    line: 1,
-    message: 'status must be `current`, found `truth`'
-  });
-  expect(result.failures).toContainEqual({
-    file: 'docs/frontend.md',
-    line: 1,
-    message: 'topic `sample` is already owned by `docs/architecture.md`'
-  });
+  expect(checkCitedPaths(rootDir).failures).toEqual([]);
 });
 
-test('checkContextTopicCoverage reports an unlinked current topic', () => {
-  const rootDir = createFixtureRoot();
-  writeFile(rootDir, 'CONTEXT.md', '# Context\n');
-  writeFile(rootDir, 'docs/architecture.md', FRONTMATTER());
+// ---------- seam 2: relative markdown links resolve ----------
 
-  expect(checkContextTopicCoverage(rootDir).failures).toEqual([
+test('absolute URLs and bare anchors are not link targets', () => {
+  const content =
+    '[site](https://example.com) and [here](#section) and [doc](other.md)';
+  expect(extractMarkdownLinks(content)).toEqual([
+    { target: 'other.md', line: 1 }
+  ]);
+});
+
+test('a dead relative link fails and a live one passes', () => {
+  const rootDir = createFixtureRoot();
+  writeFile(rootDir, 'docs/adr/002-example.md', '# Two\n');
+  writeFile(
+    rootDir,
+    'docs/adr/001-example.md',
+    'See [two](002-example.md) and [gone](099-missing.md).\n'
+  );
+
+  const result = checkMarkdownLinks(rootDir);
+
+  expect(result.failures).toEqual([
     {
-      file: 'docs/architecture.md',
+      file: 'docs/adr/001-example.md',
       line: 1,
-      message: 'current topic is not linked from `CONTEXT.md`'
+      message: 'link to `099-missing.md` does not resolve'
     }
   ]);
 });
 
-test('checkContextTopicCoverage accepts a relative topic link', () => {
+test('a link is resolved against the linking file, not the repository root', () => {
   const rootDir = createFixtureRoot();
   writeFile(rootDir, 'CONTEXT.md', '[Architecture](docs/architecture.md)\n');
-  writeFile(rootDir, 'docs/architecture.md', FRONTMATTER());
+  writeFile(rootDir, 'docs/architecture.md', '[ADR](adr/001-example.md)\n');
+  writeFile(rootDir, 'docs/adr/001-example.md', '# One\n');
 
-  expect(checkContextTopicCoverage(rootDir).failures).toEqual([]);
+  expect(checkMarkdownLinks(rootDir).failures).toEqual([]);
 });
 
-// ---------- assertion 2: last-verified hash ancestry ----------
+// ---------- seam 3: CONTEXT.md reaches every topic ----------
 
-test('checkLastVerifiedHash fails a hash that does not exist in the repository', () => {
-  const execFileSyncImpl = (_command, args) => {
-    if (args[0] === 'cat-file') throw new Error('unknown revision');
-    throw new Error(`unexpected git invocation: ${args.join(' ')}`);
-  };
-
-  const result = checkLastVerifiedHash('0000000', {
-    execFileSyncImpl,
-    ref: 'origin/master'
-  });
-
-  expect(result.ok).toBe(false);
-  expect(result.reason).toMatch(/not a known Git object/);
-});
-
-test('checkLastVerifiedHash fails a hash that exists but is not an ancestor', () => {
-  const execFileSyncImpl = (_command, args) => {
-    if (args[0] === 'cat-file') return '';
-    if (args[0] === 'merge-base') throw new Error('not an ancestor');
-    throw new Error(`unexpected git invocation: ${args.join(' ')}`);
-  };
-
-  const result = checkLastVerifiedHash('abc1234', {
-    execFileSyncImpl,
-    ref: 'origin/master'
-  });
-
-  expect(result.ok).toBe(false);
-  expect(result.reason).toMatch(/not an ancestor of origin\/master/);
-});
-
-test('checkLastVerifiedHash skips instead of failing when no ancestry ref is available', () => {
-  const execFileSyncImpl = (_command, args) => {
-    if (args[0] === 'cat-file') return '';
-    throw new Error(`unexpected git invocation: ${args.join(' ')}`);
-  };
-
-  const result = checkLastVerifiedHash('abc1234', {
-    execFileSyncImpl,
-    ref: null
-  });
-
-  expect(result.ok).toBe(true);
-  expect(result.skipped).toBe(true);
-});
-
-test('resolveAncestryRef uses the current checkout so branch-local stamps are valid', () => {
-  const execFileSyncImpl = (_command, args) => {
-    if (args.includes('HEAD')) return '';
-    throw new Error(`unexpected git invocation: ${args.join(' ')}`);
-  };
-
-  expect(resolveAncestryRef({ execFileSyncImpl })).toBe('HEAD');
-});
-
-test('checkLastVerifiedHashes reports a dangling hash by file', () => {
-  const rootDir = createFixtureRoot();
-  writeFile(rootDir, 'docs/architecture.md', FRONTMATTER());
-  const execFileSyncImpl = (_command, args) => {
-    if (args[0] === 'rev-parse') return '';
-    if (args[0] === 'cat-file') throw new Error('unknown revision');
-    throw new Error(`unexpected git invocation: ${args.join(' ')}`);
-  };
-
-  const result = checkLastVerifiedHashes(rootDir, { execFileSyncImpl });
-
-  expect(result.failures).toHaveLength(1);
-  expect(result.failures[0].file).toBe('docs/architecture.md');
-  expect(result.failures[0].message).toMatch(/deadbeef/);
-});
-
-// ---------- assertion 3: code citation line ranges ----------
-
-test('checkCitationBounds catches an out-of-bounds range', () => {
-  const citation = {
-    path: 'src/lib.rs',
-    raw: 'src/lib.rs:1-20',
-    start: 1,
-    end: 20
-  };
-  const result = checkCitationBounds(citation, 10);
-
-  expect(result.ok).toBe(false);
-  expect(result.reason).toMatch(/past src\/lib\.rs's last line \(10\)/);
-});
-
-test('checkCitationBounds passes an in-bounds range', () => {
-  const citation = {
-    path: 'src/lib.rs',
-    raw: 'src/lib.rs:1-10',
-    start: 1,
-    end: 10
-  };
-  expect(checkCitationBounds(citation, 10).ok).toBe(true);
-});
-
-test('checkCodeCitations catches an out-of-bounds citation against a real fixture file', () => {
-  const rootDir = createFixtureRoot();
-  writeRootDocFiles(rootDir);
-  writeFile(rootDir, 'src/lib.rs', 'a\nb\nc\n');
-  writeFile(
-    rootDir,
-    'CLAUDE.md',
-    'See `src/lib.rs:1-20` for the entry point.\n'
-  );
-
-  const result = checkCodeCitations(rootDir);
-
-  expect(result.failures).toHaveLength(1);
-  expect(result.failures[0]).toMatchObject({ file: 'CLAUDE.md', line: 1 });
-  expect(result.failures[0].message).toMatch(/src\/lib\.rs:1-20/);
-});
-
-test('checkCodeCitations passes an in-bounds citation against a real fixture file', () => {
-  const rootDir = createFixtureRoot();
-  writeRootDocFiles(rootDir);
-  writeFile(rootDir, 'src/lib.rs', 'a\nb\nc\n');
-  writeFile(
-    rootDir,
-    'CLAUDE.md',
-    'See `src/lib.rs:1-3` for the entry point.\n'
-  );
-
-  const result = checkCodeCitations(rootDir);
-
-  expect(result.failures).toEqual([]);
-  expect(result.checked).toBe(1);
-});
-
-// ---------- assertion 4: backticked path existence ----------
-
-test('checkPathExistence catches a ghost path', () => {
-  const rootDir = createFixtureRoot();
-  writeRootDocFiles(rootDir);
-  writeFile(rootDir, 'CLAUDE.md', 'See `src/does-not-exist.rs` for details.\n');
-
-  const result = checkPathExistence(rootDir);
-
-  expect(result.failures).toHaveLength(1);
-  expect(result.failures[0]).toMatchObject({ file: 'CLAUDE.md', line: 1 });
-  expect(result.failures[0].message).toMatch(/src\/does-not-exist\.rs/);
-});
-
-test('checkPathExistence exempts docs/adr/ from ghost-path failures', () => {
-  const rootDir = createFixtureRoot();
-  writeRootDocFiles(rootDir);
-  writeFile(
-    rootDir,
-    'docs/adr/003-steam-only-launch.md',
-    'It worked through `services/tempo.rs`, which no longer exists.\n'
-  );
-
-  const result = checkPathExistence(rootDir);
-
-  expect(result.failures).toEqual([]);
-});
-
-// ---------- assertion 5: relative markdown links ----------
-
-test('extractMarkdownLinks ignores absolute URLs and pure anchors', () => {
-  const content =
-    '[site](https://example.com) and [here](#section) and [doc](other.md)';
-  const links = extractMarkdownLinks(content);
-
-  expect(links).toHaveLength(1);
-  expect(links[0].target).toBe('other.md');
-});
-
-test('checkMarkdownLinks catches a dead relative link', () => {
-  const rootDir = createFixtureRoot();
-  writeRootDocFiles(rootDir);
-  writeFile(
-    rootDir,
-    'docs/adr/001-example.md',
-    'See [missing decision](002-does-not-exist.md) for context.\n'
-  );
-
-  const result = checkMarkdownLinks(rootDir);
-
-  expect(result.failures).toContainEqual({
-    file: 'docs/adr/001-example.md',
-    line: 1,
-    message: 'link to `002-does-not-exist.md` does not resolve'
-  });
-});
-
-test('checkMarkdownLinks resolves a link relative to the linking file and passes', () => {
-  const rootDir = createFixtureRoot();
-  writeRootDocFiles(rootDir);
-  writeFile(
-    rootDir,
-    'docs/adr/001-example.md',
-    'See [decision two](002-example.md).\n'
-  );
-  writeFile(rootDir, 'docs/adr/002-example.md', '# Two\n');
-
-  const result = checkMarkdownLinks(rootDir);
-
-  expect(result.failures).toEqual([]);
-  expect(result.checked).toBe(1);
-});
-
-// ---------- missing/empty directory handling ----------
-
-test('listCurrentDocFiles includes only Markdown files directly under docs', () => {
+test('a topic missing from the entry map fails', () => {
   const rootDir = createFixtureRoot();
   writeFile(rootDir, 'docs/architecture.md', '# Architecture\n');
-  writeFile(rootDir, 'docs/notes.txt', 'notes\n');
-  writeFile(rootDir, 'docs/adr/001-example.md', '# Decision\n');
 
-  expect(listCurrentDocFiles(rootDir)).toEqual(['docs/architecture.md']);
+  expect(checkEntryMapCoverage(rootDir).failures).toEqual([
+    {
+      file: 'docs/architecture.md',
+      line: 1,
+      message: 'topic is not linked from `CONTEXT.md`'
+    }
+  ]);
 });
 
-test('listMarkdownFiles returns an empty list for a missing directory without throwing', () => {
+test('a topic linked from the entry map passes, and ADRs need no entry', () => {
   const rootDir = createFixtureRoot();
-  expect(() => listMarkdownFiles(rootDir, 'docs/plans')).not.toThrow();
-  expect(listMarkdownFiles(rootDir, 'docs/plans')).toEqual([]);
+  writeFile(rootDir, 'CONTEXT.md', '[Architecture](docs/architecture.md)\n');
+  writeFile(rootDir, 'docs/architecture.md', '# Architecture\n');
+  writeFile(rootDir, 'docs/adr/001-example.md', '# One\n');
+
+  const result = checkEntryMapCoverage(rootDir);
+
+  expect(result.failures).toEqual([]);
+  expect(result.checked).toBe(1);
 });
 
-test('listMarkdownFiles returns an empty list for an empty directory without throwing', () => {
+// ---------- runner ----------
+
+test('listDocs tolerates a directory that does not exist yet', () => {
   const rootDir = createFixtureRoot();
-  fs.mkdirSync(path.join(rootDir, 'docs', 'plans'), { recursive: true });
-  expect(() => listMarkdownFiles(rootDir, 'docs/plans')).not.toThrow();
-  expect(listMarkdownFiles(rootDir, 'docs/plans')).toEqual([]);
+  expect(listDocs(rootDir, 'docs/plans')).toEqual([]);
 });
 
-test('checkCodeCitations does not throw when docs/plans is missing', () => {
+test('runDocsCheck reports failure once any seam fails, and passes a clean tree', () => {
   const rootDir = createFixtureRoot();
-  writeRootDocFiles(rootDir);
+  writeFile(rootDir, 'CONTEXT.md', '[Architecture](docs/architecture.md)\n');
+  writeFile(rootDir, 'src/lib.rs', 'fn main() {}\n');
+  writeFile(rootDir, 'docs/architecture.md', 'Entry point: `src/lib.rs`.\n');
 
-  expect(() => checkCodeCitations(rootDir)).not.toThrow();
+  expect(runDocsCheck(rootDir, { log: () => {} })).toBe(true);
+
+  writeFile(rootDir, 'docs/orphan.md', '# Orphan\n');
+  expect(runDocsCheck(rootDir, { log: () => {} })).toBe(false);
 });

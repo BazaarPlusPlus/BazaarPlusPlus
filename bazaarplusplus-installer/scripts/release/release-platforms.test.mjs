@@ -6,10 +6,6 @@ import { runShell, toBashPath } from '../test-support/shell.mjs';
 import {
   RELEASE_PLATFORMS,
   RELEASE_PLATFORM_KEYS,
-  bundleRoot,
-  installerDir,
-  bundleCleanupDir,
-  releaseBinary,
   updaterFragmentUrl,
   resolveBuildPlatform,
   defaultTargetBuildPlatforms
@@ -49,15 +45,11 @@ test.each(RELEASE_PLATFORMS)(
       set -euo pipefail
       source ./build.sh
       printf 'r2key=%s\\n' "$(platform_r2_key ${p.buildPlatform})"
-      printf 'bundleroot=%s\\n' "$(bundle_root_for_platform ${p.buildPlatform})"
-      printf 'instdir=%s\\n' "$(release_platforms_cli installer-dir ${p.buildPlatform})"
-      printf 'glob=%s\\n' "$(release_platforms_cli installer-glob ${p.buildPlatform})"
+      printf 'bundleroot=%s\\n' "$(release_platforms_cli bundle-root ${p.buildPlatform})"
       printf 'rust=[%s]\\n' "$(required_rust_targets_for_platform ${p.buildPlatform})"
     `);
     expect(out).toContain(`r2key=${p.key}`);
-    expect(out).toMatch(new RegExp(`bundleroot=.*/${bundleRoot(p)}\\n`));
-    expect(out).toContain(`instdir=${installerDir(p)}`);
-    expect(out).toContain(`glob=${p.installerNameGlob}`);
+    expect(out).toContain(`bundleroot=${p.bundleRoot}`);
     expect(out).toContain(`rust=[${p.rustTarget ?? ''}]`);
   }
 );
@@ -77,15 +69,15 @@ test.each(RELEASE_PLATFORMS)(
     if (p.rustTarget) expect(out).toContain(`--target ${p.rustTarget}`);
     else expect(out).not.toContain('--target');
     expect(out).toContain(`--bundles ${p.bundleTargets}`);
-    expect(out).toMatch(new RegExp(`Binary:\\s+.*/${releaseBinary(p)}\\n`));
-    expect(out).toMatch(new RegExp(`Bundle:\\s+.*/${installerDir(p)}\\n`));
+    expect(out).toMatch(new RegExp(`Binary:\\s+.*/${p.releaseBinary}\\n`));
+    expect(out).toMatch(new RegExp(`Bundle:\\s+.*/${p.installerDir}\\n`));
   }
 );
 
 test.each(RELEASE_PLATFORMS)(
   'before-bundle-cleanup dir for $key matches the module',
   (p) => {
-    const expected = path.join('/root', ...bundleCleanupDir(p).split('/'));
+    const expected = path.join('/root', ...p.bundleCleanupDir.split('/'));
     expect(resolveBundleCleanupPath('/root', p.buildPlatform)).toBe(expected);
     expect(resolveBundleCleanupPath('/root', p.nodePlatform)).toBe(expected);
   }

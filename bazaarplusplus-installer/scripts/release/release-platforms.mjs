@@ -84,22 +84,6 @@ export function defaultTargetBuildPlatforms() {
   return RELEASE_PLATFORMS.map((platform) => platform.buildPlatform).sort();
 }
 
-export function bundleRoot(platform) {
-  return platform.bundleRoot;
-}
-
-export function installerDir(platform) {
-  return platform.installerDir;
-}
-
-export function bundleCleanupDir(platform) {
-  return platform.bundleCleanupDir;
-}
-
-export function releaseBinary(platform) {
-  return platform.releaseBinary;
-}
-
 export function r2UpdaterKey({ version, platformKey, updaterFileName }) {
   findByKey(platformKey);
   return `${version}/${platformKey}/updater/${updaterFileName}`;
@@ -167,13 +151,7 @@ export function cliMain(args) {
         printLines([platform.key]);
         break;
       case 'bundle-root':
-        printLines([bundleRoot(platform)]);
-        break;
-      case 'installer-dir':
-        printLines([installerDir(platform)]);
-        break;
-      case 'installer-glob':
-        printLines([platform.installerNameGlob]);
+        printLines([platform.bundleRoot]);
         break;
       case 'rust-targets':
         printLines([platform.rustTarget]);
@@ -183,9 +161,9 @@ export function cliMain(args) {
           platform.tauriConfig,
           platform.resourceZip,
           platform.bundleTargets,
-          installerDir(platform),
-          bundleCleanupDir(platform),
-          releaseBinary(platform),
+          platform.installerDir,
+          platform.bundleCleanupDir,
+          platform.releaseBinary,
           platform.rustTarget
         ]);
         break;

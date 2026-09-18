@@ -13,10 +13,8 @@ import {
   type StreamCommandPort,
   type StreamScheduler
 } from './streamWorkflow';
-import {
-  presentStreamProblem,
-  presentStreamSnapshot
-} from './streamPresentation';
+import { presentStreamSnapshot } from './streamPresentation';
+import { presentStreamProblem } from './streamProblems';
 
 function runningStatus(
   overrides: Partial<StreamServiceStatus> = {}

@@ -17,7 +17,7 @@ export function Dialog({
   className = '',
   children
 }: {
-  onClose: (reason: DialogCloseReason) => void;
+  onClose: () => void;
   labelledBy?: string;
   focusContainerOnOpen?: boolean;
   className?: string;
@@ -47,12 +47,12 @@ export function Dialog({
       onCancel={(event) => {
         // Escape fires `cancel`; we own the close so the parent state stays in sync.
         event.preventDefault();
-        if (!dismissalBlocked) onClose('escape');
+        if (!dismissalBlocked) onClose();
       }}
       onClick={(event) => {
         // A click on the dialog itself (the backdrop area around the card) closes it.
         if (!dismissalBlocked && event.target === event.currentTarget) {
-          onClose('backdrop');
+          onClose();
         }
       }}
     >
@@ -60,5 +60,3 @@ export function Dialog({
     </dialog>
   );
 }
-
-export type DialogCloseReason = 'escape' | 'backdrop';

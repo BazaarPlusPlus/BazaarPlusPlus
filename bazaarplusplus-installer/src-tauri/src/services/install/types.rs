@@ -33,7 +33,6 @@ pub struct ResetBepinexResult {
 pub struct InstallGameState {
     pub found: bool,
     pub path_valid: bool,
-    pub display_version: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, specta::Type)]
@@ -74,9 +73,4 @@ pub struct InstallWarning {
 #[derive(Clone, Debug, Serialize, specta::Type)]
 pub struct GameDirectorySelection {
     pub game_path: Option<String>,
-}
-
-#[derive(Clone, Debug, Serialize, specta::Type)]
-pub struct FileActionResult {
-    pub ok: bool,
 }

@@ -189,8 +189,7 @@ public static class BundleV5Codec
             ValidateDigest(screenshotBytes, manifest.Screenshot.Sha256);
         }
 
-        var completeBytes = bytes.ToArray();
-        var completeDigest = ComputeSha256(completeBytes);
+        var completeDigest = ComputeSha256(bytes.Span);
         return new OpenedBundleV5(
             manifest,
             manifestBytes,
@@ -202,10 +201,10 @@ public static class BundleV5Codec
     }
 
     public static string ComputeSha256Hex(ReadOnlyMemory<byte> bytes) =>
-        ToLowerHex(ComputeSha256(bytes.ToArray()));
+        ToLowerHex(ComputeSha256(bytes.Span));
 
     public static string FormatContentDigest(ReadOnlyMemory<byte> bundleBytes) =>
-        FormatContentDigest(ComputeSha256(bundleBytes.ToArray()));
+        FormatContentDigest(ComputeSha256(bundleBytes.Span));
 
     private static JObject ParseManifest(byte[] manifestBytes)
     {
@@ -708,10 +707,13 @@ public static class BundleV5Codec
             );
     }
 
-    private static byte[] ComputeSha256(byte[] bytes)
+    private static byte[] ComputeSha256(ReadOnlySpan<byte> bytes)
     {
         using var sha256 = SHA256.Create();
-        return sha256.ComputeHash(bytes);
+        var digest = new byte[32];
+        if (!sha256.TryComputeHash(bytes, digest, out var written) || written != digest.Length)
+            throw new InvalidOperationException("SHA-256 digest computation failed.");
+        return digest;
     }
 
     private static string ToLowerHex(byte[] bytes)

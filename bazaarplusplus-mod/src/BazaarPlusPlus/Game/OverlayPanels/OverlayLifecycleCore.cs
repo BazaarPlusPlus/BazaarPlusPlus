@@ -97,7 +97,8 @@ internal sealed class OverlayLifecycleCore
     // scene change -> combat auto-close -> hotkey toggle -> escape.
     public IReadOnlyList<OverlayDirective> Evaluate(OverlayFrameSnapshot frame)
     {
-        var directives = new List<OverlayDirective>();
+        // Most frames produce nothing; the list is allocated only once a directive exists.
+        List<OverlayDirective>? directives = null;
 
         if (_lastSceneToken == null)
         {
@@ -110,39 +111,39 @@ internal sealed class OverlayLifecycleCore
             {
                 var policy = FindPanel(_openPanelId)?.ScenePolicy ?? SceneChangeClosePolicy.Always;
                 if (policy == SceneChangeClosePolicy.Always || frame.IsInCombat)
-                    ClosePanel(directives, OverlayCloseReason.SceneChange);
+                    ClosePanel(ref directives, OverlayCloseReason.SceneChange);
             }
 
             // Side-effect fan-out runs after the policy close (matching CollectionPanel's
             // close-then-dispose order) and reaches every registrant, open or closed.
             foreach (var panel in _panels)
-                directives.Add(OverlayDirective.NotifySceneChanged(panel.PanelId));
+                (directives ??= []).Add(OverlayDirective.NotifySceneChanged(panel.PanelId));
         }
 
         if (_openPanelId != null && frame.IsInCombat)
-            ClosePanel(directives, OverlayCloseReason.Combat);
+            ClosePanel(ref directives, OverlayCloseReason.Combat);
 
         if (frame.HotkeyPressedPanelId is { } hotkeyPanelId && FindPanel(hotkeyPanelId) != null)
         {
             if (string.Equals(_openPanelId, hotkeyPanelId, StringComparison.Ordinal))
             {
-                ClosePanel(directives, OverlayCloseReason.HotkeyToggle);
+                ClosePanel(ref directives, OverlayCloseReason.HotkeyToggle);
             }
             else if (!frame.IsInCombat)
             {
                 if (_openPanelId != null)
-                    ClosePanel(directives, OverlayCloseReason.Superseded);
-                directives.Add(OverlayDirective.Open(hotkeyPanelId));
+                    ClosePanel(ref directives, OverlayCloseReason.Superseded);
+                (directives ??= []).Add(OverlayDirective.Open(hotkeyPanelId));
                 _openPanelId = hotkeyPanelId;
             }
             // In combat: open is suppressed, matching the panels' historical Open() guards.
         }
         else if (frame.EscapePressed && _openPanelId != null)
         {
-            ClosePanel(directives, OverlayCloseReason.Escape);
+            ClosePanel(ref directives, OverlayCloseReason.Escape);
         }
 
-        return directives;
+        return (IReadOnlyList<OverlayDirective>?)directives ?? Array.Empty<OverlayDirective>();
     }
 
     // Synchronous external open (dock entries): combat gate + close-others + open, resolved at
@@ -163,8 +164,9 @@ internal sealed class OverlayLifecycleCore
         if (isInCombat)
             return OverlayRequestOutcome.SuppressedByCombat;
 
+        List<OverlayDirective>? pending = result;
         if (_openPanelId != null)
-            ClosePanel(result, OverlayCloseReason.Superseded);
+            ClosePanel(ref pending, OverlayCloseReason.Superseded);
         result.Add(OverlayDirective.Open(panelId));
         _openPanelId = panelId;
         return OverlayRequestOutcome.Executed;
@@ -183,13 +185,14 @@ internal sealed class OverlayLifecycleCore
         if (!string.Equals(_openPanelId, panelId, StringComparison.Ordinal))
             return OverlayRequestOutcome.AlreadyInState;
 
-        ClosePanel(result, OverlayCloseReason.Request);
+        List<OverlayDirective>? pending = result;
+        ClosePanel(ref pending, OverlayCloseReason.Request);
         return OverlayRequestOutcome.Executed;
     }
 
-    private void ClosePanel(List<OverlayDirective> directives, OverlayCloseReason reason)
+    private void ClosePanel(ref List<OverlayDirective>? directives, OverlayCloseReason reason)
     {
-        directives.Add(OverlayDirective.Close(_openPanelId!, reason));
+        (directives ??= []).Add(OverlayDirective.Close(_openPanelId!, reason));
         _openPanelId = null;
     }
 

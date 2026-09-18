@@ -5,7 +5,6 @@ namespace BazaarPlusPlus.Infrastructure.Logging;
 
 internal sealed class BppLogEventRenderer
 {
-    internal const int FieldCharacterBudget = BppLogValueFormatter.DefaultValueBudget;
     internal const int RecordCharacterBudget = 2048;
     internal const int ExceptionRecordCharacterBudget = 8192;
 

@@ -153,17 +153,6 @@ platform_r2_key() {
     fi
 }
 
-bundle_root_for_platform() {
-    local platform="$1"
-    local relative_path=""
-
-    if ! relative_path="$(release_platforms_cli bundle-root "$platform")"; then
-        echo "Error: Unsupported platform bundle root: $platform" >&2
-        return 1
-    fi
-    printf '%s' "$SCRIPT_DIR/$relative_path"
-}
-
 install_dependencies() {
     local allow_reuse="${1:-false}"
     if [ "$allow_reuse" = true ] \

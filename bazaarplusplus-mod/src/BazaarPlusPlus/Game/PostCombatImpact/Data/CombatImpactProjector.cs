@@ -3,6 +3,7 @@ using BazaarGameShared.Domain.Core;
 using BazaarGameShared.Domain.Core.Types;
 using BazaarGameShared.Domain.Effect;
 using BazaarGameShared.Domain.Effect.Actions;
+using BazaarGameShared.Domain.Effect.AuraActions;
 using BazaarGameShared.Domain.Targeting;
 using BazaarGameShared.Domain.Values;
 using BazaarGameShared.Domain.Values.ReferenceValues;
@@ -125,6 +126,8 @@ internal static class CombatImpactProjector
                     RawDirectSourceId = execution.DirectSourceId,
                     TriggerSourceId = execution.TriggerSourceId,
                     TriggerFrameIndex = execution.FrameIndex,
+                    EffectId = execution.EffectId,
+                    ExecutionContextId = execution.ExecutionContextId,
                     ActivitySourceResolution = triggerProvenance.SourceResolution,
                     TriggerScope = triggerProvenance.Scope,
                     IsUnattributedTransitionClaimant = resolved.IsUnattributedTransitionClaimant,
@@ -531,7 +534,6 @@ internal static class CombatImpactProjector
     {
         return report with
         {
-            PeriodicResiduals = periodic.Residuals,
             Sources = report
                 .Sources.Select(source =>
                     source with
@@ -739,8 +741,14 @@ internal static class CombatImpactProjector
         events
             .Where(item =>
                 item.Kind == CombatImpactKind.AttributeChange
-                && item.Surface == CombatImpactEventSurface.CardAttribute
-                && item.IsUnattributedTransitionClaimant
+                && item.Surface
+                    is CombatImpactEventSurface.CardAttribute
+                        or CombatImpactEventSurface.PlayerAttribute
+                && (
+                    item.IsUnattributedTransitionClaimant
+                    || item.AttributeTransitionResolution
+                        == CombatImpactAttributeTransitionResolution.AuraOverlap
+                )
                 && item.TriggerFrameIndex.HasValue
                 && item.UnattributedTransitionValue.HasValue
             )
@@ -757,17 +765,31 @@ internal static class CombatImpactProjector
                     .Distinct()
                     .Take(2)
                     .ToArray();
-                return values.Length == 1
-                    ? new CombatImpactAttributeTransitionResidual(
-                        group.Key.FrameIndex,
-                        group.Key.TargetId,
-                        group.Key.NativeAttributeKey,
-                        values[0],
-                        group.Key.Unit,
-                        group.Count(),
-                        CombatImpactAttributeTransitionResidualReason.ConcurrentAttributionUnavailable
-                    )
-                    : null;
+                if (values.Length != 1)
+                    return null;
+                var auraOverlap = group.Any(item =>
+                    item.AttributeTransitionResolution
+                    == CombatImpactAttributeTransitionResolution.AuraOverlap
+                );
+                return new CombatImpactAttributeTransitionResidual(
+                    group.Key.FrameIndex,
+                    group.Key.TargetId,
+                    group.Key.NativeAttributeKey,
+                    auraOverlap
+                        ? SaturatingInt(
+                            (long)values[0]
+                                - group.Sum(item => (long)item.Value.GetValueOrDefault())
+                        )
+                        : values[0],
+                    group.Key.Unit,
+                    group.Count(),
+                    auraOverlap
+                        ? CombatImpactAttributeTransitionResidualReason.AuraOverlap
+                        : CombatImpactAttributeTransitionResidualReason.ConcurrentAttributionUnavailable
+                )
+                {
+                    Surface = group.First().Surface,
+                };
             })
             .Where(residual => residual != null)
             .Cast<CombatImpactAttributeTransitionResidual>()
@@ -801,6 +823,11 @@ internal static class CombatImpactProjector
                 var resolution =
                     group.Any(item =>
                         item.AttributeTransitionResolution
+                        == CombatImpactAttributeTransitionResolution.AuraOverlap
+                    )
+                        ? CombatImpactAttributeTransitionResolution.AuraOverlap
+                    : group.Any(item =>
+                        item.AttributeTransitionResolution
                         == CombatImpactAttributeTransitionResolution.ConcurrentResidual
                     )
                         ? CombatImpactAttributeTransitionResolution.ConcurrentResidual
@@ -818,10 +845,11 @@ internal static class CombatImpactProjector
                 var attributedValue = SaturatingInt(
                     group.Where(item => item.Value.HasValue).Sum(item => (long)item.Value!.Value)
                 );
-                var residualValue =
-                    resolution == CombatImpactAttributeTransitionResolution.ConcurrentResidual
-                        ? SaturatingInt((long)netValues[0] - attributedValue)
-                        : 0;
+                var residualValue = resolution
+                    is CombatImpactAttributeTransitionResolution.ConcurrentResidual
+                        or CombatImpactAttributeTransitionResolution.AuraOverlap
+                    ? SaturatingInt((long)netValues[0] - attributedValue)
+                    : 0;
                 return new CombatImpactAttributeTransitionDiagnostic(
                     group.Key.FrameIndex,
                     group.Key.TargetId,
@@ -1225,69 +1253,96 @@ internal static class CombatImpactProjector
         IReadOnlyDictionary<string, CombatImpactEntity> entities
     )
     {
-        var observed = executions
-            .Where(execution =>
-                execution.DirectSourceId is { Length: > 0 } sourceId
-                && execution.TriggerSourceId is { Length: > 0 }
-                && execution.EffectId is { Length: > 0 } effectId
-                && entities.TryGetValue(sourceId, out var source)
-                && source.CriticalTriggerAbilitiesByEffectId?.ContainsKey(effectId) == true
-            )
-            .Select(execution => new CriticalTriggerExecutionEvidence(
-                execution.TriggerSourceId!,
-                execution.FrameIndex,
-                entities[execution.DirectSourceId!].CriticalTriggerAbilitiesByEffectId![
-                    execution.EffectId!
-                ],
-                execution.DirectSourceId!,
-                execution.EffectId!,
-                execution.ExecutionContextId
-            ))
-            .Distinct()
-            .ToArray();
-        var resolutions = observed
-            .Select(evidence => TryResolveCriticalTriggerOrigin(events, executions, evidence))
-            .ToArray();
-        var evidence = resolutions
-            .Where(origin => origin.HasValue)
-            .Select(origin => origin!.Value)
-            .ToHashSet();
-        if (evidence.Count == 0)
-            return new CombatImpactCriticalTriggerEvidenceAudit(0, 0);
+        var observed = ObserveCriticalTriggerExecutions(executions, entities);
+        if (observed.Count == 0)
+            return new CombatImpactCriticalTriggerEvidenceAudit(0, 0)
+            {
+                InputEventCount = events.Count,
+                InputExecutionCount = executions.Count,
+                WorkUnitCount = executions.Count,
+            };
 
-        var candidates = events
-            .Select((item, index) => new IndexedImpactEvent(index, item))
-            .Where(item =>
-                item.Event.TriggerFrameIndex.HasValue
-                && evidence.Contains(
-                    new CriticalTriggerEvidenceKey(
-                        item.Event.SourceId,
-                        item.Event.TriggerFrameIndex.Value
-                    )
+        var index = new CriticalTriggerAttributionIndex(events, executions, observed);
+        NormalizeCriticalTriggerExecutions(events, index.ListenerEventIndices);
+
+        var origins = new List<CriticalTriggerEvidenceKey>();
+        var originSet = new HashSet<CriticalTriggerEvidenceKey>();
+        var excludedCandidates = new HashSet<CriticalTriggerOriginExecutionKey>();
+        foreach (var evidence in observed)
+        {
+            var origin = index.TryResolveOrigin(evidence);
+            if (!origin.HasValue)
+                continue;
+
+            if (originSet.Add(origin.Value))
+                origins.Add(origin.Value);
+            excludedCandidates.Add(
+                new CriticalTriggerOriginExecutionKey(origin.Value, ExecutionKey(evidence))
+            );
+        }
+
+        if (origins.Count == 0)
+            return new CombatImpactCriticalTriggerEvidenceAudit(0, 0)
+            {
+                InputEventCount = events.Count,
+                InputExecutionCount = executions.Count,
+                ObservedEvidenceCount = observed.Count,
+                WorkUnitCount = index.WorkUnitCount,
+            };
+
+        var candidatesByOrigin =
+            new Dictionary<CriticalTriggerEvidenceKey, List<IndexedImpactEvent>>();
+        for (var eventIndex = 0; eventIndex < events.Count; eventIndex++)
+        {
+            index.CountWorkUnit();
+            var item = events[eventIndex];
+            if (!item.TriggerFrameIndex.HasValue || !CanReceiveCriticalTriggerEvidence(item))
+                continue;
+
+            var origin = new CriticalTriggerEvidenceKey(
+                item.SourceId,
+                item.TriggerFrameIndex.Value
+            );
+            if (!originSet.Contains(origin))
+                continue;
+            var executionKey = TryExecutionKey(item);
+            if (
+                executionKey.HasValue
+                && excludedCandidates.Contains(
+                    new CriticalTriggerOriginExecutionKey(origin, executionKey.Value)
                 )
-                && CanReceiveCriticalTriggerEvidence(item.Event)
             )
-            .GroupBy(item => new CriticalTriggerEvidenceKey(
-                item.Event.SourceId,
-                item.Event.TriggerFrameIndex!.Value
-            ));
+                continue;
 
-        var candidatesByOrigin = candidates.ToDictionary(
-            group => group.Key,
-            group => group.ToArray()
-        );
+            if (!candidatesByOrigin.TryGetValue(origin, out var candidates))
+            {
+                candidates = [];
+                candidatesByOrigin.Add(origin, candidates);
+            }
+            candidates.Add(new IndexedImpactEvent(eventIndex, item));
+        }
+
         var attributed = 0;
-        foreach (var origin in evidence)
+        foreach (var origin in origins)
         {
             if (!candidatesByOrigin.TryGetValue(origin, out var items))
                 continue;
-            if (items.Any(item => item.Event.CriticalCount > 0 || item.Event.IsCritical))
+            var alreadyCritical = false;
+            foreach (var item in items)
+            {
+                index.CountWorkUnit();
+                if (item.Event.CriticalCount <= 0 && !item.Event.IsCritical)
+                    continue;
+                alreadyCritical = true;
+                break;
+            }
+            if (alreadyCritical)
             {
                 attributed++;
                 continue;
             }
 
-            var originating = SelectCriticalTriggerOrigin(items);
+            var originating = SelectCriticalTriggerOrigin(items, index);
             events[originating.Index] = events[originating.Index] with
             {
                 CriticalCount = 1,
@@ -1296,61 +1351,72 @@ internal static class CombatImpactProjector
             };
             attributed++;
         }
-        return new CombatImpactCriticalTriggerEvidenceAudit(evidence.Count, attributed);
+        return new CombatImpactCriticalTriggerEvidenceAudit(origins.Count, attributed)
+        {
+            InputEventCount = events.Count,
+            InputExecutionCount = executions.Count,
+            ObservedEvidenceCount = observed.Count,
+            WorkUnitCount = index.WorkUnitCount,
+        };
     }
 
-    private static CriticalTriggerEvidenceKey? TryResolveCriticalTriggerOrigin(
-        IEnumerable<CombatImpactEvent> events,
+    private static IReadOnlyList<CriticalTriggerExecutionEvidence> ObserveCriticalTriggerExecutions(
         IReadOnlyList<ProjectedExecution> executions,
-        CriticalTriggerExecutionEvidence evidence
+        IReadOnlyDictionary<string, CombatImpactEntity> entities
     )
     {
-        var candidateFrames = events
-            .Where(item =>
-                string.Equals(item.SourceId, evidence.TriggerSourceId, StringComparison.Ordinal)
-                && item.TriggerFrameIndex is { } frameIndex
-                && frameIndex <= evidence.FrameIndex
-                && frameIndex >= evidence.FrameIndex - 1
-                && CanReceiveCriticalTriggerEvidence(item)
-            )
-            .Select(item => item.TriggerFrameIndex!.Value)
-            .Distinct()
-            .OrderByDescending(frameIndex => frameIndex)
-            .ToArray();
-        if (candidateFrames.Length == 0)
-            return null;
-
-        var sameFrame = candidateFrames.Contains(evidence.FrameIndex);
-        var previousFrame = candidateFrames.Contains(evidence.FrameIndex - 1);
-        var originFrame = evidence.Priority switch
+        var observed = new List<CriticalTriggerExecutionEvidence>();
+        var seen = new HashSet<CriticalTriggerExecutionEvidence>();
+        foreach (var execution in executions)
         {
-            EEffectPriority.Immediate when sameFrame => evidence.FrameIndex,
-            EEffectPriority.Immediate when previousFrame => evidence.FrameIndex - 1,
-            _ when previousFrame
-                    && !HasSelfTriggeredExecution(
-                        executions,
-                        evidence.TriggerSourceId,
-                        evidence.FrameIndex
-                    ) => evidence.FrameIndex - 1,
-            _ when sameFrame => evidence.FrameIndex,
-            _ => -1,
-        };
+            if (
+                execution.DirectSourceId is not { Length: > 0 } sourceId
+                || execution.TriggerSourceId is not { Length: > 0 } triggerSourceId
+                || execution.EffectId is not { Length: > 0 } effectId
+                || !entities.TryGetValue(sourceId, out var source)
+                || source.CriticalTriggerAbilitiesByEffectId?.TryGetValue(
+                    effectId,
+                    out var priority
+                ) != true
+            )
+                continue;
 
-        return originFrame >= 0
-            ? new CriticalTriggerEvidenceKey(evidence.TriggerSourceId, originFrame)
-            : null;
+            var evidence = new CriticalTriggerExecutionEvidence(
+                triggerSourceId,
+                execution.FrameIndex,
+                priority,
+                sourceId,
+                effectId,
+                execution.ExecutionContextId
+            );
+            if (seen.Add(evidence))
+                observed.Add(evidence);
+        }
+        return observed;
     }
 
-    private static bool HasSelfTriggeredExecution(
-        IEnumerable<ProjectedExecution> executions,
-        string sourceId,
-        int frameIndex
-    ) =>
-        executions.Any(execution =>
-            execution.FrameIndex == frameIndex
-            && string.Equals(execution.DirectSourceId, sourceId, StringComparison.Ordinal)
-            && string.Equals(execution.TriggerSourceId, sourceId, StringComparison.Ordinal)
-        );
+    private static void NormalizeCriticalTriggerExecutions(
+        IList<CombatImpactEvent> events,
+        IReadOnlyList<int> listenerEventIndices
+    )
+    {
+        foreach (var index in listenerEventIndices)
+        {
+            var item = events[index];
+            // TTriggerOnCardCritted proves that the triggering activation critted. Its action is a
+            // consequence of that crit, not another critical outcome. Native adjustment matching
+            // can still inherit a same-frame crit flag, so clear both the result and the recovery
+            // candidate before ambiguous-damage recovery runs.
+            events[index] = item with
+            {
+                IsCritical = false,
+                CriticalCount = 0,
+                CriticalOutcomeCount = 1,
+                CriticalValue = null,
+                HasCriticalAdjustmentCandidate = false,
+            };
+        }
+    }
 
     private static bool CanReceiveCriticalTriggerEvidence(CombatImpactEvent item) =>
         item.Surface == CombatImpactEventSurface.AppliedEffect
@@ -1358,28 +1424,106 @@ internal static class CombatImpactProjector
         && item.OccurrenceBasis == CombatImpactOccurrenceBasis.ExplicitExecution;
 
     private static IndexedImpactEvent SelectCriticalTriggerOrigin(
-        IReadOnlyList<IndexedImpactEvent> candidates
+        IReadOnlyList<IndexedImpactEvent> candidates,
+        CriticalTriggerAttributionIndex index
     )
     {
-        foreach (
-            var preferredKind in new[]
-            {
-                CombatImpactKind.DirectDamage,
-                CombatImpactKind.Burn,
-                CombatImpactKind.Poison,
-                CombatImpactKind.Healing,
-                CombatImpactKind.Shield,
-                CombatImpactKind.AttributeChange,
-            }
-        )
+        var directDamage = default(IndexedImpactEvent);
+        var directDamageCount = 0;
+        var burn = default(IndexedImpactEvent);
+        var burnCount = 0;
+        var poison = default(IndexedImpactEvent);
+        var poisonCount = 0;
+        var healing = default(IndexedImpactEvent);
+        var healingCount = 0;
+        var shield = default(IndexedImpactEvent);
+        var shieldCount = 0;
+        var attributeChange = default(IndexedImpactEvent);
+        var attributeChangeCount = 0;
+        foreach (var candidate in candidates)
         {
-            var matches = candidates.Where(item => item.Event.Kind == preferredKind).ToArray();
-            if (matches.Length == 1)
-                return matches[0];
+            index.CountWorkUnit();
+            switch (candidate.Event.Kind)
+            {
+                case CombatImpactKind.DirectDamage:
+                    directDamage = candidate;
+                    directDamageCount++;
+                    break;
+                case CombatImpactKind.Burn:
+                    burn = candidate;
+                    burnCount++;
+                    break;
+                case CombatImpactKind.Poison:
+                    poison = candidate;
+                    poisonCount++;
+                    break;
+                case CombatImpactKind.Healing:
+                    healing = candidate;
+                    healingCount++;
+                    break;
+                case CombatImpactKind.Shield:
+                    shield = candidate;
+                    shieldCount++;
+                    break;
+                case CombatImpactKind.AttributeChange:
+                    attributeChange = candidate;
+                    attributeChangeCount++;
+                    break;
+            }
         }
 
+        if (directDamageCount == 1)
+            return directDamage;
+        if (burnCount == 1)
+            return burn;
+        if (poisonCount == 1)
+            return poison;
+        if (healingCount == 1)
+            return healing;
+        if (shieldCount == 1)
+            return shield;
+        if (attributeChangeCount == 1)
+            return attributeChange;
         return candidates[0];
     }
+
+    private static CriticalTriggerExecutionKey ExecutionKey(
+        CriticalTriggerExecutionEvidence evidence
+    ) =>
+        new(
+            evidence.FrameIndex,
+            evidence.ListenerSourceId,
+            evidence.TriggerSourceId,
+            evidence.EffectId,
+            evidence.ExecutionContextId
+        );
+
+    private static CriticalTriggerExecutionKey? TryExecutionKey(ProjectedExecution execution) =>
+        execution.DirectSourceId is { Length: > 0 } directSourceId
+        && execution.TriggerSourceId is { Length: > 0 } triggerSourceId
+        && execution.EffectId is { Length: > 0 } effectId
+            ? new CriticalTriggerExecutionKey(
+                execution.FrameIndex,
+                directSourceId,
+                triggerSourceId,
+                effectId,
+                execution.ExecutionContextId
+            )
+            : null;
+
+    private static CriticalTriggerExecutionKey? TryExecutionKey(CombatImpactEvent item) =>
+        item.TriggerFrameIndex is { } frameIndex
+        && item.RawDirectSourceId is { Length: > 0 } directSourceId
+        && item.TriggerSourceId is { Length: > 0 } triggerSourceId
+        && item.EffectId is { Length: > 0 } effectId
+            ? new CriticalTriggerExecutionKey(
+                frameIndex,
+                directSourceId,
+                triggerSourceId,
+                effectId,
+                item.ExecutionContextId
+            )
+            : null;
 
     private static void AttachNativeActivationCriticalCounts(IList<CombatImpactEvent> events)
     {
@@ -1983,8 +2127,14 @@ internal static class CombatImpactProjector
         CombatSimEventEffectAuraExecuted effect,
         IReadOnlyDictionary<string, CombatImpactEntity> entities,
         out ECardAttributeType attributeType
-    ) =>
-        TryResolveEffectAttributeType(
+    )
+    {
+        if (TryResolveAuraModifier(effect, entities, out var modifier))
+        {
+            attributeType = modifier.AttributeType;
+            return true;
+        }
+        return TryResolveEffectAttributeType(
             effect.Source?.Value,
             effect.TriggerSource?.Value,
             effect.EffectId,
@@ -1992,6 +2142,50 @@ internal static class CombatImpactProjector
             static entity => entity.AuraAttributeTypesByEffectId,
             out attributeType
         );
+    }
+
+    private static bool TryResolveAuraModifier(
+        CombatSimEventEffectAuraExecuted aura,
+        IReadOnlyDictionary<string, CombatImpactEntity> entities,
+        out TAuraActionCardModifyAttribute modifier
+    )
+    {
+        foreach (var id in new[] { aura.Source?.Value, aura.TriggerSource?.Value })
+            if (
+                id != null
+                && entities.TryGetValue(id, out var entity)
+                && entity.AuraAttributeModifiersByEffectId?.TryGetValue(
+                    aura.EffectId,
+                    out modifier!
+                ) == true
+            )
+                return true;
+        modifier = null!;
+        return false;
+    }
+
+    private static bool AuraTouches(CombatSimEventEffectAuraExecuted aura, string? targetId) =>
+        aura
+            .AppliedTo.Concat(aura.RemovedFrom)
+            .Any(target =>
+                string.Equals(ResolveTargetId(target), targetId, StringComparison.Ordinal)
+            );
+
+    private static bool HasAuraClaim(
+        CombatSimFrame frame,
+        string? targetId,
+        ECardAttributeType attribute,
+        IReadOnlyDictionary<string, CombatImpactEntity> entities
+    ) =>
+        frame
+            .Events.OfType<CombatSimEventEffectAuraExecuted>()
+            .Any(aura =>
+                AuraTouches(aura, targetId)
+                && (
+                    !TryResolveAuraAttributeType(aura, entities, out var expected)
+                    || expected == attribute
+                )
+            );
 
     private static bool TryResolveEffectAttributeType(
         string? directSourceId,
@@ -2139,7 +2333,19 @@ internal static class CombatImpactProjector
                                 && IsDisplayableAuraPlayerAttribute(change.AttributeType)
                             )
                             .ToArray();
-                        if (playerChanges?.Length == 1 && entities.ContainsKey(playerId))
+                        if (
+                            playerChanges?.Length == 1
+                            && entities.ContainsKey(playerId)
+                            && !frame
+                                .Events.OfType<CombatSimEventEffectExecuted>()
+                                .Any(item =>
+                                    string.Equals(
+                                        ResolveTargetId(item.Target),
+                                        playerId,
+                                        StringComparison.Ordinal
+                                    )
+                                )
+                        )
                         {
                             playerCandidates.Add(
                                 new AuraPlayerAttributeCandidate(
@@ -2223,7 +2429,18 @@ internal static class CombatImpactProjector
             foreach (
                 var candidate in candidates
                     .GroupBy(candidate => (candidate.TargetId, candidate.Change.AttributeType))
-                    .Where(group => group.Count() == 1)
+                    .Where(group =>
+                        group.Count() == 1
+                        && frame
+                            .Events.OfType<CombatSimEventEffectAuraExecuted>()
+                            .Count(aura =>
+                                AuraTouches(aura, group.Key.TargetId)
+                                && (
+                                    !TryResolveAuraAttributeType(aura, entities, out var attribute)
+                                    || attribute == group.Key.AttributeType
+                                )
+                            ) == 1
+                    )
                     .Select(group => group.Single())
             )
             {
@@ -2435,7 +2652,7 @@ internal static class CombatImpactProjector
         var targetId = ResolveTargetId(candidate.Target);
         var claimCount = executed.Count(item =>
             string.Equals(ResolveTargetId(item.Target), targetId, StringComparison.Ordinal)
-            && ClaimsTransition(item.ActionType, transition)
+            && ClaimsTransition(item, transition, entities)
         );
         if (
             transition.Domain == ImpactTransitionDomain.PlayerAttribute
@@ -2453,7 +2670,13 @@ internal static class CombatImpactProjector
             );
         }
 
-        return claimCount == 1;
+        return claimCount == 1
+            && !(
+                transition.Domain == ImpactTransitionDomain.PlayerAttribute
+                && frame
+                    .Events.OfType<CombatSimEventEffectAuraExecuted>()
+                    .Any(aura => AuraTouches(aura, targetId))
+            );
     }
 
     private static string? ResolveCardActionCostTargetId(
@@ -2647,7 +2870,8 @@ internal static class CombatImpactProjector
     }
 
     private static bool IsExplicitlyIgnoredAction(EActionCommandType action) =>
-        action
+        IsOptionalGameStateAction(action)
+        || action
             is EActionCommandType.None
                 or EActionCommandType.CardAddTags
                 or EActionCommandType.CardRemoveTags
@@ -2666,6 +2890,12 @@ internal static class CombatImpactProjector
                 or EActionCommandType.PlayerPortraitNext
                 or EActionCommandType.PlayerPortraitReset
                 or EActionCommandType.GameReroll;
+
+    private static bool IsOptionalGameStateAction(EActionCommandType action) =>
+        action.ToString()
+            is "GameAddToExclusionSet"
+                or "GameRemoveFromExclusionSet"
+                or "GameSetNextHourSpawnContext";
 
     private static ResolvedImpactValue ResolveValue(
         CombatSimFrame frame,
@@ -2896,6 +3126,31 @@ internal static class CombatImpactProjector
                 return ResolvedImpactValue.Empty(kind, item.ActionType);
 
             var change = changes[0];
+            if (
+                frame
+                    .Events.OfType<CombatSimEventEffectAuraExecuted>()
+                    .Any(aura => AuraTouches(aura, ResolveTargetId(item.Target)))
+            )
+                return new ResolvedImpactValue(
+                    null,
+                    UnitFor(change.AttributeType.ToString()),
+                    change.AttributeType.ToString(),
+                    false,
+                    CombatImpactValueBasis.None
+                )
+                {
+                    Surface = CombatImpactEventSurface.PlayerAttribute,
+                    IsUnattributedTransitionClaimant = true,
+                    UnattributedTransitionValue = change.Delta,
+                    AttributeTransitionNetValue = change.Delta,
+                    AttributeTransitionResolution =
+                        CombatImpactAttributeTransitionResolution.AuraOverlap,
+                    AttributeTransitionFailureReasons =
+                    [
+                        CombatImpactAttributeTransitionFailureReason.AuraOverlap,
+                    ],
+                    AttributeTransitionUnresolvedClaimantCount = 1,
+                };
             return new ResolvedImpactValue(
                 change.Delta,
                 UnitFor(change.AttributeType.ToString()),
@@ -2920,7 +3175,10 @@ internal static class CombatImpactProjector
             if (
                 !IsAttributableCardAttribute(expectedAttribute)
                 || !cardUpdate.Attributes.TryGetValue(expectedAttribute, out var expectedChange)
-                || expectedChange.Delta == 0
+                || (
+                    expectedChange.Delta == 0
+                    && !HasAuraClaim(frame, cardTarget.Target.Value, expectedAttribute, entities)
+                )
             )
                 return ResolvedImpactValue.Empty(kind, item.ActionType);
             cardChange = expectedChange;
@@ -2936,6 +3194,15 @@ internal static class CombatImpactProjector
                 return ResolvedImpactValue.Empty(kind, item.ActionType);
             cardChange = cardChanges[0];
         }
+        if (HasAuraClaim(frame, cardTarget.Target.Value, cardChange.AttributeType, entities))
+            return ResolveAuraOverlappingCardTransition(
+                frame,
+                item,
+                executed,
+                entities,
+                cardAttributes,
+                cardChange
+            );
         if (
             TryResolveConcurrentConfiguredCardAttributeTransition(
                 item,
@@ -3011,6 +3278,119 @@ internal static class CombatImpactProjector
             AttributeTransitionNetValue = cardChange.Delta,
             AttributeTransitionResolution =
                 CombatImpactAttributeTransitionResolution.SingleClaimantNet,
+        };
+    }
+
+    private static ResolvedImpactValue ResolveAuraOverlappingCardTransition(
+        CombatSimFrame frame,
+        CombatSimEventEffectExecuted item,
+        IReadOnlyList<CombatSimEventEffectExecuted> executed,
+        IReadOnlyDictionary<string, CombatImpactEntity> entities,
+        IReadOnlyDictionary<string, Dictionary<ECardAttributeType, int>> cardAttributes,
+        CombatSimCardAttributeUpdate change
+    )
+    {
+        var targetId = ResolveTargetId(item.Target);
+        var claim = new ImpactTransitionClaim(
+            ImpactTransitionDomain.CardAttribute,
+            (int)change.AttributeType
+        );
+        var claimants = executed
+            .Where(candidate =>
+                string.Equals(ResolveTargetId(candidate.Target), targetId, StringComparison.Ordinal)
+                && ClaimsTransition(candidate, claim, entities)
+            )
+            .ToArray();
+        // A frame update is a net result, not an execution's operand. Only independent
+        // additive actions can be separated from an additive aura without event-local state.
+        var additiveAuras = frame
+            .Events.OfType<CombatSimEventEffectAuraExecuted>()
+            .Where(aura =>
+                AuraTouches(aura, targetId)
+                && (
+                    !TryResolveAuraAttributeType(aura, entities, out var attribute)
+                    || attribute == change.AttributeType
+                )
+            )
+            .All(aura =>
+                TryResolveAuraModifier(aura, entities, out var modifier)
+                && modifier.Operation
+                    is EAttributeModifierOperation.Add
+                        or EAttributeModifierOperation.Subtract
+            );
+        if (
+            targetId != null
+            && entities.TryGetValue(targetId, out var targetEntity)
+            && targetEntity.AuraAttributeModifiersByEffectId?.Values.Any(modifier =>
+                modifier.AttributeType == change.AttributeType
+                && modifier.Operation
+                    is not (EAttributeModifierOperation.Add or EAttributeModifierOperation.Subtract)
+            ) == true
+        )
+            additiveAuras = false;
+        int? amount = null;
+        if (
+            additiveAuras
+            && claimants.All(candidate =>
+                TryResolveAbilityAttributeModifier(candidate, entities, out _, out var modifier)
+                && modifier.Operation
+                    is EAttributeModifierOperation.Add
+                        or EAttributeModifierOperation.Subtract
+            )
+        )
+        {
+            var stableReference =
+                TryResolveAbilityAttributeModifier(
+                    item,
+                    entities,
+                    out var sourceId,
+                    out var modifier
+                )
+                && !(
+                    modifier.Value is TReferenceValueCardAttribute reference
+                    && frame.CardUpdates.TryGetValue(
+                        InstanceId.TryParse(sourceId),
+                        out var sourceUpdate
+                    )
+                    && sourceUpdate.Attributes.TryGetValue(
+                        reference.AttributeType,
+                        out var sourceChange
+                    )
+                    && sourceChange.Delta != 0
+                );
+            if (
+                stableReference
+                && TryResolveConfiguredCardAttributeDelta(
+                    item,
+                    entities,
+                    cardAttributes,
+                    change.AttributeType,
+                    out var delta,
+                    out _
+                )
+            )
+                amount = delta;
+        }
+        return new ResolvedImpactValue(
+            amount,
+            UnitFor(change.AttributeType.ToString()),
+            change.AttributeType.ToString(),
+            false,
+            amount.HasValue
+                ? CombatImpactValueBasis.ConfiguredActionAmount
+                : CombatImpactValueBasis.None
+        )
+        {
+            Surface = CombatImpactEventSurface.CardAttribute,
+            IsUnattributedTransitionClaimant = !amount.HasValue,
+            UnattributedTransitionValue = change.Delta,
+            AttributeTransitionNetValue = change.Delta,
+            AttributeTransitionResolution = CombatImpactAttributeTransitionResolution.AuraOverlap,
+            AttributeTransitionFailureReasons =
+            [
+                CombatImpactAttributeTransitionFailureReason.AuraOverlap,
+            ],
+            AttributeTransitionUnresolvedClaimantCount = amount.HasValue ? 0 : 1,
         };
     }
 
@@ -3558,6 +3938,13 @@ internal static class CombatImpactProjector
                 || (int)attributeType == transition.Attribute;
         }
 
+        // Generic player modifiers are competing writers too. Without an effect-local
+        // attribute mapping, none may consume the same net player delta independently.
+        if (
+            effect.ActionType == EActionCommandType.PlayerModifyAttribute
+            && transition.Domain == ImpactTransitionDomain.PlayerAttribute
+        )
+            return true;
         return ClaimsTransition(effect.ActionType, transition);
     }
 
@@ -4073,6 +4460,25 @@ internal static class CombatImpactProjector
 
     private readonly record struct CriticalTriggerEvidenceKey(string SourceId, int FrameIndex);
 
+    private readonly record struct CriticalTriggerExecutionKey(
+        int FrameIndex,
+        string DirectSourceId,
+        string TriggerSourceId,
+        string EffectId,
+        string? ExecutionContextId
+    );
+
+    private readonly record struct CriticalTriggerOriginExecutionKey(
+        CriticalTriggerEvidenceKey Origin,
+        CriticalTriggerExecutionKey Execution
+    );
+
+    private readonly record struct CriticalTriggerSelfExecutionKey(
+        int FrameIndex,
+        string DirectSourceId,
+        string TriggerSourceId
+    );
+
     private readonly record struct CriticalTriggerExecutionEvidence(
         string TriggerSourceId,
         int FrameIndex,
@@ -4081,6 +4487,151 @@ internal static class CombatImpactProjector
         string EffectId,
         string? ExecutionContextId
     );
+
+    private sealed class CriticalTriggerAttributionIndex
+    {
+        private readonly HashSet<CriticalTriggerExecutionKey> _observedExecutionKeys;
+        private readonly Dictionary<CriticalTriggerEvidenceKey, int> _candidateCounts = [];
+        private readonly Dictionary<
+            CriticalTriggerOriginExecutionKey,
+            int
+        > _candidateExecutionCounts = [];
+        private readonly Dictionary<CriticalTriggerSelfExecutionKey, int> _selfExecutionCounts = [];
+        private readonly Dictionary<CriticalTriggerExecutionKey, int> _observedExecutionCounts = [];
+        private readonly List<int> _listenerEventIndices = [];
+
+        internal CriticalTriggerAttributionIndex(
+            IList<CombatImpactEvent> events,
+            IReadOnlyList<ProjectedExecution> executions,
+            IReadOnlyList<CriticalTriggerExecutionEvidence> observed
+        )
+        {
+            WorkUnitCount = executions.Count;
+            _observedExecutionKeys = observed.Select(ExecutionKey).ToHashSet();
+            for (var eventIndex = 0; eventIndex < events.Count; eventIndex++)
+            {
+                CountWorkUnit();
+                var item = events[eventIndex];
+                var executionKey = TryExecutionKey(item);
+                if (executionKey.HasValue && _observedExecutionKeys.Contains(executionKey.Value))
+                    _listenerEventIndices.Add(eventIndex);
+
+                if (!item.TriggerFrameIndex.HasValue || !CanReceiveCriticalTriggerEvidence(item))
+                    continue;
+                var origin = new CriticalTriggerEvidenceKey(
+                    item.SourceId,
+                    item.TriggerFrameIndex.Value
+                );
+                Increment(_candidateCounts, origin);
+                if (executionKey.HasValue && _observedExecutionKeys.Contains(executionKey.Value))
+                {
+                    Increment(
+                        _candidateExecutionCounts,
+                        new CriticalTriggerOriginExecutionKey(origin, executionKey.Value)
+                    );
+                }
+            }
+
+            foreach (var execution in executions)
+            {
+                CountWorkUnit();
+                if (
+                    execution.DirectSourceId is { Length: > 0 } directSourceId
+                    && execution.TriggerSourceId is { Length: > 0 } triggerSourceId
+                    && string.Equals(directSourceId, triggerSourceId, StringComparison.Ordinal)
+                )
+                {
+                    Increment(
+                        _selfExecutionCounts,
+                        new CriticalTriggerSelfExecutionKey(
+                            execution.FrameIndex,
+                            directSourceId,
+                            triggerSourceId
+                        )
+                    );
+                }
+
+                var executionKey = TryExecutionKey(execution);
+                if (executionKey.HasValue && _observedExecutionKeys.Contains(executionKey.Value))
+                    Increment(_observedExecutionCounts, executionKey.Value);
+            }
+        }
+
+        internal IReadOnlyList<int> ListenerEventIndices => _listenerEventIndices;
+
+        internal long WorkUnitCount { get; private set; }
+
+        internal void CountWorkUnit() => WorkUnitCount++;
+
+        internal CriticalTriggerEvidenceKey? TryResolveOrigin(
+            CriticalTriggerExecutionEvidence evidence
+        )
+        {
+            CountWorkUnit();
+            var sameFrameOrigin = new CriticalTriggerEvidenceKey(
+                evidence.TriggerSourceId,
+                evidence.FrameIndex
+            );
+            var previousFrameOrigin = new CriticalTriggerEvidenceKey(
+                evidence.TriggerSourceId,
+                evidence.FrameIndex - 1
+            );
+            var executionKey = ExecutionKey(evidence);
+            var sameFrame = HasCandidate(sameFrameOrigin, executionKey);
+            var previousFrame = HasCandidate(previousFrameOrigin, executionKey);
+            if (evidence.Priority == EEffectPriority.Immediate)
+            {
+                if (sameFrame)
+                    return sameFrameOrigin;
+                return previousFrame ? previousFrameOrigin : null;
+            }
+
+            if (previousFrame && !HasSelfTriggeredExecution(evidence, executionKey))
+                return previousFrameOrigin;
+            return sameFrame ? sameFrameOrigin : null;
+        }
+
+        private bool HasCandidate(
+            CriticalTriggerEvidenceKey origin,
+            CriticalTriggerExecutionKey listenerExecution
+        )
+        {
+            CountWorkUnit();
+            return _candidateCounts.GetValueOrDefault(origin)
+                > _candidateExecutionCounts.GetValueOrDefault(
+                    new CriticalTriggerOriginExecutionKey(origin, listenerExecution)
+                );
+        }
+
+        private bool HasSelfTriggeredExecution(
+            CriticalTriggerExecutionEvidence evidence,
+            CriticalTriggerExecutionKey listenerExecution
+        )
+        {
+            CountWorkUnit();
+            var selfCount = _selfExecutionCounts.GetValueOrDefault(
+                new CriticalTriggerSelfExecutionKey(
+                    evidence.FrameIndex,
+                    evidence.TriggerSourceId,
+                    evidence.TriggerSourceId
+                )
+            );
+            var listenerCount = string.Equals(
+                evidence.ListenerSourceId,
+                evidence.TriggerSourceId,
+                StringComparison.Ordinal
+            )
+                ? _observedExecutionCounts.GetValueOrDefault(listenerExecution)
+                : 0;
+            return selfCount > listenerCount;
+        }
+
+        private static void Increment<TKey>(IDictionary<TKey, int> counts, TKey key)
+            where TKey : notnull
+        {
+            counts[key] = counts.TryGetValue(key, out var count) ? count + 1 : 1;
+        }
+    }
 
     private readonly record struct AttributeTransitionResidualKey(
         int FrameIndex,

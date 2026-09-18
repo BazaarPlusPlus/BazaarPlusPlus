@@ -10,6 +10,7 @@ import type { HistoryPageProblem } from './historyProblems';
 export type HistoryPageState = PageState<HistoryRunList, HistoryPageProblem>;
 
 export type HistoryPageEvent =
+  | { type: 'page-changed'; requestId: number }
   | { type: 'request-started'; requestId: number }
   | { type: 'request-succeeded'; requestId: number; data: HistoryRunList }
   | {
@@ -28,6 +29,8 @@ export function reduceHistoryPageState(
   event: HistoryPageEvent
 ): HistoryPageState {
   switch (event.type) {
+    case 'page-changed':
+      return { phase: 'initial-loading', requestId: event.requestId };
     case 'request-started':
       return beginPageRequest(state, event.requestId);
     case 'request-succeeded':

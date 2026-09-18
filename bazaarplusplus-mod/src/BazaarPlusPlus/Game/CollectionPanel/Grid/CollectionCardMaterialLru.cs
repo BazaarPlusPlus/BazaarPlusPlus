@@ -6,9 +6,6 @@ internal sealed class CollectionCardMaterialLru
     private readonly int _capacity;
     private readonly Dictionary<string, Entry> _entries = new(StringComparer.Ordinal);
     private readonly LinkedList<string> _lru = new();
-    private readonly Dictionary<string, LinkedListNode<string>> _nodeMap = new(
-        StringComparer.Ordinal
-    );
 
     public CollectionCardMaterialLru(int capacity)
     {
@@ -24,14 +21,13 @@ internal sealed class CollectionCardMaterialLru
 
         if (!_entries.TryGetValue(key, out var entry))
         {
-            var node = _lru.AddFirst(key);
-            _nodeMap[key] = node;
-            entry = new Entry();
+            entry = new Entry(_lru.AddFirst(key));
             _entries[key] = entry;
         }
         else
         {
-            Touch(key);
+            _lru.Remove(entry.Node);
+            _lru.AddFirst(entry.Node);
         }
 
         entry.RefCount++;
@@ -52,7 +48,6 @@ internal sealed class CollectionCardMaterialLru
     {
         _entries.Clear();
         _lru.Clear();
-        _nodeMap.Clear();
     }
 
     private IReadOnlyList<string> Evict()
@@ -61,21 +56,24 @@ internal sealed class CollectionCardMaterialLru
         while (_entries.Count > _capacity)
         {
             var node = _lru.Last;
+            Entry? evictEntry = null;
             string? evictKey = null;
             while (node != null)
             {
                 if (_entries.TryGetValue(node.Value, out var entry) && entry.RefCount <= 0)
                 {
+                    evictEntry = entry;
                     evictKey = node.Value;
                     break;
                 }
                 node = node.Previous;
             }
 
-            if (evictKey == null)
+            if (evictKey == null || evictEntry == null)
                 break;
 
-            Remove(evictKey);
+            _entries.Remove(evictKey);
+            _lru.Remove(evictEntry.Node);
             evicted ??= new List<string>();
             evicted.Add(evictKey);
         }
@@ -83,26 +81,15 @@ internal sealed class CollectionCardMaterialLru
         return evicted ?? (IReadOnlyList<string>)Array.Empty<string>();
     }
 
-    private void Remove(string key)
-    {
-        _entries.Remove(key);
-        if (_nodeMap.TryGetValue(key, out var node))
-        {
-            _nodeMap.Remove(key);
-            _lru.Remove(node);
-        }
-    }
-
-    private void Touch(string key)
-    {
-        if (!_nodeMap.TryGetValue(key, out var node))
-            return;
-        _lru.Remove(node);
-        _lru.AddFirst(node);
-    }
-
     private sealed class Entry
     {
+        public Entry(LinkedListNode<string> node)
+        {
+            Node = node;
+        }
+
+        public LinkedListNode<string> Node { get; }
+
         public int RefCount { get; set; }
     }
 }

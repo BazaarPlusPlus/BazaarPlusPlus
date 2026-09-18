@@ -1,3 +1,4 @@
+use crate::services::vdf::THE_BAZAAR_APP_ID;
 use keyvalues_parser::{Obj, Parser, Value};
 use std::path::{Path, PathBuf};
 
@@ -57,16 +58,6 @@ fn parse_library_folders(vdf_content: &str, app_id: &str) -> Option<Vec<(String,
     }
 
     (!folders.is_empty()).then_some(folders)
-}
-
-fn bazaar_app_id() -> &'static str {
-    "1617400"
-}
-
-fn find_game_in_library_vdf(vdf_content: &str, app_id: &str) -> Option<String> {
-    parse_library_folders(vdf_content, app_id)?
-        .into_iter()
-        .find_map(|(library_path, has_app)| has_app.then_some(library_path))
 }
 
 fn candidate_steam_paths() -> Vec<PathBuf> {
@@ -177,42 +168,26 @@ fn get_game_path_from_single_steam_root(steam_path: &Path) -> Option<PathBuf> {
     None
 }
 
-fn get_game_path_from_steam_roots<I>(steam_roots: I) -> Option<PathBuf>
-where
-    I: IntoIterator<Item = PathBuf>,
-{
-    for root in steam_roots {
-        if let Some(path) = get_game_path_from_single_steam_root(&root) {
-            return Some(path);
-        }
-    }
-
-    None
-}
-
-fn ordered_steam_roots(primary_steam_root: &Path, candidate_roots: &[PathBuf]) -> Vec<PathBuf> {
-    let mut steam_roots = vec![primary_steam_root.to_path_buf()];
-    for candidate in candidate_roots {
-        if !steam_roots.iter().any(|existing| existing == candidate) {
-            steam_roots.push(candidate.clone());
-        }
-    }
-
-    steam_roots
-}
-
 fn get_game_path_from_detected_steam_roots(
     primary_steam_root: &Path,
     candidate_roots: &[PathBuf],
 ) -> Option<PathBuf> {
-    let steam_roots = ordered_steam_roots(primary_steam_root, candidate_roots);
+    let mut steam_roots = vec![primary_steam_root.to_path_buf()];
+    for candidate in candidate_roots {
+        if !steam_roots.contains(candidate) {
+            steam_roots.push(candidate.clone());
+        }
+    }
 
     crate::services::debug_log!(
         "[detect::steam] ordered steam roots for game lookup={:?}",
         debug_paths_label(&steam_roots)
     );
 
-    if let Some(path) = get_game_path_from_steam_roots(steam_roots) {
+    if let Some(path) = steam_roots
+        .iter()
+        .find_map(|root| get_game_path_from_single_steam_root(root))
+    {
         return Some(path);
     }
 
@@ -263,7 +238,7 @@ fn get_game_path_from_vdf(steam_path: &Path) -> Option<PathBuf> {
         }
     };
 
-    let parsed_folders = match parse_library_folders(&library_vdf, bazaar_app_id()) {
+    let parsed_folders = match parse_library_folders(&library_vdf, THE_BAZAAR_APP_ID) {
         Some(folders) => folders,
         None => {
             crate::services::debug_log!(
@@ -283,21 +258,14 @@ fn get_game_path_from_vdf(steam_path: &Path) -> Option<PathBuf> {
             .collect::<Vec<_>>()
     );
 
-    if let Some(library_root) = find_game_in_library_vdf(&library_vdf, bazaar_app_id()) {
-        let candidate = PathBuf::from(&library_root).join("steamapps/common/The Bazaar");
-        if candidate.exists() {
-            return Some(candidate);
-        }
-    }
-
-    for (library_root, _has_app) in parsed_folders {
-        let candidate = PathBuf::from(library_root).join("steamapps/common/The Bazaar");
-        if candidate.exists() {
-            return Some(candidate);
-        }
-    }
-
-    None
+    // The library that declares the app wins; every other parsed library stays a
+    // fallback for installs Steam has not recorded under `apps`.
+    parsed_folders
+        .iter()
+        .filter(|(_, has_app)| *has_app)
+        .chain(parsed_folders.iter().filter(|(_, has_app)| !*has_app))
+        .map(|(library_root, _)| PathBuf::from(library_root).join("steamapps/common/The Bazaar"))
+        .find(|candidate| candidate.exists())
 }
 
 #[cfg(test)]
@@ -305,7 +273,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_find_game_in_library_vdf_returns_matching_library_path() {
+    fn test_parse_library_folders_marks_the_library_declaring_the_app() {
         let vdf = r#"
 "libraryfolders"
 {
@@ -327,13 +295,19 @@ mod tests {
     }
 }"#;
 
-        let path = find_game_in_library_vdf(vdf, "1617400");
+        let folders = parse_library_folders(vdf, THE_BAZAAR_APP_ID).expect("parsed folders");
 
-        assert_eq!(path.as_deref(), Some(r"D:\SteamLibrary"));
+        assert_eq!(
+            folders,
+            vec![
+                (r"C:\Program Files (x86)\Steam".to_string(), false),
+                (r"D:\SteamLibrary".to_string(), true)
+            ]
+        );
     }
 
     #[test]
-    fn test_find_game_in_library_vdf_returns_none_when_app_missing() {
+    fn test_parse_library_folders_reports_no_app_when_the_id_is_missing() {
         let vdf = r#"
 "libraryfolders"
 {
@@ -347,9 +321,9 @@ mod tests {
     }
 }"#;
 
-        let path = find_game_in_library_vdf(vdf, "1617400");
+        let folders = parse_library_folders(vdf, THE_BAZAAR_APP_ID).expect("parsed folders");
 
-        assert_eq!(path, None);
+        assert!(folders.iter().all(|(_, has_app)| !has_app));
     }
 
     #[test]
@@ -371,7 +345,7 @@ mod tests {
     }
 }"#;
 
-        let folders = parse_library_folders(vdf, bazaar_app_id()).expect("parsed folders");
+        let folders = parse_library_folders(vdf, THE_BAZAAR_APP_ID).expect("parsed folders");
 
         assert_eq!(
             folders,
@@ -405,7 +379,32 @@ mod tests {
     }
 
     #[test]
-    fn test_get_game_path_from_steam_roots_tries_secondary_root() {
+    fn test_get_game_path_from_vdf_prefers_the_library_declaring_the_app() {
+        let tmp = tempfile::tempdir().unwrap();
+        let steam_root = tmp.path().join("Steam");
+        let listed_first = tmp.path().join("ListedFirst");
+        let declaring = tmp.path().join("Declaring");
+        let steamapps_dir = steam_root.join("steamapps");
+        let declared_game_dir = declaring.join("steamapps/common/The Bazaar");
+
+        std::fs::create_dir_all(&steamapps_dir).unwrap();
+        std::fs::create_dir_all(listed_first.join("steamapps/common/The Bazaar")).unwrap();
+        std::fs::create_dir_all(&declared_game_dir).unwrap();
+
+        let listed_first_string = listed_first.to_string_lossy().replace('\\', "\\\\");
+        let declaring_string = declaring.to_string_lossy().replace('\\', "\\\\");
+        let vdf = format!(
+            "\"libraryfolders\"\n{{\n    \"0\"\n    {{\n        \"path\"      \"{listed_first_string}\"\n    }}\n    \"1\"\n    {{\n        \"path\"      \"{declaring_string}\"\n        \"apps\"\n        {{\n            \"{THE_BAZAAR_APP_ID}\"   \"1\"\n        }}\n    }}\n}}"
+        );
+        std::fs::write(steamapps_dir.join("libraryfolders.vdf"), vdf).unwrap();
+
+        let path = get_game_path_from_vdf(&steam_root);
+
+        assert_eq!(path, Some(declared_game_dir));
+    }
+
+    #[test]
+    fn test_detected_steam_roots_try_the_secondary_root() {
         let tmp = tempfile::tempdir().unwrap();
         let primary_root = tmp.path().join("PrimarySteam");
         let secondary_root = tmp.path().join("SecondarySteam");
@@ -414,7 +413,10 @@ mod tests {
         std::fs::create_dir_all(primary_root.join("steamapps")).unwrap();
         std::fs::create_dir_all(&game_dir).unwrap();
 
-        let path = get_game_path_from_steam_roots(vec![primary_root, secondary_root]);
+        let path = get_game_path_from_detected_steam_roots(
+            &primary_root,
+            &[primary_root.clone(), secondary_root],
+        );
 
         assert_eq!(path, Some(game_dir));
     }

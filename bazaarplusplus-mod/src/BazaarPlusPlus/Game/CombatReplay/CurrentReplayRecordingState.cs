@@ -25,7 +25,8 @@ internal readonly record struct CurrentReplayRecordingSnapshot(
     string? Reason,
     bool Visible,
     bool CanStart,
-    bool CanReveal
+    bool CanReveal,
+    CurrentReplayRecordingStatusCode StatusCode = CurrentReplayRecordingStatusCode.None
 );
 
 internal sealed class CurrentReplayRecordingState
@@ -251,8 +252,23 @@ internal sealed class CurrentReplayRecordingState
             _reason,
             visible,
             canStart,
-            canReveal
+            canReveal,
+            ResolveStatusCode()
         );
+    }
+
+    private CurrentReplayRecordingStatusCode ResolveStatusCode()
+    {
+        if (
+            Phase == CurrentReplayRecordingPhase.Preparing
+            && _replaySourceReady
+            && !_availabilityReady
+        )
+        {
+            return CurrentReplayRecordingStatusCode.RecorderUnavailable;
+        }
+
+        return CurrentReplayRecordingStatusCode.None;
     }
 
     private bool MatchesBattle(string battleId) =>
@@ -293,6 +309,7 @@ internal static class ReplayRecordingButtonSnapshotPolicy
         string battleId,
         bool recorderReady,
         bool replayReady,
+        CurrentReplayRecordingStatusCode statusCode,
         string? unavailableReason
     ) =>
         new(
@@ -305,7 +322,10 @@ internal static class ReplayRecordingButtonSnapshotPolicy
             Reason: recorderReady && replayReady ? null : unavailableReason,
             Visible: true,
             CanStart: recorderReady && replayReady,
-            CanReveal: false
+            CanReveal: false,
+            StatusCode: recorderReady && replayReady
+                ? CurrentReplayRecordingStatusCode.None
+                : statusCode
         );
 
     internal static CurrentReplayRecordingSnapshot Resolve(

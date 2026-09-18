@@ -88,7 +88,7 @@ mod tests {
 
     fn create_run_screenshots_table(conn: &rusqlite::Connection) {
         conn.execute_batch(
-            "pragma user_version = 1;
+            "pragma user_version = 2;
              create table run_screenshots (
                 screenshot_id text primary key,
                 run_id text,
@@ -123,7 +123,7 @@ mod tests {
             .unwrap_err();
 
         assert!(error.contains("found=0"), "{error}");
-        assert!(error.contains("expected=1"), "{error}");
+        assert!(error.contains("supported=1,2"), "{error}");
     }
 
     #[test]

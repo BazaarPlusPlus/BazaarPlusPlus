@@ -10,19 +10,15 @@ internal readonly struct BuildRecommendationRemoteRefreshResult
         Exception? exception
     )
     {
-        Item1 = succeeded;
-        Item2 = error;
+        Succeeded = succeeded;
+        Error = error;
         FailureReason = failureReason;
         Exception = exception;
     }
 
-    // Preserve the tuple-shaped reflection seam used by the repository behavior tests.
-    public readonly bool Item1;
-    public readonly string? Item2;
+    internal bool Succeeded { get; }
 
-    internal bool Succeeded => Item1;
-
-    internal string? Error => Item2;
+    internal string? Error { get; }
 
     internal LiveBuildRefreshFailureReasonCode? FailureReason { get; }
 
@@ -36,12 +32,6 @@ internal readonly struct BuildRecommendationRemoteRefreshResult
         string? error,
         Exception? exception = null
     ) => new(succeeded: false, error, reason, exception);
-
-    public void Deconstruct(out bool succeeded, out string? error)
-    {
-        succeeded = Item1;
-        error = Item2;
-    }
 }
 
 internal enum BuildRecommendationRefreshOutcome

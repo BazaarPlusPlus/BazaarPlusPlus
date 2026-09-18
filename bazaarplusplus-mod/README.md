@@ -8,7 +8,7 @@
 
 | 功能 | 说明 | 操作 |
 |---|---|---|
-| 战斗状态条 | 底部 HUD 显示逻辑战斗时间、已处理帧数、暂停状态与速度档 | 自动显示 |
+| 战斗状态条 | 局内底部显示黄铜铭牌，复用游戏原生贴图与字体，提供逻辑战斗时间、0.5× / 0.67× / 1× 速度和暂停 / 继续 | 自动显示；点击倍速数字循环，点击右侧按钮暂停 / 继续 |
 | 附魔 / 升级预览 | 预览物品升级 / 附魔后的效果，三档可视性（Off / 智能 / 常显，默认常显） | 按住 Ctrl / Shift 手动覆盖 |
 | 卡牌图鉴 | 全屏 Item / Skill 图鉴，支持英雄、品质、体型、来源、天数筛选 | Tab 键或大厅 dock 按钮 |
 | 终局阵容面板 | 展示实时 shop / board / stash，并按候选物品推荐匹配的十胜终局 build | 局内 CapsLock 开关 |
@@ -21,13 +21,9 @@
 
 **云同步（可选，默认按项说明）**
 
-- run / replay 后台上传到 V4 后端，仅在不处于 live run 时执行。
-- BazaarDB 截图上传默认关闭；启用后终局截图快照推到 V4 后端，由 BazaarDB 队列拉取。
+- run / replay 后台上传到 V5 后端，仅在不处于 live run 时执行。
+- BazaarDB 截图上传默认关闭；启用后终局截图快照推到 V5 后端，由 BazaarDB 队列拉取。
 - Anonymous Mode 可将本地玩家名替换为 `Anonymous`。
-
-**BazaarAgent（外部集成，默认不构建、不安装）**
-
-独立的 host BepInEx 插件，在本地回环 `127.0.0.1:47900` 提供 HTTP 服务：外部工具可读取当前决策上下文并发起动作，浏览器打开 `http://127.0.0.1:47900/` 可实时查看协议活动。mod 本身不做任何策略决策。需要时用 `./run.sh build --with-bazaaragent` 构建；默认构建不产出（并主动清除）host dll。详见 [docs/ARCHITECTURE.md#bazaaragent-optional-host](docs/ARCHITECTURE.md#bazaaragent-optional-host)。
 
 ## 安装（玩家）
 
@@ -63,7 +59,7 @@
 
 | 命令 | 范围 |
 |---|---|
-| `./run.sh test` | 默认套件：12 个 xUnit 工程，完全离线、无副作用 |
+| `./run.sh test` | 默认套件：10 个 xUnit 工程，完全离线、无副作用 |
 | `./run.sh test-compat` | 兼容性前提测试，需要本机有 Managed / 反编译输入，缺失项会报告跳过 |
 | `./run.sh test-corpus <path>` | 可选的 replay 证据语料验收，必须显式提供 corpus |
 
@@ -72,7 +68,7 @@
 - run 记录、战斗回放与终局截图均保存在本地（SQLite、replay payload、截图文件）。
 - 云同步不携带任何鉴权凭证，且只在非 live run 状态下执行上传扫描。
 - 语音字幕与终局 build 种子由构建管线嵌入，运行时在本地缓存过期后后台刷新。
-- 云端后端（上传、ghost battles、replay 链接、BazaarDB 快照投递）在独立仓库 `bazaarplusplus-server`，部署于 `mod-api-v4.bazaarplusplus.com`；mod 侧 HTTP 客户端在 `src/BazaarPlusPlus.ModApi/`。
+- 云端后端（上传、ghost battles、replay 链接、BazaarDB 快照投递）在同级目录 `bazaarplusplus-server/`，部署于 `mod-api-v5.bazaarplusplus.com`；mod 侧 HTTP 客户端在 `src/BazaarPlusPlus.ModApi/`。
 
 ## 仓库导览
 
@@ -80,9 +76,8 @@
 |---|---|
 | `src/BazaarPlusPlus/` | 主插件工程。`Plugin.cs` 为 BepInEx 入口，feature wiring 走 `BppComposition.cs` 组合根，其下按 `Core/`、`GameInterop/`、`Game/`、`Patches/`、`Infrastructure/`、`Data/` 分层 |
 | `src/BazaarPlusPlus.ModApi/` `…Storage/` `…Localization/` | HTTP 客户端、本地持久化、本地化引擎，三个零 game/Unity/BepInEx 依赖的独立程序集 |
-| `src/BazaarPlusPlus.BazaarAgent/` `…BazaarAgentHost/` | 可选的 BazaarAgent 纯核心与 host 插件 |
-| `tests/` | 12 个默认 xUnit 测试宿主、兼容性清单、`ScenarioRunner.Tests` 逐子进程执行的场景 capsule、需显式 corpus 的 `CombatImpact.Corpus` 离线验收 |
-| `decompiled/` | 游戏 DLL 的 ILSpy 反编译输出，只读参考 |
+| `tests/` | 默认 xUnit 测试宿主、兼容性清单、`ScenarioRunner.Tests` 逐子进程执行的场景 capsule、需显式 corpus 的 `CombatImpact.Corpus` 离线验收 |
+| `decompiled/` | 本地 `./run.sh decompile` 生成的只读参考，不在此树中 |
 | `run.sh` | 本地构建、测试、格式化和反编译的统一入口 |
 
 ## 文档
@@ -93,7 +88,7 @@
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)：当前实现的 living architecture（按主题组织，带代码证据）
 - [CONTEXT.md](CONTEXT.md)：项目术语表
 - [docs/adr/](docs/adr/)：设计决策记录
-- [GitHub Issues](https://github.com/BazaarPlusPlus/bazaarplusplus-mod/issues)：后续工作、需求与 bug 追踪
+- [GitHub Issues](https://github.com/BazaarPlusPlus/BazaarPlusPlus/issues)：后续工作、需求与 bug 追踪
 
 ## License
 

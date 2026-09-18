@@ -9,11 +9,13 @@ internal sealed class OverlayPanelHostLogState
     private readonly HashSet<string> _tickDegradedPanels = new(StringComparer.Ordinal);
     private bool _combatProbeDegraded;
 
-    internal void ExecuteTick(string panelId, Action callback)
+    // dt/isOpen are passed by value and the tick delegate is the registration's own stored
+    // delegate, so the per-frame dispatch allocates nothing.
+    internal void ExecuteTick(string panelId, Action<float, bool> tick, float dt, bool isOpen)
     {
         try
         {
-            callback();
+            tick(dt, isOpen);
         }
         catch (Exception ex)
         {

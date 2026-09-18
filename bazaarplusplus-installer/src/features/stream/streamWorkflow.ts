@@ -275,8 +275,13 @@ class DefaultStreamWorkflow implements StreamWorkflow {
     const epoch = this.statusEpoch;
     const request = ++this.latestPollRequest;
     this.state.pollingRequests += 1;
-    if (manual) this.state.manualPollingRequests += 1;
-    this.publish();
+    // Background ticks stay silent on the way in: `polling.operation === 'poll'`
+    // has no reader, so announcing an in-flight background poll only forces a
+    // render that the result may not change. Manual retries do surface.
+    if (manual) {
+      this.state.manualPollingRequests += 1;
+      this.publish();
+    }
 
     try {
       const status = await this.ports.commands.getStatus();
@@ -405,7 +410,7 @@ class DefaultStreamWorkflow implements StreamWorkflow {
       () => this.ports.clipboard.writeText(url),
       'stream_copy_failed',
       { operation: 'copy_obs_url' },
-      { code: 'stream_obs_url_copied', params: {} }
+      { code: 'stream_obs_url_copied' }
     );
   }
 
@@ -453,7 +458,7 @@ class DefaultStreamWorkflow implements StreamWorkflow {
       () => this.ports.commands.applyCropCode(this.state.cropCode.trim()),
       { operation: 'apply_code' },
       true,
-      { code: 'stream_crop_saved', params: {} }
+      { code: 'stream_crop_saved' }
     );
   }
 
@@ -463,7 +468,7 @@ class DefaultStreamWorkflow implements StreamWorkflow {
       () => this.ports.commands.resetCropSettings(),
       { operation: 'reset' },
       true,
-      { code: 'stream_crop_reset', params: {} }
+      { code: 'stream_crop_reset' }
     );
   }
 
@@ -730,9 +735,59 @@ class DefaultStreamWorkflow implements StreamWorkflow {
 
   private publish() {
     if (this.disposed) return;
-    this.snapshot = this.deriveSnapshot();
+    const next = this.deriveSnapshot();
+    // A poll that changes nothing must not hand React a new object, or the
+    // Stream page re-renders every tick forever.
+    if (!structurallyEqual(this.snapshot, next)) {
+      this.snapshot = next;
+    }
     for (const listener of this.listeners) listener();
   }
+}
+
+/**
+ * Structural equality over a whole derived snapshot. The snapshot is plain
+ * JSON-shaped data — objects, arrays, strings, numbers, booleans and null — so
+ * comparing it generically keeps `publish` honest when a field is added to
+ * `StreamPageSnapshot` or to the Rust-generated `StreamServiceStatus`; a
+ * hand-written field list would silently ignore the new field and pin the page
+ * to a stale snapshot. Anything this shape does not cover (a function, Date,
+ * Map or class instance) counts as unequal unless it is the same reference,
+ * which errs toward publishing.
+ */
+function structurallyEqual(a: unknown, b: unknown): boolean {
+  if (Object.is(a, b)) return true;
+  if (
+    typeof a !== 'object' ||
+    typeof b !== 'object' ||
+    a === null ||
+    b === null
+  ) {
+    return false;
+  }
+  if (Array.isArray(a) || Array.isArray(b)) {
+    if (!Array.isArray(a) || !Array.isArray(b)) return false;
+    return (
+      a.length === b.length &&
+      a.every((item, index) => structurallyEqual(item, b[index]))
+    );
+  }
+  if (!isPlainObject(a) || !isPlainObject(b)) return false;
+
+  const left = a as Record<string, unknown>;
+  const right = b as Record<string, unknown>;
+  const keys = Object.keys(left);
+  if (keys.length !== Object.keys(right).length) return false;
+  return keys.every(
+    (key) =>
+      Object.prototype.hasOwnProperty.call(right, key) &&
+      structurallyEqual(left[key], right[key])
+  );
+}
+
+function isPlainObject(value: object): boolean {
+  const prototype: unknown = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
 }
 
 function initialState(): MutableState {

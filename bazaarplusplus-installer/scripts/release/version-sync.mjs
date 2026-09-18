@@ -14,14 +14,6 @@ function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-function readText(filePath) {
-  return fs.readFileSync(filePath, 'utf8');
-}
-
-function writeText(filePath, value) {
-  fs.writeFileSync(filePath, value);
-}
-
 function matchRequired(text, pattern, description) {
   const match = text.match(pattern);
   if (!match) {
@@ -66,22 +58,20 @@ function readTauriVersion(rootDir) {
   return readJson(tauriConfigPath(rootDir)).version;
 }
 
-function readCargoPackageName(rootDir) {
-  const cargoToml = readText(cargoTomlPath(rootDir));
-  return matchRequired(
-    cargoToml,
-    /^\[package\][\s\S]*?^name = "([^"]+)"$/m,
-    'Cargo package name'
-  )[1];
-}
-
-function readCargoVersion(rootDir) {
-  const cargoToml = readText(cargoTomlPath(rootDir));
-  return matchRequired(
-    cargoToml,
-    /^\[package\][\s\S]*?^version = "([^"]+)"$/m,
-    'Cargo package version'
-  )[1];
+function readCargoPackage(rootDir) {
+  const cargoToml = fs.readFileSync(cargoTomlPath(rootDir), 'utf8');
+  return {
+    name: matchRequired(
+      cargoToml,
+      /^\[package\][\s\S]*?^name = "([^"]+)"$/m,
+      'Cargo package name'
+    )[1],
+    version: matchRequired(
+      cargoToml,
+      /^\[package\][\s\S]*?^version = "([^"]+)"$/m,
+      'Cargo package version'
+    )[1]
+  };
 }
 
 function readCargoLockVersion(rootDir, packageName) {
@@ -90,7 +80,7 @@ function readCargoLockVersion(rootDir, packageName) {
     return null;
   }
 
-  const cargoLock = readText(cargoLockFile);
+  const cargoLock = fs.readFileSync(cargoLockFile, 'utf8');
   const pattern = new RegExp(
     String.raw`\[\[package\]\]\r?\nname = "${escapeRegExp(packageName)}"\r?\nversion = "([^"]+)"`,
     'm'
@@ -111,26 +101,26 @@ function replaceRequired(text, pattern, replacement, description) {
 
 function updateTauriVersion(rootDir, version) {
   const filePath = tauriConfigPath(rootDir);
-  const tauriConfig = readText(filePath);
+  const tauriConfig = fs.readFileSync(filePath, 'utf8');
   const updatedTauriConfig = replaceRequired(
     tauriConfig,
     /^(\s*"version"\s*:\s*")([^"]+)(",?\s*)$/m,
     `$1${version}$3`,
     'Tauri config version'
   );
-  writeText(filePath, updatedTauriConfig);
+  fs.writeFileSync(filePath, updatedTauriConfig);
 }
 
 function updateCargoVersion(rootDir, version) {
   const filePath = cargoTomlPath(rootDir);
-  const cargoToml = readText(filePath);
+  const cargoToml = fs.readFileSync(filePath, 'utf8');
   const updatedCargoToml = replaceRequired(
     cargoToml,
     /^(\[package\][\s\S]*?^version = ")([^"]+)(")$/m,
     `$1${version}$3`,
     'Cargo.toml package version'
   );
-  writeText(filePath, updatedCargoToml);
+  fs.writeFileSync(filePath, updatedCargoToml);
 }
 
 function updatePackageLockVersion(rootDir, version) {
@@ -154,7 +144,7 @@ function updateCargoLockVersion(rootDir, packageName, version) {
     return;
   }
 
-  const cargoLock = readText(filePath);
+  const cargoLock = fs.readFileSync(filePath, 'utf8');
   const pattern = new RegExp(
     String.raw`(\[\[package\]\]\r?\nname = "${escapeRegExp(packageName)}"\r?\nversion = ")([^"]+)(")`,
     'm'
@@ -165,20 +155,20 @@ function updateCargoLockVersion(rootDir, packageName, version) {
     `$1${version}$3`,
     'Cargo.lock root package version'
   );
-  writeText(filePath, updatedCargoLock);
+  fs.writeFileSync(filePath, updatedCargoLock);
 }
 
 export function collectVersionSnapshot(rootDir) {
   const packageVersion = readPackageVersion(rootDir);
-  const packageName = readCargoPackageName(rootDir);
+  const cargoPackage = readCargoPackage(rootDir);
   const packageLockVersions = readPackageLockVersions(rootDir);
 
   return {
     packageVersion,
     ...packageLockVersions,
     tauriVersion: readTauriVersion(rootDir),
-    cargoVersion: readCargoVersion(rootDir),
-    cargoLockVersion: readCargoLockVersion(rootDir, packageName)
+    cargoVersion: cargoPackage.version,
+    cargoLockVersion: readCargoLockVersion(rootDir, cargoPackage.name)
   };
 }
 
@@ -204,7 +194,7 @@ export function assertVersionsAreAligned(snapshot) {
 
 export function synchronizeVersions(rootDir) {
   const packageVersion = readPackageVersion(rootDir);
-  const packageName = readCargoPackageName(rootDir);
+  const packageName = readCargoPackage(rootDir).name;
 
   updatePackageLockVersion(rootDir, packageVersion);
   updateTauriVersion(rootDir, packageVersion);

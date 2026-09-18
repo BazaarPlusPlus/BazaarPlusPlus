@@ -1234,6 +1234,8 @@ internal sealed partial class CollectionPanelView
                 CollectionPortraitReasonCode.CollectionManagerUnavailable,
             HeroPortraitFailureReason.DefaultSkinUnavailable =>
                 CollectionPortraitReasonCode.DefaultSkinUnavailable,
+            HeroPortraitFailureReason.AssetLoaderUnavailable =>
+                CollectionPortraitReasonCode.AssetLoaderUnavailable,
             HeroPortraitFailureReason.PortraitUnavailable =>
                 CollectionPortraitReasonCode.PortraitUnavailable,
             _ => CollectionPortraitReasonCode.LoadException,

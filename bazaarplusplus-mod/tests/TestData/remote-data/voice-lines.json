@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "contentHash": "sha256:dec78d91e0aa0eb1c2de6b593f35f0ae1a0adc784e0f2be0e56f8d8e08aff1ce",
+  "generatedAt": "2026-08-13T00:00:00Z",
+  "count": 1,
+  "lines": [
+    {
+      "stem": "fixture-line",
+      "english": "Fixture line",
+      "chinese": "测试字幕",
+      "durationSeconds": 1.25
+    }
+  ]
+}

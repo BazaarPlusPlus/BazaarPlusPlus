@@ -13,6 +13,7 @@ use image::{DynamicImage, ImageFormat};
 use include_dir::{include_dir, Dir};
 use serde::Deserialize;
 use std::{
+    borrow::Cow,
     io::Cursor,
     path::{Path as FsPath, PathBuf},
     time::UNIX_EPOCH,
@@ -142,22 +143,24 @@ fn badge_asset_path(category: &str, file_name: &str) -> PathBuf {
         .join(file_name)
 }
 
-fn load_overlay_asset(_file_name: &str, embedded: &'static str) -> String {
+/// Borrowed in release so the six static asset routes serve the embedded text
+/// without copying; owned only on the debug-only filesystem hot-reload path.
+fn load_overlay_asset(_file_name: &str, embedded: &'static str) -> Cow<'static, str> {
     #[cfg(debug_assertions)]
     {
         if let Ok(contents) = std::fs::read_to_string(overlay_asset_path(_file_name)) {
-            return contents;
+            return Cow::Owned(contents);
         }
     }
 
-    embedded.to_string()
+    Cow::Borrowed(embedded)
 }
 
-async fn overlay_page() -> Html<String> {
+async fn overlay_page() -> Html<Cow<'static, str>> {
     Html(load_overlay_asset("overlay.html", OVERLAY_HTML))
 }
 
-async fn settings_page() -> Html<String> {
+async fn settings_page() -> Html<Cow<'static, str>> {
     Html(load_overlay_asset("settings.html", SETTINGS_HTML))
 }
 
@@ -167,12 +170,10 @@ async fn latest_record(
 ) -> Response {
     let offset = query.offset.unwrap_or(0);
     let snapshot = app_state.runtime.snapshot();
-    let from = query.from.as_deref().or(snapshot.active_from.as_deref());
+    let from = query.from.or(snapshot.active_from);
+    let repository = app_state.overlay_records;
 
-    match app_state
-        .overlay_records
-        .load_record_at_offset(from, offset)
-    {
+    match run_record_task(move || repository.load_record_at_offset(from.as_deref(), offset)).await {
         Ok(record) => Json(record).into_response(),
         Err(message) => (StatusCode::INTERNAL_SERVER_ERROR, message).into_response(),
     }
@@ -184,12 +185,10 @@ async fn record_list(
 ) -> Response {
     let limit = query.limit.unwrap_or(20);
     let snapshot = app_state.runtime.snapshot();
-    let from = query.from.as_deref().or(snapshot.active_from.as_deref());
+    let from = query.from.or(snapshot.active_from);
+    let repository = app_state.overlay_records;
 
-    match app_state
-        .overlay_records
-        .load_record_list(from, Some(limit))
-    {
+    match run_record_task(move || repository.load_record_list(from.as_deref(), Some(limit))).await {
         Ok(records) => Json(records).into_response(),
         Err(message) => (StatusCode::INTERNAL_SERVER_ERROR, message).into_response(),
     }
@@ -216,7 +215,8 @@ async fn record_image(
     Path(record_id): Path<String>,
     State(app_state): State<HttpAppState>,
 ) -> Response {
-    let (path, bytes) = match app_state.overlay_records.load_image(&record_id) {
+    let repository = app_state.overlay_records;
+    let (path, bytes) = match run_record_task(move || repository.load_image(&record_id)).await {
         Ok(Some(value)) => value,
         Ok(None) => return StatusCode::NOT_FOUND.into_response(),
         Err(message) => return (StatusCode::INTERNAL_SERVER_ERROR, message).into_response(),
@@ -287,6 +287,19 @@ where
     tauri::async_runtime::spawn_blocking(task)
         .await
         .map_err(|err| format!("Overlay strip task failed: {err}"))?
+}
+
+/// Repository reads open a SQLite connection that can sleep on a busy WAL and
+/// read a whole PNG, so they must not run on the shared tokio workers that also
+/// serve the Tauri async commands.
+async fn run_record_task<T, F>(task: F) -> Result<T, String>
+where
+    T: Send + 'static,
+    F: FnOnce() -> Result<T, String> + Send + 'static,
+{
+    tauri::async_runtime::spawn_blocking(task)
+        .await
+        .map_err(|err| format!("Overlay record task failed: {err}"))?
 }
 
 fn resolve_strip_crop(

@@ -12,6 +12,7 @@ internal sealed class EndOfRunVisualStabilityTracker
     private ulong _cardSetFingerprint;
     private ulong _poseFingerprint;
     private float _lastMotionAtSeconds;
+    private bool _cachedDecision;
 
     public bool Observe(
         int loadedCardCount,
@@ -42,11 +43,16 @@ internal sealed class EndOfRunVisualStabilityTracker
             _poseFingerprint = poseFingerprint;
             _lastMotionAtSeconds = nowSeconds;
             _motionObserved = true;
+            _cachedDecision = false;
             return false;
         }
 
-        return _motionObserved && nowSeconds - _lastMotionAtSeconds >= RequiredStableSeconds;
+        _cachedDecision =
+            _motionObserved && nowSeconds - _lastMotionAtSeconds >= RequiredStableSeconds;
+        return _cachedDecision;
     }
+
+    public bool ObserveCached() => _cachedDecision;
 
     public void Reset()
     {
@@ -56,6 +62,7 @@ internal sealed class EndOfRunVisualStabilityTracker
         _cardSetFingerprint = 0;
         _poseFingerprint = 0;
         _lastMotionAtSeconds = 0f;
+        _cachedDecision = false;
     }
 
     private void SetBaseline(
@@ -71,5 +78,6 @@ internal sealed class EndOfRunVisualStabilityTracker
         _cardSetFingerprint = cardSetFingerprint;
         _poseFingerprint = poseFingerprint;
         _lastMotionAtSeconds = nowSeconds;
+        _cachedDecision = false;
     }
 }

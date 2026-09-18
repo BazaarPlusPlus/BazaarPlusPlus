@@ -11,6 +11,7 @@ internal sealed class PvpBattleSqliteStore : SqliteStoreBase
 {
     private static readonly JsonSerializerSettings SerializerSettings =
         SerializerSettingsFactory.CreateSerializerSettings(includeStringEnumConverter: true);
+    private readonly Action<ReplayPayloadMaintenanceStorageEvent>? _maintenanceDiagnostics;
 
     // Shared column list + battle/snapshot join used by every manifest read. Callers append only
     // their WHERE/ORDER/LIMIT clauses. Column order is fixed because ReadManifest depends on it.
@@ -53,8 +54,14 @@ internal sealed class PvpBattleSqliteStore : SqliteStoreBase
             ON s.battle_id = b.battle_id
         """;
 
-    public PvpBattleSqliteStore(string databasePath)
-        : base(databasePath) { }
+    public PvpBattleSqliteStore(
+        string databasePath,
+        Action<ReplayPayloadMaintenanceStorageEvent>? maintenanceDiagnostics = null
+    )
+        : base(databasePath)
+    {
+        _maintenanceDiagnostics = maintenanceDiagnostics;
+    }
 
     public void Save(PvpBattleManifest manifest)
     {
@@ -78,6 +85,7 @@ internal sealed class PvpBattleSqliteStore : SqliteStoreBase
                 source,
                 run_id,
                 has_local_payload,
+                local_payload_state,
                 recorded_at_utc,
                 day,
                 hour,
@@ -109,6 +117,7 @@ internal sealed class PvpBattleSqliteStore : SqliteStoreBase
                 'LOCAL',
                 $runId,
                 1,
+                'ready',
                 $recordedAtUtc,
                 $day,
                 $hour,
@@ -165,7 +174,9 @@ internal sealed class PvpBattleSqliteStore : SqliteStoreBase
                 result = excluded.result,
                 winner_combatant_id = excluded.winner_combatant_id,
                 loser_combatant_id = excluded.loser_combatant_id,
-                has_local_payload = 1;
+                has_local_payload = 1,
+                local_payload_state = 'ready',
+                local_payload_maintenance_at_utc = NULL;
             """;
         command.Parameters.AddWithValue("$battleId", manifest.BattleId);
         command.Parameters.AddWithValue("$runId", (object?)persistedRunId ?? DBNull.Value);
@@ -310,19 +321,6 @@ internal sealed class PvpBattleSqliteStore : SqliteStoreBase
         return ReadManifest(reader);
     }
 
-    public void Delete(string battleId)
-    {
-        if (string.IsNullOrWhiteSpace(battleId))
-            return;
-
-        using var connection = OpenConnection();
-        using var command = CreateCommand(connection);
-        command.CommandText =
-            $"DELETE FROM {RunLogSchema.BattlesTableName} WHERE battle_id = $battleId;";
-        command.Parameters.AddWithValue("$battleId", battleId);
-        command.ExecuteNonQuery();
-    }
-
     public void AttachToRun(string battleId, string runId)
     {
         if (string.IsNullOrWhiteSpace(battleId) || string.IsNullOrWhiteSpace(runId))
@@ -348,22 +346,137 @@ internal sealed class PvpBattleSqliteStore : SqliteStoreBase
         command.ExecuteNonQuery();
     }
 
-    public IEnumerable<string> ListBattleIds()
+    public IReadOnlyList<ReplayPayloadMaintenanceRecord> ListReplayMaintenanceInventory()
     {
-        using var connection = OpenConnection();
+        using var connection = OpenMaintenanceConnection();
         using var command = CreateCommand(connection);
         command.CommandText = $"""
-            SELECT battle_id
+            SELECT battle_id, recorded_at_utc, has_local_payload, local_payload_state
             FROM {RunLogSchema.BattlesTableName}
             WHERE source = 'LOCAL'
             ORDER BY recorded_at_utc DESC, battle_id DESC;
             """;
-
         using var reader = command.ExecuteReader();
+        ObserveMaintenanceCommand();
+        var records = new List<ReplayPayloadMaintenanceRecord>();
         while (reader.Read())
         {
-            yield return reader.GetString(0);
+            records.Add(
+                new ReplayPayloadMaintenanceRecord(
+                    reader.GetString(0),
+                    DateTimeOffset.Parse(reader.GetString(1)),
+                    reader.GetInt32(2) == 1,
+                    ParsePayloadState(reader.GetString(3))
+                )
+            );
         }
+        return records;
+    }
+
+    public IReadOnlyList<string> ScheduleReplayPayloadDeletion(
+        IReadOnlyCollection<string> battleIds,
+        DateTimeOffset now
+    )
+    {
+        var normalized = NormalizeBattleIds(battleIds);
+        if (normalized.Count == 0)
+            return Array.Empty<string>();
+
+        using var connection = OpenMaintenanceConnection();
+        using var transaction = connection.BeginTransaction(deferred: false);
+        var proposedIdsJson = JsonConvert.SerializeObject(normalized);
+        using var select = CreateCommand(connection, transaction);
+        select.CommandText = $"""
+            SELECT b.battle_id
+            FROM {RunLogSchema.BattlesTableName} AS b
+            WHERE b.source = 'LOCAL'
+              AND b.local_payload_state = 'ready'
+              AND b.battle_id IN (SELECT value FROM json_each($battleIdsJson))
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM {RunLogSchema.RunsTableName} AS active_run
+                  WHERE active_run.run_id = b.run_id
+                    AND lower(active_run.status) = 'active'
+              )
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM {RunLogSchema.BundleSealJobsTableName} AS seal_job
+                  WHERE seal_job.run_id = b.run_id
+                    AND seal_job.state IN ('waiting', 'sealing')
+              )
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM {RunLogSchema.BundleOutboxTableName} AS active_outbox
+                  WHERE active_outbox.run_id = b.run_id
+                    AND active_outbox.status = 'pending'
+              )
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM {RunLogSchema.RunsTableName} AS eligible_run
+                  WHERE eligible_run.run_id = b.run_id
+                    AND eligible_run.completed = 1
+                    AND lower(eligible_run.status) = 'completed'
+                    AND lower(eligible_run.game_mode) = 'ranked'
+                    AND lower(COALESCE(eligible_run.build_channel, 'unknown')) <> 'ptr'
+                    AND NOT EXISTS (
+                        SELECT 1
+                        FROM {RunLogSchema.BundleSealJobsTableName} AS existing_seal_job
+                        WHERE existing_seal_job.run_id = eligible_run.run_id
+                    )
+                    AND NOT EXISTS (
+                        SELECT 1
+                        FROM {RunLogSchema.BundleOutboxTableName} AS uploaded_outbox
+                        WHERE uploaded_outbox.run_id = eligible_run.run_id
+                          AND uploaded_outbox.status = 'uploaded'
+                    )
+              )
+            ORDER BY b.recorded_at_utc DESC, b.battle_id DESC;
+            """;
+        select.Parameters.AddWithValue("$battleIdsJson", proposedIdsJson);
+        var scheduled = new List<string>();
+        using (var reader = select.ExecuteReader())
+        {
+            ObserveMaintenanceCommand();
+            while (reader.Read())
+                scheduled.Add(reader.GetString(0));
+        }
+
+        if (scheduled.Count > 0)
+        {
+            using var update = CreateCommand(connection, transaction);
+            update.CommandText = $"""
+                UPDATE {RunLogSchema.BattlesTableName}
+                SET has_local_payload = 0,
+                    local_payload_state = 'delete_pending',
+                    local_payload_maintenance_at_utc = $now
+                WHERE source = 'LOCAL'
+                  AND local_payload_state = 'ready'
+                  AND battle_id IN (SELECT value FROM json_each($scheduledIdsJson));
+                """;
+            update.Parameters.AddWithValue(
+                "$scheduledIdsJson",
+                JsonConvert.SerializeObject(scheduled)
+            );
+            update.Parameters.AddWithValue("$now", now.ToString("o"));
+            update.ExecuteNonQuery();
+            ObserveMaintenanceCommand();
+        }
+
+        transaction.Commit();
+        return scheduled;
+    }
+
+    public void CompleteReplayPayloadDeletion(
+        IReadOnlyCollection<string> battleIds,
+        DateTimeOffset now
+    )
+    {
+        UpdatePayloadState(battleIds, expectedState: "delete_pending", targetState: "evicted", now);
+    }
+
+    public void MarkReplayPayloadMissing(IReadOnlyCollection<string> battleIds, DateTimeOffset now)
+    {
+        UpdatePayloadState(battleIds, expectedState: "ready", targetState: "missing", now);
     }
 
     public IReadOnlyList<PvpBattleManifest> ListRecentBattles(int limit)
@@ -404,6 +517,69 @@ internal sealed class PvpBattleSqliteStore : SqliteStoreBase
 
         return manifests;
     }
+
+    private void UpdatePayloadState(
+        IReadOnlyCollection<string> battleIds,
+        string expectedState,
+        string targetState,
+        DateTimeOffset now
+    )
+    {
+        var normalized = NormalizeBattleIds(battleIds);
+        if (normalized.Count == 0)
+            return;
+
+        using var connection = OpenMaintenanceConnection();
+        using var command = CreateCommand(connection);
+        command.CommandText = $"""
+            UPDATE {RunLogSchema.BattlesTableName}
+            SET has_local_payload = 0,
+                local_payload_state = $targetState,
+                local_payload_maintenance_at_utc = $now
+            WHERE source = 'LOCAL'
+              AND local_payload_state = $expectedState
+              AND battle_id IN (SELECT value FROM json_each($battleIdsJson));
+            """;
+        command.Parameters.AddWithValue("$targetState", targetState);
+        command.Parameters.AddWithValue("$expectedState", expectedState);
+        command.Parameters.AddWithValue("$now", now.ToString("o"));
+        command.Parameters.AddWithValue("$battleIdsJson", JsonConvert.SerializeObject(normalized));
+        command.ExecuteNonQuery();
+        ObserveMaintenanceCommand();
+    }
+
+    private SqliteConnection OpenMaintenanceConnection()
+    {
+        var connection = OpenConnection();
+        _maintenanceDiagnostics?.Invoke(ReplayPayloadMaintenanceStorageEvent.ConnectionOpened);
+        return connection;
+    }
+
+    private void ObserveMaintenanceCommand()
+    {
+        _maintenanceDiagnostics?.Invoke(ReplayPayloadMaintenanceStorageEvent.CommandExecuted);
+    }
+
+    private static List<string> NormalizeBattleIds(IReadOnlyCollection<string>? battleIds)
+    {
+        if (battleIds == null || battleIds.Count == 0)
+            return [];
+
+        return battleIds
+            .Where(battleId => !string.IsNullOrWhiteSpace(battleId))
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+    }
+
+    private static ReplayPayloadState ParsePayloadState(string value) =>
+        value switch
+        {
+            "ready" => ReplayPayloadState.Ready,
+            "delete_pending" => ReplayPayloadState.DeletePending,
+            "evicted" => ReplayPayloadState.Evicted,
+            "missing" => ReplayPayloadState.Missing,
+            _ => throw new InvalidOperationException($"Unknown replay payload state '{value}'."),
+        };
 
     private static string SerializeCapture(PvpBattleCardSetCapture capture)
     {

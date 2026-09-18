@@ -1,0 +1,17 @@
+<Project>
+  <PropertyGroup>
+    <BppEnableWarningGate>true</BppEnableWarningGate>
+    <ErrorLog>$(MSBuildProjectDirectory)/obj/$(MSBuildProjectName).sarif,version=2.1</ErrorLog>
+  </PropertyGroup>
+
+  <Import Project="../Directory.Build.props" />
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.BannedApiAnalyzers" PrivateAssets="all" />
+    <AdditionalFiles Include="$(MSBuildThisFileDirectory)BannedSymbols.txt" />
+    <Compile
+      Include="$(MSBuildThisFileDirectory)Shared/TestFiles/**/*.cs"
+      Link="Shared/TestFiles/%(RecursiveDir)%(Filename)%(Extension)"
+    />
+  </ItemGroup>
+</Project>

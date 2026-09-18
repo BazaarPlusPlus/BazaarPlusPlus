@@ -8,6 +8,7 @@ import type { AppBootstrapController } from '../features/about/useAppBootstrap';
 import { UpdaterProvider } from '../features/about/UpdaterProvider';
 import { LocaleProvider } from '../i18n/LocaleProvider';
 import { LOCALE_STORAGE_KEY } from '../i18n/messages';
+import { getStreamStatus } from '../features/shared/streamSessionApi';
 import { ShellHeader } from './ShellHeader';
 
 const tauriWindow = vi.hoisted(() => {
@@ -96,6 +97,7 @@ describe('ShellHeader', () => {
   // follows the host language when nothing is stored.
   beforeEach(() => {
     window.localStorage.setItem(LOCALE_STORAGE_KEY, 'zh');
+    vi.mocked(getStreamStatus).mockClear();
   });
 
   it('shows the brand logo and language icon without an update check', () => {
@@ -169,6 +171,39 @@ describe('ShellHeader', () => {
     expect(bilibiliOpen).toContain('aria-expanded="true"');
     expect(supportOpen).toContain('id="shell-support-menu"');
     expect(supportOpen).toContain('aria-expanded="true"');
+  });
+
+  it('never polls the stream service off Windows', async () => {
+    const container = document.createElement('div');
+    document.body.append(container);
+    const root = createRoot(container);
+
+    await act(async () => {
+      root.render(
+        <LocaleProvider>
+          <UpdaterProvider>
+            <ShellHeader
+              app={app}
+              showBilibili={false}
+              onToggleBilibili={() => undefined}
+              showSupport={false}
+              onToggleSupport={() => undefined}
+              onOpenPayment={() => undefined}
+              onCloseBilibili={() => undefined}
+              onCloseSupport={() => undefined}
+            />
+          </UpdaterProvider>
+        </LocaleProvider>
+      );
+    });
+
+    expect(
+      container.querySelectorAll('.bpp-window-control-button')
+    ).toHaveLength(0);
+    expect(getStreamStatus).not.toHaveBeenCalled();
+
+    await act(async () => root.unmount());
+    container.remove();
   });
 
   it('renders Windows controls and switches maximize copy after resize', async () => {

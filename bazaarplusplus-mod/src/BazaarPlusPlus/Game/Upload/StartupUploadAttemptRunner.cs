@@ -16,8 +16,6 @@ internal sealed class StartupUploadAttemptRunner
         _logState = logState ?? throw new ArgumentNullException(nameof(logState));
     }
 
-    public bool HasPendingTask => _task != null;
-
     public bool TryDrainPendingTaskOnShutdown(TimeSpan timeout, Action? afterObserved = null)
     {
         var task = _task;

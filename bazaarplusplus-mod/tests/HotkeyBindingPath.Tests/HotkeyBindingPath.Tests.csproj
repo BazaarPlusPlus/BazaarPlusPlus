@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile
+      Include="..\..\src\BazaarPlusPlus\Game\Input\HotkeyBindingPathCore.cs"
+      Link="HotkeyBindingPathCore.cs"
+    />
+    <Compile
+      Include="..\..\src\BazaarPlusPlus\Game\Input\BppHotkeyActionId.cs"
+      Link="BppHotkeyActionId.cs"
+    />
+    <Compile
+      Include="..\..\src\BazaarPlusPlus\Game\Input\HotkeyBindingFailureGate.cs"
+      Link="HotkeyBindingFailureGate.cs"
+    />
+    <Compile
+      Include="..\..\src\BazaarPlusPlus\Game\Input\HotkeyActivationState.cs"
+      Link="HotkeyActivationState.cs"
+    />
+    <Compile
+      Include="..\..\src\BazaarPlusPlus\Core\Config\HotkeyActivationMode.cs"
+      Link="HotkeyActivationMode.cs"
+    />
+  </ItemGroup>
+</Project>

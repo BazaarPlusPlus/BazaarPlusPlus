@@ -9,18 +9,18 @@ import {
   RefreshCw,
   Settings2
 } from 'lucide-react';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import type { StreamOverlayDisplayMode } from '../types/backend';
 import { Button } from '../components/ui/Button';
 import { PageShell } from '../components/ui/PageShell';
 import { SegmentedControl } from '../components/ui/SegmentedControl';
 import { useToast, type ToastTone } from '../components/ui/Toast';
 import { useStreamPage } from '../features/stream/useStreamPage';
+import { presentStreamSnapshot } from '../features/stream/streamPresentation';
 import {
   presentStreamProblem,
-  presentStreamSnapshot
-} from '../features/stream/streamPresentation';
-import type { StreamProblem } from '../features/stream/streamProblems';
+  type StreamProblem
+} from '../features/stream/streamProblems';
 import { useI18n } from '../i18n/LocaleProvider';
 import type { MessageKey } from '../i18n/messages';
 
@@ -36,7 +36,10 @@ const displayModes: Array<{
 export default function Stream() {
   const { t } = useI18n();
   const { snapshot, intents } = useStreamPage();
-  const presentation = presentStreamSnapshot(snapshot, t);
+  const presentation = useMemo(
+    () => presentStreamSnapshot(snapshot, t),
+    [snapshot, t]
+  );
   const status = snapshot.service.status;
   const cropSettings = snapshot.crop.settings;
   const statusTone = presentation.status.tone;

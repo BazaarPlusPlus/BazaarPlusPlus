@@ -1,0 +1,20 @@
+{
+  "started_at": "2026-09-12T12:59:41.528Z",
+  "database": "953b02ef-f990-4a30-90ad-69fa9c04f2ea",
+  "method": "Read-only keyset pages; UTF-8 and SQLite integer payload bytes, including both unchanged index payloads. Excludes record headers, B-tree/overflow pages and free space; pages are not a single snapshot.",
+  "physical_before_bytes": 3315617792,
+  "page_size": 10000,
+  "pages": 181,
+  "max_sql_ms": 528.7355,
+  "rows": 1808000,
+  "old_fields_bytes": 1388266834,
+  "summary_fields_bytes": 321516732,
+  "index_payload_bytes": 368832000,
+  "json_bytes": 1142378834,
+  "invalid_required_rows": 0,
+  "completed_at": "2026-09-12T13:02:37.873Z",
+  "physical_after_bytes": 3313303552,
+  "logical_saved_bytes": 1066750102,
+  "old_ghost_with_indexes_bytes": 1757098834,
+  "summary_with_indexes_bytes": 690348732
+}

@@ -78,36 +78,17 @@ internal static class CombatImpactMetricFormatter
                     : $"{effectMarker}{value}"
             );
         }
-        else
+        else if (group.ObservedValue.HasValue && !group.HasUnattributedTransitionValue)
         {
-            if (group.ObservedValue.HasValue && !group.HasUnattributedTransitionValue)
-            {
-                parts.Add(
-                    ObservedValue(
-                        group.Kind,
-                        group.ObservedValue.Value,
-                        group.Unit,
-                        chinese,
-                        effectMarker
-                    )
-                );
-            }
-
-            if (
-                authoritative?.Basis == CombatImpactAuthoritativeBasis.ApplicationCount
-                && (group.Count == 0 || authoritative.Value != group.Count)
-            )
-            {
-                parts.Add(
-                    authoritative.CanReconcileApplicationCount
-                        ? chinese
-                            ? $"生效 {authoritative.Value} 次"
-                            : $"{authoritative.Value} application{(authoritative.Value == 1 ? string.Empty : "s")}"
-                        : chinese
-                            ? $"影响 {authoritative.Value} 张卡牌"
-                            : $"{authoritative.Value} card{(authoritative.Value == 1 ? string.Empty : "s")} affected"
-                );
-            }
+            parts.Add(
+                ObservedValue(
+                    group.Kind,
+                    group.ObservedValue.Value,
+                    group.Unit,
+                    chinese,
+                    effectMarker
+                )
+            );
         }
 
         return string.Join(" · ", parts);

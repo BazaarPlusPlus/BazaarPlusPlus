@@ -55,7 +55,7 @@ pub async fn set_stream_window(
         .map_err(|diagnostic| stream_window_problem(offset, diagnostic))
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn get_overlay_settings() -> Result<OverlayCropSettingsPayload, SemanticProblem> {
     OverlaySettingsStore::default()
@@ -63,7 +63,7 @@ pub fn get_overlay_settings() -> Result<OverlayCropSettingsPayload, SemanticProb
         .map_err(|diagnostic| stream_crop_problem("load", diagnostic))
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn apply_overlay_crop_code(
     code: String,
@@ -73,7 +73,7 @@ pub fn apply_overlay_crop_code(
         .map_err(|diagnostic| stream_crop_problem("apply_code", diagnostic))
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn save_overlay_display_mode(
     display_mode: StreamOverlayDisplayMode,
@@ -83,7 +83,7 @@ pub fn save_overlay_display_mode(
         .map_err(|diagnostic| stream_crop_problem("save_display_mode", diagnostic))
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn reset_overlay_crop() -> Result<OverlayCropSettingsPayload, SemanticProblem> {
     OverlaySettingsStore::default()
@@ -131,7 +131,7 @@ mod tests {
 
         let unsupported_schema = stream_window_problem(
             0,
-            "Unsupported mod database schema: found=2, expected=1.".to_string(),
+            "Unsupported mod database schema: found=3, supported=1,2.".to_string(),
         );
         assert_eq!(
             unsupported_schema.code,

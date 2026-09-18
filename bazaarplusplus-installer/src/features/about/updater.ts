@@ -1,6 +1,7 @@
 import { check, type Update } from '@tauri-apps/plugin-updater';
 import { relaunch } from '@tauri-apps/plugin-process';
 import { hasTauriRuntime } from '../../api/runtime';
+import { isWindowsPlatform } from '../shared/platform';
 import {
   updaterProblemFromError,
   type UpdaterProblem
@@ -38,8 +39,7 @@ export const tauriUpdaterImpl: UpdaterImpl = {
   check: () => check(),
   relaunch: () => relaunch(),
   hasRuntime: hasTauriRuntime,
-  isWindows: () =>
-    typeof navigator !== 'undefined' && navigator.userAgent.includes('Windows')
+  isWindows: isWindowsPlatform
 };
 
 export async function runCheck(impl: UpdaterImpl): Promise<UpdateCheckResult> {
@@ -59,18 +59,6 @@ export async function runCheck(impl: UpdaterImpl): Promise<UpdateCheckResult> {
 }
 
 export type UpdateProgress = { downloaded: number; total: number | null };
-
-export type UpdaterPhase =
-  | 'idle'
-  | 'checking'
-  | 'current'
-  | 'preview'
-  | 'available'
-  | 'downloading'
-  | 'installing'
-  | 'ready-to-restart'
-  | 'restarting'
-  | 'failed';
 
 type EmptyUpdaterSnapshot = {
   phase: 'idle' | 'checking' | 'current' | 'preview';

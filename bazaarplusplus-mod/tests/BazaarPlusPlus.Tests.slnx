@@ -1,0 +1,14 @@
+<Solution>
+    <Folder Name="/tests/">
+        <Project Path="Architecture.Tests/Architecture.Tests.csproj" />
+        <Project Path="BppLog.Tests/BppLog.Tests.csproj" />
+        <Project Path="CollectionEncounterTooltip.Tests/CollectionEncounterTooltip.Tests.csproj" />
+        <Project Path="CombatStatusBarState.Tests/CombatStatusBarState.Tests.csproj" />
+        <Project Path="FeatureLogging.Tests/FeatureLogging.Tests.csproj" />
+        <Project Path="HeroIdentity.Tests/HeroIdentity.Tests.csproj" />
+        <Project Path="PostCombatImpact.Tests/PostCombatImpact.Tests.csproj" />
+        <Project Path="PureBehavior.Tests/PureBehavior.Tests.csproj" />
+        <Project Path="RuntimeIntegration.Tests/RuntimeIntegration.Tests.csproj" />
+        <Project Path="ScenarioRunner.Tests/ScenarioRunner.Tests.csproj" />
+    </Folder>
+</Solution>

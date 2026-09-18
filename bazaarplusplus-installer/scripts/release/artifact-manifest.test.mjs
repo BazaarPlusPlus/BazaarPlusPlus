@@ -5,8 +5,10 @@ import { expect, test } from 'vitest';
 
 import {
   createArtifactManifest,
+  gitStateForRoot,
   validateArtifactManifest
 } from './artifact-manifest.mjs';
+import { runFixtureGit } from '../test-support/git-fixture.mjs';
 
 function windowsFixture() {
   const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), 'bpp-artifacts-'));
@@ -231,6 +233,33 @@ test('manifest validation rejects a dirty build or dirty current checkout', () =
     ).toThrow(/dirty build/i);
   } finally {
     fs.rmSync(fixture.rootDir, { recursive: true, force: true });
+  }
+});
+
+test('gitStateForRoot ignores dirty siblings in a monorepo', () => {
+  const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'bpp-git-state-'));
+  const installerDir = path.join(fixtureRoot, 'bazaarplusplus-installer');
+  try {
+    fs.mkdirSync(installerDir, { recursive: true });
+    fs.writeFileSync(path.join(installerDir, 'README.md'), 'installer\n');
+    runFixtureGit(['init', '-q'], { cwd: fixtureRoot });
+    runFixtureGit(['config', 'user.name', 'Manifest Test'], {
+      cwd: fixtureRoot
+    });
+    runFixtureGit(['config', 'user.email', 'manifest@example.test'], {
+      cwd: fixtureRoot
+    });
+    runFixtureGit(['add', '.'], { cwd: fixtureRoot });
+    runFixtureGit(['commit', '-qm', 'installer snapshot'], {
+      cwd: fixtureRoot
+    });
+    fs.writeFileSync(path.join(fixtureRoot, 'sibling-dirty.txt'), 'other work\n');
+
+    const state = gitStateForRoot(installerDir);
+    expect(state.dirty).toBe(false);
+    expect(state.commit).toMatch(/^[0-9a-f]{40}$/);
+  } finally {
+    fs.rmSync(fixtureRoot, { recursive: true, force: true });
   }
 });
 

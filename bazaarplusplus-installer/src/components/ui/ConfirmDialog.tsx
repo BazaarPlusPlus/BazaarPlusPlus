@@ -6,13 +6,10 @@ import {
   type LucideIcon
 } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { Dialog, type DialogCloseReason } from './Dialog';
+import { Dialog } from './Dialog';
 import { useI18n } from '../../i18n/LocaleProvider';
 
 export type ConfirmTone = 'gold' | 'danger';
-
-export type ConfirmDialogDismissReason =
-  DialogCloseReason | 'close-button' | 'secondary-action';
 
 export type ActiveDismissalPolicy =
   | { kind: 'blocked' }
@@ -120,11 +117,10 @@ export function ConfirmDialog({
   const secondaryLabel = busy
     ? activeDismissLabel
     : (dismissLabel ?? t('cancel'));
-  const requestDismiss = (reason: ConfirmDialogDismissReason) =>
+  const requestDismiss = () =>
     requestConfirmDialogDismiss({
       busy,
       activeDismissalPolicy,
-      reason,
       onClose
     });
 
@@ -150,7 +146,7 @@ export function ConfirmDialog({
           </div>
           <button
             type="button"
-            onClick={() => requestDismiss('close-button')}
+            onClick={requestDismiss}
             disabled={!dismissAllowed}
             className={`${s.close} disabled:opacity-50 disabled:pointer-events-none`}
             aria-label={
@@ -178,7 +174,7 @@ export function ConfirmDialog({
             {secondaryLabel ? (
               <button
                 type="button"
-                onClick={() => requestDismiss('secondary-action')}
+                onClick={requestDismiss}
                 className="bpp-confirm-cancel px-5 py-2 transition-colors text-sm"
               >
                 {secondaryLabel}
@@ -239,7 +235,6 @@ export function requestConfirmDialogDismiss({
 }: {
   busy: boolean;
   activeDismissalPolicy: ActiveDismissalPolicy;
-  reason: ConfirmDialogDismissReason;
   onClose: () => void;
 }): boolean {
   if (!busy) {

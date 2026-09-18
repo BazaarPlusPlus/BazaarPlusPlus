@@ -2,12 +2,18 @@
 dist/
 bin/
 obj/
+*.sarif
+native/windows/build/
+*.obj
+*.lib
+*.exp
 exports/
 
 # Dependencies
 libs/
 decompiled/
 decompiled-v*/
+decompiled-staging/
 
 # IDE
 .trae/
@@ -40,7 +46,7 @@ Thumbs.db
 .build-verify
 .sandbox-home
 report-ui
-tools
+tools/*
 .claude
 .superpowers/
 *.lscache

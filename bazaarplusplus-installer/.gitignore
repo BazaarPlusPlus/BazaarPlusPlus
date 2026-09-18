@@ -4,9 +4,9 @@
 # Frontend build output and caches
 /build/
 /dist/
-/.svelte-kit/
 /package/
 /coverage/
+/tmp/
 /.vite/
 *.tsbuildinfo
 vite.config.js.timestamp-*
@@ -31,7 +31,11 @@ yarn-error.log*
 pnpm-debug.log*
 
 # Editors and local tooling
+.claude/
+.superpowers/
+.worktrees/
 .idea/
+.trae/
 .vscode/
 .fleet/
 .zed/
@@ -51,5 +55,36 @@ Thumbs.db
 BepInEx.zip
 BazaarPlusPlus.dll
 BazaarPlusPlus.version
+BazaarPlusPlus.ModApi.dll
+BazaarPlusPlus.Storage.dll
+BazaarPlusPlus.Localization.dll
+BazaarPlusPlus.history-database.json
+
+# FFmpeg is unzipped into the payload at build time from the committed FfmpegSource/*/ffmpeg.zip.
+# The raw binary (131MB win / 47MB mac) is a transient build output — never commit it.
+/src-tauri/resources/SourceForBuild/*/BepInEx/plugins/ffmpeg
+/src-tauri/icons/macos-generated/
+/src-tauri/resources/SourceForBuild/*/BepInEx/plugins/ffmpeg.exe
+/src-tauri/resources/SourceForBuild/*/BepInEx/plugins/ffmpeg-LICENSE.txt
+
+# BazaarAgent plugin binaries are copied into SourceForBuild locally during packaging.
+/src-tauri/resources/SourceForBuild/*/BepInEx/plugins/BazaarPlusPlus.BazaarAgent.dll
+/src-tauri/resources/SourceForBuild/*/BepInEx/plugins/BazaarPlusPlus.BazaarAgentHost.dll
+
+# macOS launch trampoline stub is compiled arm64 at build time from the committed
+# src-tauri/trampoline/bpp_launcher.c. Never commit the compiled binary.
+/src-tauri/resources/Trampoline/
+/src-tauri/resources/BepInExSource/*/BepInEx.zip.manifest.json
+/src-tauri/resources/BepInExSource/*/BepInEx.zip.tmp-*
+/src-tauri/resources/BepInExSource/*/BepInEx.zip.manifest.json.tmp-*
 
 signing-secrets
+
+# Throwaway signing-secrets fixtures created by scripts/build.test.mjs.
+# Auto-removed after each test; only left behind if a run is interrupted.
+.bpp-signing-test-*/
+.bpp-latest-e2e-*/
+.bpp-deps-test-*/
+
+scripts/supporters-import-state.json
+static/support/supporter-pending-review.json

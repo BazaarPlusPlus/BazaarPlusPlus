@@ -16,7 +16,6 @@ internal enum CollectionPanelLogReasonCode
     StaticDataNotReady,
     TemplateLookupFailed,
     BindException,
-    Untracked,
     ButtonMissing,
     MissingCollectionButton,
     GearFootprintUnavailable,
@@ -97,7 +96,6 @@ internal enum CollectionPanelLoadSegment
 
 internal enum CollectionCardBindStage
 {
-    TemplateLookup,
     Bind,
 }
 
@@ -353,22 +351,6 @@ internal static class CollectionPanelLogEvents
         "collection_panel.card.bind_degraded",
         [CardBindDegradedStage, CardBindDegradedTemplateId, CardBindDegradedReasonCode],
         new BppLogStormPolicy([CardBindDegradedStage, CardBindDegradedReasonCode])
-    );
-
-    internal static readonly BppLogFieldDefinition CardReturnSkippedKind = Public(
-        0,
-        "kind",
-        BppLogCardinality.Low
-    );
-    internal static readonly BppLogFieldDefinition CardReturnSkippedReasonCode = Public(
-        1,
-        "reason_code",
-        BppLogCardinality.Low
-    );
-    internal static readonly BppLogEventDefinition CardReturnSkipped = new(
-        BppLogFeatureScope.CollectionPanel,
-        "collection_panel.card.return_skipped",
-        [CardReturnSkippedKind, CardReturnSkippedReasonCode]
     );
 
     internal static readonly BppLogFieldDefinition DockButtonSetupFailedPlacement = Public(

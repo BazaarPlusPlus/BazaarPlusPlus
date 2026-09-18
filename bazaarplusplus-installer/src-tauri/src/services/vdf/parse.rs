@@ -26,7 +26,7 @@ pub(crate) fn launch_options_empty_in_content(vdf_content: &str) -> Result<Optio
         }
         if nested_depth == 0
             && parse_line_pair(line)
-                .is_some_and(|(_indent, key, value)| key == LAUNCH_OPTIONS_KEY && !value.is_empty())
+                .is_some_and(|(key, value)| key == LAUNCH_OPTIONS_KEY && !value.is_empty())
         {
             return Ok(Some(false));
         }
@@ -34,10 +34,8 @@ pub(crate) fn launch_options_empty_in_content(vdf_content: &str) -> Result<Optio
     Ok(Some(true))
 }
 
-fn parse_line_pair(line: &str) -> Option<(&str, &str, &str)> {
-    let indent_len = line.find('"')?;
-    let indent = &line[..indent_len];
-    let trimmed = &line[indent_len..];
+fn parse_line_pair(line: &str) -> Option<(&str, &str)> {
+    let trimmed = &line[line.find('"')?..];
 
     fn parse_quoted(input: &str) -> Option<(&str, &str)> {
         let mut escaped = false;
@@ -72,11 +70,7 @@ fn parse_line_pair(line: &str) -> Option<(&str, &str, &str)> {
         return None;
     }
 
-    Some((indent, key, value))
-}
-
-fn join_lines(lines: &[String]) -> String {
-    lines.join("\n")
+    Some((key, value))
 }
 
 fn find_apps_block(lines: &[String]) -> Option<(usize, usize)> {
@@ -131,7 +125,7 @@ fn find_named_block(
     None
 }
 
-fn remove_launch_options_text(vdf_content: &str) -> Result<Option<String>, String> {
+pub fn clear_launch_options(vdf_content: &str) -> Result<Option<String>, String> {
     let mut lines = vdf_content.lines().map(str::to_string).collect::<Vec<_>>();
     let Some((apps_open, apps_close)) = find_apps_block(&lines) else {
         return Err("Malformed VDF: could not locate Steam/apps object".to_string());
@@ -157,7 +151,7 @@ fn remove_launch_options_text(vdf_content: &str) -> Result<Option<String>, Strin
             _ => {}
         }
         if nested_depth == 0
-            && parse_line_pair(line).is_some_and(|(_indent, key, _value)| key == LAUNCH_OPTIONS_KEY)
+            && parse_line_pair(line).is_some_and(|(key, _value)| key == LAUNCH_OPTIONS_KEY)
         {
             launch_option_lines.push(idx);
         }
@@ -169,9 +163,5 @@ fn remove_launch_options_text(vdf_content: &str) -> Result<Option<String>, Strin
         lines.remove(idx);
     }
 
-    Ok(Some(join_lines(&lines)))
-}
-
-pub fn clear_launch_options(vdf_content: &str) -> Result<Option<String>, String> {
-    remove_launch_options_text(vdf_content)
+    Ok(Some(lines.join("\n")))
 }

@@ -34,9 +34,7 @@ export function runDetailProblemFromError(error: unknown): RunDetailProblem {
   }
 }
 
-export function runDetailProblemMessageKey(
-  problem: RunDetailProblem
-): MessageKey {
+function runDetailProblemMessageKey(problem: RunDetailProblem): MessageKey {
   switch (problem.code) {
     case 'history_unavailable':
       return 'runDetailProblemUnavailable';

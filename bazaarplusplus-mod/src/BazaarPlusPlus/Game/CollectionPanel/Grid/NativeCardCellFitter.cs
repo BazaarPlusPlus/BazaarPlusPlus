@@ -19,12 +19,6 @@ internal static class NativeCardCellFitter
 {
     public const float FallbackNativeCardHeight = 484f;
 
-    // Diagnostic: increments only when ResolveNativeVisualBounds runs. Scroll-only reposition
-    // must leave this unchanged when the cell cache is warm.
-    internal static int MeasureInvocationCount { get; private set; }
-
-    internal static void ResetMeasureInvocationCount() => MeasureInvocationCount = 0;
-
     public static void ApplyScale(
         RectTransform rect,
         CollectionGridRect cellRect,
@@ -102,7 +96,6 @@ internal static class NativeCardCellFitter
         out float? aspectRatio
     )
     {
-        MeasureInvocationCount++;
         aspectRatio = TryReadAspectRatio(rect);
         var visualBounds = ResolveNativeVisualBounds(rect);
         boundsCache.Store(visualBounds, aspectRatio);

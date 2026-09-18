@@ -1,0 +1,84 @@
+# Permanent RS0030 exemptions. Debt sections below are the frozen set in
+# SourceTextBanTests; shrink them in the shipment that migrates the file.
+
+[Shared/TestFiles/**.cs]
+dotnet_diagnostic.RS0030.severity = none
+
+[CombatImpact.Corpus/**.cs]
+dotnet_diagnostic.RS0030.severity = none
+
+# Debt — S2
+[Architecture.Tests/CoreLayeringTests.cs]
+dotnet_diagnostic.RS0030.severity = none
+
+# Debt — S3
+[Architecture.Tests/LoggingGovernanceTests.cs]
+dotnet_diagnostic.RS0030.severity = none
+
+[VoiceSubtitles.Tests/VoiceObserverLoggingTests.cs]
+dotnet_diagnostic.RS0030.severity = none
+
+# Debt — S4
+[Architecture.Tests/NativeAssetLoadingArchitectureTests.cs]
+dotnet_diagnostic.RS0030.severity = none
+
+[Architecture.Tests/NativeCardPreviewArchitectureTests.cs]
+dotnet_diagnostic.RS0030.severity = none
+
+[Architecture.Tests/NativeMonsterBoardArchitectureTests.cs]
+dotnet_diagnostic.RS0030.severity = none
+
+[Architecture.Tests/NativePairedTooltipArchitectureTests.cs]
+dotnet_diagnostic.RS0030.severity = none
+
+# Debt — S5
+[Architecture.Tests/BundleSealConvergenceArchitectureTests.cs]
+dotnet_diagnostic.RS0030.severity = none
+
+[Architecture.Tests/CollectionMechanicArchitectureTests.cs]
+dotnet_diagnostic.RS0030.severity = none
+
+[Architecture.Tests/HistoryPagingArchitectureTests.cs]
+dotnet_diagnostic.RS0030.severity = none
+
+[Architecture.Tests/OutboundNetworkMainMenuArchitectureTests.cs]
+dotnet_diagnostic.RS0030.severity = none
+
+[Architecture.Tests/OutboundNetworkSeedArchitectureTests.cs]
+dotnet_diagnostic.RS0030.severity = none
+
+[Architecture.Tests/RemoteEmbeddedCatalogArchitectureTests.cs]
+dotnet_diagnostic.RS0030.severity = none
+
+[Architecture.Tests/V5DataPipelineArchitectureTests.cs]
+dotnet_diagnostic.RS0030.severity = none
+
+[HistoryPanelFactory.Tests/Program.cs]
+dotnet_diagnostic.RS0030.severity = none
+
+[LiveBuildRecommendations.Tests/Program.cs]
+dotnet_diagnostic.RS0030.severity = none
+
+# Debt — S6
+[Architecture.Tests/CurrentReplayRecordingArchitectureTests.cs]
+dotnet_diagnostic.RS0030.severity = none
+
+[Architecture.Tests/EndOfRunCaptureArchitectureTests.cs]
+dotnet_diagnostic.RS0030.severity = none
+
+[Architecture.Tests/MacNativeReplayManagedArchitectureTests.cs]
+dotnet_diagnostic.RS0030.severity = none
+
+# Debt — S7 / S9
+[Architecture.Tests/MacNativeReplayNativeArchitectureTests.cs]
+dotnet_diagnostic.RS0030.severity = none
+
+[Architecture.Tests/MacNativeReplayPackagingArchitectureTests.cs]
+dotnet_diagnostic.RS0030.severity = none
+
+# Debt — S10
+[NativeAssetCompatibility.Tests/Program.cs]
+dotnet_diagnostic.RS0030.severity = none
+
+[PtrCompatibility.Tests/Program.cs]
+dotnet_diagnostic.RS0030.severity = none

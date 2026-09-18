@@ -32,8 +32,6 @@ internal sealed class BppItemBoard
 
     public IReadOnlyList<BppItemBoardCard> Cards { get; }
 
-    public bool HasCards => Cards.Count > 0;
-
     public BppItemBoard WithCards(
         IReadOnlyList<BppItemBoardCard> cards,
         string? signature = null

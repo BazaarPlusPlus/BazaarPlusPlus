@@ -33,16 +33,6 @@ internal static class CollectionPanelText
         "搜索名称、描述、内部 ID、标签和相关效果。",
         "搜尋名稱、描述、內部 ID、標籤和相關效果。"
     );
-    private static readonly LocalizedTextSet SearchButtonTooltipText = new(
-        "Open search",
-        "打开搜索",
-        "開啟搜尋"
-    );
-    private static readonly LocalizedTextSet CloseSearchTooltipText = new(
-        "Close search",
-        "关闭搜索",
-        "關閉搜尋"
-    );
     private static readonly LocalizedTextSet ItemSearchPlaceholderText = new(
         "Search items",
         "搜索物品",
@@ -74,24 +64,8 @@ internal static class CollectionPanelText
     private static readonly LocalizedTextSet TierHeaderText = new("Quality", "品质", "品質");
     private static readonly LocalizedTextSet TagHeaderText = new("Types", "类型", "類型");
     private static readonly LocalizedTextSet KeywordHeaderText = new("Tags", "标签", "標籤");
-    private static readonly LocalizedTextSet KeywordRelatedSectionText = new(
-        "Related",
-        "相关",
-        "相關"
-    );
     private static readonly LocalizedTextSet FacetMatchAnyText = new("Any", "任一", "任一");
     private static readonly LocalizedTextSet FacetMatchAllText = new("All", "全部", "全部");
-    private static readonly LocalizedTextSet KeywordMatchAnyTooltipText = new(
-        "Tags and types: match cards with any selected value. Click to require all.",
-        "标签和类型：匹配任一已选内容的卡。点击切换为必须全部匹配。",
-        "標籤和類型：匹配任一已選內容的卡。點擊切換為必須全部匹配。"
-    );
-    private static readonly LocalizedTextSet KeywordMatchAllTooltipText = new(
-        "Tags and types: require every selected value. Click to match any.",
-        "标签和类型：必须匹配所有已选内容。点击切换为任一匹配。",
-        "標籤和類型：必須匹配所有已選內容。點擊切換為任一匹配。"
-    );
-    private static readonly LocalizedTextSet SortHeaderText = new("Sort", "排序", "排序");
     private static readonly LocalizedTextSet SortQualityText = new("Quality", "品质", "品質");
     private static readonly LocalizedTextSet SortSizeText = new("Size", "尺寸", "尺寸");
     private static readonly LocalizedTextSet MerchantHeaderText = new("Merchant", "商人", "商人");
@@ -131,10 +105,6 @@ internal static class CollectionPanelText
 
     internal static string SearchTooltip() => Resolve(SearchTooltipText);
 
-    internal static string SearchButtonTooltip() => Resolve(SearchButtonTooltipText);
-
-    internal static string CloseSearchTooltip() => Resolve(CloseSearchTooltipText);
-
     internal static string SearchPlaceholder(ECardType activeType) =>
         activeType == ECardType.Skill
             ? Resolve(SkillSearchPlaceholderText)
@@ -156,19 +126,10 @@ internal static class CollectionPanelText
 
     internal static string KeywordHeader() => Resolve(KeywordHeaderText);
 
-    internal static string KeywordRelatedSection() => Resolve(KeywordRelatedSectionText);
-
     internal static string FacetMatchMode(CollectionFacetMatchMode mode) =>
         mode == CollectionFacetMatchMode.All
             ? Resolve(FacetMatchAllText)
             : Resolve(FacetMatchAnyText);
-
-    internal static string KeywordMatchModeTooltip(CollectionFacetMatchMode mode) =>
-        mode == CollectionFacetMatchMode.All
-            ? Resolve(KeywordMatchAllTooltipText)
-            : Resolve(KeywordMatchAnyTooltipText);
-
-    internal static string SortHeader() => Resolve(SortHeaderText);
 
     internal static string SortQuality() => Resolve(SortQualityText);
 

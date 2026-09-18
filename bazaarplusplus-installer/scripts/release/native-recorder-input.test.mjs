@@ -1,4 +1,3 @@
-import { execFileSync } from 'node:child_process';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -12,6 +11,7 @@ import {
   promoteNativeRecorderInput,
   verifyNativeRecorderInput
 } from './native-recorder-input.mjs';
+import { runFixtureGit } from '../test-support/git-fixture.mjs';
 
 function writeFile(rootDir, relativePath, content) {
   const filePath = path.join(rootDir, ...relativePath.split('/'));
@@ -102,15 +102,13 @@ function createFixture() {
     'promoted replay binary'
   );
 
-  execFileSync('git', ['init', '-q'], { cwd: sourceRoot });
-  execFileSync('git', ['config', 'user.name', 'Native Test'], {
+  runFixtureGit(['init', '-q'], { cwd: sourceRoot });
+  runFixtureGit(['config', 'user.name', 'Native Test'], { cwd: sourceRoot });
+  runFixtureGit(['config', 'user.email', 'native@example.test'], {
     cwd: sourceRoot
   });
-  execFileSync('git', ['config', 'user.email', 'native@example.test'], {
-    cwd: sourceRoot
-  });
-  execFileSync('git', ['add', '.'], { cwd: sourceRoot });
-  execFileSync('git', ['commit', '-qm', 'test inputs'], { cwd: sourceRoot });
+  runFixtureGit(['add', '.'], { cwd: sourceRoot });
+  runFixtureGit(['commit', '-qm', 'test inputs'], { cwd: sourceRoot });
   return { fixtureRoot, rootDir, sourceRoot, buildRoot };
 }
 
@@ -121,9 +119,8 @@ function removeFixture(fixture) {
 test('canonical freshness follows declared worktree bytes, not Git HEAD', () => {
   const fixture = createFixture();
   try {
-    const commitBefore = execFileSync('git', ['rev-parse', 'HEAD'], {
-      cwd: fixture.sourceRoot,
-      encoding: 'utf8'
+    const commitBefore = runFixtureGit(['rev-parse', 'HEAD'], {
+      cwd: fixture.sourceRoot
     });
     const before = computePlatformRequirement({
       sourceRoot: fixture.sourceRoot,
@@ -142,9 +139,8 @@ test('canonical freshness follows declared worktree bytes, not Git HEAD', () => 
       sourceRoot: fixture.sourceRoot,
       platform: 'macos'
     });
-    const commitAfter = execFileSync('git', ['rev-parse', 'HEAD'], {
-      cwd: fixture.sourceRoot,
-      encoding: 'utf8'
+    const commitAfter = runFixtureGit(['rev-parse', 'HEAD'], {
+      cwd: fixture.sourceRoot
     });
 
     expect(unrelated.inputDigest).toBe(before.inputDigest);

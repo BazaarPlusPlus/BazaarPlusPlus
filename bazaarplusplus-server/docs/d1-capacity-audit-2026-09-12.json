@@ -1,0 +1,106 @@
+{
+  "database": {
+    "name": "bazaarplusplus-mod-api-v5-db",
+    "physical_size_bytes": 3320025088,
+    "observed_at": "2026-09-12T12:15:06.499Z"
+  },
+  "started_at": "2026-09-12T12:10:56.994Z",
+  "cutoff": {
+    "ghost": 1788783056994,
+    "object": 1788523856994,
+    "retention": 1787919056994
+  },
+  "method": "Sequential keyset pages; field payload bytes exclude SQLite record headers and B-tree/overflow-page overhead; index bytes include implicit WITHOUT ROWID primary-key suffixes.",
+  "tables": {
+    "ghost_battles": {
+      "rows": 1806847,
+      "field_payload_bytes": 1387389005,
+      "pages": 91,
+      "indexes": {
+        "idx_ghost_battles_query": 198753170,
+        "idx_ghost_battles_bundle": 169843618
+      },
+      "json_bytes": 1141657813,
+      "older_5d_rows": 1181755,
+      "older_5d_json_bytes": 746180480,
+      "older_8d_rows": 712697,
+      "future_rows": 99,
+      "json_repeated_fields_bytes": 184110199
+    },
+    "bundles": {
+      "rows": 605355,
+      "field_payload_bytes": 204469750,
+      "pages": 31,
+      "indexes": {
+        "sqlite_autoindex_bundles_2": 37633686,
+        "idx_bundles_available": 50849820,
+        "idx_bundles_stored_retention": 19371360
+      },
+      "older_5d_rows": 396298,
+      "older_8d_rows": 248472,
+      "older_15d_rows": 396,
+      "recent_1d_rows": 43735,
+      "screenshot_rows": 248916,
+      "object_payload_bytes": 371052383627,
+      "manifest_described_bytes": 4406244526
+    },
+    "bazaardb_deliveries": {
+      "rows": 248917,
+      "field_payload_bytes": 13668518,
+      "pages": 13,
+      "indexes": {
+        "idx_bazaardb_claimable": 38,
+        "idx_bazaardb_active_claim_order": 0,
+        "idx_bazaardb_exhausted_lease": 0,
+        "idx_bazaardb_pending_retention": 32
+      },
+      "pending_rows": 1,
+      "done_rows": 248916,
+      "failed_rows": 0,
+      "pending_older_8d_rows": 0,
+      "terminal_older_8d_rows": 99364,
+      "terminal_older_5d_rows": 162119,
+      "never_claimed_rows": 1
+    },
+    "bazaardb_delivery_attempts": {
+      "rows": 248939,
+      "field_payload_bytes": 22902089,
+      "pages": 13,
+      "indexes": {
+        "sqlite_autoindex_bazaardb_delivery_attempts_2": 16429997
+      },
+      "unsettled_rows": 23,
+      "accepted_rows": 248916,
+      "retryable_rows": 0,
+      "permanent_rows": 0,
+      "older_8d_rows": 99364,
+      "older_5d_rows": 162119,
+      "expired_unsettled_rows": 23
+    },
+    "bundle_uploaders": {
+      "rows": 23391,
+      "field_payload_bytes": 982439,
+      "pages": 2,
+      "indexes": {},
+      "older_15d_rows": 20314
+    }
+  },
+  "query_count": 150,
+  "sql_ms": 76930.51119999996,
+  "rows_read": 2933551,
+  "max_sql_ms": 874.6121,
+  "last_table": "bundle_uploaders",
+  "updated_at": "2026-09-12T12:13:43.627Z",
+  "completed_at": "2026-09-12T12:13:43.628Z",
+  "retention_probe": {
+    "observed_at": "2026-09-12T12:12:31.372Z",
+    "expired_bundles": 456,
+    "oldest_stored_at_ms": 1787918434935
+  },
+  "stale_attempt_delivery_states": [
+    {
+      "delivery_state": "done",
+      "expired_unsettled_attempts": 23
+    }
+  ]
+}

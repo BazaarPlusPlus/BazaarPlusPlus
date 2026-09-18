@@ -6,10 +6,8 @@ using BazaarPlusPlus.Game.PvpBattles;
 using BazaarPlusPlus.Game.PvpBattles.Persistence;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.ModApi.Bundle;
-using BazaarPlusPlus.Storage;
 using BazaarPlusPlus.Storage.RunLog;
 using Microsoft.Data.Sqlite;
-using Newtonsoft.Json;
 
 namespace BazaarPlusPlus.Game.BundlePipeline;
 
@@ -19,8 +17,6 @@ internal sealed class RunPayloadComposer
         "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
         RegexOptions.CultureInvariant
     );
-    private static readonly JsonSerializerSettings SnapshotJson =
-        SerializerSettingsFactory.CreateSerializerSettings(includeStringEnumConverter: true);
     private readonly string _databasePath;
     private readonly PvpBattleCatalog _battleCatalog;
     private readonly CombatReplayPayloadStore _replayStore;

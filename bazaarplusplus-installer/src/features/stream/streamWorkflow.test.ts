@@ -135,6 +135,70 @@ describe('stream workflow lifecycle and effects', () => {
     expect(workflow.getSnapshot().service.status?.active_window_offset).toBe(2);
   });
 
+  it('keeps the snapshot reference when a poll changes nothing', async () => {
+    const { workflow, scheduler } = setup();
+    await workflow.start();
+    const before = workflow.getSnapshot();
+
+    scheduler.fireIntervals();
+    await flush();
+
+    expect(workflow.getSnapshot()).toBe(before);
+
+    scheduler.fireIntervals();
+    await flush();
+
+    expect(workflow.getSnapshot()).toBe(before);
+  });
+
+  it('still publishes when a poll changes the reported error', async () => {
+    const getStatus = vi
+      .fn()
+      .mockResolvedValueOnce(runningStatus())
+      .mockResolvedValue(runningStatus({ last_error: 'overlay port lost' }));
+    const { workflow, scheduler } = setup({ getStatus });
+    await workflow.start();
+
+    scheduler.fireIntervals();
+    await flush();
+    const before = workflow.getSnapshot();
+
+    scheduler.fireIntervals();
+    await flush();
+
+    expect(workflow.getSnapshot()).not.toBe(before);
+    expect(workflow.getSnapshot().service.status?.last_error).toBe(
+      'overlay port lost'
+    );
+  });
+
+  it('detects a nested status field the comparator was never told about', async () => {
+    // Stands in for a field added to StreamServiceStatus in Rust and
+    // regenerated into TS: the snapshot comparison must notice it without
+    // anyone remembering to extend a field list.
+    const base = runningStatus();
+    const extended = {
+      ...base,
+      window: { ...base.window, future_field: 'v2' }
+    } as StreamServiceStatus;
+    const getStatus = vi
+      .fn()
+      .mockResolvedValueOnce(base)
+      .mockResolvedValue(extended);
+    const { workflow, scheduler } = setup({ getStatus });
+    await workflow.start();
+
+    scheduler.fireIntervals();
+    await flush();
+    const before = workflow.getSnapshot();
+
+    scheduler.fireIntervals();
+    await flush();
+
+    expect(workflow.getSnapshot()).not.toBe(before);
+    expect(workflow.getSnapshot().service.status).toBe(extended);
+  });
+
   it('does not mark a newer status stale when an older poll fails', async () => {
     const first = deferred<StreamServiceStatus>();
     const second = deferred<StreamServiceStatus>();

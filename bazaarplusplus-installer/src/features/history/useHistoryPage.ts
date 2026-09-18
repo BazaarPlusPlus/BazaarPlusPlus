@@ -1,11 +1,4 @@
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useReducer,
-  useRef,
-  useState
-} from 'react';
+import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import type { HistoryRunRow } from '../../types/backend';
 import { getStreamStatus } from '../shared/streamSessionApi';
 import { isReadyPageState } from '../shared/pageState';
@@ -20,10 +13,11 @@ import {
   loadHistoryPreviewCapability,
   type HistoryPreviewState
 } from './historyPreview';
+import { HISTORY_PAGE_SIZE } from './pagination';
 
 export type EndGameProcessOutcome = 'terminated' | 'already-exited' | 'failed';
 
-export function useHistoryPage() {
+export function useHistoryPage(pageNumber = 1) {
   const [state, dispatch] = useReducer(
     reduceHistoryPageState,
     initialHistoryPageState
@@ -36,20 +30,29 @@ export function useHistoryPage() {
   const historyRequestId = useRef(0);
   const previewRequestId = useRef(0);
 
-  const refreshHistory = useCallback(async () => {
-    const requestId = ++historyRequestId.current;
-    dispatch({ type: 'request-started', requestId });
-    try {
-      const data = await listHistoryRuns();
-      dispatch({ type: 'request-succeeded', requestId, data });
-    } catch (caught) {
+  const refreshHistory = useCallback(
+    async (pageChanged = false) => {
+      const requestId = ++historyRequestId.current;
       dispatch({
-        type: 'request-failed',
-        requestId,
-        problem: historyProblemFromError(caught)
+        type: pageChanged ? 'page-changed' : 'request-started',
+        requestId
       });
-    }
-  }, []);
+      try {
+        const data = await listHistoryRuns(
+          HISTORY_PAGE_SIZE,
+          (pageNumber - 1) * HISTORY_PAGE_SIZE
+        );
+        dispatch({ type: 'request-succeeded', requestId, data });
+      } catch (caught) {
+        dispatch({
+          type: 'request-failed',
+          requestId,
+          problem: historyProblemFromError(caught)
+        });
+      }
+    },
+    [pageNumber]
+  );
 
   const refreshPreview = useCallback(async () => {
     const requestId = ++previewRequestId.current;
@@ -66,8 +69,12 @@ export function useHistoryPage() {
   }, [refreshHistory, refreshPreview]);
 
   useEffect(() => {
-    refresh();
-  }, [refresh]);
+    void refreshHistory(true);
+  }, [refreshHistory]);
+
+  useEffect(() => {
+    void refreshPreview();
+  }, [refreshPreview]);
 
   const [endingGameProcess, setEndingGameProcess] = useState(false);
 
@@ -93,25 +100,8 @@ export function useHistoryPage() {
     [preview.baseUrl]
   );
 
-  const payload = isReadyPageState(state) ? state.data : null;
-  const summary = useMemo(
-    () =>
-      payload
-        ? {
-            runs: String(payload.summary.runs),
-            videos: String(payload.summary.videos),
-            winRate:
-              payload.summary.win_rate === null
-                ? '-'
-                : `${Math.round(payload.summary.win_rate * 100)}%`
-          }
-        : null,
-    [payload]
-  );
-
   return {
     state,
-    summary,
     previewProblem: preview.problem,
     busy:
       state.phase === 'initial-loading' ||

@@ -71,8 +71,8 @@ impl Default for OverlaySettingsStore {
 }
 
 impl OverlaySettingsStore {
-    #[cfg_attr(not(test), allow(dead_code))]
-    pub fn new(path: PathBuf) -> Self {
+    #[cfg(test)]
+    fn new(path: PathBuf) -> Self {
         Self {
             path,
             legacy_path: None,

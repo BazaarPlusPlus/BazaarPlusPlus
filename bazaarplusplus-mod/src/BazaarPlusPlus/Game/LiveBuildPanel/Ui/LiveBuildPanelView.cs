@@ -1,877 +1,789 @@
 #nullable enable
-
-using System.Globalization;
 using BazaarGameShared.Domain.Core.Types;
 using BazaarPlusPlus.Game.LiveBuildPanel.Data;
 using BazaarPlusPlus.Game.Supporters.Ui;
+using BazaarPlusPlus.GameInterop.AssetLoading;
 using BazaarPlusPlus.GameInterop.Fonts;
-using BazaarPlusPlus.GameInterop.Heroes;
+using BazaarPlusPlus.GameInterop.HeroPortraits;
 using BazaarPlusPlus.GameInterop.ItemBoardPreview;
+using BazaarPlusPlus.GameInterop.MonsterBoardPreview;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.UiTokens;
+using BazaarPlusPlus.Localization;
+using TheBazaar.AppFramework;
+using TMPro;
 using UnityEngine;
-using UnityEngine.UIElements;
+using UnityEngine.InputSystem;
+using UnityEngine.UI;
 
 namespace BazaarPlusPlus.Game.LiveBuildPanel.Ui;
 
 internal sealed class LiveBuildPanelView : IDisposable
 {
-    private const bool ShowSlotBackdrop = true;
+    private const string Art = "Assets/TheBazaar/Art/UI/Buttons/Btn_Rectangle/";
+    private static readonly string[] Addresses =
+    [
+        Art + "Btn_Rct_Frame_S_TUI.png",
+        Art + "Btn_Rct_Brown_S_Center_Active_TUI.png",
+        Art + "Btn_Rct_Blue_S_Center_Active_TUI.png",
+    ];
+    private static readonly Color Ink = new(.96f, .89f, .73f);
+    private static readonly Color Muted = new(.69f, .63f, .53f);
 
-    private sealed class RowElements
+    private sealed class Row
     {
-        public Label Title = null!;
-        public Label Empty = null!;
-        public VisualElement SlotHost = null!;
-        public readonly List<VisualElement> HitTargets = new();
-        public readonly List<VisualElement> Markers = new();
+        internal RectTransform Region = null!;
+        internal RectTransform Header = null!;
+        internal RectTransform Divider = null!;
+        internal int Index;
+        internal TextMeshProUGUI Title = null!;
+        internal TextMeshProUGUI Status = null!;
+        internal Rect Bounds;
+        internal string Message = string.Empty;
+        internal string MarkerText = string.Empty;
+        internal readonly List<RectTransform> Markers = new();
+        internal int VisibleMarkers;
     }
 
     private readonly Transform _parent;
     private readonly Action _close;
     private readonly Action _previous;
     private readonly Action _next;
-    private readonly Action _refreshFinalBuilds;
-    private readonly Dictionary<BppItemBoardId, RowElements> _rows = new();
-    private GameObject? _rootObject;
-    private UIDocument? _document;
-    private PanelSettings? _panelSettings;
-    private GameObject? _foregroundRootObject;
-    private UIDocument? _foregroundDocument;
-    private PanelSettings? _foregroundPanelSettings;
-    private NativeGameTypography.PanelScope? _typography;
-    private NativeGameTypography.PanelScope? _foregroundTypography;
-    private NativeGameTitleOverlay? _titleOverlay;
-    private VisualElement? _foregroundRoot;
-    private VisualElement? _root;
-    private Label? _title;
-    private VisualElement? _subtitle;
-    private Label? _corpusCardTitle;
-    private Button? _finalBuildRefreshButton;
-    private Label? _corpusStatus;
-    private VisualElement? _corpusDashboard;
-    private Label? _corpusFreshness;
-    private VisualElement? _heroStrip;
-    private Label? _resultCardTitle;
-    private Label? _matchesPager;
-    private VisualElement? _matchesStats;
-    private Label? _matchesGuidance;
-    private Label? _rateValue;
-    private Label? _sampleValue;
-    private Label? _finalDayValue;
-    private Label? _matchedValue;
+    private readonly Action _refresh;
+    private readonly Dictionary<BppItemBoardId, Row> _rows = new();
+    private readonly List<(Image Image, int Index)> _art = new();
+    private NativeGameTypography.OwnedTextPreparation? _font;
+    private GameObject? _root;
+    private RectTransform? _layout;
+    private RectTransform? _markerRoot;
+    private Vector2 _screenSize;
+    private int _layoutFrames = 2;
+    private RectTransform? _supporterHost;
+    private RectTransform? _sidebar;
+    private RectTransform? _corpusGroup;
+    private RawImage? _backdrop;
+    private Task<Texture2D?>? _backdropLoad;
+    private BPPSupporterNativeAttributionRow? _supporters;
+    private Vector2 _layoutSize;
+    private LiveBuildPanelLayout _geometry;
+    private TextMeshProUGUI? _title;
+    private TextMeshProUGUI? _corpusTitle;
+    private TextMeshProUGUI? _corpus;
+    private TextMeshProUGUI? _corpusDetail;
+    private TextMeshProUGUI? _navigationLabel;
+    private TextMeshProUGUI? _pager;
+    private RectTransform? _metrics;
+    private readonly TextMeshProUGUI[] _metricLabels = new TextMeshProUGUI[
+        LiveBuildPanelLayout.MetricCells
+    ];
+    private readonly TextMeshProUGUI[] _metricValues = new TextMeshProUGUI[
+        LiveBuildPanelLayout.MetricCells
+    ];
+    private TextMeshProUGUI? _guidance;
+    private TextMeshProUGUI? _hint;
+    private Button? _refreshButton;
+    private Button? _closeButton;
     private Button? _previousButton;
     private Button? _nextButton;
-    private Button? _closeButton;
+    private Image? _portrait;
+    private EHero? _portraitHero;
+    private Task<HeroPortraitLoadOutcome?>? _portraitLoad;
+    private Task<Sprite?[]>? _skinLoad;
+    private Sprite?[]? _skin;
+    private float _retryAt;
+    private LiveBuildPanelSnapshot? _snapshot;
+    private readonly Vector3[] _corners = new Vector3[4];
+    private bool _visible;
+    private bool _disposed;
 
-    public LiveBuildPanelView(
+    internal LiveBuildPanelView(
         Transform parent,
         Action close,
         Action previous,
         Action next,
-        Action refreshFinalBuilds
+        Action refresh
     )
     {
-        _parent = parent ?? throw new ArgumentNullException(nameof(parent));
-        _close = close ?? throw new ArgumentNullException(nameof(close));
-        _previous = previous ?? throw new ArgumentNullException(nameof(previous));
-        _next = next ?? throw new ArgumentNullException(nameof(next));
-        _refreshFinalBuilds =
-            refreshFinalBuilds ?? throw new ArgumentNullException(nameof(refreshFinalBuilds));
+        _parent = parent;
+        _close = close;
+        _previous = previous;
+        _next = next;
+        _refresh = refresh;
     }
 
-    public event Action<BppItemBoardId, Rect>? RowBoundsChanged;
-    public event Action<BppItemBoardId, Guid>? CandidateToggleRequested;
+    internal event Action<BppItemBoardId, Rect>? RowBoundsChanged;
+    internal bool IsCreated => _root != null;
+    internal float BoardFooterPixels => LiveBuildPanelLayout.BoardFooterHeight * CanvasScale;
+    internal float BoardTopPixels => LiveBuildPanelLayout.BoardTopInset * CanvasScale;
+    private float CanvasScale => _root != null ? _root.GetComponent<Canvas>().scaleFactor : 1;
 
-    public void EnsureCreated()
+    internal void EnsureCreated()
     {
-        if (_rootObject != null)
+        if (_disposed || _root != null)
             return;
-
-        _panelSettings = CreatePanelSettings(BppOverlaySorting.PanelUiToolkit);
-        if (
-            NativeGameTypography.TryAttachPanel(_panelSettings, out _typography)
-                != NativeGameTypography.Outcome.Ready
-            || _typography == null
-        )
+        if (NativeGameTypography.PrepareOwnedText(out _font) != NativeGameTypography.Outcome.Ready)
+            return;
+        _root = new GameObject(
+            "LiveBuildPanelView",
+            typeof(RectTransform),
+            typeof(Canvas),
+            typeof(CanvasScaler),
+            typeof(GraphicRaycaster)
+        );
+        _root.transform.SetParent(_parent, false);
+        var canvas = _root.GetComponent<Canvas>();
+        canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+        canvas.sortingOrder = BppOverlaySorting.PanelUiToolkit;
+        var scaler = _root.GetComponent<CanvasScaler>();
+        scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+        scaler.referenceResolution = new Vector2(1600, 1000);
+        // Four stacked carpets are height-constrained; wider displays must not
+        // shrink their content rail relative to the text and header actions.
+        scaler.matchWidthOrHeight = 1;
+        _layout = Rect("Panel", _root.transform, 0, 0, 1, 1);
+        _layout.gameObject.AddComponent<Image>().color = new Color(.16f, .105f, .065f, 1);
+        _backdrop = Rect("NativeBackdrop", _layout, 0, 0, 1, 1).gameObject.AddComponent<RawImage>();
+        _backdrop.raycastTarget = false;
+        _backdrop.color = Color.clear;
+        _backdrop.gameObject.AddComponent<AspectRatioFitter>().aspectMode = AspectRatioFitter
+            .AspectMode
+            .EnvelopeParent;
+        var shade = Rect("BackgroundShade", _layout, 0, 0, 1, 1).gameObject.AddComponent<Image>();
+        shade.color = new Color(.055f, .038f, .028f, .64f);
+        shade.raycastTarget = false;
+        var frame = Rect("PanelFrame", _layout, 0, 0, 1, 1);
+        frame.offsetMin = new Vector2(7, 7);
+        frame.offsetMax = new Vector2(-7, -7);
+        Layer(frame, 0);
+        _sidebar = Rect("Overview", _layout, 0, 0, 0, 0);
+        var sidebarRule = Rect("SidebarRule", _sidebar, 0, 0, 0, 1);
+        sidebarRule.sizeDelta = new Vector2(1, 0);
+        var sidebarRuleImage = sidebarRule.gameObject.AddComponent<Image>();
+        sidebarRuleImage.color = new Color(.58f, .43f, .20f, .35f);
+        sidebarRuleImage.raycastTarget = false;
+        foreach (var dividerY in new[] { .11f, .70f })
         {
-            AbandonPanelSettingsCreation();
-            return;
+            var divider = Rect("SectionDivider", _sidebar, .08f, dividerY, .84f, 0);
+            divider.sizeDelta = new Vector2(0, 1);
+            divider.gameObject.AddComponent<Image>().color = new Color(.58f, .43f, .20f, .5f);
         }
-
-        _foregroundPanelSettings = CreatePanelSettings(BppOverlaySorting.PanelForeground);
-        if (
-            NativeGameTypography.TryAttachPanel(_foregroundPanelSettings, out _foregroundTypography)
-                != NativeGameTypography.Outcome.Ready
-            || _foregroundTypography == null
-        )
+        _title = Text(_layout, string.Empty, .02f, .008f, .49f, .05f, 32);
+        _title.textWrappingMode = TextWrappingModes.Normal;
+        _supporterHost = Rect("SupporterAttribution", _layout, .02f, .048f, .65f, .027f);
+        _supporters = new BPPSupporterNativeAttributionRow(
+            _supporterHost,
+            _font!,
+            TextAnchor.UpperLeft,
+            stacked: true
+        );
+        _corpusGroup = Rect("BuildLibrary", _layout, 0, 0, 0, 0);
+        _corpusTitle = Text(_corpusGroup, "", 0, 0, 0, 0, 15);
+        _corpus = Text(_corpusGroup, "", 0, 0, 0, 0, 14, Muted);
+        _corpus.textWrappingMode = TextWrappingModes.Normal;
+        _refreshButton = Button(_corpusGroup, "", 0, 0, 0, 0, _refresh, size: 14);
+        _closeButton = Button(_layout, "", .943f, .027f, .044f, .045f, _close);
+        // Four peers always share the same board dimensions. Native carpet aspect and
+        // ten sockets determine card scale; sparse sources never grow individual cards.
+        var ids = new[]
         {
-            AbandonPanelSettingsCreation();
-            return;
-        }
-        if (
-            !NativeGameTitleOverlay.TryCreate(
-                "LiveBuildPanelNativeTitle",
-                _parent,
-                BppOverlaySorting.NativeCardPreview,
-                Sizes.FontTitle,
-                Colors.GameTitleText,
-                out _titleOverlay
-            )
-            || _titleOverlay == null
-        )
+            BppItemBoardId.FinalBuild,
+            BppItemBoardId.LiveShop,
+            BppItemBoardId.LiveStash,
+            BppItemBoardId.LiveBoard,
+        };
+        for (var i = 0; i < ids.Length; i++)
         {
-            AbandonPanelSettingsCreation();
-            return;
+            var y = .103f + i * .205f + (i > 0 ? .033f : 0);
+            var row = new Row { Index = i };
+            row.Divider = Rect("RowDivider", _layout, 0, 0, 0, 0);
+            var divider = row.Divider.gameObject.AddComponent<Image>();
+            divider.color =
+                i == 0 ? new Color(.72f, .54f, .24f, .8f) : new Color(.58f, .43f, .20f, .3f);
+            divider.raycastTarget = false;
+            row.Header = Rect("RowHeader", _layout, .02f, y, .96f, .024f);
+            row.Title = Text(row.Header, "", 0, 0, .50f, 1, 18);
+            row.Region = Rect(ids[i].ToString(), _layout, .02f, y + .033f, .96f, .17f);
+            row.Status = Text(row.Header, "", .4f, 0, .60f, 1, 14, Muted);
+            row.Status.alignment = TextAlignmentOptions.MidlineRight;
+            _rows.Add(ids[i], row);
         }
-
-        _rootObject = new GameObject("LiveBuildPanelUiToolkitRoot");
-        _rootObject.transform.SetParent(_parent, false);
-        _document = _rootObject.AddComponent<UIDocument>();
-        _document.panelSettings = _panelSettings;
-        _root = _document.rootVisualElement;
-        ConfigureDocumentRoot(_root, PickingMode.Position);
-        _typography.Apply(_root);
-
-        _foregroundRootObject = new GameObject("LiveBuildPanelForegroundUiToolkitRoot");
-        _foregroundRootObject.transform.SetParent(_parent, false);
-        _foregroundDocument = _foregroundRootObject.AddComponent<UIDocument>();
-        _foregroundDocument.panelSettings = _foregroundPanelSettings;
-        _foregroundRoot = _foregroundDocument.rootVisualElement;
-        ConfigureDocumentRoot(_foregroundRoot, PickingMode.Ignore);
-        _foregroundTypography.Apply(_foregroundRoot);
-
-        BuildTree(_root);
-        _titleOverlay.Attach(_title!);
+        var recommendationHeader = _rows[BppItemBoardId.FinalBuild].Header;
+        _portrait = Rect("HeroPortrait", recommendationHeader, 0, 0, .03f, 1)
+            .gameObject.AddComponent<Image>();
+        _portrait.preserveAspect = true;
+        _portrait.raycastTarget = false;
+        _portrait.color = Color.clear;
+        _navigationLabel = Text(_layout, "", 0, 0, 0, 0, 17);
+        _previousButton = NavigationButton(_previous, forward: false);
+        _pager = Text(_layout, "", 0, 0, 0, 0, 17, Ink, true);
+        _nextButton = NavigationButton(_next, forward: true);
+        // One fixed cell per metric: a run-on line silently ellipsized the last one away.
+        _metrics = Rect("MatchMetrics", _layout, 0, 0, 0, 0);
+        for (var cell = 0; cell < LiveBuildPanelLayout.MetricCells; cell++)
+        {
+            var slot = Rect(
+                "Metric",
+                _metrics,
+                cell / (float)LiveBuildPanelLayout.MetricCells,
+                0,
+                1f / LiveBuildPanelLayout.MetricCells,
+                1
+            );
+            _metricLabels[cell] = Text(slot, "", 0, 0, 1, .42f, 11, Muted);
+            _metricValues[cell] = Text(slot, "", 0, .42f, 1, .58f, 16);
+        }
+        _guidance = Text(_layout, "", 0, 0, 0, 0, 14, Muted);
+        _hint = Text(_layout, "", .02f, .969f, .96f, .022f, 12, Muted, true);
+        _markerRoot = Rect("CandidateMarkers", _root.transform, 0, 0, 1, 1);
+        var foreground = _markerRoot.gameObject.AddComponent<Canvas>();
+        foreground.overrideSorting = true;
+        foreground.sortingOrder = BppOverlaySorting.PanelForeground;
+        var detail = Rect("CorpusDetail", _markerRoot, .48f, .091f, .49f, .10f);
+        var detailBackground = detail.gameObject.AddComponent<Image>();
+        detailBackground.color = new Color(.10f, .065f, .02f, .99f);
+        detailBackground.raycastTarget = false;
+        _corpusDetail = Text(detail, "", 0, 0, 1, 1, 17);
+        _corpusDetail.textWrappingMode = TextWrappingModes.Normal;
+        _corpusDetail.overflowMode = TextOverflowModes.Overflow;
+        _corpusDetail.margin = new Vector4(12, 7, 12, 7);
+        _corpusDetail.transform.parent.gameObject.SetActive(false);
+        _root.SetActive(_visible);
+        if (_snapshot != null)
+            Refresh(_snapshot);
     }
 
-    public void SetVisible(bool visible)
+    internal void SetVisible(bool visible)
     {
+        _visible = visible;
+        EnsureCreated();
         if (_root != null)
-            _root.style.display = visible ? DisplayStyle.Flex : DisplayStyle.None;
-        if (_foregroundRoot != null)
-            _foregroundRoot.style.display = visible ? DisplayStyle.Flex : DisplayStyle.None;
-        _titleOverlay?.SetVisible(visible);
+            _root.SetActive(visible);
+        if (!visible)
+            ClearMarkers();
     }
 
-    public void Refresh(LiveBuildPanelSnapshot snapshot)
+    internal void Refresh(LiveBuildPanelSnapshot snapshot)
     {
+        _snapshot = snapshot;
         if (_root == null)
             return;
-
         _title!.text = LiveBuildPanelText.Title();
-        _titleOverlay?.SetText(_title.text);
-        _closeButton!.text = LiveBuildPanelText.Close();
-        BPPSupporterAttributionRow.Bind(
-            _subtitle!,
-            snapshot.Supporters,
-            LiveBuildPanelText.Subtitle(),
-            _typography!
+        _corpusTitle!.text = LiveBuildPanelText.CorpusLibrary();
+        _navigationLabel!.text = LiveBuildPanelText.BrowseBuilds();
+        _hint!.text = LiveBuildPanelText.SelectionHint();
+        SetButtonText(_refreshButton!, snapshot.FinalBuildRefreshButtonText);
+        _refreshButton!.interactable = snapshot.FinalBuildRefreshButtonEnabled;
+        SetButtonText(_closeButton!, LiveBuildPanelText.Close());
+        _supporters!.Bind(snapshot.Supporters, LiveBuildPanelText.Subtitle());
+        _corpus!.text =
+            snapshot.CorpusState == LiveBuildCorpusState.Summary
+                ? snapshot.CorpusFreshnessText
+                : snapshot.CorpusStatusText;
+        _corpus.color = StatusColor(
+            snapshot.CorpusState == LiveBuildCorpusState.Summary
+                ? snapshot.CorpusFreshnessSeverity
+                : snapshot.CorpusStatusSeverity
         );
-        _corpusCardTitle!.text = LiveBuildPanelText.CorpusCardTitle();
-        _finalBuildRefreshButton!.text = snapshot.FinalBuildRefreshButtonText;
-        _finalBuildRefreshButton.tooltip = snapshot.FinalBuildRefreshButtonText;
-        _finalBuildRefreshButton.SetEnabled(snapshot.FinalBuildRefreshButtonEnabled);
-        RefreshCorpusCard(snapshot);
-        _resultCardTitle!.text = LiveBuildPanelText.ResultCardTitle();
-        RefreshMatchesCard(snapshot);
-        _previousButton!.text = LiveBuildPanelText.Previous();
-        _previousButton.tooltip = LiveBuildPanelText.Previous();
-        _nextButton!.text = LiveBuildPanelText.Next();
-        _nextButton.tooltip = LiveBuildPanelText.Next();
-        _previousButton.SetEnabled(snapshot.RecommendationCount > 1);
-        _nextButton.SetEnabled(snapshot.RecommendationCount > 1);
-
-        var candidates = new HashSet<Guid>(snapshot.CandidateTemplateIds);
-        foreach (var row in snapshot.Rows)
-            RefreshRow(row, candidates);
-    }
-
-    // The corpus card swaps between the per-hero dashboard (summary) and a single status line
-    // (pending/failure/empty) by toggling display only — the card is fixed-height, so no reflow.
-    private void RefreshCorpusCard(LiveBuildPanelSnapshot snapshot)
-    {
-        var isSummary = snapshot.CorpusState == LiveBuildCorpusState.Summary;
-        _corpusDashboard!.style.display = isSummary ? DisplayStyle.Flex : DisplayStyle.None;
-        _corpusStatus!.style.display = isSummary ? DisplayStyle.None : DisplayStyle.Flex;
-
-        if (isSummary)
-        {
-            _corpusFreshness!.text = snapshot.CorpusFreshnessText;
-            _corpusFreshness.tooltip = snapshot.CorpusFreshnessTooltip;
-            _corpusFreshness.style.color = ResolveRefreshStatusColor(
-                snapshot.CorpusFreshnessSeverity
-            );
-            RebuildHeroStrip(snapshot.CorpusSummary);
-            return;
-        }
-
-        _corpusStatus.text = StablePanelText.Compact(snapshot.CorpusStatusText, 96);
-        _corpusStatus.tooltip = string.IsNullOrWhiteSpace(snapshot.CorpusStatusTooltip)
-            ? snapshot.CorpusStatusText
-            : snapshot.CorpusStatusTooltip;
-        _corpusStatus.style.color = ResolveRefreshStatusColor(snapshot.CorpusStatusSeverity);
-    }
-
-    private void RebuildHeroStrip(TenWinCorpusSummary? summary)
-    {
-        _heroStrip!.Clear();
-        foreach (var entry in LiveBuildHeroPresentation.SelectHeroBuildCounts(summary))
-            _heroStrip.Add(BuildHeroTile(entry));
-    }
-
-    private static VisualElement BuildHeroTile(TenWinHeroBuildCount entry)
-    {
-        var badge = HeroVisual.Resolve(entry.Hero);
-        var count = entry.BuildCount.ToString("N0", CultureInfo.CurrentCulture);
-        var displayName = LiveBuildHeroPresentation.DisplayName(entry.Hero);
-
-        var tile = new VisualElement();
-        tile.style.flexGrow = 1f;
-        tile.style.flexBasis = 0f;
-        tile.style.minWidth = 0f;
-        tile.style.alignItems = Align.Center;
-        tile.style.overflow = Overflow.Hidden;
-        tile.tooltip = $"{displayName} {count}";
-
-        var countLabel = CreateLabel(14, FontStyle.Bold, Colors.HistoryProgressText);
-        countLabel.text = count;
-        countLabel.style.unityTextAlign = TextAnchor.MiddleCenter;
-        countLabel.style.whiteSpace = WhiteSpace.NoWrap;
-        tile.Add(countLabel);
-
-        var chip = CreateLabel(11, FontStyle.Bold, badge.Text);
-        chip.text = badge.ShortCode;
-        chip.style.marginTop = 2f;
-        chip.style.height = 18f;
-        chip.style.backgroundColor = badge.Background;
-        chip.style.unityTextAlign = TextAnchor.MiddleCenter;
-        chip.style.whiteSpace = WhiteSpace.NoWrap;
-        UiStyle.HorizontalPadding(chip.style, 3f);
-        UiStyle.Radius(chip.style, Radii.InfoChip);
-        tile.Add(chip);
-
-        return tile;
-    }
-
-    // The Matches card swaps between the per-recommendation stat rows (has recommendation) and a
-    // single guidance line (no run / no candidates / no matching build) by toggling display only.
-    private void RefreshMatchesCard(LiveBuildPanelSnapshot snapshot)
-    {
+        _corpusDetail!.text = string.Join(
+            "\n",
+            new[]
+            {
+                snapshot.CorpusStatusText,
+                snapshot.CorpusFreshnessText,
+                snapshot.CorpusStatusTooltip,
+            }.Where(value => !string.IsNullOrWhiteSpace(value))
+        );
+        _pager!.text =
+            snapshot.RecommendationCount > 0
+                ? $"{snapshot.RecommendationIndex + 1} / {snapshot.RecommendationCount}"
+                : "0 / 0";
+        _previousButton!.interactable = _nextButton!.interactable =
+            snapshot.RecommendationCount > 1;
         var hasRecommendation = snapshot.MatchesState == LiveBuildMatchesState.HasRecommendation;
-        _matchesStats!.style.display = hasRecommendation ? DisplayStyle.Flex : DisplayStyle.None;
-        _matchesPager!.style.display = hasRecommendation ? DisplayStyle.Flex : DisplayStyle.None;
-        _matchesGuidance!.style.display = hasRecommendation ? DisplayStyle.None : DisplayStyle.Flex;
-
+        _metrics!.gameObject.SetActive(hasRecommendation);
+        _guidance!.gameObject.SetActive(!hasRecommendation);
+        _guidance.text = hasRecommendation ? string.Empty : snapshot.MatchesGuidance;
         if (hasRecommendation)
         {
-            _matchesPager.text = LiveBuildPanelText.RecommendationCount(
-                snapshot.RecommendationIndex,
-                snapshot.RecommendationCount
+            SetMetric(
+                0,
+                LiveBuildPanelText.MatchRateLabel(),
+                LiveBuildPanelText.MatchRateValue(snapshot.MatchTenWinRateBps)
             );
-            _rateValue!.text = LiveBuildPanelText.MatchRateValue(snapshot.MatchTenWinRateBps);
-            _sampleValue!.text = LiveBuildPanelText.MatchSampleValue(snapshot.MatchTenWinRunCount);
-            _finalDayValue!.text = LiveBuildPanelText.MatchFinalDayValue(snapshot.MatchP75FinalDay);
-            _matchedValue!.text = LiveBuildPanelText.MatchMatchedValue(
-                snapshot.MatchMatchedCardCount,
-                snapshot.CandidateTemplateIds.Count
+            SetMetric(
+                1,
+                LiveBuildPanelText.MatchSampleLabel(),
+                LiveBuildPanelText.MatchSampleValue(snapshot.MatchTenWinRunCount)
             );
-            return;
+            SetMetric(
+                2,
+                LiveBuildPanelText.MatchFinalDayLabel(),
+                LiveBuildPanelText.MatchFinalDayValue(snapshot.MatchP75FinalDay)
+            );
+            SetMetric(
+                3,
+                LiveBuildPanelText.MatchMatchedLabel(),
+                LiveBuildPanelText.MatchMatchedValue(
+                    snapshot.MatchMatchedCardCount,
+                    snapshot.CandidateTemplateIds.Count
+                )
+            );
         }
-
-        _matchesGuidance.text = StablePanelText.Compact(snapshot.MatchesGuidance, 96);
-        _matchesGuidance.tooltip = snapshot.MatchesGuidance;
+        foreach (var row in snapshot.Rows)
+        {
+            var ui = _rows[row.Board.Id];
+            ui.Title.text = row.Title;
+            ui.MarkerText = row.CanToggleCandidates
+                ? LiveBuildPanelText.CandidateTag()
+                : LiveBuildPanelText.MatchTag();
+            ui.Status.text =
+                ui.Message.Length > 0 ? ui.Message
+                : row.Board.Cards.Count == 0 ? row.EmptyText
+                : string.Empty;
+        }
+        if (_portraitHero != snapshot.Hero)
+        {
+            _portraitHero = snapshot.Hero;
+            _portrait!.color = Color.clear;
+            _portraitLoad = snapshot.Hero is { } hero
+                ? HeroPortraitSpriteProvider.LoadDefaultPortraitAsync(hero)
+                : null;
+        }
     }
 
-    private static Label AddStatRow(VisualElement parent, string label)
+    internal void Tick()
     {
-        var row = new VisualElement();
-        row.style.flexDirection = FlexDirection.Row;
-        row.style.alignItems = Align.Center;
-        row.style.marginBottom = 4f;
+        if (!_visible || _disposed)
+            return;
+        EnsureCreated();
+        if (_root == null)
+            return;
+        if (
+            Time.unscaledTime >= _retryAt
+            && Services.TryGet<AssetLoader>(out var loader)
+            && loader != null
+        )
+        {
+            _retryAt = Time.unscaledTime + 5;
+            if ((_skin == null || _skin.Any(sprite => sprite == null)) && _skinLoad == null)
+                _skinLoad = Task.WhenAll(
+                    Addresses.Select(address =>
+                        NativeGlobalAssetLoader.LoadByAddressAsync<Sprite>(loader, address)
+                    )
+                );
+            if (_backdrop!.texture == null && _backdropLoad == null)
+                _backdropLoad = NativeGlobalAssetLoader.LoadByAddressAsync<Texture2D>(
+                    loader,
+                    "Collections_Background_01_TUI"
+                );
+        }
+        if (_backdropLoad?.IsCompleted == true)
+        {
+            if (
+                _backdropLoad.Status == TaskStatus.RanToCompletion
+                && _backdropLoad.Result is { } texture
+            )
+            {
+                _backdrop!.texture = texture;
+                _backdrop.color = Color.white;
+                _backdrop.GetComponent<AspectRatioFitter>().aspectRatio =
+                    (float)texture.width / texture.height;
+            }
+            else
+                _ = _backdropLoad.Exception;
+            _backdropLoad = null;
+        }
+        if (_skinLoad?.IsCompleted == true)
+        {
+            if (_skinLoad.Status == TaskStatus.RanToCompletion)
+            {
+                _skin = _skinLoad.Result;
+                foreach (var art in _art)
+                    ApplyArt(art.Image, art.Index);
+                _supporters!.SetSkin(_skin?[0], _skin?[1]);
+            }
+            else
+                _ = _skinLoad.Exception;
+            _skinLoad = null;
+        }
+        if (_portraitLoad?.IsCompleted == true)
+        {
+            if (
+                _portraitLoad.Status == TaskStatus.RanToCompletion
+                && _portraitLoad.Result?.Sprite is { } sprite
+            )
+            {
+                _portrait!.sprite = sprite;
+                _portrait.color = Color.white;
+            }
+            else
+                _ = _portraitLoad.Exception;
+            _portraitLoad = null;
+        }
+        var screen = new Vector2(Screen.width, Screen.height);
+        if (_screenSize != screen)
+        {
+            _screenSize = screen;
+            _layoutFrames = 2;
+        }
+        if (_layoutFrames > 0)
+        {
+            _layoutFrames--;
+            Canvas.ForceUpdateCanvases();
+            UpdateLayout();
+            foreach (var pair in _rows)
+            {
+                pair.Value.Region.GetWorldCorners(_corners);
+                var bounds = UnityEngine.Rect.MinMaxRect(
+                    _corners[0].x,
+                    _corners[0].y,
+                    _corners[2].x,
+                    _corners[2].y
+                );
+                if (bounds.width > 1 && bounds.height > 1 && bounds != pair.Value.Bounds)
+                {
+                    pair.Value.Bounds = bounds;
+                    RowBoundsChanged?.Invoke(pair.Key, bounds);
+                }
+            }
+        }
+        _corpusDetail!.transform.parent.gameObject.SetActive(
+            Mouse.current != null
+                && RectTransformUtility.RectangleContainsScreenPoint(
+                    _corpus!.rectTransform,
+                    Mouse.current.position.ReadValue()
+                )
+        );
+    }
 
-        var labelElement = CreateLabel(13, FontStyle.Normal, Colors.HistoryFooterSecondaryText);
-        labelElement.text = label;
-        labelElement.style.flexGrow = 1f;
-        labelElement.style.flexShrink = 1f;
-        labelElement.style.minWidth = 0f;
-        labelElement.style.whiteSpace = WhiteSpace.NoWrap;
-        labelElement.style.overflow = Overflow.Hidden;
-        row.Add(labelElement);
+    internal void SetBoardStatus(
+        BppItemBoardId id,
+        NativeMonsterBoardStatus status,
+        int unavailableCount = 0
+    )
+    {
+        if (!_rows.TryGetValue(id, out var row))
+            return;
+        row.Message = status switch
+        {
+            NativeMonsterBoardStatus.Loading => LiveBuildPanelText.LoadingBoard(),
+            NativeMonsterBoardStatus.Failed => LiveBuildPanelText.BoardFailed(),
+            NativeMonsterBoardStatus.Partial => LocalizedTextHelpers.Resolve(
+                new LocalizedTextSet(
+                    $"{unavailableCount} cards are unavailable in this game version.",
+                    $"{unavailableCount} 张卡牌在当前版本不可用。"
+                )
+            ),
+            _ => string.Empty,
+        };
+        if (_snapshot != null)
+            Refresh(_snapshot);
+    }
 
-        var value = CreateLabel(13, FontStyle.Bold, Colors.HistoryProgressText);
-        value.style.flexShrink = 0f;
-        value.style.marginLeft = 8f;
-        value.style.unityTextAlign = TextAnchor.MiddleRight;
-        value.style.whiteSpace = WhiteSpace.NoWrap;
-        row.Add(value);
+    private void UpdateLayout()
+    {
+        var size = _layout!.rect.size;
+        if (size.x <= 1 || size.y <= 1 || size == _layoutSize)
+            return;
+        _layoutSize = size;
+        _geometry = new LiveBuildPanelLayout(size.x, size.y);
+        foreach (var row in _rows.Values)
+        {
+            Place(
+                row.Region,
+                _geometry.BoardLeft,
+                _geometry.BoardTop(row.Index),
+                _geometry.BoardWidth,
+                _geometry.BoardHeight
+            );
+            ApplyBoardRail(row, _geometry.BoardLeft, _geometry.BoardWidth);
+        }
+    }
 
-        parent.Add(row);
-        return value;
+    internal void SetBoardRail(BppItemBoardId id, Rect screenBounds)
+    {
+        if (_layout == null || screenBounds.width <= 1)
+            return;
+        RectTransformUtility.ScreenPointToLocalPointInRectangle(
+            _layout,
+            screenBounds.min,
+            null,
+            out var left
+        );
+        // Only text follows the loaded carpet. Feeding these bounds back into the
+        // preview region would shrink the board again on each layout pass.
+        ApplyBoardRail(_rows[id], left.x - _layout.rect.xMin, screenBounds.width / CanvasScale);
+    }
+
+    private void ApplyBoardRail(Row row, float left, float width)
+    {
+        Place(row.Divider, left, _geometry.TitleTop(row.Index) - 8, width, row.Index == 0 ? 2 : 1);
+        Place(
+            row.Header,
+            left,
+            _geometry.TitleTop(row.Index),
+            width,
+            LiveBuildPanelLayout.RowTitleHeight
+        );
+        var titleLeft = row.Index == 0 ? 30 : 0;
+        var titleWidth = Mathf.Min(230, width * .38f);
+        Place(
+            row.Title.rectTransform,
+            titleLeft,
+            0,
+            titleWidth,
+            LiveBuildPanelLayout.RowTitleHeight
+        );
+        var statusLeft = titleLeft + titleWidth + 10;
+        Place(
+            row.Status.rectTransform,
+            statusLeft,
+            0,
+            Mathf.Max(1, width - statusLeft),
+            LiveBuildPanelLayout.RowTitleHeight
+        );
+        if (row.Index != 0)
+            return;
+        ApplyHeaderRail(left, width);
+        Place(_portrait!.rectTransform, 0, 2, 24, 24);
+        Place(_metrics!, left, _geometry.MetricsTop, width, LiveBuildPanelLayout.MetricsHeight);
+        Place(
+            _guidance!.rectTransform,
+            left,
+            _geometry.MetricsTop,
+            width,
+            LiveBuildPanelLayout.MetricsHeight
+        );
+    }
+
+    private void ApplyHeaderRail(float left, float width)
+    {
+        var sidebarLeft = _geometry.SidebarLeft(left, width);
+        var contentLeft = sidebarLeft + 24;
+        var contentWidth = LiveBuildPanelLayout.SidebarWidth - 48;
+        Place(_sidebar!, sidebarLeft, 20, LiveBuildPanelLayout.SidebarWidth, _geometry.Height - 40);
+        Place(_title!.rectTransform, contentLeft, 42, contentWidth - 80, 64);
+        Place((RectTransform)_closeButton!.transform, contentLeft + contentWidth - 68, 58, 68, 32);
+        Place(_corpusGroup!, contentLeft, 156, contentWidth, 128);
+        Place(_corpusTitle!.rectTransform, 0, 14, contentWidth - 108, 28);
+        Place((RectTransform)_refreshButton!.transform, contentWidth - 94, 14, 94, 28);
+        Place(_corpus!.rectTransform, 0, 56, contentWidth, 60);
+        _corpus.alignment = TextAlignmentOptions.TopLeft;
+        Place(_navigationLabel!.rectTransform, contentLeft, 492, contentWidth - 116, 28);
+        Place(_pager!.rectTransform, contentLeft + contentWidth - 104, 492, 104, 28);
+        _pager.alignment = TextAlignmentOptions.MidlineRight;
+        var navigationButtonWidth = (contentWidth - 12) / 2;
+        Place(
+            (RectTransform)_previousButton!.transform,
+            contentLeft,
+            536,
+            navigationButtonWidth,
+            56
+        );
+        Place(
+            (RectTransform)_nextButton!.transform,
+            contentLeft + navigationButtonWidth + 12,
+            536,
+            navigationButtonWidth,
+            56
+        );
+        Place(_supporterHost!, contentLeft, _geometry.Height - 286, contentWidth, 240);
+        // Anchored under the line it explains, not at a fixed offset over the boards.
+        Place((RectTransform)_corpusDetail!.transform.parent, contentLeft, 290, contentWidth, 110);
+        Place(
+            _hint!.rectTransform,
+            left,
+            _geometry.FooterTop,
+            width,
+            LiveBuildPanelLayout.FooterHeight
+        );
+    }
+
+    private static void Place(RectTransform rect, float left, float top, float width, float height)
+    {
+        rect.anchorMin = rect.anchorMax = new Vector2(0, 1);
+        rect.pivot = new Vector2(0, 1);
+        rect.anchoredPosition = new Vector2(left, -top);
+        rect.sizeDelta = new Vector2(Mathf.Max(1, width), height);
+    }
+
+    internal void BeginMarkers(BppItemBoardId id) => _rows[id].VisibleMarkers = 0;
+
+    internal void AddMarker(BppItemBoardId id, Rect bounds, bool selectable)
+    {
+        if (_markerRoot == null)
+            return;
+        var row = _rows[id];
+        var index = row.VisibleMarkers++;
+        if (index == row.Markers.Count)
+        {
+            var marker = Rect("CandidateTag", _markerRoot, 0, 0, 0, 0);
+            marker.anchorMin = marker.anchorMax = new Vector2(.5f, .5f);
+            marker.pivot = new Vector2(.5f, 1);
+            Layer(marker, selectable ? 2 : 1);
+            Layer(marker, 0);
+            Text(marker, string.Empty, .04f, .02f, .92f, .96f, 12, Ink, true);
+            row.Markers.Add(marker);
+        }
+        var target = row.Markers[index];
+        target.GetComponentInChildren<TextMeshProUGUI>(true).text = row.MarkerText;
+        var scale = _root!.GetComponent<Canvas>().scaleFactor;
+        RectTransformUtility.ScreenPointToLocalPointInRectangle(
+            _markerRoot,
+            new Vector2(bounds.center.x, bounds.yMin - 1 * scale),
+            null,
+            out var local
+        );
+        target.anchoredPosition = local;
+        target.sizeDelta = new Vector2(
+            Mathf.Clamp(bounds.width / scale * .68f, 42, 72),
+            LiveBuildPanelLayout.BadgeHeight
+        );
+        target.gameObject.SetActive(true);
+    }
+
+    internal void EndMarkers(BppItemBoardId id)
+    {
+        var row = _rows[id];
+        for (var i = row.VisibleMarkers; i < row.Markers.Count; i++)
+            row.Markers[i].gameObject.SetActive(false);
+    }
+
+    private void ClearMarkers()
+    {
+        foreach (var row in _rows.Values)
+        foreach (var marker in row.Markers)
+            marker.gameObject.SetActive(false);
+    }
+
+    private static Color StatusColor(LiveBuildRefreshSeverity severity) =>
+        severity switch
+        {
+            LiveBuildRefreshSeverity.Failure => new Color(.92f, .62f, .34f),
+            LiveBuildRefreshSeverity.Success => new Color(.62f, .8f, .54f),
+            LiveBuildRefreshSeverity.Pending => new Color(.59f, .76f, .89f),
+            _ => Muted,
+        };
+
+    private void SetMetric(int cell, string label, string value)
+    {
+        _metricLabels[cell].text = label;
+        _metricValues[cell].text = value;
+    }
+
+    private static void SetButtonText(Button button, string value) =>
+        button.GetComponentInChildren<TextMeshProUGUI>(true).text = value;
+
+    private static RectTransform Rect(
+        string name,
+        Transform parent,
+        float x,
+        float y,
+        float width,
+        float height
+    )
+    {
+        var rect = new GameObject(name, typeof(RectTransform)).GetComponent<RectTransform>();
+        rect.SetParent(parent, false);
+        rect.anchorMin = new Vector2(x, 1 - y - height);
+        rect.anchorMax = new Vector2(x + width, 1 - y);
+        rect.offsetMin = rect.offsetMax = Vector2.zero;
+        return rect;
+    }
+
+    private Image Layer(Transform parent, int index)
+    {
+        var image = Rect("NativeArt", parent, 0, 0, 1, 1).gameObject.AddComponent<Image>();
+        image.type = Image.Type.Sliced;
+        image.pixelsPerUnitMultiplier = 2.5f;
+        image.raycastTarget = false;
+        _art.Add((image, index));
+        ApplyArt(image, index);
+        return image;
+    }
+
+    private void ApplyArt(Image image, int index)
+    {
+        image.sprite = _skin?[index];
+        image.color = image.sprite != null ? Color.white : Color.clear;
+    }
+
+    private Button Button(
+        Transform parent,
+        string? title,
+        float x,
+        float y,
+        float width,
+        float height,
+        Action click,
+        int size = 17
+    )
+    {
+        var rect = Rect("Action", parent, x, y, width, height);
+        var background = Layer(rect, 1);
+        background.raycastTarget = true;
+        Layer(rect, 0);
+        var button = rect.gameObject.AddComponent<Button>();
+        button.targetGraphic = background;
+        button.onClick.AddListener(() => click());
+        if (title != null)
+            Text(rect, title, .03f, .04f, .94f, .92f, size, Ink, true);
+        return button;
+    }
+
+    private Button NavigationButton(Action click, bool forward)
+    {
+        var button = Button(_layout!, null, 0, 0, 0, 0, click);
+        var rect = Rect("Chevron", button.transform, .5f, .5f, 0, 0);
+        rect.pivot = new Vector2(.5f, .5f);
+        rect.sizeDelta = new Vector2(20, 32);
+        rect.localRotation = Quaternion.Euler(0, 0, forward ? 0 : 180);
+        var icon = rect.gameObject.AddComponent<LiveBuildChevronGraphic>();
+        icon.color = Ink;
+        icon.raycastTarget = false;
+        return button;
+    }
+
+    private TextMeshProUGUI Text(
+        Transform parent,
+        string value,
+        float x,
+        float y,
+        float width,
+        float height,
+        int size,
+        Color? color = null,
+        bool center = false
+    )
+    {
+        var text = Rect("Label", parent, x, y, width, height)
+            .gameObject.AddComponent<TextMeshProUGUI>();
+        _font!.Apply(text);
+        text.text = value;
+        text.richText = false;
+        text.fontSize = size;
+        text.fontSizeMin = size * .8f;
+        text.fontSizeMax = size;
+        text.enableAutoSizing = true;
+        text.color = color ?? Ink;
+        text.alignment = center ? TextAlignmentOptions.Center : TextAlignmentOptions.MidlineLeft;
+        text.textWrappingMode = TextWrappingModes.NoWrap;
+        text.overflowMode = TextOverflowModes.Ellipsis;
+        text.raycastTarget = false;
+        return text;
     }
 
     public void Dispose()
     {
-        if (_rootObject != null)
-            UnityEngine.Object.Destroy(_rootObject);
-        _titleOverlay?.Dispose();
-        _typography?.Dispose();
-        if (_panelSettings != null)
-            UnityEngine.Object.Destroy(_panelSettings);
-        if (_foregroundRootObject != null)
-            UnityEngine.Object.Destroy(_foregroundRootObject);
-        _foregroundTypography?.Dispose();
-        if (_foregroundPanelSettings != null)
-            UnityEngine.Object.Destroy(_foregroundPanelSettings);
-
+        _disposed = true;
+        _visible = false;
+        _portraitLoad = null;
+        _backdropLoad = null;
+        _snapshot = null;
         _rows.Clear();
-        _rootObject = null;
-        _document = null;
-        _panelSettings = null;
-        _foregroundRootObject = null;
-        _foregroundDocument = null;
-        _foregroundPanelSettings = null;
-        _typography = null;
-        _foregroundTypography = null;
-        _titleOverlay = null;
-        _foregroundRoot = null;
+        _art.Clear();
+        if (_root != null)
+            UnityEngine.Object.Destroy(_root);
         _root = null;
-    }
-
-    private void AbandonPanelSettingsCreation()
-    {
-        _typography?.Dispose();
-        _foregroundTypography?.Dispose();
-        _titleOverlay?.Dispose();
-        if (_panelSettings != null)
-            UnityEngine.Object.DestroyImmediate(_panelSettings);
-        if (_foregroundPanelSettings != null)
-            UnityEngine.Object.DestroyImmediate(_foregroundPanelSettings);
-        _panelSettings = null;
-        _foregroundPanelSettings = null;
-        _typography = null;
-        _foregroundTypography = null;
-        _titleOverlay = null;
-    }
-
-    private void BuildTree(VisualElement root)
-    {
-        var panel = new VisualElement();
-        panel.style.flexGrow = 1f;
-        panel.style.minHeight = 0f;
-        panel.style.flexDirection = FlexDirection.Row;
-        panel.style.backgroundColor = Colors.HistoryPanelBackground;
-        panel.style.paddingLeft = UiSpacing.PanelPadding;
-        panel.style.paddingRight = UiSpacing.PanelPadding;
-        panel.style.paddingTop = UiSpacing.PanelPadding;
-        panel.style.paddingBottom = UiSpacing.PanelPadding;
-        root.Add(panel);
-
-        var boardArea = new VisualElement();
-        boardArea.style.flexGrow = 1f;
-        boardArea.style.flexShrink = 1f;
-        boardArea.style.minWidth = 0f;
-        boardArea.style.minHeight = 0f;
-        boardArea.style.flexDirection = FlexDirection.Column;
-        panel.Add(boardArea);
-
-        foreach (
-            var id in new[]
-            {
-                BppItemBoardId.FinalBuild,
-                BppItemBoardId.LiveShop,
-                BppItemBoardId.LiveBoard,
-                BppItemBoardId.LiveStash,
-            }
-        )
-        {
-            BuildRow(boardArea, id);
-        }
-
-        BuildRail(panel);
-    }
-
-    private void BuildRow(VisualElement parent, BppItemBoardId id)
-    {
-        var row = new VisualElement();
-        row.style.flexGrow = 1f;
-        row.style.flexShrink = 1f;
-        row.style.minHeight = 0f;
-        row.style.marginBottom = 12f;
-        row.style.backgroundColor = Colors.HistoryPreviewBackground;
-        UiStyle.Border(row.style, Borders.Thin, Colors.HistoryListFrameBorder);
-        UiStyle.Radius(row.style, Radii.Row);
-        row.style.flexDirection = FlexDirection.Row;
-        row.style.overflow = Overflow.Hidden;
-        parent.Add(row);
-
-        var labelColumn = new VisualElement();
-        labelColumn.style.width = 144f;
-        labelColumn.style.flexShrink = 0f;
-        labelColumn.style.paddingLeft = 14f;
-        labelColumn.style.paddingRight = 12f;
-        labelColumn.style.justifyContent = Justify.Center;
-        labelColumn.style.overflow = Overflow.Hidden;
-        row.Add(labelColumn);
-
-        var title = CreateLabel(16, FontStyle.Bold, Colors.HistorySectionTitleText);
-        title.style.whiteSpace = WhiteSpace.NoWrap;
-        title.style.overflow = Overflow.Hidden;
-        labelColumn.Add(title);
-
-        var empty = CreateLabel(13, FontStyle.Normal, Colors.HistoryFooterSecondaryText);
-        empty.style.marginTop = 4f;
-        empty.style.whiteSpace = WhiteSpace.Normal;
-        empty.style.maxHeight = Sizes.LiveBuildRowEmptyMaxHeight;
-        empty.style.overflow = Overflow.Hidden;
-        labelColumn.Add(empty);
-
-        var slotHost = new VisualElement();
-        slotHost.style.flexGrow = 1f;
-        slotHost.style.flexShrink = 1f;
-        slotHost.style.minWidth = 0f;
-        slotHost.style.position = Position.Relative;
-        slotHost.style.overflow = Overflow.Hidden;
-        row.Add(slotHost);
-
-        if (ShowSlotBackdrop)
-        {
-            for (var i = 0; i < ItemBoardSlotGridGeometry.SocketCount; i++)
-            {
-                var slotRect = ItemBoardSlotGridGeometry.ResolveOccupiedRect(
-                    100f,
-                    100f,
-                    i,
-                    1,
-                    0f,
-                    0f
-                );
-                var slot = new VisualElement();
-                slot.pickingMode = PickingMode.Ignore;
-                slot.style.position = Position.Absolute;
-                slot.style.left = Length.Percent(slotRect.X);
-                slot.style.top = 6f;
-                slot.style.bottom = 6f;
-                slot.style.width = Length.Percent(slotRect.Width);
-                slot.style.backgroundColor = Colors.CollectionSlotBackground;
-                slot.style.borderLeftColor = Colors.HistoryListFrameBorder;
-                slot.style.borderLeftWidth = i == 0 ? 0f : 1f;
-                slotHost.Add(slot);
-            }
-        }
-
-        slotHost.RegisterCallback<GeometryChangedEvent>(_ => PublishRowBounds(id, slotHost));
-        _rows[id] = new RowElements
-        {
-            Title = title,
-            Empty = empty,
-            SlotHost = slotHost,
-        };
-    }
-
-    private void BuildRail(VisualElement parent)
-    {
-        // Match the house info-rail sizing (HistoryPanel / CollectionPanel use the OperationRail
-        // tokens) so the right column lines up across panels; LiveBuild runs a slightly narrower
-        // 25% basis to suit its more compact content.
-        var rail = new VisualElement();
-        rail.style.flexGrow = 0f;
-        rail.style.flexShrink = 0f;
-        rail.style.flexBasis = Length.Percent(Sizes.LiveBuildRailWidthPercent);
-        rail.style.minWidth = Sizes.OperationRailMinWidth;
-        rail.style.maxWidth = Sizes.OperationRailMaxWidth;
-        rail.style.marginLeft = UiSpacing.ColumnGap;
-        rail.style.minHeight = 0f;
-        rail.style.overflow = Overflow.Hidden;
-        rail.style.flexDirection = FlexDirection.Column;
-        parent.Add(rail);
-
-        var titleRow = new VisualElement();
-        titleRow.style.flexDirection = FlexDirection.Row;
-        titleRow.style.alignItems = Align.Center;
-        rail.Add(titleRow);
-
-        _title = CreateLabel(Sizes.FontTitle, FontStyle.Normal, Colors.GameTitleText);
-        _title.style.flexGrow = 1f;
-        _title.style.flexShrink = 1f;
-        _title.style.minWidth = 0f;
-        _title.style.whiteSpace = WhiteSpace.NoWrap;
-        _title.style.overflow = Overflow.Hidden;
-        titleRow.Add(_title);
-
-        _closeButton = CreateButton(LiveBuildPanelText.Close(), _close);
-        _closeButton.style.width = 86f;
-        StyleButton(_closeButton, Colors.CloseBackground, Colors.CloseText);
-        titleRow.Add(_closeButton);
-
-        _subtitle = BPPSupporterAttributionRow.Create();
-        _subtitle.style.marginTop = 10f;
-        rail.Add(_subtitle);
-
-        // Corpus card: ten-win coverage (freshness + per-hero tiles) with the pull action in its
-        // header, next to the data it refreshes. Fixed height on purpose — the body swaps the
-        // dashboard vs a single status line (pending/failure/empty) in place, so the rail never reflows.
-        var corpusCard = new VisualElement();
-        corpusCard.style.marginTop = 14f;
-        corpusCard.style.height = Sizes.LiveBuildCorpusCardHeight;
-        corpusCard.style.minHeight = Sizes.LiveBuildCorpusCardHeight;
-        corpusCard.style.maxHeight = Sizes.LiveBuildCorpusCardHeight;
-        corpusCard.style.backgroundColor = Colors.HistoryStatusBackground;
-        corpusCard.style.paddingLeft = 12f;
-        corpusCard.style.paddingRight = 10f;
-        corpusCard.style.paddingTop = 10f;
-        corpusCard.style.paddingBottom = 10f;
-        corpusCard.style.overflow = Overflow.Hidden;
-        UiStyle.Border(corpusCard.style, Borders.Thin, Colors.HistoryStatusBorder);
-        UiStyle.Radius(corpusCard.style, Radii.Md);
-        rail.Add(corpusCard);
-
-        var corpusHeader = new VisualElement();
-        corpusHeader.style.flexDirection = FlexDirection.Row;
-        corpusHeader.style.alignItems = Align.Center;
-        corpusCard.Add(corpusHeader);
-
-        _corpusCardTitle = CreateLabel(15, FontStyle.Bold, Colors.HistorySectionTitleText);
-        _corpusCardTitle.style.flexGrow = 1f;
-        _corpusCardTitle.style.flexShrink = 1f;
-        _corpusCardTitle.style.minWidth = 0f;
-        _corpusCardTitle.style.whiteSpace = WhiteSpace.NoWrap;
-        _corpusCardTitle.style.overflow = Overflow.Hidden;
-        corpusHeader.Add(_corpusCardTitle);
-
-        _finalBuildRefreshButton = CreateButton(
-            LiveBuildPanelText.RefreshFinalBuilds(),
-            _refreshFinalBuilds
-        );
-        _finalBuildRefreshButton.style.marginLeft = 8f;
-        UiStyle.FixedWidth(_finalBuildRefreshButton.style, Sizes.LiveBuildRefreshButtonWidth);
-        UiStyle.FixedHeight(_finalBuildRefreshButton.style, Sizes.LiveBuildRefreshButtonHeight);
-        _finalBuildRefreshButton.style.flexGrow = 0f;
-        _finalBuildRefreshButton.style.flexShrink = 0f;
-        corpusHeader.Add(_finalBuildRefreshButton);
-
-        _corpusDashboard = new VisualElement();
-        _corpusDashboard.style.marginTop = 8f;
-        _corpusDashboard.style.flexDirection = FlexDirection.Column;
-        _corpusDashboard.style.overflow = Overflow.Hidden;
-        corpusCard.Add(_corpusDashboard);
-
-        _corpusFreshness = CreateLabel(12, FontStyle.Normal, Colors.HistoryFooterSecondaryText);
-        _corpusFreshness.style.whiteSpace = WhiteSpace.NoWrap;
-        _corpusFreshness.style.overflow = Overflow.Hidden;
-        _corpusDashboard.Add(_corpusFreshness);
-
-        _heroStrip = new VisualElement();
-        _heroStrip.style.flexDirection = FlexDirection.Row;
-        _heroStrip.style.marginTop = 8f;
-        _heroStrip.style.overflow = Overflow.Hidden;
-        _corpusDashboard.Add(_heroStrip);
-
-        _corpusStatus = CreateLabel(13, FontStyle.Normal, Colors.HistoryStatusText);
-        _corpusStatus.style.marginTop = 8f;
-        _corpusStatus.style.whiteSpace = WhiteSpace.Normal;
-        _corpusStatus.style.maxHeight = Sizes.LiveBuildCorpusStatusMaxHeight;
-        _corpusStatus.style.overflow = Overflow.Hidden;
-        corpusCard.Add(_corpusStatus);
-
-        // Result card: match status + recommendation paging, visually mirroring the corpus card
-        // so the rail reads as "data in, results out".
-        var resultCard = new VisualElement();
-        resultCard.style.marginTop = 12f;
-        resultCard.style.backgroundColor = Colors.HistoryStatusBackground;
-        resultCard.style.paddingLeft = 12f;
-        resultCard.style.paddingRight = 12f;
-        resultCard.style.paddingTop = 10f;
-        resultCard.style.paddingBottom = 10f;
-        resultCard.style.overflow = Overflow.Hidden;
-        UiStyle.Border(resultCard.style, Borders.Thin, Colors.HistoryStatusBorder);
-        UiStyle.Radius(resultCard.style, Radii.Md);
-        rail.Add(resultCard);
-
-        var resultHeader = new VisualElement();
-        resultHeader.style.flexDirection = FlexDirection.Row;
-        resultHeader.style.alignItems = Align.Center;
-        resultCard.Add(resultHeader);
-
-        _resultCardTitle = CreateLabel(15, FontStyle.Bold, Colors.HistorySectionTitleText);
-        _resultCardTitle.style.flexGrow = 1f;
-        _resultCardTitle.style.flexShrink = 1f;
-        _resultCardTitle.style.minWidth = 0f;
-        _resultCardTitle.style.whiteSpace = WhiteSpace.NoWrap;
-        _resultCardTitle.style.overflow = Overflow.Hidden;
-        resultHeader.Add(_resultCardTitle);
-
-        _matchesPager = CreateLabel(12, FontStyle.Bold, Colors.HistoryChipText);
-        _matchesPager.style.flexShrink = 0f;
-        _matchesPager.style.height = Sizes.InfoChipHeight;
-        _matchesPager.style.unityTextAlign = TextAnchor.MiddleCenter;
-        _matchesPager.style.backgroundColor = Colors.HistoryChipBackground;
-        UiStyle.HorizontalPadding(_matchesPager.style, 8f);
-        UiStyle.Radius(_matchesPager.style, Radii.InfoChip);
-        resultHeader.Add(_matchesPager);
-
-        _matchesStats = new VisualElement();
-        _matchesStats.style.marginTop = 8f;
-        _matchesStats.style.flexDirection = FlexDirection.Column;
-        _matchesStats.style.overflow = Overflow.Hidden;
-        resultCard.Add(_matchesStats);
-
-        _rateValue = AddStatRow(_matchesStats, LiveBuildPanelText.MatchRateLabel());
-        _rateValue.style.color = Colors.StatusCompletedText;
-        _sampleValue = AddStatRow(_matchesStats, LiveBuildPanelText.MatchSampleLabel());
-        _finalDayValue = AddStatRow(_matchesStats, LiveBuildPanelText.MatchFinalDayLabel());
-        _matchedValue = AddStatRow(_matchesStats, LiveBuildPanelText.MatchMatchedLabel());
-
-        _matchesGuidance = CreateLabel(14, FontStyle.Normal, Colors.HistoryStatusText);
-        _matchesGuidance.style.marginTop = 8f;
-        _matchesGuidance.style.whiteSpace = WhiteSpace.Normal;
-        _matchesGuidance.style.maxHeight = Sizes.LiveBuildRecommendationStatusMaxHeight;
-        _matchesGuidance.style.overflow = Overflow.Hidden;
-        resultCard.Add(_matchesGuidance);
-
-        var nav = new VisualElement();
-        nav.style.flexDirection = FlexDirection.Row;
-        nav.style.marginTop = 10f;
-        resultCard.Add(nav);
-
-        _previousButton = CreateButton(LiveBuildPanelText.Previous(), _previous);
-        _previousButton.style.flexGrow = 1f;
-        nav.Add(_previousButton);
-
-        _nextButton = CreateButton(LiveBuildPanelText.Next(), _next);
-        _nextButton.style.flexGrow = 1f;
-        _nextButton.style.marginLeft = 8f;
-        nav.Add(_nextButton);
-    }
-
-    private void RefreshRow(LiveItemBoardRowVm row, HashSet<Guid> candidates)
-    {
-        if (!_rows.TryGetValue(row.Board.Id, out var elements))
-            return;
-
-        elements.Title.text = row.Title;
-        elements.Title.tooltip = row.Title;
-        if (row.Board.Cards.Count == 0)
-        {
-            elements.Empty.text = StablePanelText.Compact(row.EmptyText, 72);
-            elements.Empty.tooltip = row.EmptyTooltip;
-            elements.Empty.style.display = string.IsNullOrWhiteSpace(row.EmptyText)
-                ? DisplayStyle.None
-                : DisplayStyle.Flex;
-        }
-        else
-        {
-            elements.Empty.text = string.Empty;
-            elements.Empty.tooltip = string.Empty;
-            elements.Empty.style.display = DisplayStyle.None;
-        }
-        ClearDynamic(elements);
-
-        foreach (var card in row.Board.Cards)
-        {
-            var socket = card.DisplaySocketId ?? card.SourceSocketId;
-            if (!socket.HasValue)
-                continue;
-
-            if (row.CanToggleCandidates)
-                AddHitTarget(elements, row.Board.Id, card, socket.Value);
-
-            if (candidates.Contains(card.TemplateId))
-                AddCandidateMarker(elements, card, socket.Value);
-        }
-    }
-
-    private void AddHitTarget(
-        RowElements elements,
-        BppItemBoardId rowId,
-        BppItemBoardCard card,
-        EContainerSocketId socket
-    )
-    {
-        var hit = new VisualElement();
-        var rect = ItemBoardSlotGridGeometry.ResolveOccupiedRect(
-            100f,
-            100f,
-            (int)socket,
-            card.DisplaySpan,
-            0f,
-            0f
-        );
-        hit.style.position = Position.Absolute;
-        hit.style.left = Length.Percent(rect.X);
-        hit.style.top = 0f;
-        hit.style.bottom = 0f;
-        hit.style.width = Length.Percent(rect.Width);
-        hit.style.backgroundColor = Color.clear;
-        hit.RegisterCallback<MouseDownEvent>(evt =>
-        {
-            if (evt.button != 0)
-                return;
-
-            CandidateToggleRequested?.Invoke(rowId, card.TemplateId);
-            evt.StopPropagation();
-        });
-        elements.SlotHost.Add(hit);
-        elements.HitTargets.Add(hit);
-    }
-
-    private void AddCandidateMarker(
-        RowElements elements,
-        BppItemBoardCard card,
-        EContainerSocketId socket
-    )
-    {
-        if (_foregroundRoot == null)
-            return;
-
-        var hostBounds = elements.SlotHost.worldBound;
-        if (hostBounds.width <= 0f || hostBounds.height <= 0f)
-            return;
-
-        var rect = ItemBoardSlotGridGeometry.ResolveOccupiedRect(
-            hostBounds.width,
-            hostBounds.height,
-            (int)socket,
-            card.DisplaySpan,
-            0f,
-            4f
-        );
-        if (rect.Width <= 0f)
-            return;
-
-        var marker = new VisualElement();
-        marker.pickingMode = PickingMode.Ignore;
-        marker.style.position = Position.Absolute;
-        marker.style.left = hostBounds.x + rect.X;
-        marker.style.top = hostBounds.y + rect.Y;
-        marker.style.width = rect.Width;
-        marker.style.height = rect.Height;
-        marker.style.backgroundColor = new Color(1f, 0.72f, 0.18f, 0.13f);
-        marker.style.borderBottomColor = Colors.HistoryGoldAccent;
-        marker.style.borderTopColor = Colors.HistoryGoldAccent;
-        marker.style.borderLeftColor = Colors.HistoryGoldAccent;
-        marker.style.borderRightColor = Colors.HistoryGoldAccent;
-        marker.style.borderBottomWidth = 3f;
-        marker.style.borderTopWidth = 3f;
-        marker.style.borderLeftWidth = 3f;
-        marker.style.borderRightWidth = 3f;
-
-        var badge = CreateLabel(16, FontStyle.Bold, Color.black);
-        badge.text = "✓";
-        badge.pickingMode = PickingMode.Ignore;
-        badge.style.position = Position.Absolute;
-        badge.style.right = 6f;
-        badge.style.top = 6f;
-        badge.style.width = 26f;
-        badge.style.height = 26f;
-        badge.style.unityTextAlign = TextAnchor.MiddleCenter;
-        badge.style.backgroundColor = Colors.HistoryGoldAccent;
-        marker.Add(badge);
-
-        _foregroundRoot.Add(marker);
-        elements.Markers.Add(marker);
-    }
-
-    private static void ClearDynamic(RowElements elements)
-    {
-        foreach (var hit in elements.HitTargets)
-            hit.RemoveFromHierarchy();
-        foreach (var marker in elements.Markers)
-            marker.RemoveFromHierarchy();
-        elements.HitTargets.Clear();
-        elements.Markers.Clear();
-    }
-
-    private void PublishRowBounds(BppItemBoardId id, VisualElement slotHost)
-    {
-        var worldBound = slotHost.worldBound;
-        var ppp = slotHost.scaledPixelsPerPoint;
-        var bounds = new Rect(
-            Mathf.Round(worldBound.x * ppp),
-            Mathf.Round(Screen.height - worldBound.yMax * ppp),
-            Mathf.Max(1f, Mathf.Round(worldBound.width * ppp)),
-            Mathf.Max(1f, Mathf.Round(worldBound.height * ppp))
-        );
-        RowBoundsChanged?.Invoke(id, bounds);
-    }
-
-    private static PanelSettings CreatePanelSettings(int sortingOrder)
-    {
-        var settings = ScriptableObject.CreateInstance<PanelSettings>();
-        settings.sortingOrder = sortingOrder;
-        settings.scaleMode = PanelScaleMode.ScaleWithScreenSize;
-        settings.referenceResolution = new Vector2Int(1920, 1080);
-        settings.match = 1f;
-        settings.clearColor = false;
-        settings.targetDisplay = 0;
-        return settings;
-    }
-
-    private static void ConfigureDocumentRoot(VisualElement root, PickingMode pickingMode)
-    {
-        root.style.flexGrow = 1f;
-        root.style.position = Position.Absolute;
-        root.style.left = 0f;
-        root.style.right = 0f;
-        root.style.top = 0f;
-        root.style.bottom = 0f;
-        root.style.display = DisplayStyle.None;
-        root.pickingMode = pickingMode;
-    }
-
-    private static Color ResolveRefreshStatusColor(LiveBuildRefreshSeverity severity)
-    {
-        return severity switch
-        {
-            LiveBuildRefreshSeverity.Success => Colors.StatusCompletedText,
-            LiveBuildRefreshSeverity.Failure => Colors.StatusAbandonedText,
-            LiveBuildRefreshSeverity.Pending => Colors.StatusDefaultText,
-            _ => Colors.HistoryStatusText,
-        };
-    }
-
-    private static Label CreateLabel(int fontSize, FontStyle fontStyle, Color color)
-    {
-        var label = new Label();
-        label.style.fontSize = fontSize;
-        label.style.unityFontStyleAndWeight = fontStyle;
-        label.style.color = color;
-        label.style.unityTextAlign = TextAnchor.MiddleLeft;
-        return label;
-    }
-
-    private static Button CreateButton(string text, Action onClick)
-    {
-        var button = new Button(() => onClick()) { text = text };
-        button.style.height = 40f;
-        button.style.minWidth = 0f;
-        button.style.flexShrink = 1f;
-        button.style.unityTextAlign = TextAnchor.MiddleCenter;
-        button.style.justifyContent = Justify.Center;
-        button.style.alignItems = Align.Center;
-        button.style.overflow = Overflow.Hidden;
-        button.style.backgroundColor = Colors.HistoryButtonBackground;
-        button.style.color = Colors.White;
-        UiStyle.Border(button.style, Borders.Thin, Colors.HistoryButtonBorder);
-        UiStyle.Radius(button.style, Radii.Md);
-        var textElement = button.Q<TextElement>();
-        if (textElement != null)
-        {
-            textElement.style.unityTextAlign = TextAnchor.MiddleCenter;
-            textElement.style.flexGrow = 1f;
-            textElement.style.flexShrink = 1f;
-            textElement.style.minWidth = 0f;
-            textElement.style.whiteSpace = WhiteSpace.NoWrap;
-            textElement.style.overflow = Overflow.Hidden;
-        }
-        button.tooltip = text;
-        return button;
-    }
-
-    private static void StyleButton(Button button, Color background, Color textColor)
-    {
-        button.style.backgroundColor = background;
-        button.style.color = textColor;
-        UiStyle.BorderColor(button.style, Colors.ButtonBorderFor(background));
     }
 }

@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="BazaarPlusPlus.ModApi"><HintPath>$(ModRoot)/tests/ModApi.Tests/bin/Debug/net10.0/BazaarPlusPlus.ModApi.dll</HintPath></Reference>
+    <Reference Include="Newtonsoft.Json"><HintPath>$(ModRoot)/tests/ModApi.Tests/bin/Debug/net10.0/Newtonsoft.Json.dll</HintPath></Reference>
+  </ItemGroup>
+</Project>

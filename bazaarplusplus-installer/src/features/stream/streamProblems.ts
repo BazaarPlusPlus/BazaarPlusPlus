@@ -22,7 +22,6 @@ export type StreamNoticeCode =
 
 export type StreamNotice = {
   code: StreamNoticeCode;
-  params: Record<string, string>;
 };
 
 export function streamProblemFromError(
@@ -66,11 +65,11 @@ export function presentStreamNotice(
   if (!notice) return null;
   switch (notice.code) {
     case 'stream_obs_url_copied':
-      return t('streamCopied', notice.params);
+      return t('streamCopied');
     case 'stream_crop_saved':
-      return t('streamCropSaved', notice.params);
+      return t('streamCropSaved');
     case 'stream_crop_reset':
-      return t('streamCropReset', notice.params);
+      return t('streamCropReset');
   }
 }
 

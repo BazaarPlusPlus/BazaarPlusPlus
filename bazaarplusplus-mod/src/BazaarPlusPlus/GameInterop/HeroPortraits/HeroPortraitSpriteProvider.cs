@@ -1,5 +1,6 @@
 #nullable enable
 using BazaarGameShared.Domain.Core.Types;
+using BazaarPlusPlus.GameInterop.AssetLoading;
 using BazaarPlusPlus.Infrastructure;
 using TheBazaar;
 using TheBazaar.AppFramework;
@@ -62,7 +63,29 @@ internal static class HeroPortraitSpriteProvider
                 );
             }
 
-            var result = await skin.LoadPortraitSpriteAsync();
+            if (!Services.TryGet<AssetLoader>(out var assetLoader) || assetLoader == null)
+            {
+                return new AsyncLoadResult<HeroPortraitLoadOutcome>(
+                    HeroPortraitLoadOutcome.Degraded(
+                        HeroPortraitFailureReason.AssetLoaderUnavailable
+                    ),
+                    shouldCache: false
+                );
+            }
+
+            var result = await NativeGlobalAssetLoader.LoadByReferenceAsync<Sprite>(
+                assetLoader,
+                skin.portraitTextureReference
+            );
+            if (result == null)
+            {
+                var fallbackTexture = await NativeGlobalAssetLoader.LoadByReferenceAsync<Texture2D>(
+                    assetLoader,
+                    skin.storePortraitTextureReference
+                );
+                result = CreateSprite(fallbackTexture, skin.name);
+            }
+
             return new AsyncLoadResult<HeroPortraitLoadOutcome>(
                 result == null
                     ? HeroPortraitLoadOutcome.Degraded(
@@ -80,6 +103,23 @@ internal static class HeroPortraitSpriteProvider
             );
         }
     }
+
+    private static Sprite? CreateSprite(Texture2D? texture, string skinName)
+    {
+        if (texture == null)
+            return null;
+
+        var sprite = Sprite.Create(
+            texture,
+            new Rect(0f, 0f, texture.width, texture.height),
+            new Vector2(0.5f, 0.5f),
+            100f,
+            extrude: 0u,
+            SpriteMeshType.FullRect
+        );
+        sprite.name = $"BPP_{skinName}_CollectionPortrait";
+        return sprite;
+    }
 }
 
 internal enum HeroPortraitFailureReason
@@ -87,6 +127,7 @@ internal enum HeroPortraitFailureReason
     None,
     CollectionManagerUnavailable,
     DefaultSkinUnavailable,
+    AssetLoaderUnavailable,
     PortraitUnavailable,
     LoadException,
 }

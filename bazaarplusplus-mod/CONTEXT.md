@@ -1,6 +1,6 @@
 # BazaarPlusPlus Mod
 
-In-game mod for *The Bazaar*. This glossary captures the project-specific vocabulary that recurs across features. General programming concepts are excluded. Definitions pin down what a term means and where its boundary sits; responsibilities and mechanics live in code and `docs/ARCHITECTURE.md`.
+In-game mod for *The Bazaar*. This glossary captures the project-specific vocabulary that recurs across features. Definitions pin down what a term means and where its boundary sits; responsibilities and mechanics live in code and `docs/ARCHITECTURE.md`.
 
 ## Run / encounters
 
@@ -35,13 +35,20 @@ The single run-scoped state machine that owns the end-of-run screenshot flow —
 _Avoid_: screenshot gate
 
 **Ghost Battle**:
-A PvP battle fetched from the mod backend in which the local player's uploaded build fought inside another player's run (the game's PvP is asynchronous — opponents are ghosts). Stored payloads keep the recorder's perspective, stamped as `PerspectiveVersion` (see [ADR-0003](docs/adr/0003-bazaaragent-external-replay-video-recording.md)); only the HistoryPanel list row is projected to local perspective, by `GhostBattleLocalProjector`.
+A PvP battle fetched from the mod backend in which the local player's uploaded build fought inside another player's run (the game's PvP is asynchronous — opponents are ghosts). Stored payloads keep the recorder's perspective, stamped as `PerspectiveVersion` (see [ADR-0002](docs/adr/0002-replay-exit-and-ghost-perspective.md)); only the HistoryPanel list row is projected to local perspective, by `GhostBattleLocalProjector`.
 _Avoid_: remote battle, opponent battle
 
 ## Combat replay
 
+**Replay Payload**:
+The local serialized combat input used to replay a recorded PvP battle. It is a recoverable cache governed by the `newest 200 ∪ last 30 days` retention policy; the battle fact remains after eviction, but History no longer offers Replay.
+
+**Replay Video Artifact**:
+A user-requested MP4 plus its metadata. Attachment to a battle and file health are separate facts: deleting a run detaches the metadata without deleting a completed MP4, and only an explicit recordings-root-confined action deletes a detached artifact.
+_Avoid_: replay cache, orphan video
+
 **Saved Replay Lifecycle**:
-The single pure owner (`SavedReplayLifecycle`) of a saved-replay playback session's state algebra; the runtime feeds observations and executes the returned decisions. Replay exit itself still flows only through `CombatReplayRuntime.TryContinueReplay` per ADR-0003.
+The single pure owner (`SavedReplayLifecycle`) of a saved-replay playback session's state algebra; the runtime feeds observations and executes the returned decisions. Replay exit itself still flows only through `CombatReplayRuntime.TryContinueReplay` per ADR-0002.
 
 ## Overlay panels
 

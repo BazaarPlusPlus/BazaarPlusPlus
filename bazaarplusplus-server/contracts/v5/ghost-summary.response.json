@@ -1,0 +1,27 @@
+{
+  "battles": [
+    {
+      "battle_id": "battle-001",
+      "bundle_id": "01J00000000000000000000801",
+      "recorded_at_ms": 1789209999000,
+      "day": 10,
+      "hour": 18,
+      "result": "loss",
+      "winner_combatant_id": "Opponent",
+      "is_final_battle": true,
+      "player": {
+        "account_id": "account-uploader",
+        "display_name": "Uploader",
+        "hero_name": "Vanessa",
+        "rank": "Gold",
+        "rating": 1234
+      },
+      "opponent": {
+        "account_id": "account-local",
+        "hero_name": "Pygmalien"
+      },
+      "download_url": "https://r2.example/probe.bundle",
+      "download_expires_at_ms": 1789814800000
+    }
+  ]
+}

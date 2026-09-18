@@ -4,8 +4,8 @@ mod types;
 
 pub(crate) use operation::{install, InstallRequest};
 pub use types::{
-    FileActionResult, GameDirectorySelection, InstallActions, InstallGameState, InstallModState,
-    InstallState, InstallWarning, InstallWarningCode, ResetBepinexResult, ResetBppDataResult,
+    GameDirectorySelection, InstallActions, InstallGameState, InstallModState, InstallState,
+    InstallWarning, InstallWarningCode, ResetBepinexResult, ResetBppDataResult,
 };
 
 use std::process::Command;
@@ -109,18 +109,7 @@ fn install_state_from_snapshot(
     let selected_game_path = env.game_path.clone();
     let game_found = selected_game_path.is_some();
     let installed = env.bepinex_installed;
-    let plugin_version_matches = match (&env.bpp_version, &env.bundled_bpp_version) {
-        (Some(installed_version), Some(bundled)) => installed_version == bundled,
-        (None, _) => false,
-        (_, None) => installed,
-    };
-    let launch_options_empty =
-        env.steam_launch_options == crate::services::vdf::SteamLaunchOptionsState::Empty;
-    let platform_bootstrap_ready = !cfg!(target_os = "macos")
-        || (env.trampoline_current
-            && launch_options_empty
-            && !env.obsolete_macos_artifacts_present);
-    let ready = installed && plugin_version_matches && platform_bootstrap_ready;
+    let ready = plan::plan_install(&env).is_empty();
     let can_launch = game_found && env.game_path_valid;
     let has_resettable_data = has_resettable_bpp_data(env.game_path.as_deref());
     let has_bepinex_files = has_bepinex_directory(env.game_path.as_deref());
@@ -138,7 +127,6 @@ fn install_state_from_snapshot(
         game: InstallGameState {
             found: game_found,
             path_valid: env.game_path_valid,
-            display_version: None,
         },
         mod_state: InstallModState {
             installed,

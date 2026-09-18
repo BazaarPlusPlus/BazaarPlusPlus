@@ -4,9 +4,9 @@
 
 **Born of Passion** · A BepInEx mod and desktop installer for [*The Bazaar*](https://www.playthebazaar.com)
 
-[中文](README.md) · [Website](https://bazaarplusplus.com) · [Download](https://bazaarplusplus.com/download?lang=en) · [Tutorial](https://bazaarplusplus.com/tutorial?lang=en) · [Release Notes](https://github.com/cauyxy/BazaarPlusPlus/releases) · [Ko-fi](https://ko-fi.com/cauyxy)
+[中文](README.md) · [Website](https://bazaarplusplus.com) · [Download](https://bazaarplusplus.com/download?lang=en) · [Tutorial](https://bazaarplusplus.com/tutorial?lang=en) · [Release Notes](https://github.com/BazaarPlusPlus/BazaarPlusPlus/releases) · [Ko-fi](https://ko-fi.com/cauyxy)
 
-[![Version](https://img.shields.io/badge/version-4.2.0-6dd9a0?style=flat-square)](https://bazaarplusplus.com)
+[![Version](https://img.shields.io/badge/version-5.4.0-6dd9a0?style=flat-square)](https://bazaarplusplus.com)
 [![License](https://img.shields.io/badge/license-MIT-e8c87a?style=flat-square)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS-c1875a?style=flat-square)](https://bazaarplusplus.com/download)
 [![BepInEx](https://img.shields.io/badge/BepInEx-5.x-8a6d3b?style=flat-square)](https://github.com/BepInEx/BepInEx)
@@ -18,7 +18,7 @@
 
 ---
 
-BazaarPlusPlus is an open-source project for *The Bazaar*. The in-game BepInEx mod adds a card collection browser, run history, combat replays, tooltip previews, anonymous mode, Chinese terminology, and related quality-of-life features. The companion desktop installer handles download, install, repair, auto-update, and the stream overlay.
+BazaarPlusPlus is an open-source project for *The Bazaar*. The in-game BepInEx mod adds a card collection browser, run history, combat replays, tooltip previews, anonymous mode, Chinese terminology, and related quality-of-life features. The companion desktop installer handles download, install, repair, auto-update, and the stream overlay. This repository also holds the upload backend, the metrics analyzer, and the public website.
 
 Most players should install from [bazaarplusplus.com/download](https://bazaarplusplus.com/download?lang=en); this repository is for developers who want to inspect the implementation, contribute changes, or build locally.
 
@@ -65,23 +65,25 @@ Feature guides, hotkeys, and installation details live at [bazaarplusplus.com/tu
 │       ├── BazaarPlusPlus.ModApi/            # HTTP client for the mod backend
 │       ├── BazaarPlusPlus.Storage/           # Local run logs, screenshots, and SQLite storage
 │       └── BazaarPlusPlus.Localization/      # Chinese terminology and localization engine
-└── bazaarplusplus-installer/                 # Desktop installer
-    ├── src/                                  # Vite + React frontend
-    │   ├── pages/ features/ layouts/ api/    # Pages, feature state, shell, and Tauri calls
-    │   └── types/generated/                  # Rust -> TypeScript binding snapshot
-    ├── src-tauri/                            # Tauri 2 / Rust backend
-    │   ├── src/commands/ services/ history/  # Install, detect, history, and stream services
-    │   └── resources/                        # BepInEx, FFmpeg, stream overlay, install payload
-    ├── scripts/                              # Binding, manifest, and prebuild scripts
-    └── build.sh                              # Local development and release packaging entry point
+├── bazaarplusplus-installer/                 # Desktop installer
+│   ├── src/                                  # Vite + React frontend
+│   ├── src-tauri/                            # Tauri 2 / Rust backend
+│   └── build.sh                              # Local development and release packaging entry point
+├── bazaarplusplus-server/                    # Cloudflare Worker: Bundle upload and Ghost discovery
+├── bazaarplusplus-analyzer/                  # Turns Bundles into heroes / builds snapshots
+└── bazaarplusplus-site/                      # bazaarplusplus.com
 ```
+
+Run commands from the project directory you are changing. Do not build from the repository root. Each subdirectory has its own `CLAUDE.md` / `AGENTS.md`.
 
 ## Building From Source
 
 ### Prerequisites
 
-- **Mod**: .NET SDK 8+ and a local Steam install of *The Bazaar* so game assemblies can be resolved.
+- **Mod**: .NET SDK 10 and a local Steam install of *The Bazaar* so game assemblies can be resolved.
 - **Installer**: Node.js 20+, the Rust toolchain, and the system dependencies listed in the [Tauri prerequisites](https://tauri.app/start/prerequisites/).
+- **Server / site**: Node.js 20+ and Cloudflare Wrangler.
+- **Analyzer**: Python 3.14 and `uv`.
 - **Windows**: PowerShell 7.6.0 or newer for the build scripts and development flow.
 
 ### Build the Mod
@@ -117,7 +119,28 @@ npm run format
 ./build.sh --prod  # production package for the host platform
 ```
 
-Release signing, notarization, and R2 upload flows depend on local environment variables and `signing-secrets/`, which are intentionally not committed. A full release build also requires a local game install, signing material, and the platform dependencies — the public source tree alone is not enough.
+```bash
+cd bazaarplusplus-server
+npm install
+npm test
+# npm run dev needs a gitignored .dev.vars file (R2 presign keys and the two service tokens)
+```
+
+```bash
+cd bazaarplusplus-analyzer
+uv sync --locked
+# copy .env.example to .env first
+uv run pytest
+```
+
+```bash
+cd bazaarplusplus-site
+npm install
+npm test
+npm run build
+```
+
+Release signing, notarization, and R2 upload flows depend on local environment variables and `signing-secrets/`, which are intentionally not committed. A full release build also requires a local game install, signing material, and the platform dependencies — the public source tree alone is not enough. Game decompilation output, `decompiled/`, `.env`, and `.dev.vars` are also kept out of this tree.
 
 ## Derivative Work Notice
 

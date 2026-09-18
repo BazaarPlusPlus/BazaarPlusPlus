@@ -1,0 +1,40 @@
+{
+  "kind": "Synthetic local SQLite rehearsal, not production D1 timing or physical recovery",
+  "rows": 1800000,
+  "seed_ms": 114157.108542,
+  "before": {
+    "file_bytes": 2495774720,
+    "free_bytes": 0,
+    "ghost_allocated_bytes": 2136571904
+  },
+  "stages": {
+    "copy": {
+      "pages": 3601,
+      "max_ms": 99.75883299999987,
+      "p95_ms": 17.035917000001064
+    },
+    "verify": {
+      "pages": 3601,
+      "max_ms": 9.93583299999591,
+      "p95_ms": 2.996000000013737
+    },
+    "cleanup": {
+      "pages": 3600,
+      "max_ms": 26.947749999992084,
+      "p95_ms": 13.976791999972193
+    }
+  },
+  "peak": {
+    "file_bytes": 3354443776,
+    "free_bytes": 0,
+    "ghost_allocated_bytes": 2995236864
+  },
+  "after": {
+    "file_bytes": 3354447872,
+    "free_bytes": 2136584192,
+    "ghost_allocated_bytes": 858660864
+  },
+  "summary_rows": 1800000,
+  "foreign_key_errors": 0,
+  "completed_at": "2026-09-12T13:06:21.976Z"
+}

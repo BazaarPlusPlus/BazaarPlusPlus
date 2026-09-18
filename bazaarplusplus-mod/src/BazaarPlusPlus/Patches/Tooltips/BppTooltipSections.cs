@@ -31,9 +31,6 @@ internal static class BppTooltipSections
 
     internal sealed class Style
     {
-        public bool ClearTopPadding { get; init; } = true;
-        public int? BottomPadding { get; init; }
-        public bool MirrorSourceTopPaddingToBottom { get; init; }
         public float? SectionTopPaddingScale { get; init; }
         public float? SectionBottomPaddingScale { get; init; }
         public float? NativeSectionBottomPaddingScale { get; init; }
@@ -44,11 +41,6 @@ internal static class BppTooltipSections
         public bool ShowNativeDivider { get; init; }
         public float DividerHorizontalInset { get; init; }
     }
-
-    // Structured rich-text sections own their paragraph and list rhythm through
-    // explicit font-relative markup. Disable the cloned native label's additional
-    // paragraph spacing so every newline is counted exactly once.
-    internal static readonly Style MarkupControlledStyle = new() { ParagraphSpacing = 0f };
 
     private static readonly Dictionary<(CardTooltipController, string), Section> Sections = new();
 
@@ -241,7 +233,7 @@ internal static class BppTooltipSections
             var nativeBottomPadding = layoutGroup.padding.bottom;
             if (style?.SectionTopPaddingScale is { } topScale)
                 layoutGroup.padding.top = Mathf.RoundToInt(sourceTopPadding * topScale);
-            else if (style?.ClearTopPadding ?? true)
+            else
                 layoutGroup.padding.top = 0;
             if (style?.NativeSectionBottomPaddingScale is { } nativeBottomScale)
                 layoutGroup.padding.bottom = Mathf.RoundToInt(
@@ -249,10 +241,6 @@ internal static class BppTooltipSections
                 );
             else if (style?.SectionBottomPaddingScale is { } bottomScale)
                 layoutGroup.padding.bottom = Mathf.RoundToInt(sourceTopPadding * bottomScale);
-            else if (style?.MirrorSourceTopPaddingToBottom == true)
-                layoutGroup.padding.bottom = sourceTopPadding;
-            else if (style?.BottomPadding is { } bottomPadding)
-                layoutGroup.padding.bottom = bottomPadding;
         }
 
         // The source block's LayoutElement.ignoreLayout is toggled together with its

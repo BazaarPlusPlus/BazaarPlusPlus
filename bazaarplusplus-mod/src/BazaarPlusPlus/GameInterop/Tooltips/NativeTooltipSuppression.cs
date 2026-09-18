@@ -21,7 +21,33 @@ internal enum NativeTooltipCleanFrameState
     Unavailable,
 }
 
-internal readonly record struct NativeTooltipCleanFrameAudit(NativeTooltipCleanFrameState State);
+internal enum NativeTooltipCleanFrameReasonCode
+{
+    None,
+    SuppressionInactive,
+    RequiredShowGatesUnavailable,
+    AuthoritativeControllerSnapshotUnavailable,
+    ControllerSnapshotUnavailable,
+    TooltipUnlockFailed,
+    BoardHighlightCleanupFailed,
+    CardHoverCleanupFailed,
+    SkillHoverCleanupFailed,
+    RecapHoverCleanupFailed,
+    TooltipHideFailed,
+    CardControllerSurfaceUnavailable,
+    CardControllerConcealFailed,
+    AuxiliaryControllerSurfaceUnavailable,
+    AuxiliaryGateUnavailable,
+    AuxiliaryControllerConcealFailed,
+    AuditException,
+}
+
+internal readonly record struct NativeTooltipCleanFrameAudit(
+    NativeTooltipCleanFrameState State,
+    int ControllerCount = 0,
+    NativeTooltipCleanFrameReasonCode ReasonCode = NativeTooltipCleanFrameReasonCode.None,
+    int SkippedInactiveControllerCount = 0
+);
 
 internal interface INativeTooltipSuppressionLease : IDisposable
 {
@@ -32,25 +58,19 @@ internal interface INativeTooltipSuppressionLease : IDisposable
 internal sealed class NativeTooltipSuppressionOwnershipCore
 {
     private readonly int[] _leaseCounts = new int[3];
-    private int _totalLeaseCount;
 
-    internal bool IsActive => _totalLeaseCount > 0;
+    internal bool IsActive => _leaseCounts[0] > 0 || _leaseCounts[1] > 0 || _leaseCounts[2] > 0;
 
     internal void Acquire(NativeTooltipSuppressionOwner owner)
     {
-        var index = OwnerIndex(owner);
-        _leaseCounts[index]++;
-        _totalLeaseCount++;
+        _leaseCounts[OwnerIndex(owner)]++;
     }
 
     internal bool Release(NativeTooltipSuppressionOwner owner)
     {
         var index = OwnerIndex(owner);
-        if (_leaseCounts[index] == 0)
-            return !IsActive;
-
-        _leaseCounts[index]--;
-        _totalLeaseCount--;
+        if (_leaseCounts[index] > 0)
+            _leaseCounts[index]--;
         return !IsActive;
     }
 
@@ -73,25 +93,74 @@ internal static class NativeTooltipSuppression
 {
     private static readonly object Gate = new();
     private static readonly NativeTooltipSuppressionOwnershipCore Ownership = new();
+    private static readonly NativeTooltipControllerTopologyGeneration ControllerTopology = new();
     private static readonly List<AuxiliaryCanvasGate> AuxiliaryGates = new();
-    private static int _activeLeaseCount;
+    private static bool? _requiredShowGatesInstalled;
+    private static bool _suppressionActive;
 
-    internal static bool IsActive => Volatile.Read(ref _activeLeaseCount) > 0;
+    internal static bool IsActive => Volatile.Read(ref _suppressionActive);
+
+    internal static void NotifyControllerLifecycleChanged() =>
+        ControllerTopology.ObserveControllerLifecycleChange();
+
+    internal static void CapturePatchCapabilities()
+    {
+        lock (Gate)
+            _requiredShowGatesInstalled = ProbeRequiredShowGatesInstalled();
+    }
+
+    internal static void ClearPatchCapabilities()
+    {
+        lock (Gate)
+            _requiredShowGatesInstalled = null;
+    }
 
     internal static INativeTooltipSuppressionLease Begin(NativeTooltipSuppressionOwner owner)
     {
         lock (Gate)
         {
             Ownership.Acquire(owner);
-            Volatile.Write(ref _activeLeaseCount, _activeLeaseCount + 1);
+            Volatile.Write(ref _suppressionActive, Ownership.IsActive);
         }
 
         try
         {
-            var preparationAvailable = ClearCurrentHoverAndTooltipState();
-            preparationAvailable &=
-                ConcealAndAuditNativeTooltips().State != NativeTooltipCleanFrameState.Unavailable;
-            return new Lease(owner, preparationAvailable);
+            NativeTooltipCleanFrameAudit? preparationFailure = null;
+            if (!NativeTooltipAuthoritativeControllers.TryCapture(out var authoritativeControllers))
+            {
+                preparationFailure = UnavailableAudit(
+                    NativeTooltipCleanFrameReasonCode.AuthoritativeControllerSnapshotUnavailable
+                );
+            }
+
+            var cleanupReason = ClearCurrentHoverAndTooltipState();
+            if (
+                preparationFailure == null
+                && cleanupReason != NativeTooltipCleanFrameReasonCode.None
+            )
+            {
+                preparationFailure = UnavailableAudit(cleanupReason);
+            }
+
+            var controllers = new NativeTooltipControllerSnapshot();
+            var initialAudit = ConcealAndAuditNativeTooltips(controllers, authoritativeControllers);
+            if (
+                preparationFailure == null
+                && initialAudit.State == NativeTooltipCleanFrameState.Unavailable
+            )
+            {
+                preparationFailure = initialAudit;
+            }
+            else if (preparationFailure != null)
+            {
+                preparationFailure = preparationFailure.Value with
+                {
+                    ControllerCount = initialAudit.ControllerCount,
+                    SkippedInactiveControllerCount = initialAudit.SkippedInactiveControllerCount,
+                };
+            }
+
+            return new Lease(owner, preparationFailure, controllers, authoritativeControllers);
         }
         catch
         {
@@ -100,14 +169,19 @@ internal static class NativeTooltipSuppression
         }
     }
 
-    private static bool ClearCurrentHoverAndTooltipState()
+    private static NativeTooltipCleanFrameReasonCode ClearCurrentHoverAndTooltipState()
     {
-        var available = true;
+        var reason = NativeTooltipCleanFrameReasonCode.None;
         TryApply(
             () => Data.TooltipParentComponent?.UnlockAllLockedTooltipControllers(),
-            ref available
+            NativeTooltipCleanFrameReasonCode.TooltipUnlockFailed,
+            ref reason
         );
-        TryApply(() => Singleton<BoardManager>.Instance?.ClearCardHighlights(), ref available);
+        TryApply(
+            () => Singleton<BoardManager>.Instance?.ClearCardHighlights(),
+            NativeTooltipCleanFrameReasonCode.BoardHighlightCleanupFailed,
+            ref reason
+        );
         TryApply(
             () =>
             {
@@ -117,11 +191,20 @@ internal static class NativeTooltipSuppression
                     )
                 )
                 {
-                    TryApply(controller.TriggerUnhover, ref available);
-                    TryApply(() => controller.ResetPosition(), ref available);
+                    TryApply(
+                        controller.TriggerUnhover,
+                        NativeTooltipCleanFrameReasonCode.CardHoverCleanupFailed,
+                        ref reason
+                    );
+                    TryApply(
+                        () => controller.ResetPosition(),
+                        NativeTooltipCleanFrameReasonCode.CardHoverCleanupFailed,
+                        ref reason
+                    );
                 }
             },
-            ref available
+            NativeTooltipCleanFrameReasonCode.CardHoverCleanupFailed,
+            ref reason
         );
         TryApply(
             () =>
@@ -131,9 +214,14 @@ internal static class NativeTooltipSuppression
                         includeInactive: false
                     )
                 )
-                    TryApply(() => renderer.OnPointerExit(null), ref available);
+                    TryApply(
+                        () => renderer.OnPointerExit(null),
+                        NativeTooltipCleanFrameReasonCode.SkillHoverCleanupFailed,
+                        ref reason
+                    );
             },
-            ref available
+            NativeTooltipCleanFrameReasonCode.SkillHoverCleanupFailed,
+            ref reason
         );
         TryApply(
             () =>
@@ -143,9 +231,14 @@ internal static class NativeTooltipSuppression
                         includeInactive: false
                     )
                 )
-                    TryApply(() => controller.OnPointerExit(null), ref available);
+                    TryApply(
+                        () => controller.OnPointerExit(null),
+                        NativeTooltipCleanFrameReasonCode.RecapHoverCleanupFailed,
+                        ref reason
+                    );
             },
-            ref available
+            NativeTooltipCleanFrameReasonCode.RecapHoverCleanupFailed,
+            ref reason
         );
         TryApply(
             () =>
@@ -157,33 +250,35 @@ internal static class NativeTooltipSuppression
                 tooltipParent.HideSecondaryCardTooltipController();
                 tooltipParent.HideCardTooltipController();
             },
-            ref available
+            NativeTooltipCleanFrameReasonCode.TooltipHideFailed,
+            ref reason
         );
-        return available;
+        return reason;
     }
 
-    private static NativeTooltipCleanFrameAudit ConcealAndAuditNativeTooltips()
+    private static NativeTooltipCleanFrameAudit ConcealAndAuditNativeTooltips(
+        NativeTooltipControllerSnapshot controllers,
+        NativeTooltipAuthoritativeControllers authoritativeControllers
+    )
     {
-        if (!IsActive || !AreRequiredShowGatesInstalled())
-            return UnavailableAudit();
+        if (!IsActive)
+            return UnavailableAudit(NativeTooltipCleanFrameReasonCode.SuppressionInactive);
+        if (!AreRequiredShowGatesInstalled())
+        {
+            return UnavailableAudit(NativeTooltipCleanFrameReasonCode.RequiredShowGatesUnavailable);
+        }
 
-        var unavailable = false;
+        if (!controllers.TryGet(out var cardControllers, out var auxiliaryControllers))
+        {
+            return UnavailableAudit(
+                NativeTooltipCleanFrameReasonCode.ControllerSnapshotUnavailable
+            );
+        }
+
+        var controllerCount = cardControllers.Count + auxiliaryControllers.Count;
+        var skippedInactiveControllerCount = 0;
+        var unavailableReason = NativeTooltipCleanFrameReasonCode.None;
         var dirty = false;
-        CardTooltipController[] cardControllers;
-        AuxiliaryTooltipController[] auxiliaryControllers;
-        try
-        {
-            cardControllers = Object.FindObjectsOfType<CardTooltipController>(
-                includeInactive: true
-            );
-            auxiliaryControllers = Object.FindObjectsOfType<AuxiliaryTooltipController>(
-                includeInactive: true
-            );
-        }
-        catch
-        {
-            return UnavailableAudit();
-        }
 
         foreach (var controller in cardControllers)
         {
@@ -191,35 +286,99 @@ internal static class NativeTooltipSuppression
                 continue;
             try
             {
+                var isAuthoritative = authoritativeControllers.Owns(controller);
+                var isActiveInHierarchy = controller.gameObject.activeInHierarchy;
+                if (
+                    NativeTooltipControllerAuditCore.ShouldSkipInactiveNonAuthoritative(
+                        isAuthoritative,
+                        isActiveInHierarchy
+                    )
+                )
+                {
+                    skippedInactiveControllerCount++;
+                    continue;
+                }
+
+                var hider = controller.CanvasHiderComponent;
+                if (
+                    NativeTooltipControllerAuditCore.Decide(
+                        new NativeTooltipControllerAuditCandidate(
+                            isAuthoritative,
+                            isActiveInHierarchy,
+                            HasRequiredSurface: hider != null
+                        )
+                    ) == NativeTooltipControllerAuditDecision.Unavailable
+                )
+                {
+                    ObserveFailure(
+                        ref unavailableReason,
+                        NativeTooltipCleanFrameReasonCode.CardControllerSurfaceUnavailable
+                    );
+                    continue;
+                }
+
                 controller.SetLockedFlag(false);
                 controller.DisableLockModeCanvasPublic();
                 controller.ClearCurrentCard();
-                var hider = controller.CanvasHiderComponent;
                 if (hider == null)
-                {
-                    unavailable = true;
                     continue;
-                }
                 hider.SetVisibility(false);
                 if (hider.IsVisible())
                     dirty = true;
             }
             catch
             {
-                unavailable = true;
+                ObserveFailure(
+                    ref unavailableReason,
+                    NativeTooltipCleanFrameReasonCode.CardControllerConcealFailed
+                );
             }
         }
 
-        PruneDestroyedAuxiliaryGates();
+        try
+        {
+            PruneDestroyedAuxiliaryGates();
+        }
+        catch
+        {
+            ObserveFailure(
+                ref unavailableReason,
+                NativeTooltipCleanFrameReasonCode.AuxiliaryControllerConcealFailed
+            );
+        }
         foreach (var controller in auxiliaryControllers)
         {
             if (controller == null)
                 continue;
             try
             {
-                if (controller.auxParent == null)
+                var isAuthoritative = authoritativeControllers.Owns(controller);
+                var isActiveInHierarchy = controller.gameObject.activeInHierarchy;
+                if (
+                    NativeTooltipControllerAuditCore.ShouldSkipInactiveNonAuthoritative(
+                        isAuthoritative,
+                        isActiveInHierarchy
+                    )
+                )
                 {
-                    unavailable = true;
+                    skippedInactiveControllerCount++;
+                    continue;
+                }
+
+                if (
+                    NativeTooltipControllerAuditCore.Decide(
+                        new NativeTooltipControllerAuditCandidate(
+                            isAuthoritative,
+                            isActiveInHierarchy,
+                            HasRequiredSurface: controller.auxParent != null
+                        )
+                    ) == NativeTooltipControllerAuditDecision.Unavailable
+                )
+                {
+                    ObserveFailure(
+                        ref unavailableReason,
+                        NativeTooltipCleanFrameReasonCode.AuxiliaryControllerSurfaceUnavailable
+                    );
                     continue;
                 }
 
@@ -229,7 +388,10 @@ internal static class NativeTooltipSuppression
                     gate = AuxiliaryCanvasGate.TryCreate(controller);
                     if (gate == null)
                     {
-                        unavailable = true;
+                        ObserveFailure(
+                            ref unavailableReason,
+                            NativeTooltipCleanFrameReasonCode.AuxiliaryGateUnavailable
+                        );
                         continue;
                     }
                     AuxiliaryGates.Add(gate);
@@ -239,21 +401,44 @@ internal static class NativeTooltipSuppression
             }
             catch
             {
-                unavailable = true;
+                ObserveFailure(
+                    ref unavailableReason,
+                    NativeTooltipCleanFrameReasonCode.AuxiliaryControllerConcealFailed
+                );
             }
         }
 
-        return unavailable
-            ? UnavailableAudit()
+        return unavailableReason != NativeTooltipCleanFrameReasonCode.None
+            ? UnavailableAudit(unavailableReason, controllerCount, skippedInactiveControllerCount)
             : new NativeTooltipCleanFrameAudit(
-                dirty ? NativeTooltipCleanFrameState.Dirty : NativeTooltipCleanFrameState.Clean
+                dirty ? NativeTooltipCleanFrameState.Dirty : NativeTooltipCleanFrameState.Clean,
+                controllerCount,
+                SkippedInactiveControllerCount: skippedInactiveControllerCount
             );
     }
 
-    private static NativeTooltipCleanFrameAudit UnavailableAudit() =>
-        new(NativeTooltipCleanFrameState.Unavailable);
+    private static NativeTooltipCleanFrameAudit UnavailableAudit(
+        NativeTooltipCleanFrameReasonCode reasonCode,
+        int controllerCount = 0,
+        int skippedInactiveControllerCount = 0
+    ) =>
+        new(
+            NativeTooltipCleanFrameState.Unavailable,
+            controllerCount,
+            reasonCode,
+            skippedInactiveControllerCount
+        );
 
     private static bool AreRequiredShowGatesInstalled()
+    {
+        lock (Gate)
+        {
+            _requiredShowGatesInstalled ??= ProbeRequiredShowGatesInstalled();
+            return _requiredShowGatesInstalled.Value;
+        }
+    }
+
+    private static bool ProbeRequiredShowGatesInstalled()
     {
         try
         {
@@ -286,6 +471,22 @@ internal static class NativeTooltipSuppression
                         typeof(AuxiliaryTooltipController),
                         nameof(AuxiliaryTooltipController.ShowAuxiliaryTooltipController)
                     )
+                )
+                && HasOurPostfix(AccessTools.DeclaredMethod(typeof(CardTooltipController), "Awake"))
+                && HasOurPostfix(
+                    AccessTools.DeclaredMethod(typeof(AuxiliaryTooltipController), "Awake")
+                )
+                && HasOurPrefix(
+                    AccessTools.DeclaredMethod(
+                        typeof(CardTooltipController),
+                        nameof(CardTooltipController.OnDestroy)
+                    )
+                )
+                && HasOurPrefix(
+                    AccessTools.DeclaredMethod(
+                        typeof(BaseTooltipController),
+                        nameof(BaseTooltipController.OnDestroy)
+                    )
                 );
         }
         catch
@@ -301,6 +502,15 @@ internal static class NativeTooltipSuppression
         var patchInfo = Harmony.GetPatchInfo(method);
         return patchInfo != null
             && patchInfo.Prefixes.Any(patch => patch.owner == BppPluginMetadata.Guid);
+    }
+
+    private static bool HasOurPostfix(System.Reflection.MethodBase? method)
+    {
+        if (method == null)
+            return false;
+        var patchInfo = Harmony.GetPatchInfo(method);
+        return patchInfo != null
+            && patchInfo.Postfixes.Any(patch => patch.owner == BppPluginMetadata.Guid);
     }
 
     private static AuxiliaryCanvasGate? FindAuxiliaryGate(AuxiliaryTooltipController controller) =>
@@ -320,10 +530,8 @@ internal static class NativeTooltipSuppression
         var restoreGates = false;
         lock (Gate)
         {
-            var before = Ownership.LeaseCount(owner);
             restoreGates = Ownership.Release(owner);
-            if (before > 0)
-                Volatile.Write(ref _activeLeaseCount, Math.Max(0, _activeLeaseCount - 1));
+            Volatile.Write(ref _suppressionActive, Ownership.IsActive);
         }
 
         if (!restoreGates)
@@ -348,7 +556,20 @@ internal static class NativeTooltipSuppression
         }
     }
 
-    private static void TryApply(Action action, ref bool available)
+    private static void ObserveFailure(
+        ref NativeTooltipCleanFrameReasonCode reason,
+        NativeTooltipCleanFrameReasonCode failure
+    )
+    {
+        if (reason == NativeTooltipCleanFrameReasonCode.None)
+            reason = failure;
+    }
+
+    private static void TryApply(
+        Action action,
+        NativeTooltipCleanFrameReasonCode failure,
+        ref NativeTooltipCleanFrameReasonCode reason
+    )
     {
         try
         {
@@ -356,30 +577,41 @@ internal static class NativeTooltipSuppression
         }
         catch
         {
-            available = false;
+            ObserveFailure(ref reason, failure);
         }
     }
 
     private sealed class Lease : INativeTooltipSuppressionLease
     {
         private readonly NativeTooltipSuppressionOwner _owner;
-        private readonly bool _preparationAvailable;
+        private readonly NativeTooltipCleanFrameAudit? _preparationFailure;
+        private readonly NativeTooltipControllerSnapshot _controllers;
+        private readonly NativeTooltipAuthoritativeControllers _authoritativeControllers;
         private bool _disposed;
 
-        internal Lease(NativeTooltipSuppressionOwner owner, bool preparationAvailable)
+        internal Lease(
+            NativeTooltipSuppressionOwner owner,
+            NativeTooltipCleanFrameAudit? preparationFailure,
+            NativeTooltipControllerSnapshot controllers,
+            NativeTooltipAuthoritativeControllers authoritativeControllers
+        )
         {
             _owner = owner;
-            _preparationAvailable = preparationAvailable;
+            _preparationFailure = preparationFailure;
+            _controllers = controllers;
+            _authoritativeControllers = authoritativeControllers;
         }
 
         public NativeTooltipCleanFrameAudit AuditCleanFrame()
         {
-            if (_disposed || !IsActive || !_preparationAvailable)
+            if (_disposed || !IsActive)
             {
-                return new NativeTooltipCleanFrameAudit(NativeTooltipCleanFrameState.Unavailable);
+                return UnavailableAudit(NativeTooltipCleanFrameReasonCode.SuppressionInactive);
             }
+            if (_preparationFailure != null)
+                return _preparationFailure.Value;
 
-            return ConcealAndAuditNativeTooltips();
+            return ConcealAndAuditNativeTooltips(_controllers, _authoritativeControllers);
         }
 
         public void Dispose()
@@ -394,6 +626,98 @@ internal static class NativeTooltipSuppression
             catch
             {
                 // Native objects may disappear during state teardown; lease accounting is final.
+            }
+        }
+    }
+
+    private readonly record struct NativeTooltipAuthoritativeControllers(
+        CardTooltipController? Primary,
+        CardTooltipController? Secondary,
+        AuxiliaryTooltipController? Auxiliary
+    )
+    {
+        internal bool Owns(CardTooltipController controller) =>
+            ReferenceEquals(Primary, controller) || ReferenceEquals(Secondary, controller);
+
+        internal bool Owns(AuxiliaryTooltipController controller) =>
+            ReferenceEquals(Auxiliary, controller);
+
+        internal static bool TryCapture(out NativeTooltipAuthoritativeControllers controllers)
+        {
+            controllers = default;
+            try
+            {
+                var parent = Data.TooltipParentComponent;
+                if (parent == null)
+                    return true;
+
+                controllers = new NativeTooltipAuthoritativeControllers(
+                    parent.CardTooltipController,
+                    parent.SecondaryCardTooltipController,
+                    parent.AuxiliaryTooltipController
+                );
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+    }
+
+    private sealed class NativeTooltipControllerSnapshot
+    {
+        private readonly NativeTooltipControllerCacheCore<CardTooltipController> _cardControllers =
+            new();
+        private readonly NativeTooltipControllerCacheCore<AuxiliaryTooltipController> _auxiliaryControllers =
+            new();
+        private int _observedControllerTopologyGeneration = int.MinValue;
+        private int _observedParentInstanceId = int.MinValue;
+        private int _observedParentChildCount = int.MinValue;
+        private int _cacheGeneration;
+
+        internal bool TryGet(
+            out IReadOnlyList<CardTooltipController> cardControllers,
+            out IReadOnlyList<AuxiliaryTooltipController> auxiliaryControllers
+        )
+        {
+            cardControllers = [];
+            auxiliaryControllers = [];
+            try
+            {
+                var parent = Data.TooltipParentComponent;
+                var parentInstanceId = parent == null ? 0 : parent.GetInstanceID();
+                var parentChildCount =
+                    parent == null || parent.transform == null ? 0 : parent.transform.childCount;
+                var controllerTopologyGeneration = ControllerTopology.Current;
+                if (
+                    controllerTopologyGeneration != _observedControllerTopologyGeneration
+                    || parentInstanceId != _observedParentInstanceId
+                    || parentChildCount != _observedParentChildCount
+                )
+                {
+                    _observedControllerTopologyGeneration = controllerTopologyGeneration;
+                    _observedParentInstanceId = parentInstanceId;
+                    _observedParentChildCount = parentChildCount;
+                    _cacheGeneration++;
+                }
+                cardControllers = _cardControllers.GetOrRefresh(
+                    _cacheGeneration,
+                    static controller => controller != null,
+                    static () =>
+                        Object.FindObjectsOfType<CardTooltipController>(includeInactive: true)
+                );
+                auxiliaryControllers = _auxiliaryControllers.GetOrRefresh(
+                    _cacheGeneration,
+                    static controller => controller != null,
+                    static () =>
+                        Object.FindObjectsOfType<AuxiliaryTooltipController>(includeInactive: true)
+                );
+                return true;
+            }
+            catch
+            {
+                return false;
             }
         }
     }

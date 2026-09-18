@@ -1,0 +1,498 @@
+{
+  "completed_at": "2026-09-12T14:12:04.974Z",
+  "worker": "bazaarplusplus-mod-api-v5",
+  "database": "953b02ef-f990-4a30-90ad-69fa9c04f2ea",
+  "base_commit": "59f3fbf4ac5a12dae94219bfe7fb9c7747af9802",
+  "worker_deployment": {
+    "observed_at": "2026-09-12T13:55:35.392Z",
+    "created_on": "2026-09-12T13:55:16.637776Z",
+    "versions": [
+      {
+        "version_id": "08cbb9a7-9b06-49ba-b56a-7ebba6c13369",
+        "percentage": 100
+      }
+    ]
+  },
+  "time_travel_before": {
+    "bookmark": null
+  },
+  "observation_decision": {
+    "requested_by": "user",
+    "instruction": "可以直接移除",
+    "retired_at": "2026-09-12T14:00:00.113Z",
+    "skip_observation": true,
+    "expected_worker_version_and_100_percent_verified": true
+  },
+  "recovered_interruptions": [
+    {
+      "stage": "cleanup",
+      "at": "2026-09-12T14:10Z",
+      "http_status": 403,
+      "code": 7403,
+      "action": "Refreshed Wrangler authentication, verified retired phase, and resumed bounded cleanup without changing committed rows."
+    }
+  ],
+  "migration_batches": {
+    "copy": {
+      "logged_rows": 1809672,
+      "logged_pages": 1821,
+      "max_sql_ms": 184.58149999999998,
+      "p95_sql_ms": 134.07639999999998
+    },
+    "verify": {
+      "logged_rows": 1809534,
+      "logged_pages": 1811,
+      "max_sql_ms": 48.36749999999999,
+      "p95_sql_ms": 33.151700000000005
+    },
+    "cleanup": {
+      "logged_rows": 1809286,
+      "logged_pages": 1811,
+      "max_sql_ms": 216.179,
+      "p95_sql_ms": 78.86950000000002
+    }
+  },
+  "verified_same_batch_counts": {
+    "at": "2026-09-12T13:54:33.229Z",
+    "phase": {
+      "phase": "verified",
+      "legacy_duplicates": 0
+    },
+    "legacy_rows": 1810036,
+    "summary_rows": 1810036,
+    "sql_ms": [0.157, 1874.5328, 1341.812]
+  },
+  "final_verification": {
+    "at": "2026-09-12T14:12:04.974Z",
+    "worker": "bazaarplusplus-mod-api-v5",
+    "database": "953b02ef-f990-4a30-90ad-69fa9c04f2ea",
+    "objects": [
+      {
+        "type": "index",
+        "name": "idx_ghost_summaries_bundle"
+      },
+      {
+        "type": "index",
+        "name": "idx_ghost_summaries_query"
+      },
+      {
+        "type": "table",
+        "name": "ghost_battle_summaries"
+      }
+    ],
+    "columns": [
+      {
+        "cid": 0,
+        "name": "uploader_account_id",
+        "type": "TEXT",
+        "notnull": 1,
+        "dflt_value": null,
+        "pk": 1
+      },
+      {
+        "cid": 1,
+        "name": "battle_id",
+        "type": "TEXT",
+        "notnull": 1,
+        "dflt_value": null,
+        "pk": 2
+      },
+      {
+        "cid": 2,
+        "name": "bundle_id",
+        "type": "TEXT",
+        "notnull": 1,
+        "dflt_value": null,
+        "pk": 0
+      },
+      {
+        "cid": 3,
+        "name": "opponent_account_id",
+        "type": "TEXT",
+        "notnull": 1,
+        "dflt_value": null,
+        "pk": 0
+      },
+      {
+        "cid": 4,
+        "name": "recorded_at_ms",
+        "type": "INTEGER",
+        "notnull": 1,
+        "dflt_value": null,
+        "pk": 0
+      },
+      {
+        "cid": 5,
+        "name": "is_final_battle",
+        "type": "INTEGER",
+        "notnull": 1,
+        "dflt_value": "0",
+        "pk": 0
+      },
+      {
+        "cid": 6,
+        "name": "day",
+        "type": "INTEGER",
+        "notnull": 1,
+        "dflt_value": null,
+        "pk": 0
+      },
+      {
+        "cid": 7,
+        "name": "hour",
+        "type": "INTEGER",
+        "notnull": 1,
+        "dflt_value": null,
+        "pk": 0
+      },
+      {
+        "cid": 8,
+        "name": "result",
+        "type": "TEXT",
+        "notnull": 1,
+        "dflt_value": null,
+        "pk": 0
+      },
+      {
+        "cid": 9,
+        "name": "winner_combatant_id",
+        "type": "TEXT",
+        "notnull": 0,
+        "dflt_value": null,
+        "pk": 0
+      },
+      {
+        "cid": 10,
+        "name": "player_display_name",
+        "type": "TEXT",
+        "notnull": 1,
+        "dflt_value": null,
+        "pk": 0
+      },
+      {
+        "cid": 11,
+        "name": "player_hero_name",
+        "type": "TEXT",
+        "notnull": 0,
+        "dflt_value": null,
+        "pk": 0
+      },
+      {
+        "cid": 12,
+        "name": "opponent_hero_name",
+        "type": "TEXT",
+        "notnull": 0,
+        "dflt_value": null,
+        "pk": 0
+      },
+      {
+        "cid": 13,
+        "name": "player_rank",
+        "type": "TEXT",
+        "notnull": 0,
+        "dflt_value": null,
+        "pk": 0
+      },
+      {
+        "cid": 14,
+        "name": "player_rating",
+        "type": "INTEGER",
+        "notnull": 0,
+        "dflt_value": null,
+        "pk": 0
+      }
+    ],
+    "indexes": [
+      {
+        "seq": 0,
+        "name": "idx_ghost_summaries_bundle",
+        "unique": 0,
+        "origin": "c",
+        "partial": 0
+      },
+      {
+        "seq": 1,
+        "name": "idx_ghost_summaries_query",
+        "unique": 0,
+        "origin": "c",
+        "partial": 0
+      },
+      {
+        "seq": 2,
+        "name": "sqlite_autoindex_ghost_battle_summaries_1",
+        "unique": 1,
+        "origin": "pk",
+        "partial": 0
+      }
+    ],
+    "foreign_keys": [
+      {
+        "id": 0,
+        "seq": 0,
+        "table": "bundles",
+        "from": "bundle_id",
+        "to": "bundle_id",
+        "on_update": "NO ACTION",
+        "on_delete": "CASCADE",
+        "match": "NONE"
+      }
+    ],
+    "migrations": [
+      {
+        "name": "0001_v5_initial.sql",
+        "applied_at": "2026-08-02 16:34:32"
+      },
+      {
+        "name": "0002_hot_path_indexes.sql",
+        "applied_at": "2026-09-10 08:00:30"
+      },
+      {
+        "name": "0003_ghost_summary_prepare.sql",
+        "applied_at": "2026-09-12 13:33:22"
+      },
+      {
+        "name": "0004_ghost_summary_bridge.sql",
+        "applied_at": "2026-09-12 13:55:11"
+      },
+      {
+        "name": "0005_ghost_summary_retire.sql",
+        "applied_at": "2026-09-12 13:59:58"
+      },
+      {
+        "name": "0006_ghost_summary_finish.sql",
+        "applied_at": "2026-09-12 14:11:41"
+      }
+    ],
+    "counts": {
+      "summary_rows": 1810810,
+      "uploader_rows": 23410
+    },
+    "oldest_parent": {
+      "oldest_parent_stored_at_ms": 1787925651344
+    },
+    "retention_cutoff_checked_ms": 1787925600000,
+    "new_writes": {
+      "bundles_after_retirement": 536,
+      "bundles_with_ghost_after_retirement": 490
+    },
+    "file_size": 1382100992,
+    "deployment": {
+      "id": "717ae5fa-6f00-432b-9eb0-9c48c62af418",
+      "source": "wrangler",
+      "strategy": "percentage",
+      "annotations": {
+        "workers/triggered_by": "deployment"
+      },
+      "versions": [
+        {
+          "version_id": "08cbb9a7-9b06-49ba-b56a-7ebba6c13369",
+          "percentage": 100
+        }
+      ],
+      "created_on": "2026-09-12T13:55:16.637776Z"
+    },
+    "read_sql_ms": {
+      "summaries": 1154.1436,
+      "uploaders": 4.9416,
+      "oldest": 0.4438
+    }
+  },
+  "capacity": {
+    "before_bytes": 3310116864,
+    "peak_observed_bytes": 4162883584,
+    "after_bytes": 1382100992,
+    "net_decrease_bytes": 1928015872,
+    "net_decrease_percent": 58.246157196702534,
+    "observations": [
+      {
+        "at": "2026-09-12T13:41:33.817Z",
+        "phase": "copy",
+        "bytes": 3669975040
+      },
+      {
+        "at": "2026-09-12T13:49:17.881Z",
+        "phase": "verify",
+        "bytes": 4162883584
+      },
+      {
+        "at": "2026-09-12T14:02:42.397Z",
+        "phase": "cleanup",
+        "bytes": 3621662720
+      },
+      {
+        "at": "2026-09-12T14:08:00.117Z",
+        "phase": "cleanup",
+        "bytes": 2167283712
+      },
+      {
+        "at": "2026-09-12T14:12:04.974Z",
+        "phase": "complete",
+        "bytes": 1382100992
+      }
+    ],
+    "measurement": "D1 API file_size/database_size; includes normal uploads and retention during migration; distinct from logical field audit"
+  },
+  "health_checks": [
+    {
+      "at": "2026-09-12T13:34:12.033Z",
+      "health_status": 200,
+      "elapsed_ms": 1013
+    },
+    {
+      "at": "2026-09-12T13:39:48.030Z",
+      "health_status": 200,
+      "elapsed_ms": 866
+    },
+    {
+      "at": "2026-09-12T13:46:08.512Z",
+      "health_status": 200,
+      "elapsed_ms": 1172
+    },
+    {
+      "at": "2026-09-12T13:55:36.722Z",
+      "health_status": 200,
+      "elapsed_ms": 1244
+    },
+    {
+      "at": "2026-09-12T14:02:26.437Z",
+      "health_status": 200,
+      "elapsed_ms": 880
+    },
+    {
+      "at": "2026-09-12T14:04:52.647Z",
+      "health_status": 200,
+      "elapsed_ms": 3153
+    },
+    {
+      "at": "2026-09-12T14:07:59.169Z",
+      "health_status": 200,
+      "elapsed_ms": 988
+    },
+    {
+      "at": "2026-09-12T14:12:23.415Z",
+      "health_status": 200,
+      "elapsed_ms": 1420
+    }
+  ],
+  "smoke_checks": [
+    {
+      "at": "2026-09-12T13:37:26.905Z",
+      "mode": "legacy",
+      "ghost_status": 200,
+      "ghost_ms": 794,
+      "rows": 3
+    },
+    {
+      "at": "2026-09-12T13:41:35.948Z",
+      "mode": "legacy",
+      "ghost_status": 200,
+      "ghost_ms": 1012,
+      "rows": 3
+    },
+    {
+      "at": "2026-09-12T13:55:38.761Z",
+      "mode": "duplicate",
+      "ghost_status": 200,
+      "ghost_ms": 1221,
+      "rows": 3,
+      "columns_match": true,
+      "seven_day_capability": true,
+      "r2_get_status": 200,
+      "duplicate_upload_status": 200,
+      "duplicate_outcome": "duplicate"
+    },
+    {
+      "at": "2026-09-12T14:00:15.954Z",
+      "mode": "summary",
+      "ghost_status": 200,
+      "ghost_ms": 1557,
+      "rows": 3,
+      "columns_match": true,
+      "seven_day_capability": true
+    },
+    {
+      "at": "2026-09-12T14:05:19.458Z",
+      "mode": "summary",
+      "ghost_status": 200,
+      "ghost_ms": 2921,
+      "rows": 3,
+      "columns_match": true,
+      "seven_day_capability": true
+    },
+    {
+      "at": "2026-09-12T14:12:00.923Z",
+      "mode": "duplicate",
+      "ghost_status": 200,
+      "ghost_ms": 1189,
+      "rows": 3,
+      "columns_match": true,
+      "seven_day_capability": true,
+      "r2_get_status": 200,
+      "duplicate_upload_status": 200,
+      "duplicate_outcome": "duplicate"
+    }
+  ],
+  "traffic_observed": {
+    "new_worker": {
+      "events": 260,
+      "first_event_ms": 1789221319944,
+      "last_event_ms": 1789222302479,
+      "http_statuses": {
+        "201": 202,
+        "200": 58
+      },
+      "exceptions": 0
+    },
+    "after_retirement": {
+      "events": 173,
+      "first_event_ms": 1789221790405,
+      "last_event_ms": 1789222302479,
+      "http_statuses": {
+        "201": 134,
+        "200": 39
+      },
+      "exceptions": 0
+    },
+    "coverage": "Observed sample only. Wrangler tail connections had gaps; not a complete request or error census."
+  },
+  "retention_tail_events": [
+    {
+      "outcome": "ok",
+      "version": {
+        "id": "5c2759c4-6262-4098-acbb-a100b477b1e3"
+      },
+      "event_timestamp": 1789220743628,
+      "metrics": {
+        "event": "d1.retention",
+        "scheduled_at_ms": 1789220734000,
+        "cutoff_ms": 1787924734000,
+        "deleted_bundles": 588,
+        "has_more": false
+      }
+    }
+  ],
+  "native_retention_events": [],
+  "r2_retention": {
+    "rule_id": "v5-bundle-retention",
+    "enabled": true,
+    "prefix": "bundles/",
+    "expiration_days": 8
+  },
+  "validation": {
+    "typecheck_and_biome": "passed",
+    "full_suite_before_concurrency_test": {
+      "files": 23,
+      "tests": 162,
+      "result": "passed"
+    },
+    "final_migration_suite": {
+      "files": 1,
+      "tests": 8,
+      "result": "passed"
+    },
+    "real_mod_parser_probe": "passed",
+    "deployment_dry_run": "passed"
+  },
+  "operational_log_directory": "/tmp/bpp-ghost-production-20260912",
+  "deployed_build_sha256": "fc6702122a197b6cdab9058ad161da1bae2f1b951d79924bee4145da795d03b5"
+}

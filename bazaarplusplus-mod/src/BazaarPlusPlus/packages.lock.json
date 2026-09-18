@@ -96,6 +96,11 @@
         "resolved": "2022.3.40",
         "contentHash": "ODbwa7bdzRTpiCQlV8YfYbesMZFFbucyC60GXy+vmsN3+7bnNjVplUaaj/pIt6GVivI2UgQwyJXxEifzB8I8lA=="
       },
+      "BepInEx.BaseLib": {
+        "type": "Transitive",
+        "resolved": "5.4.20",
+        "contentHash": "0bXgYxbCEN2Ixp3kiFEhyw+RASeFQeg/ww+lbMt7if6XMeVS60eg6epNsMA8Jbx57dmNOzNevkKKw8mP8SUMqw=="
+      },
       "HarmonyX": {
         "type": "Transitive",
         "resolved": "2.7.0",
@@ -533,12 +538,6 @@
           "SQLitePCLRaw.bundle_e_sqlite3": "[3.0.3, )",
           "SourceGear.sqlite3": "[3.50.4.5, )"
         }
-      },
-      "BepInEx.BaseLib": {
-        "type": "CentralTransitive",
-        "requested": "[5.4.20, )",
-        "resolved": "5.4.20",
-        "contentHash": "0bXgYxbCEN2Ixp3kiFEhyw+RASeFQeg/ww+lbMt7if6XMeVS60eg6epNsMA8Jbx57dmNOzNevkKKw8mP8SUMqw=="
       },
       "MessagePack": {
         "type": "CentralTransitive",

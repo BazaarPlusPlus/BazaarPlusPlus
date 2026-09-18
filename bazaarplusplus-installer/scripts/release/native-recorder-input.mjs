@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
+import { runGit } from '../git-command.mjs';
 
 export const NATIVE_RECORDER_LOCK_PATH =
   'scripts/release/native-recorder-input.lock.json';
@@ -355,14 +356,10 @@ function loadManifestForPromotion(lockPath) {
 }
 
 function producerProvenance(sourceRoot) {
-  const commit = execFileSync('git', ['rev-parse', 'HEAD'], {
-    cwd: sourceRoot,
-    encoding: 'utf8'
-  }).trim();
+  const commit = runGit(['rev-parse', 'HEAD'], { cwd: sourceRoot }).trim();
   const dirty =
-    execFileSync('git', ['status', '--porcelain', '--untracked-files=all'], {
-      cwd: sourceRoot,
-      encoding: 'utf8'
+    runGit(['status', '--porcelain', '--untracked-files=all', '--', '.'], {
+      cwd: sourceRoot
     }).trim().length > 0;
   return { repository: expectedRepository, commit, dirty };
 }
