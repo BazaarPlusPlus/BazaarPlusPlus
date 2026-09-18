@@ -253,7 +253,10 @@ test('gitStateForRoot ignores dirty siblings in a monorepo', () => {
     runFixtureGit(['commit', '-qm', 'installer snapshot'], {
       cwd: fixtureRoot
     });
-    fs.writeFileSync(path.join(fixtureRoot, 'sibling-dirty.txt'), 'other work\n');
+    fs.writeFileSync(
+      path.join(fixtureRoot, 'sibling-dirty.txt'),
+      'other work\n'
+    );
 
     const state = gitStateForRoot(installerDir);
     expect(state.dirty).toBe(false);

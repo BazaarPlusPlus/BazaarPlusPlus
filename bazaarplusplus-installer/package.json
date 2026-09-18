@@ -1,6 +1,6 @@
 {
   "name": "bppinstaller",
-  "version": "5.4.0",
+  "version": "5.5.0",
   "description": "BazaarPlusPlus Desktop App",
   "type": "module",
   "packageManager": "npm@11.17.0",
