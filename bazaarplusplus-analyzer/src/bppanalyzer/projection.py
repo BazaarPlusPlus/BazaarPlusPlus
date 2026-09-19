@@ -42,12 +42,12 @@ class HourProjection:
     """One hour's metadata plus either reusable tables or a one-shot batch stream."""
 
     __slots__ = (
-        "source_hour",
-        "raw_commit_sha256",
-        "projection_version",
-        "_tables",
         "_batch_stream",
         "_stream_consumed",
+        "_tables",
+        "projection_version",
+        "raw_commit_sha256",
+        "source_hour",
     )
 
     def __init__(
@@ -57,7 +57,7 @@ class HourProjection:
         tables: Mapping[str, pa.Table] | None = None,
         projection_version: str = PROJECTION_VERSION,
         *,
-        batch_stream: "_ProjectedBatchStream | None" = None,
+        batch_stream: _ProjectedBatchStream | None = None,
     ) -> None:
         if (tables is None) == (batch_stream is None):
             raise ValueError("Hour Projection requires tables or a batch stream")
@@ -283,7 +283,7 @@ def project_hour(index: RawHourIndex, bundles: Iterable[Bundle]) -> HourProjecti
 
 
 class _ProjectedBatchStream:
-    __slots__ = ("index", "bundles", "bundle_count")
+    __slots__ = ("bundle_count", "bundles", "index")
 
     def __init__(self, index: RawHourIndex, bundles: Iterable[Bundle]) -> None:
         self.index = index

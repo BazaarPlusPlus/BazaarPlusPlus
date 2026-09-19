@@ -1,14 +1,16 @@
 """Single-machine mkdir lock with stale takeover and zombie fencing."""
 
+import contextlib
 import json
 import os
 import shutil
 import socket
 import threading
 import time
+from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Callable, Self
+from typing import Self
 
 
 class LockError(RuntimeError):
@@ -92,10 +94,8 @@ class DirectoryLock:
                         shutil.rmtree(stale_path, ignore_errors=True)
                         continue
                 finally:
-                    try:
+                    with contextlib.suppress(OSError):
                         takeover_guard.rmdir()
-                    except OSError:
-                        pass
                 continue
             break
 
@@ -113,10 +113,8 @@ class DirectoryLock:
                 stream.flush()
                 os.fsync(stream.fileno())
         except BaseException:
-            try:
+            with contextlib.suppress(OSError):
                 self._path.rmdir()
-            except OSError:
-                pass
             raise
         if stale_path.exists():
             shutil.rmtree(stale_path, ignore_errors=True)
@@ -220,10 +218,8 @@ class DirectoryLock:
         except FileNotFoundError:
             return
         if age > self._stale_after:
-            try:
+            with contextlib.suppress(OSError):
                 path.rmdir()
-            except OSError:
-                pass
 
     @staticmethod
     def _read_run_id(path: Path) -> str | None:

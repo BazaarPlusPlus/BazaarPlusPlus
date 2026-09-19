@@ -335,10 +335,12 @@ class BundleSource:
                         self._download_retries += 1
                 delay = self._jitter(RETRY_BACKOFF_SECONDS[attempt])
                 if not isinstance(delay, int | float) or isinstance(delay, bool):
-                    raise TypeError("Retry jitter must return seconds")
+                    raise TypeError("Retry jitter must return seconds") from error
                 delay = float(delay)
                 if not math.isfinite(delay) or delay < 0:
-                    raise ValueError("Retry jitter must return finite non-negative seconds")
+                    raise ValueError(
+                        "Retry jitter must return finite non-negative seconds"
+                    ) from error
                 if error.retry_after_seconds is not None:
                     delay = max(delay, min(error.retry_after_seconds, MAX_RETRY_AFTER_SECONDS))
                 with self._performance_lock:
@@ -741,7 +743,7 @@ def _retry_after_seconds(response: httpx.Response, now: datetime) -> float | Non
         if retry_at.tzinfo is None or retry_at.utcoffset() is None:
             return None
         if now.tzinfo is None or now.utcoffset() is None:
-            raise ValueError("Bundle Source clock must be timezone-aware")
+            raise ValueError("Bundle Source clock must be timezone-aware") from None
         seconds = (retry_at.astimezone(UTC) - now.astimezone(UTC)).total_seconds()
     if not math.isfinite(seconds) or seconds < 0:
         return None

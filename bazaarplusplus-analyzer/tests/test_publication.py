@@ -13,6 +13,7 @@ from bppanalyzer.publication import (
     AnalysisWindow,
     AnalysisWindowError,
     BuildRank,
+    ContractViolation,
     LatestPublisher,
     SnapshotBuilder,
     select_analysis_window,
@@ -259,7 +260,7 @@ def test_product_validation_failure_preserves_old_object_and_does_not_block_othe
     assert window is not None
     builds = SnapshotBuilder(root, store=store).build_builds(window)
 
-    with pytest.raises(Exception):
+    with pytest.raises(ContractViolation):
         publisher.replace(type(builds)("heroes", HEROES_KEY, b"{}\n", builds.stats))
     assert publisher.replace(builds) is True
 

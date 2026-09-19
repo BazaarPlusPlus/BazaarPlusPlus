@@ -1,5 +1,6 @@
 """Build and persist local Operational Evidence for pipeline Runs."""
 
+import contextlib
 import json
 import os
 import resource
@@ -86,7 +87,7 @@ class RunReport:
         expected_bundles: int,
         succeeded_bundles: int,
         failed_bundles: int,
-    ) -> "RunReport":
+    ) -> RunReport:
         window_report: WindowReport | None = None
         if window is not None:
             window_report = {
@@ -261,10 +262,8 @@ class OperationalEvidence:
             os.fsync(stream.fileno())
 
     def try_log(self, message: str) -> None:
-        try:
+        with contextlib.suppress(BaseException):
             self.log(message)
-        except BaseException:
-            pass
 
     def checkpoint(
         self,

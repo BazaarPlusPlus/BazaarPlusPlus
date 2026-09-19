@@ -62,7 +62,7 @@ def test_numeric_and_memory_configuration_is_strict(
 
 
 def test_missing_env_and_source_configuration_are_rejected(tmp_path: Path) -> None:
-    with pytest.raises(ConfigurationError, match=".env"):
+    with pytest.raises(ConfigurationError, match=r"\.env"):
         load_config(root=tmp_path)
     (tmp_path / ".env").write_text("BPP_DATA_ROOT=data\n")
     with pytest.raises(ConfigurationError, match="Bundle Server"):
@@ -82,7 +82,7 @@ def test_source_epoch_is_optional_and_parsed_as_a_strict_utc_date(tmp_path: Path
     assert load_config(root=tmp_path).source_epoch == date(2026, 8, 7)
 
     _write_env(tmp_path, "BPP_SOURCE_EPOCH=2026-8-7\n")
-    with pytest.raises(ConfigurationError, match="BPP_SOURCE_EPOCH.*YYYY-MM-DD"):
+    with pytest.raises(ConfigurationError, match=r"BPP_SOURCE_EPOCH.*YYYY-MM-DD"):
         load_config(root=tmp_path)
 
 

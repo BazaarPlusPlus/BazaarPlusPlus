@@ -18,7 +18,6 @@ bpp = "bppanalyzer.cli:main"
 
 [dependency-groups]
 dev = [
-    "pre-commit==4.6.2",
     "pytest==9.1.1",
     "pytest-cov==7.1.0",
     "pytest-timeout==2.4.0",
@@ -58,7 +57,10 @@ src = ["src", "tests"]
 target-version = "py314"
 
 [tool.ruff.lint]
-select = ["E4", "E7", "E9", "F", "I"]
+select = ["E4", "E7", "E9", "F", "I", "B", "UP", "SIM", "RUF"]
+# Progress callbacks defined inside loops run synchronously within the same
+# iteration, so late binding of loop variables cannot occur.
+ignore = ["B023"]
 
 [tool.ty.environment]
 python-version = "3.14"

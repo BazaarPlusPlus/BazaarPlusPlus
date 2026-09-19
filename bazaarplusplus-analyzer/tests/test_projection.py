@@ -169,7 +169,7 @@ def test_bundle_admission_failure_stops_the_source_hour_before_commit() -> None:
 
     index = source.hour_index(SOURCE_HOUR)
     with pytest.raises(RetryableSourceError) as raised:
-        project_hour(index, source.stream(index)).tables
+        _ = project_hour(index, source.stream(index)).tables
 
     assert raised.value.reason == "bundle_validation_failed"
 

@@ -337,7 +337,8 @@ class PipelineDriver:
                 )
             except LockOwnershipLost:
                 if pending_error is not None:
-                    raise pending_error.with_traceback(pending_traceback)
+                    # Surface the original run failure, chained to the lost lock.
+                    raise pending_error.with_traceback(pending_traceback)  # noqa: B904
                 raise
             if pending_error is not None:
                 raise pending_error.with_traceback(pending_traceback)
@@ -724,7 +725,7 @@ def _failed_summary(
     finished_at: datetime,
 ) -> RunSummary:
     failure = {"scope": "run", "reason": _error_reason(error)}
-    failures = tuple(progress.failures) + (failure,)
+    failures = (*tuple(progress.failures), failure)
     if summary is None:
         heal_seconds = (
             time.monotonic() - progress.heal_started_monotonic

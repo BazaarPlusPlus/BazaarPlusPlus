@@ -9,7 +9,7 @@ import tempfile
 import time
 import uuid
 from collections.abc import Callable, Iterable, Mapping
-from contextlib import ExitStack
+from contextlib import ExitStack, suppress
 from dataclasses import dataclass, replace
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
@@ -438,10 +438,8 @@ class FactStore:
         for seal in seals[:-retain_days]:
             path = self._seal_path(parse_source_day(seal.source_day))
             self._ownership_check()
-            try:
+            with suppress(OSError):
                 bytes_pruned += path.stat().st_size
-            except OSError:
-                pass
             path.unlink()
             files_pruned += 1
             pruned_days.add(seal.source_day)
@@ -461,10 +459,8 @@ class FactStore:
                 for item in path.iterdir():
                     if not item.is_file():
                         continue
-                    try:
+                    with suppress(OSError):
                         bytes_pruned += item.stat().st_size
-                    except OSError:
-                        pass
                     files_pruned += 1
                 shutil.rmtree(path)
                 hours_pruned += 1
