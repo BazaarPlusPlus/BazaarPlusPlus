@@ -16,4 +16,8 @@
     <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" />
     <PackageReference Include="SourceGear.sqlite3" />
   </ItemGroup>
+
+  <ItemGroup>
+    <None Update="BazaarPlusPlus.history-database.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>

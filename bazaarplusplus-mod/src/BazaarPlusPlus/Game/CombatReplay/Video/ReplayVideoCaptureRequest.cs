@@ -21,8 +21,10 @@ internal sealed class ReplayVideoCaptureRequest
 
     public int Fps { get; init; }
 
-    public ReplayVideoEncoderProfile EncoderProfile { get; init; } =
-        ReplayVideoEncoderProfile.NativeForCurrentPlatform(2, 2, 30);
+    // No default: the sole construction site always supplies both, and the previous placeholder
+    // initializers ran a platform probe (which throws on unsupported platforms) only to be
+    // overwritten by the object initializer.
+    public ReplayVideoEncoderProfile EncoderProfile { get; init; } = null!;
 
-    public ReplayVideoBufferPlan BufferPlan { get; init; } = ReplayVideoBufferPlan.Create(2, 2);
+    public ReplayVideoBufferPlan BufferPlan { get; init; } = null!;
 }

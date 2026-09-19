@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(BppSeedGateOnly)' != 'true'">
+    <_ScenarioRunnerProject Include="$(BppScenarioRunnerProjects)" />
+    <ProjectReference
+      Include="@(_ScenarioRunnerProject->'../%(Identity)/%(Identity).csproj')"
+      ReferenceOutputAssembly="false"
+    />
+  </ItemGroup>
+  <ItemGroup Condition="'$(BppSeedGateOnly)' == 'true'">
+    <ProjectReference
+      Include="../LiveBuildRecommendations.Tests/LiveBuildRecommendations.Tests.csproj"
+      ReferenceOutputAssembly="false"
+    />
+  </ItemGroup>
+</Project>

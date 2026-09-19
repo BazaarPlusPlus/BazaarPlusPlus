@@ -11,9 +11,6 @@
       >$(RemoteEmbeddedDataDirectory)/builds.json</TenWinBuildsDownloadedPath>
     <ForceRemoteEmbeddedDataRefresh Condition="'$(ForceRemoteEmbeddedDataRefresh)' == ''"
       >false</ForceRemoteEmbeddedDataRefresh>
-    <VoiceLinesSourcePath Condition="'$(VoiceLinesSourcePath)' == ''"></VoiceLinesSourcePath>
-    <VoiceLinesValidatorProject Condition="'$(VoiceLinesValidatorProject)' == ''"
-      >$(MSBuildThisFileDirectory)../../build/VoiceLinesValidator/VoiceLinesValidator.csproj</VoiceLinesValidatorProject>
     <RemoteEmbeddedDataFetcherProject Condition="'$(RemoteEmbeddedDataFetcherProject)' == ''"
       >$(MSBuildThisFileDirectory)../../build/RemoteEmbeddedDataFetcher/RemoteEmbeddedDataFetcher.csproj</RemoteEmbeddedDataFetcherProject>
     <RemoteEmbeddedDataPrepared Condition="'$(RemoteEmbeddedDataPrepared)' == ''"
@@ -56,35 +53,14 @@
     />
   </ItemGroup>
 
-  <Target
-    Name="PrepareLocalVoiceLinesSource"
-    BeforeTargets="EnsureRemoteEmbeddedData"
-    Condition="'$(VoiceLinesSourcePath)' != ''"
-  >
-    <Error
-      Condition="!Exists('$(VoiceLinesSourcePath)')"
-      Text="VoiceLinesSourcePath does not exist: $(VoiceLinesSourcePath)"
-    />
-    <Exec
-      Command="dotnet run --project &quot;$(VoiceLinesValidatorProject)&quot; --no-launch-profile -- &quot;$(VoiceLinesSourcePath)&quot;"
-      WorkingDirectory="$(MSBuildProjectDirectory)"
-    />
-    <MakeDir Directories="$(RemoteEmbeddedDataDirectory)" />
-    <Copy
-      SourceFiles="$(VoiceLinesSourcePath)"
-      DestinationFiles="$(RemoteEmbeddedDataDirectory)/voice-lines.json"
-    />
-  </Target>
-
   <Target Name="EnsureRemoteEmbeddedData" BeforeTargets="AssignTargetPaths">
     <ItemGroup>
       <_RemoteEmbeddedDataToFetch
         Include="@(RemoteEmbeddedData)"
         Condition="
-          ('$(_ForceRemoteEmbeddedDataRefresh)' == 'true'
-            or ('%(RemoteEmbeddedData.FetchWhenMissing)' == 'true'
-              and !Exists('%(RemoteEmbeddedData.DestinationPath)')))
-          and ('%(RemoteEmbeddedData.Identity)' != 'voice-lines.json' or '$(VoiceLinesSourcePath)' == '')
+          '$(_ForceRemoteEmbeddedDataRefresh)' == 'true'
+          or ('%(RemoteEmbeddedData.FetchWhenMissing)' == 'true'
+            and !Exists('%(RemoteEmbeddedData.DestinationPath)'))
         "
       />
     </ItemGroup>

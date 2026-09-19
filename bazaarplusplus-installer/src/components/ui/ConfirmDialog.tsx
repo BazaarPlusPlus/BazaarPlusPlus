@@ -1,18 +1,9 @@
-import {
-  AlertTriangle,
-  DownloadCloud,
-  Loader2,
-  X,
-  type LucideIcon
-} from 'lucide-react';
+import { AlertTriangle, DownloadCloud, Loader2, X } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { Dialog, type DialogCloseReason } from './Dialog';
+import { Dialog } from './Dialog';
 import { useI18n } from '../../i18n/LocaleProvider';
 
 export type ConfirmTone = 'gold' | 'danger';
-
-export type ConfirmDialogDismissReason =
-  DialogCloseReason | 'close-button' | 'secondary-action';
 
 export type ActiveDismissalPolicy =
   | { kind: 'blocked' }
@@ -63,7 +54,7 @@ export interface ConfirmDialogProps {
 
 const TONE = {
   gold: {
-    Icon: DownloadCloud as LucideIcon,
+    Icon: DownloadCloud,
     card: 'bpp-modal-card bpp-install-confirm-card w-full max-w-[560px] mx-4 relative',
     bar: 'bpp-modal-header bpp-install-confirm-header flex justify-between items-center px-5 py-4',
     icon: 'bpp-confirm-tone-icon is-gold',
@@ -78,7 +69,7 @@ const TONE = {
       'bpp-confirm-submit is-gold bpp-install-confirm-submit px-5 py-2 text-sm cinzel font-bold tracking-wider transition-[filter] hover:brightness-110 active:brightness-95 disabled:opacity-50 disabled:hover:brightness-100'
   },
   danger: {
-    Icon: AlertTriangle as LucideIcon,
+    Icon: AlertTriangle,
     card: 'bpp-modal-card bpp-modal-danger w-full max-w-md mx-4 relative',
     bar: 'bpp-modal-header flex justify-between items-center px-5 py-4',
     icon: 'bpp-confirm-tone-icon is-danger',
@@ -120,11 +111,10 @@ export function ConfirmDialog({
   const secondaryLabel = busy
     ? activeDismissLabel
     : (dismissLabel ?? t('cancel'));
-  const requestDismiss = (reason: ConfirmDialogDismissReason) =>
+  const requestDismiss = () =>
     requestConfirmDialogDismiss({
       busy,
       activeDismissalPolicy,
-      reason,
       onClose
     });
 
@@ -150,7 +140,7 @@ export function ConfirmDialog({
           </div>
           <button
             type="button"
-            onClick={() => requestDismiss('close-button')}
+            onClick={requestDismiss}
             disabled={!dismissAllowed}
             className={`${s.close} disabled:opacity-50 disabled:pointer-events-none`}
             aria-label={
@@ -178,7 +168,7 @@ export function ConfirmDialog({
             {secondaryLabel ? (
               <button
                 type="button"
-                onClick={() => requestDismiss('secondary-action')}
+                onClick={requestDismiss}
                 className="bpp-confirm-cancel px-5 py-2 transition-colors text-sm"
               >
                 {secondaryLabel}
@@ -239,7 +229,6 @@ export function requestConfirmDialogDismiss({
 }: {
   busy: boolean;
   activeDismissalPolicy: ActiveDismissalPolicy;
-  reason: ConfirmDialogDismissReason;
   onClose: () => void;
 }): boolean {
   if (!busy) {

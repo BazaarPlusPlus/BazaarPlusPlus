@@ -1,13 +1,9 @@
 #nullable enable
 using BazaarPlusPlus.Game.HistoryPanel.Data;
+using BazaarPlusPlus.Game.HistoryPanel.Storage;
+using BazaarPlusPlus.Game.PvpBattles;
 
 namespace BazaarPlusPlus.Game.HistoryPanel;
-
-internal enum PreviewSelectionMode
-{
-    Run,
-    Battle,
-}
 
 internal enum HistorySectionMode
 {
@@ -24,15 +20,23 @@ internal enum GhostBattleFilter
 
 internal sealed class HistoryPanelState
 {
-    public List<HistoryRunRecord> Runs { get; } = new();
+    public IReadOnlyList<HistoryRunRecord> Runs => RunPage.Rows;
 
-    public List<HistoryBattleRecord> Battles { get; } = new();
+    public IReadOnlyList<HistoryBattleRecord> Battles => BattlePage.Rows;
 
-    public List<HistoryBattleRecord> GhostBattles { get; } = new();
+    public IReadOnlyList<HistoryBattleRecord> GhostBattles => GhostPage.Rows;
 
-    public List<HistoryRunRecord> FilteredRuns { get; } = new();
-
-    public List<HistoryBattleRecord> FilteredGhostBattles { get; } = new();
+    public HistoryPage<HistoryRunRecord> RunPage { get; set; } =
+        HistoryPage<HistoryRunRecord>.Empty;
+    public HistoryPage<HistoryBattleRecord> BattlePage { get; set; } =
+        HistoryPage<HistoryBattleRecord>.Empty;
+    public HistoryPage<HistoryBattleRecord> GhostPage { get; set; } =
+        HistoryPage<HistoryBattleRecord>.Empty;
+    public PvpBattleSnapshots? DetailSnapshots { get; set; }
+    public string? DetailBattleId { get; set; }
+    public bool DetailLoading { get; set; }
+    public bool DetailFailed { get; set; }
+    public bool PageLoading { get; set; }
 
     public int SelectedRunIndex { get; set; }
 
@@ -54,8 +58,6 @@ internal sealed class HistoryPanelState
 
     public bool DeleteRunConfirmationStatusActive { get; set; }
 
-    public PreviewSelectionMode PreviewSelectionMode { get; set; } = PreviewSelectionMode.Run;
-
     public HistorySectionMode SectionMode { get; set; } = HistorySectionMode.Runs;
 
     public bool GhostSyncInProgress { get; set; }
@@ -76,10 +78,6 @@ internal sealed class HistoryPanelState
     public string? AccountLinkBannerMessage { get; set; }
 
     public StatusSeverity AccountLinkBannerSeverity { get; set; }
-
-    public bool FilteredGhostBattlesDirty { get; set; } = true;
-
-    public bool FilteredRunsDirty { get; set; } = true;
 
     public bool ShouldClearStatusWhenDeleteConfirmationExpires()
     {

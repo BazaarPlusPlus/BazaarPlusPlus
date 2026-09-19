@@ -20,11 +20,14 @@ internal enum ReplayPlaybackReasonCode
     OpponentSkillsUnavailable,
     OpponentIdentityUnavailable,
     OpponentPortraitUnavailable,
-    OpponentPortraitCleanupFailed,
     PresentationWarmupFailed,
     AudioWarmupFailed,
     SoundtrackWarmupFailed,
     CombatVfxWarmupFailed,
+    RecordingRestartPromotionFailed,
+    RecordingRestartPublishFailed,
+    RecordingRestartInvokeFailed,
+    RecordingRestartRejected,
 }
 
 internal enum ReplayPlaybackEndReasonCode
@@ -50,6 +53,7 @@ internal enum ReplayRequestRejectionReasonCode
     ActiveRun,
     ReplayAlreadyActive,
     PayloadUnavailable,
+    PayloadOperationBusy,
     ManifestUnavailable,
     LoaderUnavailable,
 }
@@ -59,33 +63,30 @@ internal enum ReplayCaptureReasonCode
     CaptureOrEnqueueException,
 }
 
-internal enum ReplayExternalRecordSource
-{
-    Agent,
-}
-
 internal enum ReplayPersistenceReasonCode
 {
     Persisted,
     PersistenceFailed,
     ShutdownAbandoned,
-    OrphanDeleteFailed,
-    OrphanScanFailed,
+}
+
+internal enum ReplayMaintenanceReasonCode
+{
+    Completed,
+    DeleteFailed,
+    ScanFailed,
 }
 
 internal enum ReplayWarmupStage
 {
     Presentation,
     AudioBanks,
-    Soundtrack,
     CombatVfx,
 }
 
 internal enum ReplayWarmupAssetReasonCode
 {
-    AssetUnavailable,
     AssetLoadFailed,
-    InvalidAssetKey,
 }
 
 internal enum CurrentReplayPresentationGateOutcome
@@ -225,33 +226,6 @@ internal static class CombatReplayLogEvents
         [RequestRejectedSource, RequestRejectedReasonCode, RequestRejectedBattleId]
     );
 
-    internal static readonly BppLogFieldDefinition ExternalRecordAcceptedRequestId = Public(
-        0,
-        "request_id",
-        BppLogCardinality.High,
-        BppLogCorrelationPolicy.Short
-    );
-    internal static readonly BppLogFieldDefinition ExternalRecordAcceptedBattleId = Public(
-        1,
-        "battle_id",
-        BppLogCardinality.High,
-        BppLogCorrelationPolicy.Short
-    );
-    internal static readonly BppLogFieldDefinition ExternalRecordAcceptedSource = Public(
-        2,
-        "source",
-        BppLogCardinality.Low
-    );
-    internal static readonly BppLogEventDefinition ExternalRecordAccepted = new(
-        BppLogFeatureScope.CombatReplay,
-        "combat_replay.external_record.accepted",
-        [
-            ExternalRecordAcceptedRequestId,
-            ExternalRecordAcceptedBattleId,
-            ExternalRecordAcceptedSource,
-        ]
-    );
-
     internal static readonly BppLogFieldDefinition PlaybackStartedBattleId = Public(
         0,
         "battle_id",
@@ -378,21 +352,61 @@ internal static class CombatReplayLogEvents
         [PersistenceBattleId, PersistenceRunId, PersistenceReasonCode]
     );
 
-    internal static readonly BppLogFieldDefinition OrphanCleanupReasonCode = Public(
+    internal static readonly BppLogFieldDefinition MaintenanceReasonCode = Public(
         0,
         "reason_code",
         BppLogCardinality.Low
     );
-    internal static readonly BppLogFieldDefinition OrphanCleanupFailedCount = Public(
+    internal static readonly BppLogFieldDefinition MaintenanceEvaluatedCount = Public(
         1,
+        "evaluated_count",
+        BppLogCardinality.High
+    );
+    internal static readonly BppLogFieldDefinition MaintenanceScheduledCount = Public(
+        2,
+        "scheduled_count",
+        BppLogCardinality.High
+    );
+    internal static readonly BppLogFieldDefinition MaintenanceDeletedCount = Public(
+        3,
+        "deleted_count",
+        BppLogCardinality.High
+    );
+    internal static readonly BppLogFieldDefinition MaintenanceMissingCount = Public(
+        4,
+        "missing_count",
+        BppLogCardinality.High
+    );
+    internal static readonly BppLogFieldDefinition MaintenanceOrphanCount = Public(
+        5,
+        "orphan_count",
+        BppLogCardinality.High
+    );
+    internal static readonly BppLogFieldDefinition MaintenanceFailedCount = Public(
+        6,
         "failed_count",
         BppLogCardinality.High
     );
-    internal static readonly BppLogEventDefinition OrphanCleanupDegraded = new(
+    private static readonly BppLogFieldDefinition[] MaintenanceFields =
+    [
+        MaintenanceReasonCode,
+        MaintenanceEvaluatedCount,
+        MaintenanceScheduledCount,
+        MaintenanceDeletedCount,
+        MaintenanceMissingCount,
+        MaintenanceOrphanCount,
+        MaintenanceFailedCount,
+    ];
+    internal static readonly BppLogEventDefinition MaintenanceCompleted = new(
         BppLogFeatureScope.CombatReplay,
-        "combat_replay.persistence.orphan_cleanup_degraded",
-        [OrphanCleanupReasonCode, OrphanCleanupFailedCount],
-        new BppLogStormPolicy([OrphanCleanupReasonCode])
+        "combat_replay.maintenance.completed",
+        MaintenanceFields
+    );
+    internal static readonly BppLogEventDefinition MaintenanceDegraded = new(
+        BppLogFeatureScope.CombatReplay,
+        "combat_replay.maintenance.degraded",
+        MaintenanceFields,
+        new BppLogStormPolicy([MaintenanceReasonCode])
     );
 
     internal static readonly BppLogFieldDefinition ShutdownPendingCount = Public(

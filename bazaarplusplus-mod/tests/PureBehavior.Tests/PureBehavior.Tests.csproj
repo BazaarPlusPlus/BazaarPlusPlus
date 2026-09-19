@@ -1,0 +1,44 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="../AsyncLoadCache.Tests/*.cs" />
+    <Compile Include="../../src/BazaarPlusPlus/GameInterop/MonsterBoardPreview/NativeMonsterBoardLayout.cs" />
+    <Compile Include="../../src/BazaarPlusPlus/Game/LiveBuildPanel/Ui/LiveBuildPanelLayout.cs" />
+    <Compile Include="../../src/BazaarPlusPlus/Game/HistoryPanel/Ui/HistoryPanelLayout.cs" />
+    <Compile Include="../../src/BazaarPlusPlus/Game/HistoryPanel/Ui/HistoryTimelineScroll.cs" />
+    <Compile Include="../../src/BazaarPlusPlus/GameInterop/MonsterBoardPreview/NativeMonsterBoardTooltipGate.cs" />
+    <Compile Include="../../src/BazaarPlusPlus/Game/MusicNotes/MusicNoteSocketInference.cs" />
+    <Compile Include="../GraphicsUpscaling.Tests/*.cs" />
+    <Compile Include="../NativeAssetLoading.Tests/*.cs" />
+    <Compile Include="../NativeCardPreviewHost.Tests/*.cs" />
+    <Compile Include="../RemoteEmbeddedCatalog.Tests/*.cs" />
+
+    <Compile Include="../../src/BazaarPlusPlus/Infrastructure/AsyncLoadCache.cs" />
+    <Compile Include="../../src/BazaarPlusPlus/Core/Config/GraphicsUpscalingMode.cs" />
+    <Compile Include="../../src/BazaarPlusPlus/Game/GraphicsUpscaling/FsrUpscalingProfile.cs" />
+    <Compile Include="../../src/BazaarPlusPlus/Infrastructure/RemoteEmbeddedCatalog/RemoteEmbeddedCatalogContracts.cs" />
+    <Compile Include="../../src/BazaarPlusPlus/Infrastructure/RemoteEmbeddedCatalog/RemoteEmbeddedCatalog.cs" />
+    <Compile Include="../../src/BazaarPlusPlus/GameInterop/CardPreview/NativeCardPreviewScopeLifetime.cs" />
+    <Compile Include="../../src/BazaarPlusPlus/GameInterop/CardPreview/NativeCardPreviewScopeDisposal.cs" />
+    <Compile Include="../../src/BazaarPlusPlus/GameInterop/CardPreview/NativeCardPreviewPoolSettlement.cs" />
+    <Compile Include="../../src/BazaarPlusPlus/GameInterop/AssetLoading/NativeAssetLoaderInvocation.cs" />
+    <Compile Include="../../src/BazaarPlusPlus/GameInterop/CardPreview/NativeCardPreviewHoverState.cs" />
+    <Compile Include="../../src/BazaarPlusPlus/GameInterop/CardPreview/NativeTooltipRefreshTransaction.cs" />
+    <Compile Include="../../src/BazaarPlusPlus/GameInterop/CardPreview/NativePreviewSessionActions.cs" />
+    <Compile Include="../../src/BazaarPlusPlus/GameInterop/CardPreview/NativePreviewPresentationTransaction.cs" />
+    <Compile Include="../../src/BazaarPlusPlus/GameInterop/CardPreview/NativeCardPreviewOutcome.cs" />
+    <Compile Include="../../src/BazaarPlusPlus/GameInterop/CardPreview/NativeCardPreviewSlotFitMath.cs" />
+  </ItemGroup>
+</Project>

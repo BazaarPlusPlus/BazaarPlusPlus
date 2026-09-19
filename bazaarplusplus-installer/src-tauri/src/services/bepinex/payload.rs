@@ -7,50 +7,66 @@ use crate::config::BAZAAR_DATA_DIRECTORY;
 
 pub(super) const BPP_CONFIG_RELATIVE_PATH: &str = "BepInEx/config/BazaarPlusPlus.cfg";
 
-const BPP_PRIVATE_RELATIVE_PATHS: &[&str] = &[
-    BPP_CONFIG_RELATIVE_PATH,
-    "BepInEx/plugins/BazaarPlusPlus.dll",
-    "BepInEx/plugins/BazaarPlusPlus.version",
-    "BepInEx/plugins/BazaarPlusPlus.ModApi.dll",
-    "BepInEx/plugins/BazaarPlusPlus.Storage.dll",
-    "BepInEx/plugins/BazaarPlusPlus.Localization.dll",
-    "BepInEx/plugins/libBppMacAudio.dylib",
-    "TheBazaar.app/Contents/Plugins/GfxPluginBppReplayVideoToolbox.bundle",
-    "TheBazaar_Data/Plugins/x86_64/GfxPluginBppReplayMediaFoundation.dll",
-    // Cleanup tombstone retained for installs made before in-process native recording.
-    "BepInEx/plugins/BppReplayRecorder.app",
-];
+#[derive(serde::Deserialize)]
+struct PayloadInventory {
+    #[serde(rename = "schemaVersion")]
+    schema_version: u32,
+    files: Vec<PayloadEntry>,
+}
 
-const BPP_BUNDLED_DEPENDENCY_RELATIVE_PATHS: &[&str] = &[
-    "BepInEx/plugins/Microsoft.Data.Sqlite.dll",
-    "BepInEx/plugins/SQLitePCLRaw.batteries_v2.dll",
-    "BepInEx/plugins/SQLitePCLRaw.core.dll",
-    "BepInEx/plugins/SQLitePCLRaw.provider.e_sqlite3.dll",
-    "BepInEx/plugins/SixLabors.ImageSharp.dll",
-    "BepInEx/plugins/System.Buffers.dll",
-    "BepInEx/plugins/System.Memory.dll",
-    "BepInEx/plugins/System.Numerics.Vectors.dll",
-    "BepInEx/plugins/System.Text.Encoding.CodePages.dll",
-    "BepInEx/plugins/e_sqlite3.dll",
-    "BepInEx/plugins/libe_sqlite3.dylib",
-    "BepInEx/plugins/ffmpeg",
-    "BepInEx/plugins/ffmpeg.exe",
-    "BepInEx/plugins/ffmpeg-LICENSE.txt",
-];
+#[derive(serde::Deserialize)]
+struct PayloadEntry {
+    path: String,
+    ownership: String,
+    platforms: Option<Vec<String>>,
+}
 
-/// BepInEx bootstrap the payload ships outside the two ownership lists, plus
-/// files BepInEx itself generates at runtime. Removed only when BPP is the last
-/// installed plugin; while another mod remains these paths are shared loader state.
-const BEPINEX_BOOTSTRAP_RELATIVE_PATHS: &[&str] = &[
-    "BepInEx/core",
-    "BepInEx/cache",
-    "BepInEx/config/BepInEx.cfg",
-    "BepInEx/LogOutput.log",
-    "BepInEx/plugins/.gitkeep",
-    "winhttp.dll",
-    "doorstop_config.ini",
-    "libdoorstop.dylib",
-];
+fn inventory() -> &'static PayloadInventory {
+    static INVENTORY: std::sync::OnceLock<PayloadInventory> = std::sync::OnceLock::new();
+    INVENTORY.get_or_init(|| {
+        let inventory: PayloadInventory = serde_json::from_str(include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../release/payload.json"
+        )))
+        .expect("the compiled Payload Inventory must be valid JSON");
+        assert_eq!(inventory.schema_version, 1, "unsupported Payload Inventory");
+        for entry in &inventory.files {
+            let known_root = entry.path.starts_with("BepInEx/")
+                || entry
+                    .path
+                    .starts_with("TheBazaar.app/Contents/Plugins/GfxPluginBpp")
+                || entry
+                    .path
+                    .starts_with("TheBazaar_Data/Plugins/x86_64/GfxPluginBpp")
+                || matches!(
+                    entry.path.as_str(),
+                    "winhttp.dll" | "doorstop_config.ini" | "libdoorstop.dylib"
+                );
+            assert!(
+                known_root
+                    && !entry.path.contains(['\\', ':', '\0'])
+                    && entry
+                        .path
+                        .split('/')
+                        .all(|part| !part.is_empty() && part != "." && part != ".."),
+                "unsafe compiled Payload Inventory path"
+            );
+            assert!(matches!(
+                entry.ownership.as_str(),
+                "private" | "dependency" | "bootstrap"
+            ));
+        }
+        inventory
+    })
+}
+
+fn owned_paths(ownership: &str) -> impl Iterator<Item = &'static str> + '_ {
+    inventory()
+        .files
+        .iter()
+        .filter(move |entry| entry.ownership == ownership)
+        .map(|entry| entry.path.as_str())
+}
 
 /// Backoff used between retries when a file/directory removal fails. The first
 /// retry runs immediately, the second after a short pause, and the last after
@@ -127,20 +143,20 @@ fn remove_path_if_exists(path: &Path) -> Result<(), String> {
 
 pub(crate) fn payload_root_relative_paths() -> Vec<&'static str> {
     let mut paths = vec!["BepInEx"];
-
-    #[cfg(target_os = "macos")]
-    {
-        paths.push("libdoorstop.dylib");
-        paths.push("TheBazaar.app/Contents/Plugins/GfxPluginBppReplayVideoToolbox.bundle");
-    }
-
-    #[cfg(target_os = "windows")]
-    {
-        paths.push("doorstop_config.ini");
-        paths.push("winhttp.dll");
-        paths.push("TheBazaar_Data/Plugins/x86_64/GfxPluginBppReplayMediaFoundation.dll");
-    }
-
+    let platform = std::env::consts::OS;
+    paths.extend(
+        inventory()
+            .files
+            .iter()
+            .filter(|entry| {
+                !entry.path.starts_with("BepInEx/")
+                    && entry
+                        .platforms
+                        .as_ref()
+                        .is_none_or(|platforms| platforms.iter().any(|name| name == platform))
+            })
+            .map(|entry| entry.path.as_str()),
+    );
     paths
 }
 
@@ -284,12 +300,12 @@ pub(super) fn uninstall_payload_preserving_shared_dependencies(
 }
 
 fn remove_bpp_files(game_path: &Path, remove_bundled_dependencies: bool) -> Result<(), String> {
-    for relative_path in BPP_PRIVATE_RELATIVE_PATHS {
+    for relative_path in owned_paths("private") {
         remove_path_if_exists(&game_path.join(relative_path))?;
     }
 
     if remove_bundled_dependencies {
-        for relative_path in BPP_BUNDLED_DEPENDENCY_RELATIVE_PATHS {
+        for relative_path in owned_paths("dependency") {
             remove_path_if_exists(&game_path.join(relative_path))?;
         }
     }
@@ -314,7 +330,7 @@ fn remove_empty_dir_if_exists(path: &Path) -> Result<(), String> {
 }
 
 pub(super) fn remove_bootstrap_files(game_path: &Path) -> Result<(), String> {
-    for relative_path in BEPINEX_BOOTSTRAP_RELATIVE_PATHS {
+    for relative_path in owned_paths("bootstrap") {
         remove_path_if_exists(&game_path.join(relative_path))?;
     }
 
@@ -338,12 +354,8 @@ pub(super) fn has_third_party_plugins(game_path: &Path) -> bool {
         };
         let relative = relative.to_string_lossy().replace('\\', "/");
         relative != "BepInEx/plugins/.gitkeep"
-            && !BPP_PRIVATE_RELATIVE_PATHS
-                .iter()
-                .any(|owned| owned.eq_ignore_ascii_case(&relative))
-            && !BPP_BUNDLED_DEPENDENCY_RELATIVE_PATHS
-                .iter()
-                .any(|owned| owned.eq_ignore_ascii_case(&relative))
+            && !owned_paths("private").any(|owned| owned.eq_ignore_ascii_case(&relative))
+            && !owned_paths("dependency").any(|owned| owned.eq_ignore_ascii_case(&relative))
     })
 }
 
@@ -405,11 +417,8 @@ fn remove_stale_bpp_files(
     game_path: &Path,
     incoming_relative_paths: &std::collections::HashSet<String>,
 ) -> Result<(), String> {
-    for relative_path in BPP_PRIVATE_RELATIVE_PATHS
-        .iter()
-        .chain(BPP_BUNDLED_DEPENDENCY_RELATIVE_PATHS)
-    {
-        if incoming_relative_paths.contains(*relative_path) {
+    for relative_path in owned_paths("private").chain(owned_paths("dependency")) {
+        if incoming_relative_paths.contains(relative_path) {
             continue;
         }
         remove_path_if_exists(&game_path.join(relative_path))?;
@@ -787,57 +796,39 @@ mod tests {
     }
 
     #[test]
-    fn test_ownership_lists_match_release_contract() {
-        // This fixture is intentionally independent of the gitignored private
-        // release payload. Real payload/source agreement is a prebuild gate;
-        // ordinary Rust tests must remain runnable from a clean checkout.
-        let expected = [
-            "BazaarPlusPlus.dll",
-            "BazaarPlusPlus.Localization.dll",
-            "BazaarPlusPlus.ModApi.dll",
-            "BazaarPlusPlus.Storage.dll",
-            "BazaarPlusPlus.version",
-            "BppReplayRecorder.app",
-            "Microsoft.Data.Sqlite.dll",
-            "SQLitePCLRaw.batteries_v2.dll",
-            "SQLitePCLRaw.core.dll",
-            "SQLitePCLRaw.provider.e_sqlite3.dll",
-            "SixLabors.ImageSharp.dll",
-            "System.Buffers.dll",
-            "System.Memory.dll",
-            "System.Numerics.Vectors.dll",
-            "System.Text.Encoding.CodePages.dll",
-            "e_sqlite3.dll",
-            "ffmpeg",
-            "ffmpeg-LICENSE.txt",
-            "ffmpeg.exe",
-            "libBppMacAudio.dylib",
-            "libe_sqlite3.dylib",
-            "TheBazaar.app/Contents/Plugins/GfxPluginBppReplayVideoToolbox.bundle",
-            "TheBazaar_Data/Plugins/x86_64/GfxPluginBppReplayMediaFoundation.dll",
-        ]
-        .into_iter()
-        .map(str::to_owned)
-        .collect::<std::collections::BTreeSet<_>>();
-        let mut owned = std::collections::BTreeSet::new();
-        for relative_path in super::BPP_PRIVATE_RELATIVE_PATHS
-            .iter()
-            .chain(super::BPP_BUNDLED_DEPENDENCY_RELATIVE_PATHS)
-        {
-            if *relative_path == BPP_CONFIG_RELATIVE_PATH {
-                // Runtime-generated by the mod, never shipped in the payload.
+    fn inventory_drives_private_cleanup_and_shared_dependency_preservation() {
+        let tmp = tempfile::tempdir().unwrap();
+        for entry in &super::inventory().files {
+            if entry.ownership == "bootstrap" {
                 continue;
             }
-            let plugins_relative = relative_path
-                .strip_prefix("BepInEx/plugins/")
-                .unwrap_or(relative_path);
-            owned.insert(plugins_relative.to_string());
+            let target = tmp.path().join(&entry.path);
+            std::fs::create_dir_all(target.parent().unwrap()).unwrap();
+            std::fs::write(target, b"payload").unwrap();
         }
+        assert!(!super::has_third_party_plugins(tmp.path()));
+        let foreign = tmp.path().join("BepInEx/plugins/OtherMod.dll");
+        std::fs::write(&foreign, b"third party").unwrap();
+        assert!(super::has_third_party_plugins(tmp.path()));
 
-        assert_eq!(
-            expected, owned,
-            "payload ownership lists drifted from the release contract"
-        );
+        super::uninstall_payload_preserving_shared_dependencies(tmp.path()).unwrap();
+        for entry in &super::inventory().files {
+            if entry.ownership == "bootstrap" {
+                continue;
+            }
+            assert_eq!(
+                tmp.path().join(&entry.path).exists(),
+                entry.ownership == "dependency",
+                "{}",
+                entry.path
+            );
+        }
+        assert!(foreign.exists());
+        super::uninstall_payload(tmp.path()).unwrap();
+        for relative_path in super::owned_paths("dependency") {
+            assert!(!tmp.path().join(relative_path).exists());
+        }
+        assert!(foreign.exists());
     }
 
     #[test]

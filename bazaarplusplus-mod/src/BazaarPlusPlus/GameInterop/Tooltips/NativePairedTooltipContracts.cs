@@ -118,7 +118,6 @@ internal readonly struct PlacementResult
     internal PlacementResult(
         bool positioned,
         PairSide side,
-        float contentWidth,
         bool overflowed,
         bool widthBelowReadable,
         bool topAlignmentAdjusted
@@ -126,7 +125,6 @@ internal readonly struct PlacementResult
     {
         Positioned = positioned;
         Side = side;
-        ContentWidth = contentWidth;
         Overflowed = overflowed;
         WidthBelowReadable = widthBelowReadable;
         TopAlignmentAdjusted = topAlignmentAdjusted;
@@ -137,15 +135,13 @@ internal readonly struct PlacementResult
 
     internal PairSide Side { get; }
 
-    internal float ContentWidth { get; }
-
     internal bool Overflowed { get; }
 
     internal bool WidthBelowReadable { get; }
 
     internal bool TopAlignmentAdjusted { get; }
 
-    internal static PlacementResult Unplaced => new(false, PairSide.None, 0f, false, false, false);
+    internal static PlacementResult Unplaced => new(false, PairSide.None, false, false, false);
 }
 
 /// <summary>

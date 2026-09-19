@@ -12,7 +12,7 @@ export const commands = {
 	resetBppData: (gamePath: string) => __TAURI_INVOKE<ResetBppDataResult>("reset_bpp_data", { gamePath }),
 	resetBepinex: (gamePath: string) => __TAURI_INVOKE<ResetBepinexResult>("reset_bepinex", { gamePath }),
 	uninstallMod: (gamePath: string) => __TAURI_INVOKE<InstallState>("uninstall_mod", { gamePath }),
-	launchGame: () => __TAURI_INVOKE<FileActionResult>("launch_game"),
+	launchGame: () => __TAURI_INVOKE<null>("launch_game"),
 	/**
 	 *  End a game process that outlived its window. Both History and Install stall
 	 *  on that state — one cannot read the mod database, the other refuses to touch
@@ -30,7 +30,7 @@ export const commands = {
 	saveOverlayDisplayMode: (displayMode: StreamOverlayDisplayMode) => __TAURI_INVOKE<StreamOverlayCropSettingsPayload>("save_overlay_display_mode", { displayMode }),
 	applyOverlayCropCode: (code: string) => __TAURI_INVOKE<StreamOverlayCropSettingsPayload>("apply_overlay_crop_code", { code }),
 	resetOverlayCrop: () => __TAURI_INVOKE<StreamOverlayCropSettingsPayload>("reset_overlay_crop"),
-	listHistoryRuns: (limit: number | null) => __TAURI_INVOKE<HistoryRunList>("list_history_runs", { limit }),
+	listHistoryRuns: (limit: number | null, offset: number | null) => __TAURI_INVOKE<HistoryRunList>("list_history_runs", { limit, offset }),
 	getHistoryRunDetail: (runId: string) => __TAURI_INVOKE<{
 	run: HistoryRunDetailRow,
 	battles: HistoryBattleRow[],
@@ -38,7 +38,6 @@ export const commands = {
 	revealRunScreenshot: (runId: string) => __TAURI_INVOKE<null>("reveal_run_screenshot", { runId }),
 	revealBattleVideo: (battleId: string, videoId: string | null) => __TAURI_INVOKE<null>("reveal_battle_video", { battleId, videoId }),
 	deleteBattleVideo: (battleId: string, videoId: string) => __TAURI_INVOKE<HistoryRunDetail>("delete_battle_video", { battleId, videoId }),
-	deleteRunVideos: (runId: string, limit: number | null) => __TAURI_INVOKE<HistoryRunList>("delete_run_videos", { runId, limit }),
 	previewStorageCleanup: (scope: StorageCleanupScope, preset: StorageCleanupPreset) => __TAURI_INVOKE<StorageCleanupPreview>("preview_storage_cleanup", { scope, preset }),
 	executeStorageCleanup: (scope: StorageCleanupScope, preset: StorageCleanupPreset) => __TAURI_INVOKE<StorageCleanupExecution>("execute_storage_cleanup", { scope, preset }),
 };
@@ -80,10 +79,6 @@ export type AppLocalePayload = {
 	locale: string,
 };
 
-export type FileActionResult = {
-	ok: boolean,
-};
-
 export type GameDirectorySelection = {
 	game_path: string | null,
 };
@@ -118,18 +113,15 @@ export type HistoryRunDetailRow = {
 	game_mode: string,
 	started_at_utc: string,
 	ended_at_utc: string | null,
-	last_seen_at_utc: string,
 	status: string,
 	result: string,
 	victories: number | null,
 	losses: number | null,
 	final_day: number | null,
-	final_hour: number | null,
 	final_player_rank: string | null,
 	final_player_rating: number | null,
 	screenshot_id: string | null,
 	strip_url: string | null,
-	video_count: number,
 	player_name: string | null,
 };
 
@@ -144,7 +136,6 @@ export type HistoryRunRow = {
 	game_mode: string,
 	started_at_utc: string,
 	ended_at_utc: string | null,
-	last_seen_at_utc: string,
 	result: string,
 	victories: number | null,
 	losses: number | null,
@@ -153,7 +144,6 @@ export type HistoryRunRow = {
 	final_player_rating: number | null,
 	screenshot_id: string | null,
 	strip_url: string | null,
-	video_count: number,
 };
 
 export type HistorySummary = {
@@ -175,7 +165,6 @@ export type InstallActions = {
 export type InstallGameState = {
 	found: boolean,
 	path_valid: boolean,
-	display_version: string | null,
 };
 
 export type InstallModState = {

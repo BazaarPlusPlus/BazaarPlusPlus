@@ -12,7 +12,7 @@ internal readonly record struct ReplayPlaybackPublishOutcome(bool Succeeded, Exc
 }
 
 /// <summary>
-/// Runtime-private cleanup runner. Each exit path keeps its own cleanup order (ADR-0009);
+/// Runtime-private cleanup runner. Each exit path keeps its own cleanup order (ADR-0003);
 /// this helper only isolates per-step failure observation so one bad cleanup cannot abort the rest.
 /// </summary>
 internal static class ReplayPlaybackCleanup

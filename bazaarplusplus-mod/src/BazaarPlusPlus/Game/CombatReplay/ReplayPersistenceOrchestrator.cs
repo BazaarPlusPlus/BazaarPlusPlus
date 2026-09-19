@@ -14,6 +14,9 @@ internal sealed class ReplayPersistenceOrchestrator : IDisposable
     private readonly IPvpBattleCatalog _battleCatalog;
     private readonly CombatReplayPayloadStore _payloadStore;
     private readonly CombatReplayPersistenceQueue _persistenceQueue;
+    private readonly ReplayPayloadOperationGate _operationGate = new();
+    private readonly ReplayPayloadMaintenanceService _payloadMaintenance;
+    private readonly ReplayMaintenanceFlight _maintenanceFlight = new();
     private readonly Action<PvpBattleManifest, bool, Exception?>? _resultObserver;
     private readonly object _drainGate = new();
     private bool _disposed;
@@ -36,16 +39,24 @@ internal sealed class ReplayPersistenceOrchestrator : IDisposable
         _persistenceQueue = new CombatReplayPersistenceQueue(
             _payloadStore.Save,
             _battleCatalog.Save,
-            _payloadStore.Delete
+            _payloadStore.Delete,
+            _operationGate
         );
         _persistenceQueue.SetLateResultsAvailableCallback(DrainLateShutdownResults);
-
-        CleanupOrphanedPayloads();
+        _payloadMaintenance = new ReplayPayloadMaintenanceService(
+            _battleCatalog,
+            _payloadStore,
+            _operationGate,
+            _persistenceQueue.SnapshotProtectedBattleIds
+        );
+        _maintenanceFlight.Start(token => Task.Run(() => RunMaintenance(token), token));
     }
 
     public IPvpBattleCatalog Catalog => _battleCatalog;
     public CombatReplayPayloadStore PayloadStore => _payloadStore;
     public bool HasPendingPersistence => _persistenceQueue.HasPendingPersistence;
+
+    internal IDisposable? TryAcquirePlaybackPayloadLease() => _operationGate.TryAcquirePlayback();
 
     public void Enqueue(PvpReplayPayload payload, PvpBattleManifest manifest)
     {
@@ -193,37 +204,24 @@ internal sealed class ReplayPersistenceOrchestrator : IDisposable
             return;
         _disposed = true;
 
+        _maintenanceFlight.Dispose();
         _persistenceQueue.Dispose();
         DrainPendingResults(publishSideEffects: true);
+        _operationGate.Dispose();
     }
 
-    private void CleanupOrphanedPayloads()
+    private void RunMaintenance(CancellationToken cancellationToken)
     {
-        var accumulator = new ReplayOrphanCleanupAccumulator();
         try
         {
-            foreach (var battleId in _payloadStore.ListBattleIds())
-            {
-                if (_battleCatalog.TryLoad(battleId) != null)
-                    continue;
-
-                try
-                {
-                    _payloadStore.Delete(battleId);
-                }
-                catch (Exception ex)
-                {
-                    accumulator.ReportDeleteFailure(ex);
-                }
-            }
+            var result = _payloadMaintenance.Run(DateTimeOffset.UtcNow, cancellationToken);
+            ReplayPersistenceLogWriter.EmitMaintenanceTerminal(result);
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
         catch (Exception ex)
         {
-            accumulator.ReportScanFailure(ex);
+            ReplayPersistenceLogWriter.EmitMaintenanceFailed(ex);
         }
-
-        if (accumulator.TryBuildResult(out var result))
-            ReplayPersistenceLogWriter.EmitOrphanCleanupDegraded(result);
     }
 
     private readonly record struct PersistenceResultNotification(

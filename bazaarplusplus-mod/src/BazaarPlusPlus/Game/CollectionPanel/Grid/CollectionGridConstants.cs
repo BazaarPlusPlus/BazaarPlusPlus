@@ -41,7 +41,6 @@ internal static class CollectionGridConstants
     // Sorting layers: UITK panel below native cards, with optional foreground chrome above.
     // Anything we put between them (e.g., a full-screen GraphicRaycaster blocker) intercepts
     // every click and wheel event before UITK can see it, freezing all panel chrome — so we don't.
-    public const int UiToolkitSortingOrder = BppOverlaySorting.PanelUiToolkit;
     public const int OverlaySortingOrder = BppOverlaySorting.NativeCardPreview;
 
     // true (default): polled hover. No per-card hit Image, no overlay GraphicRaycaster;

@@ -23,9 +23,13 @@ internal sealed class CollectionCatalog
             cardMapProvider ?? throw new ArgumentNullException(nameof(cardMapProvider));
     }
 
-    public bool TryGetCached(out CollectionCatalogBuildResult result)
+    /// <summary>
+    /// Non-allocating cache predicate with the same source/identity check (and the same
+    /// invalidate-on-source-swap side effect) as <see cref="TryGetCached"/>. The closed-panel
+    /// warmup tick runs every frame, so its fast path must not allocate a build result.
+    /// </summary>
+    public bool IsCacheWarm()
     {
-        result = EmptyResult(wasCacheHit: false);
         var source = BppStaticDataAccess.TryGetReadyManagerObject();
         if (source == null || _cache == null)
             return false;
@@ -33,6 +37,17 @@ internal sealed class CollectionCatalog
         if (!ReferenceEquals(source, _cacheSource))
         {
             InvalidateCache(CollectionPanelLogReasonCode.StaticDataManagerChanged);
+            return false;
+        }
+
+        return true;
+    }
+
+    public bool TryGetCached(out CollectionCatalogBuildResult result)
+    {
+        if (!IsCacheWarm() || _cache == null)
+        {
+            result = EmptyResult(wasCacheHit: false);
             return false;
         }
 
@@ -65,7 +80,7 @@ internal sealed class CollectionCatalog
     )
     {
         completed = null;
-        if (TryGetCached(out _))
+        if (IsCacheWarm())
         {
             WarmupStatus = CollectionCatalogWarmupStatus.Ready;
             return WarmupStatus;

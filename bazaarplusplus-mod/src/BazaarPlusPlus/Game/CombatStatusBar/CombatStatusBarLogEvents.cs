@@ -14,10 +14,15 @@ internal enum CombatSpeedLogCategory
 [BppLogEventSource]
 internal static class CombatStatusBarLogEvents
 {
-    internal static readonly BppLogFieldDefinition ConfigLoadedEnabled = Public(
-        0,
-        "enabled",
-        BppLogCardinality.Low
+    internal static readonly BppLogEventDefinition NativeSkinReady = new(
+        BppLogFeatureScope.CombatStatusBar,
+        "combat_status_bar.native_skin.ready",
+        []
+    );
+    internal static readonly BppLogEventDefinition NativeSkinUnavailable = new(
+        BppLogFeatureScope.CombatStatusBar,
+        "combat_status_bar.native_skin.unavailable",
+        []
     );
     internal static readonly BppLogFieldDefinition ConfigLoadedSpeedMultiplier = Public(
         1,
@@ -27,7 +32,7 @@ internal static class CombatStatusBarLogEvents
     internal static readonly BppLogEventDefinition ConfigLoaded = new(
         BppLogFeatureScope.CombatStatusBar,
         "combat_status_bar.config.loaded",
-        [ConfigLoadedEnabled, ConfigLoadedSpeedMultiplier]
+        [ConfigLoadedSpeedMultiplier]
     );
 
     private static BppLogFieldDefinition Public(

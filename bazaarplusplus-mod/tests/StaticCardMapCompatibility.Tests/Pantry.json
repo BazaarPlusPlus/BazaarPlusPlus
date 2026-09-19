@@ -1,0 +1,465 @@
+{
+  "$type": "TCardItem",
+  "Id": "c8abacb3-3d98-4266-9842-775a5683ac8c",
+  "InternalName": "Pantry",
+  "Type": "Item",
+  "Tags": [
+    "Property"
+  ],
+  "Heroes": [
+    "Jules"
+  ],
+  "StartingTier": "Bronze",
+  "Auras": {
+    "2": {
+      "Id": "2",
+      "ActiveIn": "HandOnly",
+      "Action": {
+        "$type": "TAuraActionCardModifyAttribute",
+        "AttributeType": "BurnApplyAmount",
+        "Operation": "Add",
+        "Value": {
+          "$type": "TReferenceValueUniqueCardCount",
+          "Target": {
+            "$type": "TTargetCardSection",
+            "TargetSection": "SelfStash",
+            "ExcludeSelf": false,
+            "Conditions": {
+              "$type": "TCardConditionalTag",
+              "Tags": [
+                "Food"
+              ],
+              "Operator": "Any"
+            }
+          },
+          "DefaultValue": 0.0,
+          "Modifier": {
+            "ModifyMode": "Multiply",
+            "Value": {
+              "$type": "TReferenceValueCardAttribute",
+              "AttributeType": "Custom_0",
+              "Target": {
+                "$type": "TTargetCardSelf",
+                "Conditions": null
+              },
+              "DefaultValue": 0.0,
+              "Modifier": null
+            },
+            "ShouldRound": true
+          }
+        },
+        "Target": {
+          "$type": "TTargetCardSection",
+          "TargetSection": "SelfHand",
+          "ExcludeSelf": false,
+          "Conditions": null
+        }
+      },
+      "Prerequisites": null,
+      "InternalName": "Pantry Burn Aura",
+      "InternalDescription": "For each unique Food you have in your Stash, your items have +[1/2/3/4] Burn",
+      "MigrationData": "",
+      "VFXConfig": {
+        "VFXOverrideKey": null,
+        "VFXShouldPlay": true,
+        "VFXIsTakeover": false
+      },
+      "TranslationKey": "78d5e8670d88516a486726c28e6a37f1",
+      "WorksIn": "Anywhere"
+    },
+    "3": {
+      "Id": "3",
+      "ActiveIn": "HandOnly",
+      "Action": {
+        "$type": "TAuraActionCardModifyAttribute",
+        "AttributeType": "RegenApplyAmount",
+        "Operation": "Add",
+        "Value": {
+          "$type": "TReferenceValueUniqueCardCount",
+          "Target": {
+            "$type": "TTargetCardSection",
+            "TargetSection": "SelfStash",
+            "ExcludeSelf": false,
+            "Conditions": {
+              "$type": "TCardConditionalTag",
+              "Tags": [
+                "Food"
+              ],
+              "Operator": "Any"
+            }
+          },
+          "DefaultValue": 0.0,
+          "Modifier": {
+            "ModifyMode": "Multiply",
+            "Value": {
+              "$type": "TReferenceValueCardAttribute",
+              "AttributeType": "Custom_1",
+              "Target": {
+                "$type": "TTargetCardSelf",
+                "Conditions": null
+              },
+              "DefaultValue": 0.0,
+              "Modifier": null
+            },
+            "ShouldRound": true
+          }
+        },
+        "Target": {
+          "$type": "TTargetCardSection",
+          "TargetSection": "SelfHand",
+          "ExcludeSelf": false,
+          "Conditions": null
+        }
+      },
+      "Prerequisites": null,
+      "InternalName": "Pantry Regen Aura",
+      "InternalDescription": "For each unique Food you have in your Stash, your items have +[1/2/3/4] Regen",
+      "MigrationData": "",
+      "VFXConfig": {
+        "VFXOverrideKey": null,
+        "VFXShouldPlay": true,
+        "VFXIsTakeover": false
+      },
+      "TranslationKey": "6c2934b996c6098dfa6eea9556a1e1a1",
+      "WorksIn": "Anywhere"
+    },
+    "4": {
+      "Id": "4",
+      "ActiveIn": "HandOnly",
+      "Action": {
+        "$type": "TAuraActionCardModifyAttribute",
+        "AttributeType": "ShieldApplyAmount",
+        "Operation": "Add",
+        "Value": {
+          "$type": "TReferenceValueUniqueCardCount",
+          "Target": {
+            "$type": "TTargetCardSection",
+            "TargetSection": "SelfStash",
+            "ExcludeSelf": false,
+            "Conditions": {
+              "$type": "TCardConditionalTag",
+              "Tags": [
+                "Food"
+              ],
+              "Operator": "Any"
+            }
+          },
+          "DefaultValue": 0.0,
+          "Modifier": {
+            "ModifyMode": "Multiply",
+            "Value": {
+              "$type": "TReferenceValueCardAttribute",
+              "AttributeType": "Custom_2",
+              "Target": {
+                "$type": "TTargetCardSelf",
+                "Conditions": null
+              },
+              "DefaultValue": 0.0,
+              "Modifier": null
+            },
+            "ShouldRound": true
+          }
+        },
+        "Target": {
+          "$type": "TTargetCardSection",
+          "TargetSection": "SelfHand",
+          "ExcludeSelf": false,
+          "Conditions": null
+        }
+      },
+      "Prerequisites": null,
+      "InternalName": "Pantry Shield Aura",
+      "InternalDescription": "For each unique Food you have in your Stash, your items have +[5/10/15/20] Shield",
+      "MigrationData": "",
+      "VFXConfig": {
+        "VFXOverrideKey": null,
+        "VFXShouldPlay": true,
+        "VFXIsTakeover": false
+      },
+      "TranslationKey": "5b4ff9892e24940b3dcc669b0e9b53ff",
+      "WorksIn": "Anywhere"
+    }
+  },
+  "Tiers": {
+    "Bronze": {
+      "Attributes": {
+        "Custom_0": 1,
+        "Custom_1": 1,
+        "Custom_2": 5
+      },
+      "AbilityIds": [
+        "1"
+      ],
+      "AuraIds": [
+        "2",
+        "3",
+        "4"
+      ],
+      "TooltipIds": [
+        0,
+        1
+      ]
+    },
+    "Silver": {
+      "Attributes": {
+        "Custom_0": 2,
+        "Custom_1": 2,
+        "Custom_2": 10
+      },
+      "AbilityIds": [
+        "1"
+      ],
+      "AuraIds": [
+        "2",
+        "3",
+        "4"
+      ],
+      "TooltipIds": [
+        0,
+        1
+      ]
+    },
+    "Gold": {
+      "Attributes": {
+        "Custom_0": 3,
+        "Custom_1": 3,
+        "Custom_2": 15
+      },
+      "AbilityIds": [
+        "1"
+      ],
+      "AuraIds": [
+        "2",
+        "3",
+        "4"
+      ],
+      "TooltipIds": [
+        0,
+        1
+      ]
+    },
+    "Diamond": {
+      "Attributes": {
+        "Custom_0": 4,
+        "Custom_1": 4,
+        "Custom_2": 20
+      },
+      "AbilityIds": [
+        "1"
+      ],
+      "AuraIds": [
+        "2",
+        "3",
+        "4"
+      ],
+      "TooltipIds": [
+        0,
+        1
+      ]
+    }
+  },
+  "Localization": {
+    "Title": {
+      "Key": "5b4ff9892e24940b3dcc669b0e9b53ff",
+      "Text": "Pantry"
+    },
+    "Description": null,
+    "FlavorText": null,
+    "Tooltips": [
+      {
+        "Content": {
+          "Key": "b24e788c20fc4435ed97b43cfb43d31a",
+          "Text": "For each unique Food in your Stash, your items have +{aura.2.mod}, +{aura.3.mod} and +{aura.4.mod}"
+        },
+        "TooltipType": "Passive",
+        "TooltipCondition": null,
+        "Prerequisites": null
+      },
+      {
+        "Content": {
+          "Key": "9b535584d44794b6d37f571d2bf31b0d",
+          "Text": "At the start of each day, get a Small or Medium Food from any Hero"
+        },
+        "TooltipType": "Passive",
+        "TooltipCondition": null,
+        "Prerequisites": null
+      }
+    ]
+  },
+  "Enchantments": {
+    "Restorative": {
+      "Attributes": {},
+      "Abilities": {},
+      "Auras": {
+        "e1": {
+          "Id": "e1",
+          "ActiveIn": "HandOnly",
+          "Action": {
+            "$type": "TAuraActionCardModifyAttribute",
+            "AttributeType": "HealAmount",
+            "Operation": "Add",
+            "Value": {
+              "$type": "TReferenceValueUniqueCardCount",
+              "Target": {
+                "$type": "TTargetCardSection",
+                "TargetSection": "SelfStash",
+                "ExcludeSelf": false,
+                "Conditions": {
+                  "$type": "TCardConditionalTag",
+                  "Tags": [
+                    "Food"
+                  ],
+                  "Operator": "Any"
+                }
+              },
+              "DefaultValue": 0.0,
+              "Modifier": {
+                "ModifyMode": "Multiply",
+                "Value": {
+                  "$type": "TReferenceValueCardAttribute",
+                  "AttributeType": "Custom_2",
+                  "Target": {
+                    "$type": "TTargetCardSelf",
+                    "Conditions": null
+                  },
+                  "DefaultValue": 0.0,
+                  "Modifier": null
+                },
+                "ShouldRound": true
+              }
+            },
+            "Target": {
+              "$type": "TTargetCardSection",
+              "TargetSection": "SelfHand",
+              "ExcludeSelf": false,
+              "Conditions": {
+                "$type": "TCardConditionalTag",
+                "Tags": [
+                  "Food"
+                ],
+                "Operator": "Any"
+              }
+            }
+          },
+          "Prerequisites": null,
+          "InternalName": "Restorative Pantry Aura",
+          "InternalDescription": "For each unique Food you have in your Stash, your Foods have +[5/10/15/20] Heal",
+          "MigrationData": "",
+          "VFXConfig": {
+            "VFXOverrideKey": null,
+            "VFXShouldPlay": true,
+            "VFXIsTakeover": false
+          },
+          "TranslationKey": "dc43b631-db50-46bf-9f92-2134c12e894b",
+          "WorksIn": "Anywhere"
+        }
+      },
+      "Tags": [],
+      "HiddenTags": [
+        "HealReference"
+      ],
+      "Localization": {
+        "Tooltips": [
+          {
+            "Content": {
+              "Key": "3780ca3e82f0d78e46f83149655d71cd",
+              "Text": "For each unique Food you have in your Stash, your Foods have +{aura.e1.mod} Heal"
+            },
+            "TooltipType": "Passive",
+            "TooltipCondition": null,
+            "Prerequisites": null
+          }
+        ]
+      },
+      "HasAbilities": false,
+      "HasAuras": true
+    },
+    "Obsidian": {
+      "Attributes": {},
+      "Abilities": {},
+      "Auras": {
+        "e1": {
+          "Id": "e1",
+          "ActiveIn": "HandOnly",
+          "Action": {
+            "$type": "TAuraActionCardModifyAttribute",
+            "AttributeType": "DamageAmount",
+            "Operation": "Add",
+            "Value": {
+              "$type": "TReferenceValueUniqueCardCount",
+              "Target": {
+                "$type": "TTargetCardSection",
+                "TargetSection": "SelfStash",
+                "ExcludeSelf": false,
+                "Conditions": {
+                  "$type": "TCardConditionalTag",
+                  "Tags": [
+                    "Food"
+                  ],
+                  "Operator": "Any"
+                }
+              },
+              "DefaultValue": 0.0,
+              "Modifier": {
+                "ModifyMode": "Multiply",
+                "Value": {
+                  "$type": "TReferenceValueCardAttribute",
+                  "AttributeType": "Custom_2",
+                  "Target": {
+                    "$type": "TTargetCardSelf",
+                    "Conditions": null
+                  },
+                  "DefaultValue": 0.0,
+                  "Modifier": null
+                },
+                "ShouldRound": true
+              }
+            },
+            "Target": {
+              "$type": "TTargetCardSection",
+              "TargetSection": "SelfHand",
+              "ExcludeSelf": false,
+              "Conditions": {
+                "$type": "TCardConditionalTag",
+                "Tags": [
+                  "Food"
+                ],
+                "Operator": "Any"
+              }
+            }
+          },
+          "Prerequisites": null,
+          "InternalName": "Obsidian Pantry Aura",
+          "InternalDescription": "For each unique Food you have in your Stash, your Foods have +[5/10/15/20] Damage",
+          "MigrationData": "",
+          "VFXConfig": {
+            "VFXOverrideKey": null,
+            "VFXShouldPlay": true,
+            "VFXIsTakeover": false
+          },
+          "TranslationKey": "49ec0098-d4fe-473d-be60-ba38e7e138d8",
+          "WorksIn": "Anywhere"
+        }
+      },
+      "Tags": [],
+      "HiddenTags": [
+        "DamageReference"
+      ],
+      "Localization": {
+        "Tooltips": [
+          {
+            "Content": {
+              "Key": "599c296e9e96d0975fa3adda898dff17",
+              "Text": "For each unique Food you have in your Stash, your Foods have +{aura.e1.mod} Damage"
+            },
+            "TooltipType": "Passive",
+            "TooltipCondition": null,
+            "Prerequisites": null
+          }
+        ]
+      },
+      "HasAbilities": false,
+      "HasAuras": true
+    }
+  }
+}

@@ -4,7 +4,6 @@ using BazaarPlusPlus.Core.Events;
 using BazaarPlusPlus.Core.GameState;
 using BazaarPlusPlus.GameInterop;
 using BazaarPlusPlus.Storage.Paths;
-using BepInEx.Logging;
 
 namespace BazaarPlusPlus.Core.Runtime;
 
@@ -18,5 +17,4 @@ internal interface IBppServices
     IEncounterStateProbe EncounterState { get; }
     IRunSnapshotProbe RunSnapshot { get; }
     IGameBuildInfo GameBuild { get; }
-    ManualLogSource Logger { get; }
 }

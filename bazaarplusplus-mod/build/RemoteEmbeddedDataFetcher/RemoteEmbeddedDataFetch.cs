@@ -13,6 +13,9 @@ internal readonly record struct SeedPromotion(string StagedPath, string Canonica
 
 internal static class RemoteEmbeddedDataFetch
 {
+    private const int MaximumAttempts = 5;
+    private static readonly TimeSpan MaximumOperationTime = TimeSpan.FromMinutes(2);
+
     internal static async Task FetchAsync(
         HttpClient client,
         RemoteEmbeddedDataRequest request,
@@ -29,6 +32,38 @@ internal static class RemoteEmbeddedDataFetch
         if (string.IsNullOrWhiteSpace(directory))
             throw new ArgumentException("The destination must have a directory.", nameof(request));
         Directory.CreateDirectory(directory);
+
+        using var operationTimeout = CancellationTokenSource.CreateLinkedTokenSource(
+            cancellationToken
+        );
+        operationTimeout.CancelAfter(MaximumOperationTime);
+        var operationToken = operationTimeout.Token;
+
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                await FetchOnceAsync(client, request, operationToken).ConfigureAwait(false);
+                return;
+            }
+            catch (Exception ex) when (ShouldRetry(ex, operationToken, attempt))
+            {
+                var delay = RetryDelay(attempt);
+                var rootCause = ex.GetBaseException();
+                Console.Error.WriteLine(
+                    $"[BazaarPlusPlus] Remote embedded data retry host={request.Source.IdnHost} attempt={attempt}/{MaximumAttempts} delay_ms={(int)delay.TotalMilliseconds} error={rootCause.GetType().Name} message={rootCause.Message}"
+                );
+                await Task.Delay(delay, operationToken).ConfigureAwait(false);
+            }
+        }
+    }
+
+    private static async Task FetchOnceAsync(
+        HttpClient client,
+        RemoteEmbeddedDataRequest request,
+        CancellationToken cancellationToken
+    )
+    {
         var temporaryPath = request.DestinationPath + "." + Guid.NewGuid().ToString("N") + ".tmp";
         try
         {
@@ -63,6 +98,33 @@ internal static class RemoteEmbeddedDataFetch
             if (File.Exists(temporaryPath))
                 File.Delete(temporaryPath);
         }
+    }
+
+    private static bool ShouldRetry(
+        Exception exception,
+        CancellationToken cancellationToken,
+        int attempt
+    )
+    {
+        if (attempt >= MaximumAttempts || cancellationToken.IsCancellationRequested)
+            return false;
+
+        return exception switch
+        {
+            HttpRequestException { StatusCode: null } => true,
+            HttpRequestException { StatusCode: var statusCode } => statusCode
+                == System.Net.HttpStatusCode.RequestTimeout
+                || statusCode == System.Net.HttpStatusCode.TooManyRequests
+                || (int)statusCode >= 500,
+            TaskCanceledException => true,
+            _ => false,
+        };
+    }
+
+    private static TimeSpan RetryDelay(int attempt)
+    {
+        var exponentialMilliseconds = 200 * (1 << (attempt - 1));
+        return TimeSpan.FromMilliseconds(exponentialMilliseconds + Random.Shared.Next(0, 101));
     }
 
     internal static void PromoteSeedSet(IReadOnlyList<SeedPromotion> seeds) =>

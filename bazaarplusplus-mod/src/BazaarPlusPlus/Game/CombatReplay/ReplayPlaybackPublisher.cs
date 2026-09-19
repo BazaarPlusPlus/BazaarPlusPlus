@@ -88,8 +88,7 @@ internal sealed class ReplayPlaybackPublisher
     {
         // Always clear the session, even when no "starting" event was ever published (a start
         // that failed before playback began). Leaving _activeBattleId set would leak the failed
-        // battle id into ActiveSessionBattleId — and from there into the BazaarAgent
-        // replayBattleId context field during unrelated, later replays.
+        // battle id into ActiveSessionBattleId, and from there into unrelated, later replays.
         var battleId = _activeBattleId ?? string.Empty;
         var startingPublished = _startingPublished;
         _startingPublished = false;

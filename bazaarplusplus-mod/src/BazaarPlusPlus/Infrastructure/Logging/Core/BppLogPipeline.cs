@@ -66,10 +66,9 @@ internal sealed class BppLogPipeline
 
         try
         {
-            var rendered = _renderer.Render(definition, values, exception);
             if (!TryGetUtcNow(out var now))
             {
-                WriteSink(severity, rendered);
+                WriteSink(severity, _renderer.Render(definition, values, exception));
                 return;
             }
 
@@ -80,13 +79,15 @@ internal sealed class BppLogPipeline
                 exception,
                 out var stormKey
             );
-            List<PendingEmission> pending;
+            List<PendingEmission>? pending;
             lock (_stateLock)
             {
                 pending = ExpireEntries(now);
                 if (!hasStormKey || !_acceptStormState)
                 {
-                    pending.Add(PendingEmission.Source(severity, rendered));
+                    (pending ??= []).Add(
+                        PendingEmission.Source(severity, definition, values, exception)
+                    );
                 }
                 else if (_entries.TryGetValue(stormKey, out var existing))
                 {
@@ -96,11 +97,13 @@ internal sealed class BppLogPipeline
                 else
                 {
                     if (_entries.Count >= MaximumActiveStormKeys)
-                        EvictLeastRecentlyUsed(pending);
+                        EvictLeastRecentlyUsed(ref pending);
 
                     var entry = new StormEntry(stormKey, definition, severity, now, NextSequence());
                     _entries.Add(stormKey, entry);
-                    pending.Add(PendingEmission.Source(severity, rendered, entry));
+                    (pending ??= []).Add(
+                        PendingEmission.Source(severity, definition, values, exception, entry)
+                    );
                 }
             }
 
@@ -146,11 +149,11 @@ internal sealed class BppLogPipeline
             if (!TryGetUtcNow(out var now))
                 now = DateTimeOffset.MinValue;
 
-            List<PendingEmission> pending;
+            List<PendingEmission>? pending;
             lock (_stateLock)
             {
                 pending = ExpireEntries(now);
-                var keys = new List<string>();
+                List<string>? keys = null;
                 foreach (var pair in _entries)
                 {
                     if (
@@ -160,10 +163,10 @@ internal sealed class BppLogPipeline
                             || string.Equals(pair.Key, stormKey, StringComparison.Ordinal)
                         )
                     )
-                        keys.Add(pair.Key);
+                        (keys ??= []).Add(pair.Key);
                 }
-                for (var index = 0; index < keys.Count; index++)
-                    RemoveEntry(keys[index], BppLogStormFlushReason.Recovered, pending);
+                for (var index = 0; index < (keys?.Count ?? 0); index++)
+                    RemoveEntry(keys![index], BppLogStormFlushReason.Recovered, ref pending);
             }
             WritePending(pending);
         }
@@ -180,12 +183,12 @@ internal sealed class BppLogPipeline
 
         try
         {
-            var pending = new List<PendingEmission>();
+            List<PendingEmission>? pending = null;
             lock (_stateLock)
             {
                 _acceptStormState = false;
                 foreach (var pair in _entries)
-                    AddSummary(pair.Value, BppLogStormFlushReason.Shutdown, pending);
+                    AddSummary(pair.Value, BppLogStormFlushReason.Shutdown, ref pending);
                 _entries.Clear();
             }
             WritePending(pending);
@@ -297,21 +300,24 @@ internal sealed class BppLogPipeline
         return true;
     }
 
-    private List<PendingEmission> ExpireEntries(DateTimeOffset now)
+    private List<PendingEmission>? ExpireEntries(DateTimeOffset now)
     {
-        var pending = new List<PendingEmission>();
-        var expiredKeys = new List<string>();
+        List<string>? expiredKeys = null;
         foreach (var pair in _entries)
         {
             if (now - pair.Value.StartedAt >= StormWindow)
-                expiredKeys.Add(pair.Key);
+                (expiredKeys ??= []).Add(pair.Key);
         }
+        if (expiredKeys == null)
+            return null;
+
+        List<PendingEmission>? pending = null;
         for (var index = 0; index < expiredKeys.Count; index++)
-            RemoveEntry(expiredKeys[index], BppLogStormFlushReason.Expired, pending);
+            RemoveEntry(expiredKeys[index], BppLogStormFlushReason.Expired, ref pending);
         return pending;
     }
 
-    private void EvictLeastRecentlyUsed(List<PendingEmission> pending)
+    private void EvictLeastRecentlyUsed(ref List<PendingEmission>? pending)
     {
         StormEntry? oldest = null;
         foreach (var pair in _entries)
@@ -320,30 +326,30 @@ internal sealed class BppLogPipeline
                 oldest = pair.Value;
         }
         if (oldest != null)
-            RemoveEntry(oldest.Key, BppLogStormFlushReason.Evicted, pending);
+            RemoveEntry(oldest.Key, BppLogStormFlushReason.Evicted, ref pending);
     }
 
     private void RemoveEntry(
         string key,
         BppLogStormFlushReason reason,
-        List<PendingEmission> pending
+        ref List<PendingEmission>? pending
     )
     {
         if (!_entries.TryGetValue(key, out var entry))
             return;
         _entries.Remove(key);
-        AddSummary(entry, reason, pending);
+        AddSummary(entry, reason, ref pending);
     }
 
     private static void AddSummary(
         StormEntry entry,
         BppLogStormFlushReason reason,
-        List<PendingEmission> pending
+        ref List<PendingEmission>? pending
     )
     {
         if (entry.SuppressedCount <= 0)
             return;
-        pending.Add(
+        (pending ??= []).Add(
             PendingEmission.Summary(
                 entry.Severity,
                 entry.Definition.EventId,
@@ -354,13 +360,24 @@ internal sealed class BppLogPipeline
         );
     }
 
-    private void WritePending(IReadOnlyList<PendingEmission> pending)
+    private void WritePending(IReadOnlyList<PendingEmission>? pending)
     {
+        if (pending == null)
+            return;
+
         for (var index = 0; index < pending.Count; index++)
         {
             var emission = pending[index];
-            var message = emission.Message;
-            if (message == null && emission.StormSummary.HasValue)
+            string? message = null;
+            if (emission.SourceDefinition != null)
+            {
+                message = _renderer.Render(
+                    emission.SourceDefinition,
+                    emission.SourceValues,
+                    emission.SourceException
+                );
+            }
+            else if (emission.StormSummary.HasValue)
             {
                 var summary = emission.StormSummary.Value;
                 if (!WaitForSourceDelivery(summary.Entry))
@@ -531,20 +548,30 @@ internal sealed class BppLogPipeline
     {
         private PendingEmission(
             BppLogSeverity severity,
-            string? message,
+            BppLogEventDefinition? sourceDefinition,
+            IReadOnlyList<BppLogFieldValue>? sourceValues,
+            Exception? sourceException,
             StormSummary? stormSummary,
             StormEntry? sourceEntry
         )
         {
             Severity = severity;
-            Message = message;
+            SourceDefinition = sourceDefinition;
+            SourceValues = sourceValues;
+            SourceException = sourceException;
             StormSummary = stormSummary;
             SourceEntry = sourceEntry;
         }
 
         internal BppLogSeverity Severity { get; }
 
-        internal string? Message { get; }
+        // Rendering is deferred to WritePending so a record discarded by the storm-key
+        // decision is never rendered at all.
+        internal BppLogEventDefinition? SourceDefinition { get; }
+
+        internal IReadOnlyList<BppLogFieldValue>? SourceValues { get; }
+
+        internal Exception? SourceException { get; }
 
         internal StormSummary? StormSummary { get; }
 
@@ -552,9 +579,11 @@ internal sealed class BppLogPipeline
 
         internal static PendingEmission Source(
             BppLogSeverity severity,
-            string message,
+            BppLogEventDefinition definition,
+            IReadOnlyList<BppLogFieldValue>? values,
+            Exception? exception,
             StormEntry? entry = null
-        ) => new(severity, message, null, entry);
+        ) => new(severity, definition, values, exception, null, entry);
 
         internal static PendingEmission Summary(
             BppLogSeverity severity,
@@ -565,6 +594,8 @@ internal sealed class BppLogPipeline
         ) =>
             new(
                 severity,
+                null,
+                null,
                 null,
                 new StormSummary(sourceEvent, suppressedCount, reason, entry),
                 null

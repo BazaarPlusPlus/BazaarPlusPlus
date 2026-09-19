@@ -26,6 +26,15 @@ public static class MessagePackGzipCodec
     }
 
     public static bool TryDeserialize<T>(byte[]? payloadBytes, out T? value, out string? error)
+        where T : class =>
+        TryDeserialize(payloadBytes, out value, out error, maxDecompressedBytes: null);
+
+    public static bool TryDeserialize<T>(
+        byte[]? payloadBytes,
+        out T? value,
+        out string? error,
+        int? maxDecompressedBytes
+    )
         where T : class
     {
         value = null;
@@ -37,7 +46,11 @@ public static class MessagePackGzipCodec
             return false;
         }
 
-        var result = MessagePackGzipFraming.TryDecode<T>(payloadBytes, Options);
+        var result = MessagePackGzipFraming.TryDecode<T>(
+            payloadBytes,
+            Options,
+            maxDecompressedBytes
+        );
         if (result.Succeeded)
         {
             value = result.Value;
@@ -47,6 +60,7 @@ public static class MessagePackGzipCodec
         error = result.FailureKind switch
         {
             MessagePackGzipFailureKind.Empty => "payload_empty",
+            MessagePackGzipFailureKind.DecompressedTooLarge => "payload_too_large",
             MessagePackGzipFailureKind.NotGzip => "payload_not_gzip",
             MessagePackGzipFailureKind.DeserializedNull => "payload_deserialized_null",
             _ when result.Exception != null =>

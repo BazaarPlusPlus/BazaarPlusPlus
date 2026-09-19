@@ -30,7 +30,7 @@ reviewed system dependencies, and unsigned producer policy, then runs the native
 Pass `-OutputDirectory` for a side-effect-free staging build. `test.ps1` runs the smoke program on
 its own.
 
-`./run.sh publish` reuses the installer's staged copy only when both the Windows input digest and the
+`just release::prepare <platform>` reuses the installer's staged copy only when both the Windows input digest and the
 staged artifacts still match the manifest, and otherwise rebuilds through this script and promotes
 the result. The freshness contract and the full promotion sequence are in
 [`docs/architecture/native-artifacts.md`](../../docs/architecture/native-artifacts.md).

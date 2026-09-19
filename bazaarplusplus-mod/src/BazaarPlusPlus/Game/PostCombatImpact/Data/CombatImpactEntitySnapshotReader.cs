@@ -185,8 +185,31 @@ internal static class CombatImpactEntitySnapshotReader
                 card.Type,
                 activeAbilities,
                 hiddenTags
-            )
+            ),
+            ReadAuraAttributeModifiers(activeEffects.Auras, item)
         );
+    }
+
+    private static IReadOnlyDictionary<
+        string,
+        TAuraActionCardModifyAttribute
+    >? ReadAuraAttributeModifiers(IEnumerable<TCardAura>? auras, ItemCard? item)
+    {
+        try
+        {
+            return CombatImpactAbilityAttributeModifierReader.ReadAuras(
+                (auras ?? []).Concat(
+                    item?.Enchantment is { } enchantment
+                    && item.GetEnchantments()?.TryGetValue(enchantment, out var template) == true
+                        ? template.Auras.Values
+                        : []
+                )
+            );
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     private static ActiveEffects ReadActiveEffects(Card card)

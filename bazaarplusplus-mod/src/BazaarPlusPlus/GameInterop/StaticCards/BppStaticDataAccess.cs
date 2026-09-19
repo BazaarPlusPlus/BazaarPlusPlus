@@ -2,6 +2,7 @@
 using System.Reflection;
 using BazaarGameShared.Domain.Cards;
 using BazaarGameShared.Domain.Game;
+using BazaarPlusPlus.Infrastructure;
 using TheBazaar;
 using TheBazaar.DataManagement.Json;
 
@@ -54,10 +55,33 @@ internal static class BppStaticDataAccess
     /// Intended to run on a worker thread: the game opens its own SQLite connection, deserializes
     /// on PLINQ workers, builds a fresh dictionary, and publishes it via an atomic reference
     /// assignment, so calling it off the main thread does not tear the shared map. <paramref
-    /// name="source"/> must come from <see cref="TryGetReadyManagerObject"/>.
+    /// name="source"/> must come from <see cref="TryGetReadyManagerObject"/>. When downloaded data
+    /// contains unsupported derived types, returns a compatible snapshot without publishing it
+    /// to the game's cache. Other data errors propagate.
     /// </summary>
-    public static Dictionary<Guid, ITCard>? LoadCardMap(object? source) =>
-        source is JsonGameDataManager manager ? manager.GetCardMap() : null;
+    public static Dictionary<Guid, ITCard>? LoadCardMap(object? source)
+    {
+        if (source is not JsonGameDataManager manager)
+            return null;
+        try
+        {
+            return manager.GetCardMap();
+        }
+        catch (Exception error) when (CompatibleCardMapReader.IsUnsupportedType(error))
+        {
+            var path = DatabasePathField?.GetValue(manager) as string;
+            if (string.IsNullOrWhiteSpace(path))
+                throw;
+
+            var cards = CompatibleCardMapReader.Read(path!, out var unsupportedCount);
+            BppLog.WarnEvent(
+                StaticCardsLogEvents.UnsupportedTemplates,
+                StaticCardsLogEvents.AcceptedCount.Bind(cards.Count),
+                StaticCardsLogEvents.UnsupportedCount.Bind(unsupportedCount)
+            );
+            return cards;
+        }
+    }
 
     /// <summary>
     /// Copies the manager's eagerly-loaded level-up table so background preview compilation never

@@ -65,7 +65,6 @@ internal sealed class UnsupportedPlatformAudioCapture : IReplayAudioCaptureTap
     public bool CapturedAnySamples => false;
     public long CapturedSampleFloats => 0;
     public string WavFilePath => _wavFilePath;
-    public string CapturePointLabel => "unsupported-platform";
     public ReplayAudioBackend Backend => ReplayAudioBackend.Unsupported;
     public int SampleRateHz => 0;
     public int Channels => 0;

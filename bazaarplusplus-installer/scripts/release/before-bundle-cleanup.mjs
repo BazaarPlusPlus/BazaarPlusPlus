@@ -2,7 +2,6 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {
   RELEASE_PLATFORMS,
-  bundleCleanupDir,
   resolveBuildPlatform
 } from './release-platforms.mjs';
 
@@ -12,7 +11,7 @@ export function resolveBundleCleanupPath(rootDir, platformEnv) {
     (entry) => entry.buildPlatform === buildPlatform
   );
   return platform
-    ? path.join(rootDir, ...bundleCleanupDir(platform).split('/'))
+    ? path.join(rootDir, ...platform.bundleCleanupDir.split('/'))
     : null;
 }
 

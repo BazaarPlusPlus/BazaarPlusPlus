@@ -46,6 +46,13 @@ internal static class RunLoggingLogEvents
         BppLogCardinality.High
     );
 
+    internal static readonly BppLogFieldDefinition ServerRunId = new(
+        1,
+        "server_run_id",
+        BppLogCorrelationPolicy.Short,
+        BppLogCardinality.High
+    );
+
     internal static readonly BppLogFieldDefinition BattleId = new(
         1,
         "battle_id",
@@ -161,6 +168,13 @@ internal static class RunLoggingLogEvents
         BppLogFeatureScope.RunLogging,
         "run_logging.run.activation_failed",
         new[] { RunId, FailureReasonCode },
+        new BppLogStormPolicy(Array.Empty<BppLogFieldDefinition>())
+    );
+
+    internal static readonly BppLogEventDefinition RunIdCollisionRecovered = new(
+        BppLogFeatureScope.RunLogging,
+        "run_logging.run.id_collision_recovered",
+        new[] { RunId, ServerRunId },
         new BppLogStormPolicy(Array.Empty<BppLogFieldDefinition>())
     );
 

@@ -1,0 +1,7 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "singleQuote": true,
+  "printWidth": 100,
+  "trailingComma": "es5",
+  "ignorePatterns": ["dist/**", "coverage/**", ".wrangler/**", "**/*.md"]
+}

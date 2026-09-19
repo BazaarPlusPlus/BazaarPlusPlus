@@ -516,7 +516,17 @@ internal static class EncounterPreviewPlanCopies
     }
 
     private static EncounterDayCondition? CopyDayCondition(EncounterDayCondition? condition) =>
-        condition is { } value ? new EncounterDayCondition(value.Day, value.Comparison) : null;
+        condition is { } value
+            ? new EncounterDayCondition(
+                value.Day,
+                value.Comparison,
+                CopyList(
+                    value
+                        .AdditionalConditions.Select(item => CopyDayCondition(item)!.Value)
+                        .ToArray()
+                )
+            )
+            : null;
 
     private static IReadOnlyList<T> CopyList<T>(IReadOnlyList<T> values)
     {

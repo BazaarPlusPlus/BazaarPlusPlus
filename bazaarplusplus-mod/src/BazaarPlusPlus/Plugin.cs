@@ -12,6 +12,7 @@ using BazaarPlusPlus.Game.Tooltips;
 using BazaarPlusPlus.GameInterop;
 using BazaarPlusPlus.GameInterop.Fonts;
 using BazaarPlusPlus.GameInterop.Localization;
+using BazaarPlusPlus.GameInterop.Tooltips;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Localization;
 using BazaarPlusPlus.ModApi;
@@ -55,7 +56,7 @@ public class Plugin : BaseUnityPlugin
 
             phase = PluginInitializationPhase.Composition;
             var gameBuild = GameBuildInfoResolver.Resolve();
-            _composition = new BppComposition(Logger, configFile, gameBuild);
+            _composition = new BppComposition(configFile, gameBuild);
 
             var services = _composition.Services;
             var dataRoot = services.Paths.DataRootDirectoryPath;
@@ -83,6 +84,7 @@ public class Plugin : BaseUnityPlugin
 
             phase = PluginInitializationPhase.HarmonyPatches;
             ApplyHarmonyPatches();
+            NativeTooltipSuppression.CapturePatchCapabilities();
 
             phase = PluginInitializationPhase.ReplayRuntime;
             // CombatReplayRuntime is constructed before composition.Start() because RunLifecycle
@@ -327,6 +329,7 @@ public class Plugin : BaseUnityPlugin
             return;
 
         _harmony.UnpatchSelf();
+        NativeTooltipSuppression.ClearPatchCapabilities();
         _patchesApplied = false;
     }
 

@@ -28,22 +28,24 @@ export type UpdaterUiContract = {
   } | null;
 };
 
-export function getUpdaterUiContract(
-  snapshot: UpdaterSnapshot
-): UpdaterUiContract {
-  const modal = (
-    titleKey: MessageKey,
-    action: UpdaterModalAction | null,
-    actionLabelKey: MessageKey | null,
-    blocked = false
-  ): UpdaterUiContract['modal'] => ({
+function modal(
+  titleKey: MessageKey,
+  action: UpdaterModalAction | null,
+  actionLabelKey: MessageKey | null,
+  blocked = false
+): UpdaterUiContract['modal'] {
+  return {
     titleKey,
     action,
     actionLabelKey,
     priority: blocked ? 'critical' : 'system',
     dismissalPolicy: blocked ? 'blocked' : 'dismissible'
-  });
+  };
+}
 
+export function getUpdaterUiContract(
+  snapshot: UpdaterSnapshot
+): UpdaterUiContract {
   switch (snapshot.phase) {
     case 'idle':
       return {

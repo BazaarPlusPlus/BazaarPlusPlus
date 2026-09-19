@@ -79,17 +79,36 @@ internal sealed class GhostBattleSyncService
                 HistoryPanelReplayReasonCode.ReplayDirectoryUnavailable
             );
 
+        cancellationToken.ThrowIfCancellationRequested();
+        var account = _playerAccountIdResolver()?.Trim();
         var reference = _repository.TryGetGhostBundleReference(battleId);
         if (reference == null)
             return Failure("ghost_battle_missing", HistoryPanelReplayReasonCode.ReplayUnavailable);
 
+        if (string.IsNullOrWhiteSpace(account) || reference.LocalPlayerAccountId != account)
+            return Failure(
+                "ghost_account_mismatch",
+                HistoryPanelReplayReasonCode.ReplayUnavailable
+            );
         var payloadStore = new GhostBattlePayloadStore(
             GhostBattlePayloadStore.ResolveDirectory(replayDirectoryPath)
         );
         if (reference.ReplayState == "local_ready")
         {
-            var cached = payloadStore.LoadDetailed(reference.LocalBattleId);
-            if (cached.Status == FileBackedPayloadLoadStatus.Loaded)
+            var cached = await Task.Run(
+                    () => payloadStore.LoadDetailed(reference.LocalBattleId),
+                    cancellationToken
+                )
+                .ConfigureAwait(false);
+            if (
+                cached.Status == FileBackedPayloadLoadStatus.Loaded
+                && GhostBattlePayloadReader.MatchesIdentity(
+                    GhostBattlePayloadReader.Normalize(cached.Payload),
+                    reference.LocalBattleId,
+                    account!,
+                    reference.UploaderAccountId
+                )
+            )
                 return GhostBattleReplayDownloadResult.Success();
         }
         if (reference.ReplayState == "unavailable_payload" || reference.ReplayState == "expired")
@@ -197,7 +216,10 @@ internal sealed class GhostBattleSyncService
         {
             _repository.UpsertGhostBattles(playerAccountId, result.Battles);
             _repository.MarkOldUndownloadedGhostBattlesDeleted(DateTimeOffset.UtcNow);
-            return GhostBattleSyncResult.Success(result.Battles.Count);
+            return GhostBattleSyncResult.Success(
+                result.Battles.Count,
+                result.Battles.Count >= MaxSyncBattleLimit
+            );
         }
         catch (Exception ex)
         {
@@ -338,7 +360,8 @@ internal readonly struct GhostBattleSyncResult
         int importedCount,
         string? error,
         HistoryPanelGhostSyncReasonCode reasonCode,
-        Exception? exception
+        Exception? exception,
+        bool discoveryLimitReached = false
     )
     {
         Succeeded = succeeded;
@@ -346,16 +369,25 @@ internal readonly struct GhostBattleSyncResult
         Error = error;
         ReasonCode = reasonCode;
         Exception = exception;
+        DiscoveryLimitReached = discoveryLimitReached;
     }
 
     public bool Succeeded { get; }
     public int ImportedCount { get; }
+    public bool DiscoveryLimitReached { get; }
     public string? Error { get; }
     public HistoryPanelGhostSyncReasonCode ReasonCode { get; }
     public Exception? Exception { get; }
 
-    public static GhostBattleSyncResult Success(int importedCount) =>
-        new(true, importedCount, null, HistoryPanelGhostSyncReasonCode.Completed, null);
+    public static GhostBattleSyncResult Success(int importedCount, bool discoveryLimitReached) =>
+        new(
+            true,
+            importedCount,
+            null,
+            HistoryPanelGhostSyncReasonCode.Completed,
+            null,
+            discoveryLimitReached
+        );
 
     public static GhostBattleSyncResult Failure(
         string error,

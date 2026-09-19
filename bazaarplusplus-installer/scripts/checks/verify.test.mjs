@@ -81,7 +81,7 @@ test('Windows verification runs npm command shims through ComSpec', () => {
   expect(status).toBe(0);
   expect(observed[0]).toEqual({
     command: 'C:\\Windows\\System32\\cmd.exe',
-    args: ['/d', '/s', '/c', 'npm.cmd', 'run', 'generate:bindings:test']
+    args: ['/d', '/s', '/c', 'npm.cmd', 'run', 'format:check']
   });
   expect(observed.find(({ command }) => command === 'cargo')).toBeDefined();
 });

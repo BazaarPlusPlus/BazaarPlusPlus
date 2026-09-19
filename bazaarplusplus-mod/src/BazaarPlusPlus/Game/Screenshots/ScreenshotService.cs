@@ -1,4 +1,5 @@
 #nullable enable
+using BazaarPlusPlus.Core.GameState;
 using BazaarPlusPlus.Infrastructure;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
@@ -10,10 +11,16 @@ namespace BazaarPlusPlus.Game.Screenshots;
 internal sealed class ScreenshotService
 {
     private readonly string _directoryPath;
+    private readonly IRunSnapshotProbe _snapshotProbe;
     private readonly Func<DateTimeOffset> _nowProvider;
 
-    public ScreenshotService(string directoryPath, Func<DateTimeOffset>? nowProvider = null)
+    public ScreenshotService(
+        string directoryPath,
+        IRunSnapshotProbe snapshotProbe,
+        Func<DateTimeOffset>? nowProvider = null
+    )
     {
+        _snapshotProbe = snapshotProbe ?? throw new ArgumentNullException(nameof(snapshotProbe));
         _directoryPath = directoryPath ?? throw new ArgumentNullException(nameof(directoryPath));
         _nowProvider = nowProvider ?? (() => DateTimeOffset.Now);
     }
@@ -39,6 +46,7 @@ internal sealed class ScreenshotService
 
         var result = new ScreenshotCaptureResult
         {
+            Metadata = ScreenshotCaptureMetadata.Capture(_snapshotProbe),
             ScreenshotId = request.ScreenshotId,
             RunId = request.RunId,
             HeroName = request.HeroName,

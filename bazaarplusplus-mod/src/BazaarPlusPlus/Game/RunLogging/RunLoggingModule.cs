@@ -449,14 +449,10 @@ internal sealed class RunLoggingModule : IBppFeature
         if (
             !string.IsNullOrWhiteSpace(_pendingInterruptedRunId)
             && activeSession != null
-            && string.Equals(
-                activeSession.RunId,
-                _pendingInterruptedRunId,
-                StringComparison.Ordinal
-            )
+            && RunLogRunIdentity.MatchesServerRunId(activeSession.RunId, _pendingInterruptedRunId)
         )
         {
-            if (string.Equals(runId, _pendingInterruptedRunId, StringComparison.Ordinal))
+            if (RunLogRunIdentity.MatchesServerRunId(_pendingInterruptedRunId, runId))
             {
                 ClearPendingInterruptedRun();
             }
@@ -494,6 +490,18 @@ internal sealed class RunLoggingModule : IBppFeature
         request.BundleScreenshotRequested = _bundleScreenshotRequestedResolver();
         request.ModVersion = _modVersionResolver();
         var session = sessionManager.EnsureActiveSession(request);
+        if (!string.Equals(session.RunId, request.RunId, StringComparison.Ordinal))
+        {
+            _runContext.CurrentServerRunId = session.RunId;
+            if (!string.Equals(_startedEventRunId, session.RunId, StringComparison.Ordinal))
+            {
+                BppLog.InfoEvent(
+                    RunLoggingLogEvents.RunIdCollisionRecovered,
+                    RunLoggingLogEvents.RunId.Bind(session.RunId),
+                    RunLoggingLogEvents.ServerRunId.Bind(request.RunId)
+                );
+            }
+        }
         sessionManager.SetPlayerAccountIdOnce(_playerAccountIdResolver());
         if (string.Equals(_startedEventRunId, session.RunId, StringComparison.Ordinal))
             return session;
@@ -547,7 +555,7 @@ internal sealed class RunLoggingModule : IBppFeature
 
             if (
                 !string.IsNullOrWhiteSpace(manifest.RunId)
-                && !string.Equals(session.RunId, manifest.RunId, StringComparison.Ordinal)
+                && !RunLogRunIdentity.MatchesServerRunId(session.RunId, manifest.RunId)
             )
             {
                 EmitBattleCaptureFailure(manifest, RunLoggingReasonCode.InRunMismatch);
@@ -571,7 +579,7 @@ internal sealed class RunLoggingModule : IBppFeature
             return null;
         }
 
-        if (!string.Equals(deferredSession.RunId, manifest.RunId, StringComparison.Ordinal))
+        if (!RunLogRunIdentity.MatchesServerRunId(deferredSession.RunId, manifest.RunId))
         {
             EmitBattleCaptureFailure(manifest, RunLoggingReasonCode.DeferredRunMismatch);
             return null;

@@ -7,7 +7,6 @@ using BazaarPlusPlus.Game.LiveBuildPanel.Recommendations;
 using BazaarPlusPlus.Game.LiveBuildPanel.Ui;
 using BazaarPlusPlus.Game.OverlayPanels;
 using BazaarPlusPlus.Game.Supporters;
-using BazaarPlusPlus.GameInterop.CardPreview;
 using BazaarPlusPlus.GameInterop.ItemBoardPreview;
 using BazaarPlusPlus.GameInterop.LiveCards;
 using BazaarPlusPlus.Infrastructure;
@@ -28,7 +27,6 @@ internal sealed class LiveBuildPanel : MonoBehaviour
     private readonly LiveBuildCandidateState _candidateState = new();
     private LiveBuildPreviewRenderer? _previewRenderer;
     private LiveBuildPanelView? _view;
-    private Coroutine? _renderCoroutine;
     private LiveCardSnapshotSet _liveSnapshot = LiveCardSnapshotSet.Empty;
     private IReadOnlyList<BuildRecommendation> _matches = Array.Empty<BuildRecommendation>();
     private IReadOnlyList<BPPSupporterSample> _supporters = Array.Empty<BPPSupporterSample>();
@@ -49,8 +47,7 @@ internal sealed class LiveBuildPanel : MonoBehaviour
 
     internal void Initialize(
         BuildRecommendationRepository recommendations,
-        OverlayPanelHost overlayHost,
-        INativeCardPreviewHost nativeCardPreviewHost
+        OverlayPanelHost overlayHost
     )
     {
         if (_recommendations != null)
@@ -58,9 +55,6 @@ internal sealed class LiveBuildPanel : MonoBehaviour
 
         _recommendations =
             recommendations ?? throw new ArgumentNullException(nameof(recommendations));
-        _previewRenderer = new LiveBuildPreviewRenderer(
-            nativeCardPreviewHost ?? throw new ArgumentNullException(nameof(nativeCardPreviewHost))
-        );
         AttachToOverlayHost(overlayHost);
         _recommendations.BeginCorpusLoad();
     }
@@ -91,7 +85,6 @@ internal sealed class LiveBuildPanel : MonoBehaviour
         _buildRefreshContinuation.Invalidate();
         _overlayHandle?.Dispose();
         _overlayHandle = null;
-        StopRender();
         _previewRenderer?.Dispose();
         _view?.Dispose();
         _view = null;
@@ -104,9 +97,12 @@ internal sealed class LiveBuildPanel : MonoBehaviour
         if (!isVisible)
             return;
 
+        _view?.Tick();
         var mouse = Mouse.current;
-        if (mouse != null)
-            _previewRenderer?.PollHover(mouse.position.ReadValue());
+        _previewRenderer?.Tick(
+            mouse?.position.ReadValue(),
+            mouse?.leftButton.wasPressedThisFrame == true
+        );
     }
 
     private void Open()
@@ -167,7 +163,6 @@ internal sealed class LiveBuildPanel : MonoBehaviour
         _candidateState.Clear();
         _matches = Array.Empty<BuildRecommendation>();
         _recommendationIndex = 0;
-        StopRender();
         _previewRenderer?.Hide();
         _view?.SetVisible(false);
     }
@@ -182,23 +177,26 @@ internal sealed class LiveBuildPanel : MonoBehaviour
 
         _view = new LiveBuildPanelView(
             transform,
-            Close,
+            () => _overlayHandle?.RequestClose(),
             PreviousRecommendation,
             NextRecommendation,
             TryRefreshFinalBuilds
         );
         _view.RowBoundsChanged += OnRowBoundsChanged;
-        _view.CandidateToggleRequested += OnCandidateToggleRequested;
+        _previewRenderer = new LiveBuildPreviewRenderer(
+            transform,
+            _view,
+            OnCandidateToggleRequested
+        );
         _view.EnsureCreated();
     }
 
     private void OnRowBoundsChanged(BppItemBoardId id, Rect bounds)
     {
-        if (_previewRenderer?.SetBounds(id, bounds) == true && _isVisible)
-            RefreshViewAndPreview();
+        _previewRenderer?.SetBounds(id, bounds);
     }
 
-    private void OnCandidateToggleRequested(BppItemBoardId rowId, Guid templateId)
+    private void OnCandidateToggleRequested(Guid templateId)
     {
         if (!_isVisible || templateId == Guid.Empty)
             return;
@@ -238,7 +236,7 @@ internal sealed class LiveBuildPanel : MonoBehaviour
         _buildRefreshInProgress = true;
         _buildRefreshError = string.Empty;
         _buildRefreshSucceeded = false;
-        RefreshRailView();
+        RefreshStatusView();
         _ = RefreshFinalBuildsAsync(
             _buildRefreshContinuation.Capture(),
             new LiveBuildRefreshLogOperation(Guid.NewGuid())
@@ -312,13 +310,13 @@ internal sealed class LiveBuildPanel : MonoBehaviour
         }
         else
         {
-            RefreshRailView();
+            RefreshStatusView();
         }
     }
 
-    // Status-only updates redraw the UITK tree without restarting the native preview coroutine:
+    // Status-only updates refresh the view without reloading native boards:
     // the boards did not change, so re-rendering card previews would be wasted work.
-    private void RefreshRailView()
+    private void RefreshStatusView()
     {
         if (!_isVisible)
             return;
@@ -364,9 +362,7 @@ internal sealed class LiveBuildPanel : MonoBehaviour
 
         var snapshot = BuildPanelSnapshot();
         _view?.Refresh(snapshot);
-        StopRender();
-        if (_previewRenderer != null)
-            _renderCoroutine = StartCoroutine(_previewRenderer.Render(snapshot));
+        _previewRenderer?.Render(snapshot);
     }
 
     private LiveBuildPanelSnapshot BuildPanelSnapshot()
@@ -420,11 +416,9 @@ internal sealed class LiveBuildPanel : MonoBehaviour
                 : LiveBuildPanelText.RefreshFinalBuilds(),
             FinalBuildRefreshButtonEnabled = !_buildRefreshInProgress,
             CorpusState = corpus.State,
-            CorpusSummary = corpus.Summary,
             CorpusFreshnessText = corpus.Summary.HasValue
                 ? LiveBuildPanelText.CorpusFreshnessLine(corpus.Summary.Value, nowUtc)
                 : string.Empty,
-            CorpusFreshnessTooltip = corpus.Tooltip,
             CorpusFreshnessSeverity = ResolveFreshnessSeverity(corpus.Summary, nowUtc),
             CorpusStatusText = corpus.Text,
             CorpusStatusTooltip = corpus.Tooltip,
@@ -433,9 +427,8 @@ internal sealed class LiveBuildPanel : MonoBehaviour
         };
     }
 
-    // The corpus card multiplexes four states into one fixed-height box: pending > failure > empty
-    // > summary. Only the summary state fills the per-hero dashboard; the others render a single
-    // status line. The post-pull success cue rides the freshness tint, not a "✓" prefix.
+    // The header prioritizes pending, failure, empty, then the corpus summary.
+    // Detailed timestamps and per-hero counts stay available in its hover details.
     private (
         LiveBuildCorpusState State,
         TenWinCorpusSummary? Summary,
@@ -485,7 +478,7 @@ internal sealed class LiveBuildPanel : MonoBehaviour
         );
     }
 
-    // Freshness tint for the corpus dashboard, reusing the refresh-severity palette: a just-pulled
+    // Freshness tint for the corpus header: a just-pulled
     // or <=24h corpus reads green (Success), <=7d blue (Pending), older/unknown warm (Failure).
     private LiveBuildRefreshSeverity ResolveFreshnessSeverity(
         TenWinCorpusSummary? summary,
@@ -570,15 +563,6 @@ internal sealed class LiveBuildPanel : MonoBehaviour
             );
 
         return (LiveBuildMatchesState.HasRecommendation, string.Empty, recommendation);
-    }
-
-    private void StopRender()
-    {
-        if (_renderCoroutine == null)
-            return;
-
-        StopCoroutine(_renderCoroutine);
-        _renderCoroutine = null;
     }
 
     private static string BuildSignature(

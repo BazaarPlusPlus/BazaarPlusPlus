@@ -1,0 +1,16 @@
+{
+  "run-only.bundle.b64": {
+    "decoded_bytes": 399,
+    "manifest_bytes": 374,
+    "sha256": "6959c53bf3b3b8f38e7aefb2edf13d3ff4ddb0414e95cf4c0460466a7000b36d",
+    "expected": "valid"
+  },
+  "corrupt-magic.bundle.b64": {
+    "expected_error": "invalid_bundle",
+    "expected_reason": "invalid_prefix"
+  },
+  "segment-digest-mismatch.bundle.b64": {
+    "sha256": "457cc784e88624a2419e7946caa66ed6289544000045e8864caa0a8af303c923",
+    "expected_error": "segment_digest_mismatch"
+  }
+}

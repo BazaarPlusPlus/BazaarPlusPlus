@@ -23,7 +23,7 @@ pub fn find_localconfig_paths(steam_path: &Path) -> Vec<PathBuf> {
     };
 
     let mut paths = entries
-        .filter_map(|entry| entry.ok())
+        .filter_map(std::result::Result::ok)
         .filter_map(|entry| {
             let user_name = entry.file_name();
             let user_name = user_name.to_str()?;

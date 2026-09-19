@@ -10,6 +10,7 @@ using BazaarPlusPlus.Game.CombatReplay.Video;
 using BazaarPlusPlus.Game.PvpBattles;
 using BazaarPlusPlus.Game.PvpBattles.Persistence;
 using BazaarPlusPlus.Game.RunLifecycle;
+using BazaarPlusPlus.GameInterop.CombatReplay;
 using BazaarPlusPlus.GameInterop.Files;
 using BazaarPlusPlus.GameInterop.Tooltips;
 using BazaarPlusPlus.Infrastructure;
@@ -36,6 +37,8 @@ internal sealed class CombatReplayRuntime : MonoBehaviour
     private ReplayPlaybackPublisher? _playbackPublisher;
     private OpponentPortraitController? _portraitController;
     private ReplayPlaybackLogOperation? _activePlaybackOperation;
+    private ReplayPlaybackLogOperation? _completedPlaybackOperationAwaitingExit;
+    private IDisposable? _activeReplayPayloadLease;
     private ReplayPlaybackLogOperation? _pendingMenuReturnOperation;
     private readonly SavedReplayLifecycle _savedReplay = new();
     private Func<CombatReplayVideoRecorder?>? _videoRecorder;
@@ -46,6 +49,7 @@ internal sealed class CombatReplayRuntime : MonoBehaviour
     private CombatReplayVideoRecordingStarted? _managedRecordingStarted;
     private CombatReplayVideoRecordingCompleted? _managedRecordingCompleted;
     private bool _managedRecordingFinalizing;
+    private CurrentReplayRecordingSnapshot? _managedRecordingRestartFailure;
     private Coroutine? _pendingCurrentReplayStart;
     private Coroutine? _pendingCurrentReplayPresentationGate;
     private Coroutine? _pendingCurrentReplayRecapHold;
@@ -60,16 +64,15 @@ internal sealed class CombatReplayRuntime : MonoBehaviour
 
     public static CombatReplayRuntime? Instance { get; private set; }
 
-    // Sourced from the playback session (BeginSession sets it for both the local-saved and the
-    // imported-ghost path); the controller only learns battle ids on the local-saved path.
-    public string? ActiveBattleId => _playbackPublisher?.ActiveSessionBattleId;
-
-    public bool IsReplayPlaybackActive =>
-        IsSavedReplayPlaybackActive || AppState.CurrentState is ReplayState;
-
     public bool IsSavedReplayPlaybackActive => _savedReplay.IsSavedReplayPlaybackActive;
 
     public bool IsReplayStartInProgress => _savedReplay.IsReplayStartInProgress;
+
+    internal bool HasSavedReplaySession =>
+        _activePlaybackOperation != null
+        || _pendingMenuReturnOperation != null
+        || IsReplayStartInProgress
+        || IsSavedReplayPlaybackActive;
 
     public bool HasPendingPersistence => _persistence?.HasPendingPersistence == true;
 
@@ -164,6 +167,9 @@ internal sealed class CombatReplayRuntime : MonoBehaviour
             );
         }
         _activePlaybackOperation = null;
+        _completedPlaybackOperationAwaitingExit = null;
+        _activeReplayPayloadLease?.Dispose();
+        _activeReplayPayloadLease = null;
         _pendingMenuReturnOperation = null;
         _savedReplay.ClearPendingMenuReturn();
         _persistence?.Dispose();
@@ -178,16 +184,6 @@ internal sealed class CombatReplayRuntime : MonoBehaviour
         Events.StateChanged.RemoveListener(OnStateChanged);
         Events.ReplayStarted.RemoveListener(OnNativeReplayStarted);
         Events.ReplayEnded.RemoveListener(OnNativeReplayEnded);
-    }
-
-    public IReadOnlyList<PvpBattleManifest> ListRecentBattles()
-    {
-        return _controller?.ListRecentBattles() ?? Array.Empty<PvpBattleManifest>();
-    }
-
-    public PvpBattleManifest? GetLatestBattle()
-    {
-        return _controller?.GetLatestBattle();
     }
 
     public bool CanReplaySavedCombats(out string reason)
@@ -299,6 +295,14 @@ internal sealed class CombatReplayRuntime : MonoBehaviour
 
     private CurrentReplayRecordingSnapshot GetManagedReplayRecordingSnapshot()
     {
+        if (
+            AppState.CurrentState is ReplayState
+            && _managedRecordingRestartFailure is { } restartFailure
+        )
+        {
+            return restartFailure;
+        }
+
         var operation = _activePlaybackOperation;
         if (
             operation == null
@@ -312,18 +316,27 @@ internal sealed class CombatReplayRuntime : MonoBehaviour
         if (!operation.RecordVideo)
         {
             var availability = _videoRecorder?.Invoke()?.GetCurrentReplayRecordingAvailability();
-            var replayReady =
-                AppState.CurrentState is ReplayState { IsReplaying: false }
-                && Singleton<BoardManager>.Instance
-                    is { IsRecapViewOpen: false, StorageMoving: false }
-                && !AppState.BlockInput;
+            var sessionReady = string.Equals(
+                _playbackPublisher?.ActiveSessionBattleId,
+                operation.BattleId,
+                StringComparison.Ordinal
+            );
+            var restartReadiness = NativeReplayRestartProbe.Observe(
+                AppState.CurrentState as ReplayState
+            );
+            var replayReady = sessionReady && restartReadiness.CanRestart;
+            var statusCode =
+                !sessionReady ? CurrentReplayRecordingStatusCode.SessionChanged
+                : !restartReadiness.CanRestart
+                    ? CurrentReplayRecordingStatusCodes.FromNativeBlocker(restartReadiness.Blocker)
+                : availability?.IsReady == true ? CurrentReplayRecordingStatusCode.None
+                : CurrentReplayRecordingStatusCode.RecorderUnavailable;
             return ReplayRecordingButtonSnapshotPolicy.OrdinaryManagedReplay(
                 operation.BattleId,
                 availability?.IsReady == true,
                 replayReady,
-                replayReady
-                    ? availability?.Reason
-                    : "Finish the current replay before recording it."
+                statusCode,
+                availability?.Reason
             );
         }
 
@@ -371,7 +384,10 @@ internal sealed class CombatReplayRuntime : MonoBehaviour
             completed?.Reason,
             Visible: true,
             CanStart: false,
-            CanReveal: canReveal
+            CanReveal: canReveal,
+            StatusCode: completed is { ArtifactUsable: false }
+                ? CurrentReplayRecordingStatusCode.RecordingFailed
+                : CurrentReplayRecordingStatusCode.None
         );
     }
 
@@ -397,7 +413,7 @@ internal sealed class CombatReplayRuntime : MonoBehaviour
         Action invokeNativeReplay,
         Action invokeNativeRecap,
         Action invokeNativeRecapBack,
-        out string reason
+        out CurrentReplayRecordingStatusCode statusCode
     )
     {
         if (invokeNativeReplay == null)
@@ -407,12 +423,11 @@ internal sealed class CombatReplayRuntime : MonoBehaviour
         if (invokeNativeRecapBack == null)
             throw new ArgumentNullException(nameof(invokeNativeRecapBack));
 
-        var managedSnapshot = GetManagedReplayRecordingSnapshot();
-        if (_activePlaybackOperation?.RecordVideo == false && managedSnapshot.CanStart)
+        if (_activePlaybackOperation?.RecordVideo == false)
             return TryStartManagedReplayRecording(
                 invokeNativeReplay,
                 invokeNativeRecap,
-                out reason
+                out statusCode
             );
 
         RefreshCurrentReplayRecordingAvailability();
@@ -421,14 +436,17 @@ internal sealed class CombatReplayRuntime : MonoBehaviour
         var recorder = _videoRecorder?.Invoke();
         if (!snapshot.CanStart || manifest == null || recorder == null)
         {
-            reason = snapshot.Reason ?? "Video recording is not ready.";
+            statusCode =
+                snapshot.StatusCode == CurrentReplayRecordingStatusCode.None
+                    ? CurrentReplayRecordingStatusCode.RecorderUnavailable
+                    : snapshot.StatusCode;
             return false;
         }
 
         var arm = recorder.TryArmCurrentReplay(manifest.BattleId);
         if (!arm.Succeeded || string.IsNullOrWhiteSpace(arm.RecordingId))
         {
-            reason = arm.Reason ?? "Video recording could not be prepared.";
+            statusCode = CurrentReplayRecordingStatusCode.RecorderUnavailable;
             return false;
         }
 
@@ -439,7 +457,7 @@ internal sealed class CombatReplayRuntime : MonoBehaviour
                 recordingId,
                 "native-replay-state-changed-before-arm"
             );
-            reason = "The replay recording state changed before it could start.";
+            statusCode = CurrentReplayRecordingStatusCode.SessionChanged;
             return false;
         }
 
@@ -463,7 +481,7 @@ internal sealed class CombatReplayRuntime : MonoBehaviour
                         invokeNativeRecapBack
                     )
                 );
-                reason = string.Empty;
+                statusCode = CurrentReplayRecordingStatusCode.None;
                 return true;
             }
             catch (Exception ex)
@@ -473,82 +491,142 @@ internal sealed class CombatReplayRuntime : MonoBehaviour
                     "native-recap-transition-start-failed",
                     ex.Message
                 );
-                reason = ex.Message;
+                statusCode = CurrentReplayRecordingStatusCode.NativeInvokeFailed;
                 return false;
             }
         }
 
-        return TryInvokeCurrentReplay(recordingId, invokeNativeReplay, out reason);
+        return TryInvokeCurrentReplay(recordingId, invokeNativeReplay, out statusCode);
     }
 
     private bool TryStartManagedReplayRecording(
         Action invokeNativeReplay,
         Action invokeNativeRecap,
-        out string reason
+        out CurrentReplayRecordingStatusCode statusCode
     )
     {
+        var restart = new ManagedReplayRecordingRestartCore();
         var operation = _activePlaybackOperation;
         var publisher = _playbackPublisher;
         var replay = AppState.CurrentState as ReplayState;
-        if (
-            operation == null
-            || operation.RecordVideo
-            || publisher == null
-            || replay == null
-            || replay.IsReplaying
-            || publisher.ActiveSessionBattleId != operation.BattleId
-        )
-        {
-            reason = "The active replay cannot be restarted for recording.";
-            return false;
-        }
-
+        var restartReadiness = NativeReplayRestartProbe.Observe(replay);
+        var sessionAvailable =
+            operation != null
+            && !operation.RecordVideo
+            && publisher != null
+            && string.Equals(
+                publisher.ActiveSessionBattleId,
+                operation.BattleId,
+                StringComparison.Ordinal
+            );
         var availability = _videoRecorder?.Invoke()?.GetCurrentReplayRecordingAvailability();
-        if (availability?.IsReady != true)
+        var decision = restart.Begin(
+            sessionAvailable,
+            availability?.IsReady == true,
+            restartReadiness.Blocker
+        );
+        if (decision.Action == ManagedReplayRecordingRestartAction.Blocked)
         {
-            reason = availability?.Reason ?? "Video recording is not ready.";
+            statusCode = decision.StatusCode;
             return false;
         }
 
-        if (
-            !operation.TryPromoteToRecording()
-            || !publisher.TryPromoteActiveSessionToRecording(operation.BattleId)
-        )
+        if (operation == null || publisher == null || replay == null)
+            throw new InvalidOperationException(
+                "Managed replay restart preflight was inconsistent."
+            );
+
+        var operationPromoted = operation.TryPromoteToRecording();
+        var publisherPromoted =
+            operationPromoted && publisher.TryPromoteActiveSessionToRecording(operation.BattleId);
+        decision = restart.OnPromoted(operationPromoted, publisherPromoted);
+        if (decision.Action == ManagedReplayRecordingRestartAction.CompleteFailed)
         {
-            reason = "The active replay recording session changed before it could start.";
-            return false;
+            return FailManagedReplayRecordingRestart(
+                operation,
+                publisher,
+                decision,
+                exception: null,
+                out statusCode
+            );
         }
 
         ResetManagedRecordingUi();
         _invokeRecordedReplayRecap = invokeNativeRecap;
         var publish = publisher.PublishStarting();
-        if (!publish.Succeeded)
+        decision = restart.OnStartingPublished(publish.Succeeded);
+        if (decision.Action == ManagedReplayRecordingRestartAction.CompleteFailed)
         {
-            reason = publish.Exception?.Message ?? "Replay recording could not start.";
-            publisher.PublishEnded("recording-restart-publish-failed", failed: true);
-            return false;
+            return FailManagedReplayRecordingRestart(
+                operation,
+                publisher,
+                decision,
+                publish.Exception,
+                out statusCode
+            );
         }
 
+        Exception? invocationException = null;
         try
         {
             invokeNativeReplay();
         }
         catch (Exception ex)
         {
-            publisher.PublishEnded("recording-restart-invoke-failed", failed: true);
-            reason = ex.Message;
-            return false;
+            invocationException = ex;
         }
 
-        if (!replay.IsReplaying)
+        decision = restart.OnNativeInvoked(invocationException == null, replay.IsReplaying);
+        if (decision.Action == ManagedReplayRecordingRestartAction.CompleteFailed)
         {
-            publisher.PublishEnded("recording-restart-not-started", failed: true);
-            reason = "The native replay did not start.";
-            return false;
+            return FailManagedReplayRecordingRestart(
+                operation,
+                publisher,
+                decision,
+                invocationException,
+                out statusCode
+            );
         }
 
-        reason = string.Empty;
+        statusCode = CurrentReplayRecordingStatusCode.None;
         return true;
+    }
+
+    private bool FailManagedReplayRecordingRestart(
+        ReplayPlaybackLogOperation operation,
+        ReplayPlaybackPublisher publisher,
+        ManagedReplayRecordingRestartDecision decision,
+        Exception? exception,
+        out CurrentReplayRecordingStatusCode statusCode
+    )
+    {
+        _invokeRecordedReplayRecap = null;
+        var ended = publisher.PublishEnded(decision.EndReason!, failed: true);
+        var failureReasonCode = ended.Succeeded
+            ? decision.FailureReasonCode
+            : ReplayPlaybackReasonCode.EndedPublishFailed;
+        var failureException = ended.Succeeded ? exception : ended.Exception;
+        CompletePlaybackOperation(
+            operation,
+            ReplayPlaybackEndReasonCode.StartFailed,
+            ReplayRollbackStatus.NotRequired,
+            failureReasonCode,
+            failureException
+        );
+        _completedPlaybackOperationAwaitingExit = operation;
+        statusCode = decision.StatusCode;
+        _managedRecordingRestartFailure = new CurrentReplayRecordingSnapshot(
+            CurrentReplayRecordingPhase.Failed,
+            operation.BattleId,
+            RecordingId: null,
+            FinalFilePath: null,
+            Reason: failureException?.Message,
+            Visible: true,
+            CanStart: false,
+            CanReveal: false,
+            StatusCode: statusCode
+        );
+        return false;
     }
 
     private IEnumerator StartCurrentReplayAfterRecapClosed(
@@ -626,7 +704,7 @@ internal sealed class CombatReplayRuntime : MonoBehaviour
     private bool TryInvokeCurrentReplay(
         string recordingId,
         Action invokeNativeReplay,
-        out string reason
+        out CurrentReplayRecordingStatusCode statusCode
     )
     {
         try
@@ -636,7 +714,7 @@ internal sealed class CombatReplayRuntime : MonoBehaviour
         catch (Exception ex)
         {
             FailCurrentReplayStart(recordingId, "native-replay-invoke-failed", ex.Message);
-            reason = ex.Message;
+            statusCode = CurrentReplayRecordingStatusCode.NativeInvokeFailed;
             return false;
         }
 
@@ -647,11 +725,11 @@ internal sealed class CombatReplayRuntime : MonoBehaviour
                 "native-replay-not-started",
                 "The native replay did not start."
             );
-            reason = "The native replay did not start.";
+            statusCode = CurrentReplayRecordingStatusCode.NativeStartRejected;
             return false;
         }
 
-        reason = string.Empty;
+        statusCode = CurrentReplayRecordingStatusCode.None;
         return true;
     }
 
@@ -1473,88 +1551,112 @@ internal sealed class CombatReplayRuntime : MonoBehaviour
         }
     }
 
-    public bool ReplayLatest()
-    {
-        var latest = _controller?.GetLatestBattle();
-        if (latest == null)
-            return false;
-
-        return ReplaySaved(latest.BattleId, recordVideo: false);
-    }
-
     public bool ReplaySaved(string battleId, bool recordVideo)
     {
-        if (!CanReplaySavedBattle(battleId, out _))
+        var persistence = _persistence;
+        if (persistence == null)
         {
             LogRequestRejected(
                 CombatReplayPlaybackSource.LocalSaved,
-                ResolveSavedReplayRejectionReason(battleId),
+                ReplayRequestRejectionReasonCode.RuntimeUnavailable,
                 battleId
             );
             return false;
         }
 
-        var controller = _controller;
-        if (controller == null)
-            return false;
-
-        var manifest = controller.LoadBattle(battleId);
-        if (manifest == null)
+        var payloadLease = persistence.TryAcquirePlaybackPayloadLease();
+        if (payloadLease == null)
         {
             LogRequestRejected(
                 CombatReplayPlaybackSource.LocalSaved,
-                ReplayRequestRejectionReasonCode.ManifestUnavailable,
+                ReplayRequestRejectionReasonCode.PayloadOperationBusy,
                 battleId
             );
             return false;
         }
 
-        var payload = controller.LoadPayload(manifest);
-        if (payload == null)
-        {
-            LogRequestRejected(
-                CombatReplayPlaybackSource.LocalSaved,
-                ReplayRequestRejectionReasonCode.PayloadUnavailable,
-                battleId
-            );
-            return false;
-        }
-
-        var operation = new ReplayPlaybackLogOperation(
-            battleId,
-            CombatReplayPlaybackSource.LocalSaved,
-            recordVideo
-        );
-        ResetManagedRecordingUi();
-        _activePlaybackOperation = operation;
-        CombatSequenceMessages sequence;
         try
         {
-            sequence = controller.LoadReplay(payload);
-        }
-        catch (Exception ex)
-        {
-            CompletePlaybackOperation(
-                operation,
-                ReplayPlaybackEndReasonCode.StartFailed,
-                ReplayRollbackStatus.NotRequired,
-                ReplayPlaybackReasonCode.StartException,
-                ex
-            );
-            return false;
-        }
+            if (!CanReplaySavedBattle(battleId, out _))
+            {
+                LogRequestRejected(
+                    CombatReplayPlaybackSource.LocalSaved,
+                    ResolveSavedReplayRejectionReason(battleId),
+                    battleId
+                );
+                return false;
+            }
 
-        PlaybackUiState.InitializedBoardUiControllers.Clear();
-        _savedReplay.OnStartBegun();
-        _ = StartReplayAsync(
-            manifest,
-            sequence,
-            battleId,
-            CombatReplayPlaybackSource.LocalSaved,
-            recordVideo,
-            operation
-        );
-        return true;
+            var controller = _controller;
+            if (controller == null)
+                return false;
+
+            var manifest = controller.LoadBattle(battleId);
+            if (manifest == null)
+            {
+                LogRequestRejected(
+                    CombatReplayPlaybackSource.LocalSaved,
+                    ReplayRequestRejectionReasonCode.ManifestUnavailable,
+                    battleId
+                );
+                return false;
+            }
+
+            var payload = controller.LoadPayload(manifest);
+            if (payload == null)
+            {
+                LogRequestRejected(
+                    CombatReplayPlaybackSource.LocalSaved,
+                    ReplayRequestRejectionReasonCode.PayloadUnavailable,
+                    battleId
+                );
+                return false;
+            }
+
+            var operation = new ReplayPlaybackLogOperation(
+                battleId,
+                CombatReplayPlaybackSource.LocalSaved,
+                recordVideo
+            );
+            ResetManagedRecordingUi();
+            _completedPlaybackOperationAwaitingExit = null;
+            _activePlaybackOperation = operation;
+            _activeReplayPayloadLease?.Dispose();
+            _activeReplayPayloadLease = payloadLease;
+            payloadLease = null;
+            CombatSequenceMessages sequence;
+            try
+            {
+                sequence = controller.LoadReplay(payload);
+            }
+            catch (Exception ex)
+            {
+                CompletePlaybackOperation(
+                    operation,
+                    ReplayPlaybackEndReasonCode.StartFailed,
+                    ReplayRollbackStatus.NotRequired,
+                    ReplayPlaybackReasonCode.StartException,
+                    ex
+                );
+                return false;
+            }
+
+            PlaybackUiState.InitializedBoardUiControllers.Clear();
+            _savedReplay.OnStartBegun();
+            _ = StartReplayAsync(
+                manifest,
+                sequence,
+                battleId,
+                CombatReplayPlaybackSource.LocalSaved,
+                recordVideo,
+                operation
+            );
+            return true;
+        }
+        finally
+        {
+            payloadLease?.Dispose();
+        }
     }
 
     public bool ReplayImportedBattle(
@@ -1595,6 +1697,7 @@ internal sealed class CombatReplayRuntime : MonoBehaviour
             recordVideo
         );
         ResetManagedRecordingUi();
+        _completedPlaybackOperationAwaitingExit = null;
         _activePlaybackOperation = operation;
         CombatSequenceMessages sequence;
         try
@@ -1748,7 +1851,7 @@ internal sealed class CombatReplayRuntime : MonoBehaviour
             _savedReplay.OnStartFailed();
             // Unconditional: PublishEnded only publishes the event when "starting" was
             // published, but it must always clear the session (battle id) for a failed start.
-            // Cleanup order is explicit on this path (ADR-0009) — not shared with state-exit.
+            // Cleanup order is explicit on this path (ADR-0003) — not shared with state-exit.
             var ended = ReplayPlaybackCleanup.PublishThenCleanup(
                 () => _playbackPublisher!.PublishEnded("start-failed", failed: true),
                 (stage, cleanupException) =>
@@ -1843,8 +1946,9 @@ internal sealed class CombatReplayRuntime : MonoBehaviour
 
         var now = Time.realtimeSinceStartup;
         var ownership = _savedReplay.BeginReplayStateExit(now);
-        var operation = _activePlaybackOperation;
-        // Cleanup order is explicit on this path (ADR-0009) — not shared with start-failure.
+        var operation = _activePlaybackOperation ?? _completedPlaybackOperationAwaitingExit;
+        _completedPlaybackOperationAwaitingExit = null;
+        // Cleanup order is explicit on this path (ADR-0003) — not shared with start-failure.
         var ended = ReplayPlaybackCleanup.PublishThenCleanup(
             () =>
                 _playbackPublisher?.PublishEnded(
@@ -1935,8 +2039,9 @@ internal sealed class CombatReplayRuntime : MonoBehaviour
         // intercepts the normal transition), so OnStateChanged's PublishEnded never fires for
         // them. Emit it here too, otherwise the video recorder never gets the "ended" signal and
         // leaves its platform encoder on a never-finalized file (no moov atom -> unplayable MP4).
-        // Cleanup order is explicit on this path (ADR-0009) — not shared with start-failure.
-        var operation = _activePlaybackOperation;
+        // Cleanup order is explicit on this path (ADR-0003) — not shared with start-failure.
+        var operation = _activePlaybackOperation ?? _completedPlaybackOperationAwaitingExit;
+        _completedPlaybackOperationAwaitingExit = null;
         var ended = ReplayPlaybackCleanup.PublishThenCleanup(
             () =>
                 _playbackPublisher?.PublishEnded("saved-replay-exit", failed: false)
@@ -2068,6 +2173,8 @@ internal sealed class CombatReplayRuntime : MonoBehaviour
         if (ReferenceEquals(_activePlaybackOperation, operation))
         {
             _activePlaybackOperation = null;
+            _activeReplayPayloadLease?.Dispose();
+            _activeReplayPayloadLease = null;
             ResetManagedRecordingUi();
         }
     }
@@ -2077,6 +2184,7 @@ internal sealed class CombatReplayRuntime : MonoBehaviour
         _managedRecordingStarted = null;
         _managedRecordingCompleted = null;
         _managedRecordingFinalizing = false;
+        _managedRecordingRestartFailure = null;
     }
 
     private static void LogRequestRejected(

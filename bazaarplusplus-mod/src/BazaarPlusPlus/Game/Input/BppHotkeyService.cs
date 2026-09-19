@@ -29,7 +29,6 @@ internal static class BppHotkeyService
         }
         CachedActions.Clear();
         BindingFailureGate.Clear();
-        LoggedModifierDisagreements.Clear();
         UpgradePreviewActivation.Reset();
     }
 
@@ -54,9 +53,6 @@ internal static class BppHotkeyService
     );
     private static readonly HotkeyBindingFailureGate<SettingsLogReasonCode> BindingFailureGate =
         new();
-    private static readonly HashSet<string> LoggedModifierDisagreements = new(
-        StringComparer.OrdinalIgnoreCase
-    );
 
     internal static bool IsHeld(
         BppHotkeyActionId actionId,
@@ -120,7 +116,10 @@ internal static class BppHotkeyService
         Keyboard? keyboard = null
     )
     {
-        if (BppKeyBindRowController.IsRebindCaptureActive)
+        if (
+            BppKeyBindRowController.IsRebindCaptureActive
+            || GameInterop.Input.NativeTextInputLease.IsActive
+        )
             return false;
 
         var path = GetBindingPath(actionId);
@@ -153,10 +152,7 @@ internal static class BppHotkeyService
                 StringComparison.OrdinalIgnoreCase
             )
         )
-            return IsModifierPressed(
-                normalizedPath,
-                () => KeyBindings.Modifiers.IsCtrlPressed(keyboard)
-            );
+            return IsModifierPressed(normalizedPath, KeyBindings.Modifiers.IsCtrlPressed(keyboard));
 
         if (
             string.Equals(
@@ -167,7 +163,7 @@ internal static class BppHotkeyService
         )
             return IsModifierPressed(
                 normalizedPath,
-                () => KeyBindings.Modifiers.IsShiftPressed(keyboard)
+                KeyBindings.Modifiers.IsShiftPressed(keyboard)
             );
 
         if (TryFindSupportedMouseButton(normalizedPath, mouse, out var button))
@@ -304,28 +300,8 @@ internal static class BppHotkeyService
         return action;
     }
 
-    private static bool IsModifierPressed(string normalizedBindingPath, Func<bool> legacyCheck)
-    {
-        var legacyPressed = legacyCheck();
-        var actionPressed = GetOrCreateAction(normalizedBindingPath).IsPressed();
-        if (
-            legacyPressed != actionPressed
-            && LoggedModifierDisagreements.Add(normalizedBindingPath)
-        )
-        {
-            BppLog.DebugEvent(
-                SettingsLogEvents.HotkeyModifierDisagreementObserved,
-                () =>
-                    [
-                        SettingsLogEvents.HotkeyModifierBindingPath.Bind(normalizedBindingPath),
-                        SettingsLogEvents.HotkeyModifierLegacyPressed.Bind(legacyPressed),
-                        SettingsLogEvents.HotkeyModifierActionPressed.Bind(actionPressed),
-                    ]
-            );
-        }
-
-        return legacyPressed || actionPressed;
-    }
+    private static bool IsModifierPressed(string normalizedBindingPath, bool legacyPressed) =>
+        legacyPressed || GetOrCreateAction(normalizedBindingPath).IsPressed();
 
     private static void ReportUnresolvedControls(BppHotkeyActionId actionId, string normalizedPath)
     {

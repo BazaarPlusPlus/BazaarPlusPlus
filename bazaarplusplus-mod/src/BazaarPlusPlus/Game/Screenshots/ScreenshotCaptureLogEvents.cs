@@ -7,7 +7,6 @@ namespace BazaarPlusPlus.Game.Screenshots;
 internal enum ScreenshotCaptureReasonCode
 {
     Completed,
-    OutputPathUnavailable,
     ReadinessDeadline,
     TransitionFieldMissing,
     RevealProbeFailed,
@@ -42,17 +41,6 @@ internal enum ScreenshotCaptureCleanupStage
 [BppLogEventSource]
 internal static class ScreenshotCaptureLogEvents
 {
-    internal static readonly BppLogFieldDefinition InitializationFailedReasonCode = PublicField(
-        0,
-        "reason_code",
-        BppLogCardinality.Low
-    );
-    internal static readonly BppLogEventDefinition InitializationFailed = new(
-        BppLogFeatureScope.Screenshots,
-        "screenshots.capture.initialization_failed",
-        [InitializationFailedReasonCode]
-    );
-
     internal static readonly BppLogFieldDefinition ScreenshotId = PublicField(
         0,
         "screenshot_id",
@@ -162,6 +150,78 @@ internal static class ScreenshotCaptureLogEvents
         [CleanupFailedStage, CleanupFailedScreenshotId, CleanupFailedFilePath]
     );
 
+#if DEBUG
+    internal static readonly BppLogFieldDefinition SamplingReadinessCount = PublicField(
+        0,
+        "readiness_sample_count",
+        BppLogCardinality.High
+    );
+    internal static readonly BppLogFieldDefinition SamplingReadinessTotalMicroseconds = PublicField(
+        1,
+        "readiness_total_us",
+        BppLogCardinality.High
+    );
+    internal static readonly BppLogFieldDefinition SamplingReadinessMaxMicroseconds = PublicField(
+        2,
+        "readiness_max_us",
+        BppLogCardinality.High
+    );
+    internal static readonly BppLogFieldDefinition SamplingBarrierCount = PublicField(
+        3,
+        "barrier_sample_count",
+        BppLogCardinality.High
+    );
+    internal static readonly BppLogFieldDefinition SamplingBarrierTotalMicroseconds = PublicField(
+        4,
+        "barrier_total_us",
+        BppLogCardinality.High
+    );
+    internal static readonly BppLogFieldDefinition SamplingBarrierMaxMicroseconds = PublicField(
+        5,
+        "barrier_max_us",
+        BppLogCardinality.High
+    );
+    internal static readonly BppLogFieldDefinition SamplingMaxCardCount = PublicField(
+        6,
+        "max_card_count",
+        BppLogCardinality.High
+    );
+    internal static readonly BppLogFieldDefinition SamplingMaxTransformCount = PublicField(
+        7,
+        "max_transform_count",
+        BppLogCardinality.High
+    );
+    internal static readonly BppLogFieldDefinition SamplingMaxControllerCount = PublicField(
+        8,
+        "max_controller_count",
+        BppLogCardinality.High
+    );
+    internal static readonly BppLogFieldDefinition SamplingMaxSkippedInactiveControllerCount =
+        PublicField(9, "max_skipped_inactive_controller_count", BppLogCardinality.High);
+    internal static readonly BppLogFieldDefinition SamplingNativeTooltipReasonCode = PublicField(
+        10,
+        "native_tooltip_reason_code",
+        BppLogCardinality.Low
+    );
+    internal static readonly BppLogEventDefinition SamplingSummary = new(
+        BppLogFeatureScope.Screenshots,
+        "screenshots.capture.sampling_summary",
+        [
+            SamplingReadinessCount,
+            SamplingReadinessTotalMicroseconds,
+            SamplingReadinessMaxMicroseconds,
+            SamplingBarrierCount,
+            SamplingBarrierTotalMicroseconds,
+            SamplingBarrierMaxMicroseconds,
+            SamplingMaxCardCount,
+            SamplingMaxTransformCount,
+            SamplingMaxControllerCount,
+            SamplingMaxSkippedInactiveControllerCount,
+            SamplingNativeTooltipReasonCode,
+        ]
+    );
+#endif
+
     private static BppLogFieldDefinition PublicField(
         int order,
         string name,
@@ -172,17 +232,6 @@ internal static class ScreenshotCaptureLogEvents
 
 internal static class ScreenshotCaptureDiagnostics
 {
-    internal static void ReportInitializationFailed(Exception? exception = null)
-    {
-        var field = ScreenshotCaptureLogEvents.InitializationFailedReasonCode.Bind(
-            ScreenshotCaptureReasonCode.OutputPathUnavailable
-        );
-        if (exception == null)
-            BppLog.ErrorEvent(ScreenshotCaptureLogEvents.InitializationFailed, field);
-        else
-            BppLog.ErrorEvent(ScreenshotCaptureLogEvents.InitializationFailed, exception, field);
-    }
-
     internal static void ReportCleanupFailed(
         ScreenshotCaptureCleanupStage stage,
         string? screenshotId,

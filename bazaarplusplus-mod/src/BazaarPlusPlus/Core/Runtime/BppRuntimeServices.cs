@@ -4,7 +4,6 @@ using BazaarPlusPlus.Core.Events;
 using BazaarPlusPlus.Core.GameState;
 using BazaarPlusPlus.GameInterop;
 using BazaarPlusPlus.Storage.Paths;
-using BepInEx.Logging;
 
 namespace BazaarPlusPlus.Core.Runtime;
 
@@ -18,8 +17,7 @@ internal sealed class BppRuntimeServices : IBppServices
         IGameStateProbe gameStateProbe,
         IEncounterStateProbe encounterState,
         IRunSnapshotProbe runSnapshot,
-        IGameBuildInfo gameBuild,
-        ManualLogSource logger
+        IGameBuildInfo gameBuild
     )
     {
         EventBus = eventBus ?? throw new ArgumentNullException(nameof(eventBus));
@@ -30,7 +28,6 @@ internal sealed class BppRuntimeServices : IBppServices
         EncounterState = encounterState ?? throw new ArgumentNullException(nameof(encounterState));
         RunSnapshot = runSnapshot ?? throw new ArgumentNullException(nameof(runSnapshot));
         GameBuild = gameBuild ?? throw new ArgumentNullException(nameof(gameBuild));
-        Logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
     public IBppEventBus EventBus { get; }
@@ -41,5 +38,4 @@ internal sealed class BppRuntimeServices : IBppServices
     public IEncounterStateProbe EncounterState { get; }
     public IRunSnapshotProbe RunSnapshot { get; }
     public IGameBuildInfo GameBuild { get; }
-    public ManualLogSource Logger { get; }
 }

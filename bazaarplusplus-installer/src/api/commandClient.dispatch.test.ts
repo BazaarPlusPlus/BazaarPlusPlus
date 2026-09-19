@@ -30,7 +30,7 @@ describe('native command adapter', () => {
     const { commandClient } = await import('./commandClient');
 
     await expect(
-      commandClient.deleteRunVideos('run', null)
+      commandClient.listHistoryRuns(null, null)
     ).rejects.toMatchObject({
       message: 'raw backend failure'
     });
@@ -46,12 +46,15 @@ describe('native command adapter', () => {
     invokeMock.mockRejectedValueOnce(problem);
     const { commandClient } = await import('./commandClient');
 
-    await expect(commandClient.listHistoryRuns(50)).rejects.toMatchObject({
+    await expect(commandClient.listHistoryRuns(50, 100)).rejects.toMatchObject({
       name: 'SemanticProblemError',
       message: 'history_read_failed',
       problem
     });
-    expect(invokeMock).toHaveBeenCalledWith('list_history_runs', { limit: 50 });
+    expect(invokeMock).toHaveBeenCalledWith('list_history_runs', {
+      limit: 50,
+      offset: 100
+    });
   });
 
   it('preserves semantic install recovery parameters', async () => {

@@ -23,10 +23,10 @@ Prerequisites:
 Run the desktop app in development mode:
 
 ```bash
-./build.sh
+just installer::app
 ```
 
-This installs dependencies and runs `npm run tauri dev` for you. To run the steps manually:
+This checks the Node/npm versions, runs `npm ci` when `node_modules` is missing or invalid, then runs `npm run tauri dev`. To run the steps manually:
 
 ```bash
 npm ci
@@ -42,21 +42,20 @@ If you only need the frontend (no native shell), `npm run dev` starts a Vite dev
 | `npm run check` | Regenerate bindings, then TypeScript type-check (`tsc --noEmit`) |
 | `npm run test` | Rust tests (`src-tauri`) + frontend Vitest |
 | `npm run format` | Prettier across the configured globs |
+| `npm run lint` | Type-aware oxlint (`lint:fix` applies safe fixes) |
 | `npm run prebuild-check` | Validate versioning, bundled resources, and Tauri config |
-| `npm run docs:check` | Validate documentation structure and citations |
+| `npm run docs:check` | Check that cited paths, doc links, and `CONTEXT.md` topic coverage all resolve |
 
 One thing to know: the TypeScript client for Tauri commands is **generated** from the Rust command signatures into `src/types/generated/`. `dev`, `build`, `check`, and `test` regenerate it automatically — never edit those files by hand.
 
 ## Release build
 
 ```bash
-./build.sh --prod               # release bundle for the current host platform
-./build.sh --prod --clean-deps  # same, but reinstall npm dependencies first
-./build.sh --prod --upload      # build, then upload artifacts to Cloudflare R2
-./build.sh --upload             # upload previously built artifacts only
+just release::build macos    # prepare the Payload, verify, sign, and bundle on this host
+just release::upload macos   # upload the built artifacts to Cloudflare R2 without advancing latest
 ```
 
-`--prod` runs version sync and prebuild checks, and requires updater signing secrets (read from `signing-secrets/` or environment variables).
+Use `windows` on a Windows host. `release::build` always reinstalls npm dependencies from the lockfile and requires updater signing secrets (read from `signing-secrets/` or environment variables). It runs `scripts/bundle.sh` inside the product build lock; that script is not a standalone entry point. The full flow is in the [workspace release docs](../docs/release.md).
 
 macOS additionally requires:
 
@@ -85,5 +84,5 @@ Platform facts (bundle paths, updater keys, Rust targets) are defined in `script
 
 - **Start with [`CONTEXT.md`](CONTEXT.md)** — the entry map: vocabulary plus pointers telling you which topic doc to open for which kind of work.
 - `docs/*.md` — current behavior, split by topic (architecture, install/reset, updater, release, …).
-- `docs/adr/` — architectural decisions that still constrain work.
-- Doc-layout policy lives in `CLAUDE.md`; platform smoke-test gaps are tracked as GitHub issues labelled `manual-validation`.
+- `docs/adr/` — architectural decisions that still constrain work; [ADR-0007](docs/adr/0007-documentation-contract.md) defines this layout.
+- Doc-layout policy lives in `AGENTS.md` and the repo-wide [`../AGENTS.md`](../AGENTS.md); platform smoke-test gaps are tracked as GitHub issues labelled `manual-validation`.

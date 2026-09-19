@@ -1,0 +1,38 @@
+<Project>
+  <!-- Generated from release/payload.json by node release.mjs sync. -->
+  <Target Name="ValidatePayloadInventoryProjection" BeforeTargets="PrepareForBuild;CollectPayloadFiles">
+    <GetFileHash Files="$(MSBuildThisFileDirectory)../payload.json" Algorithm="SHA256"><Output TaskParameter="Items" ItemName="_PayloadInventoryHash" /></GetFileHash>
+    <Error Condition="'%(_PayloadInventoryHash.FileHash)' != '7391738FF6068851163E2F1228AAF17E74CA6E4B348675D3AD4E6B9CC2626B2E'" Text="Payload Inventory projection is stale. Run node release.mjs sync." />
+  </Target>
+  <Target Name="CollectPayloadFiles" DependsOnTargets="ValidatePayloadInventoryProjection">
+    <PropertyGroup>
+      <BppPayloadPlatform Condition="'$(BppReleasePlatform)' != ''">$(BppReleasePlatform)</BppPayloadPlatform>
+      <BppPayloadPlatform Condition="'$(BppPayloadPlatform)' == '' and '$(IsMacHost)' == 'true'">macos</BppPayloadPlatform>
+      <BppPayloadPlatform Condition="'$(BppPayloadPlatform)' == '' and '$(IsWindowsHost)' == 'true'">windows</BppPayloadPlatform>
+    </PropertyGroup>
+    <ItemGroup>
+      <BppPayloadFile Include="$(TargetDir)BazaarPlusPlus.dll"><PayloadPath>BepInEx/plugins/BazaarPlusPlus.dll</PayloadPath><ProductAssembly>true</ProductAssembly></BppPayloadFile>
+      <BppPayloadFile Include="$(TargetDir)BazaarPlusPlus.ModApi.dll"><PayloadPath>BepInEx/plugins/BazaarPlusPlus.ModApi.dll</PayloadPath><ProductAssembly>true</ProductAssembly></BppPayloadFile>
+      <BppPayloadFile Include="$(TargetDir)BazaarPlusPlus.Storage.dll"><PayloadPath>BepInEx/plugins/BazaarPlusPlus.Storage.dll</PayloadPath><ProductAssembly>true</ProductAssembly></BppPayloadFile>
+      <BppPayloadFile Include="$(TargetDir)BazaarPlusPlus.Localization.dll"><PayloadPath>BepInEx/plugins/BazaarPlusPlus.Localization.dll</PayloadPath><ProductAssembly>true</ProductAssembly></BppPayloadFile>
+      <BppPayloadFile Include="$(TargetDir)BazaarPlusPlus.version"><PayloadPath>BepInEx/plugins/BazaarPlusPlus.version</PayloadPath><ProductAssembly>false</ProductAssembly></BppPayloadFile>
+      <BppPayloadFile Include="$(HistoryDatabaseContractFile)"><PayloadPath>BepInEx/plugins/BazaarPlusPlus.history-database.json</PayloadPath><ProductAssembly>false</ProductAssembly></BppPayloadFile>
+      <BppPayloadFile Include="$(TargetDir)Microsoft.Data.Sqlite.dll"><PayloadPath>BepInEx/plugins/Microsoft.Data.Sqlite.dll</PayloadPath><ProductAssembly>false</ProductAssembly></BppPayloadFile>
+      <BppPayloadFile Include="$(TargetDir)SQLitePCLRaw.batteries_v2.dll"><PayloadPath>BepInEx/plugins/SQLitePCLRaw.batteries_v2.dll</PayloadPath><ProductAssembly>false</ProductAssembly></BppPayloadFile>
+      <BppPayloadFile Include="$(TargetDir)SQLitePCLRaw.core.dll"><PayloadPath>BepInEx/plugins/SQLitePCLRaw.core.dll</PayloadPath><ProductAssembly>false</ProductAssembly></BppPayloadFile>
+      <BppPayloadFile Include="$(TargetDir)SQLitePCLRaw.provider.e_sqlite3.dll"><PayloadPath>BepInEx/plugins/SQLitePCLRaw.provider.e_sqlite3.dll</PayloadPath><ProductAssembly>false</ProductAssembly></BppPayloadFile>
+      <BppPayloadFile Include="$(TargetDir)SixLabors.ImageSharp.dll" Condition="Exists('$(TargetDir)SixLabors.ImageSharp.dll')"><PayloadPath>BepInEx/plugins/SixLabors.ImageSharp.dll</PayloadPath><ProductAssembly>false</ProductAssembly></BppPayloadFile>
+      <BppPayloadFile Include="$(TargetDir)System.Buffers.dll" Condition="Exists('$(TargetDir)System.Buffers.dll')"><PayloadPath>BepInEx/plugins/System.Buffers.dll</PayloadPath><ProductAssembly>false</ProductAssembly></BppPayloadFile>
+      <BppPayloadFile Include="$(TargetDir)System.Memory.dll" Condition="Exists('$(TargetDir)System.Memory.dll')"><PayloadPath>BepInEx/plugins/System.Memory.dll</PayloadPath><ProductAssembly>false</ProductAssembly></BppPayloadFile>
+      <BppPayloadFile Include="$(TargetDir)System.Numerics.Vectors.dll" Condition="Exists('$(TargetDir)System.Numerics.Vectors.dll')"><PayloadPath>BepInEx/plugins/System.Numerics.Vectors.dll</PayloadPath><ProductAssembly>false</ProductAssembly></BppPayloadFile>
+      <BppPayloadFile Include="$(TargetDir)System.Text.Encoding.CodePages.dll" Condition="Exists('$(TargetDir)System.Text.Encoding.CodePages.dll')"><PayloadPath>BepInEx/plugins/System.Text.Encoding.CodePages.dll</PayloadPath><ProductAssembly>false</ProductAssembly></BppPayloadFile>
+      <BppPayloadFile Include="$(FixedMacSqliteNativeFile)" Condition="'$(BppPayloadPlatform)' == 'macos'"><PayloadPath>BepInEx/plugins/libe_sqlite3.dylib</PayloadPath><ProductAssembly>false</ProductAssembly></BppPayloadFile>
+      <BppPayloadFile Include="$(FixedWindowsSqliteNativeFile)" Condition="'$(BppPayloadPlatform)' == 'windows'"><PayloadPath>BepInEx/plugins/e_sqlite3.dll</PayloadPath><ProductAssembly>false</ProductAssembly></BppPayloadFile>
+    </ItemGroup>
+  </Target>
+  <Target Name="ValidatePayloadAssemblyVersions" DependsOnTargets="CollectPayloadFiles">
+    <ItemGroup><_ProductAssembly Include="@(BppPayloadFile)" Condition="'%(BppPayloadFile.ProductAssembly)' == 'true'" /></ItemGroup>
+    <GetAssemblyIdentity AssemblyFiles="@(_ProductAssembly)"><Output TaskParameter="Assemblies" ItemName="_ProductAssemblyIdentity" /></GetAssemblyIdentity>
+    <Error Condition="'%(_ProductAssemblyIdentity.Version)' != '$(BppVersion).0'" Text="Payload assembly %(_ProductAssemblyIdentity.Identity) has version %(_ProductAssemblyIdentity.Version); expected $(BppVersion).0." />
+  </Target>
+</Project>

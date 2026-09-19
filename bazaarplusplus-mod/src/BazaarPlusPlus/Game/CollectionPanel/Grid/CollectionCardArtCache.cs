@@ -129,14 +129,6 @@ internal sealed class CollectionCardArtCache
         return handle.Result;
     }
 
-    public void AddRef(string artKey)
-    {
-        if (string.IsNullOrEmpty(artKey))
-            return;
-        if (_entries.TryGetValue(artKey, out var entry))
-            entry.RefCount++;
-    }
-
     public void Release(string artKey)
     {
         if (string.IsNullOrEmpty(artKey))

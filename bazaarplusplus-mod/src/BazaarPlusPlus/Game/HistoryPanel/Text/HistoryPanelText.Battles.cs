@@ -6,20 +6,9 @@ namespace BazaarPlusPlus.Game.HistoryPanel;
 
 internal static partial class HistoryPanelText
 {
-    private static readonly LocalizedTextSet NoBattleSelectedText = new(
-        "No battle selected",
-        "未选择战斗"
-    );
-
     private static readonly LocalizedTextSet UnknownOpponentText = new(
         "Unknown Opponent",
         "未知对手"
-    );
-
-    private static readonly LocalizedTextSet SelectBattleForFooterText = new(
-        "Select one battle to inspect it, then use Replay when you want to jump back into it.",
-        "选择一场战斗进行查看，想重新进入时再使用回放。",
-        "選擇一場戰鬥進行檢視，想重新進入時再使用重播。"
     );
 
     private static readonly LocalizedTextSet SelectedBattleText = new(
@@ -28,160 +17,21 @@ internal static partial class HistoryPanelText
         "當前戰鬥"
     );
 
-    private static readonly LocalizedTextSet PreviewUnavailablePrefixText = new(
-        "Replay unavailable:",
-        "回放不可用："
-    );
-
-    private static readonly LocalizedTextSet PreviewSelectBattleText = new(
-        "Select a battle to preview its recorded cards.",
-        "选择一场战斗以预览其记录卡牌。",
-        "選擇一場戰鬥以預覽其記錄卡牌。"
-    );
-
-    private static readonly LocalizedTextSet NoGhostBattlesText = new(
-        "Ghost battles can appear only after both players have successfully uploaded at least one bundle. Earlier battles are not backfilled.",
-        "只有双方都至少成功上传过一个 Bundle 后，后续战斗才可能出现；此前的历史战斗不会回填。",
-        "只有雙方都至少成功上傳過一個 Bundle 後，後續戰鬥才可能出現；此前的歷史戰鬥不會回填。"
-    );
-
-    private static readonly LocalizedTextSet SnapshotCountsUnknownText = new(
-        "Items and skills: unknown until replay is downloaded",
-        "物品与技能数量：下载回放后可见",
-        "物品與技能數量：下載重播後可見"
-    );
-
-    private static readonly LocalizedTextSet WinText = new("Win", "胜利", "勝利");
-
-    private static readonly LocalizedTextSet LossText = new("Loss", "失败", "失敗");
-
-    private static readonly LocalizedTextSet GhostOpponentEliminatedNoticeText = new(
-        "After this battle, the challenger is eliminated.",
-        "打完这场战斗后，挑战者直接出局。",
-        "打完這場戰鬥後，挑戰者直接出局。"
-    );
-
-    private static readonly LocalizedTextSet GhostOpponentEliminatedShortText = new(
-        "Challenger Out",
-        "挑战者出局",
-        "挑戰者出局"
-    );
-
-    internal static string NoBattleSelected() => Resolve(NoBattleSelectedText);
-
     internal static string UnknownOpponent() => Resolve(UnknownOpponentText);
-
-    internal static string SelectBattleForFooter() => Resolve(SelectBattleForFooterText);
 
     internal static string SelectedBattle() => Resolve(SelectedBattleText);
 
-    internal static string PreviewUnavailablePrefix() => Resolve(PreviewUnavailablePrefixText);
+    // The challenger's run ended with this battle.
+    internal static string FinalBattle() => FormatSimple("Final", "终局", "終局");
 
-    internal static string PreviewSelectBattle() => Resolve(PreviewSelectBattleText);
+    // Board ownership. In Runs the lower board is the local player's; in Ghost the ONLY
+    // board shown is the challenger's, because ghost payloads stay in recorder perspective
+    // (ADR-0002) and NativeBoards renders BuildPlayer, which reads Snapshots.PlayerHand.
+    internal static string BoardYou() => FormatSimple("You", "你", "你");
 
-    internal static string NoGhostBattles() => Resolve(NoGhostBattlesText);
+    internal static string BoardOpponent() => FormatSimple("Opponent", "对手", "對手");
 
-    internal static string SnapshotCountsUnknown() => Resolve(SnapshotCountsUnknownText);
-
-    internal static string Win() => Resolve(WinText);
-
-    internal static string Loss() => Resolve(LossText);
-
-    internal static string GhostOpponentEliminatedNotice() =>
-        Resolve(GhostOpponentEliminatedNoticeText);
-
-    internal static string GhostOpponentEliminatedShort() =>
-        Resolve(GhostOpponentEliminatedShortText);
-
-    internal static string PlayerSideShort() => FormatSimple("YOU", "我方", "我方");
-
-    internal static string OpponentSideShort() => FormatSimple("OPP", "对手", "對手");
-
-    internal static string GhostChallengerSideShort() => FormatSimple("CHA", "挑战者", "挑戰者");
-
-    internal static string GhostDefenderSideShort() => FormatSimple("YOU", "你", "你");
-
-    internal static string GhostChallengedYou(string name) =>
-        FormatSimple($"{name} challenged you", $"{name} 挑战了你", $"{name} 挑戰了你");
-
-    internal static string PlayerHeroPill(string shortCode)
-    {
-        var languageCode = L.CurrentLanguageCode;
-        if (LanguageCodeMatcher.IsChinese(languageCode))
-            return ResolveChinese($"我方 {shortCode}", $"我方 {shortCode}");
-
-        return $"YOU {shortCode}";
-    }
-
-    internal static string ParticipantSummary(
-        string playerHero,
-        string playerLevel,
-        string opponentHero,
-        string opponentLevel
-    )
-    {
-        var languageCode = L.CurrentLanguageCode;
-        if (LanguageCodeMatcher.IsChinese(languageCode))
-        {
-            return ResolveChinese(
-                $"我方 {playerHero} Lv{playerLevel}  |  对手 {opponentHero} Lv{opponentLevel}",
-                $"我方 {playerHero} Lv{playerLevel}  |  對手 {opponentHero} Lv{opponentLevel}"
-            );
-        }
-
-        return $"YOU {playerHero} Lv{playerLevel}  |  OPP {opponentHero} Lv{opponentLevel}";
-    }
-
-    internal static string SnapshotSummary(
-        int playerItems,
-        int playerSkills,
-        int opponentItems,
-        int opponentSkills
-    )
-    {
-        var languageCode = L.CurrentLanguageCode;
-        if (LanguageCodeMatcher.IsChinese(languageCode))
-        {
-            return ResolveChinese(
-                $"我方 {playerItems} 件物品 · {playerSkills} 个技能  |  对手 {opponentItems} 件物品 · {opponentSkills} 个技能",
-                $"我方 {playerItems} 件物品 · {playerSkills} 個技能  |  對手 {opponentItems} 件物品 · {opponentSkills} 個技能"
-            );
-        }
-
-        return $"YOU {playerItems} {Pluralize(playerItems, "item", "items")} · {playerSkills} {Pluralize(playerSkills, "skill", "skills")}  |  OPP {opponentItems} {Pluralize(opponentItems, "item", "items")} · {opponentSkills} {Pluralize(opponentSkills, "skill", "skills")}";
-    }
-
-    internal static string GhostSnapshotSummary(
-        int defenderItems,
-        int defenderSkills,
-        int challengerItems,
-        int challengerSkills
-    )
-    {
-        var languageCode = L.CurrentLanguageCode;
-        if (LanguageCodeMatcher.IsChinese(languageCode))
-        {
-            return ResolveChinese(
-                $"你 {defenderItems} 件物品 · {defenderSkills} 个技能  |  挑战者 {challengerItems} 件物品 · {challengerSkills} 个技能",
-                $"你 {defenderItems} 件物品 · {defenderSkills} 個技能  |  挑戰者 {challengerItems} 件物品 · {challengerSkills} 個技能"
-            );
-        }
-
-        return $"YOU {defenderItems} {Pluralize(defenderItems, "item", "items")} · {defenderSkills} {Pluralize(defenderSkills, "skill", "skills")}  |  CHA {challengerItems} {Pluralize(challengerItems, "item", "items")} · {challengerSkills} {Pluralize(challengerSkills, "skill", "skills")}";
-    }
-
-    internal static string LoadedGhostBattles(int count)
-    {
-        return FormatSimple($"{count} ghost battles loaded.", $"已载入 {count} 场幽灵对战。");
-    }
-
-    internal static string GhostHistoryLoadFailed(string details)
-    {
-        return FormatSimple(
-            $"Ghost history load failed: {details}",
-            $"幽灵历史加载失败：{details}"
-        );
-    }
+    internal static string BoardChallenger() => FormatSimple("Challenger", "挑战者", "挑戰者");
 
     internal static string GhostSyncUnavailable()
     {
@@ -193,9 +43,20 @@ internal static partial class HistoryPanelText
         return FormatSimple($"Couldn't sync ghost battles: {details}", $"幽灵同步失败：{details}");
     }
 
-    internal static string GhostSyncSucceeded(int count)
+    internal static string GhostSyncSucceeded(int count, bool discoveryLimitReached)
     {
-        return FormatSimple($"{count} ghost battles synced.", $"已同步 {count} 场幽灵对战。");
+        var message = FormatSimple(
+            $"{count} ghost battles synced.",
+            $"已同步 {count} 场幽灵对战。"
+        );
+        return discoveryLimitReached
+            ? message
+                + " "
+                + FormatSimple(
+                    "The server returns up to 200 battles from the last 5 days. Saved local history remains browsable.",
+                    "云端仅返回近 5 天最多 200 场；已保存的本地历史仍可继续浏览。"
+                )
+            : message;
     }
 
     internal static string GhostDeleteUnavailable()
@@ -234,11 +95,6 @@ internal static partial class HistoryPanelText
     internal static string SyncingGhostBattles()
     {
         return FormatSimple("Syncing ghost battles...", "正在同步幽灵对战...");
-    }
-
-    internal static string BattleLoadFailed(string details)
-    {
-        return FormatSimple($"Couldn't load battles: {details}", $"载入战斗失败：{details}");
     }
 
     internal static string SelectBattleToReplay()
@@ -334,22 +190,6 @@ internal static partial class HistoryPanelText
         );
     }
 
-    internal static string DeletePayloadFailed(string battleId, string details)
-    {
-        return FormatSimple(
-            $"Failed to delete replay payload for battle {battleId}: {details}",
-            $"删除战斗 {battleId} 的回放负载失败：{details}"
-        );
-    }
-
-    internal static string PreviewSelectRunOrBattle()
-    {
-        return FormatSimple(
-            "Select a run or battle to preview recorded cards.",
-            "选择一个 run 或战斗以预览记录卡牌。"
-        );
-    }
-
     internal static string NoLocallyRenderableCards()
     {
         return FormatSimple(
@@ -366,13 +206,5 @@ internal static partial class HistoryPanelText
     internal static string LoadingPreview()
     {
         return FormatSimple("Loading preview...", "正在加载预览...");
-    }
-
-    internal static string PreviewBuildFailed()
-    {
-        return FormatSimple(
-            "Failed to build the selected battle preview.",
-            "构建所选战斗预览失败。"
-        );
     }
 }

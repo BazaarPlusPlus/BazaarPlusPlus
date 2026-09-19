@@ -9,7 +9,7 @@ namespace BazaarPlusPlus.Game.EventPreview;
 
 internal sealed class EncounterPreviewCacheStore
 {
-    public const int SchemaVersion = 4;
+    public const int SchemaVersion = 5;
     internal const int MaxCacheFileBytes = 32 * 1024 * 1024;
 
     private static readonly UTF8Encoding Utf8NoBom = new(
@@ -555,7 +555,14 @@ internal sealed class EncounterPreviewCacheStore
 
     private static DayConditionWire? ToWire(EncounterDayCondition? condition) =>
         condition is { } value
-            ? new DayConditionWire { Day = value.Day, Comparison = value.Comparison }
+            ? new DayConditionWire
+            {
+                Day = value.Day,
+                Comparison = value.Comparison,
+                AdditionalConditions = value
+                    .AdditionalConditions.Select(item => ToWire(item)!)
+                    .ToArray(),
+            }
             : null;
 
     private static EncounterDayCondition? FromWire(DayConditionWire? condition) =>
@@ -563,7 +570,8 @@ internal sealed class EncounterPreviewCacheStore
             ? null
             : new EncounterDayCondition(
                 condition.Day,
-                Required(condition.Comparison, "day comparison")
+                Required(condition.Comparison, "day comparison"),
+                condition.AdditionalConditions?.Select(item => FromWire(item)!.Value).ToArray()
             );
 
     private static RewardFilterWire? ToWire(EncounterRewardFilter? filter) =>
@@ -881,6 +889,9 @@ internal sealed class EncounterPreviewCacheStore
 
         [JsonProperty("comparison", Order = 1)]
         public string? Comparison { get; set; }
+
+        [JsonProperty("additionalConditions", Order = 2)]
+        public DayConditionWire[]? AdditionalConditions { get; set; }
     }
 
     private sealed class RewardFilterWire

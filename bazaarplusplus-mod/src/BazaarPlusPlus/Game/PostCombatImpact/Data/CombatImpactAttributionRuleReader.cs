@@ -79,7 +79,7 @@ internal static class CombatImpactAttributionRuleReader
                 }
             || !TryPositiveInt(fixedValue.Value, out var amount)
             || !TryReadSourceRule(ability.Id, ability.Prerequisites, out var sourceRule)
-            || sourceRule.SkillTiers.Count == 0
+            || (sourceRule.SourceTypeLabel == "Skill" && sourceRule.SkillTiers.Count == 0)
         )
             return false;
 
@@ -105,7 +105,8 @@ internal static class CombatImpactAttributionRuleReader
             return;
         }
         if (
-            existing.SkillTemplateId == rule.SkillTemplateId
+            existing.SourceTypeLabel == rule.SourceTypeLabel
+            && existing.SkillTemplateId == rule.SkillTemplateId
             && existing.SkillTiers.Count == rule.SkillTiers.Count
             && existing.SkillTiers.All(rule.SkillTiers.Contains)
         )
@@ -131,7 +132,8 @@ internal static class CombatImpactAttributionRuleReader
                 is not TTargetCardSection
                 {
                     TargetSection: ETargetCardSectionTargetSection.AbsolutePlayerSkills
-                        or ETargetCardSectionTargetSection.SelfSkills,
+                        or ETargetCardSectionTargetSection.SelfSkills
+                        or ETargetCardSectionTargetSection.SelfHand,
                     ExcludeSelf: false,
                     Conditions: { } condition,
                 }
@@ -139,7 +141,15 @@ internal static class CombatImpactAttributionRuleReader
         )
             return false;
 
-        rule = new CombatImpactPrerequisiteSkillSourceRule(effectId!, templateId, tiers);
+        rule = new CombatImpactPrerequisiteSkillSourceRule(
+            effectId!,
+            templateId,
+            tiers,
+            ((TTargetCardSection)prerequisite.Subject).TargetSection
+            == ETargetCardSectionTargetSection.SelfHand
+                ? "Item"
+                : "Skill"
+        );
         return true;
     }
 
@@ -191,6 +201,22 @@ internal static class CombatImpactAttributionRuleReader
     {
         switch (condition)
         {
+            case TCardConditionalAnd { Conditions.Count: > 0 } conjunction:
+                var children = new List<CombatImpactItemTagCondition>();
+                foreach (var child in conjunction.Conditions)
+                {
+                    if (!TryReadItemCondition(child, out var parsed))
+                    {
+                        itemCondition = null!;
+                        return false;
+                    }
+                    children.Add(parsed);
+                }
+                itemCondition = new CombatImpactItemTagCondition(
+                    EListComparisonOperator.All,
+                    AllOf: children
+                );
+                return true;
             case TCardConditionalTag { Tags.Count: > 0 } tags:
                 itemCondition = new CombatImpactItemTagCondition(
                     tags.Operator,

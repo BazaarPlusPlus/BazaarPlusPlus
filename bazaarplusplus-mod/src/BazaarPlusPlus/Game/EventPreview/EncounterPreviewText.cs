@@ -1,4 +1,5 @@
 #nullable enable
+using System.Globalization;
 using System.Text;
 using BazaarGameShared.Domain.Core.Types;
 using BazaarPlusPlus.Infrastructure;
@@ -71,23 +72,23 @@ internal static class EncounterPreviewText
     );
 
     internal static string EncounterTierDistributionSuffix(string distribution) =>
-        string.Format(Resolve(TierDistributionSuffix), distribution);
+        string.Format(CultureInfo.CurrentCulture, Resolve(TierDistributionSuffix), distribution);
 
     internal static string LevelUpMaxHealth(int amount) =>
-        string.Format(Resolve(MaxHealth), amount);
+        string.Format(CultureInfo.CurrentCulture, Resolve(MaxHealth), amount);
 
     internal static string LevelUpRandomPool(int count, int optionCount) =>
-        string.Format(Resolve(RandomPool), count, optionCount);
+        string.Format(CultureInfo.CurrentCulture, Resolve(RandomPool), count, optionCount);
 
     internal static string LevelUpRandomPoolSingle(int optionCount) =>
-        string.Format(Resolve(RandomPoolSingle), optionCount);
+        string.Format(CultureInfo.CurrentCulture, Resolve(RandomPoolSingle), optionCount);
 
     internal static string LevelUpOneOf() => Resolve(OneOf);
 
     internal static string OutcomesHeader() => Resolve(Outcomes);
 
     internal static string OutcomeCombatPool(int count) =>
-        string.Format(Resolve(CombatPool), count);
+        string.Format(CultureInfo.CurrentCulture, Resolve(CombatPool), count);
 
     internal static string OutcomeRandomItem() => Resolve(RandomItem);
 
@@ -95,13 +96,14 @@ internal static class EncounterPreviewText
 
     internal static string OutcomeRandomReward() => Resolve(RandomReward);
 
-    internal static string OutcomeSubPool(int count) => string.Format(Resolve(SubPool), count);
+    internal static string OutcomeSubPool(int count) =>
+        string.Format(CultureInfo.CurrentCulture, Resolve(SubPool), count);
 
     internal static string OutcomeGainSkill(string skillName) =>
-        string.Format(Resolve(GainSkill), skillName);
+        string.Format(CultureInfo.CurrentCulture, Resolve(GainSkill), skillName);
 
     internal static string LevelUpBoardSlots(int count) =>
-        string.Format(Resolve(BoardSlots), count);
+        string.Format(CultureInfo.CurrentCulture, Resolve(BoardSlots), count);
 
     internal static string JoinTooltipLabel(string label, string detail) =>
         LanguageCodeMatcher.IsChinese(L.CurrentLanguageCode)

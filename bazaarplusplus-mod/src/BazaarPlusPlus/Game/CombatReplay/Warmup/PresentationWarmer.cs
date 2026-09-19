@@ -2,6 +2,7 @@
 using System.Diagnostics;
 using BazaarGameShared.Domain.Core.Types;
 using BazaarPlusPlus.Game.PvpBattles;
+using BazaarPlusPlus.GameInterop.AssetLoading;
 using TheBazaar;
 using TheBazaar.AppFramework;
 using UnityEngine;
@@ -57,15 +58,26 @@ internal static class PresentationWarmer
 
         if (WarmupCache.TryReserveSharedAssetsPreload())
         {
-            try
-            {
-                await assetLoader.PreloadAssets();
-                stats.SharedAssetsPreloaded++;
-            }
-            catch (Exception ex)
+            if (!NativeGlobalAssetLoader.CanRunNativeSharedPreload(assetLoader))
             {
                 WarmupCache.ReleaseSharedAssetsPreload();
-                outcome.ReportDegradation(ReplayPlaybackReasonCode.PresentationWarmupFailed, ex);
+                stats.SharedAssetsSkipped++;
+            }
+            else
+            {
+                try
+                {
+                    await assetLoader.PreloadAssets();
+                    stats.SharedAssetsPreloaded++;
+                }
+                catch (Exception ex)
+                {
+                    WarmupCache.ReleaseSharedAssetsPreload();
+                    outcome.ReportDegradation(
+                        ReplayPlaybackReasonCode.PresentationWarmupFailed,
+                        ex
+                    );
+                }
             }
         }
         else
@@ -152,7 +164,10 @@ internal static class PresentationWarmer
         await semaphore.WaitAsync();
         try
         {
-            _ = await assetLoader.LoadAssetAsyncByAddress<GameObject>(overrideKey);
+            _ = await NativeGlobalAssetLoader.LoadByAddressAsync<GameObject>(
+                assetLoader,
+                overrideKey
+            );
             stats.OverrideAssetsPreloaded++;
         }
         catch (Exception ex)

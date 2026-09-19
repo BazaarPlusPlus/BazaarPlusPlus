@@ -445,15 +445,6 @@ internal static class ChineseScriptConverter
         ['龙'] = "龍",
     };
 
-    internal static BppChineseLocaleMode GetNextMode(BppChineseLocaleMode mode)
-    {
-        return NormalizeMode(mode) switch
-        {
-            BppChineseLocaleMode.Mainland => BppChineseLocaleMode.Taiwan,
-            _ => BppChineseLocaleMode.Mainland,
-        };
-    }
-
     internal static BppChineseLocaleMode NormalizeMode(BppChineseLocaleMode mode)
     {
         return mode == BppChineseLocaleMode.Mainland

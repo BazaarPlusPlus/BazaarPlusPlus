@@ -54,7 +54,10 @@ internal sealed partial class CombatStatusBar : MonoBehaviour
             IsCombatPlaybackActive,
             Time.unscaledDeltaTime
         );
+    }
 
+    private void LateUpdate()
+    {
         EnsureUi();
         RefreshUi();
     }
@@ -62,7 +65,7 @@ internal sealed partial class CombatStatusBar : MonoBehaviour
     private bool ShouldDraw()
     {
         EnsureConfigStateInitialized();
-        return _screenshotSuppressionCount == 0 && ShouldRenderForState(IsEnabled());
+        return _screenshotSuppressionCount == 0 && ShouldRenderForState();
     }
 
     internal static IDisposable? BeginScreenshotSuppression()

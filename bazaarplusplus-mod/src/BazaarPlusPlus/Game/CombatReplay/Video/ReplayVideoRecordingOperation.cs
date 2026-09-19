@@ -25,7 +25,6 @@ internal enum ReplayVideoRecordingReasonCode
     AudioCaptureFailed,
     AudioStopFailed,
     CaptureFailed,
-    EncoderStartFailed,
     EncoderWriterFailed,
     EncoderTimeout,
     EncoderNonZeroExit,

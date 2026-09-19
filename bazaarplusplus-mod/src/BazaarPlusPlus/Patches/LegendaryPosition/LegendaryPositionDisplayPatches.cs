@@ -1,5 +1,6 @@
 #pragma warning disable CS0436
 #nullable enable
+using System.Globalization;
 using BazaarGameShared.TempoNet.Enums;
 using BazaarPlusPlus.Game.LegendaryPosition;
 using HarmonyLib;
@@ -38,7 +39,10 @@ internal static class EndOfRunSetLeaderboardPositionPatch
 
     internal static void ApplyRankLabelOverrides(EndOfRunRankController controller, int? position)
     {
-        var formatted = LegendaryPositionDisplayFormatter.Format(position?.ToString(), position);
+        var formatted = LegendaryPositionDisplayFormatter.Format(
+            position?.ToString(CultureInfo.CurrentCulture),
+            position
+        );
         SetRankDisplayLabel(controller, "bigDisplay", formatted);
         SetRankDisplayLabel(controller, "currentDisplay", formatted);
         SetRankDisplayLabel(controller, "nextDisplay", formatted);

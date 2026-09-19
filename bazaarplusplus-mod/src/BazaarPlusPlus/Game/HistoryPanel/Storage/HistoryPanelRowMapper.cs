@@ -1,6 +1,6 @@
 #nullable enable
+using System.Globalization;
 using BazaarPlusPlus.Game.HistoryPanel.Data;
-using BazaarPlusPlus.Game.PvpBattles;
 using Microsoft.Data.Sqlite;
 
 namespace BazaarPlusPlus.Game.HistoryPanel.Storage;
@@ -11,7 +11,10 @@ internal static class HistoryPanelRowMapper
 {
     public static HistoryRunRecord ReadRun(SqliteDataReader reader)
     {
-        var startedAt = DateTimeOffset.Parse(reader.GetString(reader.GetOrdinal("started_at_utc")));
+        var startedAt = DateTimeOffset.Parse(
+            reader.GetString(reader.GetOrdinal("started_at_utc")),
+            CultureInfo.InvariantCulture
+        );
         var endedAt = GetNullableDateTimeOffset(reader, "ended_at_utc");
         var finalDay = GetNullableInt32(reader, "final_day") ?? GetNullableInt32(reader, "day");
         var finalHour = GetNullableInt32(reader, "final_hour") ?? GetNullableInt32(reader, "hour");
@@ -37,21 +40,19 @@ internal static class HistoryPanelRowMapper
             GetNullableInt32(reader, "player_rating"),
             GetNullableInt32(reader, "victories"),
             GetNullableInt32(reader, "losses"),
-            rawStatus,
-            reader.GetInt32(reader.GetOrdinal("battle_count"))
+            rawStatus
         );
     }
 
-    public static HistoryBattleRecord ReadLocalBattle(
-        SqliteDataReader reader,
-        string battleId,
-        PvpBattleSnapshots snapshots
-    )
+    public static HistoryBattleRecord ReadLocalBattle(SqliteDataReader reader, string battleId)
     {
         return new HistoryBattleRecord(
             battleId,
             reader.GetString(reader.GetOrdinal("run_id")),
-            DateTimeOffset.Parse(reader.GetString(reader.GetOrdinal("recorded_at_utc"))),
+            DateTimeOffset.Parse(
+                reader.GetString(reader.GetOrdinal("recorded_at_utc")),
+                CultureInfo.InvariantCulture
+            ),
             GetNullableInt32(reader, "day"),
             GetNullableInt32(reader, "hour"),
             GetNullableString(reader, "encounter_id"),
@@ -73,17 +74,11 @@ internal static class HistoryPanelRowMapper
             GetNullableString(reader, "result"),
             GetNullableString(reader, "winner_combatant_id"),
             GetNullableString(reader, "loser_combatant_id"),
-            HistoryBattlePreviewProjection.CountSnapshots(
-                snapshots.PlayerHand,
-                snapshots.PlayerSkills,
-                snapshots.OpponentHand,
-                snapshots.OpponentSkills
-            ),
-            snapshots,
+            default,
             isFinalBattle: false,
             source: HistoryBattleSource.Local,
-            replayAvailable: true,
-            replayDownloaded: true
+            replayAvailable: GetNullableInt32(reader, "has_local_payload") == 1,
+            replayDownloaded: GetNullableInt32(reader, "has_local_payload") == 1
         );
     }
 
@@ -92,7 +87,10 @@ internal static class HistoryPanelRowMapper
         var battleId = SafeGetNullableString(reader, "battle_id") ?? "unknown";
         return GhostBattleLocalProjector.CreateHistoryBattleRecord(
             battleId,
-            DateTimeOffset.Parse(reader.GetString(reader.GetOrdinal("recorded_at_utc"))),
+            DateTimeOffset.Parse(
+                reader.GetString(reader.GetOrdinal("recorded_at_utc")),
+                CultureInfo.InvariantCulture
+            ),
             GetNullableInt32(reader, "day"),
             GetNullableInt32(reader, "hour"),
             GetNullableString(reader, "encounter_id"),
@@ -173,6 +171,8 @@ internal static class HistoryPanelRowMapper
     )
     {
         var ordinal = reader.GetOrdinal(columnName);
-        return reader.IsDBNull(ordinal) ? null : DateTimeOffset.Parse(reader.GetString(ordinal));
+        return reader.IsDBNull(ordinal)
+            ? null
+            : DateTimeOffset.Parse(reader.GetString(ordinal), CultureInfo.InvariantCulture);
     }
 }

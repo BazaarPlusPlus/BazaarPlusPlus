@@ -71,25 +71,6 @@ internal static class NativeCardPreviewSlotFitter
         return NativeCardPreviewSlotFitResult.Applied;
     }
 
-    internal static bool TryAlignVisibleArtworkLeft(
-        RectTransform preview,
-        RectTransform slot,
-        out float visibleWidth
-    )
-    {
-        visibleWidth = 0f;
-        if (preview == null || slot == null)
-            return false;
-
-        Canvas.ForceUpdateCanvases();
-        return TryAlignVisibleArtworkLeftWithSettledCanvas(
-            preview,
-            slot,
-            new Vector3[4],
-            out visibleWidth
-        );
-    }
-
     /// <summary>
     /// Aligns visible artwork after the caller has settled the Canvas shared by a larger layout
     /// batch.

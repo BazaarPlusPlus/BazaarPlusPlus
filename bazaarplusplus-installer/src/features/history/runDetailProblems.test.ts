@@ -12,7 +12,7 @@ const problems = [
     params: { operation: 'get_run_detail' }
   }),
   createUiProblem('history_database_unsupported_schema', {
-    params: { found: '2', expected: '1' }
+    params: { found: '3', supported: '1,2' }
   }),
   createUiProblem('history_action_failed', {
     params: { operation: 'reveal_screenshot' }

@@ -372,8 +372,14 @@ internal sealed class NativePairedTooltipSession
     }
 
     /// <summary>
-    /// Registers the owner's content root and commits the layout for it.
+    /// Registers the owner's content root and sizes it to the preferred width.
     /// </summary>
+    /// <remarks>
+    /// No layout is committed here. Every consumer follows this with <see cref="Position"/>, which
+    /// resets the width and settles the full tree; the pair stays gated at alpha 0 until then, and
+    /// nothing in between reads the auxiliary's settled geometry, so an intermediate rebuild was
+    /// two recursive passes of wasted work.
+    /// </remarks>
     /// <param name="contentRoot">Root the host will size and, on release, destroy.</param>
     /// <param name="onContentWidthChanged">
     /// Invoked whenever the host resizes the content, so the owner can retune width-dependent
@@ -389,8 +395,6 @@ internal sealed class NativePairedTooltipSession
         _contentRoot = contentRoot;
         _onContentWidthChanged = onContentWidthChanged;
         ApplyContentWidth(auxiliary, _options.PreferredContentWidth);
-        ForceRebuildLayout(auxiliary);
-        ApplyNativeHeight(auxiliary);
         return true;
     }
 
@@ -412,12 +416,12 @@ internal sealed class NativePairedTooltipSession
         )
             return PlacementResult.Unplaced;
 
+        // Only the primary is settled here: its bounds drive side selection and the width budget.
+        // The auxiliary is resized below and settled in full at that final width, so rebuilding it
+        // at the stale width first would be a recursive pass whose result is discarded.
         Canvas.ForceUpdateCanvases();
         TempoUIUtility.ForceRebuildRecursive(primary.PositioningRectTransform);
-        TempoUIUtility.ForceRebuildRecursive(auxiliary.PositioningRectTransform);
         LayoutRebuilder.ForceRebuildLayoutImmediate(primary.PositioningRectTransform);
-        LayoutRebuilder.ForceRebuildLayoutImmediate(auxiliary.PositioningRectTransform);
-        ApplyNativeHeight(auxiliary);
 
         if (primary.RootCanvasComponent.transform is not RectTransform canvasRect)
             return PlacementResult.Unplaced;
@@ -498,7 +502,6 @@ internal sealed class NativePairedTooltipSession
         return new PlacementResult(
             positioned: true,
             side: side,
-            contentWidth: _currentContentWidth,
             overflowed: NativePairedTooltipPlacementMath.Overflows(
                 side,
                 primaryBounds,

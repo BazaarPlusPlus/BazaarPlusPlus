@@ -11,7 +11,7 @@ function installState(overrides: Partial<InstallState> = {}): InstallState {
   return {
     selected_game_path: '/Applications/The Bazaar',
     steam_path: '/Applications/Steam',
-    game: { found: true, path_valid: true, display_version: null },
+    game: { found: true, path_valid: true },
     mod_state: {
       installed: false,
       installed_version: null,
@@ -521,7 +521,7 @@ describe('install workflow notices, lifecycle, and availability', () => {
       name: 'invalid or missing path',
       state: installState({
         selected_game_path: null,
-        game: { found: false, path_valid: false, display_version: null },
+        game: { found: false, path_valid: false },
         actions: {
           can_install: false,
           can_reinstall: false,

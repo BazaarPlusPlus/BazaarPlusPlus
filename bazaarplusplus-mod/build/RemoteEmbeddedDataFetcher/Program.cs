@@ -25,7 +25,7 @@ static async Task<int> FetchAsync(string[] args)
     if (args.Length != 5 || !long.TryParse(args[3], out var minimumBytes))
         return Usage();
 
-    using var client = new HttpClient { Timeout = TimeSpan.FromMinutes(2) };
+    using var client = RemoteEmbeddedDataHttpClient.Create(TimeSpan.FromSeconds(30));
     client.DefaultRequestHeaders.UserAgent.Add(
         new ProductInfoHeaderValue("BazaarPlusPlusBuild", args[4])
     );

@@ -1,11 +1,11 @@
 #nullable enable
+using System.Globalization;
 using BazaarGameShared.Domain.Core.Types;
 using BazaarPlusPlus.Game.LiveBuildPanel.Data;
 using BazaarPlusPlus.GameInterop.Heroes;
 using BazaarPlusPlus.GameInterop.ItemBoardPreview;
 using BazaarPlusPlus.GameInterop.StaticCards;
 using BazaarPlusPlus.Infrastructure.RemoteEmbeddedCatalog;
-using BazaarPlusPlus.Localization;
 
 namespace BazaarPlusPlus.Game.LiveBuildPanel.Recommendations;
 
@@ -16,11 +16,6 @@ namespace BazaarPlusPlus.Game.LiveBuildPanel.Recommendations;
 /// </summary>
 internal sealed class BuildRecommendationRepository
 {
-    private static readonly LocalizedTextSet FinalBuildLabel = new(
-        "Ten-Win Build",
-        "十胜阵容",
-        "十勝陣容"
-    );
     private readonly IRemoteEmbeddedCatalog<TenWinBuildCorpus> _catalog;
 
     internal BuildRecommendationRepository(IRemoteEmbeddedCatalog<TenWinBuildCorpus> catalog)
@@ -49,7 +44,6 @@ internal sealed class BuildRecommendationRepository
         if (matches.Count == 0)
             return Array.Empty<BuildRecommendation>();
 
-        var label = ResolveFinalBuildLabel();
         var results = new List<BuildRecommendation>(matches.Count);
         foreach (var match in matches)
         {
@@ -60,7 +54,6 @@ internal sealed class BuildRecommendationRepository
             results.Add(
                 new BuildRecommendation
                 {
-                    ModeLabel = label,
                     MatchedCardCount = match.MatchedSelectedCount,
                     TenWinRunCount = match.Build.Stats.TenWinRunCount,
                     TenWinRateBps = match.Build.Stats.TenWinRateBps,
@@ -69,12 +62,6 @@ internal sealed class BuildRecommendationRepository
                     Board = board,
                 }
             );
-        }
-
-        for (var i = 0; i < results.Count; i++)
-        {
-            results[i].ResultIndex = i;
-            results[i].ResultCount = results.Count;
         }
 
         return results;
@@ -104,7 +91,8 @@ internal sealed class BuildRecommendationRepository
         return new BppItemBoardCard
         {
             TemplateId = item.TemplateId,
-            InstanceId = $"tenwin-{(item.Slot?.ToString() ?? "unsocketed")}-{item.TemplateId:N}",
+            InstanceId =
+                $"tenwin-{(item.Slot?.ToString(CultureInfo.InvariantCulture) ?? "unsocketed")}-{item.TemplateId:N}",
             Order = item.Slot ?? 0,
             Tier = MapTier(item.Tier),
             Size = size,
@@ -168,8 +156,6 @@ internal sealed class BuildRecommendationRepository
             ? type
             : (EEnchantmentType?)null;
     }
-
-    private static string ResolveFinalBuildLabel() => L.Resolve(FinalBuildLabel);
 
     /// <summary>
     /// Snapshot of the currently loaded corpus's provenance (data window end, build/hero counts)

@@ -1,10 +1,10 @@
 [package]
 name = "bppinstaller"
-version = "5.2.1"
+version = "5.5.0"
 description = "BazaarPlusPlus Desktop App"
 authors = ["cauyxy <cauyxy@gmail.com>"]
 edition = "2021"
-rust-version = "1.97"
+rust-version = "1.98"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -29,15 +29,15 @@ tauri-build = { version = "2.6.3", features = [] }
 [dependencies]
 tauri = { version = "2.11.5", features = ["tray-icon", "image-png"] }
 tauri-plugin-opener = "2"
-tauri-plugin-dialog = "2.7.2"
+tauri-plugin-dialog = "2.7.3"
 tauri-plugin-process = "2"
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.151"
 base64 = "0.23.1"
-dirs = "6"
+dirs = "7"
 keyvalues-parser = "0.2"
 zip = { version = "8", default-features = false, features = ["deflate"] }
-axum = { version = "0.8", features = ["multipart"] }
+axum = "0.8"
 tower-http = { version = "0.7", features = ["cors"] }
 tokio = { version = "1.53.1", features = ["rt-multi-thread", "macros", "sync", "net"] }
 rusqlite = { version = "0.40.2", features = ["bundled"] }
@@ -48,6 +48,9 @@ specta = { version = "=2.0.0-rc.25", features = ["derive"] }
 specta-typescript = "=0.0.12"
 tauri-specta = { version = "=2.0.0-rc.25", features = ["typescript"] }
 tempfile = "3"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+sha2 = "0.11.0"
 
 [target.'cfg(windows)'.dependencies]
 winreg = "0.56"
@@ -62,10 +65,15 @@ windows = { version = "0.62", features = [
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-updater = "2"
-tauri-plugin-single-instance = "2.4.3"
+tauri-plugin-single-instance = "2.4.4"
 tauri-plugin-window-state = "2.4.1"
 
-[dev-dependencies]
+[lints.clippy]
+# A curated subset of pedantic lints: each flags a real smell and has a
+# mechanical fix. `verify` promotes all warnings to errors.
+redundant_closure_for_method_calls = "warn"
+needless_raw_string_hashes = "warn"
+unnested_or_patterns = "warn"
 
 [profile.release]
 opt-level = "z"

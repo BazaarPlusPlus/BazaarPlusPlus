@@ -20,6 +20,25 @@
   </PropertyGroup>
 
   <Import Project="RemoteEmbeddedData.targets" />
+  <Import Project="$(MSBuildThisFileDirectory)../../../release/generated/Payload.targets" />
+
+  <ItemGroup>
+    <EmbeddedResource
+      Include="Resources\HistoryPanel\run-state-badges.png"
+      LogicalName="BazaarPlusPlus.Resources.HistoryPanel.run-state-badges.png"
+    />
+    <EmbeddedResource
+      Include="Resources\HistoryPanel\battle-result-badges.png"
+      LogicalName="BazaarPlusPlus.Resources.HistoryPanel.battle-result-badges.png"
+    />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource
+      Include="Resources\HistoryPanel\history-menu.png"
+      LogicalName="BazaarPlusPlus.Resources.HistoryPanel.history-menu.png"
+    />
+  </ItemGroup>
 
   <!-- Embedded resources -->
   <ItemGroup>
@@ -54,6 +73,7 @@
   <PropertyGroup>
     <ProjectRoot>$(MSBuildThisFileDirectory)</ProjectRoot>
     <BPPInstallerSourcePath>$(ProjectRoot)/../../../bazaarplusplus-installer/src-tauri/resources</BPPInstallerSourcePath>
+    <HistoryDatabaseContractFile>$(ProjectRoot)/../BazaarPlusPlus.Storage/BazaarPlusPlus.history-database.json</HistoryDatabaseContractFile>
     <HostArchitecture>$([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString().ToLowerInvariant())</HostArchitecture>
     <IsMacHost>$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::OSX)))</IsMacHost>
     <IsWindowsHost>$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Windows)))</IsWindowsHost>
@@ -131,6 +151,10 @@
     <Reference Include="Unity.InputSystem">
       <HintPath>$(ManagedPath)\Unity.InputSystem.dll</HintPath>
     </Reference>
+    <Reference Include="DOTween">
+      <HintPath>$(ManagedPath)\DOTween.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
     <Reference Include="UnityEngine.UI">
       <HintPath>$(ManagedPath)\UnityEngine.UI.dll</HintPath>
     </Reference>
@@ -161,57 +185,24 @@
   <PropertyGroup>
     <PublicizeAll>true</PublicizeAll>
   </PropertyGroup>
-
   <!-- Debug build -->
   <Target
     Name="CopyToBepInExPlugins"
+    DependsOnTargets="CollectPayloadFiles"
     AfterTargets="Build"
     Condition="'$(Configuration)' == 'Debug' and '$(BppDeployToGame)' == 'true' and '$(GamePath)' != ''"
   >
     <Message Text="[BazaarPlusPlus] Building for Debug" Importance="high" />
     <ItemGroup>
-      <!-- Scrub only the optional BazaarAgent assemblies (a default build must remove
-           them). Everything else this target ships is re-copied below with
-           SkipUnchangedFiles, which pre-deleting would defeat. -->
-      <FilesToDelete Include="$(GamePath)\BepInEx\plugins\BazaarPlusPlus.BazaarAgent.dll" />
-      <FilesToDelete Include="$(GamePath)\BepInEx\plugins\BazaarPlusPlus.BazaarAgentHost.dll" />
-    </ItemGroup>
-    <ItemGroup>
-      <PluginManagedRuntimeFiles Include="$(TargetDir)Microsoft.Data.Sqlite.dll" />
-      <PluginManagedRuntimeFiles Include="$(TargetDir)SQLitePCLRaw.batteries_v2.dll" />
-      <PluginManagedRuntimeFiles Include="$(TargetDir)SQLitePCLRaw.core.dll" />
-      <PluginManagedRuntimeFiles Include="$(TargetDir)SQLitePCLRaw.provider.e_sqlite3.dll" />
-      <PluginManagedRuntimeFiles
-        Include="$(TargetDir)SixLabors.ImageSharp.dll"
-        Condition="Exists('$(TargetDir)SixLabors.ImageSharp.dll')"
+      <BppDebugPayloadFile
+        Include="@(BppPayloadFile)"
+        Condition="'%(BppPayloadFile.PayloadPath)' != 'BepInEx/plugins/BazaarPlusPlus.version'"
       />
-      <PluginManagedRuntimeFiles
-        Include="$(TargetDir)System.Buffers.dll"
-        Condition="Exists('$(TargetDir)System.Buffers.dll')"
-      />
-      <PluginManagedRuntimeFiles
-        Include="$(TargetDir)System.Memory.dll"
-        Condition="Exists('$(TargetDir)System.Memory.dll')"
-      />
-      <PluginManagedRuntimeFiles
-        Include="$(TargetDir)System.Numerics.Vectors.dll"
-        Condition="Exists('$(TargetDir)System.Numerics.Vectors.dll')"
-      />
-      <PluginManagedRuntimeFiles
-        Include="$(TargetDir)System.Text.Encoding.CodePages.dll"
-        Condition="Exists('$(TargetDir)System.Text.Encoding.CodePages.dll')"
-      />
-      <MacSqliteNativeFile Include="$(FixedMacSqliteNativeFile)" />
-      <MacAudioTapNativeFile Include="$(FixedMacAudioTapNativeFile)" />
-      <WindowsSqliteNativeFile Include="$(FixedWindowsSqliteNativeFile)" />
-      <PluginManagedRuntimeFiles Include="$(TargetDir)BazaarPlusPlus.ModApi.dll" />
-      <PluginManagedRuntimeFiles Include="$(TargetDir)BazaarPlusPlus.Localization.dll" />
-      <PluginManagedRuntimeFiles
-        Include="$(TargetDir)BazaarPlusPlus.Storage.dll"
-        Condition="Exists('$(TargetDir)BazaarPlusPlus.Storage.dll')"
+      <MacAudioTapNativeFile
+        Include="$(FixedMacAudioTapNativeFile)"
+        Condition="'$(IsMacHost)' == 'true' and Exists('$(FixedMacAudioTapNativeFile)')"
       />
     </ItemGroup>
-    <Delete Files="@(FilesToDelete)" />
     <ItemGroup Condition="'$(IsMacHost)' == 'true'">
       <StaleMacRecordingFile Include="$(GamePath)/BepInEx/plugins/ffmpeg" />
       <StaleMacRecordingFile Include="$(GamePath)/BepInEx/plugins/ffmpeg-LICENSE.txt" />
@@ -222,33 +213,15 @@
       Condition="'$(IsMacHost)' == 'true'"
     />
     <Copy
-      SourceFiles="$(TargetDir)$(TargetName).dll"
-      DestinationFiles="$(GamePath)\BepInEx\plugins\$(TargetName).dll"
+      SourceFiles="@(BppDebugPayloadFile)"
+      DestinationFiles="@(BppDebugPayloadFile->'$(GamePath)/%(PayloadPath)')"
       SkipUnchangedFiles="true"
-    />
-    <Copy
-      SourceFiles="@(PluginManagedRuntimeFiles)"
-      DestinationFolder="$(GamePath)\BepInEx\plugins"
-      SkipUnchangedFiles="true"
-      Condition="'@(PluginManagedRuntimeFiles)' != ''"
-    />
-    <Copy
-      SourceFiles="@(MacSqliteNativeFile)"
-      DestinationFiles="$(GamePath)\BepInEx\plugins\libe_sqlite3.dylib"
-      SkipUnchangedFiles="true"
-      Condition="'@(MacSqliteNativeFile)' != ''"
     />
     <Copy
       SourceFiles="@(MacAudioTapNativeFile)"
-      DestinationFiles="$(GamePath)\BepInEx\plugins\libBppMacAudio.dylib"
+      DestinationFiles="$(GamePath)/BepInEx/plugins/libBppMacAudio.dylib"
       SkipUnchangedFiles="true"
       Condition="'@(MacAudioTapNativeFile)' != ''"
-    />
-    <Copy
-      SourceFiles="@(WindowsSqliteNativeFile)"
-      DestinationFiles="$(GamePath)\BepInEx\plugins\e_sqlite3.dll"
-      SkipUnchangedFiles="true"
-      Condition="'@(WindowsSqliteNativeFile)' != ''"
     />
     <!-- Unity must load the rendering bundle before managed plugins start so UnityPluginLoad can
          provide IUnityGraphicsMetal. Copy only when a reviewed prebuilt or local native build is
@@ -292,7 +265,7 @@
     />
   </Target>
 
-  <!-- Release build -->
+  <!-- Production builds write only into the coordinator's isolated staging tree. -->
   <Target
     Name="ValidateProductionReleasePlatform"
     BeforeTargets="CopyToInstallerSource"
@@ -300,138 +273,28 @@
   >
     <Error
       Condition="'$(BppReleasePlatform)' != 'macos' and '$(BppReleasePlatform)' != 'windows'"
-      Text="BppReleasePlatform must be macos or windows for a production package. Use ./run.sh publish on the target platform."
+      Text="BppReleasePlatform must be macos or windows for a production payload."
+    />
+    <Error
+      Condition="'$(BppPayloadStagingRoot)' == '' or '$(BPPInstallerSourcePath)' != '$(BppPayloadStagingRoot)'"
+      Text="Production payloads require isolated staging. Run node release.mjs prepare."
     />
   </Target>
 
   <Target
     Name="CopyToInstallerSource"
     AfterTargets="Build"
-    Condition="'$(Configuration)' == 'Release' and Exists('$(BPPInstallerSourcePath)') and '$(BuildProductionPackage)' == 'true'"
+    DependsOnTargets="ValidatePayloadAssemblyVersions"
+    Condition="'$(Configuration)' == 'Release' and '$(BuildProductionPackage)' == 'true'"
   >
-    <Message Text="[BazaarPlusPlus] Building for Release" Importance="high" />
     <WriteLinesToFile
       File="$(TargetDir)$(TargetName).version"
       Lines="$(Version).prod"
       Overwrite="true"
     />
-    <ItemGroup>
-      <PluginManagedRuntimeFiles Include="$(TargetDir)Microsoft.Data.Sqlite.dll" />
-      <PluginManagedRuntimeFiles Include="$(TargetDir)SQLitePCLRaw.batteries_v2.dll" />
-      <PluginManagedRuntimeFiles Include="$(TargetDir)SQLitePCLRaw.core.dll" />
-      <PluginManagedRuntimeFiles Include="$(TargetDir)SQLitePCLRaw.provider.e_sqlite3.dll" />
-      <PluginManagedRuntimeFiles
-        Include="$(TargetDir)SixLabors.ImageSharp.dll"
-        Condition="Exists('$(TargetDir)SixLabors.ImageSharp.dll')"
-      />
-      <PluginManagedRuntimeFiles
-        Include="$(TargetDir)System.Buffers.dll"
-        Condition="Exists('$(TargetDir)System.Buffers.dll')"
-      />
-      <PluginManagedRuntimeFiles
-        Include="$(TargetDir)System.Memory.dll"
-        Condition="Exists('$(TargetDir)System.Memory.dll')"
-      />
-      <PluginManagedRuntimeFiles
-        Include="$(TargetDir)System.Numerics.Vectors.dll"
-        Condition="Exists('$(TargetDir)System.Numerics.Vectors.dll')"
-      />
-      <PluginManagedRuntimeFiles
-        Include="$(TargetDir)System.Text.Encoding.CodePages.dll"
-        Condition="Exists('$(TargetDir)System.Text.Encoding.CodePages.dll')"
-      />
-      <ReleaseSqliteNativeFile
-        Include="$(FixedMacSqliteNativeFile)"
-        Condition="'$(BppReleasePlatform)' == 'macos'"
-      />
-      <ReleaseSqliteNativeFile
-        Include="$(FixedWindowsSqliteNativeFile)"
-        Condition="'$(BppReleasePlatform)' == 'windows'"
-      />
-      <PluginManagedRuntimeFiles Include="$(TargetDir)BazaarPlusPlus.ModApi.dll" />
-      <PluginManagedRuntimeFiles Include="$(TargetDir)BazaarPlusPlus.Localization.dll" />
-      <PluginManagedRuntimeFiles
-        Include="$(TargetDir)BazaarPlusPlus.Storage.dll"
-        Condition="Exists('$(TargetDir)BazaarPlusPlus.Storage.dll')"
-      />
-    </ItemGroup>
-    <ItemGroup>
-      <InstallerFilesToDelete Include="$(BPPInstallerSourcePath)/SourceForBuild/$(BppReleasePlatform)/BepInEx/plugins/BazaarPlusPlus.BazaarAgent.dll" />
-      <InstallerFilesToDelete Include="$(BPPInstallerSourcePath)/SourceForBuild/$(BppReleasePlatform)/BepInEx/plugins/BazaarPlusPlus.BazaarAgentHost.dll" />
-    </ItemGroup>
-    <Delete Files="@(InstallerFilesToDelete)" />
     <Copy
-      SourceFiles="$(TargetDir)$(TargetName).dll"
-      DestinationFiles="$(BPPInstallerSourcePath)/SourceForBuild/$(BppReleasePlatform)/BepInEx/plugins/$(TargetName).dll"
-    />
-    <Copy
-      SourceFiles="$(TargetDir)$(TargetName).version"
-      DestinationFiles="$(BPPInstallerSourcePath)/SourceForBuild/$(BppReleasePlatform)/BepInEx/plugins/$(TargetName).version"
-    />
-    <Copy
-      SourceFiles="@(PluginManagedRuntimeFiles)"
-      DestinationFolder="$(BPPInstallerSourcePath)/SourceForBuild/$(BppReleasePlatform)/BepInEx/plugins"
-      SkipUnchangedFiles="true"
-      Condition="'@(PluginManagedRuntimeFiles)' != ''"
-    />
-    <Copy
-      SourceFiles="@(ReleaseSqliteNativeFile)"
-      DestinationFolder="$(BPPInstallerSourcePath)/SourceForBuild/$(BppReleasePlatform)/BepInEx/plugins"
-      SkipUnchangedFiles="true"
-      Condition="'@(ReleaseSqliteNativeFile)' != ''"
-    />
-    <Message
-      Text="[BazaarPlusPlus] Successfully copied Release artifacts to installer source folder."
-      Importance="high"
-    />
-  </Target>
-
-  <Target
-    Name="PackageInstallerSource"
-    AfterTargets="CopyToInstallerSource"
-    Condition="'$(Configuration)' == 'Release' and Exists('$(BPPInstallerSourcePath)') and '$(BuildProductionPackage)' == 'true'"
-  >
-    <Message Text="[BazaarPlusPlus] Building production installer package" Importance="high" />
-    <!-- Remove stale recorder files left by older payload staging. -->
-    <ItemGroup>
-      <StaleRecorderFile
-        Include="$(BPPInstallerSourcePath)/SourceForBuild/macos/BepInEx/plugins/ffmpeg"
-        Condition="'$(BppReleasePlatform)' == 'macos'"
-      />
-      <StaleRecorderFile
-        Include="$(BPPInstallerSourcePath)/SourceForBuild/macos/BepInEx/plugins/ffmpeg-LICENSE.txt"
-        Condition="'$(BppReleasePlatform)' == 'macos'"
-      />
-      <StaleRecorderFile
-        Include="$(BPPInstallerSourcePath)/SourceForBuild/windows/BepInEx/plugins/ffmpeg.exe"
-        Condition="'$(BppReleasePlatform)' == 'windows'"
-      />
-      <StaleRecorderFile
-        Include="$(BPPInstallerSourcePath)/SourceForBuild/windows/BepInEx/plugins/ffmpeg-LICENSE.txt"
-        Condition="'$(BppReleasePlatform)' == 'windows'"
-      />
-    </ItemGroup>
-    <Delete Files="@(StaleRecorderFile)" />
-    <RemoveDir
-      Directories="$(BPPInstallerSourcePath)/SourceForBuild/macos/BepInEx/plugins/BppReplayRecorder.app"
-      Condition="'$(BppReleasePlatform)' == 'macos'"
-    />
-    <Error
-      Condition="'$(BppReleasePlatform)' == 'macos' and !Exists('$(InstallerMacReplayPluginBundle)')"
-      Text="Cannot package macOS: native replay plugin is missing at $(InstallerMacReplayPluginBundle)."
-    />
-    <Error
-      Condition="'$(BppReleasePlatform)' == 'windows' and !Exists('$(InstallerWindowsReplayPlugin)')"
-      Text="Cannot package Windows: native replay plugin is missing at $(InstallerWindowsReplayPlugin)."
-    />
-    <ZipDirectory
-      SourceDirectory="$(BPPInstallerSourcePath)/SourceForBuild/$(BppReleasePlatform)"
-      DestinationFile="$(BPPInstallerSourcePath)/BepInExSource/$(BppReleasePlatform)/BepInEx.zip"
-      Overwrite="true"
-    />
-    <Message
-      Text="[BazaarPlusPlus] Successfully built mod zip and copied to installer source folder!!!"
-      Importance="high"
+      SourceFiles="@(BppPayloadFile)"
+      DestinationFiles="@(BppPayloadFile->'$(BPPInstallerSourcePath)/SourceForBuild/$(BppReleasePlatform)/%(PayloadPath)')"
     />
   </Target>
 

@@ -51,7 +51,6 @@ internal static class ReplayAudioTapStopper
             var capturedAnySamples = tap.CapturedAnySamples;
             var sampleFloats = tap.CapturedSampleFloats;
             var wavPath = tap.WavFilePath;
-            var capturePointLabel = tap.CapturePointLabel;
             var rmsAmplitude = tap.RmsAmplitude;
             var peakAmplitude = tap.PeakAmplitude;
             var failureReason =
@@ -92,17 +91,7 @@ internal static class ReplayAudioTapStopper
                 new ReplayAudioCaptureResult
                 {
                     WavPath = wavPath,
-                    CapturedAnySamples = capturedAnySamples,
-                    CapturedSampleFloats = sampleFloats,
-                    FileSizeBytes = fileSize,
-                    CapturePointLabel = capturePointLabel,
-                    RmsAmplitude = rmsAmplitude,
-                    PeakAmplitude = peakAmplitude,
                     Usable = usable,
-                    Backend = tap.Backend,
-                    SampleRateHz = tap.SampleRateHz,
-                    Channels = tap.Channels,
-                    SampleFormat = tap.SampleFormat,
                     FailureReason = failureReason,
                     FailureException = failureException,
                 }

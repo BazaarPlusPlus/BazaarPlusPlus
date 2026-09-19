@@ -4,8 +4,8 @@ import type {
   StorageCleanupScope
 } from '../../types/backend';
 
-export async function listHistoryRuns(limit = 50) {
-  return commandClient.listHistoryRuns(limit);
+export async function listHistoryRuns(limit = 50, offset = 0) {
+  return commandClient.listHistoryRuns(limit, offset);
 }
 
 /** Resolves to whether a leftover game process was actually terminated. */

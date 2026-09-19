@@ -3,9 +3,9 @@
 namespace BazaarPlusPlus;
 
 /// <summary>
-/// Re-exports the BazaarPlusPlus BepInEx plugin GUID as a public compile-time constant so the
-/// separate BazaarAgent host plugin can declare <c>[BepInDependency]</c> on it without reaching
-/// into the per-assembly, internal, build-generated <c>MyPluginInfo</c>.
+/// Re-exports the BazaarPlusPlus BepInEx plugin GUID as a public compile-time constant, so a
+/// caller can name the plugin without reaching into the per-assembly, internal, build-generated
+/// <c>MyPluginInfo</c>.
 /// </summary>
 public static class BppPluginMetadata
 {

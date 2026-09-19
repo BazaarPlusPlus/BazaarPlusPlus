@@ -59,9 +59,6 @@ internal interface IReplayAudioCaptureTap : IDisposable
     /// <summary>The WAV path this tap writes to.</summary>
     string WavFilePath { get; }
 
-    /// <summary>Human-readable capture-source label for diagnostics.</summary>
-    string CapturePointLabel { get; }
-
     ReplayAudioBackend Backend { get; }
 
     int SampleRateHz { get; }

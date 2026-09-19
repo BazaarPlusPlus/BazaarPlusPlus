@@ -1,6 +1,7 @@
 #nullable enable
 using BazaarGameShared.Domain.Core.Types;
 using BazaarGameShared.Domain.Effect.Actions;
+using BazaarGameShared.Domain.Effect.AuraActions;
 
 namespace BazaarPlusPlus.Game.PostCombatImpact.Data;
 
@@ -121,6 +122,7 @@ internal enum CombatImpactResidualCoverage
 internal enum CombatImpactAttributeTransitionResidualReason
 {
     ConcurrentAttributionUnavailable,
+    AuraOverlap,
 }
 
 internal enum CombatImpactAttributeTransitionResolution
@@ -129,6 +131,7 @@ internal enum CombatImpactAttributeTransitionResolution
     ConcurrentConfiguredExact,
     ConcurrentSingleUnknownSolved,
     ConcurrentResidual,
+    AuraOverlap,
 }
 
 internal enum CombatImpactAttributeTransitionFailureReason
@@ -150,6 +153,7 @@ internal enum CombatImpactAttributeTransitionFailureReason
     UnsupportedValueType,
     ConfiguredSumMismatch,
     ClaimantIdentityMismatch,
+    AuraOverlap,
 }
 
 internal readonly record struct PeriodicImpactKey(
@@ -168,11 +172,13 @@ internal sealed record CombatImpactPeriodicImpact(
 internal sealed record CombatImpactPrerequisiteSkillSourceRule(
     string EffectId,
     Guid SkillTemplateId,
-    IReadOnlyCollection<ETier> SkillTiers
+    IReadOnlyCollection<ETier> SkillTiers,
+    string SourceTypeLabel = "Skill"
 )
 {
     internal bool Matches(CombatImpactEntity entity) =>
-        entity.TypeLabel == "Skill"
+        entity.TypeLabel == SourceTypeLabel
+        && (SourceTypeLabel != "Item" || entity.Section == EInventorySection.Hand)
         && entity.TemplateId == SkillTemplateId
         && (SkillTiers.Count == 0 || SkillTiers.Contains(entity.Tier));
 }
@@ -180,11 +186,14 @@ internal sealed record CombatImpactPrerequisiteSkillSourceRule(
 internal sealed record CombatImpactItemTagCondition(
     EListComparisonOperator Operator,
     IReadOnlyCollection<ECardTag>? PublicTags = null,
-    IReadOnlyCollection<EHiddenTag>? HiddenTags = null
+    IReadOnlyCollection<EHiddenTag>? HiddenTags = null,
+    IReadOnlyList<CombatImpactItemTagCondition>? AllOf = null
 )
 {
     internal bool Matches(CombatImpactEntity entity)
     {
+        if (AllOf is { Count: > 0 })
+            return AllOf.All(condition => condition.Matches(entity));
         if (PublicTags is { Count: > 0 })
             return Matches(PublicTags, entity.Tags);
         if (HiddenTags is { Count: > 0 })
@@ -256,7 +265,9 @@ internal sealed record CombatImpactEntity(
     IReadOnlyDictionary<string, TActionCardModifyAttribute>? AbilityAttributeModifiersByEffectId =
         null,
     IReadOnlyDictionary<string, EEffectPriority>? CriticalTriggerAbilitiesByEffectId = null,
-    IReadOnlyCollection<string>? CritCapableEffectIds = null
+    IReadOnlyCollection<string>? CritCapableEffectIds = null,
+    IReadOnlyDictionary<string, TAuraActionCardModifyAttribute>? AuraAttributeModifiersByEffectId =
+        null
 );
 
 internal static class CombatImpactTags
@@ -338,6 +349,10 @@ internal sealed record CombatImpactEvent(
 
     internal int? TriggerFrameIndex { get; init; }
 
+    internal string? EffectId { get; init; }
+
+    internal string? ExecutionContextId { get; init; }
+
     internal CombatImpactActivitySourceResolution ActivitySourceResolution { get; init; } =
         CombatImpactActivitySourceResolution.Direct;
 
@@ -374,7 +389,8 @@ internal sealed record CombatImpactAttributeTransitionResidual(
 {
     internal CombatImpactKind Kind => CombatImpactKind.AttributeChange;
 
-    internal CombatImpactEventSurface Surface => CombatImpactEventSurface.CardAttribute;
+    internal CombatImpactEventSurface Surface { get; init; } =
+        CombatImpactEventSurface.CardAttribute;
 }
 
 internal sealed record CombatImpactApplicationLedger(
@@ -517,14 +533,6 @@ internal sealed record CombatImpactGroup(
     internal CombatImpactPeriodicImpact? PeriodicImpact { get; init; }
 
     internal bool HasUnattributedTransitionValue { get; init; }
-
-    internal bool HasDivergentTargetCoverage =>
-        UnresolvedTargetCount > 0
-        || AuthoritativeMetric is { Basis: CombatImpactAuthoritativeBasis.TotalAmount } total
-            && (!ObservedValue.HasValue || Unit != total.Unit || ObservedValue.Value != total.Value)
-        || AuthoritativeMetric
-            is { Basis: CombatImpactAuthoritativeBasis.ApplicationCount } applications
-            && Count != applications.Value;
 }
 
 internal sealed record CombatImpactTriggerSource(
@@ -629,8 +637,6 @@ internal sealed record CombatImpactReport(
     IReadOnlyList<CombatImpactReceived> Received
 )
 {
-    internal IReadOnlyList<PeriodicAttributionGap> PeriodicResiduals { get; init; } = [];
-
     internal IReadOnlyList<CombatImpactProjectionDiagnostic> ProjectionDiagnostics { get; init; } =
     [];
 
@@ -649,7 +655,16 @@ internal sealed record CombatImpactReport(
 internal sealed record CombatImpactCriticalTriggerEvidenceAudit(
     int ResolvedOriginCount,
     int AttributedOriginCount
-);
+)
+{
+    internal int InputEventCount { get; init; }
+
+    internal int InputExecutionCount { get; init; }
+
+    internal int ObservedEvidenceCount { get; init; }
+
+    internal long WorkUnitCount { get; init; }
+}
 
 internal sealed record CombatImpactProjectionInput(
     IReadOnlyDictionary<string, CombatImpactEntity> Entities,

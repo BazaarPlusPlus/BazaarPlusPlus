@@ -16,6 +16,55 @@ import path from 'node:path';
 
 const GENERATED_COMMANDS_FILE = 'commands.ts';
 
+// Every input whose change can alter the exported bindings.
+const BINDING_INPUT_PATHS = Object.freeze([
+  'src-tauri/src',
+  'src-tauri/Cargo.toml',
+  'src-tauri/Cargo.lock',
+  'scripts/generate-bindings.mjs'
+]);
+
+// Pure staleness decision. `generatedMtimeMs` is null when the committed
+// bindings are absent; `inputMtimesMs` is empty when no input could be read.
+// Both cases force a regeneration rather than a silent skip.
+export function bindingsAreFresh(generatedMtimeMs, inputMtimesMs) {
+  if (generatedMtimeMs === null || inputMtimesMs.length === 0) {
+    return false;
+  }
+  return inputMtimesMs.every((inputMtimeMs) => inputMtimeMs < generatedMtimeMs);
+}
+
+function collectMtimesMs(entryPath, collected) {
+  let stats;
+  try {
+    stats = statSync(entryPath);
+  } catch {
+    return collected;
+  }
+  collected.push(stats.mtimeMs);
+  if (stats.isDirectory()) {
+    for (const entry of readdirSync(entryPath)) {
+      collectMtimesMs(path.join(entryPath, entry), collected);
+    }
+  }
+  return collected;
+}
+
+export function generatedBindingsAreFresh(projectRoot) {
+  const commandsPath = path.join(
+    projectRoot,
+    'src/types/generated',
+    GENERATED_COMMANDS_FILE
+  );
+  const generatedMtimeMs = existsSync(commandsPath)
+    ? statSync(commandsPath).mtimeMs
+    : null;
+  const inputMtimesMs = BINDING_INPUT_PATHS.flatMap((relativePath) =>
+    collectMtimesMs(path.join(projectRoot, relativePath), [])
+  );
+  return bindingsAreFresh(generatedMtimeMs, inputMtimesMs);
+}
+
 export function replaceDirectoryWithBackup(
   targetDir,
   sourceDir,
@@ -89,8 +138,15 @@ export function commitGeneratedBindings({ generatedDir, tempGeneratedDir }) {
 
 export function runGenerateBindings(
   projectRoot,
-  { runAllRustTests = false } = {}
+  { runAllRustTests = false, skipIfFresh = false } = {}
 ) {
+  if (skipIfFresh && generatedBindingsAreFresh(projectRoot)) {
+    console.log(
+      'generate-bindings: skipped, committed bindings are newer than every Rust input'
+    );
+    return;
+  }
+
   const generatedDir = path.join(projectRoot, 'src/types/generated');
   const tempRoot = mkdtempSync(path.join(tmpdir(), 'bpp-bindings-'));
   const tempGeneratedDir = path.join(tempRoot, 'generated');
@@ -125,11 +181,19 @@ export function runGenerateBindings(
 
 if (import.meta.main) {
   const args = process.argv.slice(2);
-  if (args.some((arg) => arg !== '--with-rust-tests')) {
-    console.error('Usage: generate-bindings.mjs [--with-rust-tests]');
+  const allowedFlags = new Set(['--with-rust-tests', '--if-stale']);
+  if (args.some((arg) => !allowedFlags.has(arg))) {
+    console.error(
+      'Usage: generate-bindings.mjs [--with-rust-tests | --if-stale]'
+    );
+    process.exit(2);
+  }
+  if (args.includes('--with-rust-tests') && args.includes('--if-stale')) {
+    console.error('--if-stale cannot be combined with --with-rust-tests');
     process.exit(2);
   }
   runGenerateBindings(path.resolve(import.meta.dirname, '..'), {
-    runAllRustTests: args.includes('--with-rust-tests')
+    runAllRustTests: args.includes('--with-rust-tests'),
+    skipIfFresh: args.includes('--if-stale')
   });
 }

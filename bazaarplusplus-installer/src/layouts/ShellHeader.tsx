@@ -74,7 +74,6 @@ export function ShellHeader({
 }
 
 function ShellBrand() {
-  const app = useAppBootstrapVersion();
   return (
     <div
       className="flex min-w-0 items-center gap-3 z-10"
@@ -87,13 +86,9 @@ function ShellBrand() {
         draggable={false}
       />
       <h1 className="bpp-brand-title">BazaarPlusPlus</h1>
-      <span className="bpp-version-chip">v{app}</span>
+      <span className="bpp-version-chip">v{__FRONTEND_VERSION__}</span>
     </div>
   );
-}
-
-function useAppBootstrapVersion() {
-  return __FRONTEND_VERSION__;
 }
 
 type ShellHeaderActionsProps = {
@@ -173,10 +168,44 @@ function isWindowsTauriRuntime() {
   return hasTauriRuntime() && isWindowsPlatform();
 }
 
+/**
+ * Gate, not a wrapper: the hooks that poll native state live in the inner
+ * component so they are never scheduled off Windows, where the controls render
+ * nothing at all.
+ */
 function WindowsWindowControls() {
+  const [isWindowsRuntime] = useState(isWindowsTauriRuntime);
+  if (!isWindowsRuntime) return null;
+  return <WindowsWindowControlsContent />;
+}
+
+function minimizeWindow() {
+  void getCurrentWindow()
+    .minimize()
+    .catch((error) => {
+      console.error('Failed to minimize the Windows window.', error);
+    });
+}
+
+function toggleMaximizeWindow() {
+  void getCurrentWindow()
+    .toggleMaximize()
+    .catch((error) => {
+      console.error('Failed to toggle the Windows window size.', error);
+    });
+}
+
+function closeWindow() {
+  void getCurrentWindow()
+    .close()
+    .catch((error) => {
+      console.error('Failed to close the Windows window.', error);
+    });
+}
+
+function WindowsWindowControlsContent() {
   const { t } = useI18n();
   const streamRunning = useShellStreamServiceRunning();
-  const [isWindowsRuntime] = useState(isWindowsTauriRuntime);
   const [isMaximized, setIsMaximized] = useState(false);
   const closeLabel = streamRunning
     ? t('hideToTrayWhileStreaming')
@@ -184,8 +213,6 @@ function WindowsWindowControls() {
   const maximizeLabel = isMaximized ? t('restoreWindow') : t('maximizeWindow');
 
   useEffect(() => {
-    if (!isWindowsRuntime) return;
-
     let active = true;
     let unlisten: (() => void) | undefined;
     const window = getCurrentWindow();
@@ -224,37 +251,13 @@ function WindowsWindowControls() {
       active = false;
       unlisten?.();
     };
-  }, [isWindowsRuntime]);
-
-  if (!isWindowsRuntime) return null;
-
-  const minimize = () => {
-    void getCurrentWindow()
-      .minimize()
-      .catch((error) => {
-        console.error('Failed to minimize the Windows window.', error);
-      });
-  };
-  const toggleMaximize = () => {
-    void getCurrentWindow()
-      .toggleMaximize()
-      .catch((error) => {
-        console.error('Failed to toggle the Windows window size.', error);
-      });
-  };
-  const close = () => {
-    void getCurrentWindow()
-      .close()
-      .catch((error) => {
-        console.error('Failed to close the Windows window.', error);
-      });
-  };
+  }, []);
 
   return (
     <div className="bpp-window-controls" aria-label={t('windowControls')}>
       <button
         type="button"
-        onClick={minimize}
+        onClick={minimizeWindow}
         className="bpp-button bpp-window-control-button size-9 shrink-0"
         title={t('minimizeWindow')}
         aria-label={t('minimizeWindow')}
@@ -263,7 +266,7 @@ function WindowsWindowControls() {
       </button>
       <button
         type="button"
-        onClick={toggleMaximize}
+        onClick={toggleMaximizeWindow}
         className="bpp-button bpp-window-control-button size-9 shrink-0"
         title={maximizeLabel}
         aria-label={maximizeLabel}
@@ -276,7 +279,7 @@ function WindowsWindowControls() {
       </button>
       <button
         type="button"
-        onClick={close}
+        onClick={closeWindow}
         className="bpp-button bpp-window-control-button bpp-window-close-button size-9 shrink-0"
         title={closeLabel}
         aria-label={closeLabel}

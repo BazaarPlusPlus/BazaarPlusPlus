@@ -40,7 +40,7 @@ internal sealed class RunLogSessionManager
 
         if (
             ActiveSession != null
-            && !string.Equals(ActiveSession.RunId, request.RunId, StringComparison.Ordinal)
+            && !RunLogRunIdentity.MatchesServerRunId(ActiveSession.RunId, request.RunId)
         )
         {
             _store.MarkRunAbandoned(

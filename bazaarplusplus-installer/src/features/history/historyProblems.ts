@@ -37,9 +37,7 @@ export function historyProblemFromError(error: unknown): HistoryPageProblem {
   }
 }
 
-export function historyProblemMessageKey(
-  problem: HistoryPageProblem
-): MessageKey {
+function historyProblemMessageKey(problem: HistoryPageProblem): MessageKey {
   switch (problem.code) {
     case 'history_unavailable':
       return 'historyProblemUnavailable';

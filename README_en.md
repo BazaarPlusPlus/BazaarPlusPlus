@@ -4,9 +4,9 @@
 
 **Born of Passion** · A BepInEx mod and desktop installer for [*The Bazaar*](https://www.playthebazaar.com)
 
-[中文](README.md) · [Website](https://bazaarplusplus.com) · [Download](https://bazaarplusplus.com/download?lang=en) · [Tutorial](https://bazaarplusplus.com/tutorial?lang=en) · [Release Notes](https://github.com/cauyxy/BazaarPlusPlus/releases) · [Ko-fi](https://ko-fi.com/cauyxy)
+[中文](README.md) · [Website](https://bazaarplusplus.com) · [Download](https://bazaarplusplus.com/download?lang=en) · [Tutorial](https://bazaarplusplus.com/tutorial?lang=en) · [Release Notes](https://github.com/BazaarPlusPlus/BazaarPlusPlus/releases) · [Ko-fi](https://ko-fi.com/cauyxy)
 
-[![Version](https://img.shields.io/badge/version-4.2.0-6dd9a0?style=flat-square)](https://bazaarplusplus.com)
+[![Version](https://img.shields.io/badge/version-5.5.0-6dd9a0?style=flat-square)](https://bazaarplusplus.com)
 [![License](https://img.shields.io/badge/license-MIT-e8c87a?style=flat-square)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS-c1875a?style=flat-square)](https://bazaarplusplus.com/download)
 [![BepInEx](https://img.shields.io/badge/BepInEx-5.x-8a6d3b?style=flat-square)](https://github.com/BepInEx/BepInEx)
@@ -18,7 +18,7 @@
 
 ---
 
-BazaarPlusPlus is an open-source project for *The Bazaar*. The in-game BepInEx mod adds a card collection browser, run history, combat replays, tooltip previews, anonymous mode, Chinese terminology, and related quality-of-life features. The companion desktop installer handles download, install, repair, auto-update, and the stream overlay.
+BazaarPlusPlus is an open-source project for *The Bazaar*. The in-game BepInEx mod adds a card collection browser, run history, combat replays, tooltip previews, anonymous mode, Chinese terminology, and related quality-of-life features. The companion desktop installer handles download, install, repair, auto-update, and the stream overlay. This repository also holds the upload backend, the metrics analyzer, and the public website.
 
 Most players should install from [bazaarplusplus.com/download](https://bazaarplusplus.com/download?lang=en); this repository is for developers who want to inspect the implementation, contribute changes, or build locally.
 
@@ -58,66 +58,92 @@ Feature guides, hotkeys, and installation details live at [bazaarplusplus.com/tu
 
 ```
 .
+├── JUSTFILE                                 # Unified development, checks, tests, and release commands
+├── VERSION / release.mjs / release/         # Product version, release entry point, shared Payload Inventory
 ├── bazaarplusplus-mod/                       # BepInEx mod source
-│   ├── run.sh                                # Common build/test/format/decompile entry point
+│   ├── mod.just / scripts/                   # just mod::… recipes and their build/test/decompile scripts
 │   └── src/
 │       ├── BazaarPlusPlus/                   # Main mod: Game, Patches, Resources, Data
 │       ├── BazaarPlusPlus.ModApi/            # HTTP client for the mod backend
 │       ├── BazaarPlusPlus.Storage/           # Local run logs, screenshots, and SQLite storage
 │       └── BazaarPlusPlus.Localization/      # Chinese terminology and localization engine
-└── bazaarplusplus-installer/                 # Desktop installer
-    ├── src/                                  # Vite + React frontend
-    │   ├── pages/ features/ layouts/ api/    # Pages, feature state, shell, and Tauri calls
-    │   └── types/generated/                  # Rust -> TypeScript binding snapshot
-    ├── src-tauri/                            # Tauri 2 / Rust backend
-    │   ├── src/commands/ services/ history/  # Install, detect, history, and stream services
-    │   └── resources/                        # BepInEx, FFmpeg, stream overlay, install payload
-    ├── scripts/                              # Binding, manifest, and prebuild scripts
-    └── build.sh                              # Local development and release packaging entry point
+├── bazaarplusplus-installer/                 # Desktop installer
+│   ├── src/                                  # Vite + React frontend
+│   ├── src-tauri/                            # Tauri 2 / Rust backend
+│   └── installer.just                        # just installer::… development recipes
+├── bazaarplusplus-server/                    # Cloudflare Worker: Bundle upload and Ghost discovery
+├── bazaarplusplus-analyzer/                  # Turns Bundles into heroes / builds snapshots
+└── bazaarplusplus-site/                      # bazaarplusplus.com
 ```
+
+Run `just` from any repository subdirectory to list development, check, test, and release commands. Projects retain their native toolchains; product release rules live in the root `release.mjs`. See the [development command guide](docs/development.md) for setup and command scope. The root [`AGENTS.md`](AGENTS.md) records cross-project conventions and contract owners; each project also has its own `AGENTS.md`.
 
 ## Building From Source
 
 ### Prerequisites
 
-- **Mod**: .NET SDK 8+ and a local Steam install of *The Bazaar* so game assemblies can be resolved.
-- **Installer**: Node.js 20+, the Rust toolchain, and the system dependencies listed in the [Tauri prerequisites](https://tauri.app/start/prerequisites/).
-- **Windows**: PowerShell 7.6.0 or newer for the build scripts and development flow.
+- **Mod**: .NET SDK 10 and a local Steam install of *The Bazaar* so game assemblies can be resolved.
+- **Unified commands**: [just](https://just.systems/man/en/packages.html); install with `brew install just` on macOS.
+- **Installer / server / site**: Use the Node version in the root `.nvmrc` and the npm version in `packageManager` of `bazaarplusplus-installer/package.json`; run `npm ci` in each project directory.
+- **Native installer builds**: The Rust toolchain and the system dependencies listed in the [Tauri prerequisites](https://tauri.app/start/prerequisites/).
+- **Analyzer**: Python 3.14 and `uv`.
+- **Windows**: Run just commands in Git Bash; native build scripts also require PowerShell 7.6.0 or newer.
 
 ### Build the Mod
 
 ```bash
-cd bazaarplusplus-mod
+# Compile without changing the installed game
+just mod::build
+just mod::test
 
-# Development build: resolves the local game directory and copies the Debug DLL into BepInEx/plugins
-./run.sh build
-
-# Build Debug + Release in one pass
-./run.sh all
-
-# Override the game assembly directory explicitly
-dotnet build src/BazaarPlusPlus/BazaarPlusPlus.csproj \
-  -c Debug \
-  -p:ManagedPath="<Steam>/steamapps/common/The Bazaar/.../Managed"
+# Override the game assembly directory
+just mod::build "-p:ManagedPath=<Steam>/steamapps/common/The Bazaar/.../Managed"
 ```
+
+To deploy development DLLs into the game, explicitly run `just mod::deploy`.
 
 ### Build the Installer
 
 ```bash
 cd bazaarplusplus-installer
 
-npm install
-npm run dev        # Vite frontend dev server
+npm ci
+just installer::dev # Vite frontend dev server
 npm run tauri dev  # full Tauri desktop app
 
-npm run check
-npm run test
+just installer::check
+just installer::test
 npm run format
-
-./build.sh --prod  # production package for the host platform
 ```
 
-Release signing, notarization, and R2 upload flows depend on local environment variables and `signing-secrets/`, which are intentionally not committed. A full release build also requires a local game install, signing material, and the platform dependencies — the public source tree alone is not enough.
+Run `just fmt` from the root to format every project; `just hooks-install` installs the Git hooks defined in the root `lefthook.yml`.
+
+```bash
+cd bazaarplusplus-server
+npm ci
+just server::test
+# just server::dev requires the project's gitignored .dev.vars
+```
+
+```bash
+cd bazaarplusplus-analyzer
+uv sync --locked
+just analyzer::check
+just analyzer::test
+```
+
+```bash
+cd bazaarplusplus-site
+npm ci
+just site::test
+just site::build
+```
+
+Release signing, notarization, and R2 upload flows depend on local environment variables and `signing-secrets/`, which are intentionally not committed. A full release build also requires a local game install, signing material, and the platform dependencies — the public source tree alone is not enough. Game decompilation output, `decompiled/`, `.env`, and `.dev.vars` are also kept out of this tree.
+
+## Product Releases
+
+The mod and installer share the root `VERSION`. Run `just release::sync` after changing it. Build each platform with `just release::build macos` (or `windows`), then run `just release::upload <platform>` for its immutable artifacts. `just release::promote` advances latest only when both platforms have the same version and Git commit. The underlying `node release.mjs …` commands remain available. See the [product release guide](docs/release.md) for credentials, sequencing, and recovery.
 
 ## Derivative Work Notice
 

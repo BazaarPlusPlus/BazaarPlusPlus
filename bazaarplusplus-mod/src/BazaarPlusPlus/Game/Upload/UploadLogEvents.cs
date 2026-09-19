@@ -30,37 +30,6 @@ internal static class UploadLogEvents
         new BppLogStormPolicy([FeedDegradedFeed, FeedDegradedReasonCode])
     );
 
-    internal static readonly BppLogFieldDefinition FeedArmedFeed = Field(
-        0,
-        "feed",
-        BppLogCardinality.Low
-    );
-    internal static readonly BppLogFieldDefinition FeedArmedRequestTimeoutMs = Field(
-        1,
-        "request_timeout_ms",
-        BppLogCardinality.Low
-    );
-    internal static readonly BppLogFieldDefinition FeedArmedStartupDelayMs = Field(
-        2,
-        "startup_delay_ms",
-        BppLogCardinality.Low
-    );
-    internal static readonly BppLogFieldDefinition FeedArmedRetryIntervalMs = Field(
-        3,
-        "retry_interval_ms",
-        BppLogCardinality.Low
-    );
-    internal static readonly BppLogEventDefinition FeedArmed = new(
-        BppLogFeatureScope.Upload,
-        "upload.feed.armed",
-        [
-            FeedArmedFeed,
-            FeedArmedRequestTimeoutMs,
-            FeedArmedStartupDelayMs,
-            FeedArmedRetryIntervalMs,
-        ]
-    );
-
     internal static readonly BppLogFieldDefinition AttemptDeferredFeed = Field(
         0,
         "feed",
@@ -80,22 +49,6 @@ internal static class UploadLogEvents
         BppLogFeatureScope.Upload,
         "upload.attempt.deferred",
         [AttemptDeferredFeed, AttemptDeferredReasonCode, AttemptDeferredPendingCount]
-    );
-
-    internal static readonly BppLogFieldDefinition AccountProbeFailedFeed = Field(
-        0,
-        "feed",
-        BppLogCardinality.Low
-    );
-    internal static readonly BppLogFieldDefinition AccountProbeFailedReasonCode = Field(
-        1,
-        "reason_code",
-        BppLogCardinality.Low
-    );
-    internal static readonly BppLogEventDefinition AccountProbeFailed = new(
-        BppLogFeatureScope.Upload,
-        "upload.account_probe.failed",
-        [AccountProbeFailedFeed, AccountProbeFailedReasonCode]
     );
 
     internal static readonly BppLogFieldDefinition AttemptStartedFeed = Field(

@@ -34,6 +34,7 @@ internal static class BppPatchHost
 
     public static void Reset()
     {
+        _features?.HistoryMenu?.Dispose();
         _services = null;
         _features = null;
     }

@@ -7,6 +7,7 @@ namespace BazaarPlusPlus.Storage.Sqlite;
 public abstract class SqliteStoreBase
 {
     private readonly string _databasePath;
+    private readonly string _connectionString;
 
     protected SqliteStoreBase(string databasePath)
     {
@@ -14,6 +15,11 @@ public abstract class SqliteStoreBase
             throw new ArgumentException("Database path is required.", nameof(databasePath));
 
         _databasePath = databasePath;
+        _connectionString = new SqliteConnectionStringBuilder
+        {
+            DataSource = _databasePath,
+            ForeignKeys = true,
+        }.ConnectionString;
 
         var directory = Path.GetDirectoryName(_databasePath);
         if (!string.IsNullOrWhiteSpace(directory))
@@ -26,15 +32,16 @@ public abstract class SqliteStoreBase
 
     protected SqliteConnection OpenConnection()
     {
-        var connection = new SqliteConnection($"Data Source={_databasePath}");
+        // Foreign-key enforcement rides the connection string so it costs no extra round trip.
+        // busy_timeout stays a pragma: Microsoft.Data.Sqlite 8.0's "Default Timeout" only seeds
+        // SqliteCommand.CommandTimeout (a managed SQLITE_BUSY retry loop, and CreateCommand
+        // already sets it), never sqlite3_busy_timeout's native blocking wait.
+        var connection = new SqliteConnection(_connectionString);
         try
         {
             connection.Open();
             using var command = CreateCommand(connection);
-            command.CommandText = """
-                PRAGMA foreign_keys = ON;
-                PRAGMA busy_timeout = 2000;
-                """;
+            command.CommandText = "PRAGMA busy_timeout = 2000;";
             command.ExecuteNonQuery();
             return connection;
         }

@@ -2,6 +2,7 @@ use chrono::{DateTime, Datelike, Duration, NaiveDate, SecondsFormat, TimeZone, U
 use rusqlite::{params, Connection};
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
+use std::sync::LazyLock;
 
 use crate::history::files::resolve_cleanup_file_path;
 use crate::history::queries::{open_cleanup_connection, open_connection};
@@ -147,14 +148,12 @@ pub fn plan_screenshot_cleanup(
     let cutoff_utc = cutoff.map(|value| value.utc.as_str());
     let screenshots_dir = crate::services::paths::screenshots_dir(game_path);
     let items = eligible_screenshots(&conn, cutoff_utc)?;
-    let remaining_referenced_paths =
-        remaining_screenshot_relative_paths_after_cleanup(&conn, &items)?;
-    let items = mark_screenshot_file_deletions(items, &remaining_referenced_paths);
+    let path_sets = screenshot_relative_path_sets(&conn, &items)?;
+    let items = mark_screenshot_file_deletions(items, &path_sets.remaining);
     let skipped_pending_uploads = pending_upload_count(&conn, cutoff_utc)?;
-    let referenced_paths = all_screenshot_relative_paths(&conn)?;
     let orphan_files = scan_orphan_screenshot_files(
         &screenshots_dir,
-        &referenced_paths,
+        &path_sets.all,
         cutoff.map(|c| c.local_date),
         today_local_date,
     );
@@ -261,11 +260,10 @@ fn execute_screenshot_cleanup_plan(
     })
 }
 
-fn delete_screenshot_if_unprotected(
-    conn: &Connection,
-    screenshot_id: &str,
-) -> Result<usize, String> {
-    let sql = format!(
+/// Built once from `PROTECTED_RUN_PREDICATE` — the per-row delete loop must not
+/// re-format a ~600-byte SQL text for every screenshot it visits.
+static DELETE_SCREENSHOT_IF_UNPROTECTED_SQL: LazyLock<String> = LazyLock::new(|| {
+    format!(
         "delete from run_screenshots
          where screenshot_id = ?1
            and not (
@@ -278,9 +276,17 @@ fn delete_screenshot_if_unprotected(
                      and ({PROTECTED_RUN_PREDICATE})
                )
            )"
-    );
-    conn.execute(&sql, [screenshot_id])
-        .map_err(|err| err.to_string())
+    )
+});
+
+fn delete_screenshot_if_unprotected(
+    conn: &Connection,
+    screenshot_id: &str,
+) -> Result<usize, String> {
+    let mut stmt = conn
+        .prepare_cached(&DELETE_SCREENSHOT_IF_UNPROTECTED_SQL)
+        .map_err(|err| err.to_string())?;
+    stmt.execute([screenshot_id]).map_err(|err| err.to_string())
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -360,6 +366,10 @@ pub fn plan_run_data_cleanup(
     let mut items = Vec::new();
     let mut screenshot_items_for_estimate = Vec::new();
     let mut video_items_for_estimate = Vec::new();
+    // Execution unlinks one replay payload per distinct battle id, so the
+    // estimate counts each payload once too — same dedupe key as
+    // `deleted_replay_payloads` in `execute_run_data_cleanup_plan`.
+    let mut estimated_replay_payloads = HashSet::new();
     let mut estimated_bytes = 0i64;
     for run_id in run_ids {
         let battle_ids = run_battle_ids(&conn, &run_id)?;
@@ -371,9 +381,13 @@ pub fn plan_run_data_cleanup(
         );
 
         for battle_id in &battle_ids {
-            if let Some(path) = replay_payload_path(&replays_dir, battle_id) {
-                estimated_bytes += file_size(&path);
+            let Some(path) = replay_payload_path(&replays_dir, battle_id) else {
+                continue;
+            };
+            if !estimated_replay_payloads.insert(battle_id.trim().to_string()) {
+                continue;
             }
+            estimated_bytes += file_size(&path);
         }
         video_items_for_estimate.extend(videos.iter().cloned());
         screenshot_items_for_estimate.extend(screenshots.iter().cloned());
@@ -555,13 +569,20 @@ fn execute_run_data_cleanup_plan(
     })
 }
 
-fn delete_run_if_unprotected(conn: &Connection, run_id: &str) -> Result<usize, String> {
-    let sql = format!(
+/// Built once from `PROTECTED_RUN_PREDICATE`; see the screenshot twin above.
+static DELETE_RUN_IF_UNPROTECTED_SQL: LazyLock<String> = LazyLock::new(|| {
+    format!(
         "delete from runs as r
          where r.run_id = ?1
            and not ({PROTECTED_RUN_PREDICATE})"
-    );
-    conn.execute(&sql, [run_id]).map_err(|err| err.to_string())
+    )
+});
+
+fn delete_run_if_unprotected(conn: &Connection, run_id: &str) -> Result<usize, String> {
+    let mut stmt = conn
+        .prepare_cached(&DELETE_RUN_IF_UNPROTECTED_SQL)
+        .map_err(|err| err.to_string())?;
+    stmt.execute([run_id]).map_err(|err| err.to_string())
 }
 
 fn eligible_run_ids(conn: &Connection, cutoff_utc: Option<&str>) -> Result<Vec<String>, String> {
@@ -598,7 +619,7 @@ fn skipped_pending_run_count(conn: &Connection, cutoff_utc: Option<&str>) -> Res
 
 fn run_battle_ids(conn: &Connection, run_id: &str) -> Result<Vec<String>, String> {
     let mut stmt = conn
-        .prepare("select battle_id from battles where run_id = ?1 order by battle_id asc")
+        .prepare_cached("select battle_id from battles where run_id = ?1 order by battle_id asc")
         .map_err(|err| err.to_string())?;
     let rows = stmt
         .query_map([run_id], |row| row.get::<_, String>(0))
@@ -609,7 +630,7 @@ fn run_battle_ids(conn: &Connection, run_id: &str) -> Result<Vec<String>, String
 
 fn run_video_refs(conn: &Connection, run_id: &str) -> Result<Vec<RunDataVideoCleanupItem>, String> {
     let mut stmt = conn
-        .prepare(
+        .prepare_cached(
             "select v.video_id, v.video_relative_path
              from combat_replay_videos v
              join battles b on b.battle_id = v.battle_id
@@ -635,7 +656,7 @@ fn run_screenshot_items(
     run_id: &str,
 ) -> Result<Vec<ScreenshotCleanupItem>, String> {
     let mut stmt = conn
-        .prepare(
+        .prepare_cached(
             "select screenshot_id, image_relative_path
              from run_screenshots
              where run_id = ?1
@@ -812,28 +833,20 @@ fn pending_upload_count(conn: &Connection, cutoff_utc: Option<&str>) -> Result<i
         .map_err(|err| err.to_string())
 }
 
-fn all_screenshot_relative_paths(conn: &Connection) -> Result<HashSet<String>, String> {
-    let mut stmt = conn
-        .prepare("select image_relative_path from run_screenshots")
-        .map_err(|err| err.to_string())?;
-    let rows = stmt
-        .query_map([], |row| row.get::<_, String>(0))
-        .map_err(|err| err.to_string())?;
-
-    let mut paths = HashSet::new();
-    for row in rows {
-        let normalized = normalize_relative_path(&row.map_err(|err| err.to_string())?);
-        if !normalized.is_empty() {
-            paths.insert(normalized);
-        }
-    }
-    Ok(paths)
+/// Both screenshot path sets a plan needs, derived from one table scan.
+struct ScreenshotRelativePathSets {
+    /// Every referenced path, including those of the planned items. Feeds the
+    /// orphan sweep, which must not treat a planned row's file as unreferenced.
+    all: HashSet<String>,
+    /// Paths still referenced once the planned rows are gone. Feeds the
+    /// shared-file guard that keeps a surviving row's image on disk.
+    remaining: HashSet<String>,
 }
 
-fn remaining_screenshot_relative_paths_after_cleanup(
+fn screenshot_relative_path_sets(
     conn: &Connection,
     items: &[ScreenshotCleanupItem],
-) -> Result<HashSet<String>, String> {
+) -> Result<ScreenshotRelativePathSets, String> {
     let planned_ids = items
         .iter()
         .map(|item| item.screenshot_id.as_str())
@@ -847,18 +860,20 @@ fn remaining_screenshot_relative_paths_after_cleanup(
         })
         .map_err(|err| err.to_string())?;
 
-    let mut paths = HashSet::new();
+    let mut all = HashSet::new();
+    let mut remaining = HashSet::new();
     for row in rows {
         let (screenshot_id, image_relative_path) = row.map_err(|err| err.to_string())?;
-        if planned_ids.contains(screenshot_id.as_str()) {
+        let normalized = normalize_relative_path(&image_relative_path);
+        if normalized.is_empty() {
             continue;
         }
-        let normalized = normalize_relative_path(&image_relative_path);
-        if !normalized.is_empty() {
-            paths.insert(normalized);
+        if !planned_ids.contains(screenshot_id.as_str()) {
+            remaining.insert(normalized.clone());
         }
+        all.insert(normalized);
     }
-    Ok(paths)
+    Ok(ScreenshotRelativePathSets { all, remaining })
 }
 
 fn mark_video_file_deletions(
@@ -1106,7 +1121,7 @@ fn remove_empty_dated_directories(screenshots_dir: &Path) {
 #[cfg(test)]
 mod tests {
     use super::{plan_screenshot_cleanup, CleanupCutoff, StorageCleanupPreset};
-    use chrono::{FixedOffset, NaiveDate, TimeZone};
+    use chrono::{DateTime, FixedOffset, NaiveDate, SecondsFormat, TimeZone};
     use rusqlite::Connection;
     use std::fs;
     use std::path::{Path, PathBuf};
@@ -1124,7 +1139,7 @@ mod tests {
         conn.execute_batch(
             "
             pragma foreign_keys = on;
-            pragma user_version = 1;
+            pragma user_version = 2;
             create table runs (
                 run_id text primary key,
                 started_at_utc text not null,
@@ -1147,7 +1162,20 @@ mod tests {
                 recorded_at_utc text not null,
                 combat_kind text not null default 'PVP',
                 deleted_at_utc text null,
-                foreign key (run_id) references runs(run_id) on delete cascade
+                has_local_payload integer not null default 0,
+                local_payload_state text null,
+                local_payload_maintenance_at_utc text null,
+                foreign key (run_id) references runs(run_id) on delete cascade,
+                check (
+                    (source = 'LOCAL' and local_payload_state is not null and (
+                        (local_payload_state = 'ready' and has_local_payload = 1)
+                        or
+                        (local_payload_state in ('delete_pending', 'evicted', 'missing')
+                         and has_local_payload = 0)
+                    ))
+                    or
+                    (source <> 'LOCAL' and local_payload_state is null)
+                )
             );
             create table battle_snapshots (
                 battle_id text primary key,
@@ -1180,8 +1208,45 @@ mod tests {
                 codec text not null default 'h264',
                 started_at_utc text not null,
                 file_size_bytes integer null,
-                status text not null
+                status text not null,
+                attachment_state text not null default 'attached',
+                file_state text not null default 'pending',
+                detached_at_utc text null,
+                missing_at_utc text null,
+                last_reconciled_at_utc text null,
+                check (attachment_state in ('attached', 'detached')),
+                check (file_state in ('pending', 'present', 'missing', 'deleted'))
             );
+            create trigger trg_battles_local_payload_insert
+            before insert on battles
+            when not (
+                (new.source = 'LOCAL' and new.local_payload_state is not null and (
+                    (new.local_payload_state = 'ready' and new.has_local_payload = 1)
+                    or
+                    (new.local_payload_state in ('delete_pending', 'evicted', 'missing')
+                     and new.has_local_payload = 0)
+                ))
+                or
+                (new.source <> 'LOCAL' and new.local_payload_state is null)
+            )
+            begin
+                select raise(abort, 'invalid local payload lifecycle state');
+            end;
+            create trigger trg_battles_local_payload_update
+            before update of source, has_local_payload, local_payload_state on battles
+            when not (
+                (new.source = 'LOCAL' and new.local_payload_state is not null and (
+                    (new.local_payload_state = 'ready' and new.has_local_payload = 1)
+                    or
+                    (new.local_payload_state in ('delete_pending', 'evicted', 'missing')
+                     and new.has_local_payload = 0)
+                ))
+                or
+                (new.source <> 'LOCAL' and new.local_payload_state is null)
+            )
+            begin
+                select raise(abort, 'invalid local payload lifecycle state');
+            end;
             create table bundle_seal_jobs (
                 run_id text primary key,
                 state text not null default 'waiting',
@@ -1313,6 +1378,87 @@ mod tests {
         .unwrap();
     }
 
+    /// `has_local_payload` is derived rather than passed: the `battles` CHECK
+    /// constraint and its two triggers admit exactly one value per
+    /// `local_payload_state`, so a seed that chose its own would only ever be
+    /// rejected. `source` stays explicit because `GHOST` rows (no payload state)
+    /// are a distinct case the run-cleanup cascade tests rely on.
+    fn insert_battle(
+        conn: &rusqlite::Connection,
+        battle_id: &str,
+        source: &str,
+        run_id: Option<&str>,
+        recorded_at_utc: &str,
+        local_payload_state: Option<&str>,
+    ) {
+        let has_local_payload = i64::from(local_payload_state == Some("ready"));
+        conn.execute(
+            "insert into battles (
+                battle_id, source, run_id, recorded_at_utc,
+                has_local_payload, local_payload_state
+             ) values (?1, ?2, ?3, ?4, ?5, ?6)",
+            rusqlite::params![
+                battle_id,
+                source,
+                run_id,
+                recorded_at_utc,
+                has_local_payload,
+                local_payload_state
+            ],
+        )
+        .unwrap();
+    }
+
+    /// Cleanup planning selects videos by battle, never by `status`, so every
+    /// seed uses the completed status and the helper fixes it.
+    fn insert_video(
+        conn: &rusqlite::Connection,
+        video_id: &str,
+        battle_id: &str,
+        video_relative_path: &str,
+        started_at_utc: &str,
+    ) {
+        conn.execute(
+            "insert into combat_replay_videos (
+                video_id, battle_id, video_relative_path, started_at_utc, status
+             ) values (?1, ?2, ?3, ?4, 'COMPLETED')",
+            rusqlite::params![video_id, battle_id, video_relative_path, started_at_utc],
+        )
+        .unwrap();
+    }
+
+    /// `captured_at_local` is `not null` but no cleanup query reads it, so the
+    /// helper derives it from `captured_at_utc` in the +08:00 zone the existing
+    /// seeds all used rather than repeating a second timestamp per row.
+    fn insert_screenshot(
+        conn: &rusqlite::Connection,
+        screenshot_id: &str,
+        run_id: Option<&str>,
+        is_primary: i64,
+        image_relative_path: &str,
+        captured_at_utc: &str,
+    ) {
+        let captured_at_local = DateTime::parse_from_rfc3339(captured_at_utc)
+            .unwrap()
+            .with_timezone(&FixedOffset::east_opt(8 * 3600).unwrap())
+            .to_rfc3339_opts(SecondsFormat::Secs, false);
+        conn.execute(
+            "insert into run_screenshots (
+                screenshot_id, run_id, capture_source, is_primary, image_relative_path,
+                captured_at_utc, captured_at_local
+             ) values (?1, ?2, 'end_of_run_auto', ?3, ?4, ?5, ?6)",
+            rusqlite::params![
+                screenshot_id,
+                run_id,
+                is_primary,
+                image_relative_path,
+                captured_at_utc,
+                captured_at_local
+            ],
+        )
+        .unwrap();
+    }
+
     #[test]
     fn cutoff_for_all_preset_is_none() {
         let tz = FixedOffset::east_opt(8 * 3600).unwrap();
@@ -1362,21 +1508,30 @@ mod tests {
             [],
         )
         .unwrap();
-        conn.execute(
-            "insert into run_screenshots (
-                screenshot_id, run_id, capture_source, is_primary, image_relative_path,
-                captured_at_utc, captured_at_local
-            ) values
-                ('shot-old', null, 'end_of_run_auto', 0, '2026-06-15/old.png',
-                 '2026-06-15T10:00:00+00:00', '2026-06-15T18:00:00+08:00'),
-                ('shot-protected', 'run-protected', 'end_of_run_auto', 1,
-                 '2026-06-16/protected.png', '2026-06-16T10:00:00Z',
-                 '2026-06-16T18:00:00+08:00'),
-                ('shot-new', null, 'end_of_run_auto', 0, '2026-07-02/new.png',
-                 '2026-07-02T10:00:00Z', '2026-07-02T18:00:00+08:00')",
-            [],
-        )
-        .unwrap();
+        insert_screenshot(
+            &conn,
+            "shot-old",
+            None,
+            0,
+            "2026-06-15/old.png",
+            "2026-06-15T10:00:00+00:00",
+        );
+        insert_screenshot(
+            &conn,
+            "shot-protected",
+            Some("run-protected"),
+            1,
+            "2026-06-16/protected.png",
+            "2026-06-16T10:00:00Z",
+        );
+        insert_screenshot(
+            &conn,
+            "shot-new",
+            None,
+            0,
+            "2026-07-02/new.png",
+            "2026-07-02T10:00:00Z",
+        );
         drop(conn);
 
         write_screenshot_file(&fixture.screenshots_dir, "2026-06-15/old.png", b"12345");
@@ -1418,18 +1573,14 @@ mod tests {
         )
         .unwrap();
         insert_outbox(&conn, "run-race", "pending");
-        conn.execute(
-            "insert into run_screenshots (
-                screenshot_id, run_id, capture_source, is_primary, image_relative_path,
-                captured_at_utc, captured_at_local
-            ) values (
-                'shot-race', 'run-race', 'end_of_run_auto', 1,
-                '2026-06-16/run-race.png', '2026-06-16T10:00:00Z',
-                '2026-06-16T18:00:00+08:00'
-            )",
-            [],
-        )
-        .unwrap();
+        insert_screenshot(
+            &conn,
+            "shot-race",
+            Some("run-race"),
+            1,
+            "2026-06-16/run-race.png",
+            "2026-06-16T10:00:00Z",
+        );
         drop(conn);
         let screenshot_file = write_screenshot_file(
             &fixture.screenshots_dir,
@@ -1499,21 +1650,22 @@ mod tests {
         )
         .unwrap();
         insert_outbox(&conn, "run-race", "pending");
-        conn.execute_batch(
-            "
-            insert into run_screenshots (
-                screenshot_id, run_id, capture_source, is_primary, image_relative_path,
-                captured_at_utc, captured_at_local
-            ) values
-                ('shot-primary', 'run-race', 'end_of_run_auto', 1,
-                 '2026-06-16/shared.png', '2026-06-16T10:00:00Z',
-                 '2026-06-16T18:00:00+08:00'),
-                ('shot-sibling', 'run-race', 'end_of_run_auto', 0,
-                 '2026-06-16/shared.png', '2026-06-16T10:01:00Z',
-                 '2026-06-16T18:01:00+08:00');
-            ",
-        )
-        .unwrap();
+        insert_screenshot(
+            &conn,
+            "shot-primary",
+            Some("run-race"),
+            1,
+            "2026-06-16/shared.png",
+            "2026-06-16T10:00:00Z",
+        );
+        insert_screenshot(
+            &conn,
+            "shot-sibling",
+            Some("run-race"),
+            0,
+            "2026-06-16/shared.png",
+            "2026-06-16T10:01:00Z",
+        );
         drop(conn);
         let shared_file =
             write_screenshot_file(&fixture.screenshots_dir, "2026-06-16/shared.png", b"shared");
@@ -1579,18 +1731,14 @@ mod tests {
             [],
         )
         .unwrap();
-        conn.execute(
-            "insert into run_screenshots (
-                screenshot_id, run_id, capture_source, is_primary, image_relative_path,
-                captured_at_utc, captured_at_local
-            ) values (
-                'shot-non-primary', 'run-protected', 'end_of_run_auto', 0,
-                '2026-06-16/non-primary.png', '2026-06-16T10:00:00Z',
-                '2026-06-16T18:00:00+08:00'
-            )",
-            [],
-        )
-        .unwrap();
+        insert_screenshot(
+            &conn,
+            "shot-non-primary",
+            Some("run-protected"),
+            0,
+            "2026-06-16/non-primary.png",
+            "2026-06-16T10:00:00Z",
+        );
         drop(conn);
 
         let plan = plan_screenshot_cleanup(
@@ -1618,18 +1766,14 @@ mod tests {
             "Ranked",
             "2026-06-16T10:00:00Z",
         );
-        conn.execute(
-            "insert into run_screenshots (
-                screenshot_id, run_id, capture_source, is_primary, image_relative_path,
-                captured_at_utc, captured_at_local
-            ) values (
-                'shot-unrequested', 'run-protected', 'end_of_run_auto', 1,
-                '2026-06-16/unrequested.png', '2026-06-16T10:00:00Z',
-                '2026-06-16T18:00:00+08:00'
-            )",
-            [],
-        )
-        .unwrap();
+        insert_screenshot(
+            &conn,
+            "shot-unrequested",
+            Some("run-protected"),
+            1,
+            "2026-06-16/unrequested.png",
+            "2026-06-16T10:00:00Z",
+        );
         drop(conn);
 
         let plan = plan_screenshot_cleanup(
@@ -1649,15 +1793,14 @@ mod tests {
     fn plan_detects_orphan_files_only_in_qualifying_dated_folders() {
         let fixture = create_fixture();
         let conn = Connection::open(&fixture.database_path).unwrap();
-        conn.execute(
-            "insert into run_screenshots (
-                screenshot_id, capture_source, image_relative_path, captured_at_utc, captured_at_local
-            ) values (
-                'shot-kept', 'end_of_run_auto', '2026-06-15\\kept.png', '2026-07-02T10:00:00Z', '2026-07-02T18:00:00+08:00'
-            )",
-            [],
-        )
-        .unwrap();
+        insert_screenshot(
+            &conn,
+            "shot-kept",
+            None,
+            0,
+            "2026-06-15\\kept.png",
+            "2026-07-02T10:00:00Z",
+        );
         drop(conn);
 
         let _kept = write_screenshot_file(&fixture.screenshots_dir, "2026-06-15/kept.png", b"kept");
@@ -1853,7 +1996,7 @@ mod tests {
             plan_screenshot_cleanup(&database_path, &game_path, None, test_today()).unwrap_err();
 
         assert!(error.contains("found=0"), "{error}");
-        assert!(error.contains("expected=1"), "{error}");
+        assert!(error.contains("supported=1,2"), "{error}");
     }
 
     #[test]
@@ -1943,27 +2086,29 @@ mod tests {
             "2026-06-10T10:00:00Z",
         );
         insert_outbox(&conn, "run-race", "pending");
-        conn.execute_batch(
-            "
-            insert into battles (battle_id, source, run_id, recorded_at_utc)
-                values ('battle-race', 'LOCAL', 'run-race', '2026-06-10T09:00:00Z');
-            insert into combat_replay_videos (
-                video_id, battle_id, video_relative_path, started_at_utc, status
-            ) values (
-                'video-race', 'battle-race', '2026-06-10/run-race.mp4',
-                '2026-06-10T09:05:00Z', 'COMPLETED'
-            );
-            insert into run_screenshots (
-                screenshot_id, run_id, capture_source, is_primary, image_relative_path,
-                captured_at_utc, captured_at_local
-            ) values (
-                'shot-race', 'run-race', 'end_of_run_auto', 1,
-                '2026-06-10/run-race.png', '2026-06-10T10:00:00Z',
-                '2026-06-10T18:00:00+08:00'
-            );
-            ",
-        )
-        .unwrap();
+        insert_battle(
+            &conn,
+            "battle-race",
+            "LOCAL",
+            Some("run-race"),
+            "2026-06-10T09:00:00Z",
+            Some("ready"),
+        );
+        insert_video(
+            &conn,
+            "video-race",
+            "battle-race",
+            "2026-06-10/run-race.mp4",
+            "2026-06-10T09:05:00Z",
+        );
+        insert_screenshot(
+            &conn,
+            "shot-race",
+            Some("run-race"),
+            1,
+            "2026-06-10/run-race.png",
+            "2026-06-10T10:00:00Z",
+        );
         drop(conn);
 
         let plan =
@@ -2038,29 +2183,52 @@ mod tests {
             "2026-06-10T10:01:00Z",
         );
         insert_outbox(&conn, "run-b", "pending");
-        conn.execute_batch(
-            "
-            insert into battles (battle_id, source, run_id, recorded_at_utc) values
-                ('battle-a', 'LOCAL', 'run-a', '2026-06-10T09:00:00Z'),
-                ('battle-b', 'LOCAL', 'run-b', '2026-06-10T09:01:00Z');
-            insert into combat_replay_videos (
-                video_id, battle_id, video_relative_path, started_at_utc, status
-            ) values
-                ('video-a', 'battle-a', '2026-06-10/shared.mp4',
-                 '2026-06-10T09:05:00Z', 'COMPLETED'),
-                ('video-b', 'battle-b', '2026-06-10/shared.mp4',
-                 '2026-06-10T09:06:00Z', 'COMPLETED');
-            insert into run_screenshots (
-                screenshot_id, run_id, capture_source, image_relative_path,
-                captured_at_utc, captured_at_local
-            ) values
-                ('shot-a', 'run-a', 'end_of_run_auto', '2026-06-10/shared.png',
-                 '2026-06-10T10:00:00Z', '2026-06-10T18:00:00+08:00'),
-                ('shot-b', 'run-b', 'end_of_run_auto', '2026-06-10/shared.png',
-                 '2026-06-10T10:01:00Z', '2026-06-10T18:01:00+08:00');
-            ",
-        )
-        .unwrap();
+        insert_battle(
+            &conn,
+            "battle-a",
+            "LOCAL",
+            Some("run-a"),
+            "2026-06-10T09:00:00Z",
+            Some("missing"),
+        );
+        insert_battle(
+            &conn,
+            "battle-b",
+            "LOCAL",
+            Some("run-b"),
+            "2026-06-10T09:01:00Z",
+            Some("missing"),
+        );
+        insert_video(
+            &conn,
+            "video-a",
+            "battle-a",
+            "2026-06-10/shared.mp4",
+            "2026-06-10T09:05:00Z",
+        );
+        insert_video(
+            &conn,
+            "video-b",
+            "battle-b",
+            "2026-06-10/shared.mp4",
+            "2026-06-10T09:06:00Z",
+        );
+        insert_screenshot(
+            &conn,
+            "shot-a",
+            Some("run-a"),
+            0,
+            "2026-06-10/shared.png",
+            "2026-06-10T10:00:00Z",
+        );
+        insert_screenshot(
+            &conn,
+            "shot-b",
+            Some("run-b"),
+            0,
+            "2026-06-10/shared.png",
+            "2026-06-10T10:01:00Z",
+        );
         drop(conn);
 
         let plan =
@@ -2158,18 +2326,22 @@ mod tests {
             "Ranked",
             "2026-06-10T10:05:00Z",
         );
-        conn.execute_batch(
-            "
-            insert into run_screenshots (
-                screenshot_id, run_id, capture_source, image_relative_path, captured_at_utc, captured_at_local
-            ) values
-                ('shot-clean', 'run-clean', 'end_of_run_auto', '2026-06-10\\shared.png',
-                 '2026-06-10T10:00:00Z', '2026-06-10T18:00:00+08:00'),
-                ('shot-pending', 'run-shot-pending', 'end_of_run_auto', '2026-06-10/shared.png',
-                 '2026-06-10T10:05:00Z', '2026-06-10T18:05:00+08:00');
-            ",
-        )
-        .unwrap();
+        insert_screenshot(
+            &conn,
+            "shot-clean",
+            Some("run-clean"),
+            0,
+            "2026-06-10\\shared.png",
+            "2026-06-10T10:00:00Z",
+        );
+        insert_screenshot(
+            &conn,
+            "shot-pending",
+            Some("run-shot-pending"),
+            0,
+            "2026-06-10/shared.png",
+            "2026-06-10T10:05:00Z",
+        );
         drop(conn);
         write_screenshot_file(&fixture.screenshots_dir, "2026-06-10/shared.png", b"shared");
 
@@ -2213,22 +2385,44 @@ mod tests {
             "Ranked",
             "2026-06-10T10:05:00Z",
         );
-        conn.execute_batch(
-            "
-            insert into battles (battle_id, source, run_id, recorded_at_utc) values
-                ('battle-clean', 'LOCAL', 'run-clean', '2026-06-10T09:00:00Z'),
-                ('battle-pending', 'LOCAL', 'run-shot-pending', '2026-06-10T09:05:00Z');
-            insert into combat_replay_videos (video_id, battle_id, video_relative_path, started_at_utc, status) values
-                ('video-clean', 'battle-clean', '2026-06-10\\shared.mp4', '2026-06-10T09:01:00Z', 'COMPLETED'),
-                ('video-pending', 'battle-pending', '2026-06-10/shared.mp4', '2026-06-10T09:06:00Z', 'COMPLETED');
-            insert into run_screenshots (
-                screenshot_id, run_id, capture_source, image_relative_path, captured_at_utc, captured_at_local
-            ) values
-                ('shot-pending', 'run-shot-pending', 'end_of_run_auto', '2026-06-10/pending.png',
-                 '2026-06-10T10:05:00Z', '2026-06-10T18:05:00+08:00');
-            ",
-        )
-        .unwrap();
+        insert_battle(
+            &conn,
+            "battle-clean",
+            "LOCAL",
+            Some("run-clean"),
+            "2026-06-10T09:00:00Z",
+            Some("missing"),
+        );
+        insert_battle(
+            &conn,
+            "battle-pending",
+            "LOCAL",
+            Some("run-shot-pending"),
+            "2026-06-10T09:05:00Z",
+            Some("missing"),
+        );
+        insert_video(
+            &conn,
+            "video-clean",
+            "battle-clean",
+            "2026-06-10\\shared.mp4",
+            "2026-06-10T09:01:00Z",
+        );
+        insert_video(
+            &conn,
+            "video-pending",
+            "battle-pending",
+            "2026-06-10/shared.mp4",
+            "2026-06-10T09:06:00Z",
+        );
+        insert_screenshot(
+            &conn,
+            "shot-pending",
+            Some("run-shot-pending"),
+            0,
+            "2026-06-10/pending.png",
+            "2026-06-10T10:05:00Z",
+        );
         drop(conn);
 
         let plan =
@@ -2308,26 +2502,52 @@ mod tests {
             "Normal",
             "2026-06-10T10:00:00Z",
         );
-        conn.execute_batch(
-            "
-            insert into battles (battle_id, source, run_id, recorded_at_utc) values
-                ('battle-files', 'LOCAL', 'run-files', '2026-06-10T09:00:00Z'),
-                ('../battle-escape', 'LOCAL', 'run-files', '2026-06-10T09:30:00Z');
-            insert into combat_replay_videos (
-                video_id, battle_id, video_relative_path, started_at_utc, status
-            ) values
-                ('video-safe', 'battle-files', '2026-06-10/video.mp4', '2026-06-10T09:05:00Z', 'COMPLETED'),
-                ('video-absolute', 'battle-files', '/tmp/outside.mp4', '2026-06-10T09:06:00Z', 'COMPLETED');
-            insert into run_screenshots (
-                screenshot_id, run_id, capture_source, image_relative_path, captured_at_utc, captured_at_local
-            ) values
-                ('shot-files', 'run-files', 'end_of_run_auto', '2026-06-10/shot.png',
-                 '2026-06-10T10:00:00Z', '2026-06-10T18:00:00+08:00'),
-                ('shot-absolute', 'run-files', 'end_of_run_auto', '/tmp/outside.png',
-                 '2026-06-10T10:01:00Z', '2026-06-10T18:01:00+08:00');
-            ",
-        )
-        .unwrap();
+        insert_battle(
+            &conn,
+            "battle-files",
+            "LOCAL",
+            Some("run-files"),
+            "2026-06-10T09:00:00Z",
+            Some("ready"),
+        );
+        insert_battle(
+            &conn,
+            "../battle-escape",
+            "LOCAL",
+            Some("run-files"),
+            "2026-06-10T09:30:00Z",
+            Some("ready"),
+        );
+        insert_video(
+            &conn,
+            "video-safe",
+            "battle-files",
+            "2026-06-10/video.mp4",
+            "2026-06-10T09:05:00Z",
+        );
+        insert_video(
+            &conn,
+            "video-absolute",
+            "battle-files",
+            "/tmp/outside.mp4",
+            "2026-06-10T09:06:00Z",
+        );
+        insert_screenshot(
+            &conn,
+            "shot-files",
+            Some("run-files"),
+            0,
+            "2026-06-10/shot.png",
+            "2026-06-10T10:00:00Z",
+        );
+        insert_screenshot(
+            &conn,
+            "shot-absolute",
+            Some("run-files"),
+            0,
+            "/tmp/outside.png",
+            "2026-06-10T10:01:00Z",
+        );
         drop(conn);
 
         let videos_dir = crate::services::paths::combat_replay_videos_dir(&fixture.game_path);
@@ -2393,23 +2613,60 @@ mod tests {
             "
             insert into run_events (run_id, seq, ts_utc, kind, payload_json)
                 values ('run-1', 1, '2026-06-10T09:00:00Z', 'test', '{}');
-            insert into battles (battle_id, source, run_id, recorded_at_utc) values
-                ('battle-1', 'LOCAL', 'run-1', '2026-06-10T09:00:00Z'),
-                ('battle-ghost', 'GHOST', null, '2026-06-10T09:00:00Z');
-            insert into battle_snapshots (battle_id, player_hand_json) values ('battle-1', '[]');
-            insert into combat_replay_videos (video_id, battle_id, video_relative_path, started_at_utc, status)
-                values ('video-1', 'battle-1', '2026-06-10/v1.mp4', '2026-06-10T09:05:00Z', 'COMPLETED');
-            insert into run_screenshots (screenshot_id, run_id, capture_source, image_relative_path, captured_at_utc, captured_at_local)
-                values
-                    ('shot-1', 'run-1', 'end_of_run_auto', '2026-06-10/shot.png',
-                     '2026-06-10T10:00:00Z', '2026-06-10T18:00:00+08:00'),
-                    ('shot-shared', 'run-1', 'end_of_run_auto', '2026-06-10\\shared.png',
-                     '2026-06-10T10:01:00Z', '2026-06-10T18:01:00+08:00'),
-                    ('shot-pending', 'run-pending', 'end_of_run_auto', '2026-06-10/shared.png',
-                     '2026-06-10T10:05:00Z', '2026-06-10T18:05:00+08:00');
             ",
         )
         .unwrap();
+        insert_battle(
+            &conn,
+            "battle-1",
+            "LOCAL",
+            Some("run-1"),
+            "2026-06-10T09:00:00Z",
+            Some("ready"),
+        );
+        insert_battle(
+            &conn,
+            "battle-ghost",
+            "GHOST",
+            None,
+            "2026-06-10T09:00:00Z",
+            None,
+        );
+        conn.execute_batch(
+            "insert into battle_snapshots (battle_id, player_hand_json) values ('battle-1', '[]');",
+        )
+        .unwrap();
+        insert_video(
+            &conn,
+            "video-1",
+            "battle-1",
+            "2026-06-10/v1.mp4",
+            "2026-06-10T09:05:00Z",
+        );
+        insert_screenshot(
+            &conn,
+            "shot-1",
+            Some("run-1"),
+            0,
+            "2026-06-10/shot.png",
+            "2026-06-10T10:00:00Z",
+        );
+        insert_screenshot(
+            &conn,
+            "shot-shared",
+            Some("run-1"),
+            0,
+            "2026-06-10\\shared.png",
+            "2026-06-10T10:01:00Z",
+        );
+        insert_screenshot(
+            &conn,
+            "shot-pending",
+            Some("run-pending"),
+            0,
+            "2026-06-10/shared.png",
+            "2026-06-10T10:05:00Z",
+        );
         insert_seal_job(&conn, "run-1", "waiting");
         insert_outbox(&conn, "run-1", "pending");
         drop(conn);
@@ -2516,15 +2773,20 @@ mod tests {
             "Normal",
             "2026-06-10T10:00:00Z",
         );
+        // Not `insert_battle`: this test replaced `battles` with the legacy
+        // shape that has no local-payload columns.
         conn.execute_batch(
-            "
-            insert into battles (battle_id, source, run_id, recorded_at_utc)
-                values ('battle-1', 'LOCAL', 'run-legacy', '2026-06-10T09:00:00Z');
-            insert into combat_replay_videos (video_id, battle_id, video_relative_path, started_at_utc, status)
-                values ('video-1', 'battle-1', '2026-06-10/v1.mp4', '2026-06-10T09:05:00Z', 'COMPLETED');
-            ",
+            "insert into battles (battle_id, source, run_id, recorded_at_utc)
+                values ('battle-1', 'LOCAL', 'run-legacy', '2026-06-10T09:00:00Z');",
         )
         .unwrap();
+        insert_video(
+            &conn,
+            "video-1",
+            "battle-1",
+            "2026-06-10/v1.mp4",
+            "2026-06-10T09:05:00Z",
+        );
         drop(conn);
 
         let error = super::execute_run_data_cleanup(&database_path, &game_path, None).unwrap_err();
@@ -2575,20 +2837,22 @@ mod tests {
             [],
         )
         .unwrap();
-        conn.execute_batch(
-            "
-            insert into run_screenshots (
-                screenshot_id, run_id, capture_source, is_primary, image_relative_path,
-                captured_at_utc, captured_at_local
-            ) values
-                ('shot-old', null, 'end_of_run_auto', 0, '2026-06-15/old.png',
-                 '2026-06-15T10:00:00Z', '2026-06-15T18:00:00+08:00'),
-                ('shot-protected', 'run-protected', 'end_of_run_auto', 1,
-                 '2026-06-16/pending.png',
-                 '2026-06-16T10:00:00Z', '2026-06-16T18:00:00+08:00');
-            ",
-        )
-        .unwrap();
+        insert_screenshot(
+            &conn,
+            "shot-old",
+            None,
+            0,
+            "2026-06-15/old.png",
+            "2026-06-15T10:00:00Z",
+        );
+        insert_screenshot(
+            &conn,
+            "shot-protected",
+            Some("run-protected"),
+            1,
+            "2026-06-16/pending.png",
+            "2026-06-16T10:00:00Z",
+        );
         drop(conn);
         let old_file =
             write_screenshot_file(&fixture.screenshots_dir, "2026-06-15/old.png", b"12345");
@@ -2648,20 +2912,22 @@ mod tests {
             [],
         )
         .unwrap();
-        conn.execute_batch(
-            "
-            insert into run_screenshots (
-                screenshot_id, run_id, capture_source, is_primary, image_relative_path,
-                captured_at_utc, captured_at_local
-            ) values
-                ('shot-old', null, 'end_of_run_auto', 0, '2026-06-15/shared.png',
-                 '2026-06-15T10:00:00Z', '2026-06-15T18:00:00+08:00'),
-                ('shot-protected', 'run-protected', 'end_of_run_auto', 1,
-                 '2026-06-15/shared.png',
-                 '2026-06-15T10:05:00Z', '2026-06-15T18:05:00+08:00');
-            ",
-        )
-        .unwrap();
+        insert_screenshot(
+            &conn,
+            "shot-old",
+            None,
+            0,
+            "2026-06-15/shared.png",
+            "2026-06-15T10:00:00Z",
+        );
+        insert_screenshot(
+            &conn,
+            "shot-protected",
+            Some("run-protected"),
+            1,
+            "2026-06-15/shared.png",
+            "2026-06-15T10:05:00Z",
+        );
         drop(conn);
         let shared_file =
             write_screenshot_file(&fixture.screenshots_dir, "2026-06-15/shared.png", b"shared");
@@ -2718,19 +2984,22 @@ mod tests {
     fn execute_dedupes_duplicate_planned_rows_sharing_one_file() {
         let fixture = create_fixture();
         let conn = rusqlite::Connection::open(&fixture.database_path).unwrap();
-        conn.execute_batch(
-            "
-            insert into run_screenshots (
-                screenshot_id, run_id, capture_source, image_relative_path,
-                captured_at_utc, captured_at_local
-            ) values
-                ('shot-duplicate-a', 'run-1', 'end_of_run_auto', '2026-06-15/duplicate.png',
-                 '2026-06-15T10:00:00Z', '2026-06-15T18:00:00+08:00'),
-                ('shot-duplicate-b', 'run-2', 'end_of_run_auto', '2026-06-15/duplicate.png',
-                 '2026-06-15T10:05:00Z', '2026-06-15T18:05:00+08:00');
-            ",
-        )
-        .unwrap();
+        insert_screenshot(
+            &conn,
+            "shot-duplicate-a",
+            Some("run-1"),
+            0,
+            "2026-06-15/duplicate.png",
+            "2026-06-15T10:00:00Z",
+        );
+        insert_screenshot(
+            &conn,
+            "shot-duplicate-b",
+            Some("run-2"),
+            0,
+            "2026-06-15/duplicate.png",
+            "2026-06-15T10:05:00Z",
+        );
         drop(conn);
         let duplicate_file = write_screenshot_file(
             &fixture.screenshots_dir,
@@ -2774,18 +3043,14 @@ mod tests {
     fn execute_deletes_planned_row_when_db_file_is_missing() {
         let fixture = create_fixture();
         let conn = rusqlite::Connection::open(&fixture.database_path).unwrap();
-        conn.execute_batch(
-            "
-            insert into run_screenshots (
-                screenshot_id, run_id, capture_source, image_relative_path,
-                captured_at_utc, captured_at_local
-            ) values (
-                'shot-missing-file', 'run-1', 'end_of_run_auto', '2026-06-15/missing.png',
-                '2026-06-15T10:00:00Z', '2026-06-15T18:00:00+08:00'
-            );
-            ",
-        )
-        .unwrap();
+        insert_screenshot(
+            &conn,
+            "shot-missing-file",
+            Some("run-1"),
+            0,
+            "2026-06-15/missing.png",
+            "2026-06-15T10:00:00Z",
+        );
         drop(conn);
 
         let plan = plan_screenshot_cleanup(

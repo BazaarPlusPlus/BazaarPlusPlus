@@ -21,8 +21,7 @@ internal sealed class HistoryRunRecord
         int? playerRating,
         int? victories,
         int? losses,
-        string rawStatus,
-        int battleCount
+        string rawStatus
     )
     {
         RunId = runId;
@@ -43,7 +42,6 @@ internal sealed class HistoryRunRecord
         Victories = victories;
         Losses = losses;
         RawStatus = rawStatus;
-        BattleCount = battleCount;
     }
 
     public string RunId { get; }
@@ -81,6 +79,4 @@ internal sealed class HistoryRunRecord
     public int? Losses { get; }
 
     public string RawStatus { get; }
-
-    public int BattleCount { get; }
 }

@@ -123,6 +123,9 @@ export default function Install() {
         {confirmation?.target.kind === 'install' &&
           snapshot.phase === 'ready' && (
             <InstallConfirmModal
+              willCloseSteam={snapshot.data.warnings.some(
+                (warning) => warning.code === 'launch_options_not_empty'
+              )}
               busy={confirmationRunning}
               installAcknowledged={installAcknowledged}
               onAcknowledgedChange={setInstallAcknowledged}

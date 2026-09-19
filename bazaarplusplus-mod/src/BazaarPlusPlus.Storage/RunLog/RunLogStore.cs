@@ -1,4 +1,5 @@
 #nullable enable
+using System.Globalization;
 using BazaarPlusPlus.Storage.Paths;
 using BazaarPlusPlus.Storage.Sqlite;
 using Microsoft.Data.Sqlite;
@@ -25,12 +26,9 @@ public sealed class RunLogStore : SqliteStoreBase, IRunLogStore
         using var connection = OpenConnection();
         using var transaction = connection.BeginTransaction();
 
-        if (HasTerminalStatus(connection, transaction, request.RunId))
-        {
-            throw new InvalidOperationException(
-                $"Run {request.RunId} already has terminal status and cannot be recreated."
-            );
-        }
+        var effectiveRunId = HasTerminalStatus(connection, transaction, request.RunId)
+            ? RunLogRunIdentity.CreateCollisionId(request.RunId)
+            : request.RunId;
 
         using var command = CreateCommand(connection, transaction);
         command.CommandText = $"""
@@ -83,7 +81,7 @@ public sealed class RunLogStore : SqliteStoreBase, IRunLogStore
                 status = excluded.status,
                 completed = 0;
             """;
-        command.Parameters.AddWithValue("$runId", request.RunId);
+        command.Parameters.AddWithValue("$runId", effectiveRunId);
         command.Parameters.AddWithValue("$startedAtUtc", request.StartedAtUtc.ToString("o"));
         command.Parameters.AddWithValue("$lastSeenAtUtc", request.StartedAtUtc.ToString("o"));
         command.Parameters.AddWithValue("$status", request.Status);
@@ -104,9 +102,9 @@ public sealed class RunLogStore : SqliteStoreBase, IRunLogStore
         command.ExecuteNonQuery();
 
         var session =
-            TryReadActiveRun(connection, transaction, request.RunId)
+            TryReadActiveRun(connection, transaction, effectiveRunId)
             ?? throw new InvalidOperationException(
-                $"Run {request.RunId} could not be loaded after create."
+                $"Run {effectiveRunId} could not be loaded after create."
             );
 
         transaction.Commit();
@@ -347,7 +345,8 @@ public sealed class RunLogStore : SqliteStoreBase, IRunLogStore
         if (initialPlayerRating == null || initialPlayerRating is DBNull)
             return 0;
 
-        return finalPlayerRating.Value - Convert.ToInt32(initialPlayerRating);
+        return finalPlayerRating.Value
+            - Convert.ToInt32(initialPlayerRating, CultureInfo.InvariantCulture);
     }
 
     private static bool HasTerminalStatus(
@@ -365,7 +364,9 @@ public sealed class RunLogStore : SqliteStoreBase, IRunLogStore
             """;
         command.Parameters.AddWithValue("$runId", runId);
         var value = command.ExecuteScalar();
-        return value != null && value is not DBNull && Convert.ToInt32(value) == 1;
+        return value != null
+            && value is not DBNull
+            && Convert.ToInt32(value, CultureInfo.InvariantCulture) == 1;
     }
 
     private static RunLogSessionState? TryReadActiveRun(
@@ -407,10 +408,12 @@ public sealed class RunLogStore : SqliteStoreBase, IRunLogStore
             return null;
 
         var startedAtUtc = DateTimeOffset.Parse(
-            reader.GetString(reader.GetOrdinal("started_at_utc"))
+            reader.GetString(reader.GetOrdinal("started_at_utc")),
+            CultureInfo.InvariantCulture
         );
         var lastSeenAtUtc = DateTimeOffset.Parse(
-            reader.GetString(reader.GetOrdinal("last_seen_at_utc"))
+            reader.GetString(reader.GetOrdinal("last_seen_at_utc")),
+            CultureInfo.InvariantCulture
         );
 
         return new RunLogSessionState

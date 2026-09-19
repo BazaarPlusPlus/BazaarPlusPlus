@@ -1,0 +1,59 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" />
+    <Compile
+      Include="../../src/BazaarPlusPlus/Game/Supporters/BPPSupporterAttributionText.cs"
+      Link="BPPSupporterAttributionText.cs"
+    />
+    <Compile
+      Include="../../src/BazaarPlusPlus/Game/Supporters/BPPSupporterLinks.cs"
+      Link="BPPSupporterLinks.cs"
+    />
+    <Compile
+      Include="../../src/BazaarPlusPlus/Game/Supporters/BPPSupporterEntry.cs"
+      Link="BPPSupporterEntry.cs"
+    />
+    <Compile
+      Include="../../src/BazaarPlusPlus/Game/Supporters/BPPSupporterSample.cs"
+      Link="BPPSupporterSample.cs"
+    />
+    <Compile
+      Include="../../src/BazaarPlusPlus/Game/Supporters/BPPSupporterSampler.cs"
+      Link="BPPSupporterSampler.cs"
+    />
+    <Compile
+      Include="../../src/BazaarPlusPlus/Game/Supporters/BPPSupporterFixedList.cs"
+      Link="BPPSupporterFixedList.cs"
+    />
+    <Compile
+      Include="../../src/BazaarPlusPlus/Game/Supporters/BPPSupporterListSourcePolicy.cs"
+      Link="BPPSupporterListSourcePolicy.cs"
+    />
+    <Compile
+      Include="../../src/BazaarPlusPlus/Game/Supporters/SupporterCatalogDocument.cs"
+      Link="SupporterCatalogDocument.cs"
+    />
+    <Compile
+      Include="../../src/BazaarPlusPlus/Infrastructure/RemoteEmbeddedCatalog/RemoteEmbeddedCatalogContracts.cs"
+      Link="RemoteEmbeddedCatalogContracts.cs"
+    />
+    <Compile Include="Program.cs" />
+    <None
+      Include="../../src/BazaarPlusPlus/Game/Supporters/supporter-list.json"
+      Link="supporter-list.json"
+      CopyToOutputDirectory="PreserveNewest"
+    />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/BazaarPlusPlus.Localization/BazaarPlusPlus.Localization.csproj" />
+  </ItemGroup>
+</Project>

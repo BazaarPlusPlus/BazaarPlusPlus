@@ -1,36 +1,6 @@
 #nullable enable
 namespace BazaarPlusPlus.Game.CombatStatusBar;
 
-internal enum CombatStatusBarButtonKind
-{
-    Speed,
-    Pause,
-}
-
-internal readonly record struct CombatStatusBarRgba(float R, float G, float B, float A)
-{
-    internal CombatStatusBarRgba WithAlpha(float alpha)
-    {
-        return new CombatStatusBarRgba(R, G, B, alpha);
-    }
-}
-
-internal readonly record struct CombatStatusBarButtonPalette(
-    CombatStatusBarRgba Normal,
-    CombatStatusBarRgba Pressed,
-    CombatStatusBarRgba Unavailable,
-    CombatStatusBarRgba Text
-);
-
-internal readonly record struct CombatStatusBarButtonVisuals(
-    bool Interactable,
-    CombatStatusBarRgba Normal,
-    CombatStatusBarRgba Pressed,
-    CombatStatusBarRgba Disabled,
-    CombatStatusBarRgba Background,
-    CombatStatusBarRgba Text
-);
-
 internal sealed partial class CombatStatusBar
 {
     private static readonly float[] SpeedSteps = { 0.5f, 0.67f, 1f };
@@ -45,7 +15,6 @@ internal sealed partial class CombatStatusBar
     internal static int TotalCombatFrames { get; private set; }
     internal static TimeSpan LastCombatLogicalElapsed { get; private set; }
     internal static bool HasCompletedCombatPlayback { get; private set; }
-    internal static ReadOnlySpan<float> CombatSpeedSteps => SpeedSteps;
 
     internal static void BeginCombatPlayback()
     {
@@ -82,12 +51,8 @@ internal sealed partial class CombatStatusBar
         return TimeSpan.FromMilliseconds(GetCurrentCombatFrameIndex() * 50d);
     }
 
-    internal static float StepCombatSpeed(int direction)
-    {
-        var currentIndex = GetCurrentSpeedStepIndex();
-        currentIndex = Math.Clamp(currentIndex + direction, 0, SpeedSteps.Length - 1);
-        return SetCombatSpeed(SpeedSteps[currentIndex]);
-    }
+    internal static float CycleCombatSpeed() =>
+        SetCombatSpeed(SpeedSteps[(GetCurrentSpeedStepIndex() + 1) % SpeedSteps.Length]);
 
     internal static float SetCombatSpeed(float speed)
     {
@@ -107,9 +72,9 @@ internal sealed partial class CombatStatusBar
         return requestedSpeed <= 1f + 0.0001f;
     }
 
-    internal static bool ShouldRenderForState(bool enabled)
+    internal static bool ShouldRenderForState()
     {
-        if (!enabled || _services == null)
+        if (_services == null)
             return false;
 
         // Fast path: during a live run the cached flag is already true, so the per-frame probe
@@ -131,28 +96,16 @@ internal sealed partial class CombatStatusBar
         }
     }
 
-    internal static bool CanStepCombatSpeed(int direction)
-    {
-        var currentIndex = GetCurrentSpeedStepIndex();
-        var nextIndex = currentIndex + direction;
-        return nextIndex >= 0 && nextIndex < SpeedSteps.Length;
-    }
-
     internal static float NormalizeConfiguredDefaultSpeed(float configuredSpeed)
     {
         return IsSupportedSpeedStep(configuredSpeed) ? configuredSpeed : 1f;
-    }
-
-    internal static string GetDisplayedTimeLabel()
-    {
-        return IsCombatPlaybackActive ? "Time" : "LastCombat";
     }
 
     internal static string GetDisplayedTimeText()
     {
         return IsCombatPlaybackActive ? FormatElapsedCached(GetCombatLogicalElapsed())
             : HasCompletedCombatPlayback ? FormatElapsedCached(LastCombatLogicalElapsed)
-            : "-:--:--";
+            : "0:00.00";
     }
 
     internal static float AdvanceVisualBlend(float current, bool active, float deltaTime)
@@ -200,29 +153,6 @@ internal sealed partial class CombatStatusBar
         return IsCombatPaused;
     }
 
-    internal static CombatStatusBarButtonVisuals ResolveButtonVisuals(
-        CombatStatusBarButtonKind kind,
-        bool interactable,
-        CombatStatusBarButtonPalette palette
-    )
-    {
-        var disabledColor =
-            kind == CombatStatusBarButtonKind.Pause ? palette.Normal : palette.Unavailable;
-        var textColor =
-            interactable || kind == CombatStatusBarButtonKind.Pause
-                ? palette.Text
-                : palette.Text.WithAlpha(0.45f);
-
-        return new CombatStatusBarButtonVisuals(
-            Interactable: interactable,
-            Normal: palette.Normal,
-            Pressed: palette.Pressed,
-            Disabled: disabledColor,
-            Background: interactable ? palette.Normal : disabledColor,
-            Text: textColor
-        );
-    }
-
     private static string FormatElapsedCached(TimeSpan elapsed)
     {
         if (_cachedElapsedText == null || _cachedElapsedTicks != elapsed.Ticks)
@@ -237,7 +167,7 @@ internal sealed partial class CombatStatusBar
     private static string FormatElapsed(TimeSpan elapsed)
     {
         var minutes = (int)elapsed.TotalMinutes;
-        return $"{minutes}:{elapsed.Seconds:00}:{elapsed.Milliseconds / 10:00}";
+        return $"{minutes}:{elapsed.Seconds:00}.{elapsed.Milliseconds / 10:00}";
     }
 
     private static int GetCurrentCombatFrameIndex()

@@ -1,5 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
+import { runGit } from '../git-command.mjs';
 
 const projectDir = process.cwd();
 
@@ -15,9 +16,7 @@ export function resolveBashCommand() {
     candidates.push(process.env.BPP_BASH);
   }
   try {
-    const execPath = execFileSync('git', ['--exec-path'], {
-      encoding: 'utf8'
-    }).trim();
+    const execPath = runGit(['--exec-path']).trim();
     const gitRoot = execPath.replace(/[/\\](mingw\d+|usr)[/\\].*$/i, '');
     if (gitRoot && gitRoot !== execPath) {
       candidates.push(`${gitRoot}/bin/bash.exe`);
@@ -36,7 +35,7 @@ export function resolveBashCommand() {
 
 const bashCommand = resolveBashCommand();
 
-// Git Bash treats `E:\foo` as a relative path, so paths handed to build.sh
+// Git Bash treats `E:\foo` as a relative path, so paths handed to bundle.sh
 // must be POSIX-style absolute (`/e/foo`) on Windows.
 export function toBashPath(p) {
   return p
@@ -45,7 +44,7 @@ export function toBashPath(p) {
 }
 
 export function runShell(script) {
-  return execFileSync(bashCommand, ['-lc', script], {
+  return execFileSync(bashCommand, ['-c', script], {
     cwd: projectDir,
     encoding: 'utf8',
     timeout: 120000

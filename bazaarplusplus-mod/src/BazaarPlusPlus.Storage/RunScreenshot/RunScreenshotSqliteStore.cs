@@ -1,4 +1,5 @@
 #nullable enable
+using System.Globalization;
 using BazaarPlusPlus.Storage.RunLog;
 using BazaarPlusPlus.Storage.Sqlite;
 
@@ -93,7 +94,7 @@ public sealed class RunScreenshotSqliteStore : SqliteStoreBase
         return reader.Read()
             ? new RunScreenshotArtifact(
                 reader.GetString(0),
-                DateTimeOffset.Parse(reader.GetString(1))
+                DateTimeOffset.Parse(reader.GetString(1), CultureInfo.InvariantCulture)
             )
             : null;
     }
