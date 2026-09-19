@@ -8,11 +8,8 @@ import {
   readInventory,
   validateInventory,
   synchronizePayloadProjection
-} from '../../../release/payload-inventory.mjs';
-import {
-  readProductVersion,
-  WORKSPACE_ROOT
-} from '../../../release/product.mjs';
+} from './payload-inventory.mjs';
+import { readProductVersion, WORKSPACE_ROOT } from './product.mjs';
 
 test('the checked-in MSBuild projection matches the shared Payload Inventory', () => {
   expect(() =>

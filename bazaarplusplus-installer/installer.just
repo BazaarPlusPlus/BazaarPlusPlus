@@ -6,6 +6,14 @@ check:
     npm run verify -- --source-only
     npm run docs:check
 
+# Pre-commit subset; full Rust checks, tests, binding generation and builds run in check.
+check-fast:
+    npm run format:check
+    npm run lint
+    npm run check:ts
+    cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
+    npm run docs:check
+
 # Generate bindings and run the Rust and JavaScript tests.
 test:
     npm test

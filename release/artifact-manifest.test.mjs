@@ -8,7 +8,7 @@ import {
   gitStateForRoot,
   validateArtifactManifest
 } from './artifact-manifest.mjs';
-import { runFixtureGit } from '../test-support/git-fixture.mjs';
+import { runFixtureGit } from '../scripts/test-support/git-fixture.mjs';
 
 function windowsFixture() {
   const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), 'bpp-artifacts-'));
@@ -252,7 +252,7 @@ test('manifest validation rejects a dirty build or dirty current checkout', () =
   }
 });
 
-test('gitStateForRoot ignores dirty siblings in a monorepo', () => {
+test('gitStateForRoot ignores siblings but includes the shared release Git helper', () => {
   const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'bpp-git-state-'));
   const installerDir = path.join(fixtureRoot, 'bazaarplusplus-installer');
   try {
@@ -277,6 +277,12 @@ test('gitStateForRoot ignores dirty siblings in a monorepo', () => {
     const state = gitStateForRoot(installerDir);
     expect(state.dirty).toBe(false);
     expect(state.commit).toMatch(/^[0-9a-f]{40}$/);
+    fs.mkdirSync(path.join(fixtureRoot, 'scripts'));
+    fs.writeFileSync(
+      path.join(fixtureRoot, 'scripts/git-command.mjs'),
+      '// release input\n'
+    );
+    expect(gitStateForRoot(installerDir).dirty).toBe(true);
   } finally {
     fs.rmSync(fixtureRoot, { recursive: true, force: true });
   }

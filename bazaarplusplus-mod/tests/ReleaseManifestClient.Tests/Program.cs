@@ -1,7 +1,10 @@
 using System.Net;
+using System.Text.Json;
 using BazaarPlusPlus.Game.Lobby;
 using BazaarPlusPlus.Infrastructure.ReleaseManifest;
+using BazaarPlusPlus.TestSupport;
 
+await TestSharedReleaseManifest();
 await TestSuccessfulManifestIsTrimmed();
 await TestHttpStatusIsClosedFailure();
 await TestMissingAndMalformedManifestsAreClosedFailures();
@@ -9,6 +12,22 @@ await TestTimeoutAndCallerCancellationRemainDistinct();
 await TestLifecycleRejectsOutOfOrderGenerationsAndDisposesOwners();
 
 Console.WriteLine("Release manifest client checks passed.");
+
+static async Task TestSharedReleaseManifest()
+{
+    var body = TestInputs.Scratch(
+        Path.Combine(AppContext.BaseDirectory, "fixtures", "latest.json")
+    );
+    using var fixture = JsonDocument.Parse(body);
+    var result = await Fetch(_ => Response(HttpStatusCode.OK, body));
+
+    True(result.Succeeded, "The shared Product Release fixture should succeed.");
+    Equal(
+        fixture.RootElement.GetProperty("version").GetString(),
+        result.Version,
+        "The mod should read the product version from the writer's complete manifest."
+    );
+}
 
 static async Task TestSuccessfulManifestIsTrimmed()
 {

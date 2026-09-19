@@ -1,8 +1,5 @@
 import { expect, test, vi } from 'vitest';
-import {
-  createR2Store,
-  r2StoreFromEnvironment
-} from '../../../release/r2-store.mjs';
+import { createR2Store, r2StoreFromEnvironment } from './r2-store.mjs';
 
 const credentials = {
   accountId: 'a'.repeat(32),

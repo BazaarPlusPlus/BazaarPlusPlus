@@ -33,9 +33,9 @@ Drizzle mapping is a read projection, not an input to a migration generator.
 ## Development
 
 ```sh
-npm install
-npm run check   # tsc over src and tests, then Biome lint and format verification
-npm test        # Vitest in the Workers pool with real local D1 migrations and R2
+npm ci
+just server::check # tsc over src and tests, then Biome lint and format verification
+just server::test  # Vitest in the Workers pool with real local D1 migrations and R2
 npm run dev     # wrangler dev; requires .dev.vars (below)
 ```
 

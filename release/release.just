@@ -10,6 +10,10 @@ sync:
 check:
     node release.mjs check
 
+# Run the root-owned Product Release tests without remote publishing.
+test:
+    npm test
+
 # Prepare one platform Payload; optional arguments are MSBuild properties.
 [arg('platform', pattern='macos|windows')]
 prepare platform *args:

@@ -3,17 +3,12 @@ import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 import { parseArgs } from 'node:util';
-import { runGit } from '../git-command.mjs';
+import { runGit } from '../../../scripts/git-command.mjs';
 import {
-  assertVersionsAreAligned,
-  collectVersionSnapshot
-} from '../release/version-sync.mjs';
-import {
-  assertPlatformCoherence,
   defaultTargetBuildPlatforms,
   resolveBuildPlatform
-} from '../release/release-platforms.mjs';
-import { synchronizePayloadProjection } from '../../../release/payload-inventory.mjs';
+} from '../../../release/release-platforms.mjs';
+import { checkProductProjections } from '../../../release/projections.mjs';
 import { verifyPayloadBuild } from '../../../release/payload.mjs';
 
 export function resolveTargetPlatforms(platformEnv) {
@@ -89,10 +84,7 @@ export function runPrebuildCheck(
   assertBindingsUpToDate(rootDir);
   if (bindingsOnly) return;
 
-  const snapshot = collectVersionSnapshot(rootDir);
-  assertVersionsAreAligned(snapshot);
-  synchronizePayloadProjection(path.dirname(rootDir), { check: true });
-  assertPlatformCoherence(rootDir);
+  checkProductProjections(path.dirname(rootDir));
   if (!releaseResources) return;
 
   const platforms = resolveTargetPlatforms(platformEnv);

@@ -1,6 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
+export { RELEASE_BASE_URL } from './downloads.ts';
+
 export const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '..');
 
 export function assertProductVersion(version) {

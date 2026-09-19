@@ -1,49 +1,54 @@
 # Workspace Git hooks. Install with `just hooks-install`.
-# Each job runs only when its project has matching changes, and runs the same
-# commands as that project's `just <project>::check` gate.
-
+# Recipes own the gates; only installer defers its expensive source gate to push.
 pre-commit:
   parallel: true
   jobs:
     - name: workspace
-      glob: "{JUSTFILE,**/*.just,VERSION,release.mjs,release/**,scripts/**}"
+      glob: &workspace_paths '{JUSTFILE,**/*.just,package*.json,.nvmrc,.prettierrc.json,lefthook.yml,VERSION,release.mjs,release/**,scripts/**}'
       run: just commands-check release::check
 
     - name: mod
-      glob: "bazaarplusplus-mod/**/*.cs"
-      run: just mod::fmt-check
+      glob: &mod_paths '{bazaarplusplus-mod/**,bazaarplusplus-server/contracts/**,bazaarplusplus-analyzer/contracts/**,release/**,VERSION,JUSTFILE}'
+      run: just mod::check
 
     - name: installer
-      root: bazaarplusplus-installer/
-      glob: "bazaarplusplus-installer/**/*.{ts,tsx,js,mjs,json,html}"
-      run: npm run format:check && npm run lint && npm run check:ts
+      glob: &installer_paths '{bazaarplusplus-installer/**,release.mjs,release/**,VERSION,scripts/**,JUSTFILE}'
+      run: just installer::check-fast
 
     - name: site
-      root: bazaarplusplus-site/
-      glob: "bazaarplusplus-site/**/*.{ts,tsx,js,mjs,json,css,html,md}"
-      run: npm run format:check && npm run lint && npm run typecheck
+      glob: &site_paths '{bazaarplusplus-site/**,bazaarplusplus-analyzer/contracts/**,release/**,JUSTFILE}'
+      run: just site::check
 
     - name: server
-      root: bazaarplusplus-server/
-      glob: "bazaarplusplus-server/**/*.{ts,js,json,jsonc}"
-      run: npm run check
+      glob: &server_paths '{bazaarplusplus-server/**,bazaarplusplus-mod/src/BazaarPlusPlus.ModApi/**,JUSTFILE}'
+      run: just server::check
 
     - name: analyzer
-      root: bazaarplusplus-analyzer/
-      glob: "bazaarplusplus-analyzer/**/*.{py,toml}"
-      run: >-
-        uv run --locked ruff format --check . &&
-        uv run --locked ruff check . &&
-        uv run --locked ty check
+      glob: &analyzer_paths '{bazaarplusplus-analyzer/**,bazaarplusplus-server/contracts/**,JUSTFILE}'
+      run: just analyzer::check
 
 pre-push:
   jobs:
+    - name: workspace
+      glob: *workspace_paths
+      run: just commands-check release::check release::test
+
+    - name: mod
+      glob: *mod_paths
+      run: just mod::test
+
     - name: installer
-      root: bazaarplusplus-installer/
-      glob: "bazaarplusplus-installer/**/*"
-      run: npm run verify -- --source-only
+      glob: *installer_paths
+      run: just installer::check installer::test
+
+    - name: site
+      glob: *site_paths
+      run: just site::test
+
+    - name: server
+      glob: *server_paths
+      run: just server::test
 
     - name: analyzer
-      root: bazaarplusplus-analyzer/
-      glob: "bazaarplusplus-analyzer/**/*"
-      run: uv run --locked pytest -q
+      glob: *analyzer_paths
+      run: just analyzer::test

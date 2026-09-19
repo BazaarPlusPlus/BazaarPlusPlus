@@ -1,15 +1,17 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { DOWNLOAD_PLATFORM_KEYS } from './downloads.ts';
 
 // Release platform facts live here so bundle.sh and the Node release scripts
-// cannot drift independently. `key` values are an external wire contract: they
+// cannot drift independently. Browser-safe keys come from downloads.ts.
+// `key` values are an external wire contract: they
 // are the Tauri updater {{target}}-{{arch}} lookup keys queried by every shipped
 // client against latest.json (src-tauri/tauri.conf.json:33-34). NEVER rename a
 // key; only append. `rustTarget` is scalar-or-null by design. A future platform
 // requiring multiple Rust triples needs a schema migration, not a comma hack.
 export const RELEASE_PLATFORMS = Object.freeze([
   Object.freeze({
-    key: 'windows-x86_64',
+    key: DOWNLOAD_PLATFORM_KEYS.windows,
     buildPlatform: 'windows',
     nodePlatform: 'win32',
     rustTarget: null,
@@ -23,7 +25,7 @@ export const RELEASE_PLATFORMS = Object.freeze([
     resourceZip: 'src-tauri/resources/BepInExSource/windows/BepInEx.zip'
   }),
   Object.freeze({
-    key: 'darwin-aarch64',
+    key: DOWNLOAD_PLATFORM_KEYS.mac,
     buildPlatform: 'macos',
     nodePlatform: 'darwin',
     rustTarget: 'aarch64-apple-darwin',

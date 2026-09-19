@@ -4,11 +4,11 @@ import path from 'node:path';
 import { readProductVersion } from './product.mjs';
 import { putImmutable } from './r2-store.mjs';
 import { buildPlatformFragment, buildLatestManifest } from './manifest.mjs';
-import { RELEASE_PLATFORMS } from '../bazaarplusplus-installer/scripts/release/release-platforms.mjs';
+import { RELEASE_PLATFORMS } from './release-platforms.mjs';
 import {
   artifactManifestPath,
   validateArtifactManifest
-} from '../bazaarplusplus-installer/scripts/release/artifact-manifest.mjs';
+} from './artifact-manifest.mjs';
 
 const jsonBytes = (value) => Buffer.from(`${JSON.stringify(value, null, 2)}\n`);
 function readJsonObject(object, description) {

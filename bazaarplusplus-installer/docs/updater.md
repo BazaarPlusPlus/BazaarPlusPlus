@@ -11,6 +11,6 @@
 
 `getUpdaterUiContract` in `src/features/about/updaterPresentation.ts` derives modal priority, dismissal, title, and action from the machine snapshot. Decisions and recovery are dismissible; download, install, and restart work are blocked because the native API exposes no cancellation contract. `ShellUpdateModal` in `src/layouts/ShellUpdateModal.tsx` is the single modal presentation.
 
-Under the zh locale, an available update may also offer the versioned mainland-China mirror built by `buildMainlandDownloadUrl` in `src/features/about/mainlandDownload.ts`. Automatic installation remains the primary path. [ADR-0001](adr/0001-in-app-updater.md) records that product choice.
+Under the zh locale, an available update may also offer the versioned mainland-China mirror built by `buildMainlandDownloadUrl` in workspace `../release/downloads.ts`; `src/features/about/mainlandDownload.ts` selects the platform from the user agent. Automatic installation remains the primary path. [ADR-0001](adr/0001-in-app-updater.md) records that product choice.
 
 Updater endpoint, public key, artifact creation, and runtime permissions are configured in `src-tauri/tauri.conf.json` and `src-tauri/capabilities/default.json`; those environment files remain authoritative for their literal values.

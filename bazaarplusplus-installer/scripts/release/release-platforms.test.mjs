@@ -1,41 +1,13 @@
 import { test, expect } from 'vitest';
-import fs from 'node:fs';
 import path from 'node:path';
-import { execFileSync } from 'node:child_process';
 import { runShell } from '../test-support/shell.mjs';
 import {
   RELEASE_PLATFORMS,
-  RELEASE_PLATFORM_KEYS,
   resolveBuildPlatform,
   defaultTargetBuildPlatforms
-} from './release-platforms.mjs';
+} from '../../../release/release-platforms.mjs';
 import { resolveBundleCleanupPath } from './before-bundle-cleanup.mjs';
 import { resolveTargetPlatforms } from '../checks/prebuild-check.mjs';
-
-test.each(RELEASE_PLATFORMS)(
-  'Tauri overlay and target layout agree with $key',
-  (platform) => {
-    const overlay = JSON.parse(fs.readFileSync(platform.tauriConfig, 'utf8'));
-    expect(overlay.bundle.targets).toEqual(platform.bundleTargets.split(','));
-
-    const resourceSource = platform.resourceZip.replace(/^src-tauri\//, '');
-    expect(overlay.bundle.resources[resourceSource]).toBe(
-      'BepInExSource/BepInEx.zip'
-    );
-
-    const releaseRoot = platform.rustTarget
-      ? `src-tauri/target/${platform.rustTarget}/release`
-      : 'src-tauri/target/release';
-    expect(platform.releaseBinary.startsWith(`${releaseRoot}/`)).toBe(true);
-    expect(platform.bundleRoot).toBe(`${releaseRoot}/bundle`);
-    expect(platform.installerDir.startsWith(`${platform.bundleRoot}/`)).toBe(
-      true
-    );
-    expect(resolveBuildPlatform(platform.buildPlatform)).toBe(
-      platform.buildPlatform
-    );
-  }
-);
 
 test.each(RELEASE_PLATFORMS)(
   'bundle.sh facts for $buildPlatform come from the module',
@@ -100,22 +72,4 @@ test('r2-key rejects an unsupported platform', () => {
     printf 'exit:%s\\n' "$?"
   `);
   expect(out).toContain('exit:1');
-});
-
-test('CLI list flushes full stdout with exit 0; unknown verb exits 1', () => {
-  const out = execFileSync(
-    process.execPath,
-    ['scripts/release/release-platforms.mjs', 'list'],
-    { cwd: process.cwd() }
-  );
-  expect(out.toString()).toBe(RELEASE_PLATFORM_KEYS.join('\n') + '\n');
-  expect(() =>
-    execFileSync(
-      process.execPath,
-      ['scripts/release/release-platforms.mjs', 'bogus'],
-      {
-        cwd: process.cwd()
-      }
-    )
-  ).toThrow();
 });

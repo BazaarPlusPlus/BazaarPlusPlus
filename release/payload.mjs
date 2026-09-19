@@ -13,17 +13,17 @@ import {
   ensureNativeRecorderInput,
   verifyNativeRecorderInput,
   NATIVE_RECORDER_LOCK_PATH
-} from '../bazaarplusplus-installer/scripts/release/native-recorder-input.mjs';
+} from './native-recorder-input.mjs';
 import {
   preparePayloadZip,
   validatePayloadZip,
   listPayloadFiles
-} from '../bazaarplusplus-installer/scripts/release/payload-zip.mjs';
+} from './payload-zip.mjs';
 import {
   artifactManifestPath,
   createArtifactManifest,
   releaseSourceIdentity
-} from '../bazaarplusplus-installer/scripts/release/artifact-manifest.mjs';
+} from './artifact-manifest.mjs';
 
 function hash(bytes) {
   return crypto.createHash('sha256').update(bytes).digest('hex');
@@ -104,6 +104,7 @@ export function computePayloadInputs({ workspaceRoot, managedPath }) {
     );
   for (const name of [
     'release.mjs',
+    'scripts/git-command.mjs',
     'bazaarplusplus-installer/src-tauri/history-database-compatibility.json'
   ]) {
     const file = path.join(workspaceRoot, name);
@@ -368,6 +369,15 @@ function copySeedPayload(sourceDir, destinationDir, platform) {
   walk(sourceDir);
 }
 
+export function assertReleaseBuildArgs(msbuildArgs) {
+  // Only the game reference directory is caller-selectable. Build graph,
+  // compiler, output and version overrides would invalidate source provenance.
+  for (const arg of msbuildArgs) {
+    if (!/^(?:-p:|--property:)ManagedPath=[^;\r\n]+$/.test(arg))
+      throw new Error(`Unsupported release build override: ${arg}`);
+  }
+}
+
 function preparePayloadUnlocked({
   workspaceRoot,
   rootDir,
@@ -387,12 +397,7 @@ function preparePayloadUnlocked({
         : null;
   if (!produce && hostPlatform !== platform)
     throw new Error(`Build ${platform} Payload on its native host`);
-  // Only the game reference directory is caller-selectable. Build graph,
-  // compiler, output and version overrides would invalidate source provenance.
-  for (const arg of msbuildArgs) {
-    if (!/^(?:-p:|--property:)ManagedPath=[^;\r\n]+$/.test(arg))
-      throw new Error(`Unsupported release build override: ${arg}`);
-  }
+  assertReleaseBuildArgs(msbuildArgs);
   recoverPromotion(rootDir);
   synchronizePayloadProjection(workspaceRoot, { check: true });
   const modRoot = path.join(workspaceRoot, 'bazaarplusplus-mod');

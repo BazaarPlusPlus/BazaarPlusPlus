@@ -3,8 +3,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, expect, test, vi } from 'vitest';
 
-import { gitEnvironment } from '../git-command.mjs';
-import { runFixtureGit } from './git-fixture.mjs';
+import { gitEnvironment } from '../../../scripts/git-command.mjs';
+import { runFixtureGit } from '../../../scripts/test-support/git-fixture.mjs';
 
 // Every file under `directory`, as sorted `relative path:size` lines. Enough to
 // notice a new ref, a rewritten HEAD, a config append, or a fresh object.

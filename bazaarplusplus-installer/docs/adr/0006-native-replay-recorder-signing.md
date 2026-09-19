@@ -6,7 +6,7 @@ Combat Replay records in-process through platform-native Unity plugins. The inst
 
 ## Decision
 
-- The mod repository owns native recorder source and builds.
+- The mod project owns native recorder source and builds.
 - The mod catalog defines each platform's native/build/ABI inputs, required exports, policy, temporary build-output layout, and installer destination.
 - The installer manifest records a canonical content digest over the selected platform's declared mod worktree inputs and exact hashes/tree shape of the promoted artifacts. Git commit and dirty state are provenance only.
 - The mod's `publish` command asks the installer-owned coordinator to reuse a fresh current-platform input or locally build, verify, and transactionally promote it before managed packaging. Managed installer-source synchronization and archive preparation are restricted to that same platform. Promotion requires no remote qualification or attestation service.
@@ -20,7 +20,7 @@ Current input validation, staging, signing, and packaging are specified in [Rele
 
 - Keep a process-based encoder fallback. It preserves the high-copy path and adds a runtime executable.
 - Silently fall back to software encoding. That hides a performance and capability regression.
-- Store officially signed inputs in the producer repository. Release signing remains the installer's responsibility.
+- Store officially signed inputs in the producer project. Release signing remains the installer's responsibility.
 - Gate local promotion on a separate oldest-OS runner or authenticated remote attestation. The fixed deployment target, compiler availability diagnostics, binary metadata/import/export/dependency checks, local load/smoke checks, and signing checks are the producer boundary.
 - Install render plugins as ordinary managed plugins. Unity must preload them before managed startup.
 

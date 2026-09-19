@@ -10,13 +10,13 @@ import {
   verifyPayloadBuild,
   buildProduct,
   assertBuildOwner
-} from '../../../release/payload.mjs';
+} from './payload.mjs';
 import { preparePayloadZip } from './payload-zip.mjs';
 import {
   readInventory,
   requiredPayloadPaths,
   synchronizePayloadProjection
-} from '../../../release/payload-inventory.mjs';
+} from './payload-inventory.mjs';
 
 const roots = [];
 afterEach(() => {
@@ -377,4 +377,15 @@ test('an interrupted promotion is a packaging gate and is recovered before the n
     )
   ).toBe('old');
   expect(fs.existsSync(paths.journal)).toBe(false);
+});
+
+test('shared release Git helper changes invalidate the Payload input digest', () => {
+  const data = fixture();
+  const before = computePayloadInputs(data).digest;
+  const helper = path.join(data.workspaceRoot, 'scripts/git-command.mjs');
+  write(helper, '// shared Git runner');
+  const added = computePayloadInputs(data).digest;
+  expect(added).not.toBe(before);
+  write(helper, '// changed Git runner');
+  expect(computePayloadInputs(data).digest).not.toBe(added);
 });

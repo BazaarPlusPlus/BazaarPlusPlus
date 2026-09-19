@@ -1,25 +1,25 @@
 #!/usr/bin/env node
-import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { WORKSPACE_ROOT, readProductVersion } from './release/product.mjs';
-import { synchronizePayloadProjection } from './release/payload-inventory.mjs';
+import { parseArgs } from 'node:util';
+import { RELEASE_BASE_URL, WORKSPACE_ROOT } from './release/product.mjs';
+import {
+  synchronizeProductProjections,
+  checkProductProjections
+} from './release/projections.mjs';
 import {
   preparePayload,
   buildProduct,
-  assertBuildOwner
+  assertBuildOwner,
+  assertReleaseBuildArgs
 } from './release/payload.mjs';
 import { uploadPlatform, promoteRelease } from './release/publish.mjs';
 import { r2StoreFromEnvironment } from './release/r2-store.mjs';
-import {
-  collectVersionSnapshot,
-  assertVersionsAreAligned,
-  synchronizeVersions
-} from './bazaarplusplus-installer/scripts/release/version-sync.mjs';
+import { resolveBuildPlatform } from './release/release-platforms.mjs';
 
 const usage = `Product release commands (run from any directory):
   node release.mjs sync                         Project VERSION into toolchain files
-  node release.mjs check                        Check product version and shared inventory
+  node release.mjs check                        Check product source projections and release configuration
   node release.mjs prepare --platform macos      Build and validate one platform Payload
   node release.mjs build --platform macos        Build and sign the native installer
   node release.mjs upload --platform macos       Upload immutable platform artifacts
@@ -30,120 +30,132 @@ Only upload/promote access R2, and require BPP_R2_ACCOUNT_ID,
 BPP_R2_ACCESS_KEY_ID and BPP_R2_SECRET_ACCESS_KEY. No command changes VERSION.
 `;
 
-export async function main(args) {
+export function parseReleaseArgs(args) {
   const [command, ...rest] = args;
-  if (command === 'assert-build-owner' && rest.length === 0) {
-    assertBuildOwner(path.join(WORKSPACE_ROOT, 'bazaarplusplus-installer'));
-    return;
-  }
   if (!command || ['--help', '-h'].includes(command)) {
-    console.log(usage);
-    return;
+    if (rest.length) throw new Error('Help takes no additional arguments');
+    return { command: 'help' };
   }
   if (
-    !['sync', 'check', 'prepare', 'build', 'upload', 'promote'].includes(
-      command
-    )
+    ![
+      'sync',
+      'check',
+      'prepare',
+      'build',
+      'upload',
+      'promote',
+      'assert-build-owner'
+    ].includes(command)
   )
     throw new Error(usage);
-  let platform;
-  let msbuildArgs = [];
-  for (let i = 0; i < rest.length; i++) {
-    if (rest[i] === '--') {
-      msbuildArgs = rest.slice(i + 1);
-      break;
-    }
-    if (rest[i] === '--platform' && !platform) {
-      platform = rest[++i];
-      continue;
-    }
-    throw new Error(`Unknown release option: ${rest[i]}`);
-  }
-  const rootDir = path.join(WORKSPACE_ROOT, 'bazaarplusplus-installer');
+  const { values, positionals, tokens } = parseArgs({
+    args: rest,
+    strict: true,
+    allowPositionals: true,
+    tokens: true,
+    options: { platform: { type: 'string' } }
+  });
+  if (tokens.filter((token) => token.kind === 'option').length > 1)
+    throw new Error('--platform may only be specified once');
+  const separator = tokens.find((token) => token.kind === 'option-terminator');
   if (
-    ['prepare', 'build', 'upload'].includes(command) &&
-    !['macos', 'windows'].includes(platform)
+    tokens.some(
+      (token) =>
+        token.kind === 'positional' &&
+        (!separator || token.index < separator.index)
+    )
   )
-    throw new Error('--platform must be macos or windows');
-  if (!['prepare', 'build'].includes(command) && msbuildArgs.length)
-    throw new Error('MSBuild properties are only valid for prepare/build');
-  if (['sync', 'check', 'promote'].includes(command) && platform)
+    throw new Error('MSBuild properties must follow --');
+  const platform = values.platform;
+  if (['prepare', 'build', 'upload'].includes(command)) {
+    if (!['macos', 'windows'].includes(platform))
+      throw new Error('--platform must be macos or windows');
+  } else if (platform !== undefined) {
     throw new Error(`${command} is a product-wide operation`);
-  if (command === 'sync') {
-    synchronizeVersions(rootDir);
-    synchronizePayloadProjection();
-    const version = readProductVersion();
-    for (const name of ['README.md', 'README_en.md']) {
-      const file = path.join(WORKSPACE_ROOT, name);
-      const before = fs.readFileSync(file, 'utf8');
-      fs.writeFileSync(
-        file,
-        before.replace(
-          /img\.shields\.io\/badge\/version-[^-]+-/,
-          `img.shields.io/badge/version-${version}-`
-        )
-      );
-    }
-    console.log(`Product projections synchronized to ${version}`);
+  }
+  if (!['prepare', 'build'].includes(command) && positionals.length)
+    throw new Error('MSBuild properties are only valid for prepare/build');
+  assertReleaseBuildArgs(positionals);
+  if (command === 'assert-build-owner' && rest.length)
+    throw new Error('assert-build-owner takes no arguments');
+  return { command, platform, msbuildArgs: positionals };
+}
+
+function bundleInstaller(rootDir, token) {
+  execFileSync('bash', [path.join(rootDir, 'scripts/bundle.sh')], {
+    cwd: rootDir,
+    stdio: 'inherit',
+    env: { ...process.env, BPP_RELEASE_LOCK_TOKEN: token }
+  });
+}
+
+export async function main(
+  args,
+  {
+    workspaceRoot = WORKSPACE_ROOT,
+    hostPlatform = process.platform,
+    prepare = preparePayload,
+    build = buildProduct,
+    createStore = r2StoreFromEnvironment,
+    upload = uploadPlatform,
+    promote = promoteRelease,
+    bundle = bundleInstaller,
+    log = console.log
+  } = {}
+) {
+  const { command, platform, msbuildArgs } = parseReleaseArgs(args);
+  const rootDir = path.join(workspaceRoot, 'bazaarplusplus-installer');
+  if (command === 'help') {
+    log(usage);
     return;
   }
-  assertVersionsAreAligned(collectVersionSnapshot(rootDir));
-  synchronizePayloadProjection(WORKSPACE_ROOT, { check: true });
+  // Internal protocol used by installer packaging while the coordinator holds
+  // the shared Payload lock; it must not start another release operation.
+  if (command === 'assert-build-owner') {
+    assertBuildOwner(rootDir);
+    return;
+  }
+  if (command === 'build' && platform !== resolveBuildPlatform(hostPlatform))
+    throw new Error(`Build ${platform} on its native host`);
+  if (command === 'sync') {
+    const version = synchronizeProductProjections(workspaceRoot);
+    log(`Product projections synchronized to ${version}`);
+    return;
+  }
+  const version = checkProductProjections(workspaceRoot);
   if (command === 'check') {
-    console.log(
-      `Product ${readProductVersion()}: version and inventory aligned`
+    log(
+      `Product ${version}: version, inventory, badges and release configuration aligned`
     );
     return;
   }
   if (command === 'prepare') {
-    preparePayload({ workspaceRoot: WORKSPACE_ROOT, platform, msbuildArgs });
-    console.log(`Prepared ${platform} Payload for ${readProductVersion()}`);
+    prepare({ workspaceRoot, platform, msbuildArgs });
+    log(`Prepared ${platform} Payload for ${version}`);
     return;
   }
   if (command === 'build') {
-    const host =
-      process.platform === 'darwin'
-        ? 'macos'
-        : process.platform === 'win32'
-          ? 'windows'
-          : null;
-    if (platform !== host)
-      throw new Error(`Build ${platform} on its native host`);
-    buildProduct({
-      workspaceRoot: WORKSPACE_ROOT,
+    build({
+      workspaceRoot,
       platform,
       msbuildArgs,
-      bundle: ({ token }) => {
-        execFileSync('bash', [path.join(rootDir, 'scripts/bundle.sh')], {
-          cwd: rootDir,
-          stdio: 'inherit',
-          env: { ...process.env, BPP_RELEASE_LOCK_TOKEN: token }
-        });
-      }
+      bundle: ({ token }) => bundle(rootDir, token)
     });
     return;
   }
-  const config = JSON.parse(
-    fs.readFileSync(path.join(rootDir, 'src-tauri/tauri.conf.json'), 'utf8')
-  );
-  const baseUrl = config.plugins.updater.endpoints[0].replace(
-    /\/latest\.json$/,
-    ''
-  );
-  const store = r2StoreFromEnvironment();
+  const store = createStore();
   if (command === 'upload') {
-    await uploadPlatform({
-      workspaceRoot: WORKSPACE_ROOT,
-      platform,
-      baseUrl,
-      store
-    });
-    console.log(
-      `Uploaded ${platform} ${readProductVersion()}. Run promote after both platforms are uploaded.`
+    await upload({ workspaceRoot, platform, baseUrl: RELEASE_BASE_URL, store });
+    log(
+      `Uploaded ${platform} ${version}. Run promote after both platforms are uploaded.`
     );
   } else {
-    await promoteRelease({ version: readProductVersion(), baseUrl, store });
-    console.log(`Published Product Release ${readProductVersion()}`);
+    await promote({
+      version,
+      baseUrl: RELEASE_BASE_URL,
+      store
+    });
+    log(`Published Product Release ${version}`);
   }
 }
 
