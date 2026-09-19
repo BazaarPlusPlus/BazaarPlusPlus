@@ -12,7 +12,7 @@ mod analyzer 'bazaarplusplus-analyzer/analyzer.just'
 mod release 'release/release.just'
 
 # Root tooling owns its dependencies and formatting configuration.
-root_js := "package.json package-lock.json .prettierrc.json release.mjs 'release/**/*.{mjs,json}' 'scripts/**/*.mjs'"
+root_js := "package.json package-lock.json .prettierrc.json release.mjs 'release/**/*.{mjs,ts,json}' 'scripts/**/*.mjs'"
 
 # `just --fmt` does not descend into modules, so format each file explicitly.
 just_files := "JUSTFILE bazaarplusplus-mod/mod.just bazaarplusplus-installer/installer.just bazaarplusplus-site/site.just bazaarplusplus-server/server.just bazaarplusplus-analyzer/analyzer.just release/release.just"

@@ -1,9 +1,15 @@
-export const INSTALLER_BASE = 'https://bppinstaller.bazaarplusplus.com';
-export const MAINLAND_DOWNLOAD_BASE = 'https://cauyxy.lanzout.com';
+import {
+  RELEASE_BASE_URL as INSTALLER_BASE,
+  DOWNLOAD_PLATFORM_KEYS,
+  buildMainlandDownloadUrl,
+  type DownloadPlatform,
+} from '../../../../release/downloads';
+
+export { INSTALLER_BASE };
+export { MAINLAND_DOWNLOAD_BASE } from '../../../../release/downloads';
+export type { DownloadPlatform } from '../../../../release/downloads';
 export const GITHUB_RELEASE_URL =
   'https://github.com/BazaarPlusPlus/BazaarPlusPlus/releases/latest';
-
-export type DownloadPlatform = 'windows' | 'mac';
 
 export type LatestInstaller = {
   version: string;
@@ -78,11 +84,6 @@ function decodeDownloadUrl(payload: unknown, platform: string, version: string):
   return value;
 }
 
-function buildMainlandDownloadUrl(platform: DownloadPlatform, version: string): string {
-  const platformSlug = platform === 'windows' ? 'win' : 'mac';
-  return `${MAINLAND_DOWNLOAD_BASE}/bpp${platformSlug}${version.replaceAll('.', '')}`;
-}
-
 export async function loadLatestInstaller(
   transport: InstallerManifestTransport,
   options: { signal?: AbortSignal } = {}
@@ -93,11 +94,11 @@ export async function loadLatestInstaller(
     version,
     downloads: {
       windows: {
-        downloadUrl: decodeDownloadUrl(payload, 'windows-x86_64', version),
+        downloadUrl: decodeDownloadUrl(payload, DOWNLOAD_PLATFORM_KEYS.windows, version),
         mainlandDownloadUrl: buildMainlandDownloadUrl('windows', version),
       },
       mac: {
-        downloadUrl: decodeDownloadUrl(payload, 'darwin-aarch64', version),
+        downloadUrl: decodeDownloadUrl(payload, DOWNLOAD_PLATFORM_KEYS.mac, version),
         mainlandDownloadUrl: buildMainlandDownloadUrl('mac', version),
       },
     },

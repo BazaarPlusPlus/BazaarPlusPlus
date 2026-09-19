@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-export const RELEASE_BASE_URL = 'https://bppinstaller.bazaarplusplus.com';
+export { RELEASE_BASE_URL } from './downloads.ts';
 
 export const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '..');
 

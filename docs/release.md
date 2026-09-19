@@ -17,7 +17,7 @@ just release::promote
 
 Windows 将 `macos` 换成 `windows`。`release::prepare` 和 `release::build` 可在平台后追加 `"-p:ManagedPath=<absolute-path>"` 指定正式服游戏程序集；不接受编译器、版本、目标或输出目录覆盖。`build` 包含 `prepare`，但不会自动上传；`upload` 不修改 latest；只有 `promote` 发布完整双平台版本。installer 的 `npm run prepare:resources -- --platform …` 同样转入产品发布协调器；installer 的 `scripts/bundle.sh` 只在 `release::build` 持有的构建锁内运行。
 
-`release/projections.mjs` 的 `checkProductProjections` 是共享源码对齐入口：根 `check` 与 installer 预检查均调用它，验证版本、Payload 投影、两份 README badge、平台配置和 updater endpoint。发布 origin 由 `release/product.mjs` 的 `RELEASE_BASE_URL` 定义；Tauri endpoint 必须与其一致。`sync` 更新版本和 badge，不改写发布 origin。
+`release/projections.mjs` 的 `checkProductProjections` 是共享源码对齐入口：根 `check` 与 installer 预检查均调用它，验证版本、Payload 投影、两份 README badge、平台配置和 updater endpoint。发布 origin 由 `release/downloads.ts` 的 `RELEASE_BASE_URL` 定义；Tauri endpoint 必须与其一致。`sync` 更新版本和 badge，不改写发布 origin。
 
 just 只转发命令；版本规则、锁、签名流程和远端条件写仍在 Node 发布模块中执行，不使用任务缓存。原有 `node release.mjs sync|check|promote` 以及 `node release.mjs prepare|build|upload --platform <platform>` 保持可用；直接使用 Node 的 `prepare` / `build` 时，MSBuild 参数仍需放在 `--` 后。
 
@@ -64,6 +64,8 @@ just 只转发命令；版本规则、锁、签名流程和远端条件写仍在
 版本目录中的产物和 platform fragment 不可变：相同 bytes 的重试成功，不同 bytes 必须发布新版本。上传先固定所有本地文件内容并复查 hashes，避免并发本机构建污染远端版本路径。读取失败、权限错误和服务错误都不是“文件不存在”。
 
 `promote` 验证双平台完整性，然后以 ETag compare-and-swap 写入 `latest.json`。有其他发布者抢先写入时重新检查版本，不能用旧版本覆盖新版本。重复发布同版本只能确认已有事实，不能替换它们。回退产品行为需要发布一个更高版本号的修复版本。
+
+`release/downloads.ts` 是浏览器可消费的发布事实入口，统一官网与 installer 的发布 origin、平台键及大陆镜像 URL 规则。共享 `release/fixtures/latest.json` 同时由发布 writer、mod 更新检查、Tauri updater 字段校验和官网测试消费。
 
 Release Manifest 保留 Tauri updater 的 `platforms` 字段，并提供 `downloads` 中真实的安装器地址。官网不再猜测主下载文件名；部署新版官网前先发布完整的新 manifest，否则官网会使用已有的 GitHub 下载入口。中国大陆镜像仍由其独立上传流程维护。
 

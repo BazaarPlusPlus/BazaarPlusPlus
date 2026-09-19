@@ -1,19 +1,18 @@
-export const MAINLAND_DOWNLOAD_BASE = 'https://cauyxy.lanzout.com';
+import {
+  buildMainlandDownloadUrl,
+  type DownloadPlatform as MainlandDownloadPlatform
+} from '../../../../release/downloads';
 
-export type MainlandDownloadPlatform = 'windows' | 'mac';
+export {
+  buildMainlandDownloadUrl,
+  MAINLAND_DOWNLOAD_BASE
+} from '../../../../release/downloads';
+export type { DownloadPlatform as MainlandDownloadPlatform } from '../../../../release/downloads';
 
 export function detectMainlandDownloadPlatform(
   userAgent: string
 ): MainlandDownloadPlatform {
   return userAgent.includes('Windows') ? 'windows' : 'mac';
-}
-
-export function buildMainlandDownloadUrl(
-  platform: MainlandDownloadPlatform,
-  version: string
-): string {
-  const platformSlug = platform === 'windows' ? 'win' : 'mac';
-  return `${MAINLAND_DOWNLOAD_BASE}/bpp${platformSlug}${version.replaceAll('.', '')}`;
 }
 
 export function getMainlandDownloadUrl(version: string): string {

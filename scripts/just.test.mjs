@@ -28,7 +28,7 @@ const rootPrettier = (mode) => [
   'package-lock.json',
   '.prettierrc.json',
   'release.mjs',
-  'release/**/*.{mjs,json}',
+  'release/**/*.{mjs,ts,json}',
   'scripts/**/*.mjs'
 ];
 
