@@ -1,5 +1,7 @@
 // @vitest-environment node
 
+import { readFileSync } from 'node:fs';
+import Ajv2020 from 'ajv/dist/2020';
 import { describe, expect, test, vi } from 'vitest';
 
 import {
@@ -75,6 +77,32 @@ function makeTransport(
 }
 
 describe('loadHeroMetricsDataset', () => {
+  test.each([1, 2, 3, 4, 5, 6, 7])(
+    'decodes a %i-day fixture validated against the analyzer-owned schema',
+    async (dayCount) => {
+      const schema = JSON.parse(
+        readFileSync(
+          new URL('../../bazaarplusplus-analyzer/contracts/v5/heroes.schema.json', import.meta.url),
+          'utf8'
+        )
+      );
+      const validate = new Ajv2020({ allErrors: true }).compile(schema);
+      const windowDates = DATES.slice(-dayCount);
+      const snapshot = makeSnapshot(
+        [...windowDates].reverse().map((day) => makeDay(day)),
+        windowDates
+      );
+
+      expect({ valid: validate(snapshot), errors: validate.errors }).toEqual({
+        valid: true,
+        errors: null,
+      });
+      const dataset = await loadHeroMetricsDataset(makeTransport(async () => snapshot));
+      expect(dataset.coverage.usableDates).toEqual(windowDates);
+      expect(dataset.coverage.failedDates).toEqual([]);
+    }
+  );
+
   test('loads and decodes only analyzer-v5/heroes/latest.json', async () => {
     const transport = makeTransport();
 

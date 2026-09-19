@@ -4,6 +4,7 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(RemoteEmbeddedDataPrepared)' == 'true'">
@@ -16,6 +17,7 @@
 
   <ItemGroup>
     <PackageReference Include="Newtonsoft.Json" />
+    <PackageReference Include="JsonSchema.Net" />
     <Compile Include="../Shared/LocalizationTestBootstrap.cs" Link="LocalizationTestBootstrap.cs" />
   </ItemGroup>
 
@@ -23,6 +25,10 @@
     <EmbeddedResource
       Include="Fixtures/analyzer-v5-schema2-contract.json"
       LogicalName="LiveBuildRecommendations.Tests.analyzer-v5-schema2-contract.json"
+    />
+    <EmbeddedResource
+      Include="../../../bazaarplusplus-analyzer/contracts/v5/builds.schema.json"
+      LogicalName="LiveBuildRecommendations.Tests.builds.schema.json"
     />
   </ItemGroup>
 

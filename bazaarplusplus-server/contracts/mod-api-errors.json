@@ -1,0 +1,154 @@
+{
+  "codes": [
+    {
+      "code": "invalid_content_length",
+      "status": 400,
+      "retryable": false,
+      "meaning": "Invalid header or actual length mismatch"
+    },
+    {
+      "code": "invalid_content_digest",
+      "status": 400,
+      "retryable": false,
+      "meaning": "Invalid or unsupported digest field"
+    },
+    {
+      "code": "invalid_json",
+      "status": 400,
+      "retryable": false,
+      "meaning": "Missing, oversized, malformed, or non-object JSON body"
+    },
+    {
+      "code": "invalid_limit",
+      "status": 400,
+      "retryable": false,
+      "meaning": "Invalid BazaarDB claim page size"
+    },
+    {
+      "code": "invalid_query",
+      "status": 400,
+      "retryable": false,
+      "meaning": "Missing, repeated, unknown, or invalid query parameter"
+    },
+    {
+      "code": "invalid_settle_request",
+      "status": 400,
+      "retryable": false,
+      "meaning": "Invalid BazaarDB settlement body"
+    },
+    {
+      "code": "window_not_settled",
+      "status": 400,
+      "retryable": false,
+      "meaning": "Bundle window ends after the settle point"
+    },
+    {
+      "code": "unauthorized",
+      "status": 401,
+      "retryable": false,
+      "meaning": "Missing or invalid service token"
+    },
+    {
+      "code": "insufficient_scope",
+      "status": 403,
+      "retryable": false,
+      "meaning": "Service token does not grant access to the route"
+    },
+    {
+      "code": "not_found",
+      "status": 404,
+      "retryable": false,
+      "meaning": "Unknown route"
+    },
+    {
+      "code": "method_not_allowed",
+      "status": 405,
+      "retryable": false,
+      "meaning": "Unsupported method on a known route"
+    },
+    {
+      "code": "bundle_id_conflict",
+      "status": 409,
+      "retryable": false,
+      "meaning": "Bundle identity has different bytes"
+    },
+    {
+      "code": "run_already_bundled",
+      "status": 409,
+      "retryable": false,
+      "meaning": "Run belongs to another Bundle"
+    },
+    {
+      "code": "window_expired",
+      "status": 410,
+      "retryable": false,
+      "meaning": "Bundle window is outside R2 retention"
+    },
+    {
+      "code": "content_length_required",
+      "status": 411,
+      "retryable": false,
+      "meaning": "Content-Length header missing"
+    },
+    {
+      "code": "bundle_too_large",
+      "status": 413,
+      "retryable": false,
+      "meaning": "Declared or actual size reaches 8 MiB"
+    },
+    {
+      "code": "unsupported_content_type",
+      "status": 415,
+      "retryable": false,
+      "meaning": "Wrong Bundle media type"
+    },
+    {
+      "code": "invalid_bundle",
+      "status": 422,
+      "retryable": false,
+      "meaning": "Prefix, manifest, layout, or bounds invalid"
+    },
+    {
+      "code": "unsupported_bundle_version",
+      "status": 422,
+      "retryable": false,
+      "meaning": "Bundle version not accepted"
+    },
+    {
+      "code": "unsupported_run_format",
+      "status": 422,
+      "retryable": false,
+      "meaning": "Run format not accepted"
+    },
+    {
+      "code": "bundle_digest_mismatch",
+      "status": 422,
+      "retryable": false,
+      "meaning": "Complete digest mismatch"
+    },
+    {
+      "code": "segment_digest_mismatch",
+      "status": 422,
+      "retryable": false,
+      "meaning": "Run or Screenshot digest mismatch"
+    },
+    {
+      "code": "rate_limited",
+      "status": 429,
+      "retryable": true,
+      "meaning": "Ghost request rate exceeded"
+    },
+    {
+      "code": "internal_error",
+      "status": 500,
+      "retryable": true,
+      "meaning": "Unclassified server error or invalid service configuration"
+    },
+    {
+      "code": "storage_unavailable",
+      "status": 503,
+      "retryable": true,
+      "meaning": "Storage, signing, rate limiter, or delivery maintenance unavailable"
+    }
+  ]
+}

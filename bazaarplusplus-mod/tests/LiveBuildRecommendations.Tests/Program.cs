@@ -6,6 +6,7 @@ using BazaarPlusPlus.Game.LiveBuildPanel.Recommendations;
 using BazaarPlusPlus.GameInterop.Heroes;
 using BazaarPlusPlus.Infrastructure.RemoteEmbeddedCatalog;
 using BazaarPlusPlus.Infrastructure.UiTokens;
+using Json.Schema;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
@@ -66,8 +67,25 @@ internal static class TenWinBuildTests
 
     private static void TestParserAcceptsAnalyzerV5Contract()
     {
+        using var schemaStream =
+            Assembly
+                .GetExecutingAssembly()
+                .GetManifestResourceStream("LiveBuildRecommendations.Tests.builds.schema.json")
+            ?? throw new InvalidOperationException("The analyzer-owned builds schema is missing.");
+        using var schemaDocument = System.Text.Json.JsonDocument.Parse(schemaStream);
+        var schema = JsonSchema.Build(schemaDocument.RootElement);
+        using var fixture = System.Text.Json.JsonDocument.Parse(ContractJson());
+        var validation = schema.Evaluate(
+            fixture.RootElement,
+            new EvaluationOptions { OutputFormat = OutputFormat.List }
+        );
+        Assert(
+            validation.IsValid,
+            "The contract fixture must satisfy the analyzer-owned builds schema: "
+                + System.Text.Json.JsonSerializer.Serialize(validation)
+        );
         var corpus = RequireCorpus(ContractJson());
-        Assert(corpus.HeroCount == 1, "The contract fixture should contain one hero.");
+        Assert(corpus.HeroCount == 8, "The contract fixture should contain all eight heroes.");
         Assert(corpus.BuildCount == 1, "The contract fixture should contain one build.");
         Assert(
             corpus.GeneratedAtUtc == DateTimeOffset.Parse("2026-08-12T02:00:00Z"),

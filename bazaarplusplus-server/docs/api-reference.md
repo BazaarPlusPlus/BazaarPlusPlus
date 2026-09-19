@@ -47,6 +47,38 @@ Errors use:
 
 `details` is optional. Clients use the status, `code`, and `retryable`; they do not match `message` text.
 
+## Error codes
+
+The machine-readable owner is [`contracts/mod-api-errors.json`](../contracts/mod-api-errors.json). This table is checked against it; server tests exercise each code through the HTTP boundary. Diagnostic log codes and BazaarDB partner API codes are outside this contract.
+
+| Status | Code | Retryable | Meaning |
+|---:|---|---|---|
+| 400 | `invalid_content_length` | `false` | Invalid header or actual length mismatch |
+| 400 | `invalid_content_digest` | `false` | Invalid or unsupported digest field |
+| 400 | `invalid_json` | `false` | Missing, oversized, malformed, or non-object JSON body |
+| 400 | `invalid_limit` | `false` | Invalid BazaarDB claim page size |
+| 400 | `invalid_query` | `false` | Missing, repeated, unknown, or invalid query parameter |
+| 400 | `invalid_settle_request` | `false` | Invalid BazaarDB settlement body |
+| 400 | `window_not_settled` | `false` | Bundle window ends after the settle point |
+| 401 | `unauthorized` | `false` | Missing or invalid service token |
+| 403 | `insufficient_scope` | `false` | Service token does not grant access to the route |
+| 404 | `not_found` | `false` | Unknown route |
+| 405 | `method_not_allowed` | `false` | Unsupported method on a known route |
+| 409 | `bundle_id_conflict` | `false` | Bundle identity has different bytes |
+| 409 | `run_already_bundled` | `false` | Run belongs to another Bundle |
+| 410 | `window_expired` | `false` | Bundle window is outside R2 retention |
+| 411 | `content_length_required` | `false` | Content-Length header missing |
+| 413 | `bundle_too_large` | `false` | Declared or actual size reaches 8 MiB |
+| 415 | `unsupported_content_type` | `false` | Wrong Bundle media type |
+| 422 | `invalid_bundle` | `false` | Prefix, manifest, layout, or bounds invalid |
+| 422 | `unsupported_bundle_version` | `false` | Bundle version not accepted |
+| 422 | `unsupported_run_format` | `false` | Run format not accepted |
+| 422 | `bundle_digest_mismatch` | `false` | Complete digest mismatch |
+| 422 | `segment_digest_mismatch` | `false` | Run or Screenshot digest mismatch |
+| 429 | `rate_limited` | `true` | Ghost request rate exceeded |
+| 500 | `internal_error` | `true` | Unclassified server error or invalid service configuration |
+| 503 | `storage_unavailable` | `true` | Storage, signing, rate limiter, or delivery maintenance unavailable |
+
 ## Service-token authentication
 
 Protected requests use:
@@ -201,24 +233,7 @@ Conflicts preserve the first immutable identity:
 - same `bundle_id`, different complete digest: `409 bundle_id_conflict`;
 - same `run_id`, different `bundle_id`: `409 run_already_bundled`.
 
-Errors:
-
-| Status | Code | Meaning |
-|---:|---|---|
-| 400 | `invalid_content_length` | Invalid header or actual length mismatch |
-| 400 | `invalid_content_digest` | Invalid or unsupported digest field |
-| 409 | `bundle_id_conflict` | Bundle identity has different bytes |
-| 409 | `run_already_bundled` | Run belongs to another Bundle |
-| 411 | `content_length_required` | Header missing |
-| 413 | `bundle_too_large` | Declared or actual size reaches 8 MiB |
-| 415 | `unsupported_content_type` | Wrong media type |
-| 422 | `invalid_bundle` | Prefix, manifest, layout, or bounds invalid |
-| 422 | `unsupported_bundle_version` | Bundle version not accepted |
-| 422 | `unsupported_run_format` | Run format not accepted |
-| 422 | `bundle_digest_mismatch` | Complete digest mismatch |
-| 422 | `segment_digest_mismatch` | Run or Screenshot digest mismatch |
-| 503 | `storage_unavailable` | R2 or D1 temporary failure |
-| 500 | `internal_error` | Unclassified server error |
+Error codes follow the [common error contract](#error-codes).
 
 Stable `invalid_bundle.details.reason` values are `invalid_prefix`, `manifest_too_large`, `manifest_not_json`, `manifest_schema_invalid`, `too_many_battles`, `projection_too_large`, `run_missing`, `run_too_large`, `screenshot_too_large`, `screenshot_type_unsupported`, `segment_out_of_bounds`, `segment_overlap`, and `undeclared_trailing_bytes`.
 
