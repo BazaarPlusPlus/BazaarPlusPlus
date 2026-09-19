@@ -12,14 +12,14 @@ The BepInEx mod. Repo-wide rules (commits, pull requests, docs policy, contracts
 
 ## Build and test
 
-`./run.sh` with no arguments lists every subcommand. Build through it: it repairs the macOS trampoline after every game update, which a raw `dotnet build` skips. Game assemblies resolve via `ManagedPath`, auto-detected from common Steam install paths (`build/ManagedPath.props`) or passed as `-p:ManagedPath=...`.
+`just --list mod` lists every command; recipes live in `mod.just` and run `scripts/*.sh`. `just mod::build` only compiles. Deploy into the game through `just mod::deploy`: it repairs the macOS trampoline after every game update, which a raw `dotnet build` skips. Game assemblies resolve via `ManagedPath`, auto-detected from common Steam install paths (`build/ManagedPath.props`) or passed as `-p:ManagedPath=...`.
 
-What `run.sh` cannot tell you:
+What `just --list mod` cannot tell you:
 
 - `ScenarioRunner.Tests` owns the closed list of source-shadow executable capsules and runs each in a child process; use `dotnet run --project tests/<Name>/<Name>.csproj` only to diagnose one capsule directly.
-- Review every changed `packages.lock.json` between `./run.sh restore-locks` and `./run.sh restore-locked`. The locked restore makes graph drift fail here rather than in the installer build.
+- Review every changed `packages.lock.json` between `just mod::locks` and `just mod::locks-check`. The locked restore makes graph drift fail here rather than in the installer build.
 - In an isolated worktree, pass `-p:BPPInstallerSourcePath="<absolute-path>/bazaarplusplus-installer/src-tauri/resources"` to projects referencing the main mod; the default sibling installer path does not exist beside a worktree.
-- A deletion is proved by deleting: `./run.sh build` and `./run.sh test` must both pass, because test projects compile fakes and source-shadow capsules that `build` never touches.
+- A deletion is proved by deleting: `just mod::build` and `just mod::test` must both pass, because test projects compile fakes and source-shadow capsules that `build` never touches.
 
 ## Logs and debugging
 

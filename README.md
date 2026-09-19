@@ -61,7 +61,7 @@ BazaarPlusPlus 是一个面向《The Bazaar》的开源项目：游戏内由 Bep
 ├── JUSTFILE                                 # 统一开发、检查、测试与发布命令
 ├── VERSION / release.mjs / release/         # 产品版本、发布入口与共享 Payload Inventory
 ├── bazaarplusplus-mod/                       # BepInEx 模组源码
-│   ├── run.sh                                # 常用 build/test/format/decompile 入口
+│   ├── mod.just / scripts/                   # just mod::… 命令及其构建、测试、反编译脚本
 │   └── src/
 │       ├── BazaarPlusPlus/                   # 主模组：Game、Patches、Resources、Data
 │       ├── BazaarPlusPlus.ModApi/            # 与服务端通信的 API 客户端
@@ -93,14 +93,14 @@ BazaarPlusPlus 是一个面向《The Bazaar》的开源项目：游戏内由 Bep
 
 ```bash
 # Compile without changing the installed game
-just mod-build
-just mod-test
+just mod::build
+just mod::test
 
 # Override the game assembly directory
-just mod-build "-p:ManagedPath=<Steam>/steamapps/common/The Bazaar/.../Managed"
+just mod::build "-p:ManagedPath=<Steam>/steamapps/common/The Bazaar/.../Managed"
 ```
 
-需要把开发 DLL 部署进游戏时，在 `bazaarplusplus-mod` 目录显式运行 `./run.sh build`。
+需要把开发 DLL 部署进游戏时，显式运行 `just mod::deploy`。
 
 ### 构建安装器
 
@@ -108,11 +108,11 @@ just mod-build "-p:ManagedPath=<Steam>/steamapps/common/The Bazaar/.../Managed"
 cd bazaarplusplus-installer
 
 npm ci
-just installer-dev # Frontend development server
+just installer::dev # Frontend development server
 npm run tauri dev  # Full Tauri desktop app
 
-just installer-check
-just installer-test
+just installer::check
+just installer::test
 npm run format
 ```
 
@@ -121,29 +121,29 @@ npm run format
 ```bash
 cd bazaarplusplus-server
 npm ci
-just server-test
-# just server-dev requires the project's gitignored .dev.vars
+just server::test
+# just server::dev requires the project's gitignored .dev.vars
 ```
 
 ```bash
 cd bazaarplusplus-analyzer
 uv sync --locked
-just analyzer-check
-just analyzer-test
+just analyzer::check
+just analyzer::test
 ```
 
 ```bash
 cd bazaarplusplus-site
 npm ci
-just site-test
-just site-build
+just site::test
+just site::build
 ```
 
 发布签名、公证（notarization）、R2 上传等流程依赖本地环境变量与 `signing-secrets/`，这些内容不会提交到公开仓库；在缺少本机游戏、签名凭据或平台依赖的环境中，无法完成完整的发布构建。游戏反编译输出、`decompiled/`、`.env` 和 `.dev.vars` 同样不在此树中。
 
 ## 产品发布
 
-mod 与 installer 共用根目录 `VERSION`。修改后执行 `just release-sync`；每个平台使用 `just release-build macos`（或 `windows`）准备 Payload 并打包。分别执行 `just release-upload <platform>` 后，只有双平台同版本、同提交的产物齐备，`just release-promote` 才会推进 latest。底层 `node release.mjs …` 保持可用；完整流程、凭据与恢复约定见 [产品发布](docs/release.md)。
+mod 与 installer 共用根目录 `VERSION`。修改后执行 `just release::sync`；每个平台使用 `just release::build macos`（或 `windows`）准备 Payload 并打包。分别执行 `just release::upload <platform>` 后，只有双平台同版本、同提交的产物齐备，`just release::promote` 才会推进 latest。底层 `node release.mjs …` 保持可用；完整流程、凭据与恢复约定见 [产品发布](docs/release.md)。
 
 ## 二次开发须知
 

@@ -26,11 +26,11 @@ A contract change lands in one pull request together with every consumer it brea
 | Payload Inventory | `release/payload.json` | mod MSBuild, installer packaging and cleanup |
 | Release Manifest | `release/manifest.mjs`, shared fixture `release/fixtures/latest.json` | site download page, installer updater, mod update check |
 
-Run `just release-sync` after editing `VERSION` or `release/payload.json`; it regenerates the projections the builds validate against.
+Run `just release::sync` after editing `VERSION` or `release/payload.json`; it regenerates the projections the builds validate against.
 
 ## Verification
 
-`just` lists every recipe. Gate one project with `just <project>-check` and `just <project>-test`; gate a contract change with the check and test recipes of the owner and every consumer. `just check` and `just test` cover the whole repo. `just fmt` formats everything. Scope and prerequisites: `docs/development.md`.
+`just` lists every recipe. Gate one project with `just <project>::check` and `just <project>::test`; gate a contract change with the check and test recipes of the owner and every consumer. `just check` and `just test` cover the whole repo. `just fmt` formats everything. Scope and prerequisites: `docs/development.md`.
 
 ## Commits and pull requests
 

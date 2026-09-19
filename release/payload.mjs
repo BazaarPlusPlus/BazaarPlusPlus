@@ -77,7 +77,14 @@ export function computePayloadInputs({ workspaceRoot, managedPath }) {
     }
   };
   const modRoot = path.join(workspaceRoot, 'bazaarplusplus-mod');
-  for (const directory of ['src', 'build', 'tests', 'native', '.config']) {
+  for (const directory of [
+    'src',
+    'build',
+    'scripts',
+    'tests',
+    'native',
+    '.config'
+  ]) {
     if (fs.existsSync(path.join(modRoot, directory)))
       scan(path.join(modRoot, directory), `mod/${directory}`);
   }
@@ -395,8 +402,8 @@ function preparePayloadUnlocked({
       : execFileSync(
           'bash',
           [
-            path.join(modRoot, 'run.sh'),
-            'release-managed-path',
+            path.join(modRoot, 'scripts', 'game.sh'),
+            'managed-path',
             ...msbuildArgs
           ],
           { cwd: modRoot, encoding: 'utf8' }
@@ -444,13 +451,12 @@ function preparePayloadUnlocked({
     else
       execFileSync(
         'bash',
-        [path.join(modRoot, 'run.sh'), 'produce-payload', ...buildArgs],
+        [path.join(modRoot, 'scripts', 'build.sh'), 'produce', ...buildArgs],
         {
           cwd: modRoot,
           stdio: 'inherit',
           env: {
             ...process.env,
-            BPP_RELEASE_MANAGED: managedPath,
             BPP_RELEASE_ARTIFACTS: path.join(stageRoot, 'managed-artifacts')
           }
         }

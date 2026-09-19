@@ -17,7 +17,7 @@ Do not edit a snapshot by hand. Regenerate one from the pinned corpus with:
 ```bash
 BPP_BUNDLE_CORPUS_LIMIT=100 \
 BPP_COMBAT_IMPACT_EVIDENCE_PATH="tests/CombatImpact.Corpus/evidence/<snapshot>.json" \
-./run.sh test-corpus <corpus-root> <full-report-path>
+just mod::test-corpus <corpus-root> <full-report-path>
 ```
 
 `<corpus-root>` may be a replay-payload store, a historical `run-bundles/*.mpack.gz` cache, or the

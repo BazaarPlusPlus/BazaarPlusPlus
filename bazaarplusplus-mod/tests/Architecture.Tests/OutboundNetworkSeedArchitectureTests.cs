@@ -15,7 +15,7 @@ public sealed class OutboundNetworkSeedArchitectureTests
         var fetcher = File.ReadAllText(
             Path.Combine(root, "build", "RemoteEmbeddedDataFetcher", "RemoteEmbeddedDataFetch.cs")
         );
-        var script = File.ReadAllText(Path.Combine(root, "run.sh"));
+        var script = File.ReadAllText(Path.Combine(root, "scripts", "build.sh"));
 
         Assert.Contains("RemoteEmbeddedDataFetcherProject", targets);
         Assert.Contains("<Exec", targets);
@@ -25,8 +25,7 @@ public sealed class OutboundNetworkSeedArchitectureTests
         Assert.Contains("PromoteSeedSet", fetcher);
         Assert.Contains("run_seed_gates", script);
         Assert.Contains("TestKind=EmbeddedSeed", script);
-        Assert.Contains("promote \"$staging_directory\"", script);
-        Assert.Contains("for arg in \"$@\"", script);
+        Assert.Contains("promote \"$STAGING_DIRECTORY\"", script);
         Assert.DoesNotContain("local args=(\"$@\")", script);
     }
 }

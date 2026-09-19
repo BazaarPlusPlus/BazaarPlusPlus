@@ -166,7 +166,7 @@ test.each(['4.5.0.prod', '4.6.0.prod'])(
           ...fixture,
           requiredStagingPaths: ['BepInEx/plugins/BazaarPlusPlus.version']
         })
-      ).toThrow(/4\.7\.0[\s\S]*\.\/run\.sh publish/);
+      ).toThrow(/4\.7\.0[\s\S]*just release::prepare/);
     } finally {
       fs.rmSync(fixture.rootDir, { recursive: true, force: true });
     }
@@ -311,7 +311,7 @@ test('validatePayloadZip rejects a stale staging version before checking for the
         ...fixture,
         requiredStagingPaths: ['BepInEx/plugins/BazaarPlusPlus.version']
       })
-    ).toThrow(/4\.7\.0[\s\S]*\.\/run\.sh publish/);
+    ).toThrow(/4\.7\.0[\s\S]*just release::prepare/);
   } finally {
     fs.rmSync(fixture.rootDir, { recursive: true, force: true });
   }

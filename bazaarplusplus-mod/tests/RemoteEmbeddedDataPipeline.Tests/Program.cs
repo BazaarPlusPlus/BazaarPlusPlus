@@ -375,7 +375,7 @@ static async Task TestFetchDataRejectsBadSchemaWithoutChangingCanonicalSet()
             var result = await RunProcess(
                 repo,
                 "bash",
-                Path.Combine(repo, "run.sh"),
+                Path.Combine(repo, "scripts", "build.sh"),
                 "fetch-data",
                 $"-p:VoiceLinesRemoteUrl={server.BaseUrl}voice",
                 $"-p:TenWinBuildsRemoteUrl={server.BaseUrl}builds",

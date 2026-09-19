@@ -6,7 +6,7 @@ The Tauri desktop installer. Repo-wide rules (commits, pull requests, docs polic
 
 ## Verification
 
-`just installer-check` runs the full source gate. Inside the loop, pick the narrower gate that matches what changed:
+`just installer::check` runs the full source gate. Inside the loop, pick the narrower gate that matches what changed:
 
 - Documentation or these instructions: `npm run docs:check`.
 - React or TypeScript: `npm run check`.

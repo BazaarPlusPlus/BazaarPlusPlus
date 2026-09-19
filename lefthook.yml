@@ -1,18 +1,17 @@
 # Workspace Git hooks. Install with `just hooks-install`.
 # Each job runs only when its project has matching changes, and runs the same
-# commands as that project's `just <project>-check` gate.
+# commands as that project's `just <project>::check` gate.
 
 pre-commit:
   parallel: true
   jobs:
     - name: workspace
-      glob: "{JUSTFILE,VERSION,release.mjs,release/**,scripts/**}"
-      run: just commands-check release-check
+      glob: "{JUSTFILE,**/*.just,VERSION,release.mjs,release/**,scripts/**}"
+      run: just commands-check release::check
 
     - name: mod
-      root: bazaarplusplus-mod/
       glob: "bazaarplusplus-mod/**/*.cs"
-      run: bash ./run.sh format-check
+      run: just mod::fmt-check
 
     - name: installer
       root: bazaarplusplus-installer/

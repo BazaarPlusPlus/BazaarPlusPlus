@@ -1,8 +1,8 @@
 // Guards the source-level premises of the online/PTR dual-version seams
 // (docs/ARCHITECTURE.md, "Game Build Channel And PTR Isolation"). The decompiled trees are
 // gitignored local artifacts, so this is a LOCAL-ONLY gate: a missing tree is skipped
-// with a notice, never a failure. Rerun after every `./run.sh decompile-all` /
-// `decompile-all-ptr` refresh — a failure here means a seam premise drifted.
+// with a notice, never a failure. Rerun after every `just mod::decompile <online|ptr> all`
+// refresh — a failure here means a seam premise drifted.
 #nullable enable
 var repoRoot = FindRepoRoot();
 var decompiledSourceRoot =
@@ -171,7 +171,7 @@ void CheckTree(
     if (!Directory.Exists(Path.Combine(treeRoot, "TheBazaarRuntime")))
     {
         Console.WriteLine(
-            $"[skip] {label} tree absent — run the matching ./run.sh decompile command to enable these checks."
+            $"[skip] {label} tree absent — run the matching `just mod::decompile` command to enable these checks."
         );
         return;
     }
@@ -210,7 +210,7 @@ static string FindRepoRoot()
     var current = new DirectoryInfo(AppContext.BaseDirectory);
     while (current != null)
     {
-        if (File.Exists(Path.Combine(current.FullName, "run.sh")))
+        if (File.Exists(Path.Combine(current.FullName, "mod.just")))
             return current.FullName;
         current = current.Parent;
     }

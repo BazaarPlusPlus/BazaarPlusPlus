@@ -136,7 +136,7 @@ try
 
     var result = RunProcess(
         "/bin/bash",
-        new[] { Path.Combine(projectRoot, "run.sh"), "build" },
+        new[] { Path.Combine(projectRoot, "scripts", "build.sh"), "deploy" },
         new Dictionary<string, string?>
         {
             ["BPP_GAME_ROOT"] = gameRoot,
@@ -150,8 +150,7 @@ try
     AssertEqual(
         "TRAMPOLINE STUB",
         TestInputs.Scratch(exe),
-        "run.sh build should restore the trampoline stub as the launched executable.\n"
-            + result.Output
+        "deploy should restore the trampoline stub as the launched executable.\n" + result.Output
     );
     AssertEqual(
         "UNITY current executable",
@@ -162,10 +161,7 @@ try
         IsExecutable(script),
         "Repair should disable the prefix launcher while trampoline mode is desired."
     );
-    AssertTrue(
-        File.Exists(dotnetRecord),
-        "run.sh build should still invoke dotnet build after repair."
-    );
+    AssertTrue(File.Exists(dotnetRecord), "deploy should still invoke dotnet build after repair.");
     AssertFalse(
         Directory.Exists(nestedApp),
         "Repair must leave the duplicate outside the signed application."
@@ -179,7 +175,7 @@ try
     );
     result = RunProcess(
         "/bin/bash",
-        new[] { Path.Combine(projectRoot, "run.sh"), "build" },
+        new[] { Path.Combine(projectRoot, "scripts", "build.sh"), "deploy" },
         new Dictionary<string, string?>
         {
             ["BPP_GAME_ROOT"] = gameRoot,
@@ -198,7 +194,7 @@ try
     File.Delete(dotnetRecord);
     result = RunProcess(
         "/bin/bash",
-        new[] { Path.Combine(projectRoot, "run.sh"), "build" },
+        new[] { Path.Combine(projectRoot, "scripts", "build.sh"), "deploy" },
         new Dictionary<string, string?>
         {
             ["BPP_GAME_ROOT"] = gameRoot,

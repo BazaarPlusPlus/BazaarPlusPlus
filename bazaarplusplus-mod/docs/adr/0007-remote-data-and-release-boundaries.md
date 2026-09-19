@@ -12,7 +12,7 @@ Runtime catalogs, the release manifest, and production build seeds are all remot
 | --- | --- |
 | Supporter runtime catalog | [`SupporterCatalogModule`](../../src/BazaarPlusPlus/Game/Supporters/SupporterCatalogModule.cs) owns an `IRemoteEmbeddedCatalog<T>` session. Fixed-list mode creates no catalog; normal mode publishes a session-stable snapshot, retries a missing snapshot after five minutes, and rejects late publications after disposal. The static facade contains projection and fixed-list policy only. |
 | Release manifest | [`ReleaseManifestClient`](../../src/BazaarPlusPlus/Infrastructure/ReleaseManifest/ReleaseManifestClient.cs) maps the installer manifest request into typed outcomes. [`ReleaseManifestCheckLifecycle`](../../src/BazaarPlusPlus/Game/Lobby/ReleaseManifestCheckLifecycle.cs) owns request generation, cancellation, disposal, and the current-request publication gate. This request is separate from Mod API health and `ModApiSession`. |
-| Build seed fetch | [`RemoteEmbeddedDataFetcher`](../../build/RemoteEmbeddedDataFetcher/RemoteEmbeddedDataFetch.cs) stages one streamed download, checks transfer integrity, and cleans temporary files. `run.sh fetch-data` stages the complete seed set, runs feature-owned semantic parsers, then promotes the set transactionally with rollback. |
+| Build seed fetch | [`RemoteEmbeddedDataFetcher`](../../build/RemoteEmbeddedDataFetcher/RemoteEmbeddedDataFetch.cs) stages one streamed download, checks transfer integrity, and cleans temporary files. `just mod::fetch-data` stages the complete seed set, runs feature-owned semantic parsers, then promotes the set transactionally with rollback. |
 
 ## Why
 

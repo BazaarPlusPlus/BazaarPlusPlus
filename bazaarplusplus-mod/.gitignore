@@ -8,5 +8,5 @@ native/windows/build/
 *.lib
 *.exp
 
-# Reports written by run.sh
+# Reports written by just mod::test-corpus
 /artifacts/

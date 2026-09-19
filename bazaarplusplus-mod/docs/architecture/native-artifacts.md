@@ -12,7 +12,7 @@ The installer manifest records, per platform, the canonical input digest and inp
 
 ## Product preparation
 
-`./run.sh publish` delegates to the workspace product coordinator for the host platform. It prepares an isolated installer-shaped tree, ensures native inputs there, fetches and validates seeds, builds managed assemblies into private output directories, and checks assembly versions, native inventory and the unsigned archive before replacing any canonical Payload directory.
+`just release::prepare <platform>` runs the workspace product coordinator on the native host. It prepares an isolated installer-shaped tree, ensures native inputs there, fetches and validates seeds, builds managed assemblies into private output directories, and checks assembly versions, native inventory and the unsigned archive before replacing any canonical Payload directory.
 
 The native coordinator computes the catalog input digest, reuses matching artifacts, or invokes the mod-owned build scripts into temporary output. Its local promotion is nested inside product preparation: a later managed build or final verification failure discards the entire temporary tree and leaves the previous canonical Payload unchanged.
 

@@ -10,7 +10,7 @@ bazaarplusplus.com. Repo-wide rules (commits, pull requests, docs policy, contra
 
 ## Verification
 
-- Code changes pass `just site-check` and `just site-test`.
+- Code changes pass `just site::check` and `just site::test`.
 - Deploy only when asked.
 - The dev and preview scripts both reserve port 3000 with `strictPort`.
 - Local Hero Analysis needs no credentials: dev and preview both read the production metrics origin directly over CORS.

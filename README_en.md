@@ -61,7 +61,7 @@ Feature guides, hotkeys, and installation details live at [bazaarplusplus.com/tu
 ├── JUSTFILE                                 # Unified development, checks, tests, and release commands
 ├── VERSION / release.mjs / release/         # Product version, release entry point, shared Payload Inventory
 ├── bazaarplusplus-mod/                       # BepInEx mod source
-│   ├── run.sh                                # Common build/test/format/decompile entry point
+│   ├── mod.just / scripts/                   # just mod::… recipes and their build/test/decompile scripts
 │   └── src/
 │       ├── BazaarPlusPlus/                   # Main mod: Game, Patches, Resources, Data
 │       ├── BazaarPlusPlus.ModApi/            # HTTP client for the mod backend
@@ -93,14 +93,14 @@ Run `just` from any repository subdirectory to list development, check, test, an
 
 ```bash
 # Compile without changing the installed game
-just mod-build
-just mod-test
+just mod::build
+just mod::test
 
 # Override the game assembly directory
-just mod-build "-p:ManagedPath=<Steam>/steamapps/common/The Bazaar/.../Managed"
+just mod::build "-p:ManagedPath=<Steam>/steamapps/common/The Bazaar/.../Managed"
 ```
 
-To deploy development DLLs into the game, explicitly run `./run.sh build` from `bazaarplusplus-mod`.
+To deploy development DLLs into the game, explicitly run `just mod::deploy`.
 
 ### Build the Installer
 
@@ -108,11 +108,11 @@ To deploy development DLLs into the game, explicitly run `./run.sh build` from `
 cd bazaarplusplus-installer
 
 npm ci
-just installer-dev # Vite frontend dev server
+just installer::dev # Vite frontend dev server
 npm run tauri dev  # full Tauri desktop app
 
-just installer-check
-just installer-test
+just installer::check
+just installer::test
 npm run format
 ```
 
@@ -121,29 +121,29 @@ Run `just fmt` from the root to format every project; `just hooks-install` insta
 ```bash
 cd bazaarplusplus-server
 npm ci
-just server-test
-# just server-dev requires the project's gitignored .dev.vars
+just server::test
+# just server::dev requires the project's gitignored .dev.vars
 ```
 
 ```bash
 cd bazaarplusplus-analyzer
 uv sync --locked
-just analyzer-check
-just analyzer-test
+just analyzer::check
+just analyzer::test
 ```
 
 ```bash
 cd bazaarplusplus-site
 npm ci
-just site-test
-just site-build
+just site::test
+just site::build
 ```
 
 Release signing, notarization, and R2 upload flows depend on local environment variables and `signing-secrets/`, which are intentionally not committed. A full release build also requires a local game install, signing material, and the platform dependencies — the public source tree alone is not enough. Game decompilation output, `decompiled/`, `.env`, and `.dev.vars` are also kept out of this tree.
 
 ## Product Releases
 
-The mod and installer share the root `VERSION`. Run `just release-sync` after changing it. Build each platform with `just release-build macos` (or `windows`), then run `just release-upload <platform>` for its immutable artifacts. `just release-promote` advances latest only when both platforms have the same version and Git commit. The underlying `node release.mjs …` commands remain available. See the [product release guide](docs/release.md) for credentials, sequencing, and recovery.
+The mod and installer share the root `VERSION`. Run `just release::sync` after changing it. Build each platform with `just release::build macos` (or `windows`), then run `just release::upload <platform>` for its immutable artifacts. `just release::promote` advances latest only when both platforms have the same version and Git commit. The underlying `node release.mjs …` commands remain available. See the [product release guide](docs/release.md) for credentials, sequencing, and recovery.
 
 ## Derivative Work Notice
 

@@ -57,7 +57,7 @@ dotnet_style_qualification_for_event = false:suggestion
 
 # ── Layout ───────────────────────────────────────────────────────
 # Brace placement, new lines, indentation, and spacing are owned by CSharpier
-# (./run.sh format / format-check); do not restate them here.
+# (just mod::fmt / mod::fmt-check); do not restate them here.
 
 # ── Braces ───────────────────────────────────────────────────────
 csharp_prefer_braces = true:suggestion

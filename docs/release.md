@@ -1,25 +1,25 @@
 # 产品发布
 
-mod 与 installer 是同一个 Product Release 的两个产物。根目录 `VERSION` 是唯一手工维护的产品版本；`just release-sync` 将它投影到 npm、Tauri、Cargo 和 README，MSBuild 直接读取它。数据库 schema、native ABI、V5 用户数据格式以及用户当前安装版本保持独立。
+mod 与 installer 是同一个 Product Release 的两个产物。根目录 `VERSION` 是唯一手工维护的产品版本；`just release::sync` 将它投影到 npm、Tauri、Cargo 和 README，MSBuild 直接读取它。数据库 schema、native ABI、V5 用户数据格式以及用户当前安装版本保持独立。
 
 ## 入口
 
 通过根目录 `JUSTFILE` 执行，Windows 使用 Git Bash；每个平台在自己的原生构建机上准备和打包。just 的安装和日常检查命令见[开发命令](development.md)。
 
 ```bash
-just release-sync
-just release-check
-just release-prepare macos
-just release-build macos
-just release-upload macos
-just release-promote
+just release::sync
+just release::check
+just release::prepare macos
+just release::build macos
+just release::upload macos
+just release::promote
 ```
 
-Windows 将 `macos` 换成 `windows`。`release-prepare` 和 `release-build` 可在平台后追加 `"-p:ManagedPath=<absolute-path>"` 指定正式服游戏程序集；不接受编译器、版本、目标或输出目录覆盖。`build` 包含 `prepare`，但不会自动上传；`upload` 不修改 latest；只有 `promote` 发布完整双平台版本。mod 的 `./run.sh publish`、installer 的 `./build.sh --prod` 和 `npm run prepare:resources -- --platform …` 均转入产品发布协调器。
+Windows 将 `macos` 换成 `windows`。`release::prepare` 和 `release::build` 可在平台后追加 `"-p:ManagedPath=<absolute-path>"` 指定正式服游戏程序集；不接受编译器、版本、目标或输出目录覆盖。`build` 包含 `prepare`，但不会自动上传；`upload` 不修改 latest；只有 `promote` 发布完整双平台版本。installer 的 `./build.sh --prod` 和 `npm run prepare:resources -- --platform …` 均转入产品发布协调器。
 
 just 只转发命令；版本规则、锁、签名流程和远端条件写仍在 Node 发布模块中执行，不使用任务缓存。原有 `node release.mjs sync|check|promote` 以及 `node release.mjs prepare|build|upload --platform <platform>` 保持可用；直接使用 Node 的 `prepare` / `build` 时，MSBuild 参数仍需放在 `--` 后。
 
-日常开发使用各项目的 just 命令或原有子目录脚本。`just mod-build` 调用 `./run.sh build --no-deploy`，只编译，不修复 trampoline，也不修改游戏安装。
+日常开发使用各项目的 just 命令或原有子目录脚本。`just mod::build` 只编译，不修复 trampoline，也不修改游戏安装；部署进游戏用 `just mod::deploy`。
 
 ## 发布顺序
 
@@ -67,9 +67,9 @@ Release Manifest 保留 Tauri updater 的 `platforms` 字段，并提供 `downlo
 
 ## 验证
 
-- 根目录：`just release-check`；全仓库源码检查与测试分别为 `just check`、`just test`。
-- installer：`just installer-check`；真实准备后在 installer 目录使用 `npm run verify -- --release-platform macos`（或 `windows`）。跨仓库发布测试还需要 .NET SDK。
-- mod：`just mod-build`、`just mod-test`。
-- site：`just site-test`、`just site-check`。
+- 根目录：`just release::check`；全仓库源码检查与测试分别为 `just check`、`just test`。
+- installer：`just installer::check`；真实准备后在 installer 目录使用 `npm run verify -- --release-platform macos`（或 `windows`）。跨仓库发布测试还需要 .NET SDK。
+- mod：`just mod::build`、`just mod::test`。
+- site：`just site::test`、`just site::check`。
 
 没有对应平台的本机工具链、Payload 来源记录或签名材料时，不能以源码测试通过代替正式平台包验证。

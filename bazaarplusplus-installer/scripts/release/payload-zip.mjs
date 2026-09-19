@@ -149,7 +149,7 @@ function assertStagedModWritesV5DataRoot(sourceDir, productVersion) {
   const minimumVersion = V5_MIN_MOD_VERSION.split('.').map(Number);
   if (compareVersionParts(stagedVersion, minimumVersion) < 0) {
     throw new Error(
-      `Staged BazaarPlusPlus mod version must be ${V5_MIN_MOD_VERSION}.prod or newer to write the BazaarPlusPlusV5 data root (found '${content.trim()}'). Run ./run.sh publish first.`
+      `Staged BazaarPlusPlus mod version must be ${V5_MIN_MOD_VERSION}.prod or newer to write the BazaarPlusPlusV5 data root (found '${content.trim()}'). Run just release::prepare <platform> first.`
     );
   }
   if (content.trim() !== `${productVersion}.prod`) {
@@ -216,7 +216,7 @@ function assertStagedHistoryDatabaseCompatibility(rootDir, sourceDir) {
   const supported = readHistoryDatabaseCompatibility(rootDir);
   if (!supported.includes(contract.historyDatabaseUserVersion)) {
     throw new Error(
-      `Staged BazaarPlusPlus database schema ${contract.historyDatabaseUserVersion} is incompatible with this installer, which supports ${supported.join(',')}. Run ./run.sh publish from a compatible mod revision or update the installer compatibility contract.`
+      `Staged BazaarPlusPlus database schema ${contract.historyDatabaseUserVersion} is incompatible with this installer, which supports ${supported.join(',')}. Run just release::prepare <platform> from a compatible mod revision or update the installer compatibility contract.`
     );
   }
 }
