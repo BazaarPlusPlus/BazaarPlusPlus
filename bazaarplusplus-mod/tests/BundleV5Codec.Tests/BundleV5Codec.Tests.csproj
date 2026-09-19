@@ -15,6 +15,11 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Content Include="fixtures/**/*" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="fixtures/run-payload-v5.fixture.b64" CopyToOutputDirectory="PreserveNewest" />
+    <None
+      Include="../../../bazaarplusplus-server/contracts/v5/fixtures/*"
+      Link="fixtures/%(Filename)%(Extension)"
+      CopyToOutputDirectory="PreserveNewest"
+    />
   </ItemGroup>
 </Project>

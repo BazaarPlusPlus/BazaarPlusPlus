@@ -288,7 +288,7 @@ void Ulids()
 
 void RunPayloadRoundTrip()
 {
-    var payload = SamplePayload(new[] { "battle-000" });
+    var payload = GoldenPayload();
     var encoded = RunPayloadV5Codec.Encode(payload);
     var decoded = RunPayloadV5Codec.Decode(encoded);
     Equal(payload.RunId, decoded.RunId, "Run payload Run ID");
@@ -519,6 +519,103 @@ RunPayloadV5 SamplePayload(IEnumerable<string> battleIds) =>
         ReplayableBattleIds = battleIds.ToList(),
         Degradation = new PayloadDegradationV5(),
     };
+
+RunPayloadV5 GoldenPayload()
+{
+    var payload = SamplePayload(new[] { "battle-000" });
+    payload.Run.Seed = 123456;
+    payload.Run.Day = 10;
+    payload.Run.Hour = 2;
+    payload.Run.Victories = 1;
+    payload.Run.Losses = 0;
+    payload.Run.PlayerRank = "Gold";
+    payload.Run.PlayerRating = 1200;
+    payload.Run.FinalPlayerRank = "Legendary";
+    payload.Run.FinalPlayerRating = 1234;
+    payload.Run.FinalPlayerRatingDelta = 34;
+    payload.Run.MaxHealth = 2500;
+    payload.Run.Prestige = 3;
+    payload.Run.Level = 11;
+    payload.Run.Income = 8;
+    payload.Run.Gold = 17;
+    payload.Run.BuildChannel = "Online";
+    var battle = ReplayBattle("battle-000");
+    battle.Facts = new BattleFactsV5
+    {
+        RecordedAtUtc = "2026-08-03T00:29:00.0000000+00:00",
+        Day = 10,
+        Hour = 1,
+        EncounterId = "encounter-final",
+        CombatKind = "PvP",
+        Result = "Win",
+        WinnerCombatantId = "Player",
+        LoserCombatantId = "Opponent",
+        IsFinalBattle = true,
+    };
+    battle.Participants = new BattleParticipantsV5
+    {
+        Player = new BattleParticipantV5
+        {
+            AccountId = payload.PlayerAccountId,
+            DisplayName = "玩家😀",
+            HeroName = "Vanessa",
+            Rank = "Gold",
+            Rating = 1200,
+            Level = 11,
+            Prestige = 3,
+            Victories = 0,
+            Income = 8,
+            Gold = 17,
+            HandItemCount = 1,
+            SkillCount = 2,
+        },
+        Opponent = new BattleParticipantV5
+        {
+            AccountId = "golden-opponent",
+            DisplayName = "Opponent",
+            HeroName = "Pygmalien",
+            Rank = "Silver",
+            Rating = 1100,
+            Level = 12,
+            Prestige = 4,
+            Victories = 5,
+            Income = 9,
+            Gold = 18,
+            HandItemCount = 2,
+            SkillCount = 1,
+        },
+    };
+    for (var index = 0; index < battle.Snapshots!.CardSets.Count; index++)
+    {
+        var cardSet = battle.Snapshots.CardSets[index];
+        cardSet.Source = "capture";
+        cardSet.Items.Add(
+            new BattleCardV5
+            {
+                InstanceId = $"instance-{index}",
+                TemplateId = $"00000000-0000-0000-0000-{index + 1:000000000000}",
+                Type = index % 2 == 0 ? 1 : 2,
+                Size = index % 2 == 0 ? 2 : 1,
+                Section = index,
+                Socket = index + 4,
+                Name = $"Golden card {index}",
+                Tier = index % 2 == 0 ? "Gold" : "Silver",
+                Enchant = index == 0 ? "Burning" : null,
+                Tags = new List<string> { "Weapon", $"golden-{index}" },
+                Attributes = new Dictionary<string, int>
+                {
+                    ["damage"] = 100 + index,
+                    ["cooldown"] = 2000 + index,
+                },
+            }
+        );
+    }
+    payload.Battles.Add(battle);
+    payload.Degradation.Categories = new List<string> { "events_omitted", "screenshot_omitted" };
+    payload.Degradation.EventsOmitted = 2;
+    payload.Degradation.ScreenshotOmitted = true;
+    return payload;
+}
 
 string MinimalManifest(string payloadDigest) =>
     "{\"bundle_id\":\"01J00000000000000000000904\",\"bundle_version\":5,\"created_at_ms\":1785628800000,\"run\":{\"run_id\":\"reader-run\",\"player_account_id\":\"reader-account\",\"run_format_version\":5,\"projection\":{\"run\":{},\"battles\":[]},\"payload\":{\"offset\":0,\"length\":1,\"sha256\":\""
