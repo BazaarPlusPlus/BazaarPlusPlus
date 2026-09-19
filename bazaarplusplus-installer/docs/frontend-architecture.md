@@ -8,7 +8,8 @@
 
 ## Workflow State
 
-- `PageState` in `src/features/shared/pageState.ts` separates initial loading, blocking failure, ready-empty, and ready-content. Refreshing and refresh failure retain successful data, and request ids reject stale completions.
+- `PageRefreshState` in `src/features/shared/pageState.ts` is the refresh-outcome vocabulary shared by History List and Run Detail. Each workflow owns its loading state and request acceptance.
+- `createHistoryListWorkflow` in `src/features/history/historyListWorkflow.ts` owns the History List's current page, reads, range and action availability, out-of-range correction, and single-flight process recovery. Request identity rejects superseded reads; recovery completion refreshes the current page. Thumbnail discovery has independent request identity and cannot fail the list. `useHistoryPage` binds routing and subscription; disposal invalidates all pending publications and follow-up refreshes.
 - `DefaultInstallWorkflow` in `src/features/install/installWorkflow.ts` owns the authoritative install snapshot, action single-flight, target-bearing confirmations, retry parameters, and primary-action derivation.
 - `DefaultStreamWorkflow` in `src/features/stream/streamWorkflow.ts` owns service freshness, window, crop, and one-off capability states. React hooks create workflows once and bind lifecycle plus subscription rather than duplicating orchestration.
 - About bootstrap uses the separate `AppBootstrapSnapshot` in `src/features/about/appBootstrap.ts` because packaged fallback data can remain usable while native provenance fails.

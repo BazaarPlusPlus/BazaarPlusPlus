@@ -1,17 +1,23 @@
 // @vitest-environment jsdom
 
-import { act } from 'react';
+import { act, StrictMode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { emptyHistoryRunList } from '../api/previewDefaults';
 import { ToastProvider } from '../components/ui/Toast';
-import { listHistoryRuns } from '../features/history/historyApi';
+import {
+  endGameProcess,
+  listHistoryRuns
+} from '../features/history/historyApi';
 import { LocaleProvider } from '../i18n/LocaleProvider';
 import { LOCALE_STORAGE_KEY } from '../i18n/messages';
 import History from './History';
 
-vi.mock('../features/history/historyApi', () => ({ listHistoryRuns: vi.fn() }));
+vi.mock('../features/history/historyApi', () => ({
+  listHistoryRuns: vi.fn(),
+  endGameProcess: vi.fn()
+}));
 vi.mock('../features/shared/streamSessionApi', () => ({
   getStreamStatus: async () => ({ running: false })
 }));
@@ -42,9 +48,14 @@ const loadedPage = (offset = 0, total = 235) => ({
 let container: HTMLDivElement;
 let root: Root;
 
-function Route() {
+function Route({ remountOnNavigation }: { remountOnNavigation: boolean }) {
   const location = useLocation();
-  return <History key={location.key} />;
+  return (
+    <>
+      <History key={remountOnNavigation ? location.key : undefined} />
+      <output data-testid="route">{location.pathname + location.search}</output>
+    </>
+  );
 }
 
 beforeEach(() => {
@@ -53,6 +64,7 @@ beforeEach(() => {
   vi.mocked(listHistoryRuns)
     .mockReset()
     .mockImplementation(async (_limit, offset) => loadedPage(offset));
+  vi.mocked(endGameProcess).mockReset().mockResolvedValue(true);
   container = document.createElement('div');
   document.body.append(container);
   root = createRoot(container);
@@ -64,16 +76,18 @@ afterEach(async () => {
   vi.unstubAllGlobals();
 });
 
-async function render(path: string) {
+async function render(path: string, remountOnNavigation = false) {
   await act(async () =>
     root.render(
-      <LocaleProvider>
-        <ToastProvider>
-          <MemoryRouter initialEntries={[path]}>
-            <Route />
-          </MemoryRouter>
-        </ToastProvider>
-      </LocaleProvider>
+      <StrictMode>
+        <LocaleProvider>
+          <ToastProvider>
+            <MemoryRouter initialEntries={[path]}>
+              <Route remountOnNavigation={remountOnNavigation} />
+            </MemoryRouter>
+          </ToastProvider>
+        </LocaleProvider>
+      </StrictMode>
     )
   );
 }
@@ -128,10 +142,74 @@ describe('history pagination', () => {
     await render('/history?page=5');
     expect(container.querySelectorAll('.bpp-history-run-card')).toHaveLength(2);
     expect(container.textContent).toContain('第 51–52 局，共 52 局');
+    expect(container.querySelector('[data-testid="route"]')?.textContent).toBe(
+      '/history?page=2'
+    );
+  });
+
+  it('refreshes the current page when recovery started on an older page', async () => {
+    let finishRecovery!: (result: boolean) => void;
+    vi.mocked(endGameProcess).mockReturnValueOnce(
+      new Promise<boolean>((resolve) => {
+        finishRecovery = resolve;
+      })
+    );
+    await render('/history');
+    vi.mocked(listHistoryRuns).mockRejectedValueOnce({
+      code: 'history_read_blocked_by_game',
+      params: {},
+      diagnostic: null
+    });
+    await click('刷新');
+    await click('结束游戏进程');
+    expect(endGameProcess).toHaveBeenCalledOnce();
+    await click('下一页');
+    expect(
+      container.querySelector('.bpp-history-run-card')?.getAttribute('href')
+    ).toBe('/history/run-51');
+
+    await act(async () => finishRecovery(true));
+
+    expect(listHistoryRuns).toHaveBeenLastCalledWith(50, 50);
+    expect(
+      container.querySelector('.bpp-history-run-card')?.getAttribute('href')
+    ).toBe('/history/run-51');
+    expect(container.textContent).toContain('第 51–100 局，共 235 局');
   });
 
   it('treats an invalid page parameter as the first page', async () => {
     await render('/history?page=Infinity');
     expect(container.textContent).toContain('第 1–50 局，共 235 局');
+  });
+
+  it('does not refresh an unmounted page when recovery completes after navigation', async () => {
+    let finishRecovery!: (result: boolean) => void;
+    vi.mocked(endGameProcess).mockReturnValueOnce(
+      new Promise<boolean>((resolve) => {
+        finishRecovery = resolve;
+      })
+    );
+    // AnimatedOutlet remounts route content on location.key in the production shell.
+    await render('/history', true);
+    vi.mocked(listHistoryRuns).mockRejectedValueOnce({
+      code: 'history_read_blocked_by_game',
+      params: {},
+      diagnostic: null
+    });
+    await click('刷新');
+    await click('结束游戏进程');
+    await click('下一页');
+    const callsAfterNavigation = vi.mocked(listHistoryRuns).mock.calls.length;
+    expect(
+      container.querySelector('.bpp-history-run-card')?.getAttribute('href')
+    ).toBe('/history/run-51');
+
+    await act(async () => finishRecovery(true));
+
+    expect(listHistoryRuns).toHaveBeenCalledTimes(callsAfterNavigation);
+    expect(listHistoryRuns).toHaveBeenLastCalledWith(50, 50);
+    expect(
+      container.querySelector('.bpp-history-run-card')?.getAttribute('href')
+    ).toBe('/history/run-51');
   });
 });

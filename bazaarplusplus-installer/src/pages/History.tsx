@@ -1,11 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   ChevronRight,
   History as HistoryIcon,
   Image as ImageIcon,
   RefreshCw
 } from 'lucide-react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { Button } from '../components/ui/Button';
 import { EmptyState } from '../components/ui/EmptyState';
 import { LoadingPanel } from '../components/ui/LoadingPanel';
@@ -21,43 +21,19 @@ import {
   presentHistoryProblem,
   type HistoryPageProblem
 } from '../features/history/historyProblems';
-import {
-  useHistoryPage,
-  type EndGameProcessOutcome
-} from '../features/history/useHistoryPage';
+import { useHistoryPage } from '../features/history/useHistoryPage';
+import type { EndGameProcessOutcome } from '../features/history/historyListWorkflow';
 import { isWindowsPlatform } from '../features/shared/platform';
 import { formatProblemDiagnostic } from '../features/shared/problems';
 import { useToast } from '../components/ui/Toast';
 import { useI18n } from '../i18n/LocaleProvider';
 import type { MessageKey } from '../i18n/messages';
 import type { HistoryRunRow } from '../types/backend';
-import {
-  HISTORY_PAGE_SIZE,
-  parseHistoryPage
-} from '../features/history/pagination';
 
 export default function History() {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const pageNumber = parseHistoryPage(searchParams.get('page'));
-  const page = useHistoryPage(pageNumber);
+  const page = useHistoryPage();
   const { t } = useI18n();
-  const totalRuns = 'data' in page.state ? page.state.data.summary.runs : null;
-  const pageCount =
-    totalRuns === null
-      ? pageNumber
-      : Math.max(1, Math.ceil(totalRuns / HISTORY_PAGE_SIZE));
-
-  const goToPage = (number: number) => {
-    setSearchParams(number === 1 ? {} : { page: String(number) });
-  };
-
-  useEffect(() => {
-    if (totalRuns !== null && pageNumber > pageCount) {
-      setSearchParams(pageCount === 1 ? {} : { page: String(pageCount) }, {
-        replace: true
-      });
-    }
-  }, [pageCount, pageNumber, setSearchParams, totalRuns]);
+  const { pagination } = page;
 
   return (
     <PageShell
@@ -139,7 +115,7 @@ export default function History() {
                 <RunRow
                   key={run.run_id}
                   run={run}
-                  pageNumber={pageNumber}
+                  pageNumber={pagination.page}
                   previewUrl={page.previewUrl(run)}
                   previewProblem={page.previewProblem}
                 />
@@ -153,29 +129,27 @@ export default function History() {
             >
               <span role="status" aria-live="polite">
                 {t('historyPageRange', {
-                  start: (pageNumber - 1) * HISTORY_PAGE_SIZE + 1,
-                  end:
-                    (pageNumber - 1) * HISTORY_PAGE_SIZE +
-                    page.state.data.runs.length,
-                  total: page.state.data.summary.runs
+                  start: pagination.start,
+                  end: pagination.end,
+                  total: pagination.total ?? 0
                 })}
               </span>
               <div className="flex items-center gap-3">
                 <Button
-                  disabled={page.busy || pageNumber <= 1}
-                  onClick={() => goToPage(pageNumber - 1)}
+                  disabled={pagination.previousDisabled}
+                  onClick={() => page.goToPage(pagination.page - 1)}
                 >
                   {t('historyPreviousPage')}
                 </Button>
                 <span>
                   {t('historyPageNumber', {
-                    page: pageNumber,
-                    total: pageCount
+                    page: pagination.page,
+                    total: pagination.pageCount
                   })}
                 </span>
                 <Button
-                  disabled={page.busy || pageNumber >= pageCount}
-                  onClick={() => goToPage(pageNumber + 1)}
+                  disabled={pagination.nextDisabled}
+                  onClick={() => page.goToPage(pagination.page + 1)}
                 >
                   {t('historyNextPage')}
                 </Button>
