@@ -21,7 +21,7 @@ Windows 将 `macos` 换成 `windows`。`release::prepare` 和 `release::build` �
 
 just 只转发命令；版本规则、锁、签名流程和远端条件写仍在 Node 发布模块中执行，不使用任务缓存。原有 `node release.mjs sync|check|promote` 以及 `node release.mjs prepare|build|upload --platform <platform>` 保持可用；直接使用 Node 的 `prepare` / `build` 时，MSBuild 参数仍需放在 `--` 后。
 
-日常开发使用各项目的 just 命令或原有子目录脚本。`just mod::build` 只编译，不修复 trampoline，也不修改游戏安装；部署进游戏用 `just mod::deploy`。
+日常开发使用各项目的 just 命令或原有子目录脚本。`just mod::build` 只编译，不修复 trampoline，也不修改游戏安装；部署进游戏用 `just mod::build --deploy`。
 
 ## 发布顺序
 

@@ -136,7 +136,7 @@ try
 
     var result = RunProcess(
         "/bin/bash",
-        new[] { Path.Combine(projectRoot, "scripts", "build.sh"), "deploy" },
+        new[] { Path.Combine(projectRoot, "scripts", "build.sh"), "build", "--deploy" },
         new Dictionary<string, string?>
         {
             ["BPP_GAME_ROOT"] = gameRoot,
@@ -175,7 +175,7 @@ try
     );
     result = RunProcess(
         "/bin/bash",
-        new[] { Path.Combine(projectRoot, "scripts", "build.sh"), "deploy" },
+        new[] { Path.Combine(projectRoot, "scripts", "build.sh"), "build", "--deploy" },
         new Dictionary<string, string?>
         {
             ["BPP_GAME_ROOT"] = gameRoot,
@@ -194,7 +194,7 @@ try
     File.Delete(dotnetRecord);
     result = RunProcess(
         "/bin/bash",
-        new[] { Path.Combine(projectRoot, "scripts", "build.sh"), "deploy" },
+        new[] { Path.Combine(projectRoot, "scripts", "build.sh"), "build", "--deploy" },
         new Dictionary<string, string?>
         {
             ["BPP_GAME_ROOT"] = gameRoot,

@@ -125,7 +125,7 @@ test('the default lists every module, including from a project directory', (t) =
     assert.match(result.stdout, new RegExp(`^    ${module}:$`, 'm'));
   }
   assert.match(result.stdout, /promote/);
-  assert.match(result.stdout, /deploy \*args/);
+  assert.match(result.stdout, /build \*args/);
   assert.deepEqual(f.calls(), []);
 });
 
@@ -251,7 +251,6 @@ const managedPath =
 
 for (const [recipe, script, command] of [
   ['build', 'build', 'build'],
-  ['deploy', 'build', 'deploy'],
   ['test', 'test', 'test'],
   ['test-compat', 'test', 'test-compat'],
   ['fetch-data', 'build', 'fetch-data']
