@@ -42,7 +42,12 @@ internal static class HistoryPanelFormatter
     }
 
     public static string GhostListText(HistoryBattleRecord battle) =>
-        $"{battle.OpponentName ?? HistoryPanelText.UnknownOpponent()}\n{HistoryPanelText.DayBadge(battle.Day)}\n{FormatTimestamp(battle.RecordedAtUtc)}";
+        $"{battle.OpponentName ?? HistoryPanelText.UnknownOpponent()}\n{GhostDayLine(battle)}\n{FormatTimestamp(battle.RecordedAtUtc)}";
+
+    private static string GhostDayLine(HistoryBattleRecord battle) =>
+        battle.IsFinalBattle
+            ? $"{HistoryPanelText.DayBadge(battle.Day)} · {HistoryPanelText.FinalBattle()}"
+            : HistoryPanelText.DayBadge(battle.Day);
 
     private static string Mode(HistoryRunRecord run) =>
         run.GameMode.Trim().ToLowerInvariant() switch

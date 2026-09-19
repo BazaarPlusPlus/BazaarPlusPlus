@@ -21,6 +21,9 @@ internal static partial class HistoryPanelText
 
     internal static string SelectedBattle() => Resolve(SelectedBattleText);
 
+    // The challenger's run ended with this battle.
+    internal static string FinalBattle() => FormatSimple("Final", "终局", "終局");
+
     // Board ownership. In Runs the lower board is the local player's; in Ghost the ONLY
     // board shown is the challenger's, because ghost payloads stay in recorder perspective
     // (ADR-0002) and NativeBoards renders BuildPlayer, which reads Snapshots.PlayerHand.

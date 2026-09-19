@@ -32,6 +32,7 @@ TestStateSelectedRunUsesFilteredRunList();
 TestPageReplacementUpdatesSelection();
 TestCoordinatorRunSelectionUsesFilteredSpace();
 TestReplayReturnPreservesSelectionAndFilters();
+TestGhostListTextMarksOnlyTheFinalBattle();
 
 Console.WriteLine("HistoryPanelFiltering checks passed.");
 
@@ -361,7 +362,28 @@ object CreateRun(string runId, string hero)
         ) ?? throw new InvalidOperationException("HistoryRunRecord should construct.");
 }
 
-object CreateBattle(string battleId, int? day, string result)
+void TestGhostListTextMarksOnlyTheFinalBattle()
+{
+    var formatterType = RequireType("BazaarPlusPlus.Game.HistoryPanel.HistoryPanelFormatter");
+    var final = (string)
+        InvokeStatic(
+            formatterType,
+            "GhostListText",
+            CreateBattle("final", 12, "Win", isFinalBattle: true)
+        )!;
+    var ongoing = (string)
+        InvokeStatic(formatterType, "GhostListText", CreateBattle("ongoing", 12, "Win"))!;
+    Assert(
+        final.Split('\n')[1] == "D12 · Final",
+        $"A run-ending Ghost must mark its day line; got {final}."
+    );
+    Assert(
+        ongoing.Split('\n')[1] == "D12",
+        $"An ordinary Ghost must keep the bare day line; got {ongoing}."
+    );
+}
+
+object CreateBattle(string battleId, int? day, string result, bool isFinalBattle = false)
 {
     var counts =
         Activator.CreateInstance(snapshotCountsType, 0, 0, 0, 0)
@@ -394,7 +416,7 @@ object CreateBattle(string battleId, int? day, string result)
             null,
             null,
             counts,
-            false,
+            isFinalBattle,
             Enum.Parse(battleSourceType, "Ghost"),
             false,
             false

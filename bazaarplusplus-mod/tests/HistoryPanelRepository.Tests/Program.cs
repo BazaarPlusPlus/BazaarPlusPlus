@@ -66,6 +66,7 @@ try
         .ListGhostBattles("account-local", GhostBattleFilter.All, false, new())
         .Rows.Single();
     Assert(!local.SnapshotCounts.Known, "Undownloaded Ghost counts must remain unknown.");
+    Assert(!local.IsFinalBattle, "A non-final Ghost must stay non-final.");
     var localId = local.BattleId;
 
     var newer = Ghost(
@@ -81,6 +82,19 @@ try
             && reference.DownloadUrl.EndsWith("/new", StringComparison.Ordinal),
         "Discovery must overwrite the URL, expiry, and bundle identity."
     );
+    var final = Ghost(
+        "battle-final",
+        "bundle-final",
+        "https://r2.example/final",
+        DateTimeOffset.UtcNow.AddMinutes(10)
+    );
+    final.IsFinalBattle = true;
+    repository.UpsertGhostBattles("account-local", [final]);
+    var finalRow = repository
+        .ListGhostBattles("account-local", GhostBattleFilter.All, false, new())
+        .Rows.Single(row => row.BattleId != localId);
+    Assert(finalRow.IsFinalBattle, "Ghost discovery must keep the final-battle fact.");
+
     repository.MarkGhostReplayUnavailable(localId, "unavailable_payload", "corrupt");
     repository.UpsertGhostBattles("account-local", [newer]);
     Assert(
