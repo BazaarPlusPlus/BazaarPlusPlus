@@ -114,7 +114,7 @@ export async function main(args) {
       platform,
       msbuildArgs,
       bundle: ({ token }) => {
-        execFileSync('bash', [path.join(rootDir, 'build.sh'), '--prod'], {
+        execFileSync('bash', [path.join(rootDir, 'scripts/bundle.sh')], {
           cwd: rootDir,
           stdio: 'inherit',
           env: { ...process.env, BPP_RELEASE_LOCK_TOKEN: token }

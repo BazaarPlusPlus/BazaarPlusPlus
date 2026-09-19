@@ -1,38 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-PROD=false
-CLEAN_DEPS=false
-UPLOAD=false
+# Signs and bundles the installer for the host platform. Internal to the product
+# coordinator: `just release::build <platform>` (node release.mjs build) holds the
+# build lock, prepares the Payload, then runs this script with BPP_RELEASE_LOCK_TOKEN.
+# Functions are sourced directly by scripts/bundle.test.mjs. It lives outside
+# scripts/release/ because signing is not a Payload input.
 
-usage() {
-    cat <<'EOF'
-Usage:
-  ./build.sh
-      Start the local Tauri dev app.
-
-  ./build.sh --prod
-      Build release artifacts for the current host platform.
-      On macOS this produces an arm64 app bundle.
-      Also prepares the product Payload, runs prebuild checks, and loads updater signing
-      env vars from signing-secrets/ when not already exported.
-
-  ./build.sh --upload
-      Upload the current host platform release artifacts to Cloudflare R2
-      using conditional R2 S3 writes. This does not advance latest.json.
-
-  ./build.sh --prod --upload
-      Build the current host platform release artifacts, then upload them
-      to Cloudflare R2. Run node ../release.mjs promote after both platforms upload.
-
-  ./build.sh --prod --clean-deps
-      Reinstall npm dependencies before building.
-EOF
-}
-
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-MACOS_TRAMPOLINE_STUB="$SCRIPT_DIR/src-tauri/resources/Trampoline/macos/bpp_launcher"
-SIGNING_SECRETS_DIR="${BPP_SIGNING_SECRETS_DIR:-$SCRIPT_DIR/signing-secrets}"
+INSTALLER_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+MACOS_TRAMPOLINE_STUB="$INSTALLER_ROOT/src-tauri/resources/Trampoline/macos/bpp_launcher"
+SIGNING_SECRETS_DIR="${BPP_SIGNING_SECRETS_DIR:-$INSTALLER_ROOT/signing-secrets}"
 SIGNING_KEY_PATH="$SIGNING_SECRETS_DIR/tauri-updater.key"
 SIGNING_KEY_PASSWORD_PATH="$SIGNING_SECRETS_DIR/tauri-updater.password"
 APPLE_API_ISSUER_PATH="$SIGNING_SECRETS_DIR/apple-api-issuer"
@@ -91,9 +68,12 @@ set_exported_env() {
     export "$name"
 }
 
-load_required_secret_env() {
+# load_secret_env <NAME> <file> [optional]: reuse an exported value, else read the
+# ignored signing-secrets file. An optional secret defaults to empty.
+load_secret_env() {
     local name="$1"
     local path="$2"
+    local optional="${3:-}"
     local value="${!name:-}"
 
     if [ -n "$value" ]; then
@@ -101,6 +81,10 @@ load_required_secret_env() {
     elif [ -f "$path" ]; then
         echo "==> Loading $name from signing-secrets"
         value="$(<"$path")"
+    elif [ -n "$optional" ]; then
+        echo "==> No $name configured; using empty value"
+        set_exported_env "$name" ""
+        return
     else
         echo "Error: Missing $name." >&2
         echo "Set $name or create $path" >&2
@@ -108,7 +92,7 @@ load_required_secret_env() {
     fi
 
     value="$(trim_trailing_newlines "$value")"
-    if [ -z "$value" ]; then
+    if [ -z "$value" ] && [ -z "$optional" ]; then
         echo "Error: Empty $name." >&2
         echo "Set $name or write a value to $path" >&2
         exit 1
@@ -126,34 +110,16 @@ current_platform() {
 }
 
 release_platforms_cli() {
-    node "$SCRIPT_DIR/scripts/release/release-platforms.mjs" "$@"
+    node "$INSTALLER_ROOT/scripts/release/release-platforms.mjs" "$@"
 }
 
 install_dependencies() {
-    local allow_reuse="${1:-false}"
-    if [ "$allow_reuse" = true ] \
-        && [ "$CLEAN_DEPS" = false ] \
-        && [ -d "$SCRIPT_DIR/node_modules" ] \
-        && [ -d "$SCRIPT_DIR/node_modules/@tauri-apps/cli" ] \
-        && { [ -f "$SCRIPT_DIR/node_modules/.bin/tauri" ] || [ -f "$SCRIPT_DIR/node_modules/.bin/tauri.cmd" ]; } \
-        && npm ls --depth=0 >/dev/null 2>&1; then
-        echo "==> Reusing existing npm dependencies"
-        echo "    Remove node_modules or rerun with --clean-deps to force a reinstall."
-        return
-    fi
-
-    if [ ! -f "$SCRIPT_DIR/package-lock.json" ]; then
+    if [ ! -f "$INSTALLER_ROOT/package-lock.json" ]; then
         echo "Error: package-lock.json is required for a reproducible dependency install; refusing to run npm install." >&2
         return 1
     fi
 
     invoke_step "Installing npm dependencies" npm ci
-}
-
-required_rust_targets_for_platform() {
-    local platform="$1"
-
-    release_platforms_cli rust-targets "$platform"
 }
 
 ensure_required_rust_targets() {
@@ -162,7 +128,7 @@ ensure_required_rust_targets() {
     local required_targets=""
     local required_target=""
 
-    required_targets="$(required_rust_targets_for_platform "$platform")"
+    required_targets="$(release_platforms_cli rust-targets "$platform")"
     if [ -z "${required_targets//[[:space:]]/}" ]; then
         return 0
     fi
@@ -179,33 +145,8 @@ ensure_required_rust_targets() {
 }
 
 load_updater_signing_env() {
-    if [ -n "${TAURI_SIGNING_PRIVATE_KEY:-}" ]; then
-        echo "==> Reusing existing TAURI_SIGNING_PRIVATE_KEY from environment"
-    elif [ -f "$SIGNING_KEY_PATH" ]; then
-        echo "==> Loading TAURI_SIGNING_PRIVATE_KEY from signing-secrets"
-        TAURI_SIGNING_PRIVATE_KEY="$(<"$SIGNING_KEY_PATH")"
-        export TAURI_SIGNING_PRIVATE_KEY
-    else
-        echo "Error: Missing updater signing key." >&2
-        echo "Set TAURI_SIGNING_PRIVATE_KEY or create $SIGNING_KEY_PATH" >&2
-        exit 1
-    fi
-
-    TAURI_SIGNING_PRIVATE_KEY="$(trim_trailing_newlines "$TAURI_SIGNING_PRIVATE_KEY")"
-    export TAURI_SIGNING_PRIVATE_KEY
-
-    if [ -n "${TAURI_SIGNING_PRIVATE_KEY_PASSWORD:-}" ]; then
-        echo "==> Reusing existing TAURI_SIGNING_PRIVATE_KEY_PASSWORD from environment"
-    elif [ -f "$SIGNING_KEY_PASSWORD_PATH" ]; then
-        echo "==> Loading TAURI_SIGNING_PRIVATE_KEY_PASSWORD from signing-secrets"
-        TAURI_SIGNING_PRIVATE_KEY_PASSWORD="$(<"$SIGNING_KEY_PASSWORD_PATH")"
-        TAURI_SIGNING_PRIVATE_KEY_PASSWORD="$(trim_trailing_newlines "$TAURI_SIGNING_PRIVATE_KEY_PASSWORD")"
-    else
-        echo "==> No updater key password configured; using empty password"
-        TAURI_SIGNING_PRIVATE_KEY_PASSWORD=""
-    fi
-
-    export TAURI_SIGNING_PRIVATE_KEY_PASSWORD
+    load_secret_env TAURI_SIGNING_PRIVATE_KEY "$SIGNING_KEY_PATH"
+    load_secret_env TAURI_SIGNING_PRIVATE_KEY_PASSWORD "$SIGNING_KEY_PASSWORD_PATH" optional
 }
 
 detect_developer_id_application_identity() {
@@ -286,7 +227,7 @@ load_apple_api_key_path_env() {
     fi
 
     if [[ "$value" != /* ]]; then
-        value="$SCRIPT_DIR/$value"
+        value="$INSTALLER_ROOT/$value"
     fi
 
     set_exported_env APPLE_API_KEY_PATH "$value"
@@ -295,8 +236,8 @@ load_apple_api_key_path_env() {
 
 load_macos_developer_id_env() {
     load_apple_signing_identity_env
-    load_required_secret_env APPLE_API_ISSUER "$APPLE_API_ISSUER_PATH"
-    load_required_secret_env APPLE_API_KEY "$APPLE_API_KEY_ID_PATH"
+    load_secret_env APPLE_API_ISSUER "$APPLE_API_ISSUER_PATH"
+    load_secret_env APPLE_API_KEY "$APPLE_API_KEY_ID_PATH"
     load_apple_api_key_path_env
 }
 
@@ -308,7 +249,7 @@ is_macho_file() {
 
 macos_resource_relative_path() {
     local resource_path="$1"
-    local resource_root="$SCRIPT_DIR/src-tauri/resources/"
+    local resource_root="$INSTALLER_ROOT/src-tauri/resources/"
 
     if [[ "$resource_path" == "$resource_root"* ]]; then
         printf '%s' "${resource_path#$resource_root}"
@@ -379,36 +320,37 @@ sign_macos_resource_binaries() {
     done < <(find "$payload_dir" \( -type d -name '*.app' -o -type d -name '*.bundle' \) -prune -o -type f -print0)
 }
 
-# Signs nested app code from the inside out, then signs the bundle itself so
-# Contents/_CodeSignature/CodeResources matches the final executable bytes.
+# Signs every Mach-O file inside a bundle, then the bundle itself, then verifies it,
+# so Contents/_CodeSignature/CodeResources matches the final executable bytes.
+sign_macos_bundle_inside_out() {
+    local payload_dir="$1"
+    local bundle="$2"
+    local kind="$3"
+    local relative_path="${bundle#$payload_dir/}"
+    local binary_path=""
+
+    while IFS= read -r -d '' binary_path; do
+        if is_macho_file "$binary_path"; then
+            sign_macos_resource_binary "$binary_path" "${binary_path#$payload_dir/}"
+        fi
+    done < <(find "$bundle/Contents" -type f -print0)
+
+    invoke_step "Signing macOS resource $kind bundle $relative_path" \
+        codesign --force --options runtime --timestamp \
+        --sign "$APPLE_SIGNING_IDENTITY" "$bundle"
+    invoke_step "Verifying macOS resource $kind bundle $relative_path" \
+        codesign --verify --deep --strict --verbose=2 "$bundle"
+}
+
 sign_macos_resource_app_bundles() {
     local payload_dir="$1"
     local app_bundle=""
-    local app_relative_path=""
-    local binary_path=""
-    local binary_relative_path=""
 
     while IFS= read -r -d '' app_bundle; do
-        app_relative_path="${app_bundle#$payload_dir/}"
         # This is an install-path overlay, not a complete application bundle.
-        if [ "$app_relative_path" = "$MACOS_GAME_APP_OVERLAY" ]; then
-            continue
+        if [ "${app_bundle#$payload_dir/}" != "$MACOS_GAME_APP_OVERLAY" ]; then
+            sign_macos_bundle_inside_out "$payload_dir" "$app_bundle" app
         fi
-
-        while IFS= read -r -d '' binary_path; do
-            if ! is_macho_file "$binary_path"; then
-                continue
-            fi
-
-            binary_relative_path="${binary_path#$payload_dir/}"
-            sign_macos_resource_binary "$binary_path" "$binary_relative_path"
-        done < <(find "$app_bundle/Contents" -type f -print0)
-
-        invoke_step "Signing macOS resource app bundle $app_relative_path" \
-            codesign --force --options runtime --timestamp \
-            --sign "$APPLE_SIGNING_IDENTITY" "$app_bundle"
-        invoke_step "Verifying macOS resource app bundle $app_relative_path" \
-            codesign --verify --deep --strict --verbose=2 "$app_bundle"
     done < <(find "$payload_dir" -type d -name '*.app' -prune -print0)
 }
 
@@ -416,8 +358,6 @@ sign_macos_resource_plugin_bundles() {
     local payload_dir="$1"
     local plugin_bundle=""
     local plugin_relative_path=""
-    local binary_path=""
-    local binary_relative_path=""
 
     while IFS= read -r -d '' plugin_bundle; do
         plugin_relative_path="${plugin_bundle#$payload_dir/}"
@@ -425,19 +365,7 @@ sign_macos_resource_plugin_bundles() {
             assert_ad_hoc_replay_recorder_input "$plugin_bundle"
         fi
 
-        while IFS= read -r -d '' binary_path; do
-            if ! is_macho_file "$binary_path"; then
-                continue
-            fi
-            binary_relative_path="${binary_path#$payload_dir/}"
-            sign_macos_resource_binary "$binary_path" "$binary_relative_path"
-        done < <(find "$plugin_bundle/Contents" -type f -print0)
-
-        invoke_step "Signing macOS resource plugin bundle $plugin_relative_path" \
-            codesign --force --options runtime --timestamp \
-            --sign "$APPLE_SIGNING_IDENTITY" "$plugin_bundle"
-        invoke_step "Verifying macOS resource plugin bundle $plugin_relative_path" \
-            codesign --verify --deep --strict --verbose=2 "$plugin_bundle"
+        sign_macos_bundle_inside_out "$payload_dir" "$plugin_bundle" plugin
 
         if [ "$plugin_relative_path" = "$REPLAY_RECORDER_RELATIVE_BUNDLE" ]; then
             assert_official_codesign_team_id \
@@ -470,7 +398,7 @@ create_zip_from_directory() {
     local output_zip="$2"
     local output_manifest="$3"
 
-    node "$SCRIPT_DIR/scripts/release/payload-zip.mjs" pack \
+    node "$INSTALLER_ROOT/scripts/release/payload-zip.mjs" pack \
         --source "$source_dir" --output "$output_zip" \
         --manifest-output "$output_manifest" --platform macos
 }
@@ -517,8 +445,8 @@ prepare_signed_macos_resource_zip() {
 
 run_release_prechecks() {
     local platform="$1"
-    invoke_step "Checking product release inputs" node "$SCRIPT_DIR/../release.mjs" check
-    invoke_step "Checking product build ownership" node "$SCRIPT_DIR/../release.mjs" assert-build-owner
+    invoke_step "Checking product release inputs" node "$INSTALLER_ROOT/../release.mjs" check
+    invoke_step "Checking product build ownership" node "$INSTALLER_ROOT/../release.mjs" assert-build-owner
     invoke_step "Running authoritative release verification" \
         npm run verify -- --release-platform "$platform"
 }
@@ -532,7 +460,7 @@ build_prod() {
     local bundle_cleanup_path=""
     local release_binary=""
     local tauri_target=""
-    local release_config="$SCRIPT_DIR/src-tauri/tauri.release.conf.json"
+    local release_config="$INSTALLER_ROOT/src-tauri/tauri.release.conf.json"
     local -a build_command
     local -a bundle_command
 
@@ -555,11 +483,11 @@ build_prod() {
         exit 1
     fi
 
-    config="$SCRIPT_DIR/$config"
-    resource_zip="$SCRIPT_DIR/$resource_zip"
-    bundle_output="$SCRIPT_DIR/$bundle_output"
-    bundle_cleanup_path="$SCRIPT_DIR/$bundle_cleanup_path"
-    release_binary="$SCRIPT_DIR/$release_binary"
+    config="$INSTALLER_ROOT/$config"
+    resource_zip="$INSTALLER_ROOT/$resource_zip"
+    bundle_output="$INSTALLER_ROOT/$bundle_output"
+    bundle_cleanup_path="$INSTALLER_ROOT/$bundle_cleanup_path"
+    release_binary="$INSTALLER_ROOT/$release_binary"
 
     assert_file "$config" "$platform Tauri config"
     assert_file "$resource_zip" "$platform resource zip"
@@ -596,91 +524,43 @@ build_prod() {
     echo "Bundle:  $bundle_output"
 }
 
-parse_args() {
-    while [ "$#" -gt 0 ]; do
-        case "$1" in
-            --prod)
-                PROD=true
-                ;;
-            --upload)
-                UPLOAD=true
-                ;;
-            --clean-deps)
-                CLEAN_DEPS=true
-                ;;
-            -h|--help)
-                usage
-                exit 0
-                ;;
-            *)
-                echo "Unknown argument: $1" >&2
-                usage
-                exit 1
-                ;;
-        esac
-        shift
-    done
-}
-
 main() {
     local platform=""
-    local node_version=""
-    local npm_version=""
 
-    parse_args "$@"
+    if [ "$#" -gt 0 ]; then
+        echo "Error: bundle.sh takes no arguments; run just release::build <platform>." >&2
+        exit 2
+    fi
+    if [ -z "${BPP_RELEASE_LOCK_TOKEN:-}" ]; then
+        echo "Error: bundle.sh runs inside the product build lock; run just release::build <platform>." >&2
+        exit 1
+    fi
 
-    cd "$SCRIPT_DIR"
+    cd "$INSTALLER_ROOT"
+    node "$INSTALLER_ROOT/../release.mjs" assert-build-owner
 
     assert_command node "Install Node.js first."
     assert_command npm "Install Node.js/npm first."
-    node_version="$(node --version)"
-    npm_version="$(npm --version)"
-    node scripts/checks/check-toolchain.mjs "$node_version" "$npm_version"
-    if [ "$PROD" = false ] && [ "$UPLOAD" = false ]; then
-        assert_command cargo "Install Rust toolchain first."
-        install_dependencies true
-        invoke_step "Starting dev server" npm run tauri dev
-        exit 0
-    fi
+    node scripts/checks/check-toolchain.mjs "$(node --version)" "$(npm --version)"
+    assert_command cargo "Install Rust toolchain first."
 
     platform="$(current_platform)"
     if [ "$platform" = "unknown" ]; then
         echo "Error: Unsupported host platform: $(uname -s)" >&2
         exit 1
     fi
-
-    if [ "$PROD" = true ]; then
-        if [ -z "${BPP_RELEASE_LOCK_TOKEN:-}" ]; then
-            node "$SCRIPT_DIR/../release.mjs" build --platform "$platform"
-            if [ "$UPLOAD" = true ]; then
-                node "$SCRIPT_DIR/../release.mjs" upload --platform "$platform"
-            fi
-            return
-        fi
-        node "$SCRIPT_DIR/../release.mjs" assert-build-owner
-        assert_command cargo "Install Rust toolchain first."
-        install_dependencies false
-
-        if [ "$platform" = "macos" ]; then
-            assert_command rustup "Install rustup first so the macOS Rust target can be managed."
-        fi
-
-        load_updater_signing_env
-        if [ "$platform" = "macos" ]; then
-            load_macos_developer_id_env
-        fi
-        run_release_prechecks "$platform"
-        ensure_required_rust_targets "$platform"
-        build_prod "$platform"
+    if [ "$platform" = "macos" ]; then
+        assert_command rustup "Install rustup first so the macOS Rust target can be managed."
     fi
 
-    if [ "$UPLOAD" = true ]; then
-        if [ "$PROD" = false ]; then
-            install_dependencies false
-        fi
-        invoke_step "Uploading immutable $platform release artifacts" \
-            node "$SCRIPT_DIR/../release.mjs" upload --platform "$platform"
+    install_dependencies
+    load_updater_signing_env
+    if [ "$platform" = "macos" ]; then
+        load_macos_developer_id_env
     fi
+    run_release_prechecks "$platform"
+    ensure_required_rust_targets "$platform"
+    build_prod "$platform"
 }
 
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then

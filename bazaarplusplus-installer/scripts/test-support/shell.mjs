@@ -35,7 +35,7 @@ export function resolveBashCommand() {
 
 const bashCommand = resolveBashCommand();
 
-// Git Bash treats `E:\foo` as a relative path, so paths handed to build.sh
+// Git Bash treats `E:\foo` as a relative path, so paths handed to bundle.sh
 // must be POSIX-style absolute (`/e/foo`) on Windows.
 export function toBashPath(p) {
   return p

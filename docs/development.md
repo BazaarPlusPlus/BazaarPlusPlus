@@ -40,7 +40,7 @@ just mod::build
 - `mod::fmt-check`：用仓库锁定版本的 CSharpier 检查 C# 格式，属于 `check`。
 - `installer::check`：调用现有 `verify -- --source-only` 和文档检查，包含格式检查、oxlint、Clippy、Rust/JavaScript 测试、绑定生成、类型检查、Rust 文档与前端构建。因此先运行 `check` 再运行 `test` 会重复 installer 测试。
 - `site::check`：类型、lint、格式检查及生产构建；`server::check`：Worker 的现有检查；`analyzer::check`：Ruff 格式、lint 和 ty 检查。三个项目均有对应的 `test`。
-- `installer::dev`：仅启动前端开发服务。完整桌面开发仍在 installer 目录执行 `npm run tauri dev`。`server::dev` 需要 server 自己的 `.dev.vars`。
+- `installer::dev`：仅启动前端开发服务。完整桌面开发执行 `just installer::app`。`server::dev` 需要 server 自己的 `.dev.vars`。
 
 ## Git hooks
 

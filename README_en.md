@@ -70,7 +70,7 @@ Feature guides, hotkeys, and installation details live at [bazaarplusplus.com/tu
 ├── bazaarplusplus-installer/                 # Desktop installer
 │   ├── src/                                  # Vite + React frontend
 │   ├── src-tauri/                            # Tauri 2 / Rust backend
-│   └── build.sh                              # Local development and release packaging entry point
+│   └── installer.just                        # just installer::… development recipes
 ├── bazaarplusplus-server/                    # Cloudflare Worker: Bundle upload and Ghost discovery
 ├── bazaarplusplus-analyzer/                  # Turns Bundles into heroes / builds snapshots
 └── bazaarplusplus-site/                      # bazaarplusplus.com

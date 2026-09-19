@@ -23,10 +23,10 @@ Prerequisites:
 Run the desktop app in development mode:
 
 ```bash
-./build.sh
+just installer::app
 ```
 
-This installs dependencies and runs `npm run tauri dev` for you. To run the steps manually:
+This checks the Node/npm versions, runs `npm ci` when `node_modules` is missing or invalid, then runs `npm run tauri dev`. To run the steps manually:
 
 ```bash
 npm ci
@@ -51,13 +51,11 @@ One thing to know: the TypeScript client for Tauri commands is **generated** fro
 ## Release build
 
 ```bash
-./build.sh --prod               # release bundle for the current host platform
-./build.sh --prod --clean-deps  # same, but reinstall npm dependencies first
-./build.sh --prod --upload      # build, then upload artifacts to Cloudflare R2
-./build.sh --upload             # upload previously built artifacts only
+just release::build macos    # prepare the Payload, verify, sign, and bundle on this host
+just release::upload macos   # upload the built artifacts to Cloudflare R2 without advancing latest
 ```
 
-`--prod` runs version sync and prebuild checks, and requires updater signing secrets (read from `signing-secrets/` or environment variables).
+Use `windows` on a Windows host. `release::build` always reinstalls npm dependencies from the lockfile and requires updater signing secrets (read from `signing-secrets/` or environment variables). It runs `scripts/bundle.sh` inside the product build lock; that script is not a standalone entry point. The full flow is in the [workspace release docs](../docs/release.md).
 
 macOS additionally requires:
 

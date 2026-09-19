@@ -51,7 +51,7 @@ export function assertMacosTrampolineStubWith(rootDir, describeStub) {
   if (!fs.existsSync(stubPath)) {
     throw new Error(
       `Missing compiled macOS trampoline stub: ${stubPath}. ` +
-        'Run build.sh (which compiles it from src-tauri/trampoline/bpp_launcher.c) before bundling.'
+        'Build src-tauri on macOS (build.rs compiles it from src-tauri/trampoline/bpp_launcher.c) before bundling.'
     );
   }
 

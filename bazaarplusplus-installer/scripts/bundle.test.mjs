@@ -11,7 +11,7 @@ const projectDir = process.cwd();
 // tests never read, write, or restore the developer's real signing-secrets/.
 // (The old backup/restore approach clobbered real keys whenever a run was
 // interrupted before its finally block ran.) The temp dir lives under the
-// project root with a `signing-secrets` leaf, so build.sh's SCRIPT_DIR-relative
+// project root with a `signing-secrets` leaf, so bundle.sh's INSTALLER_ROOT-relative
 // resolution of a relative apple-api-key-path still lands inside the fixtures.
 // `files` may be an object or a `(ctx) => object` builder that needs the paths;
 // `fn` receives the same ctx { dir, dirBash, relBash }.
@@ -40,7 +40,7 @@ function withSigningSecretFiles(files, fn) {
 test('macOS production build targets arm64 artifacts', () => {
   const output = runShell(`
     set -euo pipefail
-    source ./build.sh
+    source ./scripts/bundle.sh
     assert_file() { :; }
     prepare_signed_macos_resource_zip() {
       printf 'Preparing signed macos resource zip|%s\\n' "$*"
@@ -80,7 +80,7 @@ test('macOS production build targets arm64 artifacts', () => {
 test('macOS production build stops at the first resource-signing failure', () => {
   const output = runShell(`
     set -euo pipefail
-    source ./build.sh
+    source ./scripts/bundle.sh
     assert_file() { :; }
     invoke_step() {
       local label="$1"
@@ -126,9 +126,9 @@ test('macOS production build removes the entire bundle directory before rebundli
   try {
     const output = runShell(`
       set -euo pipefail
-      source ./build.sh
+      source ./scripts/bundle.sh
       release_platforms_cli() { node '${toBashPath(projectDir)}/scripts/release/release-platforms.mjs' "$@"; }
-      SCRIPT_DIR='${toBashPath(fixtureRoot)}'
+      INSTALLER_ROOT='${toBashPath(fixtureRoot)}'
       assert_file() { :; }
       prepare_signed_macos_resource_zip() { :; }
       prepare_signed_macos_resource_binary() { :; }
@@ -151,7 +151,7 @@ test('macOS production build removes the entire bundle directory before rebundli
 test('Windows production build keeps the default target layout', () => {
   const output = runShell(`
     set -euo pipefail
-    source ./build.sh
+    source ./scripts/bundle.sh
     assert_file() { :; }
     invoke_step() {
       local label="$1"
@@ -175,7 +175,7 @@ test('Windows production build keeps the default target layout', () => {
 
 test('macOS production build requires the arm64 Rust target', () => {
   const output = runShell(`
-    source ./build.sh
+    source ./scripts/bundle.sh
     set +e
     rustup() {
       printf '%s\\n' x86_64-apple-darwin
@@ -195,7 +195,7 @@ test('macOS production build requires the arm64 Rust target', () => {
 test('Windows with no extra Rust target does not invoke rustup', () => {
   const output = runShell(`
     set -euo pipefail
-    source ./build.sh
+    source ./scripts/bundle.sh
     rustup() { printf 'unexpected rustup call\\n'; return 127; }
     ensure_required_rust_targets windows
     printf 'ok\\n'
@@ -207,58 +207,13 @@ test('Windows with no extra Rust target does not invoke rustup', () => {
 test('macOS accepts an already installed required Rust target', () => {
   const output = runShell(`
     set -euo pipefail
-    source ./build.sh
+    source ./scripts/bundle.sh
     rustup() { printf 'aarch64-apple-darwin\\n'; }
     ensure_required_rust_targets macos
     printf 'ok\\n'
   `);
 
   expect(output).toBe('ok\n');
-});
-
-test('dependency install reuses a valid local node_modules tree', () => {
-  const root = mkdtempSync(`${projectDir}/.bpp-deps-test-`);
-  const rootBash = toBashPath(root);
-  mkdirSync(`${root}/node_modules/@tauri-apps/cli`, { recursive: true });
-  mkdirSync(`${root}/node_modules/.bin`, { recursive: true });
-  writeFileSync(`${root}/node_modules/.bin/tauri`, 'fixture');
-
-  try {
-    const output = runShell(`
-      set -euo pipefail
-      source ./build.sh
-      SCRIPT_DIR='${rootBash}'
-      npm() { [ "$1" = ls ]; }
-      install_dependencies true
-    `);
-    expect(output).toContain('Reusing existing npm dependencies');
-  } finally {
-    rmSync(root, { recursive: true, force: true });
-  }
-});
-
-test('release dependency install uses npm ci instead of reusing node_modules', () => {
-  const root = mkdtempSync(`${projectDir}/.bpp-deps-test-`);
-  const rootBash = toBashPath(root);
-  mkdirSync(`${root}/node_modules/@tauri-apps/cli`, { recursive: true });
-  mkdirSync(`${root}/node_modules/.bin`, { recursive: true });
-  writeFileSync(`${root}/node_modules/.bin/tauri`, 'fixture');
-  writeFileSync(`${root}/package-lock.json`, '{}');
-
-  try {
-    const output = runShell(`
-      set -euo pipefail
-      source ./build.sh
-      SCRIPT_DIR='${rootBash}'
-      npm() { [ "$1" = ls ]; }
-      invoke_step() { local label="$1"; shift; printf '%s|%s\\n' "$label" "$*"; }
-      install_dependencies false
-    `);
-    expect(output).toContain('Installing npm dependencies|npm ci');
-    expect(output).not.toContain('Reusing existing npm dependencies');
-  } finally {
-    rmSync(root, { recursive: true, force: true });
-  }
 });
 
 test('dependency install uses npm ci whenever package-lock.json exists', () => {
@@ -269,8 +224,8 @@ test('dependency install uses npm ci whenever package-lock.json exists', () => {
   try {
     const output = runShell(`
       set -euo pipefail
-      source ./build.sh
-      SCRIPT_DIR='${rootBash}'
+      source ./scripts/bundle.sh
+      INSTALLER_ROOT='${rootBash}'
       invoke_step() { local label="$1"; shift; printf '%s|%s\\n' "$label" "$*"; }
       install_dependencies
     `);
@@ -287,8 +242,8 @@ test('dependency install fails clearly instead of updating an absent lockfile', 
 
   try {
     const output = runShell(`
-      source ./build.sh
-      SCRIPT_DIR='${rootBash}'
+      source ./scripts/bundle.sh
+      INSTALLER_ROOT='${rootBash}'
       set +e
       install_dependencies 2>&1
       printf 'exit:%s\\n' "$?"
@@ -303,7 +258,7 @@ test('dependency install fails clearly instead of updating an absent lockfile', 
 test('macOS resource signing applies Developer ID timestamp only to loose Mach-O files', () => {
   const output = runShell(`
     set -euo pipefail
-    source ./build.sh
+    source ./scripts/bundle.sh
     payload="$(mktemp -d)"
     trap 'rm -rf "$payload"' EXIT
     mkdir -p "$payload/BepInEx/plugins"
@@ -348,7 +303,7 @@ test('macOS resource signing applies Developer ID timestamp only to loose Mach-O
 test('macOS replay recorder plugin is signed inside-out with the official team', () => {
   const output = runShell(`
     set -euo pipefail
-    source ./build.sh
+    source ./scripts/bundle.sh
     payload="$(mktemp -d)"
     trap 'rm -rf "$payload"' EXIT
     bundle="$payload/TheBazaar.app/Contents/Plugins/GfxPluginBppReplayVideoToolbox.bundle"
@@ -405,7 +360,7 @@ test('macOS replay recorder plugin is signed inside-out with the official team',
 test('macOS resource zip treats TheBazaar.app as an overlay and signs its plugin inside-out', () => {
   const output = runShell(`
     set -euo pipefail
-    source ./build.sh
+    source ./scripts/bundle.sh
     fixture="$(mktemp -d)"
     trap 'rm -rf "$fixture"' EXIT
     trace_file="$fixture/codesign.trace"
@@ -482,7 +437,7 @@ test('macOS resource zip treats TheBazaar.app as an overlay and signs its plugin
 test('macOS release rejects a replay recorder plugin signed by a local Developer ID', () => {
   const output = runShell(`
     set -euo pipefail
-    source ./build.sh
+    source ./scripts/bundle.sh
     bundle="$(mktemp -d)/GfxPluginBppReplayVideoToolbox.bundle"
     mkdir -p "$bundle/Contents"
     codesign() {
@@ -501,7 +456,7 @@ test('macOS release rejects a replay recorder plugin signed by a local Developer
 test('macOS loose resource signing applies Developer ID timestamp to trampoline stub', () => {
   const output = runShell(`
     set -euo pipefail
-    source ./build.sh
+    source ./scripts/bundle.sh
     payload="$(mktemp -d)"
     trap 'rm -rf "$payload"' EXIT
     stub="$payload/bpp_launcher"
@@ -549,7 +504,7 @@ test('macOS Developer ID env loads from signing-secrets files', () => {
         set -euo pipefail
         unset APPLE_API_ISSUER APPLE_API_KEY APPLE_API_KEY_PATH APPLE_SIGNING_IDENTITY
         export BPP_SIGNING_SECRETS_DIR="${dirBash}"
-        source ./build.sh
+        source ./scripts/bundle.sh
         load_macos_developer_id_env >/tmp/bpp-apple-env-test.out
         cat /tmp/bpp-apple-env-test.out
         printf 'issuer=%s\\n' "$APPLE_API_ISSUER"
@@ -593,7 +548,7 @@ test('macOS Developer ID env exports relative API key paths as absolute paths', 
         set -euo pipefail
         unset APPLE_API_ISSUER APPLE_API_KEY APPLE_API_KEY_PATH APPLE_SIGNING_IDENTITY
         export BPP_SIGNING_SECRETS_DIR="${dirBash}"
-        source ./build.sh
+        source ./scripts/bundle.sh
         load_macos_developer_id_env >/tmp/bpp-apple-env-test.out
         cat /tmp/bpp-apple-env-test.out
         printf 'key_path=%s\\n' "$APPLE_API_KEY_PATH"
@@ -618,7 +573,7 @@ test('macOS Developer ID env detects identity and infers API key path', () => {
         set -euo pipefail
         unset APPLE_API_ISSUER APPLE_API_KEY APPLE_API_KEY_PATH APPLE_SIGNING_IDENTITY
         export BPP_SIGNING_SECRETS_DIR="${dirBash}"
-        source ./build.sh
+        source ./scripts/bundle.sh
         security() {
           printf '%s\\n' '  1) ABC "Apple Development: dev@example.com (TEAMID1234)"'
           printf '%s\\n' '  2) DEF "Developer ID Application: Example Builder (TEAMID1234)"'
@@ -648,7 +603,7 @@ test('macOS Developer ID env detects identity and infers API key path', () => {
 test('release prechecks require the product build lock before verification', () => {
   const output = runShell(`
     set -euo pipefail
-    source ./build.sh
+    source ./scripts/bundle.sh
     invoke_step() {
       local label="$1"
       shift
@@ -660,4 +615,52 @@ test('release prechecks require the product build lock before verification', () 
   expect(output).toContain('release.mjs assert-build-owner');
   expect(output).toContain('npm run verify -- --release-platform windows');
   expect(output).not.toContain('prepare:resources');
+});
+
+test('updater signing env requires the key and defaults the password to empty', () => {
+  withSigningSecretFiles(
+    { 'tauri-updater.key': 'updater-key\n\n' },
+    ({ dirBash }) => {
+      const output = runShell(`
+      set -euo pipefail
+      unset TAURI_SIGNING_PRIVATE_KEY TAURI_SIGNING_PRIVATE_KEY_PASSWORD
+      export BPP_SIGNING_SECRETS_DIR="${dirBash}"
+      source ./scripts/bundle.sh
+      load_updater_signing_env
+      printf 'key=[%s]\\n' "$TAURI_SIGNING_PRIVATE_KEY"
+      printf 'password=[%s]\\n' "$TAURI_SIGNING_PRIVATE_KEY_PASSWORD"
+      bash -c 'printf "exported=[%s]\\n" "$TAURI_SIGNING_PRIVATE_KEY_PASSWORD"'
+    `);
+      expect(output).toContain(
+        'Loading TAURI_SIGNING_PRIVATE_KEY from signing-secrets'
+      );
+      expect(output).toContain('key=[updater-key]');
+      expect(output).toContain('password=[]');
+      expect(output).toContain('exported=[]');
+    }
+  );
+
+  withSigningSecretFiles({}, ({ dirBash }) => {
+    const output = runShell(`
+      unset TAURI_SIGNING_PRIVATE_KEY TAURI_SIGNING_PRIVATE_KEY_PASSWORD
+      export BPP_SIGNING_SECRETS_DIR="${dirBash}"
+      source ./scripts/bundle.sh
+      set +e
+      (load_updater_signing_env) 2>&1
+      printf 'exit:%s\\n' "$?"
+    `);
+    expect(output).toContain('Missing TAURI_SIGNING_PRIVATE_KEY');
+    expect(output).toContain('exit:1');
+  });
+});
+
+test('bundle.sh refuses to run outside the product build lock', () => {
+  const output = runShell(`
+    unset BPP_RELEASE_LOCK_TOKEN
+    set +e
+    bash ./scripts/bundle.sh 2>&1
+    printf 'exit:%s\\n' "$?"
+  `);
+  expect(output).toContain('just release::build <platform>');
+  expect(output).toContain('exit:1');
 });

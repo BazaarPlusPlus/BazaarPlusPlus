@@ -38,14 +38,14 @@ test.each(RELEASE_PLATFORMS)(
 );
 
 test.each(RELEASE_PLATFORMS)(
-  'build.sh facts for $buildPlatform come from the module',
+  'bundle.sh facts for $buildPlatform come from the module',
   (p) => {
     const out = runShell(`
       set -euo pipefail
-      source ./build.sh
+      source ./scripts/bundle.sh
       printf 'r2key=%s\\n' "$(release_platforms_cli r2-key ${p.buildPlatform})"
       printf 'bundleroot=%s\\n' "$(release_platforms_cli bundle-root ${p.buildPlatform})"
-      printf 'rust=[%s]\\n' "$(required_rust_targets_for_platform ${p.buildPlatform})"
+      printf 'rust=[%s]\\n' "$(release_platforms_cli rust-targets ${p.buildPlatform})"
     `);
     expect(out).toContain(`r2key=${p.key}`);
     expect(out).toContain(`bundleroot=${p.bundleRoot}`);
@@ -58,7 +58,7 @@ test.each(RELEASE_PLATFORMS)(
   (p) => {
     const out = runShell(`
       set -euo pipefail
-      source ./build.sh
+      source ./scripts/bundle.sh
       assert_file() { :; }
       prepare_signed_macos_resource_zip() { :; }
       prepare_signed_macos_resource_binary() { :; }
@@ -94,7 +94,7 @@ test('prebuild-check target platforms derive from the table', () => {
 
 test('r2-key rejects an unsupported platform', () => {
   const out = runShell(`
-    source ./build.sh
+    source ./scripts/bundle.sh
     set +e
     release_platforms_cli r2-key linux 2>&1
     printf 'exit:%s\\n' "$?"

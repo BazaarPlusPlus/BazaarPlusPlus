@@ -15,7 +15,7 @@ just release::upload macos
 just release::promote
 ```
 
-Windows 将 `macos` 换成 `windows`。`release::prepare` 和 `release::build` 可在平台后追加 `"-p:ManagedPath=<absolute-path>"` 指定正式服游戏程序集；不接受编译器、版本、目标或输出目录覆盖。`build` 包含 `prepare`，但不会自动上传；`upload` 不修改 latest；只有 `promote` 发布完整双平台版本。installer 的 `./build.sh --prod` 和 `npm run prepare:resources -- --platform …` 均转入产品发布协调器。
+Windows 将 `macos` 换成 `windows`。`release::prepare` 和 `release::build` 可在平台后追加 `"-p:ManagedPath=<absolute-path>"` 指定正式服游戏程序集；不接受编译器、版本、目标或输出目录覆盖。`build` 包含 `prepare`，但不会自动上传；`upload` 不修改 latest；只有 `promote` 发布完整双平台版本。installer 的 `npm run prepare:resources -- --platform …` 同样转入产品发布协调器；installer 的 `scripts/bundle.sh` 只在 `release::build` 持有的构建锁内运行。
 
 just 只转发命令；版本规则、锁、签名流程和远端条件写仍在 Node 发布模块中执行，不使用任务缓存。原有 `node release.mjs sync|check|promote` 以及 `node release.mjs prepare|build|upload --platform <platform>` 保持可用；直接使用 Node 的 `prepare` / `build` 时，MSBuild 参数仍需放在 `--` 后。
 

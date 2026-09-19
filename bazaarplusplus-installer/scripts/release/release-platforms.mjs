@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-// Release platform facts live here so build.sh and the Node release scripts
+// Release platform facts live here so bundle.sh and the Node release scripts
 // cannot drift independently. `key` values are an external wire contract: they
 // are the Tauri updater {{target}}-{{arch}} lookup keys queried by every shipped
 // client against latest.json (src-tauri/tauri.conf.json:33-34). NEVER rename a

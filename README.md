@@ -70,7 +70,7 @@ BazaarPlusPlus 是一个面向《The Bazaar》的开源项目：游戏内由 Bep
 ├── bazaarplusplus-installer/                 # 桌面安装器
 │   ├── src/                                  # Vite + React 前端
 │   ├── src-tauri/                            # Tauri 2 / Rust 后端
-│   └── build.sh                              # 本地开发与发布打包入口
+│   └── installer.just                        # just installer::… 开发命令入口
 ├── bazaarplusplus-server/                    # Cloudflare Worker：Bundle 上传与 Ghost 发现
 ├── bazaarplusplus-analyzer/                  # 把 Bundle 收成 heroes / builds 快照
 └── bazaarplusplus-site/                      # bazaarplusplus.com

@@ -12,13 +12,13 @@ The Tauri desktop installer. Repo-wide rules (commits, pull requests, docs polic
 - React or TypeScript: `npm run check`.
 - `scripts/`: the colocated `*.test.mjs` when one exists, otherwise run the touched script.
 - Versioning, bundled resources, Tauri config, or release packaging: `npm run prebuild-check` before broader validation.
-- A platform bundle: `./build.sh --prod`. No other kind of task needs it.
+- A platform bundle: `just release::build <platform>`. No other kind of task needs it.
 
 Tests prove a behavior seam, an observable outcome of the boundary under test, through its public interface; mock call order and exact source text are not behavior.
 
 ## Local workflow
 
-`npm run dev` serves the frontend alone at `http://127.0.0.1:14207/`; anything touching a native command needs the full shell from `npm run tauri dev`.
+`just installer::dev` serves the frontend alone at `http://127.0.0.1:14207/`; anything touching a native command needs the full shell from `just installer::app`.
 
 ## Documentation
 

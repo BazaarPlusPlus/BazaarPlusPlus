@@ -7,7 +7,7 @@ Product versioning, isolated Payload preparation, immutable uploads and complete
 - `npm run verify -- --source-only` is the clean-checkout source gate. `npm run verify -- --release-platform <macos|windows>` adds real Payload validation for one platform.
 - `verificationSteps` in `scripts/checks/verify.mjs` checks formatting, oxlint, the locked Cargo graph, and Clippy, generates bindings while running Rust tests, checks generated drift, type-checks, runs Vitest, builds strict Rust docs, applies the selected prebuild guard, and builds the production frontend.
 - `npm run prebuild-check` validates versions, generated bindings, platform configuration, Payload build receipts, archives and native inputs. Missing receipts require preparation, not a bypass.
-- `./build.sh --prod` delegates to the product coordinator. Its process lock spans preparation, release verification, compilation, signing, bundling and artifact recording. Source integration tests also require the mod's .NET SDK.
+- `just release::build <platform>` runs the product coordinator. Its process lock spans preparation, release verification, compilation, signing, bundling and artifact recording. Source integration tests also require the mod's .NET SDK.
 
 ## Reproducible Inputs
 
@@ -19,11 +19,11 @@ Product versioning, isolated Payload preparation, immutable uploads and complete
 
 ## Packaging And Signing
 
-`run_release_prechecks` in `build.sh` requires the active product build lock and runs the platform release verification gate. It never chooses a separate version or prepares a second archive.
+`run_release_prechecks` in `scripts/bundle.sh` requires the active product build lock and runs the platform release verification gate. It never chooses a separate version or prepares a second archive.
 
 On macOS, producer inputs are arm64, deployment target 12.0, system-linked, ABI-complete, loadable and ad-hoc signed. The installer verifies their inventory, signs nested Mach-O code and bundles inside-out with the official identity, repacks the signed copy, and packages/notarizes the outer installer. SourceForBuild remains unsigned provenance; final distribution hashes live in the artifact manifest. See [ADR-0006](adr/0006-native-replay-recorder-signing.md).
 
-`load_updater_signing_env` and `load_macos_developer_id_env` in `build.sh` own local environment and ignored signing-secret conventions. `assertMacosTrampolineStub` in `scripts/checks/prebuild-check.mjs` independently verifies the trampoline architecture and deployment target.
+`load_updater_signing_env` and `load_macos_developer_id_env` in `scripts/bundle.sh` own local environment and ignored signing-secret conventions. `assertMacosTrampolineStub` in `scripts/checks/prebuild-check.mjs` independently verifies the trampoline architecture and deployment target.
 
 ## Artifact And Upload Contract
 

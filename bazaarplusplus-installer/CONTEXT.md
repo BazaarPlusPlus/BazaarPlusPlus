@@ -6,7 +6,7 @@ BazaarPlusPlus Installer is a Tauri 2 desktop app for installing and managing th
 
 - `src/` — frontend pages, framework-neutral workflows, localization, and generated-command adapters.
 - `src-tauri/src/` — Tauri commands, installer services, history access, stream runtime, and platform integration.
-- `scripts/` and `build.sh` — generated bindings, resource validation and platform signing/packaging; product orchestration lives in the [workspace release flow](../docs/release.md).
+- `scripts/` — generated bindings, resource validation and platform signing/packaging; product orchestration lives in the [workspace release flow](../docs/release.md).
 - `src-tauri/resources/` — bundled mod payload inputs and stream web assets.
 
 ## Vocabulary

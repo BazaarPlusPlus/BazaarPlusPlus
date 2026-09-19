@@ -14,6 +14,12 @@ test:
 dev:
     npm run dev
 
+# Start the full Tauri desktop app; installs npm dependencies only when the tree is invalid.
+app:
+    node scripts/checks/check-toolchain.mjs "$(node --version)" "$(npm --version)"
+    npm ls --depth=0 >/dev/null 2>&1 || npm ci
+    npm run tauri dev
+
 # Format installer sources in place.
 fmt:
     npm run format
