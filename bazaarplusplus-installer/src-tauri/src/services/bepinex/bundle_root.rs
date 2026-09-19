@@ -27,6 +27,11 @@ fn children(path: &Path) -> Result<Vec<PathBuf>, String> {
         .collect()
 }
 
+// Lowercase hex, matching `shasum -a 256`; backup names depend on this exact form.
+fn hex(digest: &[u8]) -> String {
+    digest.iter().map(|byte| format!("{byte:02x}")).collect()
+}
+
 fn file_digest(path: &Path) -> Result<String, String> {
     let mut file = io(path, fs::File::open(path))?;
     let mut digest = Sha256::new();
@@ -38,7 +43,7 @@ fn file_digest(path: &Path) -> Result<String, String> {
         }
         digest.update(&buffer[..count]);
     }
-    Ok(format!("{:x}", digest.finalize()))
+    Ok(hex(&digest.finalize()))
 }
 
 // This manifest format is also used by the developer repair script. Reject
@@ -74,7 +79,7 @@ fn fingerprint(root: &Path) -> Result<String, String> {
     let mut records = Vec::new();
     visit(root, root, &mut records)?;
     records.sort();
-    Ok(format!("{:x}", Sha256::digest(records.concat().as_bytes())))
+    Ok(hex(&Sha256::digest(records.concat().as_bytes())))
 }
 
 fn read_plist(app: &Path, key: &str) -> Result<String, String> {
@@ -346,6 +351,17 @@ pub(super) mod tests {
         let staged = game.join("staged.app");
         copy_tree(app, &staged);
         fs::rename(staged, app.join(DUPLICATE)).unwrap();
+    }
+
+    #[test]
+    fn digests_match_shasum_output() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("abc");
+        fs::write(&file, "abc").unwrap();
+        assert_eq!(
+            file_digest(&file).unwrap(),
+            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+        );
     }
 
     #[test]
