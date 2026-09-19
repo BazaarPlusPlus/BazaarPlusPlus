@@ -13,8 +13,8 @@ import {
   defaultTargetBuildPlatforms,
   resolveBuildPlatform
 } from '../release/release-platforms.mjs';
-import { validatePayloadZip } from '../release/payload-zip.mjs';
-import { verifyNativeRecorderInput } from '../release/native-recorder-input.mjs';
+import { synchronizePayloadProjection } from '../../../release/payload-inventory.mjs';
+import { verifyPayloadBuild } from '../../../release/payload.mjs';
 
 export function resolveTargetPlatforms(platformEnv) {
   if (!platformEnv) {
@@ -91,14 +91,17 @@ export function runPrebuildCheck(
 
   const snapshot = collectVersionSnapshot(rootDir);
   assertVersionsAreAligned(snapshot);
+  synchronizePayloadProjection(path.dirname(rootDir), { check: true });
   assertPlatformCoherence(rootDir);
   if (!releaseResources) return;
 
   const platforms = resolveTargetPlatforms(platformEnv);
-  verifyNativeRecorderInput({ rootDir, platforms });
-
   for (const platform of platforms) {
-    validatePayloadZip({ rootDir, platform });
+    verifyPayloadBuild({
+      workspaceRoot: path.dirname(rootDir),
+      rootDir,
+      platform
+    });
   }
 
   // The compiled arm64 stub is only produced on (and needed by) a macOS build

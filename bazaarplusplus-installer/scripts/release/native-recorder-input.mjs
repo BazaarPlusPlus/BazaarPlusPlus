@@ -653,38 +653,23 @@ export function ensureNativeRecorderInput({ rootDir, sourceRoot, platform }) {
 }
 
 function parseCli(args) {
-  const command =
-    args[0] === 'ensure' || args[0] === 'verify' ? args.shift() : 'verify';
+  if (args[0] === 'ensure')
+    throw new Error(
+      'Prepare native inputs through node release.mjs prepare --platform <macos|windows>'
+    );
+  if (args[0] === 'verify') args.shift();
   let platform;
-  let sourceRoot;
   while (args.length > 0) {
     const argument = args.shift();
     if (argument === '--platform') platform = args.shift();
-    else if (argument === '--source-root') sourceRoot = args.shift();
     else throw new Error(`Unknown native recorder input argument: ${argument}`);
   }
-  return { command, platform, sourceRoot };
+  return { platform };
 }
 
 function main() {
   const rootDir = path.resolve(import.meta.dirname, '..', '..');
-  const { command, platform, sourceRoot } = parseCli(process.argv.slice(2));
-  if (command === 'ensure') {
-    if (!platform || !sourceRoot) {
-      throw new Error('ensure requires --platform and --source-root');
-    }
-    const result = ensureNativeRecorderInput({
-      rootDir,
-      sourceRoot: path.resolve(sourceRoot),
-      platform
-    });
-    console.log(
-      result.rebuilt
-        ? `native-recorder-input: rebuilt and promoted ${platform} (${result.previousReason})`
-        : `native-recorder-input: reused fresh ${platform} inputs`
-    );
-    return;
-  }
+  const { platform } = parseCli(process.argv.slice(2));
 
   const platforms = platform
     ? [platform]

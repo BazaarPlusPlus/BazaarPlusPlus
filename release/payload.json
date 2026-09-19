@@ -1,0 +1,205 @@
+{
+  "schemaVersion": 1,
+  "files": [
+    {
+      "path": "BepInEx/config/BazaarPlusPlus.cfg",
+      "ownership": "private",
+      "producer": "runtime"
+    },
+    {
+      "path": "BepInEx/plugins/BazaarPlusPlus.dll",
+      "ownership": "private",
+      "producer": "managed",
+      "assembly": true
+    },
+    {
+      "path": "BepInEx/plugins/BazaarPlusPlus.ModApi.dll",
+      "ownership": "private",
+      "producer": "managed",
+      "assembly": true
+    },
+    {
+      "path": "BepInEx/plugins/BazaarPlusPlus.Storage.dll",
+      "ownership": "private",
+      "producer": "managed",
+      "assembly": true
+    },
+    {
+      "path": "BepInEx/plugins/BazaarPlusPlus.Localization.dll",
+      "ownership": "private",
+      "producer": "managed",
+      "assembly": true
+    },
+    {
+      "path": "BepInEx/plugins/BazaarPlusPlus.version",
+      "ownership": "private",
+      "producer": "managed"
+    },
+    {
+      "path": "BepInEx/plugins/BazaarPlusPlus.history-database.json",
+      "ownership": "private",
+      "producer": "history-contract"
+    },
+    {
+      "path": "BepInEx/plugins/Microsoft.Data.Sqlite.dll",
+      "ownership": "dependency",
+      "producer": "managed"
+    },
+    {
+      "path": "BepInEx/plugins/SQLitePCLRaw.batteries_v2.dll",
+      "ownership": "dependency",
+      "producer": "managed"
+    },
+    {
+      "path": "BepInEx/plugins/SQLitePCLRaw.core.dll",
+      "ownership": "dependency",
+      "producer": "managed"
+    },
+    {
+      "path": "BepInEx/plugins/SQLitePCLRaw.provider.e_sqlite3.dll",
+      "ownership": "dependency",
+      "producer": "managed"
+    },
+    {
+      "path": "BepInEx/plugins/SixLabors.ImageSharp.dll",
+      "ownership": "dependency",
+      "producer": "managed",
+      "optional": true
+    },
+    {
+      "path": "BepInEx/plugins/System.Buffers.dll",
+      "ownership": "dependency",
+      "producer": "managed",
+      "optional": true
+    },
+    {
+      "path": "BepInEx/plugins/System.Memory.dll",
+      "ownership": "dependency",
+      "producer": "managed",
+      "optional": true
+    },
+    {
+      "path": "BepInEx/plugins/System.Numerics.Vectors.dll",
+      "ownership": "dependency",
+      "producer": "managed",
+      "optional": true
+    },
+    {
+      "path": "BepInEx/plugins/System.Text.Encoding.CodePages.dll",
+      "ownership": "dependency",
+      "producer": "managed",
+      "optional": true
+    },
+    {
+      "path": "BepInEx/plugins/libe_sqlite3.dylib",
+      "ownership": "dependency",
+      "producer": "sqlite-macos",
+      "platforms": ["macos"]
+    },
+    {
+      "path": "BepInEx/plugins/e_sqlite3.dll",
+      "ownership": "dependency",
+      "producer": "sqlite-windows",
+      "platforms": ["windows"]
+    },
+    {
+      "path": "BepInEx/plugins/libBppMacAudio.dylib",
+      "ownership": "private",
+      "producer": "native",
+      "platforms": ["macos"]
+    },
+    {
+      "path": "TheBazaar.app/Contents/Plugins/GfxPluginBppReplayVideoToolbox.bundle",
+      "ownership": "private",
+      "producer": "native",
+      "kind": "directory",
+      "platforms": ["macos"],
+      "requiredEntries": [
+        "Contents/Info.plist",
+        "Contents/MacOS/GfxPluginBppReplayVideoToolbox",
+        "Contents/_CodeSignature/CodeResources"
+      ]
+    },
+    {
+      "path": "TheBazaar_Data/Plugins/x86_64/GfxPluginBppReplayMediaFoundation.dll",
+      "ownership": "private",
+      "producer": "native",
+      "platforms": ["windows"]
+    },
+    {
+      "path": "BepInEx/plugins/BppReplayRecorder.app",
+      "ownership": "private",
+      "producer": "retired",
+      "kind": "directory",
+      "platforms": ["macos"]
+    },
+    {
+      "path": "BepInEx/plugins/ffmpeg",
+      "ownership": "dependency",
+      "producer": "retired",
+      "platforms": ["macos"]
+    },
+    {
+      "path": "BepInEx/plugins/ffmpeg.exe",
+      "ownership": "dependency",
+      "producer": "retired",
+      "platforms": ["windows"]
+    },
+    {
+      "path": "BepInEx/plugins/ffmpeg-LICENSE.txt",
+      "ownership": "dependency",
+      "producer": "retired"
+    },
+    {
+      "path": "BepInEx/core",
+      "ownership": "bootstrap",
+      "producer": "bootstrap",
+      "kind": "directory",
+      "requiredEntries": [
+        "BepInEx.dll",
+        "BepInEx.Preloader.dll",
+        "0Harmony.dll"
+      ]
+    },
+    {
+      "path": "BepInEx/cache",
+      "ownership": "bootstrap",
+      "producer": "runtime",
+      "kind": "directory"
+    },
+    {
+      "path": "BepInEx/config/BepInEx.cfg",
+      "ownership": "bootstrap",
+      "producer": "runtime"
+    },
+    {
+      "path": "BepInEx/LogOutput.log",
+      "ownership": "bootstrap",
+      "producer": "runtime"
+    },
+    {
+      "path": "BepInEx/plugins/.gitkeep",
+      "ownership": "bootstrap",
+      "producer": "bootstrap",
+      "optional": true
+    },
+    {
+      "path": "winhttp.dll",
+      "ownership": "bootstrap",
+      "producer": "bootstrap",
+      "platforms": ["windows"]
+    },
+    {
+      "path": "doorstop_config.ini",
+      "ownership": "bootstrap",
+      "producer": "bootstrap",
+      "platforms": ["windows"]
+    },
+    {
+      "path": "libdoorstop.dylib",
+      "ownership": "bootstrap",
+      "producer": "bootstrap",
+      "platforms": ["macos"]
+    }
+  ]
+}

@@ -2,13 +2,26 @@
   <Import Project="$(MSBuildThisFileDirectory)build/ManagedPath.props" />
 
   <PropertyGroup>
-    <BppVersion>5.5.0</BppVersion>
+    <BppProductVersionFile>$(MSBuildThisFileDirectory)../VERSION</BppProductVersionFile>
+    <BppProductVersion>$([System.IO.File]::ReadAllText('$(BppProductVersionFile)').Trim())</BppProductVersion>
+    <BppVersion>$(BppProductVersion)</BppVersion>
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
     <!-- Building the assembly graph is side-effect free by default. Only run.sh build opts in to
          writing the live game installation; tests, IDE builds, matrix builds, and publish staging
          must never inherit deployment accidentally. -->
     <BppDeployToGame Condition="'$(BppDeployToGame)' == ''">false</BppDeployToGame>
   </PropertyGroup>
+
+  <Target Name="ValidateBppProductVersion" BeforeTargets="PrepareForBuild">
+    <Error
+      Condition="!$([System.Text.RegularExpressions.Regex]::IsMatch('$(BppProductVersion)', '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'))"
+      Text="VERSION must contain a stable major.minor.patch product version."
+    />
+    <Error
+      Condition="'$(BppVersion)' != '$(BppProductVersion)'"
+      Text="BppVersion cannot override the product VERSION. Update VERSION and run node release.mjs sync."
+    />
+  </Target>
 
   <!-- Source-shadow scenario capsules intentionally remain separate assemblies: several define
        incompatible game/runtime shims or mutate process-global state. ScenarioRunner.Tests is the

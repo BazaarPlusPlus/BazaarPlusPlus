@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
+import { readProductVersion } from '../../../release/product.mjs';
 
 function readJson(filePath) {
   return JSON.parse(fs.readFileSync(filePath, 'utf8'));
@@ -164,6 +165,7 @@ export function collectVersionSnapshot(rootDir) {
   const packageLockVersions = readPackageLockVersions(rootDir);
 
   return {
+    productVersion: readProductVersion(path.dirname(rootDir)),
     packageVersion,
     ...packageLockVersions,
     tauriVersion: readTauriVersion(rootDir),
@@ -173,11 +175,11 @@ export function collectVersionSnapshot(rootDir) {
 }
 
 export function assertVersionsAreAligned(snapshot) {
+  const expected = snapshot.productVersion;
+  if (!expected) throw new Error('Missing product VERSION in version snapshot');
   const mismatches = Object.entries(snapshot).filter(
     ([key, value]) =>
-      key !== 'packageVersion' &&
-      value !== null &&
-      value !== snapshot.packageVersion
+      key !== 'productVersion' && value !== null && value !== expected
   );
 
   if (mismatches.length === 0) {
@@ -187,14 +189,17 @@ export function assertVersionsAreAligned(snapshot) {
   const details = mismatches
     .map(([key, value]) => `${key}=${value}`)
     .join(', ');
-  throw new Error(
-    `Version mismatch: packageVersion=${snapshot.packageVersion}, ${details}`
-  );
+  throw new Error(`Version mismatch: productVersion=${expected}, ${details}`);
 }
 
 export function synchronizeVersions(rootDir) {
-  const packageVersion = readPackageVersion(rootDir);
+  const packageVersion = readProductVersion(path.dirname(rootDir));
   const packageName = readCargoPackage(rootDir).name;
+
+  const packagePath = path.join(rootDir, 'package.json');
+  const packageJson = readJson(packagePath);
+  packageJson.version = packageVersion;
+  writeJson(packagePath, packageJson);
 
   updatePackageLockVersion(rootDir, packageVersion);
   updateTauriVersion(rootDir, packageVersion);

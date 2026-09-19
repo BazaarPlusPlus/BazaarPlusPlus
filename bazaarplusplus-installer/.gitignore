@@ -58,8 +58,7 @@ BazaarPlusPlus.Storage.dll
 BazaarPlusPlus.Localization.dll
 BazaarPlusPlus.history-database.json
 
-# FFmpeg is unzipped into the payload at build time from the committed FfmpegSource/*/ffmpeg.zip.
-# The raw binary (131MB win / 47MB mac) is a transient build output — never commit it.
+# Retired recorder binaries are forbidden in release Payloads; ignore local leftovers.
 /src-tauri/resources/SourceForBuild/*/BepInEx/plugins/ffmpeg
 /src-tauri/icons/macos-generated/
 /src-tauri/resources/SourceForBuild/*/BepInEx/plugins/ffmpeg.exe
@@ -72,6 +71,8 @@ BazaarPlusPlus.history-database.json
 # macOS launch trampoline stub is compiled arm64 at build time from the committed
 # src-tauri/trampoline/bpp_launcher.c. Never commit the compiled binary.
 /src-tauri/resources/Trampoline/
+# Machine-local provenance receipts and generated archive checksums.
+/src-tauri/resources/BepInExSource/*/payload-build.json
 /src-tauri/resources/BepInExSource/*/BepInEx.zip.manifest.json
 /src-tauri/resources/BepInExSource/*/BepInEx.zip.tmp-*
 /src-tauri/resources/BepInExSource/*/BepInEx.zip.manifest.json.tmp-*
@@ -81,7 +82,6 @@ signing-secrets
 # Throwaway signing-secrets fixtures created by scripts/build.test.mjs.
 # Auto-removed after each test; only left behind if a run is interrupted.
 .bpp-signing-test-*/
-.bpp-latest-e2e-*/
 .bpp-deps-test-*/
 
 scripts/supporters-import-state.json

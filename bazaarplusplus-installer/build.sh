@@ -4,7 +4,6 @@ set -euo pipefail
 PROD=false
 CLEAN_DEPS=false
 UPLOAD=false
-R2_BUCKET="bppinstaller"
 
 usage() {
     cat <<'EOF'
@@ -15,16 +14,16 @@ Usage:
   ./build.sh --prod
       Build release artifacts for the current host platform.
       On macOS this produces an arm64 app bundle.
-      Also runs version sync, prebuild checks, and loads updater signing
+      Also prepares the product Payload, runs prebuild checks, and loads updater signing
       env vars from signing-secrets/ when not already exported.
 
   ./build.sh --upload
       Upload the current host platform release artifacts to Cloudflare R2
-      using the project-pinned Wrangler CLI.
+      using conditional R2 S3 writes. This does not advance latest.json.
 
   ./build.sh --prod --upload
       Build the current host platform release artifacts, then upload them
-      to Cloudflare R2 using the project-pinned Wrangler CLI.
+      to Cloudflare R2. Run node ../release.mjs promote after both platforms upload.
 
   ./build.sh --prod --clean-deps
       Reinstall npm dependencies before building.
@@ -126,31 +125,8 @@ current_platform() {
     esac
 }
 
-package_version() {
-    node -p "JSON.parse(require('fs').readFileSync('package.json', 'utf8')).version"
-}
-
-updater_endpoint_url() {
-    node -p "JSON.parse(require('fs').readFileSync('src-tauri/tauri.conf.json', 'utf8')).plugins.updater.endpoints[0]"
-}
-
-public_base_url() {
-    local endpoint
-    endpoint="$(updater_endpoint_url)"
-    printf '%s\n' "${endpoint%/latest.json}"
-}
-
 release_platforms_cli() {
     node "$SCRIPT_DIR/scripts/release/release-platforms.mjs" "$@"
-}
-
-platform_r2_key() {
-    local platform="$1"
-
-    if ! release_platforms_cli r2-key "$platform"; then
-        echo "Error: Unsupported platform for upload: $platform" >&2
-        return 1
-    fi
 }
 
 install_dependencies() {
@@ -541,122 +517,10 @@ prepare_signed_macos_resource_zip() {
 
 run_release_prechecks() {
     local platform="$1"
-    invoke_step "Synchronizing package versions" node scripts/release/version-sync.mjs
-    invoke_step "Verifying pinned native replay recorder inputs" \
-        npm run verify:native-recorder-input
-    invoke_step "Preparing $platform release resources" \
-        npm run prepare:resources -- --platform "$platform"
+    invoke_step "Checking product release inputs" node "$SCRIPT_DIR/../release.mjs" check
+    invoke_step "Checking product build ownership" node "$SCRIPT_DIR/../release.mjs" assert-build-owner
     invoke_step "Running authoritative release verification" \
         npm run verify -- --release-platform "$platform"
-}
-
-upload_r2_object() {
-    local file_path="$1"
-    local object_key="$2"
-    local content_type="${3:-}"
-
-    assert_file "$file_path" "upload artifact"
-    if [ -n "$content_type" ]; then
-        invoke_step "Uploading $(basename "$file_path") to $object_key" \
-            wrangler_cli r2 object put "$R2_BUCKET/$object_key" --file "$file_path" --content-type "$content_type" --remote
-    else
-        invoke_step "Uploading $(basename "$file_path") to $object_key" \
-            wrangler_cli r2 object put "$R2_BUCKET/$object_key" --file "$file_path" --remote
-    fi
-}
-
-artifact_manifest_paths() {
-    local platform="$1"
-    node "$SCRIPT_DIR/scripts/release/artifact-manifest.mjs" paths --platform "$platform"
-}
-
-upload_release_assets() {
-    local platform="$1"
-    local version="$2"
-    local platform_key="$3"
-    local base_url="$4"
-    local installer_file=""
-    local updater_file=""
-    local updater_sig=""
-    local fragment_file=""
-
-    if ! {
-        IFS= read -r installer_file
-        IFS= read -r updater_file
-        IFS= read -r updater_sig
-    } < <(artifact_manifest_paths "$platform"); then
-        echo "Error: No valid artifact manifest for platform: $platform" >&2
-        exit 1
-    fi
-
-    upload_r2_object \
-        "$installer_file" \
-        "$version/$platform_key/installer/$(basename "$installer_file")"
-
-    upload_r2_object \
-        "$updater_file" \
-        "$version/$platform_key/updater/$(basename "$updater_file")"
-
-    upload_r2_object \
-        "$updater_sig" \
-        "$version/$platform_key/updater/$(basename "$updater_sig")"
-
-    fragment_file="$SCRIPT_DIR/src-tauri/target/platform-manifest.$platform_key.json"
-    node "$SCRIPT_DIR/scripts/release/generate-platform-manifest.mjs" \
-        "$fragment_file" "$platform_key" "$base_url" "$version" "$updater_file" "$updater_sig"
-
-    upload_r2_object \
-        "$fragment_file" \
-        "$version/$platform_key/updater/platform-manifest.json" \
-        "application/json"
-    rm -f "$fragment_file"
-}
-
-generate_latest_manifest() {
-    local version="$1"
-    local latest_file=""
-    local temp_dir=""
-    local platform_list=""
-    local platform=""
-
-    latest_file="$(mktemp)"
-    temp_dir="$(mktemp -d)"
-    platform_list="$(release_platforms_cli list)"
-
-    while IFS= read -r platform; do
-        [ -n "$platform" ] || continue
-        echo "==> Fetching platform fragment for $platform"
-        wrangler_cli r2 object get \
-            "$R2_BUCKET/$version/$platform/updater/platform-manifest.json" \
-            --file "$temp_dir/$platform.json" \
-            --remote >/dev/null 2>&1 || true
-    done <<<"$platform_list"
-
-    echo "==> Fetching existing latest.json if present"
-    wrangler_cli r2 object get \
-        "$R2_BUCKET/latest.json" \
-        --file "$temp_dir/existing-latest.json" \
-        --remote >/dev/null 2>&1 || true
-
-    node "$SCRIPT_DIR/scripts/release/generate-latest-manifest.mjs" \
-        --output "$latest_file" \
-        --version "$version" \
-        --temp-dir "$temp_dir"
-
-    echo "==> Generated latest.json preview"
-    cat "$latest_file"
-    upload_r2_object "$latest_file" "latest.json" "application/json"
-    rm -f "$latest_file"
-    rm -rf "$temp_dir"
-}
-
-wrangler_cli() {
-    local executable="$SCRIPT_DIR/node_modules/.bin/wrangler"
-    if [ ! -f "$executable" ]; then
-        echo "Error: Missing project-pinned Wrangler CLI: $executable" >&2
-        return 1
-    fi
-    "$executable" "$@"
 }
 
 build_prod() {
@@ -726,9 +590,6 @@ build_prod() {
 
     invoke_step "Bundling $platform installer" "${bundle_command[@]}"
 
-    invoke_step "Writing $platform artifact manifest" \
-        node "$SCRIPT_DIR/scripts/release/artifact-manifest.mjs" generate --platform "$platform"
-
     echo
     echo "Build complete."
     echo "Binary:  $release_binary"
@@ -763,9 +624,6 @@ parse_args() {
 
 main() {
     local platform=""
-    local version=""
-    local platform_key=""
-    local base_url=""
     local node_version=""
     local npm_version=""
 
@@ -791,11 +649,15 @@ main() {
         exit 1
     fi
 
-    version="$(package_version)"
-    platform_key="$(platform_r2_key "$platform")"
-    base_url="$(public_base_url)"
-
     if [ "$PROD" = true ]; then
+        if [ -z "${BPP_RELEASE_LOCK_TOKEN:-}" ]; then
+            node "$SCRIPT_DIR/../release.mjs" build --platform "$platform"
+            if [ "$UPLOAD" = true ]; then
+                node "$SCRIPT_DIR/../release.mjs" upload --platform "$platform"
+            fi
+            return
+        fi
+        node "$SCRIPT_DIR/../release.mjs" assert-build-owner
         assert_command cargo "Install Rust toolchain first."
         install_dependencies false
 
@@ -809,7 +671,6 @@ main() {
         fi
         run_release_prechecks "$platform"
         ensure_required_rust_targets "$platform"
-        version="$(package_version)"
         build_prod "$platform"
     fi
 
@@ -817,8 +678,8 @@ main() {
         if [ "$PROD" = false ]; then
             install_dependencies false
         fi
-        upload_release_assets "$platform" "$version" "$platform_key" "$base_url"
-        generate_latest_manifest "$version"
+        invoke_step "Uploading immutable $platform release artifacts" \
+            node "$SCRIPT_DIR/../release.mjs" upload --platform "$platform"
     fi
 }
 

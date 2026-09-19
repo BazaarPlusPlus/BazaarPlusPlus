@@ -5,47 +5,18 @@ import process from 'node:process';
 import { parseArgs } from 'node:util';
 import zlib from 'node:zlib';
 import { resolveBuildPlatform } from './release-platforms.mjs';
+import { readProductVersion } from '../../../release/product.mjs';
+import {
+  assertShippedPayloadPaths,
+  requiredPayloadPaths
+} from '../../../release/payload-inventory.mjs';
 
 // This is the first mod version guaranteed to write the BazaarPlusPlusV5 data root.
 export const V5_MIN_MOD_VERSION = '4.7.0';
 
 export const REQUIRED_RELEASE_INPUTS = Object.freeze({
-  macos: Object.freeze([
-    'libdoorstop.dylib',
-    'BepInEx/plugins/BazaarPlusPlus.dll',
-    'BepInEx/plugins/BazaarPlusPlus.ModApi.dll',
-    'BepInEx/plugins/BazaarPlusPlus.Storage.dll',
-    'BepInEx/plugins/BazaarPlusPlus.Localization.dll',
-    'BepInEx/plugins/BazaarPlusPlus.version',
-    'BepInEx/plugins/BazaarPlusPlus.history-database.json',
-    'BepInEx/plugins/libBppMacAudio.dylib',
-    'TheBazaar.app/Contents/Plugins/GfxPluginBppReplayVideoToolbox.bundle/Contents/Info.plist',
-    'TheBazaar.app/Contents/Plugins/GfxPluginBppReplayVideoToolbox.bundle/Contents/MacOS/GfxPluginBppReplayVideoToolbox',
-    'TheBazaar.app/Contents/Plugins/GfxPluginBppReplayVideoToolbox.bundle/Contents/_CodeSignature/CodeResources'
-  ]),
-  windows: Object.freeze([
-    'BepInEx/plugins/BazaarPlusPlus.dll',
-    'BepInEx/plugins/BazaarPlusPlus.ModApi.dll',
-    'BepInEx/plugins/BazaarPlusPlus.Storage.dll',
-    'BepInEx/plugins/BazaarPlusPlus.Localization.dll',
-    'BepInEx/plugins/BazaarPlusPlus.version',
-    'BepInEx/plugins/BazaarPlusPlus.history-database.json',
-    'TheBazaar_Data/Plugins/x86_64/GfxPluginBppReplayMediaFoundation.dll'
-  ])
-});
-
-const FORBIDDEN_RELEASE_INPUTS = Object.freeze({
-  macos: Object.freeze([
-    'run_bepinex.sh',
-    'bpp_launcher.c',
-    'BepInEx/plugins/ffmpeg',
-    'BepInEx/plugins/ffmpeg-LICENSE.txt',
-    'BepInEx/plugins/BppReplayRecorder.app'
-  ]),
-  windows: Object.freeze([
-    'BepInEx/plugins/ffmpeg.exe',
-    'BepInEx/plugins/ffmpeg-LICENSE.txt'
-  ])
+  macos: Object.freeze(requiredPayloadPaths('macos')),
+  windows: Object.freeze(requiredPayloadPaths('windows'))
 });
 
 const osArtifactNames = new Set(['.DS_Store', 'Thumbs.db', 'desktop.ini']);
@@ -139,7 +110,7 @@ function assertRequiredStagingInputs(sourceDir, requiredStagingPaths) {
   const publishGuidance = missing.includes(
     'BepInEx/plugins/BazaarPlusPlus.version'
   )
-    ? '\nRun ./run.sh publish in the mod repository first to re-stage both macOS and Windows SourceForBuild payloads.'
+    ? '\nRun node release.mjs prepare --platform <macos|windows> from the workspace root to prepare the selected platform.'
     : '';
   throw new Error(
     `Missing release staging inputs under SourceForBuild; provide every external/private file before preparing resources:\n${details}${publishGuidance}`
@@ -160,7 +131,7 @@ function compareVersionParts(left, right) {
   return 0;
 }
 
-function assertStagedModWritesV5DataRoot(sourceDir) {
+function assertStagedModWritesV5DataRoot(sourceDir, productVersion) {
   const versionPath = path.join(
     sourceDir,
     'BepInEx',
@@ -171,16 +142,21 @@ function assertStagedModWritesV5DataRoot(sourceDir) {
   const stagedVersion = parseProdModVersion(content);
   if (!stagedVersion) {
     throw new Error(
-      `Cannot parse staged BazaarPlusPlus mod version '${content.trim()}' at ${versionPath}; expected {semver}.prod. Run ./run.sh publish in the mod repository first to re-stage both macOS and Windows SourceForBuild payloads.`
+      `Cannot parse staged BazaarPlusPlus mod version '${content.trim()}' at ${versionPath}; expected {semver}.prod. Run node release.mjs prepare for the selected platform.`
     );
   }
 
   const minimumVersion = V5_MIN_MOD_VERSION.split('.').map(Number);
-  if (compareVersionParts(stagedVersion, minimumVersion) >= 0) return;
-
-  throw new Error(
-    `Staged BazaarPlusPlus mod version must be ${V5_MIN_MOD_VERSION}.prod or newer to write the BazaarPlusPlusV5 data root (found '${content.trim()}' at ${versionPath}). Run ./run.sh publish in the mod repository first to re-stage both macOS and Windows SourceForBuild payloads.`
-  );
+  if (compareVersionParts(stagedVersion, minimumVersion) < 0) {
+    throw new Error(
+      `Staged BazaarPlusPlus mod version must be ${V5_MIN_MOD_VERSION}.prod or newer to write the BazaarPlusPlusV5 data root (found '${content.trim()}'). Run ./run.sh publish first.`
+    );
+  }
+  if (content.trim() !== `${productVersion}.prod`) {
+    throw new Error(
+      `Payload product version mismatch: expected ${productVersion}.prod, found ${content.trim()}. Run node release.mjs prepare for this platform.`
+    );
+  }
 }
 
 function readHistoryDatabaseCompatibility(rootDir) {
@@ -245,17 +221,22 @@ function assertStagedHistoryDatabaseCompatibility(rootDir, sourceDir) {
 }
 
 function assertForbiddenStagingInputs(platform, sourceDir) {
-  const present = (FORBIDDEN_RELEASE_INPUTS[platform] ?? []).filter(
-    (relativePath) =>
-      fs.statSync(path.join(sourceDir, relativePath), {
-        throwIfNoEntry: false
-      }) != null
+  const paths = [];
+  const walk = (directory, prefix = '') => {
+    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+      const relativePath = prefix ? `${prefix}/${entry.name}` : entry.name;
+      paths.push(relativePath);
+      if (entry.isDirectory())
+        walk(path.join(directory, entry.name), relativePath);
+    }
+  };
+  walk(sourceDir);
+  // Structural parent directories are not ownership claims; empty retired and
+  // unknown leaf directories still fail the same inventory gate as files.
+  const leaves = paths.filter(
+    (candidate) => !paths.some((other) => other.startsWith(`${candidate}/`))
   );
-  if (present.length === 0) return;
-
-  throw new Error(
-    `${platform} release staging contains retired runtime dependencies: ${present.join(', ')}`
-  );
+  assertShippedPayloadPaths(leaves, platform);
 }
 
 function assertMacosExecutableModes(platform, files) {
@@ -464,6 +445,7 @@ export function validateZipEntrySet(entries, expectedPaths) {
 export function preparePayloadZip({
   rootDir,
   platform,
+  productVersion = readProductVersion(path.dirname(rootDir)),
   hostPlatform = process.platform,
   requiredStagingPaths = REQUIRED_RELEASE_INPUTS[platform]
 }) {
@@ -471,7 +453,7 @@ export function preparePayloadZip({
     throw new Error(`Unsupported payload platform: ${platform}`);
   const { sourceDir, zipPath, manifestPath } = platformPaths(rootDir, platform);
   assertRequiredStagingInputs(sourceDir, requiredStagingPaths);
-  assertStagedModWritesV5DataRoot(sourceDir);
+  assertStagedModWritesV5DataRoot(sourceDir, productVersion);
   assertStagedHistoryDatabaseCompatibility(rootDir, sourceDir);
   return writeDeterministicZip({
     sourceDir,
@@ -545,6 +527,7 @@ export function writeDeterministicZip({
 export function validatePayloadZip({
   rootDir,
   platform,
+  productVersion = readProductVersion(path.dirname(rootDir)),
   hostPlatform = process.platform,
   requiredStagingPaths = REQUIRED_RELEASE_INPUTS[platform]
 }) {
@@ -552,7 +535,7 @@ export function validatePayloadZip({
     throw new Error(`Unsupported payload platform: ${platform}`);
   const { sourceDir, zipPath, manifestPath } = platformPaths(rootDir, platform);
   assertRequiredStagingInputs(sourceDir, requiredStagingPaths);
-  assertStagedModWritesV5DataRoot(sourceDir);
+  assertStagedModWritesV5DataRoot(sourceDir, productVersion);
   assertStagedHistoryDatabaseCompatibility(rootDir, sourceDir);
   assertForbiddenStagingInputs(platform, sourceDir);
   if (!fs.statSync(zipPath, { throwIfNoEntry: false })?.isFile()) {
@@ -611,8 +594,10 @@ export function validatePayloadZip({
   return { zipPath, manifestPath, entries: mapping };
 }
 
-function main(args) {
+async function main(args) {
   if (args[0] === 'pack') {
+    const { assertBuildOwner } = await import('../../../release/payload.mjs');
+    assertBuildOwner(path.resolve(import.meta.dirname, '..', '..'));
     const { values } = parseArgs({
       args: args.slice(1),
       strict: true,
@@ -651,30 +636,14 @@ function main(args) {
     }
     return;
   }
-  const { values } = parseArgs({
-    args,
-    strict: true,
-    options: { platform: { type: 'string' } }
-  });
-  if (!values.platform) {
-    throw new Error(
-      'Usage: payload-zip.mjs --platform <macos|windows> | pack --source <directory> --output <zip> [--manifest-output <json> --platform <macos|windows>]'
-    );
-  }
-  const platform = resolveBuildPlatform(values.platform);
-  if (!platform)
-    throw new Error(`Unsupported payload platform: ${values.platform}`);
-  const rootDir = path.resolve(import.meta.dirname, '..', '..');
-  const result = preparePayloadZip({ rootDir, platform });
-  console.log(`prepare:resources: wrote ${result.zipPath}`);
-  console.log(`prepare:resources: wrote ${result.manifestPath}`);
+  throw new Error(
+    'Prepare Payloads with node release.mjs prepare --platform <macos|windows>. The pack command is internal to the locked product build.'
+  );
 }
 
 if (import.meta.main) {
-  try {
-    main(process.argv.slice(2));
-  } catch (error) {
+  main(process.argv.slice(2)).catch((error) => {
     console.error(error instanceof Error ? error.message : String(error));
     process.exitCode = 1;
-  }
+  });
 }

@@ -1,6 +1,7 @@
 export const INSTALLER_BASE = 'https://bppinstaller.bazaarplusplus.com';
 export const MAINLAND_DOWNLOAD_BASE = 'https://cauyxy.lanzout.com';
-export const GITHUB_RELEASE_URL = 'https://github.com/BazaarPlusPlus/BazaarPlusPlus/releases/latest';
+export const GITHUB_RELEASE_URL =
+  'https://github.com/BazaarPlusPlus/BazaarPlusPlus/releases/latest';
 
 export type DownloadPlatform = 'windows' | 'mac';
 
@@ -54,11 +55,27 @@ function decodeVersion(payload: unknown): string {
   return (payload as { version: string }).version;
 }
 
-function buildDownloadUrl(platform: DownloadPlatform, version: string): string {
-  if (platform === 'windows') {
-    return `${INSTALLER_BASE}/${version}/windows-x86_64/installer/BazaarPlusPlus_${version}_x64-setup.exe`;
+function decodeDownloadUrl(payload: unknown, platform: string, version: string): string {
+  const downloads = (payload as { downloads?: unknown }).downloads;
+  const record =
+    downloads && typeof downloads === 'object'
+      ? (downloads as Record<string, unknown>)[platform]
+      : undefined;
+  const value =
+    record && typeof record === 'object' ? (record as { url?: unknown }).url : undefined;
+  if (typeof value !== 'string') throw new Error(`latest.json missing ${platform} download`);
+  const url = new URL(value);
+  if (
+    url.origin !== INSTALLER_BASE ||
+    url.username ||
+    url.password ||
+    url.hash ||
+    url.search ||
+    !url.pathname.startsWith(`/${version}/${platform}/installer/`)
+  ) {
+    throw new Error(`latest.json has an invalid ${platform} download`);
   }
-  return `${INSTALLER_BASE}/${version}/darwin-aarch64/installer/BazaarPlusPlus_${version}_aarch64.dmg`;
+  return value;
 }
 
 function buildMainlandDownloadUrl(platform: DownloadPlatform, version: string): string {
@@ -70,16 +87,17 @@ export async function loadLatestInstaller(
   transport: InstallerManifestTransport,
   options: { signal?: AbortSignal } = {}
 ): Promise<LatestInstaller> {
-  const version = decodeVersion(await transport.load({ signal: options.signal }));
+  const payload = await transport.load({ signal: options.signal });
+  const version = decodeVersion(payload);
   return {
     version,
     downloads: {
       windows: {
-        downloadUrl: buildDownloadUrl('windows', version),
+        downloadUrl: decodeDownloadUrl(payload, 'windows-x86_64', version),
         mainlandDownloadUrl: buildMainlandDownloadUrl('windows', version),
       },
       mac: {
-        downloadUrl: buildDownloadUrl('mac', version),
+        downloadUrl: decodeDownloadUrl(payload, 'darwin-aarch64', version),
         mainlandDownloadUrl: buildMainlandDownloadUrl('mac', version),
       },
     },

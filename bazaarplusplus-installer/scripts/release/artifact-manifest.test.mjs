@@ -24,6 +24,7 @@ function windowsFixture() {
   const installer = path.join(bundleDir, 'BazaarPlusPlus_9.9.9_x64-setup.exe');
   fs.writeFileSync(installer, 'installer bytes');
   fs.writeFileSync(`${installer}.sig`, 'public-signature\n');
+  writePayloadProof(rootDir, 'windows');
   return { rootDir, bundleDir, installer, signature: `${installer}.sig` };
 }
 
@@ -47,10 +48,25 @@ function macosFixture() {
   fs.writeFileSync(installer, 'installer bytes');
   fs.writeFileSync(updater, 'updater bytes');
   fs.writeFileSync(signature, 'public-signature\n');
+  writePayloadProof(rootDir, 'macos');
   return { rootDir, installer, updater, signature };
 }
 
 const cleanGit = { commit: 'a'.repeat(40), dirty: false };
+
+function writePayloadProof(rootDir, platform) {
+  const file = path.join(
+    rootDir,
+    'src-tauri/resources/BepInExSource',
+    platform,
+    'payload-build.json'
+  );
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(
+    file,
+    JSON.stringify({ schemaVersion: 2, productVersion: '9.9.9', platform })
+  );
+}
 
 test('successful build records exact artifacts, hashes, signature, and provenance', () => {
   const fixture = windowsFixture();
@@ -64,7 +80,7 @@ test('successful build records exact artifacts, hashes, signature, and provenanc
     });
 
     expect(manifest).toMatchObject({
-      schemaVersion: 1,
+      schemaVersion: 2,
       appVersion: '9.9.9',
       buildPlatform: 'windows',
       releasePlatformKey: 'windows-x86_64',

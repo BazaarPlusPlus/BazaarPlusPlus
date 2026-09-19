@@ -27,13 +27,14 @@ case "$(uname -s)" in
         ;;
 esac
 
-echo -e "${CYAN}== Building on ${GREEN}${PLATFORM}${CYAN} ==${RESET}"
+if [[ "${1:-}" != "release-managed-path" ]]; then
+    echo -e "${CYAN}== Building on ${GREEN}${PLATFORM}${CYAN} ==${RESET}"
+fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 GAME_ROOT="${BPP_GAME_ROOT:-$GAME_ROOT}"
 MANAGED="${BPP_MANAGED_PATH:-$MANAGED}"
 INSTALLER_SOURCE="${BPP_INSTALLER_SOURCE_PATH:-$SCRIPT_DIR/../bazaarplusplus-installer/src-tauri/resources}"
-GAME_SQLITE="$GAME_ROOT/BepInEx/plugins/libe_sqlite3.dylib"
 TRAMPOLINE_REPAIR_SCRIPT="$SCRIPT_DIR/scripts/repair-macos-trampoline.sh"
 PUBLISHED_PROJECTS=(
     src/BazaarPlusPlus.Localization/BazaarPlusPlus.Localization.csproj
@@ -41,17 +42,6 @@ PUBLISHED_PROJECTS=(
     src/BazaarPlusPlus.Storage/BazaarPlusPlus.Storage.csproj
     src/BazaarPlusPlus/BazaarPlusPlus.csproj
 )
-
-clear_macos_sqlite_quarantine() {
-    [[ "$PLATFORM" == "macOS" ]] || return 0
-
-    local installer_source="${1:-$INSTALLER_SOURCE}"
-    local target
-    for target in "$installer_source/SourceForBuild/macos/BepInEx/plugins/libe_sqlite3.dylib" "$GAME_SQLITE"; do
-        [[ -f "$target" ]] || continue
-        xattr -d com.apple.quarantine "$target" 2>/dev/null || true
-    done
-}
 
 repair_macos_trampoline() {
     [[ "$PLATFORM" == "macOS" ]] || return 0
@@ -65,7 +55,8 @@ repair_macos_trampoline() {
 
 build() {
     local fast="${1:-false}"
-    shift 1 || true
+    local deploy="${2:-true}"
+    shift 2 || true
     local msbuild_args=("$@")
     local args=()
 
@@ -75,10 +66,12 @@ build() {
         args+=(--no-restore)
     fi
 
-    repair_macos_trampoline
+    if [[ "$deploy" == "true" ]]; then
+        repair_macos_trampoline
+    fi
     dotnet build src/BazaarPlusPlus/BazaarPlusPlus.csproj \
         ${args[@]+"${args[@]}"} ${msbuild_args[@]+"${msbuild_args[@]}"} \
-        -p:BppDeployToGame=true -p:GamePath="$GAME_ROOT"
+        -p:BppDeployToGame="$deploy" -p:GamePath="$GAME_ROOT"
 }
 
 # Production publishing copies the DLL into the installer resources that ship to
@@ -123,35 +116,6 @@ resolve_release_platform() {
             return 1
             ;;
     esac
-}
-
-ensure_native_release_inputs() {
-    local installer_source="$1"
-    local release_platform="$2"
-
-    local installer_root
-    installer_root="$(cd "$installer_source/../.." && pwd)"
-    local coordinator="$installer_root/scripts/release/native-recorder-input.mjs"
-    if [[ ! -f "$coordinator" ]]; then
-        echo -e "${RED}Native input coordinator not found at '$coordinator'.${RESET}" >&2
-        return 1
-    fi
-    if ! command -v node &>/dev/null; then
-        echo -e "${RED}Node.js is required to verify and promote native release inputs.${RESET}" >&2
-        return 1
-    fi
-
-    echo -e "${CYAN}== Verifying ${GREEN}${release_platform}${CYAN} native release inputs ==${RESET}"
-    node "$coordinator" ensure --platform "$release_platform" --source-root "$SCRIPT_DIR"
-}
-
-prepare_installer_resource_archives() {
-    local installer_source="$1"
-    local release_platform="$2"
-    local installer_root
-    installer_root="$(cd "$installer_source/../.." && pwd)"
-    echo -e "${CYAN}== Preparing ${GREEN}${release_platform}${CYAN} installer resource archive ==${RESET}"
-    npm --prefix "$installer_root" run prepare:resources -- --platform "$release_platform"
 }
 
 fetch_remote_data() {
@@ -215,7 +179,8 @@ run_seed_gates() {
         "$@" || return $?
 }
 
-publish() {
+produce_payload() {
+    : "${BPP_RELEASE_ARTIFACTS:?Run node release.mjs prepare to build an isolated Payload}"
     local passthrough_args=("$@")
     local installer_source
     installer_source=$(resolve_installer_source ${passthrough_args[@]+"${passthrough_args[@]}"})
@@ -243,30 +208,28 @@ publish() {
         require_steam_branch public
     fi
 
-    ensure_native_release_inputs "$installer_source" "$release_platform"
-    clear_macos_sqlite_quarantine "$installer_source"
-    repair_macos_trampoline "$installer_source"
-
     fetch_remote_data "${common_args[@]}"
 
     local build_args=(
         -t:BuildAll
         "${common_args[@]}"
+        -p:UseArtifactsOutput=true
+        "-p:ArtifactsPath=$BPP_RELEASE_ARTIFACTS"
         -p:BuildProductionPackage=true
         -p:RemoteEmbeddedDataPrepared=true
     )
     dotnet build src/BazaarPlusPlus/BazaarPlusPlus.csproj "${build_args[@]}"
-    prepare_installer_resource_archives "$installer_source" "$release_platform"
-    clear_macos_sqlite_quarantine "$installer_source"
 }
 
 parse_build_options() {
     local fast=false
+    local deploy=true
     local msbuild_args=()
 
     while (($# > 0)); do
         case "$1" in
             --fast) fast=true ;;
+            --no-deploy) deploy=false ;;
             -p:*|--property:*) msbuild_args+=("$1") ;;
             *)
                 usage
@@ -276,7 +239,7 @@ parse_build_options() {
         shift
     done
 
-    build "$fast" ${msbuild_args[@]+"${msbuild_args[@]}"}
+    build "$fast" "$deploy" ${msbuild_args[@]+"${msbuild_args[@]}"}
 }
 
 parse_publish_options() {
@@ -293,7 +256,7 @@ parse_publish_options() {
         shift
     done
 
-    publish ${msbuild_args[@]+"${msbuild_args[@]}"}
+    node "$SCRIPT_DIR/../release.mjs" prepare --platform "$(resolve_release_platform)" -- ${msbuild_args[@]+"${msbuild_args[@]}"}
 }
 
 parse_fetch_data_options() {
@@ -607,11 +570,10 @@ build_matrix() {
 usage() {
     cat <<EOF
 Usage:
-  $0 build [--fast] [-p:Name=Value ...]
+  $0 build [--fast] [--no-deploy] [-p:Name=Value ...]
       Debug build; copies into BepInEx/plugins/ when the game is found.
-  $0 publish [-p:Name=Value ...]
-      Production build: fetch remote embedded data, run the feature-owned seed
-      gates, then Debug + Release with installer packaging.
+  $0 publish [-p:ManagedPath=...]
+      Prepare the current-platform product Payload through the root release coordinator.
   $0 fetch-data [-p:Name=Value ...]
       Refresh the remote embedded seeds without building.
   $0 restore-locks
@@ -642,11 +604,34 @@ Usage:
 
 Options:
   --fast              With build: skip NuGet restore (rerun without it after csproj edits or in a fresh worktree).
-  -p:Name=Value       Forward an MSBuild property to build, publish, or fetch-data.
+  --no-deploy         With build: compile without repairing or changing the installed game.
+  -p:Name=Value       Forward a property to build/fetch-data; publish accepts only ManagedPath.
 EOF
 }
 
 case "${1:-}" in
+    release-managed-path)
+        shift
+        release_managed=$(resolve_release_managed)
+        for arg in "$@"; do
+            case "$arg" in
+                -p:ManagedPath=*|--property:ManagedPath=*) release_managed="${arg#*=}" ;;
+            esac
+        done
+        if [[ -z "$release_managed" ]]; then
+            require_steam_branch public >&2
+            release_managed="$MANAGED"
+        fi
+        if command -v cygpath >/dev/null 2>&1; then
+            cygpath -am "$release_managed"
+        else
+            (cd "$release_managed" && pwd -P)
+        fi
+        ;;
+    produce-payload)
+        shift
+        produce_payload "$@"
+        ;;
     publish)
         shift
         parse_publish_options "$@"

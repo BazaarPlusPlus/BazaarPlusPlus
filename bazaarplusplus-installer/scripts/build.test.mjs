@@ -1,6 +1,8 @@
 import { test, expect } from 'vitest';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { relative } from 'node:path';
+import path from 'node:path';
+import os from 'node:os';
 import { runShell, toBashPath } from './test-support/shell.mjs';
 
 const projectDir = process.cwd();
@@ -111,7 +113,10 @@ test('macOS production build stops at the first resource-signing failure', () =>
 });
 
 test('macOS production build removes the entire bundle directory before rebundling', () => {
-  const bundleDir = `${projectDir}/src-tauri/target/aarch64-apple-darwin/release/bundle`;
+  const fixtureRoot = mkdtempSync(
+    path.join(os.tmpdir(), 'bpp-bundle-cleanup-')
+  );
+  const bundleDir = `${fixtureRoot}/src-tauri/target/aarch64-apple-darwin/release/bundle`;
   const staleDir = `${bundleDir}/macos`;
   const staleFile = `${staleDir}/rw.test.BazaarPlusPlus_2.0.0_aarch64.dmg`;
 
@@ -122,6 +127,8 @@ test('macOS production build removes the entire bundle directory before rebundli
     const output = runShell(`
       set -euo pipefail
       source ./build.sh
+      release_platforms_cli() { node '${toBashPath(projectDir)}/scripts/release/release-platforms.mjs' "$@"; }
+      SCRIPT_DIR='${toBashPath(fixtureRoot)}'
       assert_file() { :; }
       prepare_signed_macos_resource_zip() { :; }
       prepare_signed_macos_resource_binary() { :; }
@@ -137,7 +144,7 @@ test('macOS production build removes the entire bundle directory before rebundli
       /Removing stale macos bundle artifacts\|rm -rf .*src-tauri\/target\/aarch64-apple-darwin\/release\/bundle\n/
     );
   } finally {
-    rmSync(bundleDir, { force: true, recursive: true });
+    rmSync(fixtureRoot, { force: true, recursive: true });
   }
 });
 
@@ -638,41 +645,19 @@ test('macOS Developer ID env detects identity and infers API key path', () => {
   );
 });
 
-test('Windows upload uses installer and updater R2 paths under the version directory', () => {
-  const bundleDir = `${projectDir}/src-tauri/target/release/bundle/nsis`;
-  const installerFile = `${bundleDir}/BazaarPlusPlus_2.1.0_x64-setup.exe`;
-  const signatureFile = `${installerFile}.sig`;
-
-  mkdirSync(bundleDir, { recursive: true });
-  writeFileSync(installerFile, 'installer');
-  writeFileSync(signatureFile, 'signature');
-
-  try {
-    const output = runShell(`
-      set -euo pipefail
-      source ./build.sh
-      assert_file() { :; }
-      artifact_manifest_paths() {
-        printf '%s\\n' '${installerFile}' '${installerFile}' '${signatureFile}'
-      }
-      invoke_step() {
-        local label="$1"
-        shift
-        printf '%s|%s\\n' "$label" "$*"
-      }
-      upload_release_assets windows 2.1.0 windows-x86_64 https://bppinstaller.bazaarplusplus.com
-    `);
-
-    expect(output).toMatch(
-      /Uploading BazaarPlusPlus_2\.1\.0_x64-setup\.exe to 2\.1\.0\/windows-x86_64\/installer\/BazaarPlusPlus_2\.1\.0_x64-setup\.exe\|wrangler_cli r2 object put bppinstaller\/2\.1\.0\/windows-x86_64\/installer\/BazaarPlusPlus_2\.1\.0_x64-setup\.exe --file .*BazaarPlusPlus_2\.1\.0_x64-setup\.exe/
-    );
-    expect(output).toMatch(
-      /Uploading BazaarPlusPlus_2\.1\.0_x64-setup\.exe to 2\.1\.0\/windows-x86_64\/updater\/BazaarPlusPlus_2\.1\.0_x64-setup\.exe\|wrangler_cli r2 object put bppinstaller\/2\.1\.0\/windows-x86_64\/updater\/BazaarPlusPlus_2\.1\.0_x64-setup\.exe --file .*BazaarPlusPlus_2\.1\.0_x64-setup\.exe/
-    );
-    expect(output).toMatch(
-      /Uploading BazaarPlusPlus_2\.1\.0_x64-setup\.exe\.sig to 2\.1\.0\/windows-x86_64\/updater\/BazaarPlusPlus_2\.1\.0_x64-setup\.exe\.sig\|wrangler_cli r2 object put bppinstaller\/2\.1\.0\/windows-x86_64\/updater\/BazaarPlusPlus_2\.1\.0_x64-setup\.exe\.sig --file .*BazaarPlusPlus_2\.1\.0_x64-setup\.exe\.sig/
-    );
-  } finally {
-    rmSync(bundleDir, { force: true, recursive: true });
-  }
+test('release prechecks require the product build lock before verification', () => {
+  const output = runShell(`
+    set -euo pipefail
+    source ./build.sh
+    invoke_step() {
+      local label="$1"
+      shift
+      printf '%s|%s\\n' "$label" "$*"
+    }
+    run_release_prechecks windows
+  `);
+  expect(output).toContain('release.mjs check');
+  expect(output).toContain('release.mjs assert-build-owner');
+  expect(output).toContain('npm run verify -- --release-platform windows');
+  expect(output).not.toContain('prepare:resources');
 });

@@ -34,7 +34,7 @@ function fixtureRoot(platform = 'macos') {
     compatibilityPath,
     `${JSON.stringify({ formatVersion: 1, supportedUserVersions: [1, 2] })}\n`
   );
-  return { rootDir, sourceDir, platform };
+  return { rootDir, sourceDir, platform, productVersion: V5_MIN_MOD_VERSION };
 }
 
 function writeStagedModVersion(fixture, version) {
@@ -188,7 +188,7 @@ test.each(['ffmpeg', 'ffmpeg-LICENSE.txt', 'BppReplayRecorder.app'])(
           ...fixture,
           requiredStagingPaths: []
         })
-      ).toThrow(/retired runtime dependencies/);
+      ).toThrow(/forbidden.*release payload path/);
     } finally {
       fs.rmSync(fixture.rootDir, { recursive: true, force: true });
     }
@@ -205,7 +205,38 @@ test('preparePayloadZip rejects an unparseable staging version', () => {
         ...fixture,
         requiredStagingPaths: ['BepInEx/plugins/BazaarPlusPlus.version']
       })
-    ).toThrow(/cannot parse[\s\S]*\.\/run\.sh publish/i);
+    ).toThrow(/cannot parse[\s\S]*release\.mjs prepare/i);
+  } finally {
+    fs.rmSync(fixture.rootDir, { recursive: true, force: true });
+  }
+});
+
+test('prepare and validation reject a compatible but different product version', () => {
+  const fixture = fixtureRoot('windows');
+  fixture.productVersion = '5.5.0';
+  writeStagedModVersion(fixture, '5.4.0.prod');
+  try {
+    for (const check of [preparePayloadZip, validatePayloadZip]) {
+      expect(() => check({ ...fixture, requiredStagingPaths: [] })).toThrow(
+        /product version mismatch/
+      );
+    }
+  } finally {
+    fs.rmSync(fixture.rootDir, { recursive: true, force: true });
+  }
+});
+
+test('preparation rejects a plugin that the installer does not own', () => {
+  const fixture = fixtureRoot('windows');
+  writeStagedModVersion(fixture, `${fixture.productVersion}.prod`);
+  fs.writeFileSync(
+    path.join(fixture.sourceDir, 'BepInEx/plugins/Forgotten.dll'),
+    'plugin'
+  );
+  try {
+    expect(() =>
+      preparePayloadZip({ ...fixture, requiredStagingPaths: [] })
+    ).toThrow(/Undeclared.*Forgotten.dll/);
   } finally {
     fs.rmSync(fixture.rootDir, { recursive: true, force: true });
   }
@@ -216,6 +247,7 @@ test.each(['4.7.0.prod', '4.7.1.prod', '5.0.0.prod'])(
   (version) => {
     const fixture = fixtureRoot('windows');
     writeStagedModVersion(fixture, version);
+    fixture.productVersion = version.replace('.prod', '');
 
     try {
       expect(() =>
@@ -232,6 +264,7 @@ test.each(['4.7.0.prod', '4.7.1.prod', '5.0.0.prod'])(
 
 test('preparePayloadZip rejects a mod database schema the installer does not support', () => {
   const fixture = fixtureRoot('macos');
+  fixture.productVersion = '5.3.0';
   writeStagedModVersion(fixture, '5.3.0.prod');
   writeStagedHistoryDatabaseContract(fixture, 3);
 
@@ -261,7 +294,7 @@ test.each(['ffmpeg.exe', 'ffmpeg-LICENSE.txt'])(
     try {
       expect(() =>
         preparePayloadZip({ ...fixture, requiredStagingPaths: [] })
-      ).toThrow(/retired runtime dependencies/);
+      ).toThrow(/forbidden.*release payload path/);
     } finally {
       fs.rmSync(fixture.rootDir, { recursive: true, force: true });
     }
@@ -373,7 +406,7 @@ test('BazaarPlusPlus.version is a required release invariant', () => {
           'BepInEx/plugins/BazaarPlusPlus.version'
         ]
       })
-    ).toThrow(/BazaarPlusPlus\.version[\s\S]*\.\/run\.sh publish/);
+    ).toThrow(/BazaarPlusPlus\.version[\s\S]*release\.mjs prepare/);
   } finally {
     fs.rmSync(fixture.rootDir, { recursive: true, force: true });
   }
@@ -427,10 +460,7 @@ test('deterministic repack refreshes the checksum manifest for signed payload by
   const fixture = fixtureRoot('macos');
   const outputPath = path.join(fixture.rootDir, 'signed', 'BepInEx.zip');
   const manifestPath = `${outputPath}.manifest.json`;
-  fs.writeFileSync(
-    path.join(fixture.sourceDir, 'signed-library.dylib'),
-    'signed'
-  );
+  fs.writeFileSync(path.join(fixture.sourceDir, 'libdoorstop.dylib'), 'signed');
 
   try {
     writeDeterministicZip({
@@ -451,7 +481,7 @@ test('deterministic repack refreshes the checksum manifest for signed payload by
       zipSha256,
       entries: [
         {
-          path: 'signed-library.dylib',
+          path: 'libdoorstop.dylib',
           size: 6,
           sha256: expect.stringMatching(/^[a-f0-9]{64}$/),
           mode: expect.any(Number)

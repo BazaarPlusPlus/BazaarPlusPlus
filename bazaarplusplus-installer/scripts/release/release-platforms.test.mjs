@@ -2,11 +2,10 @@ import { test, expect } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { runShell, toBashPath } from '../test-support/shell.mjs';
+import { runShell } from '../test-support/shell.mjs';
 import {
   RELEASE_PLATFORMS,
   RELEASE_PLATFORM_KEYS,
-  updaterFragmentUrl,
   resolveBuildPlatform,
   defaultTargetBuildPlatforms
 } from './release-platforms.mjs';
@@ -44,7 +43,7 @@ test.each(RELEASE_PLATFORMS)(
     const out = runShell(`
       set -euo pipefail
       source ./build.sh
-      printf 'r2key=%s\\n' "$(platform_r2_key ${p.buildPlatform})"
+      printf 'r2key=%s\\n' "$(release_platforms_cli r2-key ${p.buildPlatform})"
       printf 'bundleroot=%s\\n' "$(release_platforms_cli bundle-root ${p.buildPlatform})"
       printf 'rust=[%s]\\n' "$(required_rust_targets_for_platform ${p.buildPlatform})"
     `);
@@ -93,53 +92,13 @@ test('prebuild-check target platforms derive from the table', () => {
   }
 });
 
-test('generate_latest_manifest end-to-end emits every table platform in order', () => {
-  const outDir = fs.mkdtempSync(`${process.cwd()}/.bpp-latest-e2e-`);
-  const outDirBash = toBashPath(outDir);
-  try {
-    runShell(`
-      set -euo pipefail
-      source ./build.sh
-      wrangler_cli() {
-        local key="$4" file="$6"
-        case "$key" in
-          "$R2_BUCKET"/9.9.9/*/updater/platform-manifest.json)
-            local pk="\${key#$R2_BUCKET/9.9.9/}"; pk="\${pk%%/*}"
-            printf '{"version":"9.9.9","platform":"%s","url":"https://base/9.9.9/%s/updater/a.bin","signature":"sig"}' "$pk" "$pk" > "$file"
-            ;;
-          *) return 1 ;;
-        esac
-      }
-      upload_r2_object() { cp "$1" "${outDirBash}/uploaded-$2"; }
-      generate_latest_manifest 9.9.9
-    `);
-    const latest = JSON.parse(
-      fs.readFileSync(`${outDir}/uploaded-latest.json`, 'utf8')
-    );
-    expect(Object.keys(latest.platforms)).toEqual(RELEASE_PLATFORM_KEYS);
-    for (const key of RELEASE_PLATFORM_KEYS) {
-      expect(latest.platforms[key].url).toBe(
-        updaterFragmentUrl({
-          baseUrl: 'https://base',
-          version: '9.9.9',
-          platformKey: key,
-          updaterFileName: 'a.bin'
-        })
-      );
-    }
-  } finally {
-    fs.rmSync(outDir, { recursive: true, force: true });
-  }
-});
-
-test('r2-key unknown platform keeps the exact build.sh error contract', () => {
+test('r2-key rejects an unsupported platform', () => {
   const out = runShell(`
     source ./build.sh
     set +e
-    platform_r2_key linux 2>&1
+    release_platforms_cli r2-key linux 2>&1
     printf 'exit:%s\\n' "$?"
   `);
-  expect(out).toContain('Error: Unsupported platform for upload: linux');
   expect(out).toContain('exit:1');
 });
 

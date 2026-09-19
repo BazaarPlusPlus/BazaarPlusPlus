@@ -8,99 +8,46 @@ namespace Architecture.Tests;
 public sealed class MacNativeReplayPackagingArchitectureTests
 {
     [Fact]
-    public void Desktop_payloads_have_no_ffmpeg_and_ship_native_render_plugins()
+    public void Payload_inventory_owns_native_and_retired_paths()
     {
-        var projectPath = Path.Combine(
-            TestInputs.RepoRoot,
-            "src",
-            "BazaarPlusPlus",
-            "BazaarPlusPlus.csproj"
+        using var inventory = JsonDocument.Parse(
+            File.OpenRead(Path.Combine(TestInputs.RepoRoot, "..", "release", "payload.json"))
         );
-        var project = XDocument.Load(projectPath);
-        var elements = project.Descendants().ToList();
-
-        Assert.DoesNotContain(elements, element => element.Name.LocalName == "MacFfmpegZip");
-        Assert.DoesNotContain(elements, element => element.Name.LocalName == "MacFfmpegLicense");
-        Assert.DoesNotContain(elements, element => element.Name.LocalName == "WindowsFfmpegZip");
-        Assert.DoesNotContain(
-            elements,
-            element => element.Name.LocalName == "WindowsFfmpegLicense"
-        );
-        Assert.Contains(elements, element => element.Name.LocalName == "WindowsReplayPlugin");
-        Assert.Contains(elements, element => element.Name.LocalName == "IsWindowsHost");
+        var files = inventory.RootElement.GetProperty("files").EnumerateArray().ToArray();
         Assert.Contains(
-            elements,
-            element =>
-                element.Name.LocalName == "Copy"
-                && (element.Attribute("DestinationFiles")?.Value ?? string.Empty).Contains(
-                    "TheBazaar_Data\\Plugins\\x86_64\\GfxPluginBppReplayMediaFoundation.dll",
-                    StringComparison.Ordinal
-                )
-        );
-
-        var unzips = elements.Where(element => element.Name.LocalName == "Unzip").ToList();
-        Assert.DoesNotContain(
-            unzips,
-            element =>
-                (element.Attribute("DestinationFolder")?.Value ?? string.Empty).Contains(
-                    "SourceForBuild/macos",
-                    StringComparison.Ordinal
-                )
-        );
-        Assert.DoesNotContain(
-            unzips,
-            element =>
-                (element.Attribute("DestinationFolder")?.Value ?? string.Empty).Contains(
-                    "SourceForBuild/windows",
-                    StringComparison.Ordinal
-                )
-        );
-
-        var staleFiles = elements
-            .Where(element => element.Name.LocalName == "StaleRecorderFile")
-            .Select(element => element.Attribute("Include")?.Value ?? string.Empty)
-            .ToHashSet(StringComparer.Ordinal);
-        Assert.Contains(
-            "$(BPPInstallerSourcePath)/SourceForBuild/macos/BepInEx/plugins/ffmpeg",
-            staleFiles
+            files,
+            entry =>
+                entry.GetProperty("producer").GetString() == "native"
+                && entry
+                    .GetProperty("path")
+                    .GetString()!
+                    .EndsWith("GfxPluginBppReplayVideoToolbox.bundle", StringComparison.Ordinal)
         );
         Assert.Contains(
-            "$(BPPInstallerSourcePath)/SourceForBuild/macos/BepInEx/plugins/ffmpeg-LICENSE.txt",
-            staleFiles
+            files,
+            entry =>
+                entry.GetProperty("producer").GetString() == "native"
+                && entry
+                    .GetProperty("path")
+                    .GetString()!
+                    .EndsWith("GfxPluginBppReplayMediaFoundation.dll", StringComparison.Ordinal)
         );
-
-        Assert.Contains(
-            staleFiles,
-            path =>
-                path.EndsWith("BepInEx/plugins/ffmpeg.exe", StringComparison.Ordinal)
-                || path.EndsWith("BepInEx\\plugins\\ffmpeg.exe", StringComparison.Ordinal)
-        );
-        Assert.Contains(
-            staleFiles,
-            path => path.EndsWith("ffmpeg-LICENSE.txt", StringComparison.Ordinal)
-        );
-
-        var packageErrors = elements
-            .Where(element => element.Name.LocalName == "Error")
-            .Select(element => element.Attribute("Condition")?.Value ?? string.Empty)
-            .ToList();
-        Assert.Contains(
-            packageErrors,
-            condition =>
-                condition.Contains("InstallerMacReplayPluginBundle", StringComparison.Ordinal)
-        );
-        Assert.Contains(
-            packageErrors,
-            condition =>
-                condition.Contains("InstallerWindowsReplayPlugin", StringComparison.Ordinal)
-        );
+        foreach (
+            var entry in files.Where(entry =>
+                Path.GetFileName(entry.GetProperty("path").GetString()!)
+                    .StartsWith("ffmpeg", StringComparison.Ordinal)
+            )
+        )
+        {
+            Assert.Equal("retired", entry.GetProperty("producer").GetString());
+        }
     }
 
     [Fact]
     public void Native_artifact_catalog_owns_content_freshness_and_abi_inputs()
     {
         using var catalog = JsonDocument.Parse(
-            File.ReadAllText(Path.Combine(TestInputs.RepoRoot, "native", "artifacts.json"))
+            File.OpenRead(Path.Combine(TestInputs.RepoRoot, "native", "artifacts.json"))
         );
         var platforms = catalog.RootElement.GetProperty("platforms");
 
@@ -160,77 +107,29 @@ public sealed class MacNativeReplayPackagingArchitectureTests
     }
 
     [Fact]
-    public void Publish_ensures_native_inputs_before_managed_packaging()
+    public void Managed_packaging_uses_the_shared_projection_without_creating_archives()
     {
-        var runScript = File.ReadAllText(Path.Combine(TestInputs.RepoRoot, "run.sh"));
-        var publishStart = runScript.IndexOf("publish() {", StringComparison.Ordinal);
-        var ensure = runScript.IndexOf(
-            "ensure_native_release_inputs \"$installer_source\" \"$release_platform\"",
-            publishStart,
-            StringComparison.Ordinal
-        );
-        var remoteData = runScript.IndexOf(
-            "fetch_remote_data \"${common_args[@]}\"",
-            publishStart,
-            StringComparison.Ordinal
-        );
-        Assert.True(ensure > publishStart);
-        Assert.True(remoteData > ensure);
-        var managedBuild = runScript.IndexOf(
-            "dotnet build src/BazaarPlusPlus/BazaarPlusPlus.csproj",
-            remoteData,
-            StringComparison.Ordinal
-        );
-        var prepareArchives = runScript.IndexOf(
-            "prepare_installer_resource_archives \"$installer_source\" \"$release_platform\"",
-            managedBuild,
-            StringComparison.Ordinal
-        );
-        Assert.True(managedBuild > remoteData);
-        Assert.True(prepareArchives > managedBuild);
-        Assert.Contains(
-            "\"-p:BppReleasePlatform=$release_platform\"",
-            runScript,
-            StringComparison.Ordinal
-        );
-        Assert.Contains(
-            "run prepare:resources -- --platform \"$release_platform\"",
-            runScript,
-            StringComparison.Ordinal
-        );
-
         var project = XDocument.Load(
             Path.Combine(TestInputs.RepoRoot, "src", "BazaarPlusPlus", "BazaarPlusPlus.csproj")
         );
-        var releaseCopy = project
-            .Descendants()
-            .Single(element =>
-                element.Name.LocalName == "Target"
-                && element.Attribute("Name")?.Value == "CopyToInstallerSource"
-            );
-        Assert.DoesNotContain("LocalMacReplayPluginBundle", releaseCopy.ToString());
-        Assert.DoesNotContain("LocalWindowsReplayPlugin", releaseCopy.ToString());
-        Assert.Contains("$(BppReleasePlatform)", releaseCopy.ToString());
-
-        var releasePackage = project
-            .Descendants()
-            .Single(element =>
-                element.Name.LocalName == "Target"
-                && element.Attribute("Name")?.Value == "PackageInstallerSource"
-            );
-        var zip = Assert.Single(
-            releasePackage.Descendants(),
-            element => element.Name.LocalName == "ZipDirectory"
+        Assert.Contains(
+            project.Descendants("Import"),
+            element =>
+                element
+                    .Attribute("Project")
+                    ?.Value.EndsWith("release/generated/Payload.targets", StringComparison.Ordinal)
+                == true
         );
-        Assert.Contains("$(BppReleasePlatform)", zip.ToString());
-
-        var releaseValidation = project
-            .Descendants()
-            .Single(element =>
-                element.Name.LocalName == "Target"
-                && element.Attribute("Name")?.Value == "ValidateProductionReleasePlatform"
-            );
-        Assert.Contains("macos", releaseValidation.ToString(), StringComparison.Ordinal);
-        Assert.Contains("windows", releaseValidation.ToString(), StringComparison.Ordinal);
+        Assert.Empty(project.Descendants("ZipDirectory"));
+        var releaseCopy = Assert.Single(
+            project.Descendants("Target"),
+            element => element.Attribute("Name")?.Value == "CopyToInstallerSource"
+        );
+        Assert.Equal(
+            "ValidatePayloadAssemblyVersions",
+            releaseCopy.Attribute("DependsOnTargets")?.Value
+        );
+        var copy = Assert.Single(releaseCopy.Descendants("Copy"));
+        Assert.Equal("@(BppPayloadFile)", copy.Attribute("SourceFiles")?.Value);
     }
 }

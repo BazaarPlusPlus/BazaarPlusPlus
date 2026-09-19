@@ -10,21 +10,13 @@ Git commit and dirty state are recorded only as producer provenance. They are ne
 
 The installer manifest records, per platform, the canonical input digest and input-file hashes alongside an exact file/tree inventory of the promoted artifact bytes. A platform is fresh only when its input digest matches the current catalog inputs and every staged artifact entry still matches the manifest. A platform record without an input digest remains integrity-checkable but is stale when that platform next publishes.
 
-## `./run.sh publish`
+## Product preparation
 
-Before managed release packaging, `publish` invokes the installer-owned native input coordinator for the current host platform:
+`./run.sh publish` delegates to the workspace product coordinator for the host platform. It prepares an isolated installer-shaped tree, ensures native inputs there, fetches and validates seeds, builds managed assemblies into private output directories, and checks assembly versions, native inventory and the unsigned archive before replacing any canonical Payload directory.
 
-1. Compute the current platform input digest from `native/artifacts.json` and the worktree bytes.
-2. Verify the matching installer manifest record and staged artifacts.
-3. Reuse the staged inputs when both checks pass.
-4. Otherwise build every artifact for the current platform into a temporary directory by invoking its mod-owned build script.
-5. Require the build scripts' platform checks, then verify the temporary output layout and exact required exports.
-6. Stage copies beside their installer destinations, replace the selected platform inputs with rollback, and write the manifest atomically last.
-7. Continue the managed build, installer-source synchronization, and payload archive preparation only for that same platform after its native inputs are fresh.
+The native coordinator computes the catalog input digest, reuses matching artifacts, or invokes the mod-owned build scripts into temporary output. Its local promotion is nested inside product preparation: a later managed build or final verification failure discards the entire temporary tree and leaves the previous canonical Payload unchanged.
 
-`publish` passes the resolved host platform through the managed build as `BppReleasePlatform`. Production packaging rejects a missing or unknown value, so a macOS publish cannot rewrite the Windows staging tree or archive, and a Windows publish cannot rewrite the macOS equivalents.
-
-Promotion is intentionally local. It does not create qualification records, remote promotion services, or oldest-OS runner requirements. A failed build, validation, copy, or manifest write leaves the previous manifest authoritative and restores the previous selected-platform inputs. That automatic restore ends at the manifest transaction: the coordinator re-verifies the promoted platform only after the transaction returns, so a failure in that final check leaves the new manifest in place and needs manual recovery across both repositories.
+The product coordinator switches SourceForBuild, the unsigned archive and native input lock under a recovery journal. Packaging refuses a pending journal; the next preparation restores the previous generation before retrying. Only the selected platform changes. See the [product release guide](../../../docs/release.md) for locking, recovery and two-platform release promotion.
 
 ## Producer checks
 

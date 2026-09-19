@@ -1,4 +1,5 @@
 import { describe, expect, test, vi } from 'vitest';
+import releaseFixture from '../../release/fixtures/latest.json';
 
 import {
   createInstallerManifestHttpTransport,
@@ -14,7 +15,7 @@ function makeTransport(payload: unknown): InstallerManifestTransport {
 
 describe('latest installer interface', () => {
   test('turns one manifest into complete platform and source downloads', async () => {
-    const installer = await loadLatestInstaller(makeTransport({ version: '3.1.1' }));
+    const installer = await loadLatestInstaller(makeTransport(releaseFixture));
 
     expect(installer).toEqual({
       version: '3.1.1',
@@ -31,7 +32,9 @@ describe('latest installer interface', () => {
         },
       },
     });
-    expect(GITHUB_RELEASE_URL).toBe('https://github.com/BazaarPlusPlus/BazaarPlusPlus/releases/latest');
+    expect(GITHUB_RELEASE_URL).toBe(
+      'https://github.com/BazaarPlusPlus/BazaarPlusPlus/releases/latest'
+    );
   });
 
   test.each([{ ver: '3.1.1' }, { version: '' }, null])(
@@ -42,12 +45,37 @@ describe('latest installer interface', () => {
   );
 
   test('passes cancellation through the transport seam', async () => {
-    const transport = makeTransport({ version: '3.1.1' });
+    const transport = makeTransport(releaseFixture);
     const controller = new AbortController();
 
     await loadLatestInstaller(transport, { signal: controller.signal });
 
     expect(transport.load).toHaveBeenCalledWith({ signal: controller.signal });
+  });
+
+  test('uses the actual installer filename from the release instead of guessing it', async () => {
+    const payload = structuredClone(releaseFixture);
+    payload.downloads['windows-x86_64'].url =
+      `${INSTALLER_BASE}/3.1.1/windows-x86_64/installer/actual-build.exe`;
+    const installer = await loadLatestInstaller(makeTransport(payload));
+    expect(installer.downloads.windows.downloadUrl).toBe(payload.downloads['windows-x86_64'].url);
+  });
+
+  test.each([
+    { version: '3.1.1' },
+    {
+      ...releaseFixture,
+      downloads: { 'darwin-aarch64': releaseFixture.downloads['darwin-aarch64'] },
+    },
+    {
+      ...releaseFixture,
+      downloads: {
+        ...releaseFixture.downloads,
+        'windows-x86_64': { url: 'https://untrusted.example/setup.exe' },
+      },
+    },
+  ])('rejects absent or unsafe download facts %#', async (payload) => {
+    await expect(loadLatestInstaller(makeTransport(payload))).rejects.toThrow(/download/);
   });
 });
 

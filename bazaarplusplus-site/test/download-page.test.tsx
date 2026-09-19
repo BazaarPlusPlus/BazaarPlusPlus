@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { describe, expect, test, vi } from 'vitest';
+import releaseFixture from '../../release/fixtures/latest.json';
 
 import DownloadPage from '../src/features/download/DownloadPage';
 import type { InstallerManifestTransport } from '../src/features/download/installer';
@@ -42,7 +43,7 @@ describe('DownloadPage', () => {
     renderWithClient(
       <DownloadPage
         location={downloadLocation()}
-        transport={makeTransport({ payload: { version: '3.1.1' } })}
+        transport={makeTransport({ payload: releaseFixture })}
       />
     );
 

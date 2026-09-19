@@ -73,9 +73,6 @@ dotnet_diagnostic.RS0030.severity = none
 [Architecture.Tests/MacNativeReplayNativeArchitectureTests.cs]
 dotnet_diagnostic.RS0030.severity = none
 
-[Architecture.Tests/MacNativeReplayPackagingArchitectureTests.cs]
-dotnet_diagnostic.RS0030.severity = none
-
 # Debt — S10
 [NativeAssetCompatibility.Tests/Program.cs]
 dotnet_diagnostic.RS0030.severity = none

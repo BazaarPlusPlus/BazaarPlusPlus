@@ -58,6 +58,7 @@ BazaarPlusPlus 是一个面向《The Bazaar》的开源项目：游戏内由 Bep
 
 ```
 .
+├── VERSION / release.mjs / release/         # 产品版本、发布入口与共享 Payload Inventory
 ├── bazaarplusplus-mod/                       # BepInEx 模组源码
 │   ├── run.sh                                # 常用 build/test/format/decompile 入口
 │   └── src/
@@ -74,7 +75,7 @@ BazaarPlusPlus 是一个面向《The Bazaar》的开源项目：游戏内由 Bep
 └── bazaarplusplus-site/                      # bazaarplusplus.com
 ```
 
-日常开发在对应子目录里跑命令，不要从仓库根构建。每个子目录有自己的 `CLAUDE.md` / `AGENTS.md`。
+日常开发在对应子目录里跑命令；产品发布统一使用根目录 `release.mjs`。每个子目录有自己的 `CLAUDE.md` / `AGENTS.md`。
 
 ## 从源码构建
 
@@ -141,6 +142,10 @@ npm run build
 ```
 
 发布签名、公证（notarization）、R2 上传等流程依赖本地环境变量与 `signing-secrets/`，这些内容不会提交到公开仓库；在缺少本机游戏、签名凭据或平台依赖的环境中，无法完成完整的发布构建。游戏反编译输出、`decompiled/`、`.env` 和 `.dev.vars` 同样不在此树中。
+
+## 产品发布
+
+mod 与 installer 共用根目录 `VERSION`。修改后执行 `node release.mjs sync`；每个平台使用 `node release.mjs build --platform macos`（或 `windows`）准备 Payload 并打包。分别 `upload` 后，只有双平台同版本、同提交的产物齐备，`promote` 才会推进 latest。完整流程、凭据与恢复约定见 [产品发布](docs/release.md)。
 
 ## 二次开发须知
 

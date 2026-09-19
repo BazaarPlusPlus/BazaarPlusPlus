@@ -58,6 +58,7 @@ Feature guides, hotkeys, and installation details live at [bazaarplusplus.com/tu
 
 ```
 .
+├── VERSION / release.mjs / release/         # Product version, release entry point, shared Payload Inventory
 ├── bazaarplusplus-mod/                       # BepInEx mod source
 │   ├── run.sh                                # Common build/test/format/decompile entry point
 │   └── src/
@@ -74,7 +75,7 @@ Feature guides, hotkeys, and installation details live at [bazaarplusplus.com/tu
 └── bazaarplusplus-site/                      # bazaarplusplus.com
 ```
 
-Run commands from the project directory you are changing. Do not build from the repository root. Each subdirectory has its own `CLAUDE.md` / `AGENTS.md`.
+Run daily development commands from the project directory you are changing; product releases use the root `release.mjs`. Each subdirectory has its own `CLAUDE.md` / `AGENTS.md`.
 
 ## Building From Source
 
@@ -141,6 +142,10 @@ npm run build
 ```
 
 Release signing, notarization, and R2 upload flows depend on local environment variables and `signing-secrets/`, which are intentionally not committed. A full release build also requires a local game install, signing material, and the platform dependencies — the public source tree alone is not enough. Game decompilation output, `decompiled/`, `.env`, and `.dev.vars` are also kept out of this tree.
+
+## Product Releases
+
+The mod and installer share the root `VERSION`. Run `node release.mjs sync` after changing it. Build each platform with `node release.mjs build --platform macos` (or `windows`), then `upload` its immutable artifacts. `promote` advances latest only when both platforms have the same version and Git commit. See the [product release guide](docs/release.md) for credentials, sequencing, and recovery.
 
 ## Derivative Work Notice
 

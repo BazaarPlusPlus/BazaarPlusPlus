@@ -47,7 +47,7 @@ Inside the main assembly:
 | `Patches/` | Harmony patches, reaching services through `BppPatchHost` rather than constructor injection |
 | `Infrastructure/` | cross-cutting logging, UI tokens, stable text helpers, generic seams |
 
-The main project targets `netstandard2.1`, uses C# 12, and publicizes game assemblies, so `internal` game members are accessible. Remote seed data is declared in `RemoteEmbeddedData.targets` and delegates transport to `build/RemoteEmbeddedDataFetcher`; the shared version is `BppVersion` in `Directory.Build.props`.
+The main project targets `netstandard2.1`, uses C# 12, and publicizes game assemblies, so `internal` game members are accessible. Remote seed data is declared in `RemoteEmbeddedData.targets` and delegates transport to `build/RemoteEmbeddedDataFetcher`; `BppVersion` in `Directory.Build.props` reads the workspace-root `VERSION`. The shared Payload Inventory generates the MSBuild copy items; production assembly versions are checked from compiled metadata. `./run.sh publish` delegates isolated preparation to the [product release coordinator](../../docs/release.md).
 
 Architecture tests ratchet dependency boundaries, shared ownership, and test/build safety contracts over compiled assemblies (`tests/Architecture.Tests/`, ADR-0009). Concrete composition behavior remains in `tests/CompositionRuntime.Tests/` and is compiled by `RuntimeIntegration.Tests`: feature start/stop is fault-isolated, while `BppMountableRegistry.MountAll` deliberately is not.
 

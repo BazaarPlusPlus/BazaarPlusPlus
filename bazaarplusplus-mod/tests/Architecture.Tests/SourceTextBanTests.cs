@@ -27,7 +27,6 @@ public sealed class SourceTextBanTests
         "Architecture.Tests/LoggingGovernanceTests.cs",
         "Architecture.Tests/MacNativeReplayManagedArchitectureTests.cs",
         "Architecture.Tests/MacNativeReplayNativeArchitectureTests.cs",
-        "Architecture.Tests/MacNativeReplayPackagingArchitectureTests.cs",
         "Architecture.Tests/NativeAssetLoadingArchitectureTests.cs",
         "Architecture.Tests/NativeCardPreviewArchitectureTests.cs",
         "Architecture.Tests/NativeMonsterBoardArchitectureTests.cs",

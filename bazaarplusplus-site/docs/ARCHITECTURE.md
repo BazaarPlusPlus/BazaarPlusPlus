@@ -15,6 +15,8 @@ The code is the structural source of truth. This document records intended owner
 
 The metrics, installer, and SPA location seams each have production and in-memory test adapters. Presentation modules consume their resolved models; payload decoding stays in ingestion and browser-history handling stays in the router.
 
+Installer resolution consumes the product Release Manifest's `downloads` URLs rather than reconstructing primary filenames. URLs must belong to the expected origin, product version and platform; missing or invalid entries use the existing GitHub fallback. The mainland mirror keeps its independent naming policy. Writer and consumer share `release/fixtures/latest.json` at the workspace root; publish a complete manifest before deploying a website that requires this contract.
+
 ## URL Contract
 
 - `src/app/router.ts` is the route catalog for App routing, navigation, and page-title keys. Cloudflare supplies SPA fallback; unknown paths still resolve to the localized not-found page.
