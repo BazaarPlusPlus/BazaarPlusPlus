@@ -84,7 +84,7 @@ Run `just` from any repository subdirectory to list development, check, test, an
 
 - **Mod**: .NET SDK 10 and a local Steam install of *The Bazaar* so game assemblies can be resolved.
 - **Unified commands**: [just](https://just.systems/man/en/packages.html); install with `brew install just` on macOS.
-- **Installer / server / site**: Use Node `>=24.15.0 <25` across the repository, with npm `11.17.0` recommended; run `npm ci` in each project directory.
+- **Installer / server / site**: Use the Node version in the root `.nvmrc` and the npm version in `packageManager` of `bazaarplusplus-installer/package.json`; run `npm ci` in each project directory.
 - **Native installer builds**: The Rust toolchain and the system dependencies listed in the [Tauri prerequisites](https://tauri.app/start/prerequisites/).
 - **Analyzer**: Python 3.14 and `uv`.
 - **Windows**: Run just commands in Git Bash; native build scripts also require PowerShell 7.6.0 or newer.

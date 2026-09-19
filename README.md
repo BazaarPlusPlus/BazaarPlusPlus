@@ -84,7 +84,7 @@ BazaarPlusPlus 是一个面向《The Bazaar》的开源项目：游戏内由 Bep
 
 - **模组**：.NET SDK 10，以及本机 Steam 版《The Bazaar》（用于解析游戏程序集引用）。
 - **统一命令**：[just](https://just.systems/man/en/packages.html)，macOS 可用 `brew install just` 安装。
-- **安装器 / 服务端 / 官网**：统一使用 Node `>=24.15.0 <25`，建议 npm `11.17.0`；各目录分别执行 `npm ci`。
+- **安装器 / 服务端 / 官网**：Node 版本见根目录 `.nvmrc`，npm 版本见 `bazaarplusplus-installer/package.json` 的 `packageManager`；各目录分别执行 `npm ci`。
 - **安装器原生构建**：Rust 工具链、Tauri 系统依赖（见 [Tauri prerequisites](https://tauri.app/start/prerequisites/)）。
 - **分析器**：Python 3.14 与 `uv`。
 - **Windows**：just 命令在 Git Bash 中执行；原生构建脚本还要求 PowerShell 7.6.0 或更高版本。
