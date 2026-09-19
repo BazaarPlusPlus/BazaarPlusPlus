@@ -1,4 +1,5 @@
 #nullable enable
+using System.Globalization;
 using BazaarGameShared.Domain.Core.Types;
 using BazaarPlusPlus.Game.LiveBuildPanel.Data;
 using BazaarPlusPlus.GameInterop.Heroes;
@@ -90,7 +91,8 @@ internal sealed class BuildRecommendationRepository
         return new BppItemBoardCard
         {
             TemplateId = item.TemplateId,
-            InstanceId = $"tenwin-{(item.Slot?.ToString() ?? "unsocketed")}-{item.TemplateId:N}",
+            InstanceId =
+                $"tenwin-{(item.Slot?.ToString(CultureInfo.InvariantCulture) ?? "unsocketed")}-{item.TemplateId:N}",
             Order = item.Slot ?? 0,
             Tier = MapTier(item.Tier),
             Size = size,

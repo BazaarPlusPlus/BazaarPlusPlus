@@ -1,4 +1,5 @@
 #nullable enable
+using System.Globalization;
 using BazaarPlusPlus.Storage;
 using BazaarPlusPlus.Storage.RunLog;
 using BazaarPlusPlus.Storage.Sqlite;
@@ -364,7 +365,7 @@ internal sealed class PvpBattleSqliteStore : SqliteStoreBase
             records.Add(
                 new ReplayPayloadMaintenanceRecord(
                     reader.GetString(0),
-                    DateTimeOffset.Parse(reader.GetString(1)),
+                    DateTimeOffset.Parse(reader.GetString(1), CultureInfo.InvariantCulture),
                     reader.GetInt32(2) == 1,
                     ParsePayloadState(reader.GetString(3))
                 )
@@ -599,7 +600,8 @@ internal sealed class PvpBattleSqliteStore : SqliteStoreBase
             BattleId = reader.GetString(reader.GetOrdinal("battle_id")),
             RunId = GetNullableString(reader, "run_id"),
             RecordedAtUtc = DateTimeOffset.Parse(
-                reader.GetString(reader.GetOrdinal("recorded_at_utc"))
+                reader.GetString(reader.GetOrdinal("recorded_at_utc")),
+                CultureInfo.InvariantCulture
             ),
             Day = GetNullableInt32(reader, "day"),
             Hour = GetNullableInt32(reader, "hour"),

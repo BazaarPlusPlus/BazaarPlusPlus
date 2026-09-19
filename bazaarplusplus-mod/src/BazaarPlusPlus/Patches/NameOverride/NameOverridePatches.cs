@@ -109,7 +109,7 @@ public static class PlayerProfileGetDisplayUsernamePatch
 public static class UpdatePlayerPatch
 {
     [HarmonyPrefix]
-    static bool Prefix(
+    private static bool Prefix(
         HeroBannerController __instance,
         ref string userName,
         ref int nameId,
@@ -143,7 +143,7 @@ public static class UpdatePlayerPatch
 public static class SetHeroNamePatch
 {
     [HarmonyPrefix]
-    static bool Prefix(ref string newName, ref int usernameId)
+    private static bool Prefix(ref string newName, ref int usernameId)
     {
         if (!NameOverrideHelper.TryGetReplacementName(newName, out var replacementName))
             return true;

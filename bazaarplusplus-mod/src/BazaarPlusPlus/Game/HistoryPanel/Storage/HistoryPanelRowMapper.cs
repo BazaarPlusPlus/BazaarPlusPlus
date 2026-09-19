@@ -1,4 +1,5 @@
 #nullable enable
+using System.Globalization;
 using BazaarPlusPlus.Game.HistoryPanel.Data;
 using Microsoft.Data.Sqlite;
 
@@ -10,7 +11,10 @@ internal static class HistoryPanelRowMapper
 {
     public static HistoryRunRecord ReadRun(SqliteDataReader reader)
     {
-        var startedAt = DateTimeOffset.Parse(reader.GetString(reader.GetOrdinal("started_at_utc")));
+        var startedAt = DateTimeOffset.Parse(
+            reader.GetString(reader.GetOrdinal("started_at_utc")),
+            CultureInfo.InvariantCulture
+        );
         var endedAt = GetNullableDateTimeOffset(reader, "ended_at_utc");
         var finalDay = GetNullableInt32(reader, "final_day") ?? GetNullableInt32(reader, "day");
         var finalHour = GetNullableInt32(reader, "final_hour") ?? GetNullableInt32(reader, "hour");
@@ -45,7 +49,10 @@ internal static class HistoryPanelRowMapper
         return new HistoryBattleRecord(
             battleId,
             reader.GetString(reader.GetOrdinal("run_id")),
-            DateTimeOffset.Parse(reader.GetString(reader.GetOrdinal("recorded_at_utc"))),
+            DateTimeOffset.Parse(
+                reader.GetString(reader.GetOrdinal("recorded_at_utc")),
+                CultureInfo.InvariantCulture
+            ),
             GetNullableInt32(reader, "day"),
             GetNullableInt32(reader, "hour"),
             GetNullableString(reader, "encounter_id"),
@@ -80,7 +87,10 @@ internal static class HistoryPanelRowMapper
         var battleId = SafeGetNullableString(reader, "battle_id") ?? "unknown";
         return GhostBattleLocalProjector.CreateHistoryBattleRecord(
             battleId,
-            DateTimeOffset.Parse(reader.GetString(reader.GetOrdinal("recorded_at_utc"))),
+            DateTimeOffset.Parse(
+                reader.GetString(reader.GetOrdinal("recorded_at_utc")),
+                CultureInfo.InvariantCulture
+            ),
             GetNullableInt32(reader, "day"),
             GetNullableInt32(reader, "hour"),
             GetNullableString(reader, "encounter_id"),
@@ -161,6 +171,8 @@ internal static class HistoryPanelRowMapper
     )
     {
         var ordinal = reader.GetOrdinal(columnName);
-        return reader.IsDBNull(ordinal) ? null : DateTimeOffset.Parse(reader.GetString(ordinal));
+        return reader.IsDBNull(ordinal)
+            ? null
+            : DateTimeOffset.Parse(reader.GetString(ordinal), CultureInfo.InvariantCulture);
     }
 }

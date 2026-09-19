@@ -36,6 +36,9 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <!-- netstandard2.1 projects do not load the .NET analyzers by default; the
+         CA rules enabled in .editorconfig need them. -->
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
     <!-- XML output is enabled so Roslyn can analyze IDE0005. Public API documentation is
          not a repository deliverable, so suppress only the resulting missing-doc warning. -->
     <NoWarn>$(NoWarn);CS1591</NoWarn>

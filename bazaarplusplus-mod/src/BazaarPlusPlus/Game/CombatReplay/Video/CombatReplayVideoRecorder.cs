@@ -1,6 +1,7 @@
 #nullable enable
 using System.Collections;
 using System.Collections.Concurrent;
+using System.Globalization;
 using BazaarPlusPlus.Core.Runtime;
 using BazaarPlusPlus.Game.CombatReplay.Audio;
 using BazaarPlusPlus.Game.OverlayPanels;
@@ -1374,8 +1375,8 @@ internal sealed class CombatReplayVideoRecorder : MonoBehaviour
             return null;
 
         var nowLocal = DateTimeOffset.Now;
-        var datePart = nowLocal.ToString("yyyy-MM-dd");
-        var stampPart = nowLocal.ToString("yyyyMMdd-HHmmss");
+        var datePart = nowLocal.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        var stampPart = nowLocal.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture);
         var sanitizedBattleId = SanitizeForPath(evt.BattleId);
         var outputDirectory = Path.Combine(videoDirectoryPath, datePart);
         var fileNames = ReplayVideoOutputFileNames.Create(

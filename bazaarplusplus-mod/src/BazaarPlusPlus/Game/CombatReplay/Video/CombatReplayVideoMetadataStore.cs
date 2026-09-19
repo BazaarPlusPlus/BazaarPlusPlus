@@ -1,4 +1,5 @@
 #nullable enable
+using System.Globalization;
 using BazaarPlusPlus.Storage.RunLog;
 using BazaarPlusPlus.Storage.Sqlite;
 
@@ -238,7 +239,7 @@ internal sealed class CombatReplayVideoMetadataStore : SqliteStoreBase, IReplayV
             reader.GetString(3),
             ParseAttachmentState(reader.GetString(4)),
             ParseFileState(reader.GetString(5)),
-            DateTimeOffset.Parse(reader.GetString(6)),
+            DateTimeOffset.Parse(reader.GetString(6), CultureInfo.InvariantCulture),
             ReadDateTimeOffset(reader, 7),
             ReadDateTimeOffset(reader, 8),
             ReadDateTimeOffset(reader, 9),
@@ -248,7 +249,10 @@ internal sealed class CombatReplayVideoMetadataStore : SqliteStoreBase, IReplayV
     private static DateTimeOffset? ReadDateTimeOffset(
         Microsoft.Data.Sqlite.SqliteDataReader reader,
         int ordinal
-    ) => reader.IsDBNull(ordinal) ? null : DateTimeOffset.Parse(reader.GetString(ordinal));
+    ) =>
+        reader.IsDBNull(ordinal)
+            ? null
+            : DateTimeOffset.Parse(reader.GetString(ordinal), CultureInfo.InvariantCulture);
 
     private static List<string> NormalizeIds(IReadOnlyCollection<string>? ids) =>
         ids == null

@@ -1,4 +1,5 @@
 #nullable enable
+using System.Globalization;
 using BazaarPlusPlus.Storage.Paths;
 using Microsoft.Data.Sqlite;
 
@@ -473,7 +474,7 @@ public static class RunLogSchema
         using var command = connection.CreateCommand();
         command.Transaction = transaction;
         command.CommandText = "PRAGMA user_version;";
-        return Convert.ToInt32(command.ExecuteScalar());
+        return Convert.ToInt32(command.ExecuteScalar(), CultureInfo.InvariantCulture);
     }
 
     private static void ValidateVersionTwoColumns(

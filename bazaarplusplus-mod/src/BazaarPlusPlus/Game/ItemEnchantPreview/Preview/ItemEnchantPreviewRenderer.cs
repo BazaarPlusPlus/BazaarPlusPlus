@@ -1,4 +1,5 @@
 #nullable enable
+using System.Globalization;
 using System.Reflection;
 using System.Text;
 using BazaarGameClient.Domain.Models.Cards;
@@ -197,7 +198,9 @@ public static class ItemEnchantPreviewRenderer
                     token.Resolve().GetValueOrDefault()
                 );
                 rendered.Append(
-                    seconds.IsDecimal() ? seconds.GetDecimalValueString() : seconds.ToString()
+                    seconds.IsDecimal()
+                        ? seconds.GetDecimalValueString()
+                        : seconds.ToString(CultureInfo.CurrentCulture)
                 );
             }
             else

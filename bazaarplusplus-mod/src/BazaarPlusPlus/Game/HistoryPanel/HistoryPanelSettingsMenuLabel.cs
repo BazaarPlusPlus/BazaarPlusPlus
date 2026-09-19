@@ -1,4 +1,5 @@
 #nullable enable
+using System.Globalization;
 using BazaarPlusPlus.Localization;
 
 namespace BazaarPlusPlus.Game.HistoryPanel;
@@ -16,6 +17,10 @@ internal static class HistoryPanelSettingsMenuLabel
 
     internal static string Resolve(string languageCode, string hotkeyDisplay)
     {
-        return string.Format(LabelFormats.Resolve(languageCode, L.CurrentMode), hotkeyDisplay);
+        return string.Format(
+            CultureInfo.CurrentCulture,
+            LabelFormats.Resolve(languageCode, L.CurrentMode),
+            hotkeyDisplay
+        );
     }
 }

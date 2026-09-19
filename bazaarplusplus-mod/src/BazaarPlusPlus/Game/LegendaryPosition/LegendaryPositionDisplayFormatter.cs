@@ -1,4 +1,5 @@
 #nullable enable
+using System.Globalization;
 using BazaarPlusPlus.Core.Config;
 using BazaarPlusPlus.GameInterop;
 
@@ -33,7 +34,9 @@ internal static class LegendaryPositionDisplayFormatter
                 currentText,
                 fallbackPosition
             ),
-            _ => currentText ?? fallbackPosition?.ToString() ?? string.Empty,
+            _ => currentText
+                ?? fallbackPosition?.ToString(CultureInfo.CurrentCulture)
+                ?? string.Empty,
         };
     }
 
@@ -42,7 +45,9 @@ internal static class LegendaryPositionDisplayFormatter
         var position = ResolvePosition(fallbackPosition);
         BppClientCacheBridge.TryGetPlayerRankSnapshot(out _, out var rating, out _);
         if (!position.HasValue || !rating.HasValue)
-            return currentText ?? fallbackPosition?.ToString() ?? string.Empty;
+            return currentText
+                ?? fallbackPosition?.ToString(CultureInfo.CurrentCulture)
+                ?? string.Empty;
 
         return $"#{position.Value} | {rating.Value}";
     }

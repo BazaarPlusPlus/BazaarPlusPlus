@@ -1,4 +1,5 @@
 #nullable enable
+using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using BazaarGameShared.Domain.Core;
@@ -110,7 +111,7 @@ internal static class ChineseTranslationCatalog
         var hash = md5.ComputeHash(Encoding.UTF8.GetBytes(text));
         var builder = new StringBuilder(hash.Length * 2);
         foreach (var value in hash)
-            builder.Append(value.ToString("x2"));
+            builder.Append(value.ToString("x2", CultureInfo.InvariantCulture));
         return builder.ToString();
     }
 

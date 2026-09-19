@@ -1,4 +1,5 @@
 #nullable enable
+using System.Globalization;
 using BazaarPlusPlus.Storage.Paths;
 using BazaarPlusPlus.Storage.Sqlite;
 using Microsoft.Data.Sqlite;
@@ -344,7 +345,8 @@ public sealed class RunLogStore : SqliteStoreBase, IRunLogStore
         if (initialPlayerRating == null || initialPlayerRating is DBNull)
             return 0;
 
-        return finalPlayerRating.Value - Convert.ToInt32(initialPlayerRating);
+        return finalPlayerRating.Value
+            - Convert.ToInt32(initialPlayerRating, CultureInfo.InvariantCulture);
     }
 
     private static bool HasTerminalStatus(
@@ -362,7 +364,9 @@ public sealed class RunLogStore : SqliteStoreBase, IRunLogStore
             """;
         command.Parameters.AddWithValue("$runId", runId);
         var value = command.ExecuteScalar();
-        return value != null && value is not DBNull && Convert.ToInt32(value) == 1;
+        return value != null
+            && value is not DBNull
+            && Convert.ToInt32(value, CultureInfo.InvariantCulture) == 1;
     }
 
     private static RunLogSessionState? TryReadActiveRun(
@@ -404,10 +408,12 @@ public sealed class RunLogStore : SqliteStoreBase, IRunLogStore
             return null;
 
         var startedAtUtc = DateTimeOffset.Parse(
-            reader.GetString(reader.GetOrdinal("started_at_utc"))
+            reader.GetString(reader.GetOrdinal("started_at_utc")),
+            CultureInfo.InvariantCulture
         );
         var lastSeenAtUtc = DateTimeOffset.Parse(
-            reader.GetString(reader.GetOrdinal("last_seen_at_utc"))
+            reader.GetString(reader.GetOrdinal("last_seen_at_utc")),
+            CultureInfo.InvariantCulture
         );
 
         return new RunLogSessionState

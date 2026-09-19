@@ -1,4 +1,5 @@
 #nullable enable
+using System.Globalization;
 using System.Text;
 
 namespace BazaarPlusPlus.Game.Screenshots;
@@ -7,7 +8,7 @@ internal static class ScreenshotPathBuilder
 {
     public static string BuildRelativePath(string? runId, DateTimeOffset capturedAtLocal)
     {
-        var dayFolder = capturedAtLocal.ToString("yyyy-MM-dd");
+        var dayFolder = capturedAtLocal.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
         var sanitizedRunId = SanitizeRunId(runId);
         var fileName = $"{capturedAtLocal:yyyy-MM-dd_HH-mm-ss-fff}_final_run-{sanitizedRunId}.png";
         return Path.Combine(dayFolder, fileName);

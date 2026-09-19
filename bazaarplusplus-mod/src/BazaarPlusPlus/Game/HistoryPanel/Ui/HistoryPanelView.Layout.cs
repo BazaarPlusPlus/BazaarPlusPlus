@@ -1,4 +1,5 @@
 #nullable enable
+using System.Globalization;
 using BazaarPlusPlus.Game.HistoryPanel.Data;
 using BazaarPlusPlus.GameInterop.Heroes;
 using BazaarPlusPlus.GameInterop.HeroPortraits;
@@ -806,7 +807,9 @@ internal sealed partial class HistoryPanelView
         var hasRating =
             string.Equals(rank?.Trim(), "Legendary", StringComparison.OrdinalIgnoreCase)
             && rating.HasValue;
-        ratingLabel.text = hasRating ? rating.GetValueOrDefault().ToString() : string.Empty;
+        ratingLabel.text = hasRating
+            ? rating.GetValueOrDefault().ToString(CultureInfo.CurrentCulture)
+            : string.Empty;
         return hasRating;
     }
 }
