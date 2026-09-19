@@ -4,7 +4,7 @@ mod 与 installer 是同一个 Product Release 的两个产物。根目录 `VERS
 
 ## 入口
 
-通过根目录 justfile 执行，Windows 使用 Git Bash；每个平台在自己的原生构建机上准备和打包。just 的安装和日常检查命令见[开发命令](development.md)。
+通过根目录 `JUSTFILE` 执行，Windows 使用 Git Bash；每个平台在自己的原生构建机上准备和打包。just 的安装和日常检查命令见[开发命令](development.md)。
 
 ```bash
 just release-sync

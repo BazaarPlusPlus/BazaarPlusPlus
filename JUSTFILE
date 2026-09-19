@@ -1,22 +1,42 @@
 set shell := ["bash", "-euo", "pipefail", "-c"]
 set positional-arguments
 
+# Root release and command scripts, formatted with the installer's Prettier.
+root_js := "release.mjs 'release/**/*.{mjs,json}' 'scripts/**/*.mjs'"
+
 # List commands without building or publishing anything.
 default:
     @{{ quote(just_executable()) }} --list
 
 # Check all projects without signing, publishing, or deploying to the game.
 [group('workspace')]
-check: commands-check release-check mod-build installer-check site-check server-check analyzer-check
+check: commands-check release-check mod-format-check mod-build installer-check site-check server-check analyzer-check
 
 # Run all project tests without publishing data or deploying to the game.
 [group('workspace')]
 test: commands-check mod-test installer-test site-test server-test analyzer-test
 
+# Format every project in place, then re-project release files.
+[group('workspace')]
+fmt: && release-sync
+    {{ quote(just_executable()) }} --fmt
+    npm --prefix bazaarplusplus-installer exec -- prettier --config bazaarplusplus-installer/.prettierrc.json --write {{ root_js }}
+    cd bazaarplusplus-mod && bash ./run.sh format
+    cd bazaarplusplus-installer && npm run format
+    cd bazaarplusplus-site && npm run format
+    cd bazaarplusplus-server && npm run format
+    cd bazaarplusplus-analyzer && uv run --locked ruff check --fix . && uv run --locked ruff format .
+
+# Install the workspace Git hooks (requires installer npm dependencies).
+[group('workspace')]
+hooks-install:
+    bazaarplusplus-installer/node_modules/.bin/lefthook install
+
 # Check formatting and exercise command routing with isolated tool stubs.
 [group('workspace')]
 commands-check:
     {{ quote(just_executable()) }} --fmt --check
+    npm --prefix bazaarplusplus-installer exec -- prettier --config bazaarplusplus-installer/.prettierrc.json --check {{ root_js }}
     node --test scripts/just.test.mjs
 
 # Compile the mod without changing the installed game; forward build options.
@@ -24,6 +44,12 @@ commands-check:
 [working-directory('bazaarplusplus-mod')]
 mod-build *args:
     bash ./run.sh build --no-deploy "$@"
+
+# Fail on C# files that the repo-pinned CSharpier would reformat.
+[group('mod')]
+[working-directory('bazaarplusplus-mod')]
+mod-format-check:
+    bash ./run.sh format-check
 
 # Run the offline mod suite; forward ManagedPath or other test properties.
 [group('mod')]

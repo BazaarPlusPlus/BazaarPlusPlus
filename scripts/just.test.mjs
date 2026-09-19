@@ -9,13 +9,27 @@ const root = path.resolve(import.meta.dirname, '..');
 const just = process.env.JUST_BIN ?? 'just';
 const projects = ['mod', 'installer', 'site', 'server', 'analyzer'];
 const shellQuote = (value) => `'${value.replaceAll("'", "'\\''")}'`;
+const rootPrettier = (mode) => [
+  'npm',
+  '--prefix',
+  'bazaarplusplus-installer',
+  'exec',
+  '--',
+  'prettier',
+  '--config',
+  'bazaarplusplus-installer/.prettierrc.json',
+  mode,
+  'release.mjs',
+  'release/**/*.{mjs,json}',
+  'scripts/**/*.mjs'
+];
 
 function fixture(t) {
   const dir = fs.realpathSync(
     fs.mkdtempSync(path.join(os.tmpdir(), 'bpp-just-'))
   );
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
-  fs.copyFileSync(path.join(root, 'justfile'), path.join(dir, 'justfile'));
+  fs.copyFileSync(path.join(root, 'JUSTFILE'), path.join(dir, 'JUSTFILE'));
   const bin = path.join(dir, 'bin');
   fs.mkdirSync(bin);
   for (const project of projects) {
@@ -85,8 +99,10 @@ test('check delegates source-only gates in their project directories', (t) => {
   const f = fixture(t);
   succeeded(f.run(['check']));
   assert.deepEqual(f.calls(), [
+    call(f.dir, null, ...rootPrettier('--check')),
     call(f.dir, null, 'node', '--test', 'scripts/just.test.mjs'),
     call(f.dir, null, 'node', 'release.mjs', 'check'),
+    call(f.dir, 'mod', 'mod', 'format-check'),
     call(f.dir, 'mod', 'mod', 'build', '--no-deploy'),
     call(f.dir, 'installer', 'npm', 'run', 'verify', '--', '--source-only'),
     call(f.dir, 'installer', 'npm', 'run', 'docs:check'),
@@ -114,6 +130,7 @@ test('test runs each suite without a release or publication command', (t) => {
   const f = fixture(t);
   succeeded(f.run(['test']));
   assert.deepEqual(f.calls(), [
+    call(f.dir, null, ...rootPrettier('--check')),
     call(f.dir, null, 'node', '--test', 'scripts/just.test.mjs'),
     call(f.dir, 'mod', 'mod', 'test'),
     ...['installer', 'site', 'server'].map((project) =>
@@ -123,13 +140,38 @@ test('test runs each suite without a release or publication command', (t) => {
   ]);
 });
 
+test('fmt formats every project, then re-projects release files', (t) => {
+  const f = fixture(t);
+  succeeded(f.run(['fmt']));
+  assert.deepEqual(f.calls(), [
+    call(f.dir, null, ...rootPrettier('--write')),
+    call(f.dir, 'mod', 'mod', 'format'),
+    ...['installer', 'site', 'server'].map((project) =>
+      call(f.dir, project, 'npm', 'run', 'format')
+    ),
+    call(
+      f.dir,
+      'analyzer',
+      'uv',
+      'run',
+      '--locked',
+      'ruff',
+      'check',
+      '--fix',
+      '.'
+    ),
+    call(f.dir, 'analyzer', 'uv', 'run', '--locked', 'ruff', 'format', '.'),
+    call(f.dir, null, 'node', 'release.mjs', 'sync')
+  ]);
+});
+
 test('a failing project stops the aggregate and preserves its exit code', (t) => {
   const f = fixture(t);
   const result = f.run(['check'], { fail: 'mod' });
   assert.equal(result.status, 37, result.stdout + result.stderr);
   assert.deepEqual(
     f.calls().map(({ tool }) => tool),
-    ['node', 'node', 'mod']
+    ['npm', 'node', 'node', 'mod']
   );
 });
 

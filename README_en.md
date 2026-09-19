@@ -58,7 +58,7 @@ Feature guides, hotkeys, and installation details live at [bazaarplusplus.com/tu
 
 ```
 .
-├── justfile                                 # Unified development, checks, tests, and release commands
+├── JUSTFILE                                 # Unified development, checks, tests, and release commands
 ├── VERSION / release.mjs / release/         # Product version, release entry point, shared Payload Inventory
 ├── bazaarplusplus-mod/                       # BepInEx mod source
 │   ├── run.sh                                # Common build/test/format/decompile entry point
@@ -115,6 +115,8 @@ just installer-check
 just installer-test
 npm run format
 ```
+
+Run `just fmt` from the root to format every project; `just hooks-install` installs the Git hooks defined in the root `lefthook.yml`.
 
 ```bash
 cd bazaarplusplus-server

@@ -1,10 +1,10 @@
 # 开发命令
 
-根目录 `justfile` 是日常开发、验证和产品发布的统一入口。它调用各项目已有的工具链和脚本；产品版本、Payload 准备、构建锁与远端发布规则由 `release.mjs` 及其发布模块维护。
+根目录 `JUSTFILE` 是日常开发、验证和产品发布的统一入口。它调用各项目已有的工具链和脚本；产品版本、Payload 准备、构建锁与远端发布规则由 `release.mjs` 及其发布模块维护。
 
 ## 环境与依赖
 
-安装 [just](https://just.systems/man/en/packages.html)，本仓库使用 `just 1.58.0` 验证。macOS 可运行 `brew install just`，Windows 可运行 `winget install --id Casey.Just --exact`。Windows 的命令在 Git Bash 中执行，`bash`、`just` 和对应语言工具链都需要在 PATH 中；不要将 justfile 的 shell 换成 PowerShell，因为参数转发使用 Bash 的位置参数。
+安装 [just](https://just.systems/man/en/packages.html)，本仓库使用 `just 1.58.0` 验证。macOS 可运行 `brew install just`，Windows 可运行 `winget install --id Casey.Just --exact`。Windows 的命令在 Git Bash 中执行，`bash`、`just` 和对应语言工具链都需要在 PATH 中；不要将 `JUSTFILE` 的 shell 换成 PowerShell，因为参数转发使用 Bash 的位置参数。
 
 各项目保留自己的依赖与锁文件，不使用根 npm workspace，也不需要 Turborepo：
 
@@ -15,7 +15,7 @@
 | installer Rust | `bazaarplusplus-installer/rust-toolchain.toml` 指定的工具链、Tauri 系统依赖 | 已有验证脚本使用 locked Cargo 依赖 |
 | analyzer | Python `3.14`、uv | 在 analyzer 目录执行 `uv sync --locked` |
 
-Windows 原生构建还需项目要求的 PowerShell 7.6.0+ 等工具；正式包另需平台工具链和签名材料，见[产品发布](release.md)。just 不自动安装工具链、合并锁文件或加载根目录 `.env`。各项目继续按自己的配置规则读取环境；不要把发布凭据写进 justfile。
+Windows 原生构建还需项目要求的 PowerShell 7.6.0+ 等工具；正式包另需平台工具链和签名材料，见[产品发布](release.md)。just 不自动安装工具链、合并锁文件或加载根目录 `.env`。各项目继续按自己的配置规则读取环境；不要把发布凭据写进 `JUSTFILE`。
 
 ## 日常入口
 
@@ -35,10 +35,16 @@ just mod-build
 ```
 
 - `check` / `test`：顺序运行全仓库检查或测试，首个失败立即停止，保留失败退出码。需要所有项目的工具链；mod 编译和测试还需要游戏程序集，不能在缺失依赖时当作通过。
-- `commands-check`：检查 justfile 格式，并在临时目录中用工具替身验证命令路由、工作目录、参数转发和失败传播，不运行真实发布。
-- `installer-check`：调用现有 `verify -- --source-only` 和文档检查，包含 Rust/JavaScript 测试、绑定生成、类型检查、格式检查、Clippy、Rust 文档与前端构建。因此先运行 `check` 再运行 `test` 会重复 installer 测试。
+- `commands-check`：检查 `JUSTFILE` 格式和根目录 `release.mjs`、`release/`、`scripts/` 的 Prettier 格式（使用 installer 的 Prettier 与配置，需先在 installer 执行 `npm ci`），并在临时目录中用工具替身验证命令路由、工作目录、参数转发和失败传播，不运行真实发布。
+- `fmt`：就地格式化所有项目（含 analyzer 的 Ruff 安全修复），最后执行 `release-sync`。
+- `mod-format-check`：用仓库锁定版本的 CSharpier 检查 C# 格式，属于 `check`。
+- `installer-check`：调用现有 `verify -- --source-only` 和文档检查，包含格式检查、oxlint、Clippy、Rust/JavaScript 测试、绑定生成、类型检查、Rust 文档与前端构建。因此先运行 `check` 再运行 `test` 会重复 installer 测试。
 - `site-check`：类型、lint、格式检查及生产构建；`server-check`：Worker 的现有检查；`analyzer-check`：Ruff 格式、lint 和 ty 检查。三个项目均有对应的 `*-test`。
 - `installer-dev`：仅启动前端开发服务。完整桌面开发仍在 installer 目录执行 `npm run tauri dev`。`server-dev` 需要 server 自己的 `.dev.vars`。
+
+## Git hooks
+
+根目录 `lefthook.yml` 是唯一的 hook 配置，执行 `just hooks-install` 安装（需先在 installer 执行 `npm ci`）。pre-commit 只对有改动的项目运行格式、lint 与类型检查；pre-push 对有改动的 installer 运行 `verify -- --source-only`，对 analyzer 运行 pytest。若全局设置了 `core.hooksPath`，lefthook 会拒绝安装并给出提示，是否重置由你决定。
 
 全仓库执行：
 

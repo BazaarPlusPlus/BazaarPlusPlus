@@ -58,7 +58,7 @@ BazaarPlusPlus 是一个面向《The Bazaar》的开源项目：游戏内由 Bep
 
 ```
 .
-├── justfile                                 # 统一开发、检查、测试与发布命令
+├── JUSTFILE                                 # 统一开发、检查、测试与发布命令
 ├── VERSION / release.mjs / release/         # 产品版本、发布入口与共享 Payload Inventory
 ├── bazaarplusplus-mod/                       # BepInEx 模组源码
 │   ├── run.sh                                # 常用 build/test/format/decompile 入口
@@ -115,6 +115,8 @@ just installer-check
 just installer-test
 npm run format
 ```
+
+在根目录执行 `just fmt` 可一次格式化所有项目；`just hooks-install` 安装根目录 `lefthook.yml` 定义的 Git hooks。
 
 ```bash
 cd bazaarplusplus-server
