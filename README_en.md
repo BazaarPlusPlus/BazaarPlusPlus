@@ -1,8 +1,10 @@
 <div align="center">
 
+<img src="bazaarplusplus-installer/src-tauri/icons/icon.png" alt="BazaarPlusPlus" width="128" height="128" />
+
 # BazaarPlusPlus
 
-**Born of Passion** · A BepInEx mod and desktop installer for [*The Bazaar*](https://www.playthebazaar.com)
+**Born of Passion** · A BepInEx mod and desktop installer for [_The Bazaar_](https://www.playthebazaar.com)
 
 [中文](README.md) · [Website](https://bazaarplusplus.com) · [Download](https://bazaarplusplus.com/download?lang=en) · [Tutorial](https://bazaarplusplus.com/tutorial?lang=en) · [Release Notes](https://github.com/BazaarPlusPlus/BazaarPlusPlus/releases) · [Ko-fi](https://ko-fi.com/cauyxy)
 
@@ -18,17 +20,18 @@
 
 ---
 
-BazaarPlusPlus is an open-source project for *The Bazaar*. The in-game BepInEx mod adds a card collection browser, run history, combat replays, tooltip previews, anonymous mode, Chinese terminology, and related quality-of-life features. The companion desktop installer handles download, install, repair, auto-update, and the stream overlay. This repository also holds the upload backend, the metrics analyzer, and the public website.
+BazaarPlusPlus is an open-source project for _The Bazaar_. The in-game BepInEx mod adds a card collection browser, run history, combat replays, tooltip previews, anonymous mode, Chinese terminology, and related quality-of-life features. The companion desktop installer handles download, install, repair, auto-update, and the stream overlay. This repository also holds the upload backend, the metrics analyzer, and the public website.
 
 Most players should install from [bazaarplusplus.com/download](https://bazaarplusplus.com/download?lang=en); this repository is for developers who want to inspect the implementation, contribute changes, or build locally.
 
+> [!NOTE]
 > The bulk of the codebase is led by [Codex](https://openai.com/codex), with [Claude Code](https://claude.com/product/claude-code) contributing in collaboration.
 
 ## Quick Start
 
 1. Open [bazaarplusplus.com/download](https://bazaarplusplus.com/download?lang=en) and choose the Windows `.exe` or macOS `.dmg`.
 2. Close the game before running the installer. For updates, uninstall the old build before installing the new one.
-3. Launch *The Bazaar* once after installation so BazaarPlusPlus can finish setup.
+3. Launch _The Bazaar_ once after installation so BazaarPlusPlus can finish setup.
 4. On the main menu, confirm that the **Card Collection** button appears and the footer version text includes `BPP version`.
 
 Feature guides, hotkeys, and installation details live at [bazaarplusplus.com/tutorial](https://bazaarplusplus.com/tutorial?lang=en).
@@ -37,22 +40,26 @@ Feature guides, hotkeys, and installation details live at [bazaarplusplus.com/tu
 
 ### In-Game Mod
 
-- **Card Collection**: Browse items and skills in-game, with filters for hero, tier, size, merchant, and current run day.
-- **BazaarDB Auto Upload**: Community-data contribution that uploads end-of-run screenshots and board data in the background. Disabled by default; opt-in only.
-- **Run History and Combat Replay**: Press `F8` to browse past runs and key fights, and watch replays and ghost battles.
-- **Combat Status Bar**: Shows combat time and pause state, with speed controls — handy for review, recording, and streaming.
-- **Anonymous Mode**: Hide the local player name in screenshots, recordings, and streams.
-- **Legendary Rank Display**: Hide your rank, show an exaggerated power value, or display rank and rating together.
-- **Enchant and Upgrade Previews**: Preview post-enchant or post-upgrade item values directly in tooltips.
-- **Chinese Terminology Modes**: Simplified Chinese plus Taiwan and Hong Kong Traditional terminology styles.
+| Feature                           | Description                                                                                                                         |
+| --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| **Card Collection**               | Browse items and skills in-game, with filters for hero, tier, size, merchant, and current run day.                                  |
+| **BazaarDB Auto Upload**          | Community-data contribution that uploads end-of-run screenshots and board data in the background. Disabled by default; opt-in only. |
+| **Run History and Combat Replay** | Press `F8` to browse past runs and key fights, and watch replays and ghost battles.                                                 |
+| **Combat Status Bar**             | Shows combat time and pause state, with speed controls — handy for review, recording, and streaming.                                |
+| **Anonymous Mode**                | Hide the local player name in screenshots, recordings, and streams.                                                                 |
+| **Legendary Rank Display**        | Hide your rank, show an exaggerated power value, or display rank and rating together.                                               |
+| **Enchant and Upgrade Previews**  | Preview post-enchant or post-upgrade item values directly in tooltips.                                                              |
+| **Chinese Terminology Modes**     | Simplified Chinese plus Taiwan and Hong Kong Traditional terminology styles.                                                        |
 
 ### Desktop Installer
 
-- **Cross-platform install**: Windows and macOS, with automatic Steam game-directory detection.
-- **Repair / uninstall / reset local data**: Recover from broken installs, replay-data issues, or local-state corruption.
-- **Run history management**: View, locate, and clean up locally saved run records and replay videos.
-- **Stream Mode**: Start a localhost browser-source service for OBS and similar tools.
-- **Auto-update**: Uses Tauri Updater to check for new releases and prompt when available.
+| Feature                                   | Description                                                                  |
+| ----------------------------------------- | ---------------------------------------------------------------------------- |
+| **Cross-platform install**                | Windows and macOS, with automatic Steam game-directory detection.            |
+| **Repair / uninstall / reset local data** | Recover from broken installs, replay-data issues, or local-state corruption. |
+| **Run history management**                | View, locate, and clean up locally saved run records and replay videos.      |
+| **Stream Mode**                           | Start a localhost browser-source service for OBS and similar tools.          |
+| **Auto-update**                           | Uses Tauri Updater to check for new releases and prompt when available.      |
 
 ## Repository Layout
 
@@ -82,12 +89,14 @@ Run `just` from any repository subdirectory to list development, check, test, an
 
 ### Prerequisites
 
-- **Mod**: .NET SDK 10 and a local Steam install of *The Bazaar* so game assemblies can be resolved.
-- **Unified commands**: [just](https://just.systems/man/en/packages.html); install with `brew install just` on macOS.
-- **Installer / server / site**: Use the Node version in the root `.nvmrc` and the npm version in `packageManager` of `bazaarplusplus-installer/package.json`; run `npm ci` in each project directory.
-- **Native installer builds**: The Rust toolchain and the system dependencies listed in the [Tauri prerequisites](https://tauri.app/start/prerequisites/).
-- **Analyzer**: Python 3.14 and `uv`.
-- **Windows**: Run just commands in Git Bash; native build scripts also require PowerShell 7.6.0 or newer.
+| Scope                         | Requirements                                                                                                                                                          |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Unified commands**          | [just](https://just.systems/man/en/packages.html); install with `brew install just` on macOS.                                                                         |
+| **Mod**                       | .NET SDK 10 and a local Steam install of _The Bazaar_ so game assemblies can be resolved.                                                                             |
+| **Installer / server / site** | Use the Node version in the root `.nvmrc` and the npm version in `packageManager` of `bazaarplusplus-installer/package.json`; run `npm ci` in each project directory. |
+| **Native installer builds**   | The Rust toolchain and the system dependencies listed in the [Tauri prerequisites](https://tauri.app/start/prerequisites/).                                           |
+| **Analyzer**                  | Python 3.14 and `uv`.                                                                                                                                                 |
+| **Windows**                   | Run just commands in Git Bash; native build scripts also require PowerShell 7.6.0 or newer.                                                                           |
 
 ### Build the Mod
 
@@ -116,7 +125,10 @@ just installer::test
 npm run format
 ```
 
-Run `just fmt` from the root to format every project; `just hooks-install` installs the Git hooks defined in the root `lefthook.yml`.
+### Build the Server, Analyzer, and Site
+
+<details>
+<summary><b>Server</b> · Cloudflare Worker</summary>
 
 ```bash
 cd bazaarplusplus-server
@@ -125,6 +137,11 @@ just server::test
 # just server::dev requires the project's gitignored .dev.vars
 ```
 
+</details>
+
+<details>
+<summary><b>Analyzer</b> · Python + uv</summary>
+
 ```bash
 cd bazaarplusplus-analyzer
 uv sync --locked
@@ -132,12 +149,25 @@ just analyzer::check
 just analyzer::test
 ```
 
+</details>
+
+<details>
+<summary><b>Site</b> · bazaarplusplus.com</summary>
+
 ```bash
 cd bazaarplusplus-site
 npm ci
 just site::test
 just site::build
 ```
+
+</details>
+
+### Formatting and Git Hooks
+
+Run `just fmt` from the root to format every project; `just hooks-install` installs the Git hooks defined in the root `lefthook.yml`.
+
+### Release Build Limits
 
 Release signing, notarization, and R2 upload flows depend on local environment variables and `signing-secrets/`, which are intentionally not committed. A full release build also requires a local game install, signing material, and the platform dependencies — the public source tree alone is not enough. Game decompilation output, `decompiled/`, `.env`, and `.dev.vars` are also kept out of this tree.
 
@@ -147,17 +177,17 @@ The mod and installer share the root `VERSION`. Run `just release::sync` after c
 
 ## Derivative Work Notice
 
-If you plan to build on top of this project or release derivative mods, make sure your work complies with *The Bazaar* official Mod Policy:
-
-[The Bazaar Mod Policy](https://www.playthebazaar.com/mod-policy)
+> [!IMPORTANT]
+> If you plan to build on top of this project or release derivative mods, make sure your work complies with _The Bazaar_ official [Mod Policy](https://www.playthebazaar.com/mod-policy).
 
 ## Acknowledgements
 
-- **Inspiration**: [BazaarHelper](https://github.com/Duangi/BazaarHelper), [BazaarPlannerMod](https://github.com/oceanseth/BazaarPlannerMod)
-- **Data reference**: [bazaardb.gg](https://bazaardb.gg)
-- **Runtime dependencies**: [BepInEx](https://github.com/BepInEx/BepInEx), [Harmony](https://github.com/pardeike/Harmony), [Tauri](https://tauri.app), [React](https://react.dev), [Vite](https://vite.dev), [Tailwind CSS](https://tailwindcss.com), [FFmpeg](https://ffmpeg.org)
-- **Font**: [LXGW WenKai](https://github.com/lxgw/LxgwWenKai) (SIL Open Font License 1.1)
-- **Co-creators**: [Codex](https://openai.com/codex), [Claude Code](https://claude.com/product/claude-code)
+|                          |                                                                                                                                                                                                                                                              |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Inspiration**          | [BazaarHelper](https://github.com/Duangi/BazaarHelper) · [BazaarPlannerMod](https://github.com/oceanseth/BazaarPlannerMod)                                                                                                                                   |
+| **Data reference**       | [bazaardb.gg](https://bazaardb.gg)                                                                                                                                                                                                                           |
+| **Runtime dependencies** | [BepInEx](https://github.com/BepInEx/BepInEx) · [Harmony](https://github.com/pardeike/Harmony) · [Tauri](https://tauri.app) · [React](https://react.dev) · [Vite](https://vite.dev) · [Tailwind CSS](https://tailwindcss.com) · [FFmpeg](https://ffmpeg.org) |
+| **Co-creators**          | [Codex](https://openai.com/codex) · [Claude Code](https://claude.com/product/claude-code)                                                                                                                                                                    |
 
 ## Supporters
 
@@ -168,3 +198,15 @@ If you would like to support continued maintenance, head to [Ko-fi](https://ko-f
 ## License
 
 Released under the [MIT License](LICENSE).
+
+---
+
+<div align="center">
+
+<img src="bazaarplusplus-installer/src-tauri/icons/icon.png" alt="" width="48" height="48" />
+
+**BazaarPlusPlus** · Born of Passion
+
+[Website](https://bazaarplusplus.com) · [Download](https://bazaarplusplus.com/download?lang=en) · [Tutorial](https://bazaarplusplus.com/tutorial?lang=en) · [Ko-fi](https://ko-fi.com/cauyxy)
+
+</div>

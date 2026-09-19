@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="bazaarplusplus-installer/src-tauri/icons/icon.png" alt="BazaarPlusPlus" width="128" height="128" />
+
 # BazaarPlusPlus
 
 **因热爱而生** · 为 [《The Bazaar》](https://www.playthebazaar.com) 打造的 BepInEx 模组与桌面安装器
@@ -18,10 +20,11 @@
 
 ---
 
-BazaarPlusPlus 是一个面向《The Bazaar》的开源项目：游戏内由 BepInEx 模组提供卡牌图鉴、对局历史、战斗回放、Tooltip 预览、匿名模式、中文术语等功能；桌面安装器负责下载、安装、修复、自动更新和直播叠层；同仓库里还有上传后端、指标分析器和官网。
+BazaarPlusPlus 是一个面向《The Bazaar》的开源项目：游戏内由 BepInEx 模组提供卡牌图鉴、对局历史与战斗回放，还有 Tooltip 预览、匿名模式和中文术语等功能；桌面安装器负责下载、安装与修复，也管自动更新和直播叠层；同仓库里还有上传后端、指标分析器和官网。
 
 普通玩家建议直接使用 [下载页](https://bazaarplusplus.com/download) 的安装器；本仓库面向想了解实现、提交改动或自行构建的开发者。
 
+> [!NOTE]
 > 项目代码主要由 [Codex](https://openai.com/codex) 主导，并由 [Claude Code](https://claude.com/product/claude-code) 协作完成。
 
 ## 快速开始
@@ -37,22 +40,26 @@ BazaarPlusPlus 是一个面向《The Bazaar》的开源项目：游戏内由 Bep
 
 ### 游戏内模组
 
-- **卡牌图鉴**：在游戏中查阅物品和技能，按英雄、品质、体型、商人等维度过滤，还能跟随当前游戏天数查看可获取的内容。
-- **BazaarDB 自动上传**：社区数据共建功能，在结算后于后台上传通关截图与阵容数据；默认关闭，需手动开启。
-- **对局历史与战斗回放**：通过 `F8` 打开历史面板，浏览本地对局与关键战斗，观看战斗回放和幽灵对战。
-- **战斗状态栏**：显示战斗时间与暂停状态，并提供速度控制，适合复盘、录制和直播。
-- **匿名模式**：在截图、录制或直播时隐藏本地玩家名称。
-- **传奇名次显示**：提供「无人知晓」（隐藏名次）、「战力爆表」、名次与分数双显等显示模式。
-- **附魔与升级预览**：在物品 Tooltip 中直接预览附魔或升级后的效果。
-- **中文术语模式**：支持简体中文、台湾繁体、香港繁体三种术语风格。
+| 功能                   | 说明                                                                                               |
+| ---------------------- | -------------------------------------------------------------------------------------------------- |
+| **卡牌图鉴**           | 在游戏中查阅物品和技能，按英雄、品质、体型、商人等维度过滤，还能跟随当前游戏天数查看可获取的内容。 |
+| **BazaarDB 自动上传**  | 社区数据共建功能，在结算后于后台上传通关截图与阵容数据；默认关闭，需手动开启。                     |
+| **对局历史与战斗回放** | 通过 `F8` 打开历史面板，浏览本地对局与关键战斗，观看战斗回放和幽灵对战。                           |
+| **战斗状态栏**         | 显示战斗时间与暂停状态，并提供速度控制，适合复盘、录制和直播。                                     |
+| **匿名模式**           | 在截图、录制或直播时隐藏本地玩家名称。                                                             |
+| **传奇名次显示**       | 提供「无人知晓」（隐藏名次）、「战力爆表」、名次与分数双显等显示模式。                             |
+| **附魔与升级预览**     | 在物品 Tooltip 中直接预览附魔或升级后的效果。                                                      |
+| **中文术语模式**       | 支持简体中文、台湾繁体、香港繁体三种术语风格。                                                     |
 
 ### 桌面安装器
 
-- **跨平台安装**：Windows 与 macOS，自动定位 Steam 版《The Bazaar》目录。
-- **修复 / 卸载 / 重置本地数据**：处理安装异常、回放数据损坏，或一键恢复到干净状态。
-- **对局历史管理**：查看、定位和清理本地保存的历史记录与回放视频。
-- **直播模式**：启动本机浏览器源服务，给 OBS 等工具显示对局信息。
-- **自动更新**：通过 Tauri Updater 检查并提示新版本。
+| 功能                           | 说明                                                    |
+| ------------------------------ | ------------------------------------------------------- |
+| **跨平台安装**                 | Windows 与 macOS，自动定位 Steam 版《The Bazaar》目录。 |
+| **修复 / 卸载 / 重置本地数据** | 处理安装异常、回放数据损坏，或一键恢复到干净状态。      |
+| **对局历史管理**               | 查看、定位和清理本地保存的历史记录与回放视频。          |
+| **直播模式**                   | 启动本机浏览器源服务，给 OBS 等工具显示对局信息。       |
+| **自动更新**                   | 通过 Tauri Updater 检查并提示新版本。                   |
 
 ## 仓库结构
 
@@ -82,12 +89,14 @@ BazaarPlusPlus 是一个面向《The Bazaar》的开源项目：游戏内由 Bep
 
 ### 环境要求
 
-- **模组**：.NET SDK 10，以及本机 Steam 版《The Bazaar》（用于解析游戏程序集引用）。
-- **统一命令**：[just](https://just.systems/man/en/packages.html)，macOS 可用 `brew install just` 安装。
-- **安装器 / 服务端 / 官网**：Node 版本见根目录 `.nvmrc`，npm 版本见 `bazaarplusplus-installer/package.json` 的 `packageManager`；各目录分别执行 `npm ci`。
-- **安装器原生构建**：Rust 工具链、Tauri 系统依赖（见 [Tauri prerequisites](https://tauri.app/start/prerequisites/)）。
-- **分析器**：Python 3.14 与 `uv`。
-- **Windows**：just 命令在 Git Bash 中执行；原生构建脚本还要求 PowerShell 7.6.0 或更高版本。
+| 范围                       | 依赖                                                                                                                          |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| **统一命令**               | [just](https://just.systems/man/en/packages.html)，macOS 可用 `brew install just` 安装。                                      |
+| **模组**                   | .NET SDK 10，以及本机 Steam 版《The Bazaar》（用于解析游戏程序集引用）。                                                      |
+| **安装器 / 服务端 / 官网** | Node 版本见根目录 `.nvmrc`，npm 版本见 `bazaarplusplus-installer/package.json` 的 `packageManager`；各目录分别执行 `npm ci`。 |
+| **安装器原生构建**         | Rust 工具链、Tauri 系统依赖（见 [Tauri prerequisites](https://tauri.app/start/prerequisites/)）。                             |
+| **分析器**                 | Python 3.14 与 `uv`。                                                                                                         |
+| **Windows**                | just 命令在 Git Bash 中执行；原生构建脚本还要求 PowerShell 7.6.0 或更高版本。                                                 |
 
 ### 构建模组
 
@@ -116,7 +125,10 @@ just installer::test
 npm run format
 ```
 
-在根目录执行 `just fmt` 可一次格式化所有项目；`just hooks-install` 安装根目录 `lefthook.yml` 定义的 Git hooks。
+### 构建服务端、分析器与官网
+
+<details>
+<summary><b>服务端</b> · Cloudflare Worker</summary>
 
 ```bash
 cd bazaarplusplus-server
@@ -125,6 +137,11 @@ just server::test
 # just server::dev requires the project's gitignored .dev.vars
 ```
 
+</details>
+
+<details>
+<summary><b>分析器</b> · Python + uv</summary>
+
 ```bash
 cd bazaarplusplus-analyzer
 uv sync --locked
@@ -132,12 +149,25 @@ just analyzer::check
 just analyzer::test
 ```
 
+</details>
+
+<details>
+<summary><b>官网</b> · bazaarplusplus.com</summary>
+
 ```bash
 cd bazaarplusplus-site
 npm ci
 just site::test
 just site::build
 ```
+
+</details>
+
+### 格式化与 Git hooks
+
+在根目录执行 `just fmt` 可一次格式化所有项目；`just hooks-install` 安装根目录 `lefthook.yml` 定义的 Git hooks。
+
+### 发布构建的限制
 
 发布签名、公证（notarization）、R2 上传等流程依赖本地环境变量与 `signing-secrets/`，这些内容不会提交到公开仓库；在缺少本机游戏、签名凭据或平台依赖的环境中，无法完成完整的发布构建。游戏反编译输出、`decompiled/`、`.env` 和 `.dev.vars` 同样不在此树中。
 
@@ -147,17 +177,17 @@ mod 与 installer 共用根目录 `VERSION`。修改后执行 `just release::syn
 
 ## 二次开发须知
 
-如果你计划基于本项目或本模组进行二次开发，请务必遵循《The Bazaar》官方 Mod Policy：
-
-[The Bazaar Mod Policy](https://www.playthebazaar.com/mod-policy)
+> [!IMPORTANT]
+> 如果你计划基于本项目或本模组进行二次开发，请务必遵循《The Bazaar》官方 [Mod Policy](https://www.playthebazaar.com/mod-policy)。
 
 ## 致谢
 
-- **灵感来源**：[BazaarHelper](https://github.com/Duangi/BazaarHelper)、[BazaarPlannerMod](https://github.com/oceanseth/BazaarPlannerMod)
-- **数据来源**：[bazaardb.gg](https://bazaardb.gg)
-- **运行依赖**：[BepInEx](https://github.com/BepInEx/BepInEx)、[Harmony](https://github.com/pardeike/Harmony)、[Tauri](https://tauri.app)、[React](https://react.dev)、[Vite](https://vite.dev)、[Tailwind CSS](https://tailwindcss.com)、[FFmpeg](https://ffmpeg.org)
-- **字体**：[LXGW WenKai](https://github.com/lxgw/LxgwWenKai)（SIL Open Font License 1.1）
-- **共创**：[Codex](https://openai.com/codex)、[Claude Code](https://claude.com/product/claude-code)
+|              |                                                                                                                                                                                                                                                              |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **灵感来源** | [BazaarHelper](https://github.com/Duangi/BazaarHelper) · [BazaarPlannerMod](https://github.com/oceanseth/BazaarPlannerMod)                                                                                                                                   |
+| **数据来源** | [bazaardb.gg](https://bazaardb.gg)                                                                                                                                                                                                                           |
+| **运行依赖** | [BepInEx](https://github.com/BepInEx/BepInEx) · [Harmony](https://github.com/pardeike/Harmony) · [Tauri](https://tauri.app) · [React](https://react.dev) · [Vite](https://vite.dev) · [Tailwind CSS](https://tailwindcss.com) · [FFmpeg](https://ffmpeg.org) |
+| **共创**     | [Codex](https://openai.com/codex) · [Claude Code](https://claude.com/product/claude-code)                                                                                                                                                                    |
 
 ## 支持者
 
@@ -168,3 +198,15 @@ mod 与 installer 共用根目录 `VERSION`。修改后执行 `just release::syn
 ## License
 
 本项目使用 [MIT License](LICENSE)。
+
+---
+
+<div align="center">
+
+<img src="bazaarplusplus-installer/src-tauri/icons/icon.png" alt="" width="48" height="48" />
+
+**BazaarPlusPlus** · 因热爱而生
+
+[官网](https://bazaarplusplus.com) · [下载](https://bazaarplusplus.com/download) · [使用教程](https://bazaarplusplus.com/tutorial) · [Ko-fi](https://ko-fi.com/cauyxy)
+
+</div>
