@@ -139,7 +139,7 @@ public sealed class EndOfRunCaptureArchitectureTests
         while (current != null)
         {
             if (
-                File.Exists(Path.Combine(current.FullName, "CLAUDE.md"))
+                File.Exists(Path.Combine(current.FullName, "AGENTS.md"))
                 && Directory.Exists(Path.Combine(current.FullName, "src"))
             )
                 return current.FullName;

@@ -76,7 +76,7 @@ Feature guides, hotkeys, and installation details live at [bazaarplusplus.com/tu
 └── bazaarplusplus-site/                      # bazaarplusplus.com
 ```
 
-Run `just` from any repository subdirectory to list development, check, test, and release commands. Projects retain their native toolchains; product release rules live in the root `release.mjs`. See the [development command guide](docs/development.md) for setup and command scope. Each subdirectory has its own `CLAUDE.md` / `AGENTS.md`.
+Run `just` from any repository subdirectory to list development, check, test, and release commands. Projects retain their native toolchains; product release rules live in the root `release.mjs`. See the [development command guide](docs/development.md) for setup and command scope. Each subdirectory has its own `AGENTS.md`.
 
 ## Building From Source
 

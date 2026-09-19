@@ -188,9 +188,9 @@ static string FindRepoRoot()
     var current = new DirectoryInfo(AppContext.BaseDirectory);
     while (current != null)
     {
-        var hasClaude = File.Exists(Path.Combine(current.FullName, "CLAUDE.md"));
+        var hasAgents = File.Exists(Path.Combine(current.FullName, "AGENTS.md"));
         var hasSrc = Directory.Exists(Path.Combine(current.FullName, "src"));
-        if (hasClaude && hasSrc)
+        if (hasAgents && hasSrc)
         {
             return current.FullName;
         }
@@ -199,7 +199,7 @@ static string FindRepoRoot()
     }
 
     throw new InvalidOperationException(
-        $"Could not locate repository root by walking up from {AppContext.BaseDirectory}; expected CLAUDE.md and src directory."
+        $"Could not locate repository root by walking up from {AppContext.BaseDirectory}; expected AGENTS.md and src directory."
     );
 }
 

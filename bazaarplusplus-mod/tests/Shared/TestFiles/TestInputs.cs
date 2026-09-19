@@ -260,7 +260,7 @@ internal static class TestInputs
         var directory = new DirectoryInfo(Path.GetDirectoryName(thisFile)!);
         while (directory != null)
         {
-            if (File.Exists(Path.Combine(directory.FullName, "CLAUDE.md")))
+            if (File.Exists(Path.Combine(directory.FullName, "AGENTS.md")))
                 return directory.FullName;
             directory = directory.Parent;
         }

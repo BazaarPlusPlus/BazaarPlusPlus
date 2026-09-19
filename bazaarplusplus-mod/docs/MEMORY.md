@@ -1,6 +1,6 @@
 # BazaarPlusPlus — Durable Memory
 
-What an agent cannot recover by reading the code in front of it: domain invariants, the decisions already settled, and the traps that fail silently. Structure is in [ARCHITECTURE.md](ARCHITECTURE.md), rationale in [adr/](adr/), process in [../CLAUDE.md](../CLAUDE.md) — linked, never restated.
+What an agent cannot recover by reading the code in front of it: domain invariants, the decisions already settled, and the traps that fail silently. Structure is in [ARCHITECTURE.md](ARCHITECTURE.md), rationale in [adr/](adr/), process in [../AGENTS.md](../AGENTS.md) — linked, never restated.
 
 ## Rules
 
@@ -81,6 +81,6 @@ Each of these failed silently, or reported something misleading, at least once.
 - The native end-of-run reveal uses `CreateRawGraph`, whose delay roots have no `ScriptPlayableOutput` and therefore never complete — cards stay FaceDown and screenshot readiness never fires. `EndOfRunRawRevealCompletionPatch` injects a port-1 output per root; keep it. [`src/BazaarPlusPlus/Patches/EndOfRun/EndOfRunRawRevealCompletionPatch.cs`]
 - `BackgroundUploadPump.OnDestroy` is a two-point dispose: release arm subscriptions first, dispose the session only after the drain callback. Merging them lets an in-flight `RunAttemptAsync` hit disposed resources. [`src/BazaarPlusPlus/Game/Upload/BackgroundUploadPump.cs` | ADR-0005]
 - Scenario capsules construct HistoryPanel types positionally, so their ctor shape is pinned behavior: `HistoryPanelDependencies`' single ctor stays guard-free direct assignment (null guards break it at construction) and `HistoryPanelReplayService` keeps its discarded `pluginsDirectoryPath` parameter to hold arity. [`src/BazaarPlusPlus/Game/HistoryPanel/HistoryPanelDependencies.cs` | `src/BazaarPlusPlus/Game/HistoryPanel/HistoryPanelReplayService.cs` | ADR-0003]
-- `rg 'new TypeName('` misses target-typed `new(...)` call sites, so a "zero call sites" grep proves nothing; prove a deletion by deleting (CLAUDE.md, Build & Test). [`tests/PureBehavior.Tests/PureBehavior.Tests.csproj`]
+- `rg 'new TypeName('` misses target-typed `new(...)` call sites, so a "zero call sites" grep proves nothing; prove a deletion by deleting (AGENTS.md, Build & Test). [`tests/PureBehavior.Tests/PureBehavior.Tests.csproj`]
 - `src/` and `tests/` both set `BppEnableWarningGate`, so `TreatWarningsAsErrors` turns an unused using (IDE0005) or an unread private field (CS0414) into a build error. [`Directory.Build.props` | `src/Directory.Build.props`]
 - Some `*.Tests` directories own no `.csproj`; directory wildcards in three host projects absorb their sources. Deleting or renaming one leaves its wildcard matching zero Compile items instead of failing, so those tests silently stop running. [`tests/PureBehavior.Tests/PureBehavior.Tests.csproj` | `tests/RuntimeIntegration.Tests/RuntimeIntegration.Tests.csproj` | `tests/FeatureLogging.Tests/FeatureLogging.Tests.csproj`]

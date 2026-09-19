@@ -183,7 +183,7 @@ public sealed class SourceTextBanTests
             TestInputs.Fixture("src/BazaarPlusPlus/Plugin.cs")
         );
         Assert.Throws<InvalidOperationException>(() =>
-            TestInputs.Scratch(Path.Combine(TestInputs.RepoRoot, "CLAUDE.md"))
+            TestInputs.Scratch(Path.Combine(TestInputs.RepoRoot, "AGENTS.md"))
         );
     }
 

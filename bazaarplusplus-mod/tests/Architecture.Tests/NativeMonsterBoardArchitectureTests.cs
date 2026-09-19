@@ -98,7 +98,7 @@ public sealed class NativeMonsterBoardArchitectureTests
             directory != null;
             directory = directory.Parent
         )
-            if (File.Exists(Path.Combine(directory.FullName, "CLAUDE.md")))
+            if (File.Exists(Path.Combine(directory.FullName, "AGENTS.md")))
                 return directory.FullName;
         throw new InvalidOperationException("Repository root not found.");
     }

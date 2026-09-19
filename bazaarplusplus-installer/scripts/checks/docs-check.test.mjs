@@ -21,7 +21,7 @@ function writeFile(rootDir, relativePath, content) {
 
 function createFixtureRoot() {
   const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), 'bpp-docs-check-'));
-  writeFile(rootDir, 'CLAUDE.md', '# Claude\n');
+  writeFile(rootDir, 'AGENTS.md', '# Agents\n');
   writeFile(rootDir, 'CONTEXT.md', '# Context\n');
   writeFile(rootDir, 'README.md', '# Readme\n');
   return rootDir;
@@ -55,14 +55,14 @@ test('a cited path with no file behind it fails, reported at its line', () => {
   const rootDir = createFixtureRoot();
   writeFile(
     rootDir,
-    'CLAUDE.md',
-    '# Claude\n\nSee `src/does-not-exist.rs` for details.\n'
+    'AGENTS.md',
+    '# Agents\n\nSee `src/does-not-exist.rs` for details.\n'
   );
 
   const result = checkCitedPaths(rootDir);
 
   expect(result.failures).toHaveLength(1);
-  expect(result.failures[0]).toMatchObject({ file: 'CLAUDE.md', line: 3 });
+  expect(result.failures[0]).toMatchObject({ file: 'AGENTS.md', line: 3 });
   expect(result.failures[0].message).toMatch(/src\/does-not-exist\.rs/);
 });
 

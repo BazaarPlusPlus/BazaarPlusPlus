@@ -76,7 +76,7 @@ BazaarPlusPlus 是一个面向《The Bazaar》的开源项目：游戏内由 Bep
 └── bazaarplusplus-site/                      # bazaarplusplus.com
 ```
 
-在仓库任意子目录运行 `just` 查看开发、检查、测试和发布命令。底层仍使用各项目的原生工具链，产品发布规则由根目录 `release.mjs` 维护。环境安装与命令范围见 [开发命令](docs/development.md)。每个子目录有自己的 `CLAUDE.md` / `AGENTS.md`。
+在仓库任意子目录运行 `just` 查看开发、检查、测试和发布命令。底层仍使用各项目的原生工具链，产品发布规则由根目录 `release.mjs` 维护。环境安装与命令范围见 [开发命令](docs/development.md)。每个子目录有自己的 `AGENTS.md`。
 
 ## 从源码构建
 

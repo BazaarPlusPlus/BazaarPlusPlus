@@ -1,6 +1,6 @@
 # Rules Hygiene
 
-How a rule gets into `CLAUDE.md`. Every agent session loads that file in full, so each line has to earn its place on every turn.
+How a rule gets into `AGENTS.md`. Every agent session loads that file in full, so each line has to earn its place on every turn.
 
 ## Admission criteria
 
@@ -14,7 +14,7 @@ Editing or clarifying an existing rule needs no ceremony; it is always welcome.
 
 ## Where a rule belongs
 
-`CLAUDE.md` holds rules that apply repo-wide. A rule scoped to one module or feature area belongs in that area's own rules file.
+`AGENTS.md` holds rules that apply repo-wide. A rule scoped to one module or feature area belongs in that area's own rules file.
 
 Rules are traps to avoid, not maps to follow. Anything that describes what a module *is* belongs in `docs/ARCHITECTURE.md`; anything that explains *why* a boundary was drawn belongs in `docs/adr/`.
 

@@ -314,7 +314,7 @@ public sealed class CoreLayeringTests
     private static string RepoRoot()
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
-        while (directory != null && !File.Exists(Path.Combine(directory.FullName, "CLAUDE.md")))
+        while (directory != null && !File.Exists(Path.Combine(directory.FullName, "AGENTS.md")))
             directory = directory.Parent;
         return directory?.FullName
             ?? throw new InvalidOperationException("Could not locate repository root.");

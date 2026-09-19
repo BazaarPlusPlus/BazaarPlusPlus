@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 
-const ROOT_DOCS = ['CLAUDE.md', 'CONTEXT.md', 'README.md'];
+const ROOT_DOCS = ['AGENTS.md', 'CONTEXT.md', 'README.md'];
 
 // Docs cite code by symbol (`DefaultStreamWorkflow.deriveSnapshot`,
 // `app.windows`) and prose names files this repo does not own
