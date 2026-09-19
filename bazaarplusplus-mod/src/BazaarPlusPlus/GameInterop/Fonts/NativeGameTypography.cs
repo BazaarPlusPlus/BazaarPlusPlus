@@ -776,6 +776,10 @@ internal static class NativeGameTypography
                 return Outcome.Unavailable;
 
             text.font = _fontAsset;
+            // Hidden uGUI trees can be measured before Awake sets this flag.
+            // TMP otherwise uses the 3D text scale and reports one-tenth widths.
+            if (text is TextMeshProUGUI)
+                text.isOrthographic = true;
             return Outcome.Applied;
         }
     }

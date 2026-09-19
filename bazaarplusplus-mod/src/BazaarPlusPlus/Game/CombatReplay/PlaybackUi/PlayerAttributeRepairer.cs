@@ -1,5 +1,6 @@
 #nullable enable
 
+using System.Globalization;
 using System.Reflection;
 using BazaarGameShared.Domain.Core.Types;
 using BazaarPlusPlus.Game.PvpBattles;
@@ -205,14 +206,20 @@ internal static class PlayerAttributeRepairer
     {
         if (
             attributes.Contains(EPlayerAttributeType.HealthMax)
-            && Convert.ToInt32(attributes[EPlayerAttributeType.HealthMax]) > 0
+            && Convert.ToInt32(
+                attributes[EPlayerAttributeType.HealthMax],
+                CultureInfo.InvariantCulture
+            ) > 0
         )
             return;
 
         if (!attributes.Contains(EPlayerAttributeType.Health))
             return;
 
-        var healthValue = Convert.ToInt32(attributes[EPlayerAttributeType.Health]);
+        var healthValue = Convert.ToInt32(
+            attributes[EPlayerAttributeType.Health],
+            CultureInfo.InvariantCulture
+        );
         if (healthValue <= 0)
             return;
 
@@ -306,6 +313,6 @@ internal static class PlayerAttributeRepairer
         if (!attributes.Contains(attributeType))
             return null;
 
-        return Convert.ToUInt32(attributes[attributeType]);
+        return Convert.ToUInt32(attributes[attributeType], CultureInfo.InvariantCulture);
     }
 }

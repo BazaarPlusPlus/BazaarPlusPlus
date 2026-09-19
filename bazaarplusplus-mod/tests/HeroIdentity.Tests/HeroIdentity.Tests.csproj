@@ -1,0 +1,61 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="coverlet.collector">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile
+      Include="../../src/BazaarPlusPlus/GameInterop/Heroes/TheDragonsHeroIdentity.cs"
+      Link="TheDragonsHeroIdentity.cs"
+    />
+    <Compile
+      Include="../../src/BazaarPlusPlus/GameInterop/Heroes/HeroVisual.cs"
+      Link="HeroVisual.cs"
+    />
+    <Compile
+      Include="../../src/BazaarPlusPlus/Game/CombatReplay/PlaybackUi/CombatReplayHeroIdentity.cs"
+      Link="CombatReplayHeroIdentity.cs"
+    />
+    <Compile
+      Include="../../src/BazaarPlusPlus/Infrastructure/UiTokens/Colors.cs"
+      Link="Colors.cs"
+    />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="BazaarGameShared">
+      <HintPath>$(ManagedPath)/BazaarGameShared.dll</HintPath>
+    </Reference>
+    <Reference Include="TheBazaarRuntime">
+      <HintPath>$(ManagedPath)/TheBazaarRuntime.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.CoreModule">
+      <HintPath>$(ManagedPath)/UnityEngine.CoreModule.dll</HintPath>
+    </Reference>
+    <None Include="$(ManagedPath)/BazaarGameShared.dll" Link="BazaarGameShared.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="$(ManagedPath)/TheBazaarRuntime.dll" Link="TheBazaarRuntime.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="$(ManagedPath)/UnityEngine.CoreModule.dll" Link="UnityEngine.CoreModule.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+</Project>

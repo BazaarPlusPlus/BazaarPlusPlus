@@ -30,7 +30,6 @@ pub fn builder() -> Builder<tauri::Wry> {
             crate::commands::history::reveal_run_screenshot,
             crate::commands::history::reveal_battle_video,
             crate::commands::history::delete_battle_video,
-            crate::commands::history::delete_run_videos,
             crate::commands::history::preview_storage_cleanup,
             crate::commands::history::execute_storage_cleanup,
         ])

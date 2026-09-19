@@ -41,18 +41,6 @@ internal static class TheDragonsHeroIdentity
         return IsAlias(name) ? CanonicalId : name;
     }
 
-    internal static string CanonicalizeForStorage(string? heroId)
-    {
-        if (string.IsNullOrWhiteSpace(heroId))
-            return string.Empty;
-
-        var trimmed = heroId.Trim();
-        return IsAlias(trimmed) ? CanonicalId : trimmed;
-    }
-
-    internal static IReadOnlyList<string> PersistenceReadIds(EHero hero) =>
-        IsTheDragons(hero) ? [CanonicalId, LegacyId] : [hero.ToString()];
-
     internal static bool TryResolve(string? heroId, out EHero hero) =>
         TryResolve(heroId, TryResolveExactEnumName, out hero);
 

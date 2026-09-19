@@ -34,9 +34,6 @@ internal static class EndOfRunSummaryRevealDetector
     private const string GetBoolMethodName = "GetBool";
     private const string FaceUpParamName = "FaceUp";
 
-    public static EndOfRunSummaryRevealState GetRevealState(object? screenController) =>
-        GetRevealOutcome(screenController).State;
-
     public static EndOfRunSummaryRevealOutcome GetRevealOutcome(object? screenController)
     {
         try

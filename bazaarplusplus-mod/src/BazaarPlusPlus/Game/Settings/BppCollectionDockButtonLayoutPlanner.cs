@@ -40,13 +40,48 @@ internal static class BppCollectionDockButtonLayoutPlanner
             viewportBounds.MinX + halfCollectionWidth,
             viewportBounds.MaxX - halfCollectionWidth
         );
-        var candidate = BppDockButtonBounds.FromCenter(
-            collectionCenterX,
-            gearBounds.MaxY + safeGap + (collectionHeight * 0.5f),
-            collectionWidth,
-            collectionHeight
+        var upwardPlan = ResolveDirection(
+            viewportBounds,
+            BppDockButtonBounds.FromCenter(
+                collectionCenterX,
+                gearBounds.MaxY + safeGap + (collectionHeight * 0.5f),
+                collectionWidth,
+                collectionHeight
+            ),
+            collectionHeight + safeGap,
+            blockers
         );
-        var verticalStep = collectionHeight + safeGap;
+        if (upwardPlan.CanApply)
+            return upwardPlan;
+
+        var downwardPlan = ResolveDirection(
+            viewportBounds,
+            BppDockButtonBounds.FromCenter(
+                collectionCenterX,
+                gearBounds.MinY - safeGap - (collectionHeight * 0.5f),
+                collectionWidth,
+                collectionHeight
+            ),
+            -(collectionHeight + safeGap),
+            blockers
+        );
+        if (downwardPlan.CanApply)
+            return downwardPlan;
+
+        return new BppCollectionDockButtonLayoutPlan(
+            false,
+            upwardPlan.Bounds,
+            upwardPlan.BlockerName ?? downwardPlan.BlockerName
+        );
+    }
+
+    private static BppCollectionDockButtonLayoutPlan ResolveDirection(
+        BppDockButtonBounds viewportBounds,
+        BppDockButtonBounds candidate,
+        float verticalStep,
+        IReadOnlyList<BppDockButtonObstacle> blockers
+    )
+    {
         string? lastBlockerName = null;
         for (var slot = 0; slot < MaximumVerticalSlots; slot++)
         {

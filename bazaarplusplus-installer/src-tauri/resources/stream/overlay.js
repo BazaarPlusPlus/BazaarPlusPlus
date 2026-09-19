@@ -36,54 +36,6 @@ function markUpdated() {
   });
 }
 
-function formatMetric(value, suffix) {
-  if (typeof value !== 'number' || !Number.isFinite(value)) {
-    return null;
-  }
-
-  return `${value}${suffix}`;
-}
-
-function formatRank(record) {
-  const rankValue = typeof record?.rank === 'string' ? record.rank.trim() : '';
-  const ratingValue =
-    typeof record?.rating === 'number' && Number.isFinite(record.rating)
-      ? String(record.rating)
-      : '';
-
-  if (rankValue && ratingValue) {
-    return `${rankValue} ${ratingValue}`;
-  }
-
-  if (rankValue) {
-    return rankValue;
-  }
-
-  if (ratingValue) {
-    return ratingValue;
-  }
-
-  return null;
-}
-
-function formatTimestamp(value) {
-  if (typeof value !== 'string' || !value.trim()) {
-    return '';
-  }
-
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return value;
-  }
-
-  const month = String(parsed.getMonth() + 1).padStart(2, '0');
-  const day = String(parsed.getDate()).padStart(2, '0');
-  const hours = String(parsed.getHours()).padStart(2, '0');
-  const minutes = String(parsed.getMinutes()).padStart(2, '0');
-
-  return `${month}-${day} ${hours}:${minutes}`;
-}
-
 function escapeHtml(value) {
   return String(value)
     .replaceAll('&', '&amp;')
@@ -103,48 +55,6 @@ function buildStats(record) {
       typeof record?.battle_count === 'number' && Number.isFinite(record.battle_count)
         ? record.battle_count
         : null
-  };
-}
-
-function getVictoryTier(wins, battles) {
-  if (typeof wins !== 'number' || !Number.isFinite(wins)) {
-    return {
-      className: 'tier-unknown',
-      label: 'RUN'
-    };
-  }
-
-  if (wins === 10 && battles === 10) {
-    return {
-      className: 'tier-diamond',
-      label: 'DIA'
-    };
-  }
-
-  if (wins >= 10 && typeof battles === 'number' && battles > 10) {
-    return {
-      className: 'tier-gold',
-      label: 'GLD'
-    };
-  }
-
-  if (wins >= 7) {
-    return {
-      className: 'tier-silver',
-      label: 'SLV'
-    };
-  }
-
-  if (wins >= 4) {
-    return {
-      className: 'tier-bronze',
-      label: 'BRZ'
-    };
-  }
-
-  return {
-    className: 'tier-misfortune',
-    label: 'MIS'
   };
 }
 

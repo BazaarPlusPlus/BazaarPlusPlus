@@ -17,6 +17,11 @@ import {
 
 function fixtureRoot(platform = 'macos') {
   const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), 'bpp-payload-zip-'));
+  const compatibilityPath = path.join(
+    rootDir,
+    'src-tauri',
+    'history-database-compatibility.json'
+  );
   const sourceDir = path.join(
     rootDir,
     'src-tauri',
@@ -25,7 +30,11 @@ function fixtureRoot(platform = 'macos') {
     platform
   );
   fs.mkdirSync(sourceDir, { recursive: true });
-  return { rootDir, sourceDir, platform };
+  fs.writeFileSync(
+    compatibilityPath,
+    `${JSON.stringify({ formatVersion: 1, supportedUserVersions: [1, 2] })}\n`
+  );
+  return { rootDir, sourceDir, platform, productVersion: V5_MIN_MOD_VERSION };
 }
 
 function writeStagedModVersion(fixture, version) {
@@ -37,6 +46,25 @@ function writeStagedModVersion(fixture, version) {
   );
   fs.mkdirSync(path.dirname(versionPath), { recursive: true });
   fs.writeFileSync(versionPath, version);
+  writeStagedHistoryDatabaseContract(fixture, 2);
+}
+
+function writeStagedHistoryDatabaseContract(fixture, userVersion) {
+  const contractPath = path.join(
+    fixture.sourceDir,
+    'BepInEx',
+    'plugins',
+    'BazaarPlusPlus.history-database.json'
+  );
+  fs.mkdirSync(path.dirname(contractPath), { recursive: true });
+  fs.writeFileSync(
+    contractPath,
+    `${JSON.stringify({
+      formatVersion: 1,
+      historyDatabaseUserVersion: userVersion,
+      historyRowSchemaVersion: userVersion
+    })}\n`
+  );
 }
 
 test.each([
@@ -71,7 +99,7 @@ test.each([
 
       expect(secondBytes.equals(firstBytes)).toBe(true);
       expect(entries.map((entry) => entry.name)).toEqual(
-        [...entries.map((entry) => entry.name)].sort()
+        entries.map((entry) => entry.name).sort()
       );
       expect(entries.find((entry) => entry.name === fileName)?.mode).toBe(mode);
       expect(
@@ -138,7 +166,7 @@ test.each(['4.5.0.prod', '4.6.0.prod'])(
           ...fixture,
           requiredStagingPaths: ['BepInEx/plugins/BazaarPlusPlus.version']
         })
-      ).toThrow(/4\.7\.0[\s\S]*\.\/run\.sh publish/);
+      ).toThrow(/4\.7\.0[\s\S]*just release::prepare/);
     } finally {
       fs.rmSync(fixture.rootDir, { recursive: true, force: true });
     }
@@ -160,7 +188,7 @@ test.each(['ffmpeg', 'ffmpeg-LICENSE.txt', 'BppReplayRecorder.app'])(
           ...fixture,
           requiredStagingPaths: []
         })
-      ).toThrow(/retired runtime dependencies/);
+      ).toThrow(/forbidden.*release payload path/);
     } finally {
       fs.rmSync(fixture.rootDir, { recursive: true, force: true });
     }
@@ -177,7 +205,38 @@ test('preparePayloadZip rejects an unparseable staging version', () => {
         ...fixture,
         requiredStagingPaths: ['BepInEx/plugins/BazaarPlusPlus.version']
       })
-    ).toThrow(/cannot parse[\s\S]*\.\/run\.sh publish/i);
+    ).toThrow(/cannot parse[\s\S]*release\.mjs prepare/i);
+  } finally {
+    fs.rmSync(fixture.rootDir, { recursive: true, force: true });
+  }
+});
+
+test('prepare and validation reject a compatible but different product version', () => {
+  const fixture = fixtureRoot('windows');
+  fixture.productVersion = '5.5.0';
+  writeStagedModVersion(fixture, '5.4.0.prod');
+  try {
+    for (const check of [preparePayloadZip, validatePayloadZip]) {
+      expect(() => check({ ...fixture, requiredStagingPaths: [] })).toThrow(
+        /product version mismatch/
+      );
+    }
+  } finally {
+    fs.rmSync(fixture.rootDir, { recursive: true, force: true });
+  }
+});
+
+test('preparation rejects a plugin that the installer does not own', () => {
+  const fixture = fixtureRoot('windows');
+  writeStagedModVersion(fixture, `${fixture.productVersion}.prod`);
+  fs.writeFileSync(
+    path.join(fixture.sourceDir, 'BepInEx/plugins/Forgotten.dll'),
+    'plugin'
+  );
+  try {
+    expect(() =>
+      preparePayloadZip({ ...fixture, requiredStagingPaths: [] })
+    ).toThrow(/Undeclared.*Forgotten.dll/);
   } finally {
     fs.rmSync(fixture.rootDir, { recursive: true, force: true });
   }
@@ -188,6 +247,7 @@ test.each(['4.7.0.prod', '4.7.1.prod', '5.0.0.prod'])(
   (version) => {
     const fixture = fixtureRoot('windows');
     writeStagedModVersion(fixture, version);
+    fixture.productVersion = version.replace('.prod', '');
 
     try {
       expect(() =>
@@ -202,6 +262,27 @@ test.each(['4.7.0.prod', '4.7.1.prod', '5.0.0.prod'])(
   }
 );
 
+test('preparePayloadZip rejects a mod database schema the installer does not support', () => {
+  const fixture = fixtureRoot('macos');
+  fixture.productVersion = '5.3.0';
+  writeStagedModVersion(fixture, '5.3.0.prod');
+  writeStagedHistoryDatabaseContract(fixture, 3);
+
+  try {
+    expect(() =>
+      preparePayloadZip({
+        ...fixture,
+        requiredStagingPaths: [
+          'BepInEx/plugins/BazaarPlusPlus.version',
+          'BepInEx/plugins/BazaarPlusPlus.history-database.json'
+        ]
+      })
+    ).toThrow(/database schema 3[\s\S]*supports 1,2/i);
+  } finally {
+    fs.rmSync(fixture.rootDir, { recursive: true, force: true });
+  }
+});
+
 test.each(['ffmpeg.exe', 'ffmpeg-LICENSE.txt'])(
   'Windows release preparation rejects retired runtime dependency %s',
   (fileName) => {
@@ -213,7 +294,7 @@ test.each(['ffmpeg.exe', 'ffmpeg-LICENSE.txt'])(
     try {
       expect(() =>
         preparePayloadZip({ ...fixture, requiredStagingPaths: [] })
-      ).toThrow(/retired runtime dependencies/);
+      ).toThrow(/forbidden.*release payload path/);
     } finally {
       fs.rmSync(fixture.rootDir, { recursive: true, force: true });
     }
@@ -230,7 +311,7 @@ test('validatePayloadZip rejects a stale staging version before checking for the
         ...fixture,
         requiredStagingPaths: ['BepInEx/plugins/BazaarPlusPlus.version']
       })
-    ).toThrow(/4\.7\.0[\s\S]*\.\/run\.sh publish/);
+    ).toThrow(/4\.7\.0[\s\S]*just release::prepare/);
   } finally {
     fs.rmSync(fixture.rootDir, { recursive: true, force: true });
   }
@@ -297,13 +378,12 @@ test.each([
   ).toThrow(error);
 });
 
-test('validateZipEntrySet ignores directories and accepts one legal top-level prefix', () => {
+test('validateZipEntrySet ignores directory entries', () => {
   const mapping = validateZipEntrySet(
     [
-      { name: 'payload/', isDirectory: true },
-      { name: 'payload/BepInEx/', isDirectory: true },
-      { name: 'payload/BepInEx/a.dll', isDirectory: false },
-      { name: 'payload/libdoorstop.dylib', isDirectory: false }
+      { name: 'BepInEx/', isDirectory: true },
+      { name: 'BepInEx/a.dll', isDirectory: false },
+      { name: 'libdoorstop.dylib', isDirectory: false }
     ],
     ['BepInEx/a.dll', 'libdoorstop.dylib']
   );
@@ -326,7 +406,7 @@ test('BazaarPlusPlus.version is a required release invariant', () => {
           'BepInEx/plugins/BazaarPlusPlus.version'
         ]
       })
-    ).toThrow(/BazaarPlusPlus\.version[\s\S]*\.\/run\.sh publish/);
+    ).toThrow(/BazaarPlusPlus\.version[\s\S]*release\.mjs prepare/);
   } finally {
     fs.rmSync(fixture.rootDir, { recursive: true, force: true });
   }
@@ -380,10 +460,7 @@ test('deterministic repack refreshes the checksum manifest for signed payload by
   const fixture = fixtureRoot('macos');
   const outputPath = path.join(fixture.rootDir, 'signed', 'BepInEx.zip');
   const manifestPath = `${outputPath}.manifest.json`;
-  fs.writeFileSync(
-    path.join(fixture.sourceDir, 'signed-library.dylib'),
-    'signed'
-  );
+  fs.writeFileSync(path.join(fixture.sourceDir, 'libdoorstop.dylib'), 'signed');
 
   try {
     writeDeterministicZip({
@@ -404,7 +481,7 @@ test('deterministic repack refreshes the checksum manifest for signed payload by
       zipSha256,
       entries: [
         {
-          path: 'signed-library.dylib',
+          path: 'libdoorstop.dylib',
           size: 6,
           sha256: expect.stringMatching(/^[a-f0-9]{64}$/),
           mode: expect.any(Number)

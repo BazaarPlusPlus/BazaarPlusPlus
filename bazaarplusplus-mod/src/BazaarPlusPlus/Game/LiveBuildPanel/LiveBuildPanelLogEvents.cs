@@ -33,7 +33,6 @@ internal enum LiveBuildCorpusSource
 internal enum LiveBuildCorpusReasonCode
 {
     WarmupFailed,
-    SynchronousFallback,
     StaleCache,
     EmbeddedFallback,
     EmbeddedMissing,
@@ -314,34 +313,6 @@ internal static class LiveBuildPanelLogEvents
             CardPreviewDegradedTemplateId,
         ],
         new BppLogStormPolicy([CardPreviewDegradedOperation, CardPreviewDegradedReasonCode])
-    );
-    internal static readonly BppLogFieldDefinition ItemBoardPreviewDegradedOperation = Public(
-        0,
-        "operation",
-        BppLogCardinality.Low
-    );
-    internal static readonly BppLogFieldDefinition ItemBoardPreviewDegradedReasonCode = Public(
-        1,
-        "reason_code",
-        BppLogCardinality.Low
-    );
-    internal static readonly BppLogFieldDefinition ItemBoardPreviewDegradedTemplateId = Public(
-        2,
-        "template_id",
-        BppLogCardinality.High
-    );
-    internal static readonly BppLogEventDefinition ItemBoardPreviewDegraded = new(
-        BppLogFeatureScope.LiveBuildPanel,
-        "live_build_panel.item_board_preview.degraded",
-        [
-            ItemBoardPreviewDegradedOperation,
-            ItemBoardPreviewDegradedReasonCode,
-            ItemBoardPreviewDegradedTemplateId,
-        ],
-        new BppLogStormPolicy([
-            ItemBoardPreviewDegradedOperation,
-            ItemBoardPreviewDegradedReasonCode,
-        ])
     );
 
     private static BppLogFieldDefinition Public(

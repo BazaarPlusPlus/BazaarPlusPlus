@@ -11,10 +11,10 @@ namespace BazaarPlusPlus.Patches.Combat;
 
 // Combat sim: capture win/loss result
 [HarmonyPatch(typeof(CombatSimHandler), "Simulate")]
-class CombatSimPatch
+internal class CombatSimPatch
 {
     [HarmonyPrefix]
-    static bool Prefix(
+    private static bool Prefix(
         CombatSimHandler __instance,
         NetMessageCombatSim message,
         CancellationTokenSource cancellationToken,
@@ -40,10 +40,10 @@ class CombatSimPatch
 }
 
 [HarmonyPatch(typeof(FinalBlowSlowDownController), nameof(FinalBlowSlowDownController.Process))]
-class CombatFrameAdvancePatch
+internal class CombatFrameAdvancePatch
 {
     [HarmonyPostfix]
-    static void Postfix()
+    private static void Postfix()
     {
         BppPatchHost.Services.EventBus.Publish(CombatFrameAdvanced.Instance);
     }

@@ -17,6 +17,7 @@ import {
 import { ToastProvider, useToast } from '../components/ui/Toast';
 import { presentUpdaterProblem } from '../features/about/updaterProblems';
 import { useI18n } from '../i18n/LocaleProvider';
+import { useRouteScroll } from './useRouteScroll';
 
 export default function GlobalShell() {
   return (
@@ -33,6 +34,7 @@ export default function GlobalShell() {
 }
 
 function GlobalShellContent() {
+  const mainRef = useRouteScroll();
   const [showBilibili, setShowBilibili] = useState(false);
   const [showSupport, setShowSupport] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -73,7 +75,7 @@ function GlobalShellContent() {
         action: { label: t('retry'), onClick: updater.checkNow }
       });
     }
-  }, [showToast, t, updater]);
+  }, [showToast, t, updater.phase, updater.problem, updater.checkNow]);
 
   // Close the header popovers on Escape or a click outside them — the native
   // behaviour these controlled dropdowns were missing.
@@ -129,7 +131,7 @@ function GlobalShellContent() {
 
       <div className="bpp-shell-body">
         <ShellNavRail />
-        <main tabIndex={-1} className="bpp-main custom-scrollbar">
+        <main ref={mainRef} tabIndex={-1} className="bpp-main custom-scrollbar">
           <div className="bpp-main-inner">
             <AnimatedOutlet />
           </div>

@@ -203,21 +203,31 @@ mod imp {
 
     fn install_stub(stub_src: &Path, exe_dst: &Path) -> Result<(), String> {
         use std::os::unix::fs::PermissionsExt;
-
-        std::fs::copy(stub_src, exe_dst).map_err(|err| {
+        let game_root = exe_dst
+            .ancestors()
+            .nth(4)
+            .ok_or_else(|| format!("Invalid game executable path: {}", exe_dst.display()))?;
+        let staged = tempfile::Builder::new()
+            .prefix(".bpp-stub-")
+            .tempfile_in(game_root)
+            .map_err(|err| format!("Cannot stage game executable: {err}"))?;
+        std::fs::copy(stub_src, staged.path()).map_err(|err| {
             format!(
                 "Cannot install trampoline stub to {}: {err}",
                 exe_dst.display()
             )
         })?;
-        std::fs::set_permissions(exe_dst, std::fs::Permissions::from_mode(0o755))
+        std::fs::set_permissions(staged.path(), std::fs::Permissions::from_mode(0o755))
             .map_err(|err| format!("Cannot set permissions on {}: {err}", exe_dst.display()))?;
         // Best-effort: an AMFI-relevant quarantine on the bundle main could block
         // launch on macOS 27. The installer is notarized, so this is defensive.
         let _ = Command::new("xattr")
             .args(["-d", "com.apple.quarantine"])
-            .arg(exe_dst)
+            .arg(staged.path())
             .output();
+        staged
+            .persist(exe_dst)
+            .map_err(|err| format!("Cannot replace {}: {err}", exe_dst.display()))?;
         Ok(())
     }
 
@@ -242,7 +252,7 @@ mod imp {
         )
     }
 
-    fn seal_bundle(app: &Path) -> Result<(), String> {
+    pub(super) fn seal_bundle(app: &Path) -> Result<(), String> {
         // NO --deep: re-signing the bundle main + sealing resources, without
         // re-signing the nested `.orig` (which would strip its entitlements).
         run_codesign(
@@ -256,7 +266,7 @@ mod imp {
         )
     }
 
-    fn verify_bundle(app: &Path) -> Result<(), String> {
+    pub(super) fn verify_bundle(app: &Path) -> Result<(), String> {
         run_codesign(
             &[
                 "--verify".as_ref(),
@@ -293,7 +303,24 @@ mod imp {
             && links_unity(&layout.orig_path))
     }
 
-    pub(super) fn install_trampoline(app: &AppHandle, game_path: &Path) -> Result<(), String> {
+    pub(super) fn install_trampoline(resource_dir: &Path, game_path: &Path) -> Result<(), String> {
+        let stub = resource_dir.join("Trampoline/bpp_launcher");
+        install_with_stub(game_path, &stub)
+    }
+
+    pub(super) fn install_with_stub(game_path: &Path, stub: &Path) -> Result<(), String> {
+        install_with_finalizer(game_path, stub, |layout| {
+            sign_real_binary(&layout.orig_path)?;
+            seal_bundle(&layout.app_path)?;
+            verify_bundle(&layout.app_path)
+        })
+    }
+
+    pub(super) fn install_with_finalizer(
+        game_path: &Path,
+        stub: &Path,
+        finalize: impl FnOnce(&BundleLayout) -> Result<(), String>,
+    ) -> Result<(), String> {
         // Step 0: absolute preconditions BEFORE any filesystem mutation — a
         // modified-but-unsigned bundle is AMFI-killed on Apple Silicon.
         if !codesign_available() {
@@ -302,30 +329,9 @@ mod imp {
                     .to_string(),
             );
         }
-        // Best-effort guard. Currently a no-op on macOS (is_bazaar_running_best_effort
-        // returns false there); real protection comes from the orchestrator closing
-        // Steam first, which takes down a Steam-launched Bazaar. Kept so a future
-        // macOS process probe activates it automatically.
-        if crate::services::game_process::is_bazaar_running_best_effort() {
-            return Err(
-                "The Bazaar is running. Close the game before installing BazaarPlusPlus."
-                    .to_string(),
-            );
-        }
+        crate::services::game_process::ensure_bazaar_stopped(game_path)?;
 
         let layout = bundle_paths(game_path)?;
-        let stub = stub_resource_path(app)?;
-
-        // Step 1: already structurally trampolined -> refresh the stub from the
-        // current installer, then re-sign and verify. A differing stub is not a
-        // valid final state.
-        if is_trampolined(game_path)? {
-            install_stub(&stub, &layout.exe_path)?;
-            sign_real_binary(&layout.orig_path)?;
-            seal_bundle(&layout.app_path)?;
-            verify_bundle(&layout.app_path)?;
-            return Ok(());
-        }
 
         // Step 2: identify the real Unity binary and preserve exactly it as
         // `.orig`. Critically, a Steam update/Verify can leave a FRESH real binary
@@ -335,7 +341,35 @@ mod imp {
         let exe_is_real = links_unity(&layout.exe_path);
         let orig_exists = layout.orig_path.exists();
         let orig_is_real = orig_exists && links_unity(&layout.orig_path);
-        match classify_real_binary(exe_is_real, orig_exists, orig_is_real)? {
+        let source = classify_real_binary(exe_is_real, orig_exists, orig_is_real)?;
+        let real = match source {
+            RealBinarySource::CurrentExe => &layout.exe_path,
+            RealBinarySource::ExistingOrig => &layout.orig_path,
+        };
+        let architecture = Command::new("/usr/bin/lipo")
+            .arg(real)
+            .args(["-verify_arch", "arm64"])
+            .output()
+            .map_err(|err| format!("Cannot inspect game architecture: {err}"))?;
+        if !architecture.status.success() {
+            return Err("The game executable has no arm64 architecture; restore the Steam game before repairing.".to_string());
+        }
+        if !stub.is_file() {
+            return Err(format!(
+                "Bundled trampoline stub is missing at {}",
+                stub.display()
+            ));
+        }
+        read_macho_uuid(stub)?;
+        super::super::bundle_root::normalize(game_path)?;
+        // Preserve the selected current game binary before codesign can rewrite it.
+        // Initial installs and already-installed repairs share this recovery path.
+        let recovery = tempfile::tempdir_in(game_path)
+            .map_err(|err| format!("Cannot prepare game binary recovery: {err}"))?;
+        let recovery_exe = recovery.path().join("game-executable");
+        std::fs::copy(real, &recovery_exe)
+            .map_err(|err| format!("Cannot back up game executable: {err}"))?;
+        match source {
             RealBinarySource::CurrentExe => {
                 // <exe> is the real binary (fresh install, or Steam-updated over a
                 // stale backup). Drop any stale `.orig` so the swap renames the
@@ -354,33 +388,36 @@ mod imp {
 
         // Steps 3-7 with rollback on any failure.
         let result = (|| -> Result<(), String> {
-            swap_in_stub(&layout, &stub)?; // rename real -> .orig (if needed) + drop stub
-            sign_real_binary(&layout.orig_path)?;
-            seal_bundle(&layout.app_path)?;
-            verify_bundle(&layout.app_path)?;
-            Ok(())
+            swap_in_stub(&layout, stub)?; // rename real -> .orig (if needed) + drop stub
+            finalize(&layout)
         })();
 
         match result {
             Ok(()) => Ok(()),
-            Err(err) => match restore_vanilla_layout(&layout) {
-                Ok(()) => {
-                    // Re-seal so a rollback that runs after sign/seal still leaves a
-                    // self-consistent (codesign --verify-clean) vanilla bundle.
-                    // Best-effort: codesign was proven available at step 0.
-                    let _ = seal_bundle(&layout.app_path);
-                    Err(err)
+            Err(err) => {
+                let rollback = (|| {
+                    install_stub(&recovery_exe, &layout.exe_path)?;
+                    if layout.orig_path.exists() {
+                        std::fs::remove_file(&layout.orig_path)
+                            .map_err(|error| error.to_string())?;
+                    }
+                    seal_bundle(&layout.app_path)?;
+                    verify_bundle(&layout.app_path)
+                })();
+                match rollback {
+                    Ok(()) => Err(err),
+                    Err(restore_err) => {
+                        let retained = recovery.keep();
+                        Err(format!("{err}; game recovery also failed: {restore_err}. The executable backup is retained at {}. Run Steam \"Verify integrity of game files\".", retained.display()))
+                    }
                 }
-                Err(_) if layout.exe_path.exists() => Err(err),
-                Err(restore_err) => Err(format!(
-                    "{err}; additionally could not restore the original game binary: {restore_err}. Run Steam \"Verify integrity of game files\" to repair the bundle."
-                )),
-            },
+            }
         }
     }
 
     pub(super) fn uninstall_trampoline(game_path: &Path) -> Result<(), String> {
         let layout = bundle_paths(game_path)?;
+        super::super::bundle_root::normalize(game_path)?;
 
         if layout.orig_path.exists() {
             if !codesign_available() {
@@ -390,8 +427,7 @@ mod imp {
                 );
             }
             restore_vanilla_layout(&layout)?;
-            // Re-seal so the bundle signature matches its now-real main executable.
-            seal_bundle(&layout.app_path)?;
+            // The caller seals after removing all owned in-bundle payload files.
             return Ok(());
         }
 
@@ -409,17 +445,49 @@ mod imp {
 
 #[cfg(target_os = "macos")]
 pub(crate) fn is_current_trampoline(app: &AppHandle, game_path: &Path) -> Result<bool, String> {
+    is_current_with_stub(game_path, &imp::stub_resource_path(app)?)
+}
+
+#[cfg(target_os = "macos")]
+fn is_current_with_stub(game_path: &Path, bundled: &Path) -> Result<bool, String> {
     if !imp::is_trampolined(game_path)? {
         return Ok(false);
     }
     let layout = imp::bundle_paths(game_path)?;
-    let bundled = imp::stub_resource_path(app)?;
-    trampoline_builds_match(&layout.exe_path, &bundled)
+    Ok(trampoline_builds_match(&layout.exe_path, bundled)?
+        && imp::verify_bundle(&layout.app_path).is_ok())
 }
 
 #[cfg(target_os = "macos")]
-pub(crate) fn install_trampoline(app: &AppHandle, game_path: &Path) -> Result<(), String> {
-    imp::install_trampoline(app, game_path)
+pub(crate) fn finalize_game_bundle(game_path: &Path) -> Result<(), String> {
+    super::bundle_root::normalize(game_path)?;
+    let layout = imp::bundle_paths(game_path)?;
+    imp::seal_bundle(&layout.app_path)?;
+    imp::verify_bundle(&layout.app_path)
+}
+
+#[cfg(not(target_os = "macos"))]
+pub(crate) fn finalize_game_bundle(_game_path: &Path) -> Result<(), String> {
+    Ok(())
+}
+
+pub(super) fn with_finalized_bundle(
+    game_path: &Path,
+    operation: impl FnOnce() -> Result<(), String>,
+) -> Result<(), String> {
+    let result = operation();
+    match (result, finalize_game_bundle(game_path)) {
+        (result, Ok(())) => result,
+        (Ok(()), Err(error)) => Err(error),
+        (Err(error), Err(final_error)) => Err(format!(
+            "{error}; final game bundle signing also failed: {final_error}"
+        )),
+    }
+}
+
+#[cfg(target_os = "macos")]
+pub(crate) fn install_trampoline(resource_dir: &Path, game_path: &Path) -> Result<(), String> {
+    imp::install_trampoline(resource_dir, game_path)
 }
 
 #[cfg(target_os = "macos")]
@@ -546,7 +614,7 @@ pub(crate) fn is_current_trampoline(_app: &AppHandle, _game_path: &Path) -> Resu
 }
 
 #[cfg(not(target_os = "macos"))]
-pub(crate) fn install_trampoline(_app: &AppHandle, _game_path: &Path) -> Result<(), String> {
+pub(crate) fn install_trampoline(_resource_dir: &Path, _game_path: &Path) -> Result<(), String> {
     Ok(())
 }
 
@@ -573,6 +641,219 @@ mod tests {
         restore_vanilla_layout, swap_in_stub, RealBinarySource, TRAMPOLINE_ENTITLEMENTS,
     };
     use super::*;
+
+    fn command(program: &str, args: &[&std::ffi::OsStr]) {
+        let mut command = std::process::Command::new(program);
+        if program == "clang" {
+            let sdk = std::process::Command::new("xcrun")
+                .args(["--sdk", "macosx", "--show-sdk-path"])
+                .output()
+                .unwrap();
+            assert!(sdk.status.success());
+            command.args(["-isysroot", String::from_utf8_lossy(&sdk.stdout).trim()]);
+        }
+        let output = command.args(args).output().unwrap();
+        assert!(
+            output.status.success(),
+            "{program}: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+
+    fn native_bundle() -> (tempfile::TempDir, PathBuf) {
+        use super::super::bundle_root::tests::make_bundle;
+        let game = tempfile::tempdir().unwrap();
+        let app = make_bundle(game.path());
+        let source = game.path().join("engine.c");
+        std::fs::write(&source, "int unity_probe(void) { return 0; }").unwrap();
+        let engine = app.join("Contents/Frameworks/UnityPlayer.dylib");
+        command(
+            "clang",
+            &[
+                "-arch".as_ref(),
+                "arm64".as_ref(),
+                "-dynamiclib".as_ref(),
+                "-install_name".as_ref(),
+                "@rpath/UnityPlayer.dylib".as_ref(),
+                source.as_os_str(),
+                "-o".as_ref(),
+                engine.as_os_str(),
+            ],
+        );
+        let mono = app.join("Contents/Frameworks/libmonobdwgc-2.0.dylib");
+        std::fs::copy(&engine, &mono).unwrap();
+        std::fs::write(
+            &source,
+            "extern int unity_probe(void); int main(void) { return unity_probe(); }",
+        )
+        .unwrap();
+        let executable = app.join("Contents/MacOS/The Bazaar");
+        command(
+            "clang",
+            &[
+                "-arch".as_ref(),
+                "arm64".as_ref(),
+                source.as_os_str(),
+                engine.as_os_str(),
+                "-Wl,-rpath,@executable_path/../Frameworks".as_ref(),
+                "-o".as_ref(),
+                executable.as_os_str(),
+            ],
+        );
+        imp::seal_bundle(&app).unwrap();
+        imp::verify_bundle(&app).unwrap();
+        let stub = game.path().join("stub");
+        std::fs::write(&source, "int main(void) { return 0; }").unwrap();
+        command(
+            "clang",
+            &[
+                "-arch".as_ref(),
+                "arm64".as_ref(),
+                source.as_os_str(),
+                "-o".as_ref(),
+                stub.as_os_str(),
+            ],
+        );
+        (game, stub)
+    }
+
+    #[test]
+    fn native_repair_converges_after_repetition_steam_updates_and_resource_changes() {
+        use super::super::bundle_root::tests::copy_tree;
+        let (game, stub) = native_bundle();
+        let layout = bundle_paths(game.path()).unwrap();
+        std::fs::write(layout.app_path.join(".DS_Store"), b"Finder metadata").unwrap();
+        let backups = game.path().join(".bpp-bundle-root-stash");
+        std::fs::create_dir(&backups).unwrap();
+        std::fs::write(backups.join(".DS_Store"), b"Legacy Finder metadata").unwrap();
+        let clean = game.path().join("steam.app");
+        copy_tree(&layout.app_path, &clean);
+        copy_tree(&clean, &layout.app_path.join("TheBazaar_ARM64.app"));
+        assert!(imp::verify_bundle(&layout.app_path)
+            .unwrap_err()
+            .contains("unsealed contents"));
+        for _ in 0..3 {
+            imp::install_with_stub(game.path(), &stub).unwrap();
+            assert!(is_current_with_stub(game.path(), &stub).unwrap());
+            assert!(imp::links_unity(&layout.orig_path));
+            assert!(!layout.app_path.join("TheBazaar_ARM64.app").exists());
+        }
+        let entitlements = std::process::Command::new("codesign")
+            .args(["-d", "--entitlements", ":-"])
+            .arg(&layout.orig_path)
+            .output()
+            .unwrap();
+        let entitlements = format!(
+            "{}{}",
+            String::from_utf8_lossy(&entitlements.stdout),
+            String::from_utf8_lossy(&entitlements.stderr)
+        );
+        assert!(entitlements.contains("com.apple.security.cs.allow-jit"));
+
+        // Steam restores its executable and duplicate over the existing .orig.
+        std::fs::copy(clean.join("Contents/MacOS/The Bazaar"), &layout.exe_path).unwrap();
+        copy_tree(&clean, &layout.app_path.join("TheBazaar_ARM64.app"));
+        assert!(!is_current_with_stub(game.path(), &stub).unwrap());
+        imp::install_with_stub(game.path(), &stub).unwrap();
+        assert!(is_current_with_stub(game.path(), &stub).unwrap());
+
+        // Resource damage must change readiness even when the stub UUID matches.
+        let resource = layout.app_path.join("Contents/Resources/Data/boot.config");
+        std::fs::write(&resource, b"changed").unwrap();
+        assert!(!is_current_with_stub(game.path(), &stub).unwrap());
+        imp::install_with_stub(game.path(), &stub).unwrap();
+        assert!(is_current_with_stub(game.path(), &stub).unwrap());
+
+        // A shared-bootstrap uninstall removes an in-bundle plugin, then seals.
+        std::fs::remove_file(&resource).unwrap();
+        finalize_game_bundle(game.path()).unwrap();
+        assert!(is_current_with_stub(game.path(), &stub).unwrap());
+        let error = with_finalized_bundle(game.path(), || {
+            imp::uninstall_trampoline(game.path())?;
+            Err("simulated payload removal failure".into())
+        })
+        .unwrap_err();
+        assert_eq!(error, "simulated payload removal failure");
+        assert!(imp::links_unity(&layout.exe_path));
+        assert!(!layout.orig_path.exists());
+        imp::verify_bundle(&layout.app_path).unwrap();
+        assert_eq!(
+            std::fs::read(layout.app_path.join(".DS_Store")).unwrap(),
+            b"Finder metadata"
+        );
+        assert_eq!(
+            std::fs::read(backups.join(".DS_Store")).unwrap(),
+            b"Legacy Finder metadata"
+        );
+    }
+
+    #[test]
+    fn native_failed_repair_recovers_the_real_binary_and_can_be_retried() {
+        let (game, stub) = native_bundle();
+        imp::install_with_stub(game.path(), &stub).unwrap();
+        let error = imp::install_with_finalizer(game.path(), &stub, |layout| {
+            // Simulate a signing failure after the real binary has been rewritten.
+            std::fs::write(&layout.orig_path, b"partly rewritten signature").unwrap();
+            Err("injected signing failure".into())
+        })
+        .unwrap_err();
+        assert_eq!(error, "injected signing failure");
+        let layout = bundle_paths(game.path()).unwrap();
+        assert!(imp::links_unity(&layout.exe_path));
+        assert!(!layout.orig_path.exists());
+        imp::verify_bundle(&layout.app_path).unwrap();
+        imp::install_with_stub(game.path(), &stub).unwrap();
+        assert!(is_current_with_stub(game.path(), &stub).unwrap());
+    }
+
+    #[test]
+    #[ignore = "copies the Steam installation named by BPP_TEST_GAME_ROOT; never mutates the source"]
+    fn copied_steam_bundle_repair_acceptance() {
+        let source =
+            PathBuf::from(std::env::var_os("BPP_TEST_GAME_ROOT").expect("BPP_TEST_GAME_ROOT"));
+        let game = tempfile::tempdir().unwrap();
+        let app = game.path().join("TheBazaar.app");
+        command(
+            "/bin/cp",
+            &[
+                "-cR".as_ref(),
+                source.join("TheBazaar.app").as_os_str(),
+                app.as_os_str(),
+            ],
+        );
+        let stub = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("resources/Trampoline/macos/bpp_launcher");
+        for iteration in 1..=3 {
+            imp::install_with_stub(game.path(), &stub).unwrap();
+            assert!(is_current_with_stub(game.path(), &stub).unwrap());
+            assert!(!app.join("TheBazaar_ARM64.app").exists());
+            eprintln!("Copied Steam bundle repair {iteration}: strict signature and current stub verified");
+        }
+        // The developer script must be able to consume the installer's backup format.
+        if let Some(script) = std::env::var_os("BPP_TEST_REPAIR_SCRIPT") {
+            std::fs::write(game.path().join(".bpp-launch-mode"), b"trampoline").unwrap();
+            let output = std::process::Command::new("/bin/bash")
+                .arg(script)
+                .env("BPP_GAME_ROOT", game.path())
+                .env("BPP_TRAMPOLINE_STUB", &stub)
+                .output()
+                .unwrap();
+            assert!(
+                output.status.success(),
+                "{}{}",
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            );
+            assert!(is_current_with_stub(game.path(), &stub).unwrap());
+            eprintln!(
+                "Developer repair consumed the same backup and preserved the final signature"
+            );
+        }
+        imp::uninstall_trampoline(game.path()).unwrap();
+        finalize_game_bundle(game.path()).unwrap();
+        imp::verify_bundle(&app).unwrap();
+        eprintln!("Copied Steam bundle uninstall: strict signature verified");
+    }
 
     fn write_macho_stub(path: &Path, uuid: [u8; 16], signature: &[u8]) {
         const MACH_HEADER_64_SIZE: usize = 32;

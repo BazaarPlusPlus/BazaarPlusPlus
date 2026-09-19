@@ -6,7 +6,7 @@ use crate::services::game_process;
 ///
 /// Returns whether a process was actually terminated: finding none means the
 /// state the caller was recovering from is already gone.
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn end_game_process() -> Result<bool, String> {
     game_process::terminate_game()

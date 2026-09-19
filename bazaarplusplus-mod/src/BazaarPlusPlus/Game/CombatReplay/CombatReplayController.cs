@@ -22,21 +22,6 @@ internal sealed class CombatReplayController
         _loader = loader ?? throw new ArgumentNullException(nameof(loader));
     }
 
-    public IReadOnlyList<PvpBattleManifest> ListRecentBattles()
-    {
-        return _battleCatalog
-            .ListRecentBattles(50)
-            .Where(manifest => _payloadStore.Exists(manifest.BattleId))
-            .ToList();
-    }
-
-    public PvpBattleManifest? GetLatestBattle()
-    {
-        return _battleCatalog
-            .ListRecentBattles(50)
-            .FirstOrDefault(manifest => _payloadStore.Exists(manifest.BattleId));
-    }
-
     public bool HasSavedReplay(string battleId)
     {
         if (string.IsNullOrWhiteSpace(battleId))

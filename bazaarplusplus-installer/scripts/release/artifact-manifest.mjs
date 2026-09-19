@@ -2,8 +2,16 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
-import { execFileSync } from 'node:child_process';
+import { runGit } from '../git-command.mjs';
 import { RELEASE_PLATFORMS } from './release-platforms.mjs';
+
+const releasePaths = [
+  '.',
+  '../VERSION',
+  '../release.mjs',
+  '../release',
+  '../bazaarplusplus-mod'
+];
 
 function platformDefinition(buildPlatform) {
   const matches = RELEASE_PLATFORMS.filter(
@@ -19,17 +27,50 @@ function sha256(buffer) {
   return crypto.createHash('sha256').update(buffer).digest('hex');
 }
 
-function gitStateForRoot(rootDir) {
-  const commit = execFileSync('git', ['rev-parse', 'HEAD'], {
-    cwd: rootDir,
-    encoding: 'utf8'
-  }).trim();
-  const status = execFileSync(
-    'git',
-    ['status', '--porcelain', '--untracked-files=all'],
-    { cwd: rootDir, encoding: 'utf8' }
+export function gitStateForRoot(rootDir) {
+  const commit = runGit(['rev-parse', 'HEAD'], { cwd: rootDir }).trim();
+  // Include the product's producer and shared release inputs, but not unrelated
+  // website/analyzer work or local root tooling.
+  const status = runGit(
+    ['status', '--porcelain', '--untracked-files=all', '--', ...releasePaths],
+    { cwd: rootDir }
   ).trim();
   return { commit, dirty: status.length > 0 };
+}
+
+export function releaseSourceIdentity(rootDir) {
+  const files = [
+    ...new Set(
+      runGit(
+        [
+          'ls-files',
+          '--cached',
+          '--others',
+          '--exclude-standard',
+          '-z',
+          '--',
+          ...releasePaths
+        ],
+        { cwd: rootDir }
+      )
+        .split('\0')
+        .filter(Boolean)
+    )
+  ].sort();
+  const inputs = files.map((name) => {
+    const file = path.resolve(rootDir, name);
+    const stat = fs.lstatSync(file, { throwIfNoEntry: false });
+    const bytes = stat?.isSymbolicLink()
+      ? fs.readlinkSync(file)
+      : stat?.isFile()
+        ? fs.readFileSync(file)
+        : '';
+    return [name, stat ? sha256(bytes) : null];
+  });
+  return {
+    ...gitStateForRoot(rootDir),
+    digest: sha256(JSON.stringify(inputs))
+  };
 }
 
 function relativeArtifactPath(rootDir, filePath) {
@@ -152,12 +193,21 @@ export function createArtifactManifest({
   if (!signatureContent) throw new Error('Updater signature is empty');
 
   const manifest = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     appVersion: version,
     buildPlatform: platform,
     releasePlatformKey: definition.key,
     gitCommit: gitState.commit,
     dirty: gitState.dirty,
+    payloadBuild: artifactRecord(
+      rootDir,
+      path.join(
+        rootDir,
+        'src-tauri/resources/BepInExSource',
+        platform,
+        'payload-build.json'
+      )
+    ),
     installer: artifactRecord(rootDir, discovered.installer),
     updater: artifactRecord(rootDir, discovered.updater),
     signature: {
@@ -216,7 +266,7 @@ export function validateArtifactManifest({
   }
   const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
   const definition = platformDefinition(platform);
-  if (manifest.schemaVersion !== 1)
+  if (manifest.schemaVersion !== 2)
     throw new Error('Unsupported artifact manifest schema');
   if (
     manifest.appVersion !== version ||
@@ -237,6 +287,20 @@ export function validateArtifactManifest({
   if (gitState.dirty)
     throw new Error('Current checkout is dirty; refusing upload');
 
+  const payloadBuild = validateRecord(
+    rootDir,
+    'Payload build',
+    manifest.payloadBuild
+  );
+  const payloadIdentity = JSON.parse(fs.readFileSync(payloadBuild, 'utf8'));
+  if (
+    payloadIdentity.schemaVersion !== 2 ||
+    payloadIdentity.productVersion !== version ||
+    payloadIdentity.platform !== platform
+  ) {
+    throw new Error('Payload build identity does not match the installer');
+  }
+
   const installer = validateRecord(rootDir, 'Installer', manifest.installer);
   const updater = validateRecord(rootDir, 'Updater', manifest.updater);
   const signature = validateRecord(rootDir, 'Signature', manifest.signature);
@@ -256,22 +320,13 @@ function packageVersion(rootDir) {
 
 function main(args) {
   const [verb, flag, platform] = args;
-  if (
-    !['generate', 'paths'].includes(verb) ||
-    flag !== '--platform' ||
-    !platform
-  ) {
+  if (verb !== 'paths' || flag !== '--platform' || !platform) {
     throw new Error(
-      'Usage: artifact-manifest.mjs <generate|paths> --platform <macos|windows>'
+      'Usage: artifact-manifest.mjs paths --platform <macos|windows>; create artifacts through node release.mjs build'
     );
   }
   const rootDir = path.resolve(import.meta.dirname, '..', '..');
   const version = packageVersion(rootDir);
-  if (verb === 'generate') {
-    const result = createArtifactManifest({ rootDir, platform, version });
-    console.log(`artifact-manifest: wrote ${result.manifestPath}`);
-    return;
-  }
   const manifestPath = artifactManifestPath(rootDir, platform);
   const result = validateArtifactManifest({
     rootDir,

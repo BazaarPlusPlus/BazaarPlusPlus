@@ -3,13 +3,12 @@ using BazaarPlusPlus.Game.HistoryPanel.AccountLink;
 using BazaarPlusPlus.Game.HistoryPanel.Data;
 using BazaarPlusPlus.Game.HistoryPanel.Storage;
 using BazaarPlusPlus.GameInterop;
-using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.ModApi.Clients;
 using UnityEngine;
 
 namespace BazaarPlusPlus.Game.HistoryPanel;
 
-internal sealed class HistoryPanelCoordinator : IDisposable
+internal sealed partial class HistoryPanelCoordinator : IDisposable
 {
     private readonly HistoryPanelState _state;
     private readonly IHistoryPanelRunState _runState;
@@ -50,10 +49,14 @@ internal sealed class HistoryPanelCoordinator : IDisposable
 
     public void Dispose()
     {
+        _archiveReads.Clear();
+        _battleReads.Clear();
+        _detailReads.Clear();
+        _maintenanceReads.Clear();
         _session.Dispose();
     }
 
-    public void OnPanelShown()
+    public void OnPanelShown(bool resumeSelection = false)
     {
         _session.Begin();
         _state.AccountLinkExpanded = false;
@@ -61,9 +64,30 @@ internal sealed class HistoryPanelCoordinator : IDisposable
         // resetting state), and re-entrant opens skip OnPanelHidden — reset here or the toggle
         // guard leaves the account-link row permanently inert.
         _state.AccountLinkInProgress = false;
+        var previousAccount = _state.CachedAccountId;
         RefreshAccountLinkIdentityFromGame();
+        if (previousAccount != _state.CachedAccountId)
+        {
+            _state.GhostPage = HistoryPage<HistoryBattleRecord>.Empty;
+            _state.SelectedGhostBattleIndex = 0;
+        }
         _state.ReplayActionInProgress = false;
-        RefreshSectionOnEntry();
+        if (resumeSelection)
+        {
+            ClearTransientStatus();
+            LoadArchive(
+                new(
+                    _state.SectionMode == HistorySectionMode.Ghost
+                        ? _state.GhostPage.First
+                        : _state.RunPage.First,
+                    Inclusive: true
+                ),
+                true
+            );
+        }
+        else
+            RefreshSectionOnEntry();
+        StartGhostMaintenance();
     }
 
     public void OnPanelHidden()
@@ -73,11 +97,16 @@ internal sealed class HistoryPanelCoordinator : IDisposable
         _state.ServerHealthProbeInProgress = false;
         _state.AccountLinkInProgress = false;
         ClearDeleteRunConfirmation();
+        _archiveReads.Clear();
+        _battleReads.Clear();
+        _detailReads.Clear();
+        _maintenanceReads.Clear();
         _session.End();
     }
 
     public void Tick(float now)
     {
+        ObserveAccount();
         if (!_state.DeleteRunConfirmation.HasExpired(now))
             return;
 
@@ -88,7 +117,7 @@ internal sealed class HistoryPanelCoordinator : IDisposable
         _requestUiRefresh();
     }
 
-    public void RefreshSectionOnEntry()
+    private void RefreshSectionOnEntry()
     {
         RefreshData();
 
@@ -96,106 +125,17 @@ internal sealed class HistoryPanelCoordinator : IDisposable
             _ = TrySyncGhostBattlesAsync();
     }
 
-    public void RefreshData()
-    {
-        ClearTransientStatus();
-        ClearDeleteRunConfirmation();
-        _state.Runs.Clear();
-        _state.Battles.Clear();
-        _state.GhostBattles.Clear();
-        InvalidateFilteredRuns();
-        InvalidateFilteredGhostBattles();
+    private void RefreshData() => LoadArchive(new(), preserveSelection: true);
 
-        if (_state.SectionMode == HistorySectionMode.Ghost)
-        {
-            RefreshGhostData();
-            return;
-        }
-
-        if (!_dataService.TryLoadRecentRuns(40, out var runs, out var statusMessage, out var error))
-        {
-            SetStatusMessage(statusMessage);
-            if (error != null)
-            {
-                BppLog.ErrorEvent(
-                    HistoryPanelLogEvents.DataLoadFailed,
-                    error,
-                    HistoryPanelLogEvents.DataDataset.Bind(HistoryPanelDataset.RecentRuns)
-                );
-                _requestUiRefresh();
-                _requestPreviewRefresh();
-                return;
-            }
-
-            _requestUiRefresh();
-            return;
-        }
-
-        _state.Runs.AddRange(runs);
-        InvalidateFilteredRuns();
-        _state.SelectedRunIndex = ClampIndex(_state.SelectedRunIndex, GetFilteredRuns().Count);
-        LoadBattlesForSelectedRun();
-        _state.PreviewSelectionMode = PreviewSelectionMode.Run;
-        SetStatusMessage(statusMessage);
-
-        _requestUiRefresh();
-        _requestPreviewRefresh();
-    }
-
-    public void RefreshGhostData()
-    {
-        ClearTransientStatus();
-        _state.GhostBattles.Clear();
-        InvalidateFilteredGhostBattles();
-        if (
-            !_dataService.TryLoadGhostBattles(
-                100,
-                out var battles,
-                out var statusMessage,
-                out var error
-            )
-        )
-        {
-            SetStatusMessage(statusMessage);
-            if (error != null)
-            {
-                BppLog.ErrorEvent(
-                    HistoryPanelLogEvents.DataLoadFailed,
-                    error,
-                    HistoryPanelLogEvents.DataDataset.Bind(HistoryPanelDataset.GhostBattles)
-                );
-                _requestUiRefresh();
-                _requestPreviewRefresh();
-                return;
-            }
-
-            _requestUiRefresh();
-            return;
-        }
-
-        _state.GhostBattles.AddRange(battles);
-        InvalidateFilteredGhostBattles();
-        _state.SelectedGhostBattleIndex = ClampIndex(
-            _state.SelectedGhostBattleIndex,
-            GetFilteredGhostBattles().Count
-        );
-        _state.PreviewSelectionMode = PreviewSelectionMode.Battle;
-        SetStatusMessage(statusMessage);
-
-        _requestUiRefresh();
-        _requestPreviewRefresh();
-    }
+    private void RefreshGhostData() =>
+        LoadArchive(new(_state.GhostPage.First, Inclusive: true), preserveSelection: true);
 
     public void SetSectionMode(HistorySectionMode mode)
     {
         if (_state.SectionMode == mode)
             return;
-
         _state.SectionMode = mode;
-        _state.PreviewSelectionMode =
-            mode == HistorySectionMode.Ghost
-                ? PreviewSelectionMode.Battle
-                : PreviewSelectionMode.Run;
+        ClearDetail();
         RefreshSectionOnEntry();
     }
 
@@ -203,88 +143,54 @@ internal sealed class HistoryPanelCoordinator : IDisposable
     {
         if (_state.GhostBattleFilter == filter)
             return;
-
         _state.GhostBattleFilter = filter;
-        InvalidateFilteredGhostBattles();
-        _state.SelectedGhostBattleIndex = ClampIndex(
-            _state.SelectedGhostBattleIndex,
-            GetFilteredGhostBattles().Count
-        );
-        _state.PreviewSelectionMode = PreviewSelectionMode.Battle;
-        _requestUiRefresh();
-        _requestPreviewRefresh();
+        LoadArchive(new(AnchorId: ActiveBattle()?.BattleId), preserveSelection: true);
     }
 
     public void SetRunHeroFilter(string hero)
     {
-        var selectedHero = HistoryPanelHeroPresentation.CanonicalFilterId(hero);
-        _state.SelectedRunHero =
-            selectedHero != null
-            && !HistoryPanelHeroPresentation.IsSelected(_state.SelectedRunHero, selectedHero)
-                ? selectedHero
-                : null;
-        InvalidateFilteredRuns();
-        _state.SelectedRunIndex = 0;
-        ClearDeleteRunConfirmation();
-        LoadBattlesForSelectedRun();
-        _state.PreviewSelectionMode = PreviewSelectionMode.Run;
-        _requestUiRefresh();
-        _requestPreviewRefresh();
+        var canonical = HistoryPanelHeroPresentation.CanonicalFilterId(hero);
+        _state.SelectedRunHero = HistoryPanelHeroPresentation.IsSelected(
+            _state.SelectedRunHero,
+            hero
+        )
+            ? null
+            : canonical;
+        LoadArchive(new(AnchorId: GetSelectedRun()?.RunId), preserveSelection: true);
     }
 
-    public void ToggleGhostDayMin10()
-    {
-        SetGhostDayMin10(!_state.GhostDayMin10);
-    }
+    public void ToggleGhostDayMin10() => SetGhostDayMin10(!_state.GhostDayMin10);
 
     public void SetGhostDayMin10(bool value)
     {
         if (_state.GhostDayMin10 == value)
             return;
-
         _state.GhostDayMin10 = value;
-        InvalidateFilteredGhostBattles();
-        _state.SelectedGhostBattleIndex = ClampIndex(
-            _state.SelectedGhostBattleIndex,
-            GetFilteredGhostBattles().Count
-        );
-        _state.PreviewSelectionMode = PreviewSelectionMode.Battle;
-        _requestUiRefresh();
-        _requestPreviewRefresh();
+        LoadArchive(new(AnchorId: ActiveBattle()?.BattleId), preserveSelection: true);
     }
 
     public void SelectRun(int index)
     {
-        var filteredRuns = GetFilteredRuns();
-        if (index < 0 || index >= filteredRuns.Count)
+        if (index < 0 || index >= _state.Runs.Count || index == _state.SelectedRunIndex)
             return;
-
-        if (_state.SelectedRunIndex != index)
-            ClearDeleteRunConfirmation();
-
         _state.SelectedRunIndex = index;
+        ClearDeleteRunConfirmation();
         LoadBattlesForSelectedRun();
-        _state.PreviewSelectionMode = PreviewSelectionMode.Run;
         _requestUiRefresh();
-        _requestPreviewRefresh();
     }
 
     public void SelectBattle(int index)
     {
-        var source =
-            _state.SectionMode == HistorySectionMode.Ghost
-                ? GetFilteredGhostBattles()
-                : (IReadOnlyList<HistoryBattleRecord>)_state.Battles;
-        if (index < 0 || index >= source.Count)
+        var rows =
+            _state.SectionMode == HistorySectionMode.Ghost ? _state.GhostBattles : _state.Battles;
+        if (index < 0 || index >= rows.Count)
             return;
-
         if (_state.SectionMode == HistorySectionMode.Ghost)
             _state.SelectedGhostBattleIndex = index;
         else
             _state.SelectedBattleIndex = index;
-        _state.PreviewSelectionMode = PreviewSelectionMode.Battle;
+        LoadSelectedDetail();
         _requestUiRefresh();
-        _requestPreviewRefresh();
     }
 
     public bool CanReplaySelectedBattle(
@@ -378,6 +284,7 @@ internal sealed class HistoryPanelCoordinator : IDisposable
 
         _state.ReplayActionInProgress = true;
         var sessionVersion = _session.Version;
+        var replayAccount = _state.CachedAccountId;
         SetStatusMessage(
             battle.Source == HistoryBattleSource.Ghost && !battle.ReplayDownloaded
                 ? HistoryPanelText.DownloadingGhostReplay()
@@ -391,7 +298,12 @@ internal sealed class HistoryPanelCoordinator : IDisposable
             replayResult = await _replayService.ReplayBattleAsync(
                 battle,
                 recordVideo,
-                _session.Token
+                _session.Token,
+                () =>
+                    _session.IsCurrent(sessionVersion)
+                    && ActiveBattle()?.BattleId == battle.BattleId
+                    && replayAccount
+                        == NormalizeAccountId(BppClientCacheBridge.TryGetProfileAccountId())
             );
         }
         catch (OperationCanceledException ex)
@@ -461,6 +373,9 @@ internal sealed class HistoryPanelCoordinator : IDisposable
         SetStatusMessage(replayResult.StatusMessage, StatusSeverity.Success);
         _requestVisibilityChange(false);
     }
+
+    public bool IsDeleteRunConfirmationActive(string runId, float now) =>
+        _state.DeleteRunConfirmation.IsActiveFor(runId, now);
 
     public void TryDeleteSelectedRun(HistoryRunRecord? selectedRun)
     {
@@ -546,7 +461,7 @@ internal sealed class HistoryPanelCoordinator : IDisposable
             HistoryPanelFormatter.ShortenRunId(run.RunId),
             battleIds.Count
         );
-        RefreshData();
+        LoadArchive(new(_state.RunPage.First, Inclusive: true), preserveSelection: true);
         SetStatusMessage(deletedMessage, StatusSeverity.Success);
         _requestUiRefresh();
     }
@@ -1022,82 +937,11 @@ internal sealed class HistoryPanelCoordinator : IDisposable
             _requestUiRefresh();
     }
 
-    public IReadOnlyList<HistoryBattleRecord> GetFilteredGhostBattles()
-    {
-        if (!_state.FilteredGhostBattlesDirty)
-            return _state.FilteredGhostBattles;
+    public IReadOnlyList<HistoryBattleRecord> GetFilteredGhostBattles() => _state.GhostBattles;
 
-        _state.FilteredGhostBattles.Clear();
-        foreach (var battle in _state.GhostBattles)
-        {
-            if (
-                HistoryPanelGhostBattleFilter.Matches(
-                    _state.GhostBattleFilter,
-                    _state.GhostDayMin10,
-                    battle
-                )
-            )
-                _state.FilteredGhostBattles.Add(battle);
-        }
+    public IReadOnlyList<HistoryRunRecord> GetFilteredRuns() => _state.Runs;
 
-        _state.FilteredGhostBattlesDirty = false;
-        return _state.FilteredGhostBattles;
-    }
-
-    public IReadOnlyList<HistoryRunRecord> GetFilteredRuns()
-    {
-        if (!_state.FilteredRunsDirty)
-            return _state.FilteredRuns;
-
-        _state.FilteredRuns.Clear();
-        foreach (var run in _state.Runs)
-        {
-            if (HistoryPanelRunHeroFilter.Matches(_state.SelectedRunHero, run))
-                _state.FilteredRuns.Add(run);
-        }
-
-        _state.FilteredRunsDirty = false;
-        return _state.FilteredRuns;
-    }
-
-    public bool IsDeleteRunConfirmationActive(string runId, float now)
-    {
-        return _state.DeleteRunConfirmation.IsActiveFor(runId, now);
-    }
-
-    private void LoadBattlesForSelectedRun()
-    {
-        _state.Battles.Clear();
-        _state.SelectedBattleIndex = 0;
-
-        var run = GetSelectedRun();
-        if (
-            _dataService.TryLoadBattles(run?.RunId, out var battles, out var error)
-            && battles.Count > 0
-        )
-            _state.Battles.AddRange(battles);
-
-        if (error != null && run != null)
-        {
-            SetStatusMessage(HistoryPanelText.BattleLoadFailed(error.Message));
-            BppLog.ErrorEvent(
-                HistoryPanelLogEvents.DataLoadFailed,
-                error,
-                HistoryPanelLogEvents.DataDataset.Bind(HistoryPanelDataset.SelectedRunBattles),
-                HistoryPanelLogEvents.DataRunId.Bind(run.RunId)
-            );
-        }
-    }
-
-    private HistoryRunRecord? GetSelectedRun()
-    {
-        var filteredRuns = GetFilteredRuns();
-        if (filteredRuns.Count == 0)
-            return null;
-
-        _state.SelectedRunIndex = ClampIndex(_state.SelectedRunIndex, filteredRuns.Count);
-        return _state.GetSelectedRun(filteredRuns);
-    }
+    private HistoryRunRecord? GetSelectedRun() => _state.GetSelectedRun(_state.Runs);
 
     private static int ClampIndex(int index, int count)
     {
@@ -1178,34 +1022,4 @@ internal sealed class HistoryPanelCoordinator : IDisposable
 
     private static AccountLinkLogRequest StartAccountLinkLogRequest(AccountLinkMethod method) =>
         new(Guid.NewGuid().ToString("N"), method, HistoryPanelAccountLinkBppLogSink.Instance);
-
-    private void InvalidateFilteredGhostBattles()
-    {
-        _state.FilteredGhostBattlesDirty = true;
-    }
-
-    private void InvalidateFilteredRuns()
-    {
-        _state.FilteredRunsDirty = true;
-    }
-
-    // Kept as a thin alias on the coordinator so external test reflection that targets
-    // HistoryPanelCoordinator+GhostBattleOutcome / ResolveGhostBattleOutcome continues to compile.
-    // The actual matching logic lives in HistoryPanelGhostBattleFilter.
-    private static GhostBattleOutcome ResolveGhostBattleOutcome(HistoryBattleRecord battle)
-    {
-        return HistoryPanelGhostBattleFilter.ResolveOutcomeForCompatibility(battle) switch
-        {
-            HistoryPanelGhostBattleOutcome.Won => GhostBattleOutcome.Won,
-            HistoryPanelGhostBattleOutcome.Lost => GhostBattleOutcome.Lost,
-            _ => GhostBattleOutcome.Unknown,
-        };
-    }
-
-    private enum GhostBattleOutcome
-    {
-        Unknown,
-        Won,
-        Lost,
-    }
 }

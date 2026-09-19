@@ -19,12 +19,8 @@ internal enum UploadAttemptObservationKind
 
 internal enum UploadLogReasonCode
 {
-    InvalidLocalPaths,
     InitializationException,
     LiveRunActive,
-    AccountUnavailable,
-    BundleNotReady,
-    AccountProbeException,
     AttemptException,
     RemoteUploadFailed,
     ActivationDisposeException,

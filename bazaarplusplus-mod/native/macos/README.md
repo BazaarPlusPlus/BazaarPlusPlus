@@ -30,7 +30,7 @@ native artifact catalog. It emits an ad-hoc signed and producer-verified bundle 
 build/GfxPluginBppReplayVideoToolbox.bundle
 ```
 
-Ordinary C# contributors do not need the native toolchain: `./run.sh publish` reuses the installer's
+Ordinary C# contributors do not need the native toolchain: `just release::prepare <platform>` reuses the installer's
 staged copy only when both the macOS input digest and the staged artifacts still match the manifest,
 and otherwise rebuilds through this script and promotes the result. The freshness contract and the
 full promotion sequence are in

@@ -35,12 +35,5 @@ internal sealed class CombatImpactReportRegistry
         }
     }
 
-    internal void Reset()
-    {
-        lock (_gate)
-        {
-            _generation = unchecked(_generation + 1);
-            Volatile.Write(ref _published, CombatImpactReport.Empty);
-        }
-    }
+    internal void Reset() => _ = BeginGeneration();
 }

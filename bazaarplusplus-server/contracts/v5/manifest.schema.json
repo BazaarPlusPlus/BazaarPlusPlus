@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bazaarplusplus.com/contracts/v5/manifest.schema.json",
+  "title": "BazaarPlusPlus Bundle V5 manifest",
+  "type": "object",
+  "required": ["bundle_id", "bundle_version", "created_at_ms", "run"],
+  "properties": {
+    "bundle_id": { "type": "string", "pattern": "^[0-7][0-9A-HJKMNP-TV-Z]{25}$" },
+    "bundle_version": { "const": 5 },
+    "created_at_ms": { "type": "integer", "minimum": 0 },
+    "run": {
+      "type": "object",
+      "required": ["run_id", "player_account_id", "run_format_version", "projection", "payload"],
+      "properties": {
+        "run_id": { "$ref": "#/$defs/identifier" },
+        "player_account_id": { "$ref": "#/$defs/identifier" },
+        "run_format_version": { "const": 5 },
+        "projection": {
+          "type": "object",
+          "required": ["run", "battles"],
+          "properties": {
+            "run": { "type": "object" },
+            "battles": { "type": "array", "maxItems": 30, "items": { "$ref": "#/$defs/battle" } }
+          }
+        },
+        "payload": { "$ref": "#/$defs/runPayload" }
+      }
+    },
+    "screenshot": { "$ref": "#/$defs/screenshot" }
+  },
+  "$defs": {
+    "identifier": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$" },
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "nullableString": { "type": ["string", "null"], "maxLength": 256 },
+    "nullableInteger": { "type": ["integer", "null"], "minimum": 0 },
+    "combatant": {
+      "type": "object",
+      "required": ["account_id", "display_name", "hero_id", "hero_name", "rank", "rating", "level", "prestige", "victories"],
+      "properties": {
+        "account_id": { "$ref": "#/$defs/identifier" },
+        "display_name": { "type": "string", "maxLength": 256 },
+        "hero_id": { "$ref": "#/$defs/nullableString" },
+        "hero_name": { "$ref": "#/$defs/nullableString" },
+        "rank": { "$ref": "#/$defs/nullableString" },
+        "rating": { "$ref": "#/$defs/nullableInteger" },
+        "level": { "$ref": "#/$defs/nullableInteger" },
+        "prestige": { "$ref": "#/$defs/nullableInteger" },
+        "victories": { "$ref": "#/$defs/nullableInteger" }
+      }
+    },
+    "battle": {
+      "type": "object",
+      "required": ["battle_id", "recorded_at_ms", "day", "hour", "encounter_id", "combat_kind", "result", "winner_combatant_id", "loser_combatant_id", "is_final_battle", "player", "opponent"],
+      "properties": {
+        "battle_id": { "$ref": "#/$defs/identifier" },
+        "recorded_at_ms": { "type": "integer", "minimum": 0 },
+        "day": { "type": "integer", "minimum": 0 },
+        "hour": { "type": "integer", "minimum": 0 },
+        "encounter_id": { "$ref": "#/$defs/nullableString" },
+        "combat_kind": { "$ref": "#/$defs/identifier" },
+        "result": { "$ref": "#/$defs/identifier" },
+        "winner_combatant_id": { "$ref": "#/$defs/nullableString" },
+        "loser_combatant_id": { "$ref": "#/$defs/nullableString" },
+        "is_final_battle": { "type": "boolean" },
+        "player": { "$ref": "#/$defs/combatant" },
+        "opponent": { "$ref": "#/$defs/combatant" }
+      }
+    },
+    "runPayload": {
+      "type": "object",
+      "required": ["offset", "length", "sha256", "content_type"],
+      "properties": {
+        "offset": { "const": 0 },
+        "length": { "type": "integer", "minimum": 1, "maximum": 2097151 },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "content_type": { "const": "application/x-bpp-run-v5" }
+      }
+    },
+    "screenshot": {
+      "type": "object",
+      "required": ["offset", "length", "sha256", "content_type", "width", "height", "quality", "captured_at_ms"],
+      "properties": {
+        "offset": { "type": "integer", "minimum": 1 },
+        "length": { "type": "integer", "minimum": 1, "maximum": 1048576 },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "content_type": { "enum": ["image/jpeg", "image/webp"] },
+        "width": { "type": "integer", "minimum": 1 },
+        "height": { "type": "integer", "minimum": 1 },
+        "quality": { "type": "integer", "minimum": 1, "maximum": 100 },
+        "captured_at_ms": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}

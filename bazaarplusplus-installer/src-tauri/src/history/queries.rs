@@ -1,6 +1,6 @@
-use std::{collections::HashMap, path::Path, time::Duration};
+use std::{path::Path, time::Duration};
 
-use rusqlite::{params, params_from_iter, Connection, OpenFlags, OptionalExtension};
+use rusqlite::{params, Connection, OpenFlags, OptionalExtension};
 
 use crate::history::dto::{HistoryBattleRow, HistorySummary};
 use crate::history::mapper::{map_battle_row, BattleFields, BattleVideoFields};
@@ -13,18 +13,15 @@ pub struct RunRow {
     pub game_mode: String,
     pub started_at_utc: String,
     pub ended_at_utc: Option<String>,
-    pub last_seen_at_utc: String,
     pub status: String,
     pub victories: Option<i64>,
     pub losses: Option<i64>,
     pub final_day: Option<i64>,
-    pub final_hour: Option<i64>,
     pub final_player_rank: Option<String>,
     pub final_player_rating: Option<i64>,
 }
 
 pub struct VideoRef {
-    pub video_id: String,
     pub relative_path: String,
 }
 
@@ -127,22 +124,28 @@ fn describe_error(error: &rusqlite::Error) -> String {
 }
 
 fn validate_supported_schema(found: i64) -> Result<(), String> {
-    let expected = crate::config::SUPPORTED_MOD_DB_USER_VERSION;
-    if found == expected {
+    let supported = crate::config::supported_mod_db_user_versions();
+    if supported.contains(&found) {
         return Ok(());
     }
 
+    let supported = supported
+        .iter()
+        .map(i64::to_string)
+        .collect::<Vec<_>>()
+        .join(",");
+
     Err(format!(
-        "{UNSUPPORTED_SCHEMA_ERROR_PREFIX}{found}, expected={expected}."
+        "{UNSUPPORTED_SCHEMA_ERROR_PREFIX}{found}, supported={supported}."
     ))
 }
 
-pub(crate) fn unsupported_schema_versions(diagnostic: &str) -> Option<(i64, i64)> {
+pub(crate) fn unsupported_schema_versions(diagnostic: &str) -> Option<(i64, String)> {
     let versions = diagnostic.strip_prefix(UNSUPPORTED_SCHEMA_ERROR_PREFIX)?;
-    let (found, expected) = versions.split_once(", expected=")?;
+    let (found, supported) = versions.split_once(", supported=")?;
     Some((
         found.parse().ok()?,
-        expected.strip_suffix('.')?.parse().ok()?,
+        supported.strip_suffix('.')?.to_string(),
     ))
 }
 
@@ -211,21 +214,21 @@ pub fn load_summary(conn: &Connection) -> Result<HistorySummary, String> {
     })
 }
 
-pub fn list_run_rows(conn: &Connection, limit: i64) -> Result<Vec<RunRow>, String> {
+pub fn list_run_rows(conn: &Connection, limit: i64, offset: i64) -> Result<Vec<RunRow>, String> {
     let mut stmt = conn
         .prepare(
             "
             select
-              run_id, hero, game_mode, started_at_utc, ended_at_utc, last_seen_at_utc,
-              status, victories, losses, final_day, final_hour, final_player_rank, final_player_rating
+              run_id, hero, game_mode, started_at_utc, ended_at_utc,
+              status, victories, losses, final_day, final_player_rank, final_player_rating
             from runs
             order by coalesce(ended_at_utc, last_seen_at_utc, started_at_utc) desc, run_id desc
-            limit ?1
+            limit ?1 offset ?2
             ",
         )
         .map_err(|err| err.to_string())?;
     let rows = stmt
-        .query_map([limit], map_run_row_from_statement)
+        .query_map([limit, offset], map_run_row_from_statement)
         .map_err(|err| err.to_string())?;
     rows.collect::<Result<Vec<_>, _>>()
         .map_err(|err| err.to_string())
@@ -235,8 +238,8 @@ pub fn load_run_row(conn: &Connection, run_id: &str) -> Result<Option<RunRow>, S
     conn.query_row(
         "
         select
-          run_id, hero, game_mode, started_at_utc, ended_at_utc, last_seen_at_utc,
-          status, victories, losses, final_day, final_hour, final_player_rank, final_player_rating
+          run_id, hero, game_mode, started_at_utc, ended_at_utc,
+          status, victories, losses, final_day, final_player_rank, final_player_rating
         from runs
         where run_id = ?1
         ",
@@ -254,14 +257,12 @@ fn map_run_row_from_statement(row: &rusqlite::Row<'_>) -> rusqlite::Result<RunRo
         game_mode: row.get(2)?,
         started_at_utc: row.get(3)?,
         ended_at_utc: row.get(4)?,
-        last_seen_at_utc: row.get(5)?,
-        status: row.get(6)?,
-        victories: row.get(7)?,
-        losses: row.get(8)?,
-        final_day: row.get(9)?,
-        final_hour: row.get(10)?,
-        final_player_rank: row.get(11)?,
-        final_player_rating: row.get(12)?,
+        status: row.get(5)?,
+        victories: row.get(6)?,
+        losses: row.get(7)?,
+        final_day: row.get(8)?,
+        final_player_rank: row.get(9)?,
+        final_player_rating: row.get(10)?,
     })
 }
 
@@ -276,63 +277,6 @@ fn map_battle_fields(row: &rusqlite::Row<'_>) -> rusqlite::Result<BattleFields> 
         opponent_rank: row.get(6)?,
         opponent_rating: row.get(7)?,
     })
-}
-
-pub fn completed_video_counts(
-    conn: &Connection,
-    run_ids: &[String],
-) -> Result<HashMap<String, i64>, String> {
-    if run_ids.is_empty()
-        || !table_exists(conn, "combat_replay_videos")?
-        || !table_exists(conn, "battles")?
-    {
-        return Ok(HashMap::new());
-    }
-
-    let placeholders = sql_placeholders(run_ids.len());
-    let sql = format!(
-        "
-        select b.run_id, count(*)
-        from combat_replay_videos cv
-        join battles b on b.battle_id = cv.battle_id
-        where b.run_id in ({placeholders})
-          and b.deleted_at_utc is null
-          and cv.status = 'COMPLETED'
-        group by b.run_id
-        "
-    );
-    let mut stmt = conn.prepare(&sql).map_err(|err| err.to_string())?;
-    let rows = stmt
-        .query_map(params_from_iter(run_ids.iter()), |row| {
-            Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?))
-        })
-        .map_err(|err| err.to_string())?;
-
-    let mut counts = HashMap::new();
-    for row in rows {
-        let (run_id, count) = row.map_err(|err| err.to_string())?;
-        counts.insert(run_id, count);
-    }
-
-    Ok(counts)
-}
-
-pub fn completed_video_count(conn: &Connection, run_id: &str) -> Result<i64, String> {
-    if !table_exists(conn, "combat_replay_videos")? || !table_exists(conn, "battles")? {
-        return Ok(0);
-    }
-
-    conn.query_row(
-        "
-        select count(*)
-        from combat_replay_videos cv
-        join battles b on b.battle_id = cv.battle_id
-        where b.run_id = ?1 and cv.status = 'COMPLETED' and b.deleted_at_utc is null
-        ",
-        [run_id],
-        |row| row.get(0),
-    )
-    .map_err(|err| err.to_string())
 }
 
 pub fn local_player_name(conn: &Connection, run_id: &str) -> Result<Option<String>, String> {
@@ -434,15 +378,14 @@ pub fn load_battle_video_ref(
         return conn
             .query_row(
                 "
-                select video_id, video_relative_path
+                select video_relative_path
                 from combat_replay_videos
                 where battle_id = ?1 and video_id = ?2 and status = 'COMPLETED'
                 ",
                 params![battle_id, video_id],
                 |row| {
                     Ok(VideoRef {
-                        video_id: row.get(0)?,
-                        relative_path: row.get(1)?,
+                        relative_path: row.get(0)?,
                     })
                 },
             )
@@ -452,7 +395,7 @@ pub fn load_battle_video_ref(
 
     conn.query_row(
         "
-        select video_id, video_relative_path
+        select video_relative_path
         from combat_replay_videos
         where battle_id = ?1 and status = 'COMPLETED'
         order by started_at_utc desc, video_id desc
@@ -461,40 +404,12 @@ pub fn load_battle_video_ref(
         [battle_id],
         |row| {
             Ok(VideoRef {
-                video_id: row.get(0)?,
-                relative_path: row.get(1)?,
+                relative_path: row.get(0)?,
             })
         },
     )
     .optional()
     .map_err(|err| err.to_string())
-}
-
-pub fn load_run_video_refs(conn: &Connection, run_id: &str) -> Result<Vec<VideoRef>, String> {
-    if !table_exists(conn, "combat_replay_videos")? || !table_exists(conn, "battles")? {
-        return Ok(Vec::new());
-    }
-
-    let mut stmt = conn
-        .prepare(
-            "
-            select cv.video_id, cv.video_relative_path
-            from combat_replay_videos cv
-            join battles b on b.battle_id = cv.battle_id
-            where b.run_id = ?1 and b.deleted_at_utc is null and cv.status = 'COMPLETED'
-            ",
-        )
-        .map_err(|err| err.to_string())?;
-    let rows = stmt
-        .query_map([run_id], |row| {
-            Ok(VideoRef {
-                video_id: row.get(0)?,
-                relative_path: row.get(1)?,
-            })
-        })
-        .map_err(|err| err.to_string())?;
-    rows.collect::<Result<Vec<_>, _>>()
-        .map_err(|err| err.to_string())
 }
 
 pub fn load_run_id_for_battle(
@@ -538,7 +453,22 @@ mod tests {
             open_write_connection(&database_path).unwrap_err(),
         ] {
             assert!(error.contains("found=0"), "{error}");
-            assert!(error.contains("expected=1"), "{error}");
+            assert!(error.contains("supported=1,2"), "{error}");
+        }
+    }
+
+    #[test]
+    fn connections_open_supported_mod_database_schema_versions() {
+        for user_version in [1, 2] {
+            let temp_dir = tempfile::tempdir().unwrap();
+            let database_path = temp_dir.path().join("bazaarplusplus.db");
+            rusqlite::Connection::open(&database_path)
+                .unwrap()
+                .execute_batch(&format!("pragma user_version = {user_version};"))
+                .unwrap();
+
+            assert!(open_connection(&database_path).is_ok());
+            assert!(open_write_connection(&database_path).is_ok());
         }
     }
 
@@ -597,13 +527,13 @@ mod tests {
         let database_path = temp_dir.path().join("bazaarplusplus.db");
         rusqlite::Connection::open(&database_path)
             .unwrap()
-            .execute_batch("pragma user_version = 2;")
+            .execute_batch("pragma user_version = 3;")
             .unwrap();
 
         let error = open_connection(&database_path).unwrap_err();
 
-        assert!(error.contains("found=2"), "{error}");
-        assert!(error.contains("expected=1"), "{error}");
+        assert!(error.contains("found=3"), "{error}");
+        assert!(error.contains("supported=1,2"), "{error}");
     }
 
     #[test]

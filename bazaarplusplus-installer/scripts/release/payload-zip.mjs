@@ -2,47 +2,21 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
+import { parseArgs } from 'node:util';
 import zlib from 'node:zlib';
 import { resolveBuildPlatform } from './release-platforms.mjs';
+import { readProductVersion } from '../../../release/product.mjs';
+import {
+  assertShippedPayloadPaths,
+  requiredPayloadPaths
+} from '../../../release/payload-inventory.mjs';
 
 // This is the first mod version guaranteed to write the BazaarPlusPlusV5 data root.
 export const V5_MIN_MOD_VERSION = '4.7.0';
 
 export const REQUIRED_RELEASE_INPUTS = Object.freeze({
-  macos: Object.freeze([
-    'libdoorstop.dylib',
-    'BepInEx/plugins/BazaarPlusPlus.dll',
-    'BepInEx/plugins/BazaarPlusPlus.ModApi.dll',
-    'BepInEx/plugins/BazaarPlusPlus.Storage.dll',
-    'BepInEx/plugins/BazaarPlusPlus.Localization.dll',
-    'BepInEx/plugins/BazaarPlusPlus.version',
-    'BepInEx/plugins/libBppMacAudio.dylib',
-    'TheBazaar.app/Contents/Plugins/GfxPluginBppReplayVideoToolbox.bundle/Contents/Info.plist',
-    'TheBazaar.app/Contents/Plugins/GfxPluginBppReplayVideoToolbox.bundle/Contents/MacOS/GfxPluginBppReplayVideoToolbox',
-    'TheBazaar.app/Contents/Plugins/GfxPluginBppReplayVideoToolbox.bundle/Contents/_CodeSignature/CodeResources'
-  ]),
-  windows: Object.freeze([
-    'BepInEx/plugins/BazaarPlusPlus.dll',
-    'BepInEx/plugins/BazaarPlusPlus.ModApi.dll',
-    'BepInEx/plugins/BazaarPlusPlus.Storage.dll',
-    'BepInEx/plugins/BazaarPlusPlus.Localization.dll',
-    'BepInEx/plugins/BazaarPlusPlus.version',
-    'TheBazaar_Data/Plugins/x86_64/GfxPluginBppReplayMediaFoundation.dll'
-  ])
-});
-
-const FORBIDDEN_RELEASE_INPUTS = Object.freeze({
-  macos: Object.freeze([
-    'run_bepinex.sh',
-    'bpp_launcher.c',
-    'BepInEx/plugins/ffmpeg',
-    'BepInEx/plugins/ffmpeg-LICENSE.txt',
-    'BepInEx/plugins/BppReplayRecorder.app'
-  ]),
-  windows: Object.freeze([
-    'BepInEx/plugins/ffmpeg.exe',
-    'BepInEx/plugins/ffmpeg-LICENSE.txt'
-  ])
+  macos: Object.freeze(requiredPayloadPaths('macos')),
+  windows: Object.freeze(requiredPayloadPaths('windows'))
 });
 
 const osArtifactNames = new Set(['.DS_Store', 'Thumbs.db', 'desktop.ini']);
@@ -51,22 +25,6 @@ const macosExecutablePaths = new Set([
 ]);
 const fixedDosDate = (1 << 5) | 1;
 const fixedDosTime = 0;
-
-const crcTable = Array.from({ length: 256 }, (_, value) => {
-  let crc = value;
-  for (let bit = 0; bit < 8; bit += 1) {
-    crc = (crc & 1) !== 0 ? 0xedb88320 ^ (crc >>> 1) : crc >>> 1;
-  }
-  return crc >>> 0;
-});
-
-function crc32(buffer) {
-  let crc = 0xffffffff;
-  for (const byte of buffer) {
-    crc = crcTable[(crc ^ byte) & 0xff] ^ (crc >>> 8);
-  }
-  return (crc ^ 0xffffffff) >>> 0;
-}
 
 function sha256(buffer) {
   return crypto.createHash('sha256').update(buffer).digest('hex');
@@ -152,7 +110,7 @@ function assertRequiredStagingInputs(sourceDir, requiredStagingPaths) {
   const publishGuidance = missing.includes(
     'BepInEx/plugins/BazaarPlusPlus.version'
   )
-    ? '\nRun ./run.sh publish in the mod repository first to re-stage both macOS and Windows SourceForBuild payloads.'
+    ? '\nRun node release.mjs prepare --platform <macos|windows> from the workspace root to prepare the selected platform.'
     : '';
   throw new Error(
     `Missing release staging inputs under SourceForBuild; provide every external/private file before preparing resources:\n${details}${publishGuidance}`
@@ -173,7 +131,7 @@ function compareVersionParts(left, right) {
   return 0;
 }
 
-function assertStagedModWritesV5DataRoot(sourceDir) {
+function assertStagedModWritesV5DataRoot(sourceDir, productVersion) {
   const versionPath = path.join(
     sourceDir,
     'BepInEx',
@@ -184,30 +142,102 @@ function assertStagedModWritesV5DataRoot(sourceDir) {
   const stagedVersion = parseProdModVersion(content);
   if (!stagedVersion) {
     throw new Error(
-      `Cannot parse staged BazaarPlusPlus mod version '${content.trim()}' at ${versionPath}; expected {semver}.prod. Run ./run.sh publish in the mod repository first to re-stage both macOS and Windows SourceForBuild payloads.`
+      `Cannot parse staged BazaarPlusPlus mod version '${content.trim()}' at ${versionPath}; expected {semver}.prod. Run node release.mjs prepare for the selected platform.`
     );
   }
 
   const minimumVersion = V5_MIN_MOD_VERSION.split('.').map(Number);
-  if (compareVersionParts(stagedVersion, minimumVersion) >= 0) return;
+  if (compareVersionParts(stagedVersion, minimumVersion) < 0) {
+    throw new Error(
+      `Staged BazaarPlusPlus mod version must be ${V5_MIN_MOD_VERSION}.prod or newer to write the BazaarPlusPlusV5 data root (found '${content.trim()}'). Run just release::prepare <platform> first.`
+    );
+  }
+  if (content.trim() !== `${productVersion}.prod`) {
+    throw new Error(
+      `Payload product version mismatch: expected ${productVersion}.prod, found ${content.trim()}. Run node release.mjs prepare for this platform.`
+    );
+  }
+}
 
-  throw new Error(
-    `Staged BazaarPlusPlus mod version must be ${V5_MIN_MOD_VERSION}.prod or newer to write the BazaarPlusPlusV5 data root (found '${content.trim()}' at ${versionPath}). Run ./run.sh publish in the mod repository first to re-stage both macOS and Windows SourceForBuild payloads.`
+function readHistoryDatabaseCompatibility(rootDir) {
+  const compatibilityPath = path.join(
+    rootDir,
+    'src-tauri',
+    'history-database-compatibility.json'
   );
+  const compatibility = JSON.parse(fs.readFileSync(compatibilityPath, 'utf8'));
+  const versions = compatibility.supportedUserVersions;
+  if (
+    compatibility.formatVersion !== 1 ||
+    !Array.isArray(versions) ||
+    versions.length === 0 ||
+    versions.some(
+      (version, index) =>
+        !Number.isSafeInteger(version) ||
+        version <= 0 ||
+        (index > 0 && version <= versions[index - 1])
+    )
+  ) {
+    throw new Error(
+      `Invalid installer history database compatibility contract: ${compatibilityPath}`
+    );
+  }
+  return versions;
+}
+
+function assertStagedHistoryDatabaseCompatibility(rootDir, sourceDir) {
+  const contractPath = path.join(
+    sourceDir,
+    'BepInEx',
+    'plugins',
+    'BazaarPlusPlus.history-database.json'
+  );
+  let contract;
+  try {
+    contract = JSON.parse(fs.readFileSync(contractPath, 'utf8'));
+  } catch (error) {
+    throw new Error(
+      `Cannot read BazaarPlusPlus history database contract at ${contractPath}: ${error instanceof Error ? error.message : String(error)}`,
+      { cause: error }
+    );
+  }
+  if (
+    contract.formatVersion !== 1 ||
+    !Number.isSafeInteger(contract.historyDatabaseUserVersion) ||
+    contract.historyDatabaseUserVersion <= 0 ||
+    !Number.isSafeInteger(contract.historyRowSchemaVersion) ||
+    contract.historyRowSchemaVersion <= 0
+  ) {
+    throw new Error(
+      `Invalid BazaarPlusPlus history database contract: ${contractPath}`
+    );
+  }
+
+  const supported = readHistoryDatabaseCompatibility(rootDir);
+  if (!supported.includes(contract.historyDatabaseUserVersion)) {
+    throw new Error(
+      `Staged BazaarPlusPlus database schema ${contract.historyDatabaseUserVersion} is incompatible with this installer, which supports ${supported.join(',')}. Run just release::prepare <platform> from a compatible mod revision or update the installer compatibility contract.`
+    );
+  }
 }
 
 function assertForbiddenStagingInputs(platform, sourceDir) {
-  const present = (FORBIDDEN_RELEASE_INPUTS[platform] ?? []).filter(
-    (relativePath) =>
-      fs.statSync(path.join(sourceDir, relativePath), {
-        throwIfNoEntry: false
-      }) != null
+  const paths = [];
+  const walk = (directory, prefix = '') => {
+    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+      const relativePath = prefix ? `${prefix}/${entry.name}` : entry.name;
+      paths.push(relativePath);
+      if (entry.isDirectory())
+        walk(path.join(directory, entry.name), relativePath);
+    }
+  };
+  walk(sourceDir);
+  // Structural parent directories are not ownership claims; empty retired and
+  // unknown leaf directories still fail the same inventory gate as files.
+  const leaves = paths.filter(
+    (candidate) => !paths.some((other) => other.startsWith(`${candidate}/`))
   );
-  if (present.length === 0) return;
-
-  throw new Error(
-    `${platform} release staging contains retired runtime dependencies: ${present.join(', ')}`
-  );
+  assertShippedPayloadPaths(leaves, platform);
 }
 
 function assertMacosExecutableModes(platform, files) {
@@ -242,7 +272,7 @@ export function buildZipBuffer(inputEntries) {
     const compressed = isDirectory
       ? Buffer.alloc(0)
       : zlib.deflateRawSync(data, { level: 9 });
-    const checksum = crc32(data);
+    const checksum = zlib.crc32(data);
     const local = Buffer.alloc(30);
     local.writeUInt32LE(0x04034b50, 0);
     local.writeUInt16LE(20, 4);
@@ -395,34 +425,7 @@ export function validateZipEntrySet(entries, expectedPaths) {
   }
 
   const expected = new Set(expectedPaths);
-  const direct = new Set(files.map(({ normalized }) => normalized));
-  let selected = files;
-  let actual = direct;
-
-  const directMissing = setDifference(expected, direct);
-  const directExtra = setDifference(direct, expected);
-  if (directMissing.length > 0 || directExtra.length > 0) {
-    const firstSegments = new Set(
-      files.map(({ normalized }) => normalized.split('/')[0])
-    );
-    if (
-      firstSegments.size === 1 &&
-      files.every(({ normalized }) => normalized.includes('/'))
-    ) {
-      const stripped = files.map(({ normalized, entry }) => ({
-        normalized: normalized.slice(normalized.indexOf('/') + 1),
-        entry
-      }));
-      const strippedSet = new Set(stripped.map(({ normalized }) => normalized));
-      if (
-        setDifference(expected, strippedSet).length === 0 &&
-        setDifference(strippedSet, expected).length === 0
-      ) {
-        selected = stripped;
-        actual = strippedSet;
-      }
-    }
-  }
+  const actual = new Set(files.map(({ normalized }) => normalized));
 
   const missing = setDifference(expected, actual);
   const extra = setDifference(actual, expected);
@@ -437,12 +440,13 @@ export function validateZipEntrySet(entries, expectedPaths) {
       `ZIP payload entries do not exactly match staging (${details})`
     );
   }
-  return new Map(selected.map(({ normalized, entry }) => [normalized, entry]));
+  return new Map(files.map(({ normalized, entry }) => [normalized, entry]));
 }
 
 export function preparePayloadZip({
   rootDir,
   platform,
+  productVersion = readProductVersion(path.dirname(rootDir)),
   hostPlatform = process.platform,
   requiredStagingPaths = REQUIRED_RELEASE_INPUTS[platform]
 }) {
@@ -450,8 +454,8 @@ export function preparePayloadZip({
     throw new Error(`Unsupported payload platform: ${platform}`);
   const { sourceDir, zipPath, manifestPath } = platformPaths(rootDir, platform);
   assertRequiredStagingInputs(sourceDir, requiredStagingPaths);
-  assertStagedModWritesV5DataRoot(sourceDir);
-  assertForbiddenStagingInputs(platform, sourceDir);
+  assertStagedModWritesV5DataRoot(sourceDir, productVersion);
+  assertStagedHistoryDatabaseCompatibility(rootDir, sourceDir);
   return writeDeterministicZip({
     sourceDir,
     outputPath: zipPath,
@@ -514,7 +518,6 @@ export function writeDeterministicZip({
   }
   return {
     zipPath: outputPath,
-    outputPath,
     manifestPath,
     manifest,
     sha256: sha256(buffer),
@@ -525,6 +528,7 @@ export function writeDeterministicZip({
 export function validatePayloadZip({
   rootDir,
   platform,
+  productVersion = readProductVersion(path.dirname(rootDir)),
   hostPlatform = process.platform,
   requiredStagingPaths = REQUIRED_RELEASE_INPUTS[platform]
 }) {
@@ -532,7 +536,8 @@ export function validatePayloadZip({
     throw new Error(`Unsupported payload platform: ${platform}`);
   const { sourceDir, zipPath, manifestPath } = platformPaths(rootDir, platform);
   assertRequiredStagingInputs(sourceDir, requiredStagingPaths);
-  assertStagedModWritesV5DataRoot(sourceDir);
+  assertStagedModWritesV5DataRoot(sourceDir, productVersion);
+  assertStagedHistoryDatabaseCompatibility(rootDir, sourceDir);
   assertForbiddenStagingInputs(platform, sourceDir);
   if (!fs.statSync(zipPath, { throwIfNoEntry: false })?.isFile()) {
     throw new Error(`Missing ${platform} release payload ZIP: ${zipPath}`);
@@ -590,24 +595,31 @@ export function validatePayloadZip({
   return { zipPath, manifestPath, entries: mapping };
 }
 
-function main(args) {
+async function main(args) {
   if (args[0] === 'pack') {
-    const sourceIndex = args.indexOf('--source');
-    const outputIndex = args.indexOf('--output');
-    const manifestIndex = args.indexOf('--manifest-output');
-    const platformIndex = args.indexOf('--platform');
-    const sourceDir = sourceIndex < 0 ? undefined : args[sourceIndex + 1];
-    const outputPath = outputIndex < 0 ? undefined : args[outputIndex + 1];
-    const manifestPath =
-      manifestIndex < 0 ? undefined : args[manifestIndex + 1];
+    const { assertBuildOwner } = await import('../../../release/payload.mjs');
+    assertBuildOwner(path.resolve(import.meta.dirname, '..', '..'));
+    const { values } = parseArgs({
+      args: args.slice(1),
+      strict: true,
+      options: {
+        source: { type: 'string' },
+        output: { type: 'string' },
+        'manifest-output': { type: 'string' },
+        platform: { type: 'string' }
+      }
+    });
+    const sourceDir = values.source;
+    const outputPath = values.output;
+    const manifestPath = values['manifest-output'];
     const platform =
-      platformIndex < 0
+      values.platform === undefined
         ? undefined
-        : resolveBuildPlatform(args[platformIndex + 1]);
+        : resolveBuildPlatform(values.platform);
     if (
       !sourceDir ||
       !outputPath ||
-      (manifestIndex >= 0 && (!manifestPath || !platform))
+      (manifestPath !== undefined && (!manifestPath || !platform))
     ) {
       throw new Error(
         'Usage: payload-zip.mjs pack --source <directory> --output <zip> [--manifest-output <json> --platform <macos|windows>]'
@@ -619,30 +631,20 @@ function main(args) {
       manifestPath,
       platform
     });
-    console.log(`payload-zip: wrote ${result.outputPath}`);
+    console.log(`payload-zip: wrote ${result.zipPath}`);
     if (result.manifestPath) {
       console.log(`payload-zip: wrote ${result.manifestPath}`);
     }
     return;
   }
-  if (args.length !== 2 || args[0] !== '--platform') {
-    throw new Error(
-      'Usage: payload-zip.mjs --platform <macos|windows> | pack --source <directory> --output <zip> [--manifest-output <json> --platform <macos|windows>]'
-    );
-  }
-  const platform = resolveBuildPlatform(args[1]);
-  if (!platform) throw new Error(`Unsupported payload platform: ${args[1]}`);
-  const rootDir = path.resolve(import.meta.dirname, '..', '..');
-  const result = preparePayloadZip({ rootDir, platform });
-  console.log(`prepare:resources: wrote ${result.zipPath}`);
-  console.log(`prepare:resources: wrote ${result.manifestPath}`);
+  throw new Error(
+    'Prepare Payloads with node release.mjs prepare --platform <macos|windows>. The pack command is internal to the locked product build.'
+  );
 }
 
 if (import.meta.main) {
-  try {
-    main(process.argv.slice(2));
-  } catch (error) {
+  main(process.argv.slice(2)).catch((error) => {
     console.error(error instanceof Error ? error.message : String(error));
     process.exitCode = 1;
-  }
+  });
 }

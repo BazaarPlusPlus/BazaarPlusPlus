@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-// Release platform facts live here so build.sh and the Node release scripts
+// Release platform facts live here so bundle.sh and the Node release scripts
 // cannot drift independently. `key` values are an external wire contract: they
 // are the Tauri updater {{target}}-{{arch}} lookup keys queried by every shipped
 // client against latest.json (src-tauri/tauri.conf.json:33-34). NEVER rename a
@@ -84,22 +84,6 @@ export function defaultTargetBuildPlatforms() {
   return RELEASE_PLATFORMS.map((platform) => platform.buildPlatform).sort();
 }
 
-export function bundleRoot(platform) {
-  return platform.bundleRoot;
-}
-
-export function installerDir(platform) {
-  return platform.installerDir;
-}
-
-export function bundleCleanupDir(platform) {
-  return platform.bundleCleanupDir;
-}
-
-export function releaseBinary(platform) {
-  return platform.releaseBinary;
-}
-
 export function r2UpdaterKey({ version, platformKey, updaterFileName }) {
   findByKey(platformKey);
   return `${version}/${platformKey}/updater/${updaterFileName}`;
@@ -167,13 +151,7 @@ export function cliMain(args) {
         printLines([platform.key]);
         break;
       case 'bundle-root':
-        printLines([bundleRoot(platform)]);
-        break;
-      case 'installer-dir':
-        printLines([installerDir(platform)]);
-        break;
-      case 'installer-glob':
-        printLines([platform.installerNameGlob]);
+        printLines([platform.bundleRoot]);
         break;
       case 'rust-targets':
         printLines([platform.rustTarget]);
@@ -183,9 +161,9 @@ export function cliMain(args) {
           platform.tauriConfig,
           platform.resourceZip,
           platform.bundleTargets,
-          installerDir(platform),
-          bundleCleanupDir(platform),
-          releaseBinary(platform),
+          platform.installerDir,
+          platform.bundleCleanupDir,
+          platform.releaseBinary,
           platform.rustTarget
         ]);
         break;

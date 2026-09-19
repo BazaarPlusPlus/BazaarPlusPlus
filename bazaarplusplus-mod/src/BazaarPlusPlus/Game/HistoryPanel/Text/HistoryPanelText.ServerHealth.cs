@@ -62,16 +62,6 @@ internal static partial class HistoryPanelText
 
     internal static string DatabaseChip(string status) => $"{Resolve(DatabasePrefixText)} {status}";
 
-    internal static string RunLogDatabasePathUnavailable()
-    {
-        return FormatSimple("History data is unavailable.", "对局数据暂不可用。");
-    }
-
-    internal static string LoadedRuns(int count)
-    {
-        return FormatSimple($"{count} runs loaded.", $"已载入 {count} 场对局。");
-    }
-
     internal static string ServerHealthConnected(long roundTripMilliseconds)
     {
         return FormatSimple(
@@ -90,19 +80,9 @@ internal static partial class HistoryPanelText
         );
     }
 
-    internal static string DatabaseFileMissing()
-    {
-        return FormatSimple("No history data yet.", "暂未找到对局数据。");
-    }
-
     internal static string HistoryLoadFailed(string details)
     {
         return FormatSimple($"Couldn't load history: {details}", $"载入对局失败：{details}");
-    }
-
-    internal static string CurrentPlayerAccountUnavailable()
-    {
-        return FormatSimple("Current player account is unavailable.", "当前玩家账号不可用。");
     }
 
     internal static string PanelUnavailable()

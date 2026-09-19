@@ -5,8 +5,6 @@ namespace BazaarPlusPlus.Game.LiveBuildPanel.Recommendations;
 
 internal sealed class BuildRecommendation
 {
-    public string ModeLabel { get; set; } = string.Empty;
-
     /// <summary>How many of the selected candidate cards this build contains.</summary>
     public int MatchedCardCount { get; set; }
 
@@ -20,10 +18,6 @@ internal sealed class BuildRecommendation
 
     /// <summary>Analyzer-side integer rank score used for package selection and tie-breaking.</summary>
     public long Score { get; set; }
-
-    public int ResultIndex { get; set; }
-
-    public int ResultCount { get; set; }
 
     public BppItemBoard Board { get; set; } = BppItemBoard.Empty;
 }

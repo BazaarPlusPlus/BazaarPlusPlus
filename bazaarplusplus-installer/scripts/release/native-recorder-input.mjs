@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
+import { runGit } from '../git-command.mjs';
 
 export const NATIVE_RECORDER_LOCK_PATH =
   'scripts/release/native-recorder-input.lock.json';
@@ -355,14 +356,10 @@ function loadManifestForPromotion(lockPath) {
 }
 
 function producerProvenance(sourceRoot) {
-  const commit = execFileSync('git', ['rev-parse', 'HEAD'], {
-    cwd: sourceRoot,
-    encoding: 'utf8'
-  }).trim();
+  const commit = runGit(['rev-parse', 'HEAD'], { cwd: sourceRoot }).trim();
   const dirty =
-    execFileSync('git', ['status', '--porcelain', '--untracked-files=all'], {
-      cwd: sourceRoot,
-      encoding: 'utf8'
+    runGit(['status', '--porcelain', '--untracked-files=all', '--', '.'], {
+      cwd: sourceRoot
     }).trim().length > 0;
   return { repository: expectedRepository, commit, dirty };
 }
@@ -461,7 +458,7 @@ function writeManifestTransaction({
       }
     } catch (error) {
       console.warn(
-        `native-recorder-input: retained backup ${item.backup}: ${error}`
+        `native-recorder-input: retained backup ${item.backup}: ${String(error)}`
       );
     }
   }
@@ -470,7 +467,7 @@ function writeManifestTransaction({
       fs.rmSync(lockBackup, { force: true });
   } catch (error) {
     console.warn(
-      `native-recorder-input: retained backup ${lockBackup}: ${error}`
+      `native-recorder-input: retained backup ${lockBackup}: ${String(error)}`
     );
   }
 }
@@ -656,38 +653,23 @@ export function ensureNativeRecorderInput({ rootDir, sourceRoot, platform }) {
 }
 
 function parseCli(args) {
-  const command =
-    args[0] === 'ensure' || args[0] === 'verify' ? args.shift() : 'verify';
+  if (args[0] === 'ensure')
+    throw new Error(
+      'Prepare native inputs through node release.mjs prepare --platform <macos|windows>'
+    );
+  if (args[0] === 'verify') args.shift();
   let platform;
-  let sourceRoot;
   while (args.length > 0) {
     const argument = args.shift();
     if (argument === '--platform') platform = args.shift();
-    else if (argument === '--source-root') sourceRoot = args.shift();
     else throw new Error(`Unknown native recorder input argument: ${argument}`);
   }
-  return { command, platform, sourceRoot };
+  return { platform };
 }
 
 function main() {
   const rootDir = path.resolve(import.meta.dirname, '..', '..');
-  const { command, platform, sourceRoot } = parseCli(process.argv.slice(2));
-  if (command === 'ensure') {
-    if (!platform || !sourceRoot) {
-      throw new Error('ensure requires --platform and --source-root');
-    }
-    const result = ensureNativeRecorderInput({
-      rootDir,
-      sourceRoot: path.resolve(sourceRoot),
-      platform
-    });
-    console.log(
-      result.rebuilt
-        ? `native-recorder-input: rebuilt and promoted ${platform} (${result.previousReason})`
-        : `native-recorder-input: reused fresh ${platform} inputs`
-    );
-    return;
-  }
+  const { platform } = parseCli(process.argv.slice(2));
 
   const platforms = platform
     ? [platform]

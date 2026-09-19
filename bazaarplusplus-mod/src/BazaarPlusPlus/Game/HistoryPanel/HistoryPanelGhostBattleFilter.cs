@@ -12,38 +12,24 @@ internal enum HistoryPanelGhostBattleOutcome
 
 internal static class HistoryPanelGhostBattleFilter
 {
-    public static bool Matches(GhostBattleFilter filter, HistoryBattleRecord battle)
+    internal static HistoryPanelGhostBattleOutcome ResolveOutcome(HistoryBattleRecord battle)
     {
-        var outcome = ResolveOutcome(battle);
-        return filter switch
-        {
-            GhostBattleFilter.IWon => outcome == HistoryPanelGhostBattleOutcome.Won,
-            GhostBattleFilter.ILost => outcome == HistoryPanelGhostBattleOutcome.Lost,
-            _ => true,
-        };
-    }
-
-    public static bool Matches(GhostBattleFilter filter, bool dayMin10, HistoryBattleRecord battle)
-    {
-        if (!Matches(filter, battle))
-            return false;
-
-        return !dayMin10 || (battle.Day.HasValue && battle.Day.Value >= 10);
-    }
-
-    public static HistoryPanelGhostBattleOutcome ResolveOutcomeForCompatibility(
-        HistoryBattleRecord battle
-    )
-    {
-        return ResolveOutcome(battle);
-    }
-
-    private static HistoryPanelGhostBattleOutcome ResolveOutcome(HistoryBattleRecord battle)
-    {
-        if (string.Equals(battle.WinnerCombatantId, "Player", StringComparison.OrdinalIgnoreCase))
+        if (
+            string.Equals(
+                battle.WinnerCombatantId?.Trim(),
+                "Player",
+                StringComparison.OrdinalIgnoreCase
+            )
+        )
             return HistoryPanelGhostBattleOutcome.Won;
 
-        if (string.Equals(battle.WinnerCombatantId, "Opponent", StringComparison.OrdinalIgnoreCase))
+        if (
+            string.Equals(
+                battle.WinnerCombatantId?.Trim(),
+                "Opponent",
+                StringComparison.OrdinalIgnoreCase
+            )
+        )
             return HistoryPanelGhostBattleOutcome.Lost;
 
         var result = battle.Result?.Trim();

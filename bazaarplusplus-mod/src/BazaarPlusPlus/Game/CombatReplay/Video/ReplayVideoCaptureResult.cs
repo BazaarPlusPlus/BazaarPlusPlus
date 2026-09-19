@@ -5,25 +5,7 @@ internal sealed class ReplayVideoCaptureResult
 {
     public string VideoId { get; init; } = string.Empty;
 
-    public string BattleId { get; init; } = string.Empty;
-
-    public CombatReplayPlaybackSource Source { get; init; }
-
     public string OutputFilePath { get; init; } = string.Empty;
-
-    public int Width { get; init; }
-
-    public int Height { get; init; }
-
-    public int Fps { get; init; }
-
-    public string Codec { get; init; } = "libx264";
-
-    public int? Crf { get; init; }
-
-    public string? Preset { get; init; }
-
-    public DateTimeOffset StartedAtUtc { get; init; }
 
     public DateTimeOffset? EndedAtUtc { get; init; }
 
@@ -52,7 +34,6 @@ internal sealed class ReplayVideoCaptureResult
 
 internal enum ReplayVideoCaptureStatus
 {
-    Recording,
     Completed,
     Failed,
 }

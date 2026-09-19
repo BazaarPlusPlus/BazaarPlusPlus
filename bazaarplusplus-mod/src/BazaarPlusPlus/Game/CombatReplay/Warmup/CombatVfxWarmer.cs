@@ -2,6 +2,7 @@
 using System.Reflection;
 using BazaarGameShared.Domain.Core.Types;
 using BazaarGameShared.Infra.Messages.CombatSimEvents;
+using BazaarPlusPlus.GameInterop.AssetLoading;
 using TheBazaar;
 using TheBazaar.AppFramework;
 using UnityEngine;
@@ -234,7 +235,10 @@ internal static class CombatVfxWarmer
         await semaphore.WaitAsync();
         try
         {
-            _ = await assetLoader.LoadAssetAsyncByReference<GameObject>(assetReference);
+            _ = await NativeGlobalAssetLoader.LoadByReferenceAsync<GameObject>(
+                assetLoader,
+                assetReference
+            );
             stats.VfxPrewarmed++;
         }
         catch (Exception ex)

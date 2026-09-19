@@ -13,10 +13,8 @@ import {
   type StreamCommandPort,
   type StreamScheduler
 } from './streamWorkflow';
-import {
-  presentStreamProblem,
-  presentStreamSnapshot
-} from './streamPresentation';
+import { presentStreamSnapshot } from './streamPresentation';
+import { presentStreamProblem } from './streamProblems';
 
 function runningStatus(
   overrides: Partial<StreamServiceStatus> = {}
@@ -69,7 +67,7 @@ class FakeScheduler implements StreamScheduler {
   }
 
   fireIntervals() {
-    for (const callback of [...this.intervals.values()]) callback();
+    for (const callback of Array.from(this.intervals.values())) callback();
   }
 }
 

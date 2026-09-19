@@ -61,8 +61,6 @@ internal sealed class EncounterRewardFilter
     // remains true for downshift rewards while fixed/ignored/inherited tiers set it false.
     public bool UsesDayTierDistribution { get; }
 
-    public bool HasTierGateOverride => Tiers.Count > 0;
-
     public EncounterRewardFilter WithFromAnyHero(bool fromAnyHero)
     {
         if (FromAnyHero == fromAnyHero)

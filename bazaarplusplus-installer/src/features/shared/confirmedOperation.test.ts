@@ -68,40 +68,6 @@ describe('confirmed operation controller', () => {
     expect(controller.getSnapshot()).toBeNull();
   });
 
-  it('allows pending target updates only while confirming', () => {
-    const controller = createConfirmedOperationController<
-      { kind: 'install'; path: string; acknowledged: boolean },
-      string
-    >();
-    controller.request({
-      kind: 'install',
-      path: '/game',
-      acknowledged: false
-    });
-    expect(
-      controller.updateTarget({
-        kind: 'install',
-        path: '/game',
-        acknowledged: true
-      })
-    ).toBe(true);
-    expect(controller.getSnapshot()).toMatchObject({
-      phase: 'confirming',
-      target: { acknowledged: true }
-    });
-
-    void controller.run(async () => {
-      expect(
-        controller.updateTarget({
-          kind: 'install',
-          path: '/game',
-          acknowledged: false
-        })
-      ).toBe(false);
-      return { ok: true };
-    }, String);
-  });
-
   it.each([
     ['cleanup', { kind: 'cleanup', target: 'run_data:before_this_month' }],
     ['reset', { kind: 'reset-data', target: '/game/BazaarPlusPlusV5' }],

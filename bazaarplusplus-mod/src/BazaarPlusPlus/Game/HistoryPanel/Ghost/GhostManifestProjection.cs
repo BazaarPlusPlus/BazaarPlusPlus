@@ -1,4 +1,5 @@
 #nullable enable
+using System.Globalization;
 using BazaarPlusPlus.Game.HistoryPanel.Storage;
 using BazaarPlusPlus.Game.PvpBattles;
 using BazaarPlusPlus.ModApi.Bundle;
@@ -16,7 +17,10 @@ internal static class GhostManifestProjection
         {
             BattleId = reference.LocalBattleId,
             RunId = runId,
-            RecordedAtUtc = DateTimeOffset.Parse(battle.Facts.RecordedAtUtc),
+            RecordedAtUtc = DateTimeOffset.Parse(
+                battle.Facts.RecordedAtUtc,
+                CultureInfo.InvariantCulture
+            ),
             CombatKind = battle.Facts.CombatKind,
             Day = battle.Facts.Day,
             Hour = battle.Facts.Hour,

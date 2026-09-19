@@ -98,19 +98,6 @@ internal static class TooltipPreviewTargetResolver
         return true;
     }
 
-    internal static Card? TryResolveCurrentPrimaryCard(TooltipParentComponent tooltipParent)
-    {
-        if (tooltipParent == null)
-            return null;
-
-        var primaryController = Traverse
-            .Create(tooltipParent)
-            .Property("CardTooltipController")
-            .GetValue<CardTooltipController>();
-
-        return primaryController?.CurrentCard;
-    }
-
     private static CardController? TryResolveCardController(Card tooltipCard, Card? currentCard)
     {
         var lookup = Data.CardAndSkillLookup;

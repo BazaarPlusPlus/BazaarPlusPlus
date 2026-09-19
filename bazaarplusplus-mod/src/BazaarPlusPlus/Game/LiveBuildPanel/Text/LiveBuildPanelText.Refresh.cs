@@ -8,15 +8,10 @@ namespace BazaarPlusPlus.Game.LiveBuildPanel;
 
 internal static partial class LiveBuildPanelText
 {
-    private static readonly LocalizedTextSet CorpusCardTitleText = new(
-        "Ten-Win Build Data",
-        "十胜阵容数据",
-        "十勝陣容資料"
-    );
     private static readonly LocalizedTextSet RefreshFinalBuildsText = new(
-        "Pull Builds",
-        "拉取阵容",
-        "拉取陣容"
+        "Update library",
+        "更新阵容库",
+        "更新陣容庫"
     );
     private static readonly LocalizedTextSet WorkingText = new("Working...", "处理中...");
     private static readonly LocalizedTextSet RefreshingFinalBuildsText = new(
@@ -44,8 +39,6 @@ internal static partial class LiveBuildPanelText
         "位英雄",
         "位英雄"
     );
-
-    public static string CorpusCardTitle() => L.Resolve(CorpusCardTitleText);
 
     public static string RefreshFinalBuilds() => L.Resolve(RefreshFinalBuildsText);
 

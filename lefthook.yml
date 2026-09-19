@@ -1,0 +1,49 @@
+# Workspace Git hooks. Install with `just hooks-install`.
+# Each job runs only when its project has matching changes, and runs the same
+# commands as that project's `just <project>::check` gate.
+
+pre-commit:
+  parallel: true
+  jobs:
+    - name: workspace
+      glob: "{JUSTFILE,**/*.just,VERSION,release.mjs,release/**,scripts/**}"
+      run: just commands-check release::check
+
+    - name: mod
+      glob: "bazaarplusplus-mod/**/*.cs"
+      run: just mod::fmt-check
+
+    - name: installer
+      root: bazaarplusplus-installer/
+      glob: "bazaarplusplus-installer/**/*.{ts,tsx,js,mjs,json,html}"
+      run: npm run format:check && npm run lint && npm run check:ts
+
+    - name: site
+      root: bazaarplusplus-site/
+      glob: "bazaarplusplus-site/**/*.{ts,tsx,js,mjs,json,css,html,md}"
+      run: npm run format:check && npm run lint && npm run typecheck
+
+    - name: server
+      root: bazaarplusplus-server/
+      glob: "bazaarplusplus-server/**/*.{ts,js,json,jsonc}"
+      run: npm run check
+
+    - name: analyzer
+      root: bazaarplusplus-analyzer/
+      glob: "bazaarplusplus-analyzer/**/*.{py,toml}"
+      run: >-
+        uv run --locked ruff format --check . &&
+        uv run --locked ruff check . &&
+        uv run --locked ty check
+
+pre-push:
+  jobs:
+    - name: installer
+      root: bazaarplusplus-installer/
+      glob: "bazaarplusplus-installer/**/*"
+      run: npm run verify -- --source-only
+
+    - name: analyzer
+      root: bazaarplusplus-analyzer/
+      glob: "bazaarplusplus-analyzer/**/*"
+      run: uv run --locked pytest -q

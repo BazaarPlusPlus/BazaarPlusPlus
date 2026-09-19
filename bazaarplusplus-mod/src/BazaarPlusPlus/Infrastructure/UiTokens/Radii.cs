@@ -11,5 +11,4 @@ internal static class Radii
     public const float CollectionPortraitChip = 8f;
     public const float Status = 12f;
     public const float Panel = 14f;
-    public const float DayBubble = Sizes.DayBubbleSize / 2f;
 }

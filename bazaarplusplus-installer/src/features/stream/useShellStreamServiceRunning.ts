@@ -14,7 +14,7 @@ export function useShellStreamServiceRunning() {
       try {
         const status = await getStreamStatus();
         if (!cancelled) {
-          setRunning(Boolean(status.running));
+          setRunning(status.running);
         }
       } catch {
         if (!cancelled) {

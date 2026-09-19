@@ -17,10 +17,6 @@ namespace BazaarPlusPlus.Game.PostCombatImpact;
 
 internal interface IPostCombatImpactModule
 {
-    bool TryGetSource(string instanceId, out CombatImpactSource source);
-
-    bool TryGetReceived(string instanceId, out CombatImpactReceived received);
-
     void SetHoveredRecapCard(
         RecapItemVisualController recapVisual,
         Card card,

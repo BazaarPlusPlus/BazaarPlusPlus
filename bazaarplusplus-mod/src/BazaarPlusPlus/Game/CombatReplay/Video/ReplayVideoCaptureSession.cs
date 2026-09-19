@@ -23,7 +23,6 @@ internal sealed class ReplayVideoCaptureSession : IDisposable
     private WallClockCfrPacer? _pacer;
     private readonly ReplayVideoCopyTimingAccumulator _cfrCopyTiming = new();
     private readonly ReplayVideoCopyTimingAccumulator _renderFrameTiming = new();
-    private readonly ReplayVideoCopyTimingAccumulator _nativeTextureCopyTiming = new();
 
     private long _lastEmittedSeq;
     private int _frameByteLength;
@@ -200,12 +199,8 @@ internal sealed class ReplayVideoCaptureSession : IDisposable
                             * CalculateNv12FrameBytes(_request.Width, _request.Height)
                             > ReplayVideoBufferPlan.DefaultPoolBudgetBytes
                     ),
-                    CombatReplayVideoLogEvents.StatsReadbackBackpressureSkips.Bind(0),
-                    CombatReplayVideoLogEvents.StatsMaxOutstandingReadbacks.Bind(0),
-                    CombatReplayVideoLogEvents.StatsReadbackCopyP95Us.Bind(0),
                     CombatReplayVideoLogEvents.StatsCfrCopyP95Us.Bind(0),
                     CombatReplayVideoLogEvents.StatsStagingBufferBytes.Bind(0),
-                    CombatReplayVideoLogEvents.StatsMaxReadbackPayloadBytes.Bind(0),
                     CombatReplayVideoLogEvents.StatsRenderTextureEstimatedBytes.Bind(
                         _captureRenderTexture == null ? 0 : _frameByteLength
                     ),
@@ -330,7 +325,6 @@ internal sealed class ReplayVideoCaptureSession : IDisposable
         finally
         {
             _cfrCopyTiming.ObserveSince(copyStarted);
-            _nativeTextureCopyTiming.ObserveSince(copyStarted);
         }
     }
 
@@ -424,7 +418,6 @@ internal sealed class ReplayVideoCaptureSession : IDisposable
         finally
         {
             _cfrCopyTiming.ObserveSince(copyStarted);
-            _nativeTextureCopyTiming.ObserveSince(copyStarted);
         }
     }
 
@@ -479,9 +472,6 @@ internal sealed class ReplayVideoCaptureSession : IDisposable
                     _failureException,
                     _frameByteLength,
                     metalEncoder?.SlotCount ?? windowsEncoder?.SlotCount ?? 0,
-                    ReadbackBackpressureSkips: 0,
-                    MaxOutstandingReadbacks: 0,
-                    ReadbackCopyP95Us: 0,
                     _cfrCopyTiming.P95Microseconds
                 )
             );
@@ -571,13 +561,13 @@ internal sealed class ReplayVideoCaptureSession : IDisposable
                         _renderFrameTiming.P99Microseconds
                     ),
                     CombatReplayVideoLogEvents.NativeStatsTextureCopyP50Us.Bind(
-                        _nativeTextureCopyTiming.P50Microseconds
+                        _cfrCopyTiming.P50Microseconds
                     ),
                     CombatReplayVideoLogEvents.NativeStatsTextureCopyP95Us.Bind(
-                        _nativeTextureCopyTiming.P95Microseconds
+                        _cfrCopyTiming.P95Microseconds
                     ),
                     CombatReplayVideoLogEvents.NativeStatsTextureCopyP99Us.Bind(
-                        _nativeTextureCopyTiming.P99Microseconds
+                        _cfrCopyTiming.P99Microseconds
                     ),
                 ]
         );
@@ -612,13 +602,13 @@ internal sealed class ReplayVideoCaptureSession : IDisposable
                         _renderFrameTiming.P99Microseconds
                     ),
                     CombatReplayVideoLogEvents.NativeStatsTextureCopyP50Us.Bind(
-                        _nativeTextureCopyTiming.P50Microseconds
+                        _cfrCopyTiming.P50Microseconds
                     ),
                     CombatReplayVideoLogEvents.NativeStatsTextureCopyP95Us.Bind(
-                        _nativeTextureCopyTiming.P95Microseconds
+                        _cfrCopyTiming.P95Microseconds
                     ),
                     CombatReplayVideoLogEvents.NativeStatsTextureCopyP99Us.Bind(
-                        _nativeTextureCopyTiming.P99Microseconds
+                        _cfrCopyTiming.P99Microseconds
                     ),
                 ]
         );

@@ -31,7 +31,6 @@ internal sealed class NativePostCombatImpactTooltipView : IPostCombatImpactToolt
     private const float DividerHeight = 2f;
     private const int NativeBottomPaddingReduction = 4;
     private const int NativeDenseBottomPaddingMaximum = 24;
-    private const float PlacementEpsilon = 0.5f;
     private const float VisibilityFadeDuration = 0.1f;
     private const float PanelTitleFontScale = 0.84f;
     private const float ModeLabelFontScale = 0.66f;
@@ -67,7 +66,7 @@ internal sealed class NativePostCombatImpactTooltipView : IPostCombatImpactToolt
     private readonly NativePairedTooltipSession _session;
     private readonly List<LayoutElement> _metricColumns = [];
     private readonly List<INativeCardPreviewSession> _previewSessions = [];
-    private readonly List<PendingNativePreviewFit> _pendingNativePreviewFits = [];
+    private readonly NativePreviewFitBatch<PendingNativePreviewFit> _nativePreviewFitBatch = new();
     private readonly Vector3[] _nativePreviewFitCorners = new Vector3[4];
     private readonly List<ImpactContentBlock> _causedBlocks = [];
     private readonly List<ImpactContentBlock> _receivedBlocks = [];
@@ -90,7 +89,6 @@ internal sealed class NativePostCombatImpactTooltipView : IPostCombatImpactToolt
     private bool _causedPerspectiveBuilt;
     private bool _receivedPerspectiveBuilt;
     private bool _isSkill;
-    private bool _nativePreviewFitFlushScheduled;
     private int _pendingPreviewCount;
     private int _contentGeneration;
     private CombatImpactPerspective _activePerspective = CombatImpactPerspective.Caused;
@@ -423,7 +421,7 @@ internal sealed class NativePostCombatImpactTooltipView : IPostCombatImpactToolt
             // to the perspective root. Consume that cost before counting any reclaimed content.
             var remainingReduction =
                 requiredHeightReduction
-                + PreferredHeight(moreRoot)
+                + InactiveRowPreferredHeight(moreRoot)
                 + Mathf.Max(0f, perspectiveLayout.spacing);
             var hiddenCount = 0;
             for (var blockIndex = _blocks.Count - 1; blockIndex >= 0; blockIndex--)
@@ -476,12 +474,27 @@ internal sealed class NativePostCombatImpactTooltipView : IPostCombatImpactToolt
 
         private static float PreferredHeight(RectTransform rect) =>
             Mathf.Max(0f, LayoutUtility.GetPreferredHeight(rect));
+
+        /// <summary>
+        /// Preferred height of a row that is still inactive when the budget is computed.
+        /// </summary>
+        /// <remarks>
+        /// <see cref="LayoutUtility.GetPreferredHeight"/> skips every layout component whose
+        /// behaviour is not active-and-enabled, so on the hidden disclosure row it reports 0 and the
+        /// budget would under-trim by that row's height. The row is built with an explicit
+        /// <see cref="LayoutElement"/> (priority 1, so it wins over the row's layout group once the
+        /// row is active); read that value directly instead.
+        /// </remarks>
+        private static float InactiveRowPreferredHeight(RectTransform rect) =>
+            rect.gameObject.activeInHierarchy ? PreferredHeight(rect)
+            : rect.TryGetComponent<LayoutElement>(out var element)
+                ? Mathf.Max(0f, element.preferredHeight)
+            : 0f;
     }
 
     private void DisposeNativePreviews()
     {
-        _nativePreviewFitFlushScheduled = false;
-        _pendingNativePreviewFits.Clear();
+        _nativePreviewFitBatch.Reset();
         if (_previewCancellation != null)
         {
             try
@@ -1240,11 +1253,13 @@ internal sealed class NativePostCombatImpactTooltipView : IPostCombatImpactToolt
             }
 
             _previewSessions.Add(session);
-            _pendingNativePreviewFits.Add(
+            var scheduleFlush = _nativePreviewFitBatch.Enqueue(
+                generation,
                 new PendingNativePreviewFit(session, owner, slot, trailingPadding)
             );
             fitQueued = true;
-            ScheduleNativePreviewFitFlush(generation);
+            if (scheduleFlush)
+                ScheduleNativePreviewFitFlush(generation);
         }
         catch (OperationCanceledException)
         {
@@ -1273,27 +1288,15 @@ internal sealed class NativePostCombatImpactTooltipView : IPostCombatImpactToolt
     /// turn. The outer presentation still counts each queued preview as pending until this batch has
     /// completed, so it cannot reveal geometry that has not been fitted yet.
     /// </summary>
-    private void ScheduleNativePreviewFitFlush(int generation)
-    {
-        if (_nativePreviewFitFlushScheduled)
-            return;
-
-        _nativePreviewFitFlushScheduled = true;
+    private void ScheduleNativePreviewFitFlush(int generation) =>
         _ = FlushNativePreviewFits(generation);
-    }
 
     private async Task FlushNativePreviewFits(int generation)
     {
         await Task.Yield();
-        if (generation != _session.Generation)
+        if (!_nativePreviewFitBatch.TryTake(generation, out var batch))
             return;
 
-        _nativePreviewFitFlushScheduled = false;
-        if (_pendingNativePreviewFits.Count == 0)
-            return;
-
-        var batch = _pendingNativePreviewFits.ToArray();
-        _pendingNativePreviewFits.Clear();
         try
         {
             FitNativePreviewBatch(batch);

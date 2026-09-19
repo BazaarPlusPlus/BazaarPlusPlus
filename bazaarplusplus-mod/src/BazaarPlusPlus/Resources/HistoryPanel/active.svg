@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128"><defs>
+<linearGradient id="gold" x1="0%" y1="0%" x2="80%" y2="100%"><stop offset="0%" stop-color="#fff0a0"/><stop offset="30%" stop-color="#efbd49"/><stop offset="57%" stop-color="#c18721"/><stop offset="100%" stop-color="#77500f"/></linearGradient>
+<linearGradient id="edge" x1="0%" y1="0%" x2="70%" y2="100%"><stop offset="0%" stop-color="#ffdf70"/><stop offset="48%" stop-color="#dba22b"/><stop offset="100%" stop-color="#926017"/></linearGradient>
+<radialGradient id="field" cx="50%" cy="40%" r="70%"><stop offset="0%" stop-color="#1d504b"/><stop offset="100%" stop-color="#102b29"/></radialGradient>
+<linearGradient id="faceLight" x1="10%" y1="0%" x2="80%" y2="100%"><stop offset="0" stop-color="#ffed9a"/><stop offset="0.38" stop-color="#edbd58"/><stop offset="0.72" stop-color="#c79030"/><stop offset="1" stop-color="#98621c"/></linearGradient>
+<linearGradient id="faceDark" x1="0%" y1="0%" x2="90%" y2="100%"><stop offset="0" stop-color="#c9963a"/><stop offset="0.6" stop-color="#97601d"/><stop offset="1" stop-color="#55330f"/></linearGradient>
+</defs>
+<path d="M64 5 116 35 116 60 119 65 116 72 116 99 64 123 12 99 12 72 9 65 12 59 12 35Z" fill="url(#edge)" stroke="#241708" stroke-width="1.7"/>
+<path d="m64 7 49 29-5 3-44-25-44 25-5-3Z" fill="#f7d269"/>
+<path d="m15 38 5 3v53l44 24v4L13 98V74l5-3-1-12-3-2Z" fill="#986016"/>
+<path d="m113 38-5 3v53l-44 24v4l51-24V74l-5-3 1-12 3-2Z" fill="#b57a1a"/>
+<path d="M64 17 108 42v51l-44 25-44-25V42Z" fill="#302008" stroke="#6b400c" stroke-width="2"/>
+<path d="M64 23 103 45v45l-39 23-39-23V45Z" fill="url(#field)" stroke="#130e06" stroke-width="2.3"/>
+<path d="M64 27 99 47v41l-35 21-35-21V47Z" fill="none" stroke="#477d68" stroke-width=".9"/>
+<path d="m64 6 11 7-11 12-11-12Z M64 104l10 10-10 8-10-8Z" fill="url(#gold)" stroke="#5d3b0a" stroke-width="1"/>
+<path d="m64 7-1 10-9-4 10 11Z M64 105l-1 9-7 0 8 7Z" fill="#ffda62"/>
+<path d="m64 7 1 10 8-4-9 11Z M64 105l1 9 7 0-8 7Z" fill="#99600e"/>
+<path d="m12 61 6 1v10l-6-2-3-5Z M116 61l-6 1v10l6-2 3-5Z" fill="url(#gold)" stroke="#4d300b" stroke-width="1"/>
+<path d="m13 36 14-8 M30 26l29-17 M69 9l30 18 M102 29l11 7 M15 40v17 M113 40v17 M16 95l36 20 M112 95l-36 20" fill="none" stroke="#ffe797" stroke-width=".8"/>
+
+<g stroke="#352811" stroke-width="2" stroke-linejoin="round">
+<path d="M44 36h40v8H44ZM44 87h40v8H44Z" fill="url(#gold)"/>
+<path d="M49 45h30q1 13-12 20 13 9 12 21H49q-1-13 12-21-13-7-12-20Z" fill="#5e8a78"/>
+<path d="M52 48h24q-2 8-12 13-10-5-12-13Z" fill="#f0d282"/>
+<path d="M52 83q4-7 12-12 8 5 12 12Z" fill="#dbb24f"/>
+<path d="M64 63v7M47 39h34M48 91h33" fill="none" stroke="#ffedb0" stroke-width="2"/>
+<path d="M52 51q1 6 6 9M52 78l5-5" fill="none" stroke="#acc9b1" stroke-width="1.5"/>
+</g></svg>

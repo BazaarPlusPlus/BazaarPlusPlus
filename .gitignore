@@ -1,23 +1,55 @@
+# Shared by every project. A project's own .gitignore holds only the outputs
+# that project generates.
+
+# OS
 .DS_Store
-**/.DS_Store
 Thumbs.db
 
+# Editors
 .idea/
-.trae/
 .vscode/
 .vs/
-
-**/bin/
-**/obj/
-dist/
-
-.DS_Store?
+.fleet/
+.zed/
+.trae/
+*.iml
 *.user
 *.suo
+*.swp
+*.swo
+*~
 
-.dotnet/
-.nuget/
-.npm-cache/
+# Agent tooling
+.claude/
+.agents/
+.superpowers/
+.gstack/
+.worktrees/
+
+# Dependencies and tool caches
+node_modules/
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
 .wrangler/
+*.tsbuildinfo
+*.log
 
-bazaarplusplus-mod/tools/local_r2_clone/runtime/
+# Build and coverage output
+bin/
+obj/
+dist/
+coverage/
+.coverage
+.coverage.*
+*.egg-info/
+
+# Secrets and machine-local config
+.env
+.env.*
+!.env.example
+.dev.vars
+.dev.vars.*
+signing-secrets/

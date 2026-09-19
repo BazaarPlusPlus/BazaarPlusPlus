@@ -22,8 +22,6 @@ internal static partial class HistoryPanelText
 
     private static readonly LocalizedTextSet GhostTabText = new("Ghost", "幽灵", "幽靈");
 
-    private static readonly LocalizedTextSet BattlesText = new("Battles", "战斗", "戰鬥");
-
     private static readonly LocalizedTextSet CloseText = new("Close", "关闭", "關閉");
 
     private static readonly LocalizedTextSet ReplayText = new("Replay", "回放", "重播");
@@ -54,8 +52,6 @@ internal static partial class HistoryPanelText
 
     internal static string GhostTab() => Resolve(GhostTabText);
 
-    internal static string Battles() => Resolve(BattlesText);
-
     internal static string Close() => Resolve(CloseText);
 
     internal static string Replay() => Resolve(ReplayText);
@@ -73,10 +69,4 @@ internal static partial class HistoryPanelText
     internal static string DeleteConfirm() => Resolve(DeleteConfirmText);
 
     internal static string Working() => Resolve(WorkingText);
-
-    internal static string CountGhost(int count) => FormatCount(count, GhostTab());
-
-    internal static string CountRuns(int count) => FormatCount(count, RunsTab());
-
-    internal static string CountBattles(int count) => FormatCount(count, Battles());
 }

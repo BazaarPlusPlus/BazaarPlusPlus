@@ -24,16 +24,25 @@ internal readonly record struct EndOfRunCapturePolicy(
 internal readonly record struct EndOfRunCaptureAttemptOutcome(
     ScreenshotCaptureResult? Capture,
     ScreenshotCaptureReasonCode? FailureReason,
+    ScreenshotCaptureReasonCode? DegradationReason,
     Exception? Exception
 )
 {
-    internal static EndOfRunCaptureAttemptOutcome Succeeded(ScreenshotCaptureResult capture) =>
-        new(capture ?? throw new ArgumentNullException(nameof(capture)), null, null);
+    internal static EndOfRunCaptureAttemptOutcome Succeeded(
+        ScreenshotCaptureResult capture,
+        ScreenshotCaptureReasonCode? degradationReason = null
+    ) =>
+        new(
+            capture ?? throw new ArgumentNullException(nameof(capture)),
+            null,
+            degradationReason,
+            null
+        );
 
     internal static EndOfRunCaptureAttemptOutcome Failed(
         ScreenshotCaptureReasonCode reason,
         Exception? exception = null
-    ) => new(null, reason, exception);
+    ) => new(null, reason, null, exception);
 }
 
 internal interface IEndOfRunCaptureAttempt
@@ -542,6 +551,7 @@ internal sealed class EndOfRunCaptureWorkflowCore<TScreen>
 
         var operation = EnsureOperation(context);
         operation.VerifiedArtifactPath = outcome.Capture.FilePath;
+        _state.DegradationReason ??= outcome.DegradationReason;
         _state.ActiveAttempt = null;
         StartPersistence(outcome.Capture);
     }

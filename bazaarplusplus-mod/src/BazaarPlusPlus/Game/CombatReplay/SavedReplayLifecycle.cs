@@ -6,7 +6,7 @@ namespace BazaarPlusPlus.Game.CombatReplay;
 /// ownership, the time-bounded duplicate-exit suppression window, bootstrap/menu-return flags,
 /// startup-interruption latch, and the pending menu-return deadline. The runtime feeds
 /// observations and executes the returned decisions; replay exit itself still flows only through
-/// <c>CombatReplayRuntime.TryContinueReplay</c> per ADR-0007/0008.
+/// <c>CombatReplayRuntime.TryContinueReplay</c> per ADR-0002.
 /// </summary>
 /// <remarks>
 /// Zero Unity / zero held delegates. All time is a caller-supplied <c>float now</c>

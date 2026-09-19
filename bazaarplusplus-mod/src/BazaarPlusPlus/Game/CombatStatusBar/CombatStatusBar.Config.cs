@@ -17,34 +17,18 @@ internal sealed partial class CombatStatusBar
             return;
 
         _configStateInitialized = true;
-        CombatSpeedMultiplier = _services.Config.CombatStatusBarSpeedMultiplierConfig?.Value ?? 1f;
+        CombatSpeedMultiplier = NormalizeConfiguredDefaultSpeed(
+            _services.Config.CombatStatusBarSpeedMultiplierConfig?.Value ?? 1f
+        );
         BppLog.DebugEvent(
             CombatStatusBarLogEvents.ConfigLoaded,
             () =>
                 [
-                    CombatStatusBarLogEvents.ConfigLoadedEnabled.Bind(IsEnabled()),
                     CombatStatusBarLogEvents.ConfigLoadedSpeedMultiplier.Bind(
                         ToLogCategory(CombatSpeedMultiplier)
                     ),
                 ]
         );
-    }
-
-    internal static bool IsEnabled()
-    {
-        return _services?.Config.EnableCombatStatusBarConfig?.Value ?? false;
-    }
-
-    internal static bool GetEnabledSettingValue()
-    {
-        return _services?.Config.EnableCombatStatusBarConfig?.Value ?? false;
-    }
-
-    internal static void SetEnabledSettingValue(bool enabled)
-    {
-        var config = _services?.Config.EnableCombatStatusBarConfig;
-        if (config != null)
-            config.Value = enabled;
     }
 
     static partial void PersistCombatSpeed(float speed)

@@ -1,8 +1,9 @@
 #nullable enable
 using System.Globalization;
 using BazaarPlusPlus.Game.HistoryPanel.Data;
+using BazaarPlusPlus.Game.HistoryPanel.Storage;
+using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Localization;
-using UnityEngine;
 
 namespace BazaarPlusPlus.Game.HistoryPanel;
 
@@ -15,21 +16,61 @@ internal enum RunOutcomeTier
     Diamond,
 }
 
+internal readonly record struct HistoryRunRowFields(string Name, string Meta, string Stamp);
+
 internal static class HistoryPanelFormatter
 {
+    // The status word is deliberately absent: RunBadge already encodes
+    // completed/abandoned/active, and repeating it cost the row its strongest line.
+    public static HistoryRunRowFields RunRowFields(HistoryRunRecord run) =>
+        new(
+            HistoryPanelHeroPresentation.DisplayName(run.Hero),
+            Meta(run),
+            FormatTimestamp(run.EndedAtUtc ?? run.LastSeenAtUtc)
+        );
+
+    // A finished run's duration is a real play session. An unfinished one has no EndedAtUtc,
+    // so the same subtraction measures start-to-last-seen instead — "85:09" for a run left
+    // open overnight. Show it only where it means something.
+    private static string Meta(HistoryRunRecord run)
+    {
+        var head = $"{Mode(run)} · {HistoryPanelText.DayBadge(run.FinalDay)}";
+        if (run.EndedAtUtc is not { } ended)
+            return head;
+        var span = ended - run.StartedAtUtc;
+        return $"{head} · {HistoryPanelText.DurationMinutes(Math.Max(0, (int)span.TotalMinutes))}";
+    }
+
+    public static string GhostListText(HistoryBattleRecord battle) =>
+        $"{battle.OpponentName ?? HistoryPanelText.UnknownOpponent()}\n{GhostDayLine(battle)}\n{FormatTimestamp(battle.RecordedAtUtc)}";
+
+    private static string GhostDayLine(HistoryBattleRecord battle) =>
+        battle.IsFinalBattle
+            ? $"{HistoryPanelText.DayBadge(battle.Day)} · {HistoryPanelText.FinalBattle()}"
+            : HistoryPanelText.DayBadge(battle.Day);
+
+    private static string Mode(HistoryRunRecord run) =>
+        run.GameMode.Trim().ToLowerInvariant() switch
+        {
+            "ranked" => LocalizedTextHelpers.Resolve(new LocalizedTextSet("Ranked", "排位")),
+            "unranked" => HistoryPanelText.Unranked(),
+            _ => HistoryPanelText.Unknown(),
+        };
+
+    public static string PageRange(HistoryCursor? first, HistoryCursor? last) =>
+        first.HasValue
+        && last.HasValue
+        && DateTimeOffset.TryParse(first.Value.Time, out var start)
+        && DateTimeOffset.TryParse(last.Value.Time, out var end)
+            ? $"{FormatTimestamp(start)} → {FormatTimestamp(end)}"
+            : HistoryPanelText.Unknown();
+
     public static string ShortenRunId(string runId)
     {
         if (string.IsNullOrWhiteSpace(runId))
             return HistoryPanelText.UnknownRun();
 
         return runId.Length <= 14 ? runId : runId[..14];
-    }
-
-    public static string FormatRunRecord(HistoryRunRecord run)
-    {
-        return run.Victories.HasValue || run.Losses.HasValue
-            ? HistoryPanelText.RunRecord(run.Victories ?? 0, run.Losses ?? 0)
-            : "-";
     }
 
     public static RunOutcomeTier? GetRunOutcomeTier(HistoryRunRecord run)
@@ -56,96 +97,11 @@ internal static class HistoryPanelFormatter
         return RunOutcomeTier.Misfortune;
     }
 
-    public static string FormatRunStatus(string? rawStatus)
-    {
-        return rawStatus switch
-        {
-            "completed" => HistoryPanelText.Completed(),
-            "abandoned" => HistoryPanelText.Abandoned(),
-            "active" => HistoryPanelText.Active(),
-            null => HistoryPanelText.Unknown(),
-            _ => char.ToUpperInvariant(rawStatus[0]) + rawStatus[1..],
-        };
-    }
+    public static bool IsBattleWin(HistoryBattleRecord battle) =>
+        HistoryPanelGhostBattleFilter.ResolveOutcome(battle) == HistoryPanelGhostBattleOutcome.Won;
 
-    public static string FormatBattleResult(HistoryBattleRecord battle)
-    {
-        if (string.IsNullOrWhiteSpace(battle.Result))
-            return HistoryPanelText.Unknown();
-
-        return IsBattleWin(battle) ? HistoryPanelText.Win()
-            : IsBattleLoss(battle) ? HistoryPanelText.Loss()
-            : battle.Result;
-    }
-
-    public static bool IsBattleWin(HistoryBattleRecord battle)
-    {
-        return string.Equals(battle.Result, "Win", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(battle.Result, "Won", StringComparison.OrdinalIgnoreCase);
-    }
-
-    public static bool IsBattleLoss(HistoryBattleRecord battle)
-    {
-        return string.Equals(battle.Result, "Loss", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(battle.Result, "Lost", StringComparison.OrdinalIgnoreCase);
-    }
-
-    public static bool IsGhostOpponentEliminated(HistoryBattleRecord? battle)
-    {
-        if (battle == null || battle.Source != HistoryBattleSource.Ghost)
-            return false;
-
-        return battle.IsFinalBattle && IsBattleWinFromLocalPerspective(battle);
-    }
-
-    private static bool IsBattleWinFromLocalPerspective(HistoryBattleRecord battle)
-    {
-        return IsBattleWin(battle)
-            || string.Equals(
-                battle.WinnerCombatantId,
-                "Player",
-                StringComparison.OrdinalIgnoreCase
-            );
-    }
-
-    public static string? FormatOpponentHero(string? rawHero)
-    {
-        if (string.IsNullOrWhiteSpace(rawHero))
-            return null;
-
-        return rawHero;
-    }
-
-    public static string FormatDayOnly(int? day)
-    {
-        return HistoryPanelText.DayBadge(day);
-    }
-
-    public static string FormatDayHour(int? day, int? hour)
-    {
-        return HistoryPanelText.DayHourBadge(day, hour);
-    }
-
-    public static string? FormatRunDuration(HistoryRunRecord run)
-    {
-        if (!string.Equals(run.RawStatus, "completed", StringComparison.OrdinalIgnoreCase))
-            return null;
-
-        if (!run.EndedAtUtc.HasValue)
-            return null;
-
-        var duration = run.EndedAtUtc.Value - run.StartedAtUtc;
-        if (duration <= TimeSpan.Zero)
-            return null;
-
-        if (duration.TotalHours >= 1d)
-            return $"{(int)duration.TotalHours}h {duration.Minutes}m";
-
-        if (duration.TotalMinutes >= 1d)
-            return $"{Mathf.Max(1, Mathf.RoundToInt((float)duration.TotalMinutes))}m";
-
-        return $"{Mathf.Max(1, duration.Seconds)}s";
-    }
+    public static bool IsBattleLoss(HistoryBattleRecord battle) =>
+        HistoryPanelGhostBattleFilter.ResolveOutcome(battle) == HistoryPanelGhostBattleOutcome.Lost;
 
     public static string FormatTimestamp(DateTimeOffset value)
     {
@@ -177,41 +133,5 @@ internal static class HistoryPanelFormatter
             culture = CultureInfo.CurrentCulture;
             return false;
         }
-    }
-
-    public static string FormatSnapshotSummary(
-        HistoryBattleSnapshotCounts counts,
-        HistoryBattleSource source
-    )
-    {
-        if (!counts.Known)
-            return HistoryPanelText.SnapshotCountsUnknown();
-
-        if (!counts.HasAnyRecordedCard)
-            return string.Empty;
-
-        return source == HistoryBattleSource.Ghost
-            ? HistoryPanelText.GhostSnapshotSummary(
-                counts.PlayerHandItemCount,
-                counts.PlayerSkillCount,
-                counts.OpponentHandItemCount,
-                counts.OpponentSkillCount
-            )
-            : HistoryPanelText.SnapshotSummary(
-                counts.PlayerHandItemCount,
-                counts.PlayerSkillCount,
-                counts.OpponentHandItemCount,
-                counts.OpponentSkillCount
-            );
-    }
-
-    public static string? NormalizeRank(string? rawRank)
-    {
-        if (string.IsNullOrWhiteSpace(rawRank))
-            return null;
-
-        var trimmed = rawRank.Trim();
-        var firstSpace = trimmed.IndexOf(' ');
-        return firstSpace > 0 ? trimmed[..firstSpace] : trimmed;
     }
 }

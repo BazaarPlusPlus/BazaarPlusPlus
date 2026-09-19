@@ -711,6 +711,16 @@ internal static class EncounterEventDetailResolver
         if (rewardFilter == null)
             return null;
 
+        // The only field read below is FromAnyHero, which the parser sets from this exact
+        // substring test. Without the phrase the parse can only yield null or FromAnyHero=false,
+        // and both land on the same result -- so skip it. TryParse compiles ~50 uncached regexes
+        // per call and this runs per choice option on every tooltip hover.
+        if (
+            string.IsNullOrWhiteSpace(resultText)
+            || !resultText.ToLowerInvariant().Contains("from any hero", StringComparison.Ordinal)
+        )
+            return rewardFilter;
+
         var textRewardFilter = EncounterRewardParser.TryParse(resultText);
         return textRewardFilter?.FromAnyHero == true
             ? rewardFilter.WithFromAnyHero(true)

@@ -2,8 +2,6 @@ import type { Translate } from '../../i18n/LocaleProvider';
 import type { StreamPageSnapshot } from './streamWorkflow';
 import { presentStreamNotice, presentStreamProblem } from './streamProblems';
 
-export { presentStreamProblem };
-
 export type StreamStatusPresentation = {
   label: string;
   detail: string;

@@ -1,13 +1,14 @@
 import {
   ArrowLeft,
   FileQuestion,
+  FolderOpen,
   Image as ImageIcon,
   Loader2,
   RefreshCw,
   Trash2,
   Video
 } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/Button';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { EmptyState } from '../components/ui/EmptyState';
@@ -21,6 +22,7 @@ import {
   formatBytes,
   formatDateTime,
   formatDuration,
+  formatGameMode,
   formatRunResultLabel,
   formatRunStatusKey,
   toneColorClass
@@ -34,26 +36,32 @@ import { formatProblemDiagnostic } from '../features/shared/problems';
 import { useConfirmedOperation } from '../features/shared/confirmedOperation';
 import { useI18n } from '../i18n/LocaleProvider';
 import { ModalSource } from '../components/ui/ModalCoordinator';
-
-// Shared 7-track grid for the battle table header + rows so columns align and
-// the action/metadata column does not reflow when the hover-only delete button
-// appears. Day · Result · OppHero · OppPlayer · Rank · Rating · Video.
-const BATTLE_GRID =
-  'grid grid-cols-[3.5rem_4.5rem_minmax(0,1fr)_minmax(0,1fr)_5rem_5rem_9rem] gap-4';
+import {
+  historyListPath,
+  parseHistoryPage
+} from '../features/history/pagination';
+import {
+  VideoDeleteSummary,
+  type VideoDeleteTarget
+} from '../features/history/VideoDeleteSummary';
 
 export default function RunDetail() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const historyPage = parseHistoryPage(
+    String(location.state?.historyPage ?? 1)
+  );
   const page = useRunDetailPage();
   const detail = page.detail;
   const { locale, t } = useI18n();
-  const runResult = detail ? formatRunResultLabel(detail.run.result) : null;
+  const runResult = detail ? formatRunResultLabel(detail.run) : null;
   const deleteOperation = useConfirmedOperation<
-    { kind: 'delete-video'; battleId: string; videoId: string },
+    VideoDeleteTarget,
     RunDetailProblem
   >();
   const pendingDelete = deleteOperation.state?.target ?? null;
-  const screenshotAvailability = page.availability('screenshot');
-  const screenshotFailure = page.problemFor('screenshot');
+  const screenshotAvailability = page.screenshot;
+  const screenshotFailure = page.screenshot.problem;
 
   const confirmDelete = () =>
     deleteOperation.controller.run(
@@ -75,10 +83,13 @@ export default function RunDetail() {
     <PageShell
       eyebrow={t('runDetailEyebrow')}
       title={pageTitle}
-      className="h-full overflow-hidden pb-8"
+      className="bpp-run-detail-page pb-8"
       action={
         <div className="flex items-center gap-2">
-          <Button type="button" onClick={() => navigate('/history')}>
+          <Button
+            type="button"
+            onClick={() => navigate(historyListPath(historyPage))}
+          >
             <ArrowLeft size={16} />
             {t('runDetailBack')}
           </Button>
@@ -138,29 +149,30 @@ export default function RunDetail() {
             </div>
           )}
 
-          <div className="bpp-panel flex flex-col gap-6 p-6">
-            <div className="flex justify-between items-start">
-              <div className="flex flex-col gap-1 min-w-0">
-                <h2 className="bpp-run-detail-title cinzel-decorative text-2xl font-bold m-0 truncate">
-                  {detail.run.hero}
-                  <span className={toneColorClass(runResult?.tone)}>
-                    {' '}
-                    · {runResult ? t(runResult.key) : '-'}
+          <div className="bpp-panel bpp-run-detail-summary">
+            <div className="bpp-run-detail-overview">
+              <div className="flex flex-col gap-3 min-w-0">
+                <div className="flex flex-wrap items-center gap-3">
+                  <span
+                    className="bpp-run-outcome"
+                    data-tier={runResult?.tier}
+                    data-state={runResult?.state}
+                  >
+                    {runResult ? t(runResult.key) : '-'}
                   </span>
-                </h2>
-                <div className="bpp-run-detail-meta flex flex-wrap items-center gap-3 fira-code text-xs selectable">
-                  <span>
+                  <span className="bpp-run-detail-meta text-xs">
+                    {formatGameMode(detail.run.game_mode, t)} ·{' '}
+                    {t(formatRunStatusKey(detail.run.status))}
+                  </span>
+                </div>
+                <div className="bpp-run-detail-meta flex flex-wrap items-center gap-x-4 gap-y-1 text-xs selectable">
+                  <span className="break-words">
                     {t('runDetailPlayer')} {detail.run.player_name ?? '-'}
                   </span>
-                  <span>•</span>
-                  <span>{detail.run.game_mode}</span>
-                  <span>•</span>
-                  <span>
+                  <span className="fira-code">
                     {formatDateTime(detail.run.started_at_utc, locale)} -{' '}
                     {formatDateTime(detail.run.ended_at_utc, locale)}
                   </span>
-                  <span>•</span>
-                  <span>{t(formatRunStatusKey(detail.run.status))}</span>
                 </div>
               </div>
 
@@ -183,12 +195,12 @@ export default function RunDetail() {
 
             {screenshotFailure && (
               <RunDetailProblemBanner
-                problem={screenshotFailure.problem}
+                problem={screenshotFailure}
                 onRetry={() => void page.revealScreenshot()}
               />
             )}
 
-            <div className="bpp-run-detail-stats flex gap-12 pt-5">
+            <div className="bpp-run-detail-stats">
               <StatBlock
                 label={t('statWinLoss')}
                 value={`${detail.run.victories ?? '-'} / ${detail.run.losses ?? '-'}`}
@@ -196,7 +208,9 @@ export default function RunDetail() {
               <StatBlock
                 label={t('statFinalDay')}
                 value={
-                  detail.run.final_day ? String(detail.run.final_day) : '-'
+                  detail.run.final_day === null
+                    ? '-'
+                    : String(detail.run.final_day)
                 }
               />
               <StatBlock
@@ -215,60 +229,84 @@ export default function RunDetail() {
             </div>
           </div>
 
-          <div className="bpp-panel flex flex-1 flex-col overflow-hidden">
-            <div className="flex-1 overflow-auto custom-scrollbar">
-              <div className="min-w-[640px]">
-                <div
-                  className={`${BATTLE_GRID} bpp-battle-table-header px-6 py-3 cinzel text-[10px] tracking-widest uppercase`}
-                >
-                  <div>{t('battleColDay')}</div>
-                  <div>{t('battleColResult')}</div>
-                  <div>{t('battleColOpponentHero')}</div>
-                  <div>{t('battleColOpponentPlayer')}</div>
-                  <div>{t('battleColRank')}</div>
-                  <div>{t('battleColRating')}</div>
-                  <div className="text-right">{t('battleColVideo')}</div>
-                </div>
-
-                {detail.battles.length === 0 ? (
-                  <div className="px-6 py-6">
-                    <EmptyState
-                      icon={<Video size={24} />}
-                      heading={t('noLocalBattles')}
-                      description={t('noLocalBattlesDescription')}
-                      primaryAction={
-                        <Button
-                          type="button"
-                          onClick={() => void page.refresh()}
-                          disabled={page.busy}
-                          busy={page.busy}
-                        >
-                          <RefreshCw
-                            size={16}
-                            className={page.refreshing ? 'animate-spin' : ''}
-                          />
-                          {t('refresh')}
-                        </Button>
-                      }
-                    />
-                  </div>
-                ) : (
-                  detail.battles.map((battle) => (
-                    <BattleRow
-                      key={battle.battle_id}
-                      battle={battle}
-                      page={page}
-                      onRequestDelete={(battleId, videoId) =>
-                        deleteOperation.controller.request({
-                          kind: 'delete-video',
-                          battleId,
-                          videoId
-                        })
-                      }
-                    />
-                  ))
-                )}
-              </div>
+          <div className="bpp-panel overflow-hidden">
+            <div className="overflow-x-auto custom-scrollbar">
+              <table className="bpp-battle-table">
+                <colgroup>
+                  <col style={{ width: '7%' }} />
+                  <col style={{ width: '9%' }} />
+                  <col style={{ width: '17%' }} />
+                  <col style={{ width: '21%' }} />
+                  <col style={{ width: '15%' }} />
+                  <col style={{ width: '10%' }} />
+                  <col style={{ width: '21%' }} />
+                </colgroup>
+                <thead className="bpp-battle-table-header cinzel">
+                  <tr>
+                    <th scope="col">{t('battleColDay')}</th>
+                    <th scope="col">{t('battleColResult')}</th>
+                    <th scope="col">{t('battleColOpponentHero')}</th>
+                    <th scope="col">{t('battleColOpponentPlayer')}</th>
+                    <th scope="col">{t('battleColRank')}</th>
+                    <th scope="col">{t('battleColRating')}</th>
+                    <th scope="col" className="text-right">
+                      {t('battleColVideo')}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {detail.battles.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="px-6 py-6">
+                        <EmptyState
+                          icon={<Video size={24} />}
+                          heading={t('noLocalBattles')}
+                          description={t('noLocalBattlesDescription')}
+                          primaryAction={
+                            <Button
+                              type="button"
+                              onClick={() => void page.refresh()}
+                              disabled={page.busy}
+                              busy={page.busy}
+                            >
+                              <RefreshCw
+                                size={16}
+                                className={
+                                  page.refreshing ? 'animate-spin' : ''
+                                }
+                              />
+                              {t('refresh')}
+                            </Button>
+                          }
+                        />
+                      </td>
+                    </tr>
+                  ) : (
+                    detail.battles.map((battle) => (
+                      <BattleRow
+                        key={battle.battle_id}
+                        battle={battle}
+                        page={page}
+                        onRequestDelete={(target) => {
+                          if (!target.video) return;
+                          deleteOperation.controller.request({
+                            kind: 'delete-video',
+                            battleId: target.battle_id,
+                            videoId: target.video.video_id,
+                            runStartedAt: detail.run.started_at_utc,
+                            day: target.day,
+                            opponent:
+                              [target.opponent_name, target.opponent_hero]
+                                .filter(Boolean)
+                                .join(' · ') || '-',
+                            durationMs: target.video.duration_ms
+                          });
+                        }}
+                      />
+                    ))
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
         </>
@@ -305,12 +343,7 @@ export default function RunDetail() {
             onConfirm={confirmDelete}
             onClose={deleteOperation.controller.dismiss}
           >
-            <p className="bpp-confirm-target m-0 text-[12px] leading-relaxed fira-code selectable">
-              {t('deleteVideoTarget', {
-                battleId: pendingDelete.battleId,
-                videoId: pendingDelete.videoId
-              })}
-            </p>
+            <VideoDeleteSummary target={pendingDelete} />
             <p className="bpp-confirm-danger-copy m-0 text-[13px] leading-relaxed">
               {t('deleteVideoConfirmBody')}
             </p>
@@ -334,12 +367,13 @@ function StatBlock({
   isText?: boolean;
 }) {
   return (
-    <div className="flex flex-col gap-1">
-      <span className="bpp-run-detail-stat-label cinzel text-[10px] tracking-widest uppercase">
+    <div className="flex min-w-0 flex-col gap-1">
+      <span className="bpp-run-detail-stat-label cinzel text-[11px] tracking-wide uppercase">
         {label}
       </span>
       <span
-        className={`bpp-run-detail-stat-value text-xl ${isText ? 'cinzel font-bold' : 'fira-code'}`}
+        title={value}
+        className={`bpp-run-detail-stat-value text-lg break-words ${isText ? 'cinzel font-bold' : 'fira-code'}`}
       >
         {value}
       </span>
@@ -354,125 +388,130 @@ function BattleRow({
 }: {
   battle: HistoryBattleRow;
   page: ReturnType<typeof useRunDetailPage>;
-  onRequestDelete: (battleId: string, videoId: string) => void;
+  onRequestDelete: (battle: HistoryBattleRow) => void;
 }) {
   const { locale, t } = useI18n();
   const battleResult = formatBattleResult(battle.result);
-  const videoAction = `video:${battle.battle_id}` as const;
-  const deleteAction = `delete:${battle.battle_id}` as const;
-  const videoAvailability = page.availability(videoAction);
-  const deleteAvailability = page.availability(deleteAction);
-  const failure = page.problemFor(`battle:${battle.battle_id}`);
+  const {
+    reveal: videoAvailability,
+    delete: deleteAvailability,
+    failure
+  } = page.battles[battle.battle_id];
+  const actionLabel = (action: string) =>
+    t('battleVideoActionLabel', {
+      action,
+      day: battle.day ?? '-',
+      opponent: battle.opponent_name ?? battle.opponent_hero ?? '-'
+    });
 
   const retryFailure = () => {
     if (!battle.video || !failure) return;
-    if (failure.action === videoAction) {
+    if (failure.action === 'reveal') {
       void page.revealVideo(battle.battle_id, battle.video.video_id);
       return;
     }
-    onRequestDelete(battle.battle_id, battle.video.video_id);
+    onRequestDelete(battle);
   };
 
   return (
-    <div className="bpp-battle-row group transition-colors">
-      <div className={`${BATTLE_GRID} px-6 py-4 items-center relative`}>
-        <div
-          aria-hidden="true"
-          className="absolute inset-0 overflow-hidden pointer-events-none opacity-[0.02] flex items-center justify-center"
-        >
-          <span className="bpp-battle-watermark cinzel-decorative text-8xl font-bold">
-            {battle.opponent_hero ?? '-'}
-          </span>
-        </div>
-
-        <div className="bpp-battle-primary-data fira-code text-sm relative z-10">
+    <>
+      <tr className="bpp-battle-row transition-colors">
+        <td className="bpp-battle-primary-data fira-code">
           {battle.day === null ? '-' : String(battle.day)}
-        </div>
-        <div
-          className={`cinzel font-bold text-sm tracking-wider relative z-10 ${toneColorClass(battleResult.tone)}`}
-        >
+        </td>
+        <td className={`cinzel font-bold ${toneColorClass(battleResult.tone)}`}>
           {t(battleResult.key)}
-        </div>
-        <div className="bpp-battle-hero cinzel text-sm relative z-10 min-w-0 truncate">
+        </td>
+        <td
+          className="bpp-battle-hero cinzel"
+          title={battle.opponent_hero ?? undefined}
+        >
           {battle.opponent_hero ?? '-'}
-        </div>
-        <div className="bpp-battle-secondary-data fira-code text-sm relative z-10 min-w-0 truncate">
+        </td>
+        <td
+          className="bpp-battle-secondary-data fira-code"
+          title={battle.opponent_name ?? undefined}
+        >
           {battle.opponent_name ?? '-'}
-        </div>
-        <div className="bpp-battle-rank cinzel text-sm relative z-10">
+        </td>
+        <td
+          className="bpp-battle-rank cinzel"
+          title={battle.opponent_rank ?? undefined}
+        >
           {battle.opponent_rank ?? '-'}
-        </div>
-        <div className="bpp-battle-primary-data fira-code text-sm relative z-10">
+        </td>
+        <td className="bpp-battle-primary-data fira-code">
           {battle.opponent_rating === null ? '-' : battle.opponent_rating}
-        </div>
+        </td>
 
-        <div className="flex flex-col items-end gap-1 relative z-10">
-          {battle.video ? (
-            <>
-              <div className="flex items-center justify-end gap-1.5">
-                <button
-                  type="button"
-                  disabled={videoAvailability.disabled}
-                  onClick={() =>
-                    void page.revealVideo(
-                      battle.battle_id,
-                      battle.video?.video_id
-                    )
-                  }
-                  title={t('openVideoLocation')}
-                  aria-label={t('openVideoLocation')}
-                  className="bpp-battle-video-action flex items-center justify-center size-9 disabled:opacity-50 transition-colors"
-                >
-                  {videoAvailability.running ? (
-                    <Loader2 size={14} className="animate-spin" />
-                  ) : (
-                    <Video size={14} />
-                  )}
-                </button>
-                <button
-                  type="button"
-                  disabled={deleteAvailability.disabled}
-                  onClick={() =>
-                    battle.video &&
-                    onRequestDelete(battle.battle_id, battle.video.video_id)
-                  }
-                  title={t('deleteVideo')}
-                  aria-label={t('deleteVideo')}
-                  className="bpp-battle-delete-action flex items-center justify-center size-9 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto focus-visible:opacity-100 focus-visible:pointer-events-auto disabled:opacity-50 transition-opacity"
-                >
-                  {deleteAvailability.running ? (
-                    <Loader2 size={14} className="animate-spin" />
-                  ) : (
-                    <Trash2 size={14} />
-                  )}
-                </button>
-              </div>
-              <span className="bpp-battle-video-meta fira-code text-[10px] whitespace-nowrap selectable">
-                {formatDuration(battle.video.duration_ms, locale)} ·{' '}
-                {formatBytes(battle.video.file_size_bytes, locale)}
+        <td>
+          <div className="flex flex-col items-end gap-1">
+            {battle.video ? (
+              <>
+                <div className="flex items-center justify-end gap-1.5">
+                  <button
+                    type="button"
+                    disabled={videoAvailability.disabled}
+                    onClick={() =>
+                      void page.revealVideo(
+                        battle.battle_id,
+                        battle.video?.video_id
+                      )
+                    }
+                    title={t('openVideoLocation')}
+                    aria-label={actionLabel(t('openVideoLocation'))}
+                    className="bpp-battle-video-action flex items-center justify-center size-9 disabled:opacity-50 transition-colors"
+                  >
+                    {videoAvailability.running ? (
+                      <Loader2 size={14} className="animate-spin" />
+                    ) : (
+                      <FolderOpen size={14} />
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={deleteAvailability.disabled}
+                    onClick={() => battle.video && onRequestDelete(battle)}
+                    title={t('deleteVideo')}
+                    aria-label={actionLabel(t('deleteVideo'))}
+                    className="bpp-battle-delete-action flex items-center justify-center size-9 disabled:opacity-50 transition-colors"
+                  >
+                    {deleteAvailability.running ? (
+                      <Loader2 size={14} className="animate-spin" />
+                    ) : (
+                      <Trash2 size={14} />
+                    )}
+                  </button>
+                </div>
+                <span className="bpp-battle-video-meta fira-code text-[11px] text-right selectable">
+                  {formatDuration(battle.video.duration_ms, locale)} ·{' '}
+                  {formatBytes(battle.video.file_size_bytes, locale)}
+                </span>
+              </>
+            ) : (
+              <span
+                title={t('noVideo')}
+                aria-label={t('noVideo')}
+                className="bpp-battle-no-video flex items-center justify-center size-9"
+              >
+                <FileQuestion size={14} />
               </span>
-            </>
-          ) : (
-            <span
-              title={t('noVideo')}
-              aria-label={t('noVideo')}
-              className="bpp-battle-no-video flex items-center justify-center size-9"
-            >
-              <FileQuestion size={14} />
-            </span>
-          )}
-        </div>
-      </div>
+            )}
+          </div>
+        </td>
+      </tr>
 
       {failure && (
-        <div className="px-6 pb-4">
-          <RunDetailProblemBanner
-            problem={failure.problem}
-            onRetry={retryFailure}
-          />
-        </div>
+        <tr>
+          <td colSpan={7} className="px-6 pb-4">
+            <RunDetailProblemBanner
+              problem={failure.problem}
+              onRetry={retryFailure}
+            />
+          </td>
+        </tr>
       )}
-    </div>
+    </>
   );
 }
 

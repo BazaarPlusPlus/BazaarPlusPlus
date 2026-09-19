@@ -15,9 +15,6 @@ internal sealed record ReplayVideoEncoderDrainInput(
     Exception? FailureException,
     int FrameByteLength,
     int NativeSlotCount,
-    int ReadbackBackpressureSkips,
-    int MaxOutstandingReadbacks,
-    long ReadbackCopyP95Us,
     long CfrCopyP95Us
 );
 
@@ -96,16 +93,7 @@ internal sealed class ReplayVideoEncoderDrain
         var result = new ReplayVideoCaptureResult
         {
             VideoId = request.VideoId,
-            BattleId = request.BattleId,
-            Source = request.Source,
             OutputFilePath = request.OutputFilePath,
-            Width = request.Width,
-            Height = request.Height,
-            Fps = request.Fps,
-            Codec = request.EncoderProfile.Codec,
-            Crf = request.EncoderProfile.Crf,
-            Preset = request.EncoderProfile.Preset,
-            StartedAtUtc = _input.StartedAtUtc,
             EndedAtUtc = endedAt,
             DurationMs = durationMs,
             CapturedFrames = _input.CapturedFrames,
@@ -169,21 +157,9 @@ internal sealed class ReplayVideoEncoderDrain
                     CombatReplayVideoLogEvents.StatsQueueCapacity.Bind(queueCapacity),
                     CombatReplayVideoLogEvents.StatsPoolPayloadBytes.Bind(poolPayloadBytes),
                     CombatReplayVideoLogEvents.StatsPoolBudgetExceeded.Bind(poolBudgetExceeded),
-                    CombatReplayVideoLogEvents.StatsReadbackBackpressureSkips.Bind(
-                        _input.ReadbackBackpressureSkips
-                    ),
-                    CombatReplayVideoLogEvents.StatsMaxOutstandingReadbacks.Bind(
-                        _input.MaxOutstandingReadbacks
-                    ),
-                    CombatReplayVideoLogEvents.StatsReadbackCopyP95Us.Bind(
-                        _input.ReadbackCopyP95Us
-                    ),
                     CombatReplayVideoLogEvents.StatsCfrCopyP95Us.Bind(_input.CfrCopyP95Us),
                     CombatReplayVideoLogEvents.StatsStagingBufferBytes.Bind(
                         usesNativeSlots ? 0 : frameByteLength
-                    ),
-                    CombatReplayVideoLogEvents.StatsMaxReadbackPayloadBytes.Bind(
-                        (long)_input.MaxOutstandingReadbacks * frameByteLength
                     ),
                     CombatReplayVideoLogEvents.StatsRenderTextureEstimatedBytes.Bind(
                         usesNativeSlots ? 0 : frameByteLength

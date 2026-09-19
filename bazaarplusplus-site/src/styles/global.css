@@ -1,0 +1,225 @@
+@import 'tailwindcss';
+@import './tokens.css';
+
+html,
+body {
+  background: var(--color-bg-base);
+  color: var(--color-text-base);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+html {
+  scrollbar-width: none;
+}
+
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
+  display: none;
+}
+
+body {
+  position: relative;
+  min-height: 100vh;
+  background-color: var(--color-bg-base);
+  background-image:
+    radial-gradient(circle at 12% -8%, rgba(232, 185, 74, 0.1), transparent 38%),
+    radial-gradient(circle at 92% -4%, rgba(208, 90, 74, 0.06), transparent 42%),
+    radial-gradient(circle at 50% 110%, rgba(90, 138, 134, 0.05), transparent 50%),
+    linear-gradient(180deg, #0d0a07 0%, #0a0806 100%);
+}
+
+/* Filmic grain overlay — extremely subtle, gives the dark surface tooth */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.05;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml;utf8,<svg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 0.92  0 0 0 0 0.78  0 0 0 0.6 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  background-size: 220px 220px;
+}
+
+/* Hairline divider engraved into surfaces */
+.engraved {
+  background-image: linear-gradient(
+    180deg,
+    rgba(255, 245, 220, 0.05) 0%,
+    transparent 1px,
+    transparent calc(100% - 1px),
+    rgba(0, 0, 0, 0.5) 100%
+  );
+}
+
+/* Tabular figure utility — applied to every numeric cell */
+.tnum {
+  font-variant-numeric: tabular-nums lining-nums;
+  font-feature-settings: 'tnum', 'lnum';
+  font-family: var(--font-mono);
+  letter-spacing: -0.01em;
+}
+
+/* Display headline */
+.font-display {
+  font-family: var(--font-display);
+  font-optical-sizing: auto;
+  letter-spacing: -0.02em;
+}
+
+/* Latin-only italic — Newsreader has a true italic, the CJK fallback does not.
+   Apply only to text that is Latin in every locale (brand subtitle, author credit). */
+.font-display-italic {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-optical-sizing: auto;
+}
+
+/* Section eyebrow — letterspaced serif label.
+   Upright on purpose: the CJK fallback (Songti SC) has no italic, so
+   font-style: italic here would render as a synthesized skew. */
+.eyebrow {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 0.75rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+/* Reusable card surface — the "panel" of the design system */
+.surface {
+  position: relative;
+  min-width: 0;
+  max-width: 100%;
+  background:
+    linear-gradient(180deg, rgba(255, 235, 200, 0.015), transparent 30%), var(--color-bg-card);
+  border: 1px solid var(--color-border-soft);
+  border-radius: 18px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 235, 200, 0.04),
+    0 24px 60px -28px rgba(0, 0, 0, 0.5);
+}
+
+.surface-flat {
+  min-width: 0;
+  max-width: 100%;
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border-soft);
+  border-radius: 16px;
+}
+
+/* Section eyebrow gold rule */
+.eyebrow-rule::before {
+  content: '';
+  display: inline-block;
+  width: 18px;
+  height: 1px;
+  background: var(--color-accent);
+  margin-right: 10px;
+  margin-bottom: 4px;
+  vertical-align: middle;
+}
+
+/* Loading pulse */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(232, 185, 74, 0.04) 0%,
+    rgba(232, 185, 74, 0.14) 50%,
+    rgba(232, 185, 74, 0.04) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 2.4s ease-in-out infinite;
+}
+
+/* Hero rail — left edge accent on table rows.
+   No position is set here so the sticky first column (Tailwind .sticky) wins;
+   `position: sticky` still anchors the ::before accent bar below. */
+.hero-rail > :first-child::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 12%;
+  bottom: 12%;
+  width: 3px;
+  border-radius: 0 2px 2px 0;
+  background: var(--hero-color, transparent);
+  opacity: 0.85;
+}
+
+/* Subtle data bar background for percentage cells */
+.databar {
+  position: relative;
+  isolation: isolate;
+}
+
+.databar::before {
+  content: '';
+  position: absolute;
+  inset: 8px auto 8px 0;
+  width: var(--bar-width, 0%);
+  background: linear-gradient(90deg, rgba(232, 185, 74, 0.16), rgba(232, 185, 74, 0.04));
+  border-radius: 2px;
+  z-index: -1;
+  transition: width 0.32s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+.databar-pos::before {
+  background: linear-gradient(90deg, rgba(109, 191, 122, 0.18), rgba(109, 191, 122, 0.04));
+}
+
+.databar-neg::before {
+  background: linear-gradient(90deg, rgba(208, 90, 74, 0.18), rgba(208, 90, 74, 0.04));
+}
+
+/* Row hover lift */
+.metric-row {
+  transition:
+    background-color 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.metric-row:hover {
+  background: rgba(232, 185, 74, 0.04);
+}
+
+/* Sticky scroll thin scrollbar with brass tint */
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: rgba(232, 185, 74, 0.18);
+  border-radius: 6px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(232, 185, 74, 0.32);
+  background-clip: padding-box;
+  border: 2px solid transparent;
+}
+
+/* Bring the app above the grain overlay */
+#root {
+  position: relative;
+  z-index: 1;
+}

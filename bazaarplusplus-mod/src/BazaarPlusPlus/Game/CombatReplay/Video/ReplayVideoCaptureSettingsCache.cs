@@ -7,10 +7,6 @@ internal readonly record struct ReplayVideoCaptureSettings(int Width, int Height
 
 internal static class ReplayVideoCaptureSettingsCache
 {
-    private static readonly object SyncRoot = new();
-    private static ReplayVideoCaptureSettings _current;
-    private static bool _hasCurrent;
-
     // Unity-owned state must only be sampled by callers already running on the main thread.
     internal static bool TryCaptureCurrent(out ReplayVideoCaptureSettings settings)
     {
@@ -32,21 +28,6 @@ internal static class ReplayVideoCaptureSettingsCache
             height,
             ReplayVideoFrameRateResolver.Resolve()
         );
-        lock (SyncRoot)
-        {
-            _current = settings;
-            _hasCurrent = true;
-        }
-
         return true;
-    }
-
-    internal static bool TryGet(out ReplayVideoCaptureSettings settings)
-    {
-        lock (SyncRoot)
-        {
-            settings = _current;
-            return _hasCurrent;
-        }
     }
 }

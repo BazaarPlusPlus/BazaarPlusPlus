@@ -34,59 +34,116 @@ internal sealed class HistoryPanelDataService
 
     public bool CanSyncGhostBattles => _ghostSyncService != null;
 
-    public bool TryLoadRecentRuns(
-        int limit,
-        out IReadOnlyList<HistoryRunRecord> runs,
-        out string statusMessage,
-        out Exception? error
+    public HistoryPage<HistoryRunRecord> LoadRuns(HistoryPageRequest request, string? hero) =>
+        _repository?.ListRuns(request, hero) ?? HistoryPage<HistoryRunRecord>.Empty;
+
+    public HistoryPage<HistoryBattleRecord> LoadBattles(string runId, HistoryPageRequest request) =>
+        _repository?.ListBattles(runId, request) ?? HistoryPage<HistoryBattleRecord>.Empty;
+
+    public HistoryPage<HistoryBattleRecord> LoadGhosts(
+        string account,
+        GhostBattleFilter filter,
+        bool dayMin10,
+        HistoryPageRequest request
+    ) =>
+        _repository?.ListGhostBattles(account, filter, dayMin10, request)
+        ?? HistoryPage<HistoryBattleRecord>.Empty;
+
+    public BazaarPlusPlus.Game.PvpBattles.PvpBattleSnapshots? LoadDetail(
+        HistoryBattleRecord battle,
+        string account
     )
     {
-        runs = Array.Empty<HistoryRunRecord>();
-        error = null;
-
         if (_repository == null)
-        {
-            statusMessage = HistoryPanelText.RunLogDatabasePathUnavailable();
-            return false;
-        }
-
-        try
-        {
-            runs = _repository.ListRecentRuns(limit);
-            statusMessage = _repository.DatabaseExists
-                ? HistoryPanelText.LoadedRuns(runs.Count)
-                : HistoryPanelText.DatabaseFileMissing();
-            return true;
-        }
-        catch (Exception ex)
-        {
-            statusMessage = HistoryPanelText.HistoryLoadFailed(ex.Message);
-            error = ex;
-            return false;
-        }
+            return null;
+        if (battle.Source == HistoryBattleSource.Local)
+            return _repository.LoadSnapshots(battle.RunId, battle.BattleId);
+        var reference = _repository.TryGetGhostBundleReference(battle.BattleId);
+        if (reference == null || reference.LocalPlayerAccountId != account)
+            return null;
+        var path = _replayDirectoryPathAccessor?.Invoke();
+        if (string.IsNullOrWhiteSpace(path))
+            return null;
+        var store = new GhostBattlePayloadStore(GhostBattlePayloadStore.ResolveDirectory(path));
+        var result = store.LoadDetailed(battle.BattleId);
+        if (
+            result.Status
+            is FileBackedPayloadLoadStatus.Invalid
+                or FileBackedPayloadLoadStatus.Unreadable
+        )
+            throw result.Exception
+                ?? new InvalidDataException("Ghost payload is invalid or exceeds its size limit.");
+        var payload = GhostBattlePayloadReader.Normalize(result.Payload);
+        if (payload == null)
+            return null;
+        if (
+            !GhostBattlePayloadReader.MatchesIdentity(
+                payload,
+                battle.BattleId,
+                account,
+                reference.UploaderAccountId
+            )
+        )
+            throw new InvalidDataException(
+                "Ghost payload identity does not match this account and battle."
+            );
+        var snapshots = payload!.BattleManifest.Snapshots;
+        if (!battle.SnapshotCounts.Known)
+            _repository.MarkGhostReplayDownloaded(
+                battle.BattleId,
+                new HistoryBattleSnapshotCounts(
+                    snapshots.PlayerHand.Items.Count,
+                    snapshots.PlayerSkills.Items.Count,
+                    snapshots.OpponentHand.Items.Count,
+                    snapshots.OpponentSkills.Items.Count
+                )
+            );
+        return snapshots;
     }
 
-    public bool TryLoadBattles(
-        string? runId,
-        out IReadOnlyList<HistoryBattleRecord> battles,
-        out Exception? error
-    )
+    internal int MaintainGhosts(string account, CancellationToken cancellationToken)
     {
-        battles = Array.Empty<HistoryBattleRecord>();
-        error = null;
-
-        if (_repository == null || string.IsNullOrWhiteSpace(runId))
-            return true;
-
-        try
+        if (
+            _repository == null
+            || !_repository.DatabaseExists
+            || string.IsNullOrWhiteSpace(account)
+        )
+            return 0;
+        _repository.MarkOldUndownloadedGhostBattlesDeleted(DateTimeOffset.UtcNow);
+        var directory = _replayDirectoryPathAccessor?.Invoke();
+        if (string.IsNullOrWhiteSpace(directory))
+            return 0;
+        var store = new GhostBattlePayloadStore(
+            GhostBattlePayloadStore.ResolveDirectory(directory)
+        );
+        HistoryCursor? cursor = null;
+        var restored = 0;
+        while (true)
         {
-            battles = _repository.ListBattlesByRun(runId);
-            return true;
-        }
-        catch (Exception ex)
-        {
-            error = ex;
-            return false;
+            cancellationToken.ThrowIfCancellationRequested();
+            var page = _repository.ListHiddenGhosts(account, cursor);
+            foreach (var candidate in page.Rows)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var result = store.LoadDetailed(candidate.Cursor.Id);
+                var payload = GhostBattlePayloadReader.Normalize(result.Payload);
+                if (
+                    result.Status == FileBackedPayloadLoadStatus.Loaded
+                    && GhostBattlePayloadReader.MatchesIdentity(
+                        payload,
+                        candidate.Cursor.Id,
+                        account,
+                        candidate.Uploader
+                    )
+                    && payload!.ReplayPayload
+                        is { SpawnMessageBytes.Length: > 0, CombatMessageBytes.Length: > 0 }
+                    && _repository.RestoreHiddenGhost(candidate)
+                )
+                    restored++;
+            }
+            if (!page.HasOlder)
+                return restored;
+            cursor = page.Last;
         }
     }
 
@@ -110,8 +167,7 @@ internal sealed class HistoryPanelDataService
 
         try
         {
-            battleIds = _repository.ListBattleIdsByRun(runId);
-            _repository.DeleteRun(runId);
+            battleIds = _repository.DeleteRun(runId).BattleIds;
             return true;
         }
         catch (Exception ex)
@@ -119,86 +175,6 @@ internal sealed class HistoryPanelDataService
             error = ex;
             return false;
         }
-    }
-
-    public bool TryLoadGhostBattles(
-        int limit,
-        out IReadOnlyList<HistoryBattleRecord> battles,
-        out string statusMessage,
-        out Exception? error
-    )
-    {
-        battles = Array.Empty<HistoryBattleRecord>();
-        error = null;
-
-        if (_repository == null)
-        {
-            statusMessage = HistoryPanelText.RunLogDatabasePathUnavailable();
-            return false;
-        }
-
-        try
-        {
-            battles = _repository.ListRecentGhostBattles(limit);
-            if (BackfillDownloadedGhostBattleCounts(battles))
-                battles = _repository.ListRecentGhostBattles(limit);
-            statusMessage = HistoryPanelText.LoadedGhostBattles(battles.Count);
-            return true;
-        }
-        catch (Exception ex)
-        {
-            statusMessage = HistoryPanelText.GhostHistoryLoadFailed(ex.Message);
-            error = ex;
-            return false;
-        }
-    }
-
-    private bool BackfillDownloadedGhostBattleCounts(IReadOnlyList<HistoryBattleRecord> battles)
-    {
-        if (_repository == null || battles.Count == 0)
-            return false;
-
-        var replayDirectoryPath = _replayDirectoryPathAccessor?.Invoke();
-        if (string.IsNullOrWhiteSpace(replayDirectoryPath))
-            return false;
-
-        GhostBattlePayloadStore? payloadStore = null;
-        var updated = false;
-        foreach (var battle in battles)
-        {
-            if (
-                battle.Source != HistoryBattleSource.Ghost
-                || !battle.ReplayDownloaded
-                || battle.SnapshotCounts.HasAnyRecordedCard
-            )
-                continue;
-
-            payloadStore ??= new GhostBattlePayloadStore(
-                GhostBattlePayloadStore.ResolveDirectory(replayDirectoryPath)
-            );
-            var loadResult = payloadStore.LoadDetailed(battle.BattleId);
-            if (loadResult.Status != FileBackedPayloadLoadStatus.Loaded)
-                continue;
-
-            var payload = GhostBattlePayloadReader.Normalize(loadResult.Payload);
-            var snapshots = payload?.BattleManifest?.Snapshots;
-            if (snapshots == null)
-                continue;
-
-            var counts = HistoryBattlePreviewProjection.CountSnapshots(
-                snapshots.PlayerHand,
-                snapshots.PlayerSkills,
-                snapshots.OpponentHand,
-                snapshots.OpponentSkills
-            );
-            if (!counts.HasAnyRecordedCard)
-                continue;
-
-            _repository.MarkGhostReplayDownloaded(battle.BattleId, counts);
-            updated = true;
-        }
-
-        return updated;
     }
 
     public async Task<HistoryPanelAttemptResult> SyncGhostBattlesAsync(
@@ -222,7 +198,10 @@ internal sealed class HistoryPanelDataService
                 );
 
             return HistoryPanelAttemptResult.Success(
-                HistoryPanelText.GhostSyncSucceeded(result.ImportedCount),
+                HistoryPanelText.GhostSyncSucceeded(
+                    result.ImportedCount,
+                    result.DiscoveryLimitReached
+                ),
                 result.ImportedCount
             );
         }

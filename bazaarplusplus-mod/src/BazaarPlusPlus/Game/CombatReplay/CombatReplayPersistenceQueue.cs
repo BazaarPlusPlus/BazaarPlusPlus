@@ -12,6 +12,7 @@ internal sealed class CombatReplayPersistenceQueue : IDisposable
     private readonly Action<PvpReplayPayload> _savePayload;
     private readonly Action<PvpBattleManifest> _saveManifest;
     private readonly Action<string> _deletePayload;
+    private readonly ReplayPayloadOperationGate _operationGate;
     private readonly object _lifecycleGate = new();
     private readonly ConcurrentQueue<CombatReplayPersistenceRequest> _pending = new();
     private readonly ConcurrentQueue<CombatReplayPersistenceResult> _completed = new();
@@ -20,8 +21,6 @@ internal sealed class CombatReplayPersistenceQueue : IDisposable
     private readonly Task _worker;
     private int _outstandingPersistenceCount;
     private int _pendingSaveCount;
-    private int _stopRequested;
-    private int _stopAcceptingNewWork;
     private int _disposeStarted;
     private int _cleanupStarted;
     private CombatReplayPersistenceRequest? _inFlight;
@@ -30,16 +29,33 @@ internal sealed class CombatReplayPersistenceQueue : IDisposable
     public CombatReplayPersistenceQueue(
         Action<PvpReplayPayload> savePayload,
         Action<PvpBattleManifest> saveManifest,
-        Action<string> deletePayload
+        Action<string> deletePayload,
+        ReplayPayloadOperationGate operationGate
     )
     {
         _savePayload = savePayload ?? throw new ArgumentNullException(nameof(savePayload));
         _saveManifest = saveManifest ?? throw new ArgumentNullException(nameof(saveManifest));
         _deletePayload = deletePayload ?? throw new ArgumentNullException(nameof(deletePayload));
+        _operationGate = operationGate ?? throw new ArgumentNullException(nameof(operationGate));
         _worker = Task.Run(ProcessLoopAsync);
     }
 
     public bool HasPendingPersistence => Volatile.Read(ref _outstandingPersistenceCount) > 0;
+
+    internal IReadOnlyCollection<string> SnapshotProtectedBattleIds()
+    {
+        var battleIds = new HashSet<string>(StringComparer.Ordinal);
+        lock (_lifecycleGate)
+        {
+            if (_inFlight != null)
+                battleIds.Add(_inFlight.Manifest.BattleId);
+            foreach (var request in _pending)
+                battleIds.Add(request.Manifest.BattleId);
+            foreach (var result in _completed)
+                battleIds.Add(result.Manifest.BattleId);
+        }
+        return battleIds;
+    }
 
     public void SetLateResultsAvailableCallback(Action callback)
     {
@@ -58,7 +74,7 @@ internal sealed class CombatReplayPersistenceQueue : IDisposable
 
         lock (_lifecycleGate)
         {
-            if (Volatile.Read(ref _stopAcceptingNewWork) == 1 || _shutdown.IsCancellationRequested)
+            if (Volatile.Read(ref _disposeStarted) == 1)
                 throw new ObjectDisposedException(nameof(CombatReplayPersistenceQueue));
 
             _pending.Enqueue(new CombatReplayPersistenceRequest(payload, manifest));
@@ -84,8 +100,6 @@ internal sealed class CombatReplayPersistenceQueue : IDisposable
             if (Interlocked.Exchange(ref _disposeStarted, 1) == 1)
                 return;
 
-            Volatile.Write(ref _stopAcceptingNewWork, 1);
-            Volatile.Write(ref _stopRequested, 1);
             _signal.Release();
         }
 
@@ -153,34 +167,45 @@ internal sealed class CombatReplayPersistenceQueue : IDisposable
                 var payloadSaved = false;
                 try
                 {
-                    _savePayload(request.Payload);
-                    payloadSaved = true;
-                    _saveManifest(request.Manifest);
-                    Complete(request, CombatReplayPersistenceResult.Success(request.Manifest));
-                }
-                catch (Exception ex)
-                {
-                    if (payloadSaved)
+                    using var operationLease = _operationGate.AcquirePersistence(_shutdown.Token);
+                    try
                     {
-                        try
-                        {
-                            _deletePayload(request.Payload.BattleId);
-                        }
-                        catch (Exception rollbackEx)
-                        {
-                            BppLog.DebugEvent(
-                                CombatReplayLogEvents.PersistenceRollbackCleanupFailed,
-                                rollbackEx,
-                                () =>
-                                    [
-                                        CombatReplayLogEvents.RollbackCleanupBattleId.Bind(
-                                            request.Payload.BattleId
-                                        ),
-                                    ]
-                            );
-                        }
+                        _savePayload(request.Payload);
+                        payloadSaved = true;
+                        _saveManifest(request.Manifest);
+                        Complete(request, CombatReplayPersistenceResult.Success(request.Manifest));
                     }
+                    catch (Exception ex)
+                    {
+                        if (payloadSaved)
+                        {
+                            try
+                            {
+                                _deletePayload(request.Payload.BattleId);
+                            }
+                            catch (Exception rollbackEx)
+                            {
+                                BppLog.DebugEvent(
+                                    CombatReplayLogEvents.PersistenceRollbackCleanupFailed,
+                                    rollbackEx,
+                                    () =>
+                                        [
+                                            CombatReplayLogEvents.RollbackCleanupBattleId.Bind(
+                                                request.Payload.BattleId
+                                            ),
+                                        ]
+                                );
+                            }
+                        }
 
+                        Complete(
+                            request,
+                            CombatReplayPersistenceResult.Failure(request.Manifest, ex)
+                        );
+                    }
+                }
+                catch (OperationCanceledException ex) when (_shutdown.IsCancellationRequested)
+                {
                     Complete(request, CombatReplayPersistenceResult.Failure(request.Manifest, ex));
                 }
                 finally
@@ -210,7 +235,7 @@ internal sealed class CombatReplayPersistenceQueue : IDisposable
 
     private bool ShouldExitWorkerLoop()
     {
-        return Volatile.Read(ref _stopRequested) == 1
+        return Volatile.Read(ref _disposeStarted) == 1
             && _pending.IsEmpty
             && Volatile.Read(ref _pendingSaveCount) == 0;
     }

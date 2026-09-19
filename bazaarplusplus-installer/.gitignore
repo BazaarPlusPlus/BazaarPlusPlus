@@ -1,55 +1,41 @@
-# Dependencies
-/node_modules/
-
-# Frontend build output and caches
+# Frontend build output
 /build/
-/dist/
-/.svelte-kit/
-/package/
-/coverage/
 /.vite/
-*.tsbuildinfo
-vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+# Generated audits and review artifacts (see AGENTS.md)
+/tmp/
 
 # Tauri / Rust build output
 /src-tauri/target/
 /src-tauri/gen/schemas/
-/src-tauri/**/*.rs.bk
+/src-tauri/icons/macos-generated/
 
-# Environment and local overrides
-.env
-.env.*
-!.env.example
-!.env.sample
+# The macOS launch trampoline is compiled at build time from the committed
+# src-tauri/trampoline/bpp_launcher.c. Never commit the compiled binary.
+/src-tauri/resources/Trampoline/
 
-# Logs
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-
-# Editors and local tooling
-.idea/
-.vscode/
-.fleet/
-.zed/
-*.iml
-*.swp
-*.swo
-*~
-.cache/
-.eslintcache
-.wrangler/
-
-# OS files
-.DS_Store
-Thumbs.db
-
-# Top-level local packaging artifacts
+# Mod build outputs staged into SourceForBuild during packaging.
 BepInEx.zip
 BazaarPlusPlus.dll
 BazaarPlusPlus.version
+BazaarPlusPlus.ModApi.dll
+BazaarPlusPlus.Storage.dll
+BazaarPlusPlus.Localization.dll
+BazaarPlusPlus.history-database.json
 
-signing-secrets
+# Retired recorder binaries are forbidden in release Payloads; ignore local leftovers.
+/src-tauri/resources/SourceForBuild/*/BepInEx/plugins/ffmpeg
+/src-tauri/resources/SourceForBuild/*/BepInEx/plugins/ffmpeg.exe
+/src-tauri/resources/SourceForBuild/*/BepInEx/plugins/ffmpeg-LICENSE.txt
+
+# Machine-local provenance receipts and generated archive checksums.
+/src-tauri/resources/BepInExSource/*/payload-build.json
+/src-tauri/resources/BepInExSource/*/BepInEx.zip.manifest.json
+/src-tauri/resources/BepInExSource/*/BepInEx.zip.tmp-*
+/src-tauri/resources/BepInExSource/*/BepInEx.zip.manifest.json.tmp-*
+
+# Throwaway fixtures from scripts/build.test.mjs; removed after each run and
+# left behind only when a run is interrupted.
+.bpp-signing-test-*/
+.bpp-deps-test-*/

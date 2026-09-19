@@ -13,18 +13,16 @@ import { PageShell } from '../components/ui/PageShell';
 import { ProblemBanner } from '../components/ui/ProblemBanner';
 import {
   formatDateTime,
-  formatRunResultLabel,
-  toneColorClass
+  formatGameMode,
+  formatRunResultLabel
 } from '../features/history/format';
-import { StorageCleanupCard } from '../features/history/StorageCleanupCard';
+import { HistoryOverview } from '../features/history/HistoryOverview';
 import {
   presentHistoryProblem,
   type HistoryPageProblem
 } from '../features/history/historyProblems';
-import {
-  useHistoryPage,
-  type EndGameProcessOutcome
-} from '../features/history/useHistoryPage';
+import { useHistoryPage } from '../features/history/useHistoryPage';
+import type { EndGameProcessOutcome } from '../features/history/historyListWorkflow';
 import { isWindowsPlatform } from '../features/shared/platform';
 import { formatProblemDiagnostic } from '../features/shared/problems';
 import { useToast } from '../components/ui/Toast';
@@ -35,6 +33,7 @@ import type { HistoryRunRow } from '../types/backend';
 export default function History() {
   const page = useHistoryPage();
   const { t } = useI18n();
+  const { pagination } = page;
 
   return (
     <PageShell
@@ -63,29 +62,10 @@ export default function History() {
         />
       ) : (
         <div className="flex min-h-0 w-full flex-1 flex-col gap-4">
-          <div className="bpp-history-summary-grid">
-            <SummaryCard
-              label={t('historySummaryRuns')}
-              value={page.summary?.runs ?? '-'}
-              detail={t('historySummaryRunsDescription')}
-            />
-            <SummaryCard
-              label={t('historySummaryVideos')}
-              value={page.summary?.videos ?? '-'}
-              detail={t('historySummaryVideosDescription')}
-            />
-            <SummaryCard
-              label={t('historySummaryWinRate')}
-              value={page.summary?.winRate ?? '-'}
-              detail={
-                page.state.data.summary.win_rate === null
-                  ? t('historySummaryWinRateUnavailable')
-                  : t('historySummaryWinRateDescription')
-              }
-            />
-          </div>
-
-          <StorageCleanupCard onCompleted={page.refresh} />
+          <HistoryOverview
+            summary={page.state.data.summary}
+            onCompleted={page.refresh}
+          />
 
           {page.state.refresh.phase === 'failed' && (
             <HistoryProblemBanner
@@ -102,7 +82,7 @@ export default function History() {
               <HistoryPreviewProblemBanner problem={page.previewProblem} />
             )}
 
-          <div className="flex flex-col gap-3 flex-1 min-h-0 overflow-y-auto custom-scrollbar pr-2">
+          <div className="bpp-history-run-list flex flex-col gap-3">
             {page.state.phase === 'ready-empty' ? (
               <EmptyState
                 icon={<HistoryIcon size={24} />}
@@ -135,56 +115,77 @@ export default function History() {
                 <RunRow
                   key={run.run_id}
                   run={run}
+                  pageNumber={pagination.page}
                   previewUrl={page.previewUrl(run)}
                   previewProblem={page.previewProblem}
                 />
               ))
             )}
           </div>
+          {page.state.phase === 'ready-content' && (
+            <nav
+              className="bpp-history-pagination"
+              aria-label={t('historyPagination')}
+            >
+              <span role="status" aria-live="polite">
+                {t('historyPageRange', {
+                  start: pagination.start,
+                  end: pagination.end,
+                  total: pagination.total ?? 0
+                })}
+              </span>
+              <div className="flex items-center gap-3">
+                <Button
+                  disabled={pagination.previousDisabled}
+                  onClick={() => page.goToPage(pagination.page - 1)}
+                >
+                  {t('historyPreviousPage')}
+                </Button>
+                <span>
+                  {t('historyPageNumber', {
+                    page: pagination.page,
+                    total: pagination.pageCount
+                  })}
+                </span>
+                <Button
+                  disabled={pagination.nextDisabled}
+                  onClick={() => page.goToPage(pagination.page + 1)}
+                >
+                  {t('historyNextPage')}
+                </Button>
+              </div>
+            </nav>
+          )}
         </div>
       )}
     </PageShell>
   );
 }
 
-function SummaryCard({
-  label,
-  value,
-  detail
-}: {
-  label: string;
-  value: string;
-  detail: string;
-}) {
-  return (
-    <div className="bpp-history-summary-card">
-      <strong className="bpp-history-stat-value">{value}</strong>
-      <div className="bpp-history-stat-copy">
-        <span className="bpp-history-stat-label">{label}</span>
-        <span className="bpp-history-stat-detail">{detail}</span>
-      </div>
-    </div>
-  );
-}
-
 function RunRow({
   run,
+  pageNumber,
   previewUrl,
   previewProblem
 }: {
   run: HistoryRunRow;
+  pageNumber: number;
   previewUrl: string | null;
   previewProblem: HistoryPageProblem | null;
 }) {
   const { locale, t } = useI18n();
-  const result = formatRunResultLabel(run.result);
+  const result = formatRunResultLabel(run);
   const detailPath = `/history/${encodeURIComponent(run.run_id)}`;
   const fallbackLabel = previewProblem
     ? t('historyPreviewServiceOffline')
     : t('historyPreviewFallback');
 
   return (
-    <Link to={detailPath} className="bpp-history-run-card group">
+    <Link
+      to={detailPath}
+      state={{ historyPage: pageNumber }}
+      className="bpp-history-run-card group"
+    >
       <RunPreview
         key={previewUrl ?? 'preview-unavailable'}
         previewUrl={previewUrl}
@@ -194,14 +195,23 @@ function RunRow({
       <div className="bpp-history-run-data">
         <div className="bpp-history-run-heading">
           <div className="bpp-history-run-identity">
-            <span className="bpp-history-run-hero cinzel">{run.hero}</span>
-            <span className="bpp-history-run-date fira-code">
-              {formatDateTime(run.started_at_utc, locale)}
+            <span className="bpp-history-run-hero cinzel" title={run.hero}>
+              {run.hero}
+            </span>
+            <span className="bpp-history-run-meta">
+              <span className="bpp-history-run-date fira-code">
+                {formatDateTime(run.started_at_utc, locale)}
+              </span>
+              <span className="bpp-history-run-mode">
+                {formatGameMode(run.game_mode, t)}
+              </span>
             </span>
           </div>
 
           <span
-            className={`bpp-history-run-result ${toneColorClass(result.tone)}`}
+            className="bpp-history-run-result bpp-run-outcome"
+            data-tier={result.tier}
+            data-state={result.state}
           >
             {t(result.key)}
           </span>
@@ -390,6 +400,7 @@ function Metric({
     <div className="bpp-history-run-metric">
       <span className="bpp-history-run-metric-label cinzel">{label}</span>
       <span
+        title={value}
         className={`bpp-history-run-metric-value ${fira ? 'fira-code' : 'cinzel'} ${gold ? 'is-gold' : ''}`}
       >
         {value}

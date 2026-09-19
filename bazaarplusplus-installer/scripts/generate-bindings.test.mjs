@@ -4,6 +4,7 @@ import path from 'node:path';
 import { expect, test } from 'vitest';
 
 import {
+  bindingsAreFresh,
   commitGeneratedBindings,
   replaceDirectoryWithBackup
 } from './generate-bindings.mjs';
@@ -97,4 +98,14 @@ test('failed backup rename preserves the last valid generated directory', () => 
   } finally {
     fs.rmSync(rootDir, { recursive: true, force: true });
   }
+});
+
+test('binding freshness only skips when every input predates the artifact', () => {
+  expect(bindingsAreFresh(200, [100, 150, 199])).toBe(true);
+  expect(bindingsAreFresh(200, [100, 250])).toBe(false);
+  // An input written in the same millisecond is treated as a change.
+  expect(bindingsAreFresh(200, [200])).toBe(false);
+  // Missing artifact or unreadable inputs must never skip regeneration.
+  expect(bindingsAreFresh(null, [100])).toBe(false);
+  expect(bindingsAreFresh(200, [])).toBe(false);
 });

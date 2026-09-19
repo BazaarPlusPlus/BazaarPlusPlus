@@ -61,7 +61,6 @@ internal static class GhostBattleLocalProjector
             ProjectCombatantIdToLocal(rawWinnerCombatantId),
             ProjectCombatantIdToLocal(rawLoserCombatantId),
             ProjectSnapshotCountsToLocal(rawSnapshotCounts),
-            snapshots: null,
             isFinalBattle,
             source: HistoryBattleSource.Ghost,
             replayAvailable,
@@ -111,10 +110,10 @@ internal static class GhostBattleLocalProjector
         if (string.IsNullOrWhiteSpace(rawCombatantId))
             return rawCombatantId;
 
-        return rawCombatantId.Trim() switch
+        return rawCombatantId.Trim().ToLowerInvariant() switch
         {
-            "Player" => "Opponent",
-            "Opponent" => "Player",
+            "player" => "Opponent",
+            "opponent" => "Player",
             _ => rawCombatantId,
         };
     }

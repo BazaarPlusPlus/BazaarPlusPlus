@@ -21,7 +21,6 @@ pub struct HistoryRunRow {
     pub game_mode: String,
     pub started_at_utc: String,
     pub ended_at_utc: Option<String>,
-    pub last_seen_at_utc: String,
     pub result: String,
     pub victories: Option<i64>,
     pub losses: Option<i64>,
@@ -30,7 +29,6 @@ pub struct HistoryRunRow {
     pub final_player_rating: Option<i64>,
     pub screenshot_id: Option<String>,
     pub strip_url: Option<String>,
-    pub video_count: i64,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, specta::Type)]
@@ -46,18 +44,15 @@ pub struct HistoryRunDetailRow {
     pub game_mode: String,
     pub started_at_utc: String,
     pub ended_at_utc: Option<String>,
-    pub last_seen_at_utc: String,
     pub status: String,
     pub result: String,
     pub victories: Option<i64>,
     pub losses: Option<i64>,
     pub final_day: Option<i64>,
-    pub final_hour: Option<i64>,
     pub final_player_rank: Option<String>,
     pub final_player_rating: Option<i64>,
     pub screenshot_id: Option<String>,
     pub strip_url: Option<String>,
-    pub video_count: i64,
     pub player_name: Option<String>,
 }
 

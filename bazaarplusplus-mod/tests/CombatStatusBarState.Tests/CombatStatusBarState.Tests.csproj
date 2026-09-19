@@ -1,0 +1,64 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="coverlet.collector">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\BazaarPlusPlus.Localization\BazaarPlusPlus.Localization.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile
+      Include="../../src/BazaarPlusPlus/Game/CombatStatusBar/CombatStatusBarLayout.cs"
+      Link="CombatStatusBarLayout.cs"
+    />
+    <Compile
+      Include="..\..\src\BazaarPlusPlus\Infrastructure\UiSuppressionScope.cs"
+      Link="UiSuppressionScope.cs"
+    />
+    <Compile
+      Include="..\..\src\BazaarPlusPlus\Game\Settings\BppSettingsDockDefinition.cs"
+      Link="BppSettingsDockDefinition.cs"
+    />
+    <Compile
+      Include="..\..\src\BazaarPlusPlus\Game\CombatStatusBar\CombatStatusBar.State.cs"
+      Link="CombatStatusBar.State.cs"
+    />
+    <Compile
+      Include="..\..\src\BazaarPlusPlus\Game\ItemEnchantPreview\EnchantPreviewSettingsMenuLabel.cs"
+      Link="EnchantPreviewSettingsMenuLabel.cs"
+    />
+    <Compile
+      Include="..\..\src\BazaarPlusPlus\Game\NameOverride\NameOverrideSettingsMenuLabel.cs"
+      Link="NameOverrideSettingsMenuLabel.cs"
+    />
+    <Compile
+      Include="..\..\src\BazaarPlusPlus\Core\GameState\IGameStateProbe.cs"
+      Link="IGameStateProbe.cs"
+    />
+    <Compile
+      Include="..\..\src\BazaarPlusPlus\Core\Events\IBppEventBus.cs"
+      Link="IBppEventBus.cs"
+    />
+    <Compile
+      Include="..\..\src\BazaarPlusPlus\Core\Events\InMemoryBppEventBus.cs"
+      Link="InMemoryBppEventBus.cs"
+    />
+  </ItemGroup>
+</Project>

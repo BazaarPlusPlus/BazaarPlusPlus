@@ -144,11 +144,6 @@ internal static class NativeCardPreviewReflection
         }
     }
 
-    public static bool CanInvokeOnHover(Component cardPreview)
-    {
-        return IsCardPreview(cardPreview) && OnHoverMethod != null;
-    }
-
     public static bool TryInvokeOnHover(
         Component cardPreview,
         Action<NativeCardPreviewFailure>? reportFailure = null

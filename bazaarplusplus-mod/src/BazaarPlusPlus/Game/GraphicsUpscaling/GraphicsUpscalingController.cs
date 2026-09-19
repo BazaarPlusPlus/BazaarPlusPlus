@@ -53,8 +53,13 @@ internal sealed class GraphicsUpscalingController : MonoBehaviour
             return;
         }
 
-        _unavailableLogged = false;
-        BppLog.RecoverStorm(GraphicsUpscalingLogEvents.Unavailable);
+        // Only a degraded episode has a storm to recover; this refresh runs at 2 Hz forever.
+        if (_unavailableLogged)
+        {
+            _unavailableLogged = false;
+            BppLog.RecoverStorm(GraphicsUpscalingLogEvents.Unavailable);
+        }
+
         if (_lastLoggedState == state)
             return;
 

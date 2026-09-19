@@ -13,6 +13,15 @@ internal sealed class BppLogValueFormatter
     private const int ScalarInputBudget = 4096;
     private const int ExceptionInputBudget = 16384;
     private const int DiagnosticInputLimit = 1024 * 1024;
+    private const int HashChunkBytes = 1024;
+
+    // Emit can run off the main thread, so the reusable hash state is per thread. The
+    // instance is deliberately never disposed: it lives for the thread's lifetime.
+    [ThreadStatic]
+    private static SHA256? _hashAlgorithm;
+
+    [ThreadStatic]
+    private static byte[]? _hashBuffer;
 
     internal RenderedValue Render(BppLogFieldDefinition field, object? value)
     {
@@ -155,8 +164,9 @@ internal sealed class BppLogValueFormatter
 
     private static string Hash(string value, int hexCharacterCount)
     {
-        using var sha256 = SHA256.Create();
-        var byteBuffer = new byte[4096];
+        var sha256 = _hashAlgorithm ??= SHA256.Create();
+        sha256.Initialize();
+        var byteBuffer = _hashBuffer ??= new byte[HashChunkBytes];
         var byteCount = 0;
         for (var index = 0; index < value.Length; index++)
         {
@@ -245,6 +255,11 @@ internal sealed class BppLogValueFormatter
 
     private static RenderedValue EscapeAndQuote(string value, int budget, bool preserveTail)
     {
+        // A value that needs neither escaping nor quoting, and already fits the budget,
+        // renders as itself; one scan replaces the per-character token list.
+        if (RendersVerbatim(value, budget))
+            return new RenderedValue(value, false);
+
         var tokens = Tokenize(value);
         var quote = NeedsQuotes(value);
         var contentBudget = Math.Max(0, budget - (quote ? 2 : 0));
@@ -275,6 +290,38 @@ internal sealed class BppLogValueFormatter
         }
 
         return new RenderedValue(Wrap(selected, quote), true);
+    }
+
+    private static bool RendersVerbatim(string value, int budget)
+    {
+        if (value.Length == 0 || value.Length > budget)
+            return false;
+
+        for (var index = 0; index < value.Length; index++)
+        {
+            var character = value[index];
+            if (
+                char.IsWhiteSpace(character)
+                || char.IsControl(character)
+                || character == '"'
+                || character == '\\'
+                || character == '='
+            )
+                return false;
+
+            if (char.IsHighSurrogate(character))
+            {
+                if (index + 1 >= value.Length || !char.IsLowSurrogate(value[index + 1]))
+                    return false;
+                index++;
+                continue;
+            }
+
+            if (char.IsSurrogate(character))
+                return false;
+        }
+
+        return true;
     }
 
     private static System.Collections.Generic.List<string> Tokenize(string value)

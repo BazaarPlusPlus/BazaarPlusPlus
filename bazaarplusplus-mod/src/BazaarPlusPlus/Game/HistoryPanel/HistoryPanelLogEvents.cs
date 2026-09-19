@@ -14,14 +14,6 @@ internal static class HistoryPanelLogEvents
         [MountDependency, MountReasonCode]
     );
 
-    internal static readonly BppLogFieldDefinition DataDataset = PublicLow(0, "dataset");
-    internal static readonly BppLogFieldDefinition DataRunId = PublicHighShort(1, "run_id");
-    internal static readonly BppLogEventDefinition DataLoadFailed = new(
-        BppLogFeatureScope.HistoryPanel,
-        "history_panel.data.load_failed",
-        [DataDataset, DataRunId]
-    );
-
     internal static readonly BppLogFieldDefinition ReplayRequestId = PublicHighShort(
         0,
         "request_id"
@@ -169,15 +161,6 @@ internal static class HistoryPanelLogEvents
         new BppLogStormPolicy([PreviewPayloadReasonCode])
     );
 
-    internal static readonly BppLogFieldDefinition RowBattleId = PublicHighShort(0, "battle_id");
-    internal static readonly BppLogFieldDefinition RowReasonCode = PublicLow(1, "reason_code");
-    internal static readonly BppLogEventDefinition RowSkipped = new(
-        BppLogFeatureScope.HistoryPanel,
-        "history_panel.row.skipped",
-        [RowBattleId, RowReasonCode],
-        new BppLogStormPolicy([RowReasonCode])
-    );
-
     internal static readonly BppLogFieldDefinition OpenReasonCode = PublicLow(0, "reason_code");
     internal static readonly BppLogEventDefinition OpenFailed = new(
         BppLogFeatureScope.HistoryPanel,
@@ -211,31 +194,6 @@ internal static class HistoryPanelLogEvents
             CardPreviewDegradedTemplateId,
         ],
         new BppLogStormPolicy([CardPreviewDegradedOperation, CardPreviewDegradedReasonCode])
-    );
-    internal static readonly BppLogFieldDefinition ItemBoardPreviewDegradedOperation = PublicLow(
-        0,
-        "operation"
-    );
-    internal static readonly BppLogFieldDefinition ItemBoardPreviewDegradedReasonCode = PublicLow(
-        1,
-        "reason_code"
-    );
-    internal static readonly BppLogFieldDefinition ItemBoardPreviewDegradedTemplateId = PublicHigh(
-        2,
-        "template_id"
-    );
-    internal static readonly BppLogEventDefinition ItemBoardPreviewDegraded = new(
-        BppLogFeatureScope.HistoryPanel,
-        "history_panel.item_board_preview.degraded",
-        [
-            ItemBoardPreviewDegradedOperation,
-            ItemBoardPreviewDegradedReasonCode,
-            ItemBoardPreviewDegradedTemplateId,
-        ],
-        new BppLogStormPolicy([
-            ItemBoardPreviewDegradedOperation,
-            ItemBoardPreviewDegradedReasonCode,
-        ])
     );
 
     private static BppLogFieldDefinition PublicLow(int order, string name) =>

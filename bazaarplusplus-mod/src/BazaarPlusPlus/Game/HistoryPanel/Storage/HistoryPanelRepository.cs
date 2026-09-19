@@ -1,7 +1,6 @@
 #nullable enable
 using BazaarPlusPlus.Game.HistoryPanel.Data;
 using BazaarPlusPlus.Game.PvpBattles;
-using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.ModApi.Models;
 using BazaarPlusPlus.Storage.RunLog;
 using Microsoft.Data.Sqlite;
@@ -28,259 +27,105 @@ internal sealed partial class HistoryPanelRepository
 
     public bool DatabaseExists => File.Exists(_databasePath);
 
-    public IReadOnlyList<HistoryRunRecord> ListRecentRuns(int limit)
+    public HistoryPage<HistoryRunRecord> ListRuns(HistoryPageRequest request, string? hero = null)
     {
-        if (!DatabaseExists)
-            return Array.Empty<HistoryRunRecord>();
-
-        using var connection = OpenConnection(ensureSchema: true);
-        using var command = connection.CreateCommand();
-        command.CommandTimeout = 2;
-        // The run window is selected before any battle work happens. Joining first would make
-        // every listing parse the snapshot documents of every battle ever recorded — json_valid()
-        // is a real parse, and neither runs nor battles are ever pruned, so that cost grows without
-        // bound over a save's lifetime while the panel only ever renders $limit rows.
-        command.CommandText = $"""
-            WITH recent_runs AS (
-                SELECT *
-                FROM {RunLogSchema.RunsTableName}
-                ORDER BY
-                    COALESCE(ended_at_utc, last_seen_at_utc, started_at_utc) DESC,
-                    run_id DESC
-                LIMIT $limit
+        var filter = string.IsNullOrWhiteSpace(hero)
+            ? "1=1"
+            : $"{RunLogSchema.HistoryHeroKey} = $hero";
+        return ReadPage(
+            "runs",
+            "run_id",
+            RunLogSchema.HistoryRunTime,
+            filter,
+            "run_id, hero, game_mode, started_at_utc, last_seen_at_utc, player_rank, player_rating, "
+                + "status AS run_status, day, hour, final_day, final_hour, max_health AS final_max_health, "
+                + "prestige AS final_prestige, level AS final_level, income AS final_income, gold AS final_gold, "
+                + "victories, losses, ended_at_utc",
+            request,
+            HistoryPanelRowMapper.ReadRun,
+            (
+                "$hero",
+                HistoryPanelHeroPresentation.CanonicalFilterId(hero)?.Trim().ToLowerInvariant()
+                    ?? ""
             )
-            SELECT
-                r.run_id,
-                r.hero,
-                r.game_mode,
-                r.started_at_utc,
-                r.last_seen_at_utc,
-                r.player_rank,
-                r.player_rating,
-                r.status AS run_status,
-                r.day,
-                r.hour,
-                r.final_day,
-                r.final_hour,
-                r.max_health AS final_max_health,
-                r.prestige AS final_prestige,
-                r.level AS final_level,
-                r.income AS final_income,
-                r.gold AS final_gold,
-                r.victories,
-                r.losses,
-                r.ended_at_utc,
-                COUNT(s.battle_id) AS battle_count
-            FROM recent_runs AS r
-            LEFT JOIN {RunLogSchema.BattlesTableName} AS pb
-                ON pb.run_id = r.run_id
-               AND pb.source = 'LOCAL'
-            LEFT JOIN {RunLogSchema.BattleSnapshotsTableName} AS s
-                ON s.battle_id = pb.battle_id
-               AND json_valid(s.player_hand_json) = 1
-               AND json_valid(s.player_skills_json) = 1
-               AND json_valid(s.opponent_hand_json) = 1
-               AND json_valid(s.opponent_skills_json) = 1
-            GROUP BY
-                r.run_id,
-                r.hero,
-                r.game_mode,
-                r.started_at_utc,
-                r.last_seen_at_utc,
-                r.player_rank,
-                r.player_rating,
-                r.status,
-                r.day,
-                r.hour,
-                r.final_day,
-                r.final_hour,
-                r.max_health,
-                r.prestige,
-                r.level,
-                r.income,
-                r.gold,
-                r.victories,
-                r.losses,
-                r.ended_at_utc
-            ORDER BY
-                COALESCE(r.ended_at_utc, r.last_seen_at_utc, r.started_at_utc) DESC,
-                r.run_id DESC;
-            """;
-        command.Parameters.AddWithValue("$limit", limit);
-
-        using var reader = command.ExecuteReader();
-        var records = new List<HistoryRunRecord>();
-        while (reader.Read())
-            records.Add(HistoryPanelRowMapper.ReadRun(reader));
-
-        return records;
+        );
     }
 
-    public IReadOnlyList<HistoryBattleRecord> ListBattlesByRun(string runId)
-    {
-        if (!DatabaseExists || string.IsNullOrWhiteSpace(runId))
-            return Array.Empty<HistoryBattleRecord>();
+    public HistoryPage<HistoryBattleRecord> ListBattles(string runId, HistoryPageRequest request) =>
+        ReadPage(
+            "battles",
+            "battle_id",
+            "recorded_at_utc",
+            "source = 'LOCAL' AND run_id = $runId",
+            "*",
+            request,
+            reader =>
+                HistoryPanelRowMapper.ReadLocalBattle(
+                    reader,
+                    reader.GetString(reader.GetOrdinal("battle_id"))
+                ),
+            ("$runId", runId)
+        );
 
-        using var connection = OpenConnection(ensureSchema: true);
-        using var command = connection.CreateCommand();
-        command.CommandTimeout = 2;
-        command.CommandText = $"""
-            SELECT
-                b.battle_id,
-                b.run_id,
-                b.recorded_at_utc,
-                b.day,
-                b.hour,
-                b.encounter_id,
-                b.player_hero,
-                b.player_rank,
-                b.player_rating,
-                b.player_level,
-                b.player_prestige,
-                b.player_victories,
-                b.opponent_name,
-                b.opponent_hero,
-                b.opponent_rank,
-                b.opponent_rating,
-                b.opponent_level,
-                b.opponent_prestige,
-                b.opponent_victories,
-                b.opponent_account_id,
-                b.combat_kind,
-                b.result,
-                b.winner_combatant_id,
-                b.loser_combatant_id,
-                s.player_hand_json,
-                s.player_skills_json,
-                s.opponent_hand_json,
-                s.opponent_skills_json
-            FROM {RunLogSchema.BattlesTableName} AS b
-            LEFT JOIN {RunLogSchema.BattleSnapshotsTableName} AS s
-                ON s.battle_id = b.battle_id
-            WHERE b.run_id = $runId
-              AND b.source = 'LOCAL'
-            ORDER BY b.recorded_at_utc DESC, b.battle_id DESC;
-            """;
-        command.Parameters.AddWithValue("$runId", runId);
-
-        using var reader = command.ExecuteReader();
-        var records = new List<HistoryBattleRecord>();
-        while (reader.Read())
-        {
-            var battleId =
-                HistoryPanelRowMapper.SafeGetNullableString(reader, "battle_id") ?? "unknown";
-            try
-            {
-                var playerHand = DeserializeCapture(
-                    reader.GetString(reader.GetOrdinal("player_hand_json"))
-                );
-                var playerSkills = DeserializeCapture(
-                    reader.GetString(reader.GetOrdinal("player_skills_json"))
-                );
-                var opponentHand = DeserializeCapture(
-                    reader.GetString(reader.GetOrdinal("opponent_hand_json"))
-                );
-                var opponentSkills = DeserializeCapture(
-                    reader.GetString(reader.GetOrdinal("opponent_skills_json"))
-                );
-
-                records.Add(
-                    HistoryPanelRowMapper.ReadLocalBattle(
-                        reader,
-                        battleId,
-                        new PvpBattleSnapshots
-                        {
-                            PlayerHand = playerHand,
-                            PlayerSkills = playerSkills,
-                            OpponentHand = opponentHand,
-                            OpponentSkills = opponentSkills,
-                        }
-                    )
-                );
-            }
-            catch (Exception ex)
-            {
-                BppLog.WarnEvent(
-                    HistoryPanelLogEvents.RowSkipped,
-                    ex,
-                    HistoryPanelLogEvents.RowBattleId.Bind(battleId),
-                    HistoryPanelLogEvents.RowReasonCode.Bind(
-                        HistoryPanelRowReasonCode.SnapshotDeserializeFailed
-                    )
-                );
-            }
-        }
-
-        return records;
-    }
-
-    public IReadOnlyList<HistoryBattleRecord> ListRecentGhostBattles(int limit)
-    {
-        if (!DatabaseExists)
-            return Array.Empty<HistoryBattleRecord>();
-
-        MarkOldUndownloadedGhostBattlesDeleted(DateTimeOffset.UtcNow);
-
-        using var connection = OpenConnection();
-        using var command = connection.CreateCommand();
-        command.CommandTimeout = 2;
-        command.CommandText = $"""
-            SELECT
-                battle_id,
-                local_player_account_id,
-                recorded_at_utc,
-                day,
-                hour,
-                encounter_id,
-                player_name,
-                player_account_id,
-                player_hero,
-                player_rank,
-                player_rating,
-                player_level,
-                player_prestige,
-                player_victories,
-                player_hand_item_count,
-                player_skill_count,
-                opponent_name,
-                opponent_hero,
-                opponent_rank,
-                opponent_rating,
-                opponent_level,
-                opponent_prestige,
-                opponent_victories,
-                opponent_hand_item_count,
-                opponent_skill_count,
-                opponent_account_id,
-                combat_kind,
-                result,
-                winner_combatant_id,
-                loser_combatant_id,
-                is_final_battle,
-                CASE WHEN ghost_replay_state IN ('remote_available', 'local_ready') THEN 1 ELSE 0 END AS replay_available,
-                CASE WHEN ghost_replay_state = 'local_ready' THEN 1 ELSE 0 END AS replay_downloaded
-            FROM {RunLogSchema.BattlesTableName}
-            WHERE source = 'GHOST'
-              AND deleted_at_utc IS NULL
-            ORDER BY recorded_at_utc DESC, battle_id DESC
-            LIMIT $limit;
-            """;
-        command.Parameters.AddWithValue("$limit", limit);
-
-        using var reader = command.ExecuteReader();
-        var records = new List<HistoryBattleRecord>();
-        while (reader.Read())
-            records.Add(HistoryPanelRowMapper.ReadGhostBattle(reader));
-
-        return records;
-    }
-
-    public void ReplaceGhostBattles(
-        string localPlayerAccountId,
-        IReadOnlyList<GhostBattleImportRecord> battles
+    public HistoryPage<HistoryBattleRecord> ListGhostBattles(
+        string accountId,
+        GhostBattleFilter filter,
+        bool dayMin10,
+        HistoryPageRequest request
     )
     {
-        UpsertGhostBattles(localPlayerAccountId, battles);
+        if (string.IsNullOrWhiteSpace(accountId))
+            return HistoryPage<HistoryBattleRecord>.Empty;
+        var predicate =
+            "source = 'GHOST' AND deleted_at_utc IS NULL AND local_player_account_id = $account";
+        if (filter != GhostBattleFilter.All)
+            predicate += $" AND ({RunLogSchema.HistoryRecorderOutcome}) = $outcome";
+        if (dayMin10)
+            predicate += " AND day >= 10";
+        return ReadPage(
+            "battles",
+            "battle_id",
+            "recorded_at_utc",
+            predicate,
+            "*, CASE WHEN ghost_replay_state IN ('remote_available','local_ready') THEN 1 ELSE 0 END AS replay_available, "
+                + "CASE WHEN ghost_replay_state = 'local_ready' THEN 1 ELSE 0 END AS replay_downloaded",
+            request,
+            HistoryPanelRowMapper.ReadGhostBattle,
+            ("$account", accountId),
+            ("$outcome", filter == GhostBattleFilter.IWon ? -1 : 1)
+        );
+    }
+
+    public PvpBattleSnapshots? LoadSnapshots(string runId, string battleId)
+    {
+        if (!DatabaseExists)
+            return null;
+        using var connection = OpenConnection(ensureSchema: true);
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT s.* FROM battle_snapshots s JOIN battles b ON b.battle_id = s.battle_id
+            WHERE b.source = 'LOCAL' AND b.run_id = $run AND b.battle_id = $battle;
+            """;
+        command.Parameters.AddWithValue("$run", runId);
+        command.Parameters.AddWithValue("$battle", battleId);
+        using var reader = command.ExecuteReader();
+        if (!reader.Read())
+            return null;
+        return new PvpBattleSnapshots
+        {
+            PlayerHand = DeserializeCapture(
+                reader.GetString(reader.GetOrdinal("player_hand_json"))
+            ),
+            PlayerSkills = DeserializeCapture(
+                reader.GetString(reader.GetOrdinal("player_skills_json"))
+            ),
+            OpponentHand = DeserializeCapture(
+                reader.GetString(reader.GetOrdinal("opponent_hand_json"))
+            ),
+            OpponentSkills = DeserializeCapture(
+                reader.GetString(reader.GetOrdinal("opponent_skills_json"))
+            ),
+        };
     }
 
     public void UpsertGhostBattles(
@@ -584,6 +429,7 @@ internal sealed partial class HistoryPanelRepository
                 END
             WHERE source = 'GHOST'
               AND deleted_at_utc IS NULL
+              AND (ghost_replay_state IS NULL OR ghost_replay_state <> 'local_ready')
               AND recorded_at_utc < $staleCutoffUtc;
             """;
         command.Parameters.AddWithValue("$deletedAtUtc", nowUtc.ToString("o"));
@@ -694,45 +540,59 @@ internal sealed partial class HistoryPanelRepository
         command.ExecuteNonQuery();
     }
 
-    public IReadOnlyList<string> ListBattleIdsByRun(string runId)
+    public HistoryRunDeleteResult DeleteRun(string runId)
     {
         if (!DatabaseExists || string.IsNullOrWhiteSpace(runId))
-            return Array.Empty<string>();
+            return new HistoryRunDeleteResult(Array.Empty<string>(), 0);
 
         using var connection = OpenConnection();
-        using var command = connection.CreateCommand();
-        command.CommandTimeout = 2;
-        command.CommandText = $"""
-            SELECT battle_id
-            FROM {RunLogSchema.BattlesTableName}
-            WHERE run_id = $runId
-              AND source = 'LOCAL'
-            ORDER BY recorded_at_utc DESC, battle_id DESC;
-            """;
-        command.Parameters.AddWithValue("$runId", runId);
-
-        using var reader = command.ExecuteReader();
+        using var transaction = connection.BeginTransaction(deferred: false);
         var battleIds = new List<string>();
-        while (reader.Read())
+        using (var listBattles = connection.CreateCommand())
         {
-            if (!reader.IsDBNull(0))
+            listBattles.Transaction = transaction;
+            listBattles.CommandTimeout = 2;
+            listBattles.CommandText = $"""
+                SELECT battle_id
+                FROM {RunLogSchema.BattlesTableName}
+                WHERE run_id = $runId AND source = 'LOCAL'
+                ORDER BY recorded_at_utc DESC, battle_id DESC;
+                """;
+            listBattles.Parameters.AddWithValue("$runId", runId);
+            using var reader = listBattles.ExecuteReader();
+            while (reader.Read())
                 battleIds.Add(reader.GetString(0));
         }
 
-        return battleIds;
-    }
+        var detachedVideoCount = 0;
+        if (battleIds.Count > 0)
+        {
+            using var detachVideos = connection.CreateCommand();
+            detachVideos.Transaction = transaction;
+            detachVideos.CommandTimeout = 2;
+            detachVideos.CommandText = $"""
+                UPDATE {RunLogSchema.CombatReplayVideosTableName}
+                SET attachment_state = 'detached',
+                    detached_at_utc = COALESCE(detached_at_utc, $now)
+                WHERE attachment_state = 'attached'
+                  AND battle_id IN (SELECT value FROM json_each($battleIdsJson));
+                """;
+            detachVideos.Parameters.AddWithValue("$now", DateTimeOffset.UtcNow.ToString("o"));
+            detachVideos.Parameters.AddWithValue(
+                "$battleIdsJson",
+                Newtonsoft.Json.JsonConvert.SerializeObject(battleIds)
+            );
+            detachedVideoCount = detachVideos.ExecuteNonQuery();
+        }
 
-    public void DeleteRun(string runId)
-    {
-        if (!DatabaseExists || string.IsNullOrWhiteSpace(runId))
-            return;
-
-        using var connection = OpenConnection();
         using var deleteRun = connection.CreateCommand();
+        deleteRun.Transaction = transaction;
         deleteRun.CommandTimeout = 2;
         deleteRun.CommandText = $"DELETE FROM {RunLogSchema.RunsTableName} WHERE run_id = $runId;";
         deleteRun.Parameters.AddWithValue("$runId", runId);
         deleteRun.ExecuteNonQuery();
+        transaction.Commit();
+        return new HistoryRunDeleteResult(battleIds, detachedVideoCount);
     }
 
     private SqliteConnection OpenConnection(bool ensureSchema = false)
@@ -762,6 +622,11 @@ internal sealed partial class HistoryPanelRepository
                 .ToLowerInvariant();
     }
 }
+
+internal readonly record struct HistoryRunDeleteResult(
+    IReadOnlyList<string> BattleIds,
+    int DetachedVideoCount
+);
 
 internal sealed record GhostBundleReference(
     string LocalBattleId,

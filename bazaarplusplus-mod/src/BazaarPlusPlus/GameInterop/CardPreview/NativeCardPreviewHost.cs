@@ -6,7 +6,7 @@ using TheBazaar.UI.Tooltips;
 
 namespace BazaarPlusPlus.GameInterop.CardPreview;
 
-internal sealed class NativeCardPreviewHost : INativeCardPreviewHost
+internal sealed partial class NativeCardPreviewHost : INativeCardPreviewHost
 {
     private readonly INativeTooltipDataFactory _tooltipDataFactory;
     private readonly NativeCardPreviewHoverState<Scope, NativeCardPreviewResource> _hover = new();
@@ -39,6 +39,8 @@ internal sealed class NativeCardPreviewHost : INativeCardPreviewHost
 
     public NativeTooltipRefreshResult RefreshHoveredTooltip(NativeTooltipRefreshRequest request)
     {
+        if (TryRefreshBorrowed(request, out var borrowedResult))
+            return borrowedResult;
         if (
             !_hover.TryGet((scope, candidate) => scope.IsActive(candidate), out _, out var resource)
             || resource == null
@@ -47,7 +49,12 @@ internal sealed class NativeCardPreviewHost : INativeCardPreviewHost
 
         try
         {
-            return RefreshHoveredTooltip(resource, request);
+            return RefreshHoveredTooltip(
+                resource.Card,
+                resource.Subject.TemplateId,
+                failure => SafeReport(resource.Owner, failure),
+                request
+            );
         }
         catch (Exception ex)
         {
@@ -63,34 +70,29 @@ internal sealed class NativeCardPreviewHost : INativeCardPreviewHost
     }
 
     private NativeTooltipRefreshResult RefreshHoveredTooltip(
-        NativeCardPreviewResource resource,
-        NativeTooltipRefreshRequest request
+        UnityEngine.Component card,
+        Guid templateId,
+        Action<NativeCardPreviewFailure> report,
+        NativeTooltipRefreshRequest request,
+        Action? refreshed = null
     )
     {
         NativeCardPreviewFailure? reflectionFailure = null;
         void Report(NativeCardPreviewFailure failure)
         {
-            failure = WithTemplateId(failure, resource.Subject.TemplateId);
+            failure = WithTemplateId(failure, templateId);
             reflectionFailure ??= failure;
-            SafeReport(resource.Owner, failure);
+            report(failure);
         }
 
         if (
-            !NativeCardPreviewReflection.TryGetTooltipData(
-                resource.Card,
-                out var currentTooltipData,
-                Report
-            )
-            || !NativeCardPreviewReflection.TryGetClientCard(
-                resource.Card,
-                out var clientCard,
-                Report
-            )
+            !NativeCardPreviewReflection.TryGetTooltipData(card, out var currentTooltipData, Report)
+            || !NativeCardPreviewReflection.TryGetClientCard(card, out var clientCard, Report)
         )
             return Result(NativeTooltipRefreshStatus.Failed, reflectionFailure);
 
         var tooltipParent = request.TooltipParent;
-        if (tooltipParent == null)
+        if (tooltipParent == null || tooltipParent.HasAnyLockedTooltipControllers())
             return Result(NativeTooltipRefreshStatus.TooltipMismatch);
         var primaryController = Traverse
             .Create(tooltipParent)
@@ -106,11 +108,12 @@ internal sealed class NativeCardPreviewHost : INativeCardPreviewHost
         var transaction = NativeTooltipRefreshTransaction.Execute(
             currentTooltipData,
             () => _tooltipDataFactory.Create(clientCard, currentTooltipData, request.Mode),
-            value => NativeCardPreviewReflection.TrySetTooltipData(resource.Card, value, Report),
+            value => NativeCardPreviewReflection.TrySetTooltipData(card, value, Report),
             value => NativeCardTooltipContentRefresher.TryApply(primaryController, value)
         );
         if (transaction.Status == NativeTooltipRefreshTransactionStatus.Refreshed)
         {
+            refreshed?.Invoke();
             return new NativeTooltipRefreshResult(
                 NativeTooltipRefreshStatus.Refreshed,
                 clientCard,
@@ -139,10 +142,10 @@ internal sealed class NativeCardPreviewHost : INativeCardPreviewHost
                     _ => NativeCardPreviewOperation.SetTooltipData,
                 },
                 NativeCardPreviewFailureReason.ReflectionException,
-                resource.Subject.TemplateId,
+                templateId,
                 transaction.Exception
             );
-            SafeReport(resource.Owner, transactionFailure);
+            report(transactionFailure);
         }
         return Result(NativeTooltipRefreshStatus.Failed, transactionFailure);
     }
@@ -177,8 +180,11 @@ internal sealed class NativeCardPreviewHost : INativeCardPreviewHost
                 failure.Exception
             );
 
-    private void SetHovered(Scope scope, NativeCardPreviewResource resource) =>
+    private void SetHovered(Scope scope, NativeCardPreviewResource resource)
+    {
+        _borrowedHovered = null;
         _hover.Set(scope, resource);
+    }
 
     private void ClearHovered(Scope scope, NativeCardPreviewResource resource) =>
         _hover.Clear(scope, resource);

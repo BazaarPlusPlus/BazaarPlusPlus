@@ -1,4 +1,5 @@
 #nullable enable
+using System.Globalization;
 using BazaarPlusPlus.Localization;
 
 namespace BazaarPlusPlus.Game.Input;
@@ -122,6 +123,7 @@ internal static class BppKeybindLabelResolver
     )
     {
         return string.Format(
+            CultureInfo.CurrentCulture,
             ConflictWarningFormat.Resolve(languageCode, L.CurrentMode),
             ResolveActionLabel(actionId, languageCode),
             ResolveActionLabel(conflictingActionId, languageCode)

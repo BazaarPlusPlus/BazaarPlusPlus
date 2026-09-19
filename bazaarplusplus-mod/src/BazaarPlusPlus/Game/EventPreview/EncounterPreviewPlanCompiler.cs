@@ -78,7 +78,7 @@ internal sealed class EncounterPreviewPlanCompiler
                     continue;
                 }
 
-                if (!TryAddTemplate(eventTemplate, token, templates, failures))
+                if (!TryAddTemplate(eventTemplate, () => token, templates, failures))
                     continue;
 
                 var isRandomSelectionEvent = EncounterStructuredParser.TryParseEventOutcomeGroups(
@@ -170,15 +170,24 @@ internal sealed class EncounterPreviewPlanCompiler
 
         try
         {
+            // Lazy: TryAddTemplate only needs the token when the runtime reward route fails, and
+            // _prepareToken is a reflection walk over the whole template.
             JToken? preparedToken = null;
-            if (
-                template.Type == ECardType.EventEncounter
-                || template.Type == ECardType.EncounterStep
-            )
-            {
-                preparedToken = _prepareToken(template);
-            }
-            TryAddTemplate(template, preparedToken, templates, failures);
+            var preparedTokenComputed = false;
+            TryAddTemplate(
+                template,
+                () =>
+                {
+                    if (preparedTokenComputed)
+                        return preparedToken;
+
+                    preparedTokenComputed = true;
+                    preparedToken = _prepareToken(template);
+                    return preparedToken;
+                },
+                templates,
+                failures
+            );
         }
         catch (Exception)
         {
@@ -325,7 +334,7 @@ internal sealed class EncounterPreviewPlanCompiler
 
     private static bool TryAddTemplate(
         TCardBase template,
-        JToken? preparedToken,
+        Func<JToken?> preparedToken,
         Dictionary<Guid, EncounterPreviewTemplatePlan> templates,
         HashSet<Guid> failures
     )

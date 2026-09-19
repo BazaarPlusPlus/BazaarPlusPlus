@@ -1,0 +1,67 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>12</LangVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" PrivateAssets="all" />
+    <ProjectReference Include="../../src/BazaarPlusPlus.ModApi/BazaarPlusPlus.ModApi.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="../CollectionPanelLogging.Tests/*.cs" />
+    <Compile Include="../CombatReplayPlaybackLogging.Tests/*.cs" />
+    <Compile Include="../HistoryPanelAccountLinkLogging.Tests/*.cs" />
+    <Compile Include="../HistoryPanelOperationalLogging.Tests/*.cs" />
+    <Compile Include="../LiveBuildPanelLogging.Tests/*.cs" />
+    <Compile Include="../OverlayPanelLogging.Tests/*.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile
+      Include="../../src/BazaarPlusPlus/Infrastructure/Logging/Core/*.cs"
+      Link="Logging/Core/%(Filename)%(Extension)"
+    />
+
+    <Compile Include="../../src/BazaarPlusPlus/Game/CollectionPanel/CollectionPanelLogEvents.cs" />
+    <Compile Include="../../src/BazaarPlusPlus/Game/CollectionPanel/CollectionPanelSelectionLogState.cs" />
+    <Compile Include="../../src/BazaarPlusPlus/Game/CollectionPanel/CollectionPanelDockLayoutLogState.cs" />
+    <Compile Include="../../src/BazaarPlusPlus/Game/CollectionPanel/CollectionPanelLoadDiagnostics.cs" />
+    <Compile Include="../../src/BazaarPlusPlus/Game/CollectionPanel/CollectionPortraitFailureGate.cs" />
+    <Compile Include="../../src/BazaarPlusPlus/Game/CollectionPanel/Data/CollectionCatalogLogState.cs" />
+    <Compile Include="../../src/BazaarPlusPlus/Game/CollectionPanel/Grid/CollectionCardArtLogState.cs" />
+
+    <Compile Include="../../src/BazaarPlusPlus/Game/CombatReplay/CombatReplayPlaybackSource.cs" />
+    <Compile Include="../../src/BazaarPlusPlus/Game/CombatReplay/CombatReplayLogEvents.cs" />
+    <Compile Include="../../src/BazaarPlusPlus/Game/CombatReplay/CurrentReplayRecordingStatusCode.cs" />
+    <Compile Include="../../src/BazaarPlusPlus/Game/CombatReplay/ManagedReplayRecordingRestartCore.cs" />
+    <Compile Include="../../src/BazaarPlusPlus/Game/CombatReplay/ReplayPlaybackLogOperation.cs" />
+    <Compile Include="../../src/BazaarPlusPlus/Game/CombatReplay/SavedReplayLifecycle.cs" />
+    <Compile Include="../../src/BazaarPlusPlus/Game/CombatReplay/ReplayPersistenceLogState.cs" />
+    <Compile Include="../../src/BazaarPlusPlus/Game/CombatReplay/Bootstrap/ReplayPresentationTaskTracker.cs" />
+    <Compile Include="../../src/BazaarPlusPlus/GameInterop/CombatReplay/NativeReplayRestartGate.cs" />
+
+    <Compile Include="../../src/BazaarPlusPlus/Game/HistoryPanel/AccountLink/HistoryPanelAccountLinkLogEvents.cs" />
+    <Compile Include="../../src/BazaarPlusPlus/Game/HistoryPanel/AccountLink/AccountLinkLogRequest.cs" />
+    <Compile Include="../../src/BazaarPlusPlus/Game/HistoryPanel/HistoryPanelLogEvents.cs" />
+    <Compile Include="../../src/BazaarPlusPlus/Game/HistoryPanel/HistoryPanelLogOperations.cs" />
+    <Compile Include="../../src/BazaarPlusPlus/Game/HistoryPanel/HistoryPanelLogWriter.cs" />
+    <Compile Include="../../src/BazaarPlusPlus/Game/HistoryPanel/HistoryPanelPayloadFailureLogGate.cs" />
+    <Compile Include="../../src/BazaarPlusPlus/Game/HistoryPanel/HistoryPanelReplayCleanup.cs" />
+
+    <Compile Include="../../src/BazaarPlusPlus/Game/LiveBuildPanel/LiveBuildPanelLogEvents.cs" />
+    <Compile Include="../../src/BazaarPlusPlus/Game/LiveBuildPanel/LiveBuildRefreshLogOperation.cs" />
+    <Compile Include="../../src/BazaarPlusPlus/Game/LiveBuildPanel/Recommendations/BuildRecommendationCorpusLogState.cs" />
+    <Compile Include="../../src/BazaarPlusPlus/Game/LiveBuildPanel/Recommendations/BuildRecommendationRefreshService.cs" />
+
+    <Compile Include="../../src/BazaarPlusPlus/Game/OverlayPanels/OverlayLifecycleCore.cs" />
+    <Compile Include="../../src/BazaarPlusPlus/Game/OverlayPanels/OverlayPanelLogEvents.cs" />
+    <Compile Include="../../src/BazaarPlusPlus/Game/OverlayPanels/OverlayPanelHostLogState.cs" />
+  </ItemGroup>
+</Project>

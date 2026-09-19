@@ -175,13 +175,13 @@ const zh = {
   // Install confirmation modal
   installModalTitle: '安装 BazaarPlusPlus',
   tutorialKicker: '使用教程',
-  installModalBody:
-    '安装会写入 BazaarPlusPlus 与 BepInEx 组件（BepInEx 用于让插件在游戏内运行）。',
+  installModalBody: '安装完成后，从 Steam 启动游戏即可使用。',
   viewTutorial: '查看教程',
   installSteamNotice:
     '安装前请先关闭 Steam；如果 Steam 正在运行，请手动退出后再继续。',
-  installSteamNoticeMacos: '继续后，安装器将关闭 Steam，以完成 macOS 配置。',
-  installAcknowledge: '我确认安装插件存在风险，并愿意自行承担相关责任',
+  installSteamNoticeMacos: '请先退出游戏。继续安装将关闭 Steam。',
+  installCloseGameNotice: '请先退出游戏，再继续安装。',
+  installAcknowledge: '我了解使用第三方插件的风险，并自行承担。',
   installing: '安装中…',
   confirmInstall: '确认安装',
 
@@ -232,7 +232,15 @@ const zh = {
   viewDetail: '查看详情',
   historySummaryRuns: '对局数',
   historySummaryVideos: '视频数',
-  historySummaryWinRate: '胜率',
+  historySummaryWinRate: '十胜达成率',
+  historyOverviewLabel: '战绩概览',
+  historyPagination: '战绩分页',
+  historyPageRange: '第 {start}–{end} 局，共 {total} 局',
+  historyPageNumber: '{page} / {total} 页',
+  historyPreviousPage: '上一页',
+  historyNextPage: '下一页',
+  runModeRanked: '排位',
+  runModeNormal: '普通',
   historyProblemUnavailable:
     '未找到可用的本地战绩数据库。请先在安装页选择正确的游戏目录。',
   historyProblemReadFailed:
@@ -247,7 +255,7 @@ const zh = {
   historyEndGameProcessFailedMac:
     '结束游戏进程失败。请在“活动监视器”中结束 The Bazaar 后重试。',
   historyProblemUnsupportedSchema:
-    '战绩数据库版本不受支持（当前 {found}，支持 {expected}）。请更新 BazaarPlusPlus 插件或安装器。',
+    '战绩数据库版本不受支持（当前 {found}，支持 {supported}）。请更新 BazaarPlusPlus 插件或安装器。',
   historyProblemPreviewUnavailable:
     '战绩已载入，但缩略图服务当前不可用。可前往直播页启动本地服务。',
   historyProblemUnexpected: '加载本地战绩时发生意外错误。请重试。',
@@ -255,10 +263,13 @@ const zh = {
   historyOpenStream: '前往直播页',
   historyPreviewFallback: '缩略图不可用；刷新页面可重试。',
   historyPreviewServiceOffline: '缩略图服务未启动，请前往直播页启动',
-  runResultVictory: '胜利',
-  runResultDefeat: '失败',
-  runResultAbandoned: '放弃',
-  runResultActive: '进行中',
+  runResultMisfortune: '惨淡旅程',
+  runResultBronze: '青铜胜利',
+  runResultSilver: '白银胜利',
+  runResultGold: '黄金胜利',
+  runResultDiamond: '钻石胜利',
+  runResultAbandoned: '中途放弃',
+  runResultActive: '正在进行',
   runMetricWins: '胜场',
   runMetricDays: '天数',
   runStatRank: '段位',
@@ -305,18 +316,26 @@ const zh = {
   deleteVideo: '删除视频',
   deleteVideoConfirmTitle: '删除视频',
   deleteVideoTarget: '目标：战斗 {battleId} · 视频 {videoId}',
+  deleteVideoRunDate: '对局时间',
+  deleteVideoBattle: '战斗',
+  deleteVideoBattleDescription: '第 {day} 天 · {opponent}',
+  deleteVideoDuration: '视频时长',
+  deleteVideoTechnicalDetails: '技术详情',
+  battleVideoActionLabel: '{action}：第 {day} 天，对手 {opponent}',
   deleteVideoConfirmBody: '这会永久删除该场战斗的回放视频文件，且无法恢复。',
   deleteVideoConfirmAction: '删除视频',
   deleteVideoRunning: '正在删除目标视频…',
 
   // Storage cleanup (History page)
-  storageCleanupTitle: '存储清理',
+  storageCleanupTitle: '存储管理',
+  storageCleanupRangeLabel: '{scope}的清理时间范围',
+  storageCleanupPreviewLabel: '预览清理{scope}',
+  storageCleanupPreviewAction: '预览清理',
   storageCleanupScreenshotsLabel: '对局结算截图',
   storageCleanupRunDataLabel: '对局数据',
   storageCleanupPresetAll: '全部',
   storageCleanupPresetOlderThan7Days: '7 天前',
   storageCleanupPresetBeforeThisMonth: '本月以前',
-  storageCleanupActionLabel: '清理{scope} · {preset}',
   storageCleanupConfirmTitle: '确认清理',
   storageCleanupTarget: '目标：{scope} · 范围：{preset}',
   storageCleanupScreenshotsConfirmBody:
@@ -432,11 +451,8 @@ const zh = {
   maintenanceResetBepinexDescription: '重置插件环境',
   checkUpdateDescription: '获取最新版本信息',
   maintenanceUninstallDescription: '移除所有组件',
-  installModalSubtitle: '安装前确认与环境检查',
-  historySummaryRunsDescription: '总对局场次',
-  historySummaryVideosDescription: '已录制视频',
-  historySummaryWinRateDescription: '已完成对局胜率',
-  historySummaryWinRateUnavailable: '胜率暂无数据',
+  historySummaryWinRateDescription: '十胜对局 / 已完成对局',
+  historySummaryWinRateUnavailable: '尚无已完成对局',
   storageCleanupScreenshotsDescription: '保存对局结算时的截图文件',
   storageCleanupRunDataDescription: '保存对局产生的各类数据文件',
   aboutTagline: 'The Bazaar 数据增强与分析工具'
@@ -599,14 +615,14 @@ const en: Record<MessageKey, string> = {
   installModalTitle: 'Install BazaarPlusPlus',
   tutorialKicker: 'Tutorial',
   installModalBody:
-    'Installation writes the BazaarPlusPlus and BepInEx components (BepInEx lets the plugin run inside the game).',
+    'After installation, launch the game from Steam to use the mod.',
   viewTutorial: 'View tutorial',
   installSteamNotice:
     'Please close Steam before installing. If Steam is running, quit it manually before continuing.',
-  installSteamNoticeMacos:
-    'Continuing will close Steam to complete the macOS setup.',
+  installSteamNoticeMacos: 'Close the game first. Continuing will quit Steam.',
+  installCloseGameNotice: 'Close the game before continuing.',
   installAcknowledge:
-    'I understand installing the plugin carries risk and accept responsibility for it.',
+    'I understand and accept the risks of using third-party mods.',
   installing: 'Installing…',
   confirmInstall: 'Confirm Install',
 
@@ -661,7 +677,15 @@ const en: Record<MessageKey, string> = {
   viewDetail: 'View Details',
   historySummaryRuns: 'Runs',
   historySummaryVideos: 'Videos',
-  historySummaryWinRate: 'Win Rate',
+  historySummaryWinRate: '10-Win Rate',
+  historyOverviewLabel: 'History overview',
+  historyPagination: 'History pages',
+  historyPageRange: 'Runs {start}–{end} of {total}',
+  historyPageNumber: 'Page {page} of {total}',
+  historyPreviousPage: 'Previous',
+  historyNextPage: 'Next',
+  runModeRanked: 'Ranked',
+  runModeNormal: 'Normal',
   historyProblemUnavailable:
     'No local History database is available. Select the correct game directory on the Install page.',
   historyProblemReadFailed:
@@ -677,7 +701,7 @@ const en: Record<MessageKey, string> = {
   historyEndGameProcessFailedMac:
     'The game process could not be ended. Quit The Bazaar from Activity Monitor, then retry.',
   historyProblemUnsupportedSchema:
-    'The History database schema is unsupported (found {found}, expected {expected}). Update the BazaarPlusPlus plugin or installer.',
+    'The History database schema is unsupported (found {found}, supported {supported}). Update the BazaarPlusPlus plugin or installer.',
   historyProblemPreviewUnavailable:
     'Runs are loaded, but thumbnails are unavailable. Start the local service from the Stream page.',
   historyProblemUnexpected:
@@ -687,8 +711,11 @@ const en: Record<MessageKey, string> = {
   historyPreviewFallback: 'Thumbnail unavailable; refresh to retry.',
   historyPreviewServiceOffline:
     'Thumbnail service is not running. Start it from the Stream page.',
-  runResultVictory: 'VICTORY',
-  runResultDefeat: 'DEFEAT',
+  runResultMisfortune: 'MISFORTUNE JOURNEY',
+  runResultBronze: 'BRONZE VICTORY',
+  runResultSilver: 'SILVER VICTORY',
+  runResultGold: 'GOLD VICTORY',
+  runResultDiamond: 'DIAMOND VICTORY',
   runResultAbandoned: 'ABANDONED',
   runResultActive: 'ACTIVE',
   runMetricWins: 'Wins',
@@ -740,18 +767,26 @@ const en: Record<MessageKey, string> = {
   deleteVideo: 'Delete Video',
   deleteVideoConfirmTitle: 'Delete Video',
   deleteVideoTarget: 'Target: battle {battleId} · video {videoId}',
+  deleteVideoRunDate: 'Run started',
+  deleteVideoBattle: 'Battle',
+  deleteVideoBattleDescription: 'Day {day} · {opponent}',
+  deleteVideoDuration: 'Video duration',
+  deleteVideoTechnicalDetails: 'Technical details',
+  battleVideoActionLabel: '{action}: day {day}, opponent {opponent}',
   deleteVideoConfirmBody:
     'This permanently deletes the replay video file for this battle and cannot be undone.',
   deleteVideoConfirmAction: 'Delete Video',
   deleteVideoRunning: 'Deleting the target video…',
 
-  storageCleanupTitle: 'Storage Cleanup',
+  storageCleanupTitle: 'Storage',
+  storageCleanupRangeLabel: 'Cleanup time range for {scope}',
+  storageCleanupPreviewLabel: 'Review cleanup of {scope}',
+  storageCleanupPreviewAction: 'Review cleanup',
   storageCleanupScreenshotsLabel: 'End-of-run screenshots',
   storageCleanupRunDataLabel: 'Run data',
   storageCleanupPresetAll: 'All',
   storageCleanupPresetOlderThan7Days: 'Older than 7 days',
   storageCleanupPresetBeforeThisMonth: 'Before this month',
-  storageCleanupActionLabel: 'Clean {scope} · {preset}',
   storageCleanupConfirmTitle: 'Confirm Cleanup',
   storageCleanupTarget: 'Target: {scope} · Range: {preset}',
   storageCleanupScreenshotsConfirmBody:
@@ -884,11 +919,8 @@ const en: Record<MessageKey, string> = {
   maintenanceResetBepinexDescription: 'Reset the plugin environment',
   checkUpdateDescription: 'Fetch the latest version information',
   maintenanceUninstallDescription: 'Remove all components',
-  installModalSubtitle: 'Pre-install confirmation and environment check',
-  historySummaryRunsDescription: 'Total recorded runs',
-  historySummaryVideosDescription: 'Recorded videos',
-  historySummaryWinRateDescription: 'Across completed runs',
-  historySummaryWinRateUnavailable: 'No win-rate data yet',
+  historySummaryWinRateDescription: '10-win runs / completed runs',
+  historySummaryWinRateUnavailable: 'No completed runs yet',
   storageCleanupScreenshotsDescription: 'Screenshot files saved at run end',
   storageCleanupRunDataDescription: 'Data files generated by completed runs',
   aboutTagline: 'Data enhancement and analysis for The Bazaar'

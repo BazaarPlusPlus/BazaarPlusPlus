@@ -1,4 +1,5 @@
 #nullable enable
+using System.Globalization;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -169,7 +170,9 @@ internal sealed class UrpUpscalingAdapter : IDisposable
 
         internal UrpUpscalingFilter Filter
         {
-            get => (UrpUpscalingFilter)Convert.ToInt32(_filter.GetValue(_asset));
+            get =>
+                (UrpUpscalingFilter)
+                    Convert.ToInt32(_filter.GetValue(_asset), CultureInfo.InvariantCulture);
             set => _filter.SetValue(_asset, Enum.ToObject(_filter.PropertyType, (int)value));
         }
 

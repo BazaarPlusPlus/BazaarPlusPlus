@@ -1,5 +1,6 @@
 #nullable enable
 using System.Reflection;
+using BazaarGameShared.Domain.Core.Types;
 using BazaarPlusPlus.Core.Events;
 using BazaarPlusPlus.Core.Runtime;
 using BazaarPlusPlus.GameInterop.Heroes;
@@ -39,6 +40,8 @@ internal sealed class EndOfRunCaptureWorkflow : IEndOfRunCaptureWorkflow, IDispo
     private EndOfRunCaptureDriver? _driver;
     private string? _bufferedRunId;
     private string? _bufferedHeroName;
+    private EHero _canonicalHeroIdSource;
+    private string? _canonicalHeroId;
     private bool _disposed;
 
     internal EndOfRunCaptureWorkflow(IBppServices services)
@@ -49,7 +52,11 @@ internal sealed class EndOfRunCaptureWorkflow : IEndOfRunCaptureWorkflow, IDispo
             new UnityEndOfRunCaptureClock(),
             new SystemEndOfRunCaptureFileSystem(),
             EndOfRunCapturePolicy.Default,
-            terminal => services.EventBus.Publish(terminal)
+            terminal =>
+            {
+                _driver?.ReportSamplingDiagnostics();
+                services.EventBus.Publish(terminal);
+            }
         );
         RefreshBufferedRunContext();
     }
@@ -234,11 +241,21 @@ internal sealed class EndOfRunCaptureWorkflow : IEndOfRunCaptureWorkflow, IDispo
         if (!string.IsNullOrWhiteSpace(runId))
             _bufferedRunId = runId;
 
-        var heroName = Data.Run?.Player is { } player
-            ? TheDragonsHeroIdentity.ToCanonicalId(player.Hero)
-            : null;
+        var heroName = Data.Run?.Player is { } player ? CanonicalHeroId(player.Hero) : null;
         if (!string.IsNullOrWhiteSpace(heroName))
             _bufferedHeroName = heroName;
+    }
+
+    // This runs once per frame while the workflow is live, and canonicalization is a ToString/Trim
+    // comparison chain, so the result is recomputed only when the run's hero actually changes.
+    private string CanonicalHeroId(EHero hero)
+    {
+        if (_canonicalHeroId != null && _canonicalHeroIdSource == hero)
+            return _canonicalHeroId;
+
+        _canonicalHeroIdSource = hero;
+        _canonicalHeroId = TheDragonsHeroIdentity.ToCanonicalId(hero);
+        return _canonicalHeroId;
     }
 
     private static bool TryGetTransitionCount(object screen, out int transitionCount)

@@ -4,48 +4,19 @@ use crate::history::dto::{
 use crate::history::hero::{canonical_hero_id, hero_display_name};
 use crate::history::queries::RunRow;
 
-struct RunSharedFields {
-    run_id: String,
-    hero: String,
-    game_mode: String,
-    started_at_utc: String,
-    ended_at_utc: Option<String>,
-    last_seen_at_utc: String,
+/// The only real transformations a run row needs on its way to a DTO: the
+/// derived result, the canonical hero display name, and the strip URL.
+struct RunDerivations {
     result: String,
-    victories: Option<i64>,
-    losses: Option<i64>,
-    final_day: Option<i64>,
-    final_player_rank: Option<String>,
-    final_player_rating: Option<i64>,
-    screenshot_id: Option<String>,
+    hero: String,
     strip_url: Option<String>,
-    video_count: i64,
 }
 
-fn build_run_shared_fields(
-    row: RunRow,
-    screenshot_id: Option<String>,
-    video_count: i64,
-) -> RunSharedFields {
-    let strip_url = screenshot_id
-        .as_ref()
-        .map(|id| strip_url_for_screenshot(id));
-    RunSharedFields {
+fn derive_run_fields(row: &RunRow, screenshot_id: Option<&str>) -> RunDerivations {
+    RunDerivations {
         result: derive_run_result(&row.status, row.victories),
-        run_id: row.run_id,
         hero: hero_display_name(&canonical_hero_id(&row.hero)).to_string(),
-        game_mode: row.game_mode,
-        started_at_utc: row.started_at_utc,
-        ended_at_utc: row.ended_at_utc,
-        last_seen_at_utc: row.last_seen_at_utc,
-        victories: row.victories,
-        losses: row.losses,
-        final_day: row.final_day,
-        final_player_rank: row.final_player_rank,
-        final_player_rating: row.final_player_rating,
-        screenshot_id,
-        strip_url,
-        video_count,
+        strip_url: screenshot_id.map(strip_url_for_screenshot),
     }
 }
 
@@ -79,58 +50,46 @@ pub fn map_battle_result(result: Option<&str>) -> String {
     }
 }
 
-pub fn map_run_to_list_row(
-    row: RunRow,
-    screenshot_id: Option<String>,
-    video_count: i64,
-) -> HistoryRunRow {
-    let shared = build_run_shared_fields(row, screenshot_id, video_count);
+pub fn map_run_to_list_row(row: RunRow, screenshot_id: Option<String>) -> HistoryRunRow {
+    let derived = derive_run_fields(&row, screenshot_id.as_deref());
     HistoryRunRow {
-        run_id: shared.run_id,
-        hero: shared.hero,
-        game_mode: shared.game_mode,
-        started_at_utc: shared.started_at_utc,
-        ended_at_utc: shared.ended_at_utc,
-        last_seen_at_utc: shared.last_seen_at_utc,
-        result: shared.result,
-        victories: shared.victories,
-        losses: shared.losses,
-        final_day: shared.final_day,
-        final_player_rank: shared.final_player_rank,
-        final_player_rating: shared.final_player_rating,
-        screenshot_id: shared.screenshot_id,
-        strip_url: shared.strip_url,
-        video_count: shared.video_count,
+        run_id: row.run_id,
+        hero: derived.hero,
+        game_mode: row.game_mode,
+        started_at_utc: row.started_at_utc,
+        ended_at_utc: row.ended_at_utc,
+        result: derived.result,
+        victories: row.victories,
+        losses: row.losses,
+        final_day: row.final_day,
+        final_player_rank: row.final_player_rank,
+        final_player_rating: row.final_player_rating,
+        screenshot_id,
+        strip_url: derived.strip_url,
     }
 }
 
 pub fn map_run_to_detail_row(
     row: RunRow,
     screenshot_id: Option<String>,
-    video_count: i64,
     player_name: Option<String>,
 ) -> HistoryRunDetailRow {
-    let status = row.status.clone();
-    let final_hour = row.final_hour;
-    let shared = build_run_shared_fields(row, screenshot_id, video_count);
+    let derived = derive_run_fields(&row, screenshot_id.as_deref());
     HistoryRunDetailRow {
-        run_id: shared.run_id,
-        hero: shared.hero,
-        game_mode: shared.game_mode,
-        started_at_utc: shared.started_at_utc,
-        ended_at_utc: shared.ended_at_utc,
-        last_seen_at_utc: shared.last_seen_at_utc,
-        status,
-        result: shared.result,
-        victories: shared.victories,
-        losses: shared.losses,
-        final_day: shared.final_day,
-        final_hour,
-        final_player_rank: shared.final_player_rank,
-        final_player_rating: shared.final_player_rating,
-        screenshot_id: shared.screenshot_id,
-        strip_url: shared.strip_url,
-        video_count: shared.video_count,
+        run_id: row.run_id,
+        hero: derived.hero,
+        game_mode: row.game_mode,
+        started_at_utc: row.started_at_utc,
+        ended_at_utc: row.ended_at_utc,
+        status: row.status,
+        result: derived.result,
+        victories: row.victories,
+        losses: row.losses,
+        final_day: row.final_day,
+        final_player_rank: row.final_player_rank,
+        final_player_rating: row.final_player_rating,
+        screenshot_id,
+        strip_url: derived.strip_url,
         player_name,
     }
 }
@@ -193,12 +152,10 @@ mod tests {
             game_mode: "Ranked".to_string(),
             started_at_utc: "2026-08-06T12:00:00Z".to_string(),
             ended_at_utc: Some("2026-08-06T13:00:00Z".to_string()),
-            last_seen_at_utc: "2026-08-06T13:00:00Z".to_string(),
             status: "completed".to_string(),
             victories: Some(10),
             losses: Some(2),
             final_day: Some(12),
-            final_hour: Some(1),
             final_player_rank: Some("Diamond".to_string()),
             final_player_rating: Some(1500),
         }
@@ -219,8 +176,8 @@ mod tests {
 
     #[test]
     fn run_rows_use_the_dragons_display_name() {
-        let list_row = map_run_to_list_row(run_row("Hero8"), None, 0);
-        let detail_row = map_run_to_detail_row(run_row("Hero8"), None, 0, None);
+        let list_row = map_run_to_list_row(run_row("Hero8"), None);
+        let detail_row = map_run_to_detail_row(run_row("Hero8"), None, None);
 
         assert_eq!(list_row.hero, "The Dragons");
         assert_eq!(detail_row.hero, "The Dragons");

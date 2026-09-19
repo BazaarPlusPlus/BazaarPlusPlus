@@ -20,8 +20,7 @@ export const emptyInstallState: InstallState = {
   steam_path: null,
   game: {
     found: false,
-    path_valid: false,
-    display_version: null
+    path_valid: false
   },
   mod_state: {
     installed: false,

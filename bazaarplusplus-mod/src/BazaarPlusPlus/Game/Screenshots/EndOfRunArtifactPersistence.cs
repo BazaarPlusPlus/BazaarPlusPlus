@@ -7,12 +7,14 @@ namespace BazaarPlusPlus.Game.Screenshots;
 
 internal sealed class EndOfRunArtifactPersistence : IEndOfRunArtifactPersistence
 {
-    private readonly IBppServices _services;
+    private readonly string _buildChannel;
     private readonly RunScreenshotSqliteStore? _store;
 
     internal EndOfRunArtifactPersistence(IBppServices services)
     {
-        _services = services ?? throw new ArgumentNullException(nameof(services));
+        if (services == null)
+            throw new ArgumentNullException(nameof(services));
+        _buildChannel = services.GameBuild.Channel.ToString();
         _store = new RunScreenshotSqliteStore(
             PathConstants.RunLogDatabase(services.Paths.RequireDataRoot())
         );
@@ -26,20 +28,7 @@ internal sealed class EndOfRunArtifactPersistence : IEndOfRunArtifactPersistence
         if (capture == null || _store == null)
             return Task.FromResult(ScreenshotMetadataPersistenceOutcome.Unavailable());
 
-        var probe = _services.RunSnapshot;
-        var basics = probe.TryGetRunBasics(out var basicsSnapshot) ? basicsSnapshot : null;
-        var rank = probe.TryGetRankSnapshot(out var rankSnapshot) ? rankSnapshot : null;
-        var position = probe.TryGetLeaderboardPosition(out var leaderboardPosition)
-            ? leaderboardPosition
-            : null;
-        var record = RunScreenshotRecordMapper.CreateRecord(
-            capture,
-            basics,
-            rank,
-            position,
-            isPrimary,
-            _services.GameBuild.Channel.ToString()
-        );
+        var record = RunScreenshotRecordMapper.CreateRecord(capture, isPrimary, _buildChannel);
         var store = _store;
 
         return Task.Run(() =>

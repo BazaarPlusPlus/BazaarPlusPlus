@@ -279,20 +279,6 @@ internal static class CombatReplayVideoLogEvents
         17,
         "pool_budget_exceeded"
     );
-    internal static readonly BppLogFieldDefinition StatsReadbackBackpressureSkips = Field(
-        18,
-        "readback_backpressure_skips",
-        BppLogCardinality.High
-    );
-    internal static readonly BppLogFieldDefinition StatsMaxOutstandingReadbacks = Field(
-        19,
-        "max_outstanding_readbacks"
-    );
-    internal static readonly BppLogFieldDefinition StatsReadbackCopyP95Us = Field(
-        20,
-        "readback_copy_p95_us",
-        BppLogCardinality.High
-    );
     internal static readonly BppLogFieldDefinition StatsCfrCopyP95Us = Field(
         21,
         "cfr_copy_p95_us",
@@ -301,11 +287,6 @@ internal static class CombatReplayVideoLogEvents
     internal static readonly BppLogFieldDefinition StatsStagingBufferBytes = Field(
         22,
         "staging_buffer_bytes",
-        BppLogCardinality.High
-    );
-    internal static readonly BppLogFieldDefinition StatsMaxReadbackPayloadBytes = Field(
-        23,
-        "max_readback_payload_bytes",
         BppLogCardinality.High
     );
     internal static readonly BppLogFieldDefinition StatsRenderTextureEstimatedBytes = Field(
@@ -335,12 +316,8 @@ internal static class CombatReplayVideoLogEvents
             StatsQueueCapacity,
             StatsPoolPayloadBytes,
             StatsPoolBudgetExceeded,
-            StatsReadbackBackpressureSkips,
-            StatsMaxOutstandingReadbacks,
-            StatsReadbackCopyP95Us,
             StatsCfrCopyP95Us,
             StatsStagingBufferBytes,
-            StatsMaxReadbackPayloadBytes,
             StatsRenderTextureEstimatedBytes,
         ]
     );
@@ -450,25 +427,6 @@ internal static class CombatReplayVideoLogEvents
         ]
     );
 
-    internal static readonly BppLogFieldDefinition FrameRecordingId = Field(
-        0,
-        "recording_id",
-        BppLogCardinality.High,
-        BppLogCorrelationPolicy.Short
-    );
-    internal static readonly BppLogFieldDefinition FrameStage = Field(1, "stage");
-    internal static readonly BppLogFieldDefinition FrameReasonCode = Field(2, "reason_code");
-    internal static readonly BppLogFieldDefinition FrameSequence = Field(
-        3,
-        "sequence",
-        BppLogCardinality.High
-    );
-    internal static readonly BppLogEventDefinition VideoCaptureFrameDegraded = new(
-        BppLogFeatureScope.CombatReplay,
-        "combat_replay.video_capture.frame_degraded",
-        [FrameRecordingId, FrameStage, FrameReasonCode, FrameSequence]
-    );
-
     internal static readonly BppLogFieldDefinition CleanupRecordingId = Field(
         0,
         "recording_id",
@@ -511,6 +469,63 @@ internal static class CombatReplayVideoLogEvents
         BppLogFeatureScope.CombatReplay,
         "combat_replay.video_mux.diagnostic_observed",
         [MuxRecordingId, MuxStage, MuxReasonCode, MuxPath, MuxPendingCount]
+    );
+
+    internal static readonly BppLogFieldDefinition MaintenanceStatus = Field(0, "status");
+    internal static readonly BppLogFieldDefinition MaintenanceMetadataCount = Field(
+        1,
+        "metadata_count",
+        BppLogCardinality.High
+    );
+    internal static readonly BppLogFieldDefinition MaintenancePresentCount = Field(
+        2,
+        "present_count",
+        BppLogCardinality.High
+    );
+    internal static readonly BppLogFieldDefinition MaintenanceMissingCount = Field(
+        3,
+        "missing_count",
+        BppLogCardinality.High
+    );
+    internal static readonly BppLogFieldDefinition MaintenanceUnknownMp4Count = Field(
+        4,
+        "unknown_mp4_count",
+        BppLogCardinality.High
+    );
+    internal static readonly BppLogFieldDefinition MaintenanceTempCandidateCount = Field(
+        5,
+        "temp_candidate_count",
+        BppLogCardinality.High
+    );
+    internal static readonly BppLogFieldDefinition MaintenanceTempDeletedCount = Field(
+        6,
+        "temp_deleted_count",
+        BppLogCardinality.High
+    );
+    internal static readonly BppLogFieldDefinition MaintenanceFailedCount = Field(
+        7,
+        "failed_count",
+        BppLogCardinality.High
+    );
+    internal static readonly BppLogFieldDefinition MaintenanceUnmanagedCount = Field(
+        8,
+        "unmanaged_count",
+        BppLogCardinality.High
+    );
+    internal static readonly BppLogEventDefinition VideoArtifactMaintenanceObserved = new(
+        BppLogFeatureScope.CombatReplay,
+        "combat_replay.video_artifact.maintenance_observed",
+        [
+            MaintenanceStatus,
+            MaintenanceMetadataCount,
+            MaintenancePresentCount,
+            MaintenanceMissingCount,
+            MaintenanceUnknownMp4Count,
+            MaintenanceTempCandidateCount,
+            MaintenanceTempDeletedCount,
+            MaintenanceFailedCount,
+            MaintenanceUnmanagedCount,
+        ]
     );
 
     private static BppLogFieldDefinition Field(

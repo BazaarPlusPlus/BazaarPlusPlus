@@ -30,12 +30,8 @@ internal readonly struct CombatReplayRecordingGateResult
 /// </summary>
 internal static class CombatReplayRecordingGate
 {
-    public static CombatReplayRecordingGateResult Evaluate(
-        string? pluginsDirectoryPath,
-        string? videoDirectoryPath
-    )
+    public static CombatReplayRecordingGateResult Evaluate(string? videoDirectoryPath)
     {
-        _ = pluginsDirectoryPath;
         var backend = ReplayVideoBackendPolicy.Current;
         var available = backend switch
         {

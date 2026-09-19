@@ -4,9 +4,9 @@
 
 **因热爱而生** · 为 [《The Bazaar》](https://www.playthebazaar.com) 打造的 BepInEx 模组与桌面安装器
 
-[English](README_en.md) · [官网](https://bazaarplusplus.com) · [下载](https://bazaarplusplus.com/download) · [使用教程](https://bazaarplusplus.com/tutorial) · [Release Notes](https://github.com/cauyxy/BazaarPlusPlus/releases) · [Ko-fi](https://ko-fi.com/cauyxy)
+[English](README_en.md) · [官网](https://bazaarplusplus.com) · [下载](https://bazaarplusplus.com/download) · [使用教程](https://bazaarplusplus.com/tutorial) · [Release Notes](https://github.com/BazaarPlusPlus/BazaarPlusPlus/releases) · [Ko-fi](https://ko-fi.com/cauyxy)
 
-[![Version](https://img.shields.io/badge/version-4.2.0-6dd9a0?style=flat-square)](https://bazaarplusplus.com)
+[![Version](https://img.shields.io/badge/version-5.5.0-6dd9a0?style=flat-square)](https://bazaarplusplus.com)
 [![License](https://img.shields.io/badge/license-MIT-e8c87a?style=flat-square)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS-c1875a?style=flat-square)](https://bazaarplusplus.com/download)
 [![BepInEx](https://img.shields.io/badge/BepInEx-5.x-8a6d3b?style=flat-square)](https://github.com/BepInEx/BepInEx)
@@ -18,7 +18,7 @@
 
 ---
 
-BazaarPlusPlus 是一个面向《The Bazaar》的开源项目：游戏内由 BepInEx 模组提供卡牌图鉴、对局历史、战斗回放、Tooltip 预览、匿名模式、中文术语等功能；桌面安装器负责下载、安装、修复、自动更新和直播叠层。
+BazaarPlusPlus 是一个面向《The Bazaar》的开源项目：游戏内由 BepInEx 模组提供卡牌图鉴、对局历史、战斗回放、Tooltip 预览、匿名模式、中文术语等功能；桌面安装器负责下载、安装、修复、自动更新和直播叠层；同仓库里还有上传后端、指标分析器和官网。
 
 普通玩家建议直接使用 [下载页](https://bazaarplusplus.com/download) 的安装器；本仓库面向想了解实现、提交改动或自行构建的开发者。
 
@@ -58,66 +58,92 @@ BazaarPlusPlus 是一个面向《The Bazaar》的开源项目：游戏内由 Bep
 
 ```
 .
+├── JUSTFILE                                 # 统一开发、检查、测试与发布命令
+├── VERSION / release.mjs / release/         # 产品版本、发布入口与共享 Payload Inventory
 ├── bazaarplusplus-mod/                       # BepInEx 模组源码
-│   ├── run.sh                                # 常用 build/test/format/decompile 入口
+│   ├── mod.just / scripts/                   # just mod::… 命令及其构建、测试、反编译脚本
 │   └── src/
 │       ├── BazaarPlusPlus/                   # 主模组：Game、Patches、Resources、Data
 │       ├── BazaarPlusPlus.ModApi/            # 与服务端通信的 API 客户端
 │       ├── BazaarPlusPlus.Storage/           # 本地运行日志、截图和 SQLite 存储
 │       └── BazaarPlusPlus.Localization/      # 中文术语与本地化引擎
-└── bazaarplusplus-installer/                 # 桌面安装器
-    ├── src/                                  # Vite + React 前端
-    │   ├── pages/ features/ layouts/ api/    # 页面、业务状态、壳层和 Tauri 调用
-    │   └── types/generated/                  # Rust -> TypeScript 绑定快照
-    ├── src-tauri/                            # Tauri 2 / Rust 后端
-    │   ├── src/commands/ services/ history/  # 安装、检测、历史、直播服务
-    │   └── resources/                        # BepInEx、FFmpeg、直播叠层和安装 payload
-    ├── scripts/                              # bindings、manifest、prebuild 脚本
-    └── build.sh                              # 本地开发与发布打包入口
+├── bazaarplusplus-installer/                 # 桌面安装器
+│   ├── src/                                  # Vite + React 前端
+│   ├── src-tauri/                            # Tauri 2 / Rust 后端
+│   └── installer.just                        # just installer::… 开发命令入口
+├── bazaarplusplus-server/                    # Cloudflare Worker：Bundle 上传与 Ghost 发现
+├── bazaarplusplus-analyzer/                  # 把 Bundle 收成 heroes / builds 快照
+└── bazaarplusplus-site/                      # bazaarplusplus.com
 ```
+
+在仓库任意子目录运行 `just` 查看开发、检查、测试和发布命令。底层仍使用各项目的原生工具链，产品发布规则由根目录 `release.mjs` 维护。环境安装与命令范围见 [开发命令](docs/development.md)。根目录 [`AGENTS.md`](AGENTS.md) 记录跨项目约定和契约归属，各项目另有自己的 `AGENTS.md`。
 
 ## 从源码构建
 
 ### 环境要求
 
-- **模组**：.NET SDK 8+，以及本机 Steam 版《The Bazaar》（用于解析游戏程序集引用）。
-- **安装器**：Node.js 20+、Rust 工具链、Tauri 系统依赖（见 [Tauri prerequisites](https://tauri.app/start/prerequisites/)）。
-- **Windows**：构建脚本与开发流程要求 PowerShell 7.6.0 或更高版本。
+- **模组**：.NET SDK 10，以及本机 Steam 版《The Bazaar》（用于解析游戏程序集引用）。
+- **统一命令**：[just](https://just.systems/man/en/packages.html)，macOS 可用 `brew install just` 安装。
+- **安装器 / 服务端 / 官网**：Node 版本见根目录 `.nvmrc`，npm 版本见 `bazaarplusplus-installer/package.json` 的 `packageManager`；各目录分别执行 `npm ci`。
+- **安装器原生构建**：Rust 工具链、Tauri 系统依赖（见 [Tauri prerequisites](https://tauri.app/start/prerequisites/)）。
+- **分析器**：Python 3.14 与 `uv`。
+- **Windows**：just 命令在 Git Bash 中执行；原生构建脚本还要求 PowerShell 7.6.0 或更高版本。
 
 ### 构建模组
 
 ```bash
-cd bazaarplusplus-mod
+# Compile without changing the installed game
+just mod::build
+just mod::test
 
-# 开发构建：默认会尝试解析本机游戏目录，并把 Debug DLL 拷贝到 BepInEx/plugins
-./run.sh build
-
-# 一次性构建 Debug + Release
-./run.sh all
-
-# 显式指定游戏程序集目录
-dotnet build src/BazaarPlusPlus/BazaarPlusPlus.csproj \
-  -c Debug \
-  -p:ManagedPath="<Steam>/steamapps/common/The Bazaar/.../Managed"
+# Override the game assembly directory
+just mod::build "-p:ManagedPath=<Steam>/steamapps/common/The Bazaar/.../Managed"
 ```
+
+需要把开发 DLL 部署进游戏时，显式运行 `just mod::deploy`。
 
 ### 构建安装器
 
 ```bash
 cd bazaarplusplus-installer
 
-npm install
-npm run dev        # Vite 前端开发服务
-npm run tauri dev  # 启动完整 Tauri 桌面应用
+npm ci
+just installer::dev # Frontend development server
+npm run tauri dev  # Full Tauri desktop app
 
-npm run check
-npm run test
+just installer::check
+just installer::test
 npm run format
-
-./build.sh --prod  # 本机平台生产打包
 ```
 
-发布签名、公证（notarization）、R2 上传等流程依赖本地环境变量与 `signing-secrets/`，这些内容不会提交到公开仓库；在缺少本机游戏、签名凭据或平台依赖的环境中，无法完成完整的发布构建。
+在根目录执行 `just fmt` 可一次格式化所有项目；`just hooks-install` 安装根目录 `lefthook.yml` 定义的 Git hooks。
+
+```bash
+cd bazaarplusplus-server
+npm ci
+just server::test
+# just server::dev requires the project's gitignored .dev.vars
+```
+
+```bash
+cd bazaarplusplus-analyzer
+uv sync --locked
+just analyzer::check
+just analyzer::test
+```
+
+```bash
+cd bazaarplusplus-site
+npm ci
+just site::test
+just site::build
+```
+
+发布签名、公证（notarization）、R2 上传等流程依赖本地环境变量与 `signing-secrets/`，这些内容不会提交到公开仓库；在缺少本机游戏、签名凭据或平台依赖的环境中，无法完成完整的发布构建。游戏反编译输出、`decompiled/`、`.env` 和 `.dev.vars` 同样不在此树中。
+
+## 产品发布
+
+mod 与 installer 共用根目录 `VERSION`。修改后执行 `just release::sync`；每个平台使用 `just release::build macos`（或 `windows`）准备 Payload 并打包。分别执行 `just release::upload <platform>` 后，只有双平台同版本、同提交的产物齐备，`just release::promote` 才会推进 latest。底层 `node release.mjs …` 保持可用；完整流程、凭据与恢复约定见 [产品发布](docs/release.md)。
 
 ## 二次开发须知
 

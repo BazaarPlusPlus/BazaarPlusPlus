@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { hasTauriRuntime } from '../../api/runtime';
 import {
   claimStartupCheck,
@@ -38,11 +38,17 @@ export function useUpdaterState(): UpdaterController {
     return () => window.clearTimeout(timer);
   }, [phase, machine]);
 
+  // Stable identities: GlobalShell's updater toast effect depends on `checkNow`,
+  // so a fresh arrow per render would reschedule the effect on every render.
+  const checkNow = useCallback(() => void machine.checkNow(), [machine]);
+  const install = useCallback(() => void machine.install(), [machine]);
+  const restart = useCallback(() => void machine.restart(), [machine]);
+
   return {
     ...snapshot,
-    checkNow: () => void machine.checkNow(),
-    install: () => void machine.install(),
-    restart: () => void machine.restart(),
+    checkNow,
+    install,
+    restart,
     dismiss: machine.dismiss
   };
 }

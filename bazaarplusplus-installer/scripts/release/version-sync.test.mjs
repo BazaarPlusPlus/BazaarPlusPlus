@@ -11,13 +11,18 @@ import {
 
 function createFixture({
   packageVersion = '1.2.3',
+  productVersion = packageVersion,
   packageLockVersion = packageVersion,
   packageLockRootVersion = packageLockVersion,
   tauriVersion = '1.2.3',
   cargoVersion = '1.2.3',
   cargoLockVersion = cargoVersion
 } = {}) {
-  const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), 'bpp-version-sync-'));
+  const workspaceRoot = fs.mkdtempSync(
+    path.join(os.tmpdir(), 'bpp-version-sync-')
+  );
+  const rootDir = path.join(workspaceRoot, 'installer');
+  fs.writeFileSync(path.join(workspaceRoot, 'VERSION'), productVersion);
   fs.mkdirSync(path.join(rootDir, 'src-tauri'), { recursive: true });
 
   fs.writeFileSync(
@@ -66,6 +71,7 @@ dependencies = []
 
 test('collectVersionSnapshot reads package, package lock, tauri, cargo, and cargo lock versions', () => {
   const rootDir = createFixture({
+    productVersion: '2.0.0',
     packageVersion: '2.0.0',
     packageLockVersion: '2.0.0',
     tauriVersion: '2.0.0',
@@ -74,6 +80,7 @@ test('collectVersionSnapshot reads package, package lock, tauri, cargo, and carg
   });
 
   expect(collectVersionSnapshot(rootDir)).toEqual({
+    productVersion: '2.0.0',
     packageVersion: '2.0.0',
     packageLockVersion: '2.0.0',
     packageLockRootVersion: '2.0.0',
@@ -86,6 +93,7 @@ test('collectVersionSnapshot reads package, package lock, tauri, cargo, and carg
 test('assertVersionsAreAligned throws when versions diverge', () => {
   expect(() =>
     assertVersionsAreAligned({
+      productVersion: '1.1.0',
       packageVersion: '1.1.0',
       tauriVersion: '1.1.0',
       cargoVersion: '1.0.4',
@@ -94,9 +102,24 @@ test('assertVersionsAreAligned throws when versions diverge', () => {
   ).toThrow(/Version mismatch/);
 });
 
+test('package.json is a projection, not an independent product version', () => {
+  const rootDir = createFixture({
+    productVersion: '5.5.0',
+    packageVersion: '5.4.0'
+  });
+  expect(() =>
+    assertVersionsAreAligned(collectVersionSnapshot(rootDir))
+  ).toThrow(/packageVersion=5.4.0/);
+  const snapshot = synchronizeVersions(rootDir);
+  expect(snapshot.productVersion).toBe('5.5.0');
+  expect(snapshot.packageVersion).toBe('5.5.0');
+  expect(() => assertVersionsAreAligned(snapshot)).not.toThrow();
+});
+
 test('assertVersionsAreAligned throws when only the package lock is stale', () => {
   expect(() =>
     assertVersionsAreAligned({
+      productVersion: '4.4.2',
       packageVersion: '4.4.2',
       packageLockVersion: '4.3.0',
       tauriVersion: '4.4.2',
@@ -121,8 +144,9 @@ test('assertVersionsAreAligned throws when the package lock root package is stal
   ).toThrow(/packageLockRootVersion=4\.4\.9/);
 });
 
-test('synchronizeVersions updates package lock, tauri, cargo, and cargo lock to match package.json', () => {
+test('synchronizeVersions updates package lock, tauri, cargo, and cargo lock to match the product VERSION', () => {
   const rootDir = createFixture({
+    productVersion: '3.4.5',
     packageVersion: '3.4.5',
     packageLockVersion: '1.0.0',
     tauriVersion: '1.0.0',
@@ -133,6 +157,7 @@ test('synchronizeVersions updates package lock, tauri, cargo, and cargo lock to 
   const snapshot = synchronizeVersions(rootDir);
 
   expect(snapshot).toEqual({
+    productVersion: '3.4.5',
     packageVersion: '3.4.5',
     packageLockVersion: '3.4.5',
     packageLockRootVersion: '3.4.5',
@@ -151,6 +176,7 @@ test('synchronizeVersions updates package lock, tauri, cargo, and cargo lock to 
 
 test('synchronizeVersions preserves Tauri config formatting', () => {
   const rootDir = createFixture({
+    productVersion: '3.4.5',
     packageVersion: '3.4.5',
     tauriVersion: '1.0.0'
   });

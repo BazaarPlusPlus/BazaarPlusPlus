@@ -50,7 +50,6 @@ internal sealed class CoreAudioProcessTapCaptureTap : IReplayAudioCaptureTap
 
     public bool IsCapturing { get; private set; }
     public string WavFilePath => _wavFilePath;
-    public string CapturePointLabel => "coreaudio-process-tap";
     public ReplayAudioBackend Backend => ReplayAudioBackend.CoreAudioProcessTap;
     public int SampleRateHz => _sampleRate;
     public int Channels => _channels;

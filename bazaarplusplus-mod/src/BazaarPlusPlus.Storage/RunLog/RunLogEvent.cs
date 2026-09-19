@@ -25,29 +25,13 @@ public sealed class RunLogEvent
 
     public int? Losses { get; set; }
 
-    public int? CurrentHourXp { get; set; }
-
     public string? State { get; set; }
 
     public string? EncounterId { get; set; }
-
-    public string? ParentEncounterId { get; set; }
 
     public string? CombatKind { get; set; }
 
     public string? BattleId { get; set; }
 
     public string? OpponentName { get; set; }
-
-    public int? RerollCost { get; set; }
-
-    public int? RerollsRemaining { get; set; }
-
-    public string? StateFingerprint { get; set; }
-
-    public string? AbandonedReason { get; set; }
-
-    public string? InferredFrom { get; set; }
-
-    public double? Confidence { get; set; }
 }
