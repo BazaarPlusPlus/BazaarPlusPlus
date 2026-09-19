@@ -23,5 +23,5 @@ Hero Metrics Dataset 的数据托管在 `https://bpp-metrics.bazaarplusplus.com`
 
 - 三种运行方式的取数路径一致，preview 真实代表线上行为。
 - `vite.config.ts` 回到只有 `react()` 和 `tailwindcss()`，不再有需要起服务才能验证的自定义中间件。
-- 取数正确性从此完全依赖上游 CORS 配置。若 origin 的 CORS 被改坏，dev 和 preview 会同时失效——但生产也会，所以失败是同步且可见的，不再出现"本地能跑、线上挂"的偏差。
+- 取数正确性从此完全依赖上游 CORS 配置。若 origin 的 CORS 被改坏，dev、preview 和生产会同时失效，失败是同步且可见的，不再出现"本地能跑、线上挂"的偏差。
 - `BPP_REMOTE_METRICS_BASE` 和 `PUBLIC_METRICS_BASE` 不再被读取。

@@ -1,18 +1,31 @@
-# BazaarPlusPlus Product Release
+# BazaarPlusPlus
 
-## Language
+Terms used by more than one project. A project glossary may narrow one of these terms for its own use; it links here for the definition.
+
+## Product release
 
 **Product Release**:
-同一产品版本的 mod、installer 与对外发布记录。产品版本不表示数据库 schema、native ABI 或用户当前已安装版本。
+The mod, the installer, and the published release record for one product version. The product version says nothing about a database schema, a native ABI, or the version a user has installed.
 
 **Payload**:
-installer 携带并安装到游戏目录的文件集合。文件的归属决定安装、修复和卸载可以修改哪些路径。
+The files the installer carries and installs into the game directory. Each file's ownership decides which paths install, repair, and uninstall may change.
 
 **Payload Inventory**:
-Payload 中当前文件、平台适用范围、文件归属及退休文件的共同事实。用户数据与第三方插件不属于发布清单。
+The shared facts about Payload files: current files, platform scope, ownership, and retired files. User data and third-party plugins are outside it.
 
 **Release Manifest**:
-已发布 Product Release 的版本、平台更新包和实际安装器下载地址。它不代表某一个平台刚完成上传的状态。
+The published Product Release's version, per-platform updater packages, and actual installer download URLs (`latest.json`). It describes a promoted release, never the state of one platform's upload.
 
 **Release Promotion**:
-在声明的平台产物全部就绪后，将 Product Release 设为 latest 的操作。重复执行同一发布不改变已有产物。
+Setting a Product Release as latest once every declared platform artifact is in place. Repeating the promotion of the same release leaves the existing artifacts unchanged.
+
+## Data pipeline
+
+**Bundle**:
+The immutable unit of upload, storage, and delivery: exactly one Run and zero or one Screenshot. The mod writes it, the server stores and delivers it, the analyzer reads it.
+
+**Run**:
+The immutable facts, battles, card state, and replay inputs of one completed game run, carried inside a Bundle. It excludes the Screenshot.
+
+**Ghost Battle**:
+A PvP battle in which a player's uploaded build fought inside another player's run. The server serves it as a query projection of Bundle manifests; the mod imports it into local history.

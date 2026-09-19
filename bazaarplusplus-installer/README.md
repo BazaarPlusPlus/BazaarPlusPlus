@@ -86,5 +86,5 @@ Platform facts (bundle paths, updater keys, Rust targets) are defined in `script
 
 - **Start with [`CONTEXT.md`](CONTEXT.md)** — the entry map: vocabulary plus pointers telling you which topic doc to open for which kind of work.
 - `docs/*.md` — current behavior, split by topic (architecture, install/reset, updater, release, …).
-- `docs/adr/` — architectural decisions that still constrain work; [ADR-007](docs/adr/007-documentation-contract.md) defines this layout.
-- Doc-layout policy lives in `AGENTS.md`; platform smoke-test gaps are tracked as GitHub issues labelled `manual-validation`.
+- `docs/adr/` — architectural decisions that still constrain work; [ADR-0007](docs/adr/0007-documentation-contract.md) defines this layout.
+- Doc-layout policy lives in `AGENTS.md` and the repo-wide [`../AGENTS.md`](../AGENTS.md); platform smoke-test gaps are tracked as GitHub issues labelled `manual-validation`.

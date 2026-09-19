@@ -152,9 +152,9 @@ The composition-owned Remote Embedded Catalog consumer for supporter data: fixed
 session-stable snapshots through the supporter facade, retry/disposal ownership.
 
 **Release Manifest**:
-The installer-published `{ "version": ... }` document used only for the main-menu update check. Its
-HTTP/JSON adapter and request-generation lifecycle are separate from Mod API health and installer
-runtime state.
+The product Release Manifest defined in `../CONTEXT.md`. The mod reads only its `version`, for the
+main-menu update check. Its HTTP/JSON adapter and request-generation lifecycle are separate from
+Mod API health and installer runtime state.
 _Avoid_: Mod API health
 
 **Build Seed Fetch**:

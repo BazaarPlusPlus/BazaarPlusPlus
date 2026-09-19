@@ -5,8 +5,8 @@ Use these terms for source collection, analysis, and consumer behavior.
 ## Source collection
 
 **Bundle**:
-An immutable delivery item containing one Run and its associated Battles and
-card snapshots.
+Defined in the root `../CONTEXT.md`. The analyzer analyzes its Run: the
+associated Battles and card snapshots.
 
 **Source Hour**:
 The UTC hour assigned from a Bundle's server-observed availability time.

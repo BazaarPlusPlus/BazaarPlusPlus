@@ -64,7 +64,7 @@ export function extractMarkdownLinks(content) {
 
 // Documents that must describe the tree as it is now. docs/adr/ is absent on
 // purpose: a decision record must be free to name code that has since been
-// deleted — ADR-003 documents the removed Tempo launch flow, and that
+// deleted — ADR-0003 documents the removed Tempo launch flow, and that
 // historical mention is the record's value.
 const currentDocs = (rootDir) => [
   ...ROOT_DOCS,

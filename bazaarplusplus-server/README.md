@@ -12,7 +12,7 @@ The public surface is six routes: liveness, public streaming ingest, token-prote
 
 ## Architecture
 
-Ghost discovery stores fifteen ordinary summary columns while preserving the Mod’s nested response objects and the complete Bundle/Run upload contract. Existing deployments require the staged [Ghost summary migration](docs/ghost-summary-migration.md) before deploying this Worker.
+Ghost discovery stores fifteen ordinary summary columns while preserving the Mod’s nested response objects and the complete Bundle/Run upload contract. Production completed the staged [Ghost summary migration](docs/ghost-summary-migration.md) on 2026-09-12; only a database still holding the pre-summary `ghost_battles` table needs it before deploying this Worker.
 
 The design is a small number of deep seams, recorded in [ADR 0001](docs/adr/0001-v5-deepening-seams.md):
 

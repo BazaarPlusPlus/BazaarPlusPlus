@@ -61,7 +61,7 @@ npx wrangler d1 migrations apply bazaarplusplus-mod-api-v5-db --remote
 npx wrangler deploy
 ```
 
-For an existing database, follow [Ghost summary migration](ghost-summary-migration.md) through `0004`, deploy this Worker, and finish retirement/cleanup through `0006`. Do not deploy the summary Worker before backfill verification or apply all stages in one step.
+Production completed the Ghost summary migration on 2026-09-12. For a database still holding the pre-summary `ghost_battles` table, follow [Ghost summary migration](ghost-summary-migration.md) through `0004`, deploy this Worker, and finish retirement/cleanup through `0006`. Do not deploy the summary Worker before backfill verification or apply all stages in one step.
 
 Migration `0002_hot_path_indexes.sql` must complete before deploying the Worker that queries `idx_bazaardb_pending_retention`. It adds the pending retention projection and database-owned synchronization triggers, backfills only pending deliveries, and indexes Ghost Bundle foreign keys. Index creation reads existing tables; allow for this work when selecting the deployment window. It does not delete records or rewrite historical terminal deliveries.
 

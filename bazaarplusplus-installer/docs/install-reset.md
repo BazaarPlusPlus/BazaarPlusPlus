@@ -18,7 +18,7 @@ On macOS, `plan_install` keeps Steam running when detected launch options are em
 
 ## Steam Launch Boundary
 
-The installer launches The Bazaar through `launch_game_via_steam` in `src-tauri/src/services/install/mod.rs`, which opens the fixed Steam game URL. Detection resolves Steam installations through `detect_installation_paths` in `src-tauri/src/services/detect/steam.rs`; there is no alternate launch-mode state. The Steam-only product boundary lives in [ADR-003](adr/003-steam-only-launch.md).
+The installer launches The Bazaar through `launch_game_via_steam` in `src-tauri/src/services/install/mod.rs`, which opens the fixed Steam game URL. Detection resolves Steam installations through `detect_installation_paths` in `src-tauri/src/services/detect/steam.rs`; there is no alternate launch-mode state. The Steam-only product boundary lives in [ADR-0003](adr/0003-steam-only-launch.md).
 
 ## macOS Trampoline Invariant
 
@@ -29,13 +29,13 @@ The installer launches The Bazaar through `launch_game_via_steam` in `src-tauri/
 - `remove_obsolete_macos_artifacts` in `src-tauri/src/services/bepinex/trampoline.rs` removes fixed non-canonical residue by name; those files never select behavior.
 - `uninstall_trampoline` restores `.orig`; `uninstall_bpp` invokes it only when BPP is the last installed mod. `with_finalized_bundle` seals and verifies after all uninstall mutations, including when a removal fails or another mod retains the shared trampoline.
 
-`compile_macos_trampoline_stub` in `src-tauri/build.rs` builds the bundled arm64 stub with the deployment target defined by `MACOS_TRAMPOLINE_DEPLOYMENT_TARGET` in `src-tauri/build_support.rs`. Release validation inspects that target before packaging. The rationale for the sole-bootstrap and empty-LaunchOptions choices lives in [ADR-002](adr/002-macos-launch-trampoline.md).
+`compile_macos_trampoline_stub` in `src-tauri/build.rs` builds the bundled arm64 stub with the deployment target defined by `MACOS_TRAMPOLINE_DEPLOYMENT_TARGET` in `src-tauri/build_support.rs`. Release validation inspects that target before packaging. The rationale for the sole-bootstrap and empty-LaunchOptions choices lives in [ADR-0002](adr/0002-macos-launch-trampoline.md).
 
 ## Reset Local Data
 
 Reset is the only installer operation that deletes the current BPP data root. `reset_bpp_data` in `src-tauri/src/services/bepinex/mod.rs` enters `StreamRuntime::exclusive_maintenance`, refuses deletion while the game is running, and delegates filesystem cleanup to `cleanup_bpp_data_directory` in `src-tauri/src/services/bepinex/payload.rs`.
 
-The Install workflow fixes the target path when confirmation opens. A successful `ResetBppDataResult` installs the returned refreshed state and distinguishes removed data from an already-empty target; a failure retains the target for retry. The durable product boundary is recorded in [ADR-005](adr/005-data-ownership-and-reset.md).
+The Install workflow fixes the target path when confirmation opens. A successful `ResetBppDataResult` installs the returned refreshed state and distinguishes removed data from an already-empty target; a failure retains the target for retry. The durable product boundary is recorded in [ADR-0005](adr/0005-data-ownership-and-reset.md).
 
 ## Isolated Fresh-Install Acceptance
 

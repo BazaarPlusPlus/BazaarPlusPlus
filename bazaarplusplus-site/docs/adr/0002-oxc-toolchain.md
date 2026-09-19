@@ -6,7 +6,7 @@ Status: Accepted
 
 仓库此前没有任何 lint 或格式化工具，验证只有 `npm test` 和 `npm run typecheck`。同时 TypeScript 7 已发布，是 Go 原生移植版，`tsc --noEmit` 明显更快。
 
-两者存在硬冲突。TypeScript 7 的 npm 包不再导出 JS 编译器 API——`exports["."]` 只指向 `./lib/version.cjs`，其余是各平台原生二进制。`typescript-eslint` 通过 `require("typescript")` 取编译器 API，因此在 TS 7 下直接抛错拒绝启动：
+两者存在硬冲突。TypeScript 7 的 npm 包不再导出 JS 编译器 API，`exports["."]` 只指向 `./lib/version.cjs`，其余是各平台原生二进制。`typescript-eslint` 通过 `require("typescript")` 取编译器 API，因此在 TS 7 下直接抛错拒绝启动：
 
 ```
 typescript-eslint does not support TS 7.0.
@@ -20,7 +20,7 @@ typescript-eslint does not support TS 7.0.
 
 采用 oxc 工具链：`oxlint` 做 lint，`oxlint-tsgolint` 提供类型感知规则，`oxfmt` 做格式化。TypeScript 保持 7.x。
 
-`oxlint-tsgolint` 基于 tsgolint，不依赖 TS 的 JS 编译器 API，因此类型感知 lint 与 TypeScript 7 可以共存——这是 ESLint 路线拿不到的组合。
+`oxlint-tsgolint` 基于 tsgolint，不依赖 TS 的 JS 编译器 API，因此类型感知 lint 与 TypeScript 7 可以共存，ESLint 路线做不到这一点。
 
 `npm run lint` 固定带 `--type-aware`；不带该 flag 只跑语法级规则，会漏掉一整类检查。
 

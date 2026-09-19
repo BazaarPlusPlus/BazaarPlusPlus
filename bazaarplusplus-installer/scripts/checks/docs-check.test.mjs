@@ -81,7 +81,7 @@ test('an ADR may name code that no longer exists', () => {
   const rootDir = createFixtureRoot();
   writeFile(
     rootDir,
-    'docs/adr/003-steam-only-launch.md',
+    'docs/adr/0003-steam-only-launch.md',
     'It worked through `src/services/tempo.rs`, since removed.\n'
   );
 
@@ -100,20 +100,20 @@ test('absolute URLs and bare anchors are not link targets', () => {
 
 test('a dead relative link fails and a live one passes', () => {
   const rootDir = createFixtureRoot();
-  writeFile(rootDir, 'docs/adr/002-example.md', '# Two\n');
+  writeFile(rootDir, 'docs/adr/0002-example.md', '# Two\n');
   writeFile(
     rootDir,
-    'docs/adr/001-example.md',
-    'See [two](002-example.md) and [gone](099-missing.md).\n'
+    'docs/adr/0001-example.md',
+    'See [two](0002-example.md) and [gone](0099-missing.md).\n'
   );
 
   const result = checkMarkdownLinks(rootDir);
 
   expect(result.failures).toEqual([
     {
-      file: 'docs/adr/001-example.md',
+      file: 'docs/adr/0001-example.md',
       line: 1,
-      message: 'link to `099-missing.md` does not resolve'
+      message: 'link to `0099-missing.md` does not resolve'
     }
   ]);
 });
@@ -121,8 +121,8 @@ test('a dead relative link fails and a live one passes', () => {
 test('a link is resolved against the linking file, not the repository root', () => {
   const rootDir = createFixtureRoot();
   writeFile(rootDir, 'CONTEXT.md', '[Architecture](docs/architecture.md)\n');
-  writeFile(rootDir, 'docs/architecture.md', '[ADR](adr/001-example.md)\n');
-  writeFile(rootDir, 'docs/adr/001-example.md', '# One\n');
+  writeFile(rootDir, 'docs/architecture.md', '[ADR](adr/0001-example.md)\n');
+  writeFile(rootDir, 'docs/adr/0001-example.md', '# One\n');
 
   expect(checkMarkdownLinks(rootDir).failures).toEqual([]);
 });
@@ -146,7 +146,7 @@ test('a topic linked from the entry map passes, and ADRs need no entry', () => {
   const rootDir = createFixtureRoot();
   writeFile(rootDir, 'CONTEXT.md', '[Architecture](docs/architecture.md)\n');
   writeFile(rootDir, 'docs/architecture.md', '# Architecture\n');
-  writeFile(rootDir, 'docs/adr/001-example.md', '# One\n');
+  writeFile(rootDir, 'docs/adr/0001-example.md', '# One\n');
 
   const result = checkEntryMapCoverage(rootDir);
 

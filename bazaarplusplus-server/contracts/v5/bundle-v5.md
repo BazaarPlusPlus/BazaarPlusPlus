@@ -10,4 +10,4 @@ All integer fields in the fixed prefix are unsigned, big-endian values. Offsets 
 
 The manifest is followed immediately by exactly one Run segment and zero or one Screenshot segment. The Run has offset `0`. When present, the Screenshot offset equals the Run length. No gaps, overlap, or undeclared trailing bytes are allowed.
 
-The manifest fields and bounds are defined by [`manifest.schema.json`](./manifest.schema.json). Unknown fields are ignored. `Content-Digest` covers the complete prefix, manifest, and segments; each segment digest is the lowercase SHA-256 hex value of that segment alone.
+The manifest fields and bounds are defined by [`manifest.schema.json`](./manifest.schema.json). Unknown fields are ignored. Duplicate `battle_id` values within one manifest make the Bundle invalid. `Content-Digest` covers the complete prefix, manifest, and segments; each segment digest is the lowercase SHA-256 hex value of that segment alone.

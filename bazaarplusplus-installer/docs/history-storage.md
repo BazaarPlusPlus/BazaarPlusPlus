@@ -17,7 +17,7 @@
 
 ## Data Ownership
 
-The current root name comes from `BAZAAR_DATA_DIRECTORY` in `src-tauri/src/config.rs`. Reset may delete that current root; uninstall does not. Legacy V4 data remains user-owned. `BundleOutbox/` and `bundle_outbox` remain mod-owned: installer cleanup may consult upload status but never deletes their files or rows. [ADR-005](adr/005-data-ownership-and-reset.md) records that ownership boundary.
+The current root name comes from `BAZAAR_DATA_DIRECTORY` in `src-tauri/src/config.rs`. Reset may delete that current root; uninstall does not. Legacy V4 data remains user-owned. `BundleOutbox/` and `bundle_outbox` remain mod-owned: installer cleanup may consult upload status but never deletes their files or rows. [ADR-0005](adr/0005-data-ownership-and-reset.md) records that ownership boundary.
 
 Frontend History List and Run Detail each own their loading lifecycle; cleanup and deletion retain the confirmed-operation seam described in [Frontend Architecture](frontend-architecture.md). History reads do not own or start the Stream service; preview availability is a separate capability.
 

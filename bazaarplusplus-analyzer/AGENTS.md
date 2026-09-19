@@ -1,4 +1,9 @@
-# Agent routing
+# AGENTS.md
+
+The analyzer that turns Bundles into hero and build snapshots. Repo-wide rules
+(commits, pull requests, docs policy, contracts) are in `../AGENTS.md`.
+
+## Routing
 
 - **Domain**: Read `CONTEXT.md` before changing source admission, facts,
   windows, metrics, or domain names; use its defined terms.

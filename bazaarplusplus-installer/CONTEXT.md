@@ -11,7 +11,7 @@ BazaarPlusPlus Installer is a Tauri 2 desktop app for installing and managing th
 
 ## Vocabulary
 
-- **Payload** — files owned or bundled by BPP. Ownership determines what install, repair, and uninstall may remove.
+- **Payload**, **Payload Inventory**, **Release Manifest** — product-wide terms defined in [the root glossary](../CONTEXT.md).
 - **Selected game installation** — the session-scoped The Bazaar installation shared by Install, History, and Stream.
 - **InstallState** — the native contract supplying detected paths, readiness, warnings, and action gates to the Install workflow.
 - **History List** — the paginated view of local runs, with totals across the complete local history. Its selected page is distinct from the Run Detail view and from thumbnail availability.

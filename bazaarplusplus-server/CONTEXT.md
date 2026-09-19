@@ -4,9 +4,7 @@ This Worker receives completed game-run Bundles and makes them discoverable by t
 
 ## Language
 
-**Bundle**: The smallest immutable upload, storage, and delivery unit. It contains exactly one Run and, when available, one optional Screenshot.
-
-**Run**: Immutable facts, battles, card state, and replay data for one completed game run. It excludes the Screenshot.
+**Bundle**, **Run**: Defined in [the root glossary](../CONTEXT.md). The binary format is [contracts/v5](contracts/v5/bundle-v5.md).
 
 **Screenshot**: The optional end-of-run image stored inside the Bundle. Its absence never invalidates the Bundle.
 

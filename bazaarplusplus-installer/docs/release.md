@@ -21,7 +21,7 @@ Product versioning, isolated Payload preparation, immutable uploads and complete
 
 `run_release_prechecks` in `build.sh` requires the active product build lock and runs the platform release verification gate. It never chooses a separate version or prepares a second archive.
 
-On macOS, producer inputs are arm64, deployment target 12.0, system-linked, ABI-complete, loadable and ad-hoc signed. The installer verifies their inventory, signs nested Mach-O code and bundles inside-out with the official identity, repacks the signed copy, and packages/notarizes the outer installer. SourceForBuild remains unsigned provenance; final distribution hashes live in the artifact manifest. See [ADR-006](adr/006-native-replay-recorder-signing.md).
+On macOS, producer inputs are arm64, deployment target 12.0, system-linked, ABI-complete, loadable and ad-hoc signed. The installer verifies their inventory, signs nested Mach-O code and bundles inside-out with the official identity, repacks the signed copy, and packages/notarizes the outer installer. SourceForBuild remains unsigned provenance; final distribution hashes live in the artifact manifest. See [ADR-0006](adr/0006-native-replay-recorder-signing.md).
 
 `load_updater_signing_env` and `load_macos_developer_id_env` in `build.sh` own local environment and ignored signing-secret conventions. `assertMacosTrampolineStub` in `scripts/checks/prebuild-check.mjs` independently verifies the trampoline architecture and deployment target.
 

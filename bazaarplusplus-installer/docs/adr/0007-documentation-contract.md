@@ -10,11 +10,11 @@ That layout originally shipped with a per-document `last-verified` commit stamp,
 
 ## Decision
 
-Use one entry map and path-based lifecycle boundaries: `CONTEXT.md` is the task-triggered topic map, current behavior is the default at `docs/*.md`, and decisions, plans, and archived history are explicit subdirectories. ADRs own rationale and consequences rather than mirroring the current implementation.
+Use one entry map and path-based lifecycle boundaries: `CONTEXT.md` is the task-triggered topic map, current behavior is the default at `docs/*.md`, and decisions live in `docs/adr/`. ADRs own rationale and consequences rather than mirroring the current implementation. Since the monorepo merge, plans are GitHub issues and retired material lives in git history, per the repo-wide policy in `../AGENTS.md`; `docs/plans/` and `docs/archive/` are no longer used.
 
 Current documents carry no frontmatter. Location states lifecycle, and `superseded-by` is the one key worth writing — it points a replaced decision or plan at its replacement.
 
-The operational rules — claim ownership, symbol-level citation form, and re-verification on change — are owned by `AGENTS.md`, the always-loaded policy file. This record does not restate them.
+The operational rules (claim ownership, symbol-level citation form, re-verification on change) are owned by the always-loaded `AGENTS.md` files. This record does not restate them.
 
 `npm run docs:check` proves three things and nothing more: every root-relative path cited in backticks resolves to a file, every relative Markdown link resolves, and `CONTEXT.md` links every `docs/*.md` topic. Each catches real staleness from the tree alone, with no bookkeeping to keep in sync. Prose being true is not mechanically checkable and is not claimed.
 
