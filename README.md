@@ -109,7 +109,7 @@ just mod::test
 just mod::build "-p:ManagedPath=<Steam>/steamapps/common/The Bazaar/.../Managed"
 ```
 
-需要把开发 DLL 部署进游戏时，显式运行 `just mod::deploy`。
+需要把开发 DLL 部署进游戏时，显式运行 `just mod::build --deploy`。
 
 ### 构建安装器
 

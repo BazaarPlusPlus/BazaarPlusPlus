@@ -109,7 +109,7 @@ just mod::test
 just mod::build "-p:ManagedPath=<Steam>/steamapps/common/The Bazaar/.../Managed"
 ```
 
-To deploy development DLLs into the game, explicitly run `just mod::deploy`.
+To deploy development DLLs into the game, explicitly run `just mod::build --deploy`.
 
 ### Build the Installer
 

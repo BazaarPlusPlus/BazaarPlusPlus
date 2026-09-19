@@ -6,19 +6,9 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
 MAIN_PROJECT=src/BazaarPlusPlus/BazaarPlusPlus.csproj
 
-# build [--fast] [-p:Name=Value ...]: compile without touching the game install.
+# build [--deploy] [--fast] [-p:Name=Value ...]: compile; only --deploy touches the game install.
 cmd_build() {
-    compile false "$@"
-}
-
-# deploy [--fast] [-p:Name=Value ...]: compile and copy into the installed game.
-cmd_deploy() {
-    compile true "$@"
-}
-
-compile() {
-    local deploy="$1"
-    shift
+    local deploy=false
     local fast_args=() arg
     local props=()
     for arg in "$@"; do
@@ -26,8 +16,9 @@ compile() {
             # Inner-loop accelerator: skips NuGet restore. Run a normal build after
             # editing any csproj or creating a fresh worktree.
             --fast) fast_args=(--no-restore) ;;
+            --deploy) deploy=true ;;
             -p:* | --property:*) props+=("$arg") ;;
-            *) die "Expected --fast or -p:Name=Value, got '$arg'" ;;
+            *) die "Expected --deploy, --fast, or -p:Name=Value, got '$arg'" ;;
         esac
     done
     while IFS= read -r arg; do props+=("$arg"); done < <(managed_props ${props[@]+"${props[@]}"})

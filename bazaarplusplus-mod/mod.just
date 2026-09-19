@@ -10,13 +10,9 @@ published_projects := "src/BazaarPlusPlus.Localization/BazaarPlusPlus.Localizati
 # Check formatting, compile without deploying, and validate the NuGet lock files.
 check: fmt-check build locks-check
 
-# Compile without changing the installed game; [--fast] [-p:Name=Value ...].
+# Compile; --deploy also repairs the macOS trampoline and copies into the installed game; [--deploy] [--fast] [-p:Name=Value ...].
 build *args:
     bash scripts/build.sh build "$@"
-
-# Compile, repair the macOS trampoline, and copy into the installed game; [--fast] [-p:Name=Value ...].
-deploy *args:
-    bash scripts/build.sh deploy "$@"
 
 # Run the offline default xUnit suite; [-p:Name=Value ...].
 test *args:

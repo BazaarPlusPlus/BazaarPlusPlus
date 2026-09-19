@@ -13,7 +13,7 @@ Domain constraints that must stay true in the system.
 - Mod-authored user-facing strings use `LocalizedTextSet` (en + zh-Hans, optional zh-Hant + de/pt/ko/it; anything else falls back to English). [`src/BazaarPlusPlus.Localization/LocalizedTextSet.cs`]
 - A categorized degradation event includes the category field in its `BppLogStormPolicy` key — a shared key lets one category's failure suppress every later category during the storm window. [`src/BazaarPlusPlus/Infrastructure/Logging/Core/BppLogSchema.cs`]
 - Adding or removing a `BppLogEventSource` event means updating its locked manifest test in the same change; find them with `rg -l the_locked tests/`. Field `Order` must be strictly increasing within an event, not contiguous. [`src/BazaarPlusPlus/Infrastructure/Logging/Core/BppLogEventCatalog.cs` | `tests/Architecture.Tests/PluginLoggingTests.cs`]
-- Anchor mod file-write paths on `BepInEx.Paths.GameRootPath` or `<GameRoot>/BazaarPlusPlusV5/`, which BepInEx special-cases on macOS to the directory containing the `.app`. A path built from `Application.dataPath` writes unsealed files inside the `.app` bundle, breaking `codesign` re-signing and the trampoline repair — and therefore `just mod::deploy` after every game update. [`src/BazaarPlusPlus/Core/Paths/BepInExPathProvider.cs`]
+- Anchor mod file-write paths on `BepInEx.Paths.GameRootPath` or `<GameRoot>/BazaarPlusPlusV5/`, which BepInEx special-cases on macOS to the directory containing the `.app`. A path built from `Application.dataPath` writes unsealed files inside the `.app` bundle, breaking `codesign` re-signing and the trampoline repair — and therefore `just mod::build --deploy` after every game update. [`src/BazaarPlusPlus/Core/Paths/BepInExPathProvider.cs`]
 
 ## Architecture decisions
 

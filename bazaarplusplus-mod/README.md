@@ -45,7 +45,7 @@
 
 ```bash
 just mod::build                 # Debug 构建，不改动游戏安装
-just mod::deploy                # Debug 构建并复制到游戏的 BepInEx/plugins/
+just mod::build --deploy        # Debug 构建并复制到游戏的 BepInEx/plugins/
 just mod::test                  # 默认离线测试套件（不部署游戏、不下载种子）
 just release::prepare macos     # 生产 Payload：刷新远端数据、种子门禁、安装器打包
 ```
