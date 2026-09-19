@@ -1,6 +1,6 @@
 # Desktop Native Artifact Publishing
 
-The mod repository owns the macOS and Windows native recorder sources, build recipes, ABI declarations, and producer checks. The sibling installer repository owns the staged binaries and its native-recorder-input lock, which is the manifest consumed by installer prebuild verification.
+The mod project owns the macOS and Windows native recorder sources, build recipes, ABI declarations, and producer checks. The installer project owns the staged binaries and its native-recorder-input lock, which is the manifest consumed by installer prebuild verification.
 
 ## Freshness contract
 

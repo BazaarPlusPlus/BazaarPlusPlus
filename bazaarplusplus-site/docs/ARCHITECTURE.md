@@ -12,6 +12,7 @@ The code is the structural source of truth. This document records intended owner
 | Hero Analysis | `src/features/heroes/hero-analysis.ts` | Pure, React-free policy for scope selection, merging, ranking, trends, matchups, focus fallback, and selected-window coverage. |
 | Hero Analysis presentation | `src/features/heroes/HeroOverviewDashboard.tsx`, `HeroTrendPanel.tsx`, and `HeroRankingTable.tsx` | The dashboard composes validated analysis and shares hero focus. The trend module owns SVG geometry and chart interaction; the ranking module owns its columns and sorting policy. |
 | Installer resolution | `src/features/download/installer.ts` | Owns latest-manifest transport and decoding. The workspace `release/downloads.ts` owns release origin, platform keys and mainland mirror URL policy; the download page consumes the resolved installer model. |
+| WeChat Pay QR artwork | `../bazaarplusplus-installer/static/support/wechat-pay.svg` | The installer owns the SVG; `src/features/support/SupportPage.tsx` imports it as raw markup so both projects display the same payment code. |
 
 The metrics, installer, and SPA location seams each have production and in-memory test adapters. Presentation modules consume their resolved models; payload decoding stays in ingestion and browser-history handling stays in the router.
 

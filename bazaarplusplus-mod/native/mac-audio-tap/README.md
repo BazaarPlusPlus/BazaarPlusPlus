@@ -29,7 +29,7 @@ so the dylib still loads and degrades cleanly on older systems.
 Requirements: macOS + Xcode / Command Line Tools SDK, Apple Silicon (arm64), and Node.js for
 reading the shared native artifact catalog. The script builds into `build/` by default and runs
 the architecture, deployment-target, weak-import, dependency, ABI export, load, and ad-hoc-signing
-checks without writing the installer repository.
+checks without writing the installer project.
 
 Every `clang` flag in `build.sh` is load-bearing, and the two whose reasons are not obvious from
 the flag itself — the `lib` output prefix and `-mmacosx-version-min=12.0` — carry that reason in a
@@ -38,10 +38,10 @@ comment directly above the command. Read them there before changing the invocati
 Those are producer checks. The final acceptance judgement is not one of them: it remains a
 sample-bearing AAC track with audible in-game audio in the finished recording.
 
-## Where it ships (two-repo split)
+## Where it ships
 
 The mod build **never reads the copy in this directory.** It reads the prebuilt from the
-installer repo, referenced by `BazaarPlusPlus.csproj` via `BPPInstallerSourcePath`, exactly
+installer project, referenced by `BazaarPlusPlus.csproj` via `BPPInstallerSourcePath`, exactly
 like `libe_sqlite3.dylib`:
 
 ```

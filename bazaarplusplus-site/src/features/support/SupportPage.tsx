@@ -6,7 +6,7 @@ import InfoPageShell from '../../shared/components/InfoPageShell';
 import type { ResolvedSpaLocation } from '../../app/router';
 import { getSiteCopy, KOFI_URL, type SupportPageCopy } from '../../content/site-copy';
 import { loadSupporters, orderSupportersForDisplay, type Supporter } from './supporters-data';
-import { wechatPayQrSvg } from './wechat-pay';
+import wechatPayQrSvg from '../../../../bazaarplusplus-installer/static/support/wechat-pay.svg?raw';
 
 type SupportPageProps = {
   location: ResolvedSpaLocation;
