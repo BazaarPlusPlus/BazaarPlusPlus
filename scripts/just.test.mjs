@@ -169,9 +169,29 @@ test('test runs each suite without a release or publication command', (t) => {
     call(f.dir, null, 'node', '--test', 'scripts/just.test.mjs'),
     call(f.dir, null, 'npm', 'test'),
     call(f.dir, 'mod', 'mod-test', 'test'),
-    ...['installer', 'site', 'server'].map((project) =>
+    ...['installer', 'site'].map((project) =>
       call(f.dir, project, 'npm', 'test')
     ),
+    call(
+      f.dir,
+      'server',
+      'dotnet',
+      'build',
+      '../bazaarplusplus-mod/tests/ModApi.Tests/ModApi.Tests.csproj'
+    ),
+    call(
+      f.dir,
+      'server',
+      'dotnet',
+      'run',
+      '--project',
+      'scripts/ghost-projection/mod-compat/Probe.csproj',
+      `-p:ModRoot=${f.dir}/bazaarplusplus-server/../bazaarplusplus-mod`,
+      '--',
+      `${f.dir}/bazaarplusplus-server/../bazaarplusplus-mod`,
+      'contracts/v5/ghost-summary.response.json'
+    ),
+    call(f.dir, 'server', 'npm', 'test'),
     call(f.dir, 'analyzer', 'uv', 'run', '--locked', 'pytest')
   ]);
 });

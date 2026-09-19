@@ -23,6 +23,13 @@
     ]
   },
   "heroes": {
+    "Dooley": { "builds": [], "card_index": [] },
+    "Jules": { "builds": [], "card_index": [] },
+    "Karnok": { "builds": [], "card_index": [] },
+    "Mak": { "builds": [], "card_index": [] },
+    "Pygmalien": { "builds": [], "card_index": [] },
+    "Stelle": { "builds": [], "card_index": [] },
+    "TheDragons": { "builds": [], "card_index": [] },
     "Vanessa": {
       "builds": [
         [

@@ -14,5 +14,9 @@
 
   <ItemGroup>
     <ProjectReference Include="../../src/BazaarPlusPlus.ModApi/BazaarPlusPlus.ModApi.csproj" />
+    <EmbeddedResource
+      Include="../../../bazaarplusplus-server/contracts/mod-api-errors.json"
+      LogicalName="ModApi.Tests.mod-api-errors.json"
+    />
   </ItemGroup>
 </Project>

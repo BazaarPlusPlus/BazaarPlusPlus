@@ -1,6 +1,7 @@
 #nullable enable
 
 RoutesTests.Run();
+ErrorCodeContractTests.Run();
 CodecTests.Run();
 await ModApiResponseTests.RunAsync();
 await SessionTests.RunAsync();

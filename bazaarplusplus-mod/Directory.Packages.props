@@ -7,6 +7,7 @@
     <PackageVersion Include="BepInEx.Core" Version="5.4.21" />
     <PackageVersion Include="BepInEx.PluginInfoProps" Version="2.1.0" />
     <PackageVersion Include="coverlet.collector" Version="10.0.1" />
+    <PackageVersion Include="JsonSchema.Net" Version="9.4.0" />
     <PackageVersion Include="Krafs.Publicizer" Version="2.3.2" />
     <PackageVersion Include="MessagePack" Version="3.1.9" />
     <PackageVersion Include="Microsoft.CodeAnalysis.BannedApiAnalyzers" Version="5.6.0" />

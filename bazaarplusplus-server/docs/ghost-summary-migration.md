@@ -108,10 +108,10 @@ node scripts/ghost-projection/rehearse.mjs --database /tmp/ghost-rehearsal-new.s
 
 规模演练使用原生本地 SQLite 和合成数据，包括完整旧 schema、1,800,000 条 Ghost 与两个索引、600,000 个父 Bundle、实际追加迁移和相同分批 SQL。它测量本机执行耗时和本地物理页，不代表生产 D1 延迟或物理回收。结果见[本地演练](ghost-summary-rehearsal-2026-09-12.json)：每页 500 行，复制 3,601 页，最长 99.8 ms、P95 17.0 ms；校验最长 9.94 ms；旧表删除最长 26.95 ms。结束保留 1,800,000 条摘要、外键错误为零。新增摘要及索引使本地文件从 2.496 GB 增至 3.354 GB；删除后文件仍约 3.354 GB，其中 2.137 GB 为可复用空闲页。这明确展示了逻辑删除不等于文件立即缩小；没有执行 VACUUM。
 
-真实 Mod 解析验证读取相邻 Mod 仓库已构建的 `ModApi.Tests/bin/Debug/net10.0` DLL/PDB，不修改 Mod。Portable PDB 校验消费源码，契约文件同时由服务器测试精确比较：
+真实 Mod 解析验证由 `just server::test` 自动执行，也可从 monorepo 根目录单独运行以下 recipe。它先构建相邻 Mod 的 `ModApi.Tests`，再读取其 DLL/PDB；只需 .NET SDK，不需要游戏 Managed 程序集。Portable PDB 校验消费源码，契约文件同时由服务器测试精确比较：
 
 ```sh
-dotnet run --project scripts/ghost-projection/mod-compat/Probe.csproj -p:ModRoot="$PWD/../bazaarplusplus-mod" -- "$PWD/../bazaarplusplus-mod" contracts/v5/ghost-summary.response.json
+just server::test-mod-compat
 ```
 
 探针验证完整及精简响应的消费字段一致、九项导入必需字段缺失会丢行，以及实际服务器合同的挑战者段位评分、胜者、天时和最终战斗标记。5.1/5.2/当前提交的解析器一致性及旧界面消费依据见[字段审计](ghost-projection-field-audit-2026-09-12.md)。这不是游戏 UI 交互回归或线上客户端版本分布统计。
