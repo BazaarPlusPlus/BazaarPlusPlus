@@ -127,7 +127,7 @@ test('macOS production build removes the entire bundle directory before rebundli
     const output = runShell(`
       set -euo pipefail
       source ./scripts/bundle.sh
-      release_platforms_cli() { node '${toBashPath(projectDir)}/scripts/release/release-platforms.mjs' "$@"; }
+      release_platforms_cli() { node '${toBashPath(projectDir)}/../release/release-platforms.mjs' "$@"; }
       INSTALLER_ROOT='${toBashPath(fixtureRoot)}'
       assert_file() { :; }
       prepare_signed_macos_resource_zip() { :; }
@@ -611,7 +611,7 @@ test('release prechecks require the product build lock before verification', () 
     }
     run_release_prechecks windows
   `);
-  expect(output).toContain('release.mjs check');
+  expect(output).not.toContain('release.mjs check');
   expect(output).toContain('release.mjs assert-build-owner');
   expect(output).toContain('npm run verify -- --release-platform windows');
   expect(output).not.toContain('prepare:resources');

@@ -2,7 +2,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
-import { runGit } from '../git-command.mjs';
+import { runGit } from '../scripts/git-command.mjs';
 import { RELEASE_PLATFORMS } from './release-platforms.mjs';
 
 const releasePaths = [
@@ -10,6 +10,7 @@ const releasePaths = [
   '../VERSION',
   '../release.mjs',
   '../release',
+  '../scripts/git-command.mjs',
   '../bazaarplusplus-mod'
 ];
 
@@ -325,7 +326,11 @@ function main(args) {
       'Usage: artifact-manifest.mjs paths --platform <macos|windows>; create artifacts through node release.mjs build'
     );
   }
-  const rootDir = path.resolve(import.meta.dirname, '..', '..');
+  const rootDir = path.resolve(
+    import.meta.dirname,
+    '..',
+    'bazaarplusplus-installer'
+  );
   const version = packageVersion(rootDir);
   const manifestPath = artifactManifestPath(rootDir, platform);
   const result = validateArtifactManifest({

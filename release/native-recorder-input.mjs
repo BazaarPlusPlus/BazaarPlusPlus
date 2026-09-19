@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
-import { runGit } from '../git-command.mjs';
+import { runGit } from '../scripts/git-command.mjs';
 
 export const NATIVE_RECORDER_LOCK_PATH =
   'scripts/release/native-recorder-input.lock.json';
@@ -668,7 +668,11 @@ function parseCli(args) {
 }
 
 function main() {
-  const rootDir = path.resolve(import.meta.dirname, '..', '..');
+  const rootDir = path.resolve(
+    import.meta.dirname,
+    '..',
+    'bazaarplusplus-installer'
+  );
   const { platform } = parseCli(process.argv.slice(2));
 
   const platforms = platform

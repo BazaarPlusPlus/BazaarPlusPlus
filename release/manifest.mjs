@@ -1,7 +1,7 @@
 import path from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
 import { assertProductVersion, compareProductVersions } from './product.mjs';
-import { RELEASE_PLATFORMS } from '../bazaarplusplus-installer/scripts/release/release-platforms.mjs';
+import { RELEASE_PLATFORMS } from './release-platforms.mjs';
 
 function assertRecord(record, description) {
   if (

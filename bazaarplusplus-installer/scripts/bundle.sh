@@ -110,7 +110,7 @@ current_platform() {
 }
 
 release_platforms_cli() {
-    node "$INSTALLER_ROOT/scripts/release/release-platforms.mjs" "$@"
+    node "$INSTALLER_ROOT/../release/release-platforms.mjs" "$@"
 }
 
 install_dependencies() {
@@ -398,7 +398,7 @@ create_zip_from_directory() {
     local output_zip="$2"
     local output_manifest="$3"
 
-    node "$INSTALLER_ROOT/scripts/release/payload-zip.mjs" pack \
+    node "$INSTALLER_ROOT/../release/payload-zip.mjs" pack \
         --source "$source_dir" --output "$output_zip" \
         --manifest-output "$output_manifest" --platform macos
 }
@@ -445,7 +445,6 @@ prepare_signed_macos_resource_zip() {
 
 run_release_prechecks() {
     local platform="$1"
-    invoke_step "Checking product release inputs" node "$INSTALLER_ROOT/../release.mjs" check
     invoke_step "Checking product build ownership" node "$INSTALLER_ROOT/../release.mjs" assert-build-owner
     invoke_step "Running authoritative release verification" \
         npm run verify -- --release-platform "$platform"

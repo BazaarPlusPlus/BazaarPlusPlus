@@ -18,14 +18,15 @@ const modScripts = ['build', 'test', 'game'];
 const shellQuote = (value) => `'${value.replaceAll("'", "'\\''")}'`;
 const rootPrettier = (mode) => [
   'npm',
-  '--prefix',
-  'bazaarplusplus-installer',
   'exec',
   '--',
   'prettier',
   '--config',
-  'bazaarplusplus-installer/.prettierrc.json',
+  '.prettierrc.json',
   mode,
+  'package.json',
+  'package-lock.json',
+  '.prettierrc.json',
   'release.mjs',
   'release/**/*.{mjs,json}',
   'scripts/**/*.mjs'
@@ -164,6 +165,7 @@ test('test runs each suite without a release or publication command', (t) => {
   assert.deepEqual(f.calls(), [
     call(f.dir, null, ...rootPrettier('--check')),
     call(f.dir, null, 'node', '--test', 'scripts/just.test.mjs'),
+    call(f.dir, null, 'npm', 'test'),
     call(f.dir, 'mod', 'mod-test', 'test'),
     ...['installer', 'site', 'server'].map((project) =>
       call(f.dir, project, 'npm', 'test')
@@ -310,4 +312,15 @@ for (const command of ['prepare', 'build', 'upload']) {
       ]);
     });
   }
+}
+
+for (const [recipe, args] of [
+  ['release::test', ['test']],
+  ['hooks-install', ['exec', '--', 'lefthook', 'install']]
+]) {
+  test(`${recipe} uses root tooling without installer dependencies`, (t) => {
+    const f = fixture(t);
+    succeeded(f.run([recipe]));
+    assert.deepEqual(f.calls(), [call(f.dir, null, 'npm', ...args)]);
+  });
 }

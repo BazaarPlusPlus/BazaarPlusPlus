@@ -11,7 +11,7 @@ import {
   promoteNativeRecorderInput,
   verifyNativeRecorderInput
 } from './native-recorder-input.mjs';
-import { runFixtureGit } from '../test-support/git-fixture.mjs';
+import { runFixtureGit } from '../scripts/test-support/git-fixture.mjs';
 
 function writeFile(rootDir, relativePath, content) {
   const filePath = path.join(rootDir, ...relativePath.split('/'));

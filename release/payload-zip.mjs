@@ -5,11 +5,11 @@ import process from 'node:process';
 import { parseArgs } from 'node:util';
 import zlib from 'node:zlib';
 import { resolveBuildPlatform } from './release-platforms.mjs';
-import { readProductVersion } from '../../../release/product.mjs';
+import { readProductVersion } from './product.mjs';
 import {
   assertShippedPayloadPaths,
   requiredPayloadPaths
-} from '../../../release/payload-inventory.mjs';
+} from './payload-inventory.mjs';
 
 // This is the first mod version guaranteed to write the BazaarPlusPlusV5 data root.
 export const V5_MIN_MOD_VERSION = '4.7.0';
@@ -597,8 +597,10 @@ export function validatePayloadZip({
 
 async function main(args) {
   if (args[0] === 'pack') {
-    const { assertBuildOwner } = await import('../../../release/payload.mjs');
-    assertBuildOwner(path.resolve(import.meta.dirname, '..', '..'));
+    const { assertBuildOwner } = await import('./payload.mjs');
+    assertBuildOwner(
+      path.resolve(import.meta.dirname, '..', 'bazaarplusplus-installer')
+    );
     const { values } = parseArgs({
       args: args.slice(1),
       strict: true,

@@ -4,12 +4,9 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { afterEach, expect, test } from 'vitest';
-import {
-  buildPlatformFragment,
-  buildLatestManifest
-} from '../../../release/manifest.mjs';
-import { uploadPlatform, promoteRelease } from '../../../release/publish.mjs';
-import { putImmutable } from '../../../release/r2-store.mjs';
+import { buildPlatformFragment, buildLatestManifest } from './manifest.mjs';
+import { uploadPlatform, promoteRelease } from './publish.mjs';
+import { putImmutable } from './r2-store.mjs';
 
 const baseUrl = 'https://bppinstaller.bazaarplusplus.com';
 const sha256 = (bytes) =>
@@ -305,10 +302,7 @@ test('same-version publication refuses changed release facts', async () => {
 test('manifest writer and website share the same complete release fixture', () => {
   const expected = JSON.parse(
     fs.readFileSync(
-      path.resolve(
-        import.meta.dirname,
-        '../../../release/fixtures/latest.json'
-      ),
+      path.resolve(import.meta.dirname, './fixtures/latest.json'),
       'utf8'
     )
   );

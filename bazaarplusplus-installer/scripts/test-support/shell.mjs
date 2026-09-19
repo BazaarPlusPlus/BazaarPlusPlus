@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { runGit } from '../git-command.mjs';
+import { runGit } from '../../../scripts/git-command.mjs';
 
 const projectDir = process.cwd();
 

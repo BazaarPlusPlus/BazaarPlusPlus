@@ -1,6 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
+export const RELEASE_BASE_URL = 'https://bppinstaller.bazaarplusplus.com';
+
 export const WORKSPACE_ROOT = path.resolve(import.meta.dirname, '..');
 
 export function assertProductVersion(version) {

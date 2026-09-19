@@ -3,7 +3,7 @@ import path from 'node:path';
 import {
   RELEASE_PLATFORMS,
   resolveBuildPlatform
-} from './release-platforms.mjs';
+} from '../../../release/release-platforms.mjs';
 
 export function resolveBundleCleanupPath(rootDir, platformEnv) {
   const buildPlatform = resolveBuildPlatform(platformEnv);

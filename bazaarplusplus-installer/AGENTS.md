@@ -10,7 +10,7 @@ The Tauri desktop installer. Repo-wide rules (commits, pull requests, docs polic
 
 - Documentation or these instructions: `npm run docs:check`.
 - React or TypeScript: `npm run check`.
-- `scripts/`: the colocated `*.test.mjs` when one exists, otherwise run the touched script.
+- `scripts/`: the colocated `*.test.mjs` when one exists, otherwise run the touched script. Product Release modules and tests live in root `release/` and use `just release::test`.
 - Versioning, bundled resources, Tauri config, or release packaging: `npm run prebuild-check` before broader validation.
 - A platform bundle: `just release::build <platform>`. No other kind of task needs it.
 

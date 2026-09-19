@@ -68,7 +68,7 @@ Artifacts land under:
 - **Windows:** `src-tauri/target/release/bundle/nsis/`
 - **macOS:** `src-tauri/target/aarch64-apple-darwin/release/bundle/` (`app`, `dmg`)
 
-Platform facts (bundle paths, updater keys, Rust targets) are defined in `scripts/release/release-platforms.mjs`. Read `docs/release.md` before changing anything release-related.
+Platform facts (bundle paths, updater keys, Rust targets) are defined in `../release/release-platforms.mjs`. Read `docs/release.md` before changing anything release-related.
 
 ## Repository layout
 
