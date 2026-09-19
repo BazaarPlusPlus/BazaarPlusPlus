@@ -38,7 +38,7 @@ fmt: && mod::fmt installer::fmt site::fmt server::fmt analyzer::fmt release::syn
 # Install the workspace Git hooks (requires root npm dependencies).
 [group('workspace')]
 hooks-install:
-    npm exec -- lefthook install
+    node scripts/install-hooks.mjs
 
 # Check formatting and exercise command routing with isolated tool stubs.
 [group('workspace')]

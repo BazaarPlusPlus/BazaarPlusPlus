@@ -48,7 +48,9 @@ just mod::build
 
 验证在本地完成：lefthook hooks 按改动范围执行门禁，`just check` / `just test` 执行全仓库检查与测试。
 
-根目录 `lefthook.yml` 是唯一的 hook 配置，执行 `just hooks-install` 安装（需先在根目录执行 `npm ci`）。两个 hook 都按 `lefthook.yml` 的项目与共享输入 glob 选择门禁：pre-commit 调用各项目 `check`，installer 使用 `check-fast`（格式、lint、类型与文档检查）；pre-push 调用所有受影响项目的 `test`，并对 installer 运行完整 `check`。检查内容只在项目 just 模块及其底层验证脚本维护，hook 不重写工具命令。若全局设置了 `core.hooksPath`，lefthook 会拒绝安装并给出提示，是否重置由你决定。
+根目录 `lefthook.yml` 是唯一的 hook 配置，执行 `just hooks-install` 安装（需先在根目录执行 `npm ci`）。两个 hook 都按 `lefthook.yml` 的项目与共享输入 glob 选择门禁：pre-commit 调用各项目 `check`，installer 使用 `check-fast`（格式、lint、类型与文档检查）；pre-push 调用所有受影响项目的 `test`，并对 installer 运行完整 `check`。检查内容只在项目 just 模块及其底层验证脚本维护，hook 不重写工具命令。
+
+`hooks-install` 将 repository-local `core.hooksPath` 设为 `git rev-parse --git-common-dir` 下 `hooks` 的绝对路径，使 linked worktrees 共用 hooks，并覆盖全局 hooks 路径，避免 lefthook 拒绝安装或将仓库 hooks 写入共享目录。脚本先检查目标路径，再核验 Git 的有效路径；解析符号链接后超出该 git 目录或路径被覆盖时拒绝安装，验证通过才调用根依赖中的 `lefthook install --force`。重复执行保持相同配置与 hooks，不修改 global / system Git 配置。
 
 全仓库执行：
 
