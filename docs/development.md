@@ -10,7 +10,7 @@
 
 | 范围 | 环境 | 安装依赖 |
 | --- | --- | --- |
-| Node 项目及发布命令 | Node `>=24.15.0 <25`，建议 npm `11.17.0` | 在 installer、site、server 各自目录执行 `npm ci` |
+| Node 项目及发布命令 | Node 版本见根目录 `.nvmrc`，建议 npm `11.17.0` | 在 installer、site、server 各自目录执行 `npm ci` |
 | mod | .NET SDK，版本策略见 `bazaarplusplus-mod/global.json`；本机游戏 Managed 程序集 | 构建或测试时由 .NET restore 恢复 |
 | installer Rust | `bazaarplusplus-installer/rust-toolchain.toml` 指定的工具链、Tauri 系统依赖 | 已有验证脚本使用 locked Cargo 依赖 |
 | analyzer | Python `3.14`、uv | 在 analyzer 目录执行 `uv sync --locked` |

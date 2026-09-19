@@ -1,55 +1,12 @@
-# Build output
-dist/
-bin/
-obj/
-*.sarif
+# Game assemblies and decompiled game source: local only, never redistributed.
+game-libs/
+decompiled/
+
+# Native Windows build output (MSVC)
 native/windows/build/
 *.obj
 *.lib
 *.exp
-exports/
 
-# Dependencies
-libs/
-decompiled/
-decompiled-v*/
-decompiled-staging/
-
-# IDE
-.trae/
-.idea/
-.vs/
-.vscode/
-*.user
-*.suo
-.dotnet-home/
-.nuget-packages/
-.npm-cache/
-.wrangler
-__pycache__/
-
-# Generated mod files
-**/plugins/BazaarPlusPlus.dll
-**/plugins/BazaarPlusPlus.version
-**/BepInEx.zip
-
-# Local generated package card art
+# Reports written by run.sh
 /artifacts/
-/results/
-/results_atlas/
-
-# OS
-.DS_Store
-Thumbs.db
-
-.dotnet
-.build-verify
-.sandbox-home
-report-ui
-tools/*
-.claude
-.superpowers/
-*.lscache
-.agents/
-skills-lock.json
-game-libs/

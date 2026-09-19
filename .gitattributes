@@ -1,12 +1,7 @@
-# Enforce LF line endings across the repository (working tree + repo).
-# https://git-scm.com/docs/gitattributes
+# Store and check out text as LF across every project.
 * text=auto eol=lf
 
-# Shell scripts must stay LF or bash chokes on the carriage returns.
-*.sh    text eol=lf
-*.bash  text eol=lf
-
-# Windows batch scripts genuinely need CRLF.
+# Windows batch scripts need CRLF.
 *.bat   text eol=crlf
 *.cmd   text eol=crlf
 
@@ -22,6 +17,7 @@
 *.zip   binary
 *.gz    binary
 *.7z    binary
+*.nupkg binary
 *.dll   binary
 *.exe   binary
 *.so    binary

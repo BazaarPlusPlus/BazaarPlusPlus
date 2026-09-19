@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "type": "module",
   "engines": {
-    "node": ">=24"
+    "node": ">=24.15.0 <25"
   },
   "scripts": {
     "check": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.test.json && biome check .",
