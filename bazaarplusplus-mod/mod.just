@@ -10,6 +10,13 @@ published_projects := "src/BazaarPlusPlus.Localization/BazaarPlusPlus.Localizati
 # Check formatting, compile without deploying, and validate the NuGet lock files.
 check: fmt-check build locks-check
 
+# Public CI subset: formatting and lock validation; does not compile the game plugin.
+check-portable: fmt-check locks-check
+
+# Run existing xUnit hosts that have no game/Unity references; not the full mod suite.
+test-portable *args:
+    for project in BppLog.Tests CombatStatusBarState.Tests FeatureLogging.Tests PureBehavior.Tests; do dotnet test "tests/$project/$project.csproj" -p:BppDeployToGame=false "$@"; done
+
 # Compile without changing the installed game; [--fast] [-p:Name=Value ...].
 build *args:
     bash scripts/build.sh build "$@"

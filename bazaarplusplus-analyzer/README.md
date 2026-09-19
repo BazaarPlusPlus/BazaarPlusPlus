@@ -15,13 +15,13 @@ and fill in the required values. Configuration comes only from the repository
 `.env`.
 
 ```bash
-uv run bpp run
-uv run bpp run --no-publish
-uv run bpp status --json
-uv run bpp verify --deep
+uv run --locked bpp run
+uv run --locked bpp run --no-publish
+uv run --locked bpp status --json
+uv run --locked bpp verify --deep
 ```
 
-Use `uv run bpp --help` and `uv run bpp <command> --help` for the complete
+Use `uv run --locked bpp --help` and `uv run --locked bpp <command> --help` for the complete
 operator interface.
 
 ## Documentation
@@ -35,10 +35,8 @@ operator interface.
 ## Quality gate
 
 ```bash
-uv run ruff format --check .
-uv run ruff check .
-uv run ty check
-uv run pytest
+just analyzer::check
+just analyzer::test
 ```
 
 ## License

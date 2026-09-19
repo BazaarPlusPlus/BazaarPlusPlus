@@ -39,14 +39,15 @@ If you only need the frontend (no native shell), `npm run dev` starts a Vite dev
 
 | Command | What it does |
 | --- | --- |
-| `npm run check` | Regenerate bindings, then TypeScript type-check (`tsc --noEmit`) |
+| `just installer::check` | Full source gate, including Rust/TypeScript checks, tests, docs, and frontend build |
+| `npm run check:ts` | Type-check against the generated bindings |
 | `npm run test` | Rust tests (`src-tauri`) + frontend Vitest |
 | `npm run format` | Prettier across the configured globs |
 | `npm run lint` | Type-aware oxlint (`lint:fix` applies safe fixes) |
 | `npm run prebuild-check` | Validate versioning, bundled resources, and Tauri config |
 | `npm run docs:check` | Check that cited paths, doc links, and `CONTEXT.md` topic coverage all resolve |
 
-One thing to know: the TypeScript client for Tauri commands is **generated** from the Rust command signatures into `src/types/generated/`. `dev`, `build`, `check`, and `test` regenerate it automatically — never edit those files by hand.
+One thing to know: the TypeScript client for Tauri commands is **generated** from the Rust command signatures into `src/types/generated/`. `dev`, `build`, `test`, and `just installer::check` regenerate it automatically — never edit those files by hand.
 
 ## Release build
 

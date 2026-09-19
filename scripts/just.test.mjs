@@ -55,7 +55,7 @@ if (process.env.BPP_JUST_TEST_FAIL === tool) process.exit(37);
   );
   const stub = (tool) =>
     `#!/usr/bin/env bash\nexec ${shellQuote(process.execPath)} ${shellQuote(recorder)} ${shellQuote(tool)} "$@"\n`;
-  for (const tool of ['node', 'npm', 'uv', 'dotnet']) {
+  for (const tool of ['node', 'npm', 'uv', 'dotnet', 'cargo']) {
     fs.writeFileSync(path.join(bin, tool), stub(tool), { mode: 0o755 });
   }
   const modDir = path.join(dir, 'bazaarplusplus-mod');
@@ -324,3 +324,60 @@ for (const [recipe, args] of [
     assert.deepEqual(f.calls(), [call(f.dir, null, 'npm', ...args)]);
   });
 }
+
+test('installer::check-fast covers the commit subset without a Rust build', (t) => {
+  const f = fixture(t);
+  succeeded(f.run(['installer::check-fast']));
+  assert.deepEqual(f.calls(), [
+    ...['format:check', 'lint', 'check:ts'].map((script) =>
+      call(f.dir, 'installer', 'npm', 'run', script)
+    ),
+    call(
+      f.dir,
+      'installer',
+      'cargo',
+      'fmt',
+      '--manifest-path',
+      'src-tauri/Cargo.toml',
+      '--',
+      '--check'
+    ),
+    call(f.dir, 'installer', 'npm', 'run', 'docs:check')
+  ]);
+});
+
+test('mod::check-portable validates formatting and all published locks without a game build', (t) => {
+  const f = fixture(t);
+  succeeded(f.run(['mod::check-portable']));
+  assert.deepEqual(f.calls(), [...modFmtCheck(f.dir), ...modLocksCheck(f.dir)]);
+});
+
+test('mod::test-portable runs only game-independent xUnit hosts and forwards properties', (t) => {
+  const f = fixture(t);
+  succeeded(f.run(['mod::test-portable', managedPath]));
+  assert.deepEqual(
+    f.calls(),
+    [
+      'BppLog.Tests',
+      'CombatStatusBarState.Tests',
+      'FeatureLogging.Tests',
+      'PureBehavior.Tests'
+    ].map((project) =>
+      call(
+        f.dir,
+        'mod',
+        'dotnet',
+        'test',
+        `tests/${project}/${project}.csproj`,
+        '-p:BppDeployToGame=false',
+        managedPath
+      )
+    )
+  );
+});
+
+test('mod::test-portable stops at the first failing host', (t) => {
+  const f = fixture(t);
+  assert.equal(f.run(['mod::test-portable'], { fail: 'dotnet' }).status, 37);
+  assert.equal(f.calls().length, 1);
+});

@@ -14,7 +14,7 @@
 | Node 项目 | 遵循各项目 `package.json` 的 `engines` 与 `packageManager` | 在 installer、site、server 各自目录执行 `npm ci` |
 | mod | .NET SDK，版本策略见 `bazaarplusplus-mod/global.json`；本机游戏 Managed 程序集 | 构建或测试时由 .NET restore 恢复 |
 | installer Rust | `bazaarplusplus-installer/rust-toolchain.toml` 指定的工具链、Tauri 系统依赖 | 已有验证脚本使用 locked Cargo 依赖 |
-| analyzer | Python `3.14`、uv | 在 analyzer 目录执行 `uv sync --locked` |
+| analyzer | Python 版本见 `bazaarplusplus-analyzer/.python-version`、uv | 在 analyzer 目录执行 `uv sync --locked` |
 
 Windows 原生构建还需项目要求的 PowerShell 7.6.0+ 等工具；正式包另需平台工具链和签名材料，见[产品发布](release.md)。just 不自动安装工具链、合并锁文件或加载根目录 `.env`。各项目继续按自己的配置规则读取环境；不要把发布凭据写进 `JUSTFILE`。
 
@@ -46,7 +46,7 @@ just mod::build
 
 ## Git hooks
 
-根目录 `lefthook.yml` 是唯一的 hook 配置，执行 `just hooks-install` 安装（需先在根目录执行 `npm ci`）。pre-commit 只对有改动的项目运行格式、lint 与类型检查；pre-push 对有改动的 installer 运行 `verify -- --source-only`，对 analyzer 运行 pytest。若全局设置了 `core.hooksPath`，lefthook 会拒绝安装并给出提示，是否重置由你决定。
+根目录 `lefthook.yml` 是唯一的 hook 配置，执行 `just hooks-install` 安装（需先在根目录执行 `npm ci`）。两个 hook 都按 `lefthook.yml` 的项目与共享输入 glob 选择门禁：pre-commit 调用各项目 `check`，installer 使用 `check-fast`（格式、lint、类型与文档检查）；pre-push 调用所有受影响项目的 `test`，并对 installer 运行完整 `check`。检查内容只在项目 just 模块及其底层验证脚本维护，hook 不重写工具命令。若全局设置了 `core.hooksPath`，lefthook 会拒绝安装并给出提示，是否重置由你决定。
 
 全仓库执行：
 
@@ -64,6 +64,14 @@ just mod::build --fast
 just mod::build "-p:ManagedPath=/absolute/path/The Bazaar/Managed"
 just mod::test "-p:ManagedPath=/absolute/path/The Bazaar/Managed"
 ```
+
+## 公开 CI
+
+`.github/workflows/verify.yml` 对 pull request 和 master 提交运行各项目的 just 检查与测试。Node、.NET、Rust 和 Python 从仓库工具链配置读取版本。CI 按项目拆分，与完整 `just check` / `just test` 共用门禁；这两个本地聚合入口仍要求所有依赖齐备。
+
+公开 runner 没有游戏 Managed 程序集，因此 mod job 只运行明确命名的 `check-portable` / `test-portable`：格式、四个发布程序集的 NuGet locked restore，以及已有的无游戏依赖 xUnit host。具体 host 列表由 `mod.just` 的 `test-portable` 维护；它们不替代完整 mod 编译、架构检查和场景测试。合并前仍需有游戏依赖的环境通过 `just mod::check` / `just mod::test`。
+
+installer 的 macOS job 通过 `TAURI_CONFIG` 清空打包资源列表，运行完整源码检查与测试，不创建占位 Payload。这验证 Rust/前端源码，不证明正式 Payload、平台打包或签名；发布时仍执行产品发布门禁。
 
 ## 产品发布
 

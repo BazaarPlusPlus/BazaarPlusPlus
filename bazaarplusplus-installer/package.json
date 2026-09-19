@@ -30,7 +30,6 @@
     "format:check": "prettier --check \"*.json\" \"src/**/*.{ts,tsx,html}\" \"scripts/**/*.mjs\" \"src-tauri/*.json\" \"src-tauri/capabilities/**/*.json\" \"vite.config.ts\"",
     "lint": "oxlint --type-aware",
     "lint:fix": "oxlint --type-aware --fix",
-    "check": "npm run generate:bindings:if-stale && npm run check:ts",
     "check:ts": "tsc --noEmit",
     "verify": "node scripts/checks/verify.mjs",
     "docs:check": "node scripts/checks/docs-check.mjs",
