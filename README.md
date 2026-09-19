@@ -58,6 +58,7 @@ BazaarPlusPlus 是一个面向《The Bazaar》的开源项目：游戏内由 Bep
 
 ```
 .
+├── justfile                                 # 统一开发、检查、测试与发布命令
 ├── VERSION / release.mjs / release/         # 产品版本、发布入口与共享 Payload Inventory
 ├── bazaarplusplus-mod/                       # BepInEx 模组源码
 │   ├── run.sh                                # 常用 build/test/format/decompile 入口
@@ -75,77 +76,72 @@ BazaarPlusPlus 是一个面向《The Bazaar》的开源项目：游戏内由 Bep
 └── bazaarplusplus-site/                      # bazaarplusplus.com
 ```
 
-日常开发在对应子目录里跑命令；产品发布统一使用根目录 `release.mjs`。每个子目录有自己的 `CLAUDE.md` / `AGENTS.md`。
+在仓库任意子目录运行 `just` 查看开发、检查、测试和发布命令。底层仍使用各项目的原生工具链，产品发布规则由根目录 `release.mjs` 维护。环境安装与命令范围见 [开发命令](docs/development.md)。每个子目录有自己的 `CLAUDE.md` / `AGENTS.md`。
 
 ## 从源码构建
 
 ### 环境要求
 
 - **模组**：.NET SDK 10，以及本机 Steam 版《The Bazaar》（用于解析游戏程序集引用）。
-- **安装器**：Node.js 20+、Rust 工具链、Tauri 系统依赖（见 [Tauri prerequisites](https://tauri.app/start/prerequisites/)）。
-- **服务端 / 官网**：Node.js 20+，Cloudflare Wrangler。
+- **统一命令**：[just](https://just.systems/man/en/packages.html)，macOS 可用 `brew install just` 安装。
+- **安装器 / 服务端 / 官网**：统一使用 Node `>=24.15.0 <25`，建议 npm `11.17.0`；各目录分别执行 `npm ci`。
+- **安装器原生构建**：Rust 工具链、Tauri 系统依赖（见 [Tauri prerequisites](https://tauri.app/start/prerequisites/)）。
 - **分析器**：Python 3.14 与 `uv`。
-- **Windows**：构建脚本与开发流程要求 PowerShell 7.6.0 或更高版本。
+- **Windows**：just 命令在 Git Bash 中执行；原生构建脚本还要求 PowerShell 7.6.0 或更高版本。
 
 ### 构建模组
 
 ```bash
-cd bazaarplusplus-mod
+# Compile without changing the installed game
+just mod-build
+just mod-test
 
-# 开发构建：默认会尝试解析本机游戏目录，并把 Debug DLL 拷贝到 BepInEx/plugins
-./run.sh build
-
-# 一次性构建 Debug + Release
-./run.sh all
-
-# 显式指定游戏程序集目录
-dotnet build src/BazaarPlusPlus/BazaarPlusPlus.csproj \
-  -c Debug \
-  -p:ManagedPath="<Steam>/steamapps/common/The Bazaar/.../Managed"
+# Override the game assembly directory
+just mod-build "-p:ManagedPath=<Steam>/steamapps/common/The Bazaar/.../Managed"
 ```
+
+需要把开发 DLL 部署进游戏时，在 `bazaarplusplus-mod` 目录显式运行 `./run.sh build`。
 
 ### 构建安装器
 
 ```bash
 cd bazaarplusplus-installer
 
-npm install
-npm run dev        # Vite 前端开发服务
-npm run tauri dev  # 启动完整 Tauri 桌面应用
+npm ci
+just installer-dev # Frontend development server
+npm run tauri dev  # Full Tauri desktop app
 
-npm run check
-npm run test
+just installer-check
+just installer-test
 npm run format
-
-./build.sh --prod  # 本机平台生产打包
 ```
 
 ```bash
 cd bazaarplusplus-server
-npm install
-npm test
-# npm run dev 需要 gitignore 的 .dev.vars（R2 预签名密钥和两个服务 token）
+npm ci
+just server-test
+# just server-dev requires the project's gitignored .dev.vars
 ```
 
 ```bash
 cd bazaarplusplus-analyzer
 uv sync --locked
-# 把 .env.example 复制为 .env 后再跑
-uv run pytest
+just analyzer-check
+just analyzer-test
 ```
 
 ```bash
 cd bazaarplusplus-site
-npm install
-npm test
-npm run build
+npm ci
+just site-test
+just site-build
 ```
 
 发布签名、公证（notarization）、R2 上传等流程依赖本地环境变量与 `signing-secrets/`，这些内容不会提交到公开仓库；在缺少本机游戏、签名凭据或平台依赖的环境中，无法完成完整的发布构建。游戏反编译输出、`decompiled/`、`.env` 和 `.dev.vars` 同样不在此树中。
 
 ## 产品发布
 
-mod 与 installer 共用根目录 `VERSION`。修改后执行 `node release.mjs sync`；每个平台使用 `node release.mjs build --platform macos`（或 `windows`）准备 Payload 并打包。分别 `upload` 后，只有双平台同版本、同提交的产物齐备，`promote` 才会推进 latest。完整流程、凭据与恢复约定见 [产品发布](docs/release.md)。
+mod 与 installer 共用根目录 `VERSION`。修改后执行 `just release-sync`；每个平台使用 `just release-build macos`（或 `windows`）准备 Payload 并打包。分别执行 `just release-upload <platform>` 后，只有双平台同版本、同提交的产物齐备，`just release-promote` 才会推进 latest。底层 `node release.mjs …` 保持可用；完整流程、凭据与恢复约定见 [产品发布](docs/release.md)。
 
 ## 二次开发须知
 

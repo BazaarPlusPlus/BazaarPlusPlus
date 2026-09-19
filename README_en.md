@@ -58,6 +58,7 @@ Feature guides, hotkeys, and installation details live at [bazaarplusplus.com/tu
 
 ```
 .
+├── justfile                                 # Unified development, checks, tests, and release commands
 ├── VERSION / release.mjs / release/         # Product version, release entry point, shared Payload Inventory
 ├── bazaarplusplus-mod/                       # BepInEx mod source
 │   ├── run.sh                                # Common build/test/format/decompile entry point
@@ -75,77 +76,72 @@ Feature guides, hotkeys, and installation details live at [bazaarplusplus.com/tu
 └── bazaarplusplus-site/                      # bazaarplusplus.com
 ```
 
-Run daily development commands from the project directory you are changing; product releases use the root `release.mjs`. Each subdirectory has its own `CLAUDE.md` / `AGENTS.md`.
+Run `just` from any repository subdirectory to list development, check, test, and release commands. Projects retain their native toolchains; product release rules live in the root `release.mjs`. See the [development command guide](docs/development.md) for setup and command scope. Each subdirectory has its own `CLAUDE.md` / `AGENTS.md`.
 
 ## Building From Source
 
 ### Prerequisites
 
 - **Mod**: .NET SDK 10 and a local Steam install of *The Bazaar* so game assemblies can be resolved.
-- **Installer**: Node.js 20+, the Rust toolchain, and the system dependencies listed in the [Tauri prerequisites](https://tauri.app/start/prerequisites/).
-- **Server / site**: Node.js 20+ and Cloudflare Wrangler.
+- **Unified commands**: [just](https://just.systems/man/en/packages.html); install with `brew install just` on macOS.
+- **Installer / server / site**: Use Node `>=24.15.0 <25` across the repository, with npm `11.17.0` recommended; run `npm ci` in each project directory.
+- **Native installer builds**: The Rust toolchain and the system dependencies listed in the [Tauri prerequisites](https://tauri.app/start/prerequisites/).
 - **Analyzer**: Python 3.14 and `uv`.
-- **Windows**: PowerShell 7.6.0 or newer for the build scripts and development flow.
+- **Windows**: Run just commands in Git Bash; native build scripts also require PowerShell 7.6.0 or newer.
 
 ### Build the Mod
 
 ```bash
-cd bazaarplusplus-mod
+# Compile without changing the installed game
+just mod-build
+just mod-test
 
-# Development build: resolves the local game directory and copies the Debug DLL into BepInEx/plugins
-./run.sh build
-
-# Build Debug + Release in one pass
-./run.sh all
-
-# Override the game assembly directory explicitly
-dotnet build src/BazaarPlusPlus/BazaarPlusPlus.csproj \
-  -c Debug \
-  -p:ManagedPath="<Steam>/steamapps/common/The Bazaar/.../Managed"
+# Override the game assembly directory
+just mod-build "-p:ManagedPath=<Steam>/steamapps/common/The Bazaar/.../Managed"
 ```
+
+To deploy development DLLs into the game, explicitly run `./run.sh build` from `bazaarplusplus-mod`.
 
 ### Build the Installer
 
 ```bash
 cd bazaarplusplus-installer
 
-npm install
-npm run dev        # Vite frontend dev server
+npm ci
+just installer-dev # Vite frontend dev server
 npm run tauri dev  # full Tauri desktop app
 
-npm run check
-npm run test
+just installer-check
+just installer-test
 npm run format
-
-./build.sh --prod  # production package for the host platform
 ```
 
 ```bash
 cd bazaarplusplus-server
-npm install
-npm test
-# npm run dev needs a gitignored .dev.vars file (R2 presign keys and the two service tokens)
+npm ci
+just server-test
+# just server-dev requires the project's gitignored .dev.vars
 ```
 
 ```bash
 cd bazaarplusplus-analyzer
 uv sync --locked
-# copy .env.example to .env first
-uv run pytest
+just analyzer-check
+just analyzer-test
 ```
 
 ```bash
 cd bazaarplusplus-site
-npm install
-npm test
-npm run build
+npm ci
+just site-test
+just site-build
 ```
 
 Release signing, notarization, and R2 upload flows depend on local environment variables and `signing-secrets/`, which are intentionally not committed. A full release build also requires a local game install, signing material, and the platform dependencies — the public source tree alone is not enough. Game decompilation output, `decompiled/`, `.env`, and `.dev.vars` are also kept out of this tree.
 
 ## Product Releases
 
-The mod and installer share the root `VERSION`. Run `node release.mjs sync` after changing it. Build each platform with `node release.mjs build --platform macos` (or `windows`), then `upload` its immutable artifacts. `promote` advances latest only when both platforms have the same version and Git commit. See the [product release guide](docs/release.md) for credentials, sequencing, and recovery.
+The mod and installer share the root `VERSION`. Run `just release-sync` after changing it. Build each platform with `just release-build macos` (or `windows`), then run `just release-upload <platform>` for its immutable artifacts. `just release-promote` advances latest only when both platforms have the same version and Git commit. The underlying `node release.mjs …` commands remain available. See the [product release guide](docs/release.md) for credentials, sequencing, and recovery.
 
 ## Derivative Work Notice
 
