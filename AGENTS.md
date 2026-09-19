@@ -19,8 +19,8 @@ A contract change lands in one pull request together with every consumer it brea
 
 | Contract | Owner | Consumers |
 |---|---|---|
-| Bundle V5 binary and manifest | `bazaarplusplus-server/contracts/v5/` | mod writes, server ingests, analyzer reads |
-| Run segment inside a Bundle | `bazaarplusplus-mod/docs/contracts/run-payload-v5.md` | server stores it opaque, analyzer decodes it |
+| Bundle V5 binary and manifest | `bazaarplusplus-server/contracts/v5/`, shared goldens in `fixtures/` beneath it | mod writes, server ingests, analyzer reads |
+| Run segment inside a Bundle | `bazaarplusplus-mod/docs/contracts/run-payload-v5.md`, shared golden `bazaarplusplus-mod/tests/BundleV5Codec.Tests/fixtures/run-payload-v5.fixture.b64` | server stores it opaque, analyzer decodes it |
 | Mod API HTTP routes | `bazaarplusplus-server/docs/api-reference.md` | mod |
 | Hero and build snapshots | `bazaarplusplus-analyzer/contracts/v5/` and `bazaarplusplus-analyzer/docs/specs/consumer-data-contract.md` | site Hero Analysis, mod build recommendations |
 | Payload Inventory | `release/payload.json` | mod MSBuild, installer packaging and cleanup |

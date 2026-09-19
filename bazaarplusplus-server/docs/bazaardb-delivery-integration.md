@@ -392,7 +392,7 @@ Example:
 - The Run payload segment (`application/x-bpp-run-v5`) is the full structured run data — BazaarDB may ignore it if only the Screenshot and manifest summary are needed.
 - Unknown manifest fields must be ignored; the schema may gain fields without notice, while breaking changes will be announced in advance with a migration window.
 
-The complete manifest JSON Schema is inlined in the appendix at the end of this document. Golden test fixtures (valid and invalid Bundle byte vectors) are available from BazaarPlusPlus on request; BazaarPlusPlus recommends validating the parser against them before going live.
+The complete manifest JSON Schema is inlined in the appendix at the end of this document. Golden test fixtures (valid and invalid Bundle byte vectors) are in [`../contracts/v5/fixtures/`](../contracts/v5/fixtures/); BazaarPlusPlus recommends validating the parser against them before going live.
 
 ## Data Handling
 
