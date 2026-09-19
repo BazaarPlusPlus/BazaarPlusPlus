@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { useMemo, useState, type CSSProperties } from 'react';
 
 import type { Locale, ResolvedSpaLocation } from '../../app/router';
 import { BAZAARDB_ICON_PATH, BAZAARDB_META_URL, getSiteCopy } from '../../content/site-copy';
@@ -48,22 +48,27 @@ export default function HeroOverviewDashboard({
     requestedScope.segment
   );
   const [focusedHero, setFocusedHero] = useState<string | null>(null);
+  const [syncedScope, setSyncedScope] = useState(requestedScope);
 
-  useEffect(() => {
+  // Adopt a new requested scope during render instead of in an effect.
+  if (
+    syncedScope.window !== requestedScope.window ||
+    syncedScope.segment !== requestedScope.segment
+  ) {
+    setSyncedScope(requestedScope);
     setSelectedWindow(requestedScope.window);
     setSelectedSegment(requestedScope.segment);
-  }, [requestedScope.segment, requestedScope.window]);
+  }
 
   const analysis = useMemo(
     () => analyzeHeroes(dataset, { window: selectedWindow, segment: selectedSegment }, focusedHero),
     [dataset, focusedHero, selectedSegment, selectedWindow]
   );
 
-  useEffect(() => {
-    if (analysis.focus.hero !== focusedHero) {
-      setFocusedHero(analysis.focus.hero);
-    }
-  }, [analysis.focus.hero, focusedHero]);
+  // Keep the resolved hero so a scope change does not reset the focus.
+  if (analysis.focus.hero !== focusedHero) {
+    setFocusedHero(analysis.focus.hero);
+  }
 
   const selectSegment = (segment: HeroMetricsSegment) => {
     setSelectedSegment(segment);

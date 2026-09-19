@@ -1,10 +1,4 @@
-import {
-  AlertTriangle,
-  DownloadCloud,
-  Loader2,
-  X,
-  type LucideIcon
-} from 'lucide-react';
+import { AlertTriangle, DownloadCloud, Loader2, X } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Dialog } from './Dialog';
 import { useI18n } from '../../i18n/LocaleProvider';
@@ -60,7 +54,7 @@ export interface ConfirmDialogProps {
 
 const TONE = {
   gold: {
-    Icon: DownloadCloud as LucideIcon,
+    Icon: DownloadCloud,
     card: 'bpp-modal-card bpp-install-confirm-card w-full max-w-[560px] mx-4 relative',
     bar: 'bpp-modal-header bpp-install-confirm-header flex justify-between items-center px-5 py-4',
     icon: 'bpp-confirm-tone-icon is-gold',
@@ -75,7 +69,7 @@ const TONE = {
       'bpp-confirm-submit is-gold bpp-install-confirm-submit px-5 py-2 text-sm cinzel font-bold tracking-wider transition-[filter] hover:brightness-110 active:brightness-95 disabled:opacity-50 disabled:hover:brightness-100'
   },
   danger: {
-    Icon: AlertTriangle as LucideIcon,
+    Icon: AlertTriangle,
     card: 'bpp-modal-card bpp-modal-danger w-full max-w-md mx-4 relative',
     bar: 'bpp-modal-header flex justify-between items-center px-5 py-4',
     icon: 'bpp-confirm-tone-icon is-danger',
