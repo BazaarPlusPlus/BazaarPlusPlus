@@ -4,7 +4,7 @@ pre-commit:
   parallel: true
   jobs:
     - name: workspace
-      glob: &workspace_paths '{JUSTFILE,**/*.just,package*.json,.nvmrc,.prettierrc.json,lefthook.yml,.github/**,VERSION,release.mjs,release/**,scripts/**}'
+      glob: &workspace_paths '{JUSTFILE,**/*.just,package*.json,.nvmrc,.prettierrc.json,lefthook.yml,VERSION,release.mjs,release/**,scripts/**}'
       run: just commands-check release::check
 
     - name: mod

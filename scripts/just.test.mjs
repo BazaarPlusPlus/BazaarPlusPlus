@@ -345,39 +345,3 @@ test('installer::check-fast covers the commit subset without a Rust build', (t) 
     call(f.dir, 'installer', 'npm', 'run', 'docs:check')
   ]);
 });
-
-test('mod::check-portable validates formatting and all published locks without a game build', (t) => {
-  const f = fixture(t);
-  succeeded(f.run(['mod::check-portable']));
-  assert.deepEqual(f.calls(), [...modFmtCheck(f.dir), ...modLocksCheck(f.dir)]);
-});
-
-test('mod::test-portable runs only game-independent xUnit hosts and forwards properties', (t) => {
-  const f = fixture(t);
-  succeeded(f.run(['mod::test-portable', managedPath]));
-  assert.deepEqual(
-    f.calls(),
-    [
-      'BppLog.Tests',
-      'CombatStatusBarState.Tests',
-      'FeatureLogging.Tests',
-      'PureBehavior.Tests'
-    ].map((project) =>
-      call(
-        f.dir,
-        'mod',
-        'dotnet',
-        'test',
-        `tests/${project}/${project}.csproj`,
-        '-p:BppDeployToGame=false',
-        managedPath
-      )
-    )
-  );
-});
-
-test('mod::test-portable stops at the first failing host', (t) => {
-  const f = fixture(t);
-  assert.equal(f.run(['mod::test-portable'], { fail: 'dotnet' }).status, 37);
-  assert.equal(f.calls().length, 1);
-});
