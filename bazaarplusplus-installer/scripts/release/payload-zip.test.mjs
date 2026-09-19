@@ -99,7 +99,7 @@ test.each([
 
       expect(secondBytes.equals(firstBytes)).toBe(true);
       expect(entries.map((entry) => entry.name)).toEqual(
-        [...entries.map((entry) => entry.name)].sort()
+        entries.map((entry) => entry.name).sort()
       );
       expect(entries.find((entry) => entry.name === fileName)?.mode).toBe(mode);
       expect(

@@ -31,7 +31,7 @@ function withNormalizedErrors(
         }
       };
     }
-  }) as CommandAdapter;
+  });
 }
 
 export const nativeCommands = withNormalizedErrors(generatedCommands);

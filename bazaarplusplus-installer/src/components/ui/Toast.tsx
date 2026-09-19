@@ -125,7 +125,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     const viewport = viewportRef.current;
     if (!viewport || typeof viewport.showPopover !== 'function') return;
     try {
-      if (viewport.matches(':popover-open') === false) {
+      if (!viewport.matches(':popover-open')) {
         viewport.showPopover();
       }
     } catch {

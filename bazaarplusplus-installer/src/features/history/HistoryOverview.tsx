@@ -314,8 +314,8 @@ function CleanupRow({
               setPreset(event.target.value as StorageCleanupPreset)
             }
           >
-            {PRESETS.map(({ preset, labelKey }) => (
-              <option key={preset} value={preset}>
+            {PRESETS.map(({ preset: option, labelKey }) => (
+              <option key={option} value={option}>
                 {t(labelKey)}
               </option>
             ))}

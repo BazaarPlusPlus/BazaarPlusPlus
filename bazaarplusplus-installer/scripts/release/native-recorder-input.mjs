@@ -458,7 +458,7 @@ function writeManifestTransaction({
       }
     } catch (error) {
       console.warn(
-        `native-recorder-input: retained backup ${item.backup}: ${error}`
+        `native-recorder-input: retained backup ${item.backup}: ${String(error)}`
       );
     }
   }
@@ -467,7 +467,7 @@ function writeManifestTransaction({
       fs.rmSync(lockBackup, { force: true });
   } catch (error) {
     console.warn(
-      `native-recorder-input: retained backup ${lockBackup}: ${error}`
+      `native-recorder-input: retained backup ${lockBackup}: ${String(error)}`
     );
   }
 }

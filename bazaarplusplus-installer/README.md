@@ -42,6 +42,7 @@ If you only need the frontend (no native shell), `npm run dev` starts a Vite dev
 | `npm run check` | Regenerate bindings, then TypeScript type-check (`tsc --noEmit`) |
 | `npm run test` | Rust tests (`src-tauri`) + frontend Vitest |
 | `npm run format` | Prettier across the configured globs |
+| `npm run lint` | Type-aware oxlint (`lint:fix` applies safe fixes) |
 | `npm run prebuild-check` | Validate versioning, bundled resources, and Tauri config |
 | `npm run docs:check` | Check that cited paths, doc links, and `CONTEXT.md` topic coverage all resolve |
 

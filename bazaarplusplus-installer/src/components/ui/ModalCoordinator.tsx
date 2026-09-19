@@ -107,6 +107,9 @@ export function ModalSource({
       dismissalPolicy,
       restoreFocusTo: () => restoreFocusRef?.current ?? activeElement
     });
+    // Policy changes go through the update effect below; re-registering would
+    // reorder the modal stack and lose the focus-restore target.
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
   }, [coordinator, id, open, restoreFocusRef]);
 
   useLayoutEffect(() => {

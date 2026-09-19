@@ -94,7 +94,7 @@ async function render(path: string, remountOnNavigation = false) {
 
 async function click(label: string) {
   const button = [...container.querySelectorAll('button')].find(
-    (button) => button.textContent === label
+    (candidate) => candidate.textContent === label
   );
   expect(button).toBeDefined();
   await act(async () => button!.click());

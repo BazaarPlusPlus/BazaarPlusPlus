@@ -1,5 +1,9 @@
 import { useLayoutEffect, useRef } from 'react';
-import { useLocation, useNavigationType } from 'react-router-dom';
+import {
+  NavigationType,
+  useLocation,
+  useNavigationType
+} from 'react-router-dom';
 
 export function useRouteScroll() {
   const mainRef = useRef<HTMLElement>(null);
@@ -15,7 +19,7 @@ export function useRouteScroll() {
     const returningToHistory =
       location.pathname === '/history' &&
       previousPath.current.startsWith('/history/');
-    const restore = navigationType === 'POP' || returningToHistory;
+    const restore = navigationType === NavigationType.Pop || returningToHistory;
     const target = restore ? (positions.current.get(path) ?? 0) : 0;
     previousPath.current = path;
     let pending = target > 0;

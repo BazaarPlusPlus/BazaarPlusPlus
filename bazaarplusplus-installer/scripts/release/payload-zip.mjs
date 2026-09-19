@@ -197,7 +197,8 @@ function assertStagedHistoryDatabaseCompatibility(rootDir, sourceDir) {
     contract = JSON.parse(fs.readFileSync(contractPath, 'utf8'));
   } catch (error) {
     throw new Error(
-      `Cannot read BazaarPlusPlus history database contract at ${contractPath}: ${error instanceof Error ? error.message : String(error)}`
+      `Cannot read BazaarPlusPlus history database contract at ${contractPath}: ${error instanceof Error ? error.message : String(error)}`,
+      { cause: error }
     );
   }
   if (

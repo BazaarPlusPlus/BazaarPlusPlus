@@ -75,18 +75,18 @@ function fixture(version = '3.1.1') {
   return { workspaceRoot, version };
 }
 
-async function upload(fixture, store, platform, commit = 'a'.repeat(40)) {
+async function upload(data, store, platform, commit = 'a'.repeat(40)) {
   const platformKey =
     platform === 'windows' ? 'windows-x86_64' : 'darwin-aarch64';
   const installerName =
     platform === 'windows'
-      ? `BazaarPlusPlus_${fixture.version}_x64-setup.exe`
-      : `BazaarPlusPlus_${fixture.version}_aarch64.dmg`;
-  const installer = path.join(fixture.workspaceRoot, installerName);
+      ? `BazaarPlusPlus_${data.version}_x64-setup.exe`
+      : `BazaarPlusPlus_${data.version}_aarch64.dmg`;
+  const installer = path.join(data.workspaceRoot, installerName);
   const updater =
     platform === 'windows'
       ? installer
-      : path.join(fixture.workspaceRoot, 'BazaarPlusPlus.app.tar.gz');
+      : path.join(data.workspaceRoot, 'BazaarPlusPlus.app.tar.gz');
   const signature = `${updater}.sig`;
   fs.writeFileSync(installer, `${platform} installer`);
   if (updater !== installer) fs.writeFileSync(updater, 'macos updater');
@@ -97,7 +97,7 @@ async function upload(fixture, store, platform, commit = 'a'.repeat(40)) {
     sha256: sha256(fs.readFileSync(file))
   });
   const manifest = {
-    appVersion: fixture.version,
+    appVersion: data.version,
     releasePlatformKey: platformKey,
     buildPlatform: platform,
     gitCommit: commit,
@@ -107,7 +107,7 @@ async function upload(fixture, store, platform, commit = 'a'.repeat(40)) {
     signature: { ...record(signature), content: `${platform}-signature` }
   };
   return uploadPlatform({
-    ...fixture,
+    ...data,
     platform,
     baseUrl,
     store,

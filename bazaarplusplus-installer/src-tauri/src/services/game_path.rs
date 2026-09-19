@@ -315,7 +315,7 @@ mod resolve_tests {
             *log.borrow(),
             row.expect_probe_log
                 .iter()
-                .map(|value| value.to_string())
+                .map(std::string::ToString::to_string)
                 .collect::<Vec<_>>(),
             "{}: probe order",
             row.name

@@ -67,7 +67,7 @@ class FakeScheduler implements StreamScheduler {
   }
 
   fireIntervals() {
-    for (const callback of [...this.intervals.values()]) callback();
+    for (const callback of Array.from(this.intervals.values())) callback();
   }
 }
 

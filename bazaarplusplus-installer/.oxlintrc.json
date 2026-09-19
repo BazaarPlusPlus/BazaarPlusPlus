@@ -1,0 +1,68 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": [
+    "typescript",
+    "oxc",
+    "unicorn",
+    "react",
+    "jsx-a11y",
+    "import",
+    "promise",
+    "vitest"
+  ],
+  "categories": {
+    "correctness": "error",
+    "suspicious": "error",
+    "perf": "error"
+  },
+  "ignorePatterns": [
+    "dist/**",
+    "coverage/**",
+    "src-tauri/target/**",
+    "src/types/generated/**"
+  ],
+  "rules": {
+    "react/react-in-jsx-scope": "off",
+    "unicorn/no-array-sort": "off",
+    "unicorn/no-array-reverse": "off",
+    "react/no-array-index-key": "off",
+    "jsx-a11y/prefer-tag-over-role": "off",
+    "jsx-a11y/control-has-associated-label": "off",
+    "eslint/no-await-in-loop": "off",
+    "import/no-unassigned-import": "off",
+    "typescript/no-unsafe-type-assertion": "off",
+    "typescript/consistent-return": "off",
+    "typescript/unbound-method": "off",
+    // Installer-specific: the React Compiler heuristics below flag the
+    // latest-ref and trigger-dependency patterns this app uses on purpose,
+    // and it does not build with the React Compiler.
+    "react/refs": "off",
+    "react/exhaustive-effect-dependencies": "off",
+    "react/set-state-in-effect": "off",
+    "react/memo-dependencies": "off",
+    "react/globals": "off",
+    // Tauri and Vite inject `__NAME__` globals.
+    "eslint/no-underscore-dangle": "off",
+    "import/no-named-as-default": "off",
+    // Side-effect-only `.then` handlers are idiomatic here.
+    "promise/always-return": "off"
+  },
+  "overrides": [
+    {
+      // Untyped release scripts sort string paths; the default code-unit order
+      // is the deterministic order the manifests and zips depend on.
+      "files": ["scripts/**/*.mjs"],
+      "rules": {
+        "typescript/require-array-sort-compare": "off"
+      }
+    },
+    {
+      "files": ["**/*.test.{ts,tsx,js,mjs}"],
+      "rules": {
+        "vitest/require-mock-type-parameters": "off",
+        "vitest/require-to-throw-message": "off",
+        "vitest/no-conditional-expect": "off"
+      }
+    }
+  ]
+}

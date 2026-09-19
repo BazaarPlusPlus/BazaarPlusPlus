@@ -36,9 +36,15 @@ export function Dialog({
     return () => {
       if (el?.open) el.close();
     };
+    // Opening is a mount-time side effect; the dialog must not reopen or steal
+    // focus again when props change.
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
+    // Keyboard dismissal is the native Escape -> `cancel` path below; the click
+    // handler only adds the pointer-only backdrop affordance.
+    // oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions
     <dialog
       ref={ref}
       className={`bpp-dialog ${className}`.trim()}

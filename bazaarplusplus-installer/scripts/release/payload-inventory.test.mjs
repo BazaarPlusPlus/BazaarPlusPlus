@@ -137,11 +137,11 @@ test('every published product assembly is declared in the shared inventory', () 
   expect(assemblies).toEqual(projects);
 });
 
+const xml = (value) => value.replaceAll('&', '&amp;').replaceAll('"', '&quot;');
+
 test('the assembly gate reads compiled metadata and rejects a mixed-version Payload', () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'bpp-assembly-gate-'));
   const version = readProductVersion();
-  const xml = (value) =>
-    value.replaceAll('&', '&amp;').replaceAll('"', '&quot;');
   try {
     const project = path.join(root, 'Probe.csproj');
     fs.writeFileSync(
@@ -177,7 +177,7 @@ test('the assembly gate reads compiled metadata and rejects a mixed-version Payl
           { encoding: 'utf8', stdio: 'pipe' }
         );
       } catch (error) {
-        throw new Error(error.stdout || error.message);
+        throw new Error(error.stdout || error.message, { cause: error });
       }
     };
     expect(check).not.toThrow();

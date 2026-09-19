@@ -107,7 +107,7 @@ function RailItem({
       !page ||
       window.matchMedia('(prefers-reduced-motion: reduce)').matches
     ) {
-      navigate(to);
+      void navigate(to);
       return;
     }
 
@@ -123,7 +123,7 @@ function RailItem({
       window.clearTimeout(fallbackTimer);
       page.removeEventListener('animationend', onAnimationEnd);
       delete root.dataset.bppNavTransition;
-      navigate(to);
+      void navigate(to);
     };
     const onAnimationEnd = (animationEvent: AnimationEvent) => {
       if (

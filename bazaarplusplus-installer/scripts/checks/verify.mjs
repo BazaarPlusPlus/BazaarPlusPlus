@@ -30,9 +30,11 @@ export function verificationSteps({ mode, releasePlatform }) {
         );
 
   return [
-    // Sub-second gates run first so the most common failures (formatting, a
-    // stale Cargo lock) are reported before the Rust test build starts.
+    // Cheap static gates run first so the most common failures (formatting,
+    // lint, a stale Cargo lock) are reported before the Rust test build starts.
+    // Clippy only type-checks, so it also runs ahead of the test build.
     npmStep('Check formatting', 'format:check'),
+    npmStep('Lint TypeScript and scripts', 'lint'),
     {
       label: 'Check Rust formatting',
       command: 'cargo',
@@ -52,10 +54,6 @@ export function verificationSteps({ mode, releasePlatform }) {
       ],
       stdio: ['inherit', 'ignore', 'inherit']
     },
-    npmStep('Generate bindings and run Rust tests', 'generate:bindings:test'),
-    npmStep('Check generated binding freshness', 'check:bindings'),
-    npmStep('Type-check TypeScript', 'check:ts'),
-    npmStep('Run Vitest', 'test:unit'),
     {
       label: 'Run Rust Clippy',
       command: 'cargo',
@@ -71,6 +69,10 @@ export function verificationSteps({ mode, releasePlatform }) {
         'warnings'
       ]
     },
+    npmStep('Generate bindings and run Rust tests', 'generate:bindings:test'),
+    npmStep('Check generated binding freshness', 'check:bindings'),
+    npmStep('Type-check TypeScript', 'check:ts'),
+    npmStep('Run Vitest', 'test:unit'),
     {
       label: 'Build strict Rust documentation',
       command: 'cargo',

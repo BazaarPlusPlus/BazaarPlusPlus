@@ -5,7 +5,7 @@ Product versioning, isolated Payload preparation, immutable uploads and complete
 ## Verification Gates
 
 - `npm run verify -- --source-only` is the clean-checkout source gate. `npm run verify -- --release-platform <macos|windows>` adds real Payload validation for one platform.
-- `verificationSteps` in `scripts/checks/verify.mjs` checks formatting and the locked Cargo graph, generates bindings while running Rust tests, checks generated drift, type-checks, runs Vitest and strict Rust checks, applies the selected prebuild guard, and builds the production frontend.
+- `verificationSteps` in `scripts/checks/verify.mjs` checks formatting, oxlint, the locked Cargo graph, and Clippy, generates bindings while running Rust tests, checks generated drift, type-checks, runs Vitest, builds strict Rust docs, applies the selected prebuild guard, and builds the production frontend.
 - `npm run prebuild-check` validates versions, generated bindings, platform configuration, Payload build receipts, archives and native inputs. Missing receipts require preparation, not a bypass.
 - `./build.sh --prod` delegates to the product coordinator. Its process lock spans preparation, release verification, compilation, signing, bundling and artifact recording. Source integration tests also require the mod's .NET SDK.
 

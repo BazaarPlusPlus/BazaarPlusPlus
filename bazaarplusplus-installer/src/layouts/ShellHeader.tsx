@@ -179,6 +179,30 @@ function WindowsWindowControls() {
   return <WindowsWindowControlsContent />;
 }
 
+function minimizeWindow() {
+  void getCurrentWindow()
+    .minimize()
+    .catch((error) => {
+      console.error('Failed to minimize the Windows window.', error);
+    });
+}
+
+function toggleMaximizeWindow() {
+  void getCurrentWindow()
+    .toggleMaximize()
+    .catch((error) => {
+      console.error('Failed to toggle the Windows window size.', error);
+    });
+}
+
+function closeWindow() {
+  void getCurrentWindow()
+    .close()
+    .catch((error) => {
+      console.error('Failed to close the Windows window.', error);
+    });
+}
+
 function WindowsWindowControlsContent() {
   const { t } = useI18n();
   const streamRunning = useShellStreamServiceRunning();
@@ -229,33 +253,11 @@ function WindowsWindowControlsContent() {
     };
   }, []);
 
-  const minimize = () => {
-    void getCurrentWindow()
-      .minimize()
-      .catch((error) => {
-        console.error('Failed to minimize the Windows window.', error);
-      });
-  };
-  const toggleMaximize = () => {
-    void getCurrentWindow()
-      .toggleMaximize()
-      .catch((error) => {
-        console.error('Failed to toggle the Windows window size.', error);
-      });
-  };
-  const close = () => {
-    void getCurrentWindow()
-      .close()
-      .catch((error) => {
-        console.error('Failed to close the Windows window.', error);
-      });
-  };
-
   return (
     <div className="bpp-window-controls" aria-label={t('windowControls')}>
       <button
         type="button"
-        onClick={minimize}
+        onClick={minimizeWindow}
         className="bpp-button bpp-window-control-button size-9 shrink-0"
         title={t('minimizeWindow')}
         aria-label={t('minimizeWindow')}
@@ -264,7 +266,7 @@ function WindowsWindowControlsContent() {
       </button>
       <button
         type="button"
-        onClick={toggleMaximize}
+        onClick={toggleMaximizeWindow}
         className="bpp-button bpp-window-control-button size-9 shrink-0"
         title={maximizeLabel}
         aria-label={maximizeLabel}
@@ -277,7 +279,7 @@ function WindowsWindowControlsContent() {
       </button>
       <button
         type="button"
-        onClick={close}
+        onClick={closeWindow}
         className="bpp-button bpp-window-control-button bpp-window-close-button size-9 shrink-0"
         title={closeLabel}
         aria-label={closeLabel}
