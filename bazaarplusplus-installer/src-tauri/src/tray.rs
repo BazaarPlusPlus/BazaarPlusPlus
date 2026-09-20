@@ -154,25 +154,18 @@ impl TrayMenuState {
     }
 }
 
-#[derive(Clone, Debug, serde::Serialize, specta::Type)]
-pub struct AppLocalePayload {
-    locale: String,
-}
-
 #[tauri::command]
 #[specta::specta]
 pub async fn set_app_locale(
     state: tauri::State<'_, TrayMenuState>,
     locale: String,
-) -> Result<AppLocalePayload, String> {
+) -> Result<(), String> {
     let normalized = match locale.as_str() {
         "en" => "en",
         _ => "zh",
     };
     state.apply_locale(TrayLocale::from_code(normalized))?;
-    Ok(AppLocalePayload {
-        locale: normalized.to_string(),
-    })
+    Ok(())
 }
 
 fn should_show_main_window_for_tray_event(event: &TrayIconEvent) -> bool {

@@ -6,7 +6,6 @@ import {
 } from '../../../../release/downloads';
 
 export { INSTALLER_BASE };
-export { MAINLAND_DOWNLOAD_BASE } from '../../../../release/downloads';
 export type { DownloadPlatform } from '../../../../release/downloads';
 export const GITHUB_RELEASE_URL =
   'https://github.com/BazaarPlusPlus/BazaarPlusPlus/releases/latest';

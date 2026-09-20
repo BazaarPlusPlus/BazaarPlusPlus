@@ -34,20 +34,6 @@ def _config(root: Path) -> Config:
     return Config(root, "https://api.invalid", "test-token")
 
 
-def test_cli_dry_run_has_no_external_or_local_side_effects(tmp_path: Path, monkeypatch) -> None:
-    data_root = tmp_path / "data"
-    monkeypatch.setattr(cli, "load_config", lambda **_kwargs: _config(data_root))
-
-    result = CliRunner().invoke(cli.main, ["run", "--dry-run"])
-
-    assert result.exit_code == 0
-    report = json.loads(result.output.splitlines()[0])
-    assert report["window"] is None
-    assert report["heroes"]["published"] is False
-    assert report["builds"]["published"] is False
-    assert not data_root.exists()
-
-
 def test_cli_preserves_usage_lock_and_partial_exit_codes(tmp_path: Path, monkeypatch) -> None:
     now = datetime(2026, 8, 7, 1, 1, tzinfo=UTC)
     monkeypatch.setattr(cli, "load_config", lambda **_kwargs: _config(tmp_path))

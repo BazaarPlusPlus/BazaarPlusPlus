@@ -79,7 +79,7 @@ internal static class ReplayPayloadMaintenanceServiceTests
             }
 
             var diagnostics = new List<ReplayPayloadMaintenanceStorageEvent>();
-            var catalog = new PvpBattleCatalog(databasePath, diagnostics.Add);
+            var catalog = new PvpBattleSqliteStore(databasePath, diagnostics.Add);
             var files = new RecordingPayloadFiles(
                 Enumerable.Range(0, 10_000).Select(index => $"sqlite-{index:D5}")
             );

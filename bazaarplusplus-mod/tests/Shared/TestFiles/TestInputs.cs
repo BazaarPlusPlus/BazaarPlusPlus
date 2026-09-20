@@ -1,6 +1,5 @@
 #nullable enable
 using System.Runtime.CompilerServices;
-using System.Text.Json;
 using System.Xml.Linq;
 
 namespace BazaarPlusPlus.TestSupport;
@@ -26,12 +25,6 @@ internal static class TestInputs
     {
         var path = ResolveRepoFile(relativePath, ".csproj", ".props", ".targets");
         return XDocument.Load(path);
-    }
-
-    internal static JsonDocument Json(string relativePath)
-    {
-        var path = ResolveRepoFile(relativePath, ".json");
-        return JsonDocument.Parse(File.ReadAllText(path));
     }
 
     internal static string Markdown(string relativePath)
@@ -112,13 +105,6 @@ internal static class TestInputs
         return File.ReadAllText(path);
     }
 
-    internal static byte[] FixtureBytes(string relativePath)
-    {
-        var path = ResolveRepoFile(relativePath);
-        RejectSourceExtension(path, relativePath);
-        return File.ReadAllBytes(path);
-    }
-
     internal static string Scratch(string path)
     {
         var full = ResolveScratch(path);
@@ -129,26 +115,6 @@ internal static class TestInputs
     {
         var full = ResolveScratch(path);
         return File.ReadAllBytes(full);
-    }
-
-    internal static string External(string environmentVariable)
-    {
-        var value = Environment.GetEnvironmentVariable(environmentVariable);
-        if (string.IsNullOrWhiteSpace(value))
-            throw new InvalidOperationException(
-                $"Environment variable '{environmentVariable}' is empty."
-            );
-
-        var full = Path.GetFullPath(value);
-        if (IsUnder(full, RepoRoot))
-            throw new InvalidOperationException(
-                $"External('{environmentVariable}') resolved inside the repository: '{full}'."
-            );
-        RejectDecompiled(full);
-        RejectSourceExtension(full, full);
-        if (!File.Exists(full))
-            throw new InvalidOperationException($"External file '{full}' does not exist.");
-        return File.ReadAllText(full);
     }
 
     internal static string RepoRelative(string path)

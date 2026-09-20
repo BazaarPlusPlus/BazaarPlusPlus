@@ -623,22 +623,6 @@ AssertFalse(
     "Selecting the already active Skills tab should be a no-op."
 );
 
-var itemDayPresentation = CollectionDayFilterPresentation.For(
-    CollectionTabProfile.For(CollectionTabKind.Items),
-    isSelected: true
-);
-AssertTrue(
-    itemDayPresentation.IsVisible && itemDayPresentation.IsEnabled && itemDayPresentation.IsActive,
-    "Normal item tabs should still show an enabled, highlighted day pill when selected."
-);
-var itemHeroPresentation = CollectionHeroFilterPresentation.For(
-    CollectionTabProfile.For(CollectionTabKind.Items)
-);
-AssertTrue(
-    itemHeroPresentation.IsVisible && itemHeroPresentation.IsEnabled,
-    "Normal item tabs should still show an enabled hero row."
-);
-
 sourceState.ActiveType = ECardType.Item;
 sourceState.SelectedSourceKey = "merchant:hidden";
 AssertTrue(

@@ -96,9 +96,7 @@ void TestCoordinatorCanonicalizesAliasFilterState()
         Activator.CreateInstance(stateType)
         ?? throw new InvalidOperationException("HistoryPanelState should construct.");
     var dataService = Construct(dataServiceType, null, null);
-    // Single 7-arg ctor arity match (issue #167): runState, dataService, replayService,
-    // serverHealthProbe, accountLinkClient, isBazaarDbAccountLinkAvailable, combatReplayDirectoryPath.
-    var dependencies = Construct(dependenciesType, null, dataService, null, null, null, null, null);
+    var dependencies = Construct(dependenciesType, null, dataService, null, null, null, null);
     var coordinator =
         Activator.CreateInstance(
             coordinatorType,
@@ -179,9 +177,7 @@ void TestCoordinatorRunSelectionUsesFilteredSpace()
     stateType.GetProperty("SelectedRunHero")!.SetValue(state, "Vanessa");
 
     var dataService = Construct(dataServiceType, null, null);
-    // Single 7-arg ctor arity match (issue #167): runState, dataService, replayService,
-    // serverHealthProbe, accountLinkClient, isBazaarDbAccountLinkAvailable, combatReplayDirectoryPath.
-    var dependencies = Construct(dependenciesType, null, dataService, null, null, null, null, null);
+    var dependencies = Construct(dependenciesType, null, dataService, null, null, null, null);
     var coordinator =
         Activator.CreateInstance(
             coordinatorType,
@@ -241,7 +237,7 @@ void TestReplayReturnPreservesSelectionAndFilters()
         databasePath
     );
     var dataService = Construct(dataServiceType, repository, null);
-    var dependencies = Construct(dependenciesType, null, dataService, null, null, null, null, null);
+    var dependencies = Construct(dependenciesType, null, dataService, null, null, null, null);
     var previewRequests = 0;
     using var coordinator = (IDisposable)
         Activator.CreateInstance(

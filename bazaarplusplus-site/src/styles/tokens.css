@@ -1,10 +1,7 @@
 @theme {
   /* === Surfaces (warm dusk → bazaar lantern) === */
   --color-bg-base: #0c0a07;
-  --color-bg-elev: #15110b;
   --color-bg-card: #1a1510;
-  --color-bg-hover: #2a2118;
-  --color-bg-rail: #0a0805;
 
   /* === Edges === */
   --color-border: #3a2d1c;
@@ -21,14 +18,6 @@
   --color-accent-bright: #ffd47a;
   --color-accent-deep: #b88a2e;
   --color-accent-glow: rgba(232, 185, 74, 0.45);
-
-  /* === Signal === */
-  --color-pos: #6dbf7a;
-  --color-pos-deep: #2d6b3f;
-  --color-neg: #d05a4a;
-  --color-neg-deep: #6e2a23;
-  --color-warn: #e6b64a;
-  --color-cool: #5a8a86;
 
   /* === Type families === */
   --font-display: 'Newsreader', 'Georgia', 'Songti SC', 'STSong', serif;

@@ -1,7 +1,7 @@
 use super::{
     records::OverlayRecordRepository,
     server::ProductionServer,
-    state::{StreamDbStatus, StreamServiceStatus, StreamWindowStatus},
+    state::{StreamDbStatus, StreamServiceStatus},
 };
 use crate::services::{
     game_path::GamePathAcceptance, selected_game_installation::SelectedGameInstallationState,
@@ -261,7 +261,6 @@ impl StreamRuntime {
         inner.status.active_from = None;
         inner.status.active_window_offset = 0;
         inner.status.db = StreamDbStatus::default();
-        inner.status.window = StreamWindowStatus::default();
         inner.task = None;
         inner.active_installation_path = None;
         inner.active_record_game_path = None;

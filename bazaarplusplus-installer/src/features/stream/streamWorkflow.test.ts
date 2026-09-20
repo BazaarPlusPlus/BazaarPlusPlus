@@ -25,7 +25,7 @@ function runningStatus(
     base_url: 'http://127.0.0.1:17654',
     overlay_url: 'http://127.0.0.1:17654/overlay',
     settings_url: 'http://127.0.0.1:17654/settings',
-    db: { found: true, path: '/game/BazaarPlusPlusV5/bazaarplusplus.db' },
+    db: { found: true },
     ...overrides
   };
 }
@@ -179,7 +179,7 @@ describe('stream workflow lifecycle and effects', () => {
     const base = runningStatus();
     const extended = {
       ...base,
-      window: { ...base.window, future_field: 'v2' }
+      db: { ...base.db, future_field: 'v2' }
     } as StreamServiceStatus;
     const getStatus = vi
       .fn()

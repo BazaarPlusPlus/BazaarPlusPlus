@@ -35,7 +35,7 @@ BazaarPlusPlus.history-database.json
 /src-tauri/resources/BepInExSource/*/BepInEx.zip.tmp-*
 /src-tauri/resources/BepInExSource/*/BepInEx.zip.manifest.json.tmp-*
 
-# Throwaway fixtures from scripts/build.test.mjs; removed after each run and
+# Throwaway fixtures from scripts/bundle.test.mjs; removed after each run and
 # left behind only when a run is interrupted.
 .bpp-signing-test-*/
 .bpp-deps-test-*/

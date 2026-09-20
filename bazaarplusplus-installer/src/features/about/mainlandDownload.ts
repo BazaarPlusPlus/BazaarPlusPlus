@@ -3,12 +3,6 @@ import {
   type DownloadPlatform as MainlandDownloadPlatform
 } from '../../../../release/downloads';
 
-export {
-  buildMainlandDownloadUrl,
-  MAINLAND_DOWNLOAD_BASE
-} from '../../../../release/downloads';
-export type { DownloadPlatform as MainlandDownloadPlatform } from '../../../../release/downloads';
-
 export function detectMainlandDownloadPlatform(
   userAgent: string
 ): MainlandDownloadPlatform {

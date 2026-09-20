@@ -36,7 +36,6 @@ internal sealed class LiveBuildPanel : MonoBehaviour
     private bool _buildRefreshInProgress;
     private string _buildRefreshError = string.Empty;
     private bool _buildRefreshSucceeded;
-    private readonly LiveBuildRefreshContinuationGate _buildRefreshContinuation = new();
 
     public static bool IsVisible => _instance?._isVisible == true;
 
@@ -80,9 +79,6 @@ internal sealed class LiveBuildPanel : MonoBehaviour
         if (ReferenceEquals(_instance, this))
             _instance = null;
 
-        // Invalidate any in-flight manual refresh so its continuation never touches the
-        // destroyed view (the repository corpus update itself is allowed to finish in the background).
-        _buildRefreshContinuation.Invalidate();
         _overlayHandle?.Dispose();
         _overlayHandle = null;
         _previewRenderer?.Dispose();
@@ -237,16 +233,10 @@ internal sealed class LiveBuildPanel : MonoBehaviour
         _buildRefreshError = string.Empty;
         _buildRefreshSucceeded = false;
         RefreshStatusView();
-        _ = RefreshFinalBuildsAsync(
-            _buildRefreshContinuation.Capture(),
-            new LiveBuildRefreshLogOperation(Guid.NewGuid())
-        );
+        _ = RefreshFinalBuildsAsync(new LiveBuildRefreshLogOperation(Guid.NewGuid()));
     }
 
-    private async Task RefreshFinalBuildsAsync(
-        int operationVersion,
-        LiveBuildRefreshLogOperation logOperation
-    )
+    private async Task RefreshFinalBuildsAsync(LiveBuildRefreshLogOperation logOperation)
     {
         BuildRecommendationRefreshResult result;
         try
@@ -277,11 +267,6 @@ internal sealed class LiveBuildPanel : MonoBehaviour
                 result.Exception
             );
         }
-
-        // Stale continuation guard: a destroyed panel bumped the version; the corpus update (if
-        // any) already landed in the repository and must not touch this UI.
-        if (!_buildRefreshContinuation.IsCurrent(operationVersion))
-            return;
 
         _buildRefreshInProgress = false;
         if (result.Succeeded)

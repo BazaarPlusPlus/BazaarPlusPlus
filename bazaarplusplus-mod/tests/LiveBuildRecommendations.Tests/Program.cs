@@ -51,7 +51,7 @@ internal static class TenWinBuildTests
         TestBoardContractMapsTierEnchantSize();
         TestNullEnchantRefAndP75DoNotCrash();
         TestRefreshServicePreservesSessionProductSemantics();
-        TestPanelInvalidationRejectsUiContinuationWithoutCancelingCatalogRefresh();
+        TestCatalogRefreshPublishesSharedSnapshot();
         TestEmbeddedSeedResourceIsBundledAndParses();
         TestCorpusSummaryIncludesPerHeroBuildCounts();
         TestMixedAliasCorpusMergesCanonicalFirstByBuildIdentity();
@@ -358,36 +358,26 @@ internal static class TenWinBuildTests
         Assert(catalog.RefreshCount == 2, "The gated pull must perform zero downloads.");
     }
 
-    private static void TestPanelInvalidationRejectsUiContinuationWithoutCancelingCatalogRefresh()
+    private static void TestCatalogRefreshPublishesSharedSnapshot()
     {
         var initialCorpus = TenWinBuildCorpus.Parse(ScorePayload("InitialHero", 111))!;
         var refreshedCorpus = TenWinBuildCorpus.Parse(ScorePayload("RefreshedHero", 222))!;
         using var catalog = new BlockingCatalog(initialCorpus);
         var repository = new BuildRecommendationRepository(catalog);
         var service = new BuildRecommendationRefreshService();
-        var continuation = new LiveBuildRefreshContinuationGate();
-        var operationVersion = continuation.Capture();
 
         var refresh = service.RefreshAsync(repository, CancellationToken.None);
         catalog.Started.GetAwaiter().GetResult();
-        continuation.Invalidate();
         catalog.Complete(refreshedCorpus);
 
         var result = refresh.GetAwaiter().GetResult();
-        Assert(
-            result.Succeeded,
-            "The plugin-lifetime catalog refresh should finish after panel loss."
-        );
-        Assert(
-            !continuation.IsCurrent(operationVersion),
-            "The destroyed panel must reject its stale UI continuation."
-        );
+        Assert(result.Succeeded, "The plugin-lifetime catalog refresh should finish.");
         var summary = repository.GetCorpusSummary();
         Assert(summary.HasValue, "The shared repository should retain the refreshed snapshot.");
         var loadedSummary = summary.GetValueOrDefault();
         Assert(
             loadedSummary.HeroBuildCounts.Any(row => row.Hero == "RefreshedHero"),
-            "The shared snapshot should publish even though the initiating panel was destroyed."
+            "The shared snapshot should publish after refresh."
         );
     }
 

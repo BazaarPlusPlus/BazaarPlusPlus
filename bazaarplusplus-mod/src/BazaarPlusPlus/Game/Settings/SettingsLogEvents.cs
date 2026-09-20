@@ -85,10 +85,6 @@ internal enum SettingsRowId
     HistoryPanel,
     CollectionPanel,
     LiveBuildPanel,
-    ItemEnchantPreview,
-    EventPreview,
-    QuestPreview,
-    VoiceSubtitles,
 }
 
 [BppLogEventSource]

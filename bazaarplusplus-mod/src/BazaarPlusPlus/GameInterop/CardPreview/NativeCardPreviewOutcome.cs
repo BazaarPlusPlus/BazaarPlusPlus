@@ -30,8 +30,6 @@ internal enum NativeCardPreviewFailureReason
     StaticDataUnavailable,
     TemplateUnavailable,
     UnsupportedCardType,
-    AssetLoaderUnavailable,
-    PreviewTypeUnavailable,
     PreviewComponentUnavailable,
     InstantiateException,
     SetUpException,

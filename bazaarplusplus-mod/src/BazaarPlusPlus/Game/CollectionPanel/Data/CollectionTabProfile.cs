@@ -10,23 +10,19 @@ internal readonly struct CollectionTabProfile
         CollectionTabKind tab,
         ECardType cardType,
         CollectionSourceKind? sourceKind,
-        bool showHeroFilter,
         bool showTierFilter,
         bool showSizeFilter,
         bool showTagFilter,
-        bool showKeywordFilter,
-        bool showDayFilter
+        bool showKeywordFilter
     )
     {
         Tab = tab;
         CardType = cardType;
         SourceKind = sourceKind;
-        ShowHeroFilter = showHeroFilter;
         ShowTierFilter = showTierFilter;
         ShowSizeFilter = showSizeFilter;
         ShowTagFilter = showTagFilter;
         ShowKeywordFilter = showKeywordFilter;
-        ShowDayFilter = showDayFilter;
     }
 
     public CollectionTabKind Tab { get; }
@@ -35,8 +31,6 @@ internal readonly struct CollectionTabProfile
 
     public CollectionSourceKind? SourceKind { get; }
 
-    public bool ShowHeroFilter { get; }
-
     public bool ShowTierFilter { get; }
 
     public bool ShowSizeFilter { get; }
@@ -44,8 +38,6 @@ internal readonly struct CollectionTabProfile
     public bool ShowTagFilter { get; }
 
     public bool ShowKeywordFilter { get; }
-
-    public bool ShowDayFilter { get; }
 
     public bool ShowSourceFilter => SourceKind.HasValue;
 
@@ -56,23 +48,19 @@ internal readonly struct CollectionTabProfile
                 CollectionTabKind.Skills,
                 ECardType.Skill,
                 CollectionSourceKind.Trainer,
-                showHeroFilter: true,
                 showTierFilter: true,
                 showSizeFilter: false,
                 showTagFilter: true,
-                showKeywordFilter: true,
-                showDayFilter: true
+                showKeywordFilter: true
             ),
             _ => new CollectionTabProfile(
                 CollectionTabKind.Items,
                 ECardType.Item,
                 CollectionSourceKind.Merchant,
-                showHeroFilter: true,
                 showTierFilter: true,
                 showSizeFilter: true,
                 showTagFilter: true,
-                showKeywordFilter: true,
-                showDayFilter: true
+                showKeywordFilter: true
             ),
         };
 

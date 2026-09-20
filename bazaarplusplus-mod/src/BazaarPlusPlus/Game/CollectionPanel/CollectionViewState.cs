@@ -421,11 +421,6 @@ internal sealed class CollectionViewState
         var profile = CollectionTabProfile.For(_filter.ActiveTab);
         var availableTags = _facetAvailability.TagsFor(_filter.ActiveType);
         var availableKeywordOptions = _facetAvailability.KeywordOptionsFor(_filter.ActiveType);
-        var dayFilterPresentation = CollectionDayFilterPresentation.For(
-            profile,
-            _filter.UseRunDayFilter
-        );
-        var heroFilterPresentation = CollectionHeroFilterPresentation.For(profile);
         return new CollectionPanelViewModel
         {
             Title = CollectionPanelText.Title(),
@@ -437,8 +432,6 @@ internal sealed class CollectionViewState
             ActiveTab = _filter.ActiveTab,
             ActiveType = _filter.ActiveType,
             TabProfile = profile,
-            HeroFilterVisible = heroFilterPresentation.IsVisible,
-            HeroFilterEnabled = heroFilterPresentation.IsEnabled,
             SelectedHero = _filter.SelectedHero,
             AllHeroesSelected = _filter.AllHeroesSelected,
             SelectedTiers = _filter.Tiers,
@@ -454,9 +447,7 @@ internal sealed class CollectionViewState
             EncounteredMerchantSourceKeys = _encounteredMerchantSourceKeys,
             SourceSelectorEnabled = profile.ShowSourceFilter && !_isLoadingCatalog,
             SortPriority = _filter.SortPriority,
-            DayFilterVisible = dayFilterPresentation.IsVisible,
-            DayFilterEnabled = dayFilterPresentation.IsEnabled,
-            DayFilterActive = dayFilterPresentation.IsActive,
+            DayFilterActive = _filter.UseRunDayFilter,
             DayFilterValue = _currentRunDay,
             AvailableHeroes = _availableHeroes,
             AvailableTiers = TierOrder,

@@ -44,8 +44,7 @@ current snapshots, status, run history, and logs.
 
 ## Modes and evidence
 
-`run --dry-run` reports its plan without reading or writing pipeline or
-external state. `run --no-publish` performs collection and local snapshot
+`run --no-publish` performs collection and local snapshot
 replacement without constructing an R2 adapter.
 
 The Operational Evidence module owns the shape and persistence of the Run

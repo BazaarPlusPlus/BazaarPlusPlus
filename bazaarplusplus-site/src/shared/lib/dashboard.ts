@@ -20,11 +20,11 @@ export function formatNullablePercent(value: number | null): string {
   return value == null || !Number.isFinite(value) ? '—' : formatPercent(value);
 }
 
-export function formatInteger(value: number, locale: Locale = 'en'): string {
+export function formatInteger(value: number, locale: Locale): string {
   return new Intl.NumberFormat(getIntlLocale(locale)).format(value);
 }
 
-export function formatDateTime(value: string, locale: Locale = 'en'): string {
+export function formatDateTime(value: string, locale: Locale): string {
   return new Intl.DateTimeFormat(getIntlLocale(locale), {
     year: 'numeric',
     month: 'short',
@@ -35,7 +35,7 @@ export function formatDateTime(value: string, locale: Locale = 'en'): string {
   }).format(new Date(value));
 }
 
-export function formatShortDate(value: string, locale: Locale = 'en'): string {
+export function formatShortDate(value: string, locale: Locale): string {
   return new Intl.DateTimeFormat(getIntlLocale(locale), {
     month: 'short',
     day: 'numeric',

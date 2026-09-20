@@ -8,7 +8,7 @@ using Newtonsoft.Json;
 
 namespace BazaarPlusPlus.Game.PvpBattles.Persistence;
 
-internal sealed class PvpBattleSqliteStore : SqliteStoreBase
+internal sealed class PvpBattleSqliteStore : SqliteStoreBase, IPvpBattleCatalog
 {
     private static readonly JsonSerializerSettings SerializerSettings =
         SerializerSettingsFactory.CreateSerializerSettings(includeStringEnumConverter: true);

@@ -93,8 +93,8 @@ describe('browser-preview command adapter', () => {
     expect(await commandClient.getHistoryRunDetail('r')).toBeNull();
   });
 
-  it('returns typed locale state and null for Tauri unit-returning no-ops', async () => {
-    expect(await commandClient.setAppLocale('en')).toEqual({ locale: 'en' });
+  it('returns null for Tauri unit-returning no-ops', async () => {
+    expect(await commandClient.setAppLocale('en')).toBeNull();
     expect(await commandClient.launchGame()).toBeNull();
     expect(await commandClient.revealRunScreenshot('r')).toBeNull();
     expect(await commandClient.revealBattleVideo('b', null)).toBeNull();

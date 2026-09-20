@@ -17,9 +17,9 @@ internal sealed class NativeTooltipDataFactoryAdapter : INativeTooltipDataFactor
             source,
             mode switch
             {
-                NativeTooltipRefreshMode.Enchant => TooltipPreviewRefreshMode.Enchant,
-                NativeTooltipRefreshMode.Upgrade => TooltipPreviewRefreshMode.Upgrade,
-                _ => TooltipPreviewRefreshMode.Normal,
+                NativeTooltipRefreshMode.Enchant => TooltipPreviewMode.Enchant,
+                NativeTooltipRefreshMode.Upgrade => TooltipPreviewMode.Upgrade,
+                _ => TooltipPreviewMode.Normal,
             }
         );
 }

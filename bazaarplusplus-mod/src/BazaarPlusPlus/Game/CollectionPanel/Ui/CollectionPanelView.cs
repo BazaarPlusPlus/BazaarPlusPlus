@@ -418,11 +418,6 @@ internal sealed partial class CollectionPanelView : IDisposable
         if (_dayToggleButton != null)
         {
             RefreshDayToggle(model.DayFilterValue, model.DayFilterActive);
-            _dayToggleButton.style.display = model.DayFilterVisible
-                ? DisplayStyle.Flex
-                : DisplayStyle.None;
-            _dayToggleButton.SetEnabled(model.DayFilterEnabled);
-            _dayToggleButton.style.opacity = model.DayFilterEnabled ? 1f : 0.58f;
         }
         if (_sortQualityButton != null)
             RefreshSortChip(
@@ -435,15 +430,6 @@ internal sealed partial class CollectionPanelView : IDisposable
 
         // Size/tags only narrow Items. On Skills, let Quality fill the row and let source filters
         // move up naturally instead of reserving dead space.
-        if (_heroFilterSection != null)
-        {
-            var showHeroChips = model.HeroFilterVisible;
-            _heroFilterSection.style.display = showHeroChips
-                ? DisplayStyle.Flex
-                : DisplayStyle.None;
-            _heroFilterSection.SetEnabled(model.HeroFilterEnabled);
-            _heroFilterSection.style.opacity = model.HeroFilterEnabled ? 1f : 0.58f;
-        }
         var showTierChips = model.TabProfile.ShowTierFilter;
         if (_tierFilterSection != null)
             _tierFilterSection.style.display = showTierChips

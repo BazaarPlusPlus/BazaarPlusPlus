@@ -14,7 +14,7 @@ import {
 export function createPreviewCommands(native: CommandAdapter): CommandAdapter {
   return {
     getAppBootstrap: async () => fallbackBootstrap,
-    setAppLocale: async (locale) => ({ locale }),
+    setAppLocale: async () => null,
     getInstallState: async () => emptyInstallState,
     chooseGameDirectory: async () => ({ game_path: null }),
     installMod: (...args) => native.installMod(...args),

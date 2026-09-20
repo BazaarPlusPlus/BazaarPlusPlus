@@ -11,11 +11,9 @@ function installState(overrides: Partial<InstallState> = {}): InstallState {
   return {
     selected_game_path: '/Applications/The Bazaar',
     steam_path: '/Applications/Steam',
-    game: { found: true, path_valid: true },
+    game: { path_valid: true },
     mod_state: {
       installed: false,
-      installed_version: null,
-      bundled_version: '4.5.0',
       ready: false
     },
     actions: {
@@ -37,8 +35,6 @@ function installedState(overrides: Partial<InstallState> = {}): InstallState {
   return installState({
     mod_state: {
       installed: true,
-      installed_version: '4.5.0',
-      bundled_version: '4.5.0',
       ready: true
     },
     actions: {
@@ -204,8 +200,6 @@ describe('install workflow concurrency and directory selection', () => {
       selected_game_path: '/Games/The Bazaar',
       mod_state: {
         installed: true,
-        installed_version: '4.5.0',
-        bundled_version: '4.5.0',
         ready: true
       }
     });
@@ -336,8 +330,6 @@ describe('install workflow mutation outcomes', () => {
       selected_game_path: '/Applications/The Bazaar',
       mod_state: {
         installed: true,
-        installed_version: '4.5.0',
-        bundled_version: '4.5.0',
         ready: true
       }
     });
@@ -521,7 +513,7 @@ describe('install workflow notices, lifecycle, and availability', () => {
       name: 'invalid or missing path',
       state: installState({
         selected_game_path: null,
-        game: { found: false, path_valid: false },
+        game: { path_valid: false },
         actions: {
           can_install: false,
           can_reinstall: false,
@@ -545,8 +537,6 @@ describe('install workflow notices, lifecycle, and availability', () => {
       state: installedState({
         mod_state: {
           installed: true,
-          installed_version: '4.4.0',
-          bundled_version: '4.5.0',
           ready: false
         }
       }),
@@ -558,8 +548,6 @@ describe('install workflow notices, lifecycle, and availability', () => {
       state: installedState({
         mod_state: {
           installed: true,
-          installed_version: '4.5.0',
-          bundled_version: '4.5.0',
           ready: false
         }
       }),

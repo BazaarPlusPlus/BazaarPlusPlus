@@ -32,49 +32,32 @@ AssertTrue(
 var unknownKind = PedestalEnchantCatalog.Classify(unknown, out _);
 AssertEqual(ChoiceScreenPedestalKind.None, unknownKind, "Unknown template id classifies as None.");
 
-// --- Resolver: instance id -> template id -> classify + aggregate ---
-Func<string, Guid?> lookup = id =>
-    id switch
-    {
-        "inst_fiery" => fiery,
-        "inst_icy" => icy,
-        "inst_upgrade" => upgrade,
-        "inst_artist" => randomArtist,
-        "inst_event" => Guid.Parse("11111111-1111-1111-1111-111111111111"), // not a pedestal
-        _ => (Guid?)null,
-    };
-
+// --- Resolver: template id -> classify + aggregate ---
 AssertEqual(
     ChoiceScreenPedestalKind.None,
-    ChoiceScreenPedestalResolver.Resolve(null, lookup),
-    "null SelectionSet resolves to None."
+    ChoiceScreenPedestalResolver.ResolveDetailedFromTemplateIds(null).Kind,
+    "Null template ids resolves to None."
 );
 
 AssertEqual(
     ChoiceScreenPedestalKind.None,
-    ChoiceScreenPedestalResolver.Resolve(Array.Empty<string>(), lookup),
-    "Empty SelectionSet resolves to None."
+    ChoiceScreenPedestalResolver.ResolveDetailedFromTemplateIds(Array.Empty<Guid>()).Kind,
+    "Empty template ids resolves to None."
 );
 
 AssertEqual(
     ChoiceScreenPedestalKind.None,
-    ChoiceScreenPedestalResolver.Resolve(new[] { "inst_event" }, lookup),
+    ChoiceScreenPedestalResolver.ResolveDetailedFromTemplateIds(new[] { unknown }).Kind,
     "A non-pedestal encounter resolves to None."
 );
 
 AssertEqual(
-    ChoiceScreenPedestalKind.None,
-    ChoiceScreenPedestalResolver.Resolve(new[] { "unmapped", "" }, lookup),
-    "Unresolvable instance ids are skipped."
-);
-
-AssertEqual(
     ChoiceScreenPedestalKind.Upgrade,
-    ChoiceScreenPedestalResolver.Resolve(new[] { "inst_upgrade" }, lookup),
+    ChoiceScreenPedestalResolver.ResolveDetailedFromTemplateIds(new[] { upgrade }).Kind,
     "Upgrade pedestal resolves to Upgrade."
 );
 
-var fieryResult = ChoiceScreenPedestalResolver.ResolveDetailed(new[] { "inst_fiery" }, lookup);
+var fieryResult = ChoiceScreenPedestalResolver.ResolveDetailedFromTemplateIds(new[] { fiery });
 AssertEqual(
     ChoiceScreenPedestalKind.Enchant,
     fieryResult.Kind,
@@ -86,16 +69,17 @@ AssertTrue(
     "Fiery pedestal exposes exactly the Fiery enchant name."
 );
 
-var artistResult = ChoiceScreenPedestalResolver.ResolveDetailed(new[] { "inst_artist" }, lookup);
+var artistResult = ChoiceScreenPedestalResolver.ResolveDetailedFromTemplateIds(
+    new[] { randomArtist }
+);
 AssertEqual(ChoiceScreenPedestalKind.Enchant, artistResult.Kind, "The Artist resolves to Enchant.");
 AssertTrue(
     artistResult.EnchantmentTypeNames.Count == 0,
     "The Artist's enchant is random, so it exposes no specific type and the preview shows the full list."
 );
 
-var multiResult = ChoiceScreenPedestalResolver.ResolveDetailed(
-    new[] { "inst_fiery", "inst_icy", "inst_event" },
-    lookup
+var multiResult = ChoiceScreenPedestalResolver.ResolveDetailedFromTemplateIds(
+    new[] { fiery, icy, unknown }
 );
 AssertEqual(
     ChoiceScreenPedestalKind.Enchant,
@@ -126,7 +110,7 @@ AssertTrue(
 
 AssertEqual(
     ChoiceScreenPedestalKind.None,
-    ChoiceScreenPedestalResolver.ResolveFromTemplateIds(Array.Empty<Guid>()),
+    ChoiceScreenPedestalResolver.ResolveDetailedFromTemplateIds(Array.Empty<Guid>()).Kind,
     "Empty resolved template ids classify as None."
 );
 

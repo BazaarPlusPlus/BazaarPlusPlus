@@ -27,11 +27,10 @@ const paths = [
   "player.rank",
   "player.rating",
 ];
-export const legacyValues = (alias: string): string[] => [
+const legacyValues = (alias: string): string[] => [
   ...columns.slice(0, 6).map((column) => `${alias}.${column}`),
   ...paths.map((path) => `json_extract(${alias}.projection_json, '$.${path}')`),
 ];
-export const summaryColumns = columns;
 
 export function pageStatements(mode: "copy" | "verify", limit: number): string[] {
   if (!Number.isInteger(limit) || limit < 1 || limit > 1000)

@@ -14,8 +14,7 @@ internal sealed class HistoryPanelDependencies
         HistoryPanelReplayService replayService,
         IHistoryPanelServerHealthProbe? serverHealthProbe,
         BazaarDbLinkClient? accountLinkClient,
-        Func<bool>? isBazaarDbAccountLinkAvailable,
-        string combatReplayDirectoryPath
+        Func<bool>? isBazaarDbAccountLinkAvailable
     )
     {
         RunState = runState;
@@ -24,7 +23,6 @@ internal sealed class HistoryPanelDependencies
         ServerHealthProbe = serverHealthProbe;
         AccountLinkClient = accountLinkClient;
         IsBazaarDbAccountLinkAvailable = isBazaarDbAccountLinkAvailable;
-        CombatReplayDirectoryPath = combatReplayDirectoryPath;
     }
 
     public IHistoryPanelRunState RunState { get; }
@@ -38,6 +36,4 @@ internal sealed class HistoryPanelDependencies
     public BazaarDbLinkClient? AccountLinkClient { get; }
 
     public Func<bool>? IsBazaarDbAccountLinkAvailable { get; }
-
-    public string CombatReplayDirectoryPath { get; }
 }

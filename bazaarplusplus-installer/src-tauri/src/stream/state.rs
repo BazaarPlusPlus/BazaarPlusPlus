@@ -15,22 +15,11 @@ pub struct StreamServiceStatus {
     pub active_from: Option<String>,
     pub active_window_offset: usize,
     pub db: StreamDbStatus,
-    pub window: StreamWindowStatus,
 }
 
 #[derive(Clone, Debug, Default, Serialize, specta::Type)]
 pub struct StreamDbStatus {
     pub found: bool,
-    pub path: Option<String>,
-}
-
-#[derive(Clone, Debug, Default, Serialize, specta::Type)]
-pub struct StreamWindowStatus {
-    pub total_records: usize,
-    pub existing_before_start: usize,
-    pub captured_since_start: usize,
-    pub current_hero: Option<String>,
-    pub current_start_label: Option<String>,
 }
 
 impl Default for StreamServiceStatus {
@@ -47,7 +36,6 @@ impl Default for StreamServiceStatus {
             active_from: None,
             active_window_offset: 0,
             db: StreamDbStatus::default(),
-            window: StreamWindowStatus::default(),
         }
     }
 }

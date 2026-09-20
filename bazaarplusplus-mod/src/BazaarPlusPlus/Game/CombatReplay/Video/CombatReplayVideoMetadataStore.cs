@@ -8,13 +8,11 @@ namespace BazaarPlusPlus.Game.CombatReplay.Video;
 internal interface IReplayVideoArtifactCatalog
 {
     IReadOnlyList<ReplayVideoArtifactRecord> ListArtifacts();
-    IReadOnlyList<ReplayVideoArtifactRecord> ListDetachedArtifacts();
     void ReconcileFileState(
         IReadOnlyCollection<ReplayVideoArtifactRecord> observations,
         ReplayVideoFileState fileState,
         DateTimeOffset reconciledAt
     );
-    void MarkDetachedArtifactDeleted(string videoId, DateTimeOffset deletedAt);
 }
 
 internal sealed class CombatReplayVideoMetadataStore : SqliteStoreBase, IReplayVideoArtifactCatalog
@@ -147,16 +145,6 @@ internal sealed class CombatReplayVideoMetadataStore : SqliteStoreBase, IReplayV
         return records;
     }
 
-    public IReadOnlyList<ReplayVideoArtifactRecord> ListDetachedArtifacts()
-    {
-        return ListArtifacts()
-            .Where(record =>
-                record.AttachmentState == ReplayVideoAttachmentState.Detached
-                && record.FileState != ReplayVideoFileState.Deleted
-            )
-            .ToList();
-    }
-
     public void ReconcileFileState(
         IReadOnlyCollection<ReplayVideoArtifactRecord> observations,
         ReplayVideoFileState fileState,
@@ -206,26 +194,6 @@ internal sealed class CombatReplayVideoMetadataStore : SqliteStoreBase, IReplayV
         command.Parameters.AddWithValue("$fileState", ToStorage(fileState));
         command.Parameters.AddWithValue("$now", reconciledAt.ToString("o"));
         command.Parameters.AddWithValue("$observationsJson", observationsJson);
-        command.ExecuteNonQuery();
-    }
-
-    public void MarkDetachedArtifactDeleted(string videoId, DateTimeOffset deletedAt)
-    {
-        if (string.IsNullOrWhiteSpace(videoId))
-            return;
-
-        using var connection = OpenConnection();
-        using var command = CreateCommand(connection);
-        command.CommandText = $"""
-            UPDATE {RunLogSchema.CombatReplayVideosTableName}
-            SET file_state = 'deleted',
-                missing_at_utc = NULL,
-                last_reconciled_at_utc = $now
-            WHERE video_id = $videoId
-              AND attachment_state = 'detached';
-            """;
-        command.Parameters.AddWithValue("$videoId", videoId);
-        command.Parameters.AddWithValue("$now", deletedAt.ToString("o"));
         command.ExecuteNonQuery();
     }
 

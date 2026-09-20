@@ -118,7 +118,6 @@ class PipelineDriver:
         heal_days: int = DEFAULT_HEAL_DAYS,
         anchor_day: date | str | None = None,
         publish: bool = True,
-        dry_run: bool = False,
         progress_callback: Callable[[str], None] | None = None,
         error_callback: Callable[[str], None] | None = None,
     ) -> RunSummary:
@@ -127,21 +126,6 @@ class PipelineDriver:
         parsed_anchor = parse_source_day(anchor_day) if anchor_day is not None else None
         now = _aware_utc(self.clock())
         run_id = uuid.uuid4().hex
-        if dry_run:
-            return _summary(
-                run_id,
-                now,
-                now,
-                outcome="noop",
-                exit_code=0,
-                hours_ingested=0,
-                days_sealed=0,
-                days_abandoned=0,
-                failures=(),
-                report=_run_report(None, _RunProgress()).value,
-                elapsed=0.0,
-            )
-
         lock = DirectoryLock(
             self.data_root,
             run_id,

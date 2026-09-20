@@ -98,7 +98,9 @@ internal static class ReplayVideoMetadataLifecycleTests
                 ReplayVideoFileState.Missing,
                 reconciledAt
             );
-            var detachedMissing = store.ListDetachedArtifacts().Single();
+            var detachedMissing = store
+                .ListArtifacts()
+                .Single(artifact => artifact.VideoId == "detached");
             Equal(
                 ReplayVideoAttachmentState.Detached,
                 detachedMissing.AttachmentState,
@@ -109,14 +111,6 @@ internal static class ReplayVideoMetadataLifecycleTests
                 detachedMissing.FileState,
                 "missing reconcile state"
             );
-
-            store.MarkDetachedArtifactDeleted("detached", reconciledAt.AddMinutes(1));
-            Equal(
-                ReplayVideoFileState.Deleted,
-                store.ListArtifacts().Single(artifact => artifact.VideoId == "detached").FileState,
-                "explicit delete terminal"
-            );
-            Equal(0, store.ListDetachedArtifacts().Count, "discoverable detached artifacts");
         }
         finally
         {

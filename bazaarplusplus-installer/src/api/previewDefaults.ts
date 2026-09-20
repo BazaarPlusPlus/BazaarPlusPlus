@@ -19,13 +19,10 @@ export const emptyInstallState: InstallState = {
   selected_game_path: null,
   steam_path: null,
   game: {
-    found: false,
     path_valid: false
   },
   mod_state: {
     installed: false,
-    installed_version: null,
-    bundled_version: null,
     ready: false
   },
   actions: {
@@ -54,15 +51,7 @@ export const idleStreamStatus: StreamServiceStatus = {
   active_from: null,
   active_window_offset: 0,
   db: {
-    found: false,
-    path: null
-  },
-  window: {
-    total_records: 0,
-    existing_before_start: 0,
-    captured_since_start: 0,
-    current_hero: null,
-    current_start_label: null
+    found: false
   }
 };
 
@@ -82,7 +71,6 @@ export const emptyHistoryRunList: HistoryRunList = {
   summary: {
     runs: 0,
     videos: 0,
-    last_run_at_utc: null,
     win_rate: null
   },
   runs: []

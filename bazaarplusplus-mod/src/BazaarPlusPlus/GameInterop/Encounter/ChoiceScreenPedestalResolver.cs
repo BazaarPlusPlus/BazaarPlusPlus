@@ -21,49 +21,11 @@ internal readonly struct ChoiceScreenPedestalResult
         };
 }
 
-/// <summary>Classifies the choice screen's offered pedestals. Each SelectionSet entry
-/// is a live instance id; the supplied lookup turns it into the stable template id,
-/// which <see cref="PedestalEnchantCatalog"/> maps to kind + enchant type. Reading the
-/// pedestal's own <c>Behavior</c> is useless on the client (it is obfuscated), hence
-/// the catalog.</summary>
+/// <summary>Classifies the choice screen's offered template ids through
+/// <see cref="PedestalEnchantCatalog"/>. The pedestal's own <c>Behavior</c> is
+/// obfuscated on the client.</summary>
 internal static class ChoiceScreenPedestalResolver
 {
-    internal static ChoiceScreenPedestalKind Resolve(
-        IReadOnlyList<string>? selectionSet,
-        Func<string, Guid?> templateIdLookup
-    ) => ResolveDetailed(selectionSet, templateIdLookup).Kind;
-
-    internal static ChoiceScreenPedestalKind ResolveFromTemplateIds(
-        IReadOnlyList<Guid>? templateIds
-    ) => ResolveDetailedFromTemplateIds(templateIds).Kind;
-
-    internal static ChoiceScreenPedestalResult ResolveDetailed(
-        IReadOnlyList<string>? selectionSet,
-        Func<string, Guid?> templateIdLookup
-    )
-    {
-        if (selectionSet == null || selectionSet.Count == 0)
-            return ChoiceScreenPedestalResult.None;
-
-        if (templateIdLookup == null)
-            throw new ArgumentNullException(nameof(templateIdLookup));
-
-        var templateIds = new List<Guid>(selectionSet.Count);
-        foreach (var id in selectionSet)
-        {
-            if (string.IsNullOrEmpty(id))
-                continue;
-
-            var templateId = templateIdLookup(id);
-            if (templateId is null)
-                continue;
-
-            templateIds.Add(templateId.Value);
-        }
-
-        return ResolveDetailedFromTemplateIds(templateIds);
-    }
-
     internal static ChoiceScreenPedestalResult ResolveDetailedFromTemplateIds(
         IReadOnlyList<Guid>? templateIds
     )

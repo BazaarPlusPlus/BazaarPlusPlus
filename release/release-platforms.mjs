@@ -56,14 +56,6 @@ function findByBuildPlatform(buildPlatform) {
   return matches[0];
 }
 
-function findByKey(platformKey) {
-  const platform = RELEASE_PLATFORMS.find((entry) => entry.key === platformKey);
-  if (!platform) {
-    throw new Error(`Unsupported release platform key: ${platformKey}`);
-  }
-  return platform;
-}
-
 export function resolveBuildPlatform(platformEnv) {
   const buildPlatforms = new Set(
     RELEASE_PLATFORMS.filter(
@@ -84,20 +76,6 @@ export function resolveBuildPlatform(platformEnv) {
 
 export function defaultTargetBuildPlatforms() {
   return RELEASE_PLATFORMS.map((platform) => platform.buildPlatform).sort();
-}
-
-export function r2UpdaterKey({ version, platformKey, updaterFileName }) {
-  findByKey(platformKey);
-  return `${version}/${platformKey}/updater/${updaterFileName}`;
-}
-
-export function updaterFragmentUrl({
-  baseUrl,
-  version,
-  platformKey,
-  updaterFileName
-}) {
-  return `${baseUrl}/${r2UpdaterKey({ version, platformKey, updaterFileName })}`;
 }
 
 export function assertPlatformCoherence(rootDir) {

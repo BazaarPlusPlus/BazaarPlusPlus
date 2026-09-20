@@ -21,7 +21,6 @@ internal enum TooltipLogReasonCode
     PreviewCardMatched,
     PrimaryCardMatched,
     ReflectionUnavailable,
-    EncounterProbeFailed,
 }
 
 internal enum TooltipLevelRewardsOutcome
@@ -46,13 +45,6 @@ internal enum TooltipPreviewTargetOutcome
 {
     Skipped,
     Resolved,
-}
-
-internal enum TooltipPreviewRefreshMode
-{
-    Normal,
-    Enchant,
-    Upgrade,
 }
 
 internal enum TooltipEncounterProbe
