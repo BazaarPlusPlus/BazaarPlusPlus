@@ -23,10 +23,6 @@ export interface CommitTimes {
   storedAtMs: number;
 }
 
-export interface CommitObserver {
-  projectionDuplicate(fields: { bundle_id: string; dropped: number }): void;
-}
-
 type ExistingBundleRow = typeof bundleIdentity.$inferSelect;
 
 type StatementName =
@@ -48,12 +44,6 @@ const ELIGIBILITY_PREDICATE = `
     SELECT 1 FROM bundle_uploaders
     WHERE player_account_id = json_extract(value, '$.opponent.account_id')
   )`;
-
-const DEFAULT_OBSERVER: CommitObserver = {
-  projectionDuplicate(fields) {
-    logEvent("bundle.projection.duplicate", fields);
-  },
-};
 
 function duplicateReceipt(row: ExistingBundleRow): BundleReceipt {
   // The ingest receipt intentionally derives delivery existence from the immutable
@@ -236,7 +226,6 @@ export async function commitBundle(
   descriptor: ValidatedBundleDescriptor,
   digest: string,
   times: CommitTimes,
-  observer: CommitObserver = DEFAULT_OBSERVER,
 ): Promise<CommitOutcome> {
   const statements = buildStatements(db, descriptor, digest, times);
   let results: D1Result<unknown>[];
@@ -254,7 +243,7 @@ export async function commitBundle(
 
   const projection = readProjection(statements, results);
   if (projection.inserted < projection.eligible) {
-    observer.projectionDuplicate({
+    logEvent("bundle.projection.duplicate", {
       bundle_id: descriptor.bundleId,
       dropped: projection.eligible - projection.inserted,
     });

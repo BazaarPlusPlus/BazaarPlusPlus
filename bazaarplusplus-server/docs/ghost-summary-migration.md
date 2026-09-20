@@ -23,11 +23,7 @@ npx wrangler d1 time-travel info bazaarplusplus-mod-api-v5-db --json
 
 保留执行前的 Time Travel bookmark 和部署版本，并记录回滚所需的全库写入损失边界。确认没有其他脚本在修改 Ghost 或同时执行迁移；正常上传和十五分钟 Cron 保持运行。
 
-先读取[迁移前旧表容量测量](ghost-summary-capacity-2026-09-12.json)。以下复测命令仅适用于仍保留旧 `ghost_battles` 表的迁移前数据库；只输出聚合，不导出玩家正文或账号清单：
-
-```sh
-node scripts/ghost-projection/capacity.mjs --remote --output /tmp/ghost-capacity.json
-```
+迁移前旧表容量的聚合测量见[容量记录](ghost-summary-capacity-2026-09-12.json)，不含玩家正文或账号清单。
 
 2026-09-12 的 181 个只读分页覆盖约 1,808,000 行，每页最多 10,000 行，最长 SQL 529 ms。旧字段内容 1,388,266,834 字节，十五列 321,516,732 字节，两个索引字段内容均合计 368,832,000 字节；Ghost 总逻辑内容由 1,757,098,834 降为 690,348,732 字节，减少 **1,066,750,102 字节（60.7%）**。必需 JSON 字段类型和双方账号一致性异常为零。
 
@@ -103,10 +99,9 @@ CLI 的每个复制、校验或清理页使用一个 D1 批次，游标和数据
 ```sh
 node scripts/ghost-projection/migrate.mjs init-local --local-dir /tmp/ghost-migration-local --execute
 npm test -- test/ghost-migration.test.ts test/contracts/ghost-summary-contract.test.ts
-node scripts/ghost-projection/rehearse.mjs --database /tmp/ghost-rehearsal-new.sqlite --rows 1800000 --output /tmp/ghost-rehearsal.json
 ```
 
-规模演练使用原生本地 SQLite 和合成数据，包括完整旧 schema、1,800,000 条 Ghost 与两个索引、600,000 个父 Bundle、实际追加迁移和相同分批 SQL。它测量本机执行耗时和本地物理页，不代表生产 D1 延迟或物理回收。结果见[本地演练](ghost-summary-rehearsal-2026-09-12.json)：每页 500 行，复制 3,601 页，最长 99.8 ms、P95 17.0 ms；校验最长 9.94 ms；旧表删除最长 26.95 ms。结束保留 1,800,000 条摘要、外键错误为零。新增摘要及索引使本地文件从 2.496 GB 增至 3.354 GB；删除后文件仍约 3.354 GB，其中 2.137 GB 为可复用空闲页。这明确展示了逻辑删除不等于文件立即缩小；没有执行 VACUUM。
+2026-09-12 的规模演练使用原生本地 SQLite 和合成数据，包括完整旧 schema、1,800,000 条 Ghost 与两个索引、600,000 个父 Bundle、实际追加迁移和相同分批 SQL。它测量本机执行耗时和本地物理页，不代表生产 D1 延迟或物理回收。结果见[本地演练](ghost-summary-rehearsal-2026-09-12.json)：每页 500 行，复制 3,601 页，最长 99.8 ms、P95 17.0 ms；校验最长 9.94 ms；旧表删除最长 26.95 ms。结束保留 1,800,000 条摘要、外键错误为零。新增摘要及索引使本地文件从 2.496 GB 增至 3.354 GB；删除后文件仍约 3.354 GB，其中 2.137 GB 为可复用空闲页。这明确展示了逻辑删除不等于文件立即缩小；没有执行 VACUUM。
 
 真实 Mod 解析验证由 `just server::test` 自动执行，也可从 monorepo 根目录单独运行以下 recipe。它先构建相邻 Mod 的 `ModApi.Tests`，再读取其 DLL/PDB；只需 .NET SDK，不需要游戏 Managed 程序集。Portable PDB 校验消费源码，契约文件同时由服务器测试精确比较：
 

@@ -1,14 +1,14 @@
 import { env } from "cloudflare:test";
-import { describe, expect, test } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 
-import {
-  type CommitObserver,
-  commitBundle,
-  inspectExistingBundle,
-} from "../../src/modules/bundle-commit";
+import { commitBundle, inspectExistingBundle } from "../../src/modules/bundle-commit";
 import { bundleData } from "../fixtures/bundle";
 
 const TIMES = { availableAtMs: 1_785_628_900_000, storedAtMs: 1_785_628_899_000 };
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 describe("bundle commit", () => {
   test("returns no existing outcome when both Bundle and Run identities are absent", async () => {
@@ -102,17 +102,20 @@ describe("bundle commit", () => {
       uploaderAccountId: uploader,
     });
     await commitBundle(env.DB, first.descriptor, first.digest, TIMES);
-    const events: Array<{ bundle_id: string; dropped: number }> = [];
-    const observer: CommitObserver = {
-      projectionDuplicate(fields) {
-        events.push(fields);
-      },
-    };
+    const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
 
-    await expect(
-      commitBundle(env.DB, second.descriptor, second.digest, TIMES, observer),
-    ).resolves.toEqual({ kind: "committed", projection: { eligible: 1, inserted: 0 } });
-    expect(events).toEqual([{ bundle_id: second.descriptor.bundleId, dropped: 1 }]);
+    await expect(commitBundle(env.DB, second.descriptor, second.digest, TIMES)).resolves.toEqual({
+      kind: "committed",
+      projection: { eligible: 1, inserted: 0 },
+    });
+    expect(log).toHaveBeenCalledOnce();
+    expect(log).toHaveBeenCalledWith(
+      JSON.stringify({
+        event: "bundle.projection.duplicate",
+        bundle_id: second.descriptor.bundleId,
+        dropped: 1,
+      }),
+    );
     expect(
       await env.DB.prepare(
         `SELECT bundle_id FROM ghost_battle_summaries

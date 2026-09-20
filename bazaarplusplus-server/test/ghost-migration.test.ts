@@ -1,5 +1,5 @@
 import { env } from "cloudflare:test";
-import { beforeEach, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { cleanupStatements, pageStatements } from "../scripts/ghost-projection/operations";
 import { commitBundle } from "../src/modules/bundle-commit";
 import { pruneExpiredBundles } from "../src/modules/d1-retention";
@@ -59,11 +59,13 @@ const data = (id: number, uploader = "migrate-uploader") =>
   });
 const upload = async (id: number, legacy: boolean, uploader?: string) => {
   const fixture = await data(id, uploader);
-  await commitBundle(legacy ? legacyDb : env.DB, fixture.descriptor, fixture.digest, times, {
-    projectionDuplicate() {},
-  });
+  await commitBundle(legacy ? legacyDb : env.DB, fixture.descriptor, fixture.digest, times);
   return fixture;
 };
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 beforeEach(async () => {
   const triggers = await env.DB.prepare(
@@ -144,15 +146,19 @@ test("both writer orders preserve first projections and report mixed duplicates 
   const fresh = await data(11, "old-first");
   fresh.descriptor.battles[0].player.display_name = "Must not replace first";
   fresh.descriptor.battles.push({ ...fresh.descriptor.battles[0], battle_id: "another-battle" });
-  const observer = { projectionDuplicate: vi.fn() };
-  expect(await commitBundle(env.DB, fresh.descriptor, fresh.digest, times, observer)).toEqual({
+  const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
+  expect(await commitBundle(env.DB, fresh.descriptor, fresh.digest, times)).toEqual({
     kind: "committed",
     projection: { eligible: 2, inserted: 1 },
   });
-  expect(observer.projectionDuplicate).toHaveBeenCalledWith({
-    bundle_id: fresh.descriptor.bundleId,
-    dropped: 1,
-  });
+  expect(log).toHaveBeenCalledOnce();
+  expect(log).toHaveBeenCalledWith(
+    JSON.stringify({
+      event: "bundle.projection.duplicate",
+      bundle_id: fresh.descriptor.bundleId,
+      dropped: 1,
+    }),
+  );
   const newFirst = await upload(12, false, "new-first");
   await upload(13, true, "new-first");
   expect((await state())?.legacy_duplicates).toBe(1);
@@ -227,10 +233,10 @@ test.each([0, 1])("concurrent writers converge with recursive_triggers=%i", asyn
   await env.DB.prepare(`PRAGMA recursive_triggers = ${recursive}`).run();
   const older = await data(30, "concurrent-uploader");
   const newer = await data(31, "concurrent-uploader");
-  const observer = { projectionDuplicate: vi.fn() };
+  const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
   await Promise.all([
-    commitBundle(legacyDb, older.descriptor, older.digest, times, { projectionDuplicate() {} }),
-    commitBundle(env.DB, newer.descriptor, newer.digest, times, observer),
+    commitBundle(legacyDb, older.descriptor, older.digest, times),
+    commitBundle(env.DB, newer.descriptor, newer.digest, times),
   ]);
   const legacy = await env.DB.prepare("SELECT bundle_id FROM ghost_battles").all();
   const summaries = await env.DB.prepare("SELECT bundle_id FROM ghost_battle_summaries").all();
@@ -238,7 +244,14 @@ test.each([0, 1])("concurrent writers converge with recursive_triggers=%i", asyn
   expect(summaries.results).toHaveLength(1);
   const metric =
     Number((await state())?.legacy_duplicates) +
-    observer.projectionDuplicate.mock.calls.reduce((n, [entry]) => n + entry.dropped, 0);
+    log.mock.calls
+      .map(([line]) => JSON.parse(String(line)))
+      .filter(
+        (entry) =>
+          entry.event === "bundle.projection.duplicate" &&
+          entry.bundle_id === newer.descriptor.bundleId,
+      )
+      .reduce((n, entry) => n + entry.dropped, 0);
   expect(metric).toBe(1);
 });
 
