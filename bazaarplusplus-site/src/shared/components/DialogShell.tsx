@@ -5,14 +5,7 @@ type DialogShellProps = {
   onClose: () => void;
   labelledBy: string;
   closeLabel: string;
-  // 'sm' keeps the original compact modal; 'lg' is the large scrollable sheet variant.
-  size?: 'sm' | 'lg';
   children: ReactNode;
-};
-
-const SIZE_CLASSES: Record<NonNullable<DialogShellProps['size']>, string> = {
-  sm: 'max-w-md',
-  lg: 'max-w-3xl max-h-[min(760px,calc(100vh-3rem))] overflow-y-auto',
 };
 
 export default function DialogShell({
@@ -20,7 +13,6 @@ export default function DialogShell({
   onClose,
   labelledBy,
   closeLabel,
-  size = 'sm',
   children,
 }: DialogShellProps) {
   const cardRef = useRef<HTMLDivElement>(null);
@@ -71,7 +63,7 @@ export default function DialogShell({
         aria-modal="true"
         aria-labelledby={labelledBy}
         tabIndex={-1}
-        className={`relative w-full rounded-3xl border border-[color:var(--color-border-soft)] bg-[color:var(--color-bg-card)] p-8 shadow-[0_36px_80px_-20px_rgba(0,0,0,0.7)] outline-none ${SIZE_CLASSES[size]}`}
+        className="relative w-full rounded-3xl border border-[color:var(--color-border-soft)] bg-[color:var(--color-bg-card)] p-8 shadow-[0_36px_80px_-20px_rgba(0,0,0,0.7)] outline-none max-w-md"
       >
         <button
           type="button"

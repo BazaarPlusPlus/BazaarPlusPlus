@@ -11,12 +11,10 @@ export function SegmentedControl({ children }: { children: ReactNode }) {
 export function SegmentedButton({
   active,
   onClick,
-  onPreview,
   children,
 }: {
   active: boolean;
   onClick: () => void;
-  onPreview?: () => void;
   children: ReactNode;
 }) {
   return (
@@ -24,8 +22,6 @@ export function SegmentedButton({
       type="button"
       aria-pressed={active}
       onClick={onClick}
-      onFocus={onPreview}
-      onMouseEnter={onPreview}
       className={`relative shrink-0 rounded-full px-3.5 py-1.5 text-[0.78rem] font-semibold uppercase tracking-[0.12em] transition ${
         active
           ? 'bg-[color:var(--color-accent)] text-[color:#100c06] shadow-[0_4px_12px_rgba(232,185,74,0.32)]'

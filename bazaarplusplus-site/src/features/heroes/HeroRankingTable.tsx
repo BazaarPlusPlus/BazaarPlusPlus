@@ -73,7 +73,7 @@ const RANKING_COLUMNS: RankingColumn[] = [
             onClick={() => context.onFocusHero(row.hero)}
             className="inline-flex items-center bg-transparent p-0 text-left transition"
           >
-            <HeroBadge hero={row.hero} selected={selected} size="sm" />
+            <HeroBadge hero={row.hero} selected={selected} />
           </button>
         </td>
       );

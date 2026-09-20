@@ -333,7 +333,7 @@ function MatchupList({
     <ul data-testid="matchup-list" className={className}>
       {rows.map((row) => (
         <li key={row.opponentHero} className="grid grid-cols-[auto_1fr_auto] items-center gap-2.5">
-          <HeroBadge hero={row.opponentHero} size="sm" />
+          <HeroBadge hero={row.opponentHero} />
           <span
             className="databar databar-pos relative block h-6 rounded-sm"
             style={

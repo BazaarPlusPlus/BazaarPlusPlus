@@ -369,13 +369,5 @@ export function createMemorySpaLocationAdapter(initialHref: string) {
         }
       }
     },
-    forward() {
-      if (index < entries.length - 1) {
-        index += 1;
-        for (const listener of popListeners) {
-          listener();
-        }
-      }
-    },
   };
 }

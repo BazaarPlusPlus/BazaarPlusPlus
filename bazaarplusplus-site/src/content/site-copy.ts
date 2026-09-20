@@ -17,8 +17,6 @@ type PageTitleCopy = Record<PageTitleKey, string>;
 type ScopeCopy = {
   window: string;
   segment: string;
-  hero: string;
-  allHero: string;
   segmentLabels: Record<HeroMetricsSegment, string>;
 };
 
@@ -30,7 +28,6 @@ type CommonCopy = {
   filters: string;
   metric: string;
   primaryNavAriaLabel: string;
-  secondaryNavAriaLabel: string;
   languageLabel: string;
   homeAriaLabel: string;
   lastSync: string;
@@ -75,7 +72,6 @@ type HeroStatsCopy = {
     hero: string;
     winRate: string;
     runs: string;
-    share: string;
     wins10w: string;
     perfect: string;
     gold: string;
@@ -87,20 +83,12 @@ type HeroStatsCopy = {
   };
   matchups: {
     title: string;
-    heroSelectorLabel: string;
     selectedHeroLabel: string;
     lowSampleTag: string;
     sample: string;
     empty: string;
   };
-  heroClass: {
-    nonCanonicalTag: string;
-    nonCanonicalTooltip: string;
-    chartExcludedFootnote: string;
-  };
   coverage: {
-    windowSuffix: string;
-    syncedPrefix: string;
     someDaysUnavailable: string;
     noTrendValue: string;
   };
@@ -228,7 +216,6 @@ const zh: LocalizedSiteCopy = {
     filters: '筛选',
     metric: '指标',
     primaryNavAriaLabel: '主要导航',
-    secondaryNavAriaLabel: '辅助导航',
     languageLabel: '语言',
     homeAriaLabel: 'BazaarPlusPlus 首页',
     lastSync: '最近同步',
@@ -254,8 +241,6 @@ const zh: LocalizedSiteCopy = {
     scope: {
       window: '时间窗口',
       segment: '分段',
-      hero: '英雄',
-      allHero: '全部',
       segmentLabels: {
         all: '全部',
         legend: '传奇',
@@ -298,7 +283,6 @@ const zh: LocalizedSiteCopy = {
         hero: '英雄',
         winRate: '10胜率',
         runs: '完成局数',
-        share: '占比',
         wins10w: '10胜',
         perfect: '完美',
         gold: '黄金',
@@ -310,20 +294,12 @@ const zh: LocalizedSiteCopy = {
       },
       matchups: {
         title: '对位胜率',
-        heroSelectorLabel: '选择英雄查看对位',
         selectedHeroLabel: '当前英雄',
         lowSampleTag: '样本不足',
         sample: '场',
         empty: '暂无对位数据',
       },
-      heroClass: {
-        nonCanonicalTag: '非标准',
-        nonCanonicalTooltip: '非标准英雄数据，可能来自特殊对局。',
-        chartExcludedFootnote: '非标准英雄不在趋势图中显示。',
-      },
       coverage: {
-        windowSuffix: ' 窗口',
-        syncedPrefix: '同步于 ',
         someDaysUnavailable: '部分日期暂不可用，当前结果只包含已加载日期。',
         noTrendValue: '部分日期没有可计算的趋势点。',
       },
@@ -537,7 +513,6 @@ const en: LocalizedSiteCopy = {
     filters: 'Filters',
     metric: 'Metric',
     primaryNavAriaLabel: 'Primary',
-    secondaryNavAriaLabel: 'Secondary',
     languageLabel: 'Language',
     homeAriaLabel: 'BazaarPlusPlus home',
     lastSync: 'last sync',
@@ -563,8 +538,6 @@ const en: LocalizedSiteCopy = {
     scope: {
       window: 'Window',
       segment: 'Segment',
-      hero: 'Hero',
-      allHero: 'All',
       segmentLabels: {
         all: 'All',
         legend: 'Legend',
@@ -607,7 +580,6 @@ const en: LocalizedSiteCopy = {
         hero: 'Hero',
         winRate: '10W rate',
         runs: 'Runs',
-        share: 'Share',
         wins10w: '10W wins',
         perfect: 'Perfect',
         gold: 'Gold',
@@ -619,20 +591,12 @@ const en: LocalizedSiteCopy = {
       },
       matchups: {
         title: 'Matchups',
-        heroSelectorLabel: 'Choose hero for matchups',
         selectedHeroLabel: 'Selected hero',
         lowSampleTag: 'low sample',
         sample: 'battles',
         empty: 'No matchup data yet',
       },
-      heroClass: {
-        nonCanonicalTag: 'Non-standard',
-        nonCanonicalTooltip: 'Non-standard hero data, possibly from special runs.',
-        chartExcludedFootnote: 'Non-standard heroes are excluded from the trend chart.',
-      },
       coverage: {
-        windowSuffix: ' window',
-        syncedPrefix: 'synced ',
         someDaysUnavailable: 'Some days are unavailable; this view includes loaded days only.',
         noTrendValue: 'Some days have no calculable trend point.',
       },
