@@ -314,41 +314,7 @@ export function validateArtifactManifest({
   return { manifest, installer, updater, signature };
 }
 
-function packageVersion(rootDir) {
-  return JSON.parse(fs.readFileSync(path.join(rootDir, 'package.json'), 'utf8'))
-    .version;
-}
-
-function main(args) {
-  const [verb, flag, platform] = args;
-  if (verb !== 'paths' || flag !== '--platform' || !platform) {
-    throw new Error(
-      'Usage: artifact-manifest.mjs paths --platform <macos|windows>; create artifacts through node release.mjs build'
-    );
-  }
-  const rootDir = path.resolve(
-    import.meta.dirname,
-    '..',
-    'bazaarplusplus-installer'
-  );
-  const version = packageVersion(rootDir);
-  const manifestPath = artifactManifestPath(rootDir, platform);
-  const result = validateArtifactManifest({
-    rootDir,
-    manifestPath,
-    platform,
-    version
-  });
-  console.log(result.installer);
-  console.log(result.updater);
-  console.log(result.signature);
-}
-
 if (import.meta.main) {
-  try {
-    main(process.argv.slice(2));
-  } catch (error) {
-    console.error(error instanceof Error ? error.message : String(error));
-    process.exitCode = 1;
-  }
+  console.error('Usage: create artifacts through node release.mjs build');
+  process.exitCode = 1;
 }

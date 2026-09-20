@@ -1,6 +1,5 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import process from 'node:process';
 import { readProductVersion } from './product.mjs';
 
 function readJson(filePath) {
@@ -207,9 +206,4 @@ export function synchronizeVersions(rootDir) {
   updateCargoLockVersion(rootDir, packageName, packageVersion);
 
   return collectVersionSnapshot(rootDir);
-}
-
-if (import.meta.main) {
-  const snapshot = synchronizeVersions(process.cwd());
-  console.log(`version-sync: aligned to ${snapshot.packageVersion}`);
 }
