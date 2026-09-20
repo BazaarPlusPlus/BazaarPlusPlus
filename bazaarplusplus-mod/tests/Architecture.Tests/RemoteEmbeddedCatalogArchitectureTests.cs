@@ -147,8 +147,6 @@ public sealed class RemoteEmbeddedCatalogArchitectureTests
         Assert.DoesNotContain("new BuildRecommendationRepository", panel);
         Assert.DoesNotContain("TenWinBuildCatalogFactory.Create", panel);
         Assert.DoesNotContain("_buildRecommendationCatalog.Dispose", panel);
-        Assert.Contains("_buildRefreshContinuation.Invalidate();", panel);
-        Assert.Contains("_buildRefreshContinuation.IsCurrent(operationVersion)", panel);
 
         Assert.Contains("IRemoteEmbeddedCatalog<VoiceLine[]>", voiceModule);
         var dispose = voiceModule.IndexOf("_catalog.Dispose();", StringComparison.Ordinal);

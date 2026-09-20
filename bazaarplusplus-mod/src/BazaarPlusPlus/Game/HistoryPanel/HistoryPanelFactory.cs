@@ -57,8 +57,7 @@ internal static class HistoryPanelFactory
             replayService,
             serverHealthProbe,
             accountLinkClient,
-            isBazaarDbAccountLinkAvailable,
-            replayDirectoryPath
+            isBazaarDbAccountLinkAvailable
         );
     }
 

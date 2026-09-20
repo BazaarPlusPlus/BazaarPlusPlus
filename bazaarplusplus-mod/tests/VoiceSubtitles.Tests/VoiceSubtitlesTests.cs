@@ -104,7 +104,10 @@ public sealed class VoiceSubtitlesTests
             CatalogInitialLoadResult<VoiceLine[]>.Published(Snapshot(lines, CatalogSource.Cache))
         );
 
-        Assert.Equal(lines[0].Stem, VoiceLineCatalog.Resolve(lines[0].Stem, "Hero", "Test").Stem);
+        Assert.Equal(
+            lines[0].Stem,
+            VoiceLineCatalog.ResolveDetailed(lines[0].Stem, "Hero", "Test").Line.Stem
+        );
         VoiceLineCatalog.Reset();
     }
 
@@ -517,7 +520,7 @@ public sealed class VoiceSubtitlesTests
         Assert.False((await refresh).Succeeded);
         Assert.True(
             string.IsNullOrEmpty(
-                VoiceLineCatalog.Resolve("999_LatePublishOnly", "Hero", "Test").Stem
+                VoiceLineCatalog.ResolveDetailed("999_LatePublishOnly", "Hero", "Test").Line.Stem
             )
         );
     }

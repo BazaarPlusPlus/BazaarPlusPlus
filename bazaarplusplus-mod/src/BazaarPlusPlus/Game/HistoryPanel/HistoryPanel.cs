@@ -22,7 +22,6 @@ internal sealed partial class HistoryPanel : MonoBehaviour
     private HistoryPanelDependencies? _dependencies;
     private HistoryPanelCoordinator? _coordinator;
     private IHistoryPanelRunState? _runState;
-    private string _combatReplayDirectoryPath = string.Empty;
     private IReadOnlyList<BPPSupporterSample> _supporters = Array.Empty<BPPSupporterSample>();
     private IOverlayPanelHandle? _overlayHandle;
     private bool _initialized;
@@ -53,7 +52,6 @@ internal sealed partial class HistoryPanel : MonoBehaviour
         EnsureInitialized();
         _dependencies = dependencies ?? throw new ArgumentNullException(nameof(dependencies));
         _runState = dependencies.RunState;
-        _combatReplayDirectoryPath = dependencies.CombatReplayDirectoryPath ?? string.Empty;
         _coordinator = new HistoryPanelCoordinator(
             _state,
             dependencies,

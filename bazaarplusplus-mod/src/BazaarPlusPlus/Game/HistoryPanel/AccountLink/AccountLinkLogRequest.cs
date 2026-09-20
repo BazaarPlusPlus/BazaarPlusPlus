@@ -1,5 +1,5 @@
 #nullable enable
-using BazaarPlusPlus.Infrastructure.Logging;
+using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.ModApi.Clients;
 
 namespace BazaarPlusPlus.Game.HistoryPanel.AccountLink;
@@ -26,18 +26,6 @@ internal enum AccountLinkReason
     UnexpectedOutcome,
 }
 
-internal interface IHistoryPanelAccountLinkLogSink
-{
-    void Emit(
-        BppLogSeverity severity,
-        BppLogEventDefinition definition,
-        BppLogFieldValue[] values,
-        Exception? exception
-    );
-
-    void EmitDebug(BppLogEventDefinition definition, Func<BppLogFieldValue[]> valuesFactory);
-}
-
 /// <summary>
 /// Owns one accepted account-link operation's correlation and single terminal diagnostic. A panel
 /// session cancellation calls <see cref="Abandon"/>, which terminalizes the operation silently.
@@ -46,20 +34,14 @@ internal sealed class AccountLinkLogRequest
 {
     private readonly string _requestId;
     private readonly AccountLinkMethod _method;
-    private readonly IHistoryPanelAccountLinkLogSink _sink;
     private int _terminal;
 
-    internal AccountLinkLogRequest(
-        string requestId,
-        AccountLinkMethod method,
-        IHistoryPanelAccountLinkLogSink sink
-    )
+    internal AccountLinkLogRequest(string requestId, AccountLinkMethod method)
     {
         _requestId = string.IsNullOrWhiteSpace(requestId)
             ? throw new ArgumentException("Request ID is required.", nameof(requestId))
             : requestId;
         _method = method;
-        _sink = sink ?? throw new ArgumentNullException(nameof(sink));
     }
 
     internal void Succeeded()
@@ -67,15 +49,13 @@ internal sealed class AccountLinkLogRequest
         if (!TryComplete())
             return;
 
-        Emit(
-            BppLogSeverity.Info,
+        BppLog.InfoEvent(
             HistoryPanelAccountLinkLogEvents.Succeeded,
             new[]
             {
                 HistoryPanelAccountLinkLogEvents.RequestId.Bind(_requestId),
                 HistoryPanelAccountLinkLogEvents.Method.Bind(_method),
-            },
-            exception: null
+            }
         );
     }
 
@@ -87,17 +67,16 @@ internal sealed class AccountLinkLogRequest
         if (!TryComplete())
             return;
 
-        Emit(
-            BppLogSeverity.Error,
-            HistoryPanelAccountLinkLogEvents.Failed,
-            new[]
-            {
-                HistoryPanelAccountLinkLogEvents.RequestId.Bind(_requestId),
-                HistoryPanelAccountLinkLogEvents.Method.Bind(_method),
-                HistoryPanelAccountLinkLogEvents.FailureReasonCode.Bind(reason),
-            },
-            exception
-        );
+        var values = new[]
+        {
+            HistoryPanelAccountLinkLogEvents.RequestId.Bind(_requestId),
+            HistoryPanelAccountLinkLogEvents.Method.Bind(_method),
+            HistoryPanelAccountLinkLogEvents.FailureReasonCode.Bind(reason),
+        };
+        if (exception == null)
+            BppLog.ErrorEvent(HistoryPanelAccountLinkLogEvents.Failed, values);
+        else
+            BppLog.ErrorEvent(HistoryPanelAccountLinkLogEvents.Failed, exception, values);
     }
 
     internal void Skipped(AccountLinkReason reason)
@@ -105,24 +84,15 @@ internal sealed class AccountLinkLogRequest
         if (!TryComplete())
             return;
 
-#if DEBUG
-        try
-        {
-            _sink.EmitDebug(
-                HistoryPanelAccountLinkLogEvents.Skipped,
-                () =>
-                    new[]
-                    {
-                        HistoryPanelAccountLinkLogEvents.RequestId.Bind(_requestId),
-                        HistoryPanelAccountLinkLogEvents.SkippedReasonCode.Bind(reason),
-                    }
-            );
-        }
-        catch
-        {
-            // Operational logging must never alter account-link behavior.
-        }
-#endif
+        BppLog.DebugEvent(
+            HistoryPanelAccountLinkLogEvents.Skipped,
+            () =>
+                new[]
+                {
+                    HistoryPanelAccountLinkLogEvents.RequestId.Bind(_requestId),
+                    HistoryPanelAccountLinkLogEvents.SkippedReasonCode.Bind(reason),
+                }
+        );
     }
 
     internal void Abandon()
@@ -142,21 +112,4 @@ internal sealed class AccountLinkLogRequest
         };
 
     private bool TryComplete() => Interlocked.CompareExchange(ref _terminal, 1, 0) == 0;
-
-    private void Emit(
-        BppLogSeverity severity,
-        BppLogEventDefinition definition,
-        BppLogFieldValue[] values,
-        Exception? exception
-    )
-    {
-        try
-        {
-            _sink.Emit(severity, definition, values, exception);
-        }
-        catch
-        {
-            // Operational logging must never alter account-link behavior.
-        }
-    }
 }

@@ -4,8 +4,6 @@ namespace BazaarPlusPlus.Infrastructure.UiTokens;
 
 internal static class Radii
 {
-    public const float InfoChip = 7f;
-    public const float Row = 8f;
     public const float Md = 10f;
     public const float CollectionChip = 4f;
     public const float CollectionPortraitChip = 8f;

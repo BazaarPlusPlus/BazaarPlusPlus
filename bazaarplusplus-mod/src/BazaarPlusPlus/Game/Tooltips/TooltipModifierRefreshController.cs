@@ -82,7 +82,7 @@ internal sealed class TooltipModifierRefreshController : MonoBehaviour
                 TooltipLogEvents.PreviewRefreshReasonCode.Bind(
                     TooltipLogReasonCode.PreviewRefreshException
                 ),
-                TooltipLogEvents.PreviewRefreshMode.Bind(ToLogMode(_lastMode))
+                TooltipLogEvents.PreviewRefreshMode.Bind(_lastMode)
             );
         }
     }
@@ -232,12 +232,4 @@ internal sealed class TooltipModifierRefreshController : MonoBehaviour
         target = default;
         return false;
     }
-
-    private static TooltipPreviewRefreshMode ToLogMode(TooltipPreviewMode mode) =>
-        mode switch
-        {
-            TooltipPreviewMode.Enchant => TooltipPreviewRefreshMode.Enchant,
-            TooltipPreviewMode.Upgrade => TooltipPreviewRefreshMode.Upgrade,
-            _ => TooltipPreviewRefreshMode.Normal,
-        };
 }

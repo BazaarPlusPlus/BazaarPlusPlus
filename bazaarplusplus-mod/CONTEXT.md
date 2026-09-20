@@ -44,7 +44,7 @@ _Avoid_: remote battle, opponent battle
 The local serialized combat input used to replay a recorded PvP battle. It is a recoverable cache governed by the `newest 200 ∪ last 30 days` retention policy; the battle fact remains after eviction, but History no longer offers Replay.
 
 **Replay Video Artifact**:
-A user-requested MP4 plus its metadata. Attachment to a battle and file health are separate facts: deleting a run detaches the metadata without deleting a completed MP4, and only an explicit recordings-root-confined action deletes a detached artifact.
+A user-requested MP4 plus its metadata. Attachment to a battle and file health are separate facts: deleting a run detaches the metadata without deleting a completed MP4.
 _Avoid_: replay cache, orphan video
 
 **Saved Replay Lifecycle**:

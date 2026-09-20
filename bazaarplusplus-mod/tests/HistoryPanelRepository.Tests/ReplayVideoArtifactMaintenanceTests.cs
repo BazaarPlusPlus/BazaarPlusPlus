@@ -9,7 +9,7 @@ internal static class ReplayVideoArtifactMaintenanceTests
         StaleRecordingFinalMp4SurvivesTheCrashWindow();
         ReconcileUsesSnapshotCasAcrossAConcurrentFinish();
         TenThousandArtifactsUseBulkLinearReconciliation();
-        ExplicitDeleteRejectsEscapingPathsAndAllowsManagedDetachedArtifacts();
+        MaintenanceDoesNotFollowSymlinkEscapes();
         RelativePathConversionRejectsPrefixSiblings();
     }
 
@@ -192,91 +192,28 @@ internal static class ReplayVideoArtifactMaintenanceTests
         }
     }
 
-    private static void ExplicitDeleteRejectsEscapingPathsAndAllowsManagedDetachedArtifacts()
+    private static void MaintenanceDoesNotFollowSymlinkEscapes()
     {
-        var parent = Path.Combine(Path.GetTempPath(), $"bpp-video-delete-{Guid.NewGuid():N}");
+        if (OperatingSystem.IsWindows())
+            return;
+        var parent = Path.Combine(Path.GetTempPath(), $"bpp-video-maintenance-{Guid.NewGuid():N}");
         var root = Path.Combine(parent, "recordings");
         var sibling = Path.Combine(parent, "recordings-evil");
         Directory.CreateDirectory(root);
         Directory.CreateDirectory(sibling);
         try
         {
-            File.WriteAllText(Path.Combine(root, "managed.mp4"), "managed");
-            File.WriteAllText(Path.Combine(root, "attached.mp4"), "attached");
-            File.WriteAllText(Path.Combine(sibling, "outside.mp4"), "outside");
-            File.WriteAllText(Path.Combine(sibling, "outside.wav"), "outside audio");
-            File.SetLastWriteTimeUtc(
-                Path.Combine(sibling, "outside.wav"),
-                DateTime.UtcNow.AddDays(-3)
-            );
-            var linkCreated = false;
-            if (!OperatingSystem.IsWindows())
-            {
-                Directory.CreateSymbolicLink(Path.Combine(root, "linked"), sibling);
-                linkCreated = true;
-            }
-            var catalog = new FakeCatalog([
-                Artifact("managed", "managed.mp4", ReplayVideoAttachmentState.Detached),
-                Artifact("attached", "attached.mp4", ReplayVideoAttachmentState.Attached),
-                Artifact(
-                    "absolute",
-                    Path.Combine(sibling, "outside.mp4"),
-                    ReplayVideoAttachmentState.Detached
-                ),
-                Artifact(
-                    "parent",
-                    "../recordings-evil/outside.mp4",
-                    ReplayVideoAttachmentState.Detached
-                ),
-                Artifact("linked", "linked/outside.mp4", ReplayVideoAttachmentState.Detached),
-            ]);
-            var service = new ReplayVideoDetachedArtifactService(
-                catalog,
+            var outside = Path.Combine(sibling, "outside.wav");
+            File.WriteAllText(outside, "outside audio");
+            File.SetLastWriteTimeUtc(outside, DateTime.UtcNow.AddDays(-3));
+            Directory.CreateSymbolicLink(Path.Combine(root, "linked"), sibling);
+            var maintenance = new ReplayVideoArtifactMaintenanceService(
+                new FakeCatalog([]),
                 new ReplayVideoArtifactFiles(),
                 root
-            );
-
-            Equal(
-                ReplayVideoDetachedDeleteStatus.UnmanagedPath,
-                service.Delete("absolute", DateTimeOffset.UtcNow).Status,
-                "absolute path rejected"
-            );
-            Equal(
-                ReplayVideoDetachedDeleteStatus.NotDetached,
-                service.Delete("attached", DateTimeOffset.UtcNow).Status,
-                "attached artifact cannot be explicitly deleted"
-            );
-            True(File.Exists(Path.Combine(root, "attached.mp4")), "attached file retained");
-            Equal(
-                ReplayVideoDetachedDeleteStatus.UnmanagedPath,
-                service.Delete("parent", DateTimeOffset.UtcNow).Status,
-                "parent traversal rejected"
-            );
-            True(File.Exists(Path.Combine(sibling, "outside.mp4")), "outside file untouched");
-            if (linkCreated)
-            {
-                var maintenance = new ReplayVideoArtifactMaintenanceService(
-                    catalog,
-                    new ReplayVideoArtifactFiles(),
-                    root
-                ).Run(DateTimeOffset.UtcNow, TimeSpan.FromDays(1), CancellationToken.None);
-                Equal(0, maintenance.TempDeletedCount, "linked outside temp retained");
-                True(
-                    File.Exists(Path.Combine(sibling, "outside.wav")),
-                    "directory enumeration does not follow symlink escapes"
-                );
-                Equal(
-                    ReplayVideoDetachedDeleteStatus.UnmanagedPath,
-                    service.Delete("linked", DateTimeOffset.UtcNow).Status,
-                    "symlink escape rejected"
-                );
-            }
-            Equal(
-                ReplayVideoDetachedDeleteStatus.Deleted,
-                service.Delete("managed", DateTimeOffset.UtcNow).Status,
-                "managed artifact deleted"
-            );
-            True(!File.Exists(Path.Combine(root, "managed.mp4")), "managed file removed");
+            ).Run(DateTimeOffset.UtcNow, TimeSpan.FromDays(1), CancellationToken.None);
+            Equal(0, maintenance.TempDeletedCount, "linked outside temp retained");
+            True(File.Exists(outside), "directory enumeration does not follow symlink escapes");
         }
         finally
         {
@@ -339,14 +276,6 @@ internal static class ReplayVideoArtifactMaintenanceTests
             return Artifacts.ToList();
         }
 
-        public IReadOnlyList<ReplayVideoArtifactRecord> ListDetachedArtifacts() =>
-            Artifacts
-                .Where(artifact =>
-                    artifact.AttachmentState == ReplayVideoAttachmentState.Detached
-                    && artifact.FileState != ReplayVideoFileState.Deleted
-                )
-                .ToList();
-
         public void ReconcileFileState(
             IReadOnlyCollection<ReplayVideoArtifactRecord> observations,
             ReplayVideoFileState fileState,
@@ -371,18 +300,6 @@ internal static class ReplayVideoArtifactMaintenanceTests
                     && current.EndedAtUtc == observation.EndedAtUtc
                 )
                     Artifacts[i] = current with { FileState = fileState };
-            }
-        }
-
-        public void MarkDetachedArtifactDeleted(string videoId, DateTimeOffset deletedAt)
-        {
-            for (var i = 0; i < Artifacts.Count; i++)
-            {
-                if (
-                    Artifacts[i].VideoId == videoId
-                    && Artifacts[i].AttachmentState == ReplayVideoAttachmentState.Detached
-                )
-                    Artifacts[i] = Artifacts[i] with { FileState = ReplayVideoFileState.Deleted };
             }
         }
     }

@@ -83,13 +83,13 @@ internal sealed class BppComposition : IDisposable
     private readonly BuildRecommendationRepository _buildRecommendationRepository;
     private ModApiSession? _modApiSessionRef;
     private BazaarDbLinkClient? _accountLinkClientRef;
-    private PvpBattleCatalog? _pvpBattleCatalog;
+    private PvpBattleSqliteStore? _pvpBattleCatalog;
 
     public IBppServices Services => _services;
     public RunLifecycleModule RunLifecycle => _runLifecycle;
 
     public IPvpBattleCatalog PvpBattleCatalog =>
-        _pvpBattleCatalog ??= new PvpBattleCatalog(
+        _pvpBattleCatalog ??= new PvpBattleSqliteStore(
             PathConstants.RunLogDatabase(_paths.RequireDataRoot())
         );
 

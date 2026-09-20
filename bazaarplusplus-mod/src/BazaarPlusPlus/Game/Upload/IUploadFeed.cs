@@ -19,7 +19,6 @@ internal enum UploadAttemptObservationKind
 
 internal enum UploadLogReasonCode
 {
-    InitializationException,
     LiveRunActive,
     AttemptException,
     RemoteUploadFailed,

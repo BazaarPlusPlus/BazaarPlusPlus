@@ -29,10 +29,6 @@
       Link="LiveBuildRefreshSeverity.cs"
     />
     <Compile
-      Include="../../src/BazaarPlusPlus/Game/LiveBuildPanel/LiveBuildRefreshContinuationGate.cs"
-      Link="LiveBuildRefreshContinuationGate.cs"
-    />
-    <Compile
       Include="../../src/BazaarPlusPlus/Game/LiveBuildPanel/LiveBuildHeroPresentation.cs"
       Link="LiveBuildHeroPresentation.cs"
     />

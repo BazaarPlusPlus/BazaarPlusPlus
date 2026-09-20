@@ -5,19 +5,6 @@ namespace BazaarPlusPlus.GameInterop.CardPreview;
 
 internal static class NativeCardPreviewSlotFitter
 {
-    internal static NativeCardPreviewSlotFitResult Fit(
-        RectTransform preview,
-        RectTransform slot,
-        NativeCardPreviewHorizontalAlignment horizontalAlignment
-    )
-    {
-        if (preview == null || slot == null)
-            return NativeCardPreviewSlotFitResult.Unavailable;
-
-        Canvas.ForceUpdateCanvases();
-        return FitWithSettledCanvas(preview, slot, horizontalAlignment, new Vector3[4]);
-    }
-
     /// <summary>
     /// Fits one preview after the caller has settled the Canvas shared by a larger layout batch.
     /// </summary>

@@ -41,21 +41,12 @@ internal static class Colors
     public static Color White => Color.white;
     public static Color Clear => Color.clear;
 
-    public static Color HistoryPanelBackground => Rgba(0.08f, 0.10f, 0.13f, 1f);
-    public static Color HistoryListFrameBorder => Rgba(0.24f, 0.29f, 0.38f, 0.55f);
-    public static Color GameTitleText => Rgba(1f, 0.8352941f, 0.6745098f, 1f);
     public static Color HistorySubtitleText => Rgba(0.82f, 0.86f, 0.91f, 0.94f);
-    public static Color HistorySectionTitleText => Rgba(0.76f, 0.91f, 1f, 1f);
     public static Color HistoryChipText => Rgba(0.95f, 0.96f, 0.98f, 1f);
-    public static Color HistoryChipBackground => Rgba(0.14f, 0.18f, 0.23f, 0.96f);
     public static Color HistoryStatusText => Rgba(0.86f, 0.90f, 0.96f, 0.92f);
     public static Color HistoryStatusBackground => Rgba(0.16f, 0.20f, 0.26f, 0.72f);
-    public static Color HistoryStatusBorder => Rgba(0.34f, 0.40f, 0.49f, 0.36f);
     public static Color HistoryButtonBackground => Rgba(0.23f, 0.27f, 0.32f, 0.98f);
     public static Color HistoryButtonBorder => Rgba(0.34f, 0.40f, 0.48f, 0.55f);
-    public static Color HistoryProgressText => Rgba(0.89f, 0.94f, 1f, 1f);
-    public static Color HistoryGoldAccent => Rgba(1f, 0.86f, 0.10f, 1f);
-    public static Color HistoryPreviewBackground => Rgba(0.07f, 0.09f, 0.12f, 0.99f);
     public static Color HistoryFooterSecondaryText => Rgba(0.72f, 0.77f, 0.84f, 0.94f);
 
     // Collection Panel filter chrome follows the compact, near-black tag treatment used by the
@@ -118,18 +109,9 @@ internal static class Colors
     public static Color CollectionChipSelectedPressedBackground => FromRgb(31, 46, 63, 1f);
     public static Color CollectionChipSelectedHoverBorder => FromRgb(87, 115, 140, 1f);
 
-    public static Color StatusCompletedText => Rgba(0.82f, 0.98f, 0.90f, 0.90f);
-    public static Color StatusAbandonedText => Rgba(0.99f, 0.90f, 0.85f, 0.88f);
-    public static Color StatusDefaultText => Rgba(0.84f, 0.92f, 1f, 0.88f);
-
     public static Color OutcomeGoldBorder => Rgba(0.86f, 0.68f, 0.24f, 0.42f);
 
     public static Color ButtonSelectedBackground => Rgba(0.78f, 0.60f, 0.24f, 0.98f);
-    public static Color DeleteConfirmText => Rgba(1f, 0.94f, 0.92f, 1f);
-    public static Color DeleteText => Rgba(1f, 0.93f, 0.90f, 1f);
-    public static Color ReplayText => Rgba(0.88f, 0.95f, 1f, 1f);
-    public static Color CloseBackground => Rgba(0.29f, 0.20f, 0.20f, 0.98f);
-    public static Color CloseText => Rgba(0.98f, 0.92f, 0.90f, 1f);
 
     public static Color SupporterTier1Text => Rgba(0.78f, 0.83f, 0.90f, 0.90f);
     public static Color SupporterTier2Text => Rgba(1f, 0.66f, 0.34f, 1f);

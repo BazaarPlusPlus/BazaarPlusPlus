@@ -53,16 +53,10 @@ dotnet_diagnostic.RS0030.severity = none
 [Architecture.Tests/V5DataPipelineArchitectureTests.cs]
 dotnet_diagnostic.RS0030.severity = none
 
-[HistoryPanelFactory.Tests/Program.cs]
-dotnet_diagnostic.RS0030.severity = none
-
 [LiveBuildRecommendations.Tests/Program.cs]
 dotnet_diagnostic.RS0030.severity = none
 
 # Debt — S6
-[Architecture.Tests/CurrentReplayRecordingArchitectureTests.cs]
-dotnet_diagnostic.RS0030.severity = none
-
 [Architecture.Tests/EndOfRunCaptureArchitectureTests.cs]
 dotnet_diagnostic.RS0030.severity = none
 

@@ -1,5 +1,6 @@
 #nullable enable
 using BazaarPlusPlus.Game.HistoryPanel.AccountLink;
+using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
 using BazaarPlusPlus.ModApi.Clients;
 using Xunit;
@@ -13,14 +14,14 @@ public sealed class AccountLinkLogRequestTests
     [Fact]
     public void Redeem_success_emits_one_structured_terminal()
     {
-        var sink = new CapturingSink();
-        var request = new AccountLinkLogRequest(RequestId, AccountLinkMethod.Redeem, sink);
+        BppLog.Reset();
+        var request = new AccountLinkLogRequest(RequestId, AccountLinkMethod.Redeem);
 
         request.Succeeded();
         request.Failed(AccountLinkReason.UnexpectedException);
 
-        var captured = Assert.Single(sink.Events);
-        Assert.Equal(BppLogSeverity.Info, captured.Severity);
+        var captured = Assert.Single(BppLog.Events);
+        Assert.Equal("Info", captured.Severity);
         Assert.Equal("history_panel.account_link.succeeded", captured.Definition.EventId);
         AssertFields(captured, ("request_id", RequestId), ("method", AccountLinkMethod.Redeem));
     }
@@ -28,13 +29,13 @@ public sealed class AccountLinkLogRequestTests
     [Fact]
     public void Manual_success_uses_the_shared_success_vocabulary()
     {
-        var sink = new CapturingSink();
-        var request = new AccountLinkLogRequest(RequestId, AccountLinkMethod.Manual, sink);
+        BppLog.Reset();
+        var request = new AccountLinkLogRequest(RequestId, AccountLinkMethod.Manual);
 
         request.Succeeded();
 
-        var captured = Assert.Single(sink.Events);
-        Assert.Equal(BppLogSeverity.Info, captured.Severity);
+        var captured = Assert.Single(BppLog.Events);
+        Assert.Equal("Info", captured.Severity);
         Assert.Equal("history_panel.account_link.succeeded", captured.Definition.EventId);
         AssertFields(captured, ("request_id", RequestId), ("method", AccountLinkMethod.Manual));
     }
@@ -51,13 +52,13 @@ public sealed class AccountLinkLogRequestTests
     )
     {
         var expectedReason = (AccountLinkReason)expectedReasonValue;
-        var sink = new CapturingSink();
-        var request = new AccountLinkLogRequest(RequestId, AccountLinkMethod.Redeem, sink);
+        BppLog.Reset();
+        var request = new AccountLinkLogRequest(RequestId, AccountLinkMethod.Redeem);
 
         request.Failed(outcome);
 
-        var captured = Assert.Single(sink.Events);
-        Assert.Equal(BppLogSeverity.Error, captured.Severity);
+        var captured = Assert.Single(BppLog.Events);
+        Assert.Equal("Error", captured.Severity);
         Assert.Equal("history_panel.account_link.failed", captured.Definition.EventId);
         AssertFields(
             captured,
@@ -75,14 +76,14 @@ public sealed class AccountLinkLogRequestTests
     public void Validation_and_account_switch_skips_emit_one_debug_terminal(int reasonValue)
     {
         var reason = (AccountLinkReason)reasonValue;
-        var sink = new CapturingSink();
-        var request = new AccountLinkLogRequest(RequestId, AccountLinkMethod.Redeem, sink);
+        BppLog.Reset();
+        var request = new AccountLinkLogRequest(RequestId, AccountLinkMethod.Redeem);
 
         request.Skipped(reason);
         request.Succeeded();
 
-        var captured = Assert.Single(sink.Events);
-        Assert.Equal(BppLogSeverity.Debug, captured.Severity);
+        var captured = Assert.Single(BppLog.Events);
+        Assert.Equal("Debug", captured.Severity);
         Assert.Equal("history_panel.account_link.skipped", captured.Definition.EventId);
         AssertFields(captured, ("request_id", RequestId), ("reason_code", reason));
     }
@@ -90,13 +91,13 @@ public sealed class AccountLinkLogRequestTests
     [Fact]
     public void Abandoned_session_request_is_silent_and_terminal()
     {
-        var sink = new CapturingSink();
-        var request = new AccountLinkLogRequest(RequestId, AccountLinkMethod.Redeem, sink);
+        BppLog.Reset();
+        var request = new AccountLinkLogRequest(RequestId, AccountLinkMethod.Redeem);
 
         request.Abandon();
         request.Failed(AccountLinkReason.RequestTimeout);
 
-        Assert.Empty(sink.Events);
+        Assert.Empty(BppLog.Events);
     }
 
     [Theory]
@@ -108,12 +109,12 @@ public sealed class AccountLinkLogRequestTests
     {
         var reason = (AccountLinkReason)reasonValue;
         var exception = new InvalidOperationException("safe diagnostic");
-        var sink = new CapturingSink();
-        var request = new AccountLinkLogRequest(RequestId, AccountLinkMethod.Redeem, sink);
+        BppLog.Reset();
+        var request = new AccountLinkLogRequest(RequestId, AccountLinkMethod.Redeem);
 
         request.Failed(reason, exception);
 
-        var captured = Assert.Single(sink.Events);
+        var captured = Assert.Single(BppLog.Events);
         Assert.Same(exception, captured.Exception);
         AssertFields(
             captured,
@@ -129,12 +130,12 @@ public sealed class AccountLinkLogRequestTests
         const string privateText =
             "account-secret link-code-secret token-secret response-body-secret";
         var result = BazaarDbLinkResult.From(BazaarDbLinkOutcome.ServerError, 500, privateText);
-        var sink = new CapturingSink();
-        var request = new AccountLinkLogRequest(RequestId, AccountLinkMethod.Redeem, sink);
+        BppLog.Reset();
+        var request = new AccountLinkLogRequest(RequestId, AccountLinkMethod.Redeem);
 
         request.Failed(result.Outcome);
 
-        var captured = Assert.Single(sink.Events);
+        var captured = Assert.Single(BppLog.Events);
         var rendered = new BppLogEventRenderer().Render(
             captured.Definition,
             captured.Values,
@@ -195,7 +196,7 @@ public sealed class AccountLinkLogRequestTests
     }
 
     private static void AssertFields(
-        CapturedEvent captured,
+        CapturedBppLogEvent captured,
         params (string Name, object Value)[] expected
     )
     {
@@ -206,28 +207,4 @@ public sealed class AccountLinkLogRequestTests
             Assert.Equal(expected[index].Value, captured.Values[index].Value);
         }
     }
-
-    private sealed class CapturingSink : IHistoryPanelAccountLinkLogSink
-    {
-        public List<CapturedEvent> Events { get; } = new();
-
-        public void Emit(
-            BppLogSeverity severity,
-            BppLogEventDefinition definition,
-            BppLogFieldValue[] values,
-            Exception? exception
-        ) => Events.Add(new CapturedEvent(severity, definition, values, exception));
-
-        public void EmitDebug(
-            BppLogEventDefinition definition,
-            Func<BppLogFieldValue[]> valuesFactory
-        ) => Events.Add(new CapturedEvent(BppLogSeverity.Debug, definition, valuesFactory(), null));
-    }
-
-    private sealed record CapturedEvent(
-        BppLogSeverity Severity,
-        BppLogEventDefinition Definition,
-        BppLogFieldValue[] Values,
-        Exception? Exception
-    );
 }

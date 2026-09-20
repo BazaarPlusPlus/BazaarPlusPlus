@@ -29,7 +29,7 @@ internal static class ReplayMaintenanceStorageTests
                 InsertSealJob(setup, "job-transition-run", "waiting");
             }
 
-            var catalog = new PvpBattleCatalog(databasePath);
+            var catalog = new PvpBattleSqliteStore(databasePath);
             using var writer = new SqliteConnection($"Data Source={databasePath}");
             writer.Open();
             using var writerTransaction = writer.BeginTransaction(deferred: false);
@@ -126,7 +126,7 @@ internal static class ReplayMaintenanceStorageTests
                 );
             }
 
-            var catalog = new PvpBattleCatalog(databasePath);
+            var catalog = new PvpBattleSqliteStore(databasePath);
             var inventory = catalog.ListReplayMaintenanceInventory();
             Equal(6, inventory.Count, "bulk inventory count");
             Assert(

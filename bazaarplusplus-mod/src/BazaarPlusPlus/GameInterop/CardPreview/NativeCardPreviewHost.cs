@@ -553,15 +553,6 @@ internal sealed partial class NativeCardPreviewHost : INativeCardPreviewHost
                 () => _scope.Show(_resource, false)
             );
 
-        public NativeCardPreviewSlotFitResult FitInto(
-            UnityEngine.RectTransform slot,
-            NativeCardPreviewHorizontalAlignment horizontalAlignment =
-                NativeCardPreviewHorizontalAlignment.Center
-        ) =>
-            _scope.IsActive(_resource)
-                ? NativeCardPreviewSlotFitter.Fit(_resource.Rect, slot, horizontalAlignment)
-                : NativeCardPreviewSlotFitResult.Unavailable;
-
         public NativePreviewActionResult HoverEnter()
         {
             return _actions.HoverEnter(_scope.IsActive(_resource), InvokeHoverEnter);

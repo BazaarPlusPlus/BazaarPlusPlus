@@ -52,7 +52,7 @@ internal static class CardTooltipDataFactory
     internal static CardTooltipData Create(
         Card card,
         CardTooltipData source,
-        TooltipPreviewRefreshMode mode
+        TooltipPreviewMode mode
     )
     {
         if (source == null)
@@ -71,7 +71,7 @@ internal static class CardTooltipDataFactory
         Card card,
         CardTooltipData source,
         TMonster? monster,
-        TooltipPreviewRefreshMode mode
+        TooltipPreviewMode mode
     )
     {
         if (card == null)
@@ -100,7 +100,7 @@ internal static class CardTooltipDataFactory
         tooltipData.CanFuse = source.CanFuse;
 
         if (
-            mode == TooltipPreviewRefreshMode.Upgrade
+            mode == TooltipPreviewMode.Upgrade
             && card is ItemCard itemCard
             && UpgradePreviewValueProjection.TryCreate(
                 itemCard,
@@ -149,7 +149,7 @@ internal static class CardTooltipDataFactory
         return false;
     }
 
-    private static void LogUnavailable(string reason, TooltipPreviewRefreshMode mode)
+    private static void LogUnavailable(string reason, TooltipPreviewMode mode)
     {
         if (_reportedUnavailable)
             return;

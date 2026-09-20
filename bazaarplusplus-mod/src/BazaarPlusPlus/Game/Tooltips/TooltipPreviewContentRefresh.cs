@@ -30,11 +30,7 @@ internal static class TooltipPreviewContentRefresh
         try
         {
             ApplyCardPreviewMode(cardController, card, rollbackMode, mode);
-            var replacement = CardTooltipDataFactory.Create(
-                card,
-                currentTooltipData,
-                ToRefreshMode(mode)
-            );
+            var replacement = CardTooltipDataFactory.Create(card, currentTooltipData, mode);
             replacement.CanFuse = cardController.CanFuse();
             if (NativeCardTooltipContentRefresher.TryApply(tooltipController, replacement))
                 return true;
@@ -122,14 +118,6 @@ internal static class TooltipPreviewContentRefresh
             return TooltipUpgradePreviewTransition.Enter;
         return TooltipUpgradePreviewTransition.None;
     }
-
-    private static TooltipPreviewRefreshMode ToRefreshMode(TooltipPreviewMode mode) =>
-        mode switch
-        {
-            TooltipPreviewMode.Enchant => TooltipPreviewRefreshMode.Enchant,
-            TooltipPreviewMode.Upgrade => TooltipPreviewRefreshMode.Upgrade,
-            _ => TooltipPreviewRefreshMode.Normal,
-        };
 }
 
 internal enum TooltipUpgradePreviewTransition

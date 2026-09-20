@@ -28,11 +28,6 @@ internal interface INativeCardPreviewSession : IDisposable
     NativePreviewActionResult Show();
     NativePreviewActionResult ShowArtworkOnly();
     NativePreviewActionResult Hide();
-    NativeCardPreviewSlotFitResult FitInto(
-        RectTransform slot,
-        NativeCardPreviewHorizontalAlignment horizontalAlignment =
-            NativeCardPreviewHorizontalAlignment.Center
-    );
     NativePreviewActionResult HoverEnter();
     NativePreviewActionResult HoverExit();
 }

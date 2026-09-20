@@ -15,7 +15,6 @@ TestRunStateAdapterIsReadOnlyTwoMembers();
 TestEmptyDbPathDegradesRepositoryAndGhostSync();
 TestWhitespaceDbPathDegradesRepositoryAndGhostSync();
 TestMountPlanPreservesLocalHistoryWithoutSession();
-TestFactorySourceWiresEmptyDbDegradeChain();
 
 Console.WriteLine("HistoryPanelFactory checks passed.");
 
@@ -32,8 +31,8 @@ void TestDependenciesSingleConstructorArityAndNullAssignment()
 
     var parameters = constructors[0].GetParameters();
     Assert(
-        parameters.Length == 7,
-        "HistoryPanelDependencies single ctor should take 7 parameters."
+        parameters.Length == 6,
+        "HistoryPanelDependencies single ctor should take 6 parameters."
     );
     Assert(
         parameters[0].ParameterType == typeof(IHistoryPanelRunState),
@@ -47,19 +46,9 @@ void TestDependenciesSingleConstructorArityAndNullAssignment()
         parameters[2].ParameterType == typeof(HistoryPanelReplayService),
         "Ctor[2] should be HistoryPanelReplayService replayService."
     );
-    Assert(
-        parameters[6].ParameterType == typeof(string)
-            || parameters[6].ParameterType == typeof(string),
-        "Ctor[6] should be string combatReplayDirectoryPath."
-    );
-    Assert(
-        parameters[6].Name == "combatReplayDirectoryPath",
-        "Ctor[6] parameter name should be combatReplayDirectoryPath."
-    );
-
     // Null-by-position is the pinned behavior anchor — no ArgumentNullException on construct.
     var dataService = new HistoryPanelDataService(null, null);
-    var instance = new HistoryPanelDependencies(null!, dataService, null!, null, null, null, null!);
+    var instance = new HistoryPanelDependencies(null!, dataService, null!, null, null, null);
     Assert(instance.DataService == dataService, "DataService should assign by position.");
     Assert(instance.RunState == null, "Null runState should assign without throwing.");
     Assert(instance.ReplayService == null, "Null replayService should assign without throwing.");
@@ -75,11 +64,6 @@ void TestDependenciesSingleConstructorArityAndNullAssignment()
         dependenciesType.GetProperty("RunState") != null,
         "HistoryPanelDependencies should expose RunState."
     );
-    Assert(
-        dependenciesType.GetProperty("CombatReplayDirectoryPath") != null,
-        "HistoryPanelDependencies should carry CombatReplayDirectoryPath for the panel path read."
-    );
-
     var modAssembly = typeof(HistoryPanelDependencies).Assembly;
     Assert(
         modAssembly.GetType("BazaarPlusPlus.Game.HistoryPanel.HistoryPanelRuntime") == null,
@@ -163,80 +147,6 @@ void AssertDegradedChain(HistoryPanelDataService dataService, string pathKind)
     Assert(
         !dataService.CanSyncGhostBattles,
         $"A {pathKind} db path should leave DataService.CanSyncGhostBattles false (no ghost sync)."
-    );
-}
-
-void TestFactorySourceWiresEmptyDbDegradeChain()
-{
-    var factoryPath = Path.GetFullPath(
-        Path.Combine(
-            AppContext.BaseDirectory,
-            "..",
-            "..",
-            "..",
-            "..",
-            "..",
-            "src",
-            "BazaarPlusPlus",
-            "Game",
-            "HistoryPanel",
-            "HistoryPanelFactory.cs"
-        )
-    );
-    // Fallback: walk up from cwd looking for the source file.
-    if (!File.Exists(factoryPath))
-    {
-        var dir = new DirectoryInfo(Directory.GetCurrentDirectory());
-        while (dir != null)
-        {
-            var candidate = Path.Combine(
-                dir.FullName,
-                "src/BazaarPlusPlus/Game/HistoryPanel/HistoryPanelFactory.cs"
-            );
-            if (File.Exists(candidate))
-            {
-                factoryPath = candidate;
-                break;
-            }
-            dir = dir.Parent;
-        }
-    }
-
-    Assert(File.Exists(factoryPath), $"HistoryPanelFactory.cs should exist at {factoryPath}.");
-    var source = File.ReadAllText(factoryPath);
-
-    Assert(
-        source.Contains("if (!string.IsNullOrWhiteSpace(databasePath))", StringComparison.Ordinal),
-        "Factory must gate repository construction on a non-blank database path."
-    );
-    Assert(
-        source.Contains(
-            "repository = new HistoryPanelRepository(databasePath)",
-            StringComparison.Ordinal
-        ),
-        "Factory must construct HistoryPanelRepository only on a usable path."
-    );
-    Assert(
-        source.Contains(
-            "CreateGhostSyncService(repository, modApiSession)",
-            StringComparison.Ordinal
-        ),
-        "Factory must feed repository and session into the ghost-sync degrade helper."
-    );
-    Assert(
-        source.Contains(
-            "if (repository == null || modApiSession == null)",
-            StringComparison.Ordinal
-        ) && source.Contains("return null;", StringComparison.Ordinal),
-        "CreateGhostSyncService must return null when repository is null."
-    );
-    Assert(
-        source.Contains("combatReplayRuntimeAccessor", StringComparison.Ordinal),
-        "Factory.Create must accept combatReplayRuntimeAccessor as a direct parameter (not via paths)."
-    );
-    Assert(
-        !source.Contains("IHistoryPanelRuntime", StringComparison.Ordinal),
-        "Factory must no longer depend on IHistoryPanelRuntime."
     );
 }
 

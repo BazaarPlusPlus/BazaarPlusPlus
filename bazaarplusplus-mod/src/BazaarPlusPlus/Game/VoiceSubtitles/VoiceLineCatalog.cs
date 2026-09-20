@@ -117,11 +117,6 @@ internal static class VoiceLineCatalog
         }
     }
 
-    public static VoiceLine Resolve(string? eventReferenceText, string sourceLabel, string hookName)
-    {
-        return ResolveDetailed(eventReferenceText, sourceLabel, hookName).Line;
-    }
-
     public static VoiceLineResolution ResolveDetailed(
         string? eventReferenceText,
         string sourceLabel,

@@ -41,7 +41,7 @@ try
             ModVersion = "5.0.0",
         }
     );
-    new PvpBattleCatalog(database).Save(
+    new PvpBattleSqliteStore(database).Save(
         new PvpBattleManifest
         {
             BattleId = "battle-seal-001",

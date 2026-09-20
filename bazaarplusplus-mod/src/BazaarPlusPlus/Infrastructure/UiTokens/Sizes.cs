@@ -5,10 +5,8 @@ namespace BazaarPlusPlus.Infrastructure.UiTokens;
 internal static class Sizes
 {
     public const float OperationRailWidthPercent = 32f;
-    public const float OperationRailMinWidth = 360f;
     public const float OperationRailMaxWidth = 680f;
     public const float CollectionOperationRailMinWidth = 420f;
-    public const float LiveBuildRailWidthPercent = 25f;
     public const float ChipMinWidth = 86f;
     public const float CollectionTagChipHeight = 24f;
     public const float DayIconWidth = 40f;
@@ -31,7 +29,6 @@ internal static class Sizes
     public const float CollectionScrollShadowHeight = 18f;
     public const int SourceChipsPerRow = 8;
     public const float SourceChipMinSize = 40f;
-    public const float ButtonStandardHeight = 32f;
     public const float CollectionSortActiveWidth = 76f;
     public const float CollectionSortInactiveWidth = 64f;
     public const float CollectionSortEnglishActiveWidth = 84f;
@@ -43,12 +40,6 @@ internal static class Sizes
     public const float StatusHeight = 24f;
     public const float DetailTextMaxHeight = 42f;
     public const float CollectionStatusMaxHeight = 54f;
-    public const float LiveBuildRefreshButtonWidth = 108f;
-    public const float LiveBuildRefreshButtonHeight = ButtonStandardHeight;
-    public const float LiveBuildCorpusCardHeight = 132f;
-    public const float LiveBuildCorpusStatusMaxHeight = 44f;
-    public const float LiveBuildRecommendationStatusMaxHeight = 90f;
-    public const float LiveBuildRowEmptyMaxHeight = 58f;
     public const float TagFacetChipMaxWidth = 156f;
     public const float FacetModeToggleHeight = 20f;
     public const int FacetModeFontSize = 13;
@@ -57,7 +48,6 @@ internal static class Sizes
     public const float CollectionTabActiveWidth = 100f;
     public const float CollectionTabInactiveWidth = 60f;
     public const float InfoChipMinWidth = 54f;
-    public const float InfoChipHeight = 22f;
 
     public const int FontTiny = 10;
     public const int FontCorner = 11;

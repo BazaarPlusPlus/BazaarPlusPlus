@@ -15,7 +15,6 @@ internal enum ItemEnchantLogReasonCode
     RenderFallback,
     RawTextFallback,
     LocalizationFallback,
-    EncounterProbeFailed,
 }
 
 internal enum ItemEnchantEncounterProbe

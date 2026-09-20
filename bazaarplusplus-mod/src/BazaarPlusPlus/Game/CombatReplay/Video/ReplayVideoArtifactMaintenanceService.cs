@@ -120,7 +120,6 @@ internal sealed class ReplayVideoArtifactMaintenanceService
                 !ReplayVideoManagedPath.TryResolve(
                     _rootDirectory,
                     artifact.VideoRelativePath,
-                    rejectLinks: false,
                     out var fullPath
                 )
             )
@@ -215,75 +214,6 @@ internal sealed class ReplayVideoArtifactMaintenanceService
     private static string Normalize(string path) => Path.GetFullPath(path);
 }
 
-internal enum ReplayVideoDetachedDeleteStatus
-{
-    Deleted,
-    NotFound,
-    NotDetached,
-    UnmanagedPath,
-    DeleteFailed,
-}
-
-internal readonly record struct ReplayVideoDetachedDeleteResult(
-    ReplayVideoDetachedDeleteStatus Status,
-    Exception? Exception = null
-);
-
-internal sealed class ReplayVideoDetachedArtifactService
-{
-    private readonly IReplayVideoArtifactCatalog _catalog;
-    private readonly IReplayVideoArtifactFiles _files;
-    private readonly string _rootDirectory;
-
-    internal ReplayVideoDetachedArtifactService(
-        IReplayVideoArtifactCatalog catalog,
-        IReplayVideoArtifactFiles files,
-        string rootDirectory
-    )
-    {
-        _catalog = catalog;
-        _files = files;
-        _rootDirectory = rootDirectory;
-    }
-
-    internal ReplayVideoDetachedDeleteResult Delete(string videoId, DateTimeOffset deletedAt)
-    {
-        var artifact = _catalog
-            .ListArtifacts()
-            .FirstOrDefault(item => string.Equals(item.VideoId, videoId, StringComparison.Ordinal));
-        if (string.IsNullOrWhiteSpace(artifact.VideoId))
-            return new ReplayVideoDetachedDeleteResult(ReplayVideoDetachedDeleteStatus.NotFound);
-        if (artifact.AttachmentState != ReplayVideoAttachmentState.Detached)
-            return new ReplayVideoDetachedDeleteResult(ReplayVideoDetachedDeleteStatus.NotDetached);
-        if (
-            !ReplayVideoManagedPath.TryResolve(
-                _rootDirectory,
-                artifact.VideoRelativePath,
-                rejectLinks: true,
-                out var fullPath
-            )
-        )
-            return new ReplayVideoDetachedDeleteResult(
-                ReplayVideoDetachedDeleteStatus.UnmanagedPath
-            );
-
-        try
-        {
-            if (_files.Exists(fullPath))
-                _files.Delete(fullPath);
-            _catalog.MarkDetachedArtifactDeleted(videoId, deletedAt);
-            return new ReplayVideoDetachedDeleteResult(ReplayVideoDetachedDeleteStatus.Deleted);
-        }
-        catch (Exception ex)
-        {
-            return new ReplayVideoDetachedDeleteResult(
-                ReplayVideoDetachedDeleteStatus.DeleteFailed,
-                ex
-            );
-        }
-    }
-}
-
 internal static class ReplayVideoManagedPath
 {
     internal static bool TryMakeRelative(
@@ -319,7 +249,6 @@ internal static class ReplayVideoManagedPath
     internal static bool TryResolve(
         string rootDirectory,
         string storedRelativePath,
-        bool rejectLinks,
         out string fullPath
     )
     {
@@ -342,8 +271,6 @@ internal static class ReplayVideoManagedPath
             var prefix = root + Path.DirectorySeparatorChar;
             if (!candidate.StartsWith(prefix, comparison))
                 return false;
-            if (rejectLinks && ContainsLink(root, candidate))
-                return false;
             fullPath = candidate;
             return true;
         }
@@ -351,28 +278,6 @@ internal static class ReplayVideoManagedPath
         {
             return false;
         }
-    }
-
-    private static bool ContainsLink(string root, string candidate)
-    {
-        var relative = candidate
-            .Substring(root.Length)
-            .TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-        var current = root;
-        foreach (
-            var segment in relative.Split(
-                new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar },
-                StringSplitOptions.RemoveEmptyEntries
-            )
-        )
-        {
-            current = Path.Combine(current, segment);
-            if (!File.Exists(current) && !Directory.Exists(current))
-                continue;
-            if ((File.GetAttributes(current) & FileAttributes.ReparsePoint) != 0)
-                return true;
-        }
-        return false;
     }
 }
 

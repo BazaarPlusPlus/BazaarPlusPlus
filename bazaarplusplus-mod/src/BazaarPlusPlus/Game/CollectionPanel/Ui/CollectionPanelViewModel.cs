@@ -18,8 +18,6 @@ internal sealed class CollectionPanelViewModel
     public ECardType ActiveType { get; set; } = ECardType.Item;
     public CollectionTabProfile TabProfile { get; set; } =
         CollectionTabProfile.For(CollectionTabKind.Items);
-    public bool HeroFilterVisible { get; set; } = true;
-    public bool HeroFilterEnabled { get; set; } = true;
     public EHero? SelectedHero { get; set; }
     public bool AllHeroesSelected { get; set; }
     public HashSet<ETier> SelectedTiers { get; set; } = new();
@@ -39,8 +37,6 @@ internal sealed class CollectionPanelViewModel
 
     // Day filter icon: DayFilterValue is the current run day, or null when unavailable;
     // DayFilterActive highlights it when the day participates in filtering.
-    public bool DayFilterVisible { get; set; } = true;
-    public bool DayFilterEnabled { get; set; } = true;
     public bool DayFilterActive { get; set; }
     public int? DayFilterValue { get; set; }
     public IReadOnlyList<EHero> AvailableHeroes { get; set; } = Array.Empty<EHero>();

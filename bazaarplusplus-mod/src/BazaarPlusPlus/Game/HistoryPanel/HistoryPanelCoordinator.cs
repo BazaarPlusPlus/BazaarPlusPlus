@@ -1021,5 +1021,5 @@ internal sealed partial class HistoryPanelCoordinator : IDisposable
     }
 
     private static AccountLinkLogRequest StartAccountLinkLogRequest(AccountLinkMethod method) =>
-        new(Guid.NewGuid().ToString("N"), method, HistoryPanelAccountLinkBppLogSink.Instance);
+        new(Guid.NewGuid().ToString("N"), method);
 }
