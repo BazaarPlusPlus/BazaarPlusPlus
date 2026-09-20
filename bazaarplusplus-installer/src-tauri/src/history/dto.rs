@@ -10,7 +10,6 @@ pub struct HistoryRunList {
 pub struct HistorySummary {
     pub runs: i64,
     pub videos: i64,
-    pub last_run_at_utc: Option<String>,
     pub win_rate: Option<f64>,
 }
 

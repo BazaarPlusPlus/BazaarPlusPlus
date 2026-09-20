@@ -22,7 +22,6 @@ pub fn list_history_runs(
         summary: HistorySummary {
             runs: 0,
             videos: 0,
-            last_run_at_utc: None,
             win_rate: None,
         },
         runs: Vec::new(),
@@ -373,10 +372,6 @@ mod tests {
 
         assert_eq!(payload.summary.runs, 3);
         assert_eq!(payload.summary.videos, 1);
-        assert_eq!(
-            payload.summary.last_run_at_utc.as_deref(),
-            Some("2026-05-21T10:20:00Z")
-        );
         assert_eq!(payload.summary.win_rate, Some(0.5));
         assert_eq!(payload.runs.len(), 3);
         assert_eq!(payload.runs[0].run_id, "run-live");

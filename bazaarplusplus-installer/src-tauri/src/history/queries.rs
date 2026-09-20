@@ -177,18 +177,17 @@ pub fn sql_placeholders(count: usize) -> String {
 }
 
 pub fn load_summary(conn: &Connection) -> Result<HistorySummary, String> {
-    let (runs, completed_runs, win_runs, last_run_at_utc): (i64, i64, i64, Option<String>) = conn
+    let (runs, completed_runs, win_runs): (i64, i64, i64) = conn
         .query_row(
             "
             select
               count(*) as runs,
               coalesce(sum(case when status = 'completed' then 1 else 0 end), 0) as completed_runs,
-              coalesce(sum(case when status = 'completed' and coalesce(victories, 0) >= 10 then 1 else 0 end), 0) as win_runs,
-              max(coalesce(ended_at_utc, last_seen_at_utc, started_at_utc)) as last_run_at_utc
+              coalesce(sum(case when status = 'completed' and coalesce(victories, 0) >= 10 then 1 else 0 end), 0) as win_runs
             from runs
             ",
             [],
-            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
         )
         .map_err(|err| err.to_string())?;
     let videos = if table_exists(conn, "combat_replay_videos")? {
@@ -205,7 +204,6 @@ pub fn load_summary(conn: &Connection) -> Result<HistorySummary, String> {
     Ok(HistorySummary {
         runs,
         videos,
-        last_run_at_utc,
         win_rate: if completed_runs > 0 {
             Some(win_runs as f64 / completed_runs as f64)
         } else {

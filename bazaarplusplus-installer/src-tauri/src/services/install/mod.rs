@@ -125,15 +125,9 @@ fn install_state_from_snapshot(
         selected_game_path,
         steam_path: env.steam_path,
         game: InstallGameState {
-            found: game_found,
             path_valid: env.game_path_valid,
         },
-        mod_state: InstallModState {
-            installed,
-            installed_version: env.bpp_version,
-            bundled_version: env.bundled_bpp_version,
-            ready,
-        },
+        mod_state: InstallModState { installed, ready },
         actions: InstallActions {
             can_install: can_launch && !installed,
             can_reinstall: can_launch && installed,

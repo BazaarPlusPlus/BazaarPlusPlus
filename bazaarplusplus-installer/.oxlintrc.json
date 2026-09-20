@@ -16,8 +16,7 @@
     "perf": "error"
   },
   "ignorePatterns": [
-    "dist/**",
-    "coverage/**",
+    "build/**",
     "src-tauri/target/**",
     "src/types/generated/**"
   ],

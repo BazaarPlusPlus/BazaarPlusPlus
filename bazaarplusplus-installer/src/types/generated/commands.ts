@@ -5,7 +5,7 @@ import { invoke as __TAURI_INVOKE } from "@tauri-apps/api/core";
 /** Commands */
 export const commands = {
 	getAppBootstrap: () => __TAURI_INVOKE<AppBootstrap>("get_app_bootstrap"),
-	setAppLocale: (locale: string) => __TAURI_INVOKE<AppLocalePayload>("set_app_locale", { locale }),
+	setAppLocale: (locale: string) => __TAURI_INVOKE<null>("set_app_locale", { locale }),
 	getInstallState: (gamePath: string | null) => __TAURI_INVOKE<InstallState>("get_install_state", { gamePath }),
 	chooseGameDirectory: () => __TAURI_INVOKE<GameDirectorySelection>("choose_game_directory"),
 	installMod: (gamePath: string) => __TAURI_INVOKE<InstallState>("install_mod", { gamePath }),
@@ -73,10 +73,6 @@ export type AppLinks = {
 	xiaohongshu: string,
 	kofi: string,
 	supporter_list: string,
-};
-
-export type AppLocalePayload = {
-	locale: string,
 };
 
 export type GameDirectorySelection = {
@@ -149,7 +145,6 @@ export type HistoryRunRow = {
 export type HistorySummary = {
 	runs: number,
 	videos: number,
-	last_run_at_utc: string | null,
 	win_rate: number | null,
 };
 
@@ -163,14 +158,11 @@ export type InstallActions = {
 };
 
 export type InstallGameState = {
-	found: boolean,
 	path_valid: boolean,
 };
 
 export type InstallModState = {
 	installed: boolean,
-	installed_version: string | null,
-	bundled_version: string | null,
 	/**  Payload version and the platform launch bootstrap are both ready. */
 	ready: boolean,
 };
@@ -256,7 +248,6 @@ export type StorageCleanupScope = "screenshots" | "run_data";
 
 export type StreamDbStatus = {
 	found: boolean,
-	path: string | null,
 };
 
 export type StreamOverlayCropSettings = {
@@ -286,13 +277,4 @@ export type StreamServiceStatus = {
 	active_from: string | null,
 	active_window_offset: number,
 	db: StreamDbStatus,
-	window: StreamWindowStatus,
-};
-
-export type StreamWindowStatus = {
-	total_records: number,
-	existing_before_start: number,
-	captured_since_start: number,
-	current_hero: string | null,
-	current_start_label: string | null,
 };

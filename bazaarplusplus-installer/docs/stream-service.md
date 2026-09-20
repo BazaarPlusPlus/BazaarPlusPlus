@@ -4,7 +4,7 @@
 
 - `StreamRuntime` in `src-tauri/src/stream/runtime.rs` is the single owner of service lifecycle, task handles, and captured installation paths. Its lifecycle mutex serializes ensure, restart, stop, window changes, and exclusive maintenance.
 - `StreamRuntime::ensure` and `StreamRuntime::restart` resolve one selected-installation snapshot while holding the lifecycle gate. Window changes reuse the captured record path rather than resolving a different installation mid-session.
-- `ProductionServer::start` in `src-tauri/src/stream/server.rs` creates the repository and settings store, binds the loopback service, reports database/window status, and serves with graceful shutdown.
+- `ProductionServer::start` in `src-tauri/src/stream/server.rs` creates the repository and settings store, binds the loopback service, reports database availability, and serves with graceful shutdown.
 - Startup, tray actions, window-close behavior, and Tauri stream commands call through `StreamRuntime`; they do not mutate the server task directly.
 - Stream command failures are classified by capability and operation in `src-tauri/src/commands/stream.rs` and returned as `SemanticProblem`.
 

@@ -6,7 +6,7 @@ use super::{
         StartFuture, StartedStream, StreamInstallation, StreamRuntime, StreamServerAdapter,
         StreamTaskHandle,
     },
-    state::{StreamDbStatus, StreamServiceStatus, StreamWindowStatus},
+    state::{StreamDbStatus, StreamServiceStatus},
 };
 use crate::services::paths;
 use chrono::{Local, SecondsFormat};
@@ -28,7 +28,6 @@ impl StreamServerAdapter for ProductionServer {
             let overlay_record_repository =
                 OverlayRecordRepository::new(installation.record_game_path);
             let db = stream_db_status(installation.game_path.as_ref());
-            let window = stream_window_status(&overlay_record_repository, Some(&started_at));
             let overlay_settings = OverlaySettingsStore::default();
             let router = http::router(overlay_record_repository, runtime, overlay_settings);
             let (shutdown_tx, shutdown_rx) = oneshot::channel();
@@ -56,7 +55,6 @@ impl StreamServerAdapter for ProductionServer {
                     active_from: Some(started_at),
                     active_window_offset: 0,
                     db,
-                    window,
                 },
                 task: StreamTaskHandle {
                     shutdown: shutdown_tx,
@@ -76,28 +74,6 @@ fn stream_db_status(game_path: Option<&PathBuf>) -> StreamDbStatus {
     let database_path = paths::database_path(game_path);
     StreamDbStatus {
         found: database_path.exists(),
-        path: Some(database_path.to_string_lossy().into_owned()),
-    }
-}
-
-fn stream_window_status(
-    repository: &OverlayRecordRepository,
-    started_at: Option<&str>,
-) -> StreamWindowStatus {
-    let total_records = repository.count_since(None).unwrap_or(0);
-    let captured_since_start = repository.count_since(started_at).unwrap_or(0);
-    let existing_before_start = total_records.saturating_sub(captured_since_start);
-    let current = repository
-        .load_record_at_offset(started_at, 0)
-        .ok()
-        .flatten();
-
-    StreamWindowStatus {
-        total_records,
-        existing_before_start,
-        captured_since_start,
-        current_hero: current.as_ref().map(|record| record.title.clone()),
-        current_start_label: current.map(|record| record.captured_at),
     }
 }
 

@@ -24,7 +24,6 @@ export interface I18nController {
   locale: Locale;
   t: Translate;
   toggle: () => void;
-  setLocale: (locale: Locale) => void;
 }
 
 const I18nContext = createContext<I18nController | null>(null);
@@ -55,7 +54,7 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
   );
 
   const value = useMemo<I18nController>(
-    () => ({ locale, t, toggle, setLocale }),
+    () => ({ locale, t, toggle }),
     [locale, t, toggle]
   );
 

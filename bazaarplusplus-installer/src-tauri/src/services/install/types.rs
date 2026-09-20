@@ -31,15 +31,12 @@ pub struct ResetBepinexResult {
 
 #[derive(Clone, Debug, Serialize, specta::Type)]
 pub struct InstallGameState {
-    pub found: bool,
     pub path_valid: bool,
 }
 
 #[derive(Clone, Debug, Serialize, specta::Type)]
 pub struct InstallModState {
     pub installed: bool,
-    pub installed_version: Option<String>,
-    pub bundled_version: Option<String>,
     /// Payload version and the platform launch bootstrap are both ready.
     pub ready: bool,
 }

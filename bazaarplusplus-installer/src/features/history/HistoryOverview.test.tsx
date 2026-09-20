@@ -20,8 +20,7 @@ let root: Root;
 const summary: HistorySummary = {
   runs: 7,
   videos: 0,
-  win_rate: 0.25,
-  last_run_at_utc: null
+  win_rate: 0.25
 };
 
 beforeEach(() => {
