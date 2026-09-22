@@ -217,7 +217,6 @@ describe('stream workflow lifecycle and effects', () => {
     await flush();
 
     expect(workflow.getSnapshot().polling).toMatchObject({
-      phase: 'available',
       freshness: 'fresh',
       problem: null
     });

@@ -16,8 +16,9 @@ from bppanalyzer.bundle_source import (
 )
 from bppanalyzer.driver import PipelineDriver
 from bppanalyzer.fact_store import FactStore
+from bppanalyzer.locking import DirectoryLock, LockOwnershipLost, MaximumRunTimeExceeded
 from bppanalyzer.object_store import LocalObjectStore
-from bppanalyzer.operational_evidence import read_status
+from bppanalyzer.operational_evidence import OperationalEvidence, read_status
 from bppanalyzer.publication import BUILDS_KEY, HEROES_KEY
 from tests.bundle_fixtures import bundle_bytes
 
@@ -90,6 +91,7 @@ def test_one_complete_day_publishes_a_one_day_window(tmp_path: Path) -> None:
     ).run(heal_days=1, anchor_day=date(2026, 8, 7))
 
     assert summary.exit_code == 0
+    assert summary.outcome == "noop"
     assert summary.report["window"] == {
         "start": "2026-08-07",
         "end": "2026-08-07",
@@ -478,3 +480,145 @@ def test_unexpected_failure_is_recorded_before_it_is_reraised(tmp_path: Path) ->
         "scope": "run",
         "reason": "fixture unexpected failure",
     }
+
+
+def test_retention_failure_preserves_published_facts_in_terminal_evidence(
+    tmp_path: Path, canonical_fact_store, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root, _store = canonical_fact_store
+    objects = LocalObjectStore(tmp_path / "objects")
+    failure = OSError("fixture retention failure")
+
+    def fail_prune(self, *, retain_days):
+        raise failure
+
+    monkeypatch.setattr(FactStore, "prune", fail_prune)
+    with pytest.raises(OSError, match="fixture retention failure") as raised:
+        PipelineDriver(
+            root,
+            source=NeverSource(),
+            clock=lambda: datetime(2026, 8, 13, 23, 59, tzinfo=UTC),
+            object_store=objects,
+        ).run(heal_days=7)
+
+    assert raised.value is failure
+    summary = read_status(root)["last_run"]
+    assert summary["outcome"] == "error"
+    assert summary["exit_code"] == 1
+    assert summary["report"]["heroes"]["published"] is True
+    assert summary["report"]["builds"]["published"] is True
+    assert summary["report"]["window"]["end"] == "2026-08-13"
+    assert summary["report"]["facts"]["included_runs"] == 7
+    assert summary["failures"][-1] == {"scope": "run", "reason": str(failure)}
+    assert json.loads((root / "runs.jsonl").read_text().splitlines()[-1]) == summary
+    assert [request.key for request in objects.requests if request.operation == "put"] == [
+        HEROES_KEY,
+        BUILDS_KEY,
+    ]
+
+
+@pytest.mark.parametrize("expired", [False, True])
+def test_terminal_evidence_requires_lock_ownership_even_after_a_runtime_limit(
+    tmp_path: Path, expired: bool
+) -> None:
+    failure = (
+        MaximumRunTimeExceeded("fixture runtime limit")
+        if expired
+        else LockOwnershipLost("fixture lost owner")
+    )
+
+    class InterruptedSource(UnexpectedSource):
+        def hour_index(self, _source_hour):
+            raise failure
+
+    with pytest.raises(type(failure)) as raised:
+        PipelineDriver(
+            tmp_path,
+            source=InterruptedSource(),
+            clock=lambda: datetime(2026, 8, 7, 1, 1, tzinfo=UTC),
+        ).run(heal_days=1)
+
+    assert raised.value is failure
+    status = read_status(tmp_path)
+    if expired:
+        assert status["last_run"]["outcome"] == "error"
+        assert status["last_run"]["failures"][-1]["reason"] == str(failure)
+        assert len((tmp_path / "runs.jsonl").read_text().splitlines()) == 1
+    else:
+        assert status["last_run"] is None
+        assert not (tmp_path / "runs.jsonl").exists()
+
+
+@pytest.mark.parametrize("failure_type", [OSError, KeyboardInterrupt])
+def test_terminal_log_failure_is_recorded_and_reraised(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, failure_type: type[BaseException]
+) -> None:
+    failure = failure_type("fixture terminal log failure")
+    original_log = OperationalEvidence.log
+
+    def fail_terminal_log(self, message):
+        if message.startswith("performance report:"):
+            raise failure
+        original_log(self, message)
+
+    monkeypatch.setattr(OperationalEvidence, "log", fail_terminal_log)
+    with pytest.raises(failure_type) as raised:
+        PipelineDriver(
+            tmp_path,
+            source=NeverSource(),
+            clock=lambda: datetime(2026, 8, 7, 0, 1, tzinfo=UTC),
+        ).run(heal_days=1)
+
+    assert raised.value is failure
+    summary = read_status(tmp_path)["last_run"]
+    assert summary["outcome"] == "error"
+    assert summary["exit_code"] == 1
+    assert summary["failures"] == [{"scope": "run", "reason": str(failure)}]
+    assert [json.loads(line) for line in (tmp_path / "runs.jsonl").read_text().splitlines()] == [
+        summary
+    ]
+
+
+@pytest.mark.parametrize("replaced_owner", [False, True])
+def test_runtime_limit_first_reached_during_terminal_logging_requires_current_owner(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, replaced_owner: bool
+) -> None:
+    failure = MaximumRunTimeExceeded("fixture terminal runtime limit")
+    original_log = OperationalEvidence.log
+    original_assert_owned = DirectoryLock.assert_owned
+    deadline_reached = False
+
+    def expire_at_terminal_log(self, message):
+        nonlocal deadline_reached
+        if message.startswith("performance report:"):
+            deadline_reached = True
+            if replaced_owner:
+                (tmp_path / ".lock/heartbeat").write_text(json.dumps({"run_id": "replacement"}))
+        original_log(self, message)
+
+    def assert_owned(self):
+        if deadline_reached:
+            raise failure
+        original_assert_owned(self)
+
+    monkeypatch.setattr(OperationalEvidence, "log", expire_at_terminal_log)
+    monkeypatch.setattr(DirectoryLock, "assert_owned", assert_owned)
+    with pytest.raises(MaximumRunTimeExceeded) as raised:
+        PipelineDriver(
+            tmp_path,
+            source=NeverSource(),
+            clock=lambda: datetime(2026, 8, 7, 0, 1, tzinfo=UTC),
+        ).run(heal_days=1)
+
+    assert raised.value is failure
+    summary = read_status(tmp_path)["last_run"]
+    if replaced_owner:
+        assert summary is None
+        assert not (tmp_path / "runs.jsonl").exists()
+        assert isinstance(raised.value.__context__, LockOwnershipLost)
+    else:
+        assert summary["outcome"] == "error"
+        assert summary["failures"] == [{"scope": "run", "reason": str(failure)}]
+        assert [
+            json.loads(line) for line in (tmp_path / "runs.jsonl").read_text().splitlines()
+        ] == [summary]

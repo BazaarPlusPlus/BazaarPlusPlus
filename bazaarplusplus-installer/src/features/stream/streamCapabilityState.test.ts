@@ -114,7 +114,6 @@ describe('Stream capability state', () => {
     await flush();
 
     expect(workflow.getSnapshot().service.phase).toBe('loading');
-    expect(workflow.getSnapshot().crop.phase).toBe('available');
     expect(workflow.getSnapshot().crop.canEdit).toBe(true);
 
     status.resolve(runningStatus());
@@ -130,8 +129,6 @@ describe('Stream capability state', () => {
     const snapshot = workflow.getSnapshot();
 
     expect(snapshot.service.phase).toBe('available');
-    expect(snapshot.window.phase).toBe('available');
-    expect(snapshot.crop.phase).toBe('degraded');
     expect(snapshot.crop.problem).toMatchObject({
       code: 'stream_crop_failed',
       diagnostic: 'crop unavailable'
@@ -154,7 +151,6 @@ describe('Stream capability state', () => {
     const stale = workflow.getSnapshot();
     expect(stale.service.status?.running).toBe(true);
     expect(stale.polling).toMatchObject({
-      phase: 'degraded',
       freshness: 'stale',
       problem: { code: 'stream_poll_failed' }
     });
@@ -171,7 +167,6 @@ describe('Stream capability state', () => {
     getStatus.mockResolvedValueOnce(runningStatus({ active_window_offset: 1 }));
     expect(await workflow.intents.retryStatus()).toBe(true);
     expect(workflow.getSnapshot().polling).toMatchObject({
-      phase: 'available',
       freshness: 'fresh',
       problem: null
     });
@@ -186,7 +181,7 @@ describe('Stream capability state', () => {
     await workflow.start();
 
     const cropAction = workflow.intents.submitCropCode();
-    expect(workflow.getSnapshot().crop.operation).toBe('crop');
+    expect(workflow.getSnapshot().crop.canEdit).toBe(false);
     expect(workflow.getSnapshot().service.canRestart).toBe(true);
     expect(workflow.getSnapshot().window.canMoveMoreHistory).toBe(true);
 

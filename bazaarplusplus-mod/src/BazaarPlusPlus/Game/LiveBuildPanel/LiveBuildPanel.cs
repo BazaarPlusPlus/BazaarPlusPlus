@@ -23,7 +23,7 @@ internal sealed class LiveBuildPanel : MonoBehaviour
     private static LiveBuildPanel? _instance;
     private readonly LiveCardSnapshotReader _reader = new();
     private BuildRecommendationRepository? _recommendations;
-    private readonly BuildRecommendationRefreshService _refreshService = new();
+    private readonly LiveBuildRefreshState _refresh = new();
     private readonly LiveBuildCandidateState _candidateState = new();
     private LiveBuildPreviewRenderer? _previewRenderer;
     private LiveBuildPanelView? _view;
@@ -31,13 +31,9 @@ internal sealed class LiveBuildPanel : MonoBehaviour
     private IReadOnlyList<BuildRecommendation> _matches = Array.Empty<BuildRecommendation>();
     private IReadOnlyList<BPPSupporterSample> _supporters = Array.Empty<BPPSupporterSample>();
     private IOverlayPanelHandle? _overlayHandle;
-    private bool _isVisible;
     private int _recommendationIndex;
-    private bool _buildRefreshInProgress;
-    private string _buildRefreshError = string.Empty;
-    private bool _buildRefreshSucceeded;
 
-    public static bool IsVisible => _instance?._isVisible == true;
+    public static bool IsVisible => _instance?._refresh.IsVisible == true;
 
     private void Awake()
     {
@@ -79,6 +75,7 @@ internal sealed class LiveBuildPanel : MonoBehaviour
         if (ReferenceEquals(_instance, this))
             _instance = null;
 
+        _refresh.Destroy();
         _overlayHandle?.Dispose();
         _overlayHandle = null;
         _previewRenderer?.Dispose();
@@ -104,17 +101,10 @@ internal sealed class LiveBuildPanel : MonoBehaviour
     private void Open()
     {
         EnsureView();
-        _isVisible = true;
+        _refresh.SetVisible(true);
         _supporters = BPPSupporters.SampleMany(SupporterAttributionCount);
         _candidateState.Clear();
         _recommendationIndex = 0;
-        // A refresh still in flight keeps its pending status visible; otherwise drop the previous
-        // session's one-shot success/failure feedback so the card reopens on the plain summary.
-        if (!_buildRefreshInProgress)
-        {
-            _buildRefreshError = string.Empty;
-            _buildRefreshSucceeded = false;
-        }
         var snapshotOutcome = _reader.Read();
         _liveSnapshot = snapshotOutcome.Snapshot;
         ReportLiveSnapshotIssues(snapshotOutcome.Issues);
@@ -152,10 +142,10 @@ internal sealed class LiveBuildPanel : MonoBehaviour
 
     private void Close()
     {
-        if (!_isVisible)
+        if (!_refresh.IsVisible)
             return;
 
-        _isVisible = false;
+        _refresh.SetVisible(false);
         _candidateState.Clear();
         _matches = Array.Empty<BuildRecommendation>();
         _recommendationIndex = 0;
@@ -194,7 +184,7 @@ internal sealed class LiveBuildPanel : MonoBehaviour
 
     private void OnCandidateToggleRequested(Guid templateId)
     {
-        if (!_isVisible || templateId == Guid.Empty)
+        if (!_refresh.IsVisible || templateId == Guid.Empty)
             return;
 
         _candidateState.Toggle(templateId);
@@ -224,24 +214,26 @@ internal sealed class LiveBuildPanel : MonoBehaviour
 
     private void TryRefreshFinalBuilds()
     {
-        // The pull button is disabled while a refresh runs; the in-progress check only guards
-        // against re-entry races, the card already shows the pending status.
-        if (!_isVisible || _buildRefreshInProgress)
+        var request = _refresh.BeginRefresh();
+        if (request == LiveBuildRefreshRequest.Ignore)
             return;
 
-        _buildRefreshInProgress = true;
-        _buildRefreshError = string.Empty;
-        _buildRefreshSucceeded = false;
         RefreshStatusView();
-        _ = RefreshFinalBuildsAsync(new LiveBuildRefreshLogOperation(Guid.NewGuid()));
+        _ = RefreshFinalBuildsAsync(request, new LiveBuildRefreshLogOperation(Guid.NewGuid()));
     }
 
-    private async Task RefreshFinalBuildsAsync(LiveBuildRefreshLogOperation logOperation)
+    private async Task RefreshFinalBuildsAsync(
+        LiveBuildRefreshRequest request,
+        LiveBuildRefreshLogOperation logOperation
+    )
     {
         BuildRecommendationRefreshResult result;
         try
         {
-            result = await _refreshService.RefreshAsync(_recommendations!, CancellationToken.None);
+            result =
+                request == LiveBuildRefreshRequest.NoChange
+                    ? BuildRecommendationRefreshResult.NoChange()
+                    : await _recommendations!.TryRefreshFinalBuildsFromRemoteAsync();
         }
         catch (Exception ex)
         {
@@ -268,34 +260,15 @@ internal sealed class LiveBuildPanel : MonoBehaviour
             );
         }
 
-        _buildRefreshInProgress = false;
-        if (result.Succeeded)
+        switch (_refresh.CompleteRefresh(result))
         {
-            // No standalone success copy: the card's summary line refreshes (new data time)
-            // and the success severity tints it for this session.
-            _buildRefreshError = string.Empty;
-            _buildRefreshSucceeded = true;
-        }
-        else
-        {
-            _buildRefreshError = string.IsNullOrWhiteSpace(result.Error)
-                ? LiveBuildPanelText.Unknown()
-                : result.Error!;
-            _buildRefreshSucceeded = false;
-        }
-
-        if (!_isVisible || _view == null)
-            return;
-
-        if (result.Succeeded)
-        {
-            // Recompute against the refreshed corpus; failures keep the previous matches intact.
-            RefreshRecommendations();
-            RefreshViewAndPreview();
-        }
-        else
-        {
-            RefreshStatusView();
+            case LiveBuildRefreshEffect.Recommendations:
+                RefreshRecommendations();
+                RefreshViewAndPreview();
+                break;
+            case LiveBuildRefreshEffect.Status:
+                RefreshStatusView();
+                break;
         }
     }
 
@@ -303,7 +276,7 @@ internal sealed class LiveBuildPanel : MonoBehaviour
     // the boards did not change, so re-rendering card previews would be wasted work.
     private void RefreshStatusView()
     {
-        if (!_isVisible)
+        if (!_refresh.IsVisible)
             return;
 
         _view?.Refresh(BuildPanelSnapshot());
@@ -342,7 +315,7 @@ internal sealed class LiveBuildPanel : MonoBehaviour
 
     private void RefreshViewAndPreview()
     {
-        if (!_isVisible)
+        if (!_refresh.IsVisible)
             return;
 
         var snapshot = BuildPanelSnapshot();
@@ -396,10 +369,10 @@ internal sealed class LiveBuildPanel : MonoBehaviour
             MatchMatchedCardCount = matches.Recommendation?.MatchedCardCount ?? 0,
             RecommendationIndex = _recommendationIndex,
             RecommendationCount = _matches.Count,
-            FinalBuildRefreshButtonText = _buildRefreshInProgress
+            FinalBuildRefreshButtonText = _refresh.IsPending
                 ? LiveBuildPanelText.Working()
                 : LiveBuildPanelText.RefreshFinalBuilds(),
-            FinalBuildRefreshButtonEnabled = !_buildRefreshInProgress,
+            FinalBuildRefreshButtonEnabled = !_refresh.IsPending,
             CorpusState = corpus.State,
             CorpusFreshnessText = corpus.Summary.HasValue
                 ? LiveBuildPanelText.CorpusFreshnessLine(corpus.Summary.Value, nowUtc)
@@ -422,7 +395,7 @@ internal sealed class LiveBuildPanel : MonoBehaviour
         LiveBuildRefreshSeverity Severity
     ) ResolveCorpusStatus()
     {
-        if (_buildRefreshInProgress)
+        if (_refresh.IsPending)
             return (
                 LiveBuildCorpusState.Pending,
                 null,
@@ -436,11 +409,15 @@ internal sealed class LiveBuildPanel : MonoBehaviour
             ? LiveBuildPanelText.CorpusSummaryTooltip(summary.Value)
             : string.Empty;
 
-        if (!string.IsNullOrWhiteSpace(_buildRefreshError))
+        if (_refresh.Feedback is { Succeeded: false } failure)
             return (
                 LiveBuildCorpusState.Failure,
                 summary,
-                LiveBuildPanelText.FinalBuildRefreshFailed(_buildRefreshError),
+                LiveBuildPanelText.FinalBuildRefreshFailed(
+                    string.IsNullOrWhiteSpace(failure.Error)
+                        ? LiveBuildPanelText.Unknown()
+                        : failure.Error!
+                ),
                 tooltip,
                 LiveBuildRefreshSeverity.Failure
             );
@@ -470,7 +447,7 @@ internal sealed class LiveBuildPanel : MonoBehaviour
         DateTimeOffset nowUtc
     )
     {
-        if (_buildRefreshSucceeded)
+        if (_refresh.Feedback?.Succeeded == true)
             return LiveBuildRefreshSeverity.Success;
         if (summary?.WindowEndUtc is not { } windowEnd)
             return LiveBuildRefreshSeverity.Failure;

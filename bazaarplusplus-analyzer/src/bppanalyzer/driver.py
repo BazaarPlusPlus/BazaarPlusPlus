@@ -6,7 +6,6 @@ import tempfile
 import time
 import uuid
 from collections.abc import Callable
-from dataclasses import dataclass, field, replace
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
@@ -28,10 +27,8 @@ from bppanalyzer.object_store import ObjectStore
 from bppanalyzer.operational_evidence import (
     CurrentRun,
     OperationalEvidence,
-    RunReport,
-    RunReportValue,
+    RunEvidence,
     RunSummary,
-    peak_rss_bytes,
 )
 from bppanalyzer.publication import (
     AnalysisWindow,
@@ -43,27 +40,6 @@ from bppanalyzer.publication import (
 
 DEFAULT_HEAL_DAYS = 8
 BUNDLE_PROGRESS_EVERY = 250
-
-
-@dataclass(slots=True)
-class _RunProgress:
-    hours_ingested: int = 0
-    hours_planned: int = 0
-    days_sealed: int = 0
-    days_abandoned: int = 0
-    expected_bundles: int = 0
-    succeeded_bundles: int = 0
-    failed_bundles: int = 0
-    failures: list[dict[str, str]] = field(default_factory=list)
-    changed: bool = False
-    heal_started_monotonic: float | None = None
-    listing_pages: int = 0
-    source_index_seconds: float = 0.0
-    source_ingest_seconds: float = 0.0
-    batch_generation_seconds: float = 0.0
-    parquet_write_seconds: float = 0.0
-    fact_finalize_seconds: float = 0.0
-    product_timings: dict[str, float] = field(default_factory=dict)
 
 
 class PipelineDriver:
@@ -135,7 +111,7 @@ class PipelineDriver:
         )
         with lock:
             started_monotonic = time.monotonic()
-            progress = _RunProgress()
+            progress = RunEvidence(run_id, now, started_monotonic)
             _reset_source_performance(self.source)
             store = FactStore(
                 self.data_root,
@@ -195,28 +171,48 @@ class PipelineDriver:
                 except BaseException as error:
                     evidence.try_log(f"live status refresh failed: {_error_reason(error)}")
 
-            summary: RunSummary | None = None
             pending_error: BaseException | None = None
             pending_traceback = None
+
+            def record_completion(log: Callable[[str], None]) -> None:
+                source_snapshot = getattr(self.source, "performance_snapshot", None)
+                progress.prepare_completion(
+                    finished_monotonic=time.monotonic(),
+                    source_performance=source_snapshot() if callable(source_snapshot) else None,
+                )
+                log(
+                    "performance report: "
+                    + json.dumps(
+                        {
+                            "downloads": progress.report.value["downloads"],
+                            "timings": progress.timings,
+                        },
+                        sort_keys=True,
+                        separators=(",", ":"),
+                    )
+                )
+                log(
+                    "run report: "
+                    + json.dumps(progress.report.value, sort_keys=True, separators=(",", ":"))
+                )
+
             try:
-                summary = self._heal(
+                self._heal(
                     store,
                     lock,
-                    run_id=run_id,
                     now=now,
                     heal_days=heal_days,
-                    started_monotonic=started_monotonic,
                     progress=progress,
                     log=evidence.log,
                     report=report,
                     report_error=report_error,
                     checkpoint=checkpoint,
                 )
-                build_started = time.monotonic()
+                progress.build_started_monotonic = time.monotonic()
                 window = select_analysis_window(
                     store.seals(), parsed_anchor, source_epoch=self.source_epoch
                 )
-                run_report = self._publish_products(
+                self._publish_products(
                     store,
                     window,
                     publish=publish,
@@ -226,47 +222,18 @@ class PipelineDriver:
                     report_error=report_error,
                     checkpoint=checkpoint,
                 )
+                run_report = progress.report.value
                 if run_report["heroes"]["published"] and run_report["builds"]["published"]:
                     pruned = store.prune(retain_days=self.fact_retention_days)
-                    RunReport(run_report).record_retention(pruned)
+                    progress.report.record_retention(pruned)
                     report(
                         "fact retention done: "
                         f"source_days={len(pruned.source_days)} "
                         f"hours={pruned.hours_pruned} files={pruned.files_pruned} "
                         f"bytes={pruned.bytes_pruned}"
                     )
-                publication_failures = tuple(
-                    item for item in progress.failures if item.get("scope") in {"heroes", "builds"}
-                )
-                if publication_failures and summary.exit_code == 0:
-                    summary = replace(summary, outcome="partial", exit_code=4)
-                summary = replace(
-                    summary,
-                    finished_at=_timestamp(self.clock()),
-                    timings={
-                        **summary.timings,
-                        **_performance_timings(progress, self.source),
-                        "total_seconds": round(max(time.monotonic() - started_monotonic, 0.0), 6),
-                        "build_publish_seconds": round(
-                            max(time.monotonic() - build_started, 0.0), 6
-                        ),
-                    },
-                    failures=tuple(progress.failures),
-                    report=run_report,
-                    peak_rss_bytes=peak_rss_bytes(),
-                )
-                evidence.log(
-                    "performance report: "
-                    + json.dumps(
-                        {"downloads": summary.report["downloads"], "timings": summary.timings},
-                        sort_keys=True,
-                        separators=(",", ":"),
-                    )
-                )
-                evidence.log(
-                    "run report: " + json.dumps(run_report, sort_keys=True, separators=(",", ":"))
-                )
-                evidence.log(f"run finished: {summary.outcome}")
+                record_completion(evidence.log)
+                evidence.log(f"run finished: {progress.outcome}")
             except BaseException as error:
                 if isinstance(error, LockOwnershipLost) and not isinstance(
                     error, MaximumRunTimeExceeded
@@ -274,36 +241,14 @@ class PipelineDriver:
                     raise
                 pending_error = error
                 pending_traceback = error.__traceback__
-                summary = _failed_summary(
-                    summary,
-                    progress,
-                    error,
-                    run_id=run_id,
-                    started_at=now,
-                    started_monotonic=started_monotonic,
-                    finished_at=_aware_utc(self.clock()),
-                )
-                failed_report = _run_report(None, progress)
-                _record_source_performance(failed_report, self.source, progress)
-                summary = replace(
-                    summary,
-                    timings={
-                        **summary.timings,
-                        **_performance_timings(progress, self.source),
-                    },
-                    report=failed_report.value,
-                )
-                evidence.try_log(
-                    "performance report: "
-                    + json.dumps(
-                        {"downloads": summary.report["downloads"], "timings": summary.timings},
-                        sort_keys=True,
-                        separators=(",", ":"),
-                    )
-                )
+                record_completion(evidence.try_log)
                 evidence.try_log(f"run failed: {_error_reason(error)}")
 
-            assert summary is not None
+            summary = progress.summarize(
+                finished_at=_aware_utc(self.clock()),
+                fatal_reason=_error_reason(pending_error) if pending_error is not None else None,
+            )
+
             ownership_check = (
                 lock.assert_current_owner
                 if isinstance(pending_error, MaximumRunTimeExceeded)
@@ -334,17 +279,17 @@ class PipelineDriver:
         window: AnalysisWindow | None,
         *,
         publish: bool,
-        progress: _RunProgress,
+        progress: RunEvidence,
         lock: DirectoryLock,
         report: Callable[[str], None],
         report_error: Callable[[str], None],
         checkpoint: Callable[..., None],
-    ) -> RunReportValue:
-        result = _run_report(window, progress)
-        _record_source_performance(result, self.source, progress)
+    ) -> None:
+        result = progress.report
+        result.select_window(window)
         if window is None:
             report("publication skipped: no Complete Source Day available for Analysis Window")
-            return result.value
+            return
         builder = SnapshotBuilder(
             self.data_root,
             store=store,
@@ -411,23 +356,20 @@ class PipelineDriver:
                 failure = {"scope": product, "reason": _error_reason(error)}
                 progress.failures.append(failure)
                 report_error(f"{product} snapshot failed: {failure['reason']}")
-        return result.value
 
     def _heal(
         self,
         store: FactStore,
         lock: DirectoryLock,
         *,
-        run_id: str,
         now: datetime,
         heal_days: int,
-        started_monotonic: float,
-        progress: _RunProgress,
+        progress: RunEvidence,
         log: Callable[[str], None],
         report: Callable[[str], None],
         report_error: Callable[[str], None],
         checkpoint: Callable[..., None],
-    ) -> RunSummary:
+    ) -> None:
         heal_started = time.monotonic()
         progress.heal_started_monotonic = heal_started
         intake = SourceHourIntake(self.source, store)
@@ -591,88 +533,13 @@ class PipelineDriver:
                     }
                 )
                 report_error(f"source day failed: {day.isoformat()} ({_error_reason(error)})")
-        finished = _aware_utc(self.clock())
-        outcome = "partial" if progress.failures else "ok" if progress.changed else "noop"
-        return _summary(
-            run_id,
-            now,
-            finished,
-            outcome=outcome,
-            exit_code=4 if progress.failures else 0,
-            hours_ingested=progress.hours_ingested,
-            days_sealed=progress.days_sealed,
-            days_abandoned=progress.days_abandoned,
-            failures=tuple(progress.failures),
-            report=_run_report(None, progress).value,
-            elapsed=time.monotonic() - started_monotonic,
-            heal_seconds=time.monotonic() - heal_started,
-        )
-
-
-def _run_report(window: AnalysisWindow | None, progress: _RunProgress) -> RunReport:
-    return RunReport.empty(
-        window,
-        expected_bundles=progress.expected_bundles,
-        succeeded_bundles=progress.succeeded_bundles,
-        failed_bundles=progress.failed_bundles,
-    )
-
-
-def _record_source_performance(report: RunReport, source: Source, progress: _RunProgress) -> None:
-    snapshot = getattr(source, "performance_snapshot", None)
-    if not callable(snapshot):
-        report.record_downloads(
-            listing_pages=progress.listing_pages,
-            listing_requests=0,
-            listing_retries=0,
-            download_attempts=0,
-            download_retries=0,
-            downloaded_bytes=0,
-            download_latency_ms_p50=None,
-            download_latency_ms_p95=None,
-        )
-        return
-    performance = snapshot()
-    report.record_downloads(
-        listing_pages=progress.listing_pages,
-        listing_requests=performance.listing_requests,
-        listing_retries=performance.listing_retries,
-        download_attempts=performance.download_attempts,
-        download_retries=performance.download_retries,
-        downloaded_bytes=performance.downloaded_bytes,
-        download_latency_ms_p50=performance.download_latency_ms_p50,
-        download_latency_ms_p95=performance.download_latency_ms_p95,
-    )
+        progress.heal_seconds = time.monotonic() - heal_started
 
 
 def _reset_source_performance(source: Source) -> None:
     snapshot = getattr(source, "performance_snapshot", None)
     if callable(snapshot):
         snapshot(reset=True)
-
-
-def _performance_timings(progress: _RunProgress, source: Source) -> dict[str, float]:
-    download_wait_seconds = 0.0
-    retry_sleep_seconds = 0.0
-    snapshot = getattr(source, "performance_snapshot", None)
-    if callable(snapshot):
-        performance = snapshot()
-        download_wait_seconds = performance.download_wait_seconds
-        retry_sleep_seconds = performance.retry_sleep_seconds
-    value = {
-        "source_index_seconds": round(max(progress.source_index_seconds, 0.0), 6),
-        "source_ingest_seconds": round(max(progress.source_ingest_seconds, 0.0), 6),
-        "batch_generation_seconds": round(max(progress.batch_generation_seconds, 0.0), 6),
-        "projection_seconds": round(
-            max(progress.batch_generation_seconds - download_wait_seconds, 0.0), 6
-        ),
-        "parquet_write_seconds": round(max(progress.parquet_write_seconds, 0.0), 6),
-        "fact_finalize_seconds": round(max(progress.fact_finalize_seconds, 0.0), 6),
-        "download_wait_seconds": download_wait_seconds,
-        "retry_sleep_seconds": retry_sleep_seconds,
-        **progress.product_timings,
-    }
-    return value
 
 
 def _write_local_snapshot(
@@ -698,96 +565,11 @@ def _write_local_snapshot(
         temporary.unlink(missing_ok=True)
 
 
-def _failed_summary(
-    summary: RunSummary | None,
-    progress: _RunProgress,
-    error: BaseException,
-    *,
-    run_id: str,
-    started_at: datetime,
-    started_monotonic: float,
-    finished_at: datetime,
-) -> RunSummary:
-    failure = {"scope": "run", "reason": _error_reason(error)}
-    failures = (*tuple(progress.failures), failure)
-    if summary is None:
-        heal_seconds = (
-            time.monotonic() - progress.heal_started_monotonic
-            if progress.heal_started_monotonic is not None
-            else 0.0
-        )
-        return _summary(
-            run_id,
-            started_at,
-            finished_at,
-            outcome="error",
-            exit_code=1,
-            hours_ingested=progress.hours_ingested,
-            days_sealed=progress.days_sealed,
-            days_abandoned=progress.days_abandoned,
-            failures=failures,
-            report=_run_report(None, progress).value,
-            elapsed=time.monotonic() - started_monotonic,
-            heal_seconds=heal_seconds,
-        )
-    return replace(
-        summary,
-        finished_at=_timestamp(finished_at),
-        timings={
-            **summary.timings,
-            "total_seconds": round(max(time.monotonic() - started_monotonic, 0.0), 6),
-        },
-        outcome="error",
-        exit_code=1,
-        failures=failures,
-        report=_run_report(None, progress).value,
-        peak_rss_bytes=peak_rss_bytes(),
-    )
-
-
-def _summary(
-    run_id: str,
-    started: datetime,
-    finished: datetime,
-    *,
-    outcome: str,
-    exit_code: int,
-    hours_ingested: int,
-    days_sealed: int,
-    days_abandoned: int,
-    failures: tuple[dict[str, str], ...],
-    report: RunReportValue,
-    elapsed: float,
-    heal_seconds: float = 0.0,
-) -> RunSummary:
-    return RunSummary(
-        run_id=run_id,
-        started_at=_timestamp(started),
-        finished_at=_timestamp(finished),
-        timings={
-            "total_seconds": round(max(elapsed, 0.0), 6),
-            "heal_seconds": round(max(heal_seconds, 0.0), 6),
-        },
-        outcome=outcome,
-        exit_code=exit_code,
-        hours_ingested=hours_ingested,
-        days_sealed=days_sealed,
-        days_abandoned=days_abandoned,
-        failures=failures,
-        report=report,
-        peak_rss_bytes=peak_rss_bytes(),
-    )
-
-
 def _error_reason(error: BaseException) -> str:
     reason = getattr(error, "reason", None)
     if isinstance(reason, str) and reason:
         return reason
     return str(error) or type(error).__name__
-
-
-def _timestamp(value: datetime) -> str:
-    return _aware_utc(value).isoformat(timespec="seconds").replace("+00:00", "Z")
 
 
 def _aware_utc(value: datetime) -> datetime:

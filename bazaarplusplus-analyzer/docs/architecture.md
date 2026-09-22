@@ -52,6 +52,11 @@ Report, live status, run history, and logs. Each normal invocation atomically
 refreshes `status.json`, appends to `runs.jsonl`, and records progress in its run
 log. These artifacts are local operational evidence, not consumer objects.
 
+`RunEvidence` accumulates one Run's facts and materializes its final summary
+once. Collection and publication update the same report; a later failure,
+including retention failure, preserves completed publication and analysis
+facts. The driver retains pipeline ordering and lock-ownership decisions.
+
 Run evidence aggregates collection and processing performance at Run scope:
 listing pages and retries, download attempts, retries, bytes and latency
 percentiles, plus bounded stage timings for projection, Parquet persistence,

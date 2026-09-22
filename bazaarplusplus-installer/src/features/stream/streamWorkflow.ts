@@ -12,9 +12,6 @@ import {
   type StreamProblemCode
 } from './streamProblems';
 
-export type StreamCapabilityPhase =
-  'loading' | 'available' | 'degraded' | 'unavailable';
-
 type StatusOperation = 'restart' | 'window';
 type CropOperation = 'load' | 'crop' | 'display_mode' | 'reset';
 type OneOffAction = 'copy' | 'open_overlay' | 'open_settings';
@@ -49,38 +46,30 @@ export interface StreamOpener {
 
 export interface StreamPageSnapshot {
   service: {
-    phase: Extract<StreamCapabilityPhase, 'loading' | 'available' | 'degraded'>;
+    phase: 'loading' | 'available' | 'degraded';
     status: StreamServiceStatus | null;
     problem: StreamProblem | null;
     operation: Extract<StatusOperation, 'restart'> | null;
     canRestart: boolean;
   };
   polling: {
-    phase: Extract<StreamCapabilityPhase, 'loading' | 'available' | 'degraded'>;
     freshness: 'unknown' | 'fresh' | 'stale';
     problem: StreamProblem | null;
-    operation: 'poll' | 'retry' | null;
   };
   window: {
-    phase: StreamCapabilityPhase;
     problem: StreamProblem | null;
-    operation: Extract<StatusOperation, 'window'> | null;
     canMoveMoreHistory: boolean;
     canMoveLessHistory: boolean;
   };
   crop: {
-    phase: Extract<StreamCapabilityPhase, 'loading' | 'available' | 'degraded'>;
     settings: StreamOverlayCropSettingsPayload;
     code: string;
     problem: StreamProblem | null;
-    operation: CropOperation | null;
     canEdit: boolean;
   };
   oneOff: {
-    operations: Record<OneOffAction, boolean>;
     problems: Record<OneOffAction, StreamProblem | null>;
     obsUrl: string | null;
-    settingsUrl: string | null;
     canOpenOverlay: boolean;
     canCopyObsUrl: boolean;
     canOpenSettings: boolean;
@@ -127,8 +116,6 @@ interface MutableState {
   serviceProblem: StreamProblem | null;
   pollingFreshness: 'unknown' | 'fresh' | 'stale';
   pollingProblem: StreamProblem | null;
-  pollingRequests: number;
-  manualPollingRequests: number;
   cropSettings: StreamOverlayCropSettingsPayload;
   cropCode: string;
   cropLoading: boolean;
@@ -160,7 +147,7 @@ class DefaultStreamWorkflow implements StreamWorkflow {
 
   readonly intents: StreamWorkflowIntents = {
     restart: () => this.restart(),
-    retryStatus: () => this.poll(true),
+    retryStatus: () => this.poll(),
     reloadCropSettings: () => this.reloadCropSettings(),
     copyObsUrl: () => this.copyObsUrl(),
     openOverlay: () => this.openOverlay(),
@@ -200,7 +187,7 @@ class DefaultStreamWorkflow implements StreamWorkflow {
     if (!this.isCurrentLifecycle(lifecycle)) return;
 
     this.intervalHandle = this.ports.scheduler.setInterval(
-      () => void this.poll(false),
+      () => void this.poll(),
       POLL_INTERVAL_MS
     );
   }
@@ -269,19 +256,11 @@ class DefaultStreamWorkflow implements StreamWorkflow {
     }
   }
 
-  private async poll(manual: boolean): Promise<boolean> {
+  private async poll(): Promise<boolean> {
     if (this.disposed || this.state.statusOperation !== null) return false;
     const lifecycle = this.lifecycleEpoch;
     const epoch = this.statusEpoch;
     const request = ++this.latestPollRequest;
-    this.state.pollingRequests += 1;
-    // Background ticks stay silent on the way in: `polling.operation === 'poll'`
-    // has no reader, so announcing an in-flight background poll only forces a
-    // render that the result may not change. Manual retries do surface.
-    if (manual) {
-      this.state.manualPollingRequests += 1;
-      this.publish();
-    }
 
     try {
       const status = await this.ports.commands.getStatus();
@@ -314,16 +293,6 @@ class DefaultStreamWorkflow implements StreamWorkflow {
       return false;
     } finally {
       if (this.isCurrentLifecycle(lifecycle)) {
-        this.state.pollingRequests = Math.max(
-          0,
-          this.state.pollingRequests - 1
-        );
-        if (manual) {
-          this.state.manualPollingRequests = Math.max(
-            0,
-            this.state.manualPollingRequests - 1
-          );
-        }
         this.publish();
       }
     }
@@ -651,28 +620,11 @@ class DefaultStreamWorkflow implements StreamWorkflow {
       : this.state.serviceProblem
         ? 'degraded'
         : 'available';
-    const pollingPhase = this.state.serviceLoading
-      ? 'loading'
-      : this.state.pollingFreshness !== 'fresh'
-        ? 'degraded'
-        : 'available';
     const authoritativeRunning =
       status?.running === true &&
       this.state.pollingFreshness === 'fresh' &&
       this.state.serviceProblem === null;
     const statusOperationBusy = this.state.statusOperation !== null;
-    const windowPhase: StreamCapabilityPhase = this.state.serviceLoading
-      ? 'loading'
-      : this.state.windowProblem
-        ? 'degraded'
-        : authoritativeRunning
-          ? 'available'
-          : 'unavailable';
-    const cropPhase = this.state.cropLoading
-      ? 'loading'
-      : this.state.cropProblem
-        ? 'degraded'
-        : 'available';
     const copyBusy = this.state.oneOffOperations.has('copy');
     const overlayBusy = this.state.oneOffOperations.has('open_overlay');
     const settingsBusy = this.state.oneOffOperations.has('open_settings');
@@ -686,20 +638,11 @@ class DefaultStreamWorkflow implements StreamWorkflow {
         canRestart: !this.state.serviceLoading && !statusOperationBusy
       },
       polling: {
-        phase: pollingPhase,
         freshness: this.state.pollingFreshness,
-        problem: this.state.pollingProblem,
-        operation:
-          this.state.manualPollingRequests > 0
-            ? 'retry'
-            : this.state.pollingRequests > 0
-              ? 'poll'
-              : null
+        problem: this.state.pollingProblem
       },
       window: {
-        phase: windowPhase,
         problem: this.state.windowProblem,
-        operation: this.state.statusOperation === 'window' ? 'window' : null,
         canMoveMoreHistory: authoritativeRunning && !statusOperationBusy,
         canMoveLessHistory:
           authoritativeRunning &&
@@ -707,22 +650,14 @@ class DefaultStreamWorkflow implements StreamWorkflow {
           (status?.active_window_offset ?? 0) > 0
       },
       crop: {
-        phase: cropPhase,
         settings: this.state.cropSettings,
         code: this.state.cropCode,
         problem: this.state.cropProblem,
-        operation: this.state.cropOperation,
         canEdit: !this.state.cropLoading && this.state.cropOperation === null
       },
       oneOff: {
-        operations: {
-          copy: copyBusy,
-          open_overlay: overlayBusy,
-          open_settings: settingsBusy
-        },
         problems: { ...this.state.oneOffProblems },
         obsUrl: status?.overlay_url ?? null,
-        settingsUrl: status?.settings_url ?? null,
         canOpenOverlay:
           authoritativeRunning && !statusOperationBusy && !overlayBusy,
         canCopyObsUrl: status?.overlay_url != null && !copyBusy,
@@ -797,8 +732,6 @@ function initialState(): MutableState {
     serviceProblem: null,
     pollingFreshness: 'unknown',
     pollingProblem: null,
-    pollingRequests: 0,
-    manualPollingRequests: 0,
     cropSettings: defaultCropSettings,
     cropCode: defaultCropSettings.code,
     cropLoading: true,

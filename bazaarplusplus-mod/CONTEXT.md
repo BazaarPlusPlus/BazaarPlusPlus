@@ -52,6 +52,9 @@ The single pure owner (`SavedReplayLifecycle`) of a saved-replay playback sessio
 
 ## Overlay panels
 
+**Live Build Refresh**:
+The manual update of the Live Build Panel's recommendation corpus. One successful remote pull is allowed per panel lifetime; failed pulls remain retryable, and closing the panel does not cancel a pending pull.
+
 **Main Overlay Panel**:
 A full-screen mod overlay — Collection Panel, History Panel, or Live Build Panel. At most one is open at a time; the Overlay Panel Host enforces the exclusivity.
 _Avoid_: popup, window

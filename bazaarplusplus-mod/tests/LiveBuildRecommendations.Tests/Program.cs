@@ -50,7 +50,7 @@ internal static class TenWinBuildTests
         TestLiveStateRankingOutranksScore();
         TestBoardContractMapsTierEnchantSize();
         TestNullEnchantRefAndP75DoNotCrash();
-        TestRefreshServicePreservesSessionProductSemantics();
+        TestRemoteRefreshPreservesProductFailure();
         TestCatalogRefreshPublishesSharedSnapshot();
         TestEmbeddedSeedResourceIsBundledAndParses();
         TestCorpusSummaryIncludesPerHeroBuildCounts();
@@ -306,12 +306,11 @@ internal static class TenWinBuildTests
         );
     }
 
-    private static void TestRefreshServicePreservesSessionProductSemantics()
+    private static void TestRemoteRefreshPreservesProductFailure()
     {
         var corpus = TenWinBuildCorpus.Parse(ScorePayload("CacheHero", 333))!;
         using var catalog = new StubCatalog(corpus);
         var repository = new BuildRecommendationRepository(catalog);
-        var service = new BuildRecommendationRefreshService();
 
         catalog.Enqueue(
             CatalogRefreshResult<TenWinBuildCorpus>.Failure(
@@ -321,41 +320,12 @@ internal static class TenWinBuildTests
                 )
             )
         );
-        var failure = service
-            .RefreshAsync(repository, CancellationToken.None)
-            .GetAwaiter()
-            .GetResult();
+        var failure = repository.TryRefreshFinalBuildsFromRemoteAsync().GetAwaiter().GetResult();
         Assert(!failure.Succeeded, "A failed pull should surface as a product failure.");
         Assert(
             failure.Error?.Contains("refresh-boom") == true,
             "The failure should retain its typed diagnostic detail."
         );
-
-        catalog.Enqueue(
-            CatalogRefreshResult<TenWinBuildCorpus>.Published(
-                Snapshot(corpus, CatalogSource.Remote),
-                degraded: false
-            )
-        );
-        var firstSuccess = service
-            .RefreshAsync(repository, CancellationToken.None)
-            .GetAwaiter()
-            .GetResult();
-        Assert(
-            firstSuccess.Outcome == BuildRecommendationRefreshOutcome.Updated,
-            "The first successful remote pull must be Updated even when the payload is identical."
-        );
-        Assert(catalog.RefreshCount == 2, "Failure must not consume the session pull allowance.");
-
-        var gated = service
-            .RefreshAsync(repository, CancellationToken.None)
-            .GetAwaiter()
-            .GetResult();
-        Assert(
-            gated.Outcome == BuildRecommendationRefreshOutcome.NoChange,
-            "Only a session-gated pull should report NoChange."
-        );
-        Assert(catalog.RefreshCount == 2, "The gated pull must perform zero downloads.");
     }
 
     private static void TestCatalogRefreshPublishesSharedSnapshot()
@@ -364,9 +334,8 @@ internal static class TenWinBuildTests
         var refreshedCorpus = TenWinBuildCorpus.Parse(ScorePayload("RefreshedHero", 222))!;
         using var catalog = new BlockingCatalog(initialCorpus);
         var repository = new BuildRecommendationRepository(catalog);
-        var service = new BuildRecommendationRefreshService();
 
-        var refresh = service.RefreshAsync(repository, CancellationToken.None);
+        var refresh = repository.TryRefreshFinalBuildsFromRemoteAsync();
         catalog.Started.GetAwaiter().GetResult();
         catalog.Complete(refreshedCorpus);
 

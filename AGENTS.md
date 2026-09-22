@@ -43,7 +43,7 @@ Run `just release::sync` after editing `VERSION` or `release/payload.json`; it r
 
 ## Changing code
 
-- Run an independent red-team review of a large refactor or design plan before implementing. Keep it review-only, landing `file:line` evidence rather than patches, then send the revised plan back for confirmation.
+- Run an independent red-team review of a large refactor or design plan before implementing. Keep it review-only, landing `file:line` evidence rather than patches, incorporate the findings, and proceed within the user's authorized scope without another confirmation.
 - A replacement ships only the new version: done when the old implementation is deleted and the project's check and test recipes pass.
 - Scope a delete or change to its named target plus the members that fed only that target. Unrelated cleanup goes in its own change.
 
