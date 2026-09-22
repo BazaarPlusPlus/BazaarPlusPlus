@@ -188,11 +188,11 @@ internal sealed class BuildRecommendationRepository
         _ = _catalog.WarmAsync(CancellationToken.None).AsTask();
     }
 
-    internal async Task<BuildRecommendationRemoteRefreshResult> TryRefreshFinalBuildsFromRemoteAsync()
+    internal async Task<BuildRecommendationRefreshResult> TryRefreshFinalBuildsFromRemoteAsync()
     {
         var result = await _catalog.RefreshAsync(CancellationToken.None).ConfigureAwait(false);
         if (result.Succeeded)
-            return BuildRecommendationRemoteRefreshResult.Success();
+            return BuildRecommendationRefreshResult.Updated();
 
         var issue = result.Issue;
         var reason = issue?.Kind switch
@@ -204,7 +204,7 @@ internal sealed class BuildRecommendationRepository
                 LiveBuildRefreshFailureReasonCode.RemoteRequestFailed,
             _ => LiveBuildRefreshFailureReasonCode.RefreshException,
         };
-        return BuildRecommendationRemoteRefreshResult.Failure(
+        return BuildRecommendationRefreshResult.Failure(
             reason,
             issue?.Detail ?? issue?.Exception?.Message,
             issue?.Exception

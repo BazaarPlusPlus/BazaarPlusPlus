@@ -58,7 +58,8 @@
     <Compile Include="../../src/BazaarPlusPlus/Game/LiveBuildPanel/LiveBuildPanelLogEvents.cs" />
     <Compile Include="../../src/BazaarPlusPlus/Game/LiveBuildPanel/LiveBuildRefreshLogOperation.cs" />
     <Compile Include="../../src/BazaarPlusPlus/Game/LiveBuildPanel/Recommendations/BuildRecommendationCorpusLogState.cs" />
-    <Compile Include="../../src/BazaarPlusPlus/Game/LiveBuildPanel/Recommendations/BuildRecommendationRefreshService.cs" />
+    <Compile Include="../../src/BazaarPlusPlus/Game/LiveBuildPanel/Recommendations/BuildRecommendationRefreshResult.cs" />
+    <Compile Include="../../src/BazaarPlusPlus/Game/LiveBuildPanel/LiveBuildRefreshState.cs" />
 
     <Compile Include="../../src/BazaarPlusPlus/Game/OverlayPanels/OverlayLifecycleCore.cs" />
     <Compile Include="../../src/BazaarPlusPlus/Game/OverlayPanels/OverlayPanelLogEvents.cs" />
