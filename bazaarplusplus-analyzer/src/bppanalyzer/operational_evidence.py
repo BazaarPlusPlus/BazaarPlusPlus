@@ -8,11 +8,12 @@ import shutil
 import sys
 import tempfile
 from collections.abc import Callable
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any, TypedDict
 
+from bppanalyzer.bundle_source import SourcePerformance
 from bppanalyzer.fact_store import FactPruneReport, FactStore, parse_source_day
 from bppanalyzer.hour_intake import is_hour_settled
 from bppanalyzer.publication import AnalysisWindow, BuildStats, FactStats, HeroStats
@@ -80,27 +81,13 @@ class RunReport:
     value: RunReportValue
 
     @classmethod
-    def empty(
-        cls,
-        window: AnalysisWindow | None,
-        *,
-        expected_bundles: int,
-        succeeded_bundles: int,
-        failed_bundles: int,
-    ) -> RunReport:
-        window_report: WindowReport | None = None
-        if window is not None:
-            window_report = {
-                "start": window.start.isoformat(),
-                "end": window.end.isoformat(),
-                "days": len(window.seals),
-            }
+    def empty(cls) -> RunReport:
         value: RunReportValue = {
-            "window": window_report,
+            "window": None,
             "downloads": {
-                "expected_bundles": expected_bundles,
-                "succeeded_bundles": succeeded_bundles,
-                "failed_bundles": failed_bundles,
+                "expected_bundles": 0,
+                "succeeded_bundles": 0,
+                "failed_bundles": 0,
                 "listing_pages": 0,
                 "listing_requests": 0,
                 "listing_retries": 0,
@@ -136,6 +123,17 @@ class RunReport:
             },
         }
         return cls(value)
+
+    def select_window(self, window: AnalysisWindow | None) -> None:
+        self.value["window"] = (
+            {
+                "start": window.start.isoformat(),
+                "end": window.end.isoformat(),
+                "days": len(window.seals),
+            }
+            if window is not None
+            else None
+        )
 
     def record_facts(self, stats: FactStats) -> None:
         self.value["facts"] = {
@@ -218,6 +216,114 @@ class RunSummary:
         value = asdict(self)
         value["failures"] = list(self.failures)
         return value
+
+
+@dataclass(slots=True)
+class RunEvidence:
+    """Accumulate one Run's facts and materialize its terminal summary."""
+
+    run_id: str
+    started_at: datetime
+    started_monotonic: float
+    hours_ingested: int = 0
+    hours_planned: int = 0
+    days_sealed: int = 0
+    days_abandoned: int = 0
+    expected_bundles: int = 0
+    succeeded_bundles: int = 0
+    failed_bundles: int = 0
+    failures: list[dict[str, str]] = field(default_factory=list)
+    changed: bool = False
+    heal_started_monotonic: float | None = None
+    listing_pages: int = 0
+    source_index_seconds: float = 0.0
+    source_ingest_seconds: float = 0.0
+    batch_generation_seconds: float = 0.0
+    parquet_write_seconds: float = 0.0
+    fact_finalize_seconds: float = 0.0
+    product_timings: dict[str, float] = field(default_factory=dict)
+    heal_seconds: float | None = None
+    build_started_monotonic: float | None = None
+    report: RunReport = field(default_factory=RunReport.empty)
+    timings: dict[str, float] = field(default_factory=dict, init=False)
+
+    @property
+    def outcome(self) -> str:
+        if self.failures:
+            return "partial"
+        return "ok" if self.changed else "noop"
+
+    def prepare_completion(
+        self,
+        *,
+        finished_monotonic: float,
+        source_performance: SourcePerformance | None,
+    ) -> None:
+        downloads = self.report.value["downloads"]
+        downloads.update(
+            expected_bundles=self.expected_bundles,
+            succeeded_bundles=self.succeeded_bundles,
+            failed_bundles=self.failed_bundles,
+            listing_pages=self.listing_pages,
+        )
+        download_wait = source_performance.download_wait_seconds if source_performance else 0.0
+        retry_sleep = source_performance.retry_sleep_seconds if source_performance else 0.0
+        if source_performance is not None:
+            self.report.record_downloads(
+                listing_pages=self.listing_pages,
+                listing_requests=source_performance.listing_requests,
+                listing_retries=source_performance.listing_retries,
+                download_attempts=source_performance.download_attempts,
+                download_retries=source_performance.download_retries,
+                downloaded_bytes=source_performance.downloaded_bytes,
+                download_latency_ms_p50=source_performance.download_latency_ms_p50,
+                download_latency_ms_p95=source_performance.download_latency_ms_p95,
+            )
+        heal_seconds = self.heal_seconds
+        if heal_seconds is None:
+            heal_seconds = (
+                finished_monotonic - self.heal_started_monotonic
+                if self.heal_started_monotonic is not None
+                else 0.0
+            )
+        timings = {
+            "total_seconds": finished_monotonic - self.started_monotonic,
+            "heal_seconds": heal_seconds,
+            "source_index_seconds": self.source_index_seconds,
+            "source_ingest_seconds": self.source_ingest_seconds,
+            "batch_generation_seconds": self.batch_generation_seconds,
+            "projection_seconds": self.batch_generation_seconds - download_wait,
+            "parquet_write_seconds": self.parquet_write_seconds,
+            "fact_finalize_seconds": self.fact_finalize_seconds,
+            "download_wait_seconds": download_wait,
+            "retry_sleep_seconds": retry_sleep,
+            **self.product_timings,
+        }
+        if self.build_started_monotonic is not None:
+            timings["build_publish_seconds"] = finished_monotonic - self.build_started_monotonic
+        self.timings = {key: round(max(value, 0.0), 6) for key, value in timings.items()}
+
+    def summarize(self, *, finished_at: datetime, fatal_reason: str | None) -> RunSummary:
+        failures = tuple(self.failures)
+        if fatal_reason is not None:
+            failures += ({"scope": "run", "reason": fatal_reason},)
+            outcome, exit_code = "error", 1
+        else:
+            outcome, exit_code = self.outcome, (4 if failures else 0)
+        return RunSummary(
+            run_id=self.run_id,
+            started_at=_timestamp(self.started_at),
+            finished_at=_timestamp(finished_at),
+            timings=self.timings,
+            outcome=outcome,
+            exit_code=exit_code,
+            hours_ingested=self.hours_ingested,
+            days_sealed=self.days_sealed,
+            days_abandoned=self.days_abandoned,
+            failures=failures,
+            report=self.report.value,
+            peak_rss_bytes=peak_rss_bytes(),
+        )
 
 
 @dataclass(frozen=True, slots=True)
