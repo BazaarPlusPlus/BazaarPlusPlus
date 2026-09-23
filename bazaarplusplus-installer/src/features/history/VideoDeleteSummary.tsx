@@ -30,7 +30,7 @@ export function VideoDeleteSummary({ target }: { target: VideoDeleteTarget }) {
       </dl>
       <details className="bpp-video-delete-diagnostics">
         <summary>{t('deleteVideoTechnicalDetails')}</summary>
-        <p className="fira-code">
+        <p>
           {t('deleteVideoTarget', {
             battleId: target.battleId,
             videoId: target.videoId

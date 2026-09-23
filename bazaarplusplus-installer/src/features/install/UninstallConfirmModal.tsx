@@ -1,5 +1,9 @@
 import { PackageMinus, ShieldCheck } from 'lucide-react';
-import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
+import {
+  ConfirmDialog,
+  ConfirmNote,
+  ConfirmTarget
+} from '../../components/ui/ConfirmDialog';
 import { useI18n } from '../../i18n/LocaleProvider';
 import { InstallProblemBanner } from './InstallProblemBanner';
 import type { InstallProblem } from './installProblems';
@@ -32,27 +36,15 @@ export function UninstallConfirmModal({
       onConfirm={onConfirm}
       onClose={onClose}
     >
-      <p className="bpp-confirm-target m-0 text-[12px] leading-relaxed fira-code selectable break-all">
+      <ConfirmTarget>
         {t('uninstallTarget', { path: targetPath })}
-      </p>
-      <div className="bpp-confirm-note is-danger flex items-start gap-3 p-4">
-        <PackageMinus
-          size={16}
-          className="bpp-confirm-note-icon mt-0.5 shrink-0"
-        />
-        <p className="m-0 text-[13px] leading-relaxed">
-          {t('uninstallConfirmBody')}
-        </p>
-      </div>
-      <div className="bpp-confirm-note is-warning flex items-start gap-3 p-4">
-        <ShieldCheck
-          size={16}
-          className="bpp-confirm-note-icon mt-0.5 shrink-0"
-        />
-        <p className="m-0 text-[13px] leading-relaxed">
-          {t('uninstallConfirmKeepsData')}
-        </p>
-      </div>
+      </ConfirmTarget>
+      <ConfirmNote tone="danger" icon={<PackageMinus size={15} />}>
+        <p>{t('uninstallConfirmBody')}</p>
+      </ConfirmNote>
+      <ConfirmNote tone="neutral" icon={<ShieldCheck size={15} />}>
+        <p>{t('uninstallConfirmKeepsData')}</p>
+      </ConfirmNote>
       {problem && <InstallProblemBanner problem={problem} />}
     </ConfirmDialog>
   );

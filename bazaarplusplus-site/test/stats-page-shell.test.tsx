@@ -9,9 +9,7 @@ describe('StatsPageShell', () => {
     const memory = createMemorySpaLocationAdapter('/heroes');
     render(
       <StatsPageShell
-        locale="zh"
         location={createSpaLocation(memory.adapter).current()}
-        eyebrow="BazaarPlusPlus analytics"
         title="Hero winrate"
         generatedAt="2026-04-18T18:57:46Z"
         filters={<div>Filters slot</div>}
@@ -26,9 +24,9 @@ describe('StatsPageShell', () => {
       within(screen.getByRole('navigation', { name: '主要导航' })).queryByText('Analytics')
     ).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Archetypes' })).not.toBeInTheDocument();
-    expect(heroesLink.className).toContain('text-[color:var(--color-accent-bright)]');
+    expect(heroesLink).toHaveAttribute('aria-current', 'page');
     expect(screen.queryByText('实时数据')).not.toBeInTheDocument();
-    expect(screen.getByText('BazaarPlusPlus analytics')).toBeInTheDocument();
+    expect(screen.getByText(/最近同步/)).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 1, name: 'Hero winrate' }).className).not.toContain(
       'sr-only'
     );

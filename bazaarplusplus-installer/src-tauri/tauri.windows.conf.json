@@ -12,6 +12,7 @@
         "maximizable": true,
         "fullscreen": false,
         "decorations": false,
+        "backgroundColor": "#11100f",
         "shadow": false,
         "visible": false
       }

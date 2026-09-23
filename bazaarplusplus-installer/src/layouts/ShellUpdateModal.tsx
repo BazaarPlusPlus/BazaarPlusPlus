@@ -7,13 +7,20 @@ import {
 } from 'lucide-react';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { hasTauriRuntime } from '../api/runtime';
-import { Dialog } from '../components/ui/Dialog';
+import { Button } from '../components/ui/Button';
+import { ConfirmNote } from '../components/ui/ConfirmDialog';
+import {
+  Dialog,
+  DialogBody,
+  DialogCard,
+  DialogFooter,
+  DialogHeader
+} from '../components/ui/Dialog';
 import { ProblemBanner } from '../components/ui/ProblemBanner';
 import { getMainlandDownloadUrl } from '../features/about/mainlandDownload';
 import type { UpdaterController } from '../features/about/useUpdater';
 import type { UpdaterUiContract } from '../features/about/updaterPresentation';
 import { presentUpdaterProblem } from '../features/about/updaterProblems';
-import { formatProblemDiagnostic } from '../features/shared/problems';
 import { useI18n } from '../i18n/LocaleProvider';
 
 type ShellUpdateModalProps = {
@@ -57,76 +64,56 @@ export function ShellUpdateModal({
       labelledBy="update-modal-title"
       focusContainerOnOpen
     >
-      <div className="bpp-modal-card w-[min(460px,calc(100vw-32px))]">
-        <div className="bpp-update-modal-header px-6 py-5">
-          <div className="flex items-start gap-4">
-            <div className="bpp-update-modal-icon flex size-10 items-center justify-center">
-              {updater.phase === 'downloading' ||
-              updater.phase === 'installing' ||
-              updater.phase === 'restarting' ? (
-                <LoaderCircle size={18} className="animate-spin" />
-              ) : updater.phase === 'ready-to-restart' ||
-                (updater.phase === 'failed' &&
-                  updater.problem.code === 'updater_restart_failed') ? (
-                <RefreshCw size={18} />
-              ) : (
-                <Download size={18} />
-              )}
-            </div>
-            <div>
-              <p className="bpp-update-modal-kicker m-0 cinzel text-[10px] uppercase">
-                {t('updateModalKicker')}
-              </p>
-              <h2
-                id="update-modal-title"
-                className="bpp-update-modal-title m-0 mt-2 cinzel text-xl leading-tight"
-              >
-                {t(presentation.titleKey)}
-              </h2>
-            </div>
-          </div>
-        </div>
+      <DialogCard>
+        <DialogHeader
+          titleId="update-modal-title"
+          title={t(presentation.titleKey)}
+          tone="accent"
+          icon={
+            updater.phase === 'downloading' ||
+            updater.phase === 'installing' ||
+            updater.phase === 'restarting' ? (
+              <LoaderCircle size={18} className="bpp-spin" />
+            ) : updater.phase === 'ready-to-restart' ||
+              (updater.phase === 'failed' &&
+                updater.problem.code === 'updater_restart_failed') ? (
+              <RefreshCw size={18} />
+            ) : (
+              <Download size={18} />
+            )
+          }
+        />
 
-        <div className="px-6 py-5">
+        <DialogBody>
           {updater.phase === 'available' && (
             <>
-              <p className="bpp-update-modal-copy m-0 text-sm leading-6">
+              <p className="text-fg-1">
                 {t('updateModalBody', { version: updater.version })}
               </p>
               {mainlandDownloadUrl && (
-                <div className="bpp-update-modal-mainland mt-4">
-                  <span
-                    className="bpp-update-modal-mainland-icon"
-                    aria-hidden="true"
-                  >
-                    <CloudDownload size={16} />
-                  </span>
-                  <div className="bpp-update-modal-mainland-copy">
-                    <p className="bpp-update-modal-mainland-title m-0">
-                      {t('updateMainlandDownloadTitle')}
-                    </p>
-                    <p className="bpp-update-modal-mainland-description m-0">
-                      {t('updateMainlandDownloadHint')}
-                    </p>
-                  </div>
+                <ConfirmNote tone="neutral" icon={<CloudDownload size={15} />}>
+                  <p className="text-fg-1">
+                    {t('updateMainlandDownloadTitle')}
+                  </p>
+                  <p>{t('updateMainlandDownloadHint')}</p>
                   <a
                     href={mainlandDownloadUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={openMainlandDownload}
-                    className="bpp-update-modal-mainland-link inline-flex items-center gap-1.5 whitespace-nowrap transition-colors"
+                    className="bpp-dialog-link"
                   >
                     {t('updateMainlandDownload')}
                     <ExternalLink size={12} aria-hidden="true" />
                   </a>
-                </div>
+                </ConfirmNote>
               )}
               {updater.notes && (
-                <div className="mt-4">
-                  <p className="bpp-update-modal-kicker m-0 cinzel text-[10px] uppercase">
+                <div className="flex flex-col gap-1.5">
+                  <p className="text-fg-3 text-xs font-semibold">
                     {t('updateNotesLabel')}
                   </p>
-                  <p className="bpp-update-modal-notes m-0 mt-2 max-h-44 overflow-y-auto whitespace-pre-wrap text-[13px] leading-6">
+                  <p className="bpp-confirm-target max-h-44 overflow-y-auto whitespace-pre-wrap font-sans text-[13px] leading-6 text-fg-2">
                     {updater.notes}
                   </p>
                 </div>
@@ -139,27 +126,17 @@ export function ShellUpdateModal({
           )}
 
           {updater.phase === 'installing' && (
-            <p
-              role="status"
-              aria-live="polite"
-              className="bpp-update-modal-copy m-0 text-sm leading-6"
-            >
+            <p role="status" aria-live="polite">
               {t('updateInstallingBody', { version: updater.version })}
             </p>
           )}
 
           {updater.phase === 'ready-to-restart' && (
-            <p className="bpp-update-modal-copy m-0 text-sm leading-6">
-              {t('updateReadyBody', { version: updater.version })}
-            </p>
+            <p>{t('updateReadyBody', { version: updater.version })}</p>
           )}
 
           {updater.phase === 'restarting' && (
-            <p
-              role="status"
-              aria-live="polite"
-              className="bpp-update-modal-copy m-0 text-sm leading-6"
-            >
+            <p role="status" aria-live="polite">
               {t('updateRestarting')}
             </p>
           )}
@@ -167,42 +144,28 @@ export function ShellUpdateModal({
           {updater.phase === 'failed' && (
             <ProblemBanner
               message={presentUpdaterProblem(updater.problem, t)}
-              diagnostic={
-                updater.problem.diagnostic
-                  ? formatProblemDiagnostic(updater.problem)
-                  : null
-              }
-              diagnosticLabel={t('problemDiagnostics')}
+              problem={updater.problem}
             />
           )}
-        </div>
+        </DialogBody>
 
         {dismissible && (
-          <div className="bpp-update-modal-footer flex justify-end gap-3 px-6 py-4">
-            <button
-              type="button"
-              onClick={updater.dismiss}
-              className="bpp-update-modal-later h-9 px-4 text-[11px] uppercase transition-colors"
-            >
+          <DialogFooter>
+            <Button variant="ghost" onClick={updater.dismiss}>
               {t('updateModalLater')}
-            </button>
+            </Button>
             {action && presentation.actionLabelKey && (
-              <button
-                type="button"
+              <Button
+                variant="primary"
                 onClick={actionHandler}
-                className="bpp-update-modal-action inline-flex h-9 items-center gap-2 px-4 cinzel text-[11px] uppercase transition-colors"
+                icon={action === 'install' ? <Download /> : <RefreshCw />}
               >
-                {action === 'install' ? (
-                  <Download size={14} />
-                ) : (
-                  <RefreshCw size={14} />
-                )}
                 {t(presentation.actionLabelKey)}
-              </button>
+              </Button>
             )}
-          </div>
+          </DialogFooter>
         )}
-      </div>
+      </DialogCard>
     </Dialog>
   );
 }
@@ -241,10 +204,10 @@ export function UpdateDownloadProgress({
         aria-valuemax={total ?? undefined}
         aria-valuenow={accessibleValue}
         aria-valuetext={status}
-        className="bpp-update-progress-track h-1.5 w-full overflow-hidden"
+        className="h-1.5 w-full overflow-hidden rounded-full bg-hover"
       >
         <div
-          className={`bpp-update-progress-value h-full transition-[width] duration-200 ${
+          className={`h-full rounded-full bg-accent transition-[width] duration-200 ${
             percent === null ? 'w-1/3 animate-pulse' : ''
           }`}
           style={percent === null ? undefined : { width: `${percent}%` }}
@@ -253,7 +216,7 @@ export function UpdateDownloadProgress({
       <p
         role="status"
         aria-live="polite"
-        className="bpp-update-progress-status m-0 mt-3 text-[12px] tabular-nums"
+        className="m-0 mt-3 text-xs tabular-nums text-fg-2"
       >
         {status}
       </p>

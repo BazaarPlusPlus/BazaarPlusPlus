@@ -68,11 +68,9 @@ const app: AppBootstrapController = {
 };
 
 function renderHeader({
-  showBilibili = false,
-  showSupport = false
+  showBilibili = false
 }: {
   showBilibili?: boolean;
-  showSupport?: boolean;
 } = {}) {
   return renderToStaticMarkup(
     <LocaleProvider>
@@ -81,11 +79,7 @@ function renderHeader({
           app={app}
           showBilibili={showBilibili}
           onToggleBilibili={() => undefined}
-          showSupport={showSupport}
-          onToggleSupport={() => undefined}
-          onOpenPayment={() => undefined}
           onCloseBilibili={() => undefined}
-          onCloseSupport={() => undefined}
         />
       </UpdaterProvider>
     </LocaleProvider>
@@ -100,31 +94,27 @@ describe('ShellHeader', () => {
     vi.mocked(getStreamStatus).mockClear();
   });
 
-  it('shows the brand logo and language icon without an update check', () => {
+  it('shows the brand logo and an app-wide update check after the community links', () => {
     const html = renderHeader();
 
-    expect(html).not.toContain('检查更新');
-    expect(html).toContain('lucide-languages');
     expect(html).toContain('bpp-brand-logo');
+    expect(html.indexOf('检查更新')).toBeGreaterThan(
+      html.indexOf('data-header-group="community"')
+    );
   });
 
-  it('groups community links before application actions', () => {
+  it('keeps community links in the header and application actions in the rail', () => {
     const html = renderHeader();
     const community = html.indexOf('data-header-group="community"');
-    const divider = html.indexOf('bpp-header-actions-divider');
-    const application = html.indexOf('data-header-group="application"');
     const github = html.indexOf('aria-label="GitHub"');
-    const support = html.indexOf('aria-controls="shell-support-menu"');
 
     expect(community).toBeGreaterThanOrEqual(0);
-    expect(divider).toBeGreaterThan(community);
-    expect(application).toBeGreaterThan(divider);
     expect(github).toBeGreaterThan(community);
-    expect(github).toBeLessThan(divider);
-    expect(support).toBeGreaterThan(application);
+    expect(html).not.toContain('shell-support-menu');
+    expect(html).not.toContain('lucide-languages');
   });
 
-  it('shows the author, CoreDev, and project entries in order', () => {
+  it('shows the CoreDev, author, and project entries in order', () => {
     const html = renderHeader({ showBilibili: true });
 
     const authorHrefIndex = html.indexOf('https://example.com/bilibili-author');
@@ -151,26 +141,22 @@ describe('ShellHeader', () => {
     expect(authorSubtitleIndex).toBeGreaterThan(authorIndex);
     expect(coreDevIndex).toBeGreaterThanOrEqual(0);
     expect(coreDevSubtitleIndex).toBeGreaterThan(coreDevIndex);
-    expect(authorHrefIndex).toBeLessThan(coreDevHrefIndex);
-    expect(coreDevHrefIndex).toBeLessThan(projectHrefIndex);
-    expect(authorIndex).toBeLessThan(coreDevIndex);
-    expect(authorSubtitleIndex).toBeLessThan(coreDevIndex);
-    expect(coreDevSubtitleIndex).toBeLessThan(projectIndex);
+    expect(coreDevHrefIndex).toBeLessThan(authorHrefIndex);
+    expect(authorHrefIndex).toBeLessThan(projectHrefIndex);
+    expect(coreDevIndex).toBeLessThan(authorIndex);
+    expect(coreDevSubtitleIndex).toBeLessThan(authorIndex);
+    expect(authorSubtitleIndex).toBeLessThan(projectIndex);
     expect(projectSubtitleIndex).toBeGreaterThan(projectIndex);
   });
 
   it('exposes controlled keyboard-operable disclosure semantics', () => {
     const closed = renderHeader();
     const bilibiliOpen = renderHeader({ showBilibili: true });
-    const supportOpen = renderHeader({ showSupport: true });
 
     expect(closed).toContain('aria-controls="shell-bilibili-menu"');
-    expect(closed).toContain('aria-controls="shell-support-menu"');
-    expect(closed.match(/aria-expanded="false"/g)).toHaveLength(2);
+    expect(closed.match(/aria-expanded="false"/g)).toHaveLength(1);
     expect(bilibiliOpen).toContain('id="shell-bilibili-menu"');
     expect(bilibiliOpen).toContain('aria-expanded="true"');
-    expect(supportOpen).toContain('id="shell-support-menu"');
-    expect(supportOpen).toContain('aria-expanded="true"');
   });
 
   it('never polls the stream service off Windows', async () => {
@@ -186,11 +172,7 @@ describe('ShellHeader', () => {
               app={app}
               showBilibili={false}
               onToggleBilibili={() => undefined}
-              showSupport={false}
-              onToggleSupport={() => undefined}
-              onOpenPayment={() => undefined}
               onCloseBilibili={() => undefined}
-              onCloseSupport={() => undefined}
             />
           </UpdaterProvider>
         </LocaleProvider>
@@ -231,11 +213,7 @@ describe('ShellHeader', () => {
               app={app}
               showBilibili={false}
               onToggleBilibili={() => undefined}
-              showSupport={false}
-              onToggleSupport={() => undefined}
-              onOpenPayment={() => undefined}
               onCloseBilibili={() => undefined}
-              onCloseSupport={() => undefined}
             />
           </UpdaterProvider>
         </LocaleProvider>

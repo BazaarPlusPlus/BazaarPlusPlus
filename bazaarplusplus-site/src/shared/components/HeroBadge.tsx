@@ -1,37 +1,54 @@
+import type { ReactNode } from 'react';
+
 import { getHeroColor, getHeroShortLabel } from '../lib/heroes';
 
 type HeroBadgeProps = {
   hero: string;
   selected?: boolean;
+  /** `short` shows the three-letter code and keeps the full name for assistive tech. */
+  label?: 'short' | 'full';
+  /** Trailing value, such as a win rate or the active window. */
+  children?: ReactNode;
 };
 
-export default function HeroBadge({ hero, selected = false }: HeroBadgeProps) {
+/** The one hero chip: a hero-colored dot, the hero's name, and an optional trailing value. */
+export default function HeroBadge({
+  hero,
+  selected = false,
+  label = 'short',
+  children,
+}: HeroBadgeProps) {
   const color = getHeroColor(hero);
-  const label = getHeroShortLabel(hero);
+  const shortLabel = getHeroShortLabel(hero);
 
   return (
     <span
       data-hero-badge={hero}
-      data-hero-short-label={label}
+      data-hero-short-label={shortLabel}
       title={hero}
-      className={`group inline-flex min-w-0 items-center rounded-md border font-mono font-semibold uppercase tracking-[0.16em] transition gap-1.5 px-2 py-1 text-[0.7rem] ${
-        selected
-          ? 'border-[color:var(--color-accent)] bg-[color:rgba(232,185,74,0.12)] text-[color:var(--color-text-base)] shadow-[inset_0_0_0_1px_rgba(232,185,74,0.25)]'
-          : 'border-[color:var(--color-border-soft)] bg-[color:rgba(15,12,8,0.7)] text-[color:var(--color-text-base)] hover:border-[color:var(--color-accent)]'
-      } `}
-      style={{ '--hero-color': color } as React.CSSProperties}
+      className={`inline-flex h-[22px] min-w-0 items-center gap-1.5 rounded-full border px-2 text-xs font-semibold whitespace-nowrap text-text-1 transition-colors duration-(--t-fast) ${
+        selected ? 'border-accent-line bg-accent-subtle' : 'border-transparent bg-hover'
+      }`}
     >
       <span
         data-hero-color-dot={hero}
-        className="h-4 w-1 shrink-0 rounded-sm"
-        style={{
-          backgroundColor: color,
-          boxShadow: `0 0 8px ${color}40`,
-        }}
+        className="size-1.5 shrink-0 rounded-full"
+        style={{ backgroundColor: color }}
         aria-hidden="true"
       />
-      <span aria-hidden="true">{label}</span>
-      <span className="sr-only">{hero}</span>
+      {label === 'short' ? (
+        <>
+          <span aria-hidden="true">{shortLabel}</span>
+          <span className="sr-only">{hero}</span>
+        </>
+      ) : (
+        <span className="min-w-0 truncate">{hero}</span>
+      )}
+      {children != null ? (
+        <span className={`font-medium tabular-nums ${selected ? 'text-accent' : 'text-text-2'}`}>
+          {children}
+        </span>
+      ) : null}
     </span>
   );
 }

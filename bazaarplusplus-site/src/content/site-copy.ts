@@ -43,8 +43,8 @@ type CommonCopy = {
   };
   error: {
     title: string;
-    unknownMessage: string;
-    backToHeroes: string;
+    body: string;
+    retry: string;
   };
   notFound: {
     title: string;
@@ -55,7 +55,6 @@ type CommonCopy = {
 };
 
 type HeroStatsCopy = {
-  eyebrow: string;
   title: string;
   detailLinkLabel: string;
   trend: {
@@ -231,8 +230,8 @@ const zh: LocalizedSiteCopy = {
     },
     error: {
       title: '数据暂时不可用',
-      unknownMessage: '未知错误',
-      backToHeroes: '← 返回英雄概览',
+      body: '暂时无法读取英雄统计数据，请稍后重试。',
+      retry: '重试',
     },
     notFound: {
       title: '页面不存在',
@@ -266,7 +265,6 @@ const zh: LocalizedSiteCopy = {
   },
   stats: {
     heroes: {
-      eyebrow: 'BazaarPlusPlus',
       title: '英雄统计',
       detailLinkLabel: '在 BazaarDB 查看详细统计',
       trend: {
@@ -528,8 +526,8 @@ const en: LocalizedSiteCopy = {
     },
     error: {
       title: 'Stats are temporarily unavailable',
-      unknownMessage: 'Unknown error',
-      backToHeroes: '← Back to hero overview',
+      body: 'The hero stats could not be loaded. Try again in a moment.',
+      retry: 'Try again',
     },
     notFound: {
       title: 'Page not found',
@@ -563,7 +561,6 @@ const en: LocalizedSiteCopy = {
   },
   stats: {
     heroes: {
-      eyebrow: 'Bazaar Almanac',
       title: 'Hero stats',
       detailLinkLabel: 'View detailed stats on BazaarDB',
       trend: {

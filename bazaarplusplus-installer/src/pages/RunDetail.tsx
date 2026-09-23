@@ -9,7 +9,7 @@ import {
   Video
 } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Button } from '../components/ui/Button';
+import { Button, buttonClassName } from '../components/ui/Button';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { EmptyState } from '../components/ui/EmptyState';
 import { LoadingPanel } from '../components/ui/LoadingPanel';
@@ -32,7 +32,6 @@ import {
   runDetailProblemFromError,
   type RunDetailProblem
 } from '../features/history/runDetailProblems';
-import { formatProblemDiagnostic } from '../features/shared/problems';
 import { useConfirmedOperation } from '../features/shared/confirmedOperation';
 import { useI18n } from '../i18n/LocaleProvider';
 import { ModalSource } from '../components/ui/ModalCoordinator';
@@ -81,48 +80,48 @@ export default function RunDetail() {
 
   return (
     <PageShell
-      eyebrow={t('runDetailEyebrow')}
       title={pageTitle}
-      className="bpp-run-detail-page pb-8"
+      leading={
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => navigate(historyListPath(historyPage))}
+          title={t('runDetailBack')}
+          aria-label={t('runDetailBack')}
+          icon={<ArrowLeft />}
+        />
+      }
+      meta={
+        detail
+          ? `${formatGameMode(detail.run.game_mode, t)} · ${t(formatRunStatusKey(detail.run.status))}`
+          : undefined
+      }
       action={
-        <div className="flex items-center gap-2">
-          <Button
-            type="button"
-            onClick={() => navigate(historyListPath(historyPage))}
-          >
-            <ArrowLeft size={16} />
-            {t('runDetailBack')}
-          </Button>
-          <Button
-            type="button"
-            onClick={() => void page.refresh()}
-            disabled={page.busy}
-            busy={page.refreshing}
-          >
-            <RefreshCw
-              size={14}
-              className={page.refreshing ? 'animate-spin' : ''}
-            />
-            {t('refresh')}
-          </Button>
-        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => void page.refresh()}
+          disabled={page.busy}
+          busy={page.refreshing}
+          icon={<RefreshCw />}
+        >
+          {t('refresh')}
+        </Button>
       }
     >
       {page.state.phase === 'initial-loading' ? (
         <LoadingPanel label={t('runDetailLoading')} className="h-64" />
       ) : page.state.phase === 'not-found' ? (
-        <div
-          role="status"
-          className="bpp-run-detail-not-found p-6 flex items-center justify-between gap-4"
-        >
-          <span>{t('runDetailNotFound')}</span>
-          <button
-            type="button"
-            onClick={() => void page.refresh()}
-            className="bpp-run-detail-inline-link underline underline-offset-2"
-          >
-            {t('retry')}
-          </button>
+        <div role="status" className="bpp-panel">
+          <EmptyState
+            icon={<FileQuestion size={22} />}
+            heading={t('runDetailNotFound')}
+            primaryAction={
+              <Button size="sm" onClick={() => void page.refresh()}>
+                {t('retry')}
+              </Button>
+            }
+          />
         </div>
       ) : page.state.phase === 'blocking-failure' ? (
         <RunDetailProblemBanner
@@ -139,65 +138,50 @@ export default function RunDetail() {
           )}
 
           {page.state.refresh.phase === 'refreshing' && (
-            <div
-              role="status"
-              aria-live="polite"
-              className="bpp-run-detail-refreshing flex items-center gap-2 text-xs"
-            >
-              <Loader2 size={14} className="animate-spin" />
+            <p role="status" aria-live="polite" className="bpp-inline-status">
+              <Loader2 size={13} className="bpp-spin" aria-hidden="true" />
               {t('runDetailRefreshing')}
-            </div>
+            </p>
           )}
 
-          <div className="bpp-panel bpp-run-detail-summary">
-            <div className="bpp-run-detail-overview">
-              <div className="flex flex-col gap-3 min-w-0">
-                <div className="flex flex-wrap items-center gap-3">
-                  <span
-                    className="bpp-run-outcome"
-                    data-tier={runResult?.tier}
-                    data-state={runResult?.state}
-                  >
-                    {runResult ? t(runResult.key) : '-'}
-                  </span>
-                  <span className="bpp-run-detail-meta text-xs">
-                    {formatGameMode(detail.run.game_mode, t)} ·{' '}
-                    {t(formatRunStatusKey(detail.run.status))}
-                  </span>
-                </div>
-                <div className="bpp-run-detail-meta flex flex-wrap items-center gap-x-4 gap-y-1 text-xs selectable">
-                  <span className="break-words">
-                    {t('runDetailPlayer')} {detail.run.player_name ?? '-'}
-                  </span>
-                  <span className="fira-code">
-                    {formatDateTime(detail.run.started_at_utc, locale)} -{' '}
-                    {formatDateTime(detail.run.ended_at_utc, locale)}
-                  </span>
-                </div>
+          <section className="bpp-panel">
+            <div className="bpp-row">
+              <span
+                className="bpp-outcome"
+                data-tier={runResult?.tier}
+                data-state={runResult?.state}
+              >
+                {runResult ? t(runResult.key) : '-'}
+              </span>
+              <div className="bpp-row-copy selectable">
+                <span className="bpp-row-title">
+                  {t('runDetailPlayer')} {detail.run.player_name ?? '-'}
+                </span>
+                <span className="bpp-row-description tnum">
+                  {formatDateTime(detail.run.started_at_utc, locale)} –{' '}
+                  {formatDateTime(detail.run.ended_at_utc, locale)}
+                </span>
               </div>
-
-              <button
-                type="button"
+              <Button
+                size="sm"
                 disabled={
                   !detail.run.screenshot_id || screenshotAvailability.disabled
                 }
+                busy={screenshotAvailability.running}
                 onClick={() => void page.revealScreenshot()}
-                className="bpp-button"
+                icon={<ImageIcon />}
               >
-                {screenshotAvailability.running ? (
-                  <Loader2 size={16} className="animate-spin" />
-                ) : (
-                  <ImageIcon size={16} />
-                )}{' '}
                 {t('openScreenshotLocation')}
-              </button>
+              </Button>
             </div>
 
             {screenshotFailure && (
-              <RunDetailProblemBanner
-                problem={screenshotFailure}
-                onRetry={() => void page.revealScreenshot()}
-              />
+              <div className="px-4 pb-3">
+                <RunDetailProblemBanner
+                  problem={screenshotFailure}
+                  onRetry={() => void page.revealScreenshot()}
+                />
+              </div>
             )}
 
             <div className="bpp-run-detail-stats">
@@ -216,7 +200,6 @@ export default function RunDetail() {
               <StatBlock
                 label={t('statFinalRank')}
                 value={detail.run.final_player_rank ?? '-'}
-                isText
               />
               <StatBlock
                 label={t('statFinalRating')}
@@ -227,11 +210,11 @@ export default function RunDetail() {
                 }
               />
             </div>
-          </div>
+          </section>
 
           <div className="bpp-panel overflow-hidden">
-            <div className="overflow-x-auto custom-scrollbar">
-              <table className="bpp-battle-table">
+            <div className="overflow-x-auto">
+              <table className="bpp-table">
                 <colgroup>
                   <col style={{ width: '7%' }} />
                   <col style={{ width: '9%' }} />
@@ -241,7 +224,7 @@ export default function RunDetail() {
                   <col style={{ width: '10%' }} />
                   <col style={{ width: '21%' }} />
                 </colgroup>
-                <thead className="bpp-battle-table-header cinzel">
+                <thead>
                   <tr>
                     <th scope="col">{t('battleColDay')}</th>
                     <th scope="col">{t('battleColResult')}</th>
@@ -257,24 +240,19 @@ export default function RunDetail() {
                 <tbody>
                   {detail.battles.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="px-6 py-6">
+                      <td colSpan={7}>
                         <EmptyState
                           icon={<Video size={24} />}
                           heading={t('noLocalBattles')}
                           description={t('noLocalBattlesDescription')}
                           primaryAction={
                             <Button
-                              type="button"
+                              size="sm"
                               onClick={() => void page.refresh()}
                               disabled={page.busy}
-                              busy={page.busy}
+                              busy={page.refreshing}
+                              icon={<RefreshCw />}
                             >
-                              <RefreshCw
-                                size={16}
-                                className={
-                                  page.refreshing ? 'animate-spin' : ''
-                                }
-                              />
                               {t('refresh')}
                             </Button>
                           }
@@ -344,9 +322,7 @@ export default function RunDetail() {
             onClose={deleteOperation.controller.dismiss}
           >
             <VideoDeleteSummary target={pendingDelete} />
-            <p className="bpp-confirm-danger-copy m-0 text-[13px] leading-relaxed">
-              {t('deleteVideoConfirmBody')}
-            </p>
+            <p>{t('deleteVideoConfirmBody')}</p>
             {deleteOperation.state?.phase === 'failed' && (
               <RunDetailProblemBanner problem={deleteOperation.state.problem} />
             )}
@@ -357,24 +333,11 @@ export default function RunDetail() {
   );
 }
 
-function StatBlock({
-  label,
-  value,
-  isText = false
-}: {
-  label: string;
-  value: string;
-  isText?: boolean;
-}) {
+function StatBlock({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex min-w-0 flex-col gap-1">
-      <span className="bpp-run-detail-stat-label cinzel text-[11px] tracking-wide uppercase">
-        {label}
-      </span>
-      <span
-        title={value}
-        className={`bpp-run-detail-stat-value text-lg break-words ${isText ? 'cinzel font-bold' : 'fira-code'}`}
-      >
+    <div className="bpp-run-detail-stat">
+      <span className="bpp-run-detail-stat-label">{label}</span>
+      <span title={value} className="bpp-run-detail-stat-value">
         {value}
       </span>
     </div>
@@ -415,95 +378,74 @@ function BattleRow({
 
   return (
     <>
-      <tr className="bpp-battle-row transition-colors">
-        <td className="bpp-battle-primary-data fira-code">
+      <tr>
+        <td className="is-num">
           {battle.day === null ? '-' : String(battle.day)}
         </td>
-        <td className={`cinzel font-bold ${toneColorClass(battleResult.tone)}`}>
+        <td className={`font-semibold ${toneColorClass(battleResult.tone)}`}>
           {t(battleResult.key)}
         </td>
-        <td
-          className="bpp-battle-hero cinzel"
-          title={battle.opponent_hero ?? undefined}
-        >
+        <td className="font-medium" title={battle.opponent_hero ?? undefined}>
           {battle.opponent_hero ?? '-'}
         </td>
-        <td
-          className="bpp-battle-secondary-data fira-code"
-          title={battle.opponent_name ?? undefined}
-        >
+        <td className="is-muted" title={battle.opponent_name ?? undefined}>
           {battle.opponent_name ?? '-'}
         </td>
-        <td
-          className="bpp-battle-rank cinzel"
-          title={battle.opponent_rank ?? undefined}
-        >
+        <td className="is-muted" title={battle.opponent_rank ?? undefined}>
           {battle.opponent_rank ?? '-'}
         </td>
-        <td className="bpp-battle-primary-data fira-code">
+        <td className="is-num">
           {battle.opponent_rating === null ? '-' : battle.opponent_rating}
         </td>
 
         <td>
-          <div className="flex flex-col items-end gap-1">
-            {battle.video ? (
-              <>
-                <div className="flex items-center justify-end gap-1.5">
-                  <button
-                    type="button"
-                    disabled={videoAvailability.disabled}
-                    onClick={() =>
-                      void page.revealVideo(
-                        battle.battle_id,
-                        battle.video?.video_id
-                      )
-                    }
-                    title={t('openVideoLocation')}
-                    aria-label={actionLabel(t('openVideoLocation'))}
-                    className="bpp-battle-video-action flex items-center justify-center size-9 disabled:opacity-50 transition-colors"
-                  >
-                    {videoAvailability.running ? (
-                      <Loader2 size={14} className="animate-spin" />
-                    ) : (
-                      <FolderOpen size={14} />
-                    )}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={deleteAvailability.disabled}
-                    onClick={() => battle.video && onRequestDelete(battle)}
-                    title={t('deleteVideo')}
-                    aria-label={actionLabel(t('deleteVideo'))}
-                    className="bpp-battle-delete-action flex items-center justify-center size-9 disabled:opacity-50 transition-colors"
-                  >
-                    {deleteAvailability.running ? (
-                      <Loader2 size={14} className="animate-spin" />
-                    ) : (
-                      <Trash2 size={14} />
-                    )}
-                  </button>
-                </div>
-                <span className="bpp-battle-video-meta fira-code text-[11px] text-right selectable">
-                  {formatDuration(battle.video.duration_ms, locale)} ·{' '}
-                  {formatBytes(battle.video.file_size_bytes, locale)}
-                </span>
-              </>
-            ) : (
-              <span
-                title={t('noVideo')}
-                aria-label={t('noVideo')}
-                className="bpp-battle-no-video flex items-center justify-center size-9"
-              >
-                <FileQuestion size={14} />
+          {battle.video ? (
+            <div className="flex items-center justify-end gap-2">
+              <span className="text-fg-3 tnum text-xs selectable">
+                {formatDuration(battle.video.duration_ms, locale)} ·{' '}
+                {formatBytes(battle.video.file_size_bytes, locale)}
               </span>
-            )}
-          </div>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                disabled={videoAvailability.disabled}
+                busy={videoAvailability.running}
+                onClick={() =>
+                  void page.revealVideo(
+                    battle.battle_id,
+                    battle.video?.video_id
+                  )
+                }
+                title={t('openVideoLocation')}
+                aria-label={actionLabel(t('openVideoLocation'))}
+                icon={<FolderOpen />}
+              />
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                disabled={deleteAvailability.disabled}
+                busy={deleteAvailability.running}
+                onClick={() => battle.video && onRequestDelete(battle)}
+                title={t('deleteVideo')}
+                aria-label={actionLabel(t('deleteVideo'))}
+                icon={<Trash2 />}
+              />
+            </div>
+          ) : (
+            <span
+              title={t('noVideo')}
+              aria-label={t('noVideo')}
+              className="flex justify-end text-fg-3"
+            >
+              <FileQuestion size={14} />
+            </span>
+          )}
         </td>
       </tr>
 
       {failure && (
         <tr>
-          <td colSpan={7} className="px-6 pb-4">
+          <td colSpan={7}>
             <RunDetailProblemBanner
               problem={failure.problem}
               onRetry={retryFailure}
@@ -526,26 +468,13 @@ function RunDetailProblemBanner({
   return (
     <ProblemBanner
       message={presentRunDetailProblem(problem, t)}
-      diagnostic={problem.diagnostic ? formatProblemDiagnostic(problem) : null}
-      diagnosticLabel={t('problemDiagnostics')}
+      problem={problem}
+      onRetry={onRetry}
       actions={
-        problem.code === 'history_unavailable' || onRetry ? (
-          <>
-            {problem.code === 'history_unavailable' && (
-              <Link to="/" className="underline underline-offset-2">
-                {t('historyOpenInstall')}
-              </Link>
-            )}
-            {onRetry && (
-              <button
-                type="button"
-                onClick={onRetry}
-                className="underline underline-offset-2"
-              >
-                {t('retry')}
-              </button>
-            )}
-          </>
+        problem.code === 'history_unavailable' ? (
+          <Link to="/" className={buttonClassName({ size: 'sm' })}>
+            {t('historyOpenInstall')}
+          </Link>
         ) : undefined
       }
     />

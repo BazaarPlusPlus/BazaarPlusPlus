@@ -2,7 +2,10 @@ import { useQuery } from '@tanstack/react-query';
 
 import type { ResolvedSpaLocation } from '../../app/router';
 import { getSiteCopy, type DownloadPageCopy } from '../../content/site-copy';
+import Button from '../../shared/components/Button';
+import { AlertIcon, DownloadIcon, ExternalLinkIcon } from '../../shared/components/icons';
 import InfoPageShell from '../../shared/components/InfoPageShell';
+import { SectionHeading } from '../../shared/components/PageLayout';
 import {
   createInstallerManifestHttpTransport,
   GITHUB_RELEASE_URL,
@@ -38,88 +41,51 @@ function DownloadCard({
   const disabled = download == null;
 
   return (
-    <article className="surface relative flex flex-col gap-6 p-7">
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <span className="flex h-14 w-14 items-center justify-center rounded-2xl border border-[color:var(--color-border-soft)] bg-[rgba(232,185,74,0.04)]">
-            <img
-              src={PLATFORM_ICONS[platform]}
-              alt=""
-              aria-hidden="true"
-              className="h-9 w-9 opacity-90"
-            />
-          </span>
-          <div>
-            <h2 className="font-display text-[1.55rem] font-semibold leading-tight text-[color:var(--color-text-base)]">
-              {platformCopy.title}
-            </h2>
-            <p className="mt-1 text-xs uppercase tracking-[0.16em] text-[color:var(--color-text-muted)]">
-              {platformCopy.arch}
-            </p>
-          </div>
+    <article className="panel flex flex-col gap-6 p-6">
+      <div className="flex items-center gap-4">
+        <span className="flex size-12 shrink-0 items-center justify-center rounded-panel border border-line bg-canvas">
+          <img src={PLATFORM_ICONS[platform]} alt="" aria-hidden="true" className="size-7" />
+        </span>
+        <div className="min-w-0">
+          <SectionHeading>{platformCopy.title}</SectionHeading>
+          <p className="mt-1 text-[13px] text-text-3">{platformCopy.arch}</p>
         </div>
       </div>
 
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <span className="text-[0.7rem] uppercase tracking-[0.18em] text-[color:var(--color-text-faint)]">
-          {copy.versionLabel}
-        </span>
+        <span className="text-[13px] text-text-3">{copy.versionLabel}</span>
         {status === 'loading' ? (
-          <span className="inline-block h-5 w-24 overflow-hidden rounded-full bg-[color:var(--color-border-soft)]">
-            <span className="shimmer block h-full w-full" />
-          </span>
+          <span className="inline-block h-5 w-20 self-center rounded-control bg-hover motion-safe:animate-pulse" />
         ) : installer ? (
-          <span className="tnum text-xl font-medium text-[color:var(--color-accent-bright)]">
+          <span className="text-lg font-semibold text-accent tabular-nums">
             v{installer.version}
           </span>
-        ) : status === 'error' ? (
-          <span className="text-sm text-[color:var(--color-text-muted)]">
-            {copy.versionUnavailable}
-          </span>
         ) : (
-          <span className="text-sm text-[color:var(--color-text-muted)]">
-            {copy.versionPending}
+          <span className="text-sm text-text-2">
+            {status === 'error' ? copy.versionUnavailable : copy.versionPending}
           </span>
         )}
       </div>
 
-      <div className="mt-auto grid grid-cols-[minmax(0,3fr)_minmax(0,2fr)] gap-3">
-        <a
+      <div className="mt-auto flex flex-wrap gap-2">
+        <Button
+          variant="primary"
           href={download?.downloadUrl ?? '#'}
-          aria-disabled={disabled}
-          tabIndex={disabled ? -1 : undefined}
-          onClick={disabled ? (event) => event.preventDefault() : undefined}
-          className={`group inline-flex min-w-0 items-center justify-center gap-2 whitespace-nowrap rounded-full px-3 py-3 text-sm font-medium tracking-[0.04em] transition sm:px-5 ${
-            disabled
-              ? 'pointer-events-none cursor-not-allowed bg-[color:var(--color-border-soft)] text-[color:var(--color-text-faint)]'
-              : 'bg-[color:var(--color-accent)] text-[#1a1306] shadow-[0_18px_36px_-12px_rgba(232,185,74,0.5)] hover:bg-[color:var(--color-accent-bright)]'
-          }`}
+          disabled={disabled}
+          icon={<DownloadIcon />}
         >
-          <span>{platformCopy.actionLabel}</span>
-          <span aria-hidden="true" className="transition group-hover:translate-x-0.5">
-            →
-          </span>
-        </a>
-
-        <a
+          {platformCopy.actionLabel}
+        </Button>
+        <Button
           href={download?.mainlandDownloadUrl ?? '#'}
           target="_blank"
           rel="noreferrer"
           aria-label={platformCopy.mainlandActionLabel}
-          aria-disabled={disabled}
-          tabIndex={disabled ? -1 : undefined}
-          onClick={disabled ? (event) => event.preventDefault() : undefined}
-          className={`group inline-flex min-w-0 items-center justify-center gap-2 whitespace-nowrap rounded-full border px-3 py-3 text-xs font-medium tracking-[0.04em] transition ${
-            disabled
-              ? 'pointer-events-none cursor-not-allowed border-[color:var(--color-border-soft)] text-[color:var(--color-text-faint)]'
-              : 'border-[color:var(--color-border-bright)] bg-[rgba(232,185,74,0.04)] text-[color:var(--color-accent-bright)] hover:bg-[rgba(232,185,74,0.1)]'
-          }`}
+          disabled={disabled}
+          icon={<ExternalLinkIcon />}
         >
-          <span>{copy.mainlandButtonLabel}</span>
-          <span aria-hidden="true" className="transition group-hover:translate-x-0.5">
-            ↗
-          </span>
-        </a>
+          {copy.mainlandButtonLabel}
+        </Button>
       </div>
     </article>
   );
@@ -127,18 +93,21 @@ function DownloadCard({
 
 function FailureFallback({ copy }: { copy: DownloadPageCopy }) {
   return (
-    <p className="-mt-4 text-sm leading-6 text-[color:var(--color-text-muted)]">
-      {copy.versionFailed}
-      {' · '}
-      {copy.releaseFallbackPrefix}
-      <a
-        href={GITHUB_RELEASE_URL}
-        target="_blank"
-        rel="noreferrer"
-        className="text-[color:var(--color-accent-bright)] underline-offset-4 hover:underline"
-      >
-        {copy.releaseFallbackLink}
-      </a>
+    <p className="flex items-start gap-2.5 rounded-panel border border-warning/30 bg-warning-subtle px-3 py-2.5 text-[13px] text-text-1">
+      <AlertIcon className="mt-0.5 size-4 text-warning" />
+      <span>
+        {copy.versionFailed}
+        {' · '}
+        {copy.releaseFallbackPrefix}
+        <a
+          href={GITHUB_RELEASE_URL}
+          target="_blank"
+          rel="noreferrer"
+          className="text-accent underline-offset-4 hover:underline"
+        >
+          {copy.releaseFallbackLink}
+        </a>
+      </span>
     </p>
   );
 }
@@ -160,9 +129,10 @@ export default function DownloadPage({
   const status: DownloadStatus = isLoading ? 'loading' : isError ? 'error' : 'ready';
 
   return (
-    <InfoPageShell locale={locale} location={location} title={copy.title}>
-      <section className="flex flex-col gap-6">
-        <div className="grid gap-6 md:grid-cols-2">
+    <InfoPageShell location={location} title={copy.title}>
+      <section className="flex flex-col gap-4">
+        {isError ? <FailureFallback copy={copy} /> : null}
+        <div className="grid gap-4 md:grid-cols-2">
           {DOWNLOAD_PLATFORMS.map((platform) => (
             <DownloadCard
               key={platform}
@@ -173,20 +143,14 @@ export default function DownloadPage({
             />
           ))}
         </div>
-        {isError ? <FailureFallback copy={copy} /> : null}
       </section>
 
-      <section className="surface-flat flex flex-col gap-3 px-6 py-6">
-        <h2 className="font-display text-lg font-semibold tracking-tight text-[color:var(--color-text-base)]">
-          {copy.noteTitle}
-        </h2>
-        <ul className="flex flex-col gap-2 text-sm leading-6 text-[color:var(--color-text-muted)]">
+      <section className="panel flex flex-col gap-3 p-6">
+        <h2 className="text-[15px] font-semibold text-text-1">{copy.noteTitle}</h2>
+        <ul className="flex flex-col gap-2 text-sm text-text-2">
           {copy.noteParagraphs.map((paragraph, index) => (
             <li key={index} className="flex items-start gap-3">
-              <span
-                aria-hidden="true"
-                className="mt-2 inline-block h-1 w-1 rounded-full bg-[color:var(--color-accent)]"
-              />
+              <span aria-hidden="true" className="mt-2.5 size-1 shrink-0 rounded-full bg-text-3" />
               <span>{paragraph}</span>
             </li>
           ))}

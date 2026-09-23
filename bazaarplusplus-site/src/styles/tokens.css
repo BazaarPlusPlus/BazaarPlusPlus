@@ -1,27 +1,83 @@
-@theme {
-  /* === Surfaces (warm dusk → bazaar lantern) === */
-  --color-bg-base: #0c0a07;
-  --color-bg-card: #1a1510;
+/* Copy of the installer's design tokens; see docs/design.md. Edit the installer
+   copy first; scripts/design-tokens.test.mjs rejects drift. */
+:root {
+  color-scheme: dark;
+  --bg-canvas: #11100f;
+  --bg-sidebar: #171615;
+  --bg-panel: #1d1c1a;
+  --bg-hover: #262422;
+  --bg-selected: #2c2a27;
+  --line: #2a2826;
+  --line-strong: #3a3733;
+  --text-1: #edebe7;
+  --text-2: #a5a19a;
+  --text-3: #8a857e;
+  --accent: #ee8e1f;
+  --accent-hover: #f5a142;
+  --accent-subtle: rgba(238, 142, 31, 0.13);
+  --accent-line: rgba(238, 142, 31, 0.42);
+  --on-accent: #1a1206;
+  --success: #45b26b;
+  --success-subtle: rgba(69, 178, 107, 0.14);
+  --warning: #d9a33b;
+  --warning-subtle: rgba(217, 163, 59, 0.14);
+  --danger: #e5584e;
+  --danger-subtle: rgba(229, 88, 78, 0.14);
+  --danger-text: #ff8a80;
+  --r-control: 6px;
+  --r-panel: 8px;
+  --r-dialog: 12px;
+  --shadow-float: 0 12px 32px rgba(0, 0, 0, 0.45);
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+  --t-fast: 100ms;
+  --t-base: 160ms;
+  --font-ui:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI Variable Text', 'Segoe UI', 'PingFang SC',
+    'Hiragino Sans GB', 'Microsoft YaHei UI', 'Microsoft YaHei', 'Noto Sans SC', sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', 'Cascadia Mono', Consolas, monospace;
+}
 
-  /* === Edges === */
-  --color-border: #3a2d1c;
-  --color-border-soft: rgba(58, 45, 28, 0.6);
-  --color-border-bright: rgba(232, 185, 74, 0.32);
+/* Tailwind bridge: utilities resolve to the tokens above (bg-panel, text-text-2, border-line, bg-accent/10). */
+@theme inline {
+  --color-*: initial;
+  --color-black: #000;
+  --color-white: #fff;
+  --color-canvas: var(--bg-canvas);
+  --color-sidebar: var(--bg-sidebar);
+  --color-panel: var(--bg-panel);
+  --color-hover: var(--bg-hover);
+  --color-selected: var(--bg-selected);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-text-1: var(--text-1);
+  --color-text-2: var(--text-2);
+  --color-text-3: var(--text-3);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-subtle: var(--accent-subtle);
+  --color-accent-line: var(--accent-line);
+  --color-on-accent: var(--on-accent);
+  --color-success: var(--success);
+  --color-success-subtle: var(--success-subtle);
+  --color-warning: var(--warning);
+  --color-warning-subtle: var(--warning-subtle);
+  --color-danger: var(--danger);
+  --color-danger-subtle: var(--danger-subtle);
+  --color-danger-text: var(--danger-text);
 
-  /* === Type === */
-  --color-text-base: #f1e6cd;
-  --color-text-muted: #b3a079;
-  --color-text-faint: #897a5c;
+  --radius-control: var(--r-control);
+  --radius-panel: var(--r-panel);
+  --radius-dialog: var(--r-dialog);
 
-  /* === Brand: antique gold === */
-  --color-accent: #e8b94a;
-  --color-accent-bright: #ffd47a;
-  --color-accent-deep: #b88a2e;
-  --color-accent-glow: rgba(232, 185, 74, 0.45);
+  --font-*: initial;
+  --font-sans: var(--font-ui);
 
-  /* === Type families === */
-  --font-display: 'Newsreader', 'Georgia', 'Songti SC', 'STSong', serif;
-  --font-sans:
-    'IBM Plex Sans', 'PingFang SC', 'Microsoft YaHei', ui-sans-serif, system-ui, sans-serif;
-  --font-mono: 'JetBrains Mono', 'SFMono-Regular', 'Menlo', 'Consolas', ui-monospace, monospace;
+  --animate-dialog-in: dialog-in var(--t-base) var(--ease) both;
+
+  @keyframes dialog-in {
+    from {
+      opacity: 0;
+      transform: scale(0.98);
+    }
+  }
 }

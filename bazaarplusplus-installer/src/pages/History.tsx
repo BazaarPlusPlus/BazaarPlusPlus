@@ -6,7 +6,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { Button } from '../components/ui/Button';
+import { Button, buttonClassName } from '../components/ui/Button';
 import { EmptyState } from '../components/ui/EmptyState';
 import { LoadingPanel } from '../components/ui/LoadingPanel';
 import { PageShell } from '../components/ui/PageShell';
@@ -24,7 +24,6 @@ import {
 import { useHistoryPage } from '../features/history/useHistoryPage';
 import type { EndGameProcessOutcome } from '../features/history/historyListWorkflow';
 import { isWindowsPlatform } from '../features/shared/platform';
-import { formatProblemDiagnostic } from '../features/shared/problems';
 import { useToast } from '../components/ui/Toast';
 import { useI18n } from '../i18n/LocaleProvider';
 import type { MessageKey } from '../i18n/messages';
@@ -38,15 +37,14 @@ export default function History() {
   return (
     <PageShell
       title={t('historyTitle')}
-      className="bpp-history-page"
       action={
         <Button
-          type="button"
+          variant="ghost"
+          size="sm"
           onClick={page.refresh}
-          disabled={page.busy}
           busy={page.busy}
+          icon={<RefreshCw />}
         >
-          <RefreshCw size={16} className={page.busy ? 'animate-spin' : ''} />
           {t('refresh')}
         </Button>
       }
@@ -61,7 +59,7 @@ export default function History() {
           endingGameProcess={page.endingGameProcess}
         />
       ) : (
-        <div className="flex min-h-0 w-full flex-1 flex-col gap-4">
+        <>
           <HistoryOverview
             summary={page.state.data.summary}
             onCompleted={page.refresh}
@@ -82,34 +80,36 @@ export default function History() {
               <HistoryPreviewProblemBanner problem={page.previewProblem} />
             )}
 
-          <div className="bpp-history-run-list flex flex-col gap-3">
+          <div className="bpp-history-run-list">
             {page.state.phase === 'ready-empty' ? (
-              <EmptyState
-                icon={<HistoryIcon size={24} />}
-                heading={t('noLocalRuns')}
-                description={t('historyEmptyDescription')}
-                primaryAction={
-                  <Button
-                    variant="primary"
-                    busy={page.busy}
-                    onClick={page.refresh}
-                  >
-                    <RefreshCw
-                      size={16}
-                      className={page.busy ? 'animate-spin' : undefined}
-                    />
-                    {t('historyEmptyRefresh')}
-                  </Button>
-                }
-                secondaryAction={
-                  <Link
-                    to="/"
-                    className="bpp-button bpp-ui-button bpp-ui-button-ghost bpp-link-button"
-                  >
-                    {t('historyEmptyInstall')}
-                  </Link>
-                }
-              />
+              <div className="bpp-panel">
+                <EmptyState
+                  icon={<HistoryIcon size={24} />}
+                  heading={t('noLocalRuns')}
+                  description={t('historyEmptyDescription')}
+                  primaryAction={
+                    <Button
+                      size="sm"
+                      busy={page.busy}
+                      onClick={page.refresh}
+                      icon={<RefreshCw />}
+                    >
+                      {t('historyEmptyRefresh')}
+                    </Button>
+                  }
+                  secondaryAction={
+                    <Link
+                      to="/"
+                      className={buttonClassName({
+                        variant: 'ghost',
+                        size: 'sm'
+                      })}
+                    >
+                      {t('historyEmptyInstall')}
+                    </Link>
+                  }
+                />
+              </div>
             ) : (
               page.state.data.runs.map((run: HistoryRunRow) => (
                 <RunRow
@@ -136,6 +136,7 @@ export default function History() {
               </span>
               <div className="flex items-center gap-3">
                 <Button
+                  size="sm"
                   disabled={pagination.previousDisabled}
                   onClick={() => page.goToPage(pagination.page - 1)}
                 >
@@ -148,6 +149,7 @@ export default function History() {
                   })}
                 </span>
                 <Button
+                  size="sm"
                   disabled={pagination.nextDisabled}
                   onClick={() => page.goToPage(pagination.page + 1)}
                 >
@@ -156,7 +158,7 @@ export default function History() {
               </div>
             </nav>
           )}
-        </div>
+        </>
       )}
     </PageShell>
   );
@@ -184,71 +186,61 @@ function RunRow({
     <Link
       to={detailPath}
       state={{ historyPage: pageNumber }}
-      className="bpp-history-run-card group"
+      className="bpp-history-run-card"
     >
       <RunPreview
         key={previewUrl ?? 'preview-unavailable'}
         previewUrl={previewUrl}
         fallbackLabel={fallbackLabel}
       />
-
-      <div className="bpp-history-run-data">
-        <div className="bpp-history-run-heading">
-          <div className="bpp-history-run-identity">
-            <span className="bpp-history-run-hero cinzel" title={run.hero}>
+      <span className="bpp-history-run-info">
+        <span className="bpp-history-run-identity">
+          <span className="bpp-history-run-title">
+            <span className="bpp-history-run-hero" title={run.hero}>
               {run.hero}
             </span>
-            <span className="bpp-history-run-meta">
-              <span className="bpp-history-run-date fira-code">
-                {formatDateTime(run.started_at_utc, locale)}
-              </span>
-              <span className="bpp-history-run-mode">
-                {formatGameMode(run.game_mode, t)}
-              </span>
+            <ChevronRight
+              size={16}
+              className="bpp-history-run-chevron"
+              aria-label={t('viewDetail')}
+            />
+          </span>
+          <span className="bpp-history-run-meta">
+            <span
+              className="bpp-outcome"
+              data-tier={result.tier}
+              data-state={result.state}
+            >
+              {t(result.key)}
             </span>
-          </div>
-
-          <span
-            className="bpp-history-run-result bpp-run-outcome"
-            data-tier={result.tier}
-            data-state={result.state}
-          >
-            {t(result.key)}
+            <span className="bpp-history-run-when">
+              {formatDateTime(run.started_at_utc, locale)} ·{' '}
+              {formatGameMode(run.game_mode, t)}
+            </span>
           </span>
-
-          <span className="bpp-history-run-detail">
-            <span>{t('viewDetail')}</span>
-            <ChevronRight size={14} />
-          </span>
-        </div>
-
-        <div className="bpp-history-run-metrics">
+        </span>
+        <span className="bpp-history-run-metrics">
           <Metric
             label={t('runMetricWins')}
             value={run.victories === null ? '-' : String(run.victories)}
-            fira
           />
           <Metric
             label={t('runMetricDays')}
             value={run.final_day === null ? '-' : String(run.final_day)}
-            fira
           />
+          {/* The game shows a rank and its rating together (Legendary 815),
+              so the rank names the rating figure. */}
           <Metric
-            label={t('runStatRank')}
-            value={run.final_player_rank ?? '-'}
-            gold
-          />
-          <Metric
-            label={t('runStatRating')}
+            label={run.final_player_rank ?? t('runStatRating')}
             value={
               run.final_player_rating === null
                 ? '-'
                 : String(run.final_player_rating)
             }
-            fira
+            title={`${t('runStatRank')} ${run.final_player_rank ?? '-'} · ${t('runStatRating')} ${run.final_player_rating ?? '-'}`}
           />
-        </div>
-      </div>
+        </span>
+      </span>
     </Link>
   );
 }
@@ -264,11 +256,7 @@ function RunPreview({
   const visibleUrl = previewUrl && previewUrl !== failedUrl ? previewUrl : null;
 
   return (
-    <div
-      className="bpp-history-run-preview"
-      title={visibleUrl ? undefined : fallbackLabel}
-      aria-label={visibleUrl ? undefined : fallbackLabel}
-    >
+    <div className="bpp-history-run-preview">
       {visibleUrl ? (
         // Preserve the complete server-generated strip. Its rounded crop
         // dimensions can vary by a few pixels between source resolutions.
@@ -281,10 +269,10 @@ function RunPreview({
           className="bpp-history-run-preview-image"
         />
       ) : (
-        <>
-          <span className="bpp-history-run-preview-empty" />
-          <ImageIcon size={19} aria-hidden="true" />
-        </>
+        <span className="bpp-history-run-preview-empty">
+          <ImageIcon size={18} aria-hidden="true" />
+          <span>{fallbackLabel}</span>
+        </span>
       )}
     </div>
   );
@@ -303,9 +291,6 @@ function HistoryProblemBanner({
 }) {
   const { t } = useI18n();
   const { showToast } = useToast();
-  const diagnostic = problem.diagnostic
-    ? formatProblemDiagnostic(problem)
-    : null;
 
   const endGameProcess = async () => {
     const outcome = await onEndGameProcess();
@@ -318,32 +303,25 @@ function HistoryProblemBanner({
   return (
     <ProblemBanner
       message={presentHistoryProblem(problem, t)}
-      diagnostic={diagnostic}
-      diagnosticLabel={t('problemDiagnostics')}
+      problem={problem}
+      onRetry={onRetry}
       actions={
         <>
           {problem.code === 'history_unavailable' && (
-            <Link to="/" className="underline underline-offset-2">
+            <Link to="/" className={buttonClassName({ size: 'sm' })}>
               {t('historyOpenInstall')}
             </Link>
           )}
           {problem.code === 'history_read_blocked_by_game' && (
-            <button
-              type="button"
+            <Button
+              size="sm"
+              variant="danger"
               onClick={() => void endGameProcess()}
-              disabled={endingGameProcess}
-              className="underline underline-offset-2 disabled:opacity-60"
+              busy={endingGameProcess}
             >
               {t('historyEndGameProcess')}
-            </button>
+            </Button>
           )}
-          <button
-            type="button"
-            onClick={onRetry}
-            className="underline underline-offset-2"
-          >
-            {t('retry')}
-          </button>
         </>
       }
     />
@@ -374,10 +352,9 @@ function HistoryPreviewProblemBanner({
     <ProblemBanner
       tone="warning"
       message={presentHistoryProblem(problem, t)}
-      diagnostic={problem.diagnostic ? formatProblemDiagnostic(problem) : null}
-      diagnosticLabel={t('problemDiagnostics')}
+      problem={problem}
       actions={
-        <Link to="/stream" className="underline underline-offset-2">
+        <Link to="/stream" className={buttonClassName({ size: 'sm' })}>
           {t('historyOpenStream')}
         </Link>
       }
@@ -388,23 +365,19 @@ function HistoryPreviewProblemBanner({
 function Metric({
   label,
   value,
-  gold = false,
-  fira = false
+  title
 }: {
   label: string;
   value: string;
-  gold?: boolean;
-  fira?: boolean;
+  title?: string;
 }) {
   return (
-    <div className="bpp-history-run-metric">
-      <span className="bpp-history-run-metric-label cinzel">{label}</span>
-      <span
-        title={value}
-        className={`bpp-history-run-metric-value ${fira ? 'fira-code' : 'cinzel'} ${gold ? 'is-gold' : ''}`}
-      >
-        {value}
-      </span>
-    </div>
+    <span
+      className="bpp-history-run-metric"
+      title={title ?? `${label} ${value}`}
+    >
+      <span className="bpp-history-run-metric-value">{value}</span>
+      <span className="bpp-history-run-metric-label">{label}</span>
+    </span>
   );
 }

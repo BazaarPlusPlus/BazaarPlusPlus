@@ -1,22 +1,25 @@
+import clsx from 'clsx';
 import type { ReactNode } from 'react';
 import { PageHeader } from './PageHeader';
 
 export function PageShell({
-  eyebrow,
   title,
+  leading,
+  meta,
   action,
   className,
   children
 }: {
-  eyebrow?: string;
   title: string;
+  leading?: ReactNode;
+  meta?: ReactNode;
   action?: ReactNode;
   className?: string;
   children: ReactNode;
 }) {
   return (
-    <div className={`bpp-page ${className ?? ''}`}>
-      <PageHeader eyebrow={eyebrow} title={title} action={action} />
+    <div className={clsx('bpp-page', className)}>
+      <PageHeader title={title} leading={leading} meta={meta} action={action} />
       {children}
     </div>
   );

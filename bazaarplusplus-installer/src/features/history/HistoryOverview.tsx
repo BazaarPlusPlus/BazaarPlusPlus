@@ -1,13 +1,16 @@
-import { ChevronDown, HardDrive } from 'lucide-react';
+import { ChevronDown, CloudUpload, HardDrive } from 'lucide-react';
 import { useState } from 'react';
-import { Button } from '../../components/ui/Button';
-import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
+import { Button, buttonClassName } from '../../components/ui/Button';
+import {
+  ConfirmDialog,
+  ConfirmNote,
+  ConfirmTarget
+} from '../../components/ui/ConfirmDialog';
 import { ModalSource } from '../../components/ui/ModalCoordinator';
 import { ProblemBanner } from '../../components/ui/ProblemBanner';
 import { useI18n } from '../../i18n/LocaleProvider';
 import type { HistorySummary, StorageCleanupPreset } from '../../types/backend';
 import { formatBytes } from './format';
-import { formatProblemDiagnostic } from '../shared/problems';
 import {
   presentStorageCleanupProblem,
   type StorageCleanupProblem
@@ -91,7 +94,7 @@ export function HistoryOverview({
   return (
     <>
       <section
-        className={`bpp-history-overview ${expanded ? 'is-open' : ''}`}
+        className={`bpp-panel bpp-history-overview ${expanded ? 'is-open' : ''}`}
         aria-label={t('historyOverviewLabel')}
       >
         <div className="bpp-history-overview-bar">
@@ -121,15 +124,14 @@ export function HistoryOverview({
           </dl>
           <button
             type="button"
-            className="bpp-history-cleanup-toggle"
+            className={buttonClassName({ variant: 'ghost', size: 'sm' })}
             aria-expanded={expanded}
             aria-controls="history-storage-cleanup-content"
             onClick={() => setExpanded((open) => !open)}
           >
-            <HardDrive size={15} aria-hidden="true" />
+            <HardDrive aria-hidden="true" />
             <span>{t('storageCleanupTitle')}</span>
             <ChevronDown
-              size={14}
               className="bpp-history-cleanup-chevron"
               aria-hidden="true"
             />
@@ -205,7 +207,7 @@ export function HistoryOverview({
             onConfirm={cleanup.confirm}
             onClose={cleanup.cancel}
           >
-            <p className="m-0 text-[12px] leading-relaxed text-[rgba(232,200,122,0.86)] fira-code selectable">
+            <ConfirmTarget>
               {t('storageCleanupTarget', {
                 scope:
                   cleanup.pending.scope === 'screenshots'
@@ -217,16 +219,16 @@ export function HistoryOverview({
                   )?.labelKey ?? 'storageCleanupPresetAll'
                 )
               })}
-            </p>
-            <p className="m-0 text-[13px] leading-relaxed text-[rgba(245,220,220,0.86)]">
-              {pendingBody(cleanup.pending)}
-            </p>
+            </ConfirmTarget>
+            <p className="text-fg-1">{pendingBody(cleanup.pending)}</p>
             {cleanup.pending.preview.skipped_pending_uploads > 0 && (
-              <p className="m-0 text-[12px] leading-relaxed text-[rgba(200,170,120,0.8)]">
-                {t('storageCleanupSkippedPending', {
-                  count: cleanup.pending.preview.skipped_pending_uploads
-                })}
-              </p>
+              <ConfirmNote tone="warning" icon={<CloudUpload size={15} />}>
+                <p>
+                  {t('storageCleanupSkippedPending', {
+                    count: cleanup.pending.preview.skipped_pending_uploads
+                  })}
+                </p>
+              </ConfirmNote>
             )}
             {cleanup.problem && (
               <StorageCleanupProblemBanner problem={cleanup.problem} />
@@ -269,8 +271,7 @@ function StorageCleanupProblemBanner({
   return (
     <ProblemBanner
       message={presentStorageCleanupProblem(problem, t)}
-      diagnostic={problem.diagnostic ? formatProblemDiagnostic(problem) : null}
-      diagnosticLabel={t('problemDiagnostics')}
+      problem={problem}
     />
   );
 }
@@ -297,16 +298,15 @@ function CleanupRow({
     useState<StorageCleanupPreset>('before_this_month');
 
   return (
-    <div className="bpp-history-cleanup-row">
-      <div className="bpp-history-cleanup-row-copy">
-        <span className="bpp-history-cleanup-row-label">{label}</span>
-        <span className="bpp-history-cleanup-row-description">
-          {description}
-        </span>
+    <div className="bpp-row">
+      <div className="bpp-row-copy">
+        <span className="bpp-row-title">{label}</span>
+        <span className="bpp-row-description">{description}</span>
       </div>
-      <div className="bpp-history-cleanup-actions">
-        <div className="bpp-history-cleanup-range">
+      <div className="flex flex-none items-center gap-2">
+        <div className="bpp-select-wrap">
           <select
+            className="bpp-select"
             aria-label={t('storageCleanupRangeLabel', { scope: label })}
             value={preset}
             disabled={busy}
@@ -323,11 +323,8 @@ function CleanupRow({
           <ChevronDown size={14} aria-hidden="true" />
         </div>
         <Button
-          type="button"
-          size="small"
           disabled={busy}
           onClick={() => void onSelect(scope, preset)}
-          className="bpp-history-cleanup-action"
           aria-label={t('storageCleanupPreviewLabel', { scope: label })}
         >
           {t('storageCleanupPreviewAction')}

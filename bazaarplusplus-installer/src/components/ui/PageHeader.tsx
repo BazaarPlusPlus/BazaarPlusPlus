@@ -1,34 +1,26 @@
 import type { ReactNode } from 'react';
 
 export function PageHeader({
-  eyebrow,
   title,
+  leading,
+  meta,
   action
 }: {
-  /** Only when it adds a dimension the title lacks (e.g. a category). */
-  eyebrow?: string;
   title: string;
+  /** Rendered before the title, e.g. a back button. */
+  leading?: ReactNode;
+  /** Short secondary facts beside the title. */
+  meta?: ReactNode;
   action?: ReactNode;
 }) {
   return (
     <div className="bpp-page-header">
-      {eyebrow && <p className="bpp-page-eyebrow">{eyebrow}</p>}
-      {action ? (
-        <div className="flex items-center justify-between">
-          <Title>{title}</Title>
-          {action}
-        </div>
-      ) : (
-        <Title>{title}</Title>
-      )}
+      {leading}
+      <h2 data-page-heading tabIndex={-1} className="bpp-page-title">
+        {title}
+      </h2>
+      {meta && <span className="bpp-page-meta">{meta}</span>}
+      {action && <div className="bpp-page-actions">{action}</div>}
     </div>
-  );
-}
-
-function Title({ children }: { children: ReactNode }) {
-  return (
-    <h2 data-page-heading tabIndex={-1} className="bpp-page-title">
-      {children}
-    </h2>
   );
 }

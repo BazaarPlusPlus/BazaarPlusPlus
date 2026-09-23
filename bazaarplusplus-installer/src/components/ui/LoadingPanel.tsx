@@ -12,10 +12,10 @@ export function LoadingPanel({
       role="status"
       aria-live="polite"
       aria-busy="true"
-      className={`bpp-loading-panel flex items-center justify-center ${className} gap-2`}
+      className={`bpp-loading-panel ${className}`}
     >
-      <Loader2 size={18} className="animate-spin" aria-hidden="true" />
-      <span className="text-sm">{label}</span>
+      <Loader2 size={16} className="bpp-spin" aria-hidden="true" />
+      <span>{label}</span>
     </div>
   );
 }

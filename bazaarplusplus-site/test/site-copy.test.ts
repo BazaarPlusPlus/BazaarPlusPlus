@@ -91,8 +91,6 @@ describe('site copy', () => {
     );
 
     expect(enCopy.common.scope.segmentLabels.non_legend).toBe('Non-Legend');
-    expect(zhCopy.stats.heroes.eyebrow).toBe('BazaarPlusPlus');
-    expect(enCopy.stats.heroes.eyebrow).toBe('Bazaar Almanac');
     expect(zhCopy.stats.heroes.title).toBe('英雄统计');
     expect(enCopy.stats.heroes.title).toBe('Hero stats');
     expect(zhCopy.stats.heroes.trend.winrateTrend).toBe('胜率走势与对位');

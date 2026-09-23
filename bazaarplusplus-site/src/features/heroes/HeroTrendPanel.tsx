@@ -7,7 +7,7 @@ import {
 import type { Locale } from '../../app/router';
 import { getSiteCopy } from '../../content/site-copy';
 import { formatNullablePercent, formatPercent, formatShortDate } from '../../shared/lib/dashboard';
-import { getHeroShortLabel } from '../../shared/lib/heroes';
+import HeroBadge from '../../shared/components/HeroBadge';
 import type { HeroAnalysis } from './hero-analysis';
 
 type HeroTrendPanelProps = {
@@ -130,12 +130,15 @@ export default function HeroTrendPanel({
   });
 
   return (
-    <section data-testid="trend-panel" className="grid min-w-0 gap-3">
+    <section
+      data-testid="trend-panel"
+      className="panel grid min-w-0 content-start gap-3 p-3 sm:p-4"
+    >
       <div
         data-testid="daily-winrate-chart"
-        className="relative h-full min-h-[220px] min-w-0 overflow-hidden rounded-2xl border border-[color:var(--color-border-soft)] bg-[linear-gradient(180deg,rgba(232,185,74,0.04),rgba(8,6,4,0.95))] sm:min-h-[280px] xl:min-h-[320px]"
+        className="relative min-h-[220px] min-w-0 overflow-hidden sm:min-h-[280px] xl:min-h-[320px]"
       >
-        <div className="h-full w-full overflow-x-auto overflow-y-hidden p-2 sm:p-3">
+        <div className="h-full w-full overflow-x-auto overflow-y-hidden">
           {series.length > 0 ? (
             <svg
               viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`}
@@ -143,15 +146,6 @@ export default function HeroTrendPanel({
               role="img"
               aria-label={heroCopy.trend.chartAriaLabel}
             >
-              <defs>
-                {focusedSeries ? (
-                  <linearGradient id="focused-area" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor={focusedSeries.color} stopOpacity="0.35" />
-                    <stop offset="100%" stopColor={focusedSeries.color} stopOpacity="0" />
-                  </linearGradient>
-                ) : null}
-              </defs>
-
               {yAxisTicks.map((tick) => {
                 const y = getChartY(tick, yMin, yMax);
                 return (
@@ -161,16 +155,13 @@ export default function HeroTrendPanel({
                       y1={y}
                       x2={CHART_WIDTH - CHART_PADDING.right}
                       y2={y}
-                      stroke="rgba(148, 131, 95, 0.14)"
+                      className="stroke-line"
                       strokeWidth="1"
-                      strokeDasharray="2 4"
                     />
                     <text
                       x={CHART_PADDING.left - 12}
                       y={y + 4}
-                      fill="rgba(179, 160, 121, 0.95)"
-                      fontSize="11"
-                      fontFamily="JetBrains Mono, monospace"
+                      className="fill-text-3 font-sans text-[11px] tabular-nums"
                       textAnchor="end"
                     >
                       {formatPercent(tick)}
@@ -189,16 +180,16 @@ export default function HeroTrendPanel({
                       y1={CHART_PADDING.top}
                       x2={x}
                       y2={CHART_HEIGHT - CHART_PADDING.bottom}
-                      stroke="rgba(148, 131, 95, 0.06)"
+                      className="stroke-line"
+                      strokeOpacity="0.5"
                       strokeWidth="1"
                     />
                     <text
                       x={x}
                       y={CHART_HEIGHT - 14}
-                      fill={isLast ? 'rgba(255,212,122,0.95)' : 'rgba(179,160,121,0.95)'}
-                      fontSize="11"
-                      fontFamily="JetBrains Mono, monospace"
-                      fontWeight={isLast ? '600' : '400'}
+                      className={`font-sans text-[11px] tabular-nums ${
+                        isLast ? 'fill-text-1 font-semibold' : 'fill-text-3'
+                      }`}
                       textAnchor="middle"
                     >
                       {formatShortDate(day, locale)}
@@ -223,7 +214,8 @@ export default function HeroTrendPanel({
                         key={`area-${segmentIndex}`}
                         data-testid="focused-trend-area"
                         d={path}
-                        fill="url(#focused-area)"
+                        fill={focusedSeries.color}
+                        fillOpacity="0.08"
                       />
                     );
                   })
@@ -248,7 +240,7 @@ export default function HeroTrendPanel({
                     data-testid="daily-winrate-line"
                     data-hero={heroSeries.hero}
                     data-selected={isFocused ? 'true' : 'false'}
-                    className="transition-opacity duration-200"
+                    className="transition-opacity duration-(--t-fast)"
                   >
                     {segments.map((segmentPoints, segmentIndex) => (
                       <polyline
@@ -260,11 +252,6 @@ export default function HeroTrendPanel({
                         strokeLinejoin="round"
                         strokeLinecap="round"
                         points={segmentPoints.map((point) => `${point.x},${point.y}`).join(' ')}
-                        style={
-                          isFocused
-                            ? { filter: `drop-shadow(0 0 6px ${heroSeries.color}88)` }
-                            : undefined
-                        }
                       />
                     ))}
                     {segments.map((segmentPoints, segmentIndex) => (
@@ -296,7 +283,7 @@ export default function HeroTrendPanel({
                         r={isFocused ? '4.5' : '3'}
                         fill={heroSeries.color}
                         fillOpacity={isFocused ? '1' : '0.4'}
-                        stroke="rgba(12,10,7,0.95)"
+                        className="stroke-panel"
                         strokeWidth="2"
                         onMouseEnter={() => showPoint(point)}
                         onMouseLeave={clearPoint}
@@ -340,10 +327,8 @@ export default function HeroTrendPanel({
                     y={tooltipY}
                     width={POINT_TOOLTIP_WIDTH}
                     height={POINT_TOOLTIP_HEIGHT}
-                    rx="10"
-                    fill="rgba(15,12,8,0.97)"
-                    stroke={hoveredPoint.color}
-                    strokeOpacity="0.55"
+                    rx="6"
+                    className="fill-selected stroke-line-strong"
                     strokeWidth="1"
                   />
                   <rect
@@ -357,30 +342,21 @@ export default function HeroTrendPanel({
                   <text
                     x={tooltipX + 22}
                     y={tooltipY + 22}
-                    fill="rgba(241,230,205,0.96)"
-                    fontSize="12"
-                    fontWeight="600"
-                    fontFamily="IBM Plex Sans, sans-serif"
+                    className="fill-text-1 font-sans text-xs font-semibold"
                   >
                     {hoveredPoint.hero}
                   </text>
                   <text
                     x={tooltipX + 22}
                     y={tooltipY + 38}
-                    fill="rgba(148,131,95,0.95)"
-                    fontSize="10"
-                    fontFamily="JetBrains Mono, monospace"
-                    letterSpacing="0.06em"
+                    className="fill-text-3 font-sans text-[11px] tabular-nums"
                   >
                     {formatShortDate(hoveredPoint.day, locale)}
                   </text>
                   <text
                     x={tooltipX + POINT_TOOLTIP_WIDTH - 14}
                     y={tooltipY + 35}
-                    fill="rgba(255,212,122,1)"
-                    fontSize="18"
-                    fontWeight="700"
-                    fontFamily="JetBrains Mono, monospace"
+                    className="fill-accent font-sans text-lg font-semibold tabular-nums"
                     textAnchor="end"
                   >
                     {formatPercent(hoveredPoint.winRate)}
@@ -389,7 +365,7 @@ export default function HeroTrendPanel({
               ) : null}
             </svg>
           ) : (
-            <div className="flex h-full min-h-[220px] items-center justify-center text-sm text-[color:var(--color-text-muted)]">
+            <div className="flex h-full min-h-[220px] items-center justify-center text-sm text-text-2">
               {heroCopy.snapshot.noData}
             </div>
           )}
@@ -397,12 +373,10 @@ export default function HeroTrendPanel({
       </div>
 
       {focusedSeries != null && focusedSeries.nullPointCount > 0 ? (
-        <p className="text-[0.72rem] leading-5 text-[color:var(--color-text-faint)]">
-          {heroCopy.coverage.noTrendValue}
-        </p>
+        <p className="text-xs text-text-3">{heroCopy.coverage.noTrendValue}</p>
       ) : null}
 
-      <div className="grid min-w-0 grid-cols-2 gap-1.5 sm:grid-cols-4 2xl:grid-cols-7">
+      <div className="flex min-w-0 flex-wrap gap-1.5">
         {series.map((heroSeries) => {
           const isFocused = heroSeries.hero === focusedSeries?.hero;
           return (
@@ -413,38 +387,12 @@ export default function HeroTrendPanel({
               onMouseEnter={() => onFocusHero(heroSeries.hero)}
               onFocus={() => onFocusHero(heroSeries.hero)}
               onClick={() => onFocusHero(heroSeries.hero)}
-              className={`group inline-flex min-w-0 items-center justify-between gap-2 rounded-lg border px-2.5 py-2 text-left transition ${
-                isFocused
-                  ? 'border-[color:var(--color-accent)] bg-[color:rgba(232,185,74,0.1)]'
-                  : 'border-[color:var(--color-border-soft)] bg-[color:rgba(15,12,8,0.6)] hover:border-[color:var(--color-accent-deep)]'
-              }`}
+              className="cursor-pointer rounded-full"
               aria-label={`${heroSeries.hero} ${formatNullablePercent(heroSeries.latestWinRate)}`}
-              title={heroSeries.hero}
             >
-              <span className="flex min-w-0 items-center gap-2">
-                <span
-                  className="h-4 w-1 shrink-0 rounded-sm"
-                  style={{
-                    backgroundColor: heroSeries.color,
-                    boxShadow: isFocused
-                      ? `0 0 10px ${heroSeries.color}aa`
-                      : `0 0 6px ${heroSeries.color}55`,
-                  }}
-                  aria-hidden="true"
-                />
-                <span className="font-mono text-[0.7rem] font-semibold uppercase tracking-[0.16em] text-[color:var(--color-text-base)]">
-                  {getHeroShortLabel(heroSeries.hero)}
-                </span>
-              </span>
-              <span
-                className={`tnum text-[0.74rem] font-semibold ${
-                  isFocused
-                    ? 'text-[color:var(--color-accent-bright)]'
-                    : 'text-[color:var(--color-text-muted)]'
-                }`}
-              >
+              <HeroBadge hero={heroSeries.hero} selected={isFocused}>
                 {formatNullablePercent(heroSeries.latestWinRate)}
-              </span>
+              </HeroBadge>
             </button>
           );
         })}

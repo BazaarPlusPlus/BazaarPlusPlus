@@ -105,8 +105,7 @@ function GlobalShellContent() {
   }, [showBilibili, showSupport]);
 
   return (
-    <div className="bpp-app flex flex-col">
-      <div className="bpp-app-vignette" aria-hidden="true" />
+    <div className="bpp-app">
       <ShellHeader
         app={app}
         bilibiliTriggerRef={bilibiliTriggerRef}
@@ -115,25 +114,27 @@ function GlobalShellContent() {
           setShowBilibili((open) => !open);
           setShowSupport(false);
         }}
-        showSupport={showSupport}
-        supportTriggerRef={supportTriggerRef}
-        onToggleSupport={() => {
-          setShowSupport((open) => !open);
-          setShowBilibili(false);
-        }}
-        onOpenPayment={() => {
-          setShowSupport(false);
-          setShowPaymentModal(true);
-        }}
         onCloseBilibili={() => setShowBilibili(false)}
-        onCloseSupport={() => setShowSupport(false)}
       />
 
       <div className="bpp-shell-body">
-        <ShellNavRail />
-        <main ref={mainRef} tabIndex={-1} className="bpp-main custom-scrollbar">
+        <ShellNavRail
+          bootstrap={app.bootstrap}
+          supportTriggerRef={supportTriggerRef}
+          showSupport={showSupport}
+          onToggleSupport={() => {
+            setShowSupport((open) => !open);
+            setShowBilibili(false);
+          }}
+          onOpenPayment={() => {
+            setShowSupport(false);
+            setShowPaymentModal(true);
+          }}
+          onCloseSupport={() => setShowSupport(false)}
+        />
+        <main ref={mainRef} tabIndex={-1} className="bpp-main">
           <div className="bpp-main-inner">
-            <AnimatedOutlet />
+            <RouteOutlet />
           </div>
         </main>
       </div>
@@ -161,34 +162,12 @@ function GlobalShellContent() {
   );
 }
 
-function primaryPageIndex(pathname: string): number {
-  if (pathname.startsWith('/history')) return 1;
-  if (pathname.startsWith('/stream')) return 2;
-  if (pathname.startsWith('/about')) return 3;
-  return 0;
-}
-
-function AnimatedOutlet() {
+/** Route changes are immediate; the keyed wrapper only replays a short,
+ *  non-blocking fade so the new page settles in. */
+function RouteOutlet() {
   const location = useLocation();
-  const currentIndex = primaryPageIndex(location.pathname);
-  const previousIndex = useRef(currentIndex);
-  const direction =
-    currentIndex > previousIndex.current
-      ? 'forward'
-      : currentIndex < previousIndex.current
-        ? 'backward'
-        : 'neutral';
-
-  useEffect(() => {
-    previousIndex.current = currentIndex;
-  }, [currentIndex]);
-
   return (
-    <div
-      key={location.key}
-      className={`bpp-route-page is-${direction}`}
-      data-route-index={currentIndex}
-    >
+    <div key={location.key} className="bpp-route-page">
       <Outlet />
     </div>
   );

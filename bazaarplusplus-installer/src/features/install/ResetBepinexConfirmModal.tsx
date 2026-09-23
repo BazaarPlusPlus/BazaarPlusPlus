@@ -1,5 +1,9 @@
 import { FolderX, ShieldCheck } from 'lucide-react';
-import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
+import {
+  ConfirmDialog,
+  ConfirmNote,
+  ConfirmTarget
+} from '../../components/ui/ConfirmDialog';
 import { useI18n } from '../../i18n/LocaleProvider';
 import { InstallProblemBanner } from './InstallProblemBanner';
 import type { InstallProblem } from './installProblems';
@@ -41,27 +45,17 @@ export function ResetBepinexConfirmModal({
       onConfirm={onConfirm}
       onClose={onClose}
     >
-      <p className="bpp-confirm-target m-0 text-[12px] leading-relaxed fira-code selectable break-all">
+      <ConfirmTarget>
         {t('resetBepinexTarget', { path: targetPath })}
-      </p>
-      <div className="bpp-confirm-note is-danger flex items-start gap-3 p-4">
-        <FolderX size={16} className="bpp-confirm-note-icon mt-0.5 shrink-0" />
-        <div className="flex flex-col gap-2 text-[13px] leading-relaxed">
-          <p className="m-0">{t('resetBepinexConfirmBody')}</p>
-          <p className="m-0">{t('resetBepinexConfirmOtherMods')}</p>
-        </div>
-      </div>
-
-      <div className="bpp-confirm-note is-warning flex items-start gap-3 p-4">
-        <ShieldCheck
-          size={16}
-          className="bpp-confirm-note-icon mt-0.5 shrink-0"
-        />
-        <div className="flex flex-col gap-2 text-[13px] leading-relaxed">
-          <p className="m-0">{t('resetBepinexConfirmReinstall')}</p>
-          <p className="m-0">{t('resetBepinexConfirmGameClosed')}</p>
-        </div>
-      </div>
+      </ConfirmTarget>
+      <ConfirmNote tone="danger" icon={<FolderX size={15} />}>
+        <p>{t('resetBepinexConfirmBody')}</p>
+        <p>{t('resetBepinexConfirmOtherMods')}</p>
+      </ConfirmNote>
+      <ConfirmNote tone="neutral" icon={<ShieldCheck size={15} />}>
+        <p>{t('resetBepinexConfirmReinstall')}</p>
+        <p>{t('resetBepinexConfirmGameClosed')}</p>
+      </ConfirmNote>
       {problem && <InstallProblemBanner problem={problem} />}
     </ConfirmDialog>
   );

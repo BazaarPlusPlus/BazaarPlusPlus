@@ -44,40 +44,34 @@ describe('ConfirmDialog', () => {
     expect(fi).toBeGreaterThan(ci);
   });
 
-  it('maps danger and gold tones to distinct dialog semantics', () => {
+  it('maps danger and primary tones to distinct confirm actions', () => {
     const d = render();
-    expect(d).toContain('bpp-confirm-submit is-danger');
-    expect(d).toContain('bpp-confirm-tone-icon is-danger');
-    expect(d).toContain('p-6 flex flex-col gap-5');
-    expect(d).not.toContain('bpp-confirm-submit is-gold');
-    const g = render({ tone: 'gold' });
-    expect(g).toContain('bpp-confirm-submit is-gold');
-    expect(g).toContain('bpp-confirm-tone-icon is-gold');
-    expect(g).toContain('p-6 flex flex-col gap-6');
+    expect(d).toContain('data-tone="danger"');
+    expect(d).not.toContain('data-tone="primary"');
+    const p = render({ tone: 'primary' });
+    expect(p).toContain('data-tone="primary"');
   });
 
   it('busy WITHOUT busyLabel: spinner + same label; confirm disabled', () => {
     const idle = render();
-    expect(idle).toContain('animate-spin');
-    expect(idle).toContain('bpp-busy-label-active" aria-hidden="true"');
+    expect(idle).not.toContain('bpp-spin');
     expect(idle).not.toContain('disabled=""');
     const busy = render({ busy: true });
-    expect(busy).toContain('animate-spin');
+    expect(busy).toContain('bpp-spin');
     expect(busy).toContain('Confirm It');
     expect(busy).toContain('disabled=""');
     expect(busy).toContain('aria-busy="true"');
   });
 
-  it('busy WITH busyLabel (Install affordance): text swap, NO spinner', () => {
+  it('busy WITH busyLabel: spinner and the busy label is the visible one', () => {
     const busy = render({
-      tone: 'gold',
+      tone: 'primary',
       busyLabel: 'Working…',
       busy: true
     });
     expect(busy).toContain('Working…');
-    expect(busy).toContain('bpp-busy-label-idle" aria-hidden="true"');
-    expect(busy).toContain('Confirm It');
-    expect(busy).not.toContain('animate-spin');
+    expect(busy).toContain('bpp-spin');
+    expect(busy).toContain('aria-busy="true"');
     expect(busy).toContain('disabled=""');
   });
 
