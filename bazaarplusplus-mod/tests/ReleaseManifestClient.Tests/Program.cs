@@ -5,6 +5,8 @@ using BazaarPlusPlus.Infrastructure.ReleaseManifest;
 using BazaarPlusPlus.TestSupport;
 
 await TestSharedReleaseManifest();
+await TestSharedPlatformReleaseManifests();
+TestEndpointFollowsThePlatform();
 await TestSuccessfulManifestIsTrimmed();
 await TestHttpStatusIsClosedFailure();
 await TestMissingAndMalformedManifestsAreClosedFailures();
@@ -26,6 +28,65 @@ static async Task TestSharedReleaseManifest()
         fixture.RootElement.GetProperty("version").GetString(),
         result.Version,
         "The mod should read the product version from the writer's complete manifest."
+    );
+}
+
+static async Task TestSharedPlatformReleaseManifests()
+{
+    foreach (
+        var (platformKey, expectedVersion) in new[]
+        {
+            (ReleaseManifestEndpoints.WindowsPlatformKey, "3.1.2"),
+            (ReleaseManifestEndpoints.MacPlatformKey, "3.1.1"),
+        }
+    )
+    {
+        var body = TestInputs.Scratch(
+            Path.Combine(AppContext.BaseDirectory, "fixtures", "latest", $"{platformKey}.json")
+        );
+        using var fixture = JsonDocument.Parse(body);
+        var result = await Fetch(_ => Response(HttpStatusCode.OK, body));
+
+        True(
+            result.Succeeded,
+            $"The shared {platformKey} Platform Release Manifest should succeed."
+        );
+        Equal(
+            expectedVersion,
+            fixture.RootElement.GetProperty("version").GetString(),
+            $"The shared {platformKey} fixture should carry its own platform version."
+        );
+        Equal(
+            expectedVersion,
+            result.Version,
+            $"The mod should read the {platformKey} version from that platform's manifest."
+        );
+    }
+}
+
+static void TestEndpointFollowsThePlatform()
+{
+    Equal(
+        "https://bppinstaller.bazaarplusplus.com/latest/windows-x86_64.json",
+        ReleaseManifestEndpoints
+            .ForPlatformKey(ReleaseManifestEndpoints.WindowsPlatformKey)
+            .ToString(),
+        "Windows should read its own Platform Release Manifest."
+    );
+    Equal(
+        "https://bppinstaller.bazaarplusplus.com/latest/darwin-aarch64.json",
+        ReleaseManifestEndpoints.ForPlatformKey(ReleaseManifestEndpoints.MacPlatformKey).ToString(),
+        "macOS should read its own Platform Release Manifest."
+    );
+    Equal(
+        "https://bppinstaller.bazaarplusplus.com/latest.json",
+        ReleaseManifestEndpoints.ForPlatformKey(null).ToString(),
+        "An unknown platform should fall back to the lockstep Release Manifest."
+    );
+    Equal(
+        "https://bppinstaller.bazaarplusplus.com/latest.json",
+        ReleaseManifestEndpoints.ForPlatformKey("linux-x86_64").ToString(),
+        "An undeclared platform key should fall back to the lockstep Release Manifest."
     );
 }
 

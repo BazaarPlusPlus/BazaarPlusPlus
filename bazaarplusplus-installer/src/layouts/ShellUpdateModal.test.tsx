@@ -36,6 +36,7 @@ describe('ShellUpdateModal', () => {
       phase: 'available',
       version: '5.1.0',
       notes: '',
+      mainlandDownloadUrl: 'https://cauyxy.lanzout.com/bppmac510',
       progress: null,
       problem: null
     });
@@ -49,12 +50,65 @@ describe('ShellUpdateModal', () => {
     expect(html).toContain('tabindex="-1"');
   });
 
+  it('renders no mirror block when the manifest published none', () => {
+    const html = renderModal({
+      phase: 'available',
+      version: '5.1.0',
+      notes: '',
+      mainlandDownloadUrl: null,
+      progress: null,
+      problem: null
+    });
+
+    expect(html).toContain('BazaarPlusPlus 5.1.0 已可用。');
+    expect(html).not.toContain('中国大陆下载');
+    expect(html).not.toContain('lanzout.com');
+  });
+
+  it('keeps the mainland mirror reachable while the automatic download runs', () => {
+    const html = renderModal({
+      phase: 'downloading',
+      version: '5.1.0',
+      notes: '',
+      mainlandDownloadUrl: 'https://cauyxy.lanzout.com/bppmac510',
+      progress: { downloaded: 1024, total: null },
+      problem: null
+    });
+
+    expect(html).toContain('role="progressbar"');
+    expect(html).toContain('自动更新较慢时，可通过大陆渠道手动下载。');
+    expect(html).toContain('https://cauyxy.lanzout.com/bppmac510');
+  });
+
+  it('offers the mainland mirror after the automatic download fails', () => {
+    const html = renderModal({
+      phase: 'failed',
+      version: '5.1.0',
+      notes: '',
+      mainlandDownloadUrl: 'https://cauyxy.lanzout.com/bppmac510',
+      progress: null,
+      problem: updaterProblemFromError(
+        new Error('timed out'),
+        'download',
+        '5.1.0'
+      )
+    });
+
+    expect(html).toContain('更新下载失败。请检查网络连接后重试。');
+    expect(html).toContain('重试');
+    expect(html).toContain(
+      '自动更新失败时，可通过大陆渠道下载安装包手动安装。'
+    );
+    expect(html).toContain('https://cauyxy.lanzout.com/bppmac510');
+  });
+
   it('exposes determinate progress value, minimum, maximum, label, and status', () => {
     const mib = 1024 * 1024;
     const html = renderModal({
       phase: 'downloading',
       version: '5.1.0',
       notes: '',
+      mainlandDownloadUrl: 'https://cauyxy.lanzout.com/bppmac510',
       progress: { downloaded: 25 * mib, total: 100 * mib },
       problem: null
     });
@@ -74,6 +128,7 @@ describe('ShellUpdateModal', () => {
       phase: 'downloading',
       version: '5.1.0',
       notes: '',
+      mainlandDownloadUrl: 'https://cauyxy.lanzout.com/bppmac510',
       progress: { downloaded: 2 * 1024 * 1024, total: null },
       problem: null
     });
@@ -88,6 +143,7 @@ describe('ShellUpdateModal', () => {
       phase: 'failed',
       version: '5.1.0',
       notes: '',
+      mainlandDownloadUrl: 'https://cauyxy.lanzout.com/bppmac510',
       progress: null,
       problem: updaterProblemFromError(
         new Error('native relaunch detail'),
@@ -104,5 +160,6 @@ describe('ShellUpdateModal', () => {
     expect(html).toContain('再次尝试重启');
     expect(html).toContain('查看诊断信息');
     expect(html).toContain('native relaunch detail');
+    expect(html).not.toContain('lanzout.com');
   });
 });

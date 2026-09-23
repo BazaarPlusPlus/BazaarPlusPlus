@@ -296,7 +296,7 @@ test('mod::decompile requires an online or ptr channel before running anything',
   ]);
 });
 
-for (const command of ['sync', 'check', 'promote']) {
+for (const command of ['sync', 'check', 'verify-mirror', 'promote']) {
   test(`release::${command} delegates exactly once to the product coordinator`, (t) => {
     const f = fixture(t);
     succeeded(
@@ -309,6 +309,67 @@ for (const command of ['sync', 'check', 'promote']) {
     ]);
   });
 }
+
+for (const [command, ...flags] of [
+  ['verify-mirror', '--latest'],
+  ['promote', '--without-mainland-mirror'],
+  ['promote', '--platform=macos'],
+  ['promote', '--platform', 'macos'],
+  ['verify-mirror', '--latest', '--platform', 'windows']
+]) {
+  test(`release::${command} forwards ${flags.join(' ')} to the product coordinator unchanged`, (t) => {
+    const f = fixture(t);
+    succeeded(f.run([`release::${command}`, ...flags]));
+    assert.deepEqual(f.calls(), [
+      call(f.dir, null, 'node', 'release.mjs', command, ...flags)
+    ]);
+  });
+}
+
+test('release::mirror forwards the platform, the share URL and optional flags', (t) => {
+  const f = fixture(t);
+  assert.notEqual(f.run(['release::mirror']).status, 0);
+  assert.notEqual(f.run(['release::mirror', 'macos']).status, 0);
+  assert.notEqual(
+    f.run(['release::mirror', 'linux', 'https://mirror.example/x']).status,
+    0
+  );
+  assert.deepEqual(f.calls(), []);
+  succeeded(f.run(['release::mirror', 'macos', 'https://mirror.example/mac']));
+  succeeded(
+    f.run([
+      'release::mirror',
+      'windows',
+      'https://mirror.example/win',
+      '--allow-unverified-mirror'
+    ])
+  );
+  assert.deepEqual(f.calls(), [
+    call(
+      f.dir,
+      null,
+      'node',
+      'release.mjs',
+      'mirror',
+      '--platform',
+      'macos',
+      '--url',
+      'https://mirror.example/mac'
+    ),
+    call(
+      f.dir,
+      null,
+      'node',
+      'release.mjs',
+      'mirror',
+      '--platform',
+      'windows',
+      '--url',
+      'https://mirror.example/win',
+      '--allow-unverified-mirror'
+    )
+  ]);
+});
 
 for (const command of ['prepare', 'build', 'upload']) {
   test(`release::${command} requires an explicit platform before running anything`, (t) => {

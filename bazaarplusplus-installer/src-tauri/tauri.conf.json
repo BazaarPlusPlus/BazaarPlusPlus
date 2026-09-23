@@ -37,7 +37,10 @@
   },
   "plugins": {
     "updater": {
-      "endpoints": ["https://bppinstaller.bazaarplusplus.com/latest.json"],
+      "endpoints": [
+        "https://bppinstaller.bazaarplusplus.com/latest/{{target}}-{{arch}}.json",
+        "https://bppinstaller.bazaarplusplus.com/latest.json"
+      ],
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEY1RTAyMzg1RUFEQUNFRUYKUldUdnp0cnFoU1BnOVEzYjFlMFZMcEpmQ014VUZkNWtoRGtybW9pU0UwVjhIUmJmRjdoSmFSTVoK"
     }
   }

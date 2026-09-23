@@ -173,7 +173,7 @@ Release signing, notarization, and R2 upload flows depend on local environment v
 
 ## Product Releases
 
-The mod and installer share the root `VERSION`. Run `just release::sync` after changing it. Build each platform with `just release::build macos` (or `windows`), then run `just release::upload <platform>` for its immutable artifacts. `just release::promote` advances latest only when both platforms have the same version and Git commit. The underlying `node release.mjs …` commands remain available. See the [product release guide](docs/release.md) for credentials, sequencing, and recovery.
+The mod and installer share the root `VERSION`. Run `just release::sync` after changing it. Build each platform with `just release::build macos` (or `windows`), then run `just release::upload <platform>` for its immutable artifacts. Upload the installers to the mainland mirror and record each share page with `just release::mirror <platform> <share-url>`. `just release::promote` publishes when both platforms have the same version and Git commit and their mirror records exist; `just release::promote --platform <platform>` publishes one platform, and `latest.json` advances once both platforms are at the same version. The underlying `node release.mjs …` commands remain available. See the [product release guide](docs/release.md) for credentials, sequencing, and recovery.
 
 ## Derivative Work Notice
 

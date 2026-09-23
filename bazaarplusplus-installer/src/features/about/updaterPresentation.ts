@@ -25,6 +25,8 @@ export type UpdaterUiContract = {
     actionLabelKey: MessageKey | null;
     priority: ModalPriority;
     dismissalPolicy: ModalDismissalPolicy;
+    /** Offer the zh-locale mainland mirror as a manual fallback (ADR-0001). */
+    offersMainlandMirror: boolean;
   } | null;
 };
 
@@ -32,14 +34,16 @@ function modal(
   titleKey: MessageKey,
   action: UpdaterModalAction | null,
   actionLabelKey: MessageKey | null,
-  blocked = false
+  blocked = false,
+  offersMainlandMirror = false
 ): UpdaterUiContract['modal'] {
   return {
     titleKey,
     action,
     actionLabelKey,
     priority: blocked ? 'critical' : 'system',
-    dismissalPolicy: blocked ? 'blocked' : 'dismissible'
+    dismissalPolicy: blocked ? 'blocked' : 'dismissible',
+    offersMainlandMirror
   };
 }
 
@@ -70,12 +74,20 @@ export function getUpdaterUiContract(
     case 'available':
       return {
         header: header('updateHeaderAvailable', 'download', false, true),
-        modal: modal('updateModalTitle', 'install', 'updateInstall')
+        modal: modal(
+          'updateModalTitle',
+          'install',
+          'updateInstall',
+          false,
+          true
+        )
       };
     case 'downloading':
       return {
         header: header('updateDownloading', 'checking', true),
-        modal: modal('updateDownloading', null, null, true)
+        // The package downloads into memory, so a manual mirror download
+        // cannot race the install; a slow download is when the mirror helps.
+        modal: modal('updateDownloading', null, null, true, true)
       };
     case 'installing':
       return {
@@ -105,7 +117,10 @@ export function getUpdaterUiContract(
         modal: modal(
           restartFailure ? 'updateRestartFailedTitle' : 'updateError',
           restartFailure ? 'retry-restart' : 'retry-install',
-          restartFailure ? 'updateRetryRestart' : 'updateRetry'
+          restartFailure ? 'updateRetryRestart' : 'updateRetry',
+          false,
+          // After a restart failure the update is already installed.
+          !restartFailure
         )
       };
     }

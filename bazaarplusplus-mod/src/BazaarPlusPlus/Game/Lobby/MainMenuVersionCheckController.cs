@@ -8,9 +8,6 @@ namespace BazaarPlusPlus.Game.Lobby;
 
 internal sealed class MainMenuVersionCheckController : MonoBehaviour
 {
-    private static readonly Uri LatestManifestEndpoint = new(
-        "https://bppinstaller.bazaarplusplus.com/latest.json"
-    );
     private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(5);
 
     private readonly ReleaseManifestCheckLifecycle _lifecycle = new();
@@ -29,9 +26,20 @@ internal sealed class MainMenuVersionCheckController : MonoBehaviour
         var lease = _lifecycle.Begin(httpClient);
         MainMenuVersionUpdateState.Reset();
         _observedRevision = MainMenuVersionUpdateState.Current.Revision;
-        var client = new ReleaseManifestClient(httpClient, LatestManifestEndpoint);
+        var client = new ReleaseManifestClient(httpClient, ResolveManifestEndpoint());
         _checkTask = _lifecycle.RunAsync(lease, client.FetchAsync, ApplyLatestManifestResult);
     }
+
+    // A release promoted for one platform only must be seen only by that platform.
+    private static Uri ResolveManifestEndpoint() =>
+        ReleaseManifestEndpoints.ForPlatformKey(
+            Application.platform switch
+            {
+                RuntimePlatform.WindowsPlayer => ReleaseManifestEndpoints.WindowsPlatformKey,
+                RuntimePlatform.OSXPlayer => ReleaseManifestEndpoints.MacPlatformKey,
+                _ => null,
+            }
+        );
 
     private void Update()
     {

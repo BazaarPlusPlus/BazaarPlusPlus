@@ -49,7 +49,14 @@ function fixture() {
     bundle: vi.fn(),
     createStore: vi.fn(() => ({ offline: true })),
     upload: vi.fn(),
-    promote: vi.fn()
+    mirror: vi.fn(),
+    verifyMirror: vi.fn(async () => ({ version: '0.0.0', results: [] })),
+    promote: vi.fn(),
+    promoteOne: vi.fn(async () => ({
+      platform: {},
+      latest: null,
+      advanced: false
+    }))
   };
   return options;
 }
@@ -63,7 +70,10 @@ test.each(['prepare', 'build'])(
     ).toEqual({
       command,
       platform: 'windows',
-      msbuildArgs: [managed]
+      msbuildArgs: [managed],
+      latest: false,
+      allowUnverifiedMirror: false,
+      withoutMainlandMirror: false
     });
   }
 );
@@ -73,7 +83,8 @@ test.each([
   ['check', '--unknown'],
   ['check', '--platform', 'macos'],
   ['sync', '--platform=windows'],
-  ['promote', '--platform', 'macos'],
+  ['promote', 'macos'],
+  ['verify-mirror', 'windows'],
   ['prepare'],
   ['build', '--platform'],
   ['upload', '--platform', 'linux'],
@@ -85,6 +96,48 @@ test.each([
   ['prepare', '--platform', 'macos', '--', '-p:ManagedPath='],
   ['upload', '--platform', 'macos', '--', managed],
   ['check', '--', managed],
+  ['verify-mirror', '--', managed],
+  ['verify-mirror', '--latest', '--latest'],
+  ['verify-mirror', '--allow-unverified-mirror'],
+  ['mirror'],
+  ['mirror', '--platform', 'macos'],
+  ['mirror', '--url', 'https://mirror.example/mac'],
+  ['mirror', '--platform', 'linux', '--url', 'https://mirror.example/mac'],
+  ['mirror', '--platform', 'macos', '--url', 'http://mirror.example/mac'],
+  ['mirror', '--platform', 'macos', '--url', 'not-a-url'],
+  ['mirror', '--platform', 'macos', '--url', 'https://u:p@mirror.example/m'],
+  [
+    'mirror',
+    '--platform',
+    'macos',
+    '--url',
+    'https://mirror.example/mac',
+    '--latest'
+  ],
+  [
+    'mirror',
+    '--platform',
+    'macos',
+    '--url',
+    'https://mirror.example/mac',
+    '--without-mainland-mirror'
+  ],
+  [
+    'mirror',
+    '--platform',
+    'macos',
+    '--url',
+    'https://mirror.example/mac',
+    '--',
+    managed
+  ],
+  ['upload', '--platform', 'macos', '--url', 'https://mirror.example/mac'],
+  ['promote', '--latest'],
+  ['promote', '--platform', 'linux'],
+  ['promote', '--platform'],
+  ['promote', '--allow-unverified-mirror'],
+  ['promote', '--without-mainland-mirror', '--without-mainland-mirror'],
+  ['check', '--without-mainland-mirror'],
   ['assert-build-owner', '--'],
   ['--help', 'build']
 ])(
@@ -98,7 +151,10 @@ test.each([
         build: effect,
         createStore: effect,
         upload: effect,
+        mirror: effect,
+        verifyMirror: effect,
         promote: effect,
+        promoteOne: effect,
         log: effect
       })
     ).rejects.toThrow();
@@ -254,12 +310,113 @@ test('upload and promote receive the release-owned origin through an offline dis
     baseUrl: RELEASE_BASE_URL,
     store: { offline: true }
   });
+  const version = readProductVersion(options.workspaceRoot);
+  await main(
+    ['mirror', '--platform', 'macos', '--url', 'https://mirror.example/mac'],
+    options
+  );
+  expect(options.mirror).toHaveBeenCalledWith({
+    version,
+    platform: 'macos',
+    url: 'https://mirror.example/mac',
+    store: { offline: true },
+    probeMirror: expect.any(Function),
+    allowUnverified: false,
+    log: options.log
+  });
+  await main(
+    [
+      'mirror',
+      '--platform=windows',
+      '--url=https://mirror.example/win',
+      '--allow-unverified-mirror'
+    ],
+    options
+  );
+  expect(options.mirror).toHaveBeenLastCalledWith(
+    expect.objectContaining({
+      platform: 'windows',
+      url: 'https://mirror.example/win',
+      allowUnverified: true
+    })
+  );
   await main(['promote'], options);
   expect(options.promote).toHaveBeenCalledWith({
-    version: readProductVersion(options.workspaceRoot),
+    version,
     baseUrl: RELEASE_BASE_URL,
-    store: { offline: true }
+    store: { offline: true },
+    withoutMainlandMirror: false,
+    log: options.log
   });
+  await main(['promote', '--without-mainland-mirror'], options);
+  expect(options.promote).toHaveBeenLastCalledWith(
+    expect.objectContaining({ withoutMainlandMirror: true })
+  );
+  await main(['promote', '--platform', 'macos'], options);
+  expect(options.promoteOne).toHaveBeenCalledWith({
+    version,
+    platform: 'macos',
+    baseUrl: RELEASE_BASE_URL,
+    store: { offline: true },
+    withoutMainlandMirror: false,
+    log: options.log
+  });
+  expect(options.log).toHaveBeenLastCalledWith(
+    expect.stringContaining('latest.json stays at the last lockstep release')
+  );
+  options.promoteOne.mockResolvedValueOnce({
+    platform: {},
+    latest: { version: '9.9.9' },
+    advanced: true
+  });
+  await main(['promote', '--platform', 'macos'], options);
+  expect(options.log).toHaveBeenLastCalledWith(
+    expect.stringContaining('latest.json advanced')
+  );
+  options.promoteOne.mockResolvedValueOnce({
+    platform: {},
+    latest: { version: '9.9.9' },
+    advanced: false
+  });
+  await main(['promote', '--platform', 'macos'], options);
+  expect(options.log).toHaveBeenLastCalledWith(
+    expect.stringContaining('latest.json already names 9.9.9')
+  );
+});
+
+test('verify-mirror is read-only: no store, no source alignment, VERSION only without --latest', async () => {
+  const options = fixture();
+  const file = path.join(
+    options.workspaceRoot,
+    'bazaarplusplus-installer/src-tauri/tauri.conf.json'
+  );
+  const config = JSON.parse(fs.readFileSync(file, 'utf8'));
+  config.plugins.updater.endpoints = ['https://wrong.example/latest.json'];
+  fs.writeFileSync(file, JSON.stringify(config));
+  await main(['verify-mirror'], options);
+  expect(options.verifyMirror).toHaveBeenCalledWith({
+    baseUrl: RELEASE_BASE_URL,
+    version: readProductVersion(options.workspaceRoot),
+    platform: undefined,
+    latest: false,
+    log: options.log
+  });
+  await main(['verify-mirror', '--latest'], options);
+  expect(options.verifyMirror).toHaveBeenLastCalledWith(
+    expect.objectContaining({ version: null, latest: true })
+  );
+  await main(['verify-mirror', '--platform', 'windows'], options);
+  expect(options.verifyMirror).toHaveBeenLastCalledWith(
+    expect.objectContaining({ platform: 'windows', latest: false })
+  );
+  await main(['verify-mirror', '--latest', '--platform', 'macos'], options);
+  expect(options.verifyMirror).toHaveBeenLastCalledWith(
+    expect.objectContaining({ platform: 'macos', latest: true })
+  );
+  expect(options.createStore).not.toHaveBeenCalled();
+  expect(options.log).toHaveBeenCalledWith(
+    'Mainland mirror verified for 0.0.0'
+  );
 });
 
 test('internal ownership dispatch requires a live build lock and does not run product alignment', async () => {

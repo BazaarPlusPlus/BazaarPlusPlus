@@ -4,22 +4,12 @@
   "notes": "Release 3.1.1",
   "pub_date": "2026-09-19T00:00:00.000Z",
   "platforms": {
-    "windows-x86_64": {
-      "url": "https://bppinstaller.bazaarplusplus.com/3.1.1/windows-x86_64/updater/BazaarPlusPlus_3.1.1_x64-setup.exe",
-      "signature": "windows-signature"
-    },
     "darwin-aarch64": {
       "url": "https://bppinstaller.bazaarplusplus.com/3.1.1/darwin-aarch64/updater/BazaarPlusPlus.app.tar.gz",
       "signature": "macos-signature"
     }
   },
   "downloads": {
-    "windows-x86_64": {
-      "url": "https://bppinstaller.bazaarplusplus.com/3.1.1/windows-x86_64/installer/BazaarPlusPlus_3.1.1_x64-setup.exe",
-      "size": 100,
-      "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-      "mainlandUrl": "https://cauyxy.lanzout.com/bppwin311"
-    },
     "darwin-aarch64": {
       "url": "https://bppinstaller.bazaarplusplus.com/3.1.1/darwin-aarch64/installer/BazaarPlusPlus_3.1.1_aarch64.dmg",
       "size": 100,

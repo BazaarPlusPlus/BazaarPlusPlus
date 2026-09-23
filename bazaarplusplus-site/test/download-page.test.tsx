@@ -2,11 +2,15 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { describe, expect, test, vi } from 'vitest';
-import releaseFixture from '../../release/fixtures/latest.json';
+import macFixture from '../../release/fixtures/latest/darwin-aarch64.json';
+import windowsFixture from '../../release/fixtures/latest/windows-x86_64.json';
 
 import DownloadPage from '../src/features/download/DownloadPage';
 import type { InstallerManifestTransport } from '../src/features/download/installer';
 import { createMemorySpaLocationAdapter, createSpaLocation } from '../src/app/router';
+
+const WINDOWS_PATH = 'latest/windows-x86_64.json';
+const MAC_PATH = 'latest/darwin-aarch64.json';
 
 function downloadLocation() {
   const memory = createMemorySpaLocationAdapter('/download?lang=en');
@@ -27,48 +31,56 @@ function renderWithClient(ui: ReactNode): QueryClient {
   return client;
 }
 
-function makeTransport(
-  result: { payload: unknown } | { error: Error }
-): InstallerManifestTransport {
+/** A transport serving one payload per manifest path; an Error value rejects that path. */
+function makeTransport(manifests: Record<string, unknown>): InstallerManifestTransport {
   return {
-    load:
-      'payload' in result
-        ? vi.fn().mockResolvedValue(result.payload)
-        : vi.fn().mockRejectedValue(result.error),
+    load: vi.fn(async (path: string) => {
+      const payload = manifests[path];
+      if (payload instanceof Error) throw payload;
+      if (!(path in manifests)) throw new Error(`${path} responded with 404`);
+      return payload;
+    }),
   };
 }
 
+function platformManifests(overrides: Record<string, unknown> = {}) {
+  return {
+    [WINDOWS_PATH]: structuredClone(windowsFixture),
+    [MAC_PATH]: structuredClone(macFixture),
+    ...overrides,
+  };
+}
+
+const WINDOWS_MIRROR = windowsFixture.downloads['windows-x86_64'].mainlandUrl;
+const MAC_MIRROR = macFixture.downloads['darwin-aarch64'].mainlandUrl;
+
 describe('DownloadPage', () => {
-  test('renders both platform cards from one resolved latest installer', async () => {
+  test('renders each platform card from its own Platform Release Manifest', async () => {
     renderWithClient(
-      <DownloadPage
-        location={downloadLocation()}
-        transport={makeTransport({ payload: releaseFixture })}
-      />
+      <DownloadPage location={downloadLocation()} transport={makeTransport(platformManifests())} />
     );
 
     expect(screen.getByRole('heading', { level: 2, name: 'Windows' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 2, name: 'macOS' })).toBeInTheDocument();
 
-    const winLink = await screen.findByRole('link', { name: /Download \.exe/ });
-    const macLink = await screen.findByRole('link', { name: /Download \.dmg/ });
+    // Each card carries its own platform's version; wait for both to resolve.
+    await screen.findByText('v3.1.2');
+    await screen.findByText('v3.1.1');
+    const winLink = screen.getByRole('link', { name: /Download \.exe/ });
+    const macLink = screen.getByRole('link', { name: /Download \.dmg/ });
     const winMainlandLink = screen.getByRole('link', { name: 'Windows mainland mirror' });
     const macMainlandLink = screen.getByRole('link', { name: 'macOS mainland mirror' });
 
-    expect(winLink).toHaveAttribute(
-      'href',
-      'https://bppinstaller.bazaarplusplus.com/3.1.1/windows-x86_64/installer/BazaarPlusPlus_3.1.1_x64-setup.exe'
-    );
-    expect(macLink).toHaveAttribute(
-      'href',
-      'https://bppinstaller.bazaarplusplus.com/3.1.1/darwin-aarch64/installer/BazaarPlusPlus_3.1.1_aarch64.dmg'
-    );
-    expect(winMainlandLink).toHaveAttribute('href', 'https://cauyxy.lanzout.com/bppwin311');
-    expect(macMainlandLink).toHaveAttribute('href', 'https://cauyxy.lanzout.com/bppmac311');
+    expect(winLink).toHaveAttribute('href', windowsFixture.downloads['windows-x86_64'].url);
+    expect(macLink).toHaveAttribute('href', macFixture.downloads['darwin-aarch64'].url);
+    expect(winMainlandLink).toHaveAttribute('href', WINDOWS_MIRROR);
+    expect(macMainlandLink).toHaveAttribute('href', MAC_MIRROR);
+    expect(winMainlandLink).not.toHaveAttribute('aria-disabled');
+    expect(macMainlandLink).not.toHaveAttribute('aria-disabled');
     expect(winMainlandLink).toHaveAttribute('target', '_blank');
     expect(macMainlandLink).toHaveAttribute('target', '_blank');
 
-    expect(screen.getAllByText(/v3\.1\.1/)).toHaveLength(2);
+    expect(screen.queryByText(/Cannot reach the latest version right now/)).not.toBeInTheDocument();
     expect(
       screen.queryByRole('heading', { level: 2, name: 'Want the preview build?' })
     ).not.toBeInTheDocument();
@@ -79,11 +91,54 @@ describe('DownloadPage', () => {
     expect(screen.queryByText(/deleting the entire The Bazaar directory/)).not.toBeInTheDocument();
   });
 
-  test('shows fallback message and GitHub release link when the manifest fails', async () => {
+  test('a release published without a mirror keeps its direct download and disables only the mirror entry', async () => {
+    const manifests = platformManifests();
+    const windows = manifests[WINDOWS_PATH];
+    delete (windows.downloads['windows-x86_64'] as { mainlandUrl?: string }).mainlandUrl;
+    renderWithClient(
+      <DownloadPage location={downloadLocation()} transport={makeTransport(manifests)} />
+    );
+
+    await screen.findByText('v3.1.2');
+    const winLink = screen.getByRole('link', { name: /Download \.exe/ });
+    const winMainlandLink = screen.getByRole('link', { name: 'Windows mainland mirror' });
+    const macMainlandLink = screen.getByRole('link', { name: 'macOS mainland mirror' });
+
+    expect(winLink).not.toHaveAttribute('aria-disabled');
+    expect(winMainlandLink).toHaveAttribute('aria-disabled', 'true');
+    expect(macMainlandLink).toHaveAttribute('href', MAC_MIRROR);
+    expect(screen.queryByText(/Cannot reach the latest version right now/)).not.toBeInTheDocument();
+  });
+
+  test('a platform whose manifest fails degrades only its own card', async () => {
     renderWithClient(
       <DownloadPage
         location={downloadLocation()}
-        transport={makeTransport({ error: new Error('unavailable') })}
+        transport={makeTransport(platformManifests({ [MAC_PATH]: new Error('mac down') }))}
+      />
+    );
+
+    await screen.findByText('v3.1.2');
+    const winLink = screen.getByRole('link', { name: /Download \.exe/ });
+    expect(winLink).not.toHaveAttribute('aria-disabled');
+
+    const macLink = screen.getByRole('link', { name: /Download \.dmg/ });
+    const macMainlandLink = screen.getByRole('link', { name: 'macOS mainland mirror' });
+    expect(macLink).toHaveAttribute('aria-disabled', 'true');
+    expect(macMainlandLink).toHaveAttribute('aria-disabled', 'true');
+    expect(screen.getByText('Unavailable')).toBeInTheDocument();
+    expect(screen.queryByText(/Cannot reach the latest version right now/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'GitHub Release' })).not.toBeInTheDocument();
+  });
+
+  test('shows fallback message and GitHub release link only when every platform fails', async () => {
+    renderWithClient(
+      <DownloadPage
+        location={downloadLocation()}
+        transport={makeTransport({
+          [WINDOWS_PATH]: new Error('unavailable'),
+          [MAC_PATH]: new Error('unavailable'),
+        })}
       />
     );
 
@@ -97,7 +152,14 @@ describe('DownloadPage', () => {
       'https://github.com/BazaarPlusPlus/BazaarPlusPlus/releases/latest'
     );
 
-    const winButton = screen.getByRole('link', { name: /Download \.exe/ });
-    expect(winButton).toHaveAttribute('aria-disabled', 'true');
+    expect(screen.getByRole('link', { name: /Download \.exe/ })).toHaveAttribute(
+      'aria-disabled',
+      'true'
+    );
+    expect(screen.getByRole('link', { name: /Download \.dmg/ })).toHaveAttribute(
+      'aria-disabled',
+      'true'
+    );
+    expect(screen.getAllByText('Unavailable')).toHaveLength(2);
   });
 });
