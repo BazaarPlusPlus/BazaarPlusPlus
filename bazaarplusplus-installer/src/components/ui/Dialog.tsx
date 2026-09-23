@@ -1,5 +1,8 @@
+import clsx from 'clsx';
+import { X } from 'lucide-react';
 import { useEffect, useRef, type ReactNode } from 'react';
 import { useActiveModalDismissalPolicy } from './ModalCoordinator';
+import { Button } from './Button';
 
 /**
  * Modal dialog backed by the native <dialog> element. showModal() gives us the
@@ -65,4 +68,81 @@ export function Dialog({
       {children}
     </dialog>
   );
+}
+
+/** The one dialog frame: card, header, body and footer. */
+export function DialogCard({
+  size = 'md',
+  className,
+  children
+}: {
+  size?: 'sm' | 'md' | 'lg';
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className={clsx('bpp-dialog-card', `is-${size}`, className)}>
+      {children}
+    </div>
+  );
+}
+
+export function DialogHeader({
+  titleId,
+  title,
+  subtitle,
+  icon,
+  tone = 'neutral',
+  onClose,
+  closeDisabled = false,
+  closeLabel
+}: {
+  titleId: string;
+  title: ReactNode;
+  subtitle?: ReactNode;
+  icon?: ReactNode;
+  tone?: 'neutral' | 'accent' | 'danger';
+  onClose?: () => void;
+  closeDisabled?: boolean;
+  closeLabel?: string;
+}) {
+  return (
+    <div className="bpp-dialog-header">
+      {icon && (
+        <span className={`bpp-dialog-icon is-${tone}`} aria-hidden="true">
+          {icon}
+        </span>
+      )}
+      <div className="bpp-dialog-heading">
+        <h2 id={titleId} className="bpp-dialog-title">
+          {title}
+        </h2>
+        {subtitle && <p className="bpp-dialog-subtitle">{subtitle}</p>}
+      </div>
+      {onClose && (
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          onClick={onClose}
+          disabled={closeDisabled}
+          aria-label={closeLabel}
+          icon={<X aria-hidden="true" />}
+        />
+      )}
+    </div>
+  );
+}
+
+export function DialogBody({
+  className,
+  children
+}: {
+  className?: string;
+  children: ReactNode;
+}) {
+  return <div className={clsx('bpp-dialog-body', className)}>{children}</div>;
+}
+
+export function DialogFooter({ children }: { children: ReactNode }) {
+  return <div className="bpp-dialog-footer">{children}</div>;
 }

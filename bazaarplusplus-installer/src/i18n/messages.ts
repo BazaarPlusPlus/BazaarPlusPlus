@@ -68,6 +68,8 @@ const zh = {
   navHistory: '战绩',
   navStream: '直播',
   navAbout: '关于',
+  navSupport: '支持',
+  navLanguage: 'EN',
 
   // Shared actions
   close: '关闭',
@@ -95,6 +97,7 @@ const zh = {
   actionNoResettableData: '暂无本地数据',
   actionResetBepinex: '删除 BepInEx 文件夹',
   actionUninstall: '卸载',
+  actionDelete: '删除',
   launchGame: '启动游戏',
   installed: '已安装',
   notInstalled: '未安装',
@@ -190,7 +193,6 @@ const zh = {
   updaterCurrent: '已是最新',
   headerCheckFailed: '检查失败',
   updateHeaderAvailable: '发现更新',
-  updateModalKicker: '应用更新',
   updateModalTitle: '发现新版本',
   updateModalBody: 'BazaarPlusPlus {version} 已可用。',
   updateMainlandDownloadTitle: '中国大陆下载',
@@ -276,7 +278,6 @@ const zh = {
   runStatRating: '段位分',
 
   // Run detail page
-  runDetailEyebrow: '对局',
   runDetailBack: '返回战绩列表',
   runDetailLoading: '读取详情中',
   runDetailNotFound: '没有找到这局战绩',
@@ -367,8 +368,6 @@ const zh = {
   streamStart: '启动服务',
   streamRestart: '重启服务',
   streamObsPlaceholder: '直播服务启动后显示 OBS Browser Source 地址',
-  streamObsGuide:
-    '将此地址添加为 OBS 的 Browser Source，即可在直播画面中显示叠加层',
   streamWindowSection: '展示窗口',
   streamWindowLatest: '当前展示最新记录',
   streamWindowOffset: '向前补 {count} 条记录',
@@ -445,11 +444,11 @@ const zh = {
   applicationVersionHeading: '应用版本',
   developmentBuild: '开发版',
   stableBuild: '正式版',
-  maintenanceToolsHeading: '维护工具',
+  maintenanceToolsHeading: '高级操作',
+  maintenanceToolsHint: '卸载插件、重置 BepInEx 或删除本地数据',
   maintenanceResetDataDescription: '删除本地数据库、截图与回放视频',
   maintenanceNoResettableDataDescription: '当前没有可删除的本地数据',
   maintenanceResetBepinexDescription: '重置插件环境',
-  checkUpdateDescription: '获取最新版本信息',
   maintenanceUninstallDescription: '移除所有组件',
   historySummaryWinRateDescription: '十胜对局 / 已完成对局',
   historySummaryWinRateUnavailable: '尚无已完成对局',
@@ -501,6 +500,8 @@ const en: Record<MessageKey, string> = {
   navHistory: 'History',
   navStream: 'Stream',
   navAbout: 'About',
+  navSupport: 'Support',
+  navLanguage: '中文',
 
   close: 'Close',
   notifications: 'Notifications',
@@ -525,6 +526,7 @@ const en: Record<MessageKey, string> = {
   actionNoResettableData: 'No Local Data',
   actionResetBepinex: 'Delete BepInEx Folder',
   actionUninstall: 'Uninstall',
+  actionDelete: 'Delete',
   launchGame: 'Launch Game',
   installed: 'Installed',
   notInstalled: 'Not Installed',
@@ -630,7 +632,6 @@ const en: Record<MessageKey, string> = {
   updaterCurrent: 'Up to date',
   headerCheckFailed: 'Check failed',
   updateHeaderAvailable: 'Update available',
-  updateModalKicker: 'App Update',
   updateModalTitle: 'Update Available',
   updateModalBody: 'BazaarPlusPlus {version} is available.',
   updateMainlandDownloadTitle: 'Mainland China download',
@@ -723,7 +724,6 @@ const en: Record<MessageKey, string> = {
   runStatRank: 'Rank',
   runStatRating: 'Rating',
 
-  runDetailEyebrow: 'Run',
   runDetailBack: 'Back to History',
   runDetailLoading: 'Loading details',
   runDetailNotFound: 'This run was not found',
@@ -822,8 +822,6 @@ const en: Record<MessageKey, string> = {
   streamRestart: 'Restart Service',
   streamObsPlaceholder:
     'The OBS Browser Source URL appears after the stream service starts',
-  streamObsGuide:
-    'Add this URL as an OBS Browser Source to show the overlay on your stream',
   streamWindowSection: 'Display Window',
   streamWindowLatest: 'Showing the latest record',
   streamWindowOffset: 'Back {count} {count|record|records}',
@@ -912,12 +910,12 @@ const en: Record<MessageKey, string> = {
   applicationVersionHeading: 'App Version',
   developmentBuild: 'Development',
   stableBuild: 'Stable',
-  maintenanceToolsHeading: 'Maintenance Tools',
+  maintenanceToolsHeading: 'Advanced',
+  maintenanceToolsHint: 'Uninstall, reset BepInEx, or delete local data',
   maintenanceResetDataDescription:
     'Delete the local database, screenshots, and replay videos',
   maintenanceNoResettableDataDescription: 'No local data to delete right now',
   maintenanceResetBepinexDescription: 'Reset the plugin environment',
-  checkUpdateDescription: 'Fetch the latest version information',
   maintenanceUninstallDescription: 'Remove all components',
   historySummaryWinRateDescription: '10-win runs / completed runs',
   historySummaryWinRateUnavailable: 'No completed runs yet',

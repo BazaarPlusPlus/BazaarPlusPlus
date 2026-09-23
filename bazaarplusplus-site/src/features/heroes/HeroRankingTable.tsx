@@ -1,9 +1,8 @@
-import { Fragment, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
+import { Fragment, useMemo, useState, type ReactNode } from 'react';
 
 import type { Locale } from '../../app/router';
 import { getSiteCopy } from '../../content/site-copy';
 import { formatInteger, formatNullablePercent } from '../../shared/lib/dashboard';
-import { getHeroColor } from '../../shared/lib/heroes';
 import HeroBadge from '../../shared/components/HeroBadge';
 import type { HeroRanking } from './hero-analysis';
 
@@ -42,9 +41,12 @@ type RankingColumn = {
   renderCell: (row: HeroRanking, context: ColumnContext) => ReactNode;
 };
 
+const CELL = 'h-11 px-3 text-right tabular-nums';
+const HEADER_CELL = 'px-3 py-2.5 text-right';
+
 function renderRate(value: number | null, noValueLabel: string) {
   return (
-    <span className="relative tnum" aria-label={value == null ? noValueLabel : undefined}>
+    <span aria-label={value == null ? noValueLabel : undefined}>
       {formatNullablePercent(value)}
     </span>
   );
@@ -60,18 +62,17 @@ const RANKING_COLUMNS: RankingColumn[] = [
     label: 'hero',
     width: '104px',
     initialDirection: 'asc',
-    headerClassName:
-      'sticky left-0 z-20 border-r border-[color:var(--color-border-soft)] bg-[color:var(--color-bg-card)] px-5 py-3.5',
+    headerClassName: 'sticky left-0 z-20 border-r border-line bg-panel px-4 py-2.5 text-left',
     value: (row) => row.hero,
     renderCell: (row, context) => {
       const selected = row.hero === context.focusedHero;
       return (
-        <td className="sticky left-0 z-10 border-r border-[color:var(--color-border-soft)] bg-[color:var(--color-bg-card)] px-5 py-4">
+        <td className="sticky left-0 z-10 h-11 border-r border-line bg-panel px-4 transition-colors duration-(--t-fast) group-hover:bg-hover">
           <button
             type="button"
             data-selected={selected ? 'true' : 'false'}
             onClick={() => context.onFocusHero(row.hero)}
-            className="inline-flex items-center bg-transparent p-0 text-left transition"
+            className="inline-flex cursor-pointer items-center rounded-full bg-transparent p-0 text-left"
           >
             <HeroBadge hero={row.hero} selected={selected} />
           </button>
@@ -84,7 +85,7 @@ const RANKING_COLUMNS: RankingColumn[] = [
     label: 'winRate',
     width: '12.5%',
     initialDirection: 'desc',
-    headerClassName: 'px-5 py-3.5',
+    headerClassName: HEADER_CELL,
     value: (row) => row.tenWinRate,
     renderCell: (row, context) => {
       const rateRatio =
@@ -92,11 +93,21 @@ const RANKING_COLUMNS: RankingColumn[] = [
           ? row.tenWinRate / context.maxTenWinRate
           : 0;
       return (
-        <td
-          className="databar relative px-5 py-4 tnum text-[color:var(--color-accent-bright)]"
-          style={{ '--bar-width': `${rateRatio * 100}%` } as CSSProperties}
-        >
-          {renderRate(row.tenWinRate, context.noValueLabel)}
+        <td className={CELL}>
+          <span className="inline-flex items-center justify-end gap-2.5">
+            <span className="font-medium text-text-1">
+              {renderRate(row.tenWinRate, context.noValueLabel)}
+            </span>
+            <span
+              aria-hidden="true"
+              className="hidden h-1.5 w-10 overflow-hidden rounded-full bg-hover sm:block"
+            >
+              <span
+                className="block h-full rounded-full bg-accent"
+                style={{ width: `${rateRatio * 100}%` }}
+              />
+            </span>
+          </span>
         </td>
       );
     },
@@ -106,12 +117,10 @@ const RANKING_COLUMNS: RankingColumn[] = [
     label: 'runs',
     width: '11%',
     initialDirection: 'desc',
-    headerClassName: 'px-3 py-3.5',
+    headerClassName: HEADER_CELL,
     value: (row) => row.runsCompleted,
     renderCell: (row, context) => (
-      <td className="px-3 py-4 tnum text-[color:var(--color-text-muted)]">
-        {formatInteger(row.runsCompleted, context.locale)}
-      </td>
+      <td className={`${CELL} text-text-2`}>{formatInteger(row.runsCompleted, context.locale)}</td>
     ),
   },
   {
@@ -119,12 +128,10 @@ const RANKING_COLUMNS: RankingColumn[] = [
     label: 'runShare',
     width: '11%',
     initialDirection: 'desc',
-    headerClassName: 'px-3 py-3.5',
+    headerClassName: HEADER_CELL,
     value: (row) => row.runShare,
     renderCell: (row, context) => (
-      <td className="px-3 py-4 tnum text-[color:var(--color-text-muted)]">
-        {renderRate(row.runShare, context.noValueLabel)}
-      </td>
+      <td className={`${CELL} text-text-2`}>{renderRate(row.runShare, context.noValueLabel)}</td>
     ),
   },
   {
@@ -132,12 +139,10 @@ const RANKING_COLUMNS: RankingColumn[] = [
     label: 'wins10w',
     width: '10%',
     initialDirection: 'desc',
-    headerClassName: 'px-3 py-3.5',
+    headerClassName: HEADER_CELL,
     value: (row) => row.tenWinCount,
     renderCell: (row, context) => (
-      <td className="px-3 py-4 tnum text-[color:var(--color-text-base)]">
-        {formatInteger(row.tenWinCount, context.locale)}
-      </td>
+      <td className={`${CELL} text-text-1`}>{formatInteger(row.tenWinCount, context.locale)}</td>
     ),
   },
   {
@@ -145,11 +150,11 @@ const RANKING_COLUMNS: RankingColumn[] = [
     label: 'avgDays',
     width: '11%',
     initialDirection: 'asc',
-    headerClassName: 'px-3 py-3.5',
+    headerClassName: HEADER_CELL,
     value: (row) => row.avgRunDays10w,
     renderCell: (row, context) => (
       <td
-        className="px-3 py-4 tnum text-[color:var(--color-text-muted)]"
+        className={`${CELL} text-text-2`}
         aria-label={row.avgRunDays10w == null ? context.noValueLabel : undefined}
       >
         {formatDays(row.avgRunDays10w)}
@@ -169,10 +174,10 @@ const RANKING_COLUMNS: RankingColumn[] = [
     label,
     width,
     initialDirection: 'desc',
-    headerClassName: 'px-3 py-3.5',
+    headerClassName: HEADER_CELL,
     value: (row) => row[key],
     renderCell: (row, context) => (
-      <td className="px-3 py-4 tnum">{renderRate(row[key], context.noValueLabel)}</td>
+      <td className={`${CELL} text-text-2`}>{renderRate(row[key], context.noValueLabel)}</td>
     ),
   })),
 ];
@@ -231,41 +236,14 @@ function SortableHeader({
       <button
         type="button"
         onClick={() => onSort(column)}
-        className={`group inline-flex min-w-max items-center gap-1.5 whitespace-nowrap text-left transition ${
-          isActive
-            ? 'text-[color:var(--color-accent-bright)]'
-            : 'text-[color:var(--color-text-muted)] hover:text-[color:var(--color-text-base)]'
+        className={`inline-flex min-w-max cursor-pointer items-center gap-1.5 rounded-[4px] whitespace-nowrap transition-colors duration-(--t-fast) ${
+          isActive ? 'text-text-1' : 'text-text-3 hover:text-text-1'
         }`}
       >
         <span className="whitespace-nowrap">{label}</span>
-        <span
-          aria-hidden="true"
-          className={`flex flex-col leading-[0.6] text-[0.6rem] transition ${
-            isActive ? 'text-[color:var(--color-accent)]' : 'text-[color:var(--color-text-faint)]'
-          }`}
-        >
-          <span
-            className={`transition ${
-              isAsc
-                ? 'text-[color:var(--color-accent-bright)] opacity-100'
-                : isDesc
-                  ? 'opacity-30'
-                  : 'opacity-50'
-            }`}
-          >
-            ▲
-          </span>
-          <span
-            className={`transition ${
-              isDesc
-                ? 'text-[color:var(--color-accent-bright)] opacity-100'
-                : isAsc
-                  ? 'opacity-30'
-                  : 'opacity-50'
-            }`}
-          >
-            ▼
-          </span>
+        <span aria-hidden="true" className="flex flex-col text-[0.55rem] leading-[0.7]">
+          <span className={isAsc ? 'text-accent' : 'opacity-40'}>▲</span>
+          <span className={isDesc ? 'text-accent' : 'opacity-40'}>▼</span>
         </span>
       </button>
     </th>
@@ -326,7 +304,7 @@ export default function HeroRankingTable({
             <col key={column.key} style={{ width: column.width }} />
           ))}
         </colgroup>
-        <thead className="text-left text-[0.72rem] font-medium uppercase tracking-[0.14em] text-[color:var(--color-text-muted)]">
+        <thead className="text-xs font-medium text-text-3">
           <tr>
             {RANKING_COLUMNS.map((column) => (
               <SortableHeader
@@ -344,8 +322,7 @@ export default function HeroRankingTable({
           {sortedRows.map((row) => (
             <tr
               key={row.hero}
-              className="metric-row hero-rail border-t border-[color:var(--color-border-soft)] text-sm text-[color:var(--color-text-base)]"
-              style={{ '--hero-color': getHeroColor(row.hero) } as CSSProperties}
+              className="group border-t border-line text-[13px] text-text-1 transition-colors duration-(--t-fast) hover:bg-hover"
             >
               {RANKING_COLUMNS.map((column) => (
                 <Fragment key={column.key}>{column.renderCell(row, context)}</Fragment>

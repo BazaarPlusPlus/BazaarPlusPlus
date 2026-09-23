@@ -1,24 +1,17 @@
 import {
-  Coffee,
   Copy,
-  Heart,
-  Languages,
   Minus,
   MonitorPlay,
-  QrCode,
+  RefreshCw,
   Square,
   Users,
   X
 } from 'lucide-react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import {
-  useEffect,
-  useState,
-  type CSSProperties,
-  type ReactNode,
-  type RefObject
-} from 'react';
+import { useEffect, useState, type ReactNode, type RefObject } from 'react';
 import { hasTauriRuntime } from '../api/runtime';
+import { Button } from '../components/ui/Button';
+import { useUpdater } from '../features/about/UpdaterProvider';
 import type { AppBootstrapController } from '../features/about/useAppBootstrap';
 import { isWindowsPlatform } from '../features/shared/platform';
 import { useShellStreamServiceRunning } from '../features/stream/useShellStreamServiceRunning';
@@ -32,12 +25,7 @@ type ShellHeaderProps = {
   bilibiliTriggerRef?: RefObject<HTMLButtonElement | null>;
   showBilibili: boolean;
   onToggleBilibili: () => void;
-  showSupport: boolean;
-  supportTriggerRef?: RefObject<HTMLButtonElement | null>;
-  onToggleSupport: () => void;
-  onOpenPayment: () => void;
   onCloseBilibili: () => void;
-  onCloseSupport: () => void;
 };
 
 export function ShellHeader({
@@ -45,29 +33,20 @@ export function ShellHeader({
   bilibiliTriggerRef,
   showBilibili,
   onToggleBilibili,
-  showSupport,
-  supportTriggerRef,
-  onToggleSupport,
-  onOpenPayment,
-  onCloseBilibili,
-  onCloseSupport
+  onCloseBilibili
 }: ShellHeaderProps) {
   const { bootstrap } = app;
 
   return (
-    <header className="bpp-header" data-tauri-drag-region>
+    <header className="bpp-header" data-tauri-drag-region="deep">
+      <MacFullscreenWatcher />
       <ShellBrand />
       <ShellHeaderActions
         bootstrap={bootstrap}
         bilibiliTriggerRef={bilibiliTriggerRef}
         showBilibili={showBilibili}
         onToggleBilibili={onToggleBilibili}
-        showSupport={showSupport}
-        supportTriggerRef={supportTriggerRef}
-        onToggleSupport={onToggleSupport}
-        onOpenPayment={onOpenPayment}
         onCloseBilibili={onCloseBilibili}
-        onCloseSupport={onCloseSupport}
       />
     </header>
   );
@@ -75,10 +54,7 @@ export function ShellHeader({
 
 function ShellBrand() {
   return (
-    <div
-      className="flex min-w-0 items-center gap-3 z-10"
-      data-tauri-drag-region
-    >
+    <div className="bpp-brand">
       <img
         src={brandLogo}
         alt=""
@@ -86,7 +62,7 @@ function ShellBrand() {
         draggable={false}
       />
       <h1 className="bpp-brand-title">BazaarPlusPlus</h1>
-      <span className="bpp-version-chip">v{__FRONTEND_VERSION__}</span>
+      <span className="bpp-brand-version">v{__FRONTEND_VERSION__}</span>
     </div>
   );
 }
@@ -96,12 +72,7 @@ type ShellHeaderActionsProps = {
   bilibiliTriggerRef?: RefObject<HTMLButtonElement | null>;
   showBilibili: boolean;
   onToggleBilibili: () => void;
-  showSupport: boolean;
-  supportTriggerRef?: RefObject<HTMLButtonElement | null>;
-  onToggleSupport: () => void;
-  onOpenPayment: () => void;
   onCloseBilibili: () => void;
-  onCloseSupport: () => void;
 };
 
 function ShellHeaderActions({
@@ -109,21 +80,11 @@ function ShellHeaderActions({
   bilibiliTriggerRef,
   showBilibili,
   onToggleBilibili,
-  showSupport,
-  supportTriggerRef,
-  onToggleSupport,
-  onOpenPayment,
-  onCloseBilibili,
-  onCloseSupport
+  onCloseBilibili
 }: ShellHeaderActionsProps) {
-  const { t, toggle } = useI18n();
-
   return (
     <div className="bpp-header-actions">
-      <div
-        className="bpp-header-community-actions"
-        data-header-group="community"
-      >
+      <div className="bpp-header-group" data-header-group="community">
         <ShellSocialLinks
           bootstrap={bootstrap}
           triggerRef={bilibiliTriggerRef}
@@ -134,34 +95,71 @@ function ShellHeaderActions({
       </div>
 
       <span className="bpp-header-actions-divider" aria-hidden="true" />
+      <ShellUpdateCheck />
 
-      <div
-        className="bpp-header-application-actions"
-        data-header-group="application"
-      >
-        <ShellSupportMenu
-          bootstrap={bootstrap}
-          triggerRef={supportTriggerRef}
-          showSupport={showSupport}
-          onToggleSupport={onToggleSupport}
-          onOpenPayment={onOpenPayment}
-          onCloseSupport={onCloseSupport}
-        />
-
-        <button
-          type="button"
-          onClick={toggle}
-          className="bpp-button bpp-language-button size-9"
-          title={t('languageToggle')}
-          aria-label={t('languageToggle')}
-        >
-          <Languages size={17} strokeWidth={1.8} aria-hidden="true" />
-        </button>
-
-        <WindowsWindowControls />
-      </div>
+      <WindowsWindowControls />
     </div>
   );
+}
+
+/** App-wide update check; the updater opens its own dialog when a release is
+ *  available and reports "already current" through a toast. */
+function ShellUpdateCheck() {
+  const { t } = useI18n();
+  const updater = useUpdater();
+  const checking = updater.phase === 'checking';
+  return (
+    <Button
+      variant="ghost"
+      size="sm"
+      busy={checking}
+      onClick={updater.checkNow}
+      icon={<RefreshCw aria-hidden="true" />}
+    >
+      {t('headerCheckUpdate')}
+    </Button>
+  );
+}
+
+/**
+ * The macOS overlay title bar hides its traffic lights in native fullscreen;
+ * mirror that state so the header drops the inset reserved for them.
+ */
+function MacFullscreenWatcher() {
+  const [overlayTitlebar] = useState(
+    () => document.documentElement.dataset.bppTitlebar === 'overlay'
+  );
+  useEffect(() => {
+    if (!overlayTitlebar) return;
+    let active = true;
+    let unlisten: (() => void) | undefined;
+    const window = getCurrentWindow();
+    const sync = async () => {
+      try {
+        const fullscreen = await window.isFullscreen();
+        if (!active) return;
+        if (fullscreen) document.documentElement.dataset.bppFullscreen = '';
+        else delete document.documentElement.dataset.bppFullscreen;
+      } catch (error) {
+        console.error('Failed to read the macOS fullscreen state.', error);
+      }
+    };
+    void sync();
+    void window
+      .onResized(() => void sync())
+      .then((stop) => {
+        if (active) unlisten = stop;
+        else stop();
+      })
+      .catch((error) => {
+        console.error('Failed to listen for macOS resize events.', error);
+      });
+    return () => {
+      active = false;
+      unlisten?.();
+    };
+  }, [overlayTitlebar]);
+  return null;
 }
 
 function isWindowsTauriRuntime() {
@@ -258,33 +256,33 @@ function WindowsWindowControlsContent() {
       <button
         type="button"
         onClick={minimizeWindow}
-        className="bpp-button bpp-window-control-button size-9 shrink-0"
+        className="bpp-window-control-button"
         title={t('minimizeWindow')}
         aria-label={t('minimizeWindow')}
       >
-        <Minus size={17} strokeWidth={1.8} aria-hidden="true" />
+        <Minus size={16} strokeWidth={1.6} aria-hidden="true" />
       </button>
       <button
         type="button"
         onClick={toggleMaximizeWindow}
-        className="bpp-button bpp-window-control-button size-9 shrink-0"
+        className="bpp-window-control-button"
         title={maximizeLabel}
         aria-label={maximizeLabel}
       >
         {isMaximized ? (
-          <Copy size={15} strokeWidth={1.8} aria-hidden="true" />
+          <Copy size={13} strokeWidth={1.6} aria-hidden="true" />
         ) : (
-          <Square size={15} strokeWidth={1.8} aria-hidden="true" />
+          <Square size={13} strokeWidth={1.6} aria-hidden="true" />
         )}
       </button>
       <button
         type="button"
         onClick={closeWindow}
-        className="bpp-button bpp-window-control-button bpp-window-close-button size-9 shrink-0"
+        className="bpp-window-control-button bpp-window-close-button"
         title={closeLabel}
         aria-label={closeLabel}
       >
-        <X size={16} strokeWidth={1.8} aria-hidden="true" />
+        <X size={16} strokeWidth={1.6} aria-hidden="true" />
       </button>
     </div>
   );
@@ -292,8 +290,6 @@ function WindowsWindowControlsContent() {
 
 type QrSocialEntryProps = {
   href?: string;
-  accent: string;
-  badge: string;
   label: string;
   qrAlt: string;
   qrSrc: string;
@@ -305,8 +301,6 @@ type QrSocialEntryProps = {
 
 function QrSocialEntry({
   href,
-  accent,
-  badge,
   label,
   qrAlt,
   qrSrc,
@@ -334,32 +328,20 @@ function QrSocialEntry({
   );
 
   return (
-    <div
-      className="relative group flex"
-      style={{ '--social-accent': accent } as CSSProperties}
-    >
+    <div className="relative group flex">
       {trigger}
-      <div className="bpp-header-popover bpp-qr-popover">
-        <div
-          className="bpp-qr-badge"
-          style={{
-            borderColor: `${accent}80`,
-            color: accent,
-            backgroundColor: `${accent}10`
-          }}
-        >
-          {badge}
-        </div>
-        <div className={`bpp-qr-image-frame ${qrRound ? 'is-round' : ''}`}>
-          <img
-            src={qrSrc}
-            alt={qrAlt}
-            loading="lazy"
-            decoding="async"
-            className="w-full h-full object-contain"
-          />
-        </div>
-        <div className="bpp-qr-copy">
+      <div
+        className="bpp-popover bpp-qr-popover"
+        data-tauri-drag-region="false"
+      >
+        <img
+          src={qrSrc}
+          alt={qrAlt}
+          loading="lazy"
+          decoding="async"
+          className={`bpp-qr-image object-contain ${qrRound ? 'is-round' : ''}`}
+        />
+        <div>
           <h3 className="bpp-qr-title">{title}</h3>
           <p className="bpp-qr-subtitle">{subtitle}</p>
         </div>
@@ -383,7 +365,7 @@ function ShellSocialLinks({
 }) {
   const { t } = useI18n();
   return (
-    <div className="bpp-header-socials">
+    <>
       <a
         href={bootstrap.links.github}
         target="_blank"
@@ -426,8 +408,6 @@ function ShellSocialLinks({
       </a>
       <QrSocialEntry
         href={bootstrap.links.xiaohongshu}
-        accent="#ff2442"
-        badge="REDNOTE"
         label={t('socialXiaohongshu')}
         qrAlt={t('socialXiaohongshuTitle')}
         qrSrc={xiaohongshuSvg}
@@ -452,8 +432,6 @@ function ShellSocialLinks({
       </QrSocialEntry>
 
       <QrSocialEntry
-        accent="#d4a040"
-        badge="DOUYIN"
         label={t('socialDouyin')}
         qrAlt={t('socialDouyinTitle')}
         qrSrc={douyinPng}
@@ -481,7 +459,7 @@ function ShellSocialLinks({
           ref={triggerRef}
           type="button"
           onClick={onToggleBilibili}
-          className="bpp-button bpp-header-labelled-control"
+          className="bpp-btn bpp-btn-ghost bpp-btn-sm"
           aria-label={t('socialBilibili')}
           aria-expanded={showBilibili}
           aria-controls="shell-bilibili-menu"
@@ -510,64 +488,55 @@ function ShellSocialLinks({
           <div
             id="shell-bilibili-menu"
             role="menu"
-            className="bpp-header-popover bpp-header-menu bpp-header-menu-centered"
+            className="bpp-popover bpp-menu is-centered"
+            data-tauri-drag-region="false"
           >
-            <a
-              role="menuitem"
-              href={bootstrap.links.bilibili_author}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="bpp-header-menu-item group"
-              onClick={onCloseBilibili}
-            >
-              <div className="bpp-header-menu-icon">
-                <Users size={16} />
-              </div>
-              <div className="flex flex-col">
-                <span className="bpp-header-menu-title">仓鼠小猫</span>
-                <span className="bpp-header-menu-subtitle">
-                  {t('bilibiliAuthorSubtitle')}
-                </span>
-              </div>
-            </a>
-
-            <div className="bpp-header-menu-divider" />
-
             <a
               role="menuitem"
               href={bootstrap.links.bilibili_core_dev}
               target="_blank"
               rel="noopener noreferrer"
-              className="bpp-header-menu-item group"
+              className="bpp-menu-item"
               onClick={onCloseBilibili}
             >
-              <div className="bpp-header-menu-icon">
-                <Users size={16} />
-              </div>
-              <div className="flex flex-col">
-                <span className="bpp-header-menu-title">hisenser</span>
-                <span className="bpp-header-menu-subtitle">
+              <Users aria-hidden="true" />
+              <div className="min-w-0">
+                <span className="bpp-menu-title">hisenser</span>
+                <span className="bpp-menu-subtitle">
                   {t('bilibiliCoreDevSubtitle')}
                 </span>
               </div>
             </a>
 
-            <div className="bpp-header-menu-divider" />
+            <a
+              role="menuitem"
+              href={bootstrap.links.bilibili_author}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="bpp-menu-item"
+              onClick={onCloseBilibili}
+            >
+              <Users aria-hidden="true" />
+              <div className="min-w-0">
+                <span className="bpp-menu-title">仓鼠小猫</span>
+                <span className="bpp-menu-subtitle">
+                  {t('bilibiliAuthorSubtitle')}
+                </span>
+              </div>
+            </a>
 
             <a
               role="menuitem"
               href={bootstrap.links.bilibili_project}
               target="_blank"
               rel="noopener noreferrer"
-              className="bpp-header-menu-item group"
+              className="bpp-menu-item"
               onClick={onCloseBilibili}
             >
-              <div className="bpp-header-menu-icon">
-                <MonitorPlay size={16} />
-              </div>
-              <div className="flex flex-col">
-                <span className="bpp-header-menu-title">BazaarPlusPlus</span>
-                <span className="bpp-header-menu-subtitle">
+              <MonitorPlay aria-hidden="true" />
+              <div className="min-w-0">
+                <span className="bpp-menu-title">BazaarPlusPlus</span>
+                <span className="bpp-menu-subtitle">
                   {t('bilibiliProjectSubtitle')}
                 </span>
               </div>
@@ -575,108 +544,6 @@ function ShellSocialLinks({
           </div>
         )}
       </div>
-    </div>
-  );
-}
-
-function ShellSupportMenu({
-  bootstrap,
-  triggerRef,
-  showSupport,
-  onToggleSupport,
-  onOpenPayment,
-  onCloseSupport
-}: {
-  bootstrap: AppBootstrapController['bootstrap'];
-  triggerRef?: RefObject<HTMLButtonElement | null>;
-  showSupport: boolean;
-  onToggleSupport: () => void;
-  onOpenPayment: () => void;
-  onCloseSupport: () => void;
-}) {
-  const { t } = useI18n();
-  return (
-    <div className="relative" data-dropdown>
-      <button
-        ref={triggerRef}
-        type="button"
-        className="bpp-button bpp-header-labelled-control"
-        onClick={onToggleSupport}
-        aria-expanded={showSupport}
-        aria-controls="shell-support-menu"
-        aria-haspopup="menu"
-      >
-        <Heart size={14} />
-        <span>{t('supportProject')}</span>
-      </button>
-      {showSupport && (
-        <div
-          id="shell-support-menu"
-          role="menu"
-          className="bpp-header-popover bpp-header-menu bpp-header-menu-right"
-        >
-          <button
-            role="menuitem"
-            type="button"
-            className="bpp-header-menu-item group"
-            onClick={onOpenPayment}
-          >
-            <div className="bpp-header-menu-icon">
-              <QrCode size={16} />
-            </div>
-            <div className="flex flex-col">
-              <span className="bpp-header-menu-title">{t('wechatPay')}</span>
-              <span className="bpp-header-menu-subtitle">
-                {t('wechatPayOpen')}
-              </span>
-            </div>
-          </button>
-
-          <div className="bpp-header-menu-divider" />
-
-          <a
-            role="menuitem"
-            href={bootstrap.links.kofi}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="bpp-header-menu-item group"
-            onClick={onCloseSupport}
-          >
-            <div className="bpp-header-menu-icon">
-              <Coffee size={16} />
-            </div>
-            <div className="flex flex-col">
-              <span className="bpp-header-menu-title">Ko-fi</span>
-              <span className="bpp-header-menu-subtitle">
-                {t('kofiSubtitle')}
-              </span>
-            </div>
-          </a>
-
-          <div className="bpp-header-menu-divider" />
-
-          <a
-            role="menuitem"
-            href={bootstrap.links.supporter_list}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="bpp-header-menu-item group"
-            onClick={onCloseSupport}
-          >
-            <div className="bpp-header-menu-icon">
-              <Users size={16} />
-            </div>
-            <div className="flex flex-col">
-              <span className="bpp-header-menu-title">
-                {t('supporterList')}
-              </span>
-              <span className="bpp-header-menu-subtitle">
-                {t('supporterListSubtitle')}
-              </span>
-            </div>
-          </a>
-        </div>
-      )}
-    </div>
+    </>
   );
 }

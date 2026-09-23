@@ -16,27 +16,18 @@ type RoutePageProps = {
   onScopeChange: (scope: AnalysisScope) => void;
 };
 
-function usePageQuery<T>(
-  queryKey: readonly unknown[],
-  queryFn: (signal: AbortSignal) => Promise<T>
-): { data: T | undefined; error: unknown; isLoading: boolean } {
-  return useQuery({
-    queryKey,
-    queryFn: ({ signal }) => queryFn(signal),
-  });
-}
-
 export function HeroOverviewPage({ transport, location, onScopeChange }: RoutePageProps) {
-  const { data, error, isLoading } = usePageQuery(['hero-overview'], (signal) =>
-    loadHeroMetricsDataset(transport, { signal })
-  );
+  const { data, isLoading, isFetching, refetch } = useQuery({
+    queryKey: ['hero-overview'],
+    queryFn: ({ signal }) => loadHeroMetricsDataset(transport, { signal }),
+  });
 
   if (isLoading) {
     return <LoadingScreen location={location} />;
   }
 
   if (!data) {
-    return <ErrorScreen location={location} error={error} />;
+    return <ErrorScreen location={location} retrying={isFetching} onRetry={() => void refetch()} />;
   }
 
   return <HeroOverviewRouteContent data={data} location={location} onScopeChange={onScopeChange} />;

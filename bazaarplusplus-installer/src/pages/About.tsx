@@ -1,15 +1,15 @@
-import { ExternalLink } from 'lucide-react';
-import { Button } from '../components/ui/Button';
-import { PageHeader } from '../components/ui/PageHeader';
+import { ChevronDown, ExternalLink } from 'lucide-react';
+import { buttonClassName } from '../components/ui/Button';
+import { PageShell } from '../components/ui/PageShell';
 import { ProblemBanner } from '../components/ui/ProblemBanner';
 import { useAppBootstrap } from '../features/about/AppBootstrapProvider';
 import type { AppBootstrapSnapshot } from '../features/about/appBootstrap';
 import { presentAboutProblem } from '../features/about/aboutProblems';
-import { formatProblemDiagnostic } from '../features/shared/problems';
 import { useI18n } from '../i18n/LocaleProvider';
 import type { MessageKey } from '../i18n/messages';
 import type { AppBootstrap, AppCredit } from '../types/backend';
 import fableVerifiedBadge from '../../static/about/fable-5-verified.webp';
+import brandLogo from '../../static/brand/bazaarplusplus-logo.webp';
 
 // Credits are split into ordered groups by their `group` field so contributors
 // stay separate from the external data/inspiration sources we acknowledge.
@@ -50,21 +50,16 @@ export function AboutView({
   const bootstrap = resource.data;
 
   return (
-    <div className="bpp-page pb-8">
-      <PageHeader title={t('aboutTitle')} />
-
-      <div className="flex min-h-0 w-full flex-1 flex-col gap-4">
-        <AboutBootstrapFeedback resource={resource} onRetry={onRetry} />
-
-        {bootstrap ? <AboutBootstrapContent bootstrap={bootstrap} /> : null}
-      </div>
-    </div>
+    <PageShell title={t('aboutTitle')}>
+      <AboutBootstrapFeedback resource={resource} onRetry={onRetry} />
+      {bootstrap ? <AboutBootstrapContent bootstrap={bootstrap} /> : null}
+    </PageShell>
   );
 }
 
 function AboutBootstrapContent({ bootstrap }: { bootstrap: AppBootstrap }) {
   const { t } = useI18n();
-  // Both chips are version chips, so both read with the same `v` prefix. The
+  // Both values are versions, so both read with the same `v` prefix. The
   // bundled version comes from a file inside the payload zip, so it may or may
   // not already carry one.
   const bppVersionLabel = bootstrap.bundled_bpp_version
@@ -73,65 +68,60 @@ function AboutBootstrapContent({ bootstrap }: { bootstrap: AppBootstrap }) {
 
   return (
     <>
-      <section className="bpp-panel bpp-card-pad relative overflow-hidden">
-        <div className="bpp-about-brand-watermark">B++</div>
-        <div className="flex items-center gap-5">
-          <div className="min-w-0 flex-1">
-            <h3 className="bpp-mod-name bpp-about-product-name">
-              BazaarPlusPlus
-            </h3>
-            <p className="bpp-about-tagline">{t('aboutTagline')}</p>
-            <div className="bpp-about-version-row mt-5 selectable">
-              <span className="bpp-about-version-label">
-                {t('aboutAppLabel')}
-              </span>
-              <span
-                aria-label={`${t('aboutAppLabel')} ${bootstrap.app_version}`}
-                className="bpp-version-chip w-fit"
-              >
-                v{bootstrap.app_version}
-              </span>
-              <span
-                className="bpp-about-version-separator"
-                aria-hidden="true"
-              />
-              <span className="bpp-about-version-label">
-                {t('aboutBppLabel')}
-              </span>
-              <span
-                aria-label={`${t('aboutBppLabel')} ${bppVersionLabel}`}
-                className="bpp-version-chip w-fit"
-              >
-                {bppVersionLabel}
-              </span>
-            </div>
+      <section className="bpp-panel">
+        <div className="bpp-install-status-top">
+          <img
+            src={brandLogo}
+            alt=""
+            className="bpp-install-status-logo"
+            draggable={false}
+          />
+          <div className="bpp-install-status-name">
+            <h3 className="bpp-install-status-title">BazaarPlusPlus</h3>
+            <p className="bpp-install-status-description">
+              {t('aboutTagline')}
+            </p>
           </div>
           <a
             href={bootstrap.links.github}
             target="_blank"
             rel="noreferrer"
-            className="bpp-about-github-button"
+            className={buttonClassName()}
           >
             <GithubMark />
-            <span>GitHub</span>
-            <ExternalLink
-              size={12}
-              className="bpp-about-github-external"
-              aria-hidden="true"
-            />
+            GitHub
+            <ExternalLink aria-hidden="true" />
           </a>
+        </div>
+        <div className="bpp-kv selectable">
+          <span className="bpp-kv-key">{t('aboutAppLabel')}</span>
+          <span
+            className="bpp-kv-value tnum"
+            aria-label={`${t('aboutAppLabel')} ${bootstrap.app_version}`}
+          >
+            v{bootstrap.app_version}
+          </span>
+          <span />
+          <span className="bpp-kv-key">{t('aboutBppLabel')}</span>
+          <span
+            className="bpp-kv-value tnum"
+            aria-label={`${t('aboutBppLabel')} ${bppVersionLabel}`}
+          >
+            {bppVersionLabel}
+          </span>
+          <span />
         </div>
       </section>
 
-      <section className="bpp-panel bpp-card-pad">
-        <h3 className="bpp-section-label">{t('aboutCredits')}</h3>
-        <div className="flex flex-col gap-5">
+      <section className="flex flex-col gap-2">
+        <h3 className="bpp-section-title m-0">{t('aboutCredits')}</h3>
+        <div className="bpp-panel">
           {groupCredits(bootstrap.credits).map((group) => (
-            <div key={group.key} className="flex flex-col gap-3">
-              <h4 className="bpp-about-group-heading">
+            <div key={group.key}>
+              <h4 className="bpp-credit-group">
                 {t(CREDIT_GROUP_LABELS[group.key] ?? 'aboutContributors')}
               </h4>
-              <ul className="m-0 grid list-none grid-cols-2 gap-1 p-0 max-[900px]:grid-cols-1">
+              <ul className="bpp-credit-list">
                 {group.items.map((credit) => (
                   <ListItem
                     key={`${credit.name}:${credit.role}`}
@@ -146,29 +136,28 @@ function AboutBootstrapContent({ bootstrap }: { bootstrap: AppBootstrap }) {
         </div>
       </section>
 
-      <details className="bpp-panel bpp-card-pad group">
-        <summary className="bpp-about-license-summary">
+      <details className="bpp-panel">
+        <summary className="bpp-panel-summary">
           {t('aboutLicenses')}
-          <span className="bpp-about-license-symbol">+</span>
+          <ChevronDown size={15} aria-hidden="true" />
         </summary>
-        <ul className="m-0 mt-4 grid list-none grid-cols-2 gap-1 p-0">
+        <ul className="bpp-credit-list">
           {bootstrap.licenses.map((license) => (
             <ListItem
               key={`${license.name}:${license.category}`}
               name={license.name}
               role={license.license}
-              isLicense
             />
           ))}
         </ul>
       </details>
 
-      <footer className="mt-1 flex flex-col items-center opacity-55">
+      <footer className="mt-2 flex flex-col items-center opacity-50">
         <img
           src={fableVerifiedBadge}
           alt={t('aboutVerifiedBadge')}
           draggable={false}
-          className="h-auto w-full max-w-[300px] select-none"
+          className="h-auto w-full max-w-[260px] select-none"
         />
       </footer>
     </>
@@ -196,30 +185,16 @@ function AboutBootstrapFeedback({
     );
   }
 
-  const diagnostic = resource.problem?.diagnostic
-    ? formatProblemDiagnostic(resource.problem)
-    : null;
-  const retryAction = resource.problem ? (
-    <Button
-      type="button"
-      size="small"
-      variant="ghost"
-      onClick={onRetry}
-      disabled={resource.retrying}
-      busy={resource.retrying}
-      busyLabel={t('aboutRetrying')}
-    >
-      {t('retry')}
-    </Button>
-  ) : null;
+  const retry = resource.problem ? onRetry : undefined;
 
   if (resource.phase === 'blocking-failure') {
     return (
       <ProblemBanner
         message={t('aboutBlockingFailure')}
-        diagnostic={diagnostic}
-        diagnosticLabel={t('problemDiagnostics')}
-        actions={retryAction}
+        problem={resource.problem}
+        onRetry={retry}
+        retryBusy={resource.retrying}
+        retryBusyLabel={t('aboutRetrying')}
       />
     );
   }
@@ -232,9 +207,10 @@ function AboutBootstrapFeedback({
           ? presentAboutProblem(resource.problem, t)
           : t('aboutFallbackPreview')
       }
-      diagnostic={diagnostic}
-      diagnosticLabel={t('problemDiagnostics')}
-      actions={retryAction}
+      problem={resource.problem}
+      onRetry={retry}
+      retryBusy={resource.retrying}
+      retryBusyLabel={t('aboutRetrying')}
     />
   );
 }
@@ -242,39 +218,29 @@ function AboutBootstrapFeedback({
 function ListItem({
   name,
   role,
-  href,
-  isLicense = false
+  href
 }: {
   name: string;
   role?: string;
   href?: string | null;
-  isLicense?: boolean;
 }) {
-  const nameClassName = 'bpp-about-list-name fira-code';
-
   return (
-    <li className="bpp-about-list-item">
+    <li className="bpp-credit-item">
       {href ? (
         <a
           href={href}
           target="_blank"
           rel="noopener noreferrer"
           aria-label={`${name} GitHub`}
-          className={`${nameClassName} bpp-about-list-link`}
+          className="bpp-credit-name"
         >
           {name}
           <ExternalLink size={11} aria-hidden="true" />
         </a>
       ) : (
-        <span className={nameClassName}>{name}</span>
+        <span className="bpp-credit-name">{name}</span>
       )}
-      {role && (
-        <span
-          className={`bpp-about-list-role ${isLicense ? 'fira-code' : 'cinzel is-credit'}`}
-        >
-          {role}
-        </span>
-      )}
+      {role && <span className="bpp-credit-role">{role}</span>}
     </li>
   );
 }
@@ -283,8 +249,8 @@ function GithubMark() {
   return (
     <svg
       viewBox="0 0 24 24"
-      width="18"
-      height="18"
+      width="15"
+      height="15"
       aria-hidden="true"
       focusable="false"
     >

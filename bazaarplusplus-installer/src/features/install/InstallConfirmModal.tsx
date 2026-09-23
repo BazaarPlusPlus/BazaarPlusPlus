@@ -1,5 +1,5 @@
 import { BookOpen, ExternalLink, TriangleAlert } from 'lucide-react';
-import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
+import { ConfirmDialog, ConfirmNote } from '../../components/ui/ConfirmDialog';
 import { useI18n } from '../../i18n/LocaleProvider';
 import { isWindowsPlatform } from '../shared/platform';
 import { InstallProblemBanner } from './InstallProblemBanner';
@@ -27,7 +27,7 @@ export function InstallConfirmModal({
     <ConfirmDialog
       titleId="install-modal-title"
       title={t('installModalTitle')}
-      tone="gold"
+      tone="primary"
       acknowledge={{
         label: t('installAcknowledge'),
         checked: installAcknowledged,
@@ -41,35 +41,21 @@ export function InstallConfirmModal({
       onConfirm={onConfirm}
       onClose={onClose}
     >
-      <section className="bpp-install-guide-card">
-        <BookOpen
-          size={26}
-          strokeWidth={1.55}
-          className="bpp-install-card-icon"
-        />
-        <div className="bpp-install-card-copy">
-          <p className="bpp-install-card-title">{t('tutorialKicker')}</p>
-          <p className="bpp-install-card-description">
-            {t('installModalBody')}
-          </p>
-        </div>
+      <ConfirmNote tone="neutral" icon={<BookOpen size={15} />}>
+        <p className="text-fg-1">{t('tutorialKicker')}</p>
+        <p>{t('installModalBody')}</p>
         <a
           href="https://bazaarplusplus.com/tutorial"
           target="_blank"
           rel="noreferrer"
-          className="bpp-install-guide-link"
+          className="bpp-dialog-link"
         >
           {t('viewTutorial')}
-          <ExternalLink size={14} />
+          <ExternalLink size={13} />
         </a>
-      </section>
+      </ConfirmNote>
 
-      <section className="bpp-install-steam-warning">
-        <TriangleAlert
-          size={34}
-          strokeWidth={1.55}
-          className="bpp-install-warning-icon"
-        />
+      <ConfirmNote tone="warning" icon={<TriangleAlert size={15} />}>
         <p>
           {t(
             isWindowsPlatform()
@@ -79,7 +65,7 @@ export function InstallConfirmModal({
                 : 'installCloseGameNotice'
           )}
         </p>
-      </section>
+      </ConfirmNote>
 
       {problem && <InstallProblemBanner problem={problem} />}
     </ConfirmDialog>

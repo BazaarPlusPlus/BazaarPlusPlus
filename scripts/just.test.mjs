@@ -134,7 +134,14 @@ test('check delegates source-only gates in their project directories', (t) => {
   succeeded(f.run(['check']));
   assert.deepEqual(f.calls(), [
     call(f.dir, null, ...rootPrettier('--check')),
-    call(f.dir, null, 'node', '--test', 'scripts/just.test.mjs'),
+    call(
+      f.dir,
+      null,
+      'node',
+      '--test',
+      'scripts/just.test.mjs',
+      'scripts/design-tokens.test.mjs'
+    ),
     call(f.dir, null, 'node', 'release.mjs', 'check'),
     ...modFmtCheck(f.dir),
     call(f.dir, 'mod', 'mod-build', 'build'),
@@ -166,7 +173,14 @@ test('test runs each suite without a release or publication command', (t) => {
   succeeded(f.run(['test']));
   assert.deepEqual(f.calls(), [
     call(f.dir, null, ...rootPrettier('--check')),
-    call(f.dir, null, 'node', '--test', 'scripts/just.test.mjs'),
+    call(
+      f.dir,
+      null,
+      'node',
+      '--test',
+      'scripts/just.test.mjs',
+      'scripts/design-tokens.test.mjs'
+    ),
     call(f.dir, null, 'npm', 'test'),
     call(f.dir, 'mod', 'mod-test', 'test'),
     ...['installer', 'site'].map((project) =>

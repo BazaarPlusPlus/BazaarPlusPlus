@@ -1,0 +1,53 @@
+/* BazaarPlusPlus design tokens: the owning copy. Ownership, the site copy and
+   its drift check are described in docs/design.md. */
+:root {
+  color-scheme: dark;
+
+  /* Near-black neutrals with a slight warm bias toward the logo's amber gem.
+     Elevation is expressed by these fill steps plus 1px lines, not shadows. */
+  --bg-canvas: #11100f;
+  --bg-sidebar: #171615;
+  --bg-panel: #1d1c1a;
+  --bg-hover: #262422;
+  --bg-selected: #2c2a27;
+  --line: #2a2826;
+  --line-strong: #3a3733;
+
+  --text-1: #edebe7;
+  --text-2: #a5a19a;
+  /* Only on canvas, sidebar and panel fills; hover/selected rows use text-2. */
+  --text-3: #8a857e;
+
+  /* The logo gem. Primary action, selected icon, key numbers. */
+  --accent: #ee8e1f;
+  --accent-hover: #f5a142;
+  --accent-subtle: rgba(238, 142, 31, 0.13);
+  --accent-line: rgba(238, 142, 31, 0.42);
+  --on-accent: #1a1206;
+
+  /* Status only; never decoration. */
+  --success: #45b26b;
+  --success-subtle: rgba(69, 178, 107, 0.14);
+  --warning: #d9a33b;
+  --warning-subtle: rgba(217, 163, 59, 0.14);
+  --danger: #e5584e;
+  --danger-subtle: rgba(229, 88, 78, 0.14);
+  --danger-text: #ff8a80;
+
+  --r-control: 6px;
+  --r-panel: 8px;
+  --r-dialog: 12px;
+
+  /* Floating layers (dialog, menu, toast) only. */
+  --shadow-float: 0 12px 32px rgba(0, 0, 0, 0.45);
+
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+  --t-fast: 100ms;
+  --t-base: 160ms;
+
+  --font-ui:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI Variable Text', 'Segoe UI',
+    'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei UI', 'Microsoft YaHei',
+    'Noto Sans SC', sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', 'Cascadia Mono', Consolas, monospace;
+}

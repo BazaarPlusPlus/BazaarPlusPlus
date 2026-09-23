@@ -51,7 +51,6 @@ async function loadPersistedStyleSheet() {
 async function loadNotoSansSc() {
   const root = document.documentElement;
   const windows = isWindowsPlatform();
-  root.dataset.bppPlatform = windows ? 'windows' : 'macos';
   if (!windows) return;
 
   try {

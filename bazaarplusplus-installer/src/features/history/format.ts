@@ -119,9 +119,9 @@ export function formatBattleResult(result: string): {
 
 // Unresolved battle results use a neutral tone.
 export function toneColorClass(tone: 'ok' | 'bad' | undefined): string {
-  if (tone === 'ok') return 'text-[#6dd9a0]';
-  if (tone === 'bad') return 'text-[#d96d6d]';
-  return 'text-[rgba(200,170,120,0.8)]';
+  if (tone === 'ok') return 'text-success';
+  if (tone === 'bad') return 'text-danger';
+  return 'text-fg-3';
 }
 
 export function formatRunStatusKey(status: string): MessageKey {

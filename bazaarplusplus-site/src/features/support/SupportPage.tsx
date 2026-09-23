@@ -1,8 +1,12 @@
-import { useId, useMemo, useState } from 'react';
+import { useId, useMemo, useState, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
+import Badge from '../../shared/components/Badge';
+import Button from '../../shared/components/Button';
 import DialogShell from '../../shared/components/DialogShell';
+import { ExternalLinkIcon } from '../../shared/components/icons';
 import InfoPageShell from '../../shared/components/InfoPageShell';
+import { SectionHeading } from '../../shared/components/PageLayout';
 import type { ResolvedSpaLocation } from '../../app/router';
 import { getSiteCopy, KOFI_URL, type SupportPageCopy } from '../../content/site-copy';
 import { loadSupporters, orderSupportersForDisplay, type Supporter } from './supporters-data';
@@ -16,25 +20,15 @@ const SUPPORTER_SKELETON_WIDTHS = ['w-20', 'w-24', 'w-28', 'w-16', 'w-32', 'w-24
 
 function tierClassName(tier: number): string {
   if (tier >= 4) {
-    return 'border-[rgba(232,185,74,0.45)] bg-[rgba(232,185,74,0.06)] text-[color:var(--color-accent-bright)] shadow-[0_18px_36px_-22px_rgba(232,185,74,0.55)]';
+    return 'border-accent-line bg-accent-subtle font-semibold text-text-1';
   }
   if (tier === 3) {
-    return 'border-[rgba(232,185,74,0.28)] bg-[rgba(232,185,74,0.03)] text-[color:var(--color-text-base)]';
+    return 'border-line-strong bg-panel font-medium text-text-1';
   }
   if (tier === 2) {
-    return 'border-[color:var(--color-border-soft)] bg-transparent text-[color:var(--color-text-muted)]';
+    return 'border-line bg-panel text-text-2';
   }
-  return 'border-dashed border-[color:var(--color-border-soft)] bg-transparent text-[color:var(--color-text-muted)]';
-}
-
-function tierFontClassName(tier: number): string {
-  if (tier >= 4) {
-    return 'font-display text-base font-semibold tracking-tight';
-  }
-  if (tier === 3) {
-    return 'font-display text-[0.95rem] font-medium tracking-tight';
-  }
-  return 'text-sm';
+  return 'border-dashed border-line-strong text-text-2';
 }
 
 type SupportersBodyProps = {
@@ -47,42 +41,59 @@ type SupportersBodyProps = {
 function SupportersBody({ copy, isLoading, isError, ordered }: SupportersBodyProps) {
   if (isLoading) {
     return (
-      <ul className="flex flex-wrap gap-3" aria-busy="true" aria-label={copy.heading}>
+      <ul className="flex flex-wrap gap-2" aria-busy="true" aria-label={copy.heading}>
         {SUPPORTER_SKELETON_WIDTHS.map((width, index) => (
           <li
             key={index}
-            className={`inline-flex h-9 ${width} items-center overflow-hidden rounded-full border border-[color:var(--color-border-soft)] bg-[rgba(232,185,74,0.03)]`}
-          >
-            <span className="shimmer block h-full w-full" />
-          </li>
+            className={`h-8 ${width} rounded-full bg-hover motion-safe:animate-pulse`}
+          />
         ))}
       </ul>
     );
   }
 
   if (isError) {
-    return (
-      <p className="text-sm leading-6 text-[color:var(--color-text-muted)]">{copy.errorNote}</p>
-    );
+    return <p className="text-sm text-text-2">{copy.errorNote}</p>;
   }
 
   if (ordered.length === 0) {
-    return (
-      <p className="text-sm leading-6 text-[color:var(--color-text-muted)]">{copy.emptyNote}</p>
-    );
+    return <p className="text-sm text-text-2">{copy.emptyNote}</p>;
   }
 
   return (
-    <ul className="flex flex-wrap gap-3">
+    <ul className="flex flex-wrap gap-2">
       {ordered.map((supporter, index) => (
         <li
           key={`${supporter.name}:${index}`}
-          className={`inline-flex items-center rounded-full border px-4 py-2 transition ${tierClassName(supporter.tier)}`}
+          className={`inline-flex h-8 items-center rounded-full border px-3.5 text-sm ${tierClassName(supporter.tier)}`}
         >
-          <span className={tierFontClassName(supporter.tier)}>{supporter.name}</span>
+          {supporter.name}
         </li>
       ))}
     </ul>
+  );
+}
+
+function SupportOption({
+  title,
+  regionLabel,
+  description,
+  action,
+}: {
+  title: string;
+  regionLabel: string;
+  description: string;
+  action: ReactNode;
+}) {
+  return (
+    <article className="panel flex flex-col gap-4 p-6">
+      <div className="flex items-center justify-between gap-3">
+        <SectionHeading>{title}</SectionHeading>
+        <Badge>{regionLabel}</Badge>
+      </div>
+      <p className="text-sm text-text-2">{description}</p>
+      <div className="mt-auto pt-2">{action}</div>
+    </article>
   );
 }
 
@@ -91,6 +102,7 @@ export default function SupportPage({ location }: SupportPageProps) {
   const copy = getSiteCopy(locale).support;
   const [wechatOpen, setWechatOpen] = useState(false);
   const wechatTitleId = useId();
+  const supportersHeadingId = useId();
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['supporters'],
@@ -100,71 +112,34 @@ export default function SupportPage({ location }: SupportPageProps) {
   const orderedSupporters = useMemo(() => (data ? orderSupportersForDisplay(data) : []), [data]);
 
   return (
-    <InfoPageShell locale={locale} location={location} title={copy.title}>
-      <section className="grid gap-6">
-        <p className="max-w-2xl text-sm leading-7 text-[color:var(--color-text-muted)]">
-          {copy.intro}
-        </p>
-
-        <div className="grid gap-6 md:grid-cols-2">
-          <article className="surface flex flex-col gap-5 p-7">
-            <div className="flex items-baseline justify-between gap-3">
-              <h2 className="font-display text-[1.45rem] font-semibold leading-tight text-[color:var(--color-text-base)]">
-                {copy.wechat.title}
-              </h2>
-              <span className="text-[0.7rem] uppercase tracking-[0.18em] text-[color:var(--color-text-faint)]">
-                {copy.wechat.regionLabel}
-              </span>
-            </div>
-            <p className="text-sm leading-6 text-[color:var(--color-text-muted)]">
-              {copy.wechat.description}
-            </p>
-            <button
-              type="button"
-              onClick={() => setWechatOpen(true)}
-              className="mt-auto inline-flex items-center justify-center gap-2 rounded-full bg-[color:var(--color-accent)] px-5 py-3 text-sm font-medium tracking-[0.04em] text-[#1a1306] shadow-[0_18px_36px_-12px_rgba(232,185,74,0.5)] transition hover:bg-[color:var(--color-accent-bright)]"
-            >
-              <span>{copy.wechat.actionLabel}</span>
-              <span aria-hidden="true">→</span>
-            </button>
-          </article>
-
-          <article className="surface flex flex-col gap-5 p-7">
-            <div className="flex items-baseline justify-between gap-3">
-              <h2 className="font-display text-[1.45rem] font-semibold leading-tight text-[color:var(--color-text-base)]">
-                {copy.kofi.title}
-              </h2>
-              <span className="text-[0.7rem] uppercase tracking-[0.18em] text-[color:var(--color-text-faint)]">
-                {copy.kofi.regionLabel}
-              </span>
-            </div>
-            <p className="text-sm leading-6 text-[color:var(--color-text-muted)]">
-              {copy.kofi.description}
-            </p>
-            <a
-              href={KOFI_URL}
-              target="_blank"
-              rel="noreferrer"
-              className="group mt-auto inline-flex items-center justify-center gap-2 rounded-full border border-[color:var(--color-accent)] px-5 py-3 text-sm font-medium tracking-[0.04em] text-[color:var(--color-accent-bright)] transition hover:bg-[color:var(--color-accent)] hover:text-[#1a1306]"
-            >
-              <span>{copy.kofi.actionLabel}</span>
-              <span aria-hidden="true" className="transition group-hover:translate-x-0.5">
-                ↗
-              </span>
-            </a>
-          </article>
-        </div>
+    <InfoPageShell location={location} title={copy.title} intro={copy.intro}>
+      <section className="grid gap-4 md:grid-cols-2">
+        <SupportOption
+          title={copy.wechat.title}
+          regionLabel={copy.wechat.regionLabel}
+          description={copy.wechat.description}
+          action={
+            <Button variant="primary" onClick={() => setWechatOpen(true)}>
+              {copy.wechat.actionLabel}
+            </Button>
+          }
+        />
+        <SupportOption
+          title={copy.kofi.title}
+          regionLabel={copy.kofi.regionLabel}
+          description={copy.kofi.description}
+          action={
+            <Button href={KOFI_URL} target="_blank" rel="noreferrer" icon={<ExternalLinkIcon />}>
+              {copy.kofi.actionLabel}
+            </Button>
+          }
+        />
       </section>
 
-      <section
-        aria-label={copy.supporters.heading}
-        className="flex flex-col gap-6 border-t border-[color:var(--color-border-soft)] pt-10"
-      >
-        <header className="grid gap-3">
-          <p className="eyebrow eyebrow-rule">{copy.supporters.heading}</p>
-          <p className="max-w-2xl text-sm leading-7 text-[color:var(--color-text-muted)]">
-            {copy.supporters.intro}
-          </p>
+      <section aria-labelledby={supportersHeadingId} className="flex flex-col gap-5">
+        <header className="flex flex-col gap-2">
+          <SectionHeading id={supportersHeadingId}>{copy.supporters.heading}</SectionHeading>
+          <p className="max-w-2xl text-sm text-text-2">{copy.supporters.intro}</p>
         </header>
 
         <SupportersBody
@@ -174,9 +149,7 @@ export default function SupportPage({ location }: SupportPageProps) {
           ordered={orderedSupporters}
         />
 
-        <p className="text-xs leading-6 text-[color:var(--color-text-faint)]">
-          {copy.supporters.unnamedNote}
-        </p>
+        <p className="text-xs text-text-3">{copy.supporters.unnamedNote}</p>
       </section>
 
       <DialogShell
@@ -185,24 +158,19 @@ export default function SupportPage({ location }: SupportPageProps) {
         labelledBy={wechatTitleId}
         closeLabel={copy.closeLabel}
       >
-        <p className="eyebrow eyebrow-rule">{copy.wechat.modalSubtitle}</p>
-        <h2
-          id={wechatTitleId}
-          className="mt-2 font-display text-2xl font-semibold tracking-tight text-[color:var(--color-text-base)]"
-        >
+        <h2 id={wechatTitleId} className="pr-10 text-lg font-semibold text-text-1">
           {copy.wechat.modalTitle}
         </h2>
-        <div className="mt-6 flex justify-center">
+        <p className="mt-0.5 text-[13px] text-text-3">{copy.wechat.modalSubtitle}</p>
+        <div className="mt-5 flex justify-center">
           <div
-            className="flex h-56 w-56 items-center justify-center rounded-2xl border border-[color:var(--color-border-soft)] bg-white p-3"
+            className="flex size-56 items-center justify-center rounded-panel bg-white p-3"
             dangerouslySetInnerHTML={{ __html: wechatPayQrSvg }}
             aria-label={copy.wechat.qrAriaLabel}
             role="img"
           />
         </div>
-        <p className="mt-5 text-sm leading-6 text-[color:var(--color-text-muted)]">
-          {copy.wechat.modalHint}
-        </p>
+        <p className="mt-5 text-sm text-text-2">{copy.wechat.modalHint}</p>
       </DialogShell>
     </InfoPageShell>
   );

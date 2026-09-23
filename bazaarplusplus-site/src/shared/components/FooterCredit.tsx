@@ -7,11 +7,11 @@ export default function FooterCredit({ locale }: { locale: Locale }) {
   const copy = getSiteCopy(locale).common.footer;
 
   return (
-    <span className="inline-flex items-center gap-1.5 font-display-italic normal-case tracking-[0.08em]">
+    <span className="inline-flex items-center gap-1.5">
       <span>{copy.madeWith}</span>
       <svg
         aria-label={copy.love}
-        className="h-3.5 w-3.5 text-[#f1749e] drop-shadow-[0_0_8px_rgba(241,116,158,0.36)]"
+        className="size-3.5 text-danger"
         fill="currentColor"
         role="img"
         viewBox="0 0 24 24"
@@ -20,7 +20,7 @@ export default function FooterCredit({ locale }: { locale: Locale }) {
       </svg>
       <span>{copy.by}</span>
       <a
-        className="text-[color:var(--color-accent-bright)] underline-offset-4 transition hover:text-[color:var(--color-text-base)] hover:underline"
+        className="text-text-2 underline-offset-4 transition-colors duration-(--t-fast) hover:text-text-1 hover:underline"
         href={AUTHOR_URL}
         rel="noreferrer"
         target="_blank"

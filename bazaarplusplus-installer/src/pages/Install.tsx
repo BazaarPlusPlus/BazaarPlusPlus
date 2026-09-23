@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
+import { Loader2 } from 'lucide-react';
 import { PageShell } from '../components/ui/PageShell';
 import { LoadingPanel } from '../components/ui/LoadingPanel';
 import { useAppBootstrap } from '../features/about/AppBootstrapProvider';
-import { useUpdater } from '../features/about/UpdaterProvider';
 import { InstallActionsPanel } from '../features/install/InstallActionsPanel';
 import { InstallConfirmModal } from '../features/install/InstallConfirmModal';
 import { InstallStatusPanel } from '../features/install/InstallStatusPanel';
@@ -23,7 +23,6 @@ import { useToast } from '../components/ui/Toast';
 export default function Install() {
   const { t } = useI18n();
   const app = useAppBootstrap();
-  const updater = useUpdater();
   const { snapshot, intents } = useInstallPage();
   const { dismissToast, showToast } = useToast();
   const [installAcknowledged, setInstallAcknowledged] = useState(false);
@@ -72,7 +71,7 @@ export default function Install() {
   }, [dismissToast, showToast, snapshot.actionProblem, t]);
 
   return (
-    <PageShell title={t('installTitle')} className="bpp-install-page">
+    <PageShell title={t('installTitle')}>
       {snapshot.phase === 'initial-loading' ? (
         <LoadingPanel label={t('installDetecting')} className="h-64" />
       ) : snapshot.phase === 'blocking-failure' ? (
@@ -92,11 +91,8 @@ export default function Install() {
             <InstallProblemBanner problem={snapshot.reconciliationProblem} />
           )}
           {snapshot.refresh.phase === 'refreshing' && (
-            <p
-              role="status"
-              aria-live="polite"
-              className="bpp-install-refreshing m-0 text-xs"
-            >
+            <p role="status" aria-live="polite" className="bpp-inline-status">
+              <Loader2 size={13} className="bpp-spin" aria-hidden="true" />
               {t('installRefreshing')}
             </p>
           )}
@@ -105,12 +101,7 @@ export default function Install() {
             intents={intents}
             appVersion={appVersion}
           />
-          <InstallActionsPanel
-            snapshot={snapshot}
-            intents={intents}
-            updateChecking={updater.phase === 'checking'}
-            onCheckUpdate={updater.checkNow}
-          />
+          <InstallActionsPanel snapshot={snapshot} intents={intents} />
         </>
       ) : null}
 

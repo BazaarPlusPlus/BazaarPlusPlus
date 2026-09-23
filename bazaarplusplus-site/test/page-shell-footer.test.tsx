@@ -13,11 +13,7 @@ function pageLocation(href: string) {
 describe('page shell footer', () => {
   test('renders the author credit link in info pages', () => {
     render(
-      <InfoPageShell
-        locale="en"
-        location={pageLocation('/download?lang=en')}
-        title="Download BazaarPlusPlus"
-      >
+      <InfoPageShell location={pageLocation('/download?lang=en')} title="Download BazaarPlusPlus">
         <div>Download content</div>
       </InfoPageShell>
     );
@@ -33,7 +29,7 @@ describe('page shell footer', () => {
 
   test('renders the author credit in English for Chinese pages', () => {
     render(
-      <InfoPageShell locale="zh" location={pageLocation('/download')} title="下载 BazaarPlusPlus">
+      <InfoPageShell location={pageLocation('/download')} title="下载 BazaarPlusPlus">
         <div>下载内容</div>
       </InfoPageShell>
     );
@@ -48,9 +44,7 @@ describe('page shell footer', () => {
   test('renders the author credit link in stats pages', () => {
     render(
       <StatsPageShell
-        locale="en"
         location={pageLocation('/heroes?lang=en')}
-        eyebrow="Analytics"
         title="Hero winrate"
         generatedAt="2026-04-18T18:57:46Z"
         filters={<div>Filters</div>}

@@ -1,5 +1,9 @@
 import { Database, ShieldCheck } from 'lucide-react';
-import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
+import {
+  ConfirmDialog,
+  ConfirmNote,
+  ConfirmTarget
+} from '../../components/ui/ConfirmDialog';
 import { useI18n } from '../../i18n/LocaleProvider';
 import { InstallProblemBanner } from './InstallProblemBanner';
 import { ResetDataFailureDetails } from './ResetDataFailureDetails';
@@ -44,26 +48,16 @@ export function ResetDataConfirmModal({
       onConfirm={onConfirm}
       onClose={onClose}
     >
-      <p className="bpp-confirm-target m-0 text-[12px] leading-relaxed fira-code selectable break-all">
+      <ConfirmTarget>
         {t('resetDataTarget', { path: targetPath })}
-      </p>
-      <div className="bpp-confirm-note is-danger flex items-start gap-3 p-4">
-        <Database size={16} className="bpp-confirm-note-icon mt-0.5 shrink-0" />
-        <p className="m-0 text-[13px] leading-relaxed">
-          {t('resetDataConfirmBody')}
-        </p>
-      </div>
-
-      <div className="bpp-confirm-note is-warning flex items-start gap-3 p-4">
-        <ShieldCheck
-          size={16}
-          className="bpp-confirm-note-icon mt-0.5 shrink-0"
-        />
-        <div className="flex flex-col gap-2 text-[13px] leading-relaxed">
-          <p className="m-0">{t('resetDataConfirmKeepsInstall')}</p>
-          <p className="m-0">{t('resetDataConfirmGameClosed')}</p>
-        </div>
-      </div>
+      </ConfirmTarget>
+      <ConfirmNote tone="danger" icon={<Database size={15} />}>
+        <p>{t('resetDataConfirmBody')}</p>
+      </ConfirmNote>
+      <ConfirmNote tone="neutral" icon={<ShieldCheck size={15} />}>
+        <p>{t('resetDataConfirmKeepsInstall')}</p>
+        <p>{t('resetDataConfirmGameClosed')}</p>
+      </ConfirmNote>
       {problem && <InstallProblemBanner problem={problem} />}
       {failurePaths.length > 0 && (
         <ResetDataFailureDetails paths={failurePaths} />

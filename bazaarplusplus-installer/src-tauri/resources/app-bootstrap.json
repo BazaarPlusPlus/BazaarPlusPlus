@@ -30,9 +30,15 @@
     },
     { "name": "Codex", "role": "CO-CREATOR", "group": "team" },
     { "name": "Claude Code", "role": "CO-CREATOR", "group": "team" },
+    { "name": "Cursor", "role": "CO-CREATOR", "group": "team" },
     {
       "name": "BazaarDB",
       "role": "GAME DATA SOURCE",
+      "group": "acknowledgement"
+    },
+    {
+      "name": "BPP Players",
+      "role": "COMMUNITY RUN DATA",
       "group": "acknowledgement"
     },
     {

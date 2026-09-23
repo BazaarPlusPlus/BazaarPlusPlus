@@ -1,18 +1,17 @@
 import {
-  AlertCircle,
-  AlertTriangle,
   Copy,
   ExternalLink,
-  Maximize,
-  Minimize,
-  Radio,
-  RefreshCw,
+  Minus,
+  Play,
+  Plus,
+  RotateCw,
   Settings2
 } from 'lucide-react';
 import { useEffect, useMemo } from 'react';
 import type { StreamOverlayDisplayMode } from '../types/backend';
 import { Button } from '../components/ui/Button';
 import { PageShell } from '../components/ui/PageShell';
+import { StatusBadge } from '../components/ui/StatusBadge';
 import { SegmentedControl } from '../components/ui/SegmentedControl';
 import { useToast, type ToastTone } from '../components/ui/Toast';
 import { useStreamPage } from '../features/stream/useStreamPage';
@@ -81,201 +80,175 @@ export default function Stream() {
   );
   useStreamNoticeToast(presentation.notice);
 
+  const statusBadge = (
+    {
+      loading: 'busy',
+      running: 'ok',
+      idle: 'neutral',
+      degraded: 'bad',
+      stale: 'warn'
+    } as const
+  )[statusTone];
+
   return (
-    <PageShell title={t('streamTitle')}>
-      <div className="bpp-stream-stack">
-        <section className="bpp-panel bpp-stream-panel">
-          <div className="bpp-stream-service-row">
-            <div className="bpp-stream-service-status">
-              <div className={`bpp-stream-status-icon is-${statusTone}`}>
-                {statusTone === 'degraded' ? (
-                  <AlertCircle size={16} />
-                ) : statusTone === 'stale' ? (
-                  <AlertTriangle size={16} />
-                ) : statusTone === 'running' ? (
-                  <Radio size={16} className="animate-pulse" />
-                ) : (
-                  <RefreshCw
-                    size={16}
-                    className={
-                      snapshot.service.phase === 'loading' ||
-                      snapshot.service.operation === 'restart'
-                        ? 'animate-spin'
-                        : ''
-                    }
-                  />
-                )}
-              </div>
-              <div className="min-w-0">
-                <h3 className="bpp-stream-status-title">
-                  {presentation.status.label}
-                </h3>
-                <p className="bpp-stream-status-detail">
-                  {presentation.status.detail}
-                  {status?.running && snapshot.polling.freshness === 'fresh'
-                    ? ` · ${presentation.dbLabel}`
-                    : ''}
-                </p>
-              </div>
-            </div>
-            <div className="bpp-stream-service-actions">
-              <Button
-                disabled={!snapshot.oneOff.canOpenOverlay}
-                onClick={() => void intents.openOverlay()}
-              >
-                <ExternalLink size={14} /> {t('streamOpenOverlay')}
-              </Button>
-              <Button
-                variant="primary"
-                disabled={!snapshot.service.canRestart}
-                onClick={() => void intents.restart()}
-              >
-                <RefreshCw
-                  size={14}
-                  className={
-                    snapshot.service.operation === 'restart'
-                      ? 'animate-spin'
-                      : ''
-                  }
-                />
-                {status?.running ? t('streamRestart') : t('streamStart')}
-              </Button>
-            </div>
-          </div>
+    <PageShell
+      title={t('streamTitle')}
+      meta={
+        <StatusBadge tone={statusBadge}>
+          {presentation.status.label}
+        </StatusBadge>
+      }
+      action={
+        <>
+          <Button
+            size="sm"
+            disabled={!snapshot.oneOff.canOpenOverlay}
+            onClick={() => void intents.openOverlay()}
+            icon={<ExternalLink />}
+          >
+            {t('streamOpenOverlay')}
+          </Button>
+          <Button
+            variant="primary"
+            size="sm"
+            disabled={!snapshot.service.canRestart}
+            busy={snapshot.service.operation === 'restart'}
+            onClick={() => void intents.restart()}
+            icon={status?.running ? <RotateCw /> : <Play />}
+          >
+            {status?.running ? t('streamRestart') : t('streamStart')}
+          </Button>
+        </>
+      }
+    >
+      <p className="bpp-page-meta -mt-2 m-0">
+        {presentation.status.detail}
+        {status?.running && snapshot.polling.freshness === 'fresh'
+          ? ` · ${presentation.dbLabel}`
+          : ''}
+      </p>
 
-          <div className="bpp-stream-section">
-            <span
-              id="stream-obs-url-label"
-              className="bpp-stream-section-label"
+      <section className="bpp-panel bpp-panel-pad">
+        <h3 className="bpp-panel-title">{t('streamObsUrlLabel')}</h3>
+        <div className="bpp-field-row">
+          <div
+            id="stream-obs-url"
+            className={`bpp-input is-readonly selectable flex-1 ${snapshot.oneOff.obsUrl ? 'mono' : ''}`}
+            aria-label={t('streamObsUrlLabel')}
+          >
+            {snapshot.oneOff.obsUrl ?? t('streamObsPlaceholder')}
+          </div>
+          <Button
+            disabled={!snapshot.oneOff.canCopyObsUrl}
+            onClick={() => void intents.copyObsUrl()}
+            icon={<Copy />}
+          >
+            {t('copy')}
+          </Button>
+        </div>
+      </section>
+
+      <section className="bpp-panel">
+        <div className="bpp-row">
+          <div className="bpp-row-copy">
+            <span className="bpp-row-title">{t('streamWindowSection')}</span>
+            <span className="bpp-row-description">
+              {presentation.windowLabel}
+            </span>
+          </div>
+          <div className="flex flex-none items-center gap-2">
+            <Button
+              size="sm"
+              disabled={!snapshot.window.canMoveLessHistory}
+              onClick={() => void intents.moveWindow(-1)}
+              icon={<Minus />}
             >
-              {t('streamObsUrlLabel')}
-            </span>
-            <div className="bpp-stream-obs-row">
-              <div
-                id="stream-obs-url"
-                className="bpp-input bpp-stream-obs-value selectable fira-code"
-                aria-labelledby="stream-obs-url-label"
-              >
-                {snapshot.oneOff.obsUrl ?? t('streamObsPlaceholder')}
-              </div>
-              <Button
-                disabled={!snapshot.oneOff.canCopyObsUrl}
-                onClick={() => void intents.copyObsUrl()}
-              >
-                <Copy size={16} /> {t('copy')}
-              </Button>
-            </div>
-            <p className="bpp-stream-section-hint m-0 mt-2 text-[12px] leading-relaxed">
-              {t('streamObsGuide')}
-            </p>
+              {t('streamLessHistory')}
+            </Button>
+            <Button
+              size="sm"
+              disabled={!snapshot.window.canMoveMoreHistory}
+              onClick={() => void intents.moveWindow(1)}
+              icon={<Plus />}
+            >
+              {t('streamMoreHistory')}
+            </Button>
           </div>
+        </div>
+        <div className="bpp-kv">
+          <InfoMetric
+            mono
+            label={t('streamInfoHost')}
+            value={status?.host ?? '-'}
+          />
+          <InfoMetric
+            mono
+            label={t('streamInfoPort')}
+            value={status?.port ? String(status.port) : '-'}
+          />
+          <InfoMetric label={t('streamInfoDb')} value={presentation.dbLabel} />
+          <InfoMetric
+            label={t('streamInfoWindow')}
+            value={String(status?.active_window_offset ?? 0)}
+          />
+        </div>
+      </section>
 
-          <div className="bpp-stream-section">
-            <div className="bpp-stream-section-heading">
-              <span className="bpp-stream-section-label">
-                {t('streamWindowSection')}
-              </span>
-              <span className="bpp-stream-window-summary">
-                {presentation.windowLabel}
-              </span>
-            </div>
-            <div className="bpp-stream-metrics-grid">
-              <InfoMetric
-                label={t('streamInfoHost')}
-                value={status?.host ?? '-'}
-              />
-              <InfoMetric
-                label={t('streamInfoPort')}
-                value={status?.port ? String(status.port) : '-'}
-              />
-              <InfoMetric
-                label={t('streamInfoDb')}
-                value={presentation.dbLabel}
-              />
-              <div className="bpp-stream-window-metric">
-                <InfoMetric
-                  label={t('streamInfoWindow')}
-                  value={String(status?.active_window_offset ?? 0)}
-                />
-                <div className="bpp-stream-window-actions">
-                  <Button
-                    size="small"
-                    disabled={!snapshot.window.canMoveMoreHistory}
-                    onClick={() => void intents.moveWindow(1)}
-                  >
-                    <Maximize size={12} />
-                    {t('streamMoreHistory')}
-                  </Button>
-                  <Button
-                    size="small"
-                    disabled={!snapshot.window.canMoveLessHistory}
-                    onClick={() => void intents.moveWindow(-1)}
-                  >
-                    <Minimize size={12} />
-                    {t('streamLessHistory')}
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="bpp-stream-section bpp-stream-config-section">
-            <span className="bpp-stream-section-label">
-              {t('streamOverlayConfig')}
-            </span>
-
-            <span className="bpp-stream-metric-label">
-              {t('streamDisplayModeLabel')}
-            </span>
-
-            <SegmentedControl
-              label={t('streamDisplayModeLabel')}
-              name="displayMode"
-              value={cropSettings.display_mode}
+      <section className="bpp-panel bpp-panel-pad">
+        <h3 className="bpp-panel-title">{t('streamOverlayConfig')}</h3>
+        <div className="bpp-field">
+          <span className="bpp-field-label">{t('streamDisplayModeLabel')}</span>
+          <SegmentedControl
+            className="self-start"
+            label={t('streamDisplayModeLabel')}
+            name="displayMode"
+            value={cropSettings.display_mode}
+            disabled={!snapshot.crop.canEdit}
+            options={displayModes.map((mode) => ({
+              value: mode.value,
+              label: t(mode.labelKey)
+            }))}
+            onChange={(mode) => void intents.changeDisplayMode(mode)}
+          />
+        </div>
+        <div className="bpp-field">
+          <label htmlFor="stream-crop-code" className="bpp-field-label">
+            {t('streamCropCodeLabel')}
+          </label>
+          <div className="bpp-field-row">
+            <input
+              id="stream-crop-code"
+              type="text"
+              placeholder={t('streamCropCodePlaceholder')}
+              value={snapshot.crop.code}
               disabled={!snapshot.crop.canEdit}
-              options={displayModes.map((mode) => ({
-                value: mode.value,
-                label: t(mode.labelKey)
-              }))}
-              onChange={(mode) => void intents.changeDisplayMode(mode)}
+              onChange={(event) => intents.setCropCode(event.target.value)}
+              className="bpp-input mono min-w-[180px] flex-1"
             />
-
-            <div className="bpp-stream-crop-row">
-              <label htmlFor="stream-crop-code" className="sr-only">
-                {t('streamCropCodeLabel')}
-              </label>
-              <input
-                id="stream-crop-code"
-                type="text"
-                placeholder={t('streamCropCodePlaceholder')}
-                value={snapshot.crop.code}
-                disabled={!snapshot.crop.canEdit}
-                onChange={(event) => intents.setCropCode(event.target.value)}
-                className="bpp-input bpp-stream-crop-input fira-code"
-              />
-              <Button
-                variant="primary"
-                onClick={() => void intents.submitCropCode()}
-                disabled={!snapshot.crop.canEdit}
-              >
-                {t('streamApplyCrop')}
-              </Button>
-              <Button
-                onClick={() => void intents.resetCropCode()}
-                disabled={!snapshot.crop.canEdit}
-              >
-                {t('streamResetCrop')}
-              </Button>
-              <Button
-                disabled={!snapshot.oneOff.canOpenSettings}
-                onClick={() => void intents.openSettings()}
-              >
-                <Settings2 size={16} /> {t('streamOpenSettings')}
-              </Button>
-            </div>
+            <Button
+              variant="primary"
+              onClick={() => void intents.submitCropCode()}
+              disabled={!snapshot.crop.canEdit}
+            >
+              {t('streamApplyCrop')}
+            </Button>
+            <Button
+              onClick={() => void intents.resetCropCode()}
+              disabled={!snapshot.crop.canEdit}
+            >
+              {t('streamResetCrop')}
+            </Button>
+            <Button
+              variant="ghost"
+              disabled={!snapshot.oneOff.canOpenSettings}
+              onClick={() => void intents.openSettings()}
+              icon={<Settings2 />}
+            >
+              {t('streamOpenSettings')}
+            </Button>
           </div>
-        </section>
-      </div>
+        </div>
+      </section>
     </PageShell>
   );
 }
@@ -319,11 +292,25 @@ function useStreamNoticeToast(notice: string | null) {
   }, [dismissToast, notice, showToast]);
 }
 
-function InfoMetric({ label, value }: { label: string; value: string }) {
+function InfoMetric({
+  label,
+  value,
+  mono = false
+}: {
+  label: string;
+  value: string;
+  mono?: boolean;
+}) {
   return (
-    <div className="bpp-stream-metric">
-      <span className="bpp-stream-metric-label">{label}</span>
-      <span className="bpp-stream-metric-value fira-code">{value}</span>
-    </div>
+    <>
+      <span className="bpp-kv-key">{label}</span>
+      <span
+        className={`bpp-kv-value selectable ${mono ? 'mono' : 'tnum'}`}
+        title={value}
+      >
+        {value}
+      </span>
+      <span />
+    </>
   );
 }

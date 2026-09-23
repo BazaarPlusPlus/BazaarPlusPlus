@@ -77,7 +77,7 @@ Platform facts (bundle paths, updater keys, Rust targets) are defined in `../rel
 | --- | --- |
 | `src/` | React frontend |
 | `src-tauri/` | Rust backend: native commands, services, packaging |
-| `static/` | Frontend media and fonts imported by Vite |
+| `static/` | Frontend media imported by Vite |
 | `scripts/` | Build tooling — `release/` holds the packaging pipeline, `checks/` the verification entry points; behavior tests are colocated as `*.test.mjs` |
 | `docs/` | Project documentation (see below) |
 
