@@ -257,15 +257,6 @@ export async function uploadPlatform({
   return fragment;
 }
 
-// Installers 5.4.0 and earlier read only the lockstep manifest and compute
-// this address themselves for the version they are offered. Nothing ships it
-// any more; the writer only tells the operator whether that share exists.
-const LEGACY_MIRROR_ORIGIN = 'https://cauyxy.lanzout.com';
-function legacyMainlandMirrorUrl(platformKey, version) {
-  const slug = platformKey === 'windows-x86_64' ? 'win' : 'mac';
-  return `${LEGACY_MIRROR_ORIGIN}/bpp${slug}${version.replaceAll('.', '')}`;
-}
-
 async function assertMirrorRecordable(store, version, key) {
   for (const [source, published] of [
     [platformManifestPath(key), await readPlatformManifest(store, key)],
@@ -302,18 +293,6 @@ export async function recordMainlandMirror({
   });
   log(`Mainland mirror ${key}: ${result.outcome} (${result.detail})`);
   assertMainlandMirrors([result], { allowUnverified, log });
-  const legacyUrl = legacyMainlandMirrorUrl(key, version);
-  if (url !== legacyUrl) {
-    const legacy = await checkMainlandMirror({
-      platform: key,
-      url: legacyUrl,
-      fileName,
-      probeMirror
-    });
-    log(
-      `WARNING: installers 5.4.0 and earlier open ${legacyUrl} for ${version}: ${legacy.outcome} (${legacy.detail})`
-    );
-  }
   const record = buildMirrorRecord({
     version,
     platform: key,

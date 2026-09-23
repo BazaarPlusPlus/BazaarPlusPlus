@@ -697,30 +697,6 @@ test('a mirror record cannot silently diverge from an address promoted during it
   expect(store.writes).toHaveLength(writes);
 });
 
-test('recording warns about the address installers 5.4.0 and earlier compute for the version', async () => {
-  const data = fixture();
-  const store = new MemoryStore();
-  await upload(data, store, 'windows');
-  const legacy = 'https://cauyxy.lanzout.com/bppwin311';
-  const probeMirror = mirrorProbe(data.version, {
-    [legacy]: sharePage(installerName('windows', data.version))
-  });
-  const log = vi.fn();
-  await record(data, store, 'windows', { probeMirror, log });
-  expect(log).toHaveBeenCalledWith(
-    expect.stringMatching(
-      /WARNING: installers 5\.4\.0 and earlier open https:\/\/cauyxy\.lanzout\.com\/bppwin311 for 3\.1\.1: verified/
-    )
-  );
-  const silent = vi.fn();
-  await record(data, store, 'windows', {
-    url: legacy,
-    probeMirror,
-    log: silent
-  });
-  expect(silent).not.toHaveBeenCalledWith(expect.stringMatching(/5\.4\.0/));
-});
-
 test('re-running a platform promotion after both platforms aligned reports no advance', async () => {
   const data = fixture();
   const store = new MemoryStore();
