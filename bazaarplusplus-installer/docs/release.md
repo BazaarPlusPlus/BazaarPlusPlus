@@ -29,6 +29,6 @@ On macOS, producer inputs are arm64, deployment target 12.0, system-linked, ABI-
 
 `createArtifactManifest` in `../release/artifact-manifest.mjs` is called by the product coordinator only after packaging and source/Git revalidation. It records one installer/updater pair, the sealed Payload receipt, Git identity, sizes, hashes and signature content. Failed builds remove the previous receipt; there is no standalone command to create a receipt for leftover bundles.
 
-`validateArtifactManifest` rejects dirty or changed release inputs, mismatched versions/commits, and modified artifacts before upload. The uploader freezes every file before making any remote write. Platform uploads do not advance latest; the workspace coordinator verifies both platforms at the same version and commit before conditional promotion.
+`validateArtifactManifest` rejects dirty or changed release inputs, mismatched versions/commits, and modified artifacts before upload. The uploader freezes every file before making any remote write. Platform uploads publish nothing; the workspace coordinator promotes either every platform or one platform (`promote --platform`), as specified in the [product release guide](../../docs/release.md).
 
 R2 access uses S3 credentials and ETag conditional writes, not Wrangler login state. Credentials, first-release migration, retry behavior and website deployment ordering are specified in the [product release guide](../../docs/release.md).

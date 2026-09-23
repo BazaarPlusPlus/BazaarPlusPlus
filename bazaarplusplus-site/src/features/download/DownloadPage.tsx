@@ -39,6 +39,7 @@ function DownloadCard({
   const platformCopy = copy[platform];
   const download = installer?.downloads[platform];
   const disabled = download == null;
+  const mainlandDownloadUrl = download?.mainlandDownloadUrl ?? null;
 
   return (
     <article className="panel flex flex-col gap-6 p-6">
@@ -56,14 +57,12 @@ function DownloadCard({
         <span className="text-[13px] text-text-3">{copy.versionLabel}</span>
         {status === 'loading' ? (
           <span className="inline-block h-5 w-20 self-center rounded-control bg-hover motion-safe:animate-pulse" />
-        ) : installer ? (
+        ) : download ? (
           <span className="text-lg font-semibold text-accent tabular-nums">
-            v{installer.version}
+            v{download.version}
           </span>
         ) : (
-          <span className="text-sm text-text-2">
-            {status === 'error' ? copy.versionUnavailable : copy.versionPending}
-          </span>
+          <span className="text-sm text-text-2">{copy.versionUnavailable}</span>
         )}
       </div>
 
@@ -77,11 +76,11 @@ function DownloadCard({
           {platformCopy.actionLabel}
         </Button>
         <Button
-          href={download?.mainlandDownloadUrl ?? '#'}
+          href={mainlandDownloadUrl ?? '#'}
           target="_blank"
           rel="noreferrer"
           aria-label={platformCopy.mainlandActionLabel}
-          disabled={disabled}
+          disabled={mainlandDownloadUrl == null}
           icon={<ExternalLinkIcon />}
         >
           {copy.mainlandButtonLabel}

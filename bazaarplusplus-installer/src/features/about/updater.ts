@@ -1,5 +1,9 @@
 import { check, type Update } from '@tauri-apps/plugin-updater';
 import { relaunch } from '@tauri-apps/plugin-process';
+import {
+  DOWNLOAD_PLATFORM_KEYS,
+  decodeMainlandDownloadUrl
+} from '../../../../release/downloads';
 import { hasTauriRuntime } from '../../api/runtime';
 import { isWindowsPlatform } from '../shared/platform';
 import {
@@ -14,7 +18,7 @@ import {
  */
 export type UpdateHandle = Pick<
   Update,
-  'version' | 'body' | 'downloadAndInstall' | 'close'
+  'version' | 'body' | 'rawJson' | 'downloadAndInstall' | 'close'
 >;
 
 export type UpdateCheckResult =
@@ -24,6 +28,8 @@ export type UpdateCheckResult =
       status: 'available';
       version: string;
       notes: string;
+      /** Mainland mirror page published for this host in its Platform Release Manifest. */
+      mainlandDownloadUrl: string | null;
       update: UpdateHandle;
     };
 
@@ -48,14 +54,19 @@ export async function runCheck(impl: UpdaterImpl): Promise<UpdateCheckResult> {
   }
 
   const update = await impl.check();
-  return update
-    ? {
-        status: 'available',
-        version: update.version,
-        notes: update.body ?? '',
-        update
-      }
-    : { status: 'current' };
+  if (!update) return { status: 'current' };
+  // The updater already fetched this platform's Release Manifest (or the
+  // lockstep latest.json fallback); the mirror address for this host is read
+  // from that same document rather than derived.
+  const platformKey =
+    DOWNLOAD_PLATFORM_KEYS[impl.isWindows() ? 'windows' : 'mac'];
+  return {
+    status: 'available',
+    version: update.version,
+    notes: update.body ?? '',
+    mainlandDownloadUrl: decodeMainlandDownloadUrl(update.rawJson, platformKey),
+    update
+  };
 }
 
 export type UpdateProgress = { downloaded: number; total: number | null };
@@ -64,6 +75,7 @@ type EmptyUpdaterSnapshot = {
   phase: 'idle' | 'checking' | 'current' | 'preview';
   version: null;
   notes: null;
+  mainlandDownloadUrl: null;
   progress: null;
   problem: null;
 };
@@ -71,6 +83,7 @@ type EmptyUpdaterSnapshot = {
 type KnownUpdateFields = {
   version: string;
   notes: string;
+  mainlandDownloadUrl: string | null;
   problem: null;
 };
 
@@ -90,6 +103,7 @@ type FailedUpdaterSnapshot = {
   phase: 'failed';
   version: string | null;
   notes: string | null;
+  mainlandDownloadUrl: string | null;
   progress: null;
   problem: UpdaterProblem;
 };
@@ -101,11 +115,16 @@ export const initialUpdaterSnapshot: UpdaterSnapshot = {
   phase: 'idle',
   version: null,
   notes: null,
+  mainlandDownloadUrl: null,
   progress: null,
   problem: null
 };
 
-type KnownUpdate = { version: string; notes: string };
+type KnownUpdate = {
+  version: string;
+  notes: string;
+  mainlandDownloadUrl: string | null;
+};
 
 export type UpdaterMachine = {
   getSnapshot: () => UpdaterSnapshot;
@@ -134,6 +153,7 @@ export function createUpdaterMachine(
       phase,
       version: null,
       notes: null,
+      mainlandDownloadUrl: null,
       progress: null,
       problem: null
     });
@@ -169,6 +189,7 @@ export function createUpdaterMachine(
       phase: 'failed',
       version: update?.version ?? null,
       notes: update?.notes ?? null,
+      mainlandDownloadUrl: update?.mainlandDownloadUrl ?? null,
       progress: null,
       problem
     });
@@ -203,7 +224,11 @@ export function createUpdaterMachine(
     try {
       const result = await runCheck(impl);
       if (result.status === 'available') {
-        knownUpdate = { version: result.version, notes: result.notes };
+        knownUpdate = {
+          version: result.version,
+          notes: result.notes,
+          mainlandDownloadUrl: result.mainlandDownloadUrl
+        };
         replaceHandle(result.update);
         publishKnown('available');
         return;
@@ -240,7 +265,11 @@ export function createUpdaterMachine(
           publishEmpty(result.status);
           return;
         }
-        knownUpdate = { version: result.version, notes: result.notes };
+        knownUpdate = {
+          version: result.version,
+          notes: result.notes,
+          mainlandDownloadUrl: result.mainlandDownloadUrl
+        };
         replaceHandle(result.update);
         update = result.update;
         publishDownloading();

@@ -29,6 +29,15 @@ build platform *args:
 upload platform:
     node release.mjs upload --platform "$1"
 
-# Advance latest only when both platforms have the same version and commit.
-promote:
-    node release.mjs promote
+# Verify one platform's mainland mirror share page and record it for this version.
+[arg('platform', pattern='macos|windows')]
+mirror platform url *args:
+    node release.mjs mirror --platform "$1" --url "$2" "${@:3}"
+
+# Re-check the recorded mainland mirrors read-only; no credentials.
+verify-mirror *args:
+    node release.mjs verify-mirror "$@"
+
+# Publish every platform at VERSION; with --platform, publish one platform's manifest.
+promote *args:
+    node release.mjs promote "$@"

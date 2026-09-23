@@ -108,7 +108,6 @@ type StatsCopy = {
 export type DownloadPageCopy = {
   title: string;
   versionLabel: string;
-  versionPending: string;
   versionUnavailable: string;
   versionFailed: string;
   releaseFallbackPrefix: string;
@@ -448,7 +447,6 @@ const zh: LocalizedSiteCopy = {
   download: {
     title: '下载 BazaarPlusPlus',
     versionLabel: '最新版本',
-    versionPending: '正在获取最新版本…',
     versionUnavailable: '获取失败',
     versionFailed: '暂时无法获取最新版本',
     releaseFallbackPrefix: '可以前往 ',
@@ -754,7 +752,6 @@ const en: LocalizedSiteCopy = {
   download: {
     title: 'Download BazaarPlusPlus',
     versionLabel: 'Current version',
-    versionPending: 'Fetching latest version…',
     versionUnavailable: 'Unavailable',
     versionFailed: 'Cannot reach the latest version right now',
     releaseFallbackPrefix: 'Try ',

@@ -2,7 +2,11 @@
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { parseArgs } from 'node:util';
-import { RELEASE_BASE_URL, WORKSPACE_ROOT } from './release/product.mjs';
+import {
+  RELEASE_BASE_URL,
+  WORKSPACE_ROOT,
+  readProductVersion
+} from './release/product.mjs';
 import {
   synchronizeProductProjections,
   checkProductProjections
@@ -13,7 +17,14 @@ import {
   assertBuildOwner,
   assertReleaseBuildArgs
 } from './release/payload.mjs';
-import { uploadPlatform, promoteRelease } from './release/publish.mjs';
+import {
+  uploadPlatform,
+  recordMainlandMirror,
+  promotePlatform,
+  promoteRelease
+} from './release/publish.mjs';
+import { fetchMirrorPage, verifyMainlandMirrors } from './release/mirror.mjs';
+import { assertMirrorUrl } from './release/manifest.mjs';
 import { r2StoreFromEnvironment } from './release/r2-store.mjs';
 import { resolveBuildPlatform } from './release/release-platforms.mjs';
 
@@ -23,11 +34,21 @@ const usage = `Product release commands (run from any directory):
   node release.mjs prepare --platform macos      Build and validate one platform Payload
   node release.mjs build --platform macos        Build and sign the native installer
   node release.mjs upload --platform macos       Upload immutable platform artifacts
-  node release.mjs promote                      Publish latest after both platforms are ready
+  node release.mjs mirror --platform macos --url <share-url>
+                                                Verify and record the platform's mainland mirror page
+  node release.mjs verify-mirror [--platform macos]
+                                                Re-check the recorded mainland mirrors of VERSION
+  node release.mjs verify-mirror --latest       Re-check the mainland mirrors of the published platform manifests
+  node release.mjs promote                      Publish every platform at VERSION and advance latest.json
+  node release.mjs promote --platform macos     Publish one platform's manifest; latest.json advances once
+                                                every platform is at the same version
 
 Use windows on the Windows build host. Prepare/build accept -- -p:ManagedPath=<path>.
-Only upload/promote access R2, and require BPP_R2_ACCOUNT_ID,
-BPP_R2_ACCESS_KEY_ID and BPP_R2_SECRET_ACCESS_KEY. No command changes VERSION.
+mirror refuses a share page that does not serve the uploaded installer unless
+--allow-unverified-mirror is passed; promote refuses a platform without a
+recorded mirror unless --without-mainland-mirror is passed. Only upload, mirror
+and promote access R2, and require BPP_R2_ACCOUNT_ID, BPP_R2_ACCESS_KEY_ID and
+BPP_R2_SECRET_ACCESS_KEY. No command changes VERSION.
 `;
 
 export function parseReleaseArgs(args) {
@@ -43,6 +64,8 @@ export function parseReleaseArgs(args) {
       'prepare',
       'build',
       'upload',
+      'mirror',
+      'verify-mirror',
       'promote',
       'assert-build-owner'
     ].includes(command)
@@ -53,11 +76,29 @@ export function parseReleaseArgs(args) {
     strict: true,
     allowPositionals: true,
     tokens: true,
-    options: { platform: { type: 'string' } }
+    options: {
+      platform: { type: 'string' },
+      url: { type: 'string' },
+      latest: { type: 'boolean' },
+      'allow-unverified-mirror': { type: 'boolean' },
+      'without-mainland-mirror': { type: 'boolean' }
+    }
   });
-  if (tokens.filter((token) => token.kind === 'option').length > 1)
-    throw new Error('--platform may only be specified once');
+  const seen = new Set();
+  for (const token of tokens) {
+    if (token.kind !== 'option') continue;
+    if (seen.has(token.name))
+      throw new Error(`--${token.name} may only be specified once`);
+    seen.add(token.name);
+  }
   const separator = tokens.find((token) => token.kind === 'option-terminator');
+  if (
+    !['prepare', 'build'].includes(command) &&
+    (separator || positionals.length)
+  )
+    throw new Error(
+      `${command} takes no positional arguments; platforms are passed as --platform <macos|windows>`
+    );
   if (
     tokens.some(
       (token) =>
@@ -67,18 +108,39 @@ export function parseReleaseArgs(args) {
   )
     throw new Error('MSBuild properties must follow --');
   const platform = values.platform;
-  if (['prepare', 'build', 'upload'].includes(command)) {
+  if (['prepare', 'build', 'upload', 'mirror'].includes(command)) {
     if (!['macos', 'windows'].includes(platform))
+      throw new Error('--platform must be macos or windows');
+  } else if (['promote', 'verify-mirror'].includes(command)) {
+    if (platform !== undefined && !['macos', 'windows'].includes(platform))
       throw new Error('--platform must be macos or windows');
   } else if (platform !== undefined) {
     throw new Error(`${command} is a product-wide operation`);
   }
-  if (!['prepare', 'build'].includes(command) && positionals.length)
-    throw new Error('MSBuild properties are only valid for prepare/build');
+  if (command === 'mirror') {
+    if (!values.url) throw new Error('mirror requires --url <share-url>');
+    assertMirrorUrl(values.url);
+  } else if (values.url !== undefined) {
+    throw new Error('--url is only valid for mirror');
+  }
+  if (values.latest && command !== 'verify-mirror')
+    throw new Error('--latest is only valid for verify-mirror');
+  if (values['allow-unverified-mirror'] && command !== 'mirror')
+    throw new Error('--allow-unverified-mirror is only valid for mirror');
+  if (values['without-mainland-mirror'] && command !== 'promote')
+    throw new Error('--without-mainland-mirror is only valid for promote');
   assertReleaseBuildArgs(positionals);
   if (command === 'assert-build-owner' && rest.length)
     throw new Error('assert-build-owner takes no arguments');
-  return { command, platform, msbuildArgs: positionals };
+  return {
+    command,
+    platform,
+    url: values.url,
+    msbuildArgs: positionals,
+    latest: values.latest ?? false,
+    allowUnverifiedMirror: values['allow-unverified-mirror'] ?? false,
+    withoutMainlandMirror: values['without-mainland-mirror'] ?? false
+  };
 }
 
 function bundleInstaller(rootDir, token) {
@@ -98,12 +160,24 @@ export async function main(
     build = buildProduct,
     createStore = r2StoreFromEnvironment,
     upload = uploadPlatform,
+    mirror = recordMainlandMirror,
+    verifyMirror = verifyMainlandMirrors,
+    probeMirror = fetchMirrorPage,
     promote = promoteRelease,
+    promoteOne = promotePlatform,
     bundle = bundleInstaller,
     log = console.log
   } = {}
 ) {
-  const { command, platform, msbuildArgs } = parseReleaseArgs(args);
+  const {
+    command,
+    platform,
+    url,
+    msbuildArgs,
+    latest,
+    allowUnverifiedMirror,
+    withoutMainlandMirror
+  } = parseReleaseArgs(args);
   const rootDir = path.join(workspaceRoot, 'bazaarplusplus-installer');
   if (command === 'help') {
     log(usage);
@@ -120,6 +194,19 @@ export async function main(
   if (command === 'sync') {
     const version = synchronizeProductProjections(workspaceRoot);
     log(`Product projections synchronized to ${version}`);
+    return;
+  }
+  // Read-only and credential-free: it checks the public release origin and
+  // the mirror, so it must not depend on source alignment or R2 access.
+  if (command === 'verify-mirror') {
+    const verified = await verifyMirror({
+      baseUrl: RELEASE_BASE_URL,
+      version: latest ? null : readProductVersion(workspaceRoot),
+      platform,
+      latest,
+      log
+    });
+    log(`Mainland mirror verified for ${verified.version}`);
     return;
   }
   const version = checkProductProjections(workspaceRoot);
@@ -147,13 +234,42 @@ export async function main(
   if (command === 'upload') {
     await upload({ workspaceRoot, platform, baseUrl: RELEASE_BASE_URL, store });
     log(
-      `Uploaded ${platform} ${version}. Run promote after both platforms are uploaded.`
+      `Uploaded ${platform} ${version}. Record its mainland mirror, then promote after both platforms are ready.`
+    );
+  } else if (command === 'mirror') {
+    await mirror({
+      version,
+      platform,
+      url,
+      store,
+      probeMirror,
+      allowUnverified: allowUnverifiedMirror,
+      log
+    });
+    log(`Recorded ${platform} mainland mirror for ${version}`);
+  } else if (platform) {
+    const result = await promoteOne({
+      version,
+      platform,
+      baseUrl: RELEASE_BASE_URL,
+      store,
+      withoutMainlandMirror,
+      log
+    });
+    log(
+      result.advanced
+        ? `Published ${platform} ${version}; every platform is at ${version}, latest.json advanced`
+        : result.latest
+          ? `Published ${platform} ${version}; latest.json already names ${result.latest.version}`
+          : `Published ${platform} ${version}; latest.json stays at the last lockstep release`
     );
   } else {
     await promote({
       version,
       baseUrl: RELEASE_BASE_URL,
-      store
+      store,
+      withoutMainlandMirror,
+      log
     });
     log(`Published Product Release ${version}`);
   }

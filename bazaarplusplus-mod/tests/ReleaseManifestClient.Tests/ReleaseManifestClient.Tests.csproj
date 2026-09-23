@@ -14,6 +14,10 @@
       Link="ReleaseManifestClient.cs"
     />
     <Compile
+      Include="../../src/BazaarPlusPlus/Infrastructure/ReleaseManifest/ReleaseManifestEndpoints.cs"
+      Link="ReleaseManifestEndpoints.cs"
+    />
+    <Compile
       Include="../../src/BazaarPlusPlus/Game/Lobby/ReleaseManifestCheckLifecycle.cs"
       Link="ReleaseManifestCheckLifecycle.cs"
     />
@@ -21,6 +25,16 @@
     <Content
       Include="../../../release/fixtures/latest.json"
       Link="fixtures/latest.json"
+      CopyToOutputDirectory="PreserveNewest"
+    />
+    <Content
+      Include="../../../release/fixtures/latest/windows-x86_64.json"
+      Link="fixtures/latest/windows-x86_64.json"
+      CopyToOutputDirectory="PreserveNewest"
+    />
+    <Content
+      Include="../../../release/fixtures/latest/darwin-aarch64.json"
+      Link="fixtures/latest/darwin-aarch64.json"
       CopyToOutputDirectory="PreserveNewest"
     />
   </ItemGroup>

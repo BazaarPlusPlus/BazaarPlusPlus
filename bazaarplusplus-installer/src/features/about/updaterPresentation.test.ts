@@ -8,9 +8,13 @@ const available: UpdaterSnapshot = {
   phase: 'available',
   version: '5.1.0',
   notes: 'notes',
+  mainlandDownloadUrl: null,
   progress: null,
   problem: null
 };
+
+const offers = (snapshot: UpdaterSnapshot) =>
+  getUpdaterUiContract(snapshot).modal?.offersMainlandMirror;
 
 describe('updater UI contract', () => {
   it('derives non-conflicting header and modal behavior from each explicit phase', () => {
@@ -62,11 +66,39 @@ describe('updater UI contract', () => {
     });
   });
 
+  it('offers the mainland mirror only while a manual download can still help', () => {
+    const failed = (
+      code: 'updater_download_failed' | 'updater_install_failed',
+      operation: 'download' | 'install'
+    ): UpdaterSnapshot => ({
+      ...available,
+      phase: 'failed',
+      progress: null,
+      problem: createUiProblem(code, {
+        params: { operation, version: '5.1.0' }
+      })
+    });
+    expect(offers(available)).toBe(true);
+    expect(
+      offers({
+        ...available,
+        phase: 'downloading',
+        progress: { downloaded: 25, total: 100 }
+      })
+    ).toBe(true);
+    expect(offers(failed('updater_download_failed', 'download'))).toBe(true);
+    expect(offers(failed('updater_install_failed', 'install'))).toBe(true);
+    expect(offers({ ...available, phase: 'installing' })).toBe(false);
+    expect(offers({ ...available, phase: 'ready-to-restart' })).toBe(false);
+    expect(offers({ ...available, phase: 'restarting' })).toBe(false);
+  });
+
   it('keeps check failure in the shell and gives modal failures the correct retry', () => {
     const checkFailed: UpdaterSnapshot = {
       phase: 'failed',
       version: null,
       notes: null,
+      mainlandDownloadUrl: null,
       progress: null,
       problem: createUiProblem('updater_check_failed', {
         params: { operation: 'check' }
@@ -87,7 +119,8 @@ describe('updater UI contract', () => {
     });
     expect(getUpdaterUiContract(restartFailed).modal).toMatchObject({
       action: 'retry-restart',
-      dismissalPolicy: 'dismissible'
+      dismissalPolicy: 'dismissible',
+      offersMainlandMirror: false
     });
   });
 

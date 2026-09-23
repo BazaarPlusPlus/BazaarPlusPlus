@@ -10,6 +10,12 @@ import {
   RELEASE_PLATFORMS,
   RELEASE_PLATFORM_KEYS
 } from './release-platforms.mjs';
+import {
+  DOWNLOAD_PLATFORM_KEYS,
+  UPDATER_ENDPOINTS,
+  platformManifestPath
+} from './downloads.ts';
+import { validatePlatformManifest } from './manifest.mjs';
 
 const fixture = JSON.parse(
   fs.readFileSync(new URL('./fixtures/latest.json', import.meta.url), 'utf8')
@@ -35,10 +41,57 @@ test('shared fixture supplies the static Tauri updater release metadata', () => 
       'utf8'
     )
   );
-  expect(config.plugins.updater.endpoints).toEqual([
-    `${RELEASE_BASE_URL}/latest.json`
-  ]);
+  expect(config.plugins.updater.endpoints).toEqual([...UPDATER_ENDPOINTS]);
 });
+
+test.each(RELEASE_PLATFORMS)(
+  'shared platform fixture for $key is a one-platform Tauri manifest with its own version',
+  ({ key }) => {
+    const platformFixture = JSON.parse(
+      fs.readFileSync(
+        new URL(`./fixtures/${platformManifestPath(key)}`, import.meta.url),
+        'utf8'
+      )
+    );
+    expect(validatePlatformManifest(platformFixture, key)).toBe(
+      platformFixture
+    );
+    expect(Object.keys(platformFixture.platforms)).toEqual([key]);
+    expect(new Date(platformFixture.pub_date).toISOString()).toBe(
+      platformFixture.pub_date
+    );
+    expect(new URL(platformFixture.platforms[key].url).origin).toBe(
+      RELEASE_BASE_URL
+    );
+  }
+);
+
+test('the shared platform fixtures let one platform run ahead of the lockstep fixture', () => {
+  const versions = Object.fromEntries(
+    RELEASE_PLATFORM_KEYS.map((key) => [
+      key,
+      JSON.parse(
+        fs.readFileSync(
+          new URL(`./fixtures/${platformManifestPath(key)}`, import.meta.url),
+          'utf8'
+        )
+      ).version
+    ])
+  );
+  expect(versions['darwin-aarch64']).toBe(fixture.version);
+  expect(assertProductVersion(versions['windows-x86_64'])).not.toBe(
+    fixture.version
+  );
+});
+
+test.each(RELEASE_PLATFORMS)(
+  'shared fixture publishes the installer and its mainland mirror for $key',
+  ({ key }) => {
+    const download = fixture.downloads[key];
+    expect(new URL(download.url).origin).toBe(RELEASE_BASE_URL);
+    expect(new URL(download.mainlandUrl).protocol).toBe('https:');
+  }
+);
 
 test.each(RELEASE_PLATFORMS)(
   'shared fixture supplies the updater URL and signature for $key',
@@ -54,3 +107,18 @@ test.each(RELEASE_PLATFORMS)(
     expect(platform.signature.trim().length).toBeGreaterThan(0);
   }
 );
+
+test('the mod restates the release origin, platform keys and manifest path exactly', () => {
+  const source = fs.readFileSync(
+    path.join(
+      WORKSPACE_ROOT,
+      'bazaarplusplus-mod/src/BazaarPlusPlus/Infrastructure/ReleaseManifest/ReleaseManifestEndpoints.cs'
+    ),
+    'utf8'
+  );
+  expect(source).toContain(`"${RELEASE_BASE_URL}"`);
+  expect(source).toContain(`"${DOWNLOAD_PLATFORM_KEYS.windows}"`);
+  expect(source).toContain(`"${DOWNLOAD_PLATFORM_KEYS.mac}"`);
+  expect(source).toContain(platformManifestPath('{platformKey}'));
+  expect(source).toContain('latest.json');
+});

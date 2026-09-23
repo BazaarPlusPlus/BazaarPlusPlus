@@ -173,7 +173,7 @@ just site::build
 
 ## 产品发布
 
-mod 与 installer 共用根目录 `VERSION`。修改后执行 `just release::sync`；每个平台使用 `just release::build macos`（或 `windows`）准备 Payload 并打包。分别执行 `just release::upload <platform>` 后，只有双平台同版本、同提交的产物齐备，`just release::promote` 才会推进 latest。底层 `node release.mjs …` 保持可用；完整流程、凭据与恢复约定见 [产品发布](docs/release.md)。
+mod 与 installer 共用根目录 `VERSION`。修改后执行 `just release::sync`；每个平台使用 `just release::build macos`（或 `windows`）准备 Payload 并打包。分别执行 `just release::upload <platform>` 后，把安装包上传到大陆镜像并用 `just release::mirror <platform> <分享页地址>` 核对记录；`just release::promote` 在双平台同版本、同提交的产物和镜像记录齐备时发布；`just release::promote --platform <platform>` 只发布一个平台，`latest.json` 在两个平台版本相同后才推进。底层 `node release.mjs …` 保持可用；完整流程、凭据与恢复约定见 [产品发布](docs/release.md)。
 
 ## 二次开发须知
 

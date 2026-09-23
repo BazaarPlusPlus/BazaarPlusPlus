@@ -1,0 +1,20 @@
+{
+  "version": "3.1.2",
+  "gitCommit": "cccccccccccccccccccccccccccccccccccccccc",
+  "notes": "Release 3.1.2",
+  "pub_date": "2026-09-20T00:00:00.000Z",
+  "platforms": {
+    "windows-x86_64": {
+      "url": "https://bppinstaller.bazaarplusplus.com/3.1.2/windows-x86_64/updater/BazaarPlusPlus_3.1.2_x64-setup.exe",
+      "signature": "windows-signature-3.1.2"
+    }
+  },
+  "downloads": {
+    "windows-x86_64": {
+      "url": "https://bppinstaller.bazaarplusplus.com/3.1.2/windows-x86_64/installer/BazaarPlusPlus_3.1.2_x64-setup.exe",
+      "size": 120,
+      "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "mainlandUrl": "https://cauyxy.lanzout.com/bppwin312"
+    }
+  }
+}

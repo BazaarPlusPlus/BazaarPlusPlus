@@ -7,10 +7,36 @@ import {
   type UpdaterImpl
 } from './updater';
 
-function fakeUpdate(overrides: Partial<UpdateHandle> = {}): UpdateHandle {
+const mirrors = {
+  'windows-x86_64': 'https://mirror.example/win',
+  'darwin-aarch64': 'https://mirror.example/mac'
+};
+
+/** The latest.json the updater fetched, as plugin-updater exposes it. */
+function rawManifest(
+  version: string,
+  urls: Partial<Record<keyof typeof mirrors, unknown>> = mirrors
+): Record<string, unknown> {
   return {
-    version: '9.9.9',
+    version,
+    downloads: Object.fromEntries(
+      Object.entries(urls).map(([platform, mainlandUrl]) => [
+        platform,
+        {
+          url: `https://bppinstaller.example/${version}/${platform}/installer/x`,
+          mainlandUrl
+        }
+      ])
+    )
+  };
+}
+
+function fakeUpdate(overrides: Partial<UpdateHandle> = {}): UpdateHandle {
+  const version = overrides.version ?? '9.9.9';
+  return {
+    version,
     body: 'release notes',
+    rawJson: rawManifest(version),
     downloadAndInstall: async () => undefined,
     close: async () => undefined,
     ...overrides
@@ -68,9 +94,41 @@ describe('createUpdaterMachine checkNow', () => {
       phase: 'available',
       version: '5.0.0',
       notes: 'fixes',
+      mainlandDownloadUrl: 'https://mirror.example/mac',
       progress: null,
       problem: null
     });
+  });
+
+  it('takes the mainland mirror of the host platform from the fetched manifest', async () => {
+    const windows = harness(
+      fakeImpl({ check: async () => fakeUpdate(), isWindows: () => true })
+    );
+    await windows.machine.checkNow();
+    expect(windows.snapshot().mainlandDownloadUrl).toBe(
+      'https://mirror.example/win'
+    );
+
+    const mac = harness(fakeImpl({ check: async () => fakeUpdate() }));
+    await mac.machine.checkNow();
+    expect(mac.snapshot().mainlandDownloadUrl).toBe(
+      'https://mirror.example/mac'
+    );
+  });
+
+  it('stays available without a mirror when the manifest publishes none or an unsafe one', async () => {
+    for (const rawJson of [
+      { version: '9.9.9' },
+      rawManifest('9.9.9', {}),
+      rawManifest('9.9.9', { 'darwin-aarch64': 'http://mirror.example/mac' })
+    ]) {
+      const { machine, snapshot } = harness(
+        fakeImpl({ check: async () => fakeUpdate({ rawJson }) })
+      );
+      await machine.checkNow();
+      expect(snapshot().phase).toBe('available');
+      expect(snapshot().mainlandDownloadUrl).toBeNull();
+    }
   });
 
   it('reports checking then current when no update is available', async () => {
@@ -216,6 +274,7 @@ describe('createUpdaterMachine install', () => {
     await failed;
 
     expect(snapshot().phase).toBe('failed');
+    expect(snapshot().mainlandDownloadUrl).toBe('https://mirror.example/mac');
     expect(snapshot().problem).toMatchObject({
       code: 'updater_download_failed',
       params: { operation: 'download', version: '9.9.9' },

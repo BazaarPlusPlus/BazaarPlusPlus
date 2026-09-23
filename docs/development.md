@@ -77,10 +77,13 @@ just release::check
 just release::prepare macos
 just release::build macos
 just release::upload macos
+just release::mirror macos <大陆分享页地址>
+just release::verify-mirror
 just release::promote
+just release::promote --platform macos
 ```
 
-平台必须显式指定为 `macos` 或 `windows`，在对应原生构建机上操作。`release::build` 内部包含 Payload 准备、验证、签名和打包，不会上传；`release::upload` 不推进 latest；`release::promote` 才会检查双平台同版本、同提交并发布。它们不是普通 `check`、`test` 或 `mod::build` 的依赖。
+`prepare`、`build`、`upload` 的平台必须显式指定为 `macos` 或 `windows`，并在对应原生构建机上操作；`mirror`、`verify-mirror` 和 `promote` 可以在任一台机器执行。`release::build` 内部包含 Payload 准备、验证、签名和打包，不会上传；`release::upload` 和 `release::mirror` 不推进任何 manifest；只有 `release::promote` 发布。各命令的参数以 `node release.mjs --help` 为准，顺序和规则见[产品发布](release.md)。它们不是普通 `check`、`test` 或 `mod::build` 的依赖。
 
 `release::prepare` 和 `release::build` 的平台参数后可直接传递 `ManagedPath`，just 会替调用者补上 Node CLI 的 `--` 分隔符：
 

@@ -197,6 +197,8 @@ const zh = {
   updateModalBody: 'BazaarPlusPlus {version} 已可用。',
   updateMainlandDownloadTitle: '中国大陆下载',
   updateMainlandDownloadHint: '自动更新较慢时，可通过大陆渠道手动下载。',
+  updateMainlandDownloadFailedHint:
+    '自动更新失败时，可通过大陆渠道下载安装包手动安装。',
   updateMainlandDownload: '打开下载页',
   updateModalLater: '稍后',
   updateInstall: '下载并安装',
@@ -637,6 +639,8 @@ const en: Record<MessageKey, string> = {
   updateMainlandDownloadTitle: 'Mainland China download',
   updateMainlandDownloadHint:
     'If automatic updates are slow, use the mainland download channel.',
+  updateMainlandDownloadFailedHint:
+    'If the automatic update failed, download the installer from the mainland channel and install it manually.',
   updateMainlandDownload: 'Open download',
   updateModalLater: 'Later',
   updateInstall: 'Download & Install',

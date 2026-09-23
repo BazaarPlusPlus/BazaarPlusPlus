@@ -154,9 +154,10 @@ _Avoid_: feature repository loader
 The composition-owned Remote Embedded Catalog consumer for supporter data: fixed-list bypass,
 session-stable snapshots through the supporter facade, retry/disposal ownership.
 
-**Release Manifest**:
-The product Release Manifest defined in `../CONTEXT.md`. The mod reads only its `version`, for the
-main-menu update check. Its HTTP/JSON adapter and request-generation lifecycle are separate from
+**Platform Release Manifest**:
+The per-platform release record defined in `../CONTEXT.md`. The mod reads only the `version` of its
+own platform's manifest for the main-menu update check, through `ReleaseManifestEndpoints`, and
+falls back to the lockstep Release Manifest only on an undeclared platform. Its HTTP/JSON adapter and request-generation lifecycle are separate from
 Mod API health and installer runtime state.
 _Avoid_: Mod API health
 

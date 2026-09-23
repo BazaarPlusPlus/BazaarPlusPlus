@@ -17,11 +17,11 @@ import {
   DialogHeader
 } from '../components/ui/Dialog';
 import { ProblemBanner } from '../components/ui/ProblemBanner';
-import { getMainlandDownloadUrl } from '../features/about/mainlandDownload';
 import type { UpdaterController } from '../features/about/useUpdater';
 import type { UpdaterUiContract } from '../features/about/updaterPresentation';
 import { presentUpdaterProblem } from '../features/about/updaterProblems';
 import { useI18n } from '../i18n/LocaleProvider';
+import type { MessageKey } from '../i18n/messages';
 
 type ShellUpdateModalProps = {
   updater: UpdaterController;
@@ -44,19 +44,12 @@ export function ShellUpdateModal({
       ? updater.install
       : updater.restart;
   // The mainland mirror only helps users on that side of the network, and the
-  // zh locale is the closest signal the frontend has for them.
+  // zh locale is the closest signal the frontend has for them. The address is
+  // whatever the Release Manifest published for this host, or nothing.
   const mainlandDownloadUrl =
-    updater.version && locale === 'zh'
-      ? getMainlandDownloadUrl(updater.version)
+    presentation.offersMainlandMirror && locale === 'zh'
+      ? updater.mainlandDownloadUrl
       : null;
-
-  const openMainlandDownload = (event: React.MouseEvent<HTMLAnchorElement>) => {
-    if (!hasTauriRuntime() || !mainlandDownloadUrl) return;
-    event.preventDefault();
-    void openUrl(mainlandDownloadUrl).catch((error: unknown) => {
-      console.error('Failed to open the mainland installer download.', error);
-    });
-  };
 
   return (
     <Dialog
@@ -91,22 +84,10 @@ export function ShellUpdateModal({
                 {t('updateModalBody', { version: updater.version })}
               </p>
               {mainlandDownloadUrl && (
-                <ConfirmNote tone="neutral" icon={<CloudDownload size={15} />}>
-                  <p className="text-fg-1">
-                    {t('updateMainlandDownloadTitle')}
-                  </p>
-                  <p>{t('updateMainlandDownloadHint')}</p>
-                  <a
-                    href={mainlandDownloadUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={openMainlandDownload}
-                    className="bpp-dialog-link"
-                  >
-                    {t('updateMainlandDownload')}
-                    <ExternalLink size={12} aria-hidden="true" />
-                  </a>
-                </ConfirmNote>
+                <MainlandMirrorNote
+                  url={mainlandDownloadUrl}
+                  hintKey="updateMainlandDownloadHint"
+                />
               )}
               {updater.notes && (
                 <div className="flex flex-col gap-1.5">
@@ -122,7 +103,15 @@ export function ShellUpdateModal({
           )}
 
           {updater.phase === 'downloading' && (
-            <UpdateDownloadProgress progress={updater.progress} />
+            <>
+              <UpdateDownloadProgress progress={updater.progress} />
+              {mainlandDownloadUrl && (
+                <MainlandMirrorNote
+                  url={mainlandDownloadUrl}
+                  hintKey="updateMainlandDownloadHint"
+                />
+              )}
+            </>
           )}
 
           {updater.phase === 'installing' && (
@@ -142,10 +131,18 @@ export function ShellUpdateModal({
           )}
 
           {updater.phase === 'failed' && (
-            <ProblemBanner
-              message={presentUpdaterProblem(updater.problem, t)}
-              problem={updater.problem}
-            />
+            <>
+              <ProblemBanner
+                message={presentUpdaterProblem(updater.problem, t)}
+                problem={updater.problem}
+              />
+              {mainlandDownloadUrl && (
+                <MainlandMirrorNote
+                  url={mainlandDownloadUrl}
+                  hintKey="updateMainlandDownloadFailedHint"
+                />
+              )}
+            </>
           )}
         </DialogBody>
 
@@ -167,6 +164,40 @@ export function ShellUpdateModal({
         )}
       </DialogCard>
     </Dialog>
+  );
+}
+
+function MainlandMirrorNote({
+  url,
+  hintKey
+}: {
+  url: string;
+  hintKey: MessageKey;
+}) {
+  const { t } = useI18n();
+  const openMainlandDownload = (event: React.MouseEvent<HTMLAnchorElement>) => {
+    if (!hasTauriRuntime()) return;
+    event.preventDefault();
+    void openUrl(url).catch((error: unknown) => {
+      console.error('Failed to open the mainland installer download.', error);
+    });
+  };
+
+  return (
+    <ConfirmNote tone="neutral" icon={<CloudDownload size={15} />}>
+      <p className="text-fg-1">{t('updateMainlandDownloadTitle')}</p>
+      <p>{t(hintKey)}</p>
+      <a
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={openMainlandDownload}
+        className="bpp-dialog-link"
+      >
+        {t('updateMainlandDownload')}
+        <ExternalLink size={12} aria-hidden="true" />
+      </a>
+    </ConfirmNote>
   );
 }
 

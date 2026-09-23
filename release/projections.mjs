@@ -1,10 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import {
-  RELEASE_BASE_URL,
-  WORKSPACE_ROOT,
-  readProductVersion
-} from './product.mjs';
+import { WORKSPACE_ROOT, readProductVersion } from './product.mjs';
+import { UPDATER_ENDPOINTS } from './downloads.ts';
 import {
   collectVersionSnapshot,
   assertVersionsAreAligned,
@@ -51,12 +48,13 @@ export function checkProductProjections(workspaceRoot = WORKSPACE_ROOT) {
   const config = JSON.parse(
     fs.readFileSync(path.join(rootDir, 'src-tauri/tauri.conf.json'), 'utf8')
   );
-  const endpoint = `${RELEASE_BASE_URL}/latest.json`;
   if (
     JSON.stringify(config.plugins?.updater?.endpoints) !==
-    JSON.stringify([endpoint])
+    JSON.stringify([...UPDATER_ENDPOINTS])
   )
-    throw new Error(`Tauri updater endpoints must equal [${endpoint}]`);
+    throw new Error(
+      `Tauri updater endpoints must equal ${JSON.stringify([...UPDATER_ENDPOINTS])}`
+    );
   for (const badge of readBadges(workspaceRoot, version)) {
     if (badge.version !== version)
       throw new Error(
