@@ -170,6 +170,7 @@ test('check delegates source-only gates in their project directories', (t) => {
 
 test('test runs each suite without a release or publication command', (t) => {
   const f = fixture(t);
+  const shellDir = f.dir.split(path.sep).join('/');
   succeeded(f.run(['test']));
   assert.deepEqual(f.calls(), [
     call(f.dir, null, ...rootPrettier('--check')),
@@ -200,9 +201,9 @@ test('test runs each suite without a release or publication command', (t) => {
       'run',
       '--project',
       'scripts/ghost-projection/mod-compat/Probe.csproj',
-      `-p:ModRoot=${f.dir}/bazaarplusplus-server/../bazaarplusplus-mod`,
+      `-p:ModRoot=${shellDir}/bazaarplusplus-server/../bazaarplusplus-mod`,
       '--',
-      `${f.dir}/bazaarplusplus-server/../bazaarplusplus-mod`,
+      `${shellDir}/bazaarplusplus-server/../bazaarplusplus-mod`,
       'contracts/v5/ghost-summary.response.json'
     ),
     call(f.dir, 'server', 'npm', 'test'),
@@ -511,10 +512,25 @@ if (args.join(' ') === 'rev-parse --path-format=absolute --git-common-dir') {
 }
 `
     );
+    // Native Node cannot exec an extensionless Bash stub on Windows. Stub the
+    // git-command module boundary with a Node child; real fixtures retain the
+    // production module and exercise the actual Git executable.
+    fs.renameSync(
+      path.join(f.dir, 'scripts/git-command.mjs'),
+      path.join(f.dir, 'scripts/git-command.real.mjs')
+    );
     fs.writeFileSync(
-      path.join(f.dir, 'bin/git'),
-      `#!/usr/bin/env bash\nexec ${shellQuote(process.execPath)} ${shellQuote(gitStub)} "$@"\n`,
-      { mode: 0o755 }
+      path.join(f.dir, 'scripts/git-command.mjs'),
+      `
+import { execFileSync } from 'node:child_process';
+export { gitEnvironment } from './git-command.real.mjs';
+export function runGit(args, options) {
+  return execFileSync(process.execPath, [${JSON.stringify(gitStub)}, ...args], {
+    encoding: 'utf8',
+    ...options
+  });
+}
+`
     );
     const lefthook = path.join(f.dir, 'node_modules/lefthook/bin/index.js');
     fs.mkdirSync(path.dirname(lefthook), { recursive: true });
