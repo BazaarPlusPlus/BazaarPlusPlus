@@ -59,6 +59,7 @@ internal static class RunLogSchemaMigrationTests
         }
         finally
         {
+            SqliteConnection.ClearAllPools();
             if (File.Exists(databasePath))
                 File.Delete(databasePath);
         }
@@ -204,6 +205,7 @@ internal static class RunLogSchemaMigrationTests
         }
         finally
         {
+            SqliteConnection.ClearAllPools();
             if (Directory.Exists(root))
                 Directory.Delete(root, recursive: true);
         }
@@ -237,6 +239,7 @@ internal static class RunLogSchemaMigrationTests
         }
         finally
         {
+            SqliteConnection.ClearAllPools();
             if (File.Exists(databasePath))
                 File.Delete(databasePath);
         }
@@ -286,6 +289,7 @@ internal static class RunLogSchemaMigrationTests
         }
         finally
         {
+            SqliteConnection.ClearAllPools();
             if (File.Exists(databasePath))
                 File.Delete(databasePath);
         }

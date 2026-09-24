@@ -295,13 +295,27 @@ void RunPayloadRoundTrip()
     Equal(payload.PlayerAccountId, decoded.PlayerAccountId, "Run payload player ID");
     Equal("战斗", decoded.Events[0].Kind, "Run payload Unicode");
     Equal("battle-000", decoded.ReplayableBattleIds[0], "Run payload replayable IDs");
-    SequenceEqual(
-        Convert.FromBase64String(
-            TestInputs.Scratch(Path.Combine(fixtures, "run-payload-v5.fixture.b64")).Trim()
-        ),
-        encoded,
-        "stable Run payload fixture"
+    var golden = Convert.FromBase64String(
+        TestInputs.Scratch(Path.Combine(fixtures, "run-payload-v5.fixture.b64")).Trim()
     );
+    // Gzip headers and deflate output vary by OS/runtime. The wire contract is
+    // the decompressed MessagePack, including every field and its encoding.
+    SequenceEqual(Ungzip(golden), Ungzip(encoded), "stable Run payload MessagePack fixture");
+    var goldenDecoded = RunPayloadV5Codec.Decode(golden);
+    SequenceEqual(
+        Ungzip(golden),
+        Ungzip(RunPayloadV5Codec.Encode(goldenDecoded)),
+        "golden Run payload decode and re-encode"
+    );
+}
+
+byte[] Ungzip(byte[] bytes)
+{
+    using var input = new MemoryStream(bytes);
+    using var gzip = new GZipStream(input, CompressionMode.Decompress);
+    using var output = new MemoryStream();
+    gzip.CopyTo(output);
+    return output.ToArray();
 }
 
 void RunPayloadFailureBoundaries()

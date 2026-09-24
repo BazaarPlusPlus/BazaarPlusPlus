@@ -8,6 +8,7 @@ using BazaarPlusPlus.Game.PvpBattles;
 using BazaarPlusPlus.ModApi.Bundle;
 using BazaarPlusPlus.ModApi.Clients;
 using BazaarPlusPlus.ModApi.Models;
+using Microsoft.Data.Sqlite;
 
 await DiscoveryUsesV5ShapeAndLimit();
 await RetryAfterStartsCooldown();
@@ -585,6 +586,7 @@ internal sealed class GhostFixture : IDisposable
     public void Dispose()
     {
         _session.Dispose();
+        SqliteConnection.ClearAllPools();
         if (Directory.Exists(Root))
             Directory.Delete(Root, recursive: true);
     }
