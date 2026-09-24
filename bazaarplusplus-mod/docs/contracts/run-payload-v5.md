@@ -16,8 +16,9 @@ and the compressed-segment SHA-256 are handled before this payload is decompress
   consumed.
 
 The stable encoded sample is
-`tests/BundleV5Codec.Tests/fixtures/run-payload-v5.fixture.b64`. The mod codec test pins its bytes;
-the analyzer reads the same file and checks its Run, Battle, card, and quality rows against its
+`tests/BundleV5Codec.Tests/fixtures/run-payload-v5.fixture.b64`. The mod codec test decodes this gzip
+fixture and pins its decompressed MessagePack bytes; gzip headers and deflate output can vary by
+OS/runtime. The analyzer reads the same file and checks its Run, Battle, card, and quality rows against its
 [expected projection](../../../bazaarplusplus-analyzer/tests/fixtures/run-payload-v5.projection.json).
 Bundle envelope goldens are owned by the [server contract fixtures](../../../bazaarplusplus-server/contracts/v5/fixtures/);
 the mod test project links those files directly.

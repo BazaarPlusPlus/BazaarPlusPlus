@@ -128,6 +128,7 @@ try
 }
 finally
 {
+    SqliteConnection.ClearAllPools();
     if (Directory.Exists(root))
         Directory.Delete(root, recursive: true);
 }

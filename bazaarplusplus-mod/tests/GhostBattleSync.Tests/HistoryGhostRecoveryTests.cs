@@ -19,6 +19,7 @@ internal static class HistoryGhostRecoveryTests
         }
         finally
         {
+            SqliteConnection.ClearAllPools();
             Directory.Delete(root, true);
         }
     }

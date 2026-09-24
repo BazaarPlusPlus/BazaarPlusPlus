@@ -253,6 +253,7 @@ static async Task TestCleanupRetentionAndSoftLimitStopAtThreshold()
     }
     finally
     {
+        SqliteConnection.ClearAllPools();
         Directory.Delete(root, recursive: true);
     }
 }
@@ -334,6 +335,7 @@ static async Task WithSession(
     }
     finally
     {
+        SqliteConnection.ClearAllPools();
         Directory.Delete(root, recursive: true);
     }
 }

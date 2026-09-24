@@ -203,6 +203,7 @@ try
 }
 finally
 {
+    SqliteConnection.ClearAllPools();
     Directory.Delete(root, recursive: true);
 }
 

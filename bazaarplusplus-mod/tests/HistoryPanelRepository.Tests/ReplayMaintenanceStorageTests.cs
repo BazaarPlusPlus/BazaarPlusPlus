@@ -85,6 +85,7 @@ internal static class ReplayMaintenanceStorageTests
         }
         finally
         {
+            SqliteConnection.ClearAllPools();
             Directory.Delete(root, recursive: true);
         }
     }
@@ -181,6 +182,7 @@ internal static class ReplayMaintenanceStorageTests
         }
         finally
         {
+            SqliteConnection.ClearAllPools();
             if (Directory.Exists(root))
                 Directory.Delete(root, recursive: true);
         }

@@ -329,6 +329,7 @@ void TestReplayReturnPreservesSelectionAndFilters()
         cacheType.SetValue(null, previousType);
         resolved.SetValue(null, previousResolved);
         db.Close();
+        SqliteConnection.ClearAllPools();
         File.Delete(databasePath);
     }
 }

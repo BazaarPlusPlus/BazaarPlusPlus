@@ -217,6 +217,7 @@ static void WithStore(Action<BundleQueueStore, SqliteConnection> test)
     }
     finally
     {
+        SqliteConnection.ClearAllPools();
         Directory.Delete(root, recursive: true);
     }
 }
