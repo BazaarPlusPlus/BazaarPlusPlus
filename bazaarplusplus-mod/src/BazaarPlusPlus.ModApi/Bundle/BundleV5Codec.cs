@@ -551,7 +551,9 @@ public static class BundleV5Codec
 
     private static void ValidateProjectionTokenSize(JToken projection)
     {
-        var compact = projection.ToString(Formatting.None);
+        // Unity may have already loaded the game's older Newtonsoft.Json. Its API has only the
+        // converters overload; the newer single-argument overload is not runtime compatible.
+        var compact = projection.ToString(Formatting.None, Array.Empty<JsonConverter>());
         if (Encoding.UTF8.GetByteCount(compact) > BundleLimitsV5.MaxProjectionBytes)
             Invalid("projection_too_large", "Run projection exceeds its byte limit.");
     }
@@ -644,7 +646,7 @@ public static class BundleV5Codec
             Invalid("manifest_schema_invalid", $"{field} must be a non-negative safe integer.");
         if (
             !decimal.TryParse(
-                token.ToString(Formatting.None),
+                token.ToString(Formatting.None, Array.Empty<JsonConverter>()),
                 NumberStyles.Float,
                 CultureInfo.InvariantCulture,
                 out var value

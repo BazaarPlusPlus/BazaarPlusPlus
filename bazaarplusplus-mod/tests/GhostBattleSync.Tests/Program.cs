@@ -10,6 +10,7 @@ using BazaarPlusPlus.ModApi.Clients;
 using BazaarPlusPlus.ModApi.Models;
 using Microsoft.Data.Sqlite;
 
+await GhostBundleImportTests.RunAsync();
 await DiscoveryUsesV5ShapeAndLimit();
 await RetryAfterStartsCooldown();
 await DownloadLimitsAndTransportErrorsStayClosed();

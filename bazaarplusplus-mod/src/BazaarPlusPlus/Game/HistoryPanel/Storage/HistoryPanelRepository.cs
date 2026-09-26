@@ -283,8 +283,15 @@ internal sealed partial class HistoryPanelRepository
                         WHEN {RunLogSchema.BattlesTableName}.ghost_replay_state = 'local_ready'
                             THEN 'local_ready'
                         WHEN {RunLogSchema.BattlesTableName}.ghost_replay_state = 'unavailable_payload'
+                            AND COALESCE({RunLogSchema.BattlesTableName}.ghost_replay_unavailable_reason, '') <> 'ghost_bundle_invalid'
                             THEN 'unavailable_payload'
                         ELSE 'remote_available'
+                    END,
+                    ghost_replay_unavailable_reason = CASE
+                        WHEN {RunLogSchema.BattlesTableName}.ghost_replay_state = 'unavailable_payload'
+                            AND {RunLogSchema.BattlesTableName}.ghost_replay_unavailable_reason = 'ghost_bundle_invalid'
+                            THEN NULL
+                        ELSE {RunLogSchema.BattlesTableName}.ghost_replay_unavailable_reason
                     END,
                     deleted_at_utc = NULL;
                 """;
