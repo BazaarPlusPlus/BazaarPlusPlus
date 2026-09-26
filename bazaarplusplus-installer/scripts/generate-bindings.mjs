@@ -13,6 +13,7 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { tauriSourceEnvironment } from './tauri-source-env.mjs';
 
 const GENERATED_COMMANDS_FILE = 'commands.ts';
 
@@ -138,7 +139,7 @@ export function commitGeneratedBindings({ generatedDir, tempGeneratedDir }) {
 
 export function runGenerateBindings(
   projectRoot,
-  { runAllRustTests = false, skipIfFresh = false } = {}
+  { runAllRustTests = false, skipIfFresh = false, run = execFileSync } = {}
 ) {
   if (skipIfFresh && generatedBindingsAreFresh(projectRoot)) {
     console.log(
@@ -164,11 +165,11 @@ export function runGenerateBindings(
       '--',
       '--nocapture'
     ];
-    execFileSync('cargo', cargoArgs, {
+    run('cargo', cargoArgs, {
       cwd: projectRoot,
       stdio: 'inherit',
       env: {
-        ...process.env,
+        ...tauriSourceEnvironment(),
         BPP_SPECTA_EXPORT_PATH: exportPath
       }
     });

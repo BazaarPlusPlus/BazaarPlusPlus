@@ -1,6 +1,7 @@
 import path from 'node:path';
 import process from 'node:process';
 import { spawnSync } from 'node:child_process';
+import { tauriSourceEnvironment } from '../tauri-source-env.mjs';
 
 const manifestPath = 'src-tauri/Cargo.toml';
 
@@ -101,6 +102,8 @@ export function runVerification({
   run = spawnSync,
   log = console.log
 }) {
+  const environment =
+    mode === 'source' ? tauriSourceEnvironment() : { ...process.env };
   for (const step of verificationSteps({ mode, releasePlatform })) {
     log(`==> ${step.label}`);
     const usesWindowsNpmShim = platform === 'win32' && step.command === 'npm';
@@ -111,7 +114,7 @@ export function runVerification({
     const result = run(command, args, {
       cwd: rootDir,
       stdio: step.stdio ?? 'inherit',
-      env: { ...process.env, ...step.env }
+      env: { ...environment, ...step.env }
     });
     if (result.error) {
       console.error(result.error.message);
