@@ -10,9 +10,10 @@ analyzer-v5/builds/latest.json
 
 ## Operate
 
-Install the locked environment with `uv sync --locked`, copy `.env.example` to `.env`,
-and fill in the required values. Configuration comes only from the repository
-`.env`.
+Run workspace `just setup` and fill in the shared analyzer configuration described
+in the [development guide](../docs/development.md). `just analyzer::cli <command>`
+refreshes the managed repository `.env` before invoking the CLI. The analyzer itself
+still reads only that file; direct uv commands below require a current projection.
 
 ```bash
 uv run --locked bpp run

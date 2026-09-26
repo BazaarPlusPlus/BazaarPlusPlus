@@ -39,7 +39,7 @@ just server::test  # Vitest in the Workers pool with real local D1 migrations an
 npm run dev     # wrangler dev; requires .dev.vars (below)
 ```
 
-`npm run format` rewrites files in place. `npm run dev` needs a git-ignored `.dev.vars` file supplying `R2_PRESIGN_ACCESS_KEY_ID`, `R2_PRESIGN_SECRET_ACCESS_KEY`, `BUNDLE_SYNC_TOKEN`, and `BAZAARDB_DELIVERY_TOKEN`; the Worker fails closed without them. Tests inject their own values and need no `.dev.vars`.
+`npm run format` rewrites files in place. `npm run dev` needs a git-ignored `.dev.vars` file supplying `R2_PRESIGN_ACCESS_KEY_ID`, `R2_PRESIGN_SECRET_ACCESS_KEY`, `BUNDLE_SYNC_TOKEN`, and `BAZAARDB_DELIVERY_TOKEN`; the Worker fails closed without them. Workspace `just setup` manages this file from the shared configuration, and `just server::dev` refreshes it before starting; see the [development guide](../docs/development.md). Tests inject their own values and need no `.dev.vars`.
 
 TypeScript checks application and test code in strict mode. `skipLibCheck` skips
 declaration-file checks because Drizzle's declarations reference optional database

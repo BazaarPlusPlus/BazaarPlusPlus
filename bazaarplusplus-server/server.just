@@ -16,7 +16,7 @@ test-mod-compat:
 
 # Start the local Worker; requires this project's .dev.vars.
 dev:
-    npm run dev
+    node ../scripts/workspace.mjs run server -- npm run dev
 
 # Format Worker sources in place.
 fmt:

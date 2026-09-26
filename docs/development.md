@@ -2,6 +2,25 @@
 
 根目录 `JUSTFILE` 是日常开发、验证和产品发布的统一入口。它调用各项目已有的工具链和脚本；产品版本、Payload 准备、构建锁与远端发布规则由 `release.mjs` 及其发布模块维护。
 
+## 新 clone 与本地配置
+
+安装下文的语言工具链后，在仓库根目录执行：
+
+```bash
+just setup
+just doctor
+```
+
+`setup` 安装各项目锁定的依赖、mod 的本地 .NET 工具及 Git hooks。同一台机器的 clone 共用仓库外的 `~/.config/bazaarplusplus`，也可用绝对路径 `BPP_CONFIG_HOME` 指定另一套配置；不允许把配置目录放进来源或目标 checkout。文件名、作用域和全部选项由 `node scripts/workspace.mjs --help` 维护。首次使用会创建空白模板，已有配置不覆盖。新机器需要另外恢复该私有目录，以及安装游戏、平台工具链和系统证书；Git clone 不携带这些材料。
+
+从旧 clone 接入配置时，首次 setup 使用 `just setup --from /absolute/path/to/old-checkout`。它只导入已知的 analyzer、server 和 installer 签名配置，导入前检查冲突，保留旧文件；相对数据目录保留原位置含义，Apple 私钥引用改指向集中目录。它不复制依赖缓存、构建产物、游戏反编译结果或 analyzer 数据，也不创建空数据目录冒充恢复完成。额外的发布凭据应按用途分别保存，不用一套密钥替代所有 bucket 的权限。
+
+集中目录是本地配置的维护入口。analyzer 和 Wrangler 要求的项目文件是受管理副本，根目录忽略的 `.bpp-local.json` 记录上次同步摘要。编辑集中配置后运行 `just setup --skip-deps`；`just server::dev` 和 `just analyzer::cli <command>` 也会在启动前刷新副本。若项目副本被手工修改，先合并要保留的修改并使两份内容一致，再运行 setup；脚本会拒绝直接覆盖冲突。直接执行原来的 npm/uv 命令读取当前副本，绕过自动刷新。
+
+`just release::build` 按签名作用域接入集中目录；`upload` / `mirror` / `promote` 只加载 R2 发布配置。已有显式环境变量优先。其他命令可用 `just with-config <profile> <command...>`，例如非标准游戏位置的 `just with-config mod just mod::build`，或 `just with-config cloudflare npm --prefix bazaarplusplus-site run deploy`（仅在明确要部署时执行）。配置按数据解析，不执行 shell 语句；普通检查、测试、官网开发不会自动加载发布密钥。
+
+`doctor` 只读盘点工具、依赖、配置完整度、数据路径、游戏程序集和本机签名身份，输出缺项但不打印密钥。它是清单命令，退出成功不表示所有能力可用，也不代表验证过远端权限、签名密码或服务健康。macOS Keychain、GitHub/Wrangler 登录态继续由各自工具管理；setup 不导出证书、不轮换 token、不修改线上 secret，也不启动分析或发布。POSIX 配置目录和文件分别收紧为 700/600；Windows 需通过用户目录 ACL 控制访问。
+
 ## 环境与依赖
 
 安装 [just](https://just.systems/man/en/packages.html)，本仓库使用 `just 1.58.0` 验证。macOS 可运行 `brew install just`，Windows 可运行 `winget install --id Casey.Just --exact`。Windows 的命令在 Git Bash 中执行，`bash`、`just` 和对应语言工具链都需要在 PATH 中；不要将 `JUSTFILE` 的 shell 换成 PowerShell，因为参数转发使用 Bash 的位置参数。
@@ -16,7 +35,7 @@
 | installer Rust | `bazaarplusplus-installer/rust-toolchain.toml` 指定的工具链、Tauri 系统依赖 | 已有验证脚本使用 locked Cargo 依赖 |
 | analyzer | Python 版本见 `bazaarplusplus-analyzer/.python-version`、uv | 在 analyzer 目录执行 `uv sync --locked` |
 
-Windows 原生构建还需项目要求的 PowerShell 7.6.0+ 等工具；正式包另需平台工具链和签名材料，见[产品发布](release.md)。just 不自动安装工具链、合并锁文件或加载根目录 `.env`。各项目继续按自己的配置规则读取环境；不要把发布凭据写进 `JUSTFILE`。
+Windows 原生构建还需项目要求的 PowerShell 7.6.0+ 等工具；正式包另需平台工具链和签名材料，见[产品发布](release.md)。setup 不自动安装系统工具链、合并锁文件或加载根目录 `.env`。各项目继续按自己的配置规则读取环境；不要把发布凭据写进 `JUSTFILE`。
 
 ## 日常入口
 
