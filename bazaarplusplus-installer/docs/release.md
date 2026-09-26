@@ -5,6 +5,7 @@ Product versioning, isolated Payload preparation, immutable uploads and complete
 ## Verification Gates
 
 - `npm run verify -- --source-only` is the clean-checkout source gate. `npm run verify -- --release-platform <macos|windows>` adds real Payload validation for one platform.
+- `tauriSourceEnvironment` in `scripts/tauri-source-env.mjs` clears Tauri bundle resources in child processes for source verification and binding export, so Clippy, Rust tests and documentation do not require a prepared release ZIP. Release verification's Clippy and Payload checks keep the original resource configuration.
 - `verificationSteps` in `scripts/checks/verify.mjs` checks formatting, oxlint, the locked Cargo graph, and Clippy, generates bindings while running Rust tests, checks generated drift, type-checks, runs Vitest, builds strict Rust docs, applies the selected prebuild guard, and builds the production frontend.
 - `npm run prebuild-check` uses the workspace `checkProductProjections` in `../release/projections.mjs` for source alignment and validates generated bindings, Payload build receipts, archives and native inputs. Missing receipts require preparation, not a bypass.
 - `just release::build <platform>` runs the product coordinator. Its process lock spans preparation, release verification, compilation, signing, bundling and artifact recording. Product Release integration tests run separately with `just release::test` and require the mod's .NET SDK.

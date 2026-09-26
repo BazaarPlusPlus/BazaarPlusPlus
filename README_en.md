@@ -87,6 +87,8 @@ Run `just` from any repository subdirectory to list development, check, test, an
 
 ## Building From Source
 
+After installing the toolchains below, run `just setup` to connect shared local configuration, install each project's dependencies, and install Git hooks. `just doctor` lists missing local prerequisites. See the [development guide](docs/development.md#新-clone-与本地配置) for migration from an older clone and shared configuration storage.
+
 ### Prerequisites
 
 | Scope                         | Requirements                                                                                                                                                          |

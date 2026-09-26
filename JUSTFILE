@@ -40,9 +40,24 @@ fmt: && mod::fmt installer::fmt site::fmt server::fmt analyzer::fmt release::syn
 hooks-install:
     node scripts/install-hooks.mjs
 
+# Connect shared local configuration, install locked dependencies and Git hooks.
+[group('workspace')]
+setup *args:
+    node scripts/workspace.mjs setup "$@"
+
+# Inventory local prerequisites without printing secret values or publishing.
+[group('workspace')]
+doctor:
+    node scripts/workspace.mjs doctor
+
+# Run an explicit command with one configuration profile, from the repo root.
+[group('workspace')]
+with-config profile +args:
+    node scripts/workspace.mjs run "$1" -- "${@:2}"
+
 # Check formatting and exercise command routing with isolated tool stubs.
 [group('workspace')]
 commands-check:
     for file in {{ just_files }}; do {{ quote(just_executable()) }} --justfile "$file" --fmt --check; done
     npm exec -- prettier --config .prettierrc.json --check {{ root_js }}
-    node --test scripts/just.test.mjs scripts/design-tokens.test.mjs
+    node --test scripts/just.test.mjs scripts/design-tokens.test.mjs scripts/workspace.test.mjs

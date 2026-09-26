@@ -87,6 +87,8 @@ BazaarPlusPlus 是一个面向《The Bazaar》的开源项目：游戏内由 Bep
 
 ## 从源码构建
 
+安装下列工具链后执行 `just setup`，一次接入本机共用配置、各项目依赖和 Git hooks；`just doctor` 列出尚缺的配置与本机材料。旧 clone 的配置迁移和集中目录约定见[开发命令](docs/development.md#新-clone-与本地配置)。
+
 ### 环境要求
 
 | 范围                       | 依赖                                                                                                                          |

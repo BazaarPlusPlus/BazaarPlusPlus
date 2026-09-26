@@ -53,3 +53,4 @@ coverage/
 .dev.vars
 .dev.vars.*
 signing-secrets/
+.bpp-local.json

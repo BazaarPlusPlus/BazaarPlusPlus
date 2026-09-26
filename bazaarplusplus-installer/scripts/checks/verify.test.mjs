@@ -1,4 +1,4 @@
-import { expect, test } from 'vitest';
+import { expect, test, vi } from 'vitest';
 
 import { runVerification, verificationSteps } from './verify.mjs';
 
@@ -42,6 +42,58 @@ test('source verification omits private release payload validation', () => {
   expect(
     steps.some(({ args }) => args.includes('prebuild-check:after-bindings'))
   ).toBe(false);
+});
+
+test('source verification excludes bundle resources in child processes without changing release configuration', () => {
+  const config = {
+    bundle: { resources: ['missing-release.zip'], active: true },
+    identifier: 'com.example.fixture'
+  };
+  vi.stubEnv('TAURI_CONFIG', JSON.stringify(config));
+  try {
+    const observed = [];
+    expect(
+      runVerification({
+        rootDir: process.cwd(),
+        mode: 'source',
+        log() {},
+        run(command, args, options) {
+          observed.push({
+            command,
+            args,
+            config: JSON.parse(options.env.TAURI_CONFIG)
+          });
+          return { status: 0 };
+        }
+      })
+    ).toBe(0);
+    expect(
+      observed.find(
+        ({ command, args }) => command === 'cargo' && args.includes('clippy')
+      ).config
+    ).toEqual({ ...config, bundle: { ...config.bundle, resources: [] } });
+    expect(
+      observed.find(({ args }) => args.includes('generate:bindings:test'))
+        .config.bundle.resources
+    ).toEqual([]);
+    expect(
+      observed.find(
+        ({ command, args }) => command === 'cargo' && args.includes('doc')
+      ).config.bundle.resources
+    ).toEqual([]);
+    expect(JSON.parse(process.env.TAURI_CONFIG)).toEqual(config);
+    runVerification({
+      rootDir: process.cwd(),
+      mode: 'release',
+      log() {},
+      run(_command, _args, options) {
+        expect(JSON.parse(options.env.TAURI_CONFIG)).toEqual(config);
+        return { status: 0 };
+      }
+    });
+  } finally {
+    vi.unstubAllEnvs();
+  }
 });
 
 test('verification preserves the failing command status and stops', () => {

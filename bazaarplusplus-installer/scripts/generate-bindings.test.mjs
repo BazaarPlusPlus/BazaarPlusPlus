@@ -6,8 +6,35 @@ import { expect, test } from 'vitest';
 import {
   bindingsAreFresh,
   commitGeneratedBindings,
-  replaceDirectoryWithBackup
+  replaceDirectoryWithBackup,
+  runGenerateBindings
 } from './generate-bindings.mjs';
+
+test('standalone binding generation runs Rust tests without requiring release resources', () => {
+  const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), 'bpp-bindings-test-'));
+  try {
+    runGenerateBindings(rootDir, {
+      runAllRustTests: true,
+      run(_command, _args, { env }) {
+        expect(JSON.parse(env.TAURI_CONFIG || '{}').bundle?.resources).toEqual(
+          []
+        );
+        fs.writeFileSync(
+          env.BPP_SPECTA_EXPORT_PATH,
+          'export const commands = {};\n'
+        );
+      }
+    });
+    expect(
+      fs.readFileSync(
+        path.join(rootDir, 'src/types/generated/commands.ts'),
+        'utf8'
+      )
+    ).toBe('export const commands = {};\n');
+  } finally {
+    fs.rmSync(rootDir, { recursive: true, force: true });
+  }
+});
 
 test('generated bindings commit atomically replaces the complete target', () => {
   const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), 'bpp-bindings-test-'));

@@ -1,6 +1,10 @@
 set shell := ["bash", "-euo", "pipefail", "-c"]
 set positional-arguments
 
+# Refresh shared configuration, then run an explicit analyzer CLI command.
+cli +args:
+    node ../scripts/workspace.mjs run analyzer -- uv run --locked bpp "$@"
+
 # Check Python formatting, lint, and types using the locked environment.
 check:
     uv run --locked ruff format --check .

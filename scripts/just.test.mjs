@@ -97,6 +97,21 @@ function succeeded(result) {
   assert.equal(result.status, 0, result.stdout + result.stderr);
 }
 
+const releaseArgs = (command, ...args) => {
+  const profile =
+    command === 'build'
+      ? 'signing'
+      : ['upload', 'mirror', 'promote'].includes(command)
+        ? 'release'
+        : null;
+  return [
+    ...(profile ? ['scripts/workspace.mjs', 'run', profile, '--', 'node'] : []),
+    'release.mjs',
+    command,
+    ...args
+  ];
+};
+
 const call = (dir, project, tool, ...args) => ({
   tool,
   args,
@@ -140,7 +155,8 @@ test('check delegates source-only gates in their project directories', (t) => {
       'node',
       '--test',
       'scripts/just.test.mjs',
-      'scripts/design-tokens.test.mjs'
+      'scripts/design-tokens.test.mjs',
+      'scripts/workspace.test.mjs'
     ),
     call(f.dir, null, 'node', 'release.mjs', 'check'),
     ...modFmtCheck(f.dir),
@@ -180,7 +196,8 @@ test('test runs each suite without a release or publication command', (t) => {
       'node',
       '--test',
       'scripts/just.test.mjs',
-      'scripts/design-tokens.test.mjs'
+      'scripts/design-tokens.test.mjs',
+      'scripts/workspace.test.mjs'
     ),
     call(f.dir, null, 'npm', 'test'),
     call(f.dir, 'mod', 'mod-test', 'test'),
@@ -250,7 +267,6 @@ test('a failing project stops the aggregate and preserves its exit code', (t) =>
 for (const [recipe, project, script] of [
   ['installer::dev', 'installer', 'dev'],
   ['site::dev', 'site', 'dev'],
-  ['server::dev', 'server', 'dev'],
   ['site::build', 'site', 'build']
 ]) {
   test(`${recipe} delegates only to its local npm script`, (t) => {
@@ -259,6 +275,72 @@ for (const [recipe, project, script] of [
     assert.deepEqual(f.calls(), [call(f.dir, project, 'npm', 'run', script)]);
   });
 }
+
+for (const [recipe, project, ...args] of [
+  ['server::dev', 'server', 'npm', 'run', 'dev'],
+  [
+    'analyzer::cli',
+    'analyzer',
+    'uv',
+    'run',
+    '--locked',
+    'bpp',
+    'status',
+    '--json'
+  ]
+]) {
+  test(`${recipe} refreshes the scoped configuration in its project directory`, (t) => {
+    const f = fixture(t);
+    succeeded(
+      f.run([recipe, ...(project === 'analyzer' ? ['status', '--json'] : [])])
+    );
+    assert.deepEqual(f.calls(), [
+      call(
+        f.dir,
+        project,
+        'node',
+        '../scripts/workspace.mjs',
+        'run',
+        project,
+        '--',
+        ...args
+      )
+    ]);
+  });
+}
+
+test('setup and scoped commands preserve arguments without shell expansion', (t) => {
+  const f = fixture(t);
+  const source = '/old checkout/$(touch BAD)';
+  succeeded(f.run(['setup', '--from', source, '--skip-deps']));
+  succeeded(f.run(['doctor']));
+  succeeded(f.run(['with-config', 'mod', 'just', 'mod::build', source]));
+  assert.deepEqual(f.calls(), [
+    call(
+      f.dir,
+      null,
+      'node',
+      'scripts/workspace.mjs',
+      'setup',
+      '--from',
+      source,
+      '--skip-deps'
+    ),
+    call(f.dir, null, 'node', 'scripts/workspace.mjs', 'doctor'),
+    call(
+      f.dir,
+      null,
+      'node',
+      'scripts/workspace.mjs',
+      'run',
+      'mod',
+      '--',
+      'just',
+      'mod::build',
+      source
+    )
+  ]);
+});
 
 // These must remain literal arguments, not interpolated shell source.
 const managedPath =
@@ -306,7 +388,7 @@ for (const command of ['sync', 'check', 'verify-mirror', 'promote']) {
       })
     );
     assert.deepEqual(f.calls(), [
-      call(f.dir, null, 'node', 'release.mjs', command)
+      call(f.dir, null, 'node', ...releaseArgs(command))
     ]);
   });
 }
@@ -322,7 +404,7 @@ for (const [command, ...flags] of [
     const f = fixture(t);
     succeeded(f.run([`release::${command}`, ...flags]));
     assert.deepEqual(f.calls(), [
-      call(f.dir, null, 'node', 'release.mjs', command, ...flags)
+      call(f.dir, null, 'node', ...releaseArgs(command, ...flags))
     ]);
   });
 }
@@ -350,6 +432,11 @@ test('release::mirror forwards the platform, the share URL and optional flags', 
       f.dir,
       null,
       'node',
+      'scripts/workspace.mjs',
+      'run',
+      'release',
+      '--',
+      'node',
       'release.mjs',
       'mirror',
       '--platform',
@@ -360,6 +447,11 @@ test('release::mirror forwards the platform, the share URL and optional flags', 
     call(
       f.dir,
       null,
+      'node',
+      'scripts/workspace.mjs',
+      'run',
+      'release',
+      '--',
       'node',
       'release.mjs',
       'mirror',
@@ -384,7 +476,7 @@ for (const command of ['prepare', 'build', 'upload']) {
     test(`release::${command} ${platform} does not imply other release stages`, (t) => {
       const f = fixture(t);
       succeeded(f.run([`release::${command}`, platform]));
-      const args = ['release.mjs', command, '--platform', platform];
+      const args = releaseArgs(command, '--platform', platform);
       if (command !== 'upload') args.push('--');
       assert.deepEqual(f.calls(), [call(f.dir, null, 'node', ...args)]);
     });
@@ -399,12 +491,7 @@ for (const command of ['prepare', 'build', 'upload']) {
           f.dir,
           null,
           'node',
-          'release.mjs',
-          command,
-          '--platform',
-          'windows',
-          '--',
-          managedPath
+          ...releaseArgs(command, '--platform', 'windows', '--', managedPath)
         )
       ]);
     });
