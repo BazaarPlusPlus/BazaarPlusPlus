@@ -167,7 +167,7 @@ internal sealed class GhostBattleSyncService
                 extraction.Error ?? "payload_invalid"
             );
             return Failure(
-                extraction.Error ?? "ghost_bundle_invalid",
+                extraction.Error ?? "ghost_bundle_import_failed",
                 extraction.ReasonCode,
                 extraction.Exception
             );
@@ -258,7 +258,7 @@ internal sealed class GhostBattleSyncService
                 return GhostPayloadExtraction.Failure(
                     runIdentityMismatch
                         ? "ghost_run_identity_mismatch"
-                        : openResult.Reason ?? "ghost_bundle_invalid",
+                        : openResult.Reason ?? "ghost_bundle_import_failed",
                     runIdentityMismatch
                         ? HistoryPanelReplayReasonCode.GhostBattleMismatch
                         : HistoryPanelReplayReasonCode.GhostArtifactInvalid,
@@ -317,7 +317,9 @@ internal sealed class GhostBattleSyncService
         catch (Exception ex)
         {
             return GhostPayloadExtraction.Failure(
-                "ghost_bundle_invalid",
+                // Discovery restores old compatibility failures once. Fresh failures use a
+                // distinct reason so a truly invalid replay cannot be revived on every sync.
+                "ghost_bundle_import_failed",
                 HistoryPanelReplayReasonCode.GhostArtifactInvalid,
                 ex
             );

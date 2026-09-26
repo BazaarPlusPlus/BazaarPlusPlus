@@ -9,9 +9,23 @@
   <ItemGroup>
     <ProjectReference Include="../../src/BazaarPlusPlus/BazaarPlusPlus.csproj" />
     <PackageReference Include="MessagePack" />
+    <Reference Include="BazaarGameShared">
+      <HintPath>$(ManagedPath)/BazaarGameShared.dll</HintPath>
+    </Reference>
   </ItemGroup>
 
   <ItemGroup>
     <Compile Include="../Shared/LocalizationTestBootstrap.cs" Link="LocalizationTestBootstrap.cs" />
+    <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+      <_Parameter1>GameManagedPath</_Parameter1>
+      <_Parameter2>$(ManagedPath)</_Parameter2>
+    </AssemblyAttribute>
   </ItemGroup>
+
+  <!-- Unity can bind the game's JSON library before BPP's newer package. Delete the copy-local
+       file first: other build outputs or the package cache may share its inode. -->
+  <Target Name="UseGameJsonRuntime" AfterTargets="Build">
+    <Delete Files="$(TargetDir)Newtonsoft.Json.dll" />
+    <Copy SourceFiles="$(ManagedPath)/Newtonsoft.Json.dll" DestinationFolder="$(TargetDir)" />
+  </Target>
 </Project>
