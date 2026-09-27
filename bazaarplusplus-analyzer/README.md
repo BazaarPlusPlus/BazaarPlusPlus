@@ -13,13 +13,13 @@ analyzer-v5/builds/latest.json
 Run workspace `just setup` and fill in the shared analyzer configuration described
 in the [development guide](../docs/development.md). `just analyzer::cli <command>`
 refreshes the managed repository `.env` before invoking the CLI. The analyzer itself
-still reads only that file; direct uv commands below require a current projection.
+still reads only that file; the direct run/status/verify recipes below require a current projection.
 
 ```bash
-uv run --locked bpp run
-uv run --locked bpp run --no-publish
-uv run --locked bpp status --json
-uv run --locked bpp verify --deep
+just analyzer::run
+just analyzer::run --no-publish
+just analyzer::status --json
+just analyzer::verify --deep
 ```
 
 Use `uv run --locked bpp --help` and `uv run --locked bpp <command> --help` for the complete
