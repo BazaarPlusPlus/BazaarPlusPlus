@@ -19,9 +19,9 @@
       },
       "Newtonsoft.Json": {
         "type": "Direct",
-        "requested": "[13.0.4, )",
-        "resolved": "13.0.4",
-        "contentHash": "pdgNNMai3zv51W5aq268sujXUyx7SNdE2bj1wZcWjAQrKMFZV260lbqYop1d2GM67JI1huLRwxo9ZqnfF/lC6A=="
+        "requested": "[13.0.2, )",
+        "resolved": "13.0.2",
+        "contentHash": "R2pZ3B0UjeyHShm9vG+Tu0EBb2lC8b0dFzV9gVn50ofHXh9Smjk6kTn7A/FdAsC8B5cKib1OnGYOXxRBz5XQDg=="
       },
       "BepInEx.BaseLib": {
         "type": "Transitive",
@@ -141,14 +141,14 @@
       "bazaarplusplus": {
         "type": "Project",
         "dependencies": {
-          "BazaarPlusPlus.Localization": "[5.5.0, )",
-          "BazaarPlusPlus.ModApi": "[5.5.0, )",
-          "BazaarPlusPlus.Storage": "[5.5.0, )",
+          "BazaarPlusPlus.Localization": "[5.6.0, )",
+          "BazaarPlusPlus.ModApi": "[5.6.0, )",
+          "BazaarPlusPlus.Storage": "[5.6.0, )",
           "BepInEx.Core": "[5.4.21, )",
           "BepInEx.PluginInfoProps": "[2.1.0, )",
           "Microsoft.Data.Sqlite": "[10.0.12, )",
           "NETStandard.Library": "[2.0.3, )",
-          "Newtonsoft.Json": "[13.0.4, )",
+          "Newtonsoft.Json": "[13.0.2, )",
           "SQLitePCLRaw.bundle_e_sqlite3": "[3.0.5, )",
           "SixLabors.ImageSharp": "[2.1.11, )",
           "SourceGear.sqlite3": "[3.53.4, )",
@@ -166,7 +166,7 @@
         "dependencies": {
           "MessagePack": "[3.1.9, )",
           "NETStandard.Library": "[2.0.3, )",
-          "Newtonsoft.Json": "[13.0.4, )"
+          "Newtonsoft.Json": "[13.0.2, )"
         }
       },
       "bazaarplusplus.storage": {
@@ -174,7 +174,7 @@
         "dependencies": {
           "Microsoft.Data.Sqlite": "[10.0.12, )",
           "NETStandard.Library": "[2.0.3, )",
-          "Newtonsoft.Json": "[13.0.4, )",
+          "Newtonsoft.Json": "[13.0.2, )",
           "SQLitePCLRaw.bundle_e_sqlite3": "[3.0.5, )",
           "SourceGear.sqlite3": "[3.53.4, )"
         }

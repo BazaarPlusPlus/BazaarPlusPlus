@@ -13,7 +13,9 @@
     <PackageVersion Include="Microsoft.Data.Sqlite" Version="10.0.12" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.10.1" />
     <PackageVersion Include="NETStandard.Library" Version="2.0.3" />
-    <PackageVersion Include="Newtonsoft.Json" Version="13.0.4" />
+    <!-- Pin to the game's Managed/Newtonsoft.Json.dll (13.0.2). Unity binds the game's copy at
+         runtime, so compiling against a newer package lets unavailable APIs slip through. -->
+    <PackageVersion Include="Newtonsoft.Json" Version="13.0.2" />
     <PackageVersion Include="SixLabors.ImageSharp" Version="2.1.11" />
     <PackageVersion Include="SourceGear.sqlite3" Version="3.53.4" />
     <PackageVersion Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.5" />
