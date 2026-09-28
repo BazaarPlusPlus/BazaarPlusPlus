@@ -27,6 +27,7 @@ var root = Path.Combine(Path.GetTempPath(), "bpp-v5-pipeline-" + Guid.NewGuid().
 Directory.CreateDirectory(root);
 try
 {
+    await BundleSealLoggingTests.RunAsync(Path.Combine(root, "seal-logging"));
     var paths = new TestPaths(root);
     var store = new RunLogStore(paths);
     var database = PathConstants.RunLogDatabase(root);
