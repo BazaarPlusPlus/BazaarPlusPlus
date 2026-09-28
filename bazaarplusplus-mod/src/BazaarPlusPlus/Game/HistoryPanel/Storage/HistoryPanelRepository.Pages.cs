@@ -13,6 +13,8 @@ internal sealed partial class HistoryPanelRepository
         string columns,
         HistoryPageRequest request,
         Func<SqliteDataReader, T> map,
+        bool includeCounts,
+        string? index,
         params (string Name, object Value)[] parameters
     )
     {
@@ -25,10 +27,13 @@ internal sealed partial class HistoryPanelRepository
         command.CommandTimeout = 2;
         foreach (var parameter in parameters)
             command.Parameters.AddWithValue(parameter.Name, parameter.Value);
+        var indexedTable = index == null ? table : $"{table} INDEXED BY {index}";
+        var filteredFrom = $"FROM {indexedTable} WHERE {filter}";
         var cursor = request.Cursor;
         var inclusive = request.Inclusive;
         if (request.AnchorId != null)
         {
+            // ID anchors should still seek the primary key, not scan a history index for an ID.
             command.CommandText =
                 $"SELECT {time}, {id} FROM {table} WHERE {filter} AND {id} = $anchor;";
             command.Parameters.AddWithValue("$anchor", request.AnchorId);
@@ -46,9 +51,9 @@ internal sealed partial class HistoryPanelRepository
             : string.Empty;
         command.Parameters.AddWithValue("$time", cursor?.Time ?? "");
         command.Parameters.AddWithValue("$id", cursor?.Id ?? "");
-        command.Parameters.AddWithValue("$limit", limit + 1);
+        command.Parameters.AddWithValue("$limit", limit);
         command.CommandText =
-            $"SELECT {columns}, {time} AS history_time FROM {table} WHERE {filter}{boundary} ORDER BY {time} {direction}, {id} {direction} LIMIT $limit;";
+            $"SELECT {columns}, {time} AS history_time {filteredFrom}{boundary} ORDER BY {time} {direction}, {id} {direction} LIMIT $limit;";
         var rows = new List<T>();
         var keys = new List<HistoryCursor>();
         using (var reader = command.ExecuteReader())
@@ -64,32 +69,51 @@ internal sealed partial class HistoryPanelRepository
                 );
             }
         }
-        if (rows.Count > limit)
-        {
-            rows.RemoveAt(limit);
-            keys.RemoveAt(limit);
-        }
         if (request.Newer)
         {
             rows.Reverse();
             keys.Reverse();
         }
-        if (rows.Count == 0)
-            return HistoryPage<T>.Empty;
-        bool Exists(HistoryCursor key, string op)
+        // Battle detail and background recovery need cursor navigation, not archive totals.
+        if (!includeCounts)
         {
-            command.Parameters["$time"].Value = key.Time;
-            command.Parameters["$id"].Value = key.Id;
-            command.CommandText =
-                $"SELECT 1 FROM {table} WHERE {filter} AND {time} {op}= $time AND ({time} {op} $time OR {id} {op} $id) LIMIT 1;";
-            return command.ExecuteScalar() != null;
+            if (rows.Count == 0)
+                return HistoryPage<T>.Empty;
+            bool Exists(HistoryCursor key, string op)
+            {
+                command.Parameters["$time"].Value = key.Time;
+                command.Parameters["$id"].Value = key.Id;
+                command.CommandText =
+                    $"SELECT 1 {filteredFrom} AND {time} {op}= $time AND ({time} {op} $time OR {id} {op} $id) LIMIT 1;";
+                return command.ExecuteScalar() != null;
+            }
+            return new(
+                rows,
+                keys[0],
+                keys[keys.Count - 1],
+                Exists(keys[0], ">"),
+                Exists(keys[keys.Count - 1], "<")
+            );
         }
-        return new(
+        command.CommandText = $"SELECT COUNT(*) {filteredFrom};";
+        var total = (long)command.ExecuteScalar()!;
+        if (rows.Count == 0)
+            return HistoryPage<T>.Empty with { TotalCount = total };
+        command.Parameters["$time"].Value = keys[0].Time;
+        command.Parameters["$id"].Value = keys[0].Id;
+        command.CommandText =
+            $"SELECT COUNT(*) {filteredFrom} AND {time} >= $time AND ({time} > $time OR {id} > $id);";
+        var newer = (long)command.ExecuteScalar()!;
+        return new HistoryPage<T>(
             rows,
             keys[0],
             keys[keys.Count - 1],
-            Exists(keys[0], ">"),
-            Exists(keys[keys.Count - 1], "<")
-        );
+            newer > 0,
+            newer + rows.Count < total
+        )
+        {
+            TotalCount = total,
+            FirstPosition = newer + 1,
+        };
     }
 }

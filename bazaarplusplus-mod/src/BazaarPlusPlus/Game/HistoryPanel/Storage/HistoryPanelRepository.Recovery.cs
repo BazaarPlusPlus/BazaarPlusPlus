@@ -28,6 +28,8 @@ internal sealed partial class HistoryPanelRepository
                 reader.GetString(5),
                 reader.GetString(6)
             ),
+            includeCounts: false,
+            index: null,
             ("$account", account)
         );
 

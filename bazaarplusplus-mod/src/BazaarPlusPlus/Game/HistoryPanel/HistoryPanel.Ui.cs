@@ -142,14 +142,10 @@ internal sealed partial class HistoryPanel
                     : _state.RunPage.HasOlder,
             BattleHasNewer = _state.BattlePage.HasNewer,
             BattleHasOlder = _state.BattlePage.HasOlder,
-            PageRange = HistoryPanelFormatter.PageRange(
+            PageRange =
                 _state.SectionMode == HistorySectionMode.Ghost
-                    ? _state.GhostPage.First
-                    : _state.RunPage.First,
-                _state.SectionMode == HistorySectionMode.Ghost
-                    ? _state.GhostPage.Last
-                    : _state.RunPage.Last
-            ),
+                    ? HistoryPanelFormatter.PageRange(_state.GhostPage, ghost: true)
+                    : HistoryPanelFormatter.PageRange(_state.RunPage),
             AccountId = _state.CachedAccountId,
             Title = HistoryPanelText.Title(),
             Supporters = _supporters,

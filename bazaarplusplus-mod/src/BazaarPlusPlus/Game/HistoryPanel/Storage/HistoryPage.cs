@@ -19,6 +19,9 @@ internal sealed record HistoryPage<T>(
     bool HasOlder
 )
 {
+    public long TotalCount { get; init; }
+    public long FirstPosition { get; init; }
+
     internal static HistoryPage<T> Empty { get; } = new(Array.Empty<T>(), null, null, false, false);
 
     internal int FindIndex(Predicate<T> match)
