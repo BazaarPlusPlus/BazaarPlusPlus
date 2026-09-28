@@ -28,12 +28,28 @@ cmd_test() {
     dotnet test tests/BazaarPlusPlus.Tests.slnx "${TEST_PROPS[@]}" ${PROPS[@]+"${PROPS[@]}"}
 }
 
-# test-compat [-p:Name=Value ...]: every compatibility check whose local inputs exist.
-# Exits 2 when nothing was runnable, so a missing game never reads as a pass.
+# test-compat [-p:Name=Value ...]: mandatory Release/game JSON check, plus available source checks.
 cmd_test_compat() {
     resolve_test_inputs "$@"
+    [[ -f "$MANAGED/Assembly-CSharp.dll" && -f "$MANAGED/Newtonsoft.Json.dll" ]] ||
+        die "Release member compatibility requires Assembly-CSharp.dll and Newtonsoft.Json.dll at '${MANAGED:-<not discovered>}'. Pass -p:ManagedPath=/absolute/path/to/Managed."
+
+    local main_project=src/BazaarPlusPlus/BazaarPlusPlus.csproj
+    local release_props=(
+        ${PROPS[@]+"${PROPS[@]}"} "${TEST_PROPS[@]}"
+        -p:Configuration=Release -p:BuildProductionPackage=false
+    )
+    step "Release member compatibility against ${MANAGED}"
+    dotnet build "$main_project" "${release_props[@]}"
+    local target_dir
+    target_dir="$(dotnet msbuild "$main_project" -nologo "${release_props[@]}" -getProperty:TargetDir)"
+    target_dir="$(to_unix_path "${target_dir//$'\r'/}")"
+    dotnet run --project build/GameAssemblyCompatibility/GameAssemblyCompatibility.csproj \
+        --configuration Release -- \
+        --payload "$MANAGED/Newtonsoft.Json.dll" "$MOD_ROOT/../release/payload.json" "$target_dir"
+
     local decompiled_root="${BPP_DECOMPILED_SOURCE_ROOT:-$MOD_ROOT}"
-    local runnable=0 checked=0 failures=()
+    local runnable=1 checked=1 failures=()
     local requirement label project ready
 
     step "Compatibility preflight"
@@ -70,10 +86,6 @@ cmd_test_compat() {
         fi
     done <tests/CompatibilityTests.manifest
 
-    if ((runnable == 0)); then
-        err "No compatibility checks were runnable; nothing was verified."
-        exit 2
-    fi
     if ((${#failures[@]} > 0)); then
         printf '  FAILED %s\n' "${failures[@]}" >&2
         exit 1
