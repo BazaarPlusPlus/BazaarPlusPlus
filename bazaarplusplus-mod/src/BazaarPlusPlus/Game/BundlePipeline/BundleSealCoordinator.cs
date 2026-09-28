@@ -187,7 +187,7 @@ internal sealed class BundleSealCoordinator : IBppFeature, IDisposable
                 if (decision == BundleSealConvergenceDecision.Wait)
                     return;
             }
-            MarkJobTerminal(runId, ex.Code, null);
+            MarkJobTerminal(runId, ex.Code, ex);
             return;
         }
 
@@ -229,7 +229,7 @@ internal sealed class BundleSealCoordinator : IBppFeature, IDisposable
         }
         catch (BundleCompositionException ex)
         {
-            MarkJobTerminal(runId, ex.Code, null);
+            MarkJobTerminal(runId, ex.Code, ex);
             return;
         }
         catch (Exception ex)
@@ -293,7 +293,7 @@ internal sealed class BundleSealCoordinator : IBppFeature, IDisposable
         }
         catch (Exception ex)
         {
-            MarkJobTerminal(runId, "bundle_build_failed", ex.Message);
+            MarkJobTerminal(runId, "bundle_build_failed", ex);
             return;
         }
 
@@ -453,10 +453,10 @@ internal sealed class BundleSealCoordinator : IBppFeature, IDisposable
     private void MarkJobWaiting(string runId, string code, string? detail) =>
         _queueStore.MarkJobWaiting(runId, code, detail);
 
-    private void MarkJobTerminal(string runId, string code, string? detail)
+    private void MarkJobTerminal(string runId, string code, Exception? exception)
     {
-        _queueStore.MarkJobTerminal(runId, code, detail);
-        BundlePipelineLog.Warn(BundlePipelineLogEvents.SealTerminal, code, null, runId);
+        _queueStore.MarkJobTerminal(runId, code, exception?.Message);
+        BundlePipelineLog.Warn(BundlePipelineLogEvents.SealTerminal, code, exception, runId);
     }
 
     private static void WriteAtomically(string tempPath, string finalPath, byte[] bytes)
