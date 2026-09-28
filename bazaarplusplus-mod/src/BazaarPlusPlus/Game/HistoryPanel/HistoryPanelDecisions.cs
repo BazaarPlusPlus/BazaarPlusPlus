@@ -175,11 +175,42 @@ internal static class HistoryPanelDecisions
             );
     }
 
-    // Account-link card gate: data sharing must be on AND the build must not be PTR.
+    // Linking requires uploads and a non-PTR build; the guidance card is always visible.
     // Unknown is treated like Online by policy (see IGameBuildInfo) so a channel
-    // detection failure can never hide the card on a production build.
-    internal static bool IsAccountLinkCardAvailable(
+    // detection failure can never disable linking on a production build.
+    internal static bool IsAccountLinkAvailable(
         bool dataSharingEnabled,
         GameBuildChannel channel
     ) => dataSharingEnabled && channel != GameBuildChannel.Ptr;
+
+    internal static HistoryAccountLinkCard ResolveAccountLinkCard(
+        bool available,
+        GameBuildChannel channel,
+        bool hasAccount,
+        bool linked,
+        bool expanded
+    )
+    {
+        if (channel == GameBuildChannel.Ptr)
+            return new(HistoryPanelText.AccountLink.PtrUnavailable(), "", false, false);
+        if (!available)
+            return new(HistoryPanelText.AccountLink.UploadsDisabled(), "", false, false);
+        if (!hasAccount)
+            return new(HistoryPanelText.AccountLink.SignedOut(), "", false, false);
+        return new(
+            linked
+                ? HistoryPanelText.AccountLink.Linked()
+                : HistoryPanelText.AccountLink.NotLinked(),
+            linked ? HistoryPanelText.AccountLink.BindingPersists() : "",
+            true,
+            expanded
+        );
+    }
 }
+
+internal readonly record struct HistoryAccountLinkCard(
+    string StatusText,
+    string PersistenceText,
+    bool ActionVisible,
+    bool FormVisible
+);
