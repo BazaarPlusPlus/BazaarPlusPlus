@@ -72,7 +72,7 @@ impl Default for OverlaySettingsStore {
 
 impl OverlaySettingsStore {
     #[cfg(test)]
-    fn new(path: PathBuf) -> Self {
+    pub(crate) fn new(path: PathBuf) -> Self {
         Self {
             path,
             legacy_path: None,

@@ -11,7 +11,6 @@ export type HistoryPageProblemCode =
   | 'history_read_failed'
   | 'history_read_blocked_by_game'
   | 'history_database_unsupported_schema'
-  | 'history_preview_unavailable'
   | 'history_unexpected';
 
 export type HistoryPageProblem = UiProblem<HistoryPageProblemCode>;
@@ -47,8 +46,6 @@ function historyProblemMessageKey(problem: HistoryPageProblem): MessageKey {
       return 'historyProblemBlockedByGame';
     case 'history_database_unsupported_schema':
       return 'historyProblemUnsupportedSchema';
-    case 'history_preview_unavailable':
-      return 'historyProblemPreviewUnavailable';
     case 'history_unexpected':
       return 'historyProblemUnexpected';
   }

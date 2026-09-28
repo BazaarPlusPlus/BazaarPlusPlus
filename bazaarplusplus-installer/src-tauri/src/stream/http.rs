@@ -14,6 +14,8 @@ use include_dir::{include_dir, Dir};
 use serde::Deserialize;
 use std::{
     borrow::Cow,
+    collections::hash_map::DefaultHasher,
+    hash::{Hash, Hasher},
     io::Cursor,
     path::{Path as FsPath, PathBuf},
     time::UNIX_EPOCH,
@@ -34,6 +36,7 @@ const LATEST_RECORD_ROUTE: &str = "/api/stream/records/latest";
 const RECORD_LIST_ROUTE: &str = "/api/stream/records";
 const CROP_CONFIG_ROUTE: &str = "/api/overlay/crop-config";
 const STRIP_IMAGE_ROUTE: &str = "/images/{record_id}/strip";
+const HISTORY_PREVIEW_PREFIX: &str = "/history";
 const RECORD_IMAGE_ROUTE: &str = "/images/{record_id}";
 const OVERLAY_CSS_ROUTE: &str = "/assets/overlay.css";
 const OVERLAY_JS_ROUTE: &str = "/assets/overlay.js";
@@ -47,6 +50,7 @@ struct HttpAppState {
     overlay_records: OverlayRecordRepository,
     runtime: StreamRuntime,
     overlay_settings: OverlaySettingsStore,
+    cache_directory: PathBuf,
 }
 
 #[derive(Debug, Deserialize)]
@@ -79,6 +83,7 @@ pub(super) fn router(
     overlay_records: OverlayRecordRepository,
     runtime: StreamRuntime,
     overlay_settings: OverlaySettingsStore,
+    cache_directory: PathBuf,
 ) -> Router {
     let cors = CorsLayer::new()
         .allow_origin(AllowOrigin::predicate(|origin, _| {
@@ -97,6 +102,10 @@ pub(super) fn router(
             get(get_crop_config).post(save_crop_config),
         )
         .route(STRIP_IMAGE_ROUTE, get(record_strip_image))
+        .route(
+            &format!("{HISTORY_PREVIEW_PREFIX}/{{source}}{STRIP_IMAGE_ROUTE}"),
+            get(history_strip_image),
+        )
         .route(RECORD_IMAGE_ROUTE, get(record_image))
         .route(OVERLAY_CSS_ROUTE, get(overlay_css))
         .route(OVERLAY_JS_ROUTE, get(overlay_js))
@@ -109,7 +118,12 @@ pub(super) fn router(
             overlay_records,
             runtime,
             overlay_settings,
+            cache_directory,
         })
+}
+
+pub(super) fn history_preview_prefix(source: usize) -> String {
+    format!("{HISTORY_PREVIEW_PREFIX}/{source}")
 }
 
 fn is_allowed_cors_origin(origin: &HeaderValue) -> bool {
@@ -240,12 +254,40 @@ async fn record_strip_image(
     Query(query): Query<StripPreviewQuery>,
     State(app_state): State<HttpAppState>,
 ) -> Response {
-    let crop = match resolve_strip_crop(&query, &app_state) {
+    render_strip_image(
+        record_id,
+        query,
+        &app_state.overlay_records,
+        &app_state,
+        false,
+    )
+    .await
+}
+
+async fn history_strip_image(
+    Path((source, record_id)): Path<(usize, String)>,
+    Query(query): Query<StripPreviewQuery>,
+    State(app_state): State<HttpAppState>,
+) -> Response {
+    let Some(records) = app_state.runtime.history_preview_records(source) else {
+        return StatusCode::NOT_FOUND.into_response();
+    };
+    render_strip_image(record_id, query, &records, &app_state, true).await
+}
+
+async fn render_strip_image(
+    record_id: String,
+    query: StripPreviewQuery,
+    records: &OverlayRecordRepository,
+    app_state: &HttpAppState,
+    history: bool,
+) -> Response {
+    let crop = match resolve_strip_crop(&query, app_state) {
         Ok(crop) => crop,
         Err(message) => return (StatusCode::BAD_REQUEST, message).into_response(),
     };
 
-    let path = match app_state.overlay_records.load_image_path(&record_id) {
+    let path = match records.load_image_path(&record_id) {
         Ok(Some(value)) => value,
         Ok(None) => return StatusCode::NOT_FOUND.into_response(),
         Err(message) => return (StatusCode::INTERNAL_SERVER_ERROR, message).into_response(),
@@ -259,7 +301,17 @@ async fn record_strip_image(
         })
         .await
     } else {
-        let cache_directory = overlay_cache_directory();
+        let cache_directory = if history {
+            // Two installations may have copied screenshot ids and identical file metadata.
+            let mut source = DefaultHasher::new();
+            path.hash(&mut source);
+            app_state
+                .cache_directory
+                .join("history")
+                .join(format!("{:016x}", source.finish()))
+        } else {
+            app_state.cache_directory.clone()
+        };
         run_strip_image_task(move || {
             load_or_create_strip_cache(&cache_directory, &record_id, &path, crop)
         })
@@ -338,10 +390,6 @@ fn detect_content_type(path: &FsPath) -> &'static str {
         Some("webp") => "image/webp",
         _ => "application/octet-stream",
     }
-}
-
-fn overlay_cache_directory() -> PathBuf {
-    crate::services::paths::overlay_cache_dir()
 }
 
 fn sanitized_cache_name(value: &str) -> String {

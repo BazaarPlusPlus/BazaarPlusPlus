@@ -24,6 +24,7 @@ export const commands = {
 	endGameProcess: () => __TAURI_INVOKE<boolean>("end_game_process"),
 	getStreamStatus: () => __TAURI_INVOKE<StreamServiceStatus>("get_stream_status"),
 	ensureStreamSession: (gamePath: string | null) => __TAURI_INVOKE<StreamServiceStatus>("ensure_stream_session", { gamePath }),
+	ensureHistoryPreview: () => __TAURI_INVOKE<string | null>("ensure_history_preview"),
 	restartStreamSession: (gamePath: string | null) => __TAURI_INVOKE<StreamServiceStatus>("restart_stream_session", { gamePath }),
 	setStreamWindow: (offset: number) => __TAURI_INVOKE<StreamServiceStatus>("set_stream_window", { offset }),
 	getOverlaySettings: () => __TAURI_INVOKE<StreamOverlayCropSettingsPayload>("get_overlay_settings"),

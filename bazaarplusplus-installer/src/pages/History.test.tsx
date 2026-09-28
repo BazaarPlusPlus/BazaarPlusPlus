@@ -4,23 +4,22 @@ import { act, StrictMode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { emptyHistoryRunList } from '../api/previewDefaults';
+import { emptyHistoryRunList, idleStreamStatus } from '../api/previewDefaults';
+import { commandClient } from '../api/commandClient';
 import { ToastProvider } from '../components/ui/Toast';
-import {
-  endGameProcess,
-  listHistoryRuns
-} from '../features/history/historyApi';
 import { LocaleProvider } from '../i18n/LocaleProvider';
 import { LOCALE_STORAGE_KEY } from '../i18n/messages';
 import History from './History';
 
-vi.mock('../features/history/historyApi', () => ({
-  listHistoryRuns: vi.fn(),
-  endGameProcess: vi.fn()
+vi.mock('../api/commandClient', () => ({
+  commandClient: {
+    listHistoryRuns: vi.fn(),
+    endGameProcess: vi.fn(),
+    ensureHistoryPreview: vi.fn(),
+    getStreamStatus: vi.fn()
+  }
 }));
-vi.mock('../features/shared/streamSessionApi', () => ({
-  getStreamStatus: async () => ({ running: false })
-}));
+const { listHistoryRuns, endGameProcess, ensureHistoryPreview } = commandClient;
 vi.mock('../features/history/HistoryOverview', () => ({
   HistoryOverview: () => null
 }));
@@ -63,8 +62,12 @@ beforeEach(() => {
   localStorage.setItem(LOCALE_STORAGE_KEY, 'zh');
   vi.mocked(listHistoryRuns)
     .mockReset()
-    .mockImplementation(async (_limit, offset) => loadedPage(offset));
+    .mockImplementation(async (_limit, offset) => loadedPage(offset ?? 0));
   vi.mocked(endGameProcess).mockReset().mockResolvedValue(true);
+  vi.mocked(ensureHistoryPreview).mockReset().mockResolvedValue(null);
+  vi.mocked(commandClient.getStreamStatus)
+    .mockReset()
+    .mockResolvedValue(idleStreamStatus);
   container = document.createElement('div');
   document.body.append(container);
   root = createRoot(container);
@@ -74,6 +77,7 @@ afterEach(async () => {
   await act(async () => root.unmount());
   container.remove();
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
 });
 
 async function render(path: string, remountOnNavigation = false) {
@@ -137,7 +141,7 @@ describe('history pagination', () => {
 
   it('moves to the last available page after the record count shrinks', async () => {
     vi.mocked(listHistoryRuns).mockImplementation(async (_limit, offset) =>
-      loadedPage(offset, 52)
+      loadedPage(offset ?? 0, 52)
     );
     await render('/history?page=5');
     expect(container.querySelectorAll('.bpp-history-run-card')).toHaveLength(2);
@@ -211,5 +215,106 @@ describe('history pagination', () => {
     expect(
       container.querySelector('.bpp-history-run-card')?.getAttribute('href')
     ).toBe('/history/run-51');
+  });
+});
+
+describe('History thumbnails', () => {
+  const baseUrl = 'http://127.0.0.1:17654';
+  const thumbnailPage = (source: number, hero: string) => ({
+    ...loadedPage(0, 1),
+    runs: [
+      { ...runs[0], hero, strip_url: `/history/${source}/images/shot-1/strip` }
+    ]
+  });
+
+  it('loads the list before preparation completes, then displays the prepared image', async () => {
+    let ready!: (url: string) => void;
+    const preparing = new Promise<string>((resolve) => {
+      ready = resolve;
+    });
+    vi.mocked(listHistoryRuns).mockResolvedValue(thumbnailPage(0, 'Vanessa'));
+    vi.mocked(ensureHistoryPreview).mockReturnValue(preparing);
+    await render('/history');
+    expect(container.textContent).toContain('Vanessa');
+    expect(container.querySelector('.bpp-history-run-preview img')).toBeNull();
+    await act(async () => ready(baseUrl));
+    expect(
+      container
+        .querySelector('.bpp-history-run-preview img')
+        ?.getAttribute('src')
+    ).toBe(`${baseUrl}/history/0/images/shot-1/strip`);
+    expect(container.querySelector('a[href="/stream"]')).toBeNull();
+  });
+
+  it.each([
+    ['zh', '缩略图不可用；刷新页面可重试。', '刷新'],
+    ['en', 'Thumbnail unavailable; refresh to retry.', 'Refresh']
+  ] as const)(
+    'uses only the card fallback on failure in %s and retries the same image',
+    async (locale, fallback, refresh) => {
+      localStorage.setItem(LOCALE_STORAGE_KEY, locale);
+      vi.mocked(listHistoryRuns).mockResolvedValue(thumbnailPage(0, 'Vanessa'));
+      vi.mocked(ensureHistoryPreview).mockRejectedValue(
+        new Error('port occupied')
+      );
+      await render('/history');
+      expect(container.textContent).toContain('Vanessa');
+      expect(container.textContent).toContain(fallback);
+      expect(container.textContent).not.toMatch(
+        /Stream|service|服务|直播|port occupied/
+      );
+      expect(container.querySelector('a[href="/stream"]')).toBeNull();
+      vi.mocked(ensureHistoryPreview).mockResolvedValue(baseUrl);
+      await click(refresh);
+      const image = container.querySelector('.bpp-history-run-preview img');
+      expect(image).not.toBeNull();
+      await act(async () => image!.dispatchEvent(new Event('error')));
+      expect(
+        container.querySelector('.bpp-history-run-preview img')
+      ).toBeNull();
+      expect(container.textContent).toContain(fallback);
+      await click(refresh);
+      expect(
+        container
+          .querySelector('.bpp-history-run-preview img')
+          ?.getAttribute('src')
+      ).toBe(`${baseUrl}/history/0/images/shot-1/strip`);
+    }
+  );
+
+  it('refreshes the current list and images when the same window becomes visible or regains focus', async () => {
+    vi.mocked(listHistoryRuns).mockResolvedValue(
+      thumbnailPage(0, 'Installation A')
+    );
+    vi.mocked(ensureHistoryPreview).mockResolvedValue(baseUrl);
+    await render('/history');
+    const visibility = vi.spyOn(document, 'visibilityState', 'get');
+    visibility.mockReturnValue('hidden');
+    await act(async () =>
+      document.dispatchEvent(new Event('visibilitychange'))
+    );
+    // B acquired a database while this window was hidden; its list and URLs must refresh together.
+    vi.mocked(listHistoryRuns).mockResolvedValue(
+      thumbnailPage(1, 'Installation B')
+    );
+    visibility.mockReturnValue('visible');
+    await act(async () =>
+      document.dispatchEvent(new Event('visibilitychange'))
+    );
+    expect(container.textContent).toContain('Installation B');
+    expect(container.textContent).not.toContain('Installation A');
+    expect(
+      container
+        .querySelector('.bpp-history-run-preview img')
+        ?.getAttribute('src')
+    ).toBe(`${baseUrl}/history/1/images/shot-1/strip`);
+    vi.mocked(ensureHistoryPreview).mockRejectedValue(new Error('stopped'));
+    await act(async () => window.dispatchEvent(new Event('focus')));
+    expect(container.querySelector('.bpp-history-run-preview img')).toBeNull();
+    vi.mocked(ensureHistoryPreview).mockResolvedValue(baseUrl);
+    await act(async () => window.dispatchEvent(new Event('focus')));
+    expect(
+      container.querySelector('.bpp-history-run-preview img')
+    ).not.toBeNull();
   });
 });

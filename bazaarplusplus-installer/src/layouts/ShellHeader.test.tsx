@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import { act } from 'react';
+import { MemoryRouter } from 'react-router-dom';
 import { createRoot } from 'react-dom/client';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -8,6 +9,7 @@ import type { AppBootstrapController } from '../features/about/useAppBootstrap';
 import { UpdaterProvider } from '../features/about/UpdaterProvider';
 import { LocaleProvider } from '../i18n/LocaleProvider';
 import { LOCALE_STORAGE_KEY } from '../i18n/messages';
+import { idleStreamStatus } from '../api/previewDefaults';
 import { getStreamStatus } from '../features/shared/streamSessionApi';
 import { ShellHeader } from './ShellHeader';
 
@@ -73,16 +75,18 @@ function renderHeader({
   showBilibili?: boolean;
 } = {}) {
   return renderToStaticMarkup(
-    <LocaleProvider>
-      <UpdaterProvider>
-        <ShellHeader
-          app={app}
-          showBilibili={showBilibili}
-          onToggleBilibili={() => undefined}
-          onCloseBilibili={() => undefined}
-        />
-      </UpdaterProvider>
-    </LocaleProvider>
+    <MemoryRouter>
+      <LocaleProvider>
+        <UpdaterProvider>
+          <ShellHeader
+            app={app}
+            showBilibili={showBilibili}
+            onToggleBilibili={() => undefined}
+            onCloseBilibili={() => undefined}
+          />
+        </UpdaterProvider>
+      </LocaleProvider>
+    </MemoryRouter>
   );
 }
 
@@ -166,16 +170,18 @@ describe('ShellHeader', () => {
 
     await act(async () => {
       root.render(
-        <LocaleProvider>
-          <UpdaterProvider>
-            <ShellHeader
-              app={app}
-              showBilibili={false}
-              onToggleBilibili={() => undefined}
-              onCloseBilibili={() => undefined}
-            />
-          </UpdaterProvider>
-        </LocaleProvider>
+        <MemoryRouter>
+          <LocaleProvider>
+            <UpdaterProvider>
+              <ShellHeader
+                app={app}
+                showBilibili={false}
+                onToggleBilibili={() => undefined}
+                onCloseBilibili={() => undefined}
+              />
+            </UpdaterProvider>
+          </LocaleProvider>
+        </MemoryRouter>
       );
     });
 
@@ -207,16 +213,18 @@ describe('ShellHeader', () => {
 
     await act(async () => {
       root.render(
-        <LocaleProvider>
-          <UpdaterProvider>
-            <ShellHeader
-              app={app}
-              showBilibili={false}
-              onToggleBilibili={() => undefined}
-              onCloseBilibili={() => undefined}
-            />
-          </UpdaterProvider>
-        </LocaleProvider>
+        <MemoryRouter>
+          <LocaleProvider>
+            <UpdaterProvider>
+              <ShellHeader
+                app={app}
+                showBilibili={false}
+                onToggleBilibili={() => undefined}
+                onCloseBilibili={() => undefined}
+              />
+            </UpdaterProvider>
+          </LocaleProvider>
+        </MemoryRouter>
       );
     });
 
@@ -254,4 +262,61 @@ describe('ShellHeader', () => {
       Object.defineProperty(navigator, 'userAgent', userAgent);
     }
   });
+  it.each([
+    ['zh', '/history', '隐藏到托盘'],
+    ['en', '/history?page=2', 'Hide to tray'],
+    ['zh', '/stream', '隐藏到托盘（直播服务仍在运行）'],
+    ['en', '/stream', 'Hide to tray (stream service keeps running)']
+  ] as const)(
+    'keeps the %s close action accurate at %s',
+    async (locale, path, label) => {
+      const userAgent = Object.getOwnPropertyDescriptor(navigator, 'userAgent');
+      Object.defineProperty(navigator, 'userAgent', {
+        configurable: true,
+        value: 'Windows'
+      });
+      Object.defineProperty(window, '__TAURI_INTERNALS__', {
+        configurable: true,
+        value: {}
+      });
+      window.localStorage.setItem(LOCALE_STORAGE_KEY, locale);
+      vi.mocked(getStreamStatus).mockResolvedValue({
+        ...idleStreamStatus,
+        running: true
+      });
+      const container = document.createElement('div');
+      document.body.append(container);
+      const root = createRoot(container);
+      try {
+        await act(async () =>
+          root.render(
+            <MemoryRouter initialEntries={[path]}>
+              <LocaleProvider>
+                <UpdaterProvider>
+                  <ShellHeader
+                    app={app}
+                    showBilibili={false}
+                    onToggleBilibili={() => undefined}
+                    onCloseBilibili={() => undefined}
+                  />
+                </UpdaterProvider>
+              </LocaleProvider>
+            </MemoryRouter>
+          )
+        );
+        const close = container.querySelector(
+          '.bpp-window-control-button:last-child'
+        );
+        expect(close?.getAttribute('aria-label')).toBe(label);
+        expect(close?.getAttribute('title')).toBe(label);
+      } finally {
+        await act(async () => root.unmount());
+        container.remove();
+        delete (window as Window & { __TAURI_INTERNALS__?: unknown })
+          .__TAURI_INTERNALS__;
+        if (userAgent) Object.defineProperty(navigator, 'userAgent', userAgent);
+        vi.mocked(getStreamStatus).mockResolvedValue(idleStreamStatus);
+      }
+    }
+  );
 });
