@@ -34,6 +34,7 @@ internal sealed partial class HistoryPanelView
         _moreStatus = null!,
         _accountTitle = null!,
         _accountStatus = null!,
+        _accountPersistence = null!,
         _accountWhy = null!,
         _accountBanner = null!;
 
@@ -77,6 +78,12 @@ internal sealed partial class HistoryPanelView
         _accountCard = CreateRect("AccountCard", dialog, .05f, .31f, .90f, .64f);
         _accountTitle = Text(_accountCard, "", 0, 0, .7f, .094f, 21);
         _accountStatus = Text(_accountCard, "", 0, .11f, .68f, .07f, 16, Muted);
+        _accountStatus.enableAutoSizing = true;
+        _accountStatus.fontSizeMin = 13;
+        _accountStatus.fontSizeMax = 16;
+        _accountPersistence = Text(_accountCard, "", 0, .21f, 1, .14f, 14, Muted);
+        _accountPersistence.textWrappingMode = TextWrappingModes.Normal;
+        _accountPersistence.overflowMode = TextOverflowModes.Overflow;
         _accountToggle = Button(
             _accountCard,
             "",
@@ -87,7 +94,7 @@ internal sealed partial class HistoryPanelView
             _toggleAccountLink,
             size: 15
         );
-        _accountForm = CreateRect("AccountForm", _accountCard, 0, .22f, 1, .76f);
+        _accountForm = CreateRect("AccountForm", _accountCard, 0, .38f, 1, .60f);
         _accountWhy = Text(_accountForm, "", 0, 0, 1, .2f, 14, Muted);
         _accountWhy.textWrappingMode = TextWrappingModes.Normal;
         var inputRect = CreateRect("AccountLinkCode", _accountForm, 0, .25f, .61f, .14f);
@@ -190,9 +197,13 @@ internal sealed partial class HistoryPanelView
         SetButton(_healthButton, m.ServerHealthButtonText, enabled: m.ServerHealthButtonEnabled);
         _moreStatus.text = m.StatusMessage ?? "";
         _moreStatus.color = StatusColor(m.StatusSeverity);
-        _accountCard.gameObject.SetActive(m.AccountCardVisible);
         _accountTitle.text = m.AccountTitleText;
         _accountStatus.text = m.AccountRowStatusText;
+        _accountStatus.rectTransform.anchorMax = new Vector2(
+            m.AccountRowActionVisible ? .68f : 1f,
+            _accountStatus.rectTransform.anchorMax.y
+        );
+        _accountPersistence.text = m.AccountPersistenceText;
         _accountToggle.gameObject.SetActive(m.AccountRowActionVisible);
         SetButton(
             _accountToggle,

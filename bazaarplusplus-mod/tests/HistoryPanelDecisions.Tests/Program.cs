@@ -10,9 +10,10 @@ var gameBuildChannelType = RequireType("BazaarPlusPlus.Core.Runtime.GameBuildCha
 
 TestDeleteConfirmationFiveSecondArm();
 TestCanDeleteRunDecisionArms();
-TestAccountLinkCardAvailabilityGate();
+TestAccountLinkAvailabilityGate();
 TestDatabaseChipTextAndSeverity();
 TestButtonModelReplayRecordDeleteParity();
+AccountLinkCardTests.Run(modAssembly);
 
 Console.WriteLine("HistoryPanelDecisions checks passed.");
 
@@ -120,7 +121,7 @@ void TestDatabaseChipTextAndSeverity()
     AssertChip(true, true, "DB Connected", "Success");
 }
 
-void TestAccountLinkCardAvailabilityGate()
+void TestAccountLinkAvailabilityGate()
 {
     AssertAccountLinkCardAvailable(true, "Online", true);
     AssertAccountLinkCardAvailable(true, "Unknown", true);
@@ -251,7 +252,7 @@ void AssertAccountLinkCardAvailable(bool dataSharingEnabled, string channel, boo
 {
     var result = InvokeStatic(
         decisionsType,
-        "IsAccountLinkCardAvailable",
+        "IsAccountLinkAvailable",
         dataSharingEnabled,
         Enum.Parse(gameBuildChannelType, channel)
     );
