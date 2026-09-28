@@ -57,13 +57,22 @@ internal static class HistoryPanelFormatter
             _ => HistoryPanelText.Unknown(),
         };
 
-    public static string PageRange(HistoryCursor? first, HistoryCursor? last) =>
-        first.HasValue
-        && last.HasValue
-        && DateTimeOffset.TryParse(first.Value.Time, out var start)
-        && DateTimeOffset.TryParse(last.Value.Time, out var end)
-            ? $"{FormatTimestamp(start)} → {FormatTimestamp(end)}"
-            : HistoryPanelText.Unknown();
+    public static string PageRange<T>(HistoryPage<T> page, bool ghost = false)
+    {
+        var counts = HistoryPanelText.PagePosition(
+            page.FirstPosition,
+            page.Rows.Count,
+            page.TotalCount,
+            ghost
+        );
+        return
+            page.First.HasValue
+            && page.Last.HasValue
+            && DateTimeOffset.TryParse(page.First.Value.Time, out var start)
+            && DateTimeOffset.TryParse(page.Last.Value.Time, out var end)
+            ? $"{counts}\n{FormatTimestamp(start)} → {FormatTimestamp(end)}"
+            : counts;
+    }
 
     public static string ShortenRunId(string runId)
     {

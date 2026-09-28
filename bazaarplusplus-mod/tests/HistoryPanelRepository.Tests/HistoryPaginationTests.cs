@@ -52,6 +52,7 @@ internal static class HistoryPaginationTests
         while (true)
         {
             Check(page.Rows.Count is > 0 and <= 40, "Every run page must be bounded and nonempty.");
+            CheckCounts(page, count, visited.Count + 1);
             pages.Add(page);
             visited.AddRange(page.Rows.Select(r => r.RunId));
             if (!page.HasOlder)
@@ -65,6 +66,7 @@ internal static class HistoryPaginationTests
         for (var i = pages.Count - 1; i > 0; i--)
         {
             page = repository.ListRuns(new(page.First, Newer: true));
+            CheckCounts(page, count, (i - 1) * 40 + 1);
             Check(
                 page.Rows.Select(r => r.RunId)
                     .SequenceEqual(pages[i - 1].Rows.Select(r => r.RunId)),
@@ -76,6 +78,7 @@ internal static class HistoryPaginationTests
         page = repository.ListRuns(new(), "TheDragons");
         while (true)
         {
+            CheckCounts(page, (count + 96) / 97, dragons.Count + 1);
             dragons.AddRange(page.Rows.Select(r => r.RunId));
             if (!page.HasOlder)
                 break;
@@ -86,6 +89,9 @@ internal static class HistoryPaginationTests
             "Sparse hero filters and whitespace aliases must be applied before LIMIT."
         );
         var anchor = repository.ListRuns(new(AnchorId: expected[count / 2]));
+        CheckCounts(anchor, count, count / 2 + 1);
+        CheckCounts(repository.ListRuns(new(new("0000", ""))), count, 0);
+        CheckCounts(repository.ListRuns(new(AnchorId: "missing")), count, 1);
         Check(
             anchor.Rows[0].RunId == expected[count / 2],
             "ID anchor must survive deep selection."
@@ -99,7 +105,10 @@ internal static class HistoryPaginationTests
             preserved.Rows[0].RunId == pages[^1].Rows[0].RunId,
             "New insertions or recency changes must not displace the page anchor."
         );
+        CheckCounts(preserved, count, pages[^1].FirstPosition + 1);
         var latest = repository.ListRuns(new());
+        CheckCounts(latest, count, 1);
+        CheckCounts(repository.ListRuns(new(), "missing"), 0, 0);
         Check(latest.Rows[0].RunId == "r00000", "Latest must reveal newer data.");
         Check(
             repository.ListRuns(new(), "missing").Rows.Count == 0,
@@ -127,6 +136,7 @@ internal static class HistoryPaginationTests
                 && plan.Contains("idx_runs_history_recent", StringComparison.Ordinal),
             "Deep page must seek the recency index: " + plan
         );
+        CheckRunCountPlans(db);
         var times = Measure(() => repository.ListRuns(new()), 30);
         var deep = Measure(() => repository.ListRuns(new(pages[^1].First, Inclusive: true)), 30);
         using var version = db.CreateCommand();
@@ -136,6 +146,8 @@ internal static class HistoryPaginationTests
         );
         if (count == 1000)
             CheckGhosts(db, repository);
+        Execute(db, "DELETE FROM runs WHERE run_id='r00000';");
+        CheckCounts(repository.ListRuns(new()), count - 1, 1);
     }
 
     private static void CheckGhosts(SqliteConnection db, HistoryPanelRepository repository)
@@ -151,6 +163,7 @@ internal static class HistoryPaginationTests
                 CASE WHEN x%5=0 THEN 'local_ready' ELSE 'remote_available' END,'PVPCombat' FROM n;
             """
         );
+        CheckGhostCountFilters(db, repository);
         var ids = new List<string>();
         var page = repository.ListGhostBattles("account-a", GhostBattleFilter.All, false, new());
         while (true)
@@ -195,6 +208,12 @@ internal static class HistoryPaginationTests
             repository.ListGhostBattles("", GhostBattleFilter.All, false, new()).Rows.Count == 0,
             "Signed out must not expose any account's Ghost records."
         );
+        Execute(db, "UPDATE battles SET deleted_at_utc='old' WHERE battle_id='g0002';");
+        CheckCounts(
+            repository.ListGhostBattles("account-a", GhostBattleFilter.All, false, new()),
+            183,
+            1
+        );
         repository.MarkOldUndownloadedGhostBattlesDeleted(
             DateTimeOffset.Parse("2026-09-14T00:00:00Z")
         );
@@ -204,6 +223,7 @@ internal static class HistoryPaginationTests
             false,
             new()
         );
+        CheckCounts(retained, 37, 1);
         Check(
             retained.Rows.Count == 37 && retained.Rows.All(b => b.ReplayDownloaded),
             "Downloaded facts must survive the discovery retention window."
@@ -253,7 +273,9 @@ internal static class HistoryPaginationTests
             );
         foreach (var hero in new[] { "TheDragons", "Hero8", "tHeDrAgOnS" })
         {
-            var rows = repository.ListRuns(new(), hero).Rows;
+            var page = repository.ListRuns(new(), hero);
+            CheckCounts(page, 2, 1);
+            var rows = page.Rows;
             Check(
                 rows.Select(r => r.RunId).OrderBy(id => id).SequenceEqual(["canonical", "legacy"])
                     && rows.Single(r => r.RunId == "canonical").Hero == "TheDragons"
@@ -281,7 +303,9 @@ internal static class HistoryPaginationTests
                 }
             )
             {
-                var rows = repository.ListGhostBattles("account", filter, dayMin10, new()).Rows;
+                var page = repository.ListGhostBattles("account", filter, dayMin10, new());
+                var rows = page.Rows;
+                CheckCounts(page, days.Length * outcomes.Length, 1);
                 var expected = days.SelectMany(day =>
                     outcomes.Select(outcome => $"{day}-{outcome}")
                 );
@@ -301,6 +325,154 @@ internal static class HistoryPaginationTests
                         "Ghost outcome filtering and display must agree in local perspective."
                     );
             }
+        }
+    }
+
+    private static void CheckCounts<T>(HistoryPage<T> page, long total, long first)
+    {
+        Check(
+            page.TotalCount == total,
+            $"Count must match the filtered population: expected {total}, got {page.TotalCount}."
+        );
+        Check(
+            page.FirstPosition == first,
+            $"Position must follow time/ID order: expected {first}, got {page.FirstPosition}."
+        );
+        if (page.Rows.Count > 0)
+        {
+            Check(page.HasNewer == (first > 1), "Newer availability must agree with position.");
+            Check(
+                page.HasOlder == (first + page.Rows.Count - 1 < total),
+                "Older availability must agree with count."
+            );
+        }
+    }
+
+    private static void CheckRunCountPlans(SqliteConnection db)
+    {
+        var total = Plan(db, "SELECT COUNT(*) FROM runs WHERE 1=1;");
+        Check(
+            total.Contains("USING COVERING INDEX", StringComparison.Ordinal),
+            "Unfiltered counts must stay on a covering index: " + total
+        );
+        foreach (var hero in new[] { false, true })
+        {
+            var filter = hero ? $"{RunLogSchema.HistoryHeroKey} = 'thedragons'" : "1=1";
+            var newer = Plan(
+                db,
+                $"SELECT COUNT(*) FROM runs WHERE {filter} AND {RunLogSchema.HistoryRunTime} >= '2026-01-01T00:00:01Z' AND ({RunLogSchema.HistoryRunTime} > '2026-01-01T00:00:01Z' OR run_id > 'r00004');"
+            );
+            var index = hero ? "idx_runs_history_hero" : "idx_runs_history_recent";
+            Check(
+                newer.Contains(
+                    "SEARCH runs USING COVERING INDEX " + index,
+                    StringComparison.Ordinal
+                ),
+                "Position counts must seek the matching index: " + newer
+            );
+            var filteredTotal = Plan(db, $"SELECT COUNT(*) FROM runs WHERE {filter};");
+            if (hero)
+                Check(
+                    filteredTotal.Contains("idx_runs_history_hero", StringComparison.Ordinal),
+                    "Hero totals must use the canonical-hero index."
+                );
+            Console.WriteLine(
+                $"History count plan hero={hero}: total={filteredTotal}; newer={newer}"
+            );
+        }
+    }
+
+    private static void CheckGhostCountFilters(
+        SqliteConnection db,
+        HistoryPanelRepository repository
+    )
+    {
+        foreach (var account in new[] { "account-a", "account-b", "missing", "" })
+        foreach (
+            var filter in new[]
+            {
+                GhostBattleFilter.All,
+                GhostBattleFilter.IWon,
+                GhostBattleFilter.ILost,
+            }
+        )
+        foreach (var dayMin10 in new[] { false, true })
+        {
+            var expected = Enumerable
+                .Range(0, 367)
+                .Where(x => account == (x % 2 == 0 ? "account-a" : "account-b"))
+                .Where(x =>
+                    filter == GhostBattleFilter.All
+                    || (filter == GhostBattleFilter.IWon ? x % 3 == 0 : x % 3 != 0)
+                )
+                .Where(x => !dayMin10 || x % 7 == 0)
+                .Reverse()
+                .Select(x => $"g{x:0000}")
+                .ToArray();
+            var visited = new List<string>();
+            var page = repository.ListGhostBattles(account, filter, dayMin10, new(Limit: 17));
+            while (true)
+            {
+                CheckCounts(page, expected.Length, page.Rows.Count == 0 ? 0 : visited.Count + 1);
+                visited.AddRange(page.Rows.Select(row => row.BattleId));
+                if (!page.HasOlder)
+                    break;
+                page = repository.ListGhostBattles(
+                    account,
+                    filter,
+                    dayMin10,
+                    new(page.Last, Limit: 17)
+                );
+            }
+            Check(
+                visited.SequenceEqual(expected),
+                "Every account/outcome/day combination must have matching rows, totals and positions."
+            );
+            if (page.HasNewer)
+            {
+                var previous = repository.ListGhostBattles(
+                    account,
+                    filter,
+                    dayMin10,
+                    new(page.First, Newer: true, Limit: 17)
+                );
+                CheckCounts(previous, expected.Length, page.FirstPosition - 17);
+            }
+        }
+        foreach (var outcome in new[] { false, true })
+        foreach (var day in new[] { false, true })
+        {
+            var index =
+                "idx_battles_history_ghost" + (day ? "_day" : "") + (outcome ? "_outcome" : "");
+            var predicate =
+                "source = 'GHOST' AND deleted_at_utc IS NULL AND local_player_account_id = 'account-a'"
+                + (outcome ? $" AND ({RunLogSchema.HistoryRecorderOutcome}) = -1" : "")
+                + (day ? " AND day >= 10" : "");
+            var from = $"FROM battles INDEXED BY {index} WHERE {predicate}";
+            var anchor = Plan(
+                db,
+                $"SELECT recorded_at_utc, battle_id FROM battles WHERE {predicate} AND battle_id = 'g0040';"
+            );
+            Check(
+                anchor.Contains("(battle_id=?)", StringComparison.Ordinal),
+                "Ghost ID anchors must retain primary-key lookup: " + anchor
+            );
+            var total = Plan(db, $"SELECT COUNT(*) {from};");
+            var newer = Plan(
+                db,
+                $"SELECT COUNT(*) {from} AND recorded_at_utc >= '2026-09-01T00:00:00Z' AND (recorded_at_utc > '2026-09-01T00:00:00Z' OR battle_id > 'g0040');"
+            );
+            Check(
+                total.Contains("SEARCH battles USING INDEX " + index, StringComparison.Ordinal),
+                "Ghost totals must use the matching partial index: " + total
+            );
+            Check(
+                newer.Contains("SEARCH battles USING INDEX " + index, StringComparison.Ordinal),
+                "Ghost positions must use the matching partial index: " + newer
+            );
+            Console.WriteLine(
+                $"Ghost count plan day={day} outcome={outcome}: total={total}; newer={newer}"
+            );
         }
     }
 

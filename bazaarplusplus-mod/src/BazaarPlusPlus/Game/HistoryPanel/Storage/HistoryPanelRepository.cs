@@ -43,6 +43,8 @@ internal sealed partial class HistoryPanelRepository
                 + "victories, losses, ended_at_utc",
             request,
             HistoryPanelRowMapper.ReadRun,
+            includeCounts: true,
+            index: null,
             (
                 "$hero",
                 HistoryPanelHeroPresentation.CanonicalFilterId(hero)?.Trim().ToLowerInvariant()
@@ -64,6 +66,8 @@ internal sealed partial class HistoryPanelRepository
                     reader,
                     reader.GetString(reader.GetOrdinal("battle_id"))
                 ),
+            includeCounts: false,
+            index: null,
             ("$runId", runId)
         );
 
@@ -82,6 +86,12 @@ internal sealed partial class HistoryPanelRepository
             predicate += $" AND ({RunLogSchema.HistoryRecorderOutcome}) = $outcome";
         if (dayMin10)
             predicate += " AND day >= 10";
+        // The broader discovery index makes COUNT inspect deleted rows in the table.
+        // These existing partial indexes match this page's predicate and keep counts in-index.
+        var index =
+            "idx_battles_history_ghost"
+            + (dayMin10 ? "_day" : "")
+            + (filter != GhostBattleFilter.All ? "_outcome" : "");
         return ReadPage(
             "battles",
             "battle_id",
@@ -91,6 +101,8 @@ internal sealed partial class HistoryPanelRepository
                 + "CASE WHEN ghost_replay_state = 'local_ready' THEN 1 ELSE 0 END AS replay_downloaded",
             request,
             HistoryPanelRowMapper.ReadGhostBattle,
+            includeCounts: true,
+            index,
             ("$account", accountId),
             ("$outcome", filter == GhostBattleFilter.IWon ? -1 : 1)
         );
