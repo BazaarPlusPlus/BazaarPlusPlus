@@ -82,6 +82,7 @@ internal sealed partial class HistoryPanel
     private void RefreshUi()
     {
         _uiView?.Refresh(BuildUiModel());
+        RefreshNativeHistoryMessages();
     }
 
     private void SetPreviewStatus(string? message, bool visible)
@@ -125,13 +126,21 @@ internal sealed partial class HistoryPanel
             : HistoryPanelServerHealthFormatter.Idle();
         var isBazaarDbLinked = _state.LocalLinkedHint;
         var hasAccount = !string.IsNullOrWhiteSpace(_state.CachedAccountId);
-        var accountFormVisible = hasAccount && _state.AccountLinkExpanded;
+        var accountCard = HistoryPanelDecisions.ResolveAccountLinkCard(
+            _dependencies?.IsBazaarDbAccountLinkAvailable?.Invoke() ?? false,
+            _dependencies?.GameBuildChannel ?? Core.Runtime.GameBuildChannel.Unknown,
+            hasAccount,
+            isBazaarDbLinked,
+            _state.AccountLinkExpanded
+        );
+        var accountFormVisible = accountCard.FormVisible;
 
         var statusSeverity = _state.StatusSeverity;
 
         return new HistoryPanelViewModel
         {
             PageLoading = _state.PageLoading,
+            ArchiveEmptyMessage = HistoryPanelDecisions.GhostArchiveEmptyMessage(_state),
             HasNewer =
                 _state.SectionMode == HistorySectionMode.Ghost
                     ? _state.GhostPage.HasNewer
@@ -153,18 +162,15 @@ internal sealed partial class HistoryPanel
             DatabaseChipSeverity = databaseChip.Severity,
             ServerHealthButtonText = serverHealthDisplay.ButtonText,
             ServerHealthButtonEnabled = serverHealthDisplay.ButtonEnabled,
-            AccountCardVisible = _dependencies?.IsBazaarDbAccountLinkAvailable?.Invoke() ?? false,
             AccountTitleText = HistoryPanelText.AccountLink.Title(),
             AccountWhyText = HistoryPanelText.AccountLink.Why(),
             AccountHintText = HistoryPanelText.AccountLink.Hint(),
-            AccountRowStatusText =
-                !hasAccount ? HistoryPanelText.AccountLink.SignedOut()
-                : isBazaarDbLinked ? HistoryPanelText.AccountLink.Linked()
-                : HistoryPanelText.AccountLink.NotLinked(),
+            AccountRowStatusText = accountCard.StatusText,
+            AccountPersistenceText = accountCard.PersistenceText,
             AccountRowActionText = isBazaarDbLinked
                 ? HistoryPanelText.AccountLink.Relink()
                 : HistoryPanelText.AccountLink.RowBind(),
-            AccountRowActionVisible = hasAccount,
+            AccountRowActionVisible = accountCard.ActionVisible,
             AccountLinkCollapseText = HistoryPanelText.AccountLink.Collapse(),
             AccountLinkButtonText = _state.AccountLinkInProgress
                 ? HistoryPanelText.AccountLink.Linking()
@@ -173,8 +179,8 @@ internal sealed partial class HistoryPanel
                 HistoryPanelText.AccountLink.AlreadyLinkedElsewhereButton(),
             AccountAlreadyLinkedButtonVisible =
                 accountFormVisible && !isBazaarDbLinked && !_state.AccountLinkInProgress,
-            AccountLinkButtonEnabled = !_state.AccountLinkInProgress && hasAccount,
-            AccountLinkInputEnabled = !_state.AccountLinkInProgress && hasAccount,
+            AccountLinkButtonEnabled = !_state.AccountLinkInProgress && accountCard.ActionVisible,
+            AccountLinkInputEnabled = !_state.AccountLinkInProgress && accountCard.ActionVisible,
             AccountLinkBannerText = _state.AccountLinkBannerMessage,
             AccountLinkBannerSeverity = _state.AccountLinkBannerSeverity,
             AccountLinkFormVisible = accountFormVisible,
@@ -203,6 +209,7 @@ internal sealed partial class HistoryPanel
 
 internal sealed class HistoryPanelViewModel
 {
+    public string ArchiveEmptyMessage { get; set; } = string.Empty;
     public string? AccountId { get; set; }
 
     public bool PageLoading { get; set; }
@@ -222,7 +229,7 @@ internal sealed class HistoryPanelViewModel
 
     public bool ServerHealthButtonEnabled { get; set; }
 
-    public bool AccountCardVisible { get; set; }
+    public string AccountPersistenceText { get; set; } = string.Empty;
 
     public string AccountTitleText { get; set; } = string.Empty;
 

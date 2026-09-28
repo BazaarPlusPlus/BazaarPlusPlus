@@ -1,4 +1,5 @@
 #nullable enable
+using BazaarPlusPlus.Core.Runtime;
 using BazaarPlusPlus.Game.HistoryPanel.Storage;
 using BazaarPlusPlus.ModApi.Clients;
 
@@ -36,4 +37,6 @@ internal sealed class HistoryPanelDependencies
     public BazaarDbLinkClient? AccountLinkClient { get; }
 
     public Func<bool>? IsBazaarDbAccountLinkAvailable { get; }
+
+    public GameBuildChannel GameBuildChannel { get; init; } = GameBuildChannel.Unknown;
 }

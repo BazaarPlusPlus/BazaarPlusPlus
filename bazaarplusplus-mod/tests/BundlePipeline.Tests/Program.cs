@@ -12,9 +12,11 @@ using BazaarPlusPlus.Game.BundlePipeline;
 using BazaarPlusPlus.Game.CombatReplay;
 using BazaarPlusPlus.Game.PvpBattles;
 using BazaarPlusPlus.Game.PvpBattles.Persistence;
+using BazaarPlusPlus.Game.Upload;
 using BazaarPlusPlus.GameInterop;
 using BazaarPlusPlus.ModApi.Bundle;
 using BazaarPlusPlus.ModApi.Clients;
+using BazaarPlusPlus.Storage.BundleQueue;
 using BazaarPlusPlus.Storage.Paths;
 using BazaarPlusPlus.Storage.RunLog;
 using BazaarPlusPlus.TestSupport;
@@ -25,6 +27,7 @@ var root = Path.Combine(Path.GetTempPath(), "bpp-v5-pipeline-" + Guid.NewGuid().
 Directory.CreateDirectory(root);
 try
 {
+    await BundleSealLoggingTests.RunAsync(Path.Combine(root, "seal-logging"));
     var paths = new TestPaths(root);
     var store = new RunLogStore(paths);
     var database = PathConstants.RunLogDatabase(root);
@@ -198,6 +201,7 @@ try
     }
 
     await VerifyRecoveryAsync(root, store, coordinator, database);
+    await VerifyLegacyJsonRecoveryAsync(Path.Combine(root, "legacy-json"));
     await VerifyUploadClientAsync();
     Console.WriteLine("Bundle pipeline tests passed.");
 }
@@ -209,6 +213,223 @@ finally
 
 static PvpBattleCardSetCapture CapturedEmpty() =>
     new() { Status = PvpBattleCaptureStatus.CapturedEmpty };
+
+static async Task VerifyLegacyJsonRecoveryAsync(string root)
+{
+    Directory.CreateDirectory(root);
+    var paths = new TestPaths(root);
+    var database = PathConstants.RunLogDatabase(root);
+    var store = new RunLogStore(paths);
+    var queue = new BundleQueueStore(database);
+    var catalog = new PvpBattleSqliteStore(database);
+    var replayStore = new CombatReplayPayloadStore(PathConstants.CombatReplays(root));
+    var generator = new UlidV5Generator();
+    var old = DateTimeOffset.UtcNow.AddDays(-40);
+    const string message =
+        "Method not found: 'System.String Newtonsoft.Json.Linq.JToken.ToString(Newtonsoft.Json.Formatting)'.";
+    for (var i = 0; i < 12; i++)
+    {
+        store.CreateRun(
+            new RunLogCreateRequest
+            {
+                RunId = $"legacy-{i}",
+                StartedAtUtc = old,
+                Hero = "Vanessa",
+                GameMode = "Ranked",
+                PlayerAccountId = "legacy-account",
+                BundleScreenshotRequested = i == 0,
+                ModVersion = "5.5.0",
+            }
+        );
+        store.CompleteRun(
+            $"legacy-{i}",
+            new RunLogCompletion { EndedAtUtc = old.AddMinutes(1), Status = "completed" }
+        );
+    }
+    queue.EnsureEligibleJobs(TimeSpan.FromMinutes(2));
+    var oldBundle = BuildRunOnlyBundle(
+        generator.Next(),
+        "legacy-1",
+        "legacy-account",
+        old.ToUnixTimeMilliseconds()
+    );
+    var allocation = queue.EnsureAllocation(
+        "legacy-1",
+        oldBundle.Manifest.BundleId,
+        oldBundle.Manifest.CreatedAtMs,
+        old
+    );
+    Directory.CreateDirectory(PathConstants.BundleOutbox(root));
+    var oldFile = oldBundle.Manifest.BundleId + ".bundle";
+    File.WriteAllBytes(Path.Combine(PathConstants.BundleOutbox(root), oldFile), oldBundle.Bytes);
+    queue.PublishOutbox(
+        allocation,
+        new BundleOutboxPublishRecord(
+            allocation.BundleId,
+            "legacy-1",
+            oldFile,
+            oldBundle.Sha256Hex,
+            oldBundle.ContentDigest,
+            oldBundle.Bytes.Length,
+            false
+        ),
+        old
+    );
+    queue.FailOutboxAndScheduleReseal(allocation.BundleId, "legacy-1", "pending_file_invalid", old);
+    for (var i = 0; i < 12; i++)
+    {
+        queue.EnsureAllocation($"legacy-{i}", generator.Next(), old.ToUnixTimeMilliseconds(), old);
+        queue.MarkJobTerminal(
+            $"legacy-{i}",
+            "bundle_build_failed",
+            i == 11 ? "Invalid projection" : message
+        );
+    }
+
+    catalog.Save(
+        new PvpBattleManifest
+        {
+            BattleId = "pending-delete",
+            RunId = "legacy-0",
+            RecordedAtUtc = old,
+            CombatKind = "PVPCombat",
+            Participants = new PvpBattleParticipants
+            {
+                PlayerAccountId = "legacy-account",
+                PlayerHero = "Vanessa",
+                OpponentAccountId = "opponent-account",
+                OpponentHero = "Pygmalien",
+            },
+            Snapshots = new PvpBattleSnapshots
+            {
+                PlayerHand = CapturedEmpty(),
+                PlayerSkills = CapturedEmpty(),
+                OpponentHand = CapturedEmpty(),
+                OpponentSkills = CapturedEmpty(),
+            },
+        }
+    );
+    replayStore.Save(
+        new PvpReplayPayload
+        {
+            BattleId = "pending-delete",
+            SpawnMessageBytes = [1],
+            CombatMessageBytes = [2],
+            DespawnMessageBytes = [3],
+        }
+    );
+    using var connection = new SqliteConnection($"Data Source={database}");
+    connection.Open();
+    var sourceRemoved = BuildRunOnlyBundle(
+        generator.Next(),
+        "source-removed",
+        "legacy-account",
+        old.ToUnixTimeMilliseconds()
+    );
+    var sourceRemovedFile = sourceRemoved.Manifest.BundleId + ".bundle";
+    File.WriteAllBytes(
+        Path.Combine(PathConstants.BundleOutbox(root), sourceRemovedFile),
+        sourceRemoved.Bytes
+    );
+    using (var orphan = connection.CreateCommand())
+    {
+        orphan.CommandText = """
+            INSERT INTO bundle_outbox (
+                bundle_id, run_id, file_name, content_sha256_hex, content_digest,
+                total_bytes, has_screenshot, sealed_at_utc, status
+            ) VALUES ($id, 'source-removed', $file, $sha, $digest, $bytes, 0, $sealed, 'pending');
+            """;
+        orphan.Parameters.AddWithValue("$id", sourceRemoved.Manifest.BundleId);
+        orphan.Parameters.AddWithValue("$file", sourceRemovedFile);
+        orphan.Parameters.AddWithValue("$sha", sourceRemoved.Sha256Hex);
+        orphan.Parameters.AddWithValue("$digest", sourceRemoved.ContentDigest);
+        orphan.Parameters.AddWithValue("$bytes", sourceRemoved.Bytes.Length);
+        orphan.Parameters.AddWithValue("$sealed", old.ToString("o"));
+        orphan.ExecuteNonQuery();
+    }
+    queue.FailOutboxAndScheduleReseal(
+        sourceRemoved.Manifest.BundleId,
+        "source-removed",
+        "pending_file_invalid",
+        old
+    );
+    using (var seed = connection.CreateCommand())
+    {
+        seed.CommandText = """
+            UPDATE battles SET has_local_payload=0, local_payload_state='delete_pending' WHERE battle_id='pending-delete';
+            PRAGMA user_version=2;
+            """;
+        seed.ExecuteNonQuery();
+    }
+    var services = new TestServices(paths);
+    using var coordinator = new BundleSealCoordinator(services);
+    Assert(
+        queue.ListWaitingRunIds().Count == 11,
+        "Upgrade should restore only JSON failures before sealing."
+    );
+    using var gate = new ReplayPayloadOperationGate();
+    new ReplayPayloadMaintenanceService(
+        catalog,
+        replayStore,
+        gate,
+        () => Array.Empty<string>()
+    ).Run(DateTimeOffset.UtcNow, CancellationToken.None);
+    Assert(
+        !replayStore.ListBattleIds().Contains("pending-delete"),
+        "Already committed payload deletion still completes after recovery."
+    );
+    var arms = 0;
+    using var armSubscription = services.EventBus.Subscribe<UploadArmRequested>(_ => arms++);
+    await coordinator.ReconcileAsync(CancellationToken.None);
+    Assert(arms == 1, "A recovered backlog must arm one batch, not one per sealed run.");
+    Assert(
+        Convert.ToInt32(
+            ScalarObject(connection, "SELECT COUNT(*) FROM bundle_outbox WHERE status='pending';")
+        ) == 11,
+        "Every recoverable run should seal."
+    );
+    Assert(
+        queue.ReadJob("legacy-11")?.State == BundleSealJobState.TerminalFailure,
+        "Other failures stay terminal."
+    );
+    Assert(
+        Scalar(
+            connection,
+            "SELECT status FROM bundle_outbox WHERE bundle_id='" + allocation.BundleId + "';"
+        ) == "permanent_failure",
+        "The old invalid-file outcome remains terminal while its replacement seals."
+    );
+    var file = Scalar(
+        connection,
+        "SELECT file_name FROM bundle_outbox WHERE run_id='legacy-0' AND status='pending';"
+    )!;
+    var bytes = TestInputs.ScratchBytes(Path.Combine(PathConstants.BundleOutbox(root), file));
+    Assert(
+        RunBundleV5Contract.Open(bytes).Succeeded,
+        "Recovered degraded Bundle should satisfy the shared contract."
+    );
+    var payload = RunPayloadV5Codec.Decode(BundleV5Codec.Open(bytes).RunPayload);
+    Assert(
+        payload.Degradation.ScreenshotOmitted
+            && payload.Degradation.ReplayOmittedBattleIds.Contains("pending-delete"),
+        "Missing screenshot and previously scheduled replay deletion should degrade explicitly."
+    );
+
+    using var restarted = new BundleSealCoordinator(services);
+    await restarted.ReconcileAsync(CancellationToken.None);
+    Assert(
+        arms == 1 && queue.ReadJob("legacy-11")?.State == BundleSealJobState.TerminalFailure,
+        "Restart must leave sealed and unrelated terminal runs unchanged."
+    );
+
+    Assert(
+        queue.ReadJob("source-removed") == null
+            && File.Exists(Path.Combine(PathConstants.BundleOutbox(root), sourceRemovedFile))
+            && Scalar(connection, "SELECT status FROM bundle_outbox WHERE run_id='source-removed';")
+                == "permanent_failure",
+        "Source-less permanent outboxes are outside automatic reseal recovery."
+    );
+}
 
 static async Task VerifyRecoveryAsync(
     string root,

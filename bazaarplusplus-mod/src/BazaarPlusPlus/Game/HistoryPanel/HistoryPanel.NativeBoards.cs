@@ -14,6 +14,8 @@ internal sealed partial class HistoryPanel
 {
     private OwnedMonsterBoardPreview? _nativePlayerBoard;
     private OwnedMonsterBoardPreview? _nativeOpponentBoard;
+    private string _nativePlayerStatusMessage = string.Empty;
+    private string _nativeOpponentStatusMessage = string.Empty;
     private Rect _opponentBounds;
 
     private void RefreshNativeHistoryBoards()
@@ -58,14 +60,22 @@ internal sealed partial class HistoryPanel
             _nativeOpponentBoard?.Dispose();
             _nativeOpponentBoard = null;
         }
-        if (_state.DetailLoading || _state.DetailFailed)
-        {
-            var message = _state.DetailLoading
-                ? HistoryPanelText.LoadingPreview()
-                : HistoryPanelText.PreviewRendererInitFailed();
-            SetPreviewStatus(message, true);
-            _uiView.SetOpponentStatus(message);
-        }
+        RefreshNativeHistoryMessages();
+    }
+
+    private void RefreshNativeHistoryMessages()
+    {
+        if (_uiView == null)
+            return;
+        var overrideMessage = HistoryPanelDecisions.PreviewStatusOverride(
+            _state,
+            ActiveSelectedBattle
+        );
+        // Render can reuse an unchanged board without a callback. Restore its last native
+        // message when a loading/download override ends, even for an empty projection.
+        var playerMessage = overrideMessage ?? _nativePlayerStatusMessage;
+        SetPreviewStatus(playerMessage, playerMessage.Length > 0);
+        _uiView.SetOpponentStatus(overrideMessage ?? _nativeOpponentStatusMessage);
     }
 
     private OwnedMonsterBoardPreview CreateNativeHistoryBoard(bool opponent) =>
@@ -85,14 +95,11 @@ internal sealed partial class HistoryPanel
                     ),
                     _ => string.Empty,
                 };
-                if (_state.DetailLoading)
-                    message = HistoryPanelText.LoadingPreview();
-                else if (_state.DetailFailed)
-                    message = HistoryPanelText.PreviewRendererInitFailed();
                 if (opponent)
-                    _uiView?.SetOpponentStatus(message);
+                    _nativeOpponentStatusMessage = message;
                 else
-                    SetPreviewStatus(message, message.Length > 0);
+                    _nativePlayerStatusMessage = message;
+                RefreshNativeHistoryMessages();
                 if (exception != null)
                     HistoryPanelPreviewLogWriter.ReportCardPreview(
                         new NativeCardPreviewFailure(

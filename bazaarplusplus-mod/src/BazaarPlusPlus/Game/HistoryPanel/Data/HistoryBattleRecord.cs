@@ -131,6 +131,8 @@ internal sealed class HistoryBattleRecord
     public bool ReplayAvailable { get; }
 
     public bool ReplayDownloaded { get; }
+
+    public string? GhostReplayState { get; init; }
 }
 
 internal enum HistoryBattleSource
