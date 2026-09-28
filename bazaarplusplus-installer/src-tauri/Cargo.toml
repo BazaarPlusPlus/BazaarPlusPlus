@@ -75,6 +75,9 @@ redundant_closure_for_method_calls = "warn"
 needless_raw_string_hashes = "warn"
 unnested_or_patterns = "warn"
 
+[dev-dependencies]
+tower = { version = "0.5", features = ["util"] }
+
 [profile.release]
 opt-level = "z"
 lto = true

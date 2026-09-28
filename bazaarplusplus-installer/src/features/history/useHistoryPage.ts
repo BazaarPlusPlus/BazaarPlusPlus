@@ -1,11 +1,15 @@
 import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { getStreamStatus } from '../shared/streamSessionApi';
-import { endGameProcess, listHistoryRuns } from './historyApi';
+import {
+  endGameProcess,
+  ensureHistoryPreview,
+  listHistoryRuns
+} from './historyApi';
 import { createHistoryListWorkflow } from './historyListWorkflow';
+import { observeHistoryWindowResume } from './historyWindowResume';
 import { parseHistoryPage } from './pagination';
 
-const commands = { listHistoryRuns, endGameProcess, getStreamStatus };
+const commands = { listHistoryRuns, endGameProcess, ensureHistoryPreview };
 
 export function useHistoryPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -27,7 +31,13 @@ export function useHistoryPage() {
 
   useEffect(() => {
     void workflow.start();
-    return () => workflow.dispose();
+    const stopObserving = observeHistoryWindowResume(() => {
+      void workflow.intents.refresh();
+    });
+    return () => {
+      stopObserving();
+      workflow.dispose();
+    };
   }, [workflow]);
   useEffect(() => {
     void workflow.selectPage(routePage);

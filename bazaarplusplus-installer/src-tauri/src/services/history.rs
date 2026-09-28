@@ -13,6 +13,7 @@ use crate::problem::{SemanticProblem, SemanticProblemCode};
 use crate::services::game_path::GamePathAcceptance;
 use crate::services::paths;
 use crate::services::selected_game_installation::SelectedGameInstallationState;
+use crate::stream::runtime::StreamRuntime;
 use tauri::Manager;
 
 pub use crate::history::cleanup::StorageCleanupPreset;
@@ -104,10 +105,18 @@ impl History {
         &self,
         limit: usize,
         offset: usize,
+        runtime: &StreamRuntime,
     ) -> Result<HistoryRunList, SemanticProblem> {
-        self.list_runs(limit, offset).map_err(|diagnostic| {
+        let mut page = self.list_runs(limit, offset).map_err(|diagnostic| {
             history_read_problem_with("list_runs", diagnostic, self.is_game_running)
-        })
+        })?;
+        let prefix = runtime.register_history_preview(&self.paths.game_path);
+        for run in &mut page.runs {
+            if let Some(strip_url) = &mut run.strip_url {
+                *strip_url = format!("{prefix}{strip_url}");
+            }
+        }
+        Ok(page)
     }
 
     fn run_detail_for_page(
@@ -264,8 +273,11 @@ pub fn list_runs(
     limit: Option<usize>,
     offset: Option<usize>,
 ) -> Result<HistoryRunList, SemanticProblem> {
-    History::from_resolved_game_path_for_page(History::resolved_game_path(app))?
-        .list_runs_for_page(limit.unwrap_or(50), offset.unwrap_or(0))
+    History::from_resolved_game_path_for_page(History::resolved_game_path(app))?.list_runs_for_page(
+        limit.unwrap_or(50),
+        offset.unwrap_or(0),
+        &app.state::<StreamRuntime>(),
+    )
 }
 
 pub fn get_run_detail(
@@ -626,7 +638,9 @@ mod tests {
         std::fs::create_dir_all(history.paths.database_path.parent().unwrap()).unwrap();
         std::fs::write(&history.paths.database_path, b"not sqlite").unwrap();
 
-        let read_failed = history.list_runs_for_page(50, 0).unwrap_err();
+        let read_failed = history
+            .list_runs_for_page(50, 0, &crate::stream::runtime::StreamRuntime::default())
+            .unwrap_err();
         assert_eq!(read_failed.code, SemanticProblemCode::HistoryReadFailed);
         assert_eq!(
             read_failed.params.get("operation").map(String::as_str),
@@ -656,7 +670,9 @@ mod tests {
         rusqlite::Connection::open(&history.paths.database_path).unwrap();
 
         for problem in [
-            history.list_runs_for_page(50, 0).unwrap_err(),
+            history
+                .list_runs_for_page(50, 0, &crate::stream::runtime::StreamRuntime::default())
+                .unwrap_err(),
             history.run_detail_for_page("run-1").unwrap_err(),
         ] {
             assert_eq!(
@@ -845,8 +861,20 @@ mod tests {
         .unwrap();
         drop(conn);
 
-        let history = History::from_resolved_game_path(Some(game_path)).unwrap();
-        let list = history.list_runs(50, 0).unwrap();
+        let history = History::from_resolved_game_path(Some(game_path.clone())).unwrap();
+        let runtime = crate::stream::runtime::StreamRuntime::default();
+        let list = history.list_runs_for_page(50, 0, &runtime).unwrap();
+        assert_eq!(
+            list.runs[0].strip_url.as_deref(),
+            Some(
+                format!(
+                    "{}/images/shot-1/strip",
+                    runtime.register_history_preview(&game_path)
+                )
+                .as_str()
+            )
+        );
+        assert!(!runtime.snapshot().running);
         assert_eq!(list.summary.runs, 1);
         assert_eq!(list.summary.videos, 1);
         assert_eq!(list.runs.len(), 1);

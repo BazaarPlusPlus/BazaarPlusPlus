@@ -29,7 +29,12 @@ impl StreamServerAdapter for ProductionServer {
                 OverlayRecordRepository::new(installation.record_game_path);
             let db = stream_db_status(installation.game_path.as_ref());
             let overlay_settings = OverlaySettingsStore::default();
-            let router = http::router(overlay_record_repository, runtime, overlay_settings);
+            let router = http::router(
+                overlay_record_repository,
+                runtime,
+                overlay_settings,
+                paths::overlay_cache_dir(),
+            );
             let (shutdown_tx, shutdown_rx) = oneshot::channel();
 
             let join_handle = tauri::async_runtime::spawn(async move {

@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { useEffect, useState, type ReactNode, type RefObject } from 'react';
+import { useMatch } from 'react-router-dom';
 import { hasTauriRuntime } from '../api/runtime';
 import { Button } from '../components/ui/Button';
 import { useUpdater } from '../features/about/UpdaterProvider';
@@ -204,9 +205,10 @@ function closeWindow() {
 function WindowsWindowControlsContent() {
   const { t } = useI18n();
   const streamRunning = useShellStreamServiceRunning();
+  const historyRoute = useMatch('/history/*');
   const [isMaximized, setIsMaximized] = useState(false);
   const closeLabel = streamRunning
-    ? t('hideToTrayWhileStreaming')
+    ? t(historyRoute ? 'hideToTray' : 'hideToTrayWhileStreaming')
     : t('closeWindow');
   const maximizeLabel = isMaximized ? t('restoreWindow') : t('maximizeWindow');
 

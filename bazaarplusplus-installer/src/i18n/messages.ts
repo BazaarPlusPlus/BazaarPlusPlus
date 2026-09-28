@@ -39,6 +39,7 @@ const zh = {
   maximizeWindow: '最大化窗口',
   restoreWindow: '还原窗口',
   closeWindow: '关闭窗口',
+  hideToTray: '隐藏到托盘',
   hideToTrayWhileStreaming: '隐藏到托盘（直播服务仍在运行）',
 
   // Header social links
@@ -260,13 +261,9 @@ const zh = {
     '结束游戏进程失败。请在“活动监视器”中结束 The Bazaar 后重试。',
   historyProblemUnsupportedSchema:
     '战绩数据库版本不受支持（当前 {found}，支持 {supported}）。请更新 BazaarPlusPlus 插件或安装器。',
-  historyProblemPreviewUnavailable:
-    '战绩已载入，但缩略图服务当前不可用。可前往直播页启动本地服务。',
   historyProblemUnexpected: '加载本地战绩时发生意外错误。请重试。',
   historyOpenInstall: '前往安装页',
-  historyOpenStream: '前往直播页',
   historyPreviewFallback: '缩略图不可用；刷新页面可重试。',
-  historyPreviewServiceOffline: '缩略图服务未启动，请前往直播页启动',
   runResultMisfortune: '惨淡旅程',
   runResultBronze: '青铜胜利',
   runResultSilver: '白银胜利',
@@ -476,6 +473,7 @@ const en: Record<MessageKey, string> = {
   maximizeWindow: 'Maximize window',
   restoreWindow: 'Restore window',
   closeWindow: 'Close window',
+  hideToTray: 'Hide to tray',
   hideToTrayWhileStreaming: 'Hide to tray (stream service keeps running)',
 
   socialXiaohongshu: 'Xiaohongshu',
@@ -707,15 +705,10 @@ const en: Record<MessageKey, string> = {
     'The game process could not be ended. Quit The Bazaar from Activity Monitor, then retry.',
   historyProblemUnsupportedSchema:
     'The History database schema is unsupported (found {found}, supported {supported}). Update the BazaarPlusPlus plugin or installer.',
-  historyProblemPreviewUnavailable:
-    'Runs are loaded, but thumbnails are unavailable. Start the local service from the Stream page.',
   historyProblemUnexpected:
     'Something unexpected happened while loading local History. Please retry.',
   historyOpenInstall: 'Open Install',
-  historyOpenStream: 'Open Stream',
   historyPreviewFallback: 'Thumbnail unavailable; refresh to retry.',
-  historyPreviewServiceOffline:
-    'Thumbnail service is not running. Start it from the Stream page.',
   runResultMisfortune: 'MISFORTUNE JOURNEY',
   runResultBronze: 'BRONZE VICTORY',
   runResultSilver: 'SILVER VICTORY',

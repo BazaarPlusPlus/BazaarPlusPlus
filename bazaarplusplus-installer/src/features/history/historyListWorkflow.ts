@@ -1,11 +1,10 @@
 import type { HistoryRunList, HistoryRunRow } from '../../types/backend';
 import type { PageRefreshState } from '../shared/pageState';
-import type { getStreamStatus } from '../shared/streamSessionApi';
-import type { endGameProcess, listHistoryRuns } from './historyApi';
-import {
-  loadHistoryPreviewCapability,
-  type HistoryPreviewState
-} from './historyPreview';
+import type {
+  endGameProcess,
+  ensureHistoryPreview,
+  listHistoryRuns
+} from './historyApi';
 import {
   historyProblemFromError,
   type HistoryPageProblem
@@ -16,7 +15,7 @@ import { optionalStripPreviewUrl } from './stripPreview';
 type HistoryListCommands = {
   listHistoryRuns: typeof listHistoryRuns;
   endGameProcess: typeof endGameProcess;
-  getStreamStatus: typeof getStreamStatus;
+  ensureHistoryPreview: typeof ensureHistoryPreview;
 };
 
 export type EndGameProcessOutcome = 'terminated' | 'already-exited' | 'failed';
@@ -38,11 +37,7 @@ export function createHistoryListWorkflow(
   let active = false;
   let pageNumber = parseHistoryPage(String(options.initialPage));
   let state: HistoryListState = { phase: 'initial-loading' };
-  let preview: HistoryPreviewState = {
-    phase: 'checking',
-    baseUrl: null,
-    problem: null
-  };
+  let previewBaseUrl: string | null = null;
   let historyRequest: object | null = null;
   let previewRequest: object | null = null;
   let recovery: Promise<EndGameProcessOutcome> | null = null;
@@ -56,12 +51,11 @@ export function createHistoryListWorkflow(
     const pageCount = data
       ? Math.max(1, Math.ceil(data.summary.runs / HISTORY_PAGE_SIZE))
       : pageNumber;
-    const baseUrl = preview.baseUrl;
+    const baseUrl = previewBaseUrl;
     return {
       state,
       busy,
       endingGameProcess: recovery !== null,
-      previewProblem: preview.problem,
       previewUrl: (run: HistoryRunRow) =>
         optionalStripPreviewUrl(baseUrl, run.strip_url),
       pagination: {
@@ -129,11 +123,16 @@ export function createHistoryListWorkflow(
     if (!active) return;
     const request = {};
     previewRequest = request;
-    preview = { phase: 'checking', baseUrl: null, problem: null };
+    previewBaseUrl = null;
     publish();
-    const result = await loadHistoryPreviewCapability(commands.getStreamStatus);
+    let result: string | null = null;
+    try {
+      result = await commands.ensureHistoryPreview();
+    } catch {
+      // The list remains usable; each card already has a thumbnail fallback.
+    }
     if (!active || previewRequest !== request) return;
-    preview = result;
+    previewBaseUrl = result;
     publish();
   }
 
@@ -148,7 +147,7 @@ export function createHistoryListWorkflow(
     historyRequest = null;
     state = { phase: 'initial-loading' };
     publish();
-    await loadHistory();
+    await refresh();
   }
 
   function endLeftoverGameProcess(): Promise<EndGameProcessOutcome> {

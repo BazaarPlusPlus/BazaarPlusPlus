@@ -32,6 +32,18 @@ pub async fn ensure_stream_session(
 
 #[tauri::command]
 #[specta::specta]
+pub async fn ensure_history_preview(
+    app: tauri::AppHandle,
+    runtime: tauri::State<'_, StreamRuntime>,
+) -> Result<Option<String>, SemanticProblem> {
+    runtime
+        .ensure_history_preview(app)
+        .await
+        .map_err(|diagnostic| stream_service_problem("ensure_history_preview", diagnostic))
+}
+
+#[tauri::command]
+#[specta::specta]
 pub async fn restart_stream_session(
     app: tauri::AppHandle,
     runtime: tauri::State<'_, StreamRuntime>,

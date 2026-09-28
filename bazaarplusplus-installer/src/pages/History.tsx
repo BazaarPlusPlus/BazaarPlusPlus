@@ -74,12 +74,6 @@ export default function History() {
             />
           )}
 
-          {page.state.phase === 'ready-content' &&
-            page.previewProblem &&
-            page.state.data.runs.some((run) => run.strip_url) && (
-              <HistoryPreviewProblemBanner problem={page.previewProblem} />
-            )}
-
           <div className="bpp-history-run-list">
             {page.state.phase === 'ready-empty' ? (
               <div className="bpp-panel">
@@ -117,7 +111,6 @@ export default function History() {
                   run={run}
                   pageNumber={pagination.page}
                   previewUrl={page.previewUrl(run)}
-                  previewProblem={page.previewProblem}
                 />
               ))
             )}
@@ -167,20 +160,16 @@ export default function History() {
 function RunRow({
   run,
   pageNumber,
-  previewUrl,
-  previewProblem
+  previewUrl
 }: {
   run: HistoryRunRow;
   pageNumber: number;
   previewUrl: string | null;
-  previewProblem: HistoryPageProblem | null;
 }) {
   const { locale, t } = useI18n();
   const result = formatRunResultLabel(run);
   const detailPath = `/history/${encodeURIComponent(run.run_id)}`;
-  const fallbackLabel = previewProblem
-    ? t('historyPreviewServiceOffline')
-    : t('historyPreviewFallback');
+  const fallbackLabel = t('historyPreviewFallback');
 
   return (
     <Link
@@ -340,26 +329,6 @@ function endGameProcessMessageKey(outcome: EndGameProcessOutcome): MessageKey {
         ? 'historyEndGameProcessFailedWindows'
         : 'historyEndGameProcessFailedMac';
   }
-}
-
-function HistoryPreviewProblemBanner({
-  problem
-}: {
-  problem: HistoryPageProblem;
-}) {
-  const { t } = useI18n();
-  return (
-    <ProblemBanner
-      tone="warning"
-      message={presentHistoryProblem(problem, t)}
-      problem={problem}
-      actions={
-        <Link to="/stream" className={buttonClassName({ size: 'sm' })}>
-          {t('historyOpenStream')}
-        </Link>
-      }
-    />
-  );
 }
 
 function Metric({

@@ -396,6 +396,7 @@ dependencies = [
  "tauri-specta",
  "tempfile",
  "tokio",
+ "tower",
  "tower-http 0.7.1",
  "windows 0.62.2",
  "winreg 0.56.0",
