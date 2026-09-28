@@ -1,5 +1,6 @@
 #nullable enable
 using System.Globalization;
+using BazaarPlusPlus.Storage.BundleQueue;
 using BazaarPlusPlus.Storage.Paths;
 using Microsoft.Data.Sqlite;
 
@@ -7,8 +8,8 @@ namespace BazaarPlusPlus.Storage.RunLog;
 
 public static class RunLogSchema
 {
-    public const int LocalDatabaseSchemaVersion = 2;
-    public const int RowSchemaVersion = 2;
+    public const int LocalDatabaseSchemaVersion = 3;
+    public const int RowSchemaVersion = 3;
 
     private static readonly object InitializationGate = new();
 
@@ -358,7 +359,11 @@ public static class RunLogSchema
                 currentVersion = ReadUserVersion(connection);
             }
 
-            if (currentVersion != 0 && currentVersion != LocalDatabaseSchemaVersion)
+            if (
+                currentVersion != 0
+                && currentVersion != 2
+                && currentVersion != LocalDatabaseSchemaVersion
+            )
             {
                 throw new InvalidOperationException(
                     $"Run log schema version {currentVersion} cannot be initialized as version {LocalDatabaseSchemaVersion}."
@@ -366,8 +371,20 @@ public static class RunLogSchema
             }
 
             using var transaction = connection.BeginTransaction(deferred: false);
+            // Re-read under the write lock: another process may already have repaired this DB.
+            var versionInsideTransaction = ReadUserVersion(connection, transaction);
+            if (
+                versionInsideTransaction != 0
+                && versionInsideTransaction != 2
+                && versionInsideTransaction != LocalDatabaseSchemaVersion
+            )
+                throw new InvalidOperationException(
+                    $"Unsupported run log schema version {versionInsideTransaction}."
+                );
             Execute(connection, transaction, BootstrapSql);
             ValidateVersionTwoColumns(connection, transaction);
+            if (versionInsideTransaction == 2)
+                BundleQueueStore.RecoverLegacyJsonFailures(connection, transaction);
             transaction.Commit();
         }
     }
@@ -376,7 +393,7 @@ public static class RunLogSchema
     {
         using var transaction = connection.BeginTransaction(deferred: false);
         var versionInsideTransaction = ReadUserVersion(connection, transaction);
-        if (versionInsideTransaction == LocalDatabaseSchemaVersion)
+        if (versionInsideTransaction is 2 or LocalDatabaseSchemaVersion)
         {
             transaction.Commit();
             return;
@@ -459,7 +476,7 @@ public static class RunLogSchema
             BEGIN
                 SELECT RAISE(ABORT, 'invalid local payload lifecycle state');
             END;
-            PRAGMA user_version = {LocalDatabaseSchemaVersion};
+            PRAGMA user_version = 2;
             """
         );
         ValidateVersionTwoColumns(connection, transaction);

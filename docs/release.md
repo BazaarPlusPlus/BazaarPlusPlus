@@ -29,7 +29,7 @@ just 只转发命令；版本规则、锁、签名流程和远端条件写仍在
 ## 发布顺序
 
 1. 修改 `VERSION`，执行 `sync`，验证源码。首次使用此流程时选择尚未发布的新版本，不能覆盖旧流程已经占用的版本目录。
-2. 两个平台分别执行 `prepare`。如果 native 输入锁或受版本管理的预构建资源变化，审阅并提交这些变化；把两个平台需要的更新汇入同一个提交。
+2. 两个平台分别先运行 `just mod::test-compat`，再执行 `prepare`。`test-compat`、`prepare` 和后续 `build` 都必须显式传入同一个 `-p:ManagedPath=...`，指向正式服 Managed 或固定快照；测试默认发现的本机安装可能与发布默认选择的快照不同。如果 native 输入锁或受版本管理的预构建资源变化，审阅并提交这些变化；把两个平台需要的更新汇入同一个提交。
 3. 两台构建机检出这个相同提交，分别执行 `build`。发布相关源码必须干净；不相关的 site/analyzer 工作不会污染产品构建身份。若 `prepare` 又改变了跟踪的 native 输入，先汇入提交，再重新构建。
 4. 分别执行 `upload`，保存同一个版本、同一个 Git commit 的平台产物和 fragment。
 5. 把两个平台的安装包原样上传到大陆镜像，拿到分享页地址后分别执行 `mirror`，把地址核对并记录到该平台的版本目录，见[中国大陆镜像](#中国大陆镜像)。
@@ -102,7 +102,7 @@ Mainland Mirror 是手工上传到蓝奏云的安装包分享页，只作为大�
 
 - 根目录：先执行 `npm ci`，再运行 `just release::check` 和 `just release::test`；发布测试覆盖 CLI guard、投影漂移、Payload 事务和 Release Manifest，程序集集成用例需要 .NET SDK；全仓库源码检查与测试分别为 `just check`、`just test`。
 - installer：`just installer::check`；真实准备后在 installer 目录使用 `npm run verify -- --release-platform macos`（或 `windows`）。
-- mod：`just mod::build`、`just mod::test`。
+- mod：`just mod::build`、`just mod::test`；两台发版机器还必须按上述路径约定运行 `just mod::test-compat`。它重建 Release，读取 Payload Inventory 的 managed DLL，对照游戏 Newtonsoft 检查类型、完整成员签名及特性命名参数；缺游戏库或必需产物就失败。默认测试只执行不依赖游戏库的检查器回归用例，不额外运行此 Release 比对。其他游戏库、反射调用和运行时语义不在该检查范围。发布协调器不会代跑 `test-compat`，更换提交或 Managed 输入后需重新执行。
 - site：`just site::test`、`just site::check`。
 
 没有对应平台的本机工具链、Payload 来源记录或签名材料时，不能以源码测试通过代替正式平台包验证。

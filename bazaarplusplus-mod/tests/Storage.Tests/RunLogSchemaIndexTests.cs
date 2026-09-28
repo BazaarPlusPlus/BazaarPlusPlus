@@ -73,7 +73,7 @@ internal static class RunLogSchemaIndexTests
 
             Equal(0L, IndexCount(connection, OldIndexName), "old index dropped on open");
             Equal(1L, IndexCount(connection, NewIndexName), "new index created on open");
-            Equal(2L, Scalar(connection, "PRAGMA user_version;"), "schema version unchanged");
+            Equal(3L, Scalar(connection, "PRAGMA user_version;"), "schema version unchanged");
             Equal(1L, Scalar(connection, "SELECT COUNT(*) FROM runs;"), "existing rows preserved");
         });
     }

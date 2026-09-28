@@ -125,8 +125,8 @@ try
     );
 
     Assert(
-        RunLogSchema.LocalDatabaseSchemaVersion == 2 && RunLogSchema.RowSchemaVersion == 2,
-        "Replay lifecycle storage must use the paired V2 schema versions."
+        RunLogSchema.LocalDatabaseSchemaVersion == 3 && RunLogSchema.RowSchemaVersion == 3,
+        "JSON failure recovery must use the paired V3 schema versions."
     );
     Assert(
         ReadScalar(
