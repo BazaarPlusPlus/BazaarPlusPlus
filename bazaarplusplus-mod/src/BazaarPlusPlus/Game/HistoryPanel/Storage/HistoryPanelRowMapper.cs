@@ -115,7 +115,8 @@ internal static class HistoryPanelRowMapper
             ReadGhostSnapshotCounts(reader),
             isFinalBattle: GetNullableInt32(reader, "is_final_battle") == 1,
             replayAvailable: GetNullableInt32(reader, "replay_available") == 1,
-            replayDownloaded: GetNullableInt32(reader, "replay_downloaded") == 1
+            replayDownloaded: GetNullableInt32(reader, "replay_downloaded") == 1,
+            replayState: GetNullableString(reader, "ghost_replay_state")
         );
     }
 
