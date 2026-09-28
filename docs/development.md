@@ -11,13 +11,13 @@ just setup
 just doctor
 ```
 
-`setup` 安装各项目锁定的依赖、mod 的本地 .NET 工具及 Git hooks。同一台机器的 clone 共用仓库外的 `~/.config/bazaarplusplus`，也可用绝对路径 `BPP_CONFIG_HOME` 指定另一套配置；不允许把配置目录放进来源或目标 checkout。文件名、作用域和全部选项由 `node scripts/workspace.mjs --help` 维护。首次使用会创建空白模板，已有配置不覆盖。新机器需要另外恢复该私有目录，以及安装游戏、平台工具链和系统证书；Git clone 不携带这些材料。
+`setup` 安装各项目锁定的依赖、mod 的本地 .NET 工具及 Git hooks。同一台机器的 clone 共用仓库外的 `~/.config/bazaarplusplus`：所有键值集中在其中的 `config.ini`，按用途分节，密钥文件放在 `keys/`，目录里的其他文件归使用者自己管理；也可用绝对路径 `BPP_CONFIG_HOME` 指定另一套配置；不允许把配置目录放进来源或目标 checkout。文件名、作用域和全部选项由 `node scripts/workspace.mjs --help` 维护。首次使用会创建空白模板，已有配置不覆盖。新机器需要另外恢复该私有目录，以及安装游戏、平台工具链和系统证书；Git clone 不携带这些材料。
 
-从旧 clone 接入配置时，首次 setup 使用 `just setup --from /absolute/path/to/old-checkout`。它只导入已知的 analyzer、server 和 installer 签名配置，导入前检查冲突，保留旧文件；相对数据目录保留原位置含义，Apple 私钥引用改指向集中目录。它不复制依赖缓存、构建产物、游戏反编译结果或 analyzer 数据，也不创建空数据目录冒充恢复完成。额外的发布凭据应按用途分别保存，不用一套密钥替代所有 bucket 的权限。
+从旧 clone 接入配置时，首次 setup 使用 `just setup --from /absolute/path/to/old-checkout`。它把旧 clone 的 analyzer、server 配置和 installer 签名目录导入 `config.ini` 与 `keys/`，签名目录中不认识的文件直接拒绝；导入前检查冲突，保留旧文件；相对数据目录保留原位置含义，Apple 私钥按 `keys/AuthKey_<APPLE_API_KEY>.p8` 约定定位。它不复制依赖缓存、构建产物、游戏反编译结果或 analyzer 数据，也不创建空数据目录冒充恢复完成。额外的发布凭据应按用途分别保存，不用一套密钥替代所有 bucket 的权限。
 
-集中目录是本地配置的维护入口。analyzer 和 Wrangler 要求的项目文件是受管理副本，根目录忽略的 `.bpp-local.json` 记录上次同步摘要。编辑集中配置后运行 `just setup --skip-deps`；`just server::dev` 和 `just analyzer::cli <command>` 也会在启动前刷新副本。若项目副本被手工修改，先合并要保留的修改并使两份内容一致，再运行 setup；脚本会拒绝直接覆盖冲突。直接执行原来的 npm/uv 命令读取当前副本，绕过自动刷新。
+`config.ini` 是本地配置的唯一维护入口。analyzer 和 Wrangler 要求的项目文件是 `[analyzer]`、`[server]` 两节的受管理副本，根目录忽略的 `.bpp-local.json` 记录上次同步摘要。编辑集中配置后运行 `just setup --skip-deps`；`just server::dev` 和 `just analyzer::cli <command>` 也会在启动前刷新副本。若项目副本被手工修改，先合并要保留的修改并使两份内容一致，再运行 setup；脚本会拒绝直接覆盖冲突。直接执行原来的 npm/uv 命令读取当前副本，绕过自动刷新。
 
-`just release::build` 按签名作用域接入集中目录；`upload` / `mirror` / `promote` 只加载 R2 发布配置。已有显式环境变量优先。其他命令可用 `just with-config <profile> <command...>`，例如非标准游戏位置的 `just with-config mod just mod::build`，或 `just with-config cloudflare npm --prefix bazaarplusplus-site run deploy`（仅在明确要部署时执行）。配置按数据解析，不执行 shell 语句；普通检查、测试、官网开发不会自动加载发布密钥。
+`just release::build` 把 `[signing]` 与 `keys/` 暂存到配置目录内的私有临时目录，只把该路径交给构建，命令结束即删除，避免签名值出现在 `npm ci` 等前序步骤的环境里；`upload` / `mirror` / `promote` 只加载 R2 发布配置。已有显式环境变量优先。其他命令可用 `just with-config <profile> <command...>`，例如非标准游戏位置的 `just with-config mod just mod::build`，或 `just with-config cloudflare npm --prefix bazaarplusplus-site run deploy`（仅在明确要部署时执行）。配置按数据解析，不执行 shell 语句；普通检查、测试、官网开发不会自动加载发布密钥。
 
 `doctor` 只读盘点工具、依赖、配置完整度、数据路径、游戏程序集和本机签名身份，输出缺项但不打印密钥。它是清单命令，退出成功不表示所有能力可用，也不代表验证过远端权限、签名密码或服务健康。macOS Keychain、GitHub/Wrangler 登录态继续由各自工具管理；setup 不导出证书、不轮换 token、不修改线上 secret，也不启动分析或发布。POSIX 配置目录和文件分别收紧为 700/600；Windows 需通过用户目录 ACL 控制访问。
 
