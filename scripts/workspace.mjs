@@ -8,7 +8,10 @@ import {
   assertExternal,
   importCheckout,
   initializeConfig,
-  readEnvironment,
+  readConfig,
+  sectionValues,
+  appleKeyPath,
+  stageSigning,
   refreshProjections,
   projectionChanges,
   commandEnvironment
@@ -24,18 +27,27 @@ just setup and just doctor are equivalent shortcuts. just with-config PROFILE
 COMMAND [ARG...] runs a command from the repository root with scoped configuration.
 
 Configuration: BPP_CONFIG_HOME or ~/.config/bazaarplusplus (outside checkouts).
-  analyzer.env       projects to bazaarplusplus-analyzer/.env
-  server.dev.vars    projects to bazaarplusplus-server/.dev.vars
-  release-r2.env     BPP_R2_ACCOUNT_ID, BPP_R2_ACCESS_KEY_ID, BPP_R2_SECRET_ACCESS_KEY
-  signing-secrets/   existing installer signing filenames; Apple key pointer absolute
-  machine.env       optional BPP_MANAGED_PATH, BPP_GAME_ROOT (profile: mod)
-  cloudflare.env    optional CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID
+  config.ini     every value, one section per purpose:
+    [server]       projects verbatim to bazaarplusplus-server/.dev.vars
+    [analyzer]     projects verbatim to bazaarplusplus-analyzer/.env
+    [release]      BPP_R2_ACCOUNT_ID, BPP_R2_ACCESS_KEY_ID, BPP_R2_SECRET_ACCESS_KEY
+    [signing]      APPLE_SIGNING_IDENTITY, APPLE_API_ISSUER, APPLE_API_KEY,
+                   optional APPLE_API_KEY_PATH (relative to this directory),
+                   optional TAURI_SIGNING_PRIVATE_KEY_PASSWORD
+    [machine]      optional BPP_MANAGED_PATH, BPP_GAME_ROOT (profile: mod)
+    [cloudflare]   optional CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID
+  keys/          tauri-updater.key, tauri-updater.key.pub, AuthKey_<APPLE_API_KEY>.p8
+Any other file in the directory is yours; tooling neither reads nor writes it.
 
 Profiles: release, signing, mod, cloudflare, server, analyzer.
-Exported variables take precedence. Files are parsed as data, never sourced.
+Exported variables take precedence. config.ini is parsed as data, never sourced;
+unknown sections, non KEY=value lines and multi-line quoted values are errors.
 server/analyzer profiles refresh managed projections before running the command.
-Edit central files, then rerun setup --skip-deps. Local projection edits conflict.
---from imports known config/signing files only, refuses differing existing files,
+signing stages [signing] and keys/ into a private temporary BPP_SIGNING_SECRETS_DIR
+removed after the command; an exported BPP_SIGNING_SECRETS_DIR is used as given.
+Edit config.ini, then rerun setup --skip-deps. Local projection edits conflict.
+--from imports an old checkout's analyzer .env, server .dev.vars and installer
+signing-secrets/ into config.ini and keys/, refuses differing existing values,
 preserves data path meaning, and never deletes source files or creates data stores.
 
 setup installs each Node project's locked dependencies, the analyzer environment,
@@ -114,6 +126,20 @@ export function doctor(
       `${project || 'root'}: ${installed ? 'installed (not validated)' : 'run just setup'}`
     );
   }
+  let config;
+  try {
+    config = readConfig(home);
+  } catch (error) {
+    add('config', false, error.message);
+    return rows;
+  }
+  add(
+    'config',
+    config.sections.size > 0,
+    config.sections.size > 0
+      ? `config.ini sections: ${[...config.sections.keys()].join(', ')}`
+      : 'config.ini missing; run just setup'
+  );
   try {
     for (const change of projectionChanges(home, repository)) {
       add(
@@ -125,8 +151,8 @@ export function doctor(
   } catch (error) {
     add('projections', false, error.message);
   }
-  const required = (scope, file, keys, ambient = {}) => {
-    const values = { ...readEnvironment(path.join(home, file)) };
+  const required = (scope, section, keys, ambient = {}) => {
+    const values = { ...sectionValues(config, section) };
     for (const key of keys) if (ambient[key]) values[key] = ambient[key];
     const missing = keys.filter((key) => !values[key]?.trim());
     add(
@@ -138,7 +164,7 @@ export function doctor(
     );
     return values;
   };
-  const analyzer = required('analyzer', 'analyzer.env', [
+  const analyzer = required('analyzer', 'analyzer', [
     'BPP_DATA_ROOT',
     'BPP_V5_API_BASE_URL',
     'BPP_BUNDLE_SYNC_TOKEN'
@@ -157,13 +183,13 @@ export function doctor(
         : 'configured state path is missing; no empty replacement was created'
     );
   }
-  required('analyzer publish', 'analyzer.env', [
+  required('analyzer publish', 'analyzer', [
     'BPP_METRICS_R2_ACCOUNT_ID',
     'BPP_METRICS_R2_BUCKET',
     'BPP_METRICS_R2_ACCESS_KEY_ID',
     'BPP_METRICS_R2_SECRET_ACCESS_KEY'
   ]);
-  required('server', 'server.dev.vars', [
+  required('server', 'server', [
     'R2_PRESIGN_ACCESS_KEY_ID',
     'R2_PRESIGN_SECRET_ACCESS_KEY',
     'BUNDLE_SYNC_TOKEN',
@@ -171,18 +197,34 @@ export function doctor(
   ]);
   required(
     'release upload',
-    'release-r2.env',
+    'release',
     ['BPP_R2_ACCOUNT_ID', 'BPP_R2_ACCESS_KEY_ID', 'BPP_R2_SECRET_ACCESS_KEY'],
     env
   );
-  const signing =
-    env.BPP_SIGNING_SECRETS_DIR || path.join(home, 'signing-secrets');
-  const nonempty = (name) =>
-    fs.existsSync(path.join(signing, name)) &&
-    fs.statSync(path.join(signing, name)).size > 0;
+  // Mirrors what bundle.sh will see: an exported directory as given, else
+  // [signing] with keys/, each overridden by exported values.
+  const explicit = env.BPP_SIGNING_SECRETS_DIR;
+  const fileValue = (name) => {
+    const file = path.join(explicit, name);
+    return fs.existsSync(file) ? fs.readFileSync(file, 'utf8').trim() : '';
+  };
+  const signing = explicit
+    ? {
+        APPLE_API_ISSUER: fileValue('apple-api-issuer'),
+        APPLE_API_KEY: fileValue('apple-api-key'),
+        APPLE_API_KEY_PATH: fileValue('apple-api-key-path')
+      }
+    : sectionValues(config, 'signing');
+  for (const key of ['APPLE_API_ISSUER', 'APPLE_API_KEY', 'APPLE_API_KEY_PATH'])
+    if (env[key]) signing[key] = env[key];
+  const keyDirectory = explicit || path.join(home, 'keys');
+  const updaterKey = path.join(keyDirectory, 'tauri-updater.key');
   add(
     'updater signing',
-    Boolean(env.TAURI_SIGNING_PRIVATE_KEY || nonempty('tauri-updater.key')),
+    Boolean(
+      env.TAURI_SIGNING_PRIVATE_KEY ||
+      (fs.existsSync(updaterKey) && fs.statSync(updaterKey).size > 0)
+    ),
     'private key presence only; password/signature not validated'
   );
   if (process.platform === 'darwin') {
@@ -200,24 +242,21 @@ export function doctor(
       result.status === 0 && identities.length > 0,
       `${identities.length} Developer ID Application identities available`
     );
-    const pointer =
-      env.APPLE_API_KEY_PATH ||
-      (nonempty('apple-api-key-path')
-        ? fs
-            .readFileSync(path.join(signing, 'apple-api-key-path'), 'utf8')
-            .trim()
-        : '');
-    const keyId =
-      env.APPLE_API_KEY ||
-      (nonempty('apple-api-key')
-        ? fs.readFileSync(path.join(signing, 'apple-api-key'), 'utf8').trim()
-        : '');
-    const keyPath = pointer
-      ? path.resolve(repository, 'bazaarplusplus-installer', pointer)
-      : path.join(signing, `AuthKey_${keyId}.p8`);
+    // bundle.sh resolves an exported relative path against the installer.
+    const keyPath = env.APPLE_API_KEY_PATH
+      ? path.resolve(
+          repository,
+          'bazaarplusplus-installer',
+          env.APPLE_API_KEY_PATH
+        )
+      : explicit
+        ? signing.APPLE_API_KEY_PATH ||
+          path.join(explicit, `AuthKey_${signing.APPLE_API_KEY}.p8`)
+        : appleKeyPath(home, signing);
     const available = Boolean(
-      (env.APPLE_API_ISSUER || nonempty('apple-api-issuer')) &&
-      keyId &&
+      signing.APPLE_API_ISSUER &&
+      signing.APPLE_API_KEY &&
+      keyPath &&
       fs.existsSync(keyPath)
     );
     add(
@@ -302,9 +341,7 @@ export function main(args = process.argv.slice(2)) {
     }
     if (source) {
       const imported = importCheckout(source, home);
-      console.log(
-        `Imported ${imported.length} configuration/signing files; originals preserved.`
-      );
+      console.log(`Imported ${imported.join(', ')}; originals preserved.`);
     }
     initializeConfig(home);
     refreshProjections(home);
@@ -326,10 +363,25 @@ export function main(args = process.argv.slice(2)) {
     return;
   }
   if (command === 'run' && rest[1] === '--' && rest[2]) {
-    execute(rest[2], rest.slice(3), {
-      cwd: process.cwd(),
-      env: commandEnvironment(rest[0], home)
-    });
+    if (rest[0] !== 'signing') {
+      execute(rest[2], rest.slice(3), {
+        cwd: process.cwd(),
+        env: commandEnvironment(rest[0], home)
+      });
+      return;
+    }
+    // The child shares the terminal's signals; outlive them so staged
+    // signing files are always removed.
+    const hold = () => {};
+    const signals = ['SIGINT', 'SIGTERM', 'SIGHUP'];
+    const staged = stageSigning(home);
+    for (const signal of signals) process.on(signal, hold);
+    try {
+      execute(rest[2], rest.slice(3), { cwd: process.cwd(), env: staged.env });
+    } finally {
+      staged.cleanup();
+      for (const signal of signals) process.off(signal, hold);
+    }
     return;
   }
   throw new Error('Unknown command or arguments; use --help');
