@@ -82,6 +82,7 @@ internal sealed partial class HistoryPanel
     private void RefreshUi()
     {
         _uiView?.Refresh(BuildUiModel());
+        RefreshNativeHistoryMessages();
     }
 
     private void SetPreviewStatus(string? message, bool visible)
@@ -139,6 +140,7 @@ internal sealed partial class HistoryPanel
         return new HistoryPanelViewModel
         {
             PageLoading = _state.PageLoading,
+            ArchiveEmptyMessage = HistoryPanelDecisions.GhostArchiveEmptyMessage(_state),
             HasNewer =
                 _state.SectionMode == HistorySectionMode.Ghost
                     ? _state.GhostPage.HasNewer
@@ -211,6 +213,7 @@ internal sealed partial class HistoryPanel
 
 internal sealed class HistoryPanelViewModel
 {
+    public string ArchiveEmptyMessage { get; set; } = string.Empty;
     public string? AccountId { get; set; }
 
     public bool PageLoading { get; set; }

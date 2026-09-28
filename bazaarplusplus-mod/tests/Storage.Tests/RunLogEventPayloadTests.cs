@@ -44,7 +44,7 @@ internal static class RunLogEventPayloadTests
         );
 
         Equal(
-            "{\"schema_version\":2,\"run_id\":\"run-1\",\"seq\":7,"
+            "{\"schema_version\":3,\"run_id\":\"run-1\",\"seq\":7,"
                 + "\"ts\":\"2026-01-02T03:04:05.678+00:00\",\"kind\":\"run_started\","
                 + "\"day\":3,\"hour\":2,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}",
             payload,
@@ -72,7 +72,7 @@ internal static class RunLogEventPayloadTests
         );
 
         Equal(
-            "{\"schema_version\":2,\"run_id\":\"run-1\",\"seq\":8,"
+            "{\"schema_version\":3,\"run_id\":\"run-1\",\"seq\":8,"
                 + "\"ts\":\"2026-01-02T03:04:05.678+00:00\",\"kind\":\"pvp_combat_recorded\","
                 + "\"day\":3,\"hour\":2,\"encounter_id\":\"encounter-9\","
                 + "\"combat_kind\":\"PVPCombat\",\"battle_id\":\"battle-4\","

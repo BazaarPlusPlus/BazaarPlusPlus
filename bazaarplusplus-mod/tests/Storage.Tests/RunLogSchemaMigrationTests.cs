@@ -6,13 +6,166 @@ internal static class RunLogSchemaMigrationTests
 {
     internal static void Run()
     {
-        CreatesFreshVersionTwoAndSupportsConcurrentInitialization();
+        CreatesFreshCurrentVersionAndSupportsConcurrentInitialization();
         UpgradesVersionOneLifecycleStateWithoutLosingRows();
         RejectsUnknownFutureVersionWithoutMutation();
         FailedUpgradeRollsBackVersionAndColumns();
+        RecoversOnlyLegacyJsonFailuresOnce();
+        FailedJsonRecoveryRollsBack();
     }
 
-    private static void CreatesFreshVersionTwoAndSupportsConcurrentInitialization()
+    private const string JsonMissingMethod =
+        "Method not found: 'System.String Newtonsoft.Json.Linq.JToken.ToString(Newtonsoft.Json.Formatting)'.";
+
+    private static void SeedJsonFailures(SqliteConnection connection)
+    {
+        RunLogSchema.EnsureInitialized(connection);
+        Execute(
+            connection,
+            """
+            INSERT INTO runs (run_id, started_at_utc, last_seen_at_utc, status, completed, hero, game_mode)
+            VALUES ('json', '2026-01-01', '2026-01-01', 'completed', 1, 'Vanessa', 'Ranked'),
+                   ('other', '2026-01-01', '2026-01-01', 'completed', 1, 'Vanessa', 'Ranked'),
+                   ('uploaded', '2026-01-01', '2026-01-01', 'completed', 1, 'Vanessa', 'Ranked'),
+                   ('pending', '2026-01-01', '2026-01-01', 'completed', 1, 'Vanessa', 'Ranked'),
+                   ('null-detail', '2026-01-01', '2026-01-01', 'completed', 1, 'Vanessa', 'Ranked'),
+                   ('other-code', '2026-01-01', '2026-01-01', 'completed', 1, 'Vanessa', 'Ranked'),
+                   ('other-library', '2026-01-01', '2026-01-01', 'completed', 1, 'Vanessa', 'Ranked');
+            INSERT INTO bundle_seal_jobs (
+                run_id, state, screenshot_requested, screenshot_state, input_deadline_at_utc,
+                bundle_id, created_at_ms, attempts, last_error_code
+            ) SELECT run_id, 'terminal_failure', 1, 'available', '2026-01-01T00:02:00Z',
+                     run_id || '-allocation', 1234, 1, 'bundle_build_failed' FROM runs;
+            INSERT INTO bundle_outbox (
+                bundle_id, run_id, file_name, content_sha256_hex, content_digest,
+                total_bytes, has_screenshot, sealed_at_utc, status
+            ) VALUES ('uploaded-bundle', 'uploaded', 'uploaded.bundle', 'sha', 'digest', 1, 0,
+                      '2026-01-01', 'uploaded'),
+                     ('pending-bundle', 'pending', 'pending.bundle', 'sha', 'digest', 1, 0,
+                      '2026-01-01', 'pending');
+            PRAGMA user_version = 2;
+            """
+        );
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            UPDATE bundle_seal_jobs SET last_error_detail = $message;
+            UPDATE bundle_seal_jobs SET last_error_detail = 'Invalid projection' WHERE run_id = 'other';
+            UPDATE bundle_seal_jobs SET last_error_detail = NULL WHERE run_id = 'null-detail';
+            UPDATE bundle_seal_jobs SET last_error_code = 'payload_compose_failed' WHERE run_id = 'other-code';
+            UPDATE bundle_seal_jobs SET last_error_detail = 'Method not found: Other.Library.Method()'
+            WHERE run_id = 'other-library';
+            """;
+        // Captured from CoreCLR by compiling against 13.0.4 and running with 13.0.2.
+        command.Parameters.AddWithValue("$message", JsonMissingMethod);
+        command.ExecuteNonQuery();
+    }
+
+    private static void RecoversOnlyLegacyJsonFailuresOnce()
+    {
+        using var connection = new SqliteConnection("Data Source=:memory:");
+        connection.Open();
+        SeedJsonFailures(connection);
+
+        RunLogSchema.EnsureInitialized(connection);
+
+        Equal(
+            "waiting",
+            Text(connection, "SELECT state FROM bundle_seal_jobs WHERE run_id='json';"),
+            "JSON recovery"
+        );
+        Equal(
+            1L,
+            Scalar(connection, "SELECT COUNT(*) FROM bundle_seal_jobs WHERE state='waiting';"),
+            "narrow match"
+        );
+        Equal(
+            6L,
+            Scalar(
+                connection,
+                "SELECT COUNT(*) FROM bundle_seal_jobs WHERE state='terminal_failure';"
+            ),
+            "other terminal rows unchanged"
+        );
+        Equal(
+            "json-allocation",
+            Text(connection, "SELECT bundle_id FROM bundle_seal_jobs WHERE run_id='json';"),
+            "stable allocation"
+        );
+        Equal(
+            1234L,
+            Scalar(connection, "SELECT created_at_ms FROM bundle_seal_jobs WHERE run_id='json';"),
+            "stable creation time"
+        );
+        Equal(
+            "2026-01-01T00:02:00Z",
+            Text(
+                connection,
+                "SELECT input_deadline_at_utc FROM bundle_seal_jobs WHERE run_id='json';"
+            ),
+            "original deadline"
+        );
+        Equal(
+            "available",
+            Text(connection, "SELECT screenshot_state FROM bundle_seal_jobs WHERE run_id='json';"),
+            "screenshot state retained"
+        );
+        Equal(
+            1L,
+            Scalar(connection, "SELECT attempts FROM bundle_seal_jobs WHERE run_id='json';"),
+            "attempt history retained"
+        );
+        Equal<string?>(
+            null,
+            Text(connection, "SELECT last_error_code FROM bundle_seal_jobs WHERE run_id='json';"),
+            "error cleared"
+        );
+        Equal(3L, Scalar(connection, "PRAGMA user_version;"), "recovery committed with version");
+
+        using var failAgain = connection.CreateCommand();
+        failAgain.CommandText =
+            "UPDATE bundle_seal_jobs SET state='terminal_failure', last_error_code='bundle_build_failed', last_error_detail=$message WHERE run_id='json';";
+        failAgain.Parameters.AddWithValue("$message", JsonMissingMethod);
+        failAgain.ExecuteNonQuery();
+        RunLogSchema.EnsureInitialized(connection);
+        Equal(
+            0L,
+            Scalar(connection, "SELECT COUNT(*) FROM bundle_seal_jobs WHERE state='waiting';"),
+            "a later JSON failure never resurrects"
+        );
+    }
+
+    private static void FailedJsonRecoveryRollsBack()
+    {
+        using var connection = new SqliteConnection("Data Source=:memory:");
+        connection.Open();
+        SeedJsonFailures(connection);
+        Execute(
+            connection,
+            """
+            CREATE TRIGGER reject_recovery BEFORE UPDATE OF state ON bundle_seal_jobs
+            BEGIN SELECT RAISE(ABORT, 'recovery interrupted'); END;
+            """
+        );
+        Throws<SqliteException>(
+            () => RunLogSchema.EnsureInitialized(connection),
+            "failed recovery"
+        );
+        Equal(2L, Scalar(connection, "PRAGMA user_version;"), "recovery version rollback");
+        Equal(
+            "terminal_failure",
+            Text(connection, "SELECT state FROM bundle_seal_jobs WHERE run_id='json';"),
+            "recovery state rollback"
+        );
+        Execute(connection, "DROP TRIGGER reject_recovery;");
+        RunLogSchema.EnsureInitialized(connection);
+        Equal(
+            "waiting",
+            Text(connection, "SELECT state FROM bundle_seal_jobs WHERE run_id='json';"),
+            "retry after rollback"
+        );
+    }
+
+    private static void CreatesFreshCurrentVersionAndSupportsConcurrentInitialization()
     {
         var databasePath = Path.Combine(
             Path.GetTempPath(),
@@ -38,7 +191,7 @@ internal static class RunLogSchemaMigrationTests
 
             using var verify = new SqliteConnection($"Data Source={databasePath}");
             verify.Open();
-            Equal(2L, Scalar(verify, "PRAGMA user_version;"), "fresh schema version");
+            Equal(3L, Scalar(verify, "PRAGMA user_version;"), "fresh schema version");
             Equal(
                 1L,
                 Scalar(
@@ -132,7 +285,7 @@ internal static class RunLogSchemaMigrationTests
 
             RunLogSchema.EnsureInitialized(connection);
 
-            Equal(2L, Scalar(connection, "PRAGMA user_version;"), "schema version");
+            Equal(3L, Scalar(connection, "PRAGMA user_version;"), "schema version");
             Equal(
                 "ready",
                 Text(

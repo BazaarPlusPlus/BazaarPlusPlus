@@ -71,6 +71,7 @@ internal sealed partial class HistoryPanelView
     }
 
     private PageList _archiveList = null!;
+    private TextMeshProUGUI _archiveEmptyLabel = null!;
     private DayStrip _dayStrip = null!;
     private TextMeshProUGUI _title = null!,
         _statusLabel = null!,
@@ -180,6 +181,19 @@ internal sealed partial class HistoryPanelView
             .595f,
             HistoryPanelLayout.RunRowHeight
         );
+        _archiveEmptyLabel = Text(
+            _archiveList.Scroll.viewport,
+            "",
+            .04f,
+            .04f,
+            .92f,
+            .8f,
+            14,
+            Muted
+        );
+        _archiveEmptyLabel.textWrappingMode = TextWrappingModes.Normal;
+        _archiveEmptyLabel.overflowMode = TextOverflowModes.Overflow;
+        _archiveEmptyLabel.alignment = TextAlignmentOptions.TopLeft;
         _dayStrip = CreateDayStrip();
         var archivePager = CreateRect(
             "ArchivePager",
@@ -267,6 +281,8 @@ internal sealed partial class HistoryPanelView
             HistoryPanelLayout.OpponentBoardHeight
         );
         _opponentStatus = Text(_opponentPreview, "", 0, .4f, 1, .2f, 17, Muted, true);
+        _opponentStatus.textWrappingMode = TextWrappingModes.Normal;
+        _opponentStatus.overflowMode = TextOverflowModes.Overflow;
         _preview = CreateRect(
             "PlayerBoardBounds",
             _layout,
@@ -276,6 +292,8 @@ internal sealed partial class HistoryPanelView
             HistoryPanelLayout.PlayerBoardHeight
         );
         _previewStatus = Text(_preview, "", 0, .35f, 1, .3f, 17, Muted, true);
+        _previewStatus.textWrappingMode = TextWrappingModes.Normal;
+        _previewStatus.overflowMode = TextOverflowModes.Overflow;
         // The lower board's ownership title. In Ghost this is the ONLY board and it belongs
         // to the challenger, so the wording is section-dependent, never hardcoded.
         _playerTitle = CreateRect(
@@ -740,6 +758,8 @@ internal sealed partial class HistoryPanelView
         _battleNewer.interactable = m.BattleHasNewer;
         _battleOlder.interactable = m.BattleHasOlder;
         _pageLabel.text = m.PageLoading ? HistoryPanelText.LoadingPreview() : m.PageRange;
+        _archiveEmptyLabel.text = m.ArchiveEmptyMessage;
+        _archiveEmptyLabel.gameObject.SetActive(m.ArchiveEmptyMessage.Length > 0);
         if (runs)
             BindRows(
                 _archiveList,

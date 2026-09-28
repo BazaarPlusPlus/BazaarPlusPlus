@@ -72,6 +72,8 @@ internal sealed partial class HistoryPanelCoordinator : IDisposable
             _state.SelectedGhostBattleIndex = 0;
         }
         _state.ReplayActionInProgress = false;
+        _state.ReplayActionBattleId = null;
+        _state.ReplayFailureMessage = null;
         if (resumeSelection)
         {
             ClearTransientStatus();
@@ -283,6 +285,8 @@ internal sealed partial class HistoryPanelCoordinator : IDisposable
         }
 
         _state.ReplayActionInProgress = true;
+        _state.ReplayActionBattleId = battle.BattleId;
+        _state.ReplayFailureMessage = null;
         var sessionVersion = _session.Version;
         var replayAccount = _state.CachedAccountId;
         SetStatusMessage(
@@ -294,6 +298,7 @@ internal sealed partial class HistoryPanelCoordinator : IDisposable
         HistoryPanelReplayAttemptResult replayResult;
         try
         {
+            _requestPreviewRefresh();
             _requestUiRefresh();
             replayResult = await _replayService.ReplayBattleAsync(
                 battle,
@@ -320,7 +325,7 @@ internal sealed partial class HistoryPanelCoordinator : IDisposable
             _state.ReplayActionInProgress = false;
             if (logOperation.TryFail(HistoryPanelReplayReasonCode.Canceled, ex, out var failure))
                 HistoryPanelLogWriter.EmitReplayFailed(failure);
-            SetStatusMessage(HistoryPanelText.ReplayFailed(ex.Message), StatusSeverity.Failure);
+            SetReplayFailure(battle, HistoryPanelText.ReplayFailed(ex.Message));
             _requestUiRefresh();
             return;
         }
@@ -333,7 +338,7 @@ internal sealed partial class HistoryPanelCoordinator : IDisposable
             }
 
             _state.ReplayActionInProgress = false;
-            SetStatusMessage(HistoryPanelText.ReplayFailed(ex.Message), StatusSeverity.Failure);
+            SetReplayFailure(battle, HistoryPanelText.ReplayFailed(ex.Message));
             if (
                 logOperation.TryFail(
                     HistoryPanelReplayReasonCode.UnexpectedException,
@@ -363,7 +368,7 @@ internal sealed partial class HistoryPanelCoordinator : IDisposable
                 )
             )
                 HistoryPanelLogWriter.EmitReplayFailed(failure);
-            SetStatusMessage(replayResult.StatusMessage, StatusSeverity.Failure);
+            SetReplayFailure(battle, replayResult.StatusMessage);
             _requestUiRefresh();
             return;
         }
@@ -372,6 +377,19 @@ internal sealed partial class HistoryPanelCoordinator : IDisposable
             HistoryPanelLogWriter.EmitReplayAccepted(accepted);
         SetStatusMessage(replayResult.StatusMessage, StatusSeverity.Success);
         _requestVisibilityChange(false);
+    }
+
+    private void SetReplayFailure(HistoryBattleRecord battle, string message)
+    {
+        _state.ReplayActionBattleId = battle.BattleId;
+        _state.ReplayFailureMessage = message;
+        SetStatusMessage(message, StatusSeverity.Failure);
+        if (
+            battle.Source == HistoryBattleSource.Ghost
+            && _state.SectionMode == HistorySectionMode.Ghost
+        )
+            RefreshGhostData();
+        _requestPreviewRefresh();
     }
 
     public bool IsDeleteRunConfirmationActive(string runId, float now) =>

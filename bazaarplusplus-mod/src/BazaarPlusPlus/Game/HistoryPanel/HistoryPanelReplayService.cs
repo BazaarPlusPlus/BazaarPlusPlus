@@ -106,7 +106,7 @@ internal sealed class HistoryPanelReplayService
                 return true;
             }
 
-            reason = HistoryPanelText.GhostReplayPayloadUnavailable();
+            reason = HistoryPanelDecisions.GhostReplayUnavailableReason(battle);
             return false;
         }
 
@@ -206,8 +206,9 @@ internal sealed class HistoryPanelReplayService
         );
         if (!downloadResult.Succeeded)
             return HistoryPanelReplayAttemptResult.Failure(
-                HistoryPanelText.FailedToDownloadGhostReplay(
-                    downloadResult.Error ?? HistoryPanelText.Unknown()
+                HistoryPanelDecisions.GhostDownloadFailureMessage(
+                    downloadResult.Error,
+                    downloadResult.ReasonCode
                 ),
                 downloadResult.ReasonCode,
                 downloadResult.Exception

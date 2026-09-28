@@ -18,7 +18,7 @@ build *args:
 test *args:
     bash scripts/test.sh test "$@"
 
-# Run every compatibility check whose local game or decompiled inputs exist.
+# Check Release members against game JSON (required), then available decompiled premises.
 test-compat *args:
     bash scripts/test.sh test-compat "$@"
 

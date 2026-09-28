@@ -13,6 +13,7 @@ TestCanDeleteRunDecisionArms();
 TestAccountLinkAvailabilityGate();
 TestDatabaseChipTextAndSeverity();
 TestButtonModelReplayRecordDeleteParity();
+GhostMessageTests.Run(modAssembly);
 AccountLinkCardTests.Run(modAssembly);
 
 Console.WriteLine("HistoryPanelDecisions checks passed.");

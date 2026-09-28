@@ -49,15 +49,58 @@ internal static partial class HistoryPanelText
             $"{count} ghost battles synced.",
             $"已同步 {count} 场幽灵对战。"
         );
-        return discoveryLimitReached
-            ? message
-                + " "
-                + FormatSimple(
-                    "The server returns up to 200 battles from the last 5 days. Saved local history remains browsable.",
-                    "云端仅返回近 5 天最多 200 场；已保存的本地历史仍可继续浏览。"
-                )
-            : message;
+        return discoveryLimitReached ? message + " " + GhostDiscoveryHint() : message;
     }
+
+    private static string GhostDiscoveryHint() =>
+        FormatSimple(
+            "The server returns up to 200 battles from the last 5 days. Saved local history remains browsable.",
+            "云端仅返回近 5 天最多 200 场；已保存的本地历史仍可继续浏览。"
+        );
+
+    internal static string GhostAccountUnavailable() =>
+        FormatSimple(
+            "Your game account isn't available yet, so Ghost battles cannot be listed. Sign in to The Bazaar and wait for your profile to load in the main menu.",
+            "尚未读取到游戏账号，因此无法列出幽灵对战。请登录游戏，等待主菜单的账号资料加载完成。"
+        );
+
+    internal static string NoSavedGhostBattles() =>
+        FormatSimple(
+            "No Ghost battles are saved for this account yet.",
+            "此账号尚无已保存的幽灵对战。"
+        )
+        + "\n"
+        + GhostDiscoveryHint();
+
+    internal static string NoGhostFilterMatches() =>
+        FormatSimple(
+            "No Ghost battles match these filters. Try a different outcome or day filter.",
+            "当前筛选下没有幽灵对战。请放宽胜负或天数筛选。"
+        );
+
+    internal static string GhostHistoryReadFailed() =>
+        FormatSimple(
+            "Couldn't read saved Ghost battles. Reopen History to try again.",
+            "无法读取已保存的幽灵对战。请重新打开历史记录后重试。"
+        );
+
+    internal static string GhostReplayDownloadRequired() =>
+        FormatSimple(
+            $"Click \"{DownloadReplay()}\" to view the board.",
+            $"点击『{DownloadReplay()}』查看阵容。"
+        );
+
+    internal static string GhostReplayExpired() =>
+        FormatSimple(
+            "This replay has expired and has no local copy. Select another battle.",
+            "这场回放已过期，本地没有副本。请选择其他对战。"
+        );
+
+    internal static string GhostLocalReplayUnreadable() =>
+        FormatSimple(
+            $"The saved replay data can't be read. Click \"{Replay()}\" to try fetching it again.",
+            $"无法读取本地回放数据。点击『{Replay()}』尝试重新获取。"
+        );
 
     internal static string GhostDeleteUnavailable()
     {
@@ -119,8 +162,8 @@ internal static partial class HistoryPanelText
     internal static string GhostReplayPayloadUnavailable()
     {
         return FormatSimple(
-            "Replay payload for the selected ghost battle is unavailable.",
-            "所选幽灵战斗的回放负载不可用。"
+            "This battle has no usable replay data. Select another battle.",
+            "这场对战没有可用的回放数据。请选择其他对战。"
         );
     }
 
@@ -153,8 +196,8 @@ internal static partial class HistoryPanelText
     internal static string FailedToDownloadGhostReplay(string details)
     {
         return FormatSimple(
-            $"Failed to download ghost replay: {details}",
-            $"下载幽灵回放失败：{details}"
+            $"Failed to download ghost replay: {details}. Try again later.",
+            $"下载幽灵回放失败：{details}。请稍后重试。"
         );
     }
 
