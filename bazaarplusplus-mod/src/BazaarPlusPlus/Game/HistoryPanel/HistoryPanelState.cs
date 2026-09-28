@@ -37,6 +37,7 @@ internal sealed class HistoryPanelState
     public bool DetailLoading { get; set; }
     public bool DetailFailed { get; set; }
     public bool PageLoading { get; set; }
+    public bool PageLoadFailed { get; set; }
 
     public int SelectedRunIndex { get; set; }
 
@@ -63,6 +64,8 @@ internal sealed class HistoryPanelState
     public bool GhostSyncInProgress { get; set; }
 
     public bool ReplayActionInProgress { get; set; }
+    public string? ReplayActionBattleId { get; set; }
+    public string? ReplayFailureMessage { get; set; }
 
     public bool ServerHealthProbeInProgress { get; set; }
 

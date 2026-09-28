@@ -20,6 +20,7 @@ RecorderPerspectiveManifestKeepsSides();
 LegacyPayloadNormalizesOnceAndIsIdempotent();
 UnknownProjectionAndCountsStayUnknown();
 HistoryGhostRecoveryTests.Run();
+GhostDownloadSelectionTests.Run();
 
 Console.WriteLine("Ghost battle V5 sync tests passed.");
 
@@ -201,6 +202,10 @@ static async Task ExpiredUrlRefreshesOnceAndBecomesTerminal()
         CancellationToken.None
     );
     Assert(!first.Succeeded && !second.Succeeded, "A refreshed 404 must become expired.");
+    Assert(
+        first.Error == "ghost_replay_expired" && second.Error == "ghost_replay_expired",
+        "Both the initial and persisted expiry must give the panel the same specific reason."
+    );
     Assert(
         callsAfterFirst == 2,
         "An expired URL must refresh discovery exactly once before download."

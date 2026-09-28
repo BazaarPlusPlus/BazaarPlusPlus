@@ -66,6 +66,10 @@ try
         .ListGhostBattles("account-local", GhostBattleFilter.All, false, new())
         .Rows.Single();
     Assert(!local.SnapshotCounts.Known, "Undownloaded Ghost counts must remain unknown.");
+    Assert(
+        local.GhostReplayState == "remote_available",
+        "Ghost rows must carry download state into presentation."
+    );
     Assert(!local.IsFinalBattle, "A non-final Ghost must stay non-final.");
     var localId = local.BattleId;
 
@@ -95,6 +99,24 @@ try
         .Rows.Single(row => row.BattleId != localId);
     Assert(finalRow.IsFinalBattle, "Ghost discovery must keep the final-battle fact.");
 
+    repository.MarkGhostReplayUnavailable(localId, "unavailable_payload", "corrupt");
+    Assert(
+        repository
+            .ListGhostBattles("account-local", GhostBattleFilter.All, false, new())
+            .Rows.Single(row => row.BattleId == localId)
+            .GhostReplayState == "unavailable_payload",
+        "Ghost rows must distinguish unavailable data from an undownloaded replay."
+    );
+    repository.MarkGhostReplayUnavailable(localId, "expired", "object_unavailable");
+    var expiredRow = repository
+        .ListGhostBattles("account-local", GhostBattleFilter.All, false, new())
+        .Rows.Single(row => row.BattleId == localId);
+    Assert(
+        expiredRow.GhostReplayState == "expired"
+            && !expiredRow.ReplayAvailable
+            && !expiredRow.ReplayDownloaded,
+        "Expired rows must retain their specific state without offering download."
+    );
     repository.MarkGhostReplayUnavailable(localId, "unavailable_payload", "corrupt");
     repository.UpsertGhostBattles("account-local", [newer]);
     Assert(
