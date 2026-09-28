@@ -11,6 +11,29 @@ public sealed class BundleQueueStore : SqliteStoreBase
     public BundleQueueStore(string databasePath)
         : base(databasePath) { }
 
+    // Called only by the 2 -> 3 migration, in the same transaction as user_version.
+    // A future runtime mismatch must not resurrect terminal jobs on every startup.
+    internal static void RecoverLegacyJsonFailures(
+        SqliteConnection connection,
+        SqliteTransaction transaction
+    ) =>
+        Execute(
+            connection,
+            transaction,
+            $"""
+            UPDATE {RunLogSchema.BundleSealJobsTableName}
+            SET state = 'waiting', last_error_code = NULL, last_error_detail = NULL
+            WHERE state = 'terminal_failure'
+              AND last_error_code = 'bundle_build_failed'
+              AND last_error_detail LIKE 'Method not found%Newtonsoft.Json.Linq.JToken%'
+              AND NOT EXISTS (
+                  SELECT 1 FROM {RunLogSchema.BundleOutboxTableName} AS o
+                  WHERE o.run_id = {RunLogSchema.BundleSealJobsTableName}.run_id
+                    AND o.status IN ('pending', 'uploaded')
+              );
+            """
+        );
+
     public void ResetInterruptedSeals()
     {
         using var connection = OpenConnection();
@@ -248,15 +271,22 @@ public sealed class BundleQueueStore : SqliteStoreBase
     )
     {
         using var connection = OpenConnection();
-        using var transaction = connection.BeginTransaction();
-        Execute(
-            connection,
-            transaction,
-            $"UPDATE {RunLogSchema.BundleOutboxTableName} SET status = 'permanent_failure', failed_at_utc = $now, last_error_code = $reason WHERE bundle_id = $bundleId;",
-            ("$bundleId", bundleId),
-            ("$now", now.ToString("o")),
-            ("$reason", reason)
+        using var transaction = connection.BeginTransaction(deferred: false);
+        using var invalidate = CreateCommand(connection, transaction);
+        invalidate.CommandText =
+            $"UPDATE {RunLogSchema.BundleOutboxTableName} SET status = 'permanent_failure', failed_at_utc = $now, last_error_code = $reason WHERE bundle_id = $bundleId AND run_id = $runId AND status = 'pending';";
+        AddParameters(
+            invalidate,
+            [
+                ("$bundleId", bundleId),
+                ("$runId", runId),
+                ("$now", now.ToString("o")),
+                ("$reason", reason),
+            ]
         );
+        // File validation works from a snapshot; the upload may have completed since then.
+        if (invalidate.ExecuteNonQuery() == 0)
+            return;
         Execute(
             connection,
             transaction,

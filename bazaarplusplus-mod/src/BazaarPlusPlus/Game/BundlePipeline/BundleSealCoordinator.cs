@@ -109,10 +109,20 @@ internal sealed class BundleSealCoordinator : IBppFeature, IDisposable
         ApplyScreenshotTerminals();
         RecoverFiles();
         EnsureSealJobs();
-        foreach (var runId in _queueStore.ListWaitingRunIds())
+        var published = false;
+        try
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            await TrySealAsync(runId, cancellationToken).ConfigureAwait(false);
+            foreach (var runId in _queueStore.ListWaitingRunIds())
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                published |= await TrySealAsync(runId, cancellationToken).ConfigureAwait(false);
+            }
+        }
+        finally
+        {
+            // A recovered backlog arms one upload batch, not one immediate batch per run.
+            if (published)
+                _services.EventBus.Publish(new UploadArmRequested());
         }
     }
 
@@ -143,11 +153,11 @@ internal sealed class BundleSealCoordinator : IBppFeature, IDisposable
         }
     }
 
-    private async Task TrySealAsync(string runId, CancellationToken cancellationToken)
+    private async Task<bool> TrySealAsync(string runId, CancellationToken cancellationToken)
     {
         var job = _queueStore.ReadJob(runId);
         if (job == null || job.State == BundleSealJobState.TerminalFailure)
-            return;
+            return false;
         var now = DateTimeOffset.UtcNow;
         var secondsUntilInputDeadline = (float)(job.InputDeadlineAtUtc - now).TotalSeconds;
         var jobFacts = new BundleSealJobFacts(
@@ -164,7 +174,7 @@ internal sealed class BundleSealCoordinator : IBppFeature, IDisposable
                 )
             ) == BundleSealConvergenceDecision.Wait
         )
-            return;
+            return false;
 
         string playerAccountId;
         try
@@ -185,10 +195,10 @@ internal sealed class BundleSealCoordinator : IBppFeature, IDisposable
                     )
                 );
                 if (decision == BundleSealConvergenceDecision.Wait)
-                    return;
+                    return false;
             }
             MarkJobTerminal(runId, ex.Code, null);
-            return;
+            return false;
         }
 
         BundleScreenshotBuildInputV5? screenshot = null;
@@ -203,7 +213,7 @@ internal sealed class BundleSealCoordinator : IBppFeature, IDisposable
                     BundleSealInputObservation.Availability(BundleSealInputGate.Screenshot, false)
                 );
                 if (screenshotDecision == BundleSealConvergenceDecision.Wait)
-                    return;
+                    return false;
                 if (
                     screenshotDecision
                     == BundleSealConvergenceDecision.MarkScreenshotTimedOutAndContinue
@@ -230,12 +240,12 @@ internal sealed class BundleSealCoordinator : IBppFeature, IDisposable
         catch (BundleCompositionException ex)
         {
             MarkJobTerminal(runId, ex.Code, null);
-            return;
+            return false;
         }
         catch (Exception ex)
         {
             MarkJobWaiting(runId, "payload_compose_failed", ex.Message);
-            return;
+            return false;
         }
 
         if (
@@ -247,7 +257,7 @@ internal sealed class BundleSealCoordinator : IBppFeature, IDisposable
                 )
             ) == BundleSealConvergenceDecision.Wait
         )
-            return;
+            return false;
         composition.Payload.Degradation.ScreenshotOmitted =
             job.ScreenshotRequested && screenshot == null;
         var encodedPayload = RunPayloadV5Codec.Encode(composition.Payload);
@@ -262,7 +272,7 @@ internal sealed class BundleSealCoordinator : IBppFeature, IDisposable
         )
         {
             MarkJobTerminal(runId, "minimal_run_payload_too_large", null);
-            return;
+            return false;
         }
 
         var allocation =
@@ -294,7 +304,7 @@ internal sealed class BundleSealCoordinator : IBppFeature, IDisposable
         catch (Exception ex)
         {
             MarkJobTerminal(runId, "bundle_build_failed", ex.Message);
-            return;
+            return false;
         }
 
         var fileName = allocation.BundleId + ".bundle";
@@ -321,18 +331,19 @@ internal sealed class BundleSealCoordinator : IBppFeature, IDisposable
             {
                 if (!_queueStore.ContainsOutbox(allocation.BundleId))
                     File.Delete(finalPath);
-                return;
+                return false;
             }
-            _services.EventBus.Publish(new UploadArmRequested());
             BundlePipelineLog.Info(
                 BundlePipelineLogEvents.SealSucceeded,
                 runId,
                 allocation.BundleId
             );
+            return true;
         }
         catch (Exception ex)
         {
             MarkJobWaiting(runId, "seal_publish_failed", ex.Message);
+            return false;
         }
     }
 
