@@ -152,7 +152,9 @@ internal sealed class GhostBattleSyncService
             if (download.StatusCode is 403 or 404)
                 _repository.MarkGhostReplayUnavailable(battleId, "expired", "object_unavailable");
             return Failure(
-                download.Error ?? "ghost_bundle_download_failed",
+                download.StatusCode is 403 or 404
+                    ? "ghost_replay_expired"
+                    : download.Error ?? "ghost_bundle_download_failed",
                 HistoryPanelReplayReasonCode.GhostDownloadFailed,
                 download.DiagnosticException
             );

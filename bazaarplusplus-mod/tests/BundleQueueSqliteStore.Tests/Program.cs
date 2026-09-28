@@ -132,6 +132,13 @@ static void TestOutcomeResealAndCleanupQueries()
                     == "uploaded",
                 "Uploaded outcome should persist before file cleanup."
             );
+            store.FailOutboxAndScheduleReseal("bundle-a", "run-a", "pending_file_invalid", Now());
+            Assert(
+                Scalar(connection, "SELECT status FROM bundle_outbox WHERE bundle_id='bundle-a';")
+                    == "uploaded"
+                    && store.ReadJob("run-a") == null,
+                "A stale pending-file snapshot must not overwrite an uploaded outcome or reseal it."
+            );
             Assert(
                 store.ListRetentionFileNames(Now().AddDays(-7)).Contains("a.bundle"),
                 "Uploaded files are immediate retention candidates."
@@ -192,8 +199,8 @@ static void TestOutcomeResealAndCleanupQueries()
                 "Seven-day permanent files should be retention candidates."
             );
             Assert(
-                RunLogSchema.LocalDatabaseSchemaVersion == 2,
-                "Artifact lifecycle migration should own persistence schema version two."
+                RunLogSchema.LocalDatabaseSchemaVersion == 3,
+                "JSON failure recovery should own persistence schema version three."
             );
         }
     );

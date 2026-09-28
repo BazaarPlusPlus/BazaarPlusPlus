@@ -50,6 +50,7 @@ internal sealed partial class HistoryPanelCoordinator
     {
         ClearDeleteRunConfirmation();
         _state.PageLoading = true;
+        _state.PageLoadFailed = false;
         var section = _state.SectionMode;
         var account = _state.CachedAccountId ?? "";
         var hero = _state.SelectedRunHero;
@@ -112,6 +113,7 @@ internal sealed partial class HistoryPanelCoordinator
                 _state.PageLoading = false;
                 if (error != null)
                 {
+                    _state.PageLoadFailed = true;
                     SetStatusMessage(
                         HistoryPanelText.HistoryLoadFailed(error.Message),
                         StatusSeverity.Failure
@@ -139,7 +141,7 @@ internal sealed partial class HistoryPanelCoordinator
                     _state.SelectedGhostBattleIndex = index >= 0 ? index : 0;
                     LoadSelectedDetail();
                     if (account.Length == 0)
-                        SetStatusMessage(HistoryPanelText.AccountLink.SignedOut());
+                        SetStatusMessage(HistoryPanelText.GhostAccountUnavailable());
                 }
                 _requestUiRefresh();
             }
@@ -272,6 +274,8 @@ internal sealed partial class HistoryPanelCoordinator
             return;
         _session.Begin();
         _state.CachedAccountId = account;
+        _state.ReplayActionBattleId = null;
+        _state.ReplayFailureMessage = null;
         _state.GhostPage = HistoryPage<HistoryBattleRecord>.Empty;
         _state.ReplayActionInProgress =
             _state.GhostSyncInProgress =

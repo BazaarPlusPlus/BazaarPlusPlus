@@ -1,5 +1,7 @@
 #nullable enable
 
+using System.Globalization;
+using BazaarPlusPlus.Game.Screenshots;
 using BazaarPlusPlus.Localization;
 
 namespace BazaarPlusPlus.Game.HistoryPanel;
@@ -8,6 +10,21 @@ internal static partial class HistoryPanelText
 {
     internal static class AccountLink
     {
+        private static readonly LocalizedTextSet UploadsDisabledText = new(
+            "Enable “{0}” in the settings dock to link.",
+            "请先在设置栏打开『{0}』，再绑定账号。"
+        );
+
+        private static readonly LocalizedTextSet PtrUnavailableText = new(
+            "PTR does not support BazaarDB uploads or account linking.",
+            "PTR 不支持 BazaarDB 上传和账号绑定。"
+        );
+
+        private static readonly LocalizedTextSet BindingPersistsText = new(
+            "Your link is saved in your BazaarDB account. Updating the mod keeps it.",
+            "绑定保存在 BazaarDB 账号上，更新插件无需重新绑定。"
+        );
+
         private static readonly LocalizedTextSet TitleText = new(
             "Link BazaarDB account",
             "绑定 BazaarDB 账号",
@@ -109,6 +126,17 @@ internal static partial class HistoryPanelText
         );
 
         internal static string Title() => Resolve(TitleText);
+
+        internal static string UploadsDisabled() =>
+            string.Format(
+                CultureInfo.InvariantCulture,
+                Resolve(UploadsDisabledText),
+                BazaarDbBundleSettingsMenuLabel.Resolve(L.CurrentLanguageCode)
+            );
+
+        internal static string PtrUnavailable() => Resolve(PtrUnavailableText);
+
+        internal static string BindingPersists() => Resolve(BindingPersistsText);
 
         internal static string Why() => Resolve(WhyText);
 

@@ -1996,7 +1996,7 @@ mod tests {
             plan_screenshot_cleanup(&database_path, &game_path, None, test_today()).unwrap_err();
 
         assert!(error.contains("found=0"), "{error}");
-        assert!(error.contains("supported=1,2"), "{error}");
+        assert!(error.contains("supported=1,2,3"), "{error}");
     }
 
     #[test]

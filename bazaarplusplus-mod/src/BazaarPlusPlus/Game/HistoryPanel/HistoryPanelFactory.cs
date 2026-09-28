@@ -1,4 +1,5 @@
 #nullable enable
+using BazaarPlusPlus.Core.Runtime;
 using BazaarPlusPlus.Game.CombatReplay;
 using BazaarPlusPlus.Game.HistoryPanel.Ghost;
 using BazaarPlusPlus.Game.HistoryPanel.Storage;
@@ -17,7 +18,8 @@ internal static class HistoryPanelFactory
         string combatReplayVideoDirectoryPath,
         string pluginsDirectoryPath,
         BazaarDbLinkClient? accountLinkClient = null,
-        Func<bool>? isBazaarDbAccountLinkAvailable = null
+        Func<bool>? isBazaarDbAccountLinkAvailable = null,
+        GameBuildChannel gameBuildChannel = GameBuildChannel.Unknown
     )
     {
         if (runState == null)
@@ -58,7 +60,10 @@ internal static class HistoryPanelFactory
             serverHealthProbe,
             accountLinkClient,
             isBazaarDbAccountLinkAvailable
-        );
+        )
+        {
+            GameBuildChannel = gameBuildChannel,
+        };
     }
 
     private static GhostBattleSyncService? CreateGhostSyncService(

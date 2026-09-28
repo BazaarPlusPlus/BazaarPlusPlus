@@ -69,4 +69,22 @@ internal static partial class HistoryPanelText
     internal static string DeleteConfirm() => Resolve(DeleteConfirmText);
 
     internal static string Working() => Resolve(WorkingText);
+
+    internal static string PagePosition(long first, int pageCount, long total, bool ghost)
+    {
+        if (pageCount == 0 || first == 0)
+            return ghost
+                ? FormatSimple($"{total} battles total", $"共 {total} 场")
+                : FormatSimple($"{total} runs total", $"共 {total} 局");
+        var last = first + pageCount - 1;
+        return ghost
+            ? FormatSimple(
+                $"Battles {first}–{last} · {total} total",
+                $"第 {first}–{last} 场 · 共 {total} 场"
+            )
+            : FormatSimple(
+                $"Runs {first}–{last} · {total} total",
+                $"第 {first}–{last} 局 · 共 {total} 局"
+            );
+    }
 }

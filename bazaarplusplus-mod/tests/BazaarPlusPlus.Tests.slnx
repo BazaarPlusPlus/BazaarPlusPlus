@@ -5,6 +5,7 @@
         <Project Path="CollectionEncounterTooltip.Tests/CollectionEncounterTooltip.Tests.csproj" />
         <Project Path="CombatStatusBarState.Tests/CombatStatusBarState.Tests.csproj" />
         <Project Path="FeatureLogging.Tests/FeatureLogging.Tests.csproj" />
+        <Project Path="GameAssemblyCompatibility.Tests/GameAssemblyCompatibility.Tests.csproj" />
         <Project Path="HeroIdentity.Tests/HeroIdentity.Tests.csproj" />
         <Project Path="PostCombatImpact.Tests/PostCombatImpact.Tests.csproj" />
         <Project Path="PureBehavior.Tests/PureBehavior.Tests.csproj" />
