@@ -451,13 +451,13 @@ mod tests {
             open_write_connection(&database_path).unwrap_err(),
         ] {
             assert!(error.contains("found=0"), "{error}");
-            assert!(error.contains("supported=1,2"), "{error}");
+            assert!(error.contains("supported=1,2,3"), "{error}");
         }
     }
 
     #[test]
     fn connections_open_supported_mod_database_schema_versions() {
-        for user_version in [1, 2] {
+        for user_version in [1, 2, 3] {
             let temp_dir = tempfile::tempdir().unwrap();
             let database_path = temp_dir.path().join("bazaarplusplus.db");
             rusqlite::Connection::open(&database_path)
@@ -525,13 +525,13 @@ mod tests {
         let database_path = temp_dir.path().join("bazaarplusplus.db");
         rusqlite::Connection::open(&database_path)
             .unwrap()
-            .execute_batch("pragma user_version = 3;")
+            .execute_batch("pragma user_version = 4;")
             .unwrap();
 
         let error = open_connection(&database_path).unwrap_err();
 
-        assert!(error.contains("found=3"), "{error}");
-        assert!(error.contains("supported=1,2"), "{error}");
+        assert!(error.contains("found=4"), "{error}");
+        assert!(error.contains("supported=1,2,3"), "{error}");
     }
 
     #[test]

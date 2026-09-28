@@ -666,7 +666,7 @@ mod tests {
             assert_eq!(problem.params.get("found").map(String::as_str), Some("0"));
             assert_eq!(
                 problem.params.get("supported").map(String::as_str),
-                Some("1,2")
+                Some("1,2,3")
             );
             assert!(problem.diagnostic.is_some());
         }
@@ -688,7 +688,7 @@ mod tests {
         assert!(problem
             .diagnostic
             .as_deref()
-            .is_some_and(|value| value.contains("found=0") && value.contains("supported=1,2")));
+            .is_some_and(|value| value.contains("found=0") && value.contains("supported=1,2,3")));
     }
 
     #[test]
