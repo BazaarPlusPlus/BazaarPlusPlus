@@ -1,288 +1,589 @@
 #nullable enable
-using System.Reflection;
+using BazaarPlusPlus.Game.HistoryPanel;
+using BazaarPlusPlus.Game.HistoryPanel.Data;
+using BazaarPlusPlus.Game.HistoryPanel.Storage;
+using BazaarPlusPlus.Game.PvpBattles;
+using BazaarPlusPlus.GameInterop.MonsterBoardPreview;
 using BazaarPlusPlus.Localization;
 
+// History archive status is a table: observed facts in, list/board/page-label copy out. Every
+// expectation is the HistoryPanelText entry itself, resolved under each installed language.
 internal static class GhostMessageTests
 {
-    public static void Run(Assembly assembly)
+    private const string FailureDetail = "network failure with retry guidance";
+
+    private static readonly HistoryArchiveFacts Ghost = new(
+        Section: HistorySectionMode.Ghost,
+        AccountKnown: true,
+        PageLoading: false,
+        PageLoadFailed: false,
+        GhostSync: GhostSyncPhase.Completed,
+        FiltersActive: false,
+        RowCount: 0,
+        SelectedGhostReplay: null,
+        Detail: HistoryDetailPhase.NotSelectedBattle,
+        DetailFailed: false,
+        PlayerBoard: default,
+        OpponentBoard: default
+    );
+
+    private static readonly HistoryArchiveFacts GhostRow = Ghost with
     {
-        var decisions = Type("HistoryPanelDecisions");
-        var stateType = Type("HistoryPanelState");
-        var battleType = Type("Data.HistoryBattleRecord");
+        RowCount = 1,
+        Detail = HistoryDetailPhase.Loaded,
+    };
+
+    private static readonly HistoryArchiveFacts Runs = Ghost with
+    {
+        Section = HistorySectionMode.Runs,
+        RowCount = 1,
+    };
+
+    private static HistorySelectedGhostReplay Replay(
+        ReplayAvailability availability,
+        bool inProgress = false,
+        string? failure = null
+    ) => new(availability, inProgress, failure);
+
+    private static HistoryBoardFacts Board(NativeMonsterBoardStatus status, int partial = 1) =>
+        new(status, partial);
+
+    private sealed record Row(
+        string Name,
+        HistoryArchiveFacts Facts,
+        Func<string> List,
+        Func<string> Board,
+        HistoryPageLabelMode Label = HistoryPageLabelMode.Totals,
+        Func<string>? Opponent = null
+    );
+
+    private static string None() => string.Empty;
+
+    private static readonly Row[] Table =
+    [
+        // List precedence: account → rows → read → sync running → filters → sync failed → empty.
+        new(
+            "Unknown account wins over a pending read and hides the page totals.",
+            Ghost with
+            {
+                AccountKnown = false,
+                PageLoading = true,
+                GhostSync = GhostSyncPhase.Running,
+            },
+            HistoryPanelText.GhostAccountUnavailable,
+            HistoryPanelText.GhostAccountUnavailable,
+            HistoryPageLabelMode.Hidden
+        ),
+        new(
+            "Unknown account with rows still explains account filtering.",
+            GhostRow with
+            {
+                AccountKnown = false,
+                SelectedGhostReplay = Replay(ReplayAvailability.Saved),
+            },
+            HistoryPanelText.GhostAccountUnavailable,
+            HistoryPanelText.GhostAccountUnavailable,
+            HistoryPageLabelMode.Hidden
+        ),
+        new(
+            "Rows hide the list message even while a sync fails.",
+            GhostRow with
+            {
+                GhostSync = GhostSyncPhase.Failed,
+                SelectedGhostReplay = Replay(ReplayAvailability.Saved),
+            },
+            None,
+            None
+        ),
+        new(
+            "A pending read does not claim the archive is empty.",
+            Ghost with
+            {
+                PageLoading = true,
+                PageLoadFailed = true,
+                GhostSync = GhostSyncPhase.Failed,
+            },
+            HistoryPanelText.LoadingPreview,
+            HistoryPanelText.LoadingPreview,
+            HistoryPageLabelMode.Loading
+        ),
+        new(
+            "A failed read offers recovery.",
+            Ghost with
+            {
+                PageLoadFailed = true,
+                GhostSync = GhostSyncPhase.Running,
+            },
+            HistoryPanelText.GhostHistoryReadFailed,
+            HistoryPanelText.GhostHistoryReadFailed
+        ),
+        new(
+            "A running sync is distinct from an empty result.",
+            Ghost with
+            {
+                GhostSync = GhostSyncPhase.Running,
+                FiltersActive = true,
+            },
+            HistoryPanelText.SyncingGhostBattles,
+            HistoryPanelText.SyncingGhostBattles
+        ),
+        new(
+            "A filter-emptied page says filters even after a failed sync.",
+            Ghost with
+            {
+                GhostSync = GhostSyncPhase.Failed,
+                FiltersActive = true,
+            },
+            HistoryPanelText.NoGhostFilterMatches,
+            HistoryPanelText.NoGhostFilterMatches
+        ),
+        new(
+            "Zero rows after a failed sync must not claim nothing is saved.",
+            Ghost with
+            {
+                GhostSync = GhostSyncPhase.Failed,
+            },
+            HistoryPanelText.GhostSyncIncomplete,
+            HistoryPanelText.GhostSyncIncomplete
+        ),
+        new(
+            "A completed sync with zero rows explains the discovery window.",
+            Ghost,
+            HistoryPanelText.NoSavedGhostBattles,
+            HistoryPanelText.NoSavedGhostBattles
+        ),
+        new(
+            "No sync attempt with zero rows is an empty archive.",
+            Ghost with
+            {
+                GhostSync = GhostSyncPhase.NotStarted,
+            },
+            HistoryPanelText.NoSavedGhostBattles,
+            HistoryPanelText.NoSavedGhostBattles
+        ),
+        // Selected Ghost battle preview.
+        new(
+            "A pending detail read shows loading before any replay state.",
+            GhostRow with
+            {
+                Detail = HistoryDetailPhase.Loading,
+                DetailFailed = true,
+                SelectedGhostReplay = Replay(ReplayAvailability.Expired),
+            },
+            None,
+            HistoryPanelText.LoadingPreview
+        ),
+        new(
+            "This battle's download shows progress.",
+            GhostRow with
+            {
+                SelectedGhostReplay = Replay(ReplayAvailability.Remote, inProgress: true),
+            },
+            None,
+            HistoryPanelText.DownloadingGhostReplay
+        ),
+        new(
+            "This battle's saved replay start shows progress.",
+            GhostRow with
+            {
+                DetailFailed = true,
+                SelectedGhostReplay = Replay(ReplayAvailability.Saved, inProgress: true),
+            },
+            None,
+            HistoryPanelText.StartingReplay
+        ),
+        new(
+            "Expiry supersedes a transient failure.",
+            GhostRow with
+            {
+                SelectedGhostReplay = Replay(ReplayAvailability.Expired, failure: FailureDetail),
+            },
+            None,
+            HistoryPanelText.GhostReplayExpired
+        ),
+        new(
+            "Unavailable payloads are specific.",
+            GhostRow with
+            {
+                SelectedGhostReplay = Replay(
+                    ReplayAvailability.Unavailable,
+                    failure: FailureDetail
+                ),
+            },
+            None,
+            HistoryPanelText.GhostReplayPayloadUnavailable
+        ),
+        new(
+            "A remote replay keeps this battle's failure detail.",
+            GhostRow with
+            {
+                SelectedGhostReplay = Replay(ReplayAvailability.Remote, failure: FailureDetail),
+            },
+            None,
+            () => FailureDetail
+        ),
+        new(
+            "An undownloaded board invites download.",
+            GhostRow with
+            {
+                SelectedGhostReplay = Replay(ReplayAvailability.Remote),
+            },
+            None,
+            HistoryPanelText.GhostReplayDownloadRequired
+        ),
+        new(
+            "Re-fetching a missing saved replay exposes its download failure.",
+            GhostRow with
+            {
+                Detail = HistoryDetailPhase.Missing,
+                SelectedGhostReplay = Replay(ReplayAvailability.Saved, failure: FailureDetail),
+            },
+            None,
+            () => FailureDetail
+        ),
+        new(
+            "A missing local payload offers a recovery action.",
+            GhostRow with
+            {
+                Detail = HistoryDetailPhase.Missing,
+                SelectedGhostReplay = Replay(ReplayAvailability.Saved),
+            },
+            None,
+            HistoryPanelText.GhostLocalReplayUnreadable
+        ),
+        new(
+            "Unreadable local data does not blame the native renderer.",
+            GhostRow with
+            {
+                DetailFailed = true,
+                SelectedGhostReplay = Replay(ReplayAvailability.Saved),
+            },
+            None,
+            HistoryPanelText.GhostLocalReplayUnreadable
+        ),
+        new(
+            "A detail read for another battle is not a missing payload.",
+            GhostRow with
+            {
+                Detail = HistoryDetailPhase.NotSelectedBattle,
+                SelectedGhostReplay = Replay(ReplayAvailability.Saved),
+                PlayerBoard = Board(NativeMonsterBoardStatus.Empty),
+            },
+            None,
+            HistoryPanelText.NoLocallyRenderableCards,
+            Opponent: None
+        ),
+        new(
+            "Saved boards, including genuine empty captures, keep native rendering results.",
+            GhostRow with
+            {
+                SelectedGhostReplay = Replay(ReplayAvailability.Saved),
+                PlayerBoard = Board(NativeMonsterBoardStatus.Partial, 3),
+            },
+            None,
+            () => HistoryPanelText.PartialPreview(3),
+            Opponent: None
+        ),
+        new(
+            "A board that has reported nothing yet shows no message.",
+            GhostRow with
+            {
+                SelectedGhostReplay = Replay(ReplayAvailability.Saved),
+            },
+            None,
+            None
+        ),
+        // Runs.
+        new(
+            "Run lists never receive Ghost guidance or hide totals without an account.",
+            Runs with
+            {
+                AccountKnown = false,
+                RowCount = 0,
+                GhostSync = GhostSyncPhase.Failed,
+            },
+            None,
+            None
+        ),
+        new(
+            "A pending Runs page shows loading in its label.",
+            Runs with
+            {
+                PageLoading = true,
+            },
+            None,
+            None,
+            HistoryPageLabelMode.Loading
+        ),
+        new(
+            "A pending Runs detail read shows loading on both boards.",
+            Runs with
+            {
+                Detail = HistoryDetailPhase.Loading,
+                DetailFailed = true,
+            },
+            None,
+            HistoryPanelText.LoadingPreview,
+            Opponent: HistoryPanelText.LoadingPreview
+        ),
+        new(
+            "Local-run detail failures keep their renderer message on both boards.",
+            Runs with
+            {
+                DetailFailed = true,
+            },
+            None,
+            HistoryPanelText.PreviewRendererInitFailed,
+            Opponent: HistoryPanelText.PreviewRendererInitFailed
+        ),
+        new(
+            "Each Runs board keeps its own native status.",
+            Runs with
+            {
+                PlayerBoard = Board(NativeMonsterBoardStatus.Failed),
+                OpponentBoard = Board(NativeMonsterBoardStatus.Loading),
+            },
+            None,
+            HistoryPanelText.PreviewRendererInitFailed,
+            Opponent: HistoryPanelText.LoadingPreview
+        ),
+        new(
+            "Ready boards show no message.",
+            Runs with
+            {
+                PlayerBoard = Board(NativeMonsterBoardStatus.Ready),
+                OpponentBoard = Board(NativeMonsterBoardStatus.Ready),
+            },
+            None,
+            None
+        ),
+    ];
+
+    public static void Run()
+    {
         try
         {
-            foreach (var language in new[] { "en", "zh-Hans" })
+            foreach (
+                var (language, mode) in new[]
+                {
+                    ("en", BppChineseLocaleMode.Mainland),
+                    ("zh-Hans", BppChineseLocaleMode.Mainland),
+                    ("zh-Hans", BppChineseLocaleMode.Taiwan),
+                }
+            )
             {
-                L.Install(new Language(language), new Mainland());
-                var chinese = language == "zh-Hans";
-                var state = Activator.CreateInstance(stateType)!;
-                Set(state, "SectionMode", Enum.Parse(Type("HistorySectionMode"), "Ghost"));
-                Set(state, "PageLoading", true);
-                Contains(
-                    Empty(),
-                    chinese ? "账号资料加载完成" : "profile to load",
-                    "Missing identity must explain how to load the account, even while loading."
-                );
-                Contains(
-                    Preview(null),
-                    chinese ? "无法列出幽灵" : "cannot be listed",
-                    "An empty board must explain account filtering too."
-                );
-                Set(state, "CachedAccountId", "local-account");
-                Contains(
-                    Empty(),
-                    chinese ? "加载" : "Loading",
-                    "Pending reads must not claim there are no records."
-                );
-                Set(state, "PageLoading", false);
-                Set(state, "PageLoadFailed", true);
-                Contains(
-                    Empty(),
-                    chinese ? "重新打开" : "Reopen History",
-                    "Read failures must offer recovery."
-                );
-                Set(state, "PageLoadFailed", false);
-                Set(state, "GhostSyncInProgress", true);
-                Contains(
-                    Empty(),
-                    chinese ? "同步" : "Syncing",
-                    "Pending discovery must be distinct from an empty result."
-                );
-                Set(state, "GhostSyncInProgress", false);
-                Contains(
-                    Empty(),
-                    chinese ? "5 天" : "5 days",
-                    "An empty account must explain the remote discovery window."
-                );
-                Set(state, "GhostBattleFilter", Enum.Parse(Type("GhostBattleFilter"), "IWon"));
-                Contains(
-                    Empty(),
-                    chinese ? "筛选" : "filter",
-                    "Outcome filters must suggest widening the filter."
-                );
-                Set(state, "GhostBattleFilter", Enum.Parse(Type("GhostBattleFilter"), "All"));
-                Set(state, "GhostDayMin10", true);
-                Contains(
-                    Empty(),
-                    chinese ? "筛选" : "filter",
-                    "Day filters must suggest widening the filter."
-                );
-                Set(state, "GhostDayMin10", false);
-
-                var remote = Battle("Remote");
-                Contains(
-                    Preview(remote),
-                    chinese ? "点击『下载回放』查看阵容" : "Click \"Download Replay\"",
-                    "Undownloaded boards must invite download."
-                );
-                var rows = Array.CreateInstance(battleType, 1);
-                rows.SetValue(remote, 0);
-                var page = Activator.CreateInstance(
-                    Type("Storage.HistoryPage`1").MakeGenericType(battleType),
-                    rows,
-                    null,
-                    null,
-                    false,
-                    false
-                )!;
-                Set(state, "GhostPage", page);
-                Equal(Empty(), "", "Nonempty lists must hide the empty label.");
-                Set(state, "ReplayActionInProgress", true);
-                Set(state, "ReplayActionBattleId", "battle");
-                Contains(
-                    Preview(remote),
-                    chinese ? "获取" : "Fetching",
-                    "Downloads must show progress for their own battle."
-                );
-                Set(state, "ReplayActionBattleId", "other-battle");
-                Contains(
-                    Preview(remote),
-                    chinese ? "点击" : "Click",
-                    "Other battles must not inherit progress."
-                );
-                Set(state, "ReplayActionInProgress", false);
-                Set(state, "ReplayFailureMessage", "network failure with retry guidance");
-                Contains(
-                    Preview(remote),
-                    chinese ? "点击" : "Click",
-                    "Other battles must not inherit failures."
-                );
-                Set(state, "ReplayActionBattleId", "battle");
-                Equal(
-                    Preview(remote),
-                    "network failure with retry guidance",
-                    "Transient failure details must persist for the selected battle."
-                );
-                Contains(
-                    Preview(Battle("Expired")),
-                    chinese ? "已过期" : "expired",
-                    "Expiry must supersede a transient failure."
-                );
-                Contains(
-                    Preview(Battle("Unavailable")),
-                    chinese ? "没有可用" : "no usable",
-                    "Unavailable payloads must be specific."
-                );
-                Set(state, "ReplayFailureMessage", null);
-                var saved = Battle("Saved");
-                Set(state, "DetailBattleId", "battle");
-                Set(
-                    state,
-                    "ReplayFailureMessage",
-                    "network failure while replacing missing local data"
-                );
-                Equal(
-                    Preview(saved),
-                    "network failure while replacing missing local data",
-                    "Re-fetching a missing saved replay must also expose download failures."
-                );
-                Set(state, "ReplayFailureMessage", null);
-                Contains(
-                    Preview(saved),
-                    chinese ? "重新获取" : "fetching it again",
-                    "A missing local payload must offer a recovery action."
-                );
-                Set(
-                    state,
-                    "DetailSnapshots",
-                    Activator.CreateInstance(
-                        assembly.GetType("BazaarPlusPlus.Game.PvpBattles.PvpBattleSnapshots")!
-                    )
-                );
-                Equal(
-                    Preview(saved),
-                    null,
-                    "Saved replay boards, including genuine empty captures, must preserve native rendering results."
-                );
-                Set(state, "DetailFailed", true);
-                Contains(
-                    Preview(saved),
-                    chinese ? "重新获取" : "fetching it again",
-                    "Unreadable local data must not blame the native renderer."
-                );
-                Set(state, "DetailLoading", true);
-                Contains(
-                    Preview(saved),
-                    chinese ? "加载" : "Loading",
-                    "A pending read must not present a stale failure."
-                );
-                Set(state, "DetailLoading", false);
-                Set(state, "SectionMode", Enum.Parse(Type("HistorySectionMode"), "Runs"));
-                Equal(Empty(), "", "Run lists must not receive Ghost guidance.");
-                Contains(
-                    Preview(Battle("Saved", "Local")),
-                    chinese ? "初始化" : "initialize",
-                    "Local-run renderer failures must keep their existing message."
-                );
-                Set(state, "DetailFailed", false);
-                Equal(
-                    Preview(Battle("Saved", "Local")),
-                    null,
-                    "Local boards must keep native rendering messages."
-                );
-
-                Contains(
-                    Failure("Expired", "ghost_replay_expired", "GhostDownloadFailed"),
-                    chinese ? "已过期" : "expired",
-                    "Expired downloads must not be generic errors."
-                );
-                foreach (var reason in new[] { "GhostArtifactInvalid", "GhostBattleMismatch" })
-                    Contains(
-                        Failure(null, "ghost_bundle_invalid", reason),
-                        chinese ? "没有可用" : "no usable",
-                        "Invalid downloaded data must explain unavailability."
+                L.Install(new Language(language), new LocaleMode(mode));
+                foreach (var row in Table)
+                {
+                    var status = HistoryPanelDecisions.ArchiveStatus(row.Facts);
+                    var where = $"[{language}/{mode}] {row.Name}";
+                    Equal(status.ListMessage, row.List(), where + " (list)");
+                    Equal(status.PlayerBoardMessage, row.Board(), where + " (player board)");
+                    Equal(
+                        status.OpponentBoardMessage,
+                        (row.Opponent ?? row.Board)(),
+                        where + " (opponent board)"
                     );
-                Contains(
-                    Failure(
-                        "Unavailable",
-                        "ghost_replay_unavailable_payload",
-                        "GhostDownloadFailed"
-                    ),
-                    chinese ? "没有可用" : "no usable",
-                    "Persisted unavailable state must remain specific."
-                );
-                var network = Failure(null, "network_unavailable", "GhostDownloadFailed");
-                Contains(
-                    network,
-                    "network_unavailable",
-                    "Transient failures must retain their diagnostic code."
-                );
-                Contains(
-                    network,
-                    chinese ? "稍后重试" : "Try again later",
-                    "Transient failures must offer retry guidance."
-                );
-
-                string? Empty() => Call("GhostArchiveEmptyMessage", state);
-                string? Preview(object? battle) => Call("PreviewStatusOverride", state, battle);
-                string? Failure(string? availability, string error, string reason) =>
-                    Call(
-                        "GhostDownloadFailureMessage",
-                        availability == null
-                            ? null
-                            : Enum.Parse(Type("Data.ReplayAvailability"), availability),
-                        error,
-                        Enum.Parse(Type("HistoryPanelReplayReasonCode"), reason)
-                    );
+                    Equal(status.PageLabel, row.Label, where + " (label)");
+                }
             }
+
+            L.Install(new Language("zh-Hans"), new LocaleMode(BppChineseLocaleMode.Taiwan));
+            Equal(
+                HistoryPanelText.GhostSyncIncomplete(),
+                "幽靈同步失敗，列表可能不完整。請重新打開歷史記錄後重試。",
+                "Traditional Chinese derives the incomplete-sync copy from the Mainland text."
+            );
+            L.Install(new Language("en"), new LocaleMode(BppChineseLocaleMode.Mainland));
+            ObserveFiltersToTheSelectedBattle();
+            DownloadFailureMessages();
         }
         finally
         {
-            L.Install(new Language("en"), new Mainland());
+            L.Install(new Language("en"), new LocaleMode(BppChineseLocaleMode.Mainland));
         }
-
-        Type Type(string name) =>
-            assembly.GetType("BazaarPlusPlus.Game.HistoryPanel." + name, true)!;
-        string? Call(string name, params object?[] args) =>
-            (string?)decisions.GetMethod(name)!.Invoke(null, args);
-        object Battle(string replay, string source = "Ghost") =>
-            Activator.CreateInstance(
-                battleType,
-                "battle",
-                "run",
-                DateTimeOffset.UtcNow.AddDays(-40),
-                1,
-                1,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                Activator.CreateInstance(Type("Data.HistoryBattleSnapshotCounts")),
-                false,
-                Enum.Parse(Type("Data.HistoryBattleSource"), source),
-                Enum.Parse(Type("Data.ReplayAvailability"), replay)
-            )!;
     }
 
-    private static void Set(object target, string property, object? value) =>
-        target.GetType().GetProperty(property)!.SetValue(target, value);
-
-    private static void Contains(string? actual, string expected, string message)
+    private static void ObserveFiltersToTheSelectedBattle()
     {
-        if (actual?.Contains(expected, StringComparison.Ordinal) != true)
-            throw new InvalidOperationException(
-                $"{message} Expected '{expected}', got '{actual}'."
+        var state = new HistoryPanelState
+        {
+            SectionMode = HistorySectionMode.Ghost,
+            CachedAccountId = "local-account",
+            GhostSync = GhostSyncPhase.Failed,
+            GhostDayMin10 = true,
+            ReplayActionInProgress = true,
+            ReplayActionBattleId = "other-battle",
+            ReplayFailureMessage = FailureDetail,
+            DetailBattleId = "other-battle",
+        };
+        var battle = Battle(ReplayAvailability.Remote);
+        state.GhostPage = new HistoryPage<HistoryBattleRecord>([battle], null, null, false, false);
+        var player = Board(NativeMonsterBoardStatus.Partial, 2);
+        var facts = HistoryArchiveFacts.Observe(state, battle, player, default);
+        Equal(
+            facts,
+            Ghost with
+            {
+                GhostSync = GhostSyncPhase.Failed,
+                FiltersActive = true,
+                RowCount = 1,
+                SelectedGhostReplay = Replay(ReplayAvailability.Remote),
+                PlayerBoard = player,
+            },
+            "Another battle's replay action and detail read must not reach this battle's facts."
+        );
+
+        state.ReplayActionBattleId = "battle";
+        state.DetailBattleId = "battle";
+        state.GhostSync = GhostSyncPhase.NotStarted;
+        state.GhostDayMin10 = false;
+        state.GhostBattleFilter = GhostBattleFilter.ILost;
+        Equal(
+            HistoryArchiveFacts.Observe(state, battle, default, default),
+            Ghost with
+            {
+                GhostSync = GhostSyncPhase.NotStarted,
+                FiltersActive = true,
+                RowCount = 1,
+                SelectedGhostReplay = Replay(
+                    ReplayAvailability.Remote,
+                    inProgress: true,
+                    failure: FailureDetail
+                ),
+                Detail = HistoryDetailPhase.Missing,
+            },
+            "This battle's replay action, failure, and missing snapshots are its own facts."
+        );
+
+        state.DetailSnapshots = new PvpBattleSnapshots();
+        state.DetailFailed = true;
+        state.CachedAccountId = " ";
+        Equal(
+            HistoryArchiveFacts.Observe(state, battle, default, default).Detail,
+            HistoryDetailPhase.Loaded,
+            "Loaded snapshots for the selected battle are Loaded."
+        );
+        Equal(
+            HistoryArchiveFacts.Observe(state, battle, default, default).AccountKnown,
+            false,
+            "A blank cached account is unknown."
+        );
+        state.DetailLoading = true;
+        Equal(
+            HistoryArchiveFacts.Observe(state, null, default, default),
+            Ghost with
+            {
+                AccountKnown = false,
+                GhostSync = GhostSyncPhase.NotStarted,
+                FiltersActive = true,
+                RowCount = 1,
+                Detail = HistoryDetailPhase.Loading,
+                DetailFailed = true,
+            },
+            "A pending detail read is global, as is a failed one."
+        );
+
+        state.DetailLoading = false;
+        Equal(
+            HistoryArchiveFacts
+                .Observe(
+                    state,
+                    Battle(ReplayAvailability.Saved, HistoryBattleSource.Local),
+                    default,
+                    default
+                )
+                .SelectedGhostReplay,
+            null,
+            "A non-Ghost battle carries no Ghost replay facts."
+        );
+    }
+
+    private static void DownloadFailureMessages()
+    {
+        Equal(
+            HistoryPanelDecisions.GhostDownloadFailureMessage(
+                ReplayAvailability.Expired,
+                "ghost_replay_expired",
+                HistoryPanelReplayReasonCode.GhostDownloadFailed
+            ),
+            HistoryPanelText.GhostReplayExpired(),
+            "Expired downloads must not be generic errors."
+        );
+        foreach (
+            var reason in new[]
+            {
+                HistoryPanelReplayReasonCode.GhostArtifactInvalid,
+                HistoryPanelReplayReasonCode.GhostBattleMismatch,
+            }
+        )
+            Equal(
+                HistoryPanelDecisions.GhostDownloadFailureMessage(
+                    null,
+                    "ghost_bundle_invalid",
+                    reason
+                ),
+                HistoryPanelText.GhostReplayPayloadUnavailable(),
+                "Invalid downloaded data must explain unavailability."
             );
+        Equal(
+            HistoryPanelDecisions.GhostDownloadFailureMessage(
+                ReplayAvailability.Unavailable,
+                "ghost_replay_unavailable_payload",
+                HistoryPanelReplayReasonCode.GhostDownloadFailed
+            ),
+            HistoryPanelText.GhostReplayPayloadUnavailable(),
+            "Persisted unavailable state must remain specific."
+        );
+        Equal(
+            HistoryPanelDecisions.GhostDownloadFailureMessage(
+                null,
+                "network_unavailable",
+                HistoryPanelReplayReasonCode.GhostDownloadFailed
+            ),
+            HistoryPanelText.FailedToDownloadGhostReplay("network_unavailable"),
+            "Transient failures must retain their diagnostic code and retry guidance."
+        );
     }
 
-    private static void Equal(string? actual, string? expected, string message)
+    private static HistoryBattleRecord Battle(
+        ReplayAvailability replay,
+        HistoryBattleSource source = HistoryBattleSource.Ghost
+    ) =>
+        new(
+            "battle",
+            "run",
+            DateTimeOffset.UtcNow.AddDays(-40),
+            1,
+            1,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            new HistoryBattleSnapshotCounts(),
+            false,
+            source,
+            replay
+        );
+
+    private static void Equal<T>(T actual, T expected, string message)
     {
-        if (actual != expected)
+        if (!EqualityComparer<T>.Default.Equals(actual, expected))
             throw new InvalidOperationException(
                 $"{message} Expected '{expected}', got '{actual}'."
             );
@@ -293,8 +594,8 @@ internal static class GhostMessageTests
         public string CurrentLanguageCode => code;
     }
 
-    private sealed class Mainland : ILocaleModeProvider
+    private sealed class LocaleMode(BppChineseLocaleMode mode) : ILocaleModeProvider
     {
-        public BppChineseLocaleMode CurrentMode => BppChineseLocaleMode.Mainland;
+        public BppChineseLocaleMode CurrentMode => mode;
     }
 }

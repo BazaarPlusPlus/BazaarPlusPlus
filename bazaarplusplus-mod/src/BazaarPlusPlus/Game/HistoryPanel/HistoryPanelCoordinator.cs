@@ -61,9 +61,10 @@ internal sealed partial class HistoryPanelCoordinator : IDisposable
     {
         _session.Begin();
         _state.AccountLinkExpanded = false;
-        // Begin() cancelled any in-flight redeem (its continuations bail on !IsCurrent without
-        // resetting state), and re-entrant opens skip OnPanelHidden — reset here or the toggle
-        // guard leaves the account-link row permanently inert.
+        // Begin() cancels any in-flight redeem, whose continuations bail on !IsCurrent without
+        // resetting state. OnPanelHidden has already cleared the flag (the Overlay Panel Host
+        // answers a second open with AlreadyInState); resetting here too keeps the toggle guard
+        // from leaving the account-link row permanently inert.
         _state.AccountLinkInProgress = false;
         // Adopt the account inside this session; routing through ObserveAccount would begin a
         // second session and sync twice.
@@ -93,7 +94,7 @@ internal sealed partial class HistoryPanelCoordinator : IDisposable
 
     public void OnPanelHidden()
     {
-        _state.GhostSyncInProgress = false;
+        _state.GhostSync = GhostSyncPhase.NotStarted;
         _state.ReplayActionInProgress = false;
         _state.ServerHealthProbeInProgress = false;
         _state.AccountLinkInProgress = false;
@@ -856,7 +857,7 @@ internal sealed partial class HistoryPanelCoordinator : IDisposable
 
     public async Task TrySyncGhostBattlesAsync()
     {
-        if (_state.GhostSyncInProgress)
+        if (_state.GhostSync == GhostSyncPhase.Running)
         {
             SetStatusMessage(HistoryPanelText.GhostSyncAlreadyRunning());
             _requestUiRefresh();
@@ -872,7 +873,7 @@ internal sealed partial class HistoryPanelCoordinator : IDisposable
 
         var logOperation = new HistoryPanelGhostSyncLogOperation(Guid.NewGuid().ToString("N"));
 
-        _state.GhostSyncInProgress = true;
+        _state.GhostSync = GhostSyncPhase.Running;
         var sessionVersion = _session.Version;
         SetStatusMessage(HistoryPanelText.SyncingGhostBattles(), StatusSeverity.Pending);
 
@@ -893,7 +894,7 @@ internal sealed partial class HistoryPanelCoordinator : IDisposable
                 return;
             }
 
-            _state.GhostSyncInProgress = false;
+            _state.GhostSync = GhostSyncPhase.Failed;
             if (
                 logOperation.TryFail(HistoryPanelGhostSyncReasonCode.Canceled, ex, out var terminal)
             )
@@ -910,7 +911,7 @@ internal sealed partial class HistoryPanelCoordinator : IDisposable
                 return;
             }
 
-            _state.GhostSyncInProgress = false;
+            _state.GhostSync = GhostSyncPhase.Failed;
             SetStatusMessage(HistoryPanelText.GhostSyncFailed(ex.Message), StatusSeverity.Failure);
             if (
                 logOperation.TryFail(
@@ -930,9 +931,9 @@ internal sealed partial class HistoryPanelCoordinator : IDisposable
             return;
         }
 
-        _state.GhostSyncInProgress = false;
         if (!syncResult.Succeeded)
         {
+            _state.GhostSync = GhostSyncPhase.Failed;
             if (logOperation.TryFail(syncResult.ReasonCode, syncResult.Error, out var terminal))
                 HistoryPanelLogWriter.EmitGhostSyncTerminal(terminal);
             SetStatusMessage(syncResult.StatusMessage, StatusSeverity.Failure);
@@ -940,6 +941,7 @@ internal sealed partial class HistoryPanelCoordinator : IDisposable
             return;
         }
 
+        _state.GhostSync = GhostSyncPhase.Completed;
         if (logOperation.TrySucceed(syncResult.ImportedCount, out var succeeded))
             HistoryPanelLogWriter.EmitGhostSyncTerminal(succeeded);
         SetStatusMessage(syncResult.StatusMessage, StatusSeverity.Success);
@@ -981,7 +983,7 @@ internal sealed partial class HistoryPanelCoordinator : IDisposable
     {
         if (
             !_state.ReplayActionInProgress
-            && !_state.GhostSyncInProgress
+            && _state.GhostSync != GhostSyncPhase.Running
             && !_state.ServerHealthProbeInProgress
         )
             SetStatusMessage(null);

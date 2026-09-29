@@ -11,6 +11,17 @@ internal enum HistorySectionMode
     Ghost,
 }
 
+// TrySyncGhostBattlesAsync alone writes Running, Failed, and Completed; each session boundary
+// (OnPanelHidden, ObserveAccount) writes NotStarted, because a sync its session cancelled returns
+// without touching state and would otherwise stay Running.
+internal enum GhostSyncPhase
+{
+    NotStarted,
+    Running,
+    Failed,
+    Completed,
+}
+
 internal enum GhostBattleFilter
 {
     All,
@@ -61,7 +72,7 @@ internal sealed class HistoryPanelState
 
     public HistorySectionMode SectionMode { get; set; } = HistorySectionMode.Runs;
 
-    public bool GhostSyncInProgress { get; set; }
+    public GhostSyncPhase GhostSync { get; set; }
 
     public bool ReplayActionInProgress { get; set; }
     public string? ReplayActionBattleId { get; set; }

@@ -13,7 +13,7 @@ TestCanDeleteRunDecisionArms();
 TestAccountLinkAvailabilityGate();
 TestDatabaseChipTextAndSeverity();
 TestButtonModelReplayRecordDeleteParity();
-GhostMessageTests.Run(modAssembly);
+GhostMessageTests.Run();
 AccountLinkCardTests.Run(modAssembly);
 PageRangeTests.Run(modAssembly);
 

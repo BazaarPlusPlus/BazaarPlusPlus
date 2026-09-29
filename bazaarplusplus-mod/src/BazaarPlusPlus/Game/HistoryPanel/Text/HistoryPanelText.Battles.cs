@@ -84,6 +84,13 @@ internal static partial class HistoryPanelText
             "无法读取已保存的幽灵对战。请重新打开历史记录后重试。"
         );
 
+    // The status bar keeps the failure detail; the list only says its absence proves nothing.
+    internal static string GhostSyncIncomplete() =>
+        FormatSimple(
+            "Couldn't sync Ghost battles, so this list may be incomplete. Reopen History to try again.",
+            "幽灵同步失败，列表可能不完整。请重新打开历史记录后重试。"
+        );
+
     internal static string GhostReplayDownloadRequired() =>
         FormatSimple(
             $"Click \"{DownloadReplay()}\" to view the board.",

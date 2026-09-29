@@ -274,10 +274,8 @@ internal sealed partial class HistoryPanelCoordinator
         if (!AdoptProfileAccount())
             return;
         _session.Begin();
-        _state.ReplayActionInProgress =
-            _state.GhostSyncInProgress =
-            _state.AccountLinkInProgress =
-                false;
+        _state.ReplayActionInProgress = _state.AccountLinkInProgress = false;
+        _state.GhostSync = GhostSyncPhase.NotStarted;
         _state.ServerHealthProbeInProgress = false;
         SetAccountLinkBanner(null, StatusSeverity.Neutral);
         RefreshAccountLinkHint();

@@ -757,7 +757,7 @@ internal sealed partial class HistoryPanelView
         _latest.interactable = !m.PageLoading;
         _battleNewer.interactable = m.BattleHasNewer;
         _battleOlder.interactable = m.BattleHasOlder;
-        _pageLabel.text = m.PageLoading ? HistoryPanelText.LoadingPreview() : m.PageRange;
+        _pageLabel.text = m.PageLabel;
         _archiveEmptyLabel.text = m.ArchiveEmptyMessage;
         _archiveEmptyLabel.gameObject.SetActive(m.ArchiveEmptyMessage.Length > 0);
         if (runs)

@@ -14,8 +14,8 @@ internal sealed partial class HistoryPanel
 {
     private OwnedMonsterBoardPreview? _nativePlayerBoard;
     private OwnedMonsterBoardPreview? _nativeOpponentBoard;
-    private string _nativePlayerStatusMessage = string.Empty;
-    private string _nativeOpponentStatusMessage = string.Empty;
+    private HistoryBoardFacts _nativePlayerStatus;
+    private HistoryBoardFacts _nativeOpponentStatus;
     private Rect _opponentBounds;
 
     private void RefreshNativeHistoryBoards()
@@ -27,8 +27,6 @@ internal sealed partial class HistoryPanel
             _nativePlayerBoard.SetBounds(_previewContainerBounds);
         var battle = ActiveSelectedBattle;
         var snapshots = _state.DetailBattleId == battle?.BattleId ? _state.DetailSnapshots : null;
-        if (_state.DetailLoading)
-            SetPreviewStatus(HistoryPanelText.LoadingPreview(), true);
         var player = HistoryBattlePreviewProjection.BuildPlayer(
             snapshots,
             $"player:{battle?.BattleId}"
@@ -59,23 +57,30 @@ internal sealed partial class HistoryPanel
         {
             _nativeOpponentBoard?.Dispose();
             _nativeOpponentBoard = null;
+            _nativeOpponentStatus = default;
         }
         RefreshNativeHistoryMessages();
     }
 
+    private HistoryArchiveStatus ArchiveStatus() =>
+        HistoryPanelDecisions.ArchiveStatus(
+            HistoryArchiveFacts.Observe(
+                _state,
+                ActiveSelectedBattle,
+                _nativePlayerStatus,
+                _nativeOpponentStatus
+            )
+        );
+
+    // Render can reuse an unchanged board without a callback, so every refresh re-derives both
+    // board messages from the stored native status.
     private void RefreshNativeHistoryMessages()
     {
         if (_uiView == null)
             return;
-        var overrideMessage = HistoryPanelDecisions.PreviewStatusOverride(
-            _state,
-            ActiveSelectedBattle
-        );
-        // Render can reuse an unchanged board without a callback. Restore its last native
-        // message when a loading/download override ends, even for an empty projection.
-        var playerMessage = overrideMessage ?? _nativePlayerStatusMessage;
-        SetPreviewStatus(playerMessage, playerMessage.Length > 0);
-        _uiView.SetOpponentStatus(overrideMessage ?? _nativeOpponentStatusMessage);
+        var status = ArchiveStatus();
+        SetPreviewStatus(status.PlayerBoardMessage, status.PlayerBoardMessage.Length > 0);
+        _uiView.SetOpponentStatus(status.OpponentBoardMessage);
     }
 
     private OwnedMonsterBoardPreview CreateNativeHistoryBoard(bool opponent) =>
@@ -85,20 +90,14 @@ internal sealed partial class HistoryPanel
             !opponent,
             (status, exception) =>
             {
-                var message = status switch
-                {
-                    NativeMonsterBoardStatus.Loading => HistoryPanelText.LoadingPreview(),
-                    NativeMonsterBoardStatus.Empty => HistoryPanelText.NoLocallyRenderableCards(),
-                    NativeMonsterBoardStatus.Failed => HistoryPanelText.PreviewRendererInitFailed(),
-                    NativeMonsterBoardStatus.Partial => HistoryPanelText.PartialPreview(
-                        (exception as NativeBoardPartialFailure)?.Count ?? 1
-                    ),
-                    _ => string.Empty,
-                };
+                var board = new HistoryBoardFacts(
+                    status,
+                    (exception as NativeBoardPartialFailure)?.Count ?? 1
+                );
                 if (opponent)
-                    _nativeOpponentStatusMessage = message;
+                    _nativeOpponentStatus = board;
                 else
-                    _nativePlayerStatusMessage = message;
+                    _nativePlayerStatus = board;
                 RefreshNativeHistoryMessages();
                 if (exception != null)
                     HistoryPanelPreviewLogWriter.ReportCardPreview(
@@ -147,5 +146,6 @@ internal sealed partial class HistoryPanel
         _nativePlayerBoard?.Dispose();
         _nativeOpponentBoard?.Dispose();
         _nativePlayerBoard = _nativeOpponentBoard = null;
+        _nativePlayerStatus = _nativeOpponentStatus = default;
     }
 }

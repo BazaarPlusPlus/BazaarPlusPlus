@@ -8,6 +8,7 @@ using System.Runtime.CompilerServices;
 [assembly: InternalsVisibleTo("RunLoggingModule.Tests")]
 [assembly: InternalsVisibleTo("EndOfRunScreenshotGate.Tests")]
 [assembly: InternalsVisibleTo("HistoryPanelFactory.Tests")]
+[assembly: InternalsVisibleTo("HistoryPanelDecisions.Tests")]
 [assembly: InternalsVisibleTo("BundlePipeline.Tests")]
 [assembly: InternalsVisibleTo("CombatReplayRecording.Tests")]
 [assembly: InternalsVisibleTo("GhostBattleSync.Tests")]

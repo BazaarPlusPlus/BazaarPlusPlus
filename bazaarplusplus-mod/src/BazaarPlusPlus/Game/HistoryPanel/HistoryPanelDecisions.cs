@@ -1,6 +1,7 @@
 #nullable enable
 using BazaarPlusPlus.Core.Runtime;
 using BazaarPlusPlus.Game.HistoryPanel.Data;
+using BazaarPlusPlus.GameInterop.MonsterBoardPreview;
 
 namespace BazaarPlusPlus.Game.HistoryPanel;
 
@@ -19,67 +20,84 @@ internal readonly struct HistoryPanelDatabaseChip
 
 internal static class HistoryPanelDecisions
 {
-    public static string GhostArchiveEmptyMessage(HistoryPanelState state)
+    // List precedence: account → rows → read → running sync → filters → failed sync → empty. A
+    // failed sync sits after filters so a filter-emptied page still points at its filters.
+    public static HistoryArchiveStatus ArchiveStatus(HistoryArchiveFacts facts)
     {
-        if (state.SectionMode != HistorySectionMode.Ghost)
+        var list = ListMessage(facts);
+        var preview = PreviewOverride(facts, list);
+        return new HistoryArchiveStatus(
+            list,
+            preview ?? BoardMessage(facts.PlayerBoard),
+            preview ?? BoardMessage(facts.OpponentBoard),
+            facts.Section == HistorySectionMode.Ghost && !facts.AccountKnown
+                    ? HistoryPageLabelMode.Hidden
+                : facts.PageLoading ? HistoryPageLabelMode.Loading
+                : HistoryPageLabelMode.Totals
+        );
+    }
+
+    private static string ListMessage(HistoryArchiveFacts facts)
+    {
+        if (facts.Section != HistorySectionMode.Ghost)
             return string.Empty;
-        if (string.IsNullOrWhiteSpace(state.CachedAccountId))
+        if (!facts.AccountKnown)
             return HistoryPanelText.GhostAccountUnavailable();
-        if (state.GhostBattles.Count > 0)
+        if (facts.RowCount > 0)
             return string.Empty;
-        if (state.PageLoading)
+        if (facts.PageLoading)
             return HistoryPanelText.LoadingPreview();
-        if (state.PageLoadFailed)
+        if (facts.PageLoadFailed)
             return HistoryPanelText.GhostHistoryReadFailed();
-        if (state.GhostSyncInProgress)
+        if (facts.GhostSync == GhostSyncPhase.Running)
             return HistoryPanelText.SyncingGhostBattles();
-        return state.GhostBattleFilter != GhostBattleFilter.All || state.GhostDayMin10
-            ? HistoryPanelText.NoGhostFilterMatches()
+        if (facts.FiltersActive)
+            return HistoryPanelText.NoGhostFilterMatches();
+        return facts.GhostSync == GhostSyncPhase.Failed
+            ? HistoryPanelText.GhostSyncIncomplete()
             : HistoryPanelText.NoSavedGhostBattles();
     }
 
-    // Null leaves the native renderer's own ready/empty/partial/failure message intact.
-    public static string? PreviewStatusOverride(
-        HistoryPanelState state,
-        HistoryBattleRecord? battle
-    )
+    // Null leaves each native board's own ready/empty/partial/failure message intact.
+    private static string? PreviewOverride(HistoryArchiveFacts facts, string list)
     {
-        if (state.SectionMode == HistorySectionMode.Ghost)
+        if (facts.Section == HistorySectionMode.Ghost)
         {
-            if (string.IsNullOrWhiteSpace(state.CachedAccountId))
-                return HistoryPanelText.GhostAccountUnavailable();
-            if (battle == null)
-                return GhostArchiveEmptyMessage(state);
+            if (!facts.AccountKnown || facts.RowCount == 0)
+                return list;
         }
-        if (state.DetailLoading)
+        if (facts.Detail == HistoryDetailPhase.Loading)
             return HistoryPanelText.LoadingPreview();
         if (
-            state.SectionMode != HistorySectionMode.Ghost
-            || battle?.Source != HistoryBattleSource.Ghost
+            facts.Section != HistorySectionMode.Ghost
+            || facts.SelectedGhostReplay is not { } replay
         )
-            return state.DetailFailed ? HistoryPanelText.PreviewRendererInitFailed() : null;
-        if (state.ReplayActionInProgress && state.ReplayActionBattleId == battle.BattleId)
-            return battle.Replay == ReplayAvailability.Saved
+            return facts.DetailFailed ? HistoryPanelText.PreviewRendererInitFailed() : null;
+        if (replay.ActionInProgress)
+            return replay.Availability == ReplayAvailability.Saved
                 ? HistoryPanelText.StartingReplay()
                 : HistoryPanelText.DownloadingGhostReplay();
-        if (battle.Replay != ReplayAvailability.Saved)
+        return replay.Availability switch
         {
-            if (battle.Replay != ReplayAvailability.Remote)
-                return GhostReplayUnavailableReason(battle);
-            if (state.ReplayActionBattleId == battle.BattleId && state.ReplayFailureMessage != null)
-                return state.ReplayFailureMessage;
-            return HistoryPanelText.GhostReplayDownloadRequired();
-        }
-        if (
-            state.DetailFailed
-            || (state.DetailBattleId == battle.BattleId && state.DetailSnapshots == null)
-        )
-            return
-                state.ReplayActionBattleId == battle.BattleId && state.ReplayFailureMessage != null
-                ? state.ReplayFailureMessage
-                : HistoryPanelText.GhostLocalReplayUnreadable();
-        return null;
+            ReplayAvailability.Expired => HistoryPanelText.GhostReplayExpired(),
+            ReplayAvailability.Unavailable => HistoryPanelText.GhostReplayPayloadUnavailable(),
+            ReplayAvailability.Remote => replay.FailureMessage
+                ?? HistoryPanelText.GhostReplayDownloadRequired(),
+            _ => facts.DetailFailed || facts.Detail == HistoryDetailPhase.Missing
+                ? replay.FailureMessage ?? HistoryPanelText.GhostLocalReplayUnreadable()
+                : null,
+        };
     }
+
+    private static string BoardMessage(HistoryBoardFacts board) =>
+        board.Status switch
+        {
+            NativeMonsterBoardStatus.Loading => HistoryPanelText.LoadingPreview(),
+            NativeMonsterBoardStatus.Empty => HistoryPanelText.NoLocallyRenderableCards(),
+            NativeMonsterBoardStatus.Failed => HistoryPanelText.PreviewRendererInitFailed(),
+            NativeMonsterBoardStatus.Partial => HistoryPanelText.PartialPreview(board.PartialCount),
+            _ => string.Empty,
+        };
 
     public static string GhostDownloadFailureMessage(
         ReplayAvailability? availability,
