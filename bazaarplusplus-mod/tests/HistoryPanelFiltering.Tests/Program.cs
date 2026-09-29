@@ -33,6 +33,8 @@ TestPageReplacementUpdatesSelection();
 TestCoordinatorRunSelectionUsesFilteredSpace();
 TestReplayReturnPreservesSelectionAndFilters();
 TestGhostListTextMarksOnlyTheFinalBattle();
+TestAccountArrivalSyncsOnlyTheOpenGhostSection();
+TestAccountLinkActionHandsAccountChangeToTheObserver();
 
 Console.WriteLine("HistoryPanelFiltering checks passed.");
 
@@ -334,6 +336,201 @@ void TestReplayReturnPreservesSelectionAndFilters()
     }
 }
 
+void TestAccountArrivalSyncsOnlyTheOpenGhostSection()
+{
+    WithProfileCapsule(
+        "Ghost",
+        (state, coordinator, syncAttempts) =>
+        {
+            Invoke(coordinatorType, coordinator, "OnPanelShown", false);
+            uiContext.Until(() => !(bool)stateType.GetProperty("PageLoading")!.GetValue(state)!);
+            Assert(syncAttempts() == 1, "Entering Ghost before the profile loads tries one sync.");
+
+            FakeClientCache.SetAccountId("account-arrived");
+            Invoke(coordinatorType, coordinator, "Tick", 0f);
+            Assert(
+                syncAttempts() == 2,
+                "The profile account arriving while Ghost is open must sync Ghost battles."
+            );
+            uiContext.Until(() => !(bool)stateType.GetProperty("PageLoading")!.GetValue(state)!);
+            Assert(
+                GetNullableString(state, "CachedAccountId") == "account-arrived",
+                "The Ghost list must reload for the arrived account."
+            );
+
+            Invoke(coordinatorType, coordinator, "Tick", 0f);
+            Assert(syncAttempts() == 2, "An unchanged account must not sync again.");
+            Invoke(coordinatorType, coordinator, "OnPanelHidden");
+        }
+    );
+
+    WithProfileCapsule(
+        "Ghost",
+        (state, coordinator, syncAttempts) =>
+        {
+            FakeClientCache.SetAccountId("account-known");
+            Invoke(coordinatorType, coordinator, "OnPanelShown", false);
+            Invoke(coordinatorType, coordinator, "Tick", 0f);
+            uiContext.Until(() => !(bool)stateType.GetProperty("PageLoading")!.GetValue(state)!);
+            Assert(
+                syncAttempts() == 1,
+                "Opening Ghost with a new account adopts it in the opening session and syncs once."
+            );
+            Invoke(coordinatorType, coordinator, "OnPanelHidden");
+        }
+    );
+
+    WithProfileCapsule(
+        "Runs",
+        (state, coordinator, syncAttempts) =>
+        {
+            Invoke(coordinatorType, coordinator, "OnPanelShown", false);
+            uiContext.Until(() => !(bool)stateType.GetProperty("PageLoading")!.GetValue(state)!);
+
+            FakeClientCache.SetAccountId("account-arrived");
+            Invoke(coordinatorType, coordinator, "Tick", 0f);
+            uiContext.Until(() => !(bool)stateType.GetProperty("PageLoading")!.GetValue(state)!);
+            Assert(
+                syncAttempts() == 0,
+                "The profile account arriving while Runs is open must not sync Ghost battles."
+            );
+            Assert(
+                GetNullableString(state, "CachedAccountId") == "account-arrived",
+                "Runs must still observe the arrived account."
+            );
+            Invoke(coordinatorType, coordinator, "OnPanelHidden");
+        }
+    );
+}
+
+void TestAccountLinkActionHandsAccountChangeToTheObserver()
+{
+    WithProfileCapsule(
+        "Ghost",
+        (state, coordinator, syncAttempts) =>
+        {
+            // The signed-out Ghost read is still in flight when the account-link row reads the
+            // profile; that read must not strand the list in its loading state.
+            Invoke(coordinatorType, coordinator, "OnPanelShown", false);
+            Assert(syncAttempts() == 1, "Entering Ghost before the profile loads tries one sync.");
+
+            FakeClientCache.SetAccountId("account-linked");
+            Invoke(coordinatorType, coordinator, "ToggleAccountLinkForm");
+            Assert(
+                syncAttempts() == 2,
+                "An account change first seen by the account-link row must still sync Ghost battles."
+            );
+            uiContext.Until(() => !(bool)stateType.GetProperty("PageLoading")!.GetValue(state)!);
+            Assert(
+                GetNullableString(state, "CachedAccountId") == "account-linked",
+                "The Ghost list must reload for the account the link row saw."
+            );
+
+            Invoke(coordinatorType, coordinator, "Tick", 0f);
+            Assert(syncAttempts() == 2, "The next tick must not handle the same change again.");
+            Invoke(coordinatorType, coordinator, "OnPanelHidden");
+        }
+    );
+}
+
+// A History capsule whose game profile is a settable fake and whose Ghost sync service counts
+// attempts: the account resolver runs once per sync and reports no identity, so no request is sent.
+void WithProfileCapsule(string section, Action<object, IDisposable, Func<int>> body)
+{
+    var databasePath = Path.Combine(
+        Path.GetTempPath(),
+        $"bpp-history-account-{Guid.NewGuid():N}.sqlite3"
+    );
+    using (var db = new SqliteConnection($"Data Source={databasePath}"))
+    {
+        db.Open();
+        RunLogSchema.EnsureInitialized(db);
+    }
+    var repository = Construct(
+        RequireType("BazaarPlusPlus.Game.HistoryPanel.Storage.HistoryPanelRepository"),
+        databasePath
+    );
+    using var api =
+        BazaarPlusPlus.ModApi.Clients.ModApiSession.TryCreate(
+            "https://api.example",
+            "test",
+            "OnlineClient",
+            TimeSpan.FromSeconds(5),
+            new RefusingHandler()
+        ) ?? throw new InvalidOperationException("Test Mod API session should construct.");
+    var syncAttempts = 0;
+    var syncService = Construct(
+        RequireType("BazaarPlusPlus.Game.HistoryPanel.Ghost.GhostBattleSyncService"),
+        repository,
+        api,
+        (Func<string?>)(
+            () =>
+            {
+                syncAttempts++;
+                return null;
+            }
+        )
+    );
+    var dataService = Construct(dataServiceType, repository, syncService);
+    var dependencies = Construct(dependenciesType, null, dataService, null, null, null, null);
+    // No Unity PlayerPrefs here: keep the BazaarDB link hints in memory.
+    var linkHints = new HashSet<string>();
+    dependenciesType
+        .GetProperty("AccountLinkStore")!
+        .SetValue(
+            dependencies,
+            Construct(
+                RequireType(
+                    "BazaarPlusPlus.Game.HistoryPanel.AccountLink.BazaarDbAccountLinkStore"
+                ),
+                (Func<string, bool>)linkHints.Contains,
+                (Action<string>)(key => linkHints.Add(key))
+            )
+        );
+    var state = Activator.CreateInstance(stateType)!;
+    stateType
+        .GetProperty("SectionMode")!
+        .SetValue(
+            state,
+            Enum.Parse(RequireType("BazaarPlusPlus.Game.HistoryPanel.HistorySectionMode"), section)
+        );
+    using var coordinator = (IDisposable)
+        Activator.CreateInstance(
+            coordinatorType,
+            state,
+            dependencies,
+            (Action)(() => { }),
+            (Action)(() => { }),
+            (Action<bool>)(_ => { })
+        )!;
+
+    var bridge = RequireType("BazaarPlusPlus.GameInterop.BppClientCacheBridge");
+    var cacheType = bridge.GetField(
+        "_clientCacheType",
+        BindingFlags.NonPublic | BindingFlags.Static
+    )!;
+    var resolved = bridge.GetField(
+        "_clientCacheTypeResolved",
+        BindingFlags.NonPublic | BindingFlags.Static
+    )!;
+    var previousType = cacheType.GetValue(null);
+    var previousResolved = resolved.GetValue(null);
+    FakeClientCache.SetAccountId(null);
+    cacheType.SetValue(null, typeof(FakeClientCache));
+    resolved.SetValue(null, true);
+    try
+    {
+        body(state, coordinator, () => syncAttempts);
+    }
+    finally
+    {
+        cacheType.SetValue(null, previousType);
+        resolved.SetValue(null, previousResolved);
+        SqliteConnection.ClearAllPools();
+        File.Delete(databasePath);
+    }
+}
+
 object CreateRun(string runId, string hero)
 {
     return Activator.CreateInstance(
@@ -497,4 +694,30 @@ void Assert(bool condition, string message)
 {
     if (!condition)
         throw new InvalidOperationException(message);
+}
+
+// Stands in for TheBazaar.ClientCache: BppClientCacheBridge reads Profile.Value.AccountId.
+internal static class FakeClientCache
+{
+    public static FakeObservable Profile { get; } = new();
+
+    public static void SetAccountId(string? accountId) =>
+        Profile.Value = accountId == null ? null : new FakeProfile(accountId);
+}
+
+internal sealed class FakeObservable
+{
+    public bool HasData => Value != null;
+
+    public FakeProfile? Value { get; set; }
+}
+
+internal sealed record FakeProfile(string AccountId);
+
+internal sealed class RefusingHandler : HttpMessageHandler
+{
+    protected override Task<HttpResponseMessage> SendAsync(
+        HttpRequestMessage request,
+        CancellationToken cancellationToken
+    ) => throw new InvalidOperationException("History account tests must not reach the network.");
 }

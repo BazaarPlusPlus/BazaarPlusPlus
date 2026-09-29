@@ -16,7 +16,7 @@ internal sealed partial class HistoryPanelCoordinator : IDisposable
     private readonly HistoryPanelReplayService _replayService;
     private readonly IHistoryPanelServerHealthProbe? _serverHealthProbe;
     private readonly BazaarDbLinkClient? _linkClient;
-    private readonly BazaarDbAccountLinkStore _accountLinkStore = new();
+    private readonly BazaarDbAccountLinkStore _accountLinkStore;
     private readonly Action _requestUiRefresh;
     private readonly Action _requestPreviewRefresh;
     private readonly Action<bool> _requestVisibilityChange;
@@ -38,6 +38,7 @@ internal sealed partial class HistoryPanelCoordinator : IDisposable
         _replayService = dependencies.ReplayService;
         _serverHealthProbe = dependencies.ServerHealthProbe;
         _linkClient = dependencies.AccountLinkClient;
+        _accountLinkStore = dependencies.AccountLinkStore;
         _requestUiRefresh =
             requestUiRefresh ?? throw new ArgumentNullException(nameof(requestUiRefresh));
         _requestPreviewRefresh =
@@ -64,13 +65,11 @@ internal sealed partial class HistoryPanelCoordinator : IDisposable
         // resetting state), and re-entrant opens skip OnPanelHidden — reset here or the toggle
         // guard leaves the account-link row permanently inert.
         _state.AccountLinkInProgress = false;
-        var previousAccount = _state.CachedAccountId;
-        RefreshAccountLinkIdentityFromGame();
-        if (previousAccount != _state.CachedAccountId)
-        {
-            _state.GhostPage = HistoryPage<HistoryBattleRecord>.Empty;
-            _state.SelectedGhostBattleIndex = 0;
-        }
+        // Adopt the account inside this session; routing through ObserveAccount would begin a
+        // second session and sync twice.
+        AdoptProfileAccount();
+        SetAccountLinkBanner(null, StatusSeverity.Neutral);
+        RefreshAccountLinkHint();
         _state.ReplayActionInProgress = false;
         _state.ReplayActionBattleId = null;
         _state.ReplayFailureMessage = null;
@@ -988,22 +987,28 @@ internal sealed partial class HistoryPanelCoordinator : IDisposable
             SetStatusMessage(null);
     }
 
+    // A changed account goes through ObserveAccount first, so the Ghost list and sync follow it
+    // even when the account-link row is the first to see the new profile.
     private string? RefreshAccountLinkIdentityFromGame(bool clearBanner = true)
     {
-        var accountId = NormalizeAccountId(BppClientCacheBridge.TryGetProfileAccountId());
-
-        _state.CachedAccountId = accountId;
+        ObserveAccount();
         if (clearBanner)
             SetAccountLinkBanner(null, StatusSeverity.Neutral);
+        RefreshAccountLinkHint();
+        return _state.CachedAccountId;
+    }
+
+    private void RefreshAccountLinkHint()
+    {
+        var accountId = _state.CachedAccountId;
         if (string.IsNullOrWhiteSpace(accountId))
         {
             _state.LocalLinkedHint = false;
             _state.AccountLinkExpanded = false;
-            return null;
+            return;
         }
 
         _state.LocalLinkedHint = _accountLinkStore.IsLinked(accountId);
-        return accountId;
     }
 
     private void SetAccountLinkBanner(string? message, StatusSeverity severity)

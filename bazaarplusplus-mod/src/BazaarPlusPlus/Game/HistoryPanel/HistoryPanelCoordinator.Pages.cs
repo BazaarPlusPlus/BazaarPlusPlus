@@ -267,25 +267,38 @@ internal sealed partial class HistoryPanelCoordinator
         );
     }
 
+    // Owns an account change seen while the panel is open, whichever path reads the profile first:
+    // restart the session and re-enter the section, so the open Ghost section syncs the new account.
     private void ObserveAccount()
     {
-        var account = NormalizeAccountId(BppClientCacheBridge.TryGetProfileAccountId());
-        if (account == _state.CachedAccountId)
+        if (!AdoptProfileAccount())
             return;
         _session.Begin();
-        _state.CachedAccountId = account;
-        _state.ReplayActionBattleId = null;
-        _state.ReplayFailureMessage = null;
-        _state.GhostPage = HistoryPage<HistoryBattleRecord>.Empty;
         _state.ReplayActionInProgress =
             _state.GhostSyncInProgress =
             _state.AccountLinkInProgress =
                 false;
         _state.ServerHealthProbeInProgress = false;
-        RefreshAccountLinkIdentityFromGame();
+        SetAccountLinkBanner(null, StatusSeverity.Neutral);
+        RefreshAccountLinkHint();
         ClearDetail();
-        RefreshData();
+        RefreshSectionOnEntry();
         StartGhostMaintenance();
+    }
+
+    // The only writer of CachedAccountId. It clears account-scoped rows but starts no work, so
+    // OnPanelShown can adopt the account inside the session it has just begun.
+    private bool AdoptProfileAccount()
+    {
+        var account = NormalizeAccountId(BppClientCacheBridge.TryGetProfileAccountId());
+        if (account == _state.CachedAccountId)
+            return false;
+        _state.CachedAccountId = account;
+        _state.ReplayActionBattleId = null;
+        _state.ReplayFailureMessage = null;
+        _state.GhostPage = HistoryPage<HistoryBattleRecord>.Empty;
+        _state.SelectedGhostBattleIndex = 0;
+        return true;
     }
 
     private void StartGhostMaintenance()
