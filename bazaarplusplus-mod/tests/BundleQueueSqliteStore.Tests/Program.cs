@@ -7,6 +7,7 @@ using Microsoft.Data.Sqlite;
 TestSqliteUtcInstant();
 TestEligibilityAllocationPublishAndDueOrdering();
 TestOutcomeResealAndCleanupQueries();
+TestFinalOutboxEndsEligibility();
 
 Console.WriteLine("Bundle queue SQLite store checks passed.");
 
@@ -201,6 +202,59 @@ static void TestOutcomeResealAndCleanupQueries()
             Assert(
                 RunLogSchema.LocalDatabaseSchemaVersion == 3,
                 "JSON failure recovery should own persistence schema version three."
+            );
+        }
+    );
+}
+
+static void TestFinalOutboxEndsEligibility()
+{
+    WithStore(
+        (store, connection) =>
+        {
+            InsertRun(
+                connection,
+                "rejected",
+                "ranked",
+                "Online",
+                completed: true,
+                screenshot: false
+            );
+            InsertRun(
+                connection,
+                "expired",
+                "ranked",
+                "Online",
+                completed: true,
+                screenshot: false
+            );
+            store.EnsureEligibleJobs(TimeSpan.Zero);
+            foreach (var runId in new[] { "rejected", "expired" })
+            {
+                var allocation = store.EnsureAllocation(runId, "bundle-" + runId, 1000, Now());
+                store.PublishOutbox(
+                    allocation,
+                    Publish("bundle-" + runId, runId, runId + ".bundle", 10),
+                    Now().AddDays(-20)
+                );
+            }
+
+            store.RecordOutcome(
+                "bundle-rejected",
+                new BundleUploadOutcomeRecord(false, "bundle_rejected", null, "request-r", null),
+                Now()
+            );
+            store.ExpirePending(Now().AddDays(-14), Now());
+            store.EnsureEligibleJobs(TimeSpan.Zero);
+            store.EnsureEligibleJobs(TimeSpan.Zero);
+
+            Assert(
+                store.ReadJob("rejected") == null && store.ReadJob("expired") == null,
+                "A server rejection or retention expiry is final and must not start another seal."
+            );
+            Assert(
+                Scalar(connection, "SELECT COUNT(*) || '' FROM bundle_outbox;") == "2",
+                "Final outcomes must not accumulate replacement outbox rows."
             );
         }
     );
