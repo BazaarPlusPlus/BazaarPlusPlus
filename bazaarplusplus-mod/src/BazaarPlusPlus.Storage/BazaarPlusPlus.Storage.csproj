@@ -7,11 +7,11 @@
     <Nullable>enable</Nullable>
     <Version>$(BppVersion)</Version>
     <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+    <BppReferenceGameLibraries>true</BppReferenceGameLibraries>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="NETStandard.Library" />
-    <PackageReference Include="Newtonsoft.Json" />
     <PackageReference Include="Microsoft.Data.Sqlite" />
     <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" />
     <PackageReference Include="SourceGear.sqlite3" />

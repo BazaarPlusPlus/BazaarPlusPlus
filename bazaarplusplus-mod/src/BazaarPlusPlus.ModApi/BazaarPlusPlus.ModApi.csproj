@@ -7,13 +7,12 @@
     <Nullable>enable</Nullable>
     <Version>$(BppVersion)</Version>
     <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+    <BppReferenceGameLibraries>true</BppReferenceGameLibraries>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="NETStandard.Library" />
-    <PackageReference Include="Newtonsoft.Json" />
-    <!-- MessagePack: compile-only reference. Do not bundle a replacement; the plugin runtime
-         deliberately loads the game's MessagePack.dll. -->
-    <PackageReference Include="MessagePack" ExcludeAssets="runtime" />
+    <!-- The source generator must match the game's MessagePack runtime (ADR-0010). -->
+    <PackageReference Include="MessagePackAnalyzer" PrivateAssets="all" />
   </ItemGroup>
 </Project>

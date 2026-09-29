@@ -5,6 +5,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+    <BppReferenceGameLibraries>true</BppReferenceGameLibraries>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(RemoteEmbeddedDataPrepared)' == 'true'">
@@ -16,7 +17,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Newtonsoft.Json" />
     <PackageReference Include="JsonSchema.Net" />
     <Compile Include="../Shared/LocalizationTestBootstrap.cs" Link="LocalizationTestBootstrap.cs" />
   </ItemGroup>

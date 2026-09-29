@@ -4,18 +4,15 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <BppReferenceGameLibraries>true</BppReferenceGameLibraries>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="../../src/BazaarPlusPlus.ModApi/BazaarPlusPlus.ModApi.csproj" />
-    <PackageReference Include="MessagePack" />
     <PackageReference Include="Microsoft.Data.Sqlite" />
     <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" />
     <Reference Include="BazaarGameShared">
       <HintPath>$(ManagedPath)/BazaarGameShared.dll</HintPath>
-    </Reference>
-    <Reference Include="Newtonsoft.Json">
-      <HintPath>$(ManagedPath)/Newtonsoft.Json.dll</HintPath>
     </Reference>
   </ItemGroup>
 

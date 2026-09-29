@@ -4,10 +4,10 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <BppReferenceGameLibraries>true</BppReferenceGameLibraries>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../../src/BazaarPlusPlus/BazaarPlusPlus.csproj" />
-    <PackageReference Include="MessagePack" />
     <Reference Include="BazaarGameShared">
       <HintPath>$(ManagedPath)/BazaarGameShared.dll</HintPath>
     </Reference>

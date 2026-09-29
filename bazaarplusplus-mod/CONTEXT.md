@@ -168,3 +168,9 @@ _Avoid_: Mod API health
 **Build Seed Fetch**:
 The build-time transport operation that stages remote embedded seeds, checks coarse transfer
 integrity, runs feature-owned semantic gates, and promotes the complete seed set transactionally.
+
+## Build
+
+**Game-supplied library**:
+A third-party library the game's `Managed/` directory loads for the mod (Newtonsoft.Json, MessagePack). The mod compiles against the game's file, never a package, and never publicizes or ships it (`build/GameLibraries.props`, ADR-0010).
+_Avoid_: game JSON runtime, compile-only package
