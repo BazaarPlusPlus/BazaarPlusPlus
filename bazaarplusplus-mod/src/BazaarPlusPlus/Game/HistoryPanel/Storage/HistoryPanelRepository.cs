@@ -97,8 +97,7 @@ internal sealed partial class HistoryPanelRepository
             "battle_id",
             "recorded_at_utc",
             predicate,
-            "*, CASE WHEN ghost_replay_state IN ('remote_available','local_ready') THEN 1 ELSE 0 END AS replay_available, "
-                + "CASE WHEN ghost_replay_state = 'local_ready' THEN 1 ELSE 0 END AS replay_downloaded",
+            "*",
             request,
             HistoryPanelRowMapper.ReadGhostBattle,
             includeCounts: true,
@@ -532,18 +531,22 @@ internal sealed partial class HistoryPanelRepository
             reader.GetString(3),
             reader.GetString(4),
             reader.GetInt64(5),
-            reader.GetString(6),
+            ReplayAvailabilityCodec.Parse(reader.IsDBNull(6) ? null : reader.GetString(6)),
             reader.GetString(7)
         );
     }
 
-    public void MarkGhostReplayUnavailable(string localBattleId, string state, string reason)
+    public void MarkGhostReplayUnavailable(
+        string localBattleId,
+        ReplayAvailability availability,
+        string reason
+    )
     {
-        if (
-            string.IsNullOrWhiteSpace(localBattleId)
-            || (state != "unavailable_payload" && state != "expired")
-        )
+        if (string.IsNullOrWhiteSpace(localBattleId))
             return;
+        // Saved is written only by MarkGhostReplayDownloaded, which also clears the reason.
+        if (availability is not (ReplayAvailability.Expired or ReplayAvailability.Unavailable))
+            throw new ArgumentOutOfRangeException(nameof(availability), availability, null);
         using var connection = OpenConnection(ensureSchema: true);
         using var command = connection.CreateCommand();
         command.CommandTimeout = 2;
@@ -554,7 +557,10 @@ internal sealed partial class HistoryPanelRepository
             WHERE source = 'GHOST' AND battle_id = $battleId;
             """;
         command.Parameters.AddWithValue("$battleId", localBattleId);
-        command.Parameters.AddWithValue("$state", state);
+        command.Parameters.AddWithValue(
+            "$state",
+            ReplayAvailabilityCodec.ToStoredState(availability)
+        );
         command.Parameters.AddWithValue("$reason", reason);
         command.ExecuteNonQuery();
     }
@@ -654,6 +660,6 @@ internal sealed record GhostBundleReference(
     string BundleId,
     string DownloadUrl,
     long DownloadExpiresAtMs,
-    string ReplayState,
+    ReplayAvailability ReplayState,
     string LocalPlayerAccountId
 );

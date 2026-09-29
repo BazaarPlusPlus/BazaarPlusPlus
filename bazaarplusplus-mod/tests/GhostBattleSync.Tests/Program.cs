@@ -2,6 +2,7 @@
 using System.Net;
 using System.Net.Http.Headers;
 using BazaarPlusPlus.Game.HistoryPanel;
+using BazaarPlusPlus.Game.HistoryPanel.Data;
 using BazaarPlusPlus.Game.HistoryPanel.Ghost;
 using BazaarPlusPlus.Game.HistoryPanel.Storage;
 using BazaarPlusPlus.Game.PvpBattles;
@@ -215,7 +216,8 @@ static async Task ExpiredUrlRefreshesOnceAndBecomesTerminal()
         "An expired terminal row must not download again."
     );
     Assert(
-        fixture.Repository.TryGetGhostBundleReference(localId)?.ReplayState == "expired",
+        fixture.Repository.TryGetGhostBundleReference(localId)?.ReplayState
+            == ReplayAvailability.Expired,
         "Expired must persist."
     );
 }
@@ -266,7 +268,7 @@ static async Task CorruptBundleBecomesPermanentWithoutRepeatedDownload()
     );
     Assert(
         fixture.Repository.TryGetGhostBundleReference(localId)?.ReplayState
-            == "unavailable_payload",
+            == ReplayAvailability.Unavailable,
         "Corruption state must persist."
     );
 }
@@ -312,7 +314,7 @@ static void RecorderPerspectiveManifestKeepsSides()
         "bundle",
         "https://r2.example/bundle",
         DateTimeOffset.UtcNow.AddMinutes(5).ToUnixTimeMilliseconds(),
-        "available",
+        ReplayAvailability.Remote,
         "L"
     );
 

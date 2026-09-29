@@ -93,7 +93,7 @@ internal sealed class GhostBattleSyncService
         var payloadStore = new GhostBattlePayloadStore(
             GhostBattlePayloadStore.ResolveDirectory(replayDirectoryPath)
         );
-        if (reference.ReplayState == "local_ready")
+        if (reference.ReplayState == ReplayAvailability.Saved)
         {
             var cached = await Task.Run(
                     () => payloadStore.LoadDetailed(reference.LocalBattleId),
@@ -111,11 +111,8 @@ internal sealed class GhostBattleSyncService
             )
                 return GhostBattleReplayDownloadResult.Success();
         }
-        if (reference.ReplayState == "unavailable_payload" || reference.ReplayState == "expired")
-            return Failure(
-                $"ghost_replay_{reference.ReplayState}",
-                HistoryPanelReplayReasonCode.GhostDownloadFailed
-            );
+        if (reference.ReplayState is ReplayAvailability.Expired or ReplayAvailability.Unavailable)
+            return AvailabilityFailure(reference.ReplayState);
 
         var refreshed = false;
         if (reference.DownloadExpiresAtMs <= DateTimeOffset.UtcNow.ToUnixTimeMilliseconds())
@@ -125,11 +122,12 @@ internal sealed class GhostBattleSyncService
             refreshed = true;
             if (reference == null)
             {
-                _repository.MarkGhostReplayUnavailable(battleId, "expired", "url_expired");
-                return Failure(
-                    "ghost_replay_expired",
-                    HistoryPanelReplayReasonCode.GhostDownloadFailed
+                _repository.MarkGhostReplayUnavailable(
+                    battleId,
+                    ReplayAvailability.Expired,
+                    "url_expired"
                 );
+                return AvailabilityFailure(ReplayAvailability.Expired);
             }
         }
 
@@ -149,15 +147,18 @@ internal sealed class GhostBattleSyncService
 
         if (!download.Succeeded || download.Bytes == null)
         {
-            if (download.StatusCode is 403 or 404)
-                _repository.MarkGhostReplayUnavailable(battleId, "expired", "object_unavailable");
-            return Failure(
-                download.StatusCode is 403 or 404
-                    ? "ghost_replay_expired"
-                    : download.Error ?? "ghost_bundle_download_failed",
-                HistoryPanelReplayReasonCode.GhostDownloadFailed,
-                download.DiagnosticException
+            if (download.StatusCode is not (403 or 404))
+                return Failure(
+                    download.Error ?? "ghost_bundle_download_failed",
+                    HistoryPanelReplayReasonCode.GhostDownloadFailed,
+                    download.DiagnosticException
+                );
+            _repository.MarkGhostReplayUnavailable(
+                battleId,
+                ReplayAvailability.Expired,
+                "object_unavailable"
             );
+            return AvailabilityFailure(ReplayAvailability.Expired, download.DiagnosticException);
         }
 
         var extraction = ExtractPayload(reference!, download.Bytes);
@@ -165,7 +166,7 @@ internal sealed class GhostBattleSyncService
         {
             _repository.MarkGhostReplayUnavailable(
                 battleId,
-                "unavailable_payload",
+                ReplayAvailability.Unavailable,
                 extraction.Error ?? "payload_invalid"
             );
             return Failure(
@@ -355,6 +356,18 @@ internal sealed class GhostBattleSyncService
         HistoryPanelReplayReasonCode reasonCode,
         Exception? exception = null
     ) => GhostBattleReplayDownloadResult.Failure(error, reasonCode, exception);
+
+    // The error code stays a diagnostic; the panel reads Availability.
+    private static GhostBattleReplayDownloadResult AvailabilityFailure(
+        ReplayAvailability availability,
+        Exception? exception = null
+    ) =>
+        GhostBattleReplayDownloadResult.Failure(
+            "ghost_replay_" + ReplayAvailabilityCodec.ToStoredState(availability),
+            HistoryPanelReplayReasonCode.GhostDownloadFailed,
+            exception,
+            availability
+        );
 }
 
 internal readonly struct GhostBattleSyncResult
@@ -406,13 +419,15 @@ internal readonly struct GhostBattleReplayDownloadResult
         bool succeeded,
         string? error,
         HistoryPanelReplayReasonCode reasonCode,
-        Exception? exception
+        Exception? exception,
+        ReplayAvailability? availability
     )
     {
         Succeeded = succeeded;
         Error = error;
         ReasonCode = reasonCode;
         Exception = exception;
+        Availability = availability;
     }
 
     public bool Succeeded { get; }
@@ -420,14 +435,18 @@ internal readonly struct GhostBattleReplayDownloadResult
     public HistoryPanelReplayReasonCode ReasonCode { get; }
     public Exception? Exception { get; }
 
+    // Set when the failure is the battle's persisted Expired or Unavailable state.
+    public ReplayAvailability? Availability { get; }
+
     public static GhostBattleReplayDownloadResult Success() =>
-        new(true, null, HistoryPanelReplayReasonCode.Completed, null);
+        new(true, null, HistoryPanelReplayReasonCode.Completed, null, null);
 
     public static GhostBattleReplayDownloadResult Failure(
         string error,
         HistoryPanelReplayReasonCode reasonCode,
-        Exception? exception = null
-    ) => new(false, error, reasonCode, exception);
+        Exception? exception = null,
+        ReplayAvailability? availability = null
+    ) => new(false, error, reasonCode, exception, availability);
 }
 
 internal readonly struct GhostPayloadExtraction

@@ -100,7 +100,7 @@ internal sealed class HistoryPanelReplayService
             if (!runtime.CanReplaySavedCombats(out reason))
                 return false;
 
-            if (battle.ReplayDownloaded || battle.ReplayAvailable)
+            if (battle.Replay is ReplayAvailability.Saved or ReplayAvailability.Remote)
             {
                 reason = string.Empty;
                 return true;
@@ -110,7 +110,7 @@ internal sealed class HistoryPanelReplayService
             return false;
         }
 
-        if (!battle.ReplayAvailable)
+        if (battle.Replay != ReplayAvailability.Saved)
         {
             reason = HistoryPanelText.ReplayPayloadUnavailable(battle.BattleId);
             return false;
@@ -123,8 +123,7 @@ internal sealed class HistoryPanelReplayService
     {
         return
             battle?.Source == HistoryBattleSource.Ghost
-            && !battle.ReplayDownloaded
-            && battle.ReplayAvailable
+            && battle.Replay == ReplayAvailability.Remote
             ? HistoryPanelText.DownloadReplay()
             : HistoryPanelText.Replay();
     }
@@ -207,6 +206,7 @@ internal sealed class HistoryPanelReplayService
         if (!downloadResult.Succeeded)
             return HistoryPanelReplayAttemptResult.Failure(
                 HistoryPanelDecisions.GhostDownloadFailureMessage(
+                    downloadResult.Availability,
                     downloadResult.Error,
                     downloadResult.ReasonCode
                 ),
@@ -298,7 +298,7 @@ internal sealed class HistoryPanelReplayService
             );
 
         return HistoryPanelReplayAttemptResult.Success(
-            battle.ReplayDownloaded
+            battle.Replay == ReplayAvailability.Saved
                 ? HistoryPanelText.StartingReplayForBattle(battle.BattleId)
                 : HistoryPanelText.DownloadedAndStartingReplay(battle.BattleId)
         );

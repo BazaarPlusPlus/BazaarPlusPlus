@@ -43,6 +43,10 @@ _Avoid_: remote battle, opponent battle
 **Replay Payload**:
 The local serialized combat input used to replay a recorded PvP battle. It is a recoverable cache governed by the `newest 200 ∪ last 30 days` retention policy; the battle fact remains after eviction, but History no longer offers Replay.
 
+**Replay Availability**:
+Whether History can replay a battle: Remote (a Ghost Battle not yet downloaded), Saved (a local Replay Payload exists), Expired, or Unavailable. Local battles are only Saved or Unavailable. `ReplayAvailabilityCodec` alone maps it to stored columns.
+_Avoid_: replay state, downloaded flag
+
 **Replay Video Artifact**:
 A user-requested MP4 plus its metadata. Attachment to a battle and file health are separate facts: deleting a run detaches the metadata without deleting a completed MP4.
 _Avoid_: replay cache, orphan video

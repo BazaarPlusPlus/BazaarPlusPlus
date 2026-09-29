@@ -59,20 +59,16 @@ internal static class HistoryPanelDecisions
         )
             return state.DetailFailed ? HistoryPanelText.PreviewRendererInitFailed() : null;
         if (state.ReplayActionInProgress && state.ReplayActionBattleId == battle.BattleId)
-            return battle.ReplayDownloaded
+            return battle.Replay == ReplayAvailability.Saved
                 ? HistoryPanelText.StartingReplay()
                 : HistoryPanelText.DownloadingGhostReplay();
-        if (!battle.ReplayDownloaded)
+        if (battle.Replay != ReplayAvailability.Saved)
         {
-            if (battle.GhostReplayState == "expired")
-                return HistoryPanelText.GhostReplayExpired();
-            if (battle.GhostReplayState == "unavailable_payload")
-                return HistoryPanelText.GhostReplayPayloadUnavailable();
+            if (battle.Replay != ReplayAvailability.Remote)
+                return GhostReplayUnavailableReason(battle);
             if (state.ReplayActionBattleId == battle.BattleId && state.ReplayFailureMessage != null)
                 return state.ReplayFailureMessage;
-            return battle.ReplayAvailable
-                ? HistoryPanelText.GhostReplayDownloadRequired()
-                : HistoryPanelText.GhostReplayPayloadUnavailable();
+            return HistoryPanelText.GhostReplayDownloadRequired();
         }
         if (
             state.DetailFailed
@@ -86,14 +82,15 @@ internal static class HistoryPanelDecisions
     }
 
     public static string GhostDownloadFailureMessage(
+        ReplayAvailability? availability,
         string? error,
         HistoryPanelReplayReasonCode reason
     )
     {
-        if (error == "ghost_replay_expired")
+        if (availability == ReplayAvailability.Expired)
             return HistoryPanelText.GhostReplayExpired();
         if (
-            error == "ghost_replay_unavailable_payload"
+            availability == ReplayAvailability.Unavailable
             || reason
                 is HistoryPanelReplayReasonCode.GhostArtifactInvalid
                     or HistoryPanelReplayReasonCode.GhostBattleMismatch
@@ -103,7 +100,7 @@ internal static class HistoryPanelDecisions
     }
 
     public static string GhostReplayUnavailableReason(HistoryBattleRecord battle) =>
-        battle.GhostReplayState == "expired"
+        battle.Replay == ReplayAvailability.Expired
             ? HistoryPanelText.GhostReplayExpired()
             : HistoryPanelText.GhostReplayPayloadUnavailable();
 

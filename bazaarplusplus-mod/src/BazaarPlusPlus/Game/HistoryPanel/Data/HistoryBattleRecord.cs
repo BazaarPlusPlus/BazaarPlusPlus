@@ -31,8 +31,7 @@ internal sealed class HistoryBattleRecord
         HistoryBattleSnapshotCounts snapshotCounts,
         bool isFinalBattle,
         HistoryBattleSource source,
-        bool replayAvailable,
-        bool replayDownloaded
+        ReplayAvailability replay
     )
     {
         BattleId = battleId;
@@ -62,8 +61,7 @@ internal sealed class HistoryBattleRecord
         SnapshotCounts = snapshotCounts;
         IsFinalBattle = isFinalBattle;
         Source = source;
-        ReplayAvailable = replayAvailable;
-        ReplayDownloaded = replayDownloaded;
+        Replay = replay;
     }
 
     public string BattleId { get; }
@@ -128,11 +126,7 @@ internal sealed class HistoryBattleRecord
 
     public HistoryBattleSource Source { get; }
 
-    public bool ReplayAvailable { get; }
-
-    public bool ReplayDownloaded { get; }
-
-    public string? GhostReplayState { get; init; }
+    public ReplayAvailability Replay { get; }
 }
 
 internal enum HistoryBattleSource

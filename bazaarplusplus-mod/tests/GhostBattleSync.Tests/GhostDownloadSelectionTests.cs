@@ -2,6 +2,7 @@
 using System.Collections.Concurrent;
 using System.Reflection;
 using BazaarPlusPlus.Game.HistoryPanel;
+using BazaarPlusPlus.Game.HistoryPanel.Data;
 using BazaarPlusPlus.Game.HistoryPanel.Ghost;
 using BazaarPlusPlus.Game.PvpBattles;
 using BazaarPlusPlus.ModApi.Models;
@@ -15,7 +16,14 @@ internal static class GhostDownloadSelectionTests
         SynchronizationContext.SetSynchronizationContext(context);
         try
         {
-            foreach (var finalState in new[] { "local_ready", "expired", "unavailable_payload" })
+            foreach (
+                var finalState in new[]
+                {
+                    ReplayAvailability.Saved,
+                    ReplayAvailability.Expired,
+                    ReplayAvailability.Unavailable,
+                }
+            )
                 Verify(finalState, context);
         }
         finally
@@ -24,7 +32,7 @@ internal static class GhostDownloadSelectionTests
         }
     }
 
-    private static void Verify(string finalState, UiContext context)
+    private static void Verify(ReplayAvailability finalState, UiContext context)
     {
         using var fixture = new GhostFixture(_ =>
             throw new InvalidOperationException("No HTTP expected after completion.")
@@ -62,7 +70,7 @@ internal static class GhostDownloadSelectionTests
         context.Until(() => !state.DetailLoading);
 
         // Apply the download's storage commit after the user has moved to another battle.
-        if (finalState == "local_ready")
+        if (finalState == ReplayAvailability.Saved)
         {
             new GhostBattlePayloadStore(GhostBattlePayloadStore.ResolveDirectory(replays)).Save(
                 new()
@@ -105,13 +113,13 @@ internal static class GhostDownloadSelectionTests
         );
         var currentA = state.GhostBattles.Single(row => row.BattleId == a.BattleId);
         Require(
-            currentA.GhostReplayState == finalState,
+            currentA.Replay == finalState,
             "Completion must refresh the changed row even while another battle is selected."
         );
         coordinator.SelectBattle(state.GhostPage.FindIndex(row => row.BattleId == a.BattleId));
         context.Until(() => !state.DetailLoading);
         var message = HistoryPanelDecisions.PreviewStatusOverride(state, currentA);
-        if (finalState == "local_ready")
+        if (finalState == ReplayAvailability.Saved)
             Require(
                 state.DetailSnapshots != null && message == null,
                 "A downloaded replay must show its native board, not the stale canceled-start message."
@@ -120,7 +128,7 @@ internal static class GhostDownloadSelectionTests
             Require(
                 message
                     == (
-                        finalState == "expired"
+                        finalState == ReplayAvailability.Expired
                             ? HistoryPanelText.GhostReplayExpired()
                             : HistoryPanelText.GhostReplayPayloadUnavailable()
                     ),

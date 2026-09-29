@@ -225,7 +225,8 @@ internal static class HistoryPaginationTests
         );
         CheckCounts(retained, 37, 1);
         Check(
-            retained.Rows.Count == 37 && retained.Rows.All(b => b.ReplayDownloaded),
+            retained.Rows.Count == 37
+                && retained.Rows.All(b => b.Replay == ReplayAvailability.Saved),
             "Downloaded facts must survive the discovery retention window."
         );
         Execute(db, "UPDATE battles SET deleted_at_utc='old' WHERE battle_id='g0000';");

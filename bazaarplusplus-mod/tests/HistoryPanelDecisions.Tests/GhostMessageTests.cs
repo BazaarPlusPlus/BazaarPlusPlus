@@ -69,7 +69,7 @@ internal static class GhostMessageTests
                 );
                 Set(state, "GhostDayMin10", false);
 
-                var remote = Battle("remote_available", true, false);
+                var remote = Battle("Remote");
                 Contains(
                     Preview(remote),
                     chinese ? "点击『下载回放』查看阵容" : "Click \"Download Replay\"",
@@ -114,17 +114,17 @@ internal static class GhostMessageTests
                     "Transient failure details must persist for the selected battle."
                 );
                 Contains(
-                    Preview(Battle("expired", false, false)),
+                    Preview(Battle("Expired")),
                     chinese ? "已过期" : "expired",
                     "Expiry must supersede a transient failure."
                 );
                 Contains(
-                    Preview(Battle("unavailable_payload", false, false)),
+                    Preview(Battle("Unavailable")),
                     chinese ? "没有可用" : "no usable",
                     "Unavailable payloads must be specific."
                 );
                 Set(state, "ReplayFailureMessage", null);
-                var saved = Battle("local_ready", true, true);
+                var saved = Battle("Saved");
                 Set(state, "DetailBattleId", "battle");
                 Set(
                     state,
@@ -170,34 +170,38 @@ internal static class GhostMessageTests
                 Set(state, "SectionMode", Enum.Parse(Type("HistorySectionMode"), "Runs"));
                 Equal(Empty(), "", "Run lists must not receive Ghost guidance.");
                 Contains(
-                    Preview(Battle(null, true, true, "Local")),
+                    Preview(Battle("Saved", "Local")),
                     chinese ? "初始化" : "initialize",
                     "Local-run renderer failures must keep their existing message."
                 );
                 Set(state, "DetailFailed", false);
                 Equal(
-                    Preview(Battle(null, true, true, "Local")),
+                    Preview(Battle("Saved", "Local")),
                     null,
                     "Local boards must keep native rendering messages."
                 );
 
                 Contains(
-                    Failure("ghost_replay_expired", "GhostDownloadFailed"),
+                    Failure("Expired", "ghost_replay_expired", "GhostDownloadFailed"),
                     chinese ? "已过期" : "expired",
                     "Expired downloads must not be generic errors."
                 );
                 foreach (var reason in new[] { "GhostArtifactInvalid", "GhostBattleMismatch" })
                     Contains(
-                        Failure("ghost_bundle_invalid", reason),
+                        Failure(null, "ghost_bundle_invalid", reason),
                         chinese ? "没有可用" : "no usable",
                         "Invalid downloaded data must explain unavailability."
                     );
                 Contains(
-                    Failure("ghost_replay_unavailable_payload", "GhostDownloadFailed"),
+                    Failure(
+                        "Unavailable",
+                        "ghost_replay_unavailable_payload",
+                        "GhostDownloadFailed"
+                    ),
                     chinese ? "没有可用" : "no usable",
                     "Persisted unavailable state must remain specific."
                 );
-                var network = Failure("network_unavailable", "GhostDownloadFailed");
+                var network = Failure(null, "network_unavailable", "GhostDownloadFailed");
                 Contains(
                     network,
                     "network_unavailable",
@@ -211,9 +215,12 @@ internal static class GhostMessageTests
 
                 string? Empty() => Call("GhostArchiveEmptyMessage", state);
                 string? Preview(object? battle) => Call("PreviewStatusOverride", state, battle);
-                string? Failure(string error, string reason) =>
+                string? Failure(string? availability, string error, string reason) =>
                     Call(
                         "GhostDownloadFailureMessage",
+                        availability == null
+                            ? null
+                            : Enum.Parse(Type("Data.ReplayAvailability"), availability),
                         error,
                         Enum.Parse(Type("HistoryPanelReplayReasonCode"), reason)
                     );
@@ -228,9 +235,8 @@ internal static class GhostMessageTests
             assembly.GetType("BazaarPlusPlus.Game.HistoryPanel." + name, true)!;
         string? Call(string name, params object?[] args) =>
             (string?)decisions.GetMethod(name)!.Invoke(null, args);
-        object Battle(string? replayState, bool available, bool downloaded, string source = "Ghost")
-        {
-            var value = Activator.CreateInstance(
+        object Battle(string replay, string source = "Ghost") =>
+            Activator.CreateInstance(
                 battleType,
                 "battle",
                 "run",
@@ -259,12 +265,8 @@ internal static class GhostMessageTests
                 Activator.CreateInstance(Type("Data.HistoryBattleSnapshotCounts")),
                 false,
                 Enum.Parse(Type("Data.HistoryBattleSource"), source),
-                available,
-                downloaded
+                Enum.Parse(Type("Data.ReplayAvailability"), replay)
             )!;
-            Set(value, "GhostReplayState", replayState);
-            return value;
-        }
     }
 
     private static void Set(object target, string property, object? value) =>

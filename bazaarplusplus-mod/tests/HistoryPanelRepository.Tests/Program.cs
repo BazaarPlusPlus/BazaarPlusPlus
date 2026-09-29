@@ -1,5 +1,6 @@
 #nullable enable
 using BazaarPlusPlus.Game.HistoryPanel;
+using BazaarPlusPlus.Game.HistoryPanel.Data;
 using BazaarPlusPlus.Game.HistoryPanel.Storage;
 using BazaarPlusPlus.ModApi.Models;
 using BazaarPlusPlus.Storage.Paths;
@@ -67,7 +68,7 @@ try
         .Rows.Single();
     Assert(!local.SnapshotCounts.Known, "Undownloaded Ghost counts must remain unknown.");
     Assert(
-        local.GhostReplayState == "remote_available",
+        local.Replay == ReplayAvailability.Remote,
         "Ghost rows must carry download state into presentation."
     );
     Assert(!local.IsFinalBattle, "A non-final Ghost must stay non-final.");
@@ -99,28 +100,31 @@ try
         .Rows.Single(row => row.BattleId != localId);
     Assert(finalRow.IsFinalBattle, "Ghost discovery must keep the final-battle fact.");
 
-    repository.MarkGhostReplayUnavailable(localId, "unavailable_payload", "corrupt");
+    repository.MarkGhostReplayUnavailable(localId, ReplayAvailability.Unavailable, "corrupt");
     Assert(
         repository
             .ListGhostBattles("account-local", GhostBattleFilter.All, false, new())
             .Rows.Single(row => row.BattleId == localId)
-            .GhostReplayState == "unavailable_payload",
+            .Replay == ReplayAvailability.Unavailable,
         "Ghost rows must distinguish unavailable data from an undownloaded replay."
     );
-    repository.MarkGhostReplayUnavailable(localId, "expired", "object_unavailable");
+    repository.MarkGhostReplayUnavailable(
+        localId,
+        ReplayAvailability.Expired,
+        "object_unavailable"
+    );
     var expiredRow = repository
         .ListGhostBattles("account-local", GhostBattleFilter.All, false, new())
         .Rows.Single(row => row.BattleId == localId);
     Assert(
-        expiredRow.GhostReplayState == "expired"
-            && !expiredRow.ReplayAvailable
-            && !expiredRow.ReplayDownloaded,
+        expiredRow.Replay == ReplayAvailability.Expired,
         "Expired rows must retain their specific state without offering download."
     );
-    repository.MarkGhostReplayUnavailable(localId, "unavailable_payload", "corrupt");
+    repository.MarkGhostReplayUnavailable(localId, ReplayAvailability.Unavailable, "corrupt");
     repository.UpsertGhostBattles("account-local", [newer]);
     Assert(
-        repository.TryGetGhostBundleReference(localId)?.ReplayState == "unavailable_payload",
+        repository.TryGetGhostBundleReference(localId)?.ReplayState
+            == ReplayAvailability.Unavailable,
         "Permanent payload failure must survive discovery refresh."
     );
 
@@ -138,6 +142,7 @@ try
 
     AssertRecentRunProjection(databasePath);
     HistoryPaginationTests.Run(root);
+    ReplayAvailabilityCodecTests.Run(root);
     HistoryReadSchedulingTests.Run();
     ReplayMaintenanceStorageTests.Run();
     ReplayPayloadRetentionPolicyTests.Run();
@@ -217,7 +222,8 @@ static void AssertRecentRunProjection(string databasePath)
 
     var localBattles = repository.ListBattles("run-newest", new()).Rows;
     Assert(
-        localBattles.Count > 0 && localBattles.All(battle => !battle.ReplayAvailable),
+        localBattles.Count > 0
+            && localBattles.All(battle => battle.Replay == ReplayAvailability.Unavailable),
         "History must project evicted local payloads as unavailable instead of hard-coding replay eligibility."
     );
 

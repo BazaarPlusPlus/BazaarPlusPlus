@@ -289,7 +289,7 @@ internal sealed partial class HistoryPanelCoordinator : IDisposable
         var sessionVersion = _session.Version;
         var replayAccount = _state.CachedAccountId;
         SetStatusMessage(
-            battle.Source == HistoryBattleSource.Ghost && !battle.ReplayDownloaded
+            battle.Source == HistoryBattleSource.Ghost && battle.Replay != ReplayAvailability.Saved
                 ? HistoryPanelText.DownloadingGhostReplay()
                 : HistoryPanelText.StartingReplay(),
             StatusSeverity.Pending
