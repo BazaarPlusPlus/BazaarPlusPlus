@@ -9,6 +9,57 @@ internal static class ReplayMaintenanceStorageTests
     {
         SchedulesOnlyDurablyUnprotectedPayloadsAndRetriesFileDeletion();
         SchedulingRechecksConcurrentSealOwnershipInsideItsWriteTransaction();
+        KeepsReplaysOfEveryRunTheSealEligibilityFixtureProtects();
+    }
+
+    // Replay maintenance protects a superset of the fixture's protected Runs: it also keeps
+    // replays behind a pending outbox, which installer History cleanup releases.
+    private static void KeepsReplaysOfEveryRunTheSealEligibilityFixtureProtects()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"bpp-replay-seal-fixture-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(root);
+        var databasePath = Path.Combine(root, "run.db");
+        try
+        {
+            var cases = BundleSealEligibilityCase.Load();
+            using (var setup = new SqliteConnection($"Data Source={databasePath}"))
+            {
+                setup.Open();
+                RunLogSchema.EnsureInitialized(setup);
+                foreach (var eligibilityCase in cases)
+                {
+                    eligibilityCase.Seed(setup);
+                    InsertBattle(
+                        setup,
+                        eligibilityCase.Name,
+                        eligibilityCase.Name,
+                        "2025-01-01T00:00:00Z"
+                    );
+                }
+            }
+
+            var scheduled = new PvpBattleSqliteStore(databasePath)
+                .ScheduleReplayPayloadDeletion(
+                    cases.Select(eligibilityCase => eligibilityCase.Name).ToArray(),
+                    DateTimeOffset.UtcNow
+                )
+                .ToHashSet(StringComparer.Ordinal);
+
+            foreach (var eligibilityCase in cases.Where(item => item.ProtectedFromCleanup))
+                Assert(
+                    !scheduled.Contains(eligibilityCase.Name),
+                    $"{eligibilityCase.Name}: replay maintenance scheduled a replay the seal may still need."
+                );
+            Assert(
+                cases.Any(item => !item.ProtectedFromCleanup && scheduled.Contains(item.Name)),
+                "The fixture must also release some replays, or this check proves nothing."
+            );
+        }
+        finally
+        {
+            SqliteConnection.ClearAllPools();
+            Directory.Delete(root, recursive: true);
+        }
     }
 
     private static void SchedulingRechecksConcurrentSealOwnershipInsideItsWriteTransaction()

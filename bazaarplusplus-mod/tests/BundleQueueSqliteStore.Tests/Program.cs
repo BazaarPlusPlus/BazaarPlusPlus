@@ -8,6 +8,7 @@ TestEligibilityAllocationPublishAndDueOrdering();
 TestOutcomeResealAndCleanupQueries();
 TestFinalOutboxEndsEligibility();
 TestSealFailureBookkeeping();
+TestSealEligibilityFixture();
 
 Console.WriteLine("Bundle queue SQLite store checks passed.");
 
@@ -332,6 +333,43 @@ static void TestSealFailureBookkeeping()
                 rejected = true;
             }
             Assert(rejected, "A failure never records the in-flight sealing state.");
+        }
+    );
+}
+
+// The fixture is the cross-project contract for seal eligibility; installer History cleanup
+// evaluates the same cases against its protection predicate.
+static void TestSealEligibilityFixture()
+{
+    var cases = BundleSealEligibilityCase.Load();
+    foreach (var eligibilityCase in cases)
+        Assert(
+            !eligibilityCase.EligibleForNewJob || eligibilityCase.ProtectedFromCleanup,
+            $"{eligibilityCase.Name}: a Run eligible for a new seal job must be protected from cleanup."
+        );
+
+    WithStore(
+        (store, connection) =>
+        {
+            foreach (var eligibilityCase in cases)
+                eligibilityCase.Seed(connection);
+            var existingJobs = cases
+                .Where(eligibilityCase => store.ReadJob(eligibilityCase.Name) != null)
+                .Select(eligibilityCase => eligibilityCase.Name)
+                .ToHashSet(StringComparer.Ordinal);
+
+            store.EnsureEligibleJobs(TimeSpan.FromMinutes(2));
+
+            foreach (var eligibilityCase in cases)
+            {
+                var created =
+                    !existingJobs.Contains(eligibilityCase.Name)
+                    && store.ReadJob(eligibilityCase.Name) != null;
+                Assert(
+                    created == eligibilityCase.EligibleForNewJob,
+                    $"{eligibilityCase.Name}: expected eligibleForNewJob={eligibilityCase.EligibleForNewJob}, EnsureEligibleJobs created={created}."
+                );
+            }
         }
     );
 }

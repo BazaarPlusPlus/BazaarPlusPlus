@@ -9,4 +9,16 @@
   <ItemGroup>
     <ProjectReference Include="../../src/BazaarPlusPlus/BazaarPlusPlus.csproj" />
   </ItemGroup>
+
+  <ItemGroup>
+    <Compile
+      Include="../BundleQueueSqliteStore.Tests/BundleSealEligibilityCases.cs"
+      Link="BundleSealEligibilityCases.cs"
+    />
+    <None
+      Include="../BundleQueueSqliteStore.Tests/fixtures/bundle-seal-eligibility.json"
+      Link="fixtures/bundle-seal-eligibility.json"
+      CopyToOutputDirectory="PreserveNewest"
+    />
+  </ItemGroup>
 </Project>

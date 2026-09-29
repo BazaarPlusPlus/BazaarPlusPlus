@@ -1127,6 +1127,7 @@ mod tests {
     use super::{plan_screenshot_cleanup, CleanupCutoff, StorageCleanupPreset};
     use chrono::{DateTime, FixedOffset, NaiveDate, SecondsFormat, TimeZone};
     use rusqlite::Connection;
+    use std::collections::HashSet;
     use std::fs;
     use std::path::{Path, PathBuf};
     use tempfile::TempDir;
@@ -2007,70 +2008,101 @@ mod tests {
         assert!(error.contains(&supported), "{error}");
     }
 
+    /// Cases owned by the mod's `BundleQueueStore.SealEligibleRunCondition`. The mod evaluates
+    /// the same file against its seal-job and replay-maintenance queries, so a rule change on
+    /// either side fails a gate until both agree.
+    const SEAL_ELIGIBILITY_FIXTURE: &str = include_str!(
+        "../../../../bazaarplusplus-mod/tests/BundleQueueSqliteStore.Tests/fixtures/bundle-seal-eligibility.json"
+    );
+
     #[test]
-    fn run_plan_applies_v5_upload_protection_matrix_case_insensitively() {
+    fn run_plan_protects_exactly_the_shared_seal_eligibility_cases() {
+        let shared: serde_json::Value = serde_json::from_str(SEAL_ELIGIBILITY_FIXTURE).unwrap();
+        assert_eq!(shared["formatVersion"], 1);
+        let cases = shared["cases"].as_array().unwrap();
+        assert!(!cases.is_empty());
+
         let fixture = create_fixture();
         let conn = rusqlite::Connection::open(&fixture.database_path).unwrap();
-        for (run_id, status, completed, game_mode) in [
-            ("protected-ranked", "completed", 1, "Ranked"),
-            ("protected-lower", "completed", 1, "ranked"),
-            ("pending-outbox", "completed", 1, "Ranked"),
-            ("uploaded-outbox", "completed", 1, "Ranked"),
-            ("terminal-failure", "completed", 1, "Ranked"),
-            ("rejected-outbox", "completed", 1, "Ranked"),
-            ("reseal-waiting", "completed", 1, "Ranked"),
-            ("ptr", "completed", 1, "Ranked"),
-            ("normal", "completed", 1, "Normal"),
-            ("abandoned", "abandoned", 0, "Ranked"),
-            ("abandoned-completed", "abandoned", 1, "Ranked"),
-            ("incomplete", "completed", 0, "Ranked"),
-            ("active", "active", 0, "Ranked"),
-        ] {
-            insert_run(
-                &conn,
-                run_id,
-                status,
-                completed,
-                game_mode,
-                "2026-06-10T10:00:00Z",
-            );
+        for case in cases {
+            let run_id = case["name"].as_str().unwrap();
+            let run = &case["run"];
+            conn.execute(
+                "insert into runs (
+                    run_id, started_at_utc, last_seen_at_utc, status, completed, hero,
+                    game_mode, ended_at_utc, build_channel
+                 ) values (?1, ?2, ?2, ?3, ?4, 'Vanessa', ?5, ?2, ?6)",
+                rusqlite::params![
+                    run_id,
+                    "2026-06-10T10:00:00Z",
+                    run["status"].as_str().unwrap(),
+                    run["completed"].as_i64().unwrap(),
+                    run["gameMode"].as_str().unwrap(),
+                    run["buildChannel"].as_str(),
+                ],
+            )
+            .unwrap();
+            for outbox in case["outbox"].as_array().unwrap() {
+                insert_outbox(&conn, run_id, outbox["status"].as_str().unwrap());
+            }
+            if let Some(job) = case["sealJob"].as_object() {
+                conn.execute(
+                    "insert into bundle_seal_jobs (
+                        run_id, state, screenshot_requested, screenshot_state,
+                        input_deadline_at_utc, last_error_code
+                     ) values (?1, ?2, 0, 'not_requested', '2026-06-10T10:05:00Z', ?3)",
+                    rusqlite::params![
+                        run_id,
+                        job["state"].as_str().unwrap(),
+                        job["lastErrorCode"].as_str(),
+                    ],
+                )
+                .unwrap();
+            }
         }
-        insert_outbox(&conn, "pending-outbox", "pending");
-        insert_outbox(&conn, "uploaded-outbox", "uploaded");
-        insert_seal_job(&conn, "terminal-failure", "terminal_failure");
-        insert_outbox(&conn, "rejected-outbox", "permanent_failure");
-        insert_outbox(&conn, "reseal-waiting", "permanent_failure");
-        insert_seal_job(&conn, "reseal-waiting", "waiting");
-        conn.execute(
-            "update runs set build_channel = 'PtR' where run_id = 'ptr'",
-            [],
-        )
-        .unwrap();
         drop(conn);
 
         let plan =
             super::plan_run_data_cleanup(&fixture.database_path, &fixture.game_path, None).unwrap();
 
-        let ids = plan
+        let planned = plan
             .items
             .iter()
             .map(|item| item.run_id.as_str())
-            .collect::<Vec<_>>();
-        assert_eq!(
-            ids,
-            vec![
-                "abandoned",
-                "abandoned-completed",
-                "incomplete",
-                "normal",
-                "pending-outbox",
-                "ptr",
-                "rejected-outbox",
-                "terminal-failure",
-                "uploaded-outbox",
-            ]
+            .collect::<HashSet<_>>();
+        let mut protected_count = 0;
+        for case in cases {
+            let run_id = case["name"].as_str().unwrap();
+            let expected = case["expected"]["protectedFromCleanup"].as_bool().unwrap();
+            assert_eq!(
+                !planned.contains(run_id),
+                expected,
+                "{run_id}: protectedFromCleanup"
+            );
+            protected_count += i64::from(expected);
+        }
+        assert_eq!(plan.skipped_pending_uploads, protected_count);
+    }
+
+    #[test]
+    fn run_plan_skips_active_runs_without_counting_them_as_pending() {
+        let fixture = create_fixture();
+        let conn = rusqlite::Connection::open(&fixture.database_path).unwrap();
+        insert_run(
+            &conn,
+            "active",
+            "active",
+            0,
+            "Ranked",
+            "2026-06-10T10:00:00Z",
         );
-        assert_eq!(plan.skipped_pending_uploads, 3);
+        drop(conn);
+
+        let plan =
+            super::plan_run_data_cleanup(&fixture.database_path, &fixture.game_path, None).unwrap();
+
+        assert!(plan.items.is_empty());
+        assert_eq!(plan.skipped_pending_uploads, 0);
     }
 
     #[test]

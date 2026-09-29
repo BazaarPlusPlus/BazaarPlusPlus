@@ -9,4 +9,7 @@
     <ProjectReference Include="../../src/BazaarPlusPlus.Storage/BazaarPlusPlus.Storage.csproj" />
     <PackageReference Include="Microsoft.Data.Sqlite" />
   </ItemGroup>
+  <ItemGroup>
+    <None Update="fixtures/bundle-seal-eligibility.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>

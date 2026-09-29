@@ -1,0 +1,117 @@
+{
+  "formatVersion": 1,
+  "cases": [
+    {
+      "name": "no_outbox",
+      "run": { "completed": 1, "status": "completed", "gameMode": "Ranked", "buildChannel": "Online" },
+      "outbox": [],
+      "sealJob": null,
+      "expected": { "eligibleForNewJob": true, "protectedFromCleanup": true }
+    },
+    {
+      "name": "no_outbox_missing_build_channel",
+      "run": { "completed": 1, "status": "completed", "gameMode": "Ranked", "buildChannel": null },
+      "outbox": [],
+      "sealJob": null,
+      "expected": { "eligibleForNewJob": true, "protectedFromCleanup": true }
+    },
+    {
+      "name": "no_outbox_uppercase_ranked",
+      "run": { "completed": 1, "status": "completed", "gameMode": "RANKED", "buildChannel": "Online" },
+      "outbox": [],
+      "sealJob": null,
+      "expected": { "eligibleForNewJob": true, "protectedFromCleanup": true }
+    },
+    {
+      "name": "pending_outbox",
+      "run": { "completed": 1, "status": "completed", "gameMode": "Ranked", "buildChannel": "Online" },
+      "outbox": [{ "status": "pending" }],
+      "sealJob": null,
+      "expected": { "eligibleForNewJob": false, "protectedFromCleanup": false }
+    },
+    {
+      "name": "uploaded_outbox",
+      "run": { "completed": 1, "status": "completed", "gameMode": "Ranked", "buildChannel": "Online" },
+      "outbox": [{ "status": "uploaded" }],
+      "sealJob": null,
+      "expected": { "eligibleForNewJob": false, "protectedFromCleanup": false }
+    },
+    {
+      "name": "permanent_failure_without_job",
+      "run": { "completed": 1, "status": "completed", "gameMode": "Ranked", "buildChannel": "Online" },
+      "outbox": [{ "status": "permanent_failure" }],
+      "sealJob": null,
+      "expected": { "eligibleForNewJob": false, "protectedFromCleanup": false }
+    },
+    {
+      "name": "permanent_failure_with_waiting_reseal_job",
+      "run": { "completed": 1, "status": "completed", "gameMode": "Ranked", "buildChannel": "Online" },
+      "outbox": [{ "status": "permanent_failure" }],
+      "sealJob": { "state": "waiting", "lastErrorCode": null },
+      "expected": { "eligibleForNewJob": false, "protectedFromCleanup": true }
+    },
+    {
+      "name": "waiting_job",
+      "run": { "completed": 1, "status": "completed", "gameMode": "Ranked", "buildChannel": "Online" },
+      "outbox": [],
+      "sealJob": { "state": "waiting", "lastErrorCode": null },
+      "expected": { "eligibleForNewJob": false, "protectedFromCleanup": true }
+    },
+    {
+      "name": "sealing_job",
+      "run": { "completed": 1, "status": "completed", "gameMode": "Ranked", "buildChannel": "Online" },
+      "outbox": [],
+      "sealJob": { "state": "sealing", "lastErrorCode": null },
+      "expected": { "eligibleForNewJob": false, "protectedFromCleanup": true }
+    },
+    {
+      "name": "parked_job",
+      "run": { "completed": 1, "status": "completed", "gameMode": "Ranked", "buildChannel": "Online" },
+      "outbox": [],
+      "sealJob": { "state": "waiting", "lastErrorCode": "seal_environment_blocked" },
+      "expected": { "eligibleForNewJob": false, "protectedFromCleanup": true }
+    },
+    {
+      "name": "terminal_job",
+      "run": { "completed": 1, "status": "completed", "gameMode": "Ranked", "buildChannel": "Online" },
+      "outbox": [],
+      "sealJob": { "state": "terminal_failure", "lastErrorCode": "seal_retry_exhausted" },
+      "expected": { "eligibleForNewJob": false, "protectedFromCleanup": false }
+    },
+    {
+      "name": "ptr",
+      "run": { "completed": 1, "status": "completed", "gameMode": "Ranked", "buildChannel": "PtR" },
+      "outbox": [],
+      "sealJob": null,
+      "expected": { "eligibleForNewJob": false, "protectedFromCleanup": false }
+    },
+    {
+      "name": "non_ranked",
+      "run": { "completed": 1, "status": "completed", "gameMode": "Unranked", "buildChannel": "Online" },
+      "outbox": [],
+      "sealJob": null,
+      "expected": { "eligibleForNewJob": false, "protectedFromCleanup": false }
+    },
+    {
+      "name": "abandoned",
+      "run": { "completed": 1, "status": "abandoned", "gameMode": "Ranked", "buildChannel": "Online" },
+      "outbox": [],
+      "sealJob": null,
+      "expected": { "eligibleForNewJob": false, "protectedFromCleanup": false }
+    },
+    {
+      "name": "incomplete",
+      "run": { "completed": 0, "status": "abandoned", "gameMode": "Ranked", "buildChannel": "Online" },
+      "outbox": [],
+      "sealJob": null,
+      "expected": { "eligibleForNewJob": false, "protectedFromCleanup": false }
+    },
+    {
+      "name": "completed_status_without_completed_flag",
+      "run": { "completed": 0, "status": "completed", "gameMode": "Ranked", "buildChannel": "Online" },
+      "outbox": [],
+      "sealJob": null,
+      "expected": { "eligibleForNewJob": false, "protectedFromCleanup": false }
+    }
+  ]
+}

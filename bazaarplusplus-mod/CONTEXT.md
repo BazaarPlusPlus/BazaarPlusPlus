@@ -118,6 +118,12 @@ assembly binding failure) rather than its data. It is retried once per launch, s
 it without a migration, and a pending file that fails this way is never resealed.
 _Avoid_: JSON failure
 
+**Seal-Eligible Run**:
+A completed, non-PTR Ranked Run with neither a seal job nor any outbox row; the next seal pass
+gives it a waiting job. `BundleQueueStore.SealEligibleRunCondition` is the one SQL rule, and
+installer History cleanup is pinned to it through a shared fixture.
+_Avoid_: sealable run
+
 **Bundle Queue Store**:
 The concrete Storage owner of `bundle_seal_jobs` and `bundle_outbox` rows, SQL, and multi-row
 transactions. Game workflows translate its storage records into composition and upload behavior;
