@@ -47,7 +47,7 @@ internal static class HistoryPaginationTests
         var repository = new HistoryPanelRepository(path);
         var expected = Enumerable.Range(0, count).Reverse().Select(i => $"r{i:00000}").ToArray();
         var visited = new List<string>();
-        var pages = new List<HistoryPage<HistoryRunRecord>>();
+        var pages = new List<HistoryCountedPage<HistoryRunRecord>>();
         var page = repository.ListRuns(new());
         while (true)
         {
@@ -127,9 +127,12 @@ internal static class HistoryPaginationTests
             repository.LoadSnapshots("wrong-run", battlePage.Rows[0].BattleId) == null,
             "Detail identity must include run ID."
         );
+        var runs = HistoryPageQuery.Runs(null);
         var plan = Plan(
             db,
-            $"SELECT run_id FROM runs WHERE {RunLogSchema.HistoryRunTime} <= '2026-01-01T00:00:01Z' AND ({RunLogSchema.HistoryRunTime} < '2026-01-01T00:00:01Z' OR run_id < 'r00004') ORDER BY {RunLogSchema.HistoryRunTime} DESC,run_id DESC LIMIT 41;"
+            runs,
+            runs.RowsSql("run_id", newer: false, bounded: true, inclusive: false),
+            new("2026-01-01T00:00:01Z", "r00004")
         );
         Check(
             plan.Contains("SEARCH runs", StringComparison.Ordinal)
@@ -329,7 +332,7 @@ internal static class HistoryPaginationTests
         }
     }
 
-    private static void CheckCounts<T>(HistoryPage<T> page, long total, long first)
+    private static void CheckCounts<T>(HistoryCountedPage<T> page, long total, long first)
     {
         Check(
             page.TotalCount == total,
@@ -349,20 +352,19 @@ internal static class HistoryPaginationTests
         }
     }
 
+    // Plans come from the SQL the repository itself renders, bound as the repository binds it.
     private static void CheckRunCountPlans(SqliteConnection db)
     {
-        var total = Plan(db, "SELECT COUNT(*) FROM runs WHERE 1=1;");
+        HistoryCursor at = new("2026-01-01T00:00:01Z", "r00004");
+        var total = Plan(db, HistoryPageQuery.Runs(null), HistoryPageQuery.Runs(null).CountSql, at);
         Check(
             total.Contains("USING COVERING INDEX", StringComparison.Ordinal),
             "Unfiltered counts must stay on a covering index: " + total
         );
         foreach (var hero in new[] { false, true })
         {
-            var filter = hero ? $"{RunLogSchema.HistoryHeroKey} = 'thedragons'" : "1=1";
-            var newer = Plan(
-                db,
-                $"SELECT COUNT(*) FROM runs WHERE {filter} AND {RunLogSchema.HistoryRunTime} >= '2026-01-01T00:00:01Z' AND ({RunLogSchema.HistoryRunTime} > '2026-01-01T00:00:01Z' OR run_id > 'r00004');"
-            );
+            var query = HistoryPageQuery.Runs(hero ? "TheDragons" : null);
+            var newer = Plan(db, query, query.CountNewerSql, at);
             var index = hero ? "idx_runs_history_hero" : "idx_runs_history_recent";
             Check(
                 newer.Contains(
@@ -371,7 +373,7 @@ internal static class HistoryPaginationTests
                 ),
                 "Position counts must seek the matching index: " + newer
             );
-            var filteredTotal = Plan(db, $"SELECT COUNT(*) FROM runs WHERE {filter};");
+            var filteredTotal = Plan(db, query, query.CountSql, at);
             if (hero)
                 Check(
                     filteredTotal.Contains("idx_runs_history_hero", StringComparison.Ordinal),
@@ -443,26 +445,32 @@ internal static class HistoryPaginationTests
         foreach (var outcome in new[] { false, true })
         foreach (var day in new[] { false, true })
         {
+            // Index names are asserted literally: they are schema facts, not a copy of the query.
             var index =
                 "idx_battles_history_ghost" + (day ? "_day" : "") + (outcome ? "_outcome" : "");
-            var predicate =
-                "source = 'GHOST' AND deleted_at_utc IS NULL AND local_player_account_id = 'account-a'"
-                + (outcome ? $" AND ({RunLogSchema.HistoryRecorderOutcome}) = -1" : "")
-                + (day ? " AND day >= 10" : "");
-            var from = $"FROM battles INDEXED BY {index} WHERE {predicate}";
-            var anchor = Plan(
-                db,
-                $"SELECT recorded_at_utc, battle_id FROM battles WHERE {predicate} AND battle_id = 'g0040';"
+            var query = HistoryPageQuery.Ghosts(
+                "account-a",
+                outcome ? GhostBattleFilter.IWon : GhostBattleFilter.All,
+                day
             );
+            HistoryCursor at = new("2026-09-01T00:00:00Z", "g0040");
+            var anchor = Plan(db, query, query.AnchorSql, at);
             Check(
                 anchor.Contains("(battle_id=?)", StringComparison.Ordinal),
                 "Ghost ID anchors must retain primary-key lookup: " + anchor
             );
-            var total = Plan(db, $"SELECT COUNT(*) {from};");
-            var newer = Plan(
+            var rows = Plan(
                 db,
-                $"SELECT COUNT(*) {from} AND recorded_at_utc >= '2026-09-01T00:00:00Z' AND (recorded_at_utc > '2026-09-01T00:00:00Z' OR battle_id > 'g0040');"
+                query,
+                query.RowsSql("*", newer: false, bounded: true, inclusive: false),
+                at
             );
+            Check(
+                rows.Contains("SEARCH battles USING INDEX " + index, StringComparison.Ordinal),
+                "Ghost pages must seek the matching partial index: " + rows
+            );
+            var total = Plan(db, query, query.CountSql, at);
+            var newer = Plan(db, query, query.CountNewerSql, at);
             Check(
                 total.Contains("SEARCH battles USING INDEX " + index, StringComparison.Ordinal),
                 "Ghost totals must use the matching partial index: " + total
@@ -491,10 +499,20 @@ internal static class HistoryPaginationTests
         return (times[repetitions / 2], times[(int)(repetitions * .95)]);
     }
 
-    private static string Plan(SqliteConnection db, string sql)
+    private static string Plan(
+        SqliteConnection db,
+        HistoryPageQuery query,
+        string sql,
+        HistoryCursor at
+    )
     {
         using var command = db.CreateCommand();
         command.CommandText = "EXPLAIN QUERY PLAN " + sql;
+        query.Bind(command);
+        command.Parameters.AddWithValue("$anchor", at.Id);
+        command.Parameters.AddWithValue("$time", at.Time);
+        command.Parameters.AddWithValue("$id", at.Id);
+        command.Parameters.AddWithValue("$limit", 40);
         using var reader = command.ExecuteReader();
         var rows = new List<string>();
         while (reader.Read())

@@ -34,20 +34,24 @@ internal sealed class HistoryPanelDataService
 
     public bool CanSyncGhostBattles => _ghostSyncService != null;
 
-    public HistoryPage<HistoryRunRecord> LoadRuns(HistoryPageRequest request, string? hero) =>
-        _repository?.ListRuns(request, hero) ?? HistoryPage<HistoryRunRecord>.Empty;
+    public HistoryCountedPage<HistoryRunRecord> LoadRuns(
+        HistoryPageRequest request,
+        string? hero
+    ) => _repository?.ListRuns(request, hero) ?? HistoryCountedPage<HistoryRunRecord>.Empty();
 
-    public HistoryPage<HistoryBattleRecord> LoadBattles(string runId, HistoryPageRequest request) =>
-        _repository?.ListBattles(runId, request) ?? HistoryPage<HistoryBattleRecord>.Empty;
+    public HistoryCursorPage<HistoryBattleRecord> LoadBattles(
+        string runId,
+        HistoryPageRequest request
+    ) => _repository?.ListBattles(runId, request) ?? HistoryCursorPage<HistoryBattleRecord>.Empty;
 
-    public HistoryPage<HistoryBattleRecord> LoadGhosts(
+    public HistoryCountedPage<HistoryBattleRecord> LoadGhosts(
         string account,
         GhostBattleFilter filter,
         bool dayMin10,
         HistoryPageRequest request
     ) =>
         _repository?.ListGhostBattles(account, filter, dayMin10, request)
-        ?? HistoryPage<HistoryBattleRecord>.Empty;
+        ?? HistoryCountedPage<HistoryBattleRecord>.Empty();
 
     internal const string InvalidGhostPayloadMessage =
         "Ghost payload is invalid or exceeds its size limit.";

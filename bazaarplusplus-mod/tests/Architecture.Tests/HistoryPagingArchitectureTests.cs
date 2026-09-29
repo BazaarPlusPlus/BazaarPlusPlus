@@ -18,8 +18,11 @@ public sealed class HistoryPagingArchitectureTests
         Assert.DoesNotContain("battle_snapshots", list);
         Assert.DoesNotContain("json_valid", list);
         Assert.DoesNotContain("COUNT(", list);
-        Assert.Contains("local_player_account_id = $account", list);
         Assert.Contains("string.IsNullOrWhiteSpace(accountId)", list);
+        var query = Read("Game/HistoryPanel/Storage/HistoryPageQuery.cs");
+        Assert.DoesNotContain("battle_snapshots", query);
+        Assert.DoesNotContain("json_valid", query);
+        Assert.Contains("local_player_account_id = $account", query);
         var pages = Read("Game/HistoryPanel/Storage/HistoryPanelRepository.Pages.cs");
         Assert.Contains("Math.Clamp(request.Limit, 1, 40)", pages);
         Assert.DoesNotContain("OFFSET", pages);

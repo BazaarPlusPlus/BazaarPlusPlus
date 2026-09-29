@@ -57,14 +57,17 @@ internal static class HistoryPanelFormatter
             _ => HistoryPanelText.Unknown(),
         };
 
-    public static string PageRange<T>(HistoryPage<T> page, bool ghost = false)
+    public static string PageRange<T>(HistoryCountedPage<T> page, bool ghost = false)
     {
-        var counts = HistoryPanelText.PagePosition(
-            page.FirstPosition,
-            page.Rows.Count,
-            page.TotalCount,
-            ghost
-        );
+        var counts =
+            page.Rows.Count == 0
+                ? HistoryPanelText.PageTotal(page.TotalCount, ghost)
+                : HistoryPanelText.PagePosition(
+                    page.FirstPosition,
+                    page.LastPosition,
+                    page.TotalCount,
+                    ghost
+                );
         return
             page.First.HasValue
             && page.Last.HasValue

@@ -12,12 +12,12 @@ internal sealed record HiddenGhost(
 
 internal sealed partial class HistoryPanelRepository
 {
-    internal HistoryPage<HiddenGhost> ListHiddenGhosts(string account, HistoryCursor? cursor) =>
-        ReadPage(
-            "battles",
-            "battle_id",
-            "recorded_at_utc",
-            "source = 'GHOST' AND local_player_account_id = $account AND deleted_at_utc IS NOT NULL AND ghost_replay_state = 'local_ready'",
+    internal HistoryCursorPage<HiddenGhost> ListHiddenGhosts(
+        string account,
+        HistoryCursor? cursor
+    ) =>
+        ReadCursorPage(
+            HistoryPageQuery.HiddenGhosts(account),
             "battle_id, recorded_at_utc, local_player_account_id, uploader_account_id, remote_battle_id, bundle_id, deleted_at_utc",
             new(cursor),
             reader => new HiddenGhost(
@@ -27,10 +27,7 @@ internal sealed partial class HistoryPanelRepository
                 reader.GetString(4),
                 reader.GetString(5),
                 reader.GetString(6)
-            ),
-            includeCounts: false,
-            index: null,
-            ("$account", account)
+            )
         );
 
     internal bool RestoreHiddenGhost(HiddenGhost ghost)

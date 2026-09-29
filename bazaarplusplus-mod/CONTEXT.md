@@ -67,6 +67,10 @@ _Avoid_: popup, window
 The single module that owns main-overlay-panel lifecycle: mutual exclusion, scene-change policy, combat gating, hotkey and escape routing, and the per-frame tick. Panels register content callbacks with the host instead of re-implementing the lifecycle.
 _Avoid_: panel mutex
 
+**Cursor Page / Counted Page**:
+One read of a History list. A cursor page holds rows plus time/ID anchors and whether newer or older rows exist; the battle timeline and Ghost recovery use it. A counted page adds the one-based position of its first row and the filtered total, from which the neighbours follow; the Runs and Ghost archives use it.
+_Avoid_: page with optional counts
+
 **Native Card Preview Host**:
 The sole owning module (`GameInterop/CardPreview`) for the game's native card prefabs: setup, full visibility, hover, tooltip replacement, pooling, and destruction. Consumers open their own scopes through the host instead of holding runtime, reflection, or pool internals.
 _Avoid_: global preview pool

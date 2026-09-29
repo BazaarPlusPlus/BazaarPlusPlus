@@ -418,7 +418,14 @@ internal static class GhostMessageTests
             DetailBattleId = "other-battle",
         };
         var battle = Battle(ReplayAvailability.Remote);
-        state.GhostPage = new HistoryPage<HistoryBattleRecord>([battle], null, null, false, false);
+        var anchor = new HistoryCursor("2026-09-20T00:00:00Z", battle.BattleId);
+        state.GhostPage = new HistoryCountedPage<HistoryBattleRecord>(
+            [battle],
+            anchor,
+            anchor,
+            1,
+            1
+        );
         var player = Board(NativeMonsterBoardStatus.Partial, 2);
         var facts = HistoryArchiveFacts.Observe(state, battle, player, default);
         Equal(

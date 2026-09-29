@@ -9,15 +9,15 @@ namespace BazaarPlusPlus.Game.HistoryPanel;
 internal sealed partial class HistoryPanelCoordinator
 {
     private sealed record ArchivePage(
-        HistoryPage<HistoryRunRecord>? Runs,
-        HistoryPage<HistoryBattleRecord>? Ghosts
+        HistoryCountedPage<HistoryRunRecord>? Runs,
+        HistoryCountedPage<HistoryBattleRecord>? Ghosts
     );
 
     private sealed record MaintenanceResult(int Expired, int Restored);
 
     private readonly HistoryPanelPayloadFailureLogGate _detailFailures = new();
     private readonly LatestHistoryRead<ArchivePage> _archiveReads = new();
-    private readonly LatestHistoryRead<HistoryPage<HistoryBattleRecord>> _battleReads = new();
+    private readonly LatestHistoryRead<HistoryCursorPage<HistoryBattleRecord>> _battleReads = new();
     private readonly LatestHistoryRead<PvpBattleSnapshots> _detailReads = new();
     private readonly LatestHistoryRead<MaintenanceResult> _maintenanceReads = new();
 
@@ -170,7 +170,7 @@ internal sealed partial class HistoryPanelCoordinator
                     : new(AnchorId: selected)
             );
         ClearDetail();
-        _state.BattlePage = HistoryPage<HistoryBattleRecord>.Empty;
+        _state.BattlePage = HistoryCursorPage<HistoryBattleRecord>.Empty;
         if (run == null)
         {
             _requestUiRefresh();
@@ -201,7 +201,7 @@ internal sealed partial class HistoryPanelCoordinator
                         HistoryPanelText.HistoryLoadFailed(error.Message),
                         StatusSeverity.Failure
                     );
-                _state.BattlePage = page ?? HistoryPage<HistoryBattleRecord>.Empty;
+                _state.BattlePage = page ?? HistoryCursorPage<HistoryBattleRecord>.Empty;
                 _state.SelectedBattleIndex = Math.Max(
                     0,
                     _state.BattlePage.FindIndex(b => b.BattleId == selected)
@@ -294,7 +294,7 @@ internal sealed partial class HistoryPanelCoordinator
         _state.CachedAccountId = account;
         _state.ReplayActionBattleId = null;
         _state.ReplayFailureMessage = null;
-        _state.GhostPage = HistoryPage<HistoryBattleRecord>.Empty;
+        _state.GhostPage = HistoryCountedPage<HistoryBattleRecord>.Empty();
         _state.SelectedGhostBattleIndex = 0;
         return true;
     }

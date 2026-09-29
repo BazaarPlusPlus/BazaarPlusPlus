@@ -37,12 +37,12 @@ internal sealed class HistoryPanelState
 
     public IReadOnlyList<HistoryBattleRecord> GhostBattles => GhostPage.Rows;
 
-    public HistoryPage<HistoryRunRecord> RunPage { get; set; } =
-        HistoryPage<HistoryRunRecord>.Empty;
-    public HistoryPage<HistoryBattleRecord> BattlePage { get; set; } =
-        HistoryPage<HistoryBattleRecord>.Empty;
-    public HistoryPage<HistoryBattleRecord> GhostPage { get; set; } =
-        HistoryPage<HistoryBattleRecord>.Empty;
+    public HistoryCountedPage<HistoryRunRecord> RunPage { get; set; } =
+        HistoryCountedPage<HistoryRunRecord>.Empty();
+    public HistoryCursorPage<HistoryBattleRecord> BattlePage { get; set; } =
+        HistoryCursorPage<HistoryBattleRecord>.Empty;
+    public HistoryCountedPage<HistoryBattleRecord> GhostPage { get; set; } =
+        HistoryCountedPage<HistoryBattleRecord>.Empty();
     public PvpBattleSnapshots? DetailSnapshots { get; set; }
     public string? DetailBattleId { get; set; }
     public bool DetailLoading { get; set; }
