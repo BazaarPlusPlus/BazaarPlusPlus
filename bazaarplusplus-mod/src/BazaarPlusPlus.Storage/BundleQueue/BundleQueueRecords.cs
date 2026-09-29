@@ -27,7 +27,10 @@ public sealed class BundleSealJobRecord
         BundleScreenshotState screenshotState,
         DateTimeOffset inputDeadlineAtUtc,
         string? bundleId,
-        long? createdAtMs
+        long? createdAtMs,
+        int attempts,
+        DateTimeOffset? lastAttemptAtUtc,
+        string? lastErrorCode
     )
     {
         RunId = runId;
@@ -38,6 +41,9 @@ public sealed class BundleSealJobRecord
         InputDeadlineAtUtc = inputDeadlineAtUtc;
         BundleId = bundleId;
         CreatedAtMs = createdAtMs;
+        Attempts = attempts;
+        LastAttemptAtUtc = lastAttemptAtUtc;
+        LastErrorCode = lastErrorCode;
     }
 
     public string RunId { get; }
@@ -48,6 +54,11 @@ public sealed class BundleSealJobRecord
     public DateTimeOffset InputDeadlineAtUtc { get; }
     public string? BundleId { get; }
     public long? CreatedAtMs { get; }
+
+    // Consecutive failed seal attempts with LastErrorCode; the failure policy owns the count.
+    public int Attempts { get; }
+    public DateTimeOffset? LastAttemptAtUtc { get; }
+    public string? LastErrorCode { get; }
 }
 
 public sealed class BundleAllocationRecord

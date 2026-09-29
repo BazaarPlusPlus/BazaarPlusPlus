@@ -11,7 +11,14 @@ internal static class GhostBattlePayloadCodec
     public static bool TryDeserialize(
         byte[]? payloadBytes,
         out GhostBattlePayload? payload,
-        out string? error
+        out string? error,
+        out Exception? exception
     ) =>
-        MessagePackGzipCodec.TryDeserialize(payloadBytes, out payload, out error, 64 * 1024 * 1024);
+        MessagePackGzipCodec.TryDeserialize(
+            payloadBytes,
+            out payload,
+            out error,
+            out exception,
+            64 * 1024 * 1024
+        );
 }

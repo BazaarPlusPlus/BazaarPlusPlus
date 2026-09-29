@@ -1,4 +1,5 @@
 #nullable enable
+using System.IO.Compression;
 using BazaarPlusPlus.Game.HistoryPanel;
 using BazaarPlusPlus.Game.HistoryPanel.Ghost;
 using BazaarPlusPlus.Game.HistoryPanel.Storage;
@@ -79,13 +80,56 @@ internal static class HistoryGhostRecoveryTests
         large.ReplayPayload.SpawnMessageBytes = new byte[65 * 1024 * 1024];
         var bytes = GhostBattlePayloadCodec.Serialize(large);
         Check(
-            !GhostBattlePayloadCodec.TryDeserialize(bytes, out _, out var reason)
+            !GhostBattlePayloadCodec.TryDeserialize(bytes, out _, out var reason, out _)
                 && reason == "payload_too_large",
             "Decompression must enforce its byte limit before deserialization."
         );
+        CheckInvalidDetailMessage(db, repository, data, payloadPath);
         Console.WriteLine(
             "Ghost recovery: 86 hidden rows, 2 valid files across three pages; corrupt, missing, wrong-account and oversized files retained."
         );
+    }
+
+    // The detail error message reaches the History status line; a decode failure must not
+    // replace the friendly text with a serializer message.
+    private static void CheckInvalidDetailMessage(
+        SqliteConnection db,
+        HistoryPanelRepository repository,
+        HistoryPanelDataService data,
+        string payloadPath
+    )
+    {
+        using (var update = db.CreateCommand())
+        {
+            update.CommandText =
+                "UPDATE battles SET download_url='https://example.invalid/r', download_url_expires_at_ms=0 WHERE battle_id='recover000';";
+            update.ExecuteNonQuery();
+        }
+        using (var output = new MemoryStream())
+        {
+            using (var gzip = new GZipStream(output, CompressionLevel.Fastest, leaveOpen: true))
+                gzip.WriteByte(0xC1);
+            File.WriteAllBytes(
+                Path.Combine(payloadPath, "recover000.ghost.mpack.gz"),
+                output.ToArray()
+            );
+        }
+        var row = repository
+            .ListGhostBattles("account-a", GhostBattleFilter.All, false, new())
+            .Rows.Single(value => value.BattleId == "recover000");
+        try
+        {
+            data.LoadDetail(row, "account-a");
+            Check(false, "An undecodable Ghost payload must fail detail loading.");
+        }
+        catch (InvalidDataException ex)
+        {
+            Check(
+                ex.Message == "Ghost payload is invalid or exceeds its size limit."
+                    && ex.InnerException != null,
+                "Detail failure keeps the friendly text and carries the decode cause: " + ex
+            );
+        }
     }
 
     private static GhostBattlePayload Payload(string id, string account) =>

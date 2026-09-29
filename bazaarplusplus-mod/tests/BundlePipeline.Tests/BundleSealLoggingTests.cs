@@ -33,7 +33,7 @@ internal static class BundleSealLoggingTests
                 new RunLogCompletion { EndedAtUtc = old.AddMinutes(1), Status = "completed" }
             );
             queue.EnsureEligibleJobs(TimeSpan.Zero);
-            queue.EnsureAllocation(id, "invalid-ulid-" + id, 1000, old);
+            queue.EnsureAllocation(id, "invalid-ulid-" + id, 1000);
         }
         queue.ResetInterruptedSeals();
         using var logger = new ManualLogSource("bundle-seal-tests");

@@ -65,6 +65,7 @@ Equal(
     "minimal payload overflow is terminal"
 );
 
+BundleSealFailurePolicyTests.Run();
 Console.WriteLine("Bundle seal convergence checks passed.");
 
 static BundleSealConvergenceDecision Resolve(

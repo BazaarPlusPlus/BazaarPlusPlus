@@ -8,6 +8,7 @@ TestSqliteUtcInstant();
 TestEligibilityAllocationPublishAndDueOrdering();
 TestOutcomeResealAndCleanupQueries();
 TestFinalOutboxEndsEligibility();
+TestSealFailureBookkeeping();
 
 Console.WriteLine("Bundle queue SQLite store checks passed.");
 
@@ -51,8 +52,8 @@ static void TestEligibilityAllocationPublishAndDueOrdering()
                 "Eligibility should persist the exact convergence deadline."
             );
 
-            var first = store.EnsureAllocation("ranked", "bundle-a", 1000, Now());
-            var second = store.EnsureAllocation("ranked", "bundle-b", 2000, Now().AddSeconds(1));
+            var first = store.EnsureAllocation("ranked", "bundle-a", 1000);
+            var second = store.EnsureAllocation("ranked", "bundle-b", 2000);
             Assert(
                 first.BundleId == "bundle-a" && first.CreatedAtMs == 1000,
                 "First allocation wins."
@@ -116,7 +117,7 @@ static void TestOutcomeResealAndCleanupQueries()
         {
             InsertRun(connection, "run-a", "ranked", "Online", completed: true, screenshot: false);
             store.EnsureEligibleJobs(TimeSpan.Zero);
-            var allocation = store.EnsureAllocation("run-a", "bundle-a", 1000, Now());
+            var allocation = store.EnsureAllocation("run-a", "bundle-a", 1000);
             store.PublishOutbox(
                 allocation,
                 Publish("bundle-a", "run-a", "a.bundle", 10),
@@ -231,7 +232,7 @@ static void TestFinalOutboxEndsEligibility()
             store.EnsureEligibleJobs(TimeSpan.Zero);
             foreach (var runId in new[] { "rejected", "expired" })
             {
-                var allocation = store.EnsureAllocation(runId, "bundle-" + runId, 1000, Now());
+                var allocation = store.EnsureAllocation(runId, "bundle-" + runId, 1000);
                 store.PublishOutbox(
                     allocation,
                     Publish("bundle-" + runId, runId, runId + ".bundle", 10),
@@ -256,6 +257,86 @@ static void TestFinalOutboxEndsEligibility()
                 Scalar(connection, "SELECT COUNT(*) || '' FROM bundle_outbox;") == "2",
                 "Final outcomes must not accumulate replacement outbox rows."
             );
+        }
+    );
+}
+
+static void TestSealFailureBookkeeping()
+{
+    WithStore(
+        (store, connection) =>
+        {
+            InsertRun(connection, "retry", "ranked", "Online", completed: true, screenshot: false);
+            store.EnsureEligibleJobs(TimeSpan.Zero);
+            store.EnsureAllocation("retry", "bundle-retry", 1000);
+            var allocated = store.ReadJob("retry")!;
+            Assert(
+                allocated.State == BundleSealJobState.Sealing
+                    && allocated.Attempts == 0
+                    && allocated.LastAttemptAtUtc == null
+                    && allocated.LastErrorCode == null,
+                "Allocation marks the job sealing without counting a failed attempt."
+            );
+
+            store.RecordSealFailure(
+                "retry",
+                BundleSealJobState.Waiting,
+                "seal_publish_failed",
+                "System.IO.IOException: locked",
+                3,
+                Now()
+            );
+            var waiting = store.ReadJob("retry")!;
+            Assert(
+                waiting.State == BundleSealJobState.Waiting
+                    && waiting.Attempts == 3
+                    && waiting.LastAttemptAtUtc == Now()
+                    && waiting.LastErrorCode == "seal_publish_failed",
+                "A recorded failure writes state, attempts, time, and code together."
+            );
+            Assert(
+                Scalar(
+                    connection,
+                    "SELECT last_error_detail FROM bundle_seal_jobs WHERE run_id='retry';"
+                ) == "System.IO.IOException: locked",
+                "The bounded diagnostic persists."
+            );
+            Assert(
+                store.ListWaitingRunIds().SequenceEqual(["retry"]),
+                "A retrying job stays waiting."
+            );
+
+            store.RecordSealFailure(
+                "retry",
+                BundleSealJobState.TerminalFailure,
+                "bundle_build_failed",
+                null,
+                1,
+                Now().AddSeconds(5)
+            );
+            Assert(
+                store.ReadJob("retry")!.State == BundleSealJobState.TerminalFailure
+                    && store.ListWaitingRunIds().Count == 0,
+                "A terminal failure leaves the waiting set."
+            );
+
+            var rejected = false;
+            try
+            {
+                store.RecordSealFailure(
+                    "retry",
+                    BundleSealJobState.Sealing,
+                    "seal_attempt_failed",
+                    null,
+                    1,
+                    Now()
+                );
+            }
+            catch (ArgumentOutOfRangeException)
+            {
+                rejected = true;
+            }
+            Assert(rejected, "A failure never records the in-flight sealing state.");
         }
     );
 }

@@ -37,6 +37,24 @@ internal static class BundlePipelineLogEvents
         [RunId, Category],
         new BppLogStormPolicy([Category])
     );
+    internal static readonly BppLogEventDefinition SealDeferred = new(
+        BppLogFeatureScope.BundlePipeline,
+        "bundle_pipeline.seal.deferred",
+        [RunId, Category],
+        new BppLogStormPolicy([Category])
+    );
+    internal static readonly BppLogEventDefinition SealEnvironmentBlocked = new(
+        BppLogFeatureScope.BundlePipeline,
+        "bundle_pipeline.seal.environment_blocked",
+        [RunId, Category],
+        new BppLogStormPolicy([Category])
+    );
+    internal static readonly BppLogEventDefinition SealDegraded = new(
+        BppLogFeatureScope.BundlePipeline,
+        "bundle_pipeline.seal.degraded",
+        [RunId, Category],
+        new BppLogStormPolicy([Category])
+    );
     internal static readonly BppLogEventDefinition ReconcileFailed = new(
         BppLogFeatureScope.BundlePipeline,
         "bundle_pipeline.reconcile.failed",

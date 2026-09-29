@@ -27,18 +27,22 @@ public static class MessagePackGzipCodec
 
     public static bool TryDeserialize<T>(byte[]? payloadBytes, out T? value, out string? error)
         where T : class =>
-        TryDeserialize(payloadBytes, out value, out error, maxDecompressedBytes: null);
+        TryDeserialize(payloadBytes, out value, out error, out _, maxDecompressedBytes: null);
 
+    // The decode exception stays available so callers can tell a runtime binding failure
+    // (a missing member in a loaded assembly) from corrupt bytes.
     public static bool TryDeserialize<T>(
         byte[]? payloadBytes,
         out T? value,
         out string? error,
-        int? maxDecompressedBytes
+        out Exception? exception,
+        int? maxDecompressedBytes = null
     )
         where T : class
     {
         value = null;
         error = null;
+        exception = null;
 
         if (payloadBytes == null || payloadBytes.Length == 0)
         {
@@ -57,6 +61,7 @@ public static class MessagePackGzipCodec
             return true;
         }
 
+        exception = result.Exception;
         error = result.FailureKind switch
         {
             MessagePackGzipFailureKind.Empty => "payload_empty",
