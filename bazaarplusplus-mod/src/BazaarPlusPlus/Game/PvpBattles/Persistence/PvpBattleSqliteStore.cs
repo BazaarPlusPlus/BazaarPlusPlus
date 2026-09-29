@@ -1,6 +1,7 @@
 #nullable enable
 using System.Globalization;
 using BazaarPlusPlus.Storage;
+using BazaarPlusPlus.Storage.BundleQueue;
 using BazaarPlusPlus.Storage.RunLog;
 using BazaarPlusPlus.Storage.Sqlite;
 using Microsoft.Data.Sqlite;
@@ -415,20 +416,7 @@ internal sealed class PvpBattleSqliteStore : SqliteStoreBase, IPvpBattleCatalog
                   SELECT 1
                   FROM {RunLogSchema.RunsTableName} AS eligible_run
                   WHERE eligible_run.run_id = b.run_id
-                    AND eligible_run.completed = 1
-                    AND lower(eligible_run.status) = 'completed'
-                    AND lower(eligible_run.game_mode) = 'ranked'
-                    AND lower(COALESCE(eligible_run.build_channel, 'unknown')) <> 'ptr'
-                    AND NOT EXISTS (
-                        SELECT 1
-                        FROM {RunLogSchema.BundleSealJobsTableName} AS existing_seal_job
-                        WHERE existing_seal_job.run_id = eligible_run.run_id
-                    )
-                    AND NOT EXISTS (
-                        SELECT 1
-                        FROM {RunLogSchema.BundleOutboxTableName} AS sealed_outbox
-                        WHERE sealed_outbox.run_id = eligible_run.run_id
-                    )
+                    AND {BundleQueueStore.SealEligibleRunCondition("eligible_run")}
               )
             ORDER BY b.recorded_at_utc DESC, b.battle_id DESC;
             """;

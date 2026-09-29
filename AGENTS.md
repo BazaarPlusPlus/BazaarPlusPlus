@@ -23,6 +23,7 @@ A contract change lands in one pull request together with every consumer it brea
 | Run segment inside a Bundle | `bazaarplusplus-mod/docs/contracts/run-payload-v5.md`, shared golden `bazaarplusplus-mod/tests/BundleV5Codec.Tests/fixtures/run-payload-v5.fixture.b64` | server stores it opaque, analyzer decodes it |
 | Mod API HTTP routes | `bazaarplusplus-server/docs/api-reference.md` | mod |
 | Hero and build snapshots | `bazaarplusplus-analyzer/contracts/v5/` and `bazaarplusplus-analyzer/docs/specs/consumer-data-contract.md` | site Hero Analysis, mod build recommendations |
+| Seal eligibility | `BundleQueueStore.SealEligibleRunCondition` in `bazaarplusplus-mod/src/BazaarPlusPlus.Storage/`, shared cases `bazaarplusplus-mod/tests/BundleQueueSqliteStore.Tests/fixtures/bundle-seal-eligibility.json` | mod replay maintenance, installer History cleanup (`PROTECTED_RUN_PREDICATE`) |
 | Payload Inventory | `release/payload.json` | mod MSBuild, installer packaging and cleanup |
 | Local history database schema (`user_version`) | `RunLogSchema.LocalDatabaseSchemaVersion`, mirrored in `bazaarplusplus-mod/src/BazaarPlusPlus.Storage/BazaarPlusPlus.history-database.json`; `release::check` gates the pair (`release/history-database.mjs`) | installer History, cleanup, and overlay reads (`bazaarplusplus-installer/src-tauri/history-database-compatibility.json`) |
 | Release Manifest and Platform Release Manifest | `release/manifest.mjs`, shared fixtures `release/fixtures/latest.json` and `release/fixtures/latest/` | site download page, installer updater, mod update check |
