@@ -16,8 +16,8 @@ internal sealed class GhostBattleSyncService
     private readonly HistoryPanelRepository _repository;
     private readonly ModApiSession _modApiSession;
     private readonly Func<string?> _playerAccountIdResolver;
+    private readonly SemaphoreSlim _syncGate = new(1, 1);
     private long _cooldownUntilUtcTicks;
-    private int _syncInFlight;
 
     public GhostBattleSyncService(
         HistoryPanelRepository repository,
@@ -34,12 +34,10 @@ internal sealed class GhostBattleSyncService
         CancellationToken cancellationToken
     )
     {
-        if (Interlocked.CompareExchange(ref _syncInFlight, 1, 0) != 0)
-            return GhostBattleSyncResult.Failure(
-                "ghost_sync_already_running",
-                HistoryPanelGhostSyncReasonCode.QueryFailed
-            );
-
+        // A session boundary cancels a sync that unwinds only later, so the next session's sync
+        // waits for it rather than failing. The wait resumes on the caller's context because the
+        // account resolver reads the game profile.
+        await _syncGate.WaitAsync(cancellationToken);
         try
         {
             var now = DateTimeOffset.UtcNow;
@@ -61,7 +59,7 @@ internal sealed class GhostBattleSyncService
         }
         finally
         {
-            Volatile.Write(ref _syncInFlight, 0);
+            _syncGate.Release();
         }
     }
 

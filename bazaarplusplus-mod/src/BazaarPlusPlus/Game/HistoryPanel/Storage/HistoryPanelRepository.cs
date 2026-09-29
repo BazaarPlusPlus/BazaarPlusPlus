@@ -433,7 +433,8 @@ internal sealed partial class HistoryPanelRepository
         transaction.Commit();
     }
 
-    public void MarkOldUndownloadedGhostBattlesDeleted(DateTimeOffset nowUtc)
+    // Returns the rows this call hid; rows hidden earlier are not counted again.
+    public int MarkOldUndownloadedGhostBattlesDeleted(DateTimeOffset nowUtc)
     {
         using var connection = OpenConnection(ensureSchema: true);
         using var command = connection.CreateCommand();
@@ -455,7 +456,7 @@ internal sealed partial class HistoryPanelRepository
             "$staleCutoffUtc",
             nowUtc.Subtract(GhostRetentionWindow).ToString("o")
         );
-        command.ExecuteNonQuery();
+        return command.ExecuteNonQuery();
     }
 
     public void MarkGhostReplayDownloaded(string battleId) =>

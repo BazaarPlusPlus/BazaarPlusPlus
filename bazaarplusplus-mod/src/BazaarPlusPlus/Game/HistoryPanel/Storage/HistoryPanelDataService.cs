@@ -102,18 +102,23 @@ internal sealed class HistoryPanelDataService
         return snapshots;
     }
 
-    internal int MaintainGhosts(string account, CancellationToken cancellationToken)
+    // Expired counts stale undownloaded rows hidden for every account; Restored counts this
+    // account's hidden downloads brought back. Either changes the Ghost page.
+    internal (int Expired, int Restored) MaintainGhosts(
+        string account,
+        CancellationToken cancellationToken
+    )
     {
         if (
             _repository == null
             || !_repository.DatabaseExists
             || string.IsNullOrWhiteSpace(account)
         )
-            return 0;
-        _repository.MarkOldUndownloadedGhostBattlesDeleted(DateTimeOffset.UtcNow);
+            return (0, 0);
+        var expired = _repository.MarkOldUndownloadedGhostBattlesDeleted(DateTimeOffset.UtcNow);
         var directory = _replayDirectoryPathAccessor?.Invoke();
         if (string.IsNullOrWhiteSpace(directory))
-            return 0;
+            return (expired, 0);
         var store = new GhostBattlePayloadStore(
             GhostBattlePayloadStore.ResolveDirectory(directory)
         );
@@ -143,7 +148,7 @@ internal sealed class HistoryPanelDataService
                     restored++;
             }
             if (!page.HasOlder)
-                return restored;
+                return (expired, restored);
             cursor = page.Last;
         }
     }

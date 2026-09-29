@@ -13,7 +13,7 @@ internal sealed partial class HistoryPanelCoordinator
         HistoryPage<HistoryBattleRecord>? Ghosts
     );
 
-    private sealed record MaintenanceResult(int Restored);
+    private sealed record MaintenanceResult(int Expired, int Restored);
 
     private readonly HistoryPanelPayloadFailureLogGate _detailFailures = new();
     private readonly LatestHistoryRead<ArchivePage> _archiveReads = new();
@@ -305,12 +305,19 @@ internal sealed partial class HistoryPanelCoordinator
         var session = _session.Version;
         var token = _session.Token;
         _maintenanceReads.Submit(
-            () => new(_dataService.MaintainGhosts(account, token)),
+            () =>
+            {
+                var (expired, restored) = _dataService.MaintainGhosts(account, token);
+                return new(expired, restored);
+            },
+            // Maintenance runs beside the page read, so a page read first can still list rows it
+            // hid or miss rows it restored. RefreshGhostData never restarts maintenance.
             (result, error) =>
             {
                 if (
                     _session.IsCurrent(session)
-                    && result?.Restored > 0
+                    && result is { } changed
+                    && changed.Expired + changed.Restored > 0
                     && _state.SectionMode == HistorySectionMode.Ghost
                 )
                     RefreshGhostData();
