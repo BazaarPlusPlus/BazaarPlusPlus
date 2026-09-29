@@ -32,14 +32,14 @@ pub async fn ensure_stream_session(
 
 #[tauri::command]
 #[specta::specta]
-pub async fn ensure_history_preview(
+pub async fn prepare_history_thumbnails(
     app: tauri::AppHandle,
     runtime: tauri::State<'_, StreamRuntime>,
-) -> Result<Option<String>, SemanticProblem> {
+) -> Result<(), SemanticProblem> {
     runtime
-        .ensure_history_preview(app)
+        .prepare_history_thumbnails(app)
         .await
-        .map_err(|diagnostic| stream_service_problem("ensure_history_preview", diagnostic))
+        .map_err(|diagnostic| stream_service_problem("prepare_history_thumbnails", diagnostic))
 }
 
 #[tauri::command]

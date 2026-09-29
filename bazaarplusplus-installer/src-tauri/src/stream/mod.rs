@@ -1,3 +1,4 @@
+pub(crate) mod history_thumbnails;
 mod http;
 pub(crate) mod overlay_settings;
 mod records;

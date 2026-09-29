@@ -1,7 +1,8 @@
+use super::history_thumbnails::{self, HistoryThumbnails};
 use super::overlay_settings::{validate_crop_settings, OverlayCropSettings, OverlaySettingsStore};
 use super::records::OverlayRecordRepository;
 use super::runtime::StreamRuntime;
-use super::strip::{render_strip, StripCache, StripRequest};
+use super::strip::{render_strip, StripRequest};
 use axum::http::StatusCode;
 use axum::{
     extract::{Path, Query, State},
@@ -32,7 +33,6 @@ const LATEST_RECORD_ROUTE: &str = "/api/stream/records/latest";
 const RECORD_LIST_ROUTE: &str = "/api/stream/records";
 const CROP_CONFIG_ROUTE: &str = "/api/overlay/crop-config";
 const STRIP_IMAGE_ROUTE: &str = "/images/{record_id}/strip";
-const HISTORY_PREVIEW_PREFIX: &str = "/history";
 const RECORD_IMAGE_ROUTE: &str = "/images/{record_id}";
 const OVERLAY_CSS_ROUTE: &str = "/assets/overlay.css";
 const OVERLAY_JS_ROUTE: &str = "/assets/overlay.js";
@@ -78,6 +78,7 @@ struct StripPreviewQuery {
 pub(super) fn router(
     overlay_records: OverlayRecordRepository,
     runtime: StreamRuntime,
+    history_thumbnails: HistoryThumbnails,
     overlay_settings: OverlaySettingsStore,
     cache_directory: PathBuf,
 ) -> Router {
@@ -87,6 +88,12 @@ pub(super) fn router(
         }))
         .allow_methods([Method::GET, Method::POST])
         .allow_headers([header::CONTENT_TYPE]);
+
+    let history_thumbnails = history_thumbnails::router(
+        history_thumbnails,
+        overlay_settings.clone(),
+        cache_directory.clone(),
+    );
 
     Router::new()
         .route(OVERLAY_ROUTE, get(overlay_page))
@@ -98,10 +105,6 @@ pub(super) fn router(
             get(get_crop_config).post(save_crop_config),
         )
         .route(STRIP_IMAGE_ROUTE, get(record_strip_image))
-        .route(
-            &format!("{HISTORY_PREVIEW_PREFIX}/{{source}}{STRIP_IMAGE_ROUTE}"),
-            get(history_strip_image),
-        )
         .route(RECORD_IMAGE_ROUTE, get(record_image))
         .route(OVERLAY_CSS_ROUTE, get(overlay_css))
         .route(OVERLAY_JS_ROUTE, get(overlay_js))
@@ -109,17 +112,14 @@ pub(super) fn router(
         .route(SETTINGS_JS_ROUTE, get(settings_js))
         .route(BADGE_ROUTE, get(badge_asset))
         .route(CINZEL_FONT_ROUTE, get(cinzel_font))
-        .layer(cors)
         .with_state(HttpAppState {
             overlay_records,
             runtime,
             overlay_settings,
             cache_directory,
         })
-}
-
-pub(super) fn history_preview_prefix(source: usize) -> String {
-    format!("{HISTORY_PREVIEW_PREFIX}/{source}")
+        .merge(history_thumbnails)
+        .layer(cors)
 }
 
 fn is_allowed_cors_origin(origin: &HeaderValue) -> bool {
@@ -250,28 +250,6 @@ async fn record_strip_image(
     Query(query): Query<StripPreviewQuery>,
     State(app_state): State<HttpAppState>,
 ) -> Response {
-    let records = app_state.overlay_records.clone();
-    serve_strip(records, record_id, query, StripCache::Overlay, app_state).await
-}
-
-async fn history_strip_image(
-    Path((source, record_id)): Path<(usize, String)>,
-    Query(query): Query<StripPreviewQuery>,
-    State(app_state): State<HttpAppState>,
-) -> Response {
-    let Some(records) = app_state.runtime.history_preview_records(source) else {
-        return StatusCode::NOT_FOUND.into_response();
-    };
-    serve_strip(records, record_id, query, StripCache::History, app_state).await
-}
-
-async fn serve_strip(
-    records: OverlayRecordRepository,
-    record_id: String,
-    query: StripPreviewQuery,
-    cache: StripCache,
-    app_state: HttpAppState,
-) -> Response {
     let crop = match requested_strip_crop(&query) {
         Ok(crop) => crop,
         Err(message) => return (StatusCode::BAD_REQUEST, message).into_response(),
@@ -280,26 +258,26 @@ async fn serve_strip(
         record_id,
         crop,
         preview: query.preview.unwrap_or(false),
-        cache,
     };
+    let records = app_state.overlay_records;
     let settings = app_state.overlay_settings;
     let cache_root = app_state.cache_directory;
 
-    let strip_bytes =
-        match run_record_task(move || render_strip(&records, &settings, &cache_root, &request))
-            .await
-        {
-            Ok(Some(bytes)) => bytes,
-            Ok(None) => return StatusCode::NOT_FOUND.into_response(),
-            Err(message) => return (StatusCode::INTERNAL_SERVER_ERROR, message).into_response(),
-        };
+    match run_record_task(move || render_strip(&records, &settings, &cache_root, &request)).await {
+        Ok(Some(bytes)) => png_response(bytes),
+        Ok(None) => StatusCode::NOT_FOUND.into_response(),
+        Err(message) => (StatusCode::INTERNAL_SERVER_ERROR, message).into_response(),
+    }
+}
 
+/// A rendered strip; `no-store` because the saved crop can change its pixels.
+pub(super) fn png_response(bytes: Vec<u8>) -> Response {
     (
         [
             (header::CONTENT_TYPE, HeaderValue::from_static("image/png")),
             (header::CACHE_CONTROL, HeaderValue::from_static("no-store")),
         ],
-        strip_bytes,
+        bytes,
     )
         .into_response()
 }
@@ -307,7 +285,7 @@ async fn serve_strip(
 /// Repository reads open a SQLite connection that can sleep on a busy database
 /// and read, decode or write whole images, so they must not run on the shared
 /// tokio workers that also serve the Tauri async commands.
-async fn run_record_task<T, F>(task: F) -> Result<T, String>
+pub(super) async fn run_record_task<T, F>(task: F) -> Result<T, String>
 where
     T: Send + 'static,
     F: FnOnce() -> Result<T, String> + Send + 'static,
@@ -447,12 +425,15 @@ async fn badge_asset(Path((category, file_name)): Path<(String, String)>) -> Res
 #[cfg(test)]
 mod tests {
     use super::{
+        history_thumbnails, router, HistoryThumbnails, OverlayRecordRepository,
+        OverlaySettingsStore, StreamRuntime,
+    };
+    use super::{
         is_allowed_cors_origin, overlay_asset_path, BADGES_DIR, BADGE_ROUTE, CINZEL_FONT,
         CINZEL_FONT_ROUTE, CROP_CONFIG_ROUTE, LATEST_RECORD_ROUTE, OVERLAY_CSS, OVERLAY_CSS_ROUTE,
         OVERLAY_JS_ROUTE, OVERLAY_ROUTE, RECORD_IMAGE_ROUTE, RECORD_LIST_ROUTE, SETTINGS_CSS_ROUTE,
         SETTINGS_JS_ROUTE, SETTINGS_ROUTE, STRIP_IMAGE_ROUTE,
     };
-    use super::{router, OverlayRecordRepository, OverlaySettingsStore, StreamRuntime};
     use axum::http::HeaderValue;
 
     #[test]
@@ -491,6 +472,7 @@ mod tests {
                 RECORD_LIST_ROUTE,
                 CROP_CONFIG_ROUTE,
                 STRIP_IMAGE_ROUTE,
+                history_thumbnails::ROUTE,
                 RECORD_IMAGE_ROUTE,
                 OVERLAY_CSS_ROUTE,
                 OVERLAY_JS_ROUTE,
@@ -506,6 +488,7 @@ mod tests {
                 "/api/stream/records",
                 "/api/overlay/crop-config",
                 "/images/{record_id}/strip",
+                "/history/{source}/images/{screenshot_id}/strip",
                 "/images/{record_id}",
                 "/assets/overlay.css",
                 "/assets/overlay.js",
@@ -590,17 +573,18 @@ mod tests {
         let temp = tempfile::tempdir().unwrap();
         let game_path = temp.path().join("game");
         let lock = locked_screenshot_fixture(&game_path);
-        let runtime = StreamRuntime::default();
-        let prefix = runtime.register_history_preview(&game_path);
+        let thumbnails = HistoryThumbnails::default();
+        let thumbnail_url = history_thumbnails::url(thumbnails.register(&game_path), "shot-1");
         let app = router(
             OverlayRecordRepository::new(Some(game_path)),
-            runtime,
+            StreamRuntime::default(),
+            thumbnails,
             OverlaySettingsStore::new(temp.path().join("settings.json")),
             temp.path().join("cache"),
         );
         let requests = [
             "/images/shot-1/strip".to_string(),
-            format!("{prefix}/images/shot-1/strip"),
+            thumbnail_url.replace("http://127.0.0.1:17654", ""),
             "/images/shot-1/strip?preview=true&left=0.1".to_string(),
         ]
         .map(|uri| {

@@ -27,7 +27,8 @@ pub struct HistoryRunRow {
     pub final_player_rank: Option<String>,
     pub final_player_rating: Option<i64>,
     pub screenshot_id: Option<String>,
-    pub strip_url: Option<String>,
+    /// The absolute URL of the run's History Thumbnail.
+    pub thumbnail_url: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, specta::Type)]
@@ -51,7 +52,6 @@ pub struct HistoryRunDetailRow {
     pub final_player_rank: Option<String>,
     pub final_player_rating: Option<i64>,
     pub screenshot_id: Option<String>,
-    pub strip_url: Option<String>,
     pub player_name: Option<String>,
 }
 

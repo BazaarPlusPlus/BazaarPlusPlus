@@ -1,4 +1,5 @@
 use super::{
+    history_thumbnails::HistoryThumbnails,
     records::OverlayRecordRepository,
     server::ProductionServer,
     state::{StreamDbStatus, StreamServiceStatus},
@@ -52,50 +53,26 @@ struct StreamRuntimeInner {
     task: Option<StreamTaskHandle>,
     active_installation_path: Option<PathBuf>,
     active_record_game_path: Option<PathBuf>,
-    // Opaque History URL sources live for this process, independently of OBS sessions.
-    history_sources: Vec<PathBuf>,
 }
 
 impl StreamRuntime {
-    pub(crate) fn register_history_preview(&self, game_path: &Path) -> String {
-        let mut inner = self.inner.lock().expect("stream runtime poisoned");
-        let source = match inner
-            .history_sources
-            .iter()
-            .position(|path| path == game_path)
-        {
-            Some(source) => source,
-            None => {
-                inner.history_sources.push(game_path.to_path_buf());
-                inner.history_sources.len() - 1
-            }
-        };
-        super::http::history_preview_prefix(source)
-    }
-
-    pub(super) fn history_preview_records(&self, source: usize) -> Option<OverlayRecordRepository> {
-        self.inner
-            .lock()
-            .expect("stream runtime poisoned")
-            .history_sources
-            .get(source)
-            .cloned()
-            .map(|path| OverlayRecordRepository::new(Some(path)))
-    }
-
-    pub(crate) async fn ensure_history_preview(
+    /// Makes History Thumbnails servable: starts a stopped service for the
+    /// selected installation and leaves a running OBS session as it is.
+    pub(crate) async fn prepare_history_thumbnails(
         &self,
         app: tauri::AppHandle,
-    ) -> Result<Option<String>, String> {
-        self.ensure_history_preview_with(&ProductionServer, || resolve_installation(&app, None))
-            .await
+    ) -> Result<(), String> {
+        self.prepare_history_thumbnails_with(&production_server(&app), || {
+            resolve_installation(&app, None)
+        })
+        .await
     }
 
-    async fn ensure_history_preview_with<A, F>(
+    pub(super) async fn prepare_history_thumbnails_with<A, F>(
         &self,
         server: &A,
         installation: F,
-    ) -> Result<Option<String>, String>
+    ) -> Result<(), String>
     where
         A: StreamServerAdapter + ?Sized,
         F: FnOnce() -> StreamInstallation,
@@ -104,7 +81,7 @@ impl StreamRuntime {
         if !self.snapshot().running {
             self.ensure_locked(server, installation()).await?;
         }
-        Ok(self.snapshot().base_url)
+        Ok(())
     }
 
     pub(crate) fn snapshot(&self) -> StreamServiceStatus {
@@ -122,8 +99,8 @@ impl StreamRuntime {
     ) -> Result<StreamServiceStatus, String> {
         let _lifecycle = self.lifecycle.lock().await;
         let installation = resolve_installation(&app, requested_game_path);
-        let server = ProductionServer;
-        self.ensure_locked(&server, installation).await
+        self.ensure_locked(&production_server(&app), installation)
+            .await
     }
 
     pub(crate) async fn restart(
@@ -133,8 +110,8 @@ impl StreamRuntime {
     ) -> Result<StreamServiceStatus, String> {
         let _lifecycle = self.lifecycle.lock().await;
         let installation = resolve_installation(&app, requested_game_path);
-        let server = ProductionServer;
-        self.restart_locked(&server, installation).await
+        self.restart_locked(&production_server(&app), installation)
+            .await
     }
 
     pub(crate) async fn stop(&self) -> Result<StreamServiceStatus, String> {
@@ -160,7 +137,7 @@ impl StreamRuntime {
     }
 
     #[cfg(test)]
-    async fn ensure_with<A>(
+    pub(super) async fn ensure_with<A>(
         &self,
         server: &A,
         installation: StreamInstallation,
@@ -252,7 +229,7 @@ impl StreamRuntime {
         Ok(self.set_idle())
     }
 
-    async fn set_window_with<F>(&self, apply: F) -> Result<StreamServiceStatus, String>
+    pub(super) async fn set_window_with<F>(&self, apply: F) -> Result<StreamServiceStatus, String>
     where
         F: FnOnce(&StreamServiceStatus, Option<PathBuf>) -> Result<(Option<String>, usize), String>,
     {
@@ -348,6 +325,12 @@ impl StreamRuntime {
     }
 }
 
+fn production_server(app: &tauri::AppHandle) -> ProductionServer {
+    ProductionServer {
+        thumbnails: app.state::<HistoryThumbnails>().inner().clone(),
+    }
+}
+
 fn resolve_installation(
     app: &tauri::AppHandle,
     requested_game_path: Option<PathBuf>,
@@ -408,8 +391,10 @@ fn stream_window_for_offset(
     Ok((Some(record.captured_at_utc), offset))
 }
 
+/// A lifecycle double shared by the runtime's tests and the History Thumbnail
+/// preparation tests.
 #[cfg(test)]
-mod tests {
+pub(super) mod test_support {
     use super::{
         StartFuture, StartedStream, StreamInstallation, StreamRuntime, StreamServerAdapter,
         StreamTaskHandle,
@@ -422,17 +407,17 @@ mod tests {
             Arc,
         },
     };
-    use tokio::sync::{oneshot, Notify};
+    use tokio::sync::oneshot;
 
     #[derive(Clone, Default)]
-    struct TestServer {
-        starts: Arc<AtomicUsize>,
-        stops: Arc<AtomicUsize>,
+    pub(in crate::stream) struct TestServer {
+        pub(in crate::stream) starts: Arc<AtomicUsize>,
+        pub(in crate::stream) stops: Arc<AtomicUsize>,
         failure: Option<String>,
     }
 
     impl TestServer {
-        fn failing(message: &str) -> Self {
+        pub(in crate::stream) fn failing(message: &str) -> Self {
             Self {
                 failure: Some(message.to_string()),
                 ..Self::default()
@@ -481,12 +466,22 @@ mod tests {
         }
     }
 
-    fn installation(path: &str) -> StreamInstallation {
+    pub(in crate::stream) fn installation(path: &str) -> StreamInstallation {
         StreamInstallation {
             game_path: Some(PathBuf::from(path)),
             record_game_path: Some(PathBuf::from(path)),
         }
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        test_support::{installation, TestServer},
+        StreamRuntime,
+    };
+    use std::sync::{atomic::Ordering, Arc};
+    use tokio::sync::Notify;
 
     #[tokio::test]
     async fn stream_runtime_concurrent_ensure_starts_exactly_one_task() {
@@ -620,269 +615,5 @@ mod tests {
         maintenance.await.unwrap().unwrap();
         assert!(!runtime.snapshot().running);
         assert!(!runtime.has_task());
-    }
-    fn screenshot_fixture(game_path: &std::path::Path, color: [u8; 4]) -> PathBuf {
-        let screenshots = crate::services::paths::screenshots_dir(game_path);
-        std::fs::create_dir_all(&screenshots).unwrap();
-        let path = screenshots.join("shot.png");
-        image::RgbaImage::from_pixel(64, 32, image::Rgba(color))
-            .save(&path)
-            .unwrap();
-        let connection =
-            rusqlite::Connection::open(crate::services::paths::database_path(game_path)).unwrap();
-        connection
-            .execute_batch(
-                "pragma user_version = 2;
-            create table run_screenshots (
-                screenshot_id text primary key, capture_source text, image_relative_path text,
-                hero_name text, captured_at_local text, captured_at_utc text,
-                victories_at_capture integer, day integer, player_rank text, player_rating integer
-            );
-            insert into run_screenshots values (
-                'shot-1', 'end_of_run_auto', 'shot.png', 'Vanessa', '2026-09-01T00:00:00Z',
-                '2026-09-01T00:00:00Z', 10, 10, null, null
-            );",
-            )
-            .unwrap();
-        path
-    }
-
-    fn history_router(
-        runtime: &StreamRuntime,
-        overlay_path: &std::path::Path,
-        root: &std::path::Path,
-    ) -> axum::Router {
-        crate::stream::http::router(
-            crate::stream::records::OverlayRecordRepository::new(Some(overlay_path.to_path_buf())),
-            runtime.clone(),
-            crate::stream::overlay_settings::OverlaySettingsStore::new(root.join("settings.json")),
-            root.join("cache"),
-        )
-    }
-
-    async fn image_pixel(router: axum::Router, uri: &str) -> [u8; 4] {
-        use tower::ServiceExt;
-        let response = router
-            .oneshot(
-                axum::http::Request::builder()
-                    .uri(uri)
-                    .body(axum::body::Body::empty())
-                    .unwrap(),
-            )
-            .await
-            .unwrap();
-        let status = response.status();
-        let bytes = axum::body::to_bytes(response.into_body(), 1024 * 1024)
-            .await
-            .unwrap();
-        assert_eq!(
-            status,
-            axum::http::StatusCode::OK,
-            "{}",
-            String::from_utf8_lossy(&bytes)
-        );
-        image::load_from_memory(&bytes)
-            .unwrap()
-            .to_rgba8()
-            .get_pixel(0, 0)
-            .0
-    }
-
-    #[tokio::test]
-    async fn history_preparation_preserves_obs_and_isolates_sources_and_cached_pixels() {
-        let temp = tempfile::tempdir().unwrap();
-        let a = temp.path().join("A");
-        let b = temp.path().join("B");
-        let red = [255, 0, 0, 255];
-        let blue = [0, 0, 255, 255];
-        let first_image = screenshot_fixture(&a, red);
-        let second_image = screenshot_fixture(&b, blue);
-        // Force the old cache key to collide: equal id, length, mtime and crop.
-        let length = std::fs::metadata(&first_image)
-            .unwrap()
-            .len()
-            .max(std::fs::metadata(&second_image).unwrap().len());
-        for path in [&first_image, &second_image] {
-            let mut bytes = std::fs::read(path).unwrap();
-            bytes.resize(length as usize, 0);
-            std::fs::write(path, bytes).unwrap();
-            std::fs::File::options()
-                .write(true)
-                .open(path)
-                .unwrap()
-                .set_times(std::fs::FileTimes::new().set_modified(
-                    std::time::SystemTime::UNIX_EPOCH
-                        + std::time::Duration::from_secs(1_700_000_000),
-                ))
-                .unwrap();
-        }
-        let runtime = StreamRuntime::default();
-        let server = TestServer::default();
-        let requested = StreamInstallation {
-            game_path: Some(a.clone()),
-            record_game_path: Some(a.clone()),
-        };
-        runtime.ensure_with(&server, requested).await.unwrap();
-        runtime
-            .set_window_with(|_, _| Ok((Some("2026-08-01T00:00:00Z".into()), 3)))
-            .await
-            .unwrap();
-        let before = serde_json::to_value(runtime.snapshot()).unwrap();
-        let prefix_a = runtime.register_history_preview(&a);
-        let prefix_b = runtime.register_history_preview(&b);
-        assert_eq!(runtime.register_history_preview(&a), prefix_a);
-        assert_ne!(prefix_a, prefix_b);
-        assert_eq!(
-            runtime
-                .ensure_history_preview_with(&server, || StreamInstallation {
-                    game_path: Some(b.clone()),
-                    record_game_path: Some(b.clone())
-                })
-                .await
-                .unwrap()
-                .as_deref(),
-            Some("http://127.0.0.1:17654")
-        );
-        assert_eq!(serde_json::to_value(runtime.snapshot()).unwrap(), before);
-        assert_eq!(server.starts.load(Ordering::SeqCst), 1);
-        let router = history_router(&runtime, &a, temp.path());
-        assert_eq!(
-            image_pixel(router.clone(), "/images/shot-1/strip").await,
-            red
-        );
-        assert_eq!(
-            image_pixel(router.clone(), &format!("{prefix_a}/images/shot-1/strip")).await,
-            red
-        );
-        assert_eq!(
-            image_pixel(router.clone(), &format!("{prefix_b}/images/shot-1/strip")).await,
-            blue
-        );
-        // Cached requests, and the old A URL after B was registered, retain their source.
-        assert_eq!(
-            image_pixel(router.clone(), &format!("{prefix_b}/images/shot-1/strip")).await,
-            blue
-        );
-        assert_eq!(
-            image_pixel(router.clone(), &format!("{prefix_a}/images/shot-1/strip")).await,
-            red
-        );
-        assert_eq!(image_pixel(router, "/images/shot-1/strip").await, red);
-        runtime.stop().await.unwrap();
-    }
-
-    #[tokio::test]
-    async fn history_images_work_when_database_appears_after_empty_startup() {
-        let temp = tempfile::tempdir().unwrap();
-        let game_path = temp.path().join("game");
-        let runtime = StreamRuntime::default();
-        let server = TestServer::default();
-        runtime
-            .ensure_history_preview_with(&server, || StreamInstallation {
-                game_path: Some(game_path.clone()),
-                record_game_path: None,
-            })
-            .await
-            .unwrap();
-        assert!(!crate::services::paths::database_path(&game_path).exists());
-        let color = [20, 80, 160, 255];
-        screenshot_fixture(&game_path, color);
-        let prefix = runtime.register_history_preview(&game_path);
-        runtime
-            .ensure_history_preview_with(&server, || panic!("running OBS must not be rebound"))
-            .await
-            .unwrap();
-        // An unbound OBS repository must not be consulted for History's image path.
-        let router = history_router(&runtime, &temp.path().join("unbound"), temp.path());
-        assert_eq!(
-            image_pixel(router, &format!("{prefix}/images/shot-1/strip")).await,
-            color
-        );
-        assert_eq!(server.starts.load(Ordering::SeqCst), 1);
-        runtime.stop().await.unwrap();
-    }
-
-    #[tokio::test]
-    async fn history_preparation_coalesces_starts_and_recovers_after_stop() {
-        let runtime = StreamRuntime::default();
-        let server = TestServer::default();
-        let (first, second) = tokio::join!(
-            runtime.ensure_history_preview_with(&server, || installation("/A")),
-            runtime.ensure_history_preview_with(&server, || installation("/B")),
-        );
-        assert_eq!(first.unwrap(), second.unwrap());
-        assert!(runtime.snapshot().running);
-        assert_eq!(server.starts.load(Ordering::SeqCst), 1);
-        runtime.stop().await.unwrap();
-        assert!(!runtime.snapshot().running);
-        runtime
-            .ensure_history_preview_with(&server, || installation("/B"))
-            .await
-            .unwrap();
-        assert!(runtime.snapshot().running);
-        assert_eq!(server.starts.load(Ordering::SeqCst), 2);
-        runtime.stop().await.unwrap();
-    }
-
-    #[tokio::test]
-    async fn history_preparation_waits_for_maintenance_and_then_resumes() {
-        let runtime = StreamRuntime::default();
-        let server = TestServer::default();
-        runtime
-            .ensure_history_preview_with(&server, || installation("/A"))
-            .await
-            .unwrap();
-        let entered = Arc::new(Notify::new());
-        let release = Arc::new(Notify::new());
-        let worker = runtime.clone();
-        let entering = entered.clone();
-        let releasing = release.clone();
-        let maintenance = tokio::spawn(async move {
-            worker
-                .exclusive_maintenance(|| async move {
-                    entering.notify_one();
-                    releasing.notified().await;
-                    Ok(())
-                })
-                .await
-        });
-        entered.notified().await;
-        let worker = runtime.clone();
-        let starting_server = server.clone();
-        let preparation = tokio::spawn(async move {
-            worker
-                .ensure_history_preview_with(&starting_server, || installation("/A"))
-                .await
-        });
-        for _ in 0..8 {
-            tokio::task::yield_now().await;
-        }
-        assert!(!preparation.is_finished());
-        assert!(!runtime.snapshot().running);
-        assert_eq!(server.starts.load(Ordering::SeqCst), 1);
-        release.notify_one();
-        maintenance.await.unwrap().unwrap();
-        assert!(preparation.await.unwrap().unwrap().is_some());
-        assert!(runtime.snapshot().running);
-        assert_eq!(server.starts.load(Ordering::SeqCst), 2);
-        runtime.stop().await.unwrap();
-    }
-
-    #[tokio::test]
-    async fn history_preparation_keeps_start_errors_visible_to_stream_status() {
-        let runtime = StreamRuntime::default();
-        let server = TestServer::failing("port occupied");
-        assert_eq!(
-            runtime
-                .ensure_history_preview_with(&server, || installation("/A"))
-                .await
-                .unwrap_err(),
-            "port occupied"
-        );
-        assert!(!runtime.snapshot().running);
-        assert_eq!(
-            runtime.snapshot().last_error.as_deref(),
-            Some("port occupied")
-        );
     }
 }

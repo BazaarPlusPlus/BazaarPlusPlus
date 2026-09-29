@@ -1,4 +1,5 @@
 use super::{
+    history_thumbnails::{self, HistoryThumbnails},
     http,
     overlay_settings::OverlaySettingsStore,
     records::OverlayRecordRepository,
@@ -16,13 +17,16 @@ use tokio::{net::TcpListener, sync::oneshot};
 const HOST: &str = "127.0.0.1";
 const PREFERRED_PORT: u16 = 17654;
 
-pub(super) struct ProductionServer;
+pub(super) struct ProductionServer {
+    pub(super) thumbnails: HistoryThumbnails,
+}
 
 impl StreamServerAdapter for ProductionServer {
     fn start(&self, runtime: StreamRuntime, installation: StreamInstallation) -> StartFuture<'_> {
         Box::pin(async move {
             let listener = bind_listener(HOST, PREFERRED_PORT).await?;
-            let urls = service_urls(HOST, PREFERRED_PORT);
+            history_thumbnails::sweep_cache();
+            let urls = service_urls();
             let started_at = current_timestamp();
             let active_record_game_path = installation.record_game_path.clone();
             let overlay_record_repository =
@@ -32,6 +36,7 @@ impl StreamServerAdapter for ProductionServer {
             let router = http::router(
                 overlay_record_repository,
                 runtime,
+                self.thumbnails.clone(),
                 overlay_settings,
                 paths::overlay_cache_dir(),
             );
@@ -88,8 +93,14 @@ struct ServiceUrls {
     settings_url: String,
 }
 
-fn service_urls(host: &str, port: u16) -> ServiceUrls {
-    let base_url = format!("http://{host}:{port}");
+/// The origin every service URL is built from; `bind_listener` has no fallback
+/// port, so a running service always answers here.
+pub(super) fn origin() -> String {
+    format!("http://{HOST}:{PREFERRED_PORT}")
+}
+
+fn service_urls() -> ServiceUrls {
+    let base_url = origin();
     ServiceUrls {
         overlay_url: format!("{base_url}/overlay"),
         settings_url: format!("{base_url}/settings"),
@@ -111,7 +122,7 @@ fn current_timestamp() -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{bind_listener, service_urls, HOST, PREFERRED_PORT};
+    use super::{bind_listener, origin, service_urls, HOST, PREFERRED_PORT};
     use tokio::net::TcpListener;
 
     #[tokio::test]
@@ -128,8 +139,9 @@ mod tests {
     fn production_service_urls_remain_stable() {
         assert_eq!(HOST, "127.0.0.1");
         assert_eq!(PREFERRED_PORT, 17654);
-        let urls = service_urls(HOST, PREFERRED_PORT);
+        let urls = service_urls();
 
+        assert_eq!(origin(), "http://127.0.0.1:17654");
         assert_eq!(urls.base_url, "http://127.0.0.1:17654");
         assert_eq!(urls.overlay_url, "http://127.0.0.1:17654/overlay");
         assert_eq!(urls.settings_url, "http://127.0.0.1:17654/settings");

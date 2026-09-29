@@ -110,8 +110,8 @@ export default function History() {
                   key={run.run_id}
                   run={run}
                   pageNumber={pagination.page}
-                  previewUrl={page.previewUrl(run)}
-                  previewAttempt={page.previewAttempt}
+                  thumbnailUrl={page.thumbnailUrl(run)}
+                  thumbnailAttempt={page.thumbnailAttempt}
                 />
               ))
             )}
@@ -161,13 +161,13 @@ export default function History() {
 function RunRow({
   run,
   pageNumber,
-  previewUrl,
-  previewAttempt
+  thumbnailUrl,
+  thumbnailAttempt
 }: {
   run: HistoryRunRow;
   pageNumber: number;
-  previewUrl: string | null;
-  previewAttempt: number;
+  thumbnailUrl: string | null;
+  thumbnailAttempt: number;
 }) {
   const { locale, t } = useI18n();
   const result = formatRunResultLabel(run);
@@ -180,10 +180,10 @@ function RunRow({
       state={{ historyPage: pageNumber }}
       className="bpp-history-run-card"
     >
-      <RunPreview
-        key={previewUrl ?? 'preview-unavailable'}
-        previewUrl={previewUrl}
-        previewAttempt={previewAttempt}
+      <RunThumbnail
+        key={thumbnailUrl ?? 'thumbnail-unavailable'}
+        thumbnailUrl={thumbnailUrl}
+        thumbnailAttempt={thumbnailAttempt}
         fallbackLabel={fallbackLabel}
       />
       <span className="bpp-history-run-info">
@@ -238,13 +238,13 @@ function RunRow({
   );
 }
 
-function RunPreview({
-  previewUrl,
-  previewAttempt,
+function RunThumbnail({
+  thumbnailUrl,
+  thumbnailAttempt,
   fallbackLabel
 }: {
-  previewUrl: string | null;
-  previewAttempt: number;
+  thumbnailUrl: string | null;
+  thumbnailAttempt: number;
   fallbackLabel: string;
 }) {
   // A failed image retries after the next thumbnail preparation, not on every render.
@@ -253,9 +253,9 @@ function RunPreview({
     attempt: number;
   } | null>(null);
   const visibleUrl =
-    previewUrl &&
-    !(failed?.url === previewUrl && failed.attempt === previewAttempt)
-      ? previewUrl
+    thumbnailUrl &&
+    !(failed?.url === thumbnailUrl && failed.attempt === thumbnailAttempt)
+      ? thumbnailUrl
       : null;
 
   return (
@@ -269,7 +269,7 @@ function RunPreview({
           loading="lazy"
           decoding="async"
           onError={() =>
-            setFailed({ url: visibleUrl, attempt: previewAttempt })
+            setFailed({ url: visibleUrl, attempt: thumbnailAttempt })
           }
           className="bpp-history-run-preview-image"
         />

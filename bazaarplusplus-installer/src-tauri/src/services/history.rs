@@ -13,7 +13,7 @@ use crate::problem::{SemanticProblem, SemanticProblemCode};
 use crate::services::game_path::GamePathAcceptance;
 use crate::services::paths;
 use crate::services::selected_game_installation::SelectedGameInstallationState;
-use crate::stream::runtime::StreamRuntime;
+use crate::stream::history_thumbnails::{self, HistoryThumbnails};
 use tauri::Manager;
 
 pub use crate::history::cleanup::StorageCleanupPreset;
@@ -97,26 +97,23 @@ impl History {
             .map_err(|_| SemanticProblem::new(SemanticProblemCode::HistoryUnavailable))
     }
 
-    fn list_runs(&self, limit: usize, offset: usize) -> Result<HistoryRunList, String> {
-        list_history_runs(&self.paths.database_path, limit.clamp(1, 200), offset)
-    }
-
     fn list_runs_for_page(
         &self,
         limit: usize,
         offset: usize,
-        runtime: &StreamRuntime,
+        thumbnails: &HistoryThumbnails,
     ) -> Result<HistoryRunList, SemanticProblem> {
-        let mut page = self.list_runs(limit, offset).map_err(|diagnostic| {
+        // The page's thumbnails stay bound to the installation it was read from.
+        let source = thumbnails.register(&self.paths.game_path);
+        list_history_runs(
+            &self.paths.database_path,
+            limit.clamp(1, 200),
+            offset,
+            |screenshot_id| history_thumbnails::url(source, screenshot_id),
+        )
+        .map_err(|diagnostic| {
             history_read_problem_with("list_runs", diagnostic, self.is_game_running)
-        })?;
-        let prefix = runtime.register_history_preview(&self.paths.game_path);
-        for run in &mut page.runs {
-            if let Some(strip_url) = &mut run.strip_url {
-                *strip_url = format!("{prefix}{strip_url}");
-            }
-        }
-        Ok(page)
+        })
     }
 
     fn run_detail_for_page(
@@ -276,7 +273,7 @@ pub fn list_runs(
     History::from_resolved_game_path_for_page(History::resolved_game_path(app))?.list_runs_for_page(
         limit.unwrap_or(50),
         offset.unwrap_or(0),
-        &app.state::<StreamRuntime>(),
+        &app.state::<HistoryThumbnails>(),
     )
 }
 
@@ -448,9 +445,10 @@ fn reveal_in_file_browser(path: &Path) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::{
-        history_paths_for_game_path, history_read_problem_with, require_video_file_exists,
-        FileRevealer, History, StorageCleanupExecution, StorageCleanupPreset,
-        StorageCleanupPreview, StorageCleanupScope, HISTORY_UNAVAILABLE,
+        history_paths_for_game_path, history_read_problem_with, history_thumbnails,
+        require_video_file_exists, FileRevealer, History, HistoryThumbnails,
+        StorageCleanupExecution, StorageCleanupPreset, StorageCleanupPreview, StorageCleanupScope,
+        HISTORY_UNAVAILABLE,
     };
     use crate::problem::SemanticProblemCode;
     use crate::services::paths;
@@ -639,7 +637,7 @@ mod tests {
         std::fs::write(&history.paths.database_path, b"not sqlite").unwrap();
 
         let read_failed = history
-            .list_runs_for_page(50, 0, &crate::stream::runtime::StreamRuntime::default())
+            .list_runs_for_page(50, 0, &HistoryThumbnails::default())
             .unwrap_err();
         assert_eq!(read_failed.code, SemanticProblemCode::HistoryReadFailed);
         assert_eq!(
@@ -671,7 +669,7 @@ mod tests {
 
         for problem in [
             history
-                .list_runs_for_page(50, 0, &crate::stream::runtime::StreamRuntime::default())
+                .list_runs_for_page(50, 0, &HistoryThumbnails::default())
                 .unwrap_err(),
             history.run_detail_for_page("run-1").unwrap_err(),
         ] {
@@ -862,19 +860,16 @@ mod tests {
         drop(conn);
 
         let history = History::from_resolved_game_path(Some(game_path.clone())).unwrap();
-        let runtime = crate::stream::runtime::StreamRuntime::default();
-        let list = history.list_runs_for_page(50, 0, &runtime).unwrap();
+        let thumbnails = HistoryThumbnails::default();
+        thumbnails.register(Path::new("/another/installation"));
+        let list = history.list_runs_for_page(50, 0, &thumbnails).unwrap();
         assert_eq!(
-            list.runs[0].strip_url.as_deref(),
-            Some(
-                format!(
-                    "{}/images/shot-1/strip",
-                    runtime.register_history_preview(&game_path)
-                )
-                .as_str()
-            )
+            list.runs[0].thumbnail_url,
+            Some(history_thumbnails::url(
+                thumbnails.register(&game_path),
+                "shot-1"
+            ))
         );
-        assert!(!runtime.snapshot().running);
         assert_eq!(list.summary.runs, 1);
         assert_eq!(list.summary.videos, 1);
         assert_eq!(list.runs.len(), 1);
@@ -925,7 +920,14 @@ mod tests {
             panic!("expected run-data result");
         };
         assert_eq!(result.deleted_runs, 1);
-        assert_eq!(history.list_runs(50, 0).unwrap().summary.runs, 0);
+        assert_eq!(
+            history
+                .list_runs_for_page(50, 0, &HistoryThumbnails::default())
+                .unwrap()
+                .summary
+                .runs,
+            0
+        );
     }
 
     #[test]
