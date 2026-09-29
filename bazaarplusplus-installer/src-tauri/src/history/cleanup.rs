@@ -89,6 +89,10 @@ const PROTECTED_RUN_PREDICATE: &str = "
         where j.run_id = r.run_id
           and j.state = 'terminal_failure'
     )
+    and (
+        exists (select 1 from bundle_seal_jobs j where j.run_id = r.run_id)
+        or not exists (select 1 from bundle_outbox o where o.run_id = r.run_id)
+    )
 ";
 
 #[derive(Clone, Debug, PartialEq)]
@@ -2009,6 +2013,8 @@ mod tests {
             ("pending-outbox", "completed", 1, "Ranked"),
             ("uploaded-outbox", "completed", 1, "Ranked"),
             ("terminal-failure", "completed", 1, "Ranked"),
+            ("rejected-outbox", "completed", 1, "Ranked"),
+            ("reseal-waiting", "completed", 1, "Ranked"),
             ("ptr", "completed", 1, "Ranked"),
             ("normal", "completed", 1, "Normal"),
             ("abandoned", "abandoned", 0, "Ranked"),
@@ -2028,6 +2034,9 @@ mod tests {
         insert_outbox(&conn, "pending-outbox", "pending");
         insert_outbox(&conn, "uploaded-outbox", "uploaded");
         insert_seal_job(&conn, "terminal-failure", "terminal_failure");
+        insert_outbox(&conn, "rejected-outbox", "permanent_failure");
+        insert_outbox(&conn, "reseal-waiting", "permanent_failure");
+        insert_seal_job(&conn, "reseal-waiting", "waiting");
         conn.execute(
             "update runs set build_channel = 'PtR' where run_id = 'ptr'",
             [],
@@ -2052,11 +2061,12 @@ mod tests {
                 "normal",
                 "pending-outbox",
                 "ptr",
+                "rejected-outbox",
                 "terminal-failure",
                 "uploaded-outbox",
             ]
         );
-        assert_eq!(plan.skipped_pending_uploads, 2);
+        assert_eq!(plan.skipped_pending_uploads, 3);
     }
 
     #[test]

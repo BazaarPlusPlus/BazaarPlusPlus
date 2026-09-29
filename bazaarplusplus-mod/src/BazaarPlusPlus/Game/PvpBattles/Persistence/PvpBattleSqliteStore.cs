@@ -426,9 +426,8 @@ internal sealed class PvpBattleSqliteStore : SqliteStoreBase, IPvpBattleCatalog
                     )
                     AND NOT EXISTS (
                         SELECT 1
-                        FROM {RunLogSchema.BundleOutboxTableName} AS uploaded_outbox
-                        WHERE uploaded_outbox.run_id = eligible_run.run_id
-                          AND uploaded_outbox.status = 'uploaded'
+                        FROM {RunLogSchema.BundleOutboxTableName} AS sealed_outbox
+                        WHERE sealed_outbox.run_id = eligible_run.run_id
                     )
               )
             ORDER BY b.recorded_at_utc DESC, b.battle_id DESC;

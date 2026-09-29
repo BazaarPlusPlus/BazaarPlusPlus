@@ -60,9 +60,11 @@ public sealed class BundleQueueStore : SqliteStoreBase
               AND r.status = 'completed'
               AND lower(r.game_mode) = 'ranked'
               AND lower(COALESCE(r.build_channel, 'unknown')) <> 'ptr'
+              -- Any outbox row ends eligibility: a reseal after an invalid file is scheduled
+              -- explicitly, and a server rejection or retention expiry is final.
               AND NOT EXISTS (
                   SELECT 1 FROM {RunLogSchema.BundleOutboxTableName} AS o
-                  WHERE o.run_id = r.run_id AND o.status IN ('pending', 'uploaded')
+                  WHERE o.run_id = r.run_id
               );
             """;
         command.Parameters.AddWithValue(

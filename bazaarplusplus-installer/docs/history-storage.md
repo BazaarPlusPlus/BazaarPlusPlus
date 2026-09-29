@@ -10,7 +10,7 @@
 ## Cleanup Safety
 
 - `History::preview_cleanup` and `History::execute_cleanup` derive cutoffs from the same `StorageCleanupPreset` contract in `src-tauri/src/history/cleanup.rs`.
-- `PROTECTED_RUN_PREDICATE` in `src-tauri/src/history/cleanup.rs` protects completed non-PTR Ranked runs awaiting sealing. Runs with pending/uploaded outboxes or terminal seal failures may be cleaned up, so a later mod recovery cannot assume their source data remains. The same predicate drives planning, skipped counts, screenshot protection, and guarded execution.
+- `PROTECTED_RUN_PREDICATE` in `src-tauri/src/history/cleanup.rs` protects completed non-PTR Ranked runs awaiting sealing: runs with no outbox yet, or with a scheduled reseal job. Runs with pending/uploaded outboxes, a server-rejected or retention-expired outbox and no reseal job, or terminal seal failures may be cleaned up, so a later mod recovery cannot assume their source data remains. The same predicate drives planning, skipped counts, screenshot protection, and guarded execution.
 - Screenshot cleanup deletes eligible database rows before unlinking files, preserves files still referenced by surviving rows, and protects today's local-date folder from the orphan sweep.
 - Run-data cleanup validates the required cascade foreign keys before destructive effects. Each planned run is conditionally deleted in a transaction; files still named by guarded-delete misses are excluded from unlinking.
 - `resolve_cleanup_file_path` in `src-tauri/src/history/files.rs` confines cleanup paths to their expected roots.
