@@ -16,4 +16,6 @@
 
 `router` in `src-tauri/src/stream/http.rs` serves the overlay, settings, record and crop APIs, record images, and static assets. CORS is restricted by `is_allowed_cors_origin` to Tauri origins and the configured local Vite development origins.
 
+All database and image reads run on blocking threads through `run_record_task`, never on the async workers shared with Tauri commands: a SQLite open can wait out the busy timeout while the game holds a lock. Both strip routes, OBS and History, make one blocking hop into `render_strip` in `src-tauri/src/stream/strip.rs`, which reads the saved crop, resolves the screenshot, and crops, caches, and encodes the PNG. A crop in the query is validated before that hop and overrides the saved crop; `preview=true` bypasses the cache.
+
 Overlay records carry canonical `hero_id` separately from their display title through `to_overlay_record` in `src-tauri/src/stream/records/mapper.rs`. The settings page owns a small zh/en dictionary because it runs on the service origin; `DefaultStreamWorkflow.openSettings` appends the current app locale when opening it.
