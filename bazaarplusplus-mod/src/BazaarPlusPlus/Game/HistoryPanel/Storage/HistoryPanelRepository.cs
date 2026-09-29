@@ -27,85 +27,49 @@ internal sealed partial class HistoryPanelRepository
 
     public bool DatabaseExists => File.Exists(_databasePath);
 
-    public HistoryPage<HistoryRunRecord> ListRuns(HistoryPageRequest request, string? hero = null)
-    {
-        var filter = string.IsNullOrWhiteSpace(hero)
-            ? "1=1"
-            : $"{RunLogSchema.HistoryHeroKey} = $hero";
-        return ReadPage(
-            "runs",
-            "run_id",
-            RunLogSchema.HistoryRunTime,
-            filter,
+    public HistoryCountedPage<HistoryRunRecord> ListRuns(
+        HistoryPageRequest request,
+        string? hero = null
+    ) =>
+        ReadCountedPage(
+            HistoryPageQuery.Runs(hero),
             "run_id, hero, game_mode, started_at_utc, last_seen_at_utc, player_rank, player_rating, "
                 + "status AS run_status, day, hour, final_day, final_hour, max_health AS final_max_health, "
                 + "prestige AS final_prestige, level AS final_level, income AS final_income, gold AS final_gold, "
                 + "victories, losses, ended_at_utc",
             request,
-            HistoryPanelRowMapper.ReadRun,
-            includeCounts: true,
-            index: null,
-            (
-                "$hero",
-                HistoryPanelHeroPresentation.CanonicalFilterId(hero)?.Trim().ToLowerInvariant()
-                    ?? ""
-            )
+            HistoryPanelRowMapper.ReadRun
         );
-    }
 
-    public HistoryPage<HistoryBattleRecord> ListBattles(string runId, HistoryPageRequest request) =>
-        ReadPage(
-            "battles",
-            "battle_id",
-            "recorded_at_utc",
-            "source = 'LOCAL' AND run_id = $runId",
+    public HistoryCursorPage<HistoryBattleRecord> ListBattles(
+        string runId,
+        HistoryPageRequest request
+    ) =>
+        ReadCursorPage(
+            HistoryPageQuery.LocalBattles(runId),
             "*",
             request,
             reader =>
                 HistoryPanelRowMapper.ReadLocalBattle(
                     reader,
                     reader.GetString(reader.GetOrdinal("battle_id"))
-                ),
-            includeCounts: false,
-            index: null,
-            ("$runId", runId)
+                )
         );
 
-    public HistoryPage<HistoryBattleRecord> ListGhostBattles(
+    public HistoryCountedPage<HistoryBattleRecord> ListGhostBattles(
         string accountId,
         GhostBattleFilter filter,
         bool dayMin10,
         HistoryPageRequest request
-    )
-    {
-        if (string.IsNullOrWhiteSpace(accountId))
-            return HistoryPage<HistoryBattleRecord>.Empty;
-        var predicate =
-            "source = 'GHOST' AND deleted_at_utc IS NULL AND local_player_account_id = $account";
-        if (filter != GhostBattleFilter.All)
-            predicate += $" AND ({RunLogSchema.HistoryRecorderOutcome}) = $outcome";
-        if (dayMin10)
-            predicate += " AND day >= 10";
-        // The broader discovery index makes COUNT inspect deleted rows in the table.
-        // These existing partial indexes match this page's predicate and keep counts in-index.
-        var index =
-            "idx_battles_history_ghost"
-            + (dayMin10 ? "_day" : "")
-            + (filter != GhostBattleFilter.All ? "_outcome" : "");
-        return ReadPage(
-            "battles",
-            "battle_id",
-            "recorded_at_utc",
-            predicate,
-            "*",
-            request,
-            HistoryPanelRowMapper.ReadGhostBattle,
-            includeCounts: true,
-            index,
-            ("$account", accountId),
-            ("$outcome", filter == GhostBattleFilter.IWon ? -1 : 1)
-        );
-    }
+    ) =>
+        string.IsNullOrWhiteSpace(accountId)
+            ? HistoryCountedPage<HistoryBattleRecord>.Empty()
+            : ReadCountedPage(
+                HistoryPageQuery.Ghosts(accountId, filter, dayMin10),
+                "*",
+                request,
+                HistoryPanelRowMapper.ReadGhostBattle
+            );
 
     public PvpBattleSnapshots? LoadSnapshots(string runId, string battleId)
     {

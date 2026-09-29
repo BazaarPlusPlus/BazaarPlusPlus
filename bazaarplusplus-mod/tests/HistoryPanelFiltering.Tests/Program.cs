@@ -24,6 +24,7 @@ var dependenciesType = RequireType("BazaarPlusPlus.Game.HistoryPanel.HistoryPane
 var dataServiceType = RequireType(
     "BazaarPlusPlus.Game.HistoryPanel.Storage.HistoryPanelDataService"
 );
+var cursorType = RequireType("BazaarPlusPlus.Game.HistoryPanel.Storage.HistoryCursor");
 
 TestRunHeroRosterAddsOneCanonicalTheDragonsAfterTheExistingSeven();
 TestRunHeroPresentationTreatsAliasesAsSelectedAndDisplaysCanonicalName();
@@ -753,10 +754,29 @@ IList CreateRunList(params object[] runs)
 void SetPage(object state, string propertyName, params object[] records)
 {
     var property = stateType.GetProperty(propertyName)!;
-    var rows = Array.CreateInstance(property.PropertyType.GetGenericArguments()[0], records.Length);
+    var pageType = property.PropertyType;
+    var counted = pageType.GetGenericTypeDefinition().Name == "HistoryCountedPage`1";
+    const BindingFlags factory = BindingFlags.NonPublic | BindingFlags.Static;
+    if (records.Length == 0)
+    {
+        property.SetValue(
+            state,
+            counted
+                ? pageType.GetMethod("Empty", factory)!.Invoke(null, [0L])
+                : pageType.GetProperty("Empty", factory)!.GetValue(null)
+        );
+        return;
+    }
+    var rows = Array.CreateInstance(pageType.GetGenericArguments()[0], records.Length);
     for (var i = 0; i < records.Length; i++)
         rows.SetValue(records[i], i);
-    property.SetValue(state, Construct(property.PropertyType, rows, null, null, false, false));
+    var anchor = Construct(cursorType, "2026-01-01T00:00:00Z", "anchor");
+    property.SetValue(
+        state,
+        counted
+            ? Construct(pageType, rows, anchor, anchor, 1L, (long)records.Length)
+            : Construct(pageType, rows, anchor, anchor, false, false)
+    );
 }
 
 IList GetList(object instance, string propertyName) =>
