@@ -37,6 +37,7 @@ TestAccountArrivalSyncsOnlyTheOpenGhostSection();
 TestAccountLinkActionHandsAccountChangeToTheObserver();
 TestFailedSyncMarksTheEmptyGhostListIncomplete();
 TestSessionBoundariesRestartACancelledSync();
+TestAccountChangeMidSyncSyncsTheNewAccount();
 
 Console.WriteLine("HistoryPanelFiltering checks passed.");
 
@@ -479,12 +480,17 @@ void TestSessionBoundariesRestartACancelledSync()
             Invoke(coordinatorType, coordinator, "OnPanelHidden");
             Assert(GhostSync(state) == "NotStarted", "Closing History ends the sync phase.");
             Invoke(coordinatorType, coordinator, "OnPanelShown", false);
-            AssertRestarted(state, syncAttempts, "Reopening History after a cancelled sync");
+            AssertSyncRestarted(state, syncAttempts, "Reopening History after a cancelled sync");
             Invoke(coordinatorType, coordinator, "OnPanelHidden");
         },
         holdSync: true
     );
+}
 
+// ObserveAccount cancels the old account's sync and starts the new one before the cancelled request
+// has unwound; the new sync must wait for it instead of failing as already running.
+void TestAccountChangeMidSyncSyncsTheNewAccount()
+{
     WithProfileCapsule(
         "Ghost",
         (state, coordinator, syncAttempts) =>
@@ -497,23 +503,25 @@ void TestSessionBoundariesRestartACancelledSync()
             );
             FakeClientCache.SetAccountId("account-b");
             Invoke(coordinatorType, coordinator, "Tick", 0f);
-            AssertRestarted(state, syncAttempts, "A profile change during a sync");
+            AssertSyncRestarted(state, syncAttempts, "A profile change during a sync");
             Invoke(coordinatorType, coordinator, "OnPanelHidden");
         },
         holdSync: true
     );
+}
 
-    void AssertRestarted(object state, Func<int> syncAttempts, string when)
-    {
-        Assert(
-            GetNullableString(state, "StatusMessage") != HistoryText("GhostSyncAlreadyRunning"),
-            $"{when} must not report the cancelled sync as still running."
-        );
-        Assert(
-            syncAttempts() == 2 && GhostSync(state) == "Running",
-            $"{when} must start a new sync."
-        );
-    }
+// The cancelled request is still unwinding when the new session starts its sync, so that sync first
+// waits in place; once the UI context lets the old request finish, the new one reaches the server.
+void AssertSyncRestarted(object state, Func<int> syncAttempts, string when)
+{
+    Assert(
+        GetNullableString(state, "StatusMessage") != HistoryText("GhostSyncAlreadyRunning")
+            && GhostSync(state) == "Running"
+            && syncAttempts() == 1,
+        $"{when} must queue a new sync behind the cancelled one, not fail it."
+    );
+    uiContext.Until(() => syncAttempts() == 2);
+    Assert(GhostSync(state) == "Running", $"{when} must run the new sync.");
 }
 
 string GhostSync(object state) => stateType.GetProperty("GhostSync")!.GetValue(state)!.ToString()!;
@@ -846,21 +854,15 @@ internal sealed class HoldingHandler : HttpMessageHandler
     )
     {
         var pending = new TaskCompletionSource<HttpResponseMessage>();
-        // Cancel outside the UI context: the Ghost sync service's ConfigureAwait(false) chain then
-        // unwinds inline and releases its own in-flight latch before History starts the next sync,
-        // so the History sync phase alone decides whether that sync runs.
+        // Like a real transport, a cancelled request unwinds after the session boundary returns: the
+        // cancellation completes only when the test next pumps the UI context, so History starts the
+        // next sync while the cancelled one still holds the Ghost sync service.
         cancellationToken.Register(() =>
         {
-            var context = SynchronizationContext.Current;
-            SynchronizationContext.SetSynchronizationContext(null);
-            try
-            {
+            if (SynchronizationContext.Current is { } context)
+                context.Post(_ => pending.TrySetCanceled(cancellationToken), null);
+            else
                 pending.TrySetCanceled(cancellationToken);
-            }
-            finally
-            {
-                SynchronizationContext.SetSynchronizationContext(context);
-            }
         });
         return pending.Task;
     }

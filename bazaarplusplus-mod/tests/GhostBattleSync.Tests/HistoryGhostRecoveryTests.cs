@@ -36,6 +36,8 @@ internal static class HistoryGhostRecoveryTests
             WITH RECURSIVE n(x) AS (VALUES(0) UNION ALL SELECT x+1 FROM n WHERE x<85)
             INSERT INTO battles (battle_id,source,remote_battle_id,uploader_account_id,local_player_account_id,bundle_id,recorded_at_utc,ghost_replay_state,deleted_at_utc,combat_kind)
             SELECT printf('recover%03d',x),'GHOST',printf('remote%03d',x),'uploader','account-a','bundle','2026-01-01T00:00:00Z','local_ready','2026-02-01T00:00:00Z','PVPCombat' FROM n;
+            INSERT INTO battles (battle_id,source,remote_battle_id,uploader_account_id,local_player_account_id,bundle_id,recorded_at_utc,combat_kind)
+            VALUES ('stale','GHOST','remote-stale','uploader','account-a','bundle','2026-01-01T00:00:00Z','PVPCombat');
             """;
         command.ExecuteNonQuery();
         var repository = new HistoryPanelRepository(path);
@@ -55,17 +57,19 @@ internal static class HistoryGhostRecoveryTests
             "Compressed size rejection must retain the original file."
         );
         var data = new HistoryPanelDataService(repository, null, () => replay);
+        // Expiry is not account-scoped; restoring is. The panel reloads on either count.
         Check(
-            data.MaintainGhosts("account-b", CancellationToken.None) == 0,
-            "Maintenance must isolate account identity."
+            data.MaintainGhosts("account-b", CancellationToken.None)
+                is { Expired: > 0, Restored: 0 },
+            "Maintenance must report the stale rows it hides and isolate restore by account."
         );
         Check(
-            data.MaintainGhosts("account-a", CancellationToken.None) == 2,
+            data.MaintainGhosts("account-a", CancellationToken.None) == (0, 2),
             "Maintenance must advance past missing/corrupt files across all 40-row pages and restore only matching payloads."
         );
         Check(
-            data.MaintainGhosts("account-a", CancellationToken.None) == 0,
-            "Recovery must be idempotent."
+            data.MaintainGhosts("account-a", CancellationToken.None) == (0, 0),
+            "Expiry and recovery must be idempotent."
         );
         Check(
             repository.ListGhostBattles("account-a", GhostBattleFilter.All, false, new()).Rows.Count
@@ -86,7 +90,7 @@ internal static class HistoryGhostRecoveryTests
         );
         CheckInvalidDetailMessage(db, repository, data, payloadPath);
         Console.WriteLine(
-            "Ghost recovery: 86 hidden rows, 2 valid files across three pages; corrupt, missing, wrong-account and oversized files retained."
+            "Ghost recovery: 1 stale row expired; 86 hidden rows, 2 valid files across three pages; corrupt, missing, wrong-account and oversized files retained."
         );
     }
 
