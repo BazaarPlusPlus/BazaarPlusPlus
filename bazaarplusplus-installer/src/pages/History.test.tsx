@@ -282,6 +282,44 @@ describe('History thumbnails', () => {
     }
   );
 
+  it('keeps loaded thumbnails through a focus refresh and retries only failed ones', async () => {
+    vi.mocked(listHistoryRuns).mockResolvedValue({
+      ...loadedPage(0, 2),
+      runs: [
+        { ...runs[0], strip_url: '/history/0/images/shot-1/strip' },
+        { ...runs[1], strip_url: '/history/0/images/shot-2/strip' }
+      ]
+    });
+    vi.mocked(ensureHistoryPreview).mockResolvedValue(baseUrl);
+    await render('/history');
+    const [loaded, broken] = container.querySelectorAll(
+      '.bpp-history-run-preview img'
+    );
+    await act(async () => broken.dispatchEvent(new Event('error')));
+    expect(
+      container.querySelectorAll('.bpp-history-run-preview img')
+    ).toHaveLength(1);
+
+    let ready!: (url: string) => void;
+    vi.mocked(ensureHistoryPreview).mockReturnValueOnce(
+      new Promise<string>((resolve) => {
+        ready = resolve;
+      })
+    );
+    await act(async () => window.dispatchEvent(new Event('focus')));
+    expect(container.querySelector('.bpp-history-run-preview img')).toBe(
+      loaded
+    );
+    await act(async () => ready(baseUrl));
+    const images = container.querySelectorAll('.bpp-history-run-preview img');
+    expect(images).toHaveLength(2);
+    expect(images[0]).toBe(loaded);
+    expect(images[1]).not.toBe(broken);
+    expect(images[1].getAttribute('src')).toBe(
+      `${baseUrl}/history/0/images/shot-2/strip`
+    );
+  });
+
   it('refreshes the current list and images when the same window becomes visible or regains focus', async () => {
     vi.mocked(listHistoryRuns).mockResolvedValue(
       thumbnailPage(0, 'Installation A')

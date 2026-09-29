@@ -38,6 +38,7 @@ export function createHistoryListWorkflow(
   let pageNumber = parseHistoryPage(String(options.initialPage));
   let state: HistoryListState = { phase: 'initial-loading' };
   let previewBaseUrl: string | null = null;
+  let previewAttempt = 0;
   let historyRequest: object | null = null;
   let previewRequest: object | null = null;
   let recovery: Promise<EndGameProcessOutcome> | null = null;
@@ -56,6 +57,9 @@ export function createHistoryListWorkflow(
       state,
       busy,
       endingGameProcess: recovery !== null,
+      // Advances with each applied preparation so a card can retry a failed image
+      // without remounting cards whose image already loaded.
+      previewAttempt,
       previewUrl: (run: HistoryRunRow) =>
         optionalStripPreviewUrl(baseUrl, run.strip_url),
       pagination: {
@@ -123,16 +127,17 @@ export function createHistoryListWorkflow(
     if (!active) return;
     const request = {};
     previewRequest = request;
-    previewBaseUrl = null;
-    publish();
+    // Published URLs stay until preparation settles; clearing them first would
+    // remount and refetch every card on each refresh.
     let result: string | null = null;
     try {
       result = await commands.ensureHistoryPreview();
     } catch {
-      // The list remains usable; each card already has a thumbnail fallback.
+      // The old base may name a stopped service; cards use their thumbnail fallback.
     }
     if (!active || previewRequest !== request) return;
     previewBaseUrl = result;
+    previewAttempt += 1;
     publish();
   }
 
@@ -187,6 +192,7 @@ export function createHistoryListWorkflow(
       if (active) return;
       active = true;
       state = { phase: 'initial-loading' };
+      previewBaseUrl = null;
       await refresh();
     },
     dispose: () => {

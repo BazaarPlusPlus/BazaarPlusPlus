@@ -308,6 +308,75 @@ describe('History List workflow', () => {
     expect(workflow.getSnapshot()).toBe(current);
   });
 
+  it('keeps published thumbnails while a refresh or page change prepares them again', async () => {
+    const { commands, workflow } = fixture();
+    commands.ensureHistoryPreview.mockResolvedValue(runningPreview);
+    await workflow.start();
+    const published = `${runningPreview}/history/0/images/shot-1/strip`;
+    expect(workflow.getSnapshot().previewUrl(previewRun)).toBe(published);
+    const firstAttempt = workflow.getSnapshot().previewAttempt;
+
+    const sameBase = deferred<string | null>();
+    commands.ensureHistoryPreview.mockReturnValueOnce(sameBase.promise);
+    const refreshing = workflow.intents.refresh();
+    expect(workflow.getSnapshot().previewUrl(previewRun)).toBe(published);
+    sameBase.resolve(runningPreview);
+    await refreshing;
+    expect(workflow.getSnapshot()).toMatchObject({
+      previewAttempt: firstAttempt + 1
+    });
+    expect(workflow.getSnapshot().previewUrl(previewRun)).toBe(published);
+
+    const movedBase = deferred<string | null>();
+    commands.ensureHistoryPreview.mockReturnValueOnce(movedBase.promise);
+    const changingPage = workflow.selectPage(2);
+    const nextPageRun = { ...previewRun, run_id: 'run-51' };
+    expect(workflow.getSnapshot().previewUrl(nextPageRun)).toBe(published);
+    movedBase.resolve('http://127.0.0.1:17655');
+    await changingPage;
+    expect(workflow.getSnapshot().previewUrl(nextPageRun)).toBe(
+      'http://127.0.0.1:17655/history/0/images/shot-1/strip'
+    );
+  });
+
+  it.each(['rejects', 'reports no running service'])(
+    'clears thumbnails when preparation %s',
+    async (outcome) => {
+      const { commands, workflow } = fixture();
+      commands.ensureHistoryPreview.mockResolvedValueOnce(runningPreview);
+      await workflow.start();
+      if (outcome === 'rejects')
+        commands.ensureHistoryPreview.mockRejectedValueOnce(
+          new Error('stopped')
+        );
+      else commands.ensureHistoryPreview.mockResolvedValueOnce(null);
+      await workflow.intents.refresh();
+      expect(workflow.getSnapshot().previewUrl(previewRun)).toBeNull();
+    }
+  );
+
+  it.each(['success', 'failure'])(
+    'ignores a late %s from superseded thumbnail preparation',
+    async (outcome) => {
+      const { commands, workflow } = fixture();
+      commands.ensureHistoryPreview.mockResolvedValueOnce(runningPreview);
+      await workflow.start();
+      const old = deferred<string | null>();
+      commands.ensureHistoryPreview.mockReturnValueOnce(old.promise);
+      const oldRefresh = workflow.intents.refresh();
+      commands.ensureHistoryPreview.mockResolvedValueOnce(runningPreview);
+      await workflow.intents.refresh();
+      const current = workflow.getSnapshot();
+      if (outcome === 'success') old.resolve('http://127.0.0.1:17655');
+      else old.reject(new Error('stopped'));
+      await oldRefresh;
+      expect(workflow.getSnapshot()).toBe(current);
+      expect(current.previewUrl(previewRun)).toBe(
+        `${runningPreview}/history/0/images/shot-1/strip`
+      );
+    }
+  );
+
   it('rejects old list, preview and recovery completions after a lifecycle restart', async () => {
     const { commands, replacePage, workflow } = fixture(2);
     const oldList = deferred<HistoryRunList>();
