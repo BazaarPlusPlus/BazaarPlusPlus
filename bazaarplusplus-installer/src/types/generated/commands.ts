@@ -236,7 +236,7 @@ export type SemanticProblem = {
 	diagnostic: string | null,
 };
 
-export type SemanticProblemCode = "history_unavailable" | "history_read_failed" | "history_read_blocked_by_game" | "history_database_unsupported_schema" | "history_action_failed" | "install_detection_failed" | "install_action_failed" | "install_game_running" | "install_partial_failure" | "stream_service_failed" | "stream_window_failed" | "stream_crop_failed";
+export type SemanticProblemCode = "history_unavailable" | "history_read_failed" | "history_read_blocked_by_game" | "history_database_unsupported_schema" | "history_action_failed" | "history_thumbnails_unavailable" | "install_detection_failed" | "install_action_failed" | "install_game_running" | "install_partial_failure" | "stream_service_failed" | "stream_window_failed" | "stream_crop_failed";
 
 export type StorageCleanupExecution = { scope: "screenshots"; result: ScreenshotCleanupResult } | { scope: "run_data"; result: RunDataCleanupResult };
 

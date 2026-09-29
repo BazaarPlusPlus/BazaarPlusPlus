@@ -91,7 +91,18 @@ describe('browser-preview command adapter', () => {
 
   it('preserves nullable read-only desktop preview results', async () => {
     expect(await commandClient.getHistoryRunDetail('r')).toBeNull();
-    expect(await commandClient.prepareHistoryThumbnails()).toBeNull();
+  });
+
+  it('reports History Thumbnails unavailable because the preview has no image service', async () => {
+    await expect(
+      commandClient.prepareHistoryThumbnails()
+    ).rejects.toMatchObject({
+      name: 'SemanticProblemError',
+      problem: {
+        code: 'history_thumbnails_unavailable',
+        params: { operation: 'prepare_history_thumbnails' }
+      }
+    });
   });
 
   it('returns null for Tauri unit-returning no-ops', async () => {

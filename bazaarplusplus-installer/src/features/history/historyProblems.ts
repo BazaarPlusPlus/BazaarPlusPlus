@@ -11,6 +11,7 @@ export type HistoryPageProblemCode =
   | 'history_read_failed'
   | 'history_read_blocked_by_game'
   | 'history_database_unsupported_schema'
+  | 'history_thumbnails_unavailable'
   | 'history_unexpected';
 
 export type HistoryPageProblem = UiProblem<HistoryPageProblemCode>;
@@ -22,6 +23,7 @@ export function historyProblemFromError(error: unknown): HistoryPageProblem {
     case 'history_read_failed':
     case 'history_read_blocked_by_game':
     case 'history_database_unsupported_schema':
+    case 'history_thumbnails_unavailable':
     case 'history_unexpected':
       return {
         code: problem.code,
@@ -46,6 +48,8 @@ function historyProblemMessageKey(problem: HistoryPageProblem): MessageKey {
       return 'historyProblemBlockedByGame';
     case 'history_database_unsupported_schema':
       return 'historyProblemUnsupportedSchema';
+    case 'history_thumbnails_unavailable':
+      return 'historyProblemThumbnailsUnavailable';
     case 'history_unexpected':
       return 'historyProblemUnexpected';
   }

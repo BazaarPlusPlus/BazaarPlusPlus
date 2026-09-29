@@ -6,6 +6,7 @@ const semanticProblemCodes: Record<SemanticProblem['code'], true> = {
   history_read_blocked_by_game: true,
   history_database_unsupported_schema: true,
   history_action_failed: true,
+  history_thumbnails_unavailable: true,
   install_detection_failed: true,
   install_action_failed: true,
   install_game_running: true,

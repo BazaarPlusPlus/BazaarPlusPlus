@@ -15,6 +15,7 @@ pub enum SemanticProblemCode {
     HistoryReadBlockedByGame,
     HistoryDatabaseUnsupportedSchema,
     HistoryActionFailed,
+    HistoryThumbnailsUnavailable,
     InstallDetectionFailed,
     InstallActionFailed,
     InstallGameRunning,
@@ -82,6 +83,18 @@ mod tests {
             .unwrap(),
             serde_json::json!({
                 "code": "history_database_unsupported_schema",
+                "params": {},
+                "diagnostic": null
+            })
+        );
+
+        assert_eq!(
+            serde_json::to_value(SemanticProblem::new(
+                SemanticProblemCode::HistoryThumbnailsUnavailable
+            ))
+            .unwrap(),
+            serde_json::json!({
+                "code": "history_thumbnails_unavailable",
                 "params": {},
                 "diagnostic": null
             })

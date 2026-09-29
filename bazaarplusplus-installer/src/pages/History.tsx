@@ -3,6 +3,7 @@ import {
   ChevronRight,
   History as HistoryIcon,
   Image as ImageIcon,
+  ImageOff,
   RefreshCw
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -11,6 +12,7 @@ import { EmptyState } from '../components/ui/EmptyState';
 import { LoadingPanel } from '../components/ui/LoadingPanel';
 import { PageShell } from '../components/ui/PageShell';
 import { ProblemBanner } from '../components/ui/ProblemBanner';
+import { StatusBanner } from '../components/ui/StatusBanner';
 import {
   formatDateTime,
   formatGameMode,
@@ -73,6 +75,19 @@ export default function History() {
               endingGameProcess={page.endingGameProcess}
             />
           )}
+
+          {page.state.phase === 'ready-content' &&
+            page.thumbnailsUnavailable && (
+              <StatusBanner
+                tone="warning"
+                icon={<ImageOff size={16} />}
+                message={
+                  <p className="m-0">
+                    {t('historyProblemThumbnailsUnavailable')}
+                  </p>
+                }
+              />
+            )}
 
           <div className="bpp-history-run-list">
             {page.state.phase === 'ready-empty' ? (

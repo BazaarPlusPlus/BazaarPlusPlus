@@ -44,6 +44,11 @@ const readFailure = {
   params: { operation: 'list_runs' },
   diagnostic: 'database is locked'
 };
+const thumbnailServiceFailure = {
+  code: 'history_thumbnails_unavailable',
+  params: { operation: 'prepare_history_thumbnails' },
+  diagnostic: 'Address already in use (os error 48)'
+};
 const thumbnailRun = {
   ...pageData().runs[0],
   screenshot_id: 'shot-1',
@@ -344,6 +349,69 @@ describe('History List workflow', () => {
     await retrying;
     expect(workflow.getSnapshot().thumbnails).toBe('ready');
   });
+
+  it('flags an image service that cannot start until a later preparation succeeds', async () => {
+    const { commands, workflow } = fixture();
+    commands.prepareHistoryThumbnails.mockRejectedValueOnce(
+      thumbnailServiceFailure
+    );
+    await workflow.start();
+    expect(workflow.getSnapshot()).toMatchObject({
+      state: { phase: 'ready-content', refresh: { phase: 'idle' } },
+      thumbnails: 'unavailable',
+      thumbnailsUnavailable: true
+    });
+    expect(workflow.getSnapshot().thumbnailUrl(thumbnailRun)).toBeNull();
+
+    const recovered = deferred<void>();
+    commands.prepareHistoryThumbnails.mockReturnValueOnce(recovered.promise);
+    const retrying = workflow.intents.refresh();
+    expect(workflow.getSnapshot().thumbnailsUnavailable).toBe(true);
+    recovered.resolve();
+    await retrying;
+    expect(workflow.getSnapshot()).toMatchObject({
+      thumbnails: 'ready',
+      thumbnailsUnavailable: false
+    });
+  });
+
+  it('keeps other preparation failures to the card fallback', async () => {
+    const { commands, workflow } = fixture();
+    commands.prepareHistoryThumbnails.mockRejectedValueOnce(
+      new Error('port occupied')
+    );
+    await workflow.start();
+    expect(workflow.getSnapshot()).toMatchObject({
+      thumbnails: 'unavailable',
+      thumbnailsUnavailable: false
+    });
+  });
+
+  it.each([
+    ['service failure', false],
+    ['success', true]
+  ] as const)(
+    'ignores a late %s from superseded preparation for the service notice',
+    async (outcome, current) => {
+      const { commands, workflow } = fixture();
+      await workflow.start();
+      const old = deferred<void>();
+      commands.prepareHistoryThumbnails.mockReturnValueOnce(old.promise);
+      const oldRefresh = workflow.intents.refresh();
+      if (current)
+        commands.prepareHistoryThumbnails.mockRejectedValueOnce(
+          thumbnailServiceFailure
+        );
+      else commands.prepareHistoryThumbnails.mockResolvedValueOnce();
+      await workflow.intents.refresh();
+      const snapshot = workflow.getSnapshot();
+      expect(snapshot.thumbnailsUnavailable).toBe(current);
+      if (outcome === 'success') old.resolve();
+      else old.reject(thumbnailServiceFailure);
+      await oldRefresh;
+      expect(workflow.getSnapshot()).toBe(snapshot);
+    }
+  );
 
   it.each([
     ['success', 'unavailable'],

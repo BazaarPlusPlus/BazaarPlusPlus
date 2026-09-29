@@ -11,6 +11,7 @@ const codes: HistoryPageProblemCode[] = [
   'history_read_failed',
   'history_read_blocked_by_game',
   'history_database_unsupported_schema',
+  'history_thumbnails_unavailable',
   'history_unexpected'
 ];
 

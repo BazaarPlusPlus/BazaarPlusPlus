@@ -40,6 +40,7 @@ export function createHistoryListWorkflow(
   let pageNumber = parseHistoryPage(String(options.initialPage));
   let state: HistoryListState = { phase: 'initial-loading' };
   let thumbnails: HistoryThumbnails = 'pending';
+  let thumbnailProblem: HistoryPageProblem | null = null;
   let thumbnailAttempt = 0;
   let historyRequest: object | null = null;
   let thumbnailRequest: object | null = null;
@@ -60,6 +61,10 @@ export function createHistoryListWorkflow(
       busy,
       endingGameProcess: recovery !== null,
       thumbnails,
+      // Only a service that cannot start earns a notice; other failures keep
+      // to the card fallback.
+      thumbnailsUnavailable:
+        thumbnailProblem?.code === 'history_thumbnails_unavailable',
       // Advances with each applied preparation so a card can retry a failed image
       // without remounting cards whose image already loaded.
       thumbnailAttempt,
@@ -133,14 +138,17 @@ export function createHistoryListWorkflow(
     // The current state stays until preparation settles; clearing it first
     // would remount and refetch every card on each refresh.
     let next: HistoryThumbnails = 'ready';
+    let problem: HistoryPageProblem | null = null;
     try {
       await commands.prepareHistoryThumbnails();
-    } catch {
+    } catch (caught) {
       // Cards use their thumbnail fallback; the list is unaffected.
       next = 'unavailable';
+      problem = historyProblemFromError(caught);
     }
     if (!active || thumbnailRequest !== request) return;
     thumbnails = next;
+    thumbnailProblem = problem;
     thumbnailAttempt += 1;
     publish();
   }
@@ -197,6 +205,7 @@ export function createHistoryListWorkflow(
       active = true;
       state = { phase: 'initial-loading' };
       thumbnails = 'pending';
+      thumbnailProblem = null;
       await refresh();
     },
     dispose: () => {

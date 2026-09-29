@@ -264,6 +264,8 @@ const zh = {
   historyProblemUnexpected: '加载本地战绩时发生意外错误。请重试。',
   historyOpenInstall: '前往安装页',
   historyPreviewFallback: '缩略图不可用；刷新页面可重试。',
+  historyProblemThumbnailsUnavailable:
+    '缩略图服务无法启动，本地端口可能被占用；战绩仍可正常浏览。',
   runResultMisfortune: '惨淡旅程',
   runResultBronze: '青铜胜利',
   runResultSilver: '白银胜利',
@@ -709,6 +711,8 @@ const en: Record<MessageKey, string> = {
     'Something unexpected happened while loading local History. Please retry.',
   historyOpenInstall: 'Open Install',
   historyPreviewFallback: 'Thumbnail unavailable; refresh to retry.',
+  historyProblemThumbnailsUnavailable:
+    "Thumbnails can't load: the local image service couldn't start (its port may be in use). History still works.",
   runResultMisfortune: 'MISFORTUNE JOURNEY',
   runResultBronze: 'BRONZE VICTORY',
   runResultSilver: 'SILVER VICTORY',
