@@ -9,13 +9,47 @@ import {
   importCheckout,
   initializeConfig,
   readConfig,
-  sectionValues,
-  appleKeyPath,
-  stageSigning,
+  sections,
+  profiles,
+  sectionKeys,
+  resolveValues,
+  missingValues,
+  resolveSigning,
   refreshProjections,
   projectionChanges,
-  commandEnvironment
+  withProfileEnvironment
 } from './local-config.mjs';
+
+// One line per config.ini section, derived from the section table.
+function sectionHelp() {
+  return Object.entries(sections)
+    .map(([name, spec]) => {
+      const keys = sectionKeys(spec);
+      const optional = spec.optional === true ? keys : spec.optional || [];
+      const list = [
+        keys.filter((key) => !optional.includes(key)).join(', '),
+        optional.length ? `optional ${optional.join(', ')}` : ''
+      ]
+        .filter(Boolean)
+        .join(', ');
+      const what = spec.projection
+        ? `projects verbatim to ${spec.projection}`
+        : spec.stage
+          ? `${list}; staged as files`
+          : list;
+      const profile =
+        spec.profile === name ? '' : ` (profile: ${spec.profile})`;
+      const words = `${what}${profile}`.split(' ');
+      const lines = [`    ${`[${name}]`.padEnd(15)}`];
+      for (const word of words) {
+        if (lines.at(-1).length + word.length > 80) lines.push(' '.repeat(19));
+        lines[lines.length - 1] +=
+          `${lines.at(-1).endsWith(' ') ? '' : ' '}${word}`;
+      }
+      return lines.map((line) => line.trimEnd()).join('\n');
+    })
+    .join('\n');
+}
 
 const help = `Workspace setup (Node only; no npm dependency required)
 
@@ -28,27 +62,32 @@ COMMAND [ARG...] runs a command from the repository root with scoped configurati
 
 Configuration: BPP_CONFIG_HOME or ~/.config/bazaarplusplus (outside checkouts).
   config.ini     every value, one section per purpose:
-    [server]       projects verbatim to bazaarplusplus-server/.dev.vars
-    [analyzer]     projects verbatim to bazaarplusplus-analyzer/.env
-    [release]      BPP_R2_ACCOUNT_ID, BPP_R2_ACCESS_KEY_ID, BPP_R2_SECRET_ACCESS_KEY
-    [signing]      APPLE_SIGNING_IDENTITY, APPLE_API_ISSUER, APPLE_API_KEY,
-                   optional APPLE_API_KEY_PATH (relative to this directory),
-                   optional TAURI_SIGNING_PRIVATE_KEY_PASSWORD
-    [machine]      optional BPP_MANAGED_PATH, BPP_GAME_ROOT (profile: mod)
-    [cloudflare]   optional CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID
+${sectionHelp()}
   keys/          tauri-updater.key, tauri-updater.key.pub, AuthKey_<APPLE_API_KEY>.p8
+A relative APPLE_API_KEY_PATH resolves against the configuration directory.
 Any other file in the directory is yours; tooling neither reads nor writes it.
 
-Profiles: release, signing, mod, cloudflare, server, analyzer.
-Exported variables take precedence. config.ini is parsed as data, never sourced;
-unknown sections, non KEY=value lines and multi-line quoted values are errors.
+Profiles: ${profiles.join(', ')}.
+Exported variables take precedence. config.ini is parsed as data, never sourced.
+Each section holds KEY=value lines (optionally export KEY=value) and # comments.
+Values keep to the form dotenv readers of the managed copies agree on:
+  KEY=value      unquoted, trimmed; whitespace then # starts a comment
+  KEY='value'    literal; no ', no \\\\ and no trailing \\
+  KEY="value"    literal; no " and no backslash (use single quotes or leave it
+                 unquoted, as for Windows paths)
+Errors name the line, never the value: unknown or malformed section headers,
+KEY=value outside a section, duplicate sections or keys, ; comments, backtick
+quotes, a value starting with #, an unquoted # without a space before it, text
+after a closing quote, unterminated or multi-line quotes, and a CR or NUL
+inside a line.
 server/analyzer profiles refresh managed projections before running the command.
 signing stages [signing] and keys/ into a private temporary BPP_SIGNING_SECRETS_DIR
 removed after the command; an exported BPP_SIGNING_SECRETS_DIR is used as given.
 Edit config.ini, then rerun setup --skip-deps. Local projection edits conflict.
 --from imports an old checkout's analyzer .env, server .dev.vars and installer
-signing-secrets/ into config.ini and keys/, refuses differing existing values,
-preserves data path meaning, and never deletes source files or creates data stores.
+signing-secrets/ into config.ini and keys/ under the same value rules, refuses
+differing existing values, preserves data path meaning, and never deletes source
+files or creates data stores.
 
 setup installs each Node project's locked dependencies, the analyzer environment,
 the mod's local .NET tools and Git hooks. Install language/platform tools first.
@@ -151,10 +190,7 @@ export function doctor(
   } catch (error) {
     add('projections', false, error.message);
   }
-  const required = (scope, section, keys, ambient = {}) => {
-    const values = { ...sectionValues(config, section) };
-    for (const key of keys) if (ambient[key]) values[key] = ambient[key];
-    const missing = keys.filter((key) => !values[key]?.trim());
+  for (const { scope, missing } of missingValues(config, env)) {
     add(
       scope,
       missing.length === 0,
@@ -162,19 +198,10 @@ export function doctor(
         ? `missing: ${missing.join(', ')}`
         : 'fields present; remote permissions unverified'
     );
-    return values;
-  };
-  const analyzer = required('analyzer', 'analyzer', [
-    'BPP_DATA_ROOT',
-    'BPP_V5_API_BASE_URL',
-    'BPP_BUNDLE_SYNC_TOKEN'
-  ]);
-  if (analyzer.BPP_DATA_ROOT) {
-    const data = path.resolve(
-      repository,
-      'bazaarplusplus-analyzer',
-      analyzer.BPP_DATA_ROOT
-    );
+  }
+  // A relative path already failed the projections row above.
+  const data = config.sections.get('analyzer')?.values.BPP_DATA_ROOT;
+  if (data && path.isAbsolute(data)) {
     add(
       'analyzer data',
       fs.existsSync(data),
@@ -183,47 +210,13 @@ export function doctor(
         : 'configured state path is missing; no empty replacement was created'
     );
   }
-  required('analyzer publish', 'analyzer', [
-    'BPP_METRICS_R2_ACCOUNT_ID',
-    'BPP_METRICS_R2_BUCKET',
-    'BPP_METRICS_R2_ACCESS_KEY_ID',
-    'BPP_METRICS_R2_SECRET_ACCESS_KEY'
-  ]);
-  required('server', 'server', [
-    'R2_PRESIGN_ACCESS_KEY_ID',
-    'R2_PRESIGN_SECRET_ACCESS_KEY',
-    'BUNDLE_SYNC_TOKEN',
-    'BAZAARDB_DELIVERY_TOKEN'
-  ]);
-  required(
-    'release upload',
-    'release',
-    ['BPP_R2_ACCOUNT_ID', 'BPP_R2_ACCESS_KEY_ID', 'BPP_R2_SECRET_ACCESS_KEY'],
-    env
-  );
-  // Mirrors what bundle.sh will see: an exported directory as given, else
-  // [signing] with keys/, each overridden by exported values.
-  const explicit = env.BPP_SIGNING_SECRETS_DIR;
-  const fileValue = (name) => {
-    const file = path.join(explicit, name);
-    return fs.existsSync(file) ? fs.readFileSync(file, 'utf8').trim() : '';
-  };
-  const signing = explicit
-    ? {
-        APPLE_API_ISSUER: fileValue('apple-api-issuer'),
-        APPLE_API_KEY: fileValue('apple-api-key'),
-        APPLE_API_KEY_PATH: fileValue('apple-api-key-path')
-      }
-    : sectionValues(config, 'signing');
-  for (const key of ['APPLE_API_ISSUER', 'APPLE_API_KEY', 'APPLE_API_KEY_PATH'])
-    if (env[key]) signing[key] = env[key];
-  const keyDirectory = explicit || path.join(home, 'keys');
-  const updaterKey = path.join(keyDirectory, 'tauri-updater.key');
+  const signing = resolveSigning(home, env, repository);
   add(
     'updater signing',
     Boolean(
       env.TAURI_SIGNING_PRIVATE_KEY ||
-      (fs.existsSync(updaterKey) && fs.statSync(updaterKey).size > 0)
+      (fs.existsSync(signing.updaterKey) &&
+        fs.statSync(signing.updaterKey).size > 0)
     ),
     'private key presence only; password/signature not validated'
   );
@@ -242,22 +235,11 @@ export function doctor(
       result.status === 0 && identities.length > 0,
       `${identities.length} Developer ID Application identities available`
     );
-    // bundle.sh resolves an exported relative path against the installer.
-    const keyPath = env.APPLE_API_KEY_PATH
-      ? path.resolve(
-          repository,
-          'bazaarplusplus-installer',
-          env.APPLE_API_KEY_PATH
-        )
-      : explicit
-        ? signing.APPLE_API_KEY_PATH ||
-          path.join(explicit, `AuthKey_${signing.APPLE_API_KEY}.p8`)
-        : appleKeyPath(home, signing);
     const available = Boolean(
-      signing.APPLE_API_ISSUER &&
-      signing.APPLE_API_KEY &&
-      keyPath &&
-      fs.existsSync(keyPath)
+      signing.values.APPLE_API_ISSUER &&
+      signing.values.APPLE_API_KEY &&
+      signing.appleKeyPath &&
+      fs.existsSync(signing.appleKeyPath)
     );
     add(
       'Apple notarization',
@@ -267,7 +249,7 @@ export function doctor(
         : 'issuer, key id or referenced .p8 missing'
     );
   }
-  const cf = commandEnvironment('cloudflare', home, env, repository);
+  const cf = resolveValues(config, 'cloudflare', env);
   add(
     'Cloudflare CLI',
     Boolean(cf.CLOUDFLARE_API_TOKEN),
@@ -275,12 +257,7 @@ export function doctor(
       ? 'API token present; permissions unverified'
       : 'no API token configured; Wrangler OAuth may still be available'
   );
-  const managed = commandEnvironment(
-    'mod',
-    home,
-    env,
-    repository
-  ).BPP_MANAGED_PATH;
+  const managed = resolveValues(config, 'machine', env).BPP_MANAGED_PATH;
   if (managed) {
     add(
       'game assemblies',
@@ -363,25 +340,9 @@ export function main(args = process.argv.slice(2)) {
     return;
   }
   if (command === 'run' && rest[1] === '--' && rest[2]) {
-    if (rest[0] !== 'signing') {
-      execute(rest[2], rest.slice(3), {
-        cwd: process.cwd(),
-        env: commandEnvironment(rest[0], home)
-      });
-      return;
-    }
-    // The child shares the terminal's signals; outlive them so staged
-    // signing files are always removed.
-    const hold = () => {};
-    const signals = ['SIGINT', 'SIGTERM', 'SIGHUP'];
-    const staged = stageSigning(home);
-    for (const signal of signals) process.on(signal, hold);
-    try {
-      execute(rest[2], rest.slice(3), { cwd: process.cwd(), env: staged.env });
-    } finally {
-      staged.cleanup();
-      for (const signal of signals) process.off(signal, hold);
-    }
+    withProfileEnvironment(rest[0], home, (env) =>
+      execute(rest[2], rest.slice(3), { cwd: process.cwd(), env })
+    );
     return;
   }
   throw new Error('Unknown command or arguments; use --help');

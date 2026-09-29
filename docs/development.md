@@ -15,7 +15,7 @@ just doctor
 
 从旧 clone 接入配置时，首次 setup 使用 `just setup --from /absolute/path/to/old-checkout`。它把旧 clone 的 analyzer、server 配置和 installer 签名目录导入 `config.ini` 与 `keys/`，签名目录中不认识的文件直接拒绝；导入前检查冲突，保留旧文件；相对数据目录保留原位置含义，Apple 私钥按 `keys/AuthKey_<APPLE_API_KEY>.p8` 约定定位。它不复制依赖缓存、构建产物、游戏反编译结果或 analyzer 数据，也不创建空数据目录冒充恢复完成。额外的发布凭据应按用途分别保存，不用一套密钥替代所有 bucket 的权限。
 
-`config.ini` 是本地配置的唯一维护入口。analyzer 和 Wrangler 要求的项目文件是 `[analyzer]`、`[server]` 两节的受管理副本，根目录忽略的 `.bpp-local.json` 记录上次同步摘要。编辑集中配置后运行 `just setup --skip-deps`；`just server::dev` 和 `just analyzer::cli <command>` 也会在启动前刷新副本。若项目副本被手工修改，先合并要保留的修改并使两份内容一致，再运行 setup；脚本会拒绝直接覆盖冲突。直接执行原来的 npm/uv 命令读取当前副本，绕过自动刷新。
+`config.ini` 是本地配置的唯一维护入口。analyzer 和 Wrangler 要求的项目文件是 `[analyzer]`、`[server]` 两节的受管理副本，根目录忽略的 `.bpp-local.json` 记录上次同步摘要。编辑集中配置后运行 `just setup --skip-deps`；`just server::dev` 和 `just analyzer::cli <command>` 也会在启动前刷新副本。若项目副本被手工修改，先合并要保留的修改并使两份内容一致，再运行 setup；脚本会拒绝直接覆盖冲突。这两节会原样交给 Wrangler 的 dotenv 和 analyzer 的 python-dotenv 读取，两者对引号内转义和 `#` 的处理并不一致，所以 `config.ini` 只接受各方解读一致的写法，其余写法报错并指明行号：含反斜杠的值（如 Windows 路径）用单引号或不加引号，不要用双引号。直接执行原来的 npm/uv 命令读取当前副本，绕过自动刷新。
 
 `just release::build` 把 `[signing]` 与 `keys/` 暂存到配置目录内的私有临时目录，只把该路径交给构建，命令结束即删除，避免签名值出现在 `npm ci` 等前序步骤的环境里；`upload` / `mirror` / `promote` 只加载 R2 发布配置。已有显式环境变量优先。其他命令可用 `just with-config <profile> <command...>`，例如非标准游戏位置的 `just with-config mod just mod::build`，或 `just with-config cloudflare npm --prefix bazaarplusplus-site run deploy`（仅在明确要部署时执行）。配置按数据解析，不执行 shell 语句；普通检查、测试、官网开发不会自动加载发布密钥。
 
