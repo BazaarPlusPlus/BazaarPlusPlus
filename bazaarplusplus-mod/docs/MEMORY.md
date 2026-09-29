@@ -8,7 +8,7 @@ Domain constraints that must stay true in the system.
 
 - MessagePack-serialized DTOs in the Unity/Mono runtime must keep their whole serialized graph `public`.
 - Key entities by template GUID; package cards are `EHiddenTag.Package` via `PackageIdentity.IsPackage` — never display name or `ArtKey`. [`src/BazaarPlusPlus/GameInterop/Cards/PackageIdentity.cs`]
-- Bump both `RunLogSchema` version constants together for a column or data change carried by the versioned migration block; there is no separate upload-payload version. Index and trigger DDL needs no bump — it lands in `BootstrapSql`, which `EnsureInitialized` re-executes on every open. [`src/BazaarPlusPlus.Storage/RunLog/RunLogSchema.cs` | ADR-0006]
+- Bump both `RunLogSchema` version constants together only for a column change; a data repair never bumps them, and there is no upload-payload version. Index and trigger DDL needs no bump: `EnsureInitialized` re-runs `BootstrapSql` on every open. [`src/BazaarPlusPlus.Storage/RunLog/RunLogSchema.cs` | ADR-0006 | ADR-0011]
 - CJK text that renders as tofu is routed through `NativeGameTypography`, which applies the game's native serif/sans and extends BPP-owned text with a CJK fallback chain. Fix the font route, not the copy. [`src/BazaarPlusPlus/GameInterop/Fonts/NativeGameTypography.cs`]
 - Mod-authored user-facing strings use `LocalizedTextSet` (en + zh-Hans, optional zh-Hant + de/pt/ko/it; anything else falls back to English). [`src/BazaarPlusPlus.Localization/LocalizedTextSet.cs`]
 - A categorized degradation event includes the category field in its `BppLogStormPolicy` key — a shared key lets one category's failure suppress every later category during the storm window. [`src/BazaarPlusPlus/Infrastructure/Logging/Core/BppLogSchema.cs`]
@@ -29,6 +29,7 @@ One line each, full record in [adr/](adr/). A line here exists to stop a settled
 - ADR-0008: Combat Impact numbers are ledger entries — dimension/basis/coverage/provenance on every value, per-view conservation only, typed residuals never dropped, activation batches are observations (not trigger counts), attribution graph-driven (never card-GUID constants).
 - ADR-0009: Tests assert behavior or compiled artifacts, never source text; RS0030 bans file-to-text reads.
 - ADR-0010: Compile against the game-supplied libraries in `build/GameLibraries.props`: no NuGet package, publicizing, or shipped copy.
+- ADR-0011: The local `user_version` names the column shape the installer reads; data repairs never bump it.
 
 ## Durable knowledge
 

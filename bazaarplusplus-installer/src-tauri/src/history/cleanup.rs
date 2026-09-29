@@ -2000,7 +2000,11 @@ mod tests {
             plan_screenshot_cleanup(&database_path, &game_path, None, test_today()).unwrap_err();
 
         assert!(error.contains("found=0"), "{error}");
-        assert!(error.contains("supported=1,2,3"), "{error}");
+        let supported = format!(
+            "supported={}",
+            crate::config::supported_mod_db_user_versions_label()
+        );
+        assert!(error.contains(&supported), "{error}");
     }
 
     #[test]

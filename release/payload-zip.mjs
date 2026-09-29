@@ -7,6 +7,10 @@ import zlib from 'node:zlib';
 import { resolveBuildPlatform } from './release-platforms.mjs';
 import { readProductVersion } from './product.mjs';
 import {
+  INSTALLER_HISTORY_DATABASE_COMPATIBILITY_PATH,
+  assertHistoryDatabaseCompatibility
+} from './history-database.mjs';
+import {
   assertShippedPayloadPaths,
   requiredPayloadPaths
 } from './payload-inventory.mjs';
@@ -159,66 +163,19 @@ function assertStagedModWritesV5DataRoot(sourceDir, productVersion) {
   }
 }
 
-function readHistoryDatabaseCompatibility(rootDir) {
-  const compatibilityPath = path.join(
-    rootDir,
-    'src-tauri',
-    'history-database-compatibility.json'
-  );
-  const compatibility = JSON.parse(fs.readFileSync(compatibilityPath, 'utf8'));
-  const versions = compatibility.supportedUserVersions;
-  if (
-    compatibility.formatVersion !== 1 ||
-    !Array.isArray(versions) ||
-    versions.length === 0 ||
-    versions.some(
-      (version, index) =>
-        !Number.isSafeInteger(version) ||
-        version <= 0 ||
-        (index > 0 && version <= versions[index - 1])
-    )
-  ) {
-    throw new Error(
-      `Invalid installer history database compatibility contract: ${compatibilityPath}`
-    );
-  }
-  return versions;
-}
-
 function assertStagedHistoryDatabaseCompatibility(rootDir, sourceDir) {
-  const contractPath = path.join(
-    sourceDir,
-    'BepInEx',
-    'plugins',
-    'BazaarPlusPlus.history-database.json'
-  );
-  let contract;
-  try {
-    contract = JSON.parse(fs.readFileSync(contractPath, 'utf8'));
-  } catch (error) {
-    throw new Error(
-      `Cannot read BazaarPlusPlus history database contract at ${contractPath}: ${error instanceof Error ? error.message : String(error)}`,
-      { cause: error }
-    );
-  }
-  if (
-    contract.formatVersion !== 1 ||
-    !Number.isSafeInteger(contract.historyDatabaseUserVersion) ||
-    contract.historyDatabaseUserVersion <= 0 ||
-    !Number.isSafeInteger(contract.historyRowSchemaVersion) ||
-    contract.historyRowSchemaVersion <= 0
-  ) {
-    throw new Error(
-      `Invalid BazaarPlusPlus history database contract: ${contractPath}`
-    );
-  }
-
-  const supported = readHistoryDatabaseCompatibility(rootDir);
-  if (!supported.includes(contract.historyDatabaseUserVersion)) {
-    throw new Error(
-      `Staged BazaarPlusPlus database schema ${contract.historyDatabaseUserVersion} is incompatible with this installer, which supports ${supported.join(',')}. Run just release::prepare <platform> from a compatible mod revision or update the installer compatibility contract.`
-    );
-  }
+  assertHistoryDatabaseCompatibility({
+    contractPath: path.join(
+      sourceDir,
+      'BepInEx',
+      'plugins',
+      'BazaarPlusPlus.history-database.json'
+    ),
+    compatibilityPath: path.join(
+      rootDir,
+      INSTALLER_HISTORY_DATABASE_COMPATIBILITY_PATH
+    )
+  });
 }
 
 function assertForbiddenStagingInputs(platform, sourceDir) {

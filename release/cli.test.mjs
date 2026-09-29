@@ -27,11 +27,13 @@ function fixture() {
     'README_en.md',
     'release/payload.json',
     'release/generated/Payload.targets',
+    'bazaarplusplus-mod/src/BazaarPlusPlus.Storage/BazaarPlusPlus.history-database.json',
     ...[
       'package.json',
       'package-lock.json',
       'src-tauri/Cargo.toml',
       'src-tauri/Cargo.lock',
+      'src-tauri/history-database-compatibility.json',
       'src-tauri/tauri.conf.json',
       'src-tauri/tauri.macos.conf.json',
       'src-tauri/tauri.windows.conf.json'

@@ -124,17 +124,11 @@ fn describe_error(error: &rusqlite::Error) -> String {
 }
 
 fn validate_supported_schema(found: i64) -> Result<(), String> {
-    let supported = crate::config::supported_mod_db_user_versions();
-    if supported.contains(&found) {
+    if crate::config::supported_mod_db_user_versions().contains(&found) {
         return Ok(());
     }
 
-    let supported = supported
-        .iter()
-        .map(i64::to_string)
-        .collect::<Vec<_>>()
-        .join(",");
-
+    let supported = crate::config::supported_mod_db_user_versions_label();
     Err(format!(
         "{UNSUPPORTED_SCHEMA_ERROR_PREFIX}{found}, supported={supported}."
     ))
@@ -430,6 +424,7 @@ pub fn load_run_id_for_battle(
 #[cfg(test)]
 mod tests {
     use super::{open_connection, open_write_connection};
+    use crate::config::{supported_mod_db_user_versions, supported_mod_db_user_versions_label};
 
     #[test]
     fn open_connection_does_not_create_missing_database() {
@@ -451,13 +446,14 @@ mod tests {
             open_write_connection(&database_path).unwrap_err(),
         ] {
             assert!(error.contains("found=0"), "{error}");
-            assert!(error.contains("supported=1,2,3"), "{error}");
+            let supported = format!("supported={}", supported_mod_db_user_versions_label());
+            assert!(error.contains(&supported), "{error}");
         }
     }
 
     #[test]
     fn connections_open_supported_mod_database_schema_versions() {
-        for user_version in [1, 2, 3] {
+        for user_version in supported_mod_db_user_versions() {
             let temp_dir = tempfile::tempdir().unwrap();
             let database_path = temp_dir.path().join("bazaarplusplus.db");
             rusqlite::Connection::open(&database_path)
@@ -523,15 +519,17 @@ mod tests {
     fn connection_rejects_a_newer_mod_database_schema_version() {
         let temp_dir = tempfile::tempdir().unwrap();
         let database_path = temp_dir.path().join("bazaarplusplus.db");
+        let newer = supported_mod_db_user_versions().last().unwrap() + 1;
         rusqlite::Connection::open(&database_path)
             .unwrap()
-            .execute_batch("pragma user_version = 4;")
+            .execute_batch(&format!("pragma user_version = {newer};"))
             .unwrap();
 
         let error = open_connection(&database_path).unwrap_err();
 
-        assert!(error.contains("found=4"), "{error}");
-        assert!(error.contains("supported=1,2,3"), "{error}");
+        assert!(error.contains(&format!("found={newer}")), "{error}");
+        let supported = format!("supported={}", supported_mod_db_user_versions_label());
+        assert!(error.contains(&supported), "{error}");
     }
 
     #[test]

@@ -4,6 +4,7 @@ TempDirPathProviderTests.Run();
 SqliteShutdownTests.Run();
 RunLogSchemaMigrationTests.Run();
 RunLogSchemaIndexTests.Run();
+RunLogSchemaColumnShapeTests.Run();
 SqliteStoreConnectionTests.Run();
 RunLogEventPayloadTests.Run();
 RunLogSchemaReleaseContractTests.Run();

@@ -679,8 +679,8 @@ mod tests {
             );
             assert_eq!(problem.params.get("found").map(String::as_str), Some("0"));
             assert_eq!(
-                problem.params.get("supported").map(String::as_str),
-                Some("1,2,3")
+                problem.params.get("supported"),
+                Some(&crate::config::supported_mod_db_user_versions_label())
             );
             assert!(problem.diagnostic.is_some());
         }
@@ -699,10 +699,14 @@ mod tests {
             .unwrap_err();
 
         assert_eq!(problem.code, SemanticProblemCode::HistoryActionFailed);
+        let supported = format!(
+            "supported={}",
+            crate::config::supported_mod_db_user_versions_label()
+        );
         assert!(problem
             .diagnostic
             .as_deref()
-            .is_some_and(|value| value.contains("found=0") && value.contains("supported=1,2,3")));
+            .is_some_and(|value| value.contains("found=0") && value.contains(&supported)));
     }
 
     #[test]

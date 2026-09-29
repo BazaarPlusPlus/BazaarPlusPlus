@@ -41,6 +41,15 @@ pub fn supported_mod_db_user_versions() -> &'static [i64] {
     &compatibility.supported_user_versions
 }
 
+/// The supported versions, comma-separated, as unsupported-schema diagnostics print them.
+pub fn supported_mod_db_user_versions_label() -> String {
+    supported_mod_db_user_versions()
+        .iter()
+        .map(i64::to_string)
+        .collect::<Vec<_>>()
+        .join(",")
+}
+
 #[cfg(target_os = "windows")]
 pub const STEAM_LIBRARY_FALLBACK_CANDIDATES: &[&str] = &[
     r"C:\Program Files (x86)\Steam\steamapps\common\The Bazaar",
