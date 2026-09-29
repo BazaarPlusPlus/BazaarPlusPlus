@@ -2,23 +2,25 @@ import type { HistoryRunList, HistoryRunRow } from '../../types/backend';
 import type { PageRefreshState } from '../shared/pageState';
 import type {
   endGameProcess,
-  ensureHistoryPreview,
-  listHistoryRuns
+  listHistoryRuns,
+  prepareHistoryThumbnails
 } from './historyApi';
 import {
   historyProblemFromError,
   type HistoryPageProblem
 } from './historyProblems';
 import { HISTORY_PAGE_SIZE, parseHistoryPage } from './pagination';
-import { optionalStripPreviewUrl } from './stripPreview';
 
 type HistoryListCommands = {
   listHistoryRuns: typeof listHistoryRuns;
   endGameProcess: typeof endGameProcess;
-  ensureHistoryPreview: typeof ensureHistoryPreview;
+  prepareHistoryThumbnails: typeof prepareHistoryThumbnails;
 };
 
 export type EndGameProcessOutcome = 'terminated' | 'already-exited' | 'failed';
+
+/** Whether History Thumbnail URLs can be shown, independently of the rows. */
+export type HistoryThumbnails = 'pending' | 'ready' | 'unavailable';
 
 type HistoryListState =
   | { phase: 'initial-loading' }
@@ -37,10 +39,10 @@ export function createHistoryListWorkflow(
   let active = false;
   let pageNumber = parseHistoryPage(String(options.initialPage));
   let state: HistoryListState = { phase: 'initial-loading' };
-  let previewBaseUrl: string | null = null;
-  let previewAttempt = 0;
+  let thumbnails: HistoryThumbnails = 'pending';
+  let thumbnailAttempt = 0;
   let historyRequest: object | null = null;
-  let previewRequest: object | null = null;
+  let thumbnailRequest: object | null = null;
   let recovery: Promise<EndGameProcessOutcome> | null = null;
   let snapshot = deriveSnapshot();
 
@@ -52,16 +54,17 @@ export function createHistoryListWorkflow(
     const pageCount = data
       ? Math.max(1, Math.ceil(data.summary.runs / HISTORY_PAGE_SIZE))
       : pageNumber;
-    const baseUrl = previewBaseUrl;
+    const thumbnailsReady = thumbnails === 'ready';
     return {
       state,
       busy,
       endingGameProcess: recovery !== null,
+      thumbnails,
       // Advances with each applied preparation so a card can retry a failed image
       // without remounting cards whose image already loaded.
-      previewAttempt,
-      previewUrl: (run: HistoryRunRow) =>
-        optionalStripPreviewUrl(baseUrl, run.strip_url),
+      thumbnailAttempt,
+      thumbnailUrl: (run: HistoryRunRow) =>
+        thumbnailsReady ? run.thumbnail_url : null,
       pagination: {
         page: pageNumber,
         pageCount,
@@ -123,26 +126,27 @@ export function createHistoryListWorkflow(
     publish();
   }
 
-  async function refreshPreview(): Promise<void> {
+  async function prepareThumbnails(): Promise<void> {
     if (!active) return;
     const request = {};
-    previewRequest = request;
-    // Published URLs stay until preparation settles; clearing them first would
-    // remount and refetch every card on each refresh.
-    let result: string | null = null;
+    thumbnailRequest = request;
+    // The current state stays until preparation settles; clearing it first
+    // would remount and refetch every card on each refresh.
+    let next: HistoryThumbnails = 'ready';
     try {
-      result = await commands.ensureHistoryPreview();
+      await commands.prepareHistoryThumbnails();
     } catch {
-      // The old base may name a stopped service; cards use their thumbnail fallback.
+      // Cards use their thumbnail fallback; the list is unaffected.
+      next = 'unavailable';
     }
-    if (!active || previewRequest !== request) return;
-    previewBaseUrl = result;
-    previewAttempt += 1;
+    if (!active || thumbnailRequest !== request) return;
+    thumbnails = next;
+    thumbnailAttempt += 1;
     publish();
   }
 
   async function refresh(): Promise<void> {
-    await Promise.all([loadHistory(), refreshPreview()]);
+    await Promise.all([loadHistory(), prepareThumbnails()]);
   }
 
   async function selectPage(page: number): Promise<void> {
@@ -192,13 +196,13 @@ export function createHistoryListWorkflow(
       if (active) return;
       active = true;
       state = { phase: 'initial-loading' };
-      previewBaseUrl = null;
+      thumbnails = 'pending';
       await refresh();
     },
     dispose: () => {
       active = false;
       historyRequest = null;
-      previewRequest = null;
+      thumbnailRequest = null;
       recovery = null;
     },
     selectPage,

@@ -370,6 +370,30 @@ limit 1
     Ok(Some(map_overlay_snapshot_row(row)?))
 }
 
+/// The stored image path of any screenshot, whatever its capture source: History
+/// shows a run's primary screenshot, which need not be an end-of-run capture.
+pub fn load_screenshot_image_path(
+    database_path: &Path,
+    screenshot_id: &str,
+) -> Result<Option<String>, String> {
+    if !database_path.exists() {
+        return Ok(None);
+    }
+
+    let conn = open_connection(database_path)?;
+    if !table_exists(&conn, "run_screenshots")? {
+        return Ok(None);
+    }
+
+    conn.query_row(
+        "select image_relative_path from run_screenshots where screenshot_id = ?1",
+        [screenshot_id],
+        |row| row.get(0),
+    )
+    .optional()
+    .map_err(|err| err.to_string())
+}
+
 fn map_overlay_snapshot_row(row: &rusqlite::Row<'_>) -> Result<OverlaySnapshotRow, String> {
     Ok(OverlaySnapshotRow {
         id: row.get(0).map_err(|err| err.to_string())?,
@@ -399,7 +423,7 @@ fn normalize_overlay_from_utc(value: &str) -> String {
 mod tests {
     use super::{
         load_latest_overlay_snapshot, load_overlay_snapshot_by_id, load_overlay_snapshot_count,
-        load_overlay_snapshot_list, normalize_overlay_from_utc,
+        load_overlay_snapshot_list, load_screenshot_image_path, normalize_overlay_from_utc,
     };
 
     fn create_run_screenshots_table(conn: &rusqlite::Connection) {
@@ -623,6 +647,36 @@ mod tests {
             .unwrap();
 
         assert_eq!(record.id, "snap-1");
+    }
+
+    #[test]
+    fn screenshot_image_path_ignores_the_capture_source_the_overlay_requires() {
+        let temp = tempfile::NamedTempFile::new().unwrap();
+        let conn = rusqlite::Connection::open(temp.path()).unwrap();
+        create_run_screenshots_table(&conn);
+        conn.execute(
+            "insert into run_screenshots (
+                screenshot_id, run_id, capture_source, is_primary, image_relative_path,
+                captured_at_local, captured_at_utc
+             ) values ('manual-1', 'run-1', 'manual', 1, 'manual-1.png',
+                '2026-04-10T20:30:05+00:00', '2026-04-10T20:30:05+00:00')",
+            [],
+        )
+        .unwrap();
+
+        assert!(load_overlay_snapshot_by_id(temp.path(), "manual-1")
+            .unwrap()
+            .is_none());
+        assert_eq!(
+            load_screenshot_image_path(temp.path(), "manual-1")
+                .unwrap()
+                .as_deref(),
+            Some("manual-1.png")
+        );
+        assert_eq!(
+            load_screenshot_image_path(temp.path(), "missing").unwrap(),
+            None
+        );
     }
 
     #[test]

@@ -6,7 +6,7 @@ use crate::history::screenshots::{
     load_latest_overlay_snapshot, load_overlay_snapshot_by_id, load_overlay_snapshot_count,
     load_overlay_snapshot_list,
 };
-use image::resolve_overlay_image_path;
+pub(in crate::stream) use image::resolve_overlay_image_path;
 pub use locator::{find_database_path_anywhere, resolve_database_path};
 use mapper::to_overlay_record;
 pub use mapper::OverlayRecord;

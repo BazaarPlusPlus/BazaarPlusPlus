@@ -34,7 +34,6 @@ function detail(runId = 'run-1'): HistoryRunDetail {
       final_player_rank: null,
       final_player_rating: null,
       screenshot_id: 's1',
-      strip_url: null,
       player_name: null
     },
     battles: [

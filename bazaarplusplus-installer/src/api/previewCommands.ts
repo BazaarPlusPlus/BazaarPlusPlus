@@ -25,7 +25,7 @@ export function createPreviewCommands(native: CommandAdapter): CommandAdapter {
     endGameProcess: async () => false,
     getStreamStatus: async () => idleStreamStatus,
     ensureStreamSession: async () => idleStreamStatus,
-    ensureHistoryPreview: async () => null,
+    prepareHistoryThumbnails: async () => null,
     restartStreamSession: async () => idleStreamStatus,
     setStreamWindow: async () => idleStreamStatus,
     getOverlaySettings: async () => defaultCropSettings,

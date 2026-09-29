@@ -91,7 +91,7 @@ describe('browser-preview command adapter', () => {
 
   it('preserves nullable read-only desktop preview results', async () => {
     expect(await commandClient.getHistoryRunDetail('r')).toBeNull();
-    expect(await commandClient.ensureHistoryPreview()).toBeNull();
+    expect(await commandClient.prepareHistoryThumbnails()).toBeNull();
   });
 
   it('returns null for Tauri unit-returning no-ops', async () => {

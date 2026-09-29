@@ -2,14 +2,14 @@ import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   endGameProcess,
-  ensureHistoryPreview,
-  listHistoryRuns
+  listHistoryRuns,
+  prepareHistoryThumbnails
 } from './historyApi';
 import { createHistoryListWorkflow } from './historyListWorkflow';
 import { observeHistoryWindowResume } from './historyWindowResume';
 import { parseHistoryPage } from './pagination';
 
-const commands = { listHistoryRuns, endGameProcess, ensureHistoryPreview };
+const commands = { listHistoryRuns, endGameProcess, prepareHistoryThumbnails };
 
 export function useHistoryPage() {
   const [searchParams, setSearchParams] = useSearchParams();

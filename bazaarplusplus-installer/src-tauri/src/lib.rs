@@ -53,6 +53,7 @@ pub fn run() {
             crate::services::selected_game_installation::SelectedGameInstallationState::default(),
         )
         .manage(crate::stream::runtime::StreamRuntime::default())
+        .manage(crate::stream::history_thumbnails::HistoryThumbnails::default())
         .manage(InstallerContextState::default())
         .manage(TrayMenuState::default())
         .plugin(tauri_plugin_opener::init())

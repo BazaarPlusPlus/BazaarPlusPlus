@@ -24,7 +24,7 @@ export const commands = {
 	endGameProcess: () => __TAURI_INVOKE<boolean>("end_game_process"),
 	getStreamStatus: () => __TAURI_INVOKE<StreamServiceStatus>("get_stream_status"),
 	ensureStreamSession: (gamePath: string | null) => __TAURI_INVOKE<StreamServiceStatus>("ensure_stream_session", { gamePath }),
-	ensureHistoryPreview: () => __TAURI_INVOKE<string | null>("ensure_history_preview"),
+	prepareHistoryThumbnails: () => __TAURI_INVOKE<null>("prepare_history_thumbnails"),
 	restartStreamSession: (gamePath: string | null) => __TAURI_INVOKE<StreamServiceStatus>("restart_stream_session", { gamePath }),
 	setStreamWindow: (offset: number) => __TAURI_INVOKE<StreamServiceStatus>("set_stream_window", { offset }),
 	getOverlaySettings: () => __TAURI_INVOKE<StreamOverlayCropSettingsPayload>("get_overlay_settings"),
@@ -118,7 +118,6 @@ export type HistoryRunDetailRow = {
 	final_player_rank: string | null,
 	final_player_rating: number | null,
 	screenshot_id: string | null,
-	strip_url: string | null,
 	player_name: string | null,
 };
 
@@ -140,7 +139,8 @@ export type HistoryRunRow = {
 	final_player_rank: string | null,
 	final_player_rating: number | null,
 	screenshot_id: string | null,
-	strip_url: string | null,
+	/**  The absolute URL of the run's History Thumbnail. */
+	thumbnail_url: string | null,
 };
 
 export type HistorySummary = {

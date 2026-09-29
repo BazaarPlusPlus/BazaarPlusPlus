@@ -8,8 +8,8 @@ export async function listHistoryRuns(limit = 50, offset = 0) {
   return commandClient.listHistoryRuns(limit, offset);
 }
 
-export async function ensureHistoryPreview() {
-  return commandClient.ensureHistoryPreview();
+export async function prepareHistoryThumbnails() {
+  await commandClient.prepareHistoryThumbnails();
 }
 
 /** Resolves to whether a leftover game process was actually terminated. */

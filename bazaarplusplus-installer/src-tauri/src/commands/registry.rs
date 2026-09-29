@@ -19,7 +19,7 @@ pub fn builder() -> Builder<tauri::Wry> {
             crate::commands::game::end_game_process,
             crate::commands::stream::get_stream_status,
             crate::commands::stream::ensure_stream_session,
-            crate::commands::stream::ensure_history_preview,
+            crate::commands::stream::prepare_history_thumbnails,
             crate::commands::stream::restart_stream_session,
             crate::commands::stream::set_stream_window,
             crate::commands::stream::get_overlay_settings,

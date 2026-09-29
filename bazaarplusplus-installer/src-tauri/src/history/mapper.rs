@@ -5,23 +5,17 @@ use crate::history::hero::{canonical_hero_id, hero_display_name};
 use crate::history::queries::RunRow;
 
 /// The only real transformations a run row needs on its way to a DTO: the
-/// derived result, the canonical hero display name, and the strip URL.
+/// derived result and the canonical hero display name.
 struct RunDerivations {
     result: String,
     hero: String,
-    strip_url: Option<String>,
 }
 
-fn derive_run_fields(row: &RunRow, screenshot_id: Option<&str>) -> RunDerivations {
+fn derive_run_fields(row: &RunRow) -> RunDerivations {
     RunDerivations {
         result: derive_run_result(&row.status, row.victories),
         hero: hero_display_name(&canonical_hero_id(&row.hero)).to_string(),
-        strip_url: screenshot_id.map(strip_url_for_screenshot),
     }
-}
-
-pub fn strip_url_for_screenshot(screenshot_id: &str) -> String {
-    format!("/images/{screenshot_id}/strip")
 }
 
 pub fn derive_run_result(status: &str, victories: Option<i64>) -> String {
@@ -50,8 +44,13 @@ pub fn map_battle_result(result: Option<&str>) -> String {
     }
 }
 
-pub fn map_run_to_list_row(row: RunRow, screenshot_id: Option<String>) -> HistoryRunRow {
-    let derived = derive_run_fields(&row, screenshot_id.as_deref());
+pub fn map_run_to_list_row(
+    row: RunRow,
+    screenshot_id: Option<String>,
+    thumbnail_url: impl Fn(&str) -> String,
+) -> HistoryRunRow {
+    let derived = derive_run_fields(&row);
+    let thumbnail_url = screenshot_id.as_deref().map(thumbnail_url);
     HistoryRunRow {
         run_id: row.run_id,
         hero: derived.hero,
@@ -65,7 +64,7 @@ pub fn map_run_to_list_row(row: RunRow, screenshot_id: Option<String>) -> Histor
         final_player_rank: row.final_player_rank,
         final_player_rating: row.final_player_rating,
         screenshot_id,
-        strip_url: derived.strip_url,
+        thumbnail_url,
     }
 }
 
@@ -74,7 +73,7 @@ pub fn map_run_to_detail_row(
     screenshot_id: Option<String>,
     player_name: Option<String>,
 ) -> HistoryRunDetailRow {
-    let derived = derive_run_fields(&row, screenshot_id.as_deref());
+    let derived = derive_run_fields(&row);
     HistoryRunDetailRow {
         run_id: row.run_id,
         hero: derived.hero,
@@ -89,7 +88,6 @@ pub fn map_run_to_detail_row(
         final_player_rank: row.final_player_rank,
         final_player_rating: row.final_player_rating,
         screenshot_id,
-        strip_url: derived.strip_url,
         player_name,
     }
 }
@@ -176,7 +174,7 @@ mod tests {
 
     #[test]
     fn run_rows_use_the_dragons_display_name() {
-        let list_row = map_run_to_list_row(run_row("Hero8"), None);
+        let list_row = map_run_to_list_row(run_row("Hero8"), None, str::to_string);
         let detail_row = map_run_to_detail_row(run_row("Hero8"), None, None);
 
         assert_eq!(list_row.hero, "The Dragons");

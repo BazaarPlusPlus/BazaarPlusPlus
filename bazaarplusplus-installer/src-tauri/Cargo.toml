@@ -48,8 +48,6 @@ specta = { version = "=2.0.0-rc.25", features = ["derive"] }
 specta-typescript = "=0.0.12"
 tauri-specta = { version = "=2.0.0-rc.25", features = ["typescript"] }
 tempfile = "3"
-
-[target.'cfg(target_os = "macos")'.dependencies]
 sha2 = "0.11.0"
 
 [target.'cfg(windows)'.dependencies]

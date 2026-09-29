@@ -13,10 +13,12 @@ use crate::history::queries::{
 };
 use crate::history::screenshots::{primary_screenshot, primary_screenshot_ids};
 
+/// `thumbnail_url` names the History Thumbnail of a screenshot id.
 pub fn list_history_runs(
     database_path: &Path,
     limit: usize,
     offset: usize,
+    thumbnail_url: impl Fn(&str) -> String,
 ) -> Result<HistoryRunList, String> {
     let empty = || HistoryRunList {
         summary: HistorySummary {
@@ -50,7 +52,7 @@ pub fn list_history_runs(
         .into_iter()
         .map(|row| {
             let screenshot_id = screenshot_ids.get(&row.run_id).cloned();
-            map_run_to_list_row(row, screenshot_id)
+            map_run_to_list_row(row, screenshot_id, &thumbnail_url)
         })
         .collect();
 
@@ -325,7 +327,7 @@ mod tests {
     }
 
     #[test]
-    fn list_history_runs_derives_summary_results_and_strip_urls() {
+    fn list_history_runs_derives_summary_results_and_thumbnail_urls() {
         let temp_dir = tempfile::tempdir().unwrap();
         let database_path = temp_dir.path().join(DATABASE_FILE_NAME);
         let conn = rusqlite::Connection::open(&database_path).unwrap();
@@ -368,7 +370,8 @@ mod tests {
         )
         .unwrap();
 
-        let payload = list_history_runs(&database_path, 20, 0).unwrap();
+        let payload =
+            list_history_runs(&database_path, 20, 0, |id| format!("thumbnail:{id}")).unwrap();
 
         assert_eq!(payload.summary.runs, 3);
         assert_eq!(payload.summary.videos, 1);
@@ -379,8 +382,8 @@ mod tests {
         assert_eq!(payload.runs[1].run_id, "run-win");
         assert_eq!(payload.runs[1].result, "win");
         assert_eq!(
-            payload.runs[1].strip_url.as_deref(),
-            Some("/images/shot-win/strip")
+            payload.runs[1].thumbnail_url.as_deref(),
+            Some("thumbnail:shot-win")
         );
         assert_eq!(payload.runs[2].run_id, "run-loss");
         assert_eq!(payload.runs[2].result, "loss");
@@ -403,7 +406,7 @@ mod tests {
 
         let mut ids = Vec::new();
         for offset in [0, 50, 100, 150, 200] {
-            let page = list_history_runs(&database_path, 50, offset).unwrap();
+            let page = list_history_runs(&database_path, 50, offset, str::to_string).unwrap();
             assert_eq!(page.summary.runs, 235);
             assert_eq!(page.runs.len(), if offset == 200 { 35 } else { 50 });
             ids.extend(page.runs.into_iter().map(|run| run.run_id));
@@ -413,7 +416,7 @@ mod tests {
             .map(|index| format!("run-{index:03}"))
             .collect();
         assert_eq!(ids, expected);
-        let beyond_end = list_history_runs(&database_path, 50, 250).unwrap();
+        let beyond_end = list_history_runs(&database_path, 50, 250, str::to_string).unwrap();
         assert!(beyond_end.runs.is_empty());
         assert_eq!(beyond_end.summary.runs, 235);
     }
@@ -482,10 +485,7 @@ mod tests {
             .unwrap()
             .unwrap();
         assert_eq!(detail.run.player_name.as_deref(), Some("cauyxy"));
-        assert_eq!(
-            detail.run.strip_url.as_deref(),
-            Some("/images/shot-win/strip")
-        );
+        assert_eq!(detail.run.screenshot_id.as_deref(), Some("shot-win"));
         assert_eq!(detail.battles.len(), 2);
         assert_eq!(
             detail.battles[0],

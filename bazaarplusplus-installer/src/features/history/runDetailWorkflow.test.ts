@@ -25,7 +25,6 @@ const detail: HistoryRunDetail = {
     final_player_rank: 'Gold',
     final_player_rating: 1234,
     screenshot_id: 'shot-1',
-    strip_url: null,
     player_name: 'Player'
   },
   battles: ['battle-1', 'battle-2'].map((battle_id) => ({
