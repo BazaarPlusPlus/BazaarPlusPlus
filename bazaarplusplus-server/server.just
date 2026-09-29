@@ -9,7 +9,7 @@ check:
 test: test-mod-compat
     npm test
 
-# Verify Ghost responses with the real ModApi assembly; only the .NET SDK is required.
+# Verify Ghost responses with the real ModApi assembly; needs the .NET SDK and the game Managed dir.
 test-mod-compat:
     dotnet build ../bazaarplusplus-mod/tests/ModApi.Tests/ModApi.Tests.csproj
     dotnet run --project scripts/ghost-projection/mod-compat/Probe.csproj -p:ModRoot="$PWD/../bazaarplusplus-mod" -- "$PWD/../bazaarplusplus-mod" contracts/v5/ghost-summary.response.json

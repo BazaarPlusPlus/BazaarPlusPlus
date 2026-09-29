@@ -28,6 +28,7 @@ One line each, full record in [adr/](adr/). A line here exists to stop a settled
 - ADR-0007: Remote data separates runtime catalogs, the release manifest, and build-time seed fetch into three lifecycles.
 - ADR-0008: Combat Impact numbers are ledger entries — dimension/basis/coverage/provenance on every value, per-view conservation only, typed residuals never dropped, activation batches are observations (not trigger counts), attribution graph-driven (never card-GUID constants).
 - ADR-0009: Tests assert behavior or compiled artifacts, never source text; RS0030 bans file-to-text reads.
+- ADR-0010: Compile against the game-supplied libraries in `build/GameLibraries.props`: no NuGet package, publicizing, or shipped copy.
 
 ## Durable knowledge
 

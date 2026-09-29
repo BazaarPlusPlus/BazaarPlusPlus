@@ -17,6 +17,7 @@
     <NoWarn>$(NoWarn);CS0436</NoWarn>
     <BuildProductionPackage Condition="'$(BuildProductionPackage)' == ''"
       >false</BuildProductionPackage>
+    <BppReferenceGameLibraries>true</BppReferenceGameLibraries>
   </PropertyGroup>
 
   <Import Project="RemoteEmbeddedData.targets" />
@@ -116,7 +117,6 @@
     <PackageReference Include="Microsoft.Data.Sqlite" />
     <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" />
     <PackageReference Include="SourceGear.sqlite3" GeneratePathProperty="true" />
-    <PackageReference Include="Newtonsoft.Json" />
   </ItemGroup>
 
   <ItemGroup>
@@ -172,9 +172,6 @@
     </Reference>
     <Reference Include="Unity.TextMeshPro">
       <HintPath>$(ManagedPath)\Unity.TextMeshPro.dll</HintPath>
-    </Reference>
-    <Reference Include="MessagePack">
-      <HintPath>$(ManagedPath)\MessagePack.dll</HintPath>
     </Reference>
     <Reference Include="FMODUnity">
       <HintPath>$(ManagedPath)\FMODUnity.dll</HintPath>

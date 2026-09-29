@@ -1,5 +1,6 @@
 <Project>
   <Import Project="$(MSBuildThisFileDirectory)build/ManagedPath.props" />
+  <Import Project="$(MSBuildThisFileDirectory)build/GameLibraries.props" />
 
   <PropertyGroup>
     <BppProductVersionFile>$(MSBuildThisFileDirectory)../VERSION</BppProductVersionFile>

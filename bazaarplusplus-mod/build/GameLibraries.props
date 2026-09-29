@@ -1,0 +1,63 @@
+<Project>
+  <!-- Game-supplied libraries (see CONTEXT.md and ADR-0010): the game's Managed directory loads
+       these at runtime, so BPP compiles against those exact files, never publicizes them, and
+       never ships a copy. Removing their central PackageVersion makes a PackageReference fail
+       restore. A project opts in with BppReferenceGameLibraries=true. -->
+  <PropertyGroup>
+    <BppGameLibraries>Newtonsoft.Json;MessagePack;MessagePack.Annotations</BppGameLibraries>
+    <!-- Loaded by the game's MessagePack; checked, not referenced. -->
+    <BppGameLibraryDependencies>Microsoft.NET.StringTools</BppGameLibraryDependencies>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(BppReferenceGameLibraries)' == 'true'">
+    <BppGameLibrary Include="$(BppGameLibraries)" />
+    <BppGameLibraryDependency Include="$(BppGameLibraryDependencies)" />
+    <Reference Include="@(BppGameLibrary)" HintPath="$(ManagedPath)/%(Identity).dll" />
+    <DoNotPublicize Include="@(BppGameLibrary)" />
+    <_BppGameLibraryFile Include="@(BppGameLibrary);@(BppGameLibraryDependency)" />
+  </ItemGroup>
+
+  <!-- A target, not an evaluation-time error: release tests evaluate projects without the game. -->
+  <Target
+    Name="ValidateBppGameLibraries"
+    BeforeTargets="ResolveAssemblyReferences"
+    Condition="'$(BppReferenceGameLibraries)' == 'true'"
+  >
+    <Error
+      Condition="!Exists('$(ManagedPath)/%(_BppGameLibraryFile.Identity).dll')"
+      Text="Game-supplied library %(_BppGameLibraryFile.Identity).dll was not found under ManagedPath '$(ManagedPath)'. Pass -p:ManagedPath=/absolute/path/to/Managed."
+    />
+  </Target>
+
+  <!-- Whatever lands beside the build output must be the game's own file, not a package copy
+       that won conflict resolution. -->
+  <Target
+    Name="VerifyBppGameLibraryCopies"
+    AfterTargets="CopyFilesToOutputDirectory"
+    Condition="'$(BppReferenceGameLibraries)' == 'true'"
+  >
+    <ItemGroup>
+      <_BppGameLibrarySource
+        Include="$(ManagedPath)/%(_BppGameLibraryFile.Identity).dll"
+        Condition="Exists('$(TargetDir)%(_BppGameLibraryFile.Identity).dll')"
+        Copy="$(TargetDir)%(_BppGameLibraryFile.Identity).dll"
+      />
+    </ItemGroup>
+    <GetFileHash Files="@(_BppGameLibrarySource)" Algorithm="SHA256">
+      <Output TaskParameter="Items" ItemName="_BppGameLibrarySourceHash" />
+    </GetFileHash>
+    <ItemGroup>
+      <_BppGameLibraryCopy
+        Include="%(_BppGameLibrarySourceHash.Copy)"
+        Expected="%(_BppGameLibrarySourceHash.FileHash)"
+      />
+    </ItemGroup>
+    <GetFileHash Files="@(_BppGameLibraryCopy)" Algorithm="SHA256">
+      <Output TaskParameter="Items" ItemName="_BppGameLibraryCopyHash" />
+    </GetFileHash>
+    <Error
+      Condition="'%(_BppGameLibraryCopyHash.FileHash)' != '%(_BppGameLibraryCopyHash.Expected)'"
+      Text="%(_BppGameLibraryCopyHash.Identity) is not the game's copy under ManagedPath '$(ManagedPath)'. Remove the package that supplies it."
+    />
+  </Target>
+</Project>

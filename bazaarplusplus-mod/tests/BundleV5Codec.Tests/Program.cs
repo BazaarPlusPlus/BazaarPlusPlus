@@ -20,12 +20,34 @@ RunPayloadRoundTrip();
 RunPayloadFailureBoundaries();
 RunBundleContract();
 MessagePackDtoGraphIsPublic();
+RunPayloadFormattersAreSourceGenerated();
 
 Console.WriteLine("All Bundle V5 codec tests passed.");
 
 void MessagePackDtoGraphIsPublic()
 {
-    var dtoTypes = typeof(RunPayloadV5)
+    var dtoTypes = MessagePackDtoTypes();
+    True(dtoTypes.Length > 0, "MessagePack DTO graph is discoverable");
+    foreach (var type in dtoTypes)
+        True(type.IsPublic, $"MessagePack DTO must be public: {type.FullName}");
+}
+
+void RunPayloadFormattersAreSourceGenerated()
+{
+    // The codec's resolver must reach the formatters MessagePack's source generator compiled
+    // into ModApi, not ones the runtime builds by reflection.
+    foreach (var type in MessagePackDtoTypes())
+    {
+        var formatter = ContractlessStandardResolverAllowPrivate.Instance.GetFormatterDynamic(type);
+        True(
+            formatter?.GetType().Assembly == typeof(RunPayloadV5).Assembly,
+            $"source-generated formatter for {type.Name}: {formatter?.GetType().FullName}"
+        );
+    }
+}
+
+Type[] MessagePackDtoTypes() =>
+    typeof(RunPayloadV5)
         .Assembly.GetTypes()
         .Where(type => type.Namespace == typeof(RunPayloadV5).Namespace)
         .Where(type =>
@@ -33,10 +55,6 @@ void MessagePackDtoGraphIsPublic()
                 .Any(attribute => attribute.GetType().Name == "MessagePackObjectAttribute")
         )
         .ToArray();
-    True(dtoTypes.Length > 0, "MessagePack DTO graph is discoverable");
-    foreach (var type in dtoTypes)
-        True(type.IsPublic, $"MessagePack DTO must be public: {type.FullName}");
-}
 
 void GoldenVector()
 {
