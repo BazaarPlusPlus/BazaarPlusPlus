@@ -118,10 +118,12 @@ internal static class GhostDownloadSelectionTests
         );
         coordinator.SelectBattle(state.GhostPage.FindIndex(row => row.BattleId == a.BattleId));
         context.Until(() => !state.DetailLoading);
-        var message = HistoryPanelDecisions.PreviewStatusOverride(state, currentA);
+        var message = HistoryPanelDecisions
+            .ArchiveStatus(HistoryArchiveFacts.Observe(state, currentA, default, default))
+            .PlayerBoardMessage;
         if (finalState == ReplayAvailability.Saved)
             Require(
-                state.DetailSnapshots != null && message == null,
+                state.DetailSnapshots != null && message.Length == 0,
                 "A downloaded replay must show its native board, not the stale canceled-start message."
             );
         else

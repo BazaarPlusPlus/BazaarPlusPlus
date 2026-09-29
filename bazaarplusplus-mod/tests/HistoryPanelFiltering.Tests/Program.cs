@@ -35,6 +35,8 @@ TestReplayReturnPreservesSelectionAndFilters();
 TestGhostListTextMarksOnlyTheFinalBattle();
 TestAccountArrivalSyncsOnlyTheOpenGhostSection();
 TestAccountLinkActionHandsAccountChangeToTheObserver();
+TestFailedSyncMarksTheEmptyGhostListIncomplete();
+TestSessionBoundariesRestartACancelledSync();
 
 Console.WriteLine("HistoryPanelFiltering checks passed.");
 
@@ -433,9 +435,121 @@ void TestAccountLinkActionHandsAccountChangeToTheObserver()
     );
 }
 
+void TestFailedSyncMarksTheEmptyGhostListIncomplete()
+{
+    WithProfileCapsule(
+        "Ghost",
+        (state, coordinator, syncAttempts) =>
+        {
+            FakeClientCache.SetAccountId("account-known");
+            Invoke(coordinatorType, coordinator, "OnPanelShown", false);
+            uiContext.Until(() => !(bool)stateType.GetProperty("PageLoading")!.GetValue(state)!);
+            Assert(
+                syncAttempts() == 1 && GhostSync(state) == "Failed",
+                "The capsule's Ghost sync fails for want of an account id."
+            );
+            Assert(
+                ArchiveListMessage(state) == HistoryText("GhostSyncIncomplete"),
+                "An empty Ghost list after a failed sync must not claim nothing is saved."
+            );
+            Assert(
+                GetNullableString(state, "StatusMessage")?.Contains("player_account_id_unavailable")
+                    == true,
+                "The status bar must keep the sync failure detail."
+            );
+            Invoke(coordinatorType, coordinator, "OnPanelHidden");
+        }
+    );
+}
+
+// A sync cancelled by its session returns without touching state, so each session boundary must
+// reset the phase; otherwise the next entry reports "already running" and never syncs again.
+void TestSessionBoundariesRestartACancelledSync()
+{
+    WithProfileCapsule(
+        "Ghost",
+        (state, coordinator, syncAttempts) =>
+        {
+            FakeClientCache.SetAccountId("account-known");
+            Invoke(coordinatorType, coordinator, "OnPanelShown", false);
+            Assert(
+                syncAttempts() == 1 && GhostSync(state) == "Running",
+                "The held Ghost sync stays in flight."
+            );
+            Invoke(coordinatorType, coordinator, "OnPanelHidden");
+            Assert(GhostSync(state) == "NotStarted", "Closing History ends the sync phase.");
+            Invoke(coordinatorType, coordinator, "OnPanelShown", false);
+            AssertRestarted(state, syncAttempts, "Reopening History after a cancelled sync");
+            Invoke(coordinatorType, coordinator, "OnPanelHidden");
+        },
+        holdSync: true
+    );
+
+    WithProfileCapsule(
+        "Ghost",
+        (state, coordinator, syncAttempts) =>
+        {
+            FakeClientCache.SetAccountId("account-a");
+            Invoke(coordinatorType, coordinator, "OnPanelShown", false);
+            Assert(
+                syncAttempts() == 1 && GhostSync(state) == "Running",
+                "The held Ghost sync stays in flight."
+            );
+            FakeClientCache.SetAccountId("account-b");
+            Invoke(coordinatorType, coordinator, "Tick", 0f);
+            AssertRestarted(state, syncAttempts, "A profile change during a sync");
+            Invoke(coordinatorType, coordinator, "OnPanelHidden");
+        },
+        holdSync: true
+    );
+
+    void AssertRestarted(object state, Func<int> syncAttempts, string when)
+    {
+        Assert(
+            GetNullableString(state, "StatusMessage") != HistoryText("GhostSyncAlreadyRunning"),
+            $"{when} must not report the cancelled sync as still running."
+        );
+        Assert(
+            syncAttempts() == 2 && GhostSync(state) == "Running",
+            $"{when} must start a new sync."
+        );
+    }
+}
+
+string GhostSync(object state) => stateType.GetProperty("GhostSync")!.GetValue(state)!.ToString()!;
+
+string HistoryText(string name) =>
+    (string)InvokeStatic(RequireType("BazaarPlusPlus.Game.HistoryPanel.HistoryPanelText"), name)!;
+
+string ArchiveListMessage(object state)
+{
+    var board = Activator.CreateInstance(
+        RequireType("BazaarPlusPlus.Game.HistoryPanel.HistoryBoardFacts")
+    );
+    var facts = InvokeStatic(
+        RequireType("BazaarPlusPlus.Game.HistoryPanel.HistoryArchiveFacts"),
+        "Observe",
+        state,
+        null,
+        board,
+        board
+    );
+    var status = InvokeStatic(
+        RequireType("BazaarPlusPlus.Game.HistoryPanel.HistoryPanelDecisions"),
+        "ArchiveStatus",
+        facts
+    );
+    return GetString(status, "ListMessage")!;
+}
+
 // A History capsule whose game profile is a settable fake and whose Ghost sync service counts
-// attempts: the account resolver runs once per sync and reports no identity, so no request is sent.
-void WithProfileCapsule(string section, Action<object, IDisposable, Func<int>> body)
+// attempts: the account resolver runs once per sync. By default it reports no identity, so the sync
+// fails before any request; holdSync supplies one and holds the request until its session ends.
+void WithProfileCapsule(
+    string section,
+    Action<object, IDisposable, Func<int>> body,
+    bool holdSync = false
+)
 {
     var databasePath = Path.Combine(
         Path.GetTempPath(),
@@ -456,7 +570,7 @@ void WithProfileCapsule(string section, Action<object, IDisposable, Func<int>> b
             "test",
             "OnlineClient",
             TimeSpan.FromSeconds(5),
-            new RefusingHandler()
+            holdSync ? new HoldingHandler() : new RefusingHandler()
         ) ?? throw new InvalidOperationException("Test Mod API session should construct.");
     var syncAttempts = 0;
     var syncService = Construct(
@@ -467,7 +581,7 @@ void WithProfileCapsule(string section, Action<object, IDisposable, Func<int>> b
             () =>
             {
                 syncAttempts++;
-                return null;
+                return holdSync ? "sync-account" : null;
             }
         )
     );
@@ -722,4 +836,32 @@ internal sealed class RefusingHandler : HttpMessageHandler
         HttpRequestMessage request,
         CancellationToken cancellationToken
     ) => throw new InvalidOperationException("History account tests must not reach the network.");
+}
+
+internal sealed class HoldingHandler : HttpMessageHandler
+{
+    protected override Task<HttpResponseMessage> SendAsync(
+        HttpRequestMessage request,
+        CancellationToken cancellationToken
+    )
+    {
+        var pending = new TaskCompletionSource<HttpResponseMessage>();
+        // Cancel outside the UI context: the Ghost sync service's ConfigureAwait(false) chain then
+        // unwinds inline and releases its own in-flight latch before History starts the next sync,
+        // so the History sync phase alone decides whether that sync runs.
+        cancellationToken.Register(() =>
+        {
+            var context = SynchronizationContext.Current;
+            SynchronizationContext.SetSynchronizationContext(null);
+            try
+            {
+                pending.TrySetCanceled(cancellationToken);
+            }
+            finally
+            {
+                SynchronizationContext.SetSynchronizationContext(context);
+            }
+        });
+        return pending.Task;
+    }
 }

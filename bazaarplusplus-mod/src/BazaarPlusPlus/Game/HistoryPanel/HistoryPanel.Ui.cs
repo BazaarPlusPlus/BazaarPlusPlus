@@ -136,11 +136,12 @@ internal sealed partial class HistoryPanel
         var accountFormVisible = accountCard.FormVisible;
 
         var statusSeverity = _state.StatusSeverity;
+        var archiveStatus = ArchiveStatus();
 
         return new HistoryPanelViewModel
         {
             PageLoading = _state.PageLoading,
-            ArchiveEmptyMessage = HistoryPanelDecisions.GhostArchiveEmptyMessage(_state),
+            ArchiveEmptyMessage = archiveStatus.ListMessage,
             HasNewer =
                 _state.SectionMode == HistorySectionMode.Ghost
                     ? _state.GhostPage.HasNewer
@@ -151,10 +152,14 @@ internal sealed partial class HistoryPanel
                     : _state.RunPage.HasOlder,
             BattleHasNewer = _state.BattlePage.HasNewer,
             BattleHasOlder = _state.BattlePage.HasOlder,
-            PageRange =
-                _state.SectionMode == HistorySectionMode.Ghost
+            PageLabel = archiveStatus.PageLabel switch
+            {
+                HistoryPageLabelMode.Loading => HistoryPanelText.LoadingPreview(),
+                HistoryPageLabelMode.Hidden => string.Empty,
+                _ => _state.SectionMode == HistorySectionMode.Ghost
                     ? HistoryPanelFormatter.PageRange(_state.GhostPage, ghost: true)
                     : HistoryPanelFormatter.PageRange(_state.RunPage),
+            },
             AccountId = _state.CachedAccountId,
             Title = HistoryPanelText.Title(),
             Supporters = _supporters,
@@ -212,12 +217,13 @@ internal sealed class HistoryPanelViewModel
     public string ArchiveEmptyMessage { get; set; } = string.Empty;
     public string? AccountId { get; set; }
 
+    // Gates the paging and action controls; the page label text comes from PageLabel.
     public bool PageLoading { get; set; }
     public bool HasNewer { get; set; }
     public bool HasOlder { get; set; }
     public bool BattleHasNewer { get; set; }
     public bool BattleHasOlder { get; set; }
-    public string PageRange { get; set; } = string.Empty;
+    public string PageLabel { get; set; } = string.Empty;
     public string Title { get; set; } = string.Empty;
 
     public IReadOnlyList<BPPSupporterSample> Supporters { get; set; } =
