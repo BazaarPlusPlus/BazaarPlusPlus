@@ -310,6 +310,8 @@ public static class RunLogSchema
                 WHERE status = 'pending';
             CREATE INDEX IF NOT EXISTS idx_bundle_outbox_due
                 ON {BundleOutboxTableName}(status, next_attempt_at_utc, attempts, sealed_at_utc);
+            CREATE INDEX IF NOT EXISTS idx_bundle_outbox_run
+                ON {BundleOutboxTableName}(run_id, status);
 
             CREATE TRIGGER IF NOT EXISTS trg_battles_local_payload_insert
             BEFORE INSERT ON {BattlesTableName}
@@ -389,12 +391,65 @@ public static class RunLogSchema
                 throw new InvalidOperationException(
                     $"Unsupported run log schema version {versionInsideTransaction}."
                 );
+            DropDriftedIndexes(connection, transaction);
             Execute(connection, transaction, BootstrapSql);
             ValidateLifecycleColumns(connection, transaction);
             if (versionInsideTransaction == LifecycleColumnsSchemaVersion)
                 BundleQueueStore.RecoverLegacyJsonFailures(connection, transaction);
             transaction.Commit();
         }
+    }
+
+    // CREATE INDEX IF NOT EXISTS never redefines an existing index, and History pages name
+    // their index in INDEXED BY, which fails when the stored definition cannot serve the query.
+    // An index whose stored SQL differs from BootstrapSql's is dropped here so BootstrapSql
+    // recreates it. Retired index names still need an explicit DROP INDEX IF EXISTS.
+    private static void DropDriftedIndexes(
+        SqliteConnection connection,
+        SqliteTransaction transaction
+    )
+    {
+        var drifted = new List<string>();
+        foreach (var (name, storedSql) in ReadIndexDefinitions(connection, transaction))
+        {
+            if (
+                ExpectedIndexDefinitions.Value.TryGetValue(name, out var expectedSql)
+                && !string.Equals(storedSql, expectedSql, StringComparison.Ordinal)
+            )
+                drifted.Add(name);
+        }
+        foreach (var name in drifted)
+            Execute(connection, transaction, $"DROP INDEX \"{name}\";");
+    }
+
+    // SQLite stores an index's CREATE statement minus IF NOT EXISTS, so the definitions
+    // BootstrapSql produces on an empty database are the exact text a current index carries.
+    private static readonly Lazy<Dictionary<string, string>> ExpectedIndexDefinitions = new(() =>
+    {
+        using var scratch = new SqliteConnection("Data Source=:memory:");
+        scratch.Open();
+        using var transaction = scratch.BeginTransaction();
+        Execute(scratch, transaction, BootstrapSql);
+        var definitions = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var (name, sql) in ReadIndexDefinitions(scratch, transaction))
+            definitions[name] = sql;
+        return definitions;
+    });
+
+    private static List<(string Name, string Sql)> ReadIndexDefinitions(
+        SqliteConnection connection,
+        SqliteTransaction transaction
+    )
+    {
+        using var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText =
+            "SELECT name, sql FROM sqlite_master WHERE type = 'index' AND sql IS NOT NULL;";
+        using var reader = command.ExecuteReader();
+        var definitions = new List<(string, string)>();
+        while (reader.Read())
+            definitions.Add((reader.GetString(0), reader.GetString(1)));
+        return definitions;
     }
 
     private static void UpgradeToLifecycleColumns(SqliteConnection connection)

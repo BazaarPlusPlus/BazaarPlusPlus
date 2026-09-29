@@ -1,4 +1,5 @@
 #nullable enable
+using BazaarPlusPlus.Storage.BundleQueue;
 using BazaarPlusPlus.Storage.RunLog;
 using Microsoft.Data.Sqlite;
 
@@ -16,10 +17,113 @@ internal static class RunLogSchemaIndexTests
     private const string OldIndexName = "idx_runs_status_last_seen";
     private const string NewIndexName = "idx_runs_completed_last_seen";
 
+    // A History page names this index in INDEXED BY, which errors when the index cannot serve it.
+    private const string HintedIndexName = "idx_battles_history_ghost";
+
     internal static void Run()
     {
         ActiveRunLookupSearchesTheCompletedIndex();
         OpeningAnOlderDatabaseReplacesTheStatusIndex();
+        OpeningADatabaseRedefinesADriftedIndex();
+        ReopeningAnUpToDateDatabaseLeavesTheSchemaAlone();
+        SealEligibilitySeeksTheOutboxByRun();
+    }
+
+    private static void OpeningADatabaseRedefinesADriftedIndex()
+    {
+        var expected = new Dictionary<string, string>();
+        WithDatabase(connection =>
+        {
+            RunLogSchema.EnsureInitialized(connection);
+            foreach (var (name, sql) in IndexDefinitions(connection))
+                expected[name] = sql;
+        });
+
+        WithDatabase(connection =>
+        {
+            // An older release that shipped a different definition under the same name.
+            RunLogSchema.EnsureInitialized(connection);
+            Execute(
+                connection,
+                $"DROP INDEX {HintedIndexName}; CREATE INDEX {HintedIndexName} ON battles(local_player_account_id) WHERE source = 'GHOST' AND day >= 10;"
+            );
+            if (TryGhostHistoryRead(connection))
+                throw new InvalidOperationException(
+                    "The drifted index must be unusable for the hinted Ghost read."
+                );
+
+            RunLogSchema.EnsureInitialized(connection);
+
+            var actual = IndexDefinitions(connection);
+            Equal(expected.Count, actual.Count, "index count after repair");
+            foreach (var (name, sql) in actual)
+                Equal(expected[name], sql, $"definition of {name}");
+            if (!TryGhostHistoryRead(connection))
+                throw new InvalidOperationException(
+                    "The hinted Ghost read must succeed after the index is repaired."
+                );
+        });
+    }
+
+    private static void ReopeningAnUpToDateDatabaseLeavesTheSchemaAlone()
+    {
+        WithDatabase(connection =>
+        {
+            RunLogSchema.EnsureInitialized(connection);
+            var before = Scalar(connection, "PRAGMA schema_version;");
+            RunLogSchema.EnsureInitialized(connection);
+            Equal(before, Scalar(connection, "PRAGMA schema_version;"), "schema cookie on reopen");
+        });
+    }
+
+    private static void SealEligibilitySeeksTheOutboxByRun()
+    {
+        WithDatabase(connection =>
+        {
+            RunLogSchema.EnsureInitialized(connection);
+            var plan = QueryPlan(
+                connection,
+                $"SELECT run_id FROM runs AS r WHERE {BundleQueueStore.SealEligibleRunCondition("r")};"
+            );
+            if (
+                plan.Contains("SCAN r_outbox", StringComparison.Ordinal)
+                || !plan.Contains(
+                    "SEARCH r_outbox USING COVERING INDEX idx_bundle_outbox_run",
+                    StringComparison.Ordinal
+                )
+            )
+                throw new InvalidOperationException(
+                    $"Seal eligibility must seek bundle_outbox by run: {plan}"
+                );
+        });
+    }
+
+    private static bool TryGhostHistoryRead(SqliteConnection connection)
+    {
+        try
+        {
+            Scalar(
+                connection,
+                $"SELECT COUNT(*) FROM battles INDEXED BY {HintedIndexName} WHERE source = 'GHOST' AND deleted_at_utc IS NULL AND local_player_account_id = 'account';"
+            );
+            return true;
+        }
+        catch (SqliteException)
+        {
+            return false;
+        }
+    }
+
+    private static List<(string Name, string Sql)> IndexDefinitions(SqliteConnection connection)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText =
+            "SELECT name, sql FROM sqlite_master WHERE type = 'index' AND sql IS NOT NULL ORDER BY name;";
+        using var reader = command.ExecuteReader();
+        var rows = new List<(string, string)>();
+        while (reader.Read())
+            rows.Add((reader.GetString(0), reader.GetString(1)));
+        return rows;
     }
 
     private static void ActiveRunLookupSearchesTheCompletedIndex()

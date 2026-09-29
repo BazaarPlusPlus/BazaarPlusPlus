@@ -18,10 +18,11 @@ A mod-private table is invisible to the installer. History, cleanup, and the ove
 
 - Keep version 3. It shipped in 5.6.0, and reverting it would strand databases already at 3.
 - `RunLogSchemaColumnShapeTests` fails when columns change without a bump and when a bump records a shape an earlier version already had.
-- Not covered: CHECK constraints and triggers are outside the fingerprint, and a mod older than the database still refuses it.
+- `CREATE INDEX IF NOT EXISTS` never redefines an index, and History pages name theirs in `INDEXED BY`, which errors when the stored definition cannot serve the query. `EnsureInitialized` drops each index whose stored SQL differs from what `BootstrapSql` produces, in the init transaction, so `BootstrapSql` recreates it; `RunLogSchemaIndexTests` and `HistoryPaginationTests` pin this.
+- Not covered: CHECK constraints and triggers are outside the fingerprint, a changed trigger or retired index name needs an explicit `DROP`, and a mod older than the database still refuses it.
 
 ## Evidence
 
 - `LocalDatabaseSchemaVersion` and `EnsureInitialized` in `src/BazaarPlusPlus.Storage/RunLog/RunLogSchema.cs`
-- `tests/Storage.Tests/RunLogSchemaColumnShapeTests.cs`, `tests/Storage.Tests/RunLogSchemaReleaseContractTests.cs`
+- `tests/Storage.Tests/RunLogSchemaColumnShapeTests.cs`, `tests/Storage.Tests/RunLogSchemaReleaseContractTests.cs`, `tests/Storage.Tests/RunLogSchemaIndexTests.cs`
 - Root `release/history-database.test.mjs`

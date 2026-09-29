@@ -13,6 +13,49 @@ internal static class HistoryPaginationTests
         foreach (var size in new[] { 1000, 10000 })
             CheckRuns(Path.Combine(root, $"pages-{size}.sqlite3"), size);
         CheckFilterCases(Path.Combine(root, "filter-cases.sqlite3"));
+        CheckDriftedGhostIndex(Path.Combine(root, "drifted-index.sqlite3"));
+    }
+
+    // A database from a release that shipped another definition under a hinted index's name.
+    private static void CheckDriftedGhostIndex(string path)
+    {
+        using (var seed = new SqliteConnection($"Data Source={path}"))
+        {
+            seed.Open();
+            RunLogSchema.EnsureInitialized(seed);
+            Execute(
+                seed,
+                """
+                DROP INDEX idx_battles_history_ghost;
+                CREATE INDEX idx_battles_history_ghost ON battles(local_player_account_id)
+                    WHERE source = 'GHOST' AND day >= 10;
+                INSERT INTO battles (battle_id,source,remote_battle_id,uploader_account_id,local_player_account_id,recorded_at_utc,day,combat_kind)
+                VALUES ('drifted','GHOST','drifted','uploader','account','2026-01-01T00:00:00Z',2,'PVPCombat');
+                """
+            );
+        }
+        var page = new HistoryPanelRepository(path).ListGhostBattles(
+            "account",
+            GhostBattleFilter.All,
+            false,
+            new()
+        );
+        Check(
+            page.Rows.Single().BattleId == "drifted",
+            "Opening History must repair a drifted index before its hinted Ghost read."
+        );
+        // A connection that cached the drifted schema keeps it; plan on one opened after the repair.
+        using var db = new SqliteConnection($"Data Source={path}");
+        db.Open();
+        var query = HistoryPageQuery.Ghosts("account", GhostBattleFilter.All, false);
+        var total = Plan(db, query, query.CountSql, new("2026-01-01T00:00:00Z", "drifted"));
+        Check(
+            total.Contains(
+                "SEARCH battles USING INDEX idx_battles_history_ghost (",
+                StringComparison.Ordinal
+            ),
+            "The repaired index must serve the Ghost total: " + total
+        );
     }
 
     private static void CheckRuns(string path, int count)
