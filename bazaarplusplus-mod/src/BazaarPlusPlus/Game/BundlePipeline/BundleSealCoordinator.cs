@@ -30,6 +30,10 @@ internal sealed class BundleSealCoordinator : IBppFeature, IDisposable
     private readonly SemaphoreSlim _wake = new(0);
     private readonly ConcurrentQueue<ScreenshotCaptureTerminal> _screenshotTerminals = new();
     private readonly CancellationTokenSource _shutdown = new();
+    private readonly Action<BundleSealStage, string>? _faultProbe;
+
+    // Environment-blocked jobs become due once per launch (BundleSealFailurePolicy.IsDue).
+    private readonly DateTimeOffset _launchedAtUtc;
     private IDisposable? _runInitialized;
     private IDisposable? _runLifecycle;
     private IDisposable? _replayDrained;
@@ -39,8 +43,17 @@ internal sealed class BundleSealCoordinator : IBppFeature, IDisposable
     private bool _started;
 
     internal BundleSealCoordinator(IBppServices services)
+        : this(services, faultProbe: null) { }
+
+    // Tests inject failures at named seal stages; production passes null.
+    internal BundleSealCoordinator(
+        IBppServices services,
+        Action<BundleSealStage, string>? faultProbe
+    )
     {
         _services = services ?? throw new ArgumentNullException(nameof(services));
+        _faultProbe = faultProbe;
+        _launchedAtUtc = DateTimeOffset.UtcNow;
         var dataRoot = services.Paths.RequireDataRoot();
         _databasePath = PathConstants.RunLogDatabase(dataRoot);
         _replayRoot = PathConstants.CombatReplays(dataRoot);
@@ -106,16 +119,25 @@ internal sealed class BundleSealCoordinator : IBppFeature, IDisposable
     internal async Task ReconcileAsync(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        ApplyScreenshotTerminals();
-        RecoverFiles();
-        EnsureSealJobs();
+        // Maintenance failures are logged per step; they never keep waiting jobs from sealing.
+        Maintain(BundleSealStage.JobDiscovery, ApplyScreenshotTerminals);
+        Maintain(BundleSealStage.FileRecovery, RecoverFiles);
+        Maintain(BundleSealStage.JobDiscovery, EnsureSealJobs);
         var published = false;
         try
         {
             foreach (var runId in _queueStore.ListWaitingRunIds())
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                published |= await TrySealAsync(runId, cancellationToken).ConfigureAwait(false);
+                // One Run's failure is recorded against that Run; it cannot abort the pass.
+                try
+                {
+                    published |= await TrySealAsync(runId, cancellationToken).ConfigureAwait(false);
+                }
+                catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
+                {
+                    RecordJobFailure(runId, null, BundleSealStage.Attempt, ex);
+                }
             }
         }
         finally
@@ -159,6 +181,17 @@ internal sealed class BundleSealCoordinator : IBppFeature, IDisposable
         if (job == null || job.State == BundleSealJobState.TerminalFailure)
             return false;
         var now = DateTimeOffset.UtcNow;
+        if (
+            !BundleSealFailurePolicy.IsDue(
+                job.LastErrorCode,
+                job.Attempts,
+                job.LastAttemptAtUtc is { } lastAttempt
+                    ? (float)(now - lastAttempt).TotalSeconds
+                    : null,
+                (float)(now - _launchedAtUtc).TotalSeconds
+            )
+        )
+            return false;
         var secondsUntilInputDeadline = (float)(job.InputDeadlineAtUtc - now).TotalSeconds;
         var jobFacts = new BundleSealJobFacts(
             job.ScreenshotRequested,
@@ -176,118 +209,144 @@ internal sealed class BundleSealCoordinator : IBppFeature, IDisposable
         )
             return false;
 
-        string playerAccountId;
+        var stage = BundleSealStage.AccountResolution;
         try
         {
-            playerAccountId = _composer.ResolvePlayerAccountId(runId, job.PlayerAccountId);
-            _queueStore.FreezePlayerAccountId(runId, playerAccountId);
-        }
-        catch (BundleCompositionException ex)
-        {
-            if (ex.Code == "player_account_id_missing")
+            Probe(stage, runId);
+            string playerAccountId;
+            try
             {
-                var decision = BundleSealConvergence.Resolve(
-                    jobFacts,
-                    secondsUntilInputDeadline,
-                    BundleSealInputObservation.Availability(
-                        BundleSealInputGate.PlayerAccount,
-                        false
+                playerAccountId = _composer.ResolvePlayerAccountId(runId, job.PlayerAccountId);
+                _queueStore.FreezePlayerAccountId(runId, playerAccountId);
+            }
+            catch (BundleCompositionException ex)
+            {
+                if (ex.Code == "player_account_id_missing")
+                {
+                    var decision = BundleSealConvergence.Resolve(
+                        jobFacts,
+                        secondsUntilInputDeadline,
+                        BundleSealInputObservation.Availability(
+                            BundleSealInputGate.PlayerAccount,
+                            false
+                        )
+                    );
+                    if (decision == BundleSealConvergenceDecision.Wait)
+                        return false;
+                }
+                MarkJobTerminal(runId, ex.Code, ex);
+                return false;
+            }
+
+            stage = BundleSealStage.Screenshot;
+            Probe(stage, runId);
+            BundleScreenshotBuildInputV5? screenshot = null;
+            if (job.ScreenshotRequested && job.ScreenshotState != BundleScreenshotState.Unavailable)
+            {
+                var source = TryReadScreenshot(runId);
+                if (source == null)
+                {
+                    var screenshotDecision = BundleSealConvergence.Resolve(
+                        jobFacts,
+                        secondsUntilInputDeadline,
+                        BundleSealInputObservation.Availability(
+                            BundleSealInputGate.Screenshot,
+                            false
+                        )
+                    );
+                    if (screenshotDecision == BundleSealConvergenceDecision.Wait)
+                        return false;
+                    if (
+                        screenshotDecision
+                        == BundleSealConvergenceDecision.MarkScreenshotTimedOutAndContinue
                     )
-                );
-                if (decision == BundleSealConvergenceDecision.Wait)
-                    return false;
+                        _queueStore.UpdateScreenshotState(runId, BundleScreenshotState.TimedOut);
+                }
+                else
+                {
+                    screenshot = await _screenshotEncoder
+                        .EncodeAsync(source.AbsolutePath, source.CapturedAtMs, cancellationToken)
+                        .ConfigureAwait(false);
+                    if (screenshot == null)
+                        _queueStore.UpdateScreenshotState(runId, BundleScreenshotState.Unavailable);
+                    else
+                        _queueStore.UpdateScreenshotState(runId, BundleScreenshotState.Available);
+                }
             }
-            MarkJobTerminal(runId, ex.Code, ex);
-            return false;
-        }
 
-        BundleScreenshotBuildInputV5? screenshot = null;
-        if (job.ScreenshotRequested && job.ScreenshotState != BundleScreenshotState.Unavailable)
-        {
-            var source = TryReadScreenshot(runId);
-            if (source == null)
+            stage = BundleSealStage.Composition;
+            Probe(stage, runId);
+            RunPayloadComposition composition;
+            try
             {
-                var screenshotDecision = BundleSealConvergence.Resolve(
+                composition = _composer.Compose(runId, playerAccountId);
+            }
+            catch (BundleCompositionException ex)
+            {
+                MarkJobTerminal(runId, ex.Code, ex);
+                return false;
+            }
+
+            stage = BundleSealStage.ReplayLoad;
+            Probe(stage, runId);
+            var retry = RetryFacts(job, now);
+            var omittedReplays = new List<(BundleSealFailureDecision, Exception?)>();
+            foreach (var failure in composition.ReplayFailures)
+            {
+                var decision = BundleSealFailurePolicy.Decide(stage, failure.Exception, retry);
+                if (decision.Disposition != BundleSealFailureDisposition.Degrade)
+                {
+                    ApplyJobFailure(runId, decision, failure.Exception);
+                    return false;
+                }
+                omittedReplays.Add((decision, failure.Exception));
+            }
+            if (
+                BundleSealConvergence.Resolve(
                     jobFacts,
                     secondsUntilInputDeadline,
-                    BundleSealInputObservation.Availability(BundleSealInputGate.Screenshot, false)
-                );
-                if (screenshotDecision == BundleSealConvergenceDecision.Wait)
-                    return false;
-                if (
-                    screenshotDecision
-                    == BundleSealConvergenceDecision.MarkScreenshotTimedOutAndContinue
-                )
-                    _queueStore.UpdateScreenshotState(runId, BundleScreenshotState.TimedOut);
-            }
-            else
+                    BundleSealInputObservation.ReplayPayload(
+                        composition.Payload.Degradation.ReplayOmittedBattleIds.Count
+                    )
+                ) == BundleSealConvergenceDecision.Wait
+            )
+                return false;
+            foreach (var (decision, exception) in omittedReplays)
+                LogFailure(decision, exception, runId);
+
+            stage = BundleSealStage.PayloadEncode;
+            Probe(stage, runId);
+            composition.Payload.Degradation.ScreenshotOmitted =
+                job.ScreenshotRequested && screenshot == null;
+            var encodedPayload = RunPayloadV5Codec.Encode(composition.Payload);
+            if (
+                BundleSealConvergence.Resolve(
+                    jobFacts,
+                    secondsUntilInputDeadline,
+                    BundleSealInputObservation.EncodedPayload(
+                        encodedPayload.Length > BundleLimitsV5.MaxRunBytes
+                    )
+                ) == BundleSealConvergenceDecision.MarkTerminal
+            )
             {
-                screenshot = await _screenshotEncoder
-                    .EncodeAsync(source.AbsolutePath, source.CapturedAtMs, cancellationToken)
-                    .ConfigureAwait(false);
-                if (screenshot == null)
-                    _queueStore.UpdateScreenshotState(runId, BundleScreenshotState.Unavailable);
-                else
-                    _queueStore.UpdateScreenshotState(runId, BundleScreenshotState.Available);
+                MarkJobTerminal(runId, "minimal_run_payload_too_large", null);
+                return false;
             }
-        }
 
-        RunPayloadComposition composition;
-        try
-        {
-            composition = _composer.Compose(runId, playerAccountId);
-        }
-        catch (BundleCompositionException ex)
-        {
-            MarkJobTerminal(runId, ex.Code, ex);
-            return false;
-        }
-        catch (Exception ex)
-        {
-            MarkJobWaiting(runId, "payload_compose_failed", ex.Message);
-            return false;
-        }
+            stage = BundleSealStage.Allocation;
+            Probe(stage, runId);
+            var allocation =
+                job.BundleId != null && job.CreatedAtMs.HasValue
+                    ? new BundleAllocationRecord(job.BundleId, job.CreatedAtMs.Value)
+                    : _queueStore.EnsureAllocation(
+                        job.RunId,
+                        _ulid.Next(),
+                        DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+                    );
 
-        if (
-            BundleSealConvergence.Resolve(
-                jobFacts,
-                secondsUntilInputDeadline,
-                BundleSealInputObservation.ReplayPayload(
-                    composition.Payload.Degradation.ReplayOmittedBattleIds.Count
-                )
-            ) == BundleSealConvergenceDecision.Wait
-        )
-            return false;
-        composition.Payload.Degradation.ScreenshotOmitted =
-            job.ScreenshotRequested && screenshot == null;
-        var encodedPayload = RunPayloadV5Codec.Encode(composition.Payload);
-        if (
-            BundleSealConvergence.Resolve(
-                jobFacts,
-                secondsUntilInputDeadline,
-                BundleSealInputObservation.EncodedPayload(
-                    encodedPayload.Length > BundleLimitsV5.MaxRunBytes
-                )
-            ) == BundleSealConvergenceDecision.MarkTerminal
-        )
-        {
-            MarkJobTerminal(runId, "minimal_run_payload_too_large", null);
-            return false;
-        }
-
-        var allocation =
-            job.BundleId != null && job.CreatedAtMs.HasValue
-                ? new BundleAllocationRecord(job.BundleId, job.CreatedAtMs.Value)
-                : _queueStore.EnsureAllocation(
-                    job.RunId,
-                    _ulid.Next(),
-                    DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-                    DateTimeOffset.UtcNow
-                );
-        BundleBuildResultV5 built;
-        try
-        {
-            built = BundleV5Codec.Build(
+            stage = BundleSealStage.Build;
+            Probe(stage, runId);
+            var built = BundleV5Codec.Build(
                 new BundleBuildInputV5
                 {
                     BundleId = allocation.BundleId,
@@ -300,19 +359,14 @@ internal sealed class BundleSealCoordinator : IBppFeature, IDisposable
                 }
             );
             _ = BundleV5Codec.Open(built.Bytes);
-        }
-        catch (Exception ex)
-        {
-            MarkJobTerminal(runId, "bundle_build_failed", ex);
-            return false;
-        }
 
-        var fileName = allocation.BundleId + ".bundle";
-        var finalPath = Path.Combine(_outboxRoot, fileName);
-        var tempPath = finalPath + ".tmp";
-        try
-        {
-            WriteAtomically(tempPath, finalPath, built.Bytes);
+            stage = BundleSealStage.Publish;
+            Probe(stage, runId);
+            // Publication cannot depend on file recovery having run earlier in the pass.
+            Directory.CreateDirectory(_outboxRoot);
+            var fileName = allocation.BundleId + ".bundle";
+            var finalPath = Path.Combine(_outboxRoot, fileName);
+            WriteAtomically(finalPath + ".tmp", finalPath, built.Bytes);
             if (
                 !_queueStore.PublishOutbox(
                     allocation,
@@ -340,9 +394,9 @@ internal sealed class BundleSealCoordinator : IBppFeature, IDisposable
             );
             return true;
         }
-        catch (Exception ex)
+        catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
         {
-            MarkJobWaiting(runId, "seal_publish_failed", ex.Message);
+            RecordJobFailure(runId, job, stage, ex);
             return false;
         }
     }
@@ -370,77 +424,111 @@ internal sealed class BundleSealCoordinator : IBppFeature, IDisposable
         Directory.CreateDirectory(_outboxRoot);
         foreach (var temp in Directory.EnumerateFiles(_outboxRoot, "*.bundle.tmp"))
         {
-            if (DateTime.UtcNow - File.GetLastWriteTimeUtc(temp) >= OrphanFileRetention)
-                File.Delete(temp);
+            Maintain(
+                BundleSealStage.FileRecovery,
+                () =>
+                {
+                    if (DateTime.UtcNow - File.GetLastWriteTimeUtc(temp) >= OrphanFileRetention)
+                        File.Delete(temp);
+                }
+            );
         }
 
         foreach (var file in Directory.EnumerateFiles(_outboxRoot, "*.bundle"))
+            RecoverOrphan(file);
+
+        foreach (var row in _queueStore.ListPendingForValidation())
+            ValidatePending(row);
+    }
+
+    private void RecoverOrphan(string file)
+    {
+        try
         {
             var bundleId = Path.GetFileNameWithoutExtension(file);
             if (_queueStore.ContainsOutbox(bundleId))
-                continue;
-            try
-            {
-                var bytes = File.ReadAllBytes(file);
-                var opened = BundleV5Codec.Open(bytes);
-                var job = _queueStore.ReadJob(opened.Manifest.Run.RunId);
-                if (
-                    job?.BundleId != opened.Manifest.BundleId
-                    || job.CreatedAtMs != opened.Manifest.CreatedAtMs
-                    || !string.Equals(
-                        job.PlayerAccountId,
-                        opened.Manifest.Run.PlayerAccountId,
-                        StringComparison.Ordinal
-                    )
+                return;
+            Probe(BundleSealStage.OrphanAdoption, bundleId);
+            var bytes = File.ReadAllBytes(file);
+            var opened = BundleV5Codec.Open(bytes);
+            var job = _queueStore.ReadJob(opened.Manifest.Run.RunId);
+            if (
+                job?.BundleId != opened.Manifest.BundleId
+                || job.CreatedAtMs != opened.Manifest.CreatedAtMs
+                || !string.Equals(
+                    job.PlayerAccountId,
+                    opened.Manifest.Run.PlayerAccountId,
+                    StringComparison.Ordinal
                 )
-                {
-                    DeleteExpiredOrphan(file);
-                    continue;
-                }
-                _queueStore.PublishOutbox(
-                    new BundleAllocationRecord(job.BundleId!, job.CreatedAtMs!.Value),
-                    new BundleOutboxPublishRecord(
-                        opened.Manifest.BundleId,
-                        opened.Manifest.Run.RunId,
-                        Path.GetFileName(file),
-                        opened.Sha256Hex,
-                        opened.ContentDigest,
-                        bytes.Length,
-                        opened.Screenshot != null
-                    ),
-                    DateTimeOffset.UtcNow
-                );
-            }
-            catch
+            )
             {
                 DeleteExpiredOrphan(file);
+                return;
             }
-        }
-
-        var invalid = new List<(string BundleId, string RunId, string Reason)>();
-        foreach (var row in _queueStore.ListPendingForValidation())
-        {
-            var path = Path.Combine(_outboxRoot, row.FileName);
-            try
-            {
-                if (!File.Exists(path))
-                    throw new FileNotFoundException();
-                var opened = BundleV5Codec.Open(File.ReadAllBytes(path));
-                if (opened.Manifest.BundleId != row.BundleId)
-                    throw new InvalidDataException();
-            }
-            catch
-            {
-                invalid.Add((row.BundleId, row.RunId, "pending_file_invalid"));
-            }
-        }
-        foreach (var row in invalid)
-            _queueStore.FailOutboxAndScheduleReseal(
-                row.BundleId,
-                row.RunId,
-                row.Reason,
+            _queueStore.PublishOutbox(
+                new BundleAllocationRecord(job.BundleId!, job.CreatedAtMs!.Value),
+                new BundleOutboxPublishRecord(
+                    opened.Manifest.BundleId,
+                    opened.Manifest.Run.RunId,
+                    Path.GetFileName(file),
+                    opened.Sha256Hex,
+                    opened.ContentDigest,
+                    bytes.Length,
+                    opened.Screenshot != null
+                ),
                 DateTimeOffset.UtcNow
             );
+        }
+        catch (Exception ex)
+        {
+            var decision = BundleSealFailurePolicy.Decide(
+                BundleSealStage.OrphanAdoption,
+                ex,
+                default
+            );
+            LogFailure(decision, ex, null);
+            // Only an unreadable Bundle is an orphan; a runtime that cannot open it keeps it.
+            if (decision.Disposition == BundleSealFailureDisposition.Degrade)
+                Maintain(BundleSealStage.FileRecovery, () => DeleteExpiredOrphan(file));
+        }
+    }
+
+    private void ValidatePending(BundleOutboxStateRecord row)
+    {
+        Exception? failure = null;
+        try
+        {
+            Probe(BundleSealStage.PendingValidation, row.RunId);
+            var path = Path.Combine(_outboxRoot, row.FileName);
+            if (
+                File.Exists(path)
+                && BundleV5Codec.Open(File.ReadAllBytes(path)).Manifest.BundleId == row.BundleId
+            )
+                return;
+        }
+        catch (Exception ex)
+        {
+            failure = ex;
+        }
+        // A missing or mismatched file is an observed invalid artifact (no exception).
+        var decision = BundleSealFailurePolicy.Decide(
+            BundleSealStage.PendingValidation,
+            failure,
+            default
+        );
+        LogFailure(decision, failure, row.RunId);
+        if (decision.Disposition != BundleSealFailureDisposition.Reseal)
+            return;
+        Maintain(
+            BundleSealStage.FileRecovery,
+            () =>
+                _queueStore.FailOutboxAndScheduleReseal(
+                    row.BundleId,
+                    row.RunId,
+                    decision.Code,
+                    DateTimeOffset.UtcNow
+                )
+        );
     }
 
     private static void DeleteExpiredOrphan(string path)
@@ -461,14 +549,132 @@ internal sealed class BundleSealCoordinator : IBppFeature, IDisposable
         return new ScreenshotSource(absolute, artifact.CapturedAtUtc.ToUnixTimeMilliseconds());
     }
 
-    private void MarkJobWaiting(string runId, string code, string? detail) =>
-        _queueStore.MarkJobWaiting(runId, code, detail);
-
     private void MarkJobTerminal(string runId, string code, Exception? exception)
     {
-        _queueStore.MarkJobTerminal(runId, code, exception?.Message);
+        try
+        {
+            _queueStore.RecordSealFailure(
+                runId,
+                BundleSealJobState.TerminalFailure,
+                code,
+                exception?.Message,
+                1,
+                DateTimeOffset.UtcNow
+            );
+        }
+        catch (Exception ex)
+        {
+            BundlePipelineLog.Warn(
+                BundlePipelineLogEvents.ReconcileFailed,
+                "seal_failure_record_failed",
+                ex,
+                runId
+            );
+        }
         BundlePipelineLog.Warn(BundlePipelineLogEvents.SealTerminal, code, exception, runId);
     }
+
+    private void RecordJobFailure(
+        string runId,
+        BundleSealJobRecord? job,
+        BundleSealStage stage,
+        Exception exception
+    )
+    {
+        try
+        {
+            job ??= _queueStore.ReadJob(runId);
+        }
+        catch (Exception readFailure)
+        {
+            // Without retry facts the original failure is still classified and recorded below.
+            BundlePipelineLog.Warn(
+                BundlePipelineLogEvents.ReconcileFailed,
+                "seal_job_read_failed",
+                readFailure,
+                runId
+            );
+        }
+        var decision = BundleSealFailurePolicy.Decide(
+            stage,
+            exception,
+            job == null ? default : RetryFacts(job, DateTimeOffset.UtcNow)
+        );
+        ApplyJobFailure(runId, decision, exception);
+    }
+
+    private void ApplyJobFailure(
+        string runId,
+        BundleSealFailureDecision decision,
+        Exception? exception
+    )
+    {
+        var state = decision.Disposition switch
+        {
+            BundleSealFailureDisposition.Terminal => BundleSealJobState.TerminalFailure,
+            _ => BundleSealJobState.Waiting,
+        };
+        try
+        {
+            _queueStore.RecordSealFailure(
+                runId,
+                state,
+                decision.Code,
+                decision.Detail,
+                decision.Attempts,
+                DateTimeOffset.UtcNow
+            );
+        }
+        catch (Exception ex)
+        {
+            BundlePipelineLog.Warn(
+                BundlePipelineLogEvents.ReconcileFailed,
+                "seal_failure_record_failed",
+                ex,
+                runId
+            );
+        }
+        LogFailure(decision, exception, runId);
+    }
+
+    private void Maintain(BundleSealStage stage, Action action)
+    {
+        try
+        {
+            Probe(stage, string.Empty);
+            action();
+        }
+        catch (Exception ex)
+        {
+            LogFailure(BundleSealFailurePolicy.Decide(stage, ex, default), ex, null);
+        }
+    }
+
+    private void Probe(BundleSealStage stage, string subject) =>
+        _faultProbe?.Invoke(stage, subject);
+
+    private static BundleSealRetryFacts RetryFacts(BundleSealJobRecord job, DateTimeOffset now) =>
+        new(job.LastErrorCode, job.Attempts, (float)(now - job.InputDeadlineAtUtc).TotalSeconds);
+
+    private static void LogFailure(
+        BundleSealFailureDecision decision,
+        Exception? exception,
+        string? runId
+    ) =>
+        BundlePipelineLog.Warn(
+            decision.Log switch
+            {
+                BundleSealFailureLog.Deferred => BundlePipelineLogEvents.SealDeferred,
+                BundleSealFailureLog.EnvironmentBlocked =>
+                    BundlePipelineLogEvents.SealEnvironmentBlocked,
+                BundleSealFailureLog.Degraded => BundlePipelineLogEvents.SealDegraded,
+                BundleSealFailureLog.Terminal => BundlePipelineLogEvents.SealTerminal,
+                _ => BundlePipelineLogEvents.ReconcileFailed,
+            },
+            decision.Code,
+            exception,
+            runId
+        );
 
     private static void WriteAtomically(string tempPath, string finalPath, byte[] bytes)
     {

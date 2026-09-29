@@ -63,9 +63,10 @@ internal sealed class RunPayloadComposer
             .ToList();
         var finalBattleId =
             payload.Run.Status == "completed" ? manifests.LastOrDefault()?.BattleId : null;
+        var replayFailures = new List<ReplayLoadFailure>();
         foreach (var manifest in manifests)
         {
-            var battle = MapBattle(manifest, finalBattleId);
+            var battle = MapBattle(manifest, finalBattleId, replayFailures);
             payload.Battles.Add(battle);
             if (RunBundleV5Contract.IsReplayable(battle))
                 payload.ReplayableBattleIds.Add(battle.BattleId);
@@ -78,7 +79,7 @@ internal sealed class RunPayloadComposer
         var encoded = RunPayloadV5Codec.Encode(payload);
         if (encoded.Length > BundleLimitsV5.MaxRunBytes)
             throw new BundleCompositionException("minimal_run_payload_too_large");
-        return new RunPayloadComposition(payload, projections, encoded);
+        return new RunPayloadComposition(payload, projections, encoded, replayFailures);
     }
 
     private RunFactsV5 ReadRunFacts(string runId)
@@ -152,11 +153,26 @@ internal sealed class RunPayloadComposer
         return events;
     }
 
-    private RunBattleV5 MapBattle(PvpBattleManifest manifest, string? finalBattleId)
+    // A replay that exists but cannot be used is reported, not decided: the seal coordinator asks
+    // BundleSealFailurePolicy whether it omits that replay or holds the whole Run.
+    private RunBattleV5 MapBattle(
+        PvpBattleManifest manifest,
+        string? finalBattleId,
+        List<ReplayLoadFailure> replayFailures
+    )
     {
         BattleReplayV5? replay = null;
         var loaded = _replayStore.LoadDetailed(manifest.BattleId);
-        if (loaded.Status == FileBackedPayloadLoadStatus.Loaded && loaded.Payload != null)
+        if (loaded.Status == FileBackedPayloadLoadStatus.Unreadable)
+            replayFailures.Add(
+                new(
+                    manifest.BattleId,
+                    new IOException("Replay payload is unreadable.", loaded.Exception)
+                )
+            );
+        else if (loaded.Status == FileBackedPayloadLoadStatus.Invalid)
+            replayFailures.Add(new(manifest.BattleId, loaded.Exception));
+        else if (loaded.Status == FileBackedPayloadLoadStatus.Loaded && loaded.Payload != null)
         {
             try
             {
@@ -169,9 +185,9 @@ internal sealed class RunPayloadComposer
                     DespawnMessageBytes = loaded.Payload.DespawnMessageBytes.ToArray(),
                 };
             }
-            catch
+            catch (Exception ex)
             {
-                replay = null;
+                replayFailures.Add(new(manifest.BattleId, ex));
             }
         }
 
@@ -442,8 +458,12 @@ internal sealed class RunPayloadComposer
 internal sealed record RunPayloadComposition(
     RunPayloadV5 Payload,
     List<BundleBattleProjectionV5> Projections,
-    byte[] EncodedPayload
+    byte[] EncodedPayload,
+    IReadOnlyList<ReplayLoadFailure> ReplayFailures
 );
+
+// Exception is null when the bytes were rejected without one (for example, not gzip).
+internal sealed record ReplayLoadFailure(string BattleId, Exception? Exception);
 
 internal sealed class BundleCompositionException : Exception
 {

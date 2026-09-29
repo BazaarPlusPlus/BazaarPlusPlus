@@ -28,6 +28,7 @@ Directory.CreateDirectory(root);
 try
 {
     await BundleSealLoggingTests.RunAsync(Path.Combine(root, "seal-logging"));
+    await BundleSealFailureTests.RunAsync(Path.Combine(root, "seal-failures"));
     var paths = new TestPaths(root);
     var store = new RunLogStore(paths);
     var database = PathConstants.RunLogDatabase(root);
@@ -256,8 +257,7 @@ static async Task VerifyLegacyJsonRecoveryAsync(string root)
     var allocation = queue.EnsureAllocation(
         "legacy-1",
         oldBundle.Manifest.BundleId,
-        oldBundle.Manifest.CreatedAtMs,
-        old
+        oldBundle.Manifest.CreatedAtMs
     );
     Directory.CreateDirectory(PathConstants.BundleOutbox(root));
     var oldFile = oldBundle.Manifest.BundleId + ".bundle";
@@ -278,11 +278,15 @@ static async Task VerifyLegacyJsonRecoveryAsync(string root)
     queue.FailOutboxAndScheduleReseal(allocation.BundleId, "legacy-1", "pending_file_invalid", old);
     for (var i = 0; i < 12; i++)
     {
-        queue.EnsureAllocation($"legacy-{i}", generator.Next(), old.ToUnixTimeMilliseconds(), old);
-        queue.MarkJobTerminal(
+        queue.EnsureAllocation($"legacy-{i}", generator.Next(), old.ToUnixTimeMilliseconds());
+        // Released 5.5.0 rows: the old allocation counted one attempt before the build failed.
+        queue.RecordSealFailure(
             $"legacy-{i}",
+            BundleSealJobState.TerminalFailure,
             "bundle_build_failed",
-            i == 11 ? "Invalid projection" : message
+            i == 11 ? "Invalid projection" : message,
+            1,
+            old
         );
     }
 

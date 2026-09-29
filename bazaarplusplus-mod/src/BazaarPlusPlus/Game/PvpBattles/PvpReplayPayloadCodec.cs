@@ -11,6 +11,7 @@ internal static class PvpReplayPayloadCodec
     public static bool TryDeserialize(
         byte[]? payloadBytes,
         out PvpReplayPayload? payload,
-        out string? error
-    ) => MessagePackGzipCodec.TryDeserialize(payloadBytes, out payload, out error);
+        out string? error,
+        out Exception? exception
+    ) => MessagePackGzipCodec.TryDeserialize(payloadBytes, out payload, out error, out exception);
 }

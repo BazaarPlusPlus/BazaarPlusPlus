@@ -96,8 +96,7 @@ public sealed class BundleQueueStore : SqliteStoreBase
     public BundleAllocationRecord EnsureAllocation(
         string runId,
         string proposedBundleId,
-        long proposedCreatedAtMs,
-        DateTimeOffset now
+        long proposedCreatedAtMs
     )
     {
         using var connection = OpenConnection();
@@ -106,8 +105,7 @@ public sealed class BundleQueueStore : SqliteStoreBase
             UPDATE {RunLogSchema.BundleSealJobsTableName}
             SET bundle_id = COALESCE(bundle_id, $bundleId),
                 created_at_ms = COALESCE(created_at_ms, $createdAtMs),
-                state = 'sealing', attempts = attempts + 1,
-                last_attempt_at_utc = $now
+                state = 'sealing'
             WHERE run_id = $runId;
             SELECT bundle_id, created_at_ms
             FROM {RunLogSchema.BundleSealJobsTableName} WHERE run_id = $runId;
@@ -115,7 +113,6 @@ public sealed class BundleQueueStore : SqliteStoreBase
         command.Parameters.AddWithValue("$runId", runId);
         command.Parameters.AddWithValue("$bundleId", proposedBundleId);
         command.Parameters.AddWithValue("$createdAtMs", proposedCreatedAtMs);
-        command.Parameters.AddWithValue("$now", now.ToString("o"));
         using var reader = command.ExecuteReader();
         if (!reader.Read())
             throw new InvalidOperationException("Seal job disappeared during allocation.");
@@ -150,11 +147,29 @@ public sealed class BundleQueueStore : SqliteStoreBase
             ("$state", ToStorage(state))
         );
 
-    public void MarkJobWaiting(string runId, string code, string? detail) =>
-        MarkJob(runId, BundleSealJobState.Waiting, code, detail);
-
-    public void MarkJobTerminal(string runId, string code, string? detail) =>
-        MarkJob(runId, BundleSealJobState.TerminalFailure, code, detail);
+    // The one writer of a seal failure: state, consecutive-attempt count, time, and diagnostic
+    // change together so backoff and parking read one consistent row.
+    public void RecordSealFailure(
+        string runId,
+        BundleSealJobState state,
+        string code,
+        string? detail,
+        int attempts,
+        DateTimeOffset attemptedAt
+    )
+    {
+        if (state == BundleSealJobState.Sealing)
+            throw new ArgumentOutOfRangeException(nameof(state));
+        Execute(
+            $"UPDATE {RunLogSchema.BundleSealJobsTableName} SET state = $state, attempts = $attempts, last_attempt_at_utc = $attemptedAt, last_error_code = $code, last_error_detail = $detail WHERE run_id = $runId;",
+            ("$runId", runId),
+            ("$state", ToStorage(state)),
+            ("$attempts", attempts),
+            ("$attemptedAt", attemptedAt.ToString("o")),
+            ("$code", code),
+            ("$detail", detail)
+        );
+    }
 
     public bool ContainsOutbox(string bundleId)
     {
@@ -335,7 +350,7 @@ public sealed class BundleQueueStore : SqliteStoreBase
     {
         using var command = CreateCommand(connection, transaction);
         command.CommandText =
-            $"SELECT run_id, state, player_account_id, screenshot_requested, screenshot_state, input_deadline_at_utc, bundle_id, created_at_ms FROM {RunLogSchema.BundleSealJobsTableName} WHERE run_id = $runId LIMIT 1;";
+            $"SELECT run_id, state, player_account_id, screenshot_requested, screenshot_state, input_deadline_at_utc, bundle_id, created_at_ms, attempts, last_attempt_at_utc, last_error_code FROM {RunLogSchema.BundleSealJobsTableName} WHERE run_id = $runId LIMIT 1;";
         command.Parameters.AddWithValue("$runId", runId);
         using var reader = command.ExecuteReader();
         if (!reader.Read())
@@ -348,7 +363,10 @@ public sealed class BundleQueueStore : SqliteStoreBase
             ParseScreenshotState(reader.GetString(4)),
             SqliteUtcInstant.Parse(reader.GetString(5)),
             reader.IsDBNull(6) ? null : reader.GetString(6),
-            reader.IsDBNull(7) ? null : reader.GetInt64(7)
+            reader.IsDBNull(7) ? null : reader.GetInt64(7),
+            reader.GetInt32(8),
+            reader.IsDBNull(9) ? null : SqliteUtcInstant.Parse(reader.GetString(9)),
+            reader.IsDBNull(10) ? null : reader.GetString(10)
         );
     }
 
@@ -400,15 +418,6 @@ public sealed class BundleQueueStore : SqliteStoreBase
             transaction,
             $"DELETE FROM {RunLogSchema.BundleSealJobsTableName} WHERE run_id = $runId;",
             ("$runId", runId)
-        );
-
-    private void MarkJob(string runId, BundleSealJobState state, string code, string? detail) =>
-        Execute(
-            $"UPDATE {RunLogSchema.BundleSealJobsTableName} SET state = $state, last_error_code = $code, last_error_detail = $detail WHERE run_id = $runId;",
-            ("$runId", runId),
-            ("$state", ToStorage(state)),
-            ("$code", code),
-            ("$detail", detail)
         );
 
     private static BundleSealJobState ParseJobState(string value) =>

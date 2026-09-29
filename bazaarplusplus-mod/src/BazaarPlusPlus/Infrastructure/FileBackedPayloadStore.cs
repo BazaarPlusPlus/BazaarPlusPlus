@@ -3,7 +3,12 @@ using System.Security.Cryptography;
 
 namespace BazaarPlusPlus.Infrastructure;
 
-internal delegate bool TryDeserialize<T>(byte[]? payloadBytes, out T? payload, out string? error)
+internal delegate bool TryDeserialize<T>(
+    byte[]? payloadBytes,
+    out T? payload,
+    out string? error,
+    out Exception? exception
+)
     where T : class;
 
 internal enum FileBackedPayloadLoadStatus
@@ -145,14 +150,14 @@ internal sealed class FileBackedPayloadStore<T>
         var fingerprint = Fingerprint(payloadBytes);
         try
         {
-            if (_tryDeserialize(payloadBytes, out var payload, out var reason))
+            if (_tryDeserialize(payloadBytes, out var payload, out var reason, out var exception))
                 return FileBackedPayloadLoadResult<T>.Loaded(payload, fingerprint);
 
             return FileBackedPayloadLoadResult<T>.Invalid(
                 fingerprint,
                 reason == "payload_too_large"
                     ? new InvalidDataException("Ghost payload exceeds the decompressed size limit.")
-                    : null
+                    : exception
             );
         }
         catch (Exception ex)

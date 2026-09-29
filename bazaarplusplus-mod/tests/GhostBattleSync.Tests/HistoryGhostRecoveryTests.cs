@@ -79,7 +79,7 @@ internal static class HistoryGhostRecoveryTests
         large.ReplayPayload.SpawnMessageBytes = new byte[65 * 1024 * 1024];
         var bytes = GhostBattlePayloadCodec.Serialize(large);
         Check(
-            !GhostBattlePayloadCodec.TryDeserialize(bytes, out _, out var reason)
+            !GhostBattlePayloadCodec.TryDeserialize(bytes, out _, out var reason, out _)
                 && reason == "payload_too_large",
             "Decompression must enforce its byte limit before deserialization."
         );

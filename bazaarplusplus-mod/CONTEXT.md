@@ -108,7 +108,15 @@ _Avoid_: shared global HttpClient, public endpoint-client chain
 **Bundle Seal Convergence**:
 The pure decision core for one Bundle seal pass. It receives the remaining relative deadline and
 observed input facts, then decides whether to continue, wait, degrade the screenshot, or terminate;
-it owns no clock, SQLite connection, file, codec, or Unity object.
+it owns no clock, SQLite connection, file, codec, or Unity object. Its failure half,
+`BundleSealFailurePolicy`, maps a failure and the seal stage it happened in to retry with backoff,
+park until next launch, reseal, degrade, skip, or terminal, plus the log event.
+
+**Environment-Blocked Seal**:
+A waiting seal job whose failure came from the loaded runtime (a missing member, type load, or
+assembly binding failure) rather than its data. It is retried once per launch, so an update revives
+it without a migration, and a pending file that fails this way is never resealed.
+_Avoid_: JSON failure
 
 **Bundle Queue Store**:
 The concrete Storage owner of `bundle_seal_jobs` and `bundle_outbox` rows, SQL, and multi-row
