@@ -111,6 +111,7 @@ export default function History() {
                   run={run}
                   pageNumber={pagination.page}
                   previewUrl={page.previewUrl(run)}
+                  previewAttempt={page.previewAttempt}
                 />
               ))
             )}
@@ -160,11 +161,13 @@ export default function History() {
 function RunRow({
   run,
   pageNumber,
-  previewUrl
+  previewUrl,
+  previewAttempt
 }: {
   run: HistoryRunRow;
   pageNumber: number;
   previewUrl: string | null;
+  previewAttempt: number;
 }) {
   const { locale, t } = useI18n();
   const result = formatRunResultLabel(run);
@@ -180,6 +183,7 @@ function RunRow({
       <RunPreview
         key={previewUrl ?? 'preview-unavailable'}
         previewUrl={previewUrl}
+        previewAttempt={previewAttempt}
         fallbackLabel={fallbackLabel}
       />
       <span className="bpp-history-run-info">
@@ -236,13 +240,23 @@ function RunRow({
 
 function RunPreview({
   previewUrl,
+  previewAttempt,
   fallbackLabel
 }: {
   previewUrl: string | null;
+  previewAttempt: number;
   fallbackLabel: string;
 }) {
-  const [failedUrl, setFailedUrl] = useState<string | null>(null);
-  const visibleUrl = previewUrl && previewUrl !== failedUrl ? previewUrl : null;
+  // A failed image retries after the next thumbnail preparation, not on every render.
+  const [failed, setFailed] = useState<{
+    url: string;
+    attempt: number;
+  } | null>(null);
+  const visibleUrl =
+    previewUrl &&
+    !(failed?.url === previewUrl && failed.attempt === previewAttempt)
+      ? previewUrl
+      : null;
 
   return (
     <div className="bpp-history-run-preview">
@@ -254,7 +268,9 @@ function RunPreview({
           alt=""
           loading="lazy"
           decoding="async"
-          onError={() => setFailedUrl(visibleUrl)}
+          onError={() =>
+            setFailed({ url: visibleUrl, attempt: previewAttempt })
+          }
           className="bpp-history-run-preview-image"
         />
       ) : (
