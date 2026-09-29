@@ -1,6 +1,7 @@
 #nullable enable
 
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Localization;
 using TMPro;
 using UnityEngine;
 
@@ -10,10 +11,50 @@ internal static class FontDiagnostics
 {
     private const string ChineseSample = "中文字体测试商人英雄价格";
     private static bool _logged;
+    private static bool _traditionalFallbackLogged;
 
     public static bool HasChineseCoverage(TMP_FontAsset? font)
     {
         return HasFullChineseCoverage(font);
+    }
+
+    // Whether the font, including its fallback chain, can render a character. Dynamic atlases add
+    // glyphs on demand when text renders, so the probe may add one too; a Simplified-only probe
+    // with tryAddCharacter off would report such glyphs as missing.
+    public static Func<char, bool> GlyphProbe(TMP_FontAsset? font) =>
+        character =>
+            font == null
+            || font.HasCharacter(character, searchFallbacks: true, tryAddCharacter: true);
+
+    public static void LogTraditionalFallbackOnce(TextMeshProUGUI renderer, string simplifiedLine)
+    {
+        if (_traditionalFallbackLogged)
+            return;
+
+        _traditionalFallbackLogged = true;
+        var font = renderer.font;
+        var converted = L.ResolveChinese(simplifiedLine);
+        var probe = GlyphProbe(font);
+        var added = converted.Where(character => simplifiedLine.IndexOf(character) < 0).ToArray();
+        BppLog.WarnEvent(
+            VoiceSubtitlesDisplayLogEvents.FontEnvironmentObserved,
+            VoiceSubtitlesDisplayLogEvents.FontEnvironmentReasonCode.Bind(
+                VoiceSubtitlesLogReasonCode.TraditionalGlyphsMissing
+            ),
+            VoiceSubtitlesDisplayLogEvents.FontEnvironmentAnchorPath.Bind(
+                BuildPath(renderer.transform)
+            ),
+            VoiceSubtitlesDisplayLogEvents.FontEnvironmentSourceFont.Bind(DescribeFont(font)),
+            VoiceSubtitlesDisplayLogEvents.FontEnvironmentSourceCoverage.Bind(
+                $"{added.Count(probe)}/{added.Length}"
+            ),
+            VoiceSubtitlesDisplayLogEvents.FontEnvironmentDefaultFont.Bind(
+                DescribeFont(TMP_Settings.defaultFontAsset)
+            ),
+            VoiceSubtitlesDisplayLogEvents.FontEnvironmentFallbackFonts.Bind(
+                DescribeFontList(TMP_Settings.fallbackFontAssets)
+            )
+        );
     }
 
     public static void LogOnce(TextMeshProUGUI sourceLabel)

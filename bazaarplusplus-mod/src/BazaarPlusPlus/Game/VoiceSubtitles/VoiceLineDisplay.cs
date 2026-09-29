@@ -320,6 +320,7 @@ internal static class VoiceLineDisplay
     private static DisplayText BuildDisplayText(VoiceLine line)
     {
         var settings = VoiceLineSettings.Current;
+        var keptSimplified = false;
         var english =
             settings.LanguageMode == SubtitleLanguageMode.ChineseOnly || ShouldHideEnglish(line)
                 ? string.Empty
@@ -327,7 +328,14 @@ internal static class VoiceLineDisplay
         var chinese =
             settings.LanguageMode == SubtitleLanguageMode.EnglishOnly
                 ? string.Empty
-                : DisplayChinese(line.Chinese, settings.Position);
+                : DisplayChinese(
+                    line.Chinese,
+                    settings.Position,
+                    FontDiagnostics.GlyphProbe(ChineseRenderer()?.font),
+                    out keptSimplified
+                );
+        if (keptSimplified && ChineseRenderer() is { } renderer)
+            FontDiagnostics.LogTraditionalFallbackOnce(renderer, line.Chinese);
 
         if (string.IsNullOrEmpty(english) && string.IsNullOrEmpty(chinese))
             return DisplayText.Empty;
@@ -682,9 +690,43 @@ internal static class VoiceLineDisplay
         return settings.ChineseFontScale;
     }
 
-    // The catalog stores Simplified text; Taiwan mode converts it only for display.
-    internal static string DisplayChinese(string chinese, SubtitlePosition position) =>
-        ConvertCenteredChineseTrailingPunctuation(L.ResolveChinese(chinese.Trim()), position);
+    private static TextMeshProUGUI? ChineseRenderer() => _combinedLabel ?? _chineseUiLabel;
+
+    // The catalog stores Simplified text; Taiwan mode converts it only for display. The subtitle
+    // font was chosen by a Simplified probe, so a converted line whose new Traditional glyphs the
+    // font cannot render keeps its Simplified text rather than showing boxes.
+    internal static string DisplayChinese(
+        string chinese,
+        SubtitlePosition position,
+        Func<char, bool> hasGlyph,
+        out bool keptSimplified
+    )
+    {
+        var simplified = chinese.Trim();
+        var resolved = L.ResolveChinese(simplified);
+        keptSimplified =
+            !string.Equals(resolved, simplified, StringComparison.Ordinal)
+            && !HasConvertedGlyphs(simplified, resolved, hasGlyph);
+        return ConvertCenteredChineseTrailingPunctuation(
+            keptSimplified ? simplified : resolved,
+            position
+        );
+    }
+
+    private static bool HasConvertedGlyphs(
+        string simplified,
+        string converted,
+        Func<char, bool> hasGlyph
+    )
+    {
+        foreach (var character in converted)
+        {
+            if (simplified.IndexOf(character) < 0 && !hasGlyph(character))
+                return false;
+        }
+
+        return true;
+    }
 
     internal static string ConvertCenteredChineseTrailingPunctuation(
         string chinese,
