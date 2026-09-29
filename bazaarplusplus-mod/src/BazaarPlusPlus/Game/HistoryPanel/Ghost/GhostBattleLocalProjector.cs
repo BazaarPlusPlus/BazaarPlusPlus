@@ -31,9 +31,7 @@ internal static class GhostBattleLocalProjector
         string? rawLoserCombatantId,
         HistoryBattleSnapshotCounts rawSnapshotCounts,
         bool isFinalBattle,
-        bool replayAvailable,
-        bool replayDownloaded,
-        string? replayState = null
+        ReplayAvailability replay
     )
     {
         return new HistoryBattleRecord(
@@ -64,12 +62,8 @@ internal static class GhostBattleLocalProjector
             ProjectSnapshotCountsToLocal(rawSnapshotCounts),
             isFinalBattle,
             source: HistoryBattleSource.Ghost,
-            replayAvailable,
-            replayDownloaded
-        )
-        {
-            GhostReplayState = replayState,
-        };
+            replay
+        );
     }
 
     private static HistoryBattleSnapshotCounts ProjectSnapshotCountsToLocal(

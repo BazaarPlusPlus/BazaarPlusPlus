@@ -77,8 +77,9 @@ internal static class HistoryPanelRowMapper
             default,
             isFinalBattle: false,
             source: HistoryBattleSource.Local,
-            replayAvailable: GetNullableInt32(reader, "has_local_payload") == 1,
-            replayDownloaded: GetNullableInt32(reader, "has_local_payload") == 1
+            ReplayAvailabilityCodec.FromLocalPayload(
+                GetNullableInt32(reader, "has_local_payload") == 1
+            )
         );
     }
 
@@ -114,9 +115,7 @@ internal static class HistoryPanelRowMapper
             GetNullableString(reader, "loser_combatant_id"),
             ReadGhostSnapshotCounts(reader),
             isFinalBattle: GetNullableInt32(reader, "is_final_battle") == 1,
-            replayAvailable: GetNullableInt32(reader, "replay_available") == 1,
-            replayDownloaded: GetNullableInt32(reader, "replay_downloaded") == 1,
-            replayState: GetNullableString(reader, "ghost_replay_state")
+            ReplayAvailabilityCodec.Parse(GetNullableString(reader, "ghost_replay_state"))
         );
     }
 

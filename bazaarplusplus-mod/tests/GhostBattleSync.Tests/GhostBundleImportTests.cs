@@ -4,6 +4,7 @@ using BazaarGameShared.Infra.Messages;
 using BazaarGameShared.Infra.Messages.CombatSimEvents;
 using BazaarGameShared.Infra.Messages.GameSimEvents;
 using BazaarPlusPlus.Game.HistoryPanel;
+using BazaarPlusPlus.Game.HistoryPanel.Data;
 using BazaarPlusPlus.Game.PvpBattles;
 using BazaarPlusPlus.ModApi.Bundle;
 using BazaarPlusPlus.ModApi.Models;
@@ -133,12 +134,12 @@ internal static class GhostBundleImportTests
         {
             fixture.Repository.MarkGhostReplayUnavailable(
                 localId,
-                "unavailable_payload",
+                ReplayAvailability.Unavailable,
                 "ghost_bundle_invalid"
             );
             fixture.Repository.UpsertGhostBattles("account-local", [record]);
             if (
-                !fixture
+                fixture
                     .Repository.ListGhostBattles(
                         "account-local",
                         GhostBattleFilter.All,
@@ -146,7 +147,7 @@ internal static class GhostBundleImportTests
                         new()
                     )
                     .Rows.Single()
-                    .ReplayAvailable
+                    .Replay != ReplayAvailability.Remote
             )
                 throw new InvalidOperationException(
                     "Discovery must restore the replay action for legacy compatibility failures."
@@ -173,7 +174,7 @@ internal static class GhostBundleImportTests
                 again.Succeeded
                 || fixture.Handler.Count != 1
                 || fixture.Repository.TryGetGhostBundleReference(localId)?.ReplayState
-                    != "unavailable_payload"
+                    != ReplayAvailability.Unavailable
                 || fixture
                     .Repository.ListGhostBattles(
                         "account-local",
@@ -182,7 +183,7 @@ internal static class GhostBundleImportTests
                         new()
                     )
                     .Rows.Single()
-                    .ReplayAvailable
+                    .Replay != ReplayAvailability.Unavailable
             )
                 throw new InvalidOperationException(
                     "A newly failed payload must not be resurrected by repeated discovery."
@@ -194,7 +195,10 @@ internal static class GhostBundleImportTests
                 $"Valid Ghost Bundle import failed: {result.Error}",
                 result.Exception
             );
-        if (fixture.Repository.TryGetGhostBundleReference(localId)?.ReplayState != "local_ready")
+        if (
+            fixture.Repository.TryGetGhostBundleReference(localId)?.ReplayState
+            != ReplayAvailability.Saved
+        )
             throw new InvalidOperationException("Valid Ghost Bundle must become local_ready.");
         var cached = await fixture.Service.DownloadReplayAsync(
             localId,

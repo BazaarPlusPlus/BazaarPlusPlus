@@ -612,8 +612,10 @@ object CreateBattle(string battleId, int? day, string result, bool isFinalBattle
             counts,
             isFinalBattle,
             Enum.Parse(battleSourceType, "Ghost"),
-            false,
-            false
+            Enum.Parse(
+                RequireType("BazaarPlusPlus.Game.HistoryPanel.Data.ReplayAvailability"),
+                "Unavailable"
+            )
         ) ?? throw new InvalidOperationException("HistoryBattleRecord should construct.");
 }
 
