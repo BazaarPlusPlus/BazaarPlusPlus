@@ -13,7 +13,7 @@ internal static class AccountLinkCardTests
         var channelType = assembly.GetType("BazaarPlusPlus.Core.Runtime.GameBuildChannel", true)!;
         var flags = BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
         var resolve = decisions.GetMethod("ResolveAccountLinkCard", flags)!;
-        var gate = decisions.GetMethod("IsAccountLinkAvailable", flags)!;
+        var gate = decisions.GetMethod("ResolveAccountLinkGate", flags)!;
         var settingLabel = assembly
             .GetType("BazaarPlusPlus.Game.Screenshots.BazaarDbBundleSettingsMenuLabel", true)!
             .GetMethod("Resolve", flags)!;
@@ -29,17 +29,23 @@ internal static class AccountLinkCardTests
                 foreach (var hasAccount in new[] { false, true })
                 foreach (var linked in new[] { false, true })
                 foreach (var expanded in new[] { false, true })
+                foreach (var inProgress in new[] { false, true })
                 {
                     var channelValue = Enum.Parse(channelType, channel);
-                    var available = (bool)gate.Invoke(null, [uploads, channelValue])!;
+                    var gateValue = gate.Invoke(null, [uploads, channelValue])!;
                     var card = resolve.Invoke(
                         null,
-                        [available, channelValue, hasAccount, linked, expanded]
+                        [gateValue, hasAccount, linked, expanded, inProgress]
                     )!;
                     var status = (string)Property(card, "StatusText");
                     var persistence = (string)Property(card, "PersistenceText");
                     var actionVisible = (bool)Property(card, "ActionVisible");
                     var formVisible = (bool)Property(card, "FormVisible");
+                    var rowAction = (string)Property(card, "RowActionText");
+                    var linkButton = (string)Property(card, "LinkButtonText");
+                    var alreadyLinkedVisible = (bool)Property(card, "AlreadyLinkedButtonVisible");
+                    var linkButtonEnabled = (bool)Property(card, "LinkButtonEnabled");
+                    var inputEnabled = (bool)Property(card, "InputEnabled");
                     var canAct = uploads && channel != "Ptr" && hasAccount;
                     Require(
                         actionVisible == canAct,
@@ -53,6 +59,36 @@ internal static class AccountLinkCardTests
                     Require(
                         (persistence.Length > 0) == (canAct && linked),
                         "Only an available linked row should add persistence guidance, regardless of expansion."
+                    );
+                    Require(
+                        rowAction
+                            == (
+                                linked
+                                    ? (chinese ? "重新绑定" : "Re-link")
+                                    : (chinese ? "绑定…" : "Link…")
+                            ),
+                        "The row action offers re-linking exactly when the account is linked."
+                    );
+                    Require(
+                        linkButton
+                            == (
+                                inProgress
+                                    ? (chinese ? "绑定中..." : "Linking...")
+                                    : (chinese ? "绑定账号" : "Link account")
+                            ),
+                        "The link button shows progress while a link request is running."
+                    );
+                    Require(
+                        alreadyLinkedVisible == (formVisible && !linked && !inProgress),
+                        "The already-linked shortcut belongs to an open form of an unlinked, idle account."
+                    );
+                    Require(
+                        linkButtonEnabled == (canAct && !inProgress),
+                        "The link button accepts input only when linking is possible and idle."
+                    );
+                    Require(
+                        inputEnabled == linkButtonEnabled,
+                        "The code input and link button enable together."
                     );
                     if (channel == "Ptr")
                         Contains(status, chinese ? "PTR 不支持" : "PTR does not support");

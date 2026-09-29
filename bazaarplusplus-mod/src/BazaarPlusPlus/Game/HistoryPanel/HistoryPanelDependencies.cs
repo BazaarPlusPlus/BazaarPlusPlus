@@ -1,5 +1,4 @@
 #nullable enable
-using BazaarPlusPlus.Core.Runtime;
 using BazaarPlusPlus.Game.HistoryPanel.AccountLink;
 using BazaarPlusPlus.Game.HistoryPanel.Storage;
 using BazaarPlusPlus.ModApi.Clients;
@@ -16,7 +15,7 @@ internal sealed class HistoryPanelDependencies
         HistoryPanelReplayService replayService,
         IHistoryPanelServerHealthProbe? serverHealthProbe,
         BazaarDbLinkClient? accountLinkClient,
-        Func<bool>? isBazaarDbAccountLinkAvailable
+        Func<AccountLinkGate>? accountLinkGate
     )
     {
         RunState = runState;
@@ -24,7 +23,7 @@ internal sealed class HistoryPanelDependencies
         ReplayService = replayService;
         ServerHealthProbe = serverHealthProbe;
         AccountLinkClient = accountLinkClient;
-        IsBazaarDbAccountLinkAvailable = isBazaarDbAccountLinkAvailable;
+        AccountLinkGate = accountLinkGate;
     }
 
     public IHistoryPanelRunState RunState { get; }
@@ -37,9 +36,7 @@ internal sealed class HistoryPanelDependencies
 
     public BazaarDbLinkClient? AccountLinkClient { get; }
 
-    public Func<bool>? IsBazaarDbAccountLinkAvailable { get; }
-
-    public GameBuildChannel GameBuildChannel { get; init; } = GameBuildChannel.Unknown;
+    public Func<AccountLinkGate>? AccountLinkGate { get; }
 
     public BazaarDbAccountLinkStore AccountLinkStore { get; init; } = new();
 }

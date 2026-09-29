@@ -190,42 +190,72 @@ internal static class HistoryPanelDecisions
             );
     }
 
-    // Linking requires uploads and a non-PTR build; the guidance card is always visible.
-    // Unknown is treated like Online by policy (see IGameBuildInfo) so a channel
-    // detection failure can never disable linking on a production build.
-    internal static bool IsAccountLinkAvailable(
-        bool dataSharingEnabled,
+    // Linking requires uploads and a non-PTR build; PTR wins over disabled uploads, and the
+    // guidance card is always visible. Unknown is treated like Online by policy (see
+    // IGameBuildInfo) so a channel detection failure can never disable linking on production.
+    internal static AccountLinkGate ResolveAccountLinkGate(
+        bool uploadsEnabled,
         GameBuildChannel channel
-    ) => dataSharingEnabled && channel != GameBuildChannel.Ptr;
+    ) =>
+        channel == GameBuildChannel.Ptr ? AccountLinkGate.PtrUnavailable
+        : uploadsEnabled ? AccountLinkGate.Available
+        : AccountLinkGate.UploadsDisabled;
 
     internal static HistoryAccountLinkCard ResolveAccountLinkCard(
-        bool available,
-        GameBuildChannel channel,
+        AccountLinkGate gate,
         bool hasAccount,
         bool linked,
-        bool expanded
+        bool expanded,
+        bool inProgress
     )
     {
-        if (channel == GameBuildChannel.Ptr)
-            return new(HistoryPanelText.AccountLink.PtrUnavailable(), "", false, false);
-        if (!available)
-            return new(HistoryPanelText.AccountLink.UploadsDisabled(), "", false, false);
-        if (!hasAccount)
-            return new(HistoryPanelText.AccountLink.SignedOut(), "", false, false);
+        var rowActionText = linked
+            ? HistoryPanelText.AccountLink.Relink()
+            : HistoryPanelText.AccountLink.RowBind();
+        var linkButtonText = inProgress
+            ? HistoryPanelText.AccountLink.Linking()
+            : HistoryPanelText.AccountLink.Button();
+        var statusText = gate switch
+        {
+            AccountLinkGate.PtrUnavailable => HistoryPanelText.AccountLink.PtrUnavailable(),
+            AccountLinkGate.UploadsDisabled => HistoryPanelText.AccountLink.UploadsDisabled(),
+            _ when !hasAccount => HistoryPanelText.AccountLink.SignedOut(),
+            _ when linked => HistoryPanelText.AccountLink.Linked(),
+            _ => HistoryPanelText.AccountLink.NotLinked(),
+        };
+        var actionVisible = gate == AccountLinkGate.Available && hasAccount;
+        var formVisible = actionVisible && expanded;
+        var canSubmit = actionVisible && !inProgress;
         return new(
-            linked
-                ? HistoryPanelText.AccountLink.Linked()
-                : HistoryPanelText.AccountLink.NotLinked(),
-            linked ? HistoryPanelText.AccountLink.BindingPersists() : "",
-            true,
-            expanded
+            statusText,
+            actionVisible && linked ? HistoryPanelText.AccountLink.BindingPersists() : "",
+            actionVisible,
+            formVisible,
+            rowActionText,
+            linkButtonText,
+            formVisible && !linked && !inProgress,
+            canSubmit,
+            canSubmit
         );
     }
+}
+
+// Whether this client may link a BazaarDB account; resolved from settings and build channel.
+internal enum AccountLinkGate
+{
+    Available,
+    UploadsDisabled,
+    PtrUnavailable,
 }
 
 internal readonly record struct HistoryAccountLinkCard(
     string StatusText,
     string PersistenceText,
     bool ActionVisible,
-    bool FormVisible
+    bool FormVisible,
+    string RowActionText,
+    string LinkButtonText,
+    bool AlreadyLinkedButtonVisible,
+    bool LinkButtonEnabled,
+    bool InputEnabled
 );
