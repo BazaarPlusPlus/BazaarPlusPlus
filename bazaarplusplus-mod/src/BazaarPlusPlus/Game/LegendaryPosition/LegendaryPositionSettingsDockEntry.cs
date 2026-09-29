@@ -41,27 +41,20 @@ internal static class LegendaryPositionSettingsDockEntry
             }
         );
 
+    private static readonly LocalizedTextSet DefaultStatus = new("DEF", "默认");
+    private static readonly LocalizedTextSet BlankStatus = new("BLANK", "无人知晓");
+    private static readonly LocalizedTextSet FixedStatus = new("999999", "战力爆表");
+    private static readonly LocalizedTextSet PositionWithRatingStatus = new("P|R", "双显模式");
+
     private static string ResolveStatus(LegendaryPositionDisplayMode mode, string languageCode)
     {
-        if (LanguageCodeMatcher.IsChinese(languageCode))
+        var status = mode switch
         {
-            return mode switch
-            {
-                LegendaryPositionDisplayMode.Default => "默认",
-                LegendaryPositionDisplayMode.Blank => "无人知晓",
-                LegendaryPositionDisplayMode.Fixed999999 => "战力爆表",
-                LegendaryPositionDisplayMode.PositionWithRating => "双显模式",
-                _ => "默认",
-            };
-        }
-
-        return mode switch
-        {
-            LegendaryPositionDisplayMode.Default => "DEF",
-            LegendaryPositionDisplayMode.Blank => "BLANK",
-            LegendaryPositionDisplayMode.Fixed999999 => "999999",
-            LegendaryPositionDisplayMode.PositionWithRating => "P|R",
-            _ => "DEF",
+            LegendaryPositionDisplayMode.Blank => BlankStatus,
+            LegendaryPositionDisplayMode.Fixed999999 => FixedStatus,
+            LegendaryPositionDisplayMode.PositionWithRating => PositionWithRatingStatus,
+            _ => DefaultStatus,
         };
+        return status.Resolve(languageCode, L.CurrentMode);
     }
 }

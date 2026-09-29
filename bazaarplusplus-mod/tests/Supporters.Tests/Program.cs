@@ -1,4 +1,6 @@
 using BazaarPlusPlus.Game.Supporters;
+using BazaarPlusPlus.Localization;
+using BazaarPlusPlus.Tests;
 using BazaarPlusPlus.TestSupport;
 
 TestAttributionText();
@@ -323,6 +325,20 @@ static void TestSponsorActionText()
         BPPSupporterAttributionText.FormatSponsorAction("zh-CN"),
         "Chinese attribution row should expose a localized sponsor action."
     );
+
+    L.Install(new FixedLanguage("zh-CN"), new FixedMode(BppChineseLocaleMode.Taiwan));
+    try
+    {
+        AssertEqual(
+            "贊助",
+            BPPSupporterAttributionText.FormatSponsorAction("zh-CN"),
+            "Taiwan mode should convert the sponsor action to Traditional Chinese."
+        );
+    }
+    finally
+    {
+        LocalizationTestBootstrap.Install();
+    }
 }
 
 static void TestSponsorLinks()
@@ -404,3 +420,13 @@ static void AssertTrue(bool condition, string message)
 }
 
 static void AssertFalse(bool condition, string message) => AssertTrue(!condition, message);
+
+internal sealed class FixedLanguage(string languageCode) : ILanguageProvider
+{
+    public string CurrentLanguageCode { get; } = languageCode;
+}
+
+internal sealed class FixedMode(BppChineseLocaleMode mode) : ILocaleModeProvider
+{
+    public BppChineseLocaleMode CurrentMode { get; } = mode;
+}

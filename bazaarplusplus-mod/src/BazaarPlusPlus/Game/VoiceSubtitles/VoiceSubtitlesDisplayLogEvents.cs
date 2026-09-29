@@ -13,6 +13,7 @@ internal enum VoiceSubtitlesLogReasonCode
     PlaybackStopped,
     FallbackTimeout,
     PlaybackQueryException,
+    TraditionalGlyphsMissing,
 }
 
 internal enum VoiceSubtitlesSettingsPhase

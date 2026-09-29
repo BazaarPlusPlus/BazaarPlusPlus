@@ -1,5 +1,6 @@
 #nullable enable
 using System.Globalization;
+using BazaarPlusPlus.Localization;
 
 namespace BazaarPlusPlus.Game.PostCombatImpact.Data;
 
@@ -19,7 +20,7 @@ internal static class CombatImpactMetricFormatter
             return string.Empty;
 
         return chinese
-            ? $"使用 {source.UseCount} 次"
+            ? L.ResolveChinese($"使用 {source.UseCount} 次")
             : $"{source.UseCount} use{(source.UseCount == 1 ? string.Empty : "s")}";
     }
 
@@ -35,7 +36,7 @@ internal static class CombatImpactMetricFormatter
     }
 
     internal static string TriggerSourceLabel(bool chinese) =>
-        chinese ? "触发来源：" : "Triggered by:";
+        chinese ? L.ResolveChinese("触发来源：") : "Triggered by:";
 
     internal static string TriggerSourceValues(CombatImpactGroup group)
     {
@@ -73,7 +74,7 @@ internal static class CombatImpactMetricFormatter
             parts.Add(
                 string.IsNullOrWhiteSpace(effectMarker)
                     ? chinese
-                        ? $"总计 {value}"
+                        ? $"{L.ResolveChinese("总计")} {value}"
                         : $"{value} total"
                     : $"{effectMarker}{value}"
             );
@@ -177,7 +178,7 @@ internal static class CombatImpactMetricFormatter
                 chinese,
                 effectMarker
             );
-            parts.Add(chinese ? $"总计 {value}" : $"{value} total");
+            parts.Add(chinese ? $"{L.ResolveChinese("总计")} {value}" : $"{value} total");
         }
         else if (group.ObservedValue.HasValue)
         {

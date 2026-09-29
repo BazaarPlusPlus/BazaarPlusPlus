@@ -1703,7 +1703,7 @@ internal sealed class NativePostCombatImpactTooltipView : IPostCombatImpactToolt
         )
         {
             var enchantment = NativeTagTypography.Resolve(variant).Label;
-            label = T($"{enchantment}{label}", $"{enchantment} {label}");
+            label = IsChinese() ? $"{enchantment}{label}" : $"{enchantment} {label}";
         }
         return (label, iconKey);
     }
@@ -1746,7 +1746,8 @@ internal sealed class NativePostCombatImpactTooltipView : IPostCombatImpactToolt
                 == NativeGameTypography.Outcome.Ready;
     }
 
-    private static string T(string chinese, string english) => IsChinese() ? chinese : english;
+    private static string T(string chinese, string english) =>
+        L.Resolve(new LocalizedTextSet(english, chinese));
 
     private sealed class ImpactContentBlock
     {

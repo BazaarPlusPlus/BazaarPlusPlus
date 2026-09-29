@@ -46,6 +46,7 @@
       Link="RemoteEmbeddedCatalogContracts.cs"
     />
     <Compile Include="Program.cs" />
+    <Compile Include="../Shared/LocalizationTestBootstrap.cs" Link="LocalizationTestBootstrap.cs" />
     <None
       Include="../../src/BazaarPlusPlus/Game/Supporters/supporter-list.json"
       Link="supporter-list.json"

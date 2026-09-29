@@ -29,28 +29,21 @@ internal static class BppSettingsDockCatalog
 
     internal static IReadOnlyList<BppSettingsDockDefinition> Definitions => _definitions;
 
+    private static readonly LocalizedTextSet PreviewOffStatus = new("OFF", "按键显示");
+    private static readonly LocalizedTextSet PreviewAutoStatus = new("AUTO", "智能切换");
+    private static readonly LocalizedTextSet PreviewAlwaysStatus = new("ON", "常驻显示");
+
     internal static string ResolvePreviewVisibilityModeStatus(
         PreviewVisibilityMode mode,
         string languageCode
     )
     {
-        if (LanguageCodeMatcher.IsChinese(languageCode))
+        var status = mode switch
         {
-            return mode switch
-            {
-                PreviewVisibilityMode.Off => "按键显示",
-                PreviewVisibilityMode.AutoOnPedestalChoice => "智能切换",
-                PreviewVisibilityMode.Always => "常驻显示",
-                _ => "智能切换",
-            };
-        }
-
-        return mode switch
-        {
-            PreviewVisibilityMode.Off => "OFF",
-            PreviewVisibilityMode.AutoOnPedestalChoice => "AUTO",
-            PreviewVisibilityMode.Always => "ON",
-            _ => "AUTO",
+            PreviewVisibilityMode.Off => PreviewOffStatus,
+            PreviewVisibilityMode.Always => PreviewAlwaysStatus,
+            _ => PreviewAutoStatus,
         };
+        return status.Resolve(languageCode, L.CurrentMode);
     }
 }

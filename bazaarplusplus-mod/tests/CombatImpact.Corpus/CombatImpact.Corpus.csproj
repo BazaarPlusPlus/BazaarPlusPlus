@@ -9,6 +9,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../../src/BazaarPlusPlus.ModApi/BazaarPlusPlus.ModApi.csproj" />
+    <ProjectReference Include="../../src/BazaarPlusPlus.Localization/BazaarPlusPlus.Localization.csproj" />
     <PackageReference Include="Microsoft.Data.Sqlite" />
     <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" />
     <Reference Include="BazaarGameShared">

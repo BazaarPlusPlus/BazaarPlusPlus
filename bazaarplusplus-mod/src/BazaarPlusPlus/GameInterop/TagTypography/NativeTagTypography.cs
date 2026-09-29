@@ -316,7 +316,7 @@ internal static class NativeTagTypography
             return false;
 
         overridden = new NativeTagDisplay(
-            LanguageCodeMatcher.IsChinese(L.CurrentLanguageCode) ? "任务" : display.Label,
+            NativeTagLabelText.Quest(display.Label),
             display.AccentColor,
             display.IconName
         );

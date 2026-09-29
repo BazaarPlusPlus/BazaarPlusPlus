@@ -28,6 +28,7 @@
 
   <ItemGroup>
     <EmbeddedResource Include="Fixtures/*.mpack.gz" />
+    <Compile Include="../Shared/LocalizationTestBootstrap.cs" Link="LocalizationTestBootstrap.cs" />
     <Compile Remove="FixtureGenerator/**/*.cs" />
     <!-- The whole Combat Impact accounting engine plus the runtime adapters it reads through.
          Directory globs rather than a per-file list: splitting or adding a file in these folders

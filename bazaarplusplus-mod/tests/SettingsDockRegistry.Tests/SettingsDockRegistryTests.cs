@@ -700,6 +700,7 @@ public class SettingsDockRegistryTests
         );
         try
         {
+            L.Install(new TestLanguageProvider(), new TestLocaleModeProvider());
             var configFile = new ConfigFile(configPath, saveOnInit: false);
             var config = new BppConfig();
             config.Initialize(configFile);
@@ -718,6 +719,7 @@ public class SettingsDockRegistryTests
         }
         finally
         {
+            L.Reset();
             if (File.Exists(configPath))
                 File.Delete(configPath);
         }
@@ -1376,21 +1378,40 @@ public class SettingsDockRegistryTests
     }
 
     [Theory]
-    [InlineData(0, "zh-CN", "按键显示")]
-    [InlineData(1, "zh-CN", "智能切换")]
-    [InlineData(2, "zh-CN", "常驻显示")]
-    [InlineData(0, "en", "OFF")]
-    [InlineData(1, "en", "AUTO")]
-    [InlineData(2, "en", "ON")]
+    [InlineData(0, "zh-CN", false, "按键显示")]
+    [InlineData(1, "zh-CN", false, "智能切换")]
+    [InlineData(2, "zh-CN", false, "常驻显示")]
+    [InlineData(0, "zh-CN", true, "按鍵顯示")]
+    [InlineData(1, "zh-CN", true, "智能切換")]
+    [InlineData(0, "en", false, "OFF")]
+    [InlineData(1, "en", false, "AUTO")]
+    [InlineData(2, "en", false, "ON")]
     public void ResolvePreviewVisibilityModeStatus_returns_localized_dock_status(
         int modeValue,
         string languageCode,
+        bool useTaiwanLocale,
         string expected
     )
     {
-        var mode = (PreviewVisibilityMode)modeValue;
-        var result = BppSettingsDockCatalog.ResolvePreviewVisibilityModeStatus(mode, languageCode);
+        try
+        {
+            L.Install(
+                new TestLanguageProvider(languageCode),
+                new TestLocaleModeProvider(
+                    useTaiwanLocale ? BppChineseLocaleMode.Taiwan : BppChineseLocaleMode.Mainland
+                )
+            );
+            var mode = (PreviewVisibilityMode)modeValue;
+            var result = BppSettingsDockCatalog.ResolvePreviewVisibilityModeStatus(
+                mode,
+                languageCode
+            );
 
-        Assert.Equal(expected, result);
+            Assert.Equal(expected, result);
+        }
+        finally
+        {
+            L.Reset();
+        }
     }
 }
