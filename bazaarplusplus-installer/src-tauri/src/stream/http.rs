@@ -1,6 +1,7 @@
 use super::overlay_settings::{validate_crop_settings, OverlayCropSettings, OverlaySettingsStore};
 use super::records::OverlayRecordRepository;
 use super::runtime::StreamRuntime;
+use super::strip::{render_strip, StripCache, StripRequest};
 use axum::http::StatusCode;
 use axum::{
     extract::{Path, Query, State},
@@ -9,16 +10,11 @@ use axum::{
     routing::get,
     Json, Router,
 };
-use image::{DynamicImage, ImageFormat};
 use include_dir::{include_dir, Dir};
 use serde::Deserialize;
 use std::{
     borrow::Cow,
-    collections::hash_map::DefaultHasher,
-    hash::{Hash, Hasher},
-    io::Cursor,
     path::{Path as FsPath, PathBuf},
-    time::UNIX_EPOCH,
 };
 use tower_http::cors::{AllowOrigin, CorsLayer};
 
@@ -254,14 +250,8 @@ async fn record_strip_image(
     Query(query): Query<StripPreviewQuery>,
     State(app_state): State<HttpAppState>,
 ) -> Response {
-    render_strip_image(
-        record_id,
-        query,
-        &app_state.overlay_records,
-        &app_state,
-        false,
-    )
-    .await
+    let records = app_state.overlay_records.clone();
+    serve_strip(records, record_id, query, StripCache::Overlay, app_state).await
 }
 
 async fn history_strip_image(
@@ -272,55 +262,37 @@ async fn history_strip_image(
     let Some(records) = app_state.runtime.history_preview_records(source) else {
         return StatusCode::NOT_FOUND.into_response();
     };
-    render_strip_image(record_id, query, &records, &app_state, true).await
+    serve_strip(records, record_id, query, StripCache::History, app_state).await
 }
 
-async fn render_strip_image(
+async fn serve_strip(
+    records: OverlayRecordRepository,
     record_id: String,
     query: StripPreviewQuery,
-    records: &OverlayRecordRepository,
-    app_state: &HttpAppState,
-    history: bool,
+    cache: StripCache,
+    app_state: HttpAppState,
 ) -> Response {
-    let crop = match resolve_strip_crop(&query, app_state) {
+    let crop = match requested_strip_crop(&query) {
         Ok(crop) => crop,
         Err(message) => return (StatusCode::BAD_REQUEST, message).into_response(),
     };
-
-    let path = match records.load_image_path(&record_id) {
-        Ok(Some(value)) => value,
-        Ok(None) => return StatusCode::NOT_FOUND.into_response(),
-        Err(message) => return (StatusCode::INTERNAL_SERVER_ERROR, message).into_response(),
+    let request = StripRequest {
+        record_id,
+        crop,
+        preview: query.preview.unwrap_or(false),
+        cache,
     };
+    let settings = app_state.overlay_settings;
+    let cache_root = app_state.cache_directory;
 
-    let strip_result = if query.preview.unwrap_or(false) {
-        run_strip_image_task(move || {
-            let bytes = std::fs::read(&path)
-                .map_err(|err| format!("Failed to read overlay source image: {err}"))?;
-            crop_strip_image(&bytes, crop)
-        })
-        .await
-    } else {
-        let cache_directory = if history {
-            // Two installations may have copied screenshot ids and identical file metadata.
-            let mut source = DefaultHasher::new();
-            path.hash(&mut source);
-            app_state
-                .cache_directory
-                .join("history")
-                .join(format!("{:016x}", source.finish()))
-        } else {
-            app_state.cache_directory.clone()
+    let strip_bytes =
+        match run_record_task(move || render_strip(&records, &settings, &cache_root, &request))
+            .await
+        {
+            Ok(Some(bytes)) => bytes,
+            Ok(None) => return StatusCode::NOT_FOUND.into_response(),
+            Err(message) => return (StatusCode::INTERNAL_SERVER_ERROR, message).into_response(),
         };
-        run_strip_image_task(move || {
-            load_or_create_strip_cache(&cache_directory, &record_id, &path, crop)
-        })
-        .await
-    };
-    let strip_bytes = match strip_result {
-        Ok(bytes) => bytes,
-        Err(message) => return (StatusCode::INTERNAL_SERVER_ERROR, message).into_response(),
-    };
 
     (
         [
@@ -332,18 +304,9 @@ async fn render_strip_image(
         .into_response()
 }
 
-async fn run_strip_image_task<F>(task: F) -> Result<Vec<u8>, String>
-where
-    F: FnOnce() -> Result<Vec<u8>, String> + Send + 'static,
-{
-    tauri::async_runtime::spawn_blocking(task)
-        .await
-        .map_err(|err| format!("Overlay strip task failed: {err}"))?
-}
-
-/// Repository reads open a SQLite connection that can sleep on a busy WAL and
-/// read a whole PNG, so they must not run on the shared tokio workers that also
-/// serve the Tauri async commands.
+/// Repository reads open a SQLite connection that can sleep on a busy database
+/// and read, decode or write whole images, so they must not run on the shared
+/// tokio workers that also serve the Tauri async commands.
 async fn run_record_task<T, F>(task: F) -> Result<T, String>
 where
     T: Send + 'static,
@@ -354,28 +317,25 @@ where
         .map_err(|err| format!("Overlay record task failed: {err}"))?
 }
 
-fn resolve_strip_crop(
-    query: &StripPreviewQuery,
-    app_state: &HttpAppState,
-) -> Result<OverlayCropSettings, String> {
-    if query.left.is_some()
-        || query.top.is_some()
-        || query.width.is_some()
-        || query.height.is_some()
+/// A crop given in the query, validated before any blocking work; `None` means
+/// the saved overlay settings apply.
+fn requested_strip_crop(query: &StripPreviewQuery) -> Result<Option<OverlayCropSettings>, String> {
+    if query.left.is_none()
+        && query.top.is_none()
+        && query.width.is_none()
+        && query.height.is_none()
     {
-        let defaults = OverlayCropSettings::default();
-        return validate_crop_settings(OverlayCropSettings {
-            left: query.left.unwrap_or(defaults.left),
-            top: query.top.unwrap_or(defaults.top),
-            width: query.width.unwrap_or(defaults.width),
-            height: query.height.unwrap_or(defaults.height),
-        });
+        return Ok(None);
     }
 
-    app_state
-        .overlay_settings
-        .load()
-        .map(|settings| settings.crop)
+    let defaults = OverlayCropSettings::default();
+    validate_crop_settings(OverlayCropSettings {
+        left: query.left.unwrap_or(defaults.left),
+        top: query.top.unwrap_or(defaults.top),
+        width: query.width.unwrap_or(defaults.width),
+        height: query.height.unwrap_or(defaults.height),
+    })
+    .map(Some)
 }
 
 fn detect_content_type(path: &FsPath) -> &'static str {
@@ -390,128 +350,6 @@ fn detect_content_type(path: &FsPath) -> &'static str {
         Some("webp") => "image/webp",
         _ => "application/octet-stream",
     }
-}
-
-fn sanitized_cache_name(value: &str) -> String {
-    value
-        .chars()
-        .map(|ch| match ch {
-            'a'..='z' | 'A'..='Z' | '0'..='9' | '-' | '_' => ch,
-            _ => '_',
-        })
-        .collect()
-}
-
-fn crop_cache_path(
-    cache_directory: &FsPath,
-    record_id: &str,
-    source_path: &FsPath,
-    crop: OverlayCropSettings,
-) -> Result<PathBuf, String> {
-    let metadata = std::fs::metadata(source_path).map_err(|err| {
-        format!(
-            "Failed to read source image metadata from {}: {err}",
-            source_path.display()
-        )
-    })?;
-    let modified = metadata
-        .modified()
-        .ok()
-        .and_then(|value| value.duration_since(UNIX_EPOCH).ok())
-        .map(|value| value.as_secs())
-        .unwrap_or(0);
-    let cache_name = format!(
-        "{}-{}-{}-{}-{}-{}-{}-strip.png",
-        sanitized_cache_name(record_id),
-        metadata.len(),
-        modified,
-        (crop.left * 10_000.0).round() as i64,
-        (crop.top * 10_000.0).round() as i64,
-        (crop.width * 10_000.0).round() as i64,
-        (crop.height * 10_000.0).round() as i64
-    );
-
-    Ok(cache_directory.join(cache_name))
-}
-
-fn load_or_create_strip_cache(
-    cache_directory: &FsPath,
-    record_id: &str,
-    source_path: &FsPath,
-    crop: OverlayCropSettings,
-) -> Result<Vec<u8>, String> {
-    let cache_path = crop_cache_path(cache_directory, record_id, source_path, crop)?;
-    if cache_path.exists() {
-        return std::fs::read(&cache_path).map_err(|err| {
-            format!(
-                "Failed to read cached overlay strip from {}: {err}",
-                cache_path.display()
-            )
-        });
-    }
-
-    let source_bytes = std::fs::read(source_path).map_err(|err| {
-        format!(
-            "Failed to read overlay source image from {}: {err}",
-            source_path.display()
-        )
-    })?;
-    let bytes = crop_strip_image(&source_bytes, crop)?;
-
-    if let Some(parent) = cache_path.parent() {
-        std::fs::create_dir_all(parent).map_err(|err| {
-            format!(
-                "Failed to create overlay cache directory {}: {err}",
-                parent.display()
-            )
-        })?;
-    }
-
-    std::fs::write(&cache_path, &bytes).map_err(|err| {
-        format!(
-            "Failed to write cached overlay strip to {}: {err}",
-            cache_path.display()
-        )
-    })?;
-
-    Ok(bytes)
-}
-
-fn crop_strip_image(source_bytes: &[u8], crop: OverlayCropSettings) -> Result<Vec<u8>, String> {
-    let image = image::load_from_memory(source_bytes)
-        .map_err(|err| format!("Failed to decode overlay source image: {err}"))?;
-    let cropped = crop_dynamic_image(image, crop)?;
-    let mut output = Cursor::new(Vec::new());
-    cropped
-        .write_to(&mut output, ImageFormat::Png)
-        .map_err(|err| format!("Failed to encode overlay strip image: {err}"))?;
-    Ok(output.into_inner())
-}
-
-fn crop_dynamic_image(
-    image: DynamicImage,
-    crop: OverlayCropSettings,
-) -> Result<DynamicImage, String> {
-    let width = image.width();
-    let height = image.height();
-    if width == 0 || height == 0 {
-        return Err("Overlay source image is empty.".to_string());
-    }
-
-    let left = ((width as f64) * crop.left)
-        .floor()
-        .clamp(0.0, (width - 1) as f64) as u32;
-    let top = ((height as f64) * crop.top)
-        .floor()
-        .clamp(0.0, (height - 1) as f64) as u32;
-    let crop_width = ((width as f64) * crop.width)
-        .round()
-        .clamp(1.0, (width - left) as f64) as u32;
-    let crop_height = ((height as f64) * crop.height)
-        .round()
-        .clamp(1.0, (height - top) as f64) as u32;
-
-    Ok(image.crop_imm(left, top, crop_width, crop_height))
 }
 
 async fn overlay_css() -> Response {
@@ -609,15 +447,13 @@ async fn badge_asset(Path((category, file_name)): Path<(String, String)>) -> Res
 #[cfg(test)]
 mod tests {
     use super::{
-        crop_cache_path, crop_dynamic_image, is_allowed_cors_origin, load_or_create_strip_cache,
-        overlay_asset_path, BADGES_DIR, BADGE_ROUTE, CINZEL_FONT, CINZEL_FONT_ROUTE,
-        CROP_CONFIG_ROUTE, LATEST_RECORD_ROUTE, OVERLAY_CSS, OVERLAY_CSS_ROUTE, OVERLAY_JS_ROUTE,
-        OVERLAY_ROUTE, RECORD_IMAGE_ROUTE, RECORD_LIST_ROUTE, SETTINGS_CSS_ROUTE,
+        is_allowed_cors_origin, overlay_asset_path, BADGES_DIR, BADGE_ROUTE, CINZEL_FONT,
+        CINZEL_FONT_ROUTE, CROP_CONFIG_ROUTE, LATEST_RECORD_ROUTE, OVERLAY_CSS, OVERLAY_CSS_ROUTE,
+        OVERLAY_JS_ROUTE, OVERLAY_ROUTE, RECORD_IMAGE_ROUTE, RECORD_LIST_ROUTE, SETTINGS_CSS_ROUTE,
         SETTINGS_JS_ROUTE, SETTINGS_ROUTE, STRIP_IMAGE_ROUTE,
     };
-    use crate::stream::overlay_settings::OverlayCropSettings;
+    use super::{router, OverlayRecordRepository, OverlaySettingsStore, StreamRuntime};
     use axum::http::HeaderValue;
-    use image::{DynamicImage, GenericImageView, RgbaImage};
 
     #[test]
     fn overlay_asset_path_points_to_stream_resources() {
@@ -719,35 +555,95 @@ mod tests {
         }
     }
 
-    #[test]
-    fn crop_dynamic_image_returns_expected_dimensions() {
-        let image = DynamicImage::ImageRgba8(RgbaImage::new(1000, 500));
-        let crop = OverlayCropSettings {
-            left: 0.25,
-            top: 0.2,
-            width: 0.5,
-            height: 0.3,
-        };
-
-        let cropped = crop_dynamic_image(image, crop).unwrap();
-
-        assert_eq!(cropped.dimensions(), (500, 150));
+    fn locked_screenshot_fixture(game_path: &std::path::Path) -> rusqlite::Connection {
+        let screenshots = crate::services::paths::screenshots_dir(game_path);
+        std::fs::create_dir_all(&screenshots).unwrap();
+        image::RgbaImage::from_pixel(64, 32, image::Rgba([20, 80, 160, 255]))
+            .save(screenshots.join("shot.png"))
+            .unwrap();
+        // The default rollback journal lets an exclusive lock block readers, as a
+        // game write or checkpoint can.
+        let connection =
+            rusqlite::Connection::open(crate::services::paths::database_path(game_path)).unwrap();
+        connection
+            .execute_batch(
+                "pragma user_version = 2;
+                create table run_screenshots (
+                    screenshot_id text primary key, capture_source text,
+                    image_relative_path text, hero_name text, captured_at_local text,
+                    captured_at_utc text, victories_at_capture integer, day integer,
+                    player_rank text, player_rating integer
+                );
+                insert into run_screenshots values (
+                    'shot-1', 'end_of_run_auto', 'shot.png', 'Vanessa',
+                    '2026-09-01T00:00:00Z', '2026-09-01T00:00:00Z', 10, 10, null, null
+                );
+                begin exclusive;",
+            )
+            .unwrap();
+        connection
     }
 
-    #[test]
-    fn strip_cache_hit_does_not_decode_source_image() {
-        let temp_dir = tempfile::tempdir().unwrap();
-        let source_path = temp_dir.path().join("source.png");
-        let cache_directory = temp_dir.path().join("cache");
-        let crop = OverlayCropSettings::default();
-        std::fs::write(&source_path, b"not an image").unwrap();
-        let cache_path = crop_cache_path(&cache_directory, "shot-1", &source_path, crop).unwrap();
-        std::fs::create_dir_all(cache_path.parent().unwrap()).unwrap();
-        std::fs::write(&cache_path, b"cached strip").unwrap();
+    #[tokio::test]
+    async fn strip_requests_leave_the_async_runtime_free_while_the_database_is_locked() {
+        use tower::ServiceExt;
+        let temp = tempfile::tempdir().unwrap();
+        let game_path = temp.path().join("game");
+        let lock = locked_screenshot_fixture(&game_path);
+        let runtime = StreamRuntime::default();
+        let prefix = runtime.register_history_preview(&game_path);
+        let app = router(
+            OverlayRecordRepository::new(Some(game_path)),
+            runtime,
+            OverlaySettingsStore::new(temp.path().join("settings.json")),
+            temp.path().join("cache"),
+        );
+        let requests = [
+            "/images/shot-1/strip".to_string(),
+            format!("{prefix}/images/shot-1/strip"),
+            "/images/shot-1/strip?preview=true&left=0.1".to_string(),
+        ]
+        .map(|uri| {
+            tokio::spawn(
+                app.clone().oneshot(
+                    axum::http::Request::builder()
+                        .uri(uri)
+                        .body(axum::body::Body::empty())
+                        .unwrap(),
+                ),
+            )
+        });
 
-        let bytes =
-            load_or_create_strip_cache(&cache_directory, "shot-1", &source_path, crop).unwrap();
+        // This current-thread runtime is the only worker: the ticker advances
+        // only if every pending strip request has yielded it.
+        let started = std::time::Instant::now();
+        for _ in 0..32 {
+            tokio::task::yield_now().await;
+        }
+        assert!(
+            started.elapsed() < std::time::Duration::from_millis(500),
+            "ticker stalled for {:?}",
+            started.elapsed()
+        );
+        assert!(requests.iter().all(|request| !request.is_finished()));
 
-        assert_eq!(bytes, b"cached strip");
+        drop(lock);
+        for request in requests {
+            let response = request.await.unwrap().unwrap();
+            let status = response.status();
+            let headers = response.headers().clone();
+            let body = axum::body::to_bytes(response.into_body(), 1024 * 1024)
+                .await
+                .unwrap();
+            assert_eq!(
+                status,
+                axum::http::StatusCode::OK,
+                "{}",
+                String::from_utf8_lossy(&body)
+            );
+            assert_eq!(headers["content-type"], "image/png");
+            assert_eq!(headers["cache-control"], "no-store");
+            image::load_from_memory(&body).unwrap();
+        }
     }
 }

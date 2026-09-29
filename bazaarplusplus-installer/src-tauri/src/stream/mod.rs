@@ -4,3 +4,4 @@ mod records;
 pub(crate) mod runtime;
 mod server;
 pub(crate) mod state;
+mod strip;
