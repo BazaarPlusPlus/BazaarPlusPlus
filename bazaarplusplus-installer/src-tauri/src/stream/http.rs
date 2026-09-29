@@ -155,10 +155,12 @@ fn badge_asset_path(category: &str, file_name: &str) -> PathBuf {
 
 /// Borrowed in release so the six static asset routes serve the embedded text
 /// without copying; owned only on the debug-only filesystem hot-reload path.
-fn load_overlay_asset(_file_name: &str, embedded: &'static str) -> Cow<'static, str> {
+async fn load_overlay_asset(_file_name: &str, embedded: &'static str) -> Cow<'static, str> {
     #[cfg(debug_assertions)]
     {
-        if let Ok(contents) = std::fs::read_to_string(overlay_asset_path(_file_name)) {
+        let path = overlay_asset_path(_file_name);
+        let read = move || std::fs::read_to_string(path).map_err(|err| err.to_string());
+        if let Ok(contents) = run_record_task(read).await {
             return Cow::Owned(contents);
         }
     }
@@ -167,11 +169,11 @@ fn load_overlay_asset(_file_name: &str, embedded: &'static str) -> Cow<'static, 
 }
 
 async fn overlay_page() -> Html<Cow<'static, str>> {
-    Html(load_overlay_asset("overlay.html", OVERLAY_HTML))
+    Html(load_overlay_asset("overlay.html", OVERLAY_HTML).await)
 }
 
 async fn settings_page() -> Html<Cow<'static, str>> {
-    Html(load_overlay_asset("settings.html", SETTINGS_HTML))
+    Html(load_overlay_asset("settings.html", SETTINGS_HTML).await)
 }
 
 async fn latest_record(
@@ -205,7 +207,8 @@ async fn record_list(
 }
 
 async fn get_crop_config(State(app_state): State<HttpAppState>) -> Response {
-    match app_state.overlay_settings.load_payload() {
+    let settings = app_state.overlay_settings;
+    match run_record_task(move || settings.load_payload()).await {
         Ok(payload) => Json(payload).into_response(),
         Err(message) => (StatusCode::INTERNAL_SERVER_ERROR, message).into_response(),
     }
@@ -215,7 +218,8 @@ async fn save_crop_config(
     State(app_state): State<HttpAppState>,
     Json(request): Json<SaveCropConfigRequest>,
 ) -> Response {
-    match app_state.overlay_settings.save(request.crop) {
+    let settings = app_state.overlay_settings;
+    match run_record_task(move || settings.save(request.crop)).await {
         Ok(payload) => Json(payload).into_response(),
         Err(message) => (StatusCode::BAD_REQUEST, message).into_response(),
     }
@@ -282,9 +286,9 @@ pub(super) fn png_response(bytes: Vec<u8>) -> Response {
         .into_response()
 }
 
-/// Repository reads open a SQLite connection that can sleep on a busy database
-/// and read, decode or write whole images, so they must not run on the shared
-/// tokio workers that also serve the Tauri async commands.
+/// Every SQLite or filesystem access a handler makes runs here: a SQLite open
+/// can sleep on a busy database, and file reads and writes block, so none may
+/// run on the shared tokio workers that also serve the Tauri async commands.
 pub(super) async fn run_record_task<T, F>(task: F) -> Result<T, String>
 where
     T: Send + 'static,
@@ -336,7 +340,7 @@ async fn overlay_css() -> Response {
             header::CONTENT_TYPE,
             HeaderValue::from_static("text/css; charset=utf-8"),
         )],
-        load_overlay_asset("overlay.css", OVERLAY_CSS),
+        load_overlay_asset("overlay.css", OVERLAY_CSS).await,
     )
         .into_response()
 }
@@ -347,7 +351,7 @@ async fn overlay_js() -> Response {
             header::CONTENT_TYPE,
             HeaderValue::from_static("application/javascript; charset=utf-8"),
         )],
-        load_overlay_asset("overlay.js", OVERLAY_JS),
+        load_overlay_asset("overlay.js", OVERLAY_JS).await,
     )
         .into_response()
 }
@@ -358,7 +362,7 @@ async fn settings_css() -> Response {
             header::CONTENT_TYPE,
             HeaderValue::from_static("text/css; charset=utf-8"),
         )],
-        load_overlay_asset("settings.css", SETTINGS_CSS),
+        load_overlay_asset("settings.css", SETTINGS_CSS).await,
     )
         .into_response()
 }
@@ -369,7 +373,7 @@ async fn settings_js() -> Response {
             header::CONTENT_TYPE,
             HeaderValue::from_static("application/javascript; charset=utf-8"),
         )],
-        load_overlay_asset("settings.js", SETTINGS_JS),
+        load_overlay_asset("settings.js", SETTINGS_JS).await,
     )
         .into_response()
 }
@@ -396,7 +400,8 @@ async fn badge_asset(Path((category, file_name)): Path<(String, String)>) -> Res
     #[cfg(debug_assertions)]
     {
         let path = badge_asset_path(&category, &file_name);
-        if let Ok(bytes) = std::fs::read(&path) {
+        let read = move || std::fs::read(path).map_err(|err| err.to_string());
+        if let Ok(bytes) = run_record_task(read).await {
             return (
                 [(
                     header::CONTENT_TYPE,
@@ -629,5 +634,134 @@ mod tests {
             assert_eq!(headers["cache-control"], "no-store");
             image::load_from_memory(&body).unwrap();
         }
+    }
+
+    /// Opening a FIFO blocks until the other end opens, so the settings file
+    /// stalls whichever thread reads or writes it until `serve` runs.
+    #[cfg(unix)]
+    fn blocking_settings_file(
+        path: &std::path::Path,
+        serve: impl FnOnce(&std::path::Path) + Send + 'static,
+    ) -> std::sync::mpsc::Sender<()> {
+        let status = std::process::Command::new("mkfifo")
+            .arg(path)
+            .status()
+            .unwrap();
+        assert!(status.success());
+        let (release, released) = std::sync::mpsc::channel();
+        let path = path.to_path_buf();
+        std::thread::spawn(move || {
+            // Serves anyway after the timeout, so a handler that blocks the
+            // runtime fails the ticker assertion instead of hanging the test.
+            let _ = released.recv_timeout(std::time::Duration::from_secs(2));
+            serve(&path);
+        });
+        release
+    }
+
+    #[cfg(unix)]
+    async fn assert_request_leaves_the_async_runtime_free(
+        app: axum::Router,
+        request: axum::http::Request<axum::body::Body>,
+        release: std::sync::mpsc::Sender<()>,
+    ) -> (axum::http::StatusCode, serde_json::Value) {
+        use tower::ServiceExt;
+        let request = tokio::spawn(app.oneshot(request));
+
+        // This current-thread runtime is the only worker: the ticker advances
+        // only if the pending request has yielded it.
+        let started = std::time::Instant::now();
+        for _ in 0..32 {
+            tokio::task::yield_now().await;
+        }
+        assert!(
+            started.elapsed() < std::time::Duration::from_millis(500),
+            "ticker stalled for {:?}",
+            started.elapsed()
+        );
+        assert!(!request.is_finished());
+
+        release.send(()).unwrap();
+        let response = request.await.unwrap().unwrap();
+        let status = response.status();
+        let body = axum::body::to_bytes(response.into_body(), 1024 * 1024)
+            .await
+            .unwrap();
+        (status, serde_json::from_slice(&body).unwrap())
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn crop_config_requests_leave_the_async_runtime_free_while_the_settings_file_blocks() {
+        use std::io::{Read, Write};
+        let temp = tempfile::tempdir().unwrap();
+        let settings_path = temp.path().join("settings.json");
+        let app = router(
+            OverlayRecordRepository::new(None),
+            StreamRuntime::default(),
+            HistoryThumbnails::default(),
+            OverlaySettingsStore::new(settings_path.clone()),
+            temp.path().join("cache"),
+        );
+        let saved = serde_json::json!({
+            "v": 4,
+            "crop": { "left": 0.1, "top": 0.2, "width": 0.3, "height": 0.4 },
+            "display_mode": "hero"
+        });
+
+        let document = saved.to_string();
+        let release = blocking_settings_file(&settings_path, move |path| {
+            let mut writer = std::fs::OpenOptions::new().write(true).open(path).unwrap();
+            writer.write_all(document.as_bytes()).unwrap();
+        });
+        let (status, payload) = assert_request_leaves_the_async_runtime_free(
+            app.clone(),
+            axum::http::Request::builder()
+                .uri(CROP_CONFIG_ROUTE)
+                .body(axum::body::Body::empty())
+                .unwrap(),
+            release,
+        )
+        .await;
+        assert_eq!(status, axum::http::StatusCode::OK);
+        assert_eq!(
+            payload["crop"],
+            serde_json::json!({ "left": 0.1, "top": 0.2, "width": 0.3, "height": 0.4 })
+        );
+        assert_eq!(payload["display_mode"], "hero");
+
+        std::fs::remove_file(&settings_path).unwrap();
+        let (written_tx, written_rx) = std::sync::mpsc::channel();
+        let release = blocking_settings_file(&settings_path, move |path| {
+            // An empty read makes the save keep the default display mode.
+            drop(std::fs::OpenOptions::new().write(true).open(path).unwrap());
+            let mut written = String::new();
+            std::fs::File::open(path)
+                .unwrap()
+                .read_to_string(&mut written)
+                .unwrap();
+            written_tx.send(written).unwrap();
+        });
+        let (status, payload) = assert_request_leaves_the_async_runtime_free(
+            app,
+            axum::http::Request::builder()
+                .method("POST")
+                .uri(CROP_CONFIG_ROUTE)
+                .header("content-type", "application/json")
+                .body(axum::body::Body::from(
+                    r#"{"crop":{"left":0.25,"top":0.25,"width":0.5,"height":0.5}}"#,
+                ))
+                .unwrap(),
+            release,
+        )
+        .await;
+        assert_eq!(status, axum::http::StatusCode::OK);
+        assert_eq!(
+            payload["crop"],
+            serde_json::json!({ "left": 0.25, "top": 0.25, "width": 0.5, "height": 0.5 })
+        );
+        let written: serde_json::Value = serde_json::from_str(&written_rx.recv().unwrap()).unwrap();
+        assert_eq!(written["crop"], payload["crop"]);
+        assert_eq!(written["display_mode"], "current");
     }
 }

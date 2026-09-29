@@ -20,6 +20,10 @@ Tests prove a behavior seam, an observable outcome of the boundary under test, t
 
 `just installer::dev` serves the frontend alone at `http://127.0.0.1:14207/`; anything touching a native command needs the full shell from `just installer::app`.
 
+## Stream service
+
+Stream HTTP handlers run every SQLite or filesystem access through `run_record_task` in `src-tauri/src/stream/http.rs`; the async workers also serve Tauri commands, and `open_with_retry` in `src-tauri/src/history/queries.rs` sleeps.
+
 ## Documentation
 
 - `docs/*.md` states current behavior, one file per task branch, and `CONTEXT.md` links every one of them. Re-verify every claim in a current-behavior document you change.
