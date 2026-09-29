@@ -1,5 +1,6 @@
 #nullable enable
 using BazaarPlusPlus.Game.PostCombatImpact.Data;
+using BazaarPlusPlus.Localization;
 
 namespace BazaarPlusPlus.Game.PostCombatImpact.Ui;
 
@@ -11,6 +12,18 @@ internal static class CombatImpactAttributeLabel
         int? changeValue,
         bool chinese,
         bool hasMixedValueDirections = false
+    )
+    {
+        var label = ResolveAuthored(key, surface, changeValue, chinese, hasMixedValueDirections);
+        return chinese ? L.ResolveChinese(label) : label;
+    }
+
+    private static string ResolveAuthored(
+        string key,
+        CombatImpactEventSurface surface,
+        int? changeValue,
+        bool chinese,
+        bool hasMixedValueDirections
     )
     {
         var variantSeparator = key.IndexOf(':');

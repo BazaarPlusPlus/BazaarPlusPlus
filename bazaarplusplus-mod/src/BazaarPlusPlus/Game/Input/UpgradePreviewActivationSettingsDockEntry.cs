@@ -35,11 +35,13 @@ internal static class UpgradePreviewActivationSettingsDockEntry
             ResolveStatus
         );
 
-    private static string ResolveStatus(HotkeyActivationMode mode, string languageCode)
-    {
-        if (LanguageCodeMatcher.IsChinese(languageCode))
-            return mode == HotkeyActivationMode.Toggle ? "按下 Shift 切换" : "按住 Shift";
+    private static readonly LocalizedTextSet ToggleStatus = new("TOGGLE SHIFT", "按下 Shift 切换");
 
-        return mode == HotkeyActivationMode.Toggle ? "TOGGLE SHIFT" : "HOLD SHIFT";
-    }
+    private static readonly LocalizedTextSet HoldStatus = new("HOLD SHIFT", "按住 Shift");
+
+    private static string ResolveStatus(HotkeyActivationMode mode, string languageCode) =>
+        (mode == HotkeyActivationMode.Toggle ? ToggleStatus : HoldStatus).Resolve(
+            languageCode,
+            L.CurrentMode
+        );
 }

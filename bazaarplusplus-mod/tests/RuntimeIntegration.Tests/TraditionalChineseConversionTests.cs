@@ -65,6 +65,33 @@ public sealed class TraditionalChineseConversionTests
         );
     }
 
+    // Remote voice-line text: one-to-many characters resolved by word, 里 as "inside" versus
+    // transliterated names and miles.
+    [Theory]
+    [InlineData("我们会永远在你的脑海里占据一席之地。", "我們會永遠在你的腦海裡佔據一席之地。")]
+    [InlineData("喜欢我的头发吗？它也喜欢你。", "喜歡我的頭髮嗎？它也喜歡你。")]
+    [InlineData(
+        "也许如果我明白发生了什么，就不会那么害怕了。",
+        "也許如果我明白發生了什麼，就不會那麼害怕了。"
+    )]
+    [InlineData("欢迎来到我的面包房……你看上去很美味。", "歡迎來到我的麵包房……你看上去很美味。")]
+    [InlineData("街上游荡着什么奇怪生物？", "街上遊蕩著什麼奇怪生物？")]
+    [InlineData("刚才干净得像我们的桌布。五星满分。", "剛才乾淨得像我們的桌布。五星滿分。")]
+    [InlineData("我相信那只是谣言。", "我相信那只是謠言。")]
+    [InlineData(
+        "不是里格先生，不是老里格，而是里格教授！",
+        "不是里格先生，不是老里格，而是里格教授！"
+    )]
+    [InlineData("其他玛里也会制造混乱。", "其他瑪里也會製造混亂。")]
+    [InlineData("数百英里厚的固体", "數百英里厚的固體")]
+    public void Taiwan_mode_converts_voice_line_words(string mainland, string expected)
+    {
+        Assert.Equal(
+            expected,
+            ChineseScriptConverter.Convert(mainland, null, BppChineseLocaleMode.Taiwan)
+        );
+    }
+
     private static List<string> CompiledChineseLiterals(string assembly)
     {
         using var stream = File.OpenRead(assembly);

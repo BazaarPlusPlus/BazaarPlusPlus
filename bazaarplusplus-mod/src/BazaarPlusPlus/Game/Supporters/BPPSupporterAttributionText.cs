@@ -5,19 +5,23 @@ namespace BazaarPlusPlus.Game.Supporters;
 
 internal static class BPPSupporterAttributionText
 {
+    private static readonly LocalizedTextSet SupportedByPrefix = new("Supported by", "由");
+    private static readonly LocalizedTextSet SupportedBySuffix = new(string.Empty, "支持");
+    private static readonly LocalizedTextSet SponsorAction = new("Sponsor", "赞助");
+
     public static string FormatSupportedByPrefix(string languageCode)
     {
-        return LanguageCodeMatcher.IsChinese(languageCode) ? "由" : "Supported by";
+        return SupportedByPrefix.Resolve(languageCode, L.CurrentMode);
     }
 
     public static string FormatSupportedBySuffix(string languageCode)
     {
-        return LanguageCodeMatcher.IsChinese(languageCode) ? "支持" : string.Empty;
+        return SupportedBySuffix.Resolve(languageCode, L.CurrentMode);
     }
 
     public static string FormatSponsorAction(string languageCode)
     {
-        return LanguageCodeMatcher.IsChinese(languageCode) ? "赞助" : "Sponsor";
+        return SponsorAction.Resolve(languageCode, L.CurrentMode);
     }
 
     public static string FormatSupportedBy(string supporterName, string languageCode)

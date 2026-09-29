@@ -1,6 +1,7 @@
 using System.Runtime.CompilerServices;
 
 [assembly: InternalsVisibleTo("BazaarPlusPlus")]
+[assembly: InternalsVisibleTo("CombatImpact.Corpus")]
 [assembly: InternalsVisibleTo("CombatStatusBarState.Tests")]
 [assembly: InternalsVisibleTo("Supporters.Tests")]
 [assembly: InternalsVisibleTo("UiFoundation.Tests")]
@@ -9,5 +10,6 @@ using System.Runtime.CompilerServices;
 [assembly: InternalsVisibleTo("HistoryPanelFiltering.Tests")]
 [assembly: InternalsVisibleTo("HistoryPanelServerHealth.Tests")]
 [assembly: InternalsVisibleTo("LiveBuildRecommendations.Tests")]
+[assembly: InternalsVisibleTo("PostCombatImpact.Tests")]
 [assembly: InternalsVisibleTo("RuntimeIntegration.Tests")]
 [assembly: InternalsVisibleTo("CollectionEncounterTooltip.Tests")]

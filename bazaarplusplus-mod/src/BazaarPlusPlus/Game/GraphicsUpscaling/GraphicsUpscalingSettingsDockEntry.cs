@@ -46,30 +46,29 @@ internal static class GraphicsUpscalingSettingsDockEntry
         registry.Register(GraphicsUpscalingSharpnessSettingsDockEntry.Create());
     }
 
+    private static readonly LocalizedTextSet NativeStatus = new("NATIVE", "原生");
+    private static readonly LocalizedTextSet UltraQualityStatus = new(
+        "ULTRA QUALITY · 77%",
+        "超高质量 · 77%"
+    );
+    private static readonly LocalizedTextSet QualityStatus = new("QUALITY · 67%", "质量 · 67%");
+    private static readonly LocalizedTextSet BalancedStatus = new("BALANCED · 59%", "均衡 · 59%");
+    private static readonly LocalizedTextSet PerformanceStatus = new(
+        "PERFORMANCE · 50%",
+        "性能 · 50%"
+    );
+
     private static string ResolveStatus(GraphicsUpscalingMode mode, string languageCode)
     {
-        if (LanguageCodeMatcher.IsChinese(languageCode))
+        var status = mode switch
         {
-            return mode switch
-            {
-                GraphicsUpscalingMode.Native => "原生",
-                GraphicsUpscalingMode.FsrUltraQuality => "超高质量 · 77%",
-                GraphicsUpscalingMode.FsrQuality => "质量 · 67%",
-                GraphicsUpscalingMode.FsrBalanced => "均衡 · 59%",
-                GraphicsUpscalingMode.FsrPerformance => "性能 · 50%",
-                _ => "原生",
-            };
-        }
-
-        return mode switch
-        {
-            GraphicsUpscalingMode.Native => "NATIVE",
-            GraphicsUpscalingMode.FsrUltraQuality => "ULTRA QUALITY · 77%",
-            GraphicsUpscalingMode.FsrQuality => "QUALITY · 67%",
-            GraphicsUpscalingMode.FsrBalanced => "BALANCED · 59%",
-            GraphicsUpscalingMode.FsrPerformance => "PERFORMANCE · 50%",
-            _ => "NATIVE",
+            GraphicsUpscalingMode.FsrUltraQuality => UltraQualityStatus,
+            GraphicsUpscalingMode.FsrQuality => QualityStatus,
+            GraphicsUpscalingMode.FsrBalanced => BalancedStatus,
+            GraphicsUpscalingMode.FsrPerformance => PerformanceStatus,
+            _ => NativeStatus,
         };
+        return status.Resolve(languageCode, L.CurrentMode);
     }
 }
 
@@ -104,9 +103,10 @@ internal static class GraphicsUpscalingSharpnessSettingsDockEntry
         var percentage = $"{MathF.Round(sharpness * 100f)}%";
         if (Approximately(sharpness, BppConfig.DefaultFsrSharpness))
         {
-            return LanguageCodeMatcher.IsChinese(languageCode)
-                ? $"推荐 · {percentage}"
-                : $"RECOMMENDED · {percentage}";
+            return new LocalizedTextSet(
+                $"RECOMMENDED · {percentage}",
+                $"推荐 · {percentage}"
+            ).Resolve(languageCode, L.CurrentMode);
         }
 
         return percentage;

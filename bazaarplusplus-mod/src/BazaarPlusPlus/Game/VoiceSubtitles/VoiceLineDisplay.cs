@@ -6,6 +6,7 @@ using BazaarPlusPlus.Game.VoiceSubtitles.Settings;
 using BazaarPlusPlus.GameInterop.Fonts;
 using BazaarPlusPlus.GameInterop.VoiceSubtitles;
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Localization;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -326,8 +327,7 @@ internal static class VoiceLineDisplay
         var chinese =
             settings.LanguageMode == SubtitleLanguageMode.EnglishOnly
                 ? string.Empty
-                : line.Chinese.Trim();
-        chinese = ConvertCenteredChineseTrailingPunctuation(chinese, settings.Position);
+                : DisplayChinese(line.Chinese, settings.Position);
 
         if (string.IsNullOrEmpty(english) && string.IsNullOrEmpty(chinese))
             return DisplayText.Empty;
@@ -681,6 +681,10 @@ internal static class VoiceLineDisplay
 
         return settings.ChineseFontScale;
     }
+
+    // The catalog stores Simplified text; Taiwan mode converts it only for display.
+    internal static string DisplayChinese(string chinese, SubtitlePosition position) =>
+        ConvertCenteredChineseTrailingPunctuation(L.ResolveChinese(chinese.Trim()), position);
 
     internal static string ConvertCenteredChineseTrailingPunctuation(
         string chinese,

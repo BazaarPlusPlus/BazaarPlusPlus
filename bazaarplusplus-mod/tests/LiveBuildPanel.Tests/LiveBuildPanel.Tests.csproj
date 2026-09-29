@@ -74,6 +74,10 @@
       Link="ChineseScriptConverter.cs"
     />
     <Compile
+      Include="../../src/BazaarPlusPlus.Localization/OpenCcTraditionalCharacters.cs"
+      Link="OpenCcTraditionalCharacters.cs"
+    />
+    <Compile
       Include="../../src/BazaarPlusPlus.Localization/BppChineseLocaleMode.cs"
       Link="BppChineseLocaleMode.cs"
     />

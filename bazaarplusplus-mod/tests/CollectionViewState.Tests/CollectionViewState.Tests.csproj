@@ -238,6 +238,10 @@
       Link="ChineseScriptConverter.cs"
     />
     <Compile
+      Include="..\..\src\BazaarPlusPlus.Localization\OpenCcTraditionalCharacters.cs"
+      Link="OpenCcTraditionalCharacters.cs"
+    />
+    <Compile
       Include="..\..\src\BazaarPlusPlus\GameInterop\DayTiers\GameDataDayTierResolver.cs"
       Link="GameDataDayTierResolver.cs"
     />
