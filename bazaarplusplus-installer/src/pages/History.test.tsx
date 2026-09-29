@@ -282,6 +282,56 @@ describe('History thumbnails', () => {
     }
   );
 
+  it.each([
+    [
+      'zh',
+      '缩略图服务无法启动，本地端口可能被占用；战绩仍可正常浏览。',
+      '缩略图不可用；刷新页面可重试。',
+      '刷新'
+    ],
+    [
+      'en',
+      "Thumbnails can't load: the local image service couldn't start (its port may be in use). History still works.",
+      'Thumbnail unavailable; refresh to retry.',
+      'Refresh'
+    ]
+  ] as const)(
+    'tells %s readers when the image service cannot start, above cards that keep their fallback',
+    async (locale, notice, fallback, refresh) => {
+      localStorage.setItem(LOCALE_STORAGE_KEY, locale);
+      vi.mocked(listHistoryRuns).mockResolvedValue(thumbnailPage(0, 'Vanessa'));
+      vi.mocked(prepareHistoryThumbnails).mockRejectedValue({
+        code: 'history_thumbnails_unavailable',
+        params: { operation: 'prepare_history_thumbnails' },
+        diagnostic: 'Address already in use (os error 48)'
+      });
+      await render('/history');
+      const status = [...container.querySelectorAll('[role="status"]')].find(
+        (element) => element.textContent?.includes(notice)
+      );
+      expect(status).toBeDefined();
+      expect(status!.querySelector('button, a')).toBeNull();
+      expect(
+        status!.compareDocumentPosition(
+          container.querySelector('.bpp-history-run-list')!
+        ) & Node.DOCUMENT_POSITION_FOLLOWING
+      ).toBeTruthy();
+      expect(container.textContent).toContain('Vanessa');
+      expect(
+        container.querySelector('.bpp-history-run-preview-empty')?.textContent
+      ).toBe(fallback);
+
+      vi.mocked(prepareHistoryThumbnails).mockResolvedValue(null);
+      await click(refresh);
+      expect(container.textContent).not.toContain(notice);
+      expect(
+        container
+          .querySelector('.bpp-history-run-preview img')
+          ?.getAttribute('src')
+      ).toBe(thumbnailUrl(0));
+    }
+  );
+
   it('keeps loaded thumbnails through a focus refresh and retries only failed ones', async () => {
     vi.mocked(listHistoryRuns).mockResolvedValue({
       ...loadedPage(0, 2),

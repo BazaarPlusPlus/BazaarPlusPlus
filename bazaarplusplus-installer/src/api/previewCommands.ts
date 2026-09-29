@@ -1,4 +1,5 @@
 import type { CommandAdapter } from './commandAdapter';
+import { SemanticProblemError } from './problems';
 import {
   defaultCropSettings,
   emptyHistoryRunList,
@@ -25,7 +26,14 @@ export function createPreviewCommands(native: CommandAdapter): CommandAdapter {
     endGameProcess: async () => false,
     getStreamStatus: async () => idleStreamStatus,
     ensureStreamSession: async () => idleStreamStatus,
-    prepareHistoryThumbnails: async () => null,
+    // Browser Preview serves no images, so History shows its unavailable notice.
+    prepareHistoryThumbnails: async () => {
+      throw new SemanticProblemError({
+        code: 'history_thumbnails_unavailable',
+        params: { operation: 'prepare_history_thumbnails' },
+        diagnostic: null
+      });
+    },
     restartStreamSession: async () => idleStreamStatus,
     setStreamWindow: async () => idleStreamStatus,
     getOverlaySettings: async () => defaultCropSettings,

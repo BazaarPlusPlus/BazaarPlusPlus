@@ -39,7 +39,7 @@ pub async fn prepare_history_thumbnails(
     runtime
         .prepare_history_thumbnails(app)
         .await
-        .map_err(|diagnostic| stream_service_problem("prepare_history_thumbnails", diagnostic))
+        .map_err(history_thumbnails_problem)
 }
 
 #[tauri::command]
@@ -109,6 +109,14 @@ fn stream_service_problem(operation: &str, diagnostic: String) -> SemanticProble
         .with_diagnostic(diagnostic)
 }
 
+/// The only failure of History Thumbnail preparation is a service start
+/// failure; History names it on its own while the Stream status keeps the error.
+fn history_thumbnails_problem(diagnostic: String) -> SemanticProblem {
+    SemanticProblem::new(SemanticProblemCode::HistoryThumbnailsUnavailable)
+        .with_param("operation", "prepare_history_thumbnails")
+        .with_diagnostic(diagnostic)
+}
+
 fn stream_window_problem(offset: usize, diagnostic: String) -> SemanticProblem {
     SemanticProblem::new(SemanticProblemCode::StreamWindowFailed)
         .with_param("operation", "set_window")
@@ -124,8 +132,28 @@ fn stream_crop_problem(operation: &str, diagnostic: String) -> SemanticProblem {
 
 #[cfg(test)]
 mod tests {
-    use super::{stream_crop_problem, stream_service_problem, stream_window_problem};
+    use super::{
+        history_thumbnails_problem, stream_crop_problem, stream_service_problem,
+        stream_window_problem,
+    };
     use crate::problem::SemanticProblemCode;
+
+    #[test]
+    fn history_thumbnail_start_failure_is_its_own_problem_with_the_bind_diagnostic() {
+        let problem = history_thumbnails_problem("address already in use".to_string());
+        assert_eq!(
+            problem.code,
+            SemanticProblemCode::HistoryThumbnailsUnavailable
+        );
+        assert_eq!(
+            problem.params.get("operation").map(String::as_str),
+            Some("prepare_history_thumbnails")
+        );
+        assert_eq!(
+            problem.diagnostic.as_deref(),
+            Some("address already in use")
+        );
+    }
 
     #[test]
     fn stream_command_failures_keep_capability_operation_and_diagnostic() {
