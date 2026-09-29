@@ -125,10 +125,12 @@ void TestDatabaseChipTextAndSeverity()
 
 void TestAccountLinkAvailabilityGate()
 {
-    AssertAccountLinkCardAvailable(true, "Online", true);
-    AssertAccountLinkCardAvailable(true, "Unknown", true);
-    AssertAccountLinkCardAvailable(true, "Ptr", false);
-    AssertAccountLinkCardAvailable(false, "Online", false);
+    AssertAccountLinkGate(true, "Online", "Available");
+    AssertAccountLinkGate(true, "Unknown", "Available");
+    AssertAccountLinkGate(true, "Ptr", "PtrUnavailable");
+    AssertAccountLinkGate(false, "Online", "UploadsDisabled");
+    AssertAccountLinkGate(false, "Unknown", "UploadsDisabled");
+    AssertAccountLinkGate(false, "Ptr", "PtrUnavailable");
 }
 
 void TestButtonModelReplayRecordDeleteParity()
@@ -250,17 +252,17 @@ void AssertChip(bool isAvailable, bool databaseExists, string expectedText, stri
     );
 }
 
-void AssertAccountLinkCardAvailable(bool dataSharingEnabled, string channel, bool expectedAvailable)
+void AssertAccountLinkGate(bool uploadsEnabled, string channel, string expectedGate)
 {
     var result = InvokeStatic(
         decisionsType,
-        "IsAccountLinkAvailable",
-        dataSharingEnabled,
+        "ResolveAccountLinkGate",
+        uploadsEnabled,
         Enum.Parse(gameBuildChannelType, channel)
     );
     Assert(
-        result is bool available && available == expectedAvailable,
-        $"Account link card availability sharing={dataSharingEnabled} channel={channel}."
+        result.ToString() == expectedGate,
+        $"Account link gate uploads={uploadsEnabled} channel={channel} should be {expectedGate}."
     );
 }
 

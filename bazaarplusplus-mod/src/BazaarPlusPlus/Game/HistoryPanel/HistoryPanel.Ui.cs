@@ -124,16 +124,13 @@ internal sealed partial class HistoryPanel
         var serverHealthDisplay = _state.ServerHealthProbeInProgress
             ? HistoryPanelServerHealthFormatter.Checking()
             : HistoryPanelServerHealthFormatter.Idle();
-        var isBazaarDbLinked = _state.LocalLinkedHint;
-        var hasAccount = !string.IsNullOrWhiteSpace(_state.CachedAccountId);
         var accountCard = HistoryPanelDecisions.ResolveAccountLinkCard(
-            _dependencies?.IsBazaarDbAccountLinkAvailable?.Invoke() ?? false,
-            _dependencies?.GameBuildChannel ?? Core.Runtime.GameBuildChannel.Unknown,
-            hasAccount,
-            isBazaarDbLinked,
-            _state.AccountLinkExpanded
+            _dependencies?.AccountLinkGate?.Invoke() ?? AccountLinkGate.UploadsDisabled,
+            !string.IsNullOrWhiteSpace(_state.CachedAccountId),
+            _state.LocalLinkedHint,
+            _state.AccountLinkExpanded,
+            _state.AccountLinkInProgress
         );
-        var accountFormVisible = accountCard.FormVisible;
 
         var statusSeverity = _state.StatusSeverity;
         var archiveStatus = ArchiveStatus();
@@ -172,23 +169,18 @@ internal sealed partial class HistoryPanel
             AccountHintText = HistoryPanelText.AccountLink.Hint(),
             AccountRowStatusText = accountCard.StatusText,
             AccountPersistenceText = accountCard.PersistenceText,
-            AccountRowActionText = isBazaarDbLinked
-                ? HistoryPanelText.AccountLink.Relink()
-                : HistoryPanelText.AccountLink.RowBind(),
+            AccountRowActionText = accountCard.RowActionText,
             AccountRowActionVisible = accountCard.ActionVisible,
             AccountLinkCollapseText = HistoryPanelText.AccountLink.Collapse(),
-            AccountLinkButtonText = _state.AccountLinkInProgress
-                ? HistoryPanelText.AccountLink.Linking()
-                : HistoryPanelText.AccountLink.Button(),
+            AccountLinkButtonText = accountCard.LinkButtonText,
             AccountAlreadyLinkedButtonText =
                 HistoryPanelText.AccountLink.AlreadyLinkedElsewhereButton(),
-            AccountAlreadyLinkedButtonVisible =
-                accountFormVisible && !isBazaarDbLinked && !_state.AccountLinkInProgress,
-            AccountLinkButtonEnabled = !_state.AccountLinkInProgress && accountCard.ActionVisible,
-            AccountLinkInputEnabled = !_state.AccountLinkInProgress && accountCard.ActionVisible,
+            AccountAlreadyLinkedButtonVisible = accountCard.AlreadyLinkedButtonVisible,
+            AccountLinkButtonEnabled = accountCard.LinkButtonEnabled,
+            AccountLinkInputEnabled = accountCard.InputEnabled,
             AccountLinkBannerText = _state.AccountLinkBannerMessage,
             AccountLinkBannerSeverity = _state.AccountLinkBannerSeverity,
-            AccountLinkFormVisible = accountFormVisible,
+            AccountLinkFormVisible = accountCard.FormVisible,
             SectionMode = _state.SectionMode,
             GhostBattleFilter = _state.GhostBattleFilter,
             SelectedRunHero = _state.SelectedRunHero,
