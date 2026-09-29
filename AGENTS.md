@@ -24,6 +24,7 @@ A contract change lands in one pull request together with every consumer it brea
 | Mod API HTTP routes | `bazaarplusplus-server/docs/api-reference.md` | mod |
 | Hero and build snapshots | `bazaarplusplus-analyzer/contracts/v5/` and `bazaarplusplus-analyzer/docs/specs/consumer-data-contract.md` | site Hero Analysis, mod build recommendations |
 | Payload Inventory | `release/payload.json` | mod MSBuild, installer packaging and cleanup |
+| Local history database schema (`user_version`) | `RunLogSchema.LocalDatabaseSchemaVersion`, mirrored in `bazaarplusplus-mod/src/BazaarPlusPlus.Storage/BazaarPlusPlus.history-database.json`; `release::check` gates the pair (`release/history-database.mjs`) | installer History, cleanup, and overlay reads (`bazaarplusplus-installer/src-tauri/history-database-compatibility.json`) |
 | Release Manifest and Platform Release Manifest | `release/manifest.mjs`, shared fixtures `release/fixtures/latest.json` and `release/fixtures/latest/` | site download page, installer updater, mod update check |
 
 Root `release/` owns Product Release modules and tests. Installer scripts may import them; release modules must not import installer scripts. Root tooling has its own `package.json` and lockfile, without npm workspaces.

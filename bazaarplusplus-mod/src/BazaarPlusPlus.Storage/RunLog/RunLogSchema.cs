@@ -8,8 +8,16 @@ namespace BazaarPlusPlus.Storage.RunLog;
 
 public static class RunLogSchema
 {
+    // `PRAGMA user_version`: the column shape the installer reads. Bump it only with a column change
+    // and a migration; a one-time data repair does not bump it (ADR-0011).
     public const int LocalDatabaseSchemaVersion = 3;
     public const int RowSchemaVersion = 3;
+
+    private const int FirstSchemaVersion = 1;
+
+    // Added the local payload and replay video lifecycle columns. Version 3 kept this shape and only
+    // ran BundleQueueStore.RecoverLegacyJsonFailures, which still keys on leaving this version.
+    private const int LifecycleColumnsSchemaVersion = 2;
 
     private static readonly object InitializationGate = new();
 
@@ -353,15 +361,15 @@ public static class RunLogSchema
                 );
             }
 
-            if (currentVersion == 1)
+            if (currentVersion == FirstSchemaVersion)
             {
-                UpgradeVersionOneToTwo(connection);
+                UpgradeToLifecycleColumns(connection);
                 currentVersion = ReadUserVersion(connection);
             }
 
             if (
                 currentVersion != 0
-                && currentVersion != 2
+                && currentVersion != LifecycleColumnsSchemaVersion
                 && currentVersion != LocalDatabaseSchemaVersion
             )
             {
@@ -375,33 +383,33 @@ public static class RunLogSchema
             var versionInsideTransaction = ReadUserVersion(connection, transaction);
             if (
                 versionInsideTransaction != 0
-                && versionInsideTransaction != 2
+                && versionInsideTransaction != LifecycleColumnsSchemaVersion
                 && versionInsideTransaction != LocalDatabaseSchemaVersion
             )
                 throw new InvalidOperationException(
                     $"Unsupported run log schema version {versionInsideTransaction}."
                 );
             Execute(connection, transaction, BootstrapSql);
-            ValidateVersionTwoColumns(connection, transaction);
-            if (versionInsideTransaction == 2)
+            ValidateLifecycleColumns(connection, transaction);
+            if (versionInsideTransaction == LifecycleColumnsSchemaVersion)
                 BundleQueueStore.RecoverLegacyJsonFailures(connection, transaction);
             transaction.Commit();
         }
     }
 
-    private static void UpgradeVersionOneToTwo(SqliteConnection connection)
+    private static void UpgradeToLifecycleColumns(SqliteConnection connection)
     {
         using var transaction = connection.BeginTransaction(deferred: false);
         var versionInsideTransaction = ReadUserVersion(connection, transaction);
-        if (versionInsideTransaction is 2 or LocalDatabaseSchemaVersion)
+        if (versionInsideTransaction is LifecycleColumnsSchemaVersion or LocalDatabaseSchemaVersion)
         {
             transaction.Commit();
             return;
         }
-        if (versionInsideTransaction != 1)
+        if (versionInsideTransaction != FirstSchemaVersion)
         {
             throw new InvalidOperationException(
-                $"Run log schema changed from version 1 to {versionInsideTransaction} during initialization."
+                $"Run log schema changed from version {FirstSchemaVersion} to {versionInsideTransaction} during initialization."
             );
         }
 
@@ -476,10 +484,10 @@ public static class RunLogSchema
             BEGIN
                 SELECT RAISE(ABORT, 'invalid local payload lifecycle state');
             END;
-            PRAGMA user_version = 2;
+            PRAGMA user_version = {LifecycleColumnsSchemaVersion};
             """
         );
-        ValidateVersionTwoColumns(connection, transaction);
+        ValidateLifecycleColumns(connection, transaction);
         transaction.Commit();
     }
 
@@ -494,7 +502,7 @@ public static class RunLogSchema
         return Convert.ToInt32(command.ExecuteScalar(), CultureInfo.InvariantCulture);
     }
 
-    private static void ValidateVersionTwoColumns(
+    private static void ValidateLifecycleColumns(
         SqliteConnection connection,
         SqliteTransaction transaction
     )

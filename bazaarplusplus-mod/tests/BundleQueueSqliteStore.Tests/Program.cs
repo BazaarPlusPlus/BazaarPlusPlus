@@ -1,6 +1,5 @@
 #nullable enable
 using BazaarPlusPlus.Storage.BundleQueue;
-using BazaarPlusPlus.Storage.RunLog;
 using BazaarPlusPlus.Storage.Sqlite;
 using Microsoft.Data.Sqlite;
 
@@ -199,10 +198,6 @@ static void TestOutcomeResealAndCleanupQueries()
             Assert(
                 store.ListRetentionFileNames(Now().AddDays(-7)).Contains("d.bundle"),
                 "Seven-day permanent files should be retention candidates."
-            );
-            Assert(
-                RunLogSchema.LocalDatabaseSchemaVersion == 3,
-                "JSON failure recovery should own persistence schema version three."
             );
         }
     );

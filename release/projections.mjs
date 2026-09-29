@@ -9,6 +9,7 @@ import {
 } from './version-sync.mjs';
 import { synchronizePayloadProjection } from './payload-inventory.mjs';
 import { assertPlatformCoherence } from './release-platforms.mjs';
+import { assertWorkspaceHistoryDatabaseCompatibility } from './history-database.mjs';
 
 function readBadges(workspaceRoot, version) {
   return ['README.md', 'README_en.md'].map((name) => {
@@ -45,6 +46,7 @@ export function checkProductProjections(workspaceRoot = WORKSPACE_ROOT) {
   assertVersionsAreAligned(collectVersionSnapshot(rootDir));
   synchronizePayloadProjection(workspaceRoot, { check: true });
   assertPlatformCoherence(rootDir);
+  assertWorkspaceHistoryDatabaseCompatibility(workspaceRoot);
   const config = JSON.parse(
     fs.readFileSync(path.join(rootDir, 'src-tauri/tauri.conf.json'), 'utf8')
   );

@@ -5,7 +5,7 @@
 - `History` in `src-tauri/src/services/history.rs` resolves the selected installation and privately derives database, screenshot, and video paths. It owns list, detail, reveal, video deletion, cleanup preview, and cleanup execution.
 - Commands in `src-tauri/src/commands/history.rs` pass ids, limits, offsets, cleanup scopes, and presets. They do not accept storage paths, cutoffs, or precomputed cleanup plans.
 - An absent run detail is a successful nullable result. Unavailable installation, unsupported schema, failed reads, and failed actions remain distinct `SemanticProblem` codes.
-- `open_probed` in `src-tauri/src/history/queries.rs` opens the mod database with read/write flags and a busy timeout so SQLite can recover a dirty WAL or create shared-memory files. It probes `user_version`, retries selected transient errors, and rejects unsupported schemas without retry. The supported versions are owned by `src-tauri/history-database-compatibility.json`; the mod's one-time JSON-failure recovery changes queue data, not the History query columns.
+- `open_probed` in `src-tauri/src/history/queries.rs` opens the mod database with read/write flags and a busy timeout so SQLite can recover a dirty WAL or create shared-memory files. It probes `user_version`, retries selected transient errors, and rejects unsupported schemas without retry. The supported versions are owned by `src-tauri/history-database-compatibility.json`. The mod bumps `user_version` only for a column change, never for a data repair (mod ADR-0011), and `just release::check` fails unless the mod's version is the newest one listed. Tests read the list through `supported_mod_db_user_versions` in `src-tauri/src/config.rs` instead of restating it.
 
 ## Cleanup Safety
 

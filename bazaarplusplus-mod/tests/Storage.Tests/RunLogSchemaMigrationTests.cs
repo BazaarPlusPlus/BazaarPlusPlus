@@ -119,7 +119,11 @@ internal static class RunLogSchemaMigrationTests
             Text(connection, "SELECT last_error_code FROM bundle_seal_jobs WHERE run_id='json';"),
             "error cleared"
         );
-        Equal(3L, Scalar(connection, "PRAGMA user_version;"), "recovery committed with version");
+        Equal(
+            (long)RunLogSchema.LocalDatabaseSchemaVersion,
+            Scalar(connection, "PRAGMA user_version;"),
+            "recovery committed with version"
+        );
 
         using var failAgain = connection.CreateCommand();
         failAgain.CommandText =
@@ -191,7 +195,11 @@ internal static class RunLogSchemaMigrationTests
 
             using var verify = new SqliteConnection($"Data Source={databasePath}");
             verify.Open();
-            Equal(3L, Scalar(verify, "PRAGMA user_version;"), "fresh schema version");
+            Equal(
+                (long)RunLogSchema.LocalDatabaseSchemaVersion,
+                Scalar(verify, "PRAGMA user_version;"),
+                "fresh schema version"
+            );
             Equal(
                 1L,
                 Scalar(
@@ -285,7 +293,11 @@ internal static class RunLogSchemaMigrationTests
 
             RunLogSchema.EnsureInitialized(connection);
 
-            Equal(3L, Scalar(connection, "PRAGMA user_version;"), "schema version");
+            Equal(
+                (long)RunLogSchema.LocalDatabaseSchemaVersion,
+                Scalar(connection, "PRAGMA user_version;"),
+                "schema version"
+            );
             Equal(
                 "ready",
                 Text(

@@ -129,10 +129,6 @@ try
     );
 
     Assert(
-        RunLogSchema.LocalDatabaseSchemaVersion == 3 && RunLogSchema.RowSchemaVersion == 3,
-        "JSON failure recovery must use the paired V3 schema versions."
-    );
-    Assert(
         ReadScalar(
             databasePath,
             "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name IN ('run_sync_state','battle_replay_sync_state','sync_cursors','sync_checkpoints');"
