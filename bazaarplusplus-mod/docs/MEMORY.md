@@ -8,7 +8,7 @@ Domain constraints that must stay true in the system.
 
 - MessagePack-serialized DTOs in the Unity/Mono runtime must keep their whole serialized graph `public`.
 - Key entities by template GUID; package cards are `EHiddenTag.Package` via `PackageIdentity.IsPackage` — never display name or `ArtKey`. [`src/BazaarPlusPlus/GameInterop/Cards/PackageIdentity.cs`]
-- Bump both `RunLogSchema` version constants together only for a column change; a data repair never bumps them, and there is no upload-payload version. Index and trigger DDL needs no bump: `EnsureInitialized` re-runs `BootstrapSql` on every open. [`src/BazaarPlusPlus.Storage/RunLog/RunLogSchema.cs` | ADR-0006 | ADR-0011]
+- Bump both `RunLogSchema` version constants only for a column change; a data repair never bumps them, and there is no upload-payload version. Index and trigger DDL needs no bump; open rebuilds an index whose SQL drifted from `BootstrapSql`, but a retired index or changed trigger needs a `DROP`. [`src/BazaarPlusPlus.Storage/RunLog/RunLogSchema.cs` | ADR-0006 | ADR-0011]
 - CJK text that renders as tofu is routed through `NativeGameTypography`, which applies the game's native serif/sans and extends BPP-owned text with a CJK fallback chain. Fix the font route, not the copy. [`src/BazaarPlusPlus/GameInterop/Fonts/NativeGameTypography.cs`]
 - Mod-authored user-facing strings use `LocalizedTextSet` (en + zh-Hans, optional zh-Hant + de/pt/ko/it; anything else falls back to English). [`src/BazaarPlusPlus.Localization/LocalizedTextSet.cs`]
 - A categorized degradation event includes the category field in its `BppLogStormPolicy` key — a shared key lets one category's failure suppress every later category during the storm window. [`src/BazaarPlusPlus/Infrastructure/Logging/Core/BppLogSchema.cs`]
@@ -35,7 +35,7 @@ One line each, full record in [adr/](adr/). A line here exists to stop a settled
 
 Facts that take more than one file to derive, and that ARCHITECTURE does not state.
 
-- CollectionPanel source filtering runs off the embedded `collection-sources.json`, and the catalog size is pinned by the source/merchant/trainer count assertions in `tests/CollectionSourceFiltering.Tests/Program.cs` — adding a source means updating those expectations too. [`src/BazaarPlusPlus/Game/CollectionPanel/Sources/CollectionSourceCatalog.cs` | `tests/CollectionSourceFiltering.Tests/Program.cs`]
+- CollectionPanel source filtering runs off the embedded `collection-sources.json`, and the catalog size is pinned by the source/merchant/trainer count assertions in its test — adding a source means updating those expectations too. [`src/BazaarPlusPlus/Game/CollectionPanel/Sources/CollectionSourceCatalog.cs` | `tests/CollectionSourceFiltering.Tests/Program.cs`]
 - The cloud backend (uploads, ghost battles, BazaarDB snapshots) lives in sibling `bazaarplusplus-server/` behind `mod-api-v5.bazaarplusplus.com` (`ModApiUploadDefaults.ApiBaseUrl`). Check claims there rather than inferring them from this tree.
 
 ## Patterns
