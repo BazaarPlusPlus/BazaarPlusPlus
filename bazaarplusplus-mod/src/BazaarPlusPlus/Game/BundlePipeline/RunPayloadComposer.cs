@@ -75,12 +75,13 @@ internal sealed class RunPayloadComposer
         }
 
         var projections = BuildProjections(payload, playerAccountId);
-        ApplySizeBudget(payload, projections);
-        var encoded = RunPayloadV5Codec.Encode(payload);
-        if (encoded.Length > BundleLimitsV5.MaxRunBytes)
-            throw new BundleCompositionException("minimal_run_payload_too_large");
-        return new RunPayloadComposition(payload, projections, encoded, replayFailures);
+        return new RunPayloadComposition(payload, projections, replayFailures);
     }
+
+    // Encoding belongs to the payload-encode seal stage: a codec failure here is deterministic,
+    // unlike a read failure while composing. The coordinator encodes the final payload itself.
+    internal void FitToBudget(RunPayloadComposition composition) =>
+        ApplySizeBudget(composition.Payload, composition.Projections);
 
     private RunFactsV5 ReadRunFacts(string runId)
     {
@@ -164,14 +165,9 @@ internal sealed class RunPayloadComposer
         BattleReplayV5? replay = null;
         var loaded = _replayStore.LoadDetailed(manifest.BattleId);
         if (loaded.Status == FileBackedPayloadLoadStatus.Unreadable)
-            replayFailures.Add(
-                new(
-                    manifest.BattleId,
-                    new IOException("Replay payload is unreadable.", loaded.Exception)
-                )
-            );
+            replayFailures.Add(new(manifest.BattleId, Unreadable: true, loaded.Exception));
         else if (loaded.Status == FileBackedPayloadLoadStatus.Invalid)
-            replayFailures.Add(new(manifest.BattleId, loaded.Exception));
+            replayFailures.Add(new(manifest.BattleId, Unreadable: false, loaded.Exception));
         else if (loaded.Status == FileBackedPayloadLoadStatus.Loaded && loaded.Payload != null)
         {
             try
@@ -187,7 +183,7 @@ internal sealed class RunPayloadComposer
             }
             catch (Exception ex)
             {
-                replayFailures.Add(new(manifest.BattleId, ex));
+                replayFailures.Add(new(manifest.BattleId, Unreadable: false, ex));
             }
         }
 
@@ -458,12 +454,12 @@ internal sealed class RunPayloadComposer
 internal sealed record RunPayloadComposition(
     RunPayloadV5 Payload,
     List<BundleBattleProjectionV5> Projections,
-    byte[] EncodedPayload,
     IReadOnlyList<ReplayLoadFailure> ReplayFailures
 );
 
-// Exception is null when the bytes were rejected without one (for example, not gzip).
-internal sealed record ReplayLoadFailure(string BattleId, Exception? Exception);
+// Unreadable: the file could not be read. Otherwise its bytes did not decode; Exception is null
+// when they were rejected without one (for example, not gzip).
+internal sealed record ReplayLoadFailure(string BattleId, bool Unreadable, Exception? Exception);
 
 internal sealed class BundleCompositionException : Exception
 {

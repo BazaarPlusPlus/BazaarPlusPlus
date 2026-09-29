@@ -115,7 +115,8 @@ internal enum BundleSealStage
     AccountResolution,
     Screenshot,
     Composition,
-    ReplayLoad,
+    ReplayRead,
+    ReplayDecode,
     PayloadEncode,
     Allocation,
     Build,
@@ -125,6 +126,7 @@ internal enum BundleSealStage
     OrphanAdoption,
     FileRecovery,
     JobDiscovery,
+    ScreenshotTerminal,
 }
 
 internal enum BundleSealFailureCause
@@ -213,6 +215,9 @@ internal static class BundleSealFailurePolicy
     internal const float RetryExhaustionSeconds = 14f * 24f * 3600f;
     internal const int ParkedLaunchesBeforeExpiry = 5;
     internal const float ParkedExpirySeconds = 60f * 24f * 3600f;
+
+    // Any job that keeps failing ends here, whatever its code, so its sources are not held forever.
+    internal const float FailureAgeCeilingSeconds = 90f * 24f * 3600f;
     internal const float InitialBackoffSeconds = 5f;
     internal const float MaximumBackoffSeconds = 3600f;
     private const int MaximumDetailLength = 512;
@@ -317,25 +322,36 @@ internal static class BundleSealFailurePolicy
                 };
             case BundleSealStage.FileRecovery:
             case BundleSealStage.JobDiscovery:
+            case BundleSealStage.ScreenshotTerminal:
                 return Maintenance(
                     BundleSealFailureDisposition.Skip,
                     cause,
                     cause == BundleSealFailureCause.Environment
                         ? BundleSealFailureLog.EnvironmentBlocked
                         : BundleSealFailureLog.MaintenanceFailed,
-                    stage == BundleSealStage.FileRecovery
-                        ? "file_recovery_failed"
-                        : "job_discovery_failed",
+                    stage switch
+                    {
+                        BundleSealStage.FileRecovery => "file_recovery_failed",
+                        BundleSealStage.JobDiscovery => "job_discovery_failed",
+                        _ => "screenshot_terminal_failed",
+                    },
                     detail
                 );
         }
 
+        // A job that has already failed before cannot outlive the age ceiling; a first failure
+        // (including a revived legacy job's) always gets its normal retry or park.
+        var pastAgeCeiling =
+            retry.LastErrorCode != null
+            && retry.SecondsSinceInputDeadline >= FailureAgeCeilingSeconds;
         if (cause == BundleSealFailureCause.Environment)
         {
             var parked = NextAttempts(retry, EnvironmentBlockedCode);
-            return
+            return (
                 parked >= ParkedLaunchesBeforeExpiry
-                && retry.SecondsSinceInputDeadline >= ParkedExpirySeconds
+                    && retry.SecondsSinceInputDeadline >= ParkedExpirySeconds
+                || pastAgeCeiling
+            )
                 ? new BundleSealFailureDecision(
                     BundleSealFailureDisposition.Terminal,
                     cause,
@@ -354,7 +370,18 @@ internal static class BundleSealFailurePolicy
                 );
         }
 
-        var code = StageCode(stage, cause);
+        var code = StageCode(stage);
+        // Bytes that exist but do not decode stay bad: omit that replay, whatever the inner cause
+        // (truncated MessagePack reports EndOfStreamException, corrupt gzip reports IOException).
+        if (stage == BundleSealStage.ReplayDecode)
+            return Job(
+                BundleSealFailureDisposition.Degrade,
+                cause,
+                BundleSealFailureLog.Degraded,
+                code,
+                detail,
+                retry
+            );
         if (cause == BundleSealFailureCause.Other)
         {
             // Codecs are deterministic over the same local inputs; retrying cannot change them.
@@ -367,21 +394,13 @@ internal static class BundleSealFailurePolicy
                     detail,
                     retry
                 );
-            if (stage == BundleSealStage.ReplayLoad)
-                return Job(
-                    BundleSealFailureDisposition.Degrade,
-                    cause,
-                    BundleSealFailureLog.Degraded,
-                    code,
-                    detail,
-                    retry
-                );
         }
 
         var attempts = NextAttempts(retry, code);
         var exhausted =
             attempts >= RetryAttemptsBeforeExhaustion
-            && retry.SecondsSinceInputDeadline >= RetryExhaustionSeconds;
+                && retry.SecondsSinceInputDeadline >= RetryExhaustionSeconds
+            || pastAgeCeiling;
         if (!exhausted)
             return new BundleSealFailureDecision(
                 BundleSealFailureDisposition.RetryLater,
@@ -392,7 +411,7 @@ internal static class BundleSealFailurePolicy
                 attempts
             );
         // An exhausted replay read degrades that one battle instead of losing the whole Run.
-        return stage == BundleSealStage.ReplayLoad
+        return stage == BundleSealStage.ReplayRead
             ? Job(
                 BundleSealFailureDisposition.Degrade,
                 cause,
@@ -469,15 +488,14 @@ internal static class BundleSealFailurePolicy
             || fileName.Contains("PublicKeyToken=", StringComparison.Ordinal)
         );
 
-    private static string StageCode(BundleSealStage stage, BundleSealFailureCause cause) =>
+    private static string StageCode(BundleSealStage stage) =>
         stage switch
         {
             BundleSealStage.AccountResolution => "account_resolve_failed",
             BundleSealStage.Screenshot => "screenshot_encode_failed",
             BundleSealStage.Composition => "payload_compose_failed",
-            BundleSealStage.ReplayLoad => cause == BundleSealFailureCause.Transient
-                ? "replay_unreadable"
-                : "replay_invalid",
+            BundleSealStage.ReplayRead => "replay_unreadable",
+            BundleSealStage.ReplayDecode => "replay_invalid",
             BundleSealStage.PayloadEncode => "payload_encode_failed",
             BundleSealStage.Allocation => "seal_allocation_failed",
             BundleSealStage.Build => "bundle_build_failed",

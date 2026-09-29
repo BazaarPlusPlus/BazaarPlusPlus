@@ -154,32 +154,63 @@ internal static class BundleSealFailurePolicyTests
                 "seal_attempt_failed"
             ),
             (
-                BundleSealStage.ReplayLoad,
+                BundleSealStage.ReplayRead,
                 missing,
                 Park,
                 BundleSealFailureLog.EnvironmentBlocked,
                 Blocked
             ),
             (
-                BundleSealStage.ReplayLoad,
+                BundleSealStage.ReplayRead,
                 io,
                 Retry,
                 BundleSealFailureLog.Deferred,
                 "replay_unreadable"
             ),
             (
-                BundleSealStage.ReplayLoad,
+                BundleSealStage.ReplayDecode,
+                new InvalidOperationException("wrapper", missing),
+                Park,
+                BundleSealFailureLog.EnvironmentBlocked,
+                Blocked
+            ),
+            (
+                BundleSealStage.ReplayDecode,
                 codec,
                 Degrade,
                 BundleSealFailureLog.Degraded,
                 "replay_invalid"
             ),
             (
-                BundleSealStage.ReplayLoad,
+                BundleSealStage.ReplayDecode,
                 null,
                 Degrade,
                 BundleSealFailureLog.Degraded,
                 "replay_invalid"
+            ),
+            (
+                // Truncated MessagePack: its EndOfStreamException is an IOException, yet the
+                // bytes will never decode.
+                BundleSealStage.ReplayDecode,
+                new InvalidDataException("wrap", new EndOfStreamException()),
+                Degrade,
+                BundleSealFailureLog.Degraded,
+                "replay_invalid"
+            ),
+            (
+                // Mono reports a corrupt gzip stream as IOException.
+                BundleSealStage.ReplayDecode,
+                io,
+                Degrade,
+                BundleSealFailureLog.Degraded,
+                "replay_invalid"
+            ),
+            (
+                BundleSealStage.ScreenshotTerminal,
+                io,
+                Skip,
+                BundleSealFailureLog.MaintenanceFailed,
+                "screenshot_terminal_failed"
             ),
             (
                 BundleSealStage.PendingValidation,
@@ -321,13 +352,40 @@ internal static class BundleSealFailurePolicyTests
             "a different failure restarts the consecutive count"
         );
         Expect(
-            BundleSealStage.ReplayLoad,
+            BundleSealStage.ReplayRead,
             io,
             new("replay_unreadable", 7, 15 * Day),
             Degrade,
             "replay_unreadable",
             8,
             "an exhausted replay read omits that replay instead of losing the Run"
+        );
+        Expect(
+            BundleSealStage.Composition,
+            io,
+            new("seal_publish_failed", 7, 91 * Day),
+            Terminal,
+            "seal_retry_exhausted",
+            1,
+            "past the age ceiling, alternating codes cannot keep a job alive"
+        );
+        Expect(
+            BundleSealStage.Composition,
+            io,
+            new(null, 1, 120 * Day),
+            Retry,
+            "payload_compose_failed",
+            1,
+            "the age ceiling never ends a job on its first failure"
+        );
+        Expect(
+            BundleSealStage.Composition,
+            io,
+            new("payload_compose_failed", 2, 89 * Day),
+            Retry,
+            "payload_compose_failed",
+            3,
+            "below the age ceiling, attempts still decide"
         );
     }
 
@@ -369,6 +427,15 @@ internal static class BundleSealFailurePolicyTests
             Blocked,
             1,
             "transient attempts do not count as parked launches"
+        );
+        Expect(
+            BundleSealStage.Build,
+            missing,
+            new("seal_publish_failed", 1, 91 * Day),
+            Terminal,
+            BundleSealFailurePolicy.EnvironmentBlockedExpiredCode,
+            1,
+            "past the age ceiling a parked job ends without five launches"
         );
     }
 

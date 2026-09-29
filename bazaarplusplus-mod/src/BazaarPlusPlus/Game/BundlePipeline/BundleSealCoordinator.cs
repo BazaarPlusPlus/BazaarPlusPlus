@@ -120,7 +120,7 @@ internal sealed class BundleSealCoordinator : IBppFeature, IDisposable
     {
         cancellationToken.ThrowIfCancellationRequested();
         // Maintenance failures are logged per step; they never keep waiting jobs from sealing.
-        Maintain(BundleSealStage.JobDiscovery, ApplyScreenshotTerminals);
+        Maintain(BundleSealStage.ScreenshotTerminal, ApplyScreenshotTerminals);
         Maintain(BundleSealStage.FileRecovery, RecoverFiles);
         Maintain(BundleSealStage.JobDiscovery, EnsureSealJobs);
         var published = false;
@@ -287,20 +287,37 @@ internal sealed class BundleSealCoordinator : IBppFeature, IDisposable
                 return false;
             }
 
-            stage = BundleSealStage.ReplayLoad;
+            stage = BundleSealStage.ReplayDecode;
             Probe(stage, runId);
             var retry = RetryFacts(job, now);
-            var omittedReplays = new List<(BundleSealFailureDecision, Exception?)>();
-            foreach (var failure in composition.ReplayFailures)
+            var replayDecisions = composition
+                .ReplayFailures.Select(failure =>
+                    (
+                        Decision: BundleSealFailurePolicy.Decide(
+                            failure.Unreadable
+                                ? BundleSealStage.ReplayRead
+                                : BundleSealStage.ReplayDecode,
+                            failure.Exception,
+                            retry
+                        ),
+                        failure.Exception
+                    )
+                )
+                .ToList();
+            // A runtime failure on any replay decides the Run; an earlier transient must not mask it.
+            var holding = replayDecisions
+                .Where(item => item.Decision.Disposition != BundleSealFailureDisposition.Degrade)
+                .OrderBy(item => item.Decision.Cause == BundleSealFailureCause.Environment ? 0 : 1)
+                .ToList();
+            if (holding.Count > 0)
             {
-                var decision = BundleSealFailurePolicy.Decide(stage, failure.Exception, retry);
-                if (decision.Disposition != BundleSealFailureDisposition.Degrade)
-                {
-                    ApplyJobFailure(runId, decision, failure.Exception);
-                    return false;
-                }
-                omittedReplays.Add((decision, failure.Exception));
+                ApplyJobFailure(runId, holding[0].Decision, holding[0].Exception);
+                return false;
             }
+
+            stage = BundleSealStage.PayloadEncode;
+            Probe(stage, runId);
+            _composer.FitToBudget(composition);
             if (
                 BundleSealConvergence.Resolve(
                     jobFacts,
@@ -311,11 +328,9 @@ internal sealed class BundleSealCoordinator : IBppFeature, IDisposable
                 ) == BundleSealConvergenceDecision.Wait
             )
                 return false;
-            foreach (var (decision, exception) in omittedReplays)
+            foreach (var (decision, exception) in replayDecisions)
                 LogFailure(decision, exception, runId);
 
-            stage = BundleSealStage.PayloadEncode;
-            Probe(stage, runId);
             composition.Payload.Degradation.ScreenshotOmitted =
                 job.ScreenshotRequested && screenshot == null;
             var encodedPayload = RunPayloadV5Codec.Encode(composition.Payload);

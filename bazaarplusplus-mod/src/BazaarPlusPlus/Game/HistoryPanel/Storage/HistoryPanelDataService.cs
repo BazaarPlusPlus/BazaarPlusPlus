@@ -49,6 +49,9 @@ internal sealed class HistoryPanelDataService
         _repository?.ListGhostBattles(account, filter, dayMin10, request)
         ?? HistoryPage<HistoryBattleRecord>.Empty;
 
+    internal const string InvalidGhostPayloadMessage =
+        "Ghost payload is invalid or exceeds its size limit.";
+
     public BazaarPlusPlus.Game.PvpBattles.PvpBattleSnapshots? LoadDetail(
         HistoryBattleRecord battle,
         string account
@@ -66,13 +69,11 @@ internal sealed class HistoryPanelDataService
             return null;
         var store = new GhostBattlePayloadStore(GhostBattlePayloadStore.ResolveDirectory(path));
         var result = store.LoadDetailed(battle.BattleId);
-        if (
-            result.Status
-            is FileBackedPayloadLoadStatus.Invalid
-                or FileBackedPayloadLoadStatus.Unreadable
-        )
-            throw result.Exception
-                ?? new InvalidDataException("Ghost payload is invalid or exceeds its size limit.");
+        // The message reaches the History status line; a decode exception stays as the cause only.
+        if (result.Status == FileBackedPayloadLoadStatus.Invalid)
+            throw new InvalidDataException(InvalidGhostPayloadMessage, result.Exception);
+        if (result.Status == FileBackedPayloadLoadStatus.Unreadable)
+            throw result.Exception ?? new InvalidDataException(InvalidGhostPayloadMessage);
         var payload = GhostBattlePayloadReader.Normalize(result.Payload);
         if (payload == null)
             return null;

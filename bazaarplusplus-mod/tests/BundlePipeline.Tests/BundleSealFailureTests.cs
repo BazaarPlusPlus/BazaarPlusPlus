@@ -25,6 +25,7 @@ internal static class BundleSealFailureTests
         await PendingValidationKeepsOutboxOnEnvironmentFailureAsync(Path.Combine(root, "pending"));
         await InvalidReplayDegradesWithLogAsync(Path.Combine(root, "replay"));
         await MaintenanceFailureDoesNotBlockSealingAsync(Path.Combine(root, "maintenance"));
+        await EnvironmentFailureKeepsOrphanBundleAsync(Path.Combine(root, "orphan"));
     }
 
     private static async Task EnvironmentFailureParksUntilNextLaunchAsync(string root)
@@ -185,6 +186,7 @@ internal static class BundleSealFailureTests
         fixture.AddCompletedRun("replay-run", endedMinutesAgo: 10);
         fixture.AddBattle("replay-run", "battle-not-gzip");
         fixture.AddBattle("replay-run", "battle-bad-pack");
+        fixture.AddBattle("replay-run", "battle-truncated");
         var replayRoot = PathConstants.CombatReplays(root);
         Directory.CreateDirectory(replayRoot);
         File.WriteAllBytes(Path.Combine(replayRoot, "battle-not-gzip.payload.mpack.gz"), [1, 2, 3]);
@@ -192,10 +194,23 @@ internal static class BundleSealFailureTests
             Path.Combine(replayRoot, "battle-bad-pack.payload.mpack.gz"),
             Gzip([0xC1])
         );
-        var badPack = new CombatReplayPayloadStore(replayRoot).LoadDetailed("battle-bad-pack");
+        File.WriteAllBytes(
+            Path.Combine(replayRoot, "battle-truncated.payload.mpack.gz"),
+            TruncatedReplay("battle-truncated")
+        );
+        var replays = new CombatReplayPayloadStore(replayRoot);
+        var badPack = replays.LoadDetailed("battle-bad-pack");
         Require(
             badPack.Status == FileBackedPayloadLoadStatus.Invalid && badPack.Exception != null,
             "An invalid replay carries its decode exception to the seal policy."
+        );
+        var truncated = replays.LoadDetailed("battle-truncated");
+        Require(
+            truncated.Status == FileBackedPayloadLoadStatus.Invalid
+                && BundleSealFailurePolicy.Classify(truncated.Exception)
+                    == BundleSealFailureCause.Transient,
+            "Truncated MessagePack inside valid gzip decodes to an IO-looking exception: "
+                + truncated.Exception
         );
 
         using var coordinator = new BundleSealCoordinator(fixture.Services);
@@ -206,8 +221,9 @@ internal static class BundleSealFailureTests
         );
         Require(
             payload.Degradation.ReplayOmittedBattleIds.Contains("battle-not-gzip")
-                && payload.Degradation.ReplayOmittedBattleIds.Contains("battle-bad-pack"),
-            "Invalid replay data omits those replays after the input deadline."
+                && payload.Degradation.ReplayOmittedBattleIds.Contains("battle-bad-pack")
+                && payload.Degradation.ReplayOmittedBattleIds.Contains("battle-truncated"),
+            "Invalid replay data, including a truncated payload, omits those replays at once."
         );
         Require(
             fixture
@@ -248,6 +264,76 @@ internal static class BundleSealFailureTests
                     ),
             "Each maintenance failure is logged."
         );
+    }
+
+    private static async Task EnvironmentFailureKeepsOrphanBundleAsync(string root)
+    {
+        using var fixture = new Fixture(root);
+        var outbox = PathConstants.BundleOutbox(root);
+        Directory.CreateDirectory(outbox);
+        var built = BundleV5Codec.Build(
+            new BundleBuildInputV5
+            {
+                BundleId = new UlidV5Generator().Next(),
+                CreatedAtMs = 1000,
+                RunId = "orphan-run",
+                PlayerAccountId = "account-failure",
+                RunPayload = RunPayloadV5Codec.Encode(
+                    new RunPayloadV5 { RunId = "orphan-run", PlayerAccountId = "account-failure" }
+                ),
+            }
+        );
+        var orphan = Path.Combine(outbox, built.Manifest.BundleId + ".bundle");
+        File.WriteAllBytes(orphan, built.Bytes);
+        File.SetLastWriteTimeUtc(orphan, DateTime.UtcNow.AddDays(-2));
+
+        using (
+            var broken = new BundleSealCoordinator(
+                fixture.Services,
+                (stage, _) =>
+                {
+                    if (stage == BundleSealStage.OrphanAdoption)
+                        throw new MissingMethodException(JsonMismatch);
+                }
+            )
+        )
+            await broken.ReconcileAsync(CancellationToken.None);
+        Require(
+            File.Exists(orphan),
+            "A runtime that cannot open an expired orphan Bundle must not delete it."
+        );
+        fixture.SingleLine("bundle_pipeline.seal.environment_blocked");
+
+        using (
+            var corrupt = new BundleSealCoordinator(
+                fixture.Services,
+                (stage, _) =>
+                {
+                    if (stage == BundleSealStage.OrphanAdoption)
+                        throw new InvalidDataException("corrupt");
+                }
+            )
+        )
+            await corrupt.ReconcileAsync(CancellationToken.None);
+        Require(!File.Exists(orphan), "An unreadable expired orphan is still reclaimed.");
+    }
+
+    // A real replay payload whose gzip stream is valid but whose MessagePack is cut in half.
+    private static byte[] TruncatedReplay(string battleId)
+    {
+        var packed = PvpReplayPayloadCodec.Serialize(
+            new PvpReplayPayload
+            {
+                BattleId = battleId,
+                SpawnMessageBytes = new byte[256],
+                CombatMessageBytes = new byte[256],
+                DespawnMessageBytes = new byte[256],
+            }
+        );
+        using var input = new GZipStream(new MemoryStream(packed), CompressionMode.Decompress);
+        using var raw = new MemoryStream();
+        input.CopyTo(raw);
+        return Gzip(raw.ToArray().Take((int)raw.Length / 2).ToArray());
     }
 
     private static byte[] Gzip(byte[] bytes)
