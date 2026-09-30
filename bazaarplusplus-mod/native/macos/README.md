@@ -30,10 +30,7 @@ native artifact catalog. It emits an ad-hoc signed and producer-verified bundle 
 build/GfxPluginBppReplayVideoToolbox.bundle
 ```
 
-Ordinary C# contributors do not need the native toolchain: `just release::prepare <platform>` reuses the installer's
-staged copy only when both the macOS input digest and the staged artifacts still match the manifest,
-and otherwise rebuilds through this script and promotes the result. The freshness contract and the
-full promotion sequence are in
+Ordinary C# contributors do not need the native toolchain: `just release::prepare <platform>` reuses the staged copy while it matches the manifest and otherwise rebuilds through this script; see
 [`docs/architecture/native-artifacts.md`](../../docs/architecture/native-artifacts.md).
 
 To build into an explicit side-effect-free output directory:
@@ -43,9 +40,8 @@ To build into an explicit side-effect-free output directory:
 ```
 
 The bundle must be present under `TheBazaar.app/Contents/Plugins` before Unity starts so Unity calls
-`UnityPluginLoad` and provides `IUnityGraphicsMetal`. Release installation and app re-signing belong
-to the companion installer PR; this repository never accepts a Developer ID or notarization
-credential.
+`UnityPluginLoad` and provides `IUnityGraphicsMetal`. This script signs ad hoc only; Developer ID
+signing, notarization, and app re-signing belong to the installer's release build.
 
 ## ABI
 

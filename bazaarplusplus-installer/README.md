@@ -15,75 +15,20 @@ What it does:
 
 ## Quick start
 
-Prerequisites:
-
-- **Node.js 24** and npm (versions pinned in `package.json` `engines`)
-- **Rust** via rustup (toolchain pinned by `rust-toolchain.toml`)
-
-Run the desktop app in development mode:
+Toolchain versions are pinned by `package.json` (`engines`, `packageManager`) and `rust-toolchain.toml`; workspace setup is in the [development guide](../docs/development.md).
 
 ```bash
-just installer::app
+just installer::app  # Full desktop app (checks the toolchain, installs dependencies if needed)
+just installer::dev  # Frontend only, in the browser
+just installer::check
 ```
 
-This checks the Node/npm versions, runs `npm ci` when `node_modules` is missing or invalid, then runs `npm run tauri dev`. To run the steps manually:
-
-```bash
-npm ci
-npm run tauri dev
-```
-
-If you only need the frontend (no native shell), `npm run dev` starts a Vite dev server in the browser.
-
-## Everyday development
-
-| Command | What it does |
-| --- | --- |
-| `just installer::check` | Full source gate, including Rust/TypeScript checks, tests, docs, and frontend build |
-| `npm run check:ts` | Type-check against the generated bindings |
-| `npm run test` | Rust tests (`src-tauri`) + frontend Vitest |
-| `npm run format` | Prettier across the configured globs |
-| `npm run lint` | Type-aware oxlint (`lint:fix` applies safe fixes) |
-| `npm run prebuild-check` | Validate versioning, bundled resources, and Tauri config |
-| `npm run docs:check` | Check that cited paths, doc links, and `CONTEXT.md` topic coverage all resolve |
-
-One thing to know: the TypeScript client for Tauri commands is **generated** from the Rust command signatures into `src/types/generated/`. `dev`, `build`, `test`, and `just installer::check` regenerate it automatically — never edit those files by hand.
+`just --list installer` and `package.json` list the narrower scripts. The TypeScript client for Tauri commands is **generated** from the Rust command signatures into `src/types/generated/`; `dev`, `build`, `test`, and `just installer::check` regenerate it, so edits go to the Rust signatures.
 
 ## Release build
 
-```bash
-just release::build macos    # prepare the Payload, verify, sign, and bundle on this host
-just release::upload macos   # upload the built artifacts to Cloudflare R2 without advancing latest
-```
-
-Use `windows` on a Windows host. `release::build` always reinstalls npm dependencies from the lockfile and requires updater signing secrets (read from `signing-secrets/` or environment variables). It runs `scripts/bundle.sh` inside the product build lock; that script is not a standalone entry point. The full flow is in the [workspace release docs](../docs/release.md).
-
-macOS additionally requires:
-
-- A Developer ID Application signing identity
-- Apple notarization API credentials
-- The Apple Silicon Rust target: `rustup target add aarch64-apple-darwin`
-
-Artifacts land under:
-
-- **Windows:** `src-tauri/target/release/bundle/nsis/`
-- **macOS:** `src-tauri/target/aarch64-apple-darwin/release/bundle/` (`app`, `dmg`)
-
-Platform facts (bundle paths, updater keys, Rust targets) are defined in `../release/release-platforms.mjs`. Read `docs/release.md` before changing anything release-related.
-
-## Repository layout
-
-| Path | Contents |
-| --- | --- |
-| `src/` | React frontend |
-| `src-tauri/` | Rust backend: native commands, services, packaging |
-| `static/` | Frontend media imported by Vite |
-| `scripts/` | Build tooling — `release/` holds the packaging pipeline, `checks/` the verification entry points; behavior tests are colocated as `*.test.mjs` |
-| `docs/` | Project documentation (see below) |
+Platform builds run through the workspace release commands (`just release::build <platform>`); the full flow, credentials, and platform facts are in the [workspace release docs](../docs/release.md) and [installer release guide](docs/release.md). `scripts/bundle.sh` runs only inside the product build lock that `release::build` holds.
 
 ## Documentation
 
-- **Start with [`CONTEXT.md`](CONTEXT.md)** — the entry map: vocabulary plus pointers telling you which topic doc to open for which kind of work.
-- `docs/*.md` — current behavior, split by topic (architecture, install/reset, updater, release, …).
-- `docs/adr/` — architectural decisions that still constrain work; [ADR-0007](docs/adr/0007-documentation-contract.md) defines this layout.
-- Doc-layout policy lives in `AGENTS.md` and the repo-wide [`../AGENTS.md`](../AGENTS.md); platform smoke-test gaps are tracked as GitHub issues labelled `manual-validation`.
+**Start with [`CONTEXT.md`](CONTEXT.md)**: the vocabulary plus which topic doc to open for which kind of work. Decisions are in `docs/adr/`; [ADR-0007](docs/adr/0007-documentation-contract.md) defines this layout. Platform smoke-test gaps are GitHub issues labelled `manual-validation`.

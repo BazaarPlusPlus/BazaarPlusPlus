@@ -90,6 +90,8 @@ PvP battle evidence is a shared `Game/PvpBattles` module rather than a `GameInte
 
 ## Per-feature detail
 
+Each feature doc ends with the Gotchas that bite only that feature.
+
 | To work on | Read |
 |---|---|
 | Collection filtering, sorting, the source catalog, grid virtualization | [architecture/collection.md](architecture/collection.md) |

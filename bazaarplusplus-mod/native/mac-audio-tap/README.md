@@ -48,9 +48,7 @@ like `libe_sqlite3.dylib`:
 bazaarplusplus-installer/src-tauri/resources/SourceForBuild/macos/BepInEx/plugins/libBppMacAudio.dylib
 ```
 
-`just release::prepare <platform>` reuses that staged copy only when both the macOS input digest and the staged
-artifacts still match the installer manifest; otherwise it rebuilds through this script and promotes
-the result. The freshness contract and the full promotion sequence are in
+`just release::prepare <platform>` reuses the staged copy while it matches the manifest and otherwise rebuilds through this script; see
 [`docs/architecture/native-artifacts.md`](../../docs/architecture/native-artifacts.md). A direct
 build may choose another side-effect-free output directory with its first argument:
 

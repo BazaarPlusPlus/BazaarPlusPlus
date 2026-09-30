@@ -4,7 +4,7 @@ mod 与 installer 是同一个 Product Release 的两个产物。根目录 `rele
 
 ## 入口
 
-通过根目录 `JUSTFILE` 执行，Windows 使用 Git Bash；每个平台在自己的原生构建机上准备和打包。just 的安装和日常检查命令见[开发命令](development.md)。
+每个平台在自己的原生构建机上准备和打包；just 的安装与 Windows 约定见[开发命令](development.md)。参数以 `node release.mjs --help` 为准。
 
 ```bash
 just release::sync
@@ -22,13 +22,11 @@ Windows 将 `macos` 换成 `windows`。`release::prepare` 和 `release::build` �
 
 `release/projections.mjs` 的 `checkProductProjections` 是共享源码对齐入口：根 `check` 与 installer 预检查均调用它，验证版本、Payload 投影、两份 README badge、平台配置和 updater endpoint。发布 origin 和 updater endpoint 列表由 `release/downloads.ts` 的 `RELEASE_BASE_URL` 与 `UPDATER_ENDPOINTS` 定义；Tauri 配置必须与后者逐项相等。`sync` 更新版本和 badge，不改写发布 origin。
 
-just 只转发命令；版本规则、锁、签名流程和远端条件写仍在 Node 发布模块中执行，不使用任务缓存。原有 `node release.mjs sync|check|promote` 以及 `node release.mjs prepare|build|upload --platform <platform>` 保持可用；直接使用 Node 的 `prepare` / `build` 时，MSBuild 参数仍需放在 `--` 后。
-
-日常开发使用各项目的 just 命令或原有子目录脚本。`just mod::build` 只编译，不修复 trampoline，也不修改游戏安装；部署进游戏用 `just mod::build --deploy`。
+just 只转发，不缓存或跳过任何发布检查。直接调用 `node release.mjs prepare|build` 时，MSBuild 参数要放在 `--` 之后；just 会自动补上。
 
 ## 发布顺序
 
-1. 修改 `VERSION`，执行 `sync`，验证源码。首次使用此流程时选择尚未发布的新版本，不能覆盖旧流程已经占用的版本目录。
+1. 修改 `VERSION`，执行 `sync`，验证源码。
 2. 两个平台分别执行 `prepare`。`prepare` 和后续 `build` 都显式传入同一个 `-p:ManagedPath=...`，指向正式服 Managed 或固定快照；mod 直接对照其中的游戏自带库编译，本机默认发现的安装可能与发布默认选择的快照不同。如果 native 输入锁或受版本管理的预构建资源变化，审阅并提交这些变化；把两个平台需要的更新汇入同一个提交。
 3. 两台构建机检出这个相同提交，分别执行 `build`。发布相关源码必须干净；不相关的 site/analyzer 工作不会污染产品构建身份。若 `prepare` 又改变了跟踪的 native 输入，先汇入提交，再重新构建。
 4. 分别执行 `upload`，保存同一个版本、同一个 Git commit 的平台产物和 fragment。
@@ -41,7 +39,7 @@ just 只转发命令；版本规则、锁、签名流程和远端条件写仍在
 
 ## Payload 的共同事实
 
-`release/payload.json` 定义安装路径、平台、生产者、必需文件和归属；生成的 `release/generated/Payload.targets`、Node ZIP 校验以及 Rust 安装清理共同消费它。不要在各语言中再维护文件列表。
+`release/payload.json` 定义安装路径、平台、生产者、必需文件和归属；生成的 `release/generated/Payload.targets`、Node ZIP 校验以及 Rust 安装清理共同消费它，文件列表只在这里维护。
 
 - `private` 是 BPP 私有文件；`dependency` 可能与其他插件共享；`bootstrap` 是加载器设施。
 - `runtime` 只参与运行时清理规则，不进入安装包；`retired` 保留清理归属，但禁止重新打包。
@@ -94,7 +92,7 @@ Mainland Mirror 是手工上传到蓝奏云的安装包分享页，只作为大�
 
 镜像地址是发布者显式提供的输入，不由版本号拼接。`mirror` 读取该平台已上传的 fragment，抓取分享页核对标题里的文件名等于安装包文件名，然后把地址写入 `<版本>/<平台键>/mirror/mainland.json`；`promote` 把记录组装成 `downloads[平台键].mainlandUrl`。官网和 installer 只从 manifest 读取这个地址，manifest 里没有就不显示大陆入口。决策记录见 [ADR 0002](adr/0002-mainland-mirror-check.md)。
 
-上传约定：文件名必须与 R2 上 `installer` 目录里的文件名完全一致，不改名；分享地址随意。5.4.0 及更早的 installer 自行拼接的旧地址不再维护，它们升级到 5.5.0 后即读取清单。核对结果分三类：`verified`、`missing-or-misnamed`（分享不存在、被取消或文件名不符，修正分享后重跑 `mirror` 即可覆盖记录）、`unverifiable`（超时、非 200 或页面格式不认识）；`--allow-unverified-mirror` 把未通过的地址记录为 `verified: false` 并打印警告。核对只比文件名，不比 hash，也只能证明核对那一刻分享存在。
+上传约定：文件名必须与 R2 上 `installer` 目录里的文件名完全一致，不改名；分享地址随意。核对结果分三类：`verified`、`missing-or-misnamed`（分享不存在、被取消或文件名不符，修正分享后重跑 `mirror` 即可覆盖记录）、`unverifiable`（超时、非 200 或页面格式不认识）；`--allow-unverified-mirror` 把未通过的地址记录为 `verified: false` 并打印警告。核对只比文件名，不比 hash，也只能证明核对那一刻分享存在。
 
 记录在该平台提升前可以覆盖，提升后 `mirror` 拒绝再写，写入前后都会复查，提升与记录撞车时以已发布的地址为准：已发布的镜像地址和其他已发布事实一样，修改需要新版本。`promote` 缺少任一平台的记录时拒绝写入，`--without-mainland-mirror` 显式跳过并打印警告，跳过的平台这个版本不能再补上；确认已发布的版本不需要记录。`verify-mirror` 不需要 R2 凭据：默认复核 VERSION 已记录的镜像，可用 `--platform` 只看一个平台；`--latest` 逐平台复核线上 `latest/<平台键>.json` 里的地址，也可加 `--platform`；显式跳过镜像的平台报告为 `waived`，不算失败。发布后的例行核对用 `--latest`，因为 VERSION 通常已经提前推进。
 
@@ -102,7 +100,7 @@ Mainland Mirror 是手工上传到蓝奏云的安装包分享页，只作为大�
 
 - 根目录：先执行 `npm ci`，再运行 `just release::check` 和 `just release::test`；发布测试覆盖 CLI guard、投影漂移、Payload 事务和 Release Manifest，程序集集成用例需要 .NET SDK；全仓库源码检查与测试分别为 `just check`、`just test`。
 - installer：`just installer::check`；真实准备后在 installer 目录使用 `npm run verify -- --release-platform macos`（或 `windows`）。
-- mod：`just mod::build`、`just mod::test`。Newtonsoft.Json、MessagePack 等游戏自带库不从 NuGet 引用，而是直接引用 `ManagedPath` 下的游戏文件，所以 `prepare` / `build` 的 Release 编译本身就是对该 Managed 的兼容检查；清单见 `bazaarplusplus-mod/build/GameLibraries.props`，决策见 [mod ADR 0010](../bazaarplusplus-mod/docs/adr/0010-compile-against-game-supplied-libraries.md)。反射调用和运行时语义不在编译检查范围。
+- mod：`just mod::build`、`just mod::test`。mod 直接对照 `ManagedPath` 下的游戏自带库编译（[mod ADR 0010](../bazaarplusplus-mod/docs/adr/0010-compile-against-game-supplied-libraries.md)），所以 `prepare` / `build` 的 Release 编译就是对该 Managed 的兼容检查；反射调用和运行时语义不在其中。
 - site：`just site::test`、`just site::check`。
 
 没有对应平台的本机工具链、Payload 来源记录或签名材料时，不能以源码测试通过代替正式平台包验证。

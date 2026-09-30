@@ -63,9 +63,7 @@ npx wrangler deploy
 
 Production completed the Ghost summary migration on 2026-09-12. For a database still holding the pre-summary `ghost_battles` table, follow [Ghost summary migration](ghost-summary-migration.md) through `0004`, deploy this Worker, and finish retirement/cleanup through `0006`. Do not deploy the summary Worker before backfill verification or apply all stages in one step.
 
-Migration `0002_hot_path_indexes.sql` must complete before deploying the Worker that queries `idx_bazaardb_pending_retention`. It adds the pending retention projection and database-owned synchronization triggers, backfills only pending deliveries, and indexes Ghost Bundle foreign keys. Index creation reads existing tables; allow for this work when selecting the deployment window. It does not delete records or rewrite historical terminal deliveries.
-
-After migration, verify the two indexes and three triggers exist and that pending delivery `bundle_stored_at_ms` values match `bundles.stored_at_ms`. A Worker rollback may leave this additive migration in place: older code remains compatible. Do not reapply an already recorded migration.
+Every schema change ships as a new migration file; a recorded migration is never reapplied.
 
 Verify the custom domain resolves only to `bazaarplusplus-mod-api-v5` and that the Worker has the `*/15 * * * *` Cron Trigger from `wrangler.toml`. The trigger runs D1 retention only. Allow up to 15 minutes for trigger configuration to propagate.
 
@@ -141,7 +139,6 @@ deployment-lifetime `bundle_uploaders` table.
 ### 6.3 Ecosystem gates
 
 - Verify the analyzer and BazaarDB clients compare the decoded Run identity/version with the Bundle manifest and quarantine mismatches.
-- Do not release the V5 mod until analyzer and BazaarDB consumers have completed the direct-R2 smoke test.
 
 ## 7. D1 retention
 
@@ -156,18 +153,15 @@ BazaarDB delivery, and attempt receipts. `bundle_uploaders` is deployment-lifeti
 trust state and is never deleted. The handler requires only D1, without R2 credentials
 or service tokens, and makes no R2 calls. The R2 bucket keeps its separate 8-day rule.
 
-Before deploying this policy, inspect the oldest records with the probe above and
-preview the first eligible page:
+Preview the first eligible page:
 
 ```sh
 npx wrangler d1 execute bazaarplusplus-mod-api-v5-db --remote --json --command "SELECT bundle_id, stored_at_ms FROM bundles INDEXED BY idx_bundles_stored_retention WHERE stored_at_ms < (unixepoch() - 15 * 86400) * 1000 ORDER BY stored_at_ms, bundle_id LIMIT 100"
 ```
 
-Deploying the Worker enables pruning, including eligible historical records. No new
-migration is required beyond `0002_hot_path_indexes.sql`; its child index is required
-to keep cascades bounded. Validate the exact cutoff, cascades, interruption recovery,
-and query plans with `npm test`. A local scheduled invocation can also be exercised
-with Wrangler's `/cdn-cgi/local/scheduled` endpoint; it is not a public application route.
+`npm test` covers the exact cutoff, cascades, interruption recovery, and query plans.
+A local scheduled invocation can be exercised through Wrangler's
+`/cdn-cgi/local/scheduled` endpoint; it is not a public application route.
 
 A successful run logs `deleted_bundles` (parent count) and `has_more`. The configured
 budget supports up to 96,000 parent deletions per day when every trigger succeeds;
