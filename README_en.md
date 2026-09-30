@@ -63,119 +63,30 @@ Feature guides, hotkeys, and installation details live at [bazaarplusplus.com/tu
 
 ## Repository Layout
 
-```
-.
-├── JUSTFILE                                 # Unified development, checks, tests, and release commands
-├── VERSION / release.mjs / release/         # Product version, release entry point, shared Payload Inventory
-├── bazaarplusplus-mod/                       # BepInEx mod source
-│   ├── mod.just / scripts/                   # just mod::… recipes and their build/test/decompile scripts
-│   └── src/
-│       ├── BazaarPlusPlus/                   # Main mod: Game, Patches, Resources, Data
-│       ├── BazaarPlusPlus.ModApi/            # HTTP client for the mod backend
-│       ├── BazaarPlusPlus.Storage/           # Local run logs, screenshots, and SQLite storage
-│       └── BazaarPlusPlus.Localization/      # Chinese terminology and localization engine
-├── bazaarplusplus-installer/                 # Desktop installer
-│   ├── src/                                  # Vite + React frontend
-│   ├── src-tauri/                            # Tauri 2 / Rust backend
-│   └── installer.just                        # just installer::… development recipes
-├── bazaarplusplus-server/                    # Cloudflare Worker: Bundle upload and Ghost discovery
-├── bazaarplusplus-analyzer/                  # Turns Bundles into heroes / builds snapshots
-└── bazaarplusplus-site/                      # bazaarplusplus.com
-```
+| Directory                            | Contents                                             |
+| ------------------------------------ | ---------------------------------------------------- |
+| `bazaarplusplus-mod/`                | The BepInEx mod                                      |
+| `bazaarplusplus-installer/`          | The desktop installer (Tauri 2 + React)              |
+| `bazaarplusplus-server/`             | Cloudflare Worker: Bundle upload and Ghost discovery |
+| `bazaarplusplus-analyzer/`           | Turns Bundles into hero and build snapshots          |
+| `bazaarplusplus-site/`               | bazaarplusplus.com                                   |
+| `VERSION`, `release.mjs`, `release/` | Product version and release pipeline                 |
 
-Run `just` from any repository subdirectory to list development, check, test, and release commands. Projects retain their native toolchains; product release rules live in the root `release.mjs`. See the [development command guide](docs/development.md) for setup and command scope. The root [`AGENTS.md`](AGENTS.md) records cross-project conventions and contract owners; each project also has its own `AGENTS.md`.
+Each project keeps its own toolchain, `README.md`, and `AGENTS.md`; the root [`AGENTS.md`](AGENTS.md) records cross-project conventions and contract owners.
 
 ## Building From Source
 
-After installing the toolchains below, run `just setup` to connect shared local configuration, install each project's dependencies, and install Git hooks. `just doctor` lists missing local prerequisites. See the [development guide](docs/development.md#新-clone-与本地配置) for migration from an older clone and shared configuration storage.
-
-### Prerequisites
-
-| Scope                         | Requirements                                                                                                                                                          |
-| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Unified commands**          | [just](https://just.systems/man/en/packages.html); install with `brew install just` on macOS.                                                                         |
-| **Mod**                       | .NET SDK 10 and a local Steam install of _The Bazaar_ so game assemblies can be resolved.                                                                             |
-| **Installer / server / site** | Use the Node version in the root `.nvmrc` and the npm version in `packageManager` of `bazaarplusplus-installer/package.json`; run `npm ci` in each project directory. |
-| **Native installer builds**   | The Rust toolchain and the system dependencies listed in the [Tauri prerequisites](https://tauri.app/start/prerequisites/).                                           |
-| **Analyzer**                  | Python 3.14 and `uv`.                                                                                                                                                 |
-| **Windows**                   | Run just commands in Git Bash; native build scripts also require PowerShell 7.6.0 or newer.                                                                           |
-
-### Build the Mod
+Install the toolchains listed in the [development guide](docs/development.md) (just, .NET, Node, Rust, Python/uv, and a local Steam install of _The Bazaar_), then:
 
 ```bash
-# Compile without changing the installed game
-just mod::build
-just mod::test
-
-# Override the game assembly directory
-just mod::build "-p:ManagedPath=<Steam>/steamapps/common/The Bazaar/.../Managed"
+just setup   # Shared local config, locked dependencies, Git hooks
+just doctor  # What is still missing on this machine
+just         # Every command, grouped by project
 ```
 
-To deploy development DLLs into the game, explicitly run `just mod::build --deploy`.
+Gate one project with `just <project>::check` and `just <project>::test`; `just fmt` formats every project. `just mod::build` only compiles; deploy a development DLL into the game explicitly with `just mod::build --deploy`.
 
-### Build the Installer
-
-```bash
-cd bazaarplusplus-installer
-
-npm ci
-just installer::dev # Vite frontend dev server
-npm run tauri dev  # full Tauri desktop app
-
-just installer::check
-just installer::test
-npm run format
-```
-
-### Build the Server, Analyzer, and Site
-
-<details>
-<summary><b>Server</b> · Cloudflare Worker</summary>
-
-```bash
-cd bazaarplusplus-server
-npm ci
-just server::test
-# just server::dev requires the project's gitignored .dev.vars
-```
-
-</details>
-
-<details>
-<summary><b>Analyzer</b> · Python + uv</summary>
-
-```bash
-cd bazaarplusplus-analyzer
-uv sync --locked
-just analyzer::check
-just analyzer::test
-```
-
-</details>
-
-<details>
-<summary><b>Site</b> · bazaarplusplus.com</summary>
-
-```bash
-cd bazaarplusplus-site
-npm ci
-just site::test
-just site::build
-```
-
-</details>
-
-### Formatting and Git Hooks
-
-Run `just fmt` from the root to format every project; `just hooks-install` installs the Git hooks defined in the root `lefthook.yml`.
-
-### Release Build Limits
-
-Release signing, notarization, and R2 upload flows depend on local environment variables and `signing-secrets/`, which are intentionally not committed. A full release build also requires a local game install, signing material, and the platform dependencies — the public source tree alone is not enough. Game decompilation output, `decompiled/`, `.env`, and `.dev.vars` are also kept out of this tree.
-
-## Product Releases
-
-The mod and installer share the root `VERSION`. Run `just release::sync` after changing it. Build each platform with `just release::build macos` (or `windows`), then run `just release::upload <platform>` for its immutable artifacts. Upload the installers to the mainland mirror and record each share page with `just release::mirror <platform> <share-url>`. `just release::promote` publishes when both platforms have the same version and Git commit and their mirror records exist; `just release::promote --platform <platform>` publishes one platform, and `latest.json` advances once both platforms are at the same version. The underlying `node release.mjs …` commands remain available. See the [product release guide](docs/release.md) for credentials, sequencing, and recovery.
+Release signing, notarization, and R2 upload depend on local credentials that are not in the public repository; decompiled game output, `.env`, and `.dev.vars` are not in the tree either. The release flow is in the [product release guide](docs/release.md) (Chinese).
 
 ## Derivative Work Notice
 

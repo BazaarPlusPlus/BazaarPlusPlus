@@ -28,7 +28,7 @@ A contract change lands in one pull request together with every consumer it brea
 | Local history database schema (`user_version`) | `RunLogSchema.LocalDatabaseSchemaVersion`, mirrored in `bazaarplusplus-mod/src/BazaarPlusPlus.Storage/BazaarPlusPlus.history-database.json`; `release::check` gates the pair (`release/history-database.mjs`) | installer History, cleanup, and overlay reads (`bazaarplusplus-installer/src-tauri/history-database-compatibility.json`) |
 | Release Manifest and Platform Release Manifest | `release/manifest.mjs`, shared fixtures `release/fixtures/latest.json` and `release/fixtures/latest/` | site download page, installer updater, mod update check |
 
-Root `release/` owns Product Release modules and tests. Installer scripts may import them; release modules must not import installer scripts. Root tooling has its own `package.json` and lockfile, without npm workspaces.
+Root `release/` owns Product Release modules and tests. Imports run one way: installer scripts may import release modules, never the reverse.
 
 Run `just release::sync` after editing `VERSION` or `release/payload.json`; it regenerates the projections the builds validate against.
 
@@ -56,7 +56,7 @@ Run `just release::sync` after editing `VERSION` or `release/payload.json`; it r
 - Name domain concepts with the glossary's terms; a real naming gap gets a `CONTEXT.md` entry in the same change. When your output contradicts an ADR, name the ADR and say why it is worth reopening.
 - Cite code by path plus symbol name. Line numbers drift.
 - ADRs are numbered `NNNN-slug.md` per project, in sequence. A number is never reused or renumbered. A replaced ADR gets a `superseded-by:` frontmatter pointer; a retired one is deleted and lives on in git history.
-- Root `README.md`, `docs/development.md`, and `docs/release.md` are in Chinese, with `README_en.md` as the English mirror.
+- Root `README.md`, `docs/development.md`, and `docs/release.md` are in Chinese. `README_en.md` mirrors `README.md` section for section; edit both in one change.
 - Docs checks: installer `npm run docs:check`; mod `bazaarplusplus-mod/tests/Architecture.Tests/DocsHygieneTests.cs` enforces byte budgets and resolving links.
 
 ## Instructions

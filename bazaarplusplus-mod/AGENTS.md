@@ -5,6 +5,7 @@ The BepInEx mod. Repo-wide rules (commits, pull requests, docs policy, contracts
 | When you are about to | Read |
 |---|---|
 | Touch any code | `docs/MEMORY.md` |
+| Change a feature | its `docs/architecture/` doc, Gotchas included; `docs/ARCHITECTURE.md` routes by feature |
 | Name a domain concept | `CONTEXT.md` |
 | Find who owns or constructs something | `docs/ARCHITECTURE.md` |
 | Reopen a settled decision | `docs/adr/` |

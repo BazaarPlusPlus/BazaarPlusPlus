@@ -16,7 +16,7 @@ The installer manifest records, per platform, the canonical input digest and inp
 
 The native coordinator computes the catalog input digest, reuses matching artifacts, or invokes the mod-owned build scripts into temporary output. Its local promotion is nested inside product preparation: a later managed build or final verification failure discards the entire temporary tree and leaves the previous canonical Payload unchanged.
 
-The product coordinator switches SourceForBuild, the unsigned archive and native input lock under a recovery journal. Packaging refuses a pending journal; the next preparation restores the previous generation before retrying. Only the selected platform changes. See the [product release guide](../../../docs/release.md) for locking, recovery and two-platform release promotion.
+Switching the canonical Payload, locking, and journal recovery are owned by the [product release guide](../../../docs/release.md).
 
 ## Producer checks
 

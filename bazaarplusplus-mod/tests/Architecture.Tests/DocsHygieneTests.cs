@@ -22,7 +22,7 @@ public class DocsHygieneTests
     {
         ("AGENTS.md", 9 * 1024),
         ("CONTEXT.md", 13 * 1024),
-        ("docs/MEMORY.md", 17 * 1024),
+        ("docs/MEMORY.md", 10 * 1024),
         ("docs/ARCHITECTURE.md", 14 * 1024),
         ("docs/README.md", 6 * 1024),
     };
@@ -50,9 +50,8 @@ public class DocsHygieneTests
         Assert.True(
             overBudget.Count == 0,
             "Always-loaded documentation is over budget. Merge entries into existing ones rather "
-                + "than appending, or move detail behind a pointer. Do not compress MEMORY.md's "
-                + "Gotchas section to fit — that section is why the file exists; take the space "
-                + "from Durable knowledge or Patterns instead.\n  "
+                + "than appending, or move detail behind a pointer. Keep gotchas whole: move one that "
+                + "bites a single feature into that feature's docs/architecture/ Gotchas section.\n  "
                 + string.Join("\n  ", overBudget)
         );
     }

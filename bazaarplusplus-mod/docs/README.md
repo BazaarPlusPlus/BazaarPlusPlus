@@ -4,7 +4,7 @@ The documentation inventory, and the mod-specific rules for changing it. `AGENTS
 
 ## Inventory
 
-- [MEMORY.md](MEMORY.md) — invariants, settled decisions, and traps that fail silently.
+- [MEMORY.md](MEMORY.md) — invariants, settled decisions, and cross-feature traps that fail silently.
 - [ARCHITECTURE.md](ARCHITECTURE.md) — how the plugin is assembled and what seams are shared, with per-feature detail under [architecture/](architecture/).
 - [../CONTEXT.md](../CONTEXT.md) — the glossary.
 - [adr/](adr/) — decision records.
@@ -25,7 +25,7 @@ Each layer owns one thing, and links rather than restating: `AGENTS.md` owns pro
 
 **Edit policy.** `ARCHITECTURE.md`, `architecture/`, `contracts/`, and `adr/` may be corrected the moment the code drifts. `MEMORY.md` and this file take dense one-line entries directly; the byte budgets below are what keep them curated. Point at the test that pins a number instead of restating the number; a count in prose drifts silently.
 
-**Budgets are in bytes, not lines.** `AGENTS.md` and `MEMORY.md` carry dense one-line entries, so a line count says nothing about what they cost an agent. The enforced ceilings live in `tests/Architecture.Tests/DocsHygieneTests.cs`; keeping under them means merging entries, not appending. `MEMORY.md`'s Gotchas section is exempt: that section is the reason the file exists, and compressing it to hit a budget defeats the budget.
+**Budgets are in bytes, not lines.** `AGENTS.md` and `MEMORY.md` carry dense one-line entries, so a line count says nothing about what they cost an agent. The enforced ceilings live in `tests/Architecture.Tests/DocsHygieneTests.cs`; keeping under them means merging entries, not appending. A gotcha is never compressed to hit a budget; one that bites a single feature moves to the Gotchas section of that feature's `architecture/` doc, which is read only when that feature changes.
 
 ## Historical material
 

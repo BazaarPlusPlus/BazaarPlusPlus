@@ -63,119 +63,30 @@ BazaarPlusPlus 是一个面向《The Bazaar》的开源项目：游戏内由 Bep
 
 ## 仓库结构
 
-```
-.
-├── JUSTFILE                                 # 统一开发、检查、测试与发布命令
-├── VERSION / release.mjs / release/         # 产品版本、发布入口与共享 Payload Inventory
-├── bazaarplusplus-mod/                       # BepInEx 模组源码
-│   ├── mod.just / scripts/                   # just mod::… 命令及其构建、测试、反编译脚本
-│   └── src/
-│       ├── BazaarPlusPlus/                   # 主模组：Game、Patches、Resources、Data
-│       ├── BazaarPlusPlus.ModApi/            # 与服务端通信的 API 客户端
-│       ├── BazaarPlusPlus.Storage/           # 本地运行日志、截图和 SQLite 存储
-│       └── BazaarPlusPlus.Localization/      # 中文术语与本地化引擎
-├── bazaarplusplus-installer/                 # 桌面安装器
-│   ├── src/                                  # Vite + React 前端
-│   ├── src-tauri/                            # Tauri 2 / Rust 后端
-│   └── installer.just                        # just installer::… 开发命令入口
-├── bazaarplusplus-server/                    # Cloudflare Worker：Bundle 上传与 Ghost 发现
-├── bazaarplusplus-analyzer/                  # 把 Bundle 收成 heroes / builds 快照
-└── bazaarplusplus-site/                      # bazaarplusplus.com
-```
+| 目录                                 | 内容                                        |
+| ------------------------------------ | ------------------------------------------- |
+| `bazaarplusplus-mod/`                | BepInEx 模组                                |
+| `bazaarplusplus-installer/`          | 桌面安装器（Tauri 2 + React）               |
+| `bazaarplusplus-server/`             | Cloudflare Worker：Bundle 上传与 Ghost 发现 |
+| `bazaarplusplus-analyzer/`           | 把 Bundle 汇总成英雄与阵容快照              |
+| `bazaarplusplus-site/`               | bazaarplusplus.com                          |
+| `VERSION`、`release.mjs`、`release/` | 产品版本与发布流程                          |
 
-在仓库任意子目录运行 `just` 查看开发、检查、测试和发布命令。底层仍使用各项目的原生工具链，产品发布规则由根目录 `release.mjs` 维护。环境安装与命令范围见 [开发命令](docs/development.md)。根目录 [`AGENTS.md`](AGENTS.md) 记录跨项目约定和契约归属，各项目另有自己的 `AGENTS.md`。
+每个项目保留自己的工具链，并有各自的 `README.md` 与 `AGENTS.md`；根目录 [`AGENTS.md`](AGENTS.md) 记录跨项目约定和契约归属。
 
 ## 从源码构建
 
-安装下列工具链后执行 `just setup`，一次接入本机共用配置、各项目依赖和 Git hooks；`just doctor` 列出尚缺的配置与本机材料。旧 clone 的配置迁移和集中目录约定见[开发命令](docs/development.md#新-clone-与本地配置)。
-
-### 环境要求
-
-| 范围                       | 依赖                                                                                                                          |
-| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| **统一命令**               | [just](https://just.systems/man/en/packages.html)，macOS 可用 `brew install just` 安装。                                      |
-| **模组**                   | .NET SDK 10，以及本机 Steam 版《The Bazaar》（用于解析游戏程序集引用）。                                                      |
-| **安装器 / 服务端 / 官网** | Node 版本见根目录 `.nvmrc`，npm 版本见 `bazaarplusplus-installer/package.json` 的 `packageManager`；各目录分别执行 `npm ci`。 |
-| **安装器原生构建**         | Rust 工具链、Tauri 系统依赖（见 [Tauri prerequisites](https://tauri.app/start/prerequisites/)）。                             |
-| **分析器**                 | Python 3.14 与 `uv`。                                                                                                         |
-| **Windows**                | just 命令在 Git Bash 中执行；原生构建脚本还要求 PowerShell 7.6.0 或更高版本。                                                 |
-
-### 构建模组
+按[开发命令](docs/development.md)装好工具链（just、.NET、Node、Rust、Python/uv，以及本机 Steam 版《The Bazaar》），然后：
 
 ```bash
-# Compile without changing the installed game
-just mod::build
-just mod::test
-
-# Override the game assembly directory
-just mod::build "-p:ManagedPath=<Steam>/steamapps/common/The Bazaar/.../Managed"
+just setup   # Shared local config, locked dependencies, Git hooks
+just doctor  # What is still missing on this machine
+just         # Every command, grouped by project
 ```
 
-需要把开发 DLL 部署进游戏时，显式运行 `just mod::build --deploy`。
+单个项目用 `just <project>::check` 和 `just <project>::test` 验证，`just fmt` 格式化全部项目。`just mod::build` 只编译；把开发版 DLL 部署进游戏要显式运行 `just mod::build --deploy`。
 
-### 构建安装器
-
-```bash
-cd bazaarplusplus-installer
-
-npm ci
-just installer::dev # Frontend development server
-npm run tauri dev  # Full Tauri desktop app
-
-just installer::check
-just installer::test
-npm run format
-```
-
-### 构建服务端、分析器与官网
-
-<details>
-<summary><b>服务端</b> · Cloudflare Worker</summary>
-
-```bash
-cd bazaarplusplus-server
-npm ci
-just server::test
-# just server::dev requires the project's gitignored .dev.vars
-```
-
-</details>
-
-<details>
-<summary><b>分析器</b> · Python + uv</summary>
-
-```bash
-cd bazaarplusplus-analyzer
-uv sync --locked
-just analyzer::check
-just analyzer::test
-```
-
-</details>
-
-<details>
-<summary><b>官网</b> · bazaarplusplus.com</summary>
-
-```bash
-cd bazaarplusplus-site
-npm ci
-just site::test
-just site::build
-```
-
-</details>
-
-### 格式化与 Git hooks
-
-在根目录执行 `just fmt` 可一次格式化所有项目；`just hooks-install` 安装根目录 `lefthook.yml` 定义的 Git hooks。
-
-### 发布构建的限制
-
-发布签名、公证（notarization）、R2 上传等流程依赖本地环境变量与 `signing-secrets/`，这些内容不会提交到公开仓库；在缺少本机游戏、签名凭据或平台依赖的环境中，无法完成完整的发布构建。游戏反编译输出、`decompiled/`、`.env` 和 `.dev.vars` 同样不在此树中。
-
-## 产品发布
-
-mod 与 installer 共用根目录 `VERSION`。修改后执行 `just release::sync`；每个平台使用 `just release::build macos`（或 `windows`）准备 Payload 并打包。分别执行 `just release::upload <platform>` 后，把安装包上传到大陆镜像并用 `just release::mirror <platform> <分享页地址>` 核对记录；`just release::promote` 在双平台同版本、同提交的产物和镜像记录齐备时发布；`just release::promote --platform <platform>` 只发布一个平台，`latest.json` 在两个平台版本相同后才推进。底层 `node release.mjs …` 保持可用；完整流程、凭据与恢复约定见 [产品发布](docs/release.md)。
+发布签名、公证和 R2 上传依赖本机凭据，不在公开仓库中；游戏反编译输出、`.env`、`.dev.vars` 同样不在此树中。版本发布流程见[产品发布](docs/release.md)。
 
 ## 二次开发须知
 
