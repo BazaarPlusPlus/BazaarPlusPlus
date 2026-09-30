@@ -94,16 +94,33 @@ mod imp {
 
     /// The real Unity bootstrap links `UnityPlayer.dylib`; our tiny stub does not.
     /// Used to guard the rename (never rename a stray stub as if it were the game)
-    /// and to detect the trampolined state.
-    pub(super) fn links_unity(path: &Path) -> bool {
-        if !path.exists() {
-            return false;
-        }
-        let Ok(output) = Command::new("otool").arg("-L").arg(path).output() else {
-            return false;
+    /// and to detect the trampolined state. The Mach-O is parsed in-process:
+    /// `otool` is an Xcode shim that fails until the Xcode license is accepted,
+    /// and a probe that cannot run must never read as "not the real binary".
+    pub(super) fn links_unity(path: &Path) -> Result<bool, String> {
+        let bytes = match std::fs::read(path) {
+            Ok(bytes) => bytes,
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(false),
+            Err(err) => {
+                return Err(format!(
+                    "Cannot read game executable {}: {err}",
+                    path.display()
+                ))
+            }
         };
-        output.status.success()
-            && String::from_utf8_lossy(&output.stdout).contains("UnityPlayer.dylib")
+        Ok(macho_images(&bytes)
+            .into_iter()
+            .any(|(_, image)| image_links_unity(image)))
+    }
+
+    /// Whether the executable carries an arm64 image, thin or as a universal slice.
+    /// Parsed in-process for the same reason as [`links_unity`]: `lipo` is an Xcode shim.
+    pub(super) fn has_arm64(path: &Path) -> Result<bool, String> {
+        let bytes = std::fs::read(path)
+            .map_err(|err| format!("Cannot inspect game architecture: {err}"))?;
+        Ok(macho_images(&bytes)
+            .into_iter()
+            .any(|(cpu_type, _)| cpu_type == CPU_TYPE_ARM64))
     }
 
     pub(super) fn command_available(command: &str, args: &[&str]) -> bool {
@@ -299,8 +316,8 @@ mod imp {
             return Ok(false);
         }
         Ok(layout.exe_path.exists()
-            && !links_unity(&layout.exe_path)
-            && links_unity(&layout.orig_path))
+            && !links_unity(&layout.exe_path)?
+            && links_unity(&layout.orig_path)?)
     }
 
     pub(super) fn install_trampoline(resource_dir: &Path, game_path: &Path) -> Result<(), String> {
@@ -338,20 +355,15 @@ mod imp {
         // at <exe> on top of a STALE <exe>.orig; we keep the fresh one and discard
         // the stale backup, never the reverse (which would re-stub over the updated
         // binary and silently exec the old one).
-        let exe_is_real = links_unity(&layout.exe_path);
+        let exe_is_real = links_unity(&layout.exe_path)?;
         let orig_exists = layout.orig_path.exists();
-        let orig_is_real = orig_exists && links_unity(&layout.orig_path);
+        let orig_is_real = orig_exists && links_unity(&layout.orig_path)?;
         let source = classify_real_binary(exe_is_real, orig_exists, orig_is_real)?;
         let real = match source {
             RealBinarySource::CurrentExe => &layout.exe_path,
             RealBinarySource::ExistingOrig => &layout.orig_path,
         };
-        let architecture = Command::new("/usr/bin/lipo")
-            .arg(real)
-            .args(["-verify_arch", "arm64"])
-            .output()
-            .map_err(|err| format!("Cannot inspect game architecture: {err}"))?;
-        if !architecture.status.success() {
+        if !has_arm64(real)? {
             return Err("The game executable has no arm64 architecture; restore the Steam game before repairing.".to_string());
         }
         if !stub.is_file() {
@@ -432,7 +444,7 @@ mod imp {
         }
 
         // .orig missing: either already vanilla (Steam verify reverted) or broken.
-        if links_unity(&layout.exe_path) {
+        if links_unity(&layout.exe_path)? {
             return Ok(());
         }
         Err(format!(
@@ -521,91 +533,151 @@ fn trampoline_builds_match(left: &Path, right: &Path) -> Result<bool, String> {
 }
 
 #[cfg(target_os = "macos")]
-fn read_macho_uuid(path: &Path) -> Result<[u8; 16], String> {
+const MH_MAGIC_64: u32 = 0xfeedfacf;
+#[cfg(target_os = "macos")]
+const CPU_TYPE_ARM64: u32 = 0x0100_000c;
+
+#[cfg(target_os = "macos")]
+fn read_u32_le(bytes: &[u8], offset: usize) -> Option<u32> {
+    let value = bytes.get(offset..offset.checked_add(4)?)?;
+    Some(u32::from_le_bytes(value.try_into().ok()?))
+}
+
+#[cfg(target_os = "macos")]
+fn read_u32_be(bytes: &[u8], offset: usize) -> Option<u32> {
+    let value = bytes.get(offset..offset.checked_add(4)?)?;
+    Some(u32::from_be_bytes(value.try_into().ok()?))
+}
+
+#[cfg(target_os = "macos")]
+fn read_u64_be(bytes: &[u8], offset: usize) -> Option<u64> {
+    let value = bytes.get(offset..offset.checked_add(8)?)?;
+    Some(u64::from_be_bytes(value.try_into().ok()?))
+}
+
+/// Every 64-bit little-endian Mach-O image in `bytes` as `(cputype, image)`: the
+/// file itself when thin, or each slice of a universal binary. Anything else,
+/// including a truncated or malformed header, yields no images.
+#[cfg(target_os = "macos")]
+fn macho_images(bytes: &[u8]) -> Vec<(u32, &[u8])> {
+    const FAT_MAGIC: u32 = 0xcafebabe;
+    const FAT_MAGIC_64: u32 = 0xcafebabf;
+    const FAT_HEADER_SIZE: usize = 8;
+
+    fn thin(image: &[u8]) -> Option<(u32, &[u8])> {
+        (read_u32_le(image, 0)? == MH_MAGIC_64).then_some((read_u32_le(image, 4)?, image))
+    }
+
+    let wide = match read_u32_be(bytes, 0) {
+        Some(FAT_MAGIC) => false,
+        Some(FAT_MAGIC_64) => true,
+        _ => return thin(bytes).into_iter().collect(),
+    };
+    let entry_size = if wide { 32 } else { 20 };
+    let declared = read_u32_be(bytes, 4).unwrap_or(0) as usize;
+    let present = bytes.len().saturating_sub(FAT_HEADER_SIZE) / entry_size;
+    (0..declared.min(present))
+        .filter_map(|index| {
+            let entry = FAT_HEADER_SIZE + index * entry_size;
+            let (offset, size) = if wide {
+                (
+                    read_u64_be(bytes, entry + 8)?,
+                    read_u64_be(bytes, entry + 16)?,
+                )
+            } else {
+                (
+                    u64::from(read_u32_be(bytes, entry + 8)?),
+                    u64::from(read_u32_be(bytes, entry + 12)?),
+                )
+            };
+            let start = usize::try_from(offset).ok()?;
+            let end = start.checked_add(usize::try_from(size).ok()?)?;
+            thin(bytes.get(start..end)?)
+        })
+        .collect()
+}
+
+/// The load commands of a thin 64-bit Mach-O image as `(cmd, command bytes)`.
+#[cfg(target_os = "macos")]
+fn load_commands(image: &[u8]) -> Result<Vec<(u32, &[u8])>, &'static str> {
     const MACH_HEADER_64_SIZE: usize = 32;
-    const MH_MAGIC_64: u32 = 0xfeedfacf;
+
+    let command_count = read_u32_le(image, 16).ok_or("an incomplete Mach-O header")?;
+    let command_bytes = read_u32_le(image, 20).ok_or("an incomplete Mach-O header")? as usize;
+    let commands_end = MACH_HEADER_64_SIZE
+        .checked_add(command_bytes)
+        .filter(|end| *end <= image.len())
+        .ok_or("invalid Mach-O load commands")?;
+
+    let mut commands = Vec::new();
+    let mut offset = MACH_HEADER_64_SIZE;
+    for _ in 0..command_count {
+        let command = read_u32_le(image, offset).ok_or("an incomplete Mach-O load command")?;
+        let command_size =
+            read_u32_le(image, offset + 4).ok_or("an incomplete Mach-O load command")? as usize;
+        let next_offset = offset
+            .checked_add(command_size)
+            .filter(|next| command_size >= 8 && *next <= commands_end)
+            .ok_or("an invalid Mach-O load command")?;
+        commands.push((command, &image[offset..next_offset]));
+        offset = next_offset;
+    }
+    Ok(commands)
+}
+
+/// Whether a thin image loads `UnityPlayer.dylib` through any dylib load command.
+#[cfg(target_os = "macos")]
+fn image_links_unity(image: &[u8]) -> bool {
+    const LC_REQ_DYLD: u32 = 0x8000_0000;
+    const DYLIB_LOAD_COMMANDS: [u32; 5] = [
+        0xc,                // LC_LOAD_DYLIB
+        0x18 | LC_REQ_DYLD, // LC_LOAD_WEAK_DYLIB
+        0x1f | LC_REQ_DYLD, // LC_REEXPORT_DYLIB
+        0x20,               // LC_LAZY_LOAD_DYLIB
+        0x23 | LC_REQ_DYLD, // LC_LOAD_UPWARD_DYLIB
+    ];
+
+    let Ok(commands) = load_commands(image) else {
+        return false;
+    };
+    commands.into_iter().any(|(command, bytes)| {
+        DYLIB_LOAD_COMMANDS.contains(&command)
+            && read_u32_le(bytes, 8)
+                .and_then(|name_offset| bytes.get(name_offset as usize..))
+                .and_then(|name| name.split(|byte| *byte == 0).next())
+                .is_some_and(|name| name.ends_with(b"UnityPlayer.dylib"))
+    })
+}
+
+#[cfg(target_os = "macos")]
+fn read_macho_uuid(path: &Path) -> Result<[u8; 16], String> {
     const LC_UUID: u32 = 0x1b;
     const LC_UUID_SIZE: usize = 24;
 
-    fn read_u32(bytes: &[u8], offset: usize) -> Option<u32> {
-        let value = bytes.get(offset..offset.checked_add(4)?)?;
-        Some(u32::from_le_bytes(value.try_into().ok()?))
-    }
-
     let bytes = std::fs::read(path)
         .map_err(|err| format!("Cannot read trampoline {}: {err}", path.display()))?;
-    if read_u32(&bytes, 0) != Some(MH_MAGIC_64) {
+    if read_u32_le(&bytes, 0) != Some(MH_MAGIC_64) {
         return Err(format!(
             "Trampoline {} is not a 64-bit little-endian Mach-O image",
             path.display()
         ));
     }
 
-    let command_count = read_u32(&bytes, 16).ok_or_else(|| {
-        format!(
-            "Trampoline {} has an incomplete Mach-O header",
-            path.display()
-        )
-    })?;
-    let command_bytes = read_u32(&bytes, 20).ok_or_else(|| {
-        format!(
-            "Trampoline {} has an incomplete Mach-O header",
-            path.display()
-        )
-    })? as usize;
-    let commands_end = MACH_HEADER_64_SIZE
-        .checked_add(command_bytes)
-        .filter(|end| *end <= bytes.len())
+    let commands = load_commands(&bytes)
+        .map_err(|problem| format!("Trampoline {} has {problem}", path.display()))?;
+    let (_, command) = commands
+        .into_iter()
+        .find(|(command, _)| *command == LC_UUID)
+        .ok_or_else(|| format!("Trampoline {} has no Mach-O build UUID", path.display()))?;
+    command
+        .get(8..LC_UUID_SIZE)
+        .and_then(|uuid| uuid.try_into().ok())
         .ok_or_else(|| {
             format!(
-                "Trampoline {} has invalid Mach-O load commands",
+                "Trampoline {} has an invalid Mach-O UUID command",
                 path.display()
             )
-        })?;
-
-    let mut offset = MACH_HEADER_64_SIZE;
-    for _ in 0..command_count {
-        let command = read_u32(&bytes, offset).ok_or_else(|| {
-            format!(
-                "Trampoline {} has an incomplete Mach-O load command",
-                path.display()
-            )
-        })?;
-        let command_size = read_u32(&bytes, offset + 4).ok_or_else(|| {
-            format!(
-                "Trampoline {} has an incomplete Mach-O load command",
-                path.display()
-            )
-        })? as usize;
-        let next_offset = offset
-            .checked_add(command_size)
-            .filter(|next| command_size >= 8 && *next <= commands_end)
-            .ok_or_else(|| {
-                format!(
-                    "Trampoline {} has an invalid Mach-O load command",
-                    path.display()
-                )
-            })?;
-
-        if command == LC_UUID {
-            if command_size < LC_UUID_SIZE {
-                return Err(format!(
-                    "Trampoline {} has an invalid Mach-O UUID command",
-                    path.display()
-                ));
-            }
-            return bytes[offset + 8..offset + LC_UUID_SIZE]
-                .try_into()
-                .map_err(|_| format!("Cannot read Mach-O UUID from {}", path.display()));
-        }
-
-        offset = next_offset;
-    }
-
-    Err(format!(
-        "Trampoline {} has no Mach-O build UUID",
-        path.display()
-    ))
+        })
 }
 
 #[cfg(not(target_os = "macos"))]
@@ -735,7 +807,7 @@ mod tests {
         for _ in 0..3 {
             imp::install_with_stub(game.path(), &stub).unwrap();
             assert!(is_current_with_stub(game.path(), &stub).unwrap());
-            assert!(imp::links_unity(&layout.orig_path));
+            assert!(imp::links_unity(&layout.orig_path).unwrap());
             assert!(!layout.app_path.join("TheBazaar_ARM64.app").exists());
         }
         let entitlements = std::process::Command::new("codesign")
@@ -774,7 +846,7 @@ mod tests {
         })
         .unwrap_err();
         assert_eq!(error, "simulated payload removal failure");
-        assert!(imp::links_unity(&layout.exe_path));
+        assert!(imp::links_unity(&layout.exe_path).unwrap());
         assert!(!layout.orig_path.exists());
         imp::verify_bundle(&layout.app_path).unwrap();
         assert_eq!(
@@ -799,7 +871,7 @@ mod tests {
         .unwrap_err();
         assert_eq!(error, "injected signing failure");
         let layout = bundle_paths(game.path()).unwrap();
-        assert!(imp::links_unity(&layout.exe_path));
+        assert!(imp::links_unity(&layout.exe_path).unwrap());
         assert!(!layout.orig_path.exists());
         imp::verify_bundle(&layout.app_path).unwrap();
         imp::install_with_stub(game.path(), &stub).unwrap();
@@ -886,6 +958,104 @@ mod tests {
         assert!(!trampoline_builds_match(&outdated, &bundled).unwrap());
     }
 
+    /// A thin arm64/x86_64 Mach-O image whose only load command is an optional dylib.
+    fn macho_image(cpu_type: u32, dylib: Option<&str>) -> Vec<u8> {
+        const LC_LOAD_DYLIB: u32 = 0xc;
+        const DYLIB_NAME_OFFSET: u32 = 24;
+
+        let mut command = Vec::new();
+        if let Some(name) = dylib {
+            let mut name = name.as_bytes().to_vec();
+            name.push(0);
+            name.resize(name.len().next_multiple_of(8), 0);
+            command.extend_from_slice(&LC_LOAD_DYLIB.to_le_bytes());
+            command.extend_from_slice(&(DYLIB_NAME_OFFSET + name.len() as u32).to_le_bytes());
+            command.extend_from_slice(&DYLIB_NAME_OFFSET.to_le_bytes());
+            command.extend_from_slice(&[0; 12]);
+            command.extend_from_slice(&name);
+        }
+        let mut bytes = vec![0; 32];
+        bytes[0..4].copy_from_slice(&0xfeedfacfu32.to_le_bytes());
+        bytes[4..8].copy_from_slice(&cpu_type.to_le_bytes());
+        bytes[16..20].copy_from_slice(&u32::from(dylib.is_some()).to_le_bytes());
+        bytes[20..24].copy_from_slice(&(command.len() as u32).to_le_bytes());
+        bytes.extend_from_slice(&command);
+        bytes
+    }
+
+    /// A universal binary wrapping `slices`, with 32-bit or 64-bit fat arch entries.
+    fn universal(slices: &[Vec<u8>], wide: bool) -> Vec<u8> {
+        let entry_size = if wide { 32 } else { 20 };
+        let magic: u32 = if wide { 0xcafebabf } else { 0xcafebabe };
+        let mut header = magic.to_be_bytes().to_vec();
+        header.extend_from_slice(&(slices.len() as u32).to_be_bytes());
+        let mut offset = (8 + slices.len() * entry_size).next_multiple_of(16);
+        let mut body = Vec::new();
+        for slice in slices {
+            header.extend_from_slice(&slice[4..8].iter().rev().copied().collect::<Vec<_>>());
+            header.extend_from_slice(&[0; 4]);
+            if wide {
+                header.extend_from_slice(&(offset as u64).to_be_bytes());
+                header.extend_from_slice(&(slice.len() as u64).to_be_bytes());
+                header.extend_from_slice(&[0; 8]);
+            } else {
+                header.extend_from_slice(&(offset as u32).to_be_bytes());
+                header.extend_from_slice(&(slice.len() as u32).to_be_bytes());
+                header.extend_from_slice(&[0; 4]);
+            }
+            body.push((offset, slice));
+            offset = (offset + slice.len()).next_multiple_of(16);
+        }
+        let mut bytes = header;
+        for (start, slice) in body {
+            bytes.resize(start, 0);
+            bytes.extend_from_slice(slice);
+        }
+        bytes
+    }
+
+    #[test]
+    fn unity_linkage_and_arm64_are_read_without_xcode_tools() {
+        const ARM64: u32 = 0x0100_000c;
+        const X86_64: u32 = 0x0100_0007;
+        const UNITY: &str = "@executable_path/../Frameworks/UnityPlayer.dylib";
+        let tmp = tempfile::tempdir().unwrap();
+        let probe = |name: &str, bytes: &[u8]| {
+            let path = tmp.path().join(name);
+            std::fs::write(&path, bytes).unwrap();
+            (
+                imp::links_unity(&path).unwrap(),
+                imp::has_arm64(&path).unwrap(),
+            )
+        };
+
+        assert_eq!(
+            probe("thin-unity", &macho_image(ARM64, Some(UNITY))),
+            (true, true)
+        );
+        assert_eq!(
+            probe(
+                "thin-stub",
+                &macho_image(ARM64, Some("/usr/lib/libSystem.B.dylib"))
+            ),
+            (false, true)
+        );
+        assert_eq!(
+            probe("intel-unity", &macho_image(X86_64, Some(UNITY))),
+            (true, false)
+        );
+        // The Steam build ships as a universal x86_64 + arm64 binary.
+        for wide in [false, true] {
+            let slices = [
+                macho_image(X86_64, Some(UNITY)),
+                macho_image(ARM64, Some(UNITY)),
+            ];
+            assert_eq!(probe("universal", &universal(&slices, wide)), (true, true));
+        }
+        assert_eq!(probe("not-macho", b"STUB"), (false, false));
+        assert!(!imp::links_unity(&tmp.path().join("missing")).unwrap());
+    }
+
     /// Build a minimal `TheBazaar.app` fixture with a fake main executable.
     fn make_bundle(real_contents: &[u8]) -> tempfile::TempDir {
         let tmp = tempfile::tempdir().unwrap();
@@ -918,7 +1088,7 @@ mod tests {
     #[test]
     fn test_is_trampolined_is_false_for_vanilla_bundle() {
         let tmp = make_bundle(b"real");
-        // No `.orig` -> not trampolined; short-circuits before any otool call.
+        // No `.orig` -> not trampolined; short-circuits before inspecting the executable.
         assert!(!is_trampolined(tmp.path()).unwrap());
     }
 
