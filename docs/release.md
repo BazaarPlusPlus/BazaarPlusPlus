@@ -12,13 +12,13 @@ just release::check
 just release::prepare macos
 just release::build macos
 just release::upload macos
-just release::mirror macos <大陆分享页地址>
+just release::mirror-all <Windows大陆分享页地址> <macOS大陆分享页地址>
 just release::verify-mirror
 just release::promote
 just release::promote --platform macos
 ```
 
-Windows 将 `macos` 换成 `windows`。`release::prepare` 和 `release::build` 可在平台后追加 `"-p:ManagedPath=<absolute-path>"` 指定正式服游戏程序集；不接受编译器、版本、目标或输出目录覆盖。`build` 包含 `prepare`，但不会自动上传；`upload` 不修改 latest；`mirror` 核对并记录一个平台的大陆镜像地址；`verify-mirror` 只读复核，不需要凭据；`promote` 发布双平台版本，`promote --platform` 只发布一个平台，见[按平台发布](#按平台发布)。installer 的 `npm run prepare:resources -- --platform …` 同样转入产品发布协调器；installer 的 `scripts/bundle.sh` 只在 `release::build` 持有的构建锁内运行。
+Windows 将 `macos` 换成 `windows`。`release::prepare` 和 `release::build` 可在平台后追加 `"-p:ManagedPath=<absolute-path>"` 指定正式服游戏程序集；不接受编译器、版本、目标或输出目录覆盖。`build` 包含 `prepare`，但不会自动上传；`upload` 不修改 latest；`mirror-all` 在双平台上传齐备后统一核对并记录大陆镜像地址；`mirror` 用于单平台发布；`verify-mirror` 只读复核，不需要凭据；`promote` 发布双平台版本，`promote --platform` 只发布一个平台，见[按平台发布](#按平台发布)。installer 的 `npm run prepare:resources -- --platform …` 同样转入产品发布协调器；installer 的 `scripts/bundle.sh` 只在 `release::build` 持有的构建锁内运行。
 
 `release/projections.mjs` 的 `checkProductProjections` 是共享源码对齐入口：根 `check` 与 installer 预检查均调用它，验证版本、Payload 投影、两份 README badge、平台配置和 updater endpoint。发布 origin 和 updater endpoint 列表由 `release/downloads.ts` 的 `RELEASE_BASE_URL` 与 `UPDATER_ENDPOINTS` 定义；Tauri 配置必须与后者逐项相等。`sync` 更新版本和 badge，不改写发布 origin。
 
@@ -30,10 +30,10 @@ just 只转发，不缓存或跳过任何发布检查。直接调用 `node relea
 2. 两个平台分别执行 `prepare`。`prepare` 和后续 `build` 都显式传入同一个 `-p:ManagedPath=...`，指向正式服 Managed 或固定快照；mod 直接对照其中的游戏自带库编译，本机默认发现的安装可能与发布默认选择的快照不同。如果 native 输入锁或受版本管理的预构建资源变化，审阅并提交这些变化；把两个平台需要的更新汇入同一个提交。
 3. 两台构建机检出这个相同提交，分别执行 `build`。发布相关源码必须干净；不相关的 site/analyzer 工作不会污染产品构建身份。若 `prepare` 又改变了跟踪的 native 输入，先汇入提交，再重新构建。
 4. 分别执行 `upload`，保存同一个版本、同一个 Git commit 的平台产物和 fragment。
-5. 把两个平台的安装包原样上传到大陆镜像，拿到分享页地址后分别执行 `mirror`，把地址核对并记录到该平台的版本目录，见[中国大陆镜像](#中国大陆镜像)。
+5. 两个平台上传完成后，单独执行大陆镜像阶段：把两个安装包原样上传到蓝奏云，拿到各自分享页地址后执行 `mirror-all`。它先验证双平台产物齐备、版本和提交一致，再核对两个分享页并记录地址，见[中国大陆镜像](#中国大陆镜像)。
 6. 任一发布机执行 `promote`。两个平台未齐、提交不一致、远端产物缺失或校验不符、任一平台没有镜像记录时均拒绝写入。它先写每个平台的 Platform Release Manifest，再写 `latest.json`。
 
-一个平台先发、另一个平台稍后跟上时，把第 6 步换成各自的 `promote --platform <platform>`，见[按平台发布](#按平台发布)。
+一个平台先发、另一个平台稍后跟上时，第 5 步仍用 `mirror <platform> <分享页地址>` 记录该平台的镜像，第 6 步用 `promote --platform <platform>`，见[按平台发布](#按平台发布)。
 
 构建依赖 Node/npm、.NET、Rust、本机正式服 Managed 程序集、平台 native 工具链和 bootstrap 资源。准备阶段会抓取并验证 Build Seed Fetch 数据。macOS 正式打包另需 Developer ID、公证和 Tauri updater 签名材料，具体本机约定见 [installer 发布文档](../bazaarplusplus-installer/docs/release.md)。源代码验证无需这些签名凭据。
 
@@ -63,7 +63,7 @@ just 只转发，不缓存或跳过任何发布检查。直接调用 `node relea
 - `BPP_R2_ACCESS_KEY_ID`
 - `BPP_R2_SECRET_ACCESS_KEY`
 
-它们只由 `upload` / `mirror` / `promote` 读取；不要放入 Git。此流程不使用 Wrangler 登录态，因为该 CLI 没有提供这里需要的 ETag 条件写。
+它们只由 `upload` / `mirror` / `mirror-all` / `promote` 读取；不要放入 Git。此流程不使用 Wrangler 登录态，因为该 CLI 没有提供这里需要的 ETag 条件写。
 
 对应的 just 命令通过 `scripts/workspace.mjs` 从集中配置接入这三个变量；`build` 通过临时签名目录接入 `[signing]` 与 `keys/`。配置初始化、已有环境变量的优先级和本机状态检查见[开发命令](development.md#新-clone-与本地配置)。直接执行 `node release.mjs` 仍要求调用者提供环境。
 
@@ -91,6 +91,8 @@ just 只转发，不缓存或跳过任何发布检查。直接调用 `node relea
 Mainland Mirror 是手工上传到蓝奏云的安装包分享页，只作为大陆网络下手动下载的兜底，不是第二个发布来源，也不能充当 updater endpoint：蓝奏云只提供分享页，不提供可校验签名的直链。
 
 镜像地址是发布者显式提供的输入，不由版本号拼接。`mirror` 读取该平台已上传的 fragment，抓取分享页核对标题里的文件名等于安装包文件名，然后把地址写入 `<版本>/<平台键>/mirror/mainland.json`；`promote` 把记录组装成 `downloads[平台键].mainlandUrl`。官网和 installer 只从 manifest 读取这个地址，manifest 里没有就不显示大陆入口。决策记录见 [ADR 0002](adr/0002-mainland-mirror-check.md)。
+
+双平台发布使用 `mirror-all`。预检包括两个平台 fragment 的版本与提交、R2 产物的大小和 hash、平台是否已发布，以及两个分享页的文件名。任一预检失败都不会写镜像记录；全部通过后分别以条件写入保存两份记录。两次写入不构成跨对象事务，网络中断可能只留下第一份记录，修复后重跑同一命令即可。`mirror-all` 成功后再执行 `promote`；它本身不会上传蓝奏云文件或修改任何 latest 清单。不要并发运行镜像阶段和 `promote`。
 
 上传约定：文件名必须与 R2 上 `installer` 目录里的文件名完全一致，不改名；分享地址随意。核对结果分三类：`verified`、`missing-or-misnamed`（分享不存在、被取消或文件名不符，修正分享后重跑 `mirror` 即可覆盖记录）、`unverifiable`（超时、非 200 或页面格式不认识）；`--allow-unverified-mirror` 把未通过的地址记录为 `verified: false` 并打印警告。核对只比文件名，不比 hash，也只能证明核对那一刻分享存在。
 

@@ -44,6 +44,26 @@ internal static class GameBuildInfoResolver
             // Fall through to Unknown below.
         }
 
+        bool? hasServerOption = null;
+        try
+        {
+            hasServerOption = AccessTools.Inner(typeof(TheBazaar.Config), "ServerOption") != null;
+        }
+        catch
+        {
+            // The version signal decides alone when the probe is unreadable.
+        }
+
+        return Resolve(rawVersion, hasServerOption);
+    }
+
+    internal static GameBuildInfo Resolve(string rawVersion, bool? hasServerOption)
+    {
+        // Staging lacks Config.ServerOption. Reuse the persisted Ptr isolation category
+        // so its recorded runs stay excluded from uploads after switching back to Online.
+        if (rawVersion.IndexOf("-staging", StringComparison.OrdinalIgnoreCase) >= 0)
+            return new GameBuildInfo(rawVersion, GameBuildChannel.Ptr, null);
+
         var byVersion = GameBuildChannel.Unknown;
         if (rawVersion.Length > 0)
         {
@@ -53,18 +73,12 @@ internal static class GameBuildInfoResolver
                     : GameBuildChannel.Online;
         }
 
-        var byProbe = GameBuildChannel.Unknown;
-        try
+        var byProbe = hasServerOption switch
         {
-            byProbe =
-                AccessTools.Inner(typeof(TheBazaar.Config), "ServerOption") != null
-                    ? GameBuildChannel.Ptr
-                    : GameBuildChannel.Online;
-        }
-        catch
-        {
-            // Probe stays Unknown; the version signal decides alone.
-        }
+            true => GameBuildChannel.Ptr,
+            false => GameBuildChannel.Online,
+            null => GameBuildChannel.Unknown,
+        };
 
         if (byVersion == GameBuildChannel.Unknown)
         {

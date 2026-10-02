@@ -16,8 +16,8 @@ internal static partial class HistoryPanelText
         );
 
         private static readonly LocalizedTextSet PtrUnavailableText = new(
-            "PTR does not support BazaarDB uploads or account linking.",
-            "PTR 不支持 BazaarDB 上传和账号绑定。"
+            "PTR and staging builds do not support BazaarDB uploads or account linking.",
+            "PTR 和 staging 测试版本不支持 BazaarDB 上传和账号绑定。"
         );
 
         private static readonly LocalizedTextSet BindingPersistsText = new(

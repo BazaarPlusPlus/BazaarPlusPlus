@@ -1,6 +1,7 @@
 #nullable enable
 using System.Reflection;
 using BazaarGameClient.Domain.Models.Cards;
+using BazaarGameShared.Domain.Cards;
 using HarmonyLib;
 using TheBazaar.Tooltips;
 using UnityEngine;
@@ -17,7 +18,13 @@ internal static class NativeCardPreviewReflection
     );
 
     public static readonly MethodInfo? SetUpMethod =
-        CardPreviewBaseType != null ? AccessTools.Method(CardPreviewBaseType, "SetUp") : null;
+        CardPreviewBaseType != null
+            ? AccessTools.Method(
+                CardPreviewBaseType,
+                "SetUp",
+                [typeof(TCardBase), typeof(bool), typeof(TCardInstance), typeof(CancellationToken)]
+            )
+            : null;
 
     public static readonly MethodInfo? ShowMethod =
         CardPreviewBaseType != null ? AccessTools.Method(CardPreviewBaseType, "Show") : null;

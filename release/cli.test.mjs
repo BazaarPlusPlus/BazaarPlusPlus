@@ -52,6 +52,7 @@ function fixture() {
     createStore: vi.fn(() => ({ offline: true })),
     upload: vi.fn(),
     mirror: vi.fn(),
+    mirrorAll: vi.fn(),
     verifyMirror: vi.fn(async () => ({ version: '0.0.0', results: [] })),
     promote: vi.fn(),
     promoteOne: vi.fn(async () => ({
@@ -102,6 +103,28 @@ test.each([
   ['verify-mirror', '--latest', '--latest'],
   ['verify-mirror', '--allow-unverified-mirror'],
   ['mirror'],
+  ['mirror-all'],
+  ['mirror-all', '--windows-url', 'https://mirror.example/win'],
+  ['mirror-all', '--macos-url', 'https://mirror.example/mac'],
+  [
+    'mirror-all',
+    '--windows-url',
+    'https://mirror.example/win',
+    '--macos-url',
+    'http://mirror.example/mac'
+  ],
+  ['mirror-all', '--platform', 'macos'],
+  ['mirror-all', '--url', 'https://mirror.example/mac'],
+  ['mirror-all', '--latest'],
+  ['mirror-all', '--without-mainland-mirror'],
+  [
+    'mirror-all',
+    '--windows-url',
+    'https://mirror.example/win',
+    '--windows-url',
+    'https://mirror.example/win'
+  ],
+  ['promote', '--windows-url', 'https://mirror.example/win'],
   ['mirror', '--platform', 'macos'],
   ['mirror', '--url', 'https://mirror.example/mac'],
   ['mirror', '--platform', 'linux', '--url', 'https://mirror.example/mac'],
@@ -154,6 +177,7 @@ test.each([
         createStore: effect,
         upload: effect,
         mirror: effect,
+        mirrorAll: effect,
         verifyMirror: effect,
         promote: effect,
         promoteOne: effect,
@@ -385,6 +409,39 @@ test('upload and promote receive the release-owned origin through an offline dis
     expect.stringContaining('latest.json already names 9.9.9')
   );
 });
+
+test.each([false, true])(
+  'mirror-all dispatches both links without promotion (override=%s)',
+  async (override) => {
+    const options = fixture();
+    await main(
+      [
+        'mirror-all',
+        '--windows-url',
+        'https://mirror.example/win',
+        '--macos-url',
+        'https://mirror.example/mac',
+        ...(override ? ['--allow-unverified-mirror'] : [])
+      ],
+      options
+    );
+    expect(options.mirrorAll).toHaveBeenCalledWith({
+      version: readProductVersion(options.workspaceRoot),
+      urls: {
+        windows: 'https://mirror.example/win',
+        macos: 'https://mirror.example/mac'
+      },
+      baseUrl: RELEASE_BASE_URL,
+      store: { offline: true },
+      probeMirror: expect.any(Function),
+      allowUnverified: override,
+      log: options.log
+    });
+    expect(options.mirror).not.toHaveBeenCalled();
+    expect(options.promote).not.toHaveBeenCalled();
+    expect(options.promoteOne).not.toHaveBeenCalled();
+  }
+);
 
 test('verify-mirror is read-only: no store, no source alignment, VERSION only without --latest', async () => {
   const options = fixture();

@@ -12,6 +12,7 @@ import {
 import {
   uploadPlatform,
   recordMainlandMirror,
+  recordMainlandMirrors,
   promotePlatform,
   promoteRelease
 } from './publish.mjs';
@@ -169,6 +170,130 @@ async function stage(data, store) {
 
 const promote = (data, store, extra = {}) =>
   promoteRelease({ ...data, baseUrl, store, ...extra });
+
+const recordAll = (data, store, extra = {}) =>
+  recordMainlandMirrors({
+    version: data.version,
+    urls: {
+      windows: mirrorUrl('windows', data.version),
+      macos: mirrorUrl('macos', data.version)
+    },
+    baseUrl,
+    store,
+    probeMirror: mirrorProbe(data.version),
+    ...extra
+  });
+
+test('the mirror stage requires both uploads and records both shares without publishing', async () => {
+  const data = fixture();
+  const store = new MemoryStore();
+  await upload(data, store, 'windows');
+  const probeMirror = mirrorProbe(data.version);
+  await expect(recordAll(data, store, { probeMirror })).rejects.toThrow(
+    /Missing darwin-aarch64/
+  );
+  expect(probeMirror).not.toHaveBeenCalled();
+  await upload(data, store, 'macos');
+  const start = store.writes.length;
+  const records = await recordAll(data, store);
+  expect(records.map((record) => record.verified)).toEqual([true, true]);
+  expect(store.writes.slice(start)).toEqual([
+    `${data.version}/windows-x86_64/mirror/mainland.json`,
+    `${data.version}/darwin-aarch64/mirror/mainland.json`
+  ]);
+  await recordAll(data, store);
+  expect(store.writes).toHaveLength(start + 2);
+  expect(await store.get('latest.json')).toBeNull();
+  const latest = await promote(data, store);
+  for (const platform of ['windows', 'macos'])
+    expect(latest.downloads[platformKey(platform)].mainlandUrl).toBe(
+      mirrorUrl(platform, data.version)
+    );
+  await expect(recordAll(data, store)).rejects.toThrow(/already published/);
+});
+
+test.each(['commit', 'missing', 'hash', 'share'])(
+  'the mirror stage writes nothing when the second platform fails %s validation',
+  async (failure) => {
+    const data = fixture();
+    const store = new MemoryStore();
+    await upload(data, store, 'windows');
+    const mac = await upload(data, store, 'macos');
+    const fragmentKey = `${data.version}/darwin-aarch64/updater/platform-manifest.json`;
+    const installerKey = new URL(mac.installer.url).pathname.slice(1);
+    if (failure === 'commit') {
+      const object = store.objects.get(fragmentKey);
+      const fragment = JSON.parse(object.bytes);
+      fragment.gitCommit = 'b'.repeat(40);
+      store.objects.set(fragmentKey, {
+        ...object,
+        bytes: Buffer.from(JSON.stringify(fragment))
+      });
+    } else if (failure === 'missing') {
+      store.objects.delete(installerKey);
+    } else if (failure === 'hash') {
+      const object = store.objects.get(installerKey);
+      store.objects.set(installerKey, {
+        ...object,
+        bytes: Buffer.alloc(object.bytes.length)
+      });
+    }
+    const probeMirror = mirrorProbe(
+      data.version,
+      failure === 'share'
+        ? { [mirrorUrl('macos', data.version)]: missingShare }
+        : {}
+    );
+    const start = store.writes.length;
+    await expect(recordAll(data, store, { probeMirror })).rejects.toThrow(
+      failure === 'commit'
+        ? /commits differ/
+        : failure === 'share'
+          ? /share is missing/
+          : /artifact is missing or differs/
+    );
+    expect(store.writes).toHaveLength(start);
+    if (failure !== 'share') expect(probeMirror).not.toHaveBeenCalled();
+  }
+);
+
+test('promotion during the second mirror probe prevents either record from changing', async () => {
+  const data = fixture();
+  const store = new MemoryStore();
+  await stage(data, store);
+  const start = store.writes.filter((key) => key.includes('/mirror/')).length;
+  await expect(
+    recordAll(data, store, {
+      probeMirror: async (url) => {
+        if (url === mirrorUrl('macos', data.version))
+          await promote(data, store);
+        return mirrorProbe(data.version)(url);
+      }
+    })
+  ).rejects.toThrow(/already published/);
+  expect(store.writes.filter((key) => key.includes('/mirror/'))).toHaveLength(
+    start
+  );
+});
+
+test('a failed second mirror write can be retried before promotion', async () => {
+  const data = fixture();
+  const store = new MemoryStore();
+  await upload(data, store, 'windows');
+  await upload(data, store, 'macos');
+  store.beforePut = async (key) => {
+    if (key === `${data.version}/darwin-aarch64/mirror/mainland.json`)
+      throw new Error('R2 unavailable');
+  };
+  await expect(recordAll(data, store)).rejects.toThrow('R2 unavailable');
+  expect(await store.get('latest.json')).toBeNull();
+  await expect(promote(data, store)).rejects.toThrow(
+    /Missing darwin-aarch64 mainland mirror/
+  );
+  store.beforePut = undefined;
+  await recordAll(data, store);
+  expect((await promote(data, store)).version).toBe(data.version);
+});
 
 test('upload is platform-local; latest is promoted only after both verified platforms exist', async () => {
   const data = fixture();
