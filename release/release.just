@@ -34,6 +34,10 @@ upload platform:
 mirror platform url *args:
     node scripts/workspace.mjs run release -- node release.mjs mirror --platform "$1" --url "$2" "${@:3}"
 
+# After both uploads, verify both platforms and record their mainland share pages.
+mirror-all windows-url macos-url *args:
+    node scripts/workspace.mjs run release -- node release.mjs mirror-all --windows-url "$1" --macos-url "$2" "${@:3}"
+
 # Re-check the recorded mainland mirrors read-only; no credentials.
 verify-mirror *args:
     node release.mjs verify-mirror "$@"

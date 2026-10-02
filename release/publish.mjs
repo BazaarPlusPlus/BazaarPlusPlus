@@ -284,6 +284,27 @@ export async function recordMainlandMirror({
   assertMirrorUrl(url);
   const fragment = await readFragment(store, version, key);
   await assertMirrorRecordable(store, version, key);
+  const record = await prepareMirrorRecord({
+    version,
+    fragment,
+    url,
+    probeMirror,
+    allowUnverified,
+    log
+  });
+  await writeMirrorRecord(store, record);
+  return record;
+}
+
+async function prepareMirrorRecord({
+  version,
+  fragment,
+  url,
+  probeMirror,
+  allowUnverified,
+  log
+}) {
+  const key = fragment.platform;
   const fileName = installerFileName(fragment.installer.url);
   const result = await checkMainlandMirror({
     platform: key,
@@ -293,13 +314,17 @@ export async function recordMainlandMirror({
   });
   log(`Mainland mirror ${key}: ${result.outcome} (${result.detail})`);
   assertMainlandMirrors([result], { allowUnverified, log });
-  const record = buildMirrorRecord({
+  return buildMirrorRecord({
     version,
     platform: key,
     url,
     fileName,
     verified: result.outcome === 'verified'
   });
+}
+
+async function writeMirrorRecord(store, record) {
+  const { version, platform: key, url } = record;
   // The probe took time; a promotion may have published the previous record
   // meanwhile. The published address wins, so re-check before and after.
   await assertMirrorRecordable(store, version, key);
@@ -317,7 +342,49 @@ export async function recordMainlandMirror({
     throw new Error(
       `${key} ${version} was promoted while recording; the published mainland mirror ${published.downloads[key].mainlandUrl} stays authoritative and this record is stale`
     );
-  return record;
+}
+
+// Preflight the complete release before recording either mirror. The two
+// conditional writes are retryable, not a transaction across R2 objects.
+export async function recordMainlandMirrors({
+  version,
+  urls,
+  baseUrl,
+  store,
+  probeMirror,
+  allowUnverified = false,
+  log = () => {}
+}) {
+  if (typeof probeMirror !== 'function')
+    throw new Error('Recording mainland mirrors requires a page probe');
+  for (const { buildPlatform } of RELEASE_PLATFORMS)
+    assertMirrorUrl(urls?.[buildPlatform]);
+  const fragments = await Promise.all(
+    RELEASE_PLATFORM_KEYS.map((key) => readFragment(store, version, key))
+  );
+  buildLatestManifest({ version, fragments, existingLatest: null });
+  for (const fragment of fragments) {
+    await assertArtifactsStored(store, fragment, baseUrl);
+    await assertMirrorRecordable(store, version, fragment.platform);
+  }
+  const records = [];
+  for (const [index, fragment] of fragments.entries()) {
+    records.push(
+      await prepareMirrorRecord({
+        version,
+        fragment,
+        url: urls[RELEASE_PLATFORMS[index].buildPlatform],
+        probeMirror,
+        allowUnverified,
+        log
+      })
+    );
+  }
+  // A publisher may have advanced either platform during the page probes.
+  for (const record of records)
+    await assertMirrorRecordable(store, version, record.platform);
+  for (const record of records) await writeMirrorRecord(store, record);
+  return records;
 }
 
 async function writePlatformManifest(

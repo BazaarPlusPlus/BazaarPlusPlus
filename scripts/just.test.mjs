@@ -101,7 +101,7 @@ const releaseArgs = (command, ...args) => {
   const profile =
     command === 'build'
       ? 'signing'
-      : ['upload', 'mirror', 'promote'].includes(command)
+      : ['upload', 'mirror', 'mirror-all', 'promote'].includes(command)
         ? 'release'
         : null;
   return [
@@ -408,6 +408,36 @@ for (const [command, ...flags] of [
     ]);
   });
 }
+
+test('release::mirror-all forwards both share URLs and optional flags', (t) => {
+  const f = fixture(t);
+  assert.notEqual(f.run(['release::mirror-all']).status, 0);
+  assert.notEqual(
+    f.run(['release::mirror-all', 'https://mirror.example/win']).status,
+    0
+  );
+  assert.deepEqual(f.calls(), []);
+  const windows = 'https://mirror.example/win?label=windows&key=1';
+  const macos = 'https://mirror.example/mac?label=mac%20os&key=2';
+  succeeded(
+    f.run(['release::mirror-all', windows, macos, '--allow-unverified-mirror'])
+  );
+  assert.deepEqual(f.calls(), [
+    call(
+      f.dir,
+      null,
+      'node',
+      ...releaseArgs(
+        'mirror-all',
+        '--windows-url',
+        windows,
+        '--macos-url',
+        macos,
+        '--allow-unverified-mirror'
+      )
+    )
+  ]);
+});
 
 test('release::mirror forwards the platform, the share URL and optional flags', (t) => {
   const f = fixture(t);

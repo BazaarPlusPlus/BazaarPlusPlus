@@ -20,6 +20,7 @@ import {
 import {
   uploadPlatform,
   recordMainlandMirror,
+  recordMainlandMirrors,
   promotePlatform,
   promoteRelease
 } from './release/publish.mjs';
@@ -34,6 +35,8 @@ const usage = `Product release commands (run from any directory):
   node release.mjs prepare --platform macos      Build and validate one platform Payload
   node release.mjs build --platform macos        Build and sign the native installer
   node release.mjs upload --platform macos       Upload immutable platform artifacts
+  node release.mjs mirror-all --windows-url <share-url> --macos-url <share-url>
+                                                Verify both uploaded platforms and record both mainland mirrors
   node release.mjs mirror --platform macos --url <share-url>
                                                 Verify and record the platform's mainland mirror page
   node release.mjs verify-mirror [--platform macos]
@@ -46,7 +49,9 @@ const usage = `Product release commands (run from any directory):
 Use windows on the Windows build host. Prepare/build accept -- -p:ManagedPath=<path>.
 mirror refuses a share page that does not serve the uploaded installer unless
 --allow-unverified-mirror is passed; promote refuses a platform without a
-recorded mirror unless --without-mainland-mirror is passed. Only upload, mirror
+recorded mirror unless --without-mainland-mirror is passed. mirror-all requires
+both platforms uploaded at the same version and commit before recording either mirror.
+Only upload, mirror, mirror-all
 and promote access R2, and require BPP_R2_ACCOUNT_ID, BPP_R2_ACCESS_KEY_ID and
 BPP_R2_SECRET_ACCESS_KEY. No command changes VERSION.
 `;
@@ -65,6 +70,7 @@ export function parseReleaseArgs(args) {
       'build',
       'upload',
       'mirror',
+      'mirror-all',
       'verify-mirror',
       'promote',
       'assert-build-owner'
@@ -79,6 +85,8 @@ export function parseReleaseArgs(args) {
     options: {
       platform: { type: 'string' },
       url: { type: 'string' },
+      'windows-url': { type: 'string' },
+      'macos-url': { type: 'string' },
       latest: { type: 'boolean' },
       'allow-unverified-mirror': { type: 'boolean' },
       'without-mainland-mirror': { type: 'boolean' }
@@ -123,10 +131,29 @@ export function parseReleaseArgs(args) {
   } else if (values.url !== undefined) {
     throw new Error('--url is only valid for mirror');
   }
+  let urls;
+  if (command === 'mirror-all') {
+    urls = { windows: values['windows-url'], macos: values['macos-url'] };
+    if (!urls.windows || !urls.macos)
+      throw new Error('mirror-all requires --windows-url and --macos-url');
+    for (const url of Object.values(urls)) assertMirrorUrl(url);
+  } else if (
+    values['windows-url'] !== undefined ||
+    values['macos-url'] !== undefined
+  ) {
+    throw new Error(
+      '--windows-url and --macos-url are only valid for mirror-all'
+    );
+  }
   if (values.latest && command !== 'verify-mirror')
     throw new Error('--latest is only valid for verify-mirror');
-  if (values['allow-unverified-mirror'] && command !== 'mirror')
-    throw new Error('--allow-unverified-mirror is only valid for mirror');
+  if (
+    values['allow-unverified-mirror'] &&
+    !['mirror', 'mirror-all'].includes(command)
+  )
+    throw new Error(
+      '--allow-unverified-mirror is only valid for mirror or mirror-all'
+    );
   if (values['without-mainland-mirror'] && command !== 'promote')
     throw new Error('--without-mainland-mirror is only valid for promote');
   assertReleaseBuildArgs(positionals);
@@ -136,6 +163,7 @@ export function parseReleaseArgs(args) {
     command,
     platform,
     url: values.url,
+    urls,
     msbuildArgs: positionals,
     latest: values.latest ?? false,
     allowUnverifiedMirror: values['allow-unverified-mirror'] ?? false,
@@ -161,6 +189,7 @@ export async function main(
     createStore = r2StoreFromEnvironment,
     upload = uploadPlatform,
     mirror = recordMainlandMirror,
+    mirrorAll = recordMainlandMirrors,
     verifyMirror = verifyMainlandMirrors,
     probeMirror = fetchMirrorPage,
     promote = promoteRelease,
@@ -173,6 +202,7 @@ export async function main(
     command,
     platform,
     url,
+    urls,
     msbuildArgs,
     latest,
     allowUnverifiedMirror,
@@ -234,7 +264,7 @@ export async function main(
   if (command === 'upload') {
     await upload({ workspaceRoot, platform, baseUrl: RELEASE_BASE_URL, store });
     log(
-      `Uploaded ${platform} ${version}. Record its mainland mirror, then promote after both platforms are ready.`
+      `Uploaded ${platform} ${version}. Once both platforms are uploaded, run mirror-all, then promote. For a single-platform release, run mirror, then promote --platform ${platform}.`
     );
   } else if (command === 'mirror') {
     await mirror({
@@ -247,6 +277,17 @@ export async function main(
       log
     });
     log(`Recorded ${platform} mainland mirror for ${version}`);
+  } else if (command === 'mirror-all') {
+    await mirrorAll({
+      version,
+      urls,
+      baseUrl: RELEASE_BASE_URL,
+      store,
+      probeMirror,
+      allowUnverified: allowUnverifiedMirror,
+      log
+    });
+    log(`Recorded both mainland mirrors for ${version}. Ready to promote.`);
   } else if (platform) {
     const result = await promoteOne({
       version,
