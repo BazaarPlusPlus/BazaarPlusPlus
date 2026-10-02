@@ -37,6 +37,8 @@ internal sealed class BppLogFeatureScope
     internal static BppLogFeatureScope BilingualItemNames { get; } =
         new("BilingualItemNames", "bilingual_item_names");
     internal static BppLogFeatureScope NameOverride { get; } = new("NameOverride", "name_override");
+    internal static BppLogFeatureScope CosmeticNames { get; } =
+        new("CosmeticNames", "cosmetic_names");
     internal static BppLogFeatureScope Lobby { get; } = new("Lobby", "lobby");
     internal static BppLogFeatureScope Settings { get; } = new("Settings", "settings");
     internal static BppLogFeatureScope StaticCards { get; } = new("StaticCards", "static_cards");
@@ -66,6 +68,7 @@ internal sealed class BppLogFeatureScope
         CombatStatusBar,
         PostCombatImpact,
         BilingualItemNames,
+        CosmeticNames,
         NameOverride,
         Lobby,
         Settings,
