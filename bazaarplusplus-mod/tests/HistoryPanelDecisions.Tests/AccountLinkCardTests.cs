@@ -91,7 +91,7 @@ internal static class AccountLinkCardTests
                         "The code input and link button enable together."
                     );
                     if (channel == "Ptr")
-                        Contains(status, chinese ? "PTR 不支持" : "PTR does not support");
+                        Contains(status, chinese ? "PTR 和 staging" : "PTR and staging");
                     else if (!uploads)
                     {
                         Contains(status, label);

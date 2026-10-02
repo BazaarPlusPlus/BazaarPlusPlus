@@ -4,6 +4,8 @@ namespace BazaarPlusPlus.Core.Runtime;
 internal enum GameBuildChannel
 {
     Online,
+
+    // Persisted isolation category for PTR and staging clients.
     Ptr,
 
     // Detection failed (version string unreadable). Policy gates must treat Unknown

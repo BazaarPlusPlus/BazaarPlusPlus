@@ -20,7 +20,7 @@ The on-demand, pull-based read of the current run's recordable facts — day/hou
 _Avoid_: run tracker
 
 **Game Build Channel**:
-The classification of the running client as `Online`, `Ptr`, or `Unknown`, resolved once at startup by `GameBuildInfoResolver` (conflicting signals resolve to `Ptr`). It gates uploads and is stamped on recorded runs, isolating PTR data from the production dataset.
+The client's `Online`, `Ptr`, or `Unknown` classification, resolved at startup by `GameBuildInfoResolver`; conflicting signals resolve to `Ptr`. `Ptr` covers PTR and staging, while the raw version preserves branch identity. The channel gates uploads and is recorded on runs to keep test data out of production.
 _Avoid_: environment, server flag
 
 **Run Logging Intake**:
