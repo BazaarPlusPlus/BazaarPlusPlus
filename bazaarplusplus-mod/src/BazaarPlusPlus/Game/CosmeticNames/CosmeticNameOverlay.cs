@@ -39,6 +39,7 @@ internal sealed class CosmeticNameOverlay : MonoBehaviour
     private bool _dirty = true;
     private bool _lastEnabled;
     private string? _lastLanguage;
+    private BppChineseLocaleMode _lastChineseMode;
     private float _nextAttempt;
 
     internal void Initialize(
@@ -99,6 +100,7 @@ internal sealed class CosmeticNameOverlay : MonoBehaviour
         if (
             enabled != _lastEnabled
             || !string.Equals(_lastLanguage, L.CurrentLanguageCode, StringComparison.Ordinal)
+            || _lastChineseMode != L.CurrentMode
         )
             Invalidate();
         if (_dirty && Time.unscaledTime >= _nextAttempt)
@@ -109,6 +111,7 @@ internal sealed class CosmeticNameOverlay : MonoBehaviour
     {
         _lastEnabled = _config?.EnableCosmeticNamesConfig?.Value ?? false;
         _lastLanguage = L.CurrentLanguageCode;
+        _lastChineseMode = L.CurrentMode;
         _dirty = false;
         if (!_lastEnabled || _placeholder || _thumbnailViewport == null)
         {
@@ -126,7 +129,9 @@ internal sealed class CosmeticNameOverlay : MonoBehaviour
                 return;
             }
 
-            _label!.text = name;
+            _label!.text = LanguageCodeMatcher.IsChinese(_lastLanguage)
+                ? L.ResolveChinese(name)
+                : name;
             _overlay!.transform.SetAsLastSibling();
             _overlay.SetActive(true);
             RaiseOverlayByHalfCharacter();
