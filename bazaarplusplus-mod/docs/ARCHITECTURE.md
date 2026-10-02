@@ -18,7 +18,7 @@ Three ordering facts in this file are load-bearing, because each one fails silen
 
 ## Game Build Channel And PTR Isolation
 
-`GameBuildInfoResolver` classifies the running client as Online, Ptr, or Unknown from the bundleVersion `-ptr` token plus a corroborating `TheBazaar.Config.ServerOption` type probe (`src/BazaarPlusPlus/GameInterop/GameBuildInfoResolver.cs`).
+`GameBuildInfoResolver` classifies the running client as Online, Ptr, or Unknown from the bundleVersion `-ptr` token plus a corroborating `TheBazaar.Config.ServerOption` type probe (`src/BazaarPlusPlus/GameInterop/GameBuildInfoResolver.cs`). A `-staging` version resolves directly to Ptr: staging lacks ServerOption, so its absence cannot establish a production client. Reusing the persisted Ptr category also excludes staging runs after switching back to Online.
 
 Disagreement resolves to **Ptr**, and the asymmetry is the whole reason. Classifying a PTR client as Online silently pollutes the production dataset and cannot be undone, while classifying an Online client as Ptr only pauses its uploads. The channel is injected into the composition, stamped onto recorded runs by `RunLoggingModule`, and `BundleSealCoordinator` excludes PTR runs before a bundle can enter the outbox.
 
