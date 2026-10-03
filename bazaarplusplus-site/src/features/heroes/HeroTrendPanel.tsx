@@ -91,6 +91,7 @@ export default function HeroTrendPanel({
   const { dayAxis, series } = trend;
   const focusedSeries = series.find((heroSeries) => heroSeries.hero === focusedHero);
   const [hoveredPoint, setHoveredPoint] = useState<HoveredTrendPoint | null>(null);
+  const clearPoint = () => setHoveredPoint(null);
 
   const winRates = series.flatMap((heroSeries) => heroSeries.points.map((point) => point.winRate));
   const minWinRate = winRates.length > 0 ? Math.min(...winRates) : 0;
@@ -232,7 +233,6 @@ export default function HeroTrendPanel({
                   onFocusHero(heroSeries.hero);
                   setHoveredPoint({ ...point, hero: heroSeries.hero, color: heroSeries.color });
                 };
-                const clearPoint = () => setHoveredPoint(null);
 
                 return (
                   <g
