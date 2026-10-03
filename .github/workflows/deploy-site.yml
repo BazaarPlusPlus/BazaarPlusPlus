@@ -1,0 +1,85 @@
+name: Deploy site
+
+# Preview deploys follow master; production deploys only on dispatch and wait
+# for the site-production environment approval. Credentials never leave the
+# GitHub Environments, so the branch policy on both environments is master.
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Deployment target
+        type: choice
+        required: true
+        default: preview
+        options: [preview, production]
+  push:
+    branches: [master]
+    paths:
+      - bazaarplusplus-site/**
+      - release/**
+      - .github/workflows/deploy-site.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-site-${{ github.event_name == 'workflow_dispatch' && inputs.target || 'preview' }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy site (${{ github.event_name == 'workflow_dispatch' && inputs.target || 'preview' }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment:
+      name: site-${{ github.event_name == 'workflow_dispatch' && inputs.target || 'preview' }}
+      url: ${{ steps.deploy.outputs.url }}
+    env:
+      TARGET: ${{ github.event_name == 'workflow_dispatch' && inputs.target || 'preview' }}
+      WRANGLER_SEND_METRICS: 'false'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: bazaarplusplus-site/package-lock.json
+      - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4
+        with:
+          just-version: 1.58.0
+      - run: npm install --global "$(node --print "require('./package.json').packageManager")"
+      - run: npm ci
+        working-directory: bazaarplusplus-site
+      - name: Require Cloudflare credentials
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "::error::CLOUDFLARE_API_TOKEN is not set on the site-$TARGET environment."
+            exit 1
+          fi
+          if [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "::error::CLOUDFLARE_ACCOUNT_ID is not set on the site-$TARGET environment."
+            exit 1
+          fi
+      - run: just site::check site::test
+      - name: Deploy with the pinned Wrangler
+        id: deploy
+        # Explicit bash enables pipefail so a Wrangler failure is not hidden by tee.
+        shell: bash
+        working-directory: bazaarplusplus-site
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [ "$TARGET" = production ]; then
+            npm run deploy
+            echo 'url=https://bazaarplusplus.com' >> "$GITHUB_OUTPUT"
+          else
+            npm run deploy:preview | tee "$RUNNER_TEMP/deploy.log"
+            url="$(grep -oE 'https://[A-Za-z0-9.-]+\.workers\.dev' "$RUNNER_TEMP/deploy.log" | head -n 1 || true)"
+            echo "url=$url" >> "$GITHUB_OUTPUT"
+          fi
