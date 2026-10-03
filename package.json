@@ -12,7 +12,7 @@
   },
   "devDependencies": {
     "lefthook": "^2.1.14",
-    "prettier": "^3.9.8",
-    "vitest": "^5.0.1"
+    "prettier": "^3.9.9",
+    "vitest": "^5.0.2"
   }
 }
