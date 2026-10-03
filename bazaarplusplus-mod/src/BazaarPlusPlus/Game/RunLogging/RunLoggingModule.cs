@@ -27,7 +27,7 @@ internal sealed class RunLoggingModule : IBppFeature
     private readonly Func<IRunLogStore> _storeFactory;
     private readonly IPvpBattleCatalog _battleCatalog;
     private readonly Func<bool> _hasPendingReplayPersistence;
-    private readonly Func<DateTime> _utcNow;
+    private readonly Func<DateTimeOffset> _utcNow;
     private readonly Func<TimeSpan, Action, IDisposable> _scheduleDeferredCompletion;
     private readonly Func<string?> _playerAccountIdResolver;
     private readonly Func<bool> _bundleScreenshotRequestedResolver;
@@ -40,7 +40,7 @@ internal sealed class RunLoggingModule : IBppFeature
     private IDisposable? _replayPersistenceDrainedSubscription;
     private RunLogCompletion? _deferredRunCompletion;
     private string? _deferredRunCompletionRunId;
-    private DateTime? _deferredRunCompletionDeadlineUtc;
+    private DateTimeOffset? _deferredRunCompletionDeadlineUtc;
     private IDisposable? _deferredRunCompletionTimer;
     private string? _pendingInterruptedRunId;
     private string? _startedEventRunId;
@@ -60,7 +60,7 @@ internal sealed class RunLoggingModule : IBppFeature
             () => CreateStore(services),
             battleCatalog,
             hasPendingReplayPersistence,
-            static () => DateTime.UtcNow,
+            static () => DateTimeOffset.UtcNow,
             PathConstants.RunLogDatabase(services.Paths.RequireDataRoot()),
             scheduleDeferredCompletion: null,
             playerAccountIdResolver: BppClientCacheBridge.TryGetProfileAccountId,
@@ -73,41 +73,10 @@ internal sealed class RunLoggingModule : IBppFeature
         IRunContext runContext,
         IRunSnapshotProbe snapshotProbe,
         string buildChannel,
-        IRunLogStore store,
-        IPvpBattleCatalog battleCatalog,
-        Func<bool> hasPendingReplayPersistence,
-        Func<DateTime>? utcNow = null,
-        string? databasePath = null,
-        Func<TimeSpan, Action, IDisposable>? scheduleDeferredCompletion = null,
-        Func<string?>? playerAccountIdResolver = null,
-        Func<bool>? bundleScreenshotRequestedResolver = null,
-        Func<string?>? modVersionResolver = null
-    )
-        : this(
-            eventBus,
-            runContext,
-            snapshotProbe,
-            buildChannel,
-            () => store,
-            battleCatalog,
-            hasPendingReplayPersistence,
-            utcNow,
-            databasePath,
-            scheduleDeferredCompletion,
-            playerAccountIdResolver,
-            bundleScreenshotRequestedResolver,
-            modVersionResolver
-        ) { }
-
-    internal RunLoggingModule(
-        IBppEventBus eventBus,
-        IRunContext runContext,
-        IRunSnapshotProbe snapshotProbe,
-        string buildChannel,
         Func<IRunLogStore> storeFactory,
         IPvpBattleCatalog battleCatalog,
         Func<bool> hasPendingReplayPersistence,
-        Func<DateTime>? utcNow = null,
+        Func<DateTimeOffset> utcNow,
         string? databasePath = null,
         Func<TimeSpan, Action, IDisposable>? scheduleDeferredCompletion = null,
         Func<string?>? playerAccountIdResolver = null,
@@ -125,7 +94,7 @@ internal sealed class RunLoggingModule : IBppFeature
         _hasPendingReplayPersistence =
             hasPendingReplayPersistence
             ?? throw new ArgumentNullException(nameof(hasPendingReplayPersistence));
-        _utcNow = utcNow ?? (() => DateTime.UtcNow);
+        _utcNow = utcNow ?? throw new ArgumentNullException(nameof(utcNow));
         _scheduleDeferredCompletion =
             scheduleDeferredCompletion ?? ScheduleDeferredCompletionWithTimer;
         _playerAccountIdResolver = playerAccountIdResolver ?? (() => null);
@@ -220,6 +189,7 @@ internal sealed class RunLoggingModule : IBppFeature
         _storeLifetime = store as IDisposable;
         _sessionManager = new RunLogSessionManager(
             store,
+            _utcNow,
             statsProvider: () => _snapshotProbe.TryGetPlayerStats(out var stats) ? stats : null
         );
         _sessionManager.RestoreActiveSession();
@@ -477,6 +447,7 @@ internal sealed class RunLoggingModule : IBppFeature
                 rank,
                 _runContext.CurrentServerRunId,
                 _buildChannel,
+                _utcNow(),
                 out var request
             )
         )
@@ -526,11 +497,12 @@ internal sealed class RunLoggingModule : IBppFeature
             _runContext.LastRunExitKind,
             ReadRunBasics(),
             ReadPlayerStats(),
-            ReadRank()
+            ReadRank(),
+            _utcNow()
         );
 
     private RunLogAbandonment BuildRunLogAbandonment(string reason) =>
-        RunLogRecordMapper.BuildRunLogAbandonment(reason, ReadRunBasics());
+        RunLogRecordMapper.BuildRunLogAbandonment(reason, ReadRunBasics(), _utcNow());
 
     private RunBasicsSnapshot? ReadRunBasics() =>
         _snapshotProbe.TryGetRunBasics(out var basics) ? basics : null;
