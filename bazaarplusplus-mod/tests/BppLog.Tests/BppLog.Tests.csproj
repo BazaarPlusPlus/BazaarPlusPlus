@@ -18,6 +18,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../../src/BazaarPlusPlus.Storage/BazaarPlusPlus.Storage.csproj" />
+    <ProjectReference Include="../../src/BazaarPlusPlus.ModApi/BazaarPlusPlus.ModApi.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -25,13 +26,7 @@
       Include="..\..\src\BazaarPlusPlus\Infrastructure\Logging\Core\*.cs"
       Link="Logging\Core\%(Filename)%(Extension)"
     />
-    <Compile
-      Include="..\..\src\BazaarPlusPlus\Game\RunLogging\RunLoggingLogEvents.cs"
-      Link="RunLoggingLogEvents.cs"
-    />
-    <Compile
-      Include="..\..\src\BazaarPlusPlus\Game\RunLogging\RunLogStoreLoggerBridge.cs"
-      Link="RunLogStoreLoggerBridge.cs"
-    />
+    <Compile Include="../../src/BazaarPlusPlus/Game/HistoryPanel/AccountLink/AccountLinkLogRequest.cs" />
+    <Compile Include="../../src/BazaarPlusPlus/Game/HistoryPanel/AccountLink/HistoryPanelAccountLinkLogEvents.cs" />
   </ItemGroup>
 </Project>

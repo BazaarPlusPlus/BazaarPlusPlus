@@ -72,7 +72,7 @@ Each of these is consumed by two or more features. Reaching around one to re-imp
 
 `RemoteEmbeddedCatalog<T>` owns cache → embedded → remote loading with feature-supplied freshness: single-flight warm and refresh, per-caller cancellation over shared flights, typed outcomes, atomic cache writes, retry re-arming, monotonic publication, and generation-guarded disposal. A queued cold-start refresh takes ownership atomically when its refresh flight begins, so cancelling the originating warm flight before that handoff prevents the remote operation. Feature observers are serialized against disposal on a separate gate, so `TryGet` never waits for feature-side logging or index rebuilds.
 
-Operational logging is governed: features emit through closed `BppLogFeatureScope`s with dotted-snake event ids and typed privacy/cardinality/correlation fields, declared in per-feature `[BppLogEventSource]` `*LogEvents` classes that `BppLogEventCatalog` discovers and validates. Debug events compile out of Release. Ratcheted by `tests/Architecture.Tests/LoggingGovernanceTests.cs`.
+Operational logging is structured: features emit through closed `BppLogFeatureScope`s with dotted-snake event ids, declared as static fields of per-feature `*LogEvents` classes. Each field carries a correlation policy, and `Short` and `Hash` values are shortened or hashed at render time; `BppLogPipeline` suppresses repeat warnings by each event's storm key. Debug events compile out of Release (`src/BazaarPlusPlus/Infrastructure/Logging/Core/`).
 
 ## Data And File Locations
 

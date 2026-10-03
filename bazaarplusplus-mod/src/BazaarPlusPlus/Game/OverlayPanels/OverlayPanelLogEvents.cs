@@ -18,7 +18,6 @@ internal enum OverlayCombatProbeFailureReasonCode
     ReadFailed,
 }
 
-[BppLogEventSource]
 internal static class OverlayPanelLogEvents
 {
     internal static readonly BppLogFieldDefinition TickDegradedPanelId = Public(

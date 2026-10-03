@@ -23,7 +23,6 @@ internal enum NativeGameFontStage
     ReleaseHandle,
 }
 
-[BppLogEventSource]
 internal static class NativeGameFontsLogEvents
 {
     internal static readonly BppLogFieldDefinition DegradedStage = PublicLow(0, "stage");

@@ -3,7 +3,6 @@ using BazaarPlusPlus.Infrastructure.Logging;
 
 namespace BazaarPlusPlus.Game.HistoryPanel;
 
-[BppLogEventSource]
 internal static class HistoryPanelLogEvents
 {
     internal static readonly BppLogFieldDefinition MountDependency = PublicLow(0, "dependency");

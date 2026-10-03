@@ -87,7 +87,6 @@ internal enum SettingsRowId
     LiveBuildPanel,
 }
 
-[BppLogEventSource]
 internal static class SettingsLogEvents
 {
     internal static readonly BppLogFieldDefinition HotkeyDegradedActionId = PublicLow(

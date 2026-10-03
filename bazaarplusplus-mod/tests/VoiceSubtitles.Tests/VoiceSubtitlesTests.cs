@@ -3,7 +3,6 @@ using System.Security.Cryptography;
 using System.Text;
 using BazaarPlusPlus.Game.VoiceSubtitles;
 using BazaarPlusPlus.Infrastructure;
-using BazaarPlusPlus.Infrastructure.Logging;
 using BazaarPlusPlus.Infrastructure.RemoteEmbeddedCatalog;
 using BepInEx.Logging;
 using Xunit;
@@ -129,55 +128,6 @@ public sealed class VoiceSubtitlesTests
         Assert.Empty(capture.Events("voice_subtitles.catalog.degraded"));
         Assert.Empty(capture.Events("voice_subtitles.catalog.failed"));
         VoiceLineCatalog.Reset();
-    }
-
-    [Fact]
-    public void Catalog_event_catalog_matches_the_locked_manifest()
-    {
-        var actual = typeof(VoiceCatalogLogEvents)
-            .GetFields(BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.DeclaredOnly)
-            .Where(field => field.FieldType == typeof(BppLogEventDefinition))
-            .Select(field => (BppLogEventDefinition)field.GetValue(null)!)
-            .ToDictionary(
-                definition => definition.EventId,
-                definition =>
-                    string.Join(
-                        "|",
-                        definition.Fields.Select(field =>
-                            $"{field.Name}:{field.Cardinality}:{field.Correlation}"
-                        )
-                    ),
-                StringComparer.Ordinal
-            );
-
-        Assert.Equal(
-            new Dictionary<string, string>(StringComparer.Ordinal)
-            {
-                ["voice_subtitles.catalog.started"] = "",
-                ["voice_subtitles.catalog.ready"] = "source:Low:None|line_count:High:None",
-                ["voice_subtitles.catalog.degraded"] =
-                    "reason_code:Low:None|source:Low:None|endpoint:Low:None",
-                ["voice_subtitles.catalog.failed"] = "reason_code:Low:None|source:Low:None",
-                ["voice_subtitles.catalog_refresh.started"] =
-                    "reason_code:Low:None|endpoint:Low:None",
-                ["voice_subtitles.catalog.recovered"] =
-                    "reason_code:Low:None|source:Low:None|line_count:High:None",
-                ["voice_subtitles.catalog_cache.degraded"] = "reason_code:Low:None",
-                ["voice_subtitles.catalog_row.skipped"] =
-                    "source:Low:None|row_number:High:None|reason_code:Low:None|stem:High:None",
-            },
-            actual
-        );
-        Assert.Equal(
-            ["reason_code", "source"],
-            VoiceCatalogLogEvents.CatalogDegraded.StormPolicy!.KeyFields.Select(field => field.Name)
-        );
-        Assert.Equal(
-            ["reason_code"],
-            VoiceCatalogLogEvents.CatalogCacheDegraded.StormPolicy!.KeyFields.Select(field =>
-                field.Name
-            )
-        );
     }
 
     [Fact]

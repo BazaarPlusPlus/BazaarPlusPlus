@@ -33,7 +33,6 @@ internal readonly record struct SupporterCatalogFailure(
     SupporterLogReasonCode Reason
 );
 
-[BppLogEventSource]
 internal static class SupporterLogEvents
 {
     internal static readonly BppLogFieldDefinition CatalogDegradedSource = PublicLow(0, "source");

@@ -71,7 +71,6 @@ internal enum PluginFeatureId
     BundleSeal,
 }
 
-[BppLogEventSource]
 internal static class PluginLogEvents
 {
     internal static readonly BppLogFieldDefinition InitializationSucceededPluginVersion = Public(

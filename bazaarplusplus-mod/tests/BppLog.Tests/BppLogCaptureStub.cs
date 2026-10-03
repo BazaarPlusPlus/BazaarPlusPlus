@@ -1,9 +1,10 @@
 #nullable enable
+using System.Diagnostics;
 using BazaarPlusPlus.Infrastructure.Logging;
 
 namespace BazaarPlusPlus.Infrastructure;
 
-internal sealed record CapturedRunLoggingQueueEvent(
+internal sealed record CapturedBppLogEvent(
     string Severity,
     BppLogEventDefinition Definition,
     BppLogFieldValue[] Values,
@@ -12,20 +13,38 @@ internal sealed record CapturedRunLoggingQueueEvent(
 
 internal static class BppLog
 {
-    private static readonly List<CapturedRunLoggingQueueEvent> Captured = [];
+    private static readonly List<CapturedBppLogEvent> Captured = [];
 
-    internal static IReadOnlyList<CapturedRunLoggingQueueEvent> Events => Captured;
+    internal static IReadOnlyList<CapturedBppLogEvent> Events => Captured;
 
     internal static void Reset() => Captured.Clear();
 
-    public static void WarnEvent(
+    [Conditional("DEBUG")]
+    public static void DebugEvent(
+        BppLogEventDefinition definition,
+        Func<BppLogFieldValue[]> valuesFactory
+    ) => Add("Debug", definition, valuesFactory(), null);
+
+    public static void InfoEvent(
         BppLogEventDefinition definition,
         params BppLogFieldValue[] values
-    ) => Captured.Add(new("Warning", definition, values, null));
+    ) => Add("Info", definition, values, null);
+
+    public static void ErrorEvent(
+        BppLogEventDefinition definition,
+        params BppLogFieldValue[] values
+    ) => Add("Error", definition, values, null);
 
     public static void ErrorEvent(
         BppLogEventDefinition definition,
         Exception exception,
         params BppLogFieldValue[] values
-    ) => Captured.Add(new("Error", definition, values, exception));
+    ) => Add("Error", definition, values, exception);
+
+    private static void Add(
+        string severity,
+        BppLogEventDefinition definition,
+        BppLogFieldValue[] values,
+        Exception? exception
+    ) => Captured.Add(new CapturedBppLogEvent(severity, definition, values, exception));
 }

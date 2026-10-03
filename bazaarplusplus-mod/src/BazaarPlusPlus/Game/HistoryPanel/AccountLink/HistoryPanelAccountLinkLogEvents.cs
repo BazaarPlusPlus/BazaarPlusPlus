@@ -3,7 +3,6 @@ using BazaarPlusPlus.Infrastructure.Logging;
 
 namespace BazaarPlusPlus.Game.HistoryPanel.AccountLink;
 
-[BppLogEventSource]
 internal static class HistoryPanelAccountLinkLogEvents
 {
     internal static readonly BppLogFieldDefinition RequestId = new(

@@ -22,7 +22,6 @@ internal enum ItemEnchantEncounterProbe
     Encounter,
 }
 
-[BppLogEventSource]
 internal static class ItemEnchantPreviewLogEvents
 {
     internal static readonly BppLogFieldDefinition RenderDegradedStage = PublicLow(0, "stage");

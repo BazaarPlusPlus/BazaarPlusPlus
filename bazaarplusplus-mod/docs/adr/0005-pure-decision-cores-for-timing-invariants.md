@@ -22,4 +22,4 @@ A pure core is effect-free, not necessarily dependency-free. Use the smallest re
 
 ## Evidence
 
-Behavior tests exercise the cores directly: [`SavedReplayLifecycleTests`](../../tests/CombatReplayPlaybackLogging.Tests/SavedReplayLifecycleTests.cs), [`CollectionViewState.Tests`](../../tests/CollectionViewState.Tests/), [`BundleSealConvergence.Tests`](../../tests/BundleSealConvergence.Tests/), and the upload lifecycle coverage in [`FeatureLogging.Tests`](../../tests/FeatureLogging.Tests/).
+Behavior tests exercise the cores directly: [`SavedReplayLifecycleTests`](../../tests/PureBehavior.Tests/SavedReplayLifecycleTests.cs), [`CollectionViewState.Tests`](../../tests/CollectionViewState.Tests/), and [`BundleSealConvergence.Tests`](../../tests/BundleSealConvergence.Tests/).

@@ -1,7 +1,7 @@
 using BazaarPlusPlus.GameInterop.CombatReplay;
 using Xunit;
 
-namespace CombatReplayPlaybackLogging.Tests;
+namespace PureBehavior.Tests;
 
 public sealed class NativeReplayRestartGateTests
 {

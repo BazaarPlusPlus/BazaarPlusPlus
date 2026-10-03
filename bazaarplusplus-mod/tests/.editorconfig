@@ -11,13 +11,6 @@ dotnet_diagnostic.RS0030.severity = none
 [Architecture.Tests/CoreLayeringTests.cs]
 dotnet_diagnostic.RS0030.severity = none
 
-# Debt — S3
-[Architecture.Tests/LoggingGovernanceTests.cs]
-dotnet_diagnostic.RS0030.severity = none
-
-[VoiceSubtitles.Tests/VoiceObserverLoggingTests.cs]
-dotnet_diagnostic.RS0030.severity = none
-
 # Debt — S4
 [Architecture.Tests/NativeAssetLoadingArchitectureTests.cs]
 dotnet_diagnostic.RS0030.severity = none

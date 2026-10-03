@@ -4,7 +4,6 @@ using BazaarPlusPlus.Infrastructure.Logging;
 
 namespace BazaarPlusPlus.Game.BundlePipeline;
 
-[BppLogEventSource]
 internal static class BundlePipelineLogEvents
 {
     internal static readonly BppLogFieldDefinition RunId = new(

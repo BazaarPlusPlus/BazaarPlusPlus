@@ -11,7 +11,6 @@ internal enum CombatSpeedLogCategory
     Custom,
 }
 
-[BppLogEventSource]
 internal static class CombatStatusBarLogEvents
 {
     internal static readonly BppLogEventDefinition NativeSkinReady = new(

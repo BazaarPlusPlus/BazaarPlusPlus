@@ -10,7 +10,6 @@ internal enum BilingualLogReasonCode
     TooltipPatchException,
 }
 
-[BppLogEventSource]
 internal static class BilingualItemNamesLogEvents
 {
     internal static readonly BppLogFieldDefinition CatalogDegradedLocale = PublicLow(0, "locale");

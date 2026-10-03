@@ -635,7 +635,6 @@ internal enum BppLogStormFlushReason
     Shutdown,
 }
 
-[BppLogEventSource]
 internal static class BppLogRuntimeEvents
 {
     internal static readonly BppLogFieldDefinition SourceEvent = new(

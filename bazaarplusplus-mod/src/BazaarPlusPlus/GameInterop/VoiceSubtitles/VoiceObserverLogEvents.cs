@@ -31,7 +31,6 @@ internal enum VoiceObserverLogReasonCode
     EnabledCheckFailed,
 }
 
-[BppLogEventSource]
 internal static class VoiceObserverLogEvents
 {
     internal static readonly BppLogFieldDefinition ObserverInstalledPlayerInstance = Public(

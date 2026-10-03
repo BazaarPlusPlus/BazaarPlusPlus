@@ -59,7 +59,6 @@ internal enum LiveBuildSnapshotReasonCode
     InvalidPlacement,
 }
 
-[BppLogEventSource]
 internal static class LiveBuildPanelLogEvents
 {
     internal static readonly BppLogFieldDefinition MountFailedReasonCode = Public(

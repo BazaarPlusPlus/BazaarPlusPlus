@@ -2,7 +2,7 @@ using BazaarPlusPlus.Game.CombatReplay;
 using BazaarPlusPlus.GameInterop.CombatReplay;
 using Xunit;
 
-namespace CombatReplayPlaybackLogging.Tests;
+namespace PureBehavior.Tests;
 
 public sealed class ManagedReplayRecordingRestartCoreTests
 {
