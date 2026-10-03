@@ -14,42 +14,237 @@ using BazaarPlusPlus.Game.PvpBattles;
 using BazaarPlusPlus.Game.PvpBattles.Persistence;
 using BazaarPlusPlus.Game.Upload;
 using BazaarPlusPlus.GameInterop;
+using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.ModApi.Bundle;
 using BazaarPlusPlus.ModApi.Clients;
 using BazaarPlusPlus.Storage.BundleQueue;
 using BazaarPlusPlus.Storage.Paths;
 using BazaarPlusPlus.Storage.RunLog;
+using BazaarPlusPlus.Storage.RunScreenshot;
 using BazaarPlusPlus.TestSupport;
 using MessagePack;
 using Microsoft.Data.Sqlite;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.PixelFormats;
 
+// The Bundle pipeline anchor: real SQLite run and battle stores -> replay payloads ->
+// BundleSealCoordinator -> BundleQueueStore outbox -> BundleUploadFeed.Session -> ModApiSession.
+// Every sealed Bundle lands in artifacts/bundle-pipeline/ and the normalized summary must match
+// fixtures/bundle-pipeline.golden.json (PipelineArtifacts owns the format and regeneration).
 var root = Path.Combine(Path.GetTempPath(), "bpp-v5-pipeline-" + Guid.NewGuid().ToString("N"));
 Directory.CreateDirectory(root);
 try
 {
-    await BundleSealFailureTests.RunAsync(Path.Combine(root, "seal-failures"));
-    var paths = new TestPaths(root);
+    var artifacts = new PipelineArtifacts();
+    var dataRoot = Path.Combine(root, "pipeline");
+    Directory.CreateDirectory(dataRoot);
+    var paths = new TestPaths(dataRoot);
     var store = new RunLogStore(paths);
-    var database = PathConstants.RunLogDatabase(root);
-    var started = DateTimeOffset.UtcNow.AddMinutes(-3);
+    var database = PathConstants.RunLogDatabase(dataRoot);
+    var replays = new CombatReplayPayloadStore(PathConstants.CombatReplays(dataRoot));
+    using var coordinator = new BundleSealCoordinator(new TestServices(paths));
+
+    RoutingKeepsPveOutOfPersistence(database);
+
+    // run-only: one replayable PvP battle, no screenshot requested.
+    CreateRun(store, "run-seal-001", minute: 0, screenshotRequested: false);
+    SaveBattle(database, "battle-seal-001", "run-seal-001", minute: 0);
+    SaveReplay(replays, "battle-seal-001");
+    var roundTrip = replays.LoadDetailed("battle-seal-001");
+    Check.That(
+        roundTrip.Status == FileBackedPayloadLoadStatus.Loaded
+            && roundTrip.Payload!.CombatMessageBytes.SequenceEqual(ReplayBytes.Combat),
+        "Replay payload bytes must round-trip exactly."
+    );
+    CompleteRun(store, "run-seal-001", minute: 0);
+    await coordinator.ReconcileAsync(CancellationToken.None);
+    var runOnly = Sealed(artifacts, dataRoot, "run-only", "run-seal-001");
+    Check.That(runOnly.Opened.Manifest.Screenshot == null, "No screenshot was requested.");
+    Check.That(runOnly.Payload.PlayerAccountId == "account-001", "Frozen account is kept.");
+    Check.That(
+        runOnly.Payload.ReplayableBattleIds.SequenceEqual(new[] { "battle-seal-001" }),
+        "The composer should use the shared replayability contract."
+    );
+    Check.That(
+        RunBundleV5Contract
+            .Open(runOnly.Bytes)
+            .Value!.TryGetReplayableBattle("battle-seal-001", out _),
+        "The sealed replayable battle should resolve through the shared contract."
+    );
+    artifacts.RecordQueue("run-only", database, "run-seal-001");
+    Execute(database, "DELETE FROM runs WHERE run_id='run-seal-001';");
+    Check.That(
+        Count(database, "bundle_outbox", "run-seal-001") == 1,
+        "The outbox must not FK-block Run deletion."
+    );
+
+    // screenshot: a requested end-of-run screenshot is present when the job seals.
+    CreateRun(store, "run-screenshot", minute: 60, screenshotRequested: true);
+    var capturedAtUtc = PipelineInputs.Base.AddMinutes(61).AddSeconds(50);
+    var relativeImage = "2099-01-01/2099-01-01_01-01-50-000_final_run-run-screenshot.png";
+    WritePng(Path.Combine(PathConstants.Screenshots(dataRoot), relativeImage));
+    var screenshots = new RunScreenshotSqliteStore(database);
+    screenshots.Save(Screenshot("shot-primary-001", relativeImage, capturedAtUtc));
+    ExpectSqliteConstraint(
+        () =>
+            screenshots.Save(
+                Screenshot("shot-primary-002", "2099-01-01/duplicate.png", capturedAtUtc)
+            ),
+        "Only one primary screenshot may exist per run."
+    );
+    Check.That(
+        screenshots.TryGetLatestPrimaryForRun("missing-run") == null,
+        "A run without a primary screenshot has none."
+    );
+    CompleteRun(store, "run-screenshot", minute: 60);
+    await coordinator.ReconcileAsync(CancellationToken.None);
+    var shot = Sealed(artifacts, dataRoot, "screenshot", "run-screenshot");
+    Check.That(
+        Number(database, "SELECT has_screenshot FROM bundle_outbox WHERE run_id='run-screenshot';")
+            == 1,
+        "A sealed screenshot sets has_screenshot."
+    );
+    Check.That(
+        shot.Opened.Manifest.Screenshot?.CapturedAtMs == capturedAtUtc.ToUnixTimeMilliseconds()
+            && shot.Opened.Screenshot is { Length: > 0 }
+            && !shot.Payload.Degradation.ScreenshotOmitted,
+        "The primary screenshot should seal into the Bundle."
+    );
+    artifacts.RecordScreenshots(database, "run-screenshot");
+    artifacts.RecordQueue("screenshot", database, "run-screenshot");
+
+    // screenshot-deadline: a requested screenshot that never arrives waits, then seals Run-only.
+    CreateRun(store, "run-waits-for-screenshot", minute: 120, screenshotRequested: true);
+    CompleteRun(store, "run-waits-for-screenshot", minute: 120);
+    await coordinator.ReconcileAsync(CancellationToken.None);
+    Check.That(
+        Count(database, "bundle_outbox", "run-waits-for-screenshot") == 0,
+        "A requested screenshot keeps the job waiting before its deadline."
+    );
+    artifacts.RecordQueue("screenshot-deadline:waiting", database, "run-waits-for-screenshot");
+    ExpireDeadline(database, "run-waits-for-screenshot");
+    await coordinator.ReconcileAsync(CancellationToken.None);
+    var timedOut = Sealed(artifacts, dataRoot, "screenshot-deadline", "run-waits-for-screenshot");
+    Check.That(
+        timedOut.Opened.Manifest.Screenshot == null
+            && timedOut.Payload.Degradation.ScreenshotOmitted,
+        "The same job seals Run-only once its deadline expires."
+    );
+    artifacts.RecordQueue("screenshot-deadline:sealed", database, "run-waits-for-screenshot");
+
+    // replay-persistence: a Run whose replay writes are still in flight waits; others seal.
+    CreateRun(store, "run-replay-held", minute: 180, screenshotRequested: false);
+    CreateRun(store, "run-replay-free", minute: 181, screenshotRequested: false);
+    ReplayPersistenceStateTracker.Enqueued("run-replay-held");
+    CompleteRun(store, "run-replay-held", minute: 180);
+    CompleteRun(store, "run-replay-free", minute: 181);
+    await coordinator.ReconcileAsync(CancellationToken.None);
+    Check.That(
+        Count(database, "bundle_outbox", "run-replay-held") == 0,
+        "A Run with pending replay persistence must not seal."
+    );
+    Sealed(artifacts, dataRoot, "replay-free", "run-replay-free");
+    artifacts.RecordQueue(
+        "replay-persistence:held",
+        database,
+        "run-replay-held",
+        "run-replay-free"
+    );
+    ReplayPersistenceStateTracker.Completed("run-replay-held");
+    await coordinator.ReconcileAsync(CancellationToken.None);
+    Sealed(artifacts, dataRoot, "replay-held", "run-replay-held");
+    artifacts.RecordQueue("replay-persistence:drained", database, "run-replay-held");
+
+    // corrupt-replay: an undecodable replay waits for the deadline, then is omitted.
+    CreateRun(store, "run-corrupt-replay", minute: 240, screenshotRequested: false);
+    SaveBattle(database, "battle-corrupt", "run-corrupt-replay", minute: 240);
+    SaveReplay(replays, "battle-corrupt");
+    File.WriteAllBytes(
+        Directory.EnumerateFiles(PathConstants.CombatReplays(dataRoot), "battle-corrupt*").Single(),
+        [0, 1, 2, 3]
+    );
+    Check.That(
+        replays.LoadDetailed("battle-corrupt").Status == FileBackedPayloadLoadStatus.Invalid,
+        "A corrupt replay file is classified as invalid."
+    );
+    CompleteRun(store, "run-corrupt-replay", minute: 240);
+    await coordinator.ReconcileAsync(CancellationToken.None);
+    Check.That(
+        Count(database, "bundle_outbox", "run-corrupt-replay") == 0,
+        "An omitted replay keeps the job waiting before its deadline."
+    );
+    artifacts.RecordQueue("corrupt-replay:waiting", database, "run-corrupt-replay");
+    ExpireDeadline(database, "run-corrupt-replay");
+    await coordinator.ReconcileAsync(CancellationToken.None);
+    var corrupt = Sealed(artifacts, dataRoot, "corrupt-replay", "run-corrupt-replay");
+    Check.That(
+        corrupt.Payload.Degradation.ReplayOmittedBattleIds.SequenceEqual(new[] { "battle-corrupt" })
+            && !corrupt.Payload.ReplayableBattleIds.Contains("battle-corrupt"),
+        "The corrupt replay is omitted explicitly at seal."
+    );
+    artifacts.RecordQueue("corrupt-replay:sealed", database, "run-corrupt-replay");
+
+    await UploadStage.RunAsync(
+        dataRoot,
+        artifacts,
+        [
+            "run-seal-001",
+            "run-screenshot",
+            "run-waits-for-screenshot",
+            "run-replay-free",
+            "run-replay-held",
+            "run-corrupt-replay",
+        ]
+    );
+    // The golden comes first so a pipeline regression shows as an artifact diff.
+    if (!artifacts.CompareWithGolden())
+        return 1;
+
+    await BundleSealFailureTests.RunAsync(Path.Combine(root, "seal-failures"));
+    await UploadFeedBoundaries.RunAsync(Path.Combine(root, "upload-boundaries"));
+    await VerifyRecoveryAsync(Path.Combine(root, "recovery"));
+    await VerifyLegacyJsonRecoveryAsync(Path.Combine(root, "legacy-json"));
+    await VerifyUploadClientAsync();
+}
+finally
+{
+    SqliteConnection.ClearAllPools();
+    Directory.Delete(root, recursive: true);
+}
+Console.WriteLine("Bundle pipeline tests passed.");
+return 0;
+
+static void CreateRun(RunLogStore store, string runId, int minute, bool screenshotRequested) =>
     store.CreateRun(
         new RunLogCreateRequest
         {
-            RunId = "run-seal-001",
-            StartedAtUtc = started,
+            RunId = runId,
+            StartedAtUtc = PipelineInputs.Base.AddMinutes(minute),
             Hero = "Vanessa",
             GameMode = "Ranked",
             PlayerAccountId = "account-001",
-            BundleScreenshotRequested = false,
+            BundleScreenshotRequested = screenshotRequested,
             ModVersion = "5.0.0",
         }
     );
+
+static void CompleteRun(RunLogStore store, string runId, int minute) =>
+    store.CompleteRun(
+        runId,
+        new RunLogCompletion
+        {
+            EndedAtUtc = PipelineInputs.Base.AddMinutes(minute + 1),
+            Status = "completed",
+        }
+    );
+
+static void SaveBattle(string database, string battleId, string runId, int minute) =>
     new PvpBattleSqliteStore(database).Save(
         new PvpBattleManifest
         {
-            BattleId = "battle-seal-001",
-            RunId = "run-seal-001",
-            RecordedAtUtc = started.AddSeconds(30),
+            BattleId = battleId,
+            RunId = runId,
+            RecordedAtUtc = PipelineInputs.Base.AddMinutes(minute).AddSeconds(30),
             CombatKind = "PVPCombat",
             Day = 1,
             Hour = 1,
@@ -72,143 +267,153 @@ try
             },
         }
     );
-    new CombatReplayPayloadStore(PathConstants.CombatReplays(root)).Save(
+
+static void SaveReplay(CombatReplayPayloadStore replays, string battleId) =>
+    replays.Save(
         new PvpReplayPayload
         {
-            BattleId = "battle-seal-001",
-            SpawnMessageBytes = MessagePackSerializer.Serialize(
-                new NetMessageGameSim(new GameSim()),
-                MessagePackConfig.Options
-            ),
-            CombatMessageBytes = MessagePackSerializer.Serialize(
-                new NetMessageCombatSim(new CombatSim()),
-                MessagePackConfig.Options
-            ),
-            DespawnMessageBytes = MessagePackSerializer.Serialize(
-                new NetMessageGameSim(new GameSim()),
-                MessagePackConfig.Options
-            ),
+            BattleId = battleId,
+            SpawnMessageBytes = ReplayBytes.Spawn,
+            CombatMessageBytes = ReplayBytes.Combat,
+            DespawnMessageBytes = ReplayBytes.Despawn,
         }
     );
-    store.CompleteRun(
-        "run-seal-001",
-        new RunLogCompletion { EndedAtUtc = started.AddMinutes(1), Status = "completed" }
-    );
 
-    var services = new TestServices(paths);
-    using var coordinator = new BundleSealCoordinator(services);
-    await coordinator.ReconcileAsync(CancellationToken.None);
-
-    using (var connection = new SqliteConnection($"Data Source={database}"))
+static RunScreenshotRecord Screenshot(
+    string id,
+    string relativePath,
+    DateTimeOffset capturedAtUtc
+) =>
+    new()
     {
-        connection.Open();
-        using var command = connection.CreateCommand();
-        command.CommandText =
-            "SELECT bundle_id, file_name, status FROM bundle_outbox WHERE run_id='run-seal-001';";
-        using var reader = command.ExecuteReader();
-        if (!reader.Read())
-        {
-            reader.Close();
-            using var job = connection.CreateCommand();
-            job.CommandText =
-                "SELECT state, last_error_code, last_error_detail FROM bundle_seal_jobs WHERE run_id='run-seal-001';";
-            using var jobReader = job.ExecuteReader();
-            var detail = jobReader.Read()
-                ? $"{jobReader.GetString(0)}/{(jobReader.IsDBNull(1) ? "" : jobReader.GetString(1))}/{(jobReader.IsDBNull(2) ? "" : jobReader.GetString(2))}"
-                : "job missing";
-            throw new InvalidOperationException("completed run should seal into outbox: " + detail);
-        }
-        var bundleId = reader.GetString(0);
-        var file = Path.Combine(PathConstants.BundleOutbox(root), reader.GetString(1));
-        Assert(reader.GetString(2) == "pending", "new outbox row should be pending");
-        Assert(File.Exists(file), "sealed bundle file should exist");
-        var opened = BundleV5Codec.Open(TestInputs.ScratchBytes(file));
-        Assert(opened.Manifest.BundleId == bundleId, "file identity should match outbox");
-        Assert(opened.Manifest.Screenshot == null, "screenshot-disabled run should be Run-only");
-        var payload = RunPayloadV5Codec.Decode(opened.RunPayload);
-        Assert(payload.RunId == "run-seal-001", "payload should preserve run identity");
-        Assert(payload.PlayerAccountId == "account-001", "payload should preserve frozen account");
-        Assert(
-            payload.ReplayableBattleIds.SequenceEqual(new[] { "battle-seal-001" }),
-            "composer should use the shared replayability contract"
-        );
-        var runBundle = RunBundleV5Contract.Open(TestInputs.ScratchBytes(file));
-        Assert(runBundle.Succeeded, "sealed bundle should satisfy the Run Bundle contract");
-        Assert(
-            runBundle.Value!.TryGetReplayableBattle("battle-seal-001", out _),
-            "sealed replayable battle should resolve through the shared contract"
-        );
-    }
+        ScreenshotId = id,
+        RunId = "run-screenshot",
+        HeroName = "Vanessa",
+        IsPrimary = true,
+        ImageRelativePath = relativePath,
+        CapturedAtLocal = capturedAtUtc.ToOffset(TimeSpan.FromHours(8)),
+        CapturedAtUtc = capturedAtUtc,
+        Day = 10,
+        PlayerRank = "Legendary",
+        PlayerRating = 1533,
+        PlayerPosition = 41,
+        VictoriesAtCapture = 10,
+    };
 
-    using (var repository = new SqliteConnection($"Data Source={database}"))
-    {
-        repository.Open();
-        using var delete = repository.CreateCommand();
-        delete.CommandText = "DELETE FROM runs WHERE run_id='run-seal-001';";
-        delete.ExecuteNonQuery();
-        using var count = repository.CreateCommand();
-        count.CommandText = "SELECT COUNT(*) FROM bundle_outbox WHERE run_id='run-seal-001';";
-        Assert(
-            Convert.ToInt32(count.ExecuteScalar()) == 1,
-            "outbox must not FK-block Run deletion"
-        );
-    }
-
-    var waitingStarted = DateTimeOffset.UtcNow.AddMinutes(-1);
-    store.CreateRun(
-        new RunLogCreateRequest
-        {
-            RunId = "run-waits-for-screenshot",
-            StartedAtUtc = waitingStarted,
-            Hero = "Vanessa",
-            GameMode = "Ranked",
-            PlayerAccountId = "account-001",
-            BundleScreenshotRequested = true,
-            ModVersion = "5.0.0",
-        }
-    );
-    store.CompleteRun(
-        "run-waits-for-screenshot",
-        new RunLogCompletion { EndedAtUtc = DateTimeOffset.UtcNow, Status = "completed" }
-    );
-    await coordinator.ReconcileAsync(CancellationToken.None);
-    using (var connection = new SqliteConnection($"Data Source={database}"))
-    {
-        connection.Open();
-        using var pending = connection.CreateCommand();
-        pending.CommandText =
-            "SELECT COUNT(*) FROM bundle_outbox WHERE run_id='run-waits-for-screenshot';";
-        Assert(
-            Convert.ToInt32(pending.ExecuteScalar()) == 0,
-            "a requested screenshot should keep the job waiting before its UTC deadline"
-        );
-        using var expire = connection.CreateCommand();
-        expire.CommandText =
-            "UPDATE bundle_seal_jobs SET input_deadline_at_utc=datetime('now','-1 second') WHERE run_id='run-waits-for-screenshot';";
-        expire.ExecuteNonQuery();
-    }
-    await coordinator.ReconcileAsync(CancellationToken.None);
-    using (var connection = new SqliteConnection($"Data Source={database}"))
-    {
-        connection.Open();
-        using var sealedAfterDeadline = connection.CreateCommand();
-        sealedAfterDeadline.CommandText =
-            "SELECT has_screenshot FROM bundle_outbox WHERE run_id='run-waits-for-screenshot' AND status='pending';";
-        Assert(
-            Convert.ToInt32(sealedAfterDeadline.ExecuteScalar()) == 0,
-            "the same job should seal Run-only once its UTC deadline expires"
-        );
-    }
-
-    await VerifyRecoveryAsync(root, store, coordinator, database);
-    await VerifyLegacyJsonRecoveryAsync(Path.Combine(root, "legacy-json"));
-    await VerifyUploadClientAsync();
-    Console.WriteLine("Bundle pipeline tests passed.");
-}
-finally
+// A deterministic gradient; ImageSharp's PNG and JPEG encoders are deterministic for it.
+static void WritePng(string path)
 {
-    SqliteConnection.ClearAllPools();
-    Directory.Delete(root, recursive: true);
+    Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+    using var image = new Image<Rgba32>(96, 64);
+    for (var y = 0; y < image.Height; y++)
+    for (var x = 0; x < image.Width; x++)
+        image[x, y] = new Rgba32((byte)(x * 2), (byte)(y * 3), (byte)((x + y) % 256), 255);
+    image.SaveAsPng(path);
+}
+
+static void RoutingKeepsPveOutOfPersistence(string database)
+{
+    Check.That(
+        CapturedReplayRouter.Resolve(
+            new PvpBattleManifest { BattleId = "pve", CombatKind = "Combat" }
+        ) == CapturedReplayRoute.CurrentNative,
+        "PvE captures stay on the in-memory current-native route."
+    );
+    Check.That(
+        CapturedReplayRouter.Resolve(
+            new PvpBattleManifest { BattleId = "pvp", CombatKind = "PVPCombat" }
+        ) == CapturedReplayRoute.PersistedPvp,
+        "PvP captures use the persisted catalog route."
+    );
+    try
+    {
+        new PvpBattleSqliteStore(database).Save(
+            new PvpBattleManifest { BattleId = "pve", CombatKind = "Combat" }
+        );
+        throw new InvalidOperationException("The PvP store accepted a PvE manifest.");
+    }
+    catch (ArgumentException)
+    {
+        // A routing regression must fail instead of reporting false persistence success.
+    }
+}
+
+static SealedBundle Sealed(PipelineArtifacts artifacts, string dataRoot, string name, string runId)
+{
+    var database = PathConstants.RunLogDatabase(dataRoot);
+    using var connection = new SqliteConnection($"Data Source={database}");
+    connection.Open();
+    using var command = connection.CreateCommand();
+    command.CommandText =
+        "SELECT bundle_id, file_name FROM bundle_outbox WHERE run_id=$runId AND status='pending';";
+    command.Parameters.AddWithValue("$runId", runId);
+    using var reader = command.ExecuteReader();
+    if (!reader.Read())
+    {
+        reader.Close();
+        using var job = connection.CreateCommand();
+        job.CommandText =
+            "SELECT state, last_error_code, last_error_detail FROM bundle_seal_jobs WHERE run_id=$runId;";
+        job.Parameters.AddWithValue("$runId", runId);
+        using var jobReader = job.ExecuteReader();
+        var detail = jobReader.Read()
+            ? $"{jobReader.GetString(0)}/{(jobReader.IsDBNull(1) ? "" : jobReader.GetString(1))}/{(jobReader.IsDBNull(2) ? "" : jobReader.GetString(2))}"
+            : "job missing";
+        throw new InvalidOperationException($"{runId} should seal into the outbox: {detail}");
+    }
+    var bundleId = reader.GetString(0);
+    var bytes = TestInputs.ScratchBytes(
+        Path.Combine(PathConstants.BundleOutbox(dataRoot), reader.GetString(1))
+    );
+    var opened = artifacts.RecordBundle(name, bytes);
+    Check.That(opened.Manifest.BundleId == bundleId, "File identity should match the outbox.");
+    Check.That(
+        RunBundleV5Contract.Open(bytes).Succeeded,
+        $"{name} should satisfy the Run Bundle contract."
+    );
+    var payload = RunPayloadV5Codec.Decode(opened.RunPayload);
+    Check.That(payload.RunId == runId, "The payload should preserve the Run identity.");
+    return new SealedBundle(bytes, opened, payload);
+}
+
+static void ExpireDeadline(string database, string runId) =>
+    Execute(
+        database,
+        $"UPDATE bundle_seal_jobs SET input_deadline_at_utc=datetime('now','-1 second') WHERE run_id='{runId}';"
+    );
+
+static void Execute(string database, string sql)
+{
+    using var connection = new SqliteConnection($"Data Source={database}");
+    connection.Open();
+    using var command = connection.CreateCommand();
+    command.CommandText = sql;
+    command.ExecuteNonQuery();
+}
+
+static long Count(string database, string table, string runId) =>
+    Number(database, $"SELECT COUNT(*) FROM {table} WHERE run_id='{runId}';");
+
+static long Number(string database, string sql)
+{
+    using var connection = new SqliteConnection($"Data Source={database}");
+    connection.Open();
+    using var command = connection.CreateCommand();
+    command.CommandText = sql;
+    return Convert.ToInt64(command.ExecuteScalar());
+}
+
+static void ExpectSqliteConstraint(Action action, string message)
+{
+    try
+    {
+        action();
+    }
+    catch (SqliteException)
+    {
+        return;
+    }
+    throw new InvalidOperationException(message);
 }
 
 static PvpBattleCardSetCapture CapturedEmpty() =>
@@ -224,6 +429,8 @@ static async Task VerifyLegacyJsonRecoveryAsync(string root)
     var catalog = new PvpBattleSqliteStore(database);
     var replayStore = new CombatReplayPayloadStore(PathConstants.CombatReplays(root));
     var generator = new UlidV5Generator();
+    // Clock-relative on purpose: these rows model released 5.5.0 failures 40 days old, inside
+    // the 90-day terminal window that BundleSealFailurePolicy measures from now.
     var old = DateTimeOffset.UtcNow.AddDays(-40);
     const string message =
         "Method not found: 'System.String Newtonsoft.Json.Linq.JToken.ToString(Newtonsoft.Json.Formatting)'.";
@@ -434,13 +641,13 @@ static async Task VerifyLegacyJsonRecoveryAsync(string root)
     );
 }
 
-static async Task VerifyRecoveryAsync(
-    string root,
-    RunLogStore store,
-    BundleSealCoordinator coordinator,
-    string database
-)
+static async Task VerifyRecoveryAsync(string root)
 {
+    Directory.CreateDirectory(root);
+    var paths = new TestPaths(root);
+    var store = new RunLogStore(paths);
+    var database = PathConstants.RunLogDatabase(root);
+    using var coordinator = new BundleSealCoordinator(new TestServices(paths));
     var outboxRoot = PathConstants.BundleOutbox(root);
     Directory.CreateDirectory(outboxRoot);
 
@@ -448,7 +655,7 @@ static async Task VerifyRecoveryAsync(
         new RunLogCreateRequest
         {
             RunId = "run-orphan-adopt",
-            StartedAtUtc = DateTimeOffset.UtcNow,
+            StartedAtUtc = PipelineInputs.Base,
             Hero = "Vanessa",
             GameMode = "Ranked",
             PlayerAccountId = "account-adopt",
@@ -470,7 +677,7 @@ static async Task VerifyRecoveryAsync(
         new RunLogCreateRequest
         {
             RunId = "run-orphan-mismatch",
-            StartedAtUtc = DateTimeOffset.UtcNow,
+            StartedAtUtc = PipelineInputs.Base,
             Hero = "Vanessa",
             GameMode = "Ranked",
             PlayerAccountId = "account-mismatch",
@@ -491,13 +698,14 @@ static async Task VerifyRecoveryAsync(
     );
     var mismatchPath = Path.Combine(outboxRoot, mismatch.Manifest.BundleId + ".bundle");
     File.WriteAllBytes(mismatchPath, mismatch.Bytes);
+    // File age is measured against the 24-hour orphan retention, so it stays clock-relative.
     File.SetLastWriteTimeUtc(mismatchPath, DateTime.UtcNow.AddHours(-25));
 
     store.CreateRun(
         new RunLogCreateRequest
         {
             RunId = "run-invalid-pending",
-            StartedAtUtc = DateTimeOffset.UtcNow,
+            StartedAtUtc = PipelineInputs.Base,
             Hero = "Vanessa",
             GameMode = "Ranked",
             PlayerAccountId = null,
@@ -509,7 +717,7 @@ static async Task VerifyRecoveryAsync(
         using var invalid = connection.CreateCommand();
         invalid.CommandText =
             "INSERT INTO bundle_outbox (bundle_id, run_id, file_name, content_sha256_hex, content_digest, total_bytes, has_screenshot, sealed_at_utc, status, next_attempt_at_utc) VALUES ('invalid-bundle', 'run-invalid-pending', 'invalid.bundle', 'sha', 'digest', 3, 0, $now, 'pending', $now);";
-        invalid.Parameters.AddWithValue("$now", DateTimeOffset.UtcNow.ToString("o"));
+        invalid.Parameters.AddWithValue("$now", PipelineInputs.Base.ToString("o"));
         invalid.ExecuteNonQuery();
     }
     File.WriteAllText(Path.Combine(outboxRoot, "invalid.bundle"), "bad");
@@ -573,10 +781,14 @@ static void InsertSealJob(
     connection.Open();
     using var command = connection.CreateCommand();
     command.CommandText =
-        "INSERT INTO bundle_seal_jobs (run_id, state, player_account_id, screenshot_requested, screenshot_state, input_deadline_at_utc, bundle_id, created_at_ms) VALUES ($runId, 'sealing', $accountId, 0, 'not_requested', $now, $bundleId, $createdAtMs);";
+        "INSERT INTO bundle_seal_jobs (run_id, state, player_account_id, screenshot_requested, screenshot_state, input_deadline_at_utc, bundle_id, created_at_ms) VALUES ($runId, 'sealing', $accountId, 0, 'not_requested', $deadline, $bundleId, $createdAtMs);";
     command.Parameters.AddWithValue("$runId", runId);
     command.Parameters.AddWithValue("$accountId", accountId);
-    command.Parameters.AddWithValue("$now", DateTimeOffset.UtcNow.AddMinutes(2).ToString("o"));
+    // SQLite datetime() text, the one format input_deadline_at_utc holds.
+    command.Parameters.AddWithValue(
+        "$deadline",
+        PipelineInputs.Base.AddMinutes(2).ToString("yyyy-MM-dd HH:mm:ss")
+    );
     command.Parameters.AddWithValue("$bundleId", bundleId);
     command.Parameters.AddWithValue("$createdAtMs", createdAtMs);
     command.ExecuteNonQuery();
@@ -739,3 +951,34 @@ internal sealed class TestBuild : IGameBuildInfo
     public string RawVersion => "test";
     public GameBuildChannel Channel => GameBuildChannel.Online;
 }
+
+/// <summary>
+/// Fixed pipeline inputs. Times sit in the future on purpose: EnsureEligibleJobs derives each
+/// seal job's input deadline from ended_at_utc + 2 minutes, so a past constant would expire every
+/// deadline at once and the screenshot, replay-persistence, and replay-payload waits could not be
+/// observed. A deadline expires only through the explicit datetime('now','-1 second') step.
+/// </summary>
+internal static class PipelineInputs
+{
+    internal static readonly DateTimeOffset Base = new(2099, 1, 1, 0, 0, 0, TimeSpan.Zero);
+}
+
+// The game's NetMessage constructors assign a random MessageId; fixing it keeps the replay
+// bytes, and so run.payload.sha256, identical across runs.
+internal static class ReplayBytes
+{
+    internal static readonly byte[] Spawn = MessagePackSerializer.Serialize(
+        new NetMessageGameSim(new GameSim()) { MessageId = "spawn" },
+        MessagePackConfig.Options
+    );
+    internal static readonly byte[] Combat = MessagePackSerializer.Serialize(
+        new NetMessageCombatSim(new CombatSim()) { MessageId = "combat" },
+        MessagePackConfig.Options
+    );
+    internal static readonly byte[] Despawn = MessagePackSerializer.Serialize(
+        new NetMessageGameSim(new GameSim()) { MessageId = "despawn" },
+        MessagePackConfig.Options
+    );
+}
+
+internal sealed record SealedBundle(byte[] Bytes, OpenedBundleV5 Opened, RunPayloadV5 Payload);

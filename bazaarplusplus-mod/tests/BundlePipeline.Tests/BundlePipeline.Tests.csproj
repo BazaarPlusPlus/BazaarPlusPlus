@@ -7,9 +7,24 @@
     <BppReferenceGameLibraries>true</BppReferenceGameLibraries>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="JsonSchema.Net" />
     <ProjectReference Include="../../src/BazaarPlusPlus/BazaarPlusPlus.csproj" />
     <Reference Include="BazaarGameShared">
       <HintPath>$(ManagedPath)/BazaarGameShared.dll</HintPath>
     </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource
+      Include="../../../bazaarplusplus-server/contracts/v5/manifest.schema.json"
+      LogicalName="BundlePipeline.Tests.manifest.schema.json"
+    />
+    <EmbeddedResource
+      Include="../../../bazaarplusplus-server/contracts/v5/fixtures/checksums.json"
+      LogicalName="BundlePipeline.Tests.checksums.json"
+    />
+    <EmbeddedResource
+      Include="../../../bazaarplusplus-server/contracts/v5/fixtures/run-only.bundle.b64"
+      LogicalName="BundlePipeline.Tests.run-only.bundle.b64"
+    />
   </ItemGroup>
 </Project>

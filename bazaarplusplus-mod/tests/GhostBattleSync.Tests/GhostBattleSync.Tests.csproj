@@ -16,5 +16,9 @@
 
   <ItemGroup>
     <Compile Include="../Shared/LocalizationTestBootstrap.cs" Link="LocalizationTestBootstrap.cs" />
+    <EmbeddedResource
+      Include="../../../bazaarplusplus-server/contracts/v5/ghost-summary.response.json"
+      LogicalName="GhostBattleSync.Tests.ghost-summary.response.json"
+    />
   </ItemGroup>
 </Project>

@@ -2,7 +2,6 @@ using System.Runtime.CompilerServices;
 
 [assembly: InternalsVisibleTo("CollectionEncounterTooltip.Tests")]
 [assembly: InternalsVisibleTo("ItemEnchantPreview.Tests")]
-[assembly: InternalsVisibleTo("StartupUploadRunner.Tests")]
 [assembly: InternalsVisibleTo("CollectionSourceFiltering.Tests")]
 [assembly: InternalsVisibleTo("LiveBuildRecommendations.Tests")]
 [assembly: InternalsVisibleTo("RunLoggingModule.Tests")]
