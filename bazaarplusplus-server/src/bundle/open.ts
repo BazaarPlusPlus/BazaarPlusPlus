@@ -43,92 +43,43 @@ interface SegmentDigest {
 }
 
 function createBodyReader(body: ReadableStream<Uint8Array>): BoundedBodyReader {
-  try {
-    const reader = body.getReader({ mode: "byob" });
-    return {
-      async readExactly(length) {
-        const output = new Uint8Array(length);
-        let offset = 0;
-        while (offset < length) {
-          const requested = new Uint8Array(Math.min(STREAM_CHUNK_BYTES, length - offset));
-          const result = await reader.read(requested);
-          if (result.done || result.value.byteLength === 0) {
-            throw new HttpError(
-              400,
-              "invalid_content_length",
-              "Bundle body ended before Content-Length",
-              false,
-            );
-          }
-          output.set(result.value, offset);
-          offset += result.value.byteLength;
+  const reader = body.getReader({ mode: "byob" });
+  return {
+    async readExactly(length) {
+      const output = new Uint8Array(length);
+      let offset = 0;
+      while (offset < length) {
+        const requested = new Uint8Array(Math.min(STREAM_CHUNK_BYTES, length - offset));
+        const result = await reader.read(requested);
+        if (result.done || result.value.byteLength === 0) {
+          throw new HttpError(
+            400,
+            "invalid_content_length",
+            "Bundle body ended before Content-Length",
+            false,
+          );
         }
-        return output;
-      },
-      remainder() {
-        return new ReadableStream<Uint8Array>({
-          async pull(controller) {
-            const result = await reader.read(new Uint8Array(STREAM_CHUNK_BYTES));
-            if (result.done) controller.close();
-            else controller.enqueue(result.value);
-          },
-          async cancel(reason) {
-            await reader.cancel(reason);
-          },
-        });
-      },
-      async cancel(reason) {
-        await reader.cancel(reason);
-      },
-    };
-  } catch {
-    const reader = body.getReader();
-    let pending: Uint8Array | null = null;
-    return {
-      async readExactly(length) {
-        const output = new Uint8Array(length);
-        let offset = 0;
-        while (offset < length) {
-          const result = pending === null ? await reader.read() : { done: false, value: pending };
-          pending = null;
-          if (result.done) {
-            throw new HttpError(
-              400,
-              "invalid_content_length",
-              "Bundle body ended before Content-Length",
-              false,
-            );
-          }
-          const needed = length - offset;
-          output.set(result.value.subarray(0, needed), offset);
-          offset += Math.min(needed, result.value.byteLength);
-          if (result.value.byteLength > needed) pending = result.value.subarray(needed);
-        }
-        return output;
-      },
-      remainder() {
-        return new ReadableStream<Uint8Array>({
-          async pull(controller) {
-            if (pending !== null) {
-              const value = pending;
-              pending = null;
-              controller.enqueue(value);
-              return;
-            }
-            const result = await reader.read();
-            if (result.done) controller.close();
-            else controller.enqueue(result.value);
-          },
-          async cancel(reason) {
-            await reader.cancel(reason);
-          },
-        });
-      },
-      async cancel(reason) {
-        await reader.cancel(reason);
-      },
-    };
-  }
+        output.set(result.value, offset);
+        offset += result.value.byteLength;
+      }
+      return output;
+    },
+    remainder() {
+      return new ReadableStream<Uint8Array>({
+        async pull(controller) {
+          const result = await reader.read(new Uint8Array(STREAM_CHUNK_BYTES));
+          if (result.done) controller.close();
+          else controller.enqueue(result.value);
+        },
+        async cancel(reason) {
+          await reader.cancel(reason);
+        },
+      });
+    },
+    async cancel(reason) {
+      await reader.cancel(reason);
+    },
+  };
 }
 
 function streamWithPrelude(

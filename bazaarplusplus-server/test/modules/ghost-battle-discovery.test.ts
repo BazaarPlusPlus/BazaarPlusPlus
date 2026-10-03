@@ -201,7 +201,15 @@ describe("GET /ghost-battles", () => {
       createdAtMs: Date.now() - 1_000,
     });
     expect((await worker.fetch(uploadRequest(first.body, first.headers), env)).status).toBe(201);
+    const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
     expect((await worker.fetch(uploadRequest(second.body, second.headers), env)).status).toBe(201);
+    expect(log).toHaveBeenCalledWith(
+      JSON.stringify({
+        event: "bundle.projection.duplicate",
+        bundle_id: "01J00000000000000000000212",
+        dropped: 1,
+      }),
+    );
 
     const response = await worker.fetch(
       new Request(

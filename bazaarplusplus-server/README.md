@@ -14,12 +14,6 @@ The public surface is six routes: liveness, public streaming ingest, token-prote
 
 The design is a small number of deep seams — the route table and its single HTTP exit, Bundle opening, and the atomic Bundle commit — recorded with their owning files in [ADR 0001](docs/adr/0001-v5-deepening-seams.md). Ghost discovery stores fifteen summary columns ([ADR 0003](docs/adr/0003-ghost-summary-columns.md)).
 
-Bundle identity reads use Drizzle's D1 query builder with the column mapping in
-`src/db-schema.ts`, so selected fields and result types share one definition.
-Atomic writes and indexed delivery queries use native D1 statements. SQL files in
-`migrations/` remain the schema authority and are applied through Wrangler; the
-Drizzle mapping is a read projection, not an input to a migration generator.
-
 `test/` mirrors the `src/` layout (`bundle/`, `modules/`), with golden-vector contract tests under `test/contracts/` and route-shell, schema, and root-module tests at the top level. Behavior tests drive the deployed `worker.fetch` and `worker.scheduled` against local D1 and R2.
 
 ## Development
@@ -33,10 +27,10 @@ just server::dev   # Refreshes .dev.vars from the shared configuration first
 
 The Worker fails closed without the secrets `src/env.ts` declares. Locally they come from the git-ignored `.dev.vars`, a managed copy of the shared configuration ([development guide](../docs/development.md)). Tests inject their own values and need no `.dev.vars`.
 
-TypeScript checks application and test code in strict mode. `skipLibCheck` skips
-declaration-file checks because Drizzle's declarations reference optional database
-drivers outside this Worker's D1 runtime; query arguments and inferred results are
-still checked at their use sites.
+TypeScript checks application and test code in strict mode. `skipLibCheck` stays on
+because the test configuration loads both `@cloudflare/workers-types` and
+`@types/node`, whose global Web API declarations conflict; application and test
+sources are still fully checked.
 
 The `miniflare` override in `package.json` patches Undici in both Wrangler's and
 the Worker test pool's dependency trees. The test pool pins an older Miniflare,

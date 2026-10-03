@@ -1,8 +1,6 @@
 import { env } from "cloudflare:test";
-import { getTableConfig } from "drizzle-orm/sqlite-core";
 import { describe, expect, test } from "vitest";
 
-import { bundleIdentity } from "../src/db-schema";
 import { commitBundle } from "../src/modules/bundle-commit";
 import { bundleData } from "./fixtures/bundle";
 
@@ -26,25 +24,6 @@ test("the completed migrations leave only the V5 domain tables", async () => {
     "bundles",
     "ghost_battle_summaries",
   ]);
-});
-
-test("the Drizzle identity projection matches the migrated Bundle columns", async () => {
-  const table = getTableConfig(bundleIdentity);
-  const result = await env.DB.prepare("PRAGMA table_info(bundles)").all<{
-    name: string;
-    type: string;
-    notnull: number;
-  }>();
-  const columns = new Map(result.results.map((column) => [column.name, column]));
-
-  expect(table.name).toBe("bundles");
-  for (const column of table.columns) {
-    expect(columns.get(column.name)).toMatchObject({
-      name: column.name,
-      type: column.getSQLType().toUpperCase(),
-      notnull: Number(column.notNull),
-    });
-  }
 });
 
 describe("V5 relational constraints", () => {
@@ -112,44 +91,6 @@ describe("V5 relational constraints", () => {
         .bind(bundleId)
         .run(),
     ).rejects.toThrow();
-  });
-
-  test("a failed D1 batch rolls back the entire Bundle logical commit", async () => {
-    const bundleId = "01J00000000000000000000502";
-    await expect(
-      env.DB.batch([
-        env.DB.prepare(validBundleSql).bind(
-          bundleId,
-          "schema-run-atomic",
-          `bundles/2026-08-02/${bundleId}.bundle`,
-          "b".repeat(64),
-          0,
-          null,
-          null,
-          null,
-        ),
-        env.DB.prepare(
-          `INSERT INTO ghost_battle_summaries (
-            uploader_account_id, battle_id, bundle_id, opponent_account_id,
-            recorded_at_ms, day, hour, result, player_display_name
-          ) VALUES ('schema-uploader', 'missing-day', ?1, 'schema-uploader', 1, NULL, 1, 'win', 'Uploader')`,
-        ).bind(bundleId),
-        env.DB.prepare(
-          `INSERT INTO bundle_uploaders (player_account_id, first_bundle_at_ms)
-           VALUES ('schema-uploader', 1)`,
-        ),
-      ]),
-    ).rejects.toThrow();
-    expect(
-      await env.DB.prepare(`SELECT bundle_id FROM bundles WHERE bundle_id = ?1`)
-        .bind(bundleId)
-        .first(),
-    ).toBeNull();
-    expect(
-      await env.DB.prepare(
-        `SELECT player_account_id FROM bundle_uploaders WHERE player_account_id = 'schema-uploader'`,
-      ).first(),
-    ).toBeNull();
   });
 
   test("commitBundle exposes D1 batch rollback through its public interface", async () => {

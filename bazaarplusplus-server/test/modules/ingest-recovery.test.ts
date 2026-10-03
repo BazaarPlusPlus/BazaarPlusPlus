@@ -36,9 +36,10 @@ describe("Bundle ingest fault recovery", () => {
         : original;
     const manifestEnd = 16 + new DataView(incoming.body.buffer).getUint32(12, false);
     const cancel = vi.fn();
-    const body = new ReadableStream<Uint8Array>({
+    const body = new ReadableStream({
+      type: "bytes",
       start(controller) {
-        controller.enqueue(incoming.body.subarray(0, manifestEnd + 1));
+        controller.enqueue(incoming.body.slice(0, manifestEnd + 1));
       },
       cancel,
     });
@@ -215,11 +216,12 @@ describe("Bundle ingest fault recovery", () => {
       battles: [],
     });
     let emitted = false;
-    const stream = new ReadableStream<Uint8Array>({
+    const stream = new ReadableStream({
+      type: "bytes",
       pull(controller) {
         if (!emitted) {
           emitted = true;
-          controller.enqueue(fixture.body.subarray(0, fixture.body.byteLength - 2));
+          controller.enqueue(fixture.body.slice(0, fixture.body.byteLength - 2));
           return;
         }
         controller.error(new Error("injected connection loss"));

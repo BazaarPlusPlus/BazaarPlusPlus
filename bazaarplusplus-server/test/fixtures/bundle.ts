@@ -39,10 +39,13 @@ export function decodeBase64(value: string): Uint8Array {
   return Uint8Array.from(binary, (character) => character.charCodeAt(0));
 }
 
+// A byte stream like workerd's request and R2 bodies. Enqueue transfers the
+// buffer, so each source enqueues a copy and leaves the caller's bytes intact.
 export function stream(bytes: Uint8Array): ReadableStream<Uint8Array> {
-  return new ReadableStream<Uint8Array>({
+  return new ReadableStream({
+    type: "bytes",
     start(controller) {
-      controller.enqueue(bytes);
+      controller.enqueue(bytes.slice());
       controller.close();
     },
   });

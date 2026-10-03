@@ -19,9 +19,10 @@ describe("openBundle", () => {
     const bytes = decodeBase64(runOnlyBase64);
     const manifestEnd = 16 + new DataView(bytes.buffer).getUint32(12, false);
     const cancel = vi.fn();
-    const source = new ReadableStream<Uint8Array>({
+    const source = new ReadableStream({
+      type: "bytes",
       start(controller) {
-        controller.enqueue(bytes.subarray(0, manifestEnd + 1));
+        controller.enqueue(bytes.slice(0, manifestEnd + 1));
       },
       cancel,
     });
@@ -38,9 +39,10 @@ describe("openBundle", () => {
     const bytes = decodeBase64(runOnlyBase64);
     const manifestEnd = 16 + new DataView(bytes.buffer).getUint32(12, false);
     const reason = new Error("upload disconnected");
-    const source = new ReadableStream<Uint8Array>({
+    const source = new ReadableStream({
+      type: "bytes",
       start(controller) {
-        controller.enqueue(bytes.subarray(0, manifestEnd + 1));
+        controller.enqueue(bytes.slice(0, manifestEnd + 1));
       },
       pull(controller) {
         controller.error(reason);
@@ -68,10 +70,11 @@ describe("openBundle", () => {
         throw new Error("payload must not be read");
       });
       const cancel = vi.fn();
-      const source = new ReadableStream<Uint8Array>(
+      const source = new ReadableStream(
         {
+          type: "bytes",
           start(controller) {
-            controller.enqueue(bytes.subarray(0, manifestEnd));
+            controller.enqueue(bytes.slice(0, manifestEnd));
           },
           pull,
           cancel,
