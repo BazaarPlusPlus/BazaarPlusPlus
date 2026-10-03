@@ -15,7 +15,7 @@ use super::overlay_settings::OverlaySettingsStore;
 use super::records::OverlayRecordRepository;
 use super::runtime::StreamRuntime;
 use crate::goldens::{assert_golden, golden_path, json};
-use crate::history::test_schema::create_history_schema;
+use crate::history::test_schema::create_mod_schema;
 use crate::services::paths;
 use sha2::{Digest, Sha256};
 use tower::ServiceExt;
@@ -33,7 +33,7 @@ fn seed(game: &std::path::Path) {
         .unwrap();
     }
     let conn = rusqlite::Connection::open(paths::database_path(game)).unwrap();
-    create_history_schema(&conn);
+    create_mod_schema(&conn);
     conn.execute_batch(
         "
         insert into run_screenshots (

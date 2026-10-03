@@ -84,31 +84,8 @@ impl OverlayRecordRepository {
 #[cfg(test)]
 mod tests {
     use super::OverlayRecordRepository;
+    use crate::history::test_schema::create_mod_schema;
     use crate::services::paths;
-
-    fn create_run_screenshots_table(conn: &rusqlite::Connection) {
-        conn.execute_batch(
-            "pragma user_version = 2;
-             create table run_screenshots (
-                screenshot_id text primary key,
-                run_id text,
-                battle_id text,
-                capture_source text not null,
-                is_primary integer not null default 0,
-                image_relative_path text not null,
-                captured_at_local text not null,
-                captured_at_utc text not null,
-                day integer,
-                player_rank text,
-                player_rating integer,
-                player_position integer,
-                victories_at_capture integer,
-                hero_name text,
-                build_channel text
-            );",
-        )
-        .unwrap();
-    }
 
     #[test]
     fn repository_rejects_unsupported_database_schema() {
@@ -136,7 +113,7 @@ mod tests {
 
         let database_path = paths::database_path(&game_path);
         let conn = rusqlite::Connection::open(&database_path).unwrap();
-        create_run_screenshots_table(&conn);
+        create_mod_schema(&conn);
         conn.execute(
             "insert into run_screenshots (
                 screenshot_id, run_id, capture_source, image_relative_path, captured_at_local,
@@ -164,7 +141,7 @@ mod tests {
 
         let database_path = paths::database_path(&game_path);
         let conn = rusqlite::Connection::open(&database_path).unwrap();
-        create_run_screenshots_table(&conn);
+        create_mod_schema(&conn);
         conn.execute(
             "insert into run_screenshots (
                 screenshot_id, run_id, capture_source, image_relative_path, captured_at_local,
@@ -196,7 +173,7 @@ mod tests {
 
         let database_path = paths::database_path(&game_path);
         let conn = rusqlite::Connection::open(&database_path).unwrap();
-        create_run_screenshots_table(&conn);
+        create_mod_schema(&conn);
         conn.execute(
             "insert into run_screenshots (
                 screenshot_id, run_id, capture_source, image_relative_path, captured_at_local,

@@ -1125,6 +1125,7 @@ fn remove_empty_dated_directories(screenshots_dir: &Path) {
 #[cfg(test)]
 mod tests {
     use super::{plan_screenshot_cleanup, CleanupCutoff, StorageCleanupPreset};
+    use crate::history::test_schema::create_mod_schema;
     use chrono::{DateTime, FixedOffset, NaiveDate, SecondsFormat, TimeZone};
     use rusqlite::Connection;
     use std::collections::HashSet;
@@ -1140,161 +1141,6 @@ mod tests {
         screenshots_dir: PathBuf,
     }
 
-    fn create_cleanup_schema(conn: &Connection) {
-        conn.execute_batch(
-            "
-            pragma foreign_keys = on;
-            pragma user_version = 2;
-            create table runs (
-                run_id text primary key,
-                started_at_utc text not null,
-                last_seen_at_utc text not null,
-                status text not null,
-                completed integer not null default 0,
-                hero text not null,
-                game_mode text not null,
-                ended_at_utc text null,
-                build_channel text null,
-                bundle_screenshot_requested integer not null default 0
-            );
-            create table run_events (run_id text not null, seq integer not null, ts_utc text not null, kind text not null, payload_json text not null, primary key (run_id, seq), foreign key (run_id) references runs(run_id) on delete cascade);
-            create table battles (
-                battle_id text primary key,
-                remote_battle_id text null,
-                uploader_account_id text null,
-                source text not null,
-                run_id text null,
-                recorded_at_utc text not null,
-                combat_kind text not null default 'PVP',
-                deleted_at_utc text null,
-                has_local_payload integer not null default 0,
-                local_payload_state text null,
-                local_payload_maintenance_at_utc text null,
-                foreign key (run_id) references runs(run_id) on delete cascade,
-                check (
-                    (source = 'LOCAL' and local_payload_state is not null and (
-                        (local_payload_state = 'ready' and has_local_payload = 1)
-                        or
-                        (local_payload_state in ('delete_pending', 'evicted', 'missing')
-                         and has_local_payload = 0)
-                    ))
-                    or
-                    (source <> 'LOCAL' and local_payload_state is null)
-                )
-            );
-            create table battle_snapshots (
-                battle_id text primary key,
-                player_hand_json text not null,
-                player_skills_json text not null default '[]',
-                opponent_hand_json text not null default '[]',
-                opponent_skills_json text not null default '[]',
-                foreign key (battle_id) references battles(battle_id) on delete cascade
-            );
-            create table run_screenshots (
-                screenshot_id text primary key,
-                run_id text null,
-                hero_name text null,
-                battle_id text null,
-                capture_source text not null,
-                is_primary integer not null default 0,
-                image_relative_path text not null,
-                captured_at_local text not null,
-                captured_at_utc text not null,
-                build_channel text null
-            );
-            create table combat_replay_videos (
-                video_id text primary key,
-                battle_id text not null,
-                source text not null default 'GAME_CAPTURE',
-                video_relative_path text not null,
-                width integer not null default 1920,
-                height integer not null default 1080,
-                fps integer not null default 60,
-                codec text not null default 'h264',
-                started_at_utc text not null,
-                file_size_bytes integer null,
-                status text not null,
-                attachment_state text not null default 'attached',
-                file_state text not null default 'pending',
-                detached_at_utc text null,
-                missing_at_utc text null,
-                last_reconciled_at_utc text null,
-                check (attachment_state in ('attached', 'detached')),
-                check (file_state in ('pending', 'present', 'missing', 'deleted'))
-            );
-            create trigger trg_battles_local_payload_insert
-            before insert on battles
-            when not (
-                (new.source = 'LOCAL' and new.local_payload_state is not null and (
-                    (new.local_payload_state = 'ready' and new.has_local_payload = 1)
-                    or
-                    (new.local_payload_state in ('delete_pending', 'evicted', 'missing')
-                     and new.has_local_payload = 0)
-                ))
-                or
-                (new.source <> 'LOCAL' and new.local_payload_state is null)
-            )
-            begin
-                select raise(abort, 'invalid local payload lifecycle state');
-            end;
-            create trigger trg_battles_local_payload_update
-            before update of source, has_local_payload, local_payload_state on battles
-            when not (
-                (new.source = 'LOCAL' and new.local_payload_state is not null and (
-                    (new.local_payload_state = 'ready' and new.has_local_payload = 1)
-                    or
-                    (new.local_payload_state in ('delete_pending', 'evicted', 'missing')
-                     and new.has_local_payload = 0)
-                ))
-                or
-                (new.source <> 'LOCAL' and new.local_payload_state is null)
-            )
-            begin
-                select raise(abort, 'invalid local payload lifecycle state');
-            end;
-            create table bundle_seal_jobs (
-                run_id text primary key,
-                state text not null default 'waiting',
-                player_account_id text null,
-                screenshot_requested integer not null,
-                screenshot_state text not null default 'waiting',
-                input_deadline_at_utc text not null,
-                bundle_id text null unique,
-                created_at_ms integer null,
-                attempts integer not null default 0,
-                last_attempt_at_utc text null,
-                last_error_code text null,
-                last_error_detail text null,
-                foreign key (run_id) references runs(run_id) on delete cascade,
-                check (state in ('waiting', 'sealing', 'terminal_failure')),
-                check (screenshot_state in ('not_requested', 'waiting', 'available', 'unavailable', 'timed_out'))
-            );
-            create table bundle_outbox (
-                bundle_id text primary key,
-                run_id text not null,
-                file_name text not null unique,
-                content_sha256_hex text not null,
-                content_digest text not null,
-                total_bytes integer not null,
-                has_screenshot integer not null,
-                sealed_at_utc text not null,
-                status text not null default 'pending',
-                attempts integer not null default 0,
-                last_attempt_at_utc text null,
-                next_attempt_at_utc text null,
-                failed_at_utc text null,
-                last_error_code text null,
-                last_error_detail text null,
-                server_request_id text null,
-                server_outcome text null,
-                uploaded_at_utc text null,
-                check (status in ('pending', 'uploaded', 'permanent_failure'))
-            );
-            ",
-        )
-        .unwrap();
-    }
-
     fn create_fixture() -> CleanupFixture {
         let temp_dir = TempDir::new().unwrap();
         let game_path = temp_dir.path().to_path_buf();
@@ -1303,7 +1149,7 @@ mod tests {
         let database_path = data_dir.join("bazaarplusplus.db");
         fs::create_dir_all(&screenshots_dir).unwrap();
         let conn = Connection::open(&database_path).unwrap();
-        create_cleanup_schema(&conn);
+        create_mod_schema(&conn);
         drop(conn);
         CleanupFixture {
             temp_dir,
@@ -1387,7 +1233,8 @@ mod tests {
     /// constraint and its two triggers admit exactly one value per
     /// `local_payload_state`, so a seed that chose its own would only ever be
     /// rejected. `source` stays explicit because `GHOST` rows (no payload state)
-    /// are a distinct case the run-cleanup cascade tests rely on.
+    /// are a distinct case the run-cleanup cascade tests rely on; their remote
+    /// identity is derived for the same reason as `has_local_payload`.
     fn insert_battle(
         conn: &rusqlite::Connection,
         battle_id: &str,
@@ -1397,18 +1244,21 @@ mod tests {
         local_payload_state: Option<&str>,
     ) {
         let has_local_payload = i64::from(local_payload_state == Some("ready"));
+        let ghost = source == "GHOST";
         conn.execute(
             "insert into battles (
-                battle_id, source, run_id, recorded_at_utc,
-                has_local_payload, local_payload_state
-             ) values (?1, ?2, ?3, ?4, ?5, ?6)",
+                battle_id, source, run_id, recorded_at_utc, combat_kind,
+                has_local_payload, local_payload_state, remote_battle_id, uploader_account_id
+             ) values (?1, ?2, ?3, ?4, 'PVP', ?5, ?6, ?7, ?8)",
             rusqlite::params![
                 battle_id,
                 source,
                 run_id,
                 recorded_at_utc,
                 has_local_payload,
-                local_payload_state
+                local_payload_state,
+                ghost.then(|| format!("remote-{battle_id}")),
+                ghost.then_some("uploader-1")
             ],
         )
         .unwrap();
@@ -1425,8 +1275,9 @@ mod tests {
     ) {
         conn.execute(
             "insert into combat_replay_videos (
-                video_id, battle_id, video_relative_path, started_at_utc, status
-             ) values (?1, ?2, ?3, ?4, 'COMPLETED')",
+                video_id, battle_id, source, video_relative_path, width, height, fps, codec,
+                started_at_utc, status
+             ) values (?1, ?2, 'GAME_CAPTURE', ?3, 1920, 1080, 60, 'h264', ?4, 'COMPLETED')",
             rusqlite::params![video_id, battle_id, video_relative_path, started_at_utc],
         )
         .unwrap();
@@ -2505,38 +2356,6 @@ mod tests {
     }
 
     #[test]
-    fn cleanup_fixture_uses_the_v5_schema_shape() {
-        let fixture = create_fixture();
-        let conn = rusqlite::Connection::open(&fixture.database_path).unwrap();
-
-        let replay_dirty: i64 = conn
-            .query_row(
-                "select exists(select 1 from pragma_table_info('battles') where name = 'replay_dirty')",
-                [],
-                |row| row.get(0),
-            )
-            .unwrap();
-        let old_tables: i64 = conn
-            .query_row(
-                "select count(*) from sqlite_master where type = 'table' and name in ('run_sync_state', 'bazaardb_snapshot_uploads')",
-                [],
-                |row| row.get(0),
-            )
-            .unwrap();
-        let bundle_tables: i64 = conn
-            .query_row(
-                "select count(*) from sqlite_master where type = 'table' and name in ('bundle_seal_jobs', 'bundle_outbox')",
-                [],
-                |row| row.get(0),
-            )
-            .unwrap();
-
-        assert_eq!(replay_dirty, 0);
-        assert_eq!(old_tables, 0);
-        assert_eq!(bundle_tables, 2);
-    }
-
-    #[test]
     fn run_plan_estimates_run_owned_files_with_safe_paths() {
         let fixture = create_fixture();
         let conn = rusqlite::Connection::open(&fixture.database_path).unwrap();
@@ -2679,7 +2498,10 @@ mod tests {
             None,
         );
         conn.execute_batch(
-            "insert into battle_snapshots (battle_id, player_hand_json) values ('battle-1', '[]');",
+            "insert into battle_snapshots (
+                battle_id, player_hand_json, player_skills_json, opponent_hand_json,
+                opponent_skills_json
+             ) values ('battle-1', '[]', '[]', '[]', '[]');",
         )
         .unwrap();
         insert_video(
@@ -2795,7 +2617,9 @@ mod tests {
         fs::write(&replay_file, b"replay").unwrap();
 
         let conn = rusqlite::Connection::open(&database_path).unwrap();
-        create_cleanup_schema(&conn);
+        create_mod_schema(&conn);
+        // A deliberate mutation of the mod schema, not a copy of it: `battles`
+        // without the `run_id` cascade the cleanup guard requires.
         conn.execute_batch(
             "
             pragma foreign_keys = off;

@@ -142,196 +142,15 @@ mod tests {
     use super::{delete_battle_video, get_history_run_detail, list_history_runs};
     use crate::config::DATABASE_FILE_NAME;
     use crate::history::dto::{HistoryBattleRow, HistoryBattleVideo};
+    use crate::history::test_schema::create_mod_schema;
     use crate::services::paths;
-
-    fn create_history_schema(conn: &rusqlite::Connection) {
-        conn.execute_batch(
-            "
-            pragma user_version = 2;
-            create table runs (
-                run_id text primary key,
-                started_at_utc text not null,
-                last_seen_at_utc text not null,
-                status text not null,
-                completed integer not null default 0,
-                hero text not null,
-                game_mode text not null,
-                ended_at_utc text null,
-                final_day integer null,
-                final_hour integer null,
-                victories integer null,
-                losses integer null,
-                final_player_rank text null,
-                final_player_rating integer null,
-                final_player_rating_delta integer null,
-                build_channel text null,
-                player_account_id text null,
-                bundle_screenshot_requested integer not null default 0,
-                mod_version text null
-            );
-            create table run_events (
-                run_id text not null,
-                seq integer not null,
-                ts_utc text not null,
-                kind text not null,
-                payload_json text not null,
-                primary key (run_id, seq),
-                foreign key (run_id) references runs(run_id) on delete cascade
-            );
-            create table battles (
-                battle_id text primary key,
-                source text not null,
-                run_id text null,
-                combat_kind text not null default 'PVP',
-                recorded_at_utc text not null,
-                day integer null,
-                hour integer null,
-                player_name text null,
-                player_hero text null,
-                opponent_hero text null,
-                opponent_name text null,
-                opponent_rank text null,
-                opponent_rating integer null,
-                result text null,
-                deleted_at_utc text null,
-                has_local_payload integer not null default 0,
-                local_payload_state text null,
-                local_payload_maintenance_at_utc text null,
-                foreign key (run_id) references runs(run_id) on delete cascade,
-                check (
-                    (source = 'LOCAL' and local_payload_state is not null and (
-                        (local_payload_state = 'ready' and has_local_payload = 1)
-                        or
-                        (local_payload_state in ('delete_pending', 'evicted', 'missing')
-                         and has_local_payload = 0)
-                    ))
-                    or
-                    (source <> 'LOCAL' and local_payload_state is null)
-                )
-            );
-            create table battle_snapshots (
-                battle_id text primary key,
-                player_hand_json text not null,
-                player_skills_json text not null,
-                opponent_hand_json text not null,
-                opponent_skills_json text not null,
-                foreign key (battle_id) references battles(battle_id) on delete cascade
-            );
-            create table run_screenshots (
-                screenshot_id text primary key,
-                run_id text null,
-                hero_name text null,
-                battle_id text null,
-                capture_source text not null,
-                is_primary integer not null default 0,
-                image_relative_path text not null,
-                captured_at_utc text not null,
-                captured_at_local text not null,
-                player_rank text null,
-                player_rating integer null,
-                victories_at_capture integer null,
-                build_channel text null
-            );
-            create table combat_replay_videos (
-                video_id text primary key,
-                battle_id text not null,
-                source text not null default 'GAME_CAPTURE',
-                video_relative_path text not null,
-                width integer not null default 1920,
-                height integer not null default 1080,
-                fps integer not null default 60,
-                codec text not null default 'h264',
-                started_at_utc text not null,
-                duration_ms integer null,
-                file_size_bytes integer null,
-                status text not null,
-                attachment_state text not null default 'attached',
-                file_state text not null default 'pending',
-                detached_at_utc text null,
-                missing_at_utc text null,
-                last_reconciled_at_utc text null,
-                check (attachment_state in ('attached', 'detached')),
-                check (file_state in ('pending', 'present', 'missing', 'deleted'))
-            );
-            create trigger trg_battles_local_payload_insert
-            before insert on battles
-            when not (
-                (new.source = 'LOCAL' and new.local_payload_state is not null and (
-                    (new.local_payload_state = 'ready' and new.has_local_payload = 1)
-                    or
-                    (new.local_payload_state in ('delete_pending', 'evicted', 'missing')
-                     and new.has_local_payload = 0)
-                ))
-                or
-                (new.source <> 'LOCAL' and new.local_payload_state is null)
-            )
-            begin
-                select raise(abort, 'invalid local payload lifecycle state');
-            end;
-            create trigger trg_battles_local_payload_update
-            before update of source, has_local_payload, local_payload_state on battles
-            when not (
-                (new.source = 'LOCAL' and new.local_payload_state is not null and (
-                    (new.local_payload_state = 'ready' and new.has_local_payload = 1)
-                    or
-                    (new.local_payload_state in ('delete_pending', 'evicted', 'missing')
-                     and new.has_local_payload = 0)
-                ))
-                or
-                (new.source <> 'LOCAL' and new.local_payload_state is null)
-            )
-            begin
-                select raise(abort, 'invalid local payload lifecycle state');
-            end;
-            create table bundle_seal_jobs (
-                run_id text primary key,
-                state text not null default 'waiting',
-                player_account_id text null,
-                screenshot_requested integer not null,
-                screenshot_state text not null default 'waiting',
-                input_deadline_at_utc text not null,
-                bundle_id text null unique,
-                created_at_ms integer null,
-                attempts integer not null default 0,
-                last_attempt_at_utc text null,
-                last_error_code text null,
-                last_error_detail text null,
-                foreign key (run_id) references runs(run_id) on delete cascade,
-                check (state in ('waiting', 'sealing', 'terminal_failure')),
-                check (screenshot_state in ('not_requested', 'waiting', 'available', 'unavailable', 'timed_out'))
-            );
-            create table bundle_outbox (
-                bundle_id text primary key,
-                run_id text not null,
-                file_name text not null unique,
-                content_sha256_hex text not null,
-                content_digest text not null,
-                total_bytes integer not null,
-                has_screenshot integer not null,
-                sealed_at_utc text not null,
-                status text not null default 'pending',
-                attempts integer not null default 0,
-                last_attempt_at_utc text null,
-                next_attempt_at_utc text null,
-                failed_at_utc text null,
-                last_error_code text null,
-                last_error_detail text null,
-                server_request_id text null,
-                server_outcome text null,
-                uploaded_at_utc text null,
-                check (status in ('pending', 'uploaded', 'permanent_failure'))
-            );
-            ",
-        )
-        .unwrap();
-    }
 
     #[test]
     fn list_history_runs_derives_summary_results_and_thumbnail_urls() {
         let temp_dir = tempfile::tempdir().unwrap();
         let database_path = temp_dir.path().join(DATABASE_FILE_NAME);
         let conn = rusqlite::Connection::open(&database_path).unwrap();
-        create_history_schema(&conn);
+        create_mod_schema(&conn);
         conn.execute_batch(
             "
             insert into runs (
@@ -354,18 +173,18 @@ mod tests {
                  'win.png', '2026-05-20T11:00:00Z', '2026-05-20T19:00:00+08:00');
 
             insert into battles (
-                battle_id, source, run_id, recorded_at_utc, opponent_name,
+                battle_id, source, run_id, recorded_at_utc, combat_kind, opponent_name,
                 has_local_payload, local_payload_state
             ) values
-                ('battle-1', 'LOCAL', 'run-win', '2026-05-20T10:30:00Z', 'Opponent',
+                ('battle-1', 'LOCAL', 'run-win', '2026-05-20T10:30:00Z', 'PVP', 'Opponent',
                  0, 'missing');
 
             insert into combat_replay_videos (
-                video_id, battle_id, video_relative_path, started_at_utc,
-                duration_ms, file_size_bytes, status
+                video_id, battle_id, source, video_relative_path, width, height, fps, codec,
+                started_at_utc, duration_ms, file_size_bytes, status
             ) values
-                ('video-1', 'battle-1', 'Videos/video-1.mp4', '2026-05-20T10:31:00Z',
-                 1000, 2000, 'COMPLETED');
+                ('video-1', 'battle-1', 'GAME_CAPTURE', 'Videos/video-1.mp4', 1920, 1080, 60,
+                 'h264', '2026-05-20T10:31:00Z', 1000, 2000, 'COMPLETED');
             ",
         )
         .unwrap();
@@ -394,7 +213,7 @@ mod tests {
         let temp_dir = tempfile::tempdir().unwrap();
         let database_path = temp_dir.path().join(DATABASE_FILE_NAME);
         let conn = rusqlite::Connection::open(&database_path).unwrap();
-        create_history_schema(&conn);
+        create_mod_schema(&conn);
         for index in 0..235 {
             conn.execute(
                 "insert into runs (run_id, started_at_utc, last_seen_at_utc, status, hero, game_mode)
@@ -433,7 +252,7 @@ mod tests {
 
         let database_path = paths::database_path(game_path);
         let conn = rusqlite::Connection::open(&database_path).unwrap();
-        create_history_schema(&conn);
+        create_mod_schema(&conn);
         conn.execute_batch(
             "
             insert into runs (
@@ -455,27 +274,30 @@ mod tests {
             );
 
             insert into battles (
-                battle_id, source, run_id, recorded_at_utc, day, hour,
+                battle_id, source, run_id, recorded_at_utc, combat_kind, day, hour,
                 player_name, opponent_hero, opponent_name, opponent_rank, opponent_rating, result,
-                has_local_payload, local_payload_state
+                has_local_payload, local_payload_state, remote_battle_id, uploader_account_id
             ) values
-                ('battle-1', 'LOCAL', 'run-win', '2026-05-20T10:30:00Z', 8, 1,
-                 'cauyxy', 'Dooley', 'Opponent A', 'Diamond III', 1410, 'Won', 1, 'ready'),
-                ('battle-2', 'LOCAL', 'run-win', '2026-05-20T10:10:00Z', 7, 0,
-                 'cauyxy', 'Pygmalien', 'Opponent B', 'Diamond IV', 1360, 'Lost', 0, 'missing'),
-                ('battle-ghost', 'GHOST', 'run-win', '2026-05-20T10:40:00Z', 9, 0,
-                 'cauyxy', 'Mak', 'Ghost', 'Diamond I', 1500, 'Won', 0, null);
+                ('battle-1', 'LOCAL', 'run-win', '2026-05-20T10:30:00Z', 'PVP', 8, 1,
+                 'cauyxy', 'Dooley', 'Opponent A', 'Diamond III', 1410, 'Won', 1, 'ready',
+                 null, null),
+                ('battle-2', 'LOCAL', 'run-win', '2026-05-20T10:10:00Z', 'PVP', 7, 0,
+                 'cauyxy', 'Pygmalien', 'Opponent B', 'Diamond IV', 1360, 'Lost', 0, 'missing',
+                 null, null),
+                ('battle-ghost', 'GHOST', null, '2026-05-20T10:40:00Z', 'PVP', 9, 0,
+                 'cauyxy', 'Mak', 'Ghost', 'Diamond I', 1500, 'Won', 0, null,
+                 'remote-ghost', 'uploader-1');
 
             insert into combat_replay_videos (
-                video_id, battle_id, video_relative_path, started_at_utc,
-                duration_ms, file_size_bytes, status
+                video_id, battle_id, source, video_relative_path, width, height, fps, codec,
+                started_at_utc, duration_ms, file_size_bytes, status
             ) values
-                ('video-old', 'battle-1', '2026-05-20/old.mp4', '2026-05-20T10:31:00Z',
-                 1000, 2000, 'COMPLETED'),
-                ('video-new', 'battle-1', '2026-05-20/new.mp4', '2026-05-20T10:32:00Z',
-                 1200, 2200, 'COMPLETED'),
-                ('video-failed', 'battle-2', '2026-05-20/failed.mp4', '2026-05-20T10:11:00Z',
-                 null, null, 'FAILED');
+                ('video-old', 'battle-1', 'GAME_CAPTURE', '2026-05-20/old.mp4', 1920, 1080, 60,
+                 'h264', '2026-05-20T10:31:00Z', 1000, 2000, 'COMPLETED'),
+                ('video-new', 'battle-1', 'GAME_CAPTURE', '2026-05-20/new.mp4', 1920, 1080, 60,
+                 'h264', '2026-05-20T10:32:00Z', 1200, 2200, 'COMPLETED'),
+                ('video-failed', 'battle-2', 'GAME_CAPTURE', '2026-05-20/failed.mp4', 1920, 1080,
+                 60, 'h264', '2026-05-20T10:11:00Z', null, null, 'FAILED');
             ",
         )
         .unwrap();

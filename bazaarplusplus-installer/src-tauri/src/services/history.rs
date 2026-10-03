@@ -430,7 +430,7 @@ mod tests {
         StorageCleanupExecution, StorageCleanupPreset, StorageCleanupPreview, StorageCleanupScope,
         HISTORY_UNAVAILABLE,
     };
-    use crate::history::test_schema::create_history_schema;
+    use crate::history::test_schema::create_mod_schema;
     use crate::problem::SemanticProblemCode;
     use crate::services::paths;
     use std::path::Path;
@@ -663,7 +663,7 @@ mod tests {
         std::fs::write(&video_path, b"video").unwrap();
 
         let conn = rusqlite::Connection::open(&database_path).unwrap();
-        create_history_schema(&conn);
+        create_mod_schema(&conn);
         conn.execute_batch(
             "
             insert into runs (
@@ -674,11 +674,11 @@ mod tests {
                 'completed', 1, 'Vanessa', 'Normal', '2026-01-01T10:00:00Z', 10, 2
             );
             insert into battles (
-                battle_id, source, run_id, recorded_at_utc, player_name,
-                opponent_hero, opponent_name, result
+                battle_id, source, run_id, recorded_at_utc, combat_kind, player_name,
+                opponent_hero, opponent_name, result, has_local_payload, local_payload_state
             ) values (
-                'battle-1', 'LOCAL', 'run-1', '2026-01-01T09:30:00Z', 'Player',
-                'Dooley', 'Opponent', 'win'
+                'battle-1', 'LOCAL', 'run-1', '2026-01-01T09:30:00Z', 'PVP', 'Player',
+                'Dooley', 'Opponent', 'win', 0, 'missing'
             );
             insert into run_screenshots (
                 screenshot_id, run_id, capture_source, is_primary,
@@ -689,11 +689,11 @@ mod tests {
                 '2026-01-01T18:00:00+08:00'
             );
             insert into combat_replay_videos (
-                video_id, battle_id, video_relative_path, started_at_utc,
-                file_size_bytes, status
+                video_id, battle_id, source, video_relative_path, width, height, fps, codec,
+                started_at_utc, file_size_bytes, status
             ) values (
-                'video-1', 'battle-1', '2026-01-01/battle.mp4',
-                '2026-01-01T09:30:00Z', 5, 'COMPLETED'
+                'video-1', 'battle-1', 'GAME_CAPTURE', '2026-01-01/battle.mp4', 1920, 1080, 60,
+                'h264', '2026-01-01T09:30:00Z', 5, 'COMPLETED'
             );
             ",
         )

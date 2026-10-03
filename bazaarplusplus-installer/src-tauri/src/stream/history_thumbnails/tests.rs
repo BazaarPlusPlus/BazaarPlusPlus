@@ -25,24 +25,20 @@ fn add_screenshot(game_path: &Path, id: &str, capture_source: &str, color: [u8; 
     image::RgbaImage::from_pixel(64, 32, image::Rgba(color))
         .save(&path)
         .unwrap();
-    let connection =
-        rusqlite::Connection::open(crate::services::paths::database_path(game_path)).unwrap();
-    connection
-        .execute_batch(
-            "pragma user_version = 2;
-            create table if not exists run_screenshots (
-                screenshot_id text primary key, capture_source text, is_primary integer,
-                image_relative_path text, hero_name text, captured_at_local text,
-                captured_at_utc text, victories_at_capture integer, day integer,
-                player_rank text, player_rating integer
-            );",
-        )
-        .unwrap();
+    let database_path = crate::services::paths::database_path(game_path);
+    let first_use = !database_path.exists();
+    let connection = rusqlite::Connection::open(database_path).unwrap();
+    if first_use {
+        crate::history::test_schema::create_mod_schema(&connection);
+    }
     connection
         .execute(
-            "insert into run_screenshots values (
+            "insert into run_screenshots (
+                screenshot_id, capture_source, is_primary, image_relative_path, hero_name,
+                captured_at_local, captured_at_utc, victories_at_capture, day
+            ) values (
                 ?1, ?2, 1, ?3, 'Vanessa', '2026-09-01T00:00:00Z',
-                '2026-09-01T00:00:00Z', 10, 10, null, null
+                '2026-09-01T00:00:00Z', 10, 10
             )",
             [id, capture_source, &file_name],
         )
