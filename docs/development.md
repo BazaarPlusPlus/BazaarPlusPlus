@@ -45,6 +45,20 @@ Windows 在 Git Bash 中执行 just，`bash`、`just` 和语言工具链都要�
 just mod::build "-p:ManagedPath=/absolute/path/The Bazaar/Managed"
 ```
 
+## 依赖更新与云端检查
+
+Dependabot 更新配置在 `.github/dependabot.yml`，普通版本更新的分组和节奏由配置维护，安全告警继续保留。自动合并的资格和必需检查由 `.github/scripts/dependabot-auto-merge.mjs` 维护：仅接受可信机器人提交、限定目录中的稳定补丁更新，新增依赖或其他变更留给人工审查。TypeScript 与类型感知 lint 工具的大版本需要配套升级；Tauri 的 npm 与 Cargo 更新也必须一起验证安装器。
+
+Mod 的自动更新只开放测试工具白名单。编译期依赖同样可能改变游戏内行为，不能因为 `PrivateAssets`、补丁版本或 NuGet 版本号相同就认为兼容。游戏自带 DLL、生成器、publicizer 和随包运行库的维护遵循 [ADR-0010](../bazaarplusplus-mod/docs/adr/0010-compile-against-game-supplied-libraries.md)。机器人 PR 的实际差异还会经过 `.github/scripts/check_mod_dependency_update.py`：允许测试工具版本修改，但生产锁文件或其他 Mod 文件变化必须转人工维护。
+
+云端检查的覆盖范围以 `.github/workflows/` 的 job 名称和命令为准。Mod 纯逻辑测试不验证 Unity/Mono 加载；server 的 Worker 测试不包含真实 ModApi 兼容探针；installer 在 Windows 和 macOS 运行完整源码门禁，但不替代安装包签名、安装与升级验收。涉及云端未覆盖的范围时，合并前仍须提供相应项目的本地门禁结果。Mod 运行时依赖升级还需对支持的游戏 Managed 快照编译，并验证实际启动与受影响功能；通过普通 .NET 测试不能替代这一步。游戏程序集不上传到公共 CI，也不交给不受信任 PR 在游戏机器上执行。
+
+配置静态检查不能证明机器人已经成功更新锁文件；首次启用及工具链升级后需查看 Dependabot 的实际更新日志，尤其是它的包管理器支持范围尚未覆盖仓库所用版本时。新的 CI 检查需在 GitHub 首轮成功后再设为必需检查。
+
+自动合并工作流只执行目标分支的可信脚本，通过 API 读取 PR 数据，不执行 PR 代码。开启仓库 auto-merge 和 Actions 审批权限后，还须把脚本列出的检查设为来自 GitHub Actions 的严格必需检查，并保留至少一人审批及新提交撤销旧审批；缺少任一条件时不会自动批准。启用后仍使用 GitHub 原生 auto-merge 等待检查，不使用管理员绕过。首次配置完分支规则后，可重跑符合条件的机器人工作流以重新判断资格。
+
+组织策略禁止 Actions 审批时，符合条件的 PR 仍可登记 auto-merge，但保留人工 Approve；组织管理员放开该权限后才可自动审批。两种情况均不取消审批或 CI 要求。
+
 ## Git hooks
 
 根目录 `lefthook.yml` 是唯一的 hook 配置，按改动路径选择各项目的 recipe。先在根目录执行 `npm ci`，再执行 `just hooks-install`。它把仓库级 `core.hooksPath` 指向 git common dir 下的 `hooks`，让 linked worktree 共用同一套 hooks，并覆盖全局 hooks 路径。
