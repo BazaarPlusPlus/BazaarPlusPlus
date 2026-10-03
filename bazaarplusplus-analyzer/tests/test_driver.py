@@ -1,4 +1,3 @@
-import hashlib
 import json
 from datetime import UTC, date, datetime
 from pathlib import Path
@@ -17,10 +16,18 @@ from bppanalyzer.bundle_source import (
 from bppanalyzer.driver import PipelineDriver
 from bppanalyzer.fact_store import FactStore
 from bppanalyzer.locking import DirectoryLock, LockOwnershipLost, MaximumRunTimeExceeded
-from bppanalyzer.object_store import LocalObjectStore
 from bppanalyzer.operational_evidence import OperationalEvidence, read_status
-from bppanalyzer.publication import BUILDS_KEY, HEROES_KEY
+from bppanalyzer.publication import BUILDS_KEY, HEROES_KEY, SnapshotBuilder
 from tests.bundle_fixtures import bundle_bytes
+from tests.fakes import MemoryObjectStore
+
+
+def _driver(data_root: Path, **kwargs) -> PipelineDriver:
+    return PipelineDriver(data_root, duckdb_memory_limit="1GB", duckdb_threads=1, **kwargs)
+
+
+def _fail_heroes(_builder: SnapshotBuilder, _window) -> None:
+    raise RuntimeError("fixture heroes failure")
 
 
 class NeverSource:
@@ -39,8 +46,6 @@ class InvalidBundleSource:
             available_at_ms=milliseconds,
             download_url="https://download.invalid/bad",
             download_expires_at_ms=milliseconds + 3_600_000,
-            sha256=None,
-            bytes=None,
         )
         return RawHourIndex(source_hour, (item,), raw_commit_sha256((item,)), 1)
 
@@ -81,9 +86,9 @@ def test_one_complete_day_publishes_a_one_day_window(tmp_path: Path) -> None:
 
     root = tmp_path / "facts"
     sealed_store(root, 1)
-    objects = LocalObjectStore(tmp_path / "objects")
+    objects = MemoryObjectStore()
 
-    summary = PipelineDriver(
+    summary = _driver(
         root,
         source=NeverSource(),
         clock=lambda: datetime(2026, 8, 7, 23, 59, tzinfo=UTC),
@@ -97,7 +102,7 @@ def test_one_complete_day_publishes_a_one_day_window(tmp_path: Path) -> None:
         "end": "2026-08-07",
         "days": 1,
     }
-    assert [request.key for request in objects.requests if request.operation == "put"] == [
+    assert objects.put_keys() == [
         HEROES_KEY,
         BUILDS_KEY,
     ]
@@ -110,9 +115,9 @@ def test_successful_publication_prunes_facts_to_eight_latest_sealed_days(
 
     root = tmp_path / "facts"
     sealed_store(root, 9)
-    objects = LocalObjectStore(tmp_path / "objects")
+    objects = MemoryObjectStore()
 
-    summary = PipelineDriver(
+    summary = _driver(
         root,
         source=NeverSource(),
         clock=lambda: datetime(2026, 8, 15, 23, 59, tzinfo=UTC),
@@ -148,11 +153,11 @@ def test_driver_honors_a_longer_fact_retention_window(tmp_path: Path) -> None:
     root = tmp_path / "facts"
     sealed_store(root, 9)
 
-    summary = PipelineDriver(
+    summary = _driver(
         root,
         source=NeverSource(),
         clock=lambda: datetime(2026, 8, 15, 23, 59, tzinfo=UTC),
-        object_store=LocalObjectStore(tmp_path / "objects"),
+        object_store=MemoryObjectStore(),
         fact_retention_days=9,
     ).run(heal_days=9)
 
@@ -165,7 +170,7 @@ def test_source_epoch_prevents_pre_epoch_days_from_being_healed_or_considered(
 ) -> None:
     source = RecordingExpiredSource()
 
-    summary = PipelineDriver(
+    summary = _driver(
         tmp_path,
         source=source,
         source_epoch=date(2026, 8, 7),
@@ -187,9 +192,9 @@ def test_driver_publishes_exactly_two_objects_and_records_the_structured_run_rep
     tmp_path: Path, canonical_fact_store
 ) -> None:
     root, _store = canonical_fact_store
-    objects = LocalObjectStore(tmp_path / "objects")
+    objects = MemoryObjectStore()
 
-    summary = PipelineDriver(
+    summary = _driver(
         root,
         source=NeverSource(),
         clock=lambda: datetime(2026, 8, 13, 23, 59, tzinfo=UTC),
@@ -237,7 +242,7 @@ def test_driver_publishes_exactly_two_objects_and_records_the_structured_run_rep
             "bytes_pruned": 0,
         },
     }
-    assert [request.key for request in objects.requests if request.operation == "put"] == [
+    assert objects.put_keys() == [
         HEROES_KEY,
         BUILDS_KEY,
     ]
@@ -253,10 +258,10 @@ def test_driver_publishes_exactly_two_objects_and_records_the_structured_run_rep
 
 
 def test_one_product_failure_preserves_it_but_the_other_product_still_updates(
-    tmp_path: Path, canonical_fact_store
+    tmp_path: Path, canonical_fact_store, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     root, _store = canonical_fact_store
-    objects = LocalObjectStore(tmp_path / "objects")
+    objects = MemoryObjectStore()
     old_heroes = b'{"old":"heroes"}\n'
     objects.put(
         HEROES_KEY,
@@ -265,16 +270,12 @@ def test_one_product_failure_preserves_it_but_the_other_product_still_updates(
         content_type="application/json",
     )
 
-    def fail_heroes(product: str, stage: str) -> None:
-        if product == "heroes" and stage == "after_build":
-            raise RuntimeError("fixture heroes failure")
-
-    summary = PipelineDriver(
+    monkeypatch.setattr(SnapshotBuilder, "build_heroes", _fail_heroes)
+    summary = _driver(
         root,
         source=NeverSource(),
         clock=lambda: datetime(2026, 8, 13, 23, 59, tzinfo=UTC),
         object_store=objects,
-        publication_fault_injector=fail_heroes,
     ).run(heal_days=7)
 
     assert summary.outcome == "partial"
@@ -285,22 +286,20 @@ def test_one_product_failure_preserves_it_but_the_other_product_still_updates(
     assert objects.get(BUILDS_KEY) is not None
 
 
-def test_one_product_failure_does_not_prune_old_facts(tmp_path: Path) -> None:
+def test_one_product_failure_does_not_prune_old_facts(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     from tests.release_fixtures import sealed_store
 
     root = tmp_path / "facts"
     sealed_store(root, 9)
 
-    def fail_heroes(product: str, stage: str) -> None:
-        if product == "heroes" and stage == "after_build":
-            raise RuntimeError("fixture heroes failure")
-
-    summary = PipelineDriver(
+    monkeypatch.setattr(SnapshotBuilder, "build_heroes", _fail_heroes)
+    summary = _driver(
         root,
         source=NeverSource(),
         clock=lambda: datetime(2026, 8, 15, 23, 59, tzinfo=UTC),
-        object_store=LocalObjectStore(tmp_path / "objects"),
-        publication_fault_injector=fail_heroes,
+        object_store=MemoryObjectStore(),
     ).run(heal_days=9)
 
     assert summary.exit_code == 4
@@ -313,7 +312,7 @@ def test_failed_bundle_is_reported_and_its_source_hour_remains_incomplete(
 ) -> None:
     now = datetime(2026, 8, 7, 1, 1, tzinfo=UTC)
 
-    summary = PipelineDriver(
+    summary = _driver(
         tmp_path,
         source=InvalidBundleSource(),
         clock=lambda: now,
@@ -363,8 +362,6 @@ def test_run_summary_records_low_cardinality_source_performance(tmp_path: Path) 
                             "available_at_ms": timestamp,
                             "download_url": "https://download.invalid/bundle-a",
                             "download_expires_at_ms": timestamp + 60_000,
-                            "sha256": hashlib.sha256(content).hexdigest(),
-                            "bytes": len(content),
                         }
                     ],
                     "next_after": None,
@@ -384,7 +381,7 @@ def test_run_summary_records_low_cardinality_source_performance(tmp_path: Path) 
         jitter=lambda delay: delay,
     )
 
-    summary = PipelineDriver(tmp_path, source=source, clock=lambda: now).run(heal_days=1)
+    summary = _driver(tmp_path, source=source, clock=lambda: now).run(heal_days=1)
 
     downloads = summary.report["downloads"]
     assert {
@@ -439,9 +436,9 @@ def test_no_publish_writes_valid_local_snapshots_without_object_store_calls(
 
     root = tmp_path / "facts"
     sealed_store(root, 9)
-    objects = LocalObjectStore(tmp_path / "objects")
+    objects = MemoryObjectStore()
 
-    summary = PipelineDriver(
+    summary = _driver(
         root,
         source=NeverSource(),
         clock=lambda: datetime(2026, 8, 15, 23, 59, tzinfo=UTC),
@@ -460,7 +457,7 @@ def test_no_publish_writes_valid_local_snapshots_without_object_store_calls(
 def test_expired_hour_abandons_the_day_and_is_visible_in_status(tmp_path: Path) -> None:
     now = datetime(2026, 8, 7, 1, 1, tzinfo=UTC)
 
-    summary = PipelineDriver(tmp_path, source=ExpiredSource(), clock=lambda: now).run(heal_days=1)
+    summary = _driver(tmp_path, source=ExpiredSource(), clock=lambda: now).run(heal_days=1)
 
     assert summary.exit_code == 0
     status = read_status(tmp_path)
@@ -472,7 +469,7 @@ def test_unexpected_failure_is_recorded_before_it_is_reraised(tmp_path: Path) ->
     now = datetime(2026, 8, 7, 1, 1, tzinfo=UTC)
 
     with pytest.raises(RuntimeError, match="fixture unexpected failure"):
-        PipelineDriver(tmp_path, source=UnexpectedSource(), clock=lambda: now).run(heal_days=1)
+        _driver(tmp_path, source=UnexpectedSource(), clock=lambda: now).run(heal_days=1)
 
     status = read_status(tmp_path)
     assert status["last_run"]["outcome"] == "error"
@@ -486,7 +483,7 @@ def test_retention_failure_preserves_published_facts_in_terminal_evidence(
     tmp_path: Path, canonical_fact_store, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     root, _store = canonical_fact_store
-    objects = LocalObjectStore(tmp_path / "objects")
+    objects = MemoryObjectStore()
     failure = OSError("fixture retention failure")
 
     def fail_prune(self, *, retain_days):
@@ -494,7 +491,7 @@ def test_retention_failure_preserves_published_facts_in_terminal_evidence(
 
     monkeypatch.setattr(FactStore, "prune", fail_prune)
     with pytest.raises(OSError, match="fixture retention failure") as raised:
-        PipelineDriver(
+        _driver(
             root,
             source=NeverSource(),
             clock=lambda: datetime(2026, 8, 13, 23, 59, tzinfo=UTC),
@@ -511,7 +508,7 @@ def test_retention_failure_preserves_published_facts_in_terminal_evidence(
     assert summary["report"]["facts"]["included_runs"] == 7
     assert summary["failures"][-1] == {"scope": "run", "reason": str(failure)}
     assert json.loads((root / "runs.jsonl").read_text().splitlines()[-1]) == summary
-    assert [request.key for request in objects.requests if request.operation == "put"] == [
+    assert objects.put_keys() == [
         HEROES_KEY,
         BUILDS_KEY,
     ]
@@ -532,7 +529,7 @@ def test_terminal_evidence_requires_lock_ownership_even_after_a_runtime_limit(
             raise failure
 
     with pytest.raises(type(failure)) as raised:
-        PipelineDriver(
+        _driver(
             tmp_path,
             source=InterruptedSource(),
             clock=lambda: datetime(2026, 8, 7, 1, 1, tzinfo=UTC),
@@ -563,7 +560,7 @@ def test_terminal_log_failure_is_recorded_and_reraised(
 
     monkeypatch.setattr(OperationalEvidence, "log", fail_terminal_log)
     with pytest.raises(failure_type) as raised:
-        PipelineDriver(
+        _driver(
             tmp_path,
             source=NeverSource(),
             clock=lambda: datetime(2026, 8, 7, 0, 1, tzinfo=UTC),
@@ -604,7 +601,7 @@ def test_runtime_limit_first_reached_during_terminal_logging_requires_current_ow
     monkeypatch.setattr(OperationalEvidence, "log", expire_at_terminal_log)
     monkeypatch.setattr(DirectoryLock, "assert_owned", assert_owned)
     with pytest.raises(MaximumRunTimeExceeded) as raised:
-        PipelineDriver(
+        _driver(
             tmp_path,
             source=NeverSource(),
             clock=lambda: datetime(2026, 8, 7, 0, 1, tzinfo=UTC),

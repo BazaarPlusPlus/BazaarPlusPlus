@@ -6,7 +6,6 @@ import os
 import resource
 import shutil
 import sys
-import tempfile
 from collections.abc import Callable
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, date, datetime, timedelta
@@ -14,6 +13,7 @@ from pathlib import Path
 from typing import Any, TypedDict
 
 from bppanalyzer.bundle_source import SourcePerformance
+from bppanalyzer.durable import atomic_replace, aware_utc, canonical_json, utc_timestamp
 from bppanalyzer.fact_store import FactPruneReport, FactStore, parse_source_day
 from bppanalyzer.hour_intake import is_hour_settled
 from bppanalyzer.publication import AnalysisWindow, BuildStats, FactStats, HeroStats
@@ -312,8 +312,8 @@ class RunEvidence:
             outcome, exit_code = self.outcome, (4 if failures else 0)
         return RunSummary(
             run_id=self.run_id,
-            started_at=_timestamp(self.started_at),
-            finished_at=_timestamp(finished_at),
+            started_at=utc_timestamp(self.started_at),
+            finished_at=utc_timestamp(finished_at),
             timings=self.timings,
             outcome=outcome,
             exit_code=exit_code,
@@ -357,13 +357,13 @@ class OperationalEvidence:
         directory = self._root / "logs"
         ownership_check()
         directory.mkdir(parents=True, exist_ok=True)
-        stamp = _aware_utc(clock()).strftime("%Y%m%dT%H%M%S.%fZ")
+        stamp = aware_utc(clock()).strftime("%Y%m%dT%H%M%S.%fZ")
         self._log_path = directory / f"{stamp}-{os.getpid()}-{run_id[:8]}.log"
 
     def log(self, message: str) -> None:
         self._ownership_check()
         with self._log_path.open("a", encoding="utf-8") as stream:
-            stream.write(f"{_timestamp(self._clock())} {message}\n")
+            stream.write(f"{utc_timestamp(self._clock())} {message}\n")
             stream.flush()
             os.fsync(stream.fileno())
 
@@ -396,8 +396,8 @@ class OperationalEvidence:
             "current_hour": current.current_hour,
             "hours_done": current.hours_done,
             "hours_planned": current.hours_planned,
-            "started_at": _timestamp(current.started_at),
-            "updated_at": _timestamp(current.updated_at),
+            "started_at": utc_timestamp(current.started_at),
+            "updated_at": utc_timestamp(current.updated_at),
         }
         if current.bundles_total is not None:
             current_value["bundles"] = {
@@ -547,48 +547,16 @@ def _read_object(path: Path) -> dict[str, Any] | None:
 
 
 def _write_status(root: Path, value: dict[str, Any], ownership_check: Callable[[], None]) -> None:
-    ownership_check()
-    root.mkdir(parents=True, exist_ok=True)
-    descriptor, name = tempfile.mkstemp(prefix=".status.json.tmp-", dir=root)
-    temporary = Path(name)
-    try:
-        with os.fdopen(descriptor, "wb") as stream:
-            descriptor = -1
-            stream.write(_canonical_json(value))
-            stream.flush()
-            os.fsync(stream.fileno())
-        ownership_check()
-        os.replace(temporary, root / "status.json")
-        _fsync_directory(root)
-    finally:
-        if descriptor >= 0:
-            os.close(descriptor)
-        temporary.unlink(missing_ok=True)
+    atomic_replace(root / "status.json", canonical_json(value), ownership_check=ownership_check)
 
 
 def _append_run(root: Path, value: dict[str, Any], ownership_check: Callable[[], None]) -> None:
     ownership_check()
     root.mkdir(parents=True, exist_ok=True)
     with (root / "runs.jsonl").open("ab") as stream:
-        stream.write(_canonical_json(value))
+        stream.write(canonical_json(value))
         stream.flush()
         os.fsync(stream.fileno())
-
-
-def _canonical_json(value: object) -> bytes:
-    return (
-        json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False) + "\n"
-    ).encode("utf-8")
-
-
-def _timestamp(value: datetime) -> str:
-    return _aware_utc(value).isoformat(timespec="seconds").replace("+00:00", "Z")
-
-
-def _aware_utc(value: datetime) -> datetime:
-    if not isinstance(value, datetime) or value.tzinfo is None or value.utcoffset() is None:
-        raise ValueError("Pipeline clock must be timezone-aware")
-    return value.astimezone(UTC)
 
 
 def _existing_ancestor(path: Path) -> Path:
@@ -600,16 +568,8 @@ def _existing_ancestor(path: Path) -> Path:
     return candidate
 
 
-def _fsync_directory(path: Path) -> None:
-    descriptor = os.open(path, os.O_RDONLY)
-    try:
-        os.fsync(descriptor)
-    finally:
-        os.close(descriptor)
-
-
 def _prune_logs(root: Path, now: datetime, ownership_check: Callable[[], None]) -> None:
-    cutoff = _aware_utc(now).timestamp() - 10 * 24 * 60 * 60
+    cutoff = aware_utc(now).timestamp() - 10 * 24 * 60 * 60
     directory = root / "logs"
     if not directory.is_dir():
         return

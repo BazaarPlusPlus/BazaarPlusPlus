@@ -7,7 +7,6 @@ import shutil
 import socket
 import threading
 import time
-from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Self
@@ -40,8 +39,6 @@ class DirectoryLock:
         heartbeat_interval: float = 30,
         stale_after: float = 300,
         max_run_seconds: float = 21600,
-        wall_clock: Callable[[], float] = time.time,
-        monotonic: Callable[[], float] = time.monotonic,
     ) -> None:
         if not run_id or any(character in run_id for character in "/\\"):
             raise ValueError("Run lock identity is invalid")
@@ -54,8 +51,6 @@ class DirectoryLock:
         self._interval = heartbeat_interval
         self._stale_after = stale_after
         self._max_seconds = max_run_seconds
-        self._wall_clock = wall_clock
-        self._monotonic = monotonic
         self._started_monotonic: float | None = None
         self._stop = threading.Event()
         self._lost = threading.Event()
@@ -99,7 +94,7 @@ class DirectoryLock:
                 continue
             break
 
-        started = datetime.fromtimestamp(self._wall_clock(), tz=UTC)
+        started = datetime.fromtimestamp(time.time(), tz=UTC)
         body = {
             "run_id": self.run_id,
             "pid": os.getpid(),
@@ -118,7 +113,7 @@ class DirectoryLock:
             raise
         if stale_path.exists():
             shutil.rmtree(stale_path, ignore_errors=True)
-        self._started_monotonic = self._monotonic()
+        self._started_monotonic = time.monotonic()
         self._thread = threading.Thread(
             target=self._heartbeat_loop,
             name=f"bpp-heartbeat-{self.run_id}",
@@ -134,7 +129,7 @@ class DirectoryLock:
             raise LockOwnershipLost(self._lost_reason)
         if self._started_monotonic is None:
             raise LockOwnershipLost("Run lock was not acquired")
-        if self._monotonic() - self._started_monotonic > self._max_seconds:
+        if time.monotonic() - self._started_monotonic > self._max_seconds:
             self._mark_lost("Maximum run time exceeded")
             raise MaximumRunTimeExceeded("Maximum run time exceeded")
         owner = self._read_run_id(self._heartbeat)
@@ -210,11 +205,11 @@ class DirectoryLock:
                 modified = self._path.stat().st_mtime
             except FileNotFoundError:
                 return float("inf")
-        return max(0.0, self._wall_clock() - modified)
+        return max(0.0, time.time() - modified)
 
     def _recover_takeover_guard(self, path: Path) -> None:
         try:
-            age = max(0.0, self._wall_clock() - path.stat().st_mtime)
+            age = max(0.0, time.time() - path.stat().st_mtime)
         except FileNotFoundError:
             return
         if age > self._stale_after:

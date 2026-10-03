@@ -23,8 +23,8 @@ def test_same_input_produces_stable_ordering_and_business_content(
     def clock() -> datetime:
         return datetime(2026, 8, 14, 2, tzinfo=UTC)
 
-    first = SnapshotBuilder(root, store=store, clock=clock, threads=4)
-    second = SnapshotBuilder(root, store=store, clock=clock, threads=4)
+    first = SnapshotBuilder(root, store=store, clock=clock, memory_limit="1GB", threads=4)
+    second = SnapshotBuilder(root, store=store, clock=clock, memory_limit="1GB", threads=4)
 
     assert first.build_heroes(window).content == second.build_heroes(window).content
     assert first.build_builds(window).content == second.build_builds(window).content
@@ -38,6 +38,7 @@ def test_seven_day_build_records_bounded_rss_and_local_contract_state(
         root,
         source=NeverSource(),
         clock=lambda: datetime(2026, 8, 13, 23, 59, tzinfo=UTC),
+        duckdb_memory_limit="1GB",
         duckdb_threads=4,
     )
 

@@ -12,13 +12,9 @@ from typing import Any
 import duckdb
 from jsonschema import Draft202012Validator
 
-from bppanalyzer.accepted_runs import (
-    CANONICAL_HEROES,
-    normalize_hero_sql,
-    population_projection_sql,
-    recognized_hero_sql,
-)
-from bppanalyzer.fact_store import DaySeal, FactStore, canonical_json, parse_source_day
+from bppanalyzer.accepted_runs import CANONICAL_HEROES, LEGEND_RANK
+from bppanalyzer.durable import canonical_json, utc_timestamp
+from bppanalyzer.fact_store import DaySeal, FactStore, parse_source_day
 from bppanalyzer.object_store import ObjectStore
 
 ANALYSIS_DAYS = 7
@@ -146,13 +142,13 @@ class SnapshotBuilder:
         self,
         data_root: str | Path,
         *,
-        store: FactStore | None = None,
+        store: FactStore,
         clock: Callable[[], datetime] = lambda: datetime.now(UTC),
-        memory_limit: str = "1GB",
-        threads: int = 1,
+        memory_limit: str,
+        threads: int,
     ) -> None:
         self.root = Path(data_root)
-        self.store = store or FactStore(self.root)
+        self.store = store
         self.clock = clock
         self.memory_limit = memory_limit
         self.threads = threads
@@ -162,7 +158,7 @@ class SnapshotBuilder:
         try:
             run_rows = connection.execute(
                 """
-                SELECT source_day, hero_norm, segment,
+                SELECT source_day, hero, segment,
                        count(*) AS completed,
                        count(*) FILTER (
                          WHERE victories BETWEEN 0 AND 10 AND losses >= 0
@@ -179,23 +175,23 @@ class SnapshotBuilder:
                          WHERE victories=10 AND losses >= 0 AND run_day >= 0
                        ), 0) AS sum_days
                 FROM completed_runs
-                GROUP BY source_day, hero_norm, segment
-                ORDER BY source_day DESC, hero_norm, segment
+                GROUP BY source_day, hero, segment
+                ORDER BY source_day DESC, hero, segment
                 """
             ).fetchall()
             matchup_rows = connection.execute(
                 f"""
-                SELECT r.source_day, r.hero_norm, r.segment, b.opponent_hero_norm,
+                SELECT r.source_day, r.hero, r.segment, b.opponent_hero,
                        count(*) AS decided,
-                       count(*) FILTER (WHERE b.winner_side_norm='player') AS wins,
-                       count(*) FILTER (WHERE b.winner_side_norm='opponent') AS losses
-                FROM accepted_battles b
+                       count(*) FILTER (WHERE b.winner_side='player') AS wins,
+                       count(*) FILTER (WHERE b.winner_side='opponent') AS losses
+                FROM battles_fact b
                 JOIN completed_runs r
                   ON r.bundle_id=b.bundle_id AND r.run_id=b.run_id
-                WHERE b.winner_side_norm IN ('player','opponent')
-                  AND {recognized_hero_sql("b.opponent_hero")}
-                GROUP BY r.source_day, r.hero_norm, r.segment, b.opponent_hero_norm
-                ORDER BY r.source_day DESC, r.hero_norm, r.segment, b.opponent_hero_norm
+                WHERE b.winner_side IN ('player','opponent')
+                  AND b.opponent_hero IN ({_sql_list(CANONICAL_HEROES)})
+                GROUP BY r.source_day, r.hero, r.segment, b.opponent_hero
+                ORDER BY r.source_day DESC, r.hero, r.segment, b.opponent_hero
                 """
             ).fetchall()
         finally:
@@ -248,7 +244,7 @@ class SnapshotBuilder:
         payload = {
             "schema_version": 1,
             "kind": "hero_metrics",
-            "generated_at": _timestamp(self.clock()),
+            "generated_at": utc_timestamp(self.clock()),
             "window": window.value,
             "days": days,
         }
@@ -267,35 +263,18 @@ class SnapshotBuilder:
     def fact_stats(self, window: AnalysisWindow) -> FactStats:
         connection = self._connection(window, ("runs", "battles", "quarantine"))
         try:
-            run_counts = _required_row(
-                connection.execute(
-                    """
-                SELECT count(*) AS raw_runs,
-                       count(*) FILTER (WHERE NOT hero_recognized) AS unknown_hero,
-                       count(*) FILTER (WHERE NOT final_rank_recognized) AS unknown_final_rank,
-                       count(*) FILTER (WHERE accepted) AS included_runs
-                FROM run_population
-                """
-                ).fetchone(),
-                "Run counts",
+            included_runs = int(
+                _required_row(
+                    connection.execute("SELECT count(*) FROM runs_fact").fetchone(),
+                    "Included Run count",
+                )[0]
             )
-            quarantine_columns = {
-                row[0] for row in connection.execute("DESCRIBE quarantine_fact").fetchall()
-            }
-
-            def _flag(column: str) -> str:
-                # Fact hours written before the quarantine schema gained the
-                # discard flags lack these columns entirely.
-                return column if column in quarantine_columns else "false"
-
             discarded = _required_row(
                 connection.execute(
-                    f"""
-                SELECT count(*) FILTER (WHERE coalesce({_flag("raw_run")}, false)),
-                       count(*) FILTER (WHERE coalesce({_flag("discarded_unknown_hero")}, false)),
-                       count(*) FILTER (
-                         WHERE coalesce({_flag("discarded_unknown_final_rank")}, false)
-                       )
+                    """
+                SELECT count(*) FILTER (WHERE coalesce(raw_run, false)),
+                       count(*) FILTER (WHERE coalesce(discarded_unknown_hero, false)),
+                       count(*) FILTER (WHERE coalesce(discarded_unknown_final_rank, false))
                 FROM quarantine_fact
                 """
                 ).fetchone(),
@@ -306,7 +285,7 @@ class SnapshotBuilder:
                     connection.execute(
                         """
                         SELECT count(*) FROM battles_fact b
-                        JOIN accepted_runs r
+                        JOIN runs_fact r
                           ON r.bundle_id=b.bundle_id AND r.run_id=b.run_id
                         """
                     ).fetchone(),
@@ -316,10 +295,10 @@ class SnapshotBuilder:
         finally:
             connection.close()
         return FactStats(
-            raw_runs=int(run_counts[0]) + int(discarded[0]),
-            discarded_unknown_hero=int(run_counts[1]) + int(discarded[1]),
-            discarded_unknown_final_rank=int(run_counts[2]) + int(discarded[2]),
-            included_runs=int(run_counts[3]),
+            raw_runs=included_runs + int(discarded[0]),
+            discarded_unknown_hero=int(discarded[1]),
+            discarded_unknown_final_rank=int(discarded[2]),
+            included_runs=included_runs,
             included_battles=included_battles,
         )
 
@@ -330,7 +309,7 @@ class SnapshotBuilder:
                 """
                 CREATE TEMP TABLE eligible_layout_runs AS
                 WITH final_battles AS (
-                  SELECT r.bundle_id, r.run_id, r.source_day, r.hero_norm,
+                  SELECT r.bundle_id, r.run_id, r.source_day, r.hero,
                          r.victories, r.losses, r.run_day, r.final_battle_id
                   FROM completed_runs r
                   JOIN battles_fact b
@@ -339,7 +318,7 @@ class SnapshotBuilder:
                   HAVING count(*) FILTER (WHERE b.is_final_battle)=1
                      AND min(b.battle_id) FILTER (WHERE b.is_final_battle)=r.final_battle_id
                 ), layouts AS (
-                  SELECT f.bundle_id, f.run_id, f.source_day, f.hero_norm AS hero,
+                  SELECT f.bundle_id, f.run_id, f.source_day, f.hero,
                          f.victories, f.losses, f.run_day, f.final_battle_id,
                          string_agg(lower(c.template_id), '|' ORDER BY lower(c.template_id))
                            AS build_key,
@@ -369,7 +348,7 @@ class SnapshotBuilder:
                     -- part of the board.
                     AND coalesce(c.card_type, 0)=0
                     AND r.final_player_item_signature IS NOT NULL
-                  GROUP BY f.bundle_id, f.run_id, f.source_day, f.hero_norm,
+                  GROUP BY f.bundle_id, f.run_id, f.source_day, f.hero,
                            f.victories, f.losses, f.run_day, f.final_battle_id
                   HAVING count(*) > 0
                      AND bool_and(lower(trim(coalesce(c.card_set_status,'missing')))<>'missing')
@@ -500,7 +479,7 @@ class SnapshotBuilder:
         payload = {
             "schema_version": 2,
             "kind": "ten_win_builds",
-            "generated_at": _timestamp(self.clock()),
+            "generated_at": utc_timestamp(self.clock()),
             "window": window.value,
             "cards": cards,
             "enchantments": enchantments,
@@ -547,31 +526,16 @@ class SnapshotBuilder:
                 explicit = ",".join(_sql_string(str(path)) for path in paths[table])
                 connection.execute(
                     f"CREATE TEMP VIEW {table}_fact AS "
-                    f"SELECT * FROM read_parquet([{explicit}], hive_partitioning=false, "
-                    f"union_by_name=true)"
+                    f"SELECT * FROM read_parquet([{explicit}], hive_partitioning=false)"
                 )
+            # Projection stores only Accepted Runs with normalized hero, final rank,
+            # and Battle winner side, so analysis reads those columns as stored.
             connection.execute(
-                "CREATE TEMP VIEW run_population AS " + population_projection_sql("runs_fact")
+                "CREATE TEMP VIEW completed_runs AS SELECT *, "
+                f"CASE WHEN final_rank={_sql_string(LEGEND_RANK)} THEN 'legend' "
+                "ELSE 'non_legend' END AS segment "
+                "FROM runs_fact WHERE lower(trim(status))='completed'"
             )
-            connection.execute(
-                "CREATE TEMP VIEW accepted_runs AS SELECT * FROM run_population WHERE accepted"
-            )
-            connection.execute(
-                "CREATE TEMP VIEW completed_runs AS SELECT * FROM accepted_runs "
-                "WHERE lower(trim(status))='completed'"
-            )
-            if "battles" in tables:
-                connection.execute(
-                    "CREATE TEMP VIEW accepted_battles AS "
-                    f"SELECT *, {normalize_hero_sql('opponent_hero')} AS opponent_hero_norm, "
-                    "CASE WHEN winner_combatant_id='Player' THEN 'player' "
-                    "WHEN winner_combatant_id='Opponent' THEN 'opponent' "
-                    "WHEN winner_combatant_id IS NOT NULL "
-                    "AND winner_combatant_id=player_account_id THEN 'player' "
-                    "WHEN winner_combatant_id IS NOT NULL "
-                    "AND winner_combatant_id=opponent_account_id THEN 'opponent' "
-                    "ELSE NULL END AS winner_side_norm FROM battles_fact"
-                )
             return connection
         except BaseException:
             connection.close()
@@ -586,13 +550,6 @@ class LatestPublisher:
         expected_key = {"heroes": HEROES_KEY, "builds": BUILDS_KEY}.get(snapshot.product)
         if expected_key is None or snapshot.key != expected_key:
             raise ContractViolation("Snapshot product and public key disagree")
-        try:
-            payload = json.loads(snapshot.content)
-        except (json.JSONDecodeError, UnicodeDecodeError) as error:
-            raise ContractViolation("Snapshot is not valid JSON") from error
-        if not isinstance(payload, dict):
-            raise ContractViolation("Snapshot root must be an object")
-        validate_snapshot(snapshot.product, payload)
         digest = hashlib.sha256(snapshot.content).hexdigest()
         observed = self.object_store.stat(snapshot.key)
         if (
@@ -701,14 +658,12 @@ def _validate_builds(payload: Mapping[str, Any]) -> None:
             raise ContractViolation("Builds and card_index must agree in both directions")
 
 
-def _timestamp(value: datetime) -> str:
-    if value.tzinfo is None or value.utcoffset() is None:
-        raise ValueError("Snapshot clock must be timezone-aware")
-    return value.astimezone(UTC).isoformat(timespec="seconds").replace("+00:00", "Z")
-
-
 def _sql_string(value: str) -> str:
     return "'" + value.replace("'", "''") + "'"
+
+
+def _sql_list(values: Iterable[str]) -> str:
+    return ",".join(_sql_string(value) for value in values)
 
 
 def _contracts_dir() -> Path:

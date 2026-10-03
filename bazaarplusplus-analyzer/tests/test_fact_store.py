@@ -1,62 +1,33 @@
 from datetime import UTC, datetime
 from pathlib import Path
 
-import pyarrow as pa
 import pytest
 
 from bppanalyzer.fact_store import FactConflict, FactCorrupt, FactMissing, FactStore
-from bppanalyzer.projection import HourProjection, table_schemas
+from bppanalyzer.projection import HourProjection
+from tests.fakes import row_projection
 
 HOUR = datetime(2026, 8, 10, 12, tzinfo=UTC)
 
 
-def _empty_hour(hour: datetime = HOUR) -> HourProjection:
-    return HourProjection(
-        source_hour=hour,
-        raw_commit_sha256="a" * 64,
-        tables={
-            name: pa.Table.from_pylist([], schema=schema)
-            for name, schema in table_schemas().items()
-        },
-    )
-
-
-def test_commit_refuses_promotion_when_a_written_parquet_differs_from_its_recorded_hash(
-    tmp_path: Path,
-) -> None:
-    def corrupt(seam: str, stage: Path) -> None:
-        if seam == "before_precommit_verify":
-            with (stage / "runs.parquet").open("ab") as stream:
-                stream.write(b"corruption")
-
-    store = FactStore(tmp_path, fault_injector=corrupt)
-
-    with pytest.raises(FactCorrupt, match="checksum"):
-        store.commit_hour(_empty_hour())
-
-    assert not (tmp_path / "facts/hourly/source_hour=2026-08-10T12").exists()
+def _empty_hour(hour: datetime = HOUR, raw_commit_sha256: str = "a" * 64) -> HourProjection:
+    return row_projection(hour, raw_commit_sha256)
 
 
 def test_identical_recommit_is_reused_but_different_canonical_commit_is_a_hard_conflict(
     tmp_path: Path,
 ) -> None:
     store = FactStore(tmp_path)
-    original = _empty_hour()
 
-    first = store.commit_hour(original)
-    second = store.commit_hour(original)
+    first = store.commit_hour(_empty_hour())
+    second = store.commit_hour(_empty_hour())
 
     assert first.reused is False
     assert second.reused is True
     assert second.fact_commit_sha256 == first.fact_commit_sha256
-    changed = HourProjection(
-        source_hour=HOUR,
-        raw_commit_sha256="b" * 64,
-        tables=original.tables,
-    )
     with pytest.raises(FactConflict, match="commit conflict"):
-        store.commit_hour(changed)
-    assert store.commit_hour(original).fact_commit_sha256 == first.fact_commit_sha256
+        store.commit_hour(_empty_hour(raw_commit_sha256="b" * 64))
+    assert store.commit_hour(_empty_hour()).fact_commit_sha256 == first.fact_commit_sha256
 
 
 def test_seal_requires_exactly_24_independently_verified_hours(tmp_path: Path) -> None:

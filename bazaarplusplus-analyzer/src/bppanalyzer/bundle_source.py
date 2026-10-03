@@ -16,6 +16,8 @@ from typing import Any, Self, TypeVar
 
 import httpx
 
+from bppanalyzer.durable import canonical_json
+
 BUNDLE_MAGIC = b"BPPBNDL5"
 BUNDLE_VERSION = 5
 MAX_BUNDLE_BYTES = 8_388_607
@@ -26,6 +28,7 @@ MAX_SCREENSHOT_BYTES = 1_048_576
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 RETRY_BACKOFF_SECONDS = (1.0, 2.0, 4.0)
 MAX_RETRY_AFTER_SECONDS = 60.0
+PAGE_LIMIT = 200
 
 _T = TypeVar("_T")
 
@@ -86,8 +89,6 @@ class BundleRef:
     available_at_ms: int
     download_url: str
     download_expires_at_ms: int
-    sha256: str | None
-    bytes: int | None
 
     def __post_init__(self) -> None:
         if not self.bundle_id or not self.download_url:
@@ -98,12 +99,6 @@ class BundleRef:
         ):
             if not isinstance(value, int) or isinstance(value, bool) or value < 0:
                 raise ValueError(f"Bundle reference {name} is invalid")
-        if self.sha256 is not None and _SHA256.fullmatch(self.sha256) is None:
-            raise ValueError("Bundle reference sha256 is invalid")
-        if self.bytes is not None and (
-            not isinstance(self.bytes, int) or isinstance(self.bytes, bool) or self.bytes < 0
-        ):
-            raise ValueError("Bundle reference byte count is invalid")
 
     @property
     def cursor(self) -> tuple[int, str]:
@@ -132,20 +127,6 @@ class Bundle:
     manifest: Mapping[str, Any]
     run_content: bytes
 
-    def __post_init__(self) -> None:
-        if (
-            not isinstance(self.sha256, str)
-            or _SHA256.fullmatch(self.sha256) is None
-            or not isinstance(self.bytes, int)
-            or isinstance(self.bytes, bool)
-            or self.bytes < 1
-        ):
-            raise ValueError("Admitted Bundle digest and byte count are required")
-        if not isinstance(self.manifest, Mapping) or not isinstance(self.run_content, bytes):
-            raise TypeError("Admitted Bundle manifest and Run content are required")
-        if not self.run_content:
-            raise ValueError("Admitted Bundle Run content is required")
-
 
 class BundleSource:
     """Enumerate a complete hour, then stream verified downloads in index order."""
@@ -160,7 +141,6 @@ class BundleSource:
         retention_days: int = 8,
         download_concurrency: int = 64,
         lookahead: int = 128,
-        page_limit: int = 200,
         sleep: Callable[[float], None] = time.sleep,
         jitter: Callable[[float], float] = _jittered_delay,
     ) -> None:
@@ -168,8 +148,6 @@ class BundleSource:
             raise ValueError("Bundle Server URL and sync token are required")
         if retention_days < 1 or download_concurrency < 1 or lookahead < 1:
             raise ValueError("Bundle Source limits must be positive")
-        if not 1 <= page_limit <= 500:
-            raise ValueError("Bundle Server page limit must be between 1 and 500")
         self._api_base_url = api_base_url.rstrip("/")
         self._sync_token = sync_token
         self._client = client or httpx.Client(
@@ -185,7 +163,6 @@ class BundleSource:
         self._retention = timedelta(days=retention_days)
         self._download_concurrency = download_concurrency
         self._lookahead = lookahead
-        self._page_limit = page_limit
         self._sleep = sleep
         self._jitter = jitter
         self._refresh_lock = threading.Lock()
@@ -247,7 +224,7 @@ class BundleSource:
             params = {
                 "available_from_ms": str(start_ms),
                 "available_before_ms": str(end_ms),
-                "limit": str(self._page_limit),
+                "limit": str(PAGE_LIMIT),
             }
             if cursor is not None:
                 params["after_available_at_ms"] = str(cursor[0])
@@ -334,13 +311,6 @@ class BundleSource:
                     else:
                         self._download_retries += 1
                 delay = self._jitter(RETRY_BACKOFF_SECONDS[attempt])
-                if not isinstance(delay, int | float) or isinstance(delay, bool):
-                    raise TypeError("Retry jitter must return seconds") from error
-                delay = float(delay)
-                if not math.isfinite(delay) or delay < 0:
-                    raise ValueError(
-                        "Retry jitter must return finite non-negative seconds"
-                    ) from error
                 if error.retry_after_seconds is not None:
                     delay = max(delay, min(error.retry_after_seconds, MAX_RETRY_AFTER_SECONDS))
                 with self._performance_lock:
@@ -350,7 +320,6 @@ class BundleSource:
 
     def stream(self, index: RawHourIndex) -> Iterator[Bundle]:
         """Yield at most ``lookahead`` retained downloads, in index order."""
-        _validate_index(index)
         executor = ThreadPoolExecutor(max_workers=self._download_concurrency)
         try:
             pending: dict[int, Future[Bundle]] = {}
@@ -553,16 +522,6 @@ class BundleSource:
                 raise SourceContractError(
                     "source_item_outside_window", "Bundle item falls outside the Source Hour"
                 )
-            digest = value.get("sha256", value.get("bundle_sha256"))
-            object_bytes = value.get("bytes", value.get("object_bytes"))
-            if digest is not None and (
-                not isinstance(digest, str) or _SHA256.fullmatch(digest) is None
-            ):
-                raise SourceContractError(
-                    "source_response_invalid", "Bundle item sha256 is invalid"
-                )
-            if object_bytes is not None:
-                object_bytes = _integer(object_bytes, "bytes")
             items.append(
                 BundleRef(
                     bundle_id=bundle_id,
@@ -571,8 +530,6 @@ class BundleSource:
                     download_expires_at_ms=_integer(
                         value.get("download_expires_at_ms"), "download_expires_at_ms"
                     ),
-                    sha256=digest,
-                    bytes=object_bytes,
                 )
             )
         raw_next = root.get("next_after")
@@ -603,12 +560,8 @@ def parse_source_hour(value: datetime | str) -> datetime:
     return hour
 
 
-def source_hour_key(value: datetime | str) -> str:
-    return parse_source_hour(value).strftime("%Y-%m-%dT%H")
-
-
 def raw_commit_sha256(items: tuple[BundleRef, ...]) -> str:
-    return hashlib.sha256(_canonical_json([_identity(item) for item in items])).hexdigest()
+    return hashlib.sha256(canonical_json([_identity(item) for item in items])).hexdigest()
 
 
 def admit_bundle(ref: BundleRef, content: bytes) -> Bundle:
@@ -616,14 +569,6 @@ def admit_bundle(ref: BundleRef, content: bytes) -> Bundle:
     if not isinstance(content, bytes):
         raise TypeError("Bundle content must be bytes")
     digest = hashlib.sha256(content).hexdigest()
-    if ref.bytes is not None and len(content) != ref.bytes:
-        raise SourceContractError(
-            "bundle_length_mismatch", "Downloaded Bundle length differs from its listing"
-        )
-    if ref.sha256 is not None and digest != ref.sha256:
-        raise SourceContractError(
-            "bundle_sha256_mismatch", "Downloaded Bundle digest differs from its listing"
-        )
     manifest, run_content = open_bundle(content, expected_bundle_id=ref.bundle_id)
     return Bundle(ref, digest, len(content), manifest, run_content)
 
@@ -773,25 +718,11 @@ def _validate_index(index: RawHourIndex) -> None:
 
 
 def _stable_ref(item: BundleRef) -> tuple[object, ...]:
-    return item.bundle_id, item.available_at_ms, item.sha256, item.bytes
+    return item.bundle_id, item.available_at_ms
 
 
 def _identity(item: BundleRef) -> dict[str, object]:
-    value: dict[str, object] = {
-        "available_at_ms": item.available_at_ms,
-        "bundle_id": item.bundle_id,
-    }
-    if item.bytes is not None:
-        value["bytes"] = item.bytes
-    if item.sha256 is not None:
-        value["sha256"] = item.sha256
-    return value
-
-
-def _canonical_json(value: object) -> bytes:
-    return (
-        json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False) + "\n"
-    ).encode("utf-8")
+    return {"available_at_ms": item.available_at_ms, "bundle_id": item.bundle_id}
 
 
 def _response_error_details(response: httpx.Response) -> tuple[str | None, bool]:

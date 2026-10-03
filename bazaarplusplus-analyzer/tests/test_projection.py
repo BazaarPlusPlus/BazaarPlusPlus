@@ -1,19 +1,16 @@
-import hashlib
 from datetime import UTC, datetime
 
-import httpx
 import pytest
 
 from bppanalyzer.bundle_source import (
     BundleRef,
-    BundleSource,
     RawHourIndex,
-    RetryableSourceError,
     admit_bundle,
     raw_commit_sha256,
 )
 from bppanalyzer.projection import project_hour
 from tests.bundle_fixtures import SOURCE_HOUR, bundle_bytes, payload
+from tests.fakes import collect_tables
 
 
 def _project_payload(run_payload: bytes):
@@ -23,8 +20,6 @@ def _project_payload(run_payload: bytes):
         available_at_ms=int(SOURCE_HOUR.timestamp() * 1_000),
         download_url="https://download.invalid/a",
         download_expires_at_ms=int(SOURCE_HOUR.timestamp() * 1_000) + 60_000,
-        sha256=hashlib.sha256(content).hexdigest(),
-        bytes=len(content),
     )
     index = RawHourIndex(
         source_hour=SOURCE_HOUR,
@@ -32,10 +27,7 @@ def _project_payload(run_payload: bytes):
         raw_commit_sha256=raw_commit_sha256((ref,)),
         pages=1,
     )
-    return project_hour(
-        index,
-        [admit_bundle(ref, content)],
-    )
+    return collect_tables(project_hour(index, [admit_bundle(ref, content)]))
 
 
 @pytest.mark.parametrize(
@@ -60,8 +52,8 @@ def test_battle_outcome_uses_bundle_side_names(
         )
     )
 
-    battle = projected.tables["battles"].to_pylist()[0]
-    run = projected.tables["runs"].to_pylist()[0]
+    battle = projected["battles"].to_pylist()[0]
+    run = projected["runs"].to_pylist()[0]
     assert battle["winner_combatant_id"] == winner_id
     assert battle["loser_combatant_id"] == loser_id
     assert battle["winner_side"] == winner_side
@@ -70,7 +62,7 @@ def test_battle_outcome_uses_bundle_side_names(
     assert run["battle_player_win_count"] == (winner_side == "player")
     assert run["battle_player_loss_count"] == (winner_side == "opponent")
     assert "run_outcome_count_mismatch" not in {
-        row["code"] for row in projected.tables["quality"].to_pylist()
+        row["code"] for row in projected["quality"].to_pylist()
     }
 
 
@@ -87,16 +79,12 @@ def test_battle_outcome_falls_back_to_participant_account_ids(
     winner_side: str,
     winner_hero: str,
 ) -> None:
-    battle = (
-        _project_payload(
-            payload(
-                winner_combatant_id=winner_id,
-                loser_combatant_id=loser_id,
-            )
+    battle = _project_payload(
+        payload(
+            winner_combatant_id=winner_id,
+            loser_combatant_id=loser_id,
         )
-        .tables["battles"]
-        .to_pylist()[0]
-    )
+    )["battles"].to_pylist()[0]
 
     assert battle["winner_side"] == winner_side
     assert battle["winner_hero"] == winner_hero
@@ -110,68 +98,11 @@ def test_battle_outcome_keeps_an_unknown_combatant_undecided() -> None:
         )
     )
 
-    battle = projected.tables["battles"].to_pylist()[0]
-    run = projected.tables["runs"].to_pylist()[0]
+    battle = projected["battles"].to_pylist()[0]
+    run = projected["runs"].to_pylist()[0]
     assert battle["winner_side"] is None
     assert battle["winner_hero"] is None
     assert run["battle_decided_count"] == 0
-
-
-def test_bundle_admission_failure_stops_the_source_hour_before_commit() -> None:
-    valid = bundle_bytes("bundle-a")
-    wrong_declared_digest = bundle_bytes("bundle-b")
-    corrupt_magic = b"NOTBNDL5" + bundle_bytes("bundle-c")[8:]
-    corrupt_segment = bytearray(bundle_bytes("bundle-d"))
-    corrupt_segment[-1] ^= 1
-    contents = {
-        "bundle-a": valid,
-        "bundle-b": wrong_declared_digest,
-        "bundle-c": corrupt_magic,
-        "bundle-d": bytes(corrupt_segment),
-    }
-
-    def server(request: httpx.Request) -> httpx.Response:
-        if request.url.host == "api.invalid":
-            items = []
-            for offset, (bundle_id, content) in enumerate(contents.items()):
-                digest = hashlib.sha256(content).hexdigest()
-                if bundle_id == "bundle-b":
-                    digest = "0" * 64
-                items.append(
-                    {
-                        "bundle_id": bundle_id,
-                        "available_at_ms": int(SOURCE_HOUR.timestamp() * 1_000) + offset,
-                        "download_url": f"https://download.invalid/{bundle_id}",
-                        "download_expires_at_ms": int(SOURCE_HOUR.timestamp() * 1_000) + 60_000,
-                        "sha256": digest,
-                        "bytes": len(content),
-                    }
-                )
-            return httpx.Response(
-                200,
-                json={
-                    "window": {
-                        "available_from_ms": int(SOURCE_HOUR.timestamp() * 1_000),
-                        "available_before_ms": int(SOURCE_HOUR.timestamp() * 1_000) + 3_600_000,
-                    },
-                    "items": items,
-                    "next_after": None,
-                },
-            )
-        return httpx.Response(200, content=contents[request.url.path.removeprefix("/")])
-
-    source = BundleSource(
-        api_base_url="https://api.invalid",
-        sync_token="test-token",
-        client=httpx.Client(transport=httpx.MockTransport(server)),
-        clock=lambda: datetime(2026, 8, 11, tzinfo=UTC),
-    )
-
-    index = source.hour_index(SOURCE_HOUR)
-    with pytest.raises(RetryableSourceError) as raised:
-        _ = project_hour(index, source.stream(index)).tables
-
-    assert raised.value.reason == "bundle_validation_failed"
 
 
 def test_client_timestamp_anomalies_are_quality_rows_and_never_repartition_a_bundle() -> None:
@@ -188,8 +119,6 @@ def test_client_timestamp_anomalies_are_quality_rows_and_never_repartition_a_bun
         available_at_ms=int(SOURCE_HOUR.timestamp() * 1_000),
         download_url="https://download.invalid/a",
         download_expires_at_ms=int(SOURCE_HOUR.timestamp() * 1_000) + 60_000,
-        sha256=hashlib.sha256(content).hexdigest(),
-        bytes=len(content),
     )
     index = RawHourIndex(
         source_hour=SOURCE_HOUR,
@@ -198,15 +127,12 @@ def test_client_timestamp_anomalies_are_quality_rows_and_never_repartition_a_bun
         pages=1,
     )
 
-    projected = project_hour(
-        index,
-        [admit_bundle(ref, content)],
-    )
+    projected = collect_tables(project_hour(index, [admit_bundle(ref, content)]))
 
-    quality_codes = {row["code"] for row in projected.tables["quality"].to_pylist()}
+    quality_codes = {row["code"] for row in projected["quality"].to_pylist()}
     assert {"client_clock_future", "client_clock_before_run"} <= quality_codes
     for table_name in ("runs", "battles", "battle_cards", "quality"):
-        table = projected.tables[table_name]
+        table = projected[table_name]
         assert set(table.column("source_hour").to_pylist()) == {"2026-08-10T12"}
         assert set(table.column("source_day").to_pylist()) == {"2026-08-10"}
 
@@ -228,10 +154,10 @@ def test_unaccepted_run_is_discarded_with_all_battles_and_cards(
 ) -> None:
     projected = _project_payload(payload(hero=hero, final_rank=final_rank))
 
-    assert projected.tables["runs"].num_rows == 0
-    assert projected.tables["battles"].num_rows == 0
-    assert projected.tables["battle_cards"].num_rows == 0
-    discarded = projected.tables["quarantine"].to_pylist()
+    assert projected["runs"].num_rows == 0
+    assert projected["battles"].num_rows == 0
+    assert projected["battle_cards"].num_rows == 0
+    discarded = projected["quarantine"].to_pylist()
     assert len(discarded) == 1
     assert discarded[0]["stage"] == "fact_filter"
     assert discarded[0]["raw_run"] is True

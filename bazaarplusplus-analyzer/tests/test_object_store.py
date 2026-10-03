@@ -1,64 +1,12 @@
 import hashlib
 from datetime import UTC, datetime
 from io import BytesIO
-from pathlib import Path
 
 import pytest
 from botocore.exceptions import BotoCoreError, ClientError
 
 import bppanalyzer.object_store as object_store_module
-from bppanalyzer.object_store import LocalObjectStore, ObjectStoreError, R2ObjectStore
-
-
-def test_local_object_store_exposes_stat_get_put_as_the_offline_system_boundary(
-    tmp_path: Path,
-) -> None:
-    now = datetime(2026, 8, 11, 12, 30, tzinfo=UTC)
-    store = LocalObjectStore(tmp_path, clock=lambda: now)
-    content = b'{"hello":"world"}\n'
-
-    assert store.stat("fixture/data.json") is None
-    store.put(
-        "fixture/data.json",
-        content,
-        cache_control="public,max-age=60,must-revalidate",
-        content_type="application/json",
-    )
-
-    observed = store.get("fixture/data.json")
-    assert observed is not None
-    assert observed.body == content
-    assert observed.stat.sha256 == hashlib.sha256(content).hexdigest()
-    assert observed.stat.bytes == len(content)
-    assert observed.stat.cache_control == "public,max-age=60,must-revalidate"
-    assert observed.stat.content_type == "application/json"
-    assert observed.stat.last_modified == now
-    assert [(item.operation, item.key) for item in store.requests] == [
-        ("stat", "fixture/data.json"),
-        ("put", "fixture/data.json"),
-        ("get", "fixture/data.json"),
-    ]
-
-
-def test_local_object_store_rejects_invalid_writes_and_corrupt_metadata(tmp_path: Path) -> None:
-    store = LocalObjectStore(tmp_path, clock=lambda: datetime(2026, 8, 11, tzinfo=UTC))
-    with pytest.raises(TypeError):
-        store.put("data.json", "not-bytes", cache_control="cache")  # type: ignore[arg-type]
-    with pytest.raises(ValueError, match="Cache-Control"):
-        store.put("data.json", b"{}", cache_control="")
-    with pytest.raises(ValueError, match="Content-Type"):
-        store.put("data.json", b"{}", cache_control="cache", content_type="")
-    with pytest.raises(ValueError, match="key"):
-        store.stat("../escape.json")
-
-    store.put("data.json", b"{}", cache_control="cache", content_type="application/json")
-    metadata = tmp_path / "metadata/data.json.json"
-    metadata.write_text("{}")
-    with pytest.raises(ObjectStoreError, match="unreadable"):
-        store.stat("data.json")
-    metadata.unlink()
-    with pytest.raises(ObjectStoreError, match="incomplete"):
-        store.stat("data.json")
+from bppanalyzer.object_store import ObjectStoreError, R2ObjectStore
 
 
 class _FakeR2Client:

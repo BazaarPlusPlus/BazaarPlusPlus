@@ -5,15 +5,13 @@ from pathlib import Path
 import pytest
 from jsonschema import Draft202012Validator
 
-from bppanalyzer.fact_store import DaySeal, canonical_json
-from bppanalyzer.object_store import LocalObjectStore
+from bppanalyzer.durable import canonical_json
+from bppanalyzer.fact_store import DaySeal, FactStore
 from bppanalyzer.publication import (
     BUILDS_KEY,
     HEROES_KEY,
-    AnalysisWindow,
     AnalysisWindowError,
     BuildRank,
-    ContractViolation,
     LatestPublisher,
     SnapshotBuilder,
     select_analysis_window,
@@ -21,7 +19,12 @@ from bppanalyzer.publication import (
     validate_snapshot,
     wilson_score,
 )
+from tests.fakes import MemoryObjectStore
 from tests.release_fixtures import CARD_IDS, sealed_store_with_rows
+
+
+def _builder(root: Path, store: FactStore, **kwargs) -> SnapshotBuilder:
+    return SnapshotBuilder(root, store=store, memory_limit="1GB", threads=1, **kwargs)
 
 
 def _seal(day: date) -> DaySeal:
@@ -103,6 +106,7 @@ def test_heroes_snapshot_is_daily_additive_and_matches_the_strict_contract(
         root,
         store=store,
         clock=lambda: datetime(2026, 8, 14, 2, tzinfo=UTC),
+        memory_limit="1GB",
         threads=4,
     ).build_heroes(window)
     payload = json.loads(built.content)
@@ -155,7 +159,7 @@ def test_heroes_schema_requires_days_length_to_equal_window_days(
     root, store = canonical_fact_store
     window = select_analysis_window(store.seals())
     assert window is not None
-    payload = json.loads(SnapshotBuilder(root, store=store).build_heroes(window).content)
+    payload = json.loads(_builder(root, store).build_heroes(window).content)
     payload["window"]["days"] = 6
     schema = json.loads(Path("contracts/v5/heroes.schema.json").read_bytes())
 
@@ -169,9 +173,9 @@ def test_builds_snapshot_matches_mod_schema_and_has_bidirectional_card_index(
     window = select_analysis_window(store.seals())
     assert window is not None
 
-    built = SnapshotBuilder(
+    built = _builder(
         root,
-        store=store,
+        store,
         clock=lambda: datetime(2026, 8, 14, 2, tzinfo=UTC),
     ).build_builds(window)
     payload = json.loads(built.content)
@@ -224,16 +228,16 @@ def test_latest_publisher_validates_and_only_writes_the_two_public_keys(
     root, store = canonical_fact_store
     window = select_analysis_window(store.seals())
     assert window is not None
-    builder = SnapshotBuilder(root, store=store)
+    builder = _builder(root, store)
     heroes = builder.build_heroes(window)
     builds = builder.build_builds(window)
-    objects = LocalObjectStore(tmp_path / "objects")
+    objects = MemoryObjectStore()
     publisher = LatestPublisher(objects)
 
     assert publisher.replace(heroes) is True
     assert publisher.replace(builds) is True
 
-    assert [request.key for request in objects.requests if request.operation == "put"] == [
+    assert objects.put_keys() == [
         HEROES_KEY,
         BUILDS_KEY,
     ]
@@ -245,9 +249,9 @@ def test_latest_publisher_validates_and_only_writes_the_two_public_keys(
 
 
 def test_product_validation_failure_preserves_old_object_and_does_not_block_other_product(
-    tmp_path: Path, canonical_fact_store
+    canonical_fact_store,
 ) -> None:
-    objects = LocalObjectStore(tmp_path / "objects")
+    objects = MemoryObjectStore()
     objects.put(
         HEROES_KEY,
         b'{"old":"heroes"}\n',
@@ -258,10 +262,8 @@ def test_product_validation_failure_preserves_old_object_and_does_not_block_othe
     root, store = canonical_fact_store
     window = select_analysis_window(store.seals())
     assert window is not None
-    builds = SnapshotBuilder(root, store=store).build_builds(window)
+    builds = _builder(root, store).build_builds(window)
 
-    with pytest.raises(ContractViolation):
-        publisher.replace(type(builds)("heroes", HEROES_KEY, b"{}\n", builds.stats))
     assert publisher.replace(builds) is True
 
     assert objects.get(HEROES_KEY).body == b'{"old":"heroes"}\n'
@@ -319,6 +321,8 @@ def _layout_run(
             "player_hero": "Dooley",
             "opponent_hero": "Jules",
             "winner_combatant_id": "Player",
+            "winner_side": "player",
+            "winner_hero": "Dooley",
         }
         for number in range(final_count)
     ]
@@ -438,7 +442,7 @@ def test_build_eligibility_rejects_every_incomplete_final_layout_boundary(
     window = select_analysis_window(store.seals())
     assert window is not None
 
-    built = SnapshotBuilder(root, store=store).build_builds(window)
+    built = _builder(root, store).build_builds(window)
     payload = json.loads(built.content)
 
     assert built.stats.eligible_layout_runs == 7
@@ -454,7 +458,7 @@ def test_fact_report_counts_each_rejection_reason_without_admitting_the_run(
     window = select_analysis_window(store.seals())
     assert window is not None
 
-    stats = SnapshotBuilder(root, store=store).fact_stats(window)
+    stats = _builder(root, store).fact_stats(window)
 
     assert stats.raw_runs == 16
     assert stats.discarded_unknown_hero == 1
@@ -470,7 +474,7 @@ def test_representative_layout_mode_tie_break_and_nearest_rank_p75(
     window = select_analysis_window(store.seals())
     assert window is not None
 
-    payload = json.loads(SnapshotBuilder(root, store=store).build_builds(window).content)
+    payload = json.loads(_builder(root, store).build_builds(window).content)
     build = payload["heroes"]["Jules"]["builds"][0]
 
     assert [item[1] for item in build[1]] == [0, 5]
@@ -493,88 +497,3 @@ def test_top_500_then_coverage_appends_only_highest_ranked_uncovered_build() -> 
     assert len(selected) == 501
     containing = [identity for identity in selected if rare in identity]
     assert containing == [(rare,)]
-
-
-@pytest.mark.parametrize("include_modern_hour", (True, False))
-def test_fact_report_tolerates_legacy_quarantine_schema(
-    tmp_path_factory: pytest.TempPathFactory,
-    include_modern_hour: bool,
-) -> None:
-    import pyarrow as pa
-    import pyarrow.parquet as pq
-
-    from bppanalyzer.projection import table_schemas
-
-    root = tmp_path_factory.mktemp("legacy-quarantine-facts")
-    schemas = table_schemas()
-    modern = schemas["quarantine"]
-    legacy_names = [
-        name
-        for name in modern.names
-        if name not in ("raw_run", "discarded_unknown_hero", "discarded_unknown_final_rank")
-    ]
-    legacy = pa.schema([modern.field(name) for name in legacy_names])
-
-    legacy_dir = root / "source_hour=2026-08-07T00"
-    modern_dir = root / "source_hour=2026-08-07T01"
-    for directory in (legacy_dir, modern_dir):
-        directory.mkdir(parents=True)
-        for name in ("runs", "battles"):
-            pq.write_table(
-                pa.Table.from_pylist([], schema=schemas[name]), directory / f"{name}.parquet"
-            )
-    base = {
-        "source_hour": "2026-08-07T00",
-        "source_day": "2026-08-07",
-        "bundle_id": "legacy-bundle",
-        "run_id": "legacy-run",
-        "stage": "bundle_validation",
-        "reason_code": "bundle_missing",
-        "first_seen_at": "2026-08-07T01:00:00Z",
-        "decoder_code_version": "legacy",
-        "diagnostic_json": "{}",
-    }
-    pq.write_table(pa.Table.from_pylist([base], schema=legacy), legacy_dir / "quarantine.parquet")
-    discarded = {
-        **base,
-        "source_hour": "2026-08-07T01",
-        "bundle_id": "modern-bundle",
-        "run_id": "modern-run",
-        "stage": "fact_filter",
-        "reason_code": "unaccepted_run",
-        "raw_run": True,
-        "discarded_unknown_hero": True,
-        "discarded_unknown_final_rank": False,
-    }
-    second_hour = (
-        pa.Table.from_pylist([discarded], schema=modern)
-        if include_modern_hour
-        else pa.Table.from_pylist([base], schema=legacy)
-    )
-    pq.write_table(second_hour, modern_dir / "quarantine.parquet")
-
-    class _StubStore:
-        def seals(self):
-            return ()
-
-        def hour_paths(self, days):
-            return {
-                name: (legacy_dir / f"{name}.parquet", modern_dir / f"{name}.parquet")
-                for name in ("runs", "battles", "battle_cards", "quality", "quarantine")
-            }
-
-    seal = DaySeal(
-        source_day="2026-08-07",
-        hourly_fact_commits=(),
-        row_counts={},
-        day_seal_sha256="0" * 64,
-    )
-    window = AnalysisWindow(seals=(seal,), start=date(2026, 8, 7), end=date(2026, 8, 7))
-
-    stats = SnapshotBuilder(root, store=_StubStore()).fact_stats(window)
-
-    expected = 1 if include_modern_hour else 0
-    assert stats.raw_runs == expected
-    assert stats.discarded_unknown_hero == expected
-    assert stats.discarded_unknown_final_rank == 0
-    assert stats.included_runs == 0

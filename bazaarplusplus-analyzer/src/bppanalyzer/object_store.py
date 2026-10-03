@@ -1,13 +1,9 @@
-"""Minimal object-store boundary with offline-local and Cloudflare R2 adapters."""
+"""Minimal object-store boundary with its Cloudflare R2 adapter."""
 
 import hashlib
-import json
-import os
-import tempfile
-from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from pathlib import Path, PurePosixPath
+from pathlib import PurePosixPath
 from typing import Protocol
 
 import boto3
@@ -35,12 +31,6 @@ class StoredObject:
     stat: ObjectStat
 
 
-@dataclass(frozen=True, slots=True)
-class StoreRequest:
-    operation: str
-    key: str
-
-
 class ObjectStore(Protocol):
     def stat(self, key: str) -> ObjectStat | None: ...
 
@@ -54,108 +44,6 @@ class ObjectStore(Protocol):
         cache_control: str,
         content_type: str = "application/octet-stream",
     ) -> None: ...
-
-
-class LocalObjectStore:
-    """File-backed object store used for every offline test and acceptance run."""
-
-    def __init__(
-        self,
-        root: str | Path,
-        *,
-        clock: Callable[[], datetime] = lambda: datetime.now(UTC),
-    ) -> None:
-        self.root = Path(root)
-        self._objects = self.root / "objects"
-        self._metadata = self.root / "metadata"
-        self._clock = clock
-        self.requests: list[StoreRequest] = []
-
-    def clear_requests(self) -> None:
-        self.requests.clear()
-
-    def stat(self, key: str) -> ObjectStat | None:
-        self.requests.append(StoreRequest("stat", key))
-        paths = self._paths(key)
-        return self._read_stat(key, *paths)
-
-    def get(self, key: str) -> StoredObject | None:
-        self.requests.append(StoreRequest("get", key))
-        object_path, metadata_path = self._paths(key)
-        stat = self._read_stat(key, object_path, metadata_path)
-        if stat is None:
-            return None
-        try:
-            body = object_path.read_bytes()
-        except OSError as error:
-            raise ObjectStoreError(f"Local object is unreadable: {key}") from error
-        return StoredObject(body, stat)
-
-    def put(
-        self,
-        key: str,
-        body: bytes,
-        *,
-        cache_control: str,
-        content_type: str = "application/octet-stream",
-    ) -> None:
-        self.requests.append(StoreRequest("put", key))
-        if not isinstance(body, bytes):
-            raise TypeError("Object body must be bytes")
-        if not cache_control:
-            raise ValueError("Object Cache-Control is required")
-        if not content_type:
-            raise ValueError("Object Content-Type is required")
-        object_path, metadata_path = self._paths(key)
-        now = self._clock()
-        if now.tzinfo is None or now.utcoffset() is None:
-            raise ValueError("Object-store clock must be timezone-aware")
-        metadata = {
-            "sha256": hashlib.sha256(body).hexdigest(),
-            "bytes": len(body),
-            "cache_control": cache_control,
-            "content_type": content_type,
-            "last_modified": now.astimezone(UTC).isoformat().replace("+00:00", "Z"),
-        }
-        _atomic_write(object_path, body)
-        _atomic_write(metadata_path, _canonical_json(metadata))
-
-    def _paths(self, key: str) -> tuple[Path, Path]:
-        relative = _safe_key(key)
-        return self._objects / relative, self._metadata / f"{relative.as_posix()}.json"
-
-    @staticmethod
-    def _read_stat(key: str, object_path: Path, metadata_path: Path) -> ObjectStat | None:
-        object_exists = object_path.is_file()
-        metadata_exists = metadata_path.is_file()
-        if not object_exists and not metadata_exists:
-            return None
-        if not object_exists or not metadata_exists:
-            raise ObjectStoreError(f"Local object metadata is incomplete: {key}")
-        try:
-            body = object_path.read_bytes()
-            metadata = json.loads(metadata_path.read_bytes())
-            modified = datetime.fromisoformat(metadata["last_modified"].replace("Z", "+00:00"))
-        except (OSError, KeyError, TypeError, ValueError, json.JSONDecodeError) as error:
-            raise ObjectStoreError(f"Local object metadata is unreadable: {key}") from error
-        digest = hashlib.sha256(body).hexdigest()
-        if (
-            not isinstance(metadata, dict)
-            or metadata.get("sha256") != digest
-            or metadata.get("bytes") != len(body)
-            or not isinstance(metadata.get("cache_control"), str)
-            or not isinstance(metadata.get("content_type"), str)
-            or modified.tzinfo is None
-        ):
-            raise ObjectStoreError(f"Local object metadata differs from bytes: {key}")
-        return ObjectStat(
-            key=key,
-            sha256=digest,
-            bytes=len(body),
-            cache_control=metadata["cache_control"],
-            content_type=metadata["content_type"],
-            last_modified=modified.astimezone(UTC),
-        )
 
 
 class R2ObjectStore:
@@ -270,35 +158,3 @@ def _safe_key(key: str) -> PurePosixPath:
     if value.is_absolute() or any(part in {"", ".", ".."} for part in value.parts):
         raise ValueError("Object key is invalid")
     return value
-
-
-def _atomic_write(path: Path, content: bytes) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    descriptor, name = tempfile.mkstemp(prefix=f".{path.name}.tmp-", dir=path.parent)
-    temporary = Path(name)
-    try:
-        with os.fdopen(descriptor, "wb") as stream:
-            descriptor = -1
-            stream.write(content)
-            stream.flush()
-            os.fsync(stream.fileno())
-        os.replace(temporary, path)
-        _fsync_directory(path.parent)
-    finally:
-        if descriptor >= 0:
-            os.close(descriptor)
-        temporary.unlink(missing_ok=True)
-
-
-def _canonical_json(value: object) -> bytes:
-    return (
-        json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False) + "\n"
-    ).encode("utf-8")
-
-
-def _fsync_directory(path: Path) -> None:
-    descriptor = os.open(path, os.O_RDONLY)
-    try:
-        os.fsync(descriptor)
-    finally:
-        os.close(descriptor)

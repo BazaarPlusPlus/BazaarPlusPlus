@@ -17,6 +17,7 @@ from bppanalyzer.bundle_source import (
     raw_commit_sha256,
 )
 from bppanalyzer.projection import project_hour
+from tests.fakes import collect_tables
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 BUNDLE_FIXTURES = REPO_ROOT / "bazaarplusplus-server/contracts/v5/fixtures"
@@ -38,8 +39,6 @@ def _reference(content: bytes, bundle_id: str) -> BundleRef:
         available_at_ms=available_at_ms,
         download_url=f"https://download.invalid/{bundle_id}",
         download_expires_at_ms=available_at_ms + 60_000,
-        sha256=hashlib.sha256(content).hexdigest(),
-        bytes=len(content),
     )
 
 
@@ -80,7 +79,7 @@ def test_server_corrupt_goldens_report_analyzer_validation_errors(filename: str)
     reason = checksums.get("expected_reason", checksums["expected_error"])
     ref = _reference(content, manifest["bundle_id"])
     if "sha256" in checksums:
-        assert ref.sha256 == checksums["sha256"]
+        assert hashlib.sha256(content).hexdigest() == checksums["sha256"]
 
     with pytest.raises(SourceContractError) as rejected:
         admit_bundle(ref, content)
@@ -139,5 +138,6 @@ def test_mod_run_payload_golden_projects_expected_tables() -> None:
     projection = project_hour(_index(ref), [admit_bundle(ref, content)])
 
     expected = json.loads(EXPECTED_PROJECTION.read_text(encoding="utf-8"))
-    assert {name: table.to_pylist() for name, table in projection.tables.items()} == expected
+    tables = collect_tables(projection)
+    assert {name: table.to_pylist() for name, table in tables.items()} == expected
     assert projection.bundle_count == 1

@@ -39,12 +39,11 @@ class RunPayloadError(ValueError):
 
 
 class HourProjection:
-    """One hour's metadata plus either reusable tables or a one-shot batch stream."""
+    """One hour's metadata plus its one-shot batch stream."""
 
     __slots__ = (
         "_batch_stream",
         "_stream_consumed",
-        "_tables",
         "projection_version",
         "raw_commit_sha256",
         "source_hour",
@@ -54,64 +53,27 @@ class HourProjection:
         self,
         source_hour: datetime,
         raw_commit_sha256: str,
-        tables: Mapping[str, pa.Table] | None = None,
         projection_version: str = PROJECTION_VERSION,
         *,
-        batch_stream: _ProjectedBatchStream | None = None,
+        batch_stream: _ProjectedBatchStream,
     ) -> None:
-        if (tables is None) == (batch_stream is None):
-            raise ValueError("Hour Projection requires tables or a batch stream")
         self.source_hour = source_hour
         self.raw_commit_sha256 = raw_commit_sha256
         self.projection_version = projection_version
-        self._tables = dict(tables) if tables is not None else None
         self._batch_stream = batch_stream
         self._stream_consumed = False
 
-    @property
-    def tables(self) -> Mapping[str, pa.Table]:
-        """Materialize Arrow tables for compatibility with small direct consumers."""
-        if self._tables is None:
-            batches: dict[str, list[pa.RecordBatch]] = {name: [] for name in _SCHEMAS}
-            for name, batch in self.iter_batches():
-                try:
-                    batches[name].append(batch)
-                except KeyError as error:
-                    raise ProjectionError(f"Projection emitted an unknown table: {name}") from error
-            self._tables = {
-                name: pa.Table.from_batches(items, schema=_SCHEMAS[name])
-                for name, items in batches.items()
-            }
-        return self._tables
-
-    @property
-    def table_names(self) -> tuple[str, ...]:
-        return tuple(self._tables) if self._tables is not None else tuple(_SCHEMAS)
-
-    @property
-    def schemas(self) -> Mapping[str, pa.Schema]:
-        if self._tables is not None:
-            return {name: table.schema for name, table in self._tables.items()}
-        return table_schemas()
-
     def iter_batches(self) -> Iterator[tuple[str, pa.RecordBatch]]:
-        if self._tables is not None:
-            for name, table in self._tables.items():
-                for batch in table.to_batches(max_chunksize=ROW_BATCH_SIZE):
-                    yield name, batch
-            return
-        if self._stream_consumed or self._batch_stream is None:
+        if self._stream_consumed:
             raise ProjectionError("Streaming Hour Projection was already consumed")
         self._stream_consumed = True
         yield from self._batch_stream
 
     @property
     def bundle_count(self) -> int:
-        if self._tables is not None:
-            return self._tables["runs"].num_rows + self._tables["quarantine"].num_rows
-        if self._batch_stream is not None and self._batch_stream.bundle_count is not None:
-            return self._batch_stream.bundle_count
-        return self.tables["runs"].num_rows + self.tables["quarantine"].num_rows
+        if self._batch_stream.bundle_count is None:
+            raise ProjectionError("Hour Projection Bundle count is unknown until fully streamed")
+        return self._batch_stream.bundle_count
 
 
 _SCHEMAS: dict[str, pa.Schema] = {

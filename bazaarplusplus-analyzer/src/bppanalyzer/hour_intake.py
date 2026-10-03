@@ -1,10 +1,11 @@
 """Commit one complete Source Hour behind one transaction interface."""
 
 from collections.abc import Callable, Iterator
-from datetime import UTC, date, datetime, timedelta
+from datetime import date, datetime, timedelta
 from typing import Protocol
 
 from bppanalyzer.bundle_source import Bundle, RawHourIndex
+from bppanalyzer.durable import aware_utc
 from bppanalyzer.fact_store import FactStore, HourCommit, parse_source_day
 from bppanalyzer.projection import project_hour
 
@@ -37,8 +38,6 @@ class SourceHourIntake:
 
         def admitted_bundles() -> Iterator[Bundle]:
             for completed, bundle in enumerate(self._source.stream(index), start=1):
-                if not isinstance(bundle, Bundle):
-                    raise TypeError("Source stream must yield admitted Bundle values")
                 on_bundle(completed, total)
                 yield bundle
 
@@ -49,7 +48,7 @@ def healing_days(
     now: datetime, count: int, *, source_epoch: date | str | None = None
 ) -> tuple[date, ...]:
     """Return the oldest-first UTC Source Days considered by an invocation."""
-    current = _aware_utc(now).date()
+    current = aware_utc(now).date()
     first = current - timedelta(days=count - 1)
     epoch = parse_source_day(source_epoch) if source_epoch is not None else None
     return tuple(
@@ -65,10 +64,10 @@ def is_hour_settled(
     *,
     settle_lag: timedelta = DEFAULT_SETTLE_LAG,
 ) -> bool:
-    hour = _aware_utc(source_hour)
+    hour = aware_utc(source_hour)
     if hour.minute or hour.second or hour.microsecond:
         raise ValueError("Source Hour must align to the hour")
-    return _aware_utc(now) >= hour + timedelta(hours=1) + settle_lag
+    return aware_utc(now) >= hour + timedelta(hours=1) + settle_lag
 
 
 def settled_missing_hours(
@@ -83,9 +82,3 @@ def settled_missing_hours(
     return tuple(
         sorted(hour for hour in missing if is_hour_settled(hour, now, settle_lag=settle_lag))
     )
-
-
-def _aware_utc(value: datetime) -> datetime:
-    if not isinstance(value, datetime) or value.tzinfo is None or value.utcoffset() is None:
-        raise ValueError("Pipeline clock must be timezone-aware")
-    return value.astimezone(UTC)
