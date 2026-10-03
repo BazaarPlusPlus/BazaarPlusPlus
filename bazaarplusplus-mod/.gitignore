@@ -8,5 +8,5 @@ native/windows/build/
 *.lib
 *.exp
 
-# Reports written by just mod::test-corpus
+# Reports written by just mod::test-corpus and the mod::test compatibility check
 /artifacts/

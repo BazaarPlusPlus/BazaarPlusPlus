@@ -16,11 +16,7 @@ public sealed class SourceTextBanTests
         "CombatImpact.Corpus/**.cs",
     };
 
-    private static readonly string[] FrozenDebtFiles =
-    {
-        "NativeAssetCompatibility.Tests/Program.cs",
-        "PtrCompatibility.Tests/Program.cs",
-    };
+    private static readonly string[] FrozenDebtFiles = [];
 
     [Fact]
     public void Banned_symbols_cover_every_file_to_text_overload()
