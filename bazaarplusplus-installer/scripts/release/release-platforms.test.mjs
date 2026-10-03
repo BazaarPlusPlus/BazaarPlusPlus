@@ -16,11 +16,11 @@ test.each(RELEASE_PLATFORMS)(
       `
       set -euo pipefail
       source ./scripts/bundle.sh
-      printf 'r2key=%s\\n' "$(release_platforms_cli r2-key "$1")"
-      printf 'bundleroot=%s\\n' "$(release_platforms_cli bundle-root "$1")"
-      printf 'rust=[%s]\\n' "$(release_platforms_cli rust-targets "$1")"
+      printf 'r2key=%s\\n' "$(release_platforms_cli r2-key "$BPP_TEST_BUILD_PLATFORM")"
+      printf 'bundleroot=%s\\n' "$(release_platforms_cli bundle-root "$BPP_TEST_BUILD_PLATFORM")"
+      printf 'rust=[%s]\\n' "$(release_platforms_cli rust-targets "$BPP_TEST_BUILD_PLATFORM")"
     `,
-      [p.buildPlatform]
+      { BPP_TEST_BUILD_PLATFORM: p.buildPlatform }
     );
     expect(out).toContain(`r2key=${p.key}`);
     expect(out).toContain(`bundleroot=${p.bundleRoot}`);
@@ -39,9 +39,9 @@ test.each(RELEASE_PLATFORMS)(
       prepare_signed_macos_resource_zip() { :; }
       prepare_signed_macos_resource_binary() { :; }
       invoke_step() { local l="$1"; shift; printf '%s|%s\\n' "$l" "$*"; }
-      build_prod "$1"
+      build_prod "$BPP_TEST_BUILD_PLATFORM"
     `,
-      [p.buildPlatform]
+      { BPP_TEST_BUILD_PLATFORM: p.buildPlatform }
     );
     if (p.rustTarget) expect(out).toContain(`--target ${p.rustTarget}`);
     else expect(out).not.toContain('--target');

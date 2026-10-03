@@ -1,22 +1,32 @@
 import { expect, test } from 'vitest';
 import { runShell } from './shell.mjs';
 
-test('shell arguments preserve empty values, boundaries and shell syntax', () => {
-  const args = [
-    '',
-    'path with spaces',
-    "path'with'quotes",
-    'path"with"quotes',
-    '$(printf injected)',
-    '`printf injected`',
-    '; printf injected #',
-    'C:\\path\\with\\backslashes',
-    'line\nbreak',
-    '*?[glob]',
-    '-option'
-  ];
+test('shell environment preserves empty values, boundaries and shell syntax', () => {
+  const env = {
+    BPP_TEST_EMPTY: '',
+    BPP_TEST_SPACES: 'path with spaces',
+    BPP_TEST_SINGLE_QUOTES: "path'with'quotes",
+    BPP_TEST_DOUBLE_QUOTES: 'path"with"quotes',
+    BPP_TEST_SUBSTITUTION: '$(printf injected)',
+    BPP_TEST_BACKTICKS: '`printf injected`',
+    BPP_TEST_COMMAND: '; printf injected #',
+    BPP_TEST_BACKSLASHES: 'C:\\path\\with\\backslashes',
+    BPP_TEST_NEWLINE: 'line\nbreak',
+    BPP_TEST_GLOB: '*?[glob]',
+    BPP_TEST_OPTION: '-option'
+  };
 
-  expect(runShell('printf "%s\\0" "$@"', args)).toBe(
-    args.map((arg) => `${arg}\0`).join('')
+  const output = runShell(
+    `printf '%s\\0' "$BPP_TEST_EMPTY" "$BPP_TEST_SPACES" \\
+      "$BPP_TEST_SINGLE_QUOTES" "$BPP_TEST_DOUBLE_QUOTES" \\
+      "$BPP_TEST_SUBSTITUTION" "$BPP_TEST_BACKTICKS" "$BPP_TEST_COMMAND" \\
+      "$BPP_TEST_BACKSLASHES" "$BPP_TEST_NEWLINE" "$BPP_TEST_GLOB" "$BPP_TEST_OPTION"`,
+    env
+  );
+
+  expect(output).toBe(
+    Object.values(env)
+      .map((value) => `${value}\0`)
+      .join('')
   );
 });

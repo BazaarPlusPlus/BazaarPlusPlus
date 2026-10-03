@@ -130,9 +130,8 @@ test('macOS production build removes the entire bundle directory before rebundli
       `
       set -euo pipefail
       source ./scripts/bundle.sh
-      release_platforms_module="$1"
-      release_platforms_cli() { node "$release_platforms_module" "$@"; }
-      INSTALLER_ROOT="$2"
+      release_platforms_cli() { node "$BPP_TEST_RELEASE_PLATFORMS_MODULE" "$@"; }
+      INSTALLER_ROOT="$BPP_TEST_INSTALLER_ROOT"
       assert_file() { :; }
       prepare_signed_macos_resource_zip() { :; }
       prepare_signed_macos_resource_binary() { :; }
@@ -143,10 +142,12 @@ test('macOS production build removes the entire bundle directory before rebundli
       }
       build_prod macos
     `,
-      [
-        toBashPath(path.join(projectDir, '../release/release-platforms.mjs')),
-        toBashPath(fixtureRoot)
-      ]
+      {
+        BPP_TEST_RELEASE_PLATFORMS_MODULE: toBashPath(
+          path.join(projectDir, '../release/release-platforms.mjs')
+        ),
+        BPP_TEST_INSTALLER_ROOT: toBashPath(fixtureRoot)
+      }
     );
 
     expect(output).toMatch(
@@ -235,11 +236,11 @@ test('dependency install uses npm ci whenever package-lock.json exists', () => {
       `
       set -euo pipefail
       source ./scripts/bundle.sh
-      INSTALLER_ROOT="$1"
+      INSTALLER_ROOT="$BPP_TEST_INSTALLER_ROOT"
       invoke_step() { local label="$1"; shift; printf '%s|%s\\n' "$label" "$*"; }
       install_dependencies
     `,
-      [rootBash]
+      { BPP_TEST_INSTALLER_ROOT: rootBash }
     );
     expect(output).toContain('Installing npm dependencies|npm ci');
     expect(output).not.toContain('npm install');
@@ -256,12 +257,12 @@ test('dependency install fails clearly instead of updating an absent lockfile', 
     const output = runShell(
       `
       source ./scripts/bundle.sh
-      INSTALLER_ROOT="$1"
+      INSTALLER_ROOT="$BPP_TEST_INSTALLER_ROOT"
       set +e
       install_dependencies 2>&1
       printf 'exit:%s\\n' "$?"
     `,
-      [rootBash]
+      { BPP_TEST_INSTALLER_ROOT: rootBash }
     );
     expect(output).toContain('package-lock.json is required');
     expect(output).toContain('exit:1');
@@ -519,7 +520,6 @@ test('macOS Developer ID env loads from signing-secrets files', () => {
         `
         set -euo pipefail
         unset APPLE_API_ISSUER APPLE_API_KEY APPLE_API_KEY_PATH APPLE_SIGNING_IDENTITY
-        export BPP_SIGNING_SECRETS_DIR="$1"
         source ./scripts/bundle.sh
         load_macos_developer_id_env >/tmp/bpp-apple-env-test.out
         cat /tmp/bpp-apple-env-test.out
@@ -528,7 +528,7 @@ test('macOS Developer ID env loads from signing-secrets files', () => {
         printf 'key_path=%s\\n' "$APPLE_API_KEY_PATH"
         printf 'identity=%s\\n' "$APPLE_SIGNING_IDENTITY"
       `,
-        [dirBash]
+        { BPP_SIGNING_SECRETS_DIR: dirBash }
       );
 
       expect(output).toContain(
@@ -566,13 +566,12 @@ test('macOS Developer ID env exports relative API key paths as absolute paths', 
         `
         set -euo pipefail
         unset APPLE_API_ISSUER APPLE_API_KEY APPLE_API_KEY_PATH APPLE_SIGNING_IDENTITY
-        export BPP_SIGNING_SECRETS_DIR="$1"
         source ./scripts/bundle.sh
         load_macos_developer_id_env >/tmp/bpp-apple-env-test.out
         cat /tmp/bpp-apple-env-test.out
         printf 'key_path=%s\\n' "$APPLE_API_KEY_PATH"
       `,
-        [dirBash]
+        { BPP_SIGNING_SECRETS_DIR: dirBash }
       );
 
       expect(output).toMatch(
@@ -594,7 +593,6 @@ test('macOS Developer ID env detects identity and infers API key path', () => {
         `
         set -euo pipefail
         unset APPLE_API_ISSUER APPLE_API_KEY APPLE_API_KEY_PATH APPLE_SIGNING_IDENTITY
-        export BPP_SIGNING_SECRETS_DIR="$1"
         source ./scripts/bundle.sh
         security() {
           printf '%s\\n' '  1) ABC "Apple Development: dev@example.com (TEAMID1234)"'
@@ -605,7 +603,7 @@ test('macOS Developer ID env detects identity and infers API key path', () => {
         printf 'key_path=%s\\n' "$APPLE_API_KEY_PATH"
         printf 'identity=%s\\n' "$APPLE_SIGNING_IDENTITY"
       `,
-        [dirBash]
+        { BPP_SIGNING_SECRETS_DIR: dirBash }
       );
 
       expect(output).toContain(
@@ -649,14 +647,13 @@ test('updater signing env requires the key and defaults the password to empty', 
         `
       set -euo pipefail
       unset TAURI_SIGNING_PRIVATE_KEY TAURI_SIGNING_PRIVATE_KEY_PASSWORD
-      export BPP_SIGNING_SECRETS_DIR="$1"
       source ./scripts/bundle.sh
       load_updater_signing_env
       printf 'key=[%s]\\n' "$TAURI_SIGNING_PRIVATE_KEY"
       printf 'password=[%s]\\n' "$TAURI_SIGNING_PRIVATE_KEY_PASSWORD"
       bash -c 'printf "exported=[%s]\\n" "$TAURI_SIGNING_PRIVATE_KEY_PASSWORD"'
     `,
-        [dirBash]
+        { BPP_SIGNING_SECRETS_DIR: dirBash }
       );
       expect(output).toContain(
         'Loading TAURI_SIGNING_PRIVATE_KEY from signing-secrets'
@@ -671,13 +668,12 @@ test('updater signing env requires the key and defaults the password to empty', 
     const output = runShell(
       `
       unset TAURI_SIGNING_PRIVATE_KEY TAURI_SIGNING_PRIVATE_KEY_PASSWORD
-      export BPP_SIGNING_SECRETS_DIR="$1"
       source ./scripts/bundle.sh
       set +e
       (load_updater_signing_env) 2>&1
       printf 'exit:%s\\n' "$?"
     `,
-      [dirBash]
+      { BPP_SIGNING_SECRETS_DIR: dirBash }
     );
     expect(output).toContain('Missing TAURI_SIGNING_PRIVATE_KEY');
     expect(output).toContain('exit:1');
