@@ -21,8 +21,7 @@ internal static class BilingualItemNamePatch
         try
         {
             var card = tooltipData.CardInstance;
-            var enabled =
-                BppPatchHost.Services.Config.EnableBilingualItemNamesConfig?.Value ?? false;
+            var enabled = BppPatchHost.Services.Config.EnableBilingualItemNamesConfig.Value;
             var currentLanguageIsChinese = LanguageCodeMatcher.IsChinese(L.CurrentLanguageCode);
             var supportedCard = card != null && BilingualNameCardEligibility.IsSupported(card.Type);
             if (!enabled || !supportedCard)

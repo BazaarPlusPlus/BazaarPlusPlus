@@ -208,22 +208,10 @@
       Include="..\..\src\BazaarPlusPlus\Game\Supporters\BPPSupporterSample.cs"
       Link="BPPSupporterSample.cs"
     />
-    <Compile
-      Include="..\..\src\BazaarPlusPlus\Infrastructure\LocalizedTextHelpers.cs"
-      Link="LocalizedTextHelpers.cs"
-    />
     <Compile Include="..\..\src\BazaarPlusPlus.Localization\L.cs" Link="L.cs" />
     <Compile
       Include="..\..\src\BazaarPlusPlus.Localization\LocalizedTextSet.cs"
       Link="LocalizedTextSet.cs"
-    />
-    <Compile
-      Include="..\..\src\BazaarPlusPlus.Localization\ILanguageProvider.cs"
-      Link="ILanguageProvider.cs"
-    />
-    <Compile
-      Include="..\..\src\BazaarPlusPlus.Localization\ILocaleModeProvider.cs"
-      Link="ILocaleModeProvider.cs"
     />
     <Compile
       Include="..\..\src\BazaarPlusPlus.Localization\BppChineseLocaleMode.cs"

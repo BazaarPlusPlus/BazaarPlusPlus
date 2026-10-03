@@ -326,7 +326,7 @@ static void TestSponsorActionText()
         "Chinese attribution row should expose a localized sponsor action."
     );
 
-    L.Install(new FixedLanguage("zh-CN"), new FixedMode(BppChineseLocaleMode.Taiwan));
+    L.Install(() => "zh-CN", () => BppChineseLocaleMode.Taiwan);
     try
     {
         AssertEqual(
@@ -420,13 +420,3 @@ static void AssertTrue(bool condition, string message)
 }
 
 static void AssertFalse(bool condition, string message) => AssertTrue(!condition, message);
-
-internal sealed class FixedLanguage(string languageCode) : ILanguageProvider
-{
-    public string CurrentLanguageCode { get; } = languageCode;
-}
-
-internal sealed class FixedMode(BppChineseLocaleMode mode) : ILocaleModeProvider
-{
-    public BppChineseLocaleMode CurrentMode { get; } = mode;
-}

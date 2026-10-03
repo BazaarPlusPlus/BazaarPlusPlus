@@ -16,7 +16,7 @@ public sealed class AggregateItemMissingTypesTextTests
 {
     public AggregateItemMissingTypesTextTests()
     {
-        L.Install(new TestLanguageProvider(), new TestLocaleModeProvider());
+        L.Install(() => "en", () => BppChineseLocaleMode.Mainland);
     }
 
     [Fact]
@@ -66,7 +66,7 @@ public sealed class AggregateItemMissingTypesTextTests
     [Fact]
     public void Build_localizes_the_heading_for_simplified_chinese()
     {
-        L.Install(new TestLanguageProvider("zh-CN"), new TestLocaleModeProvider());
+        L.Install(() => "zh-CN", () => BppChineseLocaleMode.Mainland);
 
         var content = AggregateItemMissingTypesText.Build(
             AggregateItemMissingTypesText.ItemTypes.Where(tag => tag != ECardTag.Relic)
@@ -78,7 +78,7 @@ public sealed class AggregateItemMissingTypesTextTests
     [Fact]
     public void Build_localizes_type_names_for_simplified_chinese()
     {
-        L.Install(new TestLanguageProvider("zh-CN"), new TestLocaleModeProvider());
+        L.Install(() => "zh-CN", () => BppChineseLocaleMode.Mainland);
 
         var content = AggregateItemMissingTypesText.Build(
             AggregateItemMissingTypesText.ItemTypes.Where(tag => tag != ECardTag.Relic),
@@ -191,15 +191,5 @@ public sealed class AggregateItemMissingTypesTextTests
             )
         );
         Assert.Equal(ETargetCardSectionTargetSection.SelfHand, source.Section);
-    }
-
-    private sealed class TestLanguageProvider(string languageCode = "en") : ILanguageProvider
-    {
-        public string CurrentLanguageCode => languageCode;
-    }
-
-    private sealed class TestLocaleModeProvider : ILocaleModeProvider
-    {
-        public BppChineseLocaleMode CurrentMode => BppChineseLocaleMode.Mainland;
     }
 }

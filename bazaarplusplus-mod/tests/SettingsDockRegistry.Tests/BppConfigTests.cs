@@ -16,9 +16,7 @@ public class BppConfigTests
         try
         {
             var configFile = new ConfigFile(configPath, saveOnInit: false);
-            var config = new BppConfig();
-
-            config.Initialize(configFile);
+            var config = new BppConfig(configFile);
 
             var entry = config.EnableQuestPreviewConfig;
             Assert.NotNull(entry);
@@ -49,9 +47,7 @@ public class BppConfigTests
         try
         {
             File.WriteAllText(configPath, "[QuestRewardPreview]\nEnabled = true\n");
-            var config = new BppConfig();
-
-            config.Initialize(new ConfigFile(configPath, saveOnInit: false));
+            var config = new BppConfig(new ConfigFile(configPath, saveOnInit: false));
 
             Assert.False(config.EnableQuestPreviewConfig!.Value);
         }

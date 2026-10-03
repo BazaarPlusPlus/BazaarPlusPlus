@@ -16,15 +16,10 @@ internal static class ChineseLocaleModeSettingsDockEntry
             "ChineseLocaleMode",
             ResolveChineseLocaleModeLabel,
             new[] { BppChineseLocaleMode.Mainland, BppChineseLocaleMode.Taiwan },
-            config =>
-                ChineseScriptConverter.NormalizeMode(
-                    config.ChineseLocaleModeConfig?.Value ?? BppChineseLocaleMode.Mainland
-                ),
+            config => ChineseScriptConverter.NormalizeMode(config.ChineseLocaleModeConfig.Value),
             (config, mode) =>
             {
-                var entry = config.ChineseLocaleModeConfig;
-                if (entry != null)
-                    entry.Value = mode;
+                config.ChineseLocaleModeConfig.Value = mode;
             },
             mode => mode != BppChineseLocaleMode.Mainland,
             (mode, _) => ChineseScriptConverter.ResolveModeStatus(mode),

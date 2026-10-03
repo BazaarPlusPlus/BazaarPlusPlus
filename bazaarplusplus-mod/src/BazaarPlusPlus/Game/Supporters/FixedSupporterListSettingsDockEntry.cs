@@ -16,15 +16,11 @@ internal static class FixedSupporterListSettingsDockEntry
             WriteEnabled
         );
 
-    private static bool ReadEnabled(IBppConfig config) =>
-        config.UseFixedSupporterListConfig?.Value
-        ?? BPPSupporterListSourcePolicy.DefaultUseFixedList;
+    private static bool ReadEnabled(BppConfig config) => config.UseFixedSupporterListConfig.Value;
 
-    private static void WriteEnabled(IBppConfig config, bool enabled)
+    private static void WriteEnabled(BppConfig config, bool enabled)
     {
-        var entry = config.UseFixedSupporterListConfig;
-        if (entry != null)
-            entry.Value = enabled;
+        config.UseFixedSupporterListConfig.Value = enabled;
 
         if (enabled)
             EndOfRunScreenshotSettingsPolicy.ForceEnabled(config);

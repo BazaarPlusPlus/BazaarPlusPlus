@@ -18,7 +18,7 @@ internal sealed partial class CombatStatusBar
 
         _configStateInitialized = true;
         CombatSpeedMultiplier = NormalizeConfiguredDefaultSpeed(
-            _services.Config.CombatStatusBarSpeedMultiplierConfig?.Value ?? 1f
+            _services.Config.CombatStatusBarSpeedMultiplierConfig.Value
         );
         BppLog.DebugEvent(
             CombatStatusBarLogEvents.ConfigLoaded,

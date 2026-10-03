@@ -15,14 +15,14 @@ namespace BazaarPlusPlus.Game.Tooltips;
 internal sealed class TooltipModifierRefreshController : MonoBehaviour
 {
     private TooltipPreviewMode _lastMode;
-    private IBppConfig? _config;
+    private BppConfig? _config;
     private IEncounterStateProbe? _encounterState;
     private INativeCardPreviewHost? _nativeCardPreviewHost;
     private bool _hasResolvedInputs;
     private ResolveInputs _lastInputs;
 
     internal void Initialize(
-        IBppConfig config,
+        BppConfig config,
         IEncounterStateProbe encounterState,
         INativeCardPreviewHost nativeCardPreviewHost
     )
@@ -91,7 +91,7 @@ internal sealed class TooltipModifierRefreshController : MonoBehaviour
     {
         var holdUpgrade = BppHotkeyService.IsActive(BppHotkeyActionId.HoldUpgradePreview);
         var holdEnchant = BppHotkeyService.IsHeld(BppHotkeyActionId.HoldEnchantPreview);
-        var enchantMode = _config?.EnchantPreviewModeConfig?.Value;
+        var enchantMode = _config?.EnchantPreviewModeConfig.Value;
         var pedestalKind = ChoiceScreenPedestalKind.None;
         if (
             !holdUpgrade

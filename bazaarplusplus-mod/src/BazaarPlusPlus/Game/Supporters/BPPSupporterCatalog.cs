@@ -15,11 +15,11 @@ internal static class BPPSupporterCatalog
         new BPPSupporterEntry { Name = "Gold Sponsor A", Tier = 4 },
     };
 
-    private static IBppConfig? _config;
+    private static BppConfig? _config;
     private static IReadOnlyList<BPPSupporterEntry>? _currentEntries;
     private static Action? _ensureWarm;
 
-    public static void Install(IBppConfig config)
+    public static void Install(BppConfig config)
     {
         lock (SyncRoot)
             _config = config ?? throw new ArgumentNullException(nameof(config));
@@ -78,6 +78,6 @@ internal static class BPPSupporterCatalog
     }
 
     private static bool IsFixedListEnabledUnderLock() =>
-        _config?.UseFixedSupporterListConfig?.Value
+        _config?.UseFixedSupporterListConfig.Value
         ?? BPPSupporterListSourcePolicy.DefaultUseFixedList;
 }

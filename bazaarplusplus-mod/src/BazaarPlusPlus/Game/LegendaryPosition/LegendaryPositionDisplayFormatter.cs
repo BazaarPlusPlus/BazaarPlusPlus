@@ -7,14 +7,14 @@ namespace BazaarPlusPlus.Game.LegendaryPosition;
 
 internal static class LegendaryPositionDisplayFormatter
 {
-    private static IBppConfig? _config;
+    private static BppConfig? _config;
 
-    public static void Install(IBppConfig config) =>
+    public static void Install(BppConfig config) =>
         _config = config ?? throw new ArgumentNullException(nameof(config));
 
     public static void Reset() => _config = null;
 
-    private static IBppConfig Config =>
+    private static BppConfig Config =>
         _config
         ?? throw new InvalidOperationException(
             "LegendaryPositionDisplayFormatter.Install must be called at startup."
@@ -22,9 +22,7 @@ internal static class LegendaryPositionDisplayFormatter
 
     internal static string Format(string? currentText, int? fallbackPosition)
     {
-        var mode =
-            Config.LegendaryPositionDisplayModeConfig?.Value
-            ?? LegendaryPositionDisplayMode.Default;
+        var mode = Config.LegendaryPositionDisplayModeConfig.Value;
 
         return mode switch
         {

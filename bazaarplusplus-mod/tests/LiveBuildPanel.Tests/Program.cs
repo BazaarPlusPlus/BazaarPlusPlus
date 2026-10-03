@@ -6,10 +6,7 @@ using BazaarPlusPlus.GameInterop.ItemBoardPreview;
 using BazaarPlusPlus.Infrastructure.UiTokens;
 using BazaarPlusPlus.Localization;
 
-L.Install(
-    new FixedLanguageProvider("en"),
-    new FixedLocaleModeProvider(BppChineseLocaleMode.Mainland)
-);
+L.Install(() => "en", () => BppChineseLocaleMode.Mainland);
 
 TestOverlaySortingLayersKeepNativeCardsBetweenPanelAndForeground();
 TestSupporterAttributionCountFillsRail();
@@ -252,10 +249,7 @@ static void TestCandidateIdentityIsSharedAcrossSources()
 
 static void TestCorpusFreshnessKeepsLocalizedRelativeTime()
 {
-    L.Install(
-        new FixedLanguageProvider("zh-CN"),
-        new FixedLocaleModeProvider(BppChineseLocaleMode.Mainland)
-    );
+    L.Install(() => "zh-CN", () => BppChineseLocaleMode.Mainland);
     var summary = new TenWinCorpusSummary(
         new DateTimeOffset(2034, 5, 16, 5, 28, 9, TimeSpan.Zero),
         1240,
@@ -269,14 +263,4 @@ static void TestCorpusFreshnessKeepsLocalizedRelativeTime()
         freshness.Contains("2 小时前", StringComparison.Ordinal),
         "Corpus freshness should retain the localized relative update time."
     );
-}
-
-internal sealed class FixedLanguageProvider(string languageCode) : ILanguageProvider
-{
-    public string CurrentLanguageCode => languageCode;
-}
-
-internal sealed class FixedLocaleModeProvider(BppChineseLocaleMode mode) : ILocaleModeProvider
-{
-    public BppChineseLocaleMode CurrentMode => mode;
 }

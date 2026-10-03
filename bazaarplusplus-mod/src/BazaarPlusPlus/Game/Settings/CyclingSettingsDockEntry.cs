@@ -18,8 +18,8 @@ internal sealed class CyclingSettingsDockEntry<T> : ISettingsDockEntry
     private readonly string _key;
     private readonly Func<string, string> _resolveLabel;
     private readonly IReadOnlyList<T> _ladder;
-    private readonly Func<IBppConfig, T> _read;
-    private readonly Action<IBppConfig, T> _write;
+    private readonly Func<BppConfig, T> _read;
+    private readonly Action<BppConfig, T> _write;
     private readonly Func<T, bool> _highlightWhen;
     private readonly Func<T, string, string> _resolveStatus;
     private readonly Action<T>? _onChanged;
@@ -30,8 +30,8 @@ internal sealed class CyclingSettingsDockEntry<T> : ISettingsDockEntry
         string key,
         Func<string, string> resolveLabel,
         IReadOnlyList<T> ladder,
-        Func<IBppConfig, T> read,
-        Action<IBppConfig, T> write,
+        Func<BppConfig, T> read,
+        Action<BppConfig, T> write,
         Func<T, bool> highlightWhen,
         Func<T, string, string> resolveStatus,
         Action<T>? onChanged = null,
@@ -57,7 +57,7 @@ internal sealed class CyclingSettingsDockEntry<T> : ISettingsDockEntry
 
     public int Order { get; }
 
-    public BppSettingsDockDefinition Build(IBppConfig config)
+    public BppSettingsDockDefinition Build(BppConfig config)
     {
         if (config == null)
             throw new ArgumentNullException(nameof(config));
@@ -85,8 +85,8 @@ internal sealed class CyclingSettingsDockEntry<T> : ISettingsDockEntry
         int order,
         string key,
         Func<string, string> resolveLabel,
-        Func<IBppConfig, bool> read,
-        Action<IBppConfig, bool> write,
+        Func<BppConfig, bool> read,
+        Action<BppConfig, bool> write,
         Action<bool>? onChanged = null
     ) =>
         new(
@@ -102,7 +102,7 @@ internal sealed class CyclingSettingsDockEntry<T> : ISettingsDockEntry
             renderAsToggle: true
         );
 
-    private BppSettingsChoiceState ResolveChoiceState(IBppConfig config, string languageCode)
+    private BppSettingsChoiceState ResolveChoiceState(BppConfig config, string languageCode)
     {
         var current = _read(config);
         var comparer = EqualityComparer<T>.Default;
@@ -131,7 +131,7 @@ internal sealed class CyclingSettingsDockEntry<T> : ISettingsDockEntry
         );
     }
 
-    private void SelectStandardChoice(IBppConfig config, int standardIndex)
+    private void SelectStandardChoice(BppConfig config, int standardIndex)
     {
         if (standardIndex < 0 || standardIndex >= _ladder.Count)
             return;
@@ -139,7 +139,7 @@ internal sealed class CyclingSettingsDockEntry<T> : ISettingsDockEntry
         Write(config, _ladder[standardIndex]);
     }
 
-    private void Write(IBppConfig config, T value)
+    private void Write(BppConfig config, T value)
     {
         _write(config, value);
         _onChanged?.Invoke(value);

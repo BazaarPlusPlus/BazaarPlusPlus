@@ -15,7 +15,7 @@ internal static class PageRangeTests
         {
             foreach (var language in new[] { "en", "zh-Hans" })
             {
-                L.Install(new Language(language), new Mainland());
+                L.Install(() => language, () => BppChineseLocaleMode.Mainland);
                 var chinese = language == "zh-Hans";
                 foreach (var ghost in new[] { false, true })
                 {
@@ -83,7 +83,7 @@ internal static class PageRangeTests
         }
         finally
         {
-            L.Install(new Language("en"), new Mainland());
+            L.Install(() => "en", () => BppChineseLocaleMode.Mainland);
         }
     }
 
@@ -156,15 +156,5 @@ internal static class PageRangeTests
     {
         if (!condition)
             throw new InvalidOperationException(message);
-    }
-
-    private sealed class Language(string code) : ILanguageProvider
-    {
-        public string CurrentLanguageCode => code;
-    }
-
-    private sealed class Mainland : ILocaleModeProvider
-    {
-        public BppChineseLocaleMode CurrentMode => BppChineseLocaleMode.Mainland;
     }
 }

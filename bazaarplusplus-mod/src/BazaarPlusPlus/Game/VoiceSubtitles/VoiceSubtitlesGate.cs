@@ -7,6 +7,6 @@ internal static class VoiceSubtitlesGate
 {
     internal static bool IsEnabled()
     {
-        return BppPatchHost.Services.Config.EnableVoiceSubtitlesConfig?.Value == true;
+        return BppPatchHost.Services.Config.EnableVoiceSubtitlesConfig.Value;
     }
 }

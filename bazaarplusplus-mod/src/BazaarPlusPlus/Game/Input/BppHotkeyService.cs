@@ -9,10 +9,10 @@ namespace BazaarPlusPlus.Game.Input;
 
 internal static class BppHotkeyService
 {
-    private static IBppConfig? _config;
+    private static BppConfig? _config;
     private static readonly HotkeyActivationState UpgradePreviewActivation = new();
 
-    public static void Install(IBppConfig config)
+    public static void Install(BppConfig config)
     {
         _config = config ?? throw new ArgumentNullException(nameof(config));
         ResetBindingPathCache();
@@ -37,7 +37,7 @@ internal static class BppHotkeyService
         CachedBindingPaths.Clear();
     }
 
-    private static IBppConfig Config =>
+    private static BppConfig Config =>
         _config
         ?? throw new InvalidOperationException(
             "BppHotkeyService.Install must be called at startup."
@@ -82,9 +82,7 @@ internal static class BppHotkeyService
         var path = GetBindingPath(actionId);
         ReportUnresolvedControls(actionId, path);
         var isHeld = IsPressed(path, keyboard, mouse);
-        var mode =
-            Config.UpgradePreviewActivationModeConfig?.Value
-            ?? BppConfig.DefaultUpgradePreviewActivationMode;
+        var mode = Config.UpgradePreviewActivationModeConfig.Value;
         var wasPressed =
             !BppKeyBindRowController.IsRebindCaptureActive
             && GetOrCreateAction(path).WasPressedThisFrame();

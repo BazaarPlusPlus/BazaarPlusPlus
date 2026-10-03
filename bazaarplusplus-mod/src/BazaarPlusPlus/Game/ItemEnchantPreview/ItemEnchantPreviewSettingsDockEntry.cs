@@ -17,12 +17,10 @@ internal static class ItemEnchantPreviewSettingsDockEntry
                 PreviewVisibilityMode.AutoOnPedestalChoice,
                 PreviewVisibilityMode.Always,
             },
-            config => config.EnchantPreviewModeConfig?.Value ?? BppConfig.DefaultEnchantPreviewMode,
+            config => config.EnchantPreviewModeConfig.Value,
             (config, mode) =>
             {
-                var entry = config.EnchantPreviewModeConfig;
-                if (entry != null)
-                    entry.Value = mode;
+                config.EnchantPreviewModeConfig.Value = mode;
             },
             mode => mode != PreviewVisibilityMode.Off,
             BppSettingsDockCatalog.ResolvePreviewVisibilityModeStatus

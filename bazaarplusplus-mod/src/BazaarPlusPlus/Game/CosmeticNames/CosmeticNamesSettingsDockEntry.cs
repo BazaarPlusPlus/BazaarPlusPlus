@@ -21,12 +21,10 @@ internal static class CosmeticNamesSettingsDockEntry
             BppSettingsDockOrder.CosmeticNames,
             "CosmeticNames",
             languageCode => Labels.Resolve(languageCode, L.CurrentMode),
-            config => config.EnableCosmeticNamesConfig?.Value ?? false,
+            config => config.EnableCosmeticNamesConfig.Value,
             (config, enabled) =>
             {
-                var entry = config.EnableCosmeticNamesConfig;
-                if (entry != null)
-                    entry.Value = enabled;
+                config.EnableCosmeticNamesConfig.Value = enabled;
             }
         );
 }

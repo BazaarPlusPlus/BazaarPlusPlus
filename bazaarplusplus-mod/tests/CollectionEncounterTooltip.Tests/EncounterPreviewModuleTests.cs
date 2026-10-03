@@ -32,7 +32,7 @@ public sealed class EncounterPreviewModuleTests : IDisposable
 
     public EncounterPreviewModuleTests()
     {
-        L.Install(new TestLanguageProvider(), new TestLocaleModeProvider());
+        L.Install(() => "en", () => BppChineseLocaleMode.Mainland);
     }
 
     [Fact]
@@ -769,15 +769,5 @@ public sealed class EncounterPreviewModuleTests : IDisposable
         public override ECardType Type { get; init; } = ECardType.EventEncounter;
 
         public object Loop => this;
-    }
-
-    private sealed class TestLanguageProvider : ILanguageProvider
-    {
-        public string CurrentLanguageCode => "en";
-    }
-
-    private sealed class TestLocaleModeProvider : ILocaleModeProvider
-    {
-        public BppChineseLocaleMode CurrentMode => BppChineseLocaleMode.Mainland;
     }
 }

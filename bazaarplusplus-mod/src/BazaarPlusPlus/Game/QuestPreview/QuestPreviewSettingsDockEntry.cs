@@ -14,12 +14,10 @@ internal static class QuestPreviewSettingsDockEntry
             BppSettingsDockOrder.QuestPreview,
             "QuestPreview",
             QuestPreviewSettingsMenuLabel.Resolve,
-            config => config.EnableQuestPreviewConfig?.Value ?? false,
+            config => config.EnableQuestPreviewConfig.Value,
             (config, enabled) =>
             {
-                var entry = config.EnableQuestPreviewConfig;
-                if (entry != null)
-                    entry.Value = enabled;
+                config.EnableQuestPreviewConfig.Value = enabled;
             },
             enabled =>
             {

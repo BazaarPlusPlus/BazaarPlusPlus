@@ -6,7 +6,7 @@ Status: Accepted
 
 Share a seam only when its consumers share behavior, ownership, and lifecycle. Preserve these deliberate boundaries:
 
-- `IGameStateProbe`, `IRunContext`, and `IBppConfig` remain separate active seams.
+- `IGameStateProbe` and `IRunContext` remain separate active seams; configuration is the concrete `BppConfig`.
 - HistoryPanel replay, health, account-link, and ghost-sync operations retain separate handlers because their cancellation, rollback, and status semantics differ. `HistoryPanelCoordinator` remains their single mutable-state owner; showing the panel resets replay/account-link state while preserving in-flight ghost sync and health probes ([coordinator](../../src/BazaarPlusPlus/Game/HistoryPanel/HistoryPanelCoordinator.cs)).
 - Enchant-section normalization preserves multiline content; quest-reward normalization trims and joins lines. Each keeps its own formatter ([enchant](../../src/BazaarPlusPlus/Game/ItemEnchantPreview/ItemEnchantPreviewFormatting.cs), [quest](../../src/BazaarPlusPlus/Patches/Tooltips/QuestRewardPreviewTooltipPatch.cs)).
 - Collection facet availability is recomputed beside catalog publication in `CollectionViewState`, not attached to catalog results or repeated on refresh ([state](../../src/BazaarPlusPlus/Game/CollectionPanel/CollectionViewState.cs)).

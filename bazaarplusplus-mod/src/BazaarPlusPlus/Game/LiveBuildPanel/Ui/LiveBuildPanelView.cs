@@ -7,7 +7,6 @@ using BazaarPlusPlus.GameInterop.Fonts;
 using BazaarPlusPlus.GameInterop.HeroPortraits;
 using BazaarPlusPlus.GameInterop.ItemBoardPreview;
 using BazaarPlusPlus.GameInterop.MonsterBoardPreview;
-using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.UiTokens;
 using BazaarPlusPlus.Localization;
 using TheBazaar.AppFramework;
@@ -468,7 +467,7 @@ internal sealed class LiveBuildPanelView : IDisposable
         {
             NativeMonsterBoardStatus.Loading => LiveBuildPanelText.LoadingBoard(),
             NativeMonsterBoardStatus.Failed => LiveBuildPanelText.BoardFailed(),
-            NativeMonsterBoardStatus.Partial => LocalizedTextHelpers.Resolve(
+            NativeMonsterBoardStatus.Partial => L.Resolve(
                 new LocalizedTextSet(
                     $"{unavailableCount} cards are unavailable in this game version.",
                     $"{unavailableCount} 张卡牌在当前版本不可用。"

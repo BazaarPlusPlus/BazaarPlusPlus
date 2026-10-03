@@ -9,13 +9,13 @@ public sealed class EncounterPreviewTextFormatterTests
 {
     public EncounterPreviewTextFormatterTests()
     {
-        L.Install(new TestLanguageProvider(), new TestLocaleModeProvider());
+        L.Install(() => "en", () => BppChineseLocaleMode.Mainland);
     }
 
     [Fact]
     public void Build_uses_chinese_punctuation_and_spaces_numeric_reward_prefixes()
     {
-        L.Install(new TestLanguageProvider("zh-CN"), new TestLocaleModeProvider());
+        L.Install(() => "zh-CN", () => BppChineseLocaleMode.Mainland);
         var option = CreateOption(
             new EncounterChoiceDetail(
                 Guid.Parse("10000000-0000-0000-0000-0000000000f1"),
@@ -34,7 +34,7 @@ public sealed class EncounterPreviewTextFormatterTests
     [Fact]
     public void Build_keeps_compact_numeric_reward_prefix_compact()
     {
-        L.Install(new TestLanguageProvider("zh-CN"), new TestLocaleModeProvider());
+        L.Install(() => "zh-CN", () => BppChineseLocaleMode.Mainland);
         var option = CreateOption(
             new EncounterChoiceDetail(
                 Guid.Parse("10000000-0000-0000-0000-0000000000f2"),
@@ -133,10 +133,8 @@ public sealed class EncounterPreviewTextFormatterTests
     )
     {
         L.Install(
-            new TestLanguageProvider(language),
-            new TestLocaleModeProvider(
-                traditional ? BppChineseLocaleMode.Taiwan : BppChineseLocaleMode.Mainland
-            )
+            () => language,
+            () => traditional ? BppChineseLocaleMode.Taiwan : BppChineseLocaleMode.Mainland
         );
         var option = CreateOption(
             new EncounterChoiceDetail(
@@ -181,7 +179,7 @@ public sealed class EncounterPreviewTextFormatterTests
     [Fact]
     public void Build_does_not_append_day_tier_when_localized_result_text_already_names_a_tier()
     {
-        L.Install(new TestLanguageProvider("zh-CN"), new TestLocaleModeProvider());
+        L.Install(() => "zh-CN", () => BppChineseLocaleMode.Mainland);
         var option = CreateOption(
             new EncounterChoiceDetail(
                 Guid.Parse("10000000-0000-0000-0000-000000000005"),
@@ -214,7 +212,7 @@ public sealed class EncounterPreviewTextFormatterTests
         var mode = traditionalOutputMode
             ? BppChineseLocaleMode.Taiwan
             : BppChineseLocaleMode.Mainland;
-        L.Install(new TestLanguageProvider("zh-CN"), new TestLocaleModeProvider(mode));
+        L.Install(() => "zh-CN", () => mode);
         var option = CreateOption(
             new EncounterChoiceDetail(
                 Guid.Parse("10000000-0000-0000-0000-000000000005"),
@@ -431,26 +429,6 @@ public sealed class EncounterPreviewTextFormatterTests
             rewardFilter: null,
             choices
         );
-
-    private sealed class TestLanguageProvider : ILanguageProvider
-    {
-        public TestLanguageProvider(string languageCode = "en")
-        {
-            CurrentLanguageCode = languageCode;
-        }
-
-        public string CurrentLanguageCode { get; }
-    }
-
-    private sealed class TestLocaleModeProvider : ILocaleModeProvider
-    {
-        public TestLocaleModeProvider(BppChineseLocaleMode mode = BppChineseLocaleMode.Mainland)
-        {
-            CurrentMode = mode;
-        }
-
-        public BppChineseLocaleMode CurrentMode { get; }
-    }
 
     [Fact]
     public void Choice_pool_renders_combat_summary()

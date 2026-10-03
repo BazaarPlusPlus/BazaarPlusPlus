@@ -82,14 +82,6 @@
       Link="BppChineseLocaleMode.cs"
     />
     <Compile
-      Include="../../src/BazaarPlusPlus.Localization/ILanguageProvider.cs"
-      Link="ILanguageProvider.cs"
-    />
-    <Compile
-      Include="../../src/BazaarPlusPlus.Localization/ILocaleModeProvider.cs"
-      Link="ILocaleModeProvider.cs"
-    />
-    <Compile
       Include="../../src/BazaarPlusPlus/GameInterop/ItemBoardPreview/BppItemBoard.cs"
       Link="BppItemBoard.cs"
     />

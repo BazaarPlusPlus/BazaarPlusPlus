@@ -3,7 +3,6 @@ using BazaarPlusPlus.GameInterop.AssetLoading;
 using BazaarPlusPlus.GameInterop.Fonts;
 using BazaarPlusPlus.GameInterop.HeroPortraits;
 using BazaarPlusPlus.GameInterop.Ranks;
-using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.UiTokens;
 using BazaarPlusPlus.Localization;
 using TheBazaar.AppFramework;
@@ -365,7 +364,7 @@ internal sealed partial class HistoryPanelView : IDisposable
     }
 
     private static string T(string english, string chinese) =>
-        LocalizedTextHelpers.Resolve(new LocalizedTextSet(english, chinese));
+        L.Resolve(new LocalizedTextSet(english, chinese));
 
     private static RectTransform CreateRect(
         string name,

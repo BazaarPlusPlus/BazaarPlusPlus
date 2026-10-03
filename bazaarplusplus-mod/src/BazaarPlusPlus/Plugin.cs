@@ -203,13 +203,29 @@ public class Plugin : BaseUnityPlugin
     )
     {
         LegendaryPositionDisplayFormatter.Install(services.Config);
-        L.Install(new GameLanguageProvider(), new ChineseLocaleModeProvider(services.Config));
+        var config = services.Config;
+        L.Install(
+            ReadGameLanguageCode,
+            () => ChineseScriptConverter.NormalizeMode(config.ChineseLocaleModeConfig.Value)
+        );
         var attributeUnitLocalizer = BppTooltipText.TryLocalizeKeyword;
         CollectionLocalizationResolver.AttributeUnitLocalizer = attributeUnitLocalizer;
         EventPreviewLocalization.AttributeUnitLocalizer = attributeUnitLocalizer;
         BppSettingsDockCatalog.Install(services.Config, settingsDockRegistry);
         BPPSupporterCatalog.Install(services.Config);
         BppHotkeyService.Install(services.Config);
+    }
+
+    private static string ReadGameLanguageCode()
+    {
+        try
+        {
+            return PlayerPreferences.Data.LanguageCode ?? string.Empty;
+        }
+        catch
+        {
+            return string.Empty;
+        }
     }
 
     private static void UninstallStaticUtilities()

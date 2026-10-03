@@ -7,6 +7,6 @@ internal static class QuestPreviewGate
 {
     internal static bool IsEnabled()
     {
-        return BppPatchHost.Services.Config.EnableQuestPreviewConfig?.Value == true;
+        return BppPatchHost.Services.Config.EnableQuestPreviewConfig.Value;
     }
 }

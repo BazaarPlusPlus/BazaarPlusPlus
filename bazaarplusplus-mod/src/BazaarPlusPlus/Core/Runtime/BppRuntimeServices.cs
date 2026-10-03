@@ -11,7 +11,7 @@ internal sealed class BppRuntimeServices : IBppServices
 {
     public BppRuntimeServices(
         IBppEventBus eventBus,
-        IBppConfig config,
+        BppConfig config,
         IPathProvider paths,
         IRunContext runContext,
         IGameStateProbe gameStateProbe,
@@ -31,7 +31,7 @@ internal sealed class BppRuntimeServices : IBppServices
     }
 
     public IBppEventBus EventBus { get; }
-    public IBppConfig Config { get; }
+    public BppConfig Config { get; }
     public IPathProvider Paths { get; }
     public IRunContext RunContext { get; }
     public IGameStateProbe GameStateProbe { get; }

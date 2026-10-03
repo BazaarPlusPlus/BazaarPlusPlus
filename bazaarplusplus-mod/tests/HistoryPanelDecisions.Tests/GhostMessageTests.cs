@@ -372,7 +372,7 @@ internal static class GhostMessageTests
                 }
             )
             {
-                L.Install(new Language(language), new LocaleMode(mode));
+                L.Install(() => language, () => mode);
                 foreach (var row in Table)
                 {
                     var status = HistoryPanelDecisions.ArchiveStatus(row.Facts);
@@ -388,19 +388,19 @@ internal static class GhostMessageTests
                 }
             }
 
-            L.Install(new Language("zh-Hans"), new LocaleMode(BppChineseLocaleMode.Taiwan));
+            L.Install(() => "zh-Hans", () => BppChineseLocaleMode.Taiwan);
             Equal(
                 HistoryPanelText.GhostSyncIncomplete(),
                 "幽靈同步失敗，列表可能不完整。請重新打開歷史記錄後重試。",
                 "Traditional Chinese derives the incomplete-sync copy from the Mainland text."
             );
-            L.Install(new Language("en"), new LocaleMode(BppChineseLocaleMode.Mainland));
+            L.Install(() => "en", () => BppChineseLocaleMode.Mainland);
             ObserveFiltersToTheSelectedBattle();
             DownloadFailureMessages();
         }
         finally
         {
-            L.Install(new Language("en"), new LocaleMode(BppChineseLocaleMode.Mainland));
+            L.Install(() => "en", () => BppChineseLocaleMode.Mainland);
         }
     }
 
@@ -594,15 +594,5 @@ internal static class GhostMessageTests
             throw new InvalidOperationException(
                 $"{message} Expected '{expected}', got '{actual}'."
             );
-    }
-
-    private sealed class Language(string code) : ILanguageProvider
-    {
-        public string CurrentLanguageCode => code;
-    }
-
-    private sealed class LocaleMode(BppChineseLocaleMode mode) : ILocaleModeProvider
-    {
-        public BppChineseLocaleMode CurrentMode => mode;
     }
 }

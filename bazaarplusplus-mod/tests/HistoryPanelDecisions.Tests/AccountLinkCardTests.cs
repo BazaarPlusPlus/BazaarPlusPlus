@@ -21,7 +21,7 @@ internal static class AccountLinkCardTests
         {
             foreach (var language in new[] { "en", "zh-Hans" })
             {
-                L.Install(new Language(language), new Mainland());
+                L.Install(() => language, () => BppChineseLocaleMode.Mainland);
                 var chinese = language == "zh-Hans";
                 var label = (string)settingLabel.Invoke(null, [language])!;
                 foreach (var channel in new[] { "Online", "Unknown", "Ptr" })
@@ -115,7 +115,7 @@ internal static class AccountLinkCardTests
         }
         finally
         {
-            L.Install(new Language("en"), new Mainland());
+            L.Install(() => "en", () => BppChineseLocaleMode.Mainland);
         }
     }
 
@@ -133,14 +133,4 @@ internal static class AccountLinkCardTests
             value.Contains(expected, StringComparison.Ordinal),
             $"Expected '{expected}' in '{value}'."
         );
-
-    private sealed class Language(string code) : ILanguageProvider
-    {
-        public string CurrentLanguageCode => code;
-    }
-
-    private sealed class Mainland : ILocaleModeProvider
-    {
-        public BppChineseLocaleMode CurrentMode => BppChineseLocaleMode.Mainland;
-    }
 }

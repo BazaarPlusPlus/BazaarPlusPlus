@@ -22,13 +22,10 @@ internal static class NameOverrideSettingsDockEntry
             }
         );
 
-    private static bool ReadEnabled(IBppConfig config) =>
-        config.EnableNameOverrideConfig?.Value ?? false;
+    private static bool ReadEnabled(BppConfig config) => config.EnableNameOverrideConfig.Value;
 
-    private static void WriteEnabled(IBppConfig config, bool enabled)
+    private static void WriteEnabled(BppConfig config, bool enabled)
     {
-        var entry = config.EnableNameOverrideConfig;
-        if (entry != null)
-            entry.Value = enabled;
+        config.EnableNameOverrideConfig.Value = enabled;
     }
 }

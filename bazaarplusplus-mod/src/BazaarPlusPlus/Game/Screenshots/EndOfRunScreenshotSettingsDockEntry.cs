@@ -8,7 +8,7 @@ internal sealed class EndOfRunScreenshotSettingsDockEntry : ISettingsDockEntry
 {
     public int Order => BppSettingsDockOrder.EndOfRunScreenshot;
 
-    public BppSettingsDockDefinition Build(IBppConfig config) =>
+    public BppSettingsDockDefinition Build(BppConfig config) =>
         BppSettingsDockDefinition.Toggle(
             "EndOfRunScreenshot",
             EndOfRunScreenshotSettingsMenuLabel.Resolve,
@@ -17,10 +17,8 @@ internal sealed class EndOfRunScreenshotSettingsDockEntry : ISettingsDockEntry
             isInteractable: () => !EndOfRunScreenshotSettingsPolicy.IsForcedOn(config)
         );
 
-    private static void WriteEnabled(IBppConfig config, bool enabled)
+    private static void WriteEnabled(BppConfig config, bool enabled)
     {
-        var entry = config.EndOfRunScreenshotEnabledConfig;
-        if (entry != null)
-            entry.Value = enabled;
+        config.EndOfRunScreenshotEnabledConfig.Value = enabled;
     }
 }

@@ -10,7 +10,7 @@ internal static class TooltipPreviewModePolicy
     private const PreviewVisibilityMode DefaultMode = BppConfig.DefaultEnchantPreviewMode;
 
     internal static TooltipPreviewMode Resolve(
-        IBppConfig? config,
+        BppConfig? config,
         IEncounterStateProbe? encounterState
     )
     {
@@ -23,7 +23,7 @@ internal static class TooltipPreviewModePolicy
     }
 
     internal static TooltipPreviewMode Resolve(
-        IBppConfig? config,
+        BppConfig? config,
         IEncounterStateProbe? encounterState,
         bool holdUpgrade,
         bool holdEnchant
@@ -36,7 +36,7 @@ internal static class TooltipPreviewModePolicy
     }
 
     internal static TooltipPreviewMode Resolve(
-        IBppConfig? config,
+        BppConfig? config,
         ChoicePedestalSnapshot? choicePedestal
     )
     {
@@ -49,7 +49,7 @@ internal static class TooltipPreviewModePolicy
     }
 
     internal static TooltipPreviewMode Resolve(
-        IBppConfig? config,
+        BppConfig? config,
         ChoicePedestalSnapshot? choicePedestal,
         bool holdUpgrade,
         bool holdEnchant
@@ -61,7 +61,7 @@ internal static class TooltipPreviewModePolicy
         if (holdEnchant)
             return TooltipPreviewMode.Enchant;
 
-        var enchantMode = config?.EnchantPreviewModeConfig?.Value ?? DefaultMode;
+        var enchantMode = config?.EnchantPreviewModeConfig.Value ?? DefaultMode;
         if (enchantMode == PreviewVisibilityMode.Always)
             return TooltipPreviewMode.Enchant;
         if (enchantMode != PreviewVisibilityMode.AutoOnPedestalChoice)
@@ -73,7 +73,7 @@ internal static class TooltipPreviewModePolicy
     }
 
     internal static IReadOnlyList<string>? ResolveEnchantRestriction(
-        IBppConfig? config,
+        BppConfig? config,
         ChoicePedestalSnapshot? choicePedestal
     )
     {
@@ -84,7 +84,7 @@ internal static class TooltipPreviewModePolicy
             : null;
     }
 
-    internal static bool ShouldReadChoicePedestal(IBppConfig? config)
+    internal static bool ShouldReadChoicePedestal(BppConfig? config)
     {
         return ShouldReadChoicePedestal(
             config,
@@ -94,14 +94,14 @@ internal static class TooltipPreviewModePolicy
     }
 
     internal static bool ShouldReadChoicePedestal(
-        IBppConfig? config,
+        BppConfig? config,
         bool holdUpgrade,
         bool holdEnchant
     )
     {
         if (holdUpgrade || holdEnchant)
             return false;
-        return (config?.EnchantPreviewModeConfig?.Value ?? DefaultMode)
+        return (config?.EnchantPreviewModeConfig.Value ?? DefaultMode)
             == PreviewVisibilityMode.AutoOnPedestalChoice;
     }
 }

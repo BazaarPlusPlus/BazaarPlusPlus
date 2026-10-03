@@ -10,7 +10,7 @@ namespace BazaarPlusPlus.Core.Runtime;
 internal interface IBppServices
 {
     IBppEventBus EventBus { get; }
-    IBppConfig Config { get; }
+    BppConfig Config { get; }
     IPathProvider Paths { get; }
     IRunContext RunContext { get; }
     IGameStateProbe GameStateProbe { get; }

@@ -64,8 +64,7 @@ internal sealed class RunLoggingModule : IBppFeature
             PathConstants.RunLogDatabase(services.Paths.RequireDataRoot()),
             scheduleDeferredCompletion: null,
             playerAccountIdResolver: BppClientCacheBridge.TryGetProfileAccountId,
-            bundleScreenshotRequestedResolver: () =>
-                services.Config.BazaarDbUploadEnabled?.Value ?? false,
+            bundleScreenshotRequestedResolver: () => services.Config.BazaarDbUploadEnabled.Value,
             modVersionResolver: () => BppPluginVersion.Current
         ) { }
 

@@ -2,7 +2,6 @@
 using BazaarGameShared.Domain.Core.Types;
 using BazaarPlusPlus.Game.CollectionPanel.Data;
 using BazaarPlusPlus.GameInterop.Heroes;
-using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Localization;
 
 namespace BazaarPlusPlus.Game.CollectionPanel;
@@ -203,7 +202,7 @@ internal static class CollectionPanelText
         };
     }
 
-    private static string Resolve(LocalizedTextSet set) => LocalizedTextHelpers.Resolve(set);
+    private static string Resolve(LocalizedTextSet set) => L.Resolve(set);
 
     private static string FormatSimple(
         string english,
@@ -211,6 +210,6 @@ internal static class CollectionPanelText
         string chineseTraditional
     )
     {
-        return LocalizedTextHelpers.FormatSimple(english, chineseMainland, chineseTraditional);
+        return L.Resolve(new LocalizedTextSet(english, chineseMainland, chineseTraditional));
     }
 }

@@ -2,7 +2,6 @@
 using System.Globalization;
 using BazaarPlusPlus.Game.HistoryPanel.Data;
 using BazaarPlusPlus.Game.HistoryPanel.Storage;
-using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Localization;
 
 namespace BazaarPlusPlus.Game.HistoryPanel;
@@ -52,7 +51,7 @@ internal static class HistoryPanelFormatter
     private static string Mode(HistoryRunRecord run) =>
         run.GameMode.Trim().ToLowerInvariant() switch
         {
-            "ranked" => LocalizedTextHelpers.Resolve(new LocalizedTextSet("Ranked", "排位")),
+            "ranked" => L.Resolve(new LocalizedTextSet("Ranked", "排位")),
             "unranked" => HistoryPanelText.Unranked(),
             _ => HistoryPanelText.Unknown(),
         };

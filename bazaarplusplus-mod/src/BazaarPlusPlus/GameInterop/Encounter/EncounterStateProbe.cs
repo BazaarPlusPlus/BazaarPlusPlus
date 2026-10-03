@@ -7,7 +7,7 @@ using UnityEngine;
 namespace BazaarPlusPlus.GameInterop.Encounter;
 
 /// <summary>Read-only encounter state module. Keep the id and choice reads cheap.</summary>
-internal sealed class EncounterStateProbe : IEncounterStateProbe, ITypedEncounterStateProbe
+internal sealed class EncounterStateProbe : IEncounterStateProbe
 {
     private int _encounterIdsFrame = int.MinValue;
     private int _choicePedestalFrame = int.MinValue;
@@ -18,11 +18,6 @@ internal sealed class EncounterStateProbe : IEncounterStateProbe, ITypedEncounte
         ChoicePedestalSnapshot.Empty
     );
 
-    public EncounterIdsSnapshot GetEncounterIds()
-    {
-        return GetEncounterIdsOutcome().Snapshot;
-    }
-
     public EncounterIdsProbeOutcome GetEncounterIdsOutcome()
     {
         var frame = Time.frameCount;
@@ -32,11 +27,6 @@ internal sealed class EncounterStateProbe : IEncounterStateProbe, ITypedEncounte
         _encounterIdsOutcome = ReadEncounterIds();
         _encounterIdsFrame = frame;
         return _encounterIdsOutcome;
-    }
-
-    public ChoicePedestalSnapshot GetChoicePedestal()
-    {
-        return GetChoicePedestalOutcome().Snapshot;
     }
 
     public ChoicePedestalProbeOutcome GetChoicePedestalOutcome()
