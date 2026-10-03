@@ -4,6 +4,7 @@ using BazaarPlusPlus.Core.Runtime;
 using BazaarPlusPlus.Game.PvpBattles;
 using BazaarPlusPlus.Game.PvpBattles.Persistence;
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 using BazaarPlusPlus.Storage.Paths;
 
 namespace BazaarPlusPlus.Game.CombatReplay;
@@ -109,11 +110,15 @@ internal sealed class ReplayPersistenceOrchestrator : IDisposable
                         );
                     }
                     BppLog.ErrorEvent(
-                        CombatReplayLogEvents.PersistenceFailed,
+                        new BppLogEvent(
+                            BppLogFeatureScope.CombatReplay,
+                            "combat_replay.persistence.failed"
+                        ),
                         result.Error!,
-                        CombatReplayLogEvents.PersistenceBattleId.Bind(result.Manifest.BattleId),
-                        CombatReplayLogEvents.PersistenceRunId.Bind(result.Manifest.RunId),
-                        CombatReplayLogEvents.PersistenceReasonCode.Bind(
+                        ("battle_id", result.Manifest.BattleId, BppLogCorrelationPolicy.Short),
+                        ("run_id", result.Manifest.RunId, BppLogCorrelationPolicy.Short),
+                        (
+                            "reason_code",
                             result.Error is OperationCanceledException
                                 ? ReplayPersistenceReasonCode.ShutdownAbandoned
                                 : ReplayPersistenceReasonCode.PersistenceFailed
@@ -150,16 +155,15 @@ internal sealed class ReplayPersistenceOrchestrator : IDisposable
                 }
 
                 BppLog.DebugEvent(
-                    CombatReplayLogEvents.PersistenceSucceeded,
+                    new BppLogEvent(
+                        BppLogFeatureScope.CombatReplay,
+                        "combat_replay.persistence.succeeded"
+                    ),
                     () =>
                         [
-                            CombatReplayLogEvents.PersistenceBattleId.Bind(
-                                result.Manifest.BattleId
-                            ),
-                            CombatReplayLogEvents.PersistenceRunId.Bind(result.Manifest.RunId),
-                            CombatReplayLogEvents.PersistenceReasonCode.Bind(
-                                ReplayPersistenceReasonCode.Persisted
-                            ),
+                            ("battle_id", result.Manifest.BattleId, BppLogCorrelationPolicy.Short),
+                            ("run_id", result.Manifest.RunId, BppLogCorrelationPolicy.Short),
+                            ("reason_code", ReplayPersistenceReasonCode.Persisted),
                         ]
                 );
             }

@@ -1,6 +1,7 @@
 #nullable enable
 using BazaarGameClient.Domain.Models.Cards;
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 using HarmonyLib;
 using TheBazaar;
 using TheBazaar.Tooltips;
@@ -137,13 +138,16 @@ internal static class TooltipPreviewTargetResolver
         Card? card
     ) =>
         BppLog.DebugEvent(
-            TooltipLogEvents.PreviewTargetResolvedOrSkipped,
+            new BppLogEvent(
+                BppLogFeatureScope.Tooltips,
+                "tooltips.preview_target.resolved_or_skipped"
+            ),
             () =>
                 [
-                    TooltipLogEvents.PreviewTargetOutcome.Bind(outcome),
-                    TooltipLogEvents.PreviewTargetReasonCode.Bind(reasonCode),
-                    TooltipLogEvents.PreviewTargetTemplateId.Bind(card?.TemplateId),
-                    TooltipLogEvents.PreviewTargetCardInstanceId.Bind(card?.InstanceId.ToString()),
+                    ("outcome", outcome),
+                    ("reason_code", reasonCode),
+                    ("template_id", card?.TemplateId),
+                    ("card_instance_id", card?.InstanceId.ToString(), BppLogCorrelationPolicy.Hash),
                 ]
         );
 }

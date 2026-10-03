@@ -22,6 +22,7 @@ using BazaarPlusPlus.Storage.Paths;
 using BazaarPlusPlus.Storage.RunLog;
 using BazaarPlusPlus.Storage.RunScreenshot;
 using BazaarPlusPlus.TestSupport;
+using BepInEx.Logging;
 using MessagePack;
 using Microsoft.Data.Sqlite;
 using SixLabors.ImageSharp;
@@ -35,6 +36,12 @@ var root = Path.Combine(Path.GetTempPath(), "bpp-v5-pipeline-" + Guid.NewGuid().
 Directory.CreateDirectory(root);
 try
 {
+    // Privacy anchor: the real log stack observes the whole seal -> outbox -> upload run.
+    var logLines = new List<string>();
+    var logSource = new ManualLogSource("bundle-pipeline-privacy");
+    logSource.LogEvent += (_, args) => logLines.Add(args.Data?.ToString() ?? string.Empty);
+    BppLog.Install(logSource);
+
     var artifacts = new PipelineArtifacts();
     var dataRoot = Path.Combine(root, "pipeline");
     Directory.CreateDirectory(dataRoot);
@@ -196,6 +203,9 @@ try
             "run-corrupt-replay",
         ]
     );
+    BppLog.Flush();
+    LogPrivacy.Verify(logLines);
+
     // The golden comes first so a pipeline regression shows as an artifact diff.
     if (!artifacts.CompareWithGolden())
         return 1;
@@ -904,6 +914,34 @@ static void Assert(bool condition, string message)
 {
     if (!condition)
         throw new InvalidOperationException(message);
+}
+
+/// <summary>
+/// The account id the runs carry and the secrets the 5xx upload body carries; no log line from
+/// the pipeline run may contain any of them.
+/// </summary>
+internal static class LogPrivacy
+{
+    internal const string AccountId = "account-001";
+    internal const string ResponseSecret = "token-secret";
+    internal const string AccountSecret = "account-secret";
+
+    internal static void Verify(IReadOnlyList<string> lines)
+    {
+        Check.That(
+            lines.Any(line => line.Contains("event=bundle_pipeline.seal.succeeded"))
+                && lines.Any(line => line.Contains("event=bundle_pipeline.upload.degraded"))
+                && lines.Any(line => line.Contains("event=bundle_pipeline.upload.succeeded")),
+            "The privacy capture must observe the seal, the failed upload, and the accepted upload."
+        );
+        foreach (var secret in new[] { AccountId, ResponseSecret, AccountSecret })
+        {
+            var leaked = lines.FirstOrDefault(line =>
+                line.Contains(secret, StringComparison.Ordinal)
+            );
+            Check.That(leaked == null, $"A log line carries '{secret}': {leaked}");
+        }
+    }
 }
 
 internal sealed class CaptureHandler(Queue<HttpResponseMessage> responses) : HttpMessageHandler

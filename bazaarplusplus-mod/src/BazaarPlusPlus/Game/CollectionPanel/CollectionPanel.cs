@@ -16,6 +16,7 @@ using BazaarPlusPlus.GameInterop.DayTiers;
 using BazaarPlusPlus.GameInterop.StaticCards;
 using BazaarPlusPlus.GameInterop.TagTypography;
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.LowLevel;
@@ -140,10 +141,8 @@ internal sealed class CollectionPanel : MonoBehaviour
         if (_instance?._overlayHandle == null)
         {
             BppLog.ErrorEvent(
-                CollectionPanelLogEvents.OpenFailed,
-                CollectionPanelLogEvents.OpenFailedReasonCode.Bind(
-                    CollectionPanelLogReasonCode.NotMounted
-                )
+                new BppLogEvent(BppLogFeatureScope.CollectionPanel, "collection_panel.open.failed"),
+                ("reason_code", CollectionPanelLogReasonCode.NotMounted)
             );
             return;
         }
@@ -156,22 +155,21 @@ internal sealed class CollectionPanel : MonoBehaviour
                 return;
             case OverlayRequestOutcome.SuppressedByCombat:
                 BppLog.DebugEvent(
-                    CollectionPanelLogEvents.OpenSkipped,
-                    static () =>
-                        [
-                            CollectionPanelLogEvents.OpenSkippedReasonCode.Bind(
-                                CollectionPanelLogReasonCode.CombatActive
-                            ),
-                        ]
+                    new BppLogEvent(
+                        BppLogFeatureScope.CollectionPanel,
+                        "collection_panel.open.skipped"
+                    ),
+                    static () => [("reason_code", CollectionPanelLogReasonCode.CombatActive)]
                 );
                 return;
             case OverlayRequestOutcome.UnknownPanel:
             default:
                 BppLog.ErrorEvent(
-                    CollectionPanelLogEvents.OpenFailed,
-                    CollectionPanelLogEvents.OpenFailedReasonCode.Bind(
-                        CollectionPanelLogReasonCode.UnknownPanel
-                    )
+                    new BppLogEvent(
+                        BppLogFeatureScope.CollectionPanel,
+                        "collection_panel.open.failed"
+                    ),
+                    ("reason_code", CollectionPanelLogReasonCode.UnknownPanel)
                 );
                 return;
         }
@@ -221,17 +219,16 @@ internal sealed class CollectionPanel : MonoBehaviour
                 : CollectionPanelSelectionOpenObservation.Degraded(failures)
         );
         BppLog.DebugEvent(
-            CollectionPanelLogEvents.SelectionResolved,
+            new BppLogEvent(
+                BppLogFeatureScope.CollectionPanel,
+                "collection_panel.selection.resolved"
+            ),
             () =>
                 [
-                    CollectionPanelLogEvents.SelectionResolvedSource.Bind(
-                        selection.SelectedSourceKey
-                    ),
-                    CollectionPanelLogEvents.SelectionResolvedHero.Bind(selection.SelectedHero),
-                    CollectionPanelLogEvents.SelectionResolvedDay.Bind(currentRunDay),
-                    CollectionPanelLogEvents.SelectionResolvedEncounterId.Bind(
-                        encounterIds.CurrentEncounterTemplateId
-                    ),
+                    ("source", selection.SelectedSourceKey),
+                    ("hero", selection.SelectedHero),
+                    ("day", currentRunDay),
+                    ("encounter_id", encounterIds.CurrentEncounterTemplateId),
                 ]
         );
         return (selection, currentRunDay, encounteredMerchantSourceKeys);
@@ -611,11 +608,13 @@ internal sealed class CollectionPanel : MonoBehaviour
         catch (Exception ex)
         {
             BppLog.WarnEvent(
-                CollectionPanelLogEvents.CleanupDegraded,
+                new BppLogEvent(
+                    BppLogFeatureScope.CollectionPanel,
+                    "collection_panel.cleanup.degraded",
+                    storm: ["reason_code"]
+                ),
                 ex,
-                CollectionPanelLogEvents.CleanupDegradedReasonCode.Bind(
-                    CollectionPanelLogReasonCode.PendingBindWaitFailed
-                )
+                ("reason_code", CollectionPanelLogReasonCode.PendingBindWaitFailed)
             );
         }
 

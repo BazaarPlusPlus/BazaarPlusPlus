@@ -3,14 +3,6 @@ namespace BazaarPlusPlus.Infrastructure.Logging;
 
 internal static class BppLogSchemaRules
 {
-    internal const int MaximumFields = 128;
-
-    internal static bool IsKnownCorrelation(BppLogCorrelationPolicy correlation) =>
-        correlation == BppLogCorrelationPolicy.None
-        || correlation == BppLogCorrelationPolicy.Full
-        || correlation == BppLogCorrelationPolicy.Short
-        || correlation == BppLogCorrelationPolicy.Hash;
-
     internal static bool IsDottedSnakeIdentifier(string? value, int minimumSegments)
     {
         if (string.IsNullOrEmpty(value) || value.Length > 128)

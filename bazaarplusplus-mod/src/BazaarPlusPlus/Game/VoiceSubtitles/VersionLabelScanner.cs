@@ -2,6 +2,7 @@
 
 using BazaarPlusPlus.GameInterop.Fonts;
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 using TMPro;
 using UnityEngine;
 
@@ -125,14 +126,11 @@ internal sealed class VersionLabelScanner : MonoBehaviour
 
         if (best != null)
             BppLog.DebugEvent(
-                VoiceSubtitlesDisplayLogEvents.MountAnchorSelected,
-                () =>
-                    [
-                        VoiceSubtitlesDisplayLogEvents.MountAnchorPath.Bind(
-                            BuildPath(best.transform)
-                        ),
-                        VoiceSubtitlesDisplayLogEvents.MountAnchorLabelText.Bind(best.text),
-                    ]
+                new BppLogEvent(
+                    BppLogFeatureScope.VoiceSubtitles,
+                    "voice_subtitles.mount_anchor.selected"
+                ),
+                () => [("anchor_path", BuildPath(best.transform)), ("label_text", best.text)]
             );
 
         return best;

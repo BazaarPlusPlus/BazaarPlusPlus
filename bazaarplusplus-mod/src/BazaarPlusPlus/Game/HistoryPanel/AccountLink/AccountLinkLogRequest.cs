@@ -1,5 +1,6 @@
 #nullable enable
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 using BazaarPlusPlus.ModApi.Clients;
 
 namespace BazaarPlusPlus.Game.HistoryPanel.AccountLink;
@@ -50,11 +51,14 @@ internal sealed class AccountLinkLogRequest
             return;
 
         BppLog.InfoEvent(
-            HistoryPanelAccountLinkLogEvents.Succeeded,
-            new[]
+            new BppLogEvent(
+                BppLogFeatureScope.HistoryPanel,
+                "history_panel.account_link.succeeded"
+            ),
+            new BppLogField[]
             {
-                HistoryPanelAccountLinkLogEvents.RequestId.Bind(_requestId),
-                HistoryPanelAccountLinkLogEvents.Method.Bind(_method),
+                ("request_id", _requestId, BppLogCorrelationPolicy.Short),
+                ("method", _method),
             }
         );
     }
@@ -67,16 +71,31 @@ internal sealed class AccountLinkLogRequest
         if (!TryComplete())
             return;
 
-        var values = new[]
+        var values = new BppLogField[]
         {
-            HistoryPanelAccountLinkLogEvents.RequestId.Bind(_requestId),
-            HistoryPanelAccountLinkLogEvents.Method.Bind(_method),
-            HistoryPanelAccountLinkLogEvents.FailureReasonCode.Bind(reason),
+            ("request_id", _requestId, BppLogCorrelationPolicy.Short),
+            ("method", _method),
+            ("reason_code", reason),
         };
         if (exception == null)
-            BppLog.ErrorEvent(HistoryPanelAccountLinkLogEvents.Failed, values);
+            BppLog.ErrorEvent(
+                new BppLogEvent(
+                    BppLogFeatureScope.HistoryPanel,
+                    "history_panel.account_link.failed",
+                    storm: []
+                ),
+                values
+            );
         else
-            BppLog.ErrorEvent(HistoryPanelAccountLinkLogEvents.Failed, exception, values);
+            BppLog.ErrorEvent(
+                new BppLogEvent(
+                    BppLogFeatureScope.HistoryPanel,
+                    "history_panel.account_link.failed",
+                    storm: []
+                ),
+                exception,
+                values
+            );
     }
 
     internal void Skipped(AccountLinkReason reason)
@@ -85,12 +104,12 @@ internal sealed class AccountLinkLogRequest
             return;
 
         BppLog.DebugEvent(
-            HistoryPanelAccountLinkLogEvents.Skipped,
+            new BppLogEvent(BppLogFeatureScope.HistoryPanel, "history_panel.account_link.skipped"),
             () =>
-                new[]
+                new BppLogField[]
                 {
-                    HistoryPanelAccountLinkLogEvents.RequestId.Bind(_requestId),
-                    HistoryPanelAccountLinkLogEvents.SkippedReasonCode.Bind(reason),
+                    ("request_id", _requestId, BppLogCorrelationPolicy.Short),
+                    ("reason_code", reason),
                 }
         );
     }

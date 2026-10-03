@@ -1,5 +1,6 @@
 #nullable enable
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 
 namespace BazaarPlusPlus.Game.Upload;
 
@@ -107,7 +108,10 @@ internal sealed class StartupUploadAttemptRunner
         }
 
         _waitingForRunExitLogged = false;
-        BppLog.DebugEvent(UploadLogEvents.AttemptStarted, () => []);
+        BppLog.DebugEvent(
+            new BppLogEvent(BppLogFeatureScope.Upload, "upload.attempt.started"),
+            () => []
+        );
         try
         {
             // An attempt's synchronous prefix (outbox scan, queue-store round trips, the first
@@ -152,12 +156,14 @@ internal sealed class StartupUploadAttemptRunner
         catch (Exception ex)
         {
             BppLog.WarnEvent(
-                UploadLogEvents.CleanupDegraded,
+                new BppLogEvent(
+                    BppLogFeatureScope.Upload,
+                    "upload.cleanup.degraded",
+                    storm: ["phase", "reason_code"]
+                ),
                 ex,
-                UploadLogEvents.CleanupDegradedPhase.Bind(UploadCleanupPhase.ActivationDispose),
-                UploadLogEvents.CleanupDegradedReasonCode.Bind(
-                    UploadLogReasonCode.ActivationDisposeException
-                )
+                ("phase", UploadCleanupPhase.ActivationDispose),
+                ("reason_code", UploadLogReasonCode.ActivationDisposeException)
             );
         }
     }

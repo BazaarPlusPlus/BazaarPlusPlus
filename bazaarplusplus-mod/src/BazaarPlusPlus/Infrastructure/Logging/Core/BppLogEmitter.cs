@@ -26,14 +26,14 @@ internal sealed class BppLogEmitter
 
     internal void Emit(
         BppLogSeverity severity,
-        BppLogEventDefinition definition,
-        IReadOnlyList<BppLogFieldValue>? values = null,
+        BppLogEvent logEvent,
+        IReadOnlyList<BppLogField>? fields = null,
         Exception? exception = null
     )
     {
         try
         {
-            Volatile.Read(ref _pipeline)?.Emit(severity, definition, values, exception);
+            Volatile.Read(ref _pipeline)?.Emit(severity, logEvent, fields, exception);
         }
         catch
         {
@@ -42,34 +42,18 @@ internal sealed class BppLogEmitter
     }
 
     [Conditional("DEBUG")]
-    internal void Debug(BppLogEventDefinition definition, Func<BppLogFieldValue[]> valuesFactory)
-    {
-        try
-        {
-            var pipeline = Volatile.Read(ref _pipeline);
-            if (pipeline == null || valuesFactory == null)
-                return;
-            pipeline.Emit(BppLogSeverity.Debug, definition, valuesFactory());
-        }
-        catch
-        {
-            // Debug diagnostics never affect feature behavior.
-        }
-    }
-
-    [Conditional("DEBUG")]
     internal void Debug(
-        BppLogEventDefinition definition,
-        Exception exception,
-        Func<BppLogFieldValue[]> valuesFactory
+        BppLogEvent logEvent,
+        Exception? exception,
+        Func<BppLogField[]> fieldsFactory
     )
     {
         try
         {
             var pipeline = Volatile.Read(ref _pipeline);
-            if (pipeline == null || valuesFactory == null)
+            if (pipeline == null || fieldsFactory == null)
                 return;
-            pipeline.Emit(BppLogSeverity.Debug, definition, valuesFactory(), exception);
+            pipeline.Emit(BppLogSeverity.Debug, logEvent, fieldsFactory(), exception);
         }
         catch
         {
@@ -77,26 +61,15 @@ internal sealed class BppLogEmitter
         }
     }
 
-    internal void RecoverStorm(BppLogEventDefinition definition)
+    internal void RecoverStorm(BppLogEvent logEvent, IReadOnlyList<BppLogField>? fields)
     {
         try
         {
-            Volatile.Read(ref _pipeline)?.RecoverStorm(definition);
-        }
-        catch
-        {
-            // Recovery reporting is best effort.
-        }
-    }
-
-    internal void RecoverStorm(
-        BppLogEventDefinition definition,
-        IReadOnlyList<BppLogFieldValue>? values
-    )
-    {
-        try
-        {
-            Volatile.Read(ref _pipeline)?.RecoverStorm(definition, values);
+            var pipeline = Volatile.Read(ref _pipeline);
+            if (fields == null || fields.Count == 0)
+                pipeline?.RecoverStorm(logEvent);
+            else
+                pipeline?.RecoverStorm(logEvent, fields);
         }
         catch
         {

@@ -1,6 +1,7 @@
 #nullable enable
 using System.Diagnostics;
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 
 namespace BazaarPlusPlus.Game.CombatReplay.Warmup;
 
@@ -46,7 +47,7 @@ internal static class ReplayWarmupLogging
     )
     {
         BppLog.DebugEvent(
-            CombatReplayLogEvents.WarmupCompleted,
+            new BppLogEvent(BppLogFeatureScope.CombatReplay, "combat_replay.warmup.completed"),
             () =>
                 BuildCompletedFields(
                     ReplayWarmupStage.Presentation,
@@ -66,7 +67,7 @@ internal static class ReplayWarmupLogging
     )
     {
         BppLog.DebugEvent(
-            CombatReplayLogEvents.WarmupCompleted,
+            new BppLogEvent(BppLogFeatureScope.CombatReplay, "combat_replay.warmup.completed"),
             () =>
                 BuildCompletedFields(
                     ReplayWarmupStage.AudioBanks,
@@ -89,30 +90,23 @@ internal static class ReplayWarmupLogging
         if (exception == null)
         {
             BppLog.DebugEvent(
-                CombatReplayLogEvents.WarmupAssetSkipped,
-                () =>
-                    [
-                        CombatReplayLogEvents.WarmupAssetStage.Bind(stage),
-                        CombatReplayLogEvents.WarmupAssetKey.Bind(assetKey),
-                        CombatReplayLogEvents.WarmupAssetReasonCode.Bind(reasonCode),
-                    ]
+                new BppLogEvent(
+                    BppLogFeatureScope.CombatReplay,
+                    "combat_replay.warmup.asset_skipped"
+                ),
+                () => [("stage", stage), ("asset_key", assetKey), ("reason_code", reasonCode)]
             );
             return;
         }
 
         BppLog.DebugEvent(
-            CombatReplayLogEvents.WarmupAssetSkipped,
+            new BppLogEvent(BppLogFeatureScope.CombatReplay, "combat_replay.warmup.asset_skipped"),
             exception,
-            () =>
-                [
-                    CombatReplayLogEvents.WarmupAssetStage.Bind(stage),
-                    CombatReplayLogEvents.WarmupAssetKey.Bind(assetKey),
-                    CombatReplayLogEvents.WarmupAssetReasonCode.Bind(reasonCode),
-                ]
+            () => [("stage", stage), ("asset_key", assetKey), ("reason_code", reasonCode)]
         );
     }
 
-    private static Infrastructure.Logging.BppLogFieldValue[] BuildCompletedFields(
+    private static Infrastructure.Logging.BppLogField[] BuildCompletedFields(
         ReplayWarmupStage stage,
         string? battleId,
         long durationMilliseconds,
@@ -120,47 +114,27 @@ internal static class ReplayWarmupLogging
         ReplayAudioWarmupStats? audio
     ) =>
         [
-            CombatReplayLogEvents.WarmupCompletedStage.Bind(stage),
-            CombatReplayLogEvents.WarmupCompletedBattleId.Bind(battleId),
-            CombatReplayLogEvents.WarmupCompletedDurationMs.Bind(durationMilliseconds),
-            CombatReplayLogEvents.WarmupBoardBankLoadedCount.Bind(audio?.BoardBanksLoaded ?? 0),
-            CombatReplayLogEvents.WarmupBoardBankAlreadyLoadedCount.Bind(
-                audio?.BoardBanksAlreadyLoaded ?? 0
-            ),
-            CombatReplayLogEvents.WarmupBoardBankFailedCount.Bind(audio?.BoardBanksFailed ?? 0),
-            CombatReplayLogEvents.WarmupBoardBankSkippedCount.Bind(audio?.BoardBanksSkipped ?? 0),
-            CombatReplayLogEvents.WarmupSoundtrackBankLoadedCount.Bind(
-                audio?.SoundtrackBanksLoaded ?? 0
-            ),
-            CombatReplayLogEvents.WarmupSoundtrackBankAlreadyLoadedCount.Bind(
-                audio?.SoundtrackBanksAlreadyLoaded ?? 0
-            ),
-            CombatReplayLogEvents.WarmupSoundtrackBankFailedCount.Bind(
-                audio?.SoundtrackBanksFailed ?? 0
-            ),
-            CombatReplayLogEvents.WarmupSoundtrackBankSkippedCount.Bind(
-                audio?.SoundtrackBanksSkipped ?? 0
-            ),
-            CombatReplayLogEvents.WarmupSharedAssetPreloadedCount.Bind(
-                presentation?.SharedAssetsPreloaded ?? 0
-            ),
-            CombatReplayLogEvents.WarmupSharedAssetSkippedCount.Bind(
-                presentation?.SharedAssetsSkipped ?? 0
-            ),
-            CombatReplayLogEvents.WarmupCardPreloadedCount.Bind(presentation?.CardsPreloaded ?? 0),
-            CombatReplayLogEvents.WarmupCardSkippedCount.Bind(presentation?.CardsSkipped ?? 0),
-            CombatReplayLogEvents.WarmupCardFailedCount.Bind(presentation?.CardsFailed ?? 0),
-            CombatReplayLogEvents.WarmupOverrideAssetPreloadedCount.Bind(
-                presentation?.OverrideAssetsPreloaded ?? 0
-            ),
-            CombatReplayLogEvents.WarmupOverrideAssetSkippedCount.Bind(
-                presentation?.OverrideAssetsSkipped ?? 0
-            ),
-            CombatReplayLogEvents.WarmupOverrideAssetFailedCount.Bind(
-                presentation?.OverrideAssetsFailed ?? 0
-            ),
-            CombatReplayLogEvents.WarmupVfxPrewarmedCount.Bind(presentation?.VfxPrewarmed ?? 0),
-            CombatReplayLogEvents.WarmupVfxSkippedCount.Bind(presentation?.VfxSkipped ?? 0),
-            CombatReplayLogEvents.WarmupVfxFailedCount.Bind(presentation?.VfxFailed ?? 0),
+            ("stage", stage),
+            ("battle_id", battleId, BppLogCorrelationPolicy.Short),
+            ("duration_ms", durationMilliseconds),
+            ("board_bank_loaded_count", audio?.BoardBanksLoaded ?? 0),
+            ("board_bank_already_loaded_count", audio?.BoardBanksAlreadyLoaded ?? 0),
+            ("board_bank_failed_count", audio?.BoardBanksFailed ?? 0),
+            ("board_bank_skipped_count", audio?.BoardBanksSkipped ?? 0),
+            ("soundtrack_bank_loaded_count", audio?.SoundtrackBanksLoaded ?? 0),
+            ("soundtrack_bank_already_loaded_count", audio?.SoundtrackBanksAlreadyLoaded ?? 0),
+            ("soundtrack_bank_failed_count", audio?.SoundtrackBanksFailed ?? 0),
+            ("soundtrack_bank_skipped_count", audio?.SoundtrackBanksSkipped ?? 0),
+            ("shared_asset_preloaded_count", presentation?.SharedAssetsPreloaded ?? 0),
+            ("shared_asset_skipped_count", presentation?.SharedAssetsSkipped ?? 0),
+            ("card_preloaded_count", presentation?.CardsPreloaded ?? 0),
+            ("card_skipped_count", presentation?.CardsSkipped ?? 0),
+            ("card_failed_count", presentation?.CardsFailed ?? 0),
+            ("override_asset_preloaded_count", presentation?.OverrideAssetsPreloaded ?? 0),
+            ("override_asset_skipped_count", presentation?.OverrideAssetsSkipped ?? 0),
+            ("override_asset_failed_count", presentation?.OverrideAssetsFailed ?? 0),
+            ("vfx_prewarmed_count", presentation?.VfxPrewarmed ?? 0),
+            ("vfx_skipped_count", presentation?.VfxSkipped ?? 0),
+            ("vfx_failed_count", presentation?.VfxFailed ?? 0),
         ];
 }

@@ -1,6 +1,7 @@
 #nullable enable
 using System.Diagnostics;
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -163,45 +164,43 @@ internal sealed class ReplayVideoCaptureSession : IDisposable
         _started = true;
 
         BppLog.DebugEvent(
-            CombatReplayVideoLogEvents.VideoCaptureStatsObserved,
+            new BppLogEvent(
+                BppLogFeatureScope.CombatReplay,
+                "combat_replay.video_capture.stats_observed"
+            ),
             () =>
                 [
-                    CombatReplayVideoLogEvents.StatsRecordingId.Bind(_request.VideoId),
-                    CombatReplayVideoLogEvents.StatsStage.Bind(ReplayVideoLogStage.CaptureStarted),
-                    CombatReplayVideoLogEvents.StatsWidth.Bind(_request.Width),
-                    CombatReplayVideoLogEvents.StatsHeight.Bind(_request.Height),
-                    CombatReplayVideoLogEvents.StatsFps.Bind(_request.Fps),
-                    CombatReplayVideoLogEvents.StatsCapturedFrames.Bind(0),
-                    CombatReplayVideoLogEvents.StatsRepeatedFrames.Bind(0),
-                    CombatReplayVideoLogEvents.StatsDroppedFrames.Bind(0),
-                    CombatReplayVideoLogEvents.StatsDurationMs.Bind(0),
-                    CombatReplayVideoLogEvents.StatsSizeBytes.Bind(0),
-                    CombatReplayVideoLogEvents.StatsOutputPath.Bind(_request.OutputFilePath),
-                    CombatReplayVideoLogEvents.StatsCodec.Bind(_request.EncoderProfile.Codec),
-                    CombatReplayVideoLogEvents.StatsRateControl.Bind(
-                        _request.EncoderProfile.RateControlSummary
-                    ),
-                    CombatReplayVideoLogEvents.StatsFrameBytes.Bind(
-                        CalculateNv12FrameBytes(_request.Width, _request.Height)
-                    ),
-                    CombatReplayVideoLogEvents.StatsPoolCapacity.Bind(
-                        _metalEncoder?.SlotCount ?? _windowsEncoder?.SlotCount ?? 0
-                    ),
-                    CombatReplayVideoLogEvents.StatsQueueCapacity.Bind(
-                        _metalEncoder?.SlotCount ?? _windowsEncoder?.SlotCount ?? 0
-                    ),
-                    CombatReplayVideoLogEvents.StatsPoolPayloadBytes.Bind(
+                    ("recording_id", _request.VideoId, BppLogCorrelationPolicy.Short),
+                    ("stage", ReplayVideoLogStage.CaptureStarted),
+                    ("width", _request.Width),
+                    ("height", _request.Height),
+                    ("fps", _request.Fps),
+                    ("captured_frames", 0),
+                    ("repeated_frames", 0),
+                    ("dropped_frames", 0),
+                    ("duration_ms", 0),
+                    ("size_bytes", 0),
+                    ("output_path", _request.OutputFilePath),
+                    ("codec", _request.EncoderProfile.Codec),
+                    ("rate_control", _request.EncoderProfile.RateControlSummary),
+                    ("frame_bytes", CalculateNv12FrameBytes(_request.Width, _request.Height)),
+                    ("pool_capacity", _metalEncoder?.SlotCount ?? _windowsEncoder?.SlotCount ?? 0),
+                    ("queue_capacity", _metalEncoder?.SlotCount ?? _windowsEncoder?.SlotCount ?? 0),
+                    (
+                        "pool_payload_bytes",
                         (long)(_metalEncoder?.SlotCount ?? _windowsEncoder?.SlotCount ?? 0)
                             * CalculateNv12FrameBytes(_request.Width, _request.Height)
                     ),
-                    CombatReplayVideoLogEvents.StatsPoolBudgetExceeded.Bind(
+                    (
+                        "pool_budget_exceeded",
                         (long)(_metalEncoder?.SlotCount ?? _windowsEncoder?.SlotCount ?? 0)
                             * CalculateNv12FrameBytes(_request.Width, _request.Height)
                             > ReplayVideoBufferPlan.DefaultPoolBudgetBytes
                     ),
-                    CombatReplayVideoLogEvents.StatsCfrCopyP95Us.Bind(0),
-                    CombatReplayVideoLogEvents.StatsStagingBufferBytes.Bind(0),
-                    CombatReplayVideoLogEvents.StatsRenderTextureEstimatedBytes.Bind(
+                    ("cfr_copy_p95_us", 0),
+                    ("staging_buffer_bytes", 0),
+                    (
+                        "render_texture_estimated_bytes",
                         _captureRenderTexture == null ? 0 : _frameByteLength
                     ),
                 ]
@@ -535,40 +534,25 @@ internal sealed class ReplayVideoCaptureSession : IDisposable
     private void LogMetalCaptureStats()
     {
         BppLog.DebugEvent(
-            CombatReplayVideoLogEvents.VideoCaptureNativePipelineObserved,
+            new BppLogEvent(
+                BppLogFeatureScope.CombatReplay,
+                "combat_replay.video_capture.native_pipeline_observed"
+            ),
             () =>
                 [
-                    CombatReplayVideoLogEvents.NativeStatsRecordingId.Bind(_request.VideoId),
-                    CombatReplayVideoLogEvents.NativeStatsStage.Bind("metal_capture_sealed"),
-                    CombatReplayVideoLogEvents.NativeStatsBackpressureDroppedFrames.Bind(
-                        _nativeBackpressureDroppedFrames
-                    ),
-                    CombatReplayVideoLogEvents.NativeStatsDroppedFrames.Bind(_droppedFrames),
-                    CombatReplayVideoLogEvents.NativeStatsLeaseMisses.Bind(_nativeLeaseMisses),
-                    CombatReplayVideoLogEvents.NativeStatsEnqueueRejects.Bind(
-                        _nativeEnqueueRejects
-                    ),
-                    CombatReplayVideoLogEvents.NativeStatsPacerResyncDroppedFrames.Bind(
-                        _nativePacerResyncDroppedFrames
-                    ),
-                    CombatReplayVideoLogEvents.NativeStatsRenderFrameP50Us.Bind(
-                        _renderFrameTiming.P50Microseconds
-                    ),
-                    CombatReplayVideoLogEvents.NativeStatsRenderFrameP95Us.Bind(
-                        _renderFrameTiming.P95Microseconds
-                    ),
-                    CombatReplayVideoLogEvents.NativeStatsRenderFrameP99Us.Bind(
-                        _renderFrameTiming.P99Microseconds
-                    ),
-                    CombatReplayVideoLogEvents.NativeStatsTextureCopyP50Us.Bind(
-                        _cfrCopyTiming.P50Microseconds
-                    ),
-                    CombatReplayVideoLogEvents.NativeStatsTextureCopyP95Us.Bind(
-                        _cfrCopyTiming.P95Microseconds
-                    ),
-                    CombatReplayVideoLogEvents.NativeStatsTextureCopyP99Us.Bind(
-                        _cfrCopyTiming.P99Microseconds
-                    ),
+                    ("recording_id", _request.VideoId, BppLogCorrelationPolicy.Short),
+                    ("stage", "metal_capture_sealed"),
+                    ("backpressure_dropped_frames", _nativeBackpressureDroppedFrames),
+                    ("dropped_frames", _droppedFrames),
+                    ("lease_misses", _nativeLeaseMisses),
+                    ("enqueue_rejects", _nativeEnqueueRejects),
+                    ("pacer_resync_dropped_frames", _nativePacerResyncDroppedFrames),
+                    ("render_frame_p50_us", _renderFrameTiming.P50Microseconds),
+                    ("render_frame_p95_us", _renderFrameTiming.P95Microseconds),
+                    ("render_frame_p99_us", _renderFrameTiming.P99Microseconds),
+                    ("texture_copy_p50_us", _cfrCopyTiming.P50Microseconds),
+                    ("texture_copy_p95_us", _cfrCopyTiming.P95Microseconds),
+                    ("texture_copy_p99_us", _cfrCopyTiming.P99Microseconds),
                 ]
         );
     }
@@ -576,40 +560,25 @@ internal sealed class ReplayVideoCaptureSession : IDisposable
     private void LogWindowsCaptureStats()
     {
         BppLog.DebugEvent(
-            CombatReplayVideoLogEvents.VideoCaptureNativePipelineObserved,
+            new BppLogEvent(
+                BppLogFeatureScope.CombatReplay,
+                "combat_replay.video_capture.native_pipeline_observed"
+            ),
             () =>
                 [
-                    CombatReplayVideoLogEvents.NativeStatsRecordingId.Bind(_request.VideoId),
-                    CombatReplayVideoLogEvents.NativeStatsStage.Bind("d3d11_mf_capture_sealed"),
-                    CombatReplayVideoLogEvents.NativeStatsBackpressureDroppedFrames.Bind(
-                        _nativeBackpressureDroppedFrames
-                    ),
-                    CombatReplayVideoLogEvents.NativeStatsDroppedFrames.Bind(_droppedFrames),
-                    CombatReplayVideoLogEvents.NativeStatsLeaseMisses.Bind(_nativeLeaseMisses),
-                    CombatReplayVideoLogEvents.NativeStatsEnqueueRejects.Bind(
-                        _nativeEnqueueRejects
-                    ),
-                    CombatReplayVideoLogEvents.NativeStatsPacerResyncDroppedFrames.Bind(
-                        _nativePacerResyncDroppedFrames
-                    ),
-                    CombatReplayVideoLogEvents.NativeStatsRenderFrameP50Us.Bind(
-                        _renderFrameTiming.P50Microseconds
-                    ),
-                    CombatReplayVideoLogEvents.NativeStatsRenderFrameP95Us.Bind(
-                        _renderFrameTiming.P95Microseconds
-                    ),
-                    CombatReplayVideoLogEvents.NativeStatsRenderFrameP99Us.Bind(
-                        _renderFrameTiming.P99Microseconds
-                    ),
-                    CombatReplayVideoLogEvents.NativeStatsTextureCopyP50Us.Bind(
-                        _cfrCopyTiming.P50Microseconds
-                    ),
-                    CombatReplayVideoLogEvents.NativeStatsTextureCopyP95Us.Bind(
-                        _cfrCopyTiming.P95Microseconds
-                    ),
-                    CombatReplayVideoLogEvents.NativeStatsTextureCopyP99Us.Bind(
-                        _cfrCopyTiming.P99Microseconds
-                    ),
+                    ("recording_id", _request.VideoId, BppLogCorrelationPolicy.Short),
+                    ("stage", "d3d11_mf_capture_sealed"),
+                    ("backpressure_dropped_frames", _nativeBackpressureDroppedFrames),
+                    ("dropped_frames", _droppedFrames),
+                    ("lease_misses", _nativeLeaseMisses),
+                    ("enqueue_rejects", _nativeEnqueueRejects),
+                    ("pacer_resync_dropped_frames", _nativePacerResyncDroppedFrames),
+                    ("render_frame_p50_us", _renderFrameTiming.P50Microseconds),
+                    ("render_frame_p95_us", _renderFrameTiming.P95Microseconds),
+                    ("render_frame_p99_us", _renderFrameTiming.P99Microseconds),
+                    ("texture_copy_p50_us", _cfrCopyTiming.P50Microseconds),
+                    ("texture_copy_p95_us", _cfrCopyTiming.P95Microseconds),
+                    ("texture_copy_p99_us", _cfrCopyTiming.P99Microseconds),
                 ]
         );
     }
@@ -630,15 +599,16 @@ internal sealed class ReplayVideoCaptureSession : IDisposable
         catch (Exception ex)
         {
             BppLog.DebugEvent(
-                CombatReplayVideoLogEvents.RecordingCleanupFailed,
+                new BppLogEvent(
+                    BppLogFeatureScope.CombatReplay,
+                    "combat_replay.video_recording.cleanup_failed"
+                ),
                 ex,
                 () =>
                     [
-                        CombatReplayVideoLogEvents.CleanupRecordingId.Bind(_request.VideoId),
-                        CombatReplayVideoLogEvents.CleanupStage.Bind(
-                            ReplayVideoLogStage.RenderTextureRelease
-                        ),
-                        CombatReplayVideoLogEvents.CleanupPath.Bind(null),
+                        ("recording_id", _request.VideoId, BppLogCorrelationPolicy.Short),
+                        ("stage", ReplayVideoLogStage.RenderTextureRelease),
+                        ("path", null),
                     ]
             );
         }

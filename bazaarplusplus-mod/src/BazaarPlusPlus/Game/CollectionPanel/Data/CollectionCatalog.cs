@@ -2,6 +2,7 @@
 using BazaarGameShared.Domain.Cards;
 using BazaarPlusPlus.GameInterop.StaticCards;
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 
 namespace BazaarPlusPlus.Game.CollectionPanel.Data;
 
@@ -191,13 +192,11 @@ internal sealed class CollectionCatalog
         {
             unavailableReason = CollectionPanelLogReasonCode.StaticDataNotReady;
             BppLog.DebugEvent(
-                CollectionPanelLogEvents.CatalogBuildDeferred,
-                static () =>
-                    [
-                        CollectionPanelLogEvents.CatalogBuildDeferredReasonCode.Bind(
-                            CollectionPanelLogReasonCode.StaticDataNotReady
-                        ),
-                    ]
+                new BppLogEvent(
+                    BppLogFeatureScope.CollectionPanel,
+                    "collection_panel.catalog.build_deferred"
+                ),
+                static () => [("reason_code", CollectionPanelLogReasonCode.StaticDataNotReady)]
             );
             return false;
         }

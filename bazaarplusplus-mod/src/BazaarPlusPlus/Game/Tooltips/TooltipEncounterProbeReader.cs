@@ -26,16 +26,27 @@ internal static class TooltipEncounterProbeReader
 
         if (Health.ObserveFailure(TooltipEncounterProbe.Encounter, outcome.FailureReason))
         {
-            var fields = new[]
+            var fields = new BppLogField[]
             {
-                TooltipLogEvents.EncounterProbeDegradedProbe.Bind(TooltipEncounterProbe.Encounter),
-                TooltipLogEvents.EncounterProbeDegradedReasonCode.Bind(outcome.FailureReason),
+                ("probe", TooltipEncounterProbe.Encounter),
+                ("reason_code", outcome.FailureReason),
             };
             if (outcome.Exception == null)
-                BppLog.WarnEvent(TooltipLogEvents.EncounterProbeDegraded, fields);
+                BppLog.WarnEvent(
+                    new BppLogEvent(
+                        BppLogFeatureScope.Tooltips,
+                        "tooltips.encounter_probe.degraded",
+                        storm: ["probe", "reason_code"]
+                    ),
+                    fields
+                );
             else
                 BppLog.WarnEvent(
-                    TooltipLogEvents.EncounterProbeDegraded,
+                    new BppLogEvent(
+                        BppLogFeatureScope.Tooltips,
+                        "tooltips.encounter_probe.degraded",
+                        storm: ["probe", "reason_code"]
+                    ),
                     outcome.Exception,
                     fields
                 );
@@ -50,13 +61,17 @@ internal static class TooltipEncounterProbeReader
         if (!Health.ObserveSuccess(TooltipEncounterProbe.Encounter, out var reasonCode))
             return;
         BppLog.RecoverStorm(
-            TooltipLogEvents.EncounterProbeDegraded,
-            TooltipLogEvents.EncounterProbeDegradedProbe.Bind(TooltipEncounterProbe.Encounter),
-            TooltipLogEvents.EncounterProbeDegradedReasonCode.Bind(reasonCode)
+            new BppLogEvent(
+                BppLogFeatureScope.Tooltips,
+                "tooltips.encounter_probe.degraded",
+                storm: ["probe", "reason_code"]
+            ),
+            ("probe", TooltipEncounterProbe.Encounter),
+            ("reason_code", reasonCode)
         );
         BppLog.InfoEvent(
-            TooltipLogEvents.EncounterProbeRecovered,
-            TooltipLogEvents.EncounterProbeRecoveredProbe.Bind(TooltipEncounterProbe.Encounter)
+            new BppLogEvent(BppLogFeatureScope.Tooltips, "tooltips.encounter_probe.recovered"),
+            ("probe", TooltipEncounterProbe.Encounter)
         );
     }
 }

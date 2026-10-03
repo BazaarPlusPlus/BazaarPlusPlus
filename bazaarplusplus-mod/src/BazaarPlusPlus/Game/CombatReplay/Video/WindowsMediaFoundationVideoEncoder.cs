@@ -2,6 +2,7 @@
 using System.Runtime.InteropServices;
 using System.Text;
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 
 namespace BazaarPlusPlus.Game.CombatReplay.Video;
 
@@ -163,16 +164,19 @@ internal sealed class WindowsMediaFoundationVideoEncoder : IReplayVideoEncoder
         _started = true;
 
         BppLog.DebugEvent(
-            CombatReplayVideoLogEvents.VideoCaptureNativePipelineObserved,
+            new BppLogEvent(
+                BppLogFeatureScope.CombatReplay,
+                "combat_replay.video_capture.native_pipeline_observed"
+            ),
             () =>
                 [
-                    CombatReplayVideoLogEvents.NativeStatsRecordingId.Bind(_recordingId),
-                    CombatReplayVideoLogEvents.NativeStatsStage.Bind("d3d11_mf_started"),
-                    CombatReplayVideoLogEvents.NativeStatsEncoderName.Bind(ReadEncoderName()),
-                    CombatReplayVideoLogEvents.NativeStatsFramesWritten.Bind(0),
-                    CombatReplayVideoLogEvents.NativeStatsLeaseMisses.Bind(0),
-                    CombatReplayVideoLogEvents.NativeStatsEnqueueRejects.Bind(0),
-                    CombatReplayVideoLogEvents.NativeStatsMaxInFlight.Bind(0),
+                    ("recording_id", _recordingId, BppLogCorrelationPolicy.Short),
+                    ("stage", "d3d11_mf_started"),
+                    ("encoder_name", ReadEncoderName()),
+                    ("native_frames_written", 0),
+                    ("lease_misses", 0),
+                    ("enqueue_rejects", 0),
+                    ("max_in_flight", 0),
                 ]
         );
     }
@@ -323,18 +327,19 @@ internal sealed class WindowsMediaFoundationVideoEncoder : IReplayVideoEncoder
     {
         BppMfGetStats(_handle, out var stats);
         BppLog.DebugEvent(
-            CombatReplayVideoLogEvents.VideoCaptureNativePipelineObserved,
+            new BppLogEvent(
+                BppLogFeatureScope.CombatReplay,
+                "combat_replay.video_capture.native_pipeline_observed"
+            ),
             () =>
                 [
-                    CombatReplayVideoLogEvents.NativeStatsRecordingId.Bind(_recordingId),
-                    CombatReplayVideoLogEvents.NativeStatsStage.Bind("d3d11_mf_drained"),
-                    CombatReplayVideoLogEvents.NativeStatsEncoderName.Bind(ReadEncoderName()),
-                    CombatReplayVideoLogEvents.NativeStatsFramesWritten.Bind(stats.WrittenFrames),
-                    CombatReplayVideoLogEvents.NativeStatsLeaseMisses.Bind(stats.AcquireMisses),
-                    CombatReplayVideoLogEvents.NativeStatsEnqueueRejects.Bind(
-                        stats.EnqueueRejects + stats.EncodeErrors
-                    ),
-                    CombatReplayVideoLogEvents.NativeStatsMaxInFlight.Bind(stats.MaxInFlight),
+                    ("recording_id", _recordingId, BppLogCorrelationPolicy.Short),
+                    ("stage", "d3d11_mf_drained"),
+                    ("encoder_name", ReadEncoderName()),
+                    ("native_frames_written", stats.WrittenFrames),
+                    ("lease_misses", stats.AcquireMisses),
+                    ("enqueue_rejects", stats.EnqueueRejects + stats.EncodeErrors),
+                    ("max_in_flight", stats.MaxInFlight),
                 ]
         );
     }

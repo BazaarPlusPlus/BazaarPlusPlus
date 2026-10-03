@@ -5,6 +5,7 @@ using BazaarPlusPlus.Game.HistoryPanel.Storage;
 using BazaarPlusPlus.Game.PvpBattles;
 using BazaarPlusPlus.GameInterop;
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 using BazaarPlusPlus.ModApi.Bundle;
 using BazaarPlusPlus.ModApi.Clients;
 
@@ -336,14 +337,12 @@ internal sealed class GhostBattleSyncService
         catch (Exception ex)
         {
             BppLog.DebugEvent(
-                HistoryPanelLogEvents.GhostIdentityReadFailed,
+                new BppLogEvent(
+                    BppLogFeatureScope.HistoryPanel,
+                    "history_panel.ghost_identity.read_failed"
+                ),
                 ex,
-                () =>
-                    [
-                        HistoryPanelLogEvents.GhostIdentityReasonCode.Bind(
-                            HistoryPanelGhostIdentityReasonCode.ClientCacheReadFailed
-                        ),
-                    ]
+                () => [("reason_code", HistoryPanelGhostIdentityReasonCode.ClientCacheReadFailed)]
             );
             return null;
         }

@@ -1,4 +1,6 @@
 #nullable enable
+using BazaarPlusPlus.Infrastructure.Logging;
+
 namespace BazaarPlusPlus.Core.Runtime;
 
 internal sealed class BppFeatureRegistry
@@ -21,14 +23,14 @@ internal sealed class BppFeatureRegistry
             catch (Exception ex)
             {
                 global::BazaarPlusPlus.Infrastructure.BppLog.WarnEvent(
-                    global::BazaarPlusPlus.PluginLogEvents.FeatureStartDegraded,
-                    ex,
-                    global::BazaarPlusPlus.PluginLogEvents.FeatureDegradedFeature.Bind(
-                        global::BazaarPlusPlus.PluginLogIdentity.FeatureId(feature.GetType())
+                    new BppLogEvent(
+                        BppLogFeatureScope.Plugin,
+                        "plugin.feature_start.degraded",
+                        storm: ["feature", "reason_code"]
                     ),
-                    global::BazaarPlusPlus.PluginLogEvents.FeatureDegradedReasonCode.Bind(
-                        global::BazaarPlusPlus.PluginLogReasonCode.FeatureException
-                    )
+                    ex,
+                    ("feature", feature.GetType().FullName),
+                    ("reason_code", global::BazaarPlusPlus.PluginLogReasonCode.FeatureException)
                 );
             }
         }
@@ -45,14 +47,14 @@ internal sealed class BppFeatureRegistry
             catch (Exception ex)
             {
                 global::BazaarPlusPlus.Infrastructure.BppLog.WarnEvent(
-                    global::BazaarPlusPlus.PluginLogEvents.FeatureStopDegraded,
-                    ex,
-                    global::BazaarPlusPlus.PluginLogEvents.FeatureDegradedFeature.Bind(
-                        global::BazaarPlusPlus.PluginLogIdentity.FeatureId(_features[i].GetType())
+                    new BppLogEvent(
+                        BppLogFeatureScope.Plugin,
+                        "plugin.feature_stop.degraded",
+                        storm: ["feature", "reason_code"]
                     ),
-                    global::BazaarPlusPlus.PluginLogEvents.FeatureDegradedReasonCode.Bind(
-                        global::BazaarPlusPlus.PluginLogReasonCode.FeatureException
-                    )
+                    ex,
+                    ("feature", _features[i].GetType().FullName),
+                    ("reason_code", global::BazaarPlusPlus.PluginLogReasonCode.FeatureException)
                 );
             }
         }

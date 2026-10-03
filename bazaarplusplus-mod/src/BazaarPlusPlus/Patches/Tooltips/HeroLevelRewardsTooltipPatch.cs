@@ -3,6 +3,7 @@
 using BazaarPlusPlus.Game.EventPreview;
 using BazaarPlusPlus.Game.Tooltips;
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 using HarmonyLib;
 using TheBazaar.Tooltips;
 using TheBazaar.UI.Tooltips;
@@ -99,12 +100,16 @@ internal static class HeroLevelRewardsTooltipPatch
         catch (Exception ex)
         {
             BppLog.WarnEvent(
-                TooltipLogEvents.LevelRewardsDegraded,
+                new BppLogEvent(
+                    BppLogFeatureScope.Tooltips,
+                    "tooltips.level_rewards.degraded",
+                    storm: ["reason_code"]
+                ),
                 ex,
-                TooltipLogEvents.LevelRewardsOutcome.Bind(TooltipLevelRewardsOutcome.Failed),
-                TooltipLogEvents.LevelRewardsReasonCode.Bind(TooltipLogReasonCode.RenderException),
-                TooltipLogEvents.LevelRewardsLevel.Bind(0),
-                TooltipLogEvents.LevelRewardsContentLength.Bind(0)
+                ("outcome", TooltipLevelRewardsOutcome.Failed),
+                ("reason_code", TooltipLogReasonCode.RenderException),
+                ("level", 0),
+                ("content_length", 0)
             );
         }
     }
@@ -116,13 +121,16 @@ internal static class HeroLevelRewardsTooltipPatch
         int contentLength
     ) =>
         BppLog.DebugEvent(
-            TooltipLogEvents.LevelRewardsRenderedOrSkipped,
+            new BppLogEvent(
+                BppLogFeatureScope.Tooltips,
+                "tooltips.level_rewards.rendered_or_skipped"
+            ),
             () =>
                 [
-                    TooltipLogEvents.LevelRewardsOutcome.Bind(outcome),
-                    TooltipLogEvents.LevelRewardsReasonCode.Bind(reasonCode),
-                    TooltipLogEvents.LevelRewardsLevel.Bind(level),
-                    TooltipLogEvents.LevelRewardsContentLength.Bind(contentLength),
+                    ("outcome", outcome),
+                    ("reason_code", reasonCode),
+                    ("level", level),
+                    ("content_length", contentLength),
                 ]
         );
 }

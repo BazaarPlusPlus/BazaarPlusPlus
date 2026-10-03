@@ -8,6 +8,7 @@ using BazaarPlusPlus.Game.PostCombatImpact.Data;
 using BazaarPlusPlus.GameInterop.Events;
 using BazaarPlusPlus.GameInterop.StaticCards;
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 using TheBazaar;
 using TheBazaar.Tooltips;
 using TheBazaar.UI.Tooltips;
@@ -205,11 +206,13 @@ internal sealed class PostCombatImpactModule : IBppFeature
             foreach (var kind in report.ProjectionDiagnostics.Select(item => item.Kind).Distinct())
             {
                 BppLog.WarnEvent(
-                    PostCombatImpactLogEvents.ProjectionDegraded,
-                    PostCombatImpactLogEvents.ReasonCode.Bind(
-                        PostCombatImpactReasonCode.ProjectionAttributionGap
+                    new BppLogEvent(
+                        BppLogFeatureScope.PostCombatImpact,
+                        "post_combat_impact.projection.degraded",
+                        storm: ["reason_code", "projection_category"]
                     ),
-                    PostCombatImpactLogEvents.ProjectionCategory.Bind(kind)
+                    ("reason_code", PostCombatImpactReasonCode.ProjectionAttributionGap),
+                    ("projection_category", kind)
                 );
             }
         }
@@ -223,14 +226,14 @@ internal sealed class PostCombatImpactModule : IBppFeature
     private static void ReportProjectionException(Exception ex)
     {
         BppLog.WarnEvent(
-            PostCombatImpactLogEvents.ProjectionDegraded,
-            ex,
-            PostCombatImpactLogEvents.ReasonCode.Bind(
-                PostCombatImpactReasonCode.ProjectionException
+            new BppLogEvent(
+                BppLogFeatureScope.PostCombatImpact,
+                "post_combat_impact.projection.degraded",
+                storm: ["reason_code", "projection_category"]
             ),
-            PostCombatImpactLogEvents.ProjectionCategory.Bind(
-                PostCombatImpactReasonCode.ProjectionException
-            )
+            ex,
+            ("reason_code", PostCombatImpactReasonCode.ProjectionException),
+            ("projection_category", PostCombatImpactReasonCode.ProjectionException)
         );
     }
 }

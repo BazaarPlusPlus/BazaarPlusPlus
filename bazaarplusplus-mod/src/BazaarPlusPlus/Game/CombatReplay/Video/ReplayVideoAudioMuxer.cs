@@ -1,5 +1,6 @@
 #nullable enable
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 
 namespace BazaarPlusPlus.Game.CombatReplay.Video;
 
@@ -220,16 +221,17 @@ internal sealed class ReplayVideoAudioMuxer
                 TryDelete(silentVideoTempPath);
                 TryDelete(wavPaths);
                 BppLog.DebugEvent(
-                    CombatReplayVideoLogEvents.VideoMuxDiagnosticObserved,
+                    new BppLogEvent(
+                        BppLogFeatureScope.CombatReplay,
+                        "combat_replay.video_mux.diagnostic_observed"
+                    ),
                     () =>
                         [
-                            CombatReplayVideoLogEvents.MuxRecordingId.Bind(recordingId),
-                            CombatReplayVideoLogEvents.MuxStage.Bind(
-                                ReplayVideoLogStage.MuxCallback
-                            ),
-                            CombatReplayVideoLogEvents.MuxReasonCode.Bind(MuxReasonCode.Muxed),
-                            CombatReplayVideoLogEvents.MuxPath.Bind(finalPath),
-                            CombatReplayVideoLogEvents.MuxPendingCount.Bind(PendingTaskCount),
+                            ("recording_id", recordingId, BppLogCorrelationPolicy.Short),
+                            ("stage", ReplayVideoLogStage.MuxCallback),
+                            ("reason_code", MuxReasonCode.Muxed),
+                            ("path", finalPath),
+                            ("pending_count", PendingTaskCount),
                         ]
                 );
                 return new MuxResult(
@@ -285,15 +287,16 @@ internal sealed class ReplayVideoAudioMuxer
         catch (Exception ex)
         {
             BppLog.DebugEvent(
-                CombatReplayVideoLogEvents.RecordingCleanupFailed,
+                new BppLogEvent(
+                    BppLogFeatureScope.CombatReplay,
+                    "combat_replay.video_recording.cleanup_failed"
+                ),
                 ex,
                 () =>
                     [
-                        CombatReplayVideoLogEvents.CleanupRecordingId.Bind(recordingId),
-                        CombatReplayVideoLogEvents.CleanupStage.Bind(
-                            ReplayVideoLogStage.TempDelete
-                        ),
-                        CombatReplayVideoLogEvents.CleanupPath.Bind(tempVideoPath),
+                        ("recording_id", recordingId, BppLogCorrelationPolicy.Short),
+                        ("stage", ReplayVideoLogStage.TempDelete),
+                        ("path", tempVideoPath),
                     ]
             );
             return new MuxResult(
@@ -435,17 +438,18 @@ internal sealed class ReplayVideoAudioMuxer
         catch (Exception ex)
         {
             BppLog.DebugEvent(
-                CombatReplayVideoLogEvents.VideoMuxDiagnosticObserved,
+                new BppLogEvent(
+                    BppLogFeatureScope.CombatReplay,
+                    "combat_replay.video_mux.diagnostic_observed"
+                ),
                 ex,
                 () =>
                     [
-                        CombatReplayVideoLogEvents.MuxRecordingId.Bind(null),
-                        CombatReplayVideoLogEvents.MuxStage.Bind(ReplayVideoLogStage.MuxDrain),
-                        CombatReplayVideoLogEvents.MuxReasonCode.Bind(
-                            ReplayVideoDiagnosticReasonCode.DrainFailed
-                        ),
-                        CombatReplayVideoLogEvents.MuxPath.Bind(null),
-                        CombatReplayVideoLogEvents.MuxPendingCount.Bind(PendingTaskCount),
+                        ("recording_id", null, BppLogCorrelationPolicy.Short),
+                        ("stage", ReplayVideoLogStage.MuxDrain),
+                        ("reason_code", ReplayVideoDiagnosticReasonCode.DrainFailed),
+                        ("path", null),
+                        ("pending_count", PendingTaskCount),
                     ]
             );
             return false;
@@ -508,15 +512,16 @@ internal sealed class ReplayVideoAudioMuxer
         catch (Exception ex)
         {
             BppLog.DebugEvent(
-                CombatReplayVideoLogEvents.RecordingCleanupFailed,
+                new BppLogEvent(
+                    BppLogFeatureScope.CombatReplay,
+                    "combat_replay.video_recording.cleanup_failed"
+                ),
                 ex,
                 () =>
                     [
-                        CombatReplayVideoLogEvents.CleanupRecordingId.Bind(null),
-                        CombatReplayVideoLogEvents.CleanupStage.Bind(
-                            ReplayVideoLogStage.TempDelete
-                        ),
-                        CombatReplayVideoLogEvents.CleanupPath.Bind(path),
+                        ("recording_id", null, BppLogCorrelationPolicy.Short),
+                        ("stage", ReplayVideoLogStage.TempDelete),
+                        ("path", path),
                     ]
             );
         }

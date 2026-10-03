@@ -2,10 +2,10 @@
 #pragma warning disable CS0436
 using System.Text;
 using BazaarGameShared.Domain.Cards;
-using BazaarPlusPlus.Game.Tooltips;
 using BazaarPlusPlus.GameInterop.Cards;
 using BazaarPlusPlus.GameInterop.StaticCards;
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 using HarmonyLib;
 using TheBazaar.Tooltips;
 
@@ -80,14 +80,29 @@ internal static class PackageMerchantSummaryTooltipPatch
         Exception? exception = null
     )
     {
-        var fields = new[]
+        var fields = new BppLogField[]
         {
-            TooltipLogEvents.PackageMerchantSummaryReasonCode.Bind(reasonCode),
-            TooltipLogEvents.PackageMerchantSummaryMerchantTemplateId.Bind(merchantTemplateId),
+            ("reason_code", reasonCode),
+            ("merchant_template_id", merchantTemplateId),
         };
         if (exception == null)
-            BppLog.WarnEvent(TooltipLogEvents.PackageMerchantSummaryDegraded, fields);
+            BppLog.WarnEvent(
+                new BppLogEvent(
+                    BppLogFeatureScope.Tooltips,
+                    "tooltips.package_merchant_summary.degraded",
+                    storm: ["reason_code"]
+                ),
+                fields
+            );
         else
-            BppLog.WarnEvent(TooltipLogEvents.PackageMerchantSummaryDegraded, exception, fields);
+            BppLog.WarnEvent(
+                new BppLogEvent(
+                    BppLogFeatureScope.Tooltips,
+                    "tooltips.package_merchant_summary.degraded",
+                    storm: ["reason_code"]
+                ),
+                exception,
+                fields
+            );
     }
 }

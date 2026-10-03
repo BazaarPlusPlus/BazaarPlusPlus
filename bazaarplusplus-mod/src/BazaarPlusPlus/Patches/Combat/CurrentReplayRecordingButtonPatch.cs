@@ -3,6 +3,7 @@ using System.Reflection;
 using BazaarPlusPlus.Game.CombatReplay;
 using BazaarPlusPlus.Game.Settings;
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 using HarmonyLib;
 using TheBazaar;
 using UnityEngine.UI;
@@ -71,10 +72,14 @@ internal static class CurrentReplayRecordingDockButtonPatch
         catch (Exception ex)
         {
             BppLog.WarnEvent(
-                SettingsLogEvents.PatchDegraded,
+                new BppLogEvent(
+                    BppLogFeatureScope.Settings,
+                    "settings.patch.degraded",
+                    storm: ["operation", "reason_code"]
+                ),
                 ex,
-                SettingsLogEvents.PatchDegradedOperation.Bind(SettingsPatchOperation.DockOpen),
-                SettingsLogEvents.PatchDegradedReasonCode.Bind(SettingsLogReasonCode.PatchException)
+                ("operation", SettingsPatchOperation.DockOpen),
+                ("reason_code", SettingsLogReasonCode.PatchException)
             );
         }
     }

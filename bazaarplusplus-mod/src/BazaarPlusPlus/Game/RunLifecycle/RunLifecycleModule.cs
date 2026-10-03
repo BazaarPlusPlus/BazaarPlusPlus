@@ -5,6 +5,7 @@ using BazaarPlusPlus.Core.RunContext;
 using BazaarPlusPlus.Core.Runtime;
 using BazaarPlusPlus.GameInterop;
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 using TheBazaar;
 
 namespace BazaarPlusPlus.Game.RunLifecycle;
@@ -71,8 +72,8 @@ internal sealed class RunLifecycleModule : IBppFeature
         if (_loggedRunIdOrder.Count > MaximumRecentRunIds)
             _loggedRunIds.Remove(_loggedRunIdOrder.Dequeue());
         BppLog.InfoEvent(
-            RunLifecycleLogEvents.RunStarted,
-            RunLifecycleLogEvents.RunId.Bind(observed.RunId)
+            new BppLogEvent(BppLogFeatureScope.RunLifecycle, "run_lifecycle.run.started"),
+            ("run_id", observed.RunId, BppLogCorrelationPolicy.Short)
         );
     }
 
@@ -115,19 +116,15 @@ internal sealed class RunLifecycleModule : IBppFeature
         );
 
         BppLog.DebugEvent(
-            RunLifecycleLogEvents.StateChanged,
+            new BppLogEvent(BppLogFeatureScope.RunLifecycle, "run_lifecycle.state.changed"),
             () =>
-                new[]
+                new BppLogField[]
                 {
-                    RunLifecycleLogEvents.StateChangeReasonCode.Bind(ToLogReason(reason)),
-                    RunLifecycleLogEvents.IsInGameRun.Bind(_runContext.IsInGameRun),
-                    RunLifecycleLogEvents.AppState.Bind(
-                        AppState.CurrentState?.GetType().Name ?? "null"
-                    ),
-                    RunLifecycleLogEvents.RunState.Bind(
-                        Data.CurrentState?.StateName.ToString() ?? "null"
-                    ),
-                    RunLifecycleLogEvents.HasActiveRun.Bind(Data.HasActiveRun),
+                    ("reason_code", ToLogReason(reason)),
+                    ("is_in_game_run", _runContext.IsInGameRun),
+                    ("app_state", AppState.CurrentState?.GetType().Name ?? "null"),
+                    ("run_state", Data.CurrentState?.StateName.ToString() ?? "null"),
+                    ("has_active_run", Data.HasActiveRun),
                 }
         );
     }

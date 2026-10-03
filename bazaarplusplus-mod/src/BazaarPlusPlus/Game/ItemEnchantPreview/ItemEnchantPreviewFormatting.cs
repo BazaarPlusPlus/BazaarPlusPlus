@@ -2,6 +2,7 @@
 using System.Text.RegularExpressions;
 using BazaarGameShared.Domain.Core.Types;
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 using TheBazaar.Tooltips;
 using TheBazaar.Utilities;
 
@@ -84,15 +85,15 @@ public static class ItemEnchantPreviewFormatting
         catch (Exception ex)
         {
             BppLog.WarnEvent(
-                ItemEnchantPreviewLogEvents.RenderDegraded,
+                new BppLogEvent(
+                    BppLogFeatureScope.ItemEnchantPreview,
+                    "item_enchant_preview.render.degraded",
+                    storm: ["stage", "reason_code"]
+                ),
                 ex,
-                ItemEnchantPreviewLogEvents.RenderDegradedStage.Bind(
-                    ItemEnchantRenderStage.Localization
-                ),
-                ItemEnchantPreviewLogEvents.RenderDegradedReasonCode.Bind(
-                    ItemEnchantLogReasonCode.LocalizationFallback
-                ),
-                ItemEnchantPreviewLogEvents.RenderDegradedEnchantment.Bind(enchantmentType)
+                ("stage", ItemEnchantRenderStage.Localization),
+                ("reason_code", ItemEnchantLogReasonCode.LocalizationFallback),
+                ("enchantment", enchantmentType)
             );
             return enchantmentType.ToString();
         }

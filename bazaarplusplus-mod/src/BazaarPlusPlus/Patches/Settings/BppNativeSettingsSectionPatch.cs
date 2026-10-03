@@ -2,6 +2,7 @@
 #pragma warning disable CS0436
 using BazaarPlusPlus.Game.Settings;
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 using HarmonyLib;
 using TheBazaar.UI.Components;
 
@@ -20,12 +21,14 @@ internal static class BppNativeSettingsScrollSpyAwakePatch
         catch (Exception ex)
         {
             BppLog.WarnEvent(
-                SettingsLogEvents.PatchDegraded,
-                ex,
-                SettingsLogEvents.PatchDegradedOperation.Bind(
-                    SettingsPatchOperation.NativeSectionInstall
+                new BppLogEvent(
+                    BppLogFeatureScope.Settings,
+                    "settings.patch.degraded",
+                    storm: ["operation", "reason_code"]
                 ),
-                SettingsLogEvents.PatchDegradedReasonCode.Bind(SettingsLogReasonCode.PatchException)
+                ex,
+                ("operation", SettingsPatchOperation.NativeSectionInstall),
+                ("reason_code", SettingsLogReasonCode.PatchException)
             );
         }
     }

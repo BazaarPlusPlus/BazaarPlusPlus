@@ -3,6 +3,7 @@
 using BazaarPlusPlus.Game.Tooltips;
 using BazaarPlusPlus.GameInterop.Fonts;
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 using TheBazaar.UI.Tooltips;
 using UnityEngine;
 using Object = UnityEngine.Object;
@@ -285,9 +286,13 @@ internal static class BppTooltipSections
 
     private static void ReportHostDegraded(string key, TooltipLogReasonCode reasonCode) =>
         BppLog.WarnEvent(
-            TooltipLogEvents.SectionHostDegraded,
-            TooltipLogEvents.SectionHostDegradedSectionId.Bind(ResolveSectionId(key)),
-            TooltipLogEvents.SectionHostDegradedReasonCode.Bind(reasonCode)
+            new BppLogEvent(
+                BppLogFeatureScope.Tooltips,
+                "tooltips.section_host.degraded",
+                storm: ["section_id", "reason_code"]
+            ),
+            ("section_id", ResolveSectionId(key)),
+            ("reason_code", reasonCode)
         );
 
     private static TooltipSectionId ResolveSectionId(string key) =>

@@ -23,9 +23,9 @@ public sealed class AccountLinkPrivacyTests
         request.Failed(result.Outcome);
 
         var captured = Assert.Single(BppLog.Events);
-        var rendered = new BppLogEventRenderer().Render(
-            captured.Definition,
-            captured.Values,
+        var rendered = BppLogEventRenderer.Render(
+            captured.Event,
+            captured.Fields,
             captured.Exception
         );
         Assert.DoesNotContain(privateText, rendered, StringComparison.Ordinal);

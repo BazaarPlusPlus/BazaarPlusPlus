@@ -109,120 +109,57 @@ internal enum BppLogCorrelationPolicy
     Hash,
 }
 
-internal enum BppLogCardinality
-{
-    Low,
-    High,
-}
-
 /// <summary>
-/// Defines one ordered field. The definition token owns its name and governance metadata; runtime
-/// values bind to this exact token so callers cannot override correlation policy.
+/// One operational event, written at its call site: a closed scope, a literal dotted-snake id
+/// under the scope's prefix, and the storm key. <c>Storm == null</c> never suppresses;
+/// <c>storm: []</c> suppresses repeats of the id; named keys suppress repeats whose named
+/// fields carry equal values. Errors key on correlation fields and the exception type instead.
 /// </summary>
-internal sealed class BppLogFieldDefinition
+internal readonly struct BppLogEvent
 {
-    internal BppLogFieldDefinition(
-        int order,
-        string name,
-        BppLogCorrelationPolicy correlation,
-        BppLogCardinality cardinality
-    )
-    {
-        Order = order;
-        Name = name;
-        Correlation = correlation;
-        Cardinality = cardinality;
-    }
-
-    internal int Order { get; }
-
-    internal string Name { get; }
-
-    internal BppLogCorrelationPolicy Correlation { get; }
-
-    internal BppLogCardinality Cardinality { get; }
-
-    internal BppLogFieldValue Bind(object? value) => new(this, value);
-}
-
-internal sealed class BppLogStormPolicy
-{
-    private readonly BppLogFieldDefinition[] _keyFields;
-
-    internal BppLogStormPolicy(IReadOnlyList<BppLogFieldDefinition>? keyFields)
-    {
-        _keyFields = Snapshot(keyFields);
-    }
-
-    internal IReadOnlyList<BppLogFieldDefinition> KeyFields => _keyFields;
-
-    private static BppLogFieldDefinition[] Snapshot(IReadOnlyList<BppLogFieldDefinition>? fields)
-    {
-        if (fields == null || fields.Count == 0)
-            return Array.Empty<BppLogFieldDefinition>();
-
-        var snapshot = new BppLogFieldDefinition[fields.Count];
-        for (var index = 0; index < snapshot.Length; index++)
-            snapshot[index] = fields[index];
-        return snapshot;
-    }
-}
-
-/// <summary>
-/// Stable event vocabulary entry. Definitions live beside their owning feature and declare scope,
-/// event ID, ordered field schema, privacy, correlation, cardinality, and optional storm keys.
-/// Each feature publishes definitions as static readonly fields of a local static
-/// <c>*LogEvents</c> class; the renderer emits fields in the order the definition lists them.
-/// Implementation, patch, and helper names belong in the event ID after the fixed feature prefix;
-/// they must never become scopes. Scope, ID, and field metadata are authored constants, while
-/// runtime data is supplied only through bound values.
-/// </summary>
-internal sealed class BppLogEventDefinition
-{
-    private readonly BppLogFieldDefinition[] _fields;
-
-    internal BppLogEventDefinition(
-        BppLogFeatureScope scope,
-        string eventId,
-        IReadOnlyList<BppLogFieldDefinition>? fields,
-        BppLogStormPolicy? stormPolicy = null
-    )
+    internal BppLogEvent(BppLogFeatureScope scope, string id, string[]? storm = null)
     {
         Scope = scope;
-        EventId = eventId;
-        _fields = Snapshot(fields);
-        StormPolicy = stormPolicy;
+        Id = id;
+        Storm = storm;
     }
 
     internal BppLogFeatureScope Scope { get; }
 
-    internal string EventId { get; }
+    internal string Id { get; }
 
-    internal IReadOnlyList<BppLogFieldDefinition> Fields => _fields;
-
-    internal BppLogStormPolicy? StormPolicy { get; }
-
-    private static BppLogFieldDefinition[] Snapshot(IReadOnlyList<BppLogFieldDefinition>? fields)
-    {
-        if (fields == null || fields.Count == 0)
-            return Array.Empty<BppLogFieldDefinition>();
-
-        var snapshot = new BppLogFieldDefinition[fields.Count];
-        for (var index = 0; index < snapshot.Length; index++)
-            snapshot[index] = fields[index];
-        return snapshot;
-    }
+    internal IReadOnlyList<string>? Storm { get; }
 }
 
-internal readonly struct BppLogFieldValue
+/// <summary>
+/// One rendered field, written at its call site as <c>("name", value)</c> or
+/// <c>("name", value, policy)</c>. The policy is the privacy contract: <c>Short</c> renders the
+/// first 8 characters, <c>Hash</c> the first 12 hex digits of SHA-256, <c>Full</c> marks a
+/// correlation id rendered verbatim, and <c>None</c> renders the value verbatim.
+/// </summary>
+internal readonly struct BppLogField
 {
-    internal BppLogFieldValue(BppLogFieldDefinition field, object? value)
+    internal BppLogField(
+        string name,
+        object? value,
+        BppLogCorrelationPolicy policy = BppLogCorrelationPolicy.None
+    )
     {
-        Field = field;
+        Name = name;
         Value = value;
+        Policy = policy;
     }
 
-    internal BppLogFieldDefinition Field { get; }
+    internal string Name { get; }
 
     internal object? Value { get; }
+
+    internal BppLogCorrelationPolicy Policy { get; }
+
+    public static implicit operator BppLogField((string Name, object? Value) field) =>
+        new(field.Name, field.Value);
+
+    public static implicit operator BppLogField(
+        (string Name, object? Value, BppLogCorrelationPolicy Policy) field
+    ) => new(field.Name, field.Value, field.Policy);
 }

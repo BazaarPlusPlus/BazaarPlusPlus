@@ -2,6 +2,7 @@
 #nullable enable
 using BazaarPlusPlus.Game.Lobby;
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 using HarmonyLib;
 using TheBazaar;
 using TMPro;
@@ -28,11 +29,13 @@ internal static class MainMenuVersionLabelBuildPatch
         catch (Exception ex)
         {
             BppLog.WarnEvent(
-                LobbyLogEvents.VersionLabelDegraded,
+                new BppLogEvent(
+                    BppLogFeatureScope.Lobby,
+                    "lobby.version_label.degraded",
+                    storm: ["reason_code"]
+                ),
                 ex,
-                LobbyLogEvents.VersionLabelDegradedReasonCode.Bind(
-                    LobbyLogReasonCode.LabelRefreshException
-                )
+                ("reason_code", LobbyLogReasonCode.LabelRefreshException)
             );
         }
     }

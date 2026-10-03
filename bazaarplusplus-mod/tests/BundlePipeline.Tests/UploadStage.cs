@@ -161,7 +161,11 @@ internal static class UploadStage
             var json =
                 status == HttpStatusCode.Created
                     ? $"{{\"bundle_id\":\"{manifest.BundleId}\",\"run_id\":\"{manifest.Run.RunId}\",\"outcome\":\"stored\",\"bazaardb_delivery\":\"not_applicable\"}}"
-                    : "{\"error\":{\"code\":\"storage_unavailable\",\"message\":\"later\",\"retryable\":true,\"request_id\":\"r\"}}";
+                    : "{\"error\":{\"code\":\"storage_unavailable\",\"message\":\"later "
+                        + LogPrivacy.ResponseSecret
+                        + " "
+                        + LogPrivacy.AccountSecret
+                        + "\",\"retryable\":true,\"request_id\":\"r\"}}";
             return new HttpResponseMessage(status)
             {
                 Content = new StringContent(json, Encoding.UTF8, "application/json"),

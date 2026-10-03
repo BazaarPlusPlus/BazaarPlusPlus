@@ -1,5 +1,6 @@
 #nullable enable
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 using BazaarPlusPlus.Storage.RunLog;
 
 namespace BazaarPlusPlus.Game.RunLogging;
@@ -12,35 +13,39 @@ internal sealed class RunLogStoreLoggerBridge : IRunLogStoreLogger
         {
             case RunLogStoreDiagnosticKind.ShutdownDrainTimedOut:
                 BppLog.WarnEvent(
-                    RunLoggingLogEvents.QueueShutdownDegraded,
-                    RunLoggingLogEvents.QueueShutdownTimeoutMilliseconds.Bind(
-                        diagnostic.TimeoutMilliseconds
+                    new BppLogEvent(
+                        BppLogFeatureScope.RunLogging,
+                        "run_logging.queue.shutdown_degraded",
+                        storm: ["reason_code"]
                     ),
-                    RunLoggingLogEvents.QueueShutdownPendingCount.Bind(diagnostic.PendingCount),
-                    RunLoggingLogEvents.QueueShutdownReasonCode.Bind(
-                        RunLoggingReasonCode.QueueShutdownDrainTimeout
-                    )
+                    ("timeout_ms", diagnostic.TimeoutMilliseconds),
+                    ("pending_count", diagnostic.PendingCount),
+                    ("reason_code", RunLoggingReasonCode.QueueShutdownDrainTimeout)
                 );
                 return;
             case RunLogStoreDiagnosticKind.WriteFailed:
                 BppLog.ErrorEvent(
-                    RunLoggingLogEvents.QueueWriteFailed,
+                    new BppLogEvent(
+                        BppLogFeatureScope.RunLogging,
+                        "run_logging.queue.write_failed",
+                        storm: []
+                    ),
                     diagnostic.Exception!,
-                    RunLoggingLogEvents.RunId.Bind(diagnostic.RunId),
-                    RunLoggingLogEvents.QueueWriteOperation.Bind(diagnostic.Operation),
-                    RunLoggingLogEvents.QueueWriteReasonCode.Bind(
-                        RunLoggingReasonCode.QueueWriteException
-                    )
+                    ("run_id", diagnostic.RunId, BppLogCorrelationPolicy.Short),
+                    ("operation", diagnostic.Operation),
+                    ("reason_code", RunLoggingReasonCode.QueueWriteException)
                 );
                 return;
             case RunLogStoreDiagnosticKind.WorkerFailed:
                 BppLog.ErrorEvent(
-                    RunLoggingLogEvents.QueueWorkerFailed,
+                    new BppLogEvent(
+                        BppLogFeatureScope.RunLogging,
+                        "run_logging.queue.worker_failed",
+                        storm: []
+                    ),
                     diagnostic.Exception!,
-                    RunLoggingLogEvents.QueueWorkerPendingCount.Bind(diagnostic.PendingCount),
-                    RunLoggingLogEvents.QueueWorkerReasonCode.Bind(
-                        RunLoggingReasonCode.QueueWorkerTerminatedUnexpectedly
-                    )
+                    ("pending_count", diagnostic.PendingCount),
+                    ("reason_code", RunLoggingReasonCode.QueueWorkerTerminatedUnexpectedly)
                 );
                 return;
         }

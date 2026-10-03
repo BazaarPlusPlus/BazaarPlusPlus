@@ -1,5 +1,6 @@
 #nullable enable
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 
 namespace BazaarPlusPlus.Game.LiveBuildPanel;
 
@@ -19,9 +20,12 @@ internal sealed class LiveBuildRefreshLogOperation
             return false;
 
         BppLog.InfoEvent(
-            LiveBuildPanelLogEvents.RefreshSucceeded,
-            LiveBuildPanelLogEvents.RefreshSucceededRequestId.Bind(_requestId),
-            LiveBuildPanelLogEvents.RefreshSucceededResult.Bind(result)
+            new BppLogEvent(
+                BppLogFeatureScope.LiveBuildPanel,
+                "live_build_panel.refresh.succeeded"
+            ),
+            ("request_id", _requestId, BppLogCorrelationPolicy.Short),
+            ("result", result)
         );
         return true;
     }
@@ -31,15 +35,28 @@ internal sealed class LiveBuildRefreshLogOperation
         if (!TryComplete())
             return false;
 
-        var fields = new[]
+        var fields = new BppLogField[]
         {
-            LiveBuildPanelLogEvents.RefreshFailedRequestId.Bind(_requestId),
-            LiveBuildPanelLogEvents.RefreshFailedReasonCode.Bind(reasonCode),
+            ("request_id", _requestId, BppLogCorrelationPolicy.Short),
+            ("reason_code", reasonCode),
         };
         if (exception == null)
-            BppLog.ErrorEvent(LiveBuildPanelLogEvents.RefreshFailed, fields);
+            BppLog.ErrorEvent(
+                new BppLogEvent(
+                    BppLogFeatureScope.LiveBuildPanel,
+                    "live_build_panel.refresh.failed"
+                ),
+                fields
+            );
         else
-            BppLog.ErrorEvent(LiveBuildPanelLogEvents.RefreshFailed, exception, fields);
+            BppLog.ErrorEvent(
+                new BppLogEvent(
+                    BppLogFeatureScope.LiveBuildPanel,
+                    "live_build_panel.refresh.failed"
+                ),
+                exception,
+                fields
+            );
         return true;
     }
 

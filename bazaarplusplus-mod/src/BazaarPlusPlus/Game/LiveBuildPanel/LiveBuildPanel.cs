@@ -10,6 +10,7 @@ using BazaarPlusPlus.Game.Supporters;
 using BazaarPlusPlus.GameInterop.ItemBoardPreview;
 using BazaarPlusPlus.GameInterop.LiveCards;
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -117,23 +118,35 @@ internal sealed class LiveBuildPanel : MonoBehaviour
     {
         foreach (var issue in issues)
         {
-            var fields = new[]
+            var fields = new BppLogField[]
             {
-                LiveBuildPanelLogEvents.LiveSnapshotDegradedSection.Bind(issue.Section),
-                LiveBuildPanelLogEvents.LiveSnapshotDegradedReasonCode.Bind(
+                ("section", issue.Section),
+                (
+                    "reason_code",
                     issue.Reason == LiveCardSnapshotFailureReason.InvalidPlacement
                         ? LiveBuildSnapshotReasonCode.InvalidPlacement
                         : LiveBuildSnapshotReasonCode.ReadException
                 ),
-                LiveBuildPanelLogEvents.LiveSnapshotDegradedTemplateId.Bind(issue.TemplateId),
-                LiveBuildPanelLogEvents.LiveSnapshotDegradedSocketId.Bind(issue.SocketId),
-                LiveBuildPanelLogEvents.LiveSnapshotDegradedItemSize.Bind(issue.ItemSize),
+                ("template_id", issue.TemplateId),
+                ("socket_id", issue.SocketId),
+                ("item_size", issue.ItemSize),
             };
             if (issue.Exception == null)
-                BppLog.WarnEvent(LiveBuildPanelLogEvents.LiveSnapshotDegraded, fields);
+                BppLog.WarnEvent(
+                    new BppLogEvent(
+                        BppLogFeatureScope.LiveBuildPanel,
+                        "live_build_panel.live_snapshot.degraded",
+                        storm: ["section", "reason_code"]
+                    ),
+                    fields
+                );
             else
                 BppLog.WarnEvent(
-                    LiveBuildPanelLogEvents.LiveSnapshotDegraded,
+                    new BppLogEvent(
+                        BppLogFeatureScope.LiveBuildPanel,
+                        "live_build_panel.live_snapshot.degraded",
+                        storm: ["section", "reason_code"]
+                    ),
                     issue.Exception,
                     fields
                 );

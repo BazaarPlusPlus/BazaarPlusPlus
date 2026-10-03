@@ -1,5 +1,6 @@
 #nullable enable
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 
 namespace BazaarPlusPlus.Game.CollectionPanel;
 
@@ -44,13 +45,20 @@ internal sealed class CollectionPanelSelectionLogState
             var recovered = _firstFailure.Value;
             _firstFailure = null;
             BppLog.RecoverStorm(
-                CollectionPanelLogEvents.SelectionDegraded,
-                CollectionPanelLogEvents.SelectionDegradedProbe.Bind(recovered.Probe),
-                CollectionPanelLogEvents.SelectionDegradedReasonCode.Bind(recovered.ReasonCode)
+                new BppLogEvent(
+                    BppLogFeatureScope.CollectionPanel,
+                    "collection_panel.selection.degraded",
+                    storm: ["probe", "reason_code"]
+                ),
+                ("probe", recovered.Probe),
+                ("reason_code", recovered.ReasonCode)
             );
             BppLog.InfoEvent(
-                CollectionPanelLogEvents.SelectionRecovered,
-                CollectionPanelLogEvents.SelectionRecoveredProbe.Bind(recovered.Probe)
+                new BppLogEvent(
+                    BppLogFeatureScope.CollectionPanel,
+                    "collection_panel.selection.recovered"
+                ),
+                ("probe", recovered.Probe)
             );
             return;
         }
@@ -61,10 +69,14 @@ internal sealed class CollectionPanelSelectionLogState
         var failure = observation.Failures[0];
         _firstFailure = failure;
         BppLog.WarnEvent(
-            CollectionPanelLogEvents.SelectionDegraded,
+            new BppLogEvent(
+                BppLogFeatureScope.CollectionPanel,
+                "collection_panel.selection.degraded",
+                storm: ["probe", "reason_code"]
+            ),
             failure.Exception,
-            CollectionPanelLogEvents.SelectionDegradedProbe.Bind(failure.Probe),
-            CollectionPanelLogEvents.SelectionDegradedReasonCode.Bind(failure.ReasonCode)
+            ("probe", failure.Probe),
+            ("reason_code", failure.ReasonCode)
         );
     }
 }

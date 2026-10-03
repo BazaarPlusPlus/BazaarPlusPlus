@@ -1,5 +1,6 @@
 #nullable enable
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 
 namespace BazaarPlusPlus.Game.CollectionPanel.Data;
 
@@ -15,11 +16,26 @@ internal sealed class CollectionCatalogLogState
 
         _state = CatalogState.Degraded;
         _firstReason = reasonCode;
-        var field = CollectionPanelLogEvents.CatalogDegradedReasonCode.Bind(reasonCode);
+        BppLogField field = ("reason_code", reasonCode);
         if (exception == null)
-            BppLog.WarnEvent(CollectionPanelLogEvents.CatalogDegraded, field);
+            BppLog.WarnEvent(
+                new BppLogEvent(
+                    BppLogFeatureScope.CollectionPanel,
+                    "collection_panel.catalog.degraded",
+                    storm: ["reason_code"]
+                ),
+                field
+            );
         else
-            BppLog.WarnEvent(CollectionPanelLogEvents.CatalogDegraded, exception, field);
+            BppLog.WarnEvent(
+                new BppLogEvent(
+                    BppLogFeatureScope.CollectionPanel,
+                    "collection_panel.catalog.degraded",
+                    storm: ["reason_code"]
+                ),
+                exception,
+                field
+            );
     }
 
     internal void ReportBuilt(int acceptedCount, int rejectedCount, int sourceTemplateCount)
@@ -32,37 +48,45 @@ internal sealed class CollectionCatalogLogState
             if (_firstReason.HasValue)
             {
                 BppLog.RecoverStorm(
-                    CollectionPanelLogEvents.CatalogDegraded,
-                    CollectionPanelLogEvents.CatalogDegradedReasonCode.Bind(_firstReason.Value)
+                    new BppLogEvent(
+                        BppLogFeatureScope.CollectionPanel,
+                        "collection_panel.catalog.degraded",
+                        storm: ["reason_code"]
+                    ),
+                    ("reason_code", _firstReason.Value)
                 );
             }
             _state = CatalogState.Ready;
             _firstReason = null;
             BppLog.InfoEvent(
-                CollectionPanelLogEvents.CatalogRecovered,
-                CollectionPanelLogEvents.CatalogRecoveredAcceptedCount.Bind(acceptedCount),
-                CollectionPanelLogEvents.CatalogRecoveredRejectedCount.Bind(rejectedCount),
-                CollectionPanelLogEvents.CatalogRecoveredSourceTemplateCount.Bind(
-                    sourceTemplateCount
-                )
+                new BppLogEvent(
+                    BppLogFeatureScope.CollectionPanel,
+                    "collection_panel.catalog.recovered"
+                ),
+                ("accepted_count", acceptedCount),
+                ("rejected_count", rejectedCount),
+                ("source_template_count", sourceTemplateCount)
             );
             return;
         }
 
         _state = CatalogState.Ready;
         BppLog.InfoEvent(
-            CollectionPanelLogEvents.CatalogReady,
-            CollectionPanelLogEvents.CatalogReadyAcceptedCount.Bind(acceptedCount),
-            CollectionPanelLogEvents.CatalogReadyRejectedCount.Bind(rejectedCount),
-            CollectionPanelLogEvents.CatalogReadySourceTemplateCount.Bind(sourceTemplateCount)
+            new BppLogEvent(BppLogFeatureScope.CollectionPanel, "collection_panel.catalog.ready"),
+            ("accepted_count", acceptedCount),
+            ("rejected_count", rejectedCount),
+            ("source_template_count", sourceTemplateCount)
         );
     }
 
     internal void ReportInvalidated(CollectionPanelLogReasonCode reasonCode)
     {
         BppLog.DebugEvent(
-            CollectionPanelLogEvents.CatalogInvalidated,
-            () => [CollectionPanelLogEvents.CatalogInvalidatedReasonCode.Bind(reasonCode)]
+            new BppLogEvent(
+                BppLogFeatureScope.CollectionPanel,
+                "collection_panel.catalog.invalidated"
+            ),
+            () => [("reason_code", reasonCode)]
         );
     }
 

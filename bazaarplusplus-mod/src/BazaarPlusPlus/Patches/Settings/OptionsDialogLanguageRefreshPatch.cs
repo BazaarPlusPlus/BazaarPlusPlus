@@ -3,6 +3,7 @@
 using BazaarPlusPlus.Game.HistoryPanel;
 using BazaarPlusPlus.Game.Settings;
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 using HarmonyLib;
 
 namespace BazaarPlusPlus.Patches.Settings;
@@ -22,12 +23,14 @@ internal static class OptionsDialogLanguageRefreshPatch
         catch (Exception ex)
         {
             BppLog.WarnEvent(
-                SettingsLogEvents.PatchDegraded,
-                ex,
-                SettingsLogEvents.PatchDegradedOperation.Bind(
-                    SettingsPatchOperation.LanguageRefresh
+                new BppLogEvent(
+                    BppLogFeatureScope.Settings,
+                    "settings.patch.degraded",
+                    storm: ["operation", "reason_code"]
                 ),
-                SettingsLogEvents.PatchDegradedReasonCode.Bind(SettingsLogReasonCode.PatchException)
+                ex,
+                ("operation", SettingsPatchOperation.LanguageRefresh),
+                ("reason_code", SettingsLogReasonCode.PatchException)
             );
         }
     }

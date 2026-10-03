@@ -61,17 +61,4 @@
       RemoveProperties="TargetFramework;RuntimeIdentifier;SelfContained"
     />
   </Target>
-
-  <ItemGroup>
-    <Compile
-      Include="../../src/BazaarPlusPlus/Infrastructure/Logging/Core/BppLogSchema.cs"
-      Link="Logging/Core/BppLogSchema.cs"
-    />
-    <Compile
-      Include="../../src/BazaarPlusPlus/Infrastructure/Logging/Core/BppLogSchemaRules.cs"
-      Link="Logging/Core/BppLogSchemaRules.cs"
-    />
-    <Compile Include="../../src/BazaarPlusPlus/PluginLogEvents.cs" Link="PluginLogEvents.cs" />
-    <Compile Include="../../src/BazaarPlusPlus/PluginLogIdentity.cs" Link="PluginLogIdentity.cs" />
-  </ItemGroup>
 </Project>

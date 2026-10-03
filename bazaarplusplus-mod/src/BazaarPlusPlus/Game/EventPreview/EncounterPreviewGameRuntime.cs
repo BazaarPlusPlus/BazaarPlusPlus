@@ -9,6 +9,7 @@ using BazaarPlusPlus.GameInterop.Cards;
 using BazaarPlusPlus.GameInterop.DayTiers;
 using BazaarPlusPlus.GameInterop.StaticCards;
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 using TheBazaar;
 
 namespace BazaarPlusPlus.Game.EventPreview;
@@ -124,11 +125,13 @@ internal sealed class EncounterPreviewGameRuntime(
         catch (Exception ex)
         {
             BppLog.WarnEvent(
-                TooltipLogEvents.EncounterInventoryDegraded,
+                new BppLogEvent(
+                    BppLogFeatureScope.Tooltips,
+                    "tooltips.encounter_inventory.degraded",
+                    storm: ["reason_code"]
+                ),
                 ex,
-                TooltipLogEvents.EncounterInventoryReasonCode.Bind(
-                    TooltipLogReasonCode.InventoryReadException
-                )
+                ("reason_code", TooltipLogReasonCode.InventoryReadException)
             );
             return null;
         }

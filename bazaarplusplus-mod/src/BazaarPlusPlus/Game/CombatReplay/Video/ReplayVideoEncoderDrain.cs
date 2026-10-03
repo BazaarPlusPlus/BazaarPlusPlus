@@ -1,5 +1,6 @@
 #nullable enable
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 
 namespace BazaarPlusPlus.Game.CombatReplay.Video;
 
@@ -132,38 +133,33 @@ internal sealed class ReplayVideoEncoderDrain
             ? poolPayloadBytes > ReplayVideoBufferPlan.DefaultPoolBudgetBytes
             : request.BufferPlan.BudgetExceeded;
         BppLog.DebugEvent(
-            CombatReplayVideoLogEvents.VideoCaptureStatsObserved,
+            new BppLogEvent(
+                BppLogFeatureScope.CombatReplay,
+                "combat_replay.video_capture.stats_observed"
+            ),
             () =>
                 [
-                    CombatReplayVideoLogEvents.StatsRecordingId.Bind(request.VideoId),
-                    CombatReplayVideoLogEvents.StatsStage.Bind(
-                        ReplayVideoLogStage.CaptureFinalized
-                    ),
-                    CombatReplayVideoLogEvents.StatsWidth.Bind(request.Width),
-                    CombatReplayVideoLogEvents.StatsHeight.Bind(request.Height),
-                    CombatReplayVideoLogEvents.StatsFps.Bind(request.Fps),
-                    CombatReplayVideoLogEvents.StatsCapturedFrames.Bind(result.CapturedFrames),
-                    CombatReplayVideoLogEvents.StatsRepeatedFrames.Bind(_input.RepeatedFrames),
-                    CombatReplayVideoLogEvents.StatsDroppedFrames.Bind(result.DroppedFrames),
-                    CombatReplayVideoLogEvents.StatsDurationMs.Bind(result.DurationMs),
-                    CombatReplayVideoLogEvents.StatsSizeBytes.Bind(result.FileSizeBytes),
-                    CombatReplayVideoLogEvents.StatsOutputPath.Bind(result.OutputFilePath),
-                    CombatReplayVideoLogEvents.StatsCodec.Bind(request.EncoderProfile.Codec),
-                    CombatReplayVideoLogEvents.StatsRateControl.Bind(
-                        request.EncoderProfile.RateControlSummary
-                    ),
-                    CombatReplayVideoLogEvents.StatsFrameBytes.Bind(frameByteLength),
-                    CombatReplayVideoLogEvents.StatsPoolCapacity.Bind(poolCapacity),
-                    CombatReplayVideoLogEvents.StatsQueueCapacity.Bind(queueCapacity),
-                    CombatReplayVideoLogEvents.StatsPoolPayloadBytes.Bind(poolPayloadBytes),
-                    CombatReplayVideoLogEvents.StatsPoolBudgetExceeded.Bind(poolBudgetExceeded),
-                    CombatReplayVideoLogEvents.StatsCfrCopyP95Us.Bind(_input.CfrCopyP95Us),
-                    CombatReplayVideoLogEvents.StatsStagingBufferBytes.Bind(
-                        usesNativeSlots ? 0 : frameByteLength
-                    ),
-                    CombatReplayVideoLogEvents.StatsRenderTextureEstimatedBytes.Bind(
-                        usesNativeSlots ? 0 : frameByteLength
-                    ),
+                    ("recording_id", request.VideoId, BppLogCorrelationPolicy.Short),
+                    ("stage", ReplayVideoLogStage.CaptureFinalized),
+                    ("width", request.Width),
+                    ("height", request.Height),
+                    ("fps", request.Fps),
+                    ("captured_frames", result.CapturedFrames),
+                    ("repeated_frames", _input.RepeatedFrames),
+                    ("dropped_frames", result.DroppedFrames),
+                    ("duration_ms", result.DurationMs),
+                    ("size_bytes", result.FileSizeBytes),
+                    ("output_path", result.OutputFilePath),
+                    ("codec", request.EncoderProfile.Codec),
+                    ("rate_control", request.EncoderProfile.RateControlSummary),
+                    ("frame_bytes", frameByteLength),
+                    ("pool_capacity", poolCapacity),
+                    ("queue_capacity", queueCapacity),
+                    ("pool_payload_bytes", poolPayloadBytes),
+                    ("pool_budget_exceeded", poolBudgetExceeded),
+                    ("cfr_copy_p95_us", _input.CfrCopyP95Us),
+                    ("staging_buffer_bytes", usesNativeSlots ? 0 : frameByteLength),
+                    ("render_texture_estimated_bytes", usesNativeSlots ? 0 : frameByteLength),
                 ]
         );
     }

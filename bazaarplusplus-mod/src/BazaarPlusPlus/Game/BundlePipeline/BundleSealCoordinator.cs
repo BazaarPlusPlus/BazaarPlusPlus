@@ -5,6 +5,7 @@ using BazaarPlusPlus.Core.Runtime;
 using BazaarPlusPlus.Game.CombatReplay;
 using BazaarPlusPlus.Game.Screenshots;
 using BazaarPlusPlus.Game.Upload;
+using BazaarPlusPlus.Infrastructure.Logging;
 using BazaarPlusPlus.ModApi.Bundle;
 using BazaarPlusPlus.Storage.BundleQueue;
 using BazaarPlusPlus.Storage.Paths;
@@ -167,7 +168,11 @@ internal sealed class BundleSealCoordinator : IBppFeature, IDisposable
             catch (Exception ex)
             {
                 BundlePipelineLog.Warn(
-                    BundlePipelineLogEvents.ReconcileFailed,
+                    new BppLogEvent(
+                        BppLogFeatureScope.BundlePipeline,
+                        "bundle_pipeline.reconcile.failed",
+                        storm: ["category"]
+                    ),
                     "reconcile_exception",
                     ex
                 );
@@ -403,7 +408,10 @@ internal sealed class BundleSealCoordinator : IBppFeature, IDisposable
                 return false;
             }
             BundlePipelineLog.Info(
-                BundlePipelineLogEvents.SealSucceeded,
+                new BppLogEvent(
+                    BppLogFeatureScope.BundlePipeline,
+                    "bundle_pipeline.seal.succeeded"
+                ),
                 runId,
                 allocation.BundleId
             );
@@ -580,13 +588,26 @@ internal sealed class BundleSealCoordinator : IBppFeature, IDisposable
         catch (Exception ex)
         {
             BundlePipelineLog.Warn(
-                BundlePipelineLogEvents.ReconcileFailed,
+                new BppLogEvent(
+                    BppLogFeatureScope.BundlePipeline,
+                    "bundle_pipeline.reconcile.failed",
+                    storm: ["category"]
+                ),
                 "seal_failure_record_failed",
                 ex,
                 runId
             );
         }
-        BundlePipelineLog.Warn(BundlePipelineLogEvents.SealTerminal, code, exception, runId);
+        BundlePipelineLog.Warn(
+            new BppLogEvent(
+                BppLogFeatureScope.BundlePipeline,
+                "bundle_pipeline.seal.terminal",
+                storm: ["category"]
+            ),
+            code,
+            exception,
+            runId
+        );
     }
 
     private void RecordJobFailure(
@@ -604,7 +625,11 @@ internal sealed class BundleSealCoordinator : IBppFeature, IDisposable
         {
             // Without retry facts the original failure is still classified and recorded below.
             BundlePipelineLog.Warn(
-                BundlePipelineLogEvents.ReconcileFailed,
+                new BppLogEvent(
+                    BppLogFeatureScope.BundlePipeline,
+                    "bundle_pipeline.reconcile.failed",
+                    storm: ["category"]
+                ),
                 "seal_job_read_failed",
                 readFailure,
                 runId
@@ -643,7 +668,11 @@ internal sealed class BundleSealCoordinator : IBppFeature, IDisposable
         catch (Exception ex)
         {
             BundlePipelineLog.Warn(
-                BundlePipelineLogEvents.ReconcileFailed,
+                new BppLogEvent(
+                    BppLogFeatureScope.BundlePipeline,
+                    "bundle_pipeline.reconcile.failed",
+                    storm: ["category"]
+                ),
                 "seal_failure_record_failed",
                 ex,
                 runId
@@ -679,12 +708,31 @@ internal sealed class BundleSealCoordinator : IBppFeature, IDisposable
         BundlePipelineLog.Warn(
             decision.Log switch
             {
-                BundleSealFailureLog.Deferred => BundlePipelineLogEvents.SealDeferred,
-                BundleSealFailureLog.EnvironmentBlocked =>
-                    BundlePipelineLogEvents.SealEnvironmentBlocked,
-                BundleSealFailureLog.Degraded => BundlePipelineLogEvents.SealDegraded,
-                BundleSealFailureLog.Terminal => BundlePipelineLogEvents.SealTerminal,
-                _ => BundlePipelineLogEvents.ReconcileFailed,
+                BundleSealFailureLog.Deferred => new BppLogEvent(
+                    BppLogFeatureScope.BundlePipeline,
+                    "bundle_pipeline.seal.deferred",
+                    storm: ["category"]
+                ),
+                BundleSealFailureLog.EnvironmentBlocked => new BppLogEvent(
+                    BppLogFeatureScope.BundlePipeline,
+                    "bundle_pipeline.seal.environment_blocked",
+                    storm: ["category"]
+                ),
+                BundleSealFailureLog.Degraded => new BppLogEvent(
+                    BppLogFeatureScope.BundlePipeline,
+                    "bundle_pipeline.seal.degraded",
+                    storm: ["category"]
+                ),
+                BundleSealFailureLog.Terminal => new BppLogEvent(
+                    BppLogFeatureScope.BundlePipeline,
+                    "bundle_pipeline.seal.terminal",
+                    storm: ["category"]
+                ),
+                _ => new BppLogEvent(
+                    BppLogFeatureScope.BundlePipeline,
+                    "bundle_pipeline.reconcile.failed",
+                    storm: ["category"]
+                ),
             },
             decision.Code,
             exception,

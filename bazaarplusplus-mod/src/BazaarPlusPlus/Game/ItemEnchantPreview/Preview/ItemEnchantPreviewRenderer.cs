@@ -10,6 +10,7 @@ using BazaarGameShared.Domain.Core;
 using BazaarGameShared.Domain.Core.Types;
 using BazaarGameShared.Domain.Values;
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 using TheBazaar;
 using TheBazaar.Tooltips;
 
@@ -69,15 +70,15 @@ public static class ItemEnchantPreviewRenderer
         catch (Exception ex)
         {
             BppLog.WarnEvent(
-                ItemEnchantPreviewLogEvents.RenderDegraded,
+                new BppLogEvent(
+                    BppLogFeatureScope.ItemEnchantPreview,
+                    "item_enchant_preview.render.degraded",
+                    storm: ["stage", "reason_code"]
+                ),
                 ex,
-                ItemEnchantPreviewLogEvents.RenderDegradedStage.Bind(
-                    ItemEnchantRenderStage.CardTooltipData
-                ),
-                ItemEnchantPreviewLogEvents.RenderDegradedReasonCode.Bind(
-                    ItemEnchantLogReasonCode.RenderFallback
-                ),
-                ItemEnchantPreviewLogEvents.RenderDegradedEnchantment.Bind(enchantment)
+                ("stage", ItemEnchantRenderStage.CardTooltipData),
+                ("reason_code", ItemEnchantLogReasonCode.RenderFallback),
+                ("enchantment", enchantment)
             );
             try
             {
@@ -95,15 +96,15 @@ public static class ItemEnchantPreviewRenderer
             catch (Exception innerEx)
             {
                 BppLog.WarnEvent(
-                    ItemEnchantPreviewLogEvents.RenderDegraded,
+                    new BppLogEvent(
+                        BppLogFeatureScope.ItemEnchantPreview,
+                        "item_enchant_preview.render.degraded",
+                        storm: ["stage", "reason_code"]
+                    ),
                     innerEx,
-                    ItemEnchantPreviewLogEvents.RenderDegradedStage.Bind(
-                        ItemEnchantRenderStage.TooltipBuilder
-                    ),
-                    ItemEnchantPreviewLogEvents.RenderDegradedReasonCode.Bind(
-                        ItemEnchantLogReasonCode.RawTextFallback
-                    ),
-                    ItemEnchantPreviewLogEvents.RenderDegradedEnchantment.Bind(enchantment)
+                    ("stage", ItemEnchantRenderStage.TooltipBuilder),
+                    ("reason_code", ItemEnchantLogReasonCode.RawTextFallback),
+                    ("enchantment", enchantment)
                 );
                 return localized;
             }
@@ -169,15 +170,15 @@ public static class ItemEnchantPreviewRenderer
         catch (Exception ex)
         {
             BppLog.WarnEvent(
-                ItemEnchantPreviewLogEvents.RenderDegraded,
+                new BppLogEvent(
+                    BppLogFeatureScope.ItemEnchantPreview,
+                    "item_enchant_preview.render.degraded",
+                    storm: ["stage", "reason_code"]
+                ),
                 ex,
-                ItemEnchantPreviewLogEvents.RenderDegradedStage.Bind(
-                    ItemEnchantRenderStage.Localization
-                ),
-                ItemEnchantPreviewLogEvents.RenderDegradedReasonCode.Bind(
-                    ItemEnchantLogReasonCode.LocalizationFallback
-                ),
-                ItemEnchantPreviewLogEvents.RenderDegradedEnchantment.Bind(enchantment)
+                ("stage", ItemEnchantRenderStage.Localization),
+                ("reason_code", ItemEnchantLogReasonCode.LocalizationFallback),
+                ("enchantment", enchantment)
             );
             return content.Text ?? string.Empty;
         }

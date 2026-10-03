@@ -1,5 +1,6 @@
 #nullable enable
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 using UnityEngine;
 using UnityEngine.UI;
 using Object = UnityEngine.Object;
@@ -69,8 +70,8 @@ internal static class BppNativeSettingsButtonClone
         ConfigureRect(rect, anchorButton.transform as RectTransform);
 
         BppLog.DebugEvent(
-            SettingsLogEvents.NativeButtonCloned,
-            () => [SettingsLogEvents.NativeButtonClonedButtonId.Bind(placement.ButtonId)]
+            new BppLogEvent(BppLogFeatureScope.Settings, "settings.native_button.cloned"),
+            () => [("button_id", placement.ButtonId)]
         );
 
         return rect;

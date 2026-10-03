@@ -4,6 +4,7 @@ using BazaarGameShared.Domain.Core.Types;
 using BazaarPlusPlus.Game.EventPreview;
 using BazaarPlusPlus.Game.Tooltips;
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 using HarmonyLib;
 using TheBazaar.UI.Tooltips;
 
@@ -54,11 +55,13 @@ internal static class EncounterEventTooltipPatch
         catch (Exception ex)
         {
             BppLog.WarnEvent(
-                TooltipLogEvents.EncounterSectionDegraded,
+                new BppLogEvent(
+                    BppLogFeatureScope.Tooltips,
+                    "tooltips.encounter_section.degraded",
+                    storm: ["reason_code"]
+                ),
                 ex,
-                TooltipLogEvents.EncounterSectionReasonCode.Bind(
-                    TooltipLogReasonCode.RenderException
-                )
+                ("reason_code", TooltipLogReasonCode.RenderException)
             );
         }
     }

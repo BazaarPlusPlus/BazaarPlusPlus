@@ -356,9 +356,13 @@ internal static class NativeGameTypography
             return ExternalTextSupport.Supported;
 
         BppLog.WarnEvent(
-            NativeGameFontsLogEvents.TextRejected,
-            NativeGameFontsLogEvents.TextRejectedSurface.Bind(surface),
-            NativeGameFontsLogEvents.TextRejectedCodePoint.Bind($"U+{missingCodePoint:X}")
+            new BppLogEvent(
+                BppLogFeatureScope.Plugin,
+                "plugin.native_game_fonts.text_rejected",
+                storm: ["surface"]
+            ),
+            ("surface", surface),
+            ("code_point", $"U+{missingCodePoint:X}")
         );
         return ExternalTextSupport.Unsupported;
     }
@@ -507,14 +511,12 @@ internal static class NativeGameTypography
             catch (Exception ex)
             {
                 BppLog.DebugEvent(
-                    NativeGameFontsLogEvents.CleanupFailed,
+                    new BppLogEvent(
+                        BppLogFeatureScope.Plugin,
+                        "plugin.native_game_fonts.cleanup_failed"
+                    ),
                     ex,
-                    () =>
-                        [
-                            NativeGameFontsLogEvents.CleanupFailedStage.Bind(
-                                NativeGameFontStage.RestoreBinding
-                            ),
-                        ]
+                    () => [("stage", NativeGameFontStage.RestoreBinding)]
                 );
             }
             finally
@@ -672,14 +674,12 @@ internal static class NativeGameTypography
         catch (Exception ex)
         {
             BppLog.DebugEvent(
-                NativeGameFontsLogEvents.CleanupFailed,
+                new BppLogEvent(
+                    BppLogFeatureScope.Plugin,
+                    "plugin.native_game_fonts.cleanup_failed"
+                ),
                 ex,
-                () =>
-                    [
-                        NativeGameFontsLogEvents.CleanupFailedStage.Bind(
-                            NativeGameFontStage.ReleaseHandle
-                        ),
-                    ]
+                () => [("stage", NativeGameFontStage.ReleaseHandle)]
             );
         }
     }
@@ -703,15 +703,26 @@ internal static class NativeGameTypography
         _readyReported = false;
         if (!Health.ObserveFailure(HealthKey, reasonCode))
             return;
-        var fields = new[]
-        {
-            NativeGameFontsLogEvents.DegradedStage.Bind(stage),
-            NativeGameFontsLogEvents.DegradedReasonCode.Bind(reasonCode),
-        };
+        var fields = new BppLogField[] { ("stage", stage), ("reason_code", reasonCode) };
         if (exception == null)
-            BppLog.WarnEvent(NativeGameFontsLogEvents.Degraded, fields);
+            BppLog.WarnEvent(
+                new BppLogEvent(
+                    BppLogFeatureScope.Plugin,
+                    "plugin.native_game_fonts.degraded",
+                    storm: ["stage", "reason_code"]
+                ),
+                fields
+            );
         else
-            BppLog.WarnEvent(NativeGameFontsLogEvents.Degraded, exception, fields);
+            BppLog.WarnEvent(
+                new BppLogEvent(
+                    BppLogFeatureScope.Plugin,
+                    "plugin.native_game_fonts.degraded",
+                    storm: ["stage", "reason_code"]
+                ),
+                exception,
+                fields
+            );
     }
 
     private static void ReportSuccess(TMP_FontAsset[] fonts, Font? sourceFont)
@@ -719,10 +730,16 @@ internal static class NativeGameTypography
         if (Health.ObserveSuccess(HealthKey, out _))
         {
             _readyReported = true;
-            BppLog.RecoverStorm(NativeGameFontsLogEvents.Degraded);
+            BppLog.RecoverStorm(
+                new BppLogEvent(
+                    BppLogFeatureScope.Plugin,
+                    "plugin.native_game_fonts.degraded",
+                    storm: ["stage", "reason_code"]
+                )
+            );
             BppLog.InfoEvent(
-                NativeGameFontsLogEvents.Recovered,
-                NativeGameFontsLogEvents.RecoveredFontCount.Bind(fonts.Length)
+                new BppLogEvent(BppLogFeatureScope.Plugin, "plugin.native_game_fonts.recovered"),
+                ("font_count", fonts.Length)
             );
             return;
         }
@@ -731,14 +748,12 @@ internal static class NativeGameTypography
             return;
         _readyReported = true;
         BppLog.DebugEvent(
-            NativeGameFontsLogEvents.Loaded,
+            new BppLogEvent(BppLogFeatureScope.Plugin, "plugin.native_game_fonts.loaded"),
             () =>
                 [
-                    NativeGameFontsLogEvents.LoadedFontCount.Bind(fonts.Length),
-                    NativeGameFontsLogEvents.LoadedFontNames.Bind(
-                        string.Join(",", Array.ConvertAll(fonts, font => font.name))
-                    ),
-                    NativeGameFontsLogEvents.LoadedSourceFont.Bind(sourceFont?.name),
+                    ("font_count", fonts.Length),
+                    ("font_names", string.Join(",", Array.ConvertAll(fonts, font => font.name))),
+                    ("source_font", sourceFont?.name),
                 ]
         );
     }

@@ -6,6 +6,7 @@ using BazaarPlusPlus.Game.PvpBattles;
 using BazaarPlusPlus.Game.PvpBattles.Persistence;
 using BazaarPlusPlus.GameInterop;
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 using BazaarPlusPlus.Storage.Paths;
 using BazaarPlusPlus.Storage.RunLog;
 using BazaarPlusPlus.Storage.RunLog.Replication;
@@ -135,8 +136,8 @@ internal sealed class RunLoggingModule : IBppFeature
             }
         }
         BppLog.DebugEvent(
-            RunLoggingLogEvents.StoreReady,
-            () => new[] { RunLoggingLogEvents.DatabasePath.Bind(_databasePath) }
+            new BppLogEvent(BppLogFeatureScope.RunLogging, "run_logging.store.ready"),
+            () => new BppLogField[] { ("database_path", _databasePath) }
         );
     }
 
@@ -162,12 +163,14 @@ internal sealed class RunLoggingModule : IBppFeature
                 catch (Exception ex)
                 {
                     BppLog.ErrorEvent(
-                        RunLoggingLogEvents.CompletionFailed,
+                        new BppLogEvent(
+                            BppLogFeatureScope.RunLogging,
+                            "run_logging.run.completion_failed",
+                            storm: []
+                        ),
                         ex,
-                        RunLoggingLogEvents.RunId.Bind(runId),
-                        RunLoggingLogEvents.FailureReasonCode.Bind(
-                            RunLoggingReasonCode.TeardownFinalizationException
-                        )
+                        ("run_id", runId, BppLogCorrelationPolicy.Short),
+                        ("reason_code", RunLoggingReasonCode.TeardownFinalizationException)
                     );
                 }
             }
@@ -248,12 +251,14 @@ internal sealed class RunLoggingModule : IBppFeature
         catch (Exception ex)
         {
             BppLog.ErrorEvent(
-                RunLoggingLogEvents.ActivationFailed,
+                new BppLogEvent(
+                    BppLogFeatureScope.RunLogging,
+                    "run_logging.run.activation_failed",
+                    storm: []
+                ),
                 ex,
-                RunLoggingLogEvents.RunId.Bind(observed.RunId),
-                RunLoggingLogEvents.FailureReasonCode.Bind(
-                    RunLoggingReasonCode.RunActivationException
-                )
+                ("run_id", observed.RunId, BppLogCorrelationPolicy.Short),
+                ("reason_code", RunLoggingReasonCode.RunActivationException)
             );
         }
     }
@@ -308,13 +313,15 @@ internal sealed class RunLoggingModule : IBppFeature
         catch (Exception ex)
         {
             BppLog.ErrorEvent(
-                RunLoggingLogEvents.TransitionFailed,
+                new BppLogEvent(
+                    BppLogFeatureScope.RunLogging,
+                    "run_logging.run.transition_failed",
+                    storm: []
+                ),
                 ex,
-                RunLoggingLogEvents.RunId.Bind(runId),
-                RunLoggingLogEvents.Transition.Bind(transition),
-                RunLoggingLogEvents.TransitionFailureReasonCode.Bind(
-                    RunLoggingReasonCode.RunTransitionException
-                )
+                ("run_id", runId, BppLogCorrelationPolicy.Short),
+                ("transition", transition),
+                ("reason_code", RunLoggingReasonCode.RunTransitionException)
             );
         }
     }
@@ -398,12 +405,14 @@ internal sealed class RunLoggingModule : IBppFeature
         catch (Exception ex)
         {
             BppLog.ErrorEvent(
-                RunLoggingLogEvents.ReplayDrainHandlingFailed,
+                new BppLogEvent(
+                    BppLogFeatureScope.RunLogging,
+                    "run_logging.replay_drain.handling_failed",
+                    storm: []
+                ),
                 ex,
-                RunLoggingLogEvents.RunId.Bind(runId),
-                RunLoggingLogEvents.FailureReasonCode.Bind(
-                    RunLoggingReasonCode.ReplayDrainHandlingException
-                )
+                ("run_id", runId, BppLogCorrelationPolicy.Short),
+                ("reason_code", RunLoggingReasonCode.ReplayDrainHandlingException)
             );
         }
     }
@@ -466,9 +475,13 @@ internal sealed class RunLoggingModule : IBppFeature
             if (!string.Equals(_startedEventRunId, session.RunId, StringComparison.Ordinal))
             {
                 BppLog.InfoEvent(
-                    RunLoggingLogEvents.RunIdCollisionRecovered,
-                    RunLoggingLogEvents.RunId.Bind(session.RunId),
-                    RunLoggingLogEvents.ServerRunId.Bind(request.RunId)
+                    new BppLogEvent(
+                        BppLogFeatureScope.RunLogging,
+                        "run_logging.run.id_collision_recovered",
+                        storm: []
+                    ),
+                    ("run_id", session.RunId, BppLogCorrelationPolicy.Short),
+                    ("server_run_id", request.RunId, BppLogCorrelationPolicy.Short)
                 );
             }
         }
@@ -610,12 +623,14 @@ internal sealed class RunLoggingModule : IBppFeature
         if (degradationReason.HasValue)
         {
             BppLog.WarnEvent(
-                RunLoggingLogEvents.CompletionDegraded,
-                RunLoggingLogEvents.RunId.Bind(completedRunId),
-                RunLoggingLogEvents.CompletionDegradedReasonCode.Bind(degradationReason.Value),
-                RunLoggingLogEvents.GraceMilliseconds.Bind(
-                    (long)ReplayPersistenceCompletionGracePeriod.TotalMilliseconds
-                )
+                new BppLogEvent(
+                    BppLogFeatureScope.RunLogging,
+                    "run_logging.run.completion_degraded",
+                    storm: ["reason_code"]
+                ),
+                ("run_id", completedRunId, BppLogCorrelationPolicy.Short),
+                ("reason_code", degradationReason.Value),
+                ("grace_ms", (long)ReplayPersistenceCompletionGracePeriod.TotalMilliseconds)
             );
         }
         return true;
@@ -645,12 +660,14 @@ internal sealed class RunLoggingModule : IBppFeature
             catch (Exception ex)
             {
                 BppLog.ErrorEvent(
-                    RunLoggingLogEvents.ReplayDrainHandlingFailed,
+                    new BppLogEvent(
+                        BppLogFeatureScope.RunLogging,
+                        "run_logging.replay_drain.handling_failed",
+                        storm: []
+                    ),
                     ex,
-                    RunLoggingLogEvents.RunId.Bind(runId),
-                    RunLoggingLogEvents.FailureReasonCode.Bind(
-                        RunLoggingReasonCode.ReplayDrainHandlingException
-                    )
+                    ("run_id", runId, BppLogCorrelationPolicy.Short),
+                    ("reason_code", RunLoggingReasonCode.ReplayDrainHandlingException)
                 );
             }
         }
@@ -669,16 +686,31 @@ internal sealed class RunLoggingModule : IBppFeature
                 ?? _sessionManager?.ActiveSession?.RunId
                 ?? _deferredRunCompletionRunId
                 ?? _runContext.CurrentServerRunId;
-        var fields = new[]
+        var fields = new BppLogField[]
         {
-            RunLoggingLogEvents.RunId.Bind(runId),
-            RunLoggingLogEvents.BattleId.Bind(manifest?.BattleId),
-            RunLoggingLogEvents.BattleFailureReasonCode.Bind(reasonCode),
+            ("run_id", runId, BppLogCorrelationPolicy.Short),
+            ("battle_id", manifest?.BattleId, BppLogCorrelationPolicy.Short),
+            ("reason_code", reasonCode),
         };
         if (exception == null)
-            BppLog.ErrorEvent(RunLoggingLogEvents.BattleCaptureFailed, fields);
+            BppLog.ErrorEvent(
+                new BppLogEvent(
+                    BppLogFeatureScope.RunLogging,
+                    "run_logging.battle.capture_failed",
+                    storm: []
+                ),
+                fields
+            );
         else
-            BppLog.ErrorEvent(RunLoggingLogEvents.BattleCaptureFailed, exception, fields);
+            BppLog.ErrorEvent(
+                new BppLogEvent(
+                    BppLogFeatureScope.RunLogging,
+                    "run_logging.battle.capture_failed",
+                    storm: []
+                ),
+                exception,
+                fields
+            );
     }
 
     private static RunLoggingTransition ToLogTransition(RunLifecycleChanged change)

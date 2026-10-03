@@ -3,6 +3,7 @@ using System.Reflection;
 using BazaarGameShared.Domain.Cards;
 using BazaarGameShared.Domain.Game;
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 using TheBazaar;
 using TheBazaar.DataManagement.Json;
 
@@ -75,9 +76,12 @@ internal static class BppStaticDataAccess
 
             var cards = CompatibleCardMapReader.Read(path!, out var unsupportedCount);
             BppLog.WarnEvent(
-                StaticCardsLogEvents.UnsupportedTemplates,
-                StaticCardsLogEvents.AcceptedCount.Bind(cards.Count),
-                StaticCardsLogEvents.UnsupportedCount.Bind(unsupportedCount)
+                new BppLogEvent(
+                    BppLogFeatureScope.StaticCards,
+                    "static_cards.catalog.unsupported_templates"
+                ),
+                ("accepted_count", cards.Count),
+                ("unsupported_count", unsupportedCount)
             );
             return cards;
         }

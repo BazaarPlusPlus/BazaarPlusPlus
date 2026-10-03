@@ -7,6 +7,7 @@ using BazaarPlusPlus.Game.CombatReplay.Audio;
 using BazaarPlusPlus.Game.OverlayPanels;
 using BazaarPlusPlus.GameInterop.Tooltips;
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 using BazaarPlusPlus.Storage.Paths;
 using UnityEngine;
 
@@ -317,17 +318,16 @@ internal sealed class CombatReplayVideoRecorder : MonoBehaviour
             if (!ReplayVideoAudioMuxer.TryDrainPendingForShutdown(TimeSpan.FromMilliseconds(4000)))
             {
                 BppLog.DebugEvent(
-                    CombatReplayVideoLogEvents.RecordingLifecycleObserved,
+                    new BppLogEvent(
+                        BppLogFeatureScope.CombatReplay,
+                        "combat_replay.video_recording.lifecycle_observed"
+                    ),
                     () =>
                         [
-                            CombatReplayVideoLogEvents.LifecycleStage.Bind(
-                                ReplayVideoLogStage.MuxDrain
-                            ),
-                            CombatReplayVideoLogEvents.LifecycleRecordingId.Bind(null),
-                            CombatReplayVideoLogEvents.LifecycleBattleId.Bind(null),
-                            CombatReplayVideoLogEvents.LifecyclePendingCount.Bind(
-                                _operations.Count
-                            ),
+                            ("stage", ReplayVideoLogStage.MuxDrain),
+                            ("recording_id", null, BppLogCorrelationPolicy.Short),
+                            ("battle_id", null, BppLogCorrelationPolicy.Short),
+                            ("pending_count", _operations.Count),
                         ]
                 );
             }
@@ -335,17 +335,18 @@ internal sealed class CombatReplayVideoRecorder : MonoBehaviour
         catch (Exception ex)
         {
             BppLog.DebugEvent(
-                CombatReplayVideoLogEvents.VideoMuxDiagnosticObserved,
+                new BppLogEvent(
+                    BppLogFeatureScope.CombatReplay,
+                    "combat_replay.video_mux.diagnostic_observed"
+                ),
                 ex,
                 () =>
                     [
-                        CombatReplayVideoLogEvents.MuxRecordingId.Bind(null),
-                        CombatReplayVideoLogEvents.MuxStage.Bind(ReplayVideoLogStage.MuxDrain),
-                        CombatReplayVideoLogEvents.MuxReasonCode.Bind(
-                            ReplayVideoDiagnosticReasonCode.DrainFailed
-                        ),
-                        CombatReplayVideoLogEvents.MuxPath.Bind(null),
-                        CombatReplayVideoLogEvents.MuxPendingCount.Bind(_operations.Count),
+                        ("recording_id", null, BppLogCorrelationPolicy.Short),
+                        ("stage", ReplayVideoLogStage.MuxDrain),
+                        ("reason_code", ReplayVideoDiagnosticReasonCode.DrainFailed),
+                        ("path", null),
+                        ("pending_count", _operations.Count),
                     ]
             );
         }
@@ -612,22 +613,20 @@ internal sealed class CombatReplayVideoRecorder : MonoBehaviour
             return;
 
         BppLog.DebugEvent(
-            CombatReplayVideoLogEvents.VideoCaptureNativePipelineObserved,
+            new BppLogEvent(
+                BppLogFeatureScope.CombatReplay,
+                "combat_replay.video_capture.native_pipeline_observed"
+            ),
             () =>
                 [
-                    CombatReplayVideoLogEvents.NativeStatsBattleId.Bind(_playbackTimingBattleId),
-                    CombatReplayVideoLogEvents.NativeStatsStage.Bind(
+                    ("battle_id", _playbackTimingBattleId, BppLogCorrelationPolicy.Short),
+                    (
+                        "stage",
                         _playbackTimingRecorded ? "playback_recorded" : "playback_unrecorded"
                     ),
-                    CombatReplayVideoLogEvents.NativeStatsRenderFrameP50Us.Bind(
-                        timing.P50Microseconds
-                    ),
-                    CombatReplayVideoLogEvents.NativeStatsRenderFrameP95Us.Bind(
-                        timing.P95Microseconds
-                    ),
-                    CombatReplayVideoLogEvents.NativeStatsRenderFrameP99Us.Bind(
-                        timing.P99Microseconds
-                    ),
+                    ("render_frame_p50_us", timing.P50Microseconds),
+                    ("render_frame_p95_us", timing.P95Microseconds),
+                    ("render_frame_p99_us", timing.P99Microseconds),
                 ]
         );
         _playbackFrameTiming = null;
@@ -884,15 +883,16 @@ internal sealed class CombatReplayVideoRecorder : MonoBehaviour
         _captureCoroutine = StartCoroutine(CaptureLoop(session));
 
         BppLog.DebugEvent(
-            CombatReplayVideoLogEvents.RecordingLifecycleObserved,
+            new BppLogEvent(
+                BppLogFeatureScope.CombatReplay,
+                "combat_replay.video_recording.lifecycle_observed"
+            ),
             () =>
                 [
-                    CombatReplayVideoLogEvents.LifecycleStage.Bind(
-                        ReplayVideoLogStage.SessionStarted
-                    ),
-                    CombatReplayVideoLogEvents.LifecycleRecordingId.Bind(operation.RecordingId),
-                    CombatReplayVideoLogEvents.LifecycleBattleId.Bind(operation.BattleId),
-                    CombatReplayVideoLogEvents.LifecyclePendingCount.Bind(_operations.Count),
+                    ("stage", ReplayVideoLogStage.SessionStarted),
+                    ("recording_id", operation.RecordingId, BppLogCorrelationPolicy.Short),
+                    ("battle_id", operation.BattleId, BppLogCorrelationPolicy.Short),
+                    ("pending_count", _operations.Count),
                 ]
         );
     }
@@ -924,20 +924,17 @@ internal sealed class CombatReplayVideoRecorder : MonoBehaviour
                 _audioTaps.Add(tap);
                 _activeAudioStatus = ReplayVideoAudioStatus.Full;
                 BppLog.DebugEvent(
-                    CombatReplayVideoLogEvents.AudioCaptureStarted,
+                    new BppLogEvent(
+                        BppLogFeatureScope.CombatReplay,
+                        "combat_replay.audio_capture.started"
+                    ),
                     () =>
                         [
-                            CombatReplayVideoLogEvents.AudioStartedRecordingId.Bind(
-                                operation.RecordingId
-                            ),
-                            CombatReplayVideoLogEvents.AudioStartedBackend.Bind(tap.Backend),
-                            CombatReplayVideoLogEvents.AudioStartedSampleRate.Bind(
-                                tap.SampleRateHz
-                            ),
-                            CombatReplayVideoLogEvents.AudioStartedChannels.Bind(tap.Channels),
-                            CombatReplayVideoLogEvents.AudioStartedSampleFormat.Bind(
-                                tap.SampleFormat
-                            ),
+                            ("recording_id", operation.RecordingId, BppLogCorrelationPolicy.Short),
+                            ("backend", tap.Backend),
+                            ("sample_rate_hz", tap.SampleRateHz),
+                            ("channels", tap.Channels),
+                            ("sample_format", tap.SampleFormat),
                         ]
                 );
                 return;
@@ -1300,15 +1297,16 @@ internal sealed class CombatReplayVideoRecorder : MonoBehaviour
         catch (Exception ex)
         {
             BppLog.DebugEvent(
-                CombatReplayVideoLogEvents.RecordingCleanupFailed,
+                new BppLogEvent(
+                    BppLogFeatureScope.CombatReplay,
+                    "combat_replay.video_recording.cleanup_failed"
+                ),
                 ex,
                 () =>
                     [
-                        CombatReplayVideoLogEvents.CleanupRecordingId.Bind(recordingId),
-                        CombatReplayVideoLogEvents.CleanupStage.Bind(
-                            ReplayVideoLogStage.UiSuppression
-                        ),
-                        CombatReplayVideoLogEvents.CleanupPath.Bind(null),
+                        ("recording_id", recordingId, BppLogCorrelationPolicy.Short),
+                        ("stage", ReplayVideoLogStage.UiSuppression),
+                        ("path", null),
                     ]
             );
             return null;
@@ -1416,15 +1414,16 @@ internal sealed class CombatReplayVideoRecorder : MonoBehaviour
         catch (Exception ex)
         {
             BppLog.DebugEvent(
-                CombatReplayVideoLogEvents.RecordingCleanupFailed,
+                new BppLogEvent(
+                    BppLogFeatureScope.CombatReplay,
+                    "combat_replay.video_recording.cleanup_failed"
+                ),
                 ex,
                 () =>
                     [
-                        CombatReplayVideoLogEvents.CleanupRecordingId.Bind(recordingId),
-                        CombatReplayVideoLogEvents.CleanupStage.Bind(
-                            ReplayVideoLogStage.TempDelete
-                        ),
-                        CombatReplayVideoLogEvents.CleanupPath.Bind(tempPath),
+                        ("recording_id", recordingId, BppLogCorrelationPolicy.Short),
+                        ("stage", ReplayVideoLogStage.TempDelete),
+                        ("path", tempPath),
                     ]
             );
         }
@@ -1556,12 +1555,18 @@ internal sealed class CombatReplayVideoRecorder : MonoBehaviour
                 );
                 if (result.DeleteFailureCount == 0)
                     BppLog.DebugEvent(
-                        CombatReplayVideoLogEvents.VideoArtifactMaintenanceObserved,
+                        new BppLogEvent(
+                            BppLogFeatureScope.CombatReplay,
+                            "combat_replay.video_artifact.maintenance_observed"
+                        ),
                         () => fields
                     );
                 else
                     BppLog.WarnEvent(
-                        CombatReplayVideoLogEvents.VideoArtifactMaintenanceObserved,
+                        new BppLogEvent(
+                            BppLogFeatureScope.CombatReplay,
+                            "combat_replay.video_artifact.maintenance_observed"
+                        ),
                         fields
                     );
             }
@@ -1569,7 +1574,10 @@ internal sealed class CombatReplayVideoRecorder : MonoBehaviour
             catch (Exception ex)
             {
                 BppLog.WarnEvent(
-                    CombatReplayVideoLogEvents.VideoArtifactMaintenanceObserved,
+                    new BppLogEvent(
+                        BppLogFeatureScope.CombatReplay,
+                        "combat_replay.video_artifact.maintenance_observed"
+                    ),
                     ex,
                     BuildVideoMaintenanceFields("failed", default)
                 );
@@ -1577,26 +1585,20 @@ internal sealed class CombatReplayVideoRecorder : MonoBehaviour
         });
     }
 
-    private static BazaarPlusPlus.Infrastructure.Logging.BppLogFieldValue[] BuildVideoMaintenanceFields(
+    private static BazaarPlusPlus.Infrastructure.Logging.BppLogField[] BuildVideoMaintenanceFields(
         string status,
         ReplayVideoMaintenanceResult result
     ) =>
         [
-            CombatReplayVideoLogEvents.MaintenanceStatus.Bind(status),
-            CombatReplayVideoLogEvents.MaintenanceMetadataCount.Bind(result.MetadataCount),
-            CombatReplayVideoLogEvents.MaintenancePresentCount.Bind(result.PresentMetadataCount),
-            CombatReplayVideoLogEvents.MaintenanceMissingCount.Bind(result.MissingMetadataCount),
-            CombatReplayVideoLogEvents.MaintenanceUnknownMp4Count.Bind(
-                result.UnknownSuccessfulMp4Count
-            ),
-            CombatReplayVideoLogEvents.MaintenanceTempCandidateCount.Bind(
-                result.TempCandidateCount
-            ),
-            CombatReplayVideoLogEvents.MaintenanceTempDeletedCount.Bind(result.TempDeletedCount),
-            CombatReplayVideoLogEvents.MaintenanceFailedCount.Bind(result.DeleteFailureCount),
-            CombatReplayVideoLogEvents.MaintenanceUnmanagedCount.Bind(
-                result.UnmanagedMetadataCount
-            ),
+            ("status", status),
+            ("metadata_count", result.MetadataCount),
+            ("present_count", result.PresentMetadataCount),
+            ("missing_count", result.MissingMetadataCount),
+            ("unknown_mp4_count", result.UnknownSuccessfulMp4Count),
+            ("temp_candidate_count", result.TempCandidateCount),
+            ("temp_deleted_count", result.TempDeletedCount),
+            ("failed_count", result.DeleteFailureCount),
+            ("unmanaged_count", result.UnmanagedMetadataCount),
         ];
 
     private readonly struct MetadataWriteOutcome

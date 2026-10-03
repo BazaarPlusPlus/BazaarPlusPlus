@@ -1,5 +1,6 @@
 #nullable enable
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 using TheBazaar.Assets.Scripts.ScriptableObjectsScripts;
 using UnityEngine.AddressableAssets;
 using UnityEngine.ResourceManagement.AsyncOperations;
@@ -148,17 +149,16 @@ internal sealed class CollectionCardArtCache
             catch (Exception ex)
             {
                 BppLog.DebugEvent(
-                    CollectionPanelLogEvents.CacheCleanupFailed,
+                    new BppLogEvent(
+                        BppLogFeatureScope.CollectionPanel,
+                        "collection_panel.cache.cleanup_failed"
+                    ),
                     ex,
                     () =>
                         [
-                            CollectionPanelLogEvents.CacheCleanupFailedCache.Bind(
-                                CollectionCacheKind.Art
-                            ),
-                            CollectionPanelLogEvents.CacheCleanupFailedStage.Bind(
-                                CollectionCacheCleanupStage.Release
-                            ),
-                            CollectionPanelLogEvents.CacheCleanupFailedArtKey.Bind(pair.Key),
+                            ("cache", CollectionCacheKind.Art),
+                            ("stage", CollectionCacheCleanupStage.Release),
+                            ("art_key", pair.Key),
                         ]
                 );
             }
@@ -205,17 +205,16 @@ internal sealed class CollectionCardArtCache
                 catch (Exception ex)
                 {
                     BppLog.DebugEvent(
-                        CollectionPanelLogEvents.CacheCleanupFailed,
+                        new BppLogEvent(
+                            BppLogFeatureScope.CollectionPanel,
+                            "collection_panel.cache.cleanup_failed"
+                        ),
                         ex,
                         () =>
                             [
-                                CollectionPanelLogEvents.CacheCleanupFailedCache.Bind(
-                                    CollectionCacheKind.Art
-                                ),
-                                CollectionPanelLogEvents.CacheCleanupFailedStage.Bind(
-                                    CollectionCacheCleanupStage.EvictRelease
-                                ),
-                                CollectionPanelLogEvents.CacheCleanupFailedArtKey.Bind(evictKey),
+                                ("cache", CollectionCacheKind.Art),
+                                ("stage", CollectionCacheCleanupStage.EvictRelease),
+                                ("art_key", evictKey),
                             ]
                     );
                 }

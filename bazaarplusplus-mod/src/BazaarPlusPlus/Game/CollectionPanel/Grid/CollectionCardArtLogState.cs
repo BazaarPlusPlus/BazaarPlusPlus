@@ -1,5 +1,6 @@
 #nullable enable
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 
 namespace BazaarPlusPlus.Game.CollectionPanel.Grid;
 
@@ -17,15 +18,30 @@ internal sealed class CollectionCardArtLogState
         if (!_reportedReasons.Add(reasonCode))
             return;
 
-        var fields = new[]
+        var fields = new BppLogField[]
         {
-            CollectionPanelLogEvents.CardArtDegradedReasonCode.Bind(reasonCode),
-            CollectionPanelLogEvents.CardArtDegradedStatus.Bind(status),
-            CollectionPanelLogEvents.CardArtDegradedArtKey.Bind(artKey),
+            ("reason_code", reasonCode),
+            ("status", status),
+            ("art_key", artKey),
         };
         if (exception == null)
-            BppLog.WarnEvent(CollectionPanelLogEvents.CardArtDegraded, fields);
+            BppLog.WarnEvent(
+                new BppLogEvent(
+                    BppLogFeatureScope.CollectionPanel,
+                    "collection_panel.card_art.degraded",
+                    storm: ["reason_code"]
+                ),
+                fields
+            );
         else
-            BppLog.WarnEvent(CollectionPanelLogEvents.CardArtDegraded, exception, fields);
+            BppLog.WarnEvent(
+                new BppLogEvent(
+                    BppLogFeatureScope.CollectionPanel,
+                    "collection_panel.card_art.degraded",
+                    storm: ["reason_code"]
+                ),
+                exception,
+                fields
+            );
     }
 }

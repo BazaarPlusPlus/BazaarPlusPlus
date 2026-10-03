@@ -4,6 +4,7 @@ using BazaarGameShared;
 using BazaarPlusPlus.Core.Config;
 using BazaarPlusPlus.GameInterop.Fonts;
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 using BazaarPlusPlus.Localization;
 using TheBazaar;
 using TheBazaar.AppFramework;
@@ -139,7 +140,14 @@ internal sealed class CosmeticNameOverlay : MonoBehaviour
         catch (Exception ex)
         {
             RetryLater();
-            BppLog.WarnEvent(CosmeticNamesLogEvents.OverlayDegraded, ex);
+            BppLog.WarnEvent(
+                new BppLogEvent(
+                    BppLogFeatureScope.CosmeticNames,
+                    "cosmetic_names.overlay.degraded",
+                    storm: []
+                ),
+                ex
+            );
         }
     }
 

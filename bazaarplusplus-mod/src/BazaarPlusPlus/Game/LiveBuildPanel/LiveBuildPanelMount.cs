@@ -4,6 +4,7 @@ using BazaarPlusPlus.Core.Runtime;
 using BazaarPlusPlus.Game.LiveBuildPanel.Recommendations;
 using BazaarPlusPlus.Game.OverlayPanels;
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 using UnityEngine;
 
 namespace BazaarPlusPlus.Game.LiveBuildPanel;
@@ -28,10 +29,8 @@ internal sealed class LiveBuildPanelMount : IBppMountable
         if (overlayHost == null)
         {
             BppLog.ErrorEvent(
-                LiveBuildPanelLogEvents.MountFailed,
-                LiveBuildPanelLogEvents.MountFailedReasonCode.Bind(
-                    LiveBuildMountFailureReasonCode.OverlayHostUnavailable
-                )
+                new BppLogEvent(BppLogFeatureScope.LiveBuildPanel, "live_build_panel.mount.failed"),
+                ("reason_code", LiveBuildMountFailureReasonCode.OverlayHostUnavailable)
             );
             return;
         }

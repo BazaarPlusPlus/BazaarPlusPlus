@@ -3,6 +3,7 @@
 using System.Reflection.Emit;
 using BazaarPlusPlus.GameInterop.VoiceSubtitles;
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 using FMOD.Studio;
 using FMODUnity;
 using HarmonyLib;
@@ -22,11 +23,12 @@ internal static class SoundManagerInitializedPatch
         catch (Exception exception)
         {
             BppLog.ErrorEvent(
-                VoicePatchLogEvents.ObserverFailed,
+                new BppLogEvent(
+                    BppLogFeatureScope.VoiceSubtitles,
+                    "voice_subtitles.observer.failed"
+                ),
                 exception,
-                VoicePatchLogEvents.ObserverFailedReasonCode.Bind(
-                    VoicePatchLogReasonCode.ObserverInstallFailed
-                )
+                ("reason_code", VoicePatchLogReasonCode.ObserverInstallFailed)
             );
         }
     }
@@ -99,14 +101,11 @@ internal static class VOPlayerPlayVOPatch
         {
 #if DEBUG
             BppLog.DebugEvent(
-                VoicePatchLogEvents.CallbackPatchReady,
-                () =>
-                    [
-                        VoicePatchLogEvents.CallbackPatchReadyActualCount.Bind(patched),
-                        VoicePatchLogEvents.CallbackPatchReadyExpectedCount.Bind(
-                            ExpectedPatchCount
-                        ),
-                    ]
+                new BppLogEvent(
+                    BppLogFeatureScope.VoiceSubtitles,
+                    "voice_subtitles.callback_patch.ready"
+                ),
+                () => [("actual_count", patched), ("expected_count", ExpectedPatchCount)]
             );
 #endif
         }
@@ -121,10 +120,13 @@ internal static class VOPlayerPlayVOPatch
     private static void ReportPatchDegraded(VoicePatchLogReasonCode reasonCode, int actualCount)
     {
         BppLog.WarnEvent(
-            VoicePatchLogEvents.CallbackPatchDegraded,
-            VoicePatchLogEvents.CallbackPatchDegradedReasonCode.Bind(reasonCode),
-            VoicePatchLogEvents.CallbackPatchDegradedActualCount.Bind(actualCount),
-            VoicePatchLogEvents.CallbackPatchDegradedExpectedCount.Bind(ExpectedPatchCount)
+            new BppLogEvent(
+                BppLogFeatureScope.VoiceSubtitles,
+                "voice_subtitles.callback_patch.degraded"
+            ),
+            ("reason_code", reasonCode),
+            ("actual_count", actualCount),
+            ("expected_count", ExpectedPatchCount)
         );
     }
 }

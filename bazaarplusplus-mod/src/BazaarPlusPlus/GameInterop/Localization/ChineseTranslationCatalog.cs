@@ -134,15 +134,26 @@ internal static class ChineseTranslationCatalog
         if (!Health.ObserveFailure(Locale, reasonCode))
             return;
 
-        var fields = new[]
-        {
-            BilingualItemNamesLogEvents.CatalogDegradedLocale.Bind(Locale),
-            BilingualItemNamesLogEvents.CatalogDegradedReasonCode.Bind(reasonCode),
-        };
+        var fields = new BppLogField[] { ("locale", Locale), ("reason_code", reasonCode) };
         if (exception == null)
-            BppLog.WarnEvent(BilingualItemNamesLogEvents.CatalogDegraded, fields);
+            BppLog.WarnEvent(
+                new BppLogEvent(
+                    BppLogFeatureScope.BilingualItemNames,
+                    "bilingual_item_names.catalog.degraded",
+                    storm: ["reason_code"]
+                ),
+                fields
+            );
         else
-            BppLog.WarnEvent(BilingualItemNamesLogEvents.CatalogDegraded, exception, fields);
+            BppLog.WarnEvent(
+                new BppLogEvent(
+                    BppLogFeatureScope.BilingualItemNames,
+                    "bilingual_item_names.catalog.degraded",
+                    storm: ["reason_code"]
+                ),
+                exception,
+                fields
+            );
     }
 
     private static void ReportSuccess()
@@ -151,12 +162,19 @@ internal static class ChineseTranslationCatalog
         {
             _readyReported = true;
             BppLog.RecoverStorm(
-                BilingualItemNamesLogEvents.CatalogDegraded,
-                BilingualItemNamesLogEvents.CatalogDegradedReasonCode.Bind(reasonCode)
+                new BppLogEvent(
+                    BppLogFeatureScope.BilingualItemNames,
+                    "bilingual_item_names.catalog.degraded",
+                    storm: ["reason_code"]
+                ),
+                ("reason_code", reasonCode)
             );
             BppLog.InfoEvent(
-                BilingualItemNamesLogEvents.CatalogRecovered,
-                BilingualItemNamesLogEvents.CatalogRecoveredLocale.Bind(Locale)
+                new BppLogEvent(
+                    BppLogFeatureScope.BilingualItemNames,
+                    "bilingual_item_names.catalog.recovered"
+                ),
+                ("locale", Locale)
             );
             return;
         }
@@ -165,8 +183,11 @@ internal static class ChineseTranslationCatalog
             return;
         _readyReported = true;
         BppLog.DebugEvent(
-            BilingualItemNamesLogEvents.CatalogLoaded,
-            () => [BilingualItemNamesLogEvents.CatalogLoadedLocale.Bind(Locale)]
+            new BppLogEvent(
+                BppLogFeatureScope.BilingualItemNames,
+                "bilingual_item_names.catalog.loaded"
+            ),
+            () => [("locale", Locale)]
         );
     }
 }

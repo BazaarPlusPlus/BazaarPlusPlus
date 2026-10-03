@@ -224,16 +224,31 @@ internal sealed class SupporterCatalogModule : IBppFeature
             )
                 return;
 
-            var fields = new[]
+            var fields = new BppLogField[]
             {
-                SupporterLogEvents.CatalogDegradedSource.Bind(source),
-                SupporterLogEvents.CatalogDegradedReasonCode.Bind(reason),
-                SupporterLogEvents.CatalogDegradedCachePath.Bind(_cachePath),
+                ("source", source),
+                ("reason_code", reason),
+                ("cache_path", _cachePath),
             };
             if (exception == null)
-                BppLog.WarnEvent(SupporterLogEvents.CatalogDegraded, fields);
+                BppLog.WarnEvent(
+                    new BppLogEvent(
+                        BppLogFeatureScope.Supporters,
+                        "supporters.catalog.degraded",
+                        storm: ["source", "reason_code"]
+                    ),
+                    fields
+                );
             else
-                BppLog.WarnEvent(SupporterLogEvents.CatalogDegraded, exception, fields);
+                BppLog.WarnEvent(
+                    new BppLogEvent(
+                        BppLogFeatureScope.Supporters,
+                        "supporters.catalog.degraded",
+                        storm: ["source", "reason_code"]
+                    ),
+                    exception,
+                    fields
+                );
         }
 
         private void ReportCatalogSuccess(SupporterCatalogSource source, int entryCount)
@@ -241,25 +256,25 @@ internal sealed class SupporterCatalogModule : IBppFeature
             if (!_catalogHealth.ObserveSuccess(SupporterCatalogOperation.Load, out var failure))
             {
                 BppLog.DebugEvent(
-                    SupporterLogEvents.CatalogLoaded,
-                    () =>
-                        [
-                            SupporterLogEvents.CatalogLoadedSource.Bind(source),
-                            SupporterLogEvents.CatalogLoadedEntryCount.Bind(entryCount),
-                        ]
+                    new BppLogEvent(BppLogFeatureScope.Supporters, "supporters.catalog.loaded"),
+                    () => [("source", source), ("entry_count", entryCount)]
                 );
                 return;
             }
 
             BppLog.RecoverStorm(
-                SupporterLogEvents.CatalogDegraded,
-                SupporterLogEvents.CatalogDegradedSource.Bind(failure.Source),
-                SupporterLogEvents.CatalogDegradedReasonCode.Bind(failure.Reason)
+                new BppLogEvent(
+                    BppLogFeatureScope.Supporters,
+                    "supporters.catalog.degraded",
+                    storm: ["source", "reason_code"]
+                ),
+                ("source", failure.Source),
+                ("reason_code", failure.Reason)
             );
             BppLog.InfoEvent(
-                SupporterLogEvents.CatalogRecovered,
-                SupporterLogEvents.CatalogRecoveredSource.Bind(source),
-                SupporterLogEvents.CatalogRecoveredEntryCount.Bind(entryCount)
+                new BppLogEvent(BppLogFeatureScope.Supporters, "supporters.catalog.recovered"),
+                ("source", source),
+                ("entry_count", entryCount)
             );
         }
 
@@ -273,17 +288,30 @@ internal sealed class SupporterCatalogModule : IBppFeature
             )
                 return;
 
-            var fields = new[]
+            var fields = new BppLogField[]
             {
-                SupporterLogEvents.CacheWriteDegradedPath.Bind(_cachePath),
-                SupporterLogEvents.CacheWriteDegradedReasonCode.Bind(
-                    SupporterLogReasonCode.WriteException
-                ),
+                ("path", _cachePath),
+                ("reason_code", SupporterLogReasonCode.WriteException),
             };
             if (exception == null)
-                BppLog.WarnEvent(SupporterLogEvents.CacheWriteDegraded, fields);
+                BppLog.WarnEvent(
+                    new BppLogEvent(
+                        BppLogFeatureScope.Supporters,
+                        "supporters.cache.write_degraded",
+                        storm: ["reason_code"]
+                    ),
+                    fields
+                );
             else
-                BppLog.WarnEvent(SupporterLogEvents.CacheWriteDegraded, exception, fields);
+                BppLog.WarnEvent(
+                    new BppLogEvent(
+                        BppLogFeatureScope.Supporters,
+                        "supporters.cache.write_degraded",
+                        storm: ["reason_code"]
+                    ),
+                    exception,
+                    fields
+                );
         }
 
         private void ReportCacheWriteSuccess()
@@ -292,12 +320,16 @@ internal sealed class SupporterCatalogModule : IBppFeature
                 return;
 
             BppLog.RecoverStorm(
-                SupporterLogEvents.CacheWriteDegraded,
-                SupporterLogEvents.CacheWriteDegradedReasonCode.Bind(reason)
+                new BppLogEvent(
+                    BppLogFeatureScope.Supporters,
+                    "supporters.cache.write_degraded",
+                    storm: ["reason_code"]
+                ),
+                ("reason_code", reason)
             );
             BppLog.InfoEvent(
-                SupporterLogEvents.CacheWriteRecovered,
-                SupporterLogEvents.CacheWriteRecoveredPath.Bind(_cachePath)
+                new BppLogEvent(BppLogFeatureScope.Supporters, "supporters.cache.write_recovered"),
+                ("path", _cachePath)
             );
         }
 

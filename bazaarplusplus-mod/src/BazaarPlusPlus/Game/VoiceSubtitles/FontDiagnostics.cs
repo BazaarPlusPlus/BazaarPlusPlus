@@ -1,6 +1,7 @@
 #nullable enable
 
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 using BazaarPlusPlus.Localization;
 using TMPro;
 using UnityEngine;
@@ -37,23 +38,16 @@ internal static class FontDiagnostics
         var probe = GlyphProbe(font);
         var added = converted.Where(character => simplifiedLine.IndexOf(character) < 0).ToArray();
         BppLog.WarnEvent(
-            VoiceSubtitlesDisplayLogEvents.FontEnvironmentObserved,
-            VoiceSubtitlesDisplayLogEvents.FontEnvironmentReasonCode.Bind(
-                VoiceSubtitlesLogReasonCode.TraditionalGlyphsMissing
+            new BppLogEvent(
+                BppLogFeatureScope.VoiceSubtitles,
+                "voice_subtitles.font_environment.observed"
             ),
-            VoiceSubtitlesDisplayLogEvents.FontEnvironmentAnchorPath.Bind(
-                BuildPath(renderer.transform)
-            ),
-            VoiceSubtitlesDisplayLogEvents.FontEnvironmentSourceFont.Bind(DescribeFont(font)),
-            VoiceSubtitlesDisplayLogEvents.FontEnvironmentSourceCoverage.Bind(
-                $"{added.Count(probe)}/{added.Length}"
-            ),
-            VoiceSubtitlesDisplayLogEvents.FontEnvironmentDefaultFont.Bind(
-                DescribeFont(TMP_Settings.defaultFontAsset)
-            ),
-            VoiceSubtitlesDisplayLogEvents.FontEnvironmentFallbackFonts.Bind(
-                DescribeFontList(TMP_Settings.fallbackFontAssets)
-            )
+            ("reason_code", VoiceSubtitlesLogReasonCode.TraditionalGlyphsMissing),
+            ("anchor_path", BuildPath(renderer.transform)),
+            ("source_font", DescribeFont(font)),
+            ("source_coverage", $"{added.Count(probe)}/{added.Length}"),
+            ("default_font", DescribeFont(TMP_Settings.defaultFontAsset)),
+            ("fallback_fonts", DescribeFontList(TMP_Settings.fallbackFontAssets))
         );
     }
 
@@ -65,35 +59,29 @@ internal static class FontDiagnostics
         _logged = true;
 
         BppLog.DebugEvent(
-            VoiceSubtitlesDisplayLogEvents.FontEnvironmentObserved,
+            new BppLogEvent(
+                BppLogFeatureScope.VoiceSubtitles,
+                "voice_subtitles.font_environment.observed"
+            ),
             () =>
             {
                 var sourceFont = sourceLabel.font;
                 return
                 [
-                    VoiceSubtitlesDisplayLogEvents.FontEnvironmentReasonCode.Bind(
-                        VoiceSubtitlesLogReasonCode.Mount
-                    ),
-                    VoiceSubtitlesDisplayLogEvents.FontEnvironmentAnchorPath.Bind(
-                        BuildPath(sourceLabel.transform)
-                    ),
-                    VoiceSubtitlesDisplayLogEvents.FontEnvironmentSourceFont.Bind(
-                        DescribeFont(sourceFont)
-                    ),
-                    VoiceSubtitlesDisplayLogEvents.FontEnvironmentSourceCoverage.Bind(
-                        DescribeCoverage(sourceFont)
-                    ),
-                    VoiceSubtitlesDisplayLogEvents.FontEnvironmentDefaultFont.Bind(
-                        DescribeFont(TMP_Settings.defaultFontAsset)
-                    ),
-                    VoiceSubtitlesDisplayLogEvents.FontEnvironmentFallbackFonts.Bind(
-                        DescribeFontList(TMP_Settings.fallbackFontAssets)
-                    ),
+                    ("reason_code", VoiceSubtitlesLogReasonCode.Mount),
+                    ("anchor_path", BuildPath(sourceLabel.transform)),
+                    ("source_font", DescribeFont(sourceFont)),
+                    ("source_coverage", DescribeCoverage(sourceFont)),
+                    ("default_font", DescribeFont(TMP_Settings.defaultFontAsset)),
+                    ("fallback_fonts", DescribeFontList(TMP_Settings.fallbackFontAssets)),
                 ];
             }
         );
         BppLog.DebugEvent(
-            VoiceSubtitlesDisplayLogEvents.FontInventoryObserved,
+            new BppLogEvent(
+                BppLogFeatureScope.VoiceSubtitles,
+                "voice_subtitles.font_inventory.observed"
+            ),
             () =>
             {
                 var loadedFonts = Resources
@@ -107,10 +95,8 @@ internal static class FontDiagnostics
                     .ToArray();
                 return
                 [
-                    VoiceSubtitlesDisplayLogEvents.FontInventoryCount.Bind(loadedFonts.Length),
-                    VoiceSubtitlesDisplayLogEvents.FontInventoryFonts.Bind(
-                        DescribeScoredFonts(loadedFonts)
-                    ),
+                    ("font_count", loadedFonts.Length),
+                    ("fonts", DescribeScoredFonts(loadedFonts)),
                 ];
             }
         );

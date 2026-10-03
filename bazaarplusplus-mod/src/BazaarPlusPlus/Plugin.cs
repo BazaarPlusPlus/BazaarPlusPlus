@@ -14,6 +14,7 @@ using BazaarPlusPlus.GameInterop.Fonts;
 using BazaarPlusPlus.GameInterop.Localization;
 using BazaarPlusPlus.GameInterop.Tooltips;
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 using BazaarPlusPlus.Localization;
 using BazaarPlusPlus.ModApi;
 using BazaarPlusPlus.ModApi.Clients;
@@ -68,10 +69,15 @@ public class Plugin : BaseUnityPlugin
             if (gameBuild.DetectionWarning != null)
             {
                 BppLog.WarnEvent(
-                    PluginLogEvents.GameBuildDegraded,
-                    PluginLogEvents.GameBuildDegradedGameBuild.Bind(gameBuild.RawVersion),
-                    PluginLogEvents.GameBuildDegradedBuildChannel.Bind(gameBuild.Channel),
-                    PluginLogEvents.GameBuildDegradedReasonCode.Bind(
+                    new BppLogEvent(
+                        BppLogFeatureScope.Plugin,
+                        "plugin.game_build.degraded",
+                        storm: ["reason_code"]
+                    ),
+                    ("game_build", gameBuild.RawVersion),
+                    ("build_channel", gameBuild.Channel),
+                    (
+                        "reason_code",
                         string.IsNullOrWhiteSpace(gameBuild.RawVersion)
                             ? PluginLogReasonCode.VersionUnreadable
                             : PluginLogReasonCode.DetectionSignalsDisagree
@@ -109,23 +115,19 @@ public class Plugin : BaseUnityPlugin
             phase = PluginInitializationPhase.Mountables;
             _composition.Mountables.MountAll(gameObject, services);
             BppLog.InfoEvent(
-                PluginLogEvents.InitializationSucceeded,
-                PluginLogEvents.InitializationSucceededPluginVersion.Bind(
-                    MyPluginInfo.PLUGIN_VERSION
-                ),
-                PluginLogEvents.InitializationSucceededGameBuild.Bind(gameBuild.RawVersion),
-                PluginLogEvents.InitializationSucceededBuildChannel.Bind(gameBuild.Channel)
+                new BppLogEvent(BppLogFeatureScope.Plugin, "plugin.initialization.succeeded"),
+                ("plugin_version", MyPluginInfo.PLUGIN_VERSION),
+                ("game_build", gameBuild.RawVersion),
+                ("build_channel", gameBuild.Channel)
             );
         }
         catch (Exception ex)
         {
             BppLog.ErrorEvent(
-                PluginLogEvents.InitializationFailed,
+                new BppLogEvent(BppLogFeatureScope.Plugin, "plugin.initialization.failed"),
                 ex,
-                PluginLogEvents.InitializationFailedPhase.Bind(phase),
-                PluginLogEvents.InitializationFailedReasonCode.Bind(
-                    PluginLogReasonCode.InitializationException
-                )
+                ("phase", phase),
+                ("reason_code", PluginLogReasonCode.InitializationException)
             );
             CleanupFailedInitialization();
             throw;
@@ -149,13 +151,15 @@ public class Plugin : BaseUnityPlugin
         if (failures.FailedStepCount > 0)
         {
             BppLog.WarnEvent(
-                PluginLogEvents.ShutdownDegraded,
+                new BppLogEvent(
+                    BppLogFeatureScope.Plugin,
+                    "plugin.shutdown.degraded",
+                    storm: ["reason_code"]
+                ),
                 failures.FirstException!,
-                PluginLogEvents.ShutdownDegradedFailedStepCount.Bind(failures.FailedStepCount),
-                PluginLogEvents.ShutdownDegradedFirstFailedStep.Bind(failures.FirstFailedStep),
-                PluginLogEvents.ShutdownDegradedReasonCode.Bind(
-                    PluginLogReasonCode.TeardownStepFailed
-                )
+                ("failed_step_count", failures.FailedStepCount),
+                ("first_failed_step", failures.FirstFailedStep),
+                ("reason_code", PluginLogReasonCode.TeardownStepFailed)
             );
         }
         BppLog.Flush();
@@ -295,16 +299,12 @@ public class Plugin : BaseUnityPlugin
             {
                 failedClasses++;
                 BppLog.DebugEvent(
-                    PluginLogEvents.PatchApplyFailed,
+                    new BppLogEvent(BppLogFeatureScope.Plugin, "plugin.patch.apply_failed"),
                     ex,
                     () =>
                         [
-                            PluginLogEvents.PatchApplyFailedPatchType.Bind(
-                                type.FullName ?? type.Name
-                            ),
-                            PluginLogEvents.PatchApplyFailedReasonCode.Bind(
-                                PluginLogReasonCode.PatchClassException
-                            ),
+                            ("patch_type", type.FullName ?? type.Name),
+                            ("reason_code", PluginLogReasonCode.PatchClassException),
                         ]
                 );
             }
@@ -312,11 +312,13 @@ public class Plugin : BaseUnityPlugin
 
         if (failedClasses > 0)
             BppLog.WarnEvent(
-                PluginLogEvents.PatchesDegraded,
-                PluginLogEvents.PatchesDegradedFailedPatchCount.Bind(failedClasses),
-                PluginLogEvents.PatchesDegradedReasonCode.Bind(
-                    PluginLogReasonCode.PatchClassesFailed
-                )
+                new BppLogEvent(
+                    BppLogFeatureScope.Plugin,
+                    "plugin.patches.degraded",
+                    storm: ["reason_code"]
+                ),
+                ("failed_patch_count", failedClasses),
+                ("reason_code", PluginLogReasonCode.PatchClassesFailed)
             );
     }
 

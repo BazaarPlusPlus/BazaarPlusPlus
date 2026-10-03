@@ -1,5 +1,6 @@
 #nullable enable
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 using UnityEngine;
 
 namespace BazaarPlusPlus.Game.Settings;
@@ -115,9 +116,13 @@ internal static class BppDockButtonSpriteProvider
         SettingsDockSpriteResourceId resourceId
     ) =>
         BppLog.WarnEvent(
-            SettingsLogEvents.DockSpriteDegraded,
-            SettingsLogEvents.DockSpriteDegradedReasonCode.Bind(reasonCode),
-            SettingsLogEvents.DockSpriteDegradedResourceId.Bind(resourceId)
+            new BppLogEvent(
+                BppLogFeatureScope.Settings,
+                "settings.dock_sprite.degraded",
+                storm: ["reason_code"]
+            ),
+            ("reason_code", reasonCode),
+            ("resource_id", resourceId)
         );
 }
 

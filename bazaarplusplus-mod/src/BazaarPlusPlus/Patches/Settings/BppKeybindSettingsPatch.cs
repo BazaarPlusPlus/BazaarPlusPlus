@@ -5,6 +5,7 @@ using System.Reflection;
 using BazaarPlusPlus.Game.Input;
 using BazaarPlusPlus.Game.Settings;
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 using HarmonyLib;
 using TheBazaar.UI;
 using UnityEngine;
@@ -283,17 +284,30 @@ internal sealed class BppKeybindSettingsRefreshDriver : MonoBehaviour
         }
 
         _refreshCoroutine = null;
-        var fields = new[]
+        var fields = new BppLogField[]
         {
-            SettingsLogEvents.KeybindRowsDegradedStage.Bind(lastStage),
-            SettingsLogEvents.KeybindRowsDegradedReasonCode.Bind(
-                SettingsLogReasonCode.RetryExhausted
-            ),
+            ("stage", lastStage),
+            ("reason_code", SettingsLogReasonCode.RetryExhausted),
         };
         if (lastException == null)
-            BppLog.WarnEvent(SettingsLogEvents.KeybindRowsDegraded, fields);
+            BppLog.WarnEvent(
+                new BppLogEvent(
+                    BppLogFeatureScope.Settings,
+                    "settings.keybind_rows.degraded",
+                    storm: ["reason_code"]
+                ),
+                fields
+            );
         else
-            BppLog.WarnEvent(SettingsLogEvents.KeybindRowsDegraded, lastException, fields);
+            BppLog.WarnEvent(
+                new BppLogEvent(
+                    BppLogFeatureScope.Settings,
+                    "settings.keybind_rows.degraded",
+                    storm: ["reason_code"]
+                ),
+                lastException,
+                fields
+            );
     }
 
     private static bool HasInstalledRows(OptionsDialogController controller)

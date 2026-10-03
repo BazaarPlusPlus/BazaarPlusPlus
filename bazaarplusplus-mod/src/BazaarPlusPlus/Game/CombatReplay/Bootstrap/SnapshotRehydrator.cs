@@ -8,6 +8,7 @@ using BazaarGameShared.Infra.Messages;
 using BazaarGameShared.Infra.Messages.GameSimEvents;
 using BazaarPlusPlus.Game.PvpBattles;
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 using TheBazaar;
 
 namespace BazaarPlusPlus.Game.CombatReplay.Bootstrap;
@@ -89,12 +90,15 @@ internal static class SnapshotRehydrator
         var removedCount = events.RemoveAll(ShouldRemoveSpawnEvent);
         if (removedCount > 0)
             BppLog.DebugEvent(
-                CombatReplayLogEvents.PlaybackCleanupObserved,
+                new BppLogEvent(
+                    BppLogFeatureScope.CombatReplay,
+                    "combat_replay.playback.cleanup_observed"
+                ),
                 () =>
                     [
-                        CombatReplayLogEvents.CleanupObservedStage.Bind("spawn_sanitization"),
-                        CombatReplayLogEvents.CleanupObservedRemovedCount.Bind(removedCount),
-                        CombatReplayLogEvents.CleanupObservedBattleId.Bind(battleId),
+                        ("stage", "spawn_sanitization"),
+                        ("removed_count", removedCount),
+                        ("battle_id", battleId, BppLogCorrelationPolicy.Short),
                     ]
             );
     }
