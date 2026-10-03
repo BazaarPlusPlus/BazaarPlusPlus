@@ -1,0 +1,27 @@
+{
+  "status": 200,
+  "body": {
+    "window": {
+      "available_from_ms": 1785628620000,
+      "available_before_ms": 1785628740000
+    },
+    "items": [
+      {
+        "bundle_id": "01J00000000000000000000104",
+        "available_at_ms": 1785628680000,
+        "download_url": "https://bazaarplusplus-bundle-v5.test-account-id.r2.cloudflarestorage.com/bundles/2026-08-01/01J00000000000000000000104.bundle?X-Amz-Expires=604800&X-Amz-Date=20260802T000000Z&X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=test-access-key-id%2F20260802%2Fauto%2Fs3%2Faws4_request&X-Amz-SignedHeaders=host&X-Amz-Signature=84ff45cfbdadf2d4f0a11bc6e2ea496647ad166907b0aff608b8d56a23968920",
+        "download_expires_at_ms": 1786233600000
+      },
+      {
+        "bundle_id": "01J00000000000000000000105",
+        "available_at_ms": 1785628680001,
+        "download_url": "https://bazaarplusplus-bundle-v5.test-account-id.r2.cloudflarestorage.com/bundles/2026-08-01/01J00000000000000000000105.bundle?X-Amz-Expires=604800&X-Amz-Date=20260802T000000Z&X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=test-access-key-id%2F20260802%2Fauto%2Fs3%2Faws4_request&X-Amz-SignedHeaders=host&X-Amz-Signature=f0e026654c8fdcb9611117a517e6bfa7cf86e6de5b59f32c36b06da58d53ae1b",
+        "download_expires_at_ms": 1786233600000
+      }
+    ],
+    "next_after": {
+      "available_at_ms": 1785628680001,
+      "bundle_id": "01J00000000000000000000105"
+    }
+  }
+}

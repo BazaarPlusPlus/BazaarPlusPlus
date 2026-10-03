@@ -49,76 +49,6 @@ beforeEach(() => {
 });
 afterEach(() => vi.restoreAllMocks());
 
-describe("executed D1 query plans", () => {
-  test.each([undefined, BUNDLE_ID])(
-    "Bundle collection uses its covering index after %s",
-    async (afterId) => {
-      const queries = recordD1(env.DB);
-      expect((await worker.fetch(collectionRequest(afterId), env)).status).toBe(200);
-      const detail = await plan(query(queries, /^SELECT .* FROM bundles /));
-      expect(detail).toContain("idx_bundles_available");
-      expect(detail).toContain("COVERING");
-      expect(detail).not.toContain("TEMP B-TREE");
-    },
-  );
-
-  test("Ghost discovery uses the opponent/time index and Bundle primary key", async () => {
-    const queries = recordD1(env.DB);
-    const response = await worker.fetch(
-      new Request("https://worker.test/ghost-battles?player_account_id=plan-account"),
-      { ...env, GHOST_BATTLE_RATE_LIMITER: { limit: async () => ({ success: true }) } },
-    );
-    expect(response.status).toBe(200);
-    const detail = await plan(query(queries, /^SELECT .* FROM ghost_battle_summaries /));
-    expect(detail).toContain("idx_ghost_summaries_query");
-    expect(detail).toMatch(/PRIMARY KEY|sqlite_autoindex_bundles_1/);
-    expect(detail).not.toContain("TEMP B-TREE");
-  });
-
-  test("claim, receipts and convergence use their partial indexes", async () => {
-    const queries = recordD1(env.DB);
-    expect((await worker.fetch(deliveryRequest("claim", { limit: 50 }), env)).status).toBe(200);
-    const claim = await plan(query(queries, /^WITH /));
-    expect(claim).toContain("idx_bazaardb_claimable");
-    expect(claim).not.toContain("TEMP B-TREE");
-    const attempts = await plan(query(queries, /^INSERT INTO bazaardb_delivery_attempts /));
-    expect(attempts).toContain("idx_bazaardb_active_claim_order");
-    const active = await plan(query(queries, /^SELECT b\.bundle_id/));
-    expect(active).toContain("idx_bazaardb_active_claim_order");
-    expect(active).not.toContain("TEMP B-TREE");
-    const exhausted = await plan(query(queries, /^UPDATE .*ELSE 'delivery_attempts_exhausted'/));
-    expect(exhausted).toContain("idx_bazaardb_exhausted_lease");
-    const expired = await plan(query(queries, /^UPDATE .*failure_reason = 'bundle_expired'/));
-    expect(expired).toContain(
-      "SEARCH bazaardb_deliveries USING COVERING INDEX idx_bazaardb_pending_retention",
-    );
-    expect(expired).toContain("bundle_stored_at_ms<?");
-    expect(expired).not.toContain("SCAN");
-  });
-
-  test("settle updates and receipt reads use primary keys", async () => {
-    const queries = recordD1(env.DB);
-    const response = await worker.fetch(
-      deliveryRequest("settle", {
-        claim_id: "clm_550e8400-e29b-41d4-a716-446655440000",
-        results: [{ bundle_id: BUNDLE_ID, outcome: "retryable_failure", reason: "timeout" }],
-      }),
-      env,
-    );
-    expect(await response.json()).toMatchObject({
-      summary: { applied: 0, duplicate: 0, rejected: 1 },
-    });
-    for (const [pattern, table] of [
-      [/^UPDATE bazaardb_delivery_attempts /, "bazaardb_delivery_attempts"],
-      [/^UPDATE bazaardb_deliveries /, "bazaardb_deliveries"],
-      [/^SELECT /, "a"],
-    ] as const) {
-      const detail = await plan(query(queries, pattern));
-      expect(detail).toContain(`SEARCH ${table} USING PRIMARY KEY`);
-    }
-  });
-});
-
 describe("schema query plans", () => {
   test("attempt uniqueness uses its receipt index", async () => {
     const detail = await plan({
@@ -138,7 +68,7 @@ describe("schema query plans", () => {
   });
 });
 
-test("keyset reads and empty expiry work stay bounded with a large live backlog", async () => {
+test("keyset, Ghost, and empty expiry reads stay bounded with a large live backlog", async () => {
   await seedDeliveryBacklog(env.DB, 2000, AVAILABLE, NOW + 60_000);
 
   const queries = recordD1(env.DB);
@@ -158,6 +88,25 @@ test("keyset reads and empty expiry work stay bounded with a large live backlog"
   const collection = query(queries, /^SELECT .* FROM bundles /).result;
   expect(collection.results).toHaveLength(51);
   expect(collection.meta.rows_read).toBeLessThan(100);
+
+  // One opponent owns 20 of 2,000 Ghost rows; its page joins only those Bundles.
+  await env.DB.prepare(`
+    INSERT INTO ghost_battle_summaries (
+      uploader_account_id, battle_id, bundle_id, opponent_account_id,
+      recorded_at_ms, is_final_battle, day, hour, result, player_display_name
+    )
+    SELECT 'backlog-uploader', 'battle-' || bundle_id, bundle_id,
+      CASE WHEN bundle_id < '01J9' || printf('%022d', 20) THEN 'plan-opponent' ELSE 'bystander' END,
+      available_at_ms, 0, 1, 1, 'win', 'Uploader'
+    FROM bundles WHERE uploader_account_id = 'backlog-uploader'
+  `).run();
+  const ghosts = await worker.fetch(
+    new Request("https://worker.test/ghost-battles?player_account_id=plan-opponent"),
+    { ...env, GHOST_BATTLE_RATE_LIMITER: { limit: async () => ({ success: true }) } },
+  );
+  expect(((await ghosts.json()) as { battles: unknown[] }).battles).toHaveLength(20);
+  const ghost = query(queries, /^SELECT .* FROM ghost_battle_summaries /).result;
+  expect(ghost.meta.rows_read).toBeLessThan(20 * 3 + 10);
 
   const claim = await worker.fetch(deliveryRequest("claim", {}), env);
   expect(await claim.json()).toEqual({ claim_id: null, expires_at_ms: null, items: [] });

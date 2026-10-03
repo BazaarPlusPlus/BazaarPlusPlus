@@ -37,7 +37,7 @@ Pending delivery retention uses the indexed `bundle_stored_at_ms` projection. Da
 
 ### D1 performance verification
 
-Query-plan and bounded-read tests call the public handler interfaces against local D1. A test recorder observes the actual SQL, bindings, and results at the existing D1 seam without replacing native statements or splitting batches. Plan assertions explain those recorded statements; read-cost assertions use their execution metadata. Production modules own the SQL, while tests own independent plan and cost expectations. Handwritten queries remain appropriate for migration and schema contracts that have no runtime caller.
+Bounded-read tests drive the deployed `worker.fetch` against local D1. A test recorder observes the actual SQL, bindings, and results at the existing D1 seam without replacing native statements or splitting batches. Read-cost assertions put an upper bound on each recorded statement's `meta.rows_read`; they do not assert query-plan text. Index use needs no plan assertion: a statement that names its index with `INDEXED BY` fails with "no query solution" when that index cannot serve it, so the behavior test that runs the statement fails. Production modules own the SQL, while tests own independent cost expectations. Plan assertions remain only for migration and schema contracts that have no runtime caller.
 
 ## Consequences
 

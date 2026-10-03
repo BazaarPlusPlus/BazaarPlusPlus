@@ -30,5 +30,7 @@ export default defineConfig({
   test: {
     include: ["test/**/*.test.ts"],
     setupFiles: ["./test/apply-migrations.ts"],
+    // BPP_UPDATE_GOLDENS=1 is the repository-wide alias for vitest's -u.
+    update: process.env.BPP_UPDATE_GOLDENS === "1" ? true : undefined,
   },
 });

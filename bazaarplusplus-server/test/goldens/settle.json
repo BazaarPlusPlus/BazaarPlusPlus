@@ -1,0 +1,19 @@
+{
+  "status": 200,
+  "body": {
+    "claim_id": "clm_550e8400-e29b-41d4-a716-446655440000",
+    "items": [
+      {
+        "bundle_id": "01J00000000000000000003011",
+        "status": "applied",
+        "state": "pending",
+        "next_claim_at_ms": 1785628860000
+      }
+    ],
+    "summary": {
+      "applied": 1,
+      "duplicate": 0,
+      "rejected": 0
+    }
+  }
+}

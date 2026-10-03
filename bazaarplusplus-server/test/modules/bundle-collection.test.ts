@@ -3,6 +3,7 @@ import { afterEach, describe, expect, test, vi } from "vitest";
 
 import worker from "../../src/index";
 import { R2_RETENTION_MS } from "../../src/limits";
+import { expectGolden } from "../fixtures/golden";
 
 const SYNC_TOKEN = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
 
@@ -35,35 +36,23 @@ function collectionRequest(query: string, token = SYNC_TOKEN): Request {
 afterEach(() => vi.restoreAllMocks());
 
 describe("GET /bundles", () => {
-  test("signs one page of downloads at the request time", async () => {
-    const now = Date.now();
+  test("signs one page of downloads at the request time and points past its last row", async () => {
+    const now = 1_785_628_800_000;
     vi.spyOn(Date, "now").mockReturnValue(now);
-    const bundleId = "01J00000000000000000000104";
-    const availableAt = now - 120_000;
-    await insertBundle(bundleId, availableAt);
+    const ids = [
+      "01J00000000000000000000104",
+      "01J00000000000000000000105",
+      "01J00000000000000000000106",
+    ];
+    for (const [index, id] of ids.entries()) await insertBundle(id, now - 120_000 + index);
 
     const response = await worker.fetch(
-      collectionRequest(`available_from_ms=${now - 180_000}&available_before_ms=${now - 60_000}`),
+      collectionRequest(
+        `available_from_ms=${now - 180_000}&available_before_ms=${now - 60_000}&limit=2`,
+      ),
       env,
     );
-    expect(response.status).toBe(200);
-    const { items } = (await response.json()) as {
-      items: Array<{ download_url: string }>;
-    };
-
-    expect(items).toEqual([
-      {
-        bundle_id: bundleId,
-        available_at_ms: availableAt,
-        download_url: expect.any(String),
-        download_expires_at_ms: now + 604_800_000,
-      },
-    ]);
-    const signed = new URL(items[0].download_url);
-    expect(signed.pathname).toBe(`/bundles/2026-08-01/${bundleId}.bundle`);
-    expect(signed.searchParams.get("X-Amz-Date")).toBe(
-      new Date(now).toISOString().replace(/[:-]|\.\d{3}/g, ""),
-    );
+    await expectGolden(response, "collection-page");
   });
 
   test("enumerates a fixed window with stable keyset pagination and 7-day URLs", async () => {

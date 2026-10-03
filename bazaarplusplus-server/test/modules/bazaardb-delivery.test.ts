@@ -4,6 +4,7 @@ import { afterEach, describe, expect, test, vi } from "vitest";
 import worker from "../../src/index";
 import { CLAIM_LEASE_MS, DELIVERY_RETRY_BACKOFF_MS, R2_RETENTION_MS } from "../../src/limits";
 import { makeBundleFixture, uploadRequest } from "../fixtures/bundle";
+import { expectGolden } from "../fixtures/golden";
 
 const DELIVERY_TOKEN = "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB";
 
@@ -73,10 +74,6 @@ function freezeClock(): { ms: number } {
   return clock;
 }
 
-function sigV4Date(timestamp: number): string {
-  return new Date(timestamp).toISOString().replace(/[:-]|\.\d{3}/g, "");
-}
-
 async function claim(limit = 1): Promise<{
   claim_id: string | null;
   expires_at_ms: number | null;
@@ -88,18 +85,22 @@ async function claim(limit = 1): Promise<{
 }
 
 describe("BazaarDB delivery claim and settle", () => {
-  test("pins claim leases and signed downloads to the request time", async () => {
+  test("claim and settle bodies match their goldens at a fixed time and claim ID", async () => {
+    const now = 1_785_628_800_000;
+    vi.spyOn(Date, "now").mockReturnValue(now);
+    vi.spyOn(crypto, "randomUUID").mockReturnValue("550e8400-e29b-41d4-a716-446655440000");
     const bundleId = await uploadScreenshotBundle(11);
-    const clock = freezeClock();
-    const result = await claim(1);
 
-    expect(result.expires_at_ms).toBe(clock.ms + 600_000);
-    expect(result.items).toMatchObject([
-      { bundle_id: bundleId, download_expires_at_ms: clock.ms + 604_800_000 },
-    ]);
-    const signed = new URL(result.items[0].download_url);
-    expect(signed.pathname).toBe(`/bundles/2026-08-02/${bundleId}.bundle`);
-    expect(signed.searchParams.get("X-Amz-Date")).toBe(sigV4Date(clock.ms));
+    const claimed = await worker.fetch(deliveryRequest("claim", { limit: 1 }), env);
+    await expectGolden(claimed, "claim");
+    const settled = await worker.fetch(
+      deliveryRequest("settle", {
+        claim_id: VALID_CLAIM_ID,
+        results: [{ bundle_id: bundleId, outcome: "retryable_failure", reason: "timeout" }],
+      }),
+      env,
+    );
+    await expectGolden(settled, "settle");
     await env.DB.prepare(`DELETE FROM bundles WHERE bundle_id = ?1`).bind(bundleId).run();
   });
 

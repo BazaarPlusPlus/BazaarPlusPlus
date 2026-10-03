@@ -14,7 +14,7 @@ The public surface is six routes: liveness, public streaming ingest, token-prote
 
 The design is a small number of deep seams — the route table and its single HTTP exit, Bundle opening, and the atomic Bundle commit — recorded with their owning files in [ADR 0001](docs/adr/0001-v5-deepening-seams.md). Ghost discovery stores fifteen summary columns ([ADR 0003](docs/adr/0003-ghost-summary-columns.md)).
 
-`test/` mirrors the `src/` layout (`bundle/`, `modules/`), with golden-vector contract tests under `test/contracts/` and route-shell, schema, and root-module tests at the top level. Behavior tests drive the deployed `worker.fetch` and `worker.scheduled` against local D1 and R2.
+`test/` mirrors the `src/` layout (`bundle/`, `modules/`), with golden-vector contract tests under `test/contracts/` and route-shell, schema, and root-module tests at the top level. Behavior tests drive the deployed `worker.fetch` and `worker.scheduled` against local D1 and R2. Representative responses are JSON goldens in `test/goldens/`, compared as file snapshots; `test/fixtures/golden.ts` says how to regenerate them, and the diff is the review.
 
 ## Development
 

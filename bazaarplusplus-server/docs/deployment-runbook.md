@@ -159,7 +159,7 @@ Preview the first eligible page:
 npx wrangler d1 execute bazaarplusplus-mod-api-v5-db --remote --json --command "SELECT bundle_id, stored_at_ms FROM bundles INDEXED BY idx_bundles_stored_retention WHERE stored_at_ms < (unixepoch() - 15 * 86400) * 1000 ORDER BY stored_at_ms, bundle_id LIMIT 100"
 ```
 
-`npm test` covers the exact cutoff, cascades, interruption recovery, and query plans.
+`npm test` covers the exact cutoff, cascades, interruption recovery, and bounded reads.
 A local scheduled invocation can be exercised through Wrangler's
 `/cdn-cgi/local/scheduled` endpoint; it is not a public application route.
 

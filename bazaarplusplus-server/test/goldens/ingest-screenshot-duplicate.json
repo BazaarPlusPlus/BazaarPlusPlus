@@ -1,0 +1,9 @@
+{
+  "status": 200,
+  "body": {
+    "bundle_id": "01J00000000000000000000006",
+    "run_id": "run-006",
+    "outcome": "duplicate",
+    "bazaardb_delivery": "existing"
+  }
+}
