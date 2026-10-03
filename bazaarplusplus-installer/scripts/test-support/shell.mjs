@@ -43,8 +43,9 @@ export function toBashPath(p) {
     .replace(/^([A-Za-z]):/, (_, drive) => `/${drive.toLowerCase()}`);
 }
 
-export function runShell(script) {
-  return execFileSync(bashCommand, ['-c', script], {
+// Keep script text static; pass dynamic values as quoted positional parameters.
+export function runShell(script, args = []) {
+  return execFileSync(bashCommand, ['-c', script, 'bpp-test-shell', ...args], {
     cwd: projectDir,
     encoding: 'utf8',
     timeout: 120000
