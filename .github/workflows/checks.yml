@@ -1,0 +1,166 @@
+name: Checks
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: checks-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  release:
+    name: Release tooling
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: bazaarplusplus-mod/global.json
+      - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4
+        with:
+          just-version: 1.58.0
+      - run: npm install --global "$(node --print "require('./package.json').packageManager")"
+      - run: npm ci
+      - run: just commands-check release::check release::test
+      - run: python3 -m unittest discover -s .github/scripts -p 'test_*.py'
+      - run: node --test .github/scripts/*.test.mjs
+
+  node:
+    name: ${{ matrix.project }} (${{ matrix.scope }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - project: site
+            scope: full check and test
+          - project: server
+            scope: Worker only, no Mod compatibility
+    env:
+      WRANGLER_SEND_METRICS: 'false'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: bazaarplusplus-${{ matrix.project }}/package-lock.json
+      - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4
+        with:
+          just-version: 1.58.0
+      - run: npm install --global "$(node --print "require('./package.json').packageManager")"
+      - run: npm ci
+        working-directory: bazaarplusplus-${{ matrix.project }}
+      - run: just '${{ matrix.project }}::check'
+      - if: matrix.project == 'site'
+        run: |
+          just site::test
+          npm --prefix bazaarplusplus-site run deploy:dry-run
+          npm --prefix bazaarplusplus-site run deploy:preview:dry-run
+      - if: matrix.project == 'server'
+        run: |
+          npm --prefix bazaarplusplus-server test
+          echo 'Worker tests only. Full server::test still requires the real game Managed directory for the Mod compatibility probe.' >> "$GITHUB_STEP_SUMMARY"
+
+  installer:
+    name: Installer (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-14, windows-latest]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: bazaarplusplus-installer/package-lock.json
+      - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4
+        with:
+          just-version: 1.58.0
+      - name: Install the repository Rust toolchain and components
+        working-directory: bazaarplusplus-installer
+        run: |
+          rustc --version
+          rustup show active-toolchain
+      - run: npm install --global "$(node --print "require('./package.json').packageManager")"
+        working-directory: bazaarplusplus-installer
+      - run: npm ci
+        working-directory: bazaarplusplus-installer
+      # Includes Rust/JS tests, binding freshness and frontend build. The source
+      # gate supplies an empty resource bundle; game assemblies are not required.
+      - run: just installer::check
+
+  analyzer:
+    name: Analyzer
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          working-directory: bazaarplusplus-analyzer
+      - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4
+        with:
+          just-version: 1.58.0
+      - run: uv sync --locked
+        working-directory: bazaarplusplus-analyzer
+      - run: just analyzer::check analyzer::test
+
+  mod-test-tools:
+    name: Mod pure logic (no game compatibility)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: bazaarplusplus-mod/global.json
+      - name: Exercise the test SDK and xUnit without game assemblies
+        working-directory: bazaarplusplus-mod
+        run: dotnet test tests/PureBehavior.Tests/PureBehavior.Tests.csproj -p:ManagedPath=/no-game-assemblies
+      - run: echo 'This tests pure logic and the test toolchain, not the Mod in Unity/Mono. Mod dependency upgrades still need mod::check, mod::test and supported game builds.' >> "$GITHUB_STEP_SUMMARY"
+
+  bot-mod-boundary:
+    name: Bot Mod dependency boundary
+    if: github.event_name == 'pull_request' && (github.event.pull_request.user.login == 'dependabot[bot]' || github.event.pull_request.user.login == 'renovate[bot]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Reject Mod runtime or transitive dependency changes
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          git show "$BASE_SHA:.github/scripts/check_mod_dependency_update.py" > "$RUNNER_TEMP/check_mod_dependency_update.py"
+          python3 "$RUNNER_TEMP/check_mod_dependency_update.py" "$BASE_SHA" "$HEAD_SHA"

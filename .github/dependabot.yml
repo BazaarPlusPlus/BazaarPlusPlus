@@ -1,0 +1,185 @@
+# Verified external application patches are candidates for gated auto-merge.
+# Mod runtime compatibility is governed by ADR-0010, not package SemVer.
+version: 2
+updates:
+  - package-ecosystem: 'npm'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+    open-pull-requests-limit: 3
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: 'build(release)'
+    groups:
+      tooling:
+        patterns: ['*']
+        update-types: ['patch']
+      minor-updates:
+        patterns: ['*']
+        update-types: ['minor']
+  - package-ecosystem: 'npm'
+    directory: '/bazaarplusplus-site'
+    schedule:
+      interval: 'weekly'
+    open-pull-requests-limit: 3
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: 'build(site)'
+    # Coupled toolchain majors need a deliberate compatibility upgrade.
+    ignore:
+      - dependency-name: 'typescript'
+        update-types: ['version-update:semver-major']
+      - dependency-name: 'oxlint-tsgolint'
+        update-types: ['version-update:semver-major']
+    groups:
+      typescript:
+        patterns: ['typescript', 'oxlint*']
+        update-types: ['patch']
+      react:
+        patterns: ['react', 'react-dom', '@types/react', '@types/react-dom']
+        update-types: ['patch']
+      cloudflare:
+        patterns: ['wrangler', 'miniflare', '@cloudflare/*']
+        update-types: ['patch']
+      other:
+        patterns: ['*']
+        update-types: ['patch']
+      minor-updates:
+        patterns: ['*']
+        update-types: ['minor']
+  - package-ecosystem: 'npm'
+    directory: '/bazaarplusplus-server'
+    schedule:
+      interval: 'weekly'
+    open-pull-requests-limit: 3
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: 'build(server)'
+    # Coupled toolchain majors need a deliberate compatibility upgrade.
+    ignore:
+      - dependency-name: 'vitest'
+        update-types: ['version-update:semver-major']
+      - dependency-name: '@vitest/*'
+        update-types: ['version-update:semver-major']
+    groups:
+      cloudflare:
+        patterns:
+          ['wrangler', 'miniflare', '@cloudflare/*', 'vitest', '@vitest/*']
+        update-types: ['patch']
+      other:
+        patterns: ['*']
+        update-types: ['patch']
+      minor-updates:
+        patterns: ['*']
+        update-types: ['minor']
+      cloudflare-security:
+        applies-to: security-updates
+        patterns: ['wrangler', 'miniflare', 'undici', '@cloudflare/*']
+  - package-ecosystem: 'npm'
+    directory: '/bazaarplusplus-installer'
+    schedule:
+      interval: 'weekly'
+    open-pull-requests-limit: 3
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: 'build(installer)'
+    # Coupled toolchain majors need a deliberate compatibility upgrade.
+    ignore:
+      - dependency-name: 'typescript'
+        update-types: ['version-update:semver-major']
+      - dependency-name: 'oxlint-tsgolint'
+        update-types: ['version-update:semver-major']
+    groups:
+      typescript:
+        patterns: ['typescript', 'oxlint*']
+        update-types: ['patch']
+      react:
+        patterns: ['react', 'react-dom', '@types/react', '@types/react-dom']
+        update-types: ['patch']
+      tauri:
+        patterns: ['@tauri-apps/*']
+        update-types: ['patch']
+      other:
+        patterns: ['*']
+        update-types: ['patch']
+      minor-updates:
+        patterns: ['*']
+        update-types: ['minor']
+  - package-ecosystem: 'cargo'
+    directory: '/bazaarplusplus-installer/src-tauri'
+    schedule:
+      interval: 'weekly'
+    open-pull-requests-limit: 3
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: 'build(installer)'
+    groups:
+      specta:
+        patterns: ['specta', 'specta-typescript', 'tauri-specta']
+        update-types: ['patch']
+      tauri:
+        patterns: ['tauri', 'tauri-*']
+        update-types: ['patch']
+      other:
+        patterns: ['*']
+        update-types: ['patch']
+      minor-updates:
+        patterns: ['*']
+        update-types: ['minor']
+  - package-ecosystem: 'uv'
+    directory: '/bazaarplusplus-analyzer'
+    schedule:
+      interval: 'weekly'
+    open-pull-requests-limit: 3
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: 'build(analyzer)'
+    groups:
+      python:
+        patterns: ['*']
+        update-types: ['patch']
+      minor-updates:
+        patterns: ['*']
+        update-types: ['minor']
+  - package-ecosystem: 'nuget'
+    # Match nested manifests as well as central package management.
+    directories:
+      - '/bazaarplusplus-mod'
+      - '/bazaarplusplus-mod/src/*'
+      - '/bazaarplusplus-mod/tests/*'
+    # Default-deny: build-time generators/publicizers can break runtime too.
+    # A PR diff guard also rejects changes to production files and lock graphs.
+    allow:
+      - dependency-name: 'Microsoft.NET.Test.Sdk'
+      - dependency-name: 'xunit'
+      - dependency-name: 'xunit.runner.visualstudio'
+    schedule:
+      interval: 'weekly'
+    open-pull-requests-limit: 3
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: 'build(mod)'
+    groups:
+      test-tools:
+        patterns: ['*']
+        update-types: ['minor', 'patch']
+  - package-ecosystem: 'github-actions'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+    open-pull-requests-limit: 3
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: 'build(dev)'
+    groups:
+      actions:
+        patterns: ['*']
+        update-types: ['minor', 'patch']
