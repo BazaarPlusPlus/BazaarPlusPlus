@@ -6,7 +6,7 @@
     "suspicious": "error",
     "perf": "error"
   },
-  "ignorePatterns": ["dist/**", ".wrangler/**"],
+  "ignorePatterns": ["dist/**", ".wrangler/**", "test-results/**", "playwright-report/**"],
   "rules": {
     "react/react-in-jsx-scope": "off",
     "unicorn/no-array-sort": "off",

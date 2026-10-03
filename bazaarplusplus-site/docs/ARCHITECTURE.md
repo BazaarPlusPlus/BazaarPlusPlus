@@ -7,7 +7,7 @@ The code is the structural source of truth. This document records intended owner
 | Concern | Owner | Boundary |
 | --- | --- | --- |
 | URL and browser history | `src/app/router.ts` | Owns routes, aliases, locale and Analysis Scope parsing, canonical hrefs, click eligibility, and push/replace/popstate behavior. |
-| Page composition | `src/app/App.tsx` and `src/app/route-pages.tsx` | Render the resolved location; `/heroes` stays lazy. Runtime data enters through React Query. |
+| Page composition | `src/app/App.tsx` and `src/app/route-pages.tsx` | Render the resolved location; `/heroes` stays lazy, guarded by the route chunk golden in `e2e/__snapshots__/route-chunks.json`. Runtime data enters through React Query. |
 | Hero Metrics Dataset ingestion | `src/features/heroes/hero-metrics-dataset.ts` | Owns the snapshot fetch and its timeout, decoding, compatibility, and Dataset Coverage. Retries belong to the `/heroes` query in `src/app/route-pages.tsx`. |
 | Hero Analysis | `src/features/heroes/hero-analysis.ts` | Pure, React-free policy for scope selection, merging, ranking, trends, matchups, focus fallback, and selected-window coverage. |
 | Hero Analysis presentation | `src/features/heroes/HeroOverviewDashboard.tsx`, `HeroTrendPanel.tsx`, and `HeroRankingTable.tsx` | The dashboard composes validated analysis and shares hero focus. The trend module owns SVG geometry and chart interaction; the ranking module owns its columns and sorting policy. |

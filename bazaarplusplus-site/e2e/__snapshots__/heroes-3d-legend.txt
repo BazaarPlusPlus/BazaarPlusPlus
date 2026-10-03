@@ -1,0 +1,26 @@
+# /heroes?lang=en&w=3d&s=legend
+## ranking
+Hero	10W rate ▼	Runs	Run share	10W wins	Avg days	Perfect	Gold	Silver	Bronze	Misfortune
+Dooley	100.0%	9	40.9%	9	10.0	100.0%	0.0%	0.0%	0.0%	0.0%
+TheDragons	100.0%	1	4.5%	1	10.0	100.0%	0.0%	0.0%	0.0%	0.0%
+Jules	80.0%	5	22.7%	4	26.5	80.0%	0.0%	20.0%	0.0%	0.0%
+Vanessa	57.1%	7	31.8%	4	10.0	42.9%	14.3%	0.0%	14.3%	28.6%
+Karnok	—	0	0.0%	0	—	—	—	—	—	—
+Mak	—	0	0.0%	0	—	—	—	—	—	—
+Pygmalien	—	0	0.0%	0	—	—	—	—	—	—
+Stelle	—	0	0.0%	0	—	—	—	—	—	—
+## matchups
+focus	Selected hero: Dooley
+Pygmalien	—low sample	10 battles
+## first click on each column
+Hero ▲	Dooley Jules Karnok Mak Pygmalien Stelle TheDragons Vanessa
+10W rate ▼	Dooley TheDragons Jules Vanessa Karnok Mak Pygmalien Stelle
+Runs ▼	Dooley Vanessa Jules TheDragons Karnok Mak Pygmalien Stelle
+Run share ▼	Dooley Vanessa Jules TheDragons Karnok Mak Pygmalien Stelle
+10W wins ▼	Dooley Jules Vanessa TheDragons Karnok Mak Pygmalien Stelle
+Avg days ▲	Dooley TheDragons Vanessa Jules Karnok Mak Pygmalien Stelle
+Perfect ▼	Dooley TheDragons Jules Vanessa Karnok Mak Pygmalien Stelle
+Gold ▼	Vanessa Dooley TheDragons Jules Karnok Mak Pygmalien Stelle
+Silver ▼	Jules Dooley TheDragons Vanessa Karnok Mak Pygmalien Stelle
+Bronze ▼	Vanessa Dooley TheDragons Jules Karnok Mak Pygmalien Stelle
+Misfortune ▼	Vanessa Dooley TheDragons Jules Karnok Mak Pygmalien Stelle

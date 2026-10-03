@@ -1,0 +1,60 @@
+{
+  "support": {
+    "scripts": {
+      "index.js": 96188
+    },
+    "external": [
+      "https://bpp-static.bazaarplusplus.com/supporter-list.json"
+    ],
+    "icons": {
+      "bazaarplusplus-icon.webp": 7296,
+      "favicon.webp": 2812
+    }
+  },
+  "tutorial": {
+    "scripts": {
+      "index.js": 96188
+    },
+    "external": [],
+    "icons": {
+      "bazaarplusplus-icon.webp": 7296,
+      "favicon.webp": 2812
+    }
+  },
+  "download": {
+    "scripts": {
+      "index.js": 96188
+    },
+    "external": [
+      "https://bppinstaller.bazaarplusplus.com/latest/darwin-aarch64.json",
+      "https://bppinstaller.bazaarplusplus.com/latest/windows-x86_64.json"
+    ],
+    "icons": {
+      "bazaarplusplus-icon.webp": 7296,
+      "favicon.webp": 2812
+    }
+  },
+  "heroes": {
+    "scripts": {
+      "index.js": 96188,
+      "route-pages.js": 8578
+    },
+    "external": [
+      "https://bpp-metrics.bazaarplusplus.com/analyzer-v5/heroes/latest.json"
+    ],
+    "icons": {
+      "bazaarplusplus-icon.webp": 7296,
+      "favicon.webp": 2812
+    }
+  },
+  "not-found": {
+    "scripts": {
+      "index.js": 96188
+    },
+    "external": [],
+    "icons": {
+      "bazaarplusplus-icon.webp": 7296,
+      "favicon.webp": 2812
+    }
+  }
+}

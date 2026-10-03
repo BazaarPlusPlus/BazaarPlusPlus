@@ -3,5 +3,12 @@
   "singleQuote": true,
   "printWidth": 100,
   "trailingComma": "es5",
-  "ignorePatterns": ["dist/**", ".wrangler/**", "**/*.md"]
+  "ignorePatterns": [
+    "dist/**",
+    ".wrangler/**",
+    "**/*.md",
+    "e2e/__snapshots__/**",
+    "test-results/**",
+    "playwright-report/**"
+  ]
 }
