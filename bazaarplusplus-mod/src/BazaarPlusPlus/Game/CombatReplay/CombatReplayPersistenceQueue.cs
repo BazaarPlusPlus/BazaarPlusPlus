@@ -325,3 +325,10 @@ internal readonly struct CombatReplayPersistenceResult
         return new CombatReplayPersistenceResult(manifest, error);
     }
 }
+
+internal sealed class ReplayPersistenceCompletionGate
+{
+    private int _completed;
+
+    internal bool TryComplete() => Interlocked.Exchange(ref _completed, 1) == 0;
+}

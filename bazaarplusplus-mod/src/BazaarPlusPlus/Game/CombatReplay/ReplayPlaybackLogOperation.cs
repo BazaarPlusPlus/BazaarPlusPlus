@@ -11,35 +11,11 @@ internal interface IReplayPlaybackOutcomeSink
     void ReportDegradation(ReplayPlaybackReasonCode reasonCode, Exception? exception = null);
 }
 
-internal enum ReplayPlaybackTerminalStatus
-{
-    Succeeded,
-    Degraded,
-    Failed,
-}
-
-internal readonly record struct ReplayPlaybackStartedResult(
-    string BattleId,
-    CombatReplayPlaybackSource Source,
-    bool RecordVideo
-);
-
-internal readonly record struct ReplayPlaybackTerminalResult(
-    ReplayPlaybackTerminalStatus Status,
-    string BattleId,
-    CombatReplayPlaybackSource Source,
-    ReplayPlaybackEndReasonCode EndReasonCode,
-    long DurationMilliseconds,
-    ReplayPlaybackReasonCode ReasonCode,
-    int DegradationCount,
-    ReplayRollbackStatus RollbackStatus,
-    Exception? Exception
-);
-
 /// <summary>
-/// Thread-safe, one-shot operational result for one requested replay. Lifecycle events remain
+/// Thread-safe, one-shot operational result for one requested replay: it owns the recording
+/// promotion decision and writes the started and terminal events. Lifecycle events remain
 /// separate: the runtime may publish the ended signal before menu navigation resolves, but this
-/// operation does not emit its terminal result until all required cleanup is known.
+/// operation does not write its terminal event until all required cleanup is known.
 /// </summary>
 internal sealed class ReplayPlaybackLogOperation : IReplayPlaybackOutcomeSink
 {
@@ -109,145 +85,106 @@ internal sealed class ReplayPlaybackLogOperation : IReplayPlaybackOutcomeSink
         }
     }
 
-    internal bool TryMarkStarted(out ReplayPlaybackStartedResult result)
+    /// <summary>Writes <c>combat_replay.playback.started</c> once, unless already terminal.</summary>
+    internal void MarkStarted()
     {
+        bool recordVideo;
         lock (_gate)
         {
             if (_terminal || _started)
-            {
-                result = default;
-                return false;
-            }
+                return;
 
             _started = true;
-            result = new ReplayPlaybackStartedResult(BattleId, _source, _recordVideo);
-            return true;
+            recordVideo = _recordVideo;
         }
+
+        BppLog.InfoEvent(
+            new BppLogEvent(BppLogFeatureScope.CombatReplay, "combat_replay.playback.started"),
+            ("battle_id", BattleId, BppLogCorrelationPolicy.Short),
+            ("source", _source),
+            ("record_video", recordVideo)
+        );
     }
 
-    internal bool TryComplete(
+    /// <summary>
+    /// Writes the one terminal event: <c>failed</c> for a failure reason or failed rollback,
+    /// <c>degraded</c> when degradations were reported, otherwise <c>succeeded</c>.
+    /// </summary>
+    internal void Complete(
         ReplayPlaybackEndReasonCode endReasonCode,
         ReplayRollbackStatus rollbackStatus,
         ReplayPlaybackReasonCode failureReasonCode,
-        Exception? exception,
-        out ReplayPlaybackTerminalResult result
+        Exception? exception
     )
     {
+        bool failed;
+        int degradationCount;
+        ReplayPlaybackReasonCode reasonCode;
+        Exception? terminalException;
+        long durationMilliseconds;
         lock (_gate)
         {
             if (_terminal)
-            {
-                result = default;
-                return false;
-            }
+                return;
 
             _terminal = true;
-            var failed =
+            failed =
                 failureReasonCode != ReplayPlaybackReasonCode.None
                 || rollbackStatus == ReplayRollbackStatus.Failed;
-            var status =
-                failed ? ReplayPlaybackTerminalStatus.Failed
-                : _degradationCount > 0 ? ReplayPlaybackTerminalStatus.Degraded
-                : ReplayPlaybackTerminalStatus.Succeeded;
-            var reasonCode = failed
+            degradationCount = _degradationCount;
+            reasonCode = failed
                 ? failureReasonCode == ReplayPlaybackReasonCode.None
                     ? ReplayPlaybackReasonCode.BootstrapRollbackFailed
                     : failureReasonCode
                 : _primaryReasonCode;
-            var terminalException = failed ? exception : _primaryException;
-            result = new ReplayPlaybackTerminalResult(
-                status,
-                BattleId,
-                _source,
-                endReasonCode,
-                Math.Max(0, _monotonicMilliseconds() - _startedAtMilliseconds),
-                reasonCode,
-                _degradationCount,
-                rollbackStatus,
-                terminalException
+            terminalException = failed ? exception : _primaryException;
+            durationMilliseconds = Math.Max(0, _monotonicMilliseconds() - _startedAtMilliseconds);
+        }
+
+        var fields = new BppLogField[]
+        {
+            ("battle_id", BattleId, BppLogCorrelationPolicy.Short),
+            ("source", _source),
+            ("end_reason_code", endReasonCode),
+            ("duration_ms", durationMilliseconds),
+            ("reason_code", reasonCode),
+            ("degradation_count", degradationCount),
+            ("rollback_status", rollbackStatus),
+        };
+        if (failed)
+        {
+            var failedEvent = new BppLogEvent(
+                BppLogFeatureScope.CombatReplay,
+                "combat_replay.playback.failed"
             );
-            return true;
+            if (terminalException == null)
+                BppLog.ErrorEvent(failedEvent, fields);
+            else
+                BppLog.ErrorEvent(failedEvent, terminalException, fields);
+        }
+        else if (degradationCount > 0)
+        {
+            var degradedEvent = new BppLogEvent(
+                BppLogFeatureScope.CombatReplay,
+                "combat_replay.playback.degraded"
+            );
+            if (terminalException == null)
+                BppLog.WarnEvent(degradedEvent, fields);
+            else
+                BppLog.WarnEvent(degradedEvent, terminalException, fields);
+        }
+        else
+        {
+            BppLog.InfoEvent(
+                new BppLogEvent(
+                    BppLogFeatureScope.CombatReplay,
+                    "combat_replay.playback.succeeded"
+                ),
+                fields
+            );
         }
     }
 
     private static long MonotonicMilliseconds() =>
         (long)(Stopwatch.GetTimestamp() * 1000d / Stopwatch.Frequency);
-}
-
-internal static class ReplayPlaybackLogWriter
-{
-    internal static void EmitStarted(ReplayPlaybackStartedResult result)
-    {
-        BppLog.InfoEvent(
-            new BppLogEvent(BppLogFeatureScope.CombatReplay, "combat_replay.playback.started"),
-            ("battle_id", result.BattleId, BppLogCorrelationPolicy.Short),
-            ("source", result.Source),
-            ("record_video", result.RecordVideo)
-        );
-    }
-
-    internal static void EmitTerminal(ReplayPlaybackTerminalResult result)
-    {
-        var fields = new BppLogField[]
-        {
-            ("battle_id", result.BattleId, BppLogCorrelationPolicy.Short),
-            ("source", result.Source),
-            ("end_reason_code", result.EndReasonCode),
-            ("duration_ms", result.DurationMilliseconds),
-            ("reason_code", result.ReasonCode),
-            ("degradation_count", result.DegradationCount),
-            ("rollback_status", result.RollbackStatus),
-        };
-
-        switch (result.Status)
-        {
-            case ReplayPlaybackTerminalStatus.Succeeded:
-                BppLog.InfoEvent(
-                    new BppLogEvent(
-                        BppLogFeatureScope.CombatReplay,
-                        "combat_replay.playback.succeeded"
-                    ),
-                    fields
-                );
-                return;
-            case ReplayPlaybackTerminalStatus.Degraded:
-                if (result.Exception == null)
-                    BppLog.WarnEvent(
-                        new BppLogEvent(
-                            BppLogFeatureScope.CombatReplay,
-                            "combat_replay.playback.degraded"
-                        ),
-                        fields
-                    );
-                else
-                    BppLog.WarnEvent(
-                        new BppLogEvent(
-                            BppLogFeatureScope.CombatReplay,
-                            "combat_replay.playback.degraded"
-                        ),
-                        result.Exception,
-                        fields
-                    );
-                return;
-            case ReplayPlaybackTerminalStatus.Failed:
-                if (result.Exception == null)
-                    BppLog.ErrorEvent(
-                        new BppLogEvent(
-                            BppLogFeatureScope.CombatReplay,
-                            "combat_replay.playback.failed"
-                        ),
-                        fields
-                    );
-                else
-                    BppLog.ErrorEvent(
-                        new BppLogEvent(
-                            BppLogFeatureScope.CombatReplay,
-                            "combat_replay.playback.failed"
-                        ),
-                        result.Exception,
-                        fields
-                    );
-                return;
-        }
-    }
 }

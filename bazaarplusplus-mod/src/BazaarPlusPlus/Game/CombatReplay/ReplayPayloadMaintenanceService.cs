@@ -154,3 +154,13 @@ internal sealed class ReplayPayloadMaintenanceService
         }
     }
 }
+
+internal readonly record struct ReplayPayloadMaintenanceResult(
+    int EvaluatedPayloadCount,
+    int ScheduledDeleteCount,
+    int DeletedPayloadCount,
+    int MissingPayloadCount,
+    int OrphanDeleteCount,
+    int FailedDeleteCount,
+    int WorkUnits
+);

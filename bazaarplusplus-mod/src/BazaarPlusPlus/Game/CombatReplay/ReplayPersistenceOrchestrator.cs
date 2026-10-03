@@ -219,14 +219,56 @@ internal sealed class ReplayPersistenceOrchestrator : IDisposable
         try
         {
             var result = _payloadMaintenance.Run(DateTimeOffset.UtcNow, cancellationToken);
-            ReplayPersistenceLogWriter.EmitMaintenanceTerminal(result);
+            if (result.FailedDeleteCount == 0)
+            {
+                var completed = MaintenanceFields(ReplayMaintenanceReasonCode.Completed, result);
+                BppLog.DebugEvent(
+                    new BppLogEvent(
+                        BppLogFeatureScope.CombatReplay,
+                        "combat_replay.maintenance.completed"
+                    ),
+                    () => completed
+                );
+                return;
+            }
+
+            BppLog.WarnEvent(
+                new BppLogEvent(
+                    BppLogFeatureScope.CombatReplay,
+                    "combat_replay.maintenance.degraded",
+                    storm: ["reason_code"]
+                ),
+                MaintenanceFields(ReplayMaintenanceReasonCode.DeleteFailed, result)
+            );
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
         catch (Exception ex)
         {
-            ReplayPersistenceLogWriter.EmitMaintenanceFailed(ex);
+            BppLog.WarnEvent(
+                new BppLogEvent(
+                    BppLogFeatureScope.CombatReplay,
+                    "combat_replay.maintenance.degraded",
+                    storm: ["reason_code"]
+                ),
+                ex,
+                MaintenanceFields(ReplayMaintenanceReasonCode.ScanFailed, default)
+            );
         }
     }
+
+    private static BppLogField[] MaintenanceFields(
+        ReplayMaintenanceReasonCode reasonCode,
+        ReplayPayloadMaintenanceResult result
+    ) =>
+        [
+            ("reason_code", reasonCode),
+            ("evaluated_count", result.EvaluatedPayloadCount),
+            ("scheduled_count", result.ScheduledDeleteCount),
+            ("deleted_count", result.DeletedPayloadCount),
+            ("missing_count", result.MissingPayloadCount),
+            ("orphan_count", result.OrphanDeleteCount),
+            ("failed_count", result.FailedDeleteCount),
+        ];
 
     private readonly record struct PersistenceResultNotification(
         PvpBattleManifest Manifest,

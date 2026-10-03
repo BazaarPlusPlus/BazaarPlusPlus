@@ -1777,8 +1777,7 @@ internal sealed class CombatReplayRuntime : MonoBehaviour
                 );
             }
             _savedReplay.OnInjectionCommitted();
-            if (operation.TryMarkStarted(out var started))
-                ReplayPlaybackLogWriter.EmitStarted(started);
+            operation.MarkStarted();
         }
         catch (Exception ex)
         {
@@ -2094,18 +2093,7 @@ internal sealed class CombatReplayRuntime : MonoBehaviour
         Exception? exception
     )
     {
-        if (
-            operation.TryComplete(
-                endReasonCode,
-                rollbackStatus,
-                failureReasonCode,
-                exception,
-                out var terminal
-            )
-        )
-        {
-            ReplayPlaybackLogWriter.EmitTerminal(terminal);
-        }
+        operation.Complete(endReasonCode, rollbackStatus, failureReasonCode, exception);
 
         if (ReferenceEquals(_activePlaybackOperation, operation))
         {
