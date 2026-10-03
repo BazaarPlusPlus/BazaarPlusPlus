@@ -1,7 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { commandClient } from '../../api/commandClient';
 import type { InstallState } from '../../types/backend';
-import { createInstallCommandPort } from './installApi';
 import {
   createInstallWorkflow,
   type InstallCommandPort
@@ -63,7 +61,7 @@ function fakeCommands(
   overrides: Partial<InstallCommandPort> = {}
 ): InstallCommandPort {
   return {
-    loadInstallState: vi.fn().mockResolvedValue(installState()),
+    getInstallState: vi.fn().mockResolvedValue(installState()),
     chooseGameDirectory: vi
       .fn()
       .mockResolvedValue({ game_path: '/Applications/The Bazaar' }),
@@ -95,11 +93,11 @@ async function flush() {
 
 describe('install workflow loading and refresh', () => {
   it('loads authoritative state on start and retries from blocking failure', async () => {
-    const loadInstallState = vi
+    const getInstallState = vi
       .fn()
       .mockRejectedValueOnce(new Error('detect failed'))
       .mockResolvedValueOnce(installState());
-    const { workflow } = setup({ loadInstallState });
+    const { workflow } = setup({ getInstallState });
 
     await workflow.start();
     expect(workflow.getSnapshot()).toMatchObject({
@@ -119,11 +117,11 @@ describe('install workflow loading and refresh', () => {
   it('preserves ready install state during refresh and after refresh failure', async () => {
     const ready = installState();
     const refresh = deferred<InstallState>();
-    const loadInstallState = vi
+    const getInstallState = vi
       .fn()
       .mockResolvedValueOnce(ready)
       .mockImplementationOnce(() => refresh.promise);
-    const { workflow } = setup({ loadInstallState });
+    const { workflow } = setup({ getInstallState });
     await workflow.start();
 
     const refreshPromise = workflow.intents.refresh();
@@ -152,11 +150,11 @@ describe('install workflow loading and refresh', () => {
 describe('install workflow concurrency and directory selection', () => {
   it('rejects conflicting operations instead of queuing them', async () => {
     const slow = deferred<InstallState>();
-    const loadInstallState = vi
+    const getInstallState = vi
       .fn()
       .mockResolvedValueOnce(installState())
       .mockImplementation(() => slow.promise);
-    const { workflow, commands } = setup({ loadInstallState });
+    const { workflow, commands } = setup({ getInstallState });
     await workflow.start();
 
     const first = workflow.intents.refresh();
@@ -169,15 +167,15 @@ describe('install workflow concurrency and directory selection', () => {
 
     slow.resolve(installState());
     expect(await first).toBe(true);
-    expect(commands.loadInstallState).toHaveBeenCalledTimes(2);
+    expect(commands.getInstallState).toHaveBeenCalledTimes(2);
   });
 
   it('treats directory selection plus state load as one operation and keeps state on cancel', async () => {
     const ready = installState();
     const selection = deferred<{ game_path: string | null }>();
-    const loadInstallState = vi.fn().mockResolvedValue(ready);
+    const getInstallState = vi.fn().mockResolvedValue(ready);
     const { workflow, commands } = setup({
-      loadInstallState,
+      getInstallState,
       chooseGameDirectory: vi.fn(() => selection.promise)
     });
     await workflow.start();
@@ -194,7 +192,7 @@ describe('install workflow concurrency and directory selection', () => {
       data: ready,
       operation: null
     });
-    expect(commands.loadInstallState).toHaveBeenCalledTimes(1);
+    expect(commands.getInstallState).toHaveBeenCalledTimes(1);
 
     const next = installState({
       selected_game_path: '/Games/The Bazaar',
@@ -206,7 +204,7 @@ describe('install workflow concurrency and directory selection', () => {
     (
       commands.chooseGameDirectory as ReturnType<typeof vi.fn>
     ).mockResolvedValue({ game_path: '/Games/The Bazaar' });
-    (commands.loadInstallState as ReturnType<typeof vi.fn>).mockResolvedValue(
+    (commands.getInstallState as ReturnType<typeof vi.fn>).mockResolvedValue(
       next
     );
     expect(await workflow.intents.chooseDirectory()).toBe(true);
@@ -262,11 +260,11 @@ describe('install workflow confirmation lifecycle', () => {
         state: installedState({ has_resettable_data: false }),
         removed_data: true
       });
-    const loadInstallState = vi
+    const getInstallState = vi
       .fn()
       .mockResolvedValueOnce(installedState())
       .mockResolvedValue(installedState({ has_resettable_data: true }));
-    const { workflow } = setup({ loadInstallState, resetBppData });
+    const { workflow } = setup({ getInstallState, resetBppData });
     await workflow.start();
 
     expect(workflow.intents.requestResetData()).toBe(true);
@@ -333,18 +331,18 @@ describe('install workflow mutation outcomes', () => {
         ready: true
       }
     });
-    const loadInstallState = vi.fn().mockResolvedValue(installState());
+    const getInstallState = vi.fn().mockResolvedValue(installState());
     const { workflow, commands } = setup({
-      loadInstallState,
+      getInstallState,
       installMod: vi.fn().mockResolvedValue(returned)
     });
     await workflow.start();
-    expect(loadInstallState).toHaveBeenCalledTimes(1);
+    expect(getInstallState).toHaveBeenCalledTimes(1);
 
     expect(workflow.intents.requestInstall()).toBe(true);
     expect(await workflow.intents.confirm()).toBe(true);
     expect(workflow.getSnapshot().data).toBe(returned);
-    expect(loadInstallState).toHaveBeenCalledTimes(1);
+    expect(getInstallState).toHaveBeenCalledTimes(1);
     expect(commands.installMod).toHaveBeenCalledTimes(1);
   });
 
@@ -352,12 +350,12 @@ describe('install workflow mutation outcomes', () => {
     const reconciled = installedState({
       warnings: [{ code: 'trampoline_not_ready', params: {} }]
     });
-    const loadInstallState = vi
+    const getInstallState = vi
       .fn()
       .mockResolvedValueOnce(installState())
       .mockResolvedValueOnce(reconciled);
     const { workflow } = setup({
-      loadInstallState,
+      getInstallState,
       installMod: vi.fn().mockRejectedValue(new Error('partial native work'))
     });
     await workflow.start();
@@ -370,19 +368,19 @@ describe('install workflow mutation outcomes', () => {
     });
     expect(workflow.getSnapshot().data).toEqual(reconciled);
     expect(workflow.getSnapshot().reconciliationProblem).toBeNull();
-    expect(loadInstallState).toHaveBeenLastCalledWith(
+    expect(getInstallState).toHaveBeenLastCalledWith(
       '/Applications/The Bazaar'
     );
   });
 
   it('retains prior snapshot and records a separate reconciliation problem when both calls fail', async () => {
     const ready = installState();
-    const loadInstallState = vi
+    const getInstallState = vi
       .fn()
       .mockResolvedValueOnce(ready)
       .mockRejectedValueOnce(new Error('reconcile failed'));
     const { workflow } = setup({
-      loadInstallState,
+      getInstallState,
       uninstallMod: vi.fn().mockRejectedValue(new Error('uninstall failed'))
     });
     await workflow.start();
@@ -402,7 +400,7 @@ describe('install workflow mutation outcomes', () => {
 
   it('distinguishes removed and nothing-to-delete reset notices', async () => {
     const { workflow, commands } = setup({
-      loadInstallState: vi.fn().mockResolvedValue(
+      getInstallState: vi.fn().mockResolvedValue(
         installedState({
           has_resettable_data: false,
           has_bepinex_files: false
@@ -435,9 +433,9 @@ describe('install workflow mutation outcomes', () => {
   });
 
   it('uninstalls through confirmation and launches without install-state reconciliation', async () => {
-    const loadInstallState = vi.fn().mockResolvedValue(installedState());
+    const getInstallState = vi.fn().mockResolvedValue(installedState());
     const { workflow, commands } = setup({
-      loadInstallState,
+      getInstallState,
       uninstallMod: vi.fn().mockResolvedValue(installState()),
       launchGame: vi.fn().mockResolvedValue(undefined)
     });
@@ -457,7 +455,7 @@ describe('install workflow mutation outcomes', () => {
 
     expect(await workflow.intents.launch()).toBe(true);
     expect(commands.launchGame).toHaveBeenCalledTimes(1);
-    expect(loadInstallState).toHaveBeenCalledTimes(1);
+    expect(getInstallState).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -486,11 +484,11 @@ describe('install workflow notices, lifecycle, and availability', () => {
   it('ignores late completions after dispose and reloads on a new start', async () => {
     const firstLoad = deferred<InstallState>();
     const secondLoad = deferred<InstallState>();
-    const loadInstallState = vi
+    const getInstallState = vi
       .fn()
       .mockImplementationOnce(() => firstLoad.promise)
       .mockImplementationOnce(() => secondLoad.promise);
-    const { workflow } = setup({ loadInstallState });
+    const { workflow } = setup({ getInstallState });
 
     const firstStart = workflow.start();
     const before = workflow.getSnapshot();
@@ -564,7 +562,7 @@ describe('install workflow notices, lifecycle, and availability', () => {
     'derives primary action and availability for $name',
     async ({ state, mode, operation }) => {
       const { workflow } = setup({
-        loadInstallState: vi.fn().mockResolvedValue(state)
+        getInstallState: vi.fn().mockResolvedValue(state)
       });
       await workflow.start();
       const snapshot = workflow.getSnapshot();
@@ -579,34 +577,4 @@ describe('install workflow notices, lifecycle, and availability', () => {
       expect(snapshot.actions.refresh).toBe(true);
     }
   );
-
-  it('runs through generated/native-shaped and Preview command adapters', async () => {
-    const nativeLike = {
-      getInstallState: vi.fn().mockResolvedValue(installState()),
-      chooseGameDirectory: vi
-        .fn()
-        .mockResolvedValue({ game_path: '/Applications/The Bazaar' }),
-      installMod: vi.fn().mockResolvedValue(installedState()),
-      resetBppData: vi.fn().mockResolvedValue({
-        state: installedState({ has_resettable_data: false }),
-        removed_data: true
-      }),
-      resetBepinex: vi.fn().mockResolvedValue({
-        state: installedState({ has_bepinex_files: false }),
-        removed: true
-      }),
-      uninstallMod: vi.fn().mockResolvedValue(installState()),
-      launchGame: vi.fn().mockResolvedValue(undefined)
-    } satisfies Parameters<typeof createInstallCommandPort>[0];
-
-    for (const commands of [
-      createInstallCommandPort(nativeLike),
-      createInstallCommandPort(commandClient)
-    ]) {
-      const workflow = createInstallWorkflow({ commands });
-      await workflow.start();
-      expect(workflow.getSnapshot().phase).not.toBe('initial-loading');
-      workflow.dispose();
-    }
-  });
 });

@@ -1,3 +1,4 @@
+import type { CommandAdapter } from '../../api/commandAdapter';
 import type { HistoryRunDetail } from '../../types/backend';
 import type { ConfirmedOperationOutcome } from '../shared/confirmedOperation';
 import type { PageRefreshState } from '../shared/pageState';
@@ -6,15 +7,13 @@ import {
   type RunDetailProblem
 } from './runDetailProblems';
 
-export interface RunDetailCommands {
-  loadHistoryRunDetail(runId: string): Promise<HistoryRunDetail | null>;
-  revealRunScreenshot(runId: string): Promise<void>;
-  revealBattleVideo(battleId: string, videoId?: string): Promise<void>;
-  deleteBattleVideo(
-    battleId: string,
-    videoId: string
-  ): Promise<HistoryRunDetail>;
-}
+export type RunDetailCommands = Pick<
+  CommandAdapter,
+  | 'getHistoryRunDetail'
+  | 'revealRunScreenshot'
+  | 'revealBattleVideo'
+  | 'deleteBattleVideo'
+>;
 
 type Resource =
   | { phase: 'initial-loading' }
@@ -114,7 +113,7 @@ export function createRunDetailWorkflow(
     if (resource.phase !== 'ready') resource = { phase: 'initial-loading' };
     publish();
     try {
-      const data = runId ? await commands.loadHistoryRunDetail(runId) : null;
+      const data = runId ? await commands.getHistoryRunDetail(runId) : null;
       if (!active || pending !== request) return false;
       pending = null;
       resource = data
@@ -139,7 +138,7 @@ export function createRunDetailWorkflow(
 
   async function runAction(
     action: Action,
-    task: () => Promise<void | HistoryRunDetail>
+    task: () => Promise<null | HistoryRunDetail>
   ): Promise<ConfirmedOperationOutcome<RunDetailProblem>> {
     if (!active || pending || resource.phase !== 'ready') {
       return {

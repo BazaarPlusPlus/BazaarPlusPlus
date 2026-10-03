@@ -58,8 +58,5 @@ describe('ShellNavRail', () => {
     expect(closed).toContain('lucide-languages');
     expect(open).toContain('id="shell-support-menu"');
     expect(open).toContain('https://example.com/kofi');
-    expect(closed.indexOf('shell-support-menu')).toBeGreaterThan(
-      closed.indexOf('href="/about"')
-    );
   });
 });

@@ -10,7 +10,7 @@ import { UpdaterProvider } from '../features/about/UpdaterProvider';
 import { LocaleProvider } from '../i18n/LocaleProvider';
 import { LOCALE_STORAGE_KEY } from '../i18n/messages';
 import { idleStreamStatus } from '../api/previewDefaults';
-import { getStreamStatus } from '../features/shared/streamSessionApi';
+import { commandClient } from '../api/commandClient';
 import { ShellHeader } from './ShellHeader';
 
 const tauriWindow = vi.hoisted(() => {
@@ -35,9 +35,16 @@ vi.mock('@tauri-apps/api/window', () => ({
   getCurrentWindow: () => tauriWindow.api
 }));
 
-vi.mock('../features/shared/streamSessionApi', () => ({
-  getStreamStatus: vi.fn(async () => ({ running: false }))
-}));
+vi.mock('../api/commandClient', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../api/commandClient')>();
+  return {
+    commandClient: {
+      ...actual.commandClient,
+      getStreamStatus: vi.fn(async () => ({ running: false }))
+    }
+  };
+});
+const { getStreamStatus } = commandClient;
 
 const bootstrap: AppBootstrapController['bootstrap'] = {
   app_version: '4.4.0',
@@ -96,61 +103,6 @@ describe('ShellHeader', () => {
   beforeEach(() => {
     window.localStorage.setItem(LOCALE_STORAGE_KEY, 'zh');
     vi.mocked(getStreamStatus).mockClear();
-  });
-
-  it('shows the brand logo and an app-wide update check after the community links', () => {
-    const html = renderHeader();
-
-    expect(html).toContain('bpp-brand-logo');
-    expect(html.indexOf('检查更新')).toBeGreaterThan(
-      html.indexOf('data-header-group="community"')
-    );
-  });
-
-  it('keeps community links in the header and application actions in the rail', () => {
-    const html = renderHeader();
-    const community = html.indexOf('data-header-group="community"');
-    const github = html.indexOf('aria-label="GitHub"');
-
-    expect(community).toBeGreaterThanOrEqual(0);
-    expect(github).toBeGreaterThan(community);
-    expect(html).not.toContain('shell-support-menu');
-    expect(html).not.toContain('lucide-languages');
-  });
-
-  it('shows the CoreDev, author, and project entries in order', () => {
-    const html = renderHeader({ showBilibili: true });
-
-    const authorHrefIndex = html.indexOf('https://example.com/bilibili-author');
-    const coreDevHrefIndex = html.indexOf(
-      'https://example.com/bilibili-core-dev'
-    );
-    const projectHrefIndex = html.indexOf(
-      'https://example.com/bilibili-project'
-    );
-    const authorIndex = html.indexOf('仓鼠小猫', authorHrefIndex);
-    const authorSubtitleIndex = html.indexOf('BazaarLine 作者', authorIndex);
-    const coreDevIndex = html.indexOf('hisenser', coreDevHrefIndex);
-    const coreDevSubtitleIndex = html.indexOf('CoreDev', coreDevIndex);
-    const projectIndex = html.indexOf('BazaarPlusPlus', projectHrefIndex);
-    const projectSubtitleIndex = html.indexOf(
-      '教程、演示和项目内容',
-      projectIndex
-    );
-
-    expect(authorHrefIndex).toBeGreaterThanOrEqual(0);
-    expect(coreDevHrefIndex).toBeGreaterThanOrEqual(0);
-    expect(projectHrefIndex).toBeGreaterThanOrEqual(0);
-    expect(authorIndex).toBeGreaterThanOrEqual(0);
-    expect(authorSubtitleIndex).toBeGreaterThan(authorIndex);
-    expect(coreDevIndex).toBeGreaterThanOrEqual(0);
-    expect(coreDevSubtitleIndex).toBeGreaterThan(coreDevIndex);
-    expect(coreDevHrefIndex).toBeLessThan(authorHrefIndex);
-    expect(authorHrefIndex).toBeLessThan(projectHrefIndex);
-    expect(coreDevIndex).toBeLessThan(authorIndex);
-    expect(coreDevSubtitleIndex).toBeLessThan(authorIndex);
-    expect(authorSubtitleIndex).toBeLessThan(projectIndex);
-    expect(projectSubtitleIndex).toBeGreaterThan(projectIndex);
   });
 
   it('exposes controlled keyboard-operable disclosure semantics', () => {

@@ -7,13 +7,16 @@ import { ModalCoordinatorProvider } from '../../components/ui/ModalCoordinator';
 import { LocaleProvider } from '../../i18n/LocaleProvider';
 import { LOCALE_STORAGE_KEY } from '../../i18n/messages';
 import type { HistorySummary } from '../../types/backend';
-import { executeStorageCleanup, previewStorageCleanup } from './historyApi';
+import { commandClient } from '../../api/commandClient';
 import { HistoryOverview } from './HistoryOverview';
 
-vi.mock('./historyApi', () => ({
-  previewStorageCleanup: vi.fn(),
-  executeStorageCleanup: vi.fn()
+vi.mock('../../api/commandClient', () => ({
+  commandClient: {
+    previewStorageCleanup: vi.fn(),
+    executeStorageCleanup: vi.fn()
+  }
 }));
+const { executeStorageCleanup, previewStorageCleanup } = commandClient;
 
 let container: HTMLDivElement;
 let root: Root;

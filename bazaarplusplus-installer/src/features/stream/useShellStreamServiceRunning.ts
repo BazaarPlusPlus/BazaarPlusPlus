@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { getStreamStatus } from '../shared/streamSessionApi';
+import { commandClient } from '../../api/commandClient';
 
 /** Low-frequency shell hint for window-close copy. Not the Stream page source of truth. */
 const SHELL_STREAM_STATUS_POLL_MS = 4000;
@@ -12,7 +12,7 @@ export function useShellStreamServiceRunning() {
 
     const poll = async () => {
       try {
-        const status = await getStreamStatus();
+        const status = await commandClient.getStreamStatus();
         if (!cancelled) {
           setRunning(status.running);
         }

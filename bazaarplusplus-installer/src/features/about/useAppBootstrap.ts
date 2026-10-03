@@ -1,13 +1,20 @@
 import { useEffect, useRef, useState } from 'react';
 import type { AppBootstrap } from '../../types/backend';
+import { commandClient } from '../../api/commandClient';
 import { fallbackBootstrap } from '../../api/previewDefaults';
-import { loadAppBootstrap } from './aboutApi';
+import { hasTauriRuntime } from '../../api/runtime';
 import {
   createAppBootstrapMachine,
   createInitialAppBootstrapSnapshot,
+  type AppBootstrapLoadResult,
   type AppBootstrapMachine,
   type AppBootstrapSnapshot
 } from './appBootstrap';
+
+async function loadAppBootstrap(): Promise<AppBootstrapLoadResult> {
+  const data = await commandClient.getAppBootstrap();
+  return { source: hasTauriRuntime() ? 'native' : 'preview', data };
+}
 
 export function useAppBootstrapState() {
   const [resource, setResource] = useState<AppBootstrapSnapshot>(() =>

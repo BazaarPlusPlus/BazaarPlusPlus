@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useSyncExternalStore } from 'react';
-import { installCommandPort } from './installApi';
+import { commandClient } from '../../api/commandClient';
 import { createInstallWorkflow } from './installWorkflow';
 
 export function useInstallPage() {
   const workflow = useMemo(
     () =>
       createInstallWorkflow({
-        commands: installCommandPort
+        commands: commandClient
       }),
     []
   );

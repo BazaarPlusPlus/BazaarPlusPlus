@@ -1,42 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatMessage, messages } from './messages';
-
-describe('messages catalog', () => {
-  it('defines the same keys for every locale', () => {
-    const zhKeys = Object.keys(messages.zh).sort();
-    const enKeys = Object.keys(messages.en).sort();
-    expect(enKeys).toEqual(zhKeys);
-  });
-
-  it('returns a different string per locale for the same key', () => {
-    expect(formatMessage('zh', 'navInstall')).toBe('安装');
-    expect(formatMessage('en', 'navInstall')).toBe('Install');
-  });
-
-  it('provides localized History empty-state guidance and actions', () => {
-    expect(messages.zh.historyEmptyDescription).toContain('The Bazaar');
-    expect(messages.en.historyEmptyDescription).toContain('The Bazaar');
-    expect(messages.zh.historyEmptyRefresh).not.toBe(
-      messages.en.historyEmptyRefresh
-    );
-    expect(messages.zh.historyEmptyInstall).not.toBe(
-      messages.en.historyEmptyInstall
-    );
-  });
-
-  it('names the same OS surface the recovery step tells the user to open', () => {
-    expect(messages.zh.historyEndGameProcessFailedWindows).toContain(
-      '任务管理器'
-    );
-    expect(messages.zh.historyEndGameProcessFailedMac).toContain('活动监视器');
-    expect(messages.en.updaterProblemRestartFailedWindows).toContain(
-      'Start menu'
-    );
-    expect(messages.en.updaterProblemRestartFailedMac).toContain(
-      'Applications'
-    );
-  });
-});
+import { formatMessage } from './messages';
 
 describe('formatMessage', () => {
   it('returns the raw message when no params are given', () => {

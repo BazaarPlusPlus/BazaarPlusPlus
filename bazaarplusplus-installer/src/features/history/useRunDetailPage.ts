@@ -1,24 +1,12 @@
 import { useEffect, useMemo, useSyncExternalStore } from 'react';
 import { useParams } from 'react-router-dom';
-import {
-  deleteBattleVideo,
-  loadHistoryRunDetail,
-  revealBattleVideo,
-  revealRunScreenshot
-} from './historyApi';
+import { commandClient } from '../../api/commandClient';
 import { createRunDetailWorkflow } from './runDetailWorkflow';
-
-const commands = {
-  deleteBattleVideo,
-  loadHistoryRunDetail,
-  revealBattleVideo,
-  revealRunScreenshot
-};
 
 export function useRunDetailPage() {
   const { runId } = useParams<{ runId: string }>();
   const workflow = useMemo(
-    () => createRunDetailWorkflow(runId, commands),
+    () => createRunDetailWorkflow(runId, commandClient),
     [runId]
   );
   const snapshot = useSyncExternalStore(

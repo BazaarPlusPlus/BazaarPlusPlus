@@ -60,7 +60,7 @@ function setup(
   runId: string | undefined = 'run-1'
 ) {
   const commands = {
-    loadHistoryRunDetail: vi.fn().mockResolvedValue(detail),
+    getHistoryRunDetail: vi.fn().mockResolvedValue(detail),
     revealRunScreenshot: vi.fn().mockResolvedValue(undefined),
     revealBattleVideo: vi.fn().mockResolvedValue(undefined),
     deleteBattleVideo: vi.fn().mockResolvedValue(detail),
@@ -72,12 +72,12 @@ function setup(
 
 describe('Run Detail workflow', () => {
   it('loads nullable detail, reports blocking failure and recovers through refresh', async () => {
-    const loadHistoryRunDetail = vi
+    const getHistoryRunDetail = vi
       .fn()
       .mockResolvedValueOnce(null)
       .mockRejectedValueOnce(new Error('read failed'))
       .mockResolvedValueOnce(detail);
-    const { workflow } = setup({ loadHistoryRunDetail });
+    const { workflow } = setup({ getHistoryRunDetail });
     expect(workflow.getSnapshot().state.phase).toBe('initial-loading');
     await workflow.start();
     expect(workflow.getSnapshot().state.phase).toBe('not-found');
@@ -88,12 +88,12 @@ describe('Run Detail workflow', () => {
     });
     expect(await workflow.intents.refresh()).toBe(true);
     expect(workflow.getSnapshot().detail).toEqual(detail);
-    expect(loadHistoryRunDetail).toHaveBeenCalledWith('run-1');
+    expect(getHistoryRunDetail).toHaveBeenCalledWith('run-1');
   });
 
   it('keeps a missing run id in not-found without dispatching a command', async () => {
     const commands = {
-      loadHistoryRunDetail: vi.fn(),
+      getHistoryRunDetail: vi.fn(),
       revealRunScreenshot: vi.fn(),
       revealBattleVideo: vi.fn(),
       deleteBattleVideo: vi.fn()
@@ -101,7 +101,7 @@ describe('Run Detail workflow', () => {
     const workflow = createRunDetailWorkflow(undefined, commands);
     await workflow.start();
     expect(workflow.getSnapshot().state.phase).toBe('not-found');
-    expect(commands.loadHistoryRunDetail).not.toHaveBeenCalled();
+    expect(commands.getHistoryRunDetail).not.toHaveBeenCalled();
     expect(await workflow.intents.revealScreenshot()).toBe(false);
     expect((await workflow.intents.deleteVideo('battle-1', 'v')).ok).toBe(
       false
@@ -112,7 +112,7 @@ describe('Run Detail workflow', () => {
   it('retains data on refresh failure and excludes actions until refresh finishes', async () => {
     const refresh = deferred<HistoryRunDetail>();
     const { workflow, commands } = setup({
-      loadHistoryRunDetail: vi
+      getHistoryRunDetail: vi
         .fn()
         .mockResolvedValueOnce(detail)
         .mockReturnValueOnce(refresh.promise)
@@ -153,7 +153,7 @@ describe('Run Detail workflow', () => {
       const old = deferred<HistoryRunDetail>();
       const latest = deferred<HistoryRunDetail>();
       const { workflow, commands } = setup({
-        loadHistoryRunDetail: vi
+        getHistoryRunDetail: vi
           .fn()
           .mockReturnValueOnce(old.promise)
           .mockReturnValueOnce(latest.promise)
@@ -179,7 +179,7 @@ describe('Run Detail workflow', () => {
   it('does not overwrite a newer result when an old load completes last', async () => {
     const old = deferred<HistoryRunDetail>();
     const { workflow } = setup({
-      loadHistoryRunDetail: vi
+      getHistoryRunDetail: vi
         .fn()
         .mockReturnValueOnce(old.promise)
         .mockResolvedValueOnce(detail)
@@ -221,7 +221,7 @@ describe('Run Detail workflow', () => {
       expect((await workflow.intents.deleteVideo('battle-2', 'v')).ok).toBe(
         false
       );
-      expect(commands.loadHistoryRunDetail).toHaveBeenCalledTimes(1);
+      expect(commands.getHistoryRunDetail).toHaveBeenCalledTimes(1);
       expect(commands.revealRunScreenshot).toHaveBeenCalledTimes(
         kind === 'screenshot' ? 1 : 0
       );
@@ -326,7 +326,7 @@ describe('Run Detail workflow', () => {
   it('invalidates late loads on dispose and survives a new lifecycle', async () => {
     const old = deferred<HistoryRunDetail>();
     const { workflow } = setup({
-      loadHistoryRunDetail: vi
+      getHistoryRunDetail: vi
         .fn()
         .mockReturnValueOnce(old.promise)
         .mockResolvedValueOnce(detail)

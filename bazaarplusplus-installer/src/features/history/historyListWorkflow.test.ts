@@ -61,7 +61,7 @@ function fixture(initialPage = 1) {
       pageData(offset / 50 + 1)
     ),
     endGameProcess: vi.fn(async () => true),
-    prepareHistoryThumbnails: vi.fn(async (): Promise<void> => undefined)
+    prepareHistoryThumbnails: vi.fn(async (): Promise<null> => null)
   };
   const replacePage = vi.fn();
   const workflow = createHistoryListWorkflow(commands, {
@@ -277,7 +277,7 @@ describe('History List workflow', () => {
 
   it('keeps list reads independent of slow or failed thumbnail preparation', async () => {
     const { commands, workflow } = fixture();
-    const request = deferred<void>();
+    const request = deferred<null>();
     commands.prepareHistoryThumbnails.mockReturnValueOnce(request.promise);
     const starting = workflow.start();
     await Promise.resolve();
@@ -312,21 +312,21 @@ describe('History List workflow', () => {
     await workflow.start();
     const firstAttempt = workflow.getSnapshot().thumbnailAttempt;
 
-    const refreshed = deferred<void>();
+    const refreshed = deferred<null>();
     commands.prepareHistoryThumbnails.mockReturnValueOnce(refreshed.promise);
     const refreshing = workflow.intents.refresh();
     expect(workflow.getSnapshot()).toMatchObject({
       thumbnails: 'ready',
       thumbnailAttempt: firstAttempt
     });
-    refreshed.resolve();
+    refreshed.resolve(null);
     await refreshing;
     expect(workflow.getSnapshot()).toMatchObject({
       thumbnails: 'ready',
       thumbnailAttempt: firstAttempt + 1
     });
 
-    const failed = deferred<void>();
+    const failed = deferred<null>();
     commands.prepareHistoryThumbnails.mockReturnValueOnce(failed.promise);
     const changingPage = workflow.selectPage(2);
     const nextPageRun = { ...thumbnailRun, run_id: 'run-51' };
@@ -341,11 +341,11 @@ describe('History List workflow', () => {
     });
     expect(workflow.getSnapshot().thumbnailUrl(nextPageRun)).toBeNull();
 
-    const recovered = deferred<void>();
+    const recovered = deferred<null>();
     commands.prepareHistoryThumbnails.mockReturnValueOnce(recovered.promise);
     const retrying = workflow.intents.refresh();
     expect(workflow.getSnapshot().thumbnails).toBe('unavailable');
-    recovered.resolve();
+    recovered.resolve(null);
     await retrying;
     expect(workflow.getSnapshot().thumbnails).toBe('ready');
   });
@@ -363,11 +363,11 @@ describe('History List workflow', () => {
     });
     expect(workflow.getSnapshot().thumbnailUrl(thumbnailRun)).toBeNull();
 
-    const recovered = deferred<void>();
+    const recovered = deferred<null>();
     commands.prepareHistoryThumbnails.mockReturnValueOnce(recovered.promise);
     const retrying = workflow.intents.refresh();
     expect(workflow.getSnapshot().thumbnailsUnavailable).toBe(true);
-    recovered.resolve();
+    recovered.resolve(null);
     await retrying;
     expect(workflow.getSnapshot()).toMatchObject({
       thumbnails: 'ready',
@@ -395,18 +395,18 @@ describe('History List workflow', () => {
     async (outcome, current) => {
       const { commands, workflow } = fixture();
       await workflow.start();
-      const old = deferred<void>();
+      const old = deferred<null>();
       commands.prepareHistoryThumbnails.mockReturnValueOnce(old.promise);
       const oldRefresh = workflow.intents.refresh();
       if (current)
         commands.prepareHistoryThumbnails.mockRejectedValueOnce(
           thumbnailServiceFailure
         );
-      else commands.prepareHistoryThumbnails.mockResolvedValueOnce();
+      else commands.prepareHistoryThumbnails.mockResolvedValueOnce(null);
       await workflow.intents.refresh();
       const snapshot = workflow.getSnapshot();
       expect(snapshot.thumbnailsUnavailable).toBe(current);
-      if (outcome === 'success') old.resolve();
+      if (outcome === 'success') old.resolve(null);
       else old.reject(thumbnailServiceFailure);
       await oldRefresh;
       expect(workflow.getSnapshot()).toBe(snapshot);
@@ -421,11 +421,11 @@ describe('History List workflow', () => {
     async (outcome, current) => {
       const { commands, workflow } = fixture();
       await workflow.start();
-      const old = deferred<void>();
+      const old = deferred<null>();
       commands.prepareHistoryThumbnails.mockReturnValueOnce(old.promise);
       const oldRefresh = workflow.intents.refresh();
       if (current === 'ready')
-        commands.prepareHistoryThumbnails.mockResolvedValueOnce();
+        commands.prepareHistoryThumbnails.mockResolvedValueOnce(null);
       else
         commands.prepareHistoryThumbnails.mockRejectedValueOnce(
           new Error('stopped')
@@ -433,7 +433,7 @@ describe('History List workflow', () => {
       await workflow.intents.refresh();
       const snapshot = workflow.getSnapshot();
       expect(snapshot.thumbnails).toBe(current);
-      if (outcome === 'success') old.resolve();
+      if (outcome === 'success') old.resolve(null);
       else old.reject(new Error('stopped'));
       await oldRefresh;
       expect(workflow.getSnapshot()).toBe(snapshot);
@@ -443,7 +443,7 @@ describe('History List workflow', () => {
   it('rejects old list, thumbnail and recovery completions after a lifecycle restart', async () => {
     const { commands, replacePage, workflow } = fixture(2);
     const oldList = deferred<HistoryRunList>();
-    const oldThumbnails = deferred<void>();
+    const oldThumbnails = deferred<null>();
     const oldProcess = deferred<boolean>();
     commands.listHistoryRuns.mockReturnValueOnce(oldList.promise);
     commands.prepareHistoryThumbnails.mockReturnValueOnce(
@@ -466,7 +466,7 @@ describe('History List workflow', () => {
     const unsubscribe = workflow.subscribe(changed);
 
     oldList.resolve(pageData(1, 1));
-    oldThumbnails.resolve();
+    oldThumbnails.resolve(null);
     oldProcess.resolve(true);
     await Promise.all([oldStart, oldRecovery]);
 

@@ -75,14 +75,14 @@ function commands(
   overrides: Partial<StreamCommandPort> = {}
 ): StreamCommandPort {
   return {
-    ensureSession: vi.fn().mockResolvedValue(runningStatus()),
-    getStatus: vi.fn().mockResolvedValue(runningStatus()),
-    restartSession: vi.fn().mockResolvedValue(runningStatus()),
-    setWindow: vi.fn().mockResolvedValue(runningStatus()),
-    loadCropSettings: vi.fn().mockResolvedValue(defaultCropSettings),
-    applyCropCode: vi.fn().mockResolvedValue(defaultCropSettings),
-    saveDisplayMode: vi.fn().mockResolvedValue(defaultCropSettings),
-    resetCropSettings: vi.fn().mockResolvedValue(defaultCropSettings),
+    ensureStreamSession: vi.fn().mockResolvedValue(runningStatus()),
+    getStreamStatus: vi.fn().mockResolvedValue(runningStatus()),
+    restartStreamSession: vi.fn().mockResolvedValue(runningStatus()),
+    setStreamWindow: vi.fn().mockResolvedValue(runningStatus()),
+    getOverlaySettings: vi.fn().mockResolvedValue(defaultCropSettings),
+    applyOverlayCropCode: vi.fn().mockResolvedValue(defaultCropSettings),
+    saveOverlayDisplayMode: vi.fn().mockResolvedValue(defaultCropSettings),
+    resetOverlayCrop: vi.fn().mockResolvedValue(defaultCropSettings),
     ...overrides
   };
 }
@@ -108,7 +108,7 @@ async function flush() {
 describe('Stream capability state', () => {
   it('publishes crop availability while service initialization is still loading', async () => {
     const status = deferred<StreamServiceStatus>();
-    const { workflow } = setup({ ensureSession: () => status.promise });
+    const { workflow } = setup({ ensureStreamSession: () => status.promise });
 
     const start = workflow.start();
     await flush();
@@ -122,7 +122,9 @@ describe('Stream capability state', () => {
 
   it('keeps service and window controls usable when crop configuration degrades', async () => {
     const { workflow } = setup({
-      loadCropSettings: vi.fn().mockRejectedValue(new Error('crop unavailable'))
+      getOverlaySettings: vi
+        .fn()
+        .mockRejectedValue(new Error('crop unavailable'))
     });
 
     await workflow.start();
@@ -139,8 +141,10 @@ describe('Stream capability state', () => {
   });
 
   it('marks failed polling as stale without claiming the last running value is authoritative', async () => {
-    const getStatus = vi.fn().mockRejectedValue(new Error('poll unavailable'));
-    const { workflow, scheduler } = setup({ getStatus });
+    const getStreamStatus = vi
+      .fn()
+      .mockRejectedValue(new Error('poll unavailable'));
+    const { workflow, scheduler } = setup({ getStreamStatus });
     await workflow.start();
 
     for (let attempt = 0; attempt < 3; attempt += 1) {
@@ -164,7 +168,9 @@ describe('Stream capability state', () => {
       formatMessage('zh', 'streamPortDetail', { port: 17654 })
     );
 
-    getStatus.mockResolvedValueOnce(runningStatus({ active_window_offset: 1 }));
+    getStreamStatus.mockResolvedValueOnce(
+      runningStatus({ active_window_offset: 1 })
+    );
     expect(await workflow.intents.retryStatus()).toBe(true);
     expect(workflow.getSnapshot().polling).toMatchObject({
       freshness: 'fresh',
@@ -175,8 +181,8 @@ describe('Stream capability state', () => {
   it('scopes action failures and operation gates to their capabilities', async () => {
     const pendingCrop = deferred<StreamOverlayCropSettingsPayload>();
     const { workflow } = setup({
-      applyCropCode: () => pendingCrop.promise,
-      setWindow: vi.fn().mockRejectedValue(new Error('window failed'))
+      applyOverlayCropCode: () => pendingCrop.promise,
+      setStreamWindow: vi.fn().mockRejectedValue(new Error('window failed'))
     });
     await workflow.start();
 
@@ -201,8 +207,8 @@ describe('Stream capability state', () => {
   });
 
   it('re-presents one live workflow in either locale without starting it again', async () => {
-    const ensureSession = vi.fn().mockResolvedValue(runningStatus());
-    const { workflow } = setup({ ensureSession });
+    const ensureStreamSession = vi.fn().mockResolvedValue(runningStatus());
+    const { workflow } = setup({ ensureStreamSession });
     await workflow.start();
     const snapshot = workflow.getSnapshot();
 
@@ -214,7 +220,7 @@ describe('Stream capability state', () => {
     );
 
     expect(zh.status.label).not.toBe(en.status.label);
-    expect(ensureSession).toHaveBeenCalledTimes(1);
+    expect(ensureStreamSession).toHaveBeenCalledTimes(1);
     expect(workflow.getSnapshot()).toBe(snapshot);
   });
 });
