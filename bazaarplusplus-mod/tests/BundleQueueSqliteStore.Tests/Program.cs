@@ -1,5 +1,7 @@
 #nullable enable
+using System.Text.RegularExpressions;
 using BazaarPlusPlus.Storage.BundleQueue;
+using BazaarPlusPlus.Storage.RunLog;
 using BazaarPlusPlus.Storage.Sqlite;
 using Microsoft.Data.Sqlite;
 
@@ -9,6 +11,7 @@ TestOutcomeResealAndCleanupQueries();
 TestFinalOutboxEndsEligibility();
 TestSealFailureBookkeeping();
 TestSealEligibilityFixture();
+TestSealJobDeadlineFormat();
 
 Console.WriteLine("Bundle queue SQLite store checks passed.");
 
@@ -372,6 +375,244 @@ static void TestSealEligibilityFixture()
             }
         }
     );
+}
+
+// bundle_seal_jobs.input_deadline_at_utc has one format, SQLite datetime() output
+// (`yyyy-MM-dd HH:mm:ss`, UTC, whole seconds), because ListWaitingRunIds and
+// idx_bundle_seal_jobs_state order it as text. Failure modes, each with an assertion below:
+//  1. Same day, a datetime() deadline at 23:00 and a reseal deadline at 01:00: the reseal must
+//     come first. A `"o"` value diverges at character 11 ('T' > ' ') and sorts after it.
+//  2. FailOutboxAndScheduleReseal stores the datetime() shape, and a `now` with a non-zero offset
+//     is stored as UTC.
+//  3. SQLite datetime() really normalizes a `"o"` string (seven fractional digits, an offset).
+//  4. The open-time repair rewrites only ISO-shaped rows; canonical rows stay byte-identical.
+//  5. The repair is idempotent: a second open rewrites zero rows.
+//  6. An ISO-shaped value datetime() cannot parse stays as it is and does not roll back the
+//     initialization transaction through the NOT NULL constraint.
+//  7. ReadJob(...).InputDeadlineAtUtc names the same instant before and after the repair, up to
+//     truncation to the second (SQLite rounds to milliseconds first, so |delta| < 1 s).
+//  8. The repair leaves PRAGMA user_version at RunLogSchema.LocalDatabaseSchemaVersion.
+static void TestSealJobDeadlineFormat()
+{
+    var canonical = new Regex(@"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$");
+    var resealUtc = new DateTimeOffset(2026, 8, 3, 1, 0, 0, TimeSpan.Zero).AddTicks(4_567_891);
+    var resealOffset = new DateTimeOffset(2026, 8, 3, 9, 30, 0, TimeSpan.FromHours(8)).AddTicks(
+        1_234_567
+    );
+
+    // 3: verify SQLite against the exact strings .NET writes, not an assumption about them.
+    using (var memory = new SqliteConnection("Data Source=:memory:"))
+    {
+        memory.Open();
+        Assert(
+            Scalar(memory, $"SELECT datetime('{resealUtc:o}');") == "2026-08-03 01:00:00",
+            $"datetime() must normalize '{resealUtc:o}'."
+        );
+        Assert(
+            Scalar(memory, $"SELECT datetime('{resealOffset:o}');") == "2026-08-03 01:30:00",
+            $"datetime() must convert '{resealOffset:o}' to UTC."
+        );
+    }
+
+    WithStore(
+        (store, connection) =>
+        {
+            // 1 and 2: a datetime() job late in the day and reseal jobs early in the same day.
+            InsertRun(connection, "late", "ranked", "Online", completed: true, screenshot: false);
+            Execute(
+                connection,
+                "UPDATE runs SET ended_at_utc = '2026-08-03T22:58:00Z' WHERE run_id = 'late';"
+            );
+            foreach (var runId in new[] { "reseal-utc", "reseal-offset" })
+            {
+                InsertRun(
+                    connection,
+                    runId,
+                    "ranked",
+                    "Online",
+                    completed: true,
+                    screenshot: false
+                );
+                InsertOutbox(
+                    connection,
+                    "bundle-" + runId,
+                    runId,
+                    runId + ".bundle",
+                    "pending",
+                    Now().AddDays(-1),
+                    null
+                );
+            }
+            store.EnsureEligibleJobs(TimeSpan.FromMinutes(2));
+            store.FailOutboxAndScheduleReseal(
+                "bundle-reseal-utc",
+                "reseal-utc",
+                "invalid",
+                resealUtc
+            );
+            store.FailOutboxAndScheduleReseal(
+                "bundle-reseal-offset",
+                "reseal-offset",
+                "invalid",
+                resealOffset
+            );
+
+            var waiting = store.ListWaitingRunIds();
+            Assert(
+                waiting.SequenceEqual(["reseal-utc", "reseal-offset", "late"]),
+                $"Waiting jobs must sort by deadline instant; got [{string.Join(", ", waiting)}]."
+            );
+            Assert(
+                Deadline(connection, "late") == "2026-08-03 23:00:00",
+                "EnsureEligibleJobs writes the datetime() shape."
+            );
+            Assert(
+                Deadline(connection, "reseal-utc") == "2026-08-03 01:00:00",
+                $"A reseal deadline is stored in the datetime() shape; got '{Deadline(connection, "reseal-utc")}'."
+            );
+            Assert(
+                Deadline(connection, "reseal-offset") == "2026-08-03 01:30:00",
+                $"A reseal deadline with an offset is stored as UTC; got '{Deadline(connection, "reseal-offset")}'."
+            );
+            // 7 (writer): the stored reseal deadline is `now` truncated to the second.
+            Assert(
+                store.ReadJob("reseal-utc")!.InputDeadlineAtUtc
+                    == new DateTimeOffset(2026, 8, 3, 1, 0, 0, TimeSpan.Zero),
+                "A reseal deadline keeps its instant, truncated to the second."
+            );
+        }
+    );
+
+    WithStore(
+        (store, connection) =>
+        {
+            var database = connection.DataSource;
+            // Counts every rewrite of the column, so "zero rows changed" is measured, not inferred.
+            Execute(
+                connection,
+                """
+                CREATE TABLE test_deadline_rewrites (run_id TEXT NOT NULL);
+                CREATE TRIGGER test_count_deadline_rewrites
+                AFTER UPDATE OF input_deadline_at_utc ON bundle_seal_jobs
+                BEGIN
+                    INSERT INTO test_deadline_rewrites (run_id) VALUES (NEW.run_id);
+                END;
+                """
+            );
+            var seeded = new (string RunId, string Deadline)[]
+            {
+                ("legacy-utc", "2026-08-03T04:15:30.4567891+00:00"),
+                ("legacy-offset", "2026-08-03T12:15:30.9000000+08:00"),
+                ("legacy-zulu", "2026-08-03T04:20:00Z"),
+                ("canonical", "2026-08-03 04:10:00"),
+                ("unparseable", "2026-08-03Tnot-a-time"),
+            };
+            foreach (var (runId, deadline) in seeded)
+            {
+                InsertRun(
+                    connection,
+                    runId,
+                    "ranked",
+                    "Online",
+                    completed: true,
+                    screenshot: false
+                );
+                Execute(
+                    connection,
+                    "INSERT INTO bundle_seal_jobs (run_id, state, screenshot_requested, screenshot_state, input_deadline_at_utc) VALUES ($runId, 'waiting', 0, 'not_requested', $deadline);",
+                    ("$runId", runId),
+                    ("$deadline", deadline)
+                );
+            }
+            var canonicalHexBefore = Scalar(
+                connection,
+                "SELECT hex(input_deadline_at_utc) FROM bundle_seal_jobs WHERE run_id = 'canonical';"
+            );
+            var instantsBefore = new[] { "legacy-utc", "legacy-offset", "legacy-zulu", "canonical" }
+                .Select(runId => (RunId: runId, Instant: store.ReadJob(runId)!.InputDeadlineAtUtc))
+                .ToArray();
+
+            // 6: the open must succeed despite the unparseable row.
+            var reopened = new BundleQueueStore(database);
+
+            // 4: ISO rows rewritten, the canonical row byte-identical, the unparseable row kept.
+            Assert(
+                Deadline(connection, "legacy-utc") == "2026-08-03 04:15:30",
+                $"An ISO deadline is repaired on open; got '{Deadline(connection, "legacy-utc")}'."
+            );
+            Assert(
+                Deadline(connection, "legacy-offset") == "2026-08-03 04:15:30",
+                "An ISO deadline with an offset is repaired to UTC."
+            );
+            Assert(
+                Deadline(connection, "legacy-zulu") == "2026-08-03 04:20:00",
+                "A Z-suffixed ISO deadline is repaired."
+            );
+            Assert(
+                Scalar(
+                    connection,
+                    "SELECT hex(input_deadline_at_utc) FROM bundle_seal_jobs WHERE run_id = 'canonical';"
+                ) == canonicalHexBefore,
+                "A canonical deadline stays byte-identical."
+            );
+            Assert(
+                Deadline(connection, "unparseable") == "2026-08-03Tnot-a-time",
+                "A value datetime() cannot parse is left alone."
+            );
+            var rewritten = Scalar(
+                connection,
+                "SELECT group_concat(run_id, ',') FROM (SELECT run_id FROM test_deadline_rewrites ORDER BY run_id);"
+            );
+            Assert(
+                rewritten == "legacy-offset,legacy-utc,legacy-zulu",
+                $"Only ISO-shaped parseable rows are rewritten; got '{rewritten}'."
+            );
+
+            // 7: the same instant, truncated to the second.
+            foreach (var (runId, before) in instantsBefore)
+            {
+                var after = reopened.ReadJob(runId)!.InputDeadlineAtUtc;
+                Assert(
+                    after.Offset == TimeSpan.Zero
+                        && (before - after).Duration() < TimeSpan.FromSeconds(1),
+                    $"{runId}: repaired deadline {after:o} must name the instant {before:o}."
+                );
+                Assert(
+                    canonical.IsMatch(Deadline(connection, runId)!),
+                    $"{runId}: repaired deadline must have the datetime() shape."
+                );
+            }
+            Assert(
+                reopened.ReadJob("legacy-utc")!.InputDeadlineAtUtc
+                    == new DateTimeOffset(2026, 8, 3, 4, 15, 30, TimeSpan.Zero),
+                "A fractional second away from the boundary truncates to the whole second."
+            );
+
+            // 5: a second open rewrites nothing.
+            _ = new BundleQueueStore(database);
+            Assert(
+                Scalar(connection, "SELECT COUNT(*) || '' FROM test_deadline_rewrites;") == "3",
+                "The repair is idempotent: a second open rewrites zero rows."
+            );
+
+            // 8: the repair never bumps the schema version.
+            using var version = connection.CreateCommand();
+            version.CommandText = "PRAGMA user_version;";
+            Assert(
+                Convert.ToInt32(version.ExecuteScalar()) == RunLogSchema.LocalDatabaseSchemaVersion,
+                "The deadline repair must not change user_version."
+            );
+        }
+    );
+}
+
+static string? Deadline(SqliteConnection connection, string runId)
+{
+    using var command = connection.CreateCommand();
+    command.CommandText =
+        "SELECT input_deadline_at_utc FROM bundle_seal_jobs WHERE run_id = $runId;";
+    command.Parameters.AddWithValue("$runId", runId);
+    return command.ExecuteScalar() as string;
 }
 
 static void WithStore(Action<BundleQueueStore, SqliteConnection> test)

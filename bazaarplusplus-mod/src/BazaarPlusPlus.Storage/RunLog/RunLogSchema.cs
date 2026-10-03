@@ -396,6 +396,7 @@ public static class RunLogSchema
             ValidateLifecycleColumns(connection, transaction);
             if (versionInsideTransaction == LifecycleColumnsSchemaVersion)
                 BundleQueueStore.RecoverLegacyJsonFailures(connection, transaction);
+            BundleQueueStore.NormalizeSealJobDeadlines(connection, transaction);
             transaction.Commit();
         }
     }
