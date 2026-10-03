@@ -2,7 +2,7 @@
 using BazaarPlusPlus.Game.HistoryPanel;
 using Xunit;
 
-namespace HistoryPanelOperationalLogging.Tests;
+namespace PureBehavior.Tests;
 
 public sealed class HistoryPanelReplayCleanupTests
 {

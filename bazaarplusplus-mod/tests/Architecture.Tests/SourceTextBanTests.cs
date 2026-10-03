@@ -23,7 +23,6 @@ public sealed class SourceTextBanTests
         "Architecture.Tests/CoreLayeringTests.cs",
         "Architecture.Tests/EndOfRunCaptureArchitectureTests.cs",
         "Architecture.Tests/HistoryPagingArchitectureTests.cs",
-        "Architecture.Tests/LoggingGovernanceTests.cs",
         "Architecture.Tests/MacNativeReplayManagedArchitectureTests.cs",
         "Architecture.Tests/MacNativeReplayNativeArchitectureTests.cs",
         "Architecture.Tests/NativeAssetLoadingArchitectureTests.cs",
@@ -37,7 +36,6 @@ public sealed class SourceTextBanTests
         "LiveBuildRecommendations.Tests/Program.cs",
         "NativeAssetCompatibility.Tests/Program.cs",
         "PtrCompatibility.Tests/Program.cs",
-        "VoiceSubtitles.Tests/VoiceObserverLoggingTests.cs",
     };
 
     [Fact]

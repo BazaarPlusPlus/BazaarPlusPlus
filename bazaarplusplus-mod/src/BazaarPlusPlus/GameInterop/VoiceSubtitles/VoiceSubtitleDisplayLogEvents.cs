@@ -9,7 +9,6 @@ internal enum VoiceSubtitleDisplayLogReasonCode
     QueueFailed,
 }
 
-[BppLogEventSource]
 internal static class VoiceSubtitleDisplayLogEvents
 {
     internal static readonly BppLogFieldDefinition DisplayId = new(

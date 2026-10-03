@@ -12,7 +12,6 @@ internal enum LobbyLogReasonCode
     LabelRefreshException,
 }
 
-[BppLogEventSource]
 internal static class LobbyLogEvents
 {
     internal static readonly BppLogFieldDefinition VersionCheckDegradedReasonCode = PublicLow(

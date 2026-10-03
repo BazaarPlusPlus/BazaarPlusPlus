@@ -29,7 +29,6 @@ internal enum RunLoggingTransition
     Unknown,
 }
 
-[BppLogEventSource]
 internal static class RunLoggingLogEvents
 {
     internal static readonly BppLogFieldDefinition DatabasePath = new(

@@ -19,7 +19,6 @@ internal enum EventPreviewPlanReasonCode
     CacheWriteException,
 }
 
-[BppLogEventSource]
 internal static class EventPreviewLogEvents
 {
     internal static readonly BppLogFieldDefinition Source = PublicLow(0, "source");

@@ -22,7 +22,6 @@ internal enum PvpSnapshotReasonCode
     OpeningDataException,
 }
 
-[BppLogEventSource]
 internal static class PvpBattleLogEvents
 {
     internal static readonly BppLogFieldDefinition SnapshotDegradedCombatant = PublicLow(

@@ -3,7 +3,7 @@ using BazaarPlusPlus.Game.LiveBuildPanel;
 using BazaarPlusPlus.Game.LiveBuildPanel.Recommendations;
 using Xunit;
 
-namespace LiveBuildPanelLogging.Tests;
+namespace PureBehavior.Tests;
 
 public sealed class LiveBuildRefreshStateTests
 {

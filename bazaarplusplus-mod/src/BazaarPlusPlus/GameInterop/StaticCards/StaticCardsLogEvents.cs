@@ -3,7 +3,6 @@ using BazaarPlusPlus.Infrastructure.Logging;
 
 namespace BazaarPlusPlus.GameInterop.StaticCards;
 
-[BppLogEventSource]
 internal static class StaticCardsLogEvents
 {
     internal static readonly BppLogFieldDefinition AcceptedCount = new(

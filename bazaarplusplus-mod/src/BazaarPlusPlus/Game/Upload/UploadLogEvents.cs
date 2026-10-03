@@ -4,7 +4,6 @@ using BazaarPlusPlus.Infrastructure.Logging;
 
 namespace BazaarPlusPlus.Game.Upload;
 
-[BppLogEventSource]
 internal static class UploadLogEvents
 {
     internal static readonly BppLogFieldDefinition FeedDegradedRunId = Field(

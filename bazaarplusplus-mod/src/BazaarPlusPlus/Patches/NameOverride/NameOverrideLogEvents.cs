@@ -17,7 +17,6 @@ internal enum NameOverrideReasonCode
     Replaced,
 }
 
-[BppLogEventSource]
 internal static class NameOverrideLogEvents
 {
     internal static readonly BppLogFieldDefinition ValueAppliedOperation = PublicLow(

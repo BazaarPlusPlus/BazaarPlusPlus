@@ -22,7 +22,6 @@ internal enum VoiceSubtitlesSettingsPhase
     Show,
 }
 
-[BppLogEventSource]
 internal static class VoiceSubtitlesDisplayLogEvents
 {
     internal static readonly BppLogFieldDefinition FontEnvironmentReasonCode = PublicField(

@@ -62,7 +62,6 @@ internal enum NativeAuxiliaryTooltipAnomalyPhase
     FrameAudit,
 }
 
-[BppLogEventSource]
 internal static class PostCombatImpactLogEvents
 {
     internal static readonly BppLogFieldDefinition ReasonCode = new(

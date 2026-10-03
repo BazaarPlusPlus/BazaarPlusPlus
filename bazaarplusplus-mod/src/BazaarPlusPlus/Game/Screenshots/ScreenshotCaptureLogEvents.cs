@@ -38,7 +38,6 @@ internal enum ScreenshotCaptureCleanupStage
     RenderTextureRelease,
 }
 
-[BppLogEventSource]
 internal static class ScreenshotCaptureLogEvents
 {
     internal static readonly BppLogFieldDefinition ScreenshotId = PublicField(

@@ -134,7 +134,6 @@ internal enum CollectionHoverOperation
     OnHoverOut,
 }
 
-[BppLogEventSource]
 internal static class CollectionPanelLogEvents
 {
     internal static readonly BppLogFieldDefinition MountFailedReasonCode = Public(

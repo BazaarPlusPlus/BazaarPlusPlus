@@ -120,18 +120,6 @@ public sealed class BppLogEventRendererTests
         Assert.DoesNotContain("secret-tail", rendered);
     }
 
-    [Fact]
-    public void Render_uses_declared_field_order_even_when_the_schema_list_is_out_of_order()
-    {
-        var first = Field(0, "first");
-        var second = Field(1, "second");
-
-        var rendered = Renderer()
-            .Render(Define(second, first), second.Bind("two"), first.Bind("one"));
-
-        Assert.EndsWith(" first=one second=two", rendered);
-    }
-
     [Theory]
     [InlineData("BadField", "logging.renderer.succeeded")]
     [InlineData("bad-field", "logging.renderer.succeeded")]
@@ -153,17 +141,10 @@ public sealed class BppLogEventRendererTests
         Assert.Equal("[BPP][Logger] event=logging.render.failed", rendered);
     }
 
-    [Theory]
-    [InlineData(999, 0)]
-    [InlineData(0, 999)]
-    public void Render_fails_closed_for_invalid_field_governance(int correlation, int cardinality)
+    [Fact]
+    public void Render_fails_closed_for_an_unknown_correlation_policy()
     {
-        var field = Field(
-            0,
-            "value",
-            (BppLogCorrelationPolicy)correlation,
-            (BppLogCardinality)cardinality
-        );
+        var field = Field(0, "value", (BppLogCorrelationPolicy)999);
 
         var rendered = Renderer().Render(Define(field), field.Bind("must-not-appear"));
 
@@ -227,9 +208,8 @@ public sealed class BppLogEventRendererTests
     private static BppLogFieldDefinition Field(
         int order,
         string name,
-        BppLogCorrelationPolicy correlation = BppLogCorrelationPolicy.None,
-        BppLogCardinality cardinality = BppLogCardinality.Low
-    ) => new(order, name, correlation, cardinality);
+        BppLogCorrelationPolicy correlation = BppLogCorrelationPolicy.None
+    ) => new(order, name, correlation, BppLogCardinality.Low);
 
     private enum RenderState
     {

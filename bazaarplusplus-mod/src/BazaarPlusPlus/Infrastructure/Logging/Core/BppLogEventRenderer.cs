@@ -32,14 +32,15 @@ internal sealed class BppLogEventRenderer
             if (!IsValidDefinition(definition))
                 return FallbackRecord;
 
-            if (!TryGetOrderedFields(definition, out var orderedFields))
+            if (!HasValidFields(definition))
                 return FallbackRecord;
 
+            var fields = definition.Fields;
             var fieldTokens = new List<string>();
             var fieldTruncated = false;
-            for (var fieldIndex = 0; fieldIndex < orderedFields.Length; fieldIndex++)
+            for (var fieldIndex = 0; fieldIndex < fields.Count; fieldIndex++)
             {
-                var field = orderedFields[fieldIndex];
+                var field = fields[fieldIndex];
 
                 if (!TryFindValue(field, values, out var value))
                     continue;
@@ -117,36 +118,20 @@ internal sealed class BppLogEventRenderer
         );
     }
 
-    private static bool TryGetOrderedFields(
-        BppLogEventDefinition definition,
-        out BppLogFieldDefinition[] fields
-    )
+    private static bool HasValidFields(BppLogEventDefinition definition)
     {
-        if (definition.Fields.Count > BppLogSchemaRules.MaximumFields)
-        {
-            fields = Array.Empty<BppLogFieldDefinition>();
+        var fields = definition.Fields;
+        if (fields.Count > BppLogSchemaRules.MaximumFields)
             return false;
-        }
 
-        fields = new BppLogFieldDefinition[definition.Fields.Count];
-        for (var index = 0; index < fields.Length; index++)
+        for (var index = 0; index < fields.Count; index++)
         {
-            var field = definition.Fields[index];
+            var field = fields[index];
             if (
                 field == null
-                || field.Order < 0
                 || !BppLogSchemaRules.IsSnakeIdentifier(field.Name)
                 || !BppLogSchemaRules.IsKnownCorrelation(field.Correlation)
-                || !BppLogSchemaRules.IsKnownCardinality(field.Cardinality)
             )
-                return false;
-            fields[index] = field;
-        }
-
-        Array.Sort(fields, (left, right) => left.Order.CompareTo(right.Order));
-        for (var index = 1; index < fields.Length; index++)
-        {
-            if (fields[index - 1].Order == fields[index].Order)
                 return false;
         }
         return true;

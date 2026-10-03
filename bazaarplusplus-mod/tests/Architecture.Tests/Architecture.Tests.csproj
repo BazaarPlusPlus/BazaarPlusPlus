@@ -30,78 +30,14 @@
       Link="Logging/Core/BppLogSchema.cs"
     />
     <Compile
-      Include="../../src/BazaarPlusPlus/Infrastructure/Logging/Core/BppLogEventCatalog.cs"
-      Link="Logging/Core/BppLogEventCatalog.cs"
-    />
-    <Compile
       Include="../../src/BazaarPlusPlus/Infrastructure/Logging/Core/BppLogSchemaRules.cs"
       Link="Logging/Core/BppLogSchemaRules.cs"
     />
     <Compile Include="../../src/BazaarPlusPlus/PluginLogEvents.cs" Link="PluginLogEvents.cs" />
     <Compile
-      Include="../../src/BazaarPlusPlus/GameInterop/Fonts/NativeGameFontsLogEvents.cs"
-      Link="NativeGameFontsLogEvents.cs"
-    />
-    <Compile
-      Include="../../src/BazaarPlusPlus/GameInterop/StaticCards/StaticCardsLogEvents.cs"
-      Link="StaticCardsLogEvents.cs"
-    />
-    <Compile
       Include="../../src/BazaarPlusPlus/PluginTeardownAccumulator.cs"
       Link="PluginTeardownAccumulator.cs"
     />
     <Compile Include="../../src/BazaarPlusPlus/PluginLogIdentity.cs" Link="PluginLogIdentity.cs" />
-    <Compile
-      Include="../../src/BazaarPlusPlus/Game/Settings/SettingsLogEvents.cs"
-      Link="SettingsLogEvents.cs"
-    />
-    <Compile
-      Include="../../src/BazaarPlusPlus/Game/CombatStatusBar/CombatStatusBarLogEvents.cs"
-      Link="CombatStatusBarLogEvents.cs"
-    />
-    <Compile
-      Include="../../src/BazaarPlusPlus/Game/PostCombatImpact/PostCombatImpactLogEvents.cs"
-      Link="PostCombatImpactLogEvents.cs"
-    />
-    <Compile
-      Include="../../src/BazaarPlusPlus/Infrastructure/Logging/OperationalHealthTracker.cs"
-      Link="Logging/OperationalHealthTracker.cs"
-    />
-    <Compile
-      Include="../../src/BazaarPlusPlus/Game/Lobby/LobbyLogEvents.cs"
-      Link="LobbyLogEvents.cs"
-    />
-    <Compile
-      Include="../../src/BazaarPlusPlus/Game/Supporters/SupporterLogEvents.cs"
-      Link="SupporterLogEvents.cs"
-    />
-    <Compile
-      Include="../../src/BazaarPlusPlus/GameInterop/Localization/BilingualItemNamesLogEvents.cs"
-      Link="BilingualItemNamesLogEvents.cs"
-    />
-    <Compile
-      Include="../../src/BazaarPlusPlus/Game/CosmeticNames/CosmeticNamesLogEvents.cs"
-      Link="CosmeticNamesLogEvents.cs"
-    />
-    <Compile
-      Include="../../src/BazaarPlusPlus/Game/EventPreview/EventPreviewLogEvents.cs"
-      Link="EventPreviewLogEvents.cs"
-    />
-    <Compile
-      Include="../../src/BazaarPlusPlus/Patches/NameOverride/NameOverrideLogEvents.cs"
-      Link="NameOverrideLogEvents.cs"
-    />
-    <Compile
-      Include="../../src/BazaarPlusPlus/Game/Tooltips/TooltipLogEvents.cs"
-      Link="TooltipLogEvents.cs"
-    />
-    <Compile
-      Include="../../src/BazaarPlusPlus/Game/ItemEnchantPreview/ItemEnchantPreviewLogEvents.cs"
-      Link="ItemEnchantPreviewLogEvents.cs"
-    />
-    <Compile
-      Include="../../src/BazaarPlusPlus/Game/PvpBattles/PvpBattleLogEvents.cs"
-      Link="PvpBattleLogEvents.cs"
-    />
   </ItemGroup>
 </Project>

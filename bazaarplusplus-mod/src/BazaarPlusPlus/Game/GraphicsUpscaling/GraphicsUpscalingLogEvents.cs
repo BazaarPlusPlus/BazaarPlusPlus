@@ -3,7 +3,6 @@ using BazaarPlusPlus.Infrastructure.Logging;
 
 namespace BazaarPlusPlus.Game.GraphicsUpscaling;
 
-[BppLogEventSource]
 internal static class GraphicsUpscalingLogEvents
 {
     internal static readonly BppLogFieldDefinition AppliedMode = PublicLow(0, "mode");

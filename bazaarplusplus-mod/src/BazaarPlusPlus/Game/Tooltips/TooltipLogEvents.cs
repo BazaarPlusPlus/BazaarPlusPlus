@@ -52,7 +52,6 @@ internal enum TooltipEncounterProbe
     Encounter,
 }
 
-[BppLogEventSource]
 internal static class TooltipLogEvents
 {
     internal static readonly BppLogFieldDefinition LevelRewardsOutcome = PublicLow(0, "outcome");

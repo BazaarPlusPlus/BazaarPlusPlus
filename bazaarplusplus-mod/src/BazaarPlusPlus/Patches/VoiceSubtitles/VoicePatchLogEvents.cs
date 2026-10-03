@@ -10,7 +10,6 @@ internal enum VoicePatchLogReasonCode
     PatchCountMismatch,
 }
 
-[BppLogEventSource]
 internal static class VoicePatchLogEvents
 {
     internal static readonly BppLogFieldDefinition ObserverFailedReasonCode = Public(

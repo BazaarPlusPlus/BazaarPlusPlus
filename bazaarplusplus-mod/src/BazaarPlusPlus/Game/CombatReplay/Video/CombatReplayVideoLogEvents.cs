@@ -3,7 +3,6 @@ using BazaarPlusPlus.Infrastructure.Logging;
 
 namespace BazaarPlusPlus.Game.CombatReplay.Video;
 
-[BppLogEventSource]
 internal static class CombatReplayVideoLogEvents
 {
     internal static readonly BppLogFieldDefinition RecordingId = Field(

@@ -171,11 +171,11 @@ internal sealed class BppLogStormPolicy
 /// <summary>
 /// Stable event vocabulary entry. Definitions live beside their owning feature and declare scope,
 /// event ID, ordered field schema, privacy, correlation, cardinality, and optional storm keys.
-/// Each feature publishes definitions from a local static <c>*LogEvents</c> class marked with
-/// <see cref="BppLogEventSourceAttribute"/>; every definition is a static readonly field so catalog
-/// discovery can enumerate it. Implementation, patch, and helper names belong in the event ID
-/// after the fixed feature prefix; they must never become scopes. Scope, ID, and field metadata are
-/// authored constants, while runtime data is supplied only through bound values.
+/// Each feature publishes definitions as static readonly fields of a local static
+/// <c>*LogEvents</c> class; the renderer emits fields in the order the definition lists them.
+/// Implementation, patch, and helper names belong in the event ID after the fixed feature prefix;
+/// they must never become scopes. Scope, ID, and field metadata are authored constants, while
+/// runtime data is supplied only through bound values.
 /// </summary>
 internal sealed class BppLogEventDefinition
 {

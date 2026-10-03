@@ -11,7 +11,6 @@ internal enum RunLifecycleLogReason
     StateReconciled,
 }
 
-[BppLogEventSource]
 internal static class RunLifecycleLogEvents
 {
     internal static readonly BppLogFieldDefinition RunId = new(

@@ -3,7 +3,6 @@ using BazaarPlusPlus.Infrastructure.Logging;
 
 namespace BazaarPlusPlus.Game.VoiceSubtitles;
 
-[BppLogEventSource]
 internal static class VoiceCatalogLogEvents
 {
     internal static readonly BppLogEventDefinition CatalogStarted = new(

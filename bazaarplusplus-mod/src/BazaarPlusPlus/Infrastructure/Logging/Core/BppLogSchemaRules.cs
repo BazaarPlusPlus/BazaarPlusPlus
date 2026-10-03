@@ -11,9 +11,6 @@ internal static class BppLogSchemaRules
         || correlation == BppLogCorrelationPolicy.Short
         || correlation == BppLogCorrelationPolicy.Hash;
 
-    internal static bool IsKnownCardinality(BppLogCardinality cardinality) =>
-        cardinality == BppLogCardinality.Low || cardinality == BppLogCardinality.High;
-
     internal static bool IsDottedSnakeIdentifier(string? value, int minimumSegments)
     {
         if (string.IsNullOrEmpty(value) || value.Length > 128)

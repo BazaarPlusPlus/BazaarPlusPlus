@@ -95,7 +95,6 @@ internal enum CurrentReplayPresentationGateOutcome
     TimedOut,
 }
 
-[BppLogEventSource]
 internal static class CombatReplayLogEvents
 {
     internal static readonly BppLogFieldDefinition CaptureFailedRunId = Public(
