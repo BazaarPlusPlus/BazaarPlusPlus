@@ -2,16 +2,14 @@ import { AwsClient } from "aws4fetch";
 import { validObjectKey } from "./bundle/manifest";
 import type { Env } from "./env";
 import { HttpError } from "./errors";
-import { PRESIGNED_GET_TTL_SECONDS } from "./limits";
+import { BUNDLE_BUCKET_NAME, PRESIGNED_GET_TTL_SECONDS } from "./limits";
 
 export interface SignedBundleDownload {
   url: string;
   expiresAtMs: number;
 }
 
-export interface BundleDownloadSigner {
-  sign(objectKey: string, issuedAtMs: number): Promise<SignedBundleDownload>;
-}
+type BundleDownloadSigner = ReturnType<typeof createBundleDownloadSigner>;
 
 export async function signDownloadPage(
   signer: BundleDownloadSigner,
@@ -46,9 +44,8 @@ function sigV4Date(timestamp: number): string {
   return new Date(timestamp).toISOString().replace(/[:-]|\.\d{3}/g, "");
 }
 
-export function createBundleDownloadSigner(env: Env): BundleDownloadSigner {
+export function createBundleDownloadSigner(env: Env) {
   if (
-    env.BUNDLE_BUCKET_NAME !== "bazaarplusplus-bundle-v5" ||
     env.R2_ACCOUNT_ID.length === 0 ||
     env.R2_PRESIGN_ACCESS_KEY_ID.length === 0 ||
     env.R2_PRESIGN_SECRET_ACCESS_KEY.length === 0
@@ -64,12 +61,12 @@ export function createBundleDownloadSigner(env: Env): BundleDownloadSigner {
   });
 
   return {
-    async sign(objectKey, issuedAtMs) {
+    async sign(objectKey: string, issuedAtMs: number): Promise<SignedBundleDownload> {
       if (!validObjectKey(objectKey) || !Number.isSafeInteger(issuedAtMs) || issuedAtMs < 0) {
         throw new Error("R2 object key or signing time is invalid");
       }
       const url = new URL(
-        `https://${env.BUNDLE_BUCKET_NAME}.${env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com/${objectKey}`,
+        `https://${BUNDLE_BUCKET_NAME}.${env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com/${objectKey}`,
       );
       url.searchParams.set("X-Amz-Expires", String(PRESIGNED_GET_TTL_SECONDS));
       const request = await client.sign(url, {

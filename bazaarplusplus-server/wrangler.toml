@@ -18,7 +18,6 @@ invocation_logs = true
 head_sampling_rate = 1.0
 
 [vars]
-BUNDLE_BUCKET_NAME = "bazaarplusplus-bundle-v5"
 R2_ACCOUNT_ID = "ea3913fc761734a6851a53732cbe7701"
 
 [[routes]]

@@ -13,11 +13,11 @@ The architecture therefore uses a small number of explicit seams rather than con
 
 ### Route table and HTTP shell
 
-`src/http/routes.ts` is the complete public route table. `src/http/route-shell.ts` is the sole HTTP exit and owns path and method resolution, `OPTIONS`, request IDs, authentication ordering, route CORS, JSON envelopes, route-specific error headers, and unclassified-error logging. Route handlers return status and body data; they do not construct the final HTTP response.
+`src/http/routes.ts` is the complete public route table. `src/http/route-shell.ts` binds that table into the Worker `fetch`; it is the sole HTTP exit and owns path and method resolution, `OPTIONS`, request IDs, authentication ordering, route CORS, JSON envelopes, route-specific error headers, and unclassified-error logging. Route handlers return status and body data; they do not construct the final HTTP response.
 
 ### Handler dependencies
 
-`src/http/deps.ts` is the only `HandlerDeps` channel. Every domain handler has the required four-argument form `(request, env, requestId, deps)`; `deps` has no default. The production dependency object supplies the clock and lazily constructed download signer. The claim handler reads `deps.signer` before its D1 claim batch so signer-construction failures retain their established behavior.
+There is no handler dependency object. Domain handlers take `(request, env, requestId)`, read the clock with `Date.now()`, and construct the download signer with `createBundleDownloadSigner(env)`. The claim handler constructs its signer before the D1 claim batch so an invalid presign configuration fails with zero D1 writes. Tests drive time and signing through the deployed `worker.fetch`: `vi.spyOn(Date, "now")` controls time, and `vi.spyOn(crypto.subtle, "sign")` injects signing failures.
 
 ### Bundle opening
 
@@ -42,7 +42,7 @@ Query-plan and bounded-read tests call the public handler interfaces against loc
 ## Consequences
 
 - Public route additions must update the route table, contract tests, and API reference together.
-- Tests can replace time and signing through one dependency object without changing Worker bindings.
+- Tests control time and signing by spying on the runtime globals the Worker reads, so production code carries no test-only parameters.
 - Bundle validation and D1 commit decisions can be tested through public module interfaces.
 - Delivery maintenance occurs on claim traffic or through explicit operator action, never through settle or a scheduled Worker handler.
 - The scheduled handler owns a separate 15-day D1 metadata retention policy, detailed in [ADR 0002](0002-d1-retention.md). It deletes parent Bundles in bounded batches and relies on foreign-key cascades, without accessing R2 or deleting uploader assertions.

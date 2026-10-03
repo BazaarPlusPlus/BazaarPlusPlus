@@ -57,7 +57,3 @@ export function validBundleId(value: string): boolean {
 export function validIdentifier(value: string): boolean {
   return IDENTIFIER.test(value);
 }
-
-export function validAccountId(value: string): boolean {
-  return validIdentifier(value);
-}

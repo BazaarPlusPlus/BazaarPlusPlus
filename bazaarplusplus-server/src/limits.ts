@@ -4,6 +4,7 @@ export const MAX_MANIFEST_BYTES = 2_097_152;
 export const MAX_RUN_BYTES = 2_097_151;
 export const MAX_SCREENSHOT_BYTES = 1_048_576;
 export const MAX_PROJECTION_BYTES = 524_288;
+export const BUNDLE_BUCKET_NAME = "bazaarplusplus-bundle-v5";
 export const PRESIGNED_GET_TTL_SECONDS = 604_800;
 export const R2_RETENTION_MS = 8 * 86_400_000;
 export const D1_RETENTION_MS = 15 * 86_400_000;

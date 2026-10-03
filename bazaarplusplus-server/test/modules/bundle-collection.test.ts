@@ -1,12 +1,8 @@
 import { env } from "cloudflare:test";
-import { describe, expect, test } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 
 import worker from "../../src/index";
 import { R2_RETENTION_MS } from "../../src/limits";
-import { collectBundles } from "../../src/modules/bundle-collection";
-import { FakeClock } from "../fixtures/clock";
-import { createTestDeps } from "../fixtures/deps";
-import { RecordingBundleDownloadSigner } from "../fixtures/presigner";
 
 const SYNC_TOKEN = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
 
@@ -36,42 +32,38 @@ function collectionRequest(query: string, token = SYNC_TOKEN): Request {
   });
 }
 
+afterEach(() => vi.restoreAllMocks());
+
 describe("GET /bundles", () => {
-  test("uses the injected clock for one page of signed downloads", async () => {
-    const clock = new FakeClock(Date.now());
-    const signer = new RecordingBundleDownloadSigner();
+  test("signs one page of downloads at the request time", async () => {
+    const now = Date.now();
+    vi.spyOn(Date, "now").mockReturnValue(now);
     const bundleId = "01J00000000000000000000104";
-    const availableAt = clock.ms - 120_000;
+    const availableAt = now - 120_000;
     await insertBundle(bundleId, availableAt);
 
-    const result = await collectBundles(
-      collectionRequest(
-        `available_from_ms=${clock.ms - 180_000}&available_before_ms=${clock.ms - 60_000}`,
-      ),
+    const response = await worker.fetch(
+      collectionRequest(`available_from_ms=${now - 180_000}&available_before_ms=${now - 60_000}`),
       env,
-      "collection-injected-deps",
-      createTestDeps({ signer, now: clock.now }),
     );
-    const items = result.items as Array<{
-      bundle_id: string;
-      download_expires_at_ms: number;
-    }>;
+    expect(response.status).toBe(200);
+    const { items } = (await response.json()) as {
+      items: Array<{ download_url: string }>;
+    };
 
     expect(items).toEqual([
       {
         bundle_id: bundleId,
         available_at_ms: availableAt,
-        download_url:
-          "https://fake.invalid/bundles%2F2026-08-01%2F01J00000000000000000000104.bundle?method=GET&expires=604800",
-        download_expires_at_ms: clock.ms + 604_800_000,
+        download_url: expect.any(String),
+        download_expires_at_ms: now + 604_800_000,
       },
     ]);
-    expect(signer.calls).toEqual([
-      {
-        objectKey: `bundles/2026-08-01/${bundleId}.bundle`,
-        issuedAtMs: clock.ms,
-      },
-    ]);
+    const signed = new URL(items[0].download_url);
+    expect(signed.pathname).toBe(`/bundles/2026-08-01/${bundleId}.bundle`);
+    expect(signed.searchParams.get("X-Amz-Date")).toBe(
+      new Date(now).toISOString().replace(/[:-]|\.\d{3}/g, ""),
+    );
   });
 
   test("enumerates a fixed window with stable keyset pagination and 7-day URLs", async () => {

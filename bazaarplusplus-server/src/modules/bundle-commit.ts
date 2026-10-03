@@ -102,7 +102,7 @@ function buildStatements(
 ): NamedStatement[] {
   const screenshot = descriptor.screenshot;
   const battles = JSON.stringify(descriptor.battles);
-  const statements: NamedStatement[] = [
+  return [
     {
       name: "insert_bundle",
       statement: db
@@ -197,10 +197,6 @@ function buildStatements(
         .bind(descriptor.uploaderAccountId, times.availableAtMs),
     },
   ];
-  if (statements.at(-1)?.name !== "insert_uploader") {
-    throw new Error("Bundle uploader must be the final commit statement");
-  }
-  return statements;
 }
 
 function readProjection(
@@ -214,7 +210,6 @@ function readProjection(
     if (definition.read === "eligible") {
       eligible = Number((result?.results?.[0] as { eligible?: number } | undefined)?.eligible ?? 0);
     } else if (definition.read === "inserted") {
-      // Transitional compatibility triggers also write rows; count only our inserts.
       inserted = result?.results.length ?? 0;
     }
   }

@@ -1,12 +1,11 @@
 import { toHex } from "../bundle/hex";
-import { validAccountId } from "../bundle/manifest";
+import { validIdentifier } from "../bundle/manifest";
 import type { Env } from "../env";
 import { HttpError } from "../errors";
-import type { HandlerDeps } from "../http/deps";
 import { oneQueryValue } from "../http/request";
 import { GHOST_DEFAULT_LIMIT, GHOST_LOOKBACK_MS, GHOST_MAX_LIMIT } from "../limits";
 import { logEvent } from "../observability";
-import { signDownloadPage } from "../presigner";
+import { createBundleDownloadSigner, signDownloadPage } from "../presigner";
 
 interface GhostBattleSummary {
   battle_id: string;
@@ -66,7 +65,6 @@ export async function discoverGhostBattles(
   request: Request,
   env: Env,
   requestId: string,
-  deps: HandlerDeps,
 ): Promise<GhostDiscoveryResponse> {
   const rateLimitKey = request.headers.get("CF-Connecting-IP") ?? "unknown";
   let rateLimit: RateLimitOutcome;
@@ -97,7 +95,7 @@ export async function discoverGhostBattles(
     }
   }
   const accountId = oneQueryValue(url.searchParams, "player_account_id", true);
-  if (accountId === null || !validAccountId(accountId)) {
+  if (accountId === null || !validIdentifier(accountId)) {
     throw new HttpError(400, "invalid_query", "player_account_id is invalid", false, {
       field: "player_account_id",
     });
@@ -118,7 +116,7 @@ export async function discoverGhostBattles(
     });
   }
 
-  const issuedAt = deps.now();
+  const issuedAt = Date.now();
   let rows: GhostRow[];
   try {
     const result = await env.DB.prepare(
@@ -147,7 +145,7 @@ export async function discoverGhostBattles(
   }
 
   const downloads = await signDownloadPage(
-    deps.signer,
+    createBundleDownloadSigner(env),
     rows.map((row) => row.object_key),
     issuedAt,
     "Ghost Battle URL signing failed",

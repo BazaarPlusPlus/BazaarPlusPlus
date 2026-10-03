@@ -12,7 +12,7 @@ The public surface is six routes: liveness, public streaming ingest, token-prote
 
 ## Architecture
 
-The design is a small number of deep seams — the route table and its single HTTP exit, one handler dependency channel, Bundle opening, and the atomic Bundle commit — recorded with their owning files in [ADR 0001](docs/adr/0001-v5-deepening-seams.md). Ghost discovery stores fifteen summary columns ([ADR 0003](docs/adr/0003-ghost-summary-columns.md)).
+The design is a small number of deep seams — the route table and its single HTTP exit, Bundle opening, and the atomic Bundle commit — recorded with their owning files in [ADR 0001](docs/adr/0001-v5-deepening-seams.md). Ghost discovery stores fifteen summary columns ([ADR 0003](docs/adr/0003-ghost-summary-columns.md)).
 
 Bundle identity reads use Drizzle's D1 query builder with the column mapping in
 `src/db-schema.ts`, so selected fields and result types share one definition.
@@ -20,7 +20,7 @@ Atomic writes and indexed delivery queries use native D1 statements. SQL files i
 `migrations/` remain the schema authority and are applied through Wrangler; the
 Drizzle mapping is a read projection, not an input to a migration generator.
 
-`test/` mirrors the `src/` layout (`http/`, `bundle/`, `modules/`), with golden-vector contract tests under `test/contracts/` and migration, schema, and root-module tests at the top level.
+`test/` mirrors the `src/` layout (`bundle/`, `modules/`), with golden-vector contract tests under `test/contracts/` and route-shell, schema, and root-module tests at the top level. Behavior tests drive the deployed `worker.fetch` and `worker.scheduled` against local D1 and R2.
 
 ## Development
 

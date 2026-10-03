@@ -1,20 +1,15 @@
 import { env } from "cloudflare:test";
-import { describe, expect, test } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 
 import worker from "../../src/index";
-import { discoverGhostBattles } from "../../src/modules/ghost-battle-discovery";
 import { makeBundleFixture, uploadRequest } from "../fixtures/bundle";
-import { FakeClock } from "../fixtures/clock";
-import { createTestDeps } from "../fixtures/deps";
-import {
-  RecordingBundleDownloadSigner,
-  RejectingBundleDownloadSigner,
-} from "../fixtures/presigner";
+
+afterEach(() => vi.restoreAllMocks());
 
 describe("GET /ghost-battles", () => {
-  test("uses one injected signing time and deduplicates a shared Bundle key", async () => {
-    const clock = new FakeClock(Date.now());
-    const signer = new RecordingBundleDownloadSigner();
+  test("uses one signing time and deduplicates a shared Bundle key", async () => {
+    const clock = { ms: Date.now() };
+    vi.spyOn(Date, "now").mockReturnValue(clock.ms);
     const account = "ghost-injected-opponent";
     const bundleId = "01J00000000000000000000240";
     const objectKey = `bundles/2026-08-02/${bundleId}.bundle`;
@@ -40,22 +35,26 @@ describe("GET /ghost-battles", () => {
       ),
     );
 
-    const result = await discoverGhostBattles(
+    const sign = vi.spyOn(crypto.subtle, "sign");
+    const response = await worker.fetch(
       new Request(
         `https://mod-api-v5.bazaarplusplus.com/ghost-battles?player_account_id=${account}`,
       ),
       env,
-      "ghost-injected-deps",
-      createTestDeps({ signer, now: clock.now }),
     );
-    const battles = result.battles as Array<{ download_expires_at_ms: number }>;
+    const { battles } = (await response.json()) as {
+      battles: Array<{ download_url: string; download_expires_at_ms: number }>;
+    };
 
     expect(battles).toHaveLength(2);
     expect(battles.map(({ download_expires_at_ms }) => download_expires_at_ms)).toEqual([
       clock.ms + 604_800_000,
       clock.ms + 604_800_000,
     ]);
-    expect(signer.calls).toEqual([{ objectKey, issuedAtMs: clock.ms }]);
+    expect(battles[1].download_url).toBe(battles[0].download_url);
+    expect(new URL(battles[0].download_url).pathname).toBe(`/${objectKey}`);
+    // A cold signer derives its key with four HMACs, then signs the one distinct key once.
+    expect(sign).toHaveBeenCalledTimes(5);
   });
 
   test("applies uploader eligibility without backfilling filtered history", async () => {
@@ -393,20 +392,20 @@ describe("GET /ghost-battles", () => {
       .bind(bundleId, account, Date.now())
       .run();
 
-    await expect(
-      discoverGhostBattles(
-        new Request(
-          `https://mod-api-v5.bazaarplusplus.com/ghost-battles?player_account_id=${account}`,
-        ),
-        env,
-        "ghost-signing-failure-deps",
-        createTestDeps({ signer: new RejectingBundleDownloadSigner() }),
+    vi.spyOn(crypto.subtle, "sign").mockRejectedValue(new Error("signing failure"));
+    const response = await worker.fetch(
+      new Request(
+        `https://mod-api-v5.bazaarplusplus.com/ghost-battles?player_account_id=${account}`,
       ),
-    ).rejects.toMatchObject({
-      status: 503,
-      code: "storage_unavailable",
-      message: "Ghost Battle URL signing failed",
-      retryable: true,
+      env,
+    );
+    expect(response.status).toBe(503);
+    expect(await response.json()).toMatchObject({
+      error: {
+        code: "storage_unavailable",
+        message: "Ghost Battle URL signing failed",
+        retryable: true,
+      },
     });
   });
 });

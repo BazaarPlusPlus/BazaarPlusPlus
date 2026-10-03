@@ -4,10 +4,8 @@ import { expect, test, vi } from "vitest";
 import contract from "../../contracts/mod-api-errors.json";
 import apiReference from "../../docs/api-reference.md?raw";
 import type { Env } from "../../src/env";
-import { createFetchHandler } from "../../src/http/route-shell";
-import { V5_ROUTES } from "../../src/http/routes";
+import worker from "../../src/index";
 import { contentDigest, makeBundleFixture, sealBundle, uploadRequest } from "../fixtures/bundle";
-import { createTestDeps } from "../fixtures/deps";
 
 test("the API error table exactly projects the server-owned error contract", () => {
   const rows = [
@@ -23,13 +21,9 @@ test("the API error table exactly projects the server-owned error contract", () 
 });
 
 test("real HTTP failures emit exactly the declared codes, statuses, and retry flags", async () => {
-  const now = 1_785_628_800_000;
-  const fetch = createFetchHandler(V5_ROUTES, {
-    createDeps: () => createTestDeps({ now: () => now }),
-  });
   const observed = new Map<string, { code: string; status: number; retryable: boolean }>();
   async function record(request: Request, bindings: Env = env) {
-    const response = await fetch(request, bindings);
+    const response = await worker.fetch(request, bindings);
     const body = await response.json<{ error: { code: string; retryable: boolean } }>();
     expect(body, `${request.method} ${request.url}`).toHaveProperty("error.code");
     const actual = {
@@ -69,6 +63,8 @@ test("real HTTP failures emit exactly the declared codes, statuses, and retry fl
   );
   await record(collection("?unknown=1"));
   await record(collection("?available_from_ms=0"));
+  // The window end is never settled within SYNC_SETTLE_LAG_MS of the request.
+  const now = Date.now();
   await record(collection(`?available_from_ms=${now - 120_000}&available_before_ms=${now}`));
   await record(delivery("claim", "{"));
   await record(delivery("claim", '{"limit":0}'));
@@ -124,7 +120,7 @@ test("real HTTP failures emit exactly the declared codes, statuses, and retry fl
   );
   await record(uploadRequest(unsupportedRun.body, unsupportedRun.headers));
 
-  const stored = await fetch(uploadRequest(fixture.body, fixture.headers), env);
+  const stored = await worker.fetch(uploadRequest(fixture.body, fixture.headers), env);
   expect(stored.status).toBe(201);
   for (const options of [{ runId: "different-run" }, { bundleId: "01J00000000000000000000002" }]) {
     const conflicting = await makeBundleFixture(options);

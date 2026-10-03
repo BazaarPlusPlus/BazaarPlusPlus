@@ -1,12 +1,9 @@
 import { env } from "cloudflare:test";
-import { afterEach, describe, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
-import { claimDeliveries, settleDeliveries } from "../src/modules/bazaardb-delivery";
-import { collectBundles } from "../src/modules/bundle-collection";
-import { discoverGhostBattles } from "../src/modules/ghost-battle-discovery";
+import worker from "../src/index";
 import { seedDeliveryBacklog } from "./fixtures/backlog";
 import { type RecordedD1Query, recordD1 } from "./fixtures/d1";
-import { createTestDeps } from "./fixtures/deps";
 
 const NOW = 1_785_628_800_000;
 const AVAILABLE = NOW - 120_000;
@@ -33,18 +30,23 @@ function collectionRequest(afterId?: string): Request {
     url.searchParams.set("after_available_at_ms", String(AVAILABLE));
     url.searchParams.set("after_bundle_id", afterId);
   }
-  return new Request(url);
+  return new Request(url, { headers: { Authorization: `Bearer ${env.BUNDLE_SYNC_TOKEN}` } });
 }
 
 function deliveryRequest(path: string, body: unknown): Request {
   return new Request(`https://worker.test/bazaardb/deliveries/${path}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      Authorization: `Bearer ${env.BAZAARDB_DELIVERY_TOKEN}`,
+      "Content-Type": "application/json",
+    },
     body: JSON.stringify(body),
   });
 }
 
-const deps = () => createTestDeps({ now: () => NOW });
+beforeEach(() => {
+  vi.spyOn(Date, "now").mockReturnValue(NOW);
+});
 afterEach(() => vi.restoreAllMocks());
 
 describe("executed D1 query plans", () => {
@@ -52,7 +54,7 @@ describe("executed D1 query plans", () => {
     "Bundle collection uses its covering index after %s",
     async (afterId) => {
       const queries = recordD1(env.DB);
-      await collectBundles(collectionRequest(afterId), env, "plan-collection", deps());
+      expect((await worker.fetch(collectionRequest(afterId), env)).status).toBe(200);
       const detail = await plan(query(queries, /^SELECT .* FROM bundles /));
       expect(detail).toContain("idx_bundles_available");
       expect(detail).toContain("COVERING");
@@ -62,12 +64,11 @@ describe("executed D1 query plans", () => {
 
   test("Ghost discovery uses the opponent/time index and Bundle primary key", async () => {
     const queries = recordD1(env.DB);
-    await discoverGhostBattles(
+    const response = await worker.fetch(
       new Request("https://worker.test/ghost-battles?player_account_id=plan-account"),
       { ...env, GHOST_BATTLE_RATE_LIMITER: { limit: async () => ({ success: true }) } },
-      "plan-ghost",
-      deps(),
     );
+    expect(response.status).toBe(200);
     const detail = await plan(query(queries, /^SELECT .* FROM ghost_battle_summaries /));
     expect(detail).toContain("idx_ghost_summaries_query");
     expect(detail).toMatch(/PRIMARY KEY|sqlite_autoindex_bundles_1/);
@@ -76,7 +77,7 @@ describe("executed D1 query plans", () => {
 
   test("claim, receipts and convergence use their partial indexes", async () => {
     const queries = recordD1(env.DB);
-    await claimDeliveries(deliveryRequest("claim", { limit: 50 }), env, "plan-claim", deps());
+    expect((await worker.fetch(deliveryRequest("claim", { limit: 50 }), env)).status).toBe(200);
     const claim = await plan(query(queries, /^WITH /));
     expect(claim).toContain("idx_bazaardb_claimable");
     expect(claim).not.toContain("TEMP B-TREE");
@@ -97,16 +98,16 @@ describe("executed D1 query plans", () => {
 
   test("settle updates and receipt reads use primary keys", async () => {
     const queries = recordD1(env.DB);
-    const result = await settleDeliveries(
+    const response = await worker.fetch(
       deliveryRequest("settle", {
         claim_id: "clm_550e8400-e29b-41d4-a716-446655440000",
         results: [{ bundle_id: BUNDLE_ID, outcome: "retryable_failure", reason: "timeout" }],
       }),
       env,
-      "plan-settle",
-      deps(),
     );
-    expect(result.summary).toEqual({ applied: 0, duplicate: 0, rejected: 1 });
+    expect(await response.json()).toMatchObject({
+      summary: { applied: 0, duplicate: 0, rejected: 1 },
+    });
     for (const [pattern, table] of [
       [/^UPDATE bazaardb_delivery_attempts /, "bazaardb_delivery_attempts"],
       [/^UPDATE bazaardb_deliveries /, "bazaardb_deliveries"],
@@ -141,12 +142,14 @@ test("keyset reads and empty expiry work stay bounded with a large live backlog"
   await seedDeliveryBacklog(env.DB, 2000, AVAILABLE, NOW + 60_000);
 
   const queries = recordD1(env.DB);
-  const page = await collectBundles(
+  const response = await worker.fetch(
     collectionRequest(`01J9${String(1948).padStart(22, "0")}`),
     env,
-    "cost-collection",
-    deps(),
   );
+  const page = (await response.json()) as {
+    items: unknown[];
+    next_after: { available_at_ms: number; bundle_id: string } | null;
+  };
   expect(page.items).toHaveLength(50);
   expect(page.next_after).toEqual({
     available_at_ms: AVAILABLE,
@@ -156,8 +159,8 @@ test("keyset reads and empty expiry work stay bounded with a large live backlog"
   expect(collection.results).toHaveLength(51);
   expect(collection.meta.rows_read).toBeLessThan(100);
 
-  const claim = await claimDeliveries(deliveryRequest("claim", {}), env, "cost-expiry", deps());
-  expect(claim.items).toEqual([]);
+  const claim = await worker.fetch(deliveryRequest("claim", {}), env);
+  expect(await claim.json()).toEqual({ claim_id: null, expires_at_ms: null, items: [] });
   const expiry = query(queries, /^UPDATE .*failure_reason = 'bundle_expired'/).result;
   expect(expiry.meta.changes).toBe(0);
   expect(expiry.meta.rows_read).toBeLessThan(10);
