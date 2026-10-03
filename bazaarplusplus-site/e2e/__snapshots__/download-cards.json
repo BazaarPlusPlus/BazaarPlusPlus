@@ -1,0 +1,129 @@
+{
+  "both platforms load": {
+    "cards": {
+      "Windows": {
+        "version": "v3.1.2",
+        "primary": {
+          "href": "https://bppinstaller.bazaarplusplus.com/3.1.2/windows-x86_64/installer/BazaarPlusPlus_3.1.2_x64-setup.exe",
+          "disabled": false,
+          "target": null
+        },
+        "mirror": {
+          "href": "https://cauyxy.lanzout.com/bppwin312",
+          "disabled": false,
+          "target": "_blank"
+        }
+      },
+      "macOS": {
+        "version": "v3.1.1",
+        "primary": {
+          "href": "https://bppinstaller.bazaarplusplus.com/3.1.1/darwin-aarch64/installer/BazaarPlusPlus_3.1.1_aarch64.dmg",
+          "disabled": false,
+          "target": null
+        },
+        "mirror": {
+          "href": "https://cauyxy.lanzout.com/bppmac311",
+          "disabled": false,
+          "target": "_blank"
+        }
+      }
+    },
+    "fallback": null
+  },
+  "mac manifest responds 503": {
+    "cards": {
+      "Windows": {
+        "version": "v3.1.2",
+        "primary": {
+          "href": "https://bppinstaller.bazaarplusplus.com/3.1.2/windows-x86_64/installer/BazaarPlusPlus_3.1.2_x64-setup.exe",
+          "disabled": false,
+          "target": null
+        },
+        "mirror": {
+          "href": "https://cauyxy.lanzout.com/bppwin312",
+          "disabled": false,
+          "target": "_blank"
+        }
+      },
+      "macOS": {
+        "version": "Unavailable",
+        "primary": {
+          "href": "#",
+          "disabled": true,
+          "target": null
+        },
+        "mirror": {
+          "href": "#",
+          "disabled": true,
+          "target": "_blank"
+        }
+      }
+    },
+    "fallback": null
+  },
+  "windows manifest has no mainlandUrl": {
+    "cards": {
+      "Windows": {
+        "version": "v3.1.2",
+        "primary": {
+          "href": "https://bppinstaller.bazaarplusplus.com/3.1.2/windows-x86_64/installer/BazaarPlusPlus_3.1.2_x64-setup.exe",
+          "disabled": false,
+          "target": null
+        },
+        "mirror": {
+          "href": "#",
+          "disabled": true,
+          "target": "_blank"
+        }
+      },
+      "macOS": {
+        "version": "v3.1.1",
+        "primary": {
+          "href": "https://bppinstaller.bazaarplusplus.com/3.1.1/darwin-aarch64/installer/BazaarPlusPlus_3.1.1_aarch64.dmg",
+          "disabled": false,
+          "target": null
+        },
+        "mirror": {
+          "href": "https://cauyxy.lanzout.com/bppmac311",
+          "disabled": false,
+          "target": "_blank"
+        }
+      }
+    },
+    "fallback": null
+  },
+  "both manifests fail": {
+    "cards": {
+      "Windows": {
+        "version": "Unavailable",
+        "primary": {
+          "href": "#",
+          "disabled": true,
+          "target": null
+        },
+        "mirror": {
+          "href": "#",
+          "disabled": true,
+          "target": "_blank"
+        }
+      },
+      "macOS": {
+        "version": "Unavailable",
+        "primary": {
+          "href": "#",
+          "disabled": true,
+          "target": null
+        },
+        "mirror": {
+          "href": "#",
+          "disabled": true,
+          "target": "_blank"
+        }
+      }
+    },
+    "fallback": {
+      "text": "Cannot reach the latest version right now · Try GitHub Release",
+      "href": "https://github.com/BazaarPlusPlus/BazaarPlusPlus/releases/latest"
+    }
+  }
+}

@@ -1,0 +1,960 @@
+{
+  "inputs": {
+    "/": {
+      "url": "/",
+      "history": [],
+      "title": "支持 | BazaarPlusPlus",
+      "lang": "zh-CN",
+      "h1": [
+        "支持 BazaarPlusPlus"
+      ],
+      "currentNav": [
+        "支持"
+      ],
+      "nav": [
+        {
+          "label": "统计",
+          "href": "/heroes"
+        },
+        {
+          "label": "教程",
+          "href": "/tutorial"
+        },
+        {
+          "label": "下载",
+          "href": "/download"
+        },
+        {
+          "label": "支持",
+          "href": "/support"
+        }
+      ],
+      "language": {
+        "current": "中",
+        "links": [
+          {
+            "label": "EN",
+            "href": "/?lang=en"
+          }
+        ]
+      }
+    },
+    "/support": {
+      "url": "/support",
+      "history": [],
+      "title": "支持 | BazaarPlusPlus",
+      "lang": "zh-CN",
+      "h1": [
+        "支持 BazaarPlusPlus"
+      ],
+      "currentNav": [
+        "支持"
+      ],
+      "nav": [
+        {
+          "label": "统计",
+          "href": "/heroes"
+        },
+        {
+          "label": "教程",
+          "href": "/tutorial"
+        },
+        {
+          "label": "下载",
+          "href": "/download"
+        },
+        {
+          "label": "支持",
+          "href": "/support"
+        }
+      ],
+      "language": {
+        "current": "中",
+        "links": [
+          {
+            "label": "EN",
+            "href": "/support?lang=en"
+          }
+        ]
+      }
+    },
+    "/support/": {
+      "url": "/support/",
+      "history": [],
+      "title": "支持 | BazaarPlusPlus",
+      "lang": "zh-CN",
+      "h1": [
+        "支持 BazaarPlusPlus"
+      ],
+      "currentNav": [
+        "支持"
+      ],
+      "nav": [
+        {
+          "label": "统计",
+          "href": "/heroes"
+        },
+        {
+          "label": "教程",
+          "href": "/tutorial"
+        },
+        {
+          "label": "下载",
+          "href": "/download"
+        },
+        {
+          "label": "支持",
+          "href": "/support"
+        }
+      ],
+      "language": {
+        "current": "中",
+        "links": [
+          {
+            "label": "EN",
+            "href": "/support/?lang=en"
+          }
+        ]
+      }
+    },
+    "/tutorial/": {
+      "url": "/tutorial/",
+      "history": [],
+      "title": "教程 | BazaarPlusPlus",
+      "lang": "zh-CN",
+      "h1": [
+        "BazaarPlusPlus 官方指南"
+      ],
+      "currentNav": [
+        "教程"
+      ],
+      "nav": [
+        {
+          "label": "统计",
+          "href": "/heroes"
+        },
+        {
+          "label": "教程",
+          "href": "/tutorial"
+        },
+        {
+          "label": "下载",
+          "href": "/download"
+        },
+        {
+          "label": "支持",
+          "href": "/support"
+        }
+      ],
+      "language": {
+        "current": "中",
+        "links": [
+          {
+            "label": "EN",
+            "href": "/tutorial/?lang=en"
+          }
+        ]
+      }
+    },
+    "/download/": {
+      "url": "/download/",
+      "history": [],
+      "title": "下载 | BazaarPlusPlus",
+      "lang": "zh-CN",
+      "h1": [
+        "下载 BazaarPlusPlus"
+      ],
+      "currentNav": [
+        "下载"
+      ],
+      "nav": [
+        {
+          "label": "统计",
+          "href": "/heroes"
+        },
+        {
+          "label": "教程",
+          "href": "/tutorial"
+        },
+        {
+          "label": "下载",
+          "href": "/download"
+        },
+        {
+          "label": "支持",
+          "href": "/support"
+        }
+      ],
+      "language": {
+        "current": "中",
+        "links": [
+          {
+            "label": "EN",
+            "href": "/download/?lang=en"
+          }
+        ]
+      }
+    },
+    "/heroes/": {
+      "url": "/heroes/",
+      "history": [],
+      "title": "英雄统计 | BazaarPlusPlus",
+      "lang": "zh-CN",
+      "h1": [
+        "英雄统计"
+      ],
+      "currentNav": [
+        "统计"
+      ],
+      "nav": [
+        {
+          "label": "统计",
+          "href": "/heroes"
+        },
+        {
+          "label": "教程",
+          "href": "/tutorial"
+        },
+        {
+          "label": "下载",
+          "href": "/download"
+        },
+        {
+          "label": "支持",
+          "href": "/support"
+        }
+      ],
+      "language": {
+        "current": "中",
+        "links": [
+          {
+            "label": "EN",
+            "href": "/heroes/?lang=en"
+          }
+        ]
+      }
+    },
+    "/heroes/Mak": {
+      "url": "/heroes/Mak",
+      "history": [],
+      "title": "页面不存在 | BazaarPlusPlus",
+      "lang": "zh-CN",
+      "h1": [
+        "页面不存在"
+      ],
+      "currentNav": [],
+      "nav": [
+        {
+          "label": "统计",
+          "href": "/heroes"
+        },
+        {
+          "label": "教程",
+          "href": "/tutorial"
+        },
+        {
+          "label": "下载",
+          "href": "/download"
+        },
+        {
+          "label": "支持",
+          "href": "/support"
+        }
+      ],
+      "language": {
+        "current": "中",
+        "links": [
+          {
+            "label": "EN",
+            "href": "/heroes/Mak?lang=en"
+          }
+        ]
+      }
+    },
+    "/archetypes": {
+      "url": "/archetypes",
+      "history": [],
+      "title": "页面不存在 | BazaarPlusPlus",
+      "lang": "zh-CN",
+      "h1": [
+        "页面不存在"
+      ],
+      "currentNav": [],
+      "nav": [
+        {
+          "label": "统计",
+          "href": "/heroes"
+        },
+        {
+          "label": "教程",
+          "href": "/tutorial"
+        },
+        {
+          "label": "下载",
+          "href": "/download"
+        },
+        {
+          "label": "支持",
+          "href": "/support"
+        }
+      ],
+      "language": {
+        "current": "中",
+        "links": [
+          {
+            "label": "EN",
+            "href": "/archetypes?lang=en"
+          }
+        ]
+      }
+    },
+    "/cards": {
+      "url": "/cards",
+      "history": [],
+      "title": "页面不存在 | BazaarPlusPlus",
+      "lang": "zh-CN",
+      "h1": [
+        "页面不存在"
+      ],
+      "currentNav": [],
+      "nav": [
+        {
+          "label": "统计",
+          "href": "/heroes"
+        },
+        {
+          "label": "教程",
+          "href": "/tutorial"
+        },
+        {
+          "label": "下载",
+          "href": "/download"
+        },
+        {
+          "label": "支持",
+          "href": "/support"
+        }
+      ],
+      "language": {
+        "current": "中",
+        "links": [
+          {
+            "label": "EN",
+            "href": "/cards?lang=en"
+          }
+        ]
+      }
+    },
+    "/builds": {
+      "url": "/builds",
+      "history": [],
+      "title": "页面不存在 | BazaarPlusPlus",
+      "lang": "zh-CN",
+      "h1": [
+        "页面不存在"
+      ],
+      "currentNav": [],
+      "nav": [
+        {
+          "label": "统计",
+          "href": "/heroes"
+        },
+        {
+          "label": "教程",
+          "href": "/tutorial"
+        },
+        {
+          "label": "下载",
+          "href": "/download"
+        },
+        {
+          "label": "支持",
+          "href": "/support"
+        }
+      ],
+      "language": {
+        "current": "中",
+        "links": [
+          {
+            "label": "EN",
+            "href": "/builds?lang=en"
+          }
+        ]
+      }
+    },
+    "/download/preview": {
+      "url": "/download/preview",
+      "history": [],
+      "title": "页面不存在 | BazaarPlusPlus",
+      "lang": "zh-CN",
+      "h1": [
+        "页面不存在"
+      ],
+      "currentNav": [],
+      "nav": [
+        {
+          "label": "统计",
+          "href": "/heroes"
+        },
+        {
+          "label": "教程",
+          "href": "/tutorial"
+        },
+        {
+          "label": "下载",
+          "href": "/download"
+        },
+        {
+          "label": "支持",
+          "href": "/support"
+        }
+      ],
+      "language": {
+        "current": "中",
+        "links": [
+          {
+            "label": "EN",
+            "href": "/download/preview?lang=en"
+          }
+        ]
+      }
+    },
+    "/release/preview": {
+      "url": "/release/preview",
+      "history": [],
+      "title": "页面不存在 | BazaarPlusPlus",
+      "lang": "zh-CN",
+      "h1": [
+        "页面不存在"
+      ],
+      "currentNav": [],
+      "nav": [
+        {
+          "label": "统计",
+          "href": "/heroes"
+        },
+        {
+          "label": "教程",
+          "href": "/tutorial"
+        },
+        {
+          "label": "下载",
+          "href": "/download"
+        },
+        {
+          "label": "支持",
+          "href": "/support"
+        }
+      ],
+      "language": {
+        "current": "中",
+        "links": [
+          {
+            "label": "EN",
+            "href": "/release/preview?lang=en"
+          }
+        ]
+      }
+    },
+    "/unknown": {
+      "url": "/unknown",
+      "history": [],
+      "title": "页面不存在 | BazaarPlusPlus",
+      "lang": "zh-CN",
+      "h1": [
+        "页面不存在"
+      ],
+      "currentNav": [],
+      "nav": [
+        {
+          "label": "统计",
+          "href": "/heroes"
+        },
+        {
+          "label": "教程",
+          "href": "/tutorial"
+        },
+        {
+          "label": "下载",
+          "href": "/download"
+        },
+        {
+          "label": "支持",
+          "href": "/support"
+        }
+      ],
+      "language": {
+        "current": "中",
+        "links": [
+          {
+            "label": "EN",
+            "href": "/unknown?lang=en"
+          }
+        ]
+      }
+    },
+    "/missing?lang=en": {
+      "url": "/missing?lang=en",
+      "history": [],
+      "title": "Page Not Found | BazaarPlusPlus",
+      "lang": "en",
+      "h1": [
+        "Page not found"
+      ],
+      "currentNav": [],
+      "nav": [
+        {
+          "label": "Stats",
+          "href": "/heroes?lang=en"
+        },
+        {
+          "label": "Tutorial",
+          "href": "/tutorial?lang=en"
+        },
+        {
+          "label": "Download",
+          "href": "/download?lang=en"
+        },
+        {
+          "label": "Support",
+          "href": "/support?lang=en"
+        }
+      ],
+      "language": {
+        "current": "EN",
+        "links": [
+          {
+            "label": "中",
+            "href": "/missing"
+          }
+        ]
+      }
+    },
+    "/supporters/?lang=en&w=3d#lost": {
+      "url": "/support?lang=en&w=3d",
+      "history": [
+        {
+          "mode": "replace",
+          "href": "/support?lang=en&w=3d"
+        }
+      ],
+      "title": "Support | BazaarPlusPlus",
+      "lang": "en",
+      "h1": [
+        "Support BazaarPlusPlus"
+      ],
+      "currentNav": [
+        "Support"
+      ],
+      "nav": [
+        {
+          "label": "Stats",
+          "href": "/heroes?lang=en"
+        },
+        {
+          "label": "Tutorial",
+          "href": "/tutorial?lang=en"
+        },
+        {
+          "label": "Download",
+          "href": "/download?lang=en"
+        },
+        {
+          "label": "Support",
+          "href": "/support?lang=en"
+        }
+      ],
+      "language": {
+        "current": "EN",
+        "links": [
+          {
+            "label": "中",
+            "href": "/support?w=3d"
+          }
+        ]
+      }
+    },
+    "/heroes?lang=en&w=7d&s=legend": {
+      "url": "/heroes?lang=en&w=7d&s=legend",
+      "history": [],
+      "title": "Hero Stats | BazaarPlusPlus",
+      "lang": "en",
+      "h1": [
+        "Hero stats"
+      ],
+      "currentNav": [
+        "Stats"
+      ],
+      "nav": [
+        {
+          "label": "Stats",
+          "href": "/heroes?lang=en"
+        },
+        {
+          "label": "Tutorial",
+          "href": "/tutorial?lang=en"
+        },
+        {
+          "label": "Download",
+          "href": "/download?lang=en"
+        },
+        {
+          "label": "Support",
+          "href": "/support?lang=en"
+        }
+      ],
+      "language": {
+        "current": "EN",
+        "links": [
+          {
+            "label": "中",
+            "href": "/heroes?w=7d&s=legend"
+          }
+        ]
+      }
+    },
+    "/heroes?lang=ja&w=30d&s=platinum": {
+      "url": "/heroes",
+      "history": [
+        {
+          "mode": "replace",
+          "href": "/heroes"
+        }
+      ],
+      "title": "英雄统计 | BazaarPlusPlus",
+      "lang": "zh-CN",
+      "h1": [
+        "英雄统计"
+      ],
+      "currentNav": [
+        "统计"
+      ],
+      "nav": [
+        {
+          "label": "统计",
+          "href": "/heroes"
+        },
+        {
+          "label": "教程",
+          "href": "/tutorial"
+        },
+        {
+          "label": "下载",
+          "href": "/download"
+        },
+        {
+          "label": "支持",
+          "href": "/support"
+        }
+      ],
+      "language": {
+        "current": "中",
+        "links": [
+          {
+            "label": "EN",
+            "href": "/heroes?lang=en"
+          }
+        ]
+      }
+    },
+    "/heroes?lang=zh&w=invalid&s=all&t=high&keep=yes": {
+      "url": "/heroes?keep=yes",
+      "history": [
+        {
+          "mode": "replace",
+          "href": "/heroes?keep=yes"
+        }
+      ],
+      "title": "英雄统计 | BazaarPlusPlus",
+      "lang": "zh-CN",
+      "h1": [
+        "英雄统计"
+      ],
+      "currentNav": [
+        "统计"
+      ],
+      "nav": [
+        {
+          "label": "统计",
+          "href": "/heroes"
+        },
+        {
+          "label": "教程",
+          "href": "/tutorial"
+        },
+        {
+          "label": "下载",
+          "href": "/download"
+        },
+        {
+          "label": "支持",
+          "href": "/support"
+        }
+      ],
+      "language": {
+        "current": "中",
+        "links": [
+          {
+            "label": "EN",
+            "href": "/heroes?keep=yes&lang=en"
+          }
+        ]
+      }
+    },
+    "/heroes?w=7d&keep=yes#trend": {
+      "url": "/heroes?w=7d&keep=yes#trend",
+      "history": [],
+      "title": "英雄统计 | BazaarPlusPlus",
+      "lang": "zh-CN",
+      "h1": [
+        "英雄统计"
+      ],
+      "currentNav": [
+        "统计"
+      ],
+      "nav": [
+        {
+          "label": "统计",
+          "href": "/heroes"
+        },
+        {
+          "label": "教程",
+          "href": "/tutorial"
+        },
+        {
+          "label": "下载",
+          "href": "/download"
+        },
+        {
+          "label": "支持",
+          "href": "/support"
+        }
+      ],
+      "language": {
+        "current": "中",
+        "links": [
+          {
+            "label": "EN",
+            "href": "/heroes?w=7d&keep=yes&lang=en#trend"
+          }
+        ]
+      }
+    },
+    "/heroes?campaign=two%20words&w=3d": {
+      "url": "/heroes?campaign=two%20words&w=3d",
+      "history": [],
+      "title": "英雄统计 | BazaarPlusPlus",
+      "lang": "zh-CN",
+      "h1": [
+        "英雄统计"
+      ],
+      "currentNav": [
+        "统计"
+      ],
+      "nav": [
+        {
+          "label": "统计",
+          "href": "/heroes"
+        },
+        {
+          "label": "教程",
+          "href": "/tutorial"
+        },
+        {
+          "label": "下载",
+          "href": "/download"
+        },
+        {
+          "label": "支持",
+          "href": "/support"
+        }
+      ],
+      "language": {
+        "current": "中",
+        "links": [
+          {
+            "label": "EN",
+            "href": "/heroes?campaign=two+words&w=3d&lang=en"
+          }
+        ]
+      }
+    }
+  },
+  "interactions": {
+    "start": {
+      "url": "/tutorial?lang=en",
+      "history": [],
+      "title": "Tutorial | BazaarPlusPlus",
+      "lang": "en",
+      "h1": [
+        "BazaarPlusPlus Official Guide"
+      ],
+      "currentNav": [
+        "Tutorial"
+      ],
+      "nav": [
+        {
+          "label": "Stats",
+          "href": "/heroes?lang=en"
+        },
+        {
+          "label": "Tutorial",
+          "href": "/tutorial?lang=en"
+        },
+        {
+          "label": "Download",
+          "href": "/download?lang=en"
+        },
+        {
+          "label": "Support",
+          "href": "/support?lang=en"
+        }
+      ],
+      "language": {
+        "current": "EN",
+        "links": [
+          {
+            "label": "中",
+            "href": "/tutorial"
+          }
+        ]
+      }
+    },
+    "click primary nav \"Support\"": {
+      "url": "/support?lang=en",
+      "history": [
+        {
+          "mode": "push",
+          "href": "/support?lang=en"
+        }
+      ],
+      "title": "Support | BazaarPlusPlus",
+      "lang": "en",
+      "h1": [
+        "Support BazaarPlusPlus"
+      ],
+      "currentNav": [
+        "Support"
+      ],
+      "nav": [
+        {
+          "label": "Stats",
+          "href": "/heroes?lang=en"
+        },
+        {
+          "label": "Tutorial",
+          "href": "/tutorial?lang=en"
+        },
+        {
+          "label": "Download",
+          "href": "/download?lang=en"
+        },
+        {
+          "label": "Support",
+          "href": "/support?lang=en"
+        }
+      ],
+      "language": {
+        "current": "EN",
+        "links": [
+          {
+            "label": "中",
+            "href": "/support"
+          }
+        ]
+      }
+    },
+    "history back (popstate)": {
+      "url": "/tutorial?lang=en",
+      "history": [
+        {
+          "mode": "push",
+          "href": "/support?lang=en"
+        }
+      ],
+      "title": "Tutorial | BazaarPlusPlus",
+      "lang": "en",
+      "h1": [
+        "BazaarPlusPlus Official Guide"
+      ],
+      "currentNav": [
+        "Tutorial"
+      ],
+      "nav": [
+        {
+          "label": "Stats",
+          "href": "/heroes?lang=en"
+        },
+        {
+          "label": "Tutorial",
+          "href": "/tutorial?lang=en"
+        },
+        {
+          "label": "Download",
+          "href": "/download?lang=en"
+        },
+        {
+          "label": "Support",
+          "href": "/support?lang=en"
+        }
+      ],
+      "language": {
+        "current": "EN",
+        "links": [
+          {
+            "label": "中",
+            "href": "/tutorial"
+          }
+        ]
+      }
+    },
+    "click language switch \"中\"": {
+      "url": "/tutorial",
+      "history": [
+        {
+          "mode": "push",
+          "href": "/support?lang=en"
+        },
+        {
+          "mode": "push",
+          "href": "/tutorial"
+        }
+      ],
+      "title": "教程 | BazaarPlusPlus",
+      "lang": "zh-CN",
+      "h1": [
+        "BazaarPlusPlus 官方指南"
+      ],
+      "currentNav": [
+        "教程"
+      ],
+      "nav": [
+        {
+          "label": "统计",
+          "href": "/heroes"
+        },
+        {
+          "label": "教程",
+          "href": "/tutorial"
+        },
+        {
+          "label": "下载",
+          "href": "/download"
+        },
+        {
+          "label": "支持",
+          "href": "/support"
+        }
+      ],
+      "language": {
+        "current": "中",
+        "links": [
+          {
+            "label": "EN",
+            "href": "/tutorial?lang=en"
+          }
+        ]
+      }
+    }
+  }
+}

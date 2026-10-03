@@ -223,6 +223,27 @@ for (const [recipe, project, script] of [
   });
 }
 
+test('site::e2e passes its mode as the Playwright project, then extra arguments', (t) => {
+  const f = fixture(t);
+  succeeded(f.run(['site::e2e']));
+  succeeded(f.run(['site::e2e', 'golden', '--update-snapshots']));
+  succeeded(f.run(['site::e2e', 'live']));
+  assert.deepEqual(f.calls(), [
+    call(f.dir, 'site', 'npm', 'run', 'e2e', '--', '--project=golden'),
+    call(
+      f.dir,
+      'site',
+      'npm',
+      'run',
+      'e2e',
+      '--',
+      '--project=golden',
+      '--update-snapshots'
+    ),
+    call(f.dir, 'site', 'npm', 'run', 'e2e', '--', '--project=live')
+  ]);
+});
+
 for (const [recipe, project, ...args] of [
   ['server::dev', 'server', 'npm', 'run', 'dev'],
   [

@@ -1,0 +1,1162 @@
+{
+  "schema_version": 1,
+  "kind": "hero_metrics",
+  "generated_at": "2026-06-07T09:04:17Z",
+  "window": {
+    "start": "2026-06-04",
+    "end": "2026-06-06",
+    "days": 3
+  },
+  "days": [
+    {
+      "day": "2026-06-06",
+      "rows": [
+        {
+          "hero": "Dooley",
+          "segment": "legend",
+          "runs": {
+            "completed": 0,
+            "scored": 0,
+            "ten_win": 0
+          },
+          "outcomes": {
+            "perfect": 0,
+            "gold": 0,
+            "silver": 0,
+            "bronze": 0
+          },
+          "ten_win_days": {
+            "known_count": 0,
+            "sum_days": 0
+          },
+          "matchups": []
+        },
+        {
+          "hero": "Dooley",
+          "segment": "non_legend",
+          "runs": {
+            "completed": 30,
+            "scored": 30,
+            "ten_win": 12
+          },
+          "outcomes": {
+            "perfect": 0,
+            "gold": 12,
+            "silver": 6,
+            "bronze": 6
+          },
+          "ten_win_days": {
+            "known_count": 12,
+            "sum_days": 132
+          },
+          "matchups": []
+        },
+        {
+          "hero": "Jules",
+          "segment": "legend",
+          "runs": {
+            "completed": 100,
+            "scored": 100,
+            "ten_win": 50
+          },
+          "outcomes": {
+            "perfect": 30,
+            "gold": 20,
+            "silver": 20,
+            "bronze": 20
+          },
+          "ten_win_days": {
+            "known_count": 45,
+            "sum_days": 480
+          },
+          "matchups": [
+            {
+              "opponent_hero": "Stelle",
+              "decided": 100,
+              "wins": 70,
+              "losses": 30
+            },
+            {
+              "opponent_hero": "Vanessa",
+              "decided": 30,
+              "wins": 10,
+              "losses": 20
+            },
+            {
+              "opponent_hero": "Dooley",
+              "decided": 5,
+              "wins": 4,
+              "losses": 1
+            },
+            {
+              "opponent_hero": "Jules",
+              "decided": 50,
+              "wins": 25,
+              "losses": 25
+            }
+          ]
+        },
+        {
+          "hero": "Jules",
+          "segment": "non_legend",
+          "runs": {
+            "completed": 0,
+            "scored": 0,
+            "ten_win": 0
+          },
+          "outcomes": {
+            "perfect": 0,
+            "gold": 0,
+            "silver": 0,
+            "bronze": 0
+          },
+          "ten_win_days": {
+            "known_count": 0,
+            "sum_days": 0
+          },
+          "matchups": []
+        },
+        {
+          "hero": "Karnok",
+          "segment": "legend",
+          "runs": {
+            "completed": 0,
+            "scored": 0,
+            "ten_win": 0
+          },
+          "outcomes": {
+            "perfect": 0,
+            "gold": 0,
+            "silver": 0,
+            "bronze": 0
+          },
+          "ten_win_days": {
+            "known_count": 0,
+            "sum_days": 0
+          },
+          "matchups": []
+        },
+        {
+          "hero": "Karnok",
+          "segment": "non_legend",
+          "runs": {
+            "completed": 0,
+            "scored": 0,
+            "ten_win": 0
+          },
+          "outcomes": {
+            "perfect": 0,
+            "gold": 0,
+            "silver": 0,
+            "bronze": 0
+          },
+          "ten_win_days": {
+            "known_count": 0,
+            "sum_days": 0
+          },
+          "matchups": []
+        },
+        {
+          "hero": "Mak",
+          "segment": "legend",
+          "runs": {
+            "completed": 0,
+            "scored": 0,
+            "ten_win": 0
+          },
+          "outcomes": {
+            "perfect": 0,
+            "gold": 0,
+            "silver": 0,
+            "bronze": 0
+          },
+          "ten_win_days": {
+            "known_count": 0,
+            "sum_days": 0
+          },
+          "matchups": []
+        },
+        {
+          "hero": "Mak",
+          "segment": "non_legend",
+          "runs": {
+            "completed": 50,
+            "scored": 50,
+            "ten_win": 20
+          },
+          "outcomes": {
+            "perfect": 0,
+            "gold": 20,
+            "silver": 10,
+            "bronze": 10
+          },
+          "ten_win_days": {
+            "known_count": 20,
+            "sum_days": 220
+          },
+          "matchups": [
+            {
+              "opponent_hero": "Stelle",
+              "decided": 25,
+              "wins": 10,
+              "losses": 15
+            }
+          ]
+        },
+        {
+          "hero": "Pygmalien",
+          "segment": "legend",
+          "runs": {
+            "completed": 0,
+            "scored": 0,
+            "ten_win": 0
+          },
+          "outcomes": {
+            "perfect": 0,
+            "gold": 0,
+            "silver": 0,
+            "bronze": 0
+          },
+          "ten_win_days": {
+            "known_count": 0,
+            "sum_days": 0
+          },
+          "matchups": []
+        },
+        {
+          "hero": "Pygmalien",
+          "segment": "non_legend",
+          "runs": {
+            "completed": 0,
+            "scored": 0,
+            "ten_win": 0
+          },
+          "outcomes": {
+            "perfect": 0,
+            "gold": 0,
+            "silver": 0,
+            "bronze": 0
+          },
+          "ten_win_days": {
+            "known_count": 0,
+            "sum_days": 0
+          },
+          "matchups": []
+        },
+        {
+          "hero": "Stelle",
+          "segment": "legend",
+          "runs": {
+            "completed": 100,
+            "scored": 100,
+            "ten_win": 42
+          },
+          "outcomes": {
+            "perfect": 0,
+            "gold": 42,
+            "silver": 20,
+            "bronze": 20
+          },
+          "ten_win_days": {
+            "known_count": 42,
+            "sum_days": 462
+          },
+          "matchups": [
+            {
+              "opponent_hero": "Mak",
+              "decided": 20,
+              "wins": 15,
+              "losses": 5
+            },
+            {
+              "opponent_hero": "Jules",
+              "decided": 10,
+              "wins": 4,
+              "losses": 6
+            }
+          ]
+        },
+        {
+          "hero": "Stelle",
+          "segment": "non_legend",
+          "runs": {
+            "completed": 0,
+            "scored": 0,
+            "ten_win": 0
+          },
+          "outcomes": {
+            "perfect": 0,
+            "gold": 0,
+            "silver": 0,
+            "bronze": 0
+          },
+          "ten_win_days": {
+            "known_count": 0,
+            "sum_days": 0
+          },
+          "matchups": []
+        },
+        {
+          "hero": "TheDragons",
+          "segment": "legend",
+          "runs": {
+            "completed": 0,
+            "scored": 0,
+            "ten_win": 0
+          },
+          "outcomes": {
+            "perfect": 0,
+            "gold": 0,
+            "silver": 0,
+            "bronze": 0
+          },
+          "ten_win_days": {
+            "known_count": 0,
+            "sum_days": 0
+          },
+          "matchups": []
+        },
+        {
+          "hero": "TheDragons",
+          "segment": "non_legend",
+          "runs": {
+            "completed": 0,
+            "scored": 0,
+            "ten_win": 0
+          },
+          "outcomes": {
+            "perfect": 0,
+            "gold": 0,
+            "silver": 0,
+            "bronze": 0
+          },
+          "ten_win_days": {
+            "known_count": 0,
+            "sum_days": 0
+          },
+          "matchups": []
+        },
+        {
+          "hero": "Vanessa",
+          "segment": "legend",
+          "runs": {
+            "completed": 80,
+            "scored": 80,
+            "ten_win": 20
+          },
+          "outcomes": {
+            "perfect": 20,
+            "gold": 0,
+            "silver": 20,
+            "bronze": 20
+          },
+          "ten_win_days": {
+            "known_count": 0,
+            "sum_days": 0
+          },
+          "matchups": []
+        },
+        {
+          "hero": "Vanessa",
+          "segment": "non_legend",
+          "runs": {
+            "completed": 20,
+            "scored": 20,
+            "ten_win": 10
+          },
+          "outcomes": {
+            "perfect": 2,
+            "gold": 8,
+            "silver": 4,
+            "bronze": 4
+          },
+          "ten_win_days": {
+            "known_count": 10,
+            "sum_days": 100
+          },
+          "matchups": []
+        },
+        {
+          "hero": "Common",
+          "segment": "legend",
+          "runs": {
+            "completed": 10,
+            "scored": 10,
+            "ten_win": 9
+          },
+          "outcomes": {
+            "perfect": 0,
+            "gold": 9,
+            "silver": 1,
+            "bronze": 0
+          },
+          "ten_win_days": {
+            "known_count": 0,
+            "sum_days": 0
+          },
+          "matchups": []
+        }
+      ]
+    },
+    {
+      "day": "2026-06-05",
+      "rows": [
+        {
+          "hero": "Dooley",
+          "segment": "legend",
+          "runs": {
+            "completed": 1,
+            "scored": 1,
+            "ten_win": 1
+          },
+          "outcomes": {
+            "perfect": 0,
+            "gold": 0,
+            "silver": 0,
+            "bronze": 0
+          },
+          "ten_win_days": {
+            "known_count": 0,
+            "sum_days": 0
+          },
+          "matchups": []
+        },
+        {
+          "hero": "Dooley",
+          "segment": "non_legend",
+          "runs": {
+            "completed": 30,
+            "scored": 30,
+            "ten_win": 12
+          },
+          "outcomes": {
+            "perfect": 0,
+            "gold": 12,
+            "silver": 6,
+            "bronze": 6
+          },
+          "ten_win_days": {
+            "known_count": 12,
+            "sum_days": 132
+          },
+          "matchups": []
+        },
+        {
+          "hero": "Jules",
+          "segment": "legend",
+          "runs": {
+            "completed": 100,
+            "scored": 100,
+            "ten_win": 50
+          },
+          "outcomes": {
+            "perfect": 30,
+            "gold": 20,
+            "silver": 20,
+            "bronze": 20
+          },
+          "ten_win_days": {
+            "known_count": 45,
+            "sum_days": 480
+          },
+          "matchups": [
+            {
+              "opponent_hero": "Stelle",
+              "decided": 100,
+              "wins": 70,
+              "losses": 30
+            },
+            {
+              "opponent_hero": "Vanessa",
+              "decided": 30,
+              "wins": 10,
+              "losses": 20
+            },
+            {
+              "opponent_hero": "Dooley",
+              "decided": 5,
+              "wins": 4,
+              "losses": 1
+            },
+            {
+              "opponent_hero": "Jules",
+              "decided": 50,
+              "wins": 25,
+              "losses": 25
+            }
+          ]
+        },
+        {
+          "hero": "Jules",
+          "segment": "non_legend",
+          "runs": {
+            "completed": 0,
+            "scored": 0,
+            "ten_win": 0
+          },
+          "outcomes": {
+            "perfect": 0,
+            "gold": 0,
+            "silver": 0,
+            "bronze": 0
+          },
+          "ten_win_days": {
+            "known_count": 0,
+            "sum_days": 0
+          },
+          "matchups": []
+        },
+        {
+          "hero": "Karnok",
+          "segment": "legend",
+          "runs": {
+            "completed": 0,
+            "scored": 0,
+            "ten_win": 0
+          },
+          "outcomes": {
+            "perfect": 0,
+            "gold": 0,
+            "silver": 0,
+            "bronze": 0
+          },
+          "ten_win_days": {
+            "known_count": 0,
+            "sum_days": 0
+          },
+          "matchups": []
+        },
+        {
+          "hero": "Karnok",
+          "segment": "non_legend",
+          "runs": {
+            "completed": 0,
+            "scored": 0,
+            "ten_win": 0
+          },
+          "outcomes": {
+            "perfect": 0,
+            "gold": 0,
+            "silver": 0,
+            "bronze": 0
+          },
+          "ten_win_days": {
+            "known_count": 0,
+            "sum_days": 0
+          },
+          "matchups": []
+        },
+        {
+          "hero": "Mak",
+          "segment": "legend",
+          "runs": {
+            "completed": 0,
+            "scored": 0,
+            "ten_win": 0
+          },
+          "outcomes": {
+            "perfect": 0,
+            "gold": 0,
+            "silver": 0,
+            "bronze": 0
+          },
+          "ten_win_days": {
+            "known_count": 0,
+            "sum_days": 0
+          },
+          "matchups": []
+        },
+        {
+          "hero": "Mak",
+          "segment": "non_legend",
+          "runs": {
+            "completed": 50,
+            "scored": 50,
+            "ten_win": 20
+          },
+          "outcomes": {
+            "perfect": 0,
+            "gold": 20,
+            "silver": 10,
+            "bronze": 10
+          },
+          "ten_win_days": {
+            "known_count": 20,
+            "sum_days": 220
+          },
+          "matchups": [
+            {
+              "opponent_hero": "Stelle",
+              "decided": 25,
+              "wins": 10,
+              "losses": 15
+            }
+          ]
+        },
+        {
+          "hero": "Pygmalien",
+          "segment": "legend",
+          "runs": {
+            "completed": 0,
+            "scored": 0,
+            "ten_win": 0
+          },
+          "outcomes": {
+            "perfect": 0,
+            "gold": 0,
+            "silver": 0,
+            "bronze": 0
+          },
+          "ten_win_days": {
+            "known_count": 0,
+            "sum_days": 0
+          },
+          "matchups": []
+        },
+        {
+          "hero": "Pygmalien",
+          "segment": "non_legend",
+          "runs": {
+            "completed": 0,
+            "scored": 0,
+            "ten_win": 0
+          },
+          "outcomes": {
+            "perfect": 0,
+            "gold": 0,
+            "silver": 0,
+            "bronze": 0
+          },
+          "ten_win_days": {
+            "known_count": 0,
+            "sum_days": 0
+          },
+          "matchups": []
+        },
+        {
+          "hero": "Stelle",
+          "segment": "legend",
+          "runs": {
+            "completed": 100,
+            "scored": 100,
+            "ten_win": 41
+          },
+          "outcomes": {
+            "perfect": 0,
+            "gold": 41,
+            "silver": 20,
+            "bronze": 20
+          },
+          "ten_win_days": {
+            "known_count": 41,
+            "sum_days": 451
+          },
+          "matchups": [
+            {
+              "opponent_hero": "Mak",
+              "decided": 20,
+              "wins": 15,
+              "losses": 5
+            },
+            {
+              "opponent_hero": "Jules",
+              "decided": 10,
+              "wins": 4,
+              "losses": 6
+            }
+          ]
+        },
+        {
+          "hero": "Stelle",
+          "segment": "non_legend",
+          "runs": {
+            "completed": 0,
+            "scored": 0,
+            "ten_win": 0
+          },
+          "outcomes": {
+            "perfect": 0,
+            "gold": 0,
+            "silver": 0,
+            "bronze": 0
+          },
+          "ten_win_days": {
+            "known_count": 0,
+            "sum_days": 0
+          },
+          "matchups": []
+        },
+        {
+          "hero": "TheDragons",
+          "segment": "legend",
+          "runs": {
+            "completed": 0,
+            "scored": 0,
+            "ten_win": 0
+          },
+          "outcomes": {
+            "perfect": 0,
+            "gold": 0,
+            "silver": 0,
+            "bronze": 0
+          },
+          "ten_win_days": {
+            "known_count": 0,
+            "sum_days": 0
+          },
+          "matchups": []
+        },
+        {
+          "hero": "TheDragons",
+          "segment": "non_legend",
+          "runs": {
+            "completed": 0,
+            "scored": 0,
+            "ten_win": 0
+          },
+          "outcomes": {
+            "perfect": 0,
+            "gold": 0,
+            "silver": 0,
+            "bronze": 0
+          },
+          "ten_win_days": {
+            "known_count": 0,
+            "sum_days": 0
+          },
+          "matchups": []
+        },
+        {
+          "hero": "Vanessa",
+          "segment": "legend",
+          "runs": {
+            "completed": 0,
+            "scored": 0,
+            "ten_win": 0
+          },
+          "outcomes": {
+            "perfect": 0,
+            "gold": 0,
+            "silver": 0,
+            "bronze": 0
+          },
+          "ten_win_days": {
+            "known_count": 0,
+            "sum_days": 0
+          },
+          "matchups": []
+        },
+        {
+          "hero": "Vanessa",
+          "segment": "non_legend",
+          "runs": {
+            "completed": 20,
+            "scored": 20,
+            "ten_win": 10
+          },
+          "outcomes": {
+            "perfect": 2,
+            "gold": 8,
+            "silver": 4,
+            "bronze": 4
+          },
+          "ten_win_days": {
+            "known_count": 10,
+            "sum_days": 100
+          },
+          "matchups": []
+        }
+      ]
+    },
+    {
+      "day": "2026-06-04",
+      "rows": [
+        {
+          "hero": "Dooley",
+          "segment": "legend",
+          "runs": {
+            "completed": 0,
+            "scored": 0,
+            "ten_win": 0
+          },
+          "outcomes": {
+            "perfect": 0,
+            "gold": 0,
+            "silver": 0,
+            "bronze": 0
+          },
+          "ten_win_days": {
+            "known_count": 0,
+            "sum_days": 0
+          },
+          "matchups": []
+        },
+        {
+          "hero": "Dooley",
+          "segment": "non_legend",
+          "runs": {
+            "completed": 30,
+            "scored": 30,
+            "ten_win": 12
+          },
+          "outcomes": {
+            "perfect": 0,
+            "gold": 12,
+            "silver": 6,
+            "bronze": 6
+          },
+          "ten_win_days": {
+            "known_count": 12,
+            "sum_days": 132
+          },
+          "matchups": []
+        },
+        {
+          "hero": "Jules",
+          "segment": "legend",
+          "runs": {
+            "completed": 100,
+            "scored": 100,
+            "ten_win": 50
+          },
+          "outcomes": {
+            "perfect": 30,
+            "gold": 20,
+            "silver": 20,
+            "bronze": 20
+          },
+          "ten_win_days": {
+            "known_count": 45,
+            "sum_days": 480
+          },
+          "matchups": [
+            {
+              "opponent_hero": "Stelle",
+              "decided": 100,
+              "wins": 70,
+              "losses": 30
+            },
+            {
+              "opponent_hero": "Vanessa",
+              "decided": 30,
+              "wins": 10,
+              "losses": 20
+            },
+            {
+              "opponent_hero": "Dooley",
+              "decided": 5,
+              "wins": 4,
+              "losses": 1
+            },
+            {
+              "opponent_hero": "Jules",
+              "decided": 50,
+              "wins": 25,
+              "losses": 25
+            }
+          ]
+        },
+        {
+          "hero": "Jules",
+          "segment": "non_legend",
+          "runs": {
+            "completed": 0,
+            "scored": 0,
+            "ten_win": 0
+          },
+          "outcomes": {
+            "perfect": 0,
+            "gold": 0,
+            "silver": 0,
+            "bronze": 0
+          },
+          "ten_win_days": {
+            "known_count": 0,
+            "sum_days": 0
+          },
+          "matchups": []
+        },
+        {
+          "hero": "Karnok",
+          "segment": "legend",
+          "runs": {
+            "completed": 0,
+            "scored": 0,
+            "ten_win": 0
+          },
+          "outcomes": {
+            "perfect": 0,
+            "gold": 0,
+            "silver": 0,
+            "bronze": 0
+          },
+          "ten_win_days": {
+            "known_count": 0,
+            "sum_days": 0
+          },
+          "matchups": []
+        },
+        {
+          "hero": "Karnok",
+          "segment": "non_legend",
+          "runs": {
+            "completed": 0,
+            "scored": 0,
+            "ten_win": 0
+          },
+          "outcomes": {
+            "perfect": 0,
+            "gold": 0,
+            "silver": 0,
+            "bronze": 0
+          },
+          "ten_win_days": {
+            "known_count": 0,
+            "sum_days": 0
+          },
+          "matchups": []
+        },
+        {
+          "hero": "Mak",
+          "segment": "legend",
+          "runs": {
+            "completed": 0,
+            "scored": 0,
+            "ten_win": 0
+          },
+          "outcomes": {
+            "perfect": 0,
+            "gold": 0,
+            "silver": 0,
+            "bronze": 0
+          },
+          "ten_win_days": {
+            "known_count": 0,
+            "sum_days": 0
+          },
+          "matchups": []
+        },
+        {
+          "hero": "Mak",
+          "segment": "non_legend",
+          "runs": {
+            "completed": 50,
+            "scored": 50,
+            "ten_win": 20
+          },
+          "outcomes": {
+            "perfect": 0,
+            "gold": 20,
+            "silver": 10,
+            "bronze": 10
+          },
+          "ten_win_days": {
+            "known_count": 20,
+            "sum_days": 220
+          },
+          "matchups": [
+            {
+              "opponent_hero": "Stelle",
+              "decided": 25,
+              "wins": 10,
+              "losses": 15
+            }
+          ]
+        },
+        {
+          "hero": "Pygmalien",
+          "segment": "legend",
+          "runs": {
+            "completed": 0,
+            "scored": 0,
+            "ten_win": 0
+          },
+          "outcomes": {
+            "perfect": 0,
+            "gold": 0,
+            "silver": 0,
+            "bronze": 0
+          },
+          "ten_win_days": {
+            "known_count": 0,
+            "sum_days": 0
+          },
+          "matchups": []
+        },
+        {
+          "hero": "Pygmalien",
+          "segment": "non_legend",
+          "runs": {
+            "completed": 0,
+            "scored": 0,
+            "ten_win": 0
+          },
+          "outcomes": {
+            "perfect": 0,
+            "gold": 0,
+            "silver": 0,
+            "bronze": 0
+          },
+          "ten_win_days": {
+            "known_count": 0,
+            "sum_days": 0
+          },
+          "matchups": []
+        },
+        {
+          "hero": "Stelle",
+          "segment": "legend",
+          "runs": {
+            "completed": 100,
+            "scored": 100,
+            "ten_win": 40
+          },
+          "outcomes": {
+            "perfect": 0,
+            "gold": 40,
+            "silver": 20,
+            "bronze": 20
+          },
+          "ten_win_days": {
+            "known_count": 40,
+            "sum_days": 440
+          },
+          "matchups": [
+            {
+              "opponent_hero": "Mak",
+              "decided": 20,
+              "wins": 15,
+              "losses": 5
+            },
+            {
+              "opponent_hero": "Jules",
+              "decided": 10,
+              "wins": 4,
+              "losses": 6
+            }
+          ]
+        },
+        {
+          "hero": "Stelle",
+          "segment": "non_legend",
+          "runs": {
+            "completed": 0,
+            "scored": 0,
+            "ten_win": 0
+          },
+          "outcomes": {
+            "perfect": 0,
+            "gold": 0,
+            "silver": 0,
+            "bronze": 0
+          },
+          "ten_win_days": {
+            "known_count": 0,
+            "sum_days": 0
+          },
+          "matchups": []
+        },
+        {
+          "hero": "TheDragons",
+          "segment": "legend",
+          "runs": {
+            "completed": 0,
+            "scored": 0,
+            "ten_win": 0
+          },
+          "outcomes": {
+            "perfect": 0,
+            "gold": 0,
+            "silver": 0,
+            "bronze": 0
+          },
+          "ten_win_days": {
+            "known_count": 0,
+            "sum_days": 0
+          },
+          "matchups": []
+        },
+        {
+          "hero": "TheDragons",
+          "segment": "non_legend",
+          "runs": {
+            "completed": 0,
+            "scored": 0,
+            "ten_win": 0
+          },
+          "outcomes": {
+            "perfect": 0,
+            "gold": 0,
+            "silver": 0,
+            "bronze": 0
+          },
+          "ten_win_days": {
+            "known_count": 0,
+            "sum_days": 0
+          },
+          "matchups": []
+        },
+        {
+          "hero": "Vanessa",
+          "segment": "legend",
+          "runs": {
+            "completed": 80,
+            "scored": 80,
+            "ten_win": 20
+          },
+          "outcomes": {
+            "perfect": 20,
+            "gold": 0,
+            "silver": 20,
+            "bronze": 20
+          },
+          "ten_win_days": {
+            "known_count": 0,
+            "sum_days": 0
+          },
+          "matchups": []
+        },
+        {
+          "hero": "Vanessa",
+          "segment": "non_legend",
+          "runs": {
+            "completed": 20,
+            "scored": 20,
+            "ten_win": 10
+          },
+          "outcomes": {
+            "perfect": 2,
+            "gold": 8,
+            "silver": 4,
+            "bronze": 4
+          },
+          "ten_win_days": {
+            "known_count": 10,
+            "sum_days": 100
+          },
+          "matchups": []
+        },
+        {
+          "hero": "Common",
+          "segment": "legend",
+          "runs": {
+            "completed": 10,
+            "scored": 10,
+            "ten_win": 9
+          },
+          "outcomes": {
+            "perfect": 0,
+            "gold": 9,
+            "silver": 1,
+            "bronze": 0
+          },
+          "ten_win_days": {
+            "known_count": 0,
+            "sum_days": 0
+          },
+          "matchups": []
+        }
+      ]
+    }
+  ]
+}

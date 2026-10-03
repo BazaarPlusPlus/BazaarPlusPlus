@@ -12,6 +12,10 @@ check:
 test:
     npm test
 
+# Run Playwright against the preview build. mode: golden (CI gate) or live (report only).
+e2e mode="golden" *args:
+    npm run e2e -- --project="$1" "${@:2}"
+
 # Start the development server.
 dev:
     npm run dev

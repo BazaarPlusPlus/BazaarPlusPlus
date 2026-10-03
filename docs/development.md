@@ -26,7 +26,7 @@ just doctor
 | --- | --- | --- |
 | just | 本仓库用 `just 1.58.0` 验证 | macOS `brew install just`；Windows `winget install --id Casey.Just --exact` |
 | 根发布工具 | `.nvmrc`、根 `package.json` 的 `packageManager` | 根目录 `npm ci` |
-| installer、site、server | 各自 `package.json` 的 `engines` 与 `packageManager` | 各目录 `npm ci` |
+| installer、site、server | 各自 `package.json` 的 `engines` 与 `packageManager` | 各目录 `npm ci`；site 另需 `npx playwright install chromium`（只有 `site::e2e` 需要） |
 | mod | `bazaarplusplus-mod/global.json`；本机 Steam 版《The Bazaar》的 Managed 程序集 | .NET restore |
 | installer Rust | `bazaarplusplus-installer/rust-toolchain.toml`；[Tauri 系统依赖](https://tauri.app/start/prerequisites/) | locked Cargo |
 | analyzer | `bazaarplusplus-analyzer/.python-version`、uv | analyzer 目录 `uv sync --locked` |

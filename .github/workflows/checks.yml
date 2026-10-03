@@ -72,6 +72,19 @@ jobs:
           just site::test
           npm --prefix bazaarplusplus-site run deploy:dry-run
           npm --prefix bazaarplusplus-site run deploy:preview:dry-run
+      - if: matrix.project == 'site'
+        working-directory: bazaarplusplus-site
+        run: npx playwright install --with-deps chromium
+      - if: matrix.project == 'site'
+        run: just site::e2e golden
+      - if: failure() && matrix.project == 'site'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: site-e2e-results
+          path: |
+            bazaarplusplus-site/test-results/
+            bazaarplusplus-site/e2e/__snapshots__/
+          if-no-files-found: ignore
       - if: matrix.project == 'server'
         run: just server::test
 
