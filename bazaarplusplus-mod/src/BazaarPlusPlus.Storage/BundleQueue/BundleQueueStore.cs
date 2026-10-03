@@ -34,6 +34,25 @@ public sealed class BundleQueueStore : SqliteStoreBase
             """
         );
 
+    // input_deadline_at_utc holds only SQLite datetime() text because ListWaitingRunIds and
+    // idx_bundle_seal_jobs_state order it as a string. Rewrites the ISO "o" deadlines that
+    // FailOutboxAndScheduleReseal used to write. Idempotent, so every open runs it without
+    // a ledger (ADR-0011); a value datetime() cannot parse is left as it is.
+    internal static void NormalizeSealJobDeadlines(
+        SqliteConnection connection,
+        SqliteTransaction transaction
+    ) =>
+        Execute(
+            connection,
+            transaction,
+            $"""
+            UPDATE {RunLogSchema.BundleSealJobsTableName}
+            SET input_deadline_at_utc = datetime(input_deadline_at_utc)
+            WHERE input_deadline_at_utc LIKE '____-__-__T%'
+              AND datetime(input_deadline_at_utc) IS NOT NULL;
+            """
+        );
+
     public void ResetInterruptedSeals()
     {
         using var connection = OpenConnection();
@@ -332,7 +351,7 @@ public sealed class BundleQueueStore : SqliteStoreBase
             )
             SELECT run_id, 'waiting', player_account_id, bundle_screenshot_requested,
                    CASE WHEN bundle_screenshot_requested = 1 THEN 'waiting' ELSE 'not_requested' END,
-                   $now
+                   datetime($now)
             FROM {RunLogSchema.RunsTableName} WHERE run_id = $runId;
             """,
             ("$runId", runId),

@@ -96,8 +96,9 @@ internal static class RunLogSchemaMigrationTests
             Scalar(connection, "SELECT created_at_ms FROM bundle_seal_jobs WHERE run_id='json';"),
             "stable creation time"
         );
+        // The same instant, rewritten to datetime() text by BundleQueueStore.NormalizeSealJobDeadlines.
         Equal(
-            "2026-01-01T00:02:00Z",
+            "2026-01-01 00:02:00",
             Text(
                 connection,
                 "SELECT input_deadline_at_utc FROM bundle_seal_jobs WHERE run_id='json';"
