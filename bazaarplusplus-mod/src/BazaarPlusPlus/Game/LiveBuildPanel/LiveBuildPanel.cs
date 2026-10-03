@@ -232,13 +232,10 @@ internal sealed class LiveBuildPanel : MonoBehaviour
             return;
 
         RefreshStatusView();
-        _ = RefreshFinalBuildsAsync(request, new LiveBuildRefreshLogOperation(Guid.NewGuid()));
+        _ = RefreshFinalBuildsAsync(request, Guid.NewGuid());
     }
 
-    private async Task RefreshFinalBuildsAsync(
-        LiveBuildRefreshRequest request,
-        LiveBuildRefreshLogOperation logOperation
-    )
+    private async Task RefreshFinalBuildsAsync(LiveBuildRefreshRequest request, Guid logRequestId)
     {
         BuildRecommendationRefreshResult result;
         try
@@ -259,18 +256,38 @@ internal sealed class LiveBuildPanel : MonoBehaviour
 
         if (result.Succeeded)
         {
-            logOperation.TrySucceed(
-                result.Outcome == BuildRecommendationRefreshOutcome.NoChange
-                    ? LiveBuildRefreshResultCode.NoChange
-                    : LiveBuildRefreshResultCode.Updated
+            BppLog.InfoEvent(
+                new BppLogEvent(
+                    BppLogFeatureScope.LiveBuildPanel,
+                    "live_build_panel.refresh.succeeded"
+                ),
+                ("request_id", logRequestId, BppLogCorrelationPolicy.Short),
+                (
+                    "result",
+                    result.Outcome == BuildRecommendationRefreshOutcome.NoChange
+                        ? LiveBuildRefreshResultCode.NoChange
+                        : LiveBuildRefreshResultCode.Updated
+                )
             );
         }
         else
         {
-            logOperation.TryFail(
-                result.FailureReason ?? LiveBuildRefreshFailureReasonCode.RefreshException,
-                result.Exception
+            var failed = new BppLogEvent(
+                BppLogFeatureScope.LiveBuildPanel,
+                "live_build_panel.refresh.failed"
             );
+            var fields = new BppLogField[]
+            {
+                ("request_id", logRequestId, BppLogCorrelationPolicy.Short),
+                (
+                    "reason_code",
+                    result.FailureReason ?? LiveBuildRefreshFailureReasonCode.RefreshException
+                ),
+            };
+            if (result.Exception == null)
+                BppLog.ErrorEvent(failed, fields);
+            else
+                BppLog.ErrorEvent(failed, result.Exception, fields);
         }
 
         switch (_refresh.CompleteRefresh(result))

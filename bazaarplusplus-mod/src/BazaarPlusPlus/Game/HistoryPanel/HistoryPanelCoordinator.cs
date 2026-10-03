@@ -251,11 +251,7 @@ internal sealed partial class HistoryPanelCoordinator : IDisposable
             return;
         }
 
-        var logOperation = new HistoryPanelReplayLogOperation(
-            Guid.NewGuid().ToString("N"),
-            battle.BattleId,
-            recordVideo
-        );
+        var logRequestId = NewLogRequestId();
 
         // Recording must be feasible before a record-and-replay request proceeds; otherwise we
         // surface the reason and refuse rather than silently starting a no-video replay.
@@ -266,19 +262,23 @@ internal sealed partial class HistoryPanelCoordinator : IDisposable
                 out var recordUnavailableReason,
                 out var recordingReasonCode
             );
-            if (
-                logOperation.TryRecordPreflight(
-                    canRecord,
-                    recordingReasonCode,
-                    out var preflightResult
-                )
-            )
-                HistoryPanelLogWriter.EmitReplayPreflight(preflightResult);
+            LogReplayPreflight(
+                logRequestId,
+                battle.BattleId,
+                recordVideo,
+                canRecord,
+                recordingReasonCode
+            );
             if (!canRecord)
             {
                 SetStatusMessage(recordUnavailableReason);
-                if (logOperation.TryFail(recordingReasonCode, exception: null, out var failure))
-                    HistoryPanelLogWriter.EmitReplayFailed(failure);
+                LogReplayFailed(
+                    logRequestId,
+                    battle.BattleId,
+                    recordVideo,
+                    recordingReasonCode,
+                    exception: null
+                );
                 _requestUiRefresh();
                 return;
             }
@@ -318,13 +318,17 @@ internal sealed partial class HistoryPanelCoordinator : IDisposable
             );
             if (cancellation == HistoryPanelCancellationDisposition.AbandonStaleRequest)
             {
-                logOperation.Abandon();
                 return;
             }
 
             _state.ReplayActionInProgress = false;
-            if (logOperation.TryFail(HistoryPanelReplayReasonCode.Canceled, ex, out var failure))
-                HistoryPanelLogWriter.EmitReplayFailed(failure);
+            LogReplayFailed(
+                logRequestId,
+                battle.BattleId,
+                recordVideo,
+                HistoryPanelReplayReasonCode.Canceled,
+                ex
+            );
             SetReplayFailure(battle, HistoryPanelText.ReplayFailed(ex.Message));
             _requestUiRefresh();
             return;
@@ -333,48 +337,43 @@ internal sealed partial class HistoryPanelCoordinator : IDisposable
         {
             if (!_session.IsCurrent(sessionVersion))
             {
-                logOperation.Abandon();
                 return;
             }
 
             _state.ReplayActionInProgress = false;
             SetReplayFailure(battle, HistoryPanelText.ReplayFailed(ex.Message));
-            if (
-                logOperation.TryFail(
-                    HistoryPanelReplayReasonCode.UnexpectedException,
-                    ex,
-                    out var failure
-                )
-            )
-                HistoryPanelLogWriter.EmitReplayFailed(failure);
+            LogReplayFailed(
+                logRequestId,
+                battle.BattleId,
+                recordVideo,
+                HistoryPanelReplayReasonCode.UnexpectedException,
+                ex
+            );
             _requestUiRefresh();
             return;
         }
 
         if (!_session.IsCurrent(sessionVersion))
         {
-            logOperation.Abandon();
             return;
         }
 
         _state.ReplayActionInProgress = false;
         if (!replayResult.Succeeded)
         {
-            if (
-                logOperation.TryFail(
-                    replayResult.ReasonCode,
-                    replayResult.Exception,
-                    out var failure
-                )
-            )
-                HistoryPanelLogWriter.EmitReplayFailed(failure);
+            LogReplayFailed(
+                logRequestId,
+                battle.BattleId,
+                recordVideo,
+                replayResult.ReasonCode,
+                replayResult.Exception
+            );
             SetReplayFailure(battle, replayResult.StatusMessage);
             _requestUiRefresh();
             return;
         }
 
-        if (logOperation.TryAccept(out var accepted))
-            HistoryPanelLogWriter.EmitReplayAccepted(accepted);
+        LogReplayAccepted(logRequestId, battle.BattleId, recordVideo);
         SetStatusMessage(replayResult.StatusMessage, StatusSeverity.Success);
         _requestVisibilityChange(false);
     }
@@ -423,10 +422,7 @@ internal sealed partial class HistoryPanelCoordinator : IDisposable
 
         ClearDeleteRunConfirmation();
 
-        var logOperation = new HistoryPanelRunDeleteLogOperation(
-            Guid.NewGuid().ToString("N"),
-            run.RunId
-        );
+        var logRequestId = NewLogRequestId();
 
         if (!_dataService.TryDeleteRun(run.RunId, out var battleIds, out var error))
         {
@@ -434,47 +430,24 @@ internal sealed partial class HistoryPanelCoordinator : IDisposable
                 HistoryPanelText.RunDeleteFailed(error?.Message ?? HistoryPanelText.Unknown()),
                 StatusSeverity.Failure
             );
-            if (
-                logOperation.TryComplete(
-                    HistoryPanelRunDeleteTerminalStatus.Failed,
-                    battleIds.Count,
-                    cleanupFailedCount: 0,
-                    HistoryPanelRunDeleteReasonCode.PrimaryDeleteFailed,
-                    error ?? new InvalidOperationException("Unknown run delete failure."),
-                    out var failed
-                )
-            )
-                HistoryPanelLogWriter.EmitRunDeleteTerminal(failed);
+            LogRunDeleteFailed(
+                logRequestId,
+                run.RunId,
+                battleIds.Count,
+                error ?? new InvalidOperationException("Unknown run delete failure.")
+            );
             _requestUiRefresh();
             return;
         }
 
         var cleanupResult = _replayService.CleanupReplayPayloads(battleIds);
-        if (cleanupResult.FailedBattleCount > 0)
-        {
-            if (
-                logOperation.TryComplete(
-                    HistoryPanelRunDeleteTerminalStatus.Degraded,
-                    battleIds.Count,
-                    cleanupResult.FailedBattleCount,
-                    HistoryPanelRunDeleteReasonCode.ReplayPayloadCleanupFailed,
-                    cleanupResult.Exception,
-                    out var degraded
-                )
-            )
-                HistoryPanelLogWriter.EmitRunDeleteTerminal(degraded);
-        }
-        else if (
-            logOperation.TryComplete(
-                HistoryPanelRunDeleteTerminalStatus.Succeeded,
-                battleIds.Count,
-                cleanupFailedCount: 0,
-                HistoryPanelRunDeleteReasonCode.Completed,
-                exception: null,
-                out var succeeded
-            )
-        )
-            HistoryPanelLogWriter.EmitRunDeleteTerminal(succeeded);
+        LogRunDeleteCompleted(
+            logRequestId,
+            run.RunId,
+            battleIds.Count,
+            cleanupResult.FailedBattleCount,
+            cleanupResult.Exception
+        );
         var deletedMessage = HistoryPanelText.DeletedRun(
             HistoryPanelFormatter.ShortenRunId(run.RunId),
             battleIds.Count
@@ -514,7 +487,8 @@ internal sealed partial class HistoryPanelCoordinator : IDisposable
             return;
         }
 
-        var logOperation = new HistoryPanelServerHealthLogOperation(Guid.NewGuid().ToString("N"));
+        var logRequestId = NewLogRequestId();
+        var logStartedAt = LogTimestampMilliseconds();
 
         _state.ServerHealthProbeInProgress = true;
         var sessionVersion = _session.Version;
@@ -534,20 +508,17 @@ internal sealed partial class HistoryPanelCoordinator : IDisposable
             );
             if (cancellation == HistoryPanelCancellationDisposition.AbandonStaleRequest)
             {
-                logOperation.Abandon();
                 return;
             }
 
             _state.ServerHealthProbeInProgress = false;
-            if (
-                logOperation.TryComplete(
-                    HistoryPanelServerHealthTerminalStatus.Failed,
-                    HistoryPanelServerHealthReasonCode.Canceled,
-                    ex,
-                    out var terminal
-                )
-            )
-                HistoryPanelLogWriter.EmitServerHealthTerminal(terminal);
+            LogServerHealth(
+                logRequestId,
+                logStartedAt,
+                succeeded: false,
+                HistoryPanelServerHealthReasonCode.Canceled,
+                ex
+            );
             SetStatusMessage(
                 HistoryPanelText.ServerHealthFailed(0, ex.Message),
                 StatusSeverity.Failure
@@ -559,7 +530,6 @@ internal sealed partial class HistoryPanelCoordinator : IDisposable
         {
             if (!_session.IsCurrent(sessionVersion))
             {
-                logOperation.Abandon();
                 return;
             }
 
@@ -568,49 +538,42 @@ internal sealed partial class HistoryPanelCoordinator : IDisposable
                 HistoryPanelText.ServerHealthFailed(0, ex.Message),
                 StatusSeverity.Failure
             );
-            if (
-                logOperation.TryComplete(
-                    HistoryPanelServerHealthTerminalStatus.Failed,
-                    HistoryPanelServerHealthReasonCode.UnexpectedException,
-                    ex,
-                    out var terminal
-                )
-            )
-                HistoryPanelLogWriter.EmitServerHealthTerminal(terminal);
+            LogServerHealth(
+                logRequestId,
+                logStartedAt,
+                succeeded: false,
+                HistoryPanelServerHealthReasonCode.UnexpectedException,
+                ex
+            );
             _requestUiRefresh();
             return;
         }
 
         if (!_session.IsCurrent(sessionVersion))
         {
-            logOperation.Abandon();
             return;
         }
 
         _state.ServerHealthProbeInProgress = false;
         if (result.Succeeded)
         {
-            if (
-                logOperation.TryComplete(
-                    HistoryPanelServerHealthTerminalStatus.Succeeded,
-                    HistoryPanelServerHealthReasonCode.Completed,
-                    exception: null,
-                    out var terminal
-                )
-            )
-                HistoryPanelLogWriter.EmitServerHealthTerminal(terminal);
+            LogServerHealth(
+                logRequestId,
+                logStartedAt,
+                succeeded: true,
+                HistoryPanelServerHealthReasonCode.Completed,
+                exception: null
+            );
         }
         else
         {
-            if (
-                logOperation.TryComplete(
-                    HistoryPanelServerHealthTerminalStatus.Failed,
-                    HistoryPanelServerHealthReasonClassifier.Classify(result.Error),
-                    result.DiagnosticException,
-                    out var terminal
-                )
-            )
-                HistoryPanelLogWriter.EmitServerHealthTerminal(terminal);
+            LogServerHealth(
+                logRequestId,
+                logStartedAt,
+                succeeded: false,
+                HistoryPanelServerHealthReasonClassifier.Classify(result.Error),
+                result.DiagnosticException
+            );
         }
         var display = HistoryPanelServerHealthFormatter.FromProbeResult(result);
         SetStatusMessage(
@@ -632,7 +595,8 @@ internal sealed partial class HistoryPanelCoordinator : IDisposable
             return;
         }
 
-        var logRequest = StartAccountLinkLogRequest(AccountLinkMethod.Redeem);
+        var logRequestId = NewLogRequestId();
+        const AccountLinkMethod linkMethod = AccountLinkMethod.Redeem;
         string? accountId;
         try
         {
@@ -640,14 +604,19 @@ internal sealed partial class HistoryPanelCoordinator : IDisposable
         }
         catch (Exception ex)
         {
-            logRequest.Failed(AccountLinkReason.UnexpectedException, ex);
+            AccountLinkLog.Failed(
+                logRequestId,
+                linkMethod,
+                AccountLinkReason.UnexpectedException,
+                ex
+            );
             throw;
         }
         var trimmedCode = code?.Trim() ?? string.Empty;
         if (string.IsNullOrWhiteSpace(accountId))
         {
             SetAccountLinkBanner(HistoryPanelText.AccountLink.SignedOut(), StatusSeverity.Failure);
-            logRequest.Skipped(AccountLinkReason.SignedOut);
+            AccountLinkLog.Skipped(logRequestId, AccountLinkReason.SignedOut);
             _requestUiRefresh();
             return;
         }
@@ -655,7 +624,7 @@ internal sealed partial class HistoryPanelCoordinator : IDisposable
         if (string.IsNullOrEmpty(trimmedCode))
         {
             SetAccountLinkBanner(HistoryPanelText.AccountLink.EmptyCode(), StatusSeverity.Failure);
-            logRequest.Skipped(AccountLinkReason.EmptyCode);
+            AccountLinkLog.Skipped(logRequestId, AccountLinkReason.EmptyCode);
             _requestUiRefresh();
             return;
         }
@@ -663,7 +632,7 @@ internal sealed partial class HistoryPanelCoordinator : IDisposable
         if (_linkClient == null)
         {
             SetAccountLinkBanner(HistoryPanelText.AccountLink.Offline(), StatusSeverity.Failure);
-            logRequest.Skipped(AccountLinkReason.ClientUnavailable);
+            AccountLinkLog.Skipped(logRequestId, AccountLinkReason.ClientUnavailable);
             _requestUiRefresh();
             return;
         }
@@ -682,7 +651,6 @@ internal sealed partial class HistoryPanelCoordinator : IDisposable
         {
             if (!_session.IsCurrent(sessionVersion))
             {
-                logRequest.Abandon();
                 return; // panel closed / re-opened mid-flight: discard silently.
             }
 
@@ -691,7 +659,7 @@ internal sealed partial class HistoryPanelCoordinator : IDisposable
             // instead of silently clearing the banner.
             _state.AccountLinkInProgress = false;
             SetAccountLinkBanner(HistoryPanelText.AccountLink.Offline(), StatusSeverity.Failure);
-            logRequest.Failed(AccountLinkReason.RequestTimeout, ex);
+            AccountLinkLog.Failed(logRequestId, linkMethod, AccountLinkReason.RequestTimeout, ex);
             _requestUiRefresh();
             return;
         }
@@ -699,20 +667,23 @@ internal sealed partial class HistoryPanelCoordinator : IDisposable
         {
             if (!_session.IsCurrent(sessionVersion))
             {
-                logRequest.Abandon();
                 return;
             }
 
             _state.AccountLinkInProgress = false;
             SetAccountLinkBanner(HistoryPanelText.AccountLink.Offline(), StatusSeverity.Failure);
-            logRequest.Failed(AccountLinkReason.UnexpectedException, ex);
+            AccountLinkLog.Failed(
+                logRequestId,
+                linkMethod,
+                AccountLinkReason.UnexpectedException,
+                ex
+            );
             _requestUiRefresh();
             return;
         }
 
         if (!_session.IsCurrent(sessionVersion))
         {
-            logRequest.Abandon();
             return;
         }
 
@@ -724,7 +695,12 @@ internal sealed partial class HistoryPanelCoordinator : IDisposable
         }
         catch (Exception ex)
         {
-            logRequest.Failed(AccountLinkReason.UnexpectedException, ex);
+            AccountLinkLog.Failed(
+                logRequestId,
+                linkMethod,
+                AccountLinkReason.UnexpectedException,
+                ex
+            );
             throw;
         }
         if (!string.Equals(currentAccountId, accountId, StringComparison.Ordinal))
@@ -735,10 +711,15 @@ internal sealed partial class HistoryPanelCoordinator : IDisposable
             }
             catch (Exception ex)
             {
-                logRequest.Failed(AccountLinkReason.UnexpectedException, ex);
+                AccountLinkLog.Failed(
+                    logRequestId,
+                    linkMethod,
+                    AccountLinkReason.UnexpectedException,
+                    ex
+                );
                 throw;
             }
-            logRequest.Skipped(AccountLinkReason.AccountChanged);
+            AccountLinkLog.Skipped(logRequestId, AccountLinkReason.AccountChanged);
             _requestUiRefresh();
             return;
         }
@@ -756,13 +737,23 @@ internal sealed partial class HistoryPanelCoordinator : IDisposable
             }
             catch (Exception ex)
             {
-                logRequest.Failed(AccountLinkReason.UnexpectedException, ex);
+                AccountLinkLog.Failed(
+                    logRequestId,
+                    linkMethod,
+                    AccountLinkReason.UnexpectedException,
+                    ex
+                );
                 throw;
             }
-            logRequest.Succeeded();
+            AccountLinkLog.Succeeded(logRequestId, linkMethod);
         }
         else
-            logRequest.Failed(result.Outcome, result.DiagnosticException);
+            AccountLinkLog.Failed(
+                logRequestId,
+                linkMethod,
+                result.Outcome,
+                result.DiagnosticException
+            );
 
         SetAccountLinkBanner(
             RedeemBannerMessage(result.Outcome),
@@ -820,7 +811,8 @@ internal sealed partial class HistoryPanelCoordinator : IDisposable
         if (_state.AccountLinkInProgress)
             return;
 
-        var logRequest = StartAccountLinkLogRequest(AccountLinkMethod.Manual);
+        var logRequestId = NewLogRequestId();
+        const AccountLinkMethod linkMethod = AccountLinkMethod.Manual;
         string? accountId;
         try
         {
@@ -828,13 +820,18 @@ internal sealed partial class HistoryPanelCoordinator : IDisposable
         }
         catch (Exception ex)
         {
-            logRequest.Failed(AccountLinkReason.UnexpectedException, ex);
+            AccountLinkLog.Failed(
+                logRequestId,
+                linkMethod,
+                AccountLinkReason.UnexpectedException,
+                ex
+            );
             throw;
         }
         if (string.IsNullOrWhiteSpace(accountId))
         {
             SetAccountLinkBanner(HistoryPanelText.AccountLink.SignedOut(), StatusSeverity.Failure);
-            logRequest.Skipped(AccountLinkReason.SignedOut);
+            AccountLinkLog.Skipped(logRequestId, AccountLinkReason.SignedOut);
             _requestUiRefresh();
             return;
         }
@@ -847,11 +844,16 @@ internal sealed partial class HistoryPanelCoordinator : IDisposable
         }
         catch (Exception ex)
         {
-            logRequest.Failed(AccountLinkReason.UnexpectedException, ex);
+            AccountLinkLog.Failed(
+                logRequestId,
+                linkMethod,
+                AccountLinkReason.UnexpectedException,
+                ex
+            );
             throw;
         }
         SetAccountLinkBanner(null, StatusSeverity.Neutral);
-        logRequest.Succeeded();
+        AccountLinkLog.Succeeded(logRequestId, linkMethod);
         _requestUiRefresh();
     }
 
@@ -871,7 +873,7 @@ internal sealed partial class HistoryPanelCoordinator : IDisposable
             return;
         }
 
-        var logOperation = new HistoryPanelGhostSyncLogOperation(Guid.NewGuid().ToString("N"));
+        var logRequestId = NewLogRequestId();
 
         _state.GhostSync = GhostSyncPhase.Running;
         var sessionVersion = _session.Version;
@@ -890,15 +892,17 @@ internal sealed partial class HistoryPanelCoordinator : IDisposable
             );
             if (cancellation == HistoryPanelCancellationDisposition.AbandonStaleRequest)
             {
-                logOperation.Abandon();
                 return;
             }
 
             _state.GhostSync = GhostSyncPhase.Failed;
-            if (
-                logOperation.TryFail(HistoryPanelGhostSyncReasonCode.Canceled, ex, out var terminal)
-            )
-                HistoryPanelLogWriter.EmitGhostSyncTerminal(terminal);
+            LogGhostSync(
+                logRequestId,
+                succeeded: false,
+                0,
+                HistoryPanelGhostSyncReasonCode.Canceled,
+                ex
+            );
             SetStatusMessage(HistoryPanelText.GhostSyncFailed(ex.Message), StatusSeverity.Failure);
             _requestUiRefresh();
             return;
@@ -907,43 +911,50 @@ internal sealed partial class HistoryPanelCoordinator : IDisposable
         {
             if (!_session.IsCurrent(sessionVersion))
             {
-                logOperation.Abandon();
                 return;
             }
 
             _state.GhostSync = GhostSyncPhase.Failed;
             SetStatusMessage(HistoryPanelText.GhostSyncFailed(ex.Message), StatusSeverity.Failure);
-            if (
-                logOperation.TryFail(
-                    HistoryPanelGhostSyncReasonCode.UnexpectedException,
-                    ex,
-                    out var terminal
-                )
-            )
-                HistoryPanelLogWriter.EmitGhostSyncTerminal(terminal);
+            LogGhostSync(
+                logRequestId,
+                succeeded: false,
+                0,
+                HistoryPanelGhostSyncReasonCode.UnexpectedException,
+                ex
+            );
             _requestUiRefresh();
             return;
         }
 
         if (!_session.IsCurrent(sessionVersion))
         {
-            logOperation.Abandon();
             return;
         }
 
         if (!syncResult.Succeeded)
         {
             _state.GhostSync = GhostSyncPhase.Failed;
-            if (logOperation.TryFail(syncResult.ReasonCode, syncResult.Error, out var terminal))
-                HistoryPanelLogWriter.EmitGhostSyncTerminal(terminal);
+            LogGhostSync(
+                logRequestId,
+                succeeded: false,
+                0,
+                syncResult.ReasonCode,
+                syncResult.Error
+            );
             SetStatusMessage(syncResult.StatusMessage, StatusSeverity.Failure);
             _requestUiRefresh();
             return;
         }
 
         _state.GhostSync = GhostSyncPhase.Completed;
-        if (logOperation.TrySucceed(syncResult.ImportedCount, out var succeeded))
-            HistoryPanelLogWriter.EmitGhostSyncTerminal(succeeded);
+        LogGhostSync(
+            logRequestId,
+            succeeded: true,
+            syncResult.ImportedCount,
+            HistoryPanelGhostSyncReasonCode.Completed,
+            exception: null
+        );
         SetStatusMessage(syncResult.StatusMessage, StatusSeverity.Success);
 
         if (_state.SectionMode == HistorySectionMode.Ghost)
@@ -1044,7 +1055,4 @@ internal sealed partial class HistoryPanelCoordinator : IDisposable
         var normalized = accountId?.Trim();
         return string.IsNullOrWhiteSpace(normalized) ? null : normalized;
     }
-
-    private static AccountLinkLogRequest StartAccountLinkLogRequest(AccountLinkMethod method) =>
-        new(Guid.NewGuid().ToString("N"), method);
 }

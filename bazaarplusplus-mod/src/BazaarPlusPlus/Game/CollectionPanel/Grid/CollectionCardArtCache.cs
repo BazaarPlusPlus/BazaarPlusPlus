@@ -27,7 +27,6 @@ internal sealed class CollectionCardArtCache
         StringComparer.Ordinal
     );
     private readonly HashSet<string> _failedKeys = new(StringComparer.Ordinal);
-    private readonly CollectionCardArtLogState _logState = new();
 
     public CollectionCardArtCache(int capacity = DefaultCapacity)
     {
@@ -44,13 +43,32 @@ internal sealed class CollectionCardArtCache
         CollectionPanelLogReasonCode reasonCode,
         string? artKey,
         Exception exception
-    ) =>
-        _logState.ReportDegraded(
-            reasonCode,
-            CollectionCardArtStatus.ArtUnavailable,
-            artKey,
-            exception
+    ) => ReportArtDegraded(reasonCode, artKey, exception);
+
+    // The storm key is the reason code, so a scroll through many broken art keys writes one line
+    // per reason per storm window plus a suppressed count.
+    private static void ReportArtDegraded(
+        CollectionPanelLogReasonCode reasonCode,
+        string? artKey,
+        Exception? exception
+    )
+    {
+        var degraded = new BppLogEvent(
+            BppLogFeatureScope.CollectionPanel,
+            "collection_panel.card_art.degraded",
+            storm: ["reason_code"]
         );
+        var fields = new BppLogField[]
+        {
+            ("reason_code", reasonCode),
+            ("status", CollectionCardArtStatus.ArtUnavailable),
+            ("art_key", artKey),
+        };
+        if (exception == null)
+            BppLog.WarnEvent(degraded, fields);
+        else
+            BppLog.WarnEvent(degraded, exception, fields);
+    }
 
     private async Task<CardAssetDataSO?> GetCore(string artKey, bool acquireRef)
     {
@@ -76,24 +94,14 @@ internal sealed class CollectionCardArtCache
         }
         catch (Exception ex)
         {
-            _logState.ReportDegraded(
-                CollectionPanelLogReasonCode.AddressablesLoadException,
-                CollectionCardArtStatus.ArtUnavailable,
-                artKey,
-                ex
-            );
+            ReportArtDegraded(CollectionPanelLogReasonCode.AddressablesLoadException, artKey, ex);
             _failedKeys.Add(artKey);
             return null;
         }
 
         if (handle.Status != AsyncOperationStatus.Succeeded)
         {
-            _logState.ReportDegraded(
-                CollectionPanelLogReasonCode.AddressablesLoadFailed,
-                CollectionCardArtStatus.ArtUnavailable,
-                artKey,
-                null
-            );
+            ReportArtDegraded(CollectionPanelLogReasonCode.AddressablesLoadFailed, artKey, null);
             try
             {
                 Addressables.Release(handle);

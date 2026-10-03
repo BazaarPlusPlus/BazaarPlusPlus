@@ -5,6 +5,8 @@ using BazaarPlusPlus.Game.HistoryPanel.Data;
 using BazaarPlusPlus.Game.PvpBattles;
 using BazaarPlusPlus.GameInterop.CardPreview;
 using BazaarPlusPlus.GameInterop.MonsterBoardPreview;
+using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 using BazaarPlusPlus.Infrastructure.UiTokens;
 using UnityEngine;
 
@@ -100,13 +102,16 @@ internal sealed partial class HistoryPanel
                     _nativePlayerStatus = board;
                 RefreshNativeHistoryMessages();
                 if (exception != null)
-                    HistoryPanelPreviewLogWriter.ReportCardPreview(
-                        new NativeCardPreviewFailure(
-                            NativeCardPreviewOperation.SetUp,
-                            NativeCardPreviewFailureReason.SetUpException,
-                            null,
-                            exception
-                        )
+                    BppLog.WarnEvent(
+                        new BppLogEvent(
+                            BppLogFeatureScope.HistoryPanel,
+                            "history_panel.card_preview.degraded",
+                            storm: ["operation", "reason_code"]
+                        ),
+                        exception,
+                        ("operation", NativeCardPreviewOperation.SetUp),
+                        ("reason_code", NativeCardPreviewFailureReason.SetUpException),
+                        ("template_id", null)
                     );
             }
         );

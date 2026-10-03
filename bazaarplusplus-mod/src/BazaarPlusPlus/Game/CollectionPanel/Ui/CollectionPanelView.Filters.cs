@@ -25,15 +25,6 @@ internal sealed partial class CollectionPanelView
     private const string SourceChipPortraitName = "bpp-collection-source-chip-portrait";
     private const string SourceChipSelectionRingName = "bpp-collection-source-chip-selection-ring";
 
-    private static readonly CollectionPortraitFailureGate<
-        EHero,
-        CollectionPortraitReasonCode
-    > HeroPortraitFailures = new();
-    private static readonly CollectionPortraitFailureGate<
-        Guid,
-        CollectionPortraitReasonCode
-    > EncounterPortraitFailures = new();
-
     private void EnsureHeroChips(IReadOnlyList<EHero> heroes)
     {
         if (_heroChipRow == null)
@@ -1232,13 +1223,9 @@ internal sealed partial class CollectionPanelView
 
     private static void ReportHeroPortraitOutcome(EHero hero, HeroPortraitLoadOutcome? outcome)
     {
-        if (outcome == null)
+        // Repeats are bounded by the reason_code storm key, one line per reason per window.
+        if (outcome == null || !outcome.IsDegraded)
             return;
-        if (!outcome.IsDegraded)
-        {
-            HeroPortraitFailures.Clear(hero);
-            return;
-        }
         var reasonCode = outcome.Reason switch
         {
             HeroPortraitFailureReason.CollectionManagerUnavailable =>
@@ -1251,8 +1238,6 @@ internal sealed partial class CollectionPanelView
                 CollectionPortraitReasonCode.PortraitUnavailable,
             _ => CollectionPortraitReasonCode.LoadException,
         };
-        if (!HeroPortraitFailures.ShouldReport(hero, reasonCode))
-            return;
         if (outcome.Reason == HeroPortraitFailureReason.PortraitUnavailable)
         {
             BppLog.DebugEvent(
@@ -1292,13 +1277,9 @@ internal sealed partial class CollectionPanelView
         EncounterPortraitLoadOutcome? outcome
     )
     {
-        if (outcome == null)
+        // Repeats are bounded by the reason_code storm key, one line per reason per window.
+        if (outcome == null || !outcome.IsDegraded)
             return;
-        if (!outcome.IsDegraded)
-        {
-            EncounterPortraitFailures.Clear(templateId);
-            return;
-        }
         var reasonCode = outcome.Reason switch
         {
             EncounterPortraitFailureReason.ArtKeyUnavailable =>
@@ -1311,8 +1292,6 @@ internal sealed partial class CollectionPanelView
                 CollectionPortraitReasonCode.PortraitUnavailable,
             _ => CollectionPortraitReasonCode.LoadException,
         };
-        if (!EncounterPortraitFailures.ShouldReport(templateId, reasonCode))
-            return;
         var fields = new BppLogField[]
         {
             ("template_id", templateId),

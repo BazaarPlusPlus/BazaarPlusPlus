@@ -4,6 +4,8 @@ using BazaarPlusPlus.Game.LiveBuildPanel.Ui;
 using BazaarPlusPlus.GameInterop.CardPreview;
 using BazaarPlusPlus.GameInterop.ItemBoardPreview;
 using BazaarPlusPlus.GameInterop.MonsterBoardPreview;
+using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 using BazaarPlusPlus.Infrastructure.UiTokens;
 using UnityEngine;
 
@@ -64,13 +66,16 @@ internal sealed class LiveBuildPreviewRenderer : IDisposable
                             (exception as NativeBoardPartialFailure)?.Count ?? 0
                         );
                         if (exception != null)
-                            LiveBuildPreviewLogWriter.ReportCardPreview(
-                                new NativeCardPreviewFailure(
-                                    NativeCardPreviewOperation.SetUp,
-                                    NativeCardPreviewFailureReason.SetUpException,
-                                    null,
-                                    exception
-                                )
+                            BppLog.WarnEvent(
+                                new BppLogEvent(
+                                    BppLogFeatureScope.LiveBuildPanel,
+                                    "live_build_panel.card_preview.degraded",
+                                    storm: ["operation", "reason_code"]
+                                ),
+                                exception,
+                                ("operation", NativeCardPreviewOperation.SetUp),
+                                ("reason_code", NativeCardPreviewFailureReason.SetUpException),
+                                ("template_id", null)
                             );
                     },
                     itemsOnly: true

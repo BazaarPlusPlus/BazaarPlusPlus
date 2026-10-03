@@ -18,9 +18,13 @@ public sealed class AccountLinkPrivacyTests
             "account-secret link-code-secret token-secret response-body-secret";
         var result = BazaarDbLinkResult.From(BazaarDbLinkOutcome.ServerError, 500, privateText);
         BppLog.Reset();
-        var request = new AccountLinkLogRequest(RequestId, AccountLinkMethod.Redeem);
 
-        request.Failed(result.Outcome);
+        AccountLinkLog.Failed(
+            RequestId,
+            AccountLinkMethod.Redeem,
+            result.Outcome,
+            result.DiagnosticException
+        );
 
         var captured = Assert.Single(BppLog.Events);
         var rendered = BppLogEventRenderer.Render(
