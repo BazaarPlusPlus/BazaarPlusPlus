@@ -9,9 +9,9 @@ namespace BazaarPlusPlus.Patches;
 internal sealed class BppPatchFeatures
 {
     internal BppPatchFeatures(
-        IEncounterPreviewModule encounterPreview,
+        EncounterPreviewModule encounterPreview,
         IEndOfRunCaptureWorkflow endOfRunCaptureWorkflow,
-        IPostCombatImpactModule postCombatImpact
+        PostCombatImpactModule postCombatImpact
     )
     {
         EncounterPreview =
@@ -25,7 +25,7 @@ internal sealed class BppPatchFeatures
 
     internal HistoryPanelMenuEntry HistoryMenu { get; } = new();
 
-    internal IEncounterPreviewModule EncounterPreview { get; }
+    internal EncounterPreviewModule EncounterPreview { get; }
     internal IEndOfRunCaptureWorkflow EndOfRunCaptureWorkflow { get; }
-    internal IPostCombatImpactModule PostCombatImpact { get; }
+    internal PostCombatImpactModule PostCombatImpact { get; }
 }

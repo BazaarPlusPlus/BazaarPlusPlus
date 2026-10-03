@@ -1,12 +1,6 @@
 #nullable enable
-using BazaarPlusPlus.Core.Runtime;
 
 namespace BazaarPlusPlus.Game.Upload;
-
-internal enum UploadFeedKind
-{
-    Bundle,
-}
 
 internal enum UploadAttemptObservationKind
 {
@@ -94,37 +88,4 @@ internal sealed class UploadAttemptResult
     internal static UploadAttemptResult From(
         IReadOnlyList<UploadAttemptObservation> observations
     ) => new(observations ?? Array.Empty<UploadAttemptObservation>());
-}
-
-/// <summary>
-/// Feed factory: the pump supplies real cadence and receives a behavior session (or null when
-/// activation fails). PTR channel gating stays on the pump as an activation precondition.
-/// </summary>
-internal interface IUploadFeed
-{
-    UploadFeedKind Kind { get; }
-
-    IUploadFeedSession? Activate(
-        IBppServices services,
-        UploadFeedLogState logState,
-        UploadPumpCadence cadence
-    );
-}
-
-/// <summary>
-/// Feed-owned behavior for one pump lifetime: enablement, one attempt, feed-private arm signals,
-/// and attempt-resource disposal. The pump owns Unity cadence, shared arms, and shutdown drain.
-/// </summary>
-internal interface IUploadFeedSession : IDisposable
-{
-    bool IsEnabled { get; }
-
-    Task<UploadAttemptResult> RunAttemptAsync(CancellationToken cancellationToken);
-
-    /// <summary>
-    /// Subscribe feed-private arm signals. Returns null when the feed has none.
-    /// The pump holds the handle and disposes it first on shutdown; session.Dispose only owns
-    /// attempt resources and may dispose this handle as an idempotent fallback.
-    /// </summary>
-    IDisposable? SubscribeArmSignals(Action arm);
 }

@@ -1543,7 +1543,6 @@ internal sealed class CombatReplayVideoRecorder : MonoBehaviour
             {
                 var result = new ReplayVideoArtifactMaintenanceService(
                     metadataStore,
-                    new ReplayVideoArtifactFiles(),
                     videoDirectoryPath,
                     ReplayVideoInFlightArtifacts.SnapshotPaths
                 ).Run(

@@ -4,6 +4,7 @@ using BazaarPlusPlus.Game.HistoryPanel.Data;
 using BazaarPlusPlus.Game.Input;
 using BazaarPlusPlus.Game.OverlayPanels;
 using BazaarPlusPlus.Game.Supporters;
+using BazaarPlusPlus.GameInterop;
 using BazaarPlusPlus.Infrastructure;
 using TheBazaar;
 using UnityEngine;
@@ -21,7 +22,7 @@ internal sealed partial class HistoryPanel : MonoBehaviour
     private readonly HistoryPanelState _state = new();
     private HistoryPanelDependencies? _dependencies;
     private HistoryPanelCoordinator? _coordinator;
-    private IHistoryPanelRunState? _runState;
+    private IRunContext? _runContext;
     private IReadOnlyList<BPPSupporterSample> _supporters = Array.Empty<BPPSupporterSample>();
     private IOverlayPanelHandle? _overlayHandle;
     private bool _initialized;
@@ -51,7 +52,7 @@ internal sealed partial class HistoryPanel : MonoBehaviour
     {
         EnsureInitialized();
         _dependencies = dependencies ?? throw new ArgumentNullException(nameof(dependencies));
-        _runState = dependencies.RunState;
+        _runContext = dependencies.RunContext;
         _coordinator = new HistoryPanelCoordinator(
             _state,
             dependencies,

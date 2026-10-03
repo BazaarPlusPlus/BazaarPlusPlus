@@ -25,7 +25,6 @@ public sealed class V5DataPipelineArchitectureTests
         var main = ReadSources(Path.Combine(sourceRoot, "BazaarPlusPlus"));
         var storage = ReadSources(Path.Combine(sourceRoot, "BazaarPlusPlus.Storage"));
         Assert.Contains("BazaarPlusPlusV5", storage);
-        Assert.Contains("enum UploadFeedKind\n{\n    Bundle,", main);
         Assert.DoesNotContain("RunBundleUploadFeed", main);
         Assert.DoesNotContain("BazaarDbSnapshotUploadFeed", main);
         Assert.DoesNotContain("RunSyncStateStore", main);

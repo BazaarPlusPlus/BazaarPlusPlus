@@ -1,6 +1,7 @@
 #nullable enable
 using BazaarPlusPlus.Core.Events;
 using BazaarPlusPlus.Core.Runtime;
+using BazaarPlusPlus.Game.BundlePipeline;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.ModApi;
 using UnityEngine;
@@ -12,8 +13,7 @@ internal sealed class BackgroundUploadPump : MonoBehaviour
     private static readonly TimeSpan ShutdownDrainTimeout = TimeSpan.FromMilliseconds(500);
 
     private IBppServices? _services;
-    private IUploadFeed? _feed;
-    private IUploadFeedSession? _session;
+    private BundleUploadFeed.Session? _session;
     private CancellationTokenSource? _shutdown;
     private StartupUploadAttemptGate? _startupGate;
     private StartupUploadAttemptRunner? _startupRunner;
@@ -25,19 +25,16 @@ internal sealed class BackgroundUploadPump : MonoBehaviour
 
     private void Awake() { }
 
-    public void Initialize(IBppServices services, IUploadFeed feed)
+    public void Initialize(IBppServices services)
     {
         _services = services ?? throw new ArgumentNullException(nameof(services));
-        _feed = feed ?? throw new ArgumentNullException(nameof(feed));
-
-        var feedKind = _feed.Kind;
-        _logState = new UploadFeedLogState(feedKind);
+        _logState = new UploadFeedLogState();
 
         var startupDelaySeconds = Math.Max(5, ModApiUploadDefaults.StartupDelaySeconds);
         var retryIntervalSeconds = Math.Max(1, ModApiUploadDefaults.IntervalSeconds);
         var cadence = new UploadPumpCadence(startupDelaySeconds, retryIntervalSeconds);
 
-        var session = UploadPumpBootstrap.ActivateIfAllowed(_services, _feed, _logState, cadence);
+        var session = UploadPumpBootstrap.ActivateIfAllowed(_services, cadence);
         if (session == null)
             return;
 
@@ -47,7 +44,7 @@ internal sealed class BackgroundUploadPump : MonoBehaviour
             Time.unscaledTime + startupDelaySeconds,
             retryIntervalSeconds
         );
-        _startupRunner = new StartupUploadAttemptRunner(feedKind, _logState);
+        _startupRunner = new StartupUploadAttemptRunner(_logState);
         _runLifecycleSubscription = _services.EventBus.Subscribe<RunLifecycleChanged>(
             OnRunLifecycleChanged
         );
@@ -102,7 +99,6 @@ internal sealed class BackgroundUploadPump : MonoBehaviour
             _shutdown = null;
         }
 
-        var feedKind = _feed?.Kind;
         var session = _session;
         _session = null;
         Action? disposeSession = session == null ? null : session.Dispose;
@@ -112,7 +108,6 @@ internal sealed class BackgroundUploadPump : MonoBehaviour
             {
                 BppLog.WarnEvent(
                     UploadLogEvents.ShutdownDrainDegraded,
-                    UploadLogEvents.ShutdownDrainDegradedFeed.Bind(feedKind),
                     UploadLogEvents.ShutdownDrainDegradedTimeoutMs.Bind(
                         (long)ShutdownDrainTimeout.TotalMilliseconds
                     ),
@@ -129,7 +124,6 @@ internal sealed class BackgroundUploadPump : MonoBehaviour
         _startupRunner = null;
         _logState = null;
         _services = null;
-        _feed = null;
     }
 
     private void ArmImmediate()
@@ -147,7 +141,7 @@ internal sealed class BackgroundUploadPump : MonoBehaviour
 
     private void OnUploadArmRequested(UploadArmRequested request)
     {
-        if (_feed == null || request == null)
+        if (_services == null || request == null)
             return;
 
         ArmImmediate();

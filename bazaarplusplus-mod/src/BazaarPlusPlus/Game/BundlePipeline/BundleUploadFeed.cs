@@ -10,19 +10,19 @@ using BazaarPlusPlus.Storage.Paths;
 
 namespace BazaarPlusPlus.Game.BundlePipeline;
 
-internal sealed class BundleUploadFeed : IUploadFeed
+internal static class BundleUploadFeed
 {
     internal const int MaximumAttemptBatch = 3;
 
-    public UploadFeedKind Kind => UploadFeedKind.Bundle;
+    internal static Session Activate(IBppServices services, UploadPumpCadence cadence) =>
+        new(services, cadence);
 
-    public IUploadFeedSession Activate(
-        IBppServices services,
-        UploadFeedLogState logState,
-        UploadPumpCadence cadence
-    ) => new Session(services, cadence);
-
-    internal sealed class Session : IUploadFeedSession
+    /// <summary>
+    /// Feed-owned behavior for one pump lifetime: enablement, one attempt, feed-private arm
+    /// signals, and attempt-resource disposal. The pump owns Unity cadence, shared arms, and
+    /// shutdown drain.
+    /// </summary>
+    internal sealed class Session : IDisposable
     {
         private static readonly TimeSpan PendingRetention = TimeSpan.FromDays(14);
         private static readonly TimeSpan PermanentFileRetention = TimeSpan.FromDays(7);
@@ -213,6 +213,10 @@ internal sealed class BundleUploadFeed : IUploadFeed
             return UploadAttemptResult.From(observations);
         }
 
+        /// <summary>
+        /// Subscribe feed-private arm signals; null when the feed has none. The pump holds the
+        /// handle and disposes it first on shutdown; Dispose only owns attempt resources.
+        /// </summary>
         public IDisposable? SubscribeArmSignals(Action arm) => null;
 
         public void Dispose() => _modApiSession.Dispose();
@@ -300,7 +304,7 @@ internal sealed class UploadPumpMount : IBppMountable
     public void Mount(UnityEngine.GameObject host, IBppServices services)
     {
         _pump = host.AddComponent<BackgroundUploadPump>();
-        _pump.Initialize(services, new BundleUploadFeed());
+        _pump.Initialize(services);
     }
 
     public void Unmount(UnityEngine.GameObject host)

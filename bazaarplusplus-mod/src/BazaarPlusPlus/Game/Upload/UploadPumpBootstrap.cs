@@ -1,5 +1,6 @@
 #nullable enable
 using BazaarPlusPlus.Core.Runtime;
+using BazaarPlusPlus.Game.BundlePipeline;
 using BazaarPlusPlus.Infrastructure;
 
 namespace BazaarPlusPlus.Game.Upload;
@@ -12,21 +13,14 @@ internal static class UploadPumpBootstrap
 {
     internal static bool CanActivate(GameBuildChannel channel) => channel != GameBuildChannel.Ptr;
 
-    internal static IUploadFeedSession? ActivateIfAllowed(
+    internal static BundleUploadFeed.Session? ActivateIfAllowed(
         IBppServices services,
-        IUploadFeed feed,
-        UploadFeedLogState logState,
         UploadPumpCadence cadence
     )
     {
         if (services == null)
             throw new ArgumentNullException(nameof(services));
-        if (feed == null)
-            throw new ArgumentNullException(nameof(feed));
-        if (logState == null)
-            throw new ArgumentNullException(nameof(logState));
 
-        var feedKind = feed.Kind;
         if (!CanActivate(services.GameBuild.Channel))
         {
             // Session gate: no upload feed arms on the PTR build. The durable defense is the
@@ -34,15 +28,11 @@ internal static class UploadPumpBootstrap
             // uploads even after switching back to online.
             BppLog.DebugEvent(
                 UploadLogEvents.FeedSkipped,
-                () =>
-                    [
-                        UploadLogEvents.FeedSkippedFeed.Bind(feedKind),
-                        UploadLogEvents.FeedSkippedReasonCode.Bind(UploadLogReasonCode.PtrBuild),
-                    ]
+                () => [UploadLogEvents.FeedSkippedReasonCode.Bind(UploadLogReasonCode.PtrBuild)]
             );
             return null;
         }
 
-        return feed.Activate(services, logState, cadence);
+        return BundleUploadFeed.Activate(services, cadence);
     }
 }

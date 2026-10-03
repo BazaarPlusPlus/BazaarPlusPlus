@@ -54,13 +54,12 @@ internal sealed class HistoryPanelMount : IBppMountable
         }
 
         var panel = host.AddComponent<HistoryPanel>();
-        var runState = new HistoryPanelRunState(services.RunContext);
 
         // CombatReplayRuntime accessor is not a path and is not on services.Paths — pass it
         // straight through to Factory. Paths are startup-stable strings.
         panel.Configure(
             HistoryPanelFactory.Create(
-                runState,
+                services.RunContext,
                 modApiSession,
                 () => combatReplayRuntime,
                 PathConstants.RunLogDatabase(services.Paths.RequireDataRoot()),

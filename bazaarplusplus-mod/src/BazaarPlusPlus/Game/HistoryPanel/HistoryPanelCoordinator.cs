@@ -11,10 +11,10 @@ namespace BazaarPlusPlus.Game.HistoryPanel;
 internal sealed partial class HistoryPanelCoordinator : IDisposable
 {
     private readonly HistoryPanelState _state;
-    private readonly IHistoryPanelRunState _runState;
+    private readonly IRunContext _runContext;
     private readonly HistoryPanelDataService _dataService;
     private readonly HistoryPanelReplayService _replayService;
-    private readonly IHistoryPanelServerHealthProbe? _serverHealthProbe;
+    private readonly ModApiSession? _modApiSession;
     private readonly BazaarDbLinkClient? _linkClient;
     private readonly BazaarDbAccountLinkStore _accountLinkStore;
     private readonly Action _requestUiRefresh;
@@ -33,10 +33,10 @@ internal sealed partial class HistoryPanelCoordinator : IDisposable
         _state = state ?? throw new ArgumentNullException(nameof(state));
         if (dependencies == null)
             throw new ArgumentNullException(nameof(dependencies));
-        _runState = dependencies.RunState;
+        _runContext = dependencies.RunContext;
         _dataService = dependencies.DataService;
         _replayService = dependencies.ReplayService;
-        _serverHealthProbe = dependencies.ServerHealthProbe;
+        _modApiSession = dependencies.ModApiSession;
         _linkClient = dependencies.AccountLinkClient;
         _accountLinkStore = dependencies.AccountLinkStore;
         _requestUiRefresh =
@@ -221,8 +221,8 @@ internal sealed partial class HistoryPanelCoordinator : IDisposable
         return HistoryPanelDecisions.CanDeleteRun(
             _state.SectionMode,
             selectedRun,
-            _runState.IsInGameRun,
-            _runState.CurrentServerRunId,
+            _runContext.IsInGameRun,
+            _runContext.CurrentServerRunId,
             _dataService.IsAvailable,
             out reason
         );
@@ -506,7 +506,7 @@ internal sealed partial class HistoryPanelCoordinator : IDisposable
             return;
         }
 
-        if (_serverHealthProbe == null)
+        if (_modApiSession == null)
         {
             var unavailable = HistoryPanelServerHealthFormatter.Unavailable();
             SetStatusMessage(unavailable.StatusMessage);
@@ -525,7 +525,7 @@ internal sealed partial class HistoryPanelCoordinator : IDisposable
         try
         {
             _requestUiRefresh();
-            result = await _serverHealthProbe.ProbeAsync(_session.Token);
+            result = await _modApiSession.ProbeHealthAsync(_session.Token);
         }
         catch (OperationCanceledException ex)
         {

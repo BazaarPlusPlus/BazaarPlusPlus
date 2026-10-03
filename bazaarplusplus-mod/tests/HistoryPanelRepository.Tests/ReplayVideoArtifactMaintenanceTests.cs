@@ -25,17 +25,24 @@ internal static class ReplayVideoArtifactMaintenanceTests
                 status: "RECORDING"
             ),
         ]);
-        var path = Path.Combine(root, "crashed.mp4");
-        var files = new FakeFiles([new ReplayVideoFileRecord(path, 500, now.AddDays(-2))]);
+        Directory.CreateDirectory(root);
+        try
+        {
+            var path = CreateFile(root, "crashed.mp4", now.AddDays(-2), 500);
 
-        var result = new ReplayVideoArtifactMaintenanceService(catalog, files, root).Run(
-            now,
-            TimeSpan.FromDays(1),
-            CancellationToken.None
-        );
+            var result = new ReplayVideoArtifactMaintenanceService(catalog, root).Run(
+                now,
+                TimeSpan.FromDays(1),
+                CancellationToken.None
+            );
 
-        Equal(0, result.TempCandidateCount, "final MP4 is never inferred to be failed residue");
-        True(files.Exists(path), "recording final MP4 survives the SaveFinish crash window");
+            Equal(0, result.TempCandidateCount, "final MP4 is never inferred to be failed residue");
+            True(File.Exists(path), "recording final MP4 survives the SaveFinish crash window");
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
     }
 
     private static void ReconcileUsesSnapshotCasAcrossAConcurrentFinish()
@@ -54,7 +61,7 @@ internal static class ReplayVideoArtifactMaintenanceTests
             };
         };
 
-        _ = new ReplayVideoArtifactMaintenanceService(catalog, new FakeFiles([]), root).Run(
+        _ = new ReplayVideoArtifactMaintenanceService(catalog, root).Run(
             DateTimeOffset.UtcNow,
             TimeSpan.FromDays(1),
             CancellationToken.None
@@ -81,25 +88,28 @@ internal static class ReplayVideoArtifactMaintenanceTests
                 )
             )
             .ToList();
-        var files = artifacts
-            .Select(artifact => new ReplayVideoFileRecord(
-                Path.Combine(root, artifact.VideoRelativePath),
-                100,
-                now
-            ))
-            .ToList();
-        var catalog = new FakeCatalog(artifacts);
+        Directory.CreateDirectory(root);
+        try
+        {
+            foreach (var artifact in artifacts)
+                CreateFile(root, artifact.VideoRelativePath, now, 100);
+            var catalog = new FakeCatalog(artifacts);
 
-        var result = new ReplayVideoArtifactMaintenanceService(
-            catalog,
-            new FakeFiles(files),
-            root
-        ).Run(now, TimeSpan.FromDays(1), CancellationToken.None);
+            var result = new ReplayVideoArtifactMaintenanceService(catalog, root).Run(
+                now,
+                TimeSpan.FromDays(1),
+                CancellationToken.None
+            );
 
-        Equal(1, catalog.ListArtifactsCallCount, "video metadata query count");
-        Equal(2, catalog.ReconcileCallCount, "bulk reconcile command count");
-        Equal(30_000, result.WorkUnits, "linear metadata/file work units");
-        Equal(10_000, result.PresentMetadataCount, "large present metadata count");
+            Equal(1, catalog.ListArtifactsCallCount, "video metadata query count");
+            Equal(2, catalog.ReconcileCallCount, "bulk reconcile command count");
+            Equal(30_000, result.WorkUnits, "linear metadata/file work units");
+            Equal(10_000, result.PresentMetadataCount, "large present metadata count");
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
     }
 
     private static void RelativePathConversionRejectsPrefixSiblings()
@@ -133,14 +143,11 @@ internal static class ReplayVideoArtifactMaintenanceTests
                 Artifact("attached", "kept.mp4", ReplayVideoAttachmentState.Attached),
                 Artifact("detached", "gone.mp4", ReplayVideoAttachmentState.Detached),
             ]);
-            var files = new FakeFiles([
-                FileRecord(root, "kept.mp4", now.AddDays(-100), 100),
-                FileRecord(root, "unknown-success.mp4", now.AddDays(-100), 200),
-                FileRecord(root, "expired.recording.mp4", now.AddDays(-2), 20),
-                FileRecord(root, "active.recording.mp4", now.AddDays(-2), 20),
-                FileRecord(root, "recent.wav", now.AddMinutes(-10), 20),
-            ]);
-            var activeTemp = Path.Combine(root, "active.recording.mp4");
+            CreateFile(root, "kept.mp4", now.AddDays(-100), 100);
+            CreateFile(root, "unknown-success.mp4", now.AddDays(-100), 200);
+            var expiredTemp = CreateFile(root, "expired.recording.mp4", now.AddDays(-2), 20);
+            var activeTemp = CreateFile(root, "active.recording.mp4", now.AddDays(-2), 20);
+            var recentTemp = CreateFile(root, "recent.wav", now.AddMinutes(-10), 20);
             using var protectedLease = ReplayVideoInFlightArtifacts.Protect(
                 "active-recording",
                 [activeTemp]
@@ -148,7 +155,6 @@ internal static class ReplayVideoArtifactMaintenanceTests
 
             var result = new ReplayVideoArtifactMaintenanceService(
                 catalog,
-                files,
                 root,
                 ReplayVideoInFlightArtifacts.SnapshotPaths
             ).Run(now, TimeSpan.FromDays(1), CancellationToken.None);
@@ -158,22 +164,23 @@ internal static class ReplayVideoArtifactMaintenanceTests
             Equal(1, result.UnknownSuccessfulMp4Count, "unknown successful mp4");
             Equal(1, result.TempDeletedCount, "expired temp delete");
             Equal(0, result.DeleteFailureCount, "delete failures");
-            True(files.Exists(Path.Combine(root, "kept.mp4")), "known successful MP4 retained");
+            True(File.Exists(Path.Combine(root, "kept.mp4")), "known successful MP4 retained");
             True(
-                files.Exists(Path.Combine(root, "unknown-success.mp4")),
+                File.Exists(Path.Combine(root, "unknown-success.mp4")),
                 "unknown successful MP4 retained"
             );
-            True(files.Exists(activeTemp), "in-flight temp retained across TTL");
+            True(!File.Exists(expiredTemp), "expired temp deleted");
+            True(File.Exists(activeTemp), "in-flight temp retained across TTL");
+            True(File.Exists(recentTemp), "temp within TTL retained");
             True(
                 catalog.Artifacts.Single(artifact => artifact.VideoId == "detached").FileState
                     == ReplayVideoFileState.Missing,
                 "reconcile changes file state without reattaching"
             );
 
-            files.Add(FileRecord(root, "gone.mp4", now, 300));
+            CreateFile(root, "gone.mp4", now, 300);
             var second = new ReplayVideoArtifactMaintenanceService(
                 catalog,
-                files,
                 root,
                 ReplayVideoInFlightArtifacts.SnapshotPaths
             ).Run(now.AddMinutes(1), TimeSpan.FromDays(1), CancellationToken.None);
@@ -209,7 +216,6 @@ internal static class ReplayVideoArtifactMaintenanceTests
             Directory.CreateSymbolicLink(Path.Combine(root, "linked"), sibling);
             var maintenance = new ReplayVideoArtifactMaintenanceService(
                 new FakeCatalog([]),
-                new ReplayVideoArtifactFiles(),
                 root
             ).Run(DateTimeOffset.UtcNow, TimeSpan.FromDays(1), CancellationToken.None);
             Equal(0, maintenance.TempDeletedCount, "linked outside temp retained");
@@ -241,12 +247,18 @@ internal static class ReplayVideoArtifactMaintenanceTests
             null
         );
 
-    private static ReplayVideoFileRecord FileRecord(
+    private static string CreateFile(
         string root,
         string relative,
         DateTimeOffset modified,
-        long size
-    ) => new(Path.Combine(root, relative), size, modified);
+        int size
+    )
+    {
+        var path = Path.Combine(root, relative);
+        File.WriteAllBytes(path, new byte[size]);
+        File.SetLastWriteTimeUtc(path, modified.UtcDateTime);
+        return path;
+    }
 
     private static void True(bool value, string label)
     {
@@ -302,23 +314,5 @@ internal static class ReplayVideoArtifactMaintenanceTests
                     Artifacts[i] = current with { FileState = fileState };
             }
         }
-    }
-
-    private sealed class FakeFiles(IEnumerable<ReplayVideoFileRecord> files)
-        : IReplayVideoArtifactFiles
-    {
-        private readonly Dictionary<string, ReplayVideoFileRecord> _files = files.ToDictionary(
-            file => file.FullPath,
-            StringComparer.Ordinal
-        );
-
-        public IReadOnlyList<ReplayVideoFileRecord> ListFiles(string rootDirectory) =>
-            _files.Values.ToList();
-
-        public bool Exists(string fullPath) => _files.ContainsKey(fullPath);
-
-        public void Delete(string fullPath) => _files.Remove(fullPath);
-
-        internal void Add(ReplayVideoFileRecord file) => _files[file.FullPath] = file;
     }
 }

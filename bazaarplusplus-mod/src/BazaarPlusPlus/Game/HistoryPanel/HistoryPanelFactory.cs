@@ -2,6 +2,7 @@
 using BazaarPlusPlus.Game.CombatReplay;
 using BazaarPlusPlus.Game.HistoryPanel.Ghost;
 using BazaarPlusPlus.Game.HistoryPanel.Storage;
+using BazaarPlusPlus.GameInterop;
 using BazaarPlusPlus.ModApi.Clients;
 
 namespace BazaarPlusPlus.Game.HistoryPanel;
@@ -9,7 +10,7 @@ namespace BazaarPlusPlus.Game.HistoryPanel;
 internal static class HistoryPanelFactory
 {
     public static HistoryPanelDependencies Create(
-        IHistoryPanelRunState runState,
+        IRunContext runContext,
         ModApiSession? modApiSession,
         Func<CombatReplayRuntime?> combatReplayRuntimeAccessor,
         string runLogDatabasePath,
@@ -20,8 +21,8 @@ internal static class HistoryPanelFactory
         Func<AccountLinkGate>? accountLinkGate = null
     )
     {
-        if (runState == null)
-            throw new ArgumentNullException(nameof(runState));
+        if (runContext == null)
+            throw new ArgumentNullException(nameof(runContext));
         if (combatReplayRuntimeAccessor == null)
             throw new ArgumentNullException(nameof(combatReplayRuntimeAccessor));
 
@@ -49,13 +50,11 @@ internal static class HistoryPanelFactory
             videoDirectoryPath,
             ghostSyncService
         );
-        var serverHealthProbe =
-            modApiSession == null ? null : new HistoryPanelServerHealthProbe(modApiSession);
         return new HistoryPanelDependencies(
-            runState,
+            runContext,
             dataService,
             replayService,
-            serverHealthProbe,
+            modApiSession,
             accountLinkClient,
             accountLinkGate
         );

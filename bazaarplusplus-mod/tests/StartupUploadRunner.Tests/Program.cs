@@ -14,14 +14,6 @@ using BazaarPlusPlus.Storage.BundleQueue;
 using BazaarPlusPlus.Storage.Paths;
 using Microsoft.Data.Sqlite;
 
-Assert(
-    Enum.GetValues<UploadFeedKind>().SequenceEqual([UploadFeedKind.Bundle]),
-    "V5 must expose exactly one upload feed kind."
-);
-Assert(
-    typeof(IUploadFeed).IsAssignableFrom(typeof(BundleUploadFeed)),
-    "The bundle upload feed must implement the shared feed contract."
-);
 Assert(BundleUploadFeed.MaximumAttemptBatch == 3, "Each attempt must upload at most 3 bundles.");
 
 var cadence = new UploadPumpCadence(20, 180);

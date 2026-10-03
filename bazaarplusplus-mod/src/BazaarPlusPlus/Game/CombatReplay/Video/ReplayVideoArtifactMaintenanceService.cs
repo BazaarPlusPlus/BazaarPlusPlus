@@ -4,22 +4,15 @@ using System.Runtime.InteropServices;
 
 namespace BazaarPlusPlus.Game.CombatReplay.Video;
 
-internal interface IReplayVideoArtifactFiles
-{
-    IReadOnlyList<ReplayVideoFileRecord> ListFiles(string rootDirectory);
-    bool Exists(string fullPath);
-    void Delete(string fullPath);
-}
-
 internal readonly record struct ReplayVideoFileRecord(
     string FullPath,
     long SizeBytes,
     DateTimeOffset LastWriteAtUtc
 );
 
-internal sealed class ReplayVideoArtifactFiles : IReplayVideoArtifactFiles
+internal static class ReplayVideoArtifactFiles
 {
-    public IReadOnlyList<ReplayVideoFileRecord> ListFiles(string rootDirectory)
+    internal static IReadOnlyList<ReplayVideoFileRecord> ListFiles(string rootDirectory)
     {
         if (string.IsNullOrWhiteSpace(rootDirectory) || !Directory.Exists(rootDirectory))
             return Array.Empty<ReplayVideoFileRecord>();
@@ -48,10 +41,6 @@ internal sealed class ReplayVideoArtifactFiles : IReplayVideoArtifactFiles
         }
         return files;
     }
-
-    public bool Exists(string fullPath) => File.Exists(fullPath);
-
-    public void Delete(string fullPath) => File.Delete(fullPath);
 }
 
 internal readonly record struct ReplayVideoMaintenanceResult(
@@ -71,19 +60,16 @@ internal sealed class ReplayVideoArtifactMaintenanceService
     internal static readonly TimeSpan DefaultTemporaryRetention = TimeSpan.FromDays(1);
 
     private readonly IReplayVideoArtifactCatalog _catalog;
-    private readonly IReplayVideoArtifactFiles _files;
     private readonly string _rootDirectory;
     private readonly Func<IReadOnlyCollection<string>> _protectedPaths;
 
     internal ReplayVideoArtifactMaintenanceService(
         IReplayVideoArtifactCatalog catalog,
-        IReplayVideoArtifactFiles files,
         string rootDirectory,
         Func<IReadOnlyCollection<string>>? protectedPaths = null
     )
     {
         _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
-        _files = files ?? throw new ArgumentNullException(nameof(files));
         _rootDirectory = rootDirectory ?? string.Empty;
         _protectedPaths = protectedPaths ?? (() => Array.Empty<string>());
     }
@@ -95,7 +81,7 @@ internal sealed class ReplayVideoArtifactMaintenanceService
     )
     {
         var artifacts = _catalog.ListArtifacts();
-        var files = _files.ListFiles(_rootDirectory);
+        var files = ReplayVideoArtifactFiles.ListFiles(_rootDirectory);
         var comparer = PathComparer;
         var workUnits = 0;
         var inventory = new Dictionary<string, ReplayVideoFileRecord>(comparer);
@@ -165,7 +151,7 @@ internal sealed class ReplayVideoArtifactMaintenanceService
             cancellationToken.ThrowIfCancellationRequested();
             try
             {
-                _files.Delete(candidate.FullPath);
+                File.Delete(candidate.FullPath);
                 deleted++;
             }
             catch
