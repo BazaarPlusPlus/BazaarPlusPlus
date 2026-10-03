@@ -5,7 +5,39 @@ use rusqlite::{params, Connection, OpenFlags, OptionalExtension};
 use crate::history::dto::{HistoryBattleRow, HistorySummary};
 use crate::history::mapper::{map_battle_row, BattleFields, BattleVideoFields};
 
-const UNSUPPORTED_SCHEMA_ERROR_PREFIX: &str = "Unsupported mod database schema: found=";
+/// Why a history database could not be read. An unsupported schema stays typed
+/// so the History page can name the found and supported versions; every other
+/// failure is a diagnostic. Callers that only report a diagnostic convert it
+/// to its `Display` text.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum HistoryReadError {
+    UnsupportedSchema { found: i64, supported: String },
+    Failed(String),
+}
+
+impl std::fmt::Display for HistoryReadError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::UnsupportedSchema { found, supported } => write!(
+                formatter,
+                "Unsupported mod database schema: found={found}, supported={supported}."
+            ),
+            Self::Failed(diagnostic) => formatter.write_str(diagnostic),
+        }
+    }
+}
+
+impl From<String> for HistoryReadError {
+    fn from(diagnostic: String) -> Self {
+        Self::Failed(diagnostic)
+    }
+}
+
+impl From<HistoryReadError> for String {
+    fn from(error: HistoryReadError) -> Self {
+        error.to_string()
+    }
+}
 
 pub struct RunRow {
     pub run_id: String,
@@ -37,7 +69,7 @@ const OPEN_RETRY_BACKOFF: [Duration; 2] = [Duration::from_millis(50), Duration::
 /// exited uncleanly leaves behind — so the read-only flag turns a recoverable
 /// database into an unreadable one. Write access is not a requirement of this
 /// path: when the file is write-protected SQLite opens it read-only by itself.
-pub fn open_connection(database_path: &Path) -> Result<Connection, String> {
+pub fn open_connection(database_path: &Path) -> Result<Connection, HistoryReadError> {
     open_with_retry(database_path, Writability::Optional)
 }
 
@@ -45,7 +77,7 @@ pub fn open_connection(database_path: &Path) -> Result<Connection, String> {
 /// downgrades a write-protected database to read-only, an unwritable file would
 /// otherwise open cleanly here and only fail partway through a cleanup
 /// transaction; the writability check moves that failure to the open.
-pub fn open_write_connection(database_path: &Path) -> Result<Connection, String> {
+pub fn open_write_connection(database_path: &Path) -> Result<Connection, HistoryReadError> {
     open_with_retry(database_path, Writability::Required)
 }
 
@@ -55,7 +87,10 @@ enum Writability {
     Required,
 }
 
-fn open_with_retry(database_path: &Path, writability: Writability) -> Result<Connection, String> {
+fn open_with_retry(
+    database_path: &Path,
+    writability: Writability,
+) -> Result<Connection, HistoryReadError> {
     let mut attempt = 0usize;
     loop {
         match open_probed(database_path, writability) {
@@ -67,10 +102,10 @@ fn open_with_retry(database_path: &Path, writability: Writability) -> Result<Con
             }
             Err(err) => {
                 let Some(backoff) = OPEN_RETRY_BACKOFF.get(attempt).copied() else {
-                    return Err(describe_error(&err));
+                    return Err(describe_error(&err).into());
                 };
                 if !is_transient_error(&err) {
-                    return Err(describe_error(&err));
+                    return Err(describe_error(&err).into());
                 }
                 std::thread::sleep(backoff);
                 attempt += 1;
@@ -123,24 +158,15 @@ fn describe_error(error: &rusqlite::Error) -> String {
     }
 }
 
-fn validate_supported_schema(found: i64) -> Result<(), String> {
+fn validate_supported_schema(found: i64) -> Result<(), HistoryReadError> {
     if crate::config::supported_mod_db_user_versions().contains(&found) {
         return Ok(());
     }
 
-    let supported = crate::config::supported_mod_db_user_versions_label();
-    Err(format!(
-        "{UNSUPPORTED_SCHEMA_ERROR_PREFIX}{found}, supported={supported}."
-    ))
-}
-
-pub(crate) fn unsupported_schema_versions(diagnostic: &str) -> Option<(i64, String)> {
-    let versions = diagnostic.strip_prefix(UNSUPPORTED_SCHEMA_ERROR_PREFIX)?;
-    let (found, supported) = versions.split_once(", supported=")?;
-    Some((
-        found.parse().ok()?,
-        supported.strip_suffix('.')?.to_string(),
-    ))
+    Err(HistoryReadError::UnsupportedSchema {
+        found,
+        supported: crate::config::supported_mod_db_user_versions_label(),
+    })
 }
 
 /// Write connection for cleanup operations. Unlike `open_write_connection`,
@@ -423,7 +449,7 @@ pub fn load_run_id_for_battle(
 
 #[cfg(test)]
 mod tests {
-    use super::{open_connection, open_write_connection};
+    use super::{open_connection, open_write_connection, HistoryReadError};
     use crate::config::{supported_mod_db_user_versions, supported_mod_db_user_versions_label};
 
     #[test]
@@ -445,9 +471,13 @@ mod tests {
             open_connection(&database_path).unwrap_err(),
             open_write_connection(&database_path).unwrap_err(),
         ] {
-            assert!(error.contains("found=0"), "{error}");
-            let supported = format!("supported={}", supported_mod_db_user_versions_label());
-            assert!(error.contains(&supported), "{error}");
+            assert_eq!(
+                error,
+                HistoryReadError::UnsupportedSchema {
+                    found: 0,
+                    supported: supported_mod_db_user_versions_label(),
+                }
+            );
         }
     }
 
@@ -491,7 +521,9 @@ mod tests {
             .unwrap();
         write_protect(&database_path);
 
-        let error = open_write_connection(&database_path).unwrap_err();
+        let error = open_write_connection(&database_path)
+            .unwrap_err()
+            .to_string();
 
         assert!(error.contains("not writable"), "{error}");
     }
@@ -502,7 +534,7 @@ mod tests {
         let database_path = temp_dir.path().join("bazaarplusplus.db");
         std::fs::write(&database_path, b"this is not a sqlite database").unwrap();
 
-        let error = open_connection(&database_path).unwrap_err();
+        let error = open_connection(&database_path).unwrap_err().to_string();
 
         // 26 is SQLITE_NOTADB; without the code the message alone reads as a
         // generic failure and cannot be triaged from a user report.
@@ -525,11 +557,13 @@ mod tests {
             .execute_batch(&format!("pragma user_version = {newer};"))
             .unwrap();
 
-        let error = open_connection(&database_path).unwrap_err();
-
-        assert!(error.contains(&format!("found={newer}")), "{error}");
-        let supported = format!("supported={}", supported_mod_db_user_versions_label());
-        assert!(error.contains(&supported), "{error}");
+        assert_eq!(
+            open_connection(&database_path).unwrap_err(),
+            HistoryReadError::UnsupportedSchema {
+                found: newer,
+                supported: supported_mod_db_user_versions_label(),
+            }
+        );
     }
 
     #[test]

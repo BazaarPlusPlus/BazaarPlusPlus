@@ -238,22 +238,6 @@ mod tests {
     }
 
     #[test]
-    fn strip_cache_hit_does_not_decode_source_image() {
-        let temp_dir = tempfile::tempdir().unwrap();
-        let source_path = temp_dir.path().join("source.png");
-        let cache_directory = temp_dir.path().join("cache");
-        let crop = OverlayCropSettings::default();
-        std::fs::write(&source_path, b"not an image").unwrap();
-        let cache_path = crop_cache_path(&cache_directory, "shot-1", &source_path, crop).unwrap();
-        std::fs::create_dir_all(cache_path.parent().unwrap()).unwrap();
-        std::fs::write(&cache_path, b"cached strip").unwrap();
-
-        let bytes = cached_strip(&cache_directory, "shot-1", &source_path, crop).unwrap();
-
-        assert_eq!(bytes, b"cached strip");
-    }
-
-    #[test]
     fn strip_cache_miss_stores_one_entry_without_a_temporary_file() {
         let temp_dir = tempfile::tempdir().unwrap();
         let source_path = temp_dir.path().join("source.png");

@@ -92,7 +92,7 @@ pub fn run() {
             let app_handle = handle.clone();
             tauri::async_runtime::spawn(async move {
                 let runtime = app_handle.state::<crate::stream::runtime::StreamRuntime>();
-                let _ = runtime.ensure(app_handle.clone(), None).await;
+                let _ = runtime.ensure(app_handle.clone()).await;
             });
             Ok(())
         })

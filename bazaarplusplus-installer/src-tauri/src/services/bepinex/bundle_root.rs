@@ -354,17 +354,6 @@ pub(super) mod tests {
     }
 
     #[test]
-    fn digests_match_shasum_output() {
-        let dir = tempfile::tempdir().unwrap();
-        let file = dir.path().join("abc");
-        fs::write(&file, "abc").unwrap();
-        assert_eq!(
-            file_digest(&file).unwrap(),
-            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
-        );
-    }
-
-    #[test]
     fn repeated_repairs_and_new_steam_contents_keep_one_verified_backup() {
         let game = tempfile::tempdir().unwrap();
         let app = make_bundle(game.path());

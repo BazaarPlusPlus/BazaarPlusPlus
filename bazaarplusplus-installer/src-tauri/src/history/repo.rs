@@ -9,7 +9,7 @@ use crate::history::files::{remove_video_file, resolve_data_file_path, resolve_s
 use crate::history::mapper::{map_run_to_detail_row, map_run_to_list_row};
 use crate::history::queries::{
     self, list_run_rows, load_battle_rows, load_battle_video_ref, load_run_row, load_summary,
-    local_player_name, open_connection, open_write_connection, table_exists,
+    local_player_name, open_connection, open_write_connection, table_exists, HistoryReadError,
 };
 use crate::history::screenshots::{primary_screenshot, primary_screenshot_ids};
 
@@ -19,7 +19,7 @@ pub fn list_history_runs(
     limit: usize,
     offset: usize,
     thumbnail_url: impl Fn(&str) -> String,
-) -> Result<HistoryRunList, String> {
+) -> Result<HistoryRunList, HistoryReadError> {
     let empty = || HistoryRunList {
         summary: HistorySummary {
             runs: 0,
@@ -62,7 +62,7 @@ pub fn list_history_runs(
 pub fn get_history_run_detail(
     database_path: &Path,
     run_id: &str,
-) -> Result<Option<HistoryRunDetail>, String> {
+) -> Result<Option<HistoryRunDetail>, HistoryReadError> {
     if !database_path.exists() {
         return Ok(None);
     }

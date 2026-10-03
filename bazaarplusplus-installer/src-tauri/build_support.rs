@@ -13,8 +13,7 @@ pub fn should_compile_trampoline(
 }
 
 /// Return whether `otool -l` reports the required minimum macOS version for a
-/// Mach-O image. Modern Apple toolchains emit `LC_BUILD_VERSION`; accepting the
-/// legacy `LC_VERSION_MIN_MACOSX` form keeps the check valid with older clangs.
+/// Mach-O image, read from its `LC_BUILD_VERSION` load command.
 pub fn has_macos_trampoline_deployment_target(otool_output: &str, expected_version: &str) -> bool {
     let mut load_command = None;
     let mut is_macos_platform = false;
@@ -28,21 +27,13 @@ pub fn has_macos_trampoline_deployment_target(otool_output: &str, expected_versi
             continue;
         }
 
-        match load_command {
-            Some("LC_BUILD_VERSION") => {
-                if line == "platform 1" {
-                    is_macos_platform = true;
-                } else if is_macos_platform && line.strip_prefix("minos ") == Some(expected_version)
-                {
-                    return true;
-                }
-            }
-            Some("LC_VERSION_MIN_MACOSX")
-                if line.strip_prefix("version ") == Some(expected_version) =>
-            {
-                return true;
-            }
-            _ => {}
+        if load_command != Some("LC_BUILD_VERSION") {
+            continue;
+        }
+        if line == "platform 1" {
+            is_macos_platform = true;
+        } else if is_macos_platform && line.strip_prefix("minos ") == Some(expected_version) {
+            return true;
         }
     }
 

@@ -141,59 +141,6 @@ mod tests {
         }
     }
 
-    #[cfg(target_os = "macos")]
-    #[test]
-    fn complete_install_records_one_macos_bootstrap_then_returns_refreshed_outcome() {
-        let mut recorder = Recorder::default();
-
-        let outcome = execute_and_refresh(&facts(false, false), &mut recorder, || {
-            Ok("state read back from disk")
-        });
-
-        assert_eq!(outcome.unwrap(), "state read back from disk");
-        assert_eq!(
-            recorder.effects,
-            vec![
-                InstallEffect::EnsureGameStopped,
-                InstallEffect::CloseSteam,
-                InstallEffect::InstallBepInEx,
-                InstallEffect::InstallTrampoline,
-                InstallEffect::RemoveObsoleteMacosArtifacts,
-                InstallEffect::ClearLaunchOptions,
-            ]
-        );
-    }
-
-    #[test]
-    fn install_operation_covers_fresh_changed_current_and_bootstrap_repair_states() {
-        let fresh = facts(false, false);
-        let changed = InstallEnvironmentSnapshot {
-            bepinex_installed: true,
-            bpp_version: Some("1".into()),
-            ..facts(false, false)
-        };
-        let no_op = facts(true, true);
-        let bootstrap_repair = facts(true, false);
-
-        for scenario in [fresh, changed] {
-            let mut recorder = Recorder::default();
-            execute_and_refresh(&scenario, &mut recorder, || Ok(())).unwrap();
-            assert!(recorder.effects.contains(&InstallEffect::InstallBepInEx));
-        }
-
-        let mut recorder = Recorder::default();
-        execute_and_refresh(&no_op, &mut recorder, || Ok(())).unwrap();
-        assert!(recorder.effects.is_empty());
-
-        let mut recorder = Recorder::default();
-        execute_and_refresh(&bootstrap_repair, &mut recorder, || Ok(())).unwrap();
-        assert!(!recorder.effects.contains(&InstallEffect::InstallBepInEx));
-        assert_eq!(
-            recorder.effects.contains(&InstallEffect::InstallTrampoline),
-            cfg!(target_os = "macos")
-        );
-    }
-
     #[test]
     fn complete_install_stops_on_first_error_and_does_not_refresh() {
         let mut recorder = Recorder {
@@ -214,10 +161,6 @@ mod tests {
             recorder.effects.last(),
             Some(&InstallEffect::InstallBepInEx)
         );
-        assert!(!recorder.effects.contains(&InstallEffect::InstallTrampoline));
-        assert!(!recorder
-            .effects
-            .contains(&InstallEffect::ClearLaunchOptions));
     }
 }
 

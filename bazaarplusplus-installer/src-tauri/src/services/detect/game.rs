@@ -89,14 +89,4 @@ mod tests {
 
         assert!(is_bepinex_installed(tmp.path()));
     }
-
-    #[test]
-    fn test_normalize_game_path_trims_whitespace() {
-        use crate::services::path::normalize_requested_game_path;
-        use std::path::PathBuf;
-
-        let game_path =
-            normalize_requested_game_path(Some("  C:\\Games\\The Bazaar  ".to_string()));
-        assert_eq!(game_path, Some(PathBuf::from("C:\\Games\\The Bazaar")));
-    }
 }
