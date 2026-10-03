@@ -1,3 +1,18 @@
+// Isolated on purpose: these are the History List failure modes that a DOM
+// snapshot cannot observe, because each depends on the order in which
+// overlapping requests settle. Rendered states are anchored by
+// src/shell.snapshot.test.tsx and pages/History.test.tsx.
+// - A late list read from a previous page or a superseded refresh overwrites
+//   the newer result, or its failure replaces newer data.
+// - Empty is published before a read succeeds, or a refresh failure drops data
+//   that is still valid.
+// - A page correction after the total shrinks loops, or a failed corrected read
+//   retries a different page.
+// - Leftover-game recovery refreshes a page other than the current one.
+// - A superseded thumbnail preparation sets or clears the image-service notice,
+//   or a non-service failure raises that notice.
+// - A restarted lifecycle accepts completions from the old one, or a stopped or
+//   duplicate lifecycle starts effects.
 import { describe, expect, it, vi } from 'vitest';
 import { emptyHistoryRunList } from '../../api/previewDefaults';
 import type { HistoryRunList } from '../../types/backend';
@@ -153,18 +168,6 @@ describe('History List workflow', () => {
     }
   );
 
-  it('keeps a changed-page failure blocking and retries that same page', async () => {
-    const { commands, workflow } = fixture();
-    await workflow.start();
-    commands.listHistoryRuns.mockRejectedValueOnce(readFailure);
-    await workflow.selectPage(2);
-    expect(workflow.getSnapshot().state.phase).toBe('blocking-failure');
-    expect(workflow.getSnapshot().state).not.toHaveProperty('data');
-    await workflow.intents.refresh();
-    expect(commands.listHistoryRuns).toHaveBeenLastCalledWith(50, 50);
-    expect(workflow.getSnapshot().state).toMatchObject({ data: pageData(2) });
-  });
-
   it.each(['success', 'failure'])(
     'rejects a late %s from a superseded refresh on the same page',
     async (outcome) => {
@@ -185,33 +188,6 @@ describe('History List workflow', () => {
       });
     }
   );
-
-  it('corrects an out-of-range page before publishing its rows', async () => {
-    const { commands, replacePage, workflow } = fixture(5);
-    commands.listHistoryRuns.mockImplementation(async (_limit, offset) =>
-      pageData((offset ?? 0) / 50 + 1, 52)
-    );
-    await workflow.start();
-    expect(commands.listHistoryRuns.mock.calls).toEqual([
-      [50, 200],
-      [50, 50]
-    ]);
-    expect(replacePage).toHaveBeenCalledExactlyOnceWith(2);
-    expect(workflow.getSnapshot()).toMatchObject({
-      state: { phase: 'ready-content', data: pageData(2, 52) },
-      pagination: {
-        page: 2,
-        pageCount: 2,
-        start: 51,
-        end: 52,
-        total: 52,
-        nextDisabled: true
-      }
-    });
-    await workflow.selectPage(2);
-    expect(commands.listHistoryRuns).toHaveBeenCalledTimes(2);
-    expect(commands.prepareHistoryThumbnails).toHaveBeenCalledOnce();
-  });
 
   it('returns an emptied history to page 1 without a redirect loop', async () => {
     const { commands, replacePage, workflow } = fixture(3);
@@ -274,81 +250,6 @@ describe('History List workflow', () => {
       });
     }
   );
-
-  it('keeps list reads independent of slow or failed thumbnail preparation', async () => {
-    const { commands, workflow } = fixture();
-    const request = deferred<null>();
-    commands.prepareHistoryThumbnails.mockReturnValueOnce(request.promise);
-    const starting = workflow.start();
-    await Promise.resolve();
-    expect(workflow.getSnapshot()).toMatchObject({
-      state: { phase: 'ready-content', data: pageData() },
-      busy: false,
-      thumbnails: 'pending'
-    });
-    expect(workflow.getSnapshot().thumbnailUrl(thumbnailRun)).toBeNull();
-    request.reject(new Error('port occupied'));
-    await starting;
-    expect(workflow.getSnapshot()).toMatchObject({
-      state: { phase: 'ready-content', refresh: { phase: 'idle' } },
-      thumbnails: 'unavailable'
-    });
-    expect(workflow.getSnapshot().thumbnailUrl(thumbnailRun)).toBeNull();
-  });
-
-  it('shows the URL built by the list only once preparation succeeds', async () => {
-    const { commands, workflow } = fixture();
-    await workflow.start();
-    expect(commands.prepareHistoryThumbnails).toHaveBeenCalledOnce();
-    expect(workflow.getSnapshot().thumbnails).toBe('ready');
-    expect(workflow.getSnapshot().thumbnailUrl(thumbnailRun)).toBe(
-      thumbnailRun.thumbnail_url
-    );
-    expect(workflow.getSnapshot().thumbnailUrl(pageData().runs[1])).toBeNull();
-  });
-
-  it('keeps the current thumbnail state while a refresh or page change prepares again', async () => {
-    const { commands, workflow } = fixture();
-    await workflow.start();
-    const firstAttempt = workflow.getSnapshot().thumbnailAttempt;
-
-    const refreshed = deferred<null>();
-    commands.prepareHistoryThumbnails.mockReturnValueOnce(refreshed.promise);
-    const refreshing = workflow.intents.refresh();
-    expect(workflow.getSnapshot()).toMatchObject({
-      thumbnails: 'ready',
-      thumbnailAttempt: firstAttempt
-    });
-    refreshed.resolve(null);
-    await refreshing;
-    expect(workflow.getSnapshot()).toMatchObject({
-      thumbnails: 'ready',
-      thumbnailAttempt: firstAttempt + 1
-    });
-
-    const failed = deferred<null>();
-    commands.prepareHistoryThumbnails.mockReturnValueOnce(failed.promise);
-    const changingPage = workflow.selectPage(2);
-    const nextPageRun = { ...thumbnailRun, run_id: 'run-51' };
-    expect(workflow.getSnapshot().thumbnailUrl(nextPageRun)).toBe(
-      thumbnailRun.thumbnail_url
-    );
-    failed.reject(new Error('stopped'));
-    await changingPage;
-    expect(workflow.getSnapshot()).toMatchObject({
-      thumbnails: 'unavailable',
-      thumbnailAttempt: firstAttempt + 2
-    });
-    expect(workflow.getSnapshot().thumbnailUrl(nextPageRun)).toBeNull();
-
-    const recovered = deferred<null>();
-    commands.prepareHistoryThumbnails.mockReturnValueOnce(recovered.promise);
-    const retrying = workflow.intents.refresh();
-    expect(workflow.getSnapshot().thumbnails).toBe('unavailable');
-    recovered.resolve(null);
-    await retrying;
-    expect(workflow.getSnapshot().thumbnails).toBe('ready');
-  });
 
   it('flags an image service that cannot start until a later preparation succeeds', async () => {
     const { commands, workflow } = fixture();

@@ -1,3 +1,19 @@
+// Isolated on purpose: the Install page's rendered states (game missing,
+// installable, installed, detection failed) are anchored by
+// src/shell.snapshot.test.tsx. These cases cover transitions and settle order a
+// static snapshot cannot observe.
+// - A blocking detection failure cannot be recovered by refresh, or a refresh
+//   failure drops a ready snapshot.
+// - A second operation queues behind or interleaves with a running one.
+// - Directory selection and its state load run as two operations, or a
+//   cancelled selection drops the current state.
+// - A confirmation retargets mid-operation, or a retry runs with different
+//   parameters than the confirmed ones.
+// - A mutation's returned state is read again, a failed mutation does not
+//   reconcile against its fixed target, or a reconciliation failure hides the
+//   action problem.
+// - A notice repeats or needs a timer to clear, or a completion that settles
+//   after dispose updates the page.
 import { describe, expect, it, vi } from 'vitest';
 import type { InstallState } from '../../types/backend';
 import {
