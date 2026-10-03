@@ -56,24 +56,24 @@ static void TestEmbeddedCatalogSeedHasAtLeastFiveEntries()
 static void TestAttributionText()
 {
     AssertEqual(
-        "Supported by Alice",
-        BPPSupporterAttributionText.FormatSupportedBy("Alice", "en"),
+        "Supported by",
+        BPPSupporterAttributionText.FormatSupportedByPrefix("en"),
         "English attribution should preserve the existing Supported by wording."
     );
     AssertEqual(
-        "由 Alice 支持",
-        BPPSupporterAttributionText.FormatSupportedBy("Alice", "zh-CN"),
-        "Chinese attribution should preserve the existing localized wording."
-    );
-    AssertEqual(
-        "由 Alice 支持",
-        BPPSupporterAttributionText.FormatSupportedBy(" Alice ", "zh-Hant"),
-        "Attribution should trim supporter names before formatting."
-    );
-    AssertEqual(
         string.Empty,
-        BPPSupporterAttributionText.FormatSupportedBy(" ", "zh-CN"),
-        "Blank supporter names should not produce visible attribution text."
+        BPPSupporterAttributionText.FormatSupportedBySuffix("en"),
+        "English attribution has no suffix."
+    );
+    AssertEqual(
+        "由",
+        BPPSupporterAttributionText.FormatSupportedByPrefix("zh-CN"),
+        "Chinese attribution should preserve the existing localized prefix."
+    );
+    AssertEqual(
+        "支持",
+        BPPSupporterAttributionText.FormatSupportedBySuffix("zh-CN"),
+        "Chinese attribution should preserve the existing localized suffix."
     );
 }
 

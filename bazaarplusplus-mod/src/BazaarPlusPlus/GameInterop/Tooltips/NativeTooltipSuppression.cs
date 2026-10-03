@@ -74,8 +74,6 @@ internal sealed class NativeTooltipSuppressionOwnershipCore
         return !IsActive;
     }
 
-    internal int LeaseCount(NativeTooltipSuppressionOwner owner) => _leaseCounts[OwnerIndex(owner)];
-
     private static int OwnerIndex(NativeTooltipSuppressionOwner owner) =>
         owner switch
         {

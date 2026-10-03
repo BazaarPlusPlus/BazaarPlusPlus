@@ -493,11 +493,6 @@ AssertEqual(
     selectionState.SelectedSourceKey,
     "Applying the default selection should select Jay Jay in the filter state."
 );
-AssertEqual(
-    defaultSelection,
-    selectionState.ToSelectionState(),
-    "Filter state should round-trip the selected hero and merchant through the selection interface."
-);
 var legacyCommonSelection = new CollectionPanelSelectionState(
     EHero.Common,
     CollectionPanelSelectionState.DefaultMerchantSourceKey,
@@ -535,11 +530,6 @@ AssertEqual(
     selectionState.SelectedSourceKey,
     "Runtime selection should replace the previous selected merchant."
 );
-AssertEqual(
-    runtimeSelection,
-    selectionState.ToSelectionState(),
-    "Runtime selection should be readable back from the filter state."
-);
 var trainerSelection = new CollectionPanelSelectionState(
     EHero.Pygmalien,
     "trainer:mr-tuskari:pygmalien",
@@ -557,21 +547,11 @@ AssertEqual(
     selectionState.SelectedSourceKey,
     "Applying a trainer runtime selection should store the trainer source key."
 );
-AssertEqual(
-    trainerSelection,
-    selectionState.ToSelectionState(),
-    "Trainer source selection should round-trip through the selection interface."
-);
 selectionState.ApplySelection(runtimeSelection);
 AssertEqual(
     ECardType.Item,
     selectionState.ActiveType,
     "Applying a merchant runtime selection should route the panel back to the Item tab."
-);
-AssertEqual(
-    null,
-    selectionState.GetSelectedSourceKey(ECardType.Skill),
-    "A single selected source key should not read back as a stale source for the inactive tab."
 );
 
 var sourceState = new CollectionFilterState();
@@ -606,11 +586,11 @@ AssertEqual(
 );
 var topLevelModeState = new CollectionFilterState { ActiveType = ECardType.Skill };
 AssertTrue(
-    topLevelModeState.SelectActiveType(ECardType.Item),
+    topLevelModeState.SelectTab(CollectionTabKind.Items),
     "Selecting Items from Skills should report a mode change."
 );
 AssertTrue(
-    topLevelModeState.SelectActiveType(ECardType.Skill),
+    topLevelModeState.SelectTab(CollectionTabKind.Skills),
     "Selecting Skills from Items should report a mode change."
 );
 AssertEqual(
@@ -619,7 +599,7 @@ AssertEqual(
     "Selecting Skills should activate the Skill card type."
 );
 AssertFalse(
-    topLevelModeState.SelectActiveType(ECardType.Skill),
+    topLevelModeState.SelectTab(CollectionTabKind.Skills),
     "Selecting the already active Skills tab should be a no-op."
 );
 

@@ -89,15 +89,6 @@ internal sealed class ReplayPlaybackLogOperation : IReplayPlaybackOutcomeSink
         }
     }
 
-    internal bool IsTerminal
-    {
-        get
-        {
-            lock (_gate)
-                return _terminal;
-        }
-    }
-
     public void ReportDegradation(ReplayPlaybackReasonCode reasonCode, Exception? exception = null)
     {
         if (reasonCode == ReplayPlaybackReasonCode.None)

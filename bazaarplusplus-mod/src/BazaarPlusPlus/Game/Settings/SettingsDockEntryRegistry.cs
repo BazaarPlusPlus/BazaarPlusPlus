@@ -14,14 +14,6 @@ internal sealed class SettingsDockEntryRegistry
         _entries.Add(entry);
     }
 
-    public IReadOnlyList<BppSettingsDockDefinition> MaterializeAll(IBppConfig config)
-    {
-        var result = new List<BppSettingsDockDefinition>(_entries.Count);
-        foreach (var entry in _entries)
-            result.Add(entry.Build(config));
-        return result;
-    }
-
     public IReadOnlyList<(int Order, BppSettingsDockDefinition Definition)> MaterializeWithOrder(
         IBppConfig config
     )

@@ -47,8 +47,6 @@ internal sealed class CollectionGridLayout
     public int ShelfCount => _shelves.Length;
     public int TotalRowUnits => _shelves.Length * ShelfHeightUnits;
 
-    public CollectionGridCell CellAt(int index) => _cells[index];
-
     public CollectionGridShelf ShelfAt(int shelf) => _shelves[shelf];
 
     public static CollectionGridLayout Build(

@@ -103,7 +103,7 @@ public sealed class EncounterPreviewCompilerTests
         var result = compiler.Compile(map);
 
         Assert.True(
-            result.FailureCount == 0,
+            result.FailedTemplateIds.Count == 0,
             $"Failed templates: {string.Join(", ", result.FailedTemplateIds)}"
         );
         var plan = Assert.Single(result.Snapshot.Events);

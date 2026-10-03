@@ -25,8 +25,6 @@ internal readonly struct CollectionPanelSelectionOpenObservation
 
     internal static CollectionPanelSelectionOpenObservation Complete() => new(true, []);
 
-    internal static CollectionPanelSelectionOpenObservation Incomplete() => new(false, []);
-
     internal static CollectionPanelSelectionOpenObservation Degraded(
         IReadOnlyList<CollectionPanelSelectionProbeFailure> failures
     ) => new(false, failures ?? []);

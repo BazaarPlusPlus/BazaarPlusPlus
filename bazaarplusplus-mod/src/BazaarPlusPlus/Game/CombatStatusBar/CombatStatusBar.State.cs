@@ -121,17 +121,6 @@ internal sealed partial class CombatStatusBar
         return current;
     }
 
-    internal static void ResetStateForTests()
-    {
-        IsCombatPlaybackActive = false;
-        IsCombatPaused = false;
-        CombatSpeedMultiplier = 1f;
-        ProcessedCombatFrames = 0;
-        TotalCombatFrames = 0;
-        LastCombatLogicalElapsed = TimeSpan.Zero;
-        HasCompletedCombatPlayback = false;
-    }
-
     internal static bool CanToggleCombatPause()
     {
         return IsCombatPlaybackActive && Singleton<GameServiceManager>.Instance != null;
