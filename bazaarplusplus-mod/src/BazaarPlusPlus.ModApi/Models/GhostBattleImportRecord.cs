@@ -1,7 +1,7 @@
 #nullable enable
 namespace BazaarPlusPlus.ModApi.Models;
 
-public sealed class GhostBattleImportRecord
+internal sealed class GhostBattleImportRecord
 {
     public string BattleId { get; set; } = string.Empty;
 

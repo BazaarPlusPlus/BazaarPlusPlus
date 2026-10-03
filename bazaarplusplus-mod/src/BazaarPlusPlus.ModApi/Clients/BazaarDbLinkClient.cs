@@ -6,7 +6,7 @@ using Newtonsoft.Json;
 
 namespace BazaarPlusPlus.ModApi.Clients;
 
-public enum BazaarDbLinkOutcome
+internal enum BazaarDbLinkOutcome
 {
     Linked,
     InvalidOrExpired,
@@ -16,7 +16,7 @@ public enum BazaarDbLinkOutcome
     Transport,
 }
 
-public readonly struct BazaarDbLinkResult
+internal readonly struct BazaarDbLinkResult
 {
     private BazaarDbLinkResult(BazaarDbLinkOutcome outcome, int? statusCode, ModApiFailure? failure)
     {
@@ -53,7 +53,7 @@ public readonly struct BazaarDbLinkResult
 /// Code is trimmed only (case-sensitive alphabet). 409 means already linked to a different
 /// BazaarDB user and is permanent.
 /// </summary>
-public sealed class BazaarDbLinkClient : IDisposable
+internal sealed class BazaarDbLinkClient : IDisposable
 {
     public const string DefaultRedeemEndpoint = "https://bazaardb.gg/api/profile/link/redeem";
 

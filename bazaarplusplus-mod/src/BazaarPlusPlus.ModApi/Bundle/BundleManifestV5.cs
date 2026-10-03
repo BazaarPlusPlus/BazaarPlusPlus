@@ -1,7 +1,7 @@
 #nullable enable
 namespace BazaarPlusPlus.ModApi.Bundle;
 
-public sealed class BundleManifestV5
+internal sealed class BundleManifestV5
 {
     public string BundleId { get; set; } = string.Empty;
     public int BundleVersion { get; set; } = BundleLimitsV5.BundleVersion;
@@ -10,7 +10,7 @@ public sealed class BundleManifestV5
     public BundleScreenshotManifestV5? Screenshot { get; set; }
 }
 
-public sealed class BundleRunManifestV5
+internal sealed class BundleRunManifestV5
 {
     public string RunId { get; set; } = string.Empty;
     public string PlayerAccountId { get; set; } = string.Empty;
@@ -19,12 +19,12 @@ public sealed class BundleRunManifestV5
     public BundleSegmentManifestV5 Payload { get; set; } = new();
 }
 
-public sealed class BundleProjectionV5
+internal sealed class BundleProjectionV5
 {
     public List<BundleBattleProjectionV5> Battles { get; set; } = new();
 }
 
-public sealed class BundleBattleProjectionV5
+internal sealed class BundleBattleProjectionV5
 {
     public string BattleId { get; set; } = string.Empty;
     public long RecordedAtMs { get; set; }
@@ -40,7 +40,7 @@ public sealed class BundleBattleProjectionV5
     public BundleCombatantProjectionV5 Opponent { get; set; } = new();
 }
 
-public sealed class BundleCombatantProjectionV5
+internal sealed class BundleCombatantProjectionV5
 {
     public string AccountId { get; set; } = string.Empty;
     public string DisplayName { get; set; } = string.Empty;
@@ -53,7 +53,7 @@ public sealed class BundleCombatantProjectionV5
     public long? Victories { get; set; }
 }
 
-public class BundleSegmentManifestV5
+internal class BundleSegmentManifestV5
 {
     public long Offset { get; set; }
     public long Length { get; set; }
@@ -61,7 +61,7 @@ public class BundleSegmentManifestV5
     public string ContentType { get; set; } = string.Empty;
 }
 
-public sealed class BundleScreenshotManifestV5 : BundleSegmentManifestV5
+internal sealed class BundleScreenshotManifestV5 : BundleSegmentManifestV5
 {
     public long Width { get; set; }
     public long Height { get; set; }
@@ -69,7 +69,7 @@ public sealed class BundleScreenshotManifestV5 : BundleSegmentManifestV5
     public long CapturedAtMs { get; set; }
 }
 
-public sealed class BundleBuildInputV5
+internal sealed class BundleBuildInputV5
 {
     public string BundleId { get; set; } = string.Empty;
     public long CreatedAtMs { get; set; }
@@ -81,7 +81,7 @@ public sealed class BundleBuildInputV5
     public BundleScreenshotBuildInputV5? Screenshot { get; set; }
 }
 
-public sealed class BundleScreenshotBuildInputV5
+internal sealed class BundleScreenshotBuildInputV5
 {
     public ReadOnlyMemory<byte> Bytes { get; set; }
     public string ContentType { get; set; } = BundleLimitsV5.JpegContentType;
@@ -91,7 +91,7 @@ public sealed class BundleScreenshotBuildInputV5
     public long CapturedAtMs { get; set; }
 }
 
-public sealed class BundleBuildResultV5
+internal sealed class BundleBuildResultV5
 {
     public BundleBuildResultV5(
         byte[] bytes,
@@ -115,7 +115,7 @@ public sealed class BundleBuildResultV5
     public string ContentDigest { get; }
 }
 
-public sealed class OpenedBundleV5
+internal sealed class OpenedBundleV5
 {
     public OpenedBundleV5(
         BundleManifestV5 manifest,
@@ -142,7 +142,7 @@ public sealed class OpenedBundleV5
     public string ContentDigest { get; }
 }
 
-public sealed class BundleV5Exception : Exception
+internal sealed class BundleV5Exception : Exception
 {
     public BundleV5Exception(string code, string reason, string message)
         : base(message)

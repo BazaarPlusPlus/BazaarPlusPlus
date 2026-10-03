@@ -1,7 +1,7 @@
 #nullable enable
 namespace BazaarPlusPlus.ModApi.Bundle;
 
-public static class BundleLimitsV5
+internal static class BundleLimitsV5
 {
     public const int BundleVersion = 5;
     public const int RunFormatVersion = 5;
