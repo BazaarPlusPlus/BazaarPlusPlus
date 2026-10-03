@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
 import test from 'node:test';
 import {
   documentsArePatchOnly,
@@ -340,6 +342,42 @@ test('an already enabled PR is disarmed if protection no longer qualifies', asyn
   state.rules = [];
   await run(args);
   assert.deepEqual(state.writes, [{ kind: 'disable', id: 'PR7' }]);
+});
+
+// A required check that no workflow job can report blocks every merge, so each
+// name must be a job's display name (job id when it has none) in .github/workflows.
+// A matrix name such as "Installer (${{ matrix.os }})" is matched as a pattern.
+test('every required check is a job name declared in the workflows', () => {
+  const workflows = path.join(import.meta.dirname, '..', 'workflows');
+  const patterns = fs
+    .readdirSync(workflows)
+    .filter((file) => file.endsWith('.yml'))
+    .flatMap((file) => {
+      const text = fs.readFileSync(path.join(workflows, file), 'utf8');
+      const jobs = text.slice(text.indexOf('\njobs:\n') + 1);
+      return [
+        ...jobs.matchAll(
+          /^  ([\w-]+):\n(?:    (?!name:)[^\n]*\n)*?(?:    name: ([^\n]+)\n)?/gm
+        )
+      ].map(
+        ([, id, name]) =>
+          new RegExp(
+            `^${(name ?? id)
+              .split(/\$\{\{[^}]*\}\}/)
+              .map((literal) => literal.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+              .join('.+')}$`
+          )
+      );
+    });
+  assert.ok(patterns.length >= 8, 'job names were parsed');
+  for (const name of REQUIRED_CHECKS)
+    assert.ok(
+      patterns.some((pattern) => pattern.test(name)),
+      `${name} is not a job in .github/workflows`
+    );
+  assert.ok(
+    !REQUIRED_CHECKS.includes('Mod pure logic (no game compatibility)')
+  );
 });
 
 test('both native installer gates must be required before any automatic merge', () => {
