@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "staleAfterDays": 30,
+  "entries": {
+    "macos-online": null,
+    "macos-staging": {
+      "gameVersion": "1.0.12575-staging-macos-arm64-fecb8f8e",
+      "sha256": "6064e3e955adf2da697e8d3e79663f0796d2ce64500c4f23409d60aaffbb9798",
+      "buildid": "25661913",
+      "steamBranch": "staging",
+      "capturedAt": "2026-10-03T13:17:49.558Z"
+    },
+    "macos-ptr": null,
+    "windows-online": null,
+    "windows-staging": null,
+    "windows-ptr": null
+  }
+}

@@ -177,3 +177,25 @@ export async function putImmutable(store, key, bytes, contentType) {
     `Immutable release object differs: ${key}; publish a new product version`
   );
 }
+
+// A replaceable object converges on `bytes` through ETag compare-and-swap:
+// mirror records before their platform is promoted, snapshot manifests.
+export async function putReplaceable(
+  store,
+  key,
+  bytes,
+  contentType,
+  attempts = 4
+) {
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    const current = await store.get(key);
+    if (current?.bytes.equals(bytes)) return;
+    const written = current
+      ? await store.put(key, bytes, { ifMatch: current.etag, contentType })
+      : await store.put(key, bytes, { ifNoneMatch: true, contentType });
+    if (written) return;
+  }
+  throw new Error(
+    `Could not record ${key}; retry after the other writer finishes`
+  );
+}
