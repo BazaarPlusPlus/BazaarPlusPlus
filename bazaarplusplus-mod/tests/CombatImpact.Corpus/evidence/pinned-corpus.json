@@ -1,0 +1,1562 @@
+{
+  "evidenceSchemaVersion": 2,
+  "corpusSchemaVersion": 5,
+  "modelVersion": "periodic-impact-v7",
+  "sourceKind": "replay_payloads",
+  "sourceCount": 12,
+  "sourceArtifacts": [
+    {
+      "name": "0b3e2ad63d0a41e5a6bdd86722cb692a",
+      "sha256": null
+    },
+    {
+      "name": "3f7bf9f558664588aed216227fce58e3",
+      "sha256": null
+    },
+    {
+      "name": "4ab8051e68e14b9bba12893247844108",
+      "sha256": null
+    },
+    {
+      "name": "4b7177a254ec4ac4acab808fff342cc4",
+      "sha256": null
+    },
+    {
+      "name": "5137df9e62e64392bf2df72c6c8cf446",
+      "sha256": null
+    },
+    {
+      "name": "56862f0e1aa64faa9ee0806c1cfa06bc",
+      "sha256": null
+    },
+    {
+      "name": "5e95a4fda6f84574abbdb57b25c6f858",
+      "sha256": null
+    },
+    {
+      "name": "703adbedc60c4b3995530415bee3358f",
+      "sha256": null
+    },
+    {
+      "name": "90b12920c83044749c417a2f9a1646fb",
+      "sha256": null
+    },
+    {
+      "name": "d2a68f66492a4c1c95b5ce5f32f7fe5f",
+      "sha256": null
+    },
+    {
+      "name": "dd89e58c2e82436f90941f18a6d430df",
+      "sha256": null
+    },
+    {
+      "name": "ghost-concert-hall-tempo-20260907",
+      "sha256": null
+    }
+  ],
+  "verificationInputs": [
+    {
+      "role": "game_data",
+      "name": "GameData.cards.db",
+      "sha256": "37d20e576ff40baa923a22a02f1b628abbd8e686dd55825f15bd6bcf5b06d4a4",
+      "version": null
+    },
+    {
+      "role": "game_types",
+      "name": "BazaarGameShared.dll",
+      "sha256": "c51716ea3ec8c43009ef244a84767f88c14d836efea565b85459e420223a8947",
+      "version": "1.0.0.0"
+    },
+    {
+      "role": "json_runtime",
+      "name": "Newtonsoft.Json.dll",
+      "sha256": "a56146202232958f46bd6a28b5a7da166aea123ee0d646735a46e5c341dfbf1f",
+      "version": "13.0.0.0"
+    }
+  ],
+  "battleIds": [
+    "0b3e2ad63d0a41e5a6bdd86722cb692a",
+    "3f7bf9f558664588aed216227fce58e3",
+    "4ab8051e68e14b9bba12893247844108",
+    "4b7177a254ec4ac4acab808fff342cc4",
+    "5137df9e62e64392bf2df72c6c8cf446",
+    "56862f0e1aa64faa9ee0806c1cfa06bc",
+    "5e95a4fda6f84574abbdb57b25c6f858",
+    "703adbedc60c4b3995530415bee3358f",
+    "90b12920c83044749c417a2f9a1646fb",
+    "d2a68f66492a4c1c95b5ce5f32f7fe5f",
+    "dd89e58c2e82436f90941f18a6d430df",
+    "ghost-concert-hall-tempo-20260907"
+  ],
+  "fullReportSha256": "0d51764e921e72e386055196d37139cf12a954c4a142a538e9e9ff90965cb3de",
+  "battles": 12,
+  "frames": 3385,
+  "periodicFrames": 500,
+  "periodicAdjustmentCount": 399,
+  "adjustments": {
+    "Burn/Health/Loss": {
+      "count": 156,
+      "netAmount": -16743,
+      "absoluteAmount": 16743,
+      "criticalCount": 0,
+      "reducedCount": 4
+    },
+    "Burn/Shield/Loss": {
+      "count": 25,
+      "netAmount": -1672,
+      "absoluteAmount": 1672,
+      "criticalCount": 0,
+      "reducedCount": 24
+    },
+    "Damage/Health/Loss": {
+      "count": 163,
+      "netAmount": -100307,
+      "absoluteAmount": 100307,
+      "criticalCount": 46,
+      "reducedCount": 0
+    },
+    "Damage/Shield/Loss": {
+      "count": 64,
+      "netAmount": -26778,
+      "absoluteAmount": 26778,
+      "criticalCount": 25,
+      "reducedCount": 0
+    },
+    "Heal/Health/Gain": {
+      "count": 154,
+      "netAmount": 9496,
+      "absoluteAmount": 9496,
+      "criticalCount": 13,
+      "reducedCount": 0
+    },
+    "Poison/Health/Loss": {
+      "count": 68,
+      "netAmount": -12269,
+      "absoluteAmount": 12269,
+      "criticalCount": 0,
+      "reducedCount": 0
+    },
+    "Regen/Health/Gain": {
+      "count": 150,
+      "netAmount": 32337,
+      "absoluteAmount": 32337,
+      "criticalCount": 0,
+      "reducedCount": 0
+    },
+    "Sandstorm/Health/Loss": {
+      "count": 74,
+      "netAmount": -4197,
+      "absoluteAmount": 4197,
+      "criticalCount": 0,
+      "reducedCount": 0
+    },
+    "Sandstorm/Shield/Loss": {
+      "count": 51,
+      "netAmount": -1439,
+      "absoluteAmount": 1439,
+      "criticalCount": 0,
+      "reducedCount": 0
+    },
+    "Shield/Shield/Gain": {
+      "count": 118,
+      "netAmount": 30763,
+      "absoluteAmount": 30763,
+      "criticalCount": 19,
+      "reducedCount": 0
+    }
+  },
+  "sources": {
+    "resolvedActions": 280,
+    "unresolvedActions": 0,
+    "missingStatSourceIdentities": [],
+    "unresolvedActionSources": [],
+    "multiSourceBattlesByStatus": {
+      "Burn": 6,
+      "Poison": 3,
+      "Regen": 3
+    }
+  },
+  "rules": {
+    "burnShieldBridge": {
+      "observed": 176,
+      "matched": 175,
+      "mismatched": 1,
+      "skipped": 0,
+      "matchedAmount": 18400,
+      "mismatchedAmount": 15
+    },
+    "burnDecay": {
+      "observed": 130,
+      "matched": 122,
+      "mismatched": 8,
+      "skipped": 46,
+      "matchedAmount": 307,
+      "mismatchedAmount": 187
+    },
+    "poisonTick": {
+      "observed": 68,
+      "matched": 68,
+      "mismatched": 0,
+      "skipped": 0,
+      "matchedAmount": 12269,
+      "mismatchedAmount": 0
+    },
+    "regenTick": {
+      "observed": 118,
+      "matched": 118,
+      "mismatched": 0,
+      "skipped": 32,
+      "matchedAmount": 31691,
+      "mismatchedAmount": 0
+    },
+    "healthLedger": {
+      "observed": 500,
+      "reconciled": 500,
+      "mismatched": 0,
+      "skipped": 0,
+      "attemptedGain": 38872,
+      "realizedGain": 35118,
+      "loss": 63924
+    },
+    "shieldLedger": {
+      "observed": 500,
+      "reconciled": 500,
+      "mismatched": 0,
+      "skipped": 0,
+      "attemptedGain": 3725,
+      "realizedGain": 3725,
+      "loss": 18596
+    },
+    "realizedTotals": {
+      "burnHealthDamage": 13782,
+      "burnShieldConsumed": 1672,
+      "poisonHealthDamage": 9608,
+      "regenAttempted": 31691,
+      "regenRealized": 29671
+    }
+  },
+  "terminalImpact": {
+    "deathEvents": 12,
+    "combatantsWithMultipleDeathEvents": 0,
+    "framesAfterFirstDeathEvent": 0,
+    "positiveHealthFramesAfterFirstDeathEvent": 0,
+    "periodicAdjustmentFramesAfterFirstDeathEvent": 0,
+    "periodicAdjustmentAmountAfterFirstDeathEvent": {},
+    "periodicHealthLossOnDeathEventFrames": {
+      "Burn": 3026,
+      "Poison": 3293
+    },
+    "combatEffectivePeriodicHealthLossOnDeathEventFrames": {
+      "Burn": 65,
+      "Poison": 632
+    },
+    "periodicHealthOverkillOnDeathEventFrames": {
+      "Burn": 2961,
+      "Poison": 2661
+    },
+    "reversedOrderCombatEffectivePeriodicHealthLossOnDeathEventFrames": {
+      "Burn": 346,
+      "Poison": 430
+    },
+    "burnShieldConsumedOnDeathEventFrames": 0,
+    "combatEffectiveBurnShieldConsumedOnDeathEventFrames": 0,
+    "burnShieldConsumedAfterLethalHealthOnDeathEventFrames": 0,
+    "reversedOrderCombatEffectiveBurnShieldConsumedOnDeathEventFrames": 0,
+    "atomicBurnGroupCombatEffectiveHealthLossOnDeathEventFrames": 65,
+    "atomicBurnGroupCombatEffectiveShieldConsumedOnDeathEventFrames": 0
+  },
+  "attribution": {
+    "results": 53,
+    "exactResults": 15,
+    "proportionalResults": 38,
+    "resultsByKindAndProof": {
+      "Burn/Exact": 6,
+      "Burn/Proportional": 19,
+      "Poison/Exact": 8,
+      "Poison/Proportional": 5,
+      "Regen/Exact": 1,
+      "Regen/Proportional": 14
+    },
+    "healthByKind": {
+      "Burn": 13579,
+      "Poison": 9608,
+      "Regen": 29589
+    },
+    "shieldByKind": {
+      "Burn": 1655,
+      "Poison": 0,
+      "Regen": 0
+    },
+    "healthByKindAndProof": {
+      "Burn/Exact": 8058,
+      "Burn/Proportional": 5521,
+      "Poison/Exact": 9410,
+      "Poison/Proportional": 198,
+      "Regen/Exact": 50,
+      "Regen/Proportional": 29539
+    },
+    "shieldByKindAndProof": {
+      "Burn/Exact": 73,
+      "Burn/Proportional": 1582,
+      "Poison/Exact": 0,
+      "Poison/Proportional": 0,
+      "Regen/Exact": 0,
+      "Regen/Proportional": 0
+    },
+    "allocationDecisions": 636,
+    "allocationDecisionsByKindAndProof": {
+      "Burn/Exact": 59,
+      "Burn/Proportional": 307,
+      "Poison/Exact": 55,
+      "Poison/Proportional": 32,
+      "Regen/Exact": 9,
+      "Regen/Proportional": 174
+    },
+    "allocatedHealthByKindAndProof": {
+      "Burn/Exact": 8197,
+      "Burn/Proportional": 5382,
+      "Poison/Exact": 9418,
+      "Poison/Proportional": 190,
+      "Regen/Exact": 57,
+      "Regen/Proportional": 29532
+    },
+    "allocatedShieldByKindAndProof": {
+      "Burn/Exact": 343,
+      "Burn/Proportional": 1312,
+      "Poison/Exact": 0,
+      "Poison/Proportional": 0,
+      "Regen/Exact": 0,
+      "Regen/Proportional": 0
+    },
+    "measuredHealthByCombatantAndKind": {
+      "Opponent/Burn": 2367,
+      "Opponent/Poison": 390,
+      "Opponent/Regen": 22306,
+      "Player/Burn": 11415,
+      "Player/Poison": 9218,
+      "Player/Regen": 7862
+    },
+    "measuredShieldByCombatantAndKind": {
+      "Opponent/Burn": 1454,
+      "Opponent/Poison": 0,
+      "Opponent/Regen": 0,
+      "Player/Burn": 218,
+      "Player/Poison": 0,
+      "Player/Regen": 0
+    },
+    "allocatedHealthByCombatantAndKind": {
+      "Opponent/Burn": 2367,
+      "Opponent/Poison": 390,
+      "Opponent/Regen": 22224,
+      "Player/Burn": 11212,
+      "Player/Poison": 9218,
+      "Player/Regen": 7365
+    },
+    "allocatedShieldByCombatantAndKind": {
+      "Opponent/Burn": 1437,
+      "Opponent/Poison": 0,
+      "Opponent/Regen": 0,
+      "Player/Burn": 218,
+      "Player/Poison": 0,
+      "Player/Regen": 0
+    },
+    "residualHealthByCombatantAndKind": {
+      "Opponent/Burn": 0,
+      "Opponent/Regen": 82,
+      "Player/Burn": 203,
+      "Player/Regen": 497
+    },
+    "residualShieldByCombatantAndKind": {
+      "Opponent/Burn": 17,
+      "Opponent/Regen": 0,
+      "Player/Burn": 0,
+      "Player/Regen": 0
+    },
+    "unattributedHealthByKind": {
+      "Burn": 203,
+      "Regen": 82
+    },
+    "unattributedShieldByKind": {
+      "Burn": 17,
+      "Regen": 0
+    },
+    "unattributedHealthByOrigin": {
+      "ContaminatedEpoch": 171,
+      "MissingApplySource": 32,
+      "StatusStateAbsent": 579
+    },
+    "unattributedShieldByOrigin": {
+      "ContaminatedEpoch": 0,
+      "MissingApplySource": 17,
+      "StatusStateAbsent": 0
+    },
+    "unattributedHealthByContext": {
+      "ContaminatedEpoch/MeasuredSource/NoApply/Later": 171,
+      "MissingApplySource/MeasuredSource/NoApply/Later": 32,
+      "StatusStateAbsent/Excluded/NoApply/Frame0": 3,
+      "StatusStateAbsent/Excluded/NoApply/Later": 494,
+      "StatusStateAbsent/MeasuredSource/NoApply/Frame0": 2,
+      "StatusStateAbsent/MeasuredSource/NoApply/Later": 80
+    },
+    "unattributedRegenByCandidateSurfaces": {
+      "StatusStateAbsent/Excluded/stats:0/attributes:0/events:0/prior:0/display:0": 497,
+      "StatusStateAbsent/MeasuredSource/stats:0/attributes:0/events:0/prior:0/display:0": 14,
+      "StatusStateAbsent/MeasuredSource/stats:0/attributes:1/events:0/prior:0/display:0": 68
+    },
+    "regenRealizedBySpawnBaseline": {
+      "Opponent/spawn:positive/combat-transition:no/frame-transition:no/attempt:equals-opening": 82,
+      "Opponent/spawn:positive/combat-transition:yes/frame-transition:no/attempt:equals-opening": 21602,
+      "Opponent/spawn:positive/combat-transition:yes/frame-transition:yes/attempt:equals-opening": 18,
+      "Opponent/spawn:zero/combat-transition:yes/frame-transition:no/attempt:equals-opening": 594,
+      "Opponent/spawn:zero/combat-transition:yes/frame-transition:yes/attempt:equals-opening": 10,
+      "Player/spawn:zero/combat-transition:no/frame-transition:no/attempt:opening-zero": 497,
+      "Player/spawn:zero/combat-transition:yes/frame-transition:no/attempt:equals-opening": 6708,
+      "Player/spawn:zero/combat-transition:yes/frame-transition:yes/attempt:equals-opening": 657
+    },
+    "regenAttributedBySpawnBaseline": {
+      "Opponent/spawn:positive/combat-transition:yes/frame-transition:no/attempt:equals-opening": 21602,
+      "Opponent/spawn:positive/combat-transition:yes/frame-transition:yes/attempt:equals-opening": 18,
+      "Opponent/spawn:zero/combat-transition:yes/frame-transition:no/attempt:equals-opening": 594,
+      "Opponent/spawn:zero/combat-transition:yes/frame-transition:yes/attempt:equals-opening": 10,
+      "Player/spawn:zero/combat-transition:yes/frame-transition:no/attempt:equals-opening": 6708,
+      "Player/spawn:zero/combat-transition:yes/frame-transition:yes/attempt:equals-opening": 657
+    },
+    "regenAttributedBySourceSurfaces": {
+      "stats:yes/attribute:no/prior-events:no": 210,
+      "stats:yes/attribute:no/prior-events:yes": 7155,
+      "stats:yes/attribute:yes/prior-events:no": 376,
+      "stats:yes/attribute:yes/prior-events:yes": 21848
+    },
+    "regenAttributedSpawnBaselineSources": {},
+    "regenUnknownBySpawnBaseline": {
+      "StatusStateAbsent/Opponent/spawn:positive/combat-transition:no/frame-transition:no/attempt:equals-opening": 82
+    },
+    "regenGapMeasurementMismatchFrames": 0,
+    "regenGapMeasurementSignedDifference": 0,
+    "regenGapMeasurementAbsoluteDifference": 0,
+    "regenStableSpawnBaselineRealized": 82,
+    "regenStableSpawnBaselineAttributed": 0,
+    "regenStableSpawnBaselineUnknown": 82
+  },
+  "cardAttributeAttribution": {
+    "battles": 12,
+    "rawTargetedExecutions": 1874,
+    "implicitPlayerEffects": 1,
+    "diagnosticGroups": 646,
+    "diagnosedClaimants": 653,
+    "auraOverlapGroups": 18,
+    "singleClaimantGroups": 608,
+    "concurrentExactGroups": 2,
+    "singleUnknownSolvedGroups": 0,
+    "residualGroups": 18,
+    "singleUnknownResidualGroups": 13,
+    "remainingSingleUnknownSolvableGroups": 0,
+    "singleUnknownRangeGroups": 0,
+    "eventOrderReplayCandidateGroups": 0,
+    "eventOrderReplayMultiplyGroups": 0,
+    "conservationFailures": 0,
+    "failureReasons": {
+      "ConfiguredSumMismatch": 5,
+      "ModifierUnavailable": 13
+    },
+    "singleUnknownSolvedReasons": {},
+    "eventOrderReplayCandidateReasons": {},
+    "residualObservations": [
+      {
+        "battleId": "0b3e2ad63d0a41e5a6bdd86722cb692a",
+        "frameIndex": 60,
+        "targetId": "1FBmcAV",
+        "nativeAttributeKey": "SellPrice",
+        "netValue": 3,
+        "attributedValue": 0,
+        "residualValue": 3,
+        "claimantCount": 1,
+        "unresolvedClaimantCount": 1,
+        "resolution": "AuraOverlap",
+        "failureReasons": [
+          "AuraOverlap"
+        ],
+        "eventOrderReplayReconciles": false,
+        "eventOrderReplayIncludesMultiply": false,
+        "claimants": []
+      },
+      {
+        "battleId": "0b3e2ad63d0a41e5a6bdd86722cb692a",
+        "frameIndex": 80,
+        "targetId": "1FBmcAV",
+        "nativeAttributeKey": "SellPrice",
+        "netValue": 15,
+        "attributedValue": 0,
+        "residualValue": 15,
+        "claimantCount": 1,
+        "unresolvedClaimantCount": 1,
+        "resolution": "AuraOverlap",
+        "failureReasons": [
+          "AuraOverlap"
+        ],
+        "eventOrderReplayReconciles": false,
+        "eventOrderReplayIncludesMultiply": false,
+        "claimants": []
+      },
+      {
+        "battleId": "0b3e2ad63d0a41e5a6bdd86722cb692a",
+        "frameIndex": 91,
+        "targetId": "1FBmcAV",
+        "nativeAttributeKey": "SellPrice",
+        "netValue": 1,
+        "attributedValue": 0,
+        "residualValue": 1,
+        "claimantCount": 1,
+        "unresolvedClaimantCount": 1,
+        "resolution": "AuraOverlap",
+        "failureReasons": [
+          "AuraOverlap"
+        ],
+        "eventOrderReplayReconciles": false,
+        "eventOrderReplayIncludesMultiply": false,
+        "claimants": []
+      },
+      {
+        "battleId": "0b3e2ad63d0a41e5a6bdd86722cb692a",
+        "frameIndex": 130,
+        "targetId": "1FBmcAV",
+        "nativeAttributeKey": "SellPrice",
+        "netValue": 3,
+        "attributedValue": 0,
+        "residualValue": 3,
+        "claimantCount": 1,
+        "unresolvedClaimantCount": 1,
+        "resolution": "AuraOverlap",
+        "failureReasons": [
+          "AuraOverlap"
+        ],
+        "eventOrderReplayReconciles": false,
+        "eventOrderReplayIncludesMultiply": false,
+        "claimants": []
+      },
+      {
+        "battleId": "0b3e2ad63d0a41e5a6bdd86722cb692a",
+        "frameIndex": 180,
+        "targetId": "1FBmcAV",
+        "nativeAttributeKey": "SellPrice",
+        "netValue": 19,
+        "attributedValue": 0,
+        "residualValue": 19,
+        "claimantCount": 1,
+        "unresolvedClaimantCount": 1,
+        "resolution": "AuraOverlap",
+        "failureReasons": [
+          "AuraOverlap"
+        ],
+        "eventOrderReplayReconciles": false,
+        "eventOrderReplayIncludesMultiply": false,
+        "claimants": []
+      },
+      {
+        "battleId": "0b3e2ad63d0a41e5a6bdd86722cb692a",
+        "frameIndex": 191,
+        "targetId": "1FBmcAV",
+        "nativeAttributeKey": "SellPrice",
+        "netValue": 1,
+        "attributedValue": 0,
+        "residualValue": 1,
+        "claimantCount": 1,
+        "unresolvedClaimantCount": 1,
+        "resolution": "AuraOverlap",
+        "failureReasons": [
+          "AuraOverlap"
+        ],
+        "eventOrderReplayReconciles": false,
+        "eventOrderReplayIncludesMultiply": false,
+        "claimants": []
+      },
+      {
+        "battleId": "3f7bf9f558664588aed216227fce58e3",
+        "frameIndex": 141,
+        "targetId": "R3NTzKQ",
+        "nativeAttributeKey": "DamageAmount",
+        "netValue": 85,
+        "attributedValue": 5,
+        "residualValue": 80,
+        "claimantCount": 1,
+        "unresolvedClaimantCount": 0,
+        "resolution": "AuraOverlap",
+        "failureReasons": [
+          "AuraOverlap"
+        ],
+        "eventOrderReplayReconciles": false,
+        "eventOrderReplayIncludesMultiply": false,
+        "claimants": []
+      },
+      {
+        "battleId": "4b7177a254ec4ac4acab808fff342cc4",
+        "frameIndex": 130,
+        "targetId": "bb-KS4B",
+        "nativeAttributeKey": "DamageAmount",
+        "netValue": 20,
+        "attributedValue": 0,
+        "residualValue": 20,
+        "claimantCount": 2,
+        "unresolvedClaimantCount": 0,
+        "resolution": "ConcurrentResidual",
+        "failureReasons": [
+          "ConfiguredSumMismatch"
+        ],
+        "eventOrderReplayReconciles": false,
+        "eventOrderReplayIncludesMultiply": false,
+        "claimants": [
+          {
+            "directSourceId": "WzCMDP1",
+            "directSourceName": "Streamline Weapon",
+            "triggerSourceId": "bb-KS4B",
+            "triggerSourceName": "Flying Fish",
+            "effectId": "0",
+            "modifierSourceId": "WzCMDP1",
+            "modifierAttribute": "DamageAmount",
+            "modifierOperation": "Add",
+            "modifierValueType": "TReferenceValueCardAttribute"
+          },
+          {
+            "directSourceId": "PqdNVPO",
+            "directSourceName": "Sharkray",
+            "triggerSourceId": "bb-KS4B",
+            "triggerSourceName": "Flying Fish",
+            "effectId": "1",
+            "modifierSourceId": "PqdNVPO",
+            "modifierAttribute": "DamageAmount",
+            "modifierOperation": "Add",
+            "modifierValueType": "TReferenceValueCardAttribute"
+          }
+        ]
+      },
+      {
+        "battleId": "4b7177a254ec4ac4acab808fff342cc4",
+        "frameIndex": 130,
+        "targetId": "sFFA4ZT",
+        "nativeAttributeKey": "PoisonApplyAmount",
+        "netValue": 2,
+        "attributedValue": 1,
+        "residualValue": 1,
+        "claimantCount": 1,
+        "unresolvedClaimantCount": 0,
+        "resolution": "AuraOverlap",
+        "failureReasons": [
+          "AuraOverlap"
+        ],
+        "eventOrderReplayReconciles": false,
+        "eventOrderReplayIncludesMultiply": false,
+        "claimants": []
+      },
+      {
+        "battleId": "4b7177a254ec4ac4acab808fff342cc4",
+        "frameIndex": 135,
+        "targetId": "Ikx8LsF",
+        "nativeAttributeKey": "DamageAmount",
+        "netValue": 20,
+        "attributedValue": 0,
+        "residualValue": 20,
+        "claimantCount": 2,
+        "unresolvedClaimantCount": 0,
+        "resolution": "ConcurrentResidual",
+        "failureReasons": [
+          "ConfiguredSumMismatch"
+        ],
+        "eventOrderReplayReconciles": false,
+        "eventOrderReplayIncludesMultiply": false,
+        "claimants": [
+          {
+            "directSourceId": "WzCMDP1",
+            "directSourceName": "Streamline Weapon",
+            "triggerSourceId": "sgqZeC-",
+            "triggerSourceName": "Tortuga",
+            "effectId": "0",
+            "modifierSourceId": "WzCMDP1",
+            "modifierAttribute": "DamageAmount",
+            "modifierOperation": "Add",
+            "modifierValueType": "TReferenceValueCardAttribute"
+          },
+          {
+            "directSourceId": "PqdNVPO",
+            "directSourceName": "Sharkray",
+            "triggerSourceId": "sgqZeC-",
+            "triggerSourceName": "Tortuga",
+            "effectId": "1",
+            "modifierSourceId": "PqdNVPO",
+            "modifierAttribute": "DamageAmount",
+            "modifierOperation": "Add",
+            "modifierValueType": "TReferenceValueCardAttribute"
+          }
+        ]
+      },
+      {
+        "battleId": "4b7177a254ec4ac4acab808fff342cc4",
+        "frameIndex": 135,
+        "targetId": "sFFA4ZT",
+        "nativeAttributeKey": "PoisonApplyAmount",
+        "netValue": 2,
+        "attributedValue": 1,
+        "residualValue": 1,
+        "claimantCount": 1,
+        "unresolvedClaimantCount": 0,
+        "resolution": "AuraOverlap",
+        "failureReasons": [
+          "AuraOverlap"
+        ],
+        "eventOrderReplayReconciles": false,
+        "eventOrderReplayIncludesMultiply": false,
+        "claimants": []
+      },
+      {
+        "battleId": "4b7177a254ec4ac4acab808fff342cc4",
+        "frameIndex": 140,
+        "targetId": "c5-nJr1",
+        "nativeAttributeKey": "DamageAmount",
+        "netValue": 20,
+        "attributedValue": 0,
+        "residualValue": 20,
+        "claimantCount": 2,
+        "unresolvedClaimantCount": 0,
+        "resolution": "ConcurrentResidual",
+        "failureReasons": [
+          "ConfiguredSumMismatch"
+        ],
+        "eventOrderReplayReconciles": false,
+        "eventOrderReplayIncludesMultiply": false,
+        "claimants": [
+          {
+            "directSourceId": "WzCMDP1",
+            "directSourceName": "Streamline Weapon",
+            "triggerSourceId": "sgqZeC-",
+            "triggerSourceName": "Tortuga",
+            "effectId": "0",
+            "modifierSourceId": "WzCMDP1",
+            "modifierAttribute": "DamageAmount",
+            "modifierOperation": "Add",
+            "modifierValueType": "TReferenceValueCardAttribute"
+          },
+          {
+            "directSourceId": "PqdNVPO",
+            "directSourceName": "Sharkray",
+            "triggerSourceId": "sgqZeC-",
+            "triggerSourceName": "Tortuga",
+            "effectId": "1",
+            "modifierSourceId": "PqdNVPO",
+            "modifierAttribute": "DamageAmount",
+            "modifierOperation": "Add",
+            "modifierValueType": "TReferenceValueCardAttribute"
+          }
+        ]
+      },
+      {
+        "battleId": "4b7177a254ec4ac4acab808fff342cc4",
+        "frameIndex": 140,
+        "targetId": "sFFA4ZT",
+        "nativeAttributeKey": "PoisonApplyAmount",
+        "netValue": 2,
+        "attributedValue": 1,
+        "residualValue": 1,
+        "claimantCount": 1,
+        "unresolvedClaimantCount": 0,
+        "resolution": "AuraOverlap",
+        "failureReasons": [
+          "AuraOverlap"
+        ],
+        "eventOrderReplayReconciles": false,
+        "eventOrderReplayIncludesMultiply": false,
+        "claimants": []
+      },
+      {
+        "battleId": "4b7177a254ec4ac4acab808fff342cc4",
+        "frameIndex": 145,
+        "targetId": "bb-KS4B",
+        "nativeAttributeKey": "DamageAmount",
+        "netValue": 20,
+        "attributedValue": 0,
+        "residualValue": 20,
+        "claimantCount": 2,
+        "unresolvedClaimantCount": 0,
+        "resolution": "ConcurrentResidual",
+        "failureReasons": [
+          "ConfiguredSumMismatch"
+        ],
+        "eventOrderReplayReconciles": false,
+        "eventOrderReplayIncludesMultiply": false,
+        "claimants": [
+          {
+            "directSourceId": "WzCMDP1",
+            "directSourceName": "Streamline Weapon",
+            "triggerSourceId": "sgqZeC-",
+            "triggerSourceName": "Tortuga",
+            "effectId": "0",
+            "modifierSourceId": "WzCMDP1",
+            "modifierAttribute": "DamageAmount",
+            "modifierOperation": "Add",
+            "modifierValueType": "TReferenceValueCardAttribute"
+          },
+          {
+            "directSourceId": "PqdNVPO",
+            "directSourceName": "Sharkray",
+            "triggerSourceId": "sgqZeC-",
+            "triggerSourceName": "Tortuga",
+            "effectId": "1",
+            "modifierSourceId": "PqdNVPO",
+            "modifierAttribute": "DamageAmount",
+            "modifierOperation": "Add",
+            "modifierValueType": "TReferenceValueCardAttribute"
+          }
+        ]
+      },
+      {
+        "battleId": "4b7177a254ec4ac4acab808fff342cc4",
+        "frameIndex": 145,
+        "targetId": "sFFA4ZT",
+        "nativeAttributeKey": "PoisonApplyAmount",
+        "netValue": 2,
+        "attributedValue": 1,
+        "residualValue": 1,
+        "claimantCount": 1,
+        "unresolvedClaimantCount": 0,
+        "resolution": "AuraOverlap",
+        "failureReasons": [
+          "AuraOverlap"
+        ],
+        "eventOrderReplayReconciles": false,
+        "eventOrderReplayIncludesMultiply": false,
+        "claimants": []
+      },
+      {
+        "battleId": "4b7177a254ec4ac4acab808fff342cc4",
+        "frameIndex": 150,
+        "targetId": "sFFA4ZT",
+        "nativeAttributeKey": "DamageAmount",
+        "netValue": 20,
+        "attributedValue": 0,
+        "residualValue": 20,
+        "claimantCount": 2,
+        "unresolvedClaimantCount": 0,
+        "resolution": "ConcurrentResidual",
+        "failureReasons": [
+          "ConfiguredSumMismatch"
+        ],
+        "eventOrderReplayReconciles": false,
+        "eventOrderReplayIncludesMultiply": false,
+        "claimants": [
+          {
+            "directSourceId": "WzCMDP1",
+            "directSourceName": "Streamline Weapon",
+            "triggerSourceId": "sgqZeC-",
+            "triggerSourceName": "Tortuga",
+            "effectId": "0",
+            "modifierSourceId": "WzCMDP1",
+            "modifierAttribute": "DamageAmount",
+            "modifierOperation": "Add",
+            "modifierValueType": "TReferenceValueCardAttribute"
+          },
+          {
+            "directSourceId": "PqdNVPO",
+            "directSourceName": "Sharkray",
+            "triggerSourceId": "sgqZeC-",
+            "triggerSourceName": "Tortuga",
+            "effectId": "1",
+            "modifierSourceId": "PqdNVPO",
+            "modifierAttribute": "DamageAmount",
+            "modifierOperation": "Add",
+            "modifierValueType": "TReferenceValueCardAttribute"
+          },
+          {
+            "directSourceId": "PqdNVPO",
+            "directSourceName": "Sharkray",
+            "triggerSourceId": "sgqZeC-",
+            "triggerSourceName": "Tortuga",
+            "effectId": "2",
+            "modifierSourceId": "PqdNVPO",
+            "modifierAttribute": "PoisonApplyAmount",
+            "modifierOperation": "Add",
+            "modifierValueType": "TReferenceValueCardAttribute"
+          }
+        ]
+      },
+      {
+        "battleId": "4b7177a254ec4ac4acab808fff342cc4",
+        "frameIndex": 150,
+        "targetId": "sFFA4ZT",
+        "nativeAttributeKey": "PoisonApplyAmount",
+        "netValue": 3,
+        "attributedValue": 1,
+        "residualValue": 2,
+        "claimantCount": 1,
+        "unresolvedClaimantCount": 0,
+        "resolution": "AuraOverlap",
+        "failureReasons": [
+          "AuraOverlap"
+        ],
+        "eventOrderReplayReconciles": false,
+        "eventOrderReplayIncludesMultiply": false,
+        "claimants": []
+      },
+      {
+        "battleId": "56862f0e1aa64faa9ee0806c1cfa06bc",
+        "frameIndex": 99,
+        "targetId": "bgpn8D9",
+        "nativeAttributeKey": "PercentCooldownReduction",
+        "netValue": 12,
+        "attributedValue": 0,
+        "residualValue": 12,
+        "claimantCount": 1,
+        "unresolvedClaimantCount": 1,
+        "resolution": "ConcurrentResidual",
+        "failureReasons": [
+          "ModifierUnavailable"
+        ],
+        "eventOrderReplayReconciles": false,
+        "eventOrderReplayIncludesMultiply": false,
+        "claimants": [
+          {
+            "directSourceId": "bgpn8D9",
+            "directSourceName": "Eternal Torch",
+            "triggerSourceId": "bgpn8D9",
+            "triggerSourceName": "Eternal Torch",
+            "effectId": "q1",
+            "modifierSourceId": null,
+            "modifierAttribute": null,
+            "modifierOperation": null,
+            "modifierValueType": null
+          },
+          {
+            "directSourceId": "WnGcx5W",
+            "directSourceName": "Palanquin",
+            "triggerSourceId": "bgpn8D9",
+            "triggerSourceName": "Eternal Torch",
+            "effectId": "0",
+            "modifierSourceId": "WnGcx5W",
+            "modifierAttribute": "PercentCooldownReduction",
+            "modifierOperation": "Add",
+            "modifierValueType": "TReferenceValueCardAttribute"
+          }
+        ]
+      },
+      {
+        "battleId": "56862f0e1aa64faa9ee0806c1cfa06bc",
+        "frameIndex": 104,
+        "targetId": "bgpn8D9",
+        "nativeAttributeKey": "PercentCooldownReduction",
+        "netValue": 12,
+        "attributedValue": 0,
+        "residualValue": 12,
+        "claimantCount": 1,
+        "unresolvedClaimantCount": 1,
+        "resolution": "ConcurrentResidual",
+        "failureReasons": [
+          "ModifierUnavailable"
+        ],
+        "eventOrderReplayReconciles": false,
+        "eventOrderReplayIncludesMultiply": false,
+        "claimants": [
+          {
+            "directSourceId": "bgpn8D9",
+            "directSourceName": "Eternal Torch",
+            "triggerSourceId": "bgpn8D9",
+            "triggerSourceName": "Eternal Torch",
+            "effectId": "q1",
+            "modifierSourceId": null,
+            "modifierAttribute": null,
+            "modifierOperation": null,
+            "modifierValueType": null
+          },
+          {
+            "directSourceId": "WnGcx5W",
+            "directSourceName": "Palanquin",
+            "triggerSourceId": "bgpn8D9",
+            "triggerSourceName": "Eternal Torch",
+            "effectId": "0",
+            "modifierSourceId": "WnGcx5W",
+            "modifierAttribute": "PercentCooldownReduction",
+            "modifierOperation": "Add",
+            "modifierValueType": "TReferenceValueCardAttribute"
+          }
+        ]
+      },
+      {
+        "battleId": "56862f0e1aa64faa9ee0806c1cfa06bc",
+        "frameIndex": 110,
+        "targetId": "bgpn8D9",
+        "nativeAttributeKey": "PercentCooldownReduction",
+        "netValue": 12,
+        "attributedValue": 0,
+        "residualValue": 12,
+        "claimantCount": 1,
+        "unresolvedClaimantCount": 1,
+        "resolution": "ConcurrentResidual",
+        "failureReasons": [
+          "ModifierUnavailable"
+        ],
+        "eventOrderReplayReconciles": false,
+        "eventOrderReplayIncludesMultiply": false,
+        "claimants": [
+          {
+            "directSourceId": "bgpn8D9",
+            "directSourceName": "Eternal Torch",
+            "triggerSourceId": "bgpn8D9",
+            "triggerSourceName": "Eternal Torch",
+            "effectId": "q1",
+            "modifierSourceId": null,
+            "modifierAttribute": null,
+            "modifierOperation": null,
+            "modifierValueType": null
+          },
+          {
+            "directSourceId": "WnGcx5W",
+            "directSourceName": "Palanquin",
+            "triggerSourceId": "bgpn8D9",
+            "triggerSourceName": "Eternal Torch",
+            "effectId": "0",
+            "modifierSourceId": "WnGcx5W",
+            "modifierAttribute": "PercentCooldownReduction",
+            "modifierOperation": "Add",
+            "modifierValueType": "TReferenceValueCardAttribute"
+          }
+        ]
+      },
+      {
+        "battleId": "56862f0e1aa64faa9ee0806c1cfa06bc",
+        "frameIndex": 115,
+        "targetId": "bgpn8D9",
+        "nativeAttributeKey": "PercentCooldownReduction",
+        "netValue": 12,
+        "attributedValue": 0,
+        "residualValue": 12,
+        "claimantCount": 1,
+        "unresolvedClaimantCount": 1,
+        "resolution": "ConcurrentResidual",
+        "failureReasons": [
+          "ModifierUnavailable"
+        ],
+        "eventOrderReplayReconciles": false,
+        "eventOrderReplayIncludesMultiply": false,
+        "claimants": [
+          {
+            "directSourceId": "bgpn8D9",
+            "directSourceName": "Eternal Torch",
+            "triggerSourceId": "bgpn8D9",
+            "triggerSourceName": "Eternal Torch",
+            "effectId": "q1",
+            "modifierSourceId": null,
+            "modifierAttribute": null,
+            "modifierOperation": null,
+            "modifierValueType": null
+          },
+          {
+            "directSourceId": "WnGcx5W",
+            "directSourceName": "Palanquin",
+            "triggerSourceId": "bgpn8D9",
+            "triggerSourceName": "Eternal Torch",
+            "effectId": "0",
+            "modifierSourceId": "WnGcx5W",
+            "modifierAttribute": "PercentCooldownReduction",
+            "modifierOperation": "Add",
+            "modifierValueType": "TReferenceValueCardAttribute"
+          }
+        ]
+      },
+      {
+        "battleId": "56862f0e1aa64faa9ee0806c1cfa06bc",
+        "frameIndex": 121,
+        "targetId": "bgpn8D9",
+        "nativeAttributeKey": "BurnApplyAmount",
+        "netValue": 156,
+        "attributedValue": 0,
+        "residualValue": 156,
+        "claimantCount": 1,
+        "unresolvedClaimantCount": 1,
+        "resolution": "ConcurrentResidual",
+        "failureReasons": [
+          "ModifierUnavailable"
+        ],
+        "eventOrderReplayReconciles": false,
+        "eventOrderReplayIncludesMultiply": false,
+        "claimants": [
+          {
+            "directSourceId": "Xmw5wjr",
+            "directSourceName": "Secret Formula",
+            "triggerSourceId": "Xmw5wjr",
+            "triggerSourceName": "Secret Formula",
+            "effectId": "1",
+            "modifierSourceId": "Xmw5wjr",
+            "modifierAttribute": "BurnApplyAmount",
+            "modifierOperation": "Add",
+            "modifierValueType": "TReferenceValueCardAttribute"
+          },
+          {
+            "directSourceId": "bgpn8D9",
+            "directSourceName": "Eternal Torch",
+            "triggerSourceId": "bgpn8D9",
+            "triggerSourceName": "Eternal Torch",
+            "effectId": "q1",
+            "modifierSourceId": null,
+            "modifierAttribute": null,
+            "modifierOperation": null,
+            "modifierValueType": null
+          },
+          {
+            "directSourceId": "WnGcx5W",
+            "directSourceName": "Palanquin",
+            "triggerSourceId": "bgpn8D9",
+            "triggerSourceName": "Eternal Torch",
+            "effectId": "0",
+            "modifierSourceId": "WnGcx5W",
+            "modifierAttribute": "PercentCooldownReduction",
+            "modifierOperation": "Add",
+            "modifierValueType": "TReferenceValueCardAttribute"
+          }
+        ]
+      },
+      {
+        "battleId": "56862f0e1aa64faa9ee0806c1cfa06bc",
+        "frameIndex": 121,
+        "targetId": "bgpn8D9",
+        "nativeAttributeKey": "PercentCooldownReduction",
+        "netValue": 12,
+        "attributedValue": 0,
+        "residualValue": 12,
+        "claimantCount": 1,
+        "unresolvedClaimantCount": 1,
+        "resolution": "ConcurrentResidual",
+        "failureReasons": [
+          "ModifierUnavailable"
+        ],
+        "eventOrderReplayReconciles": false,
+        "eventOrderReplayIncludesMultiply": false,
+        "claimants": [
+          {
+            "directSourceId": "Xmw5wjr",
+            "directSourceName": "Secret Formula",
+            "triggerSourceId": "Xmw5wjr",
+            "triggerSourceName": "Secret Formula",
+            "effectId": "1",
+            "modifierSourceId": "Xmw5wjr",
+            "modifierAttribute": "BurnApplyAmount",
+            "modifierOperation": "Add",
+            "modifierValueType": "TReferenceValueCardAttribute"
+          },
+          {
+            "directSourceId": "bgpn8D9",
+            "directSourceName": "Eternal Torch",
+            "triggerSourceId": "bgpn8D9",
+            "triggerSourceName": "Eternal Torch",
+            "effectId": "q1",
+            "modifierSourceId": null,
+            "modifierAttribute": null,
+            "modifierOperation": null,
+            "modifierValueType": null
+          },
+          {
+            "directSourceId": "WnGcx5W",
+            "directSourceName": "Palanquin",
+            "triggerSourceId": "bgpn8D9",
+            "triggerSourceName": "Eternal Torch",
+            "effectId": "0",
+            "modifierSourceId": "WnGcx5W",
+            "modifierAttribute": "PercentCooldownReduction",
+            "modifierOperation": "Add",
+            "modifierValueType": "TReferenceValueCardAttribute"
+          }
+        ]
+      },
+      {
+        "battleId": "56862f0e1aa64faa9ee0806c1cfa06bc",
+        "frameIndex": 126,
+        "targetId": "bgpn8D9",
+        "nativeAttributeKey": "PercentCooldownReduction",
+        "netValue": 12,
+        "attributedValue": 0,
+        "residualValue": 12,
+        "claimantCount": 1,
+        "unresolvedClaimantCount": 1,
+        "resolution": "ConcurrentResidual",
+        "failureReasons": [
+          "ModifierUnavailable"
+        ],
+        "eventOrderReplayReconciles": false,
+        "eventOrderReplayIncludesMultiply": false,
+        "claimants": [
+          {
+            "directSourceId": "bgpn8D9",
+            "directSourceName": "Eternal Torch",
+            "triggerSourceId": "bgpn8D9",
+            "triggerSourceName": "Eternal Torch",
+            "effectId": "q1",
+            "modifierSourceId": null,
+            "modifierAttribute": null,
+            "modifierOperation": null,
+            "modifierValueType": null
+          },
+          {
+            "directSourceId": "WnGcx5W",
+            "directSourceName": "Palanquin",
+            "triggerSourceId": "bgpn8D9",
+            "triggerSourceName": "Eternal Torch",
+            "effectId": "0",
+            "modifierSourceId": "WnGcx5W",
+            "modifierAttribute": "PercentCooldownReduction",
+            "modifierOperation": "Add",
+            "modifierValueType": "TReferenceValueCardAttribute"
+          }
+        ]
+      },
+      {
+        "battleId": "56862f0e1aa64faa9ee0806c1cfa06bc",
+        "frameIndex": 141,
+        "targetId": "bgpn8D9",
+        "nativeAttributeKey": "PercentCooldownReduction",
+        "netValue": 12,
+        "attributedValue": 0,
+        "residualValue": 12,
+        "claimantCount": 1,
+        "unresolvedClaimantCount": 1,
+        "resolution": "ConcurrentResidual",
+        "failureReasons": [
+          "ModifierUnavailable"
+        ],
+        "eventOrderReplayReconciles": false,
+        "eventOrderReplayIncludesMultiply": false,
+        "claimants": [
+          {
+            "directSourceId": "bgpn8D9",
+            "directSourceName": "Eternal Torch",
+            "triggerSourceId": "bgpn8D9",
+            "triggerSourceName": "Eternal Torch",
+            "effectId": "q1",
+            "modifierSourceId": null,
+            "modifierAttribute": null,
+            "modifierOperation": null,
+            "modifierValueType": null
+          },
+          {
+            "directSourceId": "WnGcx5W",
+            "directSourceName": "Palanquin",
+            "triggerSourceId": "bgpn8D9",
+            "triggerSourceName": "Eternal Torch",
+            "effectId": "0",
+            "modifierSourceId": "WnGcx5W",
+            "modifierAttribute": "PercentCooldownReduction",
+            "modifierOperation": "Add",
+            "modifierValueType": "TReferenceValueCardAttribute"
+          }
+        ]
+      },
+      {
+        "battleId": "56862f0e1aa64faa9ee0806c1cfa06bc",
+        "frameIndex": 146,
+        "targetId": "bgpn8D9",
+        "nativeAttributeKey": "PercentCooldownReduction",
+        "netValue": 12,
+        "attributedValue": 0,
+        "residualValue": 12,
+        "claimantCount": 1,
+        "unresolvedClaimantCount": 1,
+        "resolution": "ConcurrentResidual",
+        "failureReasons": [
+          "ModifierUnavailable"
+        ],
+        "eventOrderReplayReconciles": false,
+        "eventOrderReplayIncludesMultiply": false,
+        "claimants": [
+          {
+            "directSourceId": "bgpn8D9",
+            "directSourceName": "Eternal Torch",
+            "triggerSourceId": "bgpn8D9",
+            "triggerSourceName": "Eternal Torch",
+            "effectId": "q1",
+            "modifierSourceId": null,
+            "modifierAttribute": null,
+            "modifierOperation": null,
+            "modifierValueType": null
+          },
+          {
+            "directSourceId": "WnGcx5W",
+            "directSourceName": "Palanquin",
+            "triggerSourceId": "bgpn8D9",
+            "triggerSourceName": "Eternal Torch",
+            "effectId": "0",
+            "modifierSourceId": "WnGcx5W",
+            "modifierAttribute": "PercentCooldownReduction",
+            "modifierOperation": "Add",
+            "modifierValueType": "TReferenceValueCardAttribute"
+          }
+        ]
+      },
+      {
+        "battleId": "56862f0e1aa64faa9ee0806c1cfa06bc",
+        "frameIndex": 161,
+        "targetId": "bgpn8D9",
+        "nativeAttributeKey": "PercentCooldownReduction",
+        "netValue": 12,
+        "attributedValue": 0,
+        "residualValue": 12,
+        "claimantCount": 1,
+        "unresolvedClaimantCount": 1,
+        "resolution": "ConcurrentResidual",
+        "failureReasons": [
+          "ModifierUnavailable"
+        ],
+        "eventOrderReplayReconciles": false,
+        "eventOrderReplayIncludesMultiply": false,
+        "claimants": [
+          {
+            "directSourceId": "bgpn8D9",
+            "directSourceName": "Eternal Torch",
+            "triggerSourceId": "bgpn8D9",
+            "triggerSourceName": "Eternal Torch",
+            "effectId": "q1",
+            "modifierSourceId": null,
+            "modifierAttribute": null,
+            "modifierOperation": null,
+            "modifierValueType": null
+          },
+          {
+            "directSourceId": "WnGcx5W",
+            "directSourceName": "Palanquin",
+            "triggerSourceId": "bgpn8D9",
+            "triggerSourceName": "Eternal Torch",
+            "effectId": "0",
+            "modifierSourceId": "WnGcx5W",
+            "modifierAttribute": "PercentCooldownReduction",
+            "modifierOperation": "Add",
+            "modifierValueType": "TReferenceValueCardAttribute"
+          }
+        ]
+      },
+      {
+        "battleId": "56862f0e1aa64faa9ee0806c1cfa06bc",
+        "frameIndex": 166,
+        "targetId": "bgpn8D9",
+        "nativeAttributeKey": "PercentCooldownReduction",
+        "netValue": 12,
+        "attributedValue": 0,
+        "residualValue": 12,
+        "claimantCount": 1,
+        "unresolvedClaimantCount": 1,
+        "resolution": "ConcurrentResidual",
+        "failureReasons": [
+          "ModifierUnavailable"
+        ],
+        "eventOrderReplayReconciles": false,
+        "eventOrderReplayIncludesMultiply": false,
+        "claimants": [
+          {
+            "directSourceId": "bgpn8D9",
+            "directSourceName": "Eternal Torch",
+            "triggerSourceId": "bgpn8D9",
+            "triggerSourceName": "Eternal Torch",
+            "effectId": "q1",
+            "modifierSourceId": null,
+            "modifierAttribute": null,
+            "modifierOperation": null,
+            "modifierValueType": null
+          },
+          {
+            "directSourceId": "WnGcx5W",
+            "directSourceName": "Palanquin",
+            "triggerSourceId": "bgpn8D9",
+            "triggerSourceName": "Eternal Torch",
+            "effectId": "0",
+            "modifierSourceId": "WnGcx5W",
+            "modifierAttribute": "PercentCooldownReduction",
+            "modifierOperation": "Add",
+            "modifierValueType": "TReferenceValueCardAttribute"
+          }
+        ]
+      },
+      {
+        "battleId": "56862f0e1aa64faa9ee0806c1cfa06bc",
+        "frameIndex": 171,
+        "targetId": "bgpn8D9",
+        "nativeAttributeKey": "PercentCooldownReduction",
+        "netValue": 12,
+        "attributedValue": 0,
+        "residualValue": 12,
+        "claimantCount": 1,
+        "unresolvedClaimantCount": 1,
+        "resolution": "ConcurrentResidual",
+        "failureReasons": [
+          "ModifierUnavailable"
+        ],
+        "eventOrderReplayReconciles": false,
+        "eventOrderReplayIncludesMultiply": false,
+        "claimants": [
+          {
+            "directSourceId": "bgpn8D9",
+            "directSourceName": "Eternal Torch",
+            "triggerSourceId": "bgpn8D9",
+            "triggerSourceName": "Eternal Torch",
+            "effectId": "q1",
+            "modifierSourceId": null,
+            "modifierAttribute": null,
+            "modifierOperation": null,
+            "modifierValueType": null
+          },
+          {
+            "directSourceId": "WnGcx5W",
+            "directSourceName": "Palanquin",
+            "triggerSourceId": "bgpn8D9",
+            "triggerSourceName": "Eternal Torch",
+            "effectId": "0",
+            "modifierSourceId": "WnGcx5W",
+            "modifierAttribute": "PercentCooldownReduction",
+            "modifierOperation": "Add",
+            "modifierValueType": "TReferenceValueCardAttribute"
+          }
+        ]
+      },
+      {
+        "battleId": "56862f0e1aa64faa9ee0806c1cfa06bc",
+        "frameIndex": 176,
+        "targetId": "bgpn8D9",
+        "nativeAttributeKey": "PercentCooldownReduction",
+        "netValue": 12,
+        "attributedValue": 0,
+        "residualValue": 12,
+        "claimantCount": 1,
+        "unresolvedClaimantCount": 1,
+        "resolution": "ConcurrentResidual",
+        "failureReasons": [
+          "ModifierUnavailable"
+        ],
+        "eventOrderReplayReconciles": false,
+        "eventOrderReplayIncludesMultiply": false,
+        "claimants": [
+          {
+            "directSourceId": "bgpn8D9",
+            "directSourceName": "Eternal Torch",
+            "triggerSourceId": "bgpn8D9",
+            "triggerSourceName": "Eternal Torch",
+            "effectId": "q1",
+            "modifierSourceId": null,
+            "modifierAttribute": null,
+            "modifierOperation": null,
+            "modifierValueType": null
+          },
+          {
+            "directSourceId": "WnGcx5W",
+            "directSourceName": "Palanquin",
+            "triggerSourceId": "bgpn8D9",
+            "triggerSourceName": "Eternal Torch",
+            "effectId": "0",
+            "modifierSourceId": "WnGcx5W",
+            "modifierAttribute": "PercentCooldownReduction",
+            "modifierOperation": "Add",
+            "modifierValueType": "TReferenceValueCardAttribute"
+          }
+        ]
+      },
+      {
+        "battleId": "90b12920c83044749c417a2f9a1646fb",
+        "frameIndex": 600,
+        "targetId": "1iAbBHD",
+        "nativeAttributeKey": "DamageAmount",
+        "netValue": 2,
+        "attributedValue": 3,
+        "residualValue": -1,
+        "claimantCount": 1,
+        "unresolvedClaimantCount": 0,
+        "resolution": "AuraOverlap",
+        "failureReasons": [
+          "AuraOverlap"
+        ],
+        "eventOrderReplayReconciles": false,
+        "eventOrderReplayIncludesMultiply": false,
+        "claimants": []
+      },
+      {
+        "battleId": "dd89e58c2e82436f90941f18a6d430df",
+        "frameIndex": 82,
+        "targetId": "qfkJ1pD",
+        "nativeAttributeKey": "BurnApplyAmount",
+        "netValue": 4,
+        "attributedValue": 2,
+        "residualValue": 2,
+        "claimantCount": 1,
+        "unresolvedClaimantCount": 0,
+        "resolution": "AuraOverlap",
+        "failureReasons": [
+          "AuraOverlap"
+        ],
+        "eventOrderReplayReconciles": false,
+        "eventOrderReplayIncludesMultiply": false,
+        "claimants": []
+      },
+      {
+        "battleId": "dd89e58c2e82436f90941f18a6d430df",
+        "frameIndex": 132,
+        "targetId": "qfkJ1pD",
+        "nativeAttributeKey": "BurnApplyAmount",
+        "netValue": 4,
+        "attributedValue": 2,
+        "residualValue": 2,
+        "claimantCount": 1,
+        "unresolvedClaimantCount": 0,
+        "resolution": "AuraOverlap",
+        "failureReasons": [
+          "AuraOverlap"
+        ],
+        "eventOrderReplayReconciles": false,
+        "eventOrderReplayIncludesMultiply": false,
+        "claimants": []
+      },
+      {
+        "battleId": "dd89e58c2e82436f90941f18a6d430df",
+        "frameIndex": 188,
+        "targetId": "qfkJ1pD",
+        "nativeAttributeKey": "BurnApplyAmount",
+        "netValue": 4,
+        "attributedValue": 2,
+        "residualValue": 2,
+        "claimantCount": 1,
+        "unresolvedClaimantCount": 0,
+        "resolution": "AuraOverlap",
+        "failureReasons": [
+          "AuraOverlap"
+        ],
+        "eventOrderReplayReconciles": false,
+        "eventOrderReplayIncludesMultiply": false,
+        "claimants": []
+      },
+      {
+        "battleId": "dd89e58c2e82436f90941f18a6d430df",
+        "frameIndex": 252,
+        "targetId": "qfkJ1pD",
+        "nativeAttributeKey": "BurnApplyAmount",
+        "netValue": 4,
+        "attributedValue": 2,
+        "residualValue": 2,
+        "claimantCount": 1,
+        "unresolvedClaimantCount": 0,
+        "resolution": "AuraOverlap",
+        "failureReasons": [
+          "AuraOverlap"
+        ],
+        "eventOrderReplayReconciles": false,
+        "eventOrderReplayIncludesMultiply": false,
+        "claimants": []
+      },
+      {
+        "battleId": "dd89e58c2e82436f90941f18a6d430df",
+        "frameIndex": 304,
+        "targetId": "qfkJ1pD",
+        "nativeAttributeKey": "BurnApplyAmount",
+        "netValue": 4,
+        "attributedValue": 2,
+        "residualValue": 2,
+        "claimantCount": 1,
+        "unresolvedClaimantCount": 0,
+        "resolution": "AuraOverlap",
+        "failureReasons": [
+          "AuraOverlap"
+        ],
+        "eventOrderReplayReconciles": false,
+        "eventOrderReplayIncludesMultiply": false,
+        "claimants": []
+      }
+    ]
+  }
+}
