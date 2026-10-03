@@ -3,7 +3,7 @@ using Newtonsoft.Json;
 
 namespace BazaarPlusPlus.ModApi.Models;
 
-public sealed class BazaarDbProfileLinkRedeemRequest
+internal sealed class BazaarDbProfileLinkRedeemRequest
 {
     [JsonProperty("code")]
     public string Code { get; set; } = string.Empty;

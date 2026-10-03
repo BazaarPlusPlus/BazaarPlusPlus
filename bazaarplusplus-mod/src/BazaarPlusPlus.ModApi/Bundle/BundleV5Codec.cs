@@ -9,7 +9,7 @@ using Newtonsoft.Json.Linq;
 
 namespace BazaarPlusPlus.ModApi.Bundle;
 
-public static class BundleV5Codec
+internal static class BundleV5Codec
 {
     private static readonly byte[] Magic = Encoding.ASCII.GetBytes("BPPBNDL5");
     private static readonly UTF8Encoding StrictUtf8 = new(false, true);

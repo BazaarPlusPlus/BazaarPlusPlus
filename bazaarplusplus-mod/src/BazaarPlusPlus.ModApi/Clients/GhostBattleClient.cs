@@ -273,7 +273,7 @@ internal sealed class GhostBattleClient
     private sealed class GhostDownloadLimitException : Exception { }
 }
 
-public readonly struct GhostBattleQueryResult
+internal readonly struct GhostBattleQueryResult
 {
     private GhostBattleQueryResult(
         bool succeeded,
@@ -314,7 +314,7 @@ public readonly struct GhostBattleQueryResult
     ) => Failure(new ModApiFailure(error), statusCode, retryAfterSeconds);
 }
 
-public readonly struct GhostBundleDownloadResult
+internal readonly struct GhostBundleDownloadResult
 {
     private GhostBundleDownloadResult(
         bool succeeded,

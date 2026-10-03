@@ -9,7 +9,7 @@ namespace BazaarPlusPlus.ModApi;
 /// V5 Run payloads keep their untrusted-data options, size cap, version gate, and closed error codes
 /// in <c>RunPayloadV5Codec</c>; only the framing loop is shared internally.
 /// </summary>
-public static class MessagePackGzipCodec
+internal static class MessagePackGzipCodec
 {
     private static readonly MessagePackSerializerOptions Options =
         MessagePackSerializerOptions.Standard.WithResolver(

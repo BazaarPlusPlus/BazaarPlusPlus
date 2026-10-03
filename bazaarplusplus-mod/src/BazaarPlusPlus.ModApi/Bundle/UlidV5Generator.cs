@@ -3,7 +3,7 @@ using System.Security.Cryptography;
 
 namespace BazaarPlusPlus.ModApi.Bundle;
 
-public sealed class UlidV5Generator
+internal sealed class UlidV5Generator
 {
     private const long MaxTimestamp = 281_474_976_710_655;
     private const string Alphabet = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";

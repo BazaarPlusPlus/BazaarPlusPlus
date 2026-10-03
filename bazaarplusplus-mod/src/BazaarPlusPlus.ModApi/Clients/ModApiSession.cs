@@ -3,7 +3,7 @@ using BazaarPlusPlus.ModApi.Http;
 
 namespace BazaarPlusPlus.ModApi.Clients;
 
-public sealed class ModApiSession : IDisposable
+internal sealed class ModApiSession : IDisposable
 {
     private readonly HttpClient _httpClient;
     private readonly BundleUploadClient _bundleUpload;
