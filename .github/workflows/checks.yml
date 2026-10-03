@@ -48,7 +48,7 @@ jobs:
           - project: site
             scope: full check and test
           - project: server
-            scope: Worker only, no Mod compatibility
+            scope: full check and test
     env:
       WRANGLER_SEND_METRICS: 'false'
     steps:
@@ -73,9 +73,7 @@ jobs:
           npm --prefix bazaarplusplus-site run deploy:dry-run
           npm --prefix bazaarplusplus-site run deploy:preview:dry-run
       - if: matrix.project == 'server'
-        run: |
-          npm --prefix bazaarplusplus-server test
-          echo 'Worker tests only. Full server::test still requires the real game Managed directory for the Mod compatibility probe.' >> "$GITHUB_STEP_SUMMARY"
+        run: just server::test
 
   installer:
     name: Installer (${{ matrix.os }})

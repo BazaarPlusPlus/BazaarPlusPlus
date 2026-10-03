@@ -27,7 +27,7 @@ Drizzle mapping is a read projection, not an input to a migration generator.
 ```sh
 npm ci
 just server::check
-just server::test  # Also builds the mod's ModApi.Tests: needs the .NET SDK and game assemblies
+just server::test
 just server::dev   # Refreshes .dev.vars from the shared configuration first
 ```
 

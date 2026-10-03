@@ -20,7 +20,7 @@ pre-commit:
       run: just site::check
 
     - name: server
-      glob: &server_paths '{bazaarplusplus-server/**,bazaarplusplus-mod/src/BazaarPlusPlus.ModApi/**,JUSTFILE}'
+      glob: &server_paths '{bazaarplusplus-server/**,JUSTFILE}'
       run: just server::check
 
     - name: analyzer

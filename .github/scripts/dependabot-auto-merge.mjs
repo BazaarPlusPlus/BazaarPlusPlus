@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 export const REQUIRED_CHECKS = [
   'Release tooling',
   'site (full check and test)',
-  'server (Worker only, no Mod compatibility)',
+  'server (full check and test)',
   'Analyzer',
   'Installer (macos-14)',
   'Installer (windows-latest)',
