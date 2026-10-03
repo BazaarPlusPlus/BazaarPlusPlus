@@ -71,7 +71,7 @@ just 只转发，不缓存或跳过任何发布检查。直接调用 `node relea
 
 `promote` 验证完整性，然后以 ETag compare-and-swap 写入各平台的 `latest/<平台键>.json` 和 `latest.json`。有其他发布者抢先写入时重新检查版本，不能用旧版本覆盖新版本。重复发布同版本只能确认已有事实，不能替换它们。回退产品行为需要发布一个更高版本号的修复版本。
 
-`release/downloads.ts` 是浏览器可消费的发布事实入口，统一官网与 installer 的发布 origin、平台键、两种 manifest 的路径、updater endpoint 列表，以及读取大陆镜像地址的 `decodeMainlandDownloadUrl`。共享样例有两组：`release/fixtures/latest.json` 是双平台的 Release Manifest，由发布 writer 测试、mod 更新检查和 Tauri updater 字段校验消费；`release/fixtures/latest/<平台键>.json` 是各平台的 Platform Release Manifest，两个平台版本不同，由官网测试、mod 测试和 writer 测试消费。
+`release/downloads.ts` 是浏览器可消费的发布事实入口，统一官网与 installer 的发布 origin、平台键、两种 manifest 的路径、updater endpoint 列表，以及读取大陆镜像地址的 `decodeMainlandDownloadUrl`。共享样例有两组：`release/fixtures/latest.json` 是双平台的 Release Manifest，由发布 writer 测试、mod 更新检查和 Tauri updater 字段校验消费；`release/fixtures/latest/<平台键>.json` 是各平台的 Platform Release Manifest，两个平台版本不同，由官网测试、mod 测试和 writer 测试消费。这三份样例是发布流水线的产物：`release/cli.test.mjs` 的 `publish pipeline reproduces the shared fixtures` 在临时 git 仓库里用真实的 `main()` 跑完双平台 3.1.1 和单平台 3.1.2 的 upload、mirror 与 promote，再把内存 store 里的 manifest 与样例逐字节比对，其中提交哈希换成样例里的合成值。更新样例只有一个办法：`BPP_UPDATE_GOLDENS=1 npx vitest run --config release/vitest.config.mjs release/cli.test.mjs` 重新生成，并在同一个 PR 里跑 `just site::test mod::test`。
 
 每个平台的 Platform Release Manifest（`latest/<平台键>.json`）和双平台的 Release Manifest（`latest.json`）形状相同：保留 Tauri updater 的 `platforms` 字段，并在 `downloads` 中提供该平台真实的安装器地址和大陆镜像地址 `mainlandUrl`。官网不再猜测主下载文件名，也不再拼接镜像地址；部署新版官网前先发布新 manifest，否则官网会使用已有的 GitHub 下载入口。
 

@@ -198,14 +198,13 @@ function objectKey(url, baseUrl) {
 
 export async function uploadPlatform({
   workspaceRoot,
-  rootDir = path.join(workspaceRoot, 'bazaarplusplus-installer'),
   platform,
   baseUrl,
-  store,
-  validateManifest = validateArtifactManifest
+  store
 }) {
+  const rootDir = path.join(workspaceRoot, 'bazaarplusplus-installer');
   const version = readProductVersion(workspaceRoot);
-  const validated = validateManifest({
+  const validated = validateArtifactManifest({
     rootDir,
     manifestPath: artifactManifestPath(rootDir, platform),
     platform,

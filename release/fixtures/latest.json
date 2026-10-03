@@ -16,14 +16,14 @@
   "downloads": {
     "windows-x86_64": {
       "url": "https://bppinstaller.bazaarplusplus.com/3.1.1/windows-x86_64/installer/BazaarPlusPlus_3.1.1_x64-setup.exe",
-      "size": 100,
-      "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "size": 24,
+      "sha256": "df72af111f1dae904cf02abbf2ed75b816454cdba98b139ad68cbf1f342c2f6d",
       "mainlandUrl": "https://cauyxy.lanzout.com/bppwin311"
     },
     "darwin-aarch64": {
       "url": "https://bppinstaller.bazaarplusplus.com/3.1.1/darwin-aarch64/installer/BazaarPlusPlus_3.1.1_aarch64.dmg",
-      "size": 100,
-      "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "size": 22,
+      "sha256": "48b0957b4627aa54f76104f8b5a9060cf128e8f848bb8a4a76460217b2a7464e",
       "mainlandUrl": "https://cauyxy.lanzout.com/bppmac311"
     }
   }

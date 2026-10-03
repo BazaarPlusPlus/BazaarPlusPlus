@@ -8,10 +8,16 @@ import {
   WORKSPACE_ROOT,
   readProductVersion
 } from './product.mjs';
+import { RELEASE_PLATFORM_KEYS } from './release-platforms.mjs';
+import { createArtifactManifest } from './artifact-manifest.mjs';
+import { MemoryStore } from './test-support/memory-store.mjs';
+import { writeArtifacts } from './test-support/artifact-fixture.mjs';
+import { runFixtureGit } from '../scripts/test-support/git-fixture.mjs';
 
 const roots = [];
 afterEach(() => {
   vi.unstubAllEnvs();
+  vi.unstubAllGlobals();
   for (const root of roots.splice(0))
     fs.rmSync(root, { recursive: true, force: true });
 });
@@ -43,25 +49,13 @@ function fixture() {
     fs.mkdirSync(path.dirname(target), { recursive: true });
     fs.copyFileSync(path.join(WORKSPACE_ROOT, file), target);
   }
-  const options = {
+  return {
     workspaceRoot,
     log: vi.fn(),
-    prepare: vi.fn(),
-    build: vi.fn(),
-    bundle: vi.fn(),
-    createStore: vi.fn(() => ({ offline: true })),
-    upload: vi.fn(),
-    mirror: vi.fn(),
-    mirrorAll: vi.fn(),
-    verifyMirror: vi.fn(async () => ({ version: '0.0.0', results: [] })),
-    promote: vi.fn(),
-    promoteOne: vi.fn(async () => ({
-      platform: {},
-      latest: null,
-      advanced: false
-    }))
+    createStore: vi.fn(() => {
+      throw new Error('this test must not reach R2');
+    })
   };
-  return options;
 }
 
 const managed = '-p:ManagedPath=C:/Games/The Bazaar/Managed';
@@ -172,15 +166,7 @@ test.each([
     await expect(
       main(args, {
         workspaceRoot: '/missing-product-workspace',
-        prepare: effect,
-        build: effect,
         createStore: effect,
-        upload: effect,
-        mirror: effect,
-        mirrorAll: effect,
-        verifyMirror: effect,
-        promote: effect,
-        promoteOne: effect,
         log: effect
       })
     ).rejects.toThrow();
@@ -206,15 +192,16 @@ test.each([
 ])(
   'build %s rejects host %s before doing work',
   async (platform, hostPlatform) => {
-    const build = vi.fn();
+    const effect = vi.fn();
     await expect(
       main(['build', '--platform', platform], {
         workspaceRoot: '/missing-product-workspace',
         hostPlatform,
-        build
+        createStore: effect,
+        log: effect
       })
     ).rejects.toThrow(`Build ${platform} on its native host`);
-    expect(build).not.toHaveBeenCalled();
+    expect(effect).not.toHaveBeenCalled();
   }
 );
 
@@ -305,143 +292,60 @@ test('check catches stale Payload projection and platform overlays', async () =>
   );
 });
 
-test('prepare and native build dispatch validated inputs and pass the shared lock token to bundling', async () => {
-  const options = fixture();
-  await main(['prepare', '--platform', 'windows', '--', managed], options);
-  expect(options.prepare).toHaveBeenCalledWith({
-    workspaceRoot: options.workspaceRoot,
-    platform: 'windows',
-    msbuildArgs: [managed]
-  });
-  options.build.mockImplementation(({ bundle }) =>
-    bundle({ token: 'test-build-token' })
-  );
-  await main(['build', '--platform=windows', '--', managed], {
-    ...options,
-    hostPlatform: 'win32'
-  });
-  expect(options.bundle).toHaveBeenCalledWith(
-    path.join(options.workspaceRoot, 'bazaarplusplus-installer'),
-    'test-build-token'
-  );
-  expect(options.createStore).not.toHaveBeenCalled();
-});
-
-test('upload and promote receive the release-owned origin through an offline dispatch seam', async () => {
-  const options = fixture();
-  await main(['upload', '--platform', 'macos'], options);
-  expect(options.upload).toHaveBeenCalledWith({
-    workspaceRoot: options.workspaceRoot,
-    platform: 'macos',
-    baseUrl: RELEASE_BASE_URL,
-    store: { offline: true }
-  });
-  const version = readProductVersion(options.workspaceRoot);
-  await main(
-    ['mirror', '--platform', 'macos', '--url', 'https://mirror.example/mac'],
-    options
-  );
-  expect(options.mirror).toHaveBeenCalledWith({
-    version,
-    platform: 'macos',
-    url: 'https://mirror.example/mac',
-    store: { offline: true },
-    probeMirror: expect.any(Function),
-    allowUnverified: false,
-    log: options.log
-  });
-  await main(
-    [
-      'mirror',
-      '--platform=windows',
-      '--url=https://mirror.example/win',
-      '--allow-unverified-mirror'
-    ],
-    options
-  );
-  expect(options.mirror).toHaveBeenLastCalledWith(
-    expect.objectContaining({
-      platform: 'windows',
-      url: 'https://mirror.example/win',
-      allowUnverified: true
-    })
-  );
-  await main(['promote'], options);
-  expect(options.promote).toHaveBeenCalledWith({
-    version,
-    baseUrl: RELEASE_BASE_URL,
-    store: { offline: true },
-    withoutMainlandMirror: false,
-    log: options.log
-  });
-  await main(['promote', '--without-mainland-mirror'], options);
-  expect(options.promote).toHaveBeenLastCalledWith(
-    expect.objectContaining({ withoutMainlandMirror: true })
-  );
-  await main(['promote', '--platform', 'macos'], options);
-  expect(options.promoteOne).toHaveBeenCalledWith({
-    version,
-    platform: 'macos',
-    baseUrl: RELEASE_BASE_URL,
-    store: { offline: true },
-    withoutMainlandMirror: false,
-    log: options.log
-  });
-  expect(options.log).toHaveBeenLastCalledWith(
-    expect.stringContaining('latest.json stays at the last lockstep release')
-  );
-  options.promoteOne.mockResolvedValueOnce({
-    platform: {},
-    latest: { version: '9.9.9' },
-    advanced: true
-  });
-  await main(['promote', '--platform', 'macos'], options);
-  expect(options.log).toHaveBeenLastCalledWith(
-    expect.stringContaining('latest.json advanced')
-  );
-  options.promoteOne.mockResolvedValueOnce({
-    platform: {},
-    latest: { version: '9.9.9' },
-    advanced: false
-  });
-  await main(['promote', '--platform', 'macos'], options);
-  expect(options.log).toHaveBeenLastCalledWith(
-    expect.stringContaining('latest.json already names 9.9.9')
-  );
-});
-
-test.each([false, true])(
-  'mirror-all dispatches both links without promotion (override=%s)',
-  async (override) => {
-    const options = fixture();
-    await main(
-      [
-        'mirror-all',
-        '--windows-url',
-        'https://mirror.example/win',
-        '--macos-url',
-        'https://mirror.example/mac',
-        ...(override ? ['--allow-unverified-mirror'] : [])
-      ],
-      options
-    );
-    expect(options.mirrorAll).toHaveBeenCalledWith({
-      version: readProductVersion(options.workspaceRoot),
-      urls: {
-        windows: 'https://mirror.example/win',
-        macos: 'https://mirror.example/mac'
-      },
-      baseUrl: RELEASE_BASE_URL,
-      store: { offline: true },
-      probeMirror: expect.any(Function),
-      allowUnverified: override,
-      log: options.log
+// Canned public release origin: an uploaded fragment and mirror record per
+// platform at `version`, the shared platform fixtures as the published
+// manifests, and a share page serving each recorded installer.
+function publicOrigin(version) {
+  const files = new Map();
+  const pages = new Map();
+  for (const key of RELEASE_PLATFORM_KEYS) {
+    const base = `${RELEASE_BASE_URL}/${version}/${key}`;
+    const fileName = `BazaarPlusPlus_${version}_${key}.bin`;
+    const record = (category, name) => ({
+      url: `${base}/${category}/${name}`,
+      size: 1,
+      sha256: 'b'.repeat(64)
     });
-    expect(options.mirror).not.toHaveBeenCalled();
-    expect(options.promote).not.toHaveBeenCalled();
-    expect(options.promoteOne).not.toHaveBeenCalled();
+    files.set(`${base}/updater/platform-manifest.json`, {
+      schemaVersion: 1,
+      version,
+      platform: key,
+      gitCommit: 'a'.repeat(40),
+      installer: record('installer', fileName),
+      updater: { ...record('updater', fileName), signature: 'signature' },
+      signatureFile: record('updater', `${fileName}.sig`)
+    });
+    const mirror = `https://mirror.example/${key}-${version}`;
+    files.set(`${base}/mirror/mainland.json`, {
+      schemaVersion: 1,
+      version,
+      platform: key,
+      url: mirror,
+      fileName,
+      verified: true
+    });
+    pages.set(mirror, fileName);
+    const published = JSON.parse(
+      fs.readFileSync(
+        path.join(import.meta.dirname, 'fixtures', `latest/${key}.json`),
+        'utf8'
+      )
+    );
+    files.set(`${RELEASE_BASE_URL}/latest/${key}.json`, published);
+    const { url, mainlandUrl } = published.downloads[key];
+    pages.set(mainlandUrl, decodeURIComponent(url.split('/').at(-1)));
   }
-);
+  return vi.fn(async (url) => {
+    if (files.has(url))
+      return new Response(JSON.stringify(files.get(url)), { status: 200 });
+    if (pages.has(url))
+      return new Response(
+        `<html><head><title>${pages.get(url)} - 蓝奏云</title></head></html>`,
+        { status: 200 }
+      );
+    return new Response('', { status: 404 });
+  });
+}
 
 test('verify-mirror is read-only: no store, no source alignment, VERSION only without --latest', async () => {
   const options = fixture();
@@ -452,30 +356,195 @@ test('verify-mirror is read-only: no store, no source alignment, VERSION only wi
   const config = JSON.parse(fs.readFileSync(file, 'utf8'));
   config.plugins.updater.endpoints = ['https://wrong.example/latest.json'];
   fs.writeFileSync(file, JSON.stringify(config));
+  const version = readProductVersion(options.workspaceRoot);
+  const fetch = publicOrigin(version);
+  vi.stubGlobal('fetch', fetch);
   await main(['verify-mirror'], options);
-  expect(options.verifyMirror).toHaveBeenCalledWith({
-    baseUrl: RELEASE_BASE_URL,
-    version: readProductVersion(options.workspaceRoot),
-    platform: undefined,
-    latest: false,
-    log: options.log
-  });
-  await main(['verify-mirror', '--latest'], options);
-  expect(options.verifyMirror).toHaveBeenLastCalledWith(
-    expect.objectContaining({ version: null, latest: true })
+  expect(options.log).toHaveBeenLastCalledWith(
+    `Mainland mirror verified for ${version}`
   );
+  fetch.mockClear();
   await main(['verify-mirror', '--platform', 'windows'], options);
-  expect(options.verifyMirror).toHaveBeenLastCalledWith(
-    expect.objectContaining({ platform: 'windows', latest: false })
+  expect(fetch).not.toHaveBeenCalledWith(
+    expect.stringContaining('/darwin-aarch64/'),
+    expect.anything()
+  );
+  await main(['verify-mirror', '--latest'], options);
+  expect(options.log).toHaveBeenLastCalledWith(
+    'Mainland mirror verified for 3.1.2 / 3.1.1'
   );
   await main(['verify-mirror', '--latest', '--platform', 'macos'], options);
-  expect(options.verifyMirror).toHaveBeenLastCalledWith(
-    expect.objectContaining({ platform: 'macos', latest: true })
+  expect(options.log).toHaveBeenLastCalledWith(
+    'Mainland mirror verified for 3.1.1'
   );
   expect(options.createStore).not.toHaveBeenCalled();
-  expect(options.log).toHaveBeenCalledWith(
-    'Mainland mirror verified for 0.0.0'
+});
+
+test.each([
+  [
+    'package-lock root entry',
+    'bazaarplusplus-installer/package-lock.json',
+    (text) => {
+      const lock = JSON.parse(text);
+      lock.packages[''].version = '0.0.1';
+      return `${JSON.stringify(lock, null, 2)}\n`;
+    },
+    /packageLockRootVersion=0\.0\.1/
+  ],
+  [
+    'Cargo.lock root package',
+    'bazaarplusplus-installer/src-tauri/Cargo.lock',
+    (text) =>
+      text.replace(
+        /(\[\[package\]\]\r?\nname = "bppinstaller"\r?\nversion = ")[^"]+/,
+        '$10.0.1'
+      ),
+    /cargoLockVersion=0\.0\.1/
+  ]
+])('check rejects a stale %s', async (_name, file, stale, error) => {
+  const options = fixture();
+  const target = path.join(options.workspaceRoot, file);
+  const before = fs.readFileSync(target, 'utf8');
+  fs.writeFileSync(target, stale(before));
+  expect(fs.readFileSync(target, 'utf8')).not.toBe(before);
+  await expect(main(['check'], options)).rejects.toThrow(/Version mismatch/);
+  await expect(main(['check'], options)).rejects.toThrow(error);
+  await main(['sync'], options);
+  await main(['check'], options);
+});
+
+test('sync changes only the version line of tauri.conf.json', async () => {
+  const options = fixture();
+  const file = path.join(
+    options.workspaceRoot,
+    'bazaarplusplus-installer/src-tauri/tauri.conf.json'
   );
+  const before = fs.readFileSync(file, 'utf8');
+  const version = readProductVersion(options.workspaceRoot);
+  fs.writeFileSync(path.join(options.workspaceRoot, 'VERSION'), '6.2.1\n');
+  await main(['sync'], options);
+  expect(fs.readFileSync(file, 'utf8')).toBe(
+    before.replace(`"version": "${version}"`, '"version": "6.2.1"')
+  );
+});
+
+// Release E2E anchor: the real coordinator runs upload, mirror-all and
+// promote for a lockstep 3.1.1, then a single-platform 3.1.2, against an
+// in-memory R2 store, from a temporary git checkout of the release inputs.
+// The manifests it publishes must equal the shared fixtures byte for byte;
+// BPP_UPDATE_GOLDENS=1 rewrites them from this run instead.
+const goldenFiles = [
+  'latest.json',
+  'latest/darwin-aarch64.json',
+  'latest/windows-x86_64.json'
+];
+const anchorMirrors = {
+  'https://cauyxy.lanzout.com/bppwin311': 'BazaarPlusPlus_3.1.1_x64-setup.exe',
+  'https://cauyxy.lanzout.com/bppmac311': 'BazaarPlusPlus_3.1.1_aarch64.dmg',
+  'https://cauyxy.lanzout.com/bppwin312': 'BazaarPlusPlus_3.1.2_x64-setup.exe'
+};
+
+function commitFixture(cwd, message) {
+  runFixtureGit(['add', '-A'], { cwd });
+  runFixtureGit(
+    [
+      '-c',
+      'user.name=Release Anchor',
+      '-c',
+      'user.email=release-anchor@example.test',
+      'commit',
+      '-qm',
+      message
+    ],
+    { cwd }
+  );
+  return runFixtureGit(['rev-parse', 'HEAD'], { cwd }).trim();
+}
+
+test('publish pipeline reproduces the shared fixtures', async () => {
+  const { workspaceRoot } = fixture();
+  const rootDir = path.join(workspaceRoot, 'bazaarplusplus-installer');
+  const store = new MemoryStore();
+  const run = (args, extra = {}) =>
+    main(args, {
+      workspaceRoot,
+      log: () => {},
+      createStore: () => store,
+      probeMirror: async (url) => ({
+        status: 200,
+        html: `<html><head><title>${anchorMirrors[url]} - 蓝奏云</title></head></html>`
+      }),
+      ...extra
+    });
+  const release = async (version) => {
+    fs.writeFileSync(path.join(workspaceRoot, 'VERSION'), `${version}\n`);
+    await run(['sync']);
+    return commitFixture(workspaceRoot, `Release ${version}`);
+  };
+  const build = (platform, version, artifact) => {
+    writeArtifacts(rootDir, platform, { version, ...artifact });
+    createArtifactManifest({ rootDir, platform, version });
+  };
+
+  runFixtureGit(['init', '-q'], { cwd: workspaceRoot });
+  const exclude = path.join(workspaceRoot, '.git/info/exclude');
+  fs.mkdirSync(path.dirname(exclude), { recursive: true });
+  fs.appendFileSync(
+    exclude,
+    'bazaarplusplus-installer/src-tauri/target/\nbazaarplusplus-installer/src-tauri/resources/\n'
+  );
+
+  const lockstepCommit = await release('3.1.1');
+  build('windows', '3.1.1', {
+    installer: 'windows installer 3.1.1\n',
+    signature: 'windows-signature\n'
+  });
+  build('macos', '3.1.1', {
+    installer: 'macos installer 3.1.1\n',
+    updater: 'macos updater 3.1.1\n',
+    signature: 'macos-signature\n'
+  });
+  await run(['upload', '--platform', 'windows']);
+  await run(['upload', '--platform', 'macos']);
+  await run([
+    'mirror-all',
+    '--windows-url',
+    'https://cauyxy.lanzout.com/bppwin311',
+    '--macos-url',
+    'https://cauyxy.lanzout.com/bppmac311'
+  ]);
+  await run(['promote'], { now: new Date('2026-09-19T00:00:00.000Z') });
+
+  const aheadCommit = await release('3.1.2');
+  build('windows', '3.1.2', {
+    installer: 'windows installer 3.1.2\n',
+    signature: 'windows-signature-3.1.2\n'
+  });
+  await run(['upload', '--platform', 'windows']);
+  await run([
+    'mirror',
+    '--platform',
+    'windows',
+    '--url',
+    'https://cauyxy.lanzout.com/bppwin312'
+  ]);
+  await run(['promote', '--platform', 'windows'], {
+    now: new Date('2026-09-20T00:00:00.000Z')
+  });
+
+  // The temporary checkout's commits depend on every copied file; the
+  // fixtures keep synthetic commits instead.
+  for (const file of goldenFiles) {
+    const published = (await store.get(file)).bytes
+      .toString('utf8')
+      .replaceAll(lockstepCommit, 'a'.repeat(40))
+      .replaceAll(aheadCommit, 'c'.repeat(40));
+    const produced = `${JSON.stringify(JSON.parse(published), null, 2)}\n`;
+    const golden = path.join(import.meta.dirname, 'fixtures', file);
+    if (process.env.BPP_UPDATE_GOLDENS === '1')
+      fs.writeFileSync(golden, produced);
+    expect(produced, file).toBe(fs.readFileSync(golden, 'utf8'));
+  }
 });
 
 test('internal ownership dispatch requires a live build lock and does not run product alignment', async () => {

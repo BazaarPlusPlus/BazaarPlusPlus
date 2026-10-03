@@ -1,7 +1,6 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import crypto from 'node:crypto';
 import { afterEach, expect, test, vi } from 'vitest';
 import {
   buildPlatformFragment,
@@ -16,10 +15,15 @@ import {
   promoteRelease
 } from './publish.mjs';
 import { putImmutable } from './r2-store.mjs';
+import { createArtifactManifest } from './artifact-manifest.mjs';
+import { MemoryStore } from './test-support/memory-store.mjs';
+import {
+  artifactPaths,
+  writeArtifacts
+} from './test-support/artifact-fixture.mjs';
+import { runFixtureGit } from '../scripts/test-support/git-fixture.mjs';
 
 const baseUrl = 'https://bppinstaller.bazaarplusplus.com';
-const sha256 = (bytes) =>
-  crypto.createHash('sha256').update(bytes).digest('hex');
 const roots = [];
 
 afterEach(() => {
@@ -27,44 +31,45 @@ afterEach(() => {
     fs.rmSync(root, { recursive: true, force: true });
 });
 
-class MemoryStore {
-  objects = new Map();
-  writes = [];
-  generation = 0;
-  beforePut;
-  async get(key) {
-    return this.objects.get(key) ?? null;
-  }
-  async head(key) {
-    const object = this.objects.get(key);
-    return object
-      ? {
-          size: object.bytes.length,
-          sha256: sha256(object.bytes),
-          etag: object.etag
-        }
-      : null;
-  }
-  async put(key, bytes, { ifMatch, ifNoneMatch } = {}) {
-    if (this.beforePut) await this.beforePut(key, bytes);
-    const current = this.objects.get(key);
-    if ((ifNoneMatch && current) || (ifMatch && current?.etag !== ifMatch))
-      return false;
-    if (!ifNoneMatch && !ifMatch) throw new Error('unconditional write');
-    this.objects.set(key, {
-      bytes: Buffer.from(bytes),
-      etag: `"${++this.generation}"`
-    });
-    this.writes.push(key);
-    return true;
-  }
-}
-
+// A release checkout: a git repository whose installer project holds the
+// native build output. `commit` labels name its commits; `a` is the initial
+// one and any other label is created on first use.
 function fixture(version = '3.1.1') {
   const workspaceRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'bpp-release-'));
   roots.push(workspaceRoot);
+  const rootDir = path.join(workspaceRoot, 'bazaarplusplus-installer');
+  fs.mkdirSync(rootDir);
   fs.writeFileSync(path.join(workspaceRoot, 'VERSION'), version);
-  return { workspaceRoot, version };
+  fs.writeFileSync(path.join(rootDir, 'package.json'), '{}\n');
+  runFixtureGit(['init', '-q'], { cwd: workspaceRoot });
+  const exclude = path.join(workspaceRoot, '.git/info/exclude');
+  fs.mkdirSync(path.dirname(exclude), { recursive: true });
+  fs.appendFileSync(
+    exclude,
+    'bazaarplusplus-installer/src-tauri/target/\nbazaarplusplus-installer/src-tauri/resources/\n'
+  );
+  runFixtureGit(['add', '-A'], { cwd: workspaceRoot });
+  const data = { workspaceRoot, rootDir, version, commits: {} };
+  data.commits.a = commitFixture(data, 'a');
+  return data;
+}
+
+function commitFixture({ workspaceRoot }, message) {
+  runFixtureGit(
+    [
+      '-c',
+      'user.name=Release Test',
+      '-c',
+      'user.email=release-test@example.test',
+      'commit',
+      '-q',
+      '--allow-empty',
+      '-m',
+      message
+    ],
+    { cwd: workspaceRoot }
+  );
+  return runFixtureGit(['rev-parse', 'HEAD'], { cwd: workspaceRoot }).trim();
 }
 
 const platformKey = (platform) =>
@@ -74,40 +79,29 @@ const installerName = (platform, version) =>
     ? `BazaarPlusPlus_${version}_x64-setup.exe`
     : `BazaarPlusPlus_${version}_aarch64.dmg`;
 
-async function upload(data, store, platform, commit = 'a'.repeat(40)) {
-  const installer = path.join(
-    data.workspaceRoot,
-    installerName(platform, data.version)
-  );
-  const updater =
-    platform === 'windows'
-      ? installer
-      : path.join(data.workspaceRoot, 'BazaarPlusPlus.app.tar.gz');
-  const signature = `${updater}.sig`;
-  fs.writeFileSync(installer, `${platform} installer`);
-  if (updater !== installer) fs.writeFileSync(updater, 'macos updater');
-  fs.writeFileSync(signature, `${platform}-signature`);
-  const record = (file) => ({
-    path: file,
-    size: fs.statSync(file).size,
-    sha256: sha256(fs.readFileSync(file))
+// Builds `platform` from the commit labelled `commit` with the real artifact
+// manifest, then uploads it.
+async function upload(data, store, platform, commit = 'a') {
+  data.commits[commit] ??= commitFixture(data, commit);
+  runFixtureGit(['checkout', '-q', '--detach', data.commits[commit]], {
+    cwd: data.workspaceRoot
   });
-  const manifest = {
-    appVersion: data.version,
-    releasePlatformKey: platformKey(platform),
-    buildPlatform: platform,
-    gitCommit: commit,
-    dirty: false,
-    installer: record(installer),
-    updater: record(updater),
-    signature: { ...record(signature), content: `${platform}-signature` }
-  };
+  writeArtifacts(data.rootDir, platform, {
+    version: data.version,
+    installer: `${platform} installer`,
+    updater: 'macos updater',
+    signature: `${platform}-signature`
+  });
+  createArtifactManifest({
+    rootDir: data.rootDir,
+    platform,
+    version: data.version
+  });
   return uploadPlatform({
-    ...data,
+    workspaceRoot: data.workspaceRoot,
     platform,
     baseUrl,
-    store,
-    validateManifest: () => ({ manifest, installer, updater, signature })
+    store
   });
 }
 
@@ -348,15 +342,14 @@ test('platform fragments preserve source identity and actual artifact names', ()
 test('upload freezes all local files before any remote write', async () => {
   const data = fixture();
   const store = new MemoryStore();
+  const { updater, signature } = artifactPaths(
+    data.rootDir,
+    'macos',
+    data.version
+  );
   store.beforePut = async () => {
-    fs.writeFileSync(
-      path.join(data.workspaceRoot, 'BazaarPlusPlus.app.tar.gz'),
-      'replacement build'
-    );
-    fs.writeFileSync(
-      path.join(data.workspaceRoot, 'BazaarPlusPlus.app.tar.gz.sig'),
-      'replacement signature'
-    );
+    fs.writeFileSync(updater, 'replacement build');
+    fs.writeFileSync(signature, 'replacement signature');
   };
   const fragment = await upload(data, store, 'macos');
   const key = new URL(fragment.updater.url).pathname.slice(1);
@@ -370,8 +363,8 @@ test('a product version cannot mix platform commits', async () => {
   const data = fixture();
   const store = new MemoryStore();
   const windows = await upload(data, store, 'windows');
-  await expect(upload(data, store, 'macos', 'b'.repeat(40))).rejects.toThrow(
-    /was uploaded from commit a{40} on windows-x86_64/
+  await expect(upload(data, store, 'macos', 'b')).rejects.toThrow(
+    `was uploaded from commit ${data.commits.a} on windows-x86_64`
   );
   expect(store.writes.some((key) => key.includes('darwin'))).toBe(false);
   const macos = await upload(data, store, 'macos');
@@ -705,7 +698,7 @@ test('one platform can run ahead once a lockstep release carries the per-platfor
   );
   expect(store.writes).toHaveLength(writes);
   // The other platform must ship the same commit, and then latest.json advances.
-  await expect(upload(next, store, 'macos', 'b'.repeat(40))).rejects.toThrow(
+  await expect(upload(next, store, 'macos', 'b')).rejects.toThrow(
     /was uploaded from commit/
   );
   await upload(next, store, 'macos');
@@ -714,7 +707,7 @@ test('one platform can run ahead once a lockstep release carries the per-platfor
   expect(joined.latest.version).toBe('3.1.2');
   expect(await read('latest.json')).toMatchObject({
     version: '3.1.2',
-    gitCommit: 'a'.repeat(40),
+    gitCommit: next.commits.a,
     downloads: {
       'windows-x86_64': { mainlandUrl: mirrorUrl('windows', '3.1.2') },
       'darwin-aarch64': { mainlandUrl: mirrorUrl('macos', '3.1.2') }
