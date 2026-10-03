@@ -124,6 +124,11 @@
     <Compile Include="Program.cs" />
   </ItemGroup>
 
+  <!-- Program.cs resolves game assemblies at run time from the same ManagedPath it compiled against. -->
+  <ItemGroup>
+    <AssemblyMetadata Include="BppManagedPath" Value="$(ManagedPath)" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="../../src/BazaarPlusPlus/BazaarPlusPlus.csproj" />
     <Reference Include="BazaarGameShared">

@@ -1,6 +1,7 @@
 # Game assemblies and decompiled game source: local only, never redistributed.
 game-libs/
 decompiled/
+decompiled-*/
 
 # Native Windows build output (MSVC)
 native/windows/build/

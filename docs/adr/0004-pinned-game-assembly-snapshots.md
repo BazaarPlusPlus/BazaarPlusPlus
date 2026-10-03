@@ -1,0 +1,13 @@
+# 锁定的游戏程序集快照取代本机 Steam 依赖
+
+mod 对游戏的全部构建期依赖是 `Managed/` 目录下的程序集，`ManagedPath.props` 从本机 Steam 安装目录探测它，`release::prepare` 和 `release::build` 因此只能在装了游戏的两台专用机器上运行。同一个 Steam 安装目录轮流承载 `public`、`staging`、`public_test_realm` 三个分支，哪一套程序集参与了编译取决于机器当时挂的分支，构建记录里只有 DLL 哈希，没有可追溯的游戏版本标识。[mod ADR 0010](../../bazaarplusplus-mod/docs/adr/0010-compile-against-game-supplied-libraries.md) 把编译器定为兼容性检查，但 `mod::matrix` 依赖本机手工归档的快照，云端检查里没有任何一个 job 对着游戏程序集编译。
+
+决定如下。游戏程序集成为显式锁定的构建输入：仓库提交一份锁文件，按 `{platform: macos|windows, channel: online|staging|ptr}` 六个键记录游戏版本串、Managed 目录的内容 sha256、Steam buildid、Steam 分支名和采集时间。游戏版本串是 Unity 的 `Application.version`，形如 `1.0.12575-staging-macos-arm64-fecb8f8e`，自带构建号、渠道、平台和游戏的 commit 短哈希，它存在 `globalgamemanagers` 里而不在任何 Managed DLL 里，快照时从 Managed 的上级 Data 目录读取；它是锁条目的身份，也是 mod 运行时日志和用户报告里出现的那个串。sha256 是内容校验，buildid 只是 Steam 侧的来源记录，同一个游戏 commit 可以对应多个 buildid；快照以内容哈希命名存放在私有 R2 bucket，构建前按锁文件取包到 `game-libs/`。`ManagedPath` 的解析顺序改为显式 `-p:ManagedPath`、锁文件指向的快照、报错。锁条目可以由两种来源满足：私有存储里的快照，或本机 Steam 安装目录，后者只在其 `globalgamemanagers` 里的游戏版本串与锁条目一致、且 Managed 目录的 sha256 也一致时成立，不一致就报错并同时列出两个版本串，提示切分支或等待锁更新。这样没有存储凭据的外部贡献者仍能对着 online 构建，而构建输入始终由锁决定；外部贡献者一般不构建 staging 和 ptr，这两个键只要求云端能取到。Steam 路径探测另外只保留给 `--deploy` 所需的 `GamePath` 和采集快照的 `snapshot`。
+
+六套是构建输入，不是六个产物。每个平台仍然只出一个 mod 二进制，它对着该平台的 online 快照编译，靠运行时的 Game Build Channel 检测和逐类 Harmony 补丁降级运行在三个渠道上；staging 和 ptr 快照只用于兼容性构建和兼容性测试，和 online 一样是阻塞门禁。锁文件条目写入 sealed build record，每个产物都能回答对着哪个平台、哪个渠道、哪个游戏版本编译。锁文件只通过 PR 更新，一次更新就是 mod 源码和游戏版本的一次可审阅、可 bisect 的绑定。
+
+有了可取的快照，`release::prepare`、`build`、`upload` 迁入 GitHub 托管的 `macos-14` 和 `windows-latest` runner，每个平台一个 job，签名密钥、Apple API key 和 R2 凭据放在 secrets。[ADR 0001](0001-product-release-promotion.md) 和 [ADR 0003](0003-per-platform-release-promotion.md) 里"每个平台需要专用主机和凭据"的前提随之消失，但它们的决定不变：原生宿主构建、准备与打包共用锁、同一版本同一提交、按平台提升、ETag 条件写。`docs/development.md` 中"游戏程序集不上传到公共 CI，也不交给不受信任 PR 在游戏机器上执行"改为：快照只存在于私有存储，fork PR 拿不到 secrets，依赖游戏的 job 在 fork 上自动跳过，仓库内分支的 PR 才运行完整矩阵。快照只用于编译和测试，Payload Inventory 不收录其中任何文件，ADR 0010 关于不随 mod 分发游戏自带库的约束继续有效。
+
+否决的方案：按渠道各出一个 mod 二进制，installer 不感知渠道，三个分支共用一个安装目录，server 和 analyzer 也从不按渠道过滤，六个产物只会制造安装错配。只打包编译所需的二十个 DLL，Assembly-CSharp 的类型解析会牵连其余 Unity 模块，构建输入摘要也要求整个 Managed 目录，裁剪换来的体积收益不值得这份不确定性。把快照放进私有 git 仓库或 GitHub Packages，47 MB 的二进制每次更新都膨胀历史，R2 已有凭据和条件写入脚本。一开始就用 DepotDownloader 在 CI 里自动采集，Steam Guard 在无人值守环境下不可靠，采集留在挂了对应分支的机器上手工执行，自动化另起决定。
+
+代价是多一份锁文件要跟着游戏更新手工推进，过期的锁只会在 CI 告警而不会自动纠正，游戏一更新本机 Steam 就和锁不一致，贡献者在锁推进前无法构建；R2 多一个私有 bucket 和一组只读凭据进入 GitHub secrets；Windows 与 macOS 的 Managed 是否相同未知，在第一个 Windows 快照出现前锁文件保留六个键；蓝奏云镜像上传仍是手动步骤。

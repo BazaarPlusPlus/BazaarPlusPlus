@@ -25,6 +25,16 @@ Publishing one platform's Platform Release Manifest once its artifacts are in pl
 **Mainland Mirror**:
 A manually uploaded share page of one platform's installer for mainland-China networks. Its address is an explicit operator input, checked against the uploaded installer and recorded per platform before that platform's Release Promotion, then published in its Platform Release Manifest; consumers read it and never derive it. It is a manual download fallback, never a second release source or an updater endpoint.
 
+## Game assemblies
+
+**Game Assembly Snapshot** (游戏程序集快照):
+One captured copy of the game's `Managed/` directory, identified by the game version string Unity writes in `globalgamemanagers` beside it (`1.0.12575-staging-macos-arm64-fecb8f8e`: build number, channel token, platform, game commit) and verified by the sha256 of its DLL records. It is captured from a mounted Steam install for one platform and channel (`macos` or `windows` × `online`, `staging`, `ptr`, the Steam branches `public`, `staging`, `public_test_realm`), stored content-addressed in the private `bazaarplusplus-game-libs` bucket, and unpacked under `bazaarplusplus-mod/game-libs/`. It is a build and test input, never part of the Payload; the Steam buildid and branch are its source record, not its identity. The snapshot channel keeps staging and ptr apart, which the mod's runtime Game Build Channel folds into `Ptr`.
+_Avoid_: Steam branch copy, game-libs archive
+
+**Snapshot Lock** (快照锁):
+`bazaarplusplus-mod/build/game-libs.lock.json`: the committed binding of the mod source to one Game Assembly Snapshot per platform and channel, six keys that stay `null` until captured. After an explicit override, `ManagedPath` resolves only from it: the fetched snapshot, or the local Steam install whose game version and sha256 match the entry. Each platform's product compiles against its `online` entry; `staging` and `ptr` entries feed compatibility builds and tests. It changes only through a pull request; `release/game-libs.mjs` owns its schema and the mod recipes capture, publish, fetch, and check it.
+_Avoid_: game-libs manifest, Steam buildid pin
+
 ## Data pipeline
 
 **Bundle**:

@@ -1,31 +1,106 @@
 <Project>
-  <!-- Keep game assembly and game-root discovery identical for every production and
-       test project. Callers may override either property explicitly with -p. -->
+  <!--
+    Game assemblies are a locked build input (docs/adr/0004-pinned-game-assembly-snapshots.md,
+    the Snapshot Lock in the root CONTEXT.md). ManagedPath resolves in this order and nowhere else:
+      1. an explicit -p:ManagedPath (scripts forward BPP_MANAGED_PATH this way);
+      2. the lock entry game-libs.lock.json names for this host platform and $(BppSnapshotChannel),
+         default online: the fetched snapshot under game-libs/<platform>-<channel>-<gameVersion>/,
+         or the local Steam install when the game version in its globalgamemanagers equals the
+         entry's. The sha256 half of the check is `just mod::fetch` and `just mod::check`;
+      3. nothing: BppValidateManagedPath fails the build naming both game versions.
+    Transitional rule (issue #136, decision 2): while this platform's online entry is null, the
+    entry of the channel mounted in Steam satisfies an online build when its game version matches.
+    Delete the two _BppTransitional groups once the online entries are captured.
+    Steam path probing otherwise feeds only GamePath (deploy) and BppSteamManagedPath (snapshot).
+  -->
   <PropertyGroup>
-    <MacSteamManagedDefault>$(HOME)/Library/Application Support/Steam/steamapps/common/The Bazaar/TheBazaar.app/Contents/Resources/Data/Managed</MacSteamManagedDefault>
-    <MacGamePathDefault>$(HOME)/Library/Application Support/Steam/steamapps/common/The Bazaar</MacGamePathDefault>
-    <WinSteamManagedC>C:\Program Files (x86)\Steam\steamapps\common\The Bazaar\TheBazaar_Data\Managed</WinSteamManagedC>
-    <WinGamePathC>C:\Program Files (x86)\Steam\steamapps\common\The Bazaar</WinGamePathC>
-    <WinSteamManagedD>D:\Program Files (x86)\Steam\steamapps\common\The Bazaar\TheBazaar_Data\Managed</WinSteamManagedD>
-    <WinGamePathD>D:\Program Files (x86)\Steam\steamapps\common\The Bazaar</WinGamePathD>
-    <WinSteamManagedE>E:\Program Files (x86)\Steam\steamapps\common\The Bazaar\TheBazaar_Data\Managed</WinSteamManagedE>
-    <WinGamePathE>E:\Program Files (x86)\Steam\steamapps\common\The Bazaar</WinGamePathE>
+    <BppGameLibsLock>$(MSBuildThisFileDirectory)game-libs.lock.json</BppGameLibsLock>
+    <BppGameLibsRoot>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', '..', 'game-libs'))</BppGameLibsRoot>
+    <BppSnapshotPlatform
+      Condition="'$(BppSnapshotPlatform)' == '' and $([MSBuild]::IsOSPlatform('OSX'))"
+      >macos</BppSnapshotPlatform>
+    <BppSnapshotPlatform
+      Condition="'$(BppSnapshotPlatform)' == '' and $([MSBuild]::IsOSPlatform('Windows'))"
+      >windows</BppSnapshotPlatform>
+    <BppSnapshotChannel Condition="'$(BppSnapshotChannel)' == ''">online</BppSnapshotChannel>
+    <BppGameVersionPattern>\d+\.\d+\.\d+(?:-[a-z0-9]+)*-(?:macos|windows)-[a-z0-9]+-[0-9a-f]+</BppGameVersionPattern>
   </PropertyGroup>
 
-  <PropertyGroup Condition="'$(ManagedPath)' == '' and Exists('$(WinSteamManagedC)\Assembly-CSharp.dll')">
-    <ManagedPath>$(WinSteamManagedC)</ManagedPath>
-    <GamePath>$(WinGamePathC)</GamePath>
+  <!-- Steam install discovery: the same candidate list as before, now only a source record. -->
+  <PropertyGroup>
+    <_BppMacSteamRoot>$(HOME)/Library/Application Support/Steam/steamapps/common/The Bazaar</_BppMacSteamRoot>
+    <_BppMacSteamManaged>$(_BppMacSteamRoot)/TheBazaar.app/Contents/Resources/Data/Managed</_BppMacSteamManaged>
+    <_BppWinSteamRootC>C:\Program Files (x86)\Steam\steamapps\common\The Bazaar</_BppWinSteamRootC>
+    <_BppWinSteamRootD>D:\Program Files (x86)\Steam\steamapps\common\The Bazaar</_BppWinSteamRootD>
+    <_BppWinSteamRootE>E:\Program Files (x86)\Steam\steamapps\common\The Bazaar</_BppWinSteamRootE>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(ManagedPath)' == '' and Exists('$(WinSteamManagedD)\Assembly-CSharp.dll')">
-    <ManagedPath>$(WinSteamManagedD)</ManagedPath>
-    <GamePath>$(WinGamePathD)</GamePath>
+  <PropertyGroup Condition="'$(BppSteamManagedPath)' == '' and Exists('$(_BppWinSteamRootC)\TheBazaar_Data\Managed\Assembly-CSharp.dll')">
+    <BppSteamManagedPath>$(_BppWinSteamRootC)\TheBazaar_Data\Managed</BppSteamManagedPath>
+    <GamePath Condition="'$(GamePath)' == ''">$(_BppWinSteamRootC)</GamePath>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(ManagedPath)' == '' and Exists('$(WinSteamManagedE)\Assembly-CSharp.dll')">
-    <ManagedPath>$(WinSteamManagedE)</ManagedPath>
-    <GamePath>$(WinGamePathE)</GamePath>
+  <PropertyGroup Condition="'$(BppSteamManagedPath)' == '' and Exists('$(_BppWinSteamRootD)\TheBazaar_Data\Managed\Assembly-CSharp.dll')">
+    <BppSteamManagedPath>$(_BppWinSteamRootD)\TheBazaar_Data\Managed</BppSteamManagedPath>
+    <GamePath Condition="'$(GamePath)' == ''">$(_BppWinSteamRootD)</GamePath>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(ManagedPath)' == '' and Exists('$(MacSteamManagedDefault)/Assembly-CSharp.dll')">
-    <ManagedPath>$(MacSteamManagedDefault)</ManagedPath>
-    <GamePath>$(MacGamePathDefault)</GamePath>
+  <PropertyGroup Condition="'$(BppSteamManagedPath)' == '' and Exists('$(_BppWinSteamRootE)\TheBazaar_Data\Managed\Assembly-CSharp.dll')">
+    <BppSteamManagedPath>$(_BppWinSteamRootE)\TheBazaar_Data\Managed</BppSteamManagedPath>
+    <GamePath Condition="'$(GamePath)' == ''">$(_BppWinSteamRootE)</GamePath>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(BppSteamManagedPath)' == '' and Exists('$(_BppMacSteamManaged)/Assembly-CSharp.dll')">
+    <BppSteamManagedPath>$(_BppMacSteamManaged)</BppSteamManagedPath>
+    <GamePath Condition="'$(GamePath)' == ''">$(_BppMacSteamRoot)</GamePath>
+  </PropertyGroup>
+  <!-- The mounted game's version lives in globalgamemanagers, the Data directory above Managed. -->
+  <PropertyGroup Condition="'$(BppSteamManagedPath)' != '' and Exists('$(BppSteamManagedPath)/../globalgamemanagers')">
+    <_BppSteamGameData>$([System.IO.File]::ReadAllText('$(BppSteamManagedPath)/../globalgamemanagers'))</_BppSteamGameData>
+    <BppSteamGameVersion>$([System.Text.RegularExpressions.Regex]::Match($(_BppSteamGameData), $(BppGameVersionPattern)).Value)</BppSteamGameVersion>
+    <_BppSteamGameData />
+  </PropertyGroup>
+
+  <!-- The lock entry for the requested platform and channel. -->
+  <PropertyGroup Condition="'$(BppSnapshotPlatform)' != '' and Exists('$(BppGameLibsLock)')">
+    <_BppLockText>$([System.IO.File]::ReadAllText('$(BppGameLibsLock)'))</_BppLockText>
+    <_BppLockEntry>$([System.Text.RegularExpressions.Regex]::Match($(_BppLockText), '"$(BppSnapshotPlatform)-$(BppSnapshotChannel)"\s*:\s*\{[^}]*\}').Value)</_BppLockEntry>
+    <BppLockGameVersion>$([System.Text.RegularExpressions.Regex]::Match($(_BppLockEntry), '(?&lt;="gameVersion"\s*:\s*")[^"]+').Value)</BppLockGameVersion>
+    <BppSnapshotManagedPath Condition="'$(BppLockGameVersion)' != ''"
+      >$(BppGameLibsRoot)$(BppSnapshotPlatform)-$(BppSnapshotChannel)-$(BppLockGameVersion)/Managed</BppSnapshotManagedPath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(ManagedPath)' == '' and '$(BppSnapshotManagedPath)' != '' and Exists('$(BppSnapshotManagedPath)/Assembly-CSharp.dll')">
+    <ManagedPath>$(BppSnapshotManagedPath)</ManagedPath>
+    <BppManagedPathSource>snapshot</BppManagedPathSource>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(ManagedPath)' == '' and '$(BppLockGameVersion)' != '' and '$(BppSteamGameVersion)' == '$(BppLockGameVersion)'">
+    <ManagedPath>$(BppSteamManagedPath)</ManagedPath>
+    <BppManagedPathSource>steam</BppManagedPathSource>
+  </PropertyGroup>
+
+  <!-- Transitional (issue #136): the mounted channel's entry stands in for a missing online entry. -->
+  <PropertyGroup Condition="'$(ManagedPath)' == '' and '$(BppSnapshotChannel)' == 'online' and '$(BppLockGameVersion)' == '' and '$(BppSteamGameVersion)' != '' and '$(_BppLockText)' != ''">
+    <_BppTransitionalStaging>$([System.Text.RegularExpressions.Regex]::Match($([System.Text.RegularExpressions.Regex]::Match($(_BppLockText), '"$(BppSnapshotPlatform)-staging"\s*:\s*\{[^}]*\}').Value), '(?&lt;="gameVersion"\s*:\s*")[^"]+').Value)</_BppTransitionalStaging>
+    <_BppTransitionalPtr>$([System.Text.RegularExpressions.Regex]::Match($([System.Text.RegularExpressions.Regex]::Match($(_BppLockText), '"$(BppSnapshotPlatform)-ptr"\s*:\s*\{[^}]*\}').Value), '(?&lt;="gameVersion"\s*:\s*")[^"]+').Value)</_BppTransitionalPtr>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(ManagedPath)' == '' and '$(_BppTransitionalStaging)' != '' and '$(_BppTransitionalStaging)' == '$(BppSteamGameVersion)'">
+    <ManagedPath>$(BppSteamManagedPath)</ManagedPath>
+    <BppManagedPathSource>steam-transitional-staging</BppManagedPathSource>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(ManagedPath)' == '' and '$(_BppTransitionalPtr)' != '' and '$(_BppTransitionalPtr)' == '$(BppSteamGameVersion)'">
+    <ManagedPath>$(BppSteamManagedPath)</ManagedPath>
+    <BppManagedPathSource>steam-transitional-ptr</BppManagedPathSource>
+  </PropertyGroup>
+  <PropertyGroup>
+    <_BppLockText />
+    <_BppLockEntry />
+    <BppManagedPathSource Condition="'$(BppManagedPathSource)' == '' and '$(ManagedPath)' != ''"
+      >explicit</BppManagedPathSource>
+  </PropertyGroup>
+
+  <!-- A target, not an evaluation-time error: release tests evaluate projects without the game.
+       A project that builds without game assemblies passes -p:ManagedPath explicitly. -->
+  <Target
+    Name="BppValidateManagedPath"
+    BeforeTargets="ResolveAssemblyReferences"
+    Condition="'$(ManagedPath)' == ''"
+  >
+    <Error Text="Game assemblies not resolved. Lock entry $(BppSnapshotPlatform)-$(BppSnapshotChannel) names game version '$(BppLockGameVersion)' (empty: not captured yet); the local Steam install is '$(BppSteamGameVersion)' (empty: not found). Run 'just mod::fetch $(BppSnapshotPlatform) $(BppSnapshotChannel)', switch The Bazaar's Steam branch to match the lock, wait for a lock update, or pass -p:ManagedPath=/absolute/path/to/Managed." />
+  </Target>
 </Project>

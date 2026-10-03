@@ -68,12 +68,40 @@ to_unix_path() {
     fi
 }
 
-# build/ManagedPath.props owns install discovery; ask it rather than restating paths.
+# build/ManagedPath.props owns install discovery and lock resolution; ask it rather
+# than restating paths.
 discovered_prop() {
     dotnet msbuild build/ManagedPath.props -nologo "-getProperty:$1" | tr -d '\r'
 }
 
-# Game assemblies: explicit -p:ManagedPath, then BPP_MANAGED_PATH, then discovery.
+# release/game-libs.mjs owns the Snapshot Lock, the Managed digest and the private store.
+game_libs_cli() {
+    node "$MOD_ROOT/../release/game-libs.mjs" "$@"
+}
+
+# The mounted Steam install's Managed dir, or empty; only snapshot and lock
+# resolution read it.
+steam_managed_path() {
+    discovered_prop BppSteamManagedPath
+}
+
+# lock_managed_path <platform> <channel> [--allow-unlocked]: the Managed dir that
+# satisfies the lock entry, printed on stdout: a verified game-libs/ snapshot, the
+# mounted Steam install when its game version and sha256 match, or a fetch from the
+# private store. The mounted install only counts for the host platform.
+lock_managed_path() {
+    local platform="$1" channel="$2"
+    shift 2
+    local steam=()
+    if [[ "$platform" == "$(host_platform)" ]]; then
+        steam=(--steam-managed "$(steam_managed_path)")
+    fi
+    game_libs_cli fetch --platform "$platform" --channel "$channel" \
+        ${steam[@]+"${steam[@]}"} "$@"
+}
+
+# Game assemblies: explicit -p:ManagedPath, then BPP_MANAGED_PATH, then the lock
+# entry build/ManagedPath.props resolves (fetched snapshot or matching Steam install).
 managed_path() {
     local explicit
     explicit="$(prop_value ManagedPath "$@")"
@@ -101,9 +129,9 @@ game_root() {
     fi
 }
 
-# Steam beta branches ("public_test_realm" = PTR) replace the single install in
-# place, so the Managed dir silently changes identity on branch switch. The
-# appmanifest is located by walking up from the Managed dir the DLLs are read from.
+# Steam beta branches replace the single install in place, so a snapshot records
+# the buildid and branch from the appmanifest as its source. The appmanifest is
+# located by walking up from the Managed dir the DLLs are read from.
 locate_appmanifest() {
     local dir
     dir="$(to_unix_path "$1")"
@@ -127,21 +155,6 @@ installed_steam_branch() {
     }
     key="$(awk '/"MountedConfig"/,/^\t\}/' "$acf" | awk -F '"' '/"BetaKey"/ {print $4}')"
     echo "${key:-public}"
-}
-
-# require_steam_branch <expected> <managed-dir>
-require_steam_branch() {
-    [[ "${BPP_SKIP_BRANCH_CHECK:-}" == "1" ]] && return 0
-    local branch
-    branch="$(installed_steam_branch "$2")"
-    if [[ "$branch" == "unknown" ]]; then
-        die "Could not find appmanifest_1617400.acf above '$2' to verify the Steam branch." \
-            $'\n'"Using a bare copied Managed dir? Set BPP_SKIP_BRANCH_CHECK=1 to override."
-    fi
-    if [[ "$branch" != "$1" ]]; then
-        die "Installed Steam branch is '$branch', expected '$1'." \
-            $'\n'"Switch The Bazaar's beta branch in Steam first, or set BPP_SKIP_BRANCH_CHECK=1 to override."
-    fi
 }
 
 # Dispatches `script <command> args...` to the cmd_<command> function.
