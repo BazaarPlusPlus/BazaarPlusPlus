@@ -1,6 +1,9 @@
 #nullable enable
 using System.Net;
 using System.Net.Http.Headers;
+using System.Reflection;
+using System.Text;
+using System.Text.Json;
 using BazaarPlusPlus.Game.HistoryPanel;
 using BazaarPlusPlus.Game.HistoryPanel.Data;
 using BazaarPlusPlus.Game.HistoryPanel.Ghost;
@@ -12,7 +15,7 @@ using BazaarPlusPlus.ModApi.Models;
 using Microsoft.Data.Sqlite;
 
 await GhostBundleImportTests.RunAsync();
-await DiscoveryUsesV5ShapeAndLimit();
+await DiscoveryImportsServerGhostSummaryContract();
 await RetryAfterStartsCooldown();
 await DownloadLimitsAndTransportErrorsStayClosed();
 await ExpiredUrlRefreshesOnceAndBecomesTerminal();
@@ -25,32 +28,83 @@ GhostDownloadSelectionTests.Run();
 
 Console.WriteLine("Ghost battle V5 sync tests passed.");
 
-static async Task DiscoveryUsesV5ShapeAndLimit()
+// The discovery response is the server-owned contract file itself, carried through discovery,
+// import, and the local battles row; the row must keep the recorder perspective.
+static async Task DiscoveryImportsServerGhostSummaryContract()
 {
+    string contract;
+    using (
+        var stream =
+            Assembly
+                .GetExecutingAssembly()
+                .GetManifestResourceStream("GhostBattleSync.Tests.ghost-summary.response.json")
+            ?? throw new InvalidOperationException("The server Ghost summary contract is missing.")
+    )
+    using (var reader = new StreamReader(stream, Encoding.UTF8))
+        contract = reader.ReadToEnd();
+
     Uri? observed = null;
-    var handler = new RecordingHandler(request =>
+    using (
+        var fixture = new GhostFixture(request =>
+        {
+            observed = request.RequestUri;
+            return JsonResponse(contract);
+        })
+    )
+    {
+        var synced = await fixture.Service.SyncRecentBattlesAsync(CancellationToken.None);
+        Assert(synced.Succeeded, "The server Ghost summary contract must import.");
+        Assert(
+            observed?.AbsolutePath == "/ghost-battles",
+            "Discovery route must be /ghost-battles."
+        );
+
+        using var document = JsonDocument.Parse(contract);
+        var battle = document.RootElement.GetProperty("battles")[0];
+        var player = battle.GetProperty("player");
+        var opponent = battle.GetProperty("opponent");
+        using var connection = new SqliteConnection(
+            $"Data Source={Path.Combine(fixture.Root, "runs.sqlite3")}"
+        );
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText =
+            "SELECT remote_battle_id, bundle_id, recorded_at_utc, uploader_account_id, local_player_account_id, player_account_id, player_hero, player_rank, player_rating, opponent_account_id, opponent_hero FROM battles WHERE source = 'GHOST';";
+        using var row = command.ExecuteReader();
+        Assert(row.Read(), "Discovery must import the contract battle.");
+        Assert(row.GetString(0) == battle.GetProperty("battle_id").GetString(), "battle_id");
+        Assert(row.GetString(1) == battle.GetProperty("bundle_id").GetString(), "bundle_id");
+        Assert(
+            DateTimeOffset.Parse(row.GetString(2)).ToUnixTimeMilliseconds()
+                == battle.GetProperty("recorded_at_ms").GetInt64(),
+            "recorded_at_ms"
+        );
+        Assert(
+            row.GetString(5) == player.GetProperty("account_id").GetString()
+                && row.GetString(6) == player.GetProperty("hero_name").GetString()
+                && row.GetString(7) == player.GetProperty("rank").GetString()
+                && row.GetInt32(8) == player.GetProperty("rating").GetInt32(),
+            "The contract player must import account, hero, rank, and rating."
+        );
+        Assert(
+            row.GetString(9) == opponent.GetProperty("account_id").GetString()
+                && row.GetString(10) == opponent.GetProperty("hero_name").GetString(),
+            "The contract opponent must import account and hero."
+        );
+        Assert(
+            row.GetString(3) == row.GetString(5) && row.GetString(4) == row.GetString(9),
+            "The uploader stays the row player and the local account stays its opponent."
+        );
+        Assert(!row.Read(), "The contract carries exactly one battle.");
+    }
+
+    var clamp = new RecordingHandler(request =>
     {
         observed = request.RequestUri;
-        return JsonResponse(
-            BattlePage(
-                "battle-1",
-                "01K1ABCDEF0123456789ABCDEF",
-                "https://r2.example/bundle",
-                DateTimeOffset.UtcNow.AddMinutes(5),
-                "account-uploader",
-                "account-local"
-            )
-        );
+        return JsonResponse("{\"battles\":[]}");
     });
-    using var session = TestModApiSessionFactory.Create(handler);
-    var result = await session.QueryGhostBattlesAgainstMeAsync(
-        "account-local",
-        999,
-        CancellationToken.None
-    );
-
-    Assert(result.Succeeded && result.Battles.Count == 1, "V5 discovery page must parse.");
-    Assert(observed?.AbsolutePath == "/ghost-battles", "Discovery route must be /ghost-battles.");
+    using (var session = TestModApiSessionFactory.Create(clamp))
+        await session.QueryGhostBattlesAgainstMeAsync("account-local", 999, CancellationToken.None);
     Assert(
         observed?.Query.Contains("limit=200", StringComparison.Ordinal) == true,
         "Discovery limit must clamp to 200."
