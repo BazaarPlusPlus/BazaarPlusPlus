@@ -42,7 +42,6 @@ export type HeroTrend = {
   points: HeroTrendPoint[];
   segments: HeroTrendPoint[][];
   latestWinRate: number | null;
-  firstWinRate: number | null;
   nullPointCount: number;
 };
 
@@ -58,11 +57,10 @@ export type HeroMatchup = {
 export type HeroAnalysis = {
   generatedAt: string;
   scope: {
-    requested: AnalysisScope;
     availableWindows: MetricWindow[];
     availableSegments: HeroMetricsSegment[];
   };
-  coverage: DatasetCoverage & { nominalDateCount: number };
+  coverage: Pick<DatasetCoverage, 'usableDates' | 'failedDates'>;
   ranking: HeroRanking[];
   trend: {
     dayAxis: string[];
@@ -70,7 +68,6 @@ export type HeroAnalysis = {
   };
   focus: {
     hero: string | null;
-    ranking: HeroRanking | null;
     trend: HeroTrend | null;
     matchups: HeroMatchup[];
   };
@@ -288,7 +285,6 @@ function deriveTrend(
       points,
       segments: segmentTrendPoints(points, orderedDates),
       latestWinRate: points.at(-1)?.winRate ?? null,
-      firstWinRate: points[0]?.winRate ?? null,
       nullPointCount: nullCountByHero.get(hero) ?? 0,
     }))
     .sort(
@@ -349,15 +345,12 @@ export function analyzeHeroes(
   return {
     generatedAt: dataset.generatedAt,
     scope: {
-      requested: requestedScope,
       availableWindows: dataset.coverage.usableDates.length > 0 ? [...METRIC_WINDOW_OPTIONS] : [],
       availableSegments: dataset.coverage.usableDates.length > 0 ? [...HERO_METRICS_SEGMENTS] : [],
     },
     coverage: {
-      requestedDates: selectedDates,
       usableDates,
       failedDates,
-      nominalDateCount: selectedDates.length,
     },
     ranking,
     trend: {
@@ -366,7 +359,6 @@ export function analyzeHeroes(
     },
     focus: {
       hero: focusHero,
-      ranking: ranking.find((row) => row.hero === focusHero) ?? null,
       trend: trendSeries.find((series) => series.hero === focusHero) ?? null,
       matchups: deriveMatchups(focusHero ? merged.get(focusHero) : undefined),
     },

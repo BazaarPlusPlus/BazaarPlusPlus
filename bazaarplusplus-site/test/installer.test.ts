@@ -1,30 +1,39 @@
-import { describe, expect, test, vi } from 'vitest';
+import { afterEach, describe, expect, test, vi } from 'vitest';
 import macFixture from '../../release/fixtures/latest/darwin-aarch64.json';
 import windowsFixture from '../../release/fixtures/latest/windows-x86_64.json';
 
-import {
-  createInstallerManifestHttpTransport,
-  GITHUB_RELEASE_URL,
-  INSTALLER_BASE,
-  loadLatestInstaller,
-  type InstallerManifestTransport,
-} from '../src/features/download/installer';
+import { RELEASE_BASE_URL } from '../../release/downloads';
+import { GITHUB_RELEASE_URL, loadLatestInstaller } from '../src/features/download/installer';
 
 const WINDOWS_PATH = 'latest/windows-x86_64.json';
 const MAC_PATH = 'latest/darwin-aarch64.json';
 
 type Manifests = Record<string, unknown>;
 
-/** A transport serving one payload per manifest path; an Error value rejects that path. */
-function makeTransport(manifests: Manifests): InstallerManifestTransport {
-  return {
-    load: vi.fn(async (path: string) => {
-      const payload = manifests[path];
-      if (payload instanceof Error) throw payload;
-      if (!(path in manifests)) throw new Error(`${path} responded with 404`);
-      return payload;
-    }),
-  };
+/**
+ * Stubs global `fetch` with one payload per manifest path under the release origin; an Error
+ * value rejects that request, and an unknown path answers 404.
+ */
+function stubManifests(manifests: Record<string, unknown>) {
+  const fetchStub = vi.fn(async (url: string) => {
+    const path = url.startsWith(`${RELEASE_BASE_URL}/`)
+      ? url.slice(RELEASE_BASE_URL.length + 1)
+      : url;
+    const payload = manifests[path];
+    if (payload instanceof Error) throw payload;
+    if (!(path in manifests)) return new Response('missing', { status: 404 });
+    return new Response(JSON.stringify(payload), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  });
+  vi.stubGlobal('fetch', fetchStub);
+  return fetchStub;
+}
+
+function load(manifests: Manifests) {
+  stubManifests(manifests);
+  return loadLatestInstaller(new AbortController().signal);
 }
 
 const bothPlatforms = (): Manifests => ({
@@ -43,8 +52,12 @@ function withWindowsMirror(mainlandUrl: unknown): Manifests {
 }
 
 describe('latest installer interface', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   test('resolves each platform from its own Platform Release Manifest', async () => {
-    const installer = await loadLatestInstaller(makeTransport(bothPlatforms()));
+    const installer = await load(bothPlatforms());
 
     expect(installer).toEqual({
       downloads: {
@@ -74,7 +87,7 @@ describe('latest installer interface', () => {
   ])(
     'a release whose mirror address is %s keeps its primary download and no mirror',
     async (_, mainlandUrl) => {
-      const installer = await loadLatestInstaller(makeTransport(withWindowsMirror(mainlandUrl)));
+      const installer = await load(withWindowsMirror(mainlandUrl));
       expect(installer.downloads.windows).toEqual({
         version: '3.1.2',
         downloadUrl: windowsFixture.downloads['windows-x86_64'].url,
@@ -104,79 +117,45 @@ describe('latest installer interface', () => {
         version: '3.1.2',
         downloads: {
           'windows-x86_64': {
-            url: `${INSTALLER_BASE}/3.1.1/windows-x86_64/installer/BazaarPlusPlus_3.1.1_x64-setup.exe`,
+            url: `${RELEASE_BASE_URL}/3.1.1/windows-x86_64/installer/BazaarPlusPlus_3.1.1_x64-setup.exe`,
           },
         },
       },
     ],
   ])('%s degrades only that platform', async (_, windowsPayload) => {
-    const installer = await loadLatestInstaller(
-      makeTransport({ ...bothPlatforms(), [WINDOWS_PATH]: windowsPayload })
-    );
+    const installer = await load({ ...bothPlatforms(), [WINDOWS_PATH]: windowsPayload });
     expect(installer.downloads.windows).toBeNull();
     expect(installer.downloads.mac).toMatchObject({ version: '3.1.1' });
   });
 
   test('fails as a whole only when every platform fails', async () => {
     await expect(
-      loadLatestInstaller(
-        makeTransport({ [WINDOWS_PATH]: new Error('windows down'), [MAC_PATH]: { version: '' } })
-      )
+      load({ [WINDOWS_PATH]: new Error('windows down'), [MAC_PATH]: { version: '' } })
     ).rejects.toThrow(/windows down/);
-    await expect(loadLatestInstaller(makeTransport({}))).rejects.toThrow(/404/);
+    await expect(load({})).rejects.toThrow(/404/);
   });
 
   test('uses the actual installer filename from the release instead of guessing it', async () => {
     const manifests = bothPlatforms();
     const windows = manifests[WINDOWS_PATH] as typeof windowsFixture;
     windows.downloads['windows-x86_64'].url =
-      `${INSTALLER_BASE}/3.1.2/windows-x86_64/installer/actual-build.exe`;
-    const installer = await loadLatestInstaller(makeTransport(manifests));
+      `${RELEASE_BASE_URL}/3.1.2/windows-x86_64/installer/actual-build.exe`;
+    const installer = await load(manifests);
     expect(installer.downloads.windows?.downloadUrl).toBe(windows.downloads['windows-x86_64'].url);
   });
 
-  test('requests every platform manifest and passes cancellation through the transport seam', async () => {
-    const transport = makeTransport(bothPlatforms());
+  test('requests every platform manifest from the release origin and passes cancellation through', async () => {
+    const fetchStub = stubManifests(bothPlatforms());
     const controller = new AbortController();
 
-    await loadLatestInstaller(transport, { signal: controller.signal });
+    await loadLatestInstaller(controller.signal);
 
-    expect(transport.load).toHaveBeenCalledTimes(2);
-    expect(transport.load).toHaveBeenCalledWith(WINDOWS_PATH, { signal: controller.signal });
-    expect(transport.load).toHaveBeenCalledWith(MAC_PATH, { signal: controller.signal });
-  });
-});
-
-describe('installer manifest HTTP adapter', () => {
-  test('loads unknown JSON from the platform manifest location under the release origin', async () => {
-    const fetchImpl = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ version: '3.1.2' }), {
-        status: 200,
-        headers: { 'content-type': 'application/json' },
-      })
-    );
-    const transport = createInstallerManifestHttpTransport({ fetchImpl });
-    const controller = new AbortController();
-
-    await expect(transport.load(WINDOWS_PATH, { signal: controller.signal })).resolves.toEqual({
-      version: '3.1.2',
-    });
-    expect(fetchImpl).toHaveBeenCalledWith(
-      `${INSTALLER_BASE}/${WINDOWS_PATH}`,
-      expect.objectContaining({
+    expect(fetchStub).toHaveBeenCalledTimes(2);
+    for (const path of [WINDOWS_PATH, MAC_PATH]) {
+      expect(fetchStub).toHaveBeenCalledWith(`${RELEASE_BASE_URL}/${path}`, {
         headers: { Accept: 'application/json' },
         signal: controller.signal,
-      })
-    );
-  });
-
-  test('reports a failed manifest response by path', async () => {
-    const transport = createInstallerManifestHttpTransport({
-      fetchImpl: vi.fn().mockResolvedValue(new Response('boom', { status: 503 })),
-    });
-
-    await expect(transport.load(MAC_PATH)).rejects.toThrow(
-      /darwin-aarch64\.json responded with 503/
-    );
+      });
+    }
   });
 });

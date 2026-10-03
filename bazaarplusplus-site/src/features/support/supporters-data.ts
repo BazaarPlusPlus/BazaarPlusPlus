@@ -3,7 +3,7 @@ export type Supporter = {
   tier: number;
 };
 
-export const SUPPORTER_LIST_URL = 'https://bpp-static.bazaarplusplus.com/supporter-list.json';
+const SUPPORTER_LIST_URL = 'https://bpp-static.bazaarplusplus.com/supporter-list.json';
 
 function isSupporter(value: unknown): value is Supporter {
   if (typeof value !== 'object' || value === null) {
@@ -34,11 +34,11 @@ export async function loadSupporters(signal?: AbortSignal): Promise<Supporter[]>
 
 const defaultTierDisplayOrder = [4, 3, 2, 1];
 
-function fisherYatesShuffle<T>(items: T[], random: () => number): T[] {
+function fisherYatesShuffle<T>(items: T[]): T[] {
   const shuffled = [...items];
 
   for (let index = shuffled.length - 1; index > 0; index -= 1) {
-    const swapIndex = Math.floor(random() * (index + 1));
+    const swapIndex = Math.floor(Math.random() * (index + 1));
     const current = shuffled[index];
     shuffled[index] = shuffled[swapIndex];
     shuffled[swapIndex] = current;
@@ -47,10 +47,7 @@ function fisherYatesShuffle<T>(items: T[], random: () => number): T[] {
   return shuffled;
 }
 
-export function orderSupportersForDisplay(
-  supportersInput: Supporter[],
-  random: () => number = Math.random
-): Supporter[] {
+export function orderSupportersForDisplay(supportersInput: Supporter[]): Supporter[] {
   const supportersByTier = new Map<number, Supporter[]>();
 
   for (const supporter of supportersInput) {
@@ -71,6 +68,6 @@ export function orderSupportersForDisplay(
 
   return tierDisplayOrder.flatMap((tier) => {
     const list = supportersByTier.get(tier);
-    return list ? fisherYatesShuffle(list, random) : [];
+    return list ? fisherYatesShuffle(list) : [];
   });
 }

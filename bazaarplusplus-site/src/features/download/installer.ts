@@ -1,12 +1,11 @@
 import {
-  RELEASE_BASE_URL as INSTALLER_BASE,
+  RELEASE_BASE_URL,
   DOWNLOAD_PLATFORM_KEYS,
   decodeMainlandDownloadUrl,
   platformManifestPath,
   type DownloadPlatform,
 } from '../../../../release/downloads';
 
-export { INSTALLER_BASE };
 export type { DownloadPlatform } from '../../../../release/downloads';
 export const GITHUB_RELEASE_URL =
   'https://github.com/BazaarPlusPlus/BazaarPlusPlus/releases/latest';
@@ -22,31 +21,6 @@ export type PlatformDownload = {
 export type LatestInstaller = {
   downloads: Record<DownloadPlatform, PlatformDownload | null>;
 };
-
-export type InstallerManifestTransport = {
-  load(path: string, options?: { signal?: AbortSignal }): Promise<unknown>;
-};
-
-type HttpTransportOptions = {
-  fetchImpl?: typeof fetch;
-};
-
-export function createInstallerManifestHttpTransport(
-  options: HttpTransportOptions = {}
-): InstallerManifestTransport {
-  return {
-    async load(path, loadOptions = {}) {
-      const response = await (options.fetchImpl ?? globalThis.fetch)(`${INSTALLER_BASE}/${path}`, {
-        headers: { Accept: 'application/json' },
-        signal: loadOptions.signal,
-      });
-      if (!response.ok) {
-        throw new Error(`${path} responded with ${response.status}`);
-      }
-      return response.json();
-    },
-  };
-}
 
 function decodeVersion(payload: unknown, path: string): string {
   if (
@@ -76,7 +50,7 @@ function decodeDownloadUrl(
   if (typeof value !== 'string') throw new Error(`${path} missing ${platformKey} download`);
   const url = new URL(value);
   if (
-    url.origin !== INSTALLER_BASE ||
+    url.origin !== RELEASE_BASE_URL ||
     url.username ||
     url.password ||
     url.hash ||
@@ -89,13 +63,19 @@ function decodeDownloadUrl(
 }
 
 async function loadPlatformDownload(
-  transport: InstallerManifestTransport,
   platform: DownloadPlatform,
-  signal: AbortSignal | undefined
+  signal: AbortSignal
 ): Promise<PlatformDownload> {
   const platformKey = DOWNLOAD_PLATFORM_KEYS[platform];
   const path = platformManifestPath(platformKey);
-  const payload = await transport.load(path, { signal });
+  const response = await fetch(`${RELEASE_BASE_URL}/${path}`, {
+    headers: { Accept: 'application/json' },
+    signal,
+  });
+  if (!response.ok) {
+    throw new Error(`${path} responded with ${response.status}`);
+  }
+  const payload: unknown = await response.json();
   const version = decodeVersion(payload, path);
   return {
     version,
@@ -104,13 +84,10 @@ async function loadPlatformDownload(
   };
 }
 
-export async function loadLatestInstaller(
-  transport: InstallerManifestTransport,
-  options: { signal?: AbortSignal } = {}
-): Promise<LatestInstaller> {
+export async function loadLatestInstaller(signal: AbortSignal): Promise<LatestInstaller> {
   const platforms: DownloadPlatform[] = ['windows', 'mac'];
   const settled = await Promise.allSettled(
-    platforms.map((platform) => loadPlatformDownload(transport, platform, options.signal))
+    platforms.map((platform) => loadPlatformDownload(platform, signal))
   );
   const downloads = { windows: null, mac: null } as LatestInstaller['downloads'];
   const failures: unknown[] = [];

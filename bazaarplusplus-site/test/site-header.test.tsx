@@ -2,11 +2,10 @@ import { render, screen, within } from '@testing-library/react';
 import { describe, expect, test } from 'vitest';
 
 import SiteHeader from '../src/shared/components/SiteHeader';
-import { createMemorySpaLocationAdapter, createSpaLocation } from '../src/app/router';
+import { locationAt } from './location';
 
 function renderHeader(href: string) {
-  const memory = createMemorySpaLocationAdapter(href);
-  return render(<SiteHeader location={createSpaLocation(memory.adapter).current()} />);
+  return render(<SiteHeader location={locationAt(href)} />);
 }
 
 describe('SiteHeader', () => {

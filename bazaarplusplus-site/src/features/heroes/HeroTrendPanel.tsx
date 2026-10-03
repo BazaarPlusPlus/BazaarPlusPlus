@@ -131,10 +131,7 @@ export default function HeroTrendPanel({
   });
 
   return (
-    <section
-      data-testid="trend-panel"
-      className="panel grid min-w-0 content-start gap-3 p-3 sm:p-4"
-    >
+    <section className="panel grid min-w-0 content-start gap-3 p-3 sm:p-4">
       <div
         data-testid="daily-winrate-chart"
         className="relative min-h-[220px] min-w-0 overflow-hidden sm:min-h-[280px] xl:min-h-[320px]"
@@ -239,7 +236,6 @@ export default function HeroTrendPanel({
                     key={heroSeries.hero}
                     data-testid="daily-winrate-line"
                     data-hero={heroSeries.hero}
-                    data-selected={isFocused ? 'true' : 'false'}
                     className="transition-opacity duration-(--t-fast)"
                   >
                     {segments.map((segmentPoints, segmentIndex) => (
@@ -383,7 +379,6 @@ export default function HeroTrendPanel({
             <button
               key={heroSeries.hero}
               type="button"
-              data-selected={isFocused ? 'true' : 'false'}
               onMouseEnter={() => onFocusHero(heroSeries.hero)}
               onFocus={() => onFocusHero(heroSeries.hero)}
               onClick={() => onFocusHero(heroSeries.hero)}

@@ -16,7 +16,7 @@ pre-commit:
       run: just installer::check-fast
 
     - name: site
-      glob: &site_paths '{bazaarplusplus-site/**,bazaarplusplus-analyzer/contracts/**,release/**,JUSTFILE}'
+      glob: &site_paths '{bazaarplusplus-site/**,bazaarplusplus-installer/src/styles/tokens.css,bazaarplusplus-analyzer/contracts/**,release/**,JUSTFILE}'
       run: just site::check
 
     - name: server

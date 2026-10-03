@@ -1,7 +1,6 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, test, vi } from 'vitest';
 
-import { createMemorySpaLocationAdapter, createSpaLocation } from '../src/app/router';
 import { BAZAARDB_ICON_PATH, BAZAARDB_META_URL } from '../src/content/site-copy';
 import HeroOverviewDashboard from '../src/features/heroes/HeroOverviewDashboard';
 import type {
@@ -9,6 +8,7 @@ import type {
   HeroMetricsDay,
   HeroMetricsRow,
 } from '../src/features/heroes/hero-metrics-dataset';
+import { locationAt } from './location';
 
 const DAYS = ['2026-06-04', '2026-06-05', '2026-06-06'];
 
@@ -119,19 +119,12 @@ function renderDashboard(options?: {
       failedDates: excludeDays,
     },
   };
-  const memory = createMemorySpaLocationAdapter(url);
-  const location = createSpaLocation(memory.adapter).current();
+  const location = locationAt(url);
   const onScopeChange = vi.fn();
 
   return {
     ...render(
-      <HeroOverviewDashboard
-        locale={location.locale}
-        location={location}
-        dataset={dataset}
-        requestedScope={location.scope}
-        onScopeChange={onScopeChange}
-      />
+      <HeroOverviewDashboard location={location} dataset={dataset} onScopeChange={onScopeChange} />
     ),
     onScopeChange,
   };

@@ -91,14 +91,12 @@ describe('analyzeHeroes', () => {
       losses: 63,
     });
     expect(threeDay.coverage).toEqual({
-      requestedDates: dates.slice(-3),
       usableDates: dates.slice(-3),
       failedDates: [],
-      nominalDateCount: 3,
     });
     expect(threeDay.scope.availableWindows).toEqual(['1d', '3d', '7d']);
     expect(threeDay.scope.availableSegments).toEqual(['all', 'legend', 'non_legend']);
-    expect(sevenDay.coverage.nominalDateCount).toBe(7);
+    expect(sevenDay.coverage.usableDates).toEqual(dates);
     expect(sevenDay.trend.dayAxis).toEqual(dates);
     expect(sevenDay.trend.series[0]?.points).toHaveLength(7);
   });
@@ -127,19 +125,15 @@ describe('analyzeHeroes', () => {
     expect(threeDay.ranking[0]).toMatchObject({ runsCompleted: 120, tenWinCount: 12 });
     expect(threeDay.focus.matchups[0]).toMatchObject({ decided: 60, wins: 33, losses: 27 });
     expect(threeDay.coverage).toEqual({
-      requestedDates: dates.slice(-3),
       usableDates: dates.slice(-3),
       failedDates: [],
-      nominalDateCount: 3,
     });
 
     expect(sevenDay.ranking[0]).toMatchObject({ runsCompleted: 150, tenWinCount: 15 });
     expect(sevenDay.focus.matchups[0]).toMatchObject({ decided: 100, wins: 50, losses: 50 });
     expect(sevenDay.coverage).toEqual({
-      requestedDates: dates,
       usableDates: dates,
       failedDates: [],
-      nominalDateCount: 5,
     });
     expect(sevenDay.trend.dayAxis).toEqual(dates);
     expect(sevenDay.trend.series[0]?.points).toHaveLength(5);
@@ -204,10 +198,8 @@ describe('analyzeHeroes', () => {
       },
     ]);
     expect(all.coverage).toEqual({
-      requestedDates: ['2026-06-07'],
       usableDates: ['2026-06-07'],
       failedDates: [],
-      nominalDateCount: 1,
     });
     expect(all.trend.dayAxis).toEqual(['2026-06-07']);
     expect(all.trend.series.find((series) => series.hero === 'Vanessa')?.points).toEqual([
@@ -290,10 +282,8 @@ describe('analyzeHeroes', () => {
 
     expect(analysis.ranking[0]).toMatchObject({ runsCompleted: 20, tenWinCount: 10 });
     expect(analysis.coverage).toEqual({
-      requestedDates: dates,
       usableDates: ['2026-06-05', '2026-06-07'],
       failedDates: ['2026-06-06'],
-      nominalDateCount: 3,
     });
   });
 

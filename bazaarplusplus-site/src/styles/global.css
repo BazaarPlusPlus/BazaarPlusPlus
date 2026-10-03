@@ -1,4 +1,5 @@
 @import 'tailwindcss';
+@import './installer-tokens.css';
 @import './tokens.css';
 
 @layer base {

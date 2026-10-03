@@ -1,15 +1,22 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, within } from '@testing-library/react';
-import { describe, expect, test, vi } from 'vitest';
+import { afterEach, describe, expect, test, vi } from 'vitest';
 
 import { HeroOverviewPage } from '../src/app/route-pages';
-import { createMemorySpaLocationAdapter, createSpaLocation } from '../src/app/router';
 import { NotFoundScreen } from '../src/app/screens';
-import type { HeroMetricsTransport } from '../src/features/heroes/hero-metrics-dataset';
 import { HEROES } from '../src/shared/lib/heroes';
+import { locationAt } from './location';
 
-function locationFor(href: string) {
-  return createSpaLocation(createMemorySpaLocationAdapter(href).adapter).current();
+function jsonResponse(payload: unknown) {
+  return new Response(JSON.stringify(payload), {
+    status: 200,
+    headers: { 'content-type': 'application/json' },
+  });
+}
+
+// A 404 is not retried, so the error state appears without React Query's backoff.
+function notFoundResponse() {
+  return new Response('missing', { status: 404 });
 }
 
 function makeSnapshot() {
@@ -37,26 +44,27 @@ function makeSnapshot() {
   };
 }
 
-function renderHeroPage(transport: HeroMetricsTransport, href = '/heroes?lang=en') {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
+function renderHeroPage(href = '/heroes?lang=en') {
+  const client = new QueryClient({ defaultOptions: { queries: { gcTime: 0 } } });
   render(
     <QueryClientProvider client={client}>
-      <HeroOverviewPage
-        transport={transport}
-        location={locationFor(href)}
-        onScopeChange={vi.fn()}
-      />
+      <HeroOverviewPage location={locationAt(href)} onScopeChange={vi.fn()} />
     </QueryClientProvider>
   );
 }
 
 describe('route states', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   test('Hero Analysis failure shows translated copy in the page chrome and retries the query', async () => {
-    const load = vi
-      .fn<HeroMetricsTransport['load']>()
-      .mockRejectedValueOnce(new Error('socket hang up'))
-      .mockResolvedValueOnce(makeSnapshot());
-    renderHeroPage({ load });
+    const fetchStub = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(notFoundResponse())
+      .mockResolvedValueOnce(jsonResponse(makeSnapshot()));
+    vi.stubGlobal('fetch', fetchStub);
+    renderHeroPage();
 
     expect(
       await screen.findByRole('heading', { level: 2, name: 'Stats are temporarily unavailable' })
@@ -64,26 +72,27 @@ describe('route states', () => {
     expect(
       screen.getByText('The hero stats could not be loaded. Try again in a moment.')
     ).toBeInTheDocument();
-    expect(screen.queryByText(/socket hang up/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/404/)).not.toBeInTheDocument();
     expect(screen.getByRole('navigation', { name: 'Primary' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Xinyu YANG' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
 
     expect(await screen.findByTestId('ranking-panel')).toBeInTheDocument();
-    expect(load).toHaveBeenCalledTimes(2);
+    expect(fetchStub).toHaveBeenCalledTimes(2);
   });
 
   test('localizes the retry state in Chinese', async () => {
-    renderHeroPage({ load: vi.fn().mockRejectedValue(new Error('boom')) }, '/heroes');
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>().mockResolvedValue(notFoundResponse()));
+    renderHeroPage('/heroes');
 
     expect(await screen.findByRole('button', { name: '重试' })).toBeInTheDocument();
     expect(screen.getByText('暂时无法读取英雄统计数据，请稍后重试。')).toBeInTheDocument();
-    expect(screen.queryByText('boom')).not.toBeInTheDocument();
+    expect(screen.queryByText(/404/)).not.toBeInTheDocument();
   });
 
   test('not-found renders inside the header and footer chrome', () => {
-    render(<NotFoundScreen location={locationFor('/missing?lang=en')} />);
+    render(<NotFoundScreen location={locationAt('/missing?lang=en')} />);
 
     expect(screen.getByRole('heading', { level: 1, name: 'Page not found' })).toBeInTheDocument();
     const nav = screen.getByRole('navigation', { name: 'Primary' });
