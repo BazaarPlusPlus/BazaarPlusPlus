@@ -1,3 +1,4 @@
+import type { CommandAdapter } from '../../api/commandAdapter';
 import type {
   StreamOverlayCropSettingsPayload,
   StreamOverlayDisplayMode,
@@ -16,18 +17,17 @@ type StatusOperation = 'restart' | 'window';
 type CropOperation = 'load' | 'crop' | 'display_mode' | 'reset';
 type OneOffAction = 'copy' | 'open_overlay' | 'open_settings';
 
-export interface StreamCommandPort {
-  ensureSession(): Promise<StreamServiceStatus>;
-  getStatus(): Promise<StreamServiceStatus>;
-  restartSession(): Promise<StreamServiceStatus>;
-  setWindow(offset: number): Promise<StreamServiceStatus>;
-  loadCropSettings(): Promise<StreamOverlayCropSettingsPayload>;
-  applyCropCode(code: string): Promise<StreamOverlayCropSettingsPayload>;
-  saveDisplayMode(
-    displayMode: StreamOverlayDisplayMode
-  ): Promise<StreamOverlayCropSettingsPayload>;
-  resetCropSettings(): Promise<StreamOverlayCropSettingsPayload>;
-}
+export type StreamCommandPort = Pick<
+  CommandAdapter,
+  | 'ensureStreamSession'
+  | 'getStreamStatus'
+  | 'restartStreamSession'
+  | 'setStreamWindow'
+  | 'getOverlaySettings'
+  | 'applyOverlayCropCode'
+  | 'saveOverlayDisplayMode'
+  | 'resetOverlayCrop'
+>;
 
 export interface StreamScheduler {
   setInterval(callback: () => void, delayMs: number): unknown;
@@ -212,7 +212,7 @@ class DefaultStreamWorkflow implements StreamWorkflow {
 
   private async loadInitialStatus(lifecycle: number, epoch: number) {
     try {
-      const status = await this.ports.commands.ensureSession();
+      const status = await this.ports.commands.ensureStreamSession();
       if (!this.isCurrentLifecycle(lifecycle) || epoch !== this.statusEpoch) {
         return;
       }
@@ -237,7 +237,7 @@ class DefaultStreamWorkflow implements StreamWorkflow {
 
   private async loadInitialCrop(lifecycle: number) {
     try {
-      const settings = await this.ports.commands.loadCropSettings();
+      const settings = await this.ports.commands.getOverlaySettings();
       if (!this.isCurrentLifecycle(lifecycle)) return;
       this.applyCropSettings(settings);
       this.state.cropProblem = null;
@@ -263,7 +263,7 @@ class DefaultStreamWorkflow implements StreamWorkflow {
     const request = ++this.latestPollRequest;
 
     try {
-      const status = await this.ports.commands.getStatus();
+      const status = await this.ports.commands.getStreamStatus();
       if (
         !this.isCurrentLifecycle(lifecycle) ||
         epoch !== this.statusEpoch ||
@@ -313,7 +313,7 @@ class DefaultStreamWorkflow implements StreamWorkflow {
     this.publish();
 
     try {
-      const status = await this.ports.commands.restartSession();
+      const status = await this.ports.commands.restartStreamSession();
       if (!this.isCurrentLifecycle(lifecycle)) return false;
       this.applyStatus(status);
       return true;
@@ -349,7 +349,7 @@ class DefaultStreamWorkflow implements StreamWorkflow {
     this.state.cropProblem = null;
     this.publish();
     try {
-      const settings = await this.ports.commands.loadCropSettings();
+      const settings = await this.ports.commands.getOverlaySettings();
       if (!this.isCurrentLifecycle(lifecycle)) return false;
       this.applyCropSettings(settings);
       return true;
@@ -409,7 +409,7 @@ class DefaultStreamWorkflow implements StreamWorkflow {
   private changeDisplayMode(displayMode: StreamOverlayDisplayMode) {
     return this.runCropAction(
       'display_mode',
-      () => this.ports.commands.saveDisplayMode(displayMode),
+      () => this.ports.commands.saveOverlayDisplayMode(displayMode),
       { operation: 'save_display_mode' },
       false
     );
@@ -424,7 +424,8 @@ class DefaultStreamWorkflow implements StreamWorkflow {
   private submitCropCode() {
     return this.runCropAction(
       'crop',
-      () => this.ports.commands.applyCropCode(this.state.cropCode.trim()),
+      () =>
+        this.ports.commands.applyOverlayCropCode(this.state.cropCode.trim()),
       { operation: 'apply_code' },
       true,
       { code: 'stream_crop_saved' }
@@ -434,7 +435,7 @@ class DefaultStreamWorkflow implements StreamWorkflow {
   private resetCropCode() {
     return this.runCropAction(
       'reset',
-      () => this.ports.commands.resetCropSettings(),
+      () => this.ports.commands.resetOverlayCrop(),
       { operation: 'reset' },
       true,
       { code: 'stream_crop_reset' }
@@ -461,7 +462,7 @@ class DefaultStreamWorkflow implements StreamWorkflow {
     this.publish();
 
     try {
-      const status = await this.ports.commands.setWindow(offset);
+      const status = await this.ports.commands.setStreamWindow(offset);
       if (!this.isCurrentLifecycle(lifecycle)) return false;
       this.applyStatus(status);
       return true;

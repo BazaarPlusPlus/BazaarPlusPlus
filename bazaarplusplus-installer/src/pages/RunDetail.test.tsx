@@ -5,18 +5,21 @@ import { createRoot, type Root } from 'react-dom/client';
 import { Link, MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ModalCoordinatorProvider } from '../components/ui/ModalCoordinator';
-import * as commands from '../features/history/historyApi';
+import { commandClient } from '../api/commandClient';
 import { LocaleProvider } from '../i18n/LocaleProvider';
 import { LOCALE_STORAGE_KEY } from '../i18n/messages';
 import type { HistoryRunDetail } from '../types/backend';
 import RunDetail from './RunDetail';
 
-vi.mock('../features/history/historyApi', () => ({
-  loadHistoryRunDetail: vi.fn(),
-  revealRunScreenshot: vi.fn(),
-  revealBattleVideo: vi.fn(),
-  deleteBattleVideo: vi.fn()
+vi.mock('../api/commandClient', () => ({
+  commandClient: {
+    getHistoryRunDetail: vi.fn(),
+    revealRunScreenshot: vi.fn(),
+    revealBattleVideo: vi.fn(),
+    deleteBattleVideo: vi.fn()
+  }
 }));
+const commands = commandClient;
 
 function detail(runId = 'run-1'): HistoryRunDetail {
   return {
@@ -63,7 +66,7 @@ let root: Root;
 beforeEach(() => {
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
   localStorage.setItem(LOCALE_STORAGE_KEY, 'en');
-  vi.mocked(commands.loadHistoryRunDetail)
+  vi.mocked(commands.getHistoryRunDetail)
     .mockReset()
     .mockImplementation(async (runId) => detail(runId));
   vi.mocked(commands.deleteBattleVideo).mockReset();
@@ -127,7 +130,7 @@ describe('Run Detail workflow binding', () => {
     expect(container.querySelector('[data-page-heading]')?.textContent).toBe(
       'Mak'
     );
-    expect(commands.loadHistoryRunDetail).toHaveBeenLastCalledWith('run-2');
+    expect(commands.getHistoryRunDetail).toHaveBeenLastCalledWith('run-2');
   });
 
   it('keeps failed video deletion retryable and blocks dismissal while retry runs', async () => {

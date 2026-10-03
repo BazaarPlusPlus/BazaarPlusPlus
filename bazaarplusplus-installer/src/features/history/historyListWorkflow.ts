@@ -1,21 +1,16 @@
 import type { HistoryRunList, HistoryRunRow } from '../../types/backend';
 import type { PageRefreshState } from '../shared/pageState';
-import type {
-  endGameProcess,
-  listHistoryRuns,
-  prepareHistoryThumbnails
-} from './historyApi';
+import type { CommandAdapter } from '../../api/commandAdapter';
 import {
   historyProblemFromError,
   type HistoryPageProblem
 } from './historyProblems';
 import { HISTORY_PAGE_SIZE, parseHistoryPage } from './pagination';
 
-type HistoryListCommands = {
-  listHistoryRuns: typeof listHistoryRuns;
-  endGameProcess: typeof endGameProcess;
-  prepareHistoryThumbnails: typeof prepareHistoryThumbnails;
-};
+type HistoryListCommands = Pick<
+  CommandAdapter,
+  'listHistoryRuns' | 'endGameProcess' | 'prepareHistoryThumbnails'
+>;
 
 export type EndGameProcessOutcome = 'terminated' | 'already-exited' | 'failed';
 

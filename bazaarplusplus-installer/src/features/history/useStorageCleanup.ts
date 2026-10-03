@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { commandClient } from '../../api/commandClient';
 import type {
   StorageCleanupExecution,
   StorageCleanupPreset,
@@ -6,7 +7,6 @@ import type {
   StorageCleanupScope
 } from '../../types/backend';
 import { useConfirmedOperation } from '../shared/confirmedOperation';
-import { executeStorageCleanup, previewStorageCleanup } from './historyApi';
 import {
   storageCleanupProblemFromError,
   type StorageCleanupProblem
@@ -43,7 +43,7 @@ export function useStorageCleanup(onCompleted: () => Promise<void> | void) {
     setPreviewProblem(null);
     setOutcome(null);
     try {
-      const preview = await previewStorageCleanup(scope, preset);
+      const preview = await commandClient.previewStorageCleanup(scope, preset);
       return operation.controller.request({ ...preview, preset });
     } catch (caught) {
       setPreviewProblem(storageCleanupProblemFromError(caught));
@@ -56,7 +56,10 @@ export function useStorageCleanup(onCompleted: () => Promise<void> | void) {
 
   const confirm = () =>
     operation.controller.run(async (target) => {
-      const result = await executeStorageCleanup(target.scope, target.preset);
+      const result = await commandClient.executeStorageCleanup(
+        target.scope,
+        target.preset
+      );
       await onCompleted();
       setOutcome(result);
       return { ok: true };

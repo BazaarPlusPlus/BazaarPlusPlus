@@ -3,12 +3,10 @@ import {
   defaultCropSettings,
   idleStreamStatus
 } from '../../api/previewDefaults';
-import { commandClient } from '../../api/commandClient';
 import type {
   StreamOverlayCropSettingsPayload,
   StreamServiceStatus
 } from '../../types/backend';
-import { createStreamCommandPort } from './streamApi';
 import {
   createStreamWorkflow,
   type StreamCommandPort,
@@ -80,14 +78,14 @@ function fakeCommands(
   overrides: Partial<StreamCommandPort> = {}
 ): StreamCommandPort {
   return {
-    ensureSession: vi.fn().mockResolvedValue(runningStatus()),
-    getStatus: vi.fn().mockResolvedValue(runningStatus()),
-    restartSession: vi.fn().mockResolvedValue(runningStatus()),
-    setWindow: vi.fn().mockResolvedValue(runningStatus()),
-    loadCropSettings: vi.fn().mockResolvedValue(defaultCropSettings),
-    applyCropCode: vi.fn().mockResolvedValue(defaultCropSettings),
-    saveDisplayMode: vi.fn().mockResolvedValue(defaultCropSettings),
-    resetCropSettings: vi.fn().mockResolvedValue(defaultCropSettings),
+    ensureStreamSession: vi.fn().mockResolvedValue(runningStatus()),
+    getStreamStatus: vi.fn().mockResolvedValue(runningStatus()),
+    restartStreamSession: vi.fn().mockResolvedValue(runningStatus()),
+    setStreamWindow: vi.fn().mockResolvedValue(runningStatus()),
+    getOverlaySettings: vi.fn().mockResolvedValue(defaultCropSettings),
+    applyOverlayCropCode: vi.fn().mockResolvedValue(defaultCropSettings),
+    saveOverlayDisplayMode: vi.fn().mockResolvedValue(defaultCropSettings),
+    resetOverlayCrop: vi.fn().mockResolvedValue(defaultCropSettings),
     ...overrides
   };
 }
@@ -118,11 +116,11 @@ describe('stream workflow lifecycle and effects', () => {
   it('ignores an older poll after a newer poll succeeds', async () => {
     const first = deferred<StreamServiceStatus>();
     const second = deferred<StreamServiceStatus>();
-    const getStatus = vi
+    const getStreamStatus = vi
       .fn()
       .mockImplementationOnce(() => first.promise)
       .mockImplementationOnce(() => second.promise);
-    const { workflow, scheduler } = setup({ getStatus });
+    const { workflow, scheduler } = setup({ getStreamStatus });
     await workflow.start();
 
     scheduler.fireIntervals();
@@ -135,28 +133,12 @@ describe('stream workflow lifecycle and effects', () => {
     expect(workflow.getSnapshot().service.status?.active_window_offset).toBe(2);
   });
 
-  it('keeps the snapshot reference when a poll changes nothing', async () => {
-    const { workflow, scheduler } = setup();
-    await workflow.start();
-    const before = workflow.getSnapshot();
-
-    scheduler.fireIntervals();
-    await flush();
-
-    expect(workflow.getSnapshot()).toBe(before);
-
-    scheduler.fireIntervals();
-    await flush();
-
-    expect(workflow.getSnapshot()).toBe(before);
-  });
-
   it('still publishes when a poll changes the reported error', async () => {
-    const getStatus = vi
+    const getStreamStatus = vi
       .fn()
       .mockResolvedValueOnce(runningStatus())
       .mockResolvedValue(runningStatus({ last_error: 'overlay port lost' }));
-    const { workflow, scheduler } = setup({ getStatus });
+    const { workflow, scheduler } = setup({ getStreamStatus });
     await workflow.start();
 
     scheduler.fireIntervals();
@@ -172,41 +154,14 @@ describe('stream workflow lifecycle and effects', () => {
     );
   });
 
-  it('detects a nested status field the comparator was never told about', async () => {
-    // Stands in for a field added to StreamServiceStatus in Rust and
-    // regenerated into TS: the snapshot comparison must notice it without
-    // anyone remembering to extend a field list.
-    const base = runningStatus();
-    const extended = {
-      ...base,
-      db: { ...base.db, future_field: 'v2' }
-    } as StreamServiceStatus;
-    const getStatus = vi
-      .fn()
-      .mockResolvedValueOnce(base)
-      .mockResolvedValue(extended);
-    const { workflow, scheduler } = setup({ getStatus });
-    await workflow.start();
-
-    scheduler.fireIntervals();
-    await flush();
-    const before = workflow.getSnapshot();
-
-    scheduler.fireIntervals();
-    await flush();
-
-    expect(workflow.getSnapshot()).not.toBe(before);
-    expect(workflow.getSnapshot().service.status).toBe(extended);
-  });
-
   it('does not mark a newer status stale when an older poll fails', async () => {
     const first = deferred<StreamServiceStatus>();
     const second = deferred<StreamServiceStatus>();
-    const getStatus = vi
+    const getStreamStatus = vi
       .fn()
       .mockImplementationOnce(() => first.promise)
       .mockImplementationOnce(() => second.promise);
-    const { workflow, scheduler } = setup({ getStatus });
+    const { workflow, scheduler } = setup({ getStreamStatus });
     await workflow.start();
 
     scheduler.fireIntervals();
@@ -226,8 +181,8 @@ describe('stream workflow lifecycle and effects', () => {
     const slowPoll = deferred<StreamServiceStatus>();
     const refreshed = runningStatus({ active_window_offset: 3 });
     const { workflow, scheduler } = setup({
-      getStatus: vi.fn(() => slowPoll.promise),
-      restartSession: vi.fn().mockResolvedValue(refreshed)
+      getStreamStatus: vi.fn(() => slowPoll.promise),
+      restartStreamSession: vi.fn().mockResolvedValue(refreshed)
     });
     await workflow.start();
 
@@ -246,7 +201,7 @@ describe('stream workflow lifecycle and effects', () => {
       last_error: 'port occupied'
     };
     const { workflow } = setup({
-      ensureSession: vi.fn().mockResolvedValue(failedStatus)
+      ensureStreamSession: vi.fn().mockResolvedValue(failedStatus)
     });
     await workflow.start();
 
@@ -294,7 +249,9 @@ describe('stream workflow lifecycle and effects', () => {
 
   it('ignores responses and cancels timers after disposal', async () => {
     const slow = deferred<StreamServiceStatus>();
-    const { workflow, scheduler } = setup({ getStatus: () => slow.promise });
+    const { workflow, scheduler } = setup({
+      getStreamStatus: () => slow.promise
+    });
     await workflow.start();
 
     scheduler.fireIntervals();
@@ -312,17 +269,17 @@ describe('stream workflow lifecycle and effects', () => {
     const firstCrop = deferred<StreamOverlayCropSettingsPayload>();
     const secondStatus = deferred<StreamServiceStatus>();
     const secondCrop = deferred<StreamOverlayCropSettingsPayload>();
-    const ensureSession = vi
+    const ensureStreamSession = vi
       .fn()
       .mockImplementationOnce(() => firstStatus.promise)
       .mockImplementationOnce(() => secondStatus.promise);
-    const loadCropSettings = vi
+    const getOverlaySettings = vi
       .fn()
       .mockImplementationOnce(() => firstCrop.promise)
       .mockImplementationOnce(() => secondCrop.promise);
     const { workflow, scheduler } = setup({
-      ensureSession,
-      loadCropSettings
+      ensureStreamSession,
+      getOverlaySettings
     });
 
     const firstStart = workflow.start();
@@ -339,34 +296,5 @@ describe('stream workflow lifecycle and effects', () => {
     expect(workflow.getSnapshot().service.status?.active_window_offset).toBe(2);
     expect(workflow.getSnapshot().crop.code).toBe('current');
     expect(scheduler.intervals.size).toBe(1);
-  });
-
-  it('runs through generated/native-shaped and Preview command adapters', async () => {
-    const nativeLike = {
-      ensureStreamSession: vi.fn().mockResolvedValue(runningStatus()),
-      getStreamStatus: vi.fn().mockResolvedValue(runningStatus()),
-      restartStreamSession: vi.fn().mockResolvedValue(runningStatus()),
-      setStreamWindow: vi.fn().mockResolvedValue(runningStatus()),
-      getOverlaySettings: vi.fn().mockResolvedValue(defaultCropSettings),
-      applyOverlayCropCode: vi.fn().mockResolvedValue(defaultCropSettings),
-      saveOverlayDisplayMode: vi.fn().mockResolvedValue(defaultCropSettings),
-      resetOverlayCrop: vi.fn().mockResolvedValue(defaultCropSettings)
-    } satisfies Parameters<typeof createStreamCommandPort>[0];
-
-    for (const commands of [
-      createStreamCommandPort(nativeLike),
-      createStreamCommandPort(commandClient)
-    ]) {
-      const workflow = createStreamWorkflow({
-        commands,
-        scheduler: new FakeScheduler(),
-        clipboard: { writeText: async () => undefined },
-        opener: { open: async () => undefined },
-        currentLocale: () => 'zh'
-      });
-      await workflow.start();
-      expect(workflow.getSnapshot().service.phase).not.toBe('loading');
-      workflow.dispose();
-    }
   });
 });

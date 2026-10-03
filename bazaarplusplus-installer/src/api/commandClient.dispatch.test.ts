@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { invoke } from '@tauri-apps/api/core';
+import type { CommandAdapter } from './commandAdapter';
 
 vi.mock('@tauri-apps/api/core', () => ({ invoke: vi.fn() }));
 const invokeMock = vi.mocked(invoke);
@@ -36,89 +37,71 @@ describe('native command adapter', () => {
     });
   });
 
-  it('preserves semantic problem data from a generated command rejection', async () => {
-    vi.stubGlobal('window', { __TAURI_INTERNALS__: {} });
-    const problem = {
-      code: 'history_read_failed',
-      params: { operation: 'list_runs' },
-      diagnostic: 'database is locked'
-    };
-    invokeMock.mockRejectedValueOnce(problem);
-    const { commandClient } = await import('./commandClient');
+  it.each([
+    {
+      call: 'listHistoryRuns',
+      run: (client: CommandAdapter) => client.listHistoryRuns(50, 100),
+      command: 'list_history_runs',
+      args: { limit: 50, offset: 100 },
+      problem: {
+        code: 'history_read_failed',
+        params: { operation: 'list_runs' },
+        diagnostic: 'database is locked'
+      }
+    },
+    {
+      call: 'resetBppData',
+      run: (client: CommandAdapter) => client.resetBppData('/game'),
+      command: 'reset_bpp_data',
+      args: { gamePath: '/game' },
+      problem: {
+        code: 'install_partial_failure',
+        params: {
+          operation: 'reset_bpp_data',
+          count: '2',
+          paths: '/tmp/a\u001f/tmp/b'
+        },
+        diagnostic: null
+      }
+    },
+    {
+      call: 'applyOverlayCropCode',
+      run: (client: CommandAdapter) => client.applyOverlayCropCode('bad'),
+      command: 'apply_overlay_crop_code',
+      args: { code: 'bad' },
+      problem: {
+        code: 'stream_crop_failed',
+        params: { operation: 'apply_code' },
+        diagnostic: 'invalid crop payload'
+      }
+    },
+    {
+      call: 'executeStorageCleanup',
+      run: (client: CommandAdapter) =>
+        client.executeStorageCleanup('run_data', 'all'),
+      command: 'execute_storage_cleanup',
+      args: { scope: 'run_data', preset: 'all' },
+      problem: {
+        code: 'history_action_failed',
+        params: { operation: 'execute_storage_cleanup' },
+        diagnostic: 'database is locked'
+      }
+    }
+  ])(
+    'preserves the semantic problem a generated $call rejects with',
+    async ({ run, command, args, problem }) => {
+      vi.stubGlobal('window', { __TAURI_INTERNALS__: {} });
+      invokeMock.mockRejectedValueOnce(problem);
+      const { commandClient } = await import('./commandClient');
 
-    await expect(commandClient.listHistoryRuns(50, 100)).rejects.toMatchObject({
-      name: 'SemanticProblemError',
-      message: 'history_read_failed',
-      problem
-    });
-    expect(invokeMock).toHaveBeenCalledWith('list_history_runs', {
-      limit: 50,
-      offset: 100
-    });
-  });
-
-  it('preserves semantic install recovery parameters', async () => {
-    vi.stubGlobal('window', { __TAURI_INTERNALS__: {} });
-    const problem = {
-      code: 'install_partial_failure',
-      params: {
-        operation: 'reset_bpp_data',
-        count: '2',
-        paths: '/tmp/a\u001f/tmp/b'
-      },
-      diagnostic: null
-    };
-    invokeMock.mockRejectedValueOnce(problem);
-    const { commandClient } = await import('./commandClient');
-
-    await expect(commandClient.resetBppData('/game')).rejects.toMatchObject({
-      name: 'SemanticProblemError',
-      message: 'install_partial_failure',
-      problem
-    });
-  });
-
-  it('preserves Stream capability and operation failures', async () => {
-    vi.stubGlobal('window', { __TAURI_INTERNALS__: {} });
-    const problem = {
-      code: 'stream_crop_failed',
-      params: { operation: 'apply_code' },
-      diagnostic: 'invalid crop payload'
-    };
-    invokeMock.mockRejectedValueOnce(problem);
-    const { commandClient } = await import('./commandClient');
-
-    await expect(
-      commandClient.applyOverlayCropCode('bad')
-    ).rejects.toMatchObject({
-      name: 'SemanticProblemError',
-      message: 'stream_crop_failed',
-      problem
-    });
-  });
-
-  it('preserves cleanup operation failures for localized retry', async () => {
-    vi.stubGlobal('window', { __TAURI_INTERNALS__: {} });
-    const problem = {
-      code: 'history_action_failed',
-      params: { operation: 'execute_storage_cleanup' },
-      diagnostic: 'database is locked'
-    };
-    invokeMock.mockRejectedValueOnce(problem);
-    const { commandClient } = await import('./commandClient');
-
-    await expect(
-      commandClient.executeStorageCleanup('run_data', 'all')
-    ).rejects.toMatchObject({
-      name: 'SemanticProblemError',
-      message: 'history_action_failed',
-      problem
-    });
-    expect(invokeMock).toHaveBeenCalledWith('execute_storage_cleanup', {
-      scope: 'run_data',
-      preset: 'all'
-    });
-  });
+      await expect(run(commandClient)).rejects.toMatchObject({
+        name: 'SemanticProblemError',
+        message: problem.code,
+        problem
+      });
+      expect(invokeMock).toHaveBeenCalledWith(command, args);
+    }
+  );
 });
 
 describe('normalizeBackendError sentinel contract', () => {

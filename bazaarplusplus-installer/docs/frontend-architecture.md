@@ -2,7 +2,7 @@
 
 ## Native Boundary
 
-- `commandClient` in `src/api/commandClient.ts` selects the generated native adapter or Browser Preview once at module load. Feature APIs call typed adapter functions rather than invoking Tauri command strings.
+- `commandClient` in `src/api/commandClient.ts` selects the generated native adapter or Browser Preview once at module load. Feature hooks and workflows use `commandClient` directly; a workflow names the `CommandAdapter` methods it needs with `Pick<CommandAdapter, …>` rather than invoking Tauri command strings.
 - `normalizeBackendError` in `src/api/nativeCommands.ts` preserves a valid `SemanticProblem` as structured code, parameters, and optional diagnostic. Presenters map that structure to localized copy; diagnostics are never the primary message.
 - Preview defaults live in `src/api/previewDefaults.ts` and are reused by `createPreviewCommands` in `src/api/previewCommands.ts`, keeping browser-preview behavior at the adapter boundary.
 

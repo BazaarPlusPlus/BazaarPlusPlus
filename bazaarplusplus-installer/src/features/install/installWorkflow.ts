@@ -1,8 +1,5 @@
-import type {
-  InstallState,
-  ResetBepinexResult,
-  ResetBppDataResult
-} from '../../types/backend';
+import type { CommandAdapter } from '../../api/commandAdapter';
+import type { InstallState } from '../../types/backend';
 import {
   createConfirmedOperationController,
   type ConfirmedOperationOutcome
@@ -116,15 +113,16 @@ export type InstallPageSnapshot =
       notice: InstallNotice | null;
     };
 
-export interface InstallCommandPort {
-  loadInstallState(gamePath?: string | null): Promise<InstallState>;
-  chooseGameDirectory(): Promise<{ game_path: string | null }>;
-  installMod(gamePath: string): Promise<InstallState>;
-  resetBppData(gamePath: string): Promise<ResetBppDataResult>;
-  resetBepinex(gamePath: string): Promise<ResetBepinexResult>;
-  uninstallMod(gamePath: string): Promise<InstallState>;
-  launchGame(): Promise<void>;
-}
+export type InstallCommandPort = Pick<
+  CommandAdapter,
+  | 'getInstallState'
+  | 'chooseGameDirectory'
+  | 'installMod'
+  | 'resetBppData'
+  | 'resetBepinex'
+  | 'uninstallMod'
+  | 'launchGame'
+>;
 
 export interface InstallWorkflowIntents {
   refresh(): Promise<boolean>;
@@ -253,7 +251,7 @@ class DefaultInstallWorkflow implements InstallWorkflow {
       if (!selection.game_path) {
         return true;
       }
-      const data = await this.ports.commands.loadInstallState(
+      const data = await this.ports.commands.getInstallState(
         selection.game_path
       );
       if (!this.isCurrentLifecycle(lifecycle)) return false;
@@ -458,7 +456,7 @@ class DefaultInstallWorkflow implements InstallWorkflow {
     this.publish();
 
     try {
-      const data = await this.ports.commands.loadInstallState(gamePath);
+      const data = await this.ports.commands.getInstallState(gamePath);
       if (!this.isCurrentLifecycle(lifecycle) || requestId !== this.requestId) {
         return false;
       }
@@ -488,7 +486,7 @@ class DefaultInstallWorkflow implements InstallWorkflow {
 
   private async reconcile(gamePath: string, lifecycle: number) {
     try {
-      const data = await this.ports.commands.loadInstallState(gamePath);
+      const data = await this.ports.commands.getInstallState(gamePath);
       if (!this.isCurrentLifecycle(lifecycle)) return;
       this.applyReadyData(data);
       this.state.reconciliationProblem = null;

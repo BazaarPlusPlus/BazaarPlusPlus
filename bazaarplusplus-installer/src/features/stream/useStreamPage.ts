@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useRef, useSyncExternalStore } from 'react';
+import { openUrl } from '@tauri-apps/plugin-opener';
+import { commandClient } from '../../api/commandClient';
+import { hasTauriRuntime } from '../../api/runtime';
 import { useI18n } from '../../i18n/LocaleProvider';
-import { streamCommandPort, streamOpener } from './streamApi';
 import {
   createStreamWorkflow,
   type StreamClipboard,
+  type StreamOpener,
   type StreamScheduler
 } from './streamWorkflow';
 
@@ -18,6 +21,17 @@ const browserClipboard: StreamClipboard = {
   writeText: (value) => navigator.clipboard.writeText(value)
 };
 
+const streamOpener: StreamOpener = {
+  async open(url) {
+    if (hasTauriRuntime()) {
+      await openUrl(url);
+      return;
+    }
+
+    window.open(url, '_blank', 'noopener,noreferrer');
+  }
+};
+
 export function useStreamPage() {
   // The workflow is created once, so the locale enters as a live read rather
   // than a captured value.
@@ -28,7 +42,7 @@ export function useStreamPage() {
   const workflow = useMemo(
     () =>
       createStreamWorkflow({
-        commands: streamCommandPort,
+        commands: commandClient,
         scheduler: browserScheduler,
         clipboard: browserClipboard,
         opener: streamOpener,
