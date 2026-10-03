@@ -6,6 +6,7 @@ using BazaarPlusPlus.Game.CollectionPanel.Data;
 using BazaarPlusPlus.GameInterop.CardPreview;
 using BazaarPlusPlus.GameInterop.Cards;
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -413,15 +414,15 @@ internal sealed class CollectionGridVirtualizer
             catch (Exception ex)
             {
                 BppLog.WarnEvent(
-                    CollectionPanelLogEvents.CardBindDegraded,
-                    ex,
-                    CollectionPanelLogEvents.CardBindDegradedStage.Bind(
-                        CollectionCardBindStage.Bind
+                    new BppLogEvent(
+                        BppLogFeatureScope.CollectionPanel,
+                        "collection_panel.card.bind_degraded",
+                        storm: ["stage", "reason_code"]
                     ),
-                    CollectionPanelLogEvents.CardBindDegradedTemplateId.Bind(pending.Vm.Id),
-                    CollectionPanelLogEvents.CardBindDegradedReasonCode.Bind(
-                        CollectionPanelLogReasonCode.BindException
-                    )
+                    ex,
+                    ("stage", CollectionCardBindStage.Bind),
+                    ("template_id", pending.Vm.Id),
+                    ("reason_code", CollectionPanelLogReasonCode.BindException)
                 );
                 return;
             }
@@ -588,15 +589,12 @@ internal sealed class CollectionGridVirtualizer
         catch (Exception ex)
         {
             BppLog.DebugEvent(
-                CollectionPanelLogEvents.CardDisplayFailed,
+                new BppLogEvent(
+                    BppLogFeatureScope.CollectionPanel,
+                    "collection_panel.card.display_failed"
+                ),
                 ex,
-                () =>
-                    [
-                        CollectionPanelLogEvents.CardDisplayFailedStage.Bind(
-                            CollectionCardDisplayStage.Show
-                        ),
-                        CollectionPanelLogEvents.CardDisplayFailedTemplateId.Bind(cell.Vm.Id),
-                    ]
+                () => [("stage", CollectionCardDisplayStage.Show), ("template_id", cell.Vm.Id)]
             );
         }
     }
@@ -1052,24 +1050,25 @@ internal sealed class CollectionGridVirtualizer
             _bindingLogged = true;
             var elapsedMs = ElapsedMs(_startedAt, Stopwatch.GetTimestamp());
             BppLog.DebugEvent(
-                CollectionPanelLogEvents.GridPerformanceObserved,
+                new BppLogEvent(
+                    BppLogFeatureScope.CollectionPanel,
+                    "collection_panel.grid.performance_observed"
+                ),
                 () =>
                     [
-                        CollectionPanelLogEvents.GridPerformancePhase.Bind(
-                            CollectionGridPerformancePhase.FirstWindowBind
-                        ),
-                        CollectionPanelLogEvents.GridPerformanceFirstIndex.Bind(_firstIndex),
-                        CollectionPanelLogEvents.GridPerformanceLastIndex.Bind(_lastIndex),
-                        CollectionPanelLogEvents.GridPerformanceWindowCount.Bind(WindowSize),
-                        CollectionPanelLogEvents.GridPerformanceVisibleCount.Bind(_visibleCount),
-                        CollectionPanelLogEvents.GridPerformanceShelfCount.Bind(_shelfCount),
-                        CollectionPanelLogEvents.GridPerformanceAttemptCount.Bind(_attempts),
-                        CollectionPanelLogEvents.GridPerformanceBoundCount.Bind(_bound),
-                        CollectionPanelLogEvents.GridPerformanceFailedBindCount.Bind(_failed),
-                        CollectionPanelLogEvents.GridPerformanceBindDurationMs.Bind(_bindMs),
-                        CollectionPanelLogEvents.GridPerformanceElapsedMs.Bind(elapsedMs),
-                        CollectionPanelLogEvents.GridPerformanceFaultedCount.Bind(null),
-                        CollectionPanelLogEvents.GridPerformanceCanceledCount.Bind(null),
+                        ("phase", CollectionGridPerformancePhase.FirstWindowBind),
+                        ("first_index", _firstIndex),
+                        ("last_index", _lastIndex),
+                        ("window_count", WindowSize),
+                        ("visible_count", _visibleCount),
+                        ("shelf_count", _shelfCount),
+                        ("attempt_count", _attempts),
+                        ("bound_count", _bound),
+                        ("failed_bind_count", _failed),
+                        ("bind_duration_ms", _bindMs),
+                        ("elapsed_ms", elapsedMs),
+                        ("faulted_count", null),
+                        ("canceled_count", null),
                     ]
             );
         }

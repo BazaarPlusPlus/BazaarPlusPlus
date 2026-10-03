@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using BazaarPlusPlus.Game.Settings;
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -110,15 +111,15 @@ internal static class SettingsMenuLayoutUtility
             return;
         snapshot.Set(mode, rowId, additionalIndex, step, positionX, positionY);
         BppLog.DebugEvent(
-            SettingsLogEvents.RowLayoutApplied,
+            new BppLogEvent(BppLogFeatureScope.Settings, "settings.row.layout_applied"),
             () =>
                 [
-                    SettingsLogEvents.RowLayoutAppliedLayoutMode.Bind(mode),
-                    SettingsLogEvents.RowLayoutAppliedRowId.Bind(rowId),
-                    SettingsLogEvents.RowLayoutAppliedAdditionalIndex.Bind(additionalIndex),
-                    SettingsLogEvents.RowLayoutAppliedStepPx.Bind(step),
-                    SettingsLogEvents.RowLayoutAppliedPositionXPx.Bind(positionX),
-                    SettingsLogEvents.RowLayoutAppliedPositionYPx.Bind(positionY),
+                    ("layout_mode", mode),
+                    ("row_id", rowId),
+                    ("additional_index", additionalIndex),
+                    ("step_px", step),
+                    ("position_x_px", positionX),
+                    ("position_y_px", positionY),
                 ]
         );
     }

@@ -11,29 +11,35 @@ internal enum BppLogSeverity
     Error,
 }
 
+/// <summary>
+/// Storm suppression in front of the sink. A warning or error whose event declares a storm key
+/// is written once per key per <see cref="StormWindow"/>; repeats are counted and summarized as
+/// <c>logging.storm.suppressed</c> when the window expires, the key is recovered or evicted, or
+/// the pipeline flushes at shutdown. A warning keys on its named storm fields; an error keys on
+/// its correlation fields and the exception type. Any key that cannot be built fails open.
+/// </summary>
 internal sealed class BppLogPipeline
 {
     internal const int MaximumActiveStormKeys = 256;
     internal static readonly TimeSpan StormWindow = TimeSpan.FromSeconds(30);
+
+    private static readonly BppLogEvent StormSuppressed = new(
+        BppLogFeatureScope.Logger,
+        "logging.storm.suppressed"
+    );
 
     [ThreadStatic]
     private static bool _insideSink;
 
     private readonly Func<DateTimeOffset> _clock;
     private readonly Dictionary<string, StormEntry> _entries = new(StringComparer.Ordinal);
-    private readonly BppLogEventRenderer _renderer;
     private readonly Action<BppLogSeverity, string> _sink;
     private readonly object _stateLock = new();
     private bool _acceptStormState = true;
     private long _sequence;
 
-    internal BppLogPipeline(
-        BppLogEventRenderer renderer,
-        Action<BppLogSeverity, string> sink,
-        Func<DateTimeOffset> clock
-    )
+    internal BppLogPipeline(Action<BppLogSeverity, string> sink, Func<DateTimeOffset> clock)
     {
-        _renderer = renderer ?? throw new ArgumentNullException(nameof(renderer));
         _sink = sink ?? throw new ArgumentNullException(nameof(sink));
         _clock = clock ?? throw new ArgumentNullException(nameof(clock));
     }
@@ -56,8 +62,8 @@ internal sealed class BppLogPipeline
 
     internal void Emit(
         BppLogSeverity severity,
-        BppLogEventDefinition definition,
-        IReadOnlyList<BppLogFieldValue>? values = null,
+        BppLogEvent logEvent,
+        IReadOnlyList<BppLogField>? fields = null,
         Exception? exception = null
     )
     {
@@ -68,14 +74,14 @@ internal sealed class BppLogPipeline
         {
             if (!TryGetUtcNow(out var now))
             {
-                WriteSink(severity, _renderer.Render(definition, values, exception));
+                WriteSink(severity, BppLogEventRenderer.Render(logEvent, fields, exception));
                 return;
             }
 
             var hasStormKey = TryBuildStormKey(
                 severity,
-                definition,
-                values,
+                logEvent,
+                fields,
                 exception,
                 out var stormKey
             );
@@ -86,7 +92,7 @@ internal sealed class BppLogPipeline
                 if (!hasStormKey || !_acceptStormState)
                 {
                     (pending ??= []).Add(
-                        PendingEmission.Source(severity, definition, values, exception)
+                        PendingEmission.Source(severity, logEvent, fields, exception)
                     );
                 }
                 else if (_entries.TryGetValue(stormKey, out var existing))
@@ -99,10 +105,16 @@ internal sealed class BppLogPipeline
                     if (_entries.Count >= MaximumActiveStormKeys)
                         EvictLeastRecentlyUsed(ref pending);
 
-                    var entry = new StormEntry(stormKey, definition, severity, now, NextSequence());
+                    var entry = new StormEntry(
+                        stormKey,
+                        logEvent.Id,
+                        severity,
+                        now,
+                        NextSequence()
+                    );
                     _entries.Add(stormKey, entry);
                     (pending ??= []).Add(
-                        PendingEmission.Source(severity, definition, values, exception, entry)
+                        PendingEmission.Source(severity, logEvent, fields, exception, entry)
                     );
                 }
             }
@@ -115,31 +127,28 @@ internal sealed class BppLogPipeline
         }
     }
 
-    internal void RecoverStorm(BppLogEventDefinition definition)
-    {
-        RecoverStormCore(definition, stormKey: null);
-    }
+    /// <summary>Ends every active storm of the event and writes its pending summaries.</summary>
+    internal void RecoverStorm(BppLogEvent logEvent) =>
+        RecoverStormCore(logEvent.Id, stormKey: null);
 
-    internal void RecoverStorm(
-        BppLogEventDefinition definition,
-        IReadOnlyList<BppLogFieldValue>? values
-    )
+    /// <summary>Ends the warning storm whose key the given fields build.</summary>
+    internal void RecoverStorm(BppLogEvent logEvent, IReadOnlyList<BppLogField>? fields)
     {
         if (
             !TryBuildStormKey(
                 BppLogSeverity.Warning,
-                definition,
-                values,
+                logEvent,
+                fields,
                 exception: null,
                 out var stormKey
             )
         )
             return;
 
-        RecoverStormCore(definition, stormKey);
+        RecoverStormCore(logEvent.Id, stormKey);
     }
 
-    private void RecoverStormCore(BppLogEventDefinition definition, string? stormKey)
+    private void RecoverStormCore(string eventId, string? stormKey)
     {
         if (_insideSink)
             return;
@@ -157,7 +166,7 @@ internal sealed class BppLogPipeline
                 foreach (var pair in _entries)
                 {
                     if (
-                        ReferenceEquals(pair.Value.Definition, definition)
+                        string.Equals(pair.Value.EventId, eventId, StringComparison.Ordinal)
                         && (
                             stormKey == null
                             || string.Equals(pair.Key, stormKey, StringComparison.Ordinal)
@@ -199,10 +208,10 @@ internal sealed class BppLogPipeline
         }
     }
 
-    private bool TryBuildStormKey(
+    private static bool TryBuildStormKey(
         BppLogSeverity severity,
-        BppLogEventDefinition definition,
-        IReadOnlyList<BppLogFieldValue>? values,
+        BppLogEvent logEvent,
+        IReadOnlyList<BppLogField>? fields,
         Exception? exception,
         out string key
     )
@@ -210,19 +219,19 @@ internal sealed class BppLogPipeline
         key = string.Empty;
         try
         {
-            if (definition == null || definition.StormPolicy == null)
+            if (logEvent.Storm == null)
                 return false;
 
             var builder = new StringBuilder();
-            builder.Append((int)severity).Append('|').Append(definition.EventId);
+            builder.Append((int)severity).Append('|').Append(logEvent.Id);
             switch (severity)
             {
                 case BppLogSeverity.Warning:
-                    if (!AppendWarningKey(builder, definition, values))
+                    if (!AppendWarningKey(builder, logEvent.Storm, fields))
                         return false;
                     break;
                 case BppLogSeverity.Error:
-                    if (!AppendErrorKey(builder, definition, values, exception))
+                    if (!AppendErrorKey(builder, fields, exception))
                         return false;
                     break;
                 default:
@@ -239,64 +248,61 @@ internal sealed class BppLogPipeline
         }
     }
 
-    private bool AppendWarningKey(
+    // A storm key names categorical fields. A key that names a missing or null field, or one
+    // carrying any correlation policy, fails open: the record is written rather than merged.
+    private static bool AppendWarningKey(
         StringBuilder builder,
-        BppLogEventDefinition definition,
-        IReadOnlyList<BppLogFieldValue>? values
+        IReadOnlyList<string> keyNames,
+        IReadOnlyList<BppLogField>? fields
     )
     {
-        var keyFields = definition.StormPolicy?.KeyFields;
-        if (keyFields == null)
-            return false;
-
-        for (var index = 0; index < keyFields.Count; index++)
+        for (var index = 0; index < keyNames.Count; index++)
         {
-            var field = keyFields[index];
             if (
-                field == null
-                || !ContainsField(definition, field)
-                || field.Cardinality != BppLogCardinality.Low
-                || field.Correlation != BppLogCorrelationPolicy.None
-                || !TryFindValue(field, values, out var value)
-                || !_renderer.TryFingerprintValue(value, out var fingerprint)
+                !TryFindField(keyNames[index], fields, out var field)
+                || field.Policy != BppLogCorrelationPolicy.None
+                || field.Value == null
             )
                 return false;
 
-            builder.Append('|').Append(field.Order).Append('=').Append(fingerprint);
+            var value = BppLogValueFormatter.FormatScalar(field.Value);
+            builder
+                .Append('|')
+                .Append(field.Name)
+                .Append('=')
+                .Append(value.Length)
+                .Append(':')
+                .Append(value);
         }
         return true;
     }
 
-    private bool AppendErrorKey(
+    private static bool AppendErrorKey(
         StringBuilder builder,
-        BppLogEventDefinition definition,
-        IReadOnlyList<BppLogFieldValue>? values,
+        IReadOnlyList<BppLogField>? fields,
         Exception? exception
     )
     {
-        var correlationFields = new List<BppLogFieldDefinition>();
-        for (var index = 0; index < definition.Fields.Count; index++)
-        {
-            var field = definition.Fields[index];
-            if (field != null && field.Correlation != BppLogCorrelationPolicy.None)
-                correlationFields.Add(field);
-        }
-        correlationFields.Sort((left, right) => left.Order.CompareTo(right.Order));
-
-        for (var index = 0; index < correlationFields.Count; index++)
-        {
-            var field = correlationFields[index];
-            if (
-                !TryFindValue(field, values, out var value)
-                || !_renderer.TryFingerprintValue(value, out var fingerprint)
-            )
-                return false;
-            builder.Append('|').Append(field.Order).Append('=').Append(fingerprint);
-        }
-
-        if (!_renderer.TryFingerprint(exception, out var exceptionFingerprint))
+        if (exception == null)
             return false;
-        builder.Append("|exception=").Append(exceptionFingerprint);
+
+        for (var index = 0; index < (fields?.Count ?? 0); index++)
+        {
+            var field = fields![index];
+            if (field.Policy == BppLogCorrelationPolicy.None)
+                continue;
+            if (field.Value == null)
+                return false;
+            builder
+                .Append('|')
+                .Append(field.Name)
+                .Append('=')
+                .Append(
+                    BppLogValueFormatter.Hash(BppLogValueFormatter.FormatScalar(field.Value), 32)
+                );
+        }
+
+        builder.Append("|exception=").Append(BppLogEventRenderer.ExceptionType(exception));
         return true;
     }
 
@@ -349,15 +355,7 @@ internal sealed class BppLogPipeline
     {
         if (entry.SuppressedCount <= 0)
             return;
-        (pending ??= []).Add(
-            PendingEmission.Summary(
-                entry.Severity,
-                entry.Definition.EventId,
-                entry.SuppressedCount,
-                reason,
-                entry
-            )
-        );
+        (pending ??= []).Add(PendingEmission.Summary(entry, reason));
     }
 
     private void WritePending(IReadOnlyList<PendingEmission>? pending)
@@ -368,41 +366,39 @@ internal sealed class BppLogPipeline
         for (var index = 0; index < pending.Count; index++)
         {
             var emission = pending[index];
-            string? message = null;
-            if (emission.SourceDefinition != null)
+            string message;
+            if (emission.SummaryReason.HasValue)
             {
-                message = _renderer.Render(
-                    emission.SourceDefinition,
-                    emission.SourceValues,
-                    emission.SourceException
+                if (!WaitForSourceDelivery(emission.Entry!))
+                    continue;
+                message = RenderSummary(emission.Entry!, emission.SummaryReason.Value);
+            }
+            else
+            {
+                message = BppLogEventRenderer.Render(
+                    emission.Event,
+                    emission.Fields,
+                    emission.Exception
                 );
             }
-            else if (emission.StormSummary.HasValue)
-            {
-                var summary = emission.StormSummary.Value;
-                if (!WaitForSourceDelivery(summary.Entry))
-                    continue;
-                message = RenderSummary(summary);
-            }
-            if (message != null)
-            {
-                var delivered = WriteSink(emission.Severity, message);
-                if (emission.SourceEntry != null)
-                    CompleteSourceDelivery(emission.SourceEntry, delivered);
-            }
+
+            var delivered = WriteSink(emission.Severity, message);
+            if (!emission.SummaryReason.HasValue && emission.Entry != null)
+                CompleteSourceDelivery(emission.Entry, delivered);
         }
     }
 
-    private string RenderSummary(StormSummary summary) =>
-        _renderer.Render(
-            BppLogRuntimeEvents.StormSuppressed,
-            new[]
+    private static string RenderSummary(StormEntry entry, BppLogStormFlushReason reason) =>
+        BppLogEventRenderer.Render(
+            StormSuppressed,
+            new BppLogField[]
             {
-                BppLogRuntimeEvents.SourceEvent.Bind(summary.SourceEvent),
-                BppLogRuntimeEvents.SuppressedCount.Bind(summary.SuppressedCount),
-                BppLogRuntimeEvents.WindowMilliseconds.Bind((long)StormWindow.TotalMilliseconds),
-                BppLogRuntimeEvents.FlushReason.Bind(summary.Reason),
-            }
+                ("source_event", entry.EventId),
+                ("suppressed_count", entry.SuppressedCount),
+                ("window_ms", (long)StormWindow.TotalMilliseconds),
+                ("flush_reason", reason),
+            },
+            exception: null
         );
 
     private bool WriteSink(BppLogSeverity severity, string message)
@@ -481,33 +477,20 @@ internal sealed class BppLogPipeline
 
     private long NextSequence() => unchecked(++_sequence);
 
-    private static bool ContainsField(BppLogEventDefinition definition, BppLogFieldDefinition field)
-    {
-        for (var index = 0; index < definition.Fields.Count; index++)
-        {
-            if (ReferenceEquals(definition.Fields[index], field))
-                return true;
-        }
-        return false;
-    }
-
-    private static bool TryFindValue(
-        BppLogFieldDefinition field,
-        IReadOnlyList<BppLogFieldValue>? values,
-        out object? value
+    private static bool TryFindField(
+        string name,
+        IReadOnlyList<BppLogField>? fields,
+        out BppLogField field
     )
     {
-        if (values != null)
+        for (var index = 0; index < (fields?.Count ?? 0); index++)
         {
-            for (var index = 0; index < values.Count; index++)
-            {
-                if (!ReferenceEquals(values[index].Field, field))
-                    continue;
-                value = values[index].Value;
-                return value != null;
-            }
+            if (!string.Equals(fields![index].Name, name, StringComparison.Ordinal))
+                continue;
+            field = fields[index];
+            return true;
         }
-        value = null;
+        field = default;
         return false;
     }
 
@@ -515,14 +498,14 @@ internal sealed class BppLogPipeline
     {
         internal StormEntry(
             string key,
-            BppLogEventDefinition definition,
+            string eventId,
             BppLogSeverity severity,
             DateTimeOffset startedAt,
             long lastTouchedSequence
         )
         {
             Key = key;
-            Definition = definition;
+            EventId = eventId;
             Severity = severity;
             StartedAt = startedAt;
             LastTouchedSequence = lastTouchedSequence;
@@ -530,7 +513,7 @@ internal sealed class BppLogPipeline
 
         internal string Key { get; }
 
-        internal BppLogEventDefinition Definition { get; }
+        internal string EventId { get; }
 
         internal BppLogSeverity Severity { get; }
 
@@ -544,86 +527,49 @@ internal sealed class BppLogPipeline
             new(TaskCreationOptions.RunContinuationsAsynchronously);
     }
 
+    // Rendering is deferred to WritePending so a record discarded by the storm-key decision is
+    // never rendered at all.
     private readonly struct PendingEmission
     {
         private PendingEmission(
             BppLogSeverity severity,
-            BppLogEventDefinition? sourceDefinition,
-            IReadOnlyList<BppLogFieldValue>? sourceValues,
-            Exception? sourceException,
-            StormSummary? stormSummary,
-            StormEntry? sourceEntry
+            BppLogEvent logEvent,
+            IReadOnlyList<BppLogField>? fields,
+            Exception? exception,
+            StormEntry? entry,
+            BppLogStormFlushReason? summaryReason
         )
         {
             Severity = severity;
-            SourceDefinition = sourceDefinition;
-            SourceValues = sourceValues;
-            SourceException = sourceException;
-            StormSummary = stormSummary;
-            SourceEntry = sourceEntry;
+            Event = logEvent;
+            Fields = fields;
+            Exception = exception;
+            Entry = entry;
+            SummaryReason = summaryReason;
         }
 
         internal BppLogSeverity Severity { get; }
 
-        // Rendering is deferred to WritePending so a record discarded by the storm-key
-        // decision is never rendered at all.
-        internal BppLogEventDefinition? SourceDefinition { get; }
+        internal BppLogEvent Event { get; }
 
-        internal IReadOnlyList<BppLogFieldValue>? SourceValues { get; }
+        internal IReadOnlyList<BppLogField>? Fields { get; }
 
-        internal Exception? SourceException { get; }
+        internal Exception? Exception { get; }
 
-        internal StormSummary? StormSummary { get; }
+        internal StormEntry? Entry { get; }
 
-        internal StormEntry? SourceEntry { get; }
+        internal BppLogStormFlushReason? SummaryReason { get; }
 
         internal static PendingEmission Source(
             BppLogSeverity severity,
-            BppLogEventDefinition definition,
-            IReadOnlyList<BppLogFieldValue>? values,
+            BppLogEvent logEvent,
+            IReadOnlyList<BppLogField>? fields,
             Exception? exception,
             StormEntry? entry = null
-        ) => new(severity, definition, values, exception, null, entry);
+        ) => new(severity, logEvent, fields, exception, entry, null);
 
-        internal static PendingEmission Summary(
-            BppLogSeverity severity,
-            string sourceEvent,
-            int suppressedCount,
-            BppLogStormFlushReason reason,
-            StormEntry entry
-        ) =>
-            new(
-                severity,
-                null,
-                null,
-                null,
-                new StormSummary(sourceEvent, suppressedCount, reason, entry),
-                null
-            );
-    }
-
-    private readonly struct StormSummary
-    {
-        internal StormSummary(
-            string sourceEvent,
-            int suppressedCount,
-            BppLogStormFlushReason reason,
-            StormEntry entry
-        )
-        {
-            SourceEvent = sourceEvent;
-            SuppressedCount = suppressedCount;
-            Reason = reason;
-            Entry = entry;
-        }
-
-        internal string SourceEvent { get; }
-
-        internal int SuppressedCount { get; }
-
-        internal BppLogStormFlushReason Reason { get; }
-
-        internal StormEntry Entry { get; }
+        internal static PendingEmission Summary(StormEntry entry, BppLogStormFlushReason reason) =>
+            new(entry.Severity, default, null, null, entry, reason);
     }
 }
 
@@ -633,37 +579,4 @@ internal enum BppLogStormFlushReason
     Recovered,
     Evicted,
     Shutdown,
-}
-
-internal static class BppLogRuntimeEvents
-{
-    internal static readonly BppLogFieldDefinition SourceEvent = new(
-        0,
-        "source_event",
-        BppLogCorrelationPolicy.None,
-        BppLogCardinality.Low
-    );
-    internal static readonly BppLogFieldDefinition SuppressedCount = new(
-        1,
-        "suppressed_count",
-        BppLogCorrelationPolicy.None,
-        BppLogCardinality.High
-    );
-    internal static readonly BppLogFieldDefinition WindowMilliseconds = new(
-        2,
-        "window_ms",
-        BppLogCorrelationPolicy.None,
-        BppLogCardinality.Low
-    );
-    internal static readonly BppLogFieldDefinition FlushReason = new(
-        3,
-        "flush_reason",
-        BppLogCorrelationPolicy.None,
-        BppLogCardinality.Low
-    );
-    internal static readonly BppLogEventDefinition StormSuppressed = new(
-        BppLogFeatureScope.Logger,
-        "logging.storm.suppressed",
-        new[] { SourceEvent, SuppressedCount, WindowMilliseconds, FlushReason }
-    );
 }

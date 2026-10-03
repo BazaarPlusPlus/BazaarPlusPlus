@@ -5,6 +5,7 @@ using BazaarGameClient.Domain.Models.Cards;
 using BazaarGameShared.Domain.Players;
 using BazaarGameShared.Domain.Values;
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 using TheBazaar;
 using TheBazaar.AppFramework;
 using TheBazaar.Localization;
@@ -156,11 +157,13 @@ internal static class CardTooltipDataFactory
 
         _reportedUnavailable = true;
         BppLog.WarnEvent(
-            TooltipLogEvents.PreviewRefreshDegraded,
-            TooltipLogEvents.PreviewRefreshReasonCode.Bind(
-                TooltipLogReasonCode.ReflectionUnavailable
+            new BppLogEvent(
+                BppLogFeatureScope.Tooltips,
+                "tooltips.preview_refresh.degraded",
+                storm: ["reason_code"]
             ),
-            TooltipLogEvents.PreviewRefreshMode.Bind(mode)
+            ("reason_code", TooltipLogReasonCode.ReflectionUnavailable),
+            ("mode", mode)
         );
     }
 }

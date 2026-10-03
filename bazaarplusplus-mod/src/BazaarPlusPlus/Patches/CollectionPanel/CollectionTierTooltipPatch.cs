@@ -3,6 +3,7 @@ using System.Text;
 using BazaarPlusPlus.Game.CollectionPanel;
 using BazaarPlusPlus.Game.CollectionPanel.Tooltips;
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 using HarmonyLib;
 using TheBazaar.Tooltips;
 using TheBazaar.UI.Tooltips;
@@ -92,11 +93,13 @@ internal static class CollectionTierTooltipLog
 {
     internal static void ReportDegraded(CollectionTierField tierField, Exception exception) =>
         BppLog.WarnEvent(
-            CollectionPanelLogEvents.TierTooltipDegraded,
+            new BppLogEvent(
+                BppLogFeatureScope.CollectionPanel,
+                "collection_panel.tier_tooltip.degraded",
+                storm: ["tier_field", "reason_code"]
+            ),
             exception,
-            CollectionPanelLogEvents.TierTooltipDegradedTierField.Bind(tierField),
-            CollectionPanelLogEvents.TierTooltipDegradedReasonCode.Bind(
-                CollectionPanelLogReasonCode.TierTooltipMergeException
-            )
+            ("tier_field", tierField),
+            ("reason_code", CollectionPanelLogReasonCode.TierTooltipMergeException)
         );
 }

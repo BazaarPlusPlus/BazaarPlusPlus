@@ -2,6 +2,7 @@
 using BazaarPlusPlus.Game.Settings;
 using BazaarPlusPlus.GameInterop.Scenes;
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -81,11 +82,12 @@ internal sealed class CollectionPanelDockButtonController
         if (_dockButton == null)
         {
             BppLog.ErrorEvent(
-                CollectionPanelLogEvents.DockButtonSetupFailed,
-                CollectionPanelLogEvents.DockButtonSetupFailedPlacement.Bind(placement.Key),
-                CollectionPanelLogEvents.DockButtonSetupFailedReasonCode.Bind(
-                    CollectionPanelLogReasonCode.ButtonMissing
-                )
+                new BppLogEvent(
+                    BppLogFeatureScope.CollectionPanel,
+                    "collection_panel.dock_button.setup_failed"
+                ),
+                ("placement", placement.Key),
+                ("reason_code", CollectionPanelLogReasonCode.ButtonMissing)
             );
             return;
         }

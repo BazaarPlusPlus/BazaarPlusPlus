@@ -1,5 +1,6 @@
 #nullable enable
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 using BazaarPlusPlus.Infrastructure.ReleaseManifest;
 using BazaarPlusPlus.ModApi.Http;
 using UnityEngine;
@@ -94,14 +95,12 @@ internal sealed class MainMenuVersionCheckController : MonoBehaviour
         );
         MainMenuVersionUpdateState.SetUpdateAvailable(updateAvailable);
         BppLog.DebugEvent(
-            LobbyLogEvents.VersionCheckCompleted,
+            new BppLogEvent(BppLogFeatureScope.Lobby, "lobby.version_check.completed"),
             () =>
                 [
-                    LobbyLogEvents.VersionCheckCompletedCurrentVersion.Bind(
-                        BppPluginVersion.Current
-                    ),
-                    LobbyLogEvents.VersionCheckCompletedLatestVersion.Bind(latestVersion),
-                    LobbyLogEvents.VersionCheckCompletedUpdateAvailable.Bind(updateAvailable),
+                    ("current_version", BppPluginVersion.Current),
+                    ("latest_version", latestVersion),
+                    ("update_available", updateAvailable),
                 ]
         );
     }
@@ -116,17 +115,30 @@ internal sealed class MainMenuVersionCheckController : MonoBehaviour
             ReleaseManifestFailureKind.RequestTimedOut => LobbyLogReasonCode.RequestTimedOut,
             _ => LobbyLogReasonCode.RequestException,
         };
-        var fields = new[]
+        var fields = new BppLogField[]
         {
-            LobbyLogEvents.VersionCheckDegradedReasonCode.Bind(reasonCode),
-            LobbyLogEvents.VersionCheckDegradedHttpStatus.Bind(result.HttpStatus),
-            LobbyLogEvents.VersionCheckDegradedTimeoutMs.Bind(
-                (int)RequestTimeout.TotalMilliseconds
-            ),
+            ("reason_code", reasonCode),
+            ("http_status", result.HttpStatus),
+            ("timeout_ms", (int)RequestTimeout.TotalMilliseconds),
         };
         if (result.Exception == null)
-            BppLog.WarnEvent(LobbyLogEvents.VersionCheckDegraded, fields);
+            BppLog.WarnEvent(
+                new BppLogEvent(
+                    BppLogFeatureScope.Lobby,
+                    "lobby.version_check.degraded",
+                    storm: ["reason_code"]
+                ),
+                fields
+            );
         else
-            BppLog.WarnEvent(LobbyLogEvents.VersionCheckDegraded, result.Exception, fields);
+            BppLog.WarnEvent(
+                new BppLogEvent(
+                    BppLogFeatureScope.Lobby,
+                    "lobby.version_check.degraded",
+                    storm: ["reason_code"]
+                ),
+                result.Exception,
+                fields
+            );
     }
 }

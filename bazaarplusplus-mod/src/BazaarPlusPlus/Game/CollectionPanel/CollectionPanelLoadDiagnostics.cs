@@ -1,6 +1,7 @@
 #nullable enable
 using System.Diagnostics;
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 
 namespace BazaarPlusPlus.Game.CollectionPanel;
 
@@ -92,27 +93,23 @@ internal sealed class CollectionPanelLoadDiagnostics
     )
     {
         BppLog.DebugEvent(
-            CollectionPanelLogEvents.LoadCompleted,
+            new BppLogEvent(BppLogFeatureScope.CollectionPanel, "collection_panel.load.completed"),
             () =>
                 [
-                    CollectionPanelLogEvents.LoadPhase.Bind(phase),
-                    CollectionPanelLogEvents.LoadOutcome.Bind(outcome),
-                    CollectionPanelLogEvents.LoadReasonCode.Bind(reasonCode),
-                    CollectionPanelLogEvents.LoadDurationMs.Bind(
-                        ElapsedMs(_startedAt, _timestampProvider())
-                    ),
-                    CollectionPanelLogEvents.LoadCatalogAcquireDurationMs.Bind(
-                        _catalogAcquireDurationMs
-                    ),
-                    CollectionPanelLogEvents.LoadCatalogDurationMs.Bind(_catalogDurationMs),
-                    CollectionPanelLogEvents.LoadFilterDurationMs.Bind(_filterDurationMs),
-                    CollectionPanelLogEvents.LoadRefreshDurationMs.Bind(_refreshDurationMs),
-                    CollectionPanelLogEvents.LoadCatalogCacheHit.Bind(_catalogCacheHit),
-                    CollectionPanelLogEvents.LoadSourceTemplateCount.Bind(_sourceTemplateCount),
-                    CollectionPanelLogEvents.LoadAcceptedCount.Bind(_acceptedCount),
-                    CollectionPanelLogEvents.LoadRejectedCount.Bind(_rejectedCount),
-                    CollectionPanelLogEvents.LoadCatalogCardCount.Bind(_catalogCardCount),
-                    CollectionPanelLogEvents.LoadVisibleCardCount.Bind(_visibleCardCount),
+                    ("phase", phase),
+                    ("outcome", outcome),
+                    ("reason_code", reasonCode),
+                    ("duration_ms", ElapsedMs(_startedAt, _timestampProvider())),
+                    ("catalog_acquire_duration_ms", _catalogAcquireDurationMs),
+                    ("catalog_duration_ms", _catalogDurationMs),
+                    ("filter_duration_ms", _filterDurationMs),
+                    ("refresh_duration_ms", _refreshDurationMs),
+                    ("catalog_cache_hit", _catalogCacheHit),
+                    ("source_template_count", _sourceTemplateCount),
+                    ("accepted_count", _acceptedCount),
+                    ("rejected_count", _rejectedCount),
+                    ("catalog_card_count", _catalogCardCount),
+                    ("visible_card_count", _visibleCardCount),
                 ]
         );
     }

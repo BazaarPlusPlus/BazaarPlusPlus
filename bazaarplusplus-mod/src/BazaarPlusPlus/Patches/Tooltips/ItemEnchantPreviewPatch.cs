@@ -121,10 +121,14 @@ internal static class BppTooltipSectionRenderPatch
 
     private static void ReportSectionDegraded(TooltipSectionId sectionId, Exception exception) =>
         BppLog.WarnEvent(
-            TooltipLogEvents.SectionDegraded,
+            new BppLogEvent(
+                BppLogFeatureScope.Tooltips,
+                "tooltips.section.degraded",
+                storm: ["section_id", "reason_code"]
+            ),
             exception,
-            TooltipLogEvents.SectionDegradedSectionId.Bind(sectionId),
-            TooltipLogEvents.SectionDegradedReasonCode.Bind(TooltipLogReasonCode.RenderException)
+            ("section_id", sectionId),
+            ("reason_code", TooltipLogReasonCode.RenderException)
         );
 
     private static string? BuildEnchantContent(CardTooltipController controller)
@@ -178,20 +182,27 @@ internal static class BppTooltipSectionRenderPatch
             )
         )
         {
-            var fields = new[]
+            var fields = new BppLogField[]
             {
-                ItemEnchantPreviewLogEvents.EncounterProbeDegradedProbe.Bind(
-                    ItemEnchantEncounterProbe.Encounter
-                ),
-                ItemEnchantPreviewLogEvents.EncounterProbeDegradedReasonCode.Bind(
-                    outcome.FailureReason
-                ),
+                ("probe", ItemEnchantEncounterProbe.Encounter),
+                ("reason_code", outcome.FailureReason),
             };
             if (outcome.Exception == null)
-                BppLog.WarnEvent(ItemEnchantPreviewLogEvents.EncounterProbeDegraded, fields);
+                BppLog.WarnEvent(
+                    new BppLogEvent(
+                        BppLogFeatureScope.ItemEnchantPreview,
+                        "item_enchant_preview.encounter_probe.degraded",
+                        storm: ["probe", "reason_code"]
+                    ),
+                    fields
+                );
             else
                 BppLog.WarnEvent(
-                    ItemEnchantPreviewLogEvents.EncounterProbeDegraded,
+                    new BppLogEvent(
+                        BppLogFeatureScope.ItemEnchantPreview,
+                        "item_enchant_preview.encounter_probe.degraded",
+                        storm: ["probe", "reason_code"]
+                    ),
                     outcome.Exception,
                     fields
                 );
@@ -206,17 +217,20 @@ internal static class BppTooltipSectionRenderPatch
         )
             return;
         BppLog.RecoverStorm(
-            ItemEnchantPreviewLogEvents.EncounterProbeDegraded,
-            ItemEnchantPreviewLogEvents.EncounterProbeDegradedProbe.Bind(
-                ItemEnchantEncounterProbe.Encounter
+            new BppLogEvent(
+                BppLogFeatureScope.ItemEnchantPreview,
+                "item_enchant_preview.encounter_probe.degraded",
+                storm: ["probe", "reason_code"]
             ),
-            ItemEnchantPreviewLogEvents.EncounterProbeDegradedReasonCode.Bind(reasonCode)
+            ("probe", ItemEnchantEncounterProbe.Encounter),
+            ("reason_code", reasonCode)
         );
         BppLog.InfoEvent(
-            ItemEnchantPreviewLogEvents.EncounterProbeRecovered,
-            ItemEnchantPreviewLogEvents.EncounterProbeRecoveredProbe.Bind(
-                ItemEnchantEncounterProbe.Encounter
-            )
+            new BppLogEvent(
+                BppLogFeatureScope.ItemEnchantPreview,
+                "item_enchant_preview.encounter_probe.recovered"
+            ),
+            ("probe", ItemEnchantEncounterProbe.Encounter)
         );
     }
 }

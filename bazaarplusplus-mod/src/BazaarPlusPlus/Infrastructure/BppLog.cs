@@ -20,11 +20,7 @@ internal static class BppLog
         {
             Volatile.Write(ref _logger, logger);
             StructuredEmitter.Install(
-                new BppLogPipeline(
-                    new BppLogEventRenderer(),
-                    WriteStructuredToLogger,
-                    () => DateTimeOffset.UtcNow
-                )
+                new BppLogPipeline(WriteStructuredToLogger, () => DateTimeOffset.UtcNow)
             );
         }
         catch
@@ -33,53 +29,45 @@ internal static class BppLog
         }
     }
 
+    /// <summary>Debug-build only: the call and its field factory compile out of Release.</summary>
+    [Conditional("DEBUG")]
+    public static void DebugEvent(BppLogEvent logEvent, Func<BppLogField[]> fieldsFactory) =>
+        StructuredEmitter.Debug(logEvent, null, fieldsFactory);
+
     [Conditional("DEBUG")]
     public static void DebugEvent(
-        BppLogEventDefinition definition,
-        Func<BppLogFieldValue[]> valuesFactory
-    ) => StructuredEmitter.Debug(definition, valuesFactory);
-
-    [Conditional("DEBUG")]
-    public static void DebugEvent(
-        BppLogEventDefinition definition,
+        BppLogEvent logEvent,
         Exception exception,
-        Func<BppLogFieldValue[]> valuesFactory
-    ) => StructuredEmitter.Debug(definition, exception, valuesFactory);
+        Func<BppLogField[]> fieldsFactory
+    ) => StructuredEmitter.Debug(logEvent, exception, fieldsFactory);
 
-    public static void InfoEvent(
-        BppLogEventDefinition definition,
-        params BppLogFieldValue[] values
-    ) => StructuredEmitter.Emit(BppLogSeverity.Info, definition, values);
+    public static void InfoEvent(BppLogEvent logEvent, params BppLogField[] fields) =>
+        StructuredEmitter.Emit(BppLogSeverity.Info, logEvent, fields);
+
+    public static void WarnEvent(BppLogEvent logEvent, params BppLogField[] fields) =>
+        StructuredEmitter.Emit(BppLogSeverity.Warning, logEvent, fields);
 
     public static void WarnEvent(
-        BppLogEventDefinition definition,
-        params BppLogFieldValue[] values
-    ) => StructuredEmitter.Emit(BppLogSeverity.Warning, definition, values);
-
-    public static void WarnEvent(
-        BppLogEventDefinition definition,
+        BppLogEvent logEvent,
         Exception exception,
-        params BppLogFieldValue[] values
-    ) => StructuredEmitter.Emit(BppLogSeverity.Warning, definition, values, exception);
+        params BppLogField[] fields
+    ) => StructuredEmitter.Emit(BppLogSeverity.Warning, logEvent, fields, exception);
+
+    public static void ErrorEvent(BppLogEvent logEvent, params BppLogField[] fields) =>
+        StructuredEmitter.Emit(BppLogSeverity.Error, logEvent, fields);
 
     public static void ErrorEvent(
-        BppLogEventDefinition definition,
-        params BppLogFieldValue[] values
-    ) => StructuredEmitter.Emit(BppLogSeverity.Error, definition, values);
-
-    public static void ErrorEvent(
-        BppLogEventDefinition definition,
+        BppLogEvent logEvent,
         Exception exception,
-        params BppLogFieldValue[] values
-    ) => StructuredEmitter.Emit(BppLogSeverity.Error, definition, values, exception);
+        params BppLogField[] fields
+    ) => StructuredEmitter.Emit(BppLogSeverity.Error, logEvent, fields, exception);
 
-    public static void RecoverStorm(BppLogEventDefinition definition) =>
-        StructuredEmitter.RecoverStorm(definition);
-
-    public static void RecoverStorm(
-        BppLogEventDefinition definition,
-        params BppLogFieldValue[] values
-    ) => StructuredEmitter.RecoverStorm(definition, values);
+    /// <summary>
+    /// Ends a storm early and writes its summary: every key of the event without fields, or the
+    /// one warning key the fields build.
+    /// </summary>
+    public static void RecoverStorm(BppLogEvent logEvent, params BppLogField[] fields) =>
+        StructuredEmitter.RecoverStorm(logEvent, fields);
 
     public static void Flush() => StructuredEmitter.Flush();
 

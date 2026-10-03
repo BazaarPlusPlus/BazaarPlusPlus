@@ -1,4 +1,6 @@
 #nullable enable
+using BazaarPlusPlus.Infrastructure.Logging;
+
 namespace BazaarPlusPlus.Core.Events;
 
 internal sealed class InMemoryBppEventBus : IBppEventBus
@@ -58,17 +60,15 @@ internal sealed class InMemoryBppEventBus : IBppEventBus
             catch (Exception ex)
             {
                 global::BazaarPlusPlus.Infrastructure.BppLog.WarnEvent(
-                    global::BazaarPlusPlus.PluginLogEvents.EventHandlerDegraded,
+                    new BppLogEvent(
+                        BppLogFeatureScope.Plugin,
+                        "plugin.event_handler.degraded",
+                        storm: ["event_id", "handler_id"]
+                    ),
                     ex,
-                    global::BazaarPlusPlus.PluginLogEvents.EventHandlerDegradedEventId.Bind(
-                        global::BazaarPlusPlus.PluginLogIdentity.EventId(typeof(TEvent))
-                    ),
-                    global::BazaarPlusPlus.PluginLogEvents.EventHandlerDegradedHandlerId.Bind(
-                        global::BazaarPlusPlus.PluginLogIdentity.HandlerId(registration.Method)
-                    ),
-                    global::BazaarPlusPlus.PluginLogEvents.EventHandlerDegradedReasonCode.Bind(
-                        global::BazaarPlusPlus.PluginLogReasonCode.HandlerException
-                    )
+                    ("event_id", typeof(TEvent).FullName),
+                    ("handler_id", registration.Method.DeclaringType?.FullName),
+                    ("reason_code", global::BazaarPlusPlus.PluginLogReasonCode.HandlerException)
                 );
             }
         }

@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 using FMOD;
 using FMOD.Studio;
 using FMODUnity;
@@ -37,13 +38,11 @@ internal static class VoiceLineVoObserverBridge
         player.VODebugPrint += OnVoDebugPrint;
 #if DEBUG
         BppLog.DebugEvent(
-            VoiceObserverLogEvents.ObserverInstalled,
-            () =>
-                [
-                    VoiceObserverLogEvents.ObserverInstalledPlayerInstance.Bind(
-                        PlayerInstance(player)
-                    ),
-                ]
+            new BppLogEvent(
+                BppLogFeatureScope.VoiceSubtitles,
+                "voice_subtitles.observer.installed"
+            ),
+            () => [("player_instance", PlayerInstance(player))]
         );
 #endif
     }
@@ -53,25 +52,17 @@ internal static class VoiceLineVoObserverBridge
         _pendingContext = context;
 #if DEBUG
         BppLog.DebugEvent(
-            VoiceObserverLogEvents.AttemptStarted,
+            new BppLogEvent(BppLogFeatureScope.VoiceSubtitles, "voice_subtitles.attempt.started"),
             () =>
                 [
-                    VoiceObserverLogEvents.AttemptStartedAttemptId.Bind(context.AttemptId),
-                    VoiceObserverLogEvents.AttemptStartedOrigin.Bind(LogOrigin(context.Origin)),
-                    VoiceObserverLogEvents.AttemptStartedPlayerInstance.Bind(
-                        PlayerInstance(context.Player)
-                    ),
-                    VoiceObserverLogEvents.AttemptStartedSource.Bind(
-                        LogSource(context.SourceLabel)
-                    ),
-                    VoiceObserverLogEvents.AttemptStartedHook.Bind(context.HookName),
-                    VoiceObserverLogEvents.AttemptStartedEventReference.Bind(
-                        context.EventReferenceText
-                    ),
-                    VoiceObserverLogEvents.AttemptStartedEventPath.Bind(context.EventPath),
-                    VoiceObserverLogEvents.AttemptStartedEventDurationMs.Bind(
-                        Milliseconds(context.DurationSeconds)
-                    ),
+                    ("attempt_id", context.AttemptId, BppLogCorrelationPolicy.Full),
+                    ("origin", LogOrigin(context.Origin)),
+                    ("player_instance", PlayerInstance(context.Player)),
+                    ("source", LogSource(context.SourceLabel)),
+                    ("hook", context.HookName),
+                    ("event_ref", context.EventReferenceText),
+                    ("event_path", context.EventPath),
+                    ("event_duration_ms", Milliseconds(context.DurationSeconds)),
                 ]
         );
 #endif
@@ -186,12 +177,15 @@ internal static class VoiceLineVoObserverBridge
         if (context.IsKnown)
         {
             BppLog.DebugEvent(
-                VoiceObserverLogEvents.AttemptCleared,
+                new BppLogEvent(
+                    BppLogFeatureScope.VoiceSubtitles,
+                    "voice_subtitles.attempt.cleared"
+                ),
                 () =>
                     [
-                        VoiceObserverLogEvents.AttemptClearedAttemptId.Bind(context.AttemptId),
-                        VoiceObserverLogEvents.AttemptClearedReasonCode.Bind(reasonCode),
-                        VoiceObserverLogEvents.AttemptClearedAgeMs.Bind(AgeMilliseconds(context)),
+                        ("attempt_id", context.AttemptId, BppLogCorrelationPolicy.Full),
+                        ("reason_code", reasonCode),
+                        ("age_ms", AgeMilliseconds(context)),
                     ]
             );
         }
@@ -266,21 +260,17 @@ internal static class VoiceLineVoObserverBridge
         var hookName = context.HookName;
 #if DEBUG
         BppLog.DebugEvent(
-            VoiceObserverLogEvents.SoundObserved,
+            new BppLogEvent(BppLogFeatureScope.VoiceSubtitles, "voice_subtitles.sound.observed"),
             () =>
                 [
-                    VoiceObserverLogEvents.SoundObservedAttemptId.Bind(context.AttemptId),
-                    VoiceObserverLogEvents.SoundObservedPlayerInstance.Bind(PlayerInstance(player)),
-                    VoiceObserverLogEvents.SoundObservedContextPlayerInstance.Bind(
-                        PlayerInstance(context.Player)
-                    ),
-                    VoiceObserverLogEvents.SoundObservedSource.Bind(LogSource(sourceLabel)),
-                    VoiceObserverLogEvents.SoundObservedHook.Bind(hookName),
-                    VoiceObserverLogEvents.SoundObservedSoundName.Bind(soundName),
-                    VoiceObserverLogEvents.SoundObservedSoundDurationMs.Bind(
-                        Milliseconds(soundDurationSeconds)
-                    ),
-                    VoiceObserverLogEvents.SoundObservedEventPath.Bind(context.EventPath),
+                    ("attempt_id", context.AttemptId, BppLogCorrelationPolicy.Full),
+                    ("player_instance", PlayerInstance(player)),
+                    ("context_player_instance", PlayerInstance(context.Player)),
+                    ("source", LogSource(sourceLabel)),
+                    ("hook", hookName),
+                    ("sound_name", soundName),
+                    ("sound_duration_ms", Milliseconds(soundDurationSeconds)),
+                    ("event_path", context.EventPath),
                 ]
         );
 #endif
@@ -317,14 +307,15 @@ internal static class VoiceLineVoObserverBridge
         if (context.IsKnown && IsSubtitleObservationEnabled())
         {
             BppLog.DebugEvent(
-                VoiceObserverLogEvents.AttemptStopped,
+                new BppLogEvent(
+                    BppLogFeatureScope.VoiceSubtitles,
+                    "voice_subtitles.attempt.stopped"
+                ),
                 () =>
                     [
-                        VoiceObserverLogEvents.AttemptStoppedAttemptId.Bind(context.AttemptId),
-                        VoiceObserverLogEvents.AttemptStoppedPlayerInstance.Bind(
-                            PlayerInstance(player)
-                        ),
-                        VoiceObserverLogEvents.AttemptStoppedAgeMs.Bind(AgeMilliseconds(context)),
+                        ("attempt_id", context.AttemptId, BppLogCorrelationPolicy.Full),
+                        ("player_instance", PlayerInstance(player)),
+                        ("age_ms", AgeMilliseconds(context)),
                     ]
             );
         }
@@ -359,22 +350,21 @@ internal static class VoiceLineVoObserverBridge
         var hookName = context.HookName;
 #if DEBUG
         BppLog.DebugEvent(
-            VoiceObserverLogEvents.CallbackObserved,
+            new BppLogEvent(BppLogFeatureScope.VoiceSubtitles, "voice_subtitles.callback.observed"),
             () =>
                 [
-                    VoiceObserverLogEvents.CallbackObservedAttemptId.Bind(context.AttemptId),
-                    VoiceObserverLogEvents.CallbackObservedOrigin.Bind(LogOrigin(context.Origin)),
-                    VoiceObserverLogEvents.CallbackObservedAgeMs.Bind(AgeMilliseconds(context)),
-                    VoiceObserverLogEvents.CallbackObservedSource.Bind(LogSource(sourceLabel)),
-                    VoiceObserverLogEvents.CallbackObservedHook.Bind(hookName),
-                    VoiceObserverLogEvents.CallbackObservedContextMatchesCallback.Bind(
+                    ("attempt_id", context.AttemptId, BppLogCorrelationPolicy.Full),
+                    ("origin", LogOrigin(context.Origin)),
+                    ("age_ms", AgeMilliseconds(context)),
+                    ("source", LogSource(sourceLabel)),
+                    ("hook", hookName),
+                    (
+                        "context_matches_callback",
                         ContextMatchesCallback(context, eventReferenceText)
                     ),
-                    VoiceObserverLogEvents.CallbackObservedCallbackEvent.Bind(eventReferenceText),
-                    VoiceObserverLogEvents.CallbackObservedContextEventReference.Bind(
-                        context.EventReferenceText
-                    ),
-                    VoiceObserverLogEvents.CallbackObservedContextEventPath.Bind(context.EventPath),
+                    ("callback_event", eventReferenceText),
+                    ("context_event_ref", context.EventReferenceText),
+                    ("context_event_path", context.EventPath),
                 ]
         );
 #endif
@@ -481,12 +471,10 @@ internal static class VoiceLineVoObserverBridge
         catch (Exception exception)
         {
             BppLog.ErrorEvent(
-                VoiceObserverLogEvents.LookupFailed,
+                new BppLogEvent(BppLogFeatureScope.VoiceSubtitles, "voice_subtitles.lookup.failed"),
                 exception,
-                VoiceObserverLogEvents.LookupFailedAttemptId.Bind(attemptId),
-                VoiceObserverLogEvents.LookupFailedReasonCode.Bind(
-                    VoiceObserverLogReasonCode.LookupCallbackFailed
-                )
+                ("attempt_id", attemptId, BppLogCorrelationPolicy.Full),
+                ("reason_code", VoiceObserverLogReasonCode.LookupCallbackFailed)
             );
             return VoiceLineLookupOutcome.Failure;
         }
@@ -501,11 +489,13 @@ internal static class VoiceLineVoObserverBridge
         catch (Exception exception)
         {
             BppLog.WarnEvent(
-                VoiceObserverLogEvents.GateDegraded,
+                new BppLogEvent(
+                    BppLogFeatureScope.VoiceSubtitles,
+                    "voice_subtitles.gate.degraded",
+                    storm: ["reason_code"]
+                ),
                 exception,
-                VoiceObserverLogEvents.GateDegradedReasonCode.Bind(
-                    VoiceObserverLogReasonCode.EnabledCheckFailed
-                )
+                ("reason_code", VoiceObserverLogReasonCode.EnabledCheckFailed)
             );
             return false;
         }
@@ -521,14 +511,15 @@ internal static class VoiceLineVoObserverBridge
         catch (Exception exception)
         {
             BppLog.ErrorEvent(
-                VoiceSubtitleDisplayLogEvents.DisplayFailed,
+                new BppLogEvent(
+                    BppLogFeatureScope.VoiceSubtitles,
+                    "voice_subtitles.display.failed"
+                ),
                 exception,
-                VoiceSubtitleDisplayLogEvents.DisplayId.Bind(null),
-                VoiceSubtitleDisplayLogEvents.AttemptId.Bind(cue.AttemptId),
-                VoiceSubtitleDisplayLogEvents.Stem.Bind(cue.Line.Stem),
-                VoiceSubtitleDisplayLogEvents.ReasonCode.Bind(
-                    VoiceSubtitleDisplayLogReasonCode.QueueFailed
-                )
+                ("display_id", null, BppLogCorrelationPolicy.Full),
+                ("attempt_id", cue.AttemptId, BppLogCorrelationPolicy.Full),
+                ("stem", cue.Line.Stem),
+                ("reason_code", VoiceSubtitleDisplayLogReasonCode.QueueFailed)
             );
             return false;
         }
@@ -543,20 +534,33 @@ internal static class VoiceLineVoObserverBridge
         Exception? exception
     )
     {
-        var fields = new[]
+        var fields = new BppLogField[]
         {
-            VoiceObserverLogEvents.ObserverDegradedReasonCode.Bind(reasonCode),
-            VoiceObserverLogEvents.ObserverDegradedOrigin.Bind(LogOrigin(origin)),
-            VoiceObserverLogEvents.ObserverDegradedHook.Bind(
-                string.IsNullOrWhiteSpace(hook) ? "Unknown" : hook
-            ),
-            VoiceObserverLogEvents.ObserverDegradedEventReference.Bind(eventReference),
-            VoiceObserverLogEvents.ObserverDegradedCallbackEvent.Bind(callbackEvent),
+            ("reason_code", reasonCode),
+            ("origin", LogOrigin(origin)),
+            ("hook", string.IsNullOrWhiteSpace(hook) ? "Unknown" : hook),
+            ("event_ref", eventReference),
+            ("callback_event", callbackEvent),
         };
         if (exception == null)
-            BppLog.WarnEvent(VoiceObserverLogEvents.ObserverDegraded, fields);
+            BppLog.WarnEvent(
+                new BppLogEvent(
+                    BppLogFeatureScope.VoiceSubtitles,
+                    "voice_subtitles.observer.degraded",
+                    storm: ["reason_code", "hook"]
+                ),
+                fields
+            );
         else
-            BppLog.WarnEvent(VoiceObserverLogEvents.ObserverDegraded, exception, fields);
+            BppLog.WarnEvent(
+                new BppLogEvent(
+                    BppLogFeatureScope.VoiceSubtitles,
+                    "voice_subtitles.observer.degraded",
+                    storm: ["reason_code", "hook"]
+                ),
+                exception,
+                fields
+            );
     }
 
     private static void LogLookupSkipped(
@@ -567,17 +571,15 @@ internal static class VoiceLineVoObserverBridge
     {
 #if DEBUG
         BppLog.DebugEvent(
-            VoiceObserverLogEvents.LookupSkipped,
+            new BppLogEvent(BppLogFeatureScope.VoiceSubtitles, "voice_subtitles.lookup.skipped"),
             () =>
                 [
-                    VoiceObserverLogEvents.LookupSkippedAttemptId.Bind(context.AttemptId),
-                    VoiceObserverLogEvents.LookupSkippedOrigin.Bind(LogOrigin(context.Origin)),
-                    VoiceObserverLogEvents.LookupSkippedStrategy.Bind(resolution.Strategy),
-                    VoiceObserverLogEvents.LookupSkippedHook.Bind(context.HookName),
-                    VoiceObserverLogEvents.LookupSkippedSoundName.Bind(soundName),
-                    VoiceObserverLogEvents.LookupSkippedReasonCode.Bind(
-                        VoiceObserverLogReasonCode.NoMatch
-                    ),
+                    ("attempt_id", context.AttemptId, BppLogCorrelationPolicy.Full),
+                    ("origin", LogOrigin(context.Origin)),
+                    ("strategy", resolution.Strategy),
+                    ("hook", context.HookName),
+                    ("sound_name", soundName),
+                    ("reason_code", VoiceObserverLogReasonCode.NoMatch),
                 ]
         );
 #endif
@@ -593,32 +595,22 @@ internal static class VoiceLineVoObserverBridge
 #if DEBUG
         var line = resolution.Line;
         BppLog.DebugEvent(
-            VoiceObserverLogEvents.LookupResolved,
+            new BppLogEvent(BppLogFeatureScope.VoiceSubtitles, "voice_subtitles.lookup.resolved"),
             () =>
                 [
-                    VoiceObserverLogEvents.LookupResolvedAttemptId.Bind(context.AttemptId),
-                    VoiceObserverLogEvents.LookupResolvedOrigin.Bind(LogOrigin(context.Origin)),
-                    VoiceObserverLogEvents.LookupResolvedStrategy.Bind(resolution.Strategy),
-                    VoiceObserverLogEvents.LookupResolvedCatalog.Bind(resolution.CatalogName),
-                    VoiceObserverLogEvents.LookupResolvedMatchedToken.Bind(resolution.MatchedToken),
-                    VoiceObserverLogEvents.LookupResolvedCandidateCount.Bind(
-                        resolution.CandidateCount
-                    ),
-                    VoiceObserverLogEvents.LookupResolvedStem.Bind(line.Stem),
-                    VoiceObserverLogEvents.LookupResolvedSoundDurationMs.Bind(
-                        Milliseconds(soundDurationSeconds)
-                    ),
-                    VoiceObserverLogEvents.LookupResolvedEventDurationMs.Bind(
-                        Milliseconds(context.DurationSeconds)
-                    ),
-                    VoiceObserverLogEvents.LookupResolvedLineDurationMs.Bind(
-                        Milliseconds(line.DurationSeconds)
-                    ),
-                    VoiceObserverLogEvents.LookupResolvedDisplayDurationMs.Bind(
-                        Milliseconds(displayDurationSeconds)
-                    ),
-                    VoiceObserverLogEvents.LookupResolvedEnglishText.Bind(line.English),
-                    VoiceObserverLogEvents.LookupResolvedChineseText.Bind(line.Chinese),
+                    ("attempt_id", context.AttemptId, BppLogCorrelationPolicy.Full),
+                    ("origin", LogOrigin(context.Origin)),
+                    ("strategy", resolution.Strategy),
+                    ("catalog", resolution.CatalogName),
+                    ("matched_token", resolution.MatchedToken),
+                    ("candidate_count", resolution.CandidateCount),
+                    ("stem", line.Stem),
+                    ("sound_duration_ms", Milliseconds(soundDurationSeconds)),
+                    ("event_duration_ms", Milliseconds(context.DurationSeconds)),
+                    ("line_duration_ms", Milliseconds(line.DurationSeconds)),
+                    ("display_duration_ms", Milliseconds(displayDurationSeconds)),
+                    ("english_text", line.English),
+                    ("chinese_text", line.Chinese),
                 ]
         );
 #endif

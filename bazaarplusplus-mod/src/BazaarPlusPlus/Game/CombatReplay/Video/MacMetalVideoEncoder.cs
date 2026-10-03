@@ -2,6 +2,7 @@
 using System.Runtime.InteropServices;
 using System.Text;
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 
 namespace BazaarPlusPlus.Game.CombatReplay.Video;
 
@@ -336,17 +337,18 @@ internal sealed class MacMetalVideoEncoder : IReplayVideoEncoder
 
         BppVtGetStats(_handle, out var stats);
         BppLog.DebugEvent(
-            CombatReplayVideoLogEvents.VideoCaptureNativePipelineObserved,
+            new BppLogEvent(
+                BppLogFeatureScope.CombatReplay,
+                "combat_replay.video_capture.native_pipeline_observed"
+            ),
             () =>
                 [
-                    CombatReplayVideoLogEvents.NativeStatsRecordingId.Bind(_recordingId),
-                    CombatReplayVideoLogEvents.NativeStatsStage.Bind("metal_vt_drained"),
-                    CombatReplayVideoLogEvents.NativeStatsFramesWritten.Bind(stats.AppendedFrames),
-                    CombatReplayVideoLogEvents.NativeStatsLeaseMisses.Bind(stats.AcquireMisses),
-                    CombatReplayVideoLogEvents.NativeStatsEnqueueRejects.Bind(
-                        stats.NotReadyDrops + stats.EncodeErrors
-                    ),
-                    CombatReplayVideoLogEvents.NativeStatsMaxInFlight.Bind(stats.MaxInFlight),
+                    ("recording_id", _recordingId, BppLogCorrelationPolicy.Short),
+                    ("stage", "metal_vt_drained"),
+                    ("native_frames_written", stats.AppendedFrames),
+                    ("lease_misses", stats.AcquireMisses),
+                    ("enqueue_rejects", stats.NotReadyDrops + stats.EncodeErrors),
+                    ("max_in_flight", stats.MaxInFlight),
                 ]
         );
     }

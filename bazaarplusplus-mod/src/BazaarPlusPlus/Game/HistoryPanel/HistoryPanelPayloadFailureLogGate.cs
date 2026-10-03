@@ -1,5 +1,6 @@
 #nullable enable
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 
 namespace BazaarPlusPlus.Game.HistoryPanel;
 
@@ -34,17 +35,39 @@ internal sealed class HistoryPanelPayloadFailureLogGate
         if (!_entries.ContainsKey(battleId) && _entries.Count >= MaximumEntries)
             EvictLeastRecentlyUsed();
 
-        var reasonField = HistoryPanelLogEvents.PreviewPayloadReasonCode.Bind(reasonCode);
-        BppLog.RecoverStorm(HistoryPanelLogEvents.PreviewPayloadDegraded, reasonField);
-        var fields = new[]
+        BppLogField reasonField = ("reason_code", reasonCode);
+        BppLog.RecoverStorm(
+            new BppLogEvent(
+                BppLogFeatureScope.HistoryPanel,
+                "history_panel.preview.payload_degraded",
+                storm: ["reason_code"]
+            ),
+            reasonField
+        );
+        var fields = new BppLogField[]
         {
-            HistoryPanelLogEvents.PreviewPayloadBattleId.Bind(battleId),
+            ("battle_id", battleId, BppLogCorrelationPolicy.Short),
             reasonField,
         };
         if (exception == null)
-            BppLog.WarnEvent(HistoryPanelLogEvents.PreviewPayloadDegraded, fields);
+            BppLog.WarnEvent(
+                new BppLogEvent(
+                    BppLogFeatureScope.HistoryPanel,
+                    "history_panel.preview.payload_degraded",
+                    storm: ["reason_code"]
+                ),
+                fields
+            );
         else
-            BppLog.WarnEvent(HistoryPanelLogEvents.PreviewPayloadDegraded, exception, fields);
+            BppLog.WarnEvent(
+                new BppLogEvent(
+                    BppLogFeatureScope.HistoryPanel,
+                    "history_panel.preview.payload_degraded",
+                    storm: ["reason_code"]
+                ),
+                exception,
+                fields
+            );
         _entries[battleId] = new PayloadFailureEntry(fingerprint, reasonCode, NextSequence());
     }
 
@@ -53,8 +76,12 @@ internal sealed class HistoryPanelPayloadFailureLogGate
         if (!_entries.Remove(battleId, out var previous))
             return;
         BppLog.RecoverStorm(
-            HistoryPanelLogEvents.PreviewPayloadDegraded,
-            HistoryPanelLogEvents.PreviewPayloadReasonCode.Bind(previous.ReasonCode)
+            new BppLogEvent(
+                BppLogFeatureScope.HistoryPanel,
+                "history_panel.preview.payload_degraded",
+                storm: ["reason_code"]
+            ),
+            ("reason_code", previous.ReasonCode)
         );
     }
 

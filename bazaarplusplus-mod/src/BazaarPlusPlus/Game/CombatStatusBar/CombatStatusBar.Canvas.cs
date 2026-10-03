@@ -3,6 +3,7 @@ using System.Globalization;
 using BazaarPlusPlus.GameInterop.Fonts;
 using BazaarPlusPlus.GameInterop.HeroPortraits;
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -91,7 +92,12 @@ internal sealed partial class CombatStatusBar
         _speedValue = CreateText("Multiplier", speedButton.transform, 0f, 0f, 42f, 28f, 14);
         StretchRegion(_speedValue.rectTransform, 0f, 1f);
         speedButton.onClick.AddListener(() => CycleCombatSpeed());
-        BppLog.InfoEvent(CombatStatusBarLogEvents.NativeSkinReady);
+        BppLog.InfoEvent(
+            new BppLogEvent(
+                BppLogFeatureScope.CombatStatusBar,
+                "combat_status_bar.native_skin.ready"
+            )
+        );
     }
 
     private bool EnsureNativeSkin()
@@ -123,9 +129,20 @@ internal sealed partial class CombatStatusBar
         {
             _nativeSkinFailureReported = true;
             if (error == null)
-                BppLog.WarnEvent(CombatStatusBarLogEvents.NativeSkinUnavailable);
+                BppLog.WarnEvent(
+                    new BppLogEvent(
+                        BppLogFeatureScope.CombatStatusBar,
+                        "combat_status_bar.native_skin.unavailable"
+                    )
+                );
             else
-                BppLog.WarnEvent(CombatStatusBarLogEvents.NativeSkinUnavailable, error);
+                BppLog.WarnEvent(
+                    new BppLogEvent(
+                        BppLogFeatureScope.CombatStatusBar,
+                        "combat_status_bar.native_skin.unavailable"
+                    ),
+                    error
+                );
         }
         return false;
     }

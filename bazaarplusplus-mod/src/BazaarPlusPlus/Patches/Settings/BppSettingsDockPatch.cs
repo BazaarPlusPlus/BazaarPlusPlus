@@ -3,6 +3,7 @@
 using BazaarPlusPlus.Game.CollectionPanel;
 using BazaarPlusPlus.Game.Settings;
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 using HarmonyLib;
 using UnityEngine.UI;
 
@@ -36,10 +37,14 @@ internal static class CollectionPanelDockButtonAwakePatch
         catch (Exception ex)
         {
             BppLog.WarnEvent(
-                SettingsLogEvents.PatchDegraded,
+                new BppLogEvent(
+                    BppLogFeatureScope.Settings,
+                    "settings.patch.degraded",
+                    storm: ["operation", "reason_code"]
+                ),
                 ex,
-                SettingsLogEvents.PatchDegradedOperation.Bind(SettingsPatchOperation.DockAwake),
-                SettingsLogEvents.PatchDegradedReasonCode.Bind(SettingsLogReasonCode.PatchException)
+                ("operation", SettingsPatchOperation.DockAwake),
+                ("reason_code", SettingsLogReasonCode.PatchException)
             );
         }
     }
@@ -85,10 +90,14 @@ internal static class CollectionPanelDockButtonFightMenuPatch
         catch (Exception ex)
         {
             BppLog.WarnEvent(
-                SettingsLogEvents.PatchDegraded,
+                new BppLogEvent(
+                    BppLogFeatureScope.Settings,
+                    "settings.patch.degraded",
+                    storm: ["operation", "reason_code"]
+                ),
                 ex,
-                SettingsLogEvents.PatchDegradedOperation.Bind(SettingsPatchOperation.DockOpen),
-                SettingsLogEvents.PatchDegradedReasonCode.Bind(SettingsLogReasonCode.PatchException)
+                ("operation", SettingsPatchOperation.DockOpen),
+                ("reason_code", SettingsLogReasonCode.PatchException)
             );
         }
     }

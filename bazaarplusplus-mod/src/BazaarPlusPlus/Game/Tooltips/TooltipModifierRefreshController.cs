@@ -5,6 +5,7 @@ using BazaarPlusPlus.Core.GameState;
 using BazaarPlusPlus.Game.Input;
 using BazaarPlusPlus.GameInterop.CardPreview;
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 using TheBazaar;
 using TheBazaar.Tooltips;
 using TheBazaar.UI.Tooltips;
@@ -77,12 +78,14 @@ internal sealed class TooltipModifierRefreshController : MonoBehaviour
         catch (Exception ex)
         {
             BppLog.WarnEvent(
-                TooltipLogEvents.PreviewRefreshDegraded,
-                ex,
-                TooltipLogEvents.PreviewRefreshReasonCode.Bind(
-                    TooltipLogReasonCode.PreviewRefreshException
+                new BppLogEvent(
+                    BppLogFeatureScope.Tooltips,
+                    "tooltips.preview_refresh.degraded",
+                    storm: ["reason_code"]
                 ),
-                TooltipLogEvents.PreviewRefreshMode.Bind(_lastMode)
+                ex,
+                ("reason_code", TooltipLogReasonCode.PreviewRefreshException),
+                ("mode", _lastMode)
             );
         }
     }

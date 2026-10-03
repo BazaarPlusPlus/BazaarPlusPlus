@@ -1,6 +1,7 @@
 #nullable enable
 
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 
 namespace BazaarPlusPlus.Game.CombatStatusBar;
 
@@ -21,13 +22,8 @@ internal sealed partial class CombatStatusBar
             _services.Config.CombatStatusBarSpeedMultiplierConfig.Value
         );
         BppLog.DebugEvent(
-            CombatStatusBarLogEvents.ConfigLoaded,
-            () =>
-                [
-                    CombatStatusBarLogEvents.ConfigLoadedSpeedMultiplier.Bind(
-                        ToLogCategory(CombatSpeedMultiplier)
-                    ),
-                ]
+            new BppLogEvent(BppLogFeatureScope.CombatStatusBar, "combat_status_bar.config.loaded"),
+            () => [("speed_multiplier", ToLogCategory(CombatSpeedMultiplier))]
         );
     }
 

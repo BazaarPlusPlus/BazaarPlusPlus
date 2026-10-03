@@ -5,22 +5,14 @@ namespace BazaarPlusPlus.Tests;
 
 public sealed class BppLogPipelineReliabilityTests
 {
-    private static readonly BppLogFieldDefinition ValueField = new(
-        0,
-        "value",
-        BppLogCorrelationPolicy.None,
-        BppLogCardinality.Low
-    );
-    private static readonly BppLogEventDefinition Event = new(
+    private static readonly BppLogEvent Event = new(
         BppLogFeatureScope.Logger,
-        "logging.reliability.succeeded",
-        new[] { ValueField }
+        "logging.reliability.succeeded"
     );
-    private static readonly BppLogEventDefinition GuardedEvent = new(
+    private static readonly BppLogEvent GuardedEvent = new(
         BppLogFeatureScope.Logger,
         "logging.reliability.degraded",
-        new[] { ValueField },
-        new BppLogStormPolicy(new[] { ValueField })
+        storm: ["value"]
     );
 
     [Fact]
@@ -29,7 +21,7 @@ public sealed class BppLogPipelineReliabilityTests
         var emitter = new BppLogEmitter();
 
         var exception = Record.Exception(() =>
-            emitter.Emit(BppLogSeverity.Info, Event, new[] { ValueField.Bind(new ThrowingValue()) })
+            emitter.Emit(BppLogSeverity.Info, Event, new[] { Value(new ThrowingValue()) })
         );
 
         Assert.Null(exception);
@@ -42,7 +34,7 @@ public sealed class BppLogPipelineReliabilityTests
         var output = new List<string>();
         emitter.Install(CreatePipeline((_, message) => output.Add(message)));
 
-        emitter.Emit(BppLogSeverity.Info, Event, new[] { ValueField.Bind("loaded") });
+        emitter.Emit(BppLogSeverity.Info, Event, new[] { Value("loaded") });
 
         Assert.Contains("event=logging.reliability.succeeded", Assert.Single(output));
     }
@@ -52,13 +44,13 @@ public sealed class BppLogPipelineReliabilityTests
     {
         var emitter = new BppLogEmitter();
         var output = new List<string>();
-        var fields = new[] { ValueField.Bind("offline") };
+        var fields = new[] { Value("offline") };
         emitter.Install(CreatePipeline((_, message) => output.Add(message)));
         emitter.Emit(BppLogSeverity.Warning, GuardedEvent, fields);
         emitter.Emit(BppLogSeverity.Warning, GuardedEvent, fields);
 
         emitter.Install(CreatePipeline((_, message) => output.Add(message)));
-        emitter.Emit(BppLogSeverity.Info, Event, new[] { ValueField.Bind("loaded") });
+        emitter.Emit(BppLogSeverity.Info, Event, new[] { Value("loaded") });
 
         Assert.Equal(3, output.Count);
         Assert.Contains("event=logging.reliability.degraded", output[0]);
@@ -103,7 +95,7 @@ public sealed class BppLogPipelineReliabilityTests
                 output.Add(message);
             }
         );
-        var fields = new[] { ValueField.Bind("offline") };
+        var fields = new[] { Value("offline") };
 
         pipeline.Emit(BppLogSeverity.Warning, GuardedEvent, fields);
         Assert.Equal(0, pipeline.ActiveStormKeyCount);
@@ -141,7 +133,7 @@ public sealed class BppLogPipelineReliabilityTests
     {
         var output = new List<string>();
         var pipeline = CreatePipeline((_, message) => output.Add(message));
-        var fields = new[] { ValueField.Bind(new ThrowingValue()) };
+        var fields = new[] { Value(new ThrowingValue()) };
 
         var first = Record.Exception(() =>
             pipeline.Emit(BppLogSeverity.Warning, GuardedEvent, fields)
@@ -157,15 +149,11 @@ public sealed class BppLogPipelineReliabilityTests
     }
 
     [Fact]
-    public void Malformed_definition_renders_one_safe_fallback_record()
+    public void Malformed_event_id_renders_one_safe_fallback_record()
     {
         var output = new List<string>();
         var pipeline = CreatePipeline((_, message) => output.Add(message));
-        var malformed = new BppLogEventDefinition(
-            BppLogFeatureScope.Logger,
-            "bad",
-            Array.Empty<BppLogFieldDefinition>()
-        );
+        var malformed = new BppLogEvent(BppLogFeatureScope.Logger, "bad");
 
         var exception = Record.Exception(() => pipeline.Emit(BppLogSeverity.Info, malformed));
 
@@ -183,10 +171,11 @@ public sealed class BppLogPipelineReliabilityTests
 
         emitter.Debug(
             Event,
+            null,
             () =>
             {
                 evaluations++;
-                return new[] { ValueField.Bind("expensive") };
+                return new[] { Value("expensive") };
             }
         );
 
@@ -207,10 +196,11 @@ public sealed class BppLogPipelineReliabilityTests
 
         emitter.Debug(
             Event,
+            null,
             () =>
             {
                 evaluations++;
-                return Array.Empty<BppLogFieldValue>();
+                return Array.Empty<BppLogField>();
             }
         );
 
@@ -231,7 +221,7 @@ public sealed class BppLogPipelineReliabilityTests
             () =>
             {
                 evaluations++;
-                return new[] { ValueField.Bind("expensive") };
+                return new[] { Value("expensive") };
             }
         );
 
@@ -245,7 +235,9 @@ public sealed class BppLogPipelineReliabilityTests
     }
 
     private static BppLogPipeline CreatePipeline(Action<BppLogSeverity, string> sink) =>
-        new(new BppLogEventRenderer(), sink, () => DateTimeOffset.UnixEpoch);
+        new(sink, () => DateTimeOffset.UnixEpoch);
+
+    private static BppLogField Value(object value) => ("value", value);
 
     private sealed class ThrowingValue
     {

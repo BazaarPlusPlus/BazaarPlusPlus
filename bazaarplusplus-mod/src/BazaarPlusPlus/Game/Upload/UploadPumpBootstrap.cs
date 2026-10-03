@@ -2,6 +2,7 @@
 using BazaarPlusPlus.Core.Runtime;
 using BazaarPlusPlus.Game.BundlePipeline;
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 
 namespace BazaarPlusPlus.Game.Upload;
 
@@ -27,8 +28,8 @@ internal static class UploadPumpBootstrap
             // build_channel row filter in the upload stores — it keeps PTR-recorded rows out of
             // uploads even after switching back to online.
             BppLog.DebugEvent(
-                UploadLogEvents.FeedSkipped,
-                () => [UploadLogEvents.FeedSkippedReasonCode.Bind(UploadLogReasonCode.PtrBuild)]
+                new BppLogEvent(BppLogFeatureScope.Upload, "upload.feed.skipped"),
+                () => [("reason_code", UploadLogReasonCode.PtrBuild)]
             );
             return null;
         }

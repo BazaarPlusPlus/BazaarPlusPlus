@@ -6,8 +6,13 @@ namespace BazaarPlusPlus.Tests;
 
 public sealed class BppLogEventRendererTests
 {
+    private static readonly BppLogEvent Succeeded = new(
+        BppLogFeatureScope.Logger,
+        "logging.renderer.succeeded"
+    );
+
     [Fact]
-    public void Render_formats_schema_ordered_values_invariantly_and_on_one_line()
+    public void Render_formats_values_invariantly_in_call_order_and_on_one_line()
     {
         var previousCulture = CultureInfo.CurrentCulture;
         var previousUiCulture = CultureInfo.CurrentUICulture;
@@ -16,43 +21,18 @@ public sealed class BppLogEventRendererTests
             CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("fr-FR");
             CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("fr-FR");
 
-            var count = Field(0, "count");
-            var ratio = Field(1, "ratio");
-            var enabled = Field(2, "enabled");
-            var status = Field(3, "status");
-            var occurredAt = Field(4, "occurred_at");
-            var missing = Field(5, "missing");
-            var quoted = Field(6, "quoted");
-            var equation = Field(7, "equation");
-            var control = Field(8, "control");
-            var cjk = Field(9, "cjk");
-            var definition = Define(
-                count,
-                ratio,
-                enabled,
-                status,
-                occurredAt,
-                missing,
-                quoted,
-                equation,
-                control,
-                cjk
+            var rendered = Render(
+                ("count", 123),
+                ("ratio", 12.5m),
+                ("enabled", true),
+                ("status", RenderState.ReadyAtDawn),
+                ("occurred_at", new DateTime(2026, 7, 13, 4, 5, 6, 789, DateTimeKind.Utc)),
+                ("missing", null),
+                ("quoted", "say \"hi\""),
+                ("equation", "a=b"),
+                ("control", "a\r\nb\tc\u0001"),
+                ("cjk", "中文テスト한글")
             );
-
-            var rendered = Renderer()
-                .Render(
-                    definition,
-                    cjk.Bind("中文テスト한글"),
-                    control.Bind("a\r\nb\tc\u0001"),
-                    equation.Bind("a=b"),
-                    quoted.Bind("say \"hi\""),
-                    missing.Bind(null),
-                    occurredAt.Bind(new DateTime(2026, 7, 13, 4, 5, 6, 789, DateTimeKind.Utc)),
-                    status.Bind(RenderState.ReadyAtDawn),
-                    enabled.Bind(true),
-                    ratio.Bind(12.5m),
-                    count.Bind(123)
-                );
 
             Assert.Equal(
                 "[BPP][Logger] event=logging.renderer.succeeded count=123 ratio=12.5 enabled=true "
@@ -61,8 +41,6 @@ public sealed class BppLogEventRendererTests
                     + "cjk=中文テスト한글",
                 rendered
             );
-            Assert.DoesNotContain('\r', rendered);
-            Assert.DoesNotContain('\n', rendered);
         }
         finally
         {
@@ -74,50 +52,13 @@ public sealed class BppLogEventRendererTests
     [Fact]
     public void Render_treats_unspecified_times_as_utc_and_offsets_as_utc()
     {
-        var unspecified = Field(0, "unspecified_at");
-        var offset = Field(1, "offset_at");
-        var rendered = Renderer()
-            .Render(
-                Define(unspecified, offset),
-                unspecified.Bind(new DateTime(2026, 7, 13, 4, 5, 6, DateTimeKind.Unspecified)),
-                offset.Bind(new DateTimeOffset(2026, 7, 13, 12, 5, 6, TimeSpan.FromHours(8)))
-            );
+        var rendered = Render(
+            ("unspecified_at", new DateTime(2026, 7, 13, 4, 5, 6, DateTimeKind.Unspecified)),
+            ("offset_at", new DateTimeOffset(2026, 7, 13, 12, 5, 6, TimeSpan.FromHours(8)))
+        );
 
         Assert.Contains("unspecified_at=2026-07-13T04:05:06.000Z", rendered);
         Assert.Contains("offset_at=2026-07-13T04:05:06.000Z", rendered);
-    }
-
-    [Fact]
-    public void Render_budgets_fields_after_escaping_and_budgets_the_final_record()
-    {
-        var fields = Enumerable
-            .Range(0, 12)
-            .Select(index => Field(index, $"field_{index}"))
-            .ToArray();
-        var values = fields
-            .Select(field => field.Bind(new string('\u0001', 300) + "secret-tail"))
-            .ToArray();
-
-        var rendered = Renderer().Render(Define(fields), values);
-
-        Assert.True(rendered.Length <= BppLogEventRenderer.RecordCharacterBudget);
-        Assert.Contains("field_truncated=true", rendered);
-        Assert.Contains("record_truncated=true", rendered);
-        Assert.DoesNotContain("secret-tail", rendered);
-        Assert.DoesNotContain('\u0001', rendered);
-    }
-
-    [Fact]
-    public void Render_budgets_long_ascii_fields()
-    {
-        var text = Field(0, "text");
-
-        var rendered = Renderer()
-            .Render(Define(text), text.Bind(new string('a', 300) + "secret-tail"));
-
-        Assert.True(rendered.Length <= BppLogEventRenderer.RecordCharacterBudget);
-        Assert.Contains("field_truncated=true", rendered);
-        Assert.DoesNotContain("secret-tail", rendered);
     }
 
     [Theory]
@@ -126,90 +67,67 @@ public sealed class BppLogEventRendererTests
     [InlineData("field", "logging..failed")]
     [InlineData("field", "logging.Bad-Failed")]
     [InlineData("field", "logging.failed")]
-    public void Render_fails_safe_for_invalid_schema_identifiers(string fieldName, string eventId)
+    [InlineData("field", "upload.renderer.succeeded")]
+    public void Render_fails_safe_for_invalid_identifiers(string fieldName, string eventId)
     {
-        var field = Field(0, fieldName);
-        var definition = new BppLogEventDefinition(
-            BppLogFeatureScope.Logger,
-            eventId,
-            [field],
-            null
+        var rendered = BppLogEventRenderer.Render(
+            new BppLogEvent(BppLogFeatureScope.Logger, eventId),
+            [(fieldName, "unsafe\r\nvalue")],
+            exception: null
         );
 
-        var rendered = Renderer().Render(definition, field.Bind("unsafe\r\nvalue"));
-
-        Assert.Equal("[BPP][Logger] event=logging.render.failed", rendered);
+        Assert.Equal(BppLogEventRenderer.FallbackRecord, rendered);
     }
 
     [Fact]
     public void Render_fails_closed_for_an_unknown_correlation_policy()
     {
-        var field = Field(0, "value", (BppLogCorrelationPolicy)999);
+        var rendered = Render(("value", "must-not-appear", (BppLogCorrelationPolicy)999));
 
-        var rendered = Renderer().Render(Define(field), field.Bind("must-not-appear"));
-
-        Assert.Equal("[BPP][Logger] event=logging.render.failed", rendered);
+        Assert.Equal(BppLogEventRenderer.FallbackRecord, rendered);
     }
 
     [Fact]
-    public void Render_escapes_unicode_line_separators_and_unpaired_surrogates()
+    public void Render_escapes_unpaired_surrogates_and_keeps_paired_ones()
     {
-        var text = Field(0, "text");
-        var rendered = Renderer()
-            .Render(Define(text), text.Bind("a\u2028b\u2029c\ud800d\udc00e😀"));
+        var rendered = Render(("text", "c\ud800d\udc00e😀"));
 
-        Assert.Contains("\\u2028", rendered);
-        Assert.Contains("\\u2029", rendered);
         Assert.Contains("\\uD800", rendered);
         Assert.Contains("\\uDC00", rendered);
         Assert.Contains("😀", rendered);
-        Assert.DoesNotContain('\u2028', rendered);
-        Assert.DoesNotContain('\u2029', rendered);
     }
 
     [Fact]
-    public void Render_ignores_values_not_declared_by_the_event_schema()
+    public void Render_appends_the_exception_type_and_escaped_text_without_truncation()
     {
-        var approved = Field(0, "approved");
-        var undeclared = Field(0, "token");
-
-        var rendered = Renderer()
-            .Render(Define(approved), undeclared.Bind("must-not-appear"), approved.Bind("ok"));
-
-        Assert.EndsWith(" approved=ok", rendered);
-        Assert.DoesNotContain("token", rendered);
-        Assert.DoesNotContain("must-not-appear", rendered);
-    }
-
-    [Fact]
-    public void Render_never_throws_when_public_value_formatting_throws()
-    {
-        var value = Field(0, "value");
-
-        var exception = Record.Exception(() =>
-            Renderer().Render(Define(value), value.Bind(new ThrowingFormattable()))
+        var message = new string('m', 10_000) + "\nsecond line";
+        var rendered = BppLogEventRenderer.Render(
+            Succeeded,
+            [("stage", "load")],
+            new InvalidOperationException(message)
         );
-        var rendered = Renderer().Render(Define(value), value.Bind(new ThrowingFormattable()));
+
+        Assert.StartsWith(
+            "[BPP][Logger] event=logging.renderer.succeeded stage=load "
+                + "exception_type=System.InvalidOperationException exception=\"",
+            rendered
+        );
+        Assert.Contains(new string('m', 10_000) + "\\nsecond line", rendered);
+        Assert.DoesNotContain('\n', rendered);
+    }
+
+    [Fact]
+    public void Render_never_throws_when_value_formatting_throws()
+    {
+        var exception = Record.Exception(() => Render(("value", new ThrowingFormattable())));
+        var rendered = Render(("value", new ThrowingFormattable()));
 
         Assert.Null(exception);
         Assert.EndsWith(" value=<unrenderable>", rendered);
     }
 
-    private static BppLogEventRenderer Renderer() => new();
-
-    private static BppLogEventDefinition Define(params BppLogFieldDefinition[] fields) =>
-        new(
-            BppLogFeatureScope.Logger,
-            eventId: "logging.renderer.succeeded",
-            fields,
-            stormPolicy: null
-        );
-
-    private static BppLogFieldDefinition Field(
-        int order,
-        string name,
-        BppLogCorrelationPolicy correlation = BppLogCorrelationPolicy.None
-    ) => new(order, name, correlation, BppLogCardinality.Low);
+    private static string Render(params BppLogField[] fields) =>
+        BppLogEventRenderer.Render(Succeeded, fields, exception: null);
 
     private enum RenderState
     {

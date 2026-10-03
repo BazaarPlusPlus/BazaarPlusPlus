@@ -6,6 +6,7 @@ using BazaarPlusPlus.GameInterop.Heroes;
 using BazaarPlusPlus.GameInterop.HeroPortraits;
 using BazaarPlusPlus.GameInterop.TagTypography;
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 using BazaarPlusPlus.Infrastructure.UiTokens;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -607,12 +608,14 @@ internal sealed partial class CollectionPanelView
         if (outcome.IsDegraded)
         {
             BppLog.WarnEvent(
-                CollectionPanelLogEvents.KeywordIconDegraded,
-                outcome.Exception!,
-                CollectionPanelLogEvents.KeywordIconDegradedReasonCode.Bind(
-                    CollectionTypographyReasonCode.IconResolveException
+                new BppLogEvent(
+                    BppLogFeatureScope.CollectionPanel,
+                    "collection_panel.keyword_icon.degraded",
+                    storm: ["reason_code"]
                 ),
-                CollectionPanelLogEvents.KeywordIconDegradedIconName.Bind(outcome.IconName)
+                outcome.Exception!,
+                ("reason_code", CollectionTypographyReasonCode.IconResolveException),
+                ("icon_name", outcome.IconName)
             );
         }
         if (outcome.Sprite != null)
@@ -672,15 +675,23 @@ internal sealed partial class CollectionPanelView
             failure.Reason == NativeTagTypographyFailureReason.ConfigurationMethodUnavailable
                 ? CollectionTypographyReasonCode.ConfigurationMethodUnavailable
                 : CollectionTypographyReasonCode.ConfigurationInvocationException;
-        var fields = new[]
-        {
-            CollectionPanelLogEvents.TagTypographyDegradedReasonCode.Bind(reasonCode),
-        };
+        var fields = new BppLogField[] { ("reason_code", reasonCode) };
         if (failure.Exception == null)
-            BppLog.WarnEvent(CollectionPanelLogEvents.TagTypographyDegraded, fields);
+            BppLog.WarnEvent(
+                new BppLogEvent(
+                    BppLogFeatureScope.CollectionPanel,
+                    "collection_panel.tag_typography.degraded",
+                    storm: ["reason_code"]
+                ),
+                fields
+            );
         else
             BppLog.WarnEvent(
-                CollectionPanelLogEvents.TagTypographyDegraded,
+                new BppLogEvent(
+                    BppLogFeatureScope.CollectionPanel,
+                    "collection_panel.tag_typography.degraded",
+                    storm: ["reason_code"]
+                ),
                 failure.Exception,
                 fields
             );
@@ -1245,26 +1256,32 @@ internal sealed partial class CollectionPanelView
         if (outcome.Reason == HeroPortraitFailureReason.PortraitUnavailable)
         {
             BppLog.DebugEvent(
-                CollectionPanelLogEvents.HeroPortraitFallbackObserved,
-                () =>
-                    [
-                        CollectionPanelLogEvents.HeroPortraitFallbackHero.Bind(hero),
-                        CollectionPanelLogEvents.HeroPortraitFallbackReasonCode.Bind(reasonCode),
-                    ]
+                new BppLogEvent(
+                    BppLogFeatureScope.CollectionPanel,
+                    "collection_panel.hero_portrait.fallback_observed"
+                ),
+                () => [("hero", hero), ("reason_code", reasonCode)]
             );
             return;
         }
 
-        var fields = new[]
-        {
-            CollectionPanelLogEvents.HeroPortraitDegradedHero.Bind(hero),
-            CollectionPanelLogEvents.HeroPortraitDegradedReasonCode.Bind(reasonCode),
-        };
+        var fields = new BppLogField[] { ("hero", hero), ("reason_code", reasonCode) };
         if (outcome.Exception == null)
-            BppLog.WarnEvent(CollectionPanelLogEvents.HeroPortraitDegraded, fields);
+            BppLog.WarnEvent(
+                new BppLogEvent(
+                    BppLogFeatureScope.CollectionPanel,
+                    "collection_panel.hero_portrait.degraded",
+                    storm: ["reason_code"]
+                ),
+                fields
+            );
         else
             BppLog.WarnEvent(
-                CollectionPanelLogEvents.HeroPortraitDegraded,
+                new BppLogEvent(
+                    BppLogFeatureScope.CollectionPanel,
+                    "collection_panel.hero_portrait.degraded",
+                    storm: ["reason_code"]
+                ),
                 outcome.Exception,
                 fields
             );
@@ -1296,17 +1313,28 @@ internal sealed partial class CollectionPanelView
         };
         if (!EncounterPortraitFailures.ShouldReport(templateId, reasonCode))
             return;
-        var fields = new[]
+        var fields = new BppLogField[]
         {
-            CollectionPanelLogEvents.EncounterPortraitDegradedTemplateId.Bind(templateId),
-            CollectionPanelLogEvents.EncounterPortraitDegradedReasonCode.Bind(reasonCode),
-            CollectionPanelLogEvents.EncounterPortraitDegradedArtKey.Bind(outcome.ArtKey),
+            ("template_id", templateId),
+            ("reason_code", reasonCode),
+            ("art_key", outcome.ArtKey),
         };
         if (outcome.Exception == null)
-            BppLog.WarnEvent(CollectionPanelLogEvents.EncounterPortraitDegraded, fields);
+            BppLog.WarnEvent(
+                new BppLogEvent(
+                    BppLogFeatureScope.CollectionPanel,
+                    "collection_panel.encounter_portrait.degraded",
+                    storm: ["reason_code"]
+                ),
+                fields
+            );
         else
             BppLog.WarnEvent(
-                CollectionPanelLogEvents.EncounterPortraitDegraded,
+                new BppLogEvent(
+                    BppLogFeatureScope.CollectionPanel,
+                    "collection_panel.encounter_portrait.degraded",
+                    storm: ["reason_code"]
+                ),
                 outcome.Exception,
                 fields
             );

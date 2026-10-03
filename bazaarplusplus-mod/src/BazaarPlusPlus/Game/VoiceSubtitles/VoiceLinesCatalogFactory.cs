@@ -1,6 +1,7 @@
 #nullable enable
 using System.Reflection;
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 using BazaarPlusPlus.Infrastructure.RemoteEmbeddedCatalog;
 using BazaarPlusPlus.ModApi.Http;
 
@@ -67,7 +68,10 @@ internal sealed class VoiceLinesCatalogObserver : IRemoteEmbeddedCatalogObserver
     private VoiceCatalogDegradation? _activeDegradation;
 
     public void OnWarmStarted() =>
-        BppLog.DebugEvent(VoiceCatalogLogEvents.CatalogStarted, static () => []);
+        BppLog.DebugEvent(
+            new BppLogEvent(BppLogFeatureScope.VoiceSubtitles, "voice_subtitles.catalog.started"),
+            static () => []
+        );
 
     public void OnInitialLoad(CatalogInitialLoadResult<VoiceLine[]> result)
     {
@@ -91,9 +95,12 @@ internal sealed class VoiceLinesCatalogObserver : IRemoteEmbeddedCatalogObserver
                     _activeDegradation = null;
                 }
                 BppLog.InfoEvent(
-                    VoiceCatalogLogEvents.CatalogReady,
-                    VoiceCatalogLogEvents.CatalogReadySource.Bind(MapSource(snapshot.Source)),
-                    VoiceCatalogLogEvents.CatalogReadyLineCount.Bind(snapshot.Value.Length)
+                    new BppLogEvent(
+                        BppLogFeatureScope.VoiceSubtitles,
+                        "voice_subtitles.catalog.ready"
+                    ),
+                    ("source", MapSource(snapshot.Source)),
+                    ("line_count", snapshot.Value.Length)
                 );
             }
             return;
@@ -115,15 +122,14 @@ internal sealed class VoiceLinesCatalogObserver : IRemoteEmbeddedCatalogObserver
 
     public void OnRefreshQueued(CatalogIssue reason) =>
         BppLog.DebugEvent(
-            VoiceCatalogLogEvents.CatalogRefreshStarted,
+            new BppLogEvent(
+                BppLogFeatureScope.VoiceSubtitles,
+                "voice_subtitles.catalog_refresh.started"
+            ),
             () =>
                 [
-                    VoiceCatalogLogEvents.CatalogRefreshStartedReasonCode.Bind(
-                        MapReason(reason.Kind)
-                    ),
-                    VoiceCatalogLogEvents.CatalogRefreshStartedEndpoint.Bind(
-                        VoiceCatalogEndpoint.VoiceCatalog
-                    ),
+                    ("reason_code", MapReason(reason.Kind)),
+                    ("endpoint", VoiceCatalogEndpoint.VoiceCatalog),
                 ]
         );
 
@@ -138,11 +144,13 @@ internal sealed class VoiceLinesCatalogObserver : IRemoteEmbeddedCatalogObserver
             if (snapshot.Issue is { Kind: CatalogIssueKind.CacheWriteFailed } cacheIssue)
             {
                 BppLog.WarnEvent(
-                    VoiceCatalogLogEvents.CatalogCacheDegraded,
+                    new BppLogEvent(
+                        BppLogFeatureScope.VoiceSubtitles,
+                        "voice_subtitles.catalog_cache.degraded",
+                        storm: ["reason_code"]
+                    ),
                     cacheIssue.Exception!,
-                    VoiceCatalogLogEvents.CatalogCacheDegradedReasonCode.Bind(
-                        VoiceCatalogReasonCode.WriteFailed
-                    )
+                    ("reason_code", VoiceCatalogReasonCode.WriteFailed)
                 );
             }
 
@@ -156,19 +164,22 @@ internal sealed class VoiceLinesCatalogObserver : IRemoteEmbeddedCatalogObserver
             if (recovered.HasValue)
             {
                 BppLog.RecoverStorm(
-                    VoiceCatalogLogEvents.CatalogDegraded,
-                    VoiceCatalogLogEvents.CatalogDegradedReasonCode.Bind(
-                        recovered.Value.ReasonCode
+                    new BppLogEvent(
+                        BppLogFeatureScope.VoiceSubtitles,
+                        "voice_subtitles.catalog.degraded",
+                        storm: ["reason_code", "source"]
                     ),
-                    VoiceCatalogLogEvents.CatalogDegradedSource.Bind(recovered.Value.Source)
+                    ("reason_code", recovered.Value.ReasonCode),
+                    ("source", recovered.Value.Source)
                 );
                 BppLog.InfoEvent(
-                    VoiceCatalogLogEvents.CatalogRecovered,
-                    VoiceCatalogLogEvents.CatalogRecoveredReasonCode.Bind(
-                        recovered.Value.ReasonCode
+                    new BppLogEvent(
+                        BppLogFeatureScope.VoiceSubtitles,
+                        "voice_subtitles.catalog.recovered"
                     ),
-                    VoiceCatalogLogEvents.CatalogRecoveredSource.Bind(recovered.Value.Source),
-                    VoiceCatalogLogEvents.CatalogRecoveredLineCount.Bind(snapshot.Value.Length)
+                    ("reason_code", recovered.Value.ReasonCode),
+                    ("source", recovered.Value.Source),
+                    ("line_count", snapshot.Value.Length)
                 );
             }
             return;
@@ -195,16 +206,31 @@ internal sealed class VoiceLinesCatalogObserver : IRemoteEmbeddedCatalogObserver
             _activeDegradation = new VoiceCatalogDegradation(reason, source);
         }
 
-        var fields = new[]
+        var fields = new BppLogField[]
         {
-            VoiceCatalogLogEvents.CatalogDegradedReasonCode.Bind(reason),
-            VoiceCatalogLogEvents.CatalogDegradedSource.Bind(source),
-            VoiceCatalogLogEvents.CatalogDegradedEndpoint.Bind(VoiceCatalogEndpoint.VoiceCatalog),
+            ("reason_code", reason),
+            ("source", source),
+            ("endpoint", VoiceCatalogEndpoint.VoiceCatalog),
         };
         if (exception == null)
-            BppLog.WarnEvent(VoiceCatalogLogEvents.CatalogDegraded, fields);
+            BppLog.WarnEvent(
+                new BppLogEvent(
+                    BppLogFeatureScope.VoiceSubtitles,
+                    "voice_subtitles.catalog.degraded",
+                    storm: ["reason_code", "source"]
+                ),
+                fields
+            );
         else
-            BppLog.WarnEvent(VoiceCatalogLogEvents.CatalogDegraded, exception, fields);
+            BppLog.WarnEvent(
+                new BppLogEvent(
+                    BppLogFeatureScope.VoiceSubtitles,
+                    "voice_subtitles.catalog.degraded",
+                    storm: ["reason_code", "source"]
+                ),
+                exception,
+                fields
+            );
     }
 
     private static void EmitFailed(
@@ -213,15 +239,24 @@ internal sealed class VoiceLinesCatalogObserver : IRemoteEmbeddedCatalogObserver
         Exception? exception
     )
     {
-        var fields = new[]
-        {
-            VoiceCatalogLogEvents.CatalogFailedReasonCode.Bind(reason),
-            VoiceCatalogLogEvents.CatalogFailedSource.Bind(source),
-        };
+        var fields = new BppLogField[] { ("reason_code", reason), ("source", source) };
         if (exception == null)
-            BppLog.ErrorEvent(VoiceCatalogLogEvents.CatalogFailed, fields);
+            BppLog.ErrorEvent(
+                new BppLogEvent(
+                    BppLogFeatureScope.VoiceSubtitles,
+                    "voice_subtitles.catalog.failed"
+                ),
+                fields
+            );
         else
-            BppLog.ErrorEvent(VoiceCatalogLogEvents.CatalogFailed, exception, fields);
+            BppLog.ErrorEvent(
+                new BppLogEvent(
+                    BppLogFeatureScope.VoiceSubtitles,
+                    "voice_subtitles.catalog.failed"
+                ),
+                exception,
+                fields
+            );
     }
 
     private static bool IsInitialDegradation(CatalogIssue? issue) =>

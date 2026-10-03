@@ -3,6 +3,7 @@ using BazaarGameShared.Domain.Core.Types;
 using BazaarPlusPlus.Game.CollectionPanel.Data;
 using BazaarPlusPlus.GameInterop;
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 using UnityEngine;
 
 namespace BazaarPlusPlus.Game.CollectionPanel;
@@ -99,9 +100,13 @@ internal sealed class CollectionPanelHeroPreferenceStore : ICollectionPanelHeroP
             return;
 
         BppLog.WarnEvent(
-            CollectionPanelLogEvents.HeroPreferenceDegraded,
-            CollectionPanelLogEvents.HeroPreferenceDegradedReasonCode.Bind(reasonCode),
-            CollectionPanelLogEvents.HeroPreferenceDegradedHero.Bind(hero)
+            new BppLogEvent(
+                BppLogFeatureScope.CollectionPanel,
+                "collection_panel.hero_preference.degraded",
+                storm: ["reason_code"]
+            ),
+            ("reason_code", reasonCode),
+            ("hero", hero)
         );
     }
 
@@ -111,14 +116,23 @@ internal sealed class CollectionPanelHeroPreferenceStore : ICollectionPanelHeroP
             return;
 
         _scopeDegradedReported = true;
-        var field = CollectionPanelLogEvents.HeroPreferenceScopeDegradedReasonCode.Bind(
-            CollectionPanelLogReasonCode.IdentityUnavailable
-        );
+        BppLogField field = ("reason_code", CollectionPanelLogReasonCode.IdentityUnavailable);
         if (exception == null)
-            BppLog.WarnEvent(CollectionPanelLogEvents.HeroPreferenceScopeDegraded, field);
+            BppLog.WarnEvent(
+                new BppLogEvent(
+                    BppLogFeatureScope.CollectionPanel,
+                    "collection_panel.hero_preference.scope_degraded",
+                    storm: ["reason_code"]
+                ),
+                field
+            );
         else
             BppLog.WarnEvent(
-                CollectionPanelLogEvents.HeroPreferenceScopeDegraded,
+                new BppLogEvent(
+                    BppLogFeatureScope.CollectionPanel,
+                    "collection_panel.hero_preference.scope_degraded",
+                    storm: ["reason_code"]
+                ),
                 exception,
                 field
             );

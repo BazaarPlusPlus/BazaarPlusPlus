@@ -3,72 +3,56 @@ using System.Text;
 
 namespace BazaarPlusPlus.Infrastructure.Logging;
 
-internal sealed class BppLogEventRenderer
+/// <summary>
+/// Renders one event as a single line: <c>[BPP][Scope] event=id name=value ...</c>, fields in
+/// call order, then <c>exception_type=</c> and the escaped <c>exception=</c> text when an
+/// exception is attached. An undeclared scope, an id outside the scope's prefix, a field name
+/// that is not snake case, or an unknown correlation policy renders the fixed fallback record.
+/// </summary>
+internal static class BppLogEventRenderer
 {
-    internal const int RecordCharacterBudget = 2048;
-    internal const int ExceptionRecordCharacterBudget = 8192;
+    internal const string FallbackRecord = "[BPP][Logger] event=logging.render.failed";
 
-    private const string FallbackRecord = "[BPP][Logger] event=logging.render.failed";
-    private readonly BppLogExceptionProjector _exceptionProjector;
-    private readonly BppLogValueFormatter _valueFormatter;
-
-    internal BppLogEventRenderer()
-    {
-        _valueFormatter = new BppLogValueFormatter();
-        _exceptionProjector = new BppLogExceptionProjector(_valueFormatter);
-    }
-
-    internal string Render(BppLogEventDefinition definition, params BppLogFieldValue[] values) =>
-        Render(definition, values, null);
-
-    internal string Render(
-        BppLogEventDefinition definition,
-        IReadOnlyList<BppLogFieldValue>? values,
+    internal static string Render(
+        BppLogEvent logEvent,
+        IReadOnlyList<BppLogField>? fields,
         Exception? exception
     )
     {
         try
         {
-            if (!IsValidDefinition(definition))
+            if (!IsValidEvent(logEvent))
                 return FallbackRecord;
 
-            if (!HasValidFields(definition))
-                return FallbackRecord;
-
-            var fields = definition.Fields;
-            var fieldTokens = new List<string>();
-            var fieldTruncated = false;
-            for (var fieldIndex = 0; fieldIndex < fields.Count; fieldIndex++)
+            var builder = new StringBuilder("[BPP][")
+                .Append(logEvent.Scope.PrefixName)
+                .Append("] event=")
+                .Append(logEvent.Id);
+            for (var index = 0; index < (fields?.Count ?? 0); index++)
             {
-                var field = fields[fieldIndex];
-
-                if (!TryFindValue(field, values, out var value))
-                    continue;
-
-                var rendered = _valueFormatter.Render(field, value);
-                fieldTokens.Add(field.Name + "=" + rendered.Text);
-                fieldTruncated |= rendered.Truncated;
+                var field = fields![index];
+                if (
+                    !BppLogSchemaRules.IsSnakeIdentifier(field.Name)
+                    || field.Policy < BppLogCorrelationPolicy.None
+                    || field.Policy > BppLogCorrelationPolicy.Hash
+                )
+                    return FallbackRecord;
+                builder
+                    .Append(' ')
+                    .Append(field.Name)
+                    .Append('=')
+                    .Append(BppLogValueFormatter.Render(field));
             }
-            if (fieldTruncated)
-                fieldTokens.Insert(0, "field_truncated=true");
 
-            var exceptionTokens = new List<string>();
-            var exceptionTruncated = false;
             if (exception != null)
             {
-                var projection = _exceptionProjector.Project(exception);
-                for (var index = 0; index < projection.Tokens.Count; index++)
-                    exceptionTokens.Add(projection.Tokens[index]);
-                exceptionTruncated = projection.Truncated;
+                builder
+                    .Append(" exception_type=")
+                    .Append(BppLogValueFormatter.EscapeAndQuote(ExceptionType(exception)))
+                    .Append(" exception=")
+                    .Append(BppLogValueFormatter.EscapeAndQuote(ExceptionText(exception)));
             }
-            if (exceptionTruncated)
-                exceptionTokens.Add("exception_truncated=true");
-
-            var prefix = "[BPP][" + definition.Scope.PrefixName + "] event=" + definition.EventId;
-            var budget = exception == null ? RecordCharacterBudget : ExceptionRecordCharacterBudget;
-            return exception == null
-                ? Compose(prefix, fieldTokens, budget)
-                : ComposeWithException(prefix, fieldTokens, exceptionTokens, budget);
+            return builder.ToString();
         }
         catch
         {
@@ -76,144 +60,37 @@ internal sealed class BppLogEventRenderer
         }
     }
 
-    internal bool TryFingerprintValue(object? value, out string fingerprint)
+    internal static string ExceptionType(Exception exception)
     {
         try
         {
-            return _valueFormatter.TryFingerprintValue(value, out fingerprint);
+            var type = exception.GetType();
+            return type.FullName ?? type.Name;
         }
         catch
         {
-            fingerprint = string.Empty;
-            return false;
+            return "<unavailable>";
         }
     }
 
-    internal bool TryFingerprint(Exception? exception, out string fingerprint)
+    private static string ExceptionText(Exception exception)
     {
-        fingerprint = string.Empty;
-        if (exception == null)
-            return false;
-
         try
         {
-            return _exceptionProjector.TryFingerprint(exception, out fingerprint);
+            return exception.ToString();
         }
         catch
         {
-            fingerprint = string.Empty;
+            return "<unavailable>";
+        }
+    }
+
+    private static bool IsValidEvent(BppLogEvent logEvent)
+    {
+        if (!BppLogFeatureScope.IsDeclared(logEvent.Scope))
             return false;
-        }
-    }
-
-    private static bool IsValidDefinition(BppLogEventDefinition? definition)
-    {
-        if (definition == null || !BppLogFeatureScope.IsDeclared(definition.Scope))
+        if (!BppLogSchemaRules.IsDottedSnakeIdentifier(logEvent.Id, minimumSegments: 3))
             return false;
-        if (!BppLogSchemaRules.IsDottedSnakeIdentifier(definition.EventId, minimumSegments: 3))
-            return false;
-        return definition.EventId.StartsWith(
-            definition.Scope.EventIdPrefix + ".",
-            StringComparison.Ordinal
-        );
-    }
-
-    private static bool HasValidFields(BppLogEventDefinition definition)
-    {
-        var fields = definition.Fields;
-        if (fields.Count > BppLogSchemaRules.MaximumFields)
-            return false;
-
-        for (var index = 0; index < fields.Count; index++)
-        {
-            var field = fields[index];
-            if (
-                field == null
-                || !BppLogSchemaRules.IsSnakeIdentifier(field.Name)
-                || !BppLogSchemaRules.IsKnownCorrelation(field.Correlation)
-            )
-                return false;
-        }
-        return true;
-    }
-
-    private static bool TryFindValue(
-        BppLogFieldDefinition field,
-        IReadOnlyList<BppLogFieldValue>? values,
-        out object? value
-    )
-    {
-        if (values != null)
-        {
-            for (var index = 0; index < values.Count; index++)
-            {
-                var candidate = values[index];
-                if (!ReferenceEquals(candidate.Field, field))
-                    continue;
-                value = candidate.Value;
-                return true;
-            }
-        }
-
-        value = null;
-        return false;
-    }
-
-    private static string Compose(string prefix, IReadOnlyList<string> tokens, int budget)
-    {
-        const string truncationToken = " record_truncated=true";
-        var builder = new StringBuilder(prefix);
-        var truncated = false;
-        for (var index = 0; index < tokens.Count; index++)
-        {
-            var token = tokens[index];
-            var reserve = index + 1 < tokens.Count ? truncationToken.Length : 0;
-            if (builder.Length + 1 + token.Length + reserve > budget)
-            {
-                truncated = true;
-                break;
-            }
-            builder.Append(' ').Append(token);
-        }
-
-        if (truncated && builder.Length + truncationToken.Length <= budget)
-            builder.Append(truncationToken);
-        return builder.Length <= budget ? builder.ToString() : FallbackRecord;
-    }
-
-    private static string ComposeWithException(
-        string prefix,
-        IReadOnlyList<string> fieldTokens,
-        IReadOnlyList<string> exceptionTokens,
-        int budget
-    )
-    {
-        const string truncationToken = " record_truncated=true";
-        var exceptionLength = 0;
-        for (var index = 0; index < exceptionTokens.Count; index++)
-            exceptionLength += 1 + exceptionTokens[index].Length;
-        if (prefix.Length + exceptionLength > budget)
-            return FallbackRecord;
-
-        var builder = new StringBuilder(prefix);
-        var fieldsTruncated = false;
-        for (var index = 0; index < fieldTokens.Count; index++)
-        {
-            var token = fieldTokens[index];
-            var hasMoreFields = index + 1 < fieldTokens.Count;
-            var markerReserve = hasMoreFields ? truncationToken.Length : 0;
-            if (builder.Length + 1 + token.Length + markerReserve + exceptionLength > budget)
-            {
-                fieldsTruncated = true;
-                break;
-            }
-            builder.Append(' ').Append(token);
-        }
-
-        if (fieldsTruncated)
-            builder.Append(truncationToken);
-        for (var index = 0; index < exceptionTokens.Count; index++)
-            builder.Append(' ').Append(exceptionTokens[index]);
-        return builder.Length <= budget ? builder.ToString() : FallbackRecord;
+        return logEvent.Id.StartsWith(logEvent.Scope.EventIdPrefix + ".", StringComparison.Ordinal);
     }
 }

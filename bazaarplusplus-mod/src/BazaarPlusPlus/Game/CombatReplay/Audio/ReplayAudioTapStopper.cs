@@ -1,6 +1,6 @@
 #nullable enable
-using BazaarPlusPlus.Game.CombatReplay.Video;
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 
 namespace BazaarPlusPlus.Game.CombatReplay.Audio;
 
@@ -64,23 +64,20 @@ internal static class ReplayAudioTapStopper
                 failureReason == ReplayAudioFailureReasonCode.None
                 && IsUsable(capturedAnySamples, wavPath);
             BppLog.DebugEvent(
-                CombatReplayVideoLogEvents.AudioCaptureCompleted,
+                new BppLogEvent(
+                    BppLogFeatureScope.CombatReplay,
+                    "combat_replay.audio_capture.completed"
+                ),
                 () =>
                     [
-                        CombatReplayVideoLogEvents.AudioCompletedRecordingId.Bind(recordingId),
-                        CombatReplayVideoLogEvents.AudioCompletedBackend.Bind(tap.Backend),
-                        CombatReplayVideoLogEvents.AudioCompletedUsable.Bind(usable),
-                        CombatReplayVideoLogEvents.AudioCompletedSampleFloatCount.Bind(
-                            sampleFloats
-                        ),
-                        CombatReplayVideoLogEvents.AudioCompletedRmsDb.Bind(
-                            FormatAmplitudeDb(rmsAmplitude)
-                        ),
-                        CombatReplayVideoLogEvents.AudioCompletedPeakDb.Bind(
-                            FormatAmplitudeDb(peakAmplitude)
-                        ),
-                        CombatReplayVideoLogEvents.AudioCompletedSizeBytes.Bind(fileSize),
-                        CombatReplayVideoLogEvents.AudioCompletedWavPath.Bind(wavPath),
+                        ("recording_id", recordingId, BppLogCorrelationPolicy.Short),
+                        ("backend", tap.Backend),
+                        ("usable", usable),
+                        ("sample_float_count", sampleFloats),
+                        ("rms_db", FormatAmplitudeDb(rmsAmplitude)),
+                        ("peak_db", FormatAmplitudeDb(peakAmplitude)),
+                        ("size_bytes", fileSize),
+                        ("wav_path", wavPath),
                     ]
             );
 

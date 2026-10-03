@@ -1,6 +1,7 @@
 #nullable enable
 using System.Diagnostics;
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 
 namespace BazaarPlusPlus.Game.CombatReplay;
 
@@ -178,47 +179,71 @@ internal static class ReplayPlaybackLogWriter
     internal static void EmitStarted(ReplayPlaybackStartedResult result)
     {
         BppLog.InfoEvent(
-            CombatReplayLogEvents.PlaybackStarted,
-            CombatReplayLogEvents.PlaybackStartedBattleId.Bind(result.BattleId),
-            CombatReplayLogEvents.PlaybackStartedSource.Bind(result.Source),
-            CombatReplayLogEvents.PlaybackStartedRecordVideo.Bind(result.RecordVideo)
+            new BppLogEvent(BppLogFeatureScope.CombatReplay, "combat_replay.playback.started"),
+            ("battle_id", result.BattleId, BppLogCorrelationPolicy.Short),
+            ("source", result.Source),
+            ("record_video", result.RecordVideo)
         );
     }
 
     internal static void EmitTerminal(ReplayPlaybackTerminalResult result)
     {
-        var fields = new[]
+        var fields = new BppLogField[]
         {
-            CombatReplayLogEvents.PlaybackTerminalBattleId.Bind(result.BattleId),
-            CombatReplayLogEvents.PlaybackTerminalSource.Bind(result.Source),
-            CombatReplayLogEvents.PlaybackTerminalEndReasonCode.Bind(result.EndReasonCode),
-            CombatReplayLogEvents.PlaybackTerminalDurationMs.Bind(result.DurationMilliseconds),
-            CombatReplayLogEvents.PlaybackTerminalReasonCode.Bind(result.ReasonCode),
-            CombatReplayLogEvents.PlaybackTerminalDegradationCount.Bind(result.DegradationCount),
-            CombatReplayLogEvents.PlaybackTerminalRollbackStatus.Bind(result.RollbackStatus),
+            ("battle_id", result.BattleId, BppLogCorrelationPolicy.Short),
+            ("source", result.Source),
+            ("end_reason_code", result.EndReasonCode),
+            ("duration_ms", result.DurationMilliseconds),
+            ("reason_code", result.ReasonCode),
+            ("degradation_count", result.DegradationCount),
+            ("rollback_status", result.RollbackStatus),
         };
 
         switch (result.Status)
         {
             case ReplayPlaybackTerminalStatus.Succeeded:
-                BppLog.InfoEvent(CombatReplayLogEvents.PlaybackSucceeded, fields);
+                BppLog.InfoEvent(
+                    new BppLogEvent(
+                        BppLogFeatureScope.CombatReplay,
+                        "combat_replay.playback.succeeded"
+                    ),
+                    fields
+                );
                 return;
             case ReplayPlaybackTerminalStatus.Degraded:
                 if (result.Exception == null)
-                    BppLog.WarnEvent(CombatReplayLogEvents.PlaybackDegraded, fields);
+                    BppLog.WarnEvent(
+                        new BppLogEvent(
+                            BppLogFeatureScope.CombatReplay,
+                            "combat_replay.playback.degraded"
+                        ),
+                        fields
+                    );
                 else
                     BppLog.WarnEvent(
-                        CombatReplayLogEvents.PlaybackDegraded,
+                        new BppLogEvent(
+                            BppLogFeatureScope.CombatReplay,
+                            "combat_replay.playback.degraded"
+                        ),
                         result.Exception,
                         fields
                     );
                 return;
             case ReplayPlaybackTerminalStatus.Failed:
                 if (result.Exception == null)
-                    BppLog.ErrorEvent(CombatReplayLogEvents.PlaybackFailed, fields);
+                    BppLog.ErrorEvent(
+                        new BppLogEvent(
+                            BppLogFeatureScope.CombatReplay,
+                            "combat_replay.playback.failed"
+                        ),
+                        fields
+                    );
                 else
                     BppLog.ErrorEvent(
-                        CombatReplayLogEvents.PlaybackFailed,
+                        new BppLogEvent(
+                            BppLogFeatureScope.CombatReplay,
+                            "combat_replay.playback.failed"
+                        ),
                         result.Exception,
                         fields
                     );

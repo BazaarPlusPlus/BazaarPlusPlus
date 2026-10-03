@@ -27,6 +27,5 @@
       Link="Logging\Core\%(Filename)%(Extension)"
     />
     <Compile Include="../../src/BazaarPlusPlus/Game/HistoryPanel/AccountLink/AccountLinkLogRequest.cs" />
-    <Compile Include="../../src/BazaarPlusPlus/Game/HistoryPanel/AccountLink/HistoryPanelAccountLinkLogEvents.cs" />
   </ItemGroup>
 </Project>

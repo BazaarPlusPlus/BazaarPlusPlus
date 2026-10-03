@@ -6,6 +6,7 @@ using BazaarPlusPlus.Game.OverlayPanels;
 using BazaarPlusPlus.Game.Supporters;
 using BazaarPlusPlus.GameInterop;
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 using TheBazaar;
 using UnityEngine;
 
@@ -148,10 +149,8 @@ internal sealed partial class HistoryPanel : MonoBehaviour
         if (Instance == null)
         {
             BppLog.ErrorEvent(
-                HistoryPanelLogEvents.OpenFailed,
-                HistoryPanelLogEvents.OpenReasonCode.Bind(
-                    HistoryPanelOpenReasonCode.InstanceUnavailable
-                )
+                new BppLogEvent(BppLogFeatureScope.HistoryPanel, "history_panel.open.failed"),
+                ("reason_code", HistoryPanelOpenReasonCode.InstanceUnavailable)
             );
             return;
         }
@@ -176,10 +175,8 @@ internal sealed partial class HistoryPanel : MonoBehaviour
             if (_overlayHandle == null)
             {
                 BppLog.ErrorEvent(
-                    HistoryPanelLogEvents.OpenFailed,
-                    HistoryPanelLogEvents.OpenReasonCode.Bind(
-                        HistoryPanelOpenReasonCode.OverlayHandleUnavailable
-                    )
+                    new BppLogEvent(BppLogFeatureScope.HistoryPanel, "history_panel.open.failed"),
+                    ("reason_code", HistoryPanelOpenReasonCode.OverlayHandleUnavailable)
                 );
                 return;
             }
@@ -188,33 +185,24 @@ internal sealed partial class HistoryPanel : MonoBehaviour
             if (outcome == OverlayRequestOutcome.SuppressedByCombat)
             {
                 BppLog.DebugEvent(
-                    HistoryPanelLogEvents.OpenSkipped,
-                    () =>
-                        [
-                            HistoryPanelLogEvents.OpenReasonCode.Bind(
-                                HistoryPanelOpenReasonCode.CombatActive
-                            ),
-                        ]
+                    new BppLogEvent(BppLogFeatureScope.HistoryPanel, "history_panel.open.skipped"),
+                    () => [("reason_code", HistoryPanelOpenReasonCode.CombatActive)]
                 );
             }
             else if (outcome == OverlayRequestOutcome.UnknownPanel)
             {
                 BppLog.ErrorEvent(
-                    HistoryPanelLogEvents.OpenFailed,
-                    HistoryPanelLogEvents.OpenReasonCode.Bind(
-                        HistoryPanelOpenReasonCode.UnknownPanel
-                    )
+                    new BppLogEvent(BppLogFeatureScope.HistoryPanel, "history_panel.open.failed"),
+                    ("reason_code", HistoryPanelOpenReasonCode.UnknownPanel)
                 );
             }
         }
         catch (Exception ex)
         {
             BppLog.ErrorEvent(
-                HistoryPanelLogEvents.OpenFailed,
+                new BppLogEvent(BppLogFeatureScope.HistoryPanel, "history_panel.open.failed"),
                 ex,
-                HistoryPanelLogEvents.OpenReasonCode.Bind(
-                    HistoryPanelOpenReasonCode.RequestException
-                )
+                ("reason_code", HistoryPanelOpenReasonCode.RequestException)
             );
         }
     }

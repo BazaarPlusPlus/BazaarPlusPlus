@@ -1,5 +1,6 @@
 #nullable enable
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 
 namespace BazaarPlusPlus.Game.CombatReplay;
 
@@ -53,22 +54,17 @@ internal sealed class CurrentReplayRecordingUiLogState
 
         _lastObservation = observation;
         BppLog.InfoEvent(
-            CombatReplayLogEvents.CurrentRecordingUiObserved,
-            CombatReplayLogEvents.CurrentRecordingUiPhase.Bind(observation.Phase),
-            CombatReplayLogEvents.CurrentRecordingUiSnapshotVisible.Bind(
-                observation.SnapshotVisible
+            new BppLogEvent(
+                BppLogFeatureScope.CombatReplay,
+                "combat_replay.current_recording_ui.observed"
             ),
-            CombatReplayLogEvents.CurrentRecordingUiLayoutAvailable.Bind(
-                observation.LayoutAvailable
-            ),
-            CombatReplayLogEvents.CurrentRecordingUiLayoutReasonCode.Bind(
-                observation.LayoutReasonCode
-            ),
-            CombatReplayLogEvents.CurrentRecordingUiCloneActive.Bind(observation.CloneActive),
-            CombatReplayLogEvents.CurrentRecordingUiNativeReplayBound.Bind(
-                observation.NativeActionsBound
-            ),
-            CombatReplayLogEvents.CurrentRecordingUiIconAvailable.Bind(observation.IconAvailable)
+            ("phase", observation.Phase),
+            ("snapshot_visible", observation.SnapshotVisible),
+            ("layout_available", observation.LayoutAvailable),
+            ("layout_reason_code", observation.LayoutReasonCode),
+            ("clone_active", observation.CloneActive),
+            ("native_replay_bound", observation.NativeActionsBound),
+            ("icon_available", observation.IconAvailable)
         );
     }
 

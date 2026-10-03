@@ -2,6 +2,7 @@
 using BazaarPlusPlus.Game.CollectionPanel.Tooltips;
 using BazaarPlusPlus.GameInterop.CardPreview;
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 using TheBazaar.UI;
 using UnityEngine;
 
@@ -81,15 +82,24 @@ internal sealed class CollectionNativeCardPreviewOwner : INativeCardPreviewOwner
                 failure.Operation == NativeCardPreviewOperation.InvokeHover
                     ? CollectionHoverOperation.OnHover
                     : CollectionHoverOperation.OnHoverOut;
-            var field = CollectionPanelLogEvents.HoverInvokeFailedOperation.Bind(operation);
+            BppLogField field = ("operation", operation);
             if (failure.Exception == null)
             {
-                BppLog.DebugEvent(CollectionPanelLogEvents.HoverInvokeFailed, () => [field]);
+                BppLog.DebugEvent(
+                    new BppLogEvent(
+                        BppLogFeatureScope.CollectionPanel,
+                        "collection_panel.hover.invoke_failed"
+                    ),
+                    () => [field]
+                );
             }
             else
             {
                 BppLog.DebugEvent(
-                    CollectionPanelLogEvents.HoverInvokeFailed,
+                    new BppLogEvent(
+                        BppLogFeatureScope.CollectionPanel,
+                        "collection_panel.hover.invoke_failed"
+                    ),
                     failure.Exception,
                     () => [field]
                 );
@@ -97,18 +107,31 @@ internal sealed class CollectionNativeCardPreviewOwner : INativeCardPreviewOwner
             return;
         }
 
-        var fields = new[]
+        var fields = new BppLogField[]
         {
-            CollectionPanelLogEvents.CardBindDegradedStage.Bind(CollectionCardBindStage.Bind),
-            CollectionPanelLogEvents.CardBindDegradedTemplateId.Bind(
-                failure.TemplateId ?? Guid.Empty
-            ),
-            CollectionPanelLogEvents.CardBindDegradedReasonCode.Bind(MapFailureReason(failure)),
+            ("stage", CollectionCardBindStage.Bind),
+            ("template_id", failure.TemplateId ?? Guid.Empty),
+            ("reason_code", MapFailureReason(failure)),
         };
         if (failure.Exception == null)
-            BppLog.WarnEvent(CollectionPanelLogEvents.CardBindDegraded, fields);
+            BppLog.WarnEvent(
+                new BppLogEvent(
+                    BppLogFeatureScope.CollectionPanel,
+                    "collection_panel.card.bind_degraded",
+                    storm: ["stage", "reason_code"]
+                ),
+                fields
+            );
         else
-            BppLog.WarnEvent(CollectionPanelLogEvents.CardBindDegraded, failure.Exception, fields);
+            BppLog.WarnEvent(
+                new BppLogEvent(
+                    BppLogFeatureScope.CollectionPanel,
+                    "collection_panel.card.bind_degraded",
+                    storm: ["stage", "reason_code"]
+                ),
+                failure.Exception,
+                fields
+            );
     }
 
     internal void OnNativeDestroyed(CardPreviewBase cardPreview)

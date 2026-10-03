@@ -6,6 +6,7 @@ using BazaarGameShared.Infra.Messages.GameSimEvents;
 using BazaarPlusPlus.GameInterop;
 using BazaarPlusPlus.GameInterop.Heroes;
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 using TheBazaar;
 
 namespace BazaarPlusPlus.Game.PvpBattles;
@@ -454,12 +455,16 @@ internal sealed class PvpBattleSnapshotCollector
         Exception exception
     ) =>
         BppLog.WarnEvent(
-            PvpBattleLogEvents.SnapshotDegraded,
+            new BppLogEvent(
+                BppLogFeatureScope.PvpBattles,
+                "pvp_battles.snapshot.degraded",
+                storm: ["combatant", "section", "reason_code"]
+            ),
             exception,
-            PvpBattleLogEvents.SnapshotDegradedCombatant.Bind(combatant),
-            PvpBattleLogEvents.SnapshotDegradedSection.Bind(section),
-            PvpBattleLogEvents.SnapshotDegradedBattleId.Bind(battleId),
-            PvpBattleLogEvents.SnapshotDegradedReasonCode.Bind(reasonCode)
+            ("combatant", combatant),
+            ("section", section),
+            ("battle_id", battleId, BppLogCorrelationPolicy.Short),
+            ("reason_code", reasonCode)
         );
 
     private static PvpBattleCardSnapshot? CreateOpeningSnapshot(

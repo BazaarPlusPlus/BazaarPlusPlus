@@ -3,6 +3,7 @@ using System.Reflection;
 using BazaarGameShared.Domain.Core.Types;
 using BazaarPlusPlus.GameInterop.Heroes;
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 using Newtonsoft.Json;
 
 namespace BazaarPlusPlus.Game.CollectionPanel.Sources;
@@ -71,35 +72,39 @@ internal static class CollectionSourceCatalog
                 _bySourceTemplateId = BuildSourceTemplateIndex(entries);
                 _bySourceKey = BuildSourceKeyIndex(entries);
                 BppLog.DebugEvent(
-                    CollectionPanelLogEvents.SourceCatalogLoaded,
+                    new BppLogEvent(
+                        BppLogFeatureScope.CollectionPanel,
+                        "collection_panel.source_catalog.loaded"
+                    ),
                     () =>
                         [
-                            CollectionPanelLogEvents.SourceCatalogLoadedEntryCount.Bind(
-                                entries.Count
-                            ),
-                            CollectionPanelLogEvents.SourceCatalogLoadedSourceTemplateCount.Bind(
-                                _bySourceTemplateId.Count
-                            ),
+                            ("entry_count", entries.Count),
+                            ("source_template_count", _bySourceTemplateId.Count),
                         ]
                 );
             }
             else
             {
-                var fields = new[]
+                var fields = new BppLogField[]
                 {
-                    CollectionPanelLogEvents.SourceCatalogLoadFailedReasonCode.Bind(
-                        load.ReasonCode
-                    ),
-                    CollectionPanelLogEvents.SourceCatalogLoadFailedResourceSuffix.Bind(
-                        ResourceSuffix
-                    ),
+                    ("reason_code", load.ReasonCode),
+                    ("resource_suffix", ResourceSuffix),
                 };
                 if (load.Exception == null)
-                    BppLog.ErrorEvent(CollectionPanelLogEvents.SourceCatalogLoadFailed, fields);
+                    BppLog.ErrorEvent(
+                        new BppLogEvent(
+                            BppLogFeatureScope.CollectionPanel,
+                            "collection_panel.source_catalog.load_failed"
+                        ),
+                        fields
+                    );
                 else
                 {
                     BppLog.ErrorEvent(
-                        CollectionPanelLogEvents.SourceCatalogLoadFailed,
+                        new BppLogEvent(
+                            BppLogFeatureScope.CollectionPanel,
+                            "collection_panel.source_catalog.load_failed"
+                        ),
                         load.Exception,
                         fields
                     );

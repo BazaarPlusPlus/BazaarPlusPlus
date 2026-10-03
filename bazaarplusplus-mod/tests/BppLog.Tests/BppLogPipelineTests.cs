@@ -6,45 +6,23 @@ namespace BazaarPlusPlus.Tests;
 
 public sealed class BppLogPipelineTests
 {
-    private static readonly BppLogFieldDefinition WarningReason = new(
-        0,
-        "reason",
-        BppLogCorrelationPolicy.None,
-        BppLogCardinality.Low
-    );
-    private static readonly BppLogEventDefinition GuardedWarning = new(
+    private static readonly BppLogEvent GuardedWarning = new(
         BppLogFeatureScope.Logger,
         "logging.test.degraded",
-        new[] { WarningReason },
-        new BppLogStormPolicy(new[] { WarningReason })
+        storm: ["reason"]
     );
-    private static readonly BppLogFieldDefinition RequestId = new(
-        0,
-        "request_id",
-        BppLogCorrelationPolicy.Short,
-        BppLogCardinality.High
-    );
-    private static readonly BppLogEventDefinition GuardedError = new(
+    private static readonly BppLogEvent GuardedError = new(
         BppLogFeatureScope.Logger,
         "logging.test.failed",
-        new[] { RequestId },
-        new BppLogStormPolicy(Array.Empty<BppLogFieldDefinition>())
+        storm: []
     );
-    private static readonly BppLogEventDefinition GuardedErrorWithoutCorrelation = new(
+    private static readonly BppLogEvent UnguardedInfo = new(
         BppLogFeatureScope.Logger,
-        "logging.global.failed",
-        Array.Empty<BppLogFieldDefinition>(),
-        new BppLogStormPolicy(Array.Empty<BppLogFieldDefinition>())
+        "logging.test.succeeded"
     );
-    private static readonly BppLogEventDefinition UnguardedInfo = new(
+    private static readonly BppLogEvent RecoveredInfo = new(
         BppLogFeatureScope.Logger,
-        "logging.test.succeeded",
-        Array.Empty<BppLogFieldDefinition>()
-    );
-    private static readonly BppLogEventDefinition RecoveredInfo = new(
-        BppLogFeatureScope.Logger,
-        "logging.test.recovered",
-        Array.Empty<BppLogFieldDefinition>()
+        "logging.test.recovered"
     );
 
     [Fact]
@@ -52,11 +30,7 @@ public sealed class BppLogPipelineTests
     {
         var (pipeline, output, _) = CreatePipeline();
 
-        pipeline.Emit(
-            BppLogSeverity.Warning,
-            GuardedWarning,
-            new[] { WarningReason.Bind("offline") }
-        );
+        pipeline.Emit(BppLogSeverity.Warning, GuardedWarning, new[] { WarningReason("offline") });
 
         var record = Assert.Single(output);
         Assert.Equal(BppLogSeverity.Warning, record.Severity);
@@ -68,7 +42,7 @@ public sealed class BppLogPipelineTests
     public void Guarded_repeats_are_summarized_on_shutdown_flush()
     {
         var (pipeline, output, _) = CreatePipeline();
-        var fields = new[] { WarningReason.Bind("offline") };
+        var fields = new[] { WarningReason("offline") };
 
         pipeline.Emit(BppLogSeverity.Warning, GuardedWarning, fields);
         pipeline.Emit(BppLogSeverity.Warning, GuardedWarning, fields);
@@ -102,16 +76,8 @@ public sealed class BppLogPipelineTests
     {
         var (pipeline, output, _) = CreatePipeline();
 
-        pipeline.Emit(
-            BppLogSeverity.Warning,
-            GuardedWarning,
-            new[] { WarningReason.Bind("offline") }
-        );
-        pipeline.Emit(
-            BppLogSeverity.Warning,
-            GuardedWarning,
-            new[] { WarningReason.Bind("timeout") }
-        );
+        pipeline.Emit(BppLogSeverity.Warning, GuardedWarning, new[] { WarningReason("offline") });
+        pipeline.Emit(BppLogSeverity.Warning, GuardedWarning, new[] { WarningReason("timeout") });
 
         Assert.Equal(2, output.Count);
     }
@@ -125,13 +91,13 @@ public sealed class BppLogPipelineTests
         pipeline.Emit(
             BppLogSeverity.Error,
             GuardedError,
-            new[] { RequestId.Bind("12345678-first") },
+            new[] { RequestId("12345678-first") },
             exception
         );
         pipeline.Emit(
             BppLogSeverity.Error,
             GuardedError,
-            new[] { RequestId.Bind("12345678-second") },
+            new[] { RequestId("12345678-second") },
             exception
         );
 
@@ -140,32 +106,10 @@ public sealed class BppLogPipelineTests
     }
 
     [Fact]
-    public void Error_keys_keep_different_exception_fingerprints_distinct()
+    public void Matching_error_correlation_and_exception_type_are_suppressed()
     {
         var (pipeline, output, _) = CreatePipeline();
-        var fields = new[] { RequestId.Bind("request-1") };
-
-        pipeline.Emit(
-            BppLogSeverity.Error,
-            GuardedError,
-            fields,
-            new InvalidOperationException("failure one")
-        );
-        pipeline.Emit(
-            BppLogSeverity.Error,
-            GuardedError,
-            fields,
-            new InvalidOperationException("failure two")
-        );
-
-        Assert.Equal(2, output.Count);
-    }
-
-    [Fact]
-    public void Matching_error_correlation_and_fingerprint_are_suppressed()
-    {
-        var (pipeline, output, _) = CreatePipeline();
-        var fields = new[] { RequestId.Bind("request-1") };
+        var fields = new[] { RequestId("request-1") };
         var exception = new InvalidOperationException("same instance");
 
         pipeline.Emit(BppLogSeverity.Error, GuardedError, fields, exception);
@@ -180,7 +124,7 @@ public sealed class BppLogPipelineTests
     public void Error_without_an_exception_fails_open()
     {
         var (pipeline, output, _) = CreatePipeline();
-        var fields = new[] { RequestId.Bind("request-1") };
+        var fields = new[] { RequestId("request-1") };
 
         pipeline.Emit(BppLogSeverity.Error, GuardedError, fields);
         pipeline.Emit(BppLogSeverity.Error, GuardedError, fields);
@@ -189,13 +133,39 @@ public sealed class BppLogPipelineTests
     }
 
     [Fact]
-    public void Error_without_declared_correlation_uses_exception_fingerprint()
+    public void Error_keys_merge_messages_of_one_exception_type_and_split_types()
     {
         var (pipeline, output, _) = CreatePipeline();
-        var exception = new InvalidOperationException("same failure");
+        var fields = new[] { RequestId("request-1") };
 
-        pipeline.Emit(BppLogSeverity.Error, GuardedErrorWithoutCorrelation, exception: exception);
-        pipeline.Emit(BppLogSeverity.Error, GuardedErrorWithoutCorrelation, exception: exception);
+        pipeline.Emit(
+            BppLogSeverity.Error,
+            GuardedError,
+            fields,
+            new InvalidOperationException("failure one")
+        );
+        pipeline.Emit(
+            BppLogSeverity.Error,
+            GuardedError,
+            fields,
+            new InvalidOperationException("failure two")
+        );
+        pipeline.Emit(BppLogSeverity.Error, GuardedError, fields, new TimeoutException("late"));
+        pipeline.Flush();
+
+        Assert.Equal(3, output.Count);
+        Assert.Contains("exception_type=System.InvalidOperationException", output[0].Message);
+        Assert.Contains("exception_type=System.TimeoutException", output[1].Message);
+        Assert.Contains("suppressed_count=1", output[2].Message);
+    }
+
+    [Fact]
+    public void Error_without_correlation_fields_keys_on_the_exception_type()
+    {
+        var (pipeline, output, _) = CreatePipeline();
+
+        pipeline.Emit(BppLogSeverity.Error, GuardedError, exception: new IOException("disk"));
+        pipeline.Emit(BppLogSeverity.Error, GuardedError, exception: new IOException("disk"));
         pipeline.Flush();
 
         Assert.Equal(2, output.Count);
@@ -203,154 +173,23 @@ public sealed class BppLogPipelineTests
     }
 
     [Fact]
-    public void Error_without_declared_correlation_or_exception_fails_open()
+    public void Error_with_a_null_correlation_value_fails_open()
     {
         var (pipeline, output, _) = CreatePipeline();
-
-        pipeline.Emit(BppLogSeverity.Error, GuardedErrorWithoutCorrelation);
-        pipeline.Emit(BppLogSeverity.Error, GuardedErrorWithoutCorrelation);
-        pipeline.Flush();
-
-        Assert.Equal(2, output.Count);
-        Assert.DoesNotContain(
-            output,
-            record => record.Message.Contains("logging.storm.suppressed", StringComparison.Ordinal)
-        );
-    }
-
-    [Fact]
-    public void Error_with_missing_declared_correlation_fails_open()
-    {
-        var (pipeline, output, _) = CreatePipeline();
+        var fields = new BppLogField[] { ("request_id", null, BppLogCorrelationPolicy.Short) };
         var exception = new InvalidOperationException("same failure");
 
-        pipeline.Emit(BppLogSeverity.Error, GuardedError, exception: exception);
-        pipeline.Emit(BppLogSeverity.Error, GuardedError, exception: exception);
-        pipeline.Flush();
-
-        Assert.Equal(2, output.Count);
-        Assert.DoesNotContain(
-            output,
-            record => record.Message.Contains("logging.storm.suppressed", StringComparison.Ordinal)
-        );
-    }
-
-    [Fact]
-    public void Matching_long_exception_fingerprints_are_suppressed()
-    {
-        var (pipeline, output, _) = CreatePipeline();
-        var fields = new[] { RequestId.Bind("request-1") };
-        var message = new string('m', 700);
-        var stack = new string('s', 6000);
-
-        pipeline.Emit(
-            BppLogSeverity.Error,
-            GuardedError,
-            fields,
-            new FingerprintException(message, stack)
-        );
-        pipeline.Emit(
-            BppLogSeverity.Error,
-            GuardedError,
-            fields,
-            new FingerprintException(message, stack)
-        );
-        pipeline.Flush();
-
-        Assert.Equal(2, output.Count);
-        Assert.Contains("suppressed_count=1", output[1].Message);
-    }
-
-    [Fact]
-    public void Exception_messages_differing_beyond_display_budget_do_not_merge()
-    {
-        var (pipeline, output, _) = CreatePipeline();
-        var fields = new[] { RequestId.Bind("request-1") };
-        var common = new string('m', 700);
-
-        pipeline.Emit(
-            BppLogSeverity.Error,
-            GuardedError,
-            fields,
-            new FingerprintException(common + "secret-A", "same-stack")
-        );
-        pipeline.Emit(
-            BppLogSeverity.Error,
-            GuardedError,
-            fields,
-            new FingerprintException(common + "secret-B", "same-stack")
-        );
-        pipeline.Flush();
-
-        Assert.Equal(2, output.Count);
-        Assert.Equal(output[0].Message, output[1].Message);
-        Assert.DoesNotContain("secret-A", output[0].Message);
-        Assert.DoesNotContain("secret-B", output[1].Message);
-    }
-
-    [Fact]
-    public void Exception_stacks_differing_in_hidden_middle_do_not_merge()
-    {
-        var (pipeline, output, _) = CreatePipeline();
-        var fields = new[] { RequestId.Bind("request-1") };
-        var stackHead = new string('h', 3000);
-        var stackTail = new string('t', 3000);
-
-        pipeline.Emit(
-            BppLogSeverity.Error,
-            GuardedError,
-            fields,
-            new FingerprintException("same", stackHead + "A" + stackTail)
-        );
-        pipeline.Emit(
-            BppLogSeverity.Error,
-            GuardedError,
-            fields,
-            new FingerprintException("same", stackHead + "B" + stackTail)
-        );
-        pipeline.Flush();
-
-        Assert.Equal(2, output.Count);
-        Assert.Equal(output[0].Message, output[1].Message);
-    }
-
-    [Fact]
-    public void Exception_fingerprint_over_total_budget_fails_open()
-    {
-        var (pipeline, output, _) = CreatePipeline();
-        var fields = new[] { RequestId.Bind("request-1") };
-        var exception = new FingerprintException(
-            new string('m', 600_000),
-            new string('s', 600_000)
-        );
-
         pipeline.Emit(BppLogSeverity.Error, GuardedError, fields, exception);
         pipeline.Emit(BppLogSeverity.Error, GuardedError, fields, exception);
-        pipeline.Flush();
 
         Assert.Equal(2, output.Count);
-    }
-
-    [Fact]
-    public void Throwing_exception_fingerprint_getters_fail_open()
-    {
-        var (pipeline, output, _) = CreatePipeline();
-        var fields = new[] { RequestId.Bind("request-1") };
-        var exception = new FingerprintException("hidden", "hidden", throwOnRead: true);
-
-        pipeline.Emit(BppLogSeverity.Error, GuardedError, fields, exception);
-        pipeline.Emit(BppLogSeverity.Error, GuardedError, fields, exception);
-        pipeline.Flush();
-
-        Assert.Equal(2, output.Count);
-        Assert.All(output, record => Assert.DoesNotContain("hidden", record.Message));
     }
 
     [Fact]
     public void Recovery_flushes_pending_summary_and_resets_source_keys()
     {
         var (pipeline, output, _) = CreatePipeline();
-        var fields = new[] { WarningReason.Bind("offline") };
+        var fields = new[] { WarningReason("offline") };
         pipeline.Emit(BppLogSeverity.Warning, GuardedWarning, fields);
         pipeline.Emit(BppLogSeverity.Warning, GuardedWarning, fields);
 
@@ -368,8 +207,8 @@ public sealed class BppLogPipelineTests
     public void Targeted_recovery_only_resets_the_matching_warning_key()
     {
         var (pipeline, output, _) = CreatePipeline();
-        var offline = new[] { WarningReason.Bind("offline") };
-        var timeout = new[] { WarningReason.Bind("timeout") };
+        var offline = new[] { WarningReason("offline") };
+        var timeout = new[] { WarningReason("timeout") };
         pipeline.Emit(BppLogSeverity.Warning, GuardedWarning, offline);
         pipeline.Emit(BppLogSeverity.Warning, GuardedWarning, timeout);
 
@@ -391,7 +230,7 @@ public sealed class BppLogPipelineTests
     public void Shutdown_flush_is_idempotent()
     {
         var (pipeline, output, _) = CreatePipeline();
-        var fields = new[] { WarningReason.Bind("offline") };
+        var fields = new[] { WarningReason("offline") };
         pipeline.Emit(BppLogSeverity.Warning, GuardedWarning, fields);
         pipeline.Emit(BppLogSeverity.Warning, GuardedWarning, fields);
 
@@ -406,7 +245,7 @@ public sealed class BppLogPipelineTests
     public void Events_after_shutdown_flush_bypass_storm_state()
     {
         var (pipeline, output, _) = CreatePipeline();
-        var fields = new[] { WarningReason.Bind("offline") };
+        var fields = new[] { WarningReason("offline") };
         pipeline.Flush();
 
         pipeline.Emit(BppLogSeverity.Warning, GuardedWarning, fields);
@@ -425,7 +264,7 @@ public sealed class BppLogPipelineTests
     public void Expired_window_emits_summary_before_a_new_first_occurrence()
     {
         var (pipeline, output, clock) = CreatePipeline();
-        var fields = new[] { WarningReason.Bind("offline") };
+        var fields = new[] { WarningReason("offline") };
         pipeline.Emit(BppLogSeverity.Warning, GuardedWarning, fields);
         pipeline.Emit(BppLogSeverity.Warning, GuardedWarning, fields);
 
@@ -441,22 +280,14 @@ public sealed class BppLogPipelineTests
     public void Adding_key_257_evicts_an_old_key_and_emits_its_summary()
     {
         var (pipeline, output, _) = CreatePipeline();
-        pipeline.Emit(
-            BppLogSeverity.Warning,
-            GuardedWarning,
-            new[] { WarningReason.Bind("reason-0") }
-        );
-        pipeline.Emit(
-            BppLogSeverity.Warning,
-            GuardedWarning,
-            new[] { WarningReason.Bind("reason-0") }
-        );
+        pipeline.Emit(BppLogSeverity.Warning, GuardedWarning, new[] { WarningReason("reason-0") });
+        pipeline.Emit(BppLogSeverity.Warning, GuardedWarning, new[] { WarningReason("reason-0") });
         for (var index = 1; index <= BppLogPipeline.MaximumActiveStormKeys; index++)
         {
             pipeline.Emit(
                 BppLogSeverity.Warning,
                 GuardedWarning,
-                new[] { WarningReason.Bind("reason-" + index) }
+                new[] { WarningReason("reason-" + index) }
             );
         }
 
@@ -475,11 +306,10 @@ public sealed class BppLogPipelineTests
     {
         var output = new ConcurrentQueue<(BppLogSeverity Severity, string Message)>();
         var pipeline = new BppLogPipeline(
-            new BppLogEventRenderer(),
             (severity, message) => output.Enqueue((severity, message)),
             () => DateTimeOffset.UnixEpoch
         );
-        var fields = new[] { WarningReason.Bind("offline") };
+        var fields = new[] { WarningReason("offline") };
 
         Parallel.For(0, 1000, _ => pipeline.Emit(BppLogSeverity.Warning, GuardedWarning, fields));
         pipeline.Flush();
@@ -496,7 +326,6 @@ public sealed class BppLogPipelineTests
         using var releaseSink = new ManualResetEventSlim();
         var sinkCalls = 0;
         var pipeline = new BppLogPipeline(
-            new BppLogEventRenderer(),
             (_, _) =>
             {
                 if (Interlocked.Increment(ref sinkCalls) == 1)
@@ -507,7 +336,7 @@ public sealed class BppLogPipelineTests
             },
             () => DateTimeOffset.UnixEpoch
         );
-        var fields = new[] { WarningReason.Bind("offline") };
+        var fields = new[] { WarningReason("offline") };
 
         var first = Task.Run(() => pipeline.Emit(BppLogSeverity.Warning, GuardedWarning, fields));
         Assert.True(sinkEntered.Wait(TimeSpan.FromSeconds(2)));
@@ -534,7 +363,6 @@ public sealed class BppLogPipelineTests
         var output = new ConcurrentQueue<string>();
         var attempts = 0;
         var pipeline = new BppLogPipeline(
-            new BppLogEventRenderer(),
             (_, message) =>
             {
                 if (Interlocked.Increment(ref attempts) == 1)
@@ -546,7 +374,7 @@ public sealed class BppLogPipelineTests
             },
             () => DateTimeOffset.UnixEpoch
         );
-        var fields = new[] { WarningReason.Bind("offline") };
+        var fields = new[] { WarningReason("offline") };
         var first = Task.Run(() => pipeline.Emit(BppLogSeverity.Warning, GuardedWarning, fields));
         Assert.True(sinkEntered.Wait(TimeSpan.FromSeconds(2)));
         pipeline.Emit(BppLogSeverity.Warning, GuardedWarning, fields);
@@ -577,7 +405,6 @@ public sealed class BppLogPipelineTests
         var output = new ConcurrentQueue<string>();
         var attempts = 0;
         var pipeline = new BppLogPipeline(
-            new BppLogEventRenderer(),
             (_, message) =>
             {
                 if (Interlocked.Increment(ref attempts) == 1)
@@ -590,7 +417,7 @@ public sealed class BppLogPipelineTests
             },
             () => DateTimeOffset.UnixEpoch
         );
-        var fields = new[] { WarningReason.Bind("offline") };
+        var fields = new[] { WarningReason("offline") };
         var first = Task.Run(() => pipeline.Emit(BppLogSeverity.Warning, GuardedWarning, fields));
         Assert.True(sinkEntered.Wait(TimeSpan.FromSeconds(2)));
         pipeline.Emit(BppLogSeverity.Warning, GuardedWarning, fields);
@@ -613,6 +440,11 @@ public sealed class BppLogPipelineTests
         Assert.Contains("event=logging.test.degraded", Assert.Single(output));
     }
 
+    private static BppLogField WarningReason(string value) => ("reason", value);
+
+    private static BppLogField RequestId(string value) =>
+        ("request_id", value, BppLogCorrelationPolicy.Short);
+
     private static (
         BppLogPipeline Pipeline,
         List<(BppLogSeverity Severity, string Message)> Output,
@@ -622,7 +454,6 @@ public sealed class BppLogPipelineTests
         var output = new List<(BppLogSeverity, string)>();
         var clock = new FakeClock();
         var pipeline = new BppLogPipeline(
-            new BppLogEventRenderer(),
             (severity, message) => output.Add((severity, message)),
             () => clock.UtcNow
         );
@@ -634,31 +465,5 @@ public sealed class BppLogPipelineTests
         internal DateTimeOffset UtcNow { get; private set; } = DateTimeOffset.UnixEpoch;
 
         internal void Advance(TimeSpan duration) => UtcNow += duration;
-    }
-
-    private sealed class FingerprintException : Exception
-    {
-        private readonly string _message;
-        private readonly string? _stack;
-        private readonly bool _throwOnRead;
-
-        internal FingerprintException(
-            string message,
-            string? stack,
-            Exception? inner = null,
-            bool throwOnRead = false
-        )
-            : base("placeholder", inner)
-        {
-            _message = message;
-            _stack = stack;
-            _throwOnRead = throwOnRead;
-        }
-
-        public override string Message =>
-            _throwOnRead ? throw new InvalidOperationException("message unavailable") : _message;
-
-        public override string? StackTrace =>
-            _throwOnRead ? throw new InvalidOperationException("stack unavailable") : _stack;
     }
 }

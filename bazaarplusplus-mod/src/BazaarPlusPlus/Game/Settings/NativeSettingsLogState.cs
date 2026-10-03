@@ -23,15 +23,26 @@ internal static class NativeSettingsLogState
     {
         if (!InstallHealth.ObserveFailure(stage, reasonCode))
             return;
-        var fields = new[]
-        {
-            SettingsLogEvents.NativeSectionDegradedStage.Bind(stage),
-            SettingsLogEvents.NativeSectionDegradedReasonCode.Bind(reasonCode),
-        };
+        var fields = new BppLogField[] { ("stage", stage), ("reason_code", reasonCode) };
         if (exception == null)
-            BppLog.WarnEvent(SettingsLogEvents.NativeSectionDegraded, fields);
+            BppLog.WarnEvent(
+                new BppLogEvent(
+                    BppLogFeatureScope.Settings,
+                    "settings.native_section.degraded",
+                    storm: ["stage", "reason_code"]
+                ),
+                fields
+            );
         else
-            BppLog.WarnEvent(SettingsLogEvents.NativeSectionDegraded, exception, fields);
+            BppLog.WarnEvent(
+                new BppLogEvent(
+                    BppLogFeatureScope.Settings,
+                    "settings.native_section.degraded",
+                    storm: ["stage", "reason_code"]
+                ),
+                exception,
+                fields
+            );
     }
 
     internal static void ReportInstallSuccess()
@@ -43,13 +54,17 @@ internal static class NativeSettingsLogState
             if (!InstallHealth.ObserveSuccess(stage, out var reasonCode))
                 continue;
             BppLog.RecoverStorm(
-                SettingsLogEvents.NativeSectionDegraded,
-                SettingsLogEvents.NativeSectionDegradedStage.Bind(stage),
-                SettingsLogEvents.NativeSectionDegradedReasonCode.Bind(reasonCode)
+                new BppLogEvent(
+                    BppLogFeatureScope.Settings,
+                    "settings.native_section.degraded",
+                    storm: ["stage", "reason_code"]
+                ),
+                ("stage", stage),
+                ("reason_code", reasonCode)
             );
             BppLog.InfoEvent(
-                SettingsLogEvents.NativeSectionRecovered,
-                SettingsLogEvents.NativeSectionRecoveredStage.Bind(stage)
+                new BppLogEvent(BppLogFeatureScope.Settings, "settings.native_section.recovered"),
+                ("stage", stage)
             );
         }
     }
@@ -62,15 +77,26 @@ internal static class NativeSettingsLogState
     {
         if (!LayoutHealth.ObserveFailure(operation, reasonCode))
             return;
-        var fields = new[]
-        {
-            SettingsLogEvents.NativeSectionLayoutDegradedOperation.Bind(operation),
-            SettingsLogEvents.NativeSectionLayoutDegradedReasonCode.Bind(reasonCode),
-        };
+        var fields = new BppLogField[] { ("operation", operation), ("reason_code", reasonCode) };
         if (exception == null)
-            BppLog.WarnEvent(SettingsLogEvents.NativeSectionLayoutDegraded, fields);
+            BppLog.WarnEvent(
+                new BppLogEvent(
+                    BppLogFeatureScope.Settings,
+                    "settings.native_section.layout_degraded",
+                    storm: ["operation", "reason_code"]
+                ),
+                fields
+            );
         else
-            BppLog.WarnEvent(SettingsLogEvents.NativeSectionLayoutDegraded, exception, fields);
+            BppLog.WarnEvent(
+                new BppLogEvent(
+                    BppLogFeatureScope.Settings,
+                    "settings.native_section.layout_degraded",
+                    storm: ["operation", "reason_code"]
+                ),
+                exception,
+                fields
+            );
     }
 
     internal static void ReportLayoutSuccess(
@@ -83,24 +109,31 @@ internal static class NativeSettingsLogState
         if (LayoutHealth.ObserveSuccess(operation, out var reasonCode))
         {
             BppLog.RecoverStorm(
-                SettingsLogEvents.NativeSectionLayoutDegraded,
-                SettingsLogEvents.NativeSectionLayoutDegradedOperation.Bind(operation),
-                SettingsLogEvents.NativeSectionLayoutDegradedReasonCode.Bind(reasonCode)
+                new BppLogEvent(
+                    BppLogFeatureScope.Settings,
+                    "settings.native_section.layout_degraded",
+                    storm: ["operation", "reason_code"]
+                ),
+                ("operation", operation),
+                ("reason_code", reasonCode)
             );
             BppLog.InfoEvent(
-                SettingsLogEvents.NativeSectionLayoutRecovered,
-                SettingsLogEvents.NativeSectionLayoutRecoveredOperation.Bind(operation)
+                new BppLogEvent(
+                    BppLogFeatureScope.Settings,
+                    "settings.native_section.layout_recovered"
+                ),
+                ("operation", operation)
             );
         }
 
         BppLog.DebugEvent(
-            SettingsLogEvents.NativeSectionLayoutObserved,
+            new BppLogEvent(BppLogFeatureScope.Settings, "settings.native_section.layout_observed"),
             () =>
                 [
-                    SettingsLogEvents.NativeSectionLayoutObservedOperation.Bind(operation),
-                    SettingsLogEvents.NativeSectionLayoutObservedOutcome.Bind(outcome),
-                    SettingsLogEvents.NativeSectionLayoutObservedAffectedCount.Bind(affectedCount),
-                    SettingsLogEvents.NativeSectionLayoutObservedGrowthUnits.Bind(growthUnits),
+                    ("operation", operation),
+                    ("outcome", outcome),
+                    ("affected_count", affectedCount),
+                    ("growth_units", growthUnits),
                 ]
         );
     }

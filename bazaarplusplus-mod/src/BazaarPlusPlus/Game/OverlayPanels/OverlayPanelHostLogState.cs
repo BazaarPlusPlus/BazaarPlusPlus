@@ -1,5 +1,6 @@
 #nullable enable
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 
 namespace BazaarPlusPlus.Game.OverlayPanels;
 
@@ -40,14 +41,15 @@ internal sealed class OverlayPanelHostLogState
         catch (Exception ex)
         {
             BppLog.ErrorEvent(
-                OverlayPanelLogEvents.DirectiveFailed,
+                new BppLogEvent(
+                    BppLogFeatureScope.OverlayPanels,
+                    "overlay_panels.directive.failed"
+                ),
                 ex,
-                OverlayPanelLogEvents.DirectiveFailedRequestId.Bind(requestId),
-                OverlayPanelLogEvents.DirectiveFailedPanelId.Bind(panelId),
-                OverlayPanelLogEvents.DirectiveFailedDirective.Bind(directive),
-                OverlayPanelLogEvents.DirectiveFailedReasonCode.Bind(
-                    OverlayDirectiveFailureReasonCode.CallbackException
-                )
+                ("request_id", requestId, BppLogCorrelationPolicy.Short),
+                ("panel_id", panelId),
+                ("directive", directive),
+                ("reason_code", OverlayDirectiveFailureReasonCode.CallbackException)
             );
         }
     }
@@ -86,12 +88,14 @@ internal sealed class OverlayPanelHostLogState
         }
 
         BppLog.WarnEvent(
-            OverlayPanelLogEvents.TickDegraded,
+            new BppLogEvent(
+                BppLogFeatureScope.OverlayPanels,
+                "overlay_panels.host.tick_degraded",
+                storm: ["panel_id", "reason_code"]
+            ),
             exception,
-            OverlayPanelLogEvents.TickDegradedPanelId.Bind(panelId),
-            OverlayPanelLogEvents.TickDegradedReasonCode.Bind(
-                OverlayTickFailureReasonCode.CallbackException
-            )
+            ("panel_id", panelId),
+            ("reason_code", OverlayTickFailureReasonCode.CallbackException)
         );
     }
 
@@ -105,18 +109,20 @@ internal sealed class OverlayPanelHostLogState
 
         RecoverTickStorm(panelId);
         BppLog.InfoEvent(
-            OverlayPanelLogEvents.TickRecovered,
-            OverlayPanelLogEvents.TickRecoveredPanelId.Bind(panelId)
+            new BppLogEvent(BppLogFeatureScope.OverlayPanels, "overlay_panels.host.tick_recovered"),
+            ("panel_id", panelId)
         );
     }
 
     private static void RecoverTickStorm(string panelId) =>
         BppLog.RecoverStorm(
-            OverlayPanelLogEvents.TickDegraded,
-            OverlayPanelLogEvents.TickDegradedPanelId.Bind(panelId),
-            OverlayPanelLogEvents.TickDegradedReasonCode.Bind(
-                OverlayTickFailureReasonCode.CallbackException
-            )
+            new BppLogEvent(
+                BppLogFeatureScope.OverlayPanels,
+                "overlay_panels.host.tick_degraded",
+                storm: ["panel_id", "reason_code"]
+            ),
+            ("panel_id", panelId),
+            ("reason_code", OverlayTickFailureReasonCode.CallbackException)
         );
 
     private void ReportCombatProbeDegraded(Exception exception)
@@ -129,11 +135,13 @@ internal sealed class OverlayPanelHostLogState
         }
 
         BppLog.WarnEvent(
-            OverlayPanelLogEvents.CombatProbeDegraded,
+            new BppLogEvent(
+                BppLogFeatureScope.OverlayPanels,
+                "overlay_panels.combat_probe.degraded",
+                storm: ["reason_code"]
+            ),
             exception,
-            OverlayPanelLogEvents.CombatProbeDegradedReasonCode.Bind(
-                OverlayCombatProbeFailureReasonCode.ReadFailed
-            )
+            ("reason_code", OverlayCombatProbeFailureReasonCode.ReadFailed)
         );
     }
 
@@ -147,11 +155,18 @@ internal sealed class OverlayPanelHostLogState
         }
 
         BppLog.RecoverStorm(
-            OverlayPanelLogEvents.CombatProbeDegraded,
-            OverlayPanelLogEvents.CombatProbeDegradedReasonCode.Bind(
-                OverlayCombatProbeFailureReasonCode.ReadFailed
+            new BppLogEvent(
+                BppLogFeatureScope.OverlayPanels,
+                "overlay_panels.combat_probe.degraded",
+                storm: ["reason_code"]
+            ),
+            ("reason_code", OverlayCombatProbeFailureReasonCode.ReadFailed)
+        );
+        BppLog.InfoEvent(
+            new BppLogEvent(
+                BppLogFeatureScope.OverlayPanels,
+                "overlay_panels.combat_probe.recovered"
             )
         );
-        BppLog.InfoEvent(OverlayPanelLogEvents.CombatProbeRecovered);
     }
 }

@@ -1,5 +1,6 @@
 #nullable enable
 #if DEBUG
+using BazaarPlusPlus.Infrastructure.Logging;
 using System.Diagnostics;
 using BazaarPlusPlus.GameInterop.Tooltips;
 using BazaarPlusPlus.Infrastructure;
@@ -60,32 +61,20 @@ internal sealed class EndOfRunCaptureSamplingDiagnostics
     internal void ReportAndReset()
     {
         BppLog.DebugEvent(
-            ScreenshotCaptureLogEvents.SamplingSummary,
+            new BppLogEvent(BppLogFeatureScope.Screenshots, "screenshots.capture.sampling_summary"),
             () =>
                 [
-                    ScreenshotCaptureLogEvents.SamplingReadinessCount.Bind(_readinessSampleCount),
-                    ScreenshotCaptureLogEvents.SamplingReadinessTotalMicroseconds.Bind(
-                        _readinessTotalMicroseconds
-                    ),
-                    ScreenshotCaptureLogEvents.SamplingReadinessMaxMicroseconds.Bind(
-                        _readinessMaxMicroseconds
-                    ),
-                    ScreenshotCaptureLogEvents.SamplingBarrierCount.Bind(_barrierSampleCount),
-                    ScreenshotCaptureLogEvents.SamplingBarrierTotalMicroseconds.Bind(
-                        _barrierTotalMicroseconds
-                    ),
-                    ScreenshotCaptureLogEvents.SamplingBarrierMaxMicroseconds.Bind(
-                        _barrierMaxMicroseconds
-                    ),
-                    ScreenshotCaptureLogEvents.SamplingMaxCardCount.Bind(_maxCardCount),
-                    ScreenshotCaptureLogEvents.SamplingMaxTransformCount.Bind(_maxTransformCount),
-                    ScreenshotCaptureLogEvents.SamplingMaxControllerCount.Bind(_maxControllerCount),
-                    ScreenshotCaptureLogEvents.SamplingMaxSkippedInactiveControllerCount.Bind(
-                        _maxSkippedInactiveControllerCount
-                    ),
-                    ScreenshotCaptureLogEvents.SamplingNativeTooltipReasonCode.Bind(
-                        _nativeTooltipReasonCode
-                    ),
+                    ("readiness_sample_count", _readinessSampleCount),
+                    ("readiness_total_us", _readinessTotalMicroseconds),
+                    ("readiness_max_us", _readinessMaxMicroseconds),
+                    ("barrier_sample_count", _barrierSampleCount),
+                    ("barrier_total_us", _barrierTotalMicroseconds),
+                    ("barrier_max_us", _barrierMaxMicroseconds),
+                    ("max_card_count", _maxCardCount),
+                    ("max_transform_count", _maxTransformCount),
+                    ("max_controller_count", _maxControllerCount),
+                    ("max_skipped_inactive_controller_count", _maxSkippedInactiveControllerCount),
+                    ("native_tooltip_reason_code", _nativeTooltipReasonCode),
                 ]
         );
         Reset();

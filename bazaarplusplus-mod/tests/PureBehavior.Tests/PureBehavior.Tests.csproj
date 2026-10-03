@@ -39,12 +39,8 @@
     <Compile Include="../../src/BazaarPlusPlus/GameInterop/CardPreview/NativeCardPreviewOutcome.cs" />
     <Compile Include="../../src/BazaarPlusPlus/GameInterop/CardPreview/NativeCardPreviewSlotFitMath.cs" />
 
-    <Compile
-      Include="../../src/BazaarPlusPlus/Infrastructure/Logging/Core/*.cs"
-      Link="Logging/Core/%(Filename)%(Extension)"
-    />
-    <Compile Include="../../src/BazaarPlusPlus/Game/CombatReplay/CombatReplayLogEvents.cs" />
-    <Compile Include="../../src/BazaarPlusPlus/Game/LiveBuildPanel/LiveBuildPanelLogEvents.cs" />
+    <Compile Include="../../src/BazaarPlusPlus/Game/CombatReplay/CombatReplayLogCodes.cs" />
+    <Compile Include="../../src/BazaarPlusPlus/Game/LiveBuildPanel/LiveBuildPanelLogCodes.cs" />
     <Compile Include="../../src/BazaarPlusPlus/Game/CombatReplay/SavedReplayLifecycle.cs" />
     <Compile Include="../../src/BazaarPlusPlus/Game/CombatReplay/ManagedReplayRecordingRestartCore.cs" />
     <Compile Include="../../src/BazaarPlusPlus/Game/CombatReplay/CurrentReplayRecordingStatusCode.cs" />

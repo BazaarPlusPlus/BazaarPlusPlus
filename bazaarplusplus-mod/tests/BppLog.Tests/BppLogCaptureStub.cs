@@ -6,8 +6,8 @@ namespace BazaarPlusPlus.Infrastructure;
 
 internal sealed record CapturedBppLogEvent(
     string Severity,
-    BppLogEventDefinition Definition,
-    BppLogFieldValue[] Values,
+    BppLogEvent Event,
+    BppLogField[] Fields,
     Exception? Exception
 );
 
@@ -20,31 +20,25 @@ internal static class BppLog
     internal static void Reset() => Captured.Clear();
 
     [Conditional("DEBUG")]
-    public static void DebugEvent(
-        BppLogEventDefinition definition,
-        Func<BppLogFieldValue[]> valuesFactory
-    ) => Add("Debug", definition, valuesFactory(), null);
+    public static void DebugEvent(BppLogEvent logEvent, Func<BppLogField[]> fieldsFactory) =>
+        Add("Debug", logEvent, fieldsFactory(), null);
 
-    public static void InfoEvent(
-        BppLogEventDefinition definition,
-        params BppLogFieldValue[] values
-    ) => Add("Info", definition, values, null);
+    public static void InfoEvent(BppLogEvent logEvent, params BppLogField[] fields) =>
+        Add("Info", logEvent, fields, null);
 
-    public static void ErrorEvent(
-        BppLogEventDefinition definition,
-        params BppLogFieldValue[] values
-    ) => Add("Error", definition, values, null);
+    public static void ErrorEvent(BppLogEvent logEvent, params BppLogField[] fields) =>
+        Add("Error", logEvent, fields, null);
 
     public static void ErrorEvent(
-        BppLogEventDefinition definition,
+        BppLogEvent logEvent,
         Exception exception,
-        params BppLogFieldValue[] values
-    ) => Add("Error", definition, values, exception);
+        params BppLogField[] fields
+    ) => Add("Error", logEvent, fields, exception);
 
     private static void Add(
         string severity,
-        BppLogEventDefinition definition,
-        BppLogFieldValue[] values,
+        BppLogEvent logEvent,
+        BppLogField[] fields,
         Exception? exception
-    ) => Captured.Add(new CapturedBppLogEvent(severity, definition, values, exception));
+    ) => Captured.Add(new CapturedBppLogEvent(severity, logEvent, fields, exception));
 }

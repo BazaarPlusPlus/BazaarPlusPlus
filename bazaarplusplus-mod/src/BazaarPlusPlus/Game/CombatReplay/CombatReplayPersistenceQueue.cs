@@ -2,6 +2,7 @@
 using System.Collections.Concurrent;
 using BazaarPlusPlus.Game.PvpBattles;
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 
 namespace BazaarPlusPlus.Game.CombatReplay;
 
@@ -119,14 +120,15 @@ internal sealed class CombatReplayPersistenceQueue : IDisposable
             EnqueueAbandonedPendingResults();
         }
         BppLog.DebugEvent(
-            CombatReplayLogEvents.PersistenceShutdownIncomplete,
+            new BppLogEvent(
+                BppLogFeatureScope.CombatReplay,
+                "combat_replay.persistence.shutdown_incomplete"
+            ),
             () =>
                 [
-                    CombatReplayLogEvents.ShutdownPendingCount.Bind(pendingQueuedCount),
-                    CombatReplayLogEvents.ShutdownInFlight.Bind(inFlight),
-                    CombatReplayLogEvents.ShutdownTimeoutMs.Bind(
-                        (long)ShutdownDrainTimeout.TotalMilliseconds
-                    ),
+                    ("pending_count", pendingQueuedCount),
+                    ("in_flight", inFlight),
+                    ("timeout_ms", (long)ShutdownDrainTimeout.TotalMilliseconds),
                 ]
         );
         _ = _worker.ContinueWith(
@@ -186,12 +188,17 @@ internal sealed class CombatReplayPersistenceQueue : IDisposable
                             catch (Exception rollbackEx)
                             {
                                 BppLog.DebugEvent(
-                                    CombatReplayLogEvents.PersistenceRollbackCleanupFailed,
+                                    new BppLogEvent(
+                                        BppLogFeatureScope.CombatReplay,
+                                        "combat_replay.persistence.rollback_cleanup_failed"
+                                    ),
                                     rollbackEx,
                                     () =>
                                         [
-                                            CombatReplayLogEvents.RollbackCleanupBattleId.Bind(
-                                                request.Payload.BattleId
+                                            (
+                                                "battle_id",
+                                                request.Payload.BattleId,
+                                                BppLogCorrelationPolicy.Short
                                             ),
                                         ]
                                 );

@@ -6,6 +6,7 @@ using BazaarPlusPlus.Game.PvpBattles;
 using BazaarPlusPlus.GameInterop.ItemBoardPreview;
 using BazaarPlusPlus.GameInterop.StaticCards;
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 
 namespace BazaarPlusPlus.Game.HistoryPanel.Data;
 
@@ -289,12 +290,14 @@ internal static class HistoryBattlePreviewProjection
         catch (Exception ex)
         {
             BppLog.WarnEvent(
-                HistoryPanelLogEvents.PreviewSocketEffectDegraded,
+                new BppLogEvent(
+                    BppLogFeatureScope.HistoryPanel,
+                    "history_panel.preview.socket_effect_degraded",
+                    storm: ["reason_code"]
+                ),
                 ex,
-                HistoryPanelLogEvents.PreviewTemplateId.Bind(snapshot.TemplateId),
-                HistoryPanelLogEvents.PreviewSocketReasonCode.Bind(
-                    HistoryPanelPreviewReasonCode.SocketEffectLookupFailed
-                )
+                ("template_id", snapshot.TemplateId),
+                ("reason_code", HistoryPanelPreviewReasonCode.SocketEffectLookupFailed)
             );
         }
 
@@ -318,11 +321,13 @@ internal static class HistoryBattlePreviewProjection
         catch (Exception ex)
         {
             BppLog.WarnEvent(
-                HistoryPanelLogEvents.PreviewStaticDataDegraded,
+                new BppLogEvent(
+                    BppLogFeatureScope.HistoryPanel,
+                    "history_panel.preview.static_data_degraded",
+                    storm: ["reason_code"]
+                ),
                 ex,
-                HistoryPanelLogEvents.PreviewStaticDataReasonCode.Bind(
-                    HistoryPanelPreviewReasonCode.StaticDataAccessFailed
-                )
+                ("reason_code", HistoryPanelPreviewReasonCode.StaticDataAccessFailed)
             );
             return null;
         }
@@ -340,10 +345,12 @@ internal static class HistoryBattlePreviewProjection
         if (staticData == null)
         {
             BppLog.WarnEvent(
-                HistoryPanelLogEvents.PreviewStaticDataDegraded,
-                HistoryPanelLogEvents.PreviewStaticDataReasonCode.Bind(
-                    HistoryPanelPreviewReasonCode.StaticDataUnavailable
-                )
+                new BppLogEvent(
+                    BppLogFeatureScope.HistoryPanel,
+                    "history_panel.preview.static_data_degraded",
+                    storm: ["reason_code"]
+                ),
+                ("reason_code", HistoryPanelPreviewReasonCode.StaticDataUnavailable)
             );
             return null;
         }

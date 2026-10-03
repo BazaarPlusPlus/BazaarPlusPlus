@@ -7,6 +7,7 @@ using BazaarPlusPlus.Game.ItemEnchantPreview;
 using BazaarPlusPlus.Game.QuestPreview;
 using BazaarPlusPlus.Game.Tooltips;
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 using HarmonyLib;
 using TheBazaar;
 using TheBazaar.Tooltips;
@@ -201,10 +202,14 @@ internal static class QuestRewardPreviewTooltipPatch
 
     internal static void ReportDegraded(Exception exception) =>
         BppLog.WarnEvent(
-            TooltipLogEvents.SectionDegraded,
+            new BppLogEvent(
+                BppLogFeatureScope.Tooltips,
+                "tooltips.section.degraded",
+                storm: ["section_id", "reason_code"]
+            ),
             exception,
-            TooltipLogEvents.SectionDegradedSectionId.Bind(TooltipSectionId.QuestRewardPreview),
-            TooltipLogEvents.SectionDegradedReasonCode.Bind(TooltipLogReasonCode.RenderException)
+            ("section_id", TooltipSectionId.QuestRewardPreview),
+            ("reason_code", TooltipLogReasonCode.RenderException)
         );
 }
 

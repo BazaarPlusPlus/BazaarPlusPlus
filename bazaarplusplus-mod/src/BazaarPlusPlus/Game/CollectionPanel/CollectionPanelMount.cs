@@ -6,6 +6,7 @@ using BazaarPlusPlus.GameInterop.CardPreview;
 using BazaarPlusPlus.GameInterop.DayTiers;
 using BazaarPlusPlus.GameInterop.StaticCards;
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 using UnityEngine;
 
 namespace BazaarPlusPlus.Game.CollectionPanel;
@@ -50,21 +51,23 @@ internal sealed class CollectionPanelMount : IBppMountable
         catch (Exception ex)
         {
             BppLog.ErrorEvent(
-                CollectionPanelLogEvents.MountFailed,
+                new BppLogEvent(
+                    BppLogFeatureScope.CollectionPanel,
+                    "collection_panel.mount.failed"
+                ),
                 ex,
-                CollectionPanelLogEvents.MountFailedReasonCode.Bind(
-                    CollectionPanelLogReasonCode.OverlayHostUnavailable
-                )
+                ("reason_code", CollectionPanelLogReasonCode.OverlayHostUnavailable)
             );
             return;
         }
         if (overlayHost == null)
         {
             BppLog.ErrorEvent(
-                CollectionPanelLogEvents.MountFailed,
-                CollectionPanelLogEvents.MountFailedReasonCode.Bind(
-                    CollectionPanelLogReasonCode.OverlayHostUnavailable
-                )
+                new BppLogEvent(
+                    BppLogFeatureScope.CollectionPanel,
+                    "collection_panel.mount.failed"
+                ),
+                ("reason_code", CollectionPanelLogReasonCode.OverlayHostUnavailable)
             );
             return;
         }

@@ -1,5 +1,6 @@
 #nullable enable
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 
 namespace BazaarPlusPlus.Game.LiveBuildPanel.Recommendations;
 
@@ -20,7 +21,13 @@ internal sealed class BuildRecommendationCorpusLogState
     private bool _cacheWriteDegraded;
 
     internal void ReportWarmupStarted() =>
-        BppLog.DebugEvent(LiveBuildPanelLogEvents.CorpusWarmupStarted, static () => []);
+        BppLog.DebugEvent(
+            new BppLogEvent(
+                BppLogFeatureScope.LiveBuildPanel,
+                "live_build_panel.corpus.warmup_started"
+            ),
+            static () => []
+        );
 
     internal void ReportReady(LiveBuildCorpusSource source, int buildCount)
     {
@@ -32,9 +39,9 @@ internal sealed class BuildRecommendationCorpusLogState
         }
 
         BppLog.InfoEvent(
-            LiveBuildPanelLogEvents.CorpusReady,
-            LiveBuildPanelLogEvents.CorpusReadySource.Bind(source),
-            LiveBuildPanelLogEvents.CorpusReadyBuildCount.Bind(buildCount)
+            new BppLogEvent(BppLogFeatureScope.LiveBuildPanel, "live_build_panel.corpus.ready"),
+            ("source", source),
+            ("build_count", buildCount)
         );
     }
 
@@ -47,18 +54,33 @@ internal sealed class BuildRecommendationCorpusLogState
                 return;
         }
 
-        var fields = new[]
+        var fields = new BppLogField[]
         {
-            LiveBuildPanelLogEvents.CorpusDegradedReasonCode.Bind(degradation.ReasonCode),
-            LiveBuildPanelLogEvents.CorpusDegradedSource.Bind(degradation.Source),
-            LiveBuildPanelLogEvents.CorpusDegradedBuildCount.Bind(degradation.BuildCount),
-            LiveBuildPanelLogEvents.CorpusDegradedExpired.Bind(degradation.Expired),
-            LiveBuildPanelLogEvents.CorpusDegradedCachePath.Bind(degradation.CachePath),
+            ("reason_code", degradation.ReasonCode),
+            ("source", degradation.Source),
+            ("build_count", degradation.BuildCount),
+            ("expired", degradation.Expired),
+            ("cache_path", degradation.CachePath),
         };
         if (degradation.Exception == null)
-            BppLog.WarnEvent(LiveBuildPanelLogEvents.CorpusDegraded, fields);
+            BppLog.WarnEvent(
+                new BppLogEvent(
+                    BppLogFeatureScope.LiveBuildPanel,
+                    "live_build_panel.corpus.degraded",
+                    storm: ["reason_code"]
+                ),
+                fields
+            );
         else
-            BppLog.WarnEvent(LiveBuildPanelLogEvents.CorpusDegraded, degradation.Exception, fields);
+            BppLog.WarnEvent(
+                new BppLogEvent(
+                    BppLogFeatureScope.LiveBuildPanel,
+                    "live_build_panel.corpus.degraded",
+                    storm: ["reason_code"]
+                ),
+                degradation.Exception,
+                fields
+            );
     }
 
     internal void ReportRecovered(LiveBuildCorpusSource source, int buildCount)
@@ -74,9 +96,9 @@ internal sealed class BuildRecommendationCorpusLogState
 
         RecoverCorpusStorms(reasons);
         BppLog.InfoEvent(
-            LiveBuildPanelLogEvents.CorpusRecovered,
-            LiveBuildPanelLogEvents.CorpusRecoveredSource.Bind(source),
-            LiveBuildPanelLogEvents.CorpusRecoveredBuildCount.Bind(buildCount)
+            new BppLogEvent(BppLogFeatureScope.LiveBuildPanel, "live_build_panel.corpus.recovered"),
+            ("source", source),
+            ("build_count", buildCount)
         );
     }
 
@@ -93,31 +115,29 @@ internal sealed class BuildRecommendationCorpusLogState
 
     internal void ReportRefreshQueued(LiveBuildCorpusReasonCode reasonCode) =>
         BppLog.DebugEvent(
-            LiveBuildPanelLogEvents.CorpusRefreshQueued,
-            () => [LiveBuildPanelLogEvents.CorpusRefreshQueuedReasonCode.Bind(reasonCode)]
+            new BppLogEvent(
+                BppLogFeatureScope.LiveBuildPanel,
+                "live_build_panel.corpus.refresh_queued"
+            ),
+            () => [("reason_code", reasonCode)]
         );
 
     internal void ReportCacheLoaded(int buildCount, bool expired, string cachePath) =>
         BppLog.DebugEvent(
-            LiveBuildPanelLogEvents.CorpusCacheLoaded,
-            () =>
-                [
-                    LiveBuildPanelLogEvents.CorpusCacheLoadedBuildCount.Bind(buildCount),
-                    LiveBuildPanelLogEvents.CorpusCacheLoadedExpired.Bind(expired),
-                    LiveBuildPanelLogEvents.CorpusCacheLoadedCachePath.Bind(cachePath),
-                ]
+            new BppLogEvent(
+                BppLogFeatureScope.LiveBuildPanel,
+                "live_build_panel.corpus.cache_loaded"
+            ),
+            () => [("build_count", buildCount), ("expired", expired), ("cache_path", cachePath)]
         );
 
     internal void ReportRemoteLoaded(int buildCount) =>
         BppLog.DebugEvent(
-            LiveBuildPanelLogEvents.CorpusRemoteLoaded,
-            () =>
-                [
-                    LiveBuildPanelLogEvents.CorpusRemoteLoadedEndpoint.Bind(
-                        LiveBuildCorpusEndpoint.TenWinBuilds
-                    ),
-                    LiveBuildPanelLogEvents.CorpusRemoteLoadedBuildCount.Bind(buildCount),
-                ]
+            new BppLogEvent(
+                BppLogFeatureScope.LiveBuildPanel,
+                "live_build_panel.corpus.remote_loaded"
+            ),
+            () => [("endpoint", LiveBuildCorpusEndpoint.TenWinBuilds), ("build_count", buildCount)]
         );
 
     internal void ReportCacheWriteDegraded(string? path, Exception exception)
@@ -130,12 +150,14 @@ internal sealed class BuildRecommendationCorpusLogState
         }
 
         BppLog.WarnEvent(
-            LiveBuildPanelLogEvents.CacheWriteDegraded,
+            new BppLogEvent(
+                BppLogFeatureScope.LiveBuildPanel,
+                "live_build_panel.corpus.cache_write_degraded",
+                storm: ["reason_code"]
+            ),
             exception,
-            LiveBuildPanelLogEvents.CacheWriteDegradedPath.Bind(path),
-            LiveBuildPanelLogEvents.CacheWriteDegradedReasonCode.Bind(
-                LiveBuildCacheWriteReasonCode.WriteFailed
-            )
+            ("path", path),
+            ("reason_code", LiveBuildCacheWriteReasonCode.WriteFailed)
         );
     }
 
@@ -149,10 +171,12 @@ internal sealed class BuildRecommendationCorpusLogState
         }
 
         BppLog.RecoverStorm(
-            LiveBuildPanelLogEvents.CacheWriteDegraded,
-            LiveBuildPanelLogEvents.CacheWriteDegradedReasonCode.Bind(
-                LiveBuildCacheWriteReasonCode.WriteFailed
-            )
+            new BppLogEvent(
+                BppLogFeatureScope.LiveBuildPanel,
+                "live_build_panel.corpus.cache_write_degraded",
+                storm: ["reason_code"]
+            ),
+            ("reason_code", LiveBuildCacheWriteReasonCode.WriteFailed)
         );
     }
 
@@ -169,8 +193,12 @@ internal sealed class BuildRecommendationCorpusLogState
         foreach (var reason in reasons)
         {
             BppLog.RecoverStorm(
-                LiveBuildPanelLogEvents.CorpusDegraded,
-                LiveBuildPanelLogEvents.CorpusDegradedReasonCode.Bind(reason)
+                new BppLogEvent(
+                    BppLogFeatureScope.LiveBuildPanel,
+                    "live_build_panel.corpus.degraded",
+                    storm: ["reason_code"]
+                ),
+                ("reason_code", reason)
             );
         }
     }

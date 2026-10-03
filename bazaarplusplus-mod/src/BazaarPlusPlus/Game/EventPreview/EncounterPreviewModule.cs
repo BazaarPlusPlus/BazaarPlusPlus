@@ -107,7 +107,10 @@ internal sealed class EncounterPreviewModule : IDisposable
                 generation,
                 () =>
                     ReportTerminal(
-                        EventPreviewLogEvents.PlansLoadFailed,
+                        new BppLogEvent(
+                            BppLogFeatureScope.EventPreview,
+                            "event_preview.plans.load_failed"
+                        ),
                         EventPreviewPlanSource.Unknown,
                         EventPreviewPlanReasonCode.SourceInfoUnavailable,
                         snapshot: null,
@@ -231,7 +234,10 @@ internal sealed class EncounterPreviewModule : IDisposable
                 generation,
                 () =>
                     ReportTerminal(
-                        EventPreviewLogEvents.PlansLoadFailed,
+                        new BppLogEvent(
+                            BppLogFeatureScope.EventPreview,
+                            "event_preview.plans.load_failed"
+                        ),
                         EventPreviewPlanSource.Unknown,
                         EventPreviewPlanReasonCode.LoadException,
                         snapshot: null,
@@ -438,7 +444,11 @@ internal sealed class EncounterPreviewModule : IDisposable
             Interlocked.Exchange(ref _healthDegraded, 1);
             Volatile.Write(ref _status, (int)EncounterPreviewModuleStatus.Degraded);
             ReportTerminal(
-                EventPreviewLogEvents.PlansDegraded,
+                new BppLogEvent(
+                    BppLogFeatureScope.EventPreview,
+                    "event_preview.plans.degraded",
+                    storm: ["source", "reason_code"]
+                ),
                 source,
                 persistError != null
                     ? EventPreviewPlanReasonCode.CacheWriteException
@@ -456,9 +466,17 @@ internal sealed class EncounterPreviewModule : IDisposable
         var recovered = Interlocked.Exchange(ref _healthDegraded, 0) != 0;
         Volatile.Write(ref _status, (int)EncounterPreviewModuleStatus.Ready);
         if (recovered)
-            BppLog.RecoverStorm(EventPreviewLogEvents.PlansDegraded);
+            BppLog.RecoverStorm(
+                new BppLogEvent(
+                    BppLogFeatureScope.EventPreview,
+                    "event_preview.plans.degraded",
+                    storm: ["source", "reason_code"]
+                )
+            );
         ReportTerminal(
-            recovered ? EventPreviewLogEvents.PlansRecovered : EventPreviewLogEvents.PlansReady,
+            recovered
+                ? new BppLogEvent(BppLogFeatureScope.EventPreview, "event_preview.plans.recovered")
+                : new BppLogEvent(BppLogFeatureScope.EventPreview, "event_preview.plans.ready"),
             source,
             EventPreviewPlanReasonCode.None,
             snapshot,
@@ -477,7 +495,7 @@ internal sealed class EncounterPreviewModule : IDisposable
     }
 
     private void ReportTerminal(
-        BppLogEventDefinition definition,
+        BppLogEvent logEvent,
         EventPreviewPlanSource source,
         EventPreviewPlanReasonCode reasonCode,
         EncounterPreviewSnapshot? snapshot,
@@ -489,15 +507,15 @@ internal sealed class EncounterPreviewModule : IDisposable
     )
     {
         if (
-            ReferenceEquals(definition, EventPreviewLogEvents.PlansLoadFailed)
-            || ReferenceEquals(definition, EventPreviewLogEvents.PlansDegraded)
+            logEvent.Id == "event_preview.plans.load_failed"
+            || logEvent.Id == "event_preview.plans.degraded"
         )
         {
             Interlocked.Exchange(ref _healthDegraded, 1);
             Volatile.Write(
                 ref _status,
                 (int)(
-                    ReferenceEquals(definition, EventPreviewLogEvents.PlansDegraded)
+                    logEvent.Id == "event_preview.plans.degraded"
                         ? EncounterPreviewModuleStatus.Degraded
                         : EncounterPreviewModuleStatus.Unavailable
                 )
@@ -505,45 +523,41 @@ internal sealed class EncounterPreviewModule : IDisposable
         }
 
         var coverage = snapshot?.Coverage;
-        var fields = new[]
+        var fields = new BppLogField[]
         {
-            EventPreviewLogEvents.Source.Bind(source),
-            EventPreviewLogEvents.ReasonCode.Bind(reasonCode),
-            EventPreviewLogEvents.EventCount.Bind(snapshot?.EventCount ?? 0),
-            EventPreviewLogEvents.LevelUpCount.Bind(snapshot?.LevelUpCount ?? 0),
-            EventPreviewLogEvents.TemplateCount.Bind(snapshot?.TemplateCount ?? 0),
-            EventPreviewLogEvents.EventFailureCount.Bind(coverage?.EventFailureCount ?? 0),
-            EventPreviewLogEvents.LevelUpFailureCount.Bind(coverage?.LevelUpFailureCount ?? 0),
-            EventPreviewLogEvents.UnsupportedLevelUpPartCount.Bind(
-                coverage?.UnsupportedLevelUpPartCount ?? 0
-            ),
-            EventPreviewLogEvents.MissingTemplateCount.Bind(
-                coverage?.MissingReferencedTemplateCount ?? 0
-            ),
-            EventPreviewLogEvents.SizeBytes.Bind(Math.Max(0, sizeBytes)),
-            EventPreviewLogEvents.LoadDurationMs.Bind(ToMilliseconds(loadDurationMs)),
-            EventPreviewLogEvents.CompileDurationMs.Bind(ToMilliseconds(compileDurationMs)),
-            EventPreviewLogEvents.WriteDurationMs.Bind(ToMilliseconds(writeDurationMs)),
-            EventPreviewLogEvents.CachePath.Bind(_cacheStore.CachePath),
+            ("source", source),
+            ("reason_code", reasonCode),
+            ("event_count", snapshot?.EventCount ?? 0),
+            ("level_up_count", snapshot?.LevelUpCount ?? 0),
+            ("template_count", snapshot?.TemplateCount ?? 0),
+            ("event_failure_count", coverage?.EventFailureCount ?? 0),
+            ("level_up_failure_count", coverage?.LevelUpFailureCount ?? 0),
+            ("unsupported_level_up_part_count", coverage?.UnsupportedLevelUpPartCount ?? 0),
+            ("missing_template_count", coverage?.MissingReferencedTemplateCount ?? 0),
+            ("size_bytes", Math.Max(0, sizeBytes)),
+            ("load_duration_ms", ToMilliseconds(loadDurationMs)),
+            ("compile_duration_ms", ToMilliseconds(compileDurationMs)),
+            ("write_duration_ms", ToMilliseconds(writeDurationMs)),
+            ("cache_path", _cacheStore.CachePath),
         };
-        if (ReferenceEquals(definition, EventPreviewLogEvents.PlansLoadFailed))
+        if (logEvent.Id == "event_preview.plans.load_failed")
         {
             if (exception == null)
-                BppLog.ErrorEvent(definition, fields);
+                BppLog.ErrorEvent(logEvent, fields);
             else
-                BppLog.ErrorEvent(definition, exception, fields);
+                BppLog.ErrorEvent(logEvent, exception, fields);
             return;
         }
-        if (ReferenceEquals(definition, EventPreviewLogEvents.PlansDegraded))
+        if (logEvent.Id == "event_preview.plans.degraded")
         {
             if (exception == null)
-                BppLog.WarnEvent(definition, fields);
+                BppLog.WarnEvent(logEvent, fields);
             else
-                BppLog.WarnEvent(definition, exception, fields);
+                BppLog.WarnEvent(logEvent, exception, fields);
             return;
         }
 
-        BppLog.InfoEvent(definition, fields);
+        BppLog.InfoEvent(logEvent, fields);
     }
 
     private static int ToMilliseconds(double value) =>

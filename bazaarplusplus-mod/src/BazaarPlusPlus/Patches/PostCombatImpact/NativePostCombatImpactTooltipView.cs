@@ -10,6 +10,7 @@ using BazaarPlusPlus.GameInterop.HeroPortraits;
 using BazaarPlusPlus.GameInterop.TagTypography;
 using BazaarPlusPlus.GameInterop.Tooltips;
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 using BazaarPlusPlus.Localization;
 using TheBazaar;
 using TheBazaar.UI.Tooltips;
@@ -537,11 +538,13 @@ internal sealed class NativePostCombatImpactTooltipView : IPostCombatImpactToolt
         catch (Exception ex)
         {
             BppLog.WarnEvent(
-                PostCombatImpactLogEvents.InteractionDegraded,
+                new BppLogEvent(
+                    BppLogFeatureScope.PostCombatImpact,
+                    "post_combat_impact.interaction.degraded",
+                    storm: ["reason_code"]
+                ),
                 ex,
-                PostCombatImpactLogEvents.ReasonCode.Bind(
-                    PostCombatImpactReasonCode.EntityPreviewUnavailable
-                )
+                ("reason_code", PostCombatImpactReasonCode.EntityPreviewUnavailable)
             );
         }
     }
@@ -1269,11 +1272,13 @@ internal sealed class NativePostCombatImpactTooltipView : IPostCombatImpactToolt
         {
             HidePreviewSlot(slot);
             BppLog.WarnEvent(
-                PostCombatImpactLogEvents.InteractionDegraded,
+                new BppLogEvent(
+                    BppLogFeatureScope.PostCombatImpact,
+                    "post_combat_impact.interaction.degraded",
+                    storm: ["reason_code"]
+                ),
                 ex,
-                PostCombatImpactLogEvents.ReasonCode.Bind(
-                    PostCombatImpactReasonCode.EntityPreviewUnavailable
-                )
+                ("reason_code", PostCombatImpactReasonCode.EntityPreviewUnavailable)
             );
         }
         finally
@@ -1423,13 +1428,26 @@ internal sealed class NativePostCombatImpactTooltipView : IPostCombatImpactToolt
         if (!reportFailure)
             return;
 
-        var reason = PostCombatImpactLogEvents.ReasonCode.Bind(
-            PostCombatImpactReasonCode.EntityPreviewUnavailable
-        );
+        BppLogField reason = ("reason_code", PostCombatImpactReasonCode.EntityPreviewUnavailable);
         if (exception == null)
-            BppLog.WarnEvent(PostCombatImpactLogEvents.InteractionDegraded, reason);
+            BppLog.WarnEvent(
+                new BppLogEvent(
+                    BppLogFeatureScope.PostCombatImpact,
+                    "post_combat_impact.interaction.degraded",
+                    storm: ["reason_code"]
+                ),
+                reason
+            );
         else
-            BppLog.WarnEvent(PostCombatImpactLogEvents.InteractionDegraded, exception, reason);
+            BppLog.WarnEvent(
+                new BppLogEvent(
+                    BppLogFeatureScope.PostCombatImpact,
+                    "post_combat_impact.interaction.degraded",
+                    storm: ["reason_code"]
+                ),
+                exception,
+                reason
+            );
     }
 
     private void CompletePendingPreviews(int generation, int count)
@@ -1458,11 +1476,13 @@ internal sealed class NativePostCombatImpactTooltipView : IPostCombatImpactToolt
             if (generation == _session.Generation)
                 HidePreviewSlot(slot);
             BppLog.WarnEvent(
-                PostCombatImpactLogEvents.InteractionDegraded,
+                new BppLogEvent(
+                    BppLogFeatureScope.PostCombatImpact,
+                    "post_combat_impact.interaction.degraded",
+                    storm: ["reason_code"]
+                ),
                 ex,
-                PostCombatImpactLogEvents.ReasonCode.Bind(
-                    PostCombatImpactReasonCode.EntityPreviewUnavailable
-                )
+                ("reason_code", PostCombatImpactReasonCode.EntityPreviewUnavailable)
             );
         }
         finally
@@ -1624,8 +1644,12 @@ internal sealed class NativePostCombatImpactTooltipView : IPostCombatImpactToolt
 
     private static void LogShowRejected(PostCombatImpactReasonCode reasonCode) =>
         BppLog.WarnEvent(
-            PostCombatImpactLogEvents.InteractionDegraded,
-            PostCombatImpactLogEvents.ReasonCode.Bind(reasonCode)
+            new BppLogEvent(
+                BppLogFeatureScope.PostCombatImpact,
+                "post_combat_impact.interaction.degraded",
+                storm: ["reason_code"]
+            ),
+            ("reason_code", reasonCode)
         );
 
     private static PostCombatImpactReasonCode MapOpenFailure(
@@ -1660,8 +1684,12 @@ internal sealed class NativePostCombatImpactTooltipView : IPostCombatImpactToolt
 
         wasLogged = true;
         BppLog.WarnEvent(
-            PostCombatImpactLogEvents.InteractionDegraded,
-            PostCombatImpactLogEvents.ReasonCode.Bind(reasonCode)
+            new BppLogEvent(
+                BppLogFeatureScope.PostCombatImpact,
+                "post_combat_impact.interaction.degraded",
+                storm: ["reason_code"]
+            ),
+            ("reason_code", reasonCode)
         );
     }
 
@@ -1835,14 +1863,26 @@ internal sealed class NativePostCombatImpactTooltipView : IPostCombatImpactToolt
 
         public void ReportFailure(NativeCardPreviewFailure failure)
         {
-            var reason = PostCombatImpactLogEvents.ReasonCode.Bind(
+            BppLogField reason = (
+                "reason_code",
                 PostCombatImpactReasonCode.EntityPreviewUnavailable
             );
             if (failure.Exception == null)
-                BppLog.WarnEvent(PostCombatImpactLogEvents.InteractionDegraded, reason);
+                BppLog.WarnEvent(
+                    new BppLogEvent(
+                        BppLogFeatureScope.PostCombatImpact,
+                        "post_combat_impact.interaction.degraded",
+                        storm: ["reason_code"]
+                    ),
+                    reason
+                );
             else
                 BppLog.WarnEvent(
-                    PostCombatImpactLogEvents.InteractionDegraded,
+                    new BppLogEvent(
+                        BppLogFeatureScope.PostCombatImpact,
+                        "post_combat_impact.interaction.degraded",
+                        storm: ["reason_code"]
+                    ),
                     failure.Exception,
                     reason
                 );

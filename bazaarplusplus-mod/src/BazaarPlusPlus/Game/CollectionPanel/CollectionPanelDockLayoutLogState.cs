@@ -1,5 +1,6 @@
 #nullable enable
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 
 namespace BazaarPlusPlus.Game.CollectionPanel;
 
@@ -31,13 +32,20 @@ internal sealed class CollectionPanelDockLayoutLogState
             var recovered = _degradation.Value;
             _degradation = null;
             BppLog.RecoverStorm(
-                CollectionPanelLogEvents.DockLayoutDegraded,
-                CollectionPanelLogEvents.DockLayoutDegradedReasonCode.Bind(recovered.ReasonCode)
+                new BppLogEvent(
+                    BppLogFeatureScope.CollectionPanel,
+                    "collection_panel.dock_layout.degraded",
+                    storm: ["reason_code"]
+                ),
+                ("reason_code", recovered.ReasonCode)
             );
             BppLog.InfoEvent(
-                CollectionPanelLogEvents.DockLayoutRecovered,
-                CollectionPanelLogEvents.DockLayoutRecoveredReasonCode.Bind(recovered.ReasonCode),
-                CollectionPanelLogEvents.DockLayoutRecoveredBlocker.Bind(recovered.Blocker)
+                new BppLogEvent(
+                    BppLogFeatureScope.CollectionPanel,
+                    "collection_panel.dock_layout.recovered"
+                ),
+                ("reason_code", recovered.ReasonCode),
+                ("blocker", recovered.Blocker)
             );
             return;
         }
@@ -47,9 +55,13 @@ internal sealed class CollectionPanelDockLayoutLogState
 
         _degradation = observation;
         BppLog.WarnEvent(
-            CollectionPanelLogEvents.DockLayoutDegraded,
-            CollectionPanelLogEvents.DockLayoutDegradedReasonCode.Bind(observation.ReasonCode),
-            CollectionPanelLogEvents.DockLayoutDegradedBlocker.Bind(observation.Blocker)
+            new BppLogEvent(
+                BppLogFeatureScope.CollectionPanel,
+                "collection_panel.dock_layout.degraded",
+                storm: ["reason_code"]
+            ),
+            ("reason_code", observation.ReasonCode),
+            ("blocker", observation.Blocker)
         );
     }
 }

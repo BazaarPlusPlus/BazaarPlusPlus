@@ -33,30 +33,51 @@ internal static class ReplayPersistenceLogWriter
         );
         if (result.FailedDeleteCount == 0)
         {
-            BppLog.DebugEvent(CombatReplayLogEvents.MaintenanceCompleted, () => fields);
+            BppLog.DebugEvent(
+                new BppLogEvent(
+                    BppLogFeatureScope.CombatReplay,
+                    "combat_replay.maintenance.completed"
+                ),
+                () => fields
+            );
             return;
         }
 
-        BppLog.WarnEvent(CombatReplayLogEvents.MaintenanceDegraded, fields);
+        BppLog.WarnEvent(
+            new BppLogEvent(
+                BppLogFeatureScope.CombatReplay,
+                "combat_replay.maintenance.degraded",
+                storm: ["reason_code"]
+            ),
+            fields
+        );
     }
 
     internal static void EmitMaintenanceFailed(Exception exception)
     {
         var fields = BuildMaintenanceFields(ReplayMaintenanceReasonCode.ScanFailed, default);
-        BppLog.WarnEvent(CombatReplayLogEvents.MaintenanceDegraded, exception, fields);
+        BppLog.WarnEvent(
+            new BppLogEvent(
+                BppLogFeatureScope.CombatReplay,
+                "combat_replay.maintenance.degraded",
+                storm: ["reason_code"]
+            ),
+            exception,
+            fields
+        );
     }
 
-    private static BppLogFieldValue[] BuildMaintenanceFields(
+    private static BppLogField[] BuildMaintenanceFields(
         ReplayMaintenanceReasonCode reasonCode,
         ReplayPayloadMaintenanceResult result
     ) =>
         [
-            CombatReplayLogEvents.MaintenanceReasonCode.Bind(reasonCode),
-            CombatReplayLogEvents.MaintenanceEvaluatedCount.Bind(result.EvaluatedPayloadCount),
-            CombatReplayLogEvents.MaintenanceScheduledCount.Bind(result.ScheduledDeleteCount),
-            CombatReplayLogEvents.MaintenanceDeletedCount.Bind(result.DeletedPayloadCount),
-            CombatReplayLogEvents.MaintenanceMissingCount.Bind(result.MissingPayloadCount),
-            CombatReplayLogEvents.MaintenanceOrphanCount.Bind(result.OrphanDeleteCount),
-            CombatReplayLogEvents.MaintenanceFailedCount.Bind(result.FailedDeleteCount),
+            ("reason_code", reasonCode),
+            ("evaluated_count", result.EvaluatedPayloadCount),
+            ("scheduled_count", result.ScheduledDeleteCount),
+            ("deleted_count", result.DeletedPayloadCount),
+            ("missing_count", result.MissingPayloadCount),
+            ("orphan_count", result.OrphanDeleteCount),
+            ("failed_count", result.FailedDeleteCount),
         ];
 }

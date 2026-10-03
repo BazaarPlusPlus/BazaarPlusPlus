@@ -271,14 +271,10 @@ internal sealed class CombatReplayRuntime : MonoBehaviour
         catch (Exception ex)
         {
             BppLog.ErrorEvent(
-                CombatReplayLogEvents.CaptureFailed,
+                new BppLogEvent(BppLogFeatureScope.CombatReplay, "combat_replay.capture.failed"),
                 ex,
-                CombatReplayLogEvents.CaptureFailedRunId.Bind(
-                    _services?.RunContext.CurrentServerRunId
-                ),
-                CombatReplayLogEvents.CaptureFailedReasonCode.Bind(
-                    ReplayCaptureReasonCode.CaptureOrEnqueueException
-                )
+                ("run_id", _services?.RunContext.CurrentServerRunId, BppLogCorrelationPolicy.Short),
+                ("reason_code", ReplayCaptureReasonCode.CaptureOrEnqueueException)
             );
         }
     }
@@ -1130,48 +1126,39 @@ internal sealed class CombatReplayRuntime : MonoBehaviour
         float elapsedSeconds
     )
     {
-        BppLogFieldValue[] Fields() =>
+        BppLogField[] Fields() =>
             [
-                CombatReplayLogEvents.CurrentRecordingPresentationGateRecordingId.Bind(
-                    _currentRecording.RecordingId
-                ),
-                CombatReplayLogEvents.CurrentRecordingPresentationGateOutcome.Bind(outcome),
-                CombatReplayLogEvents.CurrentRecordingPresentationGateExpectedItems.Bind(
-                    snapshot.ExpectedItemCount
-                ),
-                CombatReplayLogEvents.CurrentRecordingPresentationGateVisibleItems.Bind(
-                    snapshot.VisibleItemCount
-                ),
-                CombatReplayLogEvents.CurrentRecordingPresentationGateFaceUpItems.Bind(
-                    snapshot.FaceUpItemCount
-                ),
-                CombatReplayLogEvents.CurrentRecordingPresentationGateSettledItems.Bind(
-                    snapshot.SettledItemCount
-                ),
-                CombatReplayLogEvents.CurrentRecordingPresentationGateExpectedSkills.Bind(
-                    snapshot.ExpectedSkillCount
-                ),
-                CombatReplayLogEvents.CurrentRecordingPresentationGateRegisteredSkills.Bind(
-                    snapshot.RegisteredSkillCount
-                ),
-                CombatReplayLogEvents.CurrentRecordingPresentationGateReadySkills.Bind(
-                    snapshot.ReadySkillCount
-                ),
-                CombatReplayLogEvents.CurrentRecordingPresentationGateElapsedMs.Bind(
-                    Math.Max(0, (int)Math.Round(elapsedSeconds * 1000f))
-                ),
+                ("recording_id", _currentRecording.RecordingId, BppLogCorrelationPolicy.Short),
+                ("outcome", outcome),
+                ("expected_items", snapshot.ExpectedItemCount),
+                ("visible_items", snapshot.VisibleItemCount),
+                ("face_up_items", snapshot.FaceUpItemCount),
+                ("settled_items", snapshot.SettledItemCount),
+                ("expected_skills", snapshot.ExpectedSkillCount),
+                ("registered_skills", snapshot.RegisteredSkillCount),
+                ("ready_skills", snapshot.ReadySkillCount),
+                ("elapsed_ms", Math.Max(0, (int)Math.Round(elapsedSeconds * 1000f))),
             ];
 
         if (outcome == CurrentReplayPresentationGateOutcome.TimedOut)
         {
             BppLog.WarnEvent(
-                CombatReplayLogEvents.CurrentRecordingPresentationGateResolved,
+                new BppLogEvent(
+                    BppLogFeatureScope.CombatReplay,
+                    "combat_replay.current_recording.presentation_gate_resolved"
+                ),
                 Fields()
             );
             return;
         }
 
-        BppLog.InfoEvent(CombatReplayLogEvents.CurrentRecordingPresentationGateResolved, Fields());
+        BppLog.InfoEvent(
+            new BppLogEvent(
+                BppLogFeatureScope.CombatReplay,
+                "combat_replay.current_recording.presentation_gate_resolved"
+            ),
+            Fields()
+        );
     }
 
     private void OnNativeReplayStarted()
@@ -1948,13 +1935,16 @@ internal sealed class CombatReplayRuntime : MonoBehaviour
     private static void LogCleanupFailure(string stage, string? battleId, Exception exception)
     {
         BppLog.DebugEvent(
-            CombatReplayLogEvents.PlaybackCleanupObserved,
+            new BppLogEvent(
+                BppLogFeatureScope.CombatReplay,
+                "combat_replay.playback.cleanup_observed"
+            ),
             exception,
             () =>
                 [
-                    CombatReplayLogEvents.CleanupObservedStage.Bind(stage),
-                    CombatReplayLogEvents.CleanupObservedRemovedCount.Bind(0),
-                    CombatReplayLogEvents.CleanupObservedBattleId.Bind(battleId),
+                    ("stage", stage),
+                    ("removed_count", 0),
+                    ("battle_id", battleId, BppLogCorrelationPolicy.Short),
                 ]
         );
     }
@@ -2141,12 +2131,15 @@ internal sealed class CombatReplayRuntime : MonoBehaviour
     )
     {
         BppLog.DebugEvent(
-            CombatReplayLogEvents.RequestRejected,
+            new BppLogEvent(
+                BppLogFeatureScope.CombatReplay,
+                "combat_replay.playback.request_rejected"
+            ),
             () =>
                 [
-                    CombatReplayLogEvents.RequestRejectedSource.Bind(source),
-                    CombatReplayLogEvents.RequestRejectedReasonCode.Bind(reasonCode),
-                    CombatReplayLogEvents.RequestRejectedBattleId.Bind(battleId),
+                    ("source", source),
+                    ("reason_code", reasonCode),
+                    ("battle_id", battleId, BppLogCorrelationPolicy.Short),
                 ]
         );
     }

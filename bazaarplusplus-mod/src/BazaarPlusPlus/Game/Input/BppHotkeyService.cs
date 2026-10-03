@@ -2,6 +2,7 @@
 using BazaarPlusPlus.Core.Config;
 using BazaarPlusPlus.Game.Settings;
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.Controls;
 
@@ -318,12 +319,23 @@ internal static class BppHotkeyService
         if (!BindingFailureGate.ShouldReport(actionId, bindingPath, reasonCode))
             return;
 
-        var reasonField = SettingsLogEvents.HotkeyDegradedReasonCode.Bind(reasonCode);
-        BppLog.RecoverStorm(SettingsLogEvents.HotkeyDegraded, reasonField);
+        BppLogField reasonField = ("reason_code", reasonCode);
+        BppLog.RecoverStorm(
+            new BppLogEvent(
+                BppLogFeatureScope.Settings,
+                "settings.hotkey.degraded",
+                storm: ["reason_code"]
+            ),
+            reasonField
+        );
         BppLog.WarnEvent(
-            SettingsLogEvents.HotkeyDegraded,
-            SettingsLogEvents.HotkeyDegradedActionId.Bind(actionId),
-            SettingsLogEvents.HotkeyDegradedBindingPath.Bind(bindingPath),
+            new BppLogEvent(
+                BppLogFeatureScope.Settings,
+                "settings.hotkey.degraded",
+                storm: ["reason_code"]
+            ),
+            ("action_id", actionId),
+            ("binding_path", bindingPath, BppLogCorrelationPolicy.Hash),
             reasonField
         );
     }

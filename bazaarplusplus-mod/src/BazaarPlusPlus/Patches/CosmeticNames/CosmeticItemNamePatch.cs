@@ -1,6 +1,7 @@
 #nullable enable
 using BazaarPlusPlus.Game.CosmeticNames;
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 using HarmonyLib;
 using TheBazaar;
 
@@ -22,7 +23,14 @@ internal static class CosmeticItemNamePatch
         }
         catch (Exception ex)
         {
-            BppLog.WarnEvent(CosmeticNamesLogEvents.OverlayDegraded, ex);
+            BppLog.WarnEvent(
+                new BppLogEvent(
+                    BppLogFeatureScope.CosmeticNames,
+                    "cosmetic_names.overlay.degraded",
+                    storm: []
+                ),
+                ex
+            );
         }
     }
 }

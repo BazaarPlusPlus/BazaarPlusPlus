@@ -6,6 +6,7 @@ using BazaarPlusPlus.Game.PostCombatImpact.Data;
 using BazaarPlusPlus.Game.PostCombatImpact.Ui;
 using BazaarPlusPlus.GameInterop.Tooltips;
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 using TheBazaar;
 using TheBazaar.Tooltips;
 using TheBazaar.UI.Tooltips;
@@ -983,15 +984,19 @@ internal sealed class PostCombatImpactController : MonoBehaviour
         bool recovered
     ) =>
         BppLog.WarnEvent(
-            PostCombatImpactLogEvents.NativeAuxiliaryAnomaly,
-            PostCombatImpactLogEvents.AnomalyCategory.Bind(category),
-            PostCombatImpactLogEvents.AnomalyPhase.Bind(phase),
-            PostCombatImpactLogEvents.HeaderActive.Bind(state.HeaderActive),
-            PostCombatImpactLogEvents.BodyActive.Bind(state.BodyActive),
-            PostCombatImpactLogEvents.HeaderEmpty.Bind(state.HeaderEmpty),
-            PostCombatImpactLogEvents.BodyEmpty.Bind(state.BodyEmpty),
-            PostCombatImpactLogEvents.PairedContentActive.Bind(_view?.IsContentActive == true),
-            PostCombatImpactLogEvents.Recovered.Bind(recovered)
+            new BppLogEvent(
+                BppLogFeatureScope.PostCombatImpact,
+                "post_combat_impact.native_auxiliary.anomaly",
+                storm: ["category", "phase"]
+            ),
+            ("category", category),
+            ("phase", phase),
+            ("header_active", state.HeaderActive),
+            ("body_active", state.BodyActive),
+            ("header_empty", state.HeaderEmpty),
+            ("body_empty", state.BodyEmpty),
+            ("paired_content_active", _view?.IsContentActive == true),
+            ("recovered", recovered)
         );
 
     internal void OnNativeAuxiliaryTooltipHiding(AuxiliaryTooltipController controller)
@@ -1263,23 +1268,27 @@ internal sealed class PostCombatImpactController : MonoBehaviour
 
     private static void LogInteraction(PostCombatImpactReasonCode reasonCode) =>
         BppLog.DebugEvent(
-            PostCombatImpactLogEvents.InteractionObserved,
-            () => [PostCombatImpactLogEvents.ReasonCode.Bind(reasonCode)]
+            new BppLogEvent(
+                BppLogFeatureScope.PostCombatImpact,
+                "post_combat_impact.interaction.observed"
+            ),
+            () => [("reason_code", reasonCode)]
         );
 
+    // Card-identified interaction trail. Exists because the plain observed trail proved unable
+    // to attribute silent per-card failures: it shows a hover with no outcome but not which card
+    // or which silent gate swallowed it.
     private static void LogInteractionTrace(
         PostCombatImpactReasonCode reasonCode,
         Guid cardTemplateId,
         string detail
     ) =>
         BppLog.DebugEvent(
-            PostCombatImpactLogEvents.InteractionTraced,
-            () =>
-                [
-                    PostCombatImpactLogEvents.ReasonCode.Bind(reasonCode),
-                    PostCombatImpactLogEvents.Card.Bind(cardTemplateId),
-                    PostCombatImpactLogEvents.Detail.Bind(detail),
-                ]
+            new BppLogEvent(
+                BppLogFeatureScope.PostCombatImpact,
+                "post_combat_impact.interaction.traced"
+            ),
+            () => [("reason_code", reasonCode), ("card", cardTemplateId), ("detail", detail)]
         );
 
     private static void LogInteractionFailure(
@@ -1287,15 +1296,23 @@ internal sealed class PostCombatImpactController : MonoBehaviour
         Exception exception
     ) =>
         BppLog.WarnEvent(
-            PostCombatImpactLogEvents.InteractionDegraded,
+            new BppLogEvent(
+                BppLogFeatureScope.PostCombatImpact,
+                "post_combat_impact.interaction.degraded",
+                storm: ["reason_code"]
+            ),
             exception,
-            PostCombatImpactLogEvents.ReasonCode.Bind(reasonCode)
+            ("reason_code", reasonCode)
         );
 
     private static void LogInteractionDegraded(PostCombatImpactReasonCode reasonCode) =>
         BppLog.WarnEvent(
-            PostCombatImpactLogEvents.InteractionDegraded,
-            PostCombatImpactLogEvents.ReasonCode.Bind(reasonCode)
+            new BppLogEvent(
+                BppLogFeatureScope.PostCombatImpact,
+                "post_combat_impact.interaction.degraded",
+                storm: ["reason_code"]
+            ),
+            ("reason_code", reasonCode)
         );
 
     private void OnDestroy()

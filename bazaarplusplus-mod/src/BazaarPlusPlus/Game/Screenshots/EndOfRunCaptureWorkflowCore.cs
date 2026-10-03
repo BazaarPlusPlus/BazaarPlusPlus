@@ -1,5 +1,6 @@
 #nullable enable
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 using BazaarPlusPlus.Storage.RunScreenshot;
 
 namespace BazaarPlusPlus.Game.Screenshots;
@@ -947,26 +948,28 @@ internal sealed class EndOfRunCaptureWorkflowCore<TScreen>
     {
         try
         {
-            var fields = new[]
+            var fields = new BppLogField[]
             {
-                ScreenshotCaptureLogEvents.ScreenshotId.Bind(operation.ScreenshotId),
-                ScreenshotCaptureLogEvents.RunId.Bind(operation.RunId),
-                ScreenshotCaptureLogEvents.CaptureSource.Bind(
-                    RunScreenshotCaptureSource.EndOfRunAuto
-                ),
-                ScreenshotCaptureLogEvents.ReasonCode.Bind(reason),
-                ScreenshotCaptureLogEvents.ArtifactStatus.Bind(artifactStatus),
-                ScreenshotCaptureLogEvents.AttemptCount.Bind(operation.AttemptCount),
-                ScreenshotCaptureLogEvents.DurationMs.Bind(
-                    Math.Max(0, _clock.Milliseconds - operation.StartedAtMilliseconds)
-                ),
-                ScreenshotCaptureLogEvents.FilePath.Bind(filePath),
+                ("screenshot_id", operation.ScreenshotId, BppLogCorrelationPolicy.Short),
+                ("run_id", operation.RunId, BppLogCorrelationPolicy.Short),
+                ("capture_source", RunScreenshotCaptureSource.EndOfRunAuto),
+                ("reason_code", reason),
+                ("artifact_status", artifactStatus),
+                ("attempt_count", operation.AttemptCount),
+                ("duration_ms", Math.Max(0, _clock.Milliseconds - operation.StartedAtMilliseconds)),
+                ("file_path", filePath),
             };
             var definition = kind switch
             {
-                CaptureTerminalKind.Succeeded => ScreenshotCaptureLogEvents.CaptureSucceeded,
-                CaptureTerminalKind.Degraded => ScreenshotCaptureLogEvents.CaptureDegraded,
-                _ => ScreenshotCaptureLogEvents.CaptureFailed,
+                CaptureTerminalKind.Succeeded => new BppLogEvent(
+                    BppLogFeatureScope.Screenshots,
+                    "screenshots.capture.succeeded"
+                ),
+                CaptureTerminalKind.Degraded => new BppLogEvent(
+                    BppLogFeatureScope.Screenshots,
+                    "screenshots.capture.degraded"
+                ),
+                _ => new BppLogEvent(BppLogFeatureScope.Screenshots, "screenshots.capture.failed"),
             };
             if (kind == CaptureTerminalKind.Succeeded)
                 BppLog.InfoEvent(definition, fields);

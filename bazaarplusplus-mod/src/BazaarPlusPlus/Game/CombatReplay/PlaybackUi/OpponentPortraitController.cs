@@ -7,6 +7,7 @@ using BazaarGameShared.TempoNet.Enums;
 using BazaarGameShared.TempoNet.Models;
 using BazaarPlusPlus.Game.PvpBattles;
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 using TheBazaar;
 using TheBazaar.AppFramework;
 using TheBazaar.Assets.Scripts.ScriptableObjectsScripts;
@@ -120,13 +121,16 @@ internal sealed class OpponentPortraitController
             catch (Exception ex)
             {
                 BppLog.DebugEvent(
-                    CombatReplayLogEvents.PlaybackCleanupObserved,
+                    new BppLogEvent(
+                        BppLogFeatureScope.CombatReplay,
+                        "combat_replay.playback.cleanup_observed"
+                    ),
                     ex,
                     () =>
                         [
-                            CombatReplayLogEvents.CleanupObservedStage.Bind("opponent_portrait"),
-                            CombatReplayLogEvents.CleanupObservedRemovedCount.Bind(0),
-                            CombatReplayLogEvents.CleanupObservedBattleId.Bind(battleId),
+                            ("stage", "opponent_portrait"),
+                            ("removed_count", 0),
+                            ("battle_id", battleId, BppLogCorrelationPolicy.Short),
                         ]
                 );
             }

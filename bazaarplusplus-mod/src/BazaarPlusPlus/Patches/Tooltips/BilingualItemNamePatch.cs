@@ -2,6 +2,7 @@
 using BazaarPlusPlus.Game.BilingualItemNames;
 using BazaarPlusPlus.GameInterop.Localization;
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 using BazaarPlusPlus.Localization;
 using HarmonyLib;
 using TheBazaar.Tooltips;
@@ -54,11 +55,13 @@ internal static class BilingualItemNamePatch
         catch (Exception ex)
         {
             BppLog.WarnEvent(
-                BilingualItemNamesLogEvents.TooltipDegraded,
+                new BppLogEvent(
+                    BppLogFeatureScope.BilingualItemNames,
+                    "bilingual_item_names.tooltip.degraded",
+                    storm: ["reason_code"]
+                ),
                 ex,
-                BilingualItemNamesLogEvents.TooltipDegradedReasonCode.Bind(
-                    BilingualLogReasonCode.TooltipPatchException
-                )
+                ("reason_code", BilingualLogReasonCode.TooltipPatchException)
             );
         }
     }

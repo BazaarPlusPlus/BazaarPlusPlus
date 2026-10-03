@@ -6,6 +6,7 @@ using BazaarPlusPlus.Game.Tooltips;
 using BazaarPlusPlus.GameInterop.LiveCards;
 using BazaarPlusPlus.GameInterop.StaticCards;
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 using HarmonyLib;
 using TheBazaar.UI.Tooltips;
 
@@ -48,14 +49,14 @@ internal static class AggregateItemMissingTypesTooltipPatch
         catch (Exception ex)
         {
             BppLog.WarnEvent(
-                TooltipLogEvents.SectionDegraded,
-                ex,
-                TooltipLogEvents.SectionDegradedSectionId.Bind(
-                    TooltipSectionId.AggregateMissingTypes
+                new BppLogEvent(
+                    BppLogFeatureScope.Tooltips,
+                    "tooltips.section.degraded",
+                    storm: ["section_id", "reason_code"]
                 ),
-                TooltipLogEvents.SectionDegradedReasonCode.Bind(
-                    TooltipLogReasonCode.RenderException
-                )
+                ex,
+                ("section_id", TooltipSectionId.AggregateMissingTypes),
+                ("reason_code", TooltipLogReasonCode.RenderException)
             );
         }
     }

@@ -1,5 +1,6 @@
 #nullable enable
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 
 namespace BazaarPlusPlus.Game.CombatReplay.Video;
 
@@ -133,17 +134,26 @@ internal sealed class ReplayVideoRecordingOperation
 
         if (!artifactUsable)
         {
-            var failed = new List<Infrastructure.Logging.BppLogFieldValue>(common)
+            var failed = new List<Infrastructure.Logging.BppLogField>(common)
             {
-                CombatReplayVideoLogEvents.ExitCode.Bind(completion.ExitCode),
-                CombatReplayVideoLogEvents.StderrTail.Bind(completion.StderrTail),
+                ("exit_code", completion.ExitCode),
+                ("stderr_tail", completion.StderrTail),
             };
             if (completion.Exception == null)
-                BppLog.ErrorEvent(CombatReplayVideoLogEvents.RecordingFailed, failed.ToArray());
+                BppLog.ErrorEvent(
+                    new BppLogEvent(
+                        BppLogFeatureScope.CombatReplay,
+                        "combat_replay.video_recording.failed"
+                    ),
+                    failed.ToArray()
+                );
             else
             {
                 BppLog.ErrorEvent(
-                    CombatReplayVideoLogEvents.RecordingFailed,
+                    new BppLogEvent(
+                        BppLogFeatureScope.CombatReplay,
+                        "combat_replay.video_recording.failed"
+                    ),
                     completion.Exception,
                     failed.ToArray()
                 );
@@ -157,16 +167,31 @@ internal sealed class ReplayVideoRecordingOperation
             && completion.MetadataStatus == ReplayVideoMetadataStatus.Complete
         )
         {
-            BppLog.InfoEvent(CombatReplayVideoLogEvents.RecordingSucceeded, common);
+            BppLog.InfoEvent(
+                new BppLogEvent(
+                    BppLogFeatureScope.CombatReplay,
+                    "combat_replay.video_recording.succeeded"
+                ),
+                common
+            );
             return true;
         }
 
         if (completion.Exception == null)
-            BppLog.WarnEvent(CombatReplayVideoLogEvents.RecordingDegraded, common);
+            BppLog.WarnEvent(
+                new BppLogEvent(
+                    BppLogFeatureScope.CombatReplay,
+                    "combat_replay.video_recording.degraded"
+                ),
+                common
+            );
         else
         {
             BppLog.WarnEvent(
-                CombatReplayVideoLogEvents.RecordingDegraded,
+                new BppLogEvent(
+                    BppLogFeatureScope.CombatReplay,
+                    "combat_replay.video_recording.degraded"
+                ),
                 completion.Exception,
                 common
             );
@@ -174,24 +199,24 @@ internal sealed class ReplayVideoRecordingOperation
         return true;
     }
 
-    private Infrastructure.Logging.BppLogFieldValue[] CommonFields(
+    private Infrastructure.Logging.BppLogField[] CommonFields(
         ReplayVideoRecordingCompletion completion,
         ReplayVideoRecordingReasonCode reason,
         long duration,
         long fileSize
     ) =>
         [
-            CombatReplayVideoLogEvents.RecordingId.Bind(RecordingId),
-            CombatReplayVideoLogEvents.BattleId.Bind(BattleId),
-            CombatReplayVideoLogEvents.Source.Bind(Source),
-            CombatReplayVideoLogEvents.ReasonCode.Bind(reason),
-            CombatReplayVideoLogEvents.DurationMs.Bind(duration),
-            CombatReplayVideoLogEvents.CapturedFrames.Bind(completion.CapturedFrames),
-            CombatReplayVideoLogEvents.DroppedFrames.Bind(completion.DroppedFrames),
-            CombatReplayVideoLogEvents.SizeBytes.Bind(fileSize),
-            CombatReplayVideoLogEvents.AudioStatus.Bind(completion.AudioStatus),
-            CombatReplayVideoLogEvents.MetadataStatus.Bind(completion.MetadataStatus),
-            CombatReplayVideoLogEvents.OutputPath.Bind(completion.FinalFilePath),
+            ("recording_id", RecordingId, BppLogCorrelationPolicy.Short),
+            ("battle_id", BattleId, BppLogCorrelationPolicy.Short),
+            ("source", Source),
+            ("reason_code", reason),
+            ("duration_ms", duration),
+            ("captured_frames", completion.CapturedFrames),
+            ("dropped_frames", completion.DroppedFrames),
+            ("size_bytes", fileSize),
+            ("audio_status", completion.AudioStatus),
+            ("metadata_status", completion.MetadataStatus),
+            ("output_path", completion.FinalFilePath),
         ];
 
     private static long TryGetVerifiedFileSize(string? filePath)

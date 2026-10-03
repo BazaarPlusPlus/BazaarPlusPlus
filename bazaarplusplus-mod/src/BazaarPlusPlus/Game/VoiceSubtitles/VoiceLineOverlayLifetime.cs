@@ -1,6 +1,7 @@
 #nullable enable
 
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 using UnityEngine;
 
 namespace BazaarPlusPlus.Game.VoiceSubtitles;
@@ -79,23 +80,22 @@ internal sealed class VoiceLineOverlayLifetime : MonoBehaviour
         if (_labelObject != null)
             _labelObject.SetActive(false);
         BppLog.DebugEvent(
-            VoiceSubtitlesDisplayLogEvents.DisplayHidden,
+            new BppLogEvent(BppLogFeatureScope.VoiceSubtitles, "voice_subtitles.display.hidden"),
             () =>
                 [
-                    VoiceSubtitlesDisplayLogEvents.DisplayHiddenDisplayId.Bind(_displayId),
-                    VoiceSubtitlesDisplayLogEvents.DisplayHiddenAttemptId.Bind(_attemptId),
-                    VoiceSubtitlesDisplayLogEvents.DisplayHiddenStem.Bind(_stem),
-                    VoiceSubtitlesDisplayLogEvents.DisplayHiddenReasonCode.Bind(reasonCode),
-                    VoiceSubtitlesDisplayLogEvents.DisplayHiddenElapsedMs.Bind(
+                    ("display_id", _displayId, BppLogCorrelationPolicy.Full),
+                    ("attempt_id", _attemptId, BppLogCorrelationPolicy.Full),
+                    ("stem", _stem),
+                    ("reason_code", reasonCode),
+                    (
+                        "elapsed_ms",
                         (long)
                             Math.Round(
                                 Mathf.Max(0f, Time.unscaledTime - _shownAt) * 1000f,
                                 MidpointRounding.AwayFromZero
                             )
                     ),
-                    VoiceSubtitlesDisplayLogEvents.DisplayHiddenPlaybackState.Bind(
-                        PlaybackStateText()
-                    ),
+                    ("playback_state", PlaybackStateText()),
                 ]
         );
         _isPlaybackStoppedOrStopping = null;
@@ -112,13 +112,15 @@ internal sealed class VoiceLineOverlayLifetime : MonoBehaviour
         catch (Exception ex)
         {
             BppLog.WarnEvent(
-                VoiceSubtitlesDisplayLogEvents.PlaybackTrackingDegraded,
+                new BppLogEvent(
+                    BppLogFeatureScope.VoiceSubtitles,
+                    "voice_subtitles.playback_tracking.degraded",
+                    storm: ["reason_code"]
+                ),
                 ex,
-                VoiceSubtitlesDisplayLogEvents.PlaybackTrackingDegradedDisplayId.Bind(_displayId),
-                VoiceSubtitlesDisplayLogEvents.PlaybackTrackingDegradedAttemptId.Bind(_attemptId),
-                VoiceSubtitlesDisplayLogEvents.PlaybackTrackingDegradedReasonCode.Bind(
-                    VoiceSubtitlesLogReasonCode.PlaybackQueryException
-                )
+                ("display_id", _displayId, BppLogCorrelationPolicy.Full),
+                ("attempt_id", _attemptId, BppLogCorrelationPolicy.Full),
+                ("reason_code", VoiceSubtitlesLogReasonCode.PlaybackQueryException)
             );
             return false;
         }

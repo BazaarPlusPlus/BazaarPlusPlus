@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using BazaarPlusPlus.Core.Runtime;
 using BazaarPlusPlus.Game.Upload;
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 using BazaarPlusPlus.ModApi;
 using BazaarPlusPlus.ModApi.Clients;
 using BazaarPlusPlus.Storage.BundleQueue;
@@ -110,7 +111,10 @@ internal static class BundleUploadFeed
                     {
                         _files.Delete(row.FileName);
                         BundlePipelineLog.Info(
-                            BundlePipelineLogEvents.UploadSucceeded,
+                            new BppLogEvent(
+                                BppLogFeatureScope.BundlePipeline,
+                                "bundle_pipeline.upload.succeeded"
+                            ),
                             row.RunId,
                             row.BundleId
                         );
@@ -119,7 +123,11 @@ internal static class BundleUploadFeed
                     else if (response.Disposition == BundleUploadDisposition.Transient)
                     {
                         BundlePipelineLog.Warn(
-                            BundlePipelineLogEvents.UploadDegraded,
+                            new BppLogEvent(
+                                BppLogFeatureScope.BundlePipeline,
+                                "bundle_pipeline.upload.degraded",
+                                storm: ["category"]
+                            ),
                             response.Code,
                             response.DiagnosticException,
                             runId: row.RunId
@@ -136,7 +144,11 @@ internal static class BundleUploadFeed
                     else
                     {
                         BundlePipelineLog.Warn(
-                            BundlePipelineLogEvents.UploadDegraded,
+                            new BppLogEvent(
+                                BppLogFeatureScope.BundlePipeline,
+                                "bundle_pipeline.upload.degraded",
+                                storm: ["category"]
+                            ),
                             response.Code,
                             response.DiagnosticException,
                             runId: row.RunId
@@ -159,7 +171,11 @@ internal static class BundleUploadFeed
                         DateTimeOffset.UtcNow
                     );
                     BundlePipelineLog.Warn(
-                        BundlePipelineLogEvents.UploadDegraded,
+                        new BppLogEvent(
+                            BppLogFeatureScope.BundlePipeline,
+                            "bundle_pipeline.upload.degraded",
+                            storm: ["category"]
+                        ),
                         "pending_file_missing",
                         runId: row.RunId
                     );
@@ -179,7 +195,11 @@ internal static class BundleUploadFeed
                         DateTimeOffset.UtcNow
                     );
                     BundlePipelineLog.Warn(
-                        BundlePipelineLogEvents.UploadDegraded,
+                        new BppLogEvent(
+                            BppLogFeatureScope.BundlePipeline,
+                            "bundle_pipeline.upload.degraded",
+                            storm: ["category"]
+                        ),
                         ex.Message,
                         ex,
                         row.RunId
@@ -196,7 +216,11 @@ internal static class BundleUploadFeed
                 {
                     RecordTransient(row, "file_io_error", ex.Message, null);
                     BundlePipelineLog.Warn(
-                        BundlePipelineLogEvents.UploadDegraded,
+                        new BppLogEvent(
+                            BppLogFeatureScope.BundlePipeline,
+                            "bundle_pipeline.upload.degraded",
+                            storm: ["category"]
+                        ),
                         "file_io_error",
                         ex,
                         row.RunId

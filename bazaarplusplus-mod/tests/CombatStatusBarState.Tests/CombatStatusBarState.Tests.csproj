@@ -56,5 +56,10 @@
       Include="..\..\src\BazaarPlusPlus\Core\Events\InMemoryBppEventBus.cs"
       Link="InMemoryBppEventBus.cs"
     />
+    <Compile
+      Include="..\..\src\BazaarPlusPlus\Infrastructure\Logging\Core\BppLogSchema.cs"
+      Link="BppLogSchema.cs"
+    />
+    <Compile Include="..\..\src\BazaarPlusPlus\PluginLogCodes.cs" Link="PluginLogCodes.cs" />
   </ItemGroup>
 </Project>

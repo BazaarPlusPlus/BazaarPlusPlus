@@ -3,6 +3,7 @@ using BazaarPlusPlus.Core.Events;
 using BazaarPlusPlus.Core.Runtime;
 using BazaarPlusPlus.Game.BundlePipeline;
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 using BazaarPlusPlus.ModApi;
 using UnityEngine;
 
@@ -108,13 +109,13 @@ internal sealed class BackgroundUploadPump : MonoBehaviour
             if (!_startupRunner.TryDrainPendingTaskOnShutdown(ShutdownDrainTimeout, disposeSession))
             {
                 BppLog.WarnEvent(
-                    UploadLogEvents.ShutdownDrainDegraded,
-                    UploadLogEvents.ShutdownDrainDegradedTimeoutMs.Bind(
-                        (long)ShutdownDrainTimeout.TotalMilliseconds
+                    new BppLogEvent(
+                        BppLogFeatureScope.Upload,
+                        "upload.shutdown_drain.degraded",
+                        storm: ["reason_code"]
                     ),
-                    UploadLogEvents.ShutdownDrainDegradedReasonCode.Bind(
-                        UploadLogReasonCode.ShutdownDrainTimeout
-                    )
+                    ("timeout_ms", (long)ShutdownDrainTimeout.TotalMilliseconds),
+                    ("reason_code", UploadLogReasonCode.ShutdownDrainTimeout)
                 );
             }
         }

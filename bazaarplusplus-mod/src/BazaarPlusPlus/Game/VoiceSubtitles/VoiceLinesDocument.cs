@@ -1,5 +1,6 @@
 #nullable enable
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 
 namespace BazaarPlusPlus.Game.VoiceSubtitles;
 
@@ -46,13 +47,16 @@ internal sealed class VoiceLinesDocument
     )
     {
         BppLog.DebugEvent(
-            VoiceCatalogLogEvents.CatalogRowSkipped,
+            new BppLogEvent(
+                BppLogFeatureScope.VoiceSubtitles,
+                "voice_subtitles.catalog_row.skipped"
+            ),
             () =>
                 [
-                    VoiceCatalogLogEvents.CatalogRowSkippedSource.Bind(source),
-                    VoiceCatalogLogEvents.CatalogRowSkippedRowNumber.Bind(rowNumber),
-                    VoiceCatalogLogEvents.CatalogRowSkippedReasonCode.Bind(reasonCode),
-                    VoiceCatalogLogEvents.CatalogRowSkippedStem.Bind(stem),
+                    ("source", source),
+                    ("row_number", rowNumber),
+                    ("reason_code", reasonCode),
+                    ("stem", stem),
                 ]
         );
     }

@@ -2,6 +2,7 @@
 using BazaarPlusPlus.Core.Config;
 using BazaarPlusPlus.GameInterop.GraphicsUpscaling;
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 using UnityEngine;
 
 namespace BazaarPlusPlus.Game.GraphicsUpscaling;
@@ -45,8 +46,12 @@ internal sealed class GraphicsUpscalingController : MonoBehaviour
             if (!_unavailableLogged && mode != GraphicsUpscalingMode.Native)
             {
                 BppLog.WarnEvent(
-                    GraphicsUpscalingLogEvents.Unavailable,
-                    GraphicsUpscalingLogEvents.UnavailableMode.Bind(mode)
+                    new BppLogEvent(
+                        BppLogFeatureScope.GraphicsUpscaling,
+                        "graphics_upscaling.runtime.unavailable",
+                        storm: ["mode"]
+                    ),
+                    ("mode", mode)
                 );
                 _unavailableLogged = true;
             }
@@ -57,7 +62,13 @@ internal sealed class GraphicsUpscalingController : MonoBehaviour
         if (_unavailableLogged)
         {
             _unavailableLogged = false;
-            BppLog.RecoverStorm(GraphicsUpscalingLogEvents.Unavailable);
+            BppLog.RecoverStorm(
+                new BppLogEvent(
+                    BppLogFeatureScope.GraphicsUpscaling,
+                    "graphics_upscaling.runtime.unavailable",
+                    storm: ["mode"]
+                )
+            );
         }
 
         if (_lastLoggedState == state)
@@ -65,23 +76,18 @@ internal sealed class GraphicsUpscalingController : MonoBehaviour
 
         _lastLoggedState = state;
         BppLog.InfoEvent(
-            GraphicsUpscalingLogEvents.Applied,
-            GraphicsUpscalingLogEvents.AppliedMode.Bind(mode),
-            GraphicsUpscalingLogEvents.AppliedEffectiveFilter.Bind(state.EffectiveFilter),
-            GraphicsUpscalingLogEvents.AppliedRenderScale.Bind(state.RenderScale),
-            GraphicsUpscalingLogEvents.AppliedRenderPixelRatio.Bind(
-                state.RenderScale * state.RenderScale
+            new BppLogEvent(
+                BppLogFeatureScope.GraphicsUpscaling,
+                "graphics_upscaling.state.applied"
             ),
-            GraphicsUpscalingLogEvents.AppliedFsrSharpness.Bind(state.FsrSharpness),
-            GraphicsUpscalingLogEvents.AppliedOutputResolution.Bind(
-                $"{state.OutputWidth}x{state.OutputHeight}"
-            ),
-            GraphicsUpscalingLogEvents.AppliedInternalResolution.Bind(
-                $"{state.InternalWidth}x{state.InternalHeight}"
-            ),
-            GraphicsUpscalingLogEvents.AppliedDynamicBufferScale.Bind(
-                $"{state.DynamicWidthScale:F2}x{state.DynamicHeightScale:F2}"
-            )
+            ("mode", mode),
+            ("effective_filter", state.EffectiveFilter),
+            ("render_scale", state.RenderScale),
+            ("render_pixel_ratio", state.RenderScale * state.RenderScale),
+            ("fsr_sharpness", state.FsrSharpness),
+            ("output_resolution", $"{state.OutputWidth}x{state.OutputHeight}"),
+            ("internal_resolution", $"{state.InternalWidth}x{state.InternalHeight}"),
+            ("dynamic_buffer_scale", $"{state.DynamicWidthScale:F2}x{state.DynamicHeightScale:F2}")
         );
     }
 }

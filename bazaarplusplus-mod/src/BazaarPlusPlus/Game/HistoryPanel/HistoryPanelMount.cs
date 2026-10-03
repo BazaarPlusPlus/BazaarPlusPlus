@@ -4,6 +4,7 @@ using BazaarPlusPlus.Core.Runtime;
 using BazaarPlusPlus.Game.CombatReplay;
 using BazaarPlusPlus.Game.OverlayPanels;
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 using BazaarPlusPlus.ModApi.Clients;
 using BazaarPlusPlus.Storage.Paths;
 using UnityEngine;
@@ -86,11 +87,9 @@ internal sealed class HistoryPanelMount : IBppMountable
     private static void LogMissingDependency(HistoryPanelMountDependency dependency)
     {
         BppLog.ErrorEvent(
-            HistoryPanelLogEvents.MountFailed,
-            HistoryPanelLogEvents.MountDependency.Bind(dependency),
-            HistoryPanelLogEvents.MountReasonCode.Bind(
-                HistoryPanelMountReasonCode.DependencyUnavailable
-            )
+            new BppLogEvent(BppLogFeatureScope.HistoryPanel, "history_panel.mount.failed"),
+            ("dependency", dependency),
+            ("reason_code", HistoryPanelMountReasonCode.DependencyUnavailable)
         );
     }
 

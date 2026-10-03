@@ -5,14 +5,8 @@ using System.Text;
 
 namespace BazaarPlusPlus.Infrastructure.Logging;
 
-internal sealed class BppLogValueFormatter
+internal static class BppLogValueFormatter
 {
-    internal const int DefaultValueBudget = 256;
-    internal const int FingerprintInputCharacterBudget = 1024 * 1024;
-
-    private const int ScalarInputBudget = 4096;
-    private const int ExceptionInputBudget = 16384;
-    private const int DiagnosticInputLimit = 1024 * 1024;
     private const int HashChunkBytes = 1024;
 
     // Emit can run off the main thread, so the reusable hash state is per thread. The
@@ -23,97 +17,32 @@ internal sealed class BppLogValueFormatter
     [ThreadStatic]
     private static byte[]? _hashBuffer;
 
-    internal RenderedValue Render(BppLogFieldDefinition field, object? value)
+    internal static string Render(BppLogField field)
     {
-        if (value == null)
-            return new RenderedValue("null", false);
+        if (field.Value == null)
+            return "null";
 
         string raw;
         try
         {
-            raw = FormatScalar(value);
+            raw = FormatScalar(field.Value);
         }
         catch
         {
-            return new RenderedValue("<unrenderable>", false);
+            return "<unrenderable>";
         }
 
         try
         {
-            if (field.Correlation == BppLogCorrelationPolicy.Hash)
-            {
-                if (raw.Length > FingerprintInputCharacterBudget)
-                    return new RenderedValue("<correlation-too-long>", true);
-                var hashed = EscapeAndQuote(Hash(raw, 12), DefaultValueBudget, preserveTail: false);
-                return hashed;
-            }
-
-            raw = BoundHead(raw, ScalarInputBudget, out var inputTruncated);
-            raw = ApplyCorrelation(raw, field.Correlation);
-            var rendered = EscapeAndQuote(raw, DefaultValueBudget, preserveTail: false);
-            return new RenderedValue(rendered.Text, inputTruncated || rendered.Truncated);
+            return EscapeAndQuote(ApplyCorrelation(raw, field.Policy));
         }
         catch
         {
-            return new RenderedValue("<unrenderable>", false);
+            return "<unrenderable>";
         }
     }
 
-    internal RenderedValue RenderExceptionText(string raw, int budget, bool preserveTail)
-    {
-        try
-        {
-            if (raw.Length > DiagnosticInputLimit)
-                return new RenderedValue("<diagnostic-too-large>", true);
-            var bounded = BoundDiagnosticInput(
-                raw,
-                ExceptionInputBudget,
-                preserveTail,
-                out var inputTruncated
-            );
-            var rendered = EscapeAndQuote(bounded, budget, preserveTail);
-            return new RenderedValue(rendered.Text, inputTruncated || rendered.Truncated);
-        }
-        catch
-        {
-            return new RenderedValue("<unavailable>", false);
-        }
-    }
-
-    internal bool TryFingerprintValue(object? value, out string fingerprint)
-    {
-        fingerprint = string.Empty;
-        if (value == null)
-            return false;
-
-        try
-        {
-            return TryFingerprintText(FormatScalar(value), out fingerprint);
-        }
-        catch
-        {
-            return false;
-        }
-    }
-
-    internal bool TryFingerprintText(string? value, out string fingerprint)
-    {
-        fingerprint = string.Empty;
-        try
-        {
-            if (value == null || value.Length > FingerprintInputCharacterBudget)
-                return false;
-            fingerprint = Hash(value, 64);
-            return fingerprint.Length == 64;
-        }
-        catch
-        {
-            fingerprint = string.Empty;
-            return false;
-        }
-    }
-
-    private static string FormatScalar(object value)
+    internal static string FormatScalar(object value)
     {
         switch (value)
         {
@@ -138,31 +67,68 @@ internal sealed class BppLogValueFormatter
         }
     }
 
-    private static string FormatUtc(DateTime value)
+    internal static string EscapeAndQuote(string value)
     {
-        DateTime utc;
-        if (value.Kind == DateTimeKind.Unspecified)
-            utc = DateTime.SpecifyKind(value, DateTimeKind.Utc);
-        else
-            utc = value.ToUniversalTime();
-        return utc.ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'", CultureInfo.InvariantCulture);
-    }
+        if (!NeedsEscapeOrQuotes(value))
+            return value;
 
-    private static string ApplyCorrelation(string value, BppLogCorrelationPolicy policy)
-    {
-        switch (policy)
+        var builder = new StringBuilder(value.Length + 2);
+        var quote = NeedsQuotes(value);
+        if (quote)
+            builder.Append('"');
+        for (var index = 0; index < value.Length; index++)
         {
-            case BppLogCorrelationPolicy.None:
-            case BppLogCorrelationPolicy.Full:
-                return value;
-            case BppLogCorrelationPolicy.Short:
-                return TakeHead(value, 8);
-            default:
-                return "<invalid-correlation>";
+            var character = value[index];
+            switch (character)
+            {
+                case '\\':
+                    builder.Append("\\\\");
+                    break;
+                case '"':
+                    builder.Append("\\\"");
+                    break;
+                case '\r':
+                    builder.Append("\\r");
+                    break;
+                case '\n':
+                    builder.Append("\\n");
+                    break;
+                case '\t':
+                    builder.Append("\\t");
+                    break;
+                default:
+                    if (
+                        char.IsHighSurrogate(character)
+                        && index + 1 < value.Length
+                        && char.IsLowSurrogate(value[index + 1])
+                    )
+                    {
+                        builder.Append(character).Append(value[++index]);
+                    }
+                    else if (
+                        char.IsControl(character)
+                        || character == '\u2028'
+                        || character == '\u2029'
+                        || char.IsSurrogate(character)
+                    )
+                    {
+                        builder
+                            .Append("\\u")
+                            .Append(((int)character).ToString("X4", CultureInfo.InvariantCulture));
+                    }
+                    else
+                    {
+                        builder.Append(character);
+                    }
+                    break;
+            }
         }
+        if (quote)
+            builder.Append('"');
+        return builder.ToString();
     }
 
-    private static string Hash(string value, int hexCharacterCount)
+    internal static string Hash(string value, int hexCharacterCount)
     {
         var sha256 = _hashAlgorithm ??= SHA256.Create();
         sha256.Initialize();
@@ -243,6 +209,32 @@ internal sealed class BppLogValueFormatter
         return new string(result);
     }
 
+    private static string ApplyCorrelation(string value, BppLogCorrelationPolicy policy)
+    {
+        switch (policy)
+        {
+            case BppLogCorrelationPolicy.None:
+            case BppLogCorrelationPolicy.Full:
+                return value;
+            case BppLogCorrelationPolicy.Short:
+                return TakeHead(value, 8);
+            case BppLogCorrelationPolicy.Hash:
+                return Hash(value, 12);
+            default:
+                return "<invalid-correlation>";
+        }
+    }
+
+    private static string FormatUtc(DateTime value)
+    {
+        DateTime utc;
+        if (value.Kind == DateTimeKind.Unspecified)
+            utc = DateTime.SpecifyKind(value, DateTimeKind.Utc);
+        else
+            utc = value.ToUniversalTime();
+        return utc.ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'", CultureInfo.InvariantCulture);
+    }
+
     private static void AppendHashByte(HashAlgorithm hash, byte[] buffer, ref int count, byte value)
     {
         if (count == buffer.Length)
@@ -253,49 +245,10 @@ internal sealed class BppLogValueFormatter
         buffer[count++] = value;
     }
 
-    private static RenderedValue EscapeAndQuote(string value, int budget, bool preserveTail)
+    private static bool NeedsEscapeOrQuotes(string value)
     {
-        // A value that needs neither escaping nor quoting, and already fits the budget,
-        // renders as itself; one scan replaces the per-character token list.
-        if (RendersVerbatim(value, budget))
-            return new RenderedValue(value, false);
-
-        var tokens = Tokenize(value);
-        var quote = NeedsQuotes(value);
-        var contentBudget = Math.Max(0, budget - (quote ? 2 : 0));
-        var escapedLength = 0;
-        for (var index = 0; index < tokens.Count; index++)
-            escapedLength += tokens[index].Length;
-
-        if (escapedLength <= contentBudget)
-            return new RenderedValue(Wrap(tokens, quote), false);
-
-        const string marker = "…";
-        var selected = new System.Collections.Generic.List<string>();
-        var remaining = Math.Max(0, contentBudget - marker.Length);
-        if (preserveTail)
-        {
-            var headBudget = remaining / 2;
-            var tailBudget = remaining - headBudget;
-            var head = TakeTokensFromStart(tokens, headBudget);
-            var tail = TakeTokensFromEnd(tokens, tailBudget);
-            selected.AddRange(head);
-            selected.Add(marker);
-            selected.AddRange(tail);
-        }
-        else
-        {
-            selected.AddRange(TakeTokensFromStart(tokens, remaining));
-            selected.Add(marker);
-        }
-
-        return new RenderedValue(Wrap(selected, quote), true);
-    }
-
-    private static bool RendersVerbatim(string value, int budget)
-    {
-        if (value.Length == 0 || value.Length > budget)
-            return false;
+        if (value.Length == 0)
+            return true;
 
         for (var index = 0; index < value.Length; index++)
         {
@@ -307,74 +260,21 @@ internal sealed class BppLogValueFormatter
                 || character == '\\'
                 || character == '='
             )
-                return false;
+                return true;
 
             if (char.IsHighSurrogate(character))
             {
                 if (index + 1 >= value.Length || !char.IsLowSurrogate(value[index + 1]))
-                    return false;
+                    return true;
                 index++;
                 continue;
             }
 
             if (char.IsSurrogate(character))
-                return false;
+                return true;
         }
 
-        return true;
-    }
-
-    private static System.Collections.Generic.List<string> Tokenize(string value)
-    {
-        var tokens = new System.Collections.Generic.List<string>(value.Length);
-        for (var index = 0; index < value.Length; index++)
-        {
-            var character = value[index];
-            switch (character)
-            {
-                case '\\':
-                    tokens.Add("\\\\");
-                    break;
-                case '"':
-                    tokens.Add("\\\"");
-                    break;
-                case '\r':
-                    tokens.Add("\\r");
-                    break;
-                case '\n':
-                    tokens.Add("\\n");
-                    break;
-                case '\t':
-                    tokens.Add("\\t");
-                    break;
-                default:
-                    if (
-                        char.IsHighSurrogate(character)
-                        && index + 1 < value.Length
-                        && char.IsLowSurrogate(value[index + 1])
-                    )
-                    {
-                        tokens.Add(new string(new[] { character, value[++index] }));
-                    }
-                    else if (
-                        char.IsControl(character)
-                        || character == '\u2028'
-                        || character == '\u2029'
-                        || char.IsSurrogate(character)
-                    )
-                    {
-                        tokens.Add(
-                            "\\u" + ((int)character).ToString("X4", CultureInfo.InvariantCulture)
-                        );
-                    }
-                    else
-                    {
-                        tokens.Add(character.ToString());
-                    }
-                    break;
-            }
-        }
-        return tokens;
+        return false;
     }
 
     private static bool NeedsQuotes(string value)
@@ -396,54 +296,6 @@ internal sealed class BppLogValueFormatter
         return false;
     }
 
-    private static string Wrap(System.Collections.Generic.IReadOnlyList<string> tokens, bool quote)
-    {
-        var builder = new StringBuilder();
-        if (quote)
-            builder.Append('"');
-        for (var index = 0; index < tokens.Count; index++)
-            builder.Append(tokens[index]);
-        if (quote)
-            builder.Append('"');
-        return builder.ToString();
-    }
-
-    private static System.Collections.Generic.List<string> TakeTokensFromStart(
-        System.Collections.Generic.IReadOnlyList<string> tokens,
-        int budget
-    )
-    {
-        var result = new System.Collections.Generic.List<string>();
-        var used = 0;
-        for (var index = 0; index < tokens.Count; index++)
-        {
-            var token = tokens[index];
-            if (used + token.Length > budget)
-                break;
-            result.Add(token);
-            used += token.Length;
-        }
-        return result;
-    }
-
-    private static System.Collections.Generic.List<string> TakeTokensFromEnd(
-        System.Collections.Generic.IReadOnlyList<string> tokens,
-        int budget
-    )
-    {
-        var result = new System.Collections.Generic.List<string>();
-        var used = 0;
-        for (var index = tokens.Count - 1; index >= 0; index--)
-        {
-            var token = tokens[index];
-            if (used + token.Length > budget)
-                break;
-            result.Insert(0, token);
-            used += token.Length;
-        }
-        return result;
-    }
-
     private static string TakeHead(string value, int maxCharacters)
     {
         if (value.Length <= maxCharacters)
@@ -452,46 +304,6 @@ internal sealed class BppLogValueFormatter
         if (length > 0 && char.IsHighSurrogate(value[length - 1]))
             length--;
         return value.Substring(0, length);
-    }
-
-    private static string BoundHead(string value, int budget, out bool truncated)
-    {
-        if (value.Length <= budget)
-        {
-            truncated = false;
-            return value;
-        }
-
-        truncated = true;
-        return TakeHead(value, budget);
-    }
-
-    private static string BoundDiagnosticInput(
-        string value,
-        int budget,
-        bool preserveTail,
-        out bool truncated
-    )
-    {
-        if (value.Length <= budget)
-        {
-            truncated = false;
-            return value;
-        }
-
-        truncated = true;
-        if (!preserveTail)
-            return TakeHead(value, budget);
-
-        const string marker = "\n…\n";
-        var remaining = Math.Max(0, budget - marker.Length);
-        var headBudget = remaining / 2;
-        var tailBudget = remaining - headBudget;
-        var head = TakeHead(value, headBudget);
-        var tailStart = Math.Max(0, value.Length - tailBudget);
-        if (tailStart > 0 && char.IsLowSurrogate(value[tailStart]))
-            tailStart++;
-        return head + marker + value.Substring(tailStart);
     }
 
     private static string ToSnakeCase(string value)
@@ -514,17 +326,4 @@ internal sealed class BppLogValueFormatter
         }
         return builder.ToString();
     }
-}
-
-internal readonly struct RenderedValue
-{
-    internal RenderedValue(string text, bool truncated)
-    {
-        Text = text;
-        Truncated = truncated;
-    }
-
-    internal string Text { get; }
-
-    internal bool Truncated { get; }
 }

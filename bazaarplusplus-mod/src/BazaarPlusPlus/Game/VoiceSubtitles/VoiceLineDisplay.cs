@@ -6,6 +6,7 @@ using BazaarPlusPlus.Game.VoiceSubtitles.Settings;
 using BazaarPlusPlus.GameInterop.Fonts;
 using BazaarPlusPlus.GameInterop.VoiceSubtitles;
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 using BazaarPlusPlus.Localization;
 using TMPro;
 using UnityEngine;
@@ -96,15 +97,14 @@ internal static class VoiceLineDisplay
             stage = "apply-settings";
             TryApplySettingsToLabel(VoiceSubtitlesSettingsPhase.Mount);
             BppLog.DebugEvent(
-                VoiceSubtitlesDisplayLogEvents.OverlayMounted,
+                new BppLogEvent(
+                    BppLogFeatureScope.VoiceSubtitles,
+                    "voice_subtitles.overlay.mounted"
+                ),
                 () =>
                     [
-                        VoiceSubtitlesDisplayLogEvents.OverlayMountedRenderer.Bind(
-                            RendererDescription()
-                        ),
-                        VoiceSubtitlesDisplayLogEvents.OverlayMountedAnchorPath.Bind(
-                            BuildPath(versionLabel.transform)
-                        ),
+                        ("renderer", RendererDescription()),
+                        ("anchor_path", BuildPath(versionLabel.transform)),
                     ]
             );
         }
@@ -112,18 +112,16 @@ internal static class VoiceLineDisplay
         {
             DestroyCurrentLabel();
             BppLog.ErrorEvent(
-                VoiceSubtitlesDisplayLogEvents.OverlayFailed,
+                new BppLogEvent(
+                    BppLogFeatureScope.VoiceSubtitles,
+                    "voice_subtitles.overlay.failed",
+                    storm: []
+                ),
                 ex,
-                VoiceSubtitlesDisplayLogEvents.OverlayFailedStage.Bind(stage),
-                VoiceSubtitlesDisplayLogEvents.OverlayFailedAnchorPath.Bind(
-                    SafeAnchorPath(versionLabel)
-                ),
-                VoiceSubtitlesDisplayLogEvents.OverlayFailedAnchorText.Bind(
-                    SafeAnchorText(versionLabel)
-                ),
-                VoiceSubtitlesDisplayLogEvents.OverlayFailedReasonCode.Bind(
-                    VoiceSubtitlesLogReasonCode.MountException
-                )
+                ("stage", stage),
+                ("anchor_path", SafeAnchorPath(versionLabel), BppLogCorrelationPolicy.Hash),
+                ("anchor_text", SafeAnchorText(versionLabel)),
+                ("reason_code", VoiceSubtitlesLogReasonCode.MountException)
             );
         }
     }
@@ -139,15 +137,16 @@ internal static class VoiceLineDisplay
         if (text.IsEmpty)
         {
             BppLog.DebugEvent(
-                VoiceSubtitlesDisplayLogEvents.DisplaySkipped,
+                new BppLogEvent(
+                    BppLogFeatureScope.VoiceSubtitles,
+                    "voice_subtitles.display.skipped"
+                ),
                 () =>
                     [
-                        VoiceSubtitlesDisplayLogEvents.DisplaySkippedDisplayId.Bind(displayId),
-                        VoiceSubtitlesDisplayLogEvents.DisplaySkippedAttemptId.Bind(cue.AttemptId),
-                        VoiceSubtitlesDisplayLogEvents.DisplaySkippedStem.Bind(line.Stem),
-                        VoiceSubtitlesDisplayLogEvents.DisplaySkippedReasonCode.Bind(
-                            VoiceSubtitlesLogReasonCode.EmptyText
-                        ),
+                        ("display_id", displayId, BppLogCorrelationPolicy.Full),
+                        ("attempt_id", cue.AttemptId, BppLogCorrelationPolicy.Full),
+                        ("stem", line.Stem),
+                        ("reason_code", VoiceSubtitlesLogReasonCode.EmptyText),
                     ]
             );
             return;
@@ -217,15 +216,15 @@ internal static class VoiceLineDisplay
         catch (Exception ex)
         {
             BppLog.WarnEvent(
-                VoiceSubtitlesDisplayLogEvents.PlaybackTrackingDegraded,
-                ex,
-                VoiceSubtitlesDisplayLogEvents.PlaybackTrackingDegradedDisplayId.Bind(null),
-                VoiceSubtitlesDisplayLogEvents.PlaybackTrackingDegradedAttemptId.Bind(
-                    cue.AttemptId
+                new BppLogEvent(
+                    BppLogFeatureScope.VoiceSubtitles,
+                    "voice_subtitles.playback_tracking.degraded",
+                    storm: ["reason_code"]
                 ),
-                VoiceSubtitlesDisplayLogEvents.PlaybackTrackingDegradedReasonCode.Bind(
-                    VoiceSubtitlesLogReasonCode.PlaybackQueryException
-                )
+                ex,
+                ("display_id", null, BppLogCorrelationPolicy.Full),
+                ("attempt_id", cue.AttemptId, BppLogCorrelationPolicy.Full),
+                ("reason_code", VoiceSubtitlesLogReasonCode.PlaybackQueryException)
             );
             return true;
         }
@@ -265,13 +264,14 @@ internal static class VoiceLineDisplay
         if (labelObject == null || _lifetime == null)
         {
             BppLog.ErrorEvent(
-                VoiceSubtitleDisplayLogEvents.DisplayFailed,
-                VoiceSubtitleDisplayLogEvents.DisplayId.Bind(displayId),
-                VoiceSubtitleDisplayLogEvents.AttemptId.Bind(cue.AttemptId),
-                VoiceSubtitleDisplayLogEvents.Stem.Bind(stem),
-                VoiceSubtitleDisplayLogEvents.ReasonCode.Bind(
-                    VoiceSubtitleDisplayLogReasonCode.LabelUnavailable
-                )
+                new BppLogEvent(
+                    BppLogFeatureScope.VoiceSubtitles,
+                    "voice_subtitles.display.failed"
+                ),
+                ("display_id", displayId, BppLogCorrelationPolicy.Full),
+                ("attempt_id", cue.AttemptId, BppLogCorrelationPolicy.Full),
+                ("stem", stem),
+                ("reason_code", VoiceSubtitleDisplayLogReasonCode.LabelUnavailable)
             );
             return;
         }
@@ -289,30 +289,20 @@ internal static class VoiceLineDisplay
             stem
         );
         BppLog.DebugEvent(
-            VoiceSubtitlesDisplayLogEvents.DisplayRendered,
+            new BppLogEvent(BppLogFeatureScope.VoiceSubtitles, "voice_subtitles.display.rendered"),
             () =>
                 [
-                    VoiceSubtitlesDisplayLogEvents.DisplayRenderedDisplayId.Bind(displayId),
-                    VoiceSubtitlesDisplayLogEvents.DisplayRenderedAttemptId.Bind(cue.AttemptId),
-                    VoiceSubtitlesDisplayLogEvents.DisplayRenderedStem.Bind(stem),
-                    VoiceSubtitlesDisplayLogEvents.DisplayRenderedEventDurationMs.Bind(
-                        ToMilliseconds(cue.EventDurationSeconds)
-                    ),
-                    VoiceSubtitlesDisplayLogEvents.DisplayRenderedLineDurationMs.Bind(
-                        ToMilliseconds(cue.Line.DurationSeconds)
-                    ),
-                    VoiceSubtitlesDisplayLogEvents.DisplayRenderedDisplayDurationMs.Bind(
-                        ToMilliseconds(durationSeconds)
-                    ),
-                    VoiceSubtitlesDisplayLogEvents.DisplayRenderedRenderer.Bind(
-                        RendererDescription()
-                    ),
-                    VoiceSubtitlesDisplayLogEvents.DisplayRenderedActiveBefore.Bind(activeBefore),
-                    VoiceSubtitlesDisplayLogEvents.DisplayRenderedPlaybackState.Bind(
-                        SafePlaybackStateText(cue.PlaybackStateText)
-                    ),
-                    VoiceSubtitlesDisplayLogEvents.DisplayRenderedEnglishText.Bind(text.English),
-                    VoiceSubtitlesDisplayLogEvents.DisplayRenderedChineseText.Bind(text.Chinese),
+                    ("display_id", displayId, BppLogCorrelationPolicy.Full),
+                    ("attempt_id", cue.AttemptId, BppLogCorrelationPolicy.Full),
+                    ("stem", stem),
+                    ("event_duration_ms", ToMilliseconds(cue.EventDurationSeconds)),
+                    ("line_duration_ms", ToMilliseconds(cue.Line.DurationSeconds)),
+                    ("display_duration_ms", ToMilliseconds(durationSeconds)),
+                    ("renderer", RendererDescription()),
+                    ("active_before", activeBefore),
+                    ("playback_state", SafePlaybackStateText(cue.PlaybackStateText)),
+                    ("english_text", text.English),
+                    ("chinese_text", text.Chinese),
                 ]
         );
     }
