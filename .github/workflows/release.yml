@@ -1,0 +1,215 @@
+name: Release
+
+# One Product Release build per platform on hosted runners: release::prepare,
+# release::build and release::upload, in one job so build and upload share a
+# host and the Payload lock (docs/release.md, docs/adr/0004-pinned-game-assembly-snapshots.md).
+# promote is not here: the Mainland Mirror is uploaded to Lanzou by hand and
+# recorded with mirror-all before promote, so promote stays a local command.
+# Secrets live in the `release` GitHub Environment, except the three
+# BPP_GAME_LIBS_R2_* repository secrets shared with checks.yml;
+# .github/scripts/release-secrets.sh names every one and its source.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Product version to build; must equal the VERSION file at the chosen ref
+        type: string
+        required: true
+      dry_run:
+        description: Stop after release::prepare; needs only the snapshot store secrets
+        type: boolean
+        default: false
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.event_name == 'workflow_dispatch' && format('v{0}', inputs.version) || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  platform:
+    name: Release ${{ matrix.platform }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 120
+    environment: release
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14
+            platform: macos
+          - os: windows-latest
+            platform: windows
+    defaults:
+      run:
+        shell: bash
+    env:
+      PLATFORM: ${{ matrix.platform }}
+      # prepare: a dry run stops after release::prepare; release: build and upload too.
+      STAGE: ${{ (github.event_name == 'workflow_dispatch' && inputs.dry_run == true) && 'prepare' || 'release' }}
+      REQUESTED_VERSION: ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Fails before any toolchain is installed, naming each missing secret.
+      - name: Require the release secrets
+        env:
+          BPP_GAME_LIBS_R2_ACCOUNT_ID: ${{ secrets.BPP_GAME_LIBS_R2_ACCOUNT_ID }}
+          BPP_GAME_LIBS_R2_ACCESS_KEY_ID: ${{ secrets.BPP_GAME_LIBS_R2_ACCESS_KEY_ID }}
+          BPP_GAME_LIBS_R2_SECRET_ACCESS_KEY: ${{ secrets.BPP_GAME_LIBS_R2_SECRET_ACCESS_KEY }}
+          BPP_R2_ACCOUNT_ID: ${{ secrets.BPP_R2_ACCOUNT_ID }}
+          BPP_R2_ACCESS_KEY_ID: ${{ secrets.BPP_R2_ACCESS_KEY_ID }}
+          BPP_R2_SECRET_ACCESS_KEY: ${{ secrets.BPP_R2_SECRET_ACCESS_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: bash .github/scripts/release-secrets.sh check "$PLATFORM" "$STAGE"
+      # A version names one commit (ADR 0001); the run builds the ref it was
+      # dispatched from or the tagged commit, so the ask must match that ref.
+      - name: Require the requested version to equal VERSION
+        run: |
+          version="$(tr -d '[:space:]' < VERSION)"
+          requested="${REQUESTED_VERSION#v}"
+          if [[ "$requested" != "$version" ]]; then
+            echo "::error title=Version mismatch::Requested $requested, but VERSION at $GITHUB_SHA is $version. Dispatch from the commit that sets VERSION, or tag v$version on it."
+            exit 1
+          fi
+          echo "Building $PLATFORM $version from $GITHUB_SHA"
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: bazaarplusplus-installer/package-lock.json
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: bazaarplusplus-mod/global.json
+          cache: true
+          cache-dependency-path: bazaarplusplus-mod/**/packages.lock.json
+      - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4
+        with:
+          just-version: 1.58.0
+      - name: Install the repository Rust toolchain and components
+        working-directory: bazaarplusplus-installer
+        run: |
+          rustc --version
+          rustup show active-toolchain
+      - run: npm install --global "$(node --print "require('./package.json').packageManager")"
+      - run: just release::check
+      # The product compiles against this platform's online Snapshot Lock entry;
+      # a null entry fails here, naming the snapshot to capture. release/game-libs.mjs
+      # reads the BPP_R2_* names, so the read-only token is mapped onto them for
+      # this step only.
+      - name: Fetch the online Game Assembly Snapshot
+        env:
+          BPP_R2_ACCOUNT_ID: ${{ secrets.BPP_GAME_LIBS_R2_ACCOUNT_ID }}
+          BPP_R2_ACCESS_KEY_ID: ${{ secrets.BPP_GAME_LIBS_R2_ACCESS_KEY_ID }}
+          BPP_R2_SECRET_ACCESS_KEY: ${{ secrets.BPP_GAME_LIBS_R2_SECRET_ACCESS_KEY }}
+        run: just mod::fetch "$PLATFORM" online
+      # prepare reuses the committed native recorder inputs when
+      # release/native-recorder-input.mjs finds them fresh and rebuilds them on
+      # this runner otherwise; a rebuild changes tracked files, which the next
+      # step turns into a named failure instead of an unpublishable dirty build.
+      - name: Prepare the Payload
+        run: |
+          just release::prepare "$PLATFORM" | tee "$RUNNER_TEMP/prepare.log"
+          grep -E '^Prepared ' "$RUNNER_TEMP/prepare.log" >> "$GITHUB_STEP_SUMMARY" || true
+      - name: Require prepare to leave tracked files unchanged
+        id: clean
+        run: |
+          changes="$(git status --porcelain --untracked-files=no)"
+          if [[ -n "$changes" ]]; then
+            printf '%s\n' "$changes"
+            git diff --binary > "$RUNNER_TEMP/native-recorder-inputs.patch"
+            echo "::error title=Native recorder inputs rebuilt::release::prepare rebuilt the $PLATFORM native recorder inputs and changed the tracked files above. Apply the native-recorder-inputs-$PLATFORM artifact with 'git apply', or run 'just release::prepare $PLATFORM' locally, commit, and rerun."
+            exit 1
+          fi
+      - if: failure() && steps.clean.outcome == 'failure'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: native-recorder-inputs-${{ matrix.platform }}
+          path: ${{ runner.temp }}/native-recorder-inputs.patch
+          retention-days: 7
+      - if: env.STAGE == 'prepare'
+        run: echo "Dry run stopped after release::prepare for $PLATFORM; nothing was signed or uploaded." >> "$GITHUB_STEP_SUMMARY"
+      # bundle.sh reads signing material as files from BPP_SIGNING_SECRETS_DIR,
+      # the same layout `node scripts/workspace.mjs run signing` stages locally.
+      - if: env.STAGE == 'release'
+        name: Stage the signing secrets
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+        run: |
+          bash .github/scripts/release-secrets.sh stage "$PLATFORM" "$RUNNER_TEMP/signing-secrets"
+          echo "BPP_SIGNING_SECRETS_DIR=$RUNNER_TEMP/signing-secrets" >> "$GITHUB_ENV"
+      # bundle.sh codesigns nested resources before Tauri bundles, so the
+      # Developer ID identity must already be in a keychain; Tauri then finds the
+      # same identity through APPLE_SIGNING_IDENTITY and notarizes with the API key.
+      - if: env.STAGE == 'release' && matrix.platform == 'macos'
+        name: Import the Developer ID certificate into a temporary keychain
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+        run: |
+          keychain="$RUNNER_TEMP/release.keychain-db"
+          keychain_password="$(uuidgen)"
+          certificate="$RUNNER_TEMP/developer-id.p12"
+          printf '%s' "$APPLE_CERTIFICATE" | base64 --decode > "$certificate"
+          security create-keychain -p "$keychain_password" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$keychain_password" "$keychain"
+          security import "$certificate" -k "$keychain" -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign -T /usr/bin/security
+          rm -f "$certificate"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$keychain_password" "$keychain" > /dev/null
+          security list-keychains -d user -s "$keychain" $(security list-keychains -d user | tr -d '"')
+          if ! security find-identity -v -p codesigning "$keychain" | grep -Fq "$APPLE_SIGNING_IDENTITY"; then
+            echo "::error title=Signing identity not found::APPLE_CERTIFICATE does not contain the identity named by APPLE_SIGNING_IDENTITY; export the Developer ID Application certificate with its private key as .p12 and set both secrets."
+            security find-identity -v -p codesigning "$keychain" || true
+            exit 1
+          fi
+          echo "BPP_RELEASE_KEYCHAIN=$keychain" >> "$GITHUB_ENV"
+      - if: env.STAGE == 'release'
+        name: Build and sign the installer
+        run: just release::build "$PLATFORM"
+      - if: env.STAGE == 'release'
+        name: Upload the immutable platform artifacts
+        env:
+          BPP_R2_ACCOUNT_ID: ${{ secrets.BPP_R2_ACCOUNT_ID }}
+          BPP_R2_ACCESS_KEY_ID: ${{ secrets.BPP_R2_ACCESS_KEY_ID }}
+          BPP_R2_SECRET_ACCESS_KEY: ${{ secrets.BPP_R2_SECRET_ACCESS_KEY }}
+        run: |
+          just release::upload "$PLATFORM" | tee "$RUNNER_TEMP/upload.log"
+          grep -E '^Uploaded ' "$RUNNER_TEMP/upload.log" >> "$GITHUB_STEP_SUMMARY" || true
+      # The installer and its artifact manifest, for inspection; R2 holds the
+      # copy promote reads.
+      - if: env.STAGE == 'release'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: installer-${{ matrix.platform }}
+          path: |
+            bazaarplusplus-installer/src-tauri/target/release-artifacts/${{ matrix.platform }}.json
+            bazaarplusplus-installer/src-tauri/target/release/bundle/nsis/*
+            bazaarplusplus-installer/src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*
+            bazaarplusplus-installer/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/*.tar.gz*
+          if-no-files-found: error
+          retention-days: 14
+      - if: always()
+        name: Remove the staged secrets and the temporary keychain
+        run: |
+          rm -rf "$RUNNER_TEMP/signing-secrets"
+          if [[ -n "${BPP_RELEASE_KEYCHAIN:-}" ]]; then
+            security delete-keychain "$BPP_RELEASE_KEYCHAIN" || true
+          fi
