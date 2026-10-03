@@ -22,10 +22,6 @@
       Include="../../src/BazaarPlusPlus/BazaarPlusPlus.csproj"
       ReferenceOutputAssembly="false"
     />
-    <ProjectReference
-      Include="../CombatImpact.Corpus/CombatImpact.Corpus.csproj"
-      ReferenceOutputAssembly="false"
-    />
   </ItemGroup>
 
   <!-- CompiledArtifacts scans the main build in both configurations (ADR-0009): the project

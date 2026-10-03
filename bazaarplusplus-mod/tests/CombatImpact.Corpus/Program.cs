@@ -19,6 +19,12 @@ const string evidencePathEnvironmentVariable = "BPP_COMBAT_IMPACT_EVIDENCE_PATH"
 const string gameDataPathEnvironmentVariable = "BPP_GAMEDATA_DB";
 const int defaultBundleSampleLimit = 100;
 
+if (args is ["prepare", .. var prepareArguments])
+{
+    CorpusPreparation.Run(prepareArguments, ResolveGameDataPath());
+    return;
+}
+
 var benchmarkEnabled = args.Contains("--benchmark", StringComparer.Ordinal);
 var positionalArguments = args.Where(argument =>
         !string.Equals(argument, "--benchmark", StringComparison.Ordinal)
@@ -92,10 +98,13 @@ if (forbiddenAssemblies.Length > 0)
     );
 }
 
+// Every newline is "\n", never Environment.NewLine: the report hash and the evidence bytes must
+// be identical on macOS and Windows.
 var jsonOptions = new JsonSerializerOptions
 {
     PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
     WriteIndented = true,
+    NewLine = "\n",
 };
 var report = CorpusInventory.Build(replays, invalidPayloads, cardAttributeAttribution);
 var reportJson = JsonSerializer.Serialize(report, jsonOptions);
@@ -107,7 +116,7 @@ if (!string.Equals(reportJson, repeatedJson, StringComparison.Ordinal))
     throw new InvalidOperationException("P1 inventory is not deterministic across repeated runs.");
 
 Directory.CreateDirectory(Path.GetDirectoryName(reportPath)!);
-File.WriteAllText(reportPath, reportJson + Environment.NewLine);
+File.WriteAllText(reportPath, reportJson + "\n");
 var configuredEvidencePath = Environment.GetEnvironmentVariable(evidencePathEnvironmentVariable);
 var evidencePath = string.IsNullOrWhiteSpace(configuredEvidencePath)
     ? Path.Combine(
@@ -134,20 +143,14 @@ var evidence = BuildEvidenceSnapshot(
     ]
 );
 Directory.CreateDirectory(Path.GetDirectoryName(evidencePath)!);
-File.WriteAllText(
-    evidencePath,
-    JsonSerializer.Serialize(evidence, jsonOptions) + Environment.NewLine
-);
+File.WriteAllText(evidencePath, JsonSerializer.Serialize(evidence, jsonOptions) + "\n");
 if (projectionResult.Benchmark is { } benchmark)
 {
     var benchmarkPath = Path.Combine(
         Path.GetDirectoryName(reportPath)!,
         Path.GetFileNameWithoutExtension(reportPath) + ".benchmark.json"
     );
-    File.WriteAllText(
-        benchmarkPath,
-        JsonSerializer.Serialize(benchmark, jsonOptions) + Environment.NewLine
-    );
+    File.WriteAllText(benchmarkPath, JsonSerializer.Serialize(benchmark, jsonOptions) + "\n");
     Console.WriteLine(
         $"BENCHMARK projection_only path={benchmarkPath} battles={benchmark.Battles} "
             + $"frames={benchmark.Frames} events={benchmark.Events} "
@@ -180,7 +183,7 @@ static object BuildEvidenceSnapshot(
     IReadOnlyList<VerificationInputArtifact> verificationInputs
 )
 {
-    var reportBytes = Encoding.UTF8.GetBytes(reportJson + Environment.NewLine);
+    var reportBytes = Encoding.UTF8.GetBytes(reportJson + "\n");
     return new
     {
         EvidenceSchemaVersion = 2,

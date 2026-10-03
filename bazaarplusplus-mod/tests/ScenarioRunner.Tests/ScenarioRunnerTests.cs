@@ -9,7 +9,7 @@ namespace ScenarioRunner.Tests;
 /// contract: runners may install AssemblyResolve handlers, define incompatible runtime shims, or
 /// mutate other process-global state.
 /// </summary>
-public sealed class ScenarioRunnerTests
+public sealed partial class ScenarioRunnerTests
 {
     private const string SeedRunner = "LiveBuildRecommendations.Tests";
 
@@ -26,7 +26,14 @@ public sealed class ScenarioRunnerTests
     [Trait("TestKind", "EmbeddedSeed")]
     public Task Live_build_embedded_seed_passes() => RunAsync(SeedRunner);
 
-    private static async Task RunAsync(string projectName)
+    private static Task RunAsync(string projectName) =>
+        RunAsync(projectName, [], new Dictionary<string, string>());
+
+    private static async Task RunAsync(
+        string projectName,
+        IReadOnlyList<string> arguments,
+        IReadOnlyDictionary<string, string> environment
+    )
     {
         var root = RepoRoot();
         var configuration =
@@ -54,6 +61,10 @@ public sealed class ScenarioRunnerTests
             RedirectStandardError = true,
         };
         start.ArgumentList.Add(assembly);
+        foreach (var argument in arguments)
+            start.ArgumentList.Add(argument);
+        foreach (var (name, value) in environment)
+            start.Environment[name] = value;
 
         using var process =
             Process.Start(start)
