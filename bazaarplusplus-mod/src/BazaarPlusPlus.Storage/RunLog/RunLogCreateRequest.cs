@@ -3,8 +3,6 @@ namespace BazaarPlusPlus.Storage.RunLog;
 
 public sealed class RunLogCreateRequest
 {
-    public int SchemaVersion { get; set; } = RunLogSchema.RowSchemaVersion;
-
     public string RunId { get; set; } = string.Empty;
 
     public DateTimeOffset StartedAtUtc { get; set; }

@@ -112,7 +112,6 @@ static void TestRestoredRunResumesOnceAndDifferentRunAbandonsBeforeStart()
     var restored = new RunLogSessionState
     {
         RunId = "restored-run",
-        SchemaVersion = 1,
         StartedAtUtc = Fixture.InitialNow,
         LastSeenAtUtc = Fixture.InitialNow,
         LastSeq = 4,
@@ -743,7 +742,6 @@ file sealed class FakeRunLogStore : IRunLogStore, IDisposable
         ActiveState = new RunLogSessionState
         {
             RunId = effectiveRunId,
-            SchemaVersion = request.SchemaVersion,
             StartedAtUtc = request.StartedAtUtc,
             LastSeenAtUtc = request.StartedAtUtc,
             Day = request.Day,

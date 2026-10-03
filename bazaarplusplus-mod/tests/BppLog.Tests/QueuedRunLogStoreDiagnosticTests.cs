@@ -59,32 +59,6 @@ public sealed class QueuedRunLogStoreDiagnosticTests
         Assert.Single(logger.Diagnostics);
     }
 
-    [Fact]
-    public async Task Unexpected_worker_exit_emits_typed_terminal_diagnostic()
-    {
-        var failure = new InvalidOperationException("signal failed");
-        var logger = new CapturingRunLogStoreLogger();
-        var store = new QueuedRunLogStore(
-            new DelegatingRunLogStore(),
-            TimeSpan.FromSeconds(1),
-            logger,
-            () => Task.FromException(failure)
-        );
-
-        var diagnostic = await logger.Next.WaitAsync(TimeSpan.FromSeconds(2));
-
-        Assert.Equal(RunLogStoreDiagnosticKind.WorkerFailed, diagnostic.Kind);
-        Assert.Equal(0, diagnostic.PendingCount);
-        Assert.Same(failure, diagnostic.Exception);
-        Assert.Null(diagnostic.Operation);
-        await Assert.ThrowsAsync<InvalidOperationException>(async () =>
-            await store.WorkerCompletion
-        );
-        var disposeFailure = Record.Exception(store.Dispose);
-        Assert.Null(disposeFailure);
-        store.Dispose();
-    }
-
     private sealed class CapturingRunLogStoreLogger : IRunLogStoreLogger
     {
         private readonly List<RunLogStoreDiagnostic> _diagnostics = new();

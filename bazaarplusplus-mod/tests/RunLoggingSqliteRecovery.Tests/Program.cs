@@ -30,7 +30,6 @@ try
         [
             new RunLogCreateRequest
             {
-                SchemaVersion = 1,
                 RunId = runId,
                 StartedAtUtc = startedAt,
                 Hero = "Vanessa",
@@ -50,7 +49,6 @@ try
             runId,
             new RunLogEvent
             {
-                SchemaVersion = 1,
                 RunId = runId,
                 Seq = 1,
                 Ts = startedAt,
@@ -69,13 +67,10 @@ try
             runId,
             new RunLogCheckpoint
             {
-                SchemaVersion = 1,
-                RunId = runId,
                 LastSeq = 1,
                 LastSeenAtUtc = startedAt.AddSeconds(10),
                 Day = 2,
                 Hour = 1,
-                Completed = false,
             },
         ]
     );
@@ -97,8 +92,6 @@ try
             runId,
             new RunLogAbandonment
             {
-                SchemaVersion = 1,
-                RunId = runId,
                 Status = "abandoned",
                 EndedAtUtc = startedAt.AddMinutes(20),
                 FinalDay = 2,

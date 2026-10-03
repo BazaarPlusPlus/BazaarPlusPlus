@@ -84,8 +84,7 @@ function stage(rootDir, platform, contents) {
     path.join(source, 'BepInEx/plugins/BazaarPlusPlus.history-database.json'),
     JSON.stringify({
       formatVersion: 1,
-      historyDatabaseUserVersion: 2,
-      historyRowSchemaVersion: 2
+      historyDatabaseUserVersion: 2
     })
   );
 }

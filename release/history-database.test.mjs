@@ -25,8 +25,7 @@ function fixture({ userVersion, supported }) {
     contractPath,
     JSON.stringify({
       formatVersion: 1,
-      historyDatabaseUserVersion: userVersion,
-      historyRowSchemaVersion: 1
+      historyDatabaseUserVersion: userVersion
     })
   );
   fs.writeFileSync(

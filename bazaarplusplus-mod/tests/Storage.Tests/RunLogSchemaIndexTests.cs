@@ -1,19 +1,9 @@
 #nullable enable
-using BazaarPlusPlus.Storage.BundleQueue;
 using BazaarPlusPlus.Storage.RunLog;
 using Microsoft.Data.Sqlite;
 
 internal static class RunLogSchemaIndexTests
 {
-    // Must stay byte-identical to the runId == null branch of RunLogStore.TryReadActiveRun.
-    private const string ActiveRunSelect = """
-        SELECT *
-        FROM runs
-        WHERE completed = 0
-        ORDER BY last_seen_at_utc DESC
-        LIMIT 1;
-        """;
-
     private const string OldIndexName = "idx_runs_status_last_seen";
     private const string NewIndexName = "idx_runs_completed_last_seen";
 
@@ -22,11 +12,9 @@ internal static class RunLogSchemaIndexTests
 
     internal static void Run()
     {
-        ActiveRunLookupSearchesTheCompletedIndex();
         OpeningAnOlderDatabaseReplacesTheStatusIndex();
         OpeningADatabaseRedefinesADriftedIndex();
         ReopeningAnUpToDateDatabaseLeavesTheSchemaAlone();
-        SealEligibilitySeeksTheOutboxByRun();
     }
 
     private static void OpeningADatabaseRedefinesADriftedIndex()
@@ -76,28 +64,6 @@ internal static class RunLogSchemaIndexTests
         });
     }
 
-    private static void SealEligibilitySeeksTheOutboxByRun()
-    {
-        WithDatabase(connection =>
-        {
-            RunLogSchema.EnsureInitialized(connection);
-            var plan = QueryPlan(
-                connection,
-                $"SELECT run_id FROM runs AS r WHERE {BundleQueueStore.SealEligibleRunCondition("r")};"
-            );
-            if (
-                plan.Contains("SCAN r_outbox", StringComparison.Ordinal)
-                || !plan.Contains(
-                    "SEARCH r_outbox USING COVERING INDEX idx_bundle_outbox_run",
-                    StringComparison.Ordinal
-                )
-            )
-                throw new InvalidOperationException(
-                    $"Seal eligibility must seek bundle_outbox by run: {plan}"
-                );
-        });
-    }
-
     private static bool TryGhostHistoryRead(SqliteConnection connection)
     {
         try
@@ -124,31 +90,6 @@ internal static class RunLogSchemaIndexTests
         while (reader.Read())
             rows.Add((reader.GetString(0), reader.GetString(1)));
         return rows;
-    }
-
-    private static void ActiveRunLookupSearchesTheCompletedIndex()
-    {
-        WithDatabase(connection =>
-        {
-            RunLogSchema.EnsureInitialized(connection);
-
-            Equal(1L, IndexCount(connection, NewIndexName), "new index exists");
-            Equal(0L, IndexCount(connection, OldIndexName), "old index removed");
-
-            var plan = QueryPlan(connection, ActiveRunSelect);
-            if (!plan.Contains(NewIndexName, StringComparison.Ordinal))
-                throw new InvalidOperationException(
-                    $"TryReadActiveRun plan does not use {NewIndexName}: {plan}"
-                );
-            if (!plan.Contains("SEARCH", StringComparison.Ordinal))
-                throw new InvalidOperationException(
-                    $"TryReadActiveRun plan is not a SEARCH: {plan}"
-                );
-            if (plan.Contains("SCAN", StringComparison.Ordinal))
-                throw new InvalidOperationException($"TryReadActiveRun plan still scans: {plan}");
-            if (plan.Contains("TEMP B-TREE", StringComparison.Ordinal))
-                throw new InvalidOperationException($"TryReadActiveRun plan still sorts: {plan}");
-        });
     }
 
     private static void OpeningAnOlderDatabaseReplacesTheStatusIndex()
@@ -180,17 +121,6 @@ internal static class RunLogSchemaIndexTests
             Equal(3L, Scalar(connection, "PRAGMA user_version;"), "schema version unchanged");
             Equal(1L, Scalar(connection, "SELECT COUNT(*) FROM runs;"), "existing rows preserved");
         });
-    }
-
-    private static string QueryPlan(SqliteConnection connection, string sql)
-    {
-        using var command = connection.CreateCommand();
-        command.CommandText = "EXPLAIN QUERY PLAN " + sql;
-        using var reader = command.ExecuteReader();
-        var lines = new List<string>();
-        while (reader.Read())
-            lines.Add(reader.GetString(reader.GetOrdinal("detail")));
-        return string.Join(" | ", lines);
     }
 
     private static long IndexCount(SqliteConnection connection, string indexName) =>

@@ -5,20 +5,16 @@ public static class PathConstants
 {
     public const string RunLogDatabaseFileName = "bazaarplusplus.db";
     public const string DataRootDirectoryName = "BazaarPlusPlusV5";
-    public const string CombatReplayDirectoryName = "CombatReplays";
-    public const string GhostBattlePayloadDirectoryName = "GhostBattlePayloads";
-    public const string ScreenshotsDirectoryName = "Screenshots";
-    public const string BundleOutboxDirectoryName = "BundleOutbox";
-    public const string CombatReplayVideoDirectoryName = "CombatReplayVideos";
+    private const string CombatReplayDirectoryName = "CombatReplays";
+    private const string ScreenshotsDirectoryName = "Screenshots";
+    private const string BundleOutboxDirectoryName = "BundleOutbox";
+    private const string CombatReplayVideoDirectoryName = "CombatReplayVideos";
 
     public static string RunLogDatabase(string dataRoot) =>
         Combine(dataRoot, RunLogDatabaseFileName);
 
     public static string CombatReplays(string dataRoot) =>
         Combine(dataRoot, CombatReplayDirectoryName);
-
-    public static string GhostBattlePayloads(string dataRoot) =>
-        Combine(dataRoot, GhostBattlePayloadDirectoryName);
 
     public static string Screenshots(string dataRoot) =>
         Combine(dataRoot, ScreenshotsDirectoryName);

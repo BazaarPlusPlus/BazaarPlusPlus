@@ -21,7 +21,6 @@ internal static class RunLogRecordMapper
 
         request = new RunLogCreateRequest
         {
-            SchemaVersion = RunLogSchema.RowSchemaVersion,
             RunId = serverRunId,
             StartedAtUtc = DateTimeOffset.UtcNow,
             Hero = basics.Hero,
@@ -45,7 +44,6 @@ internal static class RunLogRecordMapper
     {
         return new RunLogCompletion
         {
-            SchemaVersion = RunLogSchema.RowSchemaVersion,
             Status = lastExitKind == RunExitKind.Interrupted ? "abandoned" : "completed",
             EndedAtUtc = DateTimeOffset.UtcNow,
             FinalDay = basics?.Day,
@@ -67,7 +65,6 @@ internal static class RunLogRecordMapper
     {
         return new RunLogAbandonment
         {
-            SchemaVersion = RunLogSchema.RowSchemaVersion,
             Status = "abandoned",
             EndedAtUtc = DateTimeOffset.UtcNow,
             FinalDay = basics?.Day,

@@ -1,7 +1,6 @@
 #nullable enable
 using System.Globalization;
 using BazaarPlusPlus.Storage.BundleQueue;
-using BazaarPlusPlus.Storage.Paths;
 using Microsoft.Data.Sqlite;
 
 namespace BazaarPlusPlus.Storage.RunLog;
@@ -11,7 +10,6 @@ public static class RunLogSchema
     // `PRAGMA user_version`: the column shape the installer reads. Bump it only with a column change
     // and a migration; a one-time data repair does not bump it (ADR-0011).
     public const int LocalDatabaseSchemaVersion = 3;
-    public const int RowSchemaVersion = 3;
 
     private const int FirstSchemaVersion = 1;
 
@@ -30,9 +28,6 @@ public static class RunLogSchema
     public const string BundleSealJobsTableName = "bundle_seal_jobs";
     public const string BundleOutboxTableName = "bundle_outbox";
     public const string CaptureSourceEndOfRunAuto = "end_of_run_auto";
-
-    public static int CurrentSchemaVersion => LocalDatabaseSchemaVersion;
-    public static string DatabaseFileName => PathConstants.RunLogDatabaseFileName;
 
     // Stable SQL expressions shared by history queries and their expression indexes.
     public const string HistoryRunTime = "COALESCE(ended_at_utc,last_seen_at_utc,started_at_utc)";

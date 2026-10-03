@@ -11,8 +11,6 @@ public sealed class RunScreenshotRecord
 
     public string? BattleId { get; set; }
 
-    public RunScreenshotCaptureSource CaptureSource { get; set; }
-
     public bool IsPrimary { get; set; }
 
     public string ImageRelativePath { get; set; } = string.Empty;

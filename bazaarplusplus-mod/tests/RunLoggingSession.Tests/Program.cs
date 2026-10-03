@@ -20,7 +20,6 @@ var manager = ctor!.Invoke([fakeStore, new Func<DateTimeOffset>(() => now), null
 
 var request = new RunLogCreateRequest
 {
-    SchemaVersion = 1,
     RunId = "run_20260315t121530z_vanessa_ranked_002a_deadbeef",
     StartedAtUtc = now,
     Hero = "Vanessa",
@@ -93,7 +92,6 @@ Assert(
 fakeStore.ResumeState = new RunLogSessionState
 {
     RunId = request.RunId,
-    SchemaVersion = 1,
     StartedAtUtc = now,
     LastSeenAtUtc = now.AddMinutes(5),
     LastSeq = 41,
@@ -131,7 +129,6 @@ var mismatchStore = new FakeRunLogStore();
 mismatchStore.ResumeState = new RunLogSessionState
 {
     RunId = "server-run-old",
-    SchemaVersion = 1,
     StartedAtUtc = now,
     LastSeenAtUtc = now.AddMinutes(2),
     LastSeq = 5,
@@ -150,7 +147,6 @@ Invoke<RunLogSessionState>(
     [
         new RunLogCreateRequest
         {
-            SchemaVersion = 1,
             RunId = "server-run-new",
             StartedAtUtc = now.AddMinutes(20),
             Hero = "Vanessa",
@@ -175,7 +171,6 @@ var collisionStore = new FakeRunLogStore
     ResumeState = new RunLogSessionState
     {
         RunId = $"{reusedServerRunId}:bpp:0123456789abcdef0123456789abcdef",
-        SchemaVersion = 1,
         StartedAtUtc = now,
         LastSeenAtUtc = now.AddMinutes(2),
         LastSeq = 3,
@@ -195,7 +190,6 @@ var collisionSession = Invoke<RunLogSessionState>(
     [
         new RunLogCreateRequest
         {
-            SchemaVersion = 1,
             RunId = reusedServerRunId,
             StartedAtUtc = now.AddMinutes(20),
             Hero = "Dooley",
@@ -329,7 +323,6 @@ file sealed class FakeRunLogStore : IRunLogStore
         ResumeState = new RunLogSessionState
         {
             RunId = request.RunId,
-            SchemaVersion = request.SchemaVersion,
             StartedAtUtc = request.StartedAtUtc,
             LastSeenAtUtc = request.StartedAtUtc,
             LastSeq = 0,

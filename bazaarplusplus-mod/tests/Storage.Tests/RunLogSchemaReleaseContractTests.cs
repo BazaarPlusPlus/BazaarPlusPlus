@@ -24,11 +24,6 @@ internal static class RunLogSchemaReleaseContractTests
             root.GetProperty("historyDatabaseUserVersion").GetInt32(),
             "database user version"
         );
-        Equal(
-            RunLogSchema.RowSchemaVersion,
-            root.GetProperty("historyRowSchemaVersion").GetInt32(),
-            "history row schema version"
-        );
     }
 
     private static void Equal<T>(T expected, T actual, string label)

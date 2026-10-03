@@ -3,10 +3,6 @@ namespace BazaarPlusPlus.Storage.RunLog;
 
 public sealed class RunLogCompletion
 {
-    public int SchemaVersion { get; set; } = RunLogSchema.RowSchemaVersion;
-
-    public string RunId { get; set; } = string.Empty;
-
     public string Status { get; set; } = "completed";
 
     public DateTimeOffset EndedAtUtc { get; set; }

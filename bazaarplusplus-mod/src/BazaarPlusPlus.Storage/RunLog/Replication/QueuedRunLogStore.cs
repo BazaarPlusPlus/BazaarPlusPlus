@@ -10,7 +10,6 @@ public sealed class QueuedRunLogStore : IRunLogStore, IDisposable
     private readonly IRunLogStore _innerStore;
     private readonly IRunLogStoreLogger? _logger;
     private readonly TimeSpan _shutdownDrainTimeout;
-    private readonly Func<Task> _waitForSignalAsync;
     private readonly object _lifecycleGate = new();
     private readonly ConcurrentQueue<QueuedWrite> _pending = new();
     private readonly SemaphoreSlim _signal = new(0);
@@ -29,14 +28,6 @@ public sealed class QueuedRunLogStore : IRunLogStore, IDisposable
         TimeSpan shutdownDrainTimeout,
         IRunLogStoreLogger? logger = null
     )
-        : this(innerStore, shutdownDrainTimeout, logger, waitForSignalAsync: null) { }
-
-    internal QueuedRunLogStore(
-        IRunLogStore innerStore,
-        TimeSpan shutdownDrainTimeout,
-        IRunLogStoreLogger? logger,
-        Func<Task>? waitForSignalAsync
-    )
     {
         _innerStore = innerStore ?? throw new ArgumentNullException(nameof(innerStore));
         _logger = logger;
@@ -44,7 +35,6 @@ public sealed class QueuedRunLogStore : IRunLogStore, IDisposable
             shutdownDrainTimeout <= TimeSpan.Zero
                 ? DefaultShutdownDrainTimeout
                 : shutdownDrainTimeout;
-        _waitForSignalAsync = waitForSignalAsync ?? (() => _signal.WaitAsync());
         _worker = Task.Run(ProcessLoopAsync);
     }
 
@@ -208,7 +198,7 @@ public sealed class QueuedRunLogStore : IRunLogStore, IDisposable
                 if (Volatile.Read(ref _stopRequested) == 1 && _pending.IsEmpty)
                     return;
 
-                await _waitForSignalAsync().ConfigureAwait(false);
+                await _signal.WaitAsync().ConfigureAwait(false);
             }
         }
         catch (Exception ex)
