@@ -18,6 +18,13 @@ check-fast:
 test:
     npm test
 
+# Run the macOS install and repair acceptance tests against a packaged resource directory and a copied game.
+acceptance:
+    [ "$(uname -s)" = Darwin ] || { echo "installer::acceptance runs on macOS only" >&2; exit 1; }
+    : "${BPP_ACCEPTANCE_RESOURCE_DIR:?set it to a packaged macOS resource directory holding BepInExSource/BepInEx.zip and Trampoline/bpp_launcher}"
+    : "${BPP_TEST_GAME_ROOT:?set it to a The Bazaar installation whose TheBazaar.app is copied; the source is never modified}"
+    TAURI_CONFIG='{"bundle":{"resources":[]}}' cargo test --manifest-path src-tauri/Cargo.toml -- --ignored fresh_install_writes_payload_and_signed_trampoline_without_quitting_steam copied_steam_bundle_repair_acceptance
+
 # Start the frontend development server (not the desktop app).
 dev:
     npm run dev

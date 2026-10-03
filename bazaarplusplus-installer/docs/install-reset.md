@@ -37,6 +37,18 @@ Reset is the only installer operation that deletes the current BPP data root. `r
 
 The Install workflow fixes the target path when confirmation opens. A successful `ResetBppDataResult` installs the returned refreshed state and distinguishes removed data from an already-empty target; a failure retains the target for retry. The durable product boundary is recorded in [ADR-0005](adr/0005-data-ownership-and-reset.md).
 
-## Isolated Fresh-Install Acceptance
+## Install and Repair Acceptance
 
-The opt-in `fresh_install_writes_payload_and_signed_trampoline_without_quitting_steam` test in `src-tauri/src/services/install/operation.rs` creates a disposable macOS bundle and Steam config, then executes the production filesystem effects against a packaged resource directory supplied through `BPP_ACCEPTANCE_RESOURCE_DIR`. It checks every payload file, the trampoline UUID and deep signature, and unchanged Steam config. A shutdown effect fails the test before it can reach Steam. The bundle contains a fixture executable, so this verifies installation and signing, not game startup or BPP initialization.
+`just installer::acceptance` runs two ignored macOS tests. It requires `BPP_ACCEPTANCE_RESOURCE_DIR`, a packaged resource directory (`BepInExSource/BepInEx.zip` and `Trampoline/bpp_launcher`), and `BPP_TEST_GAME_ROOT`, an installed game.
+
+- `fresh_install_writes_payload_and_signed_trampoline_without_quitting_steam` in `src-tauri/src/services/install/operation.rs` creates a disposable macOS bundle and Steam config, then executes the production filesystem effects. It checks every payload file byte for byte and checks that the Steam config is unchanged. A shutdown effect fails the test before it can reach Steam.
+- `copied_steam_bundle_repair_acceptance` in `src-tauri/src/services/bepinex/trampoline.rs` clones `TheBazaar.app` from the game root, repairs the trampoline three times, then uninstalls it. The source is never modified.
+
+Each test compares a committed golden:
+
+- `src-tauri/tests/goldens/acceptance/installed-tree.json` holds the installed path set.
+- `repaired-tree.json` holds the Payload Inventory paths present after repair.
+
+Both goldens also record whether the trampoline UUID matches the bundled one and whether `codesign --verify --deep --strict` passed. Signatures change on every signing, and the copied game differs between machines, so file hashes stay out of the goldens. Each run instead writes its full `(path, sha256)` list to `src-tauri/target/acceptance/`, where two runs over the same inputs can be diffed. `BPP_UPDATE_GOLDENS=1` rewrites the goldens.
+
+The fresh bundle contains a fixture executable, so these tests verify installation and signing, not game startup or BPP initialization.

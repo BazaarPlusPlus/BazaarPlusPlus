@@ -194,7 +194,7 @@ mod fresh_install_acceptance {
     }
 
     #[test]
-    #[ignore = "requires packaged macOS payload: set BPP_ACCEPTANCE_RESOURCE_DIR and run explicitly"]
+    #[ignore = "macOS acceptance: run through `just installer::acceptance`"]
     fn fresh_install_writes_payload_and_signed_trampoline_without_quitting_steam() {
         let resources = std::path::PathBuf::from(
             std::env::var("BPP_ACCEPTANCE_RESOURCE_DIR").expect("resource directory required"),
@@ -287,7 +287,7 @@ mod fresh_install_acceptance {
             steam_path: steam.to_string_lossy().into_owned(),
             game_path: game.to_string_lossy().into_owned(),
         });
-        execute_and_refresh(&facts, &mut effects, || {
+        let verified = execute_and_refresh(&facts, &mut effects, || {
             let mut archive = zip::ZipArchive::new(
                 std::fs::File::open(resources.join("BepInExSource/BepInEx.zip")).unwrap(),
             )
@@ -317,30 +317,47 @@ mod fresh_install_acceptance {
             assert!(macos.join("The Bazaar.orig").is_file());
             assert_eq!(std::fs::read_to_string(&config).unwrap(), original_config);
             assert!(!config.with_extension("vdf.bak").exists());
-            run(Command::new("codesign")
+            let codesign_verified = Command::new("codesign")
                 .args(["--verify", "--deep", "--strict"])
-                .arg(&bundle));
-            let installed_uuid = Command::new("dwarfdump")
-                .arg("--uuid")
-                .arg(&executable)
-                .output()
-                .unwrap();
-            let bundled_uuid = Command::new("dwarfdump")
-                .arg("--uuid")
-                .arg(resources.join("Trampoline/bpp_launcher"))
-                .output()
-                .unwrap();
-            assert_eq!(
-                String::from_utf8_lossy(&installed_uuid.stdout)
-                    .split_whitespace()
-                    .nth(1),
-                String::from_utf8_lossy(&bundled_uuid.stdout)
+                .arg(&bundle)
+                .status()
+                .unwrap()
+                .success();
+            let uuid = |path: &std::path::Path| {
+                let output = Command::new("dwarfdump")
+                    .arg("--uuid")
+                    .arg(path)
+                    .output()
+                    .unwrap();
+                String::from_utf8_lossy(&output.stdout)
                     .split_whitespace()
                     .nth(1)
-            );
-            Ok(())
+                    .map(str::to_owned)
+            };
+            let installed_uuid = uuid(&executable);
+            let uuid_matches = installed_uuid.is_some()
+                && installed_uuid == uuid(&resources.join("Trampoline/bpp_launcher"));
+            Ok((codesign_verified, uuid_matches))
         })
         .unwrap();
+        let (codesign_verified, uuid_matches) = verified;
+
+        // Signatures change on every signing, so the committed golden holds the
+        // installed path set; the per-run manifest holds the hashes.
+        let manifest = crate::goldens::tree_manifest(&game);
+        crate::goldens::write_run_manifest(
+            "fresh_install_writes_payload_and_signed_trampoline_without_quitting_steam",
+            &manifest,
+        );
+        let tree = serde_json::json!({
+            "paths": manifest.iter().map(|(path, _)| path).collect::<Vec<_>>(),
+            "trampoline_uuid_matches_bundled": uuid_matches,
+            "codesign_verified": codesign_verified,
+        });
+        crate::goldens::assert_golden(
+            "acceptance/installed-tree.json",
+            &crate::goldens::json(&tree, &[]),
+        );
         eprintln!("Fresh install passed: packaged payload, .orig preservation, trampoline UUID, deep signature, unchanged Steam config; temporary directory removed on exit.");
     }
 }

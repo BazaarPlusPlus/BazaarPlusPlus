@@ -1,0 +1,7 @@
+{
+  "bpp_paths": [
+    "TheBazaar.app/Contents/Plugins/GfxPluginBppReplayVideoToolbox.bundle"
+  ],
+  "codesign_verified": true,
+  "trampoline_uuid_matches_bundled": true
+}

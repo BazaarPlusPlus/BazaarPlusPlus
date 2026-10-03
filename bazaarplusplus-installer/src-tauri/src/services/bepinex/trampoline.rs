@@ -879,10 +879,13 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "copies the Steam installation named by BPP_TEST_GAME_ROOT; never mutates the source"]
+    #[ignore = "macOS acceptance: run through `just installer::acceptance`; copies BPP_TEST_GAME_ROOT and never mutates it"]
     fn copied_steam_bundle_repair_acceptance() {
         let source =
             PathBuf::from(std::env::var_os("BPP_TEST_GAME_ROOT").expect("BPP_TEST_GAME_ROOT"));
+        let resources = PathBuf::from(
+            std::env::var_os("BPP_ACCEPTANCE_RESOURCE_DIR").expect("BPP_ACCEPTANCE_RESOURCE_DIR"),
+        );
         let game = tempfile::tempdir().unwrap();
         let app = game.path().join("TheBazaar.app");
         command(
@@ -893,14 +896,49 @@ mod tests {
                 app.as_os_str(),
             ],
         );
-        let stub = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("resources/Trampoline/macos/bpp_launcher");
+        let stub = resources.join("Trampoline/bpp_launcher");
         for iteration in 1..=3 {
             imp::install_with_stub(game.path(), &stub).unwrap();
             assert!(is_current_with_stub(game.path(), &stub).unwrap());
             assert!(!app.join("TheBazaar_ARM64.app").exists());
             eprintln!("Copied Steam bundle repair {iteration}: strict signature and current stub verified");
         }
+
+        // The game's own files differ between machines and game versions, so
+        // the committed golden holds only the Payload Inventory paths present
+        // after repair; the per-run manifest holds every file and its hash.
+        let manifest = crate::goldens::tree_manifest(game.path());
+        crate::goldens::write_run_manifest("copied_steam_bundle_repair_acceptance", &manifest);
+        let inventory: serde_json::Value = serde_json::from_str(
+            &std::fs::read_to_string(
+                Path::new(env!("CARGO_MANIFEST_DIR")).join("../../release/payload.json"),
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        let mut bpp_paths: Vec<&str> = inventory["files"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|file| {
+                file["platforms"]
+                    .as_array()
+                    .is_none_or(|platforms| platforms.iter().any(|value| value == "macos"))
+            })
+            .filter_map(|file| file["path"].as_str())
+            .filter(|path| std::fs::symlink_metadata(game.path().join(path)).is_ok())
+            .collect();
+        bpp_paths.sort_unstable();
+        let layout = imp::bundle_paths(game.path()).unwrap();
+        let tree = serde_json::json!({
+            "bpp_paths": bpp_paths,
+            "trampoline_uuid_matches_bundled": trampoline_builds_match(&layout.exe_path, &stub).unwrap(),
+            "codesign_verified": imp::verify_bundle(&app).is_ok(),
+        });
+        crate::goldens::assert_golden(
+            "acceptance/repaired-tree.json",
+            &crate::goldens::json(&tree, &[]),
+        );
         // The developer script must be able to consume the installer's backup format.
         if let Some(script) = std::env::var_os("BPP_TEST_REPAIR_SCRIPT") {
             std::fs::write(game.path().join(".bpp-launch-mode"), b"trampoline").unwrap();
