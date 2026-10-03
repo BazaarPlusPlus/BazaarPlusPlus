@@ -1,0 +1,22 @@
+{
+  "runs": [],
+  "battles": [],
+  "battle_cards": [],
+  "quality": [],
+  "quarantine": [
+    {
+      "source_hour": "2026-08-10T13",
+      "source_day": "2026-08-10",
+      "bundle_id": "projection-unaccepted-unknown-rank",
+      "run_id": "run-projection-unaccepted-unknown-rank",
+      "stage": "fact_filter",
+      "reason_code": "unaccepted_run",
+      "raw_run": true,
+      "discarded_unknown_hero": false,
+      "discarded_unknown_final_rank": true,
+      "first_seen_at": "2026-08-10T14:00:00Z",
+      "decoder_code_version": "v5-consumer-contract-1",
+      "diagnostic_json": "{\"final_rank\":\"Mythic\",\"hero\":\"Vanessa\",\"reason\":\"unaccepted_run\"}"
+    }
+  ]
+}

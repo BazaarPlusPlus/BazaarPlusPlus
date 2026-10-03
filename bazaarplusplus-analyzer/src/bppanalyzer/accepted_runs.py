@@ -1,6 +1,8 @@
 """Accepted Run admission and the canonical hero and rank sets."""
 
+import json
 from dataclasses import dataclass
+from pathlib import Path
 
 CANONICAL_HEROES = (
     "Dooley",
@@ -17,7 +19,14 @@ CANONICAL_RANKS = frozenset(
 )
 LEGEND_RANK = "Legendary"
 
-_HERO_ALIASES = {"Hero8": "TheDragons"}
+
+def _load_hero_aliases() -> dict[str, str]:
+    """Read the analyzer-owned alias table shared with the mod and installer."""
+    path = Path(__file__).resolve().parents[2] / "contracts" / "v5" / "hero-aliases.json"
+    return dict(json.loads(path.read_bytes())["aliases"])
+
+
+_HERO_ALIASES = _load_hero_aliases()
 
 
 @dataclass(frozen=True, slots=True)

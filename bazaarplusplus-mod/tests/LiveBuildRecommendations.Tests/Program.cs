@@ -23,8 +23,9 @@ TenWinBuildTests.Run();
 
 internal static class TenWinBuildTests
 {
-    private const string ContractResourceName =
-        "LiveBuildRecommendations.Tests.analyzer-v5-schema2-contract.json";
+    // The analyzer-produced golden (contracts/v5/fixtures/builds.latest.json).
+    private const string ContractResourceName = "LiveBuildRecommendations.Tests.builds.latest.json";
+    private const string ContractHeroName = "Dooley";
     private const string GuidA = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
     private const string GuidB = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb";
     private const string GuidC = "cccccccc-cccc-cccc-cccc-cccccccccccc";
@@ -87,36 +88,39 @@ internal static class TenWinBuildTests
         );
         var corpus = RequireCorpus(ContractJson());
         Assert(corpus.HeroCount == 8, "The contract fixture should contain all eight heroes.");
-        Assert(corpus.BuildCount == 1, "The contract fixture should contain one build.");
+        Assert(corpus.BuildCount == 2, "The contract fixture should contain two builds.");
         Assert(
-            corpus.GeneratedAtUtc == DateTimeOffset.Parse("2026-08-12T02:00:00Z"),
+            corpus.GeneratedAtUtc == DateTimeOffset.Parse("2026-08-11T00:30:00Z"),
             "generated_at should parse as UTC."
         );
         Assert(
-            corpus.WindowEndUtc == DateTimeOffset.Parse("2026-08-11T00:00:00Z"),
+            corpus.WindowEndUtc == DateTimeOffset.Parse("2026-08-10T00:00:00Z"),
             "window.end should parse as the freshness timestamp."
         );
 
         var match = corpus
             .FindBuilds(
-                "Vanessa",
-                [Guid.Parse("11111111-1111-1111-1111-111111111111")],
+                ContractHeroName,
+                [Guid.Parse("11111111-1111-4111-8111-111111111111")],
                 BuildLiveState.Empty
             )
             .Single();
-        Assert(match.Build.Layout.Count == 5, "The contract layout should retain five cards.");
-        Assert(match.Build.Stats.CompletedRunCount == 123, "Completed runs should parse.");
-        Assert(match.Build.Stats.TenWinRunCount == 45, "Ten-win runs should parse.");
-        Assert(match.Build.Stats.TenWinRateBps == 3659, "Basis-point rate should parse.");
-        Assert(match.Build.Stats.P75TenWinFinalDay == 13, "p75 day should parse.");
-        Assert(match.Build.Stats.Score == 421037, "Score should parse.");
+        Assert(match.Build.Layout.Count == 4, "The contract layout should retain four cards.");
+        Assert(match.Build.Stats.CompletedRunCount == 2, "Completed runs should parse.");
+        Assert(match.Build.Stats.TenWinRunCount == 2, "Ten-win runs should parse.");
+        Assert(match.Build.Stats.TenWinRateBps == 10000, "Basis-point rate should parse.");
+        Assert(match.Build.Stats.P75TenWinFinalDay == 10, "p75 day should parse.");
+        Assert(match.Build.Stats.Score == 342372, "Score should parse.");
         Assert(match.Build.Layout[0].EnchantName == null, "Enchantment ref zero must be null.");
-        Assert(match.Build.Layout[1].EnchantName == "Burn", "Named enchantments should resolve.");
+        Assert(
+            match.Build.Layout[1].EnchantName == "Burning",
+            "Named enchantments should resolve."
+        );
 
         using var catalog = new StubCatalog(corpus);
         var summary = new BuildRecommendationRepository(catalog).GetCorpusSummary()!.Value;
         Assert(
-            summary.WindowEndUtc == DateTimeOffset.Parse("2026-08-11T00:00:00Z"),
+            summary.WindowEndUtc == DateTimeOffset.Parse("2026-08-10T00:00:00Z"),
             "Recommendation freshness should project window.end rather than generated_at."
         );
     }
@@ -938,7 +942,8 @@ internal static class TenWinBuildTests
 
     private static JObject ContractHeroes(JObject root) => (JObject)root["heroes"]!;
 
-    private static JObject ContractHero(JObject root) => (JObject)ContractHeroes(root)["Vanessa"]!;
+    private static JObject ContractHero(JObject root) =>
+        (JObject)ContractHeroes(root)[ContractHeroName]!;
 
     private static JArray ContractBuildRow(JObject root) =>
         (JArray)((JArray)ContractHero(root)["builds"]!)[0]!;
