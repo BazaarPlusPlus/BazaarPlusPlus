@@ -18,10 +18,6 @@ from tests.bundle_fixtures import bundle_bytes
 HOUR = datetime(2026, 8, 10, 12, tzinfo=UTC)
 
 
-def _digest(value: bytes) -> str:
-    return hashlib.sha256(value).hexdigest()
-
-
 def _empty_page() -> dict[str, object]:
     return {
         "window": {
@@ -34,7 +30,6 @@ def _empty_page() -> dict[str, object]:
 
 
 def _one_bundle_page(
-    content: bytes,
     *,
     download_url: str = "https://download.invalid/bundle-a",
 ) -> dict[str, object]:
@@ -45,8 +40,6 @@ def _one_bundle_page(
             "available_at_ms": int(HOUR.timestamp() * 1_000) + 1,
             "download_url": download_url,
             "download_expires_at_ms": int(HOUR.timestamp() * 1_000) + 60_000,
-            "sha256": _digest(content),
-            "bytes": len(content),
         }
     ]
     return page
@@ -176,7 +169,7 @@ def test_download_succeeds_after_a_transport_error() -> None:
     def server(request: httpx.Request) -> httpx.Response:
         nonlocal download_attempts
         if request.url.host == "api.invalid":
-            return httpx.Response(200, json=_one_bundle_page(content))
+            return httpx.Response(200, json=_one_bundle_page())
         download_attempts += 1
         if download_attempts == 1:
             raise httpx.ConnectError("fixture transport failure", request=request)
@@ -221,14 +214,13 @@ def test_window_expired_410_is_never_retried() -> None:
 
 
 def test_download_window_expired_410_is_never_retried() -> None:
-    content = bundle_bytes("bundle-a")
     download_attempts = 0
     backoffs: list[float] = []
 
     def server(request: httpx.Request) -> httpx.Response:
         nonlocal download_attempts
         if request.url.host == "api.invalid":
-            return httpx.Response(200, json=_one_bundle_page(content))
+            return httpx.Response(200, json=_one_bundle_page())
         download_attempts += 1
         return httpx.Response(
             410,
@@ -307,7 +299,7 @@ def test_download_retries_every_declared_transient_http_response(
     def server(request: httpx.Request) -> httpx.Response:
         nonlocal download_attempts
         if request.url.host == "api.invalid":
-            return httpx.Response(200, json=_one_bundle_page(content))
+            return httpx.Response(200, json=_one_bundle_page())
         download_attempts += 1
         if download_attempts == 1:
             if error_body is not None:
@@ -344,14 +336,13 @@ def test_download_auth_and_contract_failures_are_never_retried(
     status_code: int,
     error_body: dict[str, object] | None,
 ) -> None:
-    content = bundle_bytes("bundle-a")
     download_attempts = 0
     backoffs: list[float] = []
 
     def server(request: httpx.Request) -> httpx.Response:
         nonlocal download_attempts
         if request.url.host == "api.invalid":
-            return httpx.Response(200, json=_one_bundle_page(content))
+            return httpx.Response(200, json=_one_bundle_page())
         download_attempts += 1
         if error_body is not None:
             return httpx.Response(status_code, json=error_body)
@@ -397,8 +388,6 @@ def test_listing_auth_and_contract_failures_are_never_retried(failure: str) -> N
 
 
 def test_hour_index_exhausts_keyset_pages_and_returns_ordered_deduplicated_index() -> None:
-    first = b"first"
-    second = b"second"
     requests: list[httpx.Request] = []
 
     def server(request: httpx.Request) -> httpx.Response:
@@ -421,8 +410,6 @@ def test_hour_index_exhausts_keyset_pages_and_returns_ordered_deduplicated_index
                             "available_at_ms": int(HOUR.timestamp() * 1_000) + 1,
                             "download_url": "https://download.invalid/a",
                             "download_expires_at_ms": int(HOUR.timestamp() * 1_000) + 9_000,
-                            "sha256": _digest(first),
-                            "bytes": len(first),
                         }
                     ],
                     "next_after": {
@@ -441,16 +428,12 @@ def test_hour_index_exhausts_keyset_pages_and_returns_ordered_deduplicated_index
                         "available_at_ms": int(HOUR.timestamp() * 1_000) + 1,
                         "download_url": "https://download.invalid/a-refreshed",
                         "download_expires_at_ms": int(HOUR.timestamp() * 1_000) + 10_000,
-                        "sha256": _digest(first),
-                        "bytes": len(first),
                     },
                     {
                         "bundle_id": "bundle-b",
                         "available_at_ms": int(HOUR.timestamp() * 1_000) + 2,
                         "download_url": "https://download.invalid/b",
                         "download_expires_at_ms": int(HOUR.timestamp() * 1_000) + 9_000,
-                        "sha256": _digest(second),
-                        "bytes": len(second),
                     },
                 ],
                 "next_after": None,
@@ -472,23 +455,18 @@ def test_hour_index_exhausts_keyset_pages_and_returns_ordered_deduplicated_index
     assert requests[1].url.params["after_available_at_ms"] == str(int(HOUR.timestamp() * 1_000) + 1)
     assert requests[1].url.params["after_bundle_id"] == "bundle-a"
     expected_identity = [
-        {
-            "available_at_ms": int(HOUR.timestamp() * 1_000) + 1,
-            "bundle_id": "bundle-a",
-            "bytes": len(first),
-            "sha256": _digest(first),
-        },
-        {
-            "available_at_ms": int(HOUR.timestamp() * 1_000) + 2,
-            "bundle_id": "bundle-b",
-            "bytes": len(second),
-            "sha256": _digest(second),
-        },
+        {"available_at_ms": int(HOUR.timestamp() * 1_000) + 1, "bundle_id": "bundle-a"},
+        {"available_at_ms": int(HOUR.timestamp() * 1_000) + 2, "bundle_id": "bundle-b"},
     ]
     canonical = (
         json.dumps(expected_identity, sort_keys=True, separators=(",", ":")) + "\n"
     ).encode()
     assert index.raw_commit_sha256 == hashlib.sha256(canonical).hexdigest()
+    # Every committed _commit.json recorded this digest; a change re-heals into FactConflict.
+    assert (
+        index.raw_commit_sha256
+        == "8f3360d1d6bd164764b23cf3992b9099956f258d2c32e511186ed3a1539f9558"
+    )
 
 
 def test_empty_index_past_retention_is_expired_instead_of_a_zero_row_hour() -> None:
@@ -530,7 +508,6 @@ def test_expired_download_capability_reenumerates_the_same_fixed_hour() -> None:
             return httpx.Response(
                 200,
                 json=_one_bundle_page(
-                    content,
                     download_url=(
                         "https://download.invalid/expired"
                         if enumerations == 1
@@ -558,7 +535,6 @@ def test_expired_download_capability_reenumerates_the_same_fixed_hour() -> None:
 
 
 def test_download_url_refresh_is_bounded_to_one_reenumeration() -> None:
-    content = bundle_bytes("bundle-a")
     enumerations = 0
     download_attempts = 0
     backoffs: list[float] = []
@@ -570,7 +546,6 @@ def test_download_url_refresh_is_bounded_to_one_reenumeration() -> None:
             return httpx.Response(
                 200,
                 json=_one_bundle_page(
-                    content,
                     download_url=f"https://download.invalid/url-{enumerations}",
                 ),
             )
@@ -613,8 +588,6 @@ def test_stream_never_downloads_beyond_its_eight_bundle_lookahead() -> None:
                             "available_at_ms": int(HOUR.timestamp() * 1_000) + number,
                             "download_url": f"https://download.invalid/{bundle_id}",
                             "download_expires_at_ms": int(HOUR.timestamp() * 1_000) + 60_000,
-                            "sha256": hashlib.sha256(content).hexdigest(),
-                            "bytes": len(content),
                         }
                         for number, (bundle_id, content) in enumerate(contents.items())
                     ],
@@ -674,8 +647,6 @@ def test_stream_stops_starting_downloads_after_a_fatal_bundle_failure() -> None:
                             "available_at_ms": int(HOUR.timestamp() * 1_000) + number,
                             "download_url": f"https://download.invalid/{bundle_id}",
                             "download_expires_at_ms": int(HOUR.timestamp() * 1_000) + 60_000,
-                            "sha256": hashlib.sha256(content).hexdigest(),
-                            "bytes": len(content),
                         }
                         for number, (bundle_id, content) in enumerate(contents.items())
                     ],

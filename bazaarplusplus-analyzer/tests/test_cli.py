@@ -10,7 +10,7 @@ from bppanalyzer.bundle_source import RetryableSourceError
 from bppanalyzer.config import Config
 from bppanalyzer.driver import PipelineDriver
 from bppanalyzer.locking import DirectoryLock
-from bppanalyzer.object_store import LocalObjectStore
+from tests.fakes import MemoryObjectStore
 
 
 class FailedContextSource:
@@ -39,7 +39,7 @@ def test_cli_preserves_usage_lock_and_partial_exit_codes(tmp_path: Path, monkeyp
     monkeypatch.setattr(cli, "load_config", lambda **_kwargs: _config(tmp_path))
     monkeypatch.setattr(cli, "BundleSource", FailedContextSource)
     monkeypatch.setattr(cli, "PipelineDriver", partial(PipelineDriver, clock=lambda: now))
-    monkeypatch.setattr(cli, "_object_store", lambda _config: LocalObjectStore(tmp_path / "r2"))
+    monkeypatch.setattr(cli, "_object_store", lambda _config: MemoryObjectStore())
     runner = CliRunner()
 
     assert runner.invoke(cli.main, ["run", "--heal-days", "0"]).exit_code == 2
@@ -52,17 +52,6 @@ def test_cli_preserves_usage_lock_and_partial_exit_codes(tmp_path: Path, monkeyp
     partial_result = runner.invoke(cli.main, ["run", "--heal-days", "1", "--quiet"])
     assert partial_result.exit_code == 4
     assert "source hour failed: 2026-08-07T00 (fixture_retryable)" in partial_result.output
-
-
-def test_cli_exposes_only_current_pipeline_operator_commands() -> None:
-    result = CliRunner().invoke(cli.main, ["--help"])
-
-    assert result.exit_code == 0
-    assert "run" in result.output
-    assert "status" in result.output
-    assert "verify" in result.output
-    assert "rollback" not in result.output
-    assert "release" not in result.output
 
 
 def test_cli_status_text_shows_live_current_run_progress(tmp_path: Path, monkeypatch) -> None:

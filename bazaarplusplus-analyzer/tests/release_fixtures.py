@@ -2,10 +2,9 @@ import hashlib
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
-import pyarrow as pa
-
 from bppanalyzer.fact_store import FactStore
-from bppanalyzer.projection import HourProjection, table_schemas
+from bppanalyzer.projection import HourProjection
+from tests.fakes import row_projection
 
 CARD_IDS = tuple(f"00000000-0000-0000-0000-{index:012d}" for index in range(1, 11))
 
@@ -47,17 +46,8 @@ def commit_sealed_day(store: FactStore, source_day: date, *, day_offset: int = 0
 
 
 def _projection(source_hour: datetime, rows: dict[str, list[dict[str, object]]]) -> HourProjection:
-    schemas = table_schemas()
-    tables = {
-        name: pa.Table.from_pylist(rows.get(name, []), schema=schema)
-        for name, schema in schemas.items()
-    }
     identity = source_hour.strftime("%Y-%m-%dT%H").encode()
-    return HourProjection(
-        source_hour=source_hour,
-        raw_commit_sha256=hashlib.sha256(identity).hexdigest(),
-        tables=tables,
-    )
+    return row_projection(source_hour, hashlib.sha256(identity).hexdigest(), rows)
 
 
 def _populated_rows(source_hour: datetime, day_offset: int) -> dict[str, list[dict[str, object]]]:
@@ -109,8 +99,8 @@ def _populated_rows(source_hour: datetime, day_offset: int) -> dict[str, list[di
                 "opponent_rating": 1000 if day_offset == 0 else None,
                 "winner_combatant_id": winner,
                 "loser_combatant_id": "Opponent" if winner == "Player" else "Player",
-                "winner_side": None,
-                "winner_hero": None,
+                "winner_side": winner.lower(),
+                "winner_hero": "Dooley",
             }
         )
     cards = [

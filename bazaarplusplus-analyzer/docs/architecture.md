@@ -30,6 +30,11 @@ current snapshots, status, run history, and logs.
 - A day seal names exactly 24 verified hourly commit identities. A retention-
   expired day that cannot be completed is recorded as abandoned.
 - Analysis reads explicit Parquet paths recovered from verified day seals.
+- Projection admits Runs and normalizes hero, final rank, and Battle winner
+  side once. Analysis reads those stored columns as-is and reads every hour
+  with the one owned table schema, so a change to admission or to a fact
+  schema must replace every committed hour in the Analysis Window, not only
+  new ones.
 - Fact retention defaults to the latest eight Complete Source Days: the
   seven-day Analysis Window plus one rollback day. All newer incomplete Source
   Hours remain available for sealing. Retention removes an expired day seal

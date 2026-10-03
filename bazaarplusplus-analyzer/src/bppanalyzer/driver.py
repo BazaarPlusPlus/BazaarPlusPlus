@@ -1,12 +1,10 @@
 """Heal complete Source Days and independently publish two consumer snapshots."""
 
 import json
-import os
-import tempfile
 import time
 import uuid
 from collections.abc import Callable
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, date, datetime
 from pathlib import Path
 
 from bppanalyzer.bundle_source import (
@@ -14,9 +12,9 @@ from bppanalyzer.bundle_source import (
     RetryableSourceError,
 )
 from bppanalyzer.config import MIN_FACT_RETENTION_DAYS
+from bppanalyzer.durable import atomic_replace, aware_utc
 from bppanalyzer.fact_store import FactStore, parse_source_day
 from bppanalyzer.hour_intake import (
-    DEFAULT_SETTLE_LAG,
     Source,
     SourceHourIntake,
     healing_days,
@@ -38,7 +36,6 @@ from bppanalyzer.publication import (
     select_analysis_window,
 )
 
-DEFAULT_HEAL_DAYS = 8
 BUNDLE_PROGRESS_EVERY = 250
 
 
@@ -52,73 +49,40 @@ class PipelineDriver:
         source: Source,
         source_epoch: date | str | None = None,
         clock: Callable[[], datetime] = lambda: datetime.now(UTC),
-        settle_lag: timedelta = DEFAULT_SETTLE_LAG,
-        heartbeat_interval: float = 30,
-        stale_after: float = 300,
         max_run_seconds: float = 21600,
-        duckdb_memory_limit: str = "1GB",
-        duckdb_threads: int = 1,
+        duckdb_memory_limit: str,
+        duckdb_threads: int,
         fact_retention_days: int = MIN_FACT_RETENTION_DAYS,
         object_store: ObjectStore | None = None,
-        fact_fault_injector: Callable[[str, Path], None] | None = None,
-        publication_fault_injector: Callable[[str, str], None] | None = None,
     ) -> None:
-        if settle_lag <= timedelta():
-            raise ValueError("Settle lag must be positive")
-        if (
-            not isinstance(fact_retention_days, int)
-            or isinstance(fact_retention_days, bool)
-            or fact_retention_days < MIN_FACT_RETENTION_DAYS
-        ):
-            raise ValueError(f"fact_retention_days must be at least {MIN_FACT_RETENTION_DAYS}")
         self.data_root = Path(data_root)
         self.source = source
         self.source_epoch = parse_source_day(source_epoch) if source_epoch is not None else None
         self.clock = clock
-        self.settle_lag = settle_lag
-        self.heartbeat_interval = heartbeat_interval
-        self.stale_after = stale_after
         self.max_run_seconds = max_run_seconds
         self.duckdb_memory_limit = duckdb_memory_limit
         self.duckdb_threads = duckdb_threads
         self.fact_retention_days = fact_retention_days
         self.object_store = object_store
-        self.fact_fault_injector = fact_fault_injector
-        self.publication_fault_injector = publication_fault_injector or (
-            lambda _product, _stage: None
-        )
 
     def run(
         self,
         *,
-        heal_days: int = DEFAULT_HEAL_DAYS,
+        heal_days: int,
         anchor_day: date | str | None = None,
         publish: bool = True,
         progress_callback: Callable[[str], None] | None = None,
         error_callback: Callable[[str], None] | None = None,
     ) -> RunSummary:
-        if not isinstance(heal_days, int) or isinstance(heal_days, bool) or heal_days < 1:
-            raise ValueError("heal_days must be a positive integer")
         parsed_anchor = parse_source_day(anchor_day) if anchor_day is not None else None
-        now = _aware_utc(self.clock())
+        now = aware_utc(self.clock())
         run_id = uuid.uuid4().hex
-        lock = DirectoryLock(
-            self.data_root,
-            run_id,
-            heartbeat_interval=self.heartbeat_interval,
-            stale_after=self.stale_after,
-            max_run_seconds=self.max_run_seconds,
-        )
+        lock = DirectoryLock(self.data_root, run_id, max_run_seconds=self.max_run_seconds)
         with lock:
             started_monotonic = time.monotonic()
             progress = RunEvidence(run_id, now, started_monotonic)
             _reset_source_performance(self.source)
-            store = FactStore(
-                self.data_root,
-                clock=self.clock,
-                ownership_check=lock.assert_owned,
-                fault_injector=self.fact_fault_injector,
-            )
+            store = FactStore(self.data_root, clock=self.clock, ownership_check=lock.assert_owned)
             evidence = OperationalEvidence(
                 self.data_root,
                 run_id,
@@ -159,7 +123,7 @@ class PipelineDriver:
                             bundles_done=bundles_done,
                             bundles_total=bundles_total,
                             started_at=now,
-                            updated_at=_aware_utc(self.clock()),
+                            updated_at=aware_utc(self.clock()),
                         ),
                         considered_days=healing_days(
                             now, heal_days, source_epoch=self.source_epoch
@@ -245,7 +209,7 @@ class PipelineDriver:
                 evidence.try_log(f"run failed: {_error_reason(error)}")
 
             summary = progress.summarize(
-                finished_at=_aware_utc(self.clock()),
+                finished_at=aware_utc(self.clock()),
                 fatal_reason=_error_reason(pending_error) if pending_error is not None else None,
             )
 
@@ -259,7 +223,7 @@ class PipelineDriver:
                 evidence.finish(
                     store,
                     summary,
-                    now=_aware_utc(self.clock()),
+                    now=aware_utc(self.clock()),
                     considered_days=healing_days(now, heal_days, source_epoch=self.source_epoch),
                     source_epoch=self.source_epoch,
                     ownership_check=ownership_check,
@@ -314,7 +278,6 @@ class PipelineDriver:
             try:
                 checkpoint("build", None, step=product)
                 report(f"{product} snapshot build started")
-                self.publication_fault_injector(product, "before_build")
                 product_started = time.monotonic()
                 built = (
                     builder.build_heroes(window)
@@ -324,7 +287,6 @@ class PipelineDriver:
                 progress.product_timings[f"{product}_build_seconds"] = round(
                     max(time.monotonic() - product_started, 0.0), 6
                 )
-                self.publication_fault_injector(product, "after_build")
                 lock.assert_owned()
                 save_started = time.monotonic()
                 _write_local_snapshot(self.data_root, built, lock.assert_owned)
@@ -335,7 +297,6 @@ class PipelineDriver:
                 report(f"{product} snapshot build done")
                 if publish and publisher is not None:
                     checkpoint("publish", None, step=product)
-                    self.publication_fault_injector(product, "before_publish")
                     publish_started = time.monotonic()
                     replaced = publisher.replace(built)
                     progress.product_timings[f"{product}_publish_seconds"] = round(
@@ -378,12 +339,7 @@ class PipelineDriver:
         for day in days:
             if store.has_seal(day) or store.is_abandoned(day):
                 continue
-            planned_by_day[day] = settled_missing_hours(
-                day,
-                now,
-                store.missing_hours(day),
-                settle_lag=self.settle_lag,
-            )
+            planned_by_day[day] = settled_missing_hours(day, now, store.missing_hours(day))
         progress.hours_planned = sum(len(hours) for hours in planned_by_day.values())
         report(f"heal plan: days={len(days)} missing_settled_hours={progress.hours_planned}")
         hours_started = 0
@@ -545,24 +501,11 @@ def _reset_source_performance(source: Source) -> None:
 def _write_local_snapshot(
     root: Path, snapshot: BuiltSnapshot, ownership_check: Callable[[], None]
 ) -> None:
-    destination = root / "snapshots" / snapshot.product / "latest.json"
-    ownership_check()
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    descriptor, name = tempfile.mkstemp(prefix=".latest.json.tmp-", dir=destination.parent)
-    temporary = Path(name)
-    try:
-        with os.fdopen(descriptor, "wb") as stream:
-            descriptor = -1
-            stream.write(snapshot.content)
-            stream.flush()
-            os.fsync(stream.fileno())
-        ownership_check()
-        os.replace(temporary, destination)
-        _fsync_directory(destination.parent)
-    finally:
-        if descriptor >= 0:
-            os.close(descriptor)
-        temporary.unlink(missing_ok=True)
+    atomic_replace(
+        root / "snapshots" / snapshot.product / "latest.json",
+        snapshot.content,
+        ownership_check=ownership_check,
+    )
 
 
 def _error_reason(error: BaseException) -> str:
@@ -572,23 +515,9 @@ def _error_reason(error: BaseException) -> str:
     return str(error) or type(error).__name__
 
 
-def _aware_utc(value: datetime) -> datetime:
-    if not isinstance(value, datetime) or value.tzinfo is None or value.utcoffset() is None:
-        raise ValueError("Pipeline clock must be timezone-aware")
-    return value.astimezone(UTC)
-
-
 def _format_bytes(value: int) -> str:
     return f"{value / (1024 * 1024):.1f}MiB"
 
 
 def _format_elapsed(value: float) -> str:
     return f"{max(round(value), 0)}s"
-
-
-def _fsync_directory(path: Path) -> None:
-    descriptor = os.open(path, os.O_RDONLY)
-    try:
-        os.fsync(descriptor)
-    finally:
-        os.close(descriptor)

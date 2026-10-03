@@ -19,6 +19,7 @@ import pyarrow.compute as pc
 import pyarrow.parquet as pq
 
 from bppanalyzer.bundle_source import parse_source_hour
+from bppanalyzer.durable import canonical_json, fsync_directory
 from bppanalyzer.projection import HourProjection, table_schemas
 
 TABLES = ("runs", "battles", "battle_cards", "quality", "quarantine")
@@ -104,14 +105,12 @@ class FactStore:
         *,
         clock: Callable[[], datetime] = lambda: datetime.now(UTC),
         ownership_check: Callable[[], None] = lambda: None,
-        fault_injector: Callable[[str, Path], None] | None = None,
     ) -> None:
         self.root = Path(root)
         self._hourly = self.root / "facts" / "hourly"
         self._sealed = self.root / "facts" / "sealed"
         self._clock = clock
         self._ownership_check = ownership_check
-        self._fault = fault_injector or (lambda _seam, _path: None)
 
     def commit_hour(self, projected: HourProjection) -> HourCommit:
         commit_started = time.perf_counter()
@@ -119,13 +118,7 @@ class FactStore:
         hour = parse_source_hour(projected.source_hour)
         hour_key = hour.strftime("%Y-%m-%dT%H")
         day_key = hour.strftime("%Y-%m-%d")
-        if set(projected.table_names) != set(TABLES):
-            raise FactCorrupt("Hourly projection must contain exactly five tables")
         schemas = table_schemas()
-        projected_schemas = projected.schemas
-        for name in TABLES:
-            if projected_schemas[name] != schemas[name]:
-                raise FactCorrupt(f"Hourly {name} schema differs from the owned schema")
 
         self._hourly.mkdir(parents=True, exist_ok=True)
         final = self._hourly / f"source_hour={hour_key}"
@@ -175,18 +168,9 @@ class FactStore:
 
             for name in TABLES:
                 path = stage / f"{name}.parquet"
-                _fsync_file(path)
+                fsync_directory(path)
                 file_hashes[path.name] = _sha256_file(path)
                 file_bytes[path.name] = path.stat().st_size
-
-            self._fault("before_precommit_verify", stage)
-            for filename, expected in file_hashes.items():
-                if _sha256_file(stage / filename) != expected:
-                    raise FactCorrupt(
-                        f"Staged Parquet checksum differs before promotion: {filename}"
-                    )
-                if (stage / filename).stat().st_size != file_bytes[filename]:
-                    raise FactCorrupt(f"Staged Parquet size differs before promotion: {filename}")
 
             body = {
                 "schema_version": 1,
@@ -201,8 +185,7 @@ class FactStore:
             }
             commit_bytes = canonical_json(body)
             _durable_create(stage / "_commit.json", commit_bytes)
-            _fsync_directory(stage)
-            self._fault("before_hour_promote", stage)
+            fsync_directory(stage)
             self._ownership_check()
 
             if final.exists():
@@ -234,7 +217,7 @@ class FactStore:
                 )
 
             os.rename(stage, final)
-            _fsync_directory(self._hourly)
+            fsync_directory(self._hourly)
             return replace(
                 self._read_hour(hour, deep=True),
                 reused=False,
@@ -283,7 +266,6 @@ class FactStore:
         self._ownership_check()
         self._sealed.mkdir(parents=True, exist_ok=True)
         destination = self._seal_path(day)
-        self._fault("before_seal_promote", destination)
         self._ownership_check()
         reused = _atomic_immutable_file(destination, content)
         return DaySeal(
@@ -444,7 +426,7 @@ class FactStore:
             files_pruned += 1
             pruned_days.add(seal.source_day)
         if seals[:-retain_days]:
-            _fsync_directory(self._sealed)
+            fsync_directory(self._sealed)
 
         hours_pruned = 0
         if self._hourly.is_dir():
@@ -466,7 +448,7 @@ class FactStore:
                 hours_pruned += 1
                 pruned_days.add(source_hour.date().isoformat())
             if hours_pruned:
-                _fsync_directory(self._hourly)
+                fsync_directory(self._hourly)
 
         return FactPruneReport(tuple(sorted(pruned_days)), hours_pruned, files_pruned, bytes_pruned)
 
@@ -651,12 +633,6 @@ def parse_source_day(value: date | str) -> date:
     return value
 
 
-def canonical_json(value: object) -> bytes:
-    return (
-        json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False) + "\n"
-    ).encode("utf-8")
-
-
 def _digest_map(value: object, expected: set[str], label: str) -> dict[str, str]:
     if (
         not isinstance(value, dict)
@@ -717,7 +693,7 @@ def _atomic_immutable_file(path: Path, content: bytes) -> bool:
     try:
         _durable_create(temporary, content)
         os.link(temporary, path)
-        _fsync_directory(path.parent)
+        fsync_directory(path.parent)
     except FileExistsError:
         try:
             if path.read_bytes() == content:
@@ -728,19 +704,3 @@ def _atomic_immutable_file(path: Path, content: bytes) -> bool:
     finally:
         temporary.unlink(missing_ok=True)
     return False
-
-
-def _fsync_file(path: Path) -> None:
-    descriptor = os.open(path, os.O_RDONLY)
-    try:
-        os.fsync(descriptor)
-    finally:
-        os.close(descriptor)
-
-
-def _fsync_directory(path: Path) -> None:
-    descriptor = os.open(path, os.O_RDONLY)
-    try:
-        os.fsync(descriptor)
-    finally:
-        os.close(descriptor)

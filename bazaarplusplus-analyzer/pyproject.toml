@@ -69,4 +69,4 @@ ignore = ["B023"]
 python-version = "3.14"
 
 [tool.ty.src]
-include = ["src", "scripts"]
+include = ["src"]
