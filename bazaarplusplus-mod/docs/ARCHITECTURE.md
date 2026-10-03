@@ -22,7 +22,7 @@ Three ordering facts in this file are load-bearing, because each one fails silen
 
 Disagreement resolves to **Ptr**, and the asymmetry is the whole reason. Classifying a PTR client as Online silently pollutes the production dataset and cannot be undone, while classifying an Online client as Ptr only pauses its uploads. The channel is injected into the composition, stamped onto recorded runs by `RunLoggingModule`, and `BundleSealCoordinator` excludes PTR runs before a bundle can enter the outbox.
 
-Newer-only combat events and enum members stay behind runtime adapters in `GameInterop/CombatSimulation`, so a Production build lacking them skips only the optional metrics. Premise tests live in `tests/PtrCompatibility.Tests/`.
+Newer-only combat events and enum members stay behind runtime adapters in `GameInterop/CombatSimulation`, so a Production build lacking them skips only the optional metrics. Premise tests live in `tests/RuntimeIntegration.Tests/GamePremiseCompatibilityTests.cs`.
 
 ## Assemblies And Boundaries
 

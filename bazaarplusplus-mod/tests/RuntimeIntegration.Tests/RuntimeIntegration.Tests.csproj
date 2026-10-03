@@ -34,6 +34,10 @@
       <_Parameter1>BppGameLibraries</_Parameter1>
       <_Parameter2>$(BppGameLibraries)</_Parameter2>
     </AssemblyAttribute>
+    <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+      <_Parameter1>BppManagedPath</_Parameter1>
+      <_Parameter2>$(ManagedPath)</_Parameter2>
+    </AssemblyAttribute>
   </ItemGroup>
 
   <ItemGroup>

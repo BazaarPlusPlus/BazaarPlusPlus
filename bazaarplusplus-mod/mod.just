@@ -18,10 +18,6 @@ build *args:
 test *args:
     bash scripts/test.sh test "$@"
 
-# Run every compatibility check whose local game or decompiled inputs exist.
-test-compat *args:
-    bash scripts/test.sh test-compat "$@"
-
 # Run the opt-in Combat Impact acceptance: <absolute-corpus-path> [report-path] [--benchmark].
 test-corpus +args:
     bash scripts/test.sh test-corpus "$@"
