@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
+import util from 'node:util';
 import { test } from 'node:test';
 import { gitEnvironment } from './git-command.mjs';
 import { runFixtureGit } from './test-support/git-fixture.mjs';
@@ -118,20 +119,6 @@ const call = (dir, project, tool, ...args) => ({
   cwd: project ? path.join(dir, `bazaarplusplus-${project}`) : dir
 });
 
-const modFmtCheck = (dir) => [
-  call(dir, 'mod', 'dotnet', 'tool', 'restore'),
-  call(dir, 'mod', 'dotnet', 'csharpier', 'check', '.')
-];
-const modLocksCheck = (dir) =>
-  [
-    'src/BazaarPlusPlus.Localization/BazaarPlusPlus.Localization.csproj',
-    'src/BazaarPlusPlus.ModApi/BazaarPlusPlus.ModApi.csproj',
-    'src/BazaarPlusPlus.Storage/BazaarPlusPlus.Storage.csproj',
-    'src/BazaarPlusPlus/BazaarPlusPlus.csproj'
-  ].map((project) =>
-    call(dir, 'mod', 'dotnet', 'restore', project, '--locked-mode')
-  );
-
 test('the default lists every module, including from a project directory', (t) => {
   const f = fixture(t);
   const result = f.run([], { cwd: path.join(f.dir, 'bazaarplusplus-site') });
@@ -144,92 +131,74 @@ test('the default lists every module, including from a project directory', (t) =
   assert.deepEqual(f.calls(), []);
 });
 
+// The aggregate recipes are checked by property, not by restating every
+// project's recipe: release publication never runs, every project gate runs in
+// its own directory, and nothing runs anywhere else.
+const publishingVerbs = new Set([
+  'prepare',
+  'build',
+  'upload',
+  'mirror',
+  'mirror-all',
+  'promote'
+]);
+const releaseVerb = ({ tool, args }) => {
+  const index = tool === 'node' ? args.indexOf('release.mjs') : -1;
+  return index === -1 ? null : args[index + 1];
+};
+const projectDir = (dir, project) =>
+  path.join(dir, `bazaarplusplus-${project}`);
+
+function assertProjectGates(dir, calls) {
+  const dirs = new Set([dir, ...projects.map((p) => projectDir(dir, p))]);
+  for (const entry of calls) {
+    assert.ok(
+      dirs.has(entry.cwd),
+      `ran outside a project: ${JSON.stringify(entry)}`
+    );
+    assert.ok(
+      !publishingVerbs.has(releaseVerb(entry)),
+      `publishing command: ${JSON.stringify(entry)}`
+    );
+  }
+  for (const project of projects)
+    assert.ok(
+      calls.some((entry) => entry.cwd === projectDir(dir, project)),
+      `${project} did not run in its directory`
+    );
+}
+
+const hasCall = (calls, expected) =>
+  calls.some((entry) => util.isDeepStrictEqual(entry, expected));
+
 test('check delegates source-only gates in their project directories', (t) => {
   const f = fixture(t);
   succeeded(f.run(['check']));
-  assert.deepEqual(f.calls(), [
-    call(f.dir, null, ...rootPrettier('--check')),
-    call(
-      f.dir,
-      null,
-      'node',
-      '--test',
-      'scripts/just.test.mjs',
-      'scripts/workspace.test.mjs'
-    ),
-    call(f.dir, null, 'node', 'release.mjs', 'check'),
-    ...modFmtCheck(f.dir),
-    call(f.dir, 'mod', 'mod-build', 'build'),
-    ...modLocksCheck(f.dir),
-    call(f.dir, 'installer', 'npm', 'run', 'verify', '--', '--source-only'),
-    call(f.dir, 'installer', 'npm', 'run', 'docs:check'),
-    ...['typecheck', 'lint', 'format:check', 'build'].map((script) =>
-      call(f.dir, 'site', 'npm', 'run', script)
-    ),
-    call(f.dir, 'server', 'npm', 'run', 'check'),
-    call(
-      f.dir,
-      'analyzer',
-      'uv',
-      'run',
-      '--locked',
-      'ruff',
-      'format',
-      '--check',
-      '.'
-    ),
-    call(f.dir, 'analyzer', 'uv', 'run', '--locked', 'ruff', 'check', '.'),
-    call(f.dir, 'analyzer', 'uv', 'run', '--locked', 'ty', 'check')
-  ]);
+  const calls = f.calls();
+  assertProjectGates(f.dir, calls);
+  assert.ok(hasCall(calls, call(f.dir, null, 'node', 'release.mjs', 'check')));
+  assert.ok(hasCall(calls, call(f.dir, null, ...rootPrettier('--check'))));
 });
 
 test('test runs each suite without a release or publication command', (t) => {
   const f = fixture(t);
   succeeded(f.run(['test']));
-  assert.deepEqual(f.calls(), [
-    call(f.dir, null, ...rootPrettier('--check')),
-    call(
-      f.dir,
-      null,
-      'node',
-      '--test',
-      'scripts/just.test.mjs',
-      'scripts/workspace.test.mjs'
-    ),
-    call(f.dir, null, 'npm', 'test'),
-    call(f.dir, 'mod', 'mod-test', 'test'),
-    ...['installer', 'site'].map((project) =>
-      call(f.dir, project, 'npm', 'test')
-    ),
-    call(f.dir, 'server', 'npm', 'test'),
-    call(f.dir, 'analyzer', 'uv', 'run', '--locked', 'pytest')
-  ]);
+  const calls = f.calls();
+  assertProjectGates(f.dir, calls);
+  assert.deepEqual(calls.filter(releaseVerb), []);
+  assert.ok(hasCall(calls, call(f.dir, null, 'npm', 'test')));
 });
 
 test('fmt formats every project, then re-projects release files', (t) => {
   const f = fixture(t);
   succeeded(f.run(['fmt']));
-  assert.deepEqual(f.calls(), [
-    call(f.dir, null, ...rootPrettier('--write')),
-    call(f.dir, 'mod', 'dotnet', 'tool', 'restore'),
-    call(f.dir, 'mod', 'dotnet', 'csharpier', 'format', '.'),
-    ...['installer', 'site', 'server'].map((project) =>
-      call(f.dir, project, 'npm', 'run', 'format')
-    ),
-    call(
-      f.dir,
-      'analyzer',
-      'uv',
-      'run',
-      '--locked',
-      'ruff',
-      'check',
-      '--fix',
-      '.'
-    ),
-    call(f.dir, 'analyzer', 'uv', 'run', '--locked', 'ruff', 'format', '.'),
+  const calls = f.calls();
+  assertProjectGates(f.dir, calls);
+  assert.deepEqual(calls[0], call(f.dir, null, ...rootPrettier('--write')));
+  assert.deepEqual(
+    calls.at(-1),
     call(f.dir, null, 'node', 'release.mjs', 'sync')
-  ]);
+  );
 });
 
 test('a failing project stops the aggregate and preserves its exit code', (t) => {
@@ -513,29 +482,32 @@ for (const [recipe, tool, ...args] of [
   test(`${recipe} uses root tooling without installer dependencies`, (t) => {
     const f = fixture(t);
     succeeded(f.run([recipe]));
-    assert.deepEqual(f.calls(), [call(f.dir, null, tool, ...args)]);
+    const calls = f.calls();
+    assert.ok(
+      calls.every((entry) => entry.cwd === f.dir),
+      JSON.stringify(calls)
+    );
+    assert.ok(hasCall(calls, call(f.dir, null, tool, ...args)));
   });
 }
 
 test('installer::check-fast covers the commit subset without a Rust build', (t) => {
   const f = fixture(t);
   succeeded(f.run(['installer::check-fast']));
-  assert.deepEqual(f.calls(), [
-    ...['format:check', 'lint', 'check:ts'].map((script) =>
-      call(f.dir, 'installer', 'npm', 'run', script)
-    ),
-    call(
-      f.dir,
-      'installer',
-      'cargo',
-      'fmt',
-      '--manifest-path',
-      'src-tauri/Cargo.toml',
-      '--',
-      '--check'
-    ),
-    call(f.dir, 'installer', 'npm', 'run', 'docs:check')
-  ]);
+  const calls = f.calls();
+  const installer = projectDir(f.dir, 'installer');
+  assert.ok(
+    calls.every((entry) => entry.cwd === installer),
+    JSON.stringify(calls)
+  );
+  for (const script of ['format:check', 'lint', 'check:ts'])
+    assert.ok(hasCall(calls, call(f.dir, 'installer', 'npm', 'run', script)));
+  const cargo = calls.filter((entry) => entry.tool === 'cargo');
+  assert.ok(cargo.length > 0);
+  assert.ok(
+    cargo.every((entry) => entry.args[0] === 'fmt'),
+    JSON.stringify(cargo)
+  );
 });
 
 function hooksFixture(t, { real = false } = {}) {

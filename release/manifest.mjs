@@ -9,11 +9,6 @@ import { RELEASE_MANIFEST_PATH, platformManifestPath } from './downloads.ts';
 
 export { RELEASE_MANIFEST_PATH, platformManifestPath };
 
-// Clients built from this product version onward read their Platform Release
-// Manifest; earlier clients read only the lockstep Release Manifest, so a
-// platform may run ahead only once a lockstep release at least this new exists.
-export const PLATFORM_MANIFEST_SINCE = '5.5.0';
-
 function assertRecord(record, description) {
   if (
     !record ||
@@ -56,8 +51,13 @@ export function assertMirrorUrl(value) {
   return value;
 }
 
+// R2 object keys stored beside each uploaded release; never change them.
 export function mirrorRecordKey(version, platform) {
   return `${version}/${platform}/mirror/mainland.json`;
+}
+
+export function fragmentKey(version, platform) {
+  return `${version}/${platform}/updater/platform-manifest.json`;
 }
 
 export function buildMirrorRecord({
@@ -271,8 +271,9 @@ export function buildPlatformManifest({
 }
 
 // The Release Manifest: the newest release every declared platform promoted
-// at the same version and commit. Clients built before PLATFORM_MANIFEST_SINCE
-// read only this file, so it never runs ahead of any platform.
+// at the same version and commit. Clients that predate the per-platform
+// endpoint, and installers whose platform manifest fails to load, read only
+// this file, so it never runs ahead of any platform (ADR 0003).
 export function mergeReleaseManifest({ platformManifests, existingLatest }) {
   const byPlatform = new Map(
     (platformManifests ?? []).map((manifest) => [

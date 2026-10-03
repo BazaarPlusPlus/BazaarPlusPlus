@@ -2,7 +2,6 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import crypto from 'node:crypto';
-import { spawnSync } from 'node:child_process';
 import { afterEach, expect, test, vi } from 'vitest';
 import {
   buildPlatformFragment,
@@ -23,20 +22,6 @@ const sha256 = (bytes) =>
   crypto.createHash('sha256').update(bytes).digest('hex');
 const roots = [];
 
-test.each([
-  ['artifact-manifest.mjs', 'generate', '--platform', 'macos'],
-  ['native-recorder-input.mjs', 'ensure', '--platform', 'macos'],
-  ['payload-zip.mjs', '--platform', 'macos']
-])('legacy writer %s cannot bypass product orchestration', (...args) => {
-  const [file, ...flags] = args;
-  const result = spawnSync(
-    process.execPath,
-    [path.join(import.meta.dirname, file), ...flags],
-    { encoding: 'utf8' }
-  );
-  expect(result.status).toBe(1);
-  expect(result.stderr).toContain('release.mjs');
-});
 afterEach(() => {
   for (const root of roots.splice(0))
     fs.rmSync(root, { recursive: true, force: true });
@@ -679,7 +664,6 @@ const promoteOne = (data, store, platform, extra = {}) =>
     platform,
     baseUrl,
     store,
-    platformManifestSince: '3.1.1',
     ...extra
   });
 
@@ -687,17 +671,10 @@ test('one platform can run ahead once a lockstep release carries the per-platfor
   const data = fixture();
   const store = new MemoryStore();
   await stage(data, store);
+  await promote(data, store);
   const next = fixture('3.1.2');
   await upload(next, store, 'windows');
   await record(next, store, 'windows');
-  await expect(promoteOne(next, store, 'windows')).rejects.toThrow(
-    /requires a Release Manifest at 3\.1\.1 or newer/
-  );
-  expect(await store.get('latest/windows-x86_64.json')).toBeNull();
-  await promote(data, store);
-  await expect(
-    promoteOne(next, store, 'windows', { platformManifestSince: '3.2.0' })
-  ).rejects.toThrow(/requires a Release Manifest at 3\.2\.0 or newer/);
   const log = vi.fn();
   const ahead = await promoteOne(next, store, 'windows', { log });
   expect(ahead.platform.version).toBe('3.1.2');
@@ -743,38 +720,6 @@ test('one platform can run ahead once a lockstep release carries the per-platfor
       'darwin-aarch64': { mainlandUrl: mirrorUrl('macos', '3.1.2') }
     }
   });
-});
-
-test('the first release through the per-platform writer advances a lockstep manifest from the old flow', async () => {
-  const store = new MemoryStore();
-  store.objects.set('latest.json', {
-    bytes: Buffer.from(
-      JSON.stringify({
-        version: '5.9.0',
-        notes: 'Release 5.9.0',
-        pub_date: '2026-09-12T20:33:58.483Z',
-        platforms: {
-          'windows-x86_64': {
-            url: `${baseUrl}/5.9.0/windows-x86_64/updater/x.exe`,
-            signature: 's'
-          },
-          'darwin-aarch64': {
-            url: `${baseUrl}/5.9.0/darwin-aarch64/updater/x.tar.gz`,
-            signature: 's'
-          }
-        }
-      })
-    ),
-    etag: '"legacy"'
-  });
-  const data = fixture('6.0.0');
-  await stage(data, store);
-  const latest = await promote(data, store);
-  expect(latest.version).toBe('6.0.0');
-  expect(latest.gitCommit).toBe('a'.repeat(40));
-  expect(
-    JSON.parse((await store.get('latest/windows-x86_64.json')).bytes).version
-  ).toBe('6.0.0');
 });
 
 test('a mirror record cannot silently diverge from an address promoted during its probe', async () => {
@@ -886,25 +831,4 @@ test('the writer reproduces every shared platform fixture', () => {
       })
     ).toEqual(expected);
   }
-});
-
-test('confirming a published release restores a missing platform manifest from it', async () => {
-  const data = fixture();
-  const store = new MemoryStore();
-  await stage(data, store);
-  const latest = await promote(data, store);
-  const removed = store.objects.get('latest/darwin-aarch64.json');
-  store.objects.delete('latest/darwin-aarch64.json');
-  const log = vi.fn();
-  expect((await promote(data, store, { log })).version).toBe(data.version);
-  expect(
-    JSON.parse((await store.get('latest/darwin-aarch64.json')).bytes)
-  ).toEqual(JSON.parse(removed.bytes));
-  expect(log).toHaveBeenCalledWith(
-    expect.stringMatching(
-      /Restored latest\/darwin-aarch64\.json from latest\.json/
-    )
-  );
-  expect(store.writes.at(-1)).toBe('latest/darwin-aarch64.json');
-  expect(JSON.parse((await store.get('latest.json')).bytes)).toEqual(latest);
 });

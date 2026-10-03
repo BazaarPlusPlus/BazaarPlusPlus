@@ -17,8 +17,6 @@ test.each(RELEASE_PLATFORMS)(
       `
       set -euo pipefail
       source ./scripts/bundle.sh
-      printf 'r2key=%s\\n' "$(release_platforms_cli r2-key "$BPP_TEST_BUILD_PLATFORM")"
-      printf 'bundleroot=%s\\n' "$(release_platforms_cli bundle-root "$BPP_TEST_BUILD_PLATFORM")"
       printf 'rust=[%s]\\n' "$(release_platforms_cli rust-targets "$BPP_TEST_BUILD_PLATFORM")"
       # Only the macOS Payload carries a replay recorder plugin bundle to sign.
       if [ "$BPP_TEST_BUILD_PLATFORM" = macos ]; then
@@ -27,8 +25,6 @@ test.each(RELEASE_PLATFORMS)(
     `,
       { BPP_TEST_BUILD_PLATFORM: p.buildPlatform }
     );
-    expect(out).toContain(`r2key=${p.key}`);
-    expect(out).toContain(`bundleroot=${p.bundleRoot}`);
     expect(out).toContain(`rust=[${p.rustTarget ?? ''}]`);
     if (p.buildPlatform === 'macos') {
       expect(out).toContain(
@@ -57,11 +53,11 @@ test('prebuild-check target platforms derive from the table', () => {
   }
 });
 
-test('r2-key rejects an unsupported platform', () => {
+test('rust-targets rejects an unsupported platform', () => {
   const out = runShell(`
     source ./scripts/bundle.sh
     set +e
-    release_platforms_cli r2-key linux 2>&1
+    release_platforms_cli rust-targets linux 2>&1
     printf 'exit:%s\\n' "$?"
   `);
   expect(out).toContain('exit:1');

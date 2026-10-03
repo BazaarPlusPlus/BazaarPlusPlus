@@ -83,7 +83,7 @@ just 只转发，不缓存或跳过任何发布检查。直接调用 `node relea
 
 - 一个版本号只对应一个提交。`upload` 和 `promote --platform` 都会拒绝与另一平台同版本不同提交的产物；后发的平台要么构建同一提交，要么升版本号。
 - 每个平台的版本只前进，同版本重复执行只是确认，不能替换已发布的事实。
-- 切换前构建的客户端只读 `latest.json`，它们只能看到双平台都发布了的版本。所以 `promote --platform` 要求线上 `latest.json` 已经不低于 `release/manifest.mjs` 里的 `PLATFORM_MANIFEST_SINCE`，第一个带新 endpoint 的版本必须用不带 `--platform` 的 `promote` 双平台一起发布。旧客户端会先升到那个版本，再升到本平台的最新版本。
+- 切换前构建的客户端只读 `latest.json`，它们只能看到双平台都发布了的版本。它们仍有向前的路径，是因为第一个带新 endpoint 的版本 5.5.0 是双平台同步发布的，而 `latest.json` 的 rollback guard 让它不会回到 5.5.0 以下：旧客户端先升到 5.5.0 或更新的双平台版本，再按平台文件升到本平台的最新版本。所以 `promote --platform` 不再检查 `latest.json` 的版本（[ADR 0003](adr/0003-per-platform-release-promotion.md) 2026-10-03 修订）。
 - 镜像记录在该平台的 manifest 发布后冻结；`verify-mirror --latest` 逐平台复核各自的 manifest。
 
 ## 中国大陆镜像

@@ -15,9 +15,6 @@ import {
   requiredPayloadPaths
 } from './payload-inventory.mjs';
 
-// This is the first mod version guaranteed to write the BazaarPlusPlusV5 data root.
-export const V5_MIN_MOD_VERSION = '4.7.0';
-
 export const REQUIRED_RELEASE_INPUTS = Object.freeze({
   macos: Object.freeze(requiredPayloadPaths('macos')),
   windows: Object.freeze(requiredPayloadPaths('windows'))
@@ -121,21 +118,10 @@ function assertRequiredStagingInputs(sourceDir, requiredStagingPaths) {
   );
 }
 
-function parseProdModVersion(content) {
-  const match = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)\.prod$/.exec(
-    content.trim()
-  );
-  return match?.slice(1).map(Number) ?? null;
-}
-
-function compareVersionParts(left, right) {
-  for (let index = 0; index < left.length; index += 1) {
-    if (left[index] !== right[index]) return left[index] - right[index];
-  }
-  return 0;
-}
-
-function assertStagedModWritesV5DataRoot(sourceDir, productVersion) {
+// The staged mod must be the product version being packaged. Callers pass a
+// VERSION that already passed assertProductVersion, so equality also rejects
+// every unparseable or older staged version.
+function assertStagedModVersion(sourceDir, productVersion) {
   const versionPath = path.join(
     sourceDir,
     'BepInEx',
@@ -143,19 +129,6 @@ function assertStagedModWritesV5DataRoot(sourceDir, productVersion) {
     'BazaarPlusPlus.version'
   );
   const content = fs.readFileSync(versionPath, 'utf8');
-  const stagedVersion = parseProdModVersion(content);
-  if (!stagedVersion) {
-    throw new Error(
-      `Cannot parse staged BazaarPlusPlus mod version '${content.trim()}' at ${versionPath}; expected {semver}.prod. Run node release.mjs prepare for the selected platform.`
-    );
-  }
-
-  const minimumVersion = V5_MIN_MOD_VERSION.split('.').map(Number);
-  if (compareVersionParts(stagedVersion, minimumVersion) < 0) {
-    throw new Error(
-      `Staged BazaarPlusPlus mod version must be ${V5_MIN_MOD_VERSION}.prod or newer to write the BazaarPlusPlusV5 data root (found '${content.trim()}'). Run just release::prepare <platform> first.`
-    );
-  }
   if (content.trim() !== `${productVersion}.prod`) {
     throw new Error(
       `Payload product version mismatch: expected ${productVersion}.prod, found ${content.trim()}. Run node release.mjs prepare for this platform.`
@@ -411,7 +384,7 @@ export function preparePayloadZip({
     throw new Error(`Unsupported payload platform: ${platform}`);
   const { sourceDir, zipPath, manifestPath } = platformPaths(rootDir, platform);
   assertRequiredStagingInputs(sourceDir, requiredStagingPaths);
-  assertStagedModWritesV5DataRoot(sourceDir, productVersion);
+  assertStagedModVersion(sourceDir, productVersion);
   assertStagedHistoryDatabaseCompatibility(rootDir, sourceDir);
   return writeDeterministicZip({
     sourceDir,
@@ -493,7 +466,7 @@ export function validatePayloadZip({
     throw new Error(`Unsupported payload platform: ${platform}`);
   const { sourceDir, zipPath, manifestPath } = platformPaths(rootDir, platform);
   assertRequiredStagingInputs(sourceDir, requiredStagingPaths);
-  assertStagedModWritesV5DataRoot(sourceDir, productVersion);
+  assertStagedModVersion(sourceDir, productVersion);
   assertStagedHistoryDatabaseCompatibility(rootDir, sourceDir);
   assertForbiddenStagingInputs(platform, sourceDir);
   if (!fs.statSync(zipPath, { throwIfNoEntry: false })?.isFile()) {
@@ -552,53 +525,50 @@ export function validatePayloadZip({
   return { zipPath, manifestPath, entries: mapping };
 }
 
+// `pack` is internal to the locked product build (bazaarplusplus-installer
+// scripts/bundle.sh); Payloads are prepared with node release.mjs prepare.
+const PACK_USAGE =
+  'Usage: payload-zip.mjs pack --source <directory> --output <zip> [--manifest-output <json> --platform <macos|windows>]';
+
 async function main(args) {
-  if (args[0] === 'pack') {
-    const { assertBuildOwner } = await import('./payload.mjs');
-    assertBuildOwner(
-      path.resolve(import.meta.dirname, '..', 'bazaarplusplus-installer')
-    );
-    const { values } = parseArgs({
-      args: args.slice(1),
-      strict: true,
-      options: {
-        source: { type: 'string' },
-        output: { type: 'string' },
-        'manifest-output': { type: 'string' },
-        platform: { type: 'string' }
-      }
-    });
-    const sourceDir = values.source;
-    const outputPath = values.output;
-    const manifestPath = values['manifest-output'];
-    const platform =
-      values.platform === undefined
-        ? undefined
-        : resolveBuildPlatform(values.platform);
-    if (
-      !sourceDir ||
-      !outputPath ||
-      (manifestPath !== undefined && (!manifestPath || !platform))
-    ) {
-      throw new Error(
-        'Usage: payload-zip.mjs pack --source <directory> --output <zip> [--manifest-output <json> --platform <macos|windows>]'
-      );
-    }
-    const result = writeDeterministicZip({
-      sourceDir,
-      outputPath,
-      manifestPath,
-      platform
-    });
-    console.log(`payload-zip: wrote ${result.zipPath}`);
-    if (result.manifestPath) {
-      console.log(`payload-zip: wrote ${result.manifestPath}`);
-    }
-    return;
-  }
-  throw new Error(
-    'Prepare Payloads with node release.mjs prepare --platform <macos|windows>. The pack command is internal to the locked product build.'
+  if (args[0] !== 'pack') throw new Error(PACK_USAGE);
+  const { assertBuildOwner } = await import('./payload.mjs');
+  assertBuildOwner(
+    path.resolve(import.meta.dirname, '..', 'bazaarplusplus-installer')
   );
+  const { values } = parseArgs({
+    args: args.slice(1),
+    strict: true,
+    options: {
+      source: { type: 'string' },
+      output: { type: 'string' },
+      'manifest-output': { type: 'string' },
+      platform: { type: 'string' }
+    }
+  });
+  const sourceDir = values.source;
+  const outputPath = values.output;
+  const manifestPath = values['manifest-output'];
+  const platform =
+    values.platform === undefined
+      ? undefined
+      : resolveBuildPlatform(values.platform);
+  if (
+    !sourceDir ||
+    !outputPath ||
+    (manifestPath !== undefined && (!manifestPath || !platform))
+  )
+    throw new Error(PACK_USAGE);
+  const result = writeDeterministicZip({
+    sourceDir,
+    outputPath,
+    manifestPath,
+    platform
+  });
+  console.log(`payload-zip: wrote ${result.zipPath}`);
+  if (result.manifestPath) {
+    console.log(`payload-zip: wrote ${result.manifestPath}`);
+  }
 }
 
 if (import.meta.main) {

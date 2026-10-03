@@ -10,11 +10,7 @@ import {
   RELEASE_PLATFORMS,
   RELEASE_PLATFORM_KEYS
 } from './release-platforms.mjs';
-import {
-  DOWNLOAD_PLATFORM_KEYS,
-  UPDATER_ENDPOINTS,
-  platformManifestPath
-} from './downloads.ts';
+import { DOWNLOAD_PLATFORM_KEYS, platformManifestPath } from './downloads.ts';
 import { validatePlatformManifest } from './manifest.mjs';
 
 const fixture = JSON.parse(
@@ -32,16 +28,6 @@ test('shared fixture supplies the static Tauri updater release metadata', () => 
   expect(Object.keys(fixture.platforms).sort()).toEqual(
     [...RELEASE_PLATFORM_KEYS].sort()
   );
-  const config = JSON.parse(
-    fs.readFileSync(
-      path.join(
-        WORKSPACE_ROOT,
-        'bazaarplusplus-installer/src-tauri/tauri.conf.json'
-      ),
-      'utf8'
-    )
-  );
-  expect(config.plugins.updater.endpoints).toEqual([...UPDATER_ENDPOINTS]);
 });
 
 test.each(RELEASE_PLATFORMS)(

@@ -1,4 +1,5 @@
 import {
+  fragmentKey,
   installerFileName,
   mirrorRecordKey,
   platformManifestPath,
@@ -8,8 +9,8 @@ import {
 } from './manifest.mjs';
 import { assertProductVersion } from './product.mjs';
 import {
-  RELEASE_PLATFORMS,
-  RELEASE_PLATFORM_KEYS
+  RELEASE_PLATFORM_KEYS,
+  releasePlatform
 } from './release-platforms.mjs';
 
 // The Mainland Mirror is a manually uploaded share page of each installer at
@@ -160,12 +161,7 @@ async function fetchJson(url, fetchImpl, description, { missing } = {}) {
 }
 
 function platformKeysFor(platform) {
-  if (!platform) return RELEASE_PLATFORM_KEYS;
-  const definition = RELEASE_PLATFORMS.find(
-    (candidate) => candidate.buildPlatform === platform
-  );
-  if (!definition) throw new Error(`Unsupported release platform: ${platform}`);
-  return [definition.key];
+  return platform ? [releasePlatform(platform).key] : RELEASE_PLATFORM_KEYS;
 }
 
 // Read-only check against the public release origin; needs no credentials.
@@ -190,7 +186,7 @@ export async function verifyMainlandMirrors({
       const manifestPath = platformManifestPath(key);
       const manifest = validatePlatformManifest(
         await fetchJson(`${origin}/${manifestPath}`, fetchImpl, manifestPath, {
-          missing: `${key} has no platform manifest yet; it predates per-platform promotion`
+          missing: `${key} has no platform manifest yet at ${manifestPath}`
         }),
         key
       );
@@ -206,9 +202,9 @@ export async function verifyMainlandMirrors({
   } else {
     assertProductVersion(target);
     for (const key of platformKeysFor(platform)) {
-      const fragmentKey = `${target}/${key}/updater/platform-manifest.json`;
+      const uploadedKey = fragmentKey(target, key);
       const fragment = validatePlatformFragment(
-        await fetchJson(`${origin}/${fragmentKey}`, fetchImpl, fragmentKey, {
+        await fetchJson(`${origin}/${uploadedKey}`, fetchImpl, uploadedKey, {
           missing: `${key} ${target} is not uploaded yet; run upload first`
         }),
         target,

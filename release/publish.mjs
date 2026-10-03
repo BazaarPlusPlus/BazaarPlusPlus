@@ -4,13 +4,13 @@ import path from 'node:path';
 import { compareProductVersions, readProductVersion } from './product.mjs';
 import { putImmutable } from './r2-store.mjs';
 import {
-  PLATFORM_MANIFEST_SINCE,
   RELEASE_MANIFEST_PATH,
   assertMirrorUrl,
   buildLatestManifest,
   buildMirrorRecord,
   buildPlatformFragment,
   buildPlatformManifest,
+  fragmentKey,
   installerFileName,
   mergeReleaseManifest,
   mirrorRecordKey,
@@ -22,7 +22,8 @@ import {
 import { assertMainlandMirrors, checkMainlandMirror } from './mirror.mjs';
 import {
   RELEASE_PLATFORMS,
-  RELEASE_PLATFORM_KEYS
+  RELEASE_PLATFORM_KEYS,
+  releasePlatform
 } from './release-platforms.mjs';
 import {
   artifactManifestPath,
@@ -42,19 +43,6 @@ function readJsonObject(object, description) {
 
 function readOptionalJson(object, description) {
   return object ? readJsonObject(object, description) : null;
-}
-
-function fragmentKey(version, platform) {
-  return `${version}/${platform}/updater/platform-manifest.json`;
-}
-
-function platformKeyFor(buildPlatform) {
-  const definition = RELEASE_PLATFORMS.find(
-    (candidate) => candidate.buildPlatform === buildPlatform
-  );
-  if (!definition)
-    throw new Error(`Unsupported release platform: ${buildPlatform}`);
-  return definition.key;
 }
 
 async function readFragment(store, version, platform) {
@@ -278,7 +266,7 @@ export async function recordMainlandMirror({
   allowUnverified = false,
   log = () => {}
 }) {
-  const key = platformKeyFor(platform);
+  const key = releasePlatform(platform).key;
   if (typeof probeMirror !== 'function')
     throw new Error('Recording a mainland mirror requires a page probe');
   assertMirrorUrl(url);
@@ -447,31 +435,22 @@ async function writeLockstepManifest(store, log) {
   return { latest, advanced };
 }
 
-// Promote one platform without waiting for the other. Allowed only once a
-// lockstep release carries the per-platform endpoint to clients, since older
-// clients read the lockstep manifest alone and must keep a path forward.
+// Promote one platform without waiting for the other. The lockstep Release
+// Manifest advances only once every platform names the same release; the
+// per-platform endpoint bootstrap finished at 5.5.0 (ADR 0003).
 export async function promotePlatform({
   version,
   platform,
   baseUrl,
   store,
   withoutMainlandMirror = false,
-  platformManifestSince = PLATFORM_MANIFEST_SINCE,
   log = () => {},
   now = new Date()
 }) {
-  const key = platformKeyFor(platform);
+  const key = releasePlatform(platform).key;
   const fragment = await readFragment(store, version, key);
   await assertArtifactsStored(store, fragment, baseUrl);
   await assertSameCommitAcrossPlatforms(store, version, fragment);
-  const latest = await readLatest(store);
-  if (
-    !latest ||
-    compareProductVersions(latest.version, platformManifestSince) < 0
-  )
-    throw new Error(
-      `Promoting one platform requires a Release Manifest at ${platformManifestSince} or newer; promote ${version} for every platform first`
-    );
   const existing = await readPlatformManifest(store, key);
   const mirrors = await readMirrors(store, version, [fragment], {
     withoutMainlandMirror,
@@ -500,8 +479,7 @@ export async function promotePlatform({
   };
 }
 
-// Promote every platform at once: the ordinary release, and the only way to
-// publish the first release that carries the per-platform endpoint.
+// Promote every platform at once: the ordinary lockstep release.
 export async function promoteRelease({
   version,
   baseUrl,
@@ -524,9 +502,8 @@ export async function promoteRelease({
   for (const platform of RELEASE_PLATFORM_KEYS)
     existingPlatforms[platform] = await readPlatformManifest(store, platform);
   if (existingLatest?.version === version) {
-    // Confirming a published release: the Release Manifest is authoritative.
-    // Each fragment must still match it, and a platform manifest missing
-    // beside it is restored from it rather than rebuilt from records.
+    // Confirming a published release: the Release Manifest is authoritative
+    // and each fragment must still match it.
     for (const fragment of fragments) {
       const platform = fragment.platform;
       const split = {
@@ -536,15 +513,6 @@ export async function promoteRelease({
       };
       validatePlatformManifest(split, platform);
       buildPlatformManifest({ version, fragment, existing: split, now });
-      if (existingPlatforms[platform]) continue;
-      await compareAndSwapJson(
-        store,
-        platformManifestPath(platform),
-        (existing) => (existing ? null : split)
-      );
-      log(
-        `Restored ${platformManifestPath(platform)} from ${RELEASE_MANIFEST_PATH}`
-      );
     }
     return existingLatest;
   }

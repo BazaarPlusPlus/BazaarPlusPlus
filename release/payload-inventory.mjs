@@ -2,8 +2,9 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { WORKSPACE_ROOT } from './product.mjs';
-
-const platforms = ['macos', 'windows'];
+// release-platforms.mjs imports this module, so the platform list is read
+// when a function runs, never while the module graph is still initializing.
+import { defaultTargetBuildPlatforms } from './release-platforms.mjs';
 const producers = new Set([
   'managed',
   'history-contract',
@@ -79,7 +80,9 @@ export function validateInventory(inventory) {
       entry.platforms !== undefined &&
       (!Array.isArray(entry.platforms) ||
         !entry.platforms.length ||
-        entry.platforms.some((platform) => !platforms.includes(platform)))
+        entry.platforms.some(
+          (platform) => !defaultTargetBuildPlatforms().includes(platform)
+        ))
     )
       throw new Error(`Invalid payload platforms: ${relativePath}`);
     for (const child of entry.requiredEntries ?? [])
@@ -110,7 +113,7 @@ export function readInventory(workspaceRoot = WORKSPACE_ROOT) {
 }
 
 export function platformInventory(platform, inventory = readInventory()) {
-  if (!platforms.includes(platform))
+  if (!defaultTargetBuildPlatforms().includes(platform))
     throw new Error(`Unsupported payload platform: ${platform}`);
   return inventory.files.filter(
     (entry) => !entry.platforms || entry.platforms.includes(platform)

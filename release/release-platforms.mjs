@@ -47,34 +47,26 @@ export const RELEASE_PLATFORM_KEYS = Object.freeze(
   RELEASE_PLATFORMS.map((platform) => platform.key)
 );
 
-function findByBuildPlatform(buildPlatform) {
-  const matches = RELEASE_PLATFORMS.filter(
-    (platform) => platform.buildPlatform === buildPlatform
+// The one lookup of a release platform by its build platform name.
+export function releasePlatform(buildPlatform) {
+  const platform = RELEASE_PLATFORMS.find(
+    (candidate) => candidate.buildPlatform === buildPlatform
   );
-  if (matches.length !== 1) {
-    throw new Error(
-      `Unsupported or ambiguous release platform: ${buildPlatform}`
-    );
-  }
-  return matches[0];
+  if (!platform)
+    throw new Error(`Unsupported release platform: ${buildPlatform}`);
+  return platform;
 }
 
+// Accepts a build platform or a Node `process.platform` name; null when the
+// host has no release platform.
 export function resolveBuildPlatform(platformEnv) {
-  const buildPlatforms = new Set(
-    RELEASE_PLATFORMS.filter(
+  return (
+    RELEASE_PLATFORMS.find(
       (platform) =>
         platform.buildPlatform === platformEnv ||
         platform.nodePlatform === platformEnv
-    ).map((platform) => platform.buildPlatform)
+    )?.buildPlatform ?? null
   );
-  if (buildPlatforms.size === 0) {
-    return null;
-  }
-  if (buildPlatforms.size !== 1) {
-    throw new Error(`Ambiguous release platform alias: ${platformEnv}`);
-  }
-  const [buildPlatform] = buildPlatforms;
-  return findByBuildPlatform(buildPlatform).buildPlatform;
 }
 
 export function defaultTargetBuildPlatforms() {
@@ -140,19 +132,8 @@ function printLines(values) {
 export function cliMain(args) {
   const [verb, buildPlatform] = args;
   try {
-    if (verb === 'list' && args.length === 1) {
-      printLines(RELEASE_PLATFORM_KEYS);
-      return 0;
-    }
-
-    const platform = findByBuildPlatform(buildPlatform);
+    const platform = releasePlatform(buildPlatform);
     switch (verb) {
-      case 'r2-key':
-        printLines([platform.key]);
-        break;
-      case 'bundle-root':
-        printLines([platform.bundleRoot]);
-        break;
       case 'rust-targets':
         printLines([platform.rustTarget]);
         break;
