@@ -16,10 +16,11 @@ Each key holds a mutable current snapshot for one independent consumer.
 
 ## Shared population and window
 
-`Hero8` is normalized to `TheDragons`. A Run becomes an Accepted Run only when
-its normalized hero and final rank are canonical. The canonical ranks are
-`Bronze`, `Silver`, `Gold`, `Diamond`, `Master`, `Masters`, and `Legendary`.
-Rejecting a Run also rejects its Battles and card snapshots.
+Hero ids are normalized through the alias table in
+[`hero-aliases.json`](../../contracts/v5/hero-aliases.json). A Run becomes an
+Accepted Run only when its normalized hero and final rank are canonical. The
+canonical ranks are `Bronze`, `Silver`, `Gold`, `Diamond`, `Master`, `Masters`,
+and `Legendary`. Rejecting a Run also rejects its Battles and card snapshots.
 
 `Legendary` maps to the `legend` segment; every other canonical rank maps to
 `non_legend`. A Battle inherits the segment of its owning Run. The `all`

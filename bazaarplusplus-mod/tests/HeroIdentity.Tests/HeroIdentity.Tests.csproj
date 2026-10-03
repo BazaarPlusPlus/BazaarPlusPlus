@@ -35,6 +35,13 @@
   </ItemGroup>
 
   <ItemGroup>
+    <EmbeddedResource
+      Include="../../../bazaarplusplus-analyzer/contracts/v5/hero-aliases.json"
+      LogicalName="HeroIdentity.Tests.hero-aliases.json"
+    />
+  </ItemGroup>
+
+  <ItemGroup>
     <Reference Include="BazaarGameShared">
       <HintPath>$(ManagedPath)/BazaarGameShared.dll</HintPath>
     </Reference>

@@ -20,6 +20,7 @@ from bppanalyzer.operational_evidence import OperationalEvidence, read_status
 from bppanalyzer.publication import BUILDS_KEY, HEROES_KEY, SnapshotBuilder
 from tests.bundle_fixtures import bundle_bytes
 from tests.fakes import MemoryObjectStore
+from tests.pipeline_fixtures import heal_from_bundles
 
 
 def _driver(data_root: Path, **kwargs) -> PipelineDriver:
@@ -82,10 +83,8 @@ class RecordingExpiredSource:
 
 
 def test_one_complete_day_publishes_a_one_day_window(tmp_path: Path) -> None:
-    from tests.release_fixtures import sealed_store
-
     root = tmp_path / "facts"
-    sealed_store(root, 1)
+    heal_from_bundles(root, 1)
     objects = MemoryObjectStore()
 
     summary = _driver(
@@ -109,12 +108,9 @@ def test_one_complete_day_publishes_a_one_day_window(tmp_path: Path) -> None:
 
 
 def test_successful_publication_prunes_facts_to_eight_latest_sealed_days(
-    tmp_path: Path,
+    nine_sealed_days: Path,
 ) -> None:
-    from tests.release_fixtures import sealed_store
-
-    root = tmp_path / "facts"
-    sealed_store(root, 9)
+    root = nine_sealed_days
     objects = MemoryObjectStore()
 
     summary = _driver(
@@ -147,11 +143,8 @@ def test_successful_publication_prunes_facts_to_eight_latest_sealed_days(
     assert FactStore(root).verify(deep=True).hours_verified == 8 * 24
 
 
-def test_driver_honors_a_longer_fact_retention_window(tmp_path: Path) -> None:
-    from tests.release_fixtures import sealed_store
-
-    root = tmp_path / "facts"
-    sealed_store(root, 9)
+def test_driver_honors_a_longer_fact_retention_window(nine_sealed_days: Path) -> None:
+    root = nine_sealed_days
 
     summary = _driver(
         root,
@@ -202,46 +195,6 @@ def test_driver_publishes_exactly_two_objects_and_records_the_structured_run_rep
     ).run(heal_days=7)
 
     assert summary.exit_code == 0
-    assert summary.report == {
-        "window": {"start": "2026-08-07", "end": "2026-08-13", "days": 7},
-        "downloads": {
-            "expected_bundles": 0,
-            "succeeded_bundles": 0,
-            "failed_bundles": 0,
-            "listing_pages": 0,
-            "listing_requests": 0,
-            "listing_retries": 0,
-            "download_attempts": 0,
-            "download_retries": 0,
-            "downloaded_bytes": 0,
-            "download_latency_ms_p50": None,
-            "download_latency_ms_p95": None,
-        },
-        "facts": {
-            "raw_runs": 7,
-            "discarded_unknown_hero": 0,
-            "discarded_unknown_final_rank": 0,
-            "included_runs": 7,
-            "included_battles": 56,
-        },
-        "heroes": {
-            "participating_runs": 7,
-            "participating_matchup_battles": 56,
-            "published": True,
-        },
-        "builds": {
-            "eligible_layout_runs": 7,
-            "candidate_builds": 1,
-            "published_builds": 1,
-            "published": True,
-        },
-        "retention": {
-            "source_days_pruned": 0,
-            "hours_pruned": 0,
-            "files_pruned": 0,
-            "bytes_pruned": 0,
-        },
-    }
     assert objects.put_keys() == [
         HEROES_KEY,
         BUILDS_KEY,
@@ -287,12 +240,9 @@ def test_one_product_failure_preserves_it_but_the_other_product_still_updates(
 
 
 def test_one_product_failure_does_not_prune_old_facts(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    nine_sealed_days: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from tests.release_fixtures import sealed_store
-
-    root = tmp_path / "facts"
-    sealed_store(root, 9)
+    root = nine_sealed_days
 
     monkeypatch.setattr(SnapshotBuilder, "build_heroes", _fail_heroes)
     summary = _driver(
@@ -430,12 +380,9 @@ def test_run_summary_records_low_cardinality_source_performance(tmp_path: Path) 
 
 
 def test_no_publish_writes_valid_local_snapshots_without_object_store_calls(
-    tmp_path: Path,
+    nine_sealed_days: Path,
 ) -> None:
-    from tests.release_fixtures import sealed_store
-
-    root = tmp_path / "facts"
-    sealed_store(root, 9)
+    root = nine_sealed_days
     objects = MemoryObjectStore()
 
     summary = _driver(

@@ -27,6 +27,10 @@ check:
 test:
     uv run --locked pytest
 
+# Rewrite the pipeline and projection goldens from fixture Bundles; review the diff.
+golden:
+    BPP_UPDATE_GOLDENS=1 uv run --locked pytest tests/test_pipeline_golden.py tests/test_bundle_goldens.py --no-cov
+
 # Apply safe Ruff fixes and format in place.
 fmt:
     uv run --locked ruff check --fix .

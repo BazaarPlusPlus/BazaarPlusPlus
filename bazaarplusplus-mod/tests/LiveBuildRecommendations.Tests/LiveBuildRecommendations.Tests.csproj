@@ -23,8 +23,8 @@
 
   <ItemGroup>
     <EmbeddedResource
-      Include="Fixtures/analyzer-v5-schema2-contract.json"
-      LogicalName="LiveBuildRecommendations.Tests.analyzer-v5-schema2-contract.json"
+      Include="../../../bazaarplusplus-analyzer/contracts/v5/fixtures/builds.latest.json"
+      LogicalName="LiveBuildRecommendations.Tests.builds.latest.json"
     />
     <EmbeddedResource
       Include="../../../bazaarplusplus-analyzer/contracts/v5/builds.schema.json"

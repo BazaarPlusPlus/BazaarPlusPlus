@@ -1,7 +1,6 @@
-import hashlib
 import json
 import multiprocessing
-import os
+import uuid
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
@@ -17,8 +16,7 @@ from bppanalyzer.driver import PipelineDriver
 from bppanalyzer.fact_store import FactStore
 from bppanalyzer.operational_evidence import peak_rss_bytes
 from bppanalyzer.projection import project_hour
-from tests.bundle_fixtures import bundle_bytes, payload
-from tests.fakes import row_projection
+from tests.bundle_fixtures import Card, bundle_bytes, payload
 
 
 class BusyHourSource:
@@ -43,6 +41,21 @@ class BusyHourSource:
         for ref in index.items:
             content = bundle_bytes(ref.bundle_id, run_payload=self.run_payload)
             yield admit_bundle(ref, content)
+
+
+class DistinctCardHourSource(BusyHourSource):
+    """A busy hour whose Bundles each carry their own card identities."""
+
+    def stream(self, index: RawHourIndex):
+        for ref in index.items:
+            hand = [
+                Card(str(uuid.uuid5(uuid.NAMESPACE_URL, f"{ref.bundle_id}/{slot}")), 1, slot)
+                for slot in range(50)
+            ]
+            run = payload(run_id=ref.bundle_id, player_hand=hand)
+            yield admit_bundle(
+                ref, bundle_bytes(ref.bundle_id, run_payload=run, run_id=ref.bundle_id)
+            )
 
 
 def _measure_busy_hour(root: str, results) -> None:
@@ -122,29 +135,17 @@ def test_one_source_day_persists_only_parquet_plus_at_most_one_percent_metadata(
 ) -> None:
     store = FactStore(tmp_path)
     day = date(2026, 8, 10)
+    # Real hours carry distinct cards; identical Bundles would compress far below
+    # any realistic metadata ratio.
+    busy = DistinctCardHourSource()
     for hour_number in range(24):
         hour = datetime.combine(day, datetime.min.time(), UTC) + timedelta(hours=hour_number)
-        rows: dict[str, list[dict[str, object]]] = {}
         if hour_number == 0:
-            rows["quarantine"] = [
-                {
-                    "source_hour": hour.strftime("%Y-%m-%dT%H"),
-                    "source_day": day.isoformat(),
-                    "bundle_id": "fixture-bundle",
-                    "run_id": None,
-                    "stage": "bundle_validation",
-                    "reason_code": "fixture",
-                    "raw_run": False,
-                    "discarded_unknown_hero": False,
-                    "discarded_unknown_final_rank": False,
-                    "first_seen_at": "2026-08-10T01:00:00Z",
-                    "decoder_code_version": "fixture",
-                    "diagnostic_json": os.urandom(6 * 1024 * 1024).hex(),
-                }
-            ]
-        store.commit_hour(
-            row_projection(hour, hashlib.sha256(hour.isoformat().encode()).hexdigest(), rows)
-        )
+            index = busy.hour_index(hour)
+            store.commit_hour(project_hour(index, busy.stream(index)))
+        else:
+            empty = RawHourIndex(hour, (), raw_commit_sha256(()), 1)
+            store.commit_hour(project_hour(empty, ()))
     store.seal_day(day)
 
     files = [path for path in tmp_path.rglob("*") if path.is_file()]

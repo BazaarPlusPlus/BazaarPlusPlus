@@ -5,13 +5,13 @@ import pytest
 
 from bppanalyzer.fact_store import FactConflict, FactCorrupt, FactMissing, FactStore
 from bppanalyzer.projection import HourProjection
-from tests.fakes import row_projection
+from tests.fakes import empty_projection
 
 HOUR = datetime(2026, 8, 10, 12, tzinfo=UTC)
 
 
 def _empty_hour(hour: datetime = HOUR, raw_commit_sha256: str = "a" * 64) -> HourProjection:
-    return row_projection(hour, raw_commit_sha256)
+    return empty_projection(hour, raw_commit_sha256)
 
 
 def test_identical_recommit_is_reused_but_different_canonical_commit_is_a_hard_conflict(
@@ -68,10 +68,10 @@ def test_verify_rehashes_parquet_and_hour_paths_expose_only_a_sealed_window(
         store.verify("2026-08-10")
 
 
-def test_prune_keeps_eight_latest_sealed_days_and_newer_partial_hours(tmp_path: Path) -> None:
-    from tests.release_fixtures import sealed_store
-
-    store = sealed_store(tmp_path, 9)
+def test_prune_keeps_eight_latest_sealed_days_and_newer_partial_hours(
+    nine_sealed_days: Path,
+) -> None:
+    store = FactStore(nine_sealed_days)
     partial = datetime(2026, 8, 16, 0, tzinfo=UTC)
     store.commit_hour(_empty_hour(partial))
 

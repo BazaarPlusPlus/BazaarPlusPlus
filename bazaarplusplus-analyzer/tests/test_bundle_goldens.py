@@ -1,4 +1,3 @@
-import base64
 import hashlib
 import json
 from datetime import UTC, datetime
@@ -18,18 +17,17 @@ from bppanalyzer.bundle_source import (
 )
 from bppanalyzer.projection import project_hour
 from tests.fakes import collect_tables
-
-REPO_ROOT = Path(__file__).resolve().parents[2]
-BUNDLE_FIXTURES = REPO_ROOT / "bazaarplusplus-server/contracts/v5/fixtures"
-RUN_FIXTURE = (
-    REPO_ROOT / "bazaarplusplus-mod/tests/BundleV5Codec.Tests/fixtures/run-payload-v5.fixture.b64"
+from tests.pipeline_fixtures import (
+    PROJECTION_CASES,
+    PROJECTION_GOLDENS,
+    assert_golden,
+    mod_run_payload_bundle,
+    read_base64,
 )
+from tests.pipeline_fixtures import SERVER_FIXTURES as BUNDLE_FIXTURES
+
 EXPECTED_PROJECTION = Path(__file__).parent / "fixtures/run-payload-v5.projection.json"
 SOURCE_HOUR = datetime(2026, 8, 3, 1, tzinfo=UTC)
-
-
-def _read_base64(path: Path) -> bytes:
-    return base64.b64decode(path.read_text(encoding="ascii").strip(), validate=True)
 
 
 def _reference(content: bytes, bundle_id: str) -> BundleRef:
@@ -52,7 +50,7 @@ def _index(ref: BundleRef) -> RawHourIndex:
 
 
 def test_server_run_only_golden_matches_manifest_and_checksums() -> None:
-    content = _read_base64(BUNDLE_FIXTURES / "run-only.bundle.b64")
+    content = read_base64(BUNDLE_FIXTURES / "run-only.bundle.b64")
     expected_manifest = json.loads((BUNDLE_FIXTURES / "run-only.manifest.json").read_text())
     checksums = json.loads((BUNDLE_FIXTURES / "checksums.json").read_text())["run-only.bundle.b64"]
 
@@ -73,7 +71,7 @@ def test_server_run_only_golden_matches_manifest_and_checksums() -> None:
     "filename", ["corrupt-magic.bundle.b64", "segment-digest-mismatch.bundle.b64"]
 )
 def test_server_corrupt_goldens_report_analyzer_validation_errors(filename: str) -> None:
-    content = _read_base64(BUNDLE_FIXTURES / filename)
+    content = read_base64(BUNDLE_FIXTURES / filename)
     manifest = json.loads((BUNDLE_FIXTURES / "run-only.manifest.json").read_text())
     checksums = json.loads((BUNDLE_FIXTURES / "checksums.json").read_text())[filename]
     reason = checksums.get("expected_reason", checksums["expected_error"])
@@ -106,38 +104,32 @@ def test_server_corrupt_goldens_report_analyzer_validation_errors(filename: str)
 
 
 def test_mod_run_payload_golden_projects_expected_tables() -> None:
-    # Only the envelope is assembled here; the C# writer owns the encoded Run bytes.
-    run_content = _read_base64(RUN_FIXTURE)
-    manifest = {
-        "bundle_id": "01J00000000000000000000902",
-        "bundle_version": 5,
-        "created_at_ms": int(SOURCE_HOUR.timestamp() * 1_000),
-        "run": {
-            "run_id": "payload-run",
-            "player_account_id": "golden-account",
-            "run_format_version": 5,
-            "projection": {"run": {}, "battles": []},
-            "payload": {
-                "offset": 0,
-                "length": len(run_content),
-                "sha256": hashlib.sha256(run_content).hexdigest(),
-                "content_type": "application/x-bpp-run-v5",
-            },
-        },
-    }
-    encoded_manifest = json.dumps(manifest, sort_keys=True, separators=(",", ":")).encode()
-    content = (
-        b"BPPBNDL5"
-        + (5).to_bytes(4, "big")
-        + len(encoded_manifest).to_bytes(4, "big")
-        + encoded_manifest
-        + run_content
-    )
-    ref = _reference(content, manifest["bundle_id"])
+    created_at_ms = int(SOURCE_HOUR.timestamp() * 1_000)
+    served = mod_run_payload_bundle(created_at_ms, created_at_ms=created_at_ms)
+    ref = _reference(served.content, served.bundle_id)
 
-    projection = project_hour(_index(ref), [admit_bundle(ref, content)])
+    projection = project_hour(_index(ref), [admit_bundle(ref, served.content)])
 
     expected = json.loads(EXPECTED_PROJECTION.read_text(encoding="utf-8"))
     tables = collect_tables(projection)
     assert {name: table.to_pylist() for name, table in tables.items()} == expected
     assert projection.bundle_count == 1
+
+
+@pytest.mark.parametrize("case", sorted(PROJECTION_CASES))
+def test_projection_rule_case_matches_its_golden_tables(case: str) -> None:
+    served = PROJECTION_CASES[case]
+    ref = BundleRef(
+        bundle_id=served.bundle_id,
+        available_at_ms=served.available_at_ms,
+        download_url=f"https://download.invalid/{served.bundle_id}",
+        download_expires_at_ms=served.available_at_ms + 60_000,
+    )
+    source_hour = datetime.fromtimestamp(served.available_at_ms // 3_600_000 * 3_600, tz=UTC)
+    index = RawHourIndex(source_hour, (ref,), raw_commit_sha256((ref,)), 1)
+
+    tables = collect_tables(project_hour(index, [admit_bundle(ref, served.content)]))
+
+    projected = {name: table.to_pylist() for name, table in tables.items()}
+    content = (json.dumps(projected, indent=2, ensure_ascii=False) + "\n").encode()
+    assert_golden(PROJECTION_GOLDENS / f"{case}.json", content)

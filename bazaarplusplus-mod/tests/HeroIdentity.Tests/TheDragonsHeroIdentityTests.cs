@@ -1,3 +1,5 @@
+using System.Reflection;
+using System.Text.Json;
 using BazaarGameShared.Domain.Core.Types;
 using BazaarPlusPlus.GameInterop.Heroes;
 using Xunit;
@@ -30,6 +32,29 @@ public sealed class TheDragonsHeroIdentityTests
     {
         Assert.True(TheDragonsHeroIdentity.TryCanonicalize(alias, out var canonical));
         Assert.Equal("TheDragons", canonical);
+    }
+
+    public static TheoryData<string, string> AnalyzerHeroAliases()
+    {
+        // The analyzer owns the alias mapping in contracts/v5/hero-aliases.json.
+        using var stream =
+            Assembly
+                .GetExecutingAssembly()
+                .GetManifestResourceStream("HeroIdentity.Tests.hero-aliases.json")
+            ?? throw new InvalidOperationException("The analyzer hero alias table is missing.");
+        using var table = JsonDocument.Parse(stream);
+        var aliases = new TheoryData<string, string>();
+        foreach (var alias in table.RootElement.GetProperty("aliases").EnumerateObject())
+            aliases.Add(alias.Name, alias.Value.GetString()!);
+        return aliases;
+    }
+
+    [Theory]
+    [MemberData(nameof(AnalyzerHeroAliases))]
+    public void Analyzer_alias_table_canonicalizes_the_same_way(string alias, string canonical)
+    {
+        Assert.True(TheDragonsHeroIdentity.TryCanonicalize(alias, out var observed));
+        Assert.Equal(canonical, observed);
     }
 
     [Fact]
