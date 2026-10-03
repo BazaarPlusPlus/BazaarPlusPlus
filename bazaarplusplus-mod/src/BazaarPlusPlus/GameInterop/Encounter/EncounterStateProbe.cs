@@ -6,21 +6,17 @@ using UnityEngine;
 
 namespace BazaarPlusPlus.GameInterop.Encounter;
 
-/// <summary>Read-only encounter state module. Keep the id and choice reads cheap;
-/// target-selection reads are isolated behind <see cref="GetTargetingState"/>.</summary>
+/// <summary>Read-only encounter state module. Keep the id and choice reads cheap.</summary>
 internal sealed class EncounterStateProbe : IEncounterStateProbe, ITypedEncounterStateProbe
 {
     private int _encounterIdsFrame = int.MinValue;
     private int _choicePedestalFrame = int.MinValue;
-    private int _targetingFrame = int.MinValue;
     private EncounterIdsProbeOutcome _encounterIdsOutcome = EncounterIdsProbeOutcome.Success(
         EncounterIdsSnapshot.Empty
     );
     private ChoicePedestalProbeOutcome _choicePedestalOutcome = ChoicePedestalProbeOutcome.Success(
         ChoicePedestalSnapshot.Empty
     );
-    private EncounterTargetingProbeOutcome _targetingOutcome =
-        EncounterTargetingProbeOutcome.Success(EncounterTargetingSnapshot.Empty);
 
     public EncounterIdsSnapshot GetEncounterIds()
     {
@@ -94,22 +90,6 @@ internal sealed class EncounterStateProbe : IEncounterStateProbe, ITypedEncounte
         return _choicePedestalOutcome;
     }
 
-    public EncounterTargetingSnapshot GetTargetingState()
-    {
-        return GetTargetingStateOutcome().Snapshot;
-    }
-
-    public EncounterTargetingProbeOutcome GetTargetingStateOutcome()
-    {
-        var frame = Time.frameCount;
-        if (_targetingFrame == frame)
-            return _targetingOutcome;
-
-        _targetingOutcome = ReadTargetingState();
-        _targetingFrame = frame;
-        return _targetingOutcome;
-    }
-
     private static EncounterIdsProbeOutcome ReadEncounterIds()
     {
         try
@@ -172,52 +152,6 @@ internal sealed class EncounterStateProbe : IEncounterStateProbe, ITypedEncounte
         catch (Exception ex)
         {
             return EncounterIdsProbeOutcome.Failure(ex);
-        }
-    }
-
-    private static EncounterTargetingProbeOutcome ReadTargetingState()
-    {
-        try
-        {
-            var appState = AppState.CurrentState;
-            var filterOutcome = InteractionFilterProbe.ReadCurrentFilter();
-            if (!filterOutcome.IsSuccess)
-            {
-                return EncounterTargetingProbeOutcome.Failure(
-                    filterOutcome.FailureReason,
-                    filterOutcome.Exception
-                );
-            }
-            var isPedestalState = appState is PedestalState;
-            var pedestalEligible = new HashSet<string>();
-            if (appState is PedestalState ped)
-            {
-                var pedestalOutcome = PedestalEligibilityProbe.ReadEligibleInstanceIds(ped);
-                if (!pedestalOutcome.IsSuccess)
-                {
-                    return EncounterTargetingProbeOutcome.Failure(
-                        pedestalOutcome.FailureReason,
-                        pedestalOutcome.Exception
-                    );
-                }
-                pedestalEligible = pedestalOutcome.InstanceIds;
-            }
-
-            return EncounterTargetingProbeOutcome.Success(
-                new EncounterTargetingSnapshot
-                {
-                    InteractionFilterTemplateIds = filterOutcome.TemplateIds,
-                    PedestalEligibleInstanceIds = pedestalEligible,
-                    IsPedestalState = isPedestalState,
-                }
-            );
-        }
-        catch (Exception ex)
-        {
-            return EncounterTargetingProbeOutcome.Failure(
-                EncounterProbeFailureReason.TargetingReadException,
-                ex
-            );
         }
     }
 

@@ -1729,59 +1729,6 @@ internal sealed class CombatReplayRuntime : MonoBehaviour
         return true;
     }
 
-    /// <summary>
-    /// Drives the replay "continue" button programmatically: validates that playback has finished
-    /// and is waiting on the button, then runs the same chain a real click does
-    /// (BoardManager.OnBoardRecapReplayButtonsContinueClicked: LevelUp recap cleanup, then
-    /// <c>ReplayState.Exit()</c>). This is the only programmatic path allowed to exit ReplayState —
-    /// finalizing any in-flight video recording depends on it.
-    /// </summary>
-    public bool TryContinueReplay(out string reason)
-    {
-        if (AppState.CurrentState is not ReplayState replay)
-        {
-            reason = "No replay is active.";
-            return false;
-        }
-
-        if (IsReplayStartInProgress)
-        {
-            reason = "Replay playback is still starting.";
-            return false;
-        }
-
-        if (_pendingCurrentReplayRecapHold != null)
-        {
-            reason = "Replay recording is still capturing the recap.";
-            return false;
-        }
-
-        if (replay.IsReplaying)
-        {
-            reason = "Replay playback has not finished yet.";
-            return false;
-        }
-
-        var now = Time.realtimeSinceStartup;
-        if (_savedReplay.IsExitSuppressed(now))
-        {
-            reason = "Replay exit is already in progress.";
-            return false;
-        }
-
-        // Mirror the native continue click: clear the LevelUp recap overlay first
-        // (BoardManager.OnBoardRecapReplayButtonsContinueClicked guards on ERunState.LevelUp),
-        // then Exit(). For bootstrapped saved replays the Exit() prefix patch reroutes into
-        // TryExitBootstrappedSavedReplayToMenu, which publishes the recorder's "ended" signal.
-        if (Data.CurrentState?.StateName == BazaarGameShared.Domain.Runs.ERunState.LevelUp)
-            Singleton<BoardManager>.Instance?.ExitRecapReplayState();
-
-        replay.Exit();
-        _savedReplay.NoteProgrammaticExitLatched(now);
-        reason = string.Empty;
-        return true;
-    }
-
     private async Task StartReplayAsync(
         PvpBattleManifest manifest,
         CombatSequenceMessages sequence,

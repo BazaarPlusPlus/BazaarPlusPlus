@@ -21,7 +21,7 @@ Constraints and patterns every change keeps.
 One line each, full record in [adr/](adr/). A line here exists to stop a settled question from being reopened; the ADR says why.
 
 - ADR-0001: Expose run/encounter state via on-demand `IEncounterStateProbe`, not an event-sourced timeline tracker.
-- ADR-0002: Replay exit is explicit and single-owner — `CombatReplayRuntime.TryContinueReplay` is the only programmatic `ReplayState` exit; ghost payloads are stored in recorder perspective, stamped by `PerspectiveVersion`.
+- ADR-0002: Replay exit is explicit — there is no programmatic `ReplayState` exit; ghost payloads are stored in recorder perspective, stamped by `PerspectiveVersion`.
 - ADR-0003: Keep behavior-specific seams; a unification that only looks tidier is rejected.
 - ADR-0004: One Collection `Destroy` chip covers the whole destroy-mechanic cluster on base templates; `TTriggerOnCardRepaired` is deliberately excluded.
 - ADR-0005: Timing invariants live in pure decision cores, not MonoBehaviour glue.

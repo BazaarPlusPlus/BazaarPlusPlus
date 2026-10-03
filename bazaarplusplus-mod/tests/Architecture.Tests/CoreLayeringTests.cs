@@ -215,8 +215,8 @@ public sealed class CoreLayeringTests
             .Where(path => !string.Equals(path, owner, StringComparison.Ordinal))
             .ToArray();
         AssertNoViolations(
-            "CombatReplayRuntime.TryContinueReplay is the only programmatic ReplayState exit; "
-                + "video finalization depends on it.",
+            "Only CombatReplayRuntime may call the native recap exit; "
+                + "video finalization depends on one owner.",
             illegalReplayExits
         );
     }

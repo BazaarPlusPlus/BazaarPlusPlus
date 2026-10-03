@@ -6,11 +6,6 @@ internal enum EncounterProbeFailureReason
     None,
     EncounterIdsReadException,
     ChoiceResolutionException,
-    InteractionFilterReflectionUnavailable,
-    InteractionFilterReadException,
-    PedestalReflectionUnavailable,
-    PedestalReadException,
-    TargetingReadException,
 }
 
 internal readonly record struct ChoicePedestalProbeOutcome(
@@ -27,20 +22,4 @@ internal readonly record struct ChoicePedestalProbeOutcome(
         EncounterProbeFailureReason reason,
         Exception? exception
     ) => new(false, ChoicePedestalSnapshot.Empty, reason, exception);
-}
-
-internal readonly record struct EncounterTargetingProbeOutcome(
-    bool IsSuccess,
-    EncounterTargetingSnapshot Snapshot,
-    EncounterProbeFailureReason FailureReason,
-    Exception? Exception
-)
-{
-    internal static EncounterTargetingProbeOutcome Success(EncounterTargetingSnapshot snapshot) =>
-        new(true, snapshot, EncounterProbeFailureReason.None, null);
-
-    internal static EncounterTargetingProbeOutcome Failure(
-        EncounterProbeFailureReason reason,
-        Exception? exception
-    ) => new(false, EncounterTargetingSnapshot.Empty, reason, exception);
 }

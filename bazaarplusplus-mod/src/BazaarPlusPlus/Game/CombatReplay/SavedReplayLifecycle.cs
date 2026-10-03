@@ -5,8 +5,9 @@ namespace BazaarPlusPlus.Game.CombatReplay;
 /// Pure owner of a saved-replay playback session's state algebra: start progress, terminal
 /// ownership, the time-bounded duplicate-exit suppression window, bootstrap/menu-return flags,
 /// startup-interruption latch, and the pending menu-return deadline. The runtime feeds
-/// observations and executes the returned decisions; replay exit itself still flows only through
-/// <c>CombatReplayRuntime.TryContinueReplay</c> per ADR-0002.
+/// observations and executes the returned decisions. It never exits <c>ReplayState</c> itself:
+/// per ADR-0002 the native recap continue click and the bootstrapped <c>Exit()</c> prefix are the
+/// only exit paths.
 /// </summary>
 /// <remarks>
 /// Zero Unity / zero held delegates. All time is a caller-supplied <c>float now</c>
@@ -15,11 +16,10 @@ namespace BazaarPlusPlus.Game.CombatReplay;
 internal sealed class SavedReplayLifecycle
 {
     /// <summary>
-    /// Escape-hatch window after a programmatic exit is latched. ReturnToMainMenu awaits a
+    /// Escape-hatch window after a bootstrapped exit is latched. ReturnToMainMenu awaits a
     /// network call internally and can silently fail, leaving the game parked in ReplayState
-    /// forever. Past the window, a fresh Exit() (native click or continue endpoint) is allowed
-    /// through again — running the original Exit body is the lesser evil versus a permanently
-    /// dead continue button.
+    /// forever. Past the window, a fresh native Exit() click is allowed through again — running
+    /// the original Exit body is the lesser evil versus a permanently dead continue button.
     /// </summary>
     internal const float ExitSuppressionWindowSeconds = 15f;
 
@@ -238,7 +238,7 @@ internal sealed class SavedReplayLifecycle
         );
     }
 
-    // --- Exit-suppression latch (single owner for continue / bootstrapped-exit / native-exit) ---
+    // --- Exit-suppression latch (single owner for bootstrapped-exit / native-exit) ---
 
     internal bool IsExitSuppressed(float now) =>
         _replayExitInProgress && now - _replayExitRequestedAt < ExitSuppressionWindowSeconds;

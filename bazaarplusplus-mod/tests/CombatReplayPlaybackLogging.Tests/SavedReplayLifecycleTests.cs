@@ -64,7 +64,7 @@ public sealed class SavedReplayLifecycleTests
     }
 
     [Fact]
-    public void Exit_suppression_blocks_within_window_and_releases_after_including_continue_latch()
+    public void Exit_suppression_blocks_within_window_and_releases_after()
     {
         var life = new SavedReplayLifecycle();
         life.OnStartBegun();
@@ -72,7 +72,7 @@ public sealed class SavedReplayLifecycleTests
         life.OnInjectionCommitted();
         Assert.Equal(SavedReplayStartTransition.BecameActive, life.OnStartFinished());
 
-        // Continue path latches the same suppression owner.
+        // A latched exit suppresses repeats until the window elapses.
         life.NoteProgrammaticExitLatched(now: 100f);
         Assert.True(life.IsExitSuppressed(now: 100f));
         Assert.True(life.IsExitSuppressed(now: 114.9f));
