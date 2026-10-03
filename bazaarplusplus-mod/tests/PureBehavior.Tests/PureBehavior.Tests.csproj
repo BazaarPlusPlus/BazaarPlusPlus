@@ -20,14 +20,12 @@
     <Compile Include="../../src/BazaarPlusPlus/Game/HistoryPanel/Ui/HistoryTimelineScroll.cs" />
     <Compile Include="../../src/BazaarPlusPlus/GameInterop/MonsterBoardPreview/NativeMonsterBoardTooltipGate.cs" />
     <Compile Include="../../src/BazaarPlusPlus/Game/MusicNotes/MusicNoteSocketInference.cs" />
-    <Compile Include="../GraphicsUpscaling.Tests/*.cs" />
     <Compile Include="../NativeAssetLoading.Tests/*.cs" />
     <Compile Include="../NativeCardPreviewHost.Tests/*.cs" />
     <Compile Include="../RemoteEmbeddedCatalog.Tests/*.cs" />
 
     <Compile Include="../../src/BazaarPlusPlus/Infrastructure/AsyncLoadCache.cs" />
-    <Compile Include="../../src/BazaarPlusPlus/Core/Config/GraphicsUpscalingMode.cs" />
-    <Compile Include="../../src/BazaarPlusPlus/Game/GraphicsUpscaling/FsrUpscalingProfile.cs" />
+    <Compile Include="../../src/BazaarPlusPlus/PluginTeardownAccumulator.cs" />
     <Compile Include="../../src/BazaarPlusPlus/Infrastructure/RemoteEmbeddedCatalog/RemoteEmbeddedCatalogContracts.cs" />
     <Compile Include="../../src/BazaarPlusPlus/Infrastructure/RemoteEmbeddedCatalog/RemoteEmbeddedCatalog.cs" />
     <Compile Include="../../src/BazaarPlusPlus/GameInterop/CardPreview/NativeCardPreviewScopeLifetime.cs" />
