@@ -168,9 +168,10 @@ test('macOS Developer ID env loads from signing-secrets files', () => {
       );
       expect(output).toContain('issuer=issuer-from-file');
       expect(output).toContain('key=KEYFROMFILE');
-      // A relative key path in signing-secrets is exported as absolute.
+      // A relative key path in signing-secrets is exported as absolute: a
+      // POSIX root, or a drive root under Git Bash on Windows.
       expect(output).toMatch(
-        /key_path=\/.*[/\\]signing-secrets[/\\]AuthKey_KEYFROMFILE\.p8/
+        /key_path=(?:\/|[A-Za-z]:[/\\]).*[/\\]signing-secrets[/\\]AuthKey_KEYFROMFILE\.p8/
       );
       expect(output).toContain(
         'identity=Developer ID Application: Example Builder (TEAMID1234)'
