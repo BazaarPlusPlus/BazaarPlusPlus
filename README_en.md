@@ -76,17 +76,18 @@ Each project keeps its own toolchain, `README.md`, and `AGENTS.md`; the root [`A
 
 ## Building From Source
 
-Install the toolchains listed in the [development guide](docs/development.md) (just, .NET, Node, Rust, Python/uv, and a local Steam install of _The Bazaar_), then:
+Install the toolchains listed in the [development guide](docs/development.md) (just, .NET, Node, Rust, Python/uv), then:
 
 ```bash
-just setup   # Shared local config, locked dependencies, Git hooks
-just doctor  # What is still missing on this machine
-just         # Every command, grouped by project
+just setup                  # Shared local config, locked dependencies, Git hooks
+just doctor                 # What is still missing on this machine
+just mod::fetch macos online  # Game assemblies for the mod (Windows: windows)
+just                        # Every command, grouped by project
 ```
 
-Gate one project with `just <project>::check` and `just <project>::test`; `just fmt` formats every project. `just mod::build` only compiles; deploy a development DLL into the game explicitly with `just mod::build --deploy`.
+The mod compiles against the game assemblies pinned by the Snapshot Lock `bazaarplusplus-mod/build/game-libs.lock.json`: `mod::fetch` accepts a local Steam install of _The Bazaar_ at the locked game version and otherwise pulls the snapshot from private storage; details are in the [development guide](docs/development.md#游戏程序集) (Chinese). Gate one project with `just <project>::check` and `just <project>::test`; `just fmt` formats every project. `just mod::build` only compiles; deploy a development DLL into the game explicitly with `just mod::build --deploy`.
 
-Release signing, notarization, and R2 upload depend on local credentials that are not in the public repository; decompiled game output, `.env`, and `.dev.vars` are not in the tree either. The release flow is in the [product release guide](docs/release.md) (Chinese).
+Release builds are compiled, signed, and uploaded by the `release.yml` GitHub Actions workflow on hosted runners; the signing, notarization, and R2 credentials exist only as GitHub secrets and in the maintainers' local configuration, never in the public repository. Game assembly snapshots, decompiled game output, `.env`, and `.dev.vars` are not in the tree either. The release flow is in the [product release guide](docs/release.md) (Chinese).
 
 ## Derivative Work Notice
 
