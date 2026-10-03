@@ -26,7 +26,6 @@ type CommonCopy = {
     subtitle: string;
   };
   filters: string;
-  metric: string;
   primaryNavAriaLabel: string;
   languageLabel: string;
   homeAriaLabel: string;
@@ -212,7 +211,6 @@ const zh: LocalizedSiteCopy = {
       subtitle: 'Bazaar Almanac',
     },
     filters: '筛选',
-    metric: '指标',
     primaryNavAriaLabel: '主要导航',
     languageLabel: '语言',
     homeAriaLabel: 'BazaarPlusPlus 首页',
@@ -507,7 +505,6 @@ const en: LocalizedSiteCopy = {
       subtitle: 'Bazaar Almanac',
     },
     filters: 'Filters',
-    metric: 'Metric',
     primaryNavAriaLabel: 'Primary',
     languageLabel: 'Language',
     homeAriaLabel: 'BazaarPlusPlus home',

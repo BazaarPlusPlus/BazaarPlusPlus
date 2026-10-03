@@ -1,14 +1,28 @@
-// @vitest-environment node
+// @vitest-environment-options {"url":"https://example.test/"}
 
-import { describe, expect, test, vi } from 'vitest';
+import { afterEach, describe, expect, test, vi } from 'vitest';
 
-import { createMemorySpaLocationAdapter, createSpaLocation } from '../src/app/router';
+import { createSpaLocation } from '../src/app/router';
 
+/** Moves jsdom to `href`, then records the history calls the location makes from there. */
 function setup(href: string) {
-  const memory = createMemorySpaLocationAdapter(href);
-  const location = createSpaLocation(memory.adapter);
-  return { memory, location };
+  window.history.replaceState(null, '', href);
+  const location = createSpaLocation();
+  const actions: Array<{ mode: 'push' | 'replace'; href: string }> = [];
+  vi.spyOn(window.history, 'pushState').mockImplementation(function (this: History, ...args) {
+    actions.push({ mode: 'push', href: String(args[2]) });
+    History.prototype.pushState.apply(this, args);
+  });
+  vi.spyOn(window.history, 'replaceState').mockImplementation(function (this: History, ...args) {
+    actions.push({ mode: 'replace', href: String(args[2]) });
+    History.prototype.replaceState.apply(this, args);
+  });
+  return { actions, location };
 }
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 describe('deep SPA location interface', () => {
   test.each([
@@ -35,7 +49,7 @@ describe('deep SPA location interface', () => {
   });
 
   test('canonicalizes support aliases with replace semantics while preserving search', () => {
-    const { memory, location } = setup('https://example.test/supporters/?lang=en&w=3d#lost');
+    const { actions, location } = setup('https://example.test/supporters/?lang=en&w=3d#lost');
 
     expect(location.current()).toMatchObject({
       route: { page: 'support' },
@@ -43,7 +57,7 @@ describe('deep SPA location interface', () => {
     });
     location.canonicalize();
 
-    expect(memory.actions).toEqual([{ mode: 'replace', href: '/support?lang=en&w=3d' }]);
+    expect(actions).toEqual([{ mode: 'replace', href: '/support?lang=en&w=3d' }]);
     expect(location.current().pathname).toBe('/support');
   });
 
@@ -84,15 +98,15 @@ describe('deep SPA location interface', () => {
   });
 
   test('scope changes use replace, omit defaults, preserve supported current values, and add no history entry', () => {
-    const { memory, location } = setup(
+    const { actions, location } = setup(
       'https://example.test/heroes?keep=yes&lang=en&w=3d&s=non_legend#trend'
     );
-    const initialLength = memory.entries.length;
+    const initialLength = window.history.length;
 
     location.replaceScope({ window: '1d', segment: 'all' });
 
-    expect(memory.entries).toHaveLength(initialLength);
-    expect(memory.actions).toEqual([{ mode: 'replace', href: '/heroes?keep=yes&lang=en' }]);
+    expect(window.history.length).toBe(initialLength);
+    expect(actions).toEqual([{ mode: 'replace', href: '/heroes?keep=yes&lang=en' }]);
     expect(location.current()).toMatchObject({
       locale: 'en',
       scope: { window: '1d', segment: 'all' },
@@ -100,7 +114,7 @@ describe('deep SPA location interface', () => {
   });
 
   test('exposes explicit, invalid, and retired Hero scope values as one canonical href', () => {
-    const { memory, location } = setup(
+    const { actions, location } = setup(
       'https://example.test/heroes?lang=zh&w=invalid&s=all&t=high&keep=yes'
     );
 
@@ -110,20 +124,21 @@ describe('deep SPA location interface', () => {
     });
     location.canonicalize();
 
-    expect(memory.actions).toEqual([{ mode: 'replace', href: '/heroes?keep=yes' }]);
+    expect(actions).toEqual([{ mode: 'replace', href: '/heroes?keep=yes' }]);
   });
 
   test('does not rewrite unrelated Hero query encoding when scope is already canonical', () => {
-    const { memory, location } = setup('https://example.test/heroes?campaign=two%20words&w=3d');
+    const { actions, location } = setup('https://example.test/heroes?campaign=two%20words&w=3d');
 
     expect(location.current().canonicalHref).toBeNull();
     location.canonicalize();
 
-    expect(memory.actions).toEqual([]);
+    expect(actions).toEqual([]);
   });
 
   test('normal internal navigation uses push semantics', () => {
-    const { memory, location } = setup('https://example.test/tutorial?lang=en');
+    const { actions, location } = setup('https://example.test/tutorial?lang=en');
+    const initialLength = window.history.length;
 
     expect(
       location.handleLinkClick({
@@ -132,8 +147,8 @@ describe('deep SPA location interface', () => {
       })
     ).toBe(true);
 
-    expect(memory.actions).toEqual([{ mode: 'push', href: '/support?lang=en' }]);
-    expect(memory.entries).toHaveLength(2);
+    expect(actions).toEqual([{ mode: 'push', href: '/support?lang=en' }]);
+    expect(window.history.length).toBe(initialLength + 1);
   });
 
   test.each([
@@ -145,20 +160,21 @@ describe('deep SPA location interface', () => {
     ['unknown route', { href: 'https://example.test/unknown', button: 0 }],
     ['same-page hash', { href: 'https://example.test/tutorial?lang=en#part', button: 0 }],
   ])('retains browser-default behavior for %s links', (_label, click) => {
-    const { memory, location } = setup('https://example.test/tutorial?lang=en');
+    const { actions, location } = setup('https://example.test/tutorial?lang=en');
 
     expect(location.handleLinkClick(click)).toBe(false);
-    expect(memory.actions).toEqual([]);
+    expect(actions).toEqual([]);
   });
 
-  test('popstate refreshes subscribers from the in-memory adapter', () => {
-    const { memory, location } = setup('https://example.test/tutorial');
+  test('popstate refreshes subscribers from the browser location', () => {
+    const { location } = setup('https://example.test/tutorial');
     const listener = vi.fn();
     const unsubscribe = location.subscribe(listener);
     location.handleLinkClick({ href: 'https://example.test/support', button: 0 });
     listener.mockClear();
 
-    memory.back();
+    window.history.replaceState(null, '', '/tutorial');
+    window.dispatchEvent(new PopStateEvent('popstate'));
 
     expect(listener).toHaveBeenCalledWith(
       expect.objectContaining({

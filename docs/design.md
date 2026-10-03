@@ -7,9 +7,9 @@ installer 与 bazaarplusplus.com 共用一套视觉语言：现代桌面工具�
 颜色、圆角、阴影、动效时长和字体栈的取值只写在 token 文件里，本文不重复：
 
 - installer：`bazaarplusplus-installer/src/styles/tokens.css`，是唯一的编辑源。
-- site：`bazaarplusplus-site/src/styles/tokens.css`，是逐字副本。两个项目工具链独立，不能互相 import；`scripts/design-tokens.test.mjs`（由 `just commands-check` 运行）拒绝两份 `:root` 声明出现差异。
+- site：不持有副本。`dev` 和 `build` 之前，`npm run tokens` 把 installer 的文件复制到被 git 忽略的 `bazaarplusplus-site/src/styles/installer-tokens.css`；site 自己的 `src/styles/tokens.css` 只保留 Tailwind `@theme` 桥。
 
-改 token 时先改 installer 的文件，再同步到 site，并在同一个变更里跑两个项目的检查。各项目通过 Tailwind `@theme` 把 token 映射成工具类，组件里不写颜色字面量。
+改 token 只改 installer 的文件，并在同一个变更里跑两个项目的检查。各项目通过 Tailwind `@theme` 把 token 映射成工具类，组件里不写颜色字面量。
 
 ## 约定
 

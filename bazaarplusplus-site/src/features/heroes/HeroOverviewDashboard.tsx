@@ -28,20 +28,17 @@ import HeroRankingTable from './HeroRankingTable';
 import HeroTrendPanel from './HeroTrendPanel';
 
 type HeroOverviewDashboardProps = {
-  locale: Locale;
   location: ResolvedSpaLocation;
   dataset: HeroMetricsDataset;
-  requestedScope: AnalysisScope;
   onScopeChange: (scope: AnalysisScope) => void;
 };
 
 export default function HeroOverviewDashboard({
-  locale,
   location,
   dataset,
-  requestedScope,
   onScopeChange,
 }: HeroOverviewDashboardProps) {
+  const { locale, scope: requestedScope } = location;
   const copy = getSiteCopy(locale);
   const heroCopy = copy.stats.heroes;
   const scopeCopy = copy.common.scope;
@@ -119,7 +116,6 @@ export default function HeroOverviewDashboard({
           <ExternalLinkIcon className="text-text-3" />
         </Button>
       }
-      filters={null}
     >
       {!hasAnyData ? (
         <StatusPanel
@@ -129,7 +125,7 @@ export default function HeroOverviewDashboard({
         />
       ) : (
         <>
-          <section data-testid="hero-focus-panel" className="grid min-w-0 gap-4">
+          <section className="grid min-w-0 gap-4">
             <div className="flex flex-col gap-1">
               <SectionHeading>{heroCopy.trend.title}</SectionHeading>
               <p className="text-[13px] text-text-2">
@@ -145,7 +141,7 @@ export default function HeroOverviewDashboard({
                 onFocusHero={setFocusedHero}
               />
 
-              <section data-testid="matchup-panel" className="panel flex flex-col gap-4 p-4 sm:p-5">
+              <section className="panel flex flex-col gap-4 p-4 sm:p-5">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <h3 className="text-[15px] font-semibold text-text-1">
                     {heroCopy.matchups.title}
@@ -182,7 +178,6 @@ export default function HeroOverviewDashboard({
 
               {availableWindows.length > 0 ? (
                 <div
-                  data-testid="ranking-filters"
                   role="group"
                   aria-label={copy.common.filters}
                   className="flex flex-wrap items-end gap-x-6 gap-y-3"

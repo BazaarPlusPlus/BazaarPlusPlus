@@ -59,182 +59,23 @@ export type HeroMetricsDataset = {
   coverage: DatasetCoverage;
 };
 
-export type HeroMetricsTransport = {
-  load(path: string, options?: { signal?: AbortSignal }): Promise<unknown>;
-};
+/** A non-2xx response from the metrics origin; `status` drives the query's retry policy. */
+export class HeroMetricsHttpError extends Error {
+  readonly status: number;
 
-export class HeroMetricsTransportError extends Error {
-  readonly kind: 'http' | 'network' | 'timeout';
-  readonly status?: number;
-
-  constructor(
-    message: string,
-    options: {
-      kind?: 'http' | 'network' | 'timeout';
-      status?: number;
-      cause?: unknown;
-    } = {}
-  ) {
-    super(message, options.cause === undefined ? undefined : { cause: options.cause });
-    this.name = 'HeroMetricsTransportError';
-    this.kind = options.kind ?? (options.status == null ? 'network' : 'http');
-    this.status = options.status;
+  constructor(status: number) {
+    super(`Hero metrics snapshot responded with ${status}`);
+    this.name = 'HeroMetricsHttpError';
+    this.status = status;
   }
 }
 
-type HttpTransportOptions = {
-  metricsBaseUrl?: string;
-  fetchImpl?: typeof fetch;
-  requestTimeoutMs?: number;
-  requestRetries?: number;
-  requestRetryDelayMs?: number;
-};
-
-type LoadDatasetOptions = {
-  signal?: AbortSignal;
-};
-
 const DEFAULT_METRICS_BASE_URL = 'https://bpp-metrics.bazaarplusplus.com';
-const DEFAULT_REQUEST_TIMEOUT_MS = 15_000;
-const DEFAULT_REQUEST_RETRIES = 2;
-const DEFAULT_REQUEST_RETRY_DELAY_MS = 250;
 const HERO_METRICS_PATH = 'analyzer-v5/heroes/latest.json';
+const REQUEST_TIMEOUT_MS = 15_000;
 const STORED_SEGMENTS = new Set<string>(['legend', 'non_legend']);
 const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const UTC_DAY_MS = 24 * 60 * 60 * 1_000;
-
-function normalizeBaseUrl(value: string): string {
-  return value.endsWith('/') ? value : `${value}/`;
-}
-
-function getAbortError(signal: AbortSignal): unknown {
-  return signal.reason ?? new DOMException('aborted', 'AbortError');
-}
-
-function isRetryableStatus(status: number): boolean {
-  return status === 408 || status === 429 || status >= 500;
-}
-
-function isRetryableFailure(error: HeroMetricsTransportError): boolean {
-  return error.kind !== 'http' || (error.status != null && isRetryableStatus(error.status));
-}
-
-function waitForRetry(ms: number, signal?: AbortSignal): Promise<void> {
-  if (ms <= 0) {
-    return Promise.resolve();
-  }
-  if (signal?.aborted) {
-    return Promise.reject(getAbortError(signal));
-  }
-
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => {
-      cleanup();
-      resolve();
-    }, ms);
-    function cleanup() {
-      clearTimeout(timer);
-      signal?.removeEventListener('abort', handleAbort);
-    }
-    function handleAbort() {
-      cleanup();
-      reject(signal ? getAbortError(signal) : new DOMException('aborted', 'AbortError'));
-    }
-    signal?.addEventListener('abort', handleAbort, { once: true });
-  });
-}
-
-function createRequestSignal(timeoutMs: number, callerSignal?: AbortSignal) {
-  const controller = new AbortController();
-  let timedOut = false;
-
-  function abortFromCaller() {
-    controller.abort(callerSignal ? getAbortError(callerSignal) : undefined);
-  }
-  if (callerSignal?.aborted) {
-    abortFromCaller();
-  } else {
-    callerSignal?.addEventListener('abort', abortFromCaller, { once: true });
-  }
-
-  const timer = setTimeout(() => {
-    timedOut = true;
-    controller.abort(new DOMException(`Timed out after ${timeoutMs}ms`, 'TimeoutError'));
-  }, timeoutMs);
-
-  return {
-    signal: controller.signal,
-    didTimeout: () => timedOut,
-    cleanup: () => {
-      clearTimeout(timer);
-      callerSignal?.removeEventListener('abort', abortFromCaller);
-    },
-  };
-}
-
-function toTransportFailure(error: unknown, url: string): HeroMetricsTransportError {
-  if (error instanceof HeroMetricsTransportError) {
-    return error;
-  }
-  return new HeroMetricsTransportError(`Failed to fetch ${url}: ${String(error)}`, {
-    kind: 'network',
-    cause: error,
-  });
-}
-
-export function createHeroMetricsHttpTransport(
-  options: HttpTransportOptions = {}
-): HeroMetricsTransport {
-  const baseUrl = normalizeBaseUrl(options.metricsBaseUrl ?? DEFAULT_METRICS_BASE_URL);
-  const fetchImpl = options.fetchImpl ?? fetch;
-  const defaultTimeoutMs = options.requestTimeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS;
-  const defaultRetries = options.requestRetries ?? DEFAULT_REQUEST_RETRIES;
-  const defaultRetryDelayMs = options.requestRetryDelayMs ?? DEFAULT_REQUEST_RETRY_DELAY_MS;
-
-  return {
-    async load(path, requestOptions = {}) {
-      const url = `${baseUrl}${path}`;
-      let lastFailure: HeroMetricsTransportError | undefined;
-
-      for (let attempt = 0; attempt <= defaultRetries; attempt += 1) {
-        if (requestOptions.signal?.aborted) {
-          throw getAbortError(requestOptions.signal);
-        }
-
-        const requestSignal = createRequestSignal(defaultTimeoutMs, requestOptions.signal);
-        try {
-          const response = await fetchImpl(url, { signal: requestSignal.signal });
-          if (!response.ok) {
-            throw new HeroMetricsTransportError(`Failed to fetch ${url}: ${response.status}`, {
-              kind: 'http',
-              status: response.status,
-            });
-          }
-          return await response.json();
-        } catch (error) {
-          if (requestOptions.signal?.aborted) {
-            throw getAbortError(requestOptions.signal);
-          }
-          lastFailure = requestSignal.didTimeout()
-            ? new HeroMetricsTransportError(
-                `Timed out fetching ${url} after ${defaultTimeoutMs}ms`,
-                { kind: 'timeout', cause: error }
-              )
-            : toTransportFailure(error, url);
-        } finally {
-          requestSignal.cleanup();
-        }
-
-        if (attempt >= defaultRetries || !isRetryableFailure(lastFailure)) {
-          throw lastFailure;
-        }
-        await waitForRetry(defaultRetryDelayMs, requestOptions.signal);
-      }
-
-      throw lastFailure ?? new HeroMetricsTransportError(`Failed to fetch ${url}`);
-    },
-  };
-}
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   return value != null && typeof value === 'object' && !Array.isArray(value)
@@ -459,13 +300,14 @@ function decodeSnapshot(value: unknown): HeroMetricsDataset | null {
   };
 }
 
-export async function loadHeroMetricsDataset(
-  transport: HeroMetricsTransport,
-  options: LoadDatasetOptions = {}
-): Promise<HeroMetricsDataset> {
-  const dataset = decodeSnapshot(
-    await transport.load(HERO_METRICS_PATH, { signal: options.signal })
-  );
+export async function loadHeroMetricsDataset(signal: AbortSignal): Promise<HeroMetricsDataset> {
+  const response = await fetch(`${DEFAULT_METRICS_BASE_URL}/${HERO_METRICS_PATH}`, {
+    signal: AbortSignal.any([signal, AbortSignal.timeout(REQUEST_TIMEOUT_MS)]),
+  });
+  if (!response.ok) {
+    throw new HeroMetricsHttpError(response.status);
+  }
+  const dataset = decodeSnapshot(await response.json());
   if (dataset == null) {
     throw new Error('Unexpected hero metrics snapshot format');
   }

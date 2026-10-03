@@ -2,8 +2,8 @@ import type { AnchorHTMLAttributes, ButtonHTMLAttributes, MouseEvent, ReactNode 
 
 import { SpinnerIcon } from './icons';
 
-type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
-type ButtonSize = 'md' | 'sm' | 'icon';
+type ButtonVariant = 'primary' | 'secondary' | 'ghost';
+type ButtonSize = 'md' | 'icon';
 
 type SharedProps = {
   variant?: ButtonVariant;
@@ -30,7 +30,6 @@ const BASE =
 
 const SIZES: Record<ButtonSize, string> = {
   md: 'h-8 px-3 text-[13px] [&_svg]:size-[15px]',
-  sm: 'h-[26px] px-[9px] text-xs [&_svg]:size-[13px]',
   icon: 'size-8 p-0 [&_svg]:size-4',
 };
 
@@ -38,7 +37,6 @@ const VARIANTS: Record<ButtonVariant, string> = {
   primary: 'border-transparent bg-accent font-semibold text-on-accent hover:bg-accent-hover',
   secondary: 'border-line-strong bg-panel text-text-1 hover:bg-hover',
   ghost: 'border-transparent text-text-2 hover:bg-hover hover:text-text-1',
-  danger: 'border-danger/35 bg-danger-subtle text-danger-text hover:bg-danger/22',
 };
 
 export default function Button({

@@ -70,7 +70,6 @@ const RANKING_COLUMNS: RankingColumn[] = [
         <td className="sticky left-0 z-10 h-11 border-r border-line bg-panel px-4 transition-colors duration-(--t-fast) group-hover:bg-hover">
           <button
             type="button"
-            data-selected={selected ? 'true' : 'false'}
             onClick={() => context.onFocusHero(row.hero)}
             className="inline-flex cursor-pointer items-center rounded-full bg-transparent p-0 text-left"
           >

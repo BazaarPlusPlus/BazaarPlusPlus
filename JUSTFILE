@@ -60,4 +60,4 @@ with-config profile +args:
 commands-check:
     for file in {{ just_files }}; do {{ quote(just_executable()) }} --justfile "$file" --fmt --check; done
     npm exec -- prettier --config .prettierrc.json --check {{ root_js }}
-    node --test scripts/just.test.mjs scripts/design-tokens.test.mjs scripts/workspace.test.mjs
+    node --test scripts/just.test.mjs scripts/workspace.test.mjs

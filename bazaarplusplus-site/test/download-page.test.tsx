@@ -1,20 +1,19 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
-import { describe, expect, test, vi } from 'vitest';
+import { afterEach, describe, expect, test, vi } from 'vitest';
 import macFixture from '../../release/fixtures/latest/darwin-aarch64.json';
 import windowsFixture from '../../release/fixtures/latest/windows-x86_64.json';
 
+import { RELEASE_BASE_URL } from '../../release/downloads';
 import DownloadPage from '../src/features/download/DownloadPage';
-import type { InstallerManifestTransport } from '../src/features/download/installer';
-import { createMemorySpaLocationAdapter, createSpaLocation } from '../src/app/router';
+import { locationAt } from './location';
 
 const WINDOWS_PATH = 'latest/windows-x86_64.json';
 const MAC_PATH = 'latest/darwin-aarch64.json';
 
 function downloadLocation() {
-  const memory = createMemorySpaLocationAdapter('/download?lang=en');
-  return createSpaLocation(memory.adapter).current();
+  return locationAt('/download?lang=en');
 }
 
 function makeTestClient(): QueryClient {
@@ -31,16 +30,25 @@ function renderWithClient(ui: ReactNode): QueryClient {
   return client;
 }
 
-/** A transport serving one payload per manifest path; an Error value rejects that path. */
-function makeTransport(manifests: Record<string, unknown>): InstallerManifestTransport {
-  return {
-    load: vi.fn(async (path: string) => {
-      const payload = manifests[path];
-      if (payload instanceof Error) throw payload;
-      if (!(path in manifests)) throw new Error(`${path} responded with 404`);
-      return payload;
-    }),
-  };
+/**
+ * Stubs global `fetch` with one payload per manifest path under the release origin; an Error
+ * value rejects that request, and an unknown path answers 404.
+ */
+function stubManifests(manifests: Record<string, unknown>) {
+  const fetchStub = vi.fn(async (url: string) => {
+    const path = url.startsWith(`${RELEASE_BASE_URL}/`)
+      ? url.slice(RELEASE_BASE_URL.length + 1)
+      : url;
+    const payload = manifests[path];
+    if (payload instanceof Error) throw payload;
+    if (!(path in manifests)) return new Response('missing', { status: 404 });
+    return new Response(JSON.stringify(payload), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  });
+  vi.stubGlobal('fetch', fetchStub);
+  return fetchStub;
 }
 
 function platformManifests(overrides: Record<string, unknown> = {}) {
@@ -55,10 +63,13 @@ const WINDOWS_MIRROR = windowsFixture.downloads['windows-x86_64'].mainlandUrl;
 const MAC_MIRROR = macFixture.downloads['darwin-aarch64'].mainlandUrl;
 
 describe('DownloadPage', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   test('renders each platform card from its own Platform Release Manifest', async () => {
-    renderWithClient(
-      <DownloadPage location={downloadLocation()} transport={makeTransport(platformManifests())} />
-    );
+    stubManifests(platformManifests());
+    renderWithClient(<DownloadPage location={downloadLocation()} />);
 
     expect(screen.getByRole('heading', { level: 2, name: 'Windows' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 2, name: 'macOS' })).toBeInTheDocument();
@@ -95,9 +106,8 @@ describe('DownloadPage', () => {
     const manifests = platformManifests();
     const windows = manifests[WINDOWS_PATH];
     delete (windows.downloads['windows-x86_64'] as { mainlandUrl?: string }).mainlandUrl;
-    renderWithClient(
-      <DownloadPage location={downloadLocation()} transport={makeTransport(manifests)} />
-    );
+    stubManifests(manifests);
+    renderWithClient(<DownloadPage location={downloadLocation()} />);
 
     await screen.findByText('v3.1.2');
     const winLink = screen.getByRole('link', { name: /Download \.exe/ });
@@ -111,12 +121,8 @@ describe('DownloadPage', () => {
   });
 
   test('a platform whose manifest fails degrades only its own card', async () => {
-    renderWithClient(
-      <DownloadPage
-        location={downloadLocation()}
-        transport={makeTransport(platformManifests({ [MAC_PATH]: new Error('mac down') }))}
-      />
-    );
+    stubManifests(platformManifests({ [MAC_PATH]: new Error('mac down') }));
+    renderWithClient(<DownloadPage location={downloadLocation()} />);
 
     await screen.findByText('v3.1.2');
     const winLink = screen.getByRole('link', { name: /Download \.exe/ });
@@ -132,15 +138,11 @@ describe('DownloadPage', () => {
   });
 
   test('shows fallback message and GitHub release link only when every platform fails', async () => {
-    renderWithClient(
-      <DownloadPage
-        location={downloadLocation()}
-        transport={makeTransport({
-          [WINDOWS_PATH]: new Error('unavailable'),
-          [MAC_PATH]: new Error('unavailable'),
-        })}
-      />
-    );
+    stubManifests({
+      [WINDOWS_PATH]: new Error('unavailable'),
+      [MAC_PATH]: new Error('unavailable'),
+    });
+    renderWithClient(<DownloadPage location={downloadLocation()} />);
 
     await waitFor(() =>
       expect(screen.getByText(/Cannot reach the latest version right now/)).toBeInTheDocument()

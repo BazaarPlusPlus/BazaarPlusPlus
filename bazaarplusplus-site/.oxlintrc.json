@@ -14,7 +14,6 @@
     "react/no-array-index-key": "off",
     "jsx-a11y/prefer-tag-over-role": "off",
     "jsx-a11y/control-has-associated-label": "off",
-    "eslint/no-await-in-loop": "off",
     "import/no-unassigned-import": "off",
     "typescript/no-unsafe-type-assertion": "off",
     "typescript/consistent-return": "off",

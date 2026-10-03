@@ -67,13 +67,6 @@ type RawSpaLocation = {
   origin: string;
 };
 
-export type SpaLocationAdapter = {
-  read(): RawSpaLocation;
-  push(href: string): void;
-  replace(href: string): void;
-  subscribePop(listener: () => void): () => void;
-};
-
 export type SpaLocation = {
   current(): ResolvedSpaLocation;
   subscribe(listener: (location: ResolvedSpaLocation) => void): () => void;
@@ -224,13 +217,22 @@ function buildScopeHref(location: ResolvedSpaLocation, scope: AnalysisScope): st
   return `${location.pathname}${buildScopeSearch(location.search, location.locale, scope)}`;
 }
 
-export function createSpaLocation(adapter: SpaLocationAdapter): SpaLocation {
-  const listeners = new Set<(location: ResolvedSpaLocation) => void>();
-  let unsubscribePop: (() => void) | undefined;
+function readWindowLocation(): RawSpaLocation {
+  return {
+    pathname: window.location.pathname,
+    search: window.location.search,
+    hash: window.location.hash,
+    origin: window.location.origin,
+  };
+}
 
-  function current() {
-    return resolveLocation(adapter.read());
-  }
+function current(): ResolvedSpaLocation {
+  return resolveLocation(readWindowLocation());
+}
+
+export function createSpaLocation(): SpaLocation {
+  const listeners = new Set<(location: ResolvedSpaLocation) => void>();
+  let subscribedToPop = false;
 
   function notify() {
     const location = current();
@@ -239,29 +241,26 @@ export function createSpaLocation(adapter: SpaLocationAdapter): SpaLocation {
     }
   }
 
-  function ensurePopSubscription() {
-    if (!unsubscribePop) {
-      unsubscribePop = adapter.subscribePop(notify);
-    }
-  }
-
   return {
     current,
     subscribe(listener) {
       listeners.add(listener);
-      ensurePopSubscription();
+      if (!subscribedToPop) {
+        window.addEventListener('popstate', notify);
+        subscribedToPop = true;
+      }
       return () => {
         listeners.delete(listener);
         if (listeners.size === 0) {
-          unsubscribePop?.();
-          unsubscribePop = undefined;
+          window.removeEventListener('popstate', notify);
+          subscribedToPop = false;
         }
       };
     },
     canonicalize() {
       const canonicalHref = current().canonicalHref;
       if (canonicalHref) {
-        adapter.replace(canonicalHref);
+        window.history.replaceState({}, '', canonicalHref);
         notify();
       }
     },
@@ -269,7 +268,7 @@ export function createSpaLocation(adapter: SpaLocationAdapter): SpaLocation {
       const location = current();
       const href = buildScopeHref(location, scope);
       if (`${location.pathname}${location.search}` !== href) {
-        adapter.replace(href);
+        window.history.replaceState({}, '', href);
         notify();
       }
     },
@@ -287,7 +286,7 @@ export function createSpaLocation(adapter: SpaLocationAdapter): SpaLocation {
         return false;
       }
 
-      const raw = adapter.read();
+      const raw = readWindowLocation();
       const next = new URL(click.href, `${raw.origin}${raw.pathname}${raw.search}${raw.hash}`);
       if (next.origin !== raw.origin || resolveRoute(next.pathname).page === 'not-found') {
         return false;
@@ -296,78 +295,9 @@ export function createSpaLocation(adapter: SpaLocationAdapter): SpaLocation {
         return false;
       }
 
-      adapter.push(toRelativeHref(next));
+      window.history.pushState({}, '', toRelativeHref(next));
       notify();
       return true;
-    },
-  };
-}
-
-export function createBrowserSpaLocationAdapter(): SpaLocationAdapter {
-  return {
-    read: () => ({
-      pathname: window.location.pathname,
-      search: window.location.search,
-      hash: window.location.hash,
-      origin: window.location.origin,
-    }),
-    push: (href) => window.history.pushState({}, '', href),
-    replace: (href) => window.history.replaceState({}, '', href),
-    subscribePop: (listener) => {
-      window.addEventListener('popstate', listener);
-      return () => window.removeEventListener('popstate', listener);
-    },
-  };
-}
-
-export function createMemorySpaLocationAdapter(initialHref: string) {
-  const initial = new URL(initialHref, 'https://example.test');
-  const entries = [initial.href];
-  const actions: Array<{ mode: 'push' | 'replace'; href: string }> = [];
-  const popListeners = new Set<() => void>();
-  let index = 0;
-
-  function currentUrl() {
-    return new URL(entries[index]);
-  }
-
-  const adapter: SpaLocationAdapter = {
-    read: () => {
-      const url = currentUrl();
-      return {
-        pathname: url.pathname,
-        search: url.search,
-        hash: url.hash,
-        origin: url.origin,
-      };
-    },
-    push: (href) => {
-      const next = new URL(href, currentUrl());
-      entries.splice(index + 1, entries.length, next.href);
-      index += 1;
-      actions.push({ mode: 'push', href });
-    },
-    replace: (href) => {
-      entries[index] = new URL(href, currentUrl()).href;
-      actions.push({ mode: 'replace', href });
-    },
-    subscribePop: (listener) => {
-      popListeners.add(listener);
-      return () => popListeners.delete(listener);
-    },
-  };
-
-  return {
-    adapter,
-    entries,
-    actions,
-    back() {
-      if (index > 0) {
-        index -= 1;
-        for (const listener of popListeners) {
-          listener();
-        }
-      }
     },
   };
 }

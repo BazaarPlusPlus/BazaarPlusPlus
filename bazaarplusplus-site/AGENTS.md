@@ -18,5 +18,6 @@ bazaarplusplus.com. Repo-wide rules (commits, pull requests, docs policy, contra
 ## Project rules
 
 - Put every user-facing string in `src/content/site-copy.ts`, including labels, aria text, loading states, and shell copy; pass it through the existing locale props.
+- Chinese (`zh`) copy in `src/content/site-copy.ts` uses full-width punctuation; `test/site-copy.test.ts` rejects ASCII commas.
 - Implement cross-module changes in the owner named by `docs/ARCHITECTURE.md`; extend the documented boundary explicitly when no owner fits.
 - Type-aware lint runs on `oxlint-tsgolint`, which pins the TypeScript major: a `typescript` upgrade needs a matching `oxlint-tsgolint`.

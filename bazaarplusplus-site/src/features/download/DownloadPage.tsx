@@ -7,16 +7,13 @@ import { AlertIcon, DownloadIcon, ExternalLinkIcon } from '../../shared/componen
 import InfoPageShell from '../../shared/components/InfoPageShell';
 import { SectionHeading } from '../../shared/components/PageLayout';
 import {
-  createInstallerManifestHttpTransport,
   GITHUB_RELEASE_URL,
   loadLatestInstaller,
   type DownloadPlatform,
-  type InstallerManifestTransport,
   type LatestInstaller,
 } from './installer';
 import { macIconDataUri, windowsIconDataUri } from './platform-icons';
 
-const DEFAULT_TRANSPORT = createInstallerManifestHttpTransport();
 const DOWNLOAD_PLATFORMS: DownloadPlatform[] = ['windows', 'mac'];
 const PLATFORM_ICONS: Record<DownloadPlatform, string> = {
   windows: windowsIconDataUri,
@@ -111,19 +108,12 @@ function FailureFallback({ copy }: { copy: DownloadPageCopy }) {
   );
 }
 
-export default function DownloadPage({
-  location,
-  transport = DEFAULT_TRANSPORT,
-}: {
-  location: ResolvedSpaLocation;
-  transport?: InstallerManifestTransport;
-}) {
+export default function DownloadPage({ location }: { location: ResolvedSpaLocation }) {
   const { locale } = location;
   const copy = getSiteCopy(locale).download;
   const { data, isLoading, isError } = useQuery({
     queryKey: ['latest-installer'],
-    queryFn: ({ signal }) => loadLatestInstaller(transport, { signal }),
-    staleTime: 5 * 60_000,
+    queryFn: ({ signal }) => loadLatestInstaller(signal),
   });
   const status: DownloadStatus = isLoading ? 'loading' : isError ? 'error' : 'ready';
 

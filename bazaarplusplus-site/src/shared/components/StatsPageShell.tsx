@@ -10,7 +10,6 @@ type StatsPageShellProps = {
   title: string;
   generatedAt: string;
   actions?: ReactNode;
-  filters: ReactNode;
   children: ReactNode;
 };
 
@@ -19,7 +18,6 @@ export default function StatsPageShell({
   title,
   generatedAt,
   actions,
-  filters,
   children,
 }: StatsPageShellProps) {
   const { locale } = location;
@@ -36,7 +34,6 @@ export default function StatsPageShell({
       }
     >
       <PageHeading title={title} actions={actions} />
-      {filters}
       {children}
     </PageLayout>
   );

@@ -1,15 +1,14 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
 import SupportPage from '../src/features/support/SupportPage';
 import type { Supporter } from '../src/features/support/supporters-data';
-import { createMemorySpaLocationAdapter, createSpaLocation } from '../src/app/router';
+import { locationAt } from './location';
 
 function supportLocation(locale: 'en' | 'zh') {
-  const memory = createMemorySpaLocationAdapter(locale === 'en' ? '/support?lang=en' : '/support');
-  return createSpaLocation(memory.adapter).current();
+  return locationAt(locale === 'en' ? '/support?lang=en' : '/support');
 }
 
 function makeTestClient(): QueryClient {
@@ -26,7 +25,7 @@ function renderWithClient(ui: ReactNode): QueryClient {
   return client;
 }
 
-function stubSupporterFetch(supporters: Supporter[]): void {
+function stubSupporterFetch(supporters: unknown[]): void {
   vi.stubGlobal(
     'fetch',
     vi.fn().mockResolvedValue(
@@ -150,5 +149,43 @@ describe('SupportPage', () => {
     await waitFor(() =>
       expect(screen.getByText('支持者名单还在整理中，请稍后再来看看。')).toBeInTheDocument()
     );
+  });
+
+  test('lists tiers 4→1, then unknown tiers in descending order', async () => {
+    // One supporter per tier, so the in-tier shuffle cannot change the order.
+    stubSupporterFetch([
+      { name: 'Tier1', tier: 1 },
+      { name: 'Tier5', tier: 5 },
+      { name: 'Tier3', tier: 3 },
+      { name: 'Tier4', tier: 4 },
+      { name: 'Tier7', tier: 7 },
+      { name: 'Tier2', tier: 2 },
+    ]);
+    renderWithClient(<SupportPage location={supportLocation('en')} />);
+
+    const list = (await screen.findByText('Tier4')).closest('ul')!;
+    expect(
+      within(list)
+        .getAllByRole('listitem')
+        .map((item) => item.textContent)
+    ).toEqual(['Tier4', 'Tier3', 'Tier2', 'Tier1', 'Tier7', 'Tier5']);
+  });
+
+  test('drops malformed supporter entries and renders the rest', async () => {
+    stubSupporterFetch([
+      { name: 'good', tier: 4 },
+      { name: 'no-tier' },
+      null,
+      { tier: 3 },
+      'string-entry',
+    ]);
+    renderWithClient(<SupportPage location={supportLocation('en')} />);
+
+    const list = (await screen.findByText('good')).closest('ul')!;
+    expect(
+      within(list)
+        .getAllByRole('listitem')
+        .map((item) => item.textContent)
+    ).toEqual(['good']);
   });
 });

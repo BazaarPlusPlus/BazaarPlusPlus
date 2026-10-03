@@ -155,7 +155,6 @@ test('check delegates source-only gates in their project directories', (t) => {
       'node',
       '--test',
       'scripts/just.test.mjs',
-      'scripts/design-tokens.test.mjs',
       'scripts/workspace.test.mjs'
     ),
     call(f.dir, null, 'node', 'release.mjs', 'check'),
@@ -196,7 +195,6 @@ test('test runs each suite without a release or publication command', (t) => {
       'node',
       '--test',
       'scripts/just.test.mjs',
-      'scripts/design-tokens.test.mjs',
       'scripts/workspace.test.mjs'
     ),
     call(f.dir, null, 'npm', 'test'),

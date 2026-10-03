@@ -24,14 +24,12 @@ export default function HeroBadge({
   return (
     <span
       data-hero-badge={hero}
-      data-hero-short-label={shortLabel}
       title={hero}
       className={`inline-flex h-[22px] min-w-0 items-center gap-1.5 rounded-full border px-2 text-xs font-semibold whitespace-nowrap text-text-1 transition-colors duration-(--t-fast) ${
         selected ? 'border-accent-line bg-accent-subtle' : 'border-transparent bg-hover'
       }`}
     >
       <span
-        data-hero-color-dot={hero}
         className="size-1.5 shrink-0 rounded-full"
         style={{ backgroundColor: color }}
         aria-hidden="true"

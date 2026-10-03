@@ -1,5 +1,5 @@
-/* BazaarPlusPlus design tokens: the owning copy. Ownership, the site copy and
-   its drift check are described in docs/design.md. */
+/* BazaarPlusPlus design tokens: the owning copy. The site copies this file at
+   build time; ownership is described in docs/design.md. */
 :root {
   color-scheme: dark;
 

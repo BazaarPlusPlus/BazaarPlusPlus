@@ -2,14 +2,9 @@ import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 
 import { getPageTitle } from '../content/site-copy';
 import DownloadPage from '../features/download/DownloadPage';
-import { createHeroMetricsHttpTransport } from '../features/heroes/hero-metrics-dataset';
 import SupportPage from '../features/support/SupportPage';
 import TutorialPage from '../features/tutorial/TutorialPage';
-import {
-  createBrowserSpaLocationAdapter,
-  createSpaLocation,
-  type ResolvedSpaLocation,
-} from './router';
+import { createSpaLocation, type ResolvedSpaLocation } from './router';
 import { LoadingScreen, NotFoundScreen } from './screens';
 
 const HeroOverviewPage = lazy(() =>
@@ -17,8 +12,7 @@ const HeroOverviewPage = lazy(() =>
 );
 
 export default function App() {
-  const transport = useMemo(() => createHeroMetricsHttpTransport(), []);
-  const spaLocation = useMemo(() => createSpaLocation(createBrowserSpaLocationAdapter()), []);
+  const spaLocation = useMemo(() => createSpaLocation(), []);
   const [location, setLocation] = useState<ResolvedSpaLocation>(() => spaLocation.current());
 
   useEffect(() => spaLocation.subscribe(setLocation), [spaLocation]);
@@ -64,11 +58,7 @@ export default function App() {
   if (location.route.page === 'heroes') {
     return (
       <Suspense fallback={<LoadingScreen location={location} />}>
-        <HeroOverviewPage
-          transport={transport}
-          location={location}
-          onScopeChange={spaLocation.replaceScope}
-        />
+        <HeroOverviewPage location={location} onScopeChange={spaLocation.replaceScope} />
       </Suspense>
     );
   }

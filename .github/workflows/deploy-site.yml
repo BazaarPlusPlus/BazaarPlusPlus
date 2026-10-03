@@ -16,6 +16,7 @@ on:
     branches: [master]
     paths:
       - bazaarplusplus-site/**
+      - bazaarplusplus-installer/src/styles/tokens.css
       - release/**
       - .github/workflows/deploy-site.yml
 

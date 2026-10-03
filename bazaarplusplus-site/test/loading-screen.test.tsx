@@ -2,11 +2,10 @@ import { render, screen } from '@testing-library/react';
 import { describe, expect, test } from 'vitest';
 
 import { LoadingScreen } from '../src/app/screens';
-import { createMemorySpaLocationAdapter, createSpaLocation } from '../src/app/router';
+import { locationAt } from './location';
 
 function loadingLocation(url: string) {
-  const memory = createMemorySpaLocationAdapter(url);
-  return createSpaLocation(memory.adapter).current();
+  return locationAt(url);
 }
 
 describe('LoadingScreen', () => {
