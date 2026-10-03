@@ -21,7 +21,6 @@ public sealed class PluginLoggingTests
             ["plugin.initialization.failed"] = "phase:Low:None|reason_code:Low:None",
             ["plugin.shutdown.degraded"] =
                 "failed_step_count:Low:None|first_failed_step:Low:None|reason_code:Low:None",
-            ["plugin.online_services.degraded"] = "reason_code:Low:None|endpoint:Low:None",
             ["plugin.patch.apply_failed"] = "patch_type:High:None|reason_code:Low:None",
             ["plugin.patches.degraded"] = "failed_patch_count:Low:None|reason_code:Low:None",
             ["plugin.event_handler.degraded"] =
@@ -52,7 +51,6 @@ public sealed class PluginLoggingTests
     {
         AssertStorm(PluginLogEvents.GameBuildDegraded, "reason_code");
         AssertStorm(PluginLogEvents.ShutdownDegraded, "reason_code");
-        AssertStorm(PluginLogEvents.OnlineServicesDegraded, "endpoint", "reason_code");
         AssertStorm(PluginLogEvents.PatchesDegraded, "reason_code");
         AssertStorm(PluginLogEvents.EventHandlerDegraded, "event_id", "handler_id");
         AssertStorm(PluginLogEvents.FeatureStartDegraded, "feature", "reason_code");

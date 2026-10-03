@@ -35,10 +35,6 @@ public sealed class GhostBattleImportRecord
 
     public int? PlayerVictories { get; set; }
 
-    public int? PlayerHandItemCount { get; set; }
-
-    public int? PlayerSkillCount { get; set; }
-
     public string? OpponentName { get; set; }
 
     public string? OpponentHero { get; set; }
@@ -53,10 +49,6 @@ public sealed class GhostBattleImportRecord
 
     public int? OpponentVictories { get; set; }
 
-    public int? OpponentHandItemCount { get; set; }
-
-    public int? OpponentSkillCount { get; set; }
-
     public string? OpponentAccountId { get; set; }
 
     public string CombatKind { get; set; } = "PVPCombat";
@@ -68,12 +60,4 @@ public sealed class GhostBattleImportRecord
     public string? LoserCombatantId { get; set; }
 
     public bool IsFinalBattle { get; set; }
-
-    public bool ReplayAvailable { get; set; }
-
-    public bool ReplayDownloaded { get; set; }
-
-    public string ReplayState { get; set; } = "remote_available";
-
-    public DateTimeOffset LastSyncedAtUtc { get; set; }
 }

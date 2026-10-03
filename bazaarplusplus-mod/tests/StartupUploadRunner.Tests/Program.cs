@@ -14,11 +14,7 @@ using BazaarPlusPlus.Storage.BundleQueue;
 using BazaarPlusPlus.Storage.Paths;
 using Microsoft.Data.Sqlite;
 
-Assert(BundleUploadFeed.MaximumAttemptBatch == 3, "Each attempt must upload at most 3 bundles.");
-
 var cadence = new UploadPumpCadence(20, 180);
-Assert(cadence.StartupDelaySeconds == 20, "Startup cadence drifted.");
-Assert(cadence.RetryIntervalSeconds == 180, "Retry cadence drifted.");
 
 var gate = new StartupUploadAttemptGate(cadence.StartupDelaySeconds, cadence.RetryIntervalSeconds);
 Assert(

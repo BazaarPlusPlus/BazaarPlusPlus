@@ -260,23 +260,17 @@ public class Plugin : BaseUnityPlugin
             new Uri(BazaarDbLinkClient.DefaultRedeemEndpoint)
         );
 
-        _modApiSession = ModApiSession.TryCreate(
-            ModApiUploadDefaults.ApiBaseUrl,
-            BppPluginVersion.Current,
-            "OnlineClient",
-            TimeSpan.FromSeconds(Math.Max(10, ModApiUploadDefaults.RequestTimeoutSeconds))
-        );
-        if (_modApiSession == null)
-        {
-            BppLog.WarnEvent(
-                PluginLogEvents.OnlineServicesDegraded,
-                PluginLogEvents.OnlineServicesDegradedReasonCode.Bind(
-                    PluginLogReasonCode.InvalidBaseUrl
-                ),
-                PluginLogEvents.OnlineServicesDegradedEndpoint.Bind(PluginOnlineEndpoint.ModApi)
+        // The base URL is a constant, so a null session is a build defect: fail startup.
+        _modApiSession =
+            ModApiSession.TryCreate(
+                ModApiUploadDefaults.ApiBaseUrl,
+                BppPluginVersion.Current,
+                "OnlineClient",
+                TimeSpan.FromSeconds(ModApiUploadDefaults.RequestTimeoutSeconds)
+            )
+            ?? throw new InvalidOperationException(
+                $"Mod API base URL '{ModApiUploadDefaults.ApiBaseUrl}' is not an absolute URL."
             );
-            return;
-        }
     }
 
     private void ApplyHarmonyPatches()

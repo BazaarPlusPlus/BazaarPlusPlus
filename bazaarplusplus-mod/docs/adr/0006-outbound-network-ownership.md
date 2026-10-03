@@ -20,7 +20,7 @@ Bundle composition and Ghost import once carried different replayability rules, 
 
 [`ModApiSession`](../../src/BazaarPlusPlus.ModApi/Clients/ModApiSession.cs) owns one normalized route set, one configured `HttpClient`, typed Bundle/Ghost/health operations, and one disposal boundary. Plugin History, each upload-feed activation, and tools own independent sessions. BazaarDB remains separate because it has a different host and workflow.
 
-A missing Mod API session removes online History capabilities only; local History still mounts.
+The API base URL is a constant; failing to construct the session fails plugin startup.
 
 ### Durable queue
 

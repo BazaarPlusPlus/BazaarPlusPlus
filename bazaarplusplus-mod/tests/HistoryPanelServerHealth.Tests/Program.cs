@@ -20,14 +20,7 @@ Assert(
     "Checking status should explain what is happening."
 );
 
-var success = InvokeStatic(
-    probeResultType,
-    "Success",
-    new DateTime(2026, 6, 3, 0, 0, 0, DateTimeKind.Utc),
-    142L,
-    "ok",
-    new DateTime(2026, 6, 3, 0, 0, 1, DateTimeKind.Utc)
-);
+var success = InvokeStatic(probeResultType, "Success", 142L);
 var successDisplay = InvokeStatic(formatterType, "FromProbeResult", success);
 Assert(GetString(successDisplay, "ButtonText") == "Check Server", "Success returns to idle label.");
 Assert(GetBool(successDisplay, "ButtonEnabled"), "Success should re-enable the button.");
@@ -36,13 +29,7 @@ Assert(
     "Success status should include RTT."
 );
 
-var failure = InvokeStatic(
-    probeResultType,
-    "Failure",
-    new DateTime(2026, 6, 3, 0, 0, 0, DateTimeKind.Utc),
-    87L,
-    "http_503"
-);
+var failure = InvokeStatic(probeResultType, "Failure", 87L, "http_503");
 var failureDisplay = InvokeStatic(formatterType, "FromProbeResult", failure);
 Assert(GetString(failureDisplay, "ButtonText") == "Check Server", "Failure returns to idle label.");
 Assert(GetBool(failureDisplay, "ButtonEnabled"), "Failure should re-enable the button.");

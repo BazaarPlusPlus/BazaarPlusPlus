@@ -55,14 +55,6 @@ static async Task DiscoveryUsesV5ShapeAndLimit()
         observed?.Query.Contains("limit=200", StringComparison.Ordinal) == true,
         "Discovery limit must clamp to 200."
     );
-    Assert(
-        result.Battles[0].PlayerHandItemCount == null,
-        "Projection counts must remain unknown before download."
-    );
-    Assert(
-        result.Battles[0].ReplayAvailable,
-        "A valid presigned URL must expose replay availability."
-    );
 
     var overLimit = new RecordingHandler(_ =>
     {

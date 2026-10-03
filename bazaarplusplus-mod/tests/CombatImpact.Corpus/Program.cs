@@ -451,7 +451,8 @@ static CorpusLoadResult LoadBundleCorpus(string sourceKind, IReadOnlyList<string
             !MessagePackGzipCodec.TryDeserialize<ContractlessRunArtifact>(
                 bundleBytes,
                 out var contractless,
-                out var contractlessError
+                out var contractlessError,
+                out _
             )
             || contractless == null
         )

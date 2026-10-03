@@ -30,9 +30,10 @@ internal sealed class BackgroundUploadPump : MonoBehaviour
         _services = services ?? throw new ArgumentNullException(nameof(services));
         _logState = new UploadFeedLogState();
 
-        var startupDelaySeconds = Math.Max(5, ModApiUploadDefaults.StartupDelaySeconds);
-        var retryIntervalSeconds = Math.Max(1, ModApiUploadDefaults.IntervalSeconds);
-        var cadence = new UploadPumpCadence(startupDelaySeconds, retryIntervalSeconds);
+        var cadence = new UploadPumpCadence(
+            ModApiUploadDefaults.StartupDelaySeconds,
+            ModApiUploadDefaults.IntervalSeconds
+        );
 
         var session = UploadPumpBootstrap.ActivateIfAllowed(_services, cadence);
         if (session == null)
@@ -41,8 +42,8 @@ internal sealed class BackgroundUploadPump : MonoBehaviour
         _session = session;
         _shutdown = new CancellationTokenSource();
         _startupGate = new StartupUploadAttemptGate(
-            Time.unscaledTime + startupDelaySeconds,
-            retryIntervalSeconds
+            Time.unscaledTime + cadence.StartupDelaySeconds,
+            cadence.RetryIntervalSeconds
         );
         _startupRunner = new StartupUploadAttemptRunner(_logState);
         _runLifecycleSubscription = _services.EventBus.Subscribe<RunLifecycleChanged>(

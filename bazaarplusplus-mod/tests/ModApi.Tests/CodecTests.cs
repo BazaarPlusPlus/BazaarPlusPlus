@@ -32,7 +32,8 @@ internal static class CodecTests
         var ok = MessagePackGzipCodec.TryDeserialize<Sample>(
             bytes,
             out var restored,
-            out var error
+            out var error,
+            out _
         );
         if (
             !ok
@@ -66,7 +67,14 @@ internal static class CodecTests
 
     private static void AssertDeserializeFailure(byte[]? bytes, string expectedErrorFragment)
     {
-        if (MessagePackGzipCodec.TryDeserialize<Sample>(bytes, out var restored, out var error))
+        if (
+            MessagePackGzipCodec.TryDeserialize<Sample>(
+                bytes,
+                out var restored,
+                out var error,
+                out _
+            )
+        )
             throw new Exception("Expected MessagePackGzipCodec deserialization to fail.");
         if (restored != null)
             throw new Exception("Expected failed deserialization to leave value null.");
