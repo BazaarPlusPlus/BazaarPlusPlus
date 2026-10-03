@@ -207,9 +207,6 @@ internal sealed class GhostBattleClient
             WinnerCombatantId = ReadString(battle, "winner_combatant_id"),
             LoserCombatantId = ReadString(battle, "loser_combatant_id"),
             IsFinalBattle = battle["is_final_battle"]?.Value<bool?>() ?? false,
-            ReplayAvailable = Uri.TryCreate(downloadUrl, UriKind.Absolute, out _),
-            ReplayState = "remote_available",
-            LastSyncedAtUtc = DateTimeOffset.UtcNow,
         };
         return record.Day.HasValue && record.Hour.HasValue;
     }

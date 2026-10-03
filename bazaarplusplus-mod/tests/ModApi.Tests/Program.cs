@@ -1,11 +1,10 @@
 #nullable enable
 
-RoutesTests.Run();
 ErrorCodeContractTests.Run();
 await GhostSummaryContractTests.RunAsync();
 CodecTests.Run();
 await ModApiResponseTests.RunAsync();
 await SessionTests.RunAsync();
-HealthClientTests.Run();
+await HealthClientTests.RunAsync();
 BazaarDbLinkClientTests.Run();
 Console.WriteLine("All ModApi tests passed.");

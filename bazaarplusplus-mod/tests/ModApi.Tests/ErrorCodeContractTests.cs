@@ -22,11 +22,13 @@ internal static class ErrorCodeContractTests
 
         // Inspect the same compiled classifier used by uploads, rather than duplicating its
         // code strings in the test. BazaarDbLinkClient talks to the partner API, not this server.
+        var uploadClient = typeof(ModApiSession).Assembly.GetType(
+            "BazaarPlusPlus.ModApi.Clients.BundleUploadClient",
+            throwOnError: true
+        )!;
         var classifier =
-            typeof(BundleUploadClient).GetMethod(
-                "Classify",
-                BindingFlags.NonPublic | BindingFlags.Static
-            ) ?? throw new InvalidOperationException("The upload classifier is missing.");
+            uploadClient.GetMethod("Classify", BindingFlags.NonPublic | BindingFlags.Static)
+            ?? throw new InvalidOperationException("The upload classifier is missing.");
         var instructions = ReadInstructions(classifier)
             .Where(item => item.Code != OpCodes.Nop)
             .ToArray();

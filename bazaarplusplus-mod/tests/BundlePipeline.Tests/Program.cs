@@ -27,7 +27,6 @@ var root = Path.Combine(Path.GetTempPath(), "bpp-v5-pipeline-" + Guid.NewGuid().
 Directory.CreateDirectory(root);
 try
 {
-    await BundleSealLoggingTests.RunAsync(Path.Combine(root, "seal-logging"));
     await BundleSealFailureTests.RunAsync(Path.Combine(root, "seal-failures"));
     var paths = new TestPaths(root);
     var store = new RunLogStore(paths);
@@ -705,6 +704,8 @@ internal sealed class CaptureHandler(Queue<HttpResponseMessage> responses) : Htt
         CancellationToken cancellationToken
     )
     {
+        if (request.RequestUri?.AbsolutePath != "/bundles")
+            throw new InvalidOperationException($"Upload route drifted: {request.RequestUri}");
         Bodies.Add(await request.Content!.ReadAsByteArrayAsync(cancellationToken));
         ContentDigests.Add(request.Headers.GetValues("Content-Digest").Single());
         if (request.Content.Headers.ContentLength != Bodies[^1].Length)

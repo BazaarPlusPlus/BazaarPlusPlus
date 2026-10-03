@@ -142,8 +142,6 @@ internal sealed partial class HistoryPanelRepository
                     player_level,
                     player_prestige,
                     player_victories,
-                    player_hand_item_count,
-                    player_skill_count,
                     opponent_name,
                     opponent_hero,
                     opponent_rank,
@@ -151,8 +149,6 @@ internal sealed partial class HistoryPanelRepository
                     opponent_level,
                     opponent_prestige,
                     opponent_victories,
-                    opponent_hand_item_count,
-                    opponent_skill_count,
                     opponent_account_id,
                     combat_kind,
                     result,
@@ -182,8 +178,6 @@ internal sealed partial class HistoryPanelRepository
                     $playerLevel,
                     $playerPrestige,
                     $playerVictories,
-                    $playerHandItemCount,
-                    $playerSkillCount,
                     $opponentName,
                     $opponentHero,
                     $opponentRank,
@@ -191,8 +185,6 @@ internal sealed partial class HistoryPanelRepository
                     $opponentLevel,
                     $opponentPrestige,
                     $opponentVictories,
-                    $opponentHandItemCount,
-                    $opponentSkillCount,
                     $opponentAccountId,
                     $combatKind,
                     $result,
@@ -222,14 +214,6 @@ internal sealed partial class HistoryPanelRepository
                     player_level = excluded.player_level,
                     player_prestige = excluded.player_prestige,
                     player_victories = excluded.player_victories,
-                    player_hand_item_count = COALESCE(
-                        excluded.player_hand_item_count,
-                        {RunLogSchema.BattlesTableName}.player_hand_item_count
-                    ),
-                    player_skill_count = COALESCE(
-                        excluded.player_skill_count,
-                        {RunLogSchema.BattlesTableName}.player_skill_count
-                    ),
                     opponent_name = excluded.opponent_name,
                     opponent_hero = excluded.opponent_hero,
                     opponent_rank = excluded.opponent_rank,
@@ -237,14 +221,6 @@ internal sealed partial class HistoryPanelRepository
                     opponent_level = excluded.opponent_level,
                     opponent_prestige = excluded.opponent_prestige,
                     opponent_victories = excluded.opponent_victories,
-                    opponent_hand_item_count = COALESCE(
-                        excluded.opponent_hand_item_count,
-                        {RunLogSchema.BattlesTableName}.opponent_hand_item_count
-                    ),
-                    opponent_skill_count = COALESCE(
-                        excluded.opponent_skill_count,
-                        {RunLogSchema.BattlesTableName}.opponent_skill_count
-                    ),
                     opponent_account_id = excluded.opponent_account_id,
                     combat_kind = excluded.combat_kind,
                     result = excluded.result,
@@ -324,14 +300,6 @@ internal sealed partial class HistoryPanelRepository
                 (object?)battle.PlayerVictories ?? DBNull.Value
             );
             insertCommand.Parameters.AddWithValue(
-                "$playerHandItemCount",
-                (object?)battle.PlayerHandItemCount ?? DBNull.Value
-            );
-            insertCommand.Parameters.AddWithValue(
-                "$playerSkillCount",
-                (object?)battle.PlayerSkillCount ?? DBNull.Value
-            );
-            insertCommand.Parameters.AddWithValue(
                 "$opponentName",
                 (object?)battle.OpponentName ?? DBNull.Value
             );
@@ -358,14 +326,6 @@ internal sealed partial class HistoryPanelRepository
             insertCommand.Parameters.AddWithValue(
                 "$opponentVictories",
                 (object?)battle.OpponentVictories ?? DBNull.Value
-            );
-            insertCommand.Parameters.AddWithValue(
-                "$opponentHandItemCount",
-                (object?)battle.OpponentHandItemCount ?? DBNull.Value
-            );
-            insertCommand.Parameters.AddWithValue(
-                "$opponentSkillCount",
-                (object?)battle.OpponentSkillCount ?? DBNull.Value
             );
             insertCommand.Parameters.AddWithValue(
                 "$opponentAccountId",

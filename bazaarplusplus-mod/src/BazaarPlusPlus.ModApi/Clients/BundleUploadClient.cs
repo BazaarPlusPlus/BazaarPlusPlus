@@ -7,7 +7,9 @@ namespace BazaarPlusPlus.ModApi.Clients;
 
 internal sealed class BundleUploadClient
 {
-    private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(120);
+    private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(
+        ModApiUploadDefaults.RequestTimeoutSeconds
+    );
     private readonly HttpClient _httpClient;
     private readonly ModApiRoutes _routes;
 

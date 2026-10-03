@@ -25,10 +25,6 @@ public static class MessagePackGzipCodec
         return MessagePackGzipFraming.Encode(payload, Options);
     }
 
-    public static bool TryDeserialize<T>(byte[]? payloadBytes, out T? value, out string? error)
-        where T : class =>
-        TryDeserialize(payloadBytes, out value, out error, out _, maxDecompressedBytes: null);
-
     // The decode exception stays available so callers can tell a runtime binding failure
     // (a missing member in a loaded assembly) from corrupt bytes.
     public static bool TryDeserialize<T>(

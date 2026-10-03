@@ -21,16 +21,10 @@ internal enum PluginLogReasonCode
     DetectionSignalsDisagree,
     InitializationException,
     TeardownStepFailed,
-    InvalidBaseUrl,
     PatchClassException,
     PatchClassesFailed,
     HandlerException,
     FeatureException,
-}
-
-internal enum PluginOnlineEndpoint
-{
-    ModApi,
 }
 
 internal enum PluginEventId
@@ -165,23 +159,6 @@ internal static class PluginLogEvents
             ShutdownDegradedReasonCode,
         ],
         new BppLogStormPolicy([ShutdownDegradedReasonCode])
-    );
-
-    internal static readonly BppLogFieldDefinition OnlineServicesDegradedReasonCode = Public(
-        0,
-        "reason_code",
-        BppLogCardinality.Low
-    );
-    internal static readonly BppLogFieldDefinition OnlineServicesDegradedEndpoint = Public(
-        1,
-        "endpoint",
-        BppLogCardinality.Low
-    );
-    internal static readonly BppLogEventDefinition OnlineServicesDegraded = new(
-        BppLogFeatureScope.Plugin,
-        "plugin.online_services.degraded",
-        [OnlineServicesDegradedReasonCode, OnlineServicesDegradedEndpoint],
-        new BppLogStormPolicy([OnlineServicesDegradedEndpoint, OnlineServicesDegradedReasonCode])
     );
 
     internal static readonly BppLogFieldDefinition PatchApplyFailedPatchType = Untrusted(

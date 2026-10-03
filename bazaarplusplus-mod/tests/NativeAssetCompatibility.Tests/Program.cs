@@ -148,39 +148,6 @@ RequireContains(cardPreviewBasePath, cardPreviewBaseText, "public void OnHoverOu
 RequireContains(cardPreviewBasePath, cardPreviewBaseText, "protected Card _clientCard;");
 RequireContains(cardPreviewBasePath, cardPreviewBaseText, "private CardTooltipData _tooltipData;");
 
-var sourceRoot = Path.Combine(repoRoot, "src", "BazaarPlusPlus");
-if (!Directory.Exists(sourceRoot))
-{
-    throw new InvalidOperationException($"Required source directory is missing: {sourceRoot}");
-}
-
-var sourceFiles = Directory
-    .EnumerateFiles(sourceRoot, "*.cs", SearchOption.AllDirectories)
-    .Where(path => IsRealSourceFile(sourceRoot, path))
-    .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
-    .ToArray();
-
-if (sourceFiles.Length == 0)
-{
-    throw new InvalidOperationException(
-        $"No C# source files found under required source directory: {sourceRoot}"
-    );
-}
-
-var sourceTexts = sourceFiles
-    .Select(path => new SourceFile(path, File.ReadAllText(path)))
-    .ToArray();
-RequireAbsent(
-    sourceTexts,
-    [
-        string.Concat("NativeCardPreview", "PrefabResolver"),
-        string.Concat("_smallItem", "Reference"),
-        string.Concat("_mediumItem", "Reference"),
-        string.Concat("_largeItem", "Reference"),
-        string.Concat("_skill", "Reference"),
-    ]
-);
-
 Console.WriteLine("Native asset compatibility checks passed.");
 
 static string FindRepoRoot()
@@ -279,50 +246,3 @@ static string GetRequiredMethodBody(string path, string text, string methodSigna
         $"Required method body end missing from {path}: {methodSignature}"
     );
 }
-
-static bool IsRealSourceFile(string sourceRoot, string path)
-{
-    var relativePath = Path.GetRelativePath(sourceRoot, path);
-    var segments = relativePath.Split(
-        [Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar],
-        StringSplitOptions.RemoveEmptyEntries
-    );
-
-    return !segments.Any(segment =>
-        segment.Equals("bin", StringComparison.OrdinalIgnoreCase)
-        || segment.Equals("obj", StringComparison.OrdinalIgnoreCase)
-    );
-}
-
-static void RequireAbsent(SourceFile[] sourceTexts, string[] obsoleteTexts)
-{
-    var findings = obsoleteTexts
-        .SelectMany(obsoleteText =>
-            sourceTexts.SelectMany(source => FindMatches(source, obsoleteText)).Take(10)
-        )
-        .ToArray();
-
-    if (findings.Length == 0)
-    {
-        return;
-    }
-
-    var evidence = string.Join(Environment.NewLine, findings);
-    throw new InvalidOperationException(
-        $"Obsolete native card preview references found:{Environment.NewLine}{evidence}"
-    );
-}
-
-static IEnumerable<string> FindMatches(SourceFile source, string obsoleteText)
-{
-    var lines = source.Text.Split(["\r\n", "\n"], StringSplitOptions.None);
-    for (var i = 0; i < lines.Length; i++)
-    {
-        if (lines[i].Contains(obsoleteText, StringComparison.Ordinal))
-        {
-            yield return $"{obsoleteText}: {source.Path}:{i + 1}: {lines[i].Trim()}";
-        }
-    }
-}
-
-internal sealed record SourceFile(string Path, string Text);

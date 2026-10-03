@@ -19,7 +19,6 @@ internal sealed class ModApiHealthClient
 
     public async Task<ModApiHealthProbeResult> ProbeAsync(CancellationToken cancellationToken)
     {
-        var startedAtUtc = DateTime.UtcNow;
         var stopwatch = Stopwatch.StartNew();
         try
         {
@@ -33,7 +32,6 @@ internal sealed class ModApiHealthClient
 
             if (!parsedResponse.IsSuccess)
                 return ModApiHealthProbeResult.FailureFrom(
-                    startedAtUtc,
                     stopwatch.ElapsedMilliseconds,
                     new ModApiFailure(parsedResponse.UserCode, response: parsedResponse)
                 );
@@ -46,7 +44,6 @@ internal sealed class ModApiHealthClient
             catch (JsonException)
             {
                 return ModApiHealthProbeResult.Failure(
-                    startedAtUtc,
                     stopwatch.ElapsedMilliseconds,
                     "server_time_invalid"
                 );
@@ -57,40 +54,30 @@ internal sealed class ModApiHealthClient
             )
             {
                 return ModApiHealthProbeResult.Failure(
-                    startedAtUtc,
                     stopwatch.ElapsedMilliseconds,
                     "health_status_not_ok"
                 );
             }
 
-            DateTime serverTimeUtc;
             if (!parsed.ServerTimeMs.HasValue)
                 return ModApiHealthProbeResult.Failure(
-                    startedAtUtc,
                     stopwatch.ElapsedMilliseconds,
                     "server_time_invalid"
                 );
+            // server_time_ms is part of the health contract: reject an out-of-range value.
             try
             {
-                serverTimeUtc = DateTimeOffset
-                    .FromUnixTimeMilliseconds(parsed.ServerTimeMs.Value)
-                    .UtcDateTime;
+                _ = DateTimeOffset.FromUnixTimeMilliseconds(parsed.ServerTimeMs.Value);
             }
             catch (ArgumentOutOfRangeException)
             {
                 return ModApiHealthProbeResult.Failure(
-                    startedAtUtc,
                     stopwatch.ElapsedMilliseconds,
                     "server_time_invalid"
                 );
             }
 
-            return ModApiHealthProbeResult.Success(
-                startedAtUtc,
-                stopwatch.ElapsedMilliseconds,
-                parsed.Status,
-                serverTimeUtc
-            );
+            return ModApiHealthProbeResult.Success(stopwatch.ElapsedMilliseconds);
         }
         catch (OperationCanceledException)
         {
@@ -100,7 +87,6 @@ internal sealed class ModApiHealthClient
         {
             stopwatch.Stop();
             return ModApiHealthProbeResult.FailureFrom(
-                startedAtUtc,
                 stopwatch.ElapsedMilliseconds,
                 new ModApiFailure("transport_error", diagnosticException: ex)
             );
@@ -112,46 +98,29 @@ public readonly struct ModApiHealthProbeResult
 {
     private ModApiHealthProbeResult(
         bool succeeded,
-        DateTime probedAtUtc,
         long roundTripMilliseconds,
-        string? status,
-        DateTime? serverTimeUtc,
         ModApiFailure? failure
     )
     {
         Succeeded = succeeded;
-        ProbedAtUtc = probedAtUtc;
         RoundTripMilliseconds = roundTripMilliseconds;
-        Status = status;
-        ServerTimeUtc = serverTimeUtc;
         FailureInfo = failure;
     }
 
     public bool Succeeded { get; }
-    public DateTime ProbedAtUtc { get; }
     public long RoundTripMilliseconds { get; }
-    public string? Status { get; }
-    public DateTime? ServerTimeUtc { get; }
     public ModApiFailure? FailureInfo { get; }
     public string? Error => FailureInfo?.UserCode;
     public Exception? DiagnosticException => FailureInfo?.DiagnosticException;
 
-    public static ModApiHealthProbeResult Success(
-        DateTime probedAtUtc,
-        long roundTripMilliseconds,
-        string status,
-        DateTime serverTimeUtc
-    ) => new(true, probedAtUtc, roundTripMilliseconds, status, serverTimeUtc, null);
+    public static ModApiHealthProbeResult Success(long roundTripMilliseconds) =>
+        new(true, roundTripMilliseconds, null);
 
-    public static ModApiHealthProbeResult Failure(
-        DateTime probedAtUtc,
-        long roundTripMilliseconds,
-        string error
-    ) => FailureFrom(probedAtUtc, roundTripMilliseconds, new ModApiFailure(error));
+    public static ModApiHealthProbeResult Failure(long roundTripMilliseconds, string error) =>
+        FailureFrom(roundTripMilliseconds, new ModApiFailure(error));
 
     internal static ModApiHealthProbeResult FailureFrom(
-        DateTime probedAtUtc,
         long roundTripMilliseconds,
         ModApiFailure failure
-    ) => new(false, probedAtUtc, roundTripMilliseconds, null, null, failure);
+    ) => new(false, roundTripMilliseconds, failure);
 }

@@ -76,8 +76,7 @@ internal static class GhostSummaryContractTests
             DateTimeOffset.FromUnixTimeMilliseconds(1789814800000)
         );
         Expect("DownloadUrl", row.DownloadUrl, goldenDownloadUrl);
-        Expect("ReplayAvailable", row.ReplayAvailable, true);
-        Console.WriteLine("GhostSummaryContractTests passed (server golden, 18 consumed fields).");
+        Console.WriteLine("GhostSummaryContractTests passed (server golden, 17 consumed fields).");
     }
 
     private static void Expect<T>(string field, T actual, T expected)

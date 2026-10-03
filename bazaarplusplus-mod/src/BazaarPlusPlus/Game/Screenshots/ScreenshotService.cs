@@ -168,7 +168,7 @@ internal sealed class ScreenshotService
             var pixels = new byte[width * height * 4];
             request.GetData<byte>().CopyTo(pixels);
             if (!SystemInfo.graphicsUVStartsAtTop)
-                Rgba32FrameTransforms.FlipVerticalRgba32(pixels, width, height);
+                FlipRowsVertically(pixels, width * 4, height);
 
             // The settled frame is now detached from Unity. Navigation cannot change these
             // pixels, so the caller may release input while PNG encoding continues off-thread.
@@ -194,6 +194,20 @@ internal sealed class ScreenshotService
         finally
         {
             ReleaseRenderTexture(renderTexture, screenshotId, filePath);
+        }
+    }
+
+    // GPU readback rows arrive bottom-up when UVs start at the bottom; PNG rows are top-down.
+    private static void FlipRowsVertically(byte[] pixels, int stride, int height)
+    {
+        var rowBuffer = new byte[stride];
+        for (var row = 0; row < height / 2; row++)
+        {
+            var topOffset = row * stride;
+            var bottomOffset = (height - 1 - row) * stride;
+            Buffer.BlockCopy(pixels, topOffset, rowBuffer, 0, stride);
+            Buffer.BlockCopy(pixels, bottomOffset, pixels, topOffset, stride);
+            Buffer.BlockCopy(rowBuffer, 0, pixels, bottomOffset, stride);
         }
     }
 

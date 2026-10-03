@@ -88,9 +88,7 @@ public sealed class BazaarDbLinkClient : IDisposable
         };
         try
         {
-            var bodyBytes = Encoding.UTF8.GetBytes(
-                JsonConvert.SerializeObject(payload, ModApiSerialization.SerializerSettings)
-            );
+            var bodyBytes = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(payload));
             using var request = new HttpRequestMessage(HttpMethod.Post, _redeemEndpoint)
             {
                 Content = new ByteArrayContent(bodyBytes),
