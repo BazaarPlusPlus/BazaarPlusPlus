@@ -43,10 +43,11 @@ export function toBashPath(p) {
     .replace(/^([A-Za-z]):/, (_, drive) => `/${drive.toLowerCase()}`);
 }
 
-// Keep script text static; pass dynamic values as quoted positional parameters.
+// Read static script text from stdin, separate from dynamic positional arguments.
 export function runShell(script, args = []) {
-  return execFileSync(bashCommand, ['-c', script, 'bpp-test-shell', ...args], {
+  return execFileSync(bashCommand, ['-s', '--', ...args], {
     cwd: projectDir,
+    input: script,
     encoding: 'utf8',
     timeout: 120000
   });
