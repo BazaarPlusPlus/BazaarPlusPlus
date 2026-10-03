@@ -68,10 +68,6 @@
       Link="Logging/OperationalHealthTracker.cs"
     />
     <Compile
-      Include="../../src/BazaarPlusPlus/Core/GameState/EncounterReflectionCollection.cs"
-      Link="GameState/EncounterReflectionCollection.cs"
-    />
-    <Compile
       Include="../../src/BazaarPlusPlus/Game/Lobby/LobbyLogEvents.cs"
       Link="LobbyLogEvents.cs"
     />

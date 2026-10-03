@@ -4,7 +4,7 @@ Status: Accepted
 
 ## Decision
 
-Nothing exits `ReplayState` on a tick or a timer. `CombatReplayRuntime.TryContinueReplay` is the single programmatic exit, and it runs the same chain a real click on the recap "continue" button does.
+Nothing exits `ReplayState` on a tick or a timer. There is no programmatic `ReplayState` exit: the native recap continue click and the bootstrapped `Exit()` prefix are the only exit paths.
 
 ## Why
 
@@ -12,8 +12,8 @@ A replay remains in `ReplayState` after playback ends. Video finalization depend
 
 ## Guardrails
 
-- `CombatReplayRuntime.TryContinueReplay` is the only programmatic `ReplayState` exit. It rejects while starting, playing, capturing recap post-roll, or already exiting ([runtime](../../src/BazaarPlusPlus/Game/CombatReplay/CombatReplayRuntime.cs)).
-- No other file may reach the native exit; an architecture test pins the single-exit boundary ([test](../../tests/Architecture.Tests/CoreLayeringTests.cs) — `Replay_state_exit_stays_owned_by_the_combat_replay_runtime`).
+- Do not add a programmatic `ReplayState` exit. Bootstrapped saved replays leave through the `Exit()` prefix, which routes into `CombatReplayRuntime.TryExitBootstrappedSavedReplayToMenu` ([runtime](../../src/BazaarPlusPlus/Game/CombatReplay/CombatReplayRuntime.cs)).
+- No file outside `CombatReplayRuntime` may call the native recap exit; an architecture test pins the boundary ([test](../../tests/Architecture.Tests/CoreLayeringTests.cs) — `Replay_state_exit_stays_owned_by_the_combat_replay_runtime`).
 - Keep replay transport primitive and policy-free: one recording per battle; batching and concatenation stay external. Mid-playback skipping remains out of scope; phase races fail safely and retry on a later snapshot.
 
 ## Ghost payload perspective contract

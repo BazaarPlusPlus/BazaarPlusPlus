@@ -52,7 +52,7 @@ A user-requested MP4 plus its metadata. Attachment to a battle and file health a
 _Avoid_: replay cache, orphan video
 
 **Saved Replay Lifecycle**:
-The single pure owner (`SavedReplayLifecycle`) of a saved-replay playback session's state algebra; the runtime feeds observations and executes the returned decisions. Replay exit itself still flows only through `CombatReplayRuntime.TryContinueReplay` per ADR-0002.
+The single pure owner (`SavedReplayLifecycle`) of a saved-replay playback session's state algebra; the runtime feeds observations and executes the returned decisions. It never exits `ReplayState` itself; per ADR-0002 there is no programmatic replay exit.
 
 ## Overlay panels
 
