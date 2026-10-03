@@ -4,7 +4,7 @@ mod 与 installer 是同一个 Product Release 的两个产物。根目录 `rele
 
 ## 入口
 
-每个平台在自己的原生构建机上准备和打包；just 的安装与 Windows 约定见[开发命令](development.md)。参数以 `node release.mjs --help` 为准。
+`prepare`、`build`、`upload` 默认由 [GitHub Actions 发版工作流](#github-actions-发版)在两个托管 runner 上执行；在本机执行时每个平台仍要在自己的原生宿主上，游戏程序集由快照锁解析而不是本机 Steam 探测，所以装了游戏不再是发布机的条件。just 的安装与 Windows 约定见[开发命令](development.md)。参数以 `node release.mjs --help` 为准。
 
 ```bash
 just release::sync
@@ -18,7 +18,7 @@ just release::promote
 just release::promote --platform macos
 ```
 
-Windows 将 `macos` 换成 `windows`。`release::prepare` 和 `release::build` 可在平台后追加 `"-p:ManagedPath=<absolute-path>"` 指定正式服游戏程序集；不接受编译器、版本、目标或输出目录覆盖。`build` 包含 `prepare`，但不会自动上传；`upload` 不修改 latest；`mirror-all` 在双平台上传齐备后统一核对并记录大陆镜像地址；`mirror` 用于单平台发布；`verify-mirror` 只读复核，不需要凭据；`promote` 发布双平台版本，`promote --platform` 只发布一个平台，见[按平台发布](#按平台发布)。installer 的 `npm run prepare:resources -- --platform …` 同样转入产品发布协调器；installer 的 `scripts/bundle.sh` 只在 `release::build` 持有的构建锁内运行。
+Windows 将 `macos` 换成 `windows`。`release::prepare` 和 `release::build` 默认对照本平台的 online 锁条目编译（`scripts/game.sh managed-path` 只解析这一个条目），可在平台后追加 `"-p:ManagedPath=<absolute-path>"` 换一种取包方式，但该目录仍必须哈希到某个锁条目，否则 `prepare` 在落任何文件之前拒绝；不接受编译器、版本、目标或输出目录覆盖。`build` 包含 `prepare`，但不会自动上传；`upload` 不修改 latest；`mirror-all` 在双平台上传齐备后统一核对并记录大陆镜像地址；`mirror` 用于单平台发布；`verify-mirror` 只读复核，不需要凭据；`promote` 发布双平台版本，`promote --platform` 只发布一个平台，见[按平台发布](#按平台发布)。installer 的 `npm run prepare:resources -- --platform …` 同样转入产品发布协调器；installer 的 `scripts/bundle.sh` 只在 `release::build` 持有的构建锁内运行。
 
 `release/projections.mjs` 的 `checkProductProjections` 是共享源码对齐入口：根 `check` 与 installer 预检查均调用它，验证版本、Payload 投影、两份 README badge、平台配置、updater endpoint 和快照锁 `bazaarplusplus-mod/build/game-libs.lock.json` 的格式（六个键齐全，条目为空或过期只告警，见 [ADR 0004](adr/0004-pinned-game-assembly-snapshots.md)）。发布 origin 和 updater endpoint 列表由 `release/downloads.ts` 的 `RELEASE_BASE_URL` 与 `UPDATER_ENDPOINTS` 定义；Tauri 配置必须与后者逐项相等。`sync` 更新版本和 badge，不改写发布 origin。
 
@@ -27,15 +27,15 @@ just 只转发，不缓存或跳过任何发布检查。直接调用 `node relea
 ## 发布顺序
 
 1. 修改 `VERSION`，执行 `sync`，验证源码。
-2. 两个平台分别执行 `prepare`。`prepare` 和后续 `build` 都显式传入同一个 `-p:ManagedPath=...`，指向正式服 Managed 或固定快照；mod 直接对照其中的游戏自带库编译，本机默认发现的安装可能与发布默认选择的快照不同。如果 native 输入锁或受版本管理的预构建资源变化，审阅并提交这些变化；把两个平台需要的更新汇入同一个提交。
-3. 两台构建机检出这个相同提交，分别执行 `build`。发布相关源码必须干净；不相关的 site/analyzer 工作不会污染产品构建身份。若 `prepare` 又改变了跟踪的 native 输入，先汇入提交，再重新构建。
-4. 分别执行 `upload`，保存同一个版本、同一个 Git commit 的平台产物和 fragment。
+2. 两个平台分别执行 `prepare`。游戏程序集来自本平台的 online 锁条目，构建记录会写入这个条目；本机执行前先 `just mod::fetch <platform> online`，让条目在本机可解析。online 条目尚未采集时，本机只能显式传 `-p:ManagedPath=...` 指向一个哈希到其他锁条目（如 staging）的 Managed，`prepare` 和后续 `build` 传同一个值，日志会带非 online 告警。如果 native 输入锁或受版本管理的预构建资源变化，审阅并提交这些变化；把两个平台需要的更新汇入同一个提交。
+3. 两个平台在这个相同提交上分别执行 `build`，托管 runner 或各自的原生宿主均可。发布相关源码必须干净；不相关的 site/analyzer 工作不会污染产品构建身份。若 `prepare` 又改变了跟踪的 native 输入，先汇入提交，再重新构建。
+4. 在执行 `build` 的同一台机器上执行 `upload`，保存同一个版本、同一个 Git commit 的平台产物和 fragment。
 5. 两个平台上传完成后，单独执行大陆镜像阶段：把两个安装包原样上传到蓝奏云，拿到各自分享页地址后执行 `mirror-all`。它先验证双平台产物齐备、版本和提交一致，再核对两个分享页并记录地址，见[中国大陆镜像](#中国大陆镜像)。
 6. 任一发布机执行 `promote`。两个平台未齐、提交不一致、远端产物缺失或校验不符、任一平台没有镜像记录时均拒绝写入。它先写每个平台的 Platform Release Manifest，再写 `latest.json`。
 
 一个平台先发、另一个平台稍后跟上时，第 5 步仍用 `mirror <platform> <分享页地址>` 记录该平台的镜像，第 6 步用 `promote --platform <platform>`，见[按平台发布](#按平台发布)。
 
-第 2 到第 4 步可以整体交给 [GitHub Actions 发版工作流](#github-actions-发版)：两个托管 runner 各跑一遍 `prepare`、`build`、`upload`，输入与本机相同；第 5、6 步仍在本机执行。
+第 2 到第 4 步默认由 [GitHub Actions 发版工作流](#github-actions-发版)执行：两个托管 runner 各跑一遍 `prepare`、`build`、`upload`，输入与本机相同；本机执行是 runner 不可用或要调试打包时的备用路径。第 5、6 步只在本机执行。
 
 ## GitHub Actions 发版
 
@@ -57,7 +57,7 @@ secrets 放在名为 `release` 的 GitHub Environment 里，`BPP_GAME_LIBS_R2_*`
 
 `promote` 不进工作流：它要求两个平台都有大陆镜像记录（或显式豁免），而蓝奏云上传是手动步骤，分享页地址只有上传后才存在，`mirror-all` 必须在 `promote` 之前拿到它们。所以两平台 job 成功后仍按[发布顺序](#发布顺序)第 5、6 步在本机执行 `mirror-all` 与 `promote`，这两步只需要 `[release]` 凭据。
 
-构建依赖 Node/npm、.NET、Rust、本机正式服 Managed 程序集、平台 native 工具链和 bootstrap 资源。准备阶段会抓取并验证 Build Seed Fetch 数据。macOS 正式打包另需 Developer ID、公证和 Tauri updater 签名材料，具体本机约定见 [installer 发布文档](../bazaarplusplus-installer/docs/release.md)。源代码验证无需这些签名凭据。
+本机执行时，构建依赖 Node/npm、.NET、Rust、快照锁 online 条目解析出的 Managed 程序集（[开发命令](development.md#游戏程序集)）、平台 native 工具链和 bootstrap 资源。准备阶段会抓取并验证 Build Seed Fetch 数据。macOS 正式打包另需 Developer ID、公证和 Tauri updater 签名材料，具体本机约定见 [installer 发布文档](../bazaarplusplus-installer/docs/release.md)。源代码验证无需这些签名凭据。
 
 ## Payload 的共同事实
 

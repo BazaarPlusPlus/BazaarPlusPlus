@@ -18,6 +18,22 @@ just doctor
 - 发布凭据按用途分开保存，每个 bucket 各用一套，不用一把密钥覆盖所有权限。
 - `doctor` 只是清单：退出成功不代表远端权限、签名密码或服务可用。
 
+### 游戏程序集
+
+mod 对照快照锁 `bazaarplusplus-mod/build/game-libs.lock.json` 指向的 Game Assembly Snapshot 编译（词条见根 `CONTEXT.md`，决定见 [ADR 0004](adr/0004-pinned-game-assembly-snapshots.md)），不再探测本机 Steam 路径。新 clone 在 `just setup` 之后执行一次：
+
+```bash
+just mod::fetch macos online      # Windows 用 windows
+```
+
+它按本平台的 online 锁条目解析 Managed 目录并打印出来：本机 Steam 安装的 `globalgamemanagers` 版本串与条目一致、Managed 目录 sha256 也一致时直接采用；否则从私有存储取包到 `bazaarplusplus-mod/game-libs/`，这一步需要 `[release]` 凭据，写作 `just with-config release just mod::fetch macos online`。两边都不满足时报错并列出锁和本机的两个版本串：切换 Steam 分支、等锁更新，或显式传 `-p:ManagedPath=...`。没有凭据的外部贡献者只能对着 online 构建；staging 和 ptr 条目只要求云端能取到。
+
+它说不出来的约定：
+
+- 显式 `-p:ManagedPath`（或 `config.ini` `[machine]` 的 `BPP_MANAGED_PATH`）绕过锁解析，但只是换一种取包方式，不是换一套程序集：`mod::check` 里的 `lock-check` 对它解析到的目录核对，版本串被某个锁条目记录而 sha256 不一致即失败，不被任何条目记录只告警；`release::prepare` 则直接拒绝不对应任何锁条目的目录。
+- 锁条目为空时 `mod::check` 和 `release::check` 只告警；本平台 online 条目仍为空时，Steam 当前挂载渠道的条目可以满足 online 构建，这条过渡规则写在 `build/ManagedPath.props` 的注释里，online 条目填上后随注释一起删除。
+- 锁只通过 PR 推进：在挂了对应 Steam 分支的机器上 `just mod::snapshot`，再 `just mod::publish <platform> <channel>` 上传私有存储，然后提交锁文件。游戏更新后本机 Steam 与锁不一致，锁推进前无法构建，这是接受的代价。
+
 ## 环境与依赖
 
 根发布工具和各项目各自保留依赖与锁文件，不用 npm workspaces。
@@ -27,7 +43,7 @@ just doctor
 | just | 本仓库用 `just 1.58.0` 验证 | macOS `brew install just`；Windows `winget install --id Casey.Just --exact` |
 | 根发布工具 | `.nvmrc`、根 `package.json` 的 `packageManager` | 根目录 `npm ci` |
 | installer、site、server | 各自 `package.json` 的 `engines` 与 `packageManager` | 各目录 `npm ci`；site 另需 `npx playwright install chromium`（只有 `site::e2e` 需要） |
-| mod | `bazaarplusplus-mod/global.json`；本机 Steam 版《The Bazaar》的 Managed 程序集 | .NET restore |
+| mod | `bazaarplusplus-mod/global.json`；快照锁指向的游戏程序集，见[游戏程序集](#游戏程序集) | .NET restore |
 | installer Rust | `bazaarplusplus-installer/rust-toolchain.toml`；[Tauri 系统依赖](https://tauri.app/start/prerequisites/) | locked Cargo |
 | analyzer | `bazaarplusplus-analyzer/.python-version`、uv | analyzer 目录 `uv sync --locked` |
 
@@ -37,7 +53,7 @@ Windows 在 Git Bash 中执行 just，`bash`、`just` 和语言工具链都要�
 
 命令写作 `just <project>::<recipe>`（也可写 `just <project> <recipe>`）。recipe 在项目目录中执行，所以相对路径参数按项目目录解析。只改一个项目时用该项目的 `check` 和 `test`；`just check`、`just test` 覆盖全仓库，遇到首个失败即停止。
 
-- 全仓库门禁需要所有项目的工具链，mod 还需要游戏程序集；缺依赖时的失败不能当作通过。
+- 全仓库门禁需要所有项目的工具链，mod 还需要快照锁能解析的游戏程序集；缺依赖时的失败不能当作通过。
 - `installer::check` 已包含 installer 的测试，先跑 `check` 再跑 `test` 会把它们跑两遍。
 - `mod::build` 只编译；部署进游戏要显式执行 `just mod::build --deploy`。含空格的参数整体加引号：
 
@@ -51,7 +67,9 @@ Dependabot 更新配置在 `.github/dependabot.yml`，普通版本更新的分�
 
 Mod 的自动更新只开放测试工具白名单。编译期依赖同样可能改变游戏内行为，不能因为 `PrivateAssets`、补丁版本或 NuGet 版本号相同就认为兼容。游戏自带 DLL、生成器、publicizer 和随包运行库的维护遵循 [ADR-0010](../bazaarplusplus-mod/docs/adr/0010-compile-against-game-supplied-libraries.md)。机器人 PR 的实际差异还会经过 `.github/scripts/check_mod_dependency_update.py`：允许测试工具版本修改，但生产锁文件或其他 Mod 文件变化必须转人工维护。
 
-云端检查的覆盖范围以 `.github/workflows/` 的 job 名称和命令为准。site 的部署触发方式和凭据位置见 `bazaarplusplus-site/README.md` 的 Deploy 一节。Mod 纯逻辑测试不验证 Unity/Mono 加载；Ghost 响应契约的消费方检查在 `mod::test` 中；installer 在 Windows 和 macOS 运行完整源码门禁，但不替代安装包签名、安装与升级验收。涉及云端未覆盖的范围时，合并前仍须提供相应项目的本地门禁结果。Mod 运行时依赖升级还需对支持的游戏 Managed 快照编译，并验证实际启动与受影响功能；通过普通 .NET 测试不能替代这一步。游戏程序集不上传到公共 CI，也不交给不受信任 PR 在游戏机器上执行。
+云端检查的覆盖范围以 `.github/workflows/` 的 job 名称和命令为准。site 的部署触发方式和凭据位置见 `bazaarplusplus-site/README.md` 的 Deploy 一节。Mod 纯逻辑测试不验证 Unity/Mono 加载；Ghost 响应契约的消费方检查在 `mod::test` 中；installer 在 Windows 和 macOS 运行完整源码门禁，但不替代安装包签名、安装与升级验收。涉及云端未覆盖的范围时，合并前仍须提供相应项目的本地门禁结果。Mod 运行时依赖升级还需对快照锁的每个已采集条目编译（`just mod::matrix`），并验证实际启动与受影响功能；通过普通 .NET 测试不能替代这一步。
+
+游戏程序集快照只存在于私有存储，不进公开仓库、不进 Actions cache。依赖游戏程序集的 job 按快照锁取包，凭据是仓库级 secret `BPP_GAME_LIBS_R2_*`（仅限 `bazaarplusplus-game-libs` bucket 的只读令牌）；fork PR 拿不到 secrets，这类 job 在 fork 上跳过而不是失败，仓库内分支的 PR 才运行完整矩阵（[ADR 0004](adr/0004-pinned-game-assembly-snapshots.md)）。被跳过的 job 不等于通过：来自 fork 的改动合并前仍要有本地 `mod::check` 与 `mod::test` 结果。
 
 配置静态检查不能证明机器人已经成功更新锁文件；首次启用及工具链升级后需查看 Dependabot 的实际更新日志，尤其是它的包管理器支持范围尚未覆盖仓库所用版本时。新的 CI 检查需在 GitHub 首轮成功后再设为必需检查。
 
