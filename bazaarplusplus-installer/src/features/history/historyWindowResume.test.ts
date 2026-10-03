@@ -1,5 +1,13 @@
 // @vitest-environment jsdom
 
+// Isolated on purpose: the page-level refresh on visibility and focus is
+// anchored by pages/History.test.tsx. These cases need the native window API,
+// which the page tests do not run with, or observe events after disposal.
+// - Native focus registration fails and the page never refreshes on focus.
+// - A blur or a hidden-to-hidden change triggers a refresh.
+// - A listener keeps firing after disposal, or a native registration that
+//   finishes after disposal is never released.
+
 import type { Event as TauriEvent } from '@tauri-apps/api/event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { hasTauriRuntime } from '../../api/runtime';

@@ -1,14 +1,22 @@
+// Isolated on purpose: these are the Run Detail failure modes that a DOM
+// snapshot cannot observe, because each depends on the order in which
+// overlapping requests settle. Rendered states are anchored by
+// src/shell.snapshot.test.tsx and pages/RunDetail.test.tsx.
+// - A blocking load failure cannot be recovered by refresh.
+// - A refresh failure drops data that is still valid, or actions run against
+//   detail that a refresh is about to replace.
+// - An older load overwrites a newer result, or releases the latest load's
+//   busy state when it settles.
+// - Two actions run at once, or an action loses its target while it runs.
+// - A retried action clears the failures of other targets.
+// - A load or deletion that settles after dispose updates the page, or blocks
+//   the next lifecycle.
 import { describe, expect, it, vi } from 'vitest';
 import type { HistoryRunDetail } from '../../types/backend';
-import { createConfirmedOperationController } from '../shared/confirmedOperation';
 import {
   createRunDetailWorkflow,
   type RunDetailCommands
 } from './runDetailWorkflow';
-import {
-  runDetailProblemFromError,
-  type RunDetailProblem
-} from './runDetailProblems';
 
 const detail: HistoryRunDetail = {
   run: {
@@ -89,24 +97,6 @@ describe('Run Detail workflow', () => {
     expect(await workflow.intents.refresh()).toBe(true);
     expect(workflow.getSnapshot().detail).toEqual(detail);
     expect(getHistoryRunDetail).toHaveBeenCalledWith('run-1');
-  });
-
-  it('keeps a missing run id in not-found without dispatching a command', async () => {
-    const commands = {
-      getHistoryRunDetail: vi.fn(),
-      revealRunScreenshot: vi.fn(),
-      revealBattleVideo: vi.fn(),
-      deleteBattleVideo: vi.fn()
-    };
-    const workflow = createRunDetailWorkflow(undefined, commands);
-    await workflow.start();
-    expect(workflow.getSnapshot().state.phase).toBe('not-found');
-    expect(commands.getHistoryRunDetail).not.toHaveBeenCalled();
-    expect(await workflow.intents.revealScreenshot()).toBe(false);
-    expect((await workflow.intents.deleteVideo('battle-1', 'v')).ok).toBe(
-      false
-    );
-    expect(commands.deleteBattleVideo).not.toHaveBeenCalled();
   });
 
   it('retains data on refresh failure and excludes actions until refresh finishes', async () => {
@@ -273,54 +263,6 @@ describe('Run Detail workflow', () => {
     expect(await retrying).toBe(true);
     await workflow.intents.refresh();
     expect(workflow.getSnapshot().screenshot.problem).toBeNull();
-  });
-
-  it('keeps a failed deletion confirmation retryable and replaces detail after success', async () => {
-    const deletion = deferred<HistoryRunDetail>();
-    const { workflow, commands } = setup({
-      deleteBattleVideo: vi
-        .fn()
-        .mockRejectedValueOnce(new Error('delete failed'))
-        .mockReturnValueOnce(deletion.promise)
-    });
-    await workflow.start();
-    const confirmation = createConfirmedOperationController<
-      { battleId: string; videoId: string },
-      RunDetailProblem
-    >();
-    const target = { battleId: 'battle-1', videoId: 'video-battle-1' };
-    confirmation.request(target);
-    const execute = () =>
-      confirmation.run(
-        (fixed) => workflow.intents.deleteVideo(fixed.battleId, fixed.videoId),
-        runDetailProblemFromError
-      );
-    expect(await execute()).toBe(false);
-    expect(confirmation.getSnapshot()).toMatchObject({
-      phase: 'failed',
-      target
-    });
-    expect(workflow.getSnapshot().battles['battle-1'].failure?.action).toBe(
-      'delete'
-    );
-    const retry = execute();
-    expect(confirmation.dismiss()).toBe(false);
-    expect(confirmation.getSnapshot()).toMatchObject({
-      phase: 'running',
-      target
-    });
-    const updated = {
-      ...detail,
-      battles: detail.battles.map((battle) => ({ ...battle, video: null }))
-    };
-    deletion.resolve(updated);
-    expect(await retry).toBe(true);
-    expect(confirmation.getSnapshot()).toBeNull();
-    expect(workflow.getSnapshot().detail).toEqual(updated);
-    expect(commands.deleteBattleVideo).toHaveBeenLastCalledWith(
-      target.battleId,
-      target.videoId
-    );
   });
 
   it('invalidates late loads on dispose and survives a new lifecycle', async () => {

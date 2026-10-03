@@ -39,7 +39,7 @@ export default function About() {
   return <AboutView resource={resource} onRetry={retry} />;
 }
 
-export function AboutView({
+function AboutView({
   resource,
   onRetry
 }: {
