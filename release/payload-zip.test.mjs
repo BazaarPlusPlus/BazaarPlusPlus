@@ -5,7 +5,6 @@ import path from 'node:path';
 import { expect, test } from 'vitest';
 
 import {
-  V5_MIN_MOD_VERSION,
   buildZipBuffer,
   listPayloadFiles,
   preparePayloadZip,
@@ -34,7 +33,7 @@ function fixtureRoot(platform = 'macos') {
     compatibilityPath,
     `${JSON.stringify({ formatVersion: 1, supportedUserVersions: [1, 2] })}\n`
   );
-  return { rootDir, sourceDir, platform, productVersion: V5_MIN_MOD_VERSION };
+  return { rootDir, sourceDir, platform, productVersion: '5.6.0' };
 }
 
 function writeStagedModVersion(fixture, version) {
@@ -76,7 +75,7 @@ test.each([
     const fixture = fixtureRoot(platform);
     fs.writeFileSync(path.join(fixture.sourceDir, fileName), 'launcher');
     fs.chmodSync(path.join(fixture.sourceDir, fileName), mode);
-    writeStagedModVersion(fixture, `${V5_MIN_MOD_VERSION}.prod`);
+    writeStagedModVersion(fixture, '5.6.0.prod');
 
     try {
       const first = preparePayloadZip({
@@ -154,25 +153,6 @@ test('preparePayloadZip reports every missing external staging input at once', (
   }
 });
 
-test.each(['4.5.0.prod', '4.6.0.prod'])(
-  'preparePayloadZip rejects pre-V5 staging version %s',
-  (version) => {
-    const fixture = fixtureRoot('windows');
-    writeStagedModVersion(fixture, version);
-
-    try {
-      expect(() =>
-        preparePayloadZip({
-          ...fixture,
-          requiredStagingPaths: ['BepInEx/plugins/BazaarPlusPlus.version']
-        })
-      ).toThrow(/4\.7\.0[\s\S]*just release::prepare/);
-    } finally {
-      fs.rmSync(fixture.rootDir, { recursive: true, force: true });
-    }
-  }
-);
-
 test.each(['ffmpeg', 'ffmpeg-LICENSE.txt', 'BppReplayRecorder.app'])(
   'macOS release preparation rejects retired runtime dependency %s',
   (fileName) => {
@@ -180,7 +160,7 @@ test.each(['ffmpeg', 'ffmpeg-LICENSE.txt', 'BppReplayRecorder.app'])(
     const plugins = path.join(fixture.sourceDir, 'BepInEx', 'plugins');
     fs.mkdirSync(plugins, { recursive: true });
     fs.writeFileSync(path.join(plugins, fileName), 'retired');
-    writeStagedModVersion(fixture, `${V5_MIN_MOD_VERSION}.prod`);
+    writeStagedModVersion(fixture, '5.6.0.prod');
 
     try {
       expect(() =>
@@ -205,7 +185,7 @@ test('preparePayloadZip rejects an unparseable staging version', () => {
         ...fixture,
         requiredStagingPaths: ['BepInEx/plugins/BazaarPlusPlus.version']
       })
-    ).toThrow(/cannot parse[\s\S]*release\.mjs prepare/i);
+    ).toThrow(/product version mismatch/);
   } finally {
     fs.rmSync(fixture.rootDir, { recursive: true, force: true });
   }
@@ -242,26 +222,6 @@ test('preparation rejects a plugin that the installer does not own', () => {
   }
 });
 
-test.each(['4.7.0.prod', '4.7.1.prod', '5.0.0.prod'])(
-  'preparePayloadZip accepts V5-compatible staging version %s',
-  (version) => {
-    const fixture = fixtureRoot('windows');
-    writeStagedModVersion(fixture, version);
-    fixture.productVersion = version.replace('.prod', '');
-
-    try {
-      expect(() =>
-        preparePayloadZip({
-          ...fixture,
-          requiredStagingPaths: ['BepInEx/plugins/BazaarPlusPlus.version']
-        })
-      ).not.toThrow();
-    } finally {
-      fs.rmSync(fixture.rootDir, { recursive: true, force: true });
-    }
-  }
-);
-
 test('preparePayloadZip rejects a mod database schema the installer does not support', () => {
   const fixture = fixtureRoot('macos');
   fixture.productVersion = '5.3.0';
@@ -290,7 +250,7 @@ test.each(['ffmpeg.exe', 'ffmpeg-LICENSE.txt'])(
     const plugins = path.join(fixture.sourceDir, 'BepInEx', 'plugins');
     fs.mkdirSync(plugins, { recursive: true });
     fs.writeFileSync(path.join(plugins, fileName), 'retired');
-    writeStagedModVersion(fixture, `${V5_MIN_MOD_VERSION}.prod`);
+    writeStagedModVersion(fixture, '5.6.0.prod');
     try {
       expect(() =>
         preparePayloadZip({ ...fixture, requiredStagingPaths: [] })
@@ -311,7 +271,7 @@ test('validatePayloadZip rejects a stale staging version before checking for the
         ...fixture,
         requiredStagingPaths: ['BepInEx/plugins/BazaarPlusPlus.version']
       })
-    ).toThrow(/4\.7\.0[\s\S]*just release::prepare/);
+    ).toThrow(/product version mismatch/);
   } finally {
     fs.rmSync(fixture.rootDir, { recursive: true, force: true });
   }
@@ -423,7 +383,7 @@ test.skipIf(process.platform === 'win32')(
     fs.mkdirSync(path.dirname(helper), { recursive: true });
     fs.writeFileSync(helper, 'helper');
     fs.chmodSync(helper, 0o644);
-    writeStagedModVersion(fixture, `${V5_MIN_MOD_VERSION}.prod`);
+    writeStagedModVersion(fixture, '5.6.0.prod');
     try {
       expect(() =>
         preparePayloadZip({

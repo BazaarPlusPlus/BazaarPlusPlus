@@ -1,9 +1,8 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
-import process from 'node:process';
 import { runGit } from '../scripts/git-command.mjs';
-import { RELEASE_PLATFORMS } from './release-platforms.mjs';
+import { releasePlatform } from './release-platforms.mjs';
 
 const releasePaths = [
   '.',
@@ -13,16 +12,6 @@ const releasePaths = [
   '../scripts/git-command.mjs',
   '../bazaarplusplus-mod'
 ];
-
-function platformDefinition(buildPlatform) {
-  const matches = RELEASE_PLATFORMS.filter(
-    (platform) => platform.buildPlatform === buildPlatform
-  );
-  if (matches.length !== 1) {
-    throw new Error(`Unsupported artifact platform: ${buildPlatform}`);
-  }
-  return matches[0];
-}
 
 function sha256(buffer) {
   return crypto.createHash('sha256').update(buffer).digest('hex');
@@ -187,7 +176,7 @@ export function createArtifactManifest({
   gitState = gitStateForRoot(rootDir),
   builtAt = new Date()
 }) {
-  const definition = platformDefinition(platform);
+  const definition = releasePlatform(platform);
   const discovered = discoverArtifacts(rootDir, definition);
   assertFileNameContainsVersion(discovered.installer, version);
   const signatureContent = fs.readFileSync(discovered.signature, 'utf8').trim();
@@ -266,7 +255,7 @@ export function validateArtifactManifest({
     throw new Error(`Missing artifact manifest: ${manifestPath}`);
   }
   const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
-  const definition = platformDefinition(platform);
+  const definition = releasePlatform(platform);
   if (manifest.schemaVersion !== 2)
     throw new Error('Unsupported artifact manifest schema');
   if (
@@ -312,9 +301,4 @@ export function validateArtifactManifest({
   }
   assertFileNameContainsVersion(installer, version);
   return { manifest, installer, updater, signature };
-}
-
-if (import.meta.main) {
-  console.error('Usage: create artifacts through node release.mjs build');
-  process.exitCode = 1;
 }

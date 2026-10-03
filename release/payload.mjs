@@ -4,6 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { readProductVersion } from './product.mjs';
+import { defaultTargetBuildPlatforms } from './release-platforms.mjs';
 import {
   platformInventory,
   payloadEntry,
@@ -37,7 +38,7 @@ function writeJson(file, value) {
 }
 
 export function payloadPaths(rootDir, platform) {
-  if (!['macos', 'windows'].includes(platform))
+  if (!defaultTargetBuildPlatforms().includes(platform))
     throw new Error(`Unsupported payload platform: ${platform}`);
   return {
     source: path.join(rootDir, 'src-tauri/resources/SourceForBuild', platform),

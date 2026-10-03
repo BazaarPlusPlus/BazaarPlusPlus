@@ -27,7 +27,10 @@ import {
 import { fetchMirrorPage, verifyMainlandMirrors } from './release/mirror.mjs';
 import { assertMirrorUrl } from './release/manifest.mjs';
 import { r2StoreFromEnvironment } from './release/r2-store.mjs';
-import { resolveBuildPlatform } from './release/release-platforms.mjs';
+import {
+  defaultTargetBuildPlatforms,
+  resolveBuildPlatform
+} from './release/release-platforms.mjs';
 
 const usage = `Product release commands (run from any directory):
   node release.mjs sync                         Project VERSION into toolchain files
@@ -116,11 +119,12 @@ export function parseReleaseArgs(args) {
   )
     throw new Error('MSBuild properties must follow --');
   const platform = values.platform;
+  const buildPlatforms = defaultTargetBuildPlatforms();
   if (['prepare', 'build', 'upload', 'mirror'].includes(command)) {
-    if (!['macos', 'windows'].includes(platform))
+    if (!buildPlatforms.includes(platform))
       throw new Error('--platform must be macos or windows');
   } else if (['promote', 'verify-mirror'].includes(command)) {
-    if (platform !== undefined && !['macos', 'windows'].includes(platform))
+    if (platform !== undefined && !buildPlatforms.includes(platform))
       throw new Error('--platform must be macos or windows');
   } else if (platform !== undefined) {
     throw new Error(`${command} is a product-wide operation`);

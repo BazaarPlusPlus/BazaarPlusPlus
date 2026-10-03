@@ -5,3 +5,5 @@
 本记录只修改 ADR 0001 里"唯一 latest 必须双平台齐备"这一条，ADR 0001 的其余决定继续有效：单一 VERSION、版本目录不可变、ETag 条件写、不回退、准备与打包共用锁。新增两条规则：一个版本号只对应一个提交，后发的平台要么构建同一提交，要么升版本号，否则版本号在 Bundle 和支持记录里失去意义；切换前构建的客户端永远只读 `latest.json`，所以第一个带新 endpoint 的版本必须双平台同步发布，`promote --platform` 只在 `latest.json` 达到该版本后才允许，避免旧客户端失去向前的路径。
 
 否决的方案：让 `latest.json` 的 `version` 取更高的平台并把落后平台指向旧包，Tauri 只按顶层 version 决定是否更新，旧客户端会反复安装同一个包；从 `latest.json` 里去掉落后平台的 key，Tauri 在查版本前就先查 key，缺失会让该平台所有检查失败；在服务端按请求分发不同的 `latest.json`，请求里没有任何平台信息。代价是 endpoint 路径成为永久契约、多一个 ADR 和一次真机升级验证，以及切换前的客户端要经过两跳才能拿到单平台发布的版本。
+
+2026-10-03 修订：引导已于 5.5.0 完成（2026-10-03 核实线上 `latest.json`、`latest/darwin-aarch64.json`、`latest/windows-x86_64.json` 均为 5.5.0）。`PLATFORM_MANIFEST_SINCE` 门禁和 `promote` 从 `latest.json` 回填缺失平台文件的分支退役；rollback guard 使 `latest.json` 不可能回到 5.5.0 以下，本记录的其余决定不变。

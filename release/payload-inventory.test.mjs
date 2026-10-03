@@ -6,16 +6,9 @@ import { expect, test } from 'vitest';
 import {
   assertShippedPayloadPaths,
   readInventory,
-  validateInventory,
-  synchronizePayloadProjection
+  validateInventory
 } from './payload-inventory.mjs';
 import { readProductVersion, WORKSPACE_ROOT } from './product.mjs';
-
-test('the checked-in MSBuild projection matches the shared Payload Inventory', () => {
-  expect(() =>
-    synchronizePayloadProjection(WORKSPACE_ROOT, { check: true })
-  ).not.toThrow();
-});
 
 test('inventory distinguishes shipped, runtime, retired, platform and directory ownership', () => {
   expect(() =>

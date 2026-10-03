@@ -31,11 +31,7 @@ function packageLockPath(rootDir) {
 }
 
 function readPackageLockVersions(rootDir) {
-  const filePath = packageLockPath(rootDir);
-  if (!fs.existsSync(filePath)) {
-    return { packageLockVersion: null, packageLockRootVersion: null };
-  }
-  const packageLock = readJson(filePath);
+  const packageLock = readJson(packageLockPath(rootDir));
   return {
     packageLockVersion: packageLock.version ?? null,
     packageLockRootVersion: packageLock.packages?.['']?.version ?? null
@@ -75,12 +71,7 @@ function readCargoPackage(rootDir) {
 }
 
 function readCargoLockVersion(rootDir, packageName) {
-  const cargoLockFile = cargoLockPath(rootDir);
-  if (!fs.existsSync(cargoLockFile)) {
-    return null;
-  }
-
-  const cargoLock = fs.readFileSync(cargoLockFile, 'utf8');
+  const cargoLock = fs.readFileSync(cargoLockPath(rootDir), 'utf8');
   const pattern = new RegExp(
     String.raw`\[\[package\]\]\r?\nname = "${escapeRegExp(packageName)}"\r?\nversion = "([^"]+)"`,
     'm'
@@ -125,10 +116,6 @@ function updateCargoVersion(rootDir, version) {
 
 function updatePackageLockVersion(rootDir, version) {
   const filePath = packageLockPath(rootDir);
-  if (!fs.existsSync(filePath)) {
-    return;
-  }
-
   const packageLock = readJson(filePath);
   packageLock.version = version;
   const rootEntry = packageLock.packages?.[''];
@@ -140,10 +127,6 @@ function updatePackageLockVersion(rootDir, version) {
 
 function updateCargoLockVersion(rootDir, packageName, version) {
   const filePath = cargoLockPath(rootDir);
-  if (!fs.existsSync(filePath)) {
-    return;
-  }
-
   const cargoLock = fs.readFileSync(filePath, 'utf8');
   const pattern = new RegExp(
     String.raw`(\[\[package\]\]\r?\nname = "${escapeRegExp(packageName)}"\r?\nversion = ")([^"]+)(")`,
@@ -177,8 +160,7 @@ export function assertVersionsAreAligned(snapshot) {
   const expected = snapshot.productVersion;
   if (!expected) throw new Error('Missing product VERSION in version snapshot');
   const mismatches = Object.entries(snapshot).filter(
-    ([key, value]) =>
-      key !== 'productVersion' && value !== null && value !== expected
+    ([key, value]) => key !== 'productVersion' && value !== expected
   );
 
   if (mismatches.length === 0) {
