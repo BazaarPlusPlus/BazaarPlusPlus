@@ -218,9 +218,6 @@ internal sealed class ReplayVideoRecordingOperationRegistry
     );
     private readonly Action<ReplayVideoRecordingTerminal>? _completionObserver;
 
-    internal ReplayVideoRecordingOperationRegistry()
-        : this(null) { }
-
     internal ReplayVideoRecordingOperationRegistry(
         Action<ReplayVideoRecordingTerminal>? completionObserver
     )

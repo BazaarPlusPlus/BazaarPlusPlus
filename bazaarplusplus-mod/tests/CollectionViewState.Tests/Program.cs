@@ -156,10 +156,9 @@ CollectionViewState CreateState() => new(grid, catalog, dayTiers, prefs);
     var state = CreateState();
     state.AcceptCatalog(new[] { Card("Sword", ETier.Bronze, heroes: new[] { EHero.Vanessa }) });
     state.SetSearchQuery("sw");
-    AssertTrue(state.IsSearchRefreshPending, "SetSearchQuery must schedule debounce.");
     state.ToggleTier(ETier.Silver);
-    AssertFalse(
-        state.IsSearchRefreshPending,
+    AssertTrue(
+        state.TickSearch(1f, isComposing: false) == null,
         "A confirmed filter change must cancel the pending search debounce."
     );
 }
@@ -171,28 +170,19 @@ CollectionViewState CreateState() => new(grid, catalog, dayTiers, prefs);
     var state = CreateState();
     state.AcceptCatalog(new[] { Card("Sword", ETier.Bronze, heroes: new[] { EHero.Vanessa }) });
     state.SetSearchQuery("pending");
-    AssertTrue(state.IsSearchRefreshPending, "Precondition: search debounce pending.");
     var publishesBefore = grid.PublishCount;
 
     var noopTab = state.SetActiveTab(CollectionTabKind.Items);
     AssertTrue(noopTab == null, "SetActiveTab same tab must return null (no-op).");
-    AssertTrue(
-        state.IsSearchRefreshPending,
-        "Same-value no-op must preserve pending search debounce."
-    );
     AssertEqual(publishesBefore, grid.PublishCount, "Same-value no-op must not Publish/query.");
 
     var noopSort = state.SetSortPriority(CollectionSortPriority.Quality);
     AssertTrue(noopSort == null, "SetSortPriority same value must return null (no-op).");
-    AssertTrue(
-        state.IsSearchRefreshPending,
-        "SetSortPriority no-op must still preserve pending search debounce."
-    );
 
     state.SetSearchQuery("pending");
     AssertTrue(
-        state.IsSearchRefreshPending,
-        "SetSearchQuery same string must not cancel or reschedule away from pending."
+        state.TickSearch(1f, isComposing: false) != null,
+        "Same-value no-ops and an unchanged search string must preserve the pending search."
     );
 }
 

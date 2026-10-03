@@ -27,8 +27,6 @@ internal sealed class EncounterPreviewCompileResult
 
     public IReadOnlyList<Guid> FailedTemplateIds { get; }
 
-    public int FailureCount => FailedTemplateIds.Count;
-
     public int LevelUpFailureCount => Snapshot.Coverage.LevelUpFailureCount;
 }
 

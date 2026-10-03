@@ -284,12 +284,14 @@ internal static class EndOfRunCleanFramePreparationTests
         ownership.Release(NativeTooltipSuppressionOwner.EndOfRunCapture);
         Assert(ownership.IsActive, "One owner must not release another owner's suppression.");
         Assert(
-            ownership.LeaseCount(NativeTooltipSuppressionOwner.EndOfRunCapture) == 1,
+            !ownership.Release(NativeTooltipSuppressionOwner.ReplayVideoRecording),
             "Nested leases for one owner must remain reference counted."
         );
+        Assert(
+            ownership.Release(NativeTooltipSuppressionOwner.EndOfRunCapture),
+            "Releasing the last nested lease should deactivate gates."
+        );
 
-        ownership.Release(NativeTooltipSuppressionOwner.ReplayVideoRecording);
-        ownership.Release(NativeTooltipSuppressionOwner.EndOfRunCapture);
         ownership.Release(NativeTooltipSuppressionOwner.EndOfRunCapture);
         Assert(!ownership.IsActive, "Only the final valid lease release should deactivate gates.");
     }

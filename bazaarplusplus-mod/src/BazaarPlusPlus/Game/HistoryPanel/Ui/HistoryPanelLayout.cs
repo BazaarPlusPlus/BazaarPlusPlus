@@ -90,11 +90,6 @@ internal readonly record struct HistoryPanelLayout(float ScreenWidth, float Scre
     internal float Width => ScreenWidth / CanvasScale;
     internal float Height => ScreenHeight / CanvasScale;
 
-    // Canvas units for the widths a row's contents must actually fit into.
-    internal float RunRowWidth => Width * ArchiveWidth;
-    internal float DetailRailWidth => Width * DetailWidth;
-    internal float DetailRailHeight => Height * (DetailBottom - DetailTop);
-
     // Top-down (x, y, width, height) as the view authors it, to Unity's bottom-up anchors.
     internal static HistoryAnchors Anchors(float x, float y, float width, float height) =>
         new(x, 1 - y - height, x + width, 1 - y);

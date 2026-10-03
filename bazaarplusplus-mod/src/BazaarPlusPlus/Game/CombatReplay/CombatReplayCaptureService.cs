@@ -23,7 +23,6 @@ internal sealed class CombatReplayCaptureService
         OpeningMessage
     */
 
-    private readonly Func<DateTimeOffset> _clock;
     private readonly PvpBattleSequenceMatcher _matcher;
     private readonly PvpBattleSnapshotCollector _collector;
     private readonly PvpBattleManifestFactory _manifestFactory;
@@ -31,11 +30,7 @@ internal sealed class CombatReplayCaptureService
     private PvpBattleSequenceCandidate _candidate = new PvpBattleSequenceCandidate();
 
     public CombatReplayCaptureService()
-        : this(null) { }
-
-    public CombatReplayCaptureService(Func<DateTimeOffset>? clock = null)
     {
-        _clock = clock ?? (() => DateTimeOffset.UtcNow);
         _matcher = new PvpBattleSequenceMatcher();
         _collector = new PvpBattleSnapshotCollector();
         _manifestFactory = new PvpBattleManifestFactory();
@@ -125,7 +120,7 @@ internal sealed class CombatReplayCaptureService
         var manifest = _manifestFactory.Create(
             battleId,
             sequenceWindow,
-            _clock(),
+            DateTimeOffset.UtcNow,
             _collector.BuildParticipants(candidate),
             _collector.BuildOutcome(combatMessage),
             snapshots

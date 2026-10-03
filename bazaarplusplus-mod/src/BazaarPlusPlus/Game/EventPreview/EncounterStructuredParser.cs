@@ -12,14 +12,6 @@ namespace BazaarPlusPlus.Game.EventPreview;
 
 internal static class EncounterStructuredParser
 {
-    public static IReadOnlyList<EncounterStepReference> TryParseEventStepReferences(object? source)
-    {
-        var result = new List<EncounterStepReference>();
-        foreach (var group in TryParseEventChoiceGroups(source))
-            result.AddRange(group.Members);
-        return result;
-    }
-
     // Choice-event spawn groups with their boundaries preserved: a group with its own
     // SelectionMethod=Random is a pool the event rolls members from (Advanced
     // Training's 16 trainings, Epic Battle's 14 monsters) rather than a fixed list
@@ -62,11 +54,6 @@ internal static class EncounterStructuredParser
         }
 
         return result;
-    }
-
-    public static EncounterRewardFilter? TryParseRewardFilter(object? source)
-    {
-        return TryParseRewardFilterCore(source, () => ToToken(source));
     }
 
     // The factory is invoked only if the runtime route fails, so a caller that has no token yet

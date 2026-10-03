@@ -54,9 +54,6 @@ internal sealed class CollectionFilterState
 
     public EHero EffectiveHero => SelectedHero ?? EHero.Common;
 
-    public string? GetSelectedSourceKey(ECardType activeType) =>
-        activeType == ActiveType ? SelectedSourceKey : null;
-
     public bool SelectTab(CollectionTabKind tab)
     {
         if (ActiveTab == tab)
@@ -64,13 +61,6 @@ internal sealed class CollectionFilterState
 
         ActiveTab = tab;
         return true;
-    }
-
-    public bool SelectActiveType(ECardType activeType)
-    {
-        return SelectTab(
-            activeType == ECardType.Skill ? CollectionTabKind.Skills : CollectionTabKind.Items
-        );
     }
 
     public void ApplySelection(CollectionPanelSelectionState selection)
@@ -90,15 +80,6 @@ internal sealed class CollectionFilterState
 
         ActiveTab = CollectionTabKind.Items;
         SelectedSourceKey = selection.SelectedSourceKey;
-    }
-
-    public CollectionPanelSelectionState ToSelectionState()
-    {
-        return new CollectionPanelSelectionState(
-            SelectedHero,
-            SelectedSourceKey,
-            CollectionTabProfile.For(ActiveTab).SourceKind ?? CollectionSourceKind.Merchant
-        );
     }
 
     public EHero ToggleHero(EHero hero)

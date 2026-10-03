@@ -53,7 +53,7 @@ public sealed class CollectionPanelStateTests
                 failures.Reverse().Take(failureCount).ToArray()
             )
         );
-        state.ObserveOpen(CollectionPanelSelectionOpenObservation.Incomplete());
+        state.ObserveOpen(CollectionPanelSelectionOpenObservation.Degraded([]));
 
         var warning = Assert.Single(BppLog.Events);
         Assert.Equal("Warning", warning.Severity);

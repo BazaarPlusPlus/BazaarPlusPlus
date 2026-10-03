@@ -635,8 +635,8 @@ file static class CopyTimingTests
             );
         }
         TestReflection.Assert(
-            (int)TestReflection.GetProp(type, timing, "SampleCount")! == 5,
-            "Copy timing must retain its bounded sample count."
+            (long)TestReflection.GetProp(type, timing, "P50Microseconds")! == 3,
+            "Copy timing p50 must select the median of every retained sample."
         );
         TestReflection.Assert(
             (long)TestReflection.GetProp(type, timing, "P95Microseconds")! == 100,
@@ -840,39 +840,30 @@ file static class AudioTapPlanTests
 
     private static void DerivesSingleCoreMasterWavPath()
     {
-        var paths = DeriveAudioWavPaths(@"C:\replays\battle.20260530-105445.recording.mp4");
-
-        var expected = new[] { @"C:\replays\battle.20260530-105445.audio.wav" };
+        var path = DeriveAudioWavPath(@"C:\replays\battle.20260530-105445.recording.mp4");
 
         TestReflection.Assert(
-            paths.Count == expected.Length,
-            $"Expected {expected.Length} audio tap paths, got {paths.Count}."
+            path == @"C:\replays\battle.20260530-105445.audio.wav",
+            $"Audio tap path was {path}."
         );
-        for (var i = 0; i < expected.Length; i++)
-        {
-            TestReflection.Assert(
-                paths[i] == expected[i],
-                $"Audio tap path {i} was {paths[i]}, expected {expected[i]}."
-            );
-        }
     }
 
-    private static IReadOnlyList<string> DeriveAudioWavPaths(string tempVideoPath)
+    private static string DeriveAudioWavPath(string tempVideoPath)
     {
         var method =
             TapPlanType.GetMethod(
-                "DeriveAudioWavPaths",
+                "DeriveAudioWavPath",
                 BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Static,
                 binder: null,
                 types: new[] { typeof(string) },
                 modifiers: null
             )
             ?? throw new InvalidOperationException(
-                "ReplayVideoAudioTapPlan.DeriveAudioWavPaths(string) not found."
+                "ReplayVideoAudioTapPlan.DeriveAudioWavPath(string) not found."
             );
-        return (IReadOnlyList<string>)(
+        return (string)(
             method.Invoke(null, new object[] { tempVideoPath })
-            ?? throw new InvalidOperationException("DeriveAudioWavPaths returned null.")
+            ?? throw new InvalidOperationException("DeriveAudioWavPath returned null.")
         );
     }
 }
@@ -1198,7 +1189,13 @@ file static class RecordingOperationContractTests
         var registryType = TestReflection.RequireType(
             "BazaarPlusPlus.Game.CombatReplay.Video.ReplayVideoRecordingOperationRegistry"
         );
-        var registry = Activator.CreateInstance(registryType, nonPublic: true)!;
+        var registry = Activator.CreateInstance(
+            registryType,
+            BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+            binder: null,
+            args: new object?[] { null },
+            culture: null
+        )!;
         var operation = CreateOperation("recording-callback-orphan-00000006");
         registryType
             .GetMethod(
@@ -1248,7 +1245,13 @@ file static class RecordingOperationContractTests
         var muxerType = TestReflection.RequireType(
             "BazaarPlusPlus.Game.CombatReplay.Video.ReplayVideoAudioMuxer"
         );
-        var registry = Activator.CreateInstance(registryType, nonPublic: true)!;
+        var registry = Activator.CreateInstance(
+            registryType,
+            BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+            binder: null,
+            args: new object?[] { null },
+            culture: null
+        )!;
         var operation = CreateOperation("recording-tracked-shutdown-00000007");
         registryType
             .GetMethod(

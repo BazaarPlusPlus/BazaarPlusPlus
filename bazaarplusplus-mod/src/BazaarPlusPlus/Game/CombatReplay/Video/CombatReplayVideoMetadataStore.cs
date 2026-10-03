@@ -222,13 +222,6 @@ internal sealed class CombatReplayVideoMetadataStore : SqliteStoreBase, IReplayV
             ? null
             : DateTimeOffset.Parse(reader.GetString(ordinal), CultureInfo.InvariantCulture);
 
-    private static List<string> NormalizeIds(IReadOnlyCollection<string>? ids) =>
-        ids == null
-            ? []
-            : ids.Where(id => !string.IsNullOrWhiteSpace(id))
-                .Distinct(StringComparer.Ordinal)
-                .ToList();
-
     private static string ToStorage(ReplayVideoFileState state) =>
         state switch
         {

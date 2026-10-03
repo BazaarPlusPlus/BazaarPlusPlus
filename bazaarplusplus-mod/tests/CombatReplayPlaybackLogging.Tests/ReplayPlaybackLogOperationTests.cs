@@ -83,7 +83,7 @@ public sealed class ReplayPlaybackLogOperationTests
         Assert.Equal(0, terminal.DegradationCount);
         Assert.Equal(ReplayRollbackStatus.NotRequired, terminal.RollbackStatus);
         Assert.Null(terminal.Exception);
-        Assert.True(operation.IsTerminal);
+        Assert.False(operation.TryPromoteToRecording());
         Assert.False(
             operation.TryComplete(
                 ReplayPlaybackEndReasonCode.RuntimeDestroyed,

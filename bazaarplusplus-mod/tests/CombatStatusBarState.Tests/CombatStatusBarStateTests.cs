@@ -11,22 +11,24 @@ public sealed class CombatStatusBarStateTests : IDisposable
 {
     public CombatStatusBarStateTests()
     {
-        CombatStatusBar.ResetStateForTests();
+        ReturnToIdle();
     }
 
     public void Dispose()
     {
-        CombatStatusBar.ResetStateForTests();
+        ReturnToIdle();
         BazaarPlusPlus.Core.Runtime.TestServices.Instance.RunContext.IsInGameRun = false;
         BazaarPlusPlus.Core.Runtime.TestServices.Instance.GameStateProbe.Result = false;
     }
 
-    [Fact]
-    public void GetDisplayedTimeText_ReturnsZeroTimeOutsideCombat()
+    // The static state returns to idle through the production lifecycle: no frames, playback
+    // ended, normal speed. The never-played state before the first combat cannot be restored,
+    // so no test depends on it.
+    private static void ReturnToIdle()
     {
-        var result = CombatStatusBar.GetDisplayedTimeText();
-
-        Assert.Equal("0:00.00", result);
+        CombatStatusBar.SetCombatFrameTotal(0);
+        CombatStatusBar.EndCombatPlayback();
+        CombatStatusBar.SetCombatSpeed(1f);
     }
 
     [Fact]

@@ -16,8 +16,6 @@ internal sealed class ReplayVideoCopyTimingAccumulator
         _samples = new long[capacity];
     }
 
-    internal int SampleCount => _count;
-
     internal long P50Microseconds => PercentileMicroseconds(0.50d);
 
     internal long P95Microseconds => PercentileMicroseconds(0.95d);

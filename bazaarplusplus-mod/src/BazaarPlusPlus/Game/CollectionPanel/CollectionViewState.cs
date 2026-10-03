@@ -85,8 +85,6 @@ internal sealed class CollectionViewState
 
     public int CatalogCardCount => _catalogCards.Count;
 
-    public bool IsSearchRefreshPending => _searchRefreshGate.IsPending;
-
     public void PrepareCatalogForOpen(IReadOnlyList<CollectionCardVm>? cachedCards)
     {
         if (cachedCards != null)

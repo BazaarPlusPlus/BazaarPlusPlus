@@ -89,10 +89,10 @@ AssertEqual(1, skillLayout.ShelfHeightUnits, "Skill shelves are one unit tall.")
 AssertEqual(3, skillLayout.ShelfCount, "19 skills pack into ceil(19/7) = 3 shelves.");
 AssertEqual(3, skillLayout.TotalRowUnits, "Skill total row-units == shelf count.");
 
-AssertCell(skillLayout.CellAt(0), 0, 0, 1, "First skill is col0 / shelf0.");
-AssertCell(skillLayout.CellAt(6), 6, 0, 1, "Seventh skill fills the first shelf.");
-AssertCell(skillLayout.CellAt(7), 0, 1, 1, "Eighth skill wraps to col0 / shelf1.");
-AssertCell(skillLayout.CellAt(18), 4, 2, 1, "Last skill is col4 / shelf2.");
+AssertCell(skillLayout, 0, 0, 0, 1, "First skill is col0 / shelf0.");
+AssertCell(skillLayout, 6, 6, 0, 1, "Seventh skill fills the first shelf.");
+AssertCell(skillLayout, 7, 0, 1, 1, "Eighth skill wraps to col0 / shelf1.");
+AssertCell(skillLayout, 18, 4, 2, 1, "Last skill is col4 / shelf2.");
 
 AssertShelf(skillLayout.ShelfAt(0), 0, 6, "Skill shelf 0 covers indices 0..6.");
 AssertShelf(skillLayout.ShelfAt(2), 14, 18, "Skill shelf 2 covers the tail 14..18.");
@@ -104,9 +104,9 @@ var trioLayout = CollectionGridLayout.Build(trio, CollectionTabKind.Items);
 AssertEqual(1, trioLayout.ShelfCount, "[S,S,M] fits one shelf (1+1+2 = 4 <= 10 units).");
 AssertEqual(2, trioLayout.ShelfHeightUnits, "Item shelves are two units tall.");
 AssertEqual(2, trioLayout.TotalRowUnits, "One item shelf == 2 row-units.");
-AssertCell(trioLayout.CellAt(0), 0, 0, 1, "Small item spans 1 unit at col0.");
-AssertCell(trioLayout.CellAt(1), 1, 0, 1, "Second small item at col1.");
-AssertCell(trioLayout.CellAt(2), 2, 0, 2, "Medium item spans 2 units at col2.");
+AssertCell(trioLayout, 0, 0, 0, 1, "Small item spans 1 unit at col0.");
+AssertCell(trioLayout, 1, 1, 0, 1, "Second small item at col1.");
+AssertCell(trioLayout, 2, 2, 0, 2, "Medium item spans 2 units at col2.");
 
 // Wrap: four mediums take 8 of 10 columns, the large (3) can't fit the last 2 so it wraps.
 var wrap = new[]
@@ -119,8 +119,8 @@ var wrap = new[]
 };
 var wrapLayout = CollectionGridLayout.Build(wrap, CollectionTabKind.Items);
 AssertEqual(2, wrapLayout.ShelfCount, "Large wraps onto a second shelf.");
-AssertCell(wrapLayout.CellAt(3), 6, 0, 2, "Fourth medium ends the first shelf at col6.");
-AssertCell(wrapLayout.CellAt(4), 0, 1, 3, "Large wraps to col0 / shelf1 spanning 3.");
+AssertCell(wrapLayout, 3, 6, 0, 2, "Fourth medium ends the first shelf at col6.");
+AssertCell(wrapLayout, 4, 0, 1, 3, "Large wraps to col0 / shelf1 spanning 3.");
 AssertShelf(wrapLayout.ShelfAt(0), 0, 3, "Item shelf 0 covers the four mediums.");
 AssertShelf(wrapLayout.ShelfAt(1), 4, 4, "Item shelf 1 holds the wrapped large.");
 
@@ -130,14 +130,14 @@ var twoLarge = CollectionGridLayout.Build(
     CollectionTabKind.Items
 );
 AssertEqual(1, twoLarge.ShelfCount, "Two larges share one shelf (6 <= 10).");
-AssertCell(twoLarge.CellAt(1), 3, 0, 3, "Second large sits at col3.");
+AssertCell(twoLarge, 1, 3, 0, 3, "Second large sits at col3.");
 
 var threeLarge = CollectionGridLayout.Build(
     new[] { Item(ECardSize.Large), Item(ECardSize.Large), Item(ECardSize.Large) },
     CollectionTabKind.Items
 );
 AssertEqual(1, threeLarge.ShelfCount, "Three larges share one shelf (9 <= 10).");
-AssertCell(threeLarge.CellAt(2), 6, 0, 3, "Third large sits at col6.");
+AssertCell(threeLarge, 2, 6, 0, 3, "Third large sits at col6.");
 
 var fourLarge = CollectionGridLayout.Build(
     new[]
@@ -150,7 +150,7 @@ var fourLarge = CollectionGridLayout.Build(
     CollectionTabKind.Items
 );
 AssertEqual(2, fourLarge.ShelfCount, "Fourth large wraps (9 + 3 > 10).");
-AssertCell(fourLarge.CellAt(3), 0, 1, 3, "Fourth large wraps to col0 / shelf1.");
+AssertCell(fourLarge, 3, 0, 1, 3, "Fourth large wraps to col0 / shelf1.");
 
 // --- Pixelization (unit = 100, gap = 10, originX = 18, originY = 18; step = 110) ---
 AssertRect(
@@ -490,12 +490,23 @@ static void AssertEqual<T>(T expected, T actual, string message)
         throw new InvalidOperationException($"{message} Expected: {expected}, Actual: {actual}");
 }
 
-static void AssertCell(CollectionGridCell cell, int col, int shelf, int widthSpan, string message)
+// Reads a cell through ContentRectFor at unit 1, gap 0, origin 0, where x is the column, y is
+// shelf * ShelfHeightUnits, and width is the span.
+static void AssertCell(
+    CollectionGridLayout layout,
+    int index,
+    int col,
+    int shelf,
+    int widthSpan,
+    string message
+)
 {
-    if (cell.Col != col || cell.Shelf != shelf || cell.WidthSpan != widthSpan)
+    var rect = layout.ContentRectFor(index, 1f, 0f, 0f, 0f);
+    var actualShelf = rect.Y / layout.ShelfHeightUnits;
+    if (rect.X != col || actualShelf != shelf || rect.Width != widthSpan)
         throw new InvalidOperationException(
             $"{message} Expected: (col {col}, shelf {shelf}, span {widthSpan}), "
-                + $"Actual: (col {cell.Col}, shelf {cell.Shelf}, span {cell.WidthSpan})"
+                + $"Actual: (col {rect.X}, shelf {actualShelf}, span {rect.Width})"
         );
 }
 

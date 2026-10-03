@@ -80,10 +80,12 @@ public sealed class HistoryPanelLayoutTests
 
         // 4:3 is the narrowest canvas. The compact archive still reserves room for the
         // portrait, three text lines, a rank with rating and the outcome trophy.
-        Assert.True(panel.RunRowWidth >= 370, $"run row {panel.RunRowWidth}");
+        var runRowWidth = panel.Width * HistoryPanelLayout.ArchiveWidth;
+        Assert.True(runRowWidth >= 370, $"run row {runRowWidth}");
 
         // The boards are width-constrained, so this is the number that sets card size.
-        Assert.True(panel.DetailRailWidth >= 680, $"detail rail {panel.DetailRailWidth}");
+        var detailRailWidth = panel.Width * HistoryPanelLayout.DetailWidth;
+        Assert.True(detailRailWidth >= 680, $"detail rail {detailRailWidth}");
     }
 
     [Theory]

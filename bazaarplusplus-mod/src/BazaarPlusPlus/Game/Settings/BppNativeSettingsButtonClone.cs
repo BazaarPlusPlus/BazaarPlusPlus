@@ -125,15 +125,4 @@ internal static class BppNativeSettingsButtonClone
         button.interactable = true;
         button.targetGraphic = targetGraphic;
     }
-
-    private static bool HasCloneOwner(GameObject cloneObject)
-    {
-        foreach (var owner in cloneObject.GetComponentsInChildren<MonoBehaviour>(true))
-        {
-            if (owner is IBppNativeSettingsButtonCloneOwner)
-                return true;
-        }
-
-        return false;
-    }
 }

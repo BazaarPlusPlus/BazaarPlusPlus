@@ -10,10 +10,6 @@ internal static class ReplayVideoAudioTapPlan
     internal static string DeriveAudioWavPath(string tempVideoPath) =>
         DeriveAudioWavPath(tempVideoPath, "audio");
 
-    /// <summary>The capture WAV path(s) as a list (used by abort cleanup and tests).</summary>
-    internal static IReadOnlyList<string> DeriveAudioWavPaths(string tempVideoPath) =>
-        new[] { DeriveAudioWavPath(tempVideoPath) };
-
     private static string DeriveAudioWavPath(string tempVideoPath, string audioSuffix)
     {
         const string suffix = ".recording.mp4";

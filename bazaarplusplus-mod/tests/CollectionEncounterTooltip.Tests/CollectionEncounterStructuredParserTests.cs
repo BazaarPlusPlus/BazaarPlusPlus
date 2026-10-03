@@ -46,7 +46,7 @@ public sealed class EncounterStructuredParserTests
             }
             """;
 
-        var references = EncounterStructuredParser.TryParseEventStepReferences(json);
+        var references = ParseStepReferences(json);
 
         Assert.Equal(
             new[] { brewId, tradeId },
@@ -105,7 +105,7 @@ public sealed class EncounterStructuredParserTests
             }
             """;
 
-        var reference = Assert.Single(EncounterStructuredParser.TryParseEventStepReferences(json));
+        var reference = Assert.Single(ParseStepReferences(json));
 
         Assert.Equal(stepId, reference.TemplateId);
         Assert.Equal(2, reference.Requirements.Count);
@@ -163,7 +163,7 @@ public sealed class EncounterStructuredParserTests
             }
             """;
 
-        var reward = EncounterStructuredParser.TryParseRewardFilter(json);
+        var reward = ParseRewardFilter(json);
 
         Assert.NotNull(reward);
         Assert.Equal(ECardType.Item, reward.CardType);
@@ -218,7 +218,7 @@ public sealed class EncounterStructuredParserTests
             },
         };
 
-        var reward = EncounterStructuredParser.TryParseRewardFilter(step);
+        var reward = ParseRewardFilter(step);
 
         Assert.NotNull(reward);
         Assert.Equal(ECardType.Skill, reward.CardType);
@@ -290,7 +290,7 @@ public sealed class EncounterStructuredParserTests
             },
         };
 
-        var reward = EncounterStructuredParser.TryParseRewardFilter(step);
+        var reward = ParseRewardFilter(step);
 
         Assert.NotNull(reward);
         Assert.Equal(ECardType.Item, reward.CardType);
@@ -334,7 +334,7 @@ public sealed class EncounterStructuredParserTests
             }
             """;
 
-        var reward = EncounterStructuredParser.TryParseRewardFilter(json);
+        var reward = ParseRewardFilter(json);
 
         Assert.NotNull(reward);
         Assert.Equal(ECardType.Item, reward.CardType);
@@ -384,7 +384,7 @@ public sealed class EncounterStructuredParserTests
             }
             """;
 
-        var reward = EncounterStructuredParser.TryParseRewardFilter(json);
+        var reward = ParseRewardFilter(json);
 
         Assert.NotNull(reward);
         Assert.Equal(ECardType.Item, reward.CardType);
@@ -432,7 +432,7 @@ public sealed class EncounterStructuredParserTests
             }
             """;
 
-        var reward = EncounterStructuredParser.TryParseRewardFilter(json);
+        var reward = ParseRewardFilter(json);
 
         Assert.NotNull(reward);
         Assert.Equal(
@@ -482,7 +482,7 @@ public sealed class EncounterStructuredParserTests
             }
             """;
 
-        var reward = EncounterStructuredParser.TryParseRewardFilter(json);
+        var reward = ParseRewardFilter(json);
 
         Assert.NotNull(reward);
         Assert.Equal(new[] { ETier.Diamond }, reward.Tiers);
@@ -535,7 +535,7 @@ public sealed class EncounterStructuredParserTests
             },
         };
 
-        var reward = EncounterStructuredParser.TryParseRewardFilter(step);
+        var reward = ParseRewardFilter(step);
 
         Assert.NotNull(reward);
         Assert.Equal(2, reward.Quantity);
@@ -585,7 +585,7 @@ public sealed class EncounterStructuredParserTests
             },
         };
 
-        var reward = EncounterStructuredParser.TryParseRewardFilter(step);
+        var reward = ParseRewardFilter(step);
 
         Assert.NotNull(reward);
         Assert.Equal(
@@ -633,7 +633,7 @@ public sealed class EncounterStructuredParserTests
             }
             """;
 
-        var reward = EncounterStructuredParser.TryParseRewardFilter(json);
+        var reward = ParseRewardFilter(json);
 
         Assert.NotNull(reward);
         Assert.Equal(1, reward.Quantity);
@@ -678,7 +678,7 @@ public sealed class EncounterStructuredParserTests
             }
             """;
 
-        var reward = EncounterStructuredParser.TryParseRewardFilter(json);
+        var reward = ParseRewardFilter(json);
 
         Assert.NotNull(reward);
         Assert.Equal(ECardType.Item, reward.CardType);
@@ -733,7 +733,7 @@ public sealed class EncounterStructuredParserTests
             },
         };
 
-        var reward = EncounterStructuredParser.TryParseRewardFilter(step);
+        var reward = ParseRewardFilter(step);
 
         Assert.NotNull(reward);
         Assert.Equal(ECardType.Skill, reward.CardType);
@@ -791,7 +791,7 @@ public sealed class EncounterStructuredParserTests
             }
             """;
 
-        var reward = EncounterStructuredParser.TryParseRewardFilter(json);
+        var reward = ParseRewardFilter(json);
 
         Assert.NotNull(reward);
         Assert.Equal(ECardType.Item, reward.CardType);
@@ -834,7 +834,7 @@ public sealed class EncounterStructuredParserTests
             }
             """;
 
-        var reward = EncounterStructuredParser.TryParseRewardFilter(json);
+        var reward = ParseRewardFilter(json);
 
         Assert.NotNull(reward);
         Assert.Equal(ECardType.Item, reward.CardType);
@@ -884,7 +884,7 @@ public sealed class EncounterStructuredParserTests
             }
             """;
 
-        var reward = EncounterStructuredParser.TryParseRewardFilter(json);
+        var reward = ParseRewardFilter(json);
 
         Assert.NotNull(reward);
         Assert.Equal(ECardType.Item, reward!.CardType);
@@ -928,7 +928,7 @@ public sealed class EncounterStructuredParserTests
             }
             """;
 
-        var reward = EncounterStructuredParser.TryParseRewardFilter(json);
+        var reward = ParseRewardFilter(json);
 
         Assert.Null(reward);
     }
@@ -972,7 +972,7 @@ public sealed class EncounterStructuredParserTests
             }
             """;
 
-        var reward = EncounterStructuredParser.TryParseRewardFilter(json);
+        var reward = ParseRewardFilter(json);
 
         Assert.NotNull(reward);
         Assert.Equal(ECardType.Skill, reward.CardType);
@@ -1156,7 +1156,7 @@ public sealed class EncounterStructuredParserTests
             }
             """;
 
-        var references = EncounterStructuredParser.TryParseEventStepReferences(json);
+        var references = ParseStepReferences(json);
 
         var reference = Assert.Single(references);
         var requirement = Assert.Single(reference.Requirements);
@@ -1168,4 +1168,18 @@ public sealed class EncounterStructuredParserTests
         Assert.Equal(1, requirement.Amount);
         Assert.Equal(3, EncounterStructuredParser.TryParseEventChoiceLimit(json));
     }
+
+    // The production entries: the plan compiler parses rewards with a prepared token and reads
+    // choice groups (`EncounterPreviewPlanCompiler`).
+    private static EncounterRewardFilter? ParseRewardFilter(object source) =>
+        EncounterStructuredParser.TryParseRewardFilterWithPreparedToken(
+            source,
+            () => EncounterStructuredParser.TryPrepareToken(source)
+        );
+
+    private static IReadOnlyList<EncounterStepReference> ParseStepReferences(object source) =>
+        EncounterStructuredParser
+            .TryParseEventChoiceGroups(source)
+            .SelectMany(group => group.Members)
+            .ToList();
 }
