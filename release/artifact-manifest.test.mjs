@@ -9,64 +9,12 @@ import {
   validateArtifactManifest
 } from './artifact-manifest.mjs';
 import { runFixtureGit } from '../scripts/test-support/git-fixture.mjs';
+import { artifactFixture } from './test-support/artifact-fixture.mjs';
 
-function windowsFixture() {
-  const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), 'bpp-artifacts-'));
-  const bundleDir = path.join(
-    rootDir,
-    'src-tauri',
-    'target',
-    'release',
-    'bundle',
-    'nsis'
-  );
-  fs.mkdirSync(bundleDir, { recursive: true });
-  const installer = path.join(bundleDir, 'BazaarPlusPlus_9.9.9_x64-setup.exe');
-  fs.writeFileSync(installer, 'installer bytes');
-  fs.writeFileSync(`${installer}.sig`, 'public-signature\n');
-  writePayloadProof(rootDir, 'windows');
-  return { rootDir, bundleDir, installer, signature: `${installer}.sig` };
-}
-
-function macosFixture() {
-  const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), 'bpp-artifacts-'));
-  const bundleRoot = path.join(
-    rootDir,
-    'src-tauri',
-    'target',
-    'aarch64-apple-darwin',
-    'release',
-    'bundle'
-  );
-  const installerDir = path.join(bundleRoot, 'dmg');
-  const updaterDir = path.join(bundleRoot, 'macos');
-  fs.mkdirSync(installerDir, { recursive: true });
-  fs.mkdirSync(updaterDir, { recursive: true });
-  const installer = path.join(installerDir, 'BazaarPlusPlus_9.9.9_aarch64.dmg');
-  const updater = path.join(updaterDir, 'BazaarPlusPlus.app.tar.gz');
-  const signature = `${updater}.sig`;
-  fs.writeFileSync(installer, 'installer bytes');
-  fs.writeFileSync(updater, 'updater bytes');
-  fs.writeFileSync(signature, 'public-signature\n');
-  writePayloadProof(rootDir, 'macos');
-  return { rootDir, installer, updater, signature };
-}
+const windowsFixture = () => artifactFixture('windows');
+const macosFixture = () => artifactFixture('macos');
 
 const cleanGit = { commit: 'a'.repeat(40), dirty: false };
-
-function writePayloadProof(rootDir, platform) {
-  const file = path.join(
-    rootDir,
-    'src-tauri/resources/BepInExSource',
-    platform,
-    'payload-build.json'
-  );
-  fs.mkdirSync(path.dirname(file), { recursive: true });
-  fs.writeFileSync(
-    file,
-    JSON.stringify({ schemaVersion: 2, productVersion: '9.9.9', platform })
-  );
-}
 
 test('successful build records exact artifacts, hashes, signature, and provenance', () => {
   const fixture = windowsFixture();

@@ -12,8 +12,8 @@
   "downloads": {
     "windows-x86_64": {
       "url": "https://bppinstaller.bazaarplusplus.com/3.1.2/windows-x86_64/installer/BazaarPlusPlus_3.1.2_x64-setup.exe",
-      "size": 120,
-      "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "size": 24,
+      "sha256": "c547026204ce7b2e217a8458d53dc0195ba7a3e5999cfd1763aed8746d1ffb4f",
       "mainlandUrl": "https://cauyxy.lanzout.com/bppwin312"
     }
   }

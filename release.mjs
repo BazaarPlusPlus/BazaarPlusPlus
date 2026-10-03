@@ -188,18 +188,10 @@ export async function main(
   {
     workspaceRoot = WORKSPACE_ROOT,
     hostPlatform = process.platform,
-    prepare = preparePayload,
-    build = buildProduct,
     createStore = r2StoreFromEnvironment,
-    upload = uploadPlatform,
-    mirror = recordMainlandMirror,
-    mirrorAll = recordMainlandMirrors,
-    verifyMirror = verifyMainlandMirrors,
     probeMirror = fetchMirrorPage,
-    promote = promoteRelease,
-    promoteOne = promotePlatform,
-    bundle = bundleInstaller,
-    log = console.log
+    log = console.log,
+    now = new Date()
   } = {}
 ) {
   const {
@@ -233,7 +225,7 @@ export async function main(
   // Read-only and credential-free: it checks the public release origin and
   // the mirror, so it must not depend on source alignment or R2 access.
   if (command === 'verify-mirror') {
-    const verified = await verifyMirror({
+    const verified = await verifyMainlandMirrors({
       baseUrl: RELEASE_BASE_URL,
       version: latest ? null : readProductVersion(workspaceRoot),
       platform,
@@ -251,27 +243,32 @@ export async function main(
     return;
   }
   if (command === 'prepare') {
-    prepare({ workspaceRoot, platform, msbuildArgs });
+    preparePayload({ workspaceRoot, platform, msbuildArgs });
     log(`Prepared ${platform} Payload for ${version}`);
     return;
   }
   if (command === 'build') {
-    build({
+    buildProduct({
       workspaceRoot,
       platform,
       msbuildArgs,
-      bundle: ({ token }) => bundle(rootDir, token)
+      bundle: ({ token }) => bundleInstaller(rootDir, token)
     });
     return;
   }
   const store = createStore();
   if (command === 'upload') {
-    await upload({ workspaceRoot, platform, baseUrl: RELEASE_BASE_URL, store });
+    await uploadPlatform({
+      workspaceRoot,
+      platform,
+      baseUrl: RELEASE_BASE_URL,
+      store
+    });
     log(
       `Uploaded ${platform} ${version}. Once both platforms are uploaded, run mirror-all, then promote. For a single-platform release, run mirror, then promote --platform ${platform}.`
     );
   } else if (command === 'mirror') {
-    await mirror({
+    await recordMainlandMirror({
       version,
       platform,
       url,
@@ -282,7 +279,7 @@ export async function main(
     });
     log(`Recorded ${platform} mainland mirror for ${version}`);
   } else if (command === 'mirror-all') {
-    await mirrorAll({
+    await recordMainlandMirrors({
       version,
       urls,
       baseUrl: RELEASE_BASE_URL,
@@ -293,13 +290,14 @@ export async function main(
     });
     log(`Recorded both mainland mirrors for ${version}. Ready to promote.`);
   } else if (platform) {
-    const result = await promoteOne({
+    const result = await promotePlatform({
       version,
       platform,
       baseUrl: RELEASE_BASE_URL,
       store,
       withoutMainlandMirror,
-      log
+      log,
+      now
     });
     log(
       result.advanced
@@ -309,12 +307,13 @@ export async function main(
           : `Published ${platform} ${version}; latest.json stays at the last lockstep release`
     );
   } else {
-    await promote({
+    await promoteRelease({
       version,
       baseUrl: RELEASE_BASE_URL,
       store,
       withoutMainlandMirror,
-      log
+      log,
+      now
     });
     log(`Published Product Release ${version}`);
   }
