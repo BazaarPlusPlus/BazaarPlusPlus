@@ -1,8 +1,4 @@
-import { eq } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/d1";
-
 import type { ValidatedBundleDescriptor } from "../bundle/manifest";
-import { bundleIdentity } from "../db-schema";
 import { HttpError } from "../errors";
 import { logEvent } from "../observability";
 
@@ -23,7 +19,12 @@ export interface CommitTimes {
   storedAtMs: number;
 }
 
-type ExistingBundleRow = typeof bundleIdentity.$inferSelect;
+interface ExistingBundleRow {
+  bundle_id: string;
+  run_id: string;
+  bundle_sha256: string;
+  has_screenshot: number;
+}
 
 type StatementName =
   | "insert_bundle"
@@ -78,18 +79,17 @@ export async function inspectExistingBundle(
   descriptor: ValidatedBundleDescriptor,
   digest: string,
 ): Promise<CommitOutcome | null> {
-  const queries = drizzle(db);
   const [bundle, run] = await Promise.all([
-    queries
-      .select()
-      .from(bundleIdentity)
-      .where(eq(bundleIdentity.bundle_id, descriptor.bundleId))
-      .get(),
-    queries
-      .select({ bundle_id: bundleIdentity.bundle_id })
-      .from(bundleIdentity)
-      .where(eq(bundleIdentity.run_id, descriptor.runId))
-      .get(),
+    db
+      .prepare(
+        `SELECT bundle_id, run_id, bundle_sha256, has_screenshot FROM bundles WHERE bundle_id = ?1`,
+      )
+      .bind(descriptor.bundleId)
+      .first<ExistingBundleRow>(),
+    db
+      .prepare(`SELECT bundle_id FROM bundles WHERE run_id = ?1`)
+      .bind(descriptor.runId)
+      .first<{ bundle_id: string }>(),
   ]);
   return decideFromExisting(descriptor, digest, bundle ?? null, run?.bundle_id ?? null);
 }
