@@ -1,7 +1,6 @@
 import { validBundleId } from "../bundle/manifest";
 import type { Env } from "../env";
 import { HttpError } from "../errors";
-import type { HandlerDeps } from "../http/deps";
 import { readJsonObject } from "../http/request";
 import {
   CLAIM_DEFAULT_LIMIT,
@@ -14,7 +13,7 @@ import {
   SETTLE_MAX_RESULTS,
 } from "../limits";
 import { logEvent } from "../observability";
-import { signDownloadPage } from "../presigner";
+import { createBundleDownloadSigner, signDownloadPage } from "../presigner";
 
 interface ClaimedBundle {
   bundle_id: string;
@@ -238,14 +237,13 @@ export async function claimDeliveries(
   request: Request,
   env: Env,
   requestId: string,
-  deps: HandlerDeps,
 ): Promise<ClaimDeliveriesResponse> {
   const body = await readJsonObject(request);
   const limit = claimLimit(body.limit);
-  // Read the signer before the D1 claim batch: an invalid presign configuration
+  // Construct the signer before the D1 claim batch: an invalid presign configuration
   // must fail here with zero D1 writes, not after Bundles are already claimed.
-  const signer = deps.signer;
-  const now = deps.now();
+  const signer = createBundleDownloadSigner(env);
+  const now = Date.now();
   const expiresAt = now + CLAIM_LEASE_MS;
   const claimId = `clm_${crypto.randomUUID()}`;
   let rows: ClaimRow[];
@@ -462,10 +460,9 @@ export async function settleDeliveries(
   request: Request,
   env: Env,
   requestId: string,
-  deps: HandlerDeps,
 ): Promise<SettleDeliveriesResponse> {
   const input = parseSettle(await readJsonObject(request));
-  const now = deps.now();
+  const now = Date.now();
   const pairs = input.results.map((result, index) =>
     buildSettleItemPair(env.DB, input.claimId, { ...result, index }, now),
   );

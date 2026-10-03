@@ -2,7 +2,6 @@ import { toHex } from "../bundle/hex";
 import { type OpenedBundle, openBundle } from "../bundle/open";
 import type { Env } from "../env";
 import { HttpError } from "../errors";
-import type { HandlerDeps } from "../http/deps";
 import { MAX_BUNDLE_BYTES } from "../limits";
 import { logError, logEvent } from "../observability";
 import {
@@ -152,7 +151,6 @@ export async function ingestBundle(
   request: Request,
   env: Env,
   requestId: string,
-  deps: HandlerDeps,
 ): Promise<{ status: 200 | 201; receipt: BundleReceipt }> {
   if (request.headers.get("Content-Type") !== "application/x-bpp-bundle-v5") {
     throw new HttpError(
@@ -187,7 +185,7 @@ export async function ingestBundle(
   }
 
   const objectWrite = await putConditionally(env, opened, digest);
-  const now = deps.now();
+  const now = Date.now();
   let outcome: CommitOutcome;
   try {
     outcome = await commitBundle(env.DB, descriptor, digest, {

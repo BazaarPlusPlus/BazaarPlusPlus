@@ -3,7 +3,6 @@ export interface Env {
   BUNDLE_BUCKET: R2Bucket;
   GHOST_BATTLE_RATE_LIMITER: RateLimit;
 
-  BUNDLE_BUCKET_NAME: "bazaarplusplus-bundle-v5";
   R2_ACCOUNT_ID: string;
   R2_PRESIGN_ACCESS_KEY_ID: string;
 

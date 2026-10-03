@@ -1,7 +1,6 @@
 import { validBundleId } from "../bundle/manifest";
 import type { Env } from "../env";
 import { HttpError } from "../errors";
-import type { HandlerDeps } from "../http/deps";
 import { oneQueryValue } from "../http/request";
 import {
   SYNC_DEFAULT_LIMIT,
@@ -10,7 +9,7 @@ import {
   SYNC_SETTLE_LAG_MS,
 } from "../limits";
 import { logEvent } from "../observability";
-import { signDownloadPage } from "../presigner";
+import { createBundleDownloadSigner, signDownloadPage } from "../presigner";
 
 interface BundleCollectionItem {
   bundle_id: string;
@@ -62,7 +61,6 @@ export async function collectBundles(
   request: Request,
   env: Env,
   requestId: string,
-  deps: HandlerDeps,
 ): Promise<BundleCollectionPage> {
   const url = new URL(request.url);
   const allowed = new Set([
@@ -80,7 +78,7 @@ export async function collectBundles(
     }
   }
 
-  const now = deps.now();
+  const now = Date.now();
   const settlePoint = now - SYNC_SETTLE_LAG_MS;
   const from = integer(
     oneQueryValue(url.searchParams, "available_from_ms", true),
@@ -147,9 +145,8 @@ export async function collectBundles(
 
   const hasNext = rows.length > limit;
   const returned = rows.slice(0, limit);
-  const signer = deps.signer;
   const downloads = await signDownloadPage(
-    signer,
+    createBundleDownloadSigner(env),
     returned.map((row) => row.object_key),
     now,
     "Bundle URL signing failed",

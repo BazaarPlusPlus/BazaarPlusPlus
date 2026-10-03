@@ -1,21 +1,33 @@
 import { env } from "cloudflare:test";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
+import worker from "../../src/index";
 import { DELIVERY_MAINTENANCE_BATCH_SIZE, R2_RETENTION_MS } from "../../src/limits";
-import { claimDeliveries, settleDeliveries } from "../../src/modules/bazaardb-delivery";
 import { seedDeliveryBacklog } from "../fixtures/backlog";
 import { type RecordedD1Query, recordD1 } from "../fixtures/d1";
-import { createTestDeps } from "../fixtures/deps";
 
 const NOW = 1_785_628_800_000;
-const deps = () => createTestDeps({ now: () => NOW });
-const request = (body: unknown) =>
-  new Request("https://worker.test/", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-const claim = (limit = 50) => claimDeliveries(request({ limit }), env, "cost-claim", deps());
+interface ClaimBody {
+  claim_id: string | null;
+  items: Array<{ bundle_id: string }>;
+}
+const request = (path: "claim" | "settle", body: unknown) =>
+  worker.fetch(
+    new Request(`https://worker.test/bazaardb/deliveries/${path}`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${env.BAZAARDB_DELIVERY_TOKEN}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    }),
+    env,
+  );
+async function claim(limit = 50): Promise<ClaimBody> {
+  const response = await request("claim", { limit });
+  expect(response.status).toBe(200);
+  return response.json();
+}
 function findQuery(queries: RecordedD1Query[], text: string): RecordedD1Query {
   const found = queries.filter(({ sql }) => sql.includes(text));
   expect(found).toHaveLength(1);
@@ -23,17 +35,18 @@ function findQuery(queries: RecordedD1Query[], text: string): RecordedD1Query {
 }
 beforeEach(async () => {
   await env.DB.prepare("DELETE FROM bundles").run();
+  vi.spyOn(Date, "now").mockReturnValue(NOW);
 });
 afterEach(() => vi.restoreAllMocks());
 
 test("large expiry backlogs make bounded progress without claiming or scanning remaining candidates", async () => {
   await seedDeliveryBacklog(env.DB, 20000, NOW - R2_RETENTION_MS - 1);
   const queries = recordD1(env.DB);
-  await expect(claim(1)).rejects.toMatchObject({
-    status: 503,
-    code: "storage_unavailable",
-    retryable: true,
-    headers: { "Retry-After": "1" },
+  const blocked = await request("claim", { limit: 1 });
+  expect(blocked.status).toBe(503);
+  expect(blocked.headers.get("retry-after")).toBe("1");
+  expect(await blocked.json()).toMatchObject({
+    error: { code: "storage_unavailable", retryable: true },
   });
   const expiry = findQuery(queries, "failure_reason = 'bundle_expired'");
   expect(expiry.result.meta.changes).toBe(DELIVERY_MAINTENANCE_BATCH_SIZE);
@@ -58,7 +71,7 @@ test("claim resumes when expiry catches up and preserves expiry priority over ex
     WHERE bundle_id = ?1`)
     .bind(expiredId)
     .run();
-  await expect(claim()).rejects.toMatchObject({ status: 503 });
+  expect((await request("claim", { limit: 50 })).status).toBe(503);
   expect(
     await env.DB.prepare("SELECT failure_reason FROM bazaardb_deliveries WHERE bundle_id = ?1")
       .bind(expiredId)
@@ -100,15 +113,18 @@ test.each([1, 10, 50])(
       "CORRELATED SCALAR SUBQUERY",
     );
     const offset = queries.length;
-    const results = (result.items as { bundle_id: string }[])
+    const results = result.items
       .slice()
       .reverse()
       .map(({ bundle_id }) => ({ bundle_id, outcome: "accepted" }));
-    const settle = () =>
-      settleDeliveries(request({ claim_id: result.claim_id, results }), env, "cost-settle", deps());
+    const settle = async () =>
+      (await (await request("settle", { claim_id: result.claim_id, results })).json()) as {
+        items: Array<{ bundle_id: string }>;
+        summary: { applied: number; duplicate: number; rejected: number };
+      };
     const settled = await settle();
     expect(settled.summary).toEqual({ applied: limit, duplicate: 0, rejected: 0 });
-    expect((settled.items as { bundle_id: string }[]).map(({ bundle_id }) => bundle_id)).toEqual(
+    expect(settled.items.map(({ bundle_id }) => bundle_id)).toEqual(
       results.map(({ bundle_id }) => bundle_id),
     );
     expect(queries.slice(offset)).toHaveLength(2 * limit + 1);

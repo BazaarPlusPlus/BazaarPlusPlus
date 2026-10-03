@@ -9,9 +9,9 @@ export const V5_ROUTES = [
     path: "/health",
     method: "GET",
     cors: true,
-    handler: async (context) => ({
+    handler: async () => ({
       status: 200,
-      body: { status: "ok", server_time_ms: context.deps.now() },
+      body: { status: "ok", server_time_ms: Date.now() },
     }),
   },
   {
@@ -20,19 +20,14 @@ export const V5_ROUTES = [
     auth: "bundle_sync",
     handler: async (context) => ({
       status: 200,
-      body: await collectBundles(context.request, context.env, context.requestId, context.deps),
+      body: await collectBundles(context.request, context.env, context.requestId),
     }),
   },
   {
     path: "/bundles",
     method: "POST",
     handler: async (context) => {
-      const result = await ingestBundle(
-        context.request,
-        context.env,
-        context.requestId,
-        context.deps,
-      );
+      const result = await ingestBundle(context.request, context.env, context.requestId);
       return { status: result.status, body: result.receipt };
     },
   },
@@ -42,12 +37,7 @@ export const V5_ROUTES = [
     cors: true,
     handler: async (context) => ({
       status: 200,
-      body: await discoverGhostBattles(
-        context.request,
-        context.env,
-        context.requestId,
-        context.deps,
-      ),
+      body: await discoverGhostBattles(context.request, context.env, context.requestId),
     }),
   },
   {
@@ -56,7 +46,7 @@ export const V5_ROUTES = [
     auth: "bazaardb_delivery",
     handler: async (context) => ({
       status: 200,
-      body: await claimDeliveries(context.request, context.env, context.requestId, context.deps),
+      body: await claimDeliveries(context.request, context.env, context.requestId),
     }),
   },
   {
@@ -65,7 +55,7 @@ export const V5_ROUTES = [
     auth: "bazaardb_delivery",
     handler: async (context) => ({
       status: 200,
-      body: await settleDeliveries(context.request, context.env, context.requestId, context.deps),
+      body: await settleDeliveries(context.request, context.env, context.requestId),
     }),
   },
 ] as const satisfies readonly RouteDefinition[];

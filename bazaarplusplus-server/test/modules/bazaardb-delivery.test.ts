@@ -1,16 +1,9 @@
 import { env } from "cloudflare:test";
-import { describe, expect, test } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 
 import worker from "../../src/index";
 import { CLAIM_LEASE_MS, DELIVERY_RETRY_BACKOFF_MS, R2_RETENTION_MS } from "../../src/limits";
-import { claimDeliveries, settleDeliveries } from "../../src/modules/bazaardb-delivery";
 import { makeBundleFixture, uploadRequest } from "../fixtures/bundle";
-import { FakeClock } from "../fixtures/clock";
-import { createTestDeps } from "../fixtures/deps";
-import {
-  RecordingBundleDownloadSigner,
-  RejectingBundleDownloadSigner,
-} from "../fixtures/presigner";
 
 const DELIVERY_TOKEN = "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB";
 
@@ -71,6 +64,19 @@ async function expectErrorBody(
 
 const VALID_CLAIM_ID = "clm_550e8400-e29b-41d4-a716-446655440000";
 
+afterEach(() => vi.restoreAllMocks());
+
+// Freezes the Worker clock at the current time; advance by assigning clock.ms.
+function freezeClock(): { ms: number } {
+  const clock = { ms: Date.now() };
+  vi.spyOn(Date, "now").mockImplementation(() => clock.ms);
+  return clock;
+}
+
+function sigV4Date(timestamp: number): string {
+  return new Date(timestamp).toISOString().replace(/[:-]|\.\d{3}/g, "");
+}
+
 async function claim(limit = 1): Promise<{
   claim_id: string | null;
   expires_at_ms: number | null;
@@ -82,51 +88,34 @@ async function claim(limit = 1): Promise<{
 }
 
 describe("BazaarDB delivery claim and settle", () => {
-  test("uses the injected clock for claim leases and signed downloads", async () => {
+  test("pins claim leases and signed downloads to the request time", async () => {
     const bundleId = await uploadScreenshotBundle(11);
-    const clock = new FakeClock(Date.now());
-    const signer = new RecordingBundleDownloadSigner();
-    const result = await claimDeliveries(
-      deliveryRequest("claim", { limit: 1 }),
-      env,
-      "claim-injected-deps",
-      createTestDeps({ signer, now: clock.now }),
-    );
-    const items = result.items as Array<{
-      bundle_id: string;
-      download_expires_at_ms: number;
-    }>;
+    const clock = freezeClock();
+    const result = await claim(1);
 
     expect(result.expires_at_ms).toBe(clock.ms + 600_000);
-    expect(items).toMatchObject([
+    expect(result.items).toMatchObject([
       { bundle_id: bundleId, download_expires_at_ms: clock.ms + 604_800_000 },
     ]);
-    expect(signer.calls).toEqual([
-      {
-        objectKey: `bundles/2026-08-02/${bundleId}.bundle`,
-        issuedAtMs: clock.ms,
-      },
-    ]);
+    const signed = new URL(result.items[0].download_url);
+    expect(signed.pathname).toBe(`/bundles/2026-08-02/${bundleId}.bundle`);
+    expect(signed.searchParams.get("X-Amz-Date")).toBe(sigV4Date(clock.ms));
     await env.DB.prepare(`DELETE FROM bundles WHERE bundle_id = ?1`).bind(bundleId).run();
   });
 
-  test("compensates the claim transaction when injected signing fails", async () => {
+  test("compensates the claim transaction when signing fails", async () => {
     const bundleId = await uploadScreenshotBundle(12);
-    const clock = new FakeClock(Date.now());
-    const signer = new RejectingBundleDownloadSigner();
+    const clock = freezeClock();
+    const sign = vi.spyOn(crypto.subtle, "sign").mockRejectedValue(new Error("signing failure"));
 
-    await expect(
-      claimDeliveries(
-        deliveryRequest("claim", { limit: 1 }),
-        env,
-        "claim-rejection",
-        createTestDeps({ signer, now: clock.now }),
-      ),
-    ).rejects.toMatchObject({
-      status: 503,
-      code: "storage_unavailable",
-      message: "BazaarDB claim URL signing failed",
-      retryable: true,
+    const response = await worker.fetch(deliveryRequest("claim", { limit: 1 }), env);
+    expect(response.status).toBe(503);
+    expect(await response.json()).toMatchObject({
+      error: {
+        code: "storage_unavailable",
+        message: "BazaarDB claim URL signing failed",
+        retryable: true,
+      },
     });
     expect(
       await env.DB.prepare(
@@ -150,7 +139,7 @@ describe("BazaarDB delivery claim and settle", () => {
       claimable_at_ms: clock.ms,
       delivery_attempts: 0,
     });
-    expect(signer.calls).toHaveLength(1);
+    expect(sign).toHaveBeenCalled();
     await env.DB.prepare(`DELETE FROM bundles WHERE bundle_id = ?1`).bind(bundleId).run();
   });
 
@@ -359,19 +348,10 @@ describe("BazaarDB delivery claim and settle", () => {
     );
   });
 
-  test("treats a claim as stale at the injected lease boundary without changing rows", async () => {
+  test("treats a claim as stale at the lease boundary without changing rows", async () => {
     const bundleId = await uploadScreenshotBundle(15);
-    const clock = new FakeClock(Date.now());
-    const deps = createTestDeps({
-      signer: new RecordingBundleDownloadSigner(),
-      now: clock.now,
-    });
-    const leased = await claimDeliveries(
-      deliveryRequest("claim", { limit: 1 }),
-      env,
-      "lease-boundary-claim",
-      deps,
-    );
+    const clock = freezeClock();
+    const leased = await claim(1);
     const claimId = leased.claim_id as string;
     const beforeDelivery = await env.DB.prepare(
       `SELECT * FROM bazaardb_deliveries WHERE bundle_id = ?1`,
@@ -384,18 +364,16 @@ describe("BazaarDB delivery claim and settle", () => {
       .bind(claimId, bundleId)
       .first();
 
-    clock.advance(CLAIM_LEASE_MS);
-    const settled = await settleDeliveries(
+    clock.ms += CLAIM_LEASE_MS;
+    const settled = await worker.fetch(
       deliveryRequest("settle", {
         claim_id: claimId,
         results: [{ bundle_id: bundleId, outcome: "accepted" }],
       }),
       env,
-      "lease-boundary-settle",
-      deps,
     );
 
-    expect(settled).toMatchObject({
+    expect(await settled.json()).toMatchObject({
       items: [{ bundle_id: bundleId, status: "stale_claim", state: "pending" }],
       summary: { applied: 0, duplicate: 0, rejected: 1 },
     });
@@ -414,39 +392,25 @@ describe("BazaarDB delivery claim and settle", () => {
     await env.DB.prepare(`DELETE FROM bundles WHERE bundle_id = ?1`).bind(bundleId).run();
   });
 
-  test("opens each retry exactly at the injected backoff boundary", async () => {
+  test("opens each retry exactly at the backoff boundary", async () => {
     const bundleId = await uploadScreenshotBundle(16);
-    const clock = new FakeClock(Date.now());
-    const deps = createTestDeps({
-      signer: new RecordingBundleDownloadSigner(),
-      now: clock.now,
-    });
-    const directClaim = async () =>
-      (await claimDeliveries(
-        deliveryRequest("claim", { limit: 1 }),
-        env,
-        "backoff-claim",
-        deps,
-      )) as {
-        claim_id: string | null;
-        items: Array<{ bundle_id: string }>;
-      };
-    const retry = async (claimId: string) =>
-      settleDeliveries(
+    const clock = freezeClock();
+    const retry = async (claimId: string) => {
+      const response = await worker.fetch(
         deliveryRequest("settle", {
           claim_id: claimId,
           results: [{ bundle_id: bundleId, outcome: "retryable_failure", reason: "timeout" }],
         }),
         env,
-        "backoff-settle",
-        deps,
       );
+      expect(response.status).toBe(200);
+      return response.json();
+    };
 
-    const first = await directClaim();
+    const first = await claim();
     expect(first.items).toMatchObject([{ bundle_id: bundleId }]);
     if (first.claim_id === null) throw new Error("expected the first claim to return a claim id");
-    const firstSettle = await retry(first.claim_id);
-    expect(firstSettle).toMatchObject({
+    expect(await retry(first.claim_id)).toMatchObject({
       items: [
         {
           status: "applied",
@@ -456,14 +420,13 @@ describe("BazaarDB delivery claim and settle", () => {
       ],
     });
 
-    clock.advance(DELIVERY_RETRY_BACKOFF_MS[0] - 1);
-    expect(await directClaim()).toMatchObject({ claim_id: null, items: [] });
-    clock.advance(1);
-    const second = await directClaim();
+    clock.ms += DELIVERY_RETRY_BACKOFF_MS[0] - 1;
+    expect(await claim()).toMatchObject({ claim_id: null, items: [] });
+    clock.ms += 1;
+    const second = await claim();
     expect(second.items).toMatchObject([{ bundle_id: bundleId }]);
     if (second.claim_id === null) throw new Error("expected the second claim to return a claim id");
-    const secondSettle = await retry(second.claim_id);
-    expect(secondSettle).toMatchObject({
+    expect(await retry(second.claim_id)).toMatchObject({
       items: [
         {
           status: "applied",
@@ -473,10 +436,10 @@ describe("BazaarDB delivery claim and settle", () => {
       ],
     });
 
-    clock.advance(DELIVERY_RETRY_BACKOFF_MS[1] - 1);
-    expect(await directClaim()).toMatchObject({ claim_id: null, items: [] });
-    clock.advance(1);
-    const third = await directClaim();
+    clock.ms += DELIVERY_RETRY_BACKOFF_MS[1] - 1;
+    expect(await claim()).toMatchObject({ claim_id: null, items: [] });
+    clock.ms += 1;
+    const third = await claim();
     expect(third.items).toMatchObject([{ bundle_id: bundleId }]);
     await env.DB.prepare(`DELETE FROM bundles WHERE bundle_id = ?1`).bind(bundleId).run();
   });
@@ -672,7 +635,7 @@ describe("readJsonObject invalid_json contract", () => {
 test("retention convergence preserves the exact boundary and precedes attempt exhaustion", async () => {
   const expired = await uploadScreenshotBundle(70);
   const boundary = await uploadScreenshotBundle(71);
-  const clock = new FakeClock(Date.now());
+  const clock = freezeClock();
   await env.DB.batch([
     env.DB.prepare("UPDATE bundles SET stored_at_ms = ?1 WHERE bundle_id = ?2").bind(
       clock.ms - R2_RETENTION_MS - 1,
@@ -690,10 +653,7 @@ test("retention convergence preserves the exact boundary and precedes attempt ex
       boundary,
     ),
   ]);
-  const deps = createTestDeps({ now: clock.now });
-  const runClaim = () =>
-    claimDeliveries(deliveryRequest("claim", { limit: 1 }), env, "retention", deps);
-  expect(await runClaim()).toEqual({ claim_id: null, expires_at_ms: null, items: [] });
+  expect(await claim()).toEqual({ claim_id: null, expires_at_ms: null, items: [] });
   const state = (id: string) =>
     env.DB.prepare(
       "SELECT delivery_state, failure_reason FROM bazaardb_deliveries WHERE bundle_id = ?1",
@@ -706,7 +666,7 @@ test("retention convergence preserves the exact boundary and precedes attempt ex
   });
   expect(await state(boundary)).toEqual({ delivery_state: "pending", failure_reason: null });
   clock.ms += 1;
-  await runClaim();
+  await claim();
   expect(await state(boundary)).toEqual({
     delivery_state: "failed",
     failure_reason: "bundle_expired",
