@@ -9,6 +9,7 @@ import {
   readProductVersion
 } from './product.mjs';
 import { RELEASE_PLATFORM_KEYS } from './release-platforms.mjs';
+import { GAME_LIBS_LOCK_PATH } from './game-libs.mjs';
 import { createArtifactManifest } from './artifact-manifest.mjs';
 import { MemoryStore } from './test-support/memory-store.mjs';
 import { writeArtifacts } from './test-support/artifact-fixture.mjs';
@@ -33,6 +34,7 @@ function fixture() {
     'README_en.md',
     'release/payload.json',
     'release/generated/Payload.targets',
+    GAME_LIBS_LOCK_PATH,
     'bazaarplusplus-mod/src/BazaarPlusPlus.Storage/BazaarPlusPlus.history-database.json',
     ...[
       'package.json',
@@ -572,4 +574,81 @@ test('internal ownership dispatch requires a live build lock and does not run pr
   );
   vi.stubEnv('BPP_RELEASE_LOCK_TOKEN', 'owned');
   await main(['assert-build-owner'], { workspaceRoot });
+});
+
+// The Snapshot Lock gate of `check` (ADR 0004). Failure modes: a lock missing
+// one of the six keys fails; an entry with a malformed sha256 fails, and so
+// does every command that runs source alignment, before any store is created;
+// an empty entry warns; an entry captured more than staleAfterDays ago warns;
+// warnings leave the command on its success path.
+function editLock(options, mutate) {
+  const file = path.join(options.workspaceRoot, GAME_LIBS_LOCK_PATH);
+  const lock = JSON.parse(fs.readFileSync(file, 'utf8'));
+  mutate(lock);
+  fs.writeFileSync(file, `${JSON.stringify(lock, null, 2)}\n`);
+}
+const windowsOnlineEntry = {
+  gameVersion: '1.0.12600-windows-x64-0a1b2c3d',
+  sha256: 'b'.repeat(64),
+  buildid: '25661999',
+  steamBranch: 'public',
+  capturedAt: '2026-09-01T00:00:00.000Z'
+};
+
+test('check fails on a Snapshot Lock missing a key or holding a malformed sha256', async () => {
+  const missing = fixture();
+  editLock(missing, (lock) => {
+    delete lock.entries['windows-ptr'];
+  });
+  await expect(main(['check'], missing)).rejects.toThrow(
+    /exactly the six keys/
+  );
+  const malformed = fixture();
+  editLock(malformed, (lock) => {
+    lock.entries['windows-online'] = {
+      ...windowsOnlineEntry,
+      sha256: 'not-a-digest'
+    };
+  });
+  await expect(main(['check'], malformed)).rejects.toThrow(
+    /Lock entry windows-online has an invalid sha256/
+  );
+  await expect(
+    main(['upload', '--platform', 'windows'], malformed)
+  ).rejects.toThrow(/invalid sha256/);
+  expect(malformed.createStore).not.toHaveBeenCalled();
+});
+
+test('check warns on empty and stale Snapshot Lock entries and still passes', async () => {
+  const options = fixture();
+  editLock(options, (lock) => {
+    for (const key of Object.keys(lock.entries)) lock.entries[key] = null;
+    lock.entries['windows-online'] = windowsOnlineEntry;
+    lock.entries['windows-staging'] = {
+      gameVersion: '1.0.12575-staging-windows-x64-fecb8f8e',
+      sha256: 'c'.repeat(64),
+      buildid: '25661913',
+      steamBranch: 'staging',
+      capturedAt: '2026-10-01T00:00:00.000Z'
+    };
+  });
+  await main(['check'], {
+    ...options,
+    now: new Date('2026-10-03T00:00:00.000Z')
+  });
+  const lines = options.log.mock.calls.map(([line]) => line);
+  const warnings = lines.filter((line) => line.startsWith('WARNING: '));
+  expect(warnings).toHaveLength(5);
+  expect(warnings).toContainEqual(
+    expect.stringMatching(/^WARNING: macos-online: no snapshot captured/)
+  );
+  expect(warnings).toContainEqual(
+    expect.stringMatching(
+      /^WARNING: windows-online: 1\.0\.12600-windows-x64-0a1b2c3d was captured 32 days ago \(staleAfterDays 30\)/
+    )
+  );
+  expect(warnings.some((line) => line.includes('windows-staging'))).toBe(false);
+  expect(lines.at(-1)).toMatch(
+    /Snapshot Lock and release configuration aligned/
+  );
 });

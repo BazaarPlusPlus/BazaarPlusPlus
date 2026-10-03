@@ -13,6 +13,12 @@ const releasePaths = [
   '../bazaarplusplus-mod'
 ];
 
+// The sealed Payload build record payload.mjs writes and this manifest seals:
+// schema 3 names the Snapshot Lock entry the Payload compiled against, so
+// every artifact answers which platform, channel and game version it was built
+// for (ADR 0004). An older record is re-prepared, never accepted.
+export const PAYLOAD_BUILD_RECORD_SCHEMA_VERSION = 3;
+
 function sha256(buffer) {
   return crypto.createHash('sha256').update(buffer).digest('hex');
 }
@@ -284,7 +290,7 @@ export function validateArtifactManifest({
   );
   const payloadIdentity = JSON.parse(fs.readFileSync(payloadBuild, 'utf8'));
   if (
-    payloadIdentity.schemaVersion !== 2 ||
+    payloadIdentity.schemaVersion !== PAYLOAD_BUILD_RECORD_SCHEMA_VERSION ||
     payloadIdentity.productVersion !== version ||
     payloadIdentity.platform !== platform
   ) {
