@@ -1,0 +1,24 @@
+{
+  "summary": {
+    "runs": 3,
+    "videos": 1,
+    "win_rate": 0.5
+  },
+  "runs": [
+    {
+      "run_id": "run-1",
+      "hero": "Vanessa",
+      "game_mode": "Ranked",
+      "started_at_utc": "2026-01-01T09:00:00Z",
+      "ended_at_utc": "2026-01-01T09:42:00Z",
+      "result": "win",
+      "victories": 10,
+      "losses": 2,
+      "final_day": 12,
+      "final_player_rank": "Gold",
+      "final_player_rating": 1520,
+      "screenshot_id": "shot-1",
+      "thumbnail_url": "http://127.0.0.1:17654/history/0/images/shot-1/strip"
+    }
+  ]
+}

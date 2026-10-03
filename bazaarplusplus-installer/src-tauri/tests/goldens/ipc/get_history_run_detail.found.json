@@ -1,0 +1,47 @@
+{
+  "run": {
+    "run_id": "run-1",
+    "hero": "Vanessa",
+    "game_mode": "Ranked",
+    "started_at_utc": "2026-01-01T09:00:00Z",
+    "ended_at_utc": "2026-01-01T09:42:00Z",
+    "status": "completed",
+    "result": "win",
+    "victories": 10,
+    "losses": 2,
+    "final_day": 12,
+    "final_player_rank": "Gold",
+    "final_player_rating": 1520,
+    "screenshot_id": "shot-1",
+    "player_name": "Fixture Player"
+  },
+  "battles": [
+    {
+      "battle_id": "battle-2",
+      "day": 2,
+      "hour": 4,
+      "result": "loss",
+      "opponent_hero": "Dooley",
+      "opponent_name": null,
+      "opponent_rank": null,
+      "opponent_rating": null,
+      "video": null
+    },
+    {
+      "battle_id": "battle-1",
+      "day": 1,
+      "hour": 2,
+      "result": "win",
+      "opponent_hero": "Pygmalien",
+      "opponent_name": "Opponent A",
+      "opponent_rank": "Silver",
+      "opponent_rating": 1400,
+      "video": {
+        "video_id": "video-1",
+        "status": "COMPLETED",
+        "file_size_bytes": 13,
+        "duration_ms": 95000
+      }
+    }
+  ]
+}

@@ -1,0 +1,54 @@
+[
+  {
+    "battle_count": 14,
+    "captured_at": "2026-01-01T17:40:00+08:00",
+    "captured_at_utc": "2026-01-01T09:40:00Z",
+    "hero_id": "Vanessa",
+    "id": "shot-1",
+    "rank": "Gold",
+    "rating": 1520,
+    "strip_url": "/images/shot-1/strip",
+    "subtitle": "End of run · 10W · 14 battles",
+    "title": "Vanessa",
+    "wins": 10
+  },
+  {
+    "battle_count": null,
+    "captured_at": "2026-01-01T17:30:00+08:00",
+    "captured_at_utc": "2026-01-01T09:30:00Z",
+    "hero_id": "TheDragons",
+    "id": "shot-2",
+    "rank": null,
+    "rating": null,
+    "strip_url": "/images/shot-2/strip",
+    "subtitle": "End of run · 7W",
+    "title": "The Dragons",
+    "wins": 7
+  },
+  {
+    "battle_count": 3,
+    "captured_at": "2026-01-01T17:20:00+08:00",
+    "captured_at_utc": "2026-01-01T09:20:00Z",
+    "hero_id": "Mak",
+    "id": "shot-3",
+    "rank": null,
+    "rating": null,
+    "strip_url": null,
+    "subtitle": "End of run · 3 battles",
+    "title": "Mak",
+    "wins": null
+  },
+  {
+    "battle_count": null,
+    "captured_at": "2026-01-01T17:10:00+08:00",
+    "captured_at_utc": "2026-01-01T09:10:00Z",
+    "hero_id": "Unknown",
+    "id": "shot-4",
+    "rank": null,
+    "rating": null,
+    "strip_url": "/images/shot-4/strip",
+    "subtitle": "End of run",
+    "title": "Unknown",
+    "wins": null
+  }
+]
