@@ -185,7 +185,6 @@ test('check delegates source-only gates in their project directories', (t) => {
 
 test('test runs each suite without a release or publication command', (t) => {
   const f = fixture(t);
-  const shellDir = f.dir.split(path.sep).join('/');
   succeeded(f.run(['test']));
   assert.deepEqual(f.calls(), [
     call(f.dir, null, ...rootPrettier('--check')),
@@ -201,25 +200,6 @@ test('test runs each suite without a release or publication command', (t) => {
     call(f.dir, 'mod', 'mod-test', 'test'),
     ...['installer', 'site'].map((project) =>
       call(f.dir, project, 'npm', 'test')
-    ),
-    call(
-      f.dir,
-      'server',
-      'dotnet',
-      'build',
-      '../bazaarplusplus-mod/tests/ModApi.Tests/ModApi.Tests.csproj'
-    ),
-    call(
-      f.dir,
-      'server',
-      'dotnet',
-      'run',
-      '--project',
-      'scripts/ghost-projection/mod-compat/Probe.csproj',
-      `-p:ModRoot=${shellDir}/bazaarplusplus-server/../bazaarplusplus-mod`,
-      '--',
-      `${shellDir}/bazaarplusplus-server/../bazaarplusplus-mod`,
-      'contracts/v5/ghost-summary.response.json'
     ),
     call(f.dir, 'server', 'npm', 'test'),
     call(f.dir, 'analyzer', 'uv', 'run', '--locked', 'pytest')

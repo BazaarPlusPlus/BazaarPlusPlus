@@ -9,7 +9,7 @@ The standalone V5 mod-facing backend, a Cloudflare Worker. Repo-wide rules (comm
 | Add or change a public route, request, or response | `docs/api-reference.md` |
 | Change the Bundle binary format or manifest | `contracts/v5/` |
 | Change BazaarDB claim/settle behavior | `docs/bazaardb-delivery-integration.md` (the partner contract) |
-| Provision, migrate, or deploy | `docs/deployment-runbook.md`; a database still holding `ghost_battles` also needs `docs/ghost-summary-migration.md` |
+| Provision, migrate, or deploy | `docs/deployment-runbook.md` |
 | Change D1 retention or Ghost storage columns | `docs/adr/0002-d1-retention.md`, `docs/adr/0003-ghost-summary-columns.md`; the dated audits under `docs/` are their evidence |
 
 ## Guardrails

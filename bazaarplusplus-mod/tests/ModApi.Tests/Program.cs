@@ -2,6 +2,7 @@
 
 RoutesTests.Run();
 ErrorCodeContractTests.Run();
+await GhostSummaryContractTests.RunAsync();
 CodecTests.Run();
 await ModApiResponseTests.RunAsync();
 await SessionTests.RunAsync();

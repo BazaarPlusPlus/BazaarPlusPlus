@@ -61,7 +61,7 @@ npx wrangler d1 migrations apply bazaarplusplus-mod-api-v5-db --remote
 npx wrangler deploy
 ```
 
-Production completed the Ghost summary migration on 2026-09-12. For a database still holding the pre-summary `ghost_battles` table, follow [Ghost summary migration](ghost-summary-migration.md) through `0004`, deploy this Worker, and finish retirement/cleanup through `0006`. Do not deploy the summary Worker before backfill verification or apply all stages in one step.
+Production completed the Ghost summary migration (`0003`–`0006`) on 2026-09-12; see ADR 0003.
 
 Every schema change ships as a new migration file; a recorded migration is never reapplied.
 

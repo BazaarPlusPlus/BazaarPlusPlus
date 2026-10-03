@@ -5,14 +5,9 @@ set positional-arguments
 check:
     npm run check
 
-# Run the Mod compatibility probe and Worker tests in the local Cloudflare test runtime.
-test: test-mod-compat
+# Run the Worker tests in the local Cloudflare test runtime.
+test:
     npm test
-
-# Verify Ghost responses with the real ModApi assembly; needs the .NET SDK and the game Managed dir.
-test-mod-compat:
-    dotnet build ../bazaarplusplus-mod/tests/ModApi.Tests/ModApi.Tests.csproj
-    dotnet run --project scripts/ghost-projection/mod-compat/Probe.csproj -p:ModRoot="$PWD/../bazaarplusplus-mod" -- "$PWD/../bazaarplusplus-mod" contracts/v5/ghost-summary.response.json
 
 # Start the local Worker; requires this project's .dev.vars.
 dev:

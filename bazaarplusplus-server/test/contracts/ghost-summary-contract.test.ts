@@ -6,7 +6,7 @@ import { discoverGhostBattles } from "../../src/modules/ghost-battle-discovery";
 import { bundleData } from "../fixtures/bundle";
 import { createTestDeps } from "../fixtures/deps";
 
-// The real ModApi DLL consumes this same contract in scripts/ghost-projection/mod-compat.
+// The mod consumes this same contract in bazaarplusplus-mod/tests/ModApi.Tests/GhostSummaryContractTests.cs.
 test("the discovery response exactly matches the Mod-compatible nested summary contract", async () => {
   const row = responseContract.battles[0];
   const fixture = await bundleData({

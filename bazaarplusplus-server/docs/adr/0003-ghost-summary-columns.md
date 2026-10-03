@@ -44,6 +44,6 @@ D1 的 `meta.changes` 包含触发器写入。新 Worker 改用 `INSERT ... RETU
 
 未采用直接 `DROP COLUMN projection_json`：需要重写大型活跃表且不兼容当前 Worker。未采用五天删整行：会缩短十五天内首次投影保护。未采用永久双写：不能实现最终存储精简。
 
-操作命令、门禁和验证证据见[迁移运行手册](../ghost-summary-migration.md)。
+操作工具与运行手册已在迁移完成后删除，见 git 历史。
 
-生产执行结果见[迁移验收](../ghost-summary-migration.md)及[聚合记录](../ghost-summary-production-2026-09-12.json)。
+生产已于 2026-09-12 完成 `0003`–`0006`，执行结果见[聚合记录](../ghost-summary-production-2026-09-12.json)。
