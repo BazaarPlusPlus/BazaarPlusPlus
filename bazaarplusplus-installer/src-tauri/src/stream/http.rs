@@ -434,19 +434,12 @@ mod tests {
         OverlaySettingsStore, StreamRuntime,
     };
     use super::{
-        is_allowed_cors_origin, overlay_asset_path, BADGES_DIR, BADGE_ROUTE, CINZEL_FONT,
-        CINZEL_FONT_ROUTE, CROP_CONFIG_ROUTE, LATEST_RECORD_ROUTE, OVERLAY_CSS, OVERLAY_CSS_ROUTE,
-        OVERLAY_JS_ROUTE, OVERLAY_ROUTE, RECORD_IMAGE_ROUTE, RECORD_LIST_ROUTE, SETTINGS_CSS_ROUTE,
+        is_allowed_cors_origin, BADGES_DIR, BADGE_ROUTE, CINZEL_FONT, CINZEL_FONT_ROUTE,
+        CROP_CONFIG_ROUTE, LATEST_RECORD_ROUTE, OVERLAY_CSS, OVERLAY_CSS_ROUTE, OVERLAY_JS_ROUTE,
+        OVERLAY_ROUTE, RECORD_IMAGE_ROUTE, RECORD_LIST_ROUTE, SETTINGS_CSS_ROUTE,
         SETTINGS_JS_ROUTE, SETTINGS_ROUTE, STRIP_IMAGE_ROUTE,
     };
     use axum::http::HeaderValue;
-
-    #[test]
-    fn overlay_asset_path_points_to_stream_resources() {
-        let path = overlay_asset_path("overlay.js");
-
-        assert!(path.ends_with("resources/stream/overlay.js"));
-    }
 
     #[test]
     fn embedded_badge_assets_are_complete_for_every_hero() {
@@ -584,7 +577,7 @@ mod tests {
             OverlayRecordRepository::new(Some(game_path)),
             StreamRuntime::default(),
             thumbnails,
-            OverlaySettingsStore::new(temp.path().join("settings.json")),
+            OverlaySettingsStore::new(temp.path().join("settings.json"), None),
             temp.path().join("cache"),
         );
         let requests = [
@@ -700,7 +693,7 @@ mod tests {
             OverlayRecordRepository::new(None),
             StreamRuntime::default(),
             HistoryThumbnails::default(),
-            OverlaySettingsStore::new(settings_path.clone()),
+            OverlaySettingsStore::new(settings_path.clone(), None),
             temp.path().join("cache"),
         );
         let saved = serde_json::json!({

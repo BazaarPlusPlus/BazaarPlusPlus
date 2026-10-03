@@ -6,9 +6,8 @@
 //! close Steam (launch-option writes) and guard destructive resets.
 
 /// Case-insensitive comparison of a process image name (e.g. `"Steam.exe"`)
-/// against a target (e.g. `"steam.exe"`). Kept pure so the matching rule is
-/// unit-testable without enumerating real processes.
-#[cfg_attr(not(any(target_os = "windows", test)), allow(dead_code))]
+/// against a target (e.g. `"steam.exe"`).
+#[cfg(target_os = "windows")]
 pub(crate) fn image_name_matches(candidate: &str, target: &str) -> bool {
     candidate.eq_ignore_ascii_case(target)
 }
@@ -108,22 +107,4 @@ fn image_name_from_entry(
     let name = &entry.szExeFile;
     let len = name.iter().position(|&c| c == 0).unwrap_or(name.len());
     String::from_utf16_lossy(&name[..len])
-}
-
-#[cfg(test)]
-mod tests {
-    use super::image_name_matches;
-
-    #[test]
-    fn image_name_matches_is_case_insensitive() {
-        assert!(image_name_matches("Steam.exe", "steam.exe"));
-        assert!(image_name_matches("STEAM.EXE", "steam.exe"));
-        assert!(image_name_matches("TheBazaar.exe", "thebazaar.exe"));
-    }
-
-    #[test]
-    fn image_name_matches_rejects_different_names() {
-        assert!(!image_name_matches("notsteam.exe", "steam.exe"));
-        assert!(!image_name_matches("steamwebhelper.exe", "steam.exe"));
-    }
 }

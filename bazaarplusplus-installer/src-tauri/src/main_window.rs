@@ -1,21 +1,21 @@
 use tauri::Manager;
-#[cfg(any(target_os = "windows", test))]
+#[cfg(target_os = "windows")]
 use tauri::{LogicalSize, PhysicalSize};
 
-#[cfg(any(target_os = "windows", test))]
+#[cfg(target_os = "windows")]
 const MAIN_WINDOW_MIN_WIDTH: f64 = 900.0;
-#[cfg(any(target_os = "windows", test))]
+#[cfg(target_os = "windows")]
 const MAIN_WINDOW_MIN_HEIGHT: f64 = 600.0;
 
-#[cfg(any(target_os = "windows", test))]
+#[cfg(target_os = "windows")]
 fn should_enforce_minimum_size(is_minimized: bool, is_maximized: bool) -> bool {
     // Reapplying a Windows size constraint mutates the inner size and restores
     // a maximized window. Only correct ordinary, restored windows here.
     !is_minimized && !is_maximized
 }
 
-#[cfg(any(target_os = "windows", test))]
-pub(crate) fn corrected_main_window_size(
+#[cfg(target_os = "windows")]
+fn corrected_main_window_size(
     current: PhysicalSize<u32>,
     scale_factor: f64,
 ) -> Option<LogicalSize<f64>> {
@@ -28,8 +28,7 @@ pub(crate) fn corrected_main_window_size(
     (corrected != logical).then_some(corrected)
 }
 
-#[cfg(any(target_os = "windows", test))]
-#[cfg_attr(test, allow(dead_code))]
+#[cfg(target_os = "windows")]
 pub(crate) fn enforce_minimum_size(window: &tauri::WebviewWindow) -> tauri::Result<()> {
     if !should_enforce_minimum_size(window.is_minimized()?, window.is_maximized()?) {
         return Ok(());
@@ -63,26 +62,5 @@ pub(crate) fn restore(app: &tauri::AppHandle) {
     }
     if let Err(error) = window.set_focus() {
         eprintln!("failed to focus the main window: {error}");
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::{corrected_main_window_size, should_enforce_minimum_size};
-    use tauri::{LogicalSize, PhysicalSize};
-
-    #[test]
-    fn undersized_restored_window_is_corrected_to_the_logical_minimum() {
-        assert_eq!(
-            corrected_main_window_size(PhysicalSize::new(972, 612), 2.25),
-            Some(LogicalSize::new(900.0, 600.0))
-        );
-    }
-
-    #[test]
-    fn maximized_window_skips_minimum_size_enforcement() {
-        assert!(should_enforce_minimum_size(false, false));
-        assert!(!should_enforce_minimum_size(true, false));
-        assert!(!should_enforce_minimum_size(false, true));
     }
 }

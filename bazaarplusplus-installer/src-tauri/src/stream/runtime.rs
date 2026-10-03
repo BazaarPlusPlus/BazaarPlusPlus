@@ -63,7 +63,7 @@ impl StreamRuntime {
         app: tauri::AppHandle,
     ) -> Result<(), String> {
         self.prepare_history_thumbnails_with(&production_server(&app), || {
-            resolve_installation(&app, None)
+            resolve_installation(&app)
         })
         .await
     }
@@ -95,22 +95,16 @@ impl StreamRuntime {
     pub(crate) async fn ensure(
         &self,
         app: tauri::AppHandle,
-        requested_game_path: Option<PathBuf>,
     ) -> Result<StreamServiceStatus, String> {
-        let _lifecycle = self.lifecycle.lock().await;
-        let installation = resolve_installation(&app, requested_game_path);
-        self.ensure_locked(&production_server(&app), installation)
+        self.ensure_with(&production_server(&app), resolve_installation(&app))
             .await
     }
 
     pub(crate) async fn restart(
         &self,
         app: tauri::AppHandle,
-        requested_game_path: Option<PathBuf>,
     ) -> Result<StreamServiceStatus, String> {
-        let _lifecycle = self.lifecycle.lock().await;
-        let installation = resolve_installation(&app, requested_game_path);
-        self.restart_locked(&production_server(&app), installation)
+        self.restart_with(&production_server(&app), resolve_installation(&app))
             .await
     }
 
@@ -136,7 +130,6 @@ impl StreamRuntime {
         operation().await
     }
 
-    #[cfg(test)]
     pub(super) async fn ensure_with<A>(
         &self,
         server: &A,
@@ -178,7 +171,6 @@ impl StreamRuntime {
         }
     }
 
-    #[cfg(test)]
     async fn restart_with<A>(
         &self,
         server: &A,
@@ -331,25 +323,14 @@ fn production_server(app: &tauri::AppHandle) -> ProductionServer {
     }
 }
 
-fn resolve_installation(
-    app: &tauri::AppHandle,
-    requested_game_path: Option<PathBuf>,
-) -> StreamInstallation {
-    let requested_game_path = requested_game_path.map(|path| path.to_string_lossy().into_owned());
+fn resolve_installation(app: &tauri::AppHandle) -> StreamInstallation {
     let selected_installation = app.state::<SelectedGameInstallationState>();
-    let game_resolution =
-        selected_installation.resolve(app, requested_game_path.clone(), GamePathAcceptance::Any);
+    let game_resolution = selected_installation.resolve(app, None, GamePathAcceptance::Any);
     let record_resolution = game_resolution
         .as_ref()
         .filter(|resolution| resolution.database_path.is_some())
         .cloned()
-        .or_else(|| {
-            selected_installation.resolve(
-                app,
-                requested_game_path,
-                GamePathAcceptance::DatabaseExists,
-            )
-        });
+        .or_else(|| selected_installation.resolve(app, None, GamePathAcceptance::DatabaseExists));
 
     StreamInstallation {
         game_path: game_resolution.map(|resolution| resolution.game_path),

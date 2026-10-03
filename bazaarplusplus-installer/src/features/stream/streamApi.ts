@@ -21,9 +21,9 @@ export function createStreamCommandPort(
   commands: StreamCommandAdapter
 ): StreamCommandPort {
   return {
-    ensureSession: () => commands.ensureStreamSession(null),
+    ensureSession: () => commands.ensureStreamSession(),
     getStatus: () => commands.getStreamStatus(),
-    restartSession: () => commands.restartStreamSession(null),
+    restartSession: () => commands.restartStreamSession(),
     setWindow: (offset) => commands.setStreamWindow(offset),
     loadCropSettings: () => commands.getOverlaySettings(),
     applyCropCode: (code) => commands.applyOverlayCropCode(code),

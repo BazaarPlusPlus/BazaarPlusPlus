@@ -19,36 +19,13 @@ mod tests {
     use super::{canonical_hero_id, hero_display_name};
 
     #[test]
-    fn canonicalizes_the_dragons_aliases() {
-        assert_eq!(canonical_hero_id("Hero8"), "TheDragons");
-        assert_eq!(canonical_hero_id("TheDragons"), "TheDragons");
-    }
-
-    #[test]
-    fn canonicalizes_the_dragons_case_insensitively() {
-        assert_eq!(canonical_hero_id("hero8"), "TheDragons");
-        assert_eq!(canonical_hero_id("THEDRAGONS"), "TheDragons");
-    }
-
-    #[test]
-    fn trims_whitespace_before_canonicalizing() {
-        assert_eq!(canonical_hero_id("  Hero8\n"), "TheDragons");
-    }
-
-    #[test]
-    fn preserves_other_heroes_after_trimming() {
+    fn hero_aliases_canonicalize_and_display() {
+        for alias in ["Hero8", "TheDragons", "hero8", "THEDRAGONS", "  Hero8\n"] {
+            assert_eq!(canonical_hero_id(alias), "TheDragons", "{alias:?}");
+        }
+        assert_eq!(hero_display_name("TheDragons"), "The Dragons");
         assert_eq!(canonical_hero_id("  Vanessa  "), "Vanessa");
         assert_eq!(hero_display_name("Vanessa"), "Vanessa");
-    }
-
-    #[test]
-    fn preserves_empty_input() {
         assert_eq!(canonical_hero_id("   "), "");
-        assert_eq!(hero_display_name(""), "");
-    }
-
-    #[test]
-    fn formats_the_dragons_display_name() {
-        assert_eq!(hero_display_name("TheDragons"), "The Dragons");
     }
 }

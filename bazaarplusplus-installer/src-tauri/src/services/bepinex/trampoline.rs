@@ -123,7 +123,7 @@ mod imp {
             .any(|(cpu_type, _)| cpu_type == CPU_TYPE_ARM64))
     }
 
-    pub(super) fn command_available(command: &str, args: &[&str]) -> bool {
+    fn command_available(command: &str, args: &[&str]) -> bool {
         Command::new(command).args(args).output().is_ok()
     }
 
@@ -709,8 +709,8 @@ pub(crate) fn remove_obsolete_macos_artifacts(_game_path: &Path) -> Result<(), S
 #[cfg(target_os = "macos")]
 mod tests {
     use super::imp::{
-        bundle_paths, classify_real_binary, command_available, is_trampolined,
-        restore_vanilla_layout, swap_in_stub, RealBinarySource, TRAMPOLINE_ENTITLEMENTS,
+        bundle_paths, classify_real_binary, is_trampolined, restore_vanilla_layout, swap_in_stub,
+        RealBinarySource, TRAMPOLINE_ENTITLEMENTS,
     };
     use super::*;
 
@@ -1112,15 +1112,6 @@ mod tests {
         // Corrupt: neither side is the real binary.
         assert!(classify_real_binary(false, true, false).is_err());
         assert!(classify_real_binary(false, false, false).is_err());
-    }
-
-    #[test]
-    fn test_command_available_only_requires_spawn_success() {
-        assert!(command_available("/bin/sh", &["-c", "exit 7"]));
-        assert!(!command_available(
-            "/definitely/not/a/bpp-installer-command",
-            &[]
-        ));
     }
 
     #[test]

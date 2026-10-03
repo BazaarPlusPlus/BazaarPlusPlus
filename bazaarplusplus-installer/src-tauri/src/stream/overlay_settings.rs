@@ -63,28 +63,13 @@ pub struct OverlaySettingsStore {
 
 impl Default for OverlaySettingsStore {
     fn default() -> Self {
-        Self {
-            path: default_settings_path(),
-            legacy_path: Some(legacy_settings_path()),
-        }
+        Self::new(default_settings_path(), Some(legacy_settings_path()))
     }
 }
 
 impl OverlaySettingsStore {
-    #[cfg(test)]
-    pub(crate) fn new(path: PathBuf) -> Self {
-        Self {
-            path,
-            legacy_path: None,
-        }
-    }
-
-    #[cfg(test)]
-    fn with_legacy_path(path: PathBuf, legacy_path: PathBuf) -> Self {
-        Self {
-            path,
-            legacy_path: Some(legacy_path),
-        }
+    pub(crate) fn new(path: PathBuf, legacy_path: Option<PathBuf>) -> Self {
+        Self { path, legacy_path }
     }
 
     pub fn load(&self) -> Result<OverlaySettings, String> {
@@ -332,7 +317,7 @@ mod tests {
     #[test]
     fn store_returns_default_when_file_is_missing() {
         let dir = tempfile::tempdir().unwrap();
-        let store = OverlaySettingsStore::new(dir.path().join("missing.json"));
+        let store = OverlaySettingsStore::new(dir.path().join("missing.json"), None);
 
         let loaded = store.load_payload().unwrap();
 
@@ -351,7 +336,7 @@ mod tests {
             legacy_crop,
             StreamOverlayDisplayMode::Herohalf,
         );
-        let store = OverlaySettingsStore::with_legacy_path(new_path.clone(), legacy_path.clone());
+        let store = OverlaySettingsStore::new(new_path.clone(), Some(legacy_path.clone()));
 
         let loaded = store.load().unwrap();
         assert_eq!(loaded.crop, legacy_crop);
@@ -366,7 +351,7 @@ mod tests {
         store.save(new_crop).unwrap();
 
         assert_eq!(std::fs::read_to_string(&legacy_path).unwrap(), legacy_raw);
-        let saved = OverlaySettingsStore::new(new_path).load().unwrap();
+        let saved = OverlaySettingsStore::new(new_path, None).load().unwrap();
         assert_eq!(saved.crop, new_crop);
         assert_eq!(saved.display_mode, StreamOverlayDisplayMode::Herohalf);
     }
@@ -389,7 +374,7 @@ mod tests {
             legacy_crop,
             StreamOverlayDisplayMode::Herohalf,
         );
-        let store = OverlaySettingsStore::with_legacy_path(new_path, legacy_path);
+        let store = OverlaySettingsStore::new(new_path, Some(legacy_path));
 
         let loaded = store.load().unwrap();
 
@@ -400,9 +385,9 @@ mod tests {
     #[test]
     fn store_returns_default_when_new_and_legacy_settings_are_missing() {
         let dir = tempfile::tempdir().unwrap();
-        let store = OverlaySettingsStore::with_legacy_path(
+        let store = OverlaySettingsStore::new(
             dir.path().join("new/overlay.json"),
-            dir.path().join("legacy/overlay.json"),
+            Some(dir.path().join("legacy/overlay.json")),
         );
 
         let loaded = store.load().unwrap();
@@ -414,7 +399,7 @@ mod tests {
     fn store_can_save_and_reload_payload() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("overlay.json");
-        let store = OverlaySettingsStore::new(path);
+        let store = OverlaySettingsStore::new(path, None);
         let crop = sample_crop();
 
         let saved = store.save(crop).unwrap();
@@ -429,7 +414,7 @@ mod tests {
     fn store_uses_default_for_old_crop_document() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("old-overlay.json");
-        let store = OverlaySettingsStore::new(path.clone());
+        let store = OverlaySettingsStore::new(path.clone(), None);
 
         std::fs::write(
             path,
@@ -451,7 +436,7 @@ mod tests {
     fn store_can_save_and_reload_display_mode() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("overlay.json");
-        let store = OverlaySettingsStore::new(path);
+        let store = OverlaySettingsStore::new(path, None);
 
         store.save(sample_crop()).unwrap();
         let saved = store

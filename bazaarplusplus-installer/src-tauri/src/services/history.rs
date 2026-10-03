@@ -7,7 +7,7 @@ use crate::history::{
         ScreenshotCleanupResult,
     },
     delete_battle_video as delete_battle_video_in_repo, get_history_run_detail, list_history_runs,
-    load_battle_video_path, load_run_id_for_battle, load_run_screenshot_path,
+    load_battle_video_path, load_run_id_for_battle, load_run_screenshot_path, HistoryReadError,
 };
 use crate::problem::{SemanticProblem, SemanticProblemCode};
 use crate::services::game_path::GamePathAcceptance;
@@ -21,6 +21,8 @@ pub(crate) use crate::history::{HistoryRunDetail, HistoryRunList};
 
 const HISTORY_UNAVAILABLE: &str =
     "No selected game installation with a history database is available.";
+const REVEAL_SCREENSHOT: &str = "reveal_screenshot";
+const REVEAL_VIDEO: &str = "reveal_video";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, specta::Type)]
 #[serde(rename_all = "snake_case")]
@@ -61,13 +63,6 @@ impl History {
             .map(|resolution| resolution.game_path)
     }
 
-    fn from_resolved_game_path(game_path: Option<PathBuf>) -> Result<Self, String> {
-        Self::from_resolved_game_path_with(
-            game_path,
-            crate::services::game_process::is_bazaar_running_best_effort,
-        )
-    }
-
     fn from_resolved_game_path_with(
         game_path: Option<PathBuf>,
         is_game_running: fn() -> bool,
@@ -84,11 +79,12 @@ impl History {
     fn from_resolved_game_path_for_page(
         game_path: Option<PathBuf>,
     ) -> Result<Self, SemanticProblem> {
-        Self::from_resolved_game_path(game_path)
-            .map_err(|_| SemanticProblem::new(SemanticProblemCode::HistoryUnavailable))
+        Self::from_resolved_game_path_for_page_with(
+            game_path,
+            crate::services::game_process::is_bazaar_running_best_effort,
+        )
     }
 
-    #[cfg(test)]
     fn from_resolved_game_path_for_page_with(
         game_path: Option<PathBuf>,
         is_game_running: fn() -> bool,
@@ -111,17 +107,15 @@ impl History {
             offset,
             |screenshot_id| history_thumbnails::url(source, screenshot_id),
         )
-        .map_err(|diagnostic| {
-            history_read_problem_with("list_runs", diagnostic, self.is_game_running)
-        })
+        .map_err(|error| history_read_problem_with("list_runs", error, self.is_game_running))
     }
 
     fn run_detail_for_page(
         &self,
         run_id: &str,
     ) -> Result<Option<HistoryRunDetail>, SemanticProblem> {
-        get_history_run_detail(&self.paths.database_path, run_id).map_err(|diagnostic| {
-            history_read_problem_with("get_run_detail", diagnostic, self.is_game_running)
+        get_history_run_detail(&self.paths.database_path, run_id).map_err(|error| {
+            history_read_problem_with("get_run_detail", error, self.is_game_running)
         })
     }
 
@@ -130,27 +124,22 @@ impl History {
             .ok_or_else(|| format!("History run {run_id} was not found."))
     }
 
-    fn reveal_run_screenshot(
-        &self,
-        run_id: &str,
-        revealer: &impl FileRevealer,
-    ) -> Result<(), SemanticProblem> {
-        as_action_problem("reveal_screenshot", || {
+    /// The screenshot file `reveal_run_screenshot` shows for `run_id`.
+    fn run_screenshot_path(&self, run_id: &str) -> Result<PathBuf, SemanticProblem> {
+        as_action_problem(REVEAL_SCREENSHOT, || {
             self.require_database_exists()?;
-            let path =
-                load_run_screenshot_path(&self.paths.database_path, &self.paths.game_path, run_id)?
-                    .ok_or_else(|| format!("No screenshot is available for run {run_id}."))?;
-            revealer.reveal(&path)
+            load_run_screenshot_path(&self.paths.database_path, &self.paths.game_path, run_id)?
+                .ok_or_else(|| format!("No screenshot is available for run {run_id}."))
         })
     }
 
-    fn reveal_battle_video(
+    /// The video file `reveal_battle_video` shows for `battle_id`.
+    fn battle_video_path(
         &self,
         battle_id: &str,
         video_id: Option<&str>,
-        revealer: &impl FileRevealer,
-    ) -> Result<(), SemanticProblem> {
-        as_action_problem("reveal_video", || {
+    ) -> Result<PathBuf, SemanticProblem> {
+        as_action_problem(REVEAL_VIDEO, || {
             self.require_database_exists()?;
             let path = load_battle_video_path(
                 &self.paths.database_path,
@@ -160,7 +149,7 @@ impl History {
             )?
             .ok_or_else(|| format!("No completed video is available for battle {battle_id}."))?;
             require_video_file_exists(&path)?;
-            revealer.reveal(&path)
+            Ok(path)
         })
     }
 
@@ -286,8 +275,9 @@ pub fn get_run_detail(
 }
 
 pub fn reveal_run_screenshot(app: &tauri::AppHandle, run_id: &str) -> Result<(), SemanticProblem> {
-    History::from_resolved_game_path_for_page(History::resolved_game_path(app))?
-        .reveal_run_screenshot(run_id, &SystemFileRevealer)
+    let path = History::from_resolved_game_path_for_page(History::resolved_game_path(app))?
+        .run_screenshot_path(run_id)?;
+    as_action_problem(REVEAL_SCREENSHOT, || reveal_in_file_browser(&path))
 }
 
 pub fn reveal_battle_video(
@@ -295,8 +285,9 @@ pub fn reveal_battle_video(
     battle_id: &str,
     video_id: Option<&str>,
 ) -> Result<(), SemanticProblem> {
-    History::from_resolved_game_path_for_page(History::resolved_game_path(app))?
-        .reveal_battle_video(battle_id, video_id, &SystemFileRevealer)
+    let path = History::from_resolved_game_path_for_page(History::resolved_game_path(app))?
+        .battle_video_path(battle_id, video_id)?;
+    as_action_problem(REVEAL_VIDEO, || reveal_in_file_browser(&path))
 }
 
 pub fn delete_battle_video(
@@ -349,10 +340,11 @@ fn as_action_problem<T>(
 
 fn history_read_problem_with(
     operation: &str,
-    diagnostic: String,
+    error: HistoryReadError,
     is_game_running: impl FnOnce() -> bool,
 ) -> SemanticProblem {
-    if let Some((found, supported)) = crate::history::unsupported_schema_versions(&diagnostic) {
+    let diagnostic = error.to_string();
+    if let HistoryReadError::UnsupportedSchema { found, supported } = error {
         return SemanticProblem::new(SemanticProblemCode::HistoryDatabaseUnsupportedSchema)
             .with_param("found", found.to_string())
             .with_param("supported", supported)
@@ -379,18 +371,6 @@ fn require_video_file_exists(path: &Path) -> Result<(), String> {
         .map_err(|err| format!("Failed to inspect video file at {}: {err}", path.display()))?
         .then_some(())
         .ok_or_else(|| format!("Video file was not found at {}.", path.display()))
-}
-
-trait FileRevealer {
-    fn reveal(&self, path: &Path) -> Result<(), String>;
-}
-
-struct SystemFileRevealer;
-
-impl FileRevealer for SystemFileRevealer {
-    fn reveal(&self, path: &Path) -> Result<(), String> {
-        reveal_in_file_browser(path)
-    }
 }
 
 #[cfg(target_os = "windows")]
@@ -446,25 +426,13 @@ fn reveal_in_file_browser(path: &Path) -> Result<(), String> {
 mod tests {
     use super::{
         history_paths_for_game_path, history_read_problem_with, history_thumbnails,
-        require_video_file_exists, FileRevealer, History, HistoryThumbnails,
+        require_video_file_exists, History, HistoryReadError, HistoryThumbnails,
         StorageCleanupExecution, StorageCleanupPreset, StorageCleanupPreview, StorageCleanupScope,
         HISTORY_UNAVAILABLE,
     };
     use crate::problem::SemanticProblemCode;
     use crate::services::paths;
-    use std::{path::Path, sync::Mutex};
-
-    #[derive(Default)]
-    struct RecordingRevealer {
-        revealed: Mutex<Vec<std::path::PathBuf>>,
-    }
-
-    impl FileRevealer for RecordingRevealer {
-        fn reveal(&self, path: &Path) -> Result<(), String> {
-            self.revealed.lock().unwrap().push(path.to_path_buf());
-            Ok(())
-        }
-    }
+    use std::path::Path;
 
     fn create_history_schema(conn: &rusqlite::Connection) {
         conn.execute_batch(
@@ -614,7 +582,9 @@ mod tests {
 
     #[test]
     fn missing_selected_history_returns_a_domain_error() {
-        let error = History::from_resolved_game_path(None).err().unwrap();
+        let error = History::from_resolved_game_path_with(None, || false)
+            .err()
+            .unwrap();
 
         assert_eq!(error, HISTORY_UNAVAILABLE);
     }
@@ -649,7 +619,11 @@ mod tests {
 
     #[test]
     fn history_read_problem_uses_the_injected_game_state() {
-        let problem = history_read_problem_with("list_runs", "database busy".to_string(), || true);
+        let problem = history_read_problem_with(
+            "list_runs",
+            HistoryReadError::Failed("database busy".to_string()),
+            || true,
+        );
 
         assert_eq!(problem.code, SemanticProblemCode::HistoryReadBlockedByGame);
         assert_eq!(
@@ -735,19 +709,14 @@ mod tests {
         assert!(read_failed.diagnostic.is_some());
 
         std::fs::remove_file(&history.paths.database_path).unwrap();
-        let revealer = RecordingRevealer::default();
         for (operation, problem) in [
             (
                 "reveal_screenshot",
-                history
-                    .reveal_run_screenshot("run-1", &revealer)
-                    .unwrap_err(),
+                history.run_screenshot_path("run-1").unwrap_err(),
             ),
             (
                 "reveal_video",
-                history
-                    .reveal_battle_video("battle-1", None, &revealer)
-                    .unwrap_err(),
+                history.battle_video_path("battle-1", None).unwrap_err(),
             ),
             (
                 "delete_video",
@@ -863,7 +832,8 @@ mod tests {
         .unwrap();
         drop(conn);
 
-        let history = History::from_resolved_game_path(Some(game_path.clone())).unwrap();
+        let history =
+            History::from_resolved_game_path_with(Some(game_path.clone()), || false).unwrap();
         let thumbnails = HistoryThumbnails::default();
         thumbnails.register(Path::new("/another/installation"));
         let list = history.list_runs_for_page(50, 0, &thumbnails).unwrap();
@@ -879,14 +849,15 @@ mod tests {
         assert_eq!(list.runs.len(), 1);
         assert_eq!(history.run_detail("run-1").unwrap().battles.len(), 1);
 
-        let revealer = RecordingRevealer::default();
-        history.reveal_run_screenshot("run-1", &revealer).unwrap();
-        history
-            .reveal_battle_video("battle-1", Some("video-1"), &revealer)
-            .unwrap();
         assert_eq!(
-            *revealer.revealed.lock().unwrap(),
-            vec![screenshot_path.clone(), video_path.clone()]
+            history.run_screenshot_path("run-1").unwrap(),
+            screenshot_path
+        );
+        assert_eq!(
+            history
+                .battle_video_path("battle-1", Some("video-1"))
+                .unwrap(),
+            video_path
         );
 
         let detail = history.delete_battle_video("battle-1", "video-1").unwrap();

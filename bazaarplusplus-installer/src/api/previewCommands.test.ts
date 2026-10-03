@@ -12,12 +12,8 @@ describe('browser-preview command adapter', () => {
   it('returns the shared seed references', async () => {
     expect(await commandClient.getInstallState(null)).toBe(emptyInstallState);
     expect(await commandClient.getStreamStatus()).toBe(idleStreamStatus);
-    expect(await commandClient.ensureStreamSession(null)).toBe(
-      idleStreamStatus
-    );
-    expect(await commandClient.restartStreamSession(null)).toBe(
-      idleStreamStatus
-    );
+    expect(await commandClient.ensureStreamSession()).toBe(idleStreamStatus);
+    expect(await commandClient.restartStreamSession()).toBe(idleStreamStatus);
     expect(await commandClient.setStreamWindow(3)).toBe(idleStreamStatus);
     expect(await commandClient.getOverlaySettings()).toBe(defaultCropSettings);
     expect(await commandClient.resetOverlayCrop()).toBe(defaultCropSettings);

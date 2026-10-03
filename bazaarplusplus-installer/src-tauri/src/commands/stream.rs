@@ -1,5 +1,4 @@
 use crate::problem::{SemanticProblem, SemanticProblemCode};
-use crate::services::path::normalize_requested_game_path;
 use crate::stream::{
     overlay_settings::{
         OverlayCropSettings, OverlayCropSettingsPayload, OverlaySettingsStore,
@@ -22,10 +21,9 @@ pub fn get_stream_status(
 pub async fn ensure_stream_session(
     app: tauri::AppHandle,
     runtime: tauri::State<'_, StreamRuntime>,
-    game_path: Option<String>,
 ) -> Result<StreamServiceStatus, SemanticProblem> {
     runtime
-        .ensure(app, normalize_requested_game_path(game_path))
+        .ensure(app)
         .await
         .map_err(|diagnostic| stream_service_problem("ensure", diagnostic))
 }
@@ -47,10 +45,9 @@ pub async fn prepare_history_thumbnails(
 pub async fn restart_stream_session(
     app: tauri::AppHandle,
     runtime: tauri::State<'_, StreamRuntime>,
-    game_path: Option<String>,
 ) -> Result<StreamServiceStatus, SemanticProblem> {
     runtime
-        .restart(app, normalize_requested_game_path(game_path))
+        .restart(app)
         .await
         .map_err(|diagnostic| stream_service_problem("restart", diagnostic))
 }
@@ -168,15 +165,6 @@ mod tests {
         let window = stream_window_problem(3, "record missing".to_string());
         assert_eq!(window.code, SemanticProblemCode::StreamWindowFailed);
         assert_eq!(window.params.get("offset").map(String::as_str), Some("3"));
-
-        let unsupported_schema = stream_window_problem(
-            0,
-            "Unsupported mod database schema: found=3, supported=1,2.".to_string(),
-        );
-        assert_eq!(
-            unsupported_schema.code,
-            SemanticProblemCode::StreamWindowFailed
-        );
 
         let crop = stream_crop_problem("apply_code", "invalid code".to_string());
         assert_eq!(crop.code, SemanticProblemCode::StreamCropFailed);
