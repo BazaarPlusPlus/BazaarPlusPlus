@@ -10,6 +10,7 @@ import {
 import { synchronizePayloadProjection } from './payload-inventory.mjs';
 import { assertPlatformCoherence } from './release-platforms.mjs';
 import { assertWorkspaceHistoryDatabaseCompatibility } from './history-database.mjs';
+import { lockWarnings, readGameLibsLock } from './game-libs.mjs';
 
 function readBadges(workspaceRoot, version) {
   return ['README.md', 'README_en.md'].map((name) => {
@@ -40,13 +41,20 @@ export function synchronizeProductProjections(workspaceRoot = WORKSPACE_ROOT) {
   return version;
 }
 
-export function checkProductProjections(workspaceRoot = WORKSPACE_ROOT) {
+// `warn` receives the Snapshot Lock's empty and stale entries: they are work
+// not yet done, never a failure; a malformed lock throws like any other drift.
+export function checkProductProjections(
+  workspaceRoot = WORKSPACE_ROOT,
+  { warn = () => {}, now = new Date() } = {}
+) {
   const rootDir = path.join(workspaceRoot, 'bazaarplusplus-installer');
   const version = readProductVersion(workspaceRoot);
   assertVersionsAreAligned(collectVersionSnapshot(rootDir));
   synchronizePayloadProjection(workspaceRoot, { check: true });
   assertPlatformCoherence(rootDir);
   assertWorkspaceHistoryDatabaseCompatibility(workspaceRoot);
+  for (const warning of lockWarnings(readGameLibsLock(workspaceRoot), { now }))
+    warn(warning);
   const config = JSON.parse(
     fs.readFileSync(path.join(rootDir, 'src-tauri/tauri.conf.json'), 'utf8')
   );

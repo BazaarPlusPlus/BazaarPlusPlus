@@ -8,6 +8,7 @@ import {
   checkGameLibsLock,
   cliMain,
   fetchSnapshot,
+  lockEntryForManaged,
   lockKeys,
   lockWarnings,
   lockedEntries,
@@ -611,4 +612,79 @@ test('the CLI prints only the result on stdout and reports failures on stderr', 
   expect(err.join('')).toMatch(/snapshot requires --managed/);
   expect(err.join('')).toMatch(/Unknown game-libs verb/);
   expect(err.join('')).toMatch(/WARNING: windows-online/);
+});
+
+// lockEntryForManaged, the provenance the sealed build record carries. Failure
+// modes: a Managed directory whose digest no entry records throws, naming its
+// game version and the locked entries (an entry the build did not use is one
+// such entry); an unknown build platform throws; identical bytes under several
+// entries resolve to the build platform's entry, then online, staging, ptr.
+test('the build record entry is the one the Managed digest matches, preferring the build platform', () => {
+  const { workspaceRoot } = workspace();
+  const managed = gameInstall(
+    path.join(workspaceRoot, 'steam'),
+    STAGING_VERSION
+  );
+  const digest = managedDirectoryDigest(managed);
+  expect(() =>
+    lockEntryForManaged({
+      workspaceRoot,
+      platform: 'macos',
+      managedPath: managed
+    })
+  ).toThrow(
+    new RegExp(
+      `hashes to ${digest}, which no Snapshot Lock entry records \\(it is ${STAGING_VERSION}\\); locked entries: none`
+    )
+  );
+  const entry = (gameVersion, steamBranch, sha256 = digest) => ({
+    gameVersion,
+    sha256,
+    buildid: '25661913',
+    steamBranch,
+    capturedAt: NOW.toISOString()
+  });
+  const lock = emptyLock();
+  lock.entries['macos-online'] = entry(
+    ONLINE_VERSION,
+    'public',
+    'c'.repeat(64)
+  );
+  lock.entries['macos-staging'] = entry(STAGING_VERSION, 'staging');
+  lock.entries['windows-online'] = entry(
+    '1.0.12600-windows-x64-0a1b2c3d',
+    'public'
+  );
+  lock.entries['windows-ptr'] = entry(
+    '1.0.12600-ptr-windows-x64-0a1b2c3d',
+    'public_test_realm'
+  );
+  validateGameLibsLock(lock);
+  expect(
+    lockEntryForManaged({ lock, platform: 'macos', managedPath: managed })
+  ).toEqual({
+    key: 'macos-staging',
+    platform: 'macos',
+    channel: 'staging',
+    gameVersion: STAGING_VERSION,
+    sha256: digest,
+    buildid: '25661913'
+  });
+  expect(
+    lockEntryForManaged({ lock, platform: 'windows', managedPath: managed }).key
+  ).toBe('windows-online');
+  lock.entries['windows-online'] = null;
+  expect(
+    lockEntryForManaged({ lock, platform: 'windows', managedPath: managed }).key
+  ).toBe('windows-ptr');
+  expect(() =>
+    lockEntryForManaged({ lock, platform: 'linux', managedPath: managed })
+  ).toThrow(/Unknown snapshot platform/);
+  // The game moved on after capture: the entries exist, but none was used.
+  write(path.join(managed, 'UnityEngine.dll'), 'patched');
+  expect(() =>
+    lockEntryForManaged({ lock, platform: 'macos', managedPath: managed })
+  ).toThrow(
+    /locked entries: macos-online 1\.0\.12600-macos-arm64-0a1b2c3d, macos-staging 1\.0\.12575-staging-macos-arm64-fecb8f8e, windows-ptr/
+  );
 });

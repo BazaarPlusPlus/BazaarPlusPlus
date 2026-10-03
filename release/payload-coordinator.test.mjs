@@ -17,7 +17,14 @@ import {
   requiredPayloadPaths,
   synchronizePayloadProjection
 } from './payload-inventory.mjs';
+import { PAYLOAD_BUILD_RECORD_SCHEMA_VERSION } from './artifact-manifest.mjs';
+import {
+  GAME_LIBS_LOCK_PATH,
+  lockKeys,
+  managedDirectoryDigest
+} from './game-libs.mjs';
 
+const WINDOWS_ONLINE_VERSION = '1.0.12600-windows-x64-0a1b2c3d';
 const roots = [];
 afterEach(() => {
   for (const root of roots.splice(0))
@@ -26,6 +33,36 @@ afterEach(() => {
 function write(file, bytes) {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, bytes);
+}
+// The windows-online Snapshot Lock entry the fixture's Managed directory
+// satisfies; the other five keys stay empty.
+function lockEntry(managedPath) {
+  return {
+    gameVersion: WINDOWS_ONLINE_VERSION,
+    sha256: managedDirectoryDigest(managedPath),
+    buildid: '25661999',
+    steamBranch: 'public',
+    capturedAt: '2026-10-01T00:00:00.000Z'
+  };
+}
+function writeLock({ workspaceRoot }, windowsOnline) {
+  write(
+    path.join(workspaceRoot, GAME_LIBS_LOCK_PATH),
+    `${JSON.stringify(
+      {
+        schemaVersion: 1,
+        staleAfterDays: 30,
+        entries: Object.fromEntries(
+          lockKeys().map((key) => [
+            key,
+            key === 'windows-online' ? windowsOnline : null
+          ])
+        )
+      },
+      null,
+      2
+    )}\n`
+  );
 }
 function fixture() {
   const workspaceRoot = fs.mkdtempSync(
@@ -45,6 +82,7 @@ function fixture() {
     'class Plugin {}'
   );
   write(path.join(managedPath, 'Assembly-CSharp.dll'), 'game references');
+  writeLock({ workspaceRoot }, lockEntry(managedPath));
   write(
     path.join(rootDir, 'src-tauri/history-database-compatibility.json'),
     JSON.stringify({ formatVersion: 1, supportedUserVersions: [2] })
@@ -247,7 +285,9 @@ test('a prepared Payload is sealed against same-version replacement and ZIP rege
     ...data,
     produce: ({ rootDir, platform }) => stage(rootDir, platform, 'new')
   });
-  expect(verifyPayloadBuild(data).schemaVersion).toBe(2);
+  expect(verifyPayloadBuild(data).schemaVersion).toBe(
+    PAYLOAD_BUILD_RECORD_SCHEMA_VERSION
+  );
   write(
     path.join(
       payloadPaths(data.rootDir, data.platform).source,
@@ -387,4 +427,66 @@ test('shared release Git helper changes invalidate the Payload input digest', ()
   expect(added).not.toBe(before);
   write(helper, '// changed Git runner');
   expect(computePayloadInputs(data).digest).not.toBe(added);
+});
+
+// Sealed build record provenance (ADR 0004). Failure modes: a Managed directory
+// no Snapshot Lock entry hashes to refuses preparation before anything is
+// staged and keeps the previous Payload (a game that updated after the lock
+// was captured is such a directory: the entry exists but the build did not use
+// it); a lock edit invalidates a prepared Payload like any other input.
+test('the build record names the lock entry the Managed directory hashes to', () => {
+  const data = fixture();
+  const record = preparePayload({
+    ...data,
+    produce: ({ rootDir, platform }) => stage(rootDir, platform, 'new')
+  });
+  expect(record.schemaVersion).toBe(PAYLOAD_BUILD_RECORD_SCHEMA_VERSION);
+  expect(record.lockEntry).toEqual({
+    key: 'windows-online',
+    platform: 'windows',
+    channel: 'online',
+    gameVersion: WINDOWS_ONLINE_VERSION,
+    sha256: managedDirectoryDigest(data.managedPath),
+    buildid: '25661999'
+  });
+  expect(verifyPayloadBuild(data).lockEntry).toEqual(record.lockEntry);
+  writeLock(data, { ...lockEntry(data.managedPath), buildid: '25662000' });
+  expect(() => verifyPayloadBuild(data)).toThrow(/inputs changed/);
+});
+
+test('a Managed directory no lock entry records refuses preparation and keeps the previous Payload', () => {
+  const data = fixture();
+  write(
+    path.join(data.managedPath, 'Assembly-CSharp.dll'),
+    'the game updated after the lock was captured'
+  );
+  let produced = false;
+  expect(() =>
+    preparePayload({
+      ...data,
+      produce: () => {
+        produced = true;
+      }
+    })
+  ).toThrow(
+    /no Snapshot Lock entry records; locked entries: windows-online 1\.0\.12600-windows-x64-0a1b2c3d/
+  );
+  expect(produced).toBe(false);
+  expect(
+    fs.readFileSync(
+      path.join(
+        payloadPaths(data.rootDir, 'windows').source,
+        'BepInEx/plugins/BazaarPlusPlus.dll'
+      ),
+      'utf8'
+    )
+  ).toBe('old');
+  expect(fs.existsSync(payloadPaths(data.rootDir, 'windows').journal)).toBe(
+    false
+  );
+  expect(
+    fs
+      .readdirSync(path.join(data.rootDir, 'src-tauri/target'))
+      .filter((name) => name.startsWith('payload-stage-'))
+  ).toEqual([]);
 });

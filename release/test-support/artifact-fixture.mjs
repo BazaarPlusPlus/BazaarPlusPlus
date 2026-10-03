@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { releasePlatform } from '../release-platforms.mjs';
+import { PAYLOAD_BUILD_RECORD_SCHEMA_VERSION } from '../artifact-manifest.mjs';
 
 // Where a native build leaves one platform's installer, updater and updater
 // signature under the installer project, laid out by RELEASE_PLATFORMS.
@@ -59,7 +60,11 @@ export function writeArtifacts(
   fs.writeFileSync(paths.signature, signature);
   fs.writeFileSync(
     paths.payloadBuild,
-    JSON.stringify({ schemaVersion: 2, productVersion: version, platform })
+    JSON.stringify({
+      schemaVersion: PAYLOAD_BUILD_RECORD_SCHEMA_VERSION,
+      productVersion: version,
+      platform
+    })
   );
   return { rootDir, ...paths };
 }

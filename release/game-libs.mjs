@@ -566,6 +566,56 @@ export async function fetchSnapshot({
   };
 }
 
+// The game version a Managed directory carries: its snapshot manifest, else the
+// globalgamemanagers beside it, else null (a bare copied directory).
+function managedGameVersion(managedPath) {
+  const manifest = readSnapshotManifest(path.dirname(managedPath));
+  if (manifest) return manifest.gameVersion;
+  return fs.existsSync(gameVersionFile(managedPath))
+    ? readGameVersion(managedPath)
+    : null;
+}
+
+// The lock entry a build used, for the sealed build record: the entry whose
+// sha256 is the digest of the Managed directory the build compiled against.
+// The same bytes may satisfy several entries (two platforms' Managed can be
+// identical); the build platform's entry wins, then online, staging, ptr. A
+// Managed directory no entry records is not a release input (ADR 0004).
+export function lockEntryForManaged({
+  workspaceRoot = WORKSPACE_ROOT,
+  lock = readGameLibsLock(workspaceRoot),
+  platform,
+  managedPath
+}) {
+  lockKey(platform, 'online');
+  const digest = managedDirectoryDigest(managedPath);
+  const matching = lockedEntries(lock).filter(
+    ({ entry }) => entry.sha256 === digest
+  );
+  if (matching.length === 0) {
+    const gameVersion = managedGameVersion(managedPath);
+    const locked = lockedEntries(lock)
+      .map(({ key, entry }) => `${key} ${entry.gameVersion}`)
+      .join(', ');
+    throw new Error(
+      `${managedPath} hashes to ${digest}, which no Snapshot Lock entry records${gameVersion ? ` (it is ${gameVersion})` : ''}; locked entries: ${locked || 'none'}. Build against a locked snapshot ('just mod::fetch ${platform} online'), or capture this game with 'just mod::snapshot', publish it and commit ${GAME_LIBS_LOCK_PATH}.`
+    );
+  }
+  const rank = ({ platform: entryPlatform, channel }) =>
+    (entryPlatform === platform ? 0 : SNAPSHOT_CHANNELS.length) +
+    SNAPSHOT_CHANNELS.indexOf(channel);
+  matching.sort((a, b) => rank(a) - rank(b));
+  const { key, platform: entryPlatform, channel, entry } = matching[0];
+  return {
+    key,
+    platform: entryPlatform,
+    channel,
+    gameVersion: entry.gameVersion,
+    sha256: entry.sha256,
+    buildid: entry.buildid
+  };
+}
+
 // The `just mod::check` gate: a malformed lock fails, empty or stale entries
 // warn, and a resolved Managed directory whose game version a lock entry names
 // must hash to that entry.
@@ -578,12 +628,7 @@ export function checkGameLibsLock({
   const warnings = lockWarnings(lock, { now });
   let verified = null;
   if (managedPath) {
-    const manifest = readSnapshotManifest(path.dirname(managedPath));
-    const gameVersion = manifest
-      ? manifest.gameVersion
-      : fs.existsSync(gameVersionFile(managedPath))
-        ? readGameVersion(managedPath)
-        : null;
+    const gameVersion = managedGameVersion(managedPath);
     const matching = lockedEntries(lock).filter(
       ({ entry }) => entry.gameVersion === gameVersion
     );
