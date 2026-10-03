@@ -4,6 +4,7 @@ using BazaarPlusPlus.Core.Events;
 using BazaarPlusPlus.Core.GameState;
 using BazaarPlusPlus.Core.Runtime;
 using BazaarPlusPlus.Game.BilingualItemNames;
+using BazaarPlusPlus.Game.CosmeticNames;
 using BazaarPlusPlus.Game.EventPreview;
 using BazaarPlusPlus.Game.HistoryPanel;
 using BazaarPlusPlus.Game.Input;
@@ -498,6 +499,7 @@ public class SettingsDockRegistryTests
             VoiceSubtitlesSettingsDockEntry.RegisterAll(registry);
             registry.Register(ChineseLocaleModeSettingsDockEntry.Create(new InMemoryBppEventBus()));
             registry.Register(BilingualItemNamesSettingsDockEntry.Create());
+            registry.Register(CosmeticNamesSettingsDockEntry.Create());
             registry.Register(new EndOfRunScreenshotSettingsDockEntry());
             registry.Register(new HistoryPanelSettingsDockEntry());
             registry.Register(ItemEnchantPreviewSettingsDockEntry.Create());
@@ -512,7 +514,7 @@ public class SettingsDockRegistryTests
                 .OrderBy(entry => entry.Order)
                 .ToArray();
 
-            Assert.Equal(Enumerable.Range(0, 16), presented.Select(entry => entry.Order));
+            Assert.Equal(Enumerable.Range(0, 17), presented.Select(entry => entry.Order));
             Assert.Equal(
                 new[]
                 {
@@ -523,6 +525,7 @@ public class SettingsDockRegistryTests
                     "QuestPreview",
                     "EndOfRunScreenshot",
                     "BazaarDbUpload",
+                    "CosmeticNames",
                     "EnchantPreview",
                     "UpgradePreviewActivation",
                     "LegendaryPositionDisplay",
@@ -545,7 +548,7 @@ public class SettingsDockRegistryTests
                     ("NameOverride", "StreamMode"),
                     ("BilingualItemNames", "EventPreview"),
                     ("QuestPreview", "EndOfRunScreenshot"),
-                    ("BazaarDbUpload", null),
+                    ("BazaarDbUpload", "CosmeticNames"),
                 },
                 groups.Select(group =>
                     (
@@ -557,11 +560,11 @@ public class SettingsDockRegistryTests
                 )
             );
             Assert.All(
-                presented.Take(7),
+                presented.Take(8),
                 entry => Assert.Equal(BppSettingsControlKind.Toggle, entry.Definition.ControlKind)
             );
             Assert.All(
-                presented.Skip(7).Take(8),
+                presented.Skip(8).Take(8),
                 entry => Assert.Equal(BppSettingsControlKind.Choice, entry.Definition.ControlKind)
             );
             Assert.Equal(BppSettingsControlKind.Action, presented[^1].Definition.ControlKind);

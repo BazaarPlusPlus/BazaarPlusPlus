@@ -16,6 +16,8 @@ internal interface IBppConfig
 
     ConfigEntry<bool>? EnableBilingualItemNamesConfig { get; }
 
+    ConfigEntry<bool>? EnableCosmeticNamesConfig { get; }
+
     ConfigEntry<bool>? EnableVoiceSubtitlesConfig { get; }
 
     ConfigEntry<SubtitlePosition>? VoiceSubtitlesPositionConfig { get; }

@@ -84,6 +84,10 @@
       Link="BilingualItemNamesLogEvents.cs"
     />
     <Compile
+      Include="../../src/BazaarPlusPlus/Game/CosmeticNames/CosmeticNamesLogEvents.cs"
+      Link="CosmeticNamesLogEvents.cs"
+    />
+    <Compile
       Include="../../src/BazaarPlusPlus/Game/EventPreview/EventPreviewLogEvents.cs"
       Link="EventPreviewLogEvents.cs"
     />

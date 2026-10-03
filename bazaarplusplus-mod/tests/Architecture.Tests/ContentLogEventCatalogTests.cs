@@ -1,5 +1,6 @@
 #nullable enable
 using System.Reflection;
+using BazaarPlusPlus.Game.CosmeticNames;
 using BazaarPlusPlus.Game.EventPreview;
 using BazaarPlusPlus.Game.Supporters;
 using BazaarPlusPlus.GameInterop.Localization;
@@ -38,6 +39,7 @@ public sealed class ContentLogEventCatalogTests
     {
         var definitions = Definitions(typeof(SupporterLogEvents))
             .Concat(Definitions(typeof(BilingualItemNamesLogEvents)))
+            .Concat(Definitions(typeof(CosmeticNamesLogEvents)))
             .Concat(Definitions(typeof(EventPreviewLogEvents)))
             .Concat(Definitions(typeof(NameOverrideLogEvents)))
             .Concat(Definitions(typeof(StaticCardsLogEvents)))
@@ -57,6 +59,7 @@ public sealed class ContentLogEventCatalogTests
             ["bilingual_item_names.catalog.recovered"] = "locale:Low:None",
             ["bilingual_item_names.catalog.loaded"] = "locale:Low:None",
             ["bilingual_item_names.tooltip.degraded"] = "reason_code:Low:None",
+            ["cosmetic_names.overlay.degraded"] = "",
             ["name_override.value.applied"] = "operation:Low:None|reason_code:Low:None",
             ["name_override.value.skipped"] = "operation:Low:None|reason_code:Low:None",
         };

@@ -22,6 +22,8 @@ internal sealed class BppConfig : IBppConfig
 
     public ConfigEntry<bool>? EnableBilingualItemNamesConfig { get; private set; }
 
+    public ConfigEntry<bool>? EnableCosmeticNamesConfig { get; private set; }
+
     public ConfigEntry<bool>? EnableVoiceSubtitlesConfig { get; private set; }
 
     public ConfigEntry<SubtitlePosition>? VoiceSubtitlesPositionConfig { get; private set; }
@@ -99,6 +101,12 @@ internal sealed class BppConfig : IBppConfig
             "Enabled",
             false,
             "Whether item, skill, monster, pedestal, reward, and event tooltips show the other English/Chinese name below the current-language name."
+        );
+        EnableCosmeticNamesConfig = config.Bind(
+            "CosmeticNames",
+            "Enabled",
+            false,
+            "Whether to overlay localized names at the bottom center of individual cosmetic thumbnails in the loadout selection list."
         );
         EnableVoiceSubtitlesConfig = config.Bind(
             "VoiceSubtitles",
