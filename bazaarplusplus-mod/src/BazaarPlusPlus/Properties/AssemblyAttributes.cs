@@ -4,7 +4,7 @@ using System.Runtime.CompilerServices;
 [assembly: InternalsVisibleTo("ItemEnchantPreview.Tests")]
 [assembly: InternalsVisibleTo("CollectionSourceFiltering.Tests")]
 [assembly: InternalsVisibleTo("LiveBuildRecommendations.Tests")]
-[assembly: InternalsVisibleTo("RunLoggingModule.Tests")]
+[assembly: InternalsVisibleTo("RunLoggingPipeline.Tests")]
 [assembly: InternalsVisibleTo("EndOfRunScreenshotGate.Tests")]
 [assembly: InternalsVisibleTo("HistoryPanelFactory.Tests")]
 [assembly: InternalsVisibleTo("HistoryPanelDecisions.Tests")]

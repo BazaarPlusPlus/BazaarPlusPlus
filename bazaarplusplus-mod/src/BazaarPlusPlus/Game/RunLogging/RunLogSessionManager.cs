@@ -12,12 +12,12 @@ internal sealed class RunLogSessionManager
 
     public RunLogSessionManager(
         IRunLogStore store,
-        Func<DateTimeOffset>? utcNow = null,
+        Func<DateTimeOffset> utcNow,
         Func<PlayerStatsSnapshot?>? statsProvider = null
     )
     {
         _store = store ?? throw new ArgumentNullException(nameof(store));
-        _utcNow = utcNow ?? (() => DateTimeOffset.UtcNow);
+        _utcNow = utcNow ?? throw new ArgumentNullException(nameof(utcNow));
         _statsProvider = statsProvider;
     }
 

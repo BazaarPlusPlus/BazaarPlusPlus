@@ -12,6 +12,7 @@ internal static class RunLogRecordMapper
         RankSnapshot? rank,
         string? serverRunId,
         string? buildChannel,
+        DateTimeOffset utcNow,
         out RunLogCreateRequest request
     )
     {
@@ -22,7 +23,7 @@ internal static class RunLogRecordMapper
         request = new RunLogCreateRequest
         {
             RunId = serverRunId,
-            StartedAtUtc = DateTimeOffset.UtcNow,
+            StartedAtUtc = utcNow,
             Hero = basics.Hero,
             GameMode = basics.GameMode!,
             PlayerRank = rank?.Rank,
@@ -39,13 +40,14 @@ internal static class RunLogRecordMapper
         RunExitKind lastExitKind,
         RunBasicsSnapshot? basics,
         PlayerStatsSnapshot? stats,
-        RankSnapshot? rank
+        RankSnapshot? rank,
+        DateTimeOffset utcNow
     )
     {
         return new RunLogCompletion
         {
             Status = lastExitKind == RunExitKind.Interrupted ? "abandoned" : "completed",
-            EndedAtUtc = DateTimeOffset.UtcNow,
+            EndedAtUtc = utcNow,
             FinalDay = basics?.Day,
             FinalHour = basics?.Hour,
             MaxHealth = stats?.MaxHealth,
@@ -61,12 +63,16 @@ internal static class RunLogRecordMapper
         };
     }
 
-    public static RunLogAbandonment BuildRunLogAbandonment(string reason, RunBasicsSnapshot? basics)
+    public static RunLogAbandonment BuildRunLogAbandonment(
+        string reason,
+        RunBasicsSnapshot? basics,
+        DateTimeOffset utcNow
+    )
     {
         return new RunLogAbandonment
         {
             Status = "abandoned",
-            EndedAtUtc = DateTimeOffset.UtcNow,
+            EndedAtUtc = utcNow,
             FinalDay = basics?.Day,
             FinalHour = basics?.Hour,
             Reason = reason,
