@@ -60,8 +60,7 @@ function writeStagedHistoryDatabaseContract(fixture, userVersion) {
     contractPath,
     `${JSON.stringify({
       formatVersion: 1,
-      historyDatabaseUserVersion: userVersion,
-      historyRowSchemaVersion: userVersion
+      historyDatabaseUserVersion: userVersion
     })}\n`
   );
 }

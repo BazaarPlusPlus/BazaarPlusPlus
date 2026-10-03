@@ -5,8 +5,6 @@ public sealed class RunLogSessionState
 {
     public string RunId { get; set; } = string.Empty;
 
-    public int SchemaVersion { get; set; } = RunLogSchema.RowSchemaVersion;
-
     public DateTimeOffset StartedAtUtc { get; set; }
 
     public DateTimeOffset LastSeenAtUtc { get; set; }
@@ -26,6 +24,4 @@ public sealed class RunLogSessionState
     public int? Income { get; set; }
 
     public int? Gold { get; set; }
-
-    public bool Completed { get; set; }
 }

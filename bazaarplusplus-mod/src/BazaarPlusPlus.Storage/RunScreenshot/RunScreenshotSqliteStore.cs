@@ -60,7 +60,7 @@ public sealed class RunScreenshotSqliteStore : SqliteStoreBase
         command.Parameters.AddWithValue("$runId", (object?)record.RunId ?? DBNull.Value);
         command.Parameters.AddWithValue("$heroName", (object?)record.HeroName ?? DBNull.Value);
         command.Parameters.AddWithValue("$battleId", (object?)record.BattleId ?? DBNull.Value);
-        command.Parameters.AddWithValue("$captureSource", GetStorageValue());
+        command.Parameters.AddWithValue("$captureSource", RunLogSchema.CaptureSourceEndOfRunAuto);
         command.Parameters.AddWithValue("$isPrimary", record.IsPrimary ? 1 : 0);
         command.Parameters.AddWithValue("$imageRelativePath", record.ImageRelativePath);
         command.Parameters.AddWithValue("$capturedAtLocal", record.CapturedAtLocal.ToString("o"));
@@ -97,10 +97,5 @@ public sealed class RunScreenshotSqliteStore : SqliteStoreBase
                 DateTimeOffset.Parse(reader.GetString(1), CultureInfo.InvariantCulture)
             )
             : null;
-    }
-
-    private static string GetStorageValue()
-    {
-        return RunLogSchema.CaptureSourceEndOfRunAuto;
     }
 }

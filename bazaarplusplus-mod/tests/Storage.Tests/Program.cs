@@ -1,7 +1,7 @@
 #nullable enable
 
-TempDirPathProviderTests.Run();
 SqliteShutdownTests.Run();
+RunLogCheckpointTests.Run();
 RunLogSchemaMigrationTests.Run();
 RunLogSchemaIndexTests.Run();
 RunLogSchemaColumnShapeTests.Run();

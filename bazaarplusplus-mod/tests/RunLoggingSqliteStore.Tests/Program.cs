@@ -92,12 +92,10 @@ try
             runId,
             new RunLogCheckpoint
             {
-                RunId = runId,
                 LastSeq = 2,
                 LastSeenAtUtc = startedAt.AddSeconds(5),
                 Day = 1,
                 Hour = 2,
-                Completed = false,
             },
         ]
     );
@@ -110,7 +108,6 @@ try
             runId,
             new RunLogCompletion
             {
-                RunId = runId,
                 Status = "completed",
                 EndedAtUtc = startedAt.AddMinutes(15),
                 FinalDay = 3,
@@ -208,7 +205,6 @@ try
                 abandonedRunId,
                 new RunLogCompletion
                 {
-                    RunId = abandonedRunId,
                     Status = "abandoned",
                     EndedAtUtc = startedAt.AddHours(1).AddMinutes(5),
                     FinalDay = 1,
@@ -289,12 +285,10 @@ try
                 olderActiveRunId,
                 new RunLogCheckpoint
                 {
-                    RunId = olderActiveRunId,
                     LastSeq = 4,
                     LastSeenAtUtc = olderStartedAt.AddMinutes(5),
                     Day = 2,
                     Hour = 4,
-                    Completed = false,
                 },
             ]
         );
@@ -323,12 +317,10 @@ try
                 newerActiveRunId,
                 new RunLogCheckpoint
                 {
-                    RunId = newerActiveRunId,
                     LastSeq = 2,
                     LastSeenAtUtc = newerStartedAt.AddMinutes(10),
                     Day = 3,
                     Hour = 2,
-                    Completed = false,
                 },
             ]
         );

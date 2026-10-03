@@ -55,8 +55,7 @@ export function readHistoryDatabaseContract(contractPath) {
   );
   if (
     contract.formatVersion !== 1 ||
-    !isPositiveInteger(contract.historyDatabaseUserVersion) ||
-    !isPositiveInteger(contract.historyRowSchemaVersion)
+    !isPositiveInteger(contract.historyDatabaseUserVersion)
   ) {
     throw new Error(
       `Invalid BazaarPlusPlus history database contract: ${contractPath}`

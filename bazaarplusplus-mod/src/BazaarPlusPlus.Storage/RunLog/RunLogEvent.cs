@@ -3,7 +3,7 @@ namespace BazaarPlusPlus.Storage.RunLog;
 
 public sealed class RunLogEvent
 {
-    public int SchemaVersion { get; set; } = RunLogSchema.RowSchemaVersion;
+    public int SchemaVersion { get; set; } = RunLogSchema.LocalDatabaseSchemaVersion;
 
     public string RunId { get; set; } = string.Empty;
 

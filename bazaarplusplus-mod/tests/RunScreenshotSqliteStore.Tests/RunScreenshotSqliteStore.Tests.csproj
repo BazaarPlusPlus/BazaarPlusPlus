@@ -7,6 +7,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="../../src/BazaarPlusPlus/BazaarPlusPlus.csproj" />
+    <ProjectReference Include="../../src/BazaarPlusPlus.Storage/BazaarPlusPlus.Storage.csproj" />
   </ItemGroup>
 </Project>

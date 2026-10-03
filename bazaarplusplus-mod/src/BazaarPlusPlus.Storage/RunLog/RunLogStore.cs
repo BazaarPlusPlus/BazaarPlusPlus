@@ -191,8 +191,7 @@ public sealed class RunLogStore : SqliteStoreBase, IRunLogStore
                 prestige = $prestige,
                 level = $level,
                 income = $income,
-                gold = $gold,
-                completed = $completed
+                gold = $gold
             WHERE run_id = $runId;
             """;
         command.Parameters.AddWithValue("$runId", runId);
@@ -205,7 +204,6 @@ public sealed class RunLogStore : SqliteStoreBase, IRunLogStore
         AddNullableInt32(command, "$level", checkpoint.Level);
         AddNullableInt32(command, "$income", checkpoint.Income);
         AddNullableInt32(command, "$gold", checkpoint.Gold);
-        command.Parameters.AddWithValue("$completed", checkpoint.Completed ? 1 : 0);
         command.ExecuteNonQuery();
     }
 
@@ -419,7 +417,6 @@ public sealed class RunLogStore : SqliteStoreBase, IRunLogStore
         return new RunLogSessionState
         {
             RunId = reader.GetString(reader.GetOrdinal("run_id")),
-            SchemaVersion = RunLogSchema.CurrentSchemaVersion,
             StartedAtUtc = startedAtUtc,
             LastSeenAtUtc = lastSeenAtUtc,
             LastSeq = GetNullableInt64(reader, "last_seq") ?? 0,
@@ -430,7 +427,6 @@ public sealed class RunLogStore : SqliteStoreBase, IRunLogStore
             Level = GetNullableInt32(reader, "level"),
             Income = GetNullableInt32(reader, "income"),
             Gold = GetNullableInt32(reader, "gold"),
-            Completed = false,
         };
     }
 

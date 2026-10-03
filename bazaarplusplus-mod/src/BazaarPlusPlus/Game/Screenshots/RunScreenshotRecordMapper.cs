@@ -22,7 +22,6 @@ internal static class RunScreenshotRecordMapper
             RunId = capture.RunId,
             HeroName = heroName,
             BattleId = capture.BattleId,
-            CaptureSource = capture.CaptureSource,
             IsPrimary = isPrimary,
             ImageRelativePath = capture.RelativePath,
             CapturedAtLocal = capture.CapturedAtLocal,

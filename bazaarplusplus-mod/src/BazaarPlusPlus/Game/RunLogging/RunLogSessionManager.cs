@@ -47,7 +47,6 @@ internal sealed class RunLogSessionManager
                 ActiveSession.RunId,
                 new RunLogAbandonment
                 {
-                    SchemaVersion = ActiveSession.SchemaVersion,
                     EndedAtUtc = _utcNow(),
                     FinalDay = ActiveSession.Day,
                     FinalHour = ActiveSession.Hour,
@@ -73,8 +72,6 @@ internal sealed class RunLogSessionManager
         var session =
             ActiveSession ?? throw new InvalidOperationException("No active run session.");
 
-        entry.SchemaVersion =
-            entry.SchemaVersion == 0 ? session.SchemaVersion : entry.SchemaVersion;
         entry.RunId = session.RunId;
         entry.Seq = session.LastSeq + 1;
         entry.Ts = entry.Ts == default ? _utcNow() : entry.Ts;
@@ -105,8 +102,6 @@ internal sealed class RunLogSessionManager
 
         var checkpoint = new RunLogCheckpoint
         {
-            SchemaVersion = session.SchemaVersion,
-            RunId = session.RunId,
             LastSeq = session.LastSeq,
             LastSeenAtUtc = session.LastSeenAtUtc,
             Day = session.Day,
@@ -116,7 +111,6 @@ internal sealed class RunLogSessionManager
             Level = session.Level,
             Income = session.Income,
             Gold = session.Gold,
-            Completed = session.Completed,
         };
 
         _store.SaveCheckpoint(session.RunId, checkpoint);
@@ -127,9 +121,6 @@ internal sealed class RunLogSessionManager
     {
         var session =
             ActiveSession ?? throw new InvalidOperationException("No active run session.");
-        completion.SchemaVersion =
-            completion.SchemaVersion == 0 ? session.SchemaVersion : completion.SchemaVersion;
-        completion.RunId = session.RunId;
         if (completion.EndedAtUtc == default)
             completion.EndedAtUtc = _utcNow();
         completion.FinalDay ??= session.Day;
@@ -141,7 +132,6 @@ internal sealed class RunLogSessionManager
         completion.Gold ??= session.Gold;
 
         _store.CompleteRun(session.RunId, completion);
-        session.Completed = true;
         ActiveSession = null;
     }
 
@@ -149,14 +139,10 @@ internal sealed class RunLogSessionManager
     {
         var session =
             ActiveSession ?? throw new InvalidOperationException("No active run session.");
-        abandonment.SchemaVersion =
-            abandonment.SchemaVersion == 0 ? session.SchemaVersion : abandonment.SchemaVersion;
-        abandonment.RunId = session.RunId;
         if (abandonment.EndedAtUtc == default)
             abandonment.EndedAtUtc = _utcNow();
 
         _store.MarkRunAbandoned(session.RunId, abandonment);
-        session.Completed = true;
         ActiveSession = null;
     }
 }
