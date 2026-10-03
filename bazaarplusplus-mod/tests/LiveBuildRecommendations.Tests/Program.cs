@@ -6,6 +6,7 @@ using BazaarPlusPlus.Game.LiveBuildPanel.Recommendations;
 using BazaarPlusPlus.GameInterop.Heroes;
 using BazaarPlusPlus.Infrastructure.RemoteEmbeddedCatalog;
 using BazaarPlusPlus.Infrastructure.UiTokens;
+using BazaarPlusPlus.TestSupport;
 using Json.Schema;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -222,23 +223,17 @@ internal static class TenWinBuildTests
     {
         const string expected =
             "https://bpp-metrics.bazaarplusplus.com/analyzer-v5/builds/latest.json";
-        var root = RepositoryRoot();
-        var factory = File.ReadAllText(
-            Path.Combine(
-                root,
-                "src",
-                "BazaarPlusPlus",
-                "Game",
-                "LiveBuildPanel",
-                "Recommendations",
-                "TenWinBuildCatalogFactory.cs"
-            )
-        );
-        var targets = File.ReadAllText(
-            Path.Combine(root, "src", "BazaarPlusPlus", "RemoteEmbeddedData.targets")
-        );
-        Assert(factory.Contains(expected, StringComparison.Ordinal), "Runtime URL should use v5.");
-        Assert(targets.Contains(expected, StringComparison.Ordinal), "Build URL should use v5.");
+        var runtimeUrl = (string?)
+            typeof(TenWinBuildCatalogFactory)
+                .GetField("RemoteUrl", BindingFlags.NonPublic | BindingFlags.Static)
+                ?.GetRawConstantValue();
+        var buildUrl = TestInputs
+            .MsBuild("src/BazaarPlusPlus/RemoteEmbeddedData.targets")
+            .Descendants()
+            .SingleOrDefault(element => element.Name.LocalName == "TenWinBuildsRemoteUrl")
+            ?.Value.Trim();
+        Assert(runtimeUrl == expected, $"Runtime URL should use v5, got '{runtimeUrl}'.");
+        Assert(buildUrl == expected, $"Build URL should use v5, got '{buildUrl}'.");
     }
 
     // Set BPP_TENWIN_SAMPLE_PATH to a downloaded builds/latest.json to validate a live sample.
@@ -249,7 +244,8 @@ internal static class TenWinBuildTests
         if (string.IsNullOrWhiteSpace(path))
             return;
 
-        var corpus = RequireCorpus(File.ReadAllText(path));
+        using var reader = new StreamReader(File.OpenRead(path));
+        var corpus = RequireCorpus(reader.ReadToEnd());
         Assert(corpus.HeroCount > 0, "The live sample should contain heroes.");
         Assert(corpus.BuildCount > 0, "The live sample should contain builds.");
         Console.WriteLine(
@@ -959,28 +955,6 @@ internal static class TenWinBuildTests
 
     private static JArray ContractSchema(JObject root, string name) =>
         (JArray)((JObject)root["schemas"]!)[name]!;
-
-    private static string RepositoryRoot()
-    {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
-        while (directory != null)
-        {
-            if (
-                File.Exists(
-                    Path.Combine(
-                        directory.FullName,
-                        "src",
-                        "BazaarPlusPlus",
-                        "BazaarPlusPlus.csproj"
-                    )
-                )
-            )
-                return directory.FullName;
-            directory = directory.Parent;
-        }
-
-        throw new InvalidOperationException("Repository root not found.");
-    }
 
     // ---- Payload builders -------------------------------------------------
 

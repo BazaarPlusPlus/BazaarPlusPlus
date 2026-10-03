@@ -18,22 +18,6 @@ public sealed class SourceTextBanTests
 
     private static readonly string[] FrozenDebtFiles =
     {
-        "Architecture.Tests/BundleSealConvergenceArchitectureTests.cs",
-        "Architecture.Tests/CollectionMechanicArchitectureTests.cs",
-        "Architecture.Tests/CoreLayeringTests.cs",
-        "Architecture.Tests/EndOfRunCaptureArchitectureTests.cs",
-        "Architecture.Tests/HistoryPagingArchitectureTests.cs",
-        "Architecture.Tests/MacNativeReplayManagedArchitectureTests.cs",
-        "Architecture.Tests/MacNativeReplayNativeArchitectureTests.cs",
-        "Architecture.Tests/NativeAssetLoadingArchitectureTests.cs",
-        "Architecture.Tests/NativeCardPreviewArchitectureTests.cs",
-        "Architecture.Tests/NativeMonsterBoardArchitectureTests.cs",
-        "Architecture.Tests/NativePairedTooltipArchitectureTests.cs",
-        "Architecture.Tests/OutboundNetworkMainMenuArchitectureTests.cs",
-        "Architecture.Tests/OutboundNetworkSeedArchitectureTests.cs",
-        "Architecture.Tests/RemoteEmbeddedCatalogArchitectureTests.cs",
-        "Architecture.Tests/V5DataPipelineArchitectureTests.cs",
-        "LiveBuildRecommendations.Tests/Program.cs",
         "NativeAssetCompatibility.Tests/Program.cs",
         "PtrCompatibility.Tests/Program.cs",
     };

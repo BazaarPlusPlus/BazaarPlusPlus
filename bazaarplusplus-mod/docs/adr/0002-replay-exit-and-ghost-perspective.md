@@ -13,7 +13,6 @@ A replay remains in `ReplayState` after playback ends. Video finalization depend
 ## Guardrails
 
 - Do not add a programmatic `ReplayState` exit. Bootstrapped saved replays leave through the `Exit()` prefix, which routes into `CombatReplayRuntime.TryExitBootstrappedSavedReplayToMenu` ([runtime](../../src/BazaarPlusPlus/Game/CombatReplay/CombatReplayRuntime.cs)).
-- No file outside `CombatReplayRuntime` may call the native recap exit; an architecture test pins the boundary ([test](../../tests/Architecture.Tests/CoreLayeringTests.cs) — `Replay_state_exit_stays_owned_by_the_combat_replay_runtime`).
 - Keep replay transport primitive and policy-free: one recording per battle; batching and concatenation stay external. Mid-playback skipping remains out of scope; phase races fail safely and retry on a later snapshot.
 
 ## Ghost payload perspective contract

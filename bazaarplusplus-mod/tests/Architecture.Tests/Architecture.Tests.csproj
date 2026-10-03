@@ -19,10 +19,48 @@
   <ItemGroup>
     <ProjectReference Include="../../src/BazaarPlusPlus.Storage/BazaarPlusPlus.Storage.csproj" />
     <ProjectReference
+      Include="../../src/BazaarPlusPlus/BazaarPlusPlus.csproj"
+      ReferenceOutputAssembly="false"
+    />
+    <ProjectReference
       Include="../CombatImpact.Corpus/CombatImpact.Corpus.csproj"
       ReferenceOutputAssembly="false"
     />
   </ItemGroup>
+
+  <!-- CompiledArtifacts scans the main build in both configurations (ADR-0009): the project
+       reference builds the current one, BuildScannedMainConfiguration builds the other. -->
+  <PropertyGroup>
+    <BppScannedMainProject>$(MSBuildThisFileDirectory)../../src/BazaarPlusPlus/BazaarPlusPlus.csproj</BppScannedMainProject>
+    <BppScannedMainOutput>$(MSBuildThisFileDirectory)../../src/BazaarPlusPlus/bin/</BppScannedMainOutput>
+    <BppScannedOtherConfiguration Condition="'$(Configuration)' == 'Release'"
+      >Debug</BppScannedOtherConfiguration>
+    <BppScannedOtherConfiguration Condition="'$(Configuration)' != 'Release'"
+      >Release</BppScannedOtherConfiguration>
+  </PropertyGroup>
+  <ItemGroup>
+    <AssemblyMetadata
+      Include="BppMainOutput.Debug"
+      Value="$(BppScannedMainOutput)Debug/netstandard2.1"
+    />
+    <AssemblyMetadata
+      Include="BppMainOutput.Release"
+      Value="$(BppScannedMainOutput)Release/netstandard2.1"
+    />
+    <AssemblyMetadata Include="BppManagedPath" Value="$(ManagedPath)" />
+  </ItemGroup>
+  <Target
+    Name="BuildScannedMainConfiguration"
+    AfterTargets="ResolveProjectReferences"
+    Condition="'$(DesignTimeBuild)' != 'true'"
+  >
+    <MSBuild
+      Projects="$(BppScannedMainProject)"
+      Targets="Build"
+      Properties="Configuration=$(BppScannedOtherConfiguration);BppDeployToGame=false"
+      RemoveProperties="TargetFramework;RuntimeIdentifier;SelfContained"
+    />
+  </Target>
 
   <ItemGroup>
     <Compile
@@ -34,10 +72,6 @@
       Link="Logging/Core/BppLogSchemaRules.cs"
     />
     <Compile Include="../../src/BazaarPlusPlus/PluginLogEvents.cs" Link="PluginLogEvents.cs" />
-    <Compile
-      Include="../../src/BazaarPlusPlus/PluginTeardownAccumulator.cs"
-      Link="PluginTeardownAccumulator.cs"
-    />
     <Compile Include="../../src/BazaarPlusPlus/PluginLogIdentity.cs" Link="PluginLogIdentity.cs" />
   </ItemGroup>
 </Project>

@@ -1,56 +1,39 @@
-using BazaarPlusPlus.TestSupport;
+#nullable enable
 using Xunit;
+using static Architecture.Tests.ArchitectureRules;
 
 namespace Architecture.Tests;
 
+/// <summary>Outbound network ownership for the main-menu release check (ADR-0006).</summary>
 public sealed class OutboundNetworkMainMenuArchitectureTests
 {
     [Fact]
     public void Main_menu_controller_delegates_release_protocol_and_request_lifecycle()
     {
-        var root = TestInputs.RepoRoot;
-        var controller = File.ReadAllText(
-            Path.Combine(
-                root,
-                "src",
-                "BazaarPlusPlus",
-                "Game",
-                "Lobby",
-                "MainMenuVersionCheckController.cs"
-            )
+        var jsonConvert = CompiledArtifacts.Universe.RequireType("Newtonsoft.Json.JsonConvert");
+        var getAsync = (typeof(HttpClient).FullName!, nameof(HttpClient.GetAsync));
+        Holds(
+            "The controller delegates HTTP and JSON to ReleaseManifestClient, which stays engine-free.",
+            build =>
+            {
+                var controller = build.Type(
+                    "BazaarPlusPlus.Game.Lobby.MainMenuVersionCheckController"
+                );
+                var engineFree = new[]
+                {
+                    build.Type(
+                        "BazaarPlusPlus.Infrastructure.ReleaseManifest.ReleaseManifestClient"
+                    ),
+                    build.Type("BazaarPlusPlus.Game.Lobby.ReleaseManifestCheckLifecycle"),
+                };
+                var engine = FromAssembly(
+                    RequireAssemblyPrefix(build, "UnityEngine"),
+                    RequireAssemblyPrefix(build, "BepInEx")
+                );
+                return Accesses(controller, getAsync)
+                    .Concat(References(controller, Is(jsonConvert)))
+                    .Concat(References(engineFree, engine));
+            }
         );
-        var adapter = File.ReadAllText(
-            Path.Combine(
-                root,
-                "src",
-                "BazaarPlusPlus",
-                "Infrastructure",
-                "ReleaseManifest",
-                "ReleaseManifestClient.cs"
-            )
-        );
-        var lifecycle = File.ReadAllText(
-            Path.Combine(
-                root,
-                "src",
-                "BazaarPlusPlus",
-                "Game",
-                "Lobby",
-                "ReleaseManifestCheckLifecycle.cs"
-            )
-        );
-
-        Assert.Contains("new ReleaseManifestClient", controller);
-        Assert.Contains("_lifecycle.Begin(httpClient)", controller);
-        Assert.Contains("_lifecycle.RunAsync(", controller);
-        Assert.DoesNotContain("private HttpClient", controller, StringComparison.Ordinal);
-        Assert.DoesNotContain(".GetAsync(", controller, StringComparison.Ordinal);
-        Assert.DoesNotContain("JsonConvert", controller, StringComparison.Ordinal);
-        Assert.DoesNotContain("_generation", controller, StringComparison.Ordinal);
-        Assert.Contains(".GetAsync(", adapter, StringComparison.Ordinal);
-        Assert.DoesNotContain("UnityEngine", adapter, StringComparison.Ordinal);
-        Assert.DoesNotContain("BepInEx", adapter, StringComparison.Ordinal);
-        Assert.DoesNotContain("UnityEngine", lifecycle, StringComparison.Ordinal);
-        Assert.DoesNotContain("BepInEx", lifecycle, StringComparison.Ordinal);
     }
 }
