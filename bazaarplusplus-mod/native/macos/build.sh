@@ -41,7 +41,8 @@ clang_path="$(xcrun --sdk macosx --find clang++)"
     -o "$executable"
 
 # Development output is deliberately ad-hoc. The installer repository is the only production
-# signing authority and must re-sign this bundle with Team 9Z44S3N293 during release packaging.
+# signing authority and must re-sign this bundle with the team named by OFFICIAL_APPLE_TEAM_ID in
+# bazaarplusplus-installer/scripts/bundle.sh during release packaging.
 codesign --force --sign - --timestamp=none "$bundle_dir"
 codesign --verify --deep --strict "$bundle_dir"
 "$script_dir/verify.sh" mac-replay "$executable" "$bundle_dir"

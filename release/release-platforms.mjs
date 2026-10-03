@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { DOWNLOAD_PLATFORM_KEYS } from './downloads.ts';
+import { platformInventory } from './payload-inventory.mjs';
 
 // Release platform facts live here so bundle.sh and the Node release scripts
 // cannot drift independently. Browser-safe keys come from downloads.ts.
@@ -115,6 +116,23 @@ export function assertPlatformCoherence(rootDir) {
   }
 }
 
+/**
+ * The replay recorder plugin bundle inside a platform Payload, as the Payload
+ * Inventory (`release/payload.json`) names it: the platform's only `native`
+ * directory entry. bundle.sh signs and team-checks this path.
+ */
+export function replayRecorderBundlePath(buildPlatform, inventory) {
+  const bundles = platformInventory(buildPlatform, inventory).filter(
+    (entry) => entry.kind === 'directory' && entry.producer === 'native'
+  );
+  if (bundles.length !== 1) {
+    throw new Error(
+      `${buildPlatform} Payload Inventory must name exactly one native plugin bundle; found ${bundles.length}`
+    );
+  }
+  return bundles[0].path;
+}
+
 function printLines(values) {
   process.stdout.write(`${values.map((value) => value ?? '').join('\n')}\n`);
 }
@@ -137,6 +155,9 @@ export function cliMain(args) {
         break;
       case 'rust-targets':
         printLines([platform.rustTarget]);
+        break;
+      case 'replay-recorder-bundle':
+        printLines([replayRecorderBundlePath(platform.buildPlatform)]);
         break;
       case 'build-env':
         printLines([

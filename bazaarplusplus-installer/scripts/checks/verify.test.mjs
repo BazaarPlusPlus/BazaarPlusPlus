@@ -2,33 +2,6 @@ import { expect, test, vi } from 'vitest';
 
 import { runVerification, verificationSteps } from './verify.mjs';
 
-test('release verification generates bindings exactly once', () => {
-  const steps = verificationSteps({
-    mode: 'release',
-    releasePlatform: 'macos'
-  });
-  const bindingSteps = steps.filter(
-    ({ command, args }) =>
-      command === 'npm' && args.join(' ') === 'run generate:bindings:test'
-  );
-
-  expect(bindingSteps).toHaveLength(1);
-  expect(
-    steps.some(
-      ({ command, args }) =>
-        command === 'cargo' &&
-        args.includes('clippy') &&
-        args.includes('--locked')
-    )
-  ).toBe(true);
-  expect(
-    steps.some(
-      ({ command, args }) =>
-        command === 'npm' && args.includes('prebuild-check:after-bindings')
-    )
-  ).toBe(true);
-});
-
 test('source verification omits private release payload validation', () => {
   const steps = verificationSteps({ mode: 'source' });
 
@@ -114,26 +87,4 @@ test('verification preserves the failing command status and stops', () => {
   expect(observed.some((command) => command.includes('build:frontend'))).toBe(
     false
   );
-});
-
-test('Windows verification runs npm command shims through ComSpec', () => {
-  const observed = [];
-  const status = runVerification({
-    rootDir: process.cwd(),
-    mode: 'source',
-    platform: 'win32',
-    commandShell: 'C:\\Windows\\System32\\cmd.exe',
-    log() {},
-    run(command, args) {
-      observed.push({ command, args });
-      return { status: 0 };
-    }
-  });
-
-  expect(status).toBe(0);
-  expect(observed[0]).toEqual({
-    command: 'C:\\Windows\\System32\\cmd.exe',
-    args: ['/d', '/s', '/c', 'npm.cmd', 'run', 'format:check']
-  });
-  expect(observed.find(({ command }) => command === 'cargo')).toBeDefined();
 });

@@ -1,6 +1,5 @@
 import { execFileSync } from 'node:child_process';
 import {
-  cpSync,
   existsSync,
   mkdtempSync,
   mkdirSync,
@@ -66,59 +65,11 @@ export function generatedBindingsAreFresh(projectRoot) {
   return bindingsAreFresh(generatedMtimeMs, inputMtimesMs);
 }
 
-export function replaceDirectoryWithBackup(
-  targetDir,
-  sourceDir,
-  fileOperations = {}
-) {
-  const rename = fileOperations.renameSync ?? renameSync;
-  const parentDir = path.dirname(targetDir);
-  const baseName = path.basename(targetDir);
-  const suffix = `${process.pid}.${Date.now()}`;
-  const stagingDir = path.join(parentDir, `.${baseName}.next.${suffix}`);
-  const backupDir = path.join(parentDir, `.${baseName}.backup.${suffix}`);
-  let backupCreated = false;
-
-  mkdirSync(parentDir, { recursive: true });
-  rmSync(stagingDir, { recursive: true, force: true });
-  rmSync(backupDir, { recursive: true, force: true });
-  cpSync(sourceDir, stagingDir, { recursive: true });
-
-  try {
-    if (existsSync(targetDir)) {
-      rename(targetDir, backupDir);
-      backupCreated = true;
-    }
-
-    rename(stagingDir, targetDir);
-    rmSync(backupDir, { recursive: true, force: true });
-  } catch (error) {
-    if (backupCreated || existsSync(backupDir)) {
-      rmSync(targetDir, { recursive: true, force: true });
-      rename(backupDir, targetDir);
-    }
-    rmSync(stagingDir, { recursive: true, force: true });
-    throw error;
-  }
+function normalizeLineEndings(content) {
+  return content.replace(/\r\n?/g, '\n').replace(/\n*$/, '\n');
 }
 
-export function normalizeGeneratedLineEndings(directory) {
-  for (const entry of readdirSync(directory)) {
-    const entryPath = path.join(directory, entry);
-    if (statSync(entryPath).isDirectory()) {
-      normalizeGeneratedLineEndings(entryPath);
-      continue;
-    }
-    if (!entry.endsWith('.ts')) continue;
-
-    const content = readFileSync(entryPath, 'utf8');
-    const normalized = content.replace(/\r\n?/g, '\n').replace(/\n*$/, '\n');
-    if (normalized !== content) writeFileSync(entryPath, normalized, 'utf8');
-  }
-}
-
-export function validateGeneratedBindings(directory) {
-  const commandsPath = path.join(directory, GENERATED_COMMANDS_FILE);
+function validateGeneratedBindings(commandsPath) {
   if (!existsSync(commandsPath)) {
     throw new Error(
       `Generated bindings did not contain ${GENERATED_COMMANDS_FILE}`
@@ -131,10 +82,25 @@ export function validateGeneratedBindings(directory) {
   }
 }
 
+// Writes the export beside the committed file and renames it over the target,
+// so a failed or invalid export leaves the previous bindings untouched.
 export function commitGeneratedBindings({ generatedDir, tempGeneratedDir }) {
-  normalizeGeneratedLineEndings(tempGeneratedDir);
-  validateGeneratedBindings(tempGeneratedDir);
-  replaceDirectoryWithBackup(generatedDir, tempGeneratedDir);
+  const exportedPath = path.join(tempGeneratedDir, GENERATED_COMMANDS_FILE);
+  const targetPath = path.join(generatedDir, GENERATED_COMMANDS_FILE);
+  const stagedPath = `${targetPath}.tmp`;
+
+  validateGeneratedBindings(exportedPath);
+  mkdirSync(generatedDir, { recursive: true });
+  try {
+    writeFileSync(
+      stagedPath,
+      normalizeLineEndings(readFileSync(exportedPath, 'utf8')),
+      'utf8'
+    );
+    renameSync(stagedPath, targetPath);
+  } finally {
+    rmSync(stagedPath, { force: true });
+  }
 }
 
 export function runGenerateBindings(

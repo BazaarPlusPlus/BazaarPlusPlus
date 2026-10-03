@@ -17,7 +17,6 @@ APPLE_API_KEY_ID_PATH="$SIGNING_SECRETS_DIR/apple-api-key"
 APPLE_API_KEY_PATH_PATH="$SIGNING_SECRETS_DIR/apple-api-key-path"
 APPLE_SIGNING_IDENTITY_PATH="$SIGNING_SECRETS_DIR/apple-signing-identity"
 OFFICIAL_APPLE_TEAM_ID="9Z44S3N293"
-REPLAY_RECORDER_RELATIVE_BUNDLE="TheBazaar.app/Contents/Plugins/GfxPluginBppReplayVideoToolbox.bundle"
 MACOS_GAME_APP_OVERLAY="TheBazaar.app"
 
 assert_command() {
@@ -356,18 +355,19 @@ sign_macos_resource_app_bundles() {
 
 sign_macos_resource_plugin_bundles() {
     local payload_dir="$1"
+    local replay_recorder_bundle="$2"
     local plugin_bundle=""
     local plugin_relative_path=""
 
     while IFS= read -r -d '' plugin_bundle; do
         plugin_relative_path="${plugin_bundle#$payload_dir/}"
-        if [ "$plugin_relative_path" = "$REPLAY_RECORDER_RELATIVE_BUNDLE" ]; then
+        if [ "$plugin_relative_path" = "$replay_recorder_bundle" ]; then
             assert_ad_hoc_replay_recorder_input "$plugin_bundle"
         fi
 
         sign_macos_bundle_inside_out "$payload_dir" "$plugin_bundle" plugin
 
-        if [ "$plugin_relative_path" = "$REPLAY_RECORDER_RELATIVE_BUNDLE" ]; then
+        if [ "$plugin_relative_path" = "$replay_recorder_bundle" ]; then
             assert_official_codesign_team_id \
                 "$plugin_bundle/Contents/MacOS/GfxPluginBppReplayVideoToolbox"
             assert_official_codesign_team_id "$plugin_bundle"
@@ -410,6 +410,7 @@ prepare_signed_macos_resource_zip() {
     local signed_zip=""
     local signed_manifest=""
     local resource_manifest="${resource_zip}.manifest.json"
+    local replay_recorder_bundle=""
 
     assert_command ditto "Install macOS command line tools first."
     assert_command file "Install file first."
@@ -426,12 +427,13 @@ prepare_signed_macos_resource_zip() {
     mkdir -p "$payload_dir"
     trap 'rm -rf "$temp_dir"' RETURN
 
+    replay_recorder_bundle="$(release_platforms_cli replay-recorder-bundle macos)"
     invoke_step "Extracting macOS resource zip for signing" \
         ditto -x -k "$resource_zip" "$payload_dir"
     assert_ad_hoc_replay_recorder_input \
-        "$payload_dir/$REPLAY_RECORDER_RELATIVE_BUNDLE"
+        "$payload_dir/$replay_recorder_bundle"
     sign_macos_resource_binaries "$payload_dir"
-    sign_macos_resource_plugin_bundles "$payload_dir"
+    sign_macos_resource_plugin_bundles "$payload_dir" "$replay_recorder_bundle"
     sign_macos_resource_app_bundles "$payload_dir"
     invoke_step "Repacking signed macOS resource zip" \
         create_zip_from_directory "$payload_dir" "$signed_zip" "$signed_manifest"

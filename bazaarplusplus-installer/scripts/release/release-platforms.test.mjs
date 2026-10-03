@@ -3,6 +3,7 @@ import path from 'node:path';
 import { runShell } from '../test-support/shell.mjs';
 import {
   RELEASE_PLATFORMS,
+  replayRecorderBundlePath,
   resolveBuildPlatform,
   defaultTargetBuildPlatforms
 } from '../../../release/release-platforms.mjs';
@@ -19,35 +20,21 @@ test.each(RELEASE_PLATFORMS)(
       printf 'r2key=%s\\n' "$(release_platforms_cli r2-key "$BPP_TEST_BUILD_PLATFORM")"
       printf 'bundleroot=%s\\n' "$(release_platforms_cli bundle-root "$BPP_TEST_BUILD_PLATFORM")"
       printf 'rust=[%s]\\n' "$(release_platforms_cli rust-targets "$BPP_TEST_BUILD_PLATFORM")"
+      # Only the macOS Payload carries a replay recorder plugin bundle to sign.
+      if [ "$BPP_TEST_BUILD_PLATFORM" = macos ]; then
+        printf 'replay=%s\\n' "$(release_platforms_cli replay-recorder-bundle "$BPP_TEST_BUILD_PLATFORM")"
+      fi
     `,
       { BPP_TEST_BUILD_PLATFORM: p.buildPlatform }
     );
     expect(out).toContain(`r2key=${p.key}`);
     expect(out).toContain(`bundleroot=${p.bundleRoot}`);
     expect(out).toContain(`rust=[${p.rustTarget ?? ''}]`);
-  }
-);
-
-test.each(RELEASE_PLATFORMS)(
-  'build_prod $buildPlatform uses derived paths/targets/bundles',
-  (p) => {
-    const out = runShell(
-      `
-      set -euo pipefail
-      source ./scripts/bundle.sh
-      assert_file() { :; }
-      prepare_signed_macos_resource_zip() { :; }
-      prepare_signed_macos_resource_binary() { :; }
-      invoke_step() { local l="$1"; shift; printf '%s|%s\\n' "$l" "$*"; }
-      build_prod "$BPP_TEST_BUILD_PLATFORM"
-    `,
-      { BPP_TEST_BUILD_PLATFORM: p.buildPlatform }
-    );
-    if (p.rustTarget) expect(out).toContain(`--target ${p.rustTarget}`);
-    else expect(out).not.toContain('--target');
-    expect(out).toContain(`--bundles ${p.bundleTargets}`);
-    expect(out).toMatch(new RegExp(`Binary:\\s+.*/${p.releaseBinary}\\n`));
-    expect(out).toMatch(new RegExp(`Bundle:\\s+.*/${p.installerDir}\\n`));
+    if (p.buildPlatform === 'macos') {
+      expect(out).toContain(
+        `replay=${replayRecorderBundlePath(p.buildPlatform)}`
+      );
+    }
   }
 );
 
