@@ -546,18 +546,15 @@ mod tests {
         // game write or checkpoint can.
         let connection =
             rusqlite::Connection::open(crate::services::paths::database_path(game_path)).unwrap();
+        crate::history::test_schema::create_mod_schema(&connection);
         connection
             .execute_batch(
-                "pragma user_version = 2;
-                create table run_screenshots (
-                    screenshot_id text primary key, capture_source text,
-                    image_relative_path text, hero_name text, captured_at_local text,
-                    captured_at_utc text, victories_at_capture integer, day integer,
-                    player_rank text, player_rating integer
-                );
-                insert into run_screenshots values (
+                "insert into run_screenshots (
+                    screenshot_id, capture_source, image_relative_path, hero_name,
+                    captured_at_local, captured_at_utc, victories_at_capture, day
+                ) values (
                     'shot-1', 'end_of_run_auto', 'shot.png', 'Vanessa',
-                    '2026-09-01T00:00:00Z', '2026-09-01T00:00:00Z', 10, 10, null, null
+                    '2026-09-01T00:00:00Z', '2026-09-01T00:00:00Z', 10, 10
                 );
                 begin exclusive;",
             )

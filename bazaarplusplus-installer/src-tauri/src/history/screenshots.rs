@@ -425,36 +425,13 @@ mod tests {
         load_latest_overlay_snapshot, load_overlay_snapshot_by_id, load_overlay_snapshot_count,
         load_overlay_snapshot_list, load_screenshot_image_path, normalize_overlay_from_utc,
     };
-
-    fn create_run_screenshots_table(conn: &rusqlite::Connection) {
-        conn.execute_batch(
-            "pragma user_version = 1;
-             create table run_screenshots (
-                screenshot_id text primary key,
-                run_id text,
-                battle_id text,
-                capture_source text not null,
-                is_primary integer not null default 0,
-                image_relative_path text not null,
-                captured_at_local text not null,
-                captured_at_utc text not null,
-                day integer,
-                player_rank text,
-                player_rating integer,
-                player_position integer,
-                victories_at_capture integer,
-                hero_name text,
-                build_channel text
-            );",
-        )
-        .unwrap();
-    }
+    use crate::history::test_schema::create_mod_schema;
 
     #[test]
     fn latest_overlay_record_returns_none_when_database_has_no_rows() {
         let temp = tempfile::NamedTempFile::new().unwrap();
         let conn = rusqlite::Connection::open(temp.path()).unwrap();
-        create_run_screenshots_table(&conn);
+        create_mod_schema(&conn);
 
         let latest = load_latest_overlay_snapshot(temp.path(), None, 0).unwrap();
         assert!(latest.is_none());
@@ -464,7 +441,7 @@ mod tests {
     fn latest_overlay_record_reads_latest_end_of_run_snapshot() {
         let temp = tempfile::NamedTempFile::new().unwrap();
         let conn = rusqlite::Connection::open(temp.path()).unwrap();
-        create_run_screenshots_table(&conn);
+        create_mod_schema(&conn);
         conn.execute(
             "insert into run_screenshots (
                 screenshot_id, run_id, capture_source, image_relative_path, captured_at_local,
@@ -495,7 +472,7 @@ mod tests {
     fn latest_overlay_record_ignores_other_snapshot_types() {
         let temp = tempfile::NamedTempFile::new().unwrap();
         let conn = rusqlite::Connection::open(temp.path()).unwrap();
-        create_run_screenshots_table(&conn);
+        create_mod_schema(&conn);
         conn.execute(
             "insert into run_screenshots (
                 screenshot_id, run_id, capture_source, image_relative_path, captured_at_local, captured_at_utc
@@ -525,7 +502,7 @@ mod tests {
     fn latest_overlay_record_supports_backtracking_from_latest() {
         let temp = tempfile::NamedTempFile::new().unwrap();
         let conn = rusqlite::Connection::open(temp.path()).unwrap();
-        create_run_screenshots_table(&conn);
+        create_mod_schema(&conn);
         conn.execute(
             "insert into run_screenshots (
                 screenshot_id, run_id, capture_source, image_relative_path, captured_at_local, captured_at_utc, hero_name
@@ -560,7 +537,7 @@ mod tests {
     fn latest_overlay_record_filters_from_stream_start_time() {
         let temp = tempfile::NamedTempFile::new().unwrap();
         let conn = rusqlite::Connection::open(temp.path()).unwrap();
-        create_run_screenshots_table(&conn);
+        create_mod_schema(&conn);
         conn.execute(
             "insert into run_screenshots (
                 screenshot_id, run_id, capture_source, image_relative_path, captured_at_local, captured_at_utc, hero_name
@@ -583,7 +560,7 @@ mod tests {
     fn latest_overlay_record_normalizes_stream_start_time_to_utc() {
         let temp = tempfile::NamedTempFile::new().unwrap();
         let conn = rusqlite::Connection::open(temp.path()).unwrap();
-        create_run_screenshots_table(&conn);
+        create_mod_schema(&conn);
         conn.execute(
             "insert into run_screenshots (
                 screenshot_id, run_id, capture_source, image_relative_path, captured_at_local, captured_at_utc, hero_name
@@ -610,7 +587,7 @@ mod tests {
     fn overlay_record_count_only_counts_records_after_stream_start() {
         let temp = tempfile::NamedTempFile::new().unwrap();
         let conn = rusqlite::Connection::open(temp.path()).unwrap();
-        create_run_screenshots_table(&conn);
+        create_mod_schema(&conn);
         conn.execute(
             "insert into run_screenshots (
                 screenshot_id, run_id, capture_source, image_relative_path, captured_at_local, captured_at_utc
@@ -633,7 +610,7 @@ mod tests {
     fn load_overlay_record_by_id_reads_matching_snapshot() {
         let temp = tempfile::NamedTempFile::new().unwrap();
         let conn = rusqlite::Connection::open(temp.path()).unwrap();
-        create_run_screenshots_table(&conn);
+        create_mod_schema(&conn);
         conn.execute(
             "insert into run_screenshots (
                 screenshot_id, run_id, capture_source, image_relative_path, captured_at_local, captured_at_utc, hero_name
@@ -653,7 +630,7 @@ mod tests {
     fn screenshot_image_path_ignores_the_capture_source_the_overlay_requires() {
         let temp = tempfile::NamedTempFile::new().unwrap();
         let conn = rusqlite::Connection::open(temp.path()).unwrap();
-        create_run_screenshots_table(&conn);
+        create_mod_schema(&conn);
         conn.execute(
             "insert into run_screenshots (
                 screenshot_id, run_id, capture_source, is_primary, image_relative_path,
@@ -683,7 +660,7 @@ mod tests {
     fn latest_overlay_record_uses_unknown_hero_when_screenshot_is_anonymous() {
         let temp = tempfile::NamedTempFile::new().unwrap();
         let conn = rusqlite::Connection::open(temp.path()).unwrap();
-        create_run_screenshots_table(&conn);
+        create_mod_schema(&conn);
         conn.execute(
             "insert into run_screenshots (
                 screenshot_id, run_id, capture_source, image_relative_path, captured_at_local, captured_at_utc
@@ -706,7 +683,7 @@ mod tests {
     fn overlay_record_list_returns_latest_records_in_descending_order() {
         let temp = tempfile::NamedTempFile::new().unwrap();
         let conn = rusqlite::Connection::open(temp.path()).unwrap();
-        create_run_screenshots_table(&conn);
+        create_mod_schema(&conn);
         conn.execute(
             "insert into run_screenshots (
                 screenshot_id, run_id, capture_source, image_relative_path, captured_at_local,
@@ -730,7 +707,7 @@ mod tests {
     fn overlay_record_list_without_limit_returns_all_records() {
         let temp = tempfile::NamedTempFile::new().unwrap();
         let conn = rusqlite::Connection::open(temp.path()).unwrap();
-        create_run_screenshots_table(&conn);
+        create_mod_schema(&conn);
         conn.execute(
             "insert into run_screenshots (
                 screenshot_id, run_id, capture_source, image_relative_path, captured_at_local,

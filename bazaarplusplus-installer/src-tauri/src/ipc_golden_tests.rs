@@ -13,7 +13,7 @@
 use std::path::{Path, PathBuf};
 
 use crate::goldens::{assert_golden, json};
-use crate::history::test_schema::create_history_schema;
+use crate::history::test_schema::create_mod_schema;
 use crate::services::detect::InstallEnvironmentSnapshot;
 use crate::services::history::{History, StorageCleanupPreset, StorageCleanupScope};
 use crate::services::install::install_state_from_snapshot;
@@ -135,7 +135,7 @@ fn seed_history(fixture: &Fixture) {
         b"fixture video",
     );
     let conn = rusqlite::Connection::open(paths::database_path(game)).unwrap();
-    create_history_schema(&conn);
+    create_mod_schema(&conn);
     conn.execute_batch(
         "
         insert into runs (
@@ -149,15 +149,16 @@ fn seed_history(fixture: &Fixture) {
             ('run-3', '2026-01-03T09:00:00Z', '2026-01-03T09:10:00Z', 'active', 0,
              'Mak', 'Ranked', null, 3, 2, 1, null, null);
         insert into battles (
-            battle_id, source, run_id, recorded_at_utc, day, hour, player_name,
-            opponent_hero, opponent_name, opponent_rank, opponent_rating, result
+            battle_id, source, run_id, recorded_at_utc, combat_kind, day, hour, player_name,
+            opponent_hero, opponent_name, opponent_rank, opponent_rating, result,
+            has_local_payload, local_payload_state
         ) values
-            ('battle-1', 'LOCAL', 'run-1', '2026-01-01T09:10:00Z', 1, 2, 'Fixture Player',
-             'Pygmalien', 'Opponent A', 'Silver', 1400, 'win'),
-            ('battle-2', 'LOCAL', 'run-1', '2026-01-01T09:20:00Z', 2, 4, 'Fixture Player',
-             'Dooley', null, null, null, 'loss'),
-            ('battle-3', 'LOCAL', 'run-2', '2026-01-02T09:10:00Z', 1, 1, 'Fixture Player',
-             'Stelle', null, null, null, 'loss');
+            ('battle-1', 'LOCAL', 'run-1', '2026-01-01T09:10:00Z', 'PVP', 1, 2,
+             'Fixture Player', 'Pygmalien', 'Opponent A', 'Silver', 1400, 'win', 0, 'missing'),
+            ('battle-2', 'LOCAL', 'run-1', '2026-01-01T09:20:00Z', 'PVP', 2, 4,
+             'Fixture Player', 'Dooley', null, null, null, 'loss', 0, 'missing'),
+            ('battle-3', 'LOCAL', 'run-2', '2026-01-02T09:10:00Z', 'PVP', 1, 1,
+             'Fixture Player', 'Stelle', null, null, null, 'loss', 0, 'missing');
         insert into run_screenshots (
             screenshot_id, run_id, hero_name, capture_source, is_primary, image_relative_path,
             captured_at_utc, captured_at_local, day, victories_at_capture
@@ -167,11 +168,11 @@ fn seed_history(fixture: &Fixture) {
             ('shot-2', 'run-2', 'Hero8', 'end_of_run_auto', 0, '2026-01-02/run-2.png',
              '2026-01-02T09:30:00Z', '2026-01-02T17:30:00+08:00', 8, 4);
         insert into combat_replay_videos (
-            video_id, battle_id, video_relative_path, started_at_utc, duration_ms,
-            file_size_bytes, status
+            video_id, battle_id, source, video_relative_path, width, height, fps, codec,
+            started_at_utc, duration_ms, file_size_bytes, status
         ) values
-            ('video-1', 'battle-1', '2026-01-01/battle-1.mp4', '2026-01-01T09:10:00Z',
-             95000, 13, 'COMPLETED');
+            ('video-1', 'battle-1', 'GAME_CAPTURE', '2026-01-01/battle-1.mp4', 1920, 1080, 60,
+             'h264', '2026-01-01T09:10:00Z', 95000, 13, 'COMPLETED');
         insert into bundle_outbox (
             bundle_id, run_id, file_name, content_sha256_hex, content_digest, total_bytes,
             has_screenshot, sealed_at_utc, status
@@ -192,7 +193,7 @@ fn list_history_runs() {
     let fixture = Fixture::new();
     std::fs::create_dir_all(paths::bpp_data_dir(&fixture.game)).unwrap();
     let conn = rusqlite::Connection::open(paths::database_path(&fixture.game)).unwrap();
-    create_history_schema(&conn);
+    create_mod_schema(&conn);
     drop(conn);
     assert_golden(
         "ipc/list_history_runs.empty.json",
