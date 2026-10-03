@@ -35,6 +35,28 @@ just 只转发，不缓存或跳过任何发布检查。直接调用 `node relea
 
 一个平台先发、另一个平台稍后跟上时，第 5 步仍用 `mirror <platform> <分享页地址>` 记录该平台的镜像，第 6 步用 `promote --platform <platform>`，见[按平台发布](#按平台发布)。
 
+第 2 到第 4 步可以整体交给 [GitHub Actions 发版工作流](#github-actions-发版)：两个托管 runner 各跑一遍 `prepare`、`build`、`upload`，输入与本机相同；第 5、6 步仍在本机执行。
+
+## GitHub Actions 发版
+
+`.github/workflows/release.yml` 在 `macos-14` 与 `windows-latest` 各起一个 job，依次执行 `just release::check`、`just mod::fetch <platform> online`、`just release::prepare`、`just release::build`、`just release::upload`。build 与 upload 在同一个 job 里，满足"同机"要求；runner 本身就是原生宿主，原生宿主检查不需要改动。触发方式两种：`workflow_dispatch` 填 `version`（必须等于所选 ref 上的 `VERSION`，否则在装任何工具链之前失败），或推送 `v<VERSION>` 标签。`dry_run` 输入在 `prepare` 之后停止，只需要快照存储凭据，用来在没有签名材料时验证取包与 Payload 准备。
+
+游戏程序集来自快照锁指向的 online 条目（[ADR 0004](adr/0004-pinned-game-assembly-snapshots.md)）：条目为空时 `mod::fetch` 失败并指出要采集哪个快照，不会退回本机 Steam。原生录制插件沿用 `release/native-recorder-input.mjs` 的新鲜度判断：已提交的产物新鲜就直接复用；不新鲜时在 runner 上重建，但重建会改动跟踪文件，工作流随即以具名错误失败并把差异作为 `native-recorder-inputs-<platform>` 产物上传，用 `git apply` 合入提交后重跑，不会上传一个脏构建。
+
+secrets 放在名为 `release` 的 GitHub Environment 里，`BPP_GAME_LIBS_R2_*` 三个只读凭据是仓库级 secret，与 `checks.yml` 的游戏依赖 lane 共用。每个 job 的第一步 `.github/scripts/release-secrets.sh check` 按平台和阶段核对，缺一个就以 `::error` 点名并说明取值来源，是本阶段唯一的 secrets 清单；签名材料由同一脚本 `stage` 成 `bundle.sh` 读取的 `BPP_SIGNING_SECRETS_DIR` 文件布局，与本机 `node scripts/workspace.mjs run signing` 的暂存一致。本地取值位置见 `node scripts/workspace.mjs --help`：
+
+| secret | 本地来源 | 用途 |
+|---|---|---|
+| `BPP_GAME_LIBS_R2_ACCOUNT_ID` / `_ACCESS_KEY_ID` / `_SECRET_ACCESS_KEY` | 仅限 `bazaarplusplus-game-libs` 的只读 R2 令牌 | `mod::fetch` |
+| `BPP_R2_ACCOUNT_ID` / `BPP_R2_ACCESS_KEY_ID` / `BPP_R2_SECRET_ACCESS_KEY` | `config.ini` `[release]` | `release::upload` |
+| `TAURI_SIGNING_PRIVATE_KEY` | `keys/tauri-updater.key` 的内容 | updater 签名，两平台 |
+| `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | `config.ini` `[signing]`，可留空 | 同上 |
+| `APPLE_SIGNING_IDENTITY` / `APPLE_API_ISSUER` / `APPLE_API_KEY` | `config.ini` `[signing]` | macOS 签名与公证 |
+| `APPLE_API_KEY_P8` | `keys/AuthKey_<APPLE_API_KEY>.p8` 的内容 | macOS 公证 |
+| `APPLE_CERTIFICATE` / `APPLE_CERTIFICATE_PASSWORD` | 从 Keychain Access 导出的 Developer ID Application 证书（含私钥）.p12 的 base64 与导出密码 | 导入 runner 的临时 keychain；`bundle.sh` 在 Tauri 打包前就要 codesign 内嵌资源，所以不能交给 Tauri 自己导入 |
+
+`promote` 不进工作流：它要求两个平台都有大陆镜像记录（或显式豁免），而蓝奏云上传是手动步骤，分享页地址只有上传后才存在，`mirror-all` 必须在 `promote` 之前拿到它们。所以两平台 job 成功后仍按[发布顺序](#发布顺序)第 5、6 步在本机执行 `mirror-all` 与 `promote`，这两步只需要 `[release]` 凭据。
+
 构建依赖 Node/npm、.NET、Rust、本机正式服 Managed 程序集、平台 native 工具链和 bootstrap 资源。准备阶段会抓取并验证 Build Seed Fetch 数据。macOS 正式打包另需 Developer ID、公证和 Tauri updater 签名材料，具体本机约定见 [installer 发布文档](../bazaarplusplus-installer/docs/release.md)。源代码验证无需这些签名凭据。
 
 ## Payload 的共同事实
