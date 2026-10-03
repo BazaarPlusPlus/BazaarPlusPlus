@@ -106,12 +106,9 @@ test.each([1, 10, 50])(
     const result = await claim(limit);
     const claimed = findQuery(queries, "WITH candidates");
     expect(claimed.result.meta.rows_read).toBeLessThan(limit * 12 + 10);
-    const plan = await env.DB.prepare(`EXPLAIN QUERY PLAN ${claimed.sql}`)
-      .bind(...claimed.bindings)
-      .all<{ detail: string }>();
-    expect(plan.results.map(({ detail }) => detail).join("\n")).not.toContain(
-      "CORRELATED SCALAR SUBQUERY",
-    );
+    // Receipts read only the claimed page through the active-claim index.
+    const receipts = findQuery(queries, "INSERT INTO bazaardb_delivery_attempts");
+    expect(receipts.result.meta.rows_read).toBeLessThan(limit * 2 + 10);
     const offset = queries.length;
     const results = result.items
       .slice()
@@ -127,10 +124,14 @@ test.each([1, 10, 50])(
     expect(settled.items.map(({ bundle_id }) => bundle_id)).toEqual(
       results.map(({ bundle_id }) => bundle_id),
     );
-    expect(queries.slice(offset)).toHaveLength(2 * limit + 1);
-    expect(queries.slice(offset).filter(({ sql }) => sql.trim().startsWith("SELECT"))).toHaveLength(
-      1,
-    );
+    const settleQueries = queries.slice(offset);
+    expect(settleQueries).toHaveLength(2 * limit + 1);
+    expect(settleQueries.filter(({ sql }) => sql.trim().startsWith("SELECT"))).toHaveLength(1);
+    // Per-item updates are primary-key lookups; the receipt read scales with the page only.
+    for (const { sql, result } of settleQueries) {
+      const bound = sql.trim().startsWith("SELECT") ? limit * 4 + 10 : 10;
+      expect(result.meta.rows_read, sql).toBeLessThan(bound);
+    }
     expect((await settle()).summary).toEqual({ applied: 0, duplicate: limit, rejected: 0 });
     console.log(
       JSON.stringify({

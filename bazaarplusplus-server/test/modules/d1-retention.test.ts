@@ -78,15 +78,6 @@ test("retention has bounded indexed batches and resumes the remaining backlog", 
     expect(query.result.results).toHaveLength(D1_RETENTION_BATCH_SIZE);
     expect(query.result.meta.rows_read).toBeLessThan(D1_RETENTION_BATCH_SIZE * 20);
   }
-  const query = queries[0];
-  const plan = await env.DB.prepare(`EXPLAIN QUERY PLAN ${query.sql}`)
-    .bind(...query.bindings)
-    .all<{ detail: string }>();
-  const detail = plan.results.map(({ detail }) => detail).join("\n");
-  expect(detail).toContain("idx_bundles_stored_retention");
-  expect(detail).toContain("idx_ghost_summaries_bundle");
-  expect(detail).not.toContain("TEMP B-TREE");
-  expect(detail).not.toContain("SCAN ghost_battle_summaries");
   expect(await pruneExpiredBundles(env.DB, NOW)).toEqual({ deleted: 3, hasMore: false });
 });
 

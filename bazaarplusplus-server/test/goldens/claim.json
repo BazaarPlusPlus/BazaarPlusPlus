@@ -1,0 +1,17 @@
+{
+  "status": 200,
+  "body": {
+    "claim_id": "clm_550e8400-e29b-41d4-a716-446655440000",
+    "expires_at_ms": 1785629400000,
+    "items": [
+      {
+        "bundle_id": "01J00000000000000000003011",
+        "run_id": "delivery-run-11",
+        "download_url": "https://bazaarplusplus-bundle-v5.test-account-id.r2.cloudflarestorage.com/bundles/2026-08-02/01J00000000000000000003011.bundle?X-Amz-Expires=604800&X-Amz-Date=20260802T000000Z&X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=test-access-key-id%2F20260802%2Fauto%2Fs3%2Faws4_request&X-Amz-SignedHeaders=host&X-Amz-Signature=ec3475a4e87262e17c3e2c9c8611e5465faeb48a4408de40f52cf2967c844165",
+        "download_expires_at_ms": 1786233600000,
+        "content_type": "application/x-bpp-bundle-v5",
+        "sha256": "3a6fc0a38e306f1f022abb762ac08b3f1c97d7945a9b1e2dd300070103740eaf"
+      }
+    ]
+  }
+}

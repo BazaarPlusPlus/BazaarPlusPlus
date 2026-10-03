@@ -1,0 +1,9 @@
+{
+  "status": 201,
+  "body": {
+    "bundle_id": "01J00000000000000000000901",
+    "run_id": "golden-run-001",
+    "outcome": "stored",
+    "bazaardb_delivery": "not_applicable"
+  }
+}

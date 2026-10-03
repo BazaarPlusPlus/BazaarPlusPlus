@@ -1,8 +1,9 @@
 import { describe, expect, test, vi } from "vitest";
 
-import checksumsJson from "../../contracts/v5/fixtures/checksums.json?raw";
+import checksums from "../../contracts/v5/fixtures/checksums.json";
 import corruptMagicBase64 from "../../contracts/v5/fixtures/corrupt-magic.bundle.b64?raw";
 import runOnlyBase64 from "../../contracts/v5/fixtures/run-only.bundle.b64?raw";
+import manifest from "../../contracts/v5/fixtures/run-only.manifest.json";
 import segmentMismatchBase64 from "../../contracts/v5/fixtures/segment-digest-mismatch.bundle.b64?raw";
 import { openBundle } from "../../src/bundle/open";
 import { decodeBase64, stream } from "../fixtures/bundle";
@@ -120,30 +121,27 @@ describe("openBundle", () => {
 
   test("opens and validates the canonical Run-only Bundle", async () => {
     const bytes = decodeBase64(runOnlyBase64);
-    const checksums = JSON.parse(checksumsJson) as {
-      "run-only.bundle.b64": { sha256: string };
-    };
-    const expectedDigest = checksums["run-only.bundle.b64"].sha256;
-    const opened = await openBundle(stream(bytes), bytes.byteLength, expectedDigest);
+    const golden = checksums["run-only.bundle.b64"];
+    const opened = await openBundle(stream(bytes), bytes.byteLength, golden.sha256);
 
     expect(opened.descriptor).toMatchObject({
-      bundleId: "01J00000000000000000000901",
-      runId: "golden-run-001",
-      uploaderAccountId: "golden-account",
-      createdAtMs: 1_785_628_800_000,
-      manifestBytes: 374,
-      objectBytes: 399,
-      objectKey: "bundles/2026-08-02/01J00000000000000000000901.bundle",
+      bundleId: manifest.bundle_id,
+      runId: manifest.run.run_id,
+      uploaderAccountId: manifest.run.player_account_id,
+      createdAtMs: manifest.created_at_ms,
+      manifestBytes: golden.manifest_bytes,
+      objectBytes: golden.decoded_bytes,
+      objectKey: `bundles/2026-08-02/${manifest.bundle_id}.bundle`,
       run: {
-        offset: 0,
-        length: 9,
-        sha256: "4fcfdda3275cc407cb2f2eb487acb1a41eb2493851f2e34eb74bef6b4160a5e5",
+        offset: manifest.run.payload.offset,
+        length: manifest.run.payload.length,
+        sha256: manifest.run.payload.sha256,
       },
       screenshot: null,
       battles: [],
     });
     await expect(opened.body.pipeTo(new WritableStream<Uint8Array>())).resolves.toBeUndefined();
-    await expect(opened.digest).resolves.toBe(expectedDigest);
+    await expect(opened.digest).resolves.toBe(golden.sha256);
   });
 
   test("maps an expected whole-Bundle digest mismatch without changing its text", async () => {

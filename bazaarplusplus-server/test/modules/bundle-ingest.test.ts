@@ -3,6 +3,7 @@ import { describe, expect, test } from "vitest";
 
 import worker from "../../src/index";
 import { contentDigest, makeBundleFixture, uploadRequest } from "../fixtures/bundle";
+import { expectGolden } from "../fixtures/golden";
 
 describe("POST /bundles", () => {
   test("stores one Run-only Bundle and returns its receipt", async () => {
@@ -129,12 +130,6 @@ describe("POST /bundles", () => {
       outcome: "stored",
       bazaardb_delivery: "created",
     });
-    expect(duplicate.status).toBe(200);
-    expect(await duplicate.json()).toEqual({
-      bundle_id: "01J00000000000000000000006",
-      run_id: "run-006",
-      outcome: "duplicate",
-      bazaardb_delivery: "existing",
-    });
+    await expectGolden(duplicate, "ingest-screenshot-duplicate");
   });
 });
