@@ -262,10 +262,15 @@ afterEach(async () => {
   vi.restoreAllMocks();
 });
 
+/** Each pass waits one animation frame and then a macrotask, so loads, their
+ *  follow-up reads and frame-deferred UI (a toast's `is-present`) have all
+ *  settled however fast the host runs. */
 async function settle() {
   for (let pass = 0; pass < 5; pass += 1) {
     await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 0));
+      await new Promise((resolve) =>
+        requestAnimationFrame(() => setTimeout(resolve, 0))
+      );
     });
   }
 }
