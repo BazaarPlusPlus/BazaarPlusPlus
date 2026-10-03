@@ -38,6 +38,12 @@ declaration-file checks because Drizzle's declarations reference optional databa
 drivers outside this Worker's D1 runtime; query arguments and inferred results are
 still checked at their use sites.
 
+The `miniflare` override in `package.json` patches Undici in both Wrangler's and
+the Worker test pool's dependency trees. The test pool pins an older Miniflare,
+so updating only the top-level Wrangler does not fix both paths. Remove the
+override when both upstream paths resolve a patched Undici without it, then
+rerun the full server checks and tests.
+
 ## Production
 
 `src/env.ts` is the sole binding declaration. `wrangler.toml` provisions the D1 database, the R2 bucket, and the Ghost rate limiter. The R2 presign key pair and the two service tokens are set out of band (`.dev.vars` locally, `wrangler secret put` in production). The two service tokens are distinct 32-byte random values encoded as 43-character unpadded base64url strings, and the R2 S3 credential grants Object Read only on the V5 bucket.
