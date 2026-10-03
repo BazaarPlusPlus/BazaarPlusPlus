@@ -43,9 +43,13 @@ export function toBashPath(p) {
     .replace(/^([A-Za-z]):/, (_, drive) => `/${drive.toLowerCase()}`);
 }
 
-export function runShell(script) {
-  return execFileSync(bashCommand, ['-c', script], {
+// Read static script text from stdin and dynamic values from the environment.
+// Git Bash on Windows reinterprets quotes and globs in native process arguments.
+export function runShell(script, env = {}) {
+  return execFileSync(bashCommand, ['-s'], {
     cwd: projectDir,
+    env: { ...process.env, ...env },
+    input: script,
     encoding: 'utf8',
     timeout: 120000
   });

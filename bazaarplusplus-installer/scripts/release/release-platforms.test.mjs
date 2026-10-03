@@ -12,13 +12,16 @@ import { resolveTargetPlatforms } from '../checks/prebuild-check.mjs';
 test.each(RELEASE_PLATFORMS)(
   'bundle.sh facts for $buildPlatform come from the module',
   (p) => {
-    const out = runShell(`
+    const out = runShell(
+      `
       set -euo pipefail
       source ./scripts/bundle.sh
-      printf 'r2key=%s\\n' "$(release_platforms_cli r2-key ${p.buildPlatform})"
-      printf 'bundleroot=%s\\n' "$(release_platforms_cli bundle-root ${p.buildPlatform})"
-      printf 'rust=[%s]\\n' "$(release_platforms_cli rust-targets ${p.buildPlatform})"
-    `);
+      printf 'r2key=%s\\n' "$(release_platforms_cli r2-key "$BPP_TEST_BUILD_PLATFORM")"
+      printf 'bundleroot=%s\\n' "$(release_platforms_cli bundle-root "$BPP_TEST_BUILD_PLATFORM")"
+      printf 'rust=[%s]\\n' "$(release_platforms_cli rust-targets "$BPP_TEST_BUILD_PLATFORM")"
+    `,
+      { BPP_TEST_BUILD_PLATFORM: p.buildPlatform }
+    );
     expect(out).toContain(`r2key=${p.key}`);
     expect(out).toContain(`bundleroot=${p.bundleRoot}`);
     expect(out).toContain(`rust=[${p.rustTarget ?? ''}]`);
@@ -28,15 +31,18 @@ test.each(RELEASE_PLATFORMS)(
 test.each(RELEASE_PLATFORMS)(
   'build_prod $buildPlatform uses derived paths/targets/bundles',
   (p) => {
-    const out = runShell(`
+    const out = runShell(
+      `
       set -euo pipefail
       source ./scripts/bundle.sh
       assert_file() { :; }
       prepare_signed_macos_resource_zip() { :; }
       prepare_signed_macos_resource_binary() { :; }
       invoke_step() { local l="$1"; shift; printf '%s|%s\\n' "$l" "$*"; }
-      build_prod ${p.buildPlatform}
-    `);
+      build_prod "$BPP_TEST_BUILD_PLATFORM"
+    `,
+      { BPP_TEST_BUILD_PLATFORM: p.buildPlatform }
+    );
     if (p.rustTarget) expect(out).toContain(`--target ${p.rustTarget}`);
     else expect(out).not.toContain('--target');
     expect(out).toContain(`--bundles ${p.bundleTargets}`);
