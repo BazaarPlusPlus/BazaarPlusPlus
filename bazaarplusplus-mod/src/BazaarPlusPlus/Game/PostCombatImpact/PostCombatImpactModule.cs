@@ -15,54 +15,7 @@ using UnityEngine;
 
 namespace BazaarPlusPlus.Game.PostCombatImpact;
 
-internal interface IPostCombatImpactModule
-{
-    void SetHoveredRecapCard(
-        RecapItemVisualController recapVisual,
-        Card card,
-        CardTooltipData? tooltipData,
-        Vector3 tooltipOffset
-    );
-
-    void ClearHoveredRecapCard(
-        RecapItemVisualController recapVisual,
-        PostCombatImpactHoverExitOrigin origin,
-        bool nativeTooltipLocked
-    );
-
-    void SetHoveredSkill(
-        SkillProxyRenderer skill,
-        Card card,
-        CardTooltipData? tooltipData,
-        Vector3 tooltipOffset
-    );
-
-    void ClearHoveredSkill(
-        SkillProxyRenderer skill,
-        PostCombatImpactHoverExitOrigin origin,
-        bool nativeTooltipLocked
-    );
-
-    void OnNativeTooltipPreparing(CardTooltipController controller, ITooltipData tooltipData);
-
-    void OnNativeTooltipChanging(CardTooltipController controller);
-
-    void OnNativeTooltipInteractabilityChanged(
-        BaseTooltipController controller,
-        CanvasGroup canvasGroup
-    );
-
-    void OnNativeAuxiliaryTooltipShowing(
-        AuxiliaryTooltipController controller,
-        Transform anchor,
-        string header,
-        string body
-    );
-
-    void OnNativeAuxiliaryTooltipHiding(AuxiliaryTooltipController controller);
-}
-
-internal sealed class PostCombatImpactModule : IBppFeature, IPostCombatImpactModule
+internal sealed class PostCombatImpactModule : IBppFeature
 {
     private readonly IBppEventBus _eventBus;
     private readonly BppStaticCardMapProvider _cardMapProvider;

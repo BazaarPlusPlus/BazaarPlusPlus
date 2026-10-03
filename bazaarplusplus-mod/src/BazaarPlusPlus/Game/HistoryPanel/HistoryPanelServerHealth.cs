@@ -3,26 +3,6 @@ using BazaarPlusPlus.ModApi.Clients;
 
 namespace BazaarPlusPlus.Game.HistoryPanel;
 
-internal interface IHistoryPanelServerHealthProbe
-{
-    Task<ModApiHealthProbeResult> ProbeAsync(CancellationToken cancellationToken);
-}
-
-internal sealed class HistoryPanelServerHealthProbe : IHistoryPanelServerHealthProbe
-{
-    private readonly ModApiSession _modApiSession;
-
-    public HistoryPanelServerHealthProbe(ModApiSession modApiSession)
-    {
-        _modApiSession = modApiSession ?? throw new ArgumentNullException(nameof(modApiSession));
-    }
-
-    public Task<ModApiHealthProbeResult> ProbeAsync(CancellationToken cancellationToken)
-    {
-        return _modApiSession.ProbeHealthAsync(cancellationToken);
-    }
-}
-
 internal static class HistoryPanelServerHealthFormatter
 {
     public static HistoryPanelServerHealthDisplayState Idle()

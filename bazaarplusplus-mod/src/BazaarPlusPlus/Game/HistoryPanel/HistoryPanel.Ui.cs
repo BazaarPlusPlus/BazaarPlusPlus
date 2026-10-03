@@ -113,7 +113,7 @@ internal sealed partial class HistoryPanel
             canReplaySelectedBattle,
             replayUnavailableReason,
             _coordinator?.GetReplayActionLabel(selectedBattle) ?? HistoryPanelText.Replay(),
-            _runState?.IsInGameRun == true,
+            _runContext?.IsInGameRun == true,
             canRecordSelectedBattle,
             _state.SectionMode == HistorySectionMode.Runs
                 && selectedRun != null

@@ -5,14 +5,12 @@ namespace BazaarPlusPlus.Game.Upload;
 
 internal sealed class StartupUploadAttemptRunner
 {
-    private readonly UploadFeedKind _feed;
     private readonly UploadFeedLogState _logState;
     private Task<UploadAttemptResult>? _task;
     private bool _waitingForRunExitLogged;
 
-    public StartupUploadAttemptRunner(UploadFeedKind feed, UploadFeedLogState logState)
+    public StartupUploadAttemptRunner(UploadFeedLogState logState)
     {
-        _feed = feed;
         _logState = logState ?? throw new ArgumentNullException(nameof(logState));
     }
 
@@ -109,10 +107,7 @@ internal sealed class StartupUploadAttemptRunner
         }
 
         _waitingForRunExitLogged = false;
-        BppLog.DebugEvent(
-            UploadLogEvents.AttemptStarted,
-            () => [UploadLogEvents.AttemptStartedFeed.Bind(_feed)]
-        );
+        BppLog.DebugEvent(UploadLogEvents.AttemptStarted, () => []);
         try
         {
             // An attempt's synchronous prefix (outbox scan, queue-store round trips, the first
@@ -159,7 +154,6 @@ internal sealed class StartupUploadAttemptRunner
             BppLog.WarnEvent(
                 UploadLogEvents.CleanupDegraded,
                 ex,
-                UploadLogEvents.CleanupDegradedFeed.Bind(_feed),
                 UploadLogEvents.CleanupDegradedPhase.Bind(UploadCleanupPhase.ActivationDispose),
                 UploadLogEvents.CleanupDegradedReasonCode.Bind(
                     UploadLogReasonCode.ActivationDisposeException

@@ -6,13 +6,13 @@ namespace BazaarPlusPlus.Game.CombatReplay;
 internal sealed class ReplayPayloadMaintenanceService
 {
     private readonly IReplayPayloadMaintenanceCatalog _catalog;
-    private readonly IReplayPayloadFiles _files;
+    private readonly CombatReplayPayloadStore _files;
     private readonly ReplayPayloadOperationGate _operationGate;
     private readonly Func<IReadOnlyCollection<string>> _protectedBattleIds;
 
     internal ReplayPayloadMaintenanceService(
         IReplayPayloadMaintenanceCatalog catalog,
-        IReplayPayloadFiles files,
+        CombatReplayPayloadStore files,
         ReplayPayloadOperationGate operationGate,
         Func<IReadOnlyCollection<string>> protectedBattleIds
     )
@@ -33,7 +33,7 @@ internal sealed class ReplayPayloadMaintenanceService
         cancellationToken.ThrowIfCancellationRequested();
 
         var inventory = _catalog.ListReplayMaintenanceInventory();
-        var storedBattleIds = _files.ListBattleIds();
+        var storedBattleIds = _files.ListBattleIds().ToList();
         var workUnits = inventory.Count + storedBattleIds.Count;
         var databaseBattleIds = new HashSet<string>(
             inventory.Select(record => record.BattleId),

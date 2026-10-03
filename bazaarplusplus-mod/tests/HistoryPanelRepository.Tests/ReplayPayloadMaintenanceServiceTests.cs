@@ -1,5 +1,6 @@
 #nullable enable
 using System.Diagnostics;
+using System.Runtime.Versioning;
 using BazaarPlusPlus.Game.CombatReplay;
 using BazaarPlusPlus.Game.PvpBattles.Persistence;
 using BazaarPlusPlus.Storage.RunLog;
@@ -29,12 +30,12 @@ internal static class ReplayPayloadMaintenanceServiceTests
             ))
             .ToList();
         var catalog = new RecordingMaintenanceCatalog(inventory);
-        var files = new RecordingPayloadFiles(inventory.Skip(1).Select(record => record.BattleId));
+        using var files = new PayloadDirectory(inventory.Skip(1).Select(record => record.BattleId));
         using var operationGate = new ReplayPayloadOperationGate();
 
         var result = new ReplayPayloadMaintenanceService(
             catalog,
-            files,
+            files.Store,
             operationGate,
             () => Array.Empty<string>()
         ).Run(now, CancellationToken.None);
@@ -42,6 +43,7 @@ internal static class ReplayPayloadMaintenanceServiceTests
         Equal(1, result.MissingPayloadCount, "missing payload count");
         Equal(200, result.EvaluatedPayloadCount, "on-disk retention population");
         Equal(0, result.ScheduledDeleteCount, "missing row does not evict the oldest on-disk row");
+        Equal(200, files.Count(), "every on-disk payload survives");
         Equal(
             ReplayPayloadState.Missing,
             catalog.Inventory.Single(record => record.BattleId == "retention-000").PayloadState,
@@ -80,18 +82,19 @@ internal static class ReplayPayloadMaintenanceServiceTests
 
             var diagnostics = new List<ReplayPayloadMaintenanceStorageEvent>();
             var catalog = new PvpBattleSqliteStore(databasePath, diagnostics.Add);
-            var files = new RecordingPayloadFiles(
+            using var files = new PayloadDirectory(
                 Enumerable.Range(0, 10_000).Select(index => $"sqlite-{index:D5}")
             );
             using var operationGate = new ReplayPayloadOperationGate();
             var result = new ReplayPayloadMaintenanceService(
                 catalog,
-                files,
+                files.Store,
                 operationGate,
                 () => Array.Empty<string>()
             ).Run(new DateTimeOffset(2026, 8, 23, 0, 0, 0, TimeSpan.Zero), CancellationToken.None);
 
             Equal(9_800, result.ScheduledDeleteCount, "real SQLite scheduled payload count");
+            Equal(200, files.Count(), "real SQLite retained payload files");
             Equal(
                 3,
                 diagnostics.Count(item =>
@@ -165,11 +168,11 @@ internal static class ReplayPayloadMaintenanceServiceTests
             ))
             .ToList();
         var catalog = new RecordingMaintenanceCatalog(inventory);
-        var files = new RecordingPayloadFiles(inventory.Select(record => record.BattleId));
+        using var files = new PayloadDirectory(inventory.Select(record => record.BattleId));
         using var operationGate = new ReplayPayloadOperationGate();
         var service = new ReplayPayloadMaintenanceService(
             catalog,
-            files,
+            files.Store,
             operationGate,
             () => Array.Empty<string>()
         );
@@ -181,6 +184,9 @@ internal static class ReplayPayloadMaintenanceServiceTests
         Equal(10_000, result.EvaluatedPayloadCount, "evaluated payload count");
         Equal(9_800, result.ScheduledDeleteCount, "retention candidate count");
         Equal(9_800, result.DeletedPayloadCount, "deleted payload count");
+        Equal(200, files.Count(), "retained payload files");
+        Assert(files.Contains("battle-00000"), "The newest payload file must survive.");
+        Assert(!files.Contains("battle-09999"), "The oldest payload file must be deleted.");
         Equal(1, catalog.InventoryCallCount, "inventory query count");
         Equal(1, catalog.ScheduleCallCount, "schedule query count");
         Equal(1, catalog.CompleteCallCount, "completion query count");
@@ -207,27 +213,26 @@ internal static class ReplayPayloadMaintenanceServiceTests
             ))
             .ToList();
         var catalog = new RecordingMaintenanceCatalog(inventory);
-        var files = new RecordingPayloadFiles(inventory.Select(record => record.BattleId))
-        {
-            FailDeleteBattleId = "retry-200",
-        };
+        using var files = new PayloadDirectory(inventory.Select(record => record.BattleId));
         using var operationGate = new ReplayPayloadOperationGate();
         var service = new ReplayPayloadMaintenanceService(
             catalog,
-            files,
+            files.Store,
             operationGate,
             () => Array.Empty<string>()
         );
 
-        var first = service.Run(now, CancellationToken.None);
+        ReplayPayloadMaintenanceResult first;
+        using (files.DenyDelete("retry-200"))
+            first = service.Run(now, CancellationToken.None);
         Equal(1, first.FailedDeleteCount, "first failed delete count");
+        Assert(files.Contains("retry-200"), "A failed delete must leave the payload file.");
         Equal(
             ReplayPayloadState.DeletePending,
             catalog.Inventory.Single(record => record.BattleId == "retry-200").PayloadState,
             "durable retry state"
         );
 
-        files.FailDeleteBattleId = null;
         var second = service.Run(now.AddMinutes(1), CancellationToken.None);
         Equal(1, second.DeletedPayloadCount, "retry deleted count");
         Equal(
@@ -235,6 +240,7 @@ internal static class ReplayPayloadMaintenanceServiceTests
             catalog.Inventory.Single(record => record.BattleId == "retry-200").PayloadState,
             "retry terminal state"
         );
+        Assert(!files.Contains("retry-200"), "The retried delete must remove the payload file.");
     }
 
     private sealed class RecordingMaintenanceCatalog(
@@ -318,19 +324,62 @@ internal static class ReplayPayloadMaintenanceServiceTests
         }
     }
 
-    private sealed class RecordingPayloadFiles(IEnumerable<string> battleIds) : IReplayPayloadFiles
+    // A real CombatReplayPayloadStore over a temporary directory. Payload files are empty:
+    // maintenance only lists and deletes by name. DenyDelete makes File.Delete throw the way
+    // the platform does: a read-only directory on Unix, a read-only file on Windows.
+    private sealed class PayloadDirectory : IDisposable
     {
-        private readonly HashSet<string> _battleIds = new(battleIds, StringComparer.Ordinal);
+        private const string FileSuffix = ".payload.mpack.gz";
+        private readonly string _root = Path.Combine(
+            Path.GetTempPath(),
+            $"bpp-replay-payloads-{Guid.NewGuid():N}"
+        );
 
-        internal string? FailDeleteBattleId { get; set; }
-
-        public IReadOnlyList<string> ListBattleIds() => _battleIds.ToList();
-
-        public void Delete(string battleId)
+        internal PayloadDirectory(IEnumerable<string> battleIds)
         {
-            if (string.Equals(FailDeleteBattleId, battleId, StringComparison.Ordinal))
-                throw new IOException("Synthetic delete failure.");
-            _battleIds.Remove(battleId);
+            Directory.CreateDirectory(_root);
+            foreach (var battleId in battleIds)
+                File.WriteAllBytes(PathFor(battleId), []);
+            Store = new CombatReplayPayloadStore(_root);
+        }
+
+        internal CombatReplayPayloadStore Store { get; }
+
+        internal bool Contains(string battleId) => File.Exists(PathFor(battleId));
+
+        internal int Count() => Directory.GetFiles(_root, $"*{FileSuffix}").Length;
+
+        internal IDisposable DenyDelete(string battleId)
+        {
+            if (OperatingSystem.IsWindows())
+            {
+                var path = PathFor(battleId);
+                File.SetAttributes(path, FileAttributes.ReadOnly);
+                return new Restore(() => File.SetAttributes(path, FileAttributes.Normal));
+            }
+
+            return DenyDirectoryDeletes(_root);
+        }
+
+        [UnsupportedOSPlatform("windows")]
+        private static IDisposable DenyDirectoryDeletes(string root)
+        {
+            var mode = File.GetUnixFileMode(root);
+            File.SetUnixFileMode(root, UnixFileMode.UserRead | UnixFileMode.UserExecute);
+            return new Restore(() => File.SetUnixFileMode(root, mode));
+        }
+
+        public void Dispose()
+        {
+            if (Directory.Exists(_root))
+                Directory.Delete(_root, recursive: true);
+        }
+
+        private string PathFor(string battleId) => Path.Combine(_root, battleId + FileSuffix);
+
+        private sealed class Restore(Action restore) : IDisposable
+        {
+            public void Dispose() => restore();
         }
     }
 

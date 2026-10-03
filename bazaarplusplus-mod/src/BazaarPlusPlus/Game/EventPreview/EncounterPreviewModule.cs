@@ -29,13 +29,6 @@ internal readonly record struct EventPreviewResult(
     string? Content
 );
 
-internal interface IEncounterPreviewModule
-{
-    EventPreviewResult ResolveEvent(EventPreviewQuery query);
-    EventPreviewResult ResolveStep(EncounterStepPreviewQuery query);
-    EventPreviewResult ResolveLevelUp(LevelUpPreviewQuery query);
-}
-
 internal enum EncounterPreviewModuleStatus
 {
     Loading,
@@ -45,7 +38,7 @@ internal enum EncounterPreviewModuleStatus
     Disposed,
 }
 
-internal sealed class EncounterPreviewModule : IEncounterPreviewModule, IDisposable
+internal sealed class EncounterPreviewModule : IDisposable
 {
     private readonly EncounterPreviewPlanRegistry _registry;
     private readonly CancellationTokenSource _shutdown = new();

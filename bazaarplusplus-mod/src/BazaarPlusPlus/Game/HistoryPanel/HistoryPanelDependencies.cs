@@ -1,38 +1,37 @@
 #nullable enable
 using BazaarPlusPlus.Game.HistoryPanel.AccountLink;
 using BazaarPlusPlus.Game.HistoryPanel.Storage;
+using BazaarPlusPlus.GameInterop;
 using BazaarPlusPlus.ModApi.Clients;
 
 namespace BazaarPlusPlus.Game.HistoryPanel;
 
 internal sealed class HistoryPanelDependencies
 {
-    // Intentionally no ArgumentNullException guards: reflection-pinned tests pass null by
-    // position as a behavior anchor (ADR-0003 / issue #167). Direct assignment only.
     public HistoryPanelDependencies(
-        IHistoryPanelRunState runState,
+        IRunContext runContext,
         HistoryPanelDataService dataService,
         HistoryPanelReplayService replayService,
-        IHistoryPanelServerHealthProbe? serverHealthProbe,
+        ModApiSession? modApiSession,
         BazaarDbLinkClient? accountLinkClient,
         Func<AccountLinkGate>? accountLinkGate
     )
     {
-        RunState = runState;
+        RunContext = runContext;
         DataService = dataService;
         ReplayService = replayService;
-        ServerHealthProbe = serverHealthProbe;
+        ModApiSession = modApiSession;
         AccountLinkClient = accountLinkClient;
         AccountLinkGate = accountLinkGate;
     }
 
-    public IHistoryPanelRunState RunState { get; }
+    public IRunContext RunContext { get; }
 
     public HistoryPanelDataService DataService { get; }
 
     public HistoryPanelReplayService ReplayService { get; }
 
-    public IHistoryPanelServerHealthProbe? ServerHealthProbe { get; }
+    public ModApiSession? ModApiSession { get; }
 
     public BazaarDbLinkClient? AccountLinkClient { get; }
 
