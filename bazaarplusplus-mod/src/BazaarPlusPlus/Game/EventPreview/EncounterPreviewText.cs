@@ -2,7 +2,6 @@
 using System.Globalization;
 using System.Text;
 using BazaarGameShared.Domain.Core.Types;
-using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Localization;
 
 namespace BazaarPlusPlus.Game.EventPreview;
@@ -135,7 +134,7 @@ internal static class EncounterPreviewText
         var (english, chineseMainland, chineseTraditional) = TierForms(tier);
         return chineseMainland.Length == 0
             ? english
-            : LocalizedTextHelpers.FormatSimple(english, chineseMainland, chineseTraditional);
+            : L.Resolve(new LocalizedTextSet(english, chineseMainland, chineseTraditional));
     }
 
     internal static (string English, string ChineseMainland, string ChineseTraditional) TierForms(
@@ -178,5 +177,5 @@ internal static class EncounterPreviewText
         return cursor < text.Length && char.IsWhiteSpace(text[cursor]);
     }
 
-    private static string Resolve(LocalizedTextSet text) => LocalizedTextHelpers.Resolve(text);
+    private static string Resolve(LocalizedTextSet text) => L.Resolve(text);
 }

@@ -41,7 +41,7 @@ internal sealed class CollectionPanel : MonoBehaviour
     private readonly CollectionGridPortAdapter _gridPort = new();
     private CollectionViewState _viewState = null!;
 
-    private IBppConfig _config = null!;
+    private BppConfig _config = null!;
     private INativeCardPreviewHost _nativeCardPreviewHost = null!;
     private IGameDataDayTierResolver _dayTierResolver = null!;
     private CollectionPanelView? _view;
@@ -290,23 +290,17 @@ internal sealed class CollectionPanel : MonoBehaviour
     {
         try
         {
-            if (_services.EncounterState is ITypedEncounterIdsProbe typedProbe)
-            {
-                var outcome = typedProbe.GetEncounterIdsOutcome();
-                if (outcome.IsSuccess)
-                    return outcome.Snapshot;
-
-                failures.Add(
-                    Failure(
-                        CollectionPanelSelectionProbe.Encounter,
-                        outcome.Exception
-                            ?? new InvalidOperationException("Encounter ID probe failed.")
-                    )
-                );
+            var outcome = _services.EncounterState.GetEncounterIdsOutcome();
+            if (outcome.IsSuccess)
                 return outcome.Snapshot;
-            }
 
-            return _services.EncounterState.GetEncounterIds();
+            failures.Add(
+                Failure(
+                    CollectionPanelSelectionProbe.Encounter,
+                    outcome.Exception ?? new InvalidOperationException("Encounter ID probe failed.")
+                )
+            );
+            return outcome.Snapshot;
         }
         catch (Exception ex)
         {

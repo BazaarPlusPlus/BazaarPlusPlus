@@ -30,7 +30,7 @@ internal sealed class CosmeticNameOverlay : MonoBehaviour
         "{0} predefinito"
     );
 
-    private IBppConfig? _config;
+    private BppConfig? _config;
     private BazaarSaleItem _data;
     private RectTransform? _thumbnailViewport;
     private GameObject? _overlay;
@@ -43,7 +43,7 @@ internal sealed class CosmeticNameOverlay : MonoBehaviour
     private float _nextAttempt;
 
     internal void Initialize(
-        IBppConfig config,
+        BppConfig config,
         CosmeticItem item,
         BazaarSaleItem data,
         bool placeholder
@@ -94,7 +94,7 @@ internal sealed class CosmeticNameOverlay : MonoBehaviour
 
     private void LateUpdate()
     {
-        var enabled = _config?.EnableCosmeticNamesConfig?.Value ?? false;
+        var enabled = _config?.EnableCosmeticNamesConfig.Value ?? false;
         // Publicized native events have ambiguous backing fields; observe the locale value
         // just like config values instead of subscribing to LocalizationService.LocaleChanged.
         if (
@@ -109,7 +109,7 @@ internal sealed class CosmeticNameOverlay : MonoBehaviour
 
     private void Refresh()
     {
-        _lastEnabled = _config?.EnableCosmeticNamesConfig?.Value ?? false;
+        _lastEnabled = _config?.EnableCosmeticNamesConfig.Value ?? false;
         _lastLanguage = L.CurrentLanguageCode;
         _lastChineseMode = L.CurrentMode;
         _dirty = false;

@@ -19,8 +19,8 @@ public sealed class NativeTagTypographyChineseTests
         try
         {
             L.Install(
-                new FixedLanguage(languageCode),
-                new FixedMode(taiwan ? BppChineseLocaleMode.Taiwan : BppChineseLocaleMode.Mainland)
+                () => languageCode,
+                () => taiwan ? BppChineseLocaleMode.Taiwan : BppChineseLocaleMode.Mainland
             );
 
             Assert.Equal(expected, NativeTagLabelText.Quest("Quest"));
@@ -29,15 +29,5 @@ public sealed class NativeTagTypographyChineseTests
         {
             L.Reset();
         }
-    }
-
-    private sealed class FixedLanguage(string languageCode) : ILanguageProvider
-    {
-        public string CurrentLanguageCode { get; } = languageCode;
-    }
-
-    private sealed class FixedMode(BppChineseLocaleMode mode) : ILocaleModeProvider
-    {
-        public BppChineseLocaleMode CurrentMode { get; } = mode;
     }
 }

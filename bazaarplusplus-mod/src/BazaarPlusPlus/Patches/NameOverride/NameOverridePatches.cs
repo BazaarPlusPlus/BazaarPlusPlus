@@ -14,7 +14,7 @@ internal static class NameOverrideHelper
 
     public static bool IsEnabled()
     {
-        return BppPatchHost.Services.Config.EnableNameOverrideConfig?.Value == true;
+        return BppPatchHost.Services.Config.EnableNameOverrideConfig.Value;
     }
 
     public static bool TryGetDisplayNameOverride(string originalName, out string? replacementName)

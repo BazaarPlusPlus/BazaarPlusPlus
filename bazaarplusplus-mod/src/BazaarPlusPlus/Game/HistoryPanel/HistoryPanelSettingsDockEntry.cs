@@ -20,7 +20,7 @@ internal sealed class HistoryPanelSettingsDockEntry : ISettingsDockEntry
 
     public int Order => BppSettingsDockOrder.GameHistory;
 
-    public BppSettingsDockDefinition Build(IBppConfig config) =>
+    public BppSettingsDockDefinition Build(BppConfig config) =>
         new(
             "GameHistory",
             languageCode =>

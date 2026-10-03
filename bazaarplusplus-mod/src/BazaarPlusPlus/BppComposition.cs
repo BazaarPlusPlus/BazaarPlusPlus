@@ -53,7 +53,7 @@ namespace BazaarPlusPlus;
 internal sealed class BppComposition : IDisposable
 {
     private readonly InMemoryBppEventBus _eventBus = new();
-    private readonly BppConfig _config = new();
+    private readonly BppConfig _config;
     private readonly BepInExPathProvider _paths = new();
     private readonly RunContextStore _runContext = new();
     private readonly GameStateProbe _gameStateProbe = new();
@@ -105,7 +105,7 @@ internal sealed class BppComposition : IDisposable
         if (gameBuild == null)
             throw new ArgumentNullException(nameof(gameBuild));
 
-        _config.Initialize(configFile);
+        _config = new BppConfig(configFile);
         _paths.Initialize();
         _runContext.Reset();
 
@@ -127,7 +127,7 @@ internal sealed class BppComposition : IDisposable
         _voiceSubtitlesModule = new VoiceSubtitlesModule(_paths.RequireDataRoot());
         _voiceSubtitlesInteropModule = new VoiceSubtitlesInteropModule();
         _supporterCatalogModule = new SupporterCatalogModule(
-            () => _config.UseFixedSupporterListConfig?.Value ?? false,
+            () => _config.UseFixedSupporterListConfig.Value,
             _paths.RequireDataRoot()
         );
         _nativeCardPreviewHost = new NativeCardPreviewHost(new NativeTooltipDataFactoryAdapter());

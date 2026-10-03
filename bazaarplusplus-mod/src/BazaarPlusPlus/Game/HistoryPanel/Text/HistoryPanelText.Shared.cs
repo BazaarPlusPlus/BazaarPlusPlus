@@ -1,13 +1,12 @@
 #nullable enable
 
-using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Localization;
 
 namespace BazaarPlusPlus.Game.HistoryPanel;
 
 internal static partial class HistoryPanelText
 {
-    private static string Resolve(LocalizedTextSet set) => LocalizedTextHelpers.Resolve(set);
+    private static string Resolve(LocalizedTextSet set) => L.Resolve(set);
 
     private static string FormatSimple(string english, string chineseMainland)
     {
@@ -20,6 +19,6 @@ internal static partial class HistoryPanelText
         string? chineseTraditional
     )
     {
-        return LocalizedTextHelpers.FormatSimple(english, chineseMainland, chineseTraditional);
+        return L.Resolve(new LocalizedTextSet(english, chineseMainland, chineseTraditional));
     }
 }

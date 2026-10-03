@@ -54,7 +54,7 @@ Assert(
 var textType = RequireType("BazaarPlusPlus.Game.HistoryPanel.HistoryPanelText");
 var languageProvider = new MutableLanguageProvider("zh-CN");
 var modeProvider = new MutableLocaleModeProvider(BppChineseLocaleMode.Mainland);
-L.Install(languageProvider, modeProvider);
+L.Install(() => languageProvider.CurrentLanguageCode, () => modeProvider.CurrentMode);
 var accountLinkType =
     textType.GetNestedType("AccountLink", BindingFlags.NonPublic | BindingFlags.Public)
     ?? throw new InvalidOperationException("HistoryPanelText.AccountLink should exist.");
@@ -268,12 +268,12 @@ static void Assert(bool condition, string message)
         throw new InvalidOperationException(message);
 }
 
-internal sealed class MutableLanguageProvider(string languageCode) : ILanguageProvider
+internal sealed class MutableLanguageProvider(string languageCode)
 {
     public string CurrentLanguageCode { get; set; } = languageCode;
 }
 
-internal sealed class MutableLocaleModeProvider(BppChineseLocaleMode mode) : ILocaleModeProvider
+internal sealed class MutableLocaleModeProvider(BppChineseLocaleMode mode)
 {
     public BppChineseLocaleMode CurrentMode { get; set; } = mode;
 }

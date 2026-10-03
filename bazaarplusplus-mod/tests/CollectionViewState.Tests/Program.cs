@@ -23,7 +23,7 @@ using BazaarPlusPlus.Localization;
     AssertTrue(threw, "L.Resolve must throw when L is not installed (no English fallback).");
 }
 
-L.Install(new FixedLanguageProvider("en"), new FixedLocaleModeProvider());
+L.Install(() => "en", () => BppChineseLocaleMode.Mainland);
 
 var vanessaSource = Source(
     "merchant:vanessa-only",
@@ -385,16 +385,6 @@ static void AssertTrue(bool condition, string message)
 }
 
 static void AssertFalse(bool condition, string message) => AssertTrue(!condition, message);
-
-internal sealed class FixedLanguageProvider(string code) : ILanguageProvider
-{
-    public string CurrentLanguageCode => code;
-}
-
-internal sealed class FixedLocaleModeProvider : ILocaleModeProvider
-{
-    public BppChineseLocaleMode CurrentMode => BppChineseLocaleMode.Mainland;
-}
 
 internal sealed class DictionarySourceCatalog : ICollectionSourceCatalog
 {

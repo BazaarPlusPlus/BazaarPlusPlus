@@ -21,14 +21,10 @@ internal static class LegendaryPositionSettingsDockEntry
                 LegendaryPositionDisplayMode.Fixed999999,
                 LegendaryPositionDisplayMode.PositionWithRating,
             },
-            config =>
-                config.LegendaryPositionDisplayModeConfig?.Value
-                ?? LegendaryPositionDisplayMode.Default,
+            config => config.LegendaryPositionDisplayModeConfig.Value,
             (config, mode) =>
             {
-                var entry = config.LegendaryPositionDisplayModeConfig;
-                if (entry != null)
-                    entry.Value = mode;
+                config.LegendaryPositionDisplayModeConfig.Value = mode;
             },
             mode => mode != LegendaryPositionDisplayMode.Default,
             ResolveStatus,

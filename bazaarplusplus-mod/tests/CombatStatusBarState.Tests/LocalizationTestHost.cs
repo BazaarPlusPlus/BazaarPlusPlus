@@ -9,16 +9,6 @@ using Xunit;
 
 namespace BazaarPlusPlus.Tests;
 
-internal sealed class FixedLanguageProvider(string languageCode) : ILanguageProvider
-{
-    public string CurrentLanguageCode { get; } = languageCode;
-}
-
-internal sealed class FixedModeProvider(BppChineseLocaleMode mode) : ILocaleModeProvider
-{
-    public BppChineseLocaleMode CurrentMode { get; } = mode;
-}
-
 internal static class LocalizationTestHost
 {
     internal static void Install(
@@ -26,6 +16,6 @@ internal static class LocalizationTestHost
         BppChineseLocaleMode mode = BppChineseLocaleMode.Mainland
     )
     {
-        L.Install(new FixedLanguageProvider(languageCode), new FixedModeProvider(mode));
+        L.Install(() => languageCode, () => mode);
     }
 }

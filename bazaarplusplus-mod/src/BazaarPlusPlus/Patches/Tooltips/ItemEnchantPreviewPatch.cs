@@ -164,13 +164,7 @@ internal static class BppTooltipSectionRenderPatch
     {
         if (probe == null)
             return null;
-        if (probe is not ITypedEncounterStateProbe typed)
-        {
-            ReportEncounterSuccess();
-            return probe.GetChoicePedestal();
-        }
-
-        var outcome = typed.GetChoicePedestalOutcome();
+        var outcome = probe.GetChoicePedestalOutcome();
         if (outcome.IsSuccess)
         {
             ReportEncounterSuccess();

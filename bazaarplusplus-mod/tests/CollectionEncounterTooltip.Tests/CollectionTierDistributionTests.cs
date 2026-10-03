@@ -13,7 +13,7 @@ public sealed class GameDataDayTierTableTests
 {
     public GameDataDayTierTableTests()
     {
-        L.Install(new TestLanguageProvider(), new TestLocaleModeProvider());
+        L.Install(() => "en", () => BppChineseLocaleMode.Mainland);
     }
 
     [Fact]
@@ -191,7 +191,7 @@ public sealed class GameDataDayTierTableTests
     )
     {
         var localeMode = traditional ? BppChineseLocaleMode.Taiwan : BppChineseLocaleMode.Mainland;
-        L.Install(new TestLanguageProvider(language), new TestLocaleModeProvider(localeMode));
+        L.Install(() => language, () => localeMode);
 
         var text = EncounterPreviewTextFormatter.BuildQualityLine(
             GameDataDayTierTable.FromWeights(0.9f, 0.1f, 0f, 0f),
@@ -275,24 +275,4 @@ public sealed class GameDataDayTierTableTests
                 SpawnContext = new TSpawnContextQuery { Behaviors = behaviors.ToList() },
             },
         };
-
-    private sealed class TestLanguageProvider : ILanguageProvider
-    {
-        public TestLanguageProvider(string languageCode = "en")
-        {
-            CurrentLanguageCode = languageCode;
-        }
-
-        public string CurrentLanguageCode { get; }
-    }
-
-    private sealed class TestLocaleModeProvider : ILocaleModeProvider
-    {
-        public TestLocaleModeProvider(BppChineseLocaleMode mode = BppChineseLocaleMode.Mainland)
-        {
-            CurrentMode = mode;
-        }
-
-        public BppChineseLocaleMode CurrentMode { get; }
-    }
 }

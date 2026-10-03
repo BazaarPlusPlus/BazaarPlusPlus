@@ -58,22 +58,12 @@ public sealed class CombatImpactChineseScriptTests
 
     private static LocaleScope Locale(string languageCode, BppChineseLocaleMode mode)
     {
-        L.Install(new FixedLanguage(languageCode), new FixedMode(mode));
+        L.Install(() => languageCode, () => mode);
         return new LocaleScope();
     }
 
     private sealed class LocaleScope : IDisposable
     {
         public void Dispose() => LocalizationTestBootstrap.Install();
-    }
-
-    private sealed class FixedLanguage(string languageCode) : ILanguageProvider
-    {
-        public string CurrentLanguageCode { get; } = languageCode;
-    }
-
-    private sealed class FixedMode(BppChineseLocaleMode mode) : ILocaleModeProvider
-    {
-        public BppChineseLocaleMode CurrentMode { get; } = mode;
     }
 }

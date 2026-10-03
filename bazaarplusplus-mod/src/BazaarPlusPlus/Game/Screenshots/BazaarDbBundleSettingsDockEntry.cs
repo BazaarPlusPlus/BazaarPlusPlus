@@ -16,14 +16,11 @@ internal static class BazaarDbBundleSettingsDockEntry
             WriteEnabled
         );
 
-    private static bool ReadEnabled(IBppConfig config) =>
-        config.BazaarDbUploadEnabled?.Value ?? false;
+    private static bool ReadEnabled(BppConfig config) => config.BazaarDbUploadEnabled.Value;
 
-    private static void WriteEnabled(IBppConfig config, bool enabled)
+    private static void WriteEnabled(BppConfig config, bool enabled)
     {
-        var entry = config.BazaarDbUploadEnabled;
-        if (entry != null)
-            entry.Value = enabled;
+        config.BazaarDbUploadEnabled.Value = enabled;
 
         if (enabled)
             EndOfRunScreenshotSettingsPolicy.ForceEnabled(config);

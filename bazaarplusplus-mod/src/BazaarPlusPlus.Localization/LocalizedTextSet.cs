@@ -6,7 +6,7 @@ internal readonly struct LocalizedTextSet
     internal LocalizedTextSet(string english, string chineseMainland)
         : this(english, chineseMainland, null, english, english, english, english) { }
 
-    internal LocalizedTextSet(string english, string chineseMainland, string chineseTraditional)
+    internal LocalizedTextSet(string english, string chineseMainland, string? chineseTraditional)
         : this(english, chineseMainland, chineseTraditional, english, english, english, english) { }
 
     internal LocalizedTextSet(

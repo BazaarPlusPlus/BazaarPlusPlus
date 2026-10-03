@@ -7,6 +7,6 @@ internal static class EventPreviewGate
 {
     internal static bool IsEnabled()
     {
-        return BppPatchHost.Services.Config.EnableEventPreviewConfig?.Value == true;
+        return BppPatchHost.Services.Config.EnableEventPreviewConfig.Value;
     }
 }

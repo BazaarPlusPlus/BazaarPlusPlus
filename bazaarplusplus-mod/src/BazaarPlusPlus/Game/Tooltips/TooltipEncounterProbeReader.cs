@@ -17,13 +17,7 @@ internal static class TooltipEncounterProbeReader
         if (probe == null)
             return null;
 
-        if (probe is not ITypedEncounterStateProbe typed)
-        {
-            ReportSuccess();
-            return probe.GetChoicePedestal();
-        }
-
-        var outcome = typed.GetChoicePedestalOutcome();
+        var outcome = probe.GetChoicePedestalOutcome();
         if (outcome.IsSuccess)
         {
             ReportSuccess();

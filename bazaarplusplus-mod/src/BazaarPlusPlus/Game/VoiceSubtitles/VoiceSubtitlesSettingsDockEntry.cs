@@ -42,12 +42,12 @@ internal static class VoiceSubtitlesSettingsDockEntry
         registry.Register(VoiceSubtitlesChineseFontScaleSettingsDockEntry.Create());
     }
 
-    private static SubtitleMode ReadMode(IBppConfig config)
+    private static SubtitleMode ReadMode(BppConfig config)
     {
-        if (config.EnableVoiceSubtitlesConfig?.Value != true)
+        if (!config.EnableVoiceSubtitlesConfig.Value)
             return SubtitleMode.Off;
 
-        return (config.VoiceSubtitlesLanguageModeConfig?.Value ?? SubtitleLanguageMode.Both) switch
+        return (config.VoiceSubtitlesLanguageModeConfig.Value) switch
         {
             SubtitleLanguageMode.ChineseOnly => SubtitleMode.Chinese,
             SubtitleLanguageMode.EnglishOnly => SubtitleMode.English,
@@ -55,22 +55,16 @@ internal static class VoiceSubtitlesSettingsDockEntry
         };
     }
 
-    private static void WriteMode(IBppConfig config, SubtitleMode mode)
+    private static void WriteMode(BppConfig config, SubtitleMode mode)
     {
-        var enabledEntry = config.EnableVoiceSubtitlesConfig;
-        if (enabledEntry != null)
-            enabledEntry.Value = mode != SubtitleMode.Off;
+        config.EnableVoiceSubtitlesConfig.Value = mode != SubtitleMode.Off;
 
-        var languageEntry = config.VoiceSubtitlesLanguageModeConfig;
-        if (languageEntry != null)
+        config.VoiceSubtitlesLanguageModeConfig.Value = mode switch
         {
-            languageEntry.Value = mode switch
-            {
-                SubtitleMode.Chinese => SubtitleLanguageMode.ChineseOnly,
-                SubtitleMode.English => SubtitleLanguageMode.EnglishOnly,
-                _ => SubtitleLanguageMode.Both,
-            };
-        }
+            SubtitleMode.Chinese => SubtitleLanguageMode.ChineseOnly,
+            SubtitleMode.English => SubtitleLanguageMode.EnglishOnly,
+            _ => SubtitleLanguageMode.Both,
+        };
     }
 
     private static string ResolveStatus(SubtitleMode mode, string languageCode)
@@ -116,14 +110,10 @@ internal static class VoiceSubtitlesPositionSettingsDockEntry
                 SubtitlePosition.TopRight,
                 SubtitlePosition.TopCenter,
             },
-            config =>
-                config.VoiceSubtitlesPositionConfig?.Value
-                ?? BppConfig.DefaultVoiceSubtitlesPosition,
+            config => config.VoiceSubtitlesPositionConfig.Value,
             (config, position) =>
             {
-                var entry = config.VoiceSubtitlesPositionConfig;
-                if (entry != null)
-                    entry.Value = position;
+                config.VoiceSubtitlesPositionConfig.Value = position;
             },
             position => position != BppConfig.DefaultVoiceSubtitlesPosition,
             ResolveStatus
@@ -155,12 +145,10 @@ internal static class VoiceSubtitlesEnglishFontScaleSettingsDockEntry
             BppSettingsDockOrder.VoiceSubtitlesEnglishFontScale,
             "VoiceSubtitlesEnglishFontScale",
             new LocalizedTextSet("English Size", "英文字号", "英文字號"),
-            config => config.VoiceSubtitlesEnglishFontScaleConfig?.Value ?? 1f,
+            config => config.VoiceSubtitlesEnglishFontScaleConfig.Value,
             (config, scale) =>
             {
-                var entry = config.VoiceSubtitlesEnglishFontScaleConfig;
-                if (entry != null)
-                    entry.Value = scale;
+                config.VoiceSubtitlesEnglishFontScaleConfig.Value = scale;
             }
         );
 }
@@ -172,12 +160,10 @@ internal static class VoiceSubtitlesChineseFontScaleSettingsDockEntry
             BppSettingsDockOrder.VoiceSubtitlesChineseFontScale,
             "VoiceSubtitlesChineseFontScale",
             new LocalizedTextSet("Chinese Size", "中文字号", "中文字號"),
-            config => config.VoiceSubtitlesChineseFontScaleConfig?.Value ?? 1f,
+            config => config.VoiceSubtitlesChineseFontScaleConfig.Value,
             (config, scale) =>
             {
-                var entry = config.VoiceSubtitlesChineseFontScaleConfig;
-                if (entry != null)
-                    entry.Value = scale;
+                config.VoiceSubtitlesChineseFontScaleConfig.Value = scale;
             }
         );
 }
@@ -191,8 +177,8 @@ internal static class VoiceSubtitlesFontScaleDockEntryFactory
         int order,
         string key,
         LocalizedTextSet label,
-        Func<IBppConfig, float> read,
-        Action<IBppConfig, float> write
+        Func<BppConfig, float> read,
+        Action<BppConfig, float> write
     ) =>
         new(
             order,

@@ -9,7 +9,7 @@ namespace BazaarPlusPlus.Game.VoiceSubtitles.Settings;
 // BazaarPlusPlus.cfg (BppConfig, section "VoiceSubtitles"); there is no separate config file.
 // Runtime callers with no config injection (VoiceLineDisplay) read through BppPatchHost, the
 // same seam VoiceSubtitlesGate uses. UI writes go straight to the ConfigEntry from the dock
-// entries, which are handed the IBppConfig instance.
+// entries, which are handed the BppConfig instance.
 internal sealed class VoiceLineSettings
 {
     private const float DefaultEnglishFontScale = 1f;
@@ -39,11 +39,10 @@ internal sealed class VoiceLineSettings
         {
             var config = BppPatchHost.Services.Config;
             return new VoiceLineSettings(
-                config.VoiceSubtitlesPositionConfig?.Value
-                    ?? BppConfig.DefaultVoiceSubtitlesPosition,
-                config.VoiceSubtitlesLanguageModeConfig?.Value ?? SubtitleLanguageMode.Both,
-                config.VoiceSubtitlesEnglishFontScaleConfig?.Value ?? DefaultEnglishFontScale,
-                config.VoiceSubtitlesChineseFontScaleConfig?.Value ?? DefaultChineseFontScale
+                config.VoiceSubtitlesPositionConfig.Value,
+                config.VoiceSubtitlesLanguageModeConfig.Value,
+                config.VoiceSubtitlesEnglishFontScaleConfig.Value,
+                config.VoiceSubtitlesChineseFontScaleConfig.Value
             );
         }
     }

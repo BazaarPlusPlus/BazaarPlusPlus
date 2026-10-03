@@ -113,17 +113,7 @@ public sealed class SubtitleChineseScriptTests
 
     private static void Install(bool taiwan) =>
         L.Install(
-            new FixedLanguage("zh-CN"),
-            new FixedMode(taiwan ? BppChineseLocaleMode.Taiwan : BppChineseLocaleMode.Mainland)
+            () => "zh-CN",
+            () => taiwan ? BppChineseLocaleMode.Taiwan : BppChineseLocaleMode.Mainland
         );
-
-    private sealed class FixedLanguage(string languageCode) : ILanguageProvider
-    {
-        public string CurrentLanguageCode { get; } = languageCode;
-    }
-
-    private sealed class FixedMode(BppChineseLocaleMode mode) : ILocaleModeProvider
-    {
-        public BppChineseLocaleMode CurrentMode { get; } = mode;
-    }
 }

@@ -5,26 +5,23 @@ namespace BazaarPlusPlus.Game.Screenshots;
 
 internal static class EndOfRunScreenshotSettingsPolicy
 {
-    internal static bool IsEnabledOrForced(IBppConfig config)
+    internal static bool IsEnabledOrForced(BppConfig config)
     {
         return ReadEnabled(config) || IsForcedOn(config);
     }
 
-    internal static bool IsForcedOn(IBppConfig config)
+    internal static bool IsForcedOn(BppConfig config)
     {
-        return (config.BazaarDbUploadEnabled?.Value ?? false)
-            || (config.UseFixedSupporterListConfig?.Value ?? false);
+        return config.BazaarDbUploadEnabled.Value || config.UseFixedSupporterListConfig.Value;
     }
 
-    internal static void ForceEnabled(IBppConfig config)
+    internal static void ForceEnabled(BppConfig config)
     {
-        var entry = config.EndOfRunScreenshotEnabledConfig;
-        if (entry != null)
-            entry.Value = true;
+        config.EndOfRunScreenshotEnabledConfig.Value = true;
     }
 
-    private static bool ReadEnabled(IBppConfig config)
+    private static bool ReadEnabled(BppConfig config)
     {
-        return config.EndOfRunScreenshotEnabledConfig?.Value ?? true;
+        return config.EndOfRunScreenshotEnabledConfig.Value;
     }
 }

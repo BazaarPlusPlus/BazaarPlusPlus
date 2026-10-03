@@ -10,12 +10,10 @@ internal static class EventPreviewSettingsDockEntry
             BppSettingsDockOrder.EventPreview,
             "EventPreview",
             EventPreviewSettingsMenuLabel.Resolve,
-            config => config.EnableEventPreviewConfig?.Value ?? true,
+            config => config.EnableEventPreviewConfig.Value,
             (config, enabled) =>
             {
-                var entry = config.EnableEventPreviewConfig;
-                if (entry != null)
-                    entry.Value = enabled;
+                config.EnableEventPreviewConfig.Value = enabled;
             }
         );
 }

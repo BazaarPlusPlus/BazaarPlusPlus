@@ -19,7 +19,7 @@ public sealed class LevelUpPreviewTextFormatterTests
 {
     public LevelUpPreviewTextFormatterTests()
     {
-        L.Install(new TestLanguageProvider(), new TestLocaleModeProvider());
+        L.Install(() => "en", () => BppChineseLocaleMode.Mainland);
     }
 
     [Fact]
@@ -150,7 +150,7 @@ public sealed class LevelUpPreviewTextFormatterTests
     [Fact]
     public void Build_uses_chinese_colon_without_a_following_space()
     {
-        L.Install(new TestLanguageProvider("zh-CN"), new TestLocaleModeProvider());
+        L.Install(() => "zh-CN", () => BppChineseLocaleMode.Mainland);
         var rewardId = Guid.Parse("30000000-0000-0000-0000-0000000000f1");
         var levelUp = new TLevelUp
         {
@@ -396,14 +396,4 @@ public sealed class LevelUpPreviewTextFormatterTests
             Limit = new TFixedValue { Value = limit },
             Prerequisites = prerequisites.Length == 0 ? null : prerequisites.ToList(),
         };
-
-    private sealed class TestLanguageProvider(string languageCode = "en") : ILanguageProvider
-    {
-        public string CurrentLanguageCode { get; } = languageCode;
-    }
-
-    private sealed class TestLocaleModeProvider : ILocaleModeProvider
-    {
-        public BppChineseLocaleMode CurrentMode => BppChineseLocaleMode.Mainland;
-    }
 }

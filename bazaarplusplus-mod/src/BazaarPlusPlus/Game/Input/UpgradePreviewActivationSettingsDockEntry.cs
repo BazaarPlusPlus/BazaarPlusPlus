@@ -22,14 +22,10 @@ internal static class UpgradePreviewActivationSettingsDockEntry
             "UpgradePreviewActivation",
             languageCode => Labels.Resolve(languageCode, L.CurrentMode),
             new[] { HotkeyActivationMode.Hold, HotkeyActivationMode.Toggle },
-            config =>
-                config.UpgradePreviewActivationModeConfig?.Value
-                ?? BppConfig.DefaultUpgradePreviewActivationMode,
+            config => config.UpgradePreviewActivationModeConfig.Value,
             (config, mode) =>
             {
-                var entry = config.UpgradePreviewActivationModeConfig;
-                if (entry != null)
-                    entry.Value = mode;
+                config.UpgradePreviewActivationModeConfig.Value = mode;
             },
             mode => mode == HotkeyActivationMode.Toggle,
             ResolveStatus

@@ -26,12 +26,10 @@ internal static class GraphicsUpscalingSettingsDockEntry
                 GraphicsUpscalingMode.FsrBalanced,
                 GraphicsUpscalingMode.FsrPerformance,
             },
-            config => config.GraphicsUpscalingModeConfig?.Value ?? GraphicsUpscalingMode.Native,
+            config => config.GraphicsUpscalingModeConfig.Value,
             (config, mode) =>
             {
-                var entry = config.GraphicsUpscalingModeConfig;
-                if (entry != null)
-                    entry.Value = mode;
+                config.GraphicsUpscalingModeConfig.Value = mode;
             },
             mode => mode != GraphicsUpscalingMode.Native,
             ResolveStatus
@@ -86,13 +84,10 @@ internal static class GraphicsUpscalingSharpnessSettingsDockEntry
             "GraphicsUpscalingSharpness",
             languageCode => Labels.Resolve(languageCode, L.CurrentMode),
             new[] { 0.6f, 0.75f, BppConfig.DefaultFsrSharpness, 1f },
-            config =>
-                config.GraphicsUpscalingSharpnessConfig?.Value ?? BppConfig.DefaultFsrSharpness,
+            config => config.GraphicsUpscalingSharpnessConfig.Value,
             (config, sharpness) =>
             {
-                var entry = config.GraphicsUpscalingSharpnessConfig;
-                if (entry != null)
-                    entry.Value = sharpness;
+                config.GraphicsUpscalingSharpnessConfig.Value = sharpness;
             },
             sharpness => !Approximately(sharpness, BppConfig.DefaultFsrSharpness),
             ResolveStatus

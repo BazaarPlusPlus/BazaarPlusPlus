@@ -4,7 +4,7 @@ using BepInEx.Configuration;
 
 namespace BazaarPlusPlus.Core.Config;
 
-internal sealed class BppConfig : IBppConfig
+internal sealed class BppConfig
 {
     internal const PreviewVisibilityMode DefaultEnchantPreviewMode = PreviewVisibilityMode.Always;
     internal const HotkeyActivationMode DefaultUpgradePreviewActivationMode =
@@ -12,66 +12,61 @@ internal sealed class BppConfig : IBppConfig
     internal const SubtitlePosition DefaultVoiceSubtitlesPosition = SubtitlePosition.TopCenter;
     internal const float DefaultFsrSharpness = 0.92f;
 
-    public ConfigEntry<bool>? EnableNameOverrideConfig { get; private set; }
+    public ConfigEntry<bool> EnableNameOverrideConfig { get; }
 
-    public ConfigEntry<PreviewVisibilityMode>? EnchantPreviewModeConfig { get; private set; }
+    public ConfigEntry<PreviewVisibilityMode> EnchantPreviewModeConfig { get; }
 
-    public ConfigEntry<bool>? EnableEventPreviewConfig { get; private set; }
+    public ConfigEntry<bool> EnableEventPreviewConfig { get; }
 
-    public ConfigEntry<bool>? EnableQuestPreviewConfig { get; private set; }
+    public ConfigEntry<bool> EnableQuestPreviewConfig { get; }
 
-    public ConfigEntry<bool>? EnableBilingualItemNamesConfig { get; private set; }
+    public ConfigEntry<bool> EnableBilingualItemNamesConfig { get; }
 
-    public ConfigEntry<bool>? EnableCosmeticNamesConfig { get; private set; }
+    public ConfigEntry<bool> EnableCosmeticNamesConfig { get; }
 
-    public ConfigEntry<bool>? EnableVoiceSubtitlesConfig { get; private set; }
+    public ConfigEntry<bool> EnableVoiceSubtitlesConfig { get; }
 
-    public ConfigEntry<SubtitlePosition>? VoiceSubtitlesPositionConfig { get; private set; }
+    public ConfigEntry<SubtitlePosition> VoiceSubtitlesPositionConfig { get; }
 
-    public ConfigEntry<SubtitleLanguageMode>? VoiceSubtitlesLanguageModeConfig { get; private set; }
+    public ConfigEntry<SubtitleLanguageMode> VoiceSubtitlesLanguageModeConfig { get; }
 
-    public ConfigEntry<float>? VoiceSubtitlesEnglishFontScaleConfig { get; private set; }
+    public ConfigEntry<float> VoiceSubtitlesEnglishFontScaleConfig { get; }
 
-    public ConfigEntry<float>? VoiceSubtitlesChineseFontScaleConfig { get; private set; }
+    public ConfigEntry<float> VoiceSubtitlesChineseFontScaleConfig { get; }
 
-    public ConfigEntry<float>? CombatStatusBarSpeedMultiplierConfig { get; private set; }
+    public ConfigEntry<float> CombatStatusBarSpeedMultiplierConfig { get; }
 
-    public ConfigEntry<bool>? EndOfRunScreenshotEnabledConfig { get; private set; }
+    public ConfigEntry<bool> EndOfRunScreenshotEnabledConfig { get; }
 
-    public ConfigEntry<string>? EnchantPreviewHotkeyPathConfig { get; private set; }
+    public ConfigEntry<string> EnchantPreviewHotkeyPathConfig { get; }
 
-    public ConfigEntry<string>? UpgradePreviewHotkeyPathConfig { get; private set; }
+    public ConfigEntry<string> UpgradePreviewHotkeyPathConfig { get; }
 
-    public ConfigEntry<HotkeyActivationMode>? UpgradePreviewActivationModeConfig
+    public ConfigEntry<HotkeyActivationMode> UpgradePreviewActivationModeConfig { get; }
+
+    public ConfigEntry<string> ToggleCollectionPanelHotkeyPathConfig { get; }
+
+    public ConfigEntry<string> ToggleLiveBuildPanelHotkeyPathConfig { get; }
+
+    public ConfigEntry<string> ToggleHistoryPanelHotkeyPathConfig { get; }
+
+    public ConfigEntry<BppChineseLocaleMode> ChineseLocaleModeConfig { get; }
+
+    public ConfigEntry<LegendaryPositionDisplayMode> LegendaryPositionDisplayModeConfig { get; }
+
+    public ConfigEntry<GraphicsUpscalingMode> GraphicsUpscalingModeConfig { get; }
+
+    public ConfigEntry<float> GraphicsUpscalingSharpnessConfig { get; }
+
+    public ConfigEntry<bool> BazaarDbUploadEnabled { get; }
+
+    public ConfigEntry<bool> UseFixedSupporterListConfig { get; }
+
+    public BppConfig(ConfigFile config)
     {
-        get;
-        private set;
-    }
+        if (config == null)
+            throw new ArgumentNullException(nameof(config));
 
-    public ConfigEntry<string>? ToggleCollectionPanelHotkeyPathConfig { get; private set; }
-
-    public ConfigEntry<string>? ToggleLiveBuildPanelHotkeyPathConfig { get; private set; }
-
-    public ConfigEntry<string>? ToggleHistoryPanelHotkeyPathConfig { get; private set; }
-
-    public ConfigEntry<BppChineseLocaleMode>? ChineseLocaleModeConfig { get; private set; }
-
-    public ConfigEntry<LegendaryPositionDisplayMode>? LegendaryPositionDisplayModeConfig
-    {
-        get;
-        private set;
-    }
-
-    public ConfigEntry<GraphicsUpscalingMode>? GraphicsUpscalingModeConfig { get; private set; }
-
-    public ConfigEntry<float>? GraphicsUpscalingSharpnessConfig { get; private set; }
-
-    public ConfigEntry<bool>? BazaarDbUploadEnabled { get; private set; }
-
-    public ConfigEntry<bool>? UseFixedSupporterListConfig { get; private set; }
-
-    public void Initialize(ConfigFile config)
-    {
         EnableNameOverrideConfig = config.Bind(
             "StreamerMode",
             "EnableNameOverride",

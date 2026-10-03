@@ -426,7 +426,7 @@ internal sealed class TestPaths(string root) : IPathProvider
 internal sealed class TestServices(IPathProvider paths) : IBppServices
 {
     public IBppEventBus EventBus { get; } = new InMemoryBppEventBus();
-    public IBppConfig Config => null!;
+    public BppConfig Config => null!;
     public IPathProvider Paths => paths;
     public IRunContext RunContext => null!;
     public IGameStateProbe GameStateProbe => null!;

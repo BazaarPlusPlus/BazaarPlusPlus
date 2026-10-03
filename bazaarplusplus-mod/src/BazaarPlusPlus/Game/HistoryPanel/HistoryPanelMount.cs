@@ -69,7 +69,7 @@ internal sealed class HistoryPanelMount : IBppMountable
                 _accountLinkClient(),
                 () =>
                     HistoryPanelDecisions.ResolveAccountLinkGate(
-                        services.Config.BazaarDbUploadEnabled?.Value ?? false,
+                        services.Config.BazaarDbUploadEnabled.Value,
                         services.GameBuild.Channel
                     )
             )

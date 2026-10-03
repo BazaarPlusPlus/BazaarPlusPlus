@@ -15,5 +15,5 @@ internal interface ISettingsDockEntry
     /// stable across the Phase-3 registration migration.</summary>
     int Order { get; }
 
-    BppSettingsDockDefinition Build(IBppConfig config);
+    BppSettingsDockDefinition Build(BppConfig config);
 }
