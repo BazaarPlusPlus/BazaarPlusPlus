@@ -388,6 +388,16 @@ test('mod snapshot recipes route to game.sh with validated platform and channel'
   ]);
 });
 
+test('mod::matrix forwards the named channels to build.sh', (t) => {
+  const f = fixture(t);
+  succeeded(f.run(['mod::matrix']));
+  succeeded(f.run(['mod::matrix', 'staging', 'ptr']));
+  assert.deepEqual(f.calls(), [
+    call(f.dir, 'mod', 'mod-build', 'matrix'),
+    call(f.dir, 'mod', 'mod-build', 'matrix', 'staging', 'ptr')
+  ]);
+});
+
 test('mod::check ends with the snapshot lock check', (t) => {
   const f = fixture(t);
   succeeded(f.run(['mod::check']));

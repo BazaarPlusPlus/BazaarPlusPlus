@@ -67,9 +67,9 @@ Dependabot 更新配置在 `.github/dependabot.yml`，普通版本更新的分�
 
 Mod 的自动更新只开放测试工具白名单。编译期依赖同样可能改变游戏内行为，不能因为 `PrivateAssets`、补丁版本或 NuGet 版本号相同就认为兼容。游戏自带 DLL、生成器、publicizer 和随包运行库的维护遵循 [ADR-0010](../bazaarplusplus-mod/docs/adr/0010-compile-against-game-supplied-libraries.md)。机器人 PR 的实际差异还会经过 `.github/scripts/check_mod_dependency_update.py`：允许测试工具版本修改，但生产锁文件或其他 Mod 文件变化必须转人工维护。
 
-云端检查的覆盖范围以 `.github/workflows/` 的 job 名称和命令为准。site 的部署触发方式和凭据位置见 `bazaarplusplus-site/README.md` 的 Deploy 一节。Mod 纯逻辑测试不验证 Unity/Mono 加载；Ghost 响应契约的消费方检查在 `mod::test` 中；installer 在 Windows 和 macOS 运行完整源码门禁，但不替代安装包签名、安装与升级验收。涉及云端未覆盖的范围时，合并前仍须提供相应项目的本地门禁结果。Mod 运行时依赖升级还需对快照锁的每个已采集条目编译（`just mod::matrix`），并验证实际启动与受影响功能；通过普通 .NET 测试不能替代这一步。
+云端检查的覆盖范围以 `.github/workflows/` 的 job 名称和命令为准。site 的部署触发方式和凭据位置见 `bazaarplusplus-site/README.md` 的 Deploy 一节。Mod 的云端 lane 在 macOS 和 Windows 上按 [ADR 0004](adr/0004-pinned-game-assembly-snapshots.md) 从私有存储取 online 快照跑 `mod::check` 与 `mod::test`，再对 staging 和 ptr 快照做 CompatCheck 编译；它不验证 Unity/Mono 加载，Ghost 响应契约的消费方检查在 `mod::test` 中。installer 在 Windows 和 macOS 运行完整源码门禁，但不替代安装包签名、安装与升级验收。涉及云端未覆盖的范围时，合并前仍须提供相应项目的本地门禁结果。Mod 运行时依赖升级还需对快照锁的每个已采集条目编译（`just mod::matrix`），并验证实际启动与受影响功能；通过编译和 .NET 测试不能替代这一步。
 
-游戏程序集快照只存在于私有存储，不进公开仓库、不进 Actions cache。依赖游戏程序集的 job 按快照锁取包，凭据是仓库级 secret `BPP_GAME_LIBS_R2_*`（仅限 `bazaarplusplus-game-libs` bucket 的只读令牌）；fork PR 拿不到 secrets，这类 job 在 fork 上跳过而不是失败，仓库内分支的 PR 才运行完整矩阵（[ADR 0004](adr/0004-pinned-game-assembly-snapshots.md)）。被跳过的 job 不等于通过：来自 fork 的改动合并前仍要有本地 `mod::check` 与 `mod::test` 结果。
+游戏程序集快照只存在于私有存储，不进公开仓库、不进 Actions cache。依赖游戏程序集的 job 按快照锁取包，凭据是仓库级 secret `BPP_GAME_LIBS_R2_*`（仅限 `bazaarplusplus-game-libs` bucket 的只读令牌）；fork PR 拿不到 secrets，这类 job 在 fork 上跳过而不是失败，仓库内分支的 PR 才运行完整矩阵（[ADR 0004](adr/0004-pinned-game-assembly-snapshots.md)）。Dependabot 的 PR 读取的是 Dependabot secrets，`BPP_GAME_LIBS_R2_*` 未同时注册在那里时该 lane 同样跳过。被跳过的 job 不等于通过：GitHub 把被跳过的必需检查算作通过，lane 是否真的执行以它的 job summary 为准；来自 fork 的改动合并前仍要有本地 `mod::check` 与 `mod::test` 结果。
 
 配置静态检查不能证明机器人已经成功更新锁文件；首次启用及工具链升级后需查看 Dependabot 的实际更新日志，尤其是它的包管理器支持范围尚未覆盖仓库所用版本时。新的 CI 检查需在 GitHub 首轮成功后再设为必需检查。
 
