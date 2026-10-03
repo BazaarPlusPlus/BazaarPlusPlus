@@ -1,0 +1,10 @@
+{
+  "scope": "run_data",
+  "preview": {
+    "runs": 1,
+    "battles": 1,
+    "videos": 0,
+    "estimated_bytes": 20,
+    "skipped_pending_uploads": 1
+  }
+}

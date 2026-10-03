@@ -6,6 +6,8 @@ pub(crate) mod mapper;
 mod queries;
 mod repo;
 pub(crate) mod screenshots;
+#[cfg(test)]
+pub(crate) mod test_schema;
 
 pub(crate) use dto::{HistoryRunDetail, HistoryRunList};
 pub(crate) use queries::HistoryReadError;

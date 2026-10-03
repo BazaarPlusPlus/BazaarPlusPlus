@@ -1,0 +1,54 @@
+{
+  "summary": {
+    "runs": 3,
+    "videos": 1,
+    "win_rate": 0.5
+  },
+  "runs": [
+    {
+      "run_id": "run-3",
+      "hero": "Mak",
+      "game_mode": "Ranked",
+      "started_at_utc": "2026-01-03T09:00:00Z",
+      "ended_at_utc": null,
+      "result": "in_progress",
+      "victories": 2,
+      "losses": 1,
+      "final_day": 3,
+      "final_player_rank": null,
+      "final_player_rating": null,
+      "screenshot_id": null,
+      "thumbnail_url": null
+    },
+    {
+      "run_id": "run-2",
+      "hero": "The Dragons",
+      "game_mode": "Normal",
+      "started_at_utc": "2026-01-02T09:00:00Z",
+      "ended_at_utc": "2026-01-02T09:30:00Z",
+      "result": "loss",
+      "victories": 4,
+      "losses": 5,
+      "final_day": 8,
+      "final_player_rank": null,
+      "final_player_rating": null,
+      "screenshot_id": "shot-2",
+      "thumbnail_url": "http://127.0.0.1:17654/history/0/images/shot-2/strip"
+    },
+    {
+      "run_id": "run-1",
+      "hero": "Vanessa",
+      "game_mode": "Ranked",
+      "started_at_utc": "2026-01-01T09:00:00Z",
+      "ended_at_utc": "2026-01-01T09:42:00Z",
+      "result": "win",
+      "victories": 10,
+      "losses": 2,
+      "final_day": 12,
+      "final_player_rank": "Gold",
+      "final_player_rating": 1520,
+      "screenshot_id": "shot-1",
+      "thumbnail_url": "http://127.0.0.1:17654/history/0/images/shot-1/strip"
+    }
+  ]
+}

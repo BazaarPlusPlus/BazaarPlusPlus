@@ -1,6 +1,10 @@
 mod commands;
 mod config;
+#[cfg(test)]
+mod goldens;
 mod history;
+#[cfg(test)]
+mod ipc_golden_tests;
 mod main_window;
 mod problem;
 mod services;

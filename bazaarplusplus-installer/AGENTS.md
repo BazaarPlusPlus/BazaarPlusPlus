@@ -16,6 +16,8 @@ The Tauri desktop installer. Repo-wide rules (commits, pull requests, docs polic
 
 Tests prove a behavior seam, an observable outcome of the boundary under test, through its public interface; mock call order and exact source text are not behavior.
 
+Goldens (`src/__shell_snapshots__/`, `src-tauri/tests/goldens/`) fail on any difference. Set `BPP_UPDATE_GOLDENS=1` to rewrite them instead, then review the diff: `npx vitest run src/shell.snapshot.test.tsx` for the shell, `npm run generate:bindings:test` for the Rust goldens. A bare `cargo test` also needs `TAURI_CONFIG='{"bundle":{"resources":[]}}'`, the empty bundle `scripts/tauri-source-env.mjs` supplies.
+
 ## Local workflow
 
 `just installer::dev` serves the frontend alone at `http://127.0.0.1:14207/`; anything touching a native command needs the full shell from `just installer::app`.

@@ -1,0 +1,22 @@
+{
+  "selected_game_path": "<GAME>",
+  "steam_path": "<STEAM>",
+  "game": {
+    "path_valid": true
+  },
+  "mod_state": {
+    "installed": true,
+    "ready": false
+  },
+  "actions": {
+    "can_install": false,
+    "can_reinstall": true,
+    "can_reset_data": true,
+    "can_reset_bepinex": true,
+    "can_uninstall": true,
+    "can_launch": true
+  },
+  "has_resettable_data": true,
+  "has_bepinex_files": true,
+  "warnings": []
+}

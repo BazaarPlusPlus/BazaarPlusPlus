@@ -63,37 +63,3 @@ fn build_subtitle(game_mode: &str, wins: Option<i64>, battle_count: Option<i64>)
         (None, None) => game_mode.to_owned(),
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::build_subtitle;
-
-    #[test]
-    fn subtitle_includes_wins_and_battles_when_both_present() {
-        assert_eq!(
-            build_subtitle("End of run", Some(10), Some(14)),
-            "End of run · 10W · 14 battles"
-        );
-    }
-
-    #[test]
-    fn subtitle_omits_battles_when_only_wins_are_present() {
-        assert_eq!(
-            build_subtitle("End of run", Some(7), None),
-            "End of run · 7W"
-        );
-    }
-
-    #[test]
-    fn subtitle_omits_wins_when_only_battles_are_present() {
-        assert_eq!(
-            build_subtitle("End of run", None, Some(3)),
-            "End of run · 3 battles"
-        );
-    }
-
-    #[test]
-    fn subtitle_is_bare_mode_when_no_metrics_are_present() {
-        assert_eq!(build_subtitle("End of run", None, None), "End of run");
-    }
-}

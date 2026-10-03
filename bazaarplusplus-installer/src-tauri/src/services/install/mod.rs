@@ -103,7 +103,7 @@ pub fn launch_game_via_steam() -> Result<(), String> {
     open_url(STEAM_BAZAAR_URL)
 }
 
-fn install_state_from_snapshot(
+pub(crate) fn install_state_from_snapshot(
     env: crate::services::detect::InstallEnvironmentSnapshot,
 ) -> InstallState {
     let selected_game_path = env.game_path.clone();

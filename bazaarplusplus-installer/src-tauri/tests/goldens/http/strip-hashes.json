@@ -1,0 +1,50 @@
+[
+  {
+    "record": "shot-1",
+    "route": "/images/{record_id}/strip",
+    "sha256": "6c234a683fa240a22270bf9f6dee30d027852c45e29a618b3847a51e74e9e9e7",
+    "status": 200
+  },
+  {
+    "record": "shot-1",
+    "route": "/history/{source}/images/{screenshot_id}/strip",
+    "sha256": "6c234a683fa240a22270bf9f6dee30d027852c45e29a618b3847a51e74e9e9e7",
+    "status": 200
+  },
+  {
+    "record": "shot-2",
+    "route": "/images/{record_id}/strip",
+    "sha256": "ccf0da6b90376589f23964a45bdf1dee6504770f05607a01264cbe3f9fb162ea",
+    "status": 200
+  },
+  {
+    "record": "shot-2",
+    "route": "/history/{source}/images/{screenshot_id}/strip",
+    "sha256": "ccf0da6b90376589f23964a45bdf1dee6504770f05607a01264cbe3f9fb162ea",
+    "status": 200
+  },
+  {
+    "record": "shot-3",
+    "route": "/images/{record_id}/strip",
+    "sha256": null,
+    "status": 404
+  },
+  {
+    "record": "shot-3",
+    "route": "/history/{source}/images/{screenshot_id}/strip",
+    "sha256": null,
+    "status": 404
+  },
+  {
+    "record": "shot-4",
+    "route": "/images/{record_id}/strip",
+    "sha256": "6c234a683fa240a22270bf9f6dee30d027852c45e29a618b3847a51e74e9e9e7",
+    "status": 200
+  },
+  {
+    "record": "shot-4",
+    "route": "/history/{source}/images/{screenshot_id}/strip",
+    "sha256": "6c234a683fa240a22270bf9f6dee30d027852c45e29a618b3847a51e74e9e9e7",
+    "status": 200
+  }
+]
