@@ -51,7 +51,7 @@ Dependabot 更新配置在 `.github/dependabot.yml`，普通版本更新的分�
 
 Mod 的自动更新只开放测试工具白名单。编译期依赖同样可能改变游戏内行为，不能因为 `PrivateAssets`、补丁版本或 NuGet 版本号相同就认为兼容。游戏自带 DLL、生成器、publicizer 和随包运行库的维护遵循 [ADR-0010](../bazaarplusplus-mod/docs/adr/0010-compile-against-game-supplied-libraries.md)。机器人 PR 的实际差异还会经过 `.github/scripts/check_mod_dependency_update.py`：允许测试工具版本修改，但生产锁文件或其他 Mod 文件变化必须转人工维护。
 
-云端检查的覆盖范围以 `.github/workflows/` 的 job 名称和命令为准。Mod 纯逻辑测试不验证 Unity/Mono 加载；server 的 Worker 测试不包含真实 ModApi 兼容探针；installer 在 Windows 和 macOS 运行完整源码门禁，但不替代安装包签名、安装与升级验收。涉及云端未覆盖的范围时，合并前仍须提供相应项目的本地门禁结果。Mod 运行时依赖升级还需对支持的游戏 Managed 快照编译，并验证实际启动与受影响功能；通过普通 .NET 测试不能替代这一步。游戏程序集不上传到公共 CI，也不交给不受信任 PR 在游戏机器上执行。
+云端检查的覆盖范围以 `.github/workflows/` 的 job 名称和命令为准。site 的部署触发方式和凭据位置见 `bazaarplusplus-site/README.md` 的 Deploy 一节。Mod 纯逻辑测试不验证 Unity/Mono 加载；server 的 Worker 测试不包含真实 ModApi 兼容探针；installer 在 Windows 和 macOS 运行完整源码门禁，但不替代安装包签名、安装与升级验收。涉及云端未覆盖的范围时，合并前仍须提供相应项目的本地门禁结果。Mod 运行时依赖升级还需对支持的游戏 Managed 快照编译，并验证实际启动与受影响功能；通过普通 .NET 测试不能替代这一步。游戏程序集不上传到公共 CI，也不交给不受信任 PR 在游戏机器上执行。
 
 配置静态检查不能证明机器人已经成功更新锁文件；首次启用及工具链升级后需查看 Dependabot 的实际更新日志，尤其是它的包管理器支持范围尚未覆盖仓库所用版本时。新的 CI 检查需在 GitHub 首轮成功后再设为必需检查。
 
