@@ -146,10 +146,12 @@ jobs:
     name: Mod (${{ matrix.os }})
     # Game assemblies are a locked build input fetched from the private Snapshot
     # store (docs/adr/0004-pinned-game-assembly-snapshots.md). A fork PR never
-    # receives the store secrets, so the lane runs only for the repository's own
-    # branches; inside the repository it skips, with a warning, until the three
-    # BPP_GAME_LIBS_R2_* secrets exist (Dependabot PRs see Dependabot secrets, so
-    # register them there too). An empty lock entry is a failure, never a skip.
+    # receives the store secret, so the lane runs only for the repository's own
+    # branches; inside the repository it skips, with a warning, until the
+    # read-only BPP_GAME_LIBS_TOKEN secret and the CLOUDFLARE_ACCOUNT_ID variable
+    # exist (Dependabot PRs see Dependabot secrets: `just secrets-sync
+    # --dependabot` registers the token there too). An empty lock entry is a
+    # failure, never a skip.
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ${{ matrix.os }}
     timeout-minutes: 45
@@ -165,20 +167,20 @@ jobs:
       run:
         shell: bash
     env:
-      # release/game-libs.mjs reads the BPP_R2_* names; the bucket is fixed there.
-      BPP_R2_ACCOUNT_ID: ${{ secrets.BPP_GAME_LIBS_R2_ACCOUNT_ID }}
-      BPP_R2_ACCESS_KEY_ID: ${{ secrets.BPP_GAME_LIBS_R2_ACCESS_KEY_ID }}
-      BPP_R2_SECRET_ACCESS_KEY: ${{ secrets.BPP_GAME_LIBS_R2_SECRET_ACCESS_KEY }}
+      # release/game-libs.mjs derives the bucket's S3 pair from this token
+      # (release/github-secrets.json); the bucket is fixed there.
+      CLOUDFLARE_API_TOKEN: ${{ secrets.BPP_GAME_LIBS_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
     steps:
       - id: store
         name: Probe the private store secrets
         run: |
-          if [[ -n "$BPP_R2_ACCOUNT_ID" && -n "$BPP_R2_ACCESS_KEY_ID" && -n "$BPP_R2_SECRET_ACCESS_KEY" ]]; then
+          if [[ -n "$CLOUDFLARE_API_TOKEN" && -n "$CLOUDFLARE_ACCOUNT_ID" ]]; then
             echo 'ready=true' >> "$GITHUB_OUTPUT"
           else
             echo 'ready=false' >> "$GITHUB_OUTPUT"
-            echo '::warning title=Mod lane skipped::BPP_GAME_LIBS_R2_ACCOUNT_ID, BPP_GAME_LIBS_R2_ACCESS_KEY_ID and BPP_GAME_LIBS_R2_SECRET_ACCESS_KEY are not available to this run; mod::check, mod::test and the CompatCheck builds did not run.'
-            echo 'Mod lane skipped: the private store secrets are not available to this run, so nothing was compiled or tested against the game.' >> "$GITHUB_STEP_SUMMARY"
+            echo '::warning title=Mod lane skipped::the BPP_GAME_LIBS_TOKEN secret or the CLOUDFLARE_ACCOUNT_ID variable is not available to this run; mod::check, mod::test and the CompatCheck builds did not run.'
+            echo 'Mod lane skipped: the private store token is not available to this run, so nothing was compiled or tested against the game.' >> "$GITHUB_STEP_SUMMARY"
           fi
       - if: steps.store.outputs.ready == 'true'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

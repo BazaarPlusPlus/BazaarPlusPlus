@@ -55,6 +55,16 @@ doctor:
 with-config profile +args:
     node scripts/workspace.mjs run "$1" -- "${@:2}"
 
+# List, by name only, which GitHub secrets and variables exist and which have a local value.
+[group('workspace')]
+secrets-check *args:
+    node scripts/workspace.mjs secrets check "$@"
+
+# Copy every locally present GitHub secret and variable through gh; [--dependabot] [--prune].
+[group('workspace')]
+secrets-sync *args:
+    node scripts/workspace.mjs secrets push "$@"
+
 # Check formatting and exercise command routing with isolated tool stubs.
 [group('workspace')]
 commands-check:

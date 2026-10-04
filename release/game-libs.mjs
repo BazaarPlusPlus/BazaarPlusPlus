@@ -5,7 +5,7 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { parseArgs } from 'node:util';
 import { WORKSPACE_ROOT } from './product.mjs';
-import { createR2Store, putReplaceable } from './r2-store.mjs';
+import { putReplaceable, r2StoreFromEnvironment } from './r2-store.mjs';
 
 // Game Assembly Snapshots and the Snapshot Lock (root CONTEXT.md, ADR 0004).
 // This module owns the lock schema, the Managed-directory digest that the lock,
@@ -276,13 +276,11 @@ export function snapshotManifestKey(platform, channel, gameVersion) {
   return `game-libs/${lockKey(platform, channel)}-${gameVersion}.json`;
 }
 
+// The private store through a Cloudflare API token that can read (publish:
+// write) the bucket: the operator token locally and in release.yml, the
+// read-only BPP_GAME_LIBS_TOKEN in checks.yml.
 export function gameLibsStoreFromEnvironment(env = process.env) {
-  return createR2Store({
-    accountId: env.BPP_R2_ACCOUNT_ID,
-    accessKeyId: env.BPP_R2_ACCESS_KEY_ID,
-    secretAccessKey: env.BPP_R2_SECRET_ACCESS_KEY,
-    bucket: GAME_LIBS_BUCKET
-  });
+  return r2StoreFromEnvironment(env, { bucket: GAME_LIBS_BUCKET });
 }
 
 function readSnapshotManifest(directory) {
@@ -513,7 +511,7 @@ export async function fetchSnapshot({
     store = storeFactory();
   } catch (error) {
     throw new Error(
-      `${mismatch} Switch The Bazaar to the ${STEAM_BRANCHES[channel]} branch in Steam, wait for a lock update, or fetch the snapshot from the private store with R2 credentials (just with-config release just mod::fetch ${platform} ${channel}): ${error.message}`
+      `${mismatch} Switch The Bazaar to the ${STEAM_BRANCHES[channel]} branch in Steam, wait for a lock update, or fetch the snapshot from the private store with the Cloudflare operator token (just with-config release just mod::fetch ${platform} ${channel}): ${error.message}`
     );
   }
   const blobKey = snapshotBlobKey(entry.sha256);
@@ -669,7 +667,8 @@ const usage = `Game Assembly Snapshot commands (driven by bazaarplusplus-mod/scr
   node release/game-libs.mjs entries
 publish always, and fetch when neither a local snapshot nor the mounted game
 satisfies the entry, use the private bucket ${GAME_LIBS_BUCKET} through
-BPP_R2_ACCOUNT_ID, BPP_R2_ACCESS_KEY_ID and BPP_R2_SECRET_ACCESS_KEY.`;
+CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID (the S3 pair is derived from
+the token).`;
 
 export async function cliMain(argv, { workspaceRoot = WORKSPACE_ROOT } = {}) {
   const [verb, ...rest] = argv;

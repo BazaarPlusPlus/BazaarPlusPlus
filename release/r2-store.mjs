@@ -10,25 +10,96 @@ const encode = (value) =>
     (char) => `%${char.charCodeAt(0).toString(16).toUpperCase()}`
   );
 
+export const CLOUDFLARE_API = 'https://api.cloudflare.com/client/v4';
+const ACCOUNT_ID = /^[a-f0-9]{32}$/i;
+const TOKEN_ID = /^[a-f0-9]{32}$/;
+
+// R2's S3 credentials are a view of a Cloudflare API token: the Access Key ID
+// is the token's id, which GET /user/tokens/verify reveals, and the Secret
+// Access Key is the SHA-256 of the token value. Every store derives the pair
+// from CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID this way; nothing stores
+// the pair. The verified id is cached per process under the token's digest.
+const verifiedTokenIds = new Map();
+
+export function assertAccountId(accountId) {
+  if (!ACCOUNT_ID.test(accountId ?? ''))
+    throw new Error(
+      'CLOUDFLARE_ACCOUNT_ID must be the 32-character hexadecimal account id'
+    );
+  return accountId.toLowerCase();
+}
+
+function assertToken(token) {
+  if (typeof token !== 'string' || !token.trim())
+    throw new Error('CLOUDFLARE_API_TOKEN is empty');
+  return token.trim();
+}
+
+async function verifyToken(token, fetchImpl) {
+  const response = await fetchImpl(`${CLOUDFLARE_API}/user/tokens/verify`, {
+    headers: { authorization: `Bearer ${token}` },
+    redirect: 'error',
+    signal: AbortSignal.timeout(30000)
+  });
+  const body = await response.json().catch(() => null);
+  const codes = (body?.errors ?? [])
+    .map((error) => error.code)
+    .filter(Boolean)
+    .join(', ');
+  if (!response.ok || body?.success !== true)
+    throw new Error(
+      `Cloudflare rejected CLOUDFLARE_API_TOKEN: HTTP ${response.status}${codes ? ` (error ${codes})` : ''}`
+    );
+  const { id, status } = body.result ?? {};
+  if (!TOKEN_ID.test(id ?? ''))
+    throw new Error('Cloudflare token verification returned no token id');
+  if (status !== 'active')
+    throw new Error(
+      `CLOUDFLARE_API_TOKEN is ${status ?? 'in an unknown state'}, not active`
+    );
+  return id;
+}
+
+export async function credentialsFromApiToken({
+  token,
+  accountId,
+  fetchImpl = fetch
+}) {
+  const value = assertToken(token);
+  const account = assertAccountId(accountId);
+  const secretAccessKey = digest(value);
+  let pending = verifiedTokenIds.get(secretAccessKey);
+  if (!pending) {
+    pending = verifyToken(value, fetchImpl).catch((error) => {
+      verifiedTokenIds.delete(secretAccessKey);
+      throw error;
+    });
+    verifiedTokenIds.set(secretAccessKey, pending);
+  }
+  return { accountId: account, accessKeyId: await pending, secretAccessKey };
+}
+
 export function createR2Store({
   accountId,
   accessKeyId,
   secretAccessKey,
+  credentials,
   bucket = 'bppinstaller',
   fetchImpl = fetch,
   now = () => new Date()
 }) {
-  if (
-    !/^[a-f0-9]{32}$/i.test(accountId ?? '') ||
-    !accessKeyId ||
-    !secretAccessKey
-  )
-    throw new Error(
-      'R2 publishing requires BPP_R2_ACCOUNT_ID, BPP_R2_ACCESS_KEY_ID and BPP_R2_SECRET_ACCESS_KEY'
-    );
+  const account = assertAccountId(accountId);
+  // A fixed pair (tests, callers that already hold one) or a resolver that
+  // derives it on first use, so construction never touches the network.
+  if (typeof credentials !== 'function') {
+    if (!accessKeyId || !secretAccessKey)
+      throw new Error('R2 access requires an access key id and secret');
+    const pair = { accessKeyId, secretAccessKey };
+    credentials = async () => pair;
+  }
   if (!/^[a-z0-9][a-z0-9-]*[a-z0-9]$/.test(bucket))
     throw new Error('Invalid R2 bucket');
-  const host = `${accountId}.r2.cloudflarestorage.com`;
+  const host = `${account}.r2.cloudflarestorage.com`;
 
   async function request(method, key, body, extraHeaders = {}) {
     if (
@@ -37,6 +108,7 @@ export function createR2Store({
     )
       throw new Error('Invalid R2 object key');
     const uri = `/${encode(bucket)}/${key.split('/').map(encode).join('/')}`;
+    const { accessKeyId, secretAccessKey } = await credentials();
     const date = now()
       .toISOString()
       .replace(/[:-]|\.\d{3}/g, '');
@@ -154,11 +226,35 @@ export function createR2Store({
   };
 }
 
-export function r2StoreFromEnvironment(env = process.env) {
+// A store whose S3 pair is derived from an API token on its first request.
+export function r2StoreFromApiToken({
+  token,
+  accountId,
+  bucket,
+  fetchImpl = fetch,
+  now
+}) {
+  const value = assertToken(token);
+  const account = assertAccountId(accountId);
   return createR2Store({
-    accountId: env.BPP_R2_ACCOUNT_ID,
-    accessKeyId: env.BPP_R2_ACCESS_KEY_ID,
-    secretAccessKey: env.BPP_R2_SECRET_ACCESS_KEY
+    accountId: account,
+    credentials: () =>
+      credentialsFromApiToken({ token: value, accountId: account, fetchImpl }),
+    ...(bucket === undefined ? {} : { bucket }),
+    fetchImpl,
+    ...(now === undefined ? {} : { now })
+  });
+}
+
+export function r2StoreFromEnvironment(env = process.env, options = {}) {
+  if (!env.CLOUDFLARE_API_TOKEN?.trim() || !env.CLOUDFLARE_ACCOUNT_ID?.trim())
+    throw new Error(
+      'R2 access requires CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID'
+    );
+  return r2StoreFromApiToken({
+    token: env.CLOUDFLARE_API_TOKEN,
+    accountId: env.CLOUDFLARE_ACCOUNT_ID,
+    ...options
   });
 }
 
