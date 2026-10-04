@@ -142,21 +142,75 @@ jobs:
         working-directory: bazaarplusplus-analyzer
       - run: just analyzer::check analyzer::test
 
-  mod-test-tools:
-    name: Mod pure logic (no game compatibility)
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
+  mod:
+    name: Mod (${{ matrix.os }})
+    # Game assemblies are a locked build input fetched from the private Snapshot
+    # store (docs/adr/0004-pinned-game-assembly-snapshots.md). A fork PR never
+    # receives the store secrets, so the lane runs only for the repository's own
+    # branches; inside the repository it skips, with a warning, until the three
+    # BPP_GAME_LIBS_R2_* secrets exist (Dependabot PRs see Dependabot secrets, so
+    # register them there too). An empty lock entry is a failure, never a skip.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14
+            platform: macos
+          - os: windows-latest
+            platform: windows
+    defaults:
+      run:
+        shell: bash
+    env:
+      # release/game-libs.mjs reads the BPP_R2_* names; the bucket is fixed there.
+      BPP_R2_ACCOUNT_ID: ${{ secrets.BPP_GAME_LIBS_R2_ACCOUNT_ID }}
+      BPP_R2_ACCESS_KEY_ID: ${{ secrets.BPP_GAME_LIBS_R2_ACCESS_KEY_ID }}
+      BPP_R2_SECRET_ACCESS_KEY: ${{ secrets.BPP_GAME_LIBS_R2_SECRET_ACCESS_KEY }}
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - id: store
+        name: Probe the private store secrets
+        run: |
+          if [[ -n "$BPP_R2_ACCOUNT_ID" && -n "$BPP_R2_ACCESS_KEY_ID" && -n "$BPP_R2_SECRET_ACCESS_KEY" ]]; then
+            echo 'ready=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'ready=false' >> "$GITHUB_OUTPUT"
+            echo '::warning title=Mod lane skipped::BPP_GAME_LIBS_R2_ACCOUNT_ID, BPP_GAME_LIBS_R2_ACCESS_KEY_ID and BPP_GAME_LIBS_R2_SECRET_ACCESS_KEY are not available to this run; mod::check, mod::test and the CompatCheck builds did not run.'
+            echo 'Mod lane skipped: the private store secrets are not available to this run, so nothing was compiled or tested against the game.' >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - if: steps.store.outputs.ready == 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+      - if: steps.store.outputs.ready == 'true'
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+      - if: steps.store.outputs.ready == 'true'
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           global-json-file: bazaarplusplus-mod/global.json
-      - name: Exercise the test SDK and xUnit without game assemblies
-        working-directory: bazaarplusplus-mod
-        run: dotnet test tests/PureBehavior.Tests/PureBehavior.Tests.csproj -p:ManagedPath=/no-game-assemblies
-      - run: echo 'This tests pure logic and the test toolchain, not the Mod in Unity/Mono. Mod dependency upgrades still need mod::check, mod::test and supported game builds.' >> "$GITHUB_STEP_SUMMARY"
+          cache: true
+          cache-dependency-path: bazaarplusplus-mod/**/packages.lock.json
+      - if: steps.store.outputs.ready == 'true'
+        uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4
+        with:
+          just-version: 1.58.0
+      # A null online entry fails here, naming the snapshot to capture.
+      - if: steps.store.outputs.ready == 'true'
+        name: Fetch the online snapshot
+        env:
+          PLATFORM: ${{ matrix.platform }}
+        run: just mod::fetch "$PLATFORM" online
+      - if: steps.store.outputs.ready == 'true'
+        run: just mod::check
+      - if: steps.store.outputs.ready == 'true'
+        run: just mod::test
+      # Compatibility builds against the other two channels; a null entry fails.
+      - if: steps.store.outputs.ready == 'true'
+        run: just mod::matrix staging ptr
 
   bot-mod-boundary:
     name: Bot Mod dependency boundary
