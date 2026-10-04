@@ -28,10 +28,11 @@ class Config:
     max_run_seconds: int = 21600
     duckdb_memory_limit: str = "8GB"
     duckdb_threads: int = 8
-    r2_account_id: str | None = None
+    # One Cloudflare operator token serves every R2 bucket; the S3 pair the
+    # object store needs is derived from it (object_store.derive_s3_credentials).
+    cloudflare_account_id: str | None = None
+    cloudflare_api_token: str | None = field(default=None, repr=False)
     r2_bucket: str | None = None
-    r2_access_key_id: str | None = field(default=None, repr=False)
-    r2_secret_access_key: str | None = field(default=None, repr=False)
 
 
 def repository_root() -> Path:
@@ -59,13 +60,10 @@ def load_config(
     sync_token = _optional(values.get("BPP_BUNDLE_SYNC_TOKEN"))
     if require_source and (api_base_url is None or sync_token is None):
         raise ConfigurationError("Bundle Server configuration is incomplete")
-    r2_account_id = _optional(values.get("BPP_METRICS_R2_ACCOUNT_ID"))
+    cloudflare_account_id = _optional(values.get("CLOUDFLARE_ACCOUNT_ID"))
+    cloudflare_api_token = _optional(values.get("CLOUDFLARE_API_TOKEN"))
     r2_bucket = _optional(values.get("BPP_METRICS_R2_BUCKET"))
-    r2_access_key_id = _optional(values.get("BPP_METRICS_R2_ACCESS_KEY_ID"))
-    r2_secret_access_key = _optional(values.get("BPP_METRICS_R2_SECRET_ACCESS_KEY"))
-    if require_object_store and not all(
-        (r2_account_id, r2_bucket, r2_access_key_id, r2_secret_access_key)
-    ):
+    if require_object_store and not all((cloudflare_account_id, cloudflare_api_token, r2_bucket)):
         raise ConfigurationError("R2 object-store configuration is incomplete")
     return Config(
         data_root=data_root,
@@ -91,10 +89,9 @@ def load_config(
         ),
         duckdb_memory_limit=_memory_limit(values.get("BPP_DUCKDB_MEMORY_LIMIT")),
         duckdb_threads=_positive_int(values.get("BPP_DUCKDB_THREADS"), 8, "BPP_DUCKDB_THREADS"),
-        r2_account_id=r2_account_id,
+        cloudflare_account_id=cloudflare_account_id,
+        cloudflare_api_token=cloudflare_api_token,
         r2_bucket=r2_bucket,
-        r2_access_key_id=r2_access_key_id,
-        r2_secret_access_key=r2_secret_access_key,
     )
 
 

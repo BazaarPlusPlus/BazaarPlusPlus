@@ -8,6 +8,8 @@ import {
   assertExternal,
   importCheckout,
   initializeConfig,
+  legacyKeysPresent,
+  migrateConfig,
   readConfig,
   sections,
   profiles,
@@ -19,6 +21,7 @@ import {
   projectionChanges,
   withProfileEnvironment
 } from './local-config.mjs';
+import { formatInventory, inventory, push } from './secrets.mjs';
 
 // One line per config.ini section, derived from the section table.
 function sectionHelp() {
@@ -32,10 +35,13 @@ function sectionHelp() {
       ]
         .filter(Boolean)
         .join(', ');
+      const projected = (spec.projected || [])
+        .map(({ from, key, as = key }) => `${as} from [${from}] ${key}`)
+        .join(', ');
       const what = spec.projection
-        ? `projects verbatim to ${spec.projection}`
+        ? `projects to ${spec.projection}${projected ? `, appending ${projected}` : ''}`
         : spec.stage
-          ? `${list}; staged as files`
+          ? `${list}; staged as files except APPLE_CERTIFICATE_PASSWORD`
           : list;
       const profile =
         spec.profile === name ? '' : ` (profile: ${spec.profile})`;
@@ -56,14 +62,18 @@ const help = `Workspace setup (Node only; no npm dependency required)
   node scripts/workspace.mjs setup [--from OLD_CHECKOUT] [--skip-deps]
   node scripts/workspace.mjs doctor
   node scripts/workspace.mjs run PROFILE -- COMMAND [ARG...]
+  node scripts/workspace.mjs secrets check [--dependabot]
+  node scripts/workspace.mjs secrets push [--dependabot] [--prune]
 
-just setup and just doctor are equivalent shortcuts. just with-config PROFILE
-COMMAND [ARG...] runs a command from the repository root with scoped configuration.
+just setup, just doctor, just secrets-check and just secrets-sync are equivalent
+shortcuts. just with-config PROFILE COMMAND [ARG...] runs a command from the
+repository root with scoped configuration.
 
 Configuration: BPP_CONFIG_HOME or ~/.config/bazaarplusplus (outside checkouts).
   config.ini     every value, one section per purpose:
 ${sectionHelp()}
-  keys/          tauri-updater.key, tauri-updater.key.pub, AuthKey_<APPLE_API_KEY>.p8
+  keys/          tauri-updater.key, tauri-updater.key.pub, AuthKey_<APPLE_API_KEY>.p8,
+                 developer-id.p12
 A relative APPLE_API_KEY_PATH resolves against the configuration directory.
 Any other file in the directory is yours; tooling neither reads nor writes it.
 
@@ -81,6 +91,8 @@ quotes, a value starting with #, an unquoted # without a space before it, text
 after a closing quote, unterminated or multi-line quotes, and a CR or NUL
 inside a line.
 server/analyzer profiles refresh managed projections before running the command.
+release exports [cloudflare] CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID; the R2
+S3 pair every store needs is derived from the token (release/r2-store.mjs).
 signing stages [signing] and keys/ into a private temporary BPP_SIGNING_SECRETS_DIR
 removed after the command; an exported BPP_SIGNING_SECRETS_DIR is used as given.
 Edit config.ini, then rerun setup --skip-deps. Local projection edits conflict.
@@ -88,6 +100,20 @@ Edit config.ini, then rerun setup --skip-deps. Local projection edits conflict.
 signing-secrets/ into config.ini and keys/ under the same value rules, refuses
 differing existing values, preserves data path meaning, and never deletes source
 files or creates data stores.
+setup also migrates the earlier layout in place: [release] BPP_R2_ACCOUNT_ID and
+[analyzer] BPP_METRICS_R2_ACCOUNT_ID become [cloudflare] CLOUDFLARE_ACCOUNT_ID,
+[analyzer] BPP_BUNDLE_SYNC_TOKEN joins [server] BUNDLE_SYNC_TOKEN (differing values
+are refused), and the derived R2 key pairs stay as commented lines in [cloudflare]
+until you delete them; nothing is dropped silently.
+
+secrets check lists, by name only, what each GitHub scope holds and what config.ini
+and keys/ hold, following release/github-secrets.json; secrets push copies every
+item with a local value through gh (values over stdin, never printed). --dependabot
+also sets the mod lane token for Dependabot; --prune deletes the retired names the
+table lists. Tokens are created in the Cloudflare dashboard (My Profile > API Tokens
+or Account > Manage API tokens): the operator token with Object Read & Write on
+bppinstaller, bazaarplusplus-game-libs and the metrics bucket plus Workers Scripts
+Edit; the read-only token with Object Read on bazaarplusplus-game-libs only.
 
 setup installs each Node project's locked dependencies, the analyzer environment,
 the mod's local .NET tools and Git hooks. Install language/platform tools first.
@@ -249,14 +275,13 @@ export function doctor(
         : 'issuer, key id or referenced .p8 missing'
     );
   }
-  const cf = resolveValues(config, 'cloudflare', env);
-  add(
-    'Cloudflare CLI',
-    Boolean(cf.CLOUDFLARE_API_TOKEN),
-    cf.CLOUDFLARE_API_TOKEN
-      ? 'API token present; permissions unverified'
-      : 'no API token configured; Wrangler OAuth may still be available'
-  );
+  const legacy = legacyKeysPresent(config);
+  if (legacy.length)
+    add(
+      'config',
+      false,
+      `earlier layout keys ${legacy.join(', ')}: run just setup --skip-deps to migrate`
+    );
   const managed = resolveValues(config, 'machine', env).BPP_MANAGED_PATH;
   if (managed) {
     add(
@@ -319,6 +344,12 @@ export function main(args = process.argv.slice(2)) {
     if (source) {
       const imported = importCheckout(source, home);
       console.log(`Imported ${imported.join(', ')}; originals preserved.`);
+    } else {
+      const migrated = migrateConfig(home);
+      if (migrated.length)
+        console.log(
+          `Migrated config.ini to the current layout: ${migrated.join(', ')}.`
+        );
     }
     initializeConfig(home);
     refreshProjections(home);
@@ -343,6 +374,35 @@ export function main(args = process.argv.slice(2)) {
     withProfileEnvironment(rest[0], home, (env) =>
       execute(rest[2], rest.slice(3), { cwd: process.cwd(), env })
     );
+    return;
+  }
+  if (command === 'secrets' && ['check', 'push'].includes(rest[0])) {
+    const flags = rest.slice(1);
+    const allowed =
+      rest[0] === 'push' ? ['--dependabot', '--prune'] : ['--dependabot'];
+    for (const flag of flags)
+      if (!allowed.includes(flag))
+        throw new Error(
+          `Usage: secrets check [--dependabot] | secrets push [--dependabot] [--prune]`
+        );
+    const dependabot = flags.includes('--dependabot');
+    const gh = process.env.BPP_GH_BIN || 'gh';
+    if (rest[0] === 'check') {
+      console.log(
+        formatInventory(inventory({ home, gh, dependabot }), { dependabot })
+      );
+      return;
+    }
+    const result = push({
+      home,
+      gh,
+      dependabot,
+      prune: flags.includes('--prune')
+    });
+    console.log(
+      `Set ${result.set} GitHub names; ${result.skipped} without a local value.`
+    );
+    if (result.skipped) process.exitCode = 1;
     return;
   }
   throw new Error('Unknown command or arguments; use --help');
