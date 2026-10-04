@@ -68,12 +68,13 @@ def derive_s3_credentials(api_token: str, *, client: httpx.Client | None = None)
     token = api_token.strip()
     if not token:
         raise ValueError("CLOUDFLARE_API_TOKEN is empty")
-    secret_access_key = hashlib.sha256(token.encode("utf-8")).hexdigest()
-    access_key_id = _verified_token_ids.get(secret_access_key)
+    # Cloudflare defines the secret as this digest; it is not password storage.
+    secret = hashlib.sha256(token.encode()).hexdigest()  # lgtm[py/weak-sensitive-data-hashing]
+    access_key_id = _verified_token_ids.get(secret)
     if access_key_id is None:
         access_key_id = _verify_token(token, client)
-        _verified_token_ids[secret_access_key] = access_key_id
-    return access_key_id, secret_access_key
+        _verified_token_ids[secret] = access_key_id
+    return access_key_id, secret
 
 
 @dataclass(frozen=True, slots=True)

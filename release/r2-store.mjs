@@ -1,7 +1,9 @@
 import crypto from 'node:crypto';
 
+// Content and signing digests; also the R2 Secret Access Key, which Cloudflare
+// defines as the SHA-256 of the API token value (not password storage).
 const digest = (bytes) =>
-  crypto.createHash('sha256').update(bytes).digest('hex');
+  crypto.createHash('sha256').update(bytes).digest('hex'); // lgtm[js/insufficient-password-hash]
 const hmac = (key, value) =>
   crypto.createHmac('sha256', key).update(value).digest();
 const encode = (value) =>
