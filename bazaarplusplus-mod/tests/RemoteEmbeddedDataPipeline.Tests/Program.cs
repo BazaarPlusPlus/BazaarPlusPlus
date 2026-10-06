@@ -302,8 +302,8 @@ static async Task TestMsBuildTargetUsesFetcherHonorsExistingFilesAndPropagatesEx
                 "-p:ForceRemoteEmbeddedDataRefresh=true"
             );
             Equal(0, first.ExitCode, "The loopback force fetch should succeed. " + first.Output);
-            await server.Completion;
             Equal(2, server.Requests.Count, "Force refresh should fetch both declared resources.");
+            await server.Completion.WaitAsync(TimeSpan.FromSeconds(10));
             True(
                 server.Requests.All(request =>
                     request.Contains(
@@ -382,7 +382,14 @@ static async Task TestFetchDataRejectsBadSchemaWithoutChangingCanonicalSet()
                 $"-p:RemoteEmbeddedDataDirectory={canonical}"
             );
             True(result.ExitCode != 0, "A real feature parser must reject a bad staged schema.");
-            await server.Completion;
+            // A shell/MSBuild startup failure is not the schema rejection under test.
+            // The child has exited, so no future request can complete this server.
+            Equal(
+                2,
+                server.Requests.Count,
+                "The schema gate must first fetch both staged resources. " + result.Output
+            );
+            await server.Completion.WaitAsync(TimeSpan.FromSeconds(10));
         }
 
         Equal(
@@ -512,12 +519,15 @@ static async Task<(int ExitCode, string Output)> RunProcess(
     };
     foreach (var argument in arguments)
         start.ArgumentList.Add(argument);
+    Console.WriteLine($"Starting {executable}: {string.Join(' ', arguments)}");
     using var process =
         Process.Start(start) ?? throw new InvalidOperationException("Could not start dotnet.");
     var outputTask = process.StandardOutput.ReadToEndAsync();
     var errorTask = process.StandardError.ReadToEndAsync();
     await process.WaitForExitAsync();
-    return (process.ExitCode, await outputTask + await errorTask);
+    var output = await outputTask + await errorTask;
+    Console.WriteLine($"{executable} exited with {process.ExitCode}.\n{output}");
+    return (process.ExitCode, output);
 }
 
 static string TemporaryDirectory()
