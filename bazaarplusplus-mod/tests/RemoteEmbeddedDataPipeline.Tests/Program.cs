@@ -374,7 +374,7 @@ static async Task TestFetchDataRejectsBadSchemaWithoutChangingCanonicalSet()
         {
             var result = await RunProcess(
                 repo,
-                "bash",
+                await BashForHost(repo),
                 Path.Combine(repo, "scripts", "build.sh"),
                 "fetch-data",
                 $"-p:VoiceLinesRemoteUrl={server.BaseUrl}voice",
@@ -504,6 +504,28 @@ static async Task<(int ExitCode, string Output)> RunDotnet(
     params string[] arguments
 ) => await RunProcess(workingDirectory, "dotnet", arguments);
 
+static async Task<string> BashForHost(string workingDirectory)
+{
+    if (!OperatingSystem.IsWindows())
+        return "bash";
+
+    // Windows can resolve bare "bash" to the WSL launcher before searching PATH.
+    // Resolve Git's own Bash, as the installer shell-test harness does.
+    var git = await RunProcess(workingDirectory, "git", "--exec-path");
+    Equal(0, git.ExitCode, "Could not locate Git for Windows. " + git.Output);
+    for (
+        var directory = new DirectoryInfo(git.Output.Trim());
+        directory != null;
+        directory = directory.Parent
+    )
+    {
+        var candidate = Path.Combine(directory.FullName, "bin", "bash.exe");
+        if (File.Exists(candidate))
+            return candidate;
+    }
+    throw new InvalidOperationException("Git for Windows does not contain bin/bash.exe.");
+}
+
 static async Task<(int ExitCode, string Output)> RunProcess(
     string workingDirectory,
     string executable,
@@ -519,15 +541,12 @@ static async Task<(int ExitCode, string Output)> RunProcess(
     };
     foreach (var argument in arguments)
         start.ArgumentList.Add(argument);
-    Console.WriteLine($"Starting {executable}: {string.Join(' ', arguments)}");
     using var process =
         Process.Start(start) ?? throw new InvalidOperationException("Could not start dotnet.");
     var outputTask = process.StandardOutput.ReadToEndAsync();
     var errorTask = process.StandardError.ReadToEndAsync();
     await process.WaitForExitAsync();
-    var output = await outputTask + await errorTask;
-    Console.WriteLine($"{executable} exited with {process.ExitCode}.\n{output}");
-    return (process.ExitCode, output);
+    return (process.ExitCode, await outputTask + await errorTask);
 }
 
 static string TemporaryDirectory()
