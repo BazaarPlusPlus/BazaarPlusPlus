@@ -183,7 +183,9 @@ jobs:
           workspaces: bazaarplusplus-installer/src-tauri
           # Include these in the prefix so even fallback restores cannot cross
           # toolchain, lockfile or build-configuration changes.
-          key: installer-${{ runner.os == 'macOS' && 'macos-14' || 'windows-latest' }}-${{ runner.arch }}-${{ hashFiles('bazaarplusplus-installer/rust-toolchain.toml', 'bazaarplusplus-installer/src-tauri/Cargo.lock', 'bazaarplusplus-installer/src-tauri/.cargo/config.toml') }}
+          # Preserve the former matrix job ID suffix without coupling the
+          # cache namespace to the new job IDs. shared-key replaces key + job.
+          shared-key: installer-${{ runner.os == 'macOS' && 'macos-14' || 'windows-latest' }}-${{ runner.arch }}-${{ hashFiles('bazaarplusplus-installer/rust-toolchain.toml', 'bazaarplusplus-installer/src-tauri/Cargo.lock', 'bazaarplusplus-installer/src-tauri/.cargo/config.toml') }}-installer
           cache-bin: false
           save-if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
       - run: npm install --global "$(node --print "require('./package.json').packageManager")"
