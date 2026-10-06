@@ -10,13 +10,48 @@ permissions:
   contents: read
 
 concurrency:
-  group: checks-${{ github.event.pull_request.number || github.ref }}
+  group: checks-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
   # Let master finish the post-job cache save even when another merge arrives.
   cancel-in-progress: ${{ !(github.event_name == 'push' && github.ref == 'refs/heads/master') }}
 
+# Explicit native jobs preserve legacy required names even when skipped.
+# Until Checks summary is required, classification failure also runs all gates.
 jobs:
+  classify:
+    name: Classify changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      release: ${{ steps.scope.outputs.release }}
+      site: ${{ steps.scope.outputs.site }}
+      server: ${{ steps.scope.outputs.server }}
+      analyzer: ${{ steps.scope.outputs.analyzer }}
+      installer: ${{ steps.scope.outputs.installer }}
+      mod: ${{ steps.scope.outputs.mod }}
+      macos-icon: ${{ steps.scope.outputs.macos-icon }}
+      plan: ${{ steps.scope.outputs.plan }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Keep the scripts available even if fetching history fails. The
+      # classifier falls back to full coverage if a diff cannot be obtained.
+      - id: history
+        name: Fetch complete history for change detection
+        continue-on-error: true
+        run: git fetch --no-tags --unshallow origin
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+      - id: scope
+        run: node .github/scripts/checks-scope.mjs
+        env:
+          HISTORY_FETCH_OUTCOME: ${{ steps.history.outcome }}
+
   macos-icon:
     name: macOS Icon Composer asset
+    needs: classify
+    if: always() && (needs.classify.result != 'success' || needs.classify.outputs.macos-icon != 'false')
     runs-on: macos-26
     timeout-minutes: 5
     steps:
@@ -32,6 +67,8 @@ jobs:
 
   release:
     name: Release tooling
+    needs: classify
+    if: always() && (needs.classify.result != 'success' || needs.classify.outputs.release != 'false')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -53,21 +90,16 @@ jobs:
       - run: python3 -m unittest discover -s .github/scripts -p 'test_*.py'
       - run: node --test .github/scripts/*.test.mjs
 
-  node:
-    name: ${{ matrix.project }} (${{ matrix.scope }})
+  site:
+    name: site (full check and test)
+    needs: classify
+    if: always() && (needs.classify.result != 'success' || needs.classify.outputs.site != 'false')
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - project: site
-            scope: full check and test
-          - project: server
-            scope: full check and test
     env:
+      PROJECT: site
       WRANGLER_SEND_METRICS: 'false'
-    steps:
+    steps: &node-steps
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -75,25 +107,25 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: npm
-          cache-dependency-path: bazaarplusplus-${{ matrix.project }}/package-lock.json
+          cache-dependency-path: bazaarplusplus-${{ env.PROJECT }}/package-lock.json
       - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4
         with:
           just-version: 1.58.0
       - run: npm install --global "$(node --print "require('./package.json').packageManager")"
       - run: npm ci
-        working-directory: bazaarplusplus-${{ matrix.project }}
-      - run: just '${{ matrix.project }}::check'
-      - if: matrix.project == 'site'
+        working-directory: bazaarplusplus-${{ env.PROJECT }}
+      - run: just '${{ env.PROJECT }}::check'
+      - if: env.PROJECT == 'site'
         run: |
           just site::test
           npm --prefix bazaarplusplus-site run deploy:dry-run
           npm --prefix bazaarplusplus-site run deploy:preview:dry-run
-      - if: matrix.project == 'site'
+      - if: env.PROJECT == 'site'
         working-directory: bazaarplusplus-site
         run: npx playwright install --with-deps chromium
-      - if: matrix.project == 'site'
+      - if: env.PROJECT == 'site'
         run: just site::e2e golden
-      - if: failure() && matrix.project == 'site'
+      - if: failure() && env.PROJECT == 'site'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: site-e2e-results
@@ -101,25 +133,34 @@ jobs:
             bazaarplusplus-site/test-results/
             bazaarplusplus-site/e2e/__snapshots__/
           if-no-files-found: ignore
-      - if: matrix.project == 'server'
+      - if: env.PROJECT == 'server'
         run: just server::test
 
-  installer:
-    name: Installer (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 60
+  server:
+    name: server (full check and test)
+    needs: classify
+    if: always() && (needs.classify.result != 'success' || needs.classify.outputs.server != 'false')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
     env:
+      PROJECT: server
+      WRANGLER_SEND_METRICS: 'false'
+    steps: *node-steps
+
+  installer-macos:
+    name: Installer (macos-14)
+    needs: classify
+    if: always() && (needs.classify.result != 'success' || needs.classify.outputs.installer != 'false')
+    runs-on: macos-14
+    timeout-minutes: 60
+    env: &installer-env
       CARGO_INCREMENTAL: '0'
       CARGO_PROFILE_DEV_DEBUG: '0'
       CARGO_PROFILE_TEST_DEBUG: '0'
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [macos-14, windows-latest]
     defaults:
       run:
         shell: bash
-    steps:
+    steps: &installer-steps
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -142,7 +183,7 @@ jobs:
           workspaces: bazaarplusplus-installer/src-tauri
           # Include these in the prefix so even fallback restores cannot cross
           # toolchain, lockfile or build-configuration changes.
-          key: installer-${{ matrix.os }}-${{ runner.arch }}-${{ hashFiles('bazaarplusplus-installer/rust-toolchain.toml', 'bazaarplusplus-installer/src-tauri/Cargo.lock', 'bazaarplusplus-installer/src-tauri/.cargo/config.toml') }}
+          key: installer-${{ runner.os == 'macOS' && 'macos-14' || 'windows-latest' }}-${{ runner.arch }}-${{ hashFiles('bazaarplusplus-installer/rust-toolchain.toml', 'bazaarplusplus-installer/src-tauri/Cargo.lock', 'bazaarplusplus-installer/src-tauri/.cargo/config.toml') }}
           cache-bin: false
           save-if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
       - run: npm install --global "$(node --print "require('./package.json').packageManager")"
@@ -155,10 +196,22 @@ jobs:
       - name: Verify Installer
         run: just installer::check
 
+  installer-windows:
+    name: Installer (windows-latest)
+    needs: classify
+    if: always() && (needs.classify.result != 'success' || needs.classify.outputs.installer != 'false')
+    runs-on: windows-latest
+    timeout-minutes: 60
+    env: *installer-env
+    defaults:
+      run:
+        shell: bash
+    steps: *installer-steps
+
   installer-timings:
     name: Installer timing report
-    needs: installer
-    if: always()
+    needs: [classify, installer-macos, installer-windows]
+    if: always() && (needs.classify.result != 'success' || needs.classify.outputs.installer != 'false')
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -178,6 +231,8 @@ jobs:
 
   analyzer:
     name: Analyzer
+    needs: classify
+    if: always() && (needs.classify.result != 'success' || needs.classify.outputs.analyzer != 'false')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -194,84 +249,102 @@ jobs:
         working-directory: bazaarplusplus-analyzer
       - run: just analyzer::check analyzer::test
 
-  mod:
-    name: Mod (${{ matrix.os }})
-    # Game assemblies are a locked build input fetched from the private Snapshot
-    # store (docs/adr/0004-pinned-game-assembly-snapshots.md). A fork PR never
-    # receives the store secret, so the lane runs only for the repository's own
-    # branches; inside the repository it skips, with a warning, until the
-    # read-only BPP_GAME_LIBS_TOKEN secret and the CLOUDFLARE_ACCOUNT_ID variable
-    # exist (Dependabot PRs see Dependabot secrets: `just secrets-sync
-    # --dependabot` registers the token there too). An empty lock entry is a
-    # failure, never a skip.
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: ${{ matrix.os }}
+  mod-macos:
+    name: Mod (macos-14)
+    needs: classify
+    # Fork PRs have no private snapshots; summary records the explicit exception.
+    if: always() && (needs.classify.result != 'success' || needs.classify.outputs.mod != 'false') && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: macos-14
     timeout-minutes: 45
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: macos-14
-            platform: macos
-          - os: windows-latest
-            platform: windows
     defaults:
       run:
         shell: bash
     env:
-      # release/game-libs.mjs derives the bucket's S3 pair from this token
-      # (release/github-secrets.json); the bucket is fixed there.
+      PLATFORM: macos
       CLOUDFLARE_API_TOKEN: ${{ secrets.BPP_GAME_LIBS_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
-    steps:
-      - id: store
-        name: Probe the private store secrets
+    steps: &mod-steps
+      - name: Require private store credentials
         run: |
-          if [[ -n "$CLOUDFLARE_API_TOKEN" && -n "$CLOUDFLARE_ACCOUNT_ID" ]]; then
-            echo 'ready=true' >> "$GITHUB_OUTPUT"
-          else
-            echo 'ready=false' >> "$GITHUB_OUTPUT"
-            echo '::warning title=Mod lane skipped::the BPP_GAME_LIBS_TOKEN secret or the CLOUDFLARE_ACCOUNT_ID variable is not available to this run; mod::check, mod::test and the CompatCheck builds did not run.'
-            echo 'Mod lane skipped: the private store token is not available to this run, so nothing was compiled or tested against the game.' >> "$GITHUB_STEP_SUMMARY"
+          if [[ -z "$CLOUDFLARE_API_TOKEN" || -z "$CLOUDFLARE_ACCOUNT_ID" ]]; then
+            echo '::error::BPP_GAME_LIBS_TOKEN or CLOUDFLARE_ACCOUNT_ID is missing; selected Mod checks cannot run.'
+            exit 1
           fi
-      - if: steps.store.outputs.ready == 'true'
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - if: steps.store.outputs.ready == 'true'
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version-file: .nvmrc
-      - if: steps.store.outputs.ready == 'true'
-        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           global-json-file: bazaarplusplus-mod/global.json
           cache: true
           cache-dependency-path: bazaarplusplus-mod/**/packages.lock.json
-      - if: steps.store.outputs.ready == 'true'
-        uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4
+      - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4
         with:
           just-version: 1.58.0
       # A null online entry fails here, naming the snapshot to capture.
-      - if: steps.store.outputs.ready == 'true'
-        name: Fetch the online snapshot
-        env:
-          PLATFORM: ${{ matrix.platform }}
+      - name: Fetch the online snapshot
         run: just mod::fetch "$PLATFORM" online
-      - if: steps.store.outputs.ready == 'true'
-        run: just mod::check
-      - if: steps.store.outputs.ready == 'true'
-        run: just mod::test
+      - run: just mod::check
+      - run: just mod::test
       - name: Preserve Combat Impact corpus evidence
-        if: always() && steps.store.outputs.ready == 'true'
+        if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: combat-impact-corpus-${{ matrix.platform }}
+          name: combat-impact-corpus-${{ env.PLATFORM }}
           path: bazaarplusplus-mod/artifacts/combat-impact-corpus/*.json
           if-no-files-found: error
       # Compatibility builds against the other two channels; a null entry fails.
-      - if: steps.store.outputs.ready == 'true'
-        run: just mod::matrix staging ptr
+      - run: just mod::matrix staging ptr
+
+  mod-windows:
+    name: Mod (windows-latest)
+    needs: classify
+    if: always() && (needs.classify.result != 'success' || needs.classify.outputs.mod != 'false') && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: windows-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash
+    env:
+      PLATFORM: windows
+      CLOUDFLARE_API_TOKEN: ${{ secrets.BPP_GAME_LIBS_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+    steps: *mod-steps
+
+  summary:
+    # A dispatch check on the same SHA must never satisfy PR protection.
+    name: ${{ github.event_name == 'workflow_dispatch' && 'Manual checks summary' || 'Checks summary' }}
+    if: always()
+    needs:
+      [
+        classify,
+        release,
+        site,
+        server,
+        analyzer,
+        installer-macos,
+        installer-windows,
+        mod-macos,
+        mod-windows,
+        macos-icon,
+        installer-timings
+      ]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+      - run: node .github/scripts/checks-summary.mjs
+        env:
+          CHECK_NEEDS: ${{ toJSON(needs) }}
+          MOD_CREDENTIALS: ${{ secrets.BPP_GAME_LIBS_TOKEN != '' && vars.CLOUDFLARE_ACCOUNT_ID != '' }}
 
   bot-mod-boundary:
     name: Bot Mod dependency boundary
