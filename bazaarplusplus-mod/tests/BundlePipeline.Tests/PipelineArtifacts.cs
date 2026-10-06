@@ -1,4 +1,5 @@
 #nullable enable
+using System.IO.Compression;
 using System.Reflection;
 using System.Text;
 using System.Text.Encodings.Web;
@@ -8,6 +9,8 @@ using BazaarPlusPlus.ModApi.Bundle;
 using BazaarPlusPlus.TestSupport;
 using Json.Schema;
 using Microsoft.Data.Sqlite;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.PixelFormats;
 
 /// <summary>
 /// The Bundle pipeline anchor's artifact: every sealed Bundle and manifest under
@@ -16,10 +19,11 @@ using Microsoft.Data.Sqlite;
 /// <c>BPP_UPDATE_GOLDENS=1 dotnet run --project tests/BundlePipeline.Tests/BundlePipeline.Tests.csproj</c>
 /// from the mod root, then review <c>git diff tests/BundlePipeline.Tests/fixtures/</c>.
 ///
-/// Only <c>bundle_id</c>, <c>created_at_ms</c> (UlidV5Generator and the seal clock), the values
+/// <c>bundle_id</c>, <c>created_at_ms</c> (UlidV5Generator and the seal clock), the values
 /// derived from them (file name, whole-Bundle SHA-256 and Content-Digest), and <c>*_at_utc</c>
-/// are normalized. Run payload and screenshot digests stay raw: a change there means the payload
-/// picked up an unfixed time or random source.
+/// are normalized. Gzip/JPEG bytes may differ across runtimes and CPU architectures: pin the
+/// decompressed MessagePack bytes and check decoded screenshot pixels against the input instead.
+/// Encoded lengths and digests are checked against the real Bundle before normalization.
 /// </summary>
 internal sealed class PipelineArtifacts
 {
@@ -42,7 +46,9 @@ internal sealed class PipelineArtifacts
     private readonly JsonArray _queue = new();
     private readonly JsonArray _uploads = new();
     private readonly JsonObject _screenshots = new();
-    private readonly Dictionary<string, string> _bundleNamesBySha = new(StringComparer.Ordinal);
+    private readonly JsonObject _runPayloads = new();
+    private readonly Dictionary<string, (string Name, int Length, string Digest)> _bundlesBySha =
+        new(StringComparer.Ordinal);
 
     internal PipelineArtifacts()
     {
@@ -82,15 +88,36 @@ internal sealed class PipelineArtifacts
         var normalized = JsonNode.Parse(opened.ManifestBytes)!.AsObject();
         normalized["bundle_id"] = Ulid;
         normalized["created_at_ms"] = 0;
+        var payload = normalized["run"]!["payload"]!;
+        payload["length"] = Normalized;
+        payload["sha256"] = Normalized;
+        using (var input = new MemoryStream(opened.RunPayload))
+        using (var gzip = new GZipStream(input, CompressionMode.Decompress))
+        using (var unpacked = new MemoryStream())
+        {
+            gzip.CopyTo(unpacked);
+            _runPayloads[name] = new JsonObject
+            {
+                ["messagepack_bytes"] = unpacked.Length,
+                ["sha256"] = BundleV5Codec.ComputeSha256Hex(unpacked.ToArray()),
+            };
+        }
+        if (opened.Screenshot is { } screenshot)
+        {
+            VerifyScreenshot(screenshot);
+            normalized["screenshot"]!["offset"] = Normalized;
+            normalized["screenshot"]!["length"] = Normalized;
+            normalized["screenshot"]!["sha256"] = Normalized;
+        }
         _manifests[name] = normalized;
         _checksums[name + ".bundle"] = new JsonObject
         {
-            ["decoded_bytes"] = bytes.Length,
-            ["manifest_bytes"] = opened.ManifestBytes.Length,
+            ["decoded_bytes"] = Normalized,
+            ["manifest_bytes"] = Normalized,
             ["sha256"] = Normalized,
             ["expected"] = "valid",
         };
-        _bundleNamesBySha[opened.Sha256Hex] = name;
+        _bundlesBySha[opened.Sha256Hex] = (name, bytes.Length, opened.ContentDigest);
         return opened;
     }
 
@@ -111,7 +138,8 @@ internal sealed class PipelineArtifacts
                 ["bundle_outbox"] = Rows(
                     connection,
                     "SELECT run_id, bundle_id, file_name, content_sha256_hex, content_digest, total_bytes, has_screenshot, sealed_at_utc, status, next_attempt_at_utc, attempts, last_attempt_at_utc, last_error_code, failed_at_utc, uploaded_at_utc, server_outcome FROM bundle_outbox",
-                    runIds
+                    runIds,
+                    bundleOutbox: true
                 ),
             }
         );
@@ -132,8 +160,12 @@ internal sealed class PipelineArtifacts
     internal void RecordUpload(string step, RecordedUpload upload)
     {
         Check.That(
-            _bundleNamesBySha.TryGetValue(upload.BodySha256, out var name),
+            _bundlesBySha.TryGetValue(upload.BodySha256, out var bundle),
             $"{step}: uploaded body is not byte-identical to any sealed Bundle."
+        );
+        Check.That(
+            upload.Length == bundle.Length,
+            $"{step}: upload length differs from its Bundle."
         );
         _uploads.Add(
             new JsonObject
@@ -142,8 +174,8 @@ internal sealed class PipelineArtifacts
                 ["method"] = upload.Method,
                 ["route"] = upload.Route,
                 ["content_type"] = upload.ContentType,
-                ["body"] = $"<bundle:{name}>",
-                ["length"] = upload.Length,
+                ["body"] = $"<bundle:{bundle.Name}>",
+                ["length"] = Normalized,
                 ["response_status"] = upload.ResponseStatus,
             }
         );
@@ -159,6 +191,7 @@ internal sealed class PipelineArtifacts
         {
             ["manifests"] = _manifests,
             ["checksums"] = _checksums,
+            ["run_payloads"] = _runPayloads,
             ["run_screenshots"] = _screenshots,
             ["queue"] = _queue,
             ["uploads"] = _uploads,
@@ -221,11 +254,12 @@ internal sealed class PipelineArtifacts
         );
     }
 
-    private static JsonArray Rows(
+    private JsonArray Rows(
         SqliteConnection connection,
         string select,
         string[] runIds,
-        bool normalizeTimes = true
+        bool normalizeTimes = true,
+        bool bundleOutbox = false
     )
     {
         using var command = connection.CreateCommand();
@@ -238,6 +272,18 @@ internal sealed class PipelineArtifacts
         var rows = new JsonArray();
         while (reader.Read())
         {
+            if (bundleOutbox)
+            {
+                Check.That(
+                    _bundlesBySha.TryGetValue(
+                        reader.GetString(reader.GetOrdinal("content_sha256_hex")),
+                        out var bundle
+                    )
+                        && reader.GetInt64(reader.GetOrdinal("total_bytes")) == bundle.Length
+                        && reader.GetString(reader.GetOrdinal("content_digest")) == bundle.Digest,
+                    "Outbox length and digests must match the sealed Bundle."
+                );
+            }
             var row = new JsonObject();
             for (var column = 0; column < reader.FieldCount; column++)
             {
@@ -257,7 +303,7 @@ internal sealed class PipelineArtifacts
             "bundle_id" => Ulid,
             "file_name" => Ulid + ".bundle",
             "created_at_ms" => 0,
-            "content_sha256_hex" or "content_digest" => Normalized,
+            "content_sha256_hex" or "content_digest" or "total_bytes" => Normalized,
             _ when normalizeTimes && column.EndsWith("_at_utc", StringComparison.Ordinal) => Utc,
             _ => value switch
             {
@@ -269,6 +315,30 @@ internal sealed class PipelineArtifacts
                 ),
             },
         };
+
+    private static void VerifyScreenshot(byte[] bytes)
+    {
+        Check.That(Image.DetectFormat(bytes).Name == "JPEG", "The screenshot must be a JPEG.");
+        using var image = Image.Load<Rgba32>(bytes);
+        Check.That(
+            image.Width == 96 && image.Height == 64,
+            "Screenshot dimensions must match the input."
+        );
+        // Quality 90 is lossy, and SIMD rounding differs by architecture. A small per-channel
+        // error bound keeps the gradient content under test without pinning an encoder's bytes.
+        for (var y = 0; y < image.Height; y++)
+        for (var x = 0; x < image.Width; x++)
+        {
+            var expected = PipelineInputs.ScreenshotPixel(x, y);
+            var actual = image[x, y];
+            Check.That(
+                Math.Abs(actual.R - expected.R) <= 8
+                    && Math.Abs(actual.G - expected.G) <= 8
+                    && Math.Abs(actual.B - expected.B) <= 8,
+                $"Screenshot pixel ({x}, {y}) differs from the input gradient."
+            );
+        }
+    }
 }
 
 internal sealed record RecordedUpload(

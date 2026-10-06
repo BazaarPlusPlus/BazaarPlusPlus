@@ -73,10 +73,33 @@ public sealed partial class ScenarioRunnerTests
             );
         var stdoutTask = process.StandardOutput.ReadToEndAsync();
         var stderrTask = process.StandardError.ReadToEndAsync();
-        await process.WaitForExitAsync();
-        var stdout = await stdoutTask;
-        var stderr = await stderrTask;
+        // A stuck capsule must report its name instead of consuming the entire CI job timeout.
+        // Include redirected output: an inherited pipe can stay open after the process exits.
+        using var timeoutSource = new CancellationTokenSource(TimeSpan.FromMinutes(2));
+        var completion = Task.WhenAll(process.WaitForExitAsync(), stdoutTask, stderrTask);
+        var timedOut = false;
+        try
+        {
+            await completion.WaitAsync(timeoutSource.Token);
+        }
+        catch (OperationCanceledException) when (timeoutSource.IsCancellationRequested)
+        {
+            timedOut = true;
+            if (!process.HasExited)
+                process.Kill(entireProcessTree: true);
+            await Task.WhenAny(completion, Task.Delay(TimeSpan.FromSeconds(5)));
+        }
+        var stdout = stdoutTask.IsCompletedSuccessfully
+            ? stdoutTask.Result
+            : "<stdout did not close>";
+        var stderr = stderrTask.IsCompletedSuccessfully
+            ? stderrTask.Result
+            : "<stderr did not close>";
 
+        Assert.False(
+            timedOut,
+            $"{projectName} exceeded two minutes.\nSTDOUT:\n{stdout}\nSTDERR:\n{stderr}"
+        );
         Assert.True(
             process.ExitCode == 0,
             $"{projectName} exited with {process.ExitCode}.\nSTDOUT:\n{stdout}\nSTDERR:\n{stderr}"

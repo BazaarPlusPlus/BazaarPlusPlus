@@ -23,8 +23,26 @@
       "steamBranch": "public_test_realm",
       "capturedAt": "2026-10-04T14:27:15.170Z"
     },
-    "windows-online": null,
-    "windows-staging": null,
-    "windows-ptr": null
+    "windows-online": {
+      "gameVersion": "1.0.12293-prod-windows-x64-a0455053",
+      "sha256": "8a427cdc058efc5993bba94b4244fb43c8fbd7b1f7b679a20e921a6ea16bcfc1",
+      "buildid": "25194946",
+      "steamBranch": "public",
+      "capturedAt": "2026-10-06T02:45:58.661Z"
+    },
+    "windows-staging": {
+      "gameVersion": "1.0.12574-staging-windows-x64-fecb8f8e",
+      "sha256": "9e217a63770b7eb7a1a0b2f8fbd57c75399ab022d1270ac46ce9e6abe0ec4f5d",
+      "buildid": "25661913",
+      "steamBranch": "staging",
+      "capturedAt": "2026-10-06T02:53:15.778Z"
+    },
+    "windows-ptr": {
+      "gameVersion": "1.0.12253-ptr-windows-x64-a2cd5c3b",
+      "sha256": "34c3f6dee51421bd883f4a28e2e4fcfef0486fa8a700e2971a13342b952c370b",
+      "buildid": "25141468",
+      "steamBranch": "public_test_realm",
+      "capturedAt": "2026-10-06T02:57:52.955Z"
+    }
   }
 }
