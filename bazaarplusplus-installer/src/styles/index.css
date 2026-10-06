@@ -1421,6 +1421,7 @@ html[data-bpp-platform='windows'] .bpp-header {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  container-type: inline-size;
 }
 .bpp-history-run-card {
   display: flex;
@@ -1442,12 +1443,12 @@ html[data-bpp-platform='windows'] .bpp-header {
 .bpp-history-run-card:focus-visible {
   outline-offset: 2px;
 }
-/* The strip leads the card and keeps the server's crop ratio (about
-   2004 x 428); the facts sit in a fixed column to its right. */
+/* Keep the reference composition at every width: the strip sets the row
+   height, and the facts scale with the list using container-relative type. */
 .bpp-history-run-preview {
   display: flex;
   min-width: 0;
-  flex: 1 1 auto;
+  flex: 0 0 71%;
   aspect-ratio: 2004 / 428;
   align-items: center;
   justify-content: center;
@@ -1459,93 +1460,112 @@ html[data-bpp-platform='windows'] .bpp-header {
   display: block;
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
 }
 .bpp-history-run-preview-empty {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
+  gap: 0.5em;
   color: var(--text-3);
-  font-size: 12px;
+  font-size: 1.5cqw;
 }
 .bpp-history-run-info {
   display: flex;
-  width: 224px;
+  width: 29%;
   flex: none;
-  flex-direction: column;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 10px 12px 10px 14px;
-}
-.bpp-history-run-identity {
-  display: flex;
   min-width: 0;
   flex-direction: column;
-  gap: 2px;
+  gap: 0.3em;
+  padding: 0.5em 0.8em;
+  font-size: 1.5cqw;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
 }
 .bpp-history-run-title {
   display: flex;
-  min-width: 0;
   align-items: center;
-  gap: 10px;
+  gap: 0.5em;
 }
 .bpp-history-run-hero {
-  overflow: hidden;
-  font-size: 15px;
+  font-size: 1.15em;
   font-weight: 600;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
-.bpp-history-run-meta {
-  display: flex;
-  min-width: 0;
-  align-items: center;
-  gap: 8px;
-}
-.bpp-history-run-when {
-  overflow: hidden;
-  color: var(--text-3);
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.bpp-history-run-card:hover .bpp-history-run-when,
-.bpp-history-run-card:hover .bpp-history-run-metric-label {
-  color: var(--text-2);
-}
-/* Three figures, value over label: wins, days, rating named by its rank. */
+/* Wins and rating lead; days and the full timestamp remain supporting facts. */
 .bpp-history-run-metrics {
   display: grid;
-  grid-template-columns: 1fr 1fr 1.4fr;
-  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5em;
+  margin-block: auto;
 }
 .bpp-history-run-metric {
   display: flex;
   min-width: 0;
   flex-direction: column;
+  align-items: center;
+  gap: 0.15em;
+  text-align: center;
 }
 .bpp-history-run-metric-value {
-  font-size: 18px;
-  font-variant-numeric: tabular-nums;
+  font-size: 1.9em;
   font-weight: 650;
-  line-height: 1.2;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+.bpp-history-run-wins {
+  color: var(--accent);
+}
+.bpp-history-run-metric-label,
+.bpp-history-run-days,
+.bpp-history-run-footer {
+  color: var(--text-2);
+  font-size: 1em;
+  font-weight: 400;
 }
 .bpp-history-run-metric-label {
-  overflow: hidden;
-  color: var(--text-3);
-  font-size: 11px;
-  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
+}
+.bpp-history-run-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.25em 0.5em;
+}
+.bpp-history-run-when {
+  display: block;
+  white-space: normal;
+}
+.bpp-history-run-days {
   white-space: nowrap;
 }
+.bpp-history-run-metric .bpp-outcome,
+.bpp-history-run-metric .bpp-history-run-days {
+  margin-top: 0.3em;
+  font-size: 0.75em;
+  line-height: 1.2;
+}
+.bpp-history-run-metric .bpp-outcome {
+  height: auto;
+  padding: 0;
+  border-radius: 0;
+  background: none;
+  white-space: normal;
+}
 .bpp-history-run-chevron {
+  width: 1em;
+  height: 1em;
   flex: none;
   margin-left: auto;
-  color: var(--text-3);
+  color: var(--text-2);
 }
 .bpp-history-run-card:hover .bpp-history-run-chevron {
   color: var(--text-1);
+}
+.bpp-history-run-preview-empty svg {
+  width: 1.5em;
+  height: 1.5em;
 }
 .bpp-history-pagination {
   display: flex;

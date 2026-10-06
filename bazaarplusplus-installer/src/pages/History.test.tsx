@@ -223,7 +223,14 @@ const thumbnailUrl = (source: number, shot = 'shot-1') =>
   `http://127.0.0.1:17654/history/${source}/images/${shot}/strip`;
 const thumbnailPage = (source: number, hero: string) => ({
   ...loadedPage(0, 1),
-  runs: [{ ...runs[0], hero, thumbnail_url: thumbnailUrl(source) }]
+  runs: [
+    {
+      ...runs[0],
+      hero,
+      screenshot_id: 'shot-1',
+      thumbnail_url: thumbnailUrl(source)
+    }
+  ]
 });
 
 describe('History thumbnails', () => {
@@ -236,6 +243,8 @@ describe('History thumbnails', () => {
     vi.mocked(prepareHistoryThumbnails).mockReturnValue(preparing);
     await render('/history');
     expect(container.textContent).toContain('Vanessa');
+    expect(container.textContent).toContain('正在加载截图…');
+    expect(container.textContent).not.toContain('刷新页面可重试');
     expect(container.querySelector('.bpp-history-run-preview img')).toBeNull();
     await act(async () => ready());
     expect(
@@ -245,6 +254,39 @@ describe('History thumbnails', () => {
     ).toBe(thumbnailUrl(0));
     expect(container.querySelector('a[href="/stream"]')).toBeNull();
   });
+
+  it.each([
+    ['zh', '暂无截图', '缩略图不可用；刷新页面可重试。', '刷新'],
+    [
+      'en',
+      'No screenshot',
+      'Thumbnail unavailable; refresh to retry.',
+      'Refresh'
+    ]
+  ] as const)(
+    'keeps missing screenshots distinct from failed thumbnails in %s',
+    async (locale, empty, failed, refresh) => {
+      localStorage.setItem(LOCALE_STORAGE_KEY, locale);
+      vi.mocked(listHistoryRuns).mockResolvedValue({
+        ...loadedPage(0, 2),
+        runs: [runs[1], ...thumbnailPage(0, 'Vanessa').runs]
+      });
+      vi.mocked(prepareHistoryThumbnails).mockRejectedValue(
+        new Error('unavailable')
+      );
+      await render('/history');
+      const cards = container.querySelectorAll('.bpp-history-run-card');
+      expect(cards[0].textContent).toContain(empty);
+      expect(cards[0].textContent).not.toContain(failed);
+      expect(cards[1].textContent).toContain(failed);
+
+      vi.mocked(prepareHistoryThumbnails).mockResolvedValue(null);
+      await click(refresh);
+      expect(cards[0].textContent).toContain(empty);
+      expect(cards[0].querySelector('img')).toBeNull();
+      expect(cards[1].querySelector('img')).not.toBeNull();
+    }
+  );
 
   it.each([
     ['zh', '缩略图不可用；刷新页面可重试。', '刷新'],
@@ -336,8 +378,12 @@ describe('History thumbnails', () => {
     vi.mocked(listHistoryRuns).mockResolvedValue({
       ...loadedPage(0, 2),
       runs: [
-        { ...runs[0], thumbnail_url: thumbnailUrl(0) },
-        { ...runs[1], thumbnail_url: thumbnailUrl(0, 'shot-2') }
+        { ...runs[0], screenshot_id: 'shot-1', thumbnail_url: thumbnailUrl(0) },
+        {
+          ...runs[1],
+          screenshot_id: 'shot-2',
+          thumbnail_url: thumbnailUrl(0, 'shot-2')
+        }
       ]
     });
     await render('/history');

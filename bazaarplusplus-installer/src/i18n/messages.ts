@@ -245,6 +245,7 @@ const zh = {
   historyPreviousPage: '上一页',
   historyNextPage: '下一页',
   runModeRanked: '排位',
+  runModeUnranked: '匹配',
   runModeNormal: '普通',
   historyProblemUnavailable:
     '未找到可用的本地战绩数据库。请先在安装页选择正确的游戏目录。',
@@ -264,6 +265,8 @@ const zh = {
   historyProblemUnexpected: '加载本地战绩时发生意外错误。请重试。',
   historyOpenInstall: '前往安装页',
   historyPreviewFallback: '缩略图不可用；刷新页面可重试。',
+  historyPreviewEmpty: '暂无截图',
+  historyPreviewLoading: '正在加载截图…',
   historyProblemThumbnailsUnavailable:
     '缩略图服务无法启动，本地端口可能被占用；战绩仍可正常浏览。',
   runResultMisfortune: '惨淡旅程',
@@ -690,6 +693,7 @@ const en: Record<MessageKey, string> = {
   historyPreviousPage: 'Previous',
   historyNextPage: 'Next',
   runModeRanked: 'Ranked',
+  runModeUnranked: 'Unranked',
   runModeNormal: 'Normal',
   historyProblemUnavailable:
     'No local History database is available. Select the correct game directory on the Install page.',
@@ -711,6 +715,8 @@ const en: Record<MessageKey, string> = {
     'Something unexpected happened while loading local History. Please retry.',
   historyOpenInstall: 'Open Install',
   historyPreviewFallback: 'Thumbnail unavailable; refresh to retry.',
+  historyPreviewEmpty: 'No screenshot',
+  historyPreviewLoading: 'Loading screenshot…',
   historyProblemThumbnailsUnavailable:
     "Thumbnails can't load: the local image service couldn't start (its port may be in use). History still works.",
   runResultMisfortune: 'MISFORTUNE JOURNEY',

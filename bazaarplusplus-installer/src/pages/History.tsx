@@ -24,7 +24,10 @@ import {
   type HistoryPageProblem
 } from '../features/history/historyProblems';
 import { useHistoryPage } from '../features/history/useHistoryPage';
-import type { EndGameProcessOutcome } from '../features/history/historyListWorkflow';
+import type {
+  EndGameProcessOutcome,
+  HistoryThumbnails
+} from '../features/history/historyListWorkflow';
 import { isWindowsPlatform } from '../features/shared/platform';
 import { useToast } from '../components/ui/Toast';
 import { useI18n } from '../i18n/LocaleProvider';
@@ -127,6 +130,7 @@ export default function History() {
                   pageNumber={pagination.page}
                   thumbnailUrl={page.thumbnailUrl(run)}
                   thumbnailAttempt={page.thumbnailAttempt}
+                  thumbnails={page.thumbnails}
                 />
               ))
             )}
@@ -177,17 +181,25 @@ function RunRow({
   run,
   pageNumber,
   thumbnailUrl,
-  thumbnailAttempt
+  thumbnailAttempt,
+  thumbnails
 }: {
   run: HistoryRunRow;
   pageNumber: number;
   thumbnailUrl: string | null;
   thumbnailAttempt: number;
+  thumbnails: HistoryThumbnails;
 }) {
   const { locale, t } = useI18n();
   const result = formatRunResultLabel(run);
   const detailPath = `/history/${encodeURIComponent(run.run_id)}`;
-  const fallbackLabel = t('historyPreviewFallback');
+  const fallbackLabel = t(
+    !run.screenshot_id
+      ? 'historyPreviewEmpty'
+      : thumbnails === 'pending'
+        ? 'historyPreviewLoading'
+        : 'historyPreviewFallback'
+  );
 
   return (
     <Link
@@ -202,18 +214,22 @@ function RunRow({
         fallbackLabel={fallbackLabel}
       />
       <span className="bpp-history-run-info">
-        <span className="bpp-history-run-identity">
-          <span className="bpp-history-run-title">
-            <span className="bpp-history-run-hero" title={run.hero}>
-              {run.hero}
+        <span className="bpp-history-run-title">
+          <span className="bpp-history-run-hero">{run.hero}</span>
+          <ChevronRight
+            size={16}
+            className="bpp-history-run-chevron"
+            aria-label={t('viewDetail')}
+          />
+        </span>
+        <span className="bpp-history-run-metrics">
+          <span className="bpp-history-run-metric">
+            <strong className="bpp-history-run-metric-value bpp-history-run-wins">
+              {run.victories ?? '—'}
+            </strong>
+            <span className="bpp-history-run-metric-label">
+              {t('runMetricWins')}
             </span>
-            <ChevronRight
-              size={16}
-              className="bpp-history-run-chevron"
-              aria-label={t('viewDetail')}
-            />
-          </span>
-          <span className="bpp-history-run-meta">
             <span
               className="bpp-outcome"
               data-tier={result.tier}
@@ -221,32 +237,27 @@ function RunRow({
             >
               {t(result.key)}
             </span>
-            <span className="bpp-history-run-when">
-              {formatDateTime(run.started_at_utc, locale)} ·{' '}
-              {formatGameMode(run.game_mode, t)}
+          </span>
+          <span
+            className="bpp-history-run-metric"
+            title={`${t('runStatRank')} ${run.final_player_rank ?? '—'} · ${t('runStatRating')} ${run.final_player_rating ?? '—'}`}
+          >
+            <strong className="bpp-history-run-metric-value">
+              {run.final_player_rating ?? '—'}
+            </strong>
+            <span className="bpp-history-run-metric-label">
+              {run.final_player_rank ?? t('runStatRating')}
+            </span>
+            <span className="bpp-history-run-days">
+              {t('runMetricDays')} {run.final_day ?? '—'}
             </span>
           </span>
         </span>
-        <span className="bpp-history-run-metrics">
-          <Metric
-            label={t('runMetricWins')}
-            value={run.victories === null ? '-' : String(run.victories)}
-          />
-          <Metric
-            label={t('runMetricDays')}
-            value={run.final_day === null ? '-' : String(run.final_day)}
-          />
-          {/* The game shows a rank and its rating together (Legendary 815),
-              so the rank names the rating figure. */}
-          <Metric
-            label={run.final_player_rank ?? t('runStatRating')}
-            value={
-              run.final_player_rating === null
-                ? '-'
-                : String(run.final_player_rating)
-            }
-            title={`${t('runStatRank')} ${run.final_player_rank ?? '-'} · ${t('runStatRating')} ${run.final_player_rating ?? '-'}`}
-          />
+        <span className="bpp-history-run-footer">
+          <time className="bpp-history-run-when" dateTime={run.started_at_utc}>
+            {formatDateTime(run.started_at_utc, locale)}
+          </time>
+          <span>{formatGameMode(run.game_mode, t)}</span>
         </span>
       </span>
     </Link>
@@ -360,24 +371,4 @@ function endGameProcessMessageKey(outcome: EndGameProcessOutcome): MessageKey {
         ? 'historyEndGameProcessFailedWindows'
         : 'historyEndGameProcessFailedMac';
   }
-}
-
-function Metric({
-  label,
-  value,
-  title
-}: {
-  label: string;
-  value: string;
-  title?: string;
-}) {
-  return (
-    <span
-      className="bpp-history-run-metric"
-      title={title ?? `${label} ${value}`}
-    >
-      <span className="bpp-history-run-metric-value">{value}</span>
-      <span className="bpp-history-run-metric-label">{label}</span>
-    </span>
-  );
 }
