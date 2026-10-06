@@ -32,7 +32,7 @@ just mod::fetch macos online      # Windows 用 windows
 它说不出来的约定：
 
 - 显式 `-p:ManagedPath`（或 `config.ini` `[machine]` 的 `BPP_MANAGED_PATH`）绕过锁解析，但只是换一种取包方式，不是换一套程序集：`mod::check` 里的 `lock-check` 对它解析到的目录核对，版本串被某个锁条目记录而 sha256 不一致即失败，不被任何条目记录只告警；`release::prepare` 则直接拒绝不对应任何锁条目的目录。
-- 锁条目为空时 `mod::check` 和 `release::check` 只告警；本平台 online 条目仍为空时，Steam 当前挂载渠道的条目可以满足 online 构建，这条过渡规则写在 `build/ManagedPath.props` 的注释里，online 条目填上后随注释一起删除。
+- 锁条目为空时 `mod::lock-check` 和 `release::check` 只告警；构建仍须解析所选渠道的锁条目，不会借用其他渠道的条目。
 - 锁只通过 PR 推进：在挂了对应 Steam 分支的机器上 `just mod::snapshot`，再 `just mod::publish <platform> <channel>` 上传私有存储，然后提交锁文件。游戏更新后本机 Steam 与锁不一致，锁推进前无法构建，这是接受的代价。
 
 ## 环境与依赖

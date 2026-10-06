@@ -49,8 +49,8 @@
         },
         "payload": {
           "offset": 0,
-          "length": 313,
-          "sha256": "751bde1dccf4a27d21536e1fefbf7ba9ada04a9904cebe93c4ddb02b1190cee5",
+          "length": "<normalized>",
+          "sha256": "<normalized>",
           "content_type": "application/x-bpp-run-v5"
         }
       }
@@ -69,15 +69,15 @@
         },
         "payload": {
           "offset": 0,
-          "length": 124,
-          "sha256": "042c8ca0ed97a65caa98a733d5b2aedb7e8f795fb2c9a0de1098fcedda2bd2e5",
+          "length": "<normalized>",
+          "sha256": "<normalized>",
           "content_type": "application/x-bpp-run-v5"
         }
       },
       "screenshot": {
-        "offset": 124,
-        "length": 1218,
-        "sha256": "87de7b7bd94992cf40483bde16fe81cb361c6690c2b3b51a8be6dac128bf21e4",
+        "offset": "<normalized>",
+        "length": "<normalized>",
+        "sha256": "<normalized>",
         "content_type": "image/jpeg",
         "width": 96,
         "height": 64,
@@ -99,8 +99,8 @@
         },
         "payload": {
           "offset": 0,
-          "length": 134,
-          "sha256": "72961d96325cda5da340541a0a31419a16ec8716e5007c9febec95e91034a1a5",
+          "length": "<normalized>",
+          "sha256": "<normalized>",
           "content_type": "application/x-bpp-run-v5"
         }
       }
@@ -119,8 +119,8 @@
         },
         "payload": {
           "offset": 0,
-          "length": 129,
-          "sha256": "c9c9cc6869636880d027e09828d68005d8b02f5d66adf7f6eb69838d655ea5d2",
+          "length": "<normalized>",
+          "sha256": "<normalized>",
           "content_type": "application/x-bpp-run-v5"
         }
       }
@@ -139,8 +139,8 @@
         },
         "payload": {
           "offset": 0,
-          "length": 125,
-          "sha256": "04625377525f2eb0a15fbe7ec054db52b11e38ff3f3bc447a9b24e04131b53c8",
+          "length": "<normalized>",
+          "sha256": "<normalized>",
           "content_type": "application/x-bpp-run-v5"
         }
       }
@@ -159,8 +159,8 @@
         },
         "payload": {
           "offset": 0,
-          "length": 268,
-          "sha256": "88a631de93612e629b3701169dc455bea820ae42202edb55760bbfb89fa514bb",
+          "length": "<normalized>",
+          "sha256": "<normalized>",
           "content_type": "application/x-bpp-run-v5"
         }
       }
@@ -168,40 +168,66 @@
   },
   "checksums": {
     "run-only.bundle": {
-      "decoded_bytes": 1264,
-      "manifest_bytes": 935,
+      "decoded_bytes": "<normalized>",
+      "manifest_bytes": "<normalized>",
       "sha256": "<normalized>",
       "expected": "valid"
     },
     "screenshot.bundle": {
-      "decoded_bytes": 1944,
-      "manifest_bytes": 586,
+      "decoded_bytes": "<normalized>",
+      "manifest_bytes": "<normalized>",
       "sha256": "<normalized>",
       "expected": "valid"
     },
     "screenshot-deadline.bundle": {
-      "decoded_bytes": 533,
-      "manifest_bytes": 383,
+      "decoded_bytes": "<normalized>",
+      "manifest_bytes": "<normalized>",
       "sha256": "<normalized>",
       "expected": "valid"
     },
     "replay-free.bundle": {
-      "decoded_bytes": 519,
-      "manifest_bytes": 374,
+      "decoded_bytes": "<normalized>",
+      "manifest_bytes": "<normalized>",
       "sha256": "<normalized>",
       "expected": "valid"
     },
     "replay-held.bundle": {
-      "decoded_bytes": 515,
-      "manifest_bytes": 374,
+      "decoded_bytes": "<normalized>",
+      "manifest_bytes": "<normalized>",
       "sha256": "<normalized>",
       "expected": "valid"
     },
     "corrupt-replay.bundle": {
-      "decoded_bytes": 661,
-      "manifest_bytes": 377,
+      "decoded_bytes": "<normalized>",
+      "manifest_bytes": "<normalized>",
       "sha256": "<normalized>",
       "expected": "valid"
+    }
+  },
+  "run_payloads": {
+    "run-only": {
+      "messagepack_bytes": 561,
+      "sha256": "c762bd781b54059b5516b536cad0da846177242ef935e025d2852c74d54a62bc"
+    },
+    "screenshot": {
+      "messagepack_bytes": 157,
+      "sha256": "f906cb1fc1849e9fde91efb3acb46f143dc4d0556efc407b23c88b6f495e1414"
+    },
+    "screenshot-deadline": {
+      "messagepack_bytes": 167,
+      "sha256": "8407ebd38324ed27db5d249482e424add938657f377d984bdd6c29e1fa1ba593"
+    },
+    "replay-free": {
+      "messagepack_bytes": 158,
+      "sha256": "5d44fe197d4254fe6e84b856c3f9c73c5ee9838dca380e46e0fb59090b592d5d"
+    },
+    "replay-held": {
+      "messagepack_bytes": 158,
+      "sha256": "42143c3d3bfa2a896e7ae601b732a7f08c388468be8c695bd30f66a272169fbd"
+    },
+    "corrupt-replay": {
+      "messagepack_bytes": 482,
+      "sha256": "06cf19d56ecd12d258859b2daf19d794b6f88bda74c3499c2837839cac3476cb"
     }
   },
   "run_screenshots": {
@@ -234,7 +260,7 @@
           "file_name": "<ulid>.bundle",
           "content_sha256_hex": "<normalized>",
           "content_digest": "<normalized>",
-          "total_bytes": 1264,
+          "total_bytes": "<normalized>",
           "has_screenshot": 0,
           "sealed_at_utc": "<utc>",
           "status": "pending",
@@ -258,7 +284,7 @@
           "file_name": "<ulid>.bundle",
           "content_sha256_hex": "<normalized>",
           "content_digest": "<normalized>",
-          "total_bytes": 1944,
+          "total_bytes": "<normalized>",
           "has_screenshot": 1,
           "sealed_at_utc": "<utc>",
           "status": "pending",
@@ -300,7 +326,7 @@
           "file_name": "<ulid>.bundle",
           "content_sha256_hex": "<normalized>",
           "content_digest": "<normalized>",
-          "total_bytes": 533,
+          "total_bytes": "<normalized>",
           "has_screenshot": 0,
           "sealed_at_utc": "<utc>",
           "status": "pending",
@@ -337,7 +363,7 @@
           "file_name": "<ulid>.bundle",
           "content_sha256_hex": "<normalized>",
           "content_digest": "<normalized>",
-          "total_bytes": 519,
+          "total_bytes": "<normalized>",
           "has_screenshot": 0,
           "sealed_at_utc": "<utc>",
           "status": "pending",
@@ -361,7 +387,7 @@
           "file_name": "<ulid>.bundle",
           "content_sha256_hex": "<normalized>",
           "content_digest": "<normalized>",
-          "total_bytes": 515,
+          "total_bytes": "<normalized>",
           "has_screenshot": 0,
           "sealed_at_utc": "<utc>",
           "status": "pending",
@@ -403,7 +429,7 @@
           "file_name": "<ulid>.bundle",
           "content_sha256_hex": "<normalized>",
           "content_digest": "<normalized>",
-          "total_bytes": 661,
+          "total_bytes": "<normalized>",
           "has_screenshot": 0,
           "sealed_at_utc": "<utc>",
           "status": "pending",
@@ -427,7 +453,7 @@
           "file_name": "<ulid>.bundle",
           "content_sha256_hex": "<normalized>",
           "content_digest": "<normalized>",
-          "total_bytes": 661,
+          "total_bytes": "<normalized>",
           "has_screenshot": 0,
           "sealed_at_utc": "<utc>",
           "status": "pending",
@@ -445,7 +471,7 @@
           "file_name": "<ulid>.bundle",
           "content_sha256_hex": "<normalized>",
           "content_digest": "<normalized>",
-          "total_bytes": 519,
+          "total_bytes": "<normalized>",
           "has_screenshot": 0,
           "sealed_at_utc": "<utc>",
           "status": "pending",
@@ -463,7 +489,7 @@
           "file_name": "<ulid>.bundle",
           "content_sha256_hex": "<normalized>",
           "content_digest": "<normalized>",
-          "total_bytes": 515,
+          "total_bytes": "<normalized>",
           "has_screenshot": 0,
           "sealed_at_utc": "<utc>",
           "status": "pending",
@@ -481,7 +507,7 @@
           "file_name": "<ulid>.bundle",
           "content_sha256_hex": "<normalized>",
           "content_digest": "<normalized>",
-          "total_bytes": 1944,
+          "total_bytes": "<normalized>",
           "has_screenshot": 1,
           "sealed_at_utc": "<utc>",
           "status": "pending",
@@ -499,7 +525,7 @@
           "file_name": "<ulid>.bundle",
           "content_sha256_hex": "<normalized>",
           "content_digest": "<normalized>",
-          "total_bytes": 1264,
+          "total_bytes": "<normalized>",
           "has_screenshot": 0,
           "sealed_at_utc": "<utc>",
           "status": "pending",
@@ -517,7 +543,7 @@
           "file_name": "<ulid>.bundle",
           "content_sha256_hex": "<normalized>",
           "content_digest": "<normalized>",
-          "total_bytes": 533,
+          "total_bytes": "<normalized>",
           "has_screenshot": 0,
           "sealed_at_utc": "<utc>",
           "status": "pending",
@@ -541,7 +567,7 @@
           "file_name": "<ulid>.bundle",
           "content_sha256_hex": "<normalized>",
           "content_digest": "<normalized>",
-          "total_bytes": 661,
+          "total_bytes": "<normalized>",
           "has_screenshot": 0,
           "sealed_at_utc": "<utc>",
           "status": "uploaded",
@@ -559,7 +585,7 @@
           "file_name": "<ulid>.bundle",
           "content_sha256_hex": "<normalized>",
           "content_digest": "<normalized>",
-          "total_bytes": 519,
+          "total_bytes": "<normalized>",
           "has_screenshot": 0,
           "sealed_at_utc": "<utc>",
           "status": "uploaded",
@@ -577,7 +603,7 @@
           "file_name": "<ulid>.bundle",
           "content_sha256_hex": "<normalized>",
           "content_digest": "<normalized>",
-          "total_bytes": 515,
+          "total_bytes": "<normalized>",
           "has_screenshot": 0,
           "sealed_at_utc": "<utc>",
           "status": "uploaded",
@@ -595,7 +621,7 @@
           "file_name": "<ulid>.bundle",
           "content_sha256_hex": "<normalized>",
           "content_digest": "<normalized>",
-          "total_bytes": 1944,
+          "total_bytes": "<normalized>",
           "has_screenshot": 1,
           "sealed_at_utc": "<utc>",
           "status": "pending",
@@ -613,7 +639,7 @@
           "file_name": "<ulid>.bundle",
           "content_sha256_hex": "<normalized>",
           "content_digest": "<normalized>",
-          "total_bytes": 1264,
+          "total_bytes": "<normalized>",
           "has_screenshot": 0,
           "sealed_at_utc": "<utc>",
           "status": "pending",
@@ -631,7 +657,7 @@
           "file_name": "<ulid>.bundle",
           "content_sha256_hex": "<normalized>",
           "content_digest": "<normalized>",
-          "total_bytes": 533,
+          "total_bytes": "<normalized>",
           "has_screenshot": 0,
           "sealed_at_utc": "<utc>",
           "status": "pending",
@@ -655,7 +681,7 @@
           "file_name": "<ulid>.bundle",
           "content_sha256_hex": "<normalized>",
           "content_digest": "<normalized>",
-          "total_bytes": 661,
+          "total_bytes": "<normalized>",
           "has_screenshot": 0,
           "sealed_at_utc": "<utc>",
           "status": "uploaded",
@@ -673,7 +699,7 @@
           "file_name": "<ulid>.bundle",
           "content_sha256_hex": "<normalized>",
           "content_digest": "<normalized>",
-          "total_bytes": 519,
+          "total_bytes": "<normalized>",
           "has_screenshot": 0,
           "sealed_at_utc": "<utc>",
           "status": "uploaded",
@@ -691,7 +717,7 @@
           "file_name": "<ulid>.bundle",
           "content_sha256_hex": "<normalized>",
           "content_digest": "<normalized>",
-          "total_bytes": 515,
+          "total_bytes": "<normalized>",
           "has_screenshot": 0,
           "sealed_at_utc": "<utc>",
           "status": "uploaded",
@@ -709,7 +735,7 @@
           "file_name": "<ulid>.bundle",
           "content_sha256_hex": "<normalized>",
           "content_digest": "<normalized>",
-          "total_bytes": 1944,
+          "total_bytes": "<normalized>",
           "has_screenshot": 1,
           "sealed_at_utc": "<utc>",
           "status": "uploaded",
@@ -727,7 +753,7 @@
           "file_name": "<ulid>.bundle",
           "content_sha256_hex": "<normalized>",
           "content_digest": "<normalized>",
-          "total_bytes": 1264,
+          "total_bytes": "<normalized>",
           "has_screenshot": 0,
           "sealed_at_utc": "<utc>",
           "status": "uploaded",
@@ -745,7 +771,7 @@
           "file_name": "<ulid>.bundle",
           "content_sha256_hex": "<normalized>",
           "content_digest": "<normalized>",
-          "total_bytes": 533,
+          "total_bytes": "<normalized>",
           "has_screenshot": 0,
           "sealed_at_utc": "<utc>",
           "status": "uploaded",
@@ -767,7 +793,7 @@
       "route": "/bundles",
       "content_type": "application/x-bpp-bundle-v5",
       "body": "<bundle:run-only>",
-      "length": 1264,
+      "length": "<normalized>",
       "response_status": 503
     },
     {
@@ -776,7 +802,7 @@
       "route": "/bundles",
       "content_type": "application/x-bpp-bundle-v5",
       "body": "<bundle:screenshot>",
-      "length": 1944,
+      "length": "<normalized>",
       "response_status": 503
     },
     {
@@ -785,7 +811,7 @@
       "route": "/bundles",
       "content_type": "application/x-bpp-bundle-v5",
       "body": "<bundle:screenshot-deadline>",
-      "length": 533,
+      "length": "<normalized>",
       "response_status": 503
     },
     {
@@ -794,7 +820,7 @@
       "route": "/bundles",
       "content_type": "application/x-bpp-bundle-v5",
       "body": "<bundle:replay-free>",
-      "length": 519,
+      "length": "<normalized>",
       "response_status": 201
     },
     {
@@ -803,7 +829,7 @@
       "route": "/bundles",
       "content_type": "application/x-bpp-bundle-v5",
       "body": "<bundle:replay-held>",
-      "length": 515,
+      "length": "<normalized>",
       "response_status": 201
     },
     {
@@ -812,7 +838,7 @@
       "route": "/bundles",
       "content_type": "application/x-bpp-bundle-v5",
       "body": "<bundle:corrupt-replay>",
-      "length": 661,
+      "length": "<normalized>",
       "response_status": 201
     },
     {
@@ -821,7 +847,7 @@
       "route": "/bundles",
       "content_type": "application/x-bpp-bundle-v5",
       "body": "<bundle:run-only>",
-      "length": 1264,
+      "length": "<normalized>",
       "response_status": 201
     },
     {
@@ -830,7 +856,7 @@
       "route": "/bundles",
       "content_type": "application/x-bpp-bundle-v5",
       "body": "<bundle:screenshot>",
-      "length": 1944,
+      "length": "<normalized>",
       "response_status": 201
     },
     {
@@ -839,7 +865,7 @@
       "route": "/bundles",
       "content_type": "application/x-bpp-bundle-v5",
       "body": "<bundle:screenshot-deadline>",
-      "length": 533,
+      "length": "<normalized>",
       "response_status": 201
     }
   ]

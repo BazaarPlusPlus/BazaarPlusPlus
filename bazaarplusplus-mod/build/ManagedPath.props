@@ -74,19 +74,6 @@
     <BppManagedPathSource>steam</BppManagedPathSource>
   </PropertyGroup>
 
-  <!-- Transitional (issue #136): the mounted channel's entry stands in for a missing online entry. -->
-  <PropertyGroup Condition="'$(ManagedPath)' == '' and '$(BppSnapshotChannel)' == 'online' and '$(BppLockGameVersion)' == '' and '$(BppSteamGameVersion)' != '' and '$(_BppLockText)' != ''">
-    <_BppTransitionalStaging>$([System.Text.RegularExpressions.Regex]::Match($([System.Text.RegularExpressions.Regex]::Match($(_BppLockText), '"$(BppSnapshotPlatform)-staging"\s*:\s*\{[^}]*\}').Value), '(?&lt;="gameVersion"\s*:\s*")[^"]+').Value)</_BppTransitionalStaging>
-    <_BppTransitionalPtr>$([System.Text.RegularExpressions.Regex]::Match($([System.Text.RegularExpressions.Regex]::Match($(_BppLockText), '"$(BppSnapshotPlatform)-ptr"\s*:\s*\{[^}]*\}').Value), '(?&lt;="gameVersion"\s*:\s*")[^"]+').Value)</_BppTransitionalPtr>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(ManagedPath)' == '' and '$(_BppTransitionalStaging)' != '' and '$(_BppTransitionalStaging)' == '$(BppSteamGameVersion)'">
-    <ManagedPath>$(BppSteamManagedPath)</ManagedPath>
-    <BppManagedPathSource>steam-transitional-staging</BppManagedPathSource>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(ManagedPath)' == '' and '$(_BppTransitionalPtr)' != '' and '$(_BppTransitionalPtr)' == '$(BppSteamGameVersion)'">
-    <ManagedPath>$(BppSteamManagedPath)</ManagedPath>
-    <BppManagedPathSource>steam-transitional-ptr</BppManagedPathSource>
-  </PropertyGroup>
   <PropertyGroup>
     <_BppLockText />
     <_BppLockEntry />
