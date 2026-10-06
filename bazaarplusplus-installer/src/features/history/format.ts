@@ -5,6 +5,7 @@ import type { Translate } from '../../i18n/LocaleProvider';
 
 export function formatGameMode(mode: string, t: Translate): string {
   if (mode === 'Ranked') return t('runModeRanked');
+  if (mode === 'Unranked') return t('runModeUnranked');
   if (mode === 'Normal') return t('runModeNormal');
   return mode;
 }
