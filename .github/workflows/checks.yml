@@ -15,7 +15,6 @@ concurrency:
   cancel-in-progress: ${{ !(github.event_name == 'push' && github.ref == 'refs/heads/master') }}
 
 # Explicit native jobs preserve legacy required names even when skipped.
-# Until Checks summary is required, classification failure also runs all gates.
 jobs:
   classify:
     name: Classify changes
@@ -51,7 +50,7 @@ jobs:
   macos-icon:
     name: macOS Icon Composer asset
     needs: classify
-    if: always() && (needs.classify.result != 'success' || needs.classify.outputs.macos-icon != 'false')
+    if: needs.classify.outputs.macos-icon == 'true'
     runs-on: macos-26
     timeout-minutes: 5
     steps:
@@ -68,7 +67,7 @@ jobs:
   release:
     name: Release tooling
     needs: classify
-    if: always() && (needs.classify.result != 'success' || needs.classify.outputs.release != 'false')
+    if: needs.classify.outputs.release == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -93,7 +92,7 @@ jobs:
   site:
     name: site (full check and test)
     needs: classify
-    if: always() && (needs.classify.result != 'success' || needs.classify.outputs.site != 'false')
+    if: needs.classify.outputs.site == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
@@ -139,7 +138,7 @@ jobs:
   server:
     name: server (full check and test)
     needs: classify
-    if: always() && (needs.classify.result != 'success' || needs.classify.outputs.server != 'false')
+    if: needs.classify.outputs.server == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
@@ -150,7 +149,7 @@ jobs:
   installer-macos:
     name: Installer (macos-14)
     needs: classify
-    if: always() && (needs.classify.result != 'success' || needs.classify.outputs.installer != 'false')
+    if: needs.classify.outputs.installer == 'true'
     runs-on: macos-14
     timeout-minutes: 60
     env: &installer-env
@@ -201,7 +200,7 @@ jobs:
   installer-windows:
     name: Installer (windows-latest)
     needs: classify
-    if: always() && (needs.classify.result != 'success' || needs.classify.outputs.installer != 'false')
+    if: needs.classify.outputs.installer == 'true'
     runs-on: windows-latest
     timeout-minutes: 60
     env: *installer-env
@@ -213,7 +212,7 @@ jobs:
   installer-timings:
     name: Installer timing report
     needs: [classify, installer-macos, installer-windows]
-    if: always() && (needs.classify.result != 'success' || needs.classify.outputs.installer != 'false')
+    if: always() && needs.classify.outputs.installer == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -234,7 +233,7 @@ jobs:
   analyzer:
     name: Analyzer
     needs: classify
-    if: always() && (needs.classify.result != 'success' || needs.classify.outputs.analyzer != 'false')
+    if: needs.classify.outputs.analyzer == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -255,7 +254,7 @@ jobs:
     name: Mod (macos-14)
     needs: classify
     # Fork PRs have no private snapshots; summary records the explicit exception.
-    if: always() && (needs.classify.result != 'success' || needs.classify.outputs.mod != 'false') && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+    if: needs.classify.outputs.mod == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: macos-14
     timeout-minutes: 45
     defaults:
@@ -304,7 +303,7 @@ jobs:
   mod-windows:
     name: Mod (windows-latest)
     needs: classify
-    if: always() && (needs.classify.result != 'success' || needs.classify.outputs.mod != 'false') && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+    if: needs.classify.outputs.mod == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: windows-latest
     timeout-minutes: 45
     defaults:
@@ -317,8 +316,8 @@ jobs:
     steps: *mod-steps
 
   summary:
-    # A dispatch check on the same SHA must never satisfy PR protection.
     name: ${{ github.event_name == 'workflow_dispatch' && 'Manual checks summary' || 'Checks summary' }}
+    # A dispatch check on the same SHA must never satisfy PR protection.
     if: always()
     needs:
       [
