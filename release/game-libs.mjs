@@ -345,9 +345,9 @@ export function captureSnapshot({
   return { key, directory, manifest };
 }
 
-function tar(args) {
+function tar(args, cwd) {
   try {
-    execFileSync('tar', args, { stdio: ['ignore', 'ignore', 'pipe'] });
+    execFileSync('tar', args, { cwd, stdio: ['ignore', 'ignore', 'pipe'] });
   } catch (error) {
     throw new Error(
       `tar ${args[0]} failed: ${String(error.stderr ?? error.message).trim()}`
@@ -361,7 +361,18 @@ function tarballOf(directory) {
     'Managed.tar.gz'
   );
   try {
-    tar(['-czf', file, '-C', directory, 'Managed']);
+    // GNU tar treats the colon in a Windows archive path as a remote host.
+    // Keep the archive name relative; -C still selects the absolute input.
+    tar(
+      [
+        '-czf',
+        path.basename(file),
+        '-C',
+        path.resolve(directory).split(path.sep).join('/'),
+        'Managed'
+      ],
+      path.dirname(file)
+    );
     return fs.readFileSync(file);
   } finally {
     fs.rmSync(path.dirname(file), { recursive: true, force: true });
@@ -374,7 +385,15 @@ function extractTarball(bytes, into) {
     const file = path.join(temp, 'Managed.tar.gz');
     fs.writeFileSync(file, bytes);
     fs.mkdirSync(into, { recursive: true });
-    tar(['-xzf', file, '-C', into]);
+    tar(
+      [
+        '-xzf',
+        path.basename(file),
+        '-C',
+        path.resolve(into).split(path.sep).join('/')
+      ],
+      temp
+    );
   } finally {
     fs.rmSync(temp, { recursive: true, force: true });
   }
