@@ -21,6 +21,15 @@ on:
         description: Stop after release::prepare; needs only the snapshot store secrets
         type: boolean
         default: false
+      platform:
+        description: Platform to build
+        type: choice
+        options: [both, macos, windows]
+        default: both
+      build_only:
+        description: Build signed installers as Actions artifacts without uploading immutable release artifacts to R2
+        type: boolean
+        default: false
   push:
     tags: ['v*']
 
@@ -34,17 +43,14 @@ concurrency:
 jobs:
   platform:
     name: Release ${{ matrix.platform }}
-    runs-on: ${{ matrix.os }}
+    # Icon Composer sources require the Xcode toolchain on the newer macOS image.
+    runs-on: ${{ matrix.platform == 'macos' && 'macos-26' || 'windows-latest' }}
     timeout-minutes: 120
     environment: release
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - os: macos-14
-            platform: macos
-          - os: windows-latest
-            platform: windows
+        platform: ${{ fromJSON(inputs.platform == 'macos' && '["macos"]' || inputs.platform == 'windows' && '["windows"]' || '["macos","windows"]') }}
     defaults:
       run:
         shell: bash
@@ -86,6 +92,11 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
           cache-dependency-path: bazaarplusplus-installer/package-lock.json
+      - name: Compile the macOS Icon Composer asset
+        if: matrix.platform == 'macos' && env.STAGE == 'release'
+        run: |
+          xcodebuild -version
+          node bazaarplusplus-installer/scripts/release/compile-macos-icon.mjs
       - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           global-json-file: bazaarplusplus-mod/global.json
@@ -178,7 +189,7 @@ jobs:
       - if: env.STAGE == 'release'
         name: Build and sign the installer
         run: just release::build "$PLATFORM"
-      - if: env.STAGE == 'release'
+      - if: env.STAGE == 'release' && inputs.build_only != true
         name: Upload the immutable platform artifacts
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
