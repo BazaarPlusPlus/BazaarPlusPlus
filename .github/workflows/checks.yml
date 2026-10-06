@@ -260,7 +260,7 @@ jobs:
       run:
         shell: bash
     env:
-      PLATFORM: macos
+      BPP_CI_PLATFORM: macos
       CLOUDFLARE_API_TOKEN: ${{ secrets.BPP_GAME_LIBS_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
     steps: &mod-steps
@@ -286,14 +286,14 @@ jobs:
           just-version: 1.58.0
       # A null online entry fails here, naming the snapshot to capture.
       - name: Fetch the online snapshot
-        run: just mod::fetch "$PLATFORM" online
+        run: just mod::fetch "$BPP_CI_PLATFORM" online
       - run: just mod::check
       - run: just mod::test
       - name: Preserve Combat Impact corpus evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: combat-impact-corpus-${{ env.PLATFORM }}
+          name: combat-impact-corpus-${{ env.BPP_CI_PLATFORM }}
           path: bazaarplusplus-mod/artifacts/combat-impact-corpus/*.json
           if-no-files-found: error
       # Compatibility builds against the other two channels; a null entry fails.
@@ -309,7 +309,7 @@ jobs:
       run:
         shell: bash
     env:
-      PLATFORM: windows
+      BPP_CI_PLATFORM: windows
       CLOUDFLARE_API_TOKEN: ${{ secrets.BPP_GAME_LIBS_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
     steps: *mod-steps
