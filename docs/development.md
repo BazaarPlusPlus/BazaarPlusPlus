@@ -68,9 +68,15 @@ Dependabot 更新配置在 `.github/dependabot.yml`，普通版本更新的分�
 
 Mod 的自动更新只开放测试工具白名单。编译期依赖同样可能改变游戏内行为，不能因为 `PrivateAssets`、补丁版本或 NuGet 版本号相同就认为兼容。游戏自带 DLL、生成器、publicizer 和随包运行库的维护遵循 [ADR-0010](../bazaarplusplus-mod/docs/adr/0010-compile-against-game-supplied-libraries.md)。机器人 PR 的实际差异还会经过 `.github/scripts/check_mod_dependency_update.py`：允许测试工具版本修改，但生产锁文件或其他 Mod 文件变化必须转人工维护。
 
+云端检查由 `.github/scripts/checks-scope.mjs` 按改动选择项目；`.github/workflows/checks.yml` 保留各项目的完整门禁。PR 比较 merge-base 到 head，master push 比较事件的 before 到 after；删除与重命名的旧、新路径都参与分类。项目外的构建输入、命令 recipe 和无法取得可靠 diff 的运行走全量；根文档的普通编辑只跑发布工具，删除或替换根文档则全量检查，防止项目文档留下失效链接。跨项目输入扩展到消费者；分类时扫描源码和配置中的跨项目路径，未登记依赖走全量，并由发布工具中的行为测试阻止规则漂移。路径清单由分类器维护。
+
+`Checks summary` 总是执行，逐个列出选择原因，并要求分类成功且所有选中 job 真正成功；未选中的显示“不受影响”，选中后失败、取消或意外跳过都会阻塞。Installer 当前仍执行完整双平台源码门禁。手动运行始终全量，产出 `Manual checks summary`，不能替代 PR 必需的汇总检查；它与自动运行使用独立的 concurrency 分组。安全与依赖检查不参与范围裁剪。
+
+master push 用同一套分类规则，因此 Installer 或其共享输入变化仍执行双平台验证并保存 Rust 缓存；其他事件只恢复缓存。暂不加定时预热：每周运行不能保证避开七天未访问淘汰，仓库容量压力也可能先触发清理；仅恢复的 schedule 无法重建已丢失缓存。缺缓存时正常冷构建，需全量复核时使用手动入口。
+
 云端检查的覆盖范围以 `.github/workflows/` 的 job 名称和命令为准。site 的部署触发方式和凭据位置见 `bazaarplusplus-site/README.md` 的 Deploy 一节。Mod 的云端 lane 在 macOS 和 Windows 上按 [ADR 0004](adr/0004-pinned-game-assembly-snapshots.md) 从私有存储取 online 快照跑 `mod::check` 与 `mod::test`，再对 staging 和 ptr 快照做 CompatCheck 编译；它不验证 Unity/Mono 加载，Ghost 响应契约的消费方检查在 `mod::test` 中。installer 在 Windows 和 macOS 运行完整源码门禁，但不替代安装包签名、安装与升级验收。涉及云端未覆盖的范围时，合并前仍须提供相应项目的本地门禁结果。Mod 运行时依赖升级还需对快照锁的每个已采集条目编译（`just mod::matrix`），并验证实际启动与受影响功能；通过编译和 .NET 测试不能替代这一步。
 
-游戏程序集快照只存在于私有存储，不进公开仓库、不进 Actions cache。依赖游戏程序集的 job 按快照锁取包，凭据是仓库级 secret `BPP_GAME_LIBS_TOKEN`（仅限 `bazaarplusplus-game-libs` bucket 的只读 token）和仓库级变量 `CLOUDFLARE_ACCOUNT_ID`；fork PR 拿不到 secrets，这类 job 在 fork 上跳过而不是失败，仓库内分支的 PR 才运行完整矩阵（[ADR 0004](adr/0004-pinned-game-assembly-snapshots.md)）。Dependabot 的 PR 读取的是 Dependabot secrets，`BPP_GAME_LIBS_TOKEN` 未同时注册在那里（`just secrets-sync --dependabot`）时该 lane 同样跳过。被跳过的 job 不等于通过：GitHub 把被跳过的必需检查算作通过，lane 是否真的执行以它的 job summary 为准；来自 fork 的改动合并前仍要有本地 `mod::check` 与 `mod::test` 结果。
+游戏程序集快照只存在于私有存储，不进公开仓库、不进 Actions cache。依赖游戏程序集的 job 按快照锁取包，凭据是仓库级 secret `BPP_GAME_LIBS_TOKEN`（仅限 `bazaarplusplus-game-libs` bucket 的只读 token）和仓库级变量 `CLOUDFLARE_ACCOUNT_ID`；fork PR 拿不到 secrets，这类 job 在 fork 上跳过而不是失败，受影响的仓库内 Mod PR 和全量运行才执行完整矩阵（[ADR 0004](adr/0004-pinned-game-assembly-snapshots.md)）。Dependabot 的 PR 读取的是 Dependabot secrets，`BPP_GAME_LIBS_TOKEN` 也须注册在那里（`just secrets-sync --dependabot`）。受影响的仓库内 PR（含 Dependabot）缺 token 或账号变量时，Mod job 和汇总门禁失败；fork 是显式例外，汇总会标明未运行游戏兼容性验证，合并前仍要有本地 `mod::check` 与 `mod::test` 结果。
 
 配置静态检查不能证明机器人已经成功更新锁文件；首次启用及工具链升级后需查看 Dependabot 的实际更新日志，尤其是它的包管理器支持范围尚未覆盖仓库所用版本时。新的 CI 检查需在 GitHub 首轮成功后再设为必需检查。
 
