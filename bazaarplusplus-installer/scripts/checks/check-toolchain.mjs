@@ -1,3 +1,4 @@
+// Temporary scripts-only CI classification probe for #232.
 import fs from 'node:fs';
 import process from 'node:process';
 
