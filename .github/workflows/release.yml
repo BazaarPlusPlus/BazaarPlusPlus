@@ -5,9 +5,11 @@ name: Release
 # host and the Payload lock (docs/release.md, docs/adr/0004-pinned-game-assembly-snapshots.md).
 # promote is not here: the Mainland Mirror is uploaded to Lanzou by hand and
 # recorded with mirror-all before promote, so promote stays a local command.
-# Secrets live in the `release` GitHub Environment, except the three
-# BPP_GAME_LIBS_R2_* repository secrets shared with checks.yml;
-# .github/scripts/release-secrets.sh names every one and its source.
+# Secrets and variables live in the `release` GitHub Environment, except the
+# repository variable CLOUDFLARE_ACCOUNT_ID shared with every workflow;
+# release/github-secrets.json names every one, its scope and its local source,
+# and .github/scripts/release-secrets.sh checks them from that table. The R2
+# S3 pair is derived from CLOUDFLARE_API_TOKEN (release/r2-store.mjs).
 on:
   workflow_dispatch:
     inputs:
@@ -58,17 +60,12 @@ jobs:
       # Fails before any toolchain is installed, naming each missing secret.
       - name: Require the release secrets
         env:
-          BPP_GAME_LIBS_R2_ACCOUNT_ID: ${{ secrets.BPP_GAME_LIBS_R2_ACCOUNT_ID }}
-          BPP_GAME_LIBS_R2_ACCESS_KEY_ID: ${{ secrets.BPP_GAME_LIBS_R2_ACCESS_KEY_ID }}
-          BPP_GAME_LIBS_R2_SECRET_ACCESS_KEY: ${{ secrets.BPP_GAME_LIBS_R2_SECRET_ACCESS_KEY }}
-          BPP_R2_ACCOUNT_ID: ${{ secrets.BPP_R2_ACCOUNT_ID }}
-          BPP_R2_ACCESS_KEY_ID: ${{ secrets.BPP_R2_ACCESS_KEY_ID }}
-          BPP_R2_SECRET_ACCESS_KEY: ${{ secrets.BPP_R2_SECRET_ACCESS_KEY }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
-          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_SIGNING_IDENTITY: ${{ vars.APPLE_SIGNING_IDENTITY }}
+          APPLE_API_ISSUER: ${{ vars.APPLE_API_ISSUER }}
+          APPLE_API_KEY: ${{ vars.APPLE_API_KEY }}
           APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
@@ -105,14 +102,12 @@ jobs:
       - run: npm install --global "$(node --print "require('./package.json').packageManager")"
       - run: just release::check
       # The product compiles against this platform's online Snapshot Lock entry;
-      # a null entry fails here, naming the snapshot to capture. release/game-libs.mjs
-      # reads the BPP_R2_* names, so the read-only token is mapped onto them for
-      # this step only.
+      # a null entry fails here, naming the snapshot to capture. The operator
+      # token reads the private store for this step only.
       - name: Fetch the online Game Assembly Snapshot
         env:
-          BPP_R2_ACCOUNT_ID: ${{ secrets.BPP_GAME_LIBS_R2_ACCOUNT_ID }}
-          BPP_R2_ACCESS_KEY_ID: ${{ secrets.BPP_GAME_LIBS_R2_ACCESS_KEY_ID }}
-          BPP_R2_SECRET_ACCESS_KEY: ${{ secrets.BPP_GAME_LIBS_R2_SECRET_ACCESS_KEY }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
         run: just mod::fetch "$PLATFORM" online
       # prepare reuses the committed native recorder inputs when
       # release/native-recorder-input.mjs finds them fresh and rebuilds them on
@@ -146,10 +141,9 @@ jobs:
         name: Stage the signing secrets
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
-          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_SIGNING_IDENTITY: ${{ vars.APPLE_SIGNING_IDENTITY }}
+          APPLE_API_ISSUER: ${{ vars.APPLE_API_ISSUER }}
+          APPLE_API_KEY: ${{ vars.APPLE_API_KEY }}
           APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
         run: |
           bash .github/scripts/release-secrets.sh stage "$PLATFORM" "$RUNNER_TEMP/signing-secrets"
@@ -162,7 +156,7 @@ jobs:
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_SIGNING_IDENTITY: ${{ vars.APPLE_SIGNING_IDENTITY }}
         run: |
           keychain="$RUNNER_TEMP/release.keychain-db"
           keychain_password="$(uuidgen)"
@@ -187,9 +181,8 @@ jobs:
       - if: env.STAGE == 'release'
         name: Upload the immutable platform artifacts
         env:
-          BPP_R2_ACCOUNT_ID: ${{ secrets.BPP_R2_ACCOUNT_ID }}
-          BPP_R2_ACCESS_KEY_ID: ${{ secrets.BPP_R2_ACCESS_KEY_ID }}
-          BPP_R2_SECRET_ACCESS_KEY: ${{ secrets.BPP_R2_SECRET_ACCESS_KEY }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           just release::upload "$PLATFORM" | tee "$RUNNER_TEMP/upload.log"
           grep -E '^Uploaded ' "$RUNNER_TEMP/upload.log" >> "$GITHUB_STEP_SUMMARY" || true

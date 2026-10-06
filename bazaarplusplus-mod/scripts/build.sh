@@ -52,13 +52,24 @@ repair_macos_trampoline() {
         bash scripts/repair-macos-trampoline.sh
 }
 
-# matrix: compile against every captured lock entry, fetching each snapshot the way
-# a normal build would. The CompatCheck configuration fires neither the Debug deploy
-# nor the Release installer copy.
+# matrix [channel ...]: compile against every captured lock entry, fetching each
+# snapshot the way a normal build would; with channels, against exactly those entries
+# of the host platform, so an empty one fails instead of being skipped (the CI lane
+# names staging and ptr). The CompatCheck configuration fires neither the Debug
+# deploy nor the Release installer copy.
 cmd_matrix() {
     local entries=() entry platform channel managed failed=()
-    while IFS= read -r entry; do entries+=("$entry"); done < <(game_libs_cli entries)
-    ((${#entries[@]} > 0)) || die "The lock has no captured entries. Run 'just mod::snapshot' on a machine with the game, publish it, and commit build/game-libs.lock.json."
+    if (($# > 0)); then
+        for channel in "$@"; do
+            case "$channel" in
+                online | staging | ptr) entries+=("$(host_platform) $channel") ;;
+                *) die "Expected a channel (online, staging or ptr), got '$channel'" ;;
+            esac
+        done
+    else
+        while IFS= read -r entry; do entries+=("$entry"); done < <(game_libs_cli entries)
+        ((${#entries[@]} > 0)) || die "The lock has no captured entries. Run 'just mod::snapshot' on a machine with the game, publish it, and commit build/game-libs.lock.json."
+    fi
     for entry in "${entries[@]}"; do
         platform="${entry% *}" channel="${entry#* }"
         step "Matrix build against ${GREEN}${platform} ${channel}${CYAN}"

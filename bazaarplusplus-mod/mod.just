@@ -73,6 +73,6 @@ fetch platform channel:
 lock-check:
     bash scripts/game.sh lock-check
 
-# Compile against every captured lock entry.
-matrix:
-    bash scripts/build.sh matrix
+# CompatCheck-compile against every captured lock entry, or against the host platform's named channels (an empty entry fails).
+matrix *channels:
+    bash scripts/build.sh matrix "$@"
