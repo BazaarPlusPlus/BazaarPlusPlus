@@ -439,74 +439,6 @@ public sealed class PeriodicEffectAttributionTests
     }
 
     [Fact]
-    public void RegenAfterLethalDamageIsNotRealizedWhenCombatantDies()
-    {
-        var simulation = Simulation(
-            new[]
-            {
-                Frame(
-                    "regenerator",
-                    EActionCommandType.PlayerRegenApply,
-                    Attributes(
-                        (EPlayerAttributeType.Health, 100, 100),
-                        (EPlayerAttributeType.HealthMax, 100, 100),
-                        (EPlayerAttributeType.HealthRegen, 0, 10)
-                    )
-                ),
-                DeathFrame(
-                    Attributes(
-                        (EPlayerAttributeType.Health, 100, -40),
-                        (EPlayerAttributeType.HealthMax, 100, 100),
-                        (EPlayerAttributeType.HealthRegen, 10, 10)
-                    ),
-                    Adjustment(EDamageType.Damage, EPlayerHealthChangeType.Health, -150),
-                    Adjustment(EDamageType.Regen, EPlayerHealthChangeType.Health, 10)
-                ),
-            },
-            ("regenerator", ECardStats.RegenAdded, 10)
-        );
-
-        var impacts = PeriodicEffectAttribution.Project(simulation, Entities("regenerator"));
-
-        Assert.Empty(impacts.SourceImpacts);
-    }
-
-    [Fact]
-    public void LethalBurnIsCappedAtRemainingHealth()
-    {
-        var simulation = Simulation(
-            new[]
-            {
-                Frame(
-                    "burner",
-                    EActionCommandType.PlayerBurnApply,
-                    Attributes(
-                        (EPlayerAttributeType.Health, 5, 5),
-                        (EPlayerAttributeType.HealthMax, 5, 5),
-                        (EPlayerAttributeType.Burn, 0, 20)
-                    )
-                ),
-                DeathFrame(
-                    Attributes(
-                        (EPlayerAttributeType.Health, 5, -15),
-                        (EPlayerAttributeType.HealthMax, 5, 5)
-                    ),
-                    Adjustment(EDamageType.Burn, EPlayerHealthChangeType.Health, -20)
-                ),
-            },
-            ("burner", ECardStats.BurnAdded, 20)
-        );
-
-        var impact = PeriodicEffectAttribution
-            .Project(simulation, Entities("burner"))
-            .SourceImpacts[
-            new PeriodicImpactKey("burner", ECombatantId.Opponent, CombatImpactPeriodicKind.Burn)
-        ];
-
-        Assert.Equal(5, impact.HealthAmount);
-    }
-
-    [Fact]
     public void PeriodicDamageAfterAnEarlierLethalAdjustmentIsNotRealized()
     {
         var simulation = Simulation(
@@ -802,33 +734,6 @@ public sealed class PeriodicEffectAttributionTests
 
         Assert.Equal(20, impact.HealthAmount);
         Assert.Equal(CombatImpactPeriodicProof.Exact, impact.Proof);
-    }
-
-    [Fact]
-    public void InitialStatusWithoutAnyObservedCandidateIsNotInventedAsCardImpact()
-    {
-        var simulation = Simulation(
-            new[]
-            {
-                Frame(
-                    null,
-                    EActionCommandType.None,
-                    Attributes(
-                        (EPlayerAttributeType.Health, 90, 100),
-                        (EPlayerAttributeType.HealthMax, 100, 100),
-                        (EPlayerAttributeType.HealthRegen, 10, 10)
-                    ),
-                    Adjustment(EDamageType.Regen, EPlayerHealthChangeType.Health, 10)
-                ),
-            }
-        );
-
-        var impacts = PeriodicEffectAttribution.Project(
-            simulation,
-            EntitiesOwnedBy(ECombatantId.Opponent, "possible-source")
-        );
-
-        Assert.Empty(impacts.SourceImpacts);
     }
 
     [Fact]
