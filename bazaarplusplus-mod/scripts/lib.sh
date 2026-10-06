@@ -30,6 +30,9 @@ host_platform() {
     case "$(uname -s)" in
         Darwin) echo macos ;;
         MINGW* | MSYS* | CYGWIN*) echo windows ;;
+        # Linux runs The Bazaar's Windows build under Proton, so the game assemblies,
+        # Snapshot Lock entry and Payload this host builds against are all Windows.
+        Linux) echo windows ;;
         *) die "Unsupported platform: $(uname -s)" ;;
     esac
 }

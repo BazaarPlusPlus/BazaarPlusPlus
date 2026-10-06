@@ -78,6 +78,11 @@
     <HostArchitecture>$([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString().ToLowerInvariant())</HostArchitecture>
     <IsMacHost>$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::OSX)))</IsMacHost>
     <IsWindowsHost>$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Windows)))</IsWindowsHost>
+    <!-- Linux runs The Bazaar's Windows build under Proton, so the Windows game's native inputs
+         (the replay plugin) apply there too, while the host itself stays Linux. -->
+    <BppWindowsGameHost
+      Condition="'$(IsWindowsHost)' == 'true' or $([MSBuild]::IsOSPlatform('Linux'))"
+      >true</BppWindowsGameHost>
     <MacSqliteRuntimeRid>osx-arm64</MacSqliteRuntimeRid>
     <WindowsSqliteRuntimeRid>win-x64</WindowsSqliteRuntimeRid>
     <FixedMacSqliteNativeFile>$(PkgSourceGear_sqlite3)/runtimes/$(MacSqliteRuntimeRid)/native/libe_sqlite3.dylib</FixedMacSqliteNativeFile>
@@ -94,10 +99,10 @@
     <LocalWindowsReplayPlugin>$(ProjectRoot)/../../native/windows/build/GfxPluginBppReplayMediaFoundation.dll</LocalWindowsReplayPlugin>
     <InstallerWindowsReplayPlugin>$(BPPInstallerSourcePath)/SourceForBuild/windows/TheBazaar_Data/Plugins/x86_64/GfxPluginBppReplayMediaFoundation.dll</InstallerWindowsReplayPlugin>
     <WindowsReplayPlugin
-      Condition="'$(IsWindowsHost)' == 'true' and '$(WindowsReplayPlugin)' == '' and Exists('$(LocalWindowsReplayPlugin)')"
+      Condition="'$(BppWindowsGameHost)' == 'true' and '$(WindowsReplayPlugin)' == '' and Exists('$(LocalWindowsReplayPlugin)')"
       >$(LocalWindowsReplayPlugin)</WindowsReplayPlugin>
     <WindowsReplayPlugin
-      Condition="'$(IsWindowsHost)' == 'true' and '$(WindowsReplayPlugin)' == '' and Exists('$(InstallerWindowsReplayPlugin)')"
+      Condition="'$(BppWindowsGameHost)' == 'true' and '$(WindowsReplayPlugin)' == '' and Exists('$(InstallerWindowsReplayPlugin)')"
       >$(InstallerWindowsReplayPlugin)</WindowsReplayPlugin>
   </PropertyGroup>
   <!-- Package references -->
@@ -242,13 +247,13 @@
     <!-- Unity must preload the Windows rendering plugin before BepInEx starts. -->
     <MakeDir
       Directories="$(GamePath)\TheBazaar_Data\Plugins\x86_64"
-      Condition="'$(IsWindowsHost)' == 'true' and '$(WindowsReplayPlugin)' != ''"
+      Condition="'$(BppWindowsGameHost)' == 'true' and '$(WindowsReplayPlugin)' != ''"
     />
     <Copy
       SourceFiles="$(WindowsReplayPlugin)"
       DestinationFiles="$(GamePath)\TheBazaar_Data\Plugins\x86_64\GfxPluginBppReplayMediaFoundation.dll"
       SkipUnchangedFiles="true"
-      Condition="'$(IsWindowsHost)' == 'true' and '$(WindowsReplayPlugin)' != ''"
+      Condition="'$(BppWindowsGameHost)' == 'true' and '$(WindowsReplayPlugin)' != ''"
     />
     <ItemGroup>
       <StaleWindowsFfmpegFile Include="$(GamePath)\BepInEx\plugins\ffmpeg.exe" />

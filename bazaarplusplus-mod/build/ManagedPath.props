@@ -22,6 +22,14 @@
     <BppSnapshotPlatform
       Condition="'$(BppSnapshotPlatform)' == '' and $([MSBuild]::IsOSPlatform('Windows'))"
       >windows</BppSnapshotPlatform>
+    <!-- Linux runs The Bazaar's Windows build under Proton: the game's platform is windows. -->
+    <BppSnapshotPlatform
+      Condition="'$(BppSnapshotPlatform)' == '' and $([MSBuild]::IsOSPlatform('Linux'))"
+      >windows</BppSnapshotPlatform>
+    <!-- The Payload ships the Windows game's files, platform-scoped entries included (e_sqlite3.dll). -->
+    <BppPayloadPlatform
+      Condition="'$(BppPayloadPlatform)' == '' and $([MSBuild]::IsOSPlatform('Linux'))"
+      >windows</BppPayloadPlatform>
     <BppSnapshotChannel Condition="'$(BppSnapshotChannel)' == ''">online</BppSnapshotChannel>
     <BppGameVersionPattern>\d+\.\d+\.\d+(?:-[a-z0-9]+)*-(?:macos|windows)-[a-z0-9]+-[0-9a-f]+</BppGameVersionPattern>
   </PropertyGroup>
@@ -33,6 +41,19 @@
     <_BppWinSteamRootC>C:\Program Files (x86)\Steam\steamapps\common\The Bazaar</_BppWinSteamRootC>
     <_BppWinSteamRootD>D:\Program Files (x86)\Steam\steamapps\common\The Bazaar</_BppWinSteamRootD>
     <_BppWinSteamRootE>E:\Program Files (x86)\Steam\steamapps\common\The Bazaar</_BppWinSteamRootE>
+    <!--
+      The Windows build installed by Steam for Linux, reached through Proton.
+      This six-entry list is the same set `linux_steam_root_candidates` returns in
+      bazaarplusplus-installer/src-tauri/src/services/detect/steam.rs, which its
+      unit test pins; change both together.
+    -->
+    <_BppLinuxSteamRoot0>$(HOME)/.local/share/Steam</_BppLinuxSteamRoot0>
+    <_BppLinuxSteamRoot1>$(HOME)/.steam/steam</_BppLinuxSteamRoot1>
+    <_BppLinuxSteamRoot2>$(HOME)/.steam/root</_BppLinuxSteamRoot2>
+    <_BppLinuxSteamRoot3>$(HOME)/.var/app/com.valvesoftware.Steam/data/Steam</_BppLinuxSteamRoot3>
+    <_BppLinuxSteamRoot4>$(HOME)/.var/app/com.valvesoftware.Steam/.local/share/Steam</_BppLinuxSteamRoot4>
+    <_BppLinuxSteamRoot5>$(HOME)/snap/steam/common/.local/share/Steam</_BppLinuxSteamRoot5>
+    <_BppLinuxSteamGame>steamapps/common/The Bazaar</_BppLinuxSteamGame>
   </PropertyGroup>
   <PropertyGroup Condition="'$(BppSteamManagedPath)' == '' and Exists('$(_BppWinSteamRootC)\TheBazaar_Data\Managed\Assembly-CSharp.dll')">
     <BppSteamManagedPath>$(_BppWinSteamRootC)\TheBazaar_Data\Managed</BppSteamManagedPath>
@@ -49,6 +70,36 @@
   <PropertyGroup Condition="'$(BppSteamManagedPath)' == '' and Exists('$(_BppMacSteamManaged)/Assembly-CSharp.dll')">
     <BppSteamManagedPath>$(_BppMacSteamManaged)</BppSteamManagedPath>
     <GamePath Condition="'$(GamePath)' == ''">$(_BppMacSteamRoot)</GamePath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(BppSteamManagedPath)' == '' and Exists('$(_BppLinuxSteamRoot0)/$(_BppLinuxSteamGame)/TheBazaar_Data/Managed/Assembly-CSharp.dll')">
+    <BppSteamManagedPath>$(_BppLinuxSteamRoot0)/$(_BppLinuxSteamGame)/TheBazaar_Data/Managed</BppSteamManagedPath>
+    <GamePath Condition="'$(GamePath)' == ''"
+      >$(_BppLinuxSteamRoot0)/$(_BppLinuxSteamGame)</GamePath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(BppSteamManagedPath)' == '' and Exists('$(_BppLinuxSteamRoot1)/$(_BppLinuxSteamGame)/TheBazaar_Data/Managed/Assembly-CSharp.dll')">
+    <BppSteamManagedPath>$(_BppLinuxSteamRoot1)/$(_BppLinuxSteamGame)/TheBazaar_Data/Managed</BppSteamManagedPath>
+    <GamePath Condition="'$(GamePath)' == ''"
+      >$(_BppLinuxSteamRoot1)/$(_BppLinuxSteamGame)</GamePath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(BppSteamManagedPath)' == '' and Exists('$(_BppLinuxSteamRoot2)/$(_BppLinuxSteamGame)/TheBazaar_Data/Managed/Assembly-CSharp.dll')">
+    <BppSteamManagedPath>$(_BppLinuxSteamRoot2)/$(_BppLinuxSteamGame)/TheBazaar_Data/Managed</BppSteamManagedPath>
+    <GamePath Condition="'$(GamePath)' == ''"
+      >$(_BppLinuxSteamRoot2)/$(_BppLinuxSteamGame)</GamePath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(BppSteamManagedPath)' == '' and Exists('$(_BppLinuxSteamRoot3)/$(_BppLinuxSteamGame)/TheBazaar_Data/Managed/Assembly-CSharp.dll')">
+    <BppSteamManagedPath>$(_BppLinuxSteamRoot3)/$(_BppLinuxSteamGame)/TheBazaar_Data/Managed</BppSteamManagedPath>
+    <GamePath Condition="'$(GamePath)' == ''"
+      >$(_BppLinuxSteamRoot3)/$(_BppLinuxSteamGame)</GamePath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(BppSteamManagedPath)' == '' and Exists('$(_BppLinuxSteamRoot4)/$(_BppLinuxSteamGame)/TheBazaar_Data/Managed/Assembly-CSharp.dll')">
+    <BppSteamManagedPath>$(_BppLinuxSteamRoot4)/$(_BppLinuxSteamGame)/TheBazaar_Data/Managed</BppSteamManagedPath>
+    <GamePath Condition="'$(GamePath)' == ''"
+      >$(_BppLinuxSteamRoot4)/$(_BppLinuxSteamGame)</GamePath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(BppSteamManagedPath)' == '' and Exists('$(_BppLinuxSteamRoot5)/$(_BppLinuxSteamGame)/TheBazaar_Data/Managed/Assembly-CSharp.dll')">
+    <BppSteamManagedPath>$(_BppLinuxSteamRoot5)/$(_BppLinuxSteamGame)/TheBazaar_Data/Managed</BppSteamManagedPath>
+    <GamePath Condition="'$(GamePath)' == ''"
+      >$(_BppLinuxSteamRoot5)/$(_BppLinuxSteamGame)</GamePath>
   </PropertyGroup>
   <!-- The mounted game's version lives in globalgamemanagers, the Data directory above Managed. -->
   <PropertyGroup Condition="'$(BppSteamManagedPath)' != '' and Exists('$(BppSteamManagedPath)/../globalgamemanagers')">
