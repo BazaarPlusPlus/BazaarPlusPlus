@@ -47,3 +47,5 @@ Provisioning, migration, lifecycle, deploy, and smoke-test commands are in [docs
 ## License
 
 Released under the [MIT License](LICENSE).
+
+<!-- Temporary #231 Server-only CI routing probe; this PR will be closed without merging. -->
