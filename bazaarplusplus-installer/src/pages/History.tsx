@@ -28,7 +28,7 @@ import type {
   EndGameProcessOutcome,
   HistoryThumbnails
 } from '../features/history/historyListWorkflow';
-import { isWindowsPlatform } from '../features/shared/platform';
+import { hostPlatform } from '../features/shared/platform';
 import { useToast } from '../components/ui/Toast';
 import { useI18n } from '../i18n/LocaleProvider';
 import type { MessageKey } from '../i18n/messages';
@@ -367,8 +367,17 @@ function endGameProcessMessageKey(outcome: EndGameProcessOutcome): MessageKey {
       return 'historyEndGameProcessNotFound';
     case 'failed':
       // The recovery step names a real OS surface, so it has to match the host.
-      return isWindowsPlatform()
-        ? 'historyEndGameProcessFailedWindows'
-        : 'historyEndGameProcessFailedMac';
+      return endGameProcessFailedMessageKey();
+  }
+}
+
+function endGameProcessFailedMessageKey(): MessageKey {
+  switch (hostPlatform()) {
+    case 'windows':
+      return 'historyEndGameProcessFailedWindows';
+    case 'macos':
+      return 'historyEndGameProcessFailedMac';
+    case 'linux':
+      return 'historyEndGameProcessFailedLinux';
   }
 }

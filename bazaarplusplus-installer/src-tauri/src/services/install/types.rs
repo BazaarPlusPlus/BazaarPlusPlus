@@ -57,6 +57,7 @@ pub enum InstallWarningCode {
     GameMissing,
     SteamConfigUnavailable,
     LaunchOptionsNotEmpty,
+    ProtonLaunchOptionsMissing,
     TrampolineNotReady,
     ObsoleteMacosArtifacts,
 }

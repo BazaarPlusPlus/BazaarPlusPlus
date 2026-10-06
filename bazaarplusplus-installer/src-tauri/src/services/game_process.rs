@@ -1,7 +1,8 @@
-#[cfg(target_os = "windows")]
+// The Windows build's process image name; Linux runs that same build under Proton.
+#[cfg(any(target_os = "windows", target_os = "linux"))]
 const BAZAAR_PROCESS_NAME: &str = "TheBazaar.exe";
 
-#[cfg(target_os = "windows")]
+#[cfg(any(target_os = "windows", target_os = "linux"))]
 fn is_bazaar_running() -> Result<bool, String> {
     crate::services::process_snapshot::process_is_running(BAZAAR_PROCESS_NAME)
 }
@@ -11,12 +12,12 @@ fn is_bazaar_running() -> Result<bool, String> {
 /// don't have a reliable probe (macOS today), this always returns false so the
 /// caller proceeds with whatever fallback behavior it already had.
 pub(crate) fn is_bazaar_running_best_effort() -> bool {
-    #[cfg(target_os = "windows")]
+    #[cfg(any(target_os = "windows", target_os = "linux"))]
     {
         is_bazaar_running().unwrap_or(false)
     }
 
-    #[cfg(not(target_os = "windows"))]
+    #[cfg(not(any(target_os = "windows", target_os = "linux")))]
     {
         false
     }
@@ -53,12 +54,13 @@ pub(crate) fn ensure_bazaar_stopped(game_path: &std::path::Path) -> Result<(), S
         let processes = String::from_utf8(output.stdout).map_err(|err| err.to_string())?;
         contains_game_process(&processes, &game_path)
     };
-    #[cfg(target_os = "windows")]
+    // Linux runs the Windows build under Proton: same process image name.
+    #[cfg(any(target_os = "windows", target_os = "linux"))]
     let running = {
         let _ = game_path;
         is_bazaar_running()?
     };
-    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
     let running = {
         let _ = game_path;
         false

@@ -156,6 +156,8 @@ const zh = {
     '无法读取 Steam 启动项配置。请先启动一次 Steam，然后完全退出并重试。',
   installWarningLaunchOptionsNotEmpty:
     'The Bazaar 的 Steam 启动项必须为空；修复会移除其中的全部内容。',
+  installWarningProtonLaunchOptionsMissing:
+    'Linux 上 BepInEx 需要通过 Steam 启动项加载：The Bazaar 的启动项必须为 WINEDLLOVERRIDES="winhttp=n,b" %command%，修复会自动写入。',
   installWarningTrampolineNotReady:
     'macOS 游戏启动配置缺失或不是当前版本，需要修复。',
   installWarningObsoleteMacosArtifacts:
@@ -184,6 +186,8 @@ const zh = {
   installSteamNotice:
     '安装前请先关闭 Steam；如果 Steam 正在运行，请手动退出后再继续。',
   installSteamNoticeMacos: '请先退出游戏。继续安装将关闭 Steam。',
+  installSteamNoticeLinux:
+    '请先退出游戏。继续安装将关闭 Steam 并写入 Proton 启动项。',
   installCloseGameNotice: '请先退出游戏，再继续安装。',
   installAcknowledge: '我了解使用第三方插件的风险，并自行承担。',
   installing: '安装中…',
@@ -226,6 +230,8 @@ const zh = {
     '自动重启失败，但 BazaarPlusPlus {version} 已安装完成。请退出 BazaarPlusPlus，再从“应用程序”中重新打开。',
   updaterProblemRestartFailedWindows:
     '自动重启失败，但 BazaarPlusPlus {version} 已安装完成。请退出 BazaarPlusPlus，再从开始菜单重新打开。',
+  updaterProblemRestartFailedLinux:
+    '自动重启失败，但 BazaarPlusPlus {version} 已安装完成。请退出 BazaarPlusPlus，再重新打开。',
 
   // History page
   historyLoading: '读取战绩中',
@@ -260,6 +266,8 @@ const zh = {
     '结束游戏进程失败。请在任务管理器中结束 TheBazaar.exe 后重试。',
   historyEndGameProcessFailedMac:
     '结束游戏进程失败。请在“活动监视器”中结束 The Bazaar 后重试。',
+  historyEndGameProcessFailedLinux:
+    '结束游戏进程失败。请在系统监视器中结束 TheBazaar.exe，或运行 pkill -f TheBazaar.exe 后重试。',
   historyProblemUnsupportedSchema:
     '战绩数据库版本不受支持（当前 {found}，支持 {supported}）。请更新 BazaarPlusPlus 插件或安装器。',
   historyProblemUnexpected: '加载本地战绩时发生意外错误。请重试。',
@@ -596,6 +604,8 @@ const en: Record<MessageKey, string> = {
     'Steam launch-option configuration could not be read. Start Steam once, quit it completely, and retry.',
   installWarningLaunchOptionsNotEmpty:
     "The Bazaar's Steam launch options must be empty; Repair removes all of their contents.",
+  installWarningProtonLaunchOptionsMissing:
+    'On Linux, BepInEx loads through a Steam launch option: The Bazaar must launch with WINEDLLOVERRIDES="winhttp=n,b" %command%. Repair sets it automatically.',
   installWarningTrampolineNotReady:
     'The macOS game bootstrap is missing or is not the current version and needs repair.',
   installWarningObsoleteMacosArtifacts:
@@ -627,6 +637,8 @@ const en: Record<MessageKey, string> = {
   installSteamNotice:
     'Please close Steam before installing. If Steam is running, quit it manually before continuing.',
   installSteamNoticeMacos: 'Close the game first. Continuing will quit Steam.',
+  installSteamNoticeLinux:
+    'Close the game first. Continuing will quit Steam and write the Proton launch option.',
   installCloseGameNotice: 'Close the game before continuing.',
   installAcknowledge:
     'I understand and accept the risks of using third-party mods.',
@@ -675,6 +687,8 @@ const en: Record<MessageKey, string> = {
     'Automatic restart failed, but BazaarPlusPlus {version} is installed. Quit BazaarPlusPlus, then open it again from Applications.',
   updaterProblemRestartFailedWindows:
     'Automatic restart failed, but BazaarPlusPlus {version} is installed. Quit BazaarPlusPlus, then open it again from the Start menu.',
+  updaterProblemRestartFailedLinux:
+    'Automatic restart failed, but BazaarPlusPlus {version} is installed. Quit BazaarPlusPlus, then open it again.',
 
   historyLoading: 'Loading runs',
   noLocalRuns: 'No local runs yet',
@@ -709,6 +723,8 @@ const en: Record<MessageKey, string> = {
     'The game process could not be ended. End TheBazaar.exe from Task Manager, then retry.',
   historyEndGameProcessFailedMac:
     'The game process could not be ended. Quit The Bazaar from Activity Monitor, then retry.',
+  historyEndGameProcessFailedLinux:
+    'The game process could not be ended. End TheBazaar.exe from a system monitor, or run pkill -f TheBazaar.exe, then retry.',
   historyProblemUnsupportedSchema:
     'The History database schema is unsupported (found {found}, supported {supported}). Update the BazaarPlusPlus plugin or installer.',
   historyProblemUnexpected:

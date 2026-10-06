@@ -156,22 +156,26 @@ fn install_warnings(
             params: Default::default(),
         });
     }
-    if cfg!(target_os = "macos") {
-        match steam_launch_options {
-            crate::services::vdf::SteamLaunchOptionsState::Empty => {}
-            crate::services::vdf::SteamLaunchOptionsState::NonEmpty => {
-                warnings.push(InstallWarning {
-                    code: InstallWarningCode::LaunchOptionsNotEmpty,
-                    params: Default::default(),
-                });
-            }
-            crate::services::vdf::SteamLaunchOptionsState::Unavailable => {
-                warnings.push(InstallWarning {
-                    code: InstallWarningCode::SteamConfigUnavailable,
-                    params: Default::default(),
-                });
-            }
+    match steam_launch_options {
+        crate::services::vdf::SteamLaunchOptionsState::Satisfied => {}
+        crate::services::vdf::SteamLaunchOptionsState::Unsatisfied => {
+            warnings.push(InstallWarning {
+                code: if cfg!(target_os = "macos") {
+                    InstallWarningCode::LaunchOptionsNotEmpty
+                } else {
+                    InstallWarningCode::ProtonLaunchOptionsMissing
+                },
+                params: Default::default(),
+            });
         }
+        crate::services::vdf::SteamLaunchOptionsState::Unavailable => {
+            warnings.push(InstallWarning {
+                code: InstallWarningCode::SteamConfigUnavailable,
+                params: Default::default(),
+            });
+        }
+    }
+    if cfg!(target_os = "macos") {
         if !trampoline_current {
             warnings.push(InstallWarning {
                 code: InstallWarningCode::TrampolineNotReady,
@@ -314,7 +318,7 @@ mod tests {
         let warnings = install_warnings(
             false,
             false,
-            crate::services::vdf::SteamLaunchOptionsState::Empty,
+            crate::services::vdf::SteamLaunchOptionsState::Satisfied,
             true,
             false,
         );
@@ -356,16 +360,45 @@ mod tests {
 
     #[cfg(not(target_os = "macos"))]
     #[test]
-    fn install_warnings_ignore_macos_bootstrap_inputs_on_other_platforms() {
+    fn install_warnings_ignore_macos_only_inputs_but_honor_launch_options() {
+        use crate::services::vdf::SteamLaunchOptionsState;
+
         let warnings = install_warnings(
             true,
             true,
-            crate::services::vdf::SteamLaunchOptionsState::Unavailable,
+            SteamLaunchOptionsState::Unavailable,
             false,
             true,
         );
 
-        assert!(warnings.is_empty());
+        // The trampoline and obsolete-artifact facts are macOS-only; the
+        // launch-option fact is not.
+        assert_eq!(
+            warnings
+                .iter()
+                .map(|warning| warning.code)
+                .collect::<Vec<_>>(),
+            vec![InstallWarningCode::SteamConfigUnavailable]
+        );
+
+        let missing = install_warnings(
+            true,
+            true,
+            SteamLaunchOptionsState::Unsatisfied,
+            false,
+            true,
+        );
+        assert_eq!(
+            missing
+                .iter()
+                .map(|warning| warning.code)
+                .collect::<Vec<_>>(),
+            vec![InstallWarningCode::ProtonLaunchOptionsMissing]
+        );
+
+        let satisfied =
+            install_warnings(true, true, SteamLaunchOptionsState::Satisfied, false, true);
+        assert!(satisfied.is_empty());
     }
 
     #[test]

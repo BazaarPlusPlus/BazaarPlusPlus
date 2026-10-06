@@ -280,12 +280,12 @@ mod tests {
             std::fs::create_dir_all(tmp.path().join("TheBazaar.app")).unwrap();
         }
 
-        #[cfg(target_os = "windows")]
+        #[cfg(any(target_os = "windows", target_os = "linux"))]
         {
             std::fs::write(tmp.path().join("TheBazaar.exe"), b"exe").unwrap();
         }
 
-        #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+        #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
         {
             std::fs::write(tmp.path().join("TheBazaar"), b"exe").unwrap();
         }

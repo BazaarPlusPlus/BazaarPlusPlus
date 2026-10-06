@@ -188,6 +188,16 @@ pub(crate) fn fallback_game_candidates() -> Vec<PathBuf> {
         }
     }
 
+    #[cfg(target_os = "linux")]
+    {
+        // Steam for Linux in any packaging; the Windows game lives in its Proton library.
+        if let Some(home) = dirs::home_dir() {
+            for root in crate::services::detect::steam::linux_steam_root_candidates(&home) {
+                push_unique(&mut candidates, root.join("steamapps/common/The Bazaar"));
+            }
+        }
+    }
+
     candidates
 }
 
@@ -544,9 +554,9 @@ mod resolve_tests {
 
         #[cfg(target_os = "macos")]
         std::fs::create_dir(temp_root.join("TheBazaar.app")).expect("create game app marker");
-        #[cfg(target_os = "windows")]
+        #[cfg(any(target_os = "windows", target_os = "linux"))]
         std::fs::write(temp_root.join("TheBazaar.exe"), b"exe").expect("create game exe marker");
-        #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+        #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
         std::fs::write(temp_root.join("TheBazaar"), b"exe").expect("create game marker");
 
         assert!(fs_probe(GamePathProbe::GameInstalled, &temp_root));

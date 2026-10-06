@@ -65,7 +65,7 @@ fn snapshot(fixture: &Fixture, installed_version: Option<&str>) -> InstallEnviro
         bepinex_installed: installed_version.is_some(),
         bpp_version: installed_version.map(str::to_owned),
         bundled_bpp_version: Some("1.2.3".into()),
-        steam_launch_options: SteamLaunchOptionsState::Empty,
+        steam_launch_options: SteamLaunchOptionsState::Satisfied,
         trampoline_current: true,
         obsolete_macos_artifacts_present: false,
     }
@@ -86,7 +86,7 @@ fn get_install_state() {
         bepinex_installed: false,
         bpp_version: None,
         bundled_bpp_version: Some("1.2.3".into()),
-        steam_launch_options: SteamLaunchOptionsState::Empty,
+        steam_launch_options: SteamLaunchOptionsState::Satisfied,
         trampoline_current: true,
         obsolete_macos_artifacts_present: false,
     };

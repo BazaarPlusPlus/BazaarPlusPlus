@@ -1,7 +1,8 @@
 import { BookOpen, ExternalLink, TriangleAlert } from 'lucide-react';
 import { ConfirmDialog, ConfirmNote } from '../../components/ui/ConfirmDialog';
 import { useI18n } from '../../i18n/LocaleProvider';
-import { isWindowsPlatform } from '../shared/platform';
+import type { MessageKey } from '../../i18n/messages';
+import { hostPlatform } from '../shared/platform';
 import { InstallProblemBanner } from './InstallProblemBanner';
 import type { InstallProblem } from './installProblems';
 
@@ -56,18 +57,25 @@ export function InstallConfirmModal({
       </ConfirmNote>
 
       <ConfirmNote tone="warning" icon={<TriangleAlert size={15} />}>
-        <p>
-          {t(
-            isWindowsPlatform()
-              ? 'installSteamNotice'
-              : willCloseSteam
-                ? 'installSteamNoticeMacos'
-                : 'installCloseGameNotice'
-          )}
-        </p>
+        <p>{t(installNoticeKey(willCloseSteam))}</p>
       </ConfirmNote>
 
       {problem && <InstallProblemBanner problem={problem} />}
     </ConfirmDialog>
   );
+}
+
+function installNoticeKey(willCloseSteam: boolean): MessageKey {
+  switch (hostPlatform()) {
+    case 'windows':
+      return 'installSteamNotice';
+    case 'macos':
+      return willCloseSteam
+        ? 'installSteamNoticeMacos'
+        : 'installCloseGameNotice';
+    case 'linux':
+      return willCloseSteam
+        ? 'installSteamNoticeLinux'
+        : 'installCloseGameNotice';
+  }
 }

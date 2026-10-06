@@ -1,15 +1,19 @@
+#[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
 use crate::services::debug_log;
 use std::path::Path;
+#[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
 use std::process::Command;
+#[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux", test))]
 use std::time::Duration;
 
 #[cfg(target_os = "windows")]
 const STEAM_PROCESS_NAME: &str = "steam.exe";
-#[cfg(any(target_os = "macos", target_os = "windows"))]
+#[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
 const STEAM_EXIT_WAIT_ATTEMPTS: usize = 60;
-#[cfg(any(target_os = "macos", target_os = "windows"))]
+#[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
 const STEAM_EXIT_WAIT_INTERVAL: Duration = Duration::from_millis(500);
 
+#[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
 fn has_steam_userdata(steam_path: &Path) -> bool {
     steam_path.join("userdata").is_dir()
 }
@@ -37,6 +41,7 @@ fn steam_running_from_pgrep(
     }
 }
 
+#[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux", test))]
 fn ensure_process_stopped_with<IsRunning, RequestQuit, Sleep>(
     process_name: &str,
     mut is_running: IsRunning,
@@ -83,6 +88,23 @@ fn is_steam_running() -> Result<bool, String> {
     crate::services::process_snapshot::process_is_running(STEAM_PROCESS_NAME)
 }
 
+/// Steam for Linux runs as a process named `steam` — true for the native, snap,
+/// and Flatpak packages, whose sandboxed processes stay visible in the host's
+/// `/proc`. Its helpers are `steamwebhelper`, which `-x` excludes.
+#[cfg(target_os = "linux")]
+fn is_steam_running() -> Result<bool, String> {
+    let output = Command::new("pgrep")
+        .args(["-x", "steam"])
+        .output()
+        .map_err(|err| format!("Failed to inspect Steam process state: {err}"))?;
+
+    match output.status.code() {
+        Some(0) => Ok(!output.stdout.is_empty()),
+        Some(1) => Ok(false),
+        _ => Err("Failed to inspect Steam process state.".to_string()),
+    }
+}
+
 #[cfg(target_os = "macos")]
 fn request_steam_quit() -> Result<(), String> {
     let output = Command::new("osascript")
@@ -121,7 +143,43 @@ fn request_steam_quit() -> Result<(), String> {
     }
 }
 
-#[cfg(any(target_os = "macos", target_os = "windows"))]
+#[cfg(target_os = "linux")]
+fn run_quit_command(program: &str, args: &[&str]) -> Result<(), String> {
+    let output = Command::new(program)
+        .args(args)
+        .output()
+        .map_err(|err| format!("{program}: {err}"))?;
+
+    if output.status.success() {
+        return Ok(());
+    }
+
+    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+    Err(if stderr.is_empty() {
+        format!("{program} exited with {}", output.status)
+    } else {
+        stderr
+    })
+}
+
+#[cfg(target_os = "linux")]
+fn request_steam_quit() -> Result<(), String> {
+    // Ask the client to shut down gracefully so it flushes localconfig.vdf. Steam
+    // for Linux is either the native launcher or a Flatpak, whose `steam`
+    // launcher is not on PATH, so try both before failing.
+    match run_quit_command("steam", &["-shutdown"]) {
+        Ok(()) => Ok(()),
+        Err(native_error) => {
+            run_quit_command("flatpak", &["run", "com.valvesoftware.Steam", "-shutdown"]).map_err(
+                |flatpak_error| {
+                    format!("Failed to ask Steam to quit: {native_error}; {flatpak_error}")
+                },
+            )
+        }
+    }
+}
+
+#[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
 fn close_steam_internal() -> Result<bool, String> {
     ensure_process_stopped_with(
         "Steam",
@@ -133,7 +191,7 @@ fn close_steam_internal() -> Result<bool, String> {
     )
 }
 
-#[cfg(any(target_os = "macos", target_os = "windows"))]
+#[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
 pub fn prepare_steam_for_config_update(steam_path: &Path) -> Result<(), String> {
     if !has_steam_userdata(steam_path) {
         return Err(format!(
@@ -151,7 +209,7 @@ pub fn prepare_steam_for_config_update(steam_path: &Path) -> Result<(), String> 
     Ok(())
 }
 
-#[cfg(not(any(target_os = "macos", target_os = "windows")))]
+#[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
 pub fn prepare_steam_for_config_update(_steam_path: &Path) -> Result<(), String> {
     Ok(())
 }

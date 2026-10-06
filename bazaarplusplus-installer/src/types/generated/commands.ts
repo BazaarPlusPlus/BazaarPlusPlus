@@ -189,7 +189,7 @@ export type InstallWarning = {
 	params: { [key in string]: string },
 };
 
-export type InstallWarningCode = "game_missing" | "steam_config_unavailable" | "launch_options_not_empty" | "trampoline_not_ready" | "obsolete_macos_artifacts";
+export type InstallWarningCode = "game_missing" | "steam_config_unavailable" | "launch_options_not_empty" | "proton_launch_options_missing" | "trampoline_not_ready" | "obsolete_macos_artifacts";
 
 export type ResetBepinexResult = {
 	state: InstallState,

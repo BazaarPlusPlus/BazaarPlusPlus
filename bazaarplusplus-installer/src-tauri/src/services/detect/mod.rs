@@ -1,5 +1,5 @@
 mod game;
-mod steam;
+pub(crate) mod steam;
 
 pub(crate) use game::{is_bepinex_installed, is_valid_game_path};
 pub(crate) use steam::detect_installation_paths;
@@ -54,9 +54,10 @@ pub fn detect_for_install(
         .map(|path| is_bepinex_installed(path))
         .unwrap_or(false);
 
-    // macOS bootstrap facts are recomputed on every detection so Steam Verify,
-    // game updates, launch-option edits, and obsolete files immediately route
-    // the UI to Repair. Other platforms have no Steam launch-option invariant.
+    // Platform bootstrap facts are recomputed on every detection so Steam Verify,
+    // game updates, and launch-option edits immediately route the UI to Repair.
+    // macOS requires a trampoline plus empty LaunchOptions; Linux requires the
+    // Proton Doorstop DLL override. Windows carries no bootstrap of its own.
     let trampoline_current = game_path
         .as_ref()
         .map(|path| crate::services::bepinex::is_current_trampoline(&app, path).unwrap_or(false))
@@ -65,13 +66,13 @@ pub fn detect_for_install(
         .as_ref()
         .map(|path| crate::services::bepinex::obsolete_macos_artifacts_present(path))
         .unwrap_or(false);
-    let steam_launch_options = if cfg!(target_os = "macos") {
+    let steam_launch_options = if crate::services::vdf::required_launch_options().is_some() {
         steam_path
             .as_deref()
             .map(crate::services::vdf::inspect_launch_options_for_steam)
             .unwrap_or(SteamLaunchOptionsState::Unavailable)
     } else {
-        SteamLaunchOptionsState::Empty
+        SteamLaunchOptionsState::Satisfied
     };
 
     crate::services::debug_log!(

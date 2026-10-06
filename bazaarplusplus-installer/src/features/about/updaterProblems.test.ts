@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { formatMessage, type Locale } from '../../i18n/messages';
 import { formatProblemDiagnostic } from '../shared/problems';
 import {
@@ -6,6 +6,14 @@ import {
   updaterProblemFromError,
   type UpdaterProblemOperation
 } from './updaterProblems';
+
+// Pin the host so the restart recovery copy (which names a real OS surface) is
+// deterministic regardless of the machine running the tests.
+vi.mock('../shared/platform', () => ({
+  hostPlatform: () => 'macos',
+  isWindowsPlatform: () => false,
+  isMacPlatform: () => true
+}));
 
 const expected: Record<UpdaterProblemOperation, Record<Locale, string>> = {
   check: {

@@ -1,6 +1,34 @@
 pub(crate) const THE_BAZAAR_APP_ID: &str = "1617400";
 pub(crate) const LAUNCH_OPTIONS_KEY: &str = "LaunchOptions";
-pub(crate) fn launch_options_empty_in_content(vdf_content: &str) -> Result<Option<bool>, String> {
+
+/// The LaunchOptions value Linux needs: Proton must load Doorstop's `winhttp.dll`
+/// proxy from the game directory for BepInEx to start. Logical value; the VDF
+/// writer escapes it.
+pub(crate) const PROTON_LAUNCH_OPTIONS: &str = r#"WINEDLLOVERRIDES="winhttp=n,b" %command%"#;
+
+/// Escape a logical string into a VDF quoted value.
+pub(crate) fn escape_vdf_value(value: &str) -> String {
+    value.replace('\\', "\\\\").replace('"', "\\\"")
+}
+
+/// Turn a raw VDF quoted value back into its logical string.
+pub(crate) fn unescape_vdf_value(value: &str) -> String {
+    let mut out = String::with_capacity(value.len());
+    let mut chars = value.chars();
+    while let Some(ch) = chars.next() {
+        if ch == '\\' {
+            out.push(chars.next().unwrap_or('\\'));
+        } else {
+            out.push(ch);
+        }
+    }
+    out
+}
+
+/// The direct `LaunchOptions` value inside The Bazaar's app block, or `None`
+/// when the app is not present in this file. A missing key reads as the empty
+/// string, the same as an empty one.
+pub(crate) fn launch_options_value_in_content(vdf_content: &str) -> Result<Option<String>, String> {
     let lines = vdf_content.lines().map(str::to_string).collect::<Vec<_>>();
     let Some((apps_open, apps_close)) = find_apps_block(&lines) else {
         return Err("Malformed VDF: could not locate Steam/apps object".to_string());
@@ -24,14 +52,15 @@ pub(crate) fn launch_options_empty_in_content(vdf_content: &str) -> Result<Optio
             }
             _ => {}
         }
-        if nested_depth == 0
-            && parse_line_pair(line)
-                .is_some_and(|(key, value)| key == LAUNCH_OPTIONS_KEY && !value.is_empty())
-        {
-            return Ok(Some(false));
+        if nested_depth == 0 {
+            if let Some((key, value)) = parse_line_pair(line) {
+                if key == LAUNCH_OPTIONS_KEY {
+                    return Ok(Some(unescape_vdf_value(value)));
+                }
+            }
         }
     }
-    Ok(Some(true))
+    Ok(Some(String::new()))
 }
 
 fn parse_line_pair(line: &str) -> Option<(&str, &str)> {
@@ -161,6 +190,67 @@ pub fn clear_launch_options(vdf_content: &str) -> Result<Option<String>, String>
     }
     for idx in launch_option_lines.into_iter().rev() {
         lines.remove(idx);
+    }
+
+    Ok(Some(lines.join("\n")))
+}
+
+/// Set The Bazaar's direct `LaunchOptions` to `logical_value`, replacing every
+/// existing direct entry so duplicates cannot survive. Returns `None` when the
+/// app block is absent, so callers skip files for accounts that never ran the
+/// game.
+pub fn set_launch_options(
+    vdf_content: &str,
+    logical_value: &str,
+) -> Result<Option<String>, String> {
+    let mut lines = vdf_content.lines().map(str::to_string).collect::<Vec<_>>();
+    let Some((apps_open, apps_close)) = find_apps_block(&lines) else {
+        return Err("Malformed VDF: could not locate Steam/apps object".to_string());
+    };
+    let Some((app_open, app_close)) =
+        find_named_block(&lines, apps_open..=apps_close, THE_BAZAAR_APP_ID)
+    else {
+        return Ok(None);
+    };
+
+    let indent = lines[app_open + 1..app_close]
+        .iter()
+        .find(|line| !line.trim().is_empty())
+        .map(|line| line[..line.len() - line.trim_start().len()].to_string())
+        .unwrap_or_else(|| "                        ".to_string());
+
+    let mut nested_depth = 0usize;
+    let mut existing = Vec::new();
+    for (idx, line) in lines.iter().enumerate().take(app_close).skip(app_open + 1) {
+        match line.trim() {
+            "{" => {
+                nested_depth += 1;
+                continue;
+            }
+            "}" => {
+                nested_depth = nested_depth.saturating_sub(1);
+                continue;
+            }
+            _ => {}
+        }
+        if nested_depth == 0
+            && parse_line_pair(line).is_some_and(|(key, _value)| key == LAUNCH_OPTIONS_KEY)
+        {
+            existing.push(idx);
+        }
+    }
+
+    let new_line = format!(
+        "{indent}\"{LAUNCH_OPTIONS_KEY}\"    \"{}\"",
+        escape_vdf_value(logical_value)
+    );
+    if let Some(&first) = existing.first() {
+        lines[first] = new_line;
+        for idx in existing[1..].iter().rev() {
+            lines.remove(*idx);
+        }
+    } else {
+        lines.insert(app_open + 1, new_line);
     }
 
     Ok(Some(lines.join("\n")))

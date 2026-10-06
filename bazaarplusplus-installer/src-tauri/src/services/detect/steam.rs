@@ -60,6 +60,26 @@ fn parse_library_folders(vdf_content: &str, app_id: &str) -> Option<Vec<(String,
     (!folders.is_empty()).then_some(folders)
 }
 
+/// Steam data directories on a Linux host, most preferred first. Steam for Linux
+/// may be a native install, a Flatpak, or a snap; each holds the Proton library
+/// whose Windows game this installer manages. Kept pure so the layout is
+/// testable without a real home directory. This six-entry list is mirrored by
+/// `_BppLinuxSteamRoot0..5` in bazaarplusplus-mod/build/ManagedPath.props; change
+/// both together.
+#[cfg_attr(not(any(target_os = "linux", test)), allow(dead_code))]
+pub(crate) fn linux_steam_root_candidates(home: &Path) -> Vec<PathBuf> {
+    [
+        home.join(".local/share/Steam"),
+        home.join(".steam/steam"),
+        home.join(".steam/root"),
+        home.join(".var/app/com.valvesoftware.Steam/data/Steam"),
+        home.join(".var/app/com.valvesoftware.Steam/.local/share/Steam"),
+        home.join("snap/steam/common/.local/share/Steam"),
+    ]
+    .into_iter()
+    .collect()
+}
+
 fn candidate_steam_paths() -> Vec<PathBuf> {
     let mut candidates = Vec::new();
 
@@ -124,6 +144,17 @@ fn candidate_steam_paths() -> Vec<PathBuf> {
         for candidate in default_candidates.into_iter().flatten() {
             if candidate.exists() && seen.insert(candidate.clone()) {
                 candidates.push(candidate);
+            }
+        }
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        if let Some(home) = dirs::home_dir() {
+            for path in linux_steam_root_candidates(&home) {
+                if path.exists() && !candidates.contains(&path) {
+                    candidates.push(path);
+                }
             }
         }
     }
@@ -271,6 +302,23 @@ fn get_game_path_from_vdf(steam_path: &Path) -> Option<PathBuf> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_linux_steam_root_candidates_cover_native_flatpak_and_snap() {
+        let home = Path::new("/home/player");
+
+        assert_eq!(
+            linux_steam_root_candidates(home),
+            vec![
+                PathBuf::from("/home/player/.local/share/Steam"),
+                PathBuf::from("/home/player/.steam/steam"),
+                PathBuf::from("/home/player/.steam/root"),
+                PathBuf::from("/home/player/.var/app/com.valvesoftware.Steam/data/Steam"),
+                PathBuf::from("/home/player/.var/app/com.valvesoftware.Steam/.local/share/Steam",),
+                PathBuf::from("/home/player/snap/steam/common/.local/share/Steam"),
+            ]
+        );
+    }
 
     #[test]
     fn test_parse_library_folders_marks_the_library_declaring_the_app() {

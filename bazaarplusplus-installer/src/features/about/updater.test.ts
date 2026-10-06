@@ -49,6 +49,7 @@ function fakeImpl(overrides: Partial<UpdaterImpl> = {}): UpdaterImpl {
     relaunch: async () => undefined,
     hasRuntime: () => true,
     isWindows: () => false,
+    isMac: () => true,
     ...overrides
   };
 }
@@ -114,6 +115,13 @@ describe('createUpdaterMachine checkNow', () => {
     expect(mac.snapshot().mainlandDownloadUrl).toBe(
       'https://mirror.example/mac'
     );
+
+    // Linux has no declared Platform Release Manifest, so it reads no mirror.
+    const linux = harness(
+      fakeImpl({ check: async () => fakeUpdate(), isMac: () => false })
+    );
+    await linux.machine.checkNow();
+    expect(linux.snapshot().mainlandDownloadUrl).toBeNull();
   });
 
   it('stays available without a mirror when the manifest publishes none or an unsafe one', async () => {

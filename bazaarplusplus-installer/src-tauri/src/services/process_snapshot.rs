@@ -108,3 +108,28 @@ fn image_name_from_entry(
     let len = name.iter().position(|&c| c == 0).unwrap_or(name.len());
     String::from_utf16_lossy(&name[..len])
 }
+
+/// Return whether any running process has the given image name on Linux. Proton
+/// runs the Windows build as a native process whose `/proc/<pid>/comm` carries
+/// the image name (e.g. `TheBazaar.exe`), so a `/proc` scan is the equivalent of
+/// the Windows toolhelp walk without spawning `pgrep`.
+#[cfg(target_os = "linux")]
+pub(crate) fn process_is_running(target: &str) -> Result<bool, String> {
+    let entries = std::fs::read_dir("/proc")
+        .map_err(|err| format!("Failed to inspect process state: {err}"))?;
+
+    for entry in entries.flatten() {
+        let name = entry.file_name();
+        if !name.to_string_lossy().chars().all(|c| c.is_ascii_digit()) {
+            continue;
+        }
+
+        if let Ok(comm) = std::fs::read_to_string(entry.path().join("comm")) {
+            if comm.trim().eq_ignore_ascii_case(target) {
+                return Ok(true);
+            }
+        }
+    }
+
+    Ok(false)
+}

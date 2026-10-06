@@ -1,11 +1,19 @@
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { UpdaterController } from '../features/about/useUpdater';
 import type { UpdaterSnapshot } from '../features/about/updater';
 import { getUpdaterUiContract } from '../features/about/updaterPresentation';
 import { updaterProblemFromError } from '../features/about/updaterProblems';
 import { LocaleProvider } from '../i18n/LocaleProvider';
 import { ShellUpdateModal } from './ShellUpdateModal';
+
+// Pin the host so the restart recovery copy (which names a real OS surface) is
+// deterministic regardless of the machine running the tests.
+vi.mock('../features/shared/platform', () => ({
+  hostPlatform: () => 'macos',
+  isWindowsPlatform: () => false,
+  isMacPlatform: () => true
+}));
 
 function controller(snapshot: UpdaterSnapshot): UpdaterController {
   return {

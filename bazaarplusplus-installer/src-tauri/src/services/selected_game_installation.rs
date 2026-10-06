@@ -128,9 +128,9 @@ mod tests {
         std::fs::create_dir_all(game_path).unwrap();
         #[cfg(target_os = "macos")]
         std::fs::create_dir(game_path.join("TheBazaar.app")).unwrap();
-        #[cfg(target_os = "windows")]
+        #[cfg(any(target_os = "windows", target_os = "linux"))]
         std::fs::write(game_path.join("TheBazaar.exe"), b"exe").unwrap();
-        #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+        #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
         std::fs::write(game_path.join("TheBazaar"), b"exe").unwrap();
     }
 

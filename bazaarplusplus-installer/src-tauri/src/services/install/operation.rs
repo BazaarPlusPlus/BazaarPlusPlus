@@ -10,7 +10,9 @@ use crate::services::{
     detect::{detect_for_install, InstallEnvironmentSnapshot},
     startup::InstallerContextState,
     steam::prepare_steam_for_config_update,
-    vdf::{clear_launch_options_for_steam, SteamLaunchOptionsState},
+    vdf::{
+        clear_launch_options_for_steam, ensure_launch_options_for_steam, SteamLaunchOptionsState,
+    },
 };
 
 pub(crate) struct InstallRequest {
@@ -30,8 +32,9 @@ pub(crate) async fn install(
             Some(request.game_path.clone()),
         )?;
         let steam_path = before.steam_path.clone().unwrap_or_default();
-        let requires_macos_bootstrap = cfg!(target_os = "macos");
-        if requires_macos_bootstrap
+        // Every platform whose bootstrap needs a LaunchOptions value must be able
+        // to read localconfig.vdf before it can plan the change.
+        if crate::services::vdf::required_launch_options().is_some()
             && (steam_path.trim().is_empty()
                 || before.steam_launch_options == SteamLaunchOptionsState::Unavailable)
         {
@@ -85,6 +88,7 @@ impl InstallEffects for ProductionInstallEffects {
                 bepinex::install_trampoline(&self.resource_dir, game)
             }
             InstallEffect::ClearLaunchOptions => clear_launch_options_for_steam(steam),
+            InstallEffect::EnsureLaunchOptions => ensure_launch_options_for_steam(steam),
             InstallEffect::RemoveObsoleteMacosArtifacts => {
                 bepinex::remove_obsolete_macos_artifacts(game)
             }
@@ -132,9 +136,9 @@ mod tests {
             bpp_version: payload_current.then(|| "2".into()),
             bundled_bpp_version: Some("2".into()),
             steam_launch_options: if bootstrap_satisfied {
-                SteamLaunchOptionsState::Empty
+                SteamLaunchOptionsState::Satisfied
             } else {
-                SteamLaunchOptionsState::NonEmpty
+                SteamLaunchOptionsState::Unsatisfied
             },
             trampoline_current: bootstrap_satisfied,
             obsolete_macos_artifacts_present: false,
@@ -268,7 +272,7 @@ mod fresh_install_acceptance {
 "#;
         std::fs::write(&config, original_config).unwrap();
         let options = crate::services::vdf::inspect_launch_options_for_steam(&steam);
-        assert_eq!(options, SteamLaunchOptionsState::Empty);
+        assert_eq!(options, SteamLaunchOptionsState::Satisfied);
         assert!(!game.join("BepInEx").exists());
         assert!(!macos.join("The Bazaar.orig").exists());
         let facts = InstallEnvironmentSnapshot {

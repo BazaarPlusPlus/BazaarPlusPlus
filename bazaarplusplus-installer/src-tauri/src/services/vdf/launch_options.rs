@@ -2,13 +2,41 @@ use std::path::{Path, PathBuf};
 
 use crate::services::debug_log;
 
-use super::parse::{clear_launch_options, launch_options_empty_in_content, THE_BAZAAR_APP_ID};
+use super::parse::{
+    clear_launch_options, launch_options_value_in_content, set_launch_options,
+    PROTON_LAUNCH_OPTIONS, THE_BAZAAR_APP_ID,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum SteamLaunchOptionsState {
-    Empty,
-    NonEmpty,
+    /// The platform's required LaunchOptions value is in place (or the platform
+    /// needs none at all).
+    Satisfied,
+    /// A required value is missing or different.
+    Unsatisfied,
     Unavailable,
+}
+
+/// The value The Bazaar's Steam LaunchOptions must carry for the platform's
+/// bootstrap, or `None` when the platform needs no launch option. macOS's
+/// trampoline requires an empty value; Linux runs the Windows build under Proton
+/// and requires Doorstop's DLL override.
+pub(crate) fn required_launch_options() -> Option<&'static str> {
+    if cfg!(target_os = "macos") {
+        Some("")
+    } else if cfg!(target_os = "linux") {
+        Some(PROTON_LAUNCH_OPTIONS)
+    } else {
+        None
+    }
+}
+
+fn satisfies_required(value: &str, required: &str) -> bool {
+    if required.is_empty() {
+        value.is_empty()
+    } else {
+        value == required
+    }
 }
 
 struct LocalconfigUpdate {
@@ -119,6 +147,10 @@ fn apply_localconfig_updates(updates: Vec<LocalconfigUpdate>) -> Result<usize, S
 fn inspect_launch_options_for_steam_raw(
     steam_path: &Path,
 ) -> Result<SteamLaunchOptionsState, String> {
+    let Some(required) = required_launch_options() else {
+        return Ok(SteamLaunchOptionsState::Satisfied);
+    };
+
     let localconfigs = find_localconfig_paths(steam_path);
     if localconfigs.is_empty() {
         return Err(format!(
@@ -129,12 +161,14 @@ fn inspect_launch_options_for_steam_raw(
 
     for localconfig in localconfigs {
         let content = std::fs::read_to_string(&localconfig).map_err(|err| err.to_string())?;
-        if launch_options_empty_in_content(&content)? == Some(false) {
-            return Ok(SteamLaunchOptionsState::NonEmpty);
+        if let Some(value) = launch_options_value_in_content(&content)? {
+            if !satisfies_required(&value, required) {
+                return Ok(SteamLaunchOptionsState::Unsatisfied);
+            }
         }
     }
 
-    Ok(SteamLaunchOptionsState::Empty)
+    Ok(SteamLaunchOptionsState::Satisfied)
 }
 
 pub(crate) fn inspect_launch_options_for_steam(steam_path: &Path) -> SteamLaunchOptionsState {
@@ -152,10 +186,42 @@ pub fn clear_launch_options_for_steam(steam_path: &Path) -> Result<(), String> {
     if !planned.is_empty() {
         apply_localconfig_updates(planned)?;
     }
+
+    // Verify the cleanup itself (the value is gone), independent of whatever
+    // value the current platform's bootstrap requires.
+    for localconfig in find_localconfig_paths(steam_path) {
+        let content = std::fs::read_to_string(&localconfig).map_err(|err| err.to_string())?;
+        if launch_options_value_in_content(&content)?.is_some_and(|value| !value.is_empty()) {
+            return Err(format!(
+                "Steam launch options for app {THE_BAZAAR_APP_ID} are still non-empty after cleanup"
+            ));
+        }
+    }
+    Ok(())
+}
+
+/// Write the platform's required LaunchOptions value and verify the result.
+/// Used by the Linux Proton bootstrap; macOS clears instead (see
+/// `clear_launch_options_for_steam`).
+pub fn ensure_launch_options_for_steam(steam_path: &Path) -> Result<(), String> {
+    let Some(required) = required_launch_options() else {
+        return Ok(());
+    };
+    debug_assert!(
+        !required.is_empty(),
+        "ensure_launch_options_for_steam is the Linux (non-empty) bootstrap; macOS clears instead"
+    );
+
+    let planned =
+        plan_localconfig_updates(steam_path, |content| set_launch_options(content, required))?;
+    if !planned.is_empty() {
+        apply_localconfig_updates(planned)?;
+    }
+
     match inspect_launch_options_for_steam_raw(steam_path)? {
-        SteamLaunchOptionsState::Empty => Ok(()),
-        SteamLaunchOptionsState::NonEmpty => Err(format!(
-            "Steam launch options for app {THE_BAZAAR_APP_ID} are still non-empty after cleanup"
+        SteamLaunchOptionsState::Satisfied => Ok(()),
+        SteamLaunchOptionsState::Unsatisfied => Err(format!(
+            "Steam launch options for app {THE_BAZAAR_APP_ID} are not the required value after update"
         )),
         SteamLaunchOptionsState::Unavailable => {
             unreachable!("raw inspection never returns unavailable")

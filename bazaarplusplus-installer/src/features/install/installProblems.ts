@@ -95,6 +95,8 @@ function installWarningMessageKey(code: string): MessageKey {
       return 'installWarningSteamConfigUnavailable';
     case 'launch_options_not_empty':
       return 'installWarningLaunchOptionsNotEmpty';
+    case 'proton_launch_options_missing':
+      return 'installWarningProtonLaunchOptionsMissing';
     case 'trampoline_not_ready':
       return 'installWarningTrampolineNotReady';
     case 'obsolete_macos_artifacts':

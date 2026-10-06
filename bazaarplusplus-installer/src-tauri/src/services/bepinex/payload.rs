@@ -141,9 +141,20 @@ fn remove_path_if_exists(path: &Path) -> Result<(), String> {
     }
 }
 
+/// The Payload Inventory's platform name for this host. Linux runs The Bazaar's
+/// Windows build under Proton, so it consumes the Windows-scoped Payload
+/// entries (winhttp.dll, doorstop_config.ini, e_sqlite3.dll, the replay plugin).
+pub(crate) fn payload_platform() -> &'static str {
+    if cfg!(target_os = "linux") {
+        "windows"
+    } else {
+        std::env::consts::OS
+    }
+}
+
 pub(crate) fn payload_root_relative_paths() -> Vec<&'static str> {
     let mut paths = vec!["BepInEx"];
-    let platform = std::env::consts::OS;
+    let platform = payload_platform();
     paths.extend(
         inventory()
             .files
@@ -503,7 +514,7 @@ mod tests {
             std::fs::write(tmp.path().join("libdoorstop.dylib"), b"dylib").unwrap();
         }
 
-        #[cfg(target_os = "windows")]
+        #[cfg(any(target_os = "windows", target_os = "linux"))]
         {
             std::fs::write(tmp.path().join("TheBazaar.exe"), b"exe").unwrap();
             std::fs::create_dir_all(tmp.path().join("BepInEx/plugins")).unwrap();
@@ -548,7 +559,7 @@ mod tests {
         {
             assert!(tmp.path().join("libdoorstop.dylib").exists());
         }
-        #[cfg(target_os = "windows")]
+        #[cfg(any(target_os = "windows", target_os = "linux"))]
         {
             assert!(tmp.path().join("doorstop_config.ini").exists());
             assert!(tmp.path().join("winhttp.dll").exists());
@@ -565,7 +576,7 @@ mod tests {
             std::fs::write(tmp.path().join("libdoorstop.dylib"), b"old dylib").unwrap();
         }
 
-        #[cfg(target_os = "windows")]
+        #[cfg(any(target_os = "windows", target_os = "linux"))]
         {
             std::fs::write(tmp.path().join("TheBazaar.exe"), b"exe").unwrap();
             std::fs::write(tmp.path().join("doorstop_config.ini"), b"old cfg").unwrap();
@@ -580,7 +591,7 @@ mod tests {
         std::fs::write(tmp.path().join("BepInEx/plugins/new.dll"), b"new").unwrap();
         #[cfg(target_os = "macos")]
         std::fs::write(tmp.path().join("libdoorstop.dylib"), b"new dylib").unwrap();
-        #[cfg(target_os = "windows")]
+        #[cfg(any(target_os = "windows", target_os = "linux"))]
         std::fs::write(tmp.path().join("winhttp.dll"), b"new dll").unwrap();
 
         backup.restore(tmp.path()).unwrap();
@@ -592,7 +603,7 @@ mod tests {
             std::fs::read(tmp.path().join("libdoorstop.dylib")).unwrap(),
             b"old dylib"
         );
-        #[cfg(target_os = "windows")]
+        #[cfg(any(target_os = "windows", target_os = "linux"))]
         assert_eq!(
             std::fs::read(tmp.path().join("winhttp.dll")).unwrap(),
             b"old dll"
@@ -611,7 +622,7 @@ mod tests {
             std::fs::write(tmp.path().join("libdoorstop.dylib"), b"dylib").unwrap();
         }
 
-        #[cfg(target_os = "windows")]
+        #[cfg(any(target_os = "windows", target_os = "linux"))]
         {
             std::fs::write(tmp.path().join("TheBazaar.exe"), b"exe").unwrap();
             std::fs::write(tmp.path().join("doorstop_config.ini"), b"cfg").unwrap();
@@ -674,7 +685,7 @@ mod tests {
             std::fs::write(tmp.path().join("libdoorstop.dylib"), b"dylib").unwrap();
         }
 
-        #[cfg(target_os = "windows")]
+        #[cfg(any(target_os = "windows", target_os = "linux"))]
         {
             std::fs::write(tmp.path().join("doorstop_config.ini"), b"cfg").unwrap();
             std::fs::write(tmp.path().join("winhttp.dll"), b"dll").unwrap();
@@ -703,7 +714,7 @@ mod tests {
         {
             assert!(tmp.path().join("libdoorstop.dylib").exists());
         }
-        #[cfg(target_os = "windows")]
+        #[cfg(any(target_os = "windows", target_os = "linux"))]
         {
             assert!(tmp.path().join("doorstop_config.ini").exists());
             assert!(tmp.path().join("winhttp.dll").exists());

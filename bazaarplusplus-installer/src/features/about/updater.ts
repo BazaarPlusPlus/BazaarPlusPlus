@@ -5,7 +5,7 @@ import {
   decodeMainlandDownloadUrl
 } from '../../../../release/downloads';
 import { hasTauriRuntime } from '../../api/runtime';
-import { isWindowsPlatform } from '../shared/platform';
+import { isMacPlatform, isWindowsPlatform } from '../shared/platform';
 import {
   updaterProblemFromError,
   type UpdaterProblem
@@ -39,13 +39,15 @@ export type UpdaterImpl = {
   relaunch: () => Promise<void>;
   hasRuntime: () => boolean;
   isWindows: () => boolean;
+  isMac: () => boolean;
 };
 
 export const tauriUpdaterImpl: UpdaterImpl = {
   check: () => check(),
   relaunch: () => relaunch(),
   hasRuntime: hasTauriRuntime,
-  isWindows: isWindowsPlatform
+  isWindows: isWindowsPlatform,
+  isMac: isMacPlatform
 };
 
 export async function runCheck(impl: UpdaterImpl): Promise<UpdateCheckResult> {
@@ -58,13 +60,21 @@ export async function runCheck(impl: UpdaterImpl): Promise<UpdateCheckResult> {
   // The updater already fetched this platform's Release Manifest (or the
   // lockstep latest.json fallback); the mirror address for this host is read
   // from that same document rather than derived.
-  const platformKey =
-    DOWNLOAD_PLATFORM_KEYS[impl.isWindows() ? 'windows' : 'mac'];
+  // Linux has no declared Platform Release Manifest yet, so it has no mainland
+  // mirror to read; the lockstep manifest still drives the update check itself.
+  const platformKey = impl.isWindows()
+    ? DOWNLOAD_PLATFORM_KEYS.windows
+    : impl.isMac()
+      ? DOWNLOAD_PLATFORM_KEYS.mac
+      : null;
   return {
     status: 'available',
     version: update.version,
     notes: update.body ?? '',
-    mainlandDownloadUrl: decodeMainlandDownloadUrl(update.rawJson, platformKey),
+    mainlandDownloadUrl:
+      platformKey === null
+        ? null
+        : decodeMainlandDownloadUrl(update.rawJson, platformKey),
     update
   };
 }

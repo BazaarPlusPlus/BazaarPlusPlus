@@ -1,4 +1,4 @@
-import { isWindowsPlatform } from './platform';
+import { isMacPlatform } from './platform';
 
 const NOTO_SANS_SC_CSS_URL =
   'https://fonts.googleapis.cn/css2?family=Noto+Sans+SC:wght@400;500;600;700&display=swap';
@@ -50,13 +50,13 @@ async function loadPersistedStyleSheet() {
 
 async function loadNotoSansSc() {
   const root = document.documentElement;
-  const windows = isWindowsPlatform();
-  if (!windows) return;
+  // macOS ships a usable CJK font; Windows and Linux hosts may not.
+  if (isMacPlatform()) return;
 
   try {
     installStyleSheet(await loadPersistedStyleSheet());
     await document.fonts.load('400 1em "Noto Sans SC"', '因热爱而生');
-    if (windows) root.dataset.bppNotoSansSc = 'ready';
+    root.dataset.bppNotoSansSc = 'ready';
   } catch {
     // The system font remains in use when the optional background download
     // is unavailable. A later app launch retries unless the stylesheet cache

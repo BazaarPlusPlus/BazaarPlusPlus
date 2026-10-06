@@ -11,11 +11,13 @@ pub(crate) fn is_bepinex_installed(game_path: &Path) -> bool {
     #[cfg(target_os = "macos")]
     return game_path.join("libdoorstop.dylib").exists();
 
-    #[cfg(target_os = "windows")]
+    // Linux runs The Bazaar's Windows build under Proton, so it shares the
+    // winhttp + Doorstop bootstrap with Windows.
+    #[cfg(any(target_os = "windows", target_os = "linux"))]
     return game_path.join("doorstop_config.ini").exists()
         && game_path.join("winhttp.dll").exists();
 
-    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
     return true;
 }
 
@@ -30,10 +32,11 @@ pub(crate) fn is_valid_game_path(base: &Path) -> bool {
     #[cfg(target_os = "macos")]
     return base.join("TheBazaar.app").exists();
 
-    #[cfg(target_os = "windows")]
+    // Linux runs the Windows build under Proton; the Windows launcher is the marker.
+    #[cfg(any(target_os = "windows", target_os = "linux"))]
     return base.join("TheBazaar.exe").exists();
 
-    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
     return base.join("TheBazaar").exists();
 }
 
@@ -81,7 +84,7 @@ mod tests {
             std::fs::write(tmp.path().join("libdoorstop.dylib"), b"dylib").unwrap();
         }
 
-        #[cfg(target_os = "windows")]
+        #[cfg(any(target_os = "windows", target_os = "linux"))]
         {
             std::fs::write(tmp.path().join("doorstop_config.ini"), b"cfg").unwrap();
             std::fs::write(tmp.path().join("winhttp.dll"), b"dll").unwrap();

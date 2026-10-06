@@ -1,6 +1,6 @@
 import type { Translate } from '../../i18n/LocaleProvider';
 import type { MessageKey } from '../../i18n/messages';
-import { isWindowsPlatform } from '../shared/platform';
+import { hostPlatform } from '../shared/platform';
 import {
   createUiProblem,
   problemFromError,
@@ -58,8 +58,17 @@ function updaterProblemMessageKey(problem: UpdaterProblem): MessageKey {
       return 'updaterProblemInstallFailed';
     case 'updater_restart_failed':
       // The recovery step names a real OS surface, so it has to match the host.
-      return isWindowsPlatform()
-        ? 'updaterProblemRestartFailedWindows'
-        : 'updaterProblemRestartFailedMac';
+      return restartFailedMessageKey();
+  }
+}
+
+function restartFailedMessageKey(): MessageKey {
+  switch (hostPlatform()) {
+    case 'windows':
+      return 'updaterProblemRestartFailedWindows';
+    case 'macos':
+      return 'updaterProblemRestartFailedMac';
+    case 'linux':
+      return 'updaterProblemRestartFailedLinux';
   }
 }

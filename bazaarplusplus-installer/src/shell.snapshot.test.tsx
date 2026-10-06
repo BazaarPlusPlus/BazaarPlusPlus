@@ -28,7 +28,9 @@ const host = vi.hoisted(() => {
 
 vi.mock('./api/runtime', () => ({ hasTauriRuntime: () => host.runtime }));
 vi.mock('./features/shared/platform', () => ({
-  isWindowsPlatform: () => host.windows
+  isWindowsPlatform: () => host.windows,
+  isMacPlatform: () => !host.windows,
+  hostPlatform: () => (host.windows ? 'windows' : 'macos')
 }));
 vi.mock('./api/commandClient', async () => {
   const { createPreviewCommands } = await import('./api/previewCommands');
