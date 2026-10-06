@@ -1,6 +1,6 @@
 {
-  "schema_version": 1,
   "aliases": {
     "Hero8": "TheDragons"
-  }
+  },
+  "schema_version": 1
 }
