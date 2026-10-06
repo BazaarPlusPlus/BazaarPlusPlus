@@ -194,7 +194,7 @@ def _layout(
     sizes: tuple[int, ...],
     *,
     slots: tuple[int, ...] | None = None,
-    tier: str = "Gold",
+    tier: str | None = "Gold",
     enchantments: tuple[str | None, ...] | None = None,
     socket_effect_slots: tuple[int, ...] = (),
     **run: object,
@@ -259,6 +259,15 @@ LAYOUT_CASES: dict[str, ServedBundle] = {
     ),
     "jules-eight-two": _layout(
         14, "Jules", JULES_CARDS, FULL_BOARD, victories=8, losses=2, run_day=8
+    ),
+    "oversized-card": _layout(15, "Dooley", DOOLEY_CARDS, (4, 3, 2, 1)),
+    "unknown-tier": _layout(16, "Dooley", DOOLEY_CARDS, FULL_BOARD, tier="Mythic"),
+    "missing-tier": _layout(
+        17, "Dooley", DOOLEY_CARDS, FULL_BOARD, tier=None, victories=8, losses=2
+    ),
+    "bronze-size-boundaries": _layout(18, "Mak", DOOLEY_CARDS, (3, 3, 3, 1), tier="Bronze"),
+    "legendary-tier-boundary": _layout(
+        19, "Stelle", DOOLEY_CARDS, (3, 3, 3, 1), tier=" Legendary "
     ),
 }
 

@@ -10,6 +10,25 @@ pub(crate) use trampoline::{
 };
 pub(crate) use zip_archive::read_bundled_bpp_version;
 
+/// Repairs developer deployments without extracting the installer's bundled Payload.
+pub(crate) fn repair_deployed_game(game_path: &Path, stub: &Path) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        payload::ensure_valid_game_path(game_path)?;
+        if !game_path.join("libdoorstop.dylib").is_file() {
+            return Err(
+                "libdoorstop.dylib is missing; install BepInEx with the installer first".into(),
+            );
+        }
+        trampoline::repair_with_stub(game_path, stub)
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = (game_path, stub);
+        Err("Launch trampoline repair is supported only on macOS".into())
+    }
+}
+
 use std::path::{Path, PathBuf};
 
 use crate::stream::runtime::StreamRuntime;

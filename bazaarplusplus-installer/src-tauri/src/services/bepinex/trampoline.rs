@@ -503,6 +503,11 @@ pub(crate) fn install_trampoline(resource_dir: &Path, game_path: &Path) -> Resul
 }
 
 #[cfg(target_os = "macos")]
+pub(super) fn repair_with_stub(game_path: &Path, stub: &Path) -> Result<(), String> {
+    imp::install_with_stub(game_path, stub)
+}
+
+#[cfg(target_os = "macos")]
 pub(crate) fn uninstall_trampoline(game_path: &Path) -> Result<(), String> {
     imp::uninstall_trampoline(game_path)
 }
@@ -896,6 +901,23 @@ mod tests {
                 app.as_os_str(),
             ],
         );
+        std::fs::copy(
+            source.join("libdoorstop.dylib"),
+            game.path().join("libdoorstop.dylib"),
+        )
+        .unwrap();
+        std::fs::create_dir_all(game.path().join("BepInEx/plugins")).unwrap();
+        std::fs::write(
+            game.path().join("BepInEx/plugins/BazaarPlusPlus.dll"),
+            b"developer-payload",
+        )
+        .unwrap();
+        std::fs::create_dir_all(game.path().join("BazaarPlusPlusV5")).unwrap();
+        std::fs::write(
+            game.path().join("BazaarPlusPlusV5/history-sentinel"),
+            b"user-data",
+        )
+        .unwrap();
         let stub = resources.join("Trampoline/bpp_launcher");
         for iteration in 1..=3 {
             imp::install_with_stub(game.path(), &stub).unwrap();
@@ -939,13 +961,19 @@ mod tests {
             "acceptance/repaired-tree.json",
             &crate::goldens::json(&tree, &[]),
         );
-        // The developer script must be able to consume the installer's backup format.
-        if let Some(script) = std::env::var_os("BPP_TEST_REPAIR_SCRIPT") {
-            std::fs::write(game.path().join(".bpp-launch-mode"), b"trampoline").unwrap();
-            let output = std::process::Command::new("/bin/bash")
-                .arg(script)
-                .env("BPP_GAME_ROOT", game.path())
-                .env("BPP_TRAMPOLINE_STUB", &stub)
+        // The CLI is the developer deployment entry. Its manifest must match the
+        // service outcome, and repeated repairs must preserve deployed DLLs/data.
+        let cli = std::env::var_os("BPP_TEST_INSTALLER_CLI").expect("BPP_TEST_INSTALLER_CLI");
+        let evidence = tempfile::tempdir().unwrap();
+        let manifest_path = evidence.path().join("repair.json");
+        for _ in 0..2 {
+            let output = std::process::Command::new(&cli)
+                .args(["repair", "--game"])
+                .arg(game.path())
+                .arg("--stub")
+                .arg(&stub)
+                .arg("--manifest")
+                .arg(&manifest_path)
                 .output()
                 .unwrap();
             assert!(
@@ -954,9 +982,19 @@ mod tests {
                 String::from_utf8_lossy(&output.stdout),
                 String::from_utf8_lossy(&output.stderr)
             );
+            assert_eq!(
+                std::fs::read_to_string(&manifest_path).unwrap(),
+                crate::services::file_manifest::json(&crate::goldens::tree_manifest(game.path()))
+                    .unwrap()
+            );
             assert!(is_current_with_stub(game.path(), &stub).unwrap());
-            eprintln!(
-                "Developer repair consumed the same backup and preserved the final signature"
+            assert_eq!(
+                std::fs::read(game.path().join("BepInEx/plugins/BazaarPlusPlus.dll")).unwrap(),
+                b"developer-payload"
+            );
+            assert_eq!(
+                std::fs::read(game.path().join("BazaarPlusPlusV5/history-sentinel")).unwrap(),
+                b"user-data"
             );
         }
         imp::uninstall_trampoline(game.path()).unwrap();

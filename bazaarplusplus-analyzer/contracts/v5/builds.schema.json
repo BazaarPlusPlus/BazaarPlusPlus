@@ -86,9 +86,9 @@
       "prefixItems": [
         {"type": "integer", "minimum": 0},
         {"type": "integer", "minimum": 0},
-        {"type": ["integer", "null"], "minimum": 1, "maximum": 5},
+        {"type": "integer", "minimum": 1, "maximum": 5},
         {"type": "integer", "minimum": 0},
-        {"type": "integer", "minimum": 1}
+        {"type": "integer", "minimum": 1, "maximum": 3}
       ],
       "items": false
     },

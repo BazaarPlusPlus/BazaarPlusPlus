@@ -47,9 +47,9 @@ repair_macos_trampoline() {
     local installer_source
     installer_source="$(prop_value BPPInstallerSourcePath "$@")"
     installer_source="${installer_source:-${BPP_INSTALLER_SOURCE_PATH:-$MOD_ROOT/../bazaarplusplus-installer/src-tauri/resources}}"
-    BPP_GAME_ROOT="$root" \
-        BPP_TRAMPOLINE_STUB="${BPP_TRAMPOLINE_STUB:-$installer_source/Trampoline/macos/bpp_launcher}" \
-        bash scripts/repair-macos-trampoline.sh
+    node "$MOD_ROOT/../bazaarplusplus-installer/scripts/headless.mjs" repair \
+        --game "$root" \
+        --stub "${BPP_TRAMPOLINE_STUB:-$installer_source/Trampoline/macos/bpp_launcher}"
 }
 
 # matrix [channel ...]: compile against every captured lock entry, fetching each

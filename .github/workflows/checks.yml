@@ -210,6 +210,13 @@ jobs:
         run: just mod::check
       - if: steps.store.outputs.ready == 'true'
         run: just mod::test
+      - name: Preserve Combat Impact corpus evidence
+        if: always() && steps.store.outputs.ready == 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: combat-impact-corpus-${{ matrix.platform }}
+          path: bazaarplusplus-mod/artifacts/combat-impact-corpus/*.json
+          if-no-files-found: error
       # Compatibility builds against the other two channels; a null entry fails.
       - if: steps.store.outputs.ready == 'true'
         run: just mod::matrix staging ptr
