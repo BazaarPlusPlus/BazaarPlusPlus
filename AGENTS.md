@@ -34,7 +34,7 @@ Run `just release::sync` after editing `VERSION` or `release/payload.json`; it r
 
 ## Verification
 
-`just` lists every recipe. Gate one project with `just <project>::check` and `just <project>::test`; gate a contract change with the check and test recipes of the owner and every consumer. `just check` and `just test` cover the whole repo; `just release::test` gates the root release modules. `just fmt` formats everything. Scope and prerequisites: `docs/development.md`.
+`just` lists every recipe. Gate one project with `just <project>::check` and `just <project>::test`; gate a contract change with the check and test recipes of the owner and every consumer. `just check` and `just test` cover the whole repo; `just release::test` gates the root release modules. `just fmt` formats everything. Goldens fail on any difference in every project; `BPP_UPDATE_GOLDENS=1` rewrites them (analyzer: `just analyzer::golden`), and every rewritten golden must be an intended diff in the PR. Scope and prerequisites: `docs/development.md`.
 
 ## Commits and pull requests
 
@@ -51,14 +51,27 @@ Run `just release::sync` after editing `VERSION` or `release/payload.json`; it r
 
 ## Documentation
 
-- Each fact has one owner. A term goes in the project's `CONTEXT.md` (in the root one when several projects use it). Current behavior goes in `docs/*.md`. A decision goes in `docs/adr/`. Plans, feature requests, and bugs go in GitHub issues through `gh`; read `docs/agents/issue-tracker.md` first.
+- Each fact has one owner. A term goes in the project's `CONTEXT.md` (in the root one when several projects use it). Current behavior goes in `docs/*.md`. A decision goes in `docs/adr/`. Plans, feature requests, and bugs go in GitHub issues (see Agent skills).
 - Config files, scripts, and `--help` output own every value they state. A doc carries only the convention, the reason, or the gotcha they cannot state.
 - Name domain concepts with the glossary's terms; a real naming gap gets a `CONTEXT.md` entry in the same change. When your output contradicts an ADR, name the ADR and say why it is worth reopening.
-- Cite code by path plus symbol name. Line numbers drift.
+- In committed docs and comments, cite code by path plus symbol name; line numbers drift. `file:line` is fine in session evidence and reviews.
 - ADRs are numbered `NNNN-slug.md` per project, in sequence. A number is never reused or renumbered. A replaced ADR gets a `superseded-by:` frontmatter pointer; a retired one is deleted and lives on in git history.
 - Root `README.md`, `docs/development.md`, and `docs/release.md` are in Chinese. `README_en.md` mirrors `README.md` section for section; edit both in one change.
-- Docs checks: installer `npm run docs:check`; mod `bazaarplusplus-mod/tests/Architecture.Tests/DocsHygieneTests.cs` enforces byte budgets and resolving links.
 
 ## Instructions
 
 Add an instruction to an `AGENTS.md` only when it is non-obvious, keeps coming up, and is actionable; put it in the narrowest `AGENTS.md` it applies to. During ordinary work, propose it under a **Suggested AGENTS.md additions** heading in the wrap-up. Edit directly when the user asks or an existing instruction is wrong.
+
+## Agent skills
+
+### Issue tracker
+
+GitHub Issues on this monorepo through `gh`; issues only, not PRs. Read `docs/agents/issue-tracker.md` before you create, read, or triage an issue.
+
+### Triage labels
+
+Each of the five canonical triage roles uses its own name as its label. Read `docs/agents/triage-labels.md` before applying one; most do not exist on the repo yet.
+
+### Domain docs
+
+`docs/agents/domain.md` names which `CONTEXT.md` and `docs/adr/` files to read before you explore an area.

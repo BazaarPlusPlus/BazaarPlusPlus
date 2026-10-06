@@ -1,12 +1,11 @@
 # AGENTS.md
 
-The analyzer that turns Bundles into hero and build snapshots. Repo-wide rules
-(commits, pull requests, docs policy, contracts) are in `../AGENTS.md`.
+The analyzer that turns Bundles into hero and build snapshots. Repo-wide rules are in `../AGENTS.md`.
 
 ## Routing
 
 - **Domain**: Read `CONTEXT.md` before changing source admission, facts,
-  windows, metrics, or domain names; use its defined terms.
+  windows, metrics, or domain names.
 - **Pipeline**: Read `docs/architecture.md` before changing collection,
   persistence, recovery, locking, status, or publication flow.
 - **Contract**: Read `docs/specs/consumer-data-contract.md` and the affected

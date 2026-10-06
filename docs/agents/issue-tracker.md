@@ -9,5 +9,5 @@ Plans, feature requests, and bugs for every project live as issues in the one mo
   gh issue list --state open --json number,title,body,labels,comments --jq '[.[] | {number, title, body, labels: [.labels[].name], comments: [.comments[].body]}]'
   ```
 
-- Triage runs over issues only; external pull requests are not a request surface.
+- **PRs as a request surface: no.** Triage runs over issues only. _(Set to `yes` to triage external pull requests too; `/triage` reads this flag.)_
 - "Publish to the issue tracker" means `gh issue create`; "fetch the relevant ticket" means `gh issue view <number> --comments`.
