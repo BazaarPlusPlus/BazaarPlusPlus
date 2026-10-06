@@ -4,7 +4,6 @@ set positional-arguments
 # Run the source-only gate, including Rust/JS tests and the frontend build.
 check:
     npm run verify -- --source-only
-    npm run docs:check
 
 # Pre-commit subset; full Rust checks, tests, binding generation and builds run in check.
 check-fast:

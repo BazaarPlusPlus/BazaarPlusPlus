@@ -6,26 +6,41 @@ import { tauriSourceEnvironment } from '../tauri-source-env.mjs';
 
 const manifestPath = 'src-tauri/Cargo.toml';
 
-function npmStep(label, script, extraArgs = []) {
+function npmStep(subset, label, script, extraArgs = []) {
   return {
+    subset,
     label,
     command: 'npm',
     args: ['run', script, ...extraArgs]
   };
 }
 
-export function verificationSteps({ mode, releasePlatform }) {
+export function verificationSteps({
+  mode,
+  releasePlatform,
+  subset = 'all',
+  platform = process.platform
+}) {
   if (mode !== 'source' && mode !== 'release') {
     throw new Error(`Unsupported verification mode: ${mode}`);
+  }
+
+  if (!['all', 'frontend', 'native'].includes(subset)) {
+    throw new Error(`Unsupported verification subset: ${subset}`);
+  }
+  if (mode === 'release' && subset !== 'all') {
+    throw new Error('Release verification requires the full set of checks');
   }
 
   const prebuildStep =
     mode === 'source'
       ? npmStep(
+          'shared',
           'Source version and resource contract checks',
           'prebuild-check:source:after-bindings'
         )
       : npmStep(
+          'shared',
           'Release version and payload checks',
           'prebuild-check:after-bindings',
           releasePlatform ? ['--', '--platform', releasePlatform] : []
@@ -35,14 +50,16 @@ export function verificationSteps({ mode, releasePlatform }) {
     // Cheap static gates run first so the most common failures (formatting,
     // lint, a stale Cargo lock) are reported before the Rust test build starts.
     // Clippy only type-checks, so it also runs ahead of the test build.
-    npmStep('Check formatting', 'format:check'),
-    npmStep('Lint TypeScript and scripts', 'lint'),
+    npmStep('frontend', 'Check formatting', 'format:check'),
+    npmStep('frontend', 'Lint TypeScript and scripts', 'lint'),
     {
+      subset: 'native',
       label: 'Check Rust formatting',
       command: 'cargo',
       args: ['fmt', '--manifest-path', manifestPath, '--', '--check']
     },
     {
+      subset: 'native',
       label: 'Check locked Cargo dependency graph',
       command: 'cargo',
       args: [
@@ -57,6 +74,7 @@ export function verificationSteps({ mode, releasePlatform }) {
       stdio: ['inherit', 'ignore', 'inherit']
     },
     {
+      subset: 'native',
       label: 'Run Rust Clippy',
       command: 'cargo',
       args: [
@@ -71,11 +89,20 @@ export function verificationSteps({ mode, releasePlatform }) {
         'warnings'
       ]
     },
-    npmStep('Generate bindings and run Rust tests', 'generate:bindings:test'),
-    npmStep('Check generated binding freshness', 'check:bindings'),
-    npmStep('Type-check TypeScript', 'check:ts'),
-    npmStep('Run Vitest', 'test:unit'),
+    npmStep(
+      'native',
+      'Generate bindings and run Rust tests',
+      'generate:bindings:test'
+    ),
+    npmStep('native', 'Check generated binding freshness', 'check:bindings'),
+    npmStep('frontend', 'Type-check TypeScript', 'check:ts'),
+    npmStep('frontend', 'Run frontend tests', 'test:unit', ['--', 'src']),
+    // Linux covers script behavior too; Windows repeats this boundary because
+    // process shims, paths and packaging scripts have Windows-specific code.
+    npmStep('scripts', 'Run script tests', 'test:unit', ['--', 'scripts']),
+    npmStep('frontend', 'Check documentation', 'docs:check'),
     {
+      subset: 'native',
       label: 'Build strict Rust documentation',
       command: 'cargo',
       args: [
@@ -90,14 +117,22 @@ export function verificationSteps({ mode, releasePlatform }) {
       env: { RUSTDOCFLAGS: '-D warnings' }
     },
     prebuildStep,
-    npmStep('Build production frontend', 'build:frontend')
-  ];
+    npmStep('frontend', 'Build production frontend', 'build:frontend')
+  ].filter(
+    (step) =>
+      subset === 'all' ||
+      step.subset === 'shared' ||
+      step.subset === subset ||
+      (step.subset === 'scripts' &&
+        (subset === 'frontend' || platform === 'win32'))
+  );
 }
 
 export function runVerification({
   rootDir,
   mode,
   releasePlatform,
+  subset = 'all',
   platform = process.platform,
   commandShell = process.env.ComSpec ?? 'cmd.exe',
   run = spawnSync,
@@ -121,7 +156,12 @@ export function runVerification({
   );
   const environment =
     mode === 'source' ? tauriSourceEnvironment() : { ...process.env };
-  for (const step of verificationSteps({ mode, releasePlatform })) {
+  for (const step of verificationSteps({
+    mode,
+    releasePlatform,
+    subset,
+    platform
+  })) {
     log(`==> ${step.label}`);
     const usesWindowsNpmShim = platform === 'win32' && step.command === 'npm';
     const command = usesWindowsNpmShim ? commandShell : step.command;
@@ -149,14 +189,22 @@ export function runVerification({
   return 0;
 }
 
-function parseCliArgs(args) {
+export function parseCliArgs(args) {
   let mode = 'release';
   let releasePlatform;
+  let subset = 'all';
 
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index];
     if (arg === '--source-only') {
       mode = 'source';
+      continue;
+    }
+    if (arg === '--subset') {
+      subset = args[++index];
+      if (!['all', 'frontend', 'native'].includes(subset)) {
+        throw new Error('--subset must be all, frontend or native');
+      }
       continue;
     }
     if (arg === '--release-platform') {
@@ -172,7 +220,7 @@ function parseCliArgs(args) {
   if (mode === 'source' && releasePlatform) {
     throw new Error('--source-only cannot be combined with --release-platform');
   }
-  return { mode, releasePlatform };
+  return { mode, releasePlatform, subset };
 }
 
 if (import.meta.main) {

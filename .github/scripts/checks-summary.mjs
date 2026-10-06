@@ -1,16 +1,17 @@
 import fs from 'node:fs';
-import { SCOPES } from './checks-scope.mjs';
+import { SCOPES, manualSelection } from './checks-scope.mjs';
 
 export const JOB_SCOPES = {
   release: 'release',
   site: 'site',
   server: 'server',
   analyzer: 'analyzer',
-  'installer-macos': 'installer',
-  'installer-windows': 'installer',
-  'installer-timings': 'installer',
-  'mod-macos': 'mod',
-  'mod-windows': 'mod',
+  'installer-frontend': 'installer-frontend',
+  'installer-macos': 'installer-macos',
+  'installer-windows': 'installer-windows',
+  'installer-timings': 'installer-frontend',
+  'mod-macos': 'mod-macos',
+  'mod-windows': 'mod-windows',
   'macos-icon': 'macos-icon'
 };
 
@@ -52,12 +53,12 @@ export function summarize({ needs, eventName, event, modCredentials }) {
       const reasons = plan[scope];
       let status = needs[job]?.result ?? 'missing';
       if (!reasons.length) status = '不受影响';
-      else if (scope === 'mod' && fork) {
+      else if (scope.startsWith('mod-') && fork) {
         if (status !== 'skipped')
           errors.push(`${job}: fork exception expected skipped, got ${status}`);
         status = 'fork 例外：需本地 Mod 验证，不提供私有快照凭据';
       } else {
-        if (scope === 'mod' && modCredentials !== 'true')
+        if (scope.startsWith('mod-') && modCredentials !== 'true')
           errors.push(
             `${job}: missing BPP_GAME_LIBS_TOKEN or CLOUDFLARE_ACCOUNT_ID; Mod checks were not verified`
           );
@@ -68,7 +69,7 @@ export function summarize({ needs, eventName, event, modCredentials }) {
   return { ok: errors.length === 0, errors, rows };
 }
 
-export function renderSummary(result, { eventName, ref, sha }) {
+export function renderSummary(result, { eventName, ref, sha, inputs }) {
   const escape = (text) =>
     String(text)
       .replaceAll('&', '&amp;')
@@ -78,6 +79,11 @@ export function renderSummary(result, { eventName, ref, sha }) {
       .replaceAll('\n', ' ');
   return [
     `Event: ${escape(eventName)} · Ref: ${escape(ref)} · SHA: ${escape(sha)}`,
+    ...(eventName === 'workflow_dispatch'
+      ? [
+          `Coverage: ${manualSelection(inputs).scope}/${manualSelection(inputs).platform}`
+        ]
+      : []),
     '',
     '| Job | Result | Selection reason |',
     '| --- | --- | --- |',
@@ -104,7 +110,8 @@ if (import.meta.main) {
   const report = renderSummary(result, {
     eventName: process.env.GITHUB_EVENT_NAME,
     ref: process.env.GITHUB_REF,
-    sha: process.env.GITHUB_SHA
+    sha: process.env.GITHUB_SHA,
+    inputs: event.inputs
   });
   fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, report);
   console.log(report);

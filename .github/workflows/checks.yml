@@ -5,16 +5,27 @@ on:
   push:
     branches: [master]
   workflow_dispatch:
+    inputs:
+      scope:
+        description: Projects to verify
+        type: choice
+        options: [full, installer, mod]
+        default: full
+      platform:
+        description: Native platforms to verify
+        type: choice
+        options: [all, macos, windows]
+        default: all
 
 permissions:
   contents: read
 
 concurrency:
-  group: checks-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  group: checks-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}-${{ inputs.scope }}-${{ inputs.platform }}
   # Let master finish the post-job cache save even when another merge arrives.
   cancel-in-progress: ${{ !(github.event_name == 'push' && github.ref == 'refs/heads/master') }}
 
-# Explicit native jobs preserve legacy required names even when skipped.
+# Explicit platform jobs let the summary verify each selected native result.
 jobs:
   classify:
     name: Classify changes
@@ -25,8 +36,11 @@ jobs:
       site: ${{ steps.scope.outputs.site }}
       server: ${{ steps.scope.outputs.server }}
       analyzer: ${{ steps.scope.outputs.analyzer }}
-      installer: ${{ steps.scope.outputs.installer }}
-      mod: ${{ steps.scope.outputs.mod }}
+      installer-frontend: ${{ steps.scope.outputs.installer-frontend }}
+      installer-macos: ${{ steps.scope.outputs.installer-macos }}
+      installer-windows: ${{ steps.scope.outputs.installer-windows }}
+      mod-macos: ${{ steps.scope.outputs.mod-macos }}
+      mod-windows: ${{ steps.scope.outputs.mod-windows }}
       macos-icon: ${{ steps.scope.outputs.macos-icon }}
       plan: ${{ steps.scope.outputs.plan }}
     steps:
@@ -146,10 +160,35 @@ jobs:
       WRANGLER_SEND_METRICS: 'false'
     steps: *node-steps
 
+  installer-frontend:
+    name: Installer (frontend)
+    needs: classify
+    if: needs.classify.outputs.installer-frontend == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: bazaarplusplus-installer/package-lock.json
+      - run: npm install --global "$(node --print "require('./package.json').packageManager")"
+        working-directory: bazaarplusplus-installer
+      - name: Install Installer npm dependencies
+        run: npm ci
+        working-directory: bazaarplusplus-installer
+      # Consume committed bindings; native inputs also select real generation.
+      - name: Verify Installer
+        run: npm run verify -- --source-only --subset frontend
+        working-directory: bazaarplusplus-installer
+
   installer-macos:
     name: Installer (macos-14)
     needs: classify
-    if: needs.classify.outputs.installer == 'true'
+    if: needs.classify.outputs.installer-macos == 'true'
     runs-on: macos-14
     timeout-minutes: 60
     env: &installer-env
@@ -168,9 +207,6 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
           cache-dependency-path: bazaarplusplus-installer/package-lock.json
-      - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4
-        with:
-          just-version: 1.58.0
       - name: Install the repository Rust toolchain and components
         working-directory: bazaarplusplus-installer
         run: |
@@ -192,15 +228,16 @@ jobs:
       - name: Install Installer npm dependencies
         run: npm ci
         working-directory: bazaarplusplus-installer
-      # Includes Rust/JS tests, binding freshness and frontend build. The source
-      # gate supplies an empty resource bundle; game assemblies are not required.
+      # Real binding generation precedes the diff check. Windows also repeats
+      # script tests; both platforms use an empty source resource bundle.
       - name: Verify Installer
-        run: just installer::check
+        run: npm run verify -- --source-only --subset native
+        working-directory: bazaarplusplus-installer
 
   installer-windows:
     name: Installer (windows-latest)
     needs: classify
-    if: needs.classify.outputs.installer == 'true'
+    if: needs.classify.outputs.installer-windows == 'true'
     runs-on: windows-latest
     timeout-minutes: 60
     env: *installer-env
@@ -211,8 +248,8 @@ jobs:
 
   installer-timings:
     name: Installer timing report
-    needs: [classify, installer-macos, installer-windows]
-    if: always() && needs.classify.outputs.installer == 'true'
+    needs: [classify, installer-frontend, installer-macos, installer-windows]
+    if: always() && needs.classify.outputs.installer-frontend == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -254,7 +291,7 @@ jobs:
     name: Mod (macos-14)
     needs: classify
     # Fork PRs have no private snapshots; summary records the explicit exception.
-    if: needs.classify.outputs.mod == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+    if: needs.classify.outputs.mod-macos == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: macos-14
     timeout-minutes: 45
     defaults:
@@ -303,7 +340,7 @@ jobs:
   mod-windows:
     name: Mod (windows-latest)
     needs: classify
-    if: needs.classify.outputs.mod == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+    if: needs.classify.outputs.mod-windows == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: windows-latest
     timeout-minutes: 45
     defaults:
@@ -316,7 +353,7 @@ jobs:
     steps: *mod-steps
 
   summary:
-    name: ${{ github.event_name == 'workflow_dispatch' && 'Manual checks summary' || 'Checks summary' }}
+    name: ${{ github.event_name == 'workflow_dispatch' && format('Manual checks ({0}/{1})', inputs.scope, inputs.platform) || 'Checks summary' }}
     # A dispatch check on the same SHA must never satisfy PR protection.
     if: always()
     needs:
@@ -326,6 +363,7 @@ jobs:
         site,
         server,
         analyzer,
+        installer-frontend,
         installer-macos,
         installer-windows,
         mod-macos,

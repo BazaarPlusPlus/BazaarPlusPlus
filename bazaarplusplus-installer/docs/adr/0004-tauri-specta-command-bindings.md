@@ -8,7 +8,7 @@ The IPC contract was once repeated across Rust signatures, DTO exports, a comman
 
 Make Rust Tauri commands the only IPC schema. One Specta builder registers the production invoke handler and exports typed DTOs plus command functions. The native frontend and Browser Preview implement the generated interface at one adapter boundary.
 
-Generation is mandatory for check, test, build, and prebuild validation. A failed generation preserves the previous artifact and fails the invoking command. Current ownership and generation mechanics are specified in [Architecture](../architecture.md).
+Generation is mandatory for complete check, test, build, and prebuild validation, and for the native source gate. The frontend source subset consumes committed bindings without invoking Rust. It proves that the frontend accepts that contract, not that the contract matches Rust. Any binding or native input change selects the frontend and both native platforms; only a real export followed by a generated-file diff establishes freshness. Checkout timestamps or a clean Git status alone cannot establish it. A failed generation preserves the previous artifact and fails the invoking command. Current ownership and generation mechanics are specified in [Architecture](../architecture.md).
 
 ## Rejected Alternatives
 
