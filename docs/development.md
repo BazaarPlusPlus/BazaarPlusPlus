@@ -24,7 +24,7 @@ just doctor
 mod 对照快照锁 `bazaarplusplus-mod/build/game-libs.lock.json` 指向的 Game Assembly Snapshot 编译（词条见根 `CONTEXT.md`，决定见 [ADR 0004](adr/0004-pinned-game-assembly-snapshots.md)），不再探测本机 Steam 路径。新 clone 在 `just setup` 之后执行一次：
 
 ```bash
-just mod::fetch macos online      # Windows 用 windows
+just mod::fetch macos online      # Windows 与 Linux 用 windows（Linux 跑 Proton 下的 Windows 版）
 ```
 
 它按本平台的 online 锁条目解析 Managed 目录并打印出来：本机 Steam 安装的 `globalgamemanagers` 版本串与条目一致、Managed 目录 sha256 也一致时直接采用；否则从私有存储取包到 `bazaarplusplus-mod/game-libs/`，这一步需要 `[cloudflare]` 的操作员 token（`release` profile），写作 `just with-config release just mod::fetch macos online`。两边都不满足时报错并列出锁和本机的两个版本串：切换 Steam 分支、等锁更新，或显式传 `-p:ManagedPath=...`。没有凭据的外部贡献者只能对着 online 构建；staging 和 ptr 条目只要求云端能取到。
@@ -34,6 +34,7 @@ just mod::fetch macos online      # Windows 用 windows
 - 显式 `-p:ManagedPath`（或 `config.ini` `[machine]` 的 `BPP_MANAGED_PATH`）绕过锁解析，但只是换一种取包方式，不是换一套程序集：`mod::check` 里的 `lock-check` 对它解析到的目录核对，版本串被某个锁条目记录而 sha256 不一致即失败，不被任何条目记录只告警；`release::prepare` 则直接拒绝不对应任何锁条目的目录。
 - 锁条目为空时 `mod::lock-check` 和 `release::check` 只告警；构建仍须解析所选渠道的锁条目，不会借用其他渠道的条目。
 - 锁只通过 PR 推进：在挂了对应 Steam 分支的机器上 `just mod::snapshot`，再 `just mod::publish <platform> <channel>` 上传私有存储，然后提交锁文件。游戏更新后本机 Steam 与锁不一致，锁推进前无法构建，这是接受的代价。
+- Linux 主机把游戏平台解析为 `windows`（[ADR 0005](adr/0005-linux-runs-the-windows-game-under-proton.md)）：`mod::fetch`、`mod::lock-check` 和 `mod::snapshot` 读取本机 Proton 安装的 `TheBazaar_Data/Managed`，`just mod::build --deploy` 直接写入 Proton 的游戏目录，不经过 macOS 的跳板修复。Steam 库从 `~/.local/share/Steam`、`~/.steam/steam` 和 Flatpak 路径探测。
 
 ## 环境与依赖
 
@@ -41,7 +42,7 @@ just mod::fetch macos online      # Windows 用 windows
 
 | 范围 | 版本来源 | 安装依赖 |
 | --- | --- | --- |
-| just | 本仓库用 `just 1.58.0` 验证 | macOS `brew install just`；Windows `winget install --id Casey.Just --exact` |
+| just | 本仓库用 `just 1.58.0` 验证 | macOS `brew install just`；Windows `winget install --id Casey.Just --exact`；Linux 用发行版包管理器（如 `pacman -S just`） |
 | 根发布工具 | `.nvmrc`、根 `package.json` 的 `packageManager` | 根目录 `npm ci` |
 | installer、site、server | 各自 `package.json` 的 `engines` 与 `packageManager` | 各目录 `npm ci`；site 另需 `npx playwright install chromium`（只有 `site::e2e` 需要） |
 | mod | `bazaarplusplus-mod/global.json`；快照锁指向的游戏程序集，见[游戏程序集](#游戏程序集) | .NET restore |
@@ -49,6 +50,8 @@ just mod::fetch macos online      # Windows 用 windows
 | analyzer | `bazaarplusplus-analyzer/.python-version`、uv | analyzer 目录 `uv sync --locked` |
 
 Windows 在 Git Bash 中执行 just，`bash`、`just` 和语言工具链都要在 PATH 上。`JUSTFILE` 的 shell 保持 Bash：参数转发依赖 Bash 的位置参数。Windows 原生构建另需 PowerShell 7.6.0 或更高版本；正式包的平台工具链和签名材料见[产品发布](release.md)。
+
+Linux 用发行版的 Bash 与 just 即可；installer 的原生构建另需 Tauri 的 Linux 系统依赖（见[环境与依赖](#环境与依赖)）。
 
 ## 验证
 

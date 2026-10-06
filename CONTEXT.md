@@ -35,6 +35,19 @@ _Avoid_: Steam branch copy, game-libs archive
 `bazaarplusplus-mod/build/game-libs.lock.json`: the committed binding of the mod source to one Game Assembly Snapshot per platform and channel, six keys that stay `null` until captured. After an explicit override, `ManagedPath` resolves only from it: the fetched snapshot, or the local Steam install whose game version and sha256 match the entry. Each platform's product compiles against its `online` entry; `staging` and `ptr` entries feed compatibility builds and tests. It changes only through a pull request; `release/game-libs.mjs` owns its schema and the mod recipes capture, publish, fetch, and check it.
 _Avoid_: game-libs manifest, Steam buildid pin
 
+## Platforms
+
+**Host Platform**:
+The operating system running the toolchain and the installer: `windows`, `macos`, or `linux`. It decides native tooling, packaging targets, and Steam discovery; it does not decide which game build the Payload targets.
+_Avoid_: build platform
+
+**Game Platform**:
+The operating system of the game build the mod and the Payload target: `macos` or `windows`. It selects the Snapshot Lock entry (`<platform>-<channel>`), the Payload Inventory `platforms` scope, the bootstrap files, the native plugins, and the process image name. A Linux Host Platform's Game Platform is `windows`, because The Bazaar has no native Linux build and Linux players run the Windows build under Proton (see [ADR 0005](docs/adr/0005-linux-runs-the-windows-game-under-proton.md)).
+
+**Proton Launch Option**:
+The Steam `LaunchOptions` value the Linux bootstrap maintains for The Bazaar, `WINEDLLOVERRIDES="winhttp=n,b" %command%`, which makes Proton load Doorstop's `winhttp.dll` proxy from the game directory. Linux's bootstrap invariant is that it is present and exact; macOS's is that the value is empty.
+_Avoid_: launch args, Steam flags
+
 ## Credentials
 
 **Operator Token** (操作员 token):

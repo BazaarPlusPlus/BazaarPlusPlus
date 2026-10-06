@@ -16,6 +16,8 @@
 
 On macOS, `plan_install` keeps Steam running when detected launch options are empty; only non-empty launch options add Steam shutdown and cleanup. `ensure_bazaar_stopped` in `src-tauri/src/services/game_process.rs` checks the selected game process before install effects and again before trampoline replacement, and fails closed when process inspection fails.
 
+On Linux the game is the Windows build under Proton, so the platform bootstrap is the Windows one (`winhttp.dll` plus `doorstop_config.ini`) and the game's Steam `LaunchOptions` must carry `WINEDLLOVERRIDES="winhttp=n,b" %command%` (root [ADR 0005](../../docs/adr/0005-linux-runs-the-windows-game-under-proton.md)). `plan_install` therefore adds `EnsureGameStopped`, `CloseSteam`, and `EnsureLaunchOptions` whenever that value is missing or different, and `ensure_launch_options_for_steam` writes it across every numeric `userdata` account. `prepare_steam_for_config_update` shuts Steam down with `steam -shutdown` before the write, because a running Steam overwrites `localconfig.vdf`. Detection reads the same value through `inspect_launch_options_for_steam`, so an edited or lost launch option routes the UI to Repair.
+
 ## Steam Launch Boundary
 
 The installer launches The Bazaar through `launch_game_via_steam` in `src-tauri/src/services/install/mod.rs`, which opens the fixed Steam game URL. Detection resolves Steam installations through `detect_installation_paths` in `src-tauri/src/services/detect/steam.rs`; there is no alternate launch-mode state. The Steam-only product boundary lives in [ADR-0003](adr/0003-steam-only-launch.md).
