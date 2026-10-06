@@ -356,7 +356,9 @@ class SnapshotBuilder:
                        lower(c.template_id),
                        '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
                      ))
-                     AND bool_and(c.size IS NOT NULL AND c.size > 0)
+                     AND bool_and(c.size IS NOT NULL AND c.size BETWEEN 1 AND 3)
+                     AND bool_and(c.tier IS NOT NULL AND lower(trim(c.tier)) IN
+                                  ('bronze', 'silver', 'gold', 'diamond', 'legendary'))
                      AND sum(c.size)=10
                      AND bool_and(coalesce(c.socket,c.slot_index) IS NOT NULL
                                   AND coalesce(c.socket,c.slot_index) >= 0

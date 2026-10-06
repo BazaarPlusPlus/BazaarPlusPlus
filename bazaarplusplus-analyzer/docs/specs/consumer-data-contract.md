@@ -116,11 +116,17 @@ A completed Accepted Run contributes a layout when:
 - exactly one Battle is marked final and its ID equals the Run's
   `final_battle_id`;
 - the final player-hand item snapshot is present and captured;
-- every item has a valid card template ID, positive size, and in-range slot;
+- every item has a valid card template ID, a size from 1 through 3, a known
+  tier (Bronze, Silver, Gold, Diamond, or Legendary), and an in-range slot;
 - the items occupy all 10 board slots exactly once.
 
 Socket-effect overlays (`card_type = 7`) share a socket with an item. They are
 removed before identity and occupancy are evaluated.
+
+A layout with any invalid item excludes the entire Run from Build Corpus
+statistics and Representative Layout selection. It does not change the
+Accepted Run population used by Hero metrics. Tier names are trimmed and
+matched without case sensitivity.
 
 A Build Identity is its hero plus the sorted multiset of card template IDs.
 Position, tier, and enchantment belong to layouts, not identity. Every eligible

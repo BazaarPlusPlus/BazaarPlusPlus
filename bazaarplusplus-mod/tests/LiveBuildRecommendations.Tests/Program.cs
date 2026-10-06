@@ -88,7 +88,7 @@ internal static class TenWinBuildTests
         );
         var corpus = RequireCorpus(ContractJson());
         Assert(corpus.HeroCount == 8, "The contract fixture should contain all eight heroes.");
-        Assert(corpus.BuildCount == 2, "The contract fixture should contain two builds.");
+        Assert(corpus.BuildCount == 4, "The contract fixture should contain four builds.");
         Assert(
             corpus.GeneratedAtUtc == DateTimeOffset.Parse("2026-08-11T00:30:00Z"),
             "generated_at should parse as UTC."

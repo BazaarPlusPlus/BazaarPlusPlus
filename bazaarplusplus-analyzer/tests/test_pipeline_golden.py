@@ -61,6 +61,15 @@ def test_one_bundle_day_reproduces_the_committed_snapshots_and_run_report(
         del report["downloads"][field]
     heroes = (tmp_path / "snapshots/heroes/latest.json").read_bytes()
     builds = (tmp_path / "snapshots/builds/latest.json").read_bytes()
+    build_payload = json.loads(builds)
+    # Invalid layouts must not dilute the valid identity's statistics or poison
+    # the entire snapshot consumed by the mod. Hero population stays independent.
+    assert build_payload["heroes"]["Dooley"]["builds"][0][2][:3] == [2, 2, 10000]
+    for hero in build_payload["heroes"].values():
+        for build in hero["builds"]:
+            assert all(1 <= row[2] <= 5 and 1 <= row[4] <= 3 for row in build[1])
+    assert build_payload["heroes"]["Mak"]["builds"][0][1][-1][2:] == [1, 0, 1]
+    assert build_payload["heroes"]["Stelle"]["builds"][0][1][-1][2:] == [5, 0, 1]
 
     # A golden that proves nothing must never be committed.
     assert report["window"] == {"start": "2026-08-10", "end": "2026-08-10", "days": 1}
