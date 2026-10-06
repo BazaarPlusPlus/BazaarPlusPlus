@@ -22,14 +22,15 @@ namespace RuntimeIntegration.Tests;
 // GameBuildInfoResolver probe (TheBazaar.Config declares ServerOption only on PTR); premises
 // shared by online and PTR run on both.
 //
-// Every run writes artifacts/compatibility/<channel>-<buildid>.json, also when a premise
-// fails, with no timestamps, so two runs against one ManagedPath are byte-identical and a
+// Each run against valid inputs writes artifacts/compatibility/<channel>-<buildid>.json,
+// also when a game premise fails, with no timestamps, so two runs against one ManagedPath are byte-identical and a
 // diff between two builds' reports names the premise that drifted.
 //
 // Failure modes: a premise reports resolved=false when the game renamed, removed, retyped,
 // or re-scoped the member, or when a method body stopped calling the target. A snapshot
-// directory whose name declares a channel the probe disagrees with fails the
-// snapshot-channel premise. The buildid is "unknown" when ManagedPath is neither a
+// manifest whose channel disagrees with the dispatch shape fails the snapshot-channel
+// premise. Staging shares the online dispatch shape, independently of upload isolation.
+// The buildid is "unknown" when ManagedPath is neither a
 // game-libs snapshot nor under a Steam library holding appmanifest_1617400.acf.
 public sealed class GamePremiseCompatibilityTests
 {
@@ -40,15 +41,58 @@ public sealed class GamePremiseCompatibilityTests
         | BindingFlags.Static
         | BindingFlags.DeclaredOnly;
 
-    private static readonly Regex SnapshotPath = new(
-        @"(?:^|/)game-libs/(online|ptr)-([^/]+)/Managed$",
-        RegexOptions.CultureInvariant
-    );
-
     private static readonly Regex BuildIdLine = new(
         "^\"buildid\"\\s+\"([^\"]+)\"",
         RegexOptions.CultureInvariant
     );
+
+    [Theory]
+    [InlineData("macos", "online")]
+    [InlineData("macos", "staging")]
+    [InlineData("macos", "ptr")]
+    [InlineData("windows", "online")]
+    [InlineData("windows", "staging")]
+    [InlineData("windows", "ptr")]
+    public void Snapshot_identity_comes_from_the_manifest_and_rejects_mislabeled_directories(
+        string platform,
+        string channel
+    )
+    {
+        var root = Directory.CreateTempSubdirectory("bpp-premise-snapshot-");
+        try
+        {
+            var gameVersion = $"1.0.12254-{channel}-{platform}-test";
+            var snapshot = Path.Combine(
+                root.FullName,
+                "game-libs",
+                $"{platform}-{channel}-{gameVersion}"
+            );
+            var managed = Path.Combine(snapshot, "Managed");
+            Directory.CreateDirectory(managed);
+            File.WriteAllBytes(
+                Path.Combine(snapshot, "manifest.json"),
+                JsonSerializer.SerializeToUtf8Bytes(
+                    new
+                    {
+                        platform,
+                        channel,
+                        gameVersion,
+                        buildid = "25141468",
+                    }
+                )
+            );
+
+            Assert.Equal((channel, "25141468"), IdentifyBuild(managed));
+            Directory.Move(snapshot, snapshot + "-mislabeled");
+            Assert.Throws<Xunit.Sdk.EqualException>(() =>
+                IdentifyBuild(Path.Combine(snapshot + "-mislabeled", "Managed"))
+            );
+        }
+        finally
+        {
+            root.Delete(recursive: true);
+        }
+    }
 
     [Fact]
     public void Game_premises_hold_for_the_managed_assemblies_and_are_reported()
@@ -72,6 +116,7 @@ public sealed class GamePremiseCompatibilityTests
             != null;
         var channel = hasServerOption ? "ptr" : "online";
         var (snapshotChannel, buildId) = IdentifyBuild(managedPath);
+        var reportChannel = snapshotChannel ?? channel;
 
         var premises = new Premises(runtime);
         var overloads = new SortedSet<string>(StringComparer.Ordinal);
@@ -91,7 +136,7 @@ public sealed class GamePremiseCompatibilityTests
         finally
         {
             premises.Dispose();
-            WriteReport(managedPath, channel, buildId, premises.Results, overloads);
+            WriteReport(managedPath, reportChannel, channel, buildId, premises.Results, overloads);
         }
 
         var failed = premises
@@ -100,7 +145,7 @@ public sealed class GamePremiseCompatibilityTests
             .ToArray();
         Assert.True(
             failed.Length == 0,
-            $"{failed.Length} game premise(s) drifted on {channel}-{buildId}:\n  "
+            $"{failed.Length} game premise(s) drifted on {reportChannel}-{buildId}:\n  "
                 + string.Join("\n  ", failed)
         );
     }
@@ -519,12 +564,25 @@ public sealed class GamePremiseCompatibilityTests
 
     private static (string? SnapshotChannel, string BuildId) IdentifyBuild(string managedPath)
     {
-        var normalized = managedPath.Replace('\\', '/').TrimEnd('/');
-        var snapshot = SnapshotPath.Match(normalized);
-        if (snapshot.Success)
-            return (snapshot.Groups[1].Value, snapshot.Groups[2].Value);
-
         var directory = new DirectoryInfo(managedPath);
+        if (directory.Name == "Managed" && directory.Parent?.Parent?.Name == "game-libs")
+        {
+            var snapshot = directory.Parent;
+            using var stream = File.OpenRead(Path.Combine(snapshot.FullName, "manifest.json"));
+            using var document = JsonDocument.Parse(stream);
+            var manifest = document.RootElement;
+            var platform = manifest.GetProperty("platform").GetString();
+            var channel = manifest.GetProperty("channel").GetString();
+            var gameVersion = manifest.GetProperty("gameVersion").GetString();
+            var buildId = manifest.GetProperty("buildid").GetString();
+            Assert.Contains(platform, new[] { "macos", "windows" });
+            Assert.Contains(channel, new[] { "online", "staging", "ptr" });
+            Assert.False(string.IsNullOrWhiteSpace(gameVersion));
+            Assert.Equal($"{platform}-{channel}-{gameVersion}", snapshot.Name);
+            Assert.Matches("^[1-9][0-9]*$", buildId ?? "");
+            return (channel, buildId!);
+        }
+
         for (var level = 0; level < 10 && directory.Parent != null; level++)
         {
             directory = directory.Parent;
@@ -547,6 +605,7 @@ public sealed class GamePremiseCompatibilityTests
     private static void WriteReport(
         string managedPath,
         string channel,
+        string dispatchShape,
         string buildId,
         IReadOnlyList<PremiseResult> premises,
         SortedSet<string> overloads
@@ -567,6 +626,7 @@ public sealed class GamePremiseCompatibilityTests
         {
             json.WriteStartObject();
             json.WriteString("channel", channel);
+            json.WriteString("dispatchShape", dispatchShape);
             json.WriteString("buildid", buildId);
             json.WriteStartObject("sha256");
             foreach (var assembly in new[] { "Assembly-CSharp.dll", "TheBazaarRuntime.dll" })
@@ -649,10 +709,10 @@ public sealed class GamePremiseCompatibilityTests
         internal void Snapshot(string declared, string probed, string buildId) =>
             Results.Add(
                 new PremiseResult(
-                    "snapshot directory channel matches the ServerOption probe",
+                    "snapshot channel matches the ServerOption dispatch shape",
                     "signature",
-                    $"game-libs/{declared}-{buildId}",
-                    declared == probed,
+                    $"manifest.json: channel={declared}, buildid={buildId}",
+                    (declared == "ptr" ? "ptr" : "online") == probed,
                     probed
                 )
             );
