@@ -37,7 +37,7 @@
     "@tauri-apps/api": "^2.11.1",
     "@tauri-apps/plugin-opener": "^2.5.5",
     "@tauri-apps/plugin-process": "^2.3.1",
-    "@tauri-apps/plugin-updater": "^2.11.0",
+    "@tauri-apps/plugin-updater": "^2.12.0",
     "clsx": "^2.1.1",
     "lucide-react": "^1.47.0",
     "react": "^19.3.0",
