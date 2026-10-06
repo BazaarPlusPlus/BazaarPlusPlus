@@ -236,7 +236,7 @@
       Condition="'$(MacReplayPluginBundle)' != ''"
     />
     <Exec
-      Command="node &quot;$(ProjectRoot)/../../../bazaarplusplus-installer/scripts/headless.mjs&quot; repair --game &quot;$(GamePath)&quot; --stub &quot;$(BPPInstallerSourcePath)/Trampoline/macos/bpp_launcher&quot; --manifest &quot;$(ProjectRoot)/../../artifacts/deploy-repair.manifest.json&quot;"
+      Command="node &quot;$(ProjectRoot)/../../../bazaarplusplus-installer/scripts/headless.mjs&quot; repair --game &quot;$(GamePath)&quot; --stub &quot;$(BPPInstallerSourcePath)/Trampoline/macos/bpp_launcher&quot;"
       Condition="'$(MacReplayPluginBundle)' != ''"
     />
     <!-- Unity must preload the Windows rendering plugin before BepInEx starts. -->
