@@ -310,6 +310,39 @@ test('setup and scoped commands preserve arguments without shell expansion', (t)
   ]);
 });
 
+// The GitHub secrets recipes only route to the workspace CLI, which owns the
+// gh calls; flags pass through unchanged and nothing else runs.
+test('secrets-check and secrets-sync delegate to the workspace secrets commands', (t) => {
+  const f = fixture(t);
+  succeeded(f.run(['secrets-check']));
+  succeeded(f.run(['secrets-check', '--dependabot']));
+  succeeded(f.run(['secrets-sync']));
+  succeeded(f.run(['secrets-sync', '--dependabot', '--prune']));
+  assert.deepEqual(f.calls(), [
+    call(f.dir, null, 'node', 'scripts/workspace.mjs', 'secrets', 'check'),
+    call(
+      f.dir,
+      null,
+      'node',
+      'scripts/workspace.mjs',
+      'secrets',
+      'check',
+      '--dependabot'
+    ),
+    call(f.dir, null, 'node', 'scripts/workspace.mjs', 'secrets', 'push'),
+    call(
+      f.dir,
+      null,
+      'node',
+      'scripts/workspace.mjs',
+      'secrets',
+      'push',
+      '--dependabot',
+      '--prune'
+    )
+  ]);
+});
+
 // These must remain literal arguments, not interpolated shell source.
 const managedPath =
   "-p:ManagedPath=C:/Games/O'Brien/${USER}/$(printf injected); & Managed";
@@ -385,6 +418,16 @@ test('mod snapshot recipes route to game.sh with validated platform and channel'
       'macos',
       'staging'
     )
+  ]);
+});
+
+test('mod::matrix forwards the named channels to build.sh', (t) => {
+  const f = fixture(t);
+  succeeded(f.run(['mod::matrix']));
+  succeeded(f.run(['mod::matrix', 'staging', 'ptr']));
+  assert.deepEqual(f.calls(), [
+    call(f.dir, 'mod', 'mod-build', 'matrix'),
+    call(f.dir, 'mod', 'mod-build', 'matrix', 'staging', 'ptr')
   ]);
 });
 

@@ -142,15 +142,13 @@ def _validate_local_snapshots(data_root) -> int:
 
 
 def _object_store(config):
-    assert config.r2_account_id is not None
+    assert config.cloudflare_account_id is not None
+    assert config.cloudflare_api_token is not None
     assert config.r2_bucket is not None
-    assert config.r2_access_key_id is not None
-    assert config.r2_secret_access_key is not None
     return R2ObjectStore(
-        account_id=config.r2_account_id,
+        account_id=config.cloudflare_account_id,
         bucket=config.r2_bucket,
-        access_key_id=config.r2_access_key_id,
-        secret_access_key=config.r2_secret_access_key,
+        api_token=config.cloudflare_api_token,
     )
 
 

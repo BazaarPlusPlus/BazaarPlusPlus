@@ -332,6 +332,7 @@ void TestReplayReturnPreservesSelectionAndFilters()
     }
     finally
     {
+        DisposeAndDrainReads(coordinator);
         cacheType.SetValue(null, previousType);
         resolved.SetValue(null, previousResolved);
         db.Close();
@@ -647,11 +648,38 @@ void WithProfileCapsule(
     }
     finally
     {
+        DisposeAndDrainReads(coordinator);
+        api.Dispose();
         cacheType.SetValue(null, previousType);
         resolved.SetValue(null, previousResolved);
         SqliteConnection.ClearAllPools();
         File.Delete(databasePath);
     }
+}
+
+// Closing a panel discards publication, but a Task.Run database read may still own its SQLite
+// handle. Teardown must pump the UI context until those reads return before deleting the file.
+// Reflection is confined to fixture cleanup; the scenarios exercise the coordinator's API.
+void DisposeAndDrainReads(IDisposable coordinator)
+{
+    coordinator.Dispose();
+    var reads = coordinatorType
+        .GetFields(BindingFlags.Instance | BindingFlags.NonPublic)
+        .Where(field =>
+            field.FieldType.IsGenericType
+            && field.FieldType.GetGenericTypeDefinition().FullName
+                == "BazaarPlusPlus.Game.HistoryPanel.LatestHistoryRead`1"
+        )
+        .Select(field => field.GetValue(coordinator)!)
+        .ToArray();
+    uiContext.Until(() =>
+        reads.All(read =>
+            !(bool)
+                read.GetType()
+                    .GetField("_running", BindingFlags.Instance | BindingFlags.NonPublic)!
+                    .GetValue(read)!
+        )
+    );
 }
 
 object CreateRun(string runId, string hero)

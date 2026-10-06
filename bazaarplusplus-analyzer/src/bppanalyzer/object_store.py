@@ -1,18 +1,80 @@
 """Minimal object-store boundary with its Cloudflare R2 adapter."""
 
 import hashlib
+import re
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import PurePosixPath
 from typing import Protocol
 
 import boto3
+import httpx
 from botocore.config import Config as BotoConfig
 from botocore.exceptions import BotoCoreError, ClientError
+
+CLOUDFLARE_API = "https://api.cloudflare.com/client/v4"
+_ACCOUNT_ID = re.compile(r"[0-9a-fA-F]{32}")
+_TOKEN_ID = re.compile(r"[0-9a-f]{32}")
+_BUCKET = re.compile(r"[a-z0-9][a-z0-9-]*[a-z0-9]")
+# Verified token ids per process, keyed by the token's digest, never its value.
+_verified_token_ids: dict[str, str] = {}
 
 
 class ObjectStoreError(RuntimeError):
     """An object-store request failed or returned inconsistent metadata."""
+
+
+def _verify_token(token: str, client: httpx.Client | None) -> str:
+    def request(http: httpx.Client) -> httpx.Response:
+        return http.get(
+            f"{CLOUDFLARE_API}/user/tokens/verify",
+            headers={"Authorization": f"Bearer {token}"},
+            timeout=30.0,
+        )
+
+    try:
+        if client is not None:
+            response = request(client)
+        else:
+            with httpx.Client() as http:
+                response = request(http)
+    except httpx.HTTPError as error:
+        raise ObjectStoreError("Cloudflare token verification failed") from error
+    try:
+        body = response.json()
+    except ValueError:
+        body = None
+    if response.status_code != 200 or not isinstance(body, dict) or body.get("success") is not True:
+        raise ObjectStoreError(
+            f"Cloudflare rejected CLOUDFLARE_API_TOKEN: HTTP {response.status_code}"
+        )
+    result = body.get("result") or {}
+    token_id = result.get("id")
+    status = result.get("status")
+    if not isinstance(token_id, str) or _TOKEN_ID.fullmatch(token_id) is None:
+        raise ObjectStoreError("Cloudflare token verification returned no token id")
+    if status != "active":
+        raise ObjectStoreError(f"CLOUDFLARE_API_TOKEN is {status}, not active")
+    return token_id
+
+
+def derive_s3_credentials(api_token: str, *, client: httpx.Client | None = None) -> tuple[str, str]:
+    """The S3 pair R2 accepts for an API token.
+
+    The Access Key ID is the token's id, which only ``GET /user/tokens/verify``
+    reveals, and the Secret Access Key is the SHA-256 of the token value. The
+    verified id is reused for the rest of the process.
+    """
+    token = api_token.strip()
+    if not token:
+        raise ValueError("CLOUDFLARE_API_TOKEN is empty")
+    # Cloudflare defines the secret as this digest; it is not password storage.
+    secret = hashlib.sha256(token.encode()).hexdigest()  # lgtm[py/weak-sensitive-data-hashing]
+    access_key_id = _verified_token_ids.get(secret)
+    if access_key_id is None:
+        access_key_id = _verify_token(token, client)
+        _verified_token_ids[secret] = access_key_id
+    return access_key_id, secret
 
 
 @dataclass(frozen=True, slots=True)
@@ -47,22 +109,34 @@ class ObjectStore(Protocol):
 
 
 class R2ObjectStore:
-    """Cloudflare R2 adapter using its S3-compatible boto3 endpoint."""
+    """Cloudflare R2 adapter using its S3-compatible boto3 endpoint.
+
+    The S3 pair is derived from ``api_token`` with one verify call before any
+    bucket request; an empty token, a malformed account id or bucket name, and
+    a rejected, malformed or inactive token all fail here.
+    """
 
     def __init__(
         self,
         *,
         account_id: str,
         bucket: str,
-        access_key_id: str,
-        secret_access_key: str,
+        api_token: str,
+        http_client: httpx.Client | None = None,
     ) -> None:
-        if not all((account_id, bucket, access_key_id, secret_access_key)):
+        if not all((account_id, bucket, api_token)):
             raise ValueError("Complete R2 configuration is required")
+        if _ACCOUNT_ID.fullmatch(account_id) is None:
+            raise ValueError(
+                "CLOUDFLARE_ACCOUNT_ID must be the 32-character hexadecimal account id"
+            )
+        if _BUCKET.fullmatch(bucket) is None:
+            raise ValueError("Invalid R2 bucket")
+        access_key_id, secret_access_key = derive_s3_credentials(api_token, client=http_client)
         self.bucket = bucket
         self._client = boto3.client(
             "s3",
-            endpoint_url=f"https://{account_id}.r2.cloudflarestorage.com",
+            endpoint_url=f"https://{account_id.lower()}.r2.cloudflarestorage.com",
             aws_access_key_id=access_key_id,
             aws_secret_access_key=secret_access_key,
             region_name="auto",

@@ -1,8 +1,10 @@
 name: Deploy site
 
 # Preview deploys follow master; production deploys only on dispatch and wait
-# for the site-production environment approval. Credentials never leave the
-# GitHub Environments, so the branch policy on both environments is master.
+# for the site-production environment approval. The deploy token never leaves
+# the GitHub Environments, so the branch policy on both environments is master;
+# the account id is the repository variable every workflow shares
+# (release/github-secrets.json).
 on:
   workflow_dispatch:
     inputs:
@@ -63,7 +65,7 @@ jobs:
             exit 1
           fi
           if [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
-            echo "::error::CLOUDFLARE_ACCOUNT_ID is not set on the site-$TARGET environment."
+            echo "::error::CLOUDFLARE_ACCOUNT_ID is not set as a repository variable (just secrets-sync)."
             exit 1
           fi
       - run: just site::check site::test

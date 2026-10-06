@@ -310,14 +310,14 @@ static RunScreenshotRecord Screenshot(
         VictoriesAtCapture = 10,
     };
 
-// A deterministic gradient; ImageSharp's PNG and JPEG encoders are deterministic for it.
+// A fixed gradient; the artifact verifier allows only JPEG's small lossy pixel error.
 static void WritePng(string path)
 {
     Directory.CreateDirectory(Path.GetDirectoryName(path)!);
     using var image = new Image<Rgba32>(96, 64);
     for (var y = 0; y < image.Height; y++)
     for (var x = 0; x < image.Width; x++)
-        image[x, y] = new Rgba32((byte)(x * 2), (byte)(y * 3), (byte)((x + y) % 256), 255);
+        image[x, y] = PipelineInputs.ScreenshotPixel(x, y);
     image.SaveAsPng(path);
 }
 
@@ -999,10 +999,13 @@ internal sealed class TestBuild : IGameBuildInfo
 internal static class PipelineInputs
 {
     internal static readonly DateTimeOffset Base = new(2099, 1, 1, 0, 0, 0, TimeSpan.Zero);
+
+    internal static Rgba32 ScreenshotPixel(int x, int y) =>
+        new((byte)(x * 2), (byte)(y * 3), (byte)((x + y) % 256), 255);
 }
 
 // The game's NetMessage constructors assign a random MessageId; fixing it keeps the replay
-// bytes, and so run.payload.sha256, identical across runs.
+// uncompressed replay bytes identical across runs.
 internal static class ReplayBytes
 {
     internal static readonly byte[] Spawn = MessagePackSerializer.Serialize(

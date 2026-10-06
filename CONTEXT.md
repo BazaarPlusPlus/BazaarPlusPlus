@@ -35,6 +35,12 @@ _Avoid_: Steam branch copy, game-libs archive
 `bazaarplusplus-mod/build/game-libs.lock.json`: the committed binding of the mod source to one Game Assembly Snapshot per platform and channel, six keys that stay `null` until captured. After an explicit override, `ManagedPath` resolves only from it: the fetched snapshot, or the local Steam install whose game version and sha256 match the entry. Each platform's product compiles against its `online` entry; `staging` and `ptr` entries feed compatibility builds and tests. It changes only through a pull request; `release/game-libs.mjs` owns its schema and the mod recipes capture, publish, fetch, and check it.
 _Avoid_: game-libs manifest, Steam buildid pin
 
+## Credentials
+
+**Operator Token** (操作员 token):
+The one Cloudflare API token a maintainer holds for every R2 bucket (`bppinstaller`, `bazaarplusplus-game-libs`, the metrics bucket) and for Wrangler: `config.ini` `[cloudflare] CLOUDFLARE_API_TOKEN` locally, the `release` environment secret `CLOUDFLARE_API_TOKEN` on GitHub. Credentials are kept one per trust domain, not one per bucket; the other two domains are the read-only CI token (`BPP_GAME_LIBS_TOKEN`, the game-libs bucket only) and the site deploy token. R2's S3 pair is a view of a token, Access Key ID its id and Secret Access Key the SHA-256 of its value, so `release/r2-store.mjs` and the analyzer's `object_store.py` derive it and nothing stores it. `release/github-secrets.json` maps every GitHub name to its scope and local source.
+_Avoid_: release R2 keys, per-bucket key pair
+
 ## Data pipeline
 
 **Bundle**:
