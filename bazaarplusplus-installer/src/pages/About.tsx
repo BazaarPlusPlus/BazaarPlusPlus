@@ -1,3 +1,4 @@
+// Temporary UI-only CI classification probe for #232.
 import { ChevronDown, ExternalLink } from 'lucide-react';
 import { buttonClassName } from '../components/ui/Button';
 import { PageShell } from '../components/ui/PageShell';
