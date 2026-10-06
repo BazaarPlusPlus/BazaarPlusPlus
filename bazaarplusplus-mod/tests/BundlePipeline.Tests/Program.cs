@@ -2,7 +2,6 @@ using System.Net;
 using System.Text;
 using BazaarGameShared;
 using BazaarGameShared.Infra.Messages;
-using BazaarGameShared.Infra.Messages.CombatSimEvents;
 using BazaarGameShared.Infra.Messages.GameSimEvents;
 using BazaarPlusPlus.Core.Config;
 using BazaarPlusPlus.Core.Events;
@@ -1012,9 +1011,12 @@ internal static class ReplayBytes
         new NetMessageGameSim(new GameSim()) { MessageId = "spawn" },
         MessagePackConfig.Options
     );
-    internal static readonly byte[] Combat = MessagePackSerializer.Serialize(
-        new NetMessageCombatSim(new CombatSim()) { MessageId = "combat" },
-        MessagePackConfig.Options
+
+    // Frozen online CombatSim input: PTR appends IsDraw to the live serializer's array.
+    // The pipeline golden measures preserved replay bytes; CombatReplayLoader still
+    // decodes this input with the selected game's serializer, including PTR's default IsDraw.
+    internal static readonly byte[] Combat = Convert.FromBase64String(
+        "kpiRlJDAwIAAAZCQgJCQpmNvbWJhdA=="
     );
     internal static readonly byte[] Despawn = MessagePackSerializer.Serialize(
         new NetMessageGameSim(new GameSim()) { MessageId = "despawn" },

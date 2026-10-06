@@ -1,15 +1,8 @@
-# Permanent RS0030 exemptions. Debt sections below are the frozen set in
-# SourceTextBanTests; shrink them in the shipment that migrates the file.
+# Permanent RS0030 exemptions. SourceTextBanTests holds the set; the debt list is empty
+# and stays empty.
 
 [Shared/TestFiles/**.cs]
 dotnet_diagnostic.RS0030.severity = none
 
 [CombatImpact.Corpus/**.cs]
-dotnet_diagnostic.RS0030.severity = none
-
-# Debt — S10
-[NativeAssetCompatibility.Tests/Program.cs]
-dotnet_diagnostic.RS0030.severity = none
-
-[PtrCompatibility.Tests/Program.cs]
 dotnet_diagnostic.RS0030.severity = none

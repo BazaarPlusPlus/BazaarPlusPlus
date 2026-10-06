@@ -350,7 +350,6 @@ const managedPath =
 for (const [recipe, script, command] of [
   ['build', 'build', 'build'],
   ['test', 'test', 'test'],
-  ['test-compat', 'test', 'test-compat'],
   ['fetch-data', 'build', 'fetch-data']
 ]) {
   test(`mod::${recipe} preserves argument boundaries`, (t) => {
