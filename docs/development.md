@@ -15,7 +15,8 @@ just doctor
 
 - 配置目录（默认 `~/.config/bazaarplusplus`）由同一台机器的所有 clone 共用，必须放在任何 checkout 之外。新机器要单独恢复这个私有目录，以及游戏、平台工具链和系统证书；Git clone 不带这些东西。
 - 只改 `config.ini`。server 的 `.dev.vars` 和 analyzer 的 `.env` 是它的受管理副本；改完配置运行 `just setup --skip-deps`，或者直接用会自动刷新副本的 `just server::dev`、`just analyzer::cli <command>`。直接跑 npm/uv 命令读到的是当前副本，不会刷新。
-- 发布凭据按用途分开保存，每个 bucket 各用一套，不用一把密钥覆盖所有权限。
+- 凭据按信任域一套，不按 bucket 一套。三个域各一把 Cloudflare token：操作员 token（`[cloudflare] CLOUDFLARE_API_TOKEN`，R2 读写 `bppinstaller`、`bazaarplusplus-game-libs` 和 metrics 桶，加 Wrangler 需要的权限）、CI 只读 token（仅读 `bazaarplusplus-game-libs`，`[cloudflare] BPP_GAME_LIBS_TOKEN`，GitHub 仓库 secret `BPP_GAME_LIBS_TOKEN`）、site 部署 token（只在两个 site 环境里）。R2 的 S3 密钥对不单独保存：Access Key ID 是 token 的 id，Secret Access Key 是 token 值的 SHA-256，`release/r2-store.mjs` 与 analyzer 的 `object_store.py` 自己推导。账号 ID 不是 secret，本地唯一来源是 `[cloudflare] CLOUDFLARE_ACCOUNT_ID`。
+- GitHub secrets 和变量按 `release/github-secrets.json` 同步：`just secrets-check` 只列名字，`just secrets-sync` 把本地有值的项通过 `gh` 写上去（值走 stdin，不打印）；人工步骤只剩造 token 和导出证书，见[产品发布](release.md#github-actions-发版)。
 - `doctor` 只是清单：退出成功不代表远端权限、签名密码或服务可用。
 
 ### 游戏程序集
@@ -26,12 +27,12 @@ mod 对照快照锁 `bazaarplusplus-mod/build/game-libs.lock.json` 指向的 Gam
 just mod::fetch macos online      # Windows 用 windows
 ```
 
-它按本平台的 online 锁条目解析 Managed 目录并打印出来：本机 Steam 安装的 `globalgamemanagers` 版本串与条目一致、Managed 目录 sha256 也一致时直接采用；否则从私有存储取包到 `bazaarplusplus-mod/game-libs/`，这一步需要 `[release]` 凭据，写作 `just with-config release just mod::fetch macos online`。两边都不满足时报错并列出锁和本机的两个版本串：切换 Steam 分支、等锁更新，或显式传 `-p:ManagedPath=...`。没有凭据的外部贡献者只能对着 online 构建；staging 和 ptr 条目只要求云端能取到。
+它按本平台的 online 锁条目解析 Managed 目录并打印出来：本机 Steam 安装的 `globalgamemanagers` 版本串与条目一致、Managed 目录 sha256 也一致时直接采用；否则从私有存储取包到 `bazaarplusplus-mod/game-libs/`，这一步需要 `[cloudflare]` 的操作员 token（`release` profile），写作 `just with-config release just mod::fetch macos online`。两边都不满足时报错并列出锁和本机的两个版本串：切换 Steam 分支、等锁更新，或显式传 `-p:ManagedPath=...`。没有凭据的外部贡献者只能对着 online 构建；staging 和 ptr 条目只要求云端能取到。
 
 它说不出来的约定：
 
 - 显式 `-p:ManagedPath`（或 `config.ini` `[machine]` 的 `BPP_MANAGED_PATH`）绕过锁解析，但只是换一种取包方式，不是换一套程序集：`mod::check` 里的 `lock-check` 对它解析到的目录核对，版本串被某个锁条目记录而 sha256 不一致即失败，不被任何条目记录只告警；`release::prepare` 则直接拒绝不对应任何锁条目的目录。
-- 锁条目为空时 `mod::check` 和 `release::check` 只告警；本平台 online 条目仍为空时，Steam 当前挂载渠道的条目可以满足 online 构建，这条过渡规则写在 `build/ManagedPath.props` 的注释里，online 条目填上后随注释一起删除。
+- 锁条目为空时 `mod::lock-check` 和 `release::check` 只告警；构建仍须解析所选渠道的锁条目，不会借用其他渠道的条目。
 - 锁只通过 PR 推进：在挂了对应 Steam 分支的机器上 `just mod::snapshot`，再 `just mod::publish <platform> <channel>` 上传私有存储，然后提交锁文件。游戏更新后本机 Steam 与锁不一致，锁推进前无法构建，这是接受的代价。
 
 ## 环境与依赖
@@ -67,9 +68,9 @@ Dependabot 更新配置在 `.github/dependabot.yml`，普通版本更新的分�
 
 Mod 的自动更新只开放测试工具白名单。编译期依赖同样可能改变游戏内行为，不能因为 `PrivateAssets`、补丁版本或 NuGet 版本号相同就认为兼容。游戏自带 DLL、生成器、publicizer 和随包运行库的维护遵循 [ADR-0010](../bazaarplusplus-mod/docs/adr/0010-compile-against-game-supplied-libraries.md)。机器人 PR 的实际差异还会经过 `.github/scripts/check_mod_dependency_update.py`：允许测试工具版本修改，但生产锁文件或其他 Mod 文件变化必须转人工维护。
 
-云端检查的覆盖范围以 `.github/workflows/` 的 job 名称和命令为准。site 的部署触发方式和凭据位置见 `bazaarplusplus-site/README.md` 的 Deploy 一节。Mod 纯逻辑测试不验证 Unity/Mono 加载；Ghost 响应契约的消费方检查在 `mod::test` 中；installer 在 Windows 和 macOS 运行完整源码门禁，但不替代安装包签名、安装与升级验收。涉及云端未覆盖的范围时，合并前仍须提供相应项目的本地门禁结果。Mod 运行时依赖升级还需对快照锁的每个已采集条目编译（`just mod::matrix`），并验证实际启动与受影响功能；通过普通 .NET 测试不能替代这一步。
+云端检查的覆盖范围以 `.github/workflows/` 的 job 名称和命令为准。site 的部署触发方式和凭据位置见 `bazaarplusplus-site/README.md` 的 Deploy 一节。Mod 的云端 lane 在 macOS 和 Windows 上按 [ADR 0004](adr/0004-pinned-game-assembly-snapshots.md) 从私有存储取 online 快照跑 `mod::check` 与 `mod::test`，再对 staging 和 ptr 快照做 CompatCheck 编译；它不验证 Unity/Mono 加载，Ghost 响应契约的消费方检查在 `mod::test` 中。installer 在 Windows 和 macOS 运行完整源码门禁，但不替代安装包签名、安装与升级验收。涉及云端未覆盖的范围时，合并前仍须提供相应项目的本地门禁结果。Mod 运行时依赖升级还需对快照锁的每个已采集条目编译（`just mod::matrix`），并验证实际启动与受影响功能；通过编译和 .NET 测试不能替代这一步。
 
-游戏程序集快照只存在于私有存储，不进公开仓库、不进 Actions cache。依赖游戏程序集的 job 按快照锁取包，凭据是仓库级 secret `BPP_GAME_LIBS_R2_*`（仅限 `bazaarplusplus-game-libs` bucket 的只读令牌）；fork PR 拿不到 secrets，这类 job 在 fork 上跳过而不是失败，仓库内分支的 PR 才运行完整矩阵（[ADR 0004](adr/0004-pinned-game-assembly-snapshots.md)）。被跳过的 job 不等于通过：来自 fork 的改动合并前仍要有本地 `mod::check` 与 `mod::test` 结果。
+游戏程序集快照只存在于私有存储，不进公开仓库、不进 Actions cache。依赖游戏程序集的 job 按快照锁取包，凭据是仓库级 secret `BPP_GAME_LIBS_TOKEN`（仅限 `bazaarplusplus-game-libs` bucket 的只读 token）和仓库级变量 `CLOUDFLARE_ACCOUNT_ID`；fork PR 拿不到 secrets，这类 job 在 fork 上跳过而不是失败，仓库内分支的 PR 才运行完整矩阵（[ADR 0004](adr/0004-pinned-game-assembly-snapshots.md)）。Dependabot 的 PR 读取的是 Dependabot secrets，`BPP_GAME_LIBS_TOKEN` 未同时注册在那里（`just secrets-sync --dependabot`）时该 lane 同样跳过。被跳过的 job 不等于通过：GitHub 把被跳过的必需检查算作通过，lane 是否真的执行以它的 job summary 为准；来自 fork 的改动合并前仍要有本地 `mod::check` 与 `mod::test` 结果。
 
 配置静态检查不能证明机器人已经成功更新锁文件；首次启用及工具链升级后需查看 Dependabot 的实际更新日志，尤其是它的包管理器支持范围尚未覆盖仓库所用版本时。新的 CI 检查需在 GitHub 首轮成功后再设为必需检查。
 

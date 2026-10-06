@@ -57,8 +57,8 @@ mirror refuses a share page that does not serve the uploaded installer unless
 recorded mirror unless --without-mainland-mirror is passed. mirror-all requires
 both platforms uploaded at the same version and commit before recording either mirror.
 Only upload, mirror, mirror-all
-and promote access R2, and require BPP_R2_ACCOUNT_ID, BPP_R2_ACCESS_KEY_ID and
-BPP_R2_SECRET_ACCESS_KEY. No command changes VERSION.
+and promote access R2, and require CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID
+(the S3 pair is derived from the token). No command changes VERSION.
 `;
 
 export function parseReleaseArgs(args) {

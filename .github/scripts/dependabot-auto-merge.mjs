@@ -3,6 +3,9 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 // These are job names, not workflow names. Require GitHub Actions as their source.
+// A name joins this list only after the GitHub ruleset requires it, and the
+// ruleset only after the job has run green once (docs/development.md): the Mod
+// lane, 'Mod (macos-14)' and 'Mod (windows-latest)', is still waiting for that.
 export const REQUIRED_CHECKS = [
   'Release tooling',
   'site (full check and test)',
@@ -10,7 +13,6 @@ export const REQUIRED_CHECKS = [
   'Analyzer',
   'Installer (macos-14)',
   'Installer (windows-latest)',
-  'Mod pure logic (no game compatibility)',
   'Bot Mod dependency boundary',
   'dependencies',
   'CodeQL (javascript-typescript)',

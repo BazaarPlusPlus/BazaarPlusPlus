@@ -43,19 +43,21 @@ just 只转发，不缓存或跳过任何发布检查。直接调用 `node relea
 
 游戏程序集来自快照锁指向的 online 条目（[ADR 0004](adr/0004-pinned-game-assembly-snapshots.md)）：条目为空时 `mod::fetch` 失败并指出要采集哪个快照，不会退回本机 Steam。原生录制插件沿用 `release/native-recorder-input.mjs` 的新鲜度判断：已提交的产物新鲜就直接复用；不新鲜时在 runner 上重建，但重建会改动跟踪文件，工作流随即以具名错误失败并把差异作为 `native-recorder-inputs-<platform>` 产物上传，用 `git apply` 合入提交后重跑，不会上传一个脏构建。
 
-secrets 放在名为 `release` 的 GitHub Environment 里，`BPP_GAME_LIBS_R2_*` 三个只读凭据是仓库级 secret，与 `checks.yml` 的游戏依赖 lane 共用。每个 job 的第一步 `.github/scripts/release-secrets.sh check` 按平台和阶段核对，缺一个就以 `::error` 点名并说明取值来源，是本阶段唯一的 secrets 清单；签名材料由同一脚本 `stage` 成 `bundle.sh` 读取的 `BPP_SIGNING_SECRETS_DIR` 文件布局，与本机 `node scripts/workspace.mjs run signing` 的暂存一致。本地取值位置见 `node scripts/workspace.mjs --help`：
+每个 GitHub secret 和变量的名字、作用域和本地来源只在 `release/github-secrets.json` 里维护：`release` 环境持有发版 secret 与 Apple 三个标识符变量，仓库级变量 `CLOUDFLARE_ACCOUNT_ID` 和仓库级 secret `BPP_GAME_LIBS_TOKEN` 与 `checks.yml`、`deploy-site.yml` 共用。每个 job 的第一步 `.github/scripts/release-secrets.sh check` 读同一张表按平台和阶段核对，缺一个就以 `::error` 点名并说明取值来源；签名材料由同一脚本 `stage` 成 `bundle.sh` 读取的 `BPP_SIGNING_SECRETS_DIR` 文件布局，与本机 `node scripts/workspace.mjs run signing` 的暂存一致。R2 的 S3 密钥对不是 secret：`release/r2-store.mjs` 从 `CLOUDFLARE_API_TOKEN` 推导（Access Key ID 是 token id，Secret 是 token 值的 SHA-256）。
 
-| secret | 本地来源 | 用途 |
-|---|---|---|
-| `BPP_GAME_LIBS_R2_ACCOUNT_ID` / `_ACCESS_KEY_ID` / `_SECRET_ACCESS_KEY` | 仅限 `bazaarplusplus-game-libs` 的只读 R2 令牌 | `mod::fetch` |
-| `BPP_R2_ACCOUNT_ID` / `BPP_R2_ACCESS_KEY_ID` / `BPP_R2_SECRET_ACCESS_KEY` | `config.ini` `[release]` | `release::upload` |
-| `TAURI_SIGNING_PRIVATE_KEY` | `keys/tauri-updater.key` 的内容 | updater 签名，两平台 |
-| `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | `config.ini` `[signing]`，可留空 | 同上 |
-| `APPLE_SIGNING_IDENTITY` / `APPLE_API_ISSUER` / `APPLE_API_KEY` | `config.ini` `[signing]` | macOS 签名与公证 |
-| `APPLE_API_KEY_P8` | `keys/AuthKey_<APPLE_API_KEY>.p8` 的内容 | macOS 公证 |
-| `APPLE_CERTIFICATE` / `APPLE_CERTIFICATE_PASSWORD` | 从 Keychain Access 导出的 Developer ID Application 证书（含私钥）.p12 的 base64 与导出密码 | 导入 runner 的临时 keychain；`bundle.sh` 在 Tauri 打包前就要 codesign 内嵌资源，所以不能交给 Tauri 自己导入 |
+| 名字 | GitHub 作用域 | 本地来源 | 用途 |
+|---|---|---|---|
+| `CLOUDFLARE_ACCOUNT_ID` | 仓库变量 | `config.ini` `[cloudflare]` | 所有 R2 桶和 site Workers 的账号 |
+| `BPP_GAME_LIBS_TOKEN` | 仓库 secret（Dependabot 另注册一份） | `config.ini` `[cloudflare]`，仅读 `bazaarplusplus-game-libs` 的只读 token | `checks.yml` 的 mod lane |
+| `CLOUDFLARE_API_TOKEN` | `release` 环境 secret | `config.ini` `[cloudflare]`，操作员 token | `mod::fetch`、`release::upload` |
+| `TAURI_SIGNING_PRIVATE_KEY` | `release` 环境 secret | `keys/tauri-updater.key` 的内容 | updater 签名，两平台 |
+| `APPLE_SIGNING_IDENTITY` / `APPLE_API_ISSUER` / `APPLE_API_KEY` | `release` 环境变量 | `config.ini` `[signing]` | macOS 签名与公证 |
+| `APPLE_API_KEY_P8` | `release` 环境 secret | `keys/AuthKey_<APPLE_API_KEY>.p8` 的内容 | macOS 公证 |
+| `APPLE_CERTIFICATE` / `APPLE_CERTIFICATE_PASSWORD` | `release` 环境 secret | `keys/developer-id.p12`（从 Keychain Access 导出的 Developer ID Application 证书含私钥，推送时转 base64）与 `config.ini` `[signing] APPLE_CERTIFICATE_PASSWORD` | 导入 runner 的临时 keychain；`bundle.sh` 在 Tauri 打包前就要 codesign 内嵌资源，所以不能交给 Tauri 自己导入 |
 
-`promote` 不进工作流：它要求两个平台都有大陆镜像记录（或显式豁免），而蓝奏云上传是手动步骤，分享页地址只有上传后才存在，`mirror-all` 必须在 `promote` 之前拿到它们。所以两平台 job 成功后仍按[发布顺序](#发布顺序)第 5、6 步在本机执行 `mirror-all` 与 `promote`，这两步只需要 `[release]` 凭据。
+发版前置条件：`just secrets-check` 的清单两边都不缺。它只列名字；`just secrets-sync` 把本地有值的项写到 GitHub（`--dependabot` 同时注册只读 token，`--prune` 删除表里列为退役的旧名字）。只有三件事要人工做：在 Cloudflare dashboard 造操作员 token 和只读 token 填进 `[cloudflare]`，从 Keychain Access 导出证书到 `keys/developer-id.p12` 并把导出密码填进 `[signing]`。两个 site 环境各自的 `CLOUDFLARE_API_TOKEN` 不在表里，手工维护。
+
+`promote` 不进工作流：它要求两个平台都有大陆镜像记录（或显式豁免），而蓝奏云上传是手动步骤，分享页地址只有上传后才存在，`mirror-all` 必须在 `promote` 之前拿到它们。所以两平台 job 成功后仍按[发布顺序](#发布顺序)第 5、6 步在本机执行 `mirror-all` 与 `promote`，这两步只需要 `[cloudflare]` 的操作员 token。
 
 本机执行时，构建依赖 Node/npm、.NET、Rust、快照锁 online 条目解析出的 Managed 程序集（[开发命令](development.md#游戏程序集)）、平台 native 工具链和 bootstrap 资源。准备阶段会抓取并验证 Build Seed Fetch 数据。macOS 正式打包另需 Developer ID、公证和 Tauri updater 签名材料，具体本机约定见 [installer 发布文档](../bazaarplusplus-installer/docs/release.md)。源代码验证无需这些签名凭据。
 
@@ -79,15 +81,14 @@ secrets 放在名为 `release` 的 GitHub Environment 里，`BPP_GAME_LIBS_R2_*`
 
 ## 远端发布
 
-上传使用 R2 S3 条件写，需要仅对安装器 bucket 授权的凭据：
+上传使用 R2 S3 条件写，凭据是操作员 token 与账号 ID：
 
-- `BPP_R2_ACCOUNT_ID`
-- `BPP_R2_ACCESS_KEY_ID`
-- `BPP_R2_SECRET_ACCESS_KEY`
+- `CLOUDFLARE_API_TOKEN`
+- `CLOUDFLARE_ACCOUNT_ID`
 
-它们只由 `upload` / `mirror` / `mirror-all` / `promote` 读取；不要放入 Git。此流程不使用 Wrangler 登录态，因为该 CLI 没有提供这里需要的 ETag 条件写。
+S3 密钥对由 `release/r2-store.mjs` 从 token 推导（一次 `GET /user/tokens/verify` 取 token id 作 Access Key ID，token 值的 SHA-256 作 Secret），每个进程只验证一次。它们只由 `upload` / `mirror` / `mirror-all` / `promote` 读取；不要放入 Git。此流程不使用 Wrangler 登录态，因为该 CLI 没有提供这里需要的 ETag 条件写。
 
-对应的 just 命令通过 `scripts/workspace.mjs` 从集中配置接入这三个变量；`build` 通过临时签名目录接入 `[signing]` 与 `keys/`。配置初始化、已有环境变量的优先级和本机状态检查见[开发命令](development.md#新-clone-与本地配置)。直接执行 `node release.mjs` 仍要求调用者提供环境。
+对应的 just 命令通过 `scripts/workspace.mjs` 的 `release` profile 从 `[cloudflare]` 接入这两个变量；`build` 通过临时签名目录接入 `[signing]` 与 `keys/`。配置初始化、已有环境变量的优先级和本机状态检查见[开发命令](development.md#新-clone-与本地配置)。直接执行 `node release.mjs` 仍要求调用者提供环境。
 
 版本目录中的产物和 platform fragment 不可变：相同 bytes 的重试成功，不同 bytes 必须发布新版本。上传先固定所有本地文件内容并复查 hashes，避免并发本机构建污染远端版本路径。读取失败、权限错误和服务错误都不是“文件不存在”。
 

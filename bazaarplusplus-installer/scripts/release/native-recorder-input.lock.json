@@ -74,14 +74,14 @@
       }
     },
     "windows": {
-      "inputDigest": "sha256:d5412ebdb57341a4230255129133dfbe439d97cdb13db28364c557b9023b4f7d",
+      "inputDigest": "sha256:cb2fe5f3d59363bb8464c7d09d5a4c1eaec54f46295328671956df54f930cc03",
       "inputFiles": {
         "native/windows/BppReplayMediaFoundation.cpp": "2f0395be1e5e8d9c008745db420b9351dccfad197db3ab2c26b5c516414546ef",
         "native/windows/BppReplayMediaFoundation.h": "977b6070ac230e7c44a62bc756f9fee7bb74489ff8845928908ca0b6b573b660",
         "native/windows/BppReplayMediaFoundationSmoke.cpp": "71f52734ad638350df2272d8a0ad5dd2fa1402220198c179792c4fee71e7d0b5",
         "native/windows/build.ps1": "75b2a0bdb143a975fceb80c96b95e7218fce3fb926dff0badccc6d9c04bdb295",
         "native/windows/test.ps1": "8556acb4b93c05aae7ffc4e83aa30321206a34961c95543bc976db76a4b43164",
-        "src/BazaarPlusPlus/Game/CombatReplay/Video/WindowsMediaFoundationVideoEncoder.cs": "6936949b69661e73519811bb32ae708f535833fae6073f4a808fd707a7bf802b",
+        "src/BazaarPlusPlus/Game/CombatReplay/Video/WindowsMediaFoundationVideoEncoder.cs": "bd9d5ba7f1d596632045ff59c224b8e8a9b279a4c3e574d0054ae262dc297f2a",
         "src/BazaarPlusPlus/Game/CombatReplay/Video/WindowsNativeReplayAudioMuxer.cs": "41fa3e3f8cc809f187498a82cb53056afc6c25dc1a5c3b86ff1e57e114f0b4d8"
       },
       "policy": {
@@ -90,7 +90,7 @@
       },
       "producer": {
         "repository": "BazaarPlusPlus/bazaarplusplus-mod",
-        "commit": "3884a4f2144d75e6b22875b1434620206a0ebb3b",
+        "commit": "65a89e1d264d6dd455284d69b66e647dc0b8e143",
         "dirty": true
       },
       "artifacts": {
@@ -99,7 +99,7 @@
           "content": {
             "kind": "file",
             "size": 202752,
-            "sha256": "6bd46cefe264febbdc9ef7cb0730e8c7dbcecf78a365c7abd536c48fb9d5c0d1"
+            "sha256": "ff7594cff2343da17f29e5a8b184d3c45b8e398d23fefa55ff880fabc658bd26"
           }
         }
       }
