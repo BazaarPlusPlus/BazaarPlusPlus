@@ -489,10 +489,21 @@ mod tests {
     use crate::config::{BAZAAR_DATA_DIRECTORY, DATABASE_FILE_NAME};
 
     use super::{
-        cleanup_bpp_data_directory, ensure_valid_game_path, prepare_install_target,
-        preserve_file_if_exists, remove_bootstrap_files, restore_preserved_file, uninstall_payload,
-        PreservedFile, BPP_CONFIG_RELATIVE_PATH,
+        cleanup_bpp_data_directory, ensure_valid_game_path, payload_platform,
+        prepare_install_target, preserve_file_if_exists, remove_bootstrap_files,
+        restore_preserved_file, uninstall_payload, PreservedFile, BPP_CONFIG_RELATIVE_PATH,
     };
+
+    #[test]
+    fn test_payload_platform_scopes_linux_to_the_windows_payload() {
+        // Linux runs The Bazaar's Windows build under Proton, so it consumes the
+        // Windows-scoped Payload entries; every other host uses its own name.
+        if cfg!(target_os = "linux") {
+            assert_eq!(payload_platform(), "windows");
+        } else {
+            assert_eq!(payload_platform(), std::env::consts::OS);
+        }
+    }
 
     #[test]
     fn test_ensure_valid_game_path_rejects_non_game_directory() {
