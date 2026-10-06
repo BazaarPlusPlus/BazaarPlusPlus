@@ -3,7 +3,73 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 
 export const PROJECTS = ['site', 'server', 'analyzer', 'installer', 'mod'];
-export const SCOPES = ['release', ...PROJECTS, 'macos-icon'];
+const PROJECT_SCOPES = {
+  installer: ['installer-frontend', 'installer-macos', 'installer-windows'],
+  mod: ['mod-macos', 'mod-windows']
+};
+export const SCOPES = [
+  'release',
+  ...PROJECTS.flatMap((project) => PROJECT_SCOPES[project] ?? [project]),
+  'macos-icon'
+];
+
+// Only known frontend inputs may avoid native verification. New build inputs
+// default to native; generated bindings must be checked against a real export.
+export function installerFrontendOnly(file) {
+  const relative = file.slice('bazaarplusplus-installer/'.length);
+  if (relative.startsWith('src/types/generated/')) return false;
+  return (
+    ['src/', 'static/', 'docs/'].some((prefix) =>
+      relative.startsWith(prefix)
+    ) ||
+    /^[^/]+\.md$/.test(relative) ||
+    [
+      'index.html',
+      'vite.config.ts',
+      'vitest.config.ts',
+      'tsconfig.json',
+      '.oxlintrc.json',
+      '.prettierrc.json',
+      '.prettierignore',
+      'LICENSE'
+    ].includes(relative)
+  );
+}
+
+export function manualSelection(inputs = {}) {
+  const scope = inputs.scope ?? 'full';
+  const platform = inputs.platform ?? 'all';
+  if (
+    !['full', 'installer', 'mod'].includes(scope) ||
+    !['all', 'macos', 'windows'].includes(platform)
+  ) {
+    throw new Error(`Invalid manual selection: ${scope}/${platform}`);
+  }
+  return { scope, platform };
+}
+
+export function manualScope(inputs) {
+  const { scope, platform } = manualSelection(inputs);
+  return Object.fromEntries(
+    SCOPES.map((lane) => {
+      const inScope =
+        scope === 'full' ||
+        lane.startsWith(`${scope}-`) ||
+        (scope === 'installer' && lane === 'macos-icon');
+      const inPlatform =
+        platform === 'all' ||
+        (!lane.endsWith('-macos') &&
+          !lane.endsWith('-windows') &&
+          lane !== 'macos-icon') ||
+        lane.endsWith(`-${platform}`) ||
+        (platform === 'macos' && lane === 'macos-icon');
+      return [
+        lane,
+        inScope && inPlatform ? [`Manual selection: ${scope}/${platform}`] : []
+      ];
+    })
+  );
+}
 
 // Path expansions, not another contract definition. Owners are documented in
 // AGENTS.md; executable references are checked below on every classification.
@@ -163,7 +229,9 @@ export function classifyChanges(changes) {
     return fullScope('Diff unavailable or empty');
   const plan = Object.fromEntries(SCOPES.map((scope) => [scope, []]));
   const select = (scope, reason) => {
-    if (!plan[scope].includes(reason)) plan[scope].push(reason);
+    for (const lane of PROJECT_SCOPES[scope] ?? [scope]) {
+      if (!plan[lane].includes(reason)) plan[lane].push(reason);
+    }
   };
   for (const { status, file } of changes) {
     if (
@@ -179,7 +247,12 @@ export function classifyChanges(changes) {
     if (file.endsWith('.just'))
       return fullScope(`Shared command recipe: ${file}`);
     if (project) {
-      select(project, `Project input: ${file}`);
+      select(
+        project === 'installer' && installerFrontendOnly(file)
+          ? 'installer-frontend'
+          : project,
+        `Project input: ${file}`
+      );
       for (const [input, consumers] of SHARED_INPUTS) {
         if (covers(input, file))
           for (const consumer of consumers)
@@ -246,10 +319,14 @@ export function planRun({
   runGit,
   dependencyProblems = []
 }) {
-  if (dependencyProblems.length)
-    return fullScope(
-      `Unregistered cross-project reference: ${dependencyProblems.join('; ')}`
-    );
+  if (dependencyProblems.length) {
+    const reason = `Unregistered cross-project reference: ${dependencyProblems.join('; ')}`;
+    // A partial manual request must not claim coverage when the dependency
+    // boundary could not be verified. Automatic runs conservatively expand.
+    if (eventName === 'workflow_dispatch') throw new Error(reason);
+    return fullScope(reason);
+  }
+  if (eventName === 'workflow_dispatch') return manualScope(event.inputs);
   try {
     return classifyChanges(readChanges(eventName, event, cwd, runGit));
   } catch (error) {

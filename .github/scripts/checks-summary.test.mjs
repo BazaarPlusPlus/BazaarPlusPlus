@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import test from 'node:test';
-import { classifyChanges, fullScope } from './checks-scope.mjs';
-import { JOB_SCOPES, summarize } from './checks-summary.mjs';
+import { classifyChanges, fullScope, manualScope } from './checks-scope.mjs';
+import { JOB_SCOPES, summarize, renderSummary } from './checks-summary.mjs';
 
 function fixture(plan = fullScope('fixture')) {
   const outputs = {
@@ -80,7 +80,7 @@ test('classification failure, missing output, malformed and inconsistent selecti
       f.needs.classify.outputs.plan = 'invalid JSON';
     },
     (f) => {
-      f.needs.classify.outputs.installer = 'false';
+      f.needs.classify.outputs['installer-frontend'] = 'false';
     },
     (f) => {
       delete f.needs.classify;
@@ -117,7 +117,7 @@ test('internal and Dependabot Mod selections fail without credentials; forks hav
   assert.equal(summarize(f).ok, false, 'fork exception is PR-only');
 });
 
-test('workflow wiring preserves fixed old names, always summarizes every optional job, and isolates manual runs', () => {
+test('workflow wiring summarizes every optional job and isolates every manual run', () => {
   const workflow = fs.readFileSync(
     new URL('../workflows/checks.yml', import.meta.url),
     'utf8'
@@ -129,7 +129,7 @@ test('workflow wiring preserves fixed old names, always summarizes every optiona
   assert.match(summary, /if: always\(\)/);
   assert.match(
     summary,
-    /name: \$\{\{ github.event_name == 'workflow_dispatch' && 'Manual checks summary' \|\| 'Checks summary' \}\}/
+    /name: \$\{\{ github.event_name == 'workflow_dispatch' && format\('Manual checks \(\{0\}\/\{1\}\)', inputs.scope, inputs.platform\) \|\| 'Checks summary' \}\}/
   );
   const needs = summary
     .match(/needs:\s*\[([^\]]+)\]/)[1]
@@ -140,6 +140,9 @@ test('workflow wiring preserves fixed old names, always summarizes every optiona
     ['classify', ...Object.keys(JOB_SCOPES)].sort()
   );
   assert.match(workflow, /group: checks-\$\{\{ github.event_name \}\}/);
+  assert.match(workflow, /group: .*inputs.scope.*inputs.platform/);
+  assert.match(workflow, /shared-key: installer-.*-installer\n/);
+
   assert.match(
     workflow,
     /save-if: \$\{\{ github.event_name == 'push' && github.ref == 'refs\/heads\/master' \}\}/
@@ -147,6 +150,7 @@ test('workflow wiring preserves fixed old names, always summarizes every optiona
   for (const name of [
     'site (full check and test)',
     'server (full check and test)',
+    'Installer (frontend)',
     'Installer (macos-14)',
     'Installer (windows-latest)',
     'Mod (macos-14)',
@@ -164,4 +168,43 @@ test('workflow wiring preserves fixed old names, always summarizes every optiona
     !workflow.includes('matrix.'),
     'skipped matrix parents do not emit legacy child names'
   );
+});
+
+test('manual installer/windows requires frontend and Windows but not macOS or Mod', () => {
+  const inputs = { scope: 'installer', platform: 'windows' };
+  const f = fixture(manualScope(inputs));
+  f.eventName = 'workflow_dispatch';
+  f.event.inputs = inputs;
+  assert.equal(summarize(f).ok, true);
+  assert.equal(f.needs['installer-macos'].result, 'skipped');
+  for (const job of [
+    'installer-frontend',
+    'installer-windows',
+    'installer-timings'
+  ]) {
+    const broken = structuredClone(f);
+    broken.needs[job].result = 'skipped';
+    assert.equal(summarize(broken).ok, false);
+  }
+  const report = renderSummary(summarize(f), {
+    eventName: f.eventName,
+    ref: 'refs/heads/fixture',
+    sha: 'abc',
+    inputs
+  });
+  assert.match(report, /Coverage: installer\/windows/);
+  assert.match(report, /Ref: refs\/heads\/fixture · SHA: abc/);
+});
+
+test('frontend-only cannot hide a skipped selected frontend or require native credentials', () => {
+  const f = fixture(
+    classifyChanges([
+      { status: 'M', file: 'bazaarplusplus-installer/src/App.tsx' }
+    ])
+  );
+  f.modCredentials = 'false';
+  assert.equal(summarize(f).ok, true);
+  assert.equal(f.needs['installer-windows'].result, 'skipped');
+  f.needs['installer-frontend'].result = 'skipped';
+  assert.equal(summarize(f).ok, false);
 });

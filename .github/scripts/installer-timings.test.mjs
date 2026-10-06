@@ -29,6 +29,7 @@ test('reports both platforms, queue and post-job save without counting another j
   const report = installerTimingReport([
     job,
     { ...job, name: 'Installer (macos-14)' },
+    { ...job, name: 'Installer (frontend)' },
     { ...job, name: 'Release tooling' }
   ]);
   assert.match(report, /Queue \| 5/);
@@ -39,6 +40,7 @@ test('reports both platforms, queue and post-job save without counting another j
   assert.match(report, /Other job time \| 11/);
   assert.match(report, /Total \(excluding queue\) \| 40/);
   assert.match(report, /Installer \(macos-14\)/);
+  assert.match(report, /Installer \(frontend\)/);
   assert.doesNotMatch(report, /Release tooling/);
 });
 

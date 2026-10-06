@@ -363,7 +363,7 @@ test('every required check is a job name declared in the workflows', () => {
         ([, id, name]) =>
           new RegExp(
             `^${(name ?? id)
-              .split(/\$\{\{[^}]*\}\}/)
+              .split(/\$\{\{.*?\}\}/)
               .map((literal) => literal.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
               .join('.+')}$`
           )

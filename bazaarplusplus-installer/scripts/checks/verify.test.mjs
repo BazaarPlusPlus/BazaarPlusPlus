@@ -3,7 +3,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
-import { runVerification, verificationSteps } from './verify.mjs';
+import { runVerification, verificationSteps, parseCliArgs } from './verify.mjs';
 
 test('source verification omits private release payload validation', () => {
   const steps = verificationSteps({ mode: 'source' });
@@ -162,5 +162,105 @@ test('an unwritable timing summary does not change a failing command status', ()
   } finally {
     warning.mockRestore();
     rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+const unique = (steps) =>
+  [...new Set(steps.map((step) => JSON.stringify(step)))].sort();
+
+test.each(['linux', 'darwin', 'win32'])(
+  'subsets cover the complete source gate once on %s',
+  (platform) => {
+    const options = { mode: 'source', platform };
+    const full = verificationSteps(options);
+    const frontend = verificationSteps({ ...options, subset: 'frontend' });
+    const native = verificationSteps({ ...options, subset: 'native' });
+    expect(unique([...frontend, ...native])).toEqual(unique(full));
+    expect(unique(full)).toHaveLength(full.length);
+    expect(unique(frontend)).toHaveLength(frontend.length);
+    expect(unique(native)).toHaveLength(native.length);
+    expect(frontend.some(({ command }) => command === 'cargo')).toBe(false);
+    expect(
+      frontend.some(({ args }) =>
+        args.some((arg) => arg.startsWith('generate:bindings'))
+      )
+    ).toBe(false);
+    expect(frontend.some(({ args }) => args.includes('build:frontend'))).toBe(
+      true
+    );
+    expect(frontend.some(({ args }) => args.includes('docs:check'))).toBe(true);
+    expect(native.some(({ args }) => args.includes('scripts'))).toBe(
+      platform === 'win32'
+    );
+    expect(
+      native.some(
+        ({ args }) =>
+          args.includes('build:frontend') ||
+          args.includes('check:ts') ||
+          args.includes('src')
+      )
+    ).toBe(false);
+    for (const steps of [frontend, native]) {
+      expect(
+        steps.some(({ args }) =>
+          args.includes('prebuild-check:source:after-bindings')
+        )
+      ).toBe(true);
+    }
+    for (const steps of [full, native]) {
+      const generation = steps.findIndex(({ args }) =>
+        args.includes('generate:bindings:test')
+      );
+      const diff = steps.findIndex(({ args }) =>
+        args.includes('check:bindings')
+      );
+      expect(generation).toBeGreaterThanOrEqual(0);
+      expect(diff).toBeGreaterThan(generation);
+    }
+  }
+);
+
+test('frontend runner works without Rust and retains test and source contract failures', () => {
+  for (const failingScript of [
+    'test:unit',
+    'prebuild-check:source:after-bindings'
+  ]) {
+    const observed = [];
+    expect(
+      runVerification({
+        rootDir: process.cwd(),
+        mode: 'source',
+        subset: 'frontend',
+        platform: 'linux',
+        summaryPath: null,
+        log() {},
+        run(command, args) {
+          if (
+            command !== 'npm' ||
+            args.some((arg) => arg.startsWith('generate:bindings'))
+          ) {
+            throw new Error('Rust is unavailable');
+          }
+          observed.push(args);
+          return { status: args.includes(failingScript) ? 23 : 0 };
+        }
+      })
+    ).toBe(23);
+    expect(observed.at(-1)).toContain(failingScript);
+  }
+});
+
+test('only explicit source verification accepts subsets; complete release remains mandatory', () => {
+  expect(parseCliArgs(['--source-only', '--subset', 'frontend'])).toMatchObject(
+    { mode: 'source', subset: 'frontend' }
+  );
+  expect(parseCliArgs(['--source-only']).subset).toBe('all');
+  for (const args of [['--subset'], ['--subset', 'unknown']]) {
+    expect(() => parseCliArgs(args)).toThrow(/--subset/);
+  }
+  for (const subset of ['frontend', 'native']) {
+    expect(() => verificationSteps({ mode: 'release', subset })).toThrow(
+      /full set/
+    );
   }
 });
