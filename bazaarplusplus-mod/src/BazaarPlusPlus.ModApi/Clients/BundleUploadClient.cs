@@ -141,7 +141,7 @@ internal sealed class BundleUploadClient
     }
 }
 
-public enum BundleUploadDisposition
+internal enum BundleUploadDisposition
 {
     Uploaded,
     Equivalent,
@@ -149,7 +149,7 @@ public enum BundleUploadDisposition
     Transient,
 }
 
-public sealed class BundleUploadResponse
+internal sealed class BundleUploadResponse
 {
     private BundleUploadResponse(
         BundleUploadDisposition disposition,

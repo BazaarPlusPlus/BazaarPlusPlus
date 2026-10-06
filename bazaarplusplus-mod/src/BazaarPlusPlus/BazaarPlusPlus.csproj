@@ -182,6 +182,10 @@
   <PropertyGroup>
     <PublicizeAll>true</PublicizeAll>
   </PropertyGroup>
+  <!-- ModApi's types are internal; the plugin reaches them through InternalsVisibleTo. -->
+  <ItemGroup>
+    <DoNotPublicize Include="BazaarPlusPlus.ModApi" />
+  </ItemGroup>
   <!-- Debug build -->
   <Target
     Name="CopyToBepInExPlugins"

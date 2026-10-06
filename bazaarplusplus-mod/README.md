@@ -31,7 +31,7 @@
 
 ## 从源码构建（开发者）
 
-在仓库根目录用 `just mod::<命令>` 构建和测试，`just --list mod` 列出全部命令；环境要求见[开发命令](../docs/development.md)。`just mod::build` 只编译，部署进游戏用 `just mod::build --deploy`（它会在游戏更新后修复 macOS trampoline，`dotnet build` 不做这一步）。游戏程序集通过 `ManagedPath` 解析，常见 Steam 路径会自动识别，识别不到时传 `-p:ManagedPath=/path/to/TheBazaar_Data/Managed`。
+在仓库根目录用 `just mod::<命令>` 构建和测试，`just --list mod` 列出全部命令；环境要求见[开发命令](../docs/development.md)。`just mod::build` 只编译，部署进游戏用 `just mod::build --deploy`（它会在游戏更新后修复 macOS trampoline，`dotnet build` 不做这一步）。游戏程序集通过 `ManagedPath` 从快照锁 `build/game-libs.lock.json` 解析（词条见根 `CONTEXT.md` 的 Snapshot Lock）：先执行 `just mod::fetch macos online`（Windows 用 `windows`），它接受 `globalgamemanagers` 版本串与锁条目一致的本机 Steam 安装，否则从私有存储取包到 `game-libs/`；两者都不满足时报错并列出两个版本串，切换 Steam 分支或等锁更新。显式 `-p:ManagedPath=/path/to/Managed` 覆盖解析，但 `mod::check` 仍按锁条目核对该目录的 sha256，`release::prepare` 拒绝不对应任何锁条目的目录。
 
 ## 数据与网络行为
 

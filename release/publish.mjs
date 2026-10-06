@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import crypto from 'node:crypto';
 import path from 'node:path';
 import { compareProductVersions, readProductVersion } from './product.mjs';
-import { putImmutable } from './r2-store.mjs';
+import { putImmutable, putReplaceable } from './r2-store.mjs';
 import {
   RELEASE_MANIFEST_PATH,
   assertMirrorUrl,
@@ -170,22 +170,6 @@ async function compareAndSwapJson(store, key, build, maxAttempts = 4) {
   }
   throw new Error(
     `Writing ${key} conflicted repeatedly; retry after the other publisher finishes`
-  );
-}
-
-// Mirror records are replaceable until their platform is promoted: a wrong
-// share can be re-recorded, but a published address cannot change.
-async function putReplaceable(store, key, bytes, contentType, attempts = 4) {
-  for (let attempt = 0; attempt < attempts; attempt++) {
-    const current = await store.get(key);
-    if (current?.bytes.equals(bytes)) return;
-    const written = current
-      ? await store.put(key, bytes, { ifMatch: current.etag, contentType })
-      : await store.put(key, bytes, { ifNoneMatch: true, contentType });
-    if (written) return;
-  }
-  throw new Error(
-    `Could not record ${key}; retry after the other writer finishes`
   );
 }
 

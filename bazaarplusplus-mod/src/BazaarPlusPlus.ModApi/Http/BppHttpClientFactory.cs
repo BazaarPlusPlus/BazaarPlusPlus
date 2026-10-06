@@ -3,7 +3,7 @@ using System.Net.Http.Headers;
 
 namespace BazaarPlusPlus.ModApi.Http;
 
-public static class BppHttpClientFactory
+internal static class BppHttpClientFactory
 {
     private const string ProductName = "BazaarPlusPlus";
 

@@ -52,23 +52,40 @@ repair_macos_trampoline() {
         bash scripts/repair-macos-trampoline.sh
 }
 
-# matrix: compile against every archived Managed snapshot. The CompatCheck
-# configuration fires neither the Debug deploy nor the Release installer copy.
+# matrix [channel ...]: compile against every captured lock entry, fetching each
+# snapshot the way a normal build would; with channels, against exactly those entries
+# of the host platform, so an empty one fails instead of being skipped (the CI lane
+# names staging and ptr). The CompatCheck configuration fires neither the Debug
+# deploy nor the Release installer copy.
 cmd_matrix() {
-    local snap failed=() found=0
-    for snap in game-libs/*/Managed; do
-        [[ -d "$snap" ]] || continue
-        found=1
-        step "Matrix build against ${GREEN}${snap}${CYAN}"
-        dotnet build "$MAIN_PROJECT" -c CompatCheck "-p:ManagedPath=$MOD_ROOT/$snap" || failed+=("$snap")
+    local entries=() entry platform channel managed failed=()
+    if (($# > 0)); then
+        for channel in "$@"; do
+            case "$channel" in
+                online | staging | ptr) entries+=("$(host_platform) $channel") ;;
+                *) die "Expected a channel (online, staging or ptr), got '$channel'" ;;
+            esac
+        done
+    else
+        while IFS= read -r entry; do entries+=("$entry"); done < <(game_libs_cli entries)
+        ((${#entries[@]} > 0)) || die "The lock has no captured entries. Run 'just mod::snapshot' on a machine with the game, publish it, and commit build/game-libs.lock.json."
+    fi
+    for entry in "${entries[@]}"; do
+        platform="${entry% *}" channel="${entry#* }"
+        step "Matrix build against ${GREEN}${platform} ${channel}${CYAN}"
+        if ! managed="$(lock_managed_path "$platform" "$channel")"; then
+            failed+=("$platform $channel (snapshot unavailable)")
+            continue
+        fi
+        dotnet build "$MAIN_PROJECT" -c CompatCheck "-p:ManagedPath=$managed" ||
+            failed+=("$platform $channel ($managed)")
     done
-    ((found)) || die "No snapshots under game-libs/. Run 'just mod::snapshot' on each Steam branch first."
     if ((${#failed[@]} > 0)); then
         err "Matrix build failed against:"
         printf '  %s\n' "${failed[@]}" >&2
         exit 1
     fi
-    ok "Matrix build passed for all snapshots."
+    ok "Matrix build passed for every captured lock entry."
 }
 
 # fetch-data [-p:Name=Value ...]: refresh the remote embedded seeds without building.

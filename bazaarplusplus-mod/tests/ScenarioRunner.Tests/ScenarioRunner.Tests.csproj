@@ -18,6 +18,10 @@
       Include="@(_ScenarioRunnerProject->'../%(Identity)/%(Identity).csproj')"
       ReferenceOutputAssembly="false"
     />
+    <ProjectReference
+      Include="../CombatImpact.Corpus/CombatImpact.Corpus.csproj"
+      ReferenceOutputAssembly="false"
+    />
   </ItemGroup>
   <ItemGroup Condition="'$(BppSeedGateOnly)' == 'true'">
     <ProjectReference

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { parseArgs } from 'node:util';
@@ -14,6 +15,7 @@ import {
 import {
   preparePayload,
   buildProduct,
+  payloadPaths,
   assertBuildOwner,
   assertReleaseBuildArgs
 } from './release/payload.mjs';
@@ -34,7 +36,7 @@ import {
 
 const usage = `Product release commands (run from any directory):
   node release.mjs sync                         Project VERSION into toolchain files
-  node release.mjs check                        Check product source projections and release configuration
+  node release.mjs check                        Check product source projections, the Snapshot Lock and release configuration
   node release.mjs prepare --platform macos      Build and validate one platform Payload
   node release.mjs build --platform macos        Build and sign the native installer
   node release.mjs upload --platform macos       Upload immutable platform artifacts
@@ -55,8 +57,8 @@ mirror refuses a share page that does not serve the uploaded installer unless
 recorded mirror unless --without-mainland-mirror is passed. mirror-all requires
 both platforms uploaded at the same version and commit before recording either mirror.
 Only upload, mirror, mirror-all
-and promote access R2, and require BPP_R2_ACCOUNT_ID, BPP_R2_ACCESS_KEY_ID and
-BPP_R2_SECRET_ACCESS_KEY. No command changes VERSION.
+and promote access R2, and require CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID
+(the S3 pair is derived from the token). No command changes VERSION.
 `;
 
 export function parseReleaseArgs(args) {
@@ -175,6 +177,15 @@ export function parseReleaseArgs(args) {
   };
 }
 
+// The Snapshot Lock entry a sealed build record names: the product ships to
+// online users, so another channel is reported, not hidden (ADR 0004).
+function describeLockEntry({ key, gameVersion, buildid, channel }) {
+  const entry = `lock entry ${key} (${gameVersion}, buildid ${buildid})`;
+  return channel === 'online'
+    ? entry
+    : `${entry}; WARNING: the product compiles against the online entry once it is captured`;
+}
+
 function bundleInstaller(rootDir, token) {
   execFileSync('bash', [path.join(rootDir, 'scripts/bundle.sh')], {
     cwd: rootDir,
@@ -235,16 +246,21 @@ export async function main(
     log(`Mainland mirror verified for ${verified.version}`);
     return;
   }
-  const version = checkProductProjections(workspaceRoot);
+  const version = checkProductProjections(workspaceRoot, {
+    warn: (message) => log(`WARNING: ${message}`),
+    now
+  });
   if (command === 'check') {
     log(
-      `Product ${version}: version, inventory, badges and release configuration aligned`
+      `Product ${version}: version, inventory, badges, Snapshot Lock and release configuration aligned`
     );
     return;
   }
   if (command === 'prepare') {
-    preparePayload({ workspaceRoot, platform, msbuildArgs });
-    log(`Prepared ${platform} Payload for ${version}`);
+    const record = preparePayload({ workspaceRoot, platform, msbuildArgs });
+    log(
+      `Prepared ${platform} Payload for ${version} against ${describeLockEntry(record.lockEntry)}`
+    );
     return;
   }
   if (command === 'build') {
@@ -254,6 +270,13 @@ export async function main(
       msbuildArgs,
       bundle: ({ token }) => bundleInstaller(rootDir, token)
     });
+    // buildProduct verified and sealed the record; read it back for the log.
+    const record = JSON.parse(
+      fs.readFileSync(payloadPaths(rootDir, platform).buildRecord, 'utf8')
+    );
+    log(
+      `Built ${platform} ${version} against ${describeLockEntry(record.lockEntry)}`
+    );
     return;
   }
   const store = createStore();

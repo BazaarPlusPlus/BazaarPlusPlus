@@ -3,7 +3,7 @@ using Newtonsoft.Json;
 
 namespace BazaarPlusPlus.ModApi.Models;
 
-public sealed class ModApiHealthResponse
+internal sealed class ModApiHealthResponse
 {
     [JsonProperty("status")]
     public string Status { get; set; } = string.Empty;

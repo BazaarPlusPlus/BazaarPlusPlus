@@ -21,10 +21,12 @@ import {
   listPayloadFiles
 } from './payload-zip.mjs';
 import {
+  PAYLOAD_BUILD_RECORD_SCHEMA_VERSION,
   artifactManifestPath,
   createArtifactManifest,
   releaseSourceIdentity
 } from './artifact-manifest.mjs';
+import { lockEntryForManaged, managedDirectoryRecords } from './game-libs.mjs';
 
 function hash(bytes) {
   return crypto.createHash('sha256').update(bytes).digest('hex');
@@ -116,16 +118,9 @@ export function computePayloadInputs({ workspaceRoot, managedPath }) {
     path: 'VERSION',
     sha256: hash(fs.readFileSync(path.join(workspaceRoot, 'VERSION')))
   });
-  // Game references are inputs, not just a path or a Steam branch name.
-  for (const entry of fs.readdirSync(managedPath, { withFileTypes: true })) {
-    if (entry.isFile() && entry.name.endsWith('.dll'))
-      records.push({
-        path: `managed/${entry.name}`,
-        sha256: hash(fs.readFileSync(path.join(managedPath, entry.name)))
-      });
-  }
-  if (!records.some((record) => record.path === 'managed/Assembly-CSharp.dll'))
-    throw new Error('Release Managed path has no Assembly-CSharp.dll');
+  // Game references are inputs, not just a path or a Steam branch name. The
+  // same records, hashed alone, are the Snapshot Lock entry's sha256.
+  records.push(...managedDirectoryRecords(managedPath));
   records.sort((a, b) => a.path.localeCompare(b.path));
   return { digest: hash(JSON.stringify(records)), files: records };
 }
@@ -156,7 +151,7 @@ function verifyPayloadSource({
   assertNoPendingPromotion(rootDir);
   const record = json(payloadPaths(rootDir, platform).buildRecord);
   if (
-    record.schemaVersion !== 2 ||
+    record.schemaVersion !== PAYLOAD_BUILD_RECORD_SCHEMA_VERSION ||
     record.platform !== platform ||
     record.productVersion !== readProductVersion(workspaceRoot)
   )
@@ -417,6 +412,13 @@ function preparePayloadUnlocked({
   );
   const productVersion = readProductVersion(workspaceRoot);
   const inputs = computePayloadInputs({ workspaceRoot, managedPath });
+  // The lock file sits under mod/build, so it is already in the input digest;
+  // the entry is recorded for provenance, not as a second seal.
+  const lockEntry = lockEntryForManaged({
+    workspaceRoot,
+    platform,
+    managedPath
+  });
   const stageRoot = fs.mkdtempSync(
     path.join(rootDir, 'src-tauri/target/payload-stage-')
   );
@@ -495,10 +497,11 @@ function preparePayloadUnlocked({
           }))
       : [];
     writeJson(staged.buildRecord, {
-      schemaVersion: 2,
+      schemaVersion: PAYLOAD_BUILD_RECORD_SCHEMA_VERSION,
       productVersion,
       platform,
       managedPath,
+      lockEntry,
       inputDigest: inputs.digest,
       inputs: inputs.files,
       seeds,

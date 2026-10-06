@@ -13,7 +13,7 @@ The BepInEx mod. Repo-wide rules (commits, pull requests, docs policy, contracts
 
 ## Build and test
 
-`just --list mod` lists every command; recipes live in `mod.just` and run `scripts/*.sh`. `just mod::build` only compiles. Deploy into the game through `just mod::build --deploy`: it repairs the macOS trampoline after every game update, which a raw `dotnet build` skips. Game assemblies resolve via `ManagedPath`, auto-detected from common Steam install paths (`build/ManagedPath.props`) or passed as `-p:ManagedPath=...`.
+`just --list mod` lists every command; recipes live in `mod.just` and run `scripts/*.sh`. `just mod::build` only compiles. Deploy into the game through `just mod::build --deploy`: it repairs the macOS trampoline after every game update, which a raw `dotnet build` skips. Game assemblies resolve via `ManagedPath` from the Snapshot Lock (`build/ManagedPath.props`, root `CONTEXT.md`): an explicit `-p:ManagedPath=...`, else the lock entry's fetched snapshot or the local Steam install whose game version matches it; `just mod::fetch <platform> <channel>` explains a mismatch.
 
 What `just --list mod` cannot tell you:
 

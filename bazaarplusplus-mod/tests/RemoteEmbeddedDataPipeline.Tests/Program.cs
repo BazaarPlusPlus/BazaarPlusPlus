@@ -302,8 +302,8 @@ static async Task TestMsBuildTargetUsesFetcherHonorsExistingFilesAndPropagatesEx
                 "-p:ForceRemoteEmbeddedDataRefresh=true"
             );
             Equal(0, first.ExitCode, "The loopback force fetch should succeed. " + first.Output);
-            await server.Completion;
             Equal(2, server.Requests.Count, "Force refresh should fetch both declared resources.");
+            await server.Completion.WaitAsync(TimeSpan.FromSeconds(10));
             True(
                 server.Requests.All(request =>
                     request.Contains(
@@ -374,7 +374,7 @@ static async Task TestFetchDataRejectsBadSchemaWithoutChangingCanonicalSet()
         {
             var result = await RunProcess(
                 repo,
-                "bash",
+                await BashForHost(repo),
                 Path.Combine(repo, "scripts", "build.sh"),
                 "fetch-data",
                 $"-p:VoiceLinesRemoteUrl={server.BaseUrl}voice",
@@ -382,7 +382,14 @@ static async Task TestFetchDataRejectsBadSchemaWithoutChangingCanonicalSet()
                 $"-p:RemoteEmbeddedDataDirectory={canonical}"
             );
             True(result.ExitCode != 0, "A real feature parser must reject a bad staged schema.");
-            await server.Completion;
+            // A shell/MSBuild startup failure is not the schema rejection under test.
+            // The child has exited, so no future request can complete this server.
+            Equal(
+                2,
+                server.Requests.Count,
+                "The schema gate must first fetch both staged resources. " + result.Output
+            );
+            await server.Completion.WaitAsync(TimeSpan.FromSeconds(10));
         }
 
         Equal(
@@ -496,6 +503,28 @@ static async Task<(int ExitCode, string Output)> RunDotnet(
     string workingDirectory,
     params string[] arguments
 ) => await RunProcess(workingDirectory, "dotnet", arguments);
+
+static async Task<string> BashForHost(string workingDirectory)
+{
+    if (!OperatingSystem.IsWindows())
+        return "bash";
+
+    // Windows can resolve bare "bash" to the WSL launcher before searching PATH.
+    // Resolve Git's own Bash, as the installer shell-test harness does.
+    var git = await RunProcess(workingDirectory, "git", "--exec-path");
+    Equal(0, git.ExitCode, "Could not locate Git for Windows. " + git.Output);
+    for (
+        var directory = new DirectoryInfo(git.Output.Trim());
+        directory != null;
+        directory = directory.Parent
+    )
+    {
+        var candidate = Path.Combine(directory.FullName, "bin", "bash.exe");
+        if (File.Exists(candidate))
+            return candidate;
+    }
+    throw new InvalidOperationException("Git for Windows does not contain bin/bash.exe.");
+}
 
 static async Task<(int ExitCode, string Output)> RunProcess(
     string workingDirectory,

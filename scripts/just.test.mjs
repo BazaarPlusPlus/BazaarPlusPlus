@@ -310,6 +310,39 @@ test('setup and scoped commands preserve arguments without shell expansion', (t)
   ]);
 });
 
+// The GitHub secrets recipes only route to the workspace CLI, which owns the
+// gh calls; flags pass through unchanged and nothing else runs.
+test('secrets-check and secrets-sync delegate to the workspace secrets commands', (t) => {
+  const f = fixture(t);
+  succeeded(f.run(['secrets-check']));
+  succeeded(f.run(['secrets-check', '--dependabot']));
+  succeeded(f.run(['secrets-sync']));
+  succeeded(f.run(['secrets-sync', '--dependabot', '--prune']));
+  assert.deepEqual(f.calls(), [
+    call(f.dir, null, 'node', 'scripts/workspace.mjs', 'secrets', 'check'),
+    call(
+      f.dir,
+      null,
+      'node',
+      'scripts/workspace.mjs',
+      'secrets',
+      'check',
+      '--dependabot'
+    ),
+    call(f.dir, null, 'node', 'scripts/workspace.mjs', 'secrets', 'push'),
+    call(
+      f.dir,
+      null,
+      'node',
+      'scripts/workspace.mjs',
+      'secrets',
+      'push',
+      '--dependabot',
+      '--prune'
+    )
+  ]);
+});
+
 // These must remain literal arguments, not interpolated shell source.
 const managedPath =
   "-p:ManagedPath=C:/Games/O'Brien/${USER}/$(printf injected); & Managed";
@@ -336,14 +369,74 @@ test('mod module recipes also accept the subcommand spelling', (t) => {
   ]);
 });
 
-test('mod::decompile requires an online or ptr channel before running anything', (t) => {
+test('mod::decompile requires a snapshot channel before running anything', (t) => {
   const f = fixture(t);
   assert.notEqual(f.run(['mod::decompile', 'Assembly-CSharp']).status, 0);
   assert.deepEqual(f.calls(), []);
   succeeded(f.run(['mod::decompile', 'ptr', 'all']));
+  succeeded(f.run(['mod::decompile', 'staging']));
   assert.deepEqual(f.calls(), [
-    call(f.dir, 'mod', 'mod-game', 'decompile', 'ptr', 'all')
+    call(f.dir, 'mod', 'mod-game', 'decompile', 'ptr', 'all'),
+    call(f.dir, 'mod', 'mod-game', 'decompile', 'staging')
   ]);
+});
+
+// Snapshot Lock recipes: fetch and lock-check never load credentials, publish
+// runs inside the release profile, and every one of them refuses an unknown
+// platform or channel before any script runs.
+test('mod snapshot recipes route to game.sh with validated platform and channel', (t) => {
+  const f = fixture(t);
+  for (const bad of [
+    ['mod::fetch', 'linux', 'online'],
+    ['mod::fetch', 'macos', 'beta'],
+    ['mod::publish', 'macos'],
+    ['mod::publish', 'windows', 'nightly']
+  ]) {
+    assert.notEqual(f.run(bad).status, 0, bad.join(' '));
+  }
+  assert.deepEqual(f.calls(), []);
+  succeeded(f.run(['mod::snapshot']));
+  succeeded(f.run(['mod::fetch', 'windows', 'ptr']));
+  succeeded(f.run(['mod::lock-check']));
+  succeeded(f.run(['mod::publish', 'macos', 'staging']));
+  assert.deepEqual(f.calls(), [
+    call(f.dir, 'mod', 'mod-game', 'snapshot'),
+    call(f.dir, 'mod', 'mod-game', 'fetch', 'windows', 'ptr'),
+    call(f.dir, 'mod', 'mod-game', 'lock-check'),
+    call(
+      f.dir,
+      'mod',
+      'node',
+      '../scripts/workspace.mjs',
+      'run',
+      'release',
+      '--',
+      'bash',
+      'scripts/game.sh',
+      'publish',
+      'macos',
+      'staging'
+    )
+  ]);
+});
+
+test('mod::matrix forwards the named channels to build.sh', (t) => {
+  const f = fixture(t);
+  succeeded(f.run(['mod::matrix']));
+  succeeded(f.run(['mod::matrix', 'staging', 'ptr']));
+  assert.deepEqual(f.calls(), [
+    call(f.dir, 'mod', 'mod-build', 'matrix'),
+    call(f.dir, 'mod', 'mod-build', 'matrix', 'staging', 'ptr')
+  ]);
+});
+
+test('mod::check ends with the snapshot lock check', (t) => {
+  const f = fixture(t);
+  succeeded(f.run(['mod::check']));
+  assert.deepEqual(
+    f.calls().at(-1),
+    call(f.dir, 'mod', 'mod-game', 'lock-check')
+  );
 });
 
 for (const command of ['sync', 'check', 'verify-mirror', 'promote']) {

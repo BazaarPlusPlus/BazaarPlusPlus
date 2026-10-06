@@ -7,8 +7,8 @@ export DOTNET_SYSTEM_NET_DISABLEIPV6 := env('DOTNET_SYSTEM_NET_DISABLEIPV6', '1'
 # The four published assemblies; each keeps a committed NuGet lock file.
 published_projects := "src/BazaarPlusPlus.Localization/BazaarPlusPlus.Localization.csproj src/BazaarPlusPlus.ModApi/BazaarPlusPlus.ModApi.csproj src/BazaarPlusPlus.Storage/BazaarPlusPlus.Storage.csproj src/BazaarPlusPlus/BazaarPlusPlus.csproj"
 
-# Check formatting, compile without deploying, and validate the NuGet lock files.
-check: fmt-check build locks-check
+# Check formatting, compile without deploying, and validate the NuGet and snapshot lock files.
+check: fmt-check build locks-check lock-check
 
 # Compile; --deploy also repairs the macOS trampoline and copies into the installed game; [--deploy] [--fast] [-p:Name=Value ...].
 build *args:
@@ -44,15 +44,31 @@ locks-check:
 fetch-data *args:
     bash scripts/build.sh fetch-data "$@"
 
-# Decompile game DLLs (default Assembly-CSharp, or `all`) into decompiled/ or decompiled-vptr/.
-[arg('channel', pattern='online|ptr')]
+# Decompile game DLLs (default Assembly-CSharp, or `all`) into decompiled/, decompiled-vstaging/ or decompiled-vptr/.
+[arg('channel', pattern='online|staging|ptr')]
 decompile channel *dlls:
     bash scripts/game.sh decompile "$@"
 
-# Archive the installed Managed dir under game-libs/ for release pinning and matrix builds.
+# Capture the mounted game's Managed dir under game-libs/ and record it in build/game-libs.lock.json.
 snapshot:
     bash scripts/game.sh snapshot
 
-# Compile against every archived Managed snapshot under game-libs/.
-matrix:
-    bash scripts/build.sh matrix
+# Upload a captured snapshot to the private store; needs the release credentials.
+[arg('channel', pattern='online|staging|ptr')]
+[arg('platform', pattern='macos|windows')]
+publish platform channel:
+    node ../scripts/workspace.mjs run release -- bash scripts/game.sh publish "$@"
+
+# Make one lock entry's Managed dir available (snapshot, matching Steam install, or private store) and print it.
+[arg('channel', pattern='online|staging|ptr')]
+[arg('platform', pattern='macos|windows')]
+fetch platform channel:
+    bash scripts/game.sh fetch "$@"
+
+# Validate build/game-libs.lock.json; empty or stale entries warn, a mismatched Managed dir fails.
+lock-check:
+    bash scripts/game.sh lock-check
+
+# CompatCheck-compile against every captured lock entry, or against the host platform's named channels (an empty entry fails).
+matrix *channels:
+    bash scripts/build.sh matrix "$@"

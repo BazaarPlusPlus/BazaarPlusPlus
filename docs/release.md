@@ -4,7 +4,7 @@ mod 与 installer 是同一个 Product Release 的两个产物。根目录 `rele
 
 ## 入口
 
-每个平台在自己的原生构建机上准备和打包；just 的安装与 Windows 约定见[开发命令](development.md)。参数以 `node release.mjs --help` 为准。
+`prepare`、`build`、`upload` 默认由 [GitHub Actions 发版工作流](#github-actions-发版)在两个托管 runner 上执行；在本机执行时每个平台仍要在自己的原生宿主上，游戏程序集由快照锁解析而不是本机 Steam 探测，所以装了游戏不再是发布机的条件。just 的安装与 Windows 约定见[开发命令](development.md)。参数以 `node release.mjs --help` 为准。
 
 ```bash
 just release::sync
@@ -18,24 +18,48 @@ just release::promote
 just release::promote --platform macos
 ```
 
-Windows 将 `macos` 换成 `windows`。`release::prepare` 和 `release::build` 可在平台后追加 `"-p:ManagedPath=<absolute-path>"` 指定正式服游戏程序集；不接受编译器、版本、目标或输出目录覆盖。`build` 包含 `prepare`，但不会自动上传；`upload` 不修改 latest；`mirror-all` 在双平台上传齐备后统一核对并记录大陆镜像地址；`mirror` 用于单平台发布；`verify-mirror` 只读复核，不需要凭据；`promote` 发布双平台版本，`promote --platform` 只发布一个平台，见[按平台发布](#按平台发布)。installer 的 `npm run prepare:resources -- --platform …` 同样转入产品发布协调器；installer 的 `scripts/bundle.sh` 只在 `release::build` 持有的构建锁内运行。
+Windows 将 `macos` 换成 `windows`。`release::prepare` 和 `release::build` 默认对照本平台的 online 锁条目编译（`scripts/game.sh managed-path` 只解析这一个条目），可在平台后追加 `"-p:ManagedPath=<absolute-path>"` 换一种取包方式，但该目录仍必须哈希到某个锁条目，否则 `prepare` 在落任何文件之前拒绝；不接受编译器、版本、目标或输出目录覆盖。`build` 包含 `prepare`，但不会自动上传；`upload` 不修改 latest；`mirror-all` 在双平台上传齐备后统一核对并记录大陆镜像地址；`mirror` 用于单平台发布；`verify-mirror` 只读复核，不需要凭据；`promote` 发布双平台版本，`promote --platform` 只发布一个平台，见[按平台发布](#按平台发布)。installer 的 `npm run prepare:resources -- --platform …` 同样转入产品发布协调器；installer 的 `scripts/bundle.sh` 只在 `release::build` 持有的构建锁内运行。
 
-`release/projections.mjs` 的 `checkProductProjections` 是共享源码对齐入口：根 `check` 与 installer 预检查均调用它，验证版本、Payload 投影、两份 README badge、平台配置和 updater endpoint。发布 origin 和 updater endpoint 列表由 `release/downloads.ts` 的 `RELEASE_BASE_URL` 与 `UPDATER_ENDPOINTS` 定义；Tauri 配置必须与后者逐项相等。`sync` 更新版本和 badge，不改写发布 origin。
+`release/projections.mjs` 的 `checkProductProjections` 是共享源码对齐入口：根 `check` 与 installer 预检查均调用它，验证版本、Payload 投影、两份 README badge、平台配置、updater endpoint 和快照锁 `bazaarplusplus-mod/build/game-libs.lock.json` 的格式（六个键齐全，条目为空或过期只告警，见 [ADR 0004](adr/0004-pinned-game-assembly-snapshots.md)）。发布 origin 和 updater endpoint 列表由 `release/downloads.ts` 的 `RELEASE_BASE_URL` 与 `UPDATER_ENDPOINTS` 定义；Tauri 配置必须与后者逐项相等。`sync` 更新版本和 badge，不改写发布 origin。
 
 just 只转发，不缓存或跳过任何发布检查。直接调用 `node release.mjs prepare|build` 时，MSBuild 参数要放在 `--` 之后；just 会自动补上。
 
 ## 发布顺序
 
 1. 修改 `VERSION`，执行 `sync`，验证源码。
-2. 两个平台分别执行 `prepare`。`prepare` 和后续 `build` 都显式传入同一个 `-p:ManagedPath=...`，指向正式服 Managed 或固定快照；mod 直接对照其中的游戏自带库编译，本机默认发现的安装可能与发布默认选择的快照不同。如果 native 输入锁或受版本管理的预构建资源变化，审阅并提交这些变化；把两个平台需要的更新汇入同一个提交。
-3. 两台构建机检出这个相同提交，分别执行 `build`。发布相关源码必须干净；不相关的 site/analyzer 工作不会污染产品构建身份。若 `prepare` 又改变了跟踪的 native 输入，先汇入提交，再重新构建。
-4. 分别执行 `upload`，保存同一个版本、同一个 Git commit 的平台产物和 fragment。
+2. 两个平台分别执行 `prepare`。游戏程序集来自本平台的 online 锁条目，构建记录会写入这个条目；本机执行前先 `just mod::fetch <platform> online`，让条目在本机可解析。online 条目尚未采集时，本机只能显式传 `-p:ManagedPath=...` 指向一个哈希到其他锁条目（如 staging）的 Managed，`prepare` 和后续 `build` 传同一个值，日志会带非 online 告警。如果 native 输入锁或受版本管理的预构建资源变化，审阅并提交这些变化；把两个平台需要的更新汇入同一个提交。
+3. 两个平台在这个相同提交上分别执行 `build`，托管 runner 或各自的原生宿主均可。发布相关源码必须干净；不相关的 site/analyzer 工作不会污染产品构建身份。若 `prepare` 又改变了跟踪的 native 输入，先汇入提交，再重新构建。
+4. 在执行 `build` 的同一台机器上执行 `upload`，保存同一个版本、同一个 Git commit 的平台产物和 fragment。
 5. 两个平台上传完成后，单独执行大陆镜像阶段：把两个安装包原样上传到蓝奏云，拿到各自分享页地址后执行 `mirror-all`。它先验证双平台产物齐备、版本和提交一致，再核对两个分享页并记录地址，见[中国大陆镜像](#中国大陆镜像)。
 6. 任一发布机执行 `promote`。两个平台未齐、提交不一致、远端产物缺失或校验不符、任一平台没有镜像记录时均拒绝写入。它先写每个平台的 Platform Release Manifest，再写 `latest.json`。
 
 一个平台先发、另一个平台稍后跟上时，第 5 步仍用 `mirror <platform> <分享页地址>` 记录该平台的镜像，第 6 步用 `promote --platform <platform>`，见[按平台发布](#按平台发布)。
 
-构建依赖 Node/npm、.NET、Rust、本机正式服 Managed 程序集、平台 native 工具链和 bootstrap 资源。准备阶段会抓取并验证 Build Seed Fetch 数据。macOS 正式打包另需 Developer ID、公证和 Tauri updater 签名材料，具体本机约定见 [installer 发布文档](../bazaarplusplus-installer/docs/release.md)。源代码验证无需这些签名凭据。
+第 2 到第 4 步默认由 [GitHub Actions 发版工作流](#github-actions-发版)执行：两个托管 runner 各跑一遍 `prepare`、`build`、`upload`，输入与本机相同；本机执行是 runner 不可用或要调试打包时的备用路径。第 5、6 步只在本机执行。
+
+## GitHub Actions 发版
+
+`.github/workflows/release.yml` 在 `macos-14` 与 `windows-latest` 各起一个 job，依次执行 `just release::check`、`just mod::fetch <platform> online`、`just release::prepare`、`just release::build`、`just release::upload`。build 与 upload 在同一个 job 里，满足"同机"要求；runner 本身就是原生宿主，原生宿主检查不需要改动。触发方式两种：`workflow_dispatch` 填 `version`（必须等于所选 ref 上的 `VERSION`，否则在装任何工具链之前失败），或推送 `v<VERSION>` 标签。`dry_run` 输入在 `prepare` 之后停止，只需要快照存储凭据，用来在没有签名材料时验证取包与 Payload 准备。
+
+游戏程序集来自快照锁指向的 online 条目（[ADR 0004](adr/0004-pinned-game-assembly-snapshots.md)）：条目为空时 `mod::fetch` 失败并指出要采集哪个快照，不会退回本机 Steam。原生录制插件沿用 `release/native-recorder-input.mjs` 的新鲜度判断：已提交的产物新鲜就直接复用；不新鲜时在 runner 上重建，但重建会改动跟踪文件，工作流随即以具名错误失败并把差异作为 `native-recorder-inputs-<platform>` 产物上传，用 `git apply` 合入提交后重跑，不会上传一个脏构建。
+
+每个 GitHub secret 和变量的名字、作用域和本地来源只在 `release/github-secrets.json` 里维护：`release` 环境持有发版 secret 与 Apple 三个标识符变量，仓库级变量 `CLOUDFLARE_ACCOUNT_ID` 和仓库级 secret `BPP_GAME_LIBS_TOKEN` 与 `checks.yml`、`deploy-site.yml` 共用。每个 job 的第一步 `.github/scripts/release-secrets.sh check` 读同一张表按平台和阶段核对，缺一个就以 `::error` 点名并说明取值来源；签名材料由同一脚本 `stage` 成 `bundle.sh` 读取的 `BPP_SIGNING_SECRETS_DIR` 文件布局，与本机 `node scripts/workspace.mjs run signing` 的暂存一致。R2 的 S3 密钥对不是 secret：`release/r2-store.mjs` 从 `CLOUDFLARE_API_TOKEN` 推导（Access Key ID 是 token id，Secret 是 token 值的 SHA-256）。
+
+| 名字 | GitHub 作用域 | 本地来源 | 用途 |
+|---|---|---|---|
+| `CLOUDFLARE_ACCOUNT_ID` | 仓库变量 | `config.ini` `[cloudflare]` | 所有 R2 桶和 site Workers 的账号 |
+| `BPP_GAME_LIBS_TOKEN` | 仓库 secret（Dependabot 另注册一份） | `config.ini` `[cloudflare]`，仅读 `bazaarplusplus-game-libs` 的只读 token | `checks.yml` 的 mod lane |
+| `CLOUDFLARE_API_TOKEN` | `release` 环境 secret | `config.ini` `[cloudflare]`，操作员 token | `mod::fetch`、`release::upload` |
+| `TAURI_SIGNING_PRIVATE_KEY` | `release` 环境 secret | `keys/tauri-updater.key` 的内容 | updater 签名，两平台 |
+| `APPLE_SIGNING_IDENTITY` / `APPLE_API_ISSUER` / `APPLE_API_KEY` | `release` 环境变量 | `config.ini` `[signing]` | macOS 签名与公证 |
+| `APPLE_API_KEY_P8` | `release` 环境 secret | `keys/AuthKey_<APPLE_API_KEY>.p8` 的内容 | macOS 公证 |
+| `APPLE_CERTIFICATE` / `APPLE_CERTIFICATE_PASSWORD` | `release` 环境 secret | `keys/developer-id.p12`（从 Keychain Access 导出的 Developer ID Application 证书含私钥，推送时转 base64）与 `config.ini` `[signing] APPLE_CERTIFICATE_PASSWORD` | 导入 runner 的临时 keychain；`bundle.sh` 在 Tauri 打包前就要 codesign 内嵌资源，所以不能交给 Tauri 自己导入 |
+
+发版前置条件：`just secrets-check` 的清单两边都不缺。它只列名字；`just secrets-sync` 把本地有值的项写到 GitHub（`--dependabot` 同时注册只读 token，`--prune` 删除表里列为退役的旧名字）。只有三件事要人工做：在 Cloudflare dashboard 造操作员 token 和只读 token 填进 `[cloudflare]`，从 Keychain Access 导出证书到 `keys/developer-id.p12` 并把导出密码填进 `[signing]`。两个 site 环境各自的 `CLOUDFLARE_API_TOKEN` 不在表里，手工维护。
+
+`promote` 不进工作流：它要求两个平台都有大陆镜像记录（或显式豁免），而蓝奏云上传是手动步骤，分享页地址只有上传后才存在，`mirror-all` 必须在 `promote` 之前拿到它们。所以两平台 job 成功后仍按[发布顺序](#发布顺序)第 5、6 步在本机执行 `mirror-all` 与 `promote`，这两步只需要 `[cloudflare]` 的操作员 token。
+
+本机执行时，构建依赖 Node/npm、.NET、Rust、快照锁 online 条目解析出的 Managed 程序集（[开发命令](development.md#游戏程序集)）、平台 native 工具链和 bootstrap 资源。准备阶段会抓取并验证 Build Seed Fetch 数据。macOS 正式打包另需 Developer ID、公证和 Tauri updater 签名材料，具体本机约定见 [installer 发布文档](../bazaarplusplus-installer/docs/release.md)。源代码验证无需这些签名凭据。
 
 ## Payload 的共同事实
 
@@ -49,7 +73,7 @@ just 只转发，不缓存或跳过任何发布检查。直接调用 `node relea
 
 ## 本地准备与恢复
 
-`prepare` 在隔离目录中复用或重建 native 输入，构建 managed 产物、校验 seed、生成一次 unsigned ZIP，并封存源文件摘要、Managed 程序集摘要、seed 摘要和 Payload 文件 hashes/modes。最终校验全部成功后才切换当前平台的 SourceForBuild、ZIP 与 native 输入锁；另一个平台不变。
+`prepare` 在隔离目录中复用或重建 native 输入，构建 managed 产物、校验 seed、生成一次 unsigned ZIP，并封存源文件摘要、Managed 程序集摘要、所用的快照锁条目（平台、渠道、游戏版本、sha256、buildid；Managed 目录不对应任何锁条目时拒绝准备）、seed 摘要和 Payload 文件 hashes/modes。最终校验全部成功后才切换当前平台的 SourceForBuild、ZIP 与 native 输入锁；另一个平台不变。
 
 准备和整个 installer 构建共享一个进程锁，覆盖校验、签名、bundle 和最终 artifact manifest。打包结束重新检查 unsigned 来源、源码及 Git 身份；失败不会留下上一轮可上传的 artifact manifest。macOS 签名只变换 ZIP 中的副本，最终分发 hash 由 artifact manifest 记录。
 
@@ -57,15 +81,14 @@ just 只转发，不缓存或跳过任何发布检查。直接调用 `node relea
 
 ## 远端发布
 
-上传使用 R2 S3 条件写，需要仅对安装器 bucket 授权的凭据：
+上传使用 R2 S3 条件写，凭据是操作员 token 与账号 ID：
 
-- `BPP_R2_ACCOUNT_ID`
-- `BPP_R2_ACCESS_KEY_ID`
-- `BPP_R2_SECRET_ACCESS_KEY`
+- `CLOUDFLARE_API_TOKEN`
+- `CLOUDFLARE_ACCOUNT_ID`
 
-它们只由 `upload` / `mirror` / `mirror-all` / `promote` 读取；不要放入 Git。此流程不使用 Wrangler 登录态，因为该 CLI 没有提供这里需要的 ETag 条件写。
+S3 密钥对由 `release/r2-store.mjs` 从 token 推导（一次 `GET /user/tokens/verify` 取 token id 作 Access Key ID，token 值的 SHA-256 作 Secret），每个进程只验证一次。它们只由 `upload` / `mirror` / `mirror-all` / `promote` 读取；不要放入 Git。此流程不使用 Wrangler 登录态，因为该 CLI 没有提供这里需要的 ETag 条件写。
 
-对应的 just 命令通过 `scripts/workspace.mjs` 从集中配置接入这三个变量；`build` 通过临时签名目录接入 `[signing]` 与 `keys/`。配置初始化、已有环境变量的优先级和本机状态检查见[开发命令](development.md#新-clone-与本地配置)。直接执行 `node release.mjs` 仍要求调用者提供环境。
+对应的 just 命令通过 `scripts/workspace.mjs` 的 `release` profile 从 `[cloudflare]` 接入这两个变量；`build` 通过临时签名目录接入 `[signing]` 与 `keys/`。配置初始化、已有环境变量的优先级和本机状态检查见[开发命令](development.md#新-clone-与本地配置)。直接执行 `node release.mjs` 仍要求调用者提供环境。
 
 版本目录中的产物和 platform fragment 不可变：相同 bytes 的重试成功，不同 bytes 必须发布新版本。上传先固定所有本地文件内容并复查 hashes，避免并发本机构建污染远端版本路径。读取失败、权限错误和服务错误都不是“文件不存在”。
 

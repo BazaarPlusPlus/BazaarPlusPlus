@@ -75,21 +75,18 @@ static void RegisterPluginReflectionAssemblyResolution()
     };
 }
 
+// The game assemblies this capsule compiled against (build/ManagedPath.props), stamped
+// into the assembly by the project file; no Steam path is probed at run time.
 static IEnumerable<string> ManagedAssemblySearchRoots()
 {
     yield return AppContext.BaseDirectory;
-    yield return @"C:\Program Files (x86)\Steam\steamapps\common\The Bazaar\TheBazaar_Data\Managed";
-    yield return @"C:\Program Files\Steam\steamapps\common\The Bazaar\TheBazaar_Data\Managed";
-    yield return @"D:\Steam\steamapps\common\The Bazaar\TheBazaar_Data\Managed";
-    yield return @"E:\Steam\steamapps\common\The Bazaar\TheBazaar_Data\Managed";
-    yield return MacSteamManagedPath();
+    var managed = typeof(Program)
+        .Assembly.GetCustomAttributes<AssemblyMetadataAttribute>()
+        .SingleOrDefault(attribute => attribute.Key == "BppManagedPath")
+        ?.Value;
+    if (!string.IsNullOrWhiteSpace(managed))
+        yield return managed;
 }
-
-static string MacSteamManagedPath() =>
-    Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-        "Library/Application Support/Steam/steamapps/common/The Bazaar/TheBazaar.app/Contents/Resources/Data/Managed"
-    );
 
 static void TestCandidateToggleUsesTemplateId()
 {

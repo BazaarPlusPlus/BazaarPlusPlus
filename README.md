@@ -76,17 +76,18 @@ BazaarPlusPlus 是一个面向《The Bazaar》的开源项目：游戏内由 Bep
 
 ## 从源码构建
 
-按[开发命令](docs/development.md)装好工具链（just、.NET、Node、Rust、Python/uv，以及本机 Steam 版《The Bazaar》），然后：
+按[开发命令](docs/development.md)装好工具链（just、.NET、Node、Rust、Python/uv），然后：
 
 ```bash
-just setup   # Shared local config, locked dependencies, Git hooks
-just doctor  # What is still missing on this machine
-just         # Every command, grouped by project
+just setup                  # Shared local config, locked dependencies, Git hooks
+just doctor                 # What is still missing on this machine
+just mod::fetch macos online  # Game assemblies for the mod (Windows: windows)
+just                        # Every command, grouped by project
 ```
 
-单个项目用 `just <project>::check` 和 `just <project>::test` 验证，`just fmt` 格式化全部项目。`just mod::build` 只编译；把开发版 DLL 部署进游戏要显式运行 `just mod::build --deploy`。
+mod 对照快照锁 `bazaarplusplus-mod/build/game-libs.lock.json` 指向的游戏程序集编译：`mod::fetch` 接受版本一致的本机 Steam 版《The Bazaar》，否则从私有存储取包，细节见[开发命令](docs/development.md#游戏程序集)。单个项目用 `just <project>::check` 和 `just <project>::test` 验证，`just fmt` 格式化全部项目。`just mod::build` 只编译；把开发版 DLL 部署进游戏要显式运行 `just mod::build --deploy`。
 
-发布签名、公证和 R2 上传依赖本机凭据，不在公开仓库中；游戏反编译输出、`.env`、`.dev.vars` 同样不在此树中。版本发布流程见[产品发布](docs/release.md)。
+正式包由 GitHub Actions 的 `release.yml` 在托管 runner 上构建、签名并上传，签名、公证和 R2 凭据只存在于 GitHub secrets 和维护者本机配置，不在公开仓库中；游戏程序集快照、游戏反编译输出、`.env`、`.dev.vars` 同样不在此树中。版本发布流程见[产品发布](docs/release.md)。
 
 ## 二次开发须知
 
