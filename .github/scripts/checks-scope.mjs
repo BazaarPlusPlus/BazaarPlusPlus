@@ -122,6 +122,7 @@ export const SHARED_INPUTS = [
     'src-tauri/Cargo.toml',
     'src-tauri/Cargo.lock',
     'src-tauri/tauri.conf.json',
+    'src-tauri/tauri.linux.conf.json',
     'src-tauri/tauri.macos.conf.json',
     'src-tauri/tauri.windows.conf.json'
   ].map((file) => [`bazaarplusplus-installer/${file}`, ['release']]),
@@ -149,6 +150,14 @@ const INFORMATIONAL_REFERENCES = [
   [
     'bazaarplusplus-mod/native/macos/build.sh',
     'bazaarplusplus-installer/scripts/bundle.sh'
+  ],
+  [
+    'bazaarplusplus-mod/build/ManagedPath.props',
+    'bazaarplusplus-installer/src-tauri/src/services/detect/steam.rs'
+  ],
+  [
+    'bazaarplusplus-installer/src-tauri/src/services/detect/steam.rs',
+    'bazaarplusplus-mod/build/ManagedPath.props'
   ]
 ];
 
