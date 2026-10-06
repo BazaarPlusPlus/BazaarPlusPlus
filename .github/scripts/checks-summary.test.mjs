@@ -156,12 +156,8 @@ test('workflow wiring preserves fixed old names, always summarizes every optiona
   for (const [job, scope] of Object.entries(JOB_SCOPES)) {
     const block = workflow.split(`\n  ${job}:\n`)[1]?.split(/\n  [\w-]+:\n/)[0];
     assert.ok(
-      block?.includes(`needs.classify.outputs.${scope} != 'false'`),
+      block?.includes(`needs.classify.outputs.${scope} == 'true'`),
       `${job} consumes ${scope}`
-    );
-    assert.ok(
-      block?.includes(`needs.classify.result != 'success'`),
-      `${job} runs if classification fails during migration`
     );
   }
   assert.ok(

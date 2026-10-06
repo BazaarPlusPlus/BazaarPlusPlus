@@ -380,14 +380,43 @@ test('every required check is a job name declared in the workflows', () => {
   );
 });
 
-test('both native installer gates must be required before any automatic merge', () => {
-  for (const os of ['macos-14', 'windows-latest']) {
+test('summary and unchanged security gates must be required before automatic merge', () => {
+  assert.deepEqual(REQUIRED_CHECKS, [
+    'Checks summary',
+    'Bot Mod dependency boundary',
+    'dependencies',
+    'CodeQL (javascript-typescript)',
+    'CodeQL (python)'
+  ]);
+  const legacy = rules();
+  legacy[1].parameters.required_status_checks =
+    legacy[1].parameters.required_status_checks.filter(
+      ({ context }) => context !== 'Checks summary'
+    );
+  legacy[1].parameters.required_status_checks.push(
+    ...[
+      'Release tooling',
+      'site (full check and test)',
+      'server (full check and test)',
+      'Analyzer',
+      'Installer (macos-14)',
+      'Installer (windows-latest)',
+      'Mod (macos-14)',
+      'Mod (windows-latest)'
+    ].map((context) => ({ context, integration_id: 15368 }))
+  );
+  assert.equal(
+    protectionReady(legacy),
+    false,
+    'legacy checks cannot replace the summary'
+  );
+  for (const name of REQUIRED_CHECKS) {
     const value = rules();
     value[1].parameters.required_status_checks =
       value[1].parameters.required_status_checks.filter(
-        ({ context }) => context !== `Installer (${os})`
+        ({ context }) => context !== name
       );
-    assert.equal(protectionReady(value), false);
+    assert.equal(protectionReady(value), false, name);
   }
 });
 
