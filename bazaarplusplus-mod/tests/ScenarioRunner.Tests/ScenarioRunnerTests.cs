@@ -36,19 +36,18 @@ public sealed partial class ScenarioRunnerTests
     )
     {
         var root = RepoRoot();
-        var configuration =
-#if DEBUG
-            "Debug";
-#else
-            "Release";
-#endif
+        // Capsules share the host's output layout, including the platform segment
+        // supplied by release preparation. A fixed bin/<configuration> path can
+        // accidentally execute a stale capsule or fail on a clean runner.
+        var outputDirectory = Path.GetRelativePath(
+            Path.Combine(root, "tests", "ScenarioRunner.Tests"),
+            AppContext.BaseDirectory
+        );
         var assembly = Path.Combine(
             root,
             "tests",
             projectName,
-            "bin",
-            configuration,
-            "net10.0",
+            outputDirectory,
             projectName + ".dll"
         );
         Assert.True(File.Exists(assembly), $"Scenario assembly was not built: {assembly}");
