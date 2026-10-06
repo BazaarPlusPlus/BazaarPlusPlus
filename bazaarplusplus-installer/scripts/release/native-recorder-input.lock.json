@@ -3,7 +3,7 @@
   "sourceRepository": "BazaarPlusPlus/bazaarplusplus-mod",
   "platforms": {
     "macos": {
-      "inputDigest": "sha256:2be383d87b6b73f0fbb29747fbea02d6cd0ed33fedf0fbe556597c6fd4fba845",
+      "inputDigest": "sha256:184ac0aa66e66f70820cdc93772e6d554a41199fcd490b7ee290289d6302bdc7",
       "inputFiles": {
         "native/mac-audio-tap/BppMacAudio.h": "346ea70328a8c170d307069e15abe7b384645477afd7f5be1ce2fa92e96dfe85",
         "native/mac-audio-tap/BppMacAudio.m": "41b8899dbee04fb7c53e0ae2fef09f5b093448fa05a12f563f349f5b098bf104",
@@ -13,11 +13,11 @@
         "native/macos/BppReplayVideoToolbox.h": "8a2cad31234ba454bd1c8e76c76fabdc02c3517134360f63f77d7a8f9b9902d2",
         "native/macos/BppReplayVideoToolbox.mm": "430686c04b00254760190e884c1ac15e1a77ac1a926baf87dccba9b9c243fedc",
         "native/macos/Info.plist": "39447564e34055078259dd199bd70a32b51f7cefb5d1e43946d4824cd737f80f",
-        "native/macos/build.sh": "a9b4aec8cf34ff02ef50a127939709c40b8d3e3bc978d092eb151c3a40a9d228",
+        "native/macos/build.sh": "4348d1791a77765765b35584694e4d7165cb0dd8a1a250f0f8a1625dfab94254",
         "native/macos/verify.sh": "4bc8d86f29b1ca4281843340240ecf869d2fd88363d12eb59b496615c4e013d3",
         "src/BazaarPlusPlus/Game/CombatReplay/Audio/CoreAudioProcessTapCaptureTap.cs": "14799e5fc8ad2bd367d7134093185900f95329f93be83d969c0a2dfd00a5b7e2",
         "src/BazaarPlusPlus/Game/CombatReplay/Audio/ReplayAudioCaptureFactory.cs": "1bd0f4fc76e4b90f8fced44ad62b1d5c4ebefc04f118db0554d57d2f1cf2cd32",
-        "src/BazaarPlusPlus/Game/CombatReplay/Video/MacMetalVideoEncoder.cs": "b37bc6113e1b0bc1a60e9f9e3d3a753efd5e4c414e00e417f85a30906a1680d7",
+        "src/BazaarPlusPlus/Game/CombatReplay/Video/MacMetalVideoEncoder.cs": "beece51137e74737bacb16ca88d8f48c795284ed8ed71870d1cf60ddcb96ca92",
         "src/BazaarPlusPlus/Game/CombatReplay/Video/MacNativeReplayAudioMuxer.cs": "2eb6987fc81db5438146f262fc9edf1644f95c1ce2dc5e1c850aa83bdc3528ab"
       },
       "policy": {
@@ -27,7 +27,7 @@
       },
       "producer": {
         "repository": "BazaarPlusPlus/bazaarplusplus-mod",
-        "commit": "ae01314b5a3e511cabd518a4e9a41c88027066b5",
+        "commit": "a50b60ecfe4368ad9865006185e4564878ed86e1",
         "dirty": false
       },
       "artifacts": {
@@ -35,8 +35,8 @@
           "destinationPath": "src-tauri/resources/SourceForBuild/macos/BepInEx/plugins/libBppMacAudio.dylib",
           "content": {
             "kind": "file",
-            "size": 53760,
-            "sha256": "3a2dabc7b7106a45291a38cd9690024eb59377d362e2bb750dab9833488347bf"
+            "size": 53328,
+            "sha256": "7459bbdaa212f22233fac629ac190eacd9582107e1e72604517708be2c6a49c9"
           }
         },
         "mac-replay": {
@@ -57,8 +57,8 @@
               },
               "Contents/MacOS/GfxPluginBppReplayVideoToolbox": {
                 "kind": "file",
-                "size": 102368,
-                "sha256": "c3cf098a7fc1209310c64a95341cdeeef014c105e69d340452f44cc93f922ab5"
+                "size": 102096,
+                "sha256": "decae99757e27842c0e572176aae09f6e954ad054f6947603ae7f45b63293886"
               },
               "Contents/_CodeSignature": {
                 "kind": "directory"
