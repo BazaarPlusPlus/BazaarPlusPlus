@@ -1,5 +1,7 @@
 mod commands;
 mod config;
+mod headless;
+pub use headless::run as run_headless;
 #[cfg(test)]
 mod goldens;
 mod history;

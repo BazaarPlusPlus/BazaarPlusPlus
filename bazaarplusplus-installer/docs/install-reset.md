@@ -31,6 +31,26 @@ The installer launches The Bazaar through `launch_game_via_steam` in `src-tauri/
 
 `compile_macos_trampoline_stub` in `src-tauri/build.rs` builds the bundled arm64 stub with the deployment target defined by `MACOS_TRAMPOLINE_DEPLOYMENT_TARGET` in `src-tauri/build_support.rs`. Release validation inspects that target before packaging. The rationale for the sole-bootstrap and empty-LaunchOptions choices lives in [ADR-0002](adr/0002-macos-launch-trampoline.md).
 
+## Headless Developer Repair
+
+`run_headless` in `src-tauri/src/lib.rs` dispatches CLI arguments before the
+Tauri shell starts. `just installer::cli --help` documents the arguments;
+`scripts/headless.mjs` runs that binary from source without a prepared Payload.
+
+The repair command calls `repair_deployed_game` in
+`src-tauri/src/services/bepinex/mod.rs`. It requires an installed macOS game
+with Doorstop and reuses the trampoline service, including process checks,
+backup normalization, signing, and rollback. It preserves the deployed mod
+DLLs, user data, and the persistent stash format. Both repair calls in mod
+deployment use this entry: before copying files and after the native plugin
+changes the application bundle. It does not run the GUI install planner or
+replace the Payload with bundled release files.
+
+`tree_manifest` in `src-tauri/src/services/file_manifest.rs` supplies the same
+sorted relative path and SHA-256 records to the CLI and acceptance tests.
+Symlink records contain their targets without following them. Manifest output
+belongs outside the game directory so it cannot include itself.
+
 ## Reset Local Data
 
 Reset is the only installer operation that deletes the current BPP data root. `reset_bpp_data` in `src-tauri/src/services/bepinex/mod.rs` enters `StreamRuntime::exclusive_maintenance`, refuses deletion while the game is running, and delegates filesystem cleanup to `cleanup_bpp_data_directory` in `src-tauri/src/services/bepinex/payload.rs`.
@@ -42,7 +62,7 @@ The Install workflow fixes the target path when confirmation opens. A successful
 `just installer::acceptance` runs two ignored macOS tests. It requires `BPP_ACCEPTANCE_RESOURCE_DIR`, a packaged resource directory (`BepInExSource/BepInEx.zip` and `Trampoline/bpp_launcher`), and `BPP_TEST_GAME_ROOT`, an installed game.
 
 - `fresh_install_writes_payload_and_signed_trampoline_without_quitting_steam` in `src-tauri/src/services/install/operation.rs` creates a disposable macOS bundle and Steam config, then executes the production filesystem effects. It checks every payload file byte for byte and checks that the Steam config is unchanged. A shutdown effect fails the test before it can reach Steam.
-- `copied_steam_bundle_repair_acceptance` in `src-tauri/src/services/bepinex/trampoline.rs` clones `TheBazaar.app` from the game root, repairs the trampoline three times, then uninstalls it. The source is never modified.
+- `copied_steam_bundle_repair_acceptance` in `src-tauri/src/services/bepinex/trampoline.rs` clones `TheBazaar.app` and Doorstop from the game root, repairs through the service and CLI repeatedly, verifies the manifest and preservation of developer DLLs and user data, then uninstalls the trampoline. The source is never modified.
 
 Each test compares a committed golden:
 

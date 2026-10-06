@@ -1,6 +1,8 @@
 {
   "bpp_paths": [
-    "TheBazaar.app/Contents/Plugins/GfxPluginBppReplayVideoToolbox.bundle"
+    "BepInEx/plugins/BazaarPlusPlus.dll",
+    "TheBazaar.app/Contents/Plugins/GfxPluginBppReplayVideoToolbox.bundle",
+    "libdoorstop.dylib"
   ],
   "codesign_verified": true,
   "trampoline_uuid_matches_bundled": true

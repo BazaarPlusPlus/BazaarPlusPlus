@@ -1,6 +1,6 @@
 # shellcheck shell=bash
 # Shared helpers for the mod command scripts. Sourced, never executed.
-# Keep this Bash 3.2 compatible: macOS /bin/bash runs it in MacosTrampolineRepair.Tests.
+# Keep this Bash 3.2 compatible: macOS ships /bin/bash 3.2.
 
 set -euo pipefail
 

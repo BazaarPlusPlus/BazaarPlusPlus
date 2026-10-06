@@ -56,7 +56,7 @@ Windows 在 Git Bash 中执行 just，`bash`、`just` 和语言工具链都要�
 
 - 全仓库门禁需要所有项目的工具链，mod 还需要快照锁能解析的游戏程序集；缺依赖时的失败不能当作通过。
 - `installer::check` 已包含 installer 的测试，先跑 `check` 再跑 `test` 会把它们跑两遍。
-- `mod::build` 只编译；部署进游戏要显式执行 `just mod::build --deploy`。含空格的参数整体加引号：
+- `mod::build` 只编译；部署进游戏要显式执行 `just mod::build --deploy`。macOS 部署通过 installer 的无界面 CLI 修复跳板，因此还需要 installer 的 Rust 工具链；普通 mod 编译不需要。含空格的参数整体加引号：
 
 ```bash
 just mod::build "-p:ManagedPath=/absolute/path/The Bazaar/Managed"

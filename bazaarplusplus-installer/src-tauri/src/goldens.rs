@@ -52,48 +52,7 @@ pub(crate) fn json(value: &impl Serialize, roots: &[(&Path, &str)]) -> String {
 /// order, each with the sha256 of its bytes (`symlink:<target>` for a link).
 #[cfg(target_os = "macos")]
 pub(crate) fn tree_manifest(root: &Path) -> Vec<(String, String)> {
-    use sha2::{Digest, Sha256};
-
-    fn walk(root: &Path, dir: &Path, entries: &mut Vec<(String, String)>) {
-        for entry in std::fs::read_dir(dir).unwrap() {
-            let path = entry.unwrap().path();
-            let relative = path
-                .strip_prefix(root)
-                .unwrap()
-                .to_string_lossy()
-                .into_owned();
-            let kind = std::fs::symlink_metadata(&path).unwrap().file_type();
-            if kind.is_symlink() {
-                let target = std::fs::read_link(&path).unwrap();
-                entries.push((relative, format!("symlink:{}", target.display())));
-            } else if kind.is_dir() {
-                walk(root, &path, entries);
-            } else {
-                use std::io::Read;
-                let mut file = std::fs::File::open(&path).unwrap();
-                let mut hasher = Sha256::new();
-                let mut buffer = vec![0; 1 << 20];
-                loop {
-                    let read = file.read(&mut buffer).unwrap();
-                    if read == 0 {
-                        break;
-                    }
-                    hasher.update(&buffer[..read]);
-                }
-                let digest = hasher
-                    .finalize()
-                    .iter()
-                    .map(|byte| format!("{byte:02x}"))
-                    .collect();
-                entries.push((relative, digest));
-            }
-        }
-    }
-
-    let mut entries = Vec::new();
-    walk(root, root, &mut entries);
-    entries.sort();
-    entries
+    crate::services::file_manifest::tree_manifest(root).unwrap()
 }
 
 /// Writes one run's full `(path, sha256)` list to

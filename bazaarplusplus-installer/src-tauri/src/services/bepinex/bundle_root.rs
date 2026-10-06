@@ -46,8 +46,8 @@ fn file_digest(path: &Path) -> Result<String, String> {
     Ok(hex(&digest.finalize()))
 }
 
-// This manifest format is also used by the developer repair script. Reject
-// ambiguous names and links instead of following them outside the owned tree.
+// The manifest is a persistent backup format. Reject ambiguous names and links
+// instead of following them outside the owned tree.
 fn fingerprint(root: &Path) -> Result<String, String> {
     fn visit(root: &Path, path: &Path, records: &mut Vec<String>) -> Result<(), String> {
         let relative = path.strip_prefix(root).map_err(|error| error.to_string())?;
