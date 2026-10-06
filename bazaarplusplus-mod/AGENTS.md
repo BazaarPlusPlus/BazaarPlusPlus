@@ -1,6 +1,6 @@
 # AGENTS.md
 
-The BepInEx mod. Repo-wide rules (commits, pull requests, docs policy, contracts) are in `../AGENTS.md`; this file holds what is specific to the mod and points at everything else.
+The BepInEx mod. Repo-wide rules are in `../AGENTS.md`; this file holds what is specific to the mod and points at everything else.
 
 | When you are about to | Read |
 |---|---|
@@ -13,20 +13,19 @@ The BepInEx mod. Repo-wide rules (commits, pull requests, docs policy, contracts
 
 ## Build and test
 
-`just --list mod` lists every command; recipes live in `mod.just` and run `scripts/*.sh`. `just mod::build` only compiles. Deploy into the game through `just mod::build --deploy`: it repairs the macOS trampoline after every game update, which a raw `dotnet build` skips. Game assemblies resolve via `ManagedPath` from the Snapshot Lock (`build/ManagedPath.props`, root `CONTEXT.md`): an explicit `-p:ManagedPath=...`, else the lock entry's fetched snapshot or the local Steam install whose game version matches it; `just mod::fetch <platform> <channel>` explains a mismatch.
+`just --list mod` lists every command; recipes live in `mod.just` and run `scripts/*.sh`. Deploy only through `just mod::build --deploy`: a raw `dotnet build` skips the macOS trampoline repair every game update needs. Game assemblies resolve via `ManagedPath` from the Snapshot Lock (`build/ManagedPath.props`, root `CONTEXT.md`); override with `-p:ManagedPath=...`, and `just mod::fetch <platform> <channel>` explains a mismatch.
 
 What `just --list mod` cannot tell you:
 
-- `ScenarioRunner.Tests` owns the closed list of source-shadow executable capsules and runs each in a child process; use `dotnet run --project tests/<Name>/<Name>.csproj` only to diagnose one capsule directly.
-- Review every changed `packages.lock.json` between `just mod::locks` and `just mod::locks-check`. The locked restore makes graph drift fail here rather than in the installer build.
-- In an isolated worktree, pass `-p:BPPInstallerSourcePath="<absolute-path>/bazaarplusplus-installer/src-tauri/resources"` to projects referencing the main mod; the default sibling installer path does not exist beside a worktree.
+- `just mod::locks-check` runs a locked restore so NuGet graph drift fails in the mod, not later in the installer build.
+- Doc edits are gated by `just mod::test`: `tests/Architecture.Tests/DocsHygieneTests.cs` enforces byte budgets on this file and `docs/MEMORY.md` and checks that links resolve; stay under a budget by merging entries, not appending.
 - A deletion is proved by deleting: `just mod::build` and `just mod::test` must both pass, because test projects compile fakes and source-shadow capsules that `build` never touches.
 
 ## Logs and debugging
 
 Runtime console output goes to `<GameDir>/BepInEx/LogOutput.log`, the sibling of the `BepInEx/plugins/` folder the build copies into. Mod log lines are structured events shaped `[BPP][<Scope>] event=<id> field=value ...`. `Debug` events emit only from Debug builds; `Info`, `Warning`, and `Error` always emit.
 
-Runtime validation that needs the game running launches The Bazaar through Steam (App ID 1617400) so Steam runtime state is present: `open "steam://run/1617400"` on macOS, `start steam://run/1617400` on Windows. Launching `TheBazaar.app` directly, or via `run_bepinex.sh` on macOS, bypasses that state and fails in subtle ways.
+Runtime validation that needs the game running launches The Bazaar through Steam (App ID 1617400) so Steam runtime state is present: `open "steam://run/1617400"` on macOS, `start steam://run/1617400` on Windows. Launching `TheBazaar.app` directly, or via `run_bepinex.sh` on macOS, bypasses that state and fails in subtle ways. A long-running automation task relaunches the game through the same Steam URL after a crash or exit and continues until the goal is met.
 
 ## Where new code goes
 
@@ -39,8 +38,7 @@ The layering traps, not a map of what exists:
 
 ## Game behavior
 
-- The current repo code and `decompiled/` are the source of truth. Read `decompiled/` for game behavior and APIs and leave it unedited; design docs may be stale, so re-check them against live code.
+- The current repo code and `decompiled/` are the source of truth for game behavior and APIs. `decompiled/` is local only (generate it with `just mod::decompile <channel>`) and stays unedited; re-check `docs/` claims against live code.
 - Root-cause game-behavior bugs against the decompiled game source before forming a hypothesis. Ground every conclusion in `file:line` citations, and when the obvious fix fails, enumerate alternative cause mechanisms before writing another patch.
-- When the user says a problem has failed repeatedly, stop reading implementation and decompiled source and first write a doc capturing background, the current problem, candidate approaches, and the verification method.
-- Validate a hypothesis with a temporary probe on the main path (the user builds and reloads to verify), or record it as a to-verify item in the design doc and ship. Delete a probe in the commit that acts on its measurement.
-- A long-running automation task self-heals: relaunch the game process on crash or exit and continue until the goal is met.
+- When the user says a problem has failed repeatedly, stop reading implementation and decompiled source and first open or update a GitHub issue recording the background, the current problem, candidate approaches, and the verification method.
+- Validate a hypothesis with a temporary probe on the main path (the user builds and reloads to verify), or record it as a to-verify item on that issue and ship. Delete a probe in the commit that acts on its measurement.
