@@ -11,7 +11,8 @@ permissions:
 
 concurrency:
   group: checks-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  # Let master finish the post-job cache save even when another merge arrives.
+  cancel-in-progress: ${{ !(github.event_name == 'push' && github.ref == 'refs/heads/master') }}
 
 jobs:
   macos-icon:
@@ -107,6 +108,10 @@ jobs:
     name: Installer (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
+    env:
+      CARGO_INCREMENTAL: '0'
+      CARGO_PROFILE_DEV_DEBUG: '0'
+      CARGO_PROFILE_TEST_DEBUG: '0'
     strategy:
       fail-fast: false
       matrix:
@@ -131,13 +136,45 @@ jobs:
         run: |
           rustc --version
           rustup show active-toolchain
+      - name: Restore Installer Rust cache
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+        with:
+          workspaces: bazaarplusplus-installer/src-tauri
+          # Include these in the prefix so even fallback restores cannot cross
+          # toolchain, lockfile or build-configuration changes.
+          key: installer-${{ matrix.os }}-${{ runner.arch }}-${{ hashFiles('bazaarplusplus-installer/rust-toolchain.toml', 'bazaarplusplus-installer/src-tauri/Cargo.lock', 'bazaarplusplus-installer/src-tauri/.cargo/config.toml') }}
+          cache-bin: false
+          save-if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
       - run: npm install --global "$(node --print "require('./package.json').packageManager")"
         working-directory: bazaarplusplus-installer
-      - run: npm ci
+      - name: Install Installer npm dependencies
+        run: npm ci
         working-directory: bazaarplusplus-installer
       # Includes Rust/JS tests, binding freshness and frontend build. The source
       # gate supplies an empty resource bundle; game assemblies are not required.
-      - run: just installer::check
+      - name: Verify Installer
+        run: just installer::check
+
+  installer-timings:
+    name: Installer timing report
+    needs: installer
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+      # Post-job cache saves have finished; the Jobs API includes their timing.
+      - run: node .github/scripts/installer-timings.mjs
+        env:
+          GH_TOKEN: ${{ github.token }}
 
   analyzer:
     name: Analyzer

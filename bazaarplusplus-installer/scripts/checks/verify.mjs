@@ -1,6 +1,7 @@
 import path from 'node:path';
 import process from 'node:process';
 import { spawnSync } from 'node:child_process';
+import { appendFileSync } from 'node:fs';
 import { tauriSourceEnvironment } from '../tauri-source-env.mjs';
 
 const manifestPath = 'src-tauri/Cargo.toml';
@@ -100,8 +101,24 @@ export function runVerification({
   platform = process.platform,
   commandShell = process.env.ComSpec ?? 'cmd.exe',
   run = spawnSync,
-  log = console.log
+  log = console.log,
+  now = () => performance.now(),
+  summaryPath = process.env.GITHUB_STEP_SUMMARY
 }) {
+  const summarize = (text) => {
+    if (!summaryPath) return;
+    try {
+      appendFileSync(summaryPath, text);
+    } catch (error) {
+      // Timing output must not change the verification result.
+      console.warn(`Could not write verification timings: ${error.message}`);
+    }
+  };
+  summarize(
+    '\n### Installer verification timings\n\n' +
+      'Rust tests include compilation, execution and binding generation.\n\n' +
+      '| Step | Seconds | Result |\n| --- | ---: | --- |\n'
+  );
   const environment =
     mode === 'source' ? tauriSourceEnvironment() : { ...process.env };
   for (const step of verificationSteps({ mode, releasePlatform })) {
@@ -111,18 +128,23 @@ export function runVerification({
     const args = usesWindowsNpmShim
       ? ['/d', '/s', '/c', 'npm.cmd', ...step.args]
       : step.args;
+    const started = now();
     const result = run(command, args, {
       cwd: rootDir,
       stdio: step.stdio ?? 'inherit',
       env: { ...environment, ...step.env }
     });
+    const seconds = ((now() - started) / 1000).toFixed(2);
+    const status = result.error ? 1 : (result.status ?? 1);
+    log(`==> ${step.label}: ${seconds}s (exit ${status})`);
+    summarize(
+      `| ${step.label} | ${seconds} | ${status === 0 ? 'passed' : `failed (${status})`} |\n`
+    );
     if (result.error) {
       console.error(result.error.message);
       return 1;
     }
-    if (result.status !== 0) {
-      return result.status ?? 1;
-    }
+    if (status !== 0) return status;
   }
   return 0;
 }
