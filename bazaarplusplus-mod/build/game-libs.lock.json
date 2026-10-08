@@ -24,18 +24,18 @@
       "capturedAt": "2026-10-04T14:27:15.170Z"
     },
     "windows-online": {
-      "gameVersion": "1.0.12293-prod-windows-x64-a0455053",
-      "sha256": "8a427cdc058efc5993bba94b4244fb43c8fbd7b1f7b679a20e921a6ea16bcfc1",
-      "buildid": "25194946",
+      "gameVersion": "1.0.12650-prod-windows-x64-d5cc730f",
+      "sha256": "58342142e6ebad879cdfc0b61c42d58b6f12575d81212bac3f5b53d6c2da44ba",
+      "buildid": "25778800",
       "steamBranch": "public",
-      "capturedAt": "2026-10-06T02:45:58.661Z"
+      "capturedAt": "2026-10-08T00:53:20.908Z"
     },
     "windows-staging": {
-      "gameVersion": "1.0.12574-staging-windows-x64-fecb8f8e",
-      "sha256": "9e217a63770b7eb7a1a0b2f8fbd57c75399ab022d1270ac46ce9e6abe0ec4f5d",
-      "buildid": "25661913",
+      "gameVersion": "1.0.12646-staging-windows-x64-d5cc730f",
+      "sha256": "747e1cecf7eadef1d2d28f98a144601f62d53429c3e3e270b93ed3799077254f",
+      "buildid": "25761508",
       "steamBranch": "staging",
-      "capturedAt": "2026-10-06T02:53:15.778Z"
+      "capturedAt": "2026-10-08T02:22:12.464Z"
     },
     "windows-ptr": {
       "gameVersion": "1.0.12253-ptr-windows-x64-a2cd5c3b",
