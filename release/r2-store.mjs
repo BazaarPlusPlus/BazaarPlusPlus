@@ -150,7 +150,9 @@ export function createR2Store({
     headers.authorization = `AWS4-HMAC-SHA256 Credential=${accessKeyId}/${scope}, SignedHeaders=${signedHeaders}, Signature=${signature}`;
     const response = await fetchImpl(`https://${host}${uri}`, {
       method,
-      headers,
+      // Compression can weaken ETags and change HEAD's content length.
+      // Keep transport negotiation outside the signed object headers.
+      headers: { ...headers, 'accept-encoding': 'identity' },
       body,
       redirect: 'error',
       signal: AbortSignal.timeout(120000)
