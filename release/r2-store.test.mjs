@@ -1,9 +1,13 @@
 import crypto from 'node:crypto';
+import { once } from 'node:events';
+import { createServer } from 'node:http';
+import { gzipSync } from 'node:zlib';
 import { expect, test, vi } from 'vitest';
 import {
   CLOUDFLARE_API,
   createR2Store,
   credentialsFromApiToken,
+  putReplaceable,
   r2StoreFromApiToken,
   r2StoreFromEnvironment
 } from './r2-store.mjs';
@@ -206,6 +210,64 @@ test('R2 GET preserves ETag and only 404 means absent', async () => {
   expect(await store.get('missing')).toBeNull();
   await expect(store.get('denied')).rejects.toThrow(/403/);
   await expect(store.get('unavailable')).rejects.toThrow(/503/);
+});
+
+test('conditional replacement preserves strong ETags across HTTP content negotiation', async ({
+  onTestFinished
+}) => {
+  let stored = Buffer.from('{"version":"5.6.0"}');
+  const etag = () => `"${sha256(stored)}"`;
+  const server = createServer(async (request, response) => {
+    if (request.method === 'PUT') {
+      if (request.headers['if-match'] !== etag()) {
+        response.writeHead(412).end();
+        return;
+      }
+      const chunks = [];
+      for await (const chunk of request) chunks.push(chunk);
+      stored = Buffer.concat(chunks);
+      response.writeHead(200).end();
+      return;
+    }
+    // Compression changes the representation and weakens its validator.
+    const compressed = request.headers['accept-encoding'] !== 'identity';
+    const body = compressed ? gzipSync(stored) : stored;
+    response.writeHead(200, {
+      'content-type': 'application/json',
+      'content-length': body.length,
+      'x-amz-meta-sha256': sha256(stored),
+      etag: compressed ? `W/${etag()}` : etag(),
+      ...(compressed ? { 'content-encoding': 'gzip' } : {})
+    });
+    response.end(request.method === 'HEAD' ? undefined : body);
+  });
+  server.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  onTestFinished(() => new Promise((resolve) => server.close(resolve)));
+  const endpoint = `http://127.0.0.1:${server.address().port}/latest.json`;
+  const store = createR2Store({
+    ...credentials,
+    fetchImpl: (_url, options) => fetch(endpoint, options)
+  });
+  const previous = await store.get('latest.json');
+  const next = Buffer.from('{"version":"5.7.0"}');
+
+  await putReplaceable(store, 'latest.json', next, 'application/json');
+
+  expect(stored).toEqual(next);
+  expect(await store.get('latest.json')).toEqual({ bytes: next, etag: etag() });
+  expect(await store.head('latest.json')).toEqual({
+    size: next.length,
+    sha256: sha256(next),
+    etag: etag()
+  });
+  expect(
+    await store.put('latest.json', previous.bytes, {
+      ifMatch: previous.etag,
+      contentType: 'application/json'
+    })
+  ).toBe(false);
+  expect(stored).toEqual(next);
 });
 
 test('conditional conflict returns false and never retries unconditionally', async () => {
