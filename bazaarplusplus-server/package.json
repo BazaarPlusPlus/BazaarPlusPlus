@@ -19,11 +19,11 @@
     "aws4fetch": "^1.0.20"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.5.14",
+    "@biomejs/biome": "2.5.15",
     "@cfworker/json-schema": "4.1.1",
     "@cloudflare/vitest-pool-workers": "0.22.0",
     "@cloudflare/workers-types": "5.20260926.1",
-    "@types/node": "^26.6.3",
+    "@types/node": "^26.6.4",
     "typescript": "^7.0.2",
     "vitest": "^4.1.4",
     "wrangler": "4.141.0"
