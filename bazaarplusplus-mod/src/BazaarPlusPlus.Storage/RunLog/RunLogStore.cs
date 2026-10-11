@@ -28,7 +28,7 @@ public sealed class RunLogStore : SqliteStoreBase, IRunLogStore
         using var connection = OpenConnection();
         using var transaction = connection.BeginTransaction();
 
-        var effectiveRunId = HasTerminalStatus(connection, transaction, request.RunId)
+        var effectiveRunId = IsClosedToResume(connection, transaction, request.RunId)
             ? RunLogRunIdentity.CreateCollisionId(request.RunId)
             : request.RunId;
 
@@ -350,7 +350,9 @@ public sealed class RunLogStore : SqliteStoreBase, IRunLogStore
             - Convert.ToInt32(initialPlayerRating, CultureInfo.InvariantCulture);
     }
 
-    private static bool HasTerminalStatus(
+    // A Run id this session cannot continue gets a collision id instead of reopening the row: a
+    // terminal Run, or a History-Only Run (imported history the mod never writes into).
+    private static bool IsClosedToResume(
         SqliteConnection connection,
         SqliteTransaction transaction,
         string runId
@@ -358,15 +360,24 @@ public sealed class RunLogStore : SqliteStoreBase, IRunLogStore
     {
         using var command = CreateCommand(connection, transaction);
         command.CommandText = $"""
-            SELECT status
+            SELECT 1
             FROM {RunLogSchema.RunsTableName}
             WHERE run_id = $runId
+              AND NOT ({ResumableRunCondition(RunLogSchema.RunsTableName)})
             LIMIT 1;
             """;
         command.Parameters.AddWithValue("$runId", runId);
-        return command.ExecuteScalar() is string status
-            && !string.Equals(status, ActiveStatus, StringComparison.Ordinal);
+        return command.ExecuteScalar() != null;
     }
+
+    /// <summary>
+    /// The SQL condition for a Run the mod may resume or show as the current Run, over the runs
+    /// row aliased <paramref name="runAlias"/>: active and not History-Only. The mod never writes
+    /// <c>history_only</c>; this keeps an unfinished imported Run from being continued even if
+    /// the import left it active.
+    /// </summary>
+    public static string ResumableRunCondition(string runAlias) =>
+        $"({runAlias}.status = '{ActiveStatus}' AND {runAlias}.upload_policy = 'bundle')";
 
     private static RunLogSessionState? TryReadActiveRun(
         SqliteConnection connection,
@@ -380,14 +391,14 @@ public sealed class RunLogStore : SqliteStoreBase, IRunLogStore
                 ? $"""
                     SELECT *
                     FROM {RunLogSchema.RunsTableName}
-                    WHERE status = 'active'
+                    WHERE {ResumableRunCondition(RunLogSchema.RunsTableName)}
                     ORDER BY last_seen_at_ms DESC
                     LIMIT 1;
                     """
                 : $"""
                     SELECT *
                     FROM {RunLogSchema.RunsTableName}
-                    WHERE status = 'active'
+                    WHERE {ResumableRunCondition(RunLogSchema.RunsTableName)}
                       AND run_id = $runId
                     LIMIT 1;
                     """;

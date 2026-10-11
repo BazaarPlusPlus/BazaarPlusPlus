@@ -123,9 +123,10 @@ it without a migration, and a pending file that fails this way is never resealed
 _Avoid_: JSON failure
 
 **Seal-Eligible Run**:
-A completed, non-PTR Ranked Run with neither a seal job nor any outbox row; the next seal pass
-gives it a waiting job. `BundleQueueStore.SealEligibleRunCondition` is the one SQL rule, and
-installer History cleanup is pinned to it through a shared fixture.
+A completed, non-PTR Ranked Run with neither a seal job nor any outbox row, and never a
+History-Only Run (root `CONTEXT.md`), which the rule checks first; the next seal pass gives it a
+waiting job. `BundleQueueStore.SealEligibleRunCondition` is the one SQL rule, and installer
+History cleanup is pinned to it through a shared fixture.
 _Avoid_: sealable run
 
 **Bundle Queue Store**:

@@ -1,100 +1,182 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "cases": [
     {
       "name": "no_outbox",
-      "run": { "status": "completed", "gameMode": "Ranked", "buildChannel": "Online" },
+      "run": {
+        "status": "completed",
+        "gameMode": "Ranked",
+        "buildChannel": "Online",
+        "uploadPolicy": "bundle"
+      },
       "outbox": [],
       "sealJob": null,
       "expected": { "eligibleForNewJob": true, "protectedFromCleanup": true }
     },
     {
       "name": "no_outbox_missing_build_channel",
-      "run": { "status": "completed", "gameMode": "Ranked", "buildChannel": null },
+      "run": {
+        "status": "completed",
+        "gameMode": "Ranked",
+        "buildChannel": null,
+        "uploadPolicy": "bundle"
+      },
       "outbox": [],
       "sealJob": null,
       "expected": { "eligibleForNewJob": true, "protectedFromCleanup": true }
     },
     {
       "name": "no_outbox_uppercase_ranked",
-      "run": { "status": "completed", "gameMode": "RANKED", "buildChannel": "Online" },
+      "run": {
+        "status": "completed",
+        "gameMode": "RANKED",
+        "buildChannel": "Online",
+        "uploadPolicy": "bundle"
+      },
       "outbox": [],
       "sealJob": null,
       "expected": { "eligibleForNewJob": true, "protectedFromCleanup": true }
     },
     {
       "name": "pending_outbox",
-      "run": { "status": "completed", "gameMode": "Ranked", "buildChannel": "Online" },
+      "run": {
+        "status": "completed",
+        "gameMode": "Ranked",
+        "buildChannel": "Online",
+        "uploadPolicy": "bundle"
+      },
       "outbox": [{ "status": "pending" }],
       "sealJob": null,
       "expected": { "eligibleForNewJob": false, "protectedFromCleanup": false }
     },
     {
       "name": "uploaded_outbox",
-      "run": { "status": "completed", "gameMode": "Ranked", "buildChannel": "Online" },
+      "run": {
+        "status": "completed",
+        "gameMode": "Ranked",
+        "buildChannel": "Online",
+        "uploadPolicy": "bundle"
+      },
       "outbox": [{ "status": "uploaded" }],
       "sealJob": null,
       "expected": { "eligibleForNewJob": false, "protectedFromCleanup": false }
     },
     {
       "name": "permanent_failure_without_job",
-      "run": { "status": "completed", "gameMode": "Ranked", "buildChannel": "Online" },
+      "run": {
+        "status": "completed",
+        "gameMode": "Ranked",
+        "buildChannel": "Online",
+        "uploadPolicy": "bundle"
+      },
       "outbox": [{ "status": "permanent_failure" }],
       "sealJob": null,
       "expected": { "eligibleForNewJob": false, "protectedFromCleanup": false }
     },
     {
       "name": "permanent_failure_with_waiting_reseal_job",
-      "run": { "status": "completed", "gameMode": "Ranked", "buildChannel": "Online" },
+      "run": {
+        "status": "completed",
+        "gameMode": "Ranked",
+        "buildChannel": "Online",
+        "uploadPolicy": "bundle"
+      },
       "outbox": [{ "status": "permanent_failure" }],
       "sealJob": { "state": "waiting", "lastErrorCode": null },
       "expected": { "eligibleForNewJob": false, "protectedFromCleanup": true }
     },
     {
       "name": "waiting_job",
-      "run": { "status": "completed", "gameMode": "Ranked", "buildChannel": "Online" },
+      "run": {
+        "status": "completed",
+        "gameMode": "Ranked",
+        "buildChannel": "Online",
+        "uploadPolicy": "bundle"
+      },
       "outbox": [],
       "sealJob": { "state": "waiting", "lastErrorCode": null },
       "expected": { "eligibleForNewJob": false, "protectedFromCleanup": true }
     },
     {
       "name": "sealing_job",
-      "run": { "status": "completed", "gameMode": "Ranked", "buildChannel": "Online" },
+      "run": {
+        "status": "completed",
+        "gameMode": "Ranked",
+        "buildChannel": "Online",
+        "uploadPolicy": "bundle"
+      },
       "outbox": [],
       "sealJob": { "state": "sealing", "lastErrorCode": null },
       "expected": { "eligibleForNewJob": false, "protectedFromCleanup": true }
     },
     {
       "name": "parked_job",
-      "run": { "status": "completed", "gameMode": "Ranked", "buildChannel": "Online" },
+      "run": {
+        "status": "completed",
+        "gameMode": "Ranked",
+        "buildChannel": "Online",
+        "uploadPolicy": "bundle"
+      },
       "outbox": [],
       "sealJob": { "state": "waiting", "lastErrorCode": "seal_environment_blocked" },
       "expected": { "eligibleForNewJob": false, "protectedFromCleanup": true }
     },
     {
       "name": "terminal_job",
-      "run": { "status": "completed", "gameMode": "Ranked", "buildChannel": "Online" },
+      "run": {
+        "status": "completed",
+        "gameMode": "Ranked",
+        "buildChannel": "Online",
+        "uploadPolicy": "bundle"
+      },
       "outbox": [],
       "sealJob": { "state": "terminal_failure", "lastErrorCode": "seal_retry_exhausted" },
       "expected": { "eligibleForNewJob": false, "protectedFromCleanup": false }
     },
     {
+      "name": "history_only",
+      "run": {
+        "status": "completed",
+        "gameMode": "Ranked",
+        "buildChannel": "Online",
+        "uploadPolicy": "history_only"
+      },
+      "outbox": [],
+      "sealJob": null,
+      "expected": { "eligibleForNewJob": false, "protectedFromCleanup": false }
+    },
+    {
       "name": "ptr",
-      "run": { "status": "completed", "gameMode": "Ranked", "buildChannel": "PtR" },
+      "run": {
+        "status": "completed",
+        "gameMode": "Ranked",
+        "buildChannel": "PtR",
+        "uploadPolicy": "bundle"
+      },
       "outbox": [],
       "sealJob": null,
       "expected": { "eligibleForNewJob": false, "protectedFromCleanup": false }
     },
     {
       "name": "non_ranked",
-      "run": { "status": "completed", "gameMode": "Unranked", "buildChannel": "Online" },
+      "run": {
+        "status": "completed",
+        "gameMode": "Unranked",
+        "buildChannel": "Online",
+        "uploadPolicy": "bundle"
+      },
       "outbox": [],
       "sealJob": null,
       "expected": { "eligibleForNewJob": false, "protectedFromCleanup": false }
     },
     {
       "name": "abandoned",
-      "run": { "status": "abandoned", "gameMode": "Ranked", "buildChannel": "Online" },
+      "run": {
+        "status": "abandoned",
+        "gameMode": "Ranked",
+        "buildChannel": "Online",
+        "uploadPolicy": "bundle"
+      },
       "outbox": [],
       "sealJob": null,
       "expected": { "eligibleForNewJob": false, "protectedFromCleanup": false }

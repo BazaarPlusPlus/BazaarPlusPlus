@@ -71,7 +71,8 @@ impl CleanupCutoff {
 }
 
 const PROTECTED_RUN_PREDICATE: &str = "
-    r.status = 'completed'
+    r.upload_policy = 'bundle'
+    and r.status = 'completed'
     and lower(r.game_mode) = 'ranked'
     and lower(coalesce(r.build_channel, 'unknown')) <> 'ptr'
     and not exists (
@@ -1861,7 +1862,7 @@ mod tests {
     #[test]
     fn run_plan_protects_exactly_the_shared_seal_eligibility_cases() {
         let shared: serde_json::Value = serde_json::from_str(SEAL_ELIGIBILITY_FIXTURE).unwrap();
-        assert_eq!(shared["formatVersion"], 1);
+        assert_eq!(shared["formatVersion"], 2);
         let cases = shared["cases"].as_array().unwrap();
         assert!(!cases.is_empty());
 
@@ -1873,14 +1874,15 @@ mod tests {
             conn.execute(
                 "insert into runs (
                     run_id, started_at_ms, last_seen_at_ms, status, hero,
-                    game_mode, ended_at_ms, build_channel
-                 ) values (?1, ?2, ?2, ?3, 'Vanessa', ?4, ?2, ?5)",
+                    game_mode, ended_at_ms, build_channel, upload_policy
+                 ) values (?1, ?2, ?2, ?3, 'Vanessa', ?4, ?2, ?5, ?6)",
                 rusqlite::params![
                     run_id,
                     ms("2026-06-10T10:00:00Z"),
                     run["status"].as_str().unwrap(),
                     run["gameMode"].as_str().unwrap(),
                     run["buildChannel"].as_str(),
+                    run["uploadPolicy"].as_str().unwrap(),
                 ],
             )
             .unwrap();

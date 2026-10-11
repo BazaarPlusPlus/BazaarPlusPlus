@@ -2,6 +2,7 @@
 
 SqliteShutdownTests.Run();
 RunLogCheckpointTests.Run();
+RunLogHistoryOnlyResumeTests.Run();
 RunLogSchemaInitializationTests.Run();
 RunLogSchemaIndexTests.Run();
 RunLogSchemaColumnShapeTests.Run();
