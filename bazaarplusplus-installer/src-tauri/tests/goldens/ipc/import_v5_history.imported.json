@@ -1,0 +1,19 @@
+{
+  "imported_run_count": 8,
+  "skipped_run_count": 0,
+  "unavailable_file_count": 2,
+  "state": {
+    "game_path": "<GAME>",
+    "roots": [
+      {
+        "name": "BazaarPlusPlusV5",
+        "size_bytes": 193524,
+        "file_count": 18,
+        "hard_linked_file_count": 0,
+        "unreadable_entry_count": 0
+      }
+    ],
+    "installed_mod_data_root": "current",
+    "v5_import_eligible": false
+  }
+}

@@ -4,11 +4,16 @@ import { act, StrictMode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { emptyHistoryRunList, idleStreamStatus } from '../api/previewDefaults';
+import {
+  emptyHistoryRunList,
+  emptyLegacyDataState,
+  idleStreamStatus
+} from '../api/previewDefaults';
 import { commandClient } from '../api/commandClient';
 import { ToastProvider } from '../components/ui/Toast';
 import { LocaleProvider } from '../i18n/LocaleProvider';
-import { LOCALE_STORAGE_KEY } from '../i18n/messages';
+import { formatMessage, LOCALE_STORAGE_KEY } from '../i18n/messages';
+import type { LegacyDataState } from '../types/backend';
 import History from './History';
 
 vi.mock('../api/commandClient', () => ({
@@ -16,7 +21,8 @@ vi.mock('../api/commandClient', () => ({
     listHistoryRuns: vi.fn(),
     endGameProcess: vi.fn(),
     prepareHistoryThumbnails: vi.fn(),
-    getStreamStatus: vi.fn()
+    getStreamStatus: vi.fn(),
+    getLegacyDataState: vi.fn()
   }
 }));
 const { listHistoryRuns, endGameProcess, prepareHistoryThumbnails } =
@@ -69,6 +75,9 @@ beforeEach(() => {
   vi.mocked(commandClient.getStreamStatus)
     .mockReset()
     .mockResolvedValue(idleStreamStatus);
+  vi.mocked(commandClient.getLegacyDataState)
+    .mockReset()
+    .mockResolvedValue(emptyLegacyDataState);
   container = document.createElement('div');
   document.body.append(container);
   root = createRoot(container);
@@ -446,5 +455,81 @@ describe('History thumbnails', () => {
     expect(
       container.querySelector('.bpp-history-run-preview img')
     ).not.toBeNull();
+  });
+});
+
+const v5Only = (overrides: Partial<LegacyDataState>): LegacyDataState => ({
+  game_path: '/Games/The Bazaar',
+  roots: [
+    {
+      name: 'BazaarPlusPlusV5',
+      size_bytes: 4096,
+      file_count: 3,
+      hard_linked_file_count: 0,
+      unreadable_entry_count: 0
+    }
+  ],
+  installed_mod_data_root: 'current',
+  v5_import_eligible: true,
+  ...overrides
+});
+
+describe('history without a current database', () => {
+  function installLink() {
+    return [...container.querySelectorAll('a')].find(
+      (link) =>
+        link.getAttribute('href')?.startsWith('/#') ||
+        link.getAttribute('href') === '/'
+    );
+  }
+
+  beforeEach(() => {
+    vi.mocked(listHistoryRuns).mockRejectedValue({
+      code: 'history_unavailable',
+      params: {},
+      diagnostic: null
+    });
+  });
+
+  it('points at the Install page import card when V5 history can be imported', async () => {
+    vi.mocked(commandClient.getLegacyDataState).mockResolvedValue(v5Only({}));
+    await render('/history');
+
+    expect(commandClient.getLegacyDataState).toHaveBeenCalledWith(null);
+    expect(container.textContent).toContain(
+      formatMessage('zh', 'historyUnavailableImport')
+    );
+    const link = installLink();
+    expect(link?.getAttribute('href')).toBe('/#legacy-data');
+    expect(link?.textContent).toBe(formatMessage('zh', 'historyOpenImport'));
+  });
+
+  it('points at the reinstall hint when the mod still writes an old folder', async () => {
+    vi.mocked(commandClient.getLegacyDataState).mockResolvedValue(
+      v5Only({
+        installed_mod_data_root: 'reinstall_required',
+        v5_import_eligible: false
+      })
+    );
+    await render('/history');
+
+    expect(container.textContent).toContain(
+      formatMessage('zh', 'historyUnavailableReinstall')
+    );
+    expect(installLink()?.getAttribute('href')).toBe('/#legacy-data');
+  });
+
+  it('keeps the plain Install link without V5 history', async () => {
+    vi.mocked(commandClient.getLegacyDataState).mockRejectedValue(
+      new Error('unreadable')
+    );
+    await render('/history');
+
+    expect(container.textContent).toContain(
+      formatMessage('zh', 'historyProblemUnavailable')
+    );
+    const link = installLink();
+    expect(link?.getAttribute('href')).toBe('/');
+    expect(link?.textContent).toBe(formatMessage('zh', 'historyOpenInstall'));
   });
 });

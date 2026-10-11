@@ -2,6 +2,8 @@
 //! (`tests/fixtures/v5-import/`), with an injected game probe and placement
 //! backend for the failures a real system cannot be driven into on demand.
 //! The headless goldens in `tests/v5_import_cli.rs` cover the successful shapes.
+//! `ipc_golden_tests.rs` reuses [`v3_game`] and [`import_copying`] for the
+//! `import_v5_history` DTO goldens.
 
 use std::cell::Cell;
 use std::io;
@@ -29,9 +31,9 @@ const MOD_CONTRACT: &str = include_str!(
 /// The fixtures' reference clock, 2026-10-10T00:00:00Z.
 const NOW_MS: i64 = 1_791_590_400_000;
 
-pub(super) struct FixtureGame {
+pub(crate) struct FixtureGame {
     _dir: TempDir,
-    pub(super) game: PathBuf,
+    pub(crate) game: PathBuf,
 }
 
 impl FixtureGame {
@@ -105,7 +107,7 @@ pub(super) fn fixture_game(schema: &str, battles: &str) -> FixtureGame {
     FixtureGame { _dir: dir, game }
 }
 
-fn v3_game() -> FixtureGame {
+pub(crate) fn v3_game() -> FixtureGame {
     fixture_game(V3_SCHEMA, BATTLES_V2_V3)
 }
 
@@ -352,6 +354,22 @@ fn a_game_running_at_the_start_changes_nothing() {
         ImportError::GameRunning { stage: "start", .. }
     ));
     assert_eq!(fixture.snapshot(), before);
+}
+
+/// Imports `fixture` with `probe`, copying every file so the result does not
+/// depend on whether the platform links or clones.
+pub(crate) fn import_copying(
+    fixture: &FixtureGame,
+    probe: &impl crate::services::game_process::GameProcessProbe,
+) -> Result<ImportReport, ImportError> {
+    import_blocking_with(
+        &fixture.game,
+        probe,
+        CopyOnlyBackend {
+            available: u64::MAX,
+        },
+        NOW_MS,
+    )
 }
 
 /// The real filesystem on a volume that cannot link and has `available` bytes free.

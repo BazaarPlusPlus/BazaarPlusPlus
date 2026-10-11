@@ -1,6 +1,6 @@
 //! IPC JSON goldens: the DTOs `get_install_state`, `get_legacy_data_state`,
-//! `delete_legacy_root`, `list_history_runs`, `get_history_run_detail` and
-//! `preview_storage_cleanup` return to the frontend, produced by the service layer each command wraps from a fixture
+//! `import_v5_history`, `delete_legacy_root`, `list_history_runs`,
+//! `get_history_run_detail` and `preview_storage_cleanup` return to the frontend, produced by the service layer each command wraps from a fixture
 //! game directory and database. The commands themselves are not driven through
 //! the IPC bridge: through IPC, `get_install_state` and history path resolution
 //! read the host's Steam installation and bundled resources (see #154), so the
@@ -181,6 +181,34 @@ fn delete_legacy_root() {
             )
             .unwrap(),
         ),
+    );
+}
+
+/// The V5 fixture game (`v5_import::tests_e2e`) imported with every file
+/// copied, then remeasured: `BazaarPlusPlusV5` stays listed with the marker
+/// inside and is no longer eligible. A game that is running refuses with the
+/// import's own code.
+#[test]
+fn import_v5_history() {
+    use crate::v5_import::tests_e2e::{import_copying, v3_game};
+    use crate::v5_import::ImportV5HistoryResult;
+
+    let fixture = v3_game();
+    let report = import_copying(&fixture, &|_: &Path| Ok(false)).unwrap();
+    let result = ImportV5HistoryResult::new(
+        &report,
+        legacy_data::legacy_data_state(&fixture.game, Path::new(NO_INSTALLER_SETTINGS)),
+    );
+    assert_golden(
+        "ipc/import_v5_history.imported.json",
+        &json(&result, &[(&fixture.game, GAME)]),
+    );
+
+    let running = v3_game();
+    let refused = import_copying(&running, &|_: &Path| Ok(true)).unwrap_err();
+    assert_golden(
+        "ipc/import_v5_history.blocked-by-game.json",
+        &json(&refused.into_problem(), &[(&running.game, GAME)]),
     );
 }
 

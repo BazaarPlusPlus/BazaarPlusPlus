@@ -14,6 +14,7 @@ const semanticProblemCodes: Record<SemanticProblem['code'], true> = {
   reset_blocked_by_game: true,
   bepinex_reset_blocked_by_game: true,
   import_blocked_by_game: true,
+  import_failed: true,
   legacy_delete_blocked_by_game: true,
   stream_service_failed: true,
   stream_window_failed: true,

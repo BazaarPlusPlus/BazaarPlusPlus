@@ -1,6 +1,8 @@
 // Covers what the Install page cannot show statically: deletion runs only
 // after a confirmation fixed to one listed root, a refusal keeps the root and
-// the dialog for retry, and a slower stale load never overwrites newer data.
+// the dialog for retry, a slower stale load never overwrites newer data, and
+// the V5 import runs, fails, or completes into an offer to delete V5 that the
+// user may decline.
 import { describe, expect, it, vi } from 'vitest';
 import { SemanticProblemError } from '../../api/problems';
 import type { LegacyDataState } from '../../types/backend';
@@ -11,7 +13,10 @@ import {
 
 const GAME = '/Games/The Bazaar';
 
-function state(names: LegacyDataState['roots'][number]['name'][]) {
+function state(
+  names: LegacyDataState['roots'][number]['name'][],
+  v5ImportEligible = false
+) {
   return {
     game_path: GAME,
     roots: names.map((name) => ({
@@ -22,7 +27,7 @@ function state(names: LegacyDataState['roots'][number]['name'][]) {
       unreadable_entry_count: 0
     })),
     installed_mod_data_root: 'current',
-    v5_import_eligible: false
+    v5_import_eligible: v5ImportEligible
   } satisfies LegacyDataState;
 }
 
@@ -41,6 +46,12 @@ function commands(
     getLegacyDataState: vi.fn(async () =>
       state(['BazaarPlusPlusV4', 'BazaarPlusPlusV5'])
     ),
+    importV5History: vi.fn(async () => ({
+      imported_run_count: 8,
+      skipped_run_count: 1,
+      unavailable_file_count: 2,
+      state: state(['BazaarPlusPlusV4', 'BazaarPlusPlusV5'])
+    })),
     deleteLegacyRoot: vi.fn(async () => ({
       removed: true,
       state: state(['BazaarPlusPlusV4'])
@@ -147,6 +158,168 @@ describe('legacy data workflow', () => {
     expect(workflow.getSnapshot().load).toEqual({
       phase: 'ready',
       data: state(['BazaarPlusPlus'])
+    });
+  });
+
+  describe('V5 import', () => {
+    const eligible = () => state(['BazaarPlusPlusV5'], true);
+
+    it('runs only while eligible', async () => {
+      const port = commands();
+      const workflow = createLegacyDataWorkflow({ commands: port });
+      await workflow.load(GAME);
+
+      expect(await workflow.importV5()).toBe(false);
+      expect(port.importV5History).not.toHaveBeenCalled();
+    });
+
+    it('blocks deletion while importing, then offers to delete V5', async () => {
+      const pending = deferred<{
+        imported_run_count: number;
+        skipped_run_count: number;
+        unavailable_file_count: number;
+        state: LegacyDataState;
+      }>();
+      const port = commands({
+        getLegacyDataState: vi.fn(async () => eligible()),
+        importV5History: vi.fn(() => pending.promise)
+      });
+      const workflow = createLegacyDataWorkflow({ commands: port });
+      await workflow.load(GAME);
+
+      const running = workflow.importV5();
+      expect(workflow.getSnapshot().importRun).toEqual({
+        phase: 'running',
+        gamePath: GAME
+      });
+      expect(workflow.requestDelete('BazaarPlusPlusV5')).toBe(false);
+      expect(await workflow.importV5()).toBe(false);
+
+      pending.resolve({
+        imported_run_count: 8,
+        skipped_run_count: 1,
+        unavailable_file_count: 0,
+        state: state(['BazaarPlusPlusV5'])
+      });
+      expect(await running).toBe(true);
+
+      expect(port.importV5History).toHaveBeenCalledExactlyOnceWith(GAME);
+      const snapshot = workflow.getSnapshot();
+      expect(snapshot.importRun).toEqual({ phase: 'idle' });
+      expect(snapshot.load).toEqual({
+        phase: 'ready',
+        data: state(['BazaarPlusPlusV5'])
+      });
+      expect(snapshot.confirmation).toEqual({
+        phase: 'confirming',
+        target: {
+          gamePath: GAME,
+          name: 'BazaarPlusPlusV5',
+          afterImport: {
+            imported_run_count: 8,
+            skipped_run_count: 1,
+            unavailable_file_count: 0
+          }
+        },
+        problem: null
+      });
+      // Nothing is deleted until the user confirms the offer.
+      expect(port.deleteLegacyRoot).not.toHaveBeenCalled();
+    });
+
+    it('keeps V5 listed when the user declines the offer', async () => {
+      const port = commands({
+        getLegacyDataState: vi.fn(async () => eligible())
+      });
+      const workflow = createLegacyDataWorkflow({ commands: port });
+      await workflow.load(GAME);
+      await workflow.importV5();
+
+      expect(workflow.dismissDelete()).toBe(true);
+
+      const snapshot = workflow.getSnapshot();
+      expect(snapshot.confirmation).toBeNull();
+      expect(port.deleteLegacyRoot).not.toHaveBeenCalled();
+      expect(snapshot.load).toMatchObject({
+        phase: 'ready',
+        data: {
+          roots: [{ name: 'BazaarPlusPlusV4' }, { name: 'BazaarPlusPlusV5' }]
+        }
+      });
+      // A later delete of V5 is the ordinary confirmation, without the offer.
+      expect(workflow.requestDelete('BazaarPlusPlusV5')).toBe(true);
+      expect(workflow.getSnapshot().confirmation?.target).toEqual({
+        gamePath: GAME,
+        name: 'BazaarPlusPlusV5'
+      });
+    });
+
+    it('deletes V5 when the user accepts the offer', async () => {
+      const port = commands({
+        getLegacyDataState: vi.fn(async () => eligible())
+      });
+      const workflow = createLegacyDataWorkflow({ commands: port });
+      await workflow.load(GAME);
+      await workflow.importV5();
+
+      expect(await workflow.confirmDelete()).toBe(true);
+      expect(port.deleteLegacyRoot).toHaveBeenCalledExactlyOnceWith(
+        GAME,
+        'BazaarPlusPlusV5'
+      );
+    });
+
+    it('keeps a failed import as a typed problem and rereads the roots', async () => {
+      const port = commands({
+        getLegacyDataState: vi.fn(async () => eligible()),
+        importV5History: vi.fn(async () => {
+          throw new SemanticProblemError({
+            code: 'import_failed',
+            params: {
+              operation: 'import_v5_history',
+              reason: 'insufficient_space'
+            },
+            diagnostic: 'needs 2048 bytes'
+          });
+        })
+      });
+      const workflow = createLegacyDataWorkflow({ commands: port });
+      await workflow.load(GAME);
+
+      expect(await workflow.importV5()).toBe(false);
+
+      const snapshot = workflow.getSnapshot();
+      expect(snapshot.importRun).toMatchObject({
+        phase: 'failed',
+        problem: {
+          code: 'import_failed',
+          params: { reason: 'insufficient_space' }
+        }
+      });
+      expect(snapshot.confirmation).toBeNull();
+      expect(port.getLegacyDataState).toHaveBeenCalledTimes(2);
+      expect(port.deleteLegacyRoot).not.toHaveBeenCalled();
+    });
+
+    it('reports a game that blocks the import with its own code', async () => {
+      const port = commands({
+        getLegacyDataState: vi.fn(async () => eligible()),
+        importV5History: vi.fn(async () => {
+          throw new SemanticProblemError({
+            code: 'import_blocked_by_game',
+            params: { operation: 'import_v5_history', stage: 'start' },
+            diagnostic: null
+          });
+        })
+      });
+      const workflow = createLegacyDataWorkflow({ commands: port });
+      await workflow.load(GAME);
+      await workflow.importV5();
+
+      expect(workflow.getSnapshot().importRun).toMatchObject({
+        phase: 'failed',
+        problem: { code: 'import_blocked_by_game' }
+      });
     });
   });
 });

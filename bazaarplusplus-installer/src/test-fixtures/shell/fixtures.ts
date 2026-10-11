@@ -90,6 +90,22 @@ export const legacyRootsNeedingReinstall: LegacyDataState = {
   v5_import_eligible: false
 };
 
+/** A 6.x mod reinstalled over V5 data that has not been imported yet. */
+export const v5ImportEligible: LegacyDataState = {
+  game_path: '/Games/The Bazaar',
+  roots: [
+    {
+      name: 'BazaarPlusPlusV5',
+      size_bytes: 1_610_612_736,
+      file_count: 1200,
+      hard_linked_file_count: 0,
+      unreadable_entry_count: 0
+    }
+  ],
+  installed_mod_data_root: 'current',
+  v5_import_eligible: true
+};
+
 export const installDetectionFailed: SemanticProblem = {
   code: 'install_detection_failed',
   params: { operation: 'detect_state' },
@@ -208,4 +224,11 @@ export const availableUpdate = {
   version: '9.9.0',
   body: 'Fixture release notes.',
   rawJson: {}
+};
+
+/** History before any V6 run: only the V5 Data Root exists. */
+export const historyUnavailable: SemanticProblem = {
+  code: 'history_unavailable',
+  params: {},
+  diagnostic: null
 };

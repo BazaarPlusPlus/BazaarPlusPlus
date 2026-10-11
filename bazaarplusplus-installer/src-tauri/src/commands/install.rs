@@ -1,9 +1,13 @@
 pub use crate::services::install::*;
 
+use std::path::PathBuf;
+
+use tauri::Manager;
 use tauri_plugin_dialog::DialogExt;
 
 use crate::problem::SemanticProblem;
 use crate::services::{
+    data_maintenance::DataMaintenanceLock,
     install::{
         build_install_state, install, launch_game_via_steam, run_delete_legacy_root,
         run_get_legacy_data_state, run_reset_bepinex, run_reset_bpp_data, run_uninstall,
@@ -13,6 +17,7 @@ use crate::services::{
     startup::InstallerContextState,
 };
 use crate::stream::runtime::StreamRuntime;
+use crate::v5_import::ImportV5HistoryResult;
 
 #[tauri::command(async)]
 #[specta::specta]
@@ -80,6 +85,20 @@ pub async fn get_legacy_data_state(
     game_path: Option<String>,
 ) -> Result<LegacyDataState, SemanticProblem> {
     run_get_legacy_data_state(app, game_path).await
+}
+
+/// Imports `BazaarPlusPlusV5/` history into the current Data Root once
+/// (ADR-0008) and returns the remeasured Legacy Roots. It never deletes V5.
+#[tauri::command]
+#[specta::specta]
+pub async fn import_v5_history(
+    app: tauri::AppHandle,
+    stream_runtime: tauri::State<'_, StreamRuntime>,
+    game_path: String,
+) -> Result<ImportV5HistoryResult, SemanticProblem> {
+    let maintenance = app.state::<DataMaintenanceLock>().inner().clone();
+    crate::v5_import::import_v5_history(&maintenance, &stream_runtime, PathBuf::from(game_path))
+        .await
 }
 
 /// Deletes one Legacy Root the user confirmed. `name` must be one of the

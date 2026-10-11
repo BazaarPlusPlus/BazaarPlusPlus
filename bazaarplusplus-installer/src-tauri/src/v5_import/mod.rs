@@ -2,10 +2,11 @@
 //! This module is deleted before 6.2.0; `release::check` refuses that version
 //! while it exists. V5 constants and directory names appear only here.
 //!
-//! `run.rs` is the operation, `source.rs` reads V5, `plan.rs` maps rows and
-//! files, `target.rs` writes the current database, and `manifest.rs` is the
-//! headless command's evidence.
+//! `run.rs` is the operation, `app.rs` its Install page entry, `source.rs`
+//! reads V5, `plan.rs` maps rows and files, `target.rs` writes the current
+//! database, and `manifest.rs` is the headless command's evidence.
 
+mod app;
 mod error;
 mod instant;
 pub(crate) mod manifest;
@@ -14,10 +15,11 @@ mod run;
 mod source;
 mod target;
 #[cfg(test)]
-mod tests_e2e;
+pub(crate) mod tests_e2e;
 
 use std::path::{Path, PathBuf};
 
+pub(crate) use app::{import_v5_history, ImportV5HistoryResult};
 pub(crate) use error::ImportError;
 pub(crate) use run::import_v5;
 
