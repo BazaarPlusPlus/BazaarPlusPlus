@@ -314,6 +314,22 @@ const zh = {
   runModeRanked: '排位',
   runModeUnranked: '匹配',
   runModeNormal: '普通',
+  // Game data stays English at rest; History translates heroes and rank tiers
+  // at display time. Names follow the game's official Simplified Chinese copy.
+  heroVanessa: '凡妮莎',
+  heroPygmalien: '皮格马利翁',
+  heroDooley: '杜利',
+  heroMak: '马克',
+  heroJules: '朱尔斯',
+  heroStelle: '斯黛拉',
+  heroKarnok: '卡诺克',
+  heroTheDragons: '双龙',
+  rankBronze: '青铜',
+  rankSilver: '白银',
+  rankGold: '黄金',
+  rankDiamond: '钻石',
+  rankMaster: '大师',
+  rankLegendary: '传奇',
   historyProblemUnavailable:
     '未找到可用的本地战绩数据库。请先在安装页选择正确的游戏目录。',
   historyProblemReadFailed:
@@ -837,6 +853,20 @@ const en: Record<MessageKey, string> = {
   runModeRanked: 'Ranked',
   runModeUnranked: 'Unranked',
   runModeNormal: 'Normal',
+  heroVanessa: 'Vanessa',
+  heroPygmalien: 'Pygmalien',
+  heroDooley: 'Dooley',
+  heroMak: 'Mak',
+  heroJules: 'Jules',
+  heroStelle: 'Stelle',
+  heroKarnok: 'Karnok',
+  heroTheDragons: 'The Dragons',
+  rankBronze: 'Bronze',
+  rankSilver: 'Silver',
+  rankGold: 'Gold',
+  rankDiamond: 'Diamond',
+  rankMaster: 'Master',
+  rankLegendary: 'Legendary',
   historyProblemUnavailable:
     'No local History database is available. Select the correct game directory on the Install page.',
   historyProblemReadFailed:

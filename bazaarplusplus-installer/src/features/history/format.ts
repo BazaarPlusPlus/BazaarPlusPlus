@@ -10,6 +10,45 @@ export function formatGameMode(mode: string, t: Translate): string {
   return mode;
 }
 
+// Keyed by the hero id with spaces removed and lowercased, so the canonical id
+// (`TheDragons`), its display name (`The Dragons`), and the legacy alias
+// (`Hero8`, see the analyzer's `hero-aliases.json`) all resolve.
+const heroKeys: Record<string, MessageKey> = {
+  vanessa: 'heroVanessa',
+  pygmalien: 'heroPygmalien',
+  dooley: 'heroDooley',
+  mak: 'heroMak',
+  jules: 'heroJules',
+  stelle: 'heroStelle',
+  karnok: 'heroKarnok',
+  thedragons: 'heroTheDragons',
+  hero8: 'heroTheDragons'
+};
+
+// Unknown heroes (a newly released one) fall back to the stored English name.
+export function formatHero(hero: string, t: Translate): string {
+  const key = heroKeys[hero.replace(/\s+/g, '').toLowerCase()];
+  return key ? t(key) : hero;
+}
+
+const rankKeys: Record<string, MessageKey> = {
+  bronze: 'rankBronze',
+  silver: 'rankSilver',
+  gold: 'rankGold',
+  diamond: 'rankDiamond',
+  master: 'rankMaster',
+  masters: 'rankMaster',
+  legendary: 'rankLegendary'
+};
+
+// Ranks arrive as the game's tier name with an optional division
+// (`Gold 1`, `Diamond III`, `Legendary`); only the tier word is translated.
+export function formatRank(rank: string, t: Translate): string {
+  const match = /^\s*([A-Za-z]+)(.*)$/.exec(rank);
+  const key = match ? rankKeys[match[1].toLowerCase()] : undefined;
+  return key && match ? `${t(key)}${match[2].trimEnd()}` : rank;
+}
+
 const dateTimeFormatters: Record<Locale, Intl.DateTimeFormat> = {
   zh: new Intl.DateTimeFormat('zh-CN', {
     month: '2-digit',

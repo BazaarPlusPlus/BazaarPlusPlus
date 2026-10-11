@@ -16,6 +16,8 @@ import { StatusBanner } from '../components/ui/StatusBanner';
 import {
   formatDateTime,
   formatGameMode,
+  formatHero,
+  formatRank,
   formatRunResultLabel
 } from '../features/history/format';
 import { HistoryOverview } from '../features/history/HistoryOverview';
@@ -217,7 +219,9 @@ function RunRow({
       />
       <span className="bpp-history-run-info">
         <span className="bpp-history-run-title">
-          <span className="bpp-history-run-hero">{run.hero}</span>
+          <span className="bpp-history-run-hero">
+            {formatHero(run.hero, t)}
+          </span>
           <ChevronRight
             size={16}
             className="bpp-history-run-chevron"
@@ -242,13 +246,15 @@ function RunRow({
           </span>
           <span
             className="bpp-history-run-metric"
-            title={`${t('runStatRank')} ${run.final_player_rank ?? '—'} · ${t('runStatRating')} ${run.final_player_rating ?? '—'}`}
+            title={`${t('runStatRank')} ${run.final_player_rank ? formatRank(run.final_player_rank, t) : '—'} · ${t('runStatRating')} ${run.final_player_rating ?? '—'}`}
           >
             <strong className="bpp-history-run-metric-value">
               {run.final_player_rating ?? '—'}
             </strong>
             <span className="bpp-history-run-metric-label">
-              {run.final_player_rank ?? t('runStatRating')}
+              {run.final_player_rank
+                ? formatRank(run.final_player_rank, t)
+                : t('runStatRating')}
             </span>
             <span className="bpp-history-run-days">
               {t('runMetricDays')} {run.final_day ?? '—'}

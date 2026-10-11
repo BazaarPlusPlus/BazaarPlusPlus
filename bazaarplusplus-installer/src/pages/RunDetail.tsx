@@ -23,6 +23,8 @@ import {
   formatDateTime,
   formatDuration,
   formatGameMode,
+  formatHero,
+  formatRank,
   formatRunResultLabel,
   formatRunStatusKey,
   toneColorClass
@@ -71,7 +73,7 @@ export default function RunDetail() {
   // Only the loading phase may claim to be loading; every terminal phase
   // without a run needs a heading that matches what the body actually says.
   const pageTitle =
-    detail?.run.hero ??
+    (detail ? formatHero(detail.run.hero, t) : undefined) ??
     (page.state.phase === 'initial-loading'
       ? t('runDetailLoading')
       : page.state.phase === 'not-found'
@@ -199,7 +201,11 @@ export default function RunDetail() {
               />
               <StatBlock
                 label={t('statFinalRank')}
-                value={detail.run.final_player_rank ?? '-'}
+                value={
+                  detail.run.final_player_rank
+                    ? formatRank(detail.run.final_player_rank, t)
+                    : '-'
+                }
               />
               <StatBlock
                 label={t('statFinalRating')}
@@ -274,7 +280,11 @@ export default function RunDetail() {
                             runStartedAt: detail.run.started_at_utc,
                             day: target.day,
                             opponent:
-                              [target.opponent_name, target.opponent_hero]
+                              [
+                                target.opponent_name,
+                                target.opponent_hero &&
+                                  formatHero(target.opponent_hero, t)
+                              ]
                                 .filter(Boolean)
                                 .join(' · ') || '-',
                             durationMs: target.video.duration_ms
@@ -364,7 +374,9 @@ function BattleRow({
     t('battleVideoActionLabel', {
       action,
       day: battle.day ?? '-',
-      opponent: battle.opponent_name ?? battle.opponent_hero ?? '-'
+      opponent:
+        battle.opponent_name ??
+        (battle.opponent_hero ? formatHero(battle.opponent_hero, t) : '-')
     });
 
   const retryFailure = () => {
@@ -386,13 +398,13 @@ function BattleRow({
           {t(battleResult.key)}
         </td>
         <td className="font-medium" title={battle.opponent_hero ?? undefined}>
-          {battle.opponent_hero ?? '-'}
+          {battle.opponent_hero ? formatHero(battle.opponent_hero, t) : '-'}
         </td>
         <td className="is-muted" title={battle.opponent_name ?? undefined}>
           {battle.opponent_name ?? '-'}
         </td>
         <td className="is-muted" title={battle.opponent_rank ?? undefined}>
-          {battle.opponent_rank ?? '-'}
+          {battle.opponent_rank ? formatRank(battle.opponent_rank, t) : '-'}
         </td>
         <td className="is-num">
           {battle.opponent_rating === null ? '-' : battle.opponent_rating}

@@ -251,7 +251,7 @@ describe('History thumbnails', () => {
     vi.mocked(listHistoryRuns).mockResolvedValue(thumbnailPage(0, 'Vanessa'));
     vi.mocked(prepareHistoryThumbnails).mockReturnValue(preparing);
     await render('/history');
-    expect(container.textContent).toContain('Vanessa');
+    expect(container.textContent).toContain('凡妮莎');
     expect(container.textContent).toContain('正在加载截图…');
     expect(container.textContent).not.toContain('刷新页面可重试');
     expect(container.querySelector('.bpp-history-run-preview img')).toBeNull();
@@ -309,7 +309,9 @@ describe('History thumbnails', () => {
         new Error('port occupied')
       );
       await render('/history');
-      expect(container.textContent).toContain('Vanessa');
+      expect(container.textContent).toContain(
+        locale === 'zh' ? '凡妮莎' : 'Vanessa'
+      );
       expect(container.textContent).toContain(fallback);
       expect(container.textContent).not.toMatch(
         /Stream|service|服务|直播|port occupied/
@@ -367,7 +369,9 @@ describe('History thumbnails', () => {
           container.querySelector('.bpp-history-run-list')!
         ) & Node.DOCUMENT_POSITION_FOLLOWING
       ).toBeTruthy();
-      expect(container.textContent).toContain('Vanessa');
+      expect(container.textContent).toContain(
+        locale === 'zh' ? '凡妮莎' : 'Vanessa'
+      );
       expect(
         container.querySelector('.bpp-history-run-preview-empty')?.textContent
       ).toBe(fallback);

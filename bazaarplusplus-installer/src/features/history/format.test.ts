@@ -4,8 +4,47 @@ import {
   formatBytes,
   formatDateTime,
   formatDuration,
+  formatHero,
+  formatRank,
   formatRunResultLabel
 } from './format';
+
+const zhT = (key: Parameters<typeof formatMessage>[1]) =>
+  formatMessage('zh', key);
+const enT = (key: Parameters<typeof formatMessage>[1]) =>
+  formatMessage('en', key);
+
+describe('History hero and rank labels', () => {
+  it.each([
+    ['The Dragons', '双龙', 'The Dragons'],
+    ['TheDragons', '双龙', 'The Dragons'],
+    ['Hero8', '双龙', 'The Dragons'],
+    ['Vanessa', '凡妮莎', 'Vanessa'],
+    ['Pygmalien', '皮格马利翁', 'Pygmalien'],
+    ['Dooley', '杜利', 'Dooley'],
+    ['Mak', '马克', 'Mak'],
+    ['Jules', '朱尔斯', 'Jules'],
+    ['Stelle', '斯黛拉', 'Stelle'],
+    ['Karnok', '卡诺克', 'Karnok'],
+    ['SomeNewHero', 'SomeNewHero', 'SomeNewHero']
+  ])('presents hero %s in each locale', (hero, zh, en) => {
+    expect(formatHero(hero, zhT)).toBe(zh);
+    expect(formatHero(hero, enT)).toBe(en);
+  });
+
+  it.each([
+    ['Legendary', '传奇', 'Legendary'],
+    ['Gold 1', '黄金 1', 'Gold 1'],
+    ['Diamond III', '钻石 III', 'Diamond III'],
+    ['bronze', '青铜', 'Bronze'],
+    ['Silver', '白银', 'Silver'],
+    ['Masters', '大师', 'Master'],
+    ['Mythic', 'Mythic', 'Mythic']
+  ])('presents rank %s in each locale', (rank, zh, en) => {
+    expect(formatRank(rank, zhT)).toBe(zh);
+    expect(formatRank(rank, enT)).toBe(en);
+  });
+});
 
 describe('History run outcomes', () => {
   it.each([
