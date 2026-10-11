@@ -26,10 +26,8 @@ pub(crate) const LEGACY_ROOT_ERR_PARTIAL_FAILURE: &str = "legacy_root_delete_par
 pub(crate) const INSTALLED_HISTORY_DATABASE_CONTRACT: &str =
     "BepInEx/plugins/BazaarPlusPlus.history-database.json";
 
-/// One Legacy Root. `LegacyRoot::ALL` (master) is the only list of them in the
+/// One Legacy Root. [`LegacyRoot::ALL`] is the only list of them in the
 /// installer; it never contains the current Data Root.
-// Master's `LegacyRoot::ALL` constructs every variant.
-#[allow(dead_code)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, specta::Type)]
 pub enum LegacyRoot {
     #[serde(rename = "BazaarPlusPlus")]
