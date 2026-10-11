@@ -48,7 +48,7 @@ pub fn resolve_cleanup_file_path(root_dir: &Path, raw_path: &str) -> Option<Path
     resolved.starts_with(root_dir).then_some(resolved)
 }
 
-pub fn resolve_screenshot_path(game_path: &Path, raw_path: &str) -> Option<PathBuf> {
+pub fn resolve_screenshot_path(data_root: &Path, raw_path: &str) -> Option<PathBuf> {
     let raw_path = raw_path.trim();
     if raw_path.is_empty() {
         return None;
@@ -58,7 +58,7 @@ pub fn resolve_screenshot_path(game_path: &Path, raw_path: &str) -> Option<PathB
         return Some(candidate);
     }
     resolve_data_file_path(
-        &crate::services::paths::screenshots_dir(game_path),
+        &crate::services::paths::screenshots_dir_in(data_root),
         raw_path,
     )
 }
