@@ -42,6 +42,15 @@ const problems = [
   createUiProblem('install_partial_failure', {
     params: { operation: 'reset_bepinex', count: '2' }
   }),
+  createUiProblem('install_action_failed', {
+    params: { operation: 'get_legacy_data_state' }
+  }),
+  createUiProblem('install_action_failed', {
+    params: { operation: 'delete_legacy_root' }
+  }),
+  createUiProblem('install_partial_failure', {
+    params: { operation: 'delete_legacy_root', count: '2' }
+  }),
   createUiProblem('install_unexpected')
 ] as const;
 
@@ -77,6 +86,17 @@ describe('Install semantic presentation', () => {
       expect(en).not.toBe(zh);
     }
   );
+
+  it('names the legacy folder, not local data, when its deletion partly fails', () => {
+    expect(
+      presentInstallProblem(
+        createUiProblem('install_partial_failure', {
+          params: { operation: 'delete_legacy_root', count: '2' }
+        }),
+        (key, params) => formatMessage('en', key, params)
+      )
+    ).toBe(formatMessage('en', 'legacyDeletePartialFailure', { count: '2' }));
+  });
 
   it('recovers partial-failure paths from semantic parameters', () => {
     expect(

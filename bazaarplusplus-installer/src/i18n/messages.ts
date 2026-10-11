@@ -182,6 +182,35 @@ const zh = {
   installProblemLaunchFailed:
     '无法通过 Steam 启动游戏，请确认 Steam 正在运行后重试。',
   installProblemUnexpected: '处理安装状态时发生意外错误，请重试。',
+  installProblemLegacyDataFailed: '无法读取旧版本数据文件夹，请重试。',
+  installProblemLegacyDeleteFailed:
+    '删除旧数据文件夹失败，请关闭占用文件的程序后重试。',
+
+  // Legacy Roots
+  legacyDataHeading: '旧版本数据',
+  legacyDataHint:
+    '早期版本写入游戏目录的数据文件夹。当前版本不再读取它们，只有在你确认后才会删除。',
+  legacyRootSize: '{size}，{files} 个文件',
+  legacyRootHardLinked:
+    '其中 {count} 个文件与其他位置共用磁盘空间，删除后实际释放的空间可能更少。',
+  legacyRootUnreadable: '有 {count} 个项目无法读取，未计入大小。',
+  legacyModReinstallRequired:
+    '已安装的 BazaarPlusPlus 仍在写入旧的数据文件夹。请重新安装，让它改用 BazaarPlusPlusV6。',
+  legacyDeleteAction: '删除 {name}',
+  legacyDeleteConfirmTitle: '删除旧数据文件夹',
+  legacyDeleteTarget: '目标：{path} 内的 {name} 文件夹',
+  legacyDeleteConfirmBody:
+    '这会永久删除 {name} 中的全部内容，包括早期版本的数据库、截图和回放。',
+  legacyDeleteConfirmSpace:
+    '部分文件可能与其他位置共用磁盘空间，删除后释放的空间可能少于显示的大小。',
+  legacyDeleteConfirmKeepsCurrent:
+    '当前数据（BazaarPlusPlusV6）、插件和游戏本体都不会受影响。',
+  legacyDeleteConfirmAcknowledge: '我知道 {name} 文件夹会被永久删除。',
+  legacyDeleteConfirmAction: '删除文件夹',
+  legacyDeleteRunning: '正在删除旧数据文件夹…',
+  legacyDeleteDone: '{name} 已删除',
+  legacyDeleteNothingToDelete: '{name} 已不存在',
+  legacyDeletePartialFailure: '有 {count} 个项目未能删除。请关闭游戏后重试。',
 
   // Install confirmation modal
   installModalTitle: '安装 BazaarPlusPlus',
@@ -631,6 +660,38 @@ const en: Record<MessageKey, string> = {
     'The game could not be launched through Steam. Make sure Steam is running, then retry.',
   installProblemUnexpected:
     'Something unexpected happened while handling installation state. Please retry.',
+  installProblemLegacyDataFailed:
+    'Data folders from earlier versions could not be read. Please retry.',
+  installProblemLegacyDeleteFailed:
+    'The legacy data folder could not be deleted. Close apps using those files, then retry.',
+
+  legacyDataHeading: 'Data from earlier versions',
+  legacyDataHint:
+    'Folders earlier versions wrote into the game directory. This version no longer reads them, and they are deleted only after you confirm.',
+  legacyRootSize: '{size}, {files} {files|file|files}',
+  legacyRootHardLinked:
+    '{count} {count|file shares|files share} disk space with another location, so deleting may free less space.',
+  legacyRootUnreadable:
+    '{count} {count|item|items} could not be read and {count|is|are} not counted.',
+  legacyModReinstallRequired:
+    'The installed BazaarPlusPlus still writes to an old data folder. Reinstall it so it uses BazaarPlusPlusV6.',
+  legacyDeleteAction: 'Delete {name}',
+  legacyDeleteConfirmTitle: 'Delete Legacy Data Folder',
+  legacyDeleteTarget: 'Target: the {name} folder inside {path}',
+  legacyDeleteConfirmBody:
+    'This permanently deletes everything in {name}, including databases, screenshots, and replays from earlier versions.',
+  legacyDeleteConfirmSpace:
+    'Some files may share disk space with another location, so deleting may free less space than shown.',
+  legacyDeleteConfirmKeepsCurrent:
+    'Current data (BazaarPlusPlusV6), the mod, and the game are not affected.',
+  legacyDeleteConfirmAcknowledge:
+    'I understand the {name} folder will be permanently deleted.',
+  legacyDeleteConfirmAction: 'Delete Folder',
+  legacyDeleteRunning: 'Deleting the legacy data folder…',
+  legacyDeleteDone: '{name} deleted',
+  legacyDeleteNothingToDelete: '{name} no longer exists',
+  legacyDeletePartialFailure:
+    '{count} {count|item|items} could not be deleted. Close the game, then try again.',
 
   installModalTitle: 'Install BazaarPlusPlus',
   tutorialKicker: 'Tutorial',

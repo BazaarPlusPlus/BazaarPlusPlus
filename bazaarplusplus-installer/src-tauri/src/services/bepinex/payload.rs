@@ -381,7 +381,7 @@ fn dir_contains_any_file(dir: &Path) -> bool {
     })
 }
 
-pub(super) fn ensure_valid_game_path(game_path: &Path) -> Result<(), String> {
+pub(crate) fn ensure_valid_game_path(game_path: &Path) -> Result<(), String> {
     if crate::services::detect::is_valid_game_path(game_path) {
         return Ok(());
     }
@@ -627,6 +627,48 @@ mod tests {
 
         assert!(data_dir.exists());
         assert!(data_dir.join("stale.dll").exists());
+    }
+
+    #[test]
+    fn uninstall_preserves_every_data_root() {
+        // Uninstall's filesystem effects, in both of its modes, leave the
+        // current Data Root and every Legacy Root in place (ADR-0008).
+        for keep_shared_dependencies in [false, true] {
+            let tmp = tempfile::tempdir().unwrap();
+            std::fs::create_dir_all(tmp.path().join("BepInEx/plugins")).unwrap();
+            std::fs::write(
+                tmp.path().join("BepInEx/plugins/BazaarPlusPlus.dll"),
+                b"dll",
+            )
+            .unwrap();
+            let roots: Vec<_> = std::iter::once(BAZAAR_DATA_DIRECTORY)
+                .chain(
+                    crate::services::legacy_data::LegacyRoot::ALL
+                        .into_iter()
+                        .map(crate::services::legacy_data::LegacyRoot::directory_name),
+                )
+                .map(|name| tmp.path().join(name).join(DATABASE_FILE_NAME))
+                .collect();
+            for database in &roots {
+                std::fs::create_dir_all(database.parent().unwrap()).unwrap();
+                std::fs::write(database, b"db").unwrap();
+            }
+
+            if keep_shared_dependencies {
+                super::uninstall_payload_preserving_shared_dependencies(tmp.path()).unwrap();
+            } else {
+                uninstall_payload(tmp.path()).unwrap();
+                remove_bootstrap_files(tmp.path()).unwrap();
+            }
+
+            assert!(!tmp
+                .path()
+                .join("BepInEx/plugins/BazaarPlusPlus.dll")
+                .exists());
+            for database in &roots {
+                assert!(database.is_file(), "{} was removed", database.display());
+            }
+        }
     }
 
     #[test]

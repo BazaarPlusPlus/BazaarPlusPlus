@@ -5,9 +5,11 @@ use tauri_plugin_dialog::DialogExt;
 use crate::problem::SemanticProblem;
 use crate::services::{
     install::{
-        build_install_state, install, launch_game_via_steam, run_reset_bepinex, run_reset_bpp_data,
-        run_uninstall, InstallRequest,
+        build_install_state, install, launch_game_via_steam, run_delete_legacy_root,
+        run_get_legacy_data_state, run_reset_bepinex, run_reset_bpp_data, run_uninstall,
+        InstallRequest,
     },
+    legacy_data::{DeleteLegacyRootResult, LegacyDataState},
     startup::InstallerContextState,
 };
 use crate::stream::runtime::StreamRuntime;
@@ -69,6 +71,27 @@ pub async fn reset_bepinex(
     game_path: String,
 ) -> Result<ResetBepinexResult, SemanticProblem> {
     run_reset_bepinex(app, install_state, game_path).await
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn get_legacy_data_state(
+    app: tauri::AppHandle,
+    game_path: Option<String>,
+) -> Result<LegacyDataState, SemanticProblem> {
+    run_get_legacy_data_state(app, game_path).await
+}
+
+/// Deletes one Legacy Root the user confirmed. `name` must be one of the
+/// directory names `get_legacy_data_state` lists.
+#[tauri::command]
+#[specta::specta]
+pub async fn delete_legacy_root(
+    app: tauri::AppHandle,
+    game_path: String,
+    name: String,
+) -> Result<DeleteLegacyRootResult, SemanticProblem> {
+    run_delete_legacy_root(app, game_path, name).await
 }
 
 #[tauri::command]

@@ -131,9 +131,14 @@ function installProblemMessageKey(problem: InstallProblem): MessageKey {
     case 'legacy_delete_blocked_by_game':
       return 'legacyDeleteBlockedByGame';
     case 'install_partial_failure':
-      return problem.params.operation === 'reset_bepinex'
-        ? 'resetBepinexPartialFailure'
-        : 'resetDataPartialFailure';
+      switch (problem.params.operation) {
+        case 'reset_bepinex':
+          return 'resetBepinexPartialFailure';
+        case 'delete_legacy_root':
+          return 'legacyDeletePartialFailure';
+        default:
+          return 'resetDataPartialFailure';
+      }
     case 'install_action_failed':
       switch (problem.params.operation) {
         case 'choose_directory':
@@ -148,6 +153,10 @@ function installProblemMessageKey(problem: InstallProblem): MessageKey {
           return 'installProblemUninstallFailed';
         case 'launch':
           return 'installProblemLaunchFailed';
+        case 'get_legacy_data_state':
+          return 'installProblemLegacyDataFailed';
+        case 'delete_legacy_root':
+          return 'installProblemLegacyDeleteFailed';
         default:
           return 'installProblemUnexpected';
       }

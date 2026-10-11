@@ -4,6 +4,7 @@ mod payload;
 mod trampoline;
 mod zip_archive;
 
+pub(crate) use payload::{ensure_valid_game_path, remove_dir_with_retry};
 pub(crate) use trampoline::{
     install_trampoline, is_current_trampoline, obsolete_macos_artifacts_present,
     remove_obsolete_macos_artifacts,

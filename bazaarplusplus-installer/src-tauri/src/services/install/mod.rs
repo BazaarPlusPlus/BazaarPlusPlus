@@ -14,6 +14,7 @@ use tauri::Manager;
 
 use std::path::Path;
 
+use crate::services::game_path::GamePathAcceptance;
 use crate::services::{
     bepinex::{
         reset_bepinex_folder, reset_bpp_data, uninstall_bpp, RESET_BEPINEX_ERR_PARTIAL_FAILURE,
@@ -22,6 +23,11 @@ use crate::services::{
     data_maintenance::DataMaintenanceLock,
     detect::detect_for_install,
     game_process::GameRunningRefusal,
+    legacy_data::{
+        delete_legacy_root, installer_settings_directory, legacy_data_state,
+        DeleteLegacyRootResult, LegacyDataState, LEGACY_ROOT_ERR_PARTIAL_FAILURE,
+    },
+    selected_game_installation::SelectedGameInstallationState,
     startup::InstallerContextState,
 };
 use crate::{
@@ -76,6 +82,42 @@ pub async fn run_reset_bepinex(
         .map_err(|diagnostic| install_action_problem("reset_bepinex", diagnostic))?;
     let state = build_install_state(app, install_state, Some(game_path))?;
     Ok(ResetBepinexResult { state, removed })
+}
+
+/// Legacy Roots of the selected game directory. History needs a database to
+/// resolve its directory; this accepts any directory, so a user with only V5
+/// data still sees it. Sizes are measured on the blocking pool.
+pub async fn run_get_legacy_data_state(
+    app: tauri::AppHandle,
+    game_path: Option<String>,
+) -> Result<LegacyDataState, SemanticProblem> {
+    let resolved = app
+        .state::<SelectedGameInstallationState>()
+        .resolve(&app, game_path, GamePathAcceptance::Any)
+        .map(|resolution| resolution.game_path);
+    let Some(game_path) = resolved else {
+        return Ok(LegacyDataState::without_game());
+    };
+    let settings_dir = installer_settings_directory();
+    tauri::async_runtime::spawn_blocking(move || legacy_data_state(&game_path, &settings_dir))
+        .await
+        .map_err(|err| {
+            install_action_problem(
+                "get_legacy_data_state",
+                format!("failed to measure legacy data: {err}"),
+            )
+        })
+}
+
+pub async fn run_delete_legacy_root(
+    app: tauri::AppHandle,
+    game_path: String,
+    name: String,
+) -> Result<DeleteLegacyRootResult, SemanticProblem> {
+    let maintenance = app.state::<DataMaintenanceLock>().inner().clone();
+    delete_legacy_root(&maintenance, game_path, name)
+        .await
+        .map_err(|diagnostic| install_action_problem("delete_legacy_root", diagnostic))
 }
 
 pub async fn run_uninstall(
@@ -205,6 +247,7 @@ pub(crate) fn install_action_problem(operation: &str, diagnostic: String) -> Sem
     for prefix in [
         RESET_BPP_DATA_ERR_PARTIAL_FAILURE,
         RESET_BEPINEX_ERR_PARTIAL_FAILURE,
+        LEGACY_ROOT_ERR_PARTIAL_FAILURE,
     ] {
         if let Some(paths) = diagnostic
             .strip_prefix(prefix)

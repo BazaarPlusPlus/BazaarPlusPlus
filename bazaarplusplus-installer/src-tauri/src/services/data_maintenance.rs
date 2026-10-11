@@ -6,7 +6,8 @@ use crate::stream::runtime::StreamRuntime;
 
 /// The installer's process-wide data maintenance lock. Every operation that
 /// deletes or rewrites user data under a game directory (History cleanup,
-/// Reset, BepInEx reset) runs while holding it, so two of them never interleave.
+/// Reset, BepInEx reset, Legacy Root deletion) runs while holding it, so two of
+/// them never interleave.
 ///
 /// Lock order: this lock first, then the stream lifecycle gate inside
 /// [`StreamRuntime::exclusive_maintenance`]. Nothing that holds the lifecycle

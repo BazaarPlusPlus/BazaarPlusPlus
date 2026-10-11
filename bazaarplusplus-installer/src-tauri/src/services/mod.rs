@@ -6,6 +6,7 @@ pub mod game_path;
 pub mod game_process;
 pub mod history;
 pub mod install;
+pub(crate) mod legacy_data;
 pub mod path;
 pub mod paths;
 pub(crate) mod placement;
