@@ -19,8 +19,9 @@ Thumbs.db
 *.swo
 *~
 
-# Agent tooling
-.claude/
+# Agent tooling (the shared .claude/settings.json is tracked)
+.claude/*
+!.claude/settings.json
 .agents/
 .superpowers/
 .gstack/
