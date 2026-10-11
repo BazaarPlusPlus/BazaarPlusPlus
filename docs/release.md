@@ -1,6 +1,6 @@
 # 产品发布
 
-mod 与 installer 是同一个 Product Release 的两个产物。根目录 `release/` 拥有发布模块及其测试，installer 脚本单向消费它并负责正式签名和打包。根目录 `VERSION` 是唯一手工维护的产品版本；`just release::sync` 将它投影到 npm、Tauri、Cargo 和 README，MSBuild 直接读取它。数据库 schema、native ABI、V5 用户数据格式以及用户当前安装版本保持独立。
+mod 与 installer 是同一个 Product Release 的两个产物。根目录 `release/` 拥有发布模块及其测试，installer 脚本单向消费它并负责正式签名和打包。根目录 `VERSION` 是唯一手工维护的产品版本；`just release::sync` 将它投影到 npm、Tauri、Cargo 和 README，MSBuild 直接读取它。数据库 schema、native ABI、Data Root 目录名以及用户当前安装版本保持独立。
 
 ## 入口
 
@@ -21,6 +21,8 @@ just release::promote --platform macos
 Windows 将 `macos` 换成 `windows`。`release::prepare` 和 `release::build` 默认对照本平台的 online 锁条目编译（`scripts/game.sh managed-path` 只解析这一个条目），可在平台后追加 `"-p:ManagedPath=<absolute-path>"` 换一种取包方式，但该目录仍必须哈希到某个锁条目，否则 `prepare` 在落任何文件之前拒绝；不接受编译器、版本、目标或输出目录覆盖。`build` 包含 `prepare`，但不会自动上传；`upload` 不修改 latest；`mirror-all` 在双平台上传齐备后统一核对并记录大陆镜像地址；`mirror` 用于单平台发布；`verify-mirror` 只读复核，不需要凭据；`promote` 发布双平台版本，`promote --platform` 只发布一个平台，见[按平台发布](#按平台发布)。installer 的 `npm run prepare:resources -- --platform …` 同样转入产品发布协调器；installer 的 `scripts/bundle.sh` 只在 `release::build` 持有的构建锁内运行。
 
 `release/projections.mjs` 的 `checkProductProjections` 是共享源码对齐入口：根 `check` 与 installer 预检查均调用它，验证版本、Payload 投影、两份 README badge、平台配置、updater endpoint 和快照锁 `bazaarplusplus-mod/build/game-libs.lock.json` 的格式（六个键齐全，条目为空或过期只告警，见 [ADR 0004](adr/0004-pinned-game-assembly-snapshots.md)）。版本达到 6.2.0 而 V5 导入模块 `bazaarplusplus-installer/src-tauri/src/v5_import/` 仍存在时它拒绝通过，所以 `release::check`、`release::prepare` 和 installer 预检查都会失败；该目录必须先删除，见 [installer ADR 0008](../bazaarplusplus-installer/docs/adr/0008-legacy-data-roots-and-v5-import.md) 与 [#264](https://github.com/BazaarPlusPlus/BazaarPlusPlus/issues/264)。发布 origin 和 updater endpoint 列表由 `release/downloads.ts` 的 `RELEASE_BASE_URL` 与 `UPDATER_ENDPOINTS` 定义；Tauri 配置必须与后者逐项相等。`sync` 更新版本和 badge，不改写发布 origin。
+
+同一入口用 `release/history-database.mjs` 的 `assertHistoryDatabaseCompatibility` 比较 mod 的 `bazaarplusplus-mod/src/BazaarPlusPlus.Storage/BazaarPlusPlus.history-database.json` 与 installer 的 `bazaarplusplus-installer/src-tauri/history-database-compatibility.json`：两边必填的 `dataRootDirectoryName` 必须相同，mod 的 `historyDatabaseUserVersion` 必须是 installer `supportedUserVersions` 里最新的一项。两份 JSON 各自由项目测试钉住源码常量：mod 的 `RunLogSchemaReleaseContractTests` 对 `PathConstants.DataRootDirectoryName` 与 `RunLogSchema.LocalDatabaseSchemaVersion`，installer `src-tauri/src/config.rs` 的测试对 `BAZAAR_DATA_DIRECTORY`。所以只改一边的 Data Root 名称，会让该项目的测试或 `release::check` 失败。`release::prepare` 打包前对暂存 Payload 里的 mod 合约再做一次同样的比较（`release/payload-zip.mjs`）。
 
 just 只转发，不缓存或跳过任何发布检查。直接调用 `node release.mjs prepare|build` 时，MSBuild 参数要放在 `--` 之后；just 会自动补上。
 

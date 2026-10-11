@@ -1,6 +1,10 @@
 use std::sync::OnceLock;
 
-pub const BAZAAR_DATA_DIRECTORY: &str = "BazaarPlusPlusV5";
+/// The Data Root the mod writes under the game directory. The mod owns the name
+/// (`PathConstants.DataRootDirectoryName`); `history-database-compatibility.json`
+/// restates it as `dataRootDirectoryName`, which `just release::check` compares
+/// against the mod's contract and a test here compares against this constant.
+pub const BAZAAR_DATA_DIRECTORY: &str = "BazaarPlusPlusV6";
 pub const INSTALLER_STATE_DIRECTORY: &str = "BazaarPlusPlusInstaller";
 pub const COMBAT_REPLAYS_DIRECTORY: &str = "CombatReplays";
 pub const COMBAT_REPLAY_VIDEOS_DIRECTORY: &str = "CombatReplayVideos";
@@ -63,3 +67,18 @@ pub const STEAM_LIBRARY_FALLBACK_CANDIDATES: &[&str] = &[
 #[cfg_attr(not(target_os = "windows"), allow(dead_code))]
 #[cfg(not(target_os = "windows"))]
 pub const STEAM_LIBRARY_FALLBACK_CANDIDATES: &[&str] = &[];
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn compatibility_contract_names_the_data_root_the_installer_reads() {
+        let compatibility: serde_json::Value =
+            serde_json::from_str(include_str!("../history-database-compatibility.json"))
+                .expect("history database compatibility must be valid JSON");
+        assert_eq!(
+            compatibility["dataRootDirectoryName"].as_str(),
+            Some(super::BAZAAR_DATA_DIRECTORY),
+            "history-database-compatibility.json dataRootDirectoryName must equal BAZAAR_DATA_DIRECTORY"
+        );
+    }
+}

@@ -915,9 +915,9 @@ mod tests {
             b"developer-payload",
         )
         .unwrap();
-        std::fs::create_dir_all(game.path().join("BazaarPlusPlusV5")).unwrap();
+        std::fs::create_dir_all(game.path().join("BazaarPlusPlusV6")).unwrap();
         std::fs::write(
-            game.path().join("BazaarPlusPlusV5/history-sentinel"),
+            game.path().join("BazaarPlusPlusV6/history-sentinel"),
             b"user-data",
         )
         .unwrap();
@@ -996,7 +996,7 @@ mod tests {
                 b"developer-payload"
             );
             assert_eq!(
-                std::fs::read(game.path().join("BazaarPlusPlusV5/history-sentinel")).unwrap(),
+                std::fs::read(game.path().join("BazaarPlusPlusV6/history-sentinel")).unwrap(),
                 b"user-data"
             );
         }

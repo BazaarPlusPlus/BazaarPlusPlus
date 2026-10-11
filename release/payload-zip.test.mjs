@@ -31,7 +31,11 @@ function fixtureRoot(platform = 'macos') {
   fs.mkdirSync(sourceDir, { recursive: true });
   fs.writeFileSync(
     compatibilityPath,
-    `${JSON.stringify({ formatVersion: 1, supportedUserVersions: [1, 2] })}\n`
+    `${JSON.stringify({
+      formatVersion: 1,
+      dataRootDirectoryName: 'BazaarPlusPlusV6',
+      supportedUserVersions: [1, 2]
+    })}\n`
   );
   return { rootDir, sourceDir, platform, productVersion: '5.6.0' };
 }
@@ -48,7 +52,11 @@ function writeStagedModVersion(fixture, version) {
   writeStagedHistoryDatabaseContract(fixture, 2);
 }
 
-function writeStagedHistoryDatabaseContract(fixture, userVersion) {
+function writeStagedHistoryDatabaseContract(
+  fixture,
+  userVersion,
+  dataRootDirectoryName = 'BazaarPlusPlusV6'
+) {
   const contractPath = path.join(
     fixture.sourceDir,
     'BepInEx',
@@ -60,6 +68,7 @@ function writeStagedHistoryDatabaseContract(fixture, userVersion) {
     contractPath,
     `${JSON.stringify({
       formatVersion: 1,
+      dataRootDirectoryName,
       historyDatabaseUserVersion: userVersion
     })}\n`
   );
@@ -216,6 +225,29 @@ test('preparation rejects a plugin that the installer does not own', () => {
     expect(() =>
       preparePayloadZip({ ...fixture, requiredStagingPaths: [] })
     ).toThrow(/Undeclared.*Forgotten.dll/);
+  } finally {
+    fs.rmSync(fixture.rootDir, { recursive: true, force: true });
+  }
+});
+
+test('preparePayloadZip rejects a staged mod that writes a Data Root the installer does not read', () => {
+  const fixture = fixtureRoot('macos');
+  fixture.productVersion = '5.3.0';
+  writeStagedModVersion(fixture, '5.3.0.prod');
+  writeStagedHistoryDatabaseContract(fixture, 2, 'BazaarPlusPlusV7');
+
+  try {
+    expect(() =>
+      preparePayloadZip({
+        ...fixture,
+        requiredStagingPaths: [
+          'BepInEx/plugins/BazaarPlusPlus.version',
+          'BepInEx/plugins/BazaarPlusPlus.history-database.json'
+        ]
+      })
+    ).toThrow(
+      /Data Root BazaarPlusPlusV7[\s\S]*installer reads BazaarPlusPlusV6/
+    );
   } finally {
     fs.rmSync(fixture.rootDir, { recursive: true, force: true });
   }

@@ -16,7 +16,13 @@ afterEach(() => {
     fs.rmSync(root, { recursive: true, force: true });
 });
 
-function fixture({ userVersion, supported }) {
+// A Data Root passed as undefined is left out of the written JSON.
+function fixture({ userVersion, supported, ...dataRoots }) {
+  const { modDataRoot, installerDataRoot } = {
+    modDataRoot: 'BazaarPlusPlusV6',
+    installerDataRoot: 'BazaarPlusPlusV6',
+    ...dataRoots
+  };
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'bpp-history-db-'));
   roots.push(root);
   const contractPath = path.join(root, 'history-database.json');
@@ -25,12 +31,17 @@ function fixture({ userVersion, supported }) {
     contractPath,
     JSON.stringify({
       formatVersion: 1,
+      dataRootDirectoryName: modDataRoot,
       historyDatabaseUserVersion: userVersion
     })
   );
   fs.writeFileSync(
     compatibilityPath,
-    JSON.stringify({ formatVersion: 1, supportedUserVersions: supported })
+    JSON.stringify({
+      formatVersion: 1,
+      dataRootDirectoryName: installerDataRoot,
+      supportedUserVersions: supported
+    })
   );
   return { contractPath, compatibilityPath };
 }
@@ -83,3 +94,47 @@ test('rejects an invalid mod contract', () => {
     )
   ).toThrow(/Invalid BazaarPlusPlus history database contract/);
 });
+
+test('rejects an installer that reads a different Data Root than the mod writes', () => {
+  expect(() =>
+    assertHistoryDatabaseCompatibility(
+      fixture({
+        userVersion: 3,
+        supported: [1, 2, 3],
+        modDataRoot: 'BazaarPlusPlusV6',
+        installerDataRoot: 'BazaarPlusPlusV7'
+      })
+    )
+  ).toThrow(
+    /Data Root BazaarPlusPlusV6[\s\S]*installer reads BazaarPlusPlusV7/
+  );
+});
+
+test.each([
+  [undefined, 'missing'],
+  ['', 'empty'],
+  ['a/b', 'nested'],
+  ['..', 'parent']
+])('rejects a mod contract whose Data Root is %j (%s)', (modDataRoot) => {
+  expect(() =>
+    assertHistoryDatabaseCompatibility(
+      fixture({ userVersion: 3, supported: [1, 2, 3], modDataRoot })
+    )
+  ).toThrow(/Invalid BazaarPlusPlus history database contract/);
+});
+
+test.each([
+  [undefined, 'missing'],
+  ['', 'empty'],
+  ['a\\b', 'nested'],
+  ['.', 'current']
+])(
+  'rejects an installer compatibility contract whose Data Root is %j (%s)',
+  (installerDataRoot) => {
+    expect(() =>
+      assertHistoryDatabaseCompatibility(
+        fixture({ userVersion: 3, supported: [1, 2, 3], installerDataRoot })
+      )
+    ).toThrow(/Invalid installer history database compatibility contract/);
+  }
+);

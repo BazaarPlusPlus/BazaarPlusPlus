@@ -76,7 +76,7 @@ Operational logging is written at the call site: `BppLog.*Event(new BppLogEvent(
 
 ## Data And File Locations
 
-Runtime data that BazaarPlusPlus owns is rooted at `<GameRoot>/BazaarPlusPlusV5/`. `BepInExPathProvider` exposes that single root, and storage and feature modules derive the SQLite database, bundle outbox, replay, ghost payload, screenshot, video, voice, LiveBuild, supporter, and Encounter Preview paths from it. No runtime cache uses the process temporary directory.
+Runtime data that BazaarPlusPlus owns is rooted at `<GameRoot>/BazaarPlusPlusV6/`. `BepInExPathProvider` exposes that single root, and storage and feature modules derive the SQLite database, bundle outbox, replay, ghost payload, screenshot, video, voice, LiveBuild, supporter, and Encounter Preview paths from it. No runtime cache uses the process temporary directory.
 
 V5 uses a fresh, non-migrating SQLite schema. Beyond run facts, events, battles, snapshots, screenshots, and replay-video metadata it holds `bundle_seal_jobs` and a non-FK `bundle_outbox`; ghost rows carry remote bundle identity, presigned URL and expiry, and replay state. V4 sync cursors, dirty/checkpoint upload state, and independent screenshot upload state do not exist (`src/BazaarPlusPlus.Storage/RunLog/RunLogSchema.cs`).
 

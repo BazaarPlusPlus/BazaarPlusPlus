@@ -169,7 +169,7 @@ _Avoid_: DayTierSchedule, hardcoded tier table
 ## Remote embedded data
 
 **Remote Embedded Catalog**:
-The shared runtime lifecycle for data shipped as an embedded seed, cached under `<GameRoot>/BazaarPlusPlusV5/`, and refreshed from a remote source (`IRemoteEmbeddedCatalog<T>`). The interface exposes only current-snapshot lookup, warm-up, explicit refresh, and disposal; feature modules keep their own parser, logging, and user-facing refresh policy.
+The shared runtime lifecycle for data shipped as an embedded seed, cached under `<GameRoot>/BazaarPlusPlusV6/`, and refreshed from a remote source (`IRemoteEmbeddedCatalog<T>`). The interface exposes only current-snapshot lookup, warm-up, explicit refresh, and disposal; feature modules keep their own parser, logging, and user-facing refresh policy.
 _Avoid_: feature repository loader
 
 **Supporter Catalog Module**:

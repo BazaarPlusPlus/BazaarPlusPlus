@@ -1,5 +1,6 @@
 #nullable enable
 using System.Text.Json;
+using BazaarPlusPlus.Storage.Paths;
 using BazaarPlusPlus.Storage.RunLog;
 using BazaarPlusPlus.TestSupport;
 
@@ -23,6 +24,11 @@ internal static class RunLogSchemaReleaseContractTests
             RunLogSchema.LocalDatabaseSchemaVersion,
             root.GetProperty("historyDatabaseUserVersion").GetInt32(),
             "database user version"
+        );
+        Equal(
+            PathConstants.DataRootDirectoryName,
+            root.GetProperty("dataRootDirectoryName").GetString() ?? "",
+            "data root directory name"
         );
     }
 

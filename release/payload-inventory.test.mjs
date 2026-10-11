@@ -44,7 +44,7 @@ test.each([
   'BepInEx/../other',
   'C:\\game',
   'BepInEx',
-  'BazaarPlusPlusV5'
+  'BazaarPlusPlusV6'
 ])('inventory rejects unsafe ownership %s', (name) => {
   expect(() =>
     validateInventory({
@@ -62,7 +62,7 @@ test.each([
 });
 
 test.each([
-  'BazaarPlusPlusV5/data',
+  'BazaarPlusPlusV6/data',
   'BazaarPlusPlusV4/data',
   'BundleOutbox/queue',
   'Foreign/data'

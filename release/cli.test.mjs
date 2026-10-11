@@ -677,3 +677,23 @@ test('check refuses 6.2.0 while the V5 import module exists and passes on 6.1.x'
   );
   expect(options.createStore).not.toHaveBeenCalled();
 });
+
+test.each([
+  [
+    'bazaarplusplus-mod/src/BazaarPlusPlus.Storage/BazaarPlusPlus.history-database.json'
+  ],
+  ['bazaarplusplus-installer/src-tauri/history-database-compatibility.json']
+])('check fails when only %s renames the Data Root', async (file) => {
+  const options = fixture();
+  await main(['check'], options);
+  const target = path.join(options.workspaceRoot, file);
+  const contract = JSON.parse(fs.readFileSync(target, 'utf8'));
+  fs.writeFileSync(
+    target,
+    JSON.stringify({ ...contract, dataRootDirectoryName: 'BazaarPlusPlusV0' })
+  );
+  await expect(main(['check'], options)).rejects.toThrow(
+    /Data Root BazaarPlusPlusV\d[\s\S]*installer reads BazaarPlusPlusV\d/
+  );
+  expect(options.createStore).not.toHaveBeenCalled();
+});
