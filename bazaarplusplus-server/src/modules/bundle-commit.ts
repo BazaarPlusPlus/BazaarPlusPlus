@@ -112,7 +112,7 @@ function buildStatements(
             bundle_version, manifest_bytes, object_bytes, client_created_at_ms,
             stored_at_ms, available_at_ms, run_format_version, run_bytes, run_sha256,
             has_screenshot, screenshot_content_type, screenshot_bytes, screenshot_sha256
-          ) VALUES (?1, ?2, ?3, ?4, ?5, 5, ?6, ?7, ?8, ?9, ?10, 5, ?11, ?12, ?13, ?14, ?15, ?16)`,
+          ) VALUES (?1, ?2, ?3, ?4, ?5, 6, ?6, ?7, ?8, ?9, ?10, 6, ?11, ?12, ?13, ?14, ?15, ?16)`,
         )
         .bind(
           descriptor.bundleId,

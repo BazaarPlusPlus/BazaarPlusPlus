@@ -4,10 +4,10 @@ using MessagePack;
 namespace BazaarPlusPlus.ModApi.Bundle;
 
 [MessagePackObject]
-public sealed class RunPayloadV5
+public sealed class RunPayloadV6
 {
     [Key(0)]
-    public int PayloadFormatVersion { get; set; } = 5;
+    public int PayloadFormatVersion { get; set; } = 6;
 
     [Key(1)]
     public string RunId { get; set; } = string.Empty;
@@ -16,23 +16,23 @@ public sealed class RunPayloadV5
     public string PlayerAccountId { get; set; } = string.Empty;
 
     [Key(3)]
-    public RunFactsV5 Run { get; set; } = new();
+    public RunFactsV6 Run { get; set; } = new();
 
     [Key(4)]
-    public List<RunEventV5> Events { get; set; } = new();
+    public List<RunEventV6> Events { get; set; } = new();
 
     [Key(5)]
-    public List<RunBattleV5> Battles { get; set; } = new();
+    public List<RunBattleV6> Battles { get; set; } = new();
 
     [Key(6)]
     public List<string> ReplayableBattleIds { get; set; } = new();
 
     [Key(7)]
-    public PayloadDegradationV5 Degradation { get; set; } = new();
+    public PayloadDegradationV6 Degradation { get; set; } = new();
 }
 
 [MessagePackObject]
-public sealed class RunFactsV5
+public sealed class RunFactsV6
 {
     [Key(0)]
     public string Hero { get; set; } = string.Empty;
@@ -44,10 +44,10 @@ public sealed class RunFactsV5
     public int? Seed { get; set; }
 
     [Key(3)]
-    public string StartedAtUtc { get; set; } = string.Empty;
+    public long StartedAtMs { get; set; }
 
     [Key(4)]
-    public string? EndedAtUtc { get; set; }
+    public long? EndedAtMs { get; set; }
 
     [Key(5)]
     public string Status { get; set; } = string.Empty;
@@ -102,13 +102,13 @@ public sealed class RunFactsV5
 }
 
 [MessagePackObject]
-public sealed class RunEventV5
+public sealed class RunEventV6
 {
     [Key(0)]
     public long Seq { get; set; }
 
     [Key(1)]
-    public string TimestampUtc { get; set; } = string.Empty;
+    public long TimestampMs { get; set; }
 
     [Key(2)]
     public string Kind { get; set; } = string.Empty;
@@ -118,29 +118,29 @@ public sealed class RunEventV5
 }
 
 [MessagePackObject]
-public sealed class RunBattleV5
+public sealed class RunBattleV6
 {
     [Key(0)]
     public string BattleId { get; set; } = string.Empty;
 
     [Key(1)]
-    public BattleFactsV5 Facts { get; set; } = new();
+    public BattleFactsV6 Facts { get; set; } = new();
 
     [Key(2)]
-    public BattleParticipantsV5 Participants { get; set; } = new();
+    public BattleParticipantsV6 Participants { get; set; } = new();
 
     [Key(3)]
-    public BattleCardSnapshotsV5? Snapshots { get; set; }
+    public BattleCardSnapshotsV6? Snapshots { get; set; }
 
     [Key(4)]
-    public BattleReplayV5? Replay { get; set; }
+    public BattleReplayV6? Replay { get; set; }
 }
 
 [MessagePackObject]
-public sealed class BattleFactsV5
+public sealed class BattleFactsV6
 {
     [Key(0)]
-    public string RecordedAtUtc { get; set; } = string.Empty;
+    public long RecordedAtMs { get; set; }
 
     [Key(1)]
     public int? Day { get; set; }
@@ -168,17 +168,17 @@ public sealed class BattleFactsV5
 }
 
 [MessagePackObject]
-public sealed class BattleParticipantsV5
+public sealed class BattleParticipantsV6
 {
     [Key(0)]
-    public BattleParticipantV5 Player { get; set; } = new();
+    public BattleParticipantV6 Player { get; set; } = new();
 
     [Key(1)]
-    public BattleParticipantV5 Opponent { get; set; } = new();
+    public BattleParticipantV6 Opponent { get; set; } = new();
 }
 
 [MessagePackObject]
-public sealed class BattleParticipantV5
+public sealed class BattleParticipantV6
 {
     [Key(0)]
     public string? AccountId { get; set; }
@@ -218,14 +218,14 @@ public sealed class BattleParticipantV5
 }
 
 [MessagePackObject]
-public sealed class BattleCardSnapshotsV5
+public sealed class BattleCardSnapshotsV6
 {
     [Key(0)]
-    public List<BattleCardSetV5> CardSets { get; set; } = new();
+    public List<BattleCardSetV6> CardSets { get; set; } = new();
 }
 
 [MessagePackObject]
-public sealed class BattleCardSetV5
+public sealed class BattleCardSetV6
 {
     [Key(0)]
     public string Label { get; set; } = string.Empty;
@@ -237,11 +237,11 @@ public sealed class BattleCardSetV5
     public string? Source { get; set; }
 
     [Key(3)]
-    public List<BattleCardV5> Items { get; set; } = new();
+    public List<BattleCardV6> Items { get; set; } = new();
 }
 
 [MessagePackObject]
-public sealed class BattleCardV5
+public sealed class BattleCardV6
 {
     [Key(0)]
     public string InstanceId { get; set; } = string.Empty;
@@ -278,7 +278,7 @@ public sealed class BattleCardV5
 }
 
 [MessagePackObject]
-public sealed class BattleReplayV5
+public sealed class BattleReplayV6
 {
     [Key(0)]
     public int Version { get; set; } = 1;
@@ -294,7 +294,7 @@ public sealed class BattleReplayV5
 }
 
 [MessagePackObject]
-public sealed class PayloadDegradationV5
+public sealed class PayloadDegradationV6
 {
     [Key(0)]
     public List<string> Categories { get; set; } = new();

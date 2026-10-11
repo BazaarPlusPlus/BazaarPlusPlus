@@ -32,7 +32,7 @@ async function errorFor(
   };
 }
 
-describe("Bundle V5 wire validation", () => {
+describe("Bundle V6 wire validation", () => {
   test("rejects corrupt magic and unknown prefix versions", async () => {
     const fixture = await makeBundleFixture({
       bundleId: "01J00000000000000000000601",
@@ -49,7 +49,7 @@ describe("Bundle V5 wire validation", () => {
     });
 
     const unknown = fixture.body.slice();
-    new DataView(unknown.buffer).setUint32(8, 6, false);
+    new DataView(unknown.buffer).setUint32(8, 5, false);
     const unknownHeaders = new Headers(fixture.headers);
     unknownHeaders.set("Content-Digest", await contentDigest(unknown));
     expect(await errorFor(unknown, unknownHeaders)).toMatchObject({

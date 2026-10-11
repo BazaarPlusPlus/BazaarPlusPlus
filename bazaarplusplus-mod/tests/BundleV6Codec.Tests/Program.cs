@@ -22,7 +22,7 @@ RunBundleContract();
 MessagePackDtoGraphIsPublic();
 RunPayloadFormattersAreSourceGenerated();
 
-Console.WriteLine("All Bundle V5 codec tests passed.");
+Console.WriteLine("All Bundle V6 codec tests passed.");
 
 void MessagePackDtoGraphIsPublic()
 {
@@ -40,16 +40,16 @@ void RunPayloadFormattersAreSourceGenerated()
     {
         var formatter = ContractlessStandardResolverAllowPrivate.Instance.GetFormatterDynamic(type);
         True(
-            formatter?.GetType().Assembly == typeof(RunPayloadV5).Assembly,
+            formatter?.GetType().Assembly == typeof(RunPayloadV6).Assembly,
             $"source-generated formatter for {type.Name}: {formatter?.GetType().FullName}"
         );
     }
 }
 
 Type[] MessagePackDtoTypes() =>
-    typeof(RunPayloadV5)
+    typeof(RunPayloadV6)
         .Assembly.GetTypes()
-        .Where(type => type.Namespace == typeof(RunPayloadV5).Namespace)
+        .Where(type => type.Namespace == typeof(RunPayloadV6).Namespace)
         .Where(type =>
             type.GetCustomAttributes(inherit: false)
                 .Any(attribute => attribute.GetType().Name == "MessagePackObjectAttribute")
@@ -65,8 +65,8 @@ void GoldenVector()
     var run = root.GetProperty("run");
     var golden = ReadBundle("run-only.bundle.b64");
     var payload = golden[^9..];
-    var built = BundleV5Codec.Build(
-        new BundleBuildInputV5
+    var built = BundleV6Codec.Build(
+        new BundleBuildInputV6
         {
             BundleId = root.GetProperty("bundle_id").GetString()!,
             CreatedAtMs = root.GetProperty("created_at_ms").GetInt64(),
@@ -84,12 +84,12 @@ void GoldenVector()
         "golden Run bytes"
     );
     Equal(
-        "6959c53bf3b3b8f38e7aefb2edf13d3ff4ddb0414e95cf4c0460466a7000b36d",
+        "fa36bac5ffd14da205936900638c53e39db7e00d5d1bdfe6f7a1c1aa8cbb4ee6",
         built.Sha256Hex,
         "golden Bundle SHA-256"
     );
     Equal(
-        "sha-256=:aVnFO/OzuPOOeu+y7fE9P/TdsEFOlc9MBGBGanAAs20=:",
+        "sha-256=:+ja6xf/RTaIFk2kAY4xT45234A1dG9/m96HBqoy7TuY=:",
         built.ContentDigest,
         "golden Content-Digest"
     );
@@ -105,12 +105,12 @@ void GoldenVector()
 void CorruptFixtures()
 {
     ThrowsReason(
-        () => BundleV5Codec.Open(ReadBundle("corrupt-magic.bundle.b64")),
+        () => BundleV6Codec.Open(ReadBundle("corrupt-magic.bundle.b64")),
         "invalid_bundle",
         "invalid_prefix"
     );
     ThrowsReason(
-        () => BundleV5Codec.Open(ReadBundle("segment-digest-mismatch.bundle.b64")),
+        () => BundleV6Codec.Open(ReadBundle("segment-digest-mismatch.bundle.b64")),
         "segment_digest_mismatch",
         "segment_digest_mismatch"
     );
@@ -119,9 +119,9 @@ void CorruptFixtures()
 void RoundTrip()
 {
     var battles = Enumerable.Range(0, 30).Select(index => Battle(index, "玩家😀")).ToList();
-    var payload = RunPayloadV5Codec.Encode(SamplePayload(battles.Select(value => value.BattleId)));
-    var result = BundleV5Codec.Build(
-        new BundleBuildInputV5
+    var payload = RunPayloadV6Codec.Encode(SamplePayload(battles.Select(value => value.BattleId)));
+    var result = BundleV6Codec.Build(
+        new BundleBuildInputV6
         {
             BundleId = "01J00000000000000000000902",
             CreatedAtMs = 1_785_628_800_000,
@@ -129,10 +129,10 @@ void RoundTrip()
             PlayerAccountId = "golden-account",
             Battles = battles,
             RunPayload = payload,
-            Screenshot = new BundleScreenshotBuildInputV5
+            Screenshot = new BundleScreenshotBuildInputV6
             {
                 Bytes = new byte[] { 0xFF, 0xD8, 0xFF, 0xD9 },
-                ContentType = BundleLimitsV5.JpegContentType,
+                ContentType = BundleLimitsV6.JpegContentType,
                 Width = 1600,
                 Height = 900,
                 Quality = 82,
@@ -140,7 +140,7 @@ void RoundTrip()
             },
         }
     );
-    var opened = BundleV5Codec.Open(result.Bytes);
+    var opened = BundleV6Codec.Open(result.Bytes);
     Equal(30, opened.Manifest.Run.Projection.Battles.Count, "30 Battle projection round-trip");
     Equal(
         "玩家😀",
@@ -197,29 +197,29 @@ void InvalidInputs()
     ThrowsReason(
         () =>
             BuildWith(
-                Array.Empty<BundleBattleProjectionV5>(),
-                new byte[BundleLimitsV5.MaxRunBytes + 1]
+                Array.Empty<BundleBattleProjectionV6>(),
+                new byte[BundleLimitsV6.MaxRunBytes + 1]
             ),
         "invalid_bundle",
         "run_too_large"
     );
     var maximumRun = BuildWith(
-        Array.Empty<BundleBattleProjectionV5>(),
-        new byte[BundleLimitsV5.MaxRunBytes]
+        Array.Empty<BundleBattleProjectionV6>(),
+        new byte[BundleLimitsV6.MaxRunBytes]
     );
     Equal(
-        BundleLimitsV5.MaxRunBytes,
+        BundleLimitsV6.MaxRunBytes,
         maximumRun.Manifest.Run.Payload.Length,
         "maximum Run accepted"
     );
 
     ThrowsReason(
         () =>
-            BundleV5Codec.Build(
+            BundleV6Codec.Build(
                 BaseInput(
-                    screenshot: new BundleScreenshotBuildInputV5
+                    screenshot: new BundleScreenshotBuildInputV6
                     {
-                        Bytes = new byte[BundleLimitsV5.MaxScreenshotBytes + 1],
+                        Bytes = new byte[BundleLimitsV6.MaxScreenshotBytes + 1],
                         Width = 1,
                         Height = 1,
                         Quality = 1,
@@ -229,11 +229,11 @@ void InvalidInputs()
         "invalid_bundle",
         "screenshot_too_large"
     );
-    var maximumScreenshot = BundleV5Codec.Build(
+    var maximumScreenshot = BundleV6Codec.Build(
         BaseInput(
-            screenshot: new BundleScreenshotBuildInputV5
+            screenshot: new BundleScreenshotBuildInputV6
             {
-                Bytes = new byte[BundleLimitsV5.MaxScreenshotBytes],
+                Bytes = new byte[BundleLimitsV6.MaxScreenshotBytes],
                 Width = 1,
                 Height = 1,
                 Quality = 1,
@@ -241,7 +241,7 @@ void InvalidInputs()
         )
     );
     Equal(
-        BundleLimitsV5.MaxScreenshotBytes,
+        BundleLimitsV6.MaxScreenshotBytes,
         maximumScreenshot.Manifest.Screenshot!.Length,
         "maximum Screenshot accepted"
     );
@@ -249,80 +249,92 @@ void InvalidInputs()
 
 void ReaderBoundsAndUnknownFields()
 {
-    Equal(8_388_607, BundleLimitsV5.MaxBundleBytes, "Bundle limit");
-    Equal(2_097_152, BundleLimitsV5.MaxManifestBytes, "manifest limit");
-    Equal(2_097_151, BundleLimitsV5.MaxRunBytes, "Run limit");
-    Equal(1_048_576, BundleLimitsV5.MaxScreenshotBytes, "Screenshot limit");
-    Equal(524_288, BundleLimitsV5.MaxProjectionBytes, "projection limit");
+    Equal(8_388_607, BundleLimitsV6.MaxBundleBytes, "Bundle limit");
+    Equal(2_097_152, BundleLimitsV6.MaxManifestBytes, "manifest limit");
+    Equal(2_097_151, BundleLimitsV6.MaxRunBytes, "Run limit");
+    Equal(1_048_576, BundleLimitsV6.MaxScreenshotBytes, "Screenshot limit");
+    Equal(524_288, BundleLimitsV6.MaxProjectionBytes, "projection limit");
 
     var payload = new byte[] { 1 };
-    var payloadDigest = BundleV5Codec.ComputeSha256Hex(payload);
+    var payloadDigest = BundleV6Codec.ComputeSha256Hex(payload);
     var minimal = MinimalManifest(payloadDigest);
     var withUnknown = minimal[..^1] + ",\"future\":{\"accepted\":true}}";
-    var opened = BundleV5Codec.Open(RawBundle(withUnknown, payload));
+    var opened = BundleV6Codec.Open(RawBundle(withUnknown, payload));
     Equal("reader-run", opened.Manifest.Run.RunId, "unknown manifest fields ignored");
 
     var oversizedProjection = minimal.Replace(
         "\"run\":{},\"battles\":[]",
         "\"run\":{},\"battles\":[],\"future\":\""
-            + new string('x', BundleLimitsV5.MaxProjectionBytes)
+            + new string('x', BundleLimitsV6.MaxProjectionBytes)
             + "\"",
         StringComparison.Ordinal
     );
     ThrowsReason(
-        () => BundleV5Codec.Open(RawBundle(oversizedProjection, payload)),
+        () => BundleV6Codec.Open(RawBundle(oversizedProjection, payload)),
         "invalid_bundle",
         "projection_too_large"
     );
 
     var trailing = RawBundle(minimal, new byte[] { 1, 2 });
-    ThrowsReason(() => BundleV5Codec.Open(trailing), "invalid_bundle", "undeclared_trailing_bytes");
+    ThrowsReason(() => BundleV6Codec.Open(trailing), "invalid_bundle", "undeclared_trailing_bytes");
 
-    var tooLarge = new byte[BundleLimitsV5.MaxBundleBytes + 1];
-    ThrowsReason(() => BundleV5Codec.Open(tooLarge), "bundle_too_large", "bundle_too_large");
+    var tooLarge = new byte[BundleLimitsV6.MaxBundleBytes + 1];
+    ThrowsReason(() => BundleV6Codec.Open(tooLarge), "bundle_too_large", "bundle_too_large");
 
-    var exactManifest = PadUnknownRootToLength(minimal, BundleLimitsV5.MaxManifestBytes);
+    var exactManifest = PadUnknownRootToLength(minimal, BundleLimitsV6.MaxManifestBytes);
     Equal(
-        BundleLimitsV5.MaxManifestBytes,
+        BundleLimitsV6.MaxManifestBytes,
         Encoding.UTF8.GetByteCount(exactManifest),
         "exact maximum manifest construction"
     );
-    BundleV5Codec.Open(RawBundle(exactManifest, payload));
+    BundleV6Codec.Open(RawBundle(exactManifest, payload));
 
     var tooLongManifest = RawBundle(exactManifest + " ", payload);
-    ThrowsReason(() => BundleV5Codec.Open(tooLongManifest), "invalid_bundle", "manifest_too_large");
+    ThrowsReason(() => BundleV6Codec.Open(tooLongManifest), "invalid_bundle", "manifest_too_large");
 }
 
 void Ulids()
 {
-    var generator = new UlidV5Generator(() => 0, bytes => Array.Clear(bytes));
+    var generator = new UlidV6Generator(() => 0, bytes => Array.Clear(bytes));
     var first = generator.Next();
     var second = generator.Next();
     Equal("00000000000000000000000000", first, "deterministic zero ULID");
-    True(UlidV5Generator.IsCanonical(first), "canonical ULID");
+    True(UlidV6Generator.IsCanonical(first), "canonical ULID");
     True(string.CompareOrdinal(first, second) < 0, "same-clock ULIDs are monotonic");
-    True(!UlidV5Generator.IsCanonical("01j00000000000000000000000"), "lowercase ULID rejected");
+    True(!UlidV6Generator.IsCanonical("01j00000000000000000000000"), "lowercase ULID rejected");
 }
 
 void RunPayloadRoundTrip()
 {
     var payload = GoldenPayload();
-    var encoded = RunPayloadV5Codec.Encode(payload);
-    var decoded = RunPayloadV5Codec.Decode(encoded);
+    var encoded = RunPayloadV6Codec.Encode(payload);
+    var decoded = RunPayloadV6Codec.Decode(encoded);
     Equal(payload.RunId, decoded.RunId, "Run payload Run ID");
     Equal(payload.PlayerAccountId, decoded.PlayerAccountId, "Run payload player ID");
     Equal("战斗", decoded.Events[0].Kind, "Run payload Unicode");
     Equal("battle-000", decoded.ReplayableBattleIds[0], "Run payload replayable IDs");
+    if (Environment.GetEnvironmentVariable("BPP_UPDATE_GOLDENS") == "1")
+    {
+        File.WriteAllText(
+            Path.Combine(
+                TestInputs.RepoRoot,
+                "tests/BundleV6Codec.Tests/fixtures/run-payload-v6.fixture.b64"
+            ),
+            Convert.ToBase64String(encoded) + "\n"
+        );
+        Console.WriteLine("Rewrote run-payload-v6.fixture.b64; review it with git diff.");
+        return;
+    }
     var golden = Convert.FromBase64String(
-        TestInputs.Scratch(Path.Combine(fixtures, "run-payload-v5.fixture.b64")).Trim()
+        TestInputs.Scratch(Path.Combine(fixtures, "run-payload-v6.fixture.b64")).Trim()
     );
     // Gzip headers and deflate output vary by OS/runtime. The wire contract is
     // the decompressed MessagePack, including every field and its encoding.
     SequenceEqual(Ungzip(golden), Ungzip(encoded), "stable Run payload MessagePack fixture");
-    var goldenDecoded = RunPayloadV5Codec.Decode(golden);
+    var goldenDecoded = RunPayloadV6Codec.Decode(golden);
     SequenceEqual(
         Ungzip(golden),
-        Ungzip(RunPayloadV5Codec.Encode(goldenDecoded)),
+        Ungzip(RunPayloadV6Codec.Encode(goldenDecoded)),
         "golden Run payload decode and re-encode"
     );
 }
@@ -339,7 +351,7 @@ byte[] Ungzip(byte[] bytes)
 void RunPayloadFailureBoundaries()
 {
     True(
-        !RunPayloadV5Codec.TryDecode(new byte[] { 0x1F }, out _, out var shortReason)
+        !RunPayloadV6Codec.TryDecode(new byte[] { 0x1F }, out _, out var shortReason)
             && shortReason == "run_payload_empty",
         "short payload keeps its closed empty reason"
     );
@@ -351,14 +363,14 @@ void RunPayloadFailureBoundaries()
         .WithSecurity(MessagePackSecurity.UntrustedData);
     var versionFourBytes = Gzip(MessagePackSerializer.Serialize(versionFour, options));
     True(
-        !RunPayloadV5Codec.TryDecode(versionFourBytes, out _, out var versionReason)
+        !RunPayloadV6Codec.TryDecode(versionFourBytes, out _, out var versionReason)
             && versionReason == "unsupported_run_payload_version",
         "wrong Run payload version keeps its closed reason"
     );
 
-    var oversizedBytes = Gzip(new byte[RunPayloadV5Codec.MaxDecompressedBytes + 1]);
+    var oversizedBytes = Gzip(new byte[RunPayloadV6Codec.MaxDecompressedBytes + 1]);
     True(
-        !RunPayloadV5Codec.TryDecode(oversizedBytes, out _, out var sizeReason)
+        !RunPayloadV6Codec.TryDecode(oversizedBytes, out _, out var sizeReason)
             && sizeReason == "run_payload_decompressed_too_large",
         "decompressed Run payload limit is enforced before MessagePack decoding"
     );
@@ -377,18 +389,18 @@ void RunBundleContract()
     var battle = ReplayBattle("battle-contract");
     var payload = SamplePayload(new[] { battle.BattleId });
     payload.Battles.Add(battle);
-    var built = BundleV5Codec.Build(
-        new BundleBuildInputV5
+    var built = BundleV6Codec.Build(
+        new BundleBuildInputV6
         {
             BundleId = "01J00000000000000000000905",
             CreatedAtMs = 1_785_628_800_000,
             RunId = payload.RunId,
             PlayerAccountId = payload.PlayerAccountId,
-            RunPayload = RunPayloadV5Codec.Encode(payload),
+            RunPayload = RunPayloadV6Codec.Encode(payload),
         }
     );
 
-    var opened = RunBundleV5Contract.Open(built.Bytes);
+    var opened = RunBundleV6Contract.Open(built.Bytes);
     True(opened.Succeeded, "Run Bundle contract opens a self-consistent bundle");
     True(
         opened.Value!.TryGetReplayableBattle(battle.BattleId, out var replayable),
@@ -396,41 +408,41 @@ void RunBundleContract()
     );
     Equal(battle.BattleId, replayable!.BattleId, "resolved replayable battle ID");
 
-    var identityMismatch = BundleV5Codec.Build(
-        new BundleBuildInputV5
+    var identityMismatch = BundleV6Codec.Build(
+        new BundleBuildInputV6
         {
             BundleId = "01J00000000000000000000906",
             CreatedAtMs = 1_785_628_800_000,
             RunId = "different-run",
             PlayerAccountId = payload.PlayerAccountId,
-            RunPayload = RunPayloadV5Codec.Encode(payload),
+            RunPayload = RunPayloadV6Codec.Encode(payload),
         }
     );
     Equal(
         RunBundleOpenFailureKind.RunIdentityMismatch,
-        RunBundleV5Contract.Open(identityMismatch.Bytes).FailureKind,
+        RunBundleV6Contract.Open(identityMismatch.Bytes).FailureKind,
         "manifest/payload identity mismatch classification"
     );
 
     var missingLabel = ReplayBattle("missing-label");
     missingLabel.Snapshots!.CardSets.RemoveAt(0);
-    True(!RunBundleV5Contract.IsReplayable(missingLabel), "missing card-set label rejected");
+    True(!RunBundleV6Contract.IsReplayable(missingLabel), "missing card-set label rejected");
 
     var duplicateLabel = ReplayBattle("duplicate-label");
     duplicateLabel.Snapshots!.CardSets[3].Label = "player_hand";
-    True(!RunBundleV5Contract.IsReplayable(duplicateLabel), "duplicate card-set label rejected");
+    True(!RunBundleV6Contract.IsReplayable(duplicateLabel), "duplicate card-set label rejected");
 
     var extraLabel = ReplayBattle("extra-label");
-    extraLabel.Snapshots!.CardSets.Add(new BattleCardSetV5 { Label = "future" });
-    True(!RunBundleV5Contract.IsReplayable(extraLabel), "extra card set rejected");
+    extraLabel.Snapshots!.CardSets.Add(new BattleCardSetV6 { Label = "future" });
+    True(!RunBundleV6Contract.IsReplayable(extraLabel), "extra card set rejected");
 
     var emptyPhase = ReplayBattle("empty-phase");
     emptyPhase.Replay!.CombatMessageBytes = Array.Empty<byte>();
-    True(!RunBundleV5Contract.IsReplayable(emptyPhase), "empty replay phase rejected");
+    True(!RunBundleV6Contract.IsReplayable(emptyPhase), "empty replay phase rejected");
 
     var nilCardSets = ReplayBattle("nil-card-sets");
     nilCardSets.Snapshots!.CardSets = null!;
-    True(!RunBundleV5Contract.IsReplayable(nilCardSets), "nil card sets rejected");
+    True(!RunBundleV6Contract.IsReplayable(nilCardSets), "nil card sets rejected");
 
     opened.Value.Payload.ReplayableBattleIds = null!;
     True(
@@ -442,21 +454,21 @@ void RunBundleContract()
     True(!opened.Value.TryGetReplayableBattle(battle.BattleId, out _), "nil battles rejected");
 }
 
-RunBattleV5 ReplayBattle(string battleId) =>
+RunBattleV6 ReplayBattle(string battleId) =>
     new()
     {
         BattleId = battleId,
-        Snapshots = new BattleCardSnapshotsV5
+        Snapshots = new BattleCardSnapshotsV6
         {
             CardSets =
             [
-                new BattleCardSetV5 { Label = "player_hand", Status = "Captured" },
-                new BattleCardSetV5 { Label = "player_skills", Status = "Captured" },
-                new BattleCardSetV5 { Label = "opponent_hand", Status = "Captured" },
-                new BattleCardSetV5 { Label = "opponent_skills", Status = "Captured" },
+                new BattleCardSetV6 { Label = "player_hand", Status = "Captured" },
+                new BattleCardSetV6 { Label = "player_skills", Status = "Captured" },
+                new BattleCardSetV6 { Label = "opponent_hand", Status = "Captured" },
+                new BattleCardSetV6 { Label = "opponent_skills", Status = "Captured" },
             ],
         },
-        Replay = new BattleReplayV5
+        Replay = new BattleReplayV6
         {
             SpawnMessageBytes = new byte[] { 1 },
             CombatMessageBytes = new byte[] { 2 },
@@ -464,15 +476,15 @@ RunBattleV5 ReplayBattle(string battleId) =>
         },
     };
 
-BundleBuildResultV5 BuildWith(
-    IReadOnlyList<BundleBattleProjectionV5> battles,
+BundleBuildResultV6 BuildWith(
+    IReadOnlyList<BundleBattleProjectionV6> battles,
     byte[]? payload = null
-) => BundleV5Codec.Build(BaseInput(battles, payload));
+) => BundleV6Codec.Build(BaseInput(battles, payload));
 
-BundleBuildInputV5 BaseInput(
-    IReadOnlyList<BundleBattleProjectionV5>? battles = null,
+BundleBuildInputV6 BaseInput(
+    IReadOnlyList<BundleBattleProjectionV6>? battles = null,
     byte[]? payload = null,
-    BundleScreenshotBuildInputV5? screenshot = null
+    BundleScreenshotBuildInputV6? screenshot = null
 ) =>
     new()
     {
@@ -480,12 +492,12 @@ BundleBuildInputV5 BaseInput(
         CreatedAtMs = 1_785_628_800_000,
         RunId = "test-run",
         PlayerAccountId = "golden-account",
-        Battles = battles ?? Array.Empty<BundleBattleProjectionV5>(),
+        Battles = battles ?? Array.Empty<BundleBattleProjectionV6>(),
         RunPayload = payload ?? new byte[] { 1 },
         Screenshot = screenshot,
     };
 
-BundleBattleProjectionV5 Battle(int index, string displayName) =>
+BundleBattleProjectionV6 Battle(int index, string displayName) =>
     new()
     {
         BattleId = $"battle-{index:000}",
@@ -498,7 +510,7 @@ BundleBattleProjectionV5 Battle(int index, string displayName) =>
         WinnerCombatantId = null,
         LoserCombatantId = null,
         IsFinalBattle = index == 29,
-        Player = new BundleCombatantProjectionV5
+        Player = new BundleCombatantProjectionV6
         {
             AccountId = "golden-account",
             DisplayName = displayName,
@@ -510,7 +522,7 @@ BundleBattleProjectionV5 Battle(int index, string displayName) =>
             Prestige = 2,
             Victories = 9,
         },
-        Opponent = new BundleCombatantProjectionV5
+        Opponent = new BundleCombatantProjectionV6
         {
             AccountId = $"opponent-{index:000}",
             DisplayName = "Opponent",
@@ -524,35 +536,35 @@ BundleBattleProjectionV5 Battle(int index, string displayName) =>
         },
     };
 
-RunPayloadV5 SamplePayload(IEnumerable<string> battleIds) =>
+RunPayloadV6 SamplePayload(IEnumerable<string> battleIds) =>
     new()
     {
         RunId = "payload-run",
         PlayerAccountId = "golden-account",
-        Run = new RunFactsV5
+        Run = new RunFactsV6
         {
             Hero = "Vanessa",
             GameMode = "Ranked",
-            StartedAtUtc = "2026-08-03T00:00:00.0000000+00:00",
-            EndedAtUtc = "2026-08-03T00:30:00.0000000+00:00",
+            StartedAtMs = 1_785_715_200_000,
+            EndedAtMs = 1_785_717_000_000,
             Status = "completed",
-            ModVersion = "5.0.0",
+            ModVersion = "6.0.0",
         },
-        Events = new List<RunEventV5>
+        Events = new List<RunEventV6>
         {
             new()
             {
                 Seq = 1,
-                TimestampUtc = "2026-08-03T00:01:00.0000000+00:00",
+                TimestampMs = 1_785_715_260_000,
                 Kind = "战斗",
                 PayloadJson = "{\"ok\":true}",
             },
         },
         ReplayableBattleIds = battleIds.ToList(),
-        Degradation = new PayloadDegradationV5(),
+        Degradation = new PayloadDegradationV6(),
     };
 
-RunPayloadV5 GoldenPayload()
+RunPayloadV6 GoldenPayload()
 {
     var payload = SamplePayload(new[] { "battle-000" });
     payload.Run.Seed = 123456;
@@ -572,9 +584,9 @@ RunPayloadV5 GoldenPayload()
     payload.Run.Gold = 17;
     payload.Run.BuildChannel = "Online";
     var battle = ReplayBattle("battle-000");
-    battle.Facts = new BattleFactsV5
+    battle.Facts = new BattleFactsV6
     {
-        RecordedAtUtc = "2026-08-03T00:29:00.0000000+00:00",
+        RecordedAtMs = 1_785_716_940_000,
         Day = 10,
         Hour = 1,
         EncounterId = "encounter-final",
@@ -584,9 +596,9 @@ RunPayloadV5 GoldenPayload()
         LoserCombatantId = "Opponent",
         IsFinalBattle = true,
     };
-    battle.Participants = new BattleParticipantsV5
+    battle.Participants = new BattleParticipantsV6
     {
-        Player = new BattleParticipantV5
+        Player = new BattleParticipantV6
         {
             AccountId = payload.PlayerAccountId,
             DisplayName = "玩家😀",
@@ -601,7 +613,7 @@ RunPayloadV5 GoldenPayload()
             HandItemCount = 1,
             SkillCount = 2,
         },
-        Opponent = new BattleParticipantV5
+        Opponent = new BattleParticipantV6
         {
             AccountId = "golden-opponent",
             DisplayName = "Opponent",
@@ -622,7 +634,7 @@ RunPayloadV5 GoldenPayload()
         var cardSet = battle.Snapshots.CardSets[index];
         cardSet.Source = "capture";
         cardSet.Items.Add(
-            new BattleCardV5
+            new BattleCardV6
             {
                 InstanceId = $"instance-{index}",
                 TemplateId = $"00000000-0000-0000-0000-{index + 1:000000000000}",
@@ -650,9 +662,9 @@ RunPayloadV5 GoldenPayload()
 }
 
 string MinimalManifest(string payloadDigest) =>
-    "{\"bundle_id\":\"01J00000000000000000000904\",\"bundle_version\":5,\"created_at_ms\":1785628800000,\"run\":{\"run_id\":\"reader-run\",\"player_account_id\":\"reader-account\",\"run_format_version\":5,\"projection\":{\"run\":{},\"battles\":[]},\"payload\":{\"offset\":0,\"length\":1,\"sha256\":\""
+    "{\"bundle_id\":\"01J00000000000000000000904\",\"bundle_version\":6,\"created_at_ms\":1785628800000,\"run\":{\"run_id\":\"reader-run\",\"player_account_id\":\"reader-account\",\"run_format_version\":6,\"projection\":{\"run\":{},\"battles\":[]},\"payload\":{\"offset\":0,\"length\":1,\"sha256\":\""
     + payloadDigest
-    + "\",\"content_type\":\"application/x-bpp-run-v5\"}}}";
+    + "\",\"content_type\":\"application/x-bpp-run-v6\"}}}";
 
 string PadUnknownRootToLength(string manifest, int byteLength)
 {
@@ -667,8 +679,8 @@ byte[] RawBundle(string manifest, byte[] payload)
 {
     var manifestBytes = Encoding.UTF8.GetBytes(manifest);
     var bytes = new byte[16 + manifestBytes.Length + payload.Length];
-    Encoding.ASCII.GetBytes("BPPBNDL5").CopyTo(bytes, 0);
-    WriteBigEndian(bytes, 8, 5);
+    Encoding.ASCII.GetBytes("BPPBNDL6").CopyTo(bytes, 0);
+    WriteBigEndian(bytes, 8, 6);
     WriteBigEndian(bytes, 12, manifestBytes.Length);
     manifestBytes.CopyTo(bytes, 16);
     payload.CopyTo(bytes, 16 + manifestBytes.Length);
@@ -692,13 +704,13 @@ void ThrowsReason(Action action, string code, string reason)
     {
         action();
     }
-    catch (BundleV5Exception ex)
+    catch (BundleV6Exception ex)
     {
         Equal(code, ex.Code, $"{reason} code");
         Equal(reason, ex.Reason, $"{reason} reason");
         return;
     }
-    throw new InvalidOperationException($"Expected BundleV5Exception {code}/{reason}.");
+    throw new InvalidOperationException($"Expected BundleV6Exception {code}/{reason}.");
 }
 
 void True(bool condition, string message)

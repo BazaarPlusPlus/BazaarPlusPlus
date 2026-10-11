@@ -1,4 +1,5 @@
 import { validBundleId } from "../bundle/manifest";
+import { BUNDLE_CONTENT_TYPE } from "../bundle/prefix";
 import type { Env } from "../env";
 import { HttpError } from "../errors";
 import { readJsonObject } from "../http/request";
@@ -20,7 +21,7 @@ interface ClaimedBundle {
   run_id: string;
   download_url: string;
   download_expires_at_ms: number;
-  content_type: "application/x-bpp-bundle-v5";
+  content_type: typeof BUNDLE_CONTENT_TYPE;
   sha256: string;
 }
 
@@ -291,7 +292,7 @@ export async function claimDeliveries(
         run_id: row.run_id,
         download_url: downloads[index].url,
         download_expires_at_ms: downloads[index].expiresAtMs,
-        content_type: "application/x-bpp-bundle-v5",
+        content_type: BUNDLE_CONTENT_TYPE,
         sha256: row.bundle_sha256,
       }),
     );

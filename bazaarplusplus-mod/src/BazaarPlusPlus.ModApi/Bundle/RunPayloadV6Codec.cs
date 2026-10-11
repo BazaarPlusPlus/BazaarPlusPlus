@@ -4,7 +4,7 @@ using MessagePack.Resolvers;
 
 namespace BazaarPlusPlus.ModApi.Bundle;
 
-internal static class RunPayloadV5Codec
+internal static class RunPayloadV6Codec
 {
     public const int MaxDecompressedBytes = 64 * 1024 * 1024;
 
@@ -12,17 +12,17 @@ internal static class RunPayloadV5Codec
         .Standard.WithResolver(ContractlessStandardResolverAllowPrivate.Instance)
         .WithSecurity(MessagePackSecurity.UntrustedData);
 
-    public static byte[] Encode(RunPayloadV5 payload)
+    public static byte[] Encode(RunPayloadV6 payload)
     {
         if (payload == null)
             throw new ArgumentNullException(nameof(payload));
-        if (payload.PayloadFormatVersion != BundleLimitsV5.RunFormatVersion)
-            throw new ArgumentException("Run payload format version must be 5.", nameof(payload));
+        if (payload.PayloadFormatVersion != BundleLimitsV6.RunFormatVersion)
+            throw new ArgumentException("Run payload format version must be 6.", nameof(payload));
 
         return MessagePackGzipFraming.Encode(payload, Options);
     }
 
-    public static RunPayloadV5 Decode(ReadOnlyMemory<byte> bytes)
+    public static RunPayloadV6 Decode(ReadOnlyMemory<byte> bytes)
     {
         if (!TryDecode(bytes, out var payload, out var reason))
             throw new InvalidDataException($"Run payload is invalid ({reason}).");
@@ -31,7 +31,7 @@ internal static class RunPayloadV5Codec
 
     public static bool TryDecode(
         ReadOnlyMemory<byte> bytes,
-        out RunPayloadV5? payload,
+        out RunPayloadV6? payload,
         out string? reason
     )
     {
@@ -49,7 +49,7 @@ internal static class RunPayloadV5Codec
             return false;
         }
 
-        var result = MessagePackGzipFraming.TryDecode<RunPayloadV5>(
+        var result = MessagePackGzipFraming.TryDecode<RunPayloadV6>(
             bytes,
             Options,
             MaxDecompressedBytes
@@ -69,7 +69,7 @@ internal static class RunPayloadV5Codec
         }
 
         payload = result.Value;
-        if (payload!.PayloadFormatVersion != BundleLimitsV5.RunFormatVersion)
+        if (payload!.PayloadFormatVersion != BundleLimitsV6.RunFormatVersion)
         {
             payload = null;
             reason = "unsupported_run_payload_version";

@@ -12,7 +12,7 @@ internal sealed class BundleScreenshotEncoder
     private static readonly int[] LongestEdges = [1920, 1600, 1280, 1024, 768];
     private static readonly int[] Qualities = [90, 82, 74, 66, 58, 50];
 
-    internal async Task<BundleScreenshotBuildInputV5?> EncodeAsync(
+    internal async Task<BundleScreenshotBuildInputV6?> EncodeAsync(
         string absolutePath,
         long capturedAtMs,
         CancellationToken cancellationToken
@@ -47,7 +47,7 @@ internal sealed class BundleScreenshotEncoder
         }
     }
 
-    private static BundleScreenshotBuildInputV5? Encode(
+    private static BundleScreenshotBuildInputV6? Encode(
         string absolutePath,
         long capturedAtMs,
         CancellationToken cancellationToken
@@ -65,9 +65,9 @@ internal sealed class BundleScreenshotEncoder
                 cancellationToken.ThrowIfCancellationRequested();
                 using var output = new MemoryStream();
                 image.SaveAsJpeg(output, new JpegEncoder { Quality = quality });
-                if (output.Length is <= 0 or > BundleLimitsV5.MaxScreenshotBytes)
+                if (output.Length is <= 0 or > BundleLimitsV6.MaxScreenshotBytes)
                     continue;
-                return new BundleScreenshotBuildInputV5
+                return new BundleScreenshotBuildInputV6
                 {
                     Bytes = output.ToArray(),
                     Width = image.Width,

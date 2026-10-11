@@ -1,7 +1,7 @@
 # BazaarPlusPlus Analyzer
 
-The analyzer converts verified Bundle V5 deliveries into local hourly facts and
-two independent current snapshots:
+The analyzer converts verified Bundle V6 deliveries (and V5 ones, while the V5
+Worker serves them) into local hourly facts and two independent current snapshots:
 
 ```text
 analyzer-v5/heroes/latest.json

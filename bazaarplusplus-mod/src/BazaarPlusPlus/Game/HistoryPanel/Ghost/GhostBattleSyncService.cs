@@ -252,7 +252,7 @@ internal sealed class GhostBattleSyncService
     {
         try
         {
-            var openResult = RunBundleV5Contract.Open(bundleBytes);
+            var openResult = RunBundleV6Contract.Open(bundleBytes);
             if (!openResult.Succeeded)
             {
                 var runIdentityMismatch =

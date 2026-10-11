@@ -93,7 +93,7 @@ The unified settings-dock concept for entries that cycle through an ordered valu
 ## Uploads
 
 **Run Bundle Contract**:
-The shared V5 reader/writer boundary that opens a Bundle, verifies manifest-to-payload Run identity,
+The shared V6 reader/writer boundary that opens a Bundle, verifies manifest-to-payload Run identity,
 and decides whether a Battle has the exact snapshot and replay inputs required for import. Bundle
 composition and Ghost Battle import use the same contract.
 

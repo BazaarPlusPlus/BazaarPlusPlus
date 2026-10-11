@@ -153,7 +153,7 @@ describe("BazaarDB delivery claim and settle", () => {
     expect(left.items).toHaveLength(1);
     expect(right.items).toHaveLength(1);
     expect([left.items[0].bundle_id, right.items[0].bundle_id].sort()).toEqual(expected.sort());
-    expect(left.items[0].content_type).toBe("application/x-bpp-bundle-v5");
+    expect(left.items[0].content_type).toBe("application/x-bpp-bundle-v6");
     expect(left.items[0].sha256).toMatch(/^[0-9a-f]{64}$/);
     expect(new URL(left.items[0].download_url).searchParams.get("X-Amz-Expires")).toBe("604800");
   });

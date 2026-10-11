@@ -36,11 +36,11 @@ public sealed class V5DataPipelineArchitectureTests
     public void Run_bundle_writer_and_ghost_reader_share_one_replayability_contract()
     {
         Holds(
-            "Ghost sync opens bundles through RunBundleV5Contract, not the raw payload codec.",
+            "Ghost sync opens bundles through RunBundleV6Contract, not the raw payload codec.",
             build =>
                 References(
                     build.Type("BazaarPlusPlus.Game.HistoryPanel.Ghost.GhostBattleSyncService"),
-                    Is(build.Type("BazaarPlusPlus.ModApi.Bundle.RunPayloadV5Codec").FullName)
+                    Is(build.Type("BazaarPlusPlus.ModApi.Bundle.RunPayloadV6Codec").FullName)
                 )
         );
     }

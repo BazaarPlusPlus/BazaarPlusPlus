@@ -5,9 +5,9 @@ using Newtonsoft.Json;
 
 namespace BazaarPlusPlus.ModApi.Bundle;
 
-internal static class BundleManifestV5Writer
+internal static class BundleManifestV6Writer
 {
-    internal static byte[] Write(BundleManifestV5 manifest)
+    internal static byte[] Write(BundleManifestV6 manifest)
     {
         using var text = new StringWriter(CultureInfo.InvariantCulture);
         using (var writer = new JsonTextWriter(text))
@@ -21,7 +21,7 @@ internal static class BundleManifestV5Writer
         return new UTF8Encoding(encoderShouldEmitUTF8Identifier: false).GetBytes(text.ToString());
     }
 
-    private static void WriteManifest(JsonWriter writer, BundleManifestV5 manifest)
+    private static void WriteManifest(JsonWriter writer, BundleManifestV6 manifest)
     {
         writer.WriteStartObject();
         Write(writer, "bundle_id", manifest.BundleId);
@@ -37,7 +37,7 @@ internal static class BundleManifestV5Writer
         writer.WriteEndObject();
     }
 
-    private static void WriteRun(JsonWriter writer, BundleRunManifestV5 run)
+    private static void WriteRun(JsonWriter writer, BundleRunManifestV6 run)
     {
         writer.WriteStartObject();
         Write(writer, "run_id", run.RunId);
@@ -59,7 +59,7 @@ internal static class BundleManifestV5Writer
         writer.WriteEndObject();
     }
 
-    private static void WriteBattle(JsonWriter writer, BundleBattleProjectionV5 battle)
+    private static void WriteBattle(JsonWriter writer, BundleBattleProjectionV6 battle)
     {
         writer.WriteStartObject();
         Write(writer, "battle_id", battle.BattleId);
@@ -79,7 +79,7 @@ internal static class BundleManifestV5Writer
         writer.WriteEndObject();
     }
 
-    private static void WriteCombatant(JsonWriter writer, BundleCombatantProjectionV5 combatant)
+    private static void WriteCombatant(JsonWriter writer, BundleCombatantProjectionV6 combatant)
     {
         writer.WriteStartObject();
         Write(writer, "account_id", combatant.AccountId);
@@ -94,7 +94,7 @@ internal static class BundleManifestV5Writer
         writer.WriteEndObject();
     }
 
-    private static void WriteSegment(JsonWriter writer, BundleSegmentManifestV5 segment)
+    private static void WriteSegment(JsonWriter writer, BundleSegmentManifestV6 segment)
     {
         writer.WriteStartObject();
         Write(writer, "offset", segment.Offset);
@@ -104,7 +104,7 @@ internal static class BundleManifestV5Writer
         writer.WriteEndObject();
     }
 
-    private static void WriteScreenshot(JsonWriter writer, BundleScreenshotManifestV5 screenshot)
+    private static void WriteScreenshot(JsonWriter writer, BundleScreenshotManifestV6 screenshot)
     {
         writer.WriteStartObject();
         Write(writer, "offset", screenshot.Offset);

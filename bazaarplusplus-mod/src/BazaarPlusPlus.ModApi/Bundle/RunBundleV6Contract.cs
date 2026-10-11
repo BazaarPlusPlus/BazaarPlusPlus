@@ -11,7 +11,7 @@ internal enum RunBundleOpenFailureKind
 internal sealed class RunBundleOpenResult
 {
     private RunBundleOpenResult(
-        OpenedRunBundleV5? value,
+        OpenedRunBundleV6? value,
         RunBundleOpenFailureKind? failureKind,
         string? reason,
         Exception? exception
@@ -23,7 +23,7 @@ internal sealed class RunBundleOpenResult
         Exception = exception;
     }
 
-    public OpenedRunBundleV5? Value { get; }
+    public OpenedRunBundleV6? Value { get; }
 
     public RunBundleOpenFailureKind? FailureKind { get; }
 
@@ -33,7 +33,7 @@ internal sealed class RunBundleOpenResult
 
     public bool Succeeded => Value != null;
 
-    internal static RunBundleOpenResult Success(OpenedRunBundleV5 value) =>
+    internal static RunBundleOpenResult Success(OpenedRunBundleV6 value) =>
         new(value, null, null, null);
 
     internal static RunBundleOpenResult Failure(
@@ -43,19 +43,19 @@ internal sealed class RunBundleOpenResult
     ) => new(null, failureKind, reason, exception);
 }
 
-internal sealed class OpenedRunBundleV5
+internal sealed class OpenedRunBundleV6
 {
-    internal OpenedRunBundleV5(OpenedBundleV5 bundle, RunPayloadV5 payload)
+    internal OpenedRunBundleV6(OpenedBundleV6 bundle, RunPayloadV6 payload)
     {
         Bundle = bundle;
         Payload = payload;
     }
 
-    public OpenedBundleV5 Bundle { get; }
+    public OpenedBundleV6 Bundle { get; }
 
-    public RunPayloadV5 Payload { get; }
+    public RunPayloadV6 Payload { get; }
 
-    public bool TryGetReplayableBattle(string battleId, out RunBattleV5? battle)
+    public bool TryGetReplayableBattle(string battleId, out RunBattleV6? battle)
     {
         battle = null;
         if (string.IsNullOrWhiteSpace(battleId))
@@ -67,7 +67,7 @@ internal sealed class OpenedRunBundleV5
         )
             return false;
 
-        RunBattleV5? matched = null;
+        RunBattleV6? matched = null;
         foreach (var candidate in Payload.Battles)
         {
             if (!string.Equals(candidate.BattleId, battleId, StringComparison.Ordinal))
@@ -77,14 +77,14 @@ internal sealed class OpenedRunBundleV5
             matched = candidate;
         }
 
-        if (matched == null || !RunBundleV5Contract.IsReplayable(matched))
+        if (matched == null || !RunBundleV6Contract.IsReplayable(matched))
             return false;
         battle = matched;
         return true;
     }
 }
 
-internal static class RunBundleV5Contract
+internal static class RunBundleV6Contract
 {
     private static readonly string[] RequiredCardSetLabels =
     {
@@ -98,7 +98,7 @@ internal static class RunBundleV5Contract
     // collection with an initializer: well-formed MessagePack may encode `nil` for such a member,
     // and the deserializer writes that null straight over the initializer. Decoded DTOs are
     // untrusted input, so null-safe rejection is the contract, not defensive style.
-    public static bool IsReplayable(RunBattleV5? battle)
+    public static bool IsReplayable(RunBattleV6? battle)
     {
         if (
             battle?.Replay
@@ -114,7 +114,7 @@ internal static class RunBundleV5Contract
 
         foreach (var label in RequiredCardSetLabels)
         {
-            BattleCardSetV5? matched = null;
+            BattleCardSetV6? matched = null;
             foreach (var cardSet in battle.Snapshots.CardSets)
             {
                 if (!string.Equals(cardSet.Label, label, StringComparison.Ordinal))
@@ -136,12 +136,12 @@ internal static class RunBundleV5Contract
 
     public static RunBundleOpenResult Open(ReadOnlyMemory<byte> bundleBytes)
     {
-        OpenedBundleV5 bundle;
+        OpenedBundleV6 bundle;
         try
         {
-            bundle = BundleV5Codec.Open(bundleBytes);
+            bundle = BundleV6Codec.Open(bundleBytes);
         }
-        catch (BundleV5Exception ex)
+        catch (BundleV6Exception ex)
         {
             return RunBundleOpenResult.Failure(
                 RunBundleOpenFailureKind.ContainerInvalid,
@@ -150,7 +150,7 @@ internal static class RunBundleV5Contract
             );
         }
 
-        if (!RunPayloadV5Codec.TryDecode(bundle.RunPayload, out var payload, out var decodeReason))
+        if (!RunPayloadV6Codec.TryDecode(bundle.RunPayload, out var payload, out var decodeReason))
         {
             return RunBundleOpenResult.Failure(
                 RunBundleOpenFailureKind.PayloadInvalid,
@@ -174,6 +174,6 @@ internal static class RunBundleV5Contract
             );
         }
 
-        return RunBundleOpenResult.Success(new OpenedRunBundleV5(bundle, payload));
+        return RunBundleOpenResult.Success(new OpenedRunBundleV6(bundle, payload));
     }
 }

@@ -5,8 +5,8 @@ using MessagePack;
 namespace BazaarPlusPlus.ModApi;
 
 // This type shares only gzip framing, the bounded decompression loop, and failure classification.
-// Each wrapper keeps its own size policy on purpose: V5 bundles arrive over the network and cap
-// decompression at RunPayloadV5Codec.MaxDecompressedBytes, while locally recorded replays are
+// Each wrapper keeps its own size policy on purpose: V6 bundles arrive over the network and cap
+// decompression at RunPayloadV6Codec.MaxDecompressedBytes, while locally recorded replays are
 // written by this process and stay deliberately uncapped. Adding a cap to the local path would
 // reject the mod's own large recordings.
 internal enum MessagePackGzipFailureKind

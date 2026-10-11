@@ -37,7 +37,7 @@ internal sealed class BundleUploadClient
             using var request = new HttpRequestMessage(HttpMethod.Post, _routes.UploadBundle);
             request.Content = new StreamContent(sealedFile);
             request.Content.Headers.ContentType = new MediaTypeHeaderValue(
-                Bundle.BundleLimitsV5.BundleContentType
+                Bundle.BundleLimitsV6.BundleContentType
             );
             request.Content.Headers.ContentLength = contentLength;
             request.Headers.TryAddWithoutValidation("Content-Digest", contentDigest);

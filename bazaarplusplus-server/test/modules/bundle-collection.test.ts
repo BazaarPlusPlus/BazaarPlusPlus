@@ -14,7 +14,7 @@ async function insertBundle(bundleId: string, availableAtMs: number): Promise<vo
       bundle_version, manifest_bytes, object_bytes, client_created_at_ms,
       stored_at_ms, available_at_ms, run_format_version, run_bytes, run_sha256,
       has_screenshot
-    ) VALUES (?1, ?2, 'collection-uploader', ?3, ?4, 5, 10, 100, ?5, ?5, ?6, 5, 10, ?4, 0)`,
+    ) VALUES (?1, ?2, 'collection-uploader', ?3, ?4, 6, 10, 100, ?5, ?5, ?6, 6, 10, ?4, 0)`,
   )
     .bind(
       bundleId,

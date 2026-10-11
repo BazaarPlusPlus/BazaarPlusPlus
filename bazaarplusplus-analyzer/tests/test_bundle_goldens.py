@@ -22,11 +22,12 @@ from tests.pipeline_fixtures import (
     PROJECTION_GOLDENS,
     assert_golden,
     mod_run_payload_bundle,
+    projection_case,
     read_base64,
 )
 from tests.pipeline_fixtures import SERVER_FIXTURES as BUNDLE_FIXTURES
 
-EXPECTED_PROJECTION = Path(__file__).parent / "fixtures/run-payload-v5.projection.json"
+VERSIONS = (5, 6)
 SOURCE_HOUR = datetime(2026, 8, 3, 1, tzinfo=UTC)
 
 
@@ -49,10 +50,12 @@ def _index(ref: BundleRef) -> RawHourIndex:
     )
 
 
-def test_server_run_only_golden_matches_manifest_and_checksums() -> None:
-    content = read_base64(BUNDLE_FIXTURES / "run-only.bundle.b64")
-    expected_manifest = json.loads((BUNDLE_FIXTURES / "run-only.manifest.json").read_text())
-    checksums = json.loads((BUNDLE_FIXTURES / "checksums.json").read_text())["run-only.bundle.b64"]
+@pytest.mark.parametrize("version", VERSIONS)
+def test_server_run_only_golden_matches_manifest_and_checksums(version: int) -> None:
+    fixtures = BUNDLE_FIXTURES[version]
+    content = read_base64(fixtures / "run-only.bundle.b64")
+    expected_manifest = json.loads((fixtures / "run-only.manifest.json").read_text())
+    checksums = json.loads((fixtures / "checksums.json").read_text())["run-only.bundle.b64"]
 
     bundle = admit_bundle(_reference(content, expected_manifest["bundle_id"]), content)
 
@@ -67,13 +70,17 @@ def test_server_run_only_golden_matches_manifest_and_checksums() -> None:
     assert bundle.run_content == content[16 + manifest_bytes + payload["offset"] :]
 
 
+@pytest.mark.parametrize("version", VERSIONS)
 @pytest.mark.parametrize(
     "filename", ["corrupt-magic.bundle.b64", "segment-digest-mismatch.bundle.b64"]
 )
-def test_server_corrupt_goldens_report_analyzer_validation_errors(filename: str) -> None:
-    content = read_base64(BUNDLE_FIXTURES / filename)
-    manifest = json.loads((BUNDLE_FIXTURES / "run-only.manifest.json").read_text())
-    checksums = json.loads((BUNDLE_FIXTURES / "checksums.json").read_text())[filename]
+def test_server_corrupt_goldens_report_analyzer_validation_errors(
+    filename: str, version: int
+) -> None:
+    fixtures = BUNDLE_FIXTURES[version]
+    content = read_base64(fixtures / filename)
+    manifest = json.loads((fixtures / "run-only.manifest.json").read_text())
+    checksums = json.loads((fixtures / "checksums.json").read_text())[filename]
     reason = checksums.get("expected_reason", checksums["expected_error"])
     ref = _reference(content, manifest["bundle_id"])
     if "sha256" in checksums:
@@ -103,17 +110,51 @@ def test_server_corrupt_goldens_report_analyzer_validation_errors(filename: str)
     assert streamed.value.__cause__.reason == reason
 
 
-def test_mod_run_payload_golden_projects_expected_tables() -> None:
+@pytest.mark.parametrize("version", VERSIONS)
+def test_mod_run_payload_golden_projects_expected_tables(version: int) -> None:
     created_at_ms = int(SOURCE_HOUR.timestamp() * 1_000)
-    served = mod_run_payload_bundle(created_at_ms, created_at_ms=created_at_ms)
+    served = mod_run_payload_bundle(created_at_ms, created_at_ms=created_at_ms, version=version)
     ref = _reference(served.content, served.bundle_id)
 
     projection = project_hour(_index(ref), [admit_bundle(ref, served.content)])
 
-    expected = json.loads(EXPECTED_PROJECTION.read_text(encoding="utf-8"))
     tables = collect_tables(projection)
-    assert {name: table.to_pylist() for name, table in tables.items()} == expected
+    projected = {name: table.to_pylist() for name, table in tables.items()}
+    content = (json.dumps(projected, indent=2, ensure_ascii=False) + "\n").encode()
+    expected = Path(__file__).parent / f"fixtures/run-payload-v{version}.projection.json"
+    assert_golden(expected, content)
     assert projection.bundle_count == 1
+
+
+@pytest.mark.parametrize("case", ["side-name-player-wins", "client-clock-anomalies"])
+def test_v6_run_payload_projects_the_same_facts_as_v5(case: str) -> None:
+    """V6 changes only the time encoding; the facts keep their instants and every other value."""
+    rows = {}
+    for version in VERSIONS:
+        served = projection_case(case, version=version)
+        ref = BundleRef(
+            served.bundle_id,
+            served.available_at_ms,
+            f"https://download.invalid/{served.bundle_id}",
+            served.available_at_ms + 60_000,
+        )
+        source_hour = datetime.fromtimestamp(served.available_at_ms // 3_600_000 * 3_600, tz=UTC)
+        index = RawHourIndex(source_hour, (ref,), raw_commit_sha256((ref,)), 1)
+        tables = collect_tables(project_hour(index, [admit_bundle(ref, served.content)]))
+        rows[version] = {
+            name: [_comparable(row) for row in table.to_pylist()] for name, table in tables.items()
+        }
+    assert rows[6] == rows[5]
+
+
+def _comparable(row: dict[str, object]) -> dict[str, object]:
+    return {
+        key: datetime.fromisoformat(value.replace("Z", "+00:00"))
+        if key.endswith("_at_utc") and isinstance(value, str)
+        else value
+        for key, value in row.items()
+        if key != "bundle_sha256"
+    }
 
 
 @pytest.mark.parametrize("case", sorted(PROJECTION_CASES))

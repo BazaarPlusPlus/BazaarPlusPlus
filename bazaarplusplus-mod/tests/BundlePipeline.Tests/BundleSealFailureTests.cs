@@ -216,8 +216,8 @@ internal static class BundleSealFailureTests
         using var coordinator = new BundleSealCoordinator(fixture.Services);
         await coordinator.ReconcileAsync(CancellationToken.None);
         var file = fixture.PendingFile("replay-run");
-        var payload = RunPayloadV5Codec.Decode(
-            BundleV5Codec.Open(TestInputs.ScratchBytes(file)).RunPayload
+        var payload = RunPayloadV6Codec.Decode(
+            BundleV6Codec.Open(TestInputs.ScratchBytes(file)).RunPayload
         );
         Require(
             payload.Degradation.ReplayOmittedBattleIds.Contains("battle-not-gzip")
@@ -271,15 +271,15 @@ internal static class BundleSealFailureTests
         using var fixture = new Fixture(root);
         var outbox = PathConstants.BundleOutbox(root);
         Directory.CreateDirectory(outbox);
-        var built = BundleV5Codec.Build(
-            new BundleBuildInputV5
+        var built = BundleV6Codec.Build(
+            new BundleBuildInputV6
             {
-                BundleId = new UlidV5Generator().Next(),
+                BundleId = new UlidV6Generator().Next(),
                 CreatedAtMs = 1000,
                 RunId = "orphan-run",
                 PlayerAccountId = "account-failure",
-                RunPayload = RunPayloadV5Codec.Encode(
-                    new RunPayloadV5 { RunId = "orphan-run", PlayerAccountId = "account-failure" }
+                RunPayload = RunPayloadV6Codec.Encode(
+                    new RunPayloadV6 { RunId = "orphan-run", PlayerAccountId = "account-failure" }
                 ),
             }
         );

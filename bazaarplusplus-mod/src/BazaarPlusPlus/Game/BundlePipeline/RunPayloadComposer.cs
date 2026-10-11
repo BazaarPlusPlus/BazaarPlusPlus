@@ -1,5 +1,4 @@
 #nullable enable
-using System.Globalization;
 using System.Text.RegularExpressions;
 using BazaarPlusPlus.Game.CombatReplay;
 using BazaarPlusPlus.Game.PvpBattles;
@@ -8,6 +7,8 @@ using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.ModApi.Bundle;
 using BazaarPlusPlus.Storage.RunLog;
 using Microsoft.Data.Sqlite;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace BazaarPlusPlus.Game.BundlePipeline;
 
@@ -49,7 +50,7 @@ internal sealed class RunPayloadComposer
 
     internal RunPayloadComposition Compose(string runId, string playerAccountId)
     {
-        var payload = new RunPayloadV5
+        var payload = new RunPayloadV6
         {
             RunId = runId,
             PlayerAccountId = playerAccountId,
@@ -68,7 +69,7 @@ internal sealed class RunPayloadComposer
         {
             var battle = MapBattle(manifest, finalBattleId, replayFailures);
             payload.Battles.Add(battle);
-            if (RunBundleV5Contract.IsReplayable(battle))
+            if (RunBundleV6Contract.IsReplayable(battle))
                 payload.ReplayableBattleIds.Add(battle.BattleId);
             else
                 payload.Degradation.ReplayOmittedBattleIds.Add(battle.BattleId);
@@ -83,7 +84,7 @@ internal sealed class RunPayloadComposer
     internal void FitToBudget(RunPayloadComposition composition) =>
         ApplySizeBudget(composition.Payload, composition.Projections);
 
-    private RunFactsV5 ReadRunFacts(string runId)
+    private RunFactsV6 ReadRunFacts(string runId)
     {
         using var connection = Open();
         using var command = connection.CreateCommand();
@@ -101,13 +102,13 @@ internal sealed class RunPayloadComposer
         using var reader = command.ExecuteReader();
         if (!reader.Read())
             throw new BundleCompositionException("source_run_missing");
-        return new RunFactsV5
+        return new RunFactsV6
         {
             Hero = reader.GetString(0),
             GameMode = reader.GetString(1),
             Seed = null,
-            StartedAtUtc = RunSegmentTimestamp(reader.GetInt64(2)),
-            EndedAtUtc = reader.IsDBNull(3) ? null : RunSegmentTimestamp(reader.GetInt64(3)),
+            StartedAtMs = reader.GetInt64(2),
+            EndedAtMs = reader.IsDBNull(3) ? null : reader.GetInt64(3),
             Status = reader.GetString(4),
             Day = NonNegative(NullableInt(reader, 5)),
             Hour = NonNegative(NullableInt(reader, 6)),
@@ -128,7 +129,7 @@ internal sealed class RunPayloadComposer
         };
     }
 
-    private List<RunEventV5> ReadEvents(string runId)
+    private List<RunEventV6> ReadEvents(string runId)
     {
         using var connection = Open();
         using var command = connection.CreateCommand();
@@ -140,15 +141,15 @@ internal sealed class RunPayloadComposer
             """;
         command.Parameters.AddWithValue("$runId", runId);
         using var reader = command.ExecuteReader();
-        var events = new List<RunEventV5>();
+        var events = new List<RunEventV6>();
         while (reader.Read())
             events.Add(
-                new RunEventV5
+                new RunEventV6
                 {
                     Seq = reader.GetInt64(0),
-                    TimestampUtc = RunSegmentTimestamp(reader.GetInt64(1)),
+                    TimestampMs = reader.GetInt64(1),
                     Kind = reader.GetString(2),
-                    PayloadJson = reader.GetString(3),
+                    PayloadJson = EventPayloadBody(reader.GetString(3)),
                 }
             );
         return events;
@@ -156,13 +157,13 @@ internal sealed class RunPayloadComposer
 
     // A replay that exists but cannot be used is reported, not decided: the seal coordinator asks
     // BundleSealFailurePolicy whether it omits that replay or holds the whole Run.
-    private RunBattleV5 MapBattle(
+    private RunBattleV6 MapBattle(
         PvpBattleManifest manifest,
         string? finalBattleId,
         List<ReplayLoadFailure> replayFailures
     )
     {
-        BattleReplayV5? replay = null;
+        BattleReplayV6? replay = null;
         var loaded = _replayStore.LoadDetailed(manifest.BattleId);
         if (loaded.Status == FileBackedPayloadLoadStatus.Unreadable)
             replayFailures.Add(new(manifest.BattleId, Unreadable: true, loaded.Exception));
@@ -173,7 +174,7 @@ internal sealed class RunPayloadComposer
             try
             {
                 _ = new CombatReplayLoader().Load(loaded.Payload);
-                replay = new BattleReplayV5
+                replay = new BattleReplayV6
                 {
                     Version = loaded.Payload.Version,
                     SpawnMessageBytes = loaded.Payload.SpawnMessageBytes.ToArray(),
@@ -187,12 +188,12 @@ internal sealed class RunPayloadComposer
             }
         }
 
-        return new RunBattleV5
+        return new RunBattleV6
         {
             BattleId = manifest.BattleId,
-            Facts = new BattleFactsV5
+            Facts = new BattleFactsV6
             {
-                RecordedAtUtc = manifest.RecordedAtUtc.ToUniversalTime().ToString("o"),
+                RecordedAtMs = manifest.RecordedAtUtc.ToUnixTimeMilliseconds(),
                 Day = NonNegative(manifest.Day),
                 Hour = NonNegative(manifest.Hour),
                 EncounterId = Limit(manifest.EncounterId),
@@ -206,12 +207,12 @@ internal sealed class RunPayloadComposer
                     StringComparison.Ordinal
                 ),
             },
-            Participants = new BattleParticipantsV5
+            Participants = new BattleParticipantsV6
             {
                 Player = MapParticipant(manifest.Participants, player: true),
                 Opponent = MapParticipant(manifest.Participants, player: false),
             },
-            Snapshots = new BattleCardSnapshotsV5
+            Snapshots = new BattleCardSnapshotsV6
             {
                 CardSets =
                 [
@@ -225,7 +226,7 @@ internal sealed class RunPayloadComposer
         };
     }
 
-    private static BattleParticipantV5 MapParticipant(
+    private static BattleParticipantV6 MapParticipant(
         PvpBattleParticipants participants,
         bool player
     ) =>
@@ -247,7 +248,7 @@ internal sealed class RunPayloadComposer
             Gold = NonNegative(player ? participants.PlayerGold : null),
         };
 
-    private static BattleCardSetV5 MapCardSet(string label, PvpBattleCardSetCapture source) =>
+    private static BattleCardSetV6 MapCardSet(string label, PvpBattleCardSetCapture source) =>
         new()
         {
             Label = label,
@@ -256,7 +257,7 @@ internal sealed class RunPayloadComposer
             Items = source.Items.Select(MapCard).ToList(),
         };
 
-    private static BattleCardV5 MapCard(PvpBattleCardSnapshot source) =>
+    private static BattleCardV6 MapCard(PvpBattleCardSnapshot source) =>
         new()
         {
             InstanceId = source.InstanceId,
@@ -272,37 +273,37 @@ internal sealed class RunPayloadComposer
             Attributes = new Dictionary<string, int>(source.Attributes),
         };
 
-    private static List<BundleBattleProjectionV5> BuildProjections(
-        RunPayloadV5 payload,
+    private static List<BundleBattleProjectionV6> BuildProjections(
+        RunPayloadV6 payload,
         string playerAccountId
     ) =>
         payload
-            .Battles.Where(RunBundleV5Contract.IsReplayable)
+            .Battles.Where(RunBundleV6Contract.IsReplayable)
             .Where(battle => IsValidProjectionCandidate(battle, playerAccountId))
-            .OrderByDescending(battle => ParseTimestamp(battle.Facts.RecordedAtUtc))
+            .OrderByDescending(battle => battle.Facts.RecordedAtMs)
             .ThenByDescending(battle => battle.BattleId, StringComparer.Ordinal)
-            .Take(BundleLimitsV5.MaxBattlesPerBundle)
+            .Take(BundleLimitsV6.MaxBattlesPerBundle)
             .Select(battle => MapProjection(battle, playerAccountId))
             .OrderBy(projection => projection.RecordedAtMs)
             .ThenBy(projection => projection.BattleId, StringComparer.Ordinal)
             .ToList();
 
-    private static bool IsValidProjectionCandidate(RunBattleV5 battle, string playerAccountId) =>
+    private static bool IsValidProjectionCandidate(RunBattleV6 battle, string playerAccountId) =>
         Identifier.IsMatch(battle.BattleId)
-        && ParseTimestamp(battle.Facts.RecordedAtUtc) >= 0
+        && battle.Facts.RecordedAtMs >= 0
         && battle.Facts.Day is >= 0
         && battle.Facts.Hour is >= 0
         && NormalizeIdentifier(battle.Participants.Player.AccountId) == playerAccountId
         && NormalizeIdentifier(battle.Participants.Opponent.AccountId) != null;
 
-    private static BundleBattleProjectionV5 MapProjection(
-        RunBattleV5 battle,
+    private static BundleBattleProjectionV6 MapProjection(
+        RunBattleV6 battle,
         string playerAccountId
     ) =>
         new()
         {
             BattleId = battle.BattleId,
-            RecordedAtMs = ParseTimestamp(battle.Facts.RecordedAtUtc),
+            RecordedAtMs = battle.Facts.RecordedAtMs,
             Day = battle.Facts.Day!.Value,
             Hour = battle.Facts.Hour!.Value,
             EncounterId = Limit(battle.Facts.EncounterId),
@@ -318,8 +319,8 @@ internal sealed class RunPayloadComposer
             ),
         };
 
-    private static BundleCombatantProjectionV5 MapCombatant(
-        BattleParticipantV5 participant,
+    private static BundleCombatantProjectionV6 MapCombatant(
+        BattleParticipantV6 participant,
         string accountId
     ) =>
         new()
@@ -336,11 +337,11 @@ internal sealed class RunPayloadComposer
         };
 
     private static void ApplySizeBudget(
-        RunPayloadV5 payload,
-        List<BundleBattleProjectionV5> projections
+        RunPayloadV6 payload,
+        List<BundleBattleProjectionV6> projections
     )
     {
-        if (EncodedSize(payload) <= BundleLimitsV5.MaxRunBytes)
+        if (EncodedSize(payload) <= BundleLimitsV6.MaxRunBytes)
             return;
         var projected = projections
             .Select(value => value.BattleId)
@@ -352,10 +353,10 @@ internal sealed class RunPayloadComposer
             payload.ReplayableBattleIds.Remove(battle.BattleId);
             AddDegradation(payload, "non_projection_replay_trimmed", battle.BattleId);
         }
-        if (EncodedSize(payload) <= BundleLimitsV5.MaxRunBytes)
+        if (EncodedSize(payload) <= BundleLimitsV6.MaxRunBytes)
             return;
 
-        while (projections.Count > 0 && EncodedSize(payload) > BundleLimitsV5.MaxRunBytes)
+        while (projections.Count > 0 && EncodedSize(payload) > BundleLimitsV6.MaxRunBytes)
         {
             var projection = projections[0];
             projections.RemoveAt(0);
@@ -371,12 +372,12 @@ internal sealed class RunPayloadComposer
             )
         )
             battle.Snapshots = null;
-        if (EncodedSize(payload) <= BundleLimitsV5.MaxRunBytes)
+        if (EncodedSize(payload) <= BundleLimitsV6.MaxRunBytes)
             return;
 
         for (
             var index = 0;
-            index < payload.Events.Count && EncodedSize(payload) > BundleLimitsV5.MaxRunBytes;
+            index < payload.Events.Count && EncodedSize(payload) > BundleLimitsV6.MaxRunBytes;
 
         )
         {
@@ -392,7 +393,7 @@ internal sealed class RunPayloadComposer
         }
     }
 
-    private static void AddDegradation(RunPayloadV5 payload, string category, string battleId)
+    private static void AddDegradation(RunPayloadV6 payload, string category, string battleId)
     {
         if (!payload.Degradation.Categories.Contains(category))
             payload.Degradation.Categories.Add(category);
@@ -403,8 +404,8 @@ internal sealed class RunPayloadComposer
     private static bool IsTerminalEvent(string kind) =>
         kind is "run_started" or "run_completed" or "run_abandoned";
 
-    private static int EncodedSize(RunPayloadV5 payload) =>
-        RunPayloadV5Codec.Encode(payload).Length;
+    private static int EncodedSize(RunPayloadV6 payload) =>
+        RunPayloadV6Codec.Encode(payload).Length;
 
     private SqliteConnection Open()
     {
@@ -416,13 +417,22 @@ internal sealed class RunPayloadComposer
     private static int? NullableInt(SqliteDataReader reader, int ordinal) =>
         reader.IsDBNull(ordinal) ? null : reader.GetInt32(ordinal);
 
-    // The V5 Run segment carries the text the V5 database stored, DateTimeOffset.ToString("o") of a
-    // UTC instant. The database now stores milliseconds; this restores that text until the Run
-    // segment carries integers (Bundle V6).
-    internal static string RunSegmentTimestamp(long unixMilliseconds) =>
-        DateTimeOffset
-            .FromUnixTimeMilliseconds(unixMilliseconds)
-            .ToString("o", CultureInfo.InvariantCulture);
+    // The RunEventV6 envelope owns run_id, seq, ts, and kind; the stored payload_json repeats them
+    // (ts as text), so the Run segment carries only the remaining fields, in stored order.
+    private static readonly string[] EventEnvelopeKeys = ["run_id", "seq", "ts", "kind"];
+
+    internal static string EventPayloadBody(string payloadJson)
+    {
+        using var reader = new JsonTextReader(new StringReader(payloadJson))
+        {
+            DateParseHandling = DateParseHandling.None,
+            FloatParseHandling = FloatParseHandling.Decimal,
+        };
+        var body = JObject.Load(reader);
+        foreach (var key in EventEnvelopeKeys)
+            body.Remove(key);
+        return body.ToString(Formatting.None);
+    }
 
     private static string? NullableString(SqliteDataReader reader, int ordinal) =>
         reader.IsDBNull(ordinal) ? null : reader.GetString(ordinal);
@@ -447,21 +457,11 @@ internal sealed class RunPayloadComposer
 
     private static string NormalizeResult(string? result) =>
         NormalizeIdentifier(result?.ToLowerInvariant()) ?? "unknown";
-
-    private static long ParseTimestamp(string value) =>
-        DateTimeOffset.TryParse(
-            value,
-            CultureInfo.InvariantCulture,
-            DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
-            out var timestamp
-        )
-            ? timestamp.ToUnixTimeMilliseconds()
-            : -1;
 }
 
 internal sealed record RunPayloadComposition(
-    RunPayloadV5 Payload,
-    List<BundleBattleProjectionV5> Projections,
+    RunPayloadV6 Payload,
+    List<BundleBattleProjectionV6> Projections,
     IReadOnlyList<ReplayLoadFailure> ReplayFailures
 );
 
