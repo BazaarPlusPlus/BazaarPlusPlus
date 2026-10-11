@@ -1,7 +1,7 @@
 {
   "support": {
     "scripts": {
-      "index.js": 96188
+      "index.js": 96802
     },
     "external": [
       "https://bpp-static.bazaarplusplus.com/supporter-list.json"
@@ -13,7 +13,7 @@
   },
   "tutorial": {
     "scripts": {
-      "index.js": 96188
+      "index.js": 96802
     },
     "external": [],
     "icons": {
@@ -23,7 +23,7 @@
   },
   "download": {
     "scripts": {
-      "index.js": 96188
+      "index.js": 96802
     },
     "external": [
       "https://bppinstaller.bazaarplusplus.com/latest/darwin-aarch64.json",
@@ -36,11 +36,11 @@
   },
   "heroes": {
     "scripts": {
-      "index.js": 96188,
-      "route-pages.js": 8578
+      "index.js": 96802,
+      "route-pages.js": 8607
     },
     "external": [
-      "https://bpp-metrics.bazaarplusplus.com/analyzer-v5/heroes/latest.json"
+      "https://bpp-metrics-v6.bazaarplusplus.com/heroes/latest.json"
     ],
     "icons": {
       "bazaarplusplus-icon.webp": 7296,
@@ -49,7 +49,7 @@
   },
   "not-found": {
     "scripts": {
-      "index.js": 96188
+      "index.js": 96802
     },
     "external": [],
     "icons": {
