@@ -32,8 +32,8 @@ test("scheduled retention uses stored time, cascades children and preserves uplo
       NOW,
       id(0),
     ),
-    env.DB.prepare(`INSERT INTO bundle_uploaders (player_account_id, first_bundle_at_ms)
-      VALUES ('retained-uploader', ?1)`).bind(CUTOFF - 1),
+    env.DB.prepare(`INSERT INTO bundle_uploaders (player_account_id)
+      VALUES ('retained-uploader')`),
     env.DB.prepare(`INSERT INTO ghost_battle_summaries (
       uploader_account_id, battle_id, bundle_id, opponent_account_id, recorded_at_ms, day, hour, result, winner_combatant_id, player_display_name
     ) SELECT 'retained-uploader', run_id, bundle_id, 'retained-uploader', stored_at_ms, 1, 1, 'win', 'Player', 'Uploader'
@@ -50,11 +50,11 @@ test("scheduled retention uses stored time, cascades children and preserves uplo
   }
   expect(
     await env.DB.prepare(
-      "SELECT first_bundle_at_ms FROM bundle_uploaders WHERE player_account_id = ?1",
+      "SELECT player_account_id FROM bundle_uploaders WHERE player_account_id = ?1",
     )
       .bind("retained-uploader")
       .first(),
-  ).toEqual({ first_bundle_at_ms: CUTOFF - 1 });
+  ).toEqual({ player_account_id: "retained-uploader" });
   expect(log).toHaveBeenCalledWith(expect.stringContaining('"deleted_bundles":1'));
   expect(await pruneExpiredBundles(env.DB, NOW)).toEqual({ deleted: 0, hasMore: false });
   expect(await pruneExpiredBundles(env.DB, NOW + 1)).toEqual({ deleted: 1, hasMore: false });

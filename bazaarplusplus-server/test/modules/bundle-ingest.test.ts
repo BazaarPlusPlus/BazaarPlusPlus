@@ -23,14 +23,14 @@ describe("POST /bundles", () => {
     );
     expect(object).not.toBeNull();
     expect(object?.size).toBe(fixture.body.byteLength);
-    // The uploader assertion is recorded at the Bundle's availability time.
+    // A stored Bundle records its uploader assertion.
     expect(
       await env.DB.prepare(
-        `SELECT u.first_bundle_at_ms = b.available_at_ms AS aligned
+        `SELECT u.player_account_id
          FROM bundle_uploaders AS u JOIN bundles AS b ON b.uploader_account_id = u.player_account_id
          WHERE b.bundle_id = '01J00000000000000000000001'`,
       ).first(),
-    ).toEqual({ aligned: 1 });
+    ).toEqual({ player_account_id: "account-uploader" });
   });
 
   test("returns duplicate for the same immutable Bundle", async () => {

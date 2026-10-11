@@ -37,7 +37,7 @@ async function uploadAndDiscover(
 test("the discovery response exactly matches the Mod-compatible nested summary contract", async () => {
   const row = responseContract.battles[0];
   vi.spyOn(Date, "now").mockReturnValue(row.recorded_at_ms + 1000);
-  await env.DB.prepare("INSERT INTO bundle_uploaders VALUES (?1, 1)")
+  await env.DB.prepare("INSERT INTO bundle_uploaders VALUES (?1)")
     .bind(row.opponent.account_id)
     .run();
   const body = await uploadAndDiscover(

@@ -16,11 +16,9 @@ describe("GET /ghost-battles", () => {
     await env.DB.prepare(
       `INSERT INTO bundles (
         bundle_id, run_id, uploader_account_id, object_key, bundle_sha256,
-        bundle_version, manifest_bytes, object_bytes, client_created_at_ms,
-        stored_at_ms, available_at_ms, run_format_version, run_bytes, run_sha256,
-        has_screenshot
+        object_bytes, client_created_at_ms, stored_at_ms, available_at_ms, has_screenshot
       ) VALUES (?1, 'ghost-injected-run', 'ghost-injected-uploader', ?2, ?3,
-                6, 10, 100, ?4, ?4, ?4, 6, 10, ?3, 0)`,
+                100, ?4, ?4, ?4, 0)`,
     )
       .bind(bundleId, objectKey, "d".repeat(64), clock.ms)
       .run();
@@ -229,11 +227,9 @@ describe("GET /ghost-battles", () => {
     await env.DB.prepare(
       `INSERT INTO bundles (
         bundle_id, run_id, uploader_account_id, object_key, bundle_sha256,
-        bundle_version, manifest_bytes, object_bytes, client_created_at_ms,
-        stored_at_ms, available_at_ms, run_format_version, run_bytes, run_sha256,
-        has_screenshot
+        object_bytes, client_created_at_ms, stored_at_ms, available_at_ms, has_screenshot
       ) VALUES (?1, 'ghost-cap-run', 'ghost-cap-uploader', ?2, ?3,
-                6, 10, 100, ?4, ?4, ?4, 6, 10, ?3, 0)`,
+                100, ?4, ?4, ?4, 0)`,
     )
       .bind(bundleId, `bundles/2026-08-02/${bundleId}.bundle`, "c".repeat(64), now)
       .run();
@@ -383,11 +379,9 @@ describe("GET /ghost-battles", () => {
     await env.DB.prepare(
       `INSERT INTO bundles (
         bundle_id, run_id, uploader_account_id, object_key, bundle_sha256,
-        bundle_version, manifest_bytes, object_bytes, client_created_at_ms,
-        stored_at_ms, available_at_ms, run_format_version, run_bytes, run_sha256,
-        has_screenshot
+        object_bytes, client_created_at_ms, stored_at_ms, available_at_ms, has_screenshot
       ) VALUES (?1, 'ghost-signing-failure-run', 'ghost-signing-failure-uploader', ?2, ?3,
-                6, 10, 100, ?4, ?4, ?4, 6, 10, ?3, 0)`,
+                100, ?4, ?4, ?4, 0)`,
     )
       .bind(bundleId, objectKey, "e".repeat(64), Date.now())
       .run();

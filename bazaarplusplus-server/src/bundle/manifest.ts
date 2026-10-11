@@ -41,7 +41,6 @@ export interface ValidatedBundleDescriptor {
     offset: number;
     length: number;
     sha256: string;
-    contentType: "image/jpeg" | "image/webp";
   };
   battles: ValidatedBattleProjection[];
 }

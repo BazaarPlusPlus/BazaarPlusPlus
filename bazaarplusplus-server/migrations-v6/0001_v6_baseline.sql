@@ -13,47 +13,15 @@ CREATE TABLE bundles (
     length(bundle_sha256) = 64
     AND bundle_sha256 NOT GLOB '*[^0-9a-f]*'
   ),
-  bundle_version          INTEGER NOT NULL CHECK (bundle_version = 6),
-  manifest_bytes          INTEGER NOT NULL CHECK (manifest_bytes BETWEEN 1 AND 2097152),
   object_bytes            INTEGER NOT NULL CHECK (object_bytes BETWEEN 1 AND 8388607),
   client_created_at_ms    INTEGER NOT NULL,
   stored_at_ms            INTEGER NOT NULL,
   available_at_ms         INTEGER NOT NULL,
-
-  run_format_version      INTEGER NOT NULL CHECK (run_format_version = 6),
-  run_bytes               INTEGER NOT NULL CHECK (run_bytes BETWEEN 1 AND 2097151),
-  run_sha256              TEXT NOT NULL CHECK (
-    length(run_sha256) = 64
-    AND run_sha256 NOT GLOB '*[^0-9a-f]*'
-  ),
-
   has_screenshot          INTEGER NOT NULL CHECK (has_screenshot IN (0, 1)),
-  screenshot_content_type TEXT,
-  screenshot_bytes        INTEGER,
-  screenshot_sha256       TEXT,
 
   -- object_key embeds the primary key, so it is unique by construction and
   -- needs no unique index; this CHECK pins the structure instead.
-  CHECK (object_key = 'bundles/' || substr(object_key, 9, 10) || '/' || bundle_id || '.bundle'),
-  CHECK (
-    (
-      has_screenshot = 0
-      AND screenshot_content_type IS NULL
-      AND screenshot_bytes IS NULL
-      AND screenshot_sha256 IS NULL
-    )
-    OR
-    (
-      has_screenshot = 1
-      AND screenshot_content_type IS NOT NULL
-      AND screenshot_content_type IN ('image/jpeg', 'image/webp')
-      AND screenshot_bytes IS NOT NULL
-      AND screenshot_bytes BETWEEN 1 AND 1048576
-      AND screenshot_sha256 IS NOT NULL
-      AND length(screenshot_sha256) = 64
-      AND screenshot_sha256 NOT GLOB '*[^0-9a-f]*'
-    )
-  )
+  CHECK (object_key = 'bundles/' || substr(object_key, 9, 10) || '/' || bundle_id || '.bundle')
 ) WITHOUT ROWID;
 
 CREATE INDEX idx_bundles_available
@@ -93,6 +61,5 @@ CREATE INDEX idx_ghost_summaries_bundle
   ON ghost_battle_summaries(bundle_id);
 
 CREATE TABLE bundle_uploaders (
-  player_account_id  TEXT PRIMARY KEY,
-  first_bundle_at_ms INTEGER NOT NULL
+  player_account_id TEXT PRIMARY KEY
 ) WITHOUT ROWID;

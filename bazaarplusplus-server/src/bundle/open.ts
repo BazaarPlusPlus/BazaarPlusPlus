@@ -312,7 +312,6 @@ function validateManifest(
       offset,
       length,
       sha256: image.sha256,
-      contentType: image.content_type,
     };
   }
 
