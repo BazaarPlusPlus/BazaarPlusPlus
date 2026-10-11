@@ -22,6 +22,8 @@ CORE_BUILD_LIMIT_PER_HERO = 500
 WILSON_Z = 1.96
 HEROES_KEY = "heroes/latest.json"
 BUILDS_KEY = "builds/latest.json"
+SEGMENTS = ("legend", "non_legend")
+TIERS = ("bronze", "silver", "gold", "diamond", "legendary")
 LATEST_CACHE_CONTROL = "public,max-age=60,must-revalidate"
 JSON_CONTENT_TYPE = "application/json"
 
@@ -216,7 +218,7 @@ class SnapshotBuilder:
         for day in reversed(tuple(seal.source_day for seal in window.seals)):
             rows = []
             for hero in CANONICAL_HEROES:
-                for segment in ("legend", "non_legend"):
+                for segment in SEGMENTS:
                     values = runs.get((day, hero, segment), (0,) * 9)
                     rows.append(
                         {
@@ -248,11 +250,11 @@ class SnapshotBuilder:
             "window": window.value,
             "days": days,
         }
-        validate_snapshot("heroes", payload)
+        validate_snapshot(HEROES.name, payload)
         content = canonical_json(payload)
         return BuiltSnapshot(
-            "heroes",
-            HEROES_KEY,
+            HEROES.name,
+            HEROES.public_key,
             content,
             HeroStats(
                 participating_runs=sum(values[0] for values in runs.values()),
@@ -306,7 +308,7 @@ class SnapshotBuilder:
         connection = self._connection(window, ("runs", "battles", "battle_cards"))
         try:
             connection.execute(
-                """
+                f"""
                 CREATE TEMP TABLE eligible_layout_runs AS
                 WITH final_battles AS (
                   SELECT r.bundle_id, r.run_id, r.source_day, r.hero,
@@ -354,11 +356,10 @@ class SnapshotBuilder:
                      AND bool_and(lower(trim(coalesce(c.card_set_status,'missing')))<>'missing')
                      AND bool_and(c.template_id IS NOT NULL AND regexp_full_match(
                        lower(c.template_id),
-                       '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+                       '^[0-9a-f]{{8}}-[0-9a-f]{{4}}-[0-9a-f]{{4}}-[0-9a-f]{{4}}-[0-9a-f]{{12}}$'
                      ))
                      AND bool_and(c.size IS NOT NULL AND c.size BETWEEN 1 AND 3)
-                     AND bool_and(c.tier IS NOT NULL AND lower(trim(c.tier)) IN
-                                  ('bronze', 'silver', 'gold', 'diamond', 'legendary'))
+                     AND bool_and(c.tier IS NOT NULL AND lower(trim(c.tier)) IN ({_sql_list(TIERS)}))
                      AND sum(c.size)=10
                      AND bool_and(coalesce(c.socket,c.slot_index) IS NOT NULL
                                   AND coalesce(c.socket,c.slot_index) >= 0
@@ -498,11 +499,11 @@ class SnapshotBuilder:
             },
             "heroes": heroes,
         }
-        validate_snapshot("builds", payload)
+        validate_snapshot(BUILDS.name, payload)
         content = canonical_json(payload)
         return BuiltSnapshot(
-            "builds",
-            BUILDS_KEY,
+            BUILDS.name,
+            BUILDS.public_key,
             content,
             BuildStats(
                 eligible_layout_runs=eligible_count,
@@ -549,8 +550,8 @@ class LatestPublisher:
         self.object_store = object_store
 
     def replace(self, snapshot: BuiltSnapshot) -> bool:
-        expected_key = {"heroes": HEROES_KEY, "builds": BUILDS_KEY}.get(snapshot.product)
-        if expected_key is None or snapshot.key != expected_key:
+        product = _PRODUCTS_BY_NAME.get(snapshot.product)
+        if product is None or snapshot.key != product.public_key:
             raise ContractViolation("Snapshot product and public key disagree")
         digest = hashlib.sha256(snapshot.content).hexdigest()
         observed = self.object_store.stat(snapshot.key)
@@ -579,25 +580,23 @@ class LatestPublisher:
         return True
 
 
-def validate_snapshot(product: str, payload: Mapping[str, Any]) -> None:
-    if product not in {"heroes", "builds"}:
-        raise ValueError(f"Unknown consumer product: {product}")
-    schema_path = _contracts_dir() / f"{product}.schema.json"
+def validate_snapshot(name: str, payload: Mapping[str, Any]) -> None:
+    product = _PRODUCTS_BY_NAME.get(name)
+    if product is None:
+        raise ValueError(f"Unknown consumer product: {name}")
+    schema_path = _contracts_dir() / product.schema_file
     try:
         schema = json.loads(schema_path.read_bytes())
         Draft202012Validator(schema).validate(payload)
     except Exception as error:
-        raise ContractViolation(f"{product} snapshot failed JSON Schema validation") from error
+        raise ContractViolation(f"{name} snapshot failed JSON Schema validation") from error
     window = payload["window"]
     start = parse_source_day(window["start"])
     end = parse_source_day(window["end"])
     window_days = int(window["days"])
     if not 1 <= window_days <= ANALYSIS_DAYS or end - start != timedelta(days=window_days - 1):
         raise ContractViolation("Analysis Window must contain one to seven consecutive days")
-    if product == "heroes":
-        _validate_heroes(payload, start, end, window_days)
-    else:
-        _validate_builds(payload)
+    product.validate_semantics(payload, start, end, window_days)
 
 
 def _validate_heroes(payload: Mapping[str, Any], start: date, end: date, window_days: int) -> None:
@@ -605,9 +604,7 @@ def _validate_heroes(payload: Mapping[str, Any], start: date, end: date, window_
     expected_days = [(end - timedelta(days=offset)).isoformat() for offset in range(window_days)]
     if [item["day"] for item in days] != expected_days or expected_days[-1] != start.isoformat():
         raise ContractViolation("Hero days must be newest-first and match the Analysis Window")
-    expected_rows = [
-        (hero, segment) for hero in CANONICAL_HEROES for segment in ("legend", "non_legend")
-    ]
+    expected_rows = [(hero, segment) for hero in CANONICAL_HEROES for segment in SEGMENTS]
     for day in days:
         rows = day["rows"]
         if [(row["hero"], row["segment"]) for row in rows] != expected_rows:
@@ -658,6 +655,42 @@ def _validate_builds(payload: Mapping[str, Any]) -> None:
         observed = [[ref, expected_index[ref]] for ref in sorted(expected_index)]
         if value["card_index"] != observed:
             raise ContractViolation("Builds and card_index must agree in both directions")
+
+
+@dataclass(frozen=True, slots=True)
+class ConsumerProduct:
+    """One consumer snapshot: its name, public object, contract, and local copy."""
+
+    name: str
+    public_key: str
+    schema_file: str
+    local_relpath: Path
+    build: Callable[[SnapshotBuilder, AnalysisWindow], BuiltSnapshot]
+    validate_semantics: Callable[[Mapping[str, Any], date, date, int], None]
+    stats_type: type[HeroStats] | type[BuildStats]
+
+
+HEROES = ConsumerProduct(
+    name="heroes",
+    public_key=HEROES_KEY,
+    schema_file="heroes.schema.json",
+    local_relpath=Path("snapshots", "heroes", "latest.json"),
+    build=lambda builder, window: builder.build_heroes(window),
+    validate_semantics=_validate_heroes,
+    stats_type=HeroStats,
+)
+BUILDS = ConsumerProduct(
+    name="builds",
+    public_key=BUILDS_KEY,
+    schema_file="builds.schema.json",
+    local_relpath=Path("snapshots", "builds", "latest.json"),
+    build=lambda builder, window: builder.build_builds(window),
+    validate_semantics=lambda payload, _start, _end, _days: _validate_builds(payload),
+    stats_type=BuildStats,
+)
+PRODUCTS = (HEROES, BUILDS)
+_PRODUCTS_BY_NAME = {product.name: product for product in PRODUCTS}
+_TIER_VALUES = {tier: rank for rank, tier in enumerate(TIERS, start=1)}
 
 
 def _sql_string(value: str) -> str:
@@ -740,10 +773,4 @@ def _build_row(
 def _tier_value(value: object) -> int | None:
     if not isinstance(value, str):
         return None
-    return {
-        "bronze": 1,
-        "silver": 2,
-        "gold": 3,
-        "diamond": 4,
-        "legendary": 5,
-    }.get(value.strip().lower())
+    return _TIER_VALUES.get(value.strip().lower())
