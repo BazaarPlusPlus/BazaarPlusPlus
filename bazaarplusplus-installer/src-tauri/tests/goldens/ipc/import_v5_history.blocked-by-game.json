@@ -1,0 +1,8 @@
+{
+  "code": "import_blocked_by_game",
+  "params": {
+    "operation": "import_v5_history",
+    "stage": "start"
+  },
+  "diagnostic": null
+}

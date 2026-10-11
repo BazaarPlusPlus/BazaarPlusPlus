@@ -24,6 +24,8 @@ import {
   type HistoryPageProblem
 } from '../features/history/historyProblems';
 import { useHistoryPage } from '../features/history/useHistoryPage';
+import { useHistoryUnavailableGuidance } from '../features/history/useHistoryUnavailableGuidance';
+import { LEGACY_DATA_SECTION_ID } from '../features/install/LegacyDataPanel';
 import type {
   EndGameProcessOutcome,
   HistoryThumbnails
@@ -322,6 +324,11 @@ function HistoryProblemBanner({
 }) {
   const { t } = useI18n();
   const { showToast } = useToast();
+  // Only V5 data and no current database: point at the Install page's import
+  // or reinstall card instead of a bare Install link.
+  const guidance = useHistoryUnavailableGuidance(
+    problem.code === 'history_unavailable'
+  );
 
   const endGameProcess = async () => {
     const outcome = await onEndGameProcess();
@@ -333,14 +340,25 @@ function HistoryProblemBanner({
 
   return (
     <ProblemBanner
-      message={presentHistoryProblem(problem, t)}
+      message={
+        guidance === 'import'
+          ? t('historyUnavailableImport')
+          : guidance === 'reinstall'
+            ? t('historyUnavailableReinstall')
+            : presentHistoryProblem(problem, t)
+      }
       problem={problem}
       onRetry={onRetry}
       actions={
         <>
           {problem.code === 'history_unavailable' && (
-            <Link to="/" className={buttonClassName({ size: 'sm' })}>
-              {t('historyOpenInstall')}
+            <Link
+              to={guidance ? `/#${LEGACY_DATA_SECTION_ID}` : '/'}
+              className={buttonClassName({ size: 'sm' })}
+            >
+              {guidance === 'import'
+                ? t('historyOpenImport')
+                : t('historyOpenInstall')}
             </Link>
           )}
           {problem.code === 'history_read_blocked_by_game' && (

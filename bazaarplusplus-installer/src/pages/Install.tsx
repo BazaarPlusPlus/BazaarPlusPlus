@@ -1,12 +1,16 @@
 import { useEffect, useState } from 'react';
 import { Loader2 } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
 import { PageShell } from '../components/ui/PageShell';
 import { LoadingPanel } from '../components/ui/LoadingPanel';
 import { useAppBootstrap } from '../features/about/AppBootstrapProvider';
 import { InstallActionsPanel } from '../features/install/InstallActionsPanel';
 import { InstallConfirmModal } from '../features/install/InstallConfirmModal';
 import { InstallStatusPanel } from '../features/install/InstallStatusPanel';
-import { LegacyDataPanel } from '../features/install/LegacyDataPanel';
+import {
+  LEGACY_DATA_SECTION_ID,
+  LegacyDataPanel
+} from '../features/install/LegacyDataPanel';
 import { LegacyRootDeleteConfirmModal } from '../features/install/LegacyRootDeleteConfirmModal';
 import { useLegacyData } from '../features/install/useLegacyData';
 import { ResetBepinexConfirmModal } from '../features/install/ResetBepinexConfirmModal';
@@ -28,6 +32,7 @@ export default function Install() {
   const app = useAppBootstrap();
   const { snapshot, intents } = useInstallPage();
   const { dismissToast, showToast } = useToast();
+  const { hash } = useLocation();
   const [installAcknowledged, setInstallAcknowledged] = useState(false);
   const [resetDataAcknowledged, setResetDataAcknowledged] = useState(false);
   const [resetBepinexAcknowledged, setResetBepinexAcknowledged] =
@@ -63,6 +68,16 @@ export default function Install() {
   useEffect(() => {
     setLegacyDeleteAcknowledged(false);
   }, [legacyTargetName]);
+
+  // History links here when it has no current database; bring the import or
+  // reinstall card into view once the Legacy Roots have loaded.
+  const legacyLoaded = legacy.snapshot.load.phase === 'ready';
+  useEffect(() => {
+    if (hash !== `#${LEGACY_DATA_SECTION_ID}` || !legacyLoaded) return;
+    document.getElementById(LEGACY_DATA_SECTION_ID)?.scrollIntoView?.({
+      block: 'start'
+    });
+  }, [hash, legacyLoaded]);
 
   useEffect(() => {
     const notice = legacy.snapshot.notice;
@@ -227,6 +242,7 @@ export default function Install() {
                 ? installFailurePaths(legacyConfirmationProblem)
                 : []
             }
+            afterImport={legacyConfirmation.target.afterImport}
             onAcknowledgedChange={setLegacyDeleteAcknowledged}
             onClose={() => legacy.workflow.dismissDelete()}
             onConfirm={() => void legacy.workflow.confirmDelete()}
