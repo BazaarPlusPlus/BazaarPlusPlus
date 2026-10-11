@@ -55,7 +55,7 @@ belongs outside the game directory so it cannot include itself.
 
 Reset is the only installer operation that deletes the current BPP data root. `reset_bpp_data` in `src-tauri/src/services/bepinex/mod.rs` enters `StreamRuntime::exclusive_maintenance`, refuses deletion while the game is running, and delegates filesystem cleanup to `cleanup_bpp_data_directory` in `src-tauri/src/services/bepinex/payload.rs`.
 
-The Install workflow fixes the target path when confirmation opens. A successful `ResetBppDataResult` installs the returned refreshed state and distinguishes removed data from an already-empty target; a failure retains the target for retry. The durable product boundary is recorded in [ADR-0005](adr/0005-data-ownership-and-reset.md).
+The Install workflow fixes the target path when confirmation opens. A successful `ResetBppDataResult` installs the returned refreshed state and distinguishes removed data from an already-empty target; a failure retains the target for retry. The durable product boundary is recorded in [ADR-0008](adr/0008-legacy-data-roots-and-v5-import.md).
 
 ## Install and Repair Acceptance
 
