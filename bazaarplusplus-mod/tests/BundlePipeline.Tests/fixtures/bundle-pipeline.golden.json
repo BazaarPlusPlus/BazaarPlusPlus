@@ -206,28 +206,28 @@
   },
   "run_payloads": {
     "run-only": {
-      "messagepack_bytes": 561,
-      "sha256": "c762bd781b54059b5516b536cad0da846177242ef935e025d2852c74d54a62bc"
+      "messagepack_bytes": 483,
+      "sha256": "704e5d6b76dab837d448a8a1937364bf6035f96476b89261496773ea6b89ba4a"
     },
     "screenshot": {
-      "messagepack_bytes": 157,
-      "sha256": "f906cb1fc1849e9fde91efb3acb46f143dc4d0556efc407b23c88b6f495e1414"
+      "messagepack_bytes": 105,
+      "sha256": "414d626bdc30cf0f2cf08b5b84f3dfd37ab2104b8827da4c557bee1add635cb8"
     },
     "screenshot-deadline": {
-      "messagepack_bytes": 167,
-      "sha256": "8407ebd38324ed27db5d249482e424add938657f377d984bdd6c29e1fa1ba593"
+      "messagepack_bytes": 115,
+      "sha256": "5bc08047fae862af953bf51caa1f6ef8a42a1d419d6e0199376a6c87221c358e"
     },
     "replay-free": {
-      "messagepack_bytes": 158,
-      "sha256": "5d44fe197d4254fe6e84b856c3f9c73c5ee9838dca380e46e0fb59090b592d5d"
+      "messagepack_bytes": 106,
+      "sha256": "2593b5cf376757508ad23140e53fea83419a2aa7c740cdc314116deac90c59b8"
     },
     "replay-held": {
-      "messagepack_bytes": 158,
-      "sha256": "42143c3d3bfa2a896e7ae601b732a7f08c388468be8c695bd30f66a272169fbd"
+      "messagepack_bytes": 106,
+      "sha256": "fa101f21ad07469ca63218741b413412d5624d1dbcbbf3b072af98270aaeaa41"
     },
     "corrupt-replay": {
-      "messagepack_bytes": 482,
-      "sha256": "06cf19d56ecd12d258859b2daf19d794b6f88bda74c3499c2837839cac3476cb"
+      "messagepack_bytes": 404,
+      "sha256": "106b428ee21b694c683553f319631f4598e441c231906331509421b1b6c6c8ad"
     }
   },
   "run_screenshots": {
