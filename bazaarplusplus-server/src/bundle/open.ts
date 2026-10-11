@@ -1,4 +1,4 @@
-import { HttpError, invalidBundle } from "../errors";
+import { apiError, HttpError, invalidBundle } from "../errors";
 import {
   MAX_BATTLES_PER_BUNDLE,
   MAX_BUNDLE_BYTES,
@@ -14,7 +14,13 @@ import {
   validBundleId,
   validIdentifier,
 } from "./manifest";
-import { BUNDLE_PREFIX_BYTES, BUNDLE_VERSION, parseBundlePrefix, RUN_CONTENT_TYPE } from "./prefix";
+import {
+  BUNDLE_PREFIX_BYTES,
+  BUNDLE_VERSION,
+  parseBundlePrefix,
+  RUN_CONTENT_TYPE,
+  RUN_FORMAT_VERSION,
+} from "./prefix";
 
 const STREAM_CHUNK_BYTES = 64 * 1024;
 const encoder = new TextEncoder();
@@ -52,12 +58,7 @@ function createBodyReader(body: ReadableStream<Uint8Array>): BoundedBodyReader {
         const requested = new Uint8Array(Math.min(STREAM_CHUNK_BYTES, length - offset));
         const result = await reader.read(requested);
         if (result.done || result.value.byteLength === 0) {
-          throw new HttpError(
-            400,
-            "invalid_content_length",
-            "Bundle body ended before Content-Length",
-            false,
-          );
+          throw apiError("invalid_content_length", "Bundle body ended before Content-Length");
         }
         output.set(result.value, offset);
         offset += result.value.byteLength;
@@ -219,20 +220,15 @@ function validateManifest(
 ): ValidatedBundleDescriptor {
   const root = parseJson(bytes);
   if (root.bundle_version !== BUNDLE_VERSION) {
-    throw new HttpError(
-      422,
-      "unsupported_bundle_version",
-      "Manifest Bundle version is not supported",
-      false,
-    );
+    throw apiError("unsupported_bundle_version", "Manifest Bundle version is not supported");
   }
   if (typeof root.bundle_id !== "string" || !validBundleId(root.bundle_id)) {
     throw invalidBundle("manifest_schema_invalid", "bundle_id must be a canonical ULID");
   }
   const createdAtMs = safeInteger(root.created_at_ms, "created_at_ms");
   const run = object(root.run);
-  if (run.run_format_version !== BUNDLE_VERSION) {
-    throw new HttpError(422, "unsupported_run_format", "Run format is not supported", false);
+  if (run.run_format_version !== RUN_FORMAT_VERSION) {
+    throw apiError("unsupported_run_format", "Run format is not supported");
   }
   const runId = identifier(run.run_id, "run.run_id");
   const uploader = identifier(run.player_account_id, "run.player_account_id");
@@ -392,11 +388,9 @@ function validateBundleBody(
       try {
         const nextPosition = position + chunk.byteLength;
         if (nextPosition > descriptor.objectBytes) {
-          throw new HttpError(
-            nextPosition >= MAX_BUNDLE_BYTES ? 413 : 400,
+          throw apiError(
             nextPosition >= MAX_BUNDLE_BYTES ? "bundle_too_large" : "invalid_content_length",
             "Actual Bundle length exceeds Content-Length",
-            false,
           );
         }
         await bundleWriter.write(chunk);
@@ -417,11 +411,9 @@ function validateBundleBody(
     async flush() {
       try {
         if (position !== descriptor.objectBytes) {
-          throw new HttpError(
-            400,
+          throw apiError(
             "invalid_content_length",
             "Actual Bundle length differs from Content-Length",
-            false,
           );
         }
         await Promise.all([
@@ -432,21 +424,14 @@ function validateBundleBody(
           segmentDigests.map(({ digest }) => digest.then(toHex)),
         );
         if (segmentHashes.some((digest, index) => digest !== segmentDigests[index].expected)) {
-          throw new HttpError(
-            422,
+          throw apiError(
             "segment_digest_mismatch",
             "A Bundle segment digest does not match its manifest",
-            false,
           );
         }
         const actual = toHex(await bundleDigest.digest);
         if (expectedBundleDigest !== null && actual !== expectedBundleDigest) {
-          throw new HttpError(
-            422,
-            "bundle_digest_mismatch",
-            "Bundle digest does not match Content-Digest",
-            false,
-          );
+          throw apiError("bundle_digest_mismatch", "Bundle digest does not match Content-Digest");
         }
         resolveDigest(actual);
       } catch (error) {

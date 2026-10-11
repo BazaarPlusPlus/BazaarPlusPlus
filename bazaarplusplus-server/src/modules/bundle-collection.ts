@@ -1,7 +1,7 @@
 import { validBundleId } from "../bundle/manifest";
 import { BUNDLE_CONTENT_TYPE } from "../bundle/prefix";
 import type { Env } from "../env";
-import { HttpError } from "../errors";
+import { apiError } from "../errors";
 import { oneQueryValue } from "../http/request";
 import {
   SYNC_DEFAULT_LIMIT,
@@ -88,27 +88,19 @@ const SCREENSHOT_BUNDLES: CollectionFeed<BazaarDbRow, BazaarDbBundleItem> = {
 
 function integer(value: string | null, field: string): number {
   if (value === null || !/^(0|[1-9][0-9]*)$/.test(value)) {
-    throw new HttpError(
-      400,
-      "invalid_query",
-      `${field} must be a non-negative safe integer`,
-      false,
-      {
+    throw apiError("invalid_query", `${field} must be a non-negative safe integer`, {
+      details: {
         field,
       },
-    );
+    });
   }
   const result = Number(value);
   if (!Number.isSafeInteger(result)) {
-    throw new HttpError(
-      400,
-      "invalid_query",
-      `${field} must be a non-negative safe integer`,
-      false,
-      {
+    throw apiError("invalid_query", `${field} must be a non-negative safe integer`, {
+      details: {
         field,
       },
-    );
+    });
   }
   return result;
 }
@@ -145,8 +137,10 @@ async function collectPage<Row extends CollectionRow, Item>(
   ]);
   for (const key of url.searchParams.keys()) {
     if (!allowed.has(key)) {
-      throw new HttpError(400, "invalid_query", `Unknown query parameter: ${key}`, false, {
-        field: key,
+      throw apiError("invalid_query", `Unknown query parameter: ${key}`, {
+        details: {
+          field: key,
+        },
       });
     }
   }
@@ -158,33 +152,30 @@ async function collectPage<Row extends CollectionRow, Item>(
     "available_from_ms",
   );
   if (from < now - SYNC_MAX_LOOKBACK_MS) {
-    throw new HttpError(410, "window_expired", "Bundle window is outside R2 retention", false);
+    throw apiError("window_expired", "Bundle window is outside R2 retention");
   }
   const beforeValue = oneQueryValue(url.searchParams, "available_before_ms", false);
   const before = beforeValue === null ? settlePoint : integer(beforeValue, "available_before_ms");
   if (before > settlePoint) {
-    throw new HttpError(400, "window_not_settled", "Bundle window end is not settled", false);
+    throw apiError("window_not_settled", "Bundle window end is not settled");
   }
   if (from >= before) {
-    throw new HttpError(
-      400,
-      "invalid_query",
-      "available_from_ms must be before available_before_ms",
-      false,
-    );
+    throw apiError("invalid_query", "available_from_ms must be before available_before_ms");
   }
 
   const limitValue = oneQueryValue(url.searchParams, "limit", false);
   const limit = limitValue === null ? SYNC_DEFAULT_LIMIT : integer(limitValue, "limit");
   if (limit < 1 || limit > SYNC_MAX_LIMIT) {
-    throw new HttpError(400, "invalid_query", "limit must be between 1 and 500", false, {
-      field: "limit",
+    throw apiError("invalid_query", "limit must be between 1 and 500", {
+      details: {
+        field: "limit",
+      },
     });
   }
   const afterTimeValue = oneQueryValue(url.searchParams, "after_available_at_ms", false);
   const afterId = oneQueryValue(url.searchParams, "after_bundle_id", false);
   if ((afterTimeValue === null) !== (afterId === null)) {
-    throw new HttpError(400, "invalid_query", "Both keyset position fields are required", false);
+    throw apiError("invalid_query", "Both keyset position fields are required");
   }
   const afterTime =
     afterTimeValue === null ? null : integer(afterTimeValue, "after_available_at_ms");
@@ -192,7 +183,7 @@ async function collectPage<Row extends CollectionRow, Item>(
     afterTime !== null &&
     (afterTime < from || afterTime >= before || afterId === null || !validBundleId(afterId))
   ) {
-    throw new HttpError(400, "invalid_query", "Keyset position is outside the fixed window", false);
+    throw apiError("invalid_query", "Keyset position is outside the fixed window");
   }
 
   let rows: Row[];
@@ -213,7 +204,7 @@ async function collectPage<Row extends CollectionRow, Item>(
     const found = await page.all<Row>();
     rows = found.results;
   } catch {
-    throw new HttpError(503, "storage_unavailable", "Bundle index query failed", true);
+    throw apiError("storage_unavailable", "Bundle index query failed");
   }
 
   const hasNext = rows.length > limit;

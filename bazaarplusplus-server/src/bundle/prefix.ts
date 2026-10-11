@@ -1,8 +1,9 @@
-import { HttpError, invalidBundle } from "../errors";
+import { apiError, invalidBundle } from "../errors";
 import { MAX_MANIFEST_BYTES } from "../limits";
 
 export const BUNDLE_PREFIX_BYTES = 16;
 export const BUNDLE_VERSION = 6;
+export const RUN_FORMAT_VERSION = 6;
 export const BUNDLE_CONTENT_TYPE = "application/x-bpp-bundle-v6";
 export const RUN_CONTENT_TYPE = "application/x-bpp-run-v6";
 
@@ -32,13 +33,9 @@ export function parseBundlePrefix(bytes: Uint8Array): BundlePrefix {
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   const version = view.getUint32(8, false);
   if (version !== BUNDLE_VERSION) {
-    throw new HttpError(
-      422,
-      "unsupported_bundle_version",
-      "Bundle version is not supported",
-      false,
-      { version },
-    );
+    throw apiError("unsupported_bundle_version", "Bundle version is not supported", {
+      details: { version },
+    });
   }
 
   const manifestLength = view.getUint32(12, false);

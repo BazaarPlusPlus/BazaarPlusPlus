@@ -1,5 +1,5 @@
 import type { Env } from "../env";
-import { HttpError } from "../errors";
+import { apiError, HttpError } from "../errors";
 import { logError } from "../observability";
 import { authenticateServiceToken, type ServiceScope } from "./auth";
 import { jsonError, jsonResponse } from "./json";
@@ -60,41 +60,28 @@ function optionsResponse(route: IndexedPath): Response {
   return new Response(null, { status: 204, headers });
 }
 
-function authDenial(
-  outcome: ReturnType<typeof authenticateServiceToken>,
-  requestId: string,
-): Response {
-  if (outcome === "insufficient_scope") {
-    return jsonError(
-      {
-        code: "insufficient_scope",
-        message: "The service token does not grant access to this route",
-        retryable: false,
-      },
-      403,
-      requestId,
-    );
-  }
-  if (outcome === "invalid_configuration") {
-    return jsonError(
-      {
-        code: "internal_error",
-        message: "Service token configuration is invalid",
-        retryable: true,
-      },
-      500,
-      requestId,
-    );
-  }
+function errorResponse(error: HttpError, requestId: string, headers?: HeadersInit): Response {
   return jsonError(
     {
-      code: "unauthorized",
-      message: "A valid service token is required",
-      retryable: false,
+      code: error.code,
+      message: error.message,
+      retryable: error.retryable,
+      details: error.details,
     },
-    401,
+    error.status,
     requestId,
+    headers,
   );
+}
+
+function authDenial(outcome: ReturnType<typeof authenticateServiceToken>): HttpError {
+  if (outcome === "insufficient_scope") {
+    return apiError("insufficient_scope", "The service token does not grant access to this route");
+  }
+  if (outcome === "invalid_configuration") {
+    return apiError("internal_error", "Service token configuration is invalid");
+  }
+  return apiError("unauthorized", "A valid service token is required");
 }
 
 function corsHeaders(enabled: boolean, initial?: HeadersInit): Headers {
@@ -112,11 +99,7 @@ export async function fetch(request: Request, env: Env): Promise<Response> {
   const path = new URL(request.url).pathname;
   const indexed = paths.get(path);
   if (indexed === undefined) {
-    return jsonError(
-      { code: "not_found", message: "Route not found", retryable: false },
-      404,
-      requestId,
-    );
+    return errorResponse(apiError("not_found", "Route not found"), requestId);
   }
   if (request.method === "OPTIONS") {
     return optionsResponse(indexed);
@@ -124,12 +107,9 @@ export async function fetch(request: Request, env: Env): Promise<Response> {
 
   const route = indexed.byMethod.get(request.method);
   if (route === undefined) {
-    return jsonError(
-      { code: "method_not_allowed", message: "Method not allowed", retryable: false },
-      405,
-      requestId,
-      { Allow: indexed.methods.join(", ") },
-    );
+    return errorResponse(apiError("method_not_allowed", "Method not allowed"), requestId, {
+      Allow: indexed.methods.join(", "),
+    });
   }
 
   if (route.auth !== undefined) {
@@ -143,7 +123,7 @@ export async function fetch(request: Request, env: Env): Promise<Response> {
           code: "invalid_configuration",
         });
       }
-      return authDenial(outcome, requestId);
+      return errorResponse(authDenial(outcome), requestId);
     }
   }
 
@@ -164,17 +144,7 @@ export async function fetch(request: Request, env: Env): Promise<Response> {
           code: error.code,
         });
       }
-      return jsonError(
-        {
-          code: error.code,
-          message: error.message,
-          retryable: error.retryable,
-          details: error.details,
-        },
-        error.status,
-        requestId,
-        corsHeaders(indexed.cors, error.headers),
-      );
+      return errorResponse(error, requestId, corsHeaders(indexed.cors, error.headers));
     }
     logError("worker.internal_error", {
       request_id: requestId,
@@ -182,13 +152,8 @@ export async function fetch(request: Request, env: Env): Promise<Response> {
       error_name: error instanceof Error ? error.name : "unknown",
       reason: "unclassified_exception",
     });
-    return jsonError(
-      {
-        code: "internal_error",
-        message: "An internal error occurred",
-        retryable: true,
-      },
-      500,
+    return errorResponse(
+      apiError("internal_error", "An internal error occurred"),
       requestId,
       corsHeaders(indexed.cors),
     );

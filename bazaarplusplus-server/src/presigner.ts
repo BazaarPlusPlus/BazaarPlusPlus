@@ -1,7 +1,7 @@
 import { AwsClient } from "aws4fetch";
 import { validObjectKey } from "./bundle/manifest";
 import type { Env } from "./env";
-import { HttpError } from "./errors";
+import { apiError } from "./errors";
 import { BUNDLE_BUCKET_NAME, PRESIGNED_GET_TTL_SECONDS } from "./limits";
 
 export interface SignedBundleDownload {
@@ -36,7 +36,7 @@ export async function signDownloadPage(
       }),
     );
   } catch {
-    throw new HttpError(503, "storage_unavailable", failureMessage, true);
+    throw apiError("storage_unavailable", failureMessage);
   }
 }
 

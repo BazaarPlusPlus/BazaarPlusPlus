@@ -1,5 +1,5 @@
 import type { ValidatedBundleDescriptor } from "../bundle/manifest";
-import { HttpError } from "../errors";
+import { apiError, type HttpError } from "../errors";
 import { logEvent } from "../observability";
 
 export interface BundleReceipt {
@@ -10,9 +10,10 @@ export interface BundleReceipt {
 }
 
 export type CommitOutcome =
-  | { kind: "committed"; projection: { eligible: number; inserted: number } }
-  | { kind: "duplicate"; receipt: BundleReceipt }
-  | { kind: "conflict"; reason: "bundle_id_conflict" | "run_already_bundled" };
+  | { kind: "stored" | "duplicate"; receipt: BundleReceipt }
+  | { kind: "conflict"; reason: ConflictReason };
+
+type ConflictReason = "bundle_id_conflict" | "run_already_bundled";
 
 export interface CommitTimes {
   availableAtMs: number;
@@ -41,15 +42,23 @@ const ELIGIBILITY_PREDICATE = `
     WHERE player_account_id = json_extract(value, '$.opponent.account_id')
   )`;
 
-function duplicateReceipt(row: ExistingBundleRow): BundleReceipt {
+function receipt(
+  outcome: BundleReceipt["outcome"],
+  bundleId: string,
+  runId: string,
+  hasScreenshot: boolean,
+): BundleReceipt {
   // The receipt derives BazaarDB eligibility from the immutable Screenshot bit,
   // the same filter GET /bazaardb/bundles applies.
-  return {
-    bundle_id: row.bundle_id,
-    run_id: row.run_id,
-    outcome: "duplicate",
-    bazaardb_delivery: row.has_screenshot === 1 ? "existing" : "not_applicable",
-  };
+  let bazaardbDelivery: BundleReceipt["bazaardb_delivery"] = "not_applicable";
+  if (hasScreenshot) bazaardbDelivery = outcome === "stored" ? "created" : "existing";
+  return { bundle_id: bundleId, run_id: runId, outcome, bazaardb_delivery: bazaardbDelivery };
+}
+
+export function conflictError(reason: ConflictReason): HttpError {
+  return reason === "bundle_id_conflict"
+    ? apiError(reason, "Bundle ID already has different bytes")
+    : apiError(reason, "Run already belongs to another Bundle");
 }
 
 function decideFromExisting(
@@ -60,7 +69,15 @@ function decideFromExisting(
 ): CommitOutcome | null {
   if (bundle !== null) {
     return bundle.bundle_sha256 === digest
-      ? { kind: "duplicate", receipt: duplicateReceipt(bundle) }
+      ? {
+          kind: "duplicate",
+          receipt: receipt(
+            "duplicate",
+            bundle.bundle_id,
+            bundle.run_id,
+            bundle.has_screenshot === 1,
+          ),
+        }
       : { kind: "conflict", reason: "bundle_id_conflict" };
   }
   if (runBundleId !== null && runBundleId !== descriptor.bundleId) {
@@ -208,7 +225,7 @@ export async function commitBundle(
     } catch {
       // The stable commit failure below owns read-after-failure errors too.
     }
-    throw new HttpError(503, "storage_unavailable", "Bundle index commit failed", true);
+    throw apiError("storage_unavailable", "Bundle index commit failed");
   }
 
   const projection = readProjection(statements, results);
@@ -218,5 +235,13 @@ export async function commitBundle(
       dropped: projection.eligible - projection.inserted,
     });
   }
-  return { kind: "committed", projection };
+  return {
+    kind: "stored",
+    receipt: receipt(
+      "stored",
+      descriptor.bundleId,
+      descriptor.runId,
+      descriptor.screenshot !== null,
+    ),
+  };
 }
