@@ -55,6 +55,10 @@ test('root documents, each project and global inputs select their complete gates
     ['bazaarplusplus-installer/src/lib/bindings.ts'],
     ['installer-frontend']
   );
+  expectScopes(
+    ['bazaarplusplus-installer/src-tauri/src/v5_import/mod.rs'],
+    ['installer', 'release']
+  );
   expectScopes(['bazaarplusplus-installer/rust-toolchain.toml'], ['installer']);
   expectScopes(
     ['bazaarplusplus-installer/src-tauri/.cargo/config.toml'],

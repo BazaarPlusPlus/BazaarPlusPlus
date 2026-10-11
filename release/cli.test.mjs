@@ -652,3 +652,28 @@ test('check warns on empty and stale Snapshot Lock entries and still passes', as
     /Snapshot Lock and release configuration aligned/
   );
 });
+
+test('check refuses 6.2.0 while the V5 import module exists and passes on 6.1.x', async () => {
+  const options = fixture();
+  const write = (version) =>
+    fs.writeFileSync(
+      path.join(options.workspaceRoot, 'VERSION'),
+      `${version}\n`
+    );
+  fs.mkdirSync(
+    path.join(
+      options.workspaceRoot,
+      'bazaarplusplus-installer/src-tauri/src/v5_import'
+    ),
+    { recursive: true }
+  );
+  write('6.1.9');
+  await main(['sync'], options);
+  await main(['check'], options);
+  write('6.2.0');
+  await main(['sync'], options);
+  await expect(main(['check'], options)).rejects.toThrow(
+    /bazaarplusplus-installer\/src-tauri\/src\/v5_import\/ must be deleted before 6\.2\.0 \(VERSION is 6\.2\.0\); see .*issues\/264 and bazaarplusplus-installer\/docs\/adr\/0008-legacy-data-roots-and-v5-import\.md/
+  );
+  expect(options.createStore).not.toHaveBeenCalled();
+});
