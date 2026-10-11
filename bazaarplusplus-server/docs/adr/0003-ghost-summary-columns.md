@@ -7,7 +7,7 @@
 
 D1 的最终 Ghost 表为 `ghost_battle_summaries`，包含十五列。以有语义的表名建立影子表，使新 Worker 的读写目标在过渡及最终状态中保持一致，避免切换时重命名活跃表或重建索引。旧 `ghost_battles` 及 `projection_json` 在迁移结束时删除。
 
-保留身份及查询字段 `uploader_account_id`、`battle_id`、`bundle_id`、`opponent_account_id`、`recorded_at_ms`、`is_final_battle`；摘要字段为 `day`、`hour`、`result`、`winner_combatant_id`、`player_display_name`、`player_hero_name`、`opponent_hero_name`、`player_rank`、`player_rating`。可空的胜者、英雄、段位和评分保持 SQL NULL，响应输出 JSON null。
+保留身份及查询字段 `uploader_account_id`、`battle_id`、`bundle_id`、`opponent_account_id`、`recorded_at_ms`、`is_final_battle`；摘要字段为 `day`、`hour`、`result`、`winner_combatant_id`、`player_display_name`、`player_hero_name`、`opponent_hero_name`、`player_rank`、`player_rating`。`winner_combatant_id` 自 Bundle V6 起必填（NOT NULL）；可空的英雄、段位和评分保持 SQL NULL，响应输出 JSON null。
 
 HTTP 仍按上传者视角构造 `player` 和 `opponent` 对象；`player` 是挑战者，`opponent` 是被查询的本地玩家。下载 URL 及到期时间在查询时签发，对象键来自父 Bundle。普通列名不是公开的扁平 API。
 
