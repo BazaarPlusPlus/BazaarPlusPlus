@@ -5,6 +5,8 @@ Credential derivation fails closed, before any bucket request, when:
   the account id is not 32 hex characters   -> ValueError "CLOUDFLARE_ACCOUNT_ID must be"
   the bucket name is not a valid R2 bucket  -> ValueError "Invalid R2 bucket"
   /user/tokens/verify is not 200 or success -> ObjectStoreError "Cloudflare rejected"
+    (with an account id, an account-owned token is retried at
+    /accounts/{id}/tokens/verify, and fails the same way there)
   the verify result has no 32-hex token id  -> ObjectStoreError "returned no token id"
   the token is not active                   -> ObjectStoreError "not active"
   the verify request itself fails           -> ObjectStoreError "verification failed"
@@ -109,6 +111,42 @@ def test_s3_pair_is_the_verified_token_id_and_the_sha256_of_the_token() -> None:
     assert verify.requests[0].headers["authorization"] == f"Bearer {token}"
 
 
+def test_an_account_owned_token_verifies_at_the_account_endpoint() -> None:
+    token = _token()
+    verify = _Verify(_verified(code=401, success=False), _verified())
+    with verify.client() as client:
+        pair = derive_s3_credentials(token, account_id=ACCOUNT.upper(), client=client)
+
+    assert pair == (TOKEN_ID, hashlib.sha256(token.encode()).hexdigest())
+    assert [str(request.url) for request in verify.requests] == [
+        f"{CLOUDFLARE_API}/user/tokens/verify",
+        f"{CLOUDFLARE_API}/accounts/{ACCOUNT}/tokens/verify",
+    ]
+    assert verify.requests[1].headers["authorization"] == f"Bearer {token}"
+
+
+def test_a_token_rejected_everywhere_fails_and_needs_an_account_id_to_retry() -> None:
+    verify = _Verify(_verified(code=401, success=False))
+    with verify.client() as client, pytest.raises(ObjectStoreError, match="Cloudflare rejected"):
+        derive_s3_credentials(_token(), client=client)
+    assert len(verify.requests) == 1
+
+    verify = _Verify(_verified(code=401, success=False), _verified(code=401, success=False))
+    with verify.client() as client, pytest.raises(ObjectStoreError, match="Cloudflare rejected"):
+        derive_s3_credentials(_token(), account_id=ACCOUNT, client=client)
+    assert len(verify.requests) == 2
+
+    with pytest.raises(ValueError, match="CLOUDFLARE_ACCOUNT_ID must be"):
+        derive_s3_credentials(_token(), account_id="not-an-account")
+
+
+def test_an_inactive_user_token_is_not_retried_at_the_account_endpoint() -> None:
+    verify = _Verify(_verified(status="disabled"))
+    with verify.client() as client, pytest.raises(ObjectStoreError, match="not active"):
+        derive_s3_credentials(_token(), account_id=ACCOUNT, client=client)
+    assert len(verify.requests) == 1
+
+
 def test_r2_adapter_derives_its_pair_once_and_uses_exact_json_metadata(monkeypatch) -> None:
     now = datetime(2026, 8, 11, tzinfo=UTC)
     client = _FakeR2Client(now)
@@ -200,21 +238,25 @@ def test_r2_configuration_is_validated_before_any_request(monkeypatch) -> None:
     assert verify.requests == []
 
 
+_REJECTED = _verified(code=401, success=False)
+
+
 @pytest.mark.parametrize(
-    ("response", "message"),
+    ("responses", "message"),
     (
-        (_verified(code=401, success=False), "Cloudflare rejected CLOUDFLARE_API_TOKEN: HTTP 401"),
-        (httpx.Response(500, text="not json"), "HTTP 500"),
+        # A rejection is retried at the account endpoint, which rejects it too.
+        ((_REJECTED, _REJECTED), "Cloudflare rejected CLOUDFLARE_API_TOKEN: HTTP 401"),
+        ((httpx.Response(500, text="not json"), _REJECTED), "HTTP 401"),
         (
-            httpx.Response(200, json={"success": True, "result": {"status": "active"}}),
+            (httpx.Response(200, json={"success": True, "result": {"status": "active"}}),),
             "no token id",
         ),
-        (_verified(status="expired"), "is expired, not active"),
-        (None, "verification failed"),
+        ((_verified(status="expired"),), "is expired, not active"),
+        ((), "verification failed"),
     ),
 )
 def test_a_rejected_malformed_or_failed_verification_fails_and_is_retried(
-    monkeypatch, response, message
+    monkeypatch, responses, message
 ) -> None:
     monkeypatch.setattr(
         object_store_module.boto3,
@@ -222,11 +264,11 @@ def test_a_rejected_malformed_or_failed_verification_fails_and_is_retried(
         lambda *_args, **_kwargs: _FakeR2Client(datetime(2026, 8, 11, tzinfo=UTC)),
     )
     token = _token()
-    verify = _Verify() if response is None else _Verify(response, _verified())
+    verify = _Verify(*responses)
     with verify.client() as http:
         with pytest.raises(ObjectStoreError, match=message):
             R2ObjectStore(account_id=ACCOUNT, bucket="bucket", api_token=token, http_client=http)
-        if response is None:
-            verify.responses.append(_verified())
+        failed = len(verify.requests)
+        verify.responses.append(_verified())
         R2ObjectStore(account_id=ACCOUNT, bucket="bucket", api_token=token, http_client=http)
-    assert len(verify.requests) == 2
+    assert len(verify.requests) == failed + 1

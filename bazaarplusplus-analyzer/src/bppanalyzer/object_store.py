@@ -24,13 +24,13 @@ class ObjectStoreError(RuntimeError):
     """An object-store request failed or returned inconsistent metadata."""
 
 
-def _verify_token(token: str, client: httpx.Client | None) -> str:
+class _TokenRejected(ObjectStoreError):
+    """The verify endpoint answered, and did not accept the token."""
+
+
+def _verify_token(token: str, url: str, client: httpx.Client | None) -> str:
     def request(http: httpx.Client) -> httpx.Response:
-        return http.get(
-            f"{CLOUDFLARE_API}/user/tokens/verify",
-            headers={"Authorization": f"Bearer {token}"},
-            timeout=30.0,
-        )
+        return http.get(url, headers={"Authorization": f"Bearer {token}"}, timeout=30.0)
 
     try:
         if client is not None:
@@ -45,7 +45,7 @@ def _verify_token(token: str, client: httpx.Client | None) -> str:
     except ValueError:
         body = None
     if response.status_code != 200 or not isinstance(body, dict) or body.get("success") is not True:
-        raise ObjectStoreError(
+        raise _TokenRejected(
             f"Cloudflare rejected CLOUDFLARE_API_TOKEN: HTTP {response.status_code}"
         )
     result = body.get("result") or {}
@@ -58,21 +58,36 @@ def _verify_token(token: str, client: httpx.Client | None) -> str:
     return token_id
 
 
-def derive_s3_credentials(api_token: str, *, client: httpx.Client | None = None) -> tuple[str, str]:
+def derive_s3_credentials(
+    api_token: str, *, account_id: str | None = None, client: httpx.Client | None = None
+) -> tuple[str, str]:
     """The S3 pair R2 accepts for an API token.
 
-    The Access Key ID is the token's id, which only ``GET /user/tokens/verify``
-    reveals, and the Secret Access Key is the SHA-256 of the token value. The
-    verified id is reused for the rest of the process.
+    The Access Key ID is the token's id, which only the token verify endpoint
+    reveals, and the Secret Access Key is the SHA-256 of the token value. A
+    user-owned token verifies at ``GET /user/tokens/verify``; an account-owned
+    token is rejected there and verifies at
+    ``GET /accounts/{account_id}/tokens/verify``, tried only when
+    ``account_id`` is given. The verified id is reused for the rest of the
+    process.
     """
     token = api_token.strip()
     if not token:
         raise ValueError("CLOUDFLARE_API_TOKEN is empty")
+    if account_id is not None and _ACCOUNT_ID.fullmatch(account_id) is None:
+        raise ValueError("CLOUDFLARE_ACCOUNT_ID must be the 32-character hexadecimal account id")
     # Cloudflare defines the secret as this digest; it is not password storage.
     secret = hashlib.sha256(token.encode()).hexdigest()  # lgtm[py/weak-sensitive-data-hashing]
     access_key_id = _verified_token_ids.get(secret)
     if access_key_id is None:
-        access_key_id = _verify_token(token, client)
+        try:
+            access_key_id = _verify_token(token, f"{CLOUDFLARE_API}/user/tokens/verify", client)
+        except _TokenRejected:
+            if account_id is None:
+                raise
+            access_key_id = _verify_token(
+                token, f"{CLOUDFLARE_API}/accounts/{account_id.lower()}/tokens/verify", client
+            )
         _verified_token_ids[secret] = access_key_id
     return access_key_id, secret
 
@@ -132,7 +147,9 @@ class R2ObjectStore:
             )
         if _BUCKET.fullmatch(bucket) is None:
             raise ValueError("Invalid R2 bucket")
-        access_key_id, secret_access_key = derive_s3_credentials(api_token, client=http_client)
+        access_key_id, secret_access_key = derive_s3_credentials(
+            api_token, account_id=account_id, client=http_client
+        )
         self.bucket = bucket
         self._client = boto3.client(
             "s3",
