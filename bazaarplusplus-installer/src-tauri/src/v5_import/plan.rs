@@ -762,9 +762,17 @@ fn data_relative_path(raw: &str, directory: &Path) -> Option<String> {
         return None;
     }
     let relative = if Path::new(trimmed).is_absolute() {
+        // A `\\?\` path treats `/` as part of a name, so a root written that
+        // way followed by `/`-joined segments never matches; Windows reads
+        // either separator the same in any other absolute path.
+        let written = if cfg!(windows) {
+            trimmed.replace('/', "\\")
+        } else {
+            trimmed.to_owned()
+        };
         // Compare as written and with links resolved: the game directory may be
         // reached through a symbolic link, as macOS temporary folders are.
-        let path = Path::new(trimmed);
+        let path = Path::new(&written);
         let paths = [Some(path.to_path_buf()), path.canonicalize().ok()];
         let bases = [Some(directory.to_path_buf()), directory.canonicalize().ok()];
         let rest = paths.iter().flatten().find_map(|path| {
