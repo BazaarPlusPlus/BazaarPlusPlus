@@ -80,8 +80,7 @@ describe("the public route table", () => {
     ["/health", "GET"],
     ["/bundles", "GET, POST"],
     ["/ghost-battles", "GET"],
-    ["/bazaardb/deliveries/claim", "POST"],
-    ["/bazaardb/deliveries/settle", "POST"],
+    ["/bazaardb/bundles", "GET"],
   ])("OPTIONS %s only advertises the real route", async (path, allow) => {
     const response = await worker.fetch(
       new Request(`https://mod-api-v6.bazaarplusplus.com${path}`, {
@@ -147,8 +146,7 @@ describe("service-token scopes", () => {
 
   test("BazaarDB routes reject a valid Bundle Sync token with insufficient_scope", async () => {
     const response = await worker.fetch(
-      new Request("https://mod-api-v6.bazaarplusplus.com/bazaardb/deliveries/claim", {
-        method: "POST",
+      new Request("https://mod-api-v6.bazaarplusplus.com/bazaardb/bundles", {
         headers: {
           Authorization: `Bearer ${env.BUNDLE_SYNC_TOKEN}`,
         },

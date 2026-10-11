@@ -1,5 +1,4 @@
-import { claimDeliveries, settleDeliveries } from "../modules/bazaardb-delivery";
-import { collectBundles } from "../modules/bundle-collection";
+import { collectBazaarDbBundles, collectBundles } from "../modules/bundle-collection";
 import { ingestBundle } from "../modules/bundle-ingest";
 import { discoverGhostBattles } from "../modules/ghost-battle-discovery";
 import type { RouteDefinition } from "./route-shell";
@@ -41,21 +40,12 @@ export const V5_ROUTES = [
     }),
   },
   {
-    path: "/bazaardb/deliveries/claim",
-    method: "POST",
+    path: "/bazaardb/bundles",
+    method: "GET",
     auth: "bazaardb_delivery",
     handler: async (context) => ({
       status: 200,
-      body: await claimDeliveries(context.request, context.env, context.requestId),
-    }),
-  },
-  {
-    path: "/bazaardb/deliveries/settle",
-    method: "POST",
-    auth: "bazaardb_delivery",
-    handler: async (context) => ({
-      status: 200,
-      body: await settleDeliveries(context.request, context.env, context.requestId),
+      body: await collectBazaarDbBundles(context.request, context.env, context.requestId),
     }),
   },
 ] as const satisfies readonly RouteDefinition[];

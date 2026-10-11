@@ -4,11 +4,11 @@ Cloudflare Worker for the BazaarPlusPlus V6 Bundle pipeline, served at `mod-api-
 
 A Bundle is the immutable unit of upload, storage, and delivery — exactly one Run plus at most one optional Screenshot. Three properties shape everything else:
 
-- **Bounded maintenance.** Delivery maintenance converges in bounded batches on claim traffic, and a scheduled handler prunes old Bundle metadata from D1 in bounded batches ([ADR 0002](docs/adr/0002-d1-retention.md)). Uploader assertions remain deployment-lifetime state.
+- **Bounded maintenance.** The only maintenance is a scheduled handler that prunes old Bundle metadata from D1 in bounded batches ([ADR 0002](docs/adr/0002-d1-retention.md)). Uploader assertions remain deployment-lifetime state.
 - **Streaming, not buffering.** Ingest buffers only the fixed prefix and the bounded manifest; Run and Screenshot bytes stream through incremental digest validation into a single conditional R2 PUT and are never decompressed.
 - **No download proxy.** Every consumer downloads the same complete Bundle directly from R2 through a seven-day presigned `GET` URL, inside an 8-day R2 lifecycle window.
 
-The public surface is six routes: liveness, public streaming ingest, token-protected analyzer sync, rate-limited Ghost discovery, and the BazaarDB claim/settle pair. The wire contract is [docs/api-reference.md](docs/api-reference.md); the binary Bundle format and its golden vectors are [contracts/v6](contracts/v6) (V6 only; [contracts/v5](contracts/v5) is frozen); the domain language is [CONTEXT.md](CONTEXT.md).
+The public surface is five routes: liveness, public streaming ingest, token-protected analyzer sync, rate-limited Ghost discovery, and the token-protected BazaarDB Feed ([ADR 0004](docs/adr/0004-bazaardb-cursor-feed.md)). The wire contract is [docs/api-reference.md](docs/api-reference.md); the binary Bundle format and its golden vectors are [contracts/v6](contracts/v6) (V6 only; [contracts/v5](contracts/v5) is frozen); the domain language is [CONTEXT.md](CONTEXT.md).
 
 ## Architecture
 
