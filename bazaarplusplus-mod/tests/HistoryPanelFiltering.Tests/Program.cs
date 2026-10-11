@@ -798,7 +798,7 @@ void SetPage(object state, string propertyName, params object[] records)
     var rows = Array.CreateInstance(pageType.GetGenericArguments()[0], records.Length);
     for (var i = 0; i < records.Length; i++)
         rows.SetValue(records[i], i);
-    var anchor = Construct(cursorType, "2026-01-01T00:00:00Z", "anchor");
+    var anchor = Construct(cursorType, 1767225600000L, "anchor");
     property.SetValue(
         state,
         counted
