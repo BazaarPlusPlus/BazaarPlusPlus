@@ -1,4 +1,4 @@
-name = "bazaarplusplus-mod-api-v5"
+name = "bazaarplusplus-mod-api-v6"
 main = "src/index.ts"
 compatibility_date = "2026-08-02"
 workers_dev = false
@@ -21,22 +21,24 @@ head_sampling_rate = 1.0
 R2_ACCOUNT_ID = "ea3913fc761734a6851a53732cbe7701"
 
 [[routes]]
-pattern = "mod-api-v5.bazaarplusplus.com"
+pattern = "mod-api-v6.bazaarplusplus.com"
 custom_domain = true
 
 [[d1_databases]]
 binding = "DB"
-database_name = "bazaarplusplus-mod-api-v5-db"
-database_id = "953b02ef-f990-4a30-90ad-69fa9c04f2ea"
-migrations_dir = "migrations"
+database_name = "bazaarplusplus-mod-api-v6-db"
+# Placeholder until `wrangler d1 create` returns the V6 UUID (docs/deployment-runbook.md, step 2).
+database_id = "00000000-0000-0000-0000-000000000000"
+migrations_dir = "migrations-v6"
 
 [[r2_buckets]]
 binding = "BUNDLE_BUCKET"
-bucket_name = "bazaarplusplus-bundle-v5"
+bucket_name = "bazaarplusplus-bundle-v6"
 
 [[ratelimits]]
 name = "GHOST_BATTLE_RATE_LIMITER"
-namespace_id = "1001"
+# The V5 Worker uses 1001 in the same account; a distinct ID keeps the two limiters separate.
+namespace_id = "1002"
 
 [ratelimits.simple]
 limit = 60

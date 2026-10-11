@@ -22,7 +22,7 @@ describe("Bundle download presigner adapters", () => {
     const signed = await createBundleDownloadSigner(env).sign(key, issuedAt);
     const url = new URL(signed.url);
 
-    expect(url.hostname).toBe("bazaarplusplus-bundle-v5.test-account-id.r2.cloudflarestorage.com");
+    expect(url.hostname).toBe("bazaarplusplus-bundle-v6.test-account-id.r2.cloudflarestorage.com");
     expect(url.pathname).toBe(`/${key}`);
     expect(url.searchParams.get("X-Amz-Expires")).toBe("604800");
     expect(url.searchParams.get("X-Amz-Credential")).toContain("/auto/s3/aws4_request");

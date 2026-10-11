@@ -17,7 +17,7 @@ steps to reproduce, and the impact you expect. We aim to acknowledge a report wi
 In scope:
 
 - The mod and the desktop installer, including install, repair, update, and the updater signature.
-- The upload backend at `mod-api-v5.bazaarplusplus.com` and the data it stores or serves.
+- The upload backends at `mod-api-v6.bazaarplusplus.com` and, until it is retired, `mod-api-v5.bazaarplusplus.com`, and the data they store or serve.
 - bazaarplusplus.com and its download page.
 
 Out of scope: The Bazaar itself, BepInEx, and other third-party components, which should be

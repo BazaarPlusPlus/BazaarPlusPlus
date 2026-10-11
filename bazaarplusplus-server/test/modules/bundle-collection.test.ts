@@ -28,7 +28,7 @@ async function insertBundle(bundleId: string, availableAtMs: number): Promise<vo
 }
 
 function collectionRequest(query: string, token = SYNC_TOKEN): Request {
-  return new Request(`https://mod-api-v5.bazaarplusplus.com/bundles?${query}`, {
+  return new Request(`https://mod-api-v6.bazaarplusplus.com/bundles?${query}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
 }
@@ -93,7 +93,7 @@ describe("GET /bundles", () => {
     });
     const signed = new URL(firstBody.items[0].download_url);
     expect(signed.hostname).toBe(
-      "bazaarplusplus-bundle-v5.test-account-id.r2.cloudflarestorage.com",
+      "bazaarplusplus-bundle-v6.test-account-id.r2.cloudflarestorage.com",
     );
     expect(signed.searchParams.get("X-Amz-Expires")).toBe("604800");
     expect(firstBody.items[0]).not.toHaveProperty("object_key");

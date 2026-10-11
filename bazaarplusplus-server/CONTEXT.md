@@ -1,4 +1,4 @@
-# BPP V5 Data Pipeline
+# BPP V6 Data Pipeline
 
 This Worker receives completed game-run Bundles and makes them discoverable by trusted analyzers, Ghost Battle clients, and BazaarDB.
 
@@ -20,7 +20,7 @@ Bundle ingest buffers only the fixed prefix and bounded manifest. Run and Screen
 
 All consumers download the same complete Bundle directly from a seven-day R2 presigned `GET` URL. The Worker has no download proxy. R2 retention is 8 days. Ghost queries expose only the most recent five days, and Bundle collection accepts only the 8-day R2 window. D1 retention uses `bundles.stored_at_ms`; deleting a Bundle after 15 days cascades to its Ghost projections, delivery, and attempt receipts. Client timestamps and settlement do not extend retention. Bundle and attempt deduplication records exist only within this metadata retention window.
 
-`bundle_uploaders` is monotonic for the V5 deployment. It records successful uploader assertions, not authenticated identities. A projection is eligible only for self or an opponent already present before that Bundle's final uploader insert; rejected history is never backfilled.
+`bundle_uploaders` is monotonic within one deployment; the V6 D1 starts empty and is not seeded from V5. It records successful uploader assertions, not authenticated identities. A projection is eligible only for self or an opponent already present before that Bundle's final uploader insert; rejected history is never backfilled.
 
 Avoid the V4 and abandoned names: Boundle, Pack, Run artifact, Run Bundle, Snapshot, and Screenshot upload.
 

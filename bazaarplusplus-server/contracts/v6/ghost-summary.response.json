@@ -20,7 +20,7 @@
         "account_id": "account-local",
         "hero_name": "Pygmalien"
       },
-      "download_url": "https://bazaarplusplus-bundle-v5.test-account-id.r2.cloudflarestorage.com/bundles/2026-09-12/01J00000000000000000000801.bundle?X-Amz-Expires=604800&X-Amz-Date=20260912T104640Z&X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=test-access-key-id%2F20260912%2Fauto%2Fs3%2Faws4_request&X-Amz-SignedHeaders=host&X-Amz-Signature=d2a9fce27039946ff55563631600e90266f8691f1cbfa94ba04f7852e47cd1d3",
+      "download_url": "https://bazaarplusplus-bundle-v6.test-account-id.r2.cloudflarestorage.com/bundles/2026-09-12/01J00000000000000000000801.bundle?X-Amz-Expires=604800&X-Amz-Date=20260912T104640Z&X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=test-access-key-id%2F20260912%2Fauto%2Fs3%2Faws4_request&X-Amz-SignedHeaders=host&X-Amz-Signature=66af8105b350bf9908afcf2df530e746a2245ac47fda5695047598c49b3d4a8a",
       "download_expires_at_ms": 1789814800000
     }
   ]

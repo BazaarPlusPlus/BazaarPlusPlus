@@ -14,7 +14,7 @@
       LogicalName="ModApi.Tests.mod-api-errors.json"
     />
     <EmbeddedResource
-      Include="../../../bazaarplusplus-server/contracts/v5/ghost-summary.response.json"
+      Include="../../../bazaarplusplus-server/contracts/v6/ghost-summary.response.json"
       LogicalName="ModApi.Tests.ghost-summary.response.json"
     />
   </ItemGroup>
