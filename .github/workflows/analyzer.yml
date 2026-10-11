@@ -106,7 +106,9 @@ jobs:
           import os
           from bppanalyzer.object_store import derive_s3_credentials
 
-          key_id, secret = derive_s3_credentials(os.environ["BPP_ANALYZER_R2_TOKEN"])
+          key_id, secret = derive_s3_credentials(
+              os.environ["BPP_ANALYZER_R2_TOKEN"], account_id=os.environ["CLOUDFLARE_ACCOUNT_ID"]
+          )
           print(f"::add-mask::{key_id}")
           print(f"::add-mask::{secret}")
           with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as env:
