@@ -546,7 +546,7 @@ mod tests {
         // game write or checkpoint can.
         let connection =
             rusqlite::Connection::open(crate::services::paths::database_path(game_path)).unwrap();
-        crate::history::test_schema::create_mod_schema(&connection);
+        crate::history::mod_schema::create_mod_schema(&connection);
         connection
             .execute_batch(
                 "insert into run_screenshots (

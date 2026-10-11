@@ -70,7 +70,7 @@ impl CleanupCutoff {
     }
 }
 
-const PROTECTED_RUN_PREDICATE: &str = "
+pub(crate) const PROTECTED_RUN_PREDICATE: &str = "
     r.upload_policy = 'bundle'
     and r.status = 'completed'
     and lower(r.game_mode) = 'ranked'
@@ -759,7 +759,7 @@ fn remaining_video_relative_paths_after_run_cleanup(
 }
 
 /// Replay payload path: `<CombatReplays>/<battleId>.payload.mpack.gz`.
-fn replay_payload_path(replays_dir: &Path, battle_id: &str) -> Option<PathBuf> {
+pub(crate) fn replay_payload_path(replays_dir: &Path, battle_id: &str) -> Option<PathBuf> {
     let trimmed = battle_id.trim();
     // `:` guards against a Windows drive-relative id like `C:target`, which has
     // no `/`/`\\` yet escapes `replays_dir` when joined via its drive prefix.
@@ -1036,7 +1036,7 @@ fn estimate_screenshot_bytes(screenshots_dir: &Path, items: &[ScreenshotCleanupI
         .sum()
 }
 
-fn normalize_relative_path(path: &str) -> String {
+pub(crate) fn normalize_relative_path(path: &str) -> String {
     path.trim()
         .split(['/', '\\'])
         .filter_map(|segment| {
@@ -1123,7 +1123,7 @@ fn remove_empty_dated_directories(screenshots_dir: &Path) {
 #[cfg(test)]
 mod tests {
     use super::{plan_screenshot_cleanup, CleanupCutoff, StorageCleanupPreset};
-    use crate::history::test_schema::create_mod_schema;
+    use crate::history::mod_schema::create_mod_schema;
     use chrono::{DateTime, FixedOffset, NaiveDate, SecondsFormat, TimeZone, Utc};
     use rusqlite::Connection;
     use std::collections::HashSet;

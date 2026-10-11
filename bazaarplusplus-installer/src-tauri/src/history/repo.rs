@@ -142,7 +142,7 @@ mod tests {
     use super::{delete_battle_video, get_history_run_detail, list_history_runs};
     use crate::config::DATABASE_FILE_NAME;
     use crate::history::dto::{HistoryBattleRow, HistoryBattleVideo};
-    use crate::history::test_schema::create_mod_schema;
+    use crate::history::mod_schema::create_mod_schema;
     use crate::services::paths;
 
     #[test]

@@ -428,7 +428,7 @@ mod tests {
         load_latest_overlay_snapshot, load_overlay_snapshot_by_id, load_overlay_snapshot_count,
         load_overlay_snapshot_list, load_screenshot_image_path, overlay_from_ms,
     };
-    use crate::history::test_schema::create_mod_schema;
+    use crate::history::mod_schema::create_mod_schema;
 
     #[test]
     fn latest_overlay_record_returns_none_when_database_has_no_rows() {

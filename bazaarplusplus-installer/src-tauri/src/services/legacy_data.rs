@@ -23,7 +23,7 @@ pub(crate) const LEGACY_ROOT_ERR_PARTIAL_FAILURE: &str = "legacy_root_delete_par
 
 /// The mod's Payload file that names the Data Root it writes. Mods before 6.0
 /// ship it without `dataRootDirectoryName`.
-const INSTALLED_HISTORY_DATABASE_CONTRACT: &str =
+pub(crate) const INSTALLED_HISTORY_DATABASE_CONTRACT: &str =
     "BepInEx/plugins/BazaarPlusPlus.history-database.json";
 
 /// One Legacy Root. [`LegacyRoot::ALL`] is the only list of them in the

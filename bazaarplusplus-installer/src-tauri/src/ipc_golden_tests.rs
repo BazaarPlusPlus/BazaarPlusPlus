@@ -13,7 +13,7 @@
 use std::path::{Path, PathBuf};
 
 use crate::goldens::{assert_golden, json};
-use crate::history::test_schema::create_mod_schema;
+use crate::history::mod_schema::create_mod_schema;
 use crate::services::detect::InstallEnvironmentSnapshot;
 use crate::services::history::{History, StorageCleanupPreset, StorageCleanupScope};
 use crate::services::install::install_state_from_snapshot;

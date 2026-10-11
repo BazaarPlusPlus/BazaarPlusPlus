@@ -15,7 +15,7 @@ use super::overlay_settings::OverlaySettingsStore;
 use super::records::OverlayRecordRepository;
 use super::runtime::StreamRuntime;
 use crate::goldens::{assert_golden, golden_path, json};
-use crate::history::test_schema::create_mod_schema;
+use crate::history::mod_schema::create_mod_schema;
 use crate::services::paths;
 use sha2::{Digest, Sha256};
 use tower::ServiceExt;

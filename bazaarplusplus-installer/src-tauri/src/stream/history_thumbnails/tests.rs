@@ -29,7 +29,7 @@ fn add_screenshot(game_path: &Path, id: &str, capture_source: &str, color: [u8; 
     let first_use = !database_path.exists();
     let connection = rusqlite::Connection::open(database_path).unwrap();
     if first_use {
-        crate::history::test_schema::create_mod_schema(&connection);
+        crate::history::mod_schema::create_mod_schema(&connection);
     }
     connection
         .execute(

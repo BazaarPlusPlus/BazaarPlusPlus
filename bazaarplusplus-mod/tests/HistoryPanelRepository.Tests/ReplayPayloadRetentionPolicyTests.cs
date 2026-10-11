@@ -1,6 +1,8 @@
 #nullable enable
+using System.Text.Json;
 using BazaarPlusPlus.Game.CombatReplay;
 using BazaarPlusPlus.Game.PvpBattles.Persistence;
+using BazaarPlusPlus.TestSupport;
 
 internal static class ReplayPayloadRetentionPolicyTests
 {
@@ -8,6 +10,27 @@ internal static class ReplayPayloadRetentionPolicyTests
     {
         KeepsNewestCountUnionAgeWindowAndProtectedPayloads();
         UsesBattleIdAsStableTieBreak();
+        HistoryDatabaseContractStatesTheRetention();
+    }
+
+    // The installer's one-time V5 import reads the retention from the installed copy of this
+    // contract, so it imports only the payloads the mod would keep.
+    private static void HistoryDatabaseContractStatesTheRetention()
+    {
+        using var contract = JsonDocument.Parse(
+            TestInputs.Fixture("src/BazaarPlusPlus.Storage/BazaarPlusPlus.history-database.json")
+        );
+        var root = contract.RootElement;
+        Equal(
+            ReplayPayloadRetentionPolicy.RetainedNewestCount,
+            root.GetProperty("replayPayloadRetainedNewestCount").GetInt32(),
+            "contract replayPayloadRetainedNewestCount"
+        );
+        Equal(
+            ReplayPayloadRetentionPolicy.RetainedAge,
+            TimeSpan.FromDays(root.GetProperty("replayPayloadRetainedAgeDays").GetInt32()),
+            "contract replayPayloadRetainedAgeDays"
+        );
     }
 
     private static void KeepsNewestCountUnionAgeWindowAndProtectedPayloads()

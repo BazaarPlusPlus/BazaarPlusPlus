@@ -127,7 +127,9 @@ function stage(rootDir, platform, contents) {
     JSON.stringify({
       formatVersion: 1,
       dataRootDirectoryName: 'BazaarPlusPlusV6',
-      historyDatabaseUserVersion: 2
+      historyDatabaseUserVersion: 2,
+      replayPayloadRetainedNewestCount: 200,
+      replayPayloadRetainedAgeDays: 30
     })
   );
 }

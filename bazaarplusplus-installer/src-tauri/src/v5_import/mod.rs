@@ -1,8 +1,25 @@
 //! The one-time import of V5 history into the current Data Root (ADR-0008).
 //! This module is deleted before 6.2.0; `release::check` refuses that version
-//! while it exists.
+//! while it exists. V5 constants and directory names appear only here.
+//!
+//! `run.rs` is the operation, `source.rs` reads V5, `plan.rs` maps rows and
+//! files, `target.rs` writes the current database, and `manifest.rs` is the
+//! headless command's evidence.
+
+mod error;
+mod instant;
+pub(crate) mod manifest;
+mod plan;
+mod run;
+mod source;
+mod target;
+#[cfg(test)]
+mod tests_e2e;
 
 use std::path::{Path, PathBuf};
+
+pub(crate) use error::ImportError;
+pub(crate) use run::import_v5;
 
 use crate::services::legacy_data::{
     installed_mod_data_root, is_real_directory, InstalledModDataRoot, LegacyRoot,
