@@ -4,7 +4,7 @@ import { afterEach, describe, expect, test, vi } from "vitest";
 import worker from "../src/index";
 import { makeBundleFixture, uploadRequest } from "./fixtures/bundle";
 
-const ORIGIN = "https://mod-api-v5.bazaarplusplus.com";
+const ORIGIN = "https://mod-api-v6.bazaarplusplus.com";
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -36,7 +36,7 @@ test("GET /health reports V5 liveness without dependency access", async () => {
 
 test("an unknown route returns the canonical not_found error", async () => {
   const response = await worker.fetch(
-    new Request("https://mod-api-v5.bazaarplusplus.com/unknown"),
+    new Request("https://mod-api-v6.bazaarplusplus.com/unknown"),
     {} as Cloudflare.Env,
   );
 
@@ -57,7 +57,7 @@ test("an unknown route returns the canonical not_found error", async () => {
 
 test("a known route with the wrong method returns method_not_allowed", async () => {
   const response = await worker.fetch(
-    new Request("https://mod-api-v5.bazaarplusplus.com/health", {
+    new Request("https://mod-api-v6.bazaarplusplus.com/health", {
       method: "POST",
     }),
     {} as Cloudflare.Env,
@@ -84,7 +84,7 @@ describe("the public route table", () => {
     ["/bazaardb/deliveries/settle", "POST"],
   ])("OPTIONS %s only advertises the real route", async (path, allow) => {
     const response = await worker.fetch(
-      new Request(`https://mod-api-v5.bazaarplusplus.com${path}`, {
+      new Request(`https://mod-api-v6.bazaarplusplus.com${path}`, {
         method: "OPTIONS",
       }),
       env,
@@ -106,7 +106,7 @@ describe("the public route table", () => {
 
   test("OPTIONS does not make an unknown route appear available", async () => {
     const response = await worker.fetch(
-      new Request("https://mod-api-v5.bazaarplusplus.com/not-a-route", {
+      new Request("https://mod-api-v6.bazaarplusplus.com/not-a-route", {
         method: "OPTIONS",
       }),
       env,
@@ -119,7 +119,7 @@ describe("the public route table", () => {
 describe("service-token scopes", () => {
   test("Bundle collection rejects a missing token before query parsing", async () => {
     const response = await worker.fetch(
-      new Request("https://mod-api-v5.bazaarplusplus.com/bundles"),
+      new Request("https://mod-api-v6.bazaarplusplus.com/bundles"),
       env,
     );
 
@@ -131,7 +131,7 @@ describe("service-token scopes", () => {
 
   test("Bundle collection rejects a valid BazaarDB token with insufficient_scope", async () => {
     const response = await worker.fetch(
-      new Request("https://mod-api-v5.bazaarplusplus.com/bundles", {
+      new Request("https://mod-api-v6.bazaarplusplus.com/bundles", {
         headers: {
           Authorization: `Bearer ${env.BAZAARDB_DELIVERY_TOKEN}`,
         },
@@ -147,7 +147,7 @@ describe("service-token scopes", () => {
 
   test("BazaarDB routes reject a valid Bundle Sync token with insufficient_scope", async () => {
     const response = await worker.fetch(
-      new Request("https://mod-api-v5.bazaarplusplus.com/bazaardb/deliveries/claim", {
+      new Request("https://mod-api-v6.bazaarplusplus.com/bazaardb/deliveries/claim", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${env.BUNDLE_SYNC_TOKEN}`,

@@ -38,7 +38,7 @@ describe("GET /ghost-battles", () => {
     const sign = vi.spyOn(crypto.subtle, "sign");
     const response = await worker.fetch(
       new Request(
-        `https://mod-api-v5.bazaarplusplus.com/ghost-battles?player_account_id=${account}`,
+        `https://mod-api-v6.bazaarplusplus.com/ghost-battles?player_account_id=${account}`,
       ),
       env,
     );
@@ -127,7 +127,7 @@ describe("GET /ghost-battles", () => {
 
     const response = await worker.fetch(
       new Request(
-        `https://mod-api-v5.bazaarplusplus.com/ghost-battles?player_account_id=${accountB}`,
+        `https://mod-api-v6.bazaarplusplus.com/ghost-battles?player_account_id=${accountB}`,
         { headers: { "CF-Connecting-IP": "203.0.113.9" } },
       ),
       env,
@@ -171,7 +171,7 @@ describe("GET /ghost-battles", () => {
       },
     } as unknown as Cloudflare.Env;
     const response = await worker.fetch(
-      new Request("https://mod-api-v5.bazaarplusplus.com/ghost-battles?bad=query", {
+      new Request("https://mod-api-v6.bazaarplusplus.com/ghost-battles?bad=query", {
         headers: { "CF-Connecting-IP": "198.51.100.7" },
       }),
       blockedEnv,
@@ -213,7 +213,7 @@ describe("GET /ghost-battles", () => {
 
     const response = await worker.fetch(
       new Request(
-        `https://mod-api-v5.bazaarplusplus.com/ghost-battles?player_account_id=${account}`,
+        `https://mod-api-v6.bazaarplusplus.com/ghost-battles?player_account_id=${account}`,
       ),
       env,
     );
@@ -257,7 +257,7 @@ describe("GET /ghost-battles", () => {
 
     const response = await worker.fetch(
       new Request(
-        `https://mod-api-v5.bazaarplusplus.com/ghost-battles?player_account_id=${account}`,
+        `https://mod-api-v6.bazaarplusplus.com/ghost-battles?player_account_id=${account}`,
       ),
       env,
     );
@@ -311,7 +311,7 @@ describe("GET /ghost-battles", () => {
       [accountA, accountB].map(async (account) => {
         const response = await worker.fetch(
           new Request(
-            `https://mod-api-v5.bazaarplusplus.com/ghost-battles?player_account_id=${account}`,
+            `https://mod-api-v6.bazaarplusplus.com/ghost-battles?player_account_id=${account}`,
           ),
           env,
         );
@@ -340,7 +340,7 @@ describe("GET /ghost-battles", () => {
 
     const response = await worker.fetch(
       new Request(
-        "https://mod-api-v5.bazaarplusplus.com/ghost-battles?player_account_id=ghost-rate-limiter-failure",
+        "https://mod-api-v6.bazaarplusplus.com/ghost-battles?player_account_id=ghost-rate-limiter-failure",
       ),
       failingEnv,
     );
@@ -364,7 +364,7 @@ describe("GET /ghost-battles", () => {
 
     const response = await worker.fetch(
       new Request(
-        "https://mod-api-v5.bazaarplusplus.com/ghost-battles?player_account_id=ghost-query-failure",
+        "https://mod-api-v6.bazaarplusplus.com/ghost-battles?player_account_id=ghost-query-failure",
       ),
       failingEnv,
     );
@@ -403,7 +403,7 @@ describe("GET /ghost-battles", () => {
     vi.spyOn(crypto.subtle, "sign").mockRejectedValue(new Error("signing failure"));
     const response = await worker.fetch(
       new Request(
-        `https://mod-api-v5.bazaarplusplus.com/ghost-battles?player_account_id=${account}`,
+        `https://mod-api-v6.bazaarplusplus.com/ghost-battles?player_account_id=${account}`,
       ),
       env,
     );

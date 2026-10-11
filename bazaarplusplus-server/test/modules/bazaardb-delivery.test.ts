@@ -24,7 +24,7 @@ async function uploadScreenshotBundle(index: number): Promise<string> {
 }
 
 function deliveryRequest(path: "claim" | "settle", body: unknown): Request {
-  return new Request(`https://mod-api-v5.bazaarplusplus.com/bazaardb/deliveries/${path}`, {
+  return new Request(`https://mod-api-v6.bazaarplusplus.com/bazaardb/deliveries/${path}`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${DELIVERY_TOKEN}`,
@@ -39,7 +39,7 @@ function rawDeliveryRequest(
   headers: HeadersInit,
   body?: BodyInit,
 ): Request {
-  return new Request(`https://mod-api-v5.bazaarplusplus.com/bazaardb/deliveries/${path}`, {
+  return new Request(`https://mod-api-v6.bazaarplusplus.com/bazaardb/deliveries/${path}`, {
     method: "POST",
     headers: { Authorization: `Bearer ${DELIVERY_TOKEN}`, ...headers },
     body,

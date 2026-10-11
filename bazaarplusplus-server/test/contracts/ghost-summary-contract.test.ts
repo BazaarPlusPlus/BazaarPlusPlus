@@ -1,6 +1,6 @@
 import { env } from "cloudflare:test";
 import { afterEach, expect, test, vi } from "vitest";
-import responseContract from "../../contracts/v5/ghost-summary.response.json";
+import responseContract from "../../contracts/v6/ghost-summary.response.json";
 import worker from "../../src/index";
 import { type BundleFixtureOptions, makeBundleFixture, uploadRequest } from "../fixtures/bundle";
 

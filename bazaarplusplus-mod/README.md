@@ -21,8 +21,8 @@
 
 **云同步（可选，默认按项说明）**
 
-- run / replay 后台上传到 V5 后端，仅在不处于 live run 时执行。
-- BazaarDB 截图上传默认关闭；启用后终局截图快照推到 V5 后端，由 BazaarDB 队列拉取。
+- run / replay 后台上传到 V6 后端，仅在不处于 live run 时执行。
+- BazaarDB 截图上传默认关闭；启用后终局截图快照推到 V6 后端，由 BazaarDB 队列拉取。
 - Anonymous Mode 可将本地玩家名替换为 `Anonymous`。
 
 ## 安装（玩家）

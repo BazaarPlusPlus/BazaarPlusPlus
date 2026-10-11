@@ -1,6 +1,8 @@
-# BazaarPlusPlus Server V5 API reference
+# BazaarPlusPlus Server V6 API reference
 
-Base URL: `https://mod-api-v5.bazaarplusplus.com`
+Base URL: `https://mod-api-v6.bazaarplusplus.com`
+
+Mod 6.0 and later use this Worker. The V5 Worker at `https://mod-api-v5.bazaarplusplus.com` keeps serving 5.7.0 with the same routes and the frozen [Bundle V5](../contracts/v5/bundle-v5.md) format ([deployment runbook](deployment-runbook.md#8-the-v5-worker)).
 
 The Worker exposes exactly these routes:
 
@@ -89,16 +91,16 @@ Authorization: Bearer <43-character unpadded base64url token>
 
 The two configured tokens must be distinct. A missing, malformed, empty, or unknown token returns `401 unauthorized`. A valid token for the other service scope returns `403 insufficient_scope`. If the deployed token configuration itself is invalid (a token missing, malformed, or both tokens equal), every protected route returns `500 internal_error` with `retryable: true` until the operator fixes the secrets. Authentication runs before JSON parsing, D1, R2, or URL signing.
 
-## Bundle V5 wire format
+## Bundle V6 wire format
 
-Content type: `application/x-bpp-bundle-v5`.
+Content type: `application/x-bpp-bundle-v6`.
 
 The 16-byte prefix uses unsigned big-endian integers:
 
 | Offset | Bytes | Value |
 |---:|---:|---|
-| 0 | 8 | ASCII `BPPBNDL5` |
-| 8 | 4 | Bundle version `5` |
+| 0 | 8 | ASCII `BPPBNDL6` |
+| 8 | 4 | Bundle version `6` |
 | 12 | 4 | UTF-8 manifest JSON byte length |
 
 The manifest is followed by one Run segment and an optional Screenshot segment. Segment offsets are relative to the first payload byte. The Run starts at offset `0`; a Screenshot starts at the Run length. Gaps, overlap, and trailing bytes are invalid.
@@ -108,12 +110,12 @@ Manifest shape:
 ```json
 {
   "bundle_id": "01J00000000000000000000001",
-  "bundle_version": 5,
+  "bundle_version": 6,
   "created_at_ms": 1785628800000,
   "run": {
     "run_id": "run-id",
     "player_account_id": "account-id",
-    "run_format_version": 5,
+    "run_format_version": 6,
     "projection": {
       "run": {},
       "battles": [
@@ -157,7 +159,7 @@ Manifest shape:
       "offset": 0,
       "length": 123456,
       "sha256": "64-lowercase-hex-characters",
-      "content_type": "application/x-bpp-run-v5"
+      "content_type": "application/x-bpp-run-v6"
     }
   },
   "screenshot": {
@@ -173,7 +175,7 @@ Manifest shape:
 }
 ```
 
-The `screenshot` key is absent for a Run-only Bundle. Every optional combatant scalar is present as either its value or `null`. `bundle_id` is a canonical uppercase ULID, and other identities use 1–128 characters from letters, digits, `.`, `_`, `:`, and `-`, beginning with a letter or digit. Unknown manifest fields are ignored.
+The `screenshot` key is absent for a Run-only Bundle. Every optional combatant scalar is present as either its value or `null`. `bundle_id` is a canonical uppercase ULID, and other identities use 1–128 characters from letters, digits, `.`, `_`, `:`, and `-`, beginning with a letter or digit. Unknown manifest fields are ignored. Every time is a Unix millisecond integer, in the manifest and in the [Run segment](../../bazaarplusplus-mod/docs/contracts/run-payload-v6.md).
 
 Limits:
 
@@ -186,7 +188,7 @@ Limits:
 | Run projection | 524,288 UTF-8 bytes |
 | Battle projections | 30, with unique IDs inside the Bundle |
 
-The machine-readable contract is in [`../contracts/v5/manifest.schema.json`](../contracts/v5/manifest.schema.json), with prefix details and golden vectors under [`../contracts/v5`](../contracts/v5).
+The machine-readable contract is in [`../contracts/v6/manifest.schema.json`](../contracts/v6/manifest.schema.json), with prefix details and golden vectors under [`../contracts/v6`](../contracts/v6). This Worker rejects V5 Bundles.
 
 ## `GET /health`
 
@@ -208,7 +210,7 @@ Public ingest for one sealed Bundle. `run.player_account_id` is not authenticate
 Required headers:
 
 ```http
-Content-Type: application/x-bpp-bundle-v5
+Content-Type: application/x-bpp-bundle-v6
 Content-Length: 1234567
 Content-Digest: sha-256=:<base64 SHA-256 of complete Bundle>:
 ```
@@ -270,7 +272,7 @@ Response `200`:
     {
       "bundle_id": "01J00000000000000000000001",
       "available_at_ms": 1785629000000,
-      "download_url": "https://bazaarplusplus-bundle-v5.<ACCOUNT_ID>.r2.cloudflarestorage.com/bundles/...bundle?X-Amz-Expires=604800&...",
+      "download_url": "https://bazaarplusplus-bundle-v6.<ACCOUNT_ID>.r2.cloudflarestorage.com/bundles/...bundle?X-Amz-Expires=604800&...",
       "download_expires_at_ms": 1786233800000
     }
   ],
@@ -322,7 +324,7 @@ Response `200`:
         "account_id": "account-id",
         "hero_name": "Pygmalien"
       },
-      "download_url": "https://bazaarplusplus-bundle-v5.<ACCOUNT_ID>.r2.cloudflarestorage.com/bundles/...bundle?X-Amz-Expires=604800&...",
+      "download_url": "https://bazaarplusplus-bundle-v6.<ACCOUNT_ID>.r2.cloudflarestorage.com/bundles/...bundle?X-Amz-Expires=604800&...",
       "download_expires_at_ms": 1786233800000
     }
   ]
@@ -360,9 +362,9 @@ Response `200`:
     {
       "bundle_id": "01J00000000000000000000001",
       "run_id": "run-id",
-      "download_url": "https://bazaarplusplus-bundle-v5.<ACCOUNT_ID>.r2.cloudflarestorage.com/bundles/...bundle?X-Amz-Expires=604800&...",
+      "download_url": "https://bazaarplusplus-bundle-v6.<ACCOUNT_ID>.r2.cloudflarestorage.com/bundles/...bundle?X-Amz-Expires=604800&...",
       "download_expires_at_ms": 1786233800000,
-      "content_type": "application/x-bpp-bundle-v5",
+      "content_type": "application/x-bpp-bundle-v6",
       "sha256": "64-lowercase-hex-characters"
     }
   ]
@@ -435,7 +437,7 @@ Route errors: `400 invalid_json`, `400 invalid_settle_request`, `401 unauthorize
 All discovery routes use the same signer contract:
 
 - operation: S3 `GetObject` only;
-- endpoint: `https://bazaarplusplus-bundle-v5.<ACCOUNT_ID>.r2.cloudflarestorage.com`;
+- endpoint: `https://bazaarplusplus-bundle-v6.<ACCOUNT_ID>.r2.cloudflarestorage.com`;
 - region: `auto`;
 - lifetime: 604,800 seconds;
 - key: a validated `bundles/<yyyy-mm-dd>/<bundle_id>.bundle` value read from D1.

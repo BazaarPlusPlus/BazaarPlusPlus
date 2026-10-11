@@ -140,7 +140,7 @@ test("structured logs omit caller identities, secrets, bodies and presigned URLs
     (
       await worker.fetch(
         new Request(
-          `https://mod-api-v5.bazaarplusplus.com/ghost-battles?player_account_id=${account}`,
+          `https://mod-api-v6.bazaarplusplus.com/ghost-battles?player_account_id=${account}`,
         ),
         env,
       )

@@ -172,7 +172,7 @@ export async function sealBundle(
 }
 
 export function uploadRequest(body: Uint8Array, headers: Headers): Request {
-  return new Request("https://mod-api-v5.bazaarplusplus.com/bundles", {
+  return new Request("https://mod-api-v6.bazaarplusplus.com/bundles", {
     method: "POST",
     headers,
     body,

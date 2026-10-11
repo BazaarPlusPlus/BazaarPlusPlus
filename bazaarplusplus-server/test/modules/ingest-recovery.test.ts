@@ -51,7 +51,7 @@ describe("Bundle ingest fault recovery", () => {
     }
 
     const response = await worker.fetch(
-      new Request("https://mod-api-v5.bazaarplusplus.com/bundles", {
+      new Request("https://mod-api-v6.bazaarplusplus.com/bundles", {
         method: "POST",
         headers: incoming.headers,
         body,
@@ -227,7 +227,7 @@ describe("Bundle ingest fault recovery", () => {
         controller.error(new Error("injected connection loss"));
       },
     });
-    const request = new Request("https://mod-api-v5.bazaarplusplus.com/bundles", {
+    const request = new Request("https://mod-api-v6.bazaarplusplus.com/bundles", {
       method: "POST",
       headers: fixture.headers,
       body: stream,
