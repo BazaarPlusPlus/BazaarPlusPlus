@@ -1,3 +1,7 @@
+---
+superseded-by: 0008-legacy-data-roots-and-v5-import.md
+---
+
 # Data Ownership And Reset
 
 ## Context

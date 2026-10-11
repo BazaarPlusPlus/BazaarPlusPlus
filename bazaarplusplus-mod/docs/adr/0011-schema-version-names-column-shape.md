@@ -12,7 +12,7 @@ The installer's History reads the mod's SQLite database and opens only the `user
 2. A one-time data repair never bumps it. The first repair that must run once adds a mod-private ledger table through `BootstrapSql`, with one row per repair name written in the repair's own transaction. The repair checks that ledger, not the version. No ledger exists yet because no repair needs one. The version 3 repair stays keyed on leaving version 2.
 3. The mod's version is the newest one the installer supports. `assertHistoryDatabaseCompatibility` in root `release/history-database.mjs` checks the source files in `release::check` and the staged Payload in `release::prepare`.
 
-A mod-private table is invisible to the installer. History, cleanup, and the overlay query named tables only (installer `table_exists` in `src-tauri/src/history/queries.rs`), and Reset deletes the whole data root (installer ADR-0005).
+A mod-private table is invisible to the installer. History, cleanup, and the overlay query named tables only (installer `table_exists` in `src-tauri/src/history/queries.rs`), and Reset deletes the whole data root (installer ADR-0008).
 
 ## Guardrails
 
