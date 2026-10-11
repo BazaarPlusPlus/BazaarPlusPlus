@@ -76,9 +76,11 @@ impl InstallEffects for ProductionInstallEffects {
         let steam = Path::new(&self.steam_path);
         let game = Path::new(&self.game_path);
         match effect {
-            InstallEffect::EnsureGameStopped => {
-                crate::services::game_process::ensure_bazaar_stopped(game)
-            }
+            InstallEffect::EnsureGameStopped => crate::services::game_process::ensure_game_stopped(
+                game,
+                crate::services::game_process::GameStoppedOperation::Install,
+            )
+            .map_err(String::from),
             InstallEffect::CloseSteam => prepare_steam_for_config_update(steam),
             InstallEffect::InstallBepInEx => install_bepinex(&self.resource_dir, game),
             InstallEffect::InstallTrampoline => {

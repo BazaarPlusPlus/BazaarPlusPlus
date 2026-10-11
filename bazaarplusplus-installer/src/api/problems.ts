@@ -9,8 +9,12 @@ const semanticProblemCodes: Record<SemanticProblem['code'], true> = {
   history_thumbnails_unavailable: true,
   install_detection_failed: true,
   install_action_failed: true,
-  install_game_running: true,
   install_partial_failure: true,
+  install_blocked_by_game: true,
+  reset_blocked_by_game: true,
+  bepinex_reset_blocked_by_game: true,
+  import_blocked_by_game: true,
+  legacy_delete_blocked_by_game: true,
   stream_service_failed: true,
   stream_window_failed: true,
   stream_crop_failed: true

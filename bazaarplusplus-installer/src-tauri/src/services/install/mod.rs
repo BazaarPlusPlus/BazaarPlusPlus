@@ -16,11 +16,12 @@ use std::path::Path;
 
 use crate::services::{
     bepinex::{
-        reset_bepinex_folder, reset_bpp_data, uninstall_bpp, RESET_BEPINEX_ERR_GAME_RUNNING,
-        RESET_BEPINEX_ERR_PARTIAL_FAILURE, RESET_BPP_DATA_ERR_GAME_RUNNING,
+        reset_bepinex_folder, reset_bpp_data, uninstall_bpp, RESET_BEPINEX_ERR_PARTIAL_FAILURE,
         RESET_BPP_DATA_ERR_PARTIAL_FAILURE,
     },
+    data_maintenance::DataMaintenanceLock,
     detect::detect_for_install,
+    game_process::GameRunningRefusal,
     startup::InstallerContextState,
 };
 use crate::{
@@ -53,7 +54,8 @@ pub async fn run_reset_bpp_data(
     stream_runtime: tauri::State<'_, StreamRuntime>,
     game_path: String,
 ) -> Result<ResetBppDataResult, SemanticProblem> {
-    let removed_data = reset_bpp_data(stream_runtime, game_path.clone())
+    let maintenance = app.state::<DataMaintenanceLock>().inner().clone();
+    let removed_data = reset_bpp_data(&maintenance, &stream_runtime, game_path.clone())
         .await
         .map_err(|diagnostic| install_action_problem("reset_bpp_data", diagnostic))?;
     let state = build_install_state(app, install_state, Some(game_path))?;
@@ -68,7 +70,8 @@ pub async fn run_reset_bepinex(
     install_state: tauri::State<'_, InstallerContextState>,
     game_path: String,
 ) -> Result<ResetBepinexResult, SemanticProblem> {
-    let removed = reset_bepinex_folder(game_path.clone())
+    let maintenance = app.state::<DataMaintenanceLock>().inner().clone();
+    let removed = reset_bepinex_folder(&maintenance, game_path.clone())
         .await
         .map_err(|diagnostic| install_action_problem("reset_bepinex", diagnostic))?;
     let state = build_install_state(app, install_state, Some(game_path))?;
@@ -195,10 +198,8 @@ fn install_detection_problem(diagnostic: String) -> SemanticProblem {
 }
 
 pub(crate) fn install_action_problem(operation: &str, diagnostic: String) -> SemanticProblem {
-    if diagnostic == RESET_BPP_DATA_ERR_GAME_RUNNING || diagnostic == RESET_BEPINEX_ERR_GAME_RUNNING
-    {
-        return SemanticProblem::new(SemanticProblemCode::InstallGameRunning)
-            .with_param("operation", operation);
+    if let Some(refusal) = GameRunningRefusal::from_diagnostic(&diagnostic) {
+        return refusal.into_problem().with_param("operation", operation);
     }
 
     for prefix in [
@@ -275,9 +276,8 @@ mod tests {
         InstallWarningCode,
     };
     use crate::problem::SemanticProblemCode;
-    use crate::services::bepinex::{
-        RESET_BEPINEX_ERR_GAME_RUNNING, RESET_BPP_DATA_ERR_PARTIAL_FAILURE,
-    };
+    use crate::services::bepinex::RESET_BPP_DATA_ERR_PARTIAL_FAILURE;
+    use crate::services::game_process::{GameRunningRefusal, GameStoppedOperation};
 
     #[test]
     fn test_has_resettable_bpp_data_detects_existing_data_directory() {
@@ -370,12 +370,18 @@ mod tests {
 
     #[test]
     fn install_failures_classify_known_reset_conditions_and_generic_actions() {
-        let blocked =
-            install_action_problem("reset_bepinex", RESET_BEPINEX_ERR_GAME_RUNNING.to_string());
-        assert_eq!(blocked.code, SemanticProblemCode::InstallGameRunning);
+        let blocked = install_action_problem(
+            "install",
+            GameRunningRefusal {
+                operation: GameStoppedOperation::Install,
+                inspection_error: None,
+            }
+            .into(),
+        );
+        assert_eq!(blocked.code, SemanticProblemCode::InstallBlockedByGame);
         assert_eq!(
             blocked.params.get("operation").map(String::as_str),
-            Some("reset_bepinex")
+            Some("install")
         );
         assert_eq!(blocked.diagnostic, None);
 

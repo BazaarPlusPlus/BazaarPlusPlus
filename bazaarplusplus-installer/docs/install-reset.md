@@ -14,7 +14,15 @@
 - `BPP_PRIVATE_RELATIVE_PATHS` and `BPP_BUNDLED_DEPENDENCY_RELATIVE_PATHS` in `src-tauri/src/services/bepinex/payload.rs` define payload ownership.
 - `uninstall_bpp` in `src-tauri/src/services/bepinex/mod.rs` always removes private BPP files. It removes shared BepInEx and platform bootstrap state only when no third-party plugin or patcher remains. Uninstall preserves the BPP data root.
 
-On macOS, `plan_install` keeps Steam running when detected launch options are empty; only non-empty launch options add Steam shutdown and cleanup. `ensure_bazaar_stopped` in `src-tauri/src/services/game_process.rs` checks the selected game process before install effects and again before trampoline replacement, and fails closed when process inspection fails.
+On macOS, `plan_install` keeps Steam running when detected launch options are empty; only non-empty launch options add Steam shutdown and cleanup. `ensure_game_stopped` checks the selected game process before install effects and again before trampoline replacement.
+
+## Running-Game Refusal
+
+`ensure_game_stopped` in `src-tauri/src/services/game_process.rs` is the fail-closed check every operation that rewrites or deletes game-directory files runs first: install, Reset, BepInEx reset, and later V5 import and Legacy Root deletion. It refuses when the game is running and when the process list cannot be inspected. Each `GameStoppedOperation` reports its own semantic problem code (`install_blocked_by_game`, `reset_blocked_by_game`, and so on); an inspection failure carries its cause as the diagnostic. `SystemGameProcessProbe` matches `TheBazaar.exe` on Windows and, on macOS, an executable under the selected installation's `TheBazaar.app/Contents/MacOS/`, including the trampoline's `.orig`. The game has no build for other platforms, where the probe reports it stopped. Tests inject a `GameProcessProbe` instead.
+
+## Data Maintenance Lock
+
+`DataMaintenanceLock` in `src-tauri/src/services/data_maintenance.rs` serializes the installer's data-mutating operations: History cleanup, Reset, and BepInEx reset wait for one another rather than interleave. Reset also stops the OBS overlay through `StreamRuntime::exclusive_maintenance`; it always takes the data maintenance lock first and the stream lifecycle gate second, and nothing holding the lifecycle gate waits for the data lock, so the two cannot deadlock.
 
 ## Steam Launch Boundary
 
@@ -53,7 +61,7 @@ belongs outside the game directory so it cannot include itself.
 
 ## Reset Local Data
 
-Reset is the only installer operation that deletes the current BPP data root. `reset_bpp_data` in `src-tauri/src/services/bepinex/mod.rs` enters `StreamRuntime::exclusive_maintenance`, refuses deletion while the game is running, and delegates filesystem cleanup to `cleanup_bpp_data_directory` in `src-tauri/src/services/bepinex/payload.rs`.
+Reset is the only installer operation that deletes the current BPP data root. `reset_bpp_data` in `src-tauri/src/services/bepinex/mod.rs` holds the data maintenance lock with the OBS overlay stopped, runs the running-game refusal on every platform, and only then delegates filesystem cleanup to `cleanup_bpp_data_directory` in `src-tauri/src/services/bepinex/payload.rs`. `reset_bepinex_folder` holds the same lock and runs the same refusal, but leaves the overlay running because it touches no database.
 
 The Install workflow fixes the target path when confirmation opens. A successful `ResetBppDataResult` installs the returned refreshed state and distinguishes removed data from an already-empty target; a failure retains the target for retry. The durable product boundary is recorded in [ADR-0008](adr/0008-legacy-data-roots-and-v5-import.md).
 

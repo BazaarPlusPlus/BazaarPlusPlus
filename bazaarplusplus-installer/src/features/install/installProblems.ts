@@ -9,9 +9,17 @@ import {
 export type InstallProblemCode =
   | 'install_detection_failed'
   | 'install_action_failed'
-  | 'install_game_running'
   | 'install_partial_failure'
+  | GameRunningProblemCode
   | 'install_unexpected';
+
+/** One code per operation that refuses while The Bazaar runs. */
+type GameRunningProblemCode =
+  | 'install_blocked_by_game'
+  | 'reset_blocked_by_game'
+  | 'bepinex_reset_blocked_by_game'
+  | 'import_blocked_by_game'
+  | 'legacy_delete_blocked_by_game';
 
 export type InstallProblem = UiProblem<InstallProblemCode>;
 
@@ -25,8 +33,12 @@ export function installProblemFromError(error: unknown): InstallProblem {
   switch (problem.code) {
     case 'install_detection_failed':
     case 'install_action_failed':
-    case 'install_game_running':
     case 'install_partial_failure':
+    case 'install_blocked_by_game':
+    case 'reset_blocked_by_game':
+    case 'bepinex_reset_blocked_by_game':
+    case 'import_blocked_by_game':
+    case 'legacy_delete_blocked_by_game':
     case 'install_unexpected':
       return problem as InstallProblem;
     default:
@@ -108,10 +120,16 @@ function installProblemMessageKey(problem: InstallProblem): MessageKey {
   switch (problem.code) {
     case 'install_detection_failed':
       return 'installProblemDetectionFailed';
-    case 'install_game_running':
-      return problem.params.operation === 'reset_bepinex'
-        ? 'resetBepinexBlockedByGame'
-        : 'resetDataBlockedByGame';
+    case 'install_blocked_by_game':
+      return 'installBlockedByGame';
+    case 'reset_blocked_by_game':
+      return 'resetDataBlockedByGame';
+    case 'bepinex_reset_blocked_by_game':
+      return 'resetBepinexBlockedByGame';
+    case 'import_blocked_by_game':
+      return 'importBlockedByGame';
+    case 'legacy_delete_blocked_by_game':
+      return 'legacyDeleteBlockedByGame';
     case 'install_partial_failure':
       return problem.params.operation === 'reset_bepinex'
         ? 'resetBepinexPartialFailure'
