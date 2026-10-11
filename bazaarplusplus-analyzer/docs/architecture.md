@@ -71,7 +71,9 @@ servers `http://localhost:3000`, `:4173`, `:5173`, `http://127.0.0.1:3000` and
 ## Production runs
 
 Production runs are `.github/workflows/analyzer.yml`: hourly on a GitHub-hosted
-runner, plus manual dispatch with an optional `--no-publish`. A runner starts
+runner, plus manual dispatch. Until V6 has enough Bundles to replace the seeded
+V5 `builds/latest.json`, only a manual dispatch with `publish` set publishes;
+scheduled runs collect and seal facts without publishing. A runner starts
 empty, so the Data Root lives in the private R2 bucket
 `bazaarplusplus-analyzer-state-v6` and `.github/scripts/analyzer-state.sh`
 mirrors it around each run:

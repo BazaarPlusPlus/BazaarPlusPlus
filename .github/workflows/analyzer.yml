@@ -2,7 +2,8 @@ name: Analyzer
 
 # Production analyzer V6 runs. Each run restores the Data Root from the private
 # R2 state bucket, heals settled Source Hours, publishes both consumer
-# snapshots to the V6 metrics bucket and mirrors the Data Root back. Snapshots
+# snapshots to the V6 metrics bucket (manual dispatch with publish only, for
+# now) and mirrors the Data Root back. Snapshots
 # still advance once per Complete Source Day; the hourly schedule keeps each
 # run's intake small. Secrets live in the `analyzer` GitHub Environment
 # (release/github-secrets.json); see
@@ -16,7 +17,7 @@ on:
       publish:
         description: Publish snapshots to the V6 metrics bucket
         type: boolean
-        default: true
+        default: false
 
 permissions:
   contents: read
@@ -129,7 +130,9 @@ jobs:
         name: Run the analyzer
         working-directory: bazaarplusplus-analyzer
         env:
-          PUBLISH: ${{ github.event_name == 'schedule' || inputs.publish }}
+          # Scheduled runs collect only until V6 has enough Bundles to replace
+          # the seeded V5 builds snapshot; publish with a manual dispatch.
+          PUBLISH: ${{ github.event_name == 'workflow_dispatch' && inputs.publish }}
         run: |
           args=(run --quiet)
           [ "$PUBLISH" = true ] || args+=(--no-publish)
