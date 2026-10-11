@@ -56,7 +56,7 @@ def load_config(
     data_root = Path(data_root_value)
     if not data_root.is_absolute():
         data_root = repo / data_root
-    api_base_url = _optional(values.get("BPP_V5_API_BASE_URL"))
+    api_base_url = _optional(values.get("BPP_API_BASE_URL"))
     sync_token = _optional(values.get("BPP_BUNDLE_SYNC_TOKEN"))
     if require_source and (api_base_url is None or sync_token is None):
         raise ConfigurationError("Bundle Server configuration is incomplete")

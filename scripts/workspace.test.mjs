@@ -307,7 +307,7 @@ test('setup migrates the earlier layout in place, keeps retired values as commen
     `# mine\n${ini({
       server: 'BUNDLE_SYNC_TOKEN=sync-value\nBAZAARDB_DELIVERY_TOKEN=deliver\n',
       analyzer:
-        'BPP_DATA_ROOT=/data\nBPP_BUNDLE_SYNC_TOKEN=sync-value\nBPP_METRICS_R2_ACCOUNT_ID=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\nBPP_METRICS_R2_BUCKET=bpp-metrics\nBPP_METRICS_R2_ACCESS_KEY_ID=metrics-key\nBPP_METRICS_R2_SECRET_ACCESS_KEY="metrics-secret"\n',
+        'BPP_DATA_ROOT=/data\nBPP_V5_API_BASE_URL=https://api.invalid\nBPP_BUNDLE_SYNC_TOKEN=sync-value\nBPP_METRICS_R2_ACCOUNT_ID=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\nBPP_METRICS_R2_BUCKET=bpp-metrics\nBPP_METRICS_R2_ACCESS_KEY_ID=metrics-key\nBPP_METRICS_R2_SECRET_ACCESS_KEY="metrics-secret"\n',
       release:
         'BPP_R2_ACCOUNT_ID=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\nBPP_R2_ACCESS_KEY_ID=release-key\nBPP_R2_SECRET_ACCESS_KEY=release-secret\n',
       signing:
@@ -317,7 +317,7 @@ test('setup migrates the earlier layout in place, keeps retired values as commen
   );
   assert.throws(
     () => readConfig(f.home),
-    /Legacy \[release\] section on config.ini line 14; run just setup --skip-deps/
+    /Legacy \[release\] section on config.ini line 15; run just setup --skip-deps/
   );
   const migrated = migrateConfig(f.home, f.repository);
   assert.deepEqual(migrated, [
@@ -328,6 +328,7 @@ test('setup migrates the earlier layout in place, keeps retired values as commen
     '[analyzer] BPP_METRICS_R2_ACCESS_KEY_ID -> comment in [cloudflare]',
     '[analyzer] BPP_METRICS_R2_SECRET_ACCESS_KEY -> comment in [cloudflare]',
     '[analyzer] BPP_BUNDLE_SYNC_TOKEN -> [server] BUNDLE_SYNC_TOKEN',
+    '[analyzer] BPP_V5_API_BASE_URL -> [analyzer] BPP_API_BASE_URL',
     '[signing] TAURI_SIGNING_PRIVATE_KEY_PASSWORD (empty, removed)',
     '[release] removed'
   ]);
@@ -345,6 +346,7 @@ R2_PRESIGN_SECRET_ACCESS_KEY=
 [analyzer]
 BPP_DATA_ROOT=/data
 BPP_METRICS_R2_BUCKET=bpp-metrics
+BPP_API_BASE_URL="https://api.invalid"
 
 [signing]
 APPLE_SIGNING_IDENTITY=id
@@ -373,7 +375,7 @@ BPP_GAME_LIBS_TOKEN=
       path.join(f.repository, 'bazaarplusplus-analyzer/.env'),
       'utf8'
     ),
-    `BPP_DATA_ROOT=/data\nBPP_METRICS_R2_BUCKET=bpp-metrics\n${projectedMarker}\nBPP_BUNDLE_SYNC_TOKEN="sync-value"\nCLOUDFLARE_API_TOKEN=""\nCLOUDFLARE_ACCOUNT_ID="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"\n`
+    `BPP_DATA_ROOT=/data\nBPP_METRICS_R2_BUCKET=bpp-metrics\nBPP_API_BASE_URL="https://api.invalid"\n${projectedMarker}\nBPP_BUNDLE_SYNC_TOKEN="sync-value"\nCLOUDFLARE_API_TOKEN=""\nCLOUDFLARE_ACCOUNT_ID="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"\n`
   );
 });
 

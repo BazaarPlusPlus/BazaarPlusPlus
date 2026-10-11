@@ -13,7 +13,7 @@ using Newtonsoft.Json.Linq;
 
 // Behavior tests for the analyzer-v5 ten-win build corpus consumed by LiveBuildPanel.
 // The payload is the compact string-table + schema-driven array-row format published at
-// analyzer-v5/builds/latest.json. Every assertion drives the public
+// builds/latest.json on the V6 metrics origin. Every assertion drives the public
 // BuildRecommendationRepository.FindRecommendations surface (parse + recall + scoring +
 // board projection). Catalog lifecycle is tested through IRemoteEmbeddedCatalog in the dedicated
 // RemoteEmbeddedCatalog.Tests project; this feature project keeps parser/query/summary and manual
@@ -40,7 +40,7 @@ internal static class TenWinBuildTests
         TestParserEnforcesWindowContract();
         TestParserRejectsIllegalIndexesAndSemanticMismatches();
         TestParserAcceptsDuplicateCardRefsNullableP75AndEmptyHero();
-        TestRemoteUrlsUseAnalyzerV5Latest();
+        TestRemoteUrlsUseMetricsV6Latest();
         TestOptionalLiveSampleParses();
         TestFindRecommendationsHasNoRatingTierParam();
         TestDefaultCachePathUsesBuildsFileName();
@@ -223,10 +223,9 @@ internal static class TenWinBuildTests
         );
     }
 
-    private static void TestRemoteUrlsUseAnalyzerV5Latest()
+    private static void TestRemoteUrlsUseMetricsV6Latest()
     {
-        const string expected =
-            "https://bpp-metrics.bazaarplusplus.com/analyzer-v5/builds/latest.json";
+        const string expected = "https://bpp-metrics-v6.bazaarplusplus.com/builds/latest.json";
         var runtimeUrl = (string?)
             typeof(TenWinBuildCatalogFactory)
                 .GetField("RemoteUrl", BindingFlags.NonPublic | BindingFlags.Static)
@@ -236,8 +235,14 @@ internal static class TenWinBuildTests
             .Descendants()
             .SingleOrDefault(element => element.Name.LocalName == "TenWinBuildsRemoteUrl")
             ?.Value.Trim();
-        Assert(runtimeUrl == expected, $"Runtime URL should use v5, got '{runtimeUrl}'.");
-        Assert(buildUrl == expected, $"Build URL should use v5, got '{buildUrl}'.");
+        Assert(
+            runtimeUrl == expected,
+            $"Runtime URL should use the V6 metrics origin, got '{runtimeUrl}'."
+        );
+        Assert(
+            buildUrl == expected,
+            $"Build URL should use the V6 metrics origin, got '{buildUrl}'."
+        );
     }
 
     // Set BPP_TENWIN_SAMPLE_PATH to a downloaded builds/latest.json to validate a live sample.

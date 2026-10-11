@@ -9,7 +9,7 @@ from bppanalyzer.config import ConfigurationError, load_config
 def _write_env(root: Path, extra: str = "") -> None:
     (root / ".env").write_text(
         "BPP_DATA_ROOT=fixture-data\n"
-        "BPP_V5_API_BASE_URL=https://api.invalid\n"
+        "BPP_API_BASE_URL=https://api.invalid\n"
         "BPP_BUNDLE_SYNC_TOKEN=fixture-sync-token\n"
         f"{extra}"
     )

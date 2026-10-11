@@ -47,6 +47,24 @@ current snapshots, status, run history, and logs.
 - The heartbeat lock fences stale owners before durable writes. A replacement
   owner may recover from committed state without trusting partial staging data.
 
+## Publication target
+
+The consumer snapshots publish to the R2 bucket `BPP_METRICS_R2_BUCKET` names:
+`bazaarplusplus-metrics-v6`, served read-only at the custom domain
+`bpp-metrics-v6.bazaarplusplus.com`. Keys carry no version prefix; the bucket
+and domain name the version. The V5 bucket (`bpp-metrics.bazaarplusplus.com`,
+keys under `analyzer-v5/`) is never written again and stays frozen for 5.7.0.
+A production mod Payload embeds `builds/latest.json` fetched from this origin at
+build time (`TenWinBuildsRemoteUrl` in the mod's `RemoteEmbeddedData.targets`,
+which also sets its minimum size), so `release::prepare` fails until a first
+publication lands here.
+
+The bucket's CORS rule, set on the bucket rather than kept in this repository,
+lets the site read Hero metrics from the browser: allowed origins
+`https://bazaarplusplus.com` and `http://localhost:3000` (the site's dev and
+preview port), allowed method `GET` only, no credentials. The site ADR
+`bazaarplusplus-site/docs/adr/0001-direct-metrics-origin.md` depends on it.
+
 ## Modes and evidence
 
 `run --no-publish` performs collection and local snapshot

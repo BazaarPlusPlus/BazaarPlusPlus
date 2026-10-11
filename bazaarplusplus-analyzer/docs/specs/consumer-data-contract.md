@@ -5,11 +5,11 @@ required fields, enums, and scalar bounds. This document owns population,
 calculation, ordering, and cross-field semantics. Domain terms are defined in
 `../../CONTEXT.md`.
 
-The public object set is exactly:
+The public object set is exactly, at `https://bpp-metrics-v6.bazaarplusplus.com`:
 
 ```text
-analyzer-v5/heroes/latest.json
-analyzer-v5/builds/latest.json
+heroes/latest.json
+builds/latest.json
 ```
 
 Each key holds a mutable current snapshot for one independent consumer.

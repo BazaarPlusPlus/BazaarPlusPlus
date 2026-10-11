@@ -47,7 +47,7 @@ export const sections = {
       { from: 'cloudflare', key: 'CLOUDFLARE_ACCOUNT_ID' }
     ],
     required: {
-      analyzer: ['BPP_DATA_ROOT', 'BPP_V5_API_BASE_URL'],
+      analyzer: ['BPP_DATA_ROOT', 'BPP_API_BASE_URL'],
       'analyzer publish': ['BPP_METRICS_R2_BUCKET']
     }
   },
@@ -90,7 +90,7 @@ export const sections = {
     required: { release: cloudflareKeys },
     notes: [
       '# CLOUDFLARE_API_TOKEN is the operator token: R2 read and write on bppinstaller,',
-      '# bazaarplusplus-game-libs and the metrics bucket, plus what Wrangler needs.',
+      '# bazaarplusplus-game-libs and both metrics buckets, plus what Wrangler needs.',
       '# BPP_GAME_LIBS_TOKEN is the read-only token checks.yml uses; only secrets push reads it.'
     ]
   }
@@ -400,6 +400,13 @@ const legacyKeys = [
     key: 'BPP_BUNDLE_SYNC_TOKEN',
     to: 'server',
     as: 'BUNDLE_SYNC_TOKEN'
+  },
+  // The Bundle Server address lost its version: the server's domain names it.
+  {
+    from: 'analyzer',
+    key: 'BPP_V5_API_BASE_URL',
+    to: 'analyzer',
+    as: 'BPP_API_BASE_URL'
   },
   {
     from: 'signing',

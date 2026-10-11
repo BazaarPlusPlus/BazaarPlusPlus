@@ -8,7 +8,7 @@ namespace BazaarPlusPlus.Game.LiveBuildPanel.Recommendations;
 
 /// <summary>
 /// Parsed, in-memory view of the analyzer-v5 ten-win build corpus
-/// (<c>analyzer-v5/builds/latest.json</c>).
+/// (<c>builds/latest.json</c> on the V6 metrics origin).
 ///
 /// The payload is a compact, schema-driven format: top-level string tables (<c>cards</c>,
 /// <c>enchantments</c>) plus per-hero builds encoded as positional array rows whose column order
