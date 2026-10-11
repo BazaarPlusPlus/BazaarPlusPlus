@@ -27,6 +27,12 @@ internal sealed partial class HistoryPanelRepository
 
     public bool DatabaseExists => File.Exists(_databasePath);
 
+    // Only a Run the mod could resume reads as active (the current Run): an active History-Only
+    // Run, which the V5 import should already have closed, reads as abandoned.
+    private static readonly string RunStatusColumn =
+        $"CASE WHEN status = 'active' AND NOT {RunLogStore.ResumableRunCondition(RunLogSchema.RunsTableName)} "
+        + "THEN 'abandoned' ELSE status END AS run_status";
+
     public HistoryCountedPage<HistoryRunRecord> ListRuns(
         HistoryPageRequest request,
         string? hero = null
@@ -34,7 +40,8 @@ internal sealed partial class HistoryPanelRepository
         ReadCountedPage(
             HistoryPageQuery.Runs(hero),
             "run_id, hero, game_mode, started_at_ms, last_seen_at_ms, player_rank, player_rating, "
-                + "status AS run_status, day, hour, final_day, final_hour, max_health AS final_max_health, "
+                + RunStatusColumn
+                + ", day, hour, final_day, final_hour, max_health AS final_max_health, "
                 + "prestige AS final_prestige, level AS final_level, income AS final_income, gold AS final_gold, "
                 + "victories, losses, ended_at_ms",
             request,

@@ -13,7 +13,8 @@ internal static class ReplayMaintenanceStorageTests
     }
 
     // Replay maintenance protects a superset of the fixture's protected Runs: it also keeps
-    // replays behind a pending outbox, which installer History cleanup releases.
+    // replays behind a pending outbox, which installer History cleanup releases. A History-Only
+    // Run is never sealed, so its replays are released.
     private static void KeepsReplaysOfEveryRunTheSealEligibilityFixtureProtects()
     {
         var root = Path.Combine(Path.GetTempPath(), $"bpp-replay-seal-fixture-{Guid.NewGuid():N}");
@@ -49,6 +50,13 @@ internal static class ReplayMaintenanceStorageTests
                 cases.Any(item => !item.ProtectedFromCleanup && scheduled.Contains(item.Name)),
                 "The fixture must also release some replays, or this check proves nothing."
             );
+            var historyOnly = cases.Where(item => item.UploadPolicy == "history_only").ToArray();
+            Assert(historyOnly.Length > 0, "The fixture must cover a History-Only Run.");
+            foreach (var eligibilityCase in historyOnly)
+                Assert(
+                    scheduled.Contains(eligibilityCase.Name),
+                    $"{eligibilityCase.Name}: replay maintenance kept the replay of a History-Only Run."
+                );
         }
         finally
         {
