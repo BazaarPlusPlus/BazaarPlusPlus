@@ -8,7 +8,7 @@ The standalone mod-facing backend, a Cloudflare Worker, ingesting Bundle V6. Rep
 | Change module seams or where code lives | `README.md`, then `docs/adr/0001-v5-deepening-seams.md` |
 | Add or change a public route, request, or response | `docs/api-reference.md` |
 | Change the Bundle binary format or manifest | `contracts/v6/` (`contracts/v5/` is frozen) |
-| Change BazaarDB claim/settle behavior | `docs/bazaardb-delivery-integration.md` (the partner contract) |
+| Change the BazaarDB Feed | `docs/adr/0004-bazaardb-cursor-feed.md`; `docs/bazaardb-delivery-integration.md` is the V5 claim/settle partner contract |
 | Provision, migrate, or deploy | `docs/deployment-runbook.md` |
 | Change D1 or R2 retention, or Ghost storage columns | `CONTEXT.md` (Runtime boundaries), then `docs/adr/0002-d1-retention.md` and `docs/adr/0003-ghost-summary-columns.md`; the dated audits under `docs/` are their evidence |
 

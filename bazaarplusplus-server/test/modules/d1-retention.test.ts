@@ -8,7 +8,7 @@ import {
   D1_RETENTION_MS,
 } from "../../src/limits";
 import { pruneExpiredBundles } from "../../src/modules/d1-retention";
-import { seedDeliveryBacklog } from "../fixtures/backlog";
+import { seedBundleBacklog } from "../fixtures/backlog";
 import { recordD1 } from "../fixtures/d1";
 
 const NOW = 1_785_628_800_000;
@@ -21,7 +21,7 @@ beforeEach(async () => {
 afterEach(() => vi.restoreAllMocks());
 
 test("scheduled retention uses stored time, cascades children and preserves uploaders", async () => {
-  await seedDeliveryBacklog(env.DB, 3, CUTOFF - 1);
+  await seedBundleBacklog(env.DB, 3, CUTOFF - 1);
   await env.DB.batch([
     env.DB.prepare("UPDATE bundles SET stored_at_ms = ?1 WHERE bundle_id = ?2").bind(CUTOFF, id(1)),
     env.DB.prepare("UPDATE bundles SET stored_at_ms = ?1 WHERE bundle_id = ?2").bind(
@@ -38,21 +38,13 @@ test("scheduled retention uses stored time, cascades children and preserves uplo
       uploader_account_id, battle_id, bundle_id, opponent_account_id, recorded_at_ms, day, hour, result, player_display_name
     ) SELECT 'retained-uploader', run_id, bundle_id, 'retained-uploader', stored_at_ms, 1, 1, 'win', 'Uploader'
       FROM bundles`),
-    env.DB.prepare(`INSERT INTO bazaardb_delivery_attempts (
-      claim_id, bundle_id, attempt_number, claimed_at_ms, expires_at_ms
-    ) SELECT 'old-claim', bundle_id, 1, ?1, ?1 + 600000 FROM bundles`).bind(CUTOFF - 1),
   ]);
 
   const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
   await worker.scheduled(createScheduledController({ scheduledTime: NOW }), {
     DB: env.DB,
   } as Cloudflare.Env);
-  for (const table of [
-    "bundles",
-    "ghost_battle_summaries",
-    "bazaardb_deliveries",
-    "bazaardb_delivery_attempts",
-  ]) {
+  for (const table of ["bundles", "ghost_battle_summaries"]) {
     const rows = await env.DB.prepare(`SELECT bundle_id FROM ${table} ORDER BY bundle_id`).all();
     expect(rows.results).toEqual([{ bundle_id: id(1) }, { bundle_id: id(2) }]);
   }
@@ -70,7 +62,7 @@ test("scheduled retention uses stored time, cascades children and preserves uplo
 
 test("retention has bounded indexed batches and resumes the remaining backlog", async () => {
   const budget = D1_RETENTION_BATCH_SIZE * D1_RETENTION_MAX_BATCHES;
-  await seedDeliveryBacklog(env.DB, budget + 3, CUTOFF - 1);
+  await seedBundleBacklog(env.DB, budget + 3, CUTOFF - 1);
   const queries = recordD1(env.DB);
   expect(await pruneExpiredBundles(env.DB, NOW)).toEqual({ deleted: budget, hasMore: true });
   expect(queries).toHaveLength(D1_RETENTION_MAX_BATCHES);
@@ -82,7 +74,7 @@ test("retention has bounded indexed batches and resumes the remaining backlog", 
 });
 
 test("a failed batch preserves earlier progress and fails the scheduled invocation", async () => {
-  await seedDeliveryBacklog(env.DB, D1_RETENTION_BATCH_SIZE + 1, CUTOFF - 1);
+  await seedBundleBacklog(env.DB, D1_RETENTION_BATCH_SIZE + 1, CUTOFF - 1);
   await env.DB.prepare(`CREATE TRIGGER reject_retention_probe BEFORE DELETE ON bundles
     WHEN OLD.bundle_id = '${id(D1_RETENTION_BATCH_SIZE)}'
     BEGIN SELECT RAISE(ABORT, 'injected retention failure'); END`).run();

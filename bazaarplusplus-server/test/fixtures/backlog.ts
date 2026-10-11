@@ -1,8 +1,9 @@
-export async function seedDeliveryBacklog(
+// Seeds `count` Bundles stored and available at one instant. Even-numbered
+// Bundles carry a Screenshot, so the BazaarDB feed sees half of the backlog.
+export async function seedBundleBacklog(
   db: D1Database,
   count: number,
   storedAtMs: number,
-  claimableAtMs = storedAtMs,
 ): Promise<void> {
   await db
     .prepare(`
@@ -16,16 +17,12 @@ export async function seedDeliveryBacklog(
     SELECT '01J9' || printf('%022d', n), 'backlog-' || n, 'backlog-uploader',
       'bundles/2026-08-02/01J9' || printf('%022d', n) || '.bundle',
       printf('%064d', 0), 6, 10, 100, ?2, ?2, ?2, 6, 10, printf('%064d', 0),
-      1, 'image/jpeg', 10, printf('%064d', 0) FROM seq
+      CASE n % 2 WHEN 0 THEN 1 ELSE 0 END,
+      CASE n % 2 WHEN 0 THEN 'image/jpeg' END,
+      CASE n % 2 WHEN 0 THEN 10 END,
+      CASE n % 2 WHEN 0 THEN printf('%064d', 0) END
+    FROM seq
   `)
     .bind(count - 1, storedAtMs)
-    .run();
-  await db
-    .prepare(`
-    INSERT INTO bazaardb_deliveries (bundle_id, claimable_at_ms, created_at_ms, state_updated_at_ms)
-    SELECT bundle_id, ?1, stored_at_ms, stored_at_ms FROM bundles
-    WHERE uploader_account_id = 'backlog-uploader'
-  `)
-    .bind(claimableAtMs)
     .run();
 }

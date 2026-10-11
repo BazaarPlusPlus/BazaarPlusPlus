@@ -2,7 +2,7 @@ import { env } from "cloudflare:test";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import worker from "../src/index";
-import { seedDeliveryBacklog } from "./fixtures/backlog";
+import { seedBundleBacklog } from "./fixtures/backlog";
 import { type RecordedD1Query, recordD1 } from "./fixtures/d1";
 
 const NOW = 1_785_628_800_000;
@@ -22,25 +22,16 @@ async function plan({ sql, bindings }: Pick<RecordedD1Query, "sql" | "bindings">
   return result.results.map(({ detail }) => detail).join("\n");
 }
 
-function collectionRequest(afterId?: string): Request {
-  const url = new URL("https://worker.test/bundles");
+function collectionRequest(afterId?: string, path = "/bundles", token?: string): Request {
+  const url = new URL(`https://worker.test${path}`);
   url.searchParams.set("available_from_ms", String(AVAILABLE));
   url.searchParams.set("limit", "50");
   if (afterId !== undefined) {
     url.searchParams.set("after_available_at_ms", String(AVAILABLE));
     url.searchParams.set("after_bundle_id", afterId);
   }
-  return new Request(url, { headers: { Authorization: `Bearer ${env.BUNDLE_SYNC_TOKEN}` } });
-}
-
-function deliveryRequest(path: string, body: unknown): Request {
-  return new Request(`https://worker.test/bazaardb/deliveries/${path}`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${env.BAZAARDB_DELIVERY_TOKEN}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(body),
+  return new Request(url, {
+    headers: { Authorization: `Bearer ${token ?? env.BUNDLE_SYNC_TOKEN}` },
   });
 }
 
@@ -50,14 +41,6 @@ beforeEach(() => {
 afterEach(() => vi.restoreAllMocks());
 
 describe("schema query plans", () => {
-  test("attempt uniqueness uses its receipt index", async () => {
-    const detail = await plan({
-      sql: "SELECT claim_id FROM bazaardb_delivery_attempts WHERE bundle_id = ?1 AND attempt_number = ?2",
-      bindings: [BUNDLE_ID, 1],
-    });
-    expect(detail).toContain("sqlite_autoindex_bazaardb_delivery_attempts_2");
-  });
-
   test("Bundle deletion looks up Ghost children through their foreign-key index", async () => {
     const detail = await plan({
       sql: "DELETE FROM bundles WHERE bundle_id = ?1",
@@ -68,8 +51,8 @@ describe("schema query plans", () => {
   });
 });
 
-test("keyset, Ghost, and empty expiry reads stay bounded with a large live backlog", async () => {
-  await seedDeliveryBacklog(env.DB, 2000, AVAILABLE, NOW + 60_000);
+test("keyset, BazaarDB, and Ghost reads stay bounded with a large live backlog", async () => {
+  await seedBundleBacklog(env.DB, 2000, AVAILABLE);
 
   const queries = recordD1(env.DB);
   const response = await worker.fetch(
@@ -89,6 +72,29 @@ test("keyset, Ghost, and empty expiry reads stay bounded with a large live backl
   expect(collection.results).toHaveLength(51);
   expect(collection.meta.rows_read).toBeLessThan(100);
 
+  // Odd-numbered Bundles have no Screenshot; the partial index never visits them.
+  const feedResponse = await worker.fetch(
+    collectionRequest(
+      `01J9${String(1798).padStart(22, "0")}`,
+      "/bazaardb/bundles",
+      env.BAZAARDB_DELIVERY_TOKEN,
+    ),
+    env,
+  );
+  const feedPage = (await feedResponse.json()) as {
+    items: Array<{ bundle_id: string }>;
+    next_after: { available_at_ms: number; bundle_id: string } | null;
+  };
+  expect(feedPage.items).toHaveLength(50);
+  expect(feedPage.items[0].bundle_id).toBe(`01J9${String(1800).padStart(22, "0")}`);
+  expect(feedPage.next_after).toEqual({
+    available_at_ms: AVAILABLE,
+    bundle_id: `01J9${String(1898).padStart(22, "0")}`,
+  });
+  const feed = query(queries, /^SELECT .* AND has_screenshot = 1 /).result;
+  expect(feed.results).toHaveLength(51);
+  expect(feed.meta.rows_read).toBeLessThan(150);
+
   // One opponent owns 20 of 2,000 Ghost rows; its page joins only those Bundles.
   await env.DB.prepare(`
     INSERT INTO ghost_battle_summaries (
@@ -107,10 +113,4 @@ test("keyset, Ghost, and empty expiry reads stay bounded with a large live backl
   expect(((await ghosts.json()) as { battles: unknown[] }).battles).toHaveLength(20);
   const ghost = query(queries, /^SELECT .* FROM ghost_battle_summaries /).result;
   expect(ghost.meta.rows_read).toBeLessThan(20 * 3 + 10);
-
-  const claim = await worker.fetch(deliveryRequest("claim", {}), env);
-  expect(await claim.json()).toEqual({ claim_id: null, expires_at_ms: null, items: [] });
-  const expiry = query(queries, /^UPDATE .*failure_reason = 'bundle_expired'/).result;
-  expect(expiry.meta.changes).toBe(0);
-  expect(expiry.meta.rows_read).toBeLessThan(10);
 });

@@ -26,12 +26,7 @@ interface ExistingBundleRow {
   has_screenshot: number;
 }
 
-type StatementName =
-  | "insert_bundle"
-  | "insert_ghost"
-  | "insert_delivery"
-  | "count_eligible"
-  | "insert_uploader";
+type StatementName = "insert_bundle" | "insert_ghost" | "count_eligible" | "insert_uploader";
 
 interface NamedStatement {
   name: StatementName;
@@ -47,8 +42,8 @@ const ELIGIBILITY_PREDICATE = `
   )`;
 
 function duplicateReceipt(row: ExistingBundleRow): BundleReceipt {
-  // The ingest receipt intentionally derives delivery existence from the immutable
-  // Screenshot bit rather than consulting the delivery projection table.
+  // The receipt derives BazaarDB eligibility from the immutable Screenshot bit,
+  // the same filter GET /bazaardb/bundles applies.
   return {
     bundle_id: row.bundle_id,
     run_id: row.run_id,
@@ -164,17 +159,6 @@ function buildStatements(
           RETURNING battle_id`,
         )
         .bind(battles, descriptor.uploaderAccountId, descriptor.bundleId),
-    },
-    {
-      name: "insert_delivery",
-      statement: db
-        .prepare(
-          `INSERT INTO bazaardb_deliveries (
-            bundle_id, claimable_at_ms, created_at_ms, state_updated_at_ms
-          )
-          SELECT ?1, ?2, ?2, ?2 WHERE ?3 = 1`,
-        )
-        .bind(descriptor.bundleId, times.availableAtMs, screenshot === null ? 0 : 1),
     },
     {
       name: "count_eligible",

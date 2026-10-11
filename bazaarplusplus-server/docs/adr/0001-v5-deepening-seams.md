@@ -17,7 +17,7 @@ The architecture therefore uses a small number of explicit seams rather than con
 
 ### Handler dependencies
 
-There is no handler dependency object. Domain handlers take `(request, env, requestId)`, read the clock with `Date.now()`, and construct the download signer with `createBundleDownloadSigner(env)`. The claim handler constructs its signer before the D1 claim batch so an invalid presign configuration fails with zero D1 writes. Tests drive time and signing through the deployed `worker.fetch`: `vi.spyOn(Date, "now")` controls time, and `vi.spyOn(crypto.subtle, "sign")` injects signing failures.
+There is no handler dependency object. Domain handlers take `(request, env, requestId)`, read the clock with `Date.now()`, and construct the download signer with `createBundleDownloadSigner(env)`. Tests drive time and signing through the deployed `worker.fetch`: `vi.spyOn(Date, "now")` controls time, and `vi.spyOn(crypto.subtle, "sign")` injects signing failures.
 
 ### Bundle opening
 
@@ -29,11 +29,7 @@ There is no handler dependency object. Domain handlers take `(request, env, requ
 
 ### Delivery convergence
 
-Lazy delivery convergence is claim-only. `POST /bazaardb/deliveries/claim` marks Bundles beyond R2 retention and expired final attempts as failed before claiming a page. Settle does not perform convergence; it validates active lease ownership and applies idempotent per-attempt outcomes.
-
-Each convergence statement updates at most 1,000 rows. If expired pending Bundles remain, a scalar index probe sets the claim candidate limit to zero, and the handler returns a retryable `503` after committing maintenance progress. This keeps both scans and writes bounded without issuing expired objects or reporting an empty successful page while live work is blocked behind cleanup. Candidate orders are applied through an `UPDATE ... FROM` join; settle reads all requested receipts in one query.
-
-Pending delivery retention uses the indexed `bundle_stored_at_ms` projection. Database triggers derive it from the authoritative `bundles.stored_at_ms` on delivery insertion, Bundle storage-time changes, and terminal-to-pending requeue. Historical terminal rows need no backfill because retention never queries them. This adds one indexed projection and an insert-time update to avoid scanning the live pending backlog on every claim. The migration is compatible with older Workers that omit the new column; deploy it before the Worker.
+Superseded for V6 by [ADR 0004](0004-bazaardb-cursor-feed.md): V6 keeps no delivery state, so there is nothing to converge.
 
 ### D1 performance verification
 
@@ -44,7 +40,6 @@ Bounded-read tests drive the deployed `worker.fetch` against local D1. A test re
 - Public route additions must update the route table, contract tests, and API reference together.
 - Tests control time and signing by spying on the runtime globals the Worker reads, so production code carries no test-only parameters.
 - Bundle validation and D1 commit decisions can be tested through public module interfaces.
-- Delivery maintenance occurs on claim traffic or through explicit operator action, never through settle or a scheduled Worker handler.
 - The scheduled handler owns a separate 15-day D1 metadata retention policy, detailed in [ADR 0002](0002-d1-retention.md). It deletes parent Bundles in bounded batches and relies on foreign-key cascades, without accessing R2 or deleting uploader assertions.
 
 ## Source layout

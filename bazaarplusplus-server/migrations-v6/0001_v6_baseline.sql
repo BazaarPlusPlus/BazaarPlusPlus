@@ -1,6 +1,7 @@
 -- V6 D1 baseline: the schema ../migrations/0001-0006 leave, with Bundle and Run
--- format version 6. It creates a new D1; ../migrations/ stays with the V5 D1
--- until the V5 Worker is retired.
+-- format version 6 and without the BazaarDB claim/settle tables (V6 delivers
+-- through the GET /bazaardb/bundles cursor feed). It creates a new D1;
+-- ../migrations/ stays with the V5 D1 until the V5 Worker is retired.
 PRAGMA foreign_keys = ON;
 
 CREATE TABLE bundles (
@@ -58,6 +59,11 @@ CREATE TABLE bundles (
 CREATE INDEX idx_bundles_available
   ON bundles(available_at_ms, bundle_id, object_key);
 
+-- GET /bazaardb/bundles pages only Screenshot-bearing Bundles.
+CREATE INDEX idx_bundles_screenshot_available
+  ON bundles(available_at_ms, bundle_id, object_key)
+  WHERE has_screenshot = 1;
+
 CREATE INDEX idx_bundles_stored_retention
   ON bundles(stored_at_ms, bundle_id);
 
@@ -90,129 +96,3 @@ CREATE TABLE bundle_uploaders (
   player_account_id  TEXT PRIMARY KEY,
   first_bundle_at_ms INTEGER NOT NULL
 ) WITHOUT ROWID;
-
-CREATE TABLE bazaardb_deliveries (
-  bundle_id           TEXT PRIMARY KEY REFERENCES bundles(bundle_id) ON DELETE CASCADE,
-  delivery_state      TEXT NOT NULL DEFAULT 'pending'
-    CHECK (delivery_state IN ('pending', 'done', 'failed')),
-  active_claim_id     TEXT,
-  active_claim_order  INTEGER CHECK (
-    active_claim_order IS NULL
-    OR (
-      typeof(active_claim_order) = 'integer'
-      AND active_claim_order BETWEEN 0 AND 49
-    )
-  ),
-  claimable_at_ms     INTEGER NOT NULL,
-  delivery_attempts   INTEGER NOT NULL DEFAULT 0
-    CHECK (delivery_attempts BETWEEN 0 AND 3),
-  created_at_ms       INTEGER NOT NULL,
-  state_updated_at_ms INTEGER NOT NULL,
-  delivered_at_ms     INTEGER,
-  failed_at_ms        INTEGER,
-  failure_reason      TEXT,
-  -- Owned by the triggers below, so pending retention reads the Bundle's stored time.
-  bundle_stored_at_ms INTEGER NOT NULL DEFAULT 0,
-  CHECK (
-    (active_claim_id IS NULL AND active_claim_order IS NULL)
-    OR (
-      active_claim_id IS NOT NULL
-      AND active_claim_order IS NOT NULL
-      AND delivery_state = 'pending'
-    )
-  ),
-  CHECK (
-    (
-      delivery_state = 'pending'
-      AND delivered_at_ms IS NULL
-      AND failed_at_ms IS NULL
-      AND failure_reason IS NULL
-    )
-    OR (
-      delivery_state = 'done'
-      AND delivered_at_ms IS NOT NULL
-      AND failed_at_ms IS NULL
-      AND failure_reason IS NULL
-    )
-    OR (
-      delivery_state = 'failed'
-      AND failed_at_ms IS NOT NULL
-      AND delivered_at_ms IS NULL
-      AND failure_reason IS NOT NULL
-    )
-  )
-) WITHOUT ROWID;
-
-CREATE INDEX idx_bazaardb_claimable
-  ON bazaardb_deliveries(claimable_at_ms, created_at_ms, bundle_id)
-  WHERE delivery_state = 'pending' AND delivery_attempts < 3;
-
-CREATE INDEX idx_bazaardb_active_claim_order
-  ON bazaardb_deliveries(active_claim_id, active_claim_order, bundle_id)
-  WHERE delivery_state = 'pending' AND active_claim_id IS NOT NULL;
-
-CREATE INDEX idx_bazaardb_pending_retention
-  ON bazaardb_deliveries(bundle_stored_at_ms, bundle_id)
-  WHERE delivery_state = 'pending';
-
-CREATE INDEX idx_bazaardb_exhausted_lease
-  ON bazaardb_deliveries(claimable_at_ms, bundle_id)
-  WHERE delivery_state = 'pending'
-    AND delivery_attempts = 3
-    AND active_claim_id IS NOT NULL;
-
-CREATE TABLE bazaardb_delivery_attempts (
-  claim_id       TEXT NOT NULL,
-  bundle_id      TEXT NOT NULL REFERENCES bazaardb_deliveries(bundle_id) ON DELETE CASCADE,
-  attempt_number INTEGER NOT NULL CHECK (attempt_number BETWEEN 1 AND 3),
-  claimed_at_ms  INTEGER NOT NULL,
-  expires_at_ms  INTEGER NOT NULL,
-  settled_at_ms  INTEGER,
-  outcome        TEXT CHECK (
-    outcome IS NULL OR outcome IN (
-      'accepted', 'retryable_failure', 'permanent_failure'
-    )
-  ),
-  reason         TEXT,
-  PRIMARY KEY (claim_id, bundle_id),
-  UNIQUE (bundle_id, attempt_number),
-  CHECK (
-    (outcome IS NULL AND settled_at_ms IS NULL AND reason IS NULL)
-    OR (outcome = 'accepted' AND settled_at_ms IS NOT NULL AND reason IS NULL)
-    OR (
-      outcome IN ('retryable_failure', 'permanent_failure')
-      AND settled_at_ms IS NOT NULL
-      AND reason IS NOT NULL
-    )
-  )
-) WITHOUT ROWID;
-
-CREATE TRIGGER bazaardb_delivery_storage_insert
-AFTER INSERT ON bazaardb_deliveries
-BEGIN
-  UPDATE bazaardb_deliveries
-  SET bundle_stored_at_ms = (
-    SELECT stored_at_ms FROM bundles WHERE bundle_id = NEW.bundle_id
-  )
-  WHERE bundle_id = NEW.bundle_id;
-END;
-
-CREATE TRIGGER bundle_storage_update
-AFTER UPDATE OF stored_at_ms ON bundles
-WHEN OLD.stored_at_ms <> NEW.stored_at_ms
-BEGIN
-  UPDATE bazaardb_deliveries
-  SET bundle_stored_at_ms = NEW.stored_at_ms
-  WHERE bundle_id = NEW.bundle_id;
-END;
-
-CREATE TRIGGER bazaardb_delivery_storage_requeue
-AFTER UPDATE OF delivery_state ON bazaardb_deliveries
-WHEN NEW.delivery_state = 'pending' AND OLD.delivery_state <> 'pending'
-BEGIN
-  UPDATE bazaardb_deliveries
-  SET bundle_stored_at_ms = (
-    SELECT stored_at_ms FROM bundles WHERE bundle_id = NEW.bundle_id
-  )
-  WHERE bundle_id = NEW.bundle_id;
-END;

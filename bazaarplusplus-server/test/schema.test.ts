@@ -18,8 +18,6 @@ test("the completed migrations leave only the domain tables", async () => {
   ).all<{ name: string }>();
 
   expect(result.results.map(({ name }) => name)).toEqual([
-    "bazaardb_deliveries",
-    "bazaardb_delivery_attempts",
     "bundle_uploaders",
     "bundles",
     "ghost_battle_summaries",
@@ -62,33 +60,6 @@ describe("relational constraints", () => {
           null,
           null,
         )
-        .run(),
-    ).rejects.toThrow();
-  });
-
-  test("active claim order must be an integer within the claim page", async () => {
-    const bundleId = "01J00000000000000000000503";
-    await env.DB.prepare(validBundleSql)
-      .bind(
-        bundleId,
-        "schema-run-fractional-claim-order",
-        `bundles/2026-08-02/${bundleId}.bundle`,
-        "c".repeat(64),
-        0,
-        null,
-        null,
-        null,
-      )
-      .run();
-
-    await expect(
-      env.DB.prepare(
-        `INSERT INTO bazaardb_deliveries (
-          bundle_id, active_claim_id, active_claim_order, claimable_at_ms,
-          delivery_attempts, created_at_ms, state_updated_at_ms
-        ) VALUES (?1, 'claim-fractional', 0.5, 2, 1, 1, 1)`,
-      )
-        .bind(bundleId)
         .run(),
     ).rejects.toThrow();
   });

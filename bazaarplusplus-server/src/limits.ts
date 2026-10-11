@@ -17,11 +17,3 @@ export const SYNC_MAX_LIMIT = 500;
 export const GHOST_LOOKBACK_MS = 432_000_000;
 export const GHOST_DEFAULT_LIMIT = 200;
 export const GHOST_MAX_LIMIT = 200;
-export const CLAIM_LEASE_MS = 600_000;
-export const CLAIM_DEFAULT_LIMIT = 50;
-export const CLAIM_MAX_LIMIT = 50;
-export const DELIVERY_MAINTENANCE_BATCH_SIZE = 1_000;
-export const MAX_DELIVERY_ATTEMPTS = 3;
-// The schedule has one delay between each pair of allowed attempts.
-export const DELIVERY_RETRY_BACKOFF_MS = [60_000, 300_000] as const;
-export const SETTLE_MAX_RESULTS = 50;

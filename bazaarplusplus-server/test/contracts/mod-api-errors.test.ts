@@ -42,16 +42,6 @@ test("real HTTP failures emit exactly the declared codes, statuses, and retry fl
       headers: { Authorization: `Bearer ${env.BUNDLE_SYNC_TOKEN}` },
     });
   }
-  function delivery(action: string, body: string) {
-    return request(`/bazaardb/deliveries/${action}`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${env.BAZAARDB_DELIVERY_TOKEN}`,
-        "Content-Type": "application/json",
-      },
-      body,
-    });
-  }
 
   await record(request("/missing"));
   await record(request("/health", { method: "POST" }));
@@ -66,9 +56,6 @@ test("real HTTP failures emit exactly the declared codes, statuses, and retry fl
   // The window end is never settled within SYNC_SETTLE_LAG_MS of the request.
   const now = Date.now();
   await record(collection(`?available_from_ms=${now - 120_000}&available_before_ms=${now}`));
-  await record(delivery("claim", "{"));
-  await record(delivery("claim", '{"limit":0}'));
-  await record(delivery("settle", "{}"));
   await record(request("/ghost-battles?player_account_id=account-local"), {
     ...env,
     GHOST_BATTLE_RATE_LIMITER: { limit: async () => ({ success: false }) },

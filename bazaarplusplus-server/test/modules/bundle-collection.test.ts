@@ -7,14 +7,19 @@ import { expectGolden } from "../fixtures/golden";
 
 const SYNC_TOKEN = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
 
-async function insertBundle(bundleId: string, availableAtMs: number): Promise<void> {
+async function insertBundle(
+  bundleId: string,
+  availableAtMs: number,
+  hasScreenshot = false,
+): Promise<void> {
   await env.DB.prepare(
     `INSERT INTO bundles (
       bundle_id, run_id, uploader_account_id, object_key, bundle_sha256,
       bundle_version, manifest_bytes, object_bytes, client_created_at_ms,
       stored_at_ms, available_at_ms, run_format_version, run_bytes, run_sha256,
-      has_screenshot
-    ) VALUES (?1, ?2, 'collection-uploader', ?3, ?4, 6, 10, 100, ?5, ?5, ?6, 6, 10, ?4, 0)`,
+      has_screenshot, screenshot_content_type, screenshot_bytes, screenshot_sha256
+    ) VALUES (?1, ?2, 'collection-uploader', ?3, ?4, 6, 10, 100, ?5, ?5, ?6, 6, 10, ?4,
+      ?7, ?8, ?9, ?10)`,
   )
     .bind(
       bundleId,
@@ -23,12 +28,22 @@ async function insertBundle(bundleId: string, availableAtMs: number): Promise<vo
       "a".repeat(64),
       availableAtMs - 1_000,
       availableAtMs,
+      hasScreenshot ? 1 : 0,
+      hasScreenshot ? "image/jpeg" : null,
+      hasScreenshot ? 10 : null,
+      hasScreenshot ? "b".repeat(64) : null,
     )
     .run();
 }
 
 function collectionRequest(query: string, token = SYNC_TOKEN): Request {
   return new Request(`https://mod-api-v6.bazaarplusplus.com/bundles?${query}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+function bazaarDbRequest(query: string, token = env.BAZAARDB_DELIVERY_TOKEN): Request {
+  return new Request(`https://mod-api-v6.bazaarplusplus.com/bazaardb/bundles?${query}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
 }
@@ -170,5 +185,88 @@ describe("GET /bundles", () => {
     };
     expect(body.error).toMatchObject({ code: "storage_unavailable", retryable: true });
     expect(body.error.request_id).toBeTruthy();
+  });
+});
+
+describe("GET /bazaardb/bundles", () => {
+  test("pages only Screenshot-bearing Bundles with their identity and digest", async () => {
+    const now = 1_785_628_800_000;
+    vi.spyOn(Date, "now").mockReturnValue(now);
+    for (const [index, id] of [
+      "01J00000000000000000000201",
+      "01J00000000000000000000202",
+      "01J00000000000000000000203",
+      "01J00000000000000000000204",
+    ].entries()) {
+      await insertBundle(id, now - 120_000 + index, index !== 1);
+    }
+
+    const response = await worker.fetch(
+      bazaarDbRequest(
+        `available_from_ms=${now - 180_000}&available_before_ms=${now - 60_000}&limit=2`,
+      ),
+      env,
+    );
+    await expectGolden(response, "bazaardb-page");
+  });
+
+  test("continues from next_after and skips Bundles without a Screenshot", async () => {
+    const now = Date.now();
+    const start = now - 7_200_000;
+    const before = now - 3_600_000;
+    const position = start + 1_000;
+    await insertBundle("01J00000000000000000000211", position, true);
+    await insertBundle("01J00000000000000000000212", position, false);
+    await insertBundle("01J00000000000000000000213", position, true);
+
+    const window = `available_from_ms=${start}&available_before_ms=${before}&limit=1`;
+    const first = await worker.fetch(bazaarDbRequest(window), env);
+    const firstBody = (await first.json()) as {
+      items: Array<{ bundle_id: string }>;
+      next_after: { available_at_ms: number; bundle_id: string } | null;
+    };
+    expect(firstBody.items.map(({ bundle_id }) => bundle_id)).toEqual([
+      "01J00000000000000000000211",
+    ]);
+    expect(firstBody.next_after).toEqual({
+      available_at_ms: position,
+      bundle_id: "01J00000000000000000000211",
+    });
+
+    const second = await worker.fetch(
+      bazaarDbRequest(
+        `${window}&after_available_at_ms=${position}&after_bundle_id=01J00000000000000000000211`,
+      ),
+      env,
+    );
+    const secondBody = (await second.json()) as {
+      items: Array<{ bundle_id: string }>;
+      next_after: null;
+    };
+    expect(secondBody.items.map(({ bundle_id }) => bundle_id)).toEqual([
+      "01J00000000000000000000213",
+    ]);
+    expect(secondBody.next_after).toBeNull();
+  });
+
+  test("shares the collection window rules", async () => {
+    const expired = await worker.fetch(
+      bazaarDbRequest(`available_from_ms=${Date.now() - R2_RETENTION_MS - 1}`),
+      env,
+    );
+    expect(expired.status).toBe(410);
+    expect((await expired.json()) as object).toMatchObject({
+      error: { code: "window_expired", retryable: false },
+    });
+
+    const now = Date.now();
+    const unsettled = await worker.fetch(
+      bazaarDbRequest(`available_from_ms=${now - 120_000}&available_before_ms=${now - 100}`),
+      env,
+    );
+    expect(unsettled.status).toBe(400);
+    expect((await unsettled.json()) as object).toMatchObject({
+      error: { code: "window_not_settled", retryable: false },
+    });
   });
 });

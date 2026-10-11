@@ -1,4 +1,5 @@
 import { validBundleId } from "../bundle/manifest";
+import { BUNDLE_CONTENT_TYPE } from "../bundle/prefix";
 import type { Env } from "../env";
 import { HttpError } from "../errors";
 import { oneQueryValue } from "../http/request";
@@ -9,7 +10,11 @@ import {
   SYNC_SETTLE_LAG_MS,
 } from "../limits";
 import { logEvent } from "../observability";
-import { createBundleDownloadSigner, signDownloadPage } from "../presigner";
+import {
+  createBundleDownloadSigner,
+  type SignedBundleDownload,
+  signDownloadPage,
+} from "../presigner";
 
 interface BundleCollectionItem {
   bundle_id: string;
@@ -18,9 +23,15 @@ interface BundleCollectionItem {
   download_expires_at_ms: number;
 }
 
-export interface BundleCollectionPage {
+interface BazaarDbBundleItem extends BundleCollectionItem {
+  run_id: string;
+  content_type: typeof BUNDLE_CONTENT_TYPE;
+  sha256: string;
+}
+
+export interface CollectionPage<Item> {
   window: { available_from_ms: number; available_before_ms: number };
-  items: BundleCollectionItem[];
+  items: Item[];
   next_after: { available_at_ms: number; bundle_id: string } | null;
 }
 
@@ -29,6 +40,51 @@ interface CollectionRow {
   available_at_ms: number;
   object_key: string;
 }
+
+interface BazaarDbRow extends CollectionRow {
+  run_id: string;
+  bundle_sha256: string;
+}
+
+// One keyset feed over bundles: the index and filter must agree, because a
+// partial index is usable only when the query repeats its WHERE clause.
+interface CollectionFeed<Row extends CollectionRow, Item> {
+  event: string;
+  columns: string;
+  index: string;
+  filter: string;
+  item(row: Row, download: SignedBundleDownload): Item;
+}
+
+function baseItem(row: CollectionRow, download: SignedBundleDownload): BundleCollectionItem {
+  return {
+    bundle_id: row.bundle_id,
+    available_at_ms: row.available_at_ms,
+    download_url: download.url,
+    download_expires_at_ms: download.expiresAtMs,
+  };
+}
+
+const ALL_BUNDLES: CollectionFeed<CollectionRow, BundleCollectionItem> = {
+  event: "bundle.collection",
+  columns: "bundle_id, available_at_ms, object_key",
+  index: "idx_bundles_available",
+  filter: "",
+  item: baseItem,
+};
+
+const SCREENSHOT_BUNDLES: CollectionFeed<BazaarDbRow, BazaarDbBundleItem> = {
+  event: "bazaardb.collection",
+  columns: "bundle_id, available_at_ms, object_key, run_id, bundle_sha256",
+  index: "idx_bundles_screenshot_available",
+  filter: " AND has_screenshot = 1",
+  item: (row, download) => ({
+    ...baseItem(row, download),
+    run_id: row.run_id,
+    content_type: BUNDLE_CONTENT_TYPE,
+    sha256: row.bundle_sha256,
+  }),
+};
 
 function integer(value: string | null, field: string): number {
   if (value === null || !/^(0|[1-9][0-9]*)$/.test(value)) {
@@ -57,11 +113,28 @@ function integer(value: string | null, field: string): number {
   return result;
 }
 
-export async function collectBundles(
+export function collectBundles(
   request: Request,
   env: Env,
   requestId: string,
-): Promise<BundleCollectionPage> {
+): Promise<CollectionPage<BundleCollectionItem>> {
+  return collectPage(request, env, requestId, ALL_BUNDLES);
+}
+
+export function collectBazaarDbBundles(
+  request: Request,
+  env: Env,
+  requestId: string,
+): Promise<CollectionPage<BazaarDbBundleItem>> {
+  return collectPage(request, env, requestId, SCREENSHOT_BUNDLES);
+}
+
+async function collectPage<Row extends CollectionRow, Item>(
+  request: Request,
+  env: Env,
+  requestId: string,
+  feed: CollectionFeed<Row, Item>,
+): Promise<CollectionPage<Item>> {
   const url = new URL(request.url);
   const allowed = new Set([
     "available_from_ms",
@@ -122,14 +195,14 @@ export async function collectBundles(
     throw new HttpError(400, "invalid_query", "Keyset position is outside the fixed window", false);
   }
 
-  let rows: CollectionRow[];
+  let rows: Row[];
   try {
     const lowerBound =
       afterTime === null ? "available_at_ms >= ?1" : "(available_at_ms, bundle_id) > (?1, ?4)";
     const result = await env.DB.prepare(
-      `SELECT bundle_id, available_at_ms, object_key
-       FROM bundles INDEXED BY idx_bundles_available
-       WHERE ${lowerBound} AND available_at_ms < ?2
+      `SELECT ${feed.columns}
+       FROM bundles INDEXED BY ${feed.index}
+       WHERE ${lowerBound} AND available_at_ms < ?2${feed.filter}
        ORDER BY available_at_ms ASC, bundle_id ASC
        LIMIT ?3`,
     );
@@ -137,7 +210,7 @@ export async function collectBundles(
       afterTime === null
         ? result.bind(from, before, limit + 1)
         : result.bind(afterTime, before, limit + 1, afterId);
-    const found = await page.all<CollectionRow>();
+    const found = await page.all<Row>();
     rows = found.results;
   } catch {
     throw new HttpError(503, "storage_unavailable", "Bundle index query failed", true);
@@ -151,16 +224,9 @@ export async function collectBundles(
     now,
     "Bundle URL signing failed",
   );
-  const items = returned.map(
-    (row, index): BundleCollectionItem => ({
-      bundle_id: row.bundle_id,
-      available_at_ms: row.available_at_ms,
-      download_url: downloads[index].url,
-      download_expires_at_ms: downloads[index].expiresAtMs,
-    }),
-  );
+  const items = returned.map((row, index) => feed.item(row, downloads[index]));
   const last = returned.at(-1);
-  logEvent("bundle.collection", {
+  logEvent(feed.event, {
     request_id: requestId,
     available_from_ms: from,
     available_before_ms: before,

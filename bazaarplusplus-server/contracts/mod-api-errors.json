@@ -13,28 +13,10 @@
       "meaning": "Invalid or unsupported digest field"
     },
     {
-      "code": "invalid_json",
-      "status": 400,
-      "retryable": false,
-      "meaning": "Missing, oversized, malformed, or non-object JSON body"
-    },
-    {
-      "code": "invalid_limit",
-      "status": 400,
-      "retryable": false,
-      "meaning": "Invalid BazaarDB claim page size"
-    },
-    {
       "code": "invalid_query",
       "status": 400,
       "retryable": false,
       "meaning": "Missing, repeated, unknown, or invalid query parameter"
-    },
-    {
-      "code": "invalid_settle_request",
-      "status": 400,
-      "retryable": false,
-      "meaning": "Invalid BazaarDB settlement body"
     },
     {
       "code": "window_not_settled",
@@ -148,7 +130,7 @@
       "code": "storage_unavailable",
       "status": 503,
       "retryable": true,
-      "meaning": "Storage, signing, rate limiter, or delivery maintenance unavailable"
+      "meaning": "Storage, signing, or rate limiter unavailable"
     }
   ]
 }
