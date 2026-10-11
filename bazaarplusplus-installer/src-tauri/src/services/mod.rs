@@ -7,6 +7,7 @@ pub mod history;
 pub mod install;
 pub mod path;
 pub mod paths;
+pub(crate) mod placement;
 pub mod process_snapshot;
 pub mod selected_game_installation;
 pub mod startup;
