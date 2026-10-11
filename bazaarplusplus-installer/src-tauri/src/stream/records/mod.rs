@@ -100,7 +100,7 @@ mod tests {
             .unwrap_err();
 
         assert!(error.contains("found=0"), "{error}");
-        assert!(error.contains("supported=1,2"), "{error}");
+        assert!(error.contains("supported=1"), "{error}");
     }
 
     #[test]
@@ -116,11 +116,11 @@ mod tests {
         create_mod_schema(&conn);
         conn.execute(
             "insert into run_screenshots (
-                screenshot_id, run_id, capture_source, image_relative_path, captured_at_local,
-                captured_at_utc, victories_at_capture
+                screenshot_id, run_id, capture_source, image_relative_path, captured_utc_offset_minutes,
+                captured_at_ms, victories_at_capture
              ) values (
                 'snap-1', 'run-1', 'end_of_run_auto', 'match-1.png',
-                '2026-04-10T20:30:05+00:00', '2026-04-10T20:30:05+00:00', 10
+                0, 1775853005000, 10
              )",
             [],
         )
@@ -144,11 +144,11 @@ mod tests {
         create_mod_schema(&conn);
         conn.execute(
             "insert into run_screenshots (
-                screenshot_id, run_id, capture_source, image_relative_path, captured_at_local,
-                captured_at_utc, day, victories_at_capture, player_position, player_rank, player_rating, hero_name
+                screenshot_id, run_id, capture_source, image_relative_path, captured_utc_offset_minutes,
+                captured_at_ms, day, victories_at_capture, player_position, player_rank, player_rating, hero_name
              ) values (
                 'snap-1', 'run-1', 'end_of_run_auto', 'match-1.png',
-                '2026-04-10T20:30:05+00:00', '2026-04-10T20:30:05+00:00',
+                0, 1775853005000,
                 14, 10, 1, 'Diamond', 500, 'Mak'
              )",
             [],
@@ -176,11 +176,11 @@ mod tests {
         create_mod_schema(&conn);
         conn.execute(
             "insert into run_screenshots (
-                screenshot_id, run_id, capture_source, image_relative_path, captured_at_local,
-                captured_at_utc, hero_name
+                screenshot_id, run_id, capture_source, image_relative_path, captured_utc_offset_minutes,
+                captured_at_ms, hero_name
              ) values (
                 'snap-dra', 'run-dra', 'end_of_run_auto', 'dragons.png',
-                '2026-08-06T20:30:05+00:00', '2026-08-06T20:30:05+00:00', 'Hero8'
+                0, 1786048205000, 'Hero8'
              )",
             [],
         )

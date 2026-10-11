@@ -1,18 +1,16 @@
 #nullable enable
 using BazaarPlusPlus.Storage.RunLog;
+using BazaarPlusPlus.TestSupport;
 using Microsoft.Data.Sqlite;
 
 internal static class RunLogSchemaIndexTests
 {
-    private const string OldIndexName = "idx_runs_status_last_seen";
-    private const string NewIndexName = "idx_runs_completed_last_seen";
-
     // A History page names this index in INDEXED BY, which errors when the index cannot serve it.
     private const string HintedIndexName = "idx_battles_history_ghost";
 
     internal static void Run()
     {
-        OpeningAnOlderDatabaseReplacesTheStatusIndex();
+        OpeningTheShippedSchemaFileDropsNothing();
         OpeningADatabaseRedefinesADriftedIndex();
         ReopeningAnUpToDateDatabaseLeavesTheSchemaAlone();
     }
@@ -70,7 +68,7 @@ internal static class RunLogSchemaIndexTests
         {
             Scalar(
                 connection,
-                $"SELECT COUNT(*) FROM battles INDEXED BY {HintedIndexName} WHERE source = 'GHOST' AND deleted_at_utc IS NULL AND local_player_account_id = 'account';"
+                $"SELECT COUNT(*) FROM battles INDEXED BY {HintedIndexName} WHERE source = 'GHOST' AND deleted_at_ms IS NULL AND local_player_account_id = 'account';"
             );
             return true;
         }
@@ -92,42 +90,33 @@ internal static class RunLogSchemaIndexTests
         return rows;
     }
 
-    private static void OpeningAnOlderDatabaseReplacesTheStatusIndex()
+    // The schema file the installer and import build against is exactly what BootstrapSql creates,
+    // so a database built from it opens with no index rebuilt and no DDL run.
+    private static void OpeningTheShippedSchemaFileDropsNothing()
     {
         WithDatabase(connection =>
         {
-            // A database already at the current version, but carrying the previously shipped index.
-            RunLogSchema.EnsureInitialized(connection);
             Execute(
                 connection,
-                $"""
-                DROP INDEX IF EXISTS {NewIndexName};
-                CREATE INDEX IF NOT EXISTS {OldIndexName}
-                    ON runs(status, last_seen_at_utc DESC);
-                INSERT INTO runs (
-                    run_id, started_at_utc, last_seen_at_utc, status, completed, hero, game_mode
-                ) VALUES (
-                    'legacy-run', '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z',
-                    'active', 0, 'Vanessa', 'Ranked'
-                );
-                """
+                TestInputs.Fixture("src/BazaarPlusPlus.Storage/history-database-v6.schema.sql")
             );
-            Equal(1L, IndexCount(connection, OldIndexName), "seeded old index");
+            var indexes = IndexDefinitions(connection);
+            var before = Scalar(connection, "PRAGMA schema_version;");
 
             RunLogSchema.EnsureInitialized(connection);
 
-            Equal(0L, IndexCount(connection, OldIndexName), "old index dropped on open");
-            Equal(1L, IndexCount(connection, NewIndexName), "new index created on open");
-            Equal(3L, Scalar(connection, "PRAGMA user_version;"), "schema version unchanged");
-            Equal(1L, Scalar(connection, "SELECT COUNT(*) FROM runs;"), "existing rows preserved");
+            Equal(before, Scalar(connection, "PRAGMA schema_version;"), "schema cookie on open");
+            var after = IndexDefinitions(connection);
+            Equal(indexes.Count, after.Count, "index count on open");
+            for (var index = 0; index < after.Count; index++)
+                Equal(indexes[index], after[index], $"index {after[index].Name} on open");
+            Equal(
+                (long)RunLogSchema.LocalDatabaseSchemaVersion,
+                Scalar(connection, "PRAGMA user_version;"),
+                "schema file version"
+            );
         });
     }
-
-    private static long IndexCount(SqliteConnection connection, string indexName) =>
-        Scalar(
-            connection,
-            $"SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name='{indexName}';"
-        );
 
     private static void WithDatabase(Action<SqliteConnection> body)
     {

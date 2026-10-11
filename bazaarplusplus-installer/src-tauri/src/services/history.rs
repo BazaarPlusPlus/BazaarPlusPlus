@@ -698,33 +698,33 @@ mod tests {
         conn.execute_batch(
             "
             insert into runs (
-                run_id, started_at_utc, last_seen_at_utc, status, completed,
-                hero, game_mode, ended_at_utc, victories, losses
+                run_id, started_at_ms, last_seen_at_ms, status,
+                hero, game_mode, ended_at_ms, victories, losses
             ) values (
-                'run-1', '2026-01-01T09:00:00Z', '2026-01-01T10:00:00Z',
-                'completed', 1, 'Vanessa', 'Normal', '2026-01-01T10:00:00Z', 10, 2
+                'run-1', 1767258000000, 1767261600000,
+                'completed', 'Vanessa', 'Normal', 1767261600000, 10, 2
             );
             insert into battles (
-                battle_id, source, run_id, recorded_at_utc, combat_kind, player_name,
-                opponent_hero, opponent_name, result, has_local_payload, local_payload_state
+                battle_id, source, run_id, recorded_at_ms, combat_kind, player_name,
+                opponent_hero, opponent_name, result, local_payload_state
             ) values (
-                'battle-1', 'LOCAL', 'run-1', '2026-01-01T09:30:00Z', 'PVP', 'Player',
-                'Dooley', 'Opponent', 'win', 0, 'missing'
+                'battle-1', 'LOCAL', 'run-1', 1767259800000, 'PVP', 'Player',
+                'Dooley', 'Opponent', 'win', 'missing'
             );
             insert into run_screenshots (
                 screenshot_id, run_id, capture_source, is_primary,
-                image_relative_path, captured_at_utc, captured_at_local
+                image_relative_path, captured_at_ms, captured_utc_offset_minutes
             ) values (
                 'shot-1', 'run-1', 'end_of_run_auto', 1,
-                '2026-01-01/run.png', '2026-01-01T10:00:00Z',
-                '2026-01-01T18:00:00+08:00'
+                '2026-01-01/run.png', 1767261600000,
+                480
             );
             insert into combat_replay_videos (
                 video_id, battle_id, source, video_relative_path, width, height, fps, codec,
-                started_at_utc, file_size_bytes, status
+                started_at_ms, file_size_bytes, status
             ) values (
                 'video-1', 'battle-1', 'GAME_CAPTURE', '2026-01-01/battle.mp4', 1920, 1080, 60,
-                'h264', '2026-01-01T09:30:00Z', 5, 'COMPLETED'
+                'h264', 1767259800000, 5, 'COMPLETED'
             );
             ",
         )

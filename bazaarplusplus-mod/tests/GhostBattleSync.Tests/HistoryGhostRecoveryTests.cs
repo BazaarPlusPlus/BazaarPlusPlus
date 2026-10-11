@@ -34,10 +34,10 @@ internal static class HistoryGhostRecoveryTests
         using var command = db.CreateCommand();
         command.CommandText = """
             WITH RECURSIVE n(x) AS (VALUES(0) UNION ALL SELECT x+1 FROM n WHERE x<85)
-            INSERT INTO battles (battle_id,source,remote_battle_id,uploader_account_id,local_player_account_id,bundle_id,recorded_at_utc,ghost_replay_state,deleted_at_utc,combat_kind)
-            SELECT printf('recover%03d',x),'GHOST',printf('remote%03d',x),'uploader','account-a','bundle','2026-01-01T00:00:00Z','local_ready','2026-02-01T00:00:00Z','PVPCombat' FROM n;
-            INSERT INTO battles (battle_id,source,remote_battle_id,uploader_account_id,local_player_account_id,bundle_id,recorded_at_utc,combat_kind)
-            VALUES ('stale','GHOST','remote-stale','uploader','account-a','bundle','2026-01-01T00:00:00Z','PVPCombat');
+            INSERT INTO battles (battle_id,source,remote_battle_id,uploader_account_id,local_player_account_id,bundle_id,recorded_at_ms,ghost_replay_state,deleted_at_ms,combat_kind)
+            SELECT printf('recover%03d',x),'GHOST',printf('remote%03d',x),'uploader','account-a','bundle',1767225600000,'local_ready',1769904000000,'PVPCombat' FROM n;
+            INSERT INTO battles (battle_id,source,remote_battle_id,uploader_account_id,local_player_account_id,bundle_id,recorded_at_ms,combat_kind)
+            VALUES ('stale','GHOST','remote-stale','uploader','account-a','bundle',1767225600000,'PVPCombat');
             """;
         command.ExecuteNonQuery();
         var repository = new HistoryPanelRepository(path);

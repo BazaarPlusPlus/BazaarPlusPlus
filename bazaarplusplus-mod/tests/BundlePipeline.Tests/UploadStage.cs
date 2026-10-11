@@ -316,19 +316,19 @@ internal static class UploadFeedBoundaries
     {
         using var command = connection.CreateCommand();
         command.CommandText =
-            "INSERT INTO bundle_outbox (bundle_id, run_id, file_name, content_sha256_hex, content_digest, total_bytes, has_screenshot, sealed_at_utc, status, next_attempt_at_utc, failed_at_utc) VALUES ($bundleId, $runId, $fileName, 'sha', 'digest', 10, 0, $sealedAt, $status, $sealedAt, $failedAt);";
+            "INSERT INTO bundle_outbox (bundle_id, run_id, file_name, content_sha256_hex, content_digest, total_bytes, has_screenshot, sealed_at_ms, status, next_attempt_at_ms, failed_at_ms) VALUES ($bundleId, $runId, $fileName, 'sha', 'digest', 10, 0, $sealedAt, $status, $sealedAt, $failedAt);";
         command.Parameters.AddWithValue("$bundleId", bundleId);
         command.Parameters.AddWithValue("$runId", "run-" + bundleId);
         command.Parameters.AddWithValue("$fileName", bundleId + ".bundle");
         command.Parameters.AddWithValue(
             "$sealedAt",
-            DateTimeOffset.UtcNow.AddDays(sealedDays).ToString("o")
+            DateTimeOffset.UtcNow.AddDays(sealedDays).ToUnixTimeMilliseconds()
         );
         command.Parameters.AddWithValue("$status", status);
         command.Parameters.AddWithValue(
             "$failedAt",
             failedDays.HasValue
-                ? DateTimeOffset.UtcNow.AddDays(failedDays.Value).ToString("o")
+                ? DateTimeOffset.UtcNow.AddDays(failedDays.Value).ToUnixTimeMilliseconds()
                 : DBNull.Value
         );
         command.ExecuteNonQuery();

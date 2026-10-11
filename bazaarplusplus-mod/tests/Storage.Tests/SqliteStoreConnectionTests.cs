@@ -40,8 +40,8 @@ internal static class SqliteStoreConnectionTests
                         Execute(
                             connection,
                             """
-                            INSERT INTO run_events (run_id, seq, ts_utc, kind, payload_json)
-                            VALUES ('missing-run', 1, '2026-01-01T00:00:00Z', 'run_started', '{}');
+                            INSERT INTO run_events (run_id, seq, ts_at_ms, kind, payload_json)
+                            VALUES ('missing-run', 1, 1767225600000, 'run_started', '{}');
                             """
                         ),
                     "orphan run_events insert"
@@ -52,14 +52,12 @@ internal static class SqliteStoreConnectionTests
                     connection,
                     """
                     INSERT INTO runs (
-                        run_id, started_at_utc, last_seen_at_utc, status, completed,
-                        hero, game_mode
+                        run_id, started_at_ms, last_seen_at_ms, status, hero, game_mode
                     ) VALUES (
-                        'fk-run', '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z',
-                        'active', 0, 'Vanessa', 'Ranked'
+                        'fk-run', 1767225600000, 1767225600000, 'active', 'Vanessa', 'Ranked'
                     );
-                    INSERT INTO run_events (run_id, seq, ts_utc, kind, payload_json)
-                    VALUES ('fk-run', 1, '2026-01-01T00:00:00Z', 'run_started', '{}');
+                    INSERT INTO run_events (run_id, seq, ts_at_ms, kind, payload_json)
+                    VALUES ('fk-run', 1, 1767225600000, 'run_started', '{}');
                     DELETE FROM runs WHERE run_id = 'fk-run';
                     """
                 );

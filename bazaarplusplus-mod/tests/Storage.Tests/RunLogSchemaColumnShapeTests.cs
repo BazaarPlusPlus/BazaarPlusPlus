@@ -8,14 +8,13 @@ using Microsoft.Data.Sqlite;
 // column change must bump it (ADR-0011).
 internal static class RunLogSchemaColumnShapeTests
 {
-    // One fingerprint per shipped LocalDatabaseSchemaVersion. Version 3 only repaired queue data and
-    // shares version 2's shape; it is the last bump without a column change, so version 2 is omitted.
+    // One fingerprint per shipped LocalDatabaseSchemaVersion of the V6 database, which starts at 1.
     private static readonly IReadOnlyDictionary<int, string> ShippedColumnShapes = new Dictionary<
         int,
         string
     >
     {
-        [3] = "b3458fe8b3a4f5c5",
+        [1] = "52e3ceb9a57f5c79",
     };
 
     internal static void Run()

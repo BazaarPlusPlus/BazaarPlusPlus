@@ -64,7 +64,7 @@ internal static class ReplayPayloadRetentionPolicyTests
     private static ReplayPayloadMaintenanceRecord Ready(
         string battleId,
         DateTimeOffset recordedAt
-    ) => new(battleId, recordedAt, HasLocalPayload: true, ReplayPayloadState.Ready);
+    ) => new(battleId, recordedAt, ReplayPayloadState.Ready);
 
     private static void Assert(bool condition, string message)
     {

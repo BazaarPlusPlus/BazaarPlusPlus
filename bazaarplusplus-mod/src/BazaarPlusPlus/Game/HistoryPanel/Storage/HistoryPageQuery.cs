@@ -53,7 +53,7 @@ internal sealed class HistoryPageQuery
         new(
             "battles",
             "battle_id",
-            "recorded_at_utc",
+            "recorded_at_ms",
             "source = 'LOCAL' AND run_id = $runId",
             null,
             ("$runId", runId)
@@ -62,7 +62,7 @@ internal sealed class HistoryPageQuery
     internal static HistoryPageQuery Ghosts(string account, GhostBattleFilter filter, bool dayMin10)
     {
         var where =
-            "source = 'GHOST' AND deleted_at_utc IS NULL AND local_player_account_id = $account";
+            "source = 'GHOST' AND deleted_at_ms IS NULL AND local_player_account_id = $account";
         var parameters = new List<(string, object)> { ("$account", account) };
         if (filter != GhostBattleFilter.All)
         {
@@ -77,15 +77,15 @@ internal sealed class HistoryPageQuery
             "idx_battles_history_ghost"
             + (dayMin10 ? "_day" : "")
             + (filter != GhostBattleFilter.All ? "_outcome" : "");
-        return new("battles", "battle_id", "recorded_at_utc", where, index, parameters.ToArray());
+        return new("battles", "battle_id", "recorded_at_ms", where, index, parameters.ToArray());
     }
 
     internal static HistoryPageQuery HiddenGhosts(string account) =>
         new(
             "battles",
             "battle_id",
-            "recorded_at_utc",
-            "source = 'GHOST' AND local_player_account_id = $account AND deleted_at_utc IS NOT NULL AND ghost_replay_state = 'local_ready'",
+            "recorded_at_ms",
+            "source = 'GHOST' AND local_player_account_id = $account AND deleted_at_ms IS NOT NULL AND ghost_replay_state = 'local_ready'",
             null,
             ("$account", account)
         );

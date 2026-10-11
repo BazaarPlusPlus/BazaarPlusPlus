@@ -33,10 +33,10 @@ internal sealed partial class HistoryPanelRepository
     ) =>
         ReadCountedPage(
             HistoryPageQuery.Runs(hero),
-            "run_id, hero, game_mode, started_at_utc, last_seen_at_utc, player_rank, player_rating, "
+            "run_id, hero, game_mode, started_at_ms, last_seen_at_ms, player_rank, player_rating, "
                 + "status AS run_status, day, hour, final_day, final_hour, max_health AS final_max_health, "
                 + "prestige AS final_prestige, level AS final_level, income AS final_income, gold AS final_gold, "
-                + "victories, losses, ended_at_utc",
+                + "victories, losses, ended_at_ms",
             request,
             HistoryPanelRowMapper.ReadRun
         );
@@ -130,7 +130,7 @@ internal sealed partial class HistoryPanelRepository
                     source,
                     run_id,
                     local_player_account_id,
-                    recorded_at_utc,
+                    recorded_at_ms,
                     day,
                     hour,
                     encounter_id,
@@ -166,7 +166,7 @@ internal sealed partial class HistoryPanelRepository
                     'GHOST',
                     NULL,
                     $localPlayerAccountId,
-                    $recordedAtUtc,
+                    $recordedAtMs,
                     $day,
                     $hour,
                     $encounterId,
@@ -202,7 +202,7 @@ internal sealed partial class HistoryPanelRepository
                     remote_battle_id = excluded.remote_battle_id,
                     uploader_account_id = excluded.uploader_account_id,
                     local_player_account_id = excluded.local_player_account_id,
-                    recorded_at_utc = excluded.recorded_at_utc,
+                    recorded_at_ms = excluded.recorded_at_ms,
                     day = excluded.day,
                     hour = excluded.hour,
                     encounter_id = excluded.encounter_id,
@@ -244,7 +244,7 @@ internal sealed partial class HistoryPanelRepository
                             THEN NULL
                         ELSE {RunLogSchema.BattlesTableName}.ghost_replay_unavailable_reason
                     END,
-                    deleted_at_utc = NULL;
+                    deleted_at_ms = NULL;
                 """;
             var localBattleId = BuildGhostLocalBattleId(
                 battle.PlayerAccountId ?? string.Empty,
@@ -258,8 +258,8 @@ internal sealed partial class HistoryPanelRepository
             );
             insertCommand.Parameters.AddWithValue("$localPlayerAccountId", localPlayerAccountId);
             insertCommand.Parameters.AddWithValue(
-                "$recordedAtUtc",
-                battle.RecordedAtUtc.ToString("o")
+                "$recordedAtMs",
+                battle.RecordedAtUtc.ToUnixTimeMilliseconds()
             );
             insertCommand.Parameters.AddWithValue("$day", (object?)battle.Day ?? DBNull.Value);
             insertCommand.Parameters.AddWithValue("$hour", (object?)battle.Hour ?? DBNull.Value);
@@ -365,20 +365,20 @@ internal sealed partial class HistoryPanelRepository
         command.CommandTimeout = 2;
         command.CommandText = $"""
             UPDATE {RunLogSchema.BattlesTableName}
-            SET deleted_at_utc = COALESCE(deleted_at_utc, $deletedAtUtc),
+            SET deleted_at_ms = COALESCE(deleted_at_ms, $deletedAtMs),
                 ghost_replay_state = CASE
                     WHEN ghost_replay_state = 'local_ready' THEN ghost_replay_state
                     ELSE 'expired'
                 END
             WHERE source = 'GHOST'
-              AND deleted_at_utc IS NULL
+              AND deleted_at_ms IS NULL
               AND (ghost_replay_state IS NULL OR ghost_replay_state <> 'local_ready')
-              AND recorded_at_utc < $staleCutoffUtc;
+              AND recorded_at_ms < $staleCutoffMs;
             """;
-        command.Parameters.AddWithValue("$deletedAtUtc", nowUtc.ToString("o"));
+        command.Parameters.AddWithValue("$deletedAtMs", nowUtc.ToUnixTimeMilliseconds());
         command.Parameters.AddWithValue(
-            "$staleCutoffUtc",
-            nowUtc.Subtract(GhostRetentionWindow).ToString("o")
+            "$staleCutoffMs",
+            nowUtc.Subtract(GhostRetentionWindow).ToUnixTimeMilliseconds()
         );
         return command.ExecuteNonQuery();
     }
@@ -506,7 +506,7 @@ internal sealed partial class HistoryPanelRepository
                 SELECT battle_id
                 FROM {RunLogSchema.BattlesTableName}
                 WHERE run_id = $runId AND source = 'LOCAL'
-                ORDER BY recorded_at_utc DESC, battle_id DESC;
+                ORDER BY recorded_at_ms DESC, battle_id DESC;
                 """;
             listBattles.Parameters.AddWithValue("$runId", runId);
             using var reader = listBattles.ExecuteReader();
@@ -523,11 +523,14 @@ internal sealed partial class HistoryPanelRepository
             detachVideos.CommandText = $"""
                 UPDATE {RunLogSchema.CombatReplayVideosTableName}
                 SET attachment_state = 'detached',
-                    detached_at_utc = COALESCE(detached_at_utc, $now)
+                    detached_at_ms = COALESCE(detached_at_ms, $now)
                 WHERE attachment_state = 'attached'
                   AND battle_id IN (SELECT value FROM json_each($battleIdsJson));
                 """;
-            detachVideos.Parameters.AddWithValue("$now", DateTimeOffset.UtcNow.ToString("o"));
+            detachVideos.Parameters.AddWithValue(
+                "$now",
+                DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+            );
             detachVideos.Parameters.AddWithValue(
                 "$battleIdsJson",
                 Newtonsoft.Json.JsonConvert.SerializeObject(battleIds)

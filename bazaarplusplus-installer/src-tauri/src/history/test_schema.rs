@@ -1,10 +1,10 @@
 //! The local history database the installer reads, built from the mod's schema
-//! golden. The mod owns the schema (`RunLogSchema`) and `RunLoggingPipeline.Tests`
+//! file. The mod owns the schema (`RunLogSchema`) and `RunLoggingPipeline.Tests`
 //! dumps it from a freshly initialized database, so a mod column change fails
 //! installer tests instead of passing against a hand-copied shape.
 
 const MOD_SCHEMA_GOLDEN: &str = include_str!(
-    "../../../../bazaarplusplus-mod/tests/RunLoggingPipeline.Tests/fixtures/history-database-v3.schema.sql"
+    "../../../../bazaarplusplus-mod/src/BazaarPlusPlus.Storage/history-database-v6.schema.sql"
 );
 
 /// Creates every table, index, and trigger of the mod's current local history

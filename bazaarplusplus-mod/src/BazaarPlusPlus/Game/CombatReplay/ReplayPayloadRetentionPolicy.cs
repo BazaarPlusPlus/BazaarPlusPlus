@@ -25,9 +25,7 @@ internal static class ReplayPayloadRetentionPolicy
             throw new ArgumentNullException(nameof(protectedBattleIds));
 
         var ready = inventory
-            .Where(record =>
-                record.HasLocalPayload && record.PayloadState == ReplayPayloadState.Ready
-            )
+            .Where(record => record.PayloadState == ReplayPayloadState.Ready)
             .OrderByDescending(record => record.RecordedAtUtc)
             .ThenByDescending(record => record.BattleId, StringComparer.Ordinal)
             .ToList();

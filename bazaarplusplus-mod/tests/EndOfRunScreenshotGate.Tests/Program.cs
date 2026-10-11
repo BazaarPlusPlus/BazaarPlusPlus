@@ -169,7 +169,6 @@ static void VerifyArtifactMapping()
         ScreenshotId = "shot-42",
         RunId = "run-42",
         HeroName = null,
-        BattleId = "battle-42",
         CaptureSource = RunScreenshotCaptureSource.EndOfRunAuto,
         RelativePath = "2026-07-11/final.png",
         CapturedAtLocal = capturedAtLocal,
@@ -182,24 +181,18 @@ static void VerifyArtifactMapping()
     probe.Ranking.Rank = "Bronze";
     probe.Ranking.Rating = 0;
     probe.Available = false;
-    var record = RunScreenshotRecordMapper.CreateRecord(
-        capture,
-        isPrimary: true,
-        buildChannel: "Online"
-    );
+    var record = RunScreenshotRecordMapper.CreateRecord(capture, isPrimary: true);
     Assert(
         record.ScreenshotId == "shot-42"
             && record.RunId == "run-42"
             && record.HeroName == "Vanessa"
-            && record.BattleId == "battle-42"
             && record.IsPrimary
             && record.ImageRelativePath == "2026-07-11/final.png"
             && record.Day == 12
             && record.PlayerRank == "Legend"
             && record.PlayerRating == 2750
             && record.PlayerPosition == 37
-            && record.VictoriesAtCapture == 10
-            && record.BuildChannel == "Online",
+            && record.VictoriesAtCapture == 10,
         "Screenshot metadata mapping should preserve capture and run identity."
     );
 
@@ -208,14 +201,14 @@ static void VerifyArtifactMapping()
         Metadata = ScreenshotCaptureMetadata.Capture(probe),
     };
     probe.Available = true;
-    var missing = RunScreenshotRecordMapper.CreateRecord(unavailable, true, "Online");
+    var missing = RunScreenshotRecordMapper.CreateRecord(unavailable, true);
     Assert(
         missing.VictoriesAtCapture == null && missing.Day == null && missing.PlayerRank == null,
         "Unavailable capture metadata must remain unknown even if a new run becomes available."
     );
     var zero = new ScreenshotCaptureResult { Metadata = ScreenshotCaptureMetadata.Capture(probe) };
     Assert(
-        RunScreenshotRecordMapper.CreateRecord(zero, true, "Online").VictoriesAtCapture == 0,
+        RunScreenshotRecordMapper.CreateRecord(zero, true).VictoriesAtCapture == 0,
         "A genuine zero-win capture must remain zero."
     );
 

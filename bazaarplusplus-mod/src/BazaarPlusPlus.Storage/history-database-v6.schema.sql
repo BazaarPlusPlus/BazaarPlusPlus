@@ -1,4 +1,4 @@
-PRAGMA user_version=3;
+PRAGMA user_version=1;
 CREATE TABLE battle_snapshots (
     battle_id TEXT PRIMARY KEY,
     player_hand_json TEXT NOT NULL,
@@ -14,7 +14,7 @@ CREATE TABLE battles (
     source TEXT NOT NULL,
     run_id TEXT NULL,
     local_player_account_id TEXT NULL,
-    recorded_at_utc TEXT NOT NULL,
+    recorded_at_ms INTEGER NOT NULL,
     day INTEGER NULL,
     hour INTEGER NULL,
     encounter_id TEXT NULL,
@@ -45,15 +45,14 @@ CREATE TABLE battles (
     winner_combatant_id TEXT NULL,
     loser_combatant_id TEXT NULL,
     is_final_battle INTEGER NOT NULL DEFAULT 0,
-    has_local_payload INTEGER NOT NULL DEFAULT 0,
     bundle_id TEXT NULL,
     download_url TEXT NULL,
     download_url_expires_at_ms INTEGER NULL,
     ghost_replay_state TEXT NULL,
     ghost_replay_unavailable_reason TEXT NULL,
-    deleted_at_utc TEXT NULL,
+    deleted_at_ms INTEGER NULL,
     local_payload_state TEXT NULL,
-    local_payload_maintenance_at_utc TEXT NULL,
+    local_payload_maintenance_at_ms INTEGER NULL,
     FOREIGN KEY (run_id) REFERENCES runs(run_id) ON DELETE CASCADE,
     CHECK (
         (source = 'LOCAL' AND remote_battle_id IS NULL AND uploader_account_id IS NULL)
@@ -66,12 +65,8 @@ CREATE TABLE battles (
         )
     ),
     CHECK (
-        (source = 'LOCAL' AND local_payload_state IS NOT NULL AND (
-            (local_payload_state = 'ready' AND has_local_payload = 1)
-            OR
-            (local_payload_state IN ('delete_pending', 'evicted', 'missing')
-             AND has_local_payload = 0)
-        ))
+        (source = 'LOCAL' AND local_payload_state IS NOT NULL
+         AND local_payload_state IN ('ready', 'delete_pending', 'evicted', 'missing'))
         OR
         (source <> 'LOCAL' AND local_payload_state IS NULL)
     )
@@ -84,17 +79,17 @@ CREATE TABLE bundle_outbox (
     content_digest TEXT NOT NULL,
     total_bytes INTEGER NOT NULL,
     has_screenshot INTEGER NOT NULL,
-    sealed_at_utc TEXT NOT NULL,
+    sealed_at_ms INTEGER NOT NULL,
     status TEXT NOT NULL DEFAULT 'pending',
     attempts INTEGER NOT NULL DEFAULT 0,
-    last_attempt_at_utc TEXT NULL,
-    next_attempt_at_utc TEXT NULL,
-    failed_at_utc TEXT NULL,
+    last_attempt_at_ms INTEGER NULL,
+    next_attempt_at_ms INTEGER NULL,
+    failed_at_ms INTEGER NULL,
     last_error_code TEXT NULL,
     last_error_detail TEXT NULL,
     server_request_id TEXT NULL,
     server_outcome TEXT NULL,
-    uploaded_at_utc TEXT NULL,
+    uploaded_at_ms INTEGER NULL,
     CHECK (status IN ('pending', 'uploaded', 'permanent_failure'))
 );
 CREATE TABLE bundle_seal_jobs (
@@ -103,11 +98,11 @@ CREATE TABLE bundle_seal_jobs (
     player_account_id TEXT NULL,
     screenshot_requested INTEGER NOT NULL,
     screenshot_state TEXT NOT NULL DEFAULT 'waiting',
-    input_deadline_at_utc TEXT NOT NULL,
+    input_deadline_at_ms INTEGER NOT NULL,
     bundle_id TEXT NULL UNIQUE,
     created_at_ms INTEGER NULL,
     attempts INTEGER NOT NULL DEFAULT 0,
-    last_attempt_at_utc TEXT NULL,
+    last_attempt_at_ms INTEGER NULL,
     last_error_code TEXT NULL,
     last_error_detail TEXT NULL,
     FOREIGN KEY (run_id) REFERENCES runs(run_id) ON DELETE CASCADE,
@@ -125,8 +120,8 @@ CREATE TABLE combat_replay_videos (
     codec TEXT NOT NULL,
     crf INTEGER NULL,
     preset TEXT NULL,
-    started_at_utc TEXT NOT NULL,
-    ended_at_utc TEXT NULL,
+    started_at_ms INTEGER NOT NULL,
+    ended_at_ms INTEGER NULL,
     duration_ms INTEGER NULL,
     captured_frames INTEGER NOT NULL DEFAULT 0,
     dropped_frames INTEGER NOT NULL DEFAULT 0,
@@ -135,16 +130,17 @@ CREATE TABLE combat_replay_videos (
     error TEXT NULL,
     attachment_state TEXT NOT NULL DEFAULT 'attached',
     file_state TEXT NOT NULL DEFAULT 'pending',
-    detached_at_utc TEXT NULL,
-    missing_at_utc TEXT NULL,
-    last_reconciled_at_utc TEXT NULL,
+    detached_at_ms INTEGER NULL,
+    missing_at_ms INTEGER NULL,
+    last_reconciled_at_ms INTEGER NULL,
+    CHECK (status IN ('RECORDING', 'COMPLETED', 'FAILED')),
     CHECK (attachment_state IN ('attached', 'detached')),
-    CHECK (file_state IN ('pending', 'present', 'missing', 'deleted'))
+    CHECK (file_state IN ('pending', 'present', 'missing'))
 );
 CREATE TABLE run_events (
     run_id TEXT NOT NULL,
     seq INTEGER NOT NULL,
-    ts_utc TEXT NOT NULL,
+    ts_at_ms INTEGER NOT NULL,
     kind TEXT NOT NULL,
     payload_json TEXT NOT NULL,
     PRIMARY KEY (run_id, seq),
@@ -154,28 +150,24 @@ CREATE TABLE run_screenshots (
     screenshot_id TEXT PRIMARY KEY,
     run_id TEXT NULL,
     hero_name TEXT NULL,
-    battle_id TEXT NULL,
     capture_source TEXT NOT NULL,
     is_primary INTEGER NOT NULL DEFAULT 0,
     image_relative_path TEXT NOT NULL,
-    captured_at_local TEXT NOT NULL,
-    captured_at_utc TEXT NOT NULL,
+    captured_at_ms INTEGER NOT NULL,
+    captured_utc_offset_minutes INTEGER NOT NULL,
     day INTEGER NULL,
     player_rank TEXT NULL,
     player_rating INTEGER NULL,
     player_position INTEGER NULL,
-    victories_at_capture INTEGER NULL,
-    build_channel TEXT NULL
+    victories_at_capture INTEGER NULL
 );
 CREATE TABLE runs (
     run_id TEXT PRIMARY KEY,
-    started_at_utc TEXT NOT NULL,
-    last_seen_at_utc TEXT NOT NULL,
+    started_at_ms INTEGER NOT NULL,
+    last_seen_at_ms INTEGER NOT NULL,
     status TEXT NOT NULL,
-    completed INTEGER NOT NULL DEFAULT 0,
     hero TEXT NOT NULL,
     game_mode TEXT NOT NULL,
-    seed INTEGER NULL,
     player_rank TEXT NULL,
     player_rating INTEGER NULL,
     day INTEGER NULL,
@@ -186,7 +178,7 @@ CREATE TABLE runs (
     income INTEGER NULL,
     gold INTEGER NULL,
     last_seq INTEGER NOT NULL DEFAULT 0,
-    ended_at_utc TEXT NULL,
+    ended_at_ms INTEGER NULL,
     final_day INTEGER NULL,
     final_hour INTEGER NULL,
     victories INTEGER NULL,
@@ -198,87 +190,51 @@ CREATE TABLE runs (
     build_channel TEXT NULL,
     player_account_id TEXT NULL,
     bundle_screenshot_requested INTEGER NOT NULL DEFAULT 0,
-    mod_version TEXT NULL
+    mod_version TEXT NULL,
+    upload_policy TEXT NOT NULL DEFAULT 'bundle',
+    CHECK (status IN ('active', 'completed', 'abandoned')),
+    CHECK (upload_policy IN ('bundle', 'history_only'))
 );
 CREATE INDEX idx_battles_ghost_discovery
-    ON battles(local_player_account_id, source, recorded_at_utc DESC);
+    ON battles(local_player_account_id, source, recorded_at_ms DESC);
 CREATE UNIQUE INDEX idx_battles_ghost_identity
     ON battles(uploader_account_id, remote_battle_id)
     WHERE source = 'GHOST';
-CREATE INDEX idx_battles_history_ghost ON battles(local_player_account_id, recorded_at_utc DESC, battle_id DESC) WHERE source = 'GHOST' AND deleted_at_utc IS NULL;
-CREATE INDEX idx_battles_history_ghost_day ON battles(local_player_account_id, recorded_at_utc DESC, battle_id DESC) WHERE source = 'GHOST' AND deleted_at_utc IS NULL AND day >= 10;
-CREATE INDEX idx_battles_history_ghost_day_outcome ON battles(local_player_account_id, CASE lower(trim(winner_combatant_id,' 	
-                 　')) WHEN 'player' THEN 1 WHEN 'opponent' THEN -1 ELSE CASE lower(trim(result,' 	
-                 　')) WHEN 'win' THEN 1 WHEN 'won' THEN 1 WHEN 'loss' THEN -1 WHEN 'lost' THEN -1 ELSE 0 END END, recorded_at_utc DESC, battle_id DESC) WHERE source = 'GHOST' AND deleted_at_utc IS NULL AND day >= 10;
-CREATE INDEX idx_battles_history_ghost_outcome ON battles(local_player_account_id, CASE lower(trim(winner_combatant_id,' 	
-                 　')) WHEN 'player' THEN 1 WHEN 'opponent' THEN -1 ELSE CASE lower(trim(result,' 	
-                 　')) WHEN 'win' THEN 1 WHEN 'won' THEN 1 WHEN 'loss' THEN -1 WHEN 'lost' THEN -1 ELSE 0 END END, recorded_at_utc DESC, battle_id DESC) WHERE source = 'GHOST' AND deleted_at_utc IS NULL;
-CREATE INDEX idx_battles_history_local ON battles(run_id, recorded_at_utc DESC, battle_id DESC) WHERE source = 'LOCAL';
+CREATE INDEX idx_battles_history_ghost ON battles(local_player_account_id, recorded_at_ms DESC, battle_id DESC) WHERE source = 'GHOST' AND deleted_at_ms IS NULL;
+CREATE INDEX idx_battles_history_ghost_day ON battles(local_player_account_id, recorded_at_ms DESC, battle_id DESC) WHERE source = 'GHOST' AND deleted_at_ms IS NULL AND day >= 10;
+CREATE INDEX idx_battles_history_ghost_day_outcome ON battles(local_player_account_id, CASE lower(winner_combatant_id) WHEN 'player' THEN 1 WHEN 'opponent' THEN -1 ELSE CASE lower(result) WHEN 'win' THEN 1 WHEN 'loss' THEN -1 ELSE 0 END END, recorded_at_ms DESC, battle_id DESC) WHERE source = 'GHOST' AND deleted_at_ms IS NULL AND day >= 10;
+CREATE INDEX idx_battles_history_ghost_outcome ON battles(local_player_account_id, CASE lower(winner_combatant_id) WHEN 'player' THEN 1 WHEN 'opponent' THEN -1 ELSE CASE lower(result) WHEN 'win' THEN 1 WHEN 'loss' THEN -1 ELSE 0 END END, recorded_at_ms DESC, battle_id DESC) WHERE source = 'GHOST' AND deleted_at_ms IS NULL;
+CREATE INDEX idx_battles_history_local ON battles(run_id, recorded_at_ms DESC, battle_id DESC) WHERE source = 'LOCAL';
 CREATE INDEX idx_battles_local_player_recent
-    ON battles(local_player_account_id, recorded_at_utc DESC);
+    ON battles(local_player_account_id, recorded_at_ms DESC);
 CREATE INDEX idx_battles_run_id_recorded
-    ON battles(run_id, recorded_at_utc DESC);
+    ON battles(run_id, recorded_at_ms DESC);
 CREATE INDEX idx_battles_source_recorded
-    ON battles(source, recorded_at_utc DESC);
+    ON battles(source, recorded_at_ms DESC);
 CREATE UNIQUE INDEX idx_bundle_outbox_active_run
     ON bundle_outbox(run_id)
     WHERE status = 'pending';
 CREATE INDEX idx_bundle_outbox_due
-    ON bundle_outbox(status, next_attempt_at_utc, attempts, sealed_at_utc);
+    ON bundle_outbox(status, next_attempt_at_ms, attempts, sealed_at_ms);
 CREATE INDEX idx_bundle_outbox_run
     ON bundle_outbox(run_id, status);
 CREATE INDEX idx_bundle_seal_jobs_state
-    ON bundle_seal_jobs(state, input_deadline_at_utc, run_id);
+    ON bundle_seal_jobs(state, input_deadline_at_ms, run_id);
 CREATE INDEX idx_combat_replay_videos_attachment
     ON combat_replay_videos(
-        attachment_state, started_at_utc DESC, video_id
+        attachment_state, started_at_ms DESC, video_id
     );
 CREATE INDEX idx_combat_replay_videos_battle
-    ON combat_replay_videos(battle_id, started_at_utc DESC);
-CREATE INDEX idx_run_events_ts_utc
-    ON run_events(ts_utc);
+    ON combat_replay_videos(battle_id, started_at_ms DESC);
 CREATE UNIQUE INDEX idx_run_screenshots_primary_run
     ON run_screenshots(run_id)
     WHERE is_primary = 1 AND run_id IS NOT NULL;
-CREATE INDEX idx_run_screenshots_run_id_captured_at_utc
-    ON run_screenshots(run_id, captured_at_utc DESC);
+CREATE INDEX idx_run_screenshots_run_id_captured
+    ON run_screenshots(run_id, captured_at_ms DESC);
 CREATE INDEX idx_run_screenshots_source_captured
-    ON run_screenshots(capture_source, captured_at_utc ASC, screenshot_id ASC);
-CREATE INDEX idx_runs_completed_last_seen
-    ON runs(completed, last_seen_at_utc DESC);
-CREATE INDEX idx_runs_history_hero ON runs(CASE lower(trim(hero,' 	
-                 　')) WHEN 'hero8' THEN 'thedragons' ELSE lower(trim(hero,' 	
-                 　')) END, COALESCE(ended_at_utc,last_seen_at_utc,started_at_utc) DESC, run_id DESC);
-CREATE INDEX idx_runs_history_recent ON runs(COALESCE(ended_at_utc,last_seen_at_utc,started_at_utc) DESC, run_id DESC);
-CREATE INDEX idx_runs_started_at_utc
-    ON runs(started_at_utc DESC);
-CREATE TRIGGER trg_battles_local_payload_insert
-BEFORE INSERT ON battles
-WHEN NOT (
-    (NEW.source = 'LOCAL' AND NEW.local_payload_state IS NOT NULL AND (
-        (NEW.local_payload_state = 'ready' AND NEW.has_local_payload = 1)
-        OR
-        (NEW.local_payload_state IN ('delete_pending', 'evicted', 'missing')
-         AND NEW.has_local_payload = 0)
-    ))
-    OR
-    (NEW.source <> 'LOCAL' AND NEW.local_payload_state IS NULL)
-)
-BEGIN
-    SELECT RAISE(ABORT, 'invalid local payload lifecycle state');
-END;
-CREATE TRIGGER trg_battles_local_payload_update
-BEFORE UPDATE OF source, has_local_payload, local_payload_state ON battles
-WHEN NOT (
-    (NEW.source = 'LOCAL' AND NEW.local_payload_state IS NOT NULL AND (
-        (NEW.local_payload_state = 'ready' AND NEW.has_local_payload = 1)
-        OR
-        (NEW.local_payload_state IN ('delete_pending', 'evicted', 'missing')
-         AND NEW.has_local_payload = 0)
-    ))
-    OR
-    (NEW.source <> 'LOCAL' AND NEW.local_payload_state IS NULL)
-)
-BEGIN
-    SELECT RAISE(ABORT, 'invalid local payload lifecycle state');
-END;
+    ON run_screenshots(capture_source, captured_at_ms ASC, screenshot_id ASC);
+CREATE INDEX idx_runs_history_hero ON runs(lower(trim(hero,' 	
+                 　')), COALESCE(ended_at_ms,last_seen_at_ms,started_at_ms) DESC, run_id DESC);
+CREATE INDEX idx_runs_history_recent ON runs(COALESCE(ended_at_ms,last_seen_at_ms,started_at_ms) DESC, run_id DESC);
+CREATE INDEX idx_runs_status_last_seen
+    ON runs(status, last_seen_at_ms DESC);

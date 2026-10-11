@@ -207,46 +207,45 @@ fn seed_history(fixture: &Fixture) {
     conn.execute_batch(
         "
         insert into runs (
-            run_id, started_at_utc, last_seen_at_utc, status, completed, hero, game_mode,
-            ended_at_utc, final_day, victories, losses, final_player_rank, final_player_rating
+            run_id, started_at_ms, last_seen_at_ms, status, hero, game_mode,
+            ended_at_ms, final_day, victories, losses, final_player_rank, final_player_rating
         ) values
-            ('run-1', '2026-01-01T09:00:00Z', '2026-01-01T09:42:00Z', 'completed', 1,
-             'Vanessa', 'Ranked', '2026-01-01T09:42:00Z', 12, 10, 2, 'Gold', 1520),
-            ('run-2', '2026-01-02T09:00:00Z', '2026-01-02T09:30:00Z', 'completed', 1,
-             'Hero8', 'Normal', '2026-01-02T09:30:00Z', 8, 4, 5, null, null),
-            ('run-3', '2026-01-03T09:00:00Z', '2026-01-03T09:10:00Z', 'active', 0,
+            ('run-1', 1767258000000, 1767260520000, 'completed',
+             'Vanessa', 'Ranked', 1767260520000, 12, 10, 2, 'Gold', 1520),
+            ('run-2', 1767344400000, 1767346200000, 'completed',
+             'Hero8', 'Normal', 1767346200000, 8, 4, 5, null, null),
+            ('run-3', 1767430800000, 1767431400000, 'active',
              'Mak', 'Ranked', null, 3, 2, 1, null, null);
         insert into battles (
-            battle_id, source, run_id, recorded_at_utc, combat_kind, day, hour, player_name,
-            opponent_hero, opponent_name, opponent_rank, opponent_rating, result,
-            has_local_payload, local_payload_state
+            battle_id, source, run_id, recorded_at_ms, combat_kind, day, hour, player_name,
+            opponent_hero, opponent_name, opponent_rank, opponent_rating, result, local_payload_state
         ) values
-            ('battle-1', 'LOCAL', 'run-1', '2026-01-01T09:10:00Z', 'PVP', 1, 2,
-             'Fixture Player', 'Pygmalien', 'Opponent A', 'Silver', 1400, 'win', 0, 'missing'),
-            ('battle-2', 'LOCAL', 'run-1', '2026-01-01T09:20:00Z', 'PVP', 2, 4,
-             'Fixture Player', 'Dooley', null, null, null, 'loss', 0, 'missing'),
-            ('battle-3', 'LOCAL', 'run-2', '2026-01-02T09:10:00Z', 'PVP', 1, 1,
-             'Fixture Player', 'Stelle', null, null, null, 'loss', 0, 'missing');
+            ('battle-1', 'LOCAL', 'run-1', 1767258600000, 'PVP', 1, 2,
+             'Fixture Player', 'Pygmalien', 'Opponent A', 'Silver', 1400, 'win', 'missing'),
+            ('battle-2', 'LOCAL', 'run-1', 1767259200000, 'PVP', 2, 4,
+             'Fixture Player', 'Dooley', null, null, null, 'loss', 'missing'),
+            ('battle-3', 'LOCAL', 'run-2', 1767345000000, 'PVP', 1, 1,
+             'Fixture Player', 'Stelle', null, null, null, 'loss', 'missing');
         insert into run_screenshots (
             screenshot_id, run_id, hero_name, capture_source, is_primary, image_relative_path,
-            captured_at_utc, captured_at_local, day, victories_at_capture
+            captured_at_ms, captured_utc_offset_minutes, day, victories_at_capture
         ) values
             ('shot-1', 'run-1', 'Vanessa', 'end_of_run_auto', 1, '2026-01-01/run-1.png',
-             '2026-01-01T09:42:00Z', '2026-01-01T17:42:00+08:00', 12, 10),
+             1767260520000, 480, 12, 10),
             ('shot-2', 'run-2', 'Hero8', 'end_of_run_auto', 0, '2026-01-02/run-2.png',
-             '2026-01-02T09:30:00Z', '2026-01-02T17:30:00+08:00', 8, 4);
+             1767346200000, 480, 8, 4);
         insert into combat_replay_videos (
             video_id, battle_id, source, video_relative_path, width, height, fps, codec,
-            started_at_utc, duration_ms, file_size_bytes, status
+            started_at_ms, duration_ms, file_size_bytes, status
         ) values
             ('video-1', 'battle-1', 'GAME_CAPTURE', '2026-01-01/battle-1.mp4', 1920, 1080, 60,
-             'h264', '2026-01-01T09:10:00Z', 95000, 13, 'COMPLETED');
+             'h264', 1767258600000, 95000, 13, 'COMPLETED');
         insert into bundle_outbox (
             bundle_id, run_id, file_name, content_sha256_hex, content_digest, total_bytes,
-            has_screenshot, sealed_at_utc, status
+            has_screenshot, sealed_at_ms, status
         ) values
             ('bundle-2', 'run-2', 'bundle-2.bppbundle', 'ab', 'sha256:ab', 10, 1,
-             '2026-01-02T09:31:00Z', 'pending');
+             1767346260000, 'pending');
         ",
     )
     .unwrap();

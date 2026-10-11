@@ -154,37 +154,35 @@ mod tests {
         conn.execute_batch(
             "
             insert into runs (
-                run_id, started_at_utc, last_seen_at_utc, status, completed,
-                hero, game_mode, ended_at_utc, final_day, victories, losses,
+                run_id, started_at_ms, last_seen_at_ms, status,
+                hero, game_mode, ended_at_ms, final_day, victories, losses,
                 final_player_rank, final_player_rating
             ) values
-                ('run-win', '2026-05-20T10:00:00Z', '2026-05-20T11:00:00Z', 'completed', 1,
-                 'Vanessa', 'Ranked', '2026-05-20T11:00:00Z', 10, 10, 2, 'Diamond II', 1450),
-                ('run-loss', '2026-05-19T10:00:00Z', '2026-05-19T10:40:00Z', 'completed', 1,
-                 'Dooley', 'Ranked', '2026-05-19T10:40:00Z', 6, 4, 3, 'Gold I', 1100),
-                ('run-live', '2026-05-21T10:00:00Z', '2026-05-21T10:20:00Z', 'active', 0,
+                ('run-win', 1779271200000, 1779274800000, 'completed',
+                 'Vanessa', 'Ranked', 1779274800000, 10, 10, 2, 'Diamond II', 1450),
+                ('run-loss', 1779184800000, 1779187200000, 'completed',
+                 'Dooley', 'Ranked', 1779187200000, 6, 4, 3, 'Gold I', 1100),
+                ('run-live', 1779357600000, 1779358800000, 'active',
                  'Mak', 'Normal', null, null, null, null, null, null);
 
             insert into run_screenshots (
                 screenshot_id, run_id, hero_name, capture_source, is_primary,
-                image_relative_path, captured_at_utc, captured_at_local
+                image_relative_path, captured_at_ms, captured_utc_offset_minutes
             ) values
                 ('shot-win', 'run-win', 'Vanessa', 'end_of_run_auto', 1,
-                 'win.png', '2026-05-20T11:00:00Z', '2026-05-20T19:00:00+08:00');
+                 'win.png', 1779274800000, 480);
 
             insert into battles (
-                battle_id, source, run_id, recorded_at_utc, combat_kind, opponent_name,
-                has_local_payload, local_payload_state
+                battle_id, source, run_id, recorded_at_ms, combat_kind, opponent_name, local_payload_state
             ) values
-                ('battle-1', 'LOCAL', 'run-win', '2026-05-20T10:30:00Z', 'PVP', 'Opponent',
-                 0, 'missing');
+                ('battle-1', 'LOCAL', 'run-win', 1779273000000, 'PVP', 'Opponent', 'missing');
 
             insert into combat_replay_videos (
                 video_id, battle_id, source, video_relative_path, width, height, fps, codec,
-                started_at_utc, duration_ms, file_size_bytes, status
+                started_at_ms, duration_ms, file_size_bytes, status
             ) values
                 ('video-1', 'battle-1', 'GAME_CAPTURE', 'Videos/video-1.mp4', 1920, 1080, 60,
-                 'h264', '2026-05-20T10:31:00Z', 1000, 2000, 'COMPLETED');
+                 'h264', 1779273060000, 1000, 2000, 'COMPLETED');
             ",
         )
         .unwrap();
@@ -216,8 +214,8 @@ mod tests {
         create_mod_schema(&conn);
         for index in 0..235 {
             conn.execute(
-                "insert into runs (run_id, started_at_utc, last_seen_at_utc, status, hero, game_mode)
-                 values (?1, '2026-09-12T10:00:00Z', '2026-09-12T11:00:00Z', 'active', 'Vanessa', 'Ranked')",
+                "insert into runs (run_id, started_at_ms, last_seen_at_ms, status, hero, game_mode)
+                 values (?1, 1789207200000, 1789210800000, 'active', 'Vanessa', 'Ranked')",
                 [format!("run-{index:03}")],
             )
             .unwrap();
@@ -256,48 +254,47 @@ mod tests {
         conn.execute_batch(
             "
             insert into runs (
-                run_id, started_at_utc, last_seen_at_utc, status, completed,
-                hero, game_mode, ended_at_utc, final_day, final_hour, victories, losses,
+                run_id, started_at_ms, last_seen_at_ms, status,
+                hero, game_mode, ended_at_ms, final_day, final_hour, victories, losses,
                 final_player_rank, final_player_rating
             ) values (
-                'run-win', '2026-05-20T10:00:00Z', '2026-05-20T11:00:00Z', 'completed', 1,
-                'Vanessa', 'Ranked', '2026-05-20T11:00:00Z', 10, 7, 10, 2,
+                'run-win', 1779271200000, 1779274800000, 'completed',
+                'Vanessa', 'Ranked', 1779274800000, 10, 7, 10, 2,
                 'Diamond II', 1450
             );
 
             insert into run_screenshots (
                 screenshot_id, run_id, hero_name, capture_source, is_primary,
-                image_relative_path, captured_at_utc, captured_at_local
+                image_relative_path, captured_at_ms, captured_utc_offset_minutes
             ) values (
                 'shot-win', 'run-win', 'Vanessa', 'end_of_run_auto', 1,
-                'win.png', '2026-05-20T11:00:00Z', '2026-05-20T19:00:00+08:00'
+                'win.png', 1779274800000, 480
             );
 
             insert into battles (
-                battle_id, source, run_id, recorded_at_utc, combat_kind, day, hour,
-                player_name, opponent_hero, opponent_name, opponent_rank, opponent_rating, result,
-                has_local_payload, local_payload_state, remote_battle_id, uploader_account_id
+                battle_id, source, run_id, recorded_at_ms, combat_kind, day, hour,
+                player_name, opponent_hero, opponent_name, opponent_rank, opponent_rating, result, local_payload_state, remote_battle_id, uploader_account_id
             ) values
-                ('battle-1', 'LOCAL', 'run-win', '2026-05-20T10:30:00Z', 'PVP', 8, 1,
-                 'cauyxy', 'Dooley', 'Opponent A', 'Diamond III', 1410, 'Won', 1, 'ready',
+                ('battle-1', 'LOCAL', 'run-win', 1779273000000, 'PVP', 8, 1,
+                 'cauyxy', 'Dooley', 'Opponent A', 'Diamond III', 1410, 'Won', 'ready',
                  null, null),
-                ('battle-2', 'LOCAL', 'run-win', '2026-05-20T10:10:00Z', 'PVP', 7, 0,
-                 'cauyxy', 'Pygmalien', 'Opponent B', 'Diamond IV', 1360, 'Lost', 0, 'missing',
+                ('battle-2', 'LOCAL', 'run-win', 1779271800000, 'PVP', 7, 0,
+                 'cauyxy', 'Pygmalien', 'Opponent B', 'Diamond IV', 1360, 'Lost', 'missing',
                  null, null),
-                ('battle-ghost', 'GHOST', null, '2026-05-20T10:40:00Z', 'PVP', 9, 0,
-                 'cauyxy', 'Mak', 'Ghost', 'Diamond I', 1500, 'Won', 0, null,
+                ('battle-ghost', 'GHOST', null, 1779273600000, 'PVP', 9, 0,
+                 'cauyxy', 'Mak', 'Ghost', 'Diamond I', 1500, 'Won', null,
                  'remote-ghost', 'uploader-1');
 
             insert into combat_replay_videos (
                 video_id, battle_id, source, video_relative_path, width, height, fps, codec,
-                started_at_utc, duration_ms, file_size_bytes, status
+                started_at_ms, duration_ms, file_size_bytes, status
             ) values
                 ('video-old', 'battle-1', 'GAME_CAPTURE', '2026-05-20/old.mp4', 1920, 1080, 60,
-                 'h264', '2026-05-20T10:31:00Z', 1000, 2000, 'COMPLETED'),
+                 'h264', 1779273060000, 1000, 2000, 'COMPLETED'),
                 ('video-new', 'battle-1', 'GAME_CAPTURE', '2026-05-20/new.mp4', 1920, 1080, 60,
-                 'h264', '2026-05-20T10:32:00Z', 1200, 2200, 'COMPLETED'),
+                 'h264', 1779273120000, 1200, 2200, 'COMPLETED'),
                 ('video-failed', 'battle-2', 'GAME_CAPTURE', '2026-05-20/failed.mp4', 1920, 1080,
-                 60, 'h264', '2026-05-20T10:11:00Z', null, null, 'FAILED');
+                 60, 'h264', 1779271860000, null, null, 'FAILED');
             ",
         )
         .unwrap();

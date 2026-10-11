@@ -418,7 +418,7 @@ internal static class GhostMessageTests
             DetailBattleId = "other-battle",
         };
         var battle = Battle(ReplayAvailability.Remote);
-        var anchor = new HistoryCursor("2026-09-20T00:00:00Z", battle.BattleId);
+        var anchor = new HistoryCursor(1789862400000, battle.BattleId);
         state.GhostPage = new HistoryCountedPage<HistoryBattleRecord>(
             [battle],
             anchor,

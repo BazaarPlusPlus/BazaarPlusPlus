@@ -5,11 +5,7 @@ namespace BazaarPlusPlus.Game.Screenshots;
 
 internal static class RunScreenshotRecordMapper
 {
-    public static RunScreenshotRecord CreateRecord(
-        ScreenshotCaptureResult capture,
-        bool isPrimary,
-        string? buildChannel
-    )
+    public static RunScreenshotRecord CreateRecord(ScreenshotCaptureResult capture, bool isPrimary)
     {
         var metadata = capture.Metadata;
         var heroName = !string.IsNullOrWhiteSpace(capture.HeroName)
@@ -21,7 +17,6 @@ internal static class RunScreenshotRecordMapper
             ScreenshotId = capture.ScreenshotId,
             RunId = capture.RunId,
             HeroName = heroName,
-            BattleId = capture.BattleId,
             IsPrimary = isPrimary,
             ImageRelativePath = capture.RelativePath,
             CapturedAtLocal = capture.CapturedAtLocal,
@@ -31,7 +26,6 @@ internal static class RunScreenshotRecordMapper
             PlayerRating = metadata.Rating,
             PlayerPosition = metadata.Position,
             VictoriesAtCapture = metadata.Victories,
-            BuildChannel = buildChannel,
         };
     }
 }

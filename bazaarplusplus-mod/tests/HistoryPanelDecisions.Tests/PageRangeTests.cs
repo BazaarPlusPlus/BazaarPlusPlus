@@ -5,8 +5,8 @@ using BazaarPlusPlus.Localization;
 
 internal static class PageRangeTests
 {
-    private static readonly HistoryCursor First = new("2026-09-20T00:00:00Z", "first");
-    private static readonly HistoryCursor Last = new("2026-09-19T00:00:00Z", "last");
+    private static readonly HistoryCursor First = new(1789862400000, "first");
+    private static readonly HistoryCursor Last = new(1789776000000, "last");
 
     public static void Run()
     {
@@ -67,8 +67,8 @@ internal static class PageRangeTests
                     var badTime = Format(
                         new HistoryCountedPage<object>(
                             new object[3],
-                            new("not a time", "a"),
-                            new("not a time", "b"),
+                            new(long.MaxValue, "a"),
+                            new(long.MaxValue, "b"),
                             1,
                             3
                         ),
@@ -76,7 +76,7 @@ internal static class PageRangeTests
                     );
                     Require(
                         !badTime.Contains('\n'),
-                        "Unparseable anchor times must leave only the position line."
+                        "Unrepresentable anchor times must leave only the position line."
                     );
                 }
             }

@@ -1,5 +1,4 @@
 #nullable enable
-using System.Globalization;
 using BazaarPlusPlus.Storage.RunLog;
 using BazaarPlusPlus.Storage.Sqlite;
 
@@ -39,13 +38,13 @@ internal sealed class CombatReplayVideoMetadataStore : SqliteStoreBase, IReplayV
                 codec,
                 crf,
                 preset,
-                started_at_utc,
+                started_at_ms,
                 captured_frames,
                 dropped_frames,
                 status,
                 attachment_state,
                 file_state,
-                detached_at_utc
+                detached_at_ms
             ) VALUES (
                 $videoId,
                 $battleId,
@@ -57,7 +56,7 @@ internal sealed class CombatReplayVideoMetadataStore : SqliteStoreBase, IReplayV
                 $codec,
                 $crf,
                 $preset,
-                $startedAtUtc,
+                $startedAtMs,
                 0,
                 0,
                 'RECORDING',
@@ -67,7 +66,7 @@ internal sealed class CombatReplayVideoMetadataStore : SqliteStoreBase, IReplayV
                 'pending',
                 CASE WHEN EXISTS (
                     SELECT 1 FROM {RunLogSchema.BattlesTableName} WHERE battle_id = $battleId
-                ) THEN NULL ELSE $startedAtUtc END
+                ) THEN NULL ELSE $startedAtMs END
             );
             """;
         command.Parameters.AddWithValue("$videoId", record.VideoId);
@@ -80,7 +79,10 @@ internal sealed class CombatReplayVideoMetadataStore : SqliteStoreBase, IReplayV
         command.Parameters.AddWithValue("$codec", record.Codec);
         AddNullableInt32(command, "$crf", record.Crf);
         AddNullableString(command, "$preset", record.Preset);
-        command.Parameters.AddWithValue("$startedAtUtc", record.StartedAtUtc.ToString("o"));
+        command.Parameters.AddWithValue(
+            "$startedAtMs",
+            record.StartedAtUtc.ToUnixTimeMilliseconds()
+        );
         command.ExecuteNonQuery();
     }
 
@@ -95,7 +97,7 @@ internal sealed class CombatReplayVideoMetadataStore : SqliteStoreBase, IReplayV
             UPDATE {RunLogSchema.CombatReplayVideosTableName}
             SET
                 video_relative_path = $videoRelativePath,
-                ended_at_utc = $endedAtUtc,
+                ended_at_ms = $endedAtMs,
                 duration_ms = $durationMs,
                 captured_frames = $capturedFrames,
                 dropped_frames = $droppedFrames,
@@ -107,17 +109,17 @@ internal sealed class CombatReplayVideoMetadataStore : SqliteStoreBase, IReplayV
                         THEN 'present'
                     ELSE 'missing'
                 END,
-                missing_at_utc = CASE
+                missing_at_ms = CASE
                     WHEN upper($status) = 'COMPLETED' AND COALESCE($fileSizeBytes, 0) > 0
                         THEN NULL
-                    ELSE $endedAtUtc
+                    ELSE $endedAtMs
                 END,
-                last_reconciled_at_utc = $endedAtUtc
+                last_reconciled_at_ms = $endedAtMs
             WHERE video_id = $videoId;
             """;
         command.Parameters.AddWithValue("$videoId", record.VideoId);
         command.Parameters.AddWithValue("$videoRelativePath", record.VideoRelativePath);
-        command.Parameters.AddWithValue("$endedAtUtc", record.EndedAtUtc.ToString("o"));
+        command.Parameters.AddWithValue("$endedAtMs", record.EndedAtUtc.ToUnixTimeMilliseconds());
         command.Parameters.AddWithValue("$durationMs", record.DurationMs);
         command.Parameters.AddWithValue("$capturedFrames", record.CapturedFrames);
         command.Parameters.AddWithValue("$droppedFrames", record.DroppedFrames);
@@ -133,10 +135,10 @@ internal sealed class CombatReplayVideoMetadataStore : SqliteStoreBase, IReplayV
         using var command = CreateCommand(connection);
         command.CommandText = $"""
             SELECT video_id, battle_id, video_relative_path, status,
-                   attachment_state, file_state, started_at_utc, ended_at_utc,
-                   detached_at_utc, missing_at_utc, last_reconciled_at_utc
+                   attachment_state, file_state, started_at_ms, ended_at_ms,
+                   detached_at_ms, missing_at_ms, last_reconciled_at_ms
             FROM {RunLogSchema.CombatReplayVideosTableName}
-            ORDER BY started_at_utc DESC, video_id DESC;
+            ORDER BY started_at_ms DESC, video_id DESC;
             """;
         using var reader = command.ExecuteReader();
         var records = new List<ReplayVideoArtifactRecord>();
@@ -166,7 +168,7 @@ internal sealed class CombatReplayVideoMetadataStore : SqliteStoreBase, IReplayV
                     observation.VideoId,
                     ToStorage(observation.FileState),
                     observation.Status,
-                    observation.EndedAtUtc?.ToString("o") ?? string.Empty,
+                    observation.EndedAtUtc?.ToUnixTimeMilliseconds(),
                 }
             )
         );
@@ -176,23 +178,22 @@ internal sealed class CombatReplayVideoMetadataStore : SqliteStoreBase, IReplayV
         command.CommandText = $"""
             UPDATE {RunLogSchema.CombatReplayVideosTableName}
             SET file_state = $fileState,
-                missing_at_utc = CASE
-                    WHEN $fileState = 'missing' THEN COALESCE(missing_at_utc, $now)
+                missing_at_ms = CASE
+                    WHEN $fileState = 'missing' THEN COALESCE(missing_at_ms, $now)
                     ELSE NULL
                 END,
-                last_reconciled_at_utc = $now
-            WHERE file_state <> 'deleted'
-              AND EXISTS (
+                last_reconciled_at_ms = $now
+            WHERE EXISTS (
                   SELECT 1
                   FROM json_each($observationsJson) AS observation
                   WHERE json_extract(observation.value, '$[0]') = video_id
                     AND json_extract(observation.value, '$[1]') = file_state
                     AND json_extract(observation.value, '$[2]') = status
-                    AND json_extract(observation.value, '$[3]') = COALESCE(ended_at_utc, '')
+                    AND json_extract(observation.value, '$[3]') IS ended_at_ms
               );
             """;
         command.Parameters.AddWithValue("$fileState", ToStorage(fileState));
-        command.Parameters.AddWithValue("$now", reconciledAt.ToString("o"));
+        command.Parameters.AddWithValue("$now", reconciledAt.ToUnixTimeMilliseconds());
         command.Parameters.AddWithValue("$observationsJson", observationsJson);
         command.ExecuteNonQuery();
     }
@@ -207,7 +208,7 @@ internal sealed class CombatReplayVideoMetadataStore : SqliteStoreBase, IReplayV
             reader.GetString(3),
             ParseAttachmentState(reader.GetString(4)),
             ParseFileState(reader.GetString(5)),
-            DateTimeOffset.Parse(reader.GetString(6), CultureInfo.InvariantCulture),
+            DateTimeOffset.FromUnixTimeMilliseconds(reader.GetInt64(6)),
             ReadDateTimeOffset(reader, 7),
             ReadDateTimeOffset(reader, 8),
             ReadDateTimeOffset(reader, 9),
@@ -220,7 +221,7 @@ internal sealed class CombatReplayVideoMetadataStore : SqliteStoreBase, IReplayV
     ) =>
         reader.IsDBNull(ordinal)
             ? null
-            : DateTimeOffset.Parse(reader.GetString(ordinal), CultureInfo.InvariantCulture);
+            : DateTimeOffset.FromUnixTimeMilliseconds(reader.GetInt64(ordinal));
 
     private static string ToStorage(ReplayVideoFileState state) =>
         state switch
@@ -228,7 +229,6 @@ internal sealed class CombatReplayVideoMetadataStore : SqliteStoreBase, IReplayV
             ReplayVideoFileState.Pending => "pending",
             ReplayVideoFileState.Present => "present",
             ReplayVideoFileState.Missing => "missing",
-            ReplayVideoFileState.Deleted => "deleted",
             _ => throw new ArgumentOutOfRangeException(nameof(state)),
         };
 
@@ -238,7 +238,6 @@ internal sealed class CombatReplayVideoMetadataStore : SqliteStoreBase, IReplayV
             "pending" => ReplayVideoFileState.Pending,
             "present" => ReplayVideoFileState.Present,
             "missing" => ReplayVideoFileState.Missing,
-            "deleted" => ReplayVideoFileState.Deleted,
             _ => throw new InvalidOperationException($"Unknown replay video file state '{state}'."),
         };
 
@@ -264,7 +263,6 @@ internal enum ReplayVideoFileState
     Pending,
     Present,
     Missing,
-    Deleted,
 }
 
 internal readonly record struct ReplayVideoArtifactRecord(

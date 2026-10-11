@@ -100,8 +100,6 @@ internal sealed class ReplayVideoArtifactMaintenanceService
         {
             workUnits++;
             cancellationToken.ThrowIfCancellationRequested();
-            if (artifact.FileState == ReplayVideoFileState.Deleted)
-                continue;
             if (
                 !ReplayVideoManagedPath.TryResolve(
                     _rootDirectory,

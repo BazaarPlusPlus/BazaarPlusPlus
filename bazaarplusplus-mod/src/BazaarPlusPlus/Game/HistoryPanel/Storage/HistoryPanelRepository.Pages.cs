@@ -94,11 +94,11 @@ internal sealed partial class HistoryPanelRepository
             command.Parameters.AddWithValue("$anchor", request.AnchorId);
             using var anchor = command.ExecuteReader();
             cursor = anchor.Read()
-                ? new HistoryCursor(anchor.GetString(0), anchor.GetString(1))
+                ? new HistoryCursor(anchor.GetInt64(0), anchor.GetString(1))
                 : null;
             inclusive = true;
         }
-        command.Parameters.AddWithValue("$time", cursor?.Time ?? "");
+        command.Parameters.AddWithValue("$time", cursor?.Time ?? 0L);
         command.Parameters.AddWithValue("$id", cursor?.Id ?? "");
         command.Parameters.AddWithValue("$limit", Math.Clamp(request.Limit, 1, 40));
         command.CommandText = query.RowsSql(columns, request.Newer, cursor.HasValue, inclusive);
@@ -111,7 +111,7 @@ internal sealed partial class HistoryPanelRepository
                 rows.Add(map(reader));
                 keys.Add(
                     new(
-                        reader.GetString(reader.GetOrdinal("history_time")),
+                        reader.GetInt64(reader.GetOrdinal("history_time")),
                         reader.GetString(reader.GetOrdinal(query.Id))
                     )
                 );

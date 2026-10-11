@@ -2,6 +2,7 @@ pub(crate) mod cleanup;
 mod dto;
 mod files;
 pub(crate) mod hero;
+pub(crate) mod instant;
 pub(crate) mod mapper;
 mod queries;
 mod repo;

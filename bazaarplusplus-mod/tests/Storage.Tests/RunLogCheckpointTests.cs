@@ -56,12 +56,12 @@ internal static class RunLogCheckpointTests
             {
                 connection.Open();
                 using var command = connection.CreateCommand();
-                command.CommandText = "SELECT completed FROM runs WHERE run_id = $runId;";
+                command.CommandText = "SELECT status FROM runs WHERE run_id = $runId;";
                 command.Parameters.AddWithValue("$runId", runId);
-                var completed = Convert.ToInt64(command.ExecuteScalar());
-                if (completed != 1)
+                var status = Convert.ToString(command.ExecuteScalar());
+                if (status != "completed")
                     throw new InvalidOperationException(
-                        $"A checkpoint after completion must keep the run completed; completed={completed}."
+                        $"A checkpoint after completion must keep the run completed; status={status}."
                     );
             }
 

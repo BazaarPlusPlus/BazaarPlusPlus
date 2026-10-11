@@ -88,13 +88,13 @@ internal sealed class RunPayloadComposer
         using var connection = Open();
         using var command = connection.CreateCommand();
         command.CommandText = $"""
-            SELECT hero, game_mode, seed, started_at_utc, ended_at_utc, status,
+            SELECT hero, game_mode, started_at_ms, ended_at_ms, status,
                    COALESCE(final_day, day), COALESCE(final_hour, hour), victories, losses,
                    player_rank, player_rating, final_player_rank, final_player_rating,
                    final_player_rating_delta, max_health, prestige, level, income, gold,
                    build_channel, mod_version
             FROM {RunLogSchema.RunsTableName}
-            WHERE run_id = $runId AND completed = 1
+            WHERE run_id = $runId AND status <> 'active'
             LIMIT 1;
             """;
         command.Parameters.AddWithValue("$runId", runId);
@@ -105,26 +105,26 @@ internal sealed class RunPayloadComposer
         {
             Hero = reader.GetString(0),
             GameMode = reader.GetString(1),
-            Seed = NullableInt(reader, 2),
-            StartedAtUtc = reader.GetString(3),
-            EndedAtUtc = NullableString(reader, 4),
-            Status = reader.GetString(5),
-            Day = NonNegative(NullableInt(reader, 6)),
-            Hour = NonNegative(NullableInt(reader, 7)),
-            Victories = NonNegative(NullableInt(reader, 8)),
-            Losses = NonNegative(NullableInt(reader, 9)),
-            PlayerRank = Limit(NullableString(reader, 10)),
-            PlayerRating = NonNegative(NullableInt(reader, 11)),
-            FinalPlayerRank = Limit(NullableString(reader, 12)),
-            FinalPlayerRating = NonNegative(NullableInt(reader, 13)),
-            FinalPlayerRatingDelta = NullableInt(reader, 14),
-            MaxHealth = NonNegative(NullableInt(reader, 15)),
-            Prestige = NonNegative(NullableInt(reader, 16)),
-            Level = NonNegative(NullableInt(reader, 17)),
-            Income = NonNegative(NullableInt(reader, 18)),
-            Gold = NonNegative(NullableInt(reader, 19)),
-            BuildChannel = Limit(NullableString(reader, 20)),
-            ModVersion = Limit(NullableString(reader, 21)) ?? string.Empty,
+            Seed = null,
+            StartedAtUtc = RunSegmentTimestamp(reader.GetInt64(2)),
+            EndedAtUtc = reader.IsDBNull(3) ? null : RunSegmentTimestamp(reader.GetInt64(3)),
+            Status = reader.GetString(4),
+            Day = NonNegative(NullableInt(reader, 5)),
+            Hour = NonNegative(NullableInt(reader, 6)),
+            Victories = NonNegative(NullableInt(reader, 7)),
+            Losses = NonNegative(NullableInt(reader, 8)),
+            PlayerRank = Limit(NullableString(reader, 9)),
+            PlayerRating = NonNegative(NullableInt(reader, 10)),
+            FinalPlayerRank = Limit(NullableString(reader, 11)),
+            FinalPlayerRating = NonNegative(NullableInt(reader, 12)),
+            FinalPlayerRatingDelta = NullableInt(reader, 13),
+            MaxHealth = NonNegative(NullableInt(reader, 14)),
+            Prestige = NonNegative(NullableInt(reader, 15)),
+            Level = NonNegative(NullableInt(reader, 16)),
+            Income = NonNegative(NullableInt(reader, 17)),
+            Gold = NonNegative(NullableInt(reader, 18)),
+            BuildChannel = Limit(NullableString(reader, 19)),
+            ModVersion = Limit(NullableString(reader, 20)) ?? string.Empty,
         };
     }
 
@@ -133,7 +133,7 @@ internal sealed class RunPayloadComposer
         using var connection = Open();
         using var command = connection.CreateCommand();
         command.CommandText = $"""
-            SELECT seq, ts_utc, kind, payload_json
+            SELECT seq, ts_at_ms, kind, payload_json
             FROM {RunLogSchema.RunEventsTableName}
             WHERE run_id = $runId
             ORDER BY seq ASC;
@@ -146,7 +146,7 @@ internal sealed class RunPayloadComposer
                 new RunEventV5
                 {
                     Seq = reader.GetInt64(0),
-                    TimestampUtc = reader.GetString(1),
+                    TimestampUtc = RunSegmentTimestamp(reader.GetInt64(1)),
                     Kind = reader.GetString(2),
                     PayloadJson = reader.GetString(3),
                 }
@@ -415,6 +415,14 @@ internal sealed class RunPayloadComposer
 
     private static int? NullableInt(SqliteDataReader reader, int ordinal) =>
         reader.IsDBNull(ordinal) ? null : reader.GetInt32(ordinal);
+
+    // The V5 Run segment carries the text the V5 database stored, DateTimeOffset.ToString("o") of a
+    // UTC instant. The database now stores milliseconds; this restores that text until the Run
+    // segment carries integers (Bundle V6).
+    internal static string RunSegmentTimestamp(long unixMilliseconds) =>
+        DateTimeOffset
+            .FromUnixTimeMilliseconds(unixMilliseconds)
+            .ToString("o", CultureInfo.InvariantCulture);
 
     private static string? NullableString(SqliteDataReader reader, int ordinal) =>
         reader.IsDBNull(ordinal) ? null : reader.GetString(ordinal);

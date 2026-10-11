@@ -3,6 +3,7 @@ use std::{path::Path, time::Duration};
 use rusqlite::{params, Connection, OpenFlags, OptionalExtension};
 
 use crate::history::dto::{HistoryBattleRow, HistorySummary};
+use crate::history::instant::{optional_utc_column, utc_column};
 use crate::history::mapper::{map_battle_row, BattleFields, BattleVideoFields};
 
 /// Why a history database could not be read. An unsupported schema stays typed
@@ -237,10 +238,10 @@ pub fn list_run_rows(conn: &Connection, limit: i64, offset: i64) -> Result<Vec<R
         .prepare(
             "
             select
-              run_id, hero, game_mode, started_at_utc, ended_at_utc,
+              run_id, hero, game_mode, started_at_ms, ended_at_ms,
               status, victories, losses, final_day, final_player_rank, final_player_rating
             from runs
-            order by coalesce(ended_at_utc, last_seen_at_utc, started_at_utc) desc, run_id desc
+            order by coalesce(ended_at_ms, last_seen_at_ms, started_at_ms) desc, run_id desc
             limit ?1 offset ?2
             ",
         )
@@ -256,7 +257,7 @@ pub fn load_run_row(conn: &Connection, run_id: &str) -> Result<Option<RunRow>, S
     conn.query_row(
         "
         select
-          run_id, hero, game_mode, started_at_utc, ended_at_utc,
+          run_id, hero, game_mode, started_at_ms, ended_at_ms,
           status, victories, losses, final_day, final_player_rank, final_player_rating
         from runs
         where run_id = ?1
@@ -273,8 +274,8 @@ fn map_run_row_from_statement(row: &rusqlite::Row<'_>) -> rusqlite::Result<RunRo
         run_id: row.get(0)?,
         hero: row.get(1)?,
         game_mode: row.get(2)?,
-        started_at_utc: row.get(3)?,
-        ended_at_utc: row.get(4)?,
+        started_at_utc: utc_column(row, 3)?,
+        ended_at_utc: optional_utc_column(row, 4)?,
         status: row.get(5)?,
         victories: row.get(6)?,
         losses: row.get(7)?,
@@ -306,8 +307,8 @@ pub fn local_player_name(conn: &Connection, run_id: &str) -> Result<Option<Strin
         "
         select player_name
         from battles
-        where run_id = ?1 and source = 'LOCAL' and player_name is not null and deleted_at_utc is null
-        order by recorded_at_utc desc, battle_id desc
+        where run_id = ?1 and source = 'LOCAL' and player_name is not null and deleted_at_ms is null
+        order by recorded_at_ms desc, battle_id desc
         limit 1
         ",
         [run_id],
@@ -335,11 +336,11 @@ pub fn load_battle_rows(conn: &Connection, run_id: &str) -> Result<Vec<HistoryBa
                   select video_id
                   from combat_replay_videos
                   where battle_id = b.battle_id and status = 'COMPLETED'
-                  order by started_at_utc desc, video_id desc
+                  order by started_at_ms desc, video_id desc
                   limit 1
                 )
-                where b.run_id = ?1 and b.source = 'LOCAL' and b.deleted_at_utc is null
-                order by b.recorded_at_utc desc, b.battle_id desc
+                where b.run_id = ?1 and b.source = 'LOCAL' and b.deleted_at_ms is null
+                order by b.recorded_at_ms desc, b.battle_id desc
                 ",
             )
             .map_err(|err| err.to_string())?;
@@ -369,8 +370,8 @@ pub fn load_battle_rows(conn: &Connection, run_id: &str) -> Result<Vec<HistoryBa
               battle_id, day, hour, result,
               opponent_hero, opponent_name, opponent_rank, opponent_rating
             from battles
-            where run_id = ?1 and source = 'LOCAL' and deleted_at_utc is null
-            order by recorded_at_utc desc, battle_id desc
+            where run_id = ?1 and source = 'LOCAL' and deleted_at_ms is null
+            order by recorded_at_ms desc, battle_id desc
             ",
         )
         .map_err(|err| err.to_string())?;
@@ -416,7 +417,7 @@ pub fn load_battle_video_ref(
         select video_relative_path
         from combat_replay_videos
         where battle_id = ?1 and status = 'COMPLETED'
-        order by started_at_utc desc, video_id desc
+        order by started_at_ms desc, video_id desc
         limit 1
         ",
         [battle_id],

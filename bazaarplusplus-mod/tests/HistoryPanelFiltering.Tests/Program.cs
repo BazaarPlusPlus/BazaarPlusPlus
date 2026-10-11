@@ -229,12 +229,12 @@ void TestReplayReturnPreservesSelectionAndFilters()
     using (var command = db.CreateCommand())
     {
         command.CommandText = """
-            INSERT INTO runs (run_id,hero,game_mode,status,started_at_utc,last_seen_at_utc)
-            VALUES ('run-1','Vanessa','Ranked','completed','2026-01-01T00:00:00Z','2026-01-01T00:00:00Z'),
-                ('run-2','Vanessa','Ranked','completed','2026-01-02T00:00:00Z','2026-01-02T00:00:00Z');
-            INSERT INTO battles (battle_id,run_id,source,recorded_at_utc,combat_kind,local_payload_state)
-            VALUES ('battle-1','run-2','LOCAL','2026-01-02T00:00:00Z','PVPCombat','missing'),
-                ('battle-2','run-2','LOCAL','2026-01-01T00:00:00Z','PVPCombat','missing');
+            INSERT INTO runs (run_id,hero,game_mode,status,started_at_ms,last_seen_at_ms)
+            VALUES ('run-1','Vanessa','Ranked','completed',1767225600000,1767225600000),
+                ('run-2','Vanessa','Ranked','completed',1767312000000,1767312000000);
+            INSERT INTO battles (battle_id,run_id,source,recorded_at_ms,combat_kind,local_payload_state)
+            VALUES ('battle-1','run-2','LOCAL',1767312000000,'PVPCombat','missing'),
+                ('battle-2','run-2','LOCAL',1767225600000,'PVPCombat','missing');
             """;
         command.ExecuteNonQuery();
     }

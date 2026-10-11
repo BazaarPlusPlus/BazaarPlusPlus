@@ -29,12 +29,7 @@ internal static class ReplayMaintenanceStorageTests
                 foreach (var eligibilityCase in cases)
                 {
                     eligibilityCase.Seed(setup);
-                    InsertBattle(
-                        setup,
-                        eligibilityCase.Name,
-                        eligibilityCase.Name,
-                        "2025-01-01T00:00:00Z"
-                    );
+                    InsertBattle(setup, eligibilityCase.Name, eligibilityCase.Name, 1735689600000L);
                 }
             }
 
@@ -73,10 +68,10 @@ internal static class ReplayMaintenanceStorageTests
             {
                 setup.Open();
                 RunLogSchema.EnsureInitialized(setup);
-                InsertRun(setup, "job-created-run", "completed", completed: true, "Casual");
-                InsertRun(setup, "job-transition-run", "completed", completed: true, "Casual");
-                InsertBattle(setup, "job-created", "job-created-run", "2025-01-01T00:00:00Z");
-                InsertBattle(setup, "job-transition", "job-transition-run", "2025-01-02T00:00:00Z");
+                InsertRun(setup, "job-created-run", "completed", "Casual");
+                InsertRun(setup, "job-transition-run", "completed", "Casual");
+                InsertBattle(setup, "job-created", "job-created-run", 1735689600000L);
+                InsertBattle(setup, "job-transition", "job-transition-run", 1735776000000L);
                 InsertSealJob(setup, "job-transition-run", "waiting");
             }
 
@@ -89,9 +84,9 @@ internal static class ReplayMaintenanceStorageTests
                 writerTransaction,
                 """
                 INSERT INTO bundle_seal_jobs (
-                    run_id, state, screenshot_requested, screenshot_state, input_deadline_at_utc
+                    run_id, state, screenshot_requested, screenshot_state, input_deadline_at_ms
                 ) VALUES (
-                    'job-created-run', 'waiting', 0, 'not_requested', '2025-01-02T00:00:00Z'
+                    'job-created-run', 'waiting', 0, 'not_requested', 1735776000000
                 );
                 UPDATE bundle_seal_jobs
                 SET state='sealing'
@@ -152,30 +147,20 @@ internal static class ReplayMaintenanceStorageTests
             {
                 connection.Open();
                 RunLogSchema.EnsureInitialized(connection);
-                InsertRun(connection, "active-run", "active", completed: false);
-                InsertRun(connection, "seal-eligible-run", "completed", completed: true);
-                InsertRun(connection, "uploaded-run", "completed", completed: true);
-                InsertRun(connection, "waiting-job-run", "completed", completed: true);
-                InsertRun(connection, "terminal-job-run", "completed", completed: true);
+                InsertRun(connection, "active-run", "active");
+                InsertRun(connection, "seal-eligible-run", "completed");
+                InsertRun(connection, "uploaded-run", "completed");
+                InsertRun(connection, "waiting-job-run", "completed");
+                InsertRun(connection, "terminal-job-run", "completed");
                 InsertUploadedOutbox(connection, "uploaded-run");
                 InsertSealJob(connection, "waiting-job-run", "waiting");
                 InsertSealJob(connection, "terminal-job-run", "terminal_failure");
-                InsertBattle(connection, "active", "active-run", "2025-01-01T00:00:00Z");
-                InsertBattle(
-                    connection,
-                    "seal-eligible",
-                    "seal-eligible-run",
-                    "2025-01-02T00:00:00Z"
-                );
-                InsertBattle(connection, "uploaded", "uploaded-run", "2025-01-03T00:00:00Z");
-                InsertBattle(connection, "unowned", null, "2025-01-04T00:00:00Z");
-                InsertBattle(connection, "waiting-job", "waiting-job-run", "2025-01-05T00:00:00Z");
-                InsertBattle(
-                    connection,
-                    "terminal-job",
-                    "terminal-job-run",
-                    "2025-01-06T00:00:00Z"
-                );
+                InsertBattle(connection, "active", "active-run", 1735689600000L);
+                InsertBattle(connection, "seal-eligible", "seal-eligible-run", 1735776000000L);
+                InsertBattle(connection, "uploaded", "uploaded-run", 1735862400000L);
+                InsertBattle(connection, "unowned", null, 1735948800000L);
+                InsertBattle(connection, "waiting-job", "waiting-job-run", 1736035200000L);
+                InsertBattle(connection, "terminal-job", "terminal-job-run", 1736121600000L);
             }
 
             var catalog = new PvpBattleSqliteStore(databasePath);
@@ -216,10 +201,6 @@ internal static class ReplayMaintenanceStorageTests
                 afterFirstAttempt.Single(record => record.BattleId == "unowned").PayloadState,
                 "failed file deletion remains retryable"
             );
-            Assert(
-                !afterFirstAttempt.Single(record => record.BattleId == "unowned").HasLocalPayload,
-                "History eligibility must turn off before file deletion."
-            );
 
             catalog.CompleteReplayPayloadDeletion(["unowned"], now.AddSeconds(2));
             Equal(
@@ -243,23 +224,21 @@ internal static class ReplayMaintenanceStorageTests
         SqliteConnection connection,
         string runId,
         string status,
-        bool completed,
         string gameMode = "Ranked"
     )
     {
         using var command = connection.CreateCommand();
         command.CommandText = """
             INSERT INTO runs (
-                run_id, started_at_utc, last_seen_at_utc, status, completed,
+                run_id, started_at_ms, last_seen_at_ms, status,
                 hero, game_mode, build_channel
             ) VALUES (
-                $runId, '2025-01-01T00:00:00Z', '2025-01-01T00:00:00Z', $status, $completed,
+                $runId, 1735689600000, 1735689600000, $status,
                 'Vanessa', $gameMode, 'Online'
             );
             """;
         command.Parameters.AddWithValue("$runId", runId);
         command.Parameters.AddWithValue("$status", status);
-        command.Parameters.AddWithValue("$completed", completed ? 1 : 0);
         command.Parameters.AddWithValue("$gameMode", gameMode);
         command.ExecuteNonQuery();
     }
@@ -268,16 +247,16 @@ internal static class ReplayMaintenanceStorageTests
         SqliteConnection connection,
         string battleId,
         string? runId,
-        string recordedAt
+        long recordedAt
     )
     {
         using var command = connection.CreateCommand();
         command.CommandText = """
             INSERT INTO battles (
-                battle_id, source, run_id, recorded_at_utc, combat_kind,
-                has_local_payload, local_payload_state
+                battle_id, source, run_id, recorded_at_ms, combat_kind,
+                local_payload_state
             ) VALUES (
-                $battleId, 'LOCAL', $runId, $recordedAt, 'PVPCombat', 1, 'ready'
+                $battleId, 'LOCAL', $runId, $recordedAt, 'PVPCombat', 'ready'
             );
             """;
         command.Parameters.AddWithValue("$battleId", battleId);
@@ -292,10 +271,10 @@ internal static class ReplayMaintenanceStorageTests
         command.CommandText = """
             INSERT INTO bundle_outbox (
                 bundle_id, run_id, file_name, content_sha256_hex, content_digest,
-                total_bytes, has_screenshot, sealed_at_utc, status
+                total_bytes, has_screenshot, sealed_at_ms, status
             ) VALUES (
                 'bundle-uploaded', $runId, 'uploaded.bundle', $sha, $digest,
-                1, 0, '2025-01-02T00:00:00Z', 'uploaded'
+                1, 0, 1735776000000, 'uploaded'
             );
             """;
         command.Parameters.AddWithValue("$runId", runId);
@@ -312,8 +291,8 @@ internal static class ReplayMaintenanceStorageTests
         using var command = connection.CreateCommand();
         command.CommandText = """
             INSERT INTO bundle_seal_jobs (
-                run_id, state, screenshot_requested, screenshot_state, input_deadline_at_utc
-            ) VALUES ($runId, $state, 0, 'not_requested', '2025-01-02T00:00:00Z');
+                run_id, state, screenshot_requested, screenshot_state, input_deadline_at_ms
+            ) VALUES ($runId, $state, 0, 'not_requested', 1735776000000);
             """;
         command.Parameters.AddWithValue("$runId", runId);
         command.Parameters.AddWithValue("$state", state);
