@@ -1,30 +1,30 @@
 #nullable enable
 namespace BazaarPlusPlus.ModApi.Bundle;
 
-internal sealed class BundleManifestV5
+internal sealed class BundleManifestV6
 {
     public string BundleId { get; set; } = string.Empty;
-    public int BundleVersion { get; set; } = BundleLimitsV5.BundleVersion;
+    public int BundleVersion { get; set; } = BundleLimitsV6.BundleVersion;
     public long CreatedAtMs { get; set; }
-    public BundleRunManifestV5 Run { get; set; } = new();
-    public BundleScreenshotManifestV5? Screenshot { get; set; }
+    public BundleRunManifestV6 Run { get; set; } = new();
+    public BundleScreenshotManifestV6? Screenshot { get; set; }
 }
 
-internal sealed class BundleRunManifestV5
+internal sealed class BundleRunManifestV6
 {
     public string RunId { get; set; } = string.Empty;
     public string PlayerAccountId { get; set; } = string.Empty;
-    public int RunFormatVersion { get; set; } = BundleLimitsV5.RunFormatVersion;
-    public BundleProjectionV5 Projection { get; set; } = new();
-    public BundleSegmentManifestV5 Payload { get; set; } = new();
+    public int RunFormatVersion { get; set; } = BundleLimitsV6.RunFormatVersion;
+    public BundleProjectionV6 Projection { get; set; } = new();
+    public BundleSegmentManifestV6 Payload { get; set; } = new();
 }
 
-internal sealed class BundleProjectionV5
+internal sealed class BundleProjectionV6
 {
-    public List<BundleBattleProjectionV5> Battles { get; set; } = new();
+    public List<BundleBattleProjectionV6> Battles { get; set; } = new();
 }
 
-internal sealed class BundleBattleProjectionV5
+internal sealed class BundleBattleProjectionV6
 {
     public string BattleId { get; set; } = string.Empty;
     public long RecordedAtMs { get; set; }
@@ -36,11 +36,11 @@ internal sealed class BundleBattleProjectionV5
     public string? WinnerCombatantId { get; set; }
     public string? LoserCombatantId { get; set; }
     public bool IsFinalBattle { get; set; }
-    public BundleCombatantProjectionV5 Player { get; set; } = new();
-    public BundleCombatantProjectionV5 Opponent { get; set; } = new();
+    public BundleCombatantProjectionV6 Player { get; set; } = new();
+    public BundleCombatantProjectionV6 Opponent { get; set; } = new();
 }
 
-internal sealed class BundleCombatantProjectionV5
+internal sealed class BundleCombatantProjectionV6
 {
     public string AccountId { get; set; } = string.Empty;
     public string DisplayName { get; set; } = string.Empty;
@@ -53,7 +53,7 @@ internal sealed class BundleCombatantProjectionV5
     public long? Victories { get; set; }
 }
 
-internal class BundleSegmentManifestV5
+internal class BundleSegmentManifestV6
 {
     public long Offset { get; set; }
     public long Length { get; set; }
@@ -61,7 +61,7 @@ internal class BundleSegmentManifestV5
     public string ContentType { get; set; } = string.Empty;
 }
 
-internal sealed class BundleScreenshotManifestV5 : BundleSegmentManifestV5
+internal sealed class BundleScreenshotManifestV6 : BundleSegmentManifestV6
 {
     public long Width { get; set; }
     public long Height { get; set; }
@@ -69,34 +69,34 @@ internal sealed class BundleScreenshotManifestV5 : BundleSegmentManifestV5
     public long CapturedAtMs { get; set; }
 }
 
-internal sealed class BundleBuildInputV5
+internal sealed class BundleBuildInputV6
 {
     public string BundleId { get; set; } = string.Empty;
     public long CreatedAtMs { get; set; }
     public string RunId { get; set; } = string.Empty;
     public string PlayerAccountId { get; set; } = string.Empty;
-    public IReadOnlyList<BundleBattleProjectionV5> Battles { get; set; } =
-        Array.Empty<BundleBattleProjectionV5>();
+    public IReadOnlyList<BundleBattleProjectionV6> Battles { get; set; } =
+        Array.Empty<BundleBattleProjectionV6>();
     public ReadOnlyMemory<byte> RunPayload { get; set; }
-    public BundleScreenshotBuildInputV5? Screenshot { get; set; }
+    public BundleScreenshotBuildInputV6? Screenshot { get; set; }
 }
 
-internal sealed class BundleScreenshotBuildInputV5
+internal sealed class BundleScreenshotBuildInputV6
 {
     public ReadOnlyMemory<byte> Bytes { get; set; }
-    public string ContentType { get; set; } = BundleLimitsV5.JpegContentType;
+    public string ContentType { get; set; } = BundleLimitsV6.JpegContentType;
     public int Width { get; set; }
     public int Height { get; set; }
     public int Quality { get; set; }
     public long CapturedAtMs { get; set; }
 }
 
-internal sealed class BundleBuildResultV5
+internal sealed class BundleBuildResultV6
 {
-    public BundleBuildResultV5(
+    public BundleBuildResultV6(
         byte[] bytes,
         byte[] manifestBytes,
-        BundleManifestV5 manifest,
+        BundleManifestV6 manifest,
         string sha256Hex,
         string contentDigest
     )
@@ -110,15 +110,15 @@ internal sealed class BundleBuildResultV5
 
     public byte[] Bytes { get; }
     public byte[] ManifestBytes { get; }
-    public BundleManifestV5 Manifest { get; }
+    public BundleManifestV6 Manifest { get; }
     public string Sha256Hex { get; }
     public string ContentDigest { get; }
 }
 
-internal sealed class OpenedBundleV5
+internal sealed class OpenedBundleV6
 {
-    public OpenedBundleV5(
-        BundleManifestV5 manifest,
+    public OpenedBundleV6(
+        BundleManifestV6 manifest,
         byte[] manifestBytes,
         byte[] runPayload,
         byte[]? screenshot,
@@ -134,7 +134,7 @@ internal sealed class OpenedBundleV5
         ContentDigest = contentDigest;
     }
 
-    public BundleManifestV5 Manifest { get; }
+    public BundleManifestV6 Manifest { get; }
     public byte[] ManifestBytes { get; }
     public byte[] RunPayload { get; }
     public byte[]? Screenshot { get; }
@@ -142,16 +142,16 @@ internal sealed class OpenedBundleV5
     public string ContentDigest { get; }
 }
 
-internal sealed class BundleV5Exception : Exception
+internal sealed class BundleV6Exception : Exception
 {
-    public BundleV5Exception(string code, string reason, string message)
+    public BundleV6Exception(string code, string reason, string message)
         : base(message)
     {
         Code = code;
         Reason = reason;
     }
 
-    public BundleV5Exception(string code, string reason, string message, Exception innerException)
+    public BundleV6Exception(string code, string reason, string message, Exception innerException)
         : base(message, innerException)
     {
         Code = code;

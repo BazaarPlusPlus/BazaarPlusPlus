@@ -31,29 +31,28 @@ internal static class GhostBundleImportTests
                 DespawnMessage = new NetMessageGameSim(new GameSim()) { MessageId = "despawn" },
             }
         );
-        var payload = new RunPayloadV5
+        var payload = new RunPayloadV6
         {
             RunId = "valid-run",
             PlayerAccountId = "account-uploader",
             ReplayableBattleIds = [battleId],
             Battles =
             [
-                new RunBattleV5
+                new RunBattleV6
                 {
                     BattleId = battleId,
-                    Facts = new BattleFactsV5
+                    Facts = new BattleFactsV6
                     {
-                        RecordedAtUtc = malformedReplay
-                            ? "invalid-timestamp"
-                            : "2026-09-26T00:00:00Z",
+                        // Beyond DateTimeOffset's range, so projecting the replay fails.
+                        RecordedAtMs = malformedReplay ? long.MaxValue : 1_790_380_800_000,
                         CombatKind = "PVPCombat",
                     },
-                    Participants = new BattleParticipantsV5
+                    Participants = new BattleParticipantsV6
                     {
-                        Player = new BattleParticipantV5 { AccountId = "account-uploader" },
-                        Opponent = new BattleParticipantV5 { AccountId = "account-local" },
+                        Player = new BattleParticipantV6 { AccountId = "account-uploader" },
+                        Opponent = new BattleParticipantV6 { AccountId = "account-local" },
                     },
-                    Snapshots = new BattleCardSnapshotsV5
+                    Snapshots = new BattleCardSnapshotsV6
                     {
                         CardSets =
                         [
@@ -63,14 +62,14 @@ internal static class GhostBundleImportTests
                                 "player_skills",
                                 "opponent_hand",
                                 "opponent_skills",
-                            }.Select(label => new BattleCardSetV5
+                            }.Select(label => new BattleCardSetV6
                             {
                                 Label = label,
                                 Status = "Captured",
                             }),
                         ],
                     },
-                    Replay = new BattleReplayV5
+                    Replay = new BattleReplayV6
                     {
                         Version = replay.Version,
                         SpawnMessageBytes = replay.SpawnMessageBytes,
@@ -80,28 +79,28 @@ internal static class GhostBundleImportTests
                 },
             ],
         };
-        var bundle = BundleV5Codec.Build(
-            new BundleBuildInputV5
+        var bundle = BundleV6Codec.Build(
+            new BundleBuildInputV6
             {
                 BundleId = bundleId,
                 RunId = payload.RunId,
                 PlayerAccountId = payload.PlayerAccountId,
                 CreatedAtMs = 1_790_380_800_000,
-                RunPayload = RunPayloadV5Codec.Encode(payload),
+                RunPayload = RunPayloadV6Codec.Encode(payload),
                 Battles =
                 [
-                    new BundleBattleProjectionV5
+                    new BundleBattleProjectionV6
                     {
                         BattleId = battleId,
                         RecordedAtMs = 1_790_380_800_000,
                         CombatKind = "pvp",
                         Result = "unknown",
-                        Player = new BundleCombatantProjectionV5
+                        Player = new BundleCombatantProjectionV6
                         {
                             AccountId = "account-uploader",
                             DisplayName = "Uploader",
                         },
-                        Opponent = new BundleCombatantProjectionV5
+                        Opponent = new BundleCombatantProjectionV6
                         {
                             AccountId = "account-local",
                             DisplayName = "Local",

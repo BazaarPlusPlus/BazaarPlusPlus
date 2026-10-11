@@ -436,7 +436,7 @@ static CorpusLoadResult LoadBundleCorpus(string sourceKind, IReadOnlyList<string
             continue;
         }
 
-        var opened = RunBundleV5Contract.Open(bundleBytes);
+        var opened = RunBundleV6Contract.Open(bundleBytes);
         if (opened.Succeeded && opened.Value != null)
         {
             foreach (var battle in opened.Value.Payload.Battles)
@@ -494,7 +494,7 @@ static void AddBundleReplay(
     ICollection<string> invalidPayloads,
     ISet<string> seenBattleIds,
     string battleId,
-    BattleReplayV5? replay
+    BattleReplayV6? replay
 )
 {
     if (

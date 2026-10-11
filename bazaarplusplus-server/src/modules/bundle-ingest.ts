@@ -1,5 +1,6 @@
 import { toHex } from "../bundle/hex";
 import { type OpenedBundle, openBundle } from "../bundle/open";
+import { BUNDLE_CONTENT_TYPE, BUNDLE_VERSION } from "../bundle/prefix";
 import type { Env } from "../env";
 import { HttpError } from "../errors";
 import { MAX_BUNDLE_BYTES } from "../limits";
@@ -95,9 +96,9 @@ async function putConditionally(
   try {
     object = await env.BUNDLE_BUCKET.put(descriptor.objectKey, fixed.readable, {
       onlyIf: { etagDoesNotMatch: "*" },
-      httpMetadata: { contentType: "application/x-bpp-bundle-v5" },
+      httpMetadata: { contentType: BUNDLE_CONTENT_TYPE },
       customMetadata: {
-        bundle_version: "5",
+        bundle_version: String(BUNDLE_VERSION),
         manifest_length: String(descriptor.manifestBytes),
         bundle_sha256: digest,
       },
@@ -152,7 +153,7 @@ export async function ingestBundle(
   env: Env,
   requestId: string,
 ): Promise<{ status: 200 | 201; receipt: BundleReceipt }> {
-  if (request.headers.get("Content-Type") !== "application/x-bpp-bundle-v5") {
+  if (request.headers.get("Content-Type") !== BUNDLE_CONTENT_TYPE) {
     throw new HttpError(
       415,
       "unsupported_content_type",

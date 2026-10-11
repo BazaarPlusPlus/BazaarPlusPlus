@@ -3,7 +3,7 @@ using System.Security.Cryptography;
 
 namespace BazaarPlusPlus.ModApi.Bundle;
 
-internal sealed class UlidV5Generator
+internal sealed class UlidV6Generator
 {
     private const long MaxTimestamp = 281_474_976_710_655;
     private const string Alphabet = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
@@ -13,7 +13,7 @@ internal sealed class UlidV5Generator
     private readonly byte[] _lastRandom = new byte[10];
     private long _lastTimestamp = -1;
 
-    public UlidV5Generator()
+    public UlidV6Generator()
         : this(
             () => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
             bytes =>
@@ -23,7 +23,7 @@ internal sealed class UlidV5Generator
             }
         ) { }
 
-    public UlidV5Generator(Func<long> clock, Action<byte[]> fillRandom)
+    public UlidV6Generator(Func<long> clock, Action<byte[]> fillRandom)
     {
         _clock = clock ?? throw new ArgumentNullException(nameof(clock));
         _fillRandom = fillRandom ?? throw new ArgumentNullException(nameof(fillRandom));

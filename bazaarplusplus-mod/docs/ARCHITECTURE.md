@@ -78,7 +78,7 @@ Operational logging is written at the call site: `BppLog.*Event(new BppLogEvent(
 
 Runtime data that BazaarPlusPlus owns is rooted at `<GameRoot>/BazaarPlusPlusV6/`. `BepInExPathProvider` exposes that single root, and storage and feature modules derive the SQLite database, bundle outbox, replay, ghost payload, screenshot, video, voice, LiveBuild, supporter, and Encounter Preview paths from it. No runtime cache uses the process temporary directory.
 
-The V6 database starts a new schema at `user_version` 1 with no migration path: `EnsureInitialized` creates an empty database or opens one already at 1 and refuses any other version, including a V5 database. Every instant is a Unix-millisecond `*_at_ms` integer; `RunPayloadComposer` formats run and event times back to the V5 Run segment's round-trip text. Beyond run facts, events, battles, snapshots, screenshots, and replay-video metadata it holds `bundle_seal_jobs` and a non-FK `bundle_outbox`; ghost rows carry remote bundle identity, presigned URL and expiry, and replay state. V4 sync cursors, dirty/checkpoint upload state, and independent screenshot upload state do not exist (`src/BazaarPlusPlus.Storage/RunLog/RunLogSchema.cs`).
+The V6 database starts a new schema at `user_version` 1 with no migration path: `EnsureInitialized` creates an empty database or opens one already at 1 and refuses any other version, including a V5 database. Every instant is a Unix-millisecond `*_at_ms` integer; `RunPayloadComposer` copies them unchanged into the V6 Run segment. Beyond run facts, events, battles, snapshots, screenshots, and replay-video metadata it holds `bundle_seal_jobs` and a non-FK `bundle_outbox`; ghost rows carry remote bundle identity, presigned URL and expiry, and replay state. V4 sync cursors, dirty/checkpoint upload state, and independent screenshot upload state do not exist (`src/BazaarPlusPlus.Storage/RunLog/RunLogSchema.cs`).
 
 ## Event Flow
 
@@ -101,4 +101,4 @@ Each feature doc ends with the Gotchas that bite only that feature.
 | Desktop native build freshness, local promotion, and signing | [architecture/native-artifacts.md](architecture/native-artifacts.md) |
 | Hotkey bindings and settings dock rows | [architecture/input-and-settings.md](architecture/input-and-settings.md) |
 | Fonts, localization, voice subtitles, supporter attribution | [architecture/text.md](architecture/text.md) |
-| The V5 bundle wire format | [contracts/run-payload-v5.md](contracts/run-payload-v5.md) |
+| The V6 bundle wire format | [contracts/run-payload-v6.md](contracts/run-payload-v6.md) |

@@ -1,10 +1,10 @@
 #nullable enable
 namespace BazaarPlusPlus.ModApi.Bundle;
 
-internal static class BundleLimitsV5
+internal static class BundleLimitsV6
 {
-    public const int BundleVersion = 5;
-    public const int RunFormatVersion = 5;
+    public const int BundleVersion = 6;
+    public const int RunFormatVersion = 6;
     public const int PrefixBytes = 16;
     public const int MaxBundleBytes = 8_388_607;
     public const int MaxManifestBytes = 2_097_152;
@@ -15,8 +15,8 @@ internal static class BundleLimitsV5
     public const long MaxSafeInteger = 9_007_199_254_740_991;
     public const long MaxCreatedAtMs = 8_640_000_000_000_000;
 
-    public const string BundleContentType = "application/x-bpp-bundle-v5";
-    public const string RunContentType = "application/x-bpp-run-v5";
+    public const string BundleContentType = "application/x-bpp-bundle-v6";
+    public const string RunContentType = "application/x-bpp-run-v6";
     public const string JpegContentType = "image/jpeg";
     public const string WebpContentType = "image/webp";
 }

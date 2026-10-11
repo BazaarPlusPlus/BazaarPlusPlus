@@ -19,7 +19,7 @@ using SixLabors.ImageSharp.PixelFormats;
 /// <c>BPP_UPDATE_GOLDENS=1 dotnet run --project tests/BundlePipeline.Tests/BundlePipeline.Tests.csproj</c>
 /// from the mod root, then review <c>git diff tests/BundlePipeline.Tests/fixtures/</c>.
 ///
-/// <c>bundle_id</c>, <c>created_at_ms</c> (UlidV5Generator and the seal clock), the values
+/// <c>bundle_id</c>, <c>created_at_ms</c> (UlidV6Generator and the seal clock), the values
 /// derived from them (file name, whole-Bundle SHA-256 and Content-Digest), and <c>*_at_ms</c>
 /// are normalized. Gzip/JPEG bytes may differ across runtimes and CPU architectures: pin the
 /// decompressed MessagePack bytes and check decoded screenshot pixels against the input instead.
@@ -66,9 +66,9 @@ internal sealed class PipelineArtifacts
     /// Writes the raw Bundle and manifest, validates the manifest against the server-owned
     /// schema before normalization, and records the normalized manifest and checksum entry.
     /// </summary>
-    internal OpenedBundleV5 RecordBundle(string name, byte[] bytes)
+    internal OpenedBundleV6 RecordBundle(string name, byte[] bytes)
     {
-        var opened = BundleV5Codec.Open(bytes);
+        var opened = BundleV6Codec.Open(bytes);
         File.WriteAllBytes(Path.Combine(_directory, name + ".bundle"), bytes);
         File.WriteAllBytes(Path.Combine(_directory, name + ".manifest.json"), opened.ManifestBytes);
 
@@ -99,7 +99,7 @@ internal sealed class PipelineArtifacts
             _runPayloads[name] = new JsonObject
             {
                 ["messagepack_bytes"] = unpacked.Length,
-                ["sha256"] = BundleV5Codec.ComputeSha256Hex(unpacked.ToArray()),
+                ["sha256"] = BundleV6Codec.ComputeSha256Hex(unpacked.ToArray()),
             };
         }
         if (opened.Screenshot is { } screenshot)
@@ -242,7 +242,7 @@ internal sealed class PipelineArtifacts
     private static void VerifyServerChecksumsUseOurMeasure()
     {
         var bytes = Convert.FromBase64String(Resource("run-only.bundle.b64").Trim());
-        var opened = BundleV5Codec.Open(bytes);
+        var opened = BundleV6Codec.Open(bytes);
         using var checksums = JsonDocument.Parse(Resource("checksums.json"));
         var entry = checksums.RootElement.GetProperty("run-only.bundle.b64");
         Check.That(

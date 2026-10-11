@@ -1,5 +1,7 @@
 # Bundle V5 binary contract
 
+Frozen. This server ingests only [Bundle V6](../v6/bundle-v6.md); the V5 Worker serving 5.7.0 still stores V5, and the analyzer still reads it, until that Worker is retired.
+
 All integer fields in the fixed prefix are unsigned, big-endian values. Offsets in the manifest are measured from the first byte after the manifest.
 
 | Offset | Bytes | Field | Value |

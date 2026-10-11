@@ -24,4 +24,4 @@ The compiler is the compatibility check in every gate that already runs: `mod::c
 ## Evidence
 
 - Access: `tests/RuntimeIntegration.Tests/GameSuppliedLibraryAccessTests.cs`
-- Generated formatters and Run goldens: `RunPayloadFormattersAreSourceGenerated` in `tests/BundleV5Codec.Tests/Program.cs`
+- Generated formatters and Run goldens: `RunPayloadFormattersAreSourceGenerated` in `tests/BundleV6Codec.Tests/Program.cs`

@@ -105,12 +105,12 @@ internal sealed class GhostBattleClient
             }
 
             var declaredLength = response.Content.Headers.ContentLength;
-            if (declaredLength.HasValue && declaredLength.Value > BundleLimitsV5.MaxBundleBytes)
+            if (declaredLength.HasValue && declaredLength.Value > BundleLimitsV6.MaxBundleBytes)
                 return GhostBundleDownloadResult.Failure("bundle_too_large");
 
             var bytes = await ReadBoundedAsync(
                     response.Content,
-                    BundleLimitsV5.MaxBundleBytes,
+                    BundleLimitsV6.MaxBundleBytes,
                     cancellationToken
                 )
                 .ConfigureAwait(false);

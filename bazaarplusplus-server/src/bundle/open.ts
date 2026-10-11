@@ -14,7 +14,7 @@ import {
   validBundleId,
   validIdentifier,
 } from "./manifest";
-import { BUNDLE_PREFIX_BYTES, BUNDLE_VERSION, parseBundlePrefix } from "./prefix";
+import { BUNDLE_PREFIX_BYTES, BUNDLE_VERSION, parseBundlePrefix, RUN_CONTENT_TYPE } from "./prefix";
 
 const STREAM_CHUNK_BYTES = 64 * 1024;
 const encoder = new TextEncoder();
@@ -231,7 +231,7 @@ function validateManifest(
   }
   const createdAtMs = safeInteger(root.created_at_ms, "created_at_ms");
   const run = object(root.run);
-  if (run.run_format_version !== 5) {
+  if (run.run_format_version !== BUNDLE_VERSION) {
     throw new HttpError(422, "unsupported_run_format", "Run format is not supported", false);
   }
   const runId = identifier(run.run_id, "run.run_id");
@@ -248,7 +248,7 @@ function validateManifest(
   if (runLength >= MAX_RUN_BYTES + 1) {
     throw invalidBundle("run_too_large", "Run segment reaches the 2 MiB limit");
   }
-  if (payload.content_type !== "application/x-bpp-run-v5") {
+  if (payload.content_type !== RUN_CONTENT_TYPE) {
     throw invalidBundle("manifest_schema_invalid", "Run content type is invalid");
   }
   if (typeof payload.sha256 !== "string" || !SHA256.test(payload.sha256)) {

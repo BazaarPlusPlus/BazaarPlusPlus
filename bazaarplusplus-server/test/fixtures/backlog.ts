@@ -15,7 +15,7 @@ export async function seedDeliveryBacklog(
     )
     SELECT '01J9' || printf('%022d', n), 'backlog-' || n, 'backlog-uploader',
       'bundles/2026-08-02/01J9' || printf('%022d', n) || '.bundle',
-      printf('%064d', 0), 5, 10, 100, ?2, ?2, ?2, 5, 10, printf('%064d', 0),
+      printf('%064d', 0), 6, 10, 100, ?2, ?2, ?2, 6, 10, printf('%064d', 0),
       1, 'image/jpeg', 10, printf('%064d', 0) FROM seq
   `)
     .bind(count - 1, storedAtMs)

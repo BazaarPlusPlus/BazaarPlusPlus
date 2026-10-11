@@ -4,7 +4,7 @@ This Worker receives completed game-run Bundles and makes them discoverable by t
 
 ## Language
 
-**Bundle**, **Run**: Defined in [the root glossary](../CONTEXT.md). The binary format is [contracts/v5](contracts/v5/bundle-v5.md).
+**Bundle**, **Run**: Defined in [the root glossary](../CONTEXT.md). The binary format is [contracts/v6](contracts/v6/bundle-v6.md); [contracts/v5](contracts/v5/bundle-v5.md) is frozen for the V5 Worker.
 
 **Screenshot**: The optional end-of-run image stored inside the Bundle. Its absence never invalidates the Bundle.
 

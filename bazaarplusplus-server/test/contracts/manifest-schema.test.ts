@@ -1,7 +1,7 @@
 import { Validator } from "@cfworker/json-schema";
 import { expect, test } from "vitest";
-import manifest from "../../contracts/v5/fixtures/run-only.manifest.json";
-import schema from "../../contracts/v5/manifest.schema.json";
+import manifest from "../../contracts/v6/fixtures/run-only.manifest.json";
+import schema from "../../contracts/v6/manifest.schema.json";
 
 // The interpreting validator runs inside workerd, which forbids ajv's generated code.
 const validator = new Validator(schema as object, "2020-12");

@@ -4,7 +4,7 @@ import { describe, expect, test } from "vitest";
 import { commitBundle } from "../src/modules/bundle-commit";
 import { bundleData } from "./fixtures/bundle";
 
-test("the completed migrations leave only the V5 domain tables", async () => {
+test("the completed migrations leave only the domain tables", async () => {
   const result = await env.DB.prepare(
     `
       SELECT name
@@ -26,13 +26,13 @@ test("the completed migrations leave only the V5 domain tables", async () => {
   ]);
 });
 
-describe("V5 relational constraints", () => {
+describe("relational constraints", () => {
   const validBundleSql = `INSERT INTO bundles (
     bundle_id, run_id, uploader_account_id, object_key, bundle_sha256,
     bundle_version, manifest_bytes, object_bytes, client_created_at_ms,
     stored_at_ms, available_at_ms, run_format_version, run_bytes, run_sha256,
     has_screenshot, screenshot_content_type, screenshot_bytes, screenshot_sha256
-  ) VALUES (?1, ?2, 'schema-uploader', ?3, ?4, 5, 10, 100, 1, 1, 1, 5, 10, ?4, ?5, ?6, ?7, ?8)`;
+  ) VALUES (?1, ?2, 'schema-uploader', ?3, ?4, 6, 10, 100, 1, 1, 1, 6, 10, ?4, ?5, ?6, ?7, ?8)`;
 
   test("foreign keys are enabled and reject a Ghost row without its Bundle", async () => {
     const foreignKeys = await env.DB.prepare(`PRAGMA foreign_keys`).first<{

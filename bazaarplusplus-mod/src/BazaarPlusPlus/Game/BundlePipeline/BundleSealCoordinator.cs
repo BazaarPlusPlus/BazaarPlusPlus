@@ -27,7 +27,7 @@ internal sealed class BundleSealCoordinator : IBppFeature, IDisposable
     private readonly RunScreenshotSqliteStore _screenshotStore;
     private readonly RunPayloadComposer _composer;
     private readonly BundleScreenshotEncoder _screenshotEncoder = new();
-    private readonly UlidV5Generator _ulid = new();
+    private readonly UlidV6Generator _ulid = new();
     private readonly SemaphoreSlim _wake = new(0);
     private readonly ConcurrentQueue<ScreenshotCaptureTerminal> _screenshotTerminals = new();
     private readonly CancellationTokenSource _shutdown = new();
@@ -245,7 +245,7 @@ internal sealed class BundleSealCoordinator : IBppFeature, IDisposable
 
             stage = BundleSealStage.Screenshot;
             Probe(stage, runId);
-            BundleScreenshotBuildInputV5? screenshot = null;
+            BundleScreenshotBuildInputV6? screenshot = null;
             if (job.ScreenshotRequested && job.ScreenshotState != BundleScreenshotState.Unavailable)
             {
                 var source = TryReadScreenshot(runId);
@@ -338,13 +338,13 @@ internal sealed class BundleSealCoordinator : IBppFeature, IDisposable
 
             composition.Payload.Degradation.ScreenshotOmitted =
                 job.ScreenshotRequested && screenshot == null;
-            var encodedPayload = RunPayloadV5Codec.Encode(composition.Payload);
+            var encodedPayload = RunPayloadV6Codec.Encode(composition.Payload);
             if (
                 BundleSealConvergence.Resolve(
                     jobFacts,
                     secondsUntilInputDeadline,
                     BundleSealInputObservation.EncodedPayload(
-                        encodedPayload.Length > BundleLimitsV5.MaxRunBytes
+                        encodedPayload.Length > BundleLimitsV6.MaxRunBytes
                     )
                 ) == BundleSealConvergenceDecision.MarkTerminal
             )
@@ -366,8 +366,8 @@ internal sealed class BundleSealCoordinator : IBppFeature, IDisposable
 
             stage = BundleSealStage.Build;
             Probe(stage, runId);
-            var built = BundleV5Codec.Build(
-                new BundleBuildInputV5
+            var built = BundleV6Codec.Build(
+                new BundleBuildInputV6
                 {
                     BundleId = allocation.BundleId,
                     CreatedAtMs = allocation.CreatedAtMs,
@@ -378,7 +378,7 @@ internal sealed class BundleSealCoordinator : IBppFeature, IDisposable
                     Screenshot = screenshot,
                 }
             );
-            _ = BundleV5Codec.Open(built.Bytes);
+            _ = BundleV6Codec.Open(built.Bytes);
 
             stage = BundleSealStage.Publish;
             Probe(stage, runId);
@@ -473,7 +473,7 @@ internal sealed class BundleSealCoordinator : IBppFeature, IDisposable
                 return;
             Probe(BundleSealStage.OrphanAdoption, bundleId);
             var bytes = File.ReadAllBytes(file);
-            var opened = BundleV5Codec.Open(bytes);
+            var opened = BundleV6Codec.Open(bytes);
             var job = _queueStore.ReadJob(opened.Manifest.Run.RunId);
             if (
                 job?.BundleId != opened.Manifest.BundleId
@@ -525,7 +525,7 @@ internal sealed class BundleSealCoordinator : IBppFeature, IDisposable
             var path = Path.Combine(_outboxRoot, row.FileName);
             if (
                 File.Exists(path)
-                && BundleV5Codec.Open(File.ReadAllBytes(path)).Manifest.BundleId == row.BundleId
+                && BundleV6Codec.Open(File.ReadAllBytes(path)).Manifest.BundleId == row.BundleId
             )
                 return;
         }

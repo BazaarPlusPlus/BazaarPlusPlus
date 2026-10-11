@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text;
+using System.Text.Json.Nodes;
 using BazaarGameShared;
 using BazaarGameShared.Infra.Messages;
 using BazaarGameShared.Infra.Messages.GameSimEvents;
@@ -70,7 +71,7 @@ try
         "The composer should use the shared replayability contract."
     );
     Check.That(
-        RunBundleV5Contract
+        RunBundleV6Contract
             .Open(runOnly.Bytes)
             .Value!.TryGetReplayableBattle("battle-seal-001", out _),
         "The sealed replayable battle should resolve through the shared contract."
@@ -375,10 +376,10 @@ static SealedBundle Sealed(PipelineArtifacts artifacts, string dataRoot, string 
     var opened = artifacts.RecordBundle(name, bytes);
     Check.That(opened.Manifest.BundleId == bundleId, "File identity should match the outbox.");
     Check.That(
-        RunBundleV5Contract.Open(bytes).Succeeded,
+        RunBundleV6Contract.Open(bytes).Succeeded,
         $"{name} should satisfy the Run Bundle contract."
     );
-    var payload = RunPayloadV5Codec.Decode(opened.RunPayload);
+    var payload = RunPayloadV6Codec.Decode(opened.RunPayload);
     Check.That(payload.RunId == runId, "The payload should preserve the Run identity.");
     return new SealedBundle(bytes, opened, payload);
 }
@@ -426,8 +427,9 @@ static void ExpectSqliteConstraint(Action action, string message)
 static PvpBattleCardSetCapture CapturedEmpty() =>
     new() { Status = PvpBattleCaptureStatus.CapturedEmpty };
 
-// The database stores Unix-millisecond instants and no seed; the composer must still emit the
-// V5 Run segment shape: the round-trip ISO text, a null seed, and payload_json as written.
+// The database stores Unix-millisecond instants and no seed; the composer copies those integers
+// into the V6 Run segment unchanged, emits a null seed, and strips the envelope keys from
+// payload_json.
 static async Task VerifyRunSegmentProjectionAsync(string root)
 {
     Directory.CreateDirectory(root);
@@ -455,19 +457,28 @@ static async Task VerifyRunSegmentProjectionAsync(string root)
         "SELECT file_name FROM bundle_outbox WHERE run_id='run-segment' AND status='pending';"
     )!;
     var bytes = TestInputs.ScratchBytes(Path.Combine(PathConstants.BundleOutbox(root), file));
-    var payload = RunPayloadV5Codec.Decode(BundleV5Codec.Open(bytes).RunPayload);
+    var payload = RunPayloadV6Codec.Decode(BundleV6Codec.Open(bytes).RunPayload);
     Assert(payload.Run.Seed == null, "The V6 database has no seed; the Run segment carries null.");
+    var started = PipelineInputs.Base.ToUnixTimeMilliseconds();
     Assert(
-        payload.Run.StartedAtUtc == "2099-01-01T00:00:00.0000000+00:00"
-            && payload.Run.EndedAtUtc == "2099-01-01T00:01:00.0000000+00:00",
-        "Millisecond columns must format back to the V5 round-trip text."
+        payload.Run.StartedAtMs == started && payload.Run.EndedAtMs == started + 60_000,
+        "Run start and end must be the database's Unix-millisecond integers."
     );
+    var runEvent = payload.Events.Single();
     Assert(
-        payload.Events.Single().TimestampUtc == "2099-01-01T00:00:05.0000000+00:00"
-            && payload
-                .Events.Single()
-                .PayloadJson.Contains("\"schema_version\":3", StringComparison.Ordinal),
-        "Event payload_json keeps schema_version 3, independent of the database user_version."
+        runEvent.TimestampMs == started + 5_000
+            && runEvent.Seq == 1
+            && runEvent.Kind == "state_changed",
+        "The RunEventV6 envelope carries the event's Unix-millisecond time, sequence, and kind."
+    );
+    var body = JsonNode.Parse(runEvent.PayloadJson)!.AsObject();
+    Assert(
+        body["schema_version"]?.GetValue<int>() == 3
+            && !body.ContainsKey("run_id")
+            && !body.ContainsKey("seq")
+            && !body.ContainsKey("ts")
+            && !body.ContainsKey("kind"),
+        "Event payload_json keeps schema_version 3 and drops the keys the envelope owns."
     );
 }
 
@@ -580,21 +591,21 @@ static async Task VerifyRecoveryAsync(string root)
     );
 }
 
-static BundleBuildResultV5 BuildRunOnlyBundle(
+static BundleBuildResultV6 BuildRunOnlyBundle(
     string bundleId,
     string runId,
     string accountId,
     long createdAtMs
 ) =>
-    BundleV5Codec.Build(
-        new BundleBuildInputV5
+    BundleV6Codec.Build(
+        new BundleBuildInputV6
         {
             BundleId = bundleId,
             CreatedAtMs = createdAtMs,
             RunId = runId,
             PlayerAccountId = accountId,
-            RunPayload = RunPayloadV5Codec.Encode(
-                new RunPayloadV5 { RunId = runId, PlayerAccountId = accountId }
+            RunPayload = RunPayloadV6Codec.Encode(
+                new RunPayloadV6 { RunId = runId, PlayerAccountId = accountId }
             ),
         }
     );
@@ -639,11 +650,11 @@ static object? ScalarObject(SqliteConnection connection, string sql)
 
 static async Task VerifyUploadClientAsync()
 {
-    var payload = RunPayloadV5Codec.Encode(
-        new RunPayloadV5 { RunId = "run-http", PlayerAccountId = "account-http" }
+    var payload = RunPayloadV6Codec.Encode(
+        new RunPayloadV6 { RunId = "run-http", PlayerAccountId = "account-http" }
     );
-    var built = BundleV5Codec.Build(
-        new BundleBuildInputV5
+    var built = BundleV6Codec.Build(
+        new BundleBuildInputV6
         {
             BundleId = "01J00000000000000000000111",
             CreatedAtMs = 1_785_628_800_000,
@@ -779,7 +790,7 @@ internal sealed class CaptureHandler(Queue<HttpResponseMessage> responses) : Htt
         ContentDigests.Add(request.Headers.GetValues("Content-Digest").Single());
         if (request.Content.Headers.ContentLength != Bodies[^1].Length)
             throw new InvalidOperationException("Content-Length required");
-        if (request.Content.Headers.ContentType!.MediaType != BundleLimitsV5.BundleContentType)
+        if (request.Content.Headers.ContentType!.MediaType != BundleLimitsV6.BundleContentType)
             throw new InvalidOperationException("Bundle Content-Type required");
         return responses.Dequeue();
     }
@@ -844,4 +855,4 @@ internal static class ReplayBytes
     );
 }
 
-internal sealed record SealedBundle(byte[] Bytes, OpenedBundleV5 Opened, RunPayloadV5 Payload);
+internal sealed record SealedBundle(byte[] Bytes, OpenedBundleV6 Opened, RunPayloadV6 Payload);

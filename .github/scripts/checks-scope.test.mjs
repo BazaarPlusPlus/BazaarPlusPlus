@@ -106,11 +106,15 @@ test('shared inputs select owners and every contract consumer', () => {
       ['analyzer', 'mod', 'site', 'installer']
     ],
     [
-      'bazaarplusplus-mod/docs/contracts/run-payload-v5.md',
+      'bazaarplusplus-mod/docs/contracts/run-payload-v6.md',
       ['mod', 'server', 'analyzer']
     ],
     [
-      'bazaarplusplus-mod/tests/BundleV5Codec.Tests/fixtures/run-payload-v5.fixture.b64',
+      'bazaarplusplus-mod/docs/contracts/fixtures/run-payload-v5.fixture.b64',
+      ['mod', 'server', 'analyzer']
+    ],
+    [
+      'bazaarplusplus-mod/tests/BundleV6Codec.Tests/fixtures/run-payload-v6.fixture.b64',
       ['mod', 'server', 'analyzer']
     ],
     [

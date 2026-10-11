@@ -154,10 +154,10 @@ internal static class UploadStage
             );
             Check.That(
                 request.Headers.GetValues("Content-Digest").Single()
-                    == BundleV5Codec.FormatContentDigest(body),
+                    == BundleV6Codec.FormatContentDigest(body),
                 "Content-Digest must cover the exact body"
             );
-            var manifest = BundleV5Codec.Open(body).Manifest;
+            var manifest = BundleV6Codec.Open(body).Manifest;
             var json =
                 status == HttpStatusCode.Created
                     ? $"{{\"bundle_id\":\"{manifest.BundleId}\",\"run_id\":\"{manifest.Run.RunId}\",\"outcome\":\"stored\",\"bazaardb_delivery\":\"not_applicable\"}}"

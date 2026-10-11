@@ -1,5 +1,8 @@
 # Run payload V5 contract
 
+Frozen: the mod writes and reads only [V6](run-payload-v6.md). V5 Run segments remain in Bundles
+the V5 Worker serves to 5.7.0 players, and the analyzer still decodes them.
+
 The Run segment inside a V5 Bundle uses media type `application/x-bpp-run-v5`. Its bytes are a
 gzip stream containing one MessagePack `RunPayloadV5` object. Bundle validation, segment length,
 and the compressed-segment SHA-256 are handled before this payload is decompressed.
@@ -15,13 +18,10 @@ and the compressed-segment SHA-256 are handled before this payload is decompress
 - `RunId` and `PlayerAccountId` must equal the enclosing Bundle manifest before any Battle replay is
   consumed.
 
-The stable encoded sample is
-`tests/BundleV5Codec.Tests/fixtures/run-payload-v5.fixture.b64`. The mod codec test decodes this gzip
-fixture and pins its decompressed MessagePack bytes; gzip headers and deflate output can vary by
-OS/runtime. The analyzer reads the same file and checks its Run, Battle, card, and quality rows against its
-[expected projection](../../../bazaarplusplus-analyzer/tests/fixtures/run-payload-v5.projection.json).
-Bundle envelope goldens are owned by the [server contract fixtures](../../../bazaarplusplus-server/contracts/v5/fixtures/);
-the mod test project links those files directly.
+The frozen encoded sample is `fixtures/run-payload-v5.fixture.b64` beside this document; no mod
+code reads it any more. The analyzer decodes it and checks its Run, Battle, card, and quality rows
+against its [expected projection](../../../bazaarplusplus-analyzer/tests/fixtures/run-payload-v5.projection.json).
+Bundle envelope goldens are the frozen [server V5 fixtures](../../../bazaarplusplus-server/contracts/v5/fixtures/).
 
 ## Root object
 

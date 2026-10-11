@@ -9,9 +9,9 @@ using Newtonsoft.Json.Linq;
 
 namespace BazaarPlusPlus.ModApi.Bundle;
 
-internal static class BundleV5Codec
+internal static class BundleV6Codec
 {
-    private static readonly byte[] Magic = Encoding.ASCII.GetBytes("BPPBNDL5");
+    private static readonly byte[] Magic = Encoding.ASCII.GetBytes("BPPBNDL6");
     private static readonly UTF8Encoding StrictUtf8 = new(false, true);
     private static readonly Regex IdentifierPattern = new(
         "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
@@ -22,7 +22,7 @@ internal static class BundleV5Codec
         RegexOptions.CultureInvariant
     );
 
-    public static BundleBuildResultV5 Build(BundleBuildInputV5 input)
+    public static BundleBuildResultV6 Build(BundleBuildInputV6 input)
     {
         if (input == null)
             throw new ArgumentNullException(nameof(input));
@@ -32,27 +32,27 @@ internal static class BundleV5Codec
         ValidateIdentifier(input.PlayerAccountId, "run.player_account_id");
         if (input.RunPayload.Length == 0)
             Invalid("run_missing", "Run segment must be non-empty.");
-        if (input.RunPayload.Length > BundleLimitsV5.MaxRunBytes)
+        if (input.RunPayload.Length > BundleLimitsV6.MaxRunBytes)
             Invalid("run_too_large", "Run segment exceeds its byte limit.");
 
         var battles = input.Battles ?? throw new ArgumentNullException(nameof(input.Battles));
         ValidateBattles(battles, input.PlayerAccountId);
         var runBytes = input.RunPayload.ToArray();
-        var manifest = new BundleManifestV5
+        var manifest = new BundleManifestV6
         {
             BundleId = input.BundleId,
             CreatedAtMs = input.CreatedAtMs,
-            Run = new BundleRunManifestV5
+            Run = new BundleRunManifestV6
             {
                 RunId = input.RunId,
                 PlayerAccountId = input.PlayerAccountId,
-                Projection = new BundleProjectionV5 { Battles = battles.ToList() },
-                Payload = new BundleSegmentManifestV5
+                Projection = new BundleProjectionV6 { Battles = battles.ToList() },
+                Payload = new BundleSegmentManifestV6
                 {
                     Offset = 0,
                     Length = runBytes.Length,
                     Sha256 = ComputeSha256Hex(runBytes),
-                    ContentType = BundleLimitsV5.RunContentType,
+                    ContentType = BundleLimitsV6.RunContentType,
                 },
             },
         };
@@ -63,7 +63,7 @@ internal static class BundleV5Codec
             var screenshot = input.Screenshot;
             screenshotBytes = screenshot.Bytes.ToArray();
             ValidateScreenshotInput(screenshot, screenshotBytes.Length);
-            manifest.Screenshot = new BundleScreenshotManifestV5
+            manifest.Screenshot = new BundleScreenshotManifestV6
             {
                 Offset = runBytes.Length,
                 Length = screenshotBytes.Length,
@@ -76,19 +76,19 @@ internal static class BundleV5Codec
             };
         }
 
-        var manifestBytes = BundleManifestV5Writer.Write(manifest);
-        if (manifestBytes.Length == 0 || manifestBytes.Length > BundleLimitsV5.MaxManifestBytes)
+        var manifestBytes = BundleManifestV6Writer.Write(manifest);
+        if (manifestBytes.Length == 0 || manifestBytes.Length > BundleLimitsV6.MaxManifestBytes)
             Invalid("manifest_too_large", "Manifest length is outside the accepted range.");
         ValidateProjectionSize(manifest.Run.Projection);
 
         var totalBytes = checked(
-            BundleLimitsV5.PrefixBytes
+            BundleLimitsV6.PrefixBytes
             + manifestBytes.Length
             + runBytes.Length
             + (screenshotBytes?.Length ?? 0)
         );
-        if (totalBytes > BundleLimitsV5.MaxBundleBytes)
-            throw new BundleV5Exception(
+        if (totalBytes > BundleLimitsV6.MaxBundleBytes)
+            throw new BundleV6Exception(
                 "bundle_too_large",
                 "bundle_too_large",
                 "Bundle exceeds its byte limit."
@@ -96,16 +96,16 @@ internal static class BundleV5Codec
 
         var bundle = new byte[totalBytes];
         Buffer.BlockCopy(Magic, 0, bundle, 0, Magic.Length);
-        WriteUInt32BigEndian(bundle, 8, BundleLimitsV5.BundleVersion);
+        WriteUInt32BigEndian(bundle, 8, BundleLimitsV6.BundleVersion);
         WriteUInt32BigEndian(bundle, 12, manifestBytes.Length);
         Buffer.BlockCopy(
             manifestBytes,
             0,
             bundle,
-            BundleLimitsV5.PrefixBytes,
+            BundleLimitsV6.PrefixBytes,
             manifestBytes.Length
         );
-        var payloadOffset = BundleLimitsV5.PrefixBytes + manifestBytes.Length;
+        var payloadOffset = BundleLimitsV6.PrefixBytes + manifestBytes.Length;
         Buffer.BlockCopy(runBytes, 0, bundle, payloadOffset, runBytes.Length);
         if (screenshotBytes != null)
             Buffer.BlockCopy(
@@ -117,7 +117,7 @@ internal static class BundleV5Codec
             );
 
         var digestBytes = ComputeSha256(bundle);
-        var result = new BundleBuildResultV5(
+        var result = new BundleBuildResultV6(
             bundle,
             manifestBytes,
             manifest,
@@ -130,15 +130,15 @@ internal static class BundleV5Codec
         return result;
     }
 
-    public static OpenedBundleV5 Open(ReadOnlyMemory<byte> bytes)
+    public static OpenedBundleV6 Open(ReadOnlyMemory<byte> bytes)
     {
-        if (bytes.Length > BundleLimitsV5.MaxBundleBytes)
-            throw new BundleV5Exception(
+        if (bytes.Length > BundleLimitsV6.MaxBundleBytes)
+            throw new BundleV6Exception(
                 "bundle_too_large",
                 "bundle_too_large",
                 "Bundle exceeds its byte limit."
             );
-        if (bytes.Length < BundleLimitsV5.PrefixBytes)
+        if (bytes.Length < BundleLimitsV6.PrefixBytes)
             Invalid("invalid_prefix", "Bundle prefix is incomplete.");
 
         var source = bytes.Span;
@@ -149,24 +149,24 @@ internal static class BundleV5Codec
         }
 
         var version = ReadUInt32BigEndian(source, 8);
-        if (version != BundleLimitsV5.BundleVersion)
-            throw new BundleV5Exception(
+        if (version != BundleLimitsV6.BundleVersion)
+            throw new BundleV6Exception(
                 "unsupported_bundle_version",
                 "unsupported_bundle_version",
                 "Bundle version is not supported."
             );
         var manifestLength = ReadUInt32BigEndian(source, 12);
-        if (manifestLength == 0 || manifestLength > BundleLimitsV5.MaxManifestBytes)
+        if (manifestLength == 0 || manifestLength > BundleLimitsV6.MaxManifestBytes)
             Invalid("manifest_too_large", "Manifest length is outside the accepted range.");
-        if ((long)BundleLimitsV5.PrefixBytes + manifestLength >= bytes.Length)
+        if ((long)BundleLimitsV6.PrefixBytes + manifestLength >= bytes.Length)
             Invalid("run_missing", "Bundle Run segment is missing.");
 
         var manifestBytes = bytes
-            .Slice(BundleLimitsV5.PrefixBytes, checked((int)manifestLength))
+            .Slice(BundleLimitsV6.PrefixBytes, checked((int)manifestLength))
             .ToArray();
         var root = ParseManifest(manifestBytes);
         var manifest = ReadManifest(root);
-        var payloadStart = checked(BundleLimitsV5.PrefixBytes + (int)manifestLength);
+        var payloadStart = checked(BundleLimitsV6.PrefixBytes + (int)manifestLength);
         var describedBytes = checked(
             (long)payloadStart + manifest.Run.Payload.Length + (manifest.Screenshot?.Length ?? 0)
         );
@@ -190,7 +190,7 @@ internal static class BundleV5Codec
         }
 
         var completeDigest = ComputeSha256(bytes.Span);
-        return new OpenedBundleV5(
+        return new OpenedBundleV6(
             manifest,
             manifestBytes,
             runBytes,
@@ -215,7 +215,7 @@ internal static class BundleV5Codec
         }
         catch (DecoderFallbackException ex)
         {
-            throw new BundleV5Exception(
+            throw new BundleV6Exception(
                 "invalid_bundle",
                 "manifest_not_json",
                 "Manifest is not valid UTF-8 JSON.",
@@ -244,13 +244,13 @@ internal static class BundleV5Codec
                 Invalid("manifest_not_json", "Manifest contains trailing JSON tokens.");
             return RequireObject(token, "Manifest root must be an object.");
         }
-        catch (BundleV5Exception)
+        catch (BundleV6Exception)
         {
             throw;
         }
         catch (Exception ex) when (ex is JsonException || ex is InvalidOperationException)
         {
-            throw new BundleV5Exception(
+            throw new BundleV6Exception(
                 "invalid_bundle",
                 "manifest_not_json",
                 "Manifest is not valid JSON.",
@@ -259,14 +259,14 @@ internal static class BundleV5Codec
         }
     }
 
-    private static BundleManifestV5 ReadManifest(JObject root)
+    private static BundleManifestV6 ReadManifest(JObject root)
     {
         var bundleVersion = ReadSafeInteger(
             RequireProperty(root, "bundle_version"),
             "bundle_version"
         );
-        if (bundleVersion != BundleLimitsV5.BundleVersion)
-            throw new BundleV5Exception(
+        if (bundleVersion != BundleLimitsV6.BundleVersion)
+            throw new BundleV6Exception(
                 "unsupported_bundle_version",
                 "unsupported_bundle_version",
                 "Manifest Bundle version is not supported."
@@ -281,8 +281,8 @@ internal static class BundleV5Codec
             RequireProperty(run, "run_format_version"),
             "run.run_format_version"
         );
-        if (runFormatVersion != BundleLimitsV5.RunFormatVersion)
-            throw new BundleV5Exception(
+        if (runFormatVersion != BundleLimitsV6.RunFormatVersion)
+            throw new BundleV6Exception(
                 "unsupported_run_format",
                 "unsupported_run_format",
                 "Run format is not supported."
@@ -305,7 +305,7 @@ internal static class BundleV5Codec
         var battleTokens = RequireProperty(projectionObject, "battles") as JArray;
         if (battleTokens == null)
             Invalid("manifest_schema_invalid", "run.projection.battles must be an array.");
-        if (battleTokens!.Count > BundleLimitsV5.MaxBattlesPerBundle)
+        if (battleTokens!.Count > BundleLimitsV6.MaxBattlesPerBundle)
             Invalid("too_many_battles", "Bundle contains too many Battle projections.");
         var battles = battleTokens.Select(token => ReadBattle(token, playerAccountId)).ToList();
         if (
@@ -314,7 +314,7 @@ internal static class BundleV5Codec
         )
             Invalid("manifest_schema_invalid", "Battle IDs must be unique within a Bundle.");
 
-        BundleScreenshotManifestV5? screenshot = null;
+        BundleScreenshotManifestV6? screenshot = null;
         var screenshotProperty = root.Property("screenshot", StringComparison.Ordinal);
         if (screenshotProperty != null)
             screenshot = ReadScreenshot(
@@ -322,24 +322,24 @@ internal static class BundleV5Codec
                 payload.Length
             );
 
-        return new BundleManifestV5
+        return new BundleManifestV6
         {
             BundleId = bundleId,
-            BundleVersion = BundleLimitsV5.BundleVersion,
+            BundleVersion = BundleLimitsV6.BundleVersion,
             CreatedAtMs = createdAtMs,
-            Run = new BundleRunManifestV5
+            Run = new BundleRunManifestV6
             {
                 RunId = runId,
                 PlayerAccountId = playerAccountId,
-                RunFormatVersion = BundleLimitsV5.RunFormatVersion,
-                Projection = new BundleProjectionV5 { Battles = battles },
+                RunFormatVersion = BundleLimitsV6.RunFormatVersion,
+                Projection = new BundleProjectionV6 { Battles = battles },
                 Payload = payload,
             },
             Screenshot = screenshot,
         };
     }
 
-    private static BundleSegmentManifestV5 ReadRunSegment(JObject payload)
+    private static BundleSegmentManifestV6 ReadRunSegment(JObject payload)
     {
         var offset = ReadSafeInteger(RequireProperty(payload, "offset"), "run.payload.offset");
         var length = ReadSafeInteger(RequireProperty(payload, "length"), "run.payload.length");
@@ -348,16 +348,16 @@ internal static class BundleV5Codec
                 "run_missing",
                 "Run segment must start at payload offset zero and be non-empty."
             );
-        if (length > BundleLimitsV5.MaxRunBytes)
+        if (length > BundleLimitsV6.MaxRunBytes)
             Invalid("run_too_large", "Run segment exceeds its byte limit.");
         var contentType = ReadString(
             RequireProperty(payload, "content_type"),
             "run.payload.content_type"
         );
-        if (!string.Equals(contentType, BundleLimitsV5.RunContentType, StringComparison.Ordinal))
+        if (!string.Equals(contentType, BundleLimitsV6.RunContentType, StringComparison.Ordinal))
             Invalid("manifest_schema_invalid", "Run content type is invalid.");
         var sha256 = ReadSha256(RequireProperty(payload, "sha256"), "run.payload.sha256");
-        return new BundleSegmentManifestV5
+        return new BundleSegmentManifestV6
         {
             Offset = offset,
             Length = length,
@@ -366,19 +366,19 @@ internal static class BundleV5Codec
         };
     }
 
-    private static BundleScreenshotManifestV5 ReadScreenshot(JObject image, long runLength)
+    private static BundleScreenshotManifestV6 ReadScreenshot(JObject image, long runLength)
     {
         var offset = ReadSafeInteger(RequireProperty(image, "offset"), "screenshot.offset");
         var length = ReadSafeInteger(RequireProperty(image, "length"), "screenshot.length");
-        if (length == 0 || length > BundleLimitsV5.MaxScreenshotBytes)
+        if (length == 0 || length > BundleLimitsV6.MaxScreenshotBytes)
             Invalid("screenshot_too_large", "Screenshot segment is empty or too large.");
         var contentType = ReadString(
             RequireProperty(image, "content_type"),
             "screenshot.content_type"
         );
         if (
-            !string.Equals(contentType, BundleLimitsV5.JpegContentType, StringComparison.Ordinal)
-            && !string.Equals(contentType, BundleLimitsV5.WebpContentType, StringComparison.Ordinal)
+            !string.Equals(contentType, BundleLimitsV6.JpegContentType, StringComparison.Ordinal)
+            && !string.Equals(contentType, BundleLimitsV6.WebpContentType, StringComparison.Ordinal)
         )
             Invalid("screenshot_type_unsupported", "Screenshot content type is unsupported.");
         var sha256 = ReadSha256(RequireProperty(image, "sha256"), "screenshot.sha256");
@@ -398,7 +398,7 @@ internal static class BundleV5Codec
                 "segment_out_of_bounds",
                 "Screenshot does not immediately follow the Run segment."
             );
-        return new BundleScreenshotManifestV5
+        return new BundleScreenshotManifestV6
         {
             Offset = offset,
             Length = length,
@@ -411,7 +411,7 @@ internal static class BundleV5Codec
         };
     }
 
-    private static BundleBattleProjectionV5 ReadBattle(JToken token, string uploader)
+    private static BundleBattleProjectionV6 ReadBattle(JToken token, string uploader)
     {
         var source = RequireObject(token, "Battle projection must be an object.");
         var player = ReadCombatant(RequireProperty(source, "player"), "battle.player");
@@ -421,7 +421,7 @@ internal static class BundleV5Codec
         var finalToken = RequireProperty(source, "is_final_battle");
         if (finalToken.Type != JTokenType.Boolean)
             Invalid("manifest_schema_invalid", "battle.is_final_battle must be boolean.");
-        return new BundleBattleProjectionV5
+        return new BundleBattleProjectionV6
         {
             BattleId = ReadIdentifier(RequireProperty(source, "battle_id"), "battle.battle_id"),
             RecordedAtMs = ReadSafeInteger(
@@ -453,7 +453,7 @@ internal static class BundleV5Codec
         };
     }
 
-    private static BundleCombatantProjectionV5 ReadCombatant(JToken token, string field)
+    private static BundleCombatantProjectionV6 ReadCombatant(JToken token, string field)
     {
         var source = RequireObject(token, $"{field} must be an object.");
         var displayName = ReadString(
@@ -462,7 +462,7 @@ internal static class BundleV5Codec
         );
         if (displayName.Length > 256)
             Invalid("manifest_schema_invalid", $"{field}.display_name is invalid.");
-        return new BundleCombatantProjectionV5
+        return new BundleCombatantProjectionV6
         {
             AccountId = ReadIdentifier(
                 RequireProperty(source, "account_id"),
@@ -489,11 +489,11 @@ internal static class BundleV5Codec
     }
 
     private static void ValidateBattles(
-        IReadOnlyList<BundleBattleProjectionV5> battles,
+        IReadOnlyList<BundleBattleProjectionV6> battles,
         string uploader
     )
     {
-        if (battles.Count > BundleLimitsV5.MaxBattlesPerBundle)
+        if (battles.Count > BundleLimitsV6.MaxBattlesPerBundle)
             Invalid("too_many_battles", "Bundle contains too many Battle projections.");
         var ids = new HashSet<string>(StringComparer.Ordinal);
         foreach (var battle in battles)
@@ -518,7 +518,7 @@ internal static class BundleV5Codec
         }
     }
 
-    private static void ValidateCombatant(BundleCombatantProjectionV5 combatant, string field)
+    private static void ValidateCombatant(BundleCombatantProjectionV6 combatant, string field)
     {
         if (combatant == null)
             Invalid("manifest_schema_invalid", $"{field} must be an object.");
@@ -534,41 +534,41 @@ internal static class BundleV5Codec
         ValidateNullableSafeInteger(combatant.Victories, $"{field}.victories");
     }
 
-    private static void ValidateProjectionSize(BundleProjectionV5 projection)
+    private static void ValidateProjectionSize(BundleProjectionV6 projection)
     {
-        var bytes = BundleManifestV5Writer.Write(
-            new BundleManifestV5
+        var bytes = BundleManifestV6Writer.Write(
+            new BundleManifestV6
             {
                 BundleId = "01J00000000000000000000000",
-                Run = new BundleRunManifestV5 { Projection = projection },
+                Run = new BundleRunManifestV6 { Projection = projection },
             }
         );
         // Subtracting a fixed envelope is unnecessary: this conservative precheck can only reject
         // a projection already beyond the server's limit. Open performs the exact token check.
-        if (bytes.Length > BundleLimitsV5.MaxProjectionBytes + 512)
+        if (bytes.Length > BundleLimitsV6.MaxProjectionBytes + 512)
             Invalid("projection_too_large", "Run projection exceeds its byte limit.");
     }
 
     private static void ValidateProjectionTokenSize(JToken projection)
     {
         var compact = projection.ToString(Formatting.None);
-        if (Encoding.UTF8.GetByteCount(compact) > BundleLimitsV5.MaxProjectionBytes)
+        if (Encoding.UTF8.GetByteCount(compact) > BundleLimitsV6.MaxProjectionBytes)
             Invalid("projection_too_large", "Run projection exceeds its byte limit.");
     }
 
-    private static void ValidateScreenshotInput(BundleScreenshotBuildInputV5 screenshot, int length)
+    private static void ValidateScreenshotInput(BundleScreenshotBuildInputV6 screenshot, int length)
     {
-        if (length == 0 || length > BundleLimitsV5.MaxScreenshotBytes)
+        if (length == 0 || length > BundleLimitsV6.MaxScreenshotBytes)
             Invalid("screenshot_too_large", "Screenshot segment is empty or too large.");
         if (
             !string.Equals(
                 screenshot.ContentType,
-                BundleLimitsV5.JpegContentType,
+                BundleLimitsV6.JpegContentType,
                 StringComparison.Ordinal
             )
             && !string.Equals(
                 screenshot.ContentType,
-                BundleLimitsV5.WebpContentType,
+                BundleLimitsV6.WebpContentType,
                 StringComparison.Ordinal
             )
         )
@@ -651,7 +651,7 @@ internal static class BundleV5Codec
             )
             || value != decimal.Truncate(value)
             || value < 0
-            || value > BundleLimitsV5.MaxSafeInteger
+            || value > BundleLimitsV6.MaxSafeInteger
         )
             Invalid("manifest_schema_invalid", $"{field} must be a non-negative safe integer.");
         return decimal.ToInt64(value);
@@ -659,7 +659,7 @@ internal static class BundleV5Codec
 
     private static void ValidateBundleId(string value)
     {
-        if (!UlidV5Generator.IsCanonical(value))
+        if (!UlidV6Generator.IsCanonical(value))
             Invalid("manifest_schema_invalid", "bundle_id must be a canonical ULID.");
     }
 
@@ -672,7 +672,7 @@ internal static class BundleV5Codec
     private static void ValidateCreatedAt(long value)
     {
         ValidateSafeInteger(value, "created_at_ms");
-        if (value > BundleLimitsV5.MaxCreatedAtMs)
+        if (value > BundleLimitsV6.MaxCreatedAtMs)
             Invalid(
                 "manifest_schema_invalid",
                 "created_at_ms is outside the supported date range."
@@ -693,14 +693,14 @@ internal static class BundleV5Codec
 
     private static void ValidateSafeInteger(long value, string field)
     {
-        if (value < 0 || value > BundleLimitsV5.MaxSafeInteger)
+        if (value < 0 || value > BundleLimitsV6.MaxSafeInteger)
             Invalid("manifest_schema_invalid", $"{field} must be a non-negative safe integer.");
     }
 
     private static void ValidateDigest(byte[] bytes, string expected)
     {
         if (!string.Equals(ComputeSha256Hex(bytes), expected, StringComparison.Ordinal))
-            throw new BundleV5Exception(
+            throw new BundleV6Exception(
                 "segment_digest_mismatch",
                 "segment_digest_mismatch",
                 "A Bundle segment digest does not match its manifest."
@@ -747,5 +747,5 @@ internal static class BundleV5Codec
 
     [DoesNotReturn]
     private static void Invalid(string reason, string message) =>
-        throw new BundleV5Exception("invalid_bundle", reason, message);
+        throw new BundleV6Exception("invalid_bundle", reason, message);
 }

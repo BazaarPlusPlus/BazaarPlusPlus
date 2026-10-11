@@ -1,5 +1,4 @@
 #nullable enable
-using System.Globalization;
 using BazaarPlusPlus.Game.HistoryPanel.Storage;
 using BazaarPlusPlus.Game.PvpBattles;
 using BazaarPlusPlus.ModApi.Bundle;
@@ -11,16 +10,13 @@ internal static class GhostManifestProjection
     internal static PvpBattleManifest BuildRecorderPerspectiveManifest(
         GhostBundleReference reference,
         string runId,
-        RunBattleV5 battle
+        RunBattleV6 battle
     ) =>
         new()
         {
             BattleId = reference.LocalBattleId,
             RunId = runId,
-            RecordedAtUtc = DateTimeOffset.Parse(
-                battle.Facts.RecordedAtUtc,
-                CultureInfo.InvariantCulture
-            ),
+            RecordedAtUtc = DateTimeOffset.FromUnixTimeMilliseconds(battle.Facts.RecordedAtMs),
             CombatKind = battle.Facts.CombatKind,
             Day = battle.Facts.Day,
             Hour = battle.Facts.Hour,
@@ -122,7 +118,7 @@ internal static class GhostManifestProjection
     }
 
     private static PvpBattleCardSetCapture BuildCapture(
-        BattleCardSnapshotsV5 snapshots,
+        BattleCardSnapshotsV6 snapshots,
         string label
     )
     {
@@ -137,7 +133,7 @@ internal static class GhostManifestProjection
         };
     }
 
-    private static PvpBattleCardSnapshot MapCard(BattleCardV5 item) =>
+    private static PvpBattleCardSnapshot MapCard(BattleCardV6 item) =>
         new()
         {
             InstanceId = item.InstanceId,

@@ -1,10 +1,10 @@
-"""Streaming projection from verified Bundle V5 objects to five Arrow tables."""
+"""Streaming projection from verified Bundle V5 and V6 objects to five Arrow tables."""
 
 import gzip
 import hashlib
 import json
 import struct
-from collections.abc import Iterable, Iterator, Mapping, Sequence
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from io import BytesIO
@@ -829,13 +829,60 @@ def decode_run_payload(content: bytes) -> tuple[Any, ...]:
         root = _slots(decoded, 8, "payload")
     except (ValueError, TypeError, struct.error) as error:
         raise RunPayloadError("run_payload_decode_failed", "Run MessagePack is invalid") from error
-    if _integer(root[0], "payload.version") != 5:
+    version = _integer(root[0], "payload.version")
+    if version == 6:
+        return _v6_times_as_text(root)
+    if version != 5:
         raise RunPayloadError("payload_version_unsupported", "Run version is unsupported")
     return root
 
 
+_UNIX_EPOCH = datetime(1970, 1, 1, tzinfo=UTC)
+
+
+def _v6_times_as_text(root: tuple[Any, ...]) -> tuple[Any, ...]:
+    """Return a V6 root whose time slots hold the UTC text the V5 slots held.
+
+    V6 carries Run start/end and Battle record times as Unix milliseconds. The fact
+    columns stay text (``*_at_utc``) so V5 and V6 hours share one schema; only the
+    precision of the text differs.
+    """
+    try:
+        run = _with_slot(root[3], 22, "run", 3, _ms_text)
+        run = _with_slot(
+            run, 22, "run", 4, lambda value: None if value is None else _ms_text(value)
+        )
+        battles = [
+            _with_slot(
+                battle,
+                5,
+                "battle",
+                1,
+                lambda facts: _with_slot(facts, 9, "battle.facts", 0, _ms_text),
+            )
+            for battle in _array(root[5], "payload.battles")
+        ]
+    except (ValueError, TypeError, OverflowError) as error:
+        raise RunPayloadError("run_payload_decode_failed", "Run V6 times are invalid") from error
+    return (*root[:3], run, root[4], battles, *root[6:])
+
+
+def _with_slot(
+    value: object, count: int, field: str, index: int, convert: Callable[[Any], object]
+) -> tuple[Any, ...]:
+    slots = list(_slots(value, count, field))
+    slots[index] = convert(slots[index])
+    return tuple(slots)
+
+
+def _ms_text(value: object) -> str:
+    milliseconds = _integer(value, "time_ms")
+    instant = _UNIX_EPOCH + timedelta(milliseconds=milliseconds)
+    return instant.isoformat(timespec="milliseconds").replace("+00:00", "Z")
+
+
 class _MessagePack:
-    """Small strict decoder for the scalar/array/map subset used by RunPayload V5."""
+    """Small strict decoder for the scalar/array/map subset used by RunPayload V5 and V6."""
 
     def __init__(self, content: bytes) -> None:
         self._content = content

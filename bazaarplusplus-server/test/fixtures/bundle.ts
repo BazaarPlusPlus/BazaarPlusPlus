@@ -106,18 +106,18 @@ export async function makeBundleFixture(options: BundleFixtureOptions = {}): Pro
   const runHash = hex(await sha256(run));
   const manifest: Record<string, unknown> = {
     bundle_id: bundleId,
-    bundle_version: 5,
+    bundle_version: 6,
     created_at_ms: createdAtMs,
     run: {
       run_id: runId,
       player_account_id: uploader,
-      run_format_version: 5,
+      run_format_version: 6,
       projection: { run: {}, battles },
       payload: {
         offset: 0,
         length: run.byteLength,
         sha256: runHash,
-        content_type: "application/x-bpp-run-v5",
+        content_type: "application/x-bpp-run-v6",
       },
     },
   };
@@ -146,9 +146,9 @@ export async function sealBundle(
 ): Promise<{ body: Uint8Array; headers: Headers }> {
   const manifestBytes = encoder.encode(JSON.stringify(manifest));
   const prefix = new Uint8Array(16);
-  prefix.set(encoder.encode("BPPBNDL5"), 0);
+  prefix.set(encoder.encode("BPPBNDL6"), 0);
   const view = new DataView(prefix.buffer);
-  view.setUint32(8, 5, false);
+  view.setUint32(8, 6, false);
   view.setUint32(12, manifestBytes.byteLength, false);
 
   const body = new Uint8Array(
@@ -164,7 +164,7 @@ export async function sealBundle(
   return {
     body,
     headers: new Headers({
-      "Content-Type": "application/x-bpp-bundle-v5",
+      "Content-Type": "application/x-bpp-bundle-v6",
       "Content-Length": String(body.byteLength),
       "Content-Digest": await contentDigest(body),
     }),

@@ -81,12 +81,9 @@ export const SHARED_INPUTS = [
     'bazaarplusplus-analyzer/docs/specs/consumer-data-contract.md',
     ['site', 'mod', 'installer']
   ],
+  ['bazaarplusplus-mod/docs/contracts/', ['server', 'analyzer']],
   [
-    'bazaarplusplus-mod/docs/contracts/run-payload-v5.md',
-    ['server', 'analyzer']
-  ],
-  [
-    'bazaarplusplus-mod/tests/BundleV5Codec.Tests/fixtures/',
+    'bazaarplusplus-mod/tests/BundleV6Codec.Tests/fixtures/',
     ['server', 'analyzer']
   ],
   [

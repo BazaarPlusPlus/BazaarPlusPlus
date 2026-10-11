@@ -2,9 +2,11 @@ import { HttpError, invalidBundle } from "../errors";
 import { MAX_MANIFEST_BYTES } from "../limits";
 
 export const BUNDLE_PREFIX_BYTES = 16;
-export const BUNDLE_VERSION = 5;
+export const BUNDLE_VERSION = 6;
+export const BUNDLE_CONTENT_TYPE = "application/x-bpp-bundle-v6";
+export const RUN_CONTENT_TYPE = "application/x-bpp-run-v6";
 
-const BUNDLE_MAGIC = "BPPBNDL5";
+const BUNDLE_MAGIC = "BPPBNDL6";
 
 export interface BundlePrefix {
   manifestLength: number;

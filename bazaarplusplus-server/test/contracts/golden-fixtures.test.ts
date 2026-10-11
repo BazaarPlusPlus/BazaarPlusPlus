@@ -2,10 +2,10 @@ import { env } from "cloudflare:test";
 import { describe, expect, test } from "vitest";
 
 import errorContract from "../../contracts/mod-api-errors.json";
-import checksums from "../../contracts/v5/fixtures/checksums.json";
-import corruptMagicBase64 from "../../contracts/v5/fixtures/corrupt-magic.bundle.b64?raw";
-import runOnlyBase64 from "../../contracts/v5/fixtures/run-only.bundle.b64?raw";
-import segmentMismatchBase64 from "../../contracts/v5/fixtures/segment-digest-mismatch.bundle.b64?raw";
+import checksums from "../../contracts/v6/fixtures/checksums.json";
+import corruptMagicBase64 from "../../contracts/v6/fixtures/corrupt-magic.bundle.b64?raw";
+import runOnlyBase64 from "../../contracts/v6/fixtures/run-only.bundle.b64?raw";
+import segmentMismatchBase64 from "../../contracts/v6/fixtures/segment-digest-mismatch.bundle.b64?raw";
 import worker from "../../src/index";
 import { contentDigest, decodeBase64, sha256Hex, uploadRequest } from "../fixtures/bundle";
 import { expectGolden } from "../fixtures/golden";
@@ -28,14 +28,14 @@ const expectations = Object.entries(checksums as Record<string, Expectation>).so
 
 async function upload(bytes: Uint8Array): Promise<Response> {
   const headers = new Headers({
-    "Content-Type": "application/x-bpp-bundle-v5",
+    "Content-Type": "application/x-bpp-bundle-v6",
     "Content-Length": String(bytes.byteLength),
     "Content-Digest": await contentDigest(bytes),
   });
   return worker.fetch(uploadRequest(bytes, headers), env);
 }
 
-describe("checked-in Bundle V5 golden vectors", () => {
+describe("checked-in Bundle V6 golden vectors", () => {
   test.each(expectations)("%s uploads with its declared outcome", async (name, expectation) => {
     const body = decodeBase64(vectors[name]);
     if (expectation.sha256 !== undefined) {

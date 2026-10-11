@@ -1,10 +1,10 @@
 import { describe, expect, test, vi } from "vitest";
 
-import checksums from "../../contracts/v5/fixtures/checksums.json";
-import corruptMagicBase64 from "../../contracts/v5/fixtures/corrupt-magic.bundle.b64?raw";
-import runOnlyBase64 from "../../contracts/v5/fixtures/run-only.bundle.b64?raw";
-import manifest from "../../contracts/v5/fixtures/run-only.manifest.json";
-import segmentMismatchBase64 from "../../contracts/v5/fixtures/segment-digest-mismatch.bundle.b64?raw";
+import checksums from "../../contracts/v6/fixtures/checksums.json";
+import corruptMagicBase64 from "../../contracts/v6/fixtures/corrupt-magic.bundle.b64?raw";
+import runOnlyBase64 from "../../contracts/v6/fixtures/run-only.bundle.b64?raw";
+import manifest from "../../contracts/v6/fixtures/run-only.manifest.json";
+import segmentMismatchBase64 from "../../contracts/v6/fixtures/segment-digest-mismatch.bundle.b64?raw";
 import { openBundle } from "../../src/bundle/open";
 import { decodeBase64, stream } from "../fixtures/bundle";
 
