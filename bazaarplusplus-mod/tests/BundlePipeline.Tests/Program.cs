@@ -265,7 +265,12 @@ static void SaveBattle(string database, string battleId, string runId, int minut
                 OpponentAccountId = "account-002",
                 OpponentHero = "Pygmalien",
             },
-            Outcome = new PvpBattleOutcome { Result = "Win" },
+            Outcome = new PvpBattleOutcome
+            {
+                Result = "Win",
+                WinnerCombatantId = "Player",
+                LoserCombatantId = "Opponent",
+            },
             Snapshots = new PvpBattleSnapshots
             {
                 PlayerHand = CapturedEmpty(),

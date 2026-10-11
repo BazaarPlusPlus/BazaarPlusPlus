@@ -19,8 +19,8 @@
               "encounter_id": null,
               "combat_kind": "PVPCombat",
               "result": "win",
-              "winner_combatant_id": null,
-              "loser_combatant_id": null,
+              "winner_combatant_id": "Player",
+              "loser_combatant_id": "Opponent",
               "is_final_battle": true,
               "player": {
                 "account_id": "account-001",

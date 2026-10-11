@@ -77,7 +77,7 @@ CREATE TABLE ghost_battle_summaries (
   day                 INTEGER NOT NULL,
   hour                INTEGER NOT NULL,
   result              TEXT NOT NULL,
-  winner_combatant_id TEXT,
+  winner_combatant_id TEXT NOT NULL,
   player_display_name TEXT NOT NULL,
   player_hero_name    TEXT,
   opponent_hero_name  TEXT,

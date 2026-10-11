@@ -41,8 +41,8 @@ describe("relational constraints", () => {
       env.DB.prepare(
         `INSERT INTO ghost_battle_summaries (
           uploader_account_id, battle_id, bundle_id, opponent_account_id,
-          recorded_at_ms, day, hour, result, player_display_name
-        ) VALUES ('a', 'b', 'missing', 'c', 1, 1, 1, 'win', 'Uploader')`,
+          recorded_at_ms, day, hour, result, winner_combatant_id, player_display_name
+        ) VALUES ('a', 'b', 'missing', 'c', 1, 1, 1, 'win', 'Player', 'Uploader')`,
       ).run(),
     ).rejects.toThrow();
   });

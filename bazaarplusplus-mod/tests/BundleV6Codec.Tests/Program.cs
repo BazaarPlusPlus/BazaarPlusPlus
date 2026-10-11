@@ -147,6 +147,11 @@ void RoundTrip()
         opened.Manifest.Run.Projection.Battles[0].Player.DisplayName,
         "Unicode display name"
     );
+    Equal(
+        "Opponent",
+        opened.Manifest.Run.Projection.Battles[1].WinnerCombatantId,
+        "winner combatant id round-trip"
+    );
     SequenceEqual(payload, opened.RunPayload, "Run segment round-trip");
     SequenceEqual(
         new byte[] { 0xFF, 0xD8, 0xFF, 0xD9 },
@@ -185,6 +190,18 @@ void InvalidInputs()
     var nullName = Battle(1, "Player");
     nullName.Player.DisplayName = null!;
     ThrowsReason(() => BuildWith(new[] { nullName }), "invalid_bundle", "manifest_schema_invalid");
+
+    var nullWinner = Battle(1, "Player");
+    nullWinner.WinnerCombatantId = null!;
+    ThrowsReason(
+        () => BuildWith(new[] { nullWinner }),
+        "invalid_bundle",
+        "manifest_schema_invalid"
+    );
+
+    var nullLoser = Battle(1, "Player");
+    nullLoser.LoserCombatantId = null!;
+    ThrowsReason(() => BuildWith(new[] { nullLoser }), "invalid_bundle", "manifest_schema_invalid");
 
     var negativeDay = Battle(1, "Player");
     negativeDay.Day = -1;
@@ -507,8 +524,8 @@ BundleBattleProjectionV6 Battle(int index, string displayName) =>
         EncounterId = null,
         CombatKind = "pvp",
         Result = index % 2 == 0 ? "win" : "loss",
-        WinnerCombatantId = null,
-        LoserCombatantId = null,
+        WinnerCombatantId = index % 2 == 0 ? "Player" : "Opponent",
+        LoserCombatantId = index % 2 == 0 ? "Opponent" : "Player",
         IsFinalBattle = index == 29,
         Player = new BundleCombatantProjectionV6
         {

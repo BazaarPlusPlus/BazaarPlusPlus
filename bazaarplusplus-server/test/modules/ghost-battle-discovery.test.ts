@@ -29,8 +29,8 @@ describe("GET /ghost-battles", () => {
         env.DB.prepare(
           `INSERT INTO ghost_battle_summaries (
             uploader_account_id, battle_id, bundle_id, opponent_account_id,
-            recorded_at_ms, is_final_battle, day, hour, result, player_display_name
-          ) VALUES ('ghost-injected-uploader', ?1, ?2, ?3, ?4, 0, 1, 1, 'win', 'Uploader')`,
+            recorded_at_ms, is_final_battle, day, hour, result, winner_combatant_id, player_display_name
+          ) VALUES ('ghost-injected-uploader', ?1, ?2, ?3, ?4, 0, 1, 1, 'win', 'Player', 'Uploader')`,
         ).bind(`ghost-injected-${index}`, bundleId, account, clock.ms - index),
       ),
     );
@@ -241,8 +241,8 @@ describe("GET /ghost-battles", () => {
       env.DB.prepare(
         `INSERT INTO ghost_battle_summaries (
           uploader_account_id, battle_id, bundle_id, opponent_account_id,
-          recorded_at_ms, is_final_battle, day, hour, result, player_display_name
-        ) VALUES ('ghost-cap-uploader', ?1, ?2, ?3, ?4, 0, 1, 1, 'win', ?5)`,
+          recorded_at_ms, is_final_battle, day, hour, result, winner_combatant_id, player_display_name
+        ) VALUES ('ghost-cap-uploader', ?1, ?2, ?3, ?4, 0, 1, 1, 'win', 'Player', ?5)`,
       ).bind(
         `ghost-cap-${String(index).padStart(3, "0")}`,
         bundleId,
@@ -394,8 +394,8 @@ describe("GET /ghost-battles", () => {
     await env.DB.prepare(
       `INSERT INTO ghost_battle_summaries (
         uploader_account_id, battle_id, bundle_id, opponent_account_id,
-        recorded_at_ms, is_final_battle, day, hour, result, player_display_name
-      ) VALUES ('ghost-signing-failure-uploader', 'ghost-signing-failure-battle', ?1, ?2, ?3, 0, 1, 1, 'win', 'Uploader')`,
+        recorded_at_ms, is_final_battle, day, hour, result, winner_combatant_id, player_display_name
+      ) VALUES ('ghost-signing-failure-uploader', 'ghost-signing-failure-battle', ?1, ?2, ?3, 0, 1, 1, 'win', 'Player', 'Uploader')`,
     )
       .bind(bundleId, account, Date.now())
       .run();

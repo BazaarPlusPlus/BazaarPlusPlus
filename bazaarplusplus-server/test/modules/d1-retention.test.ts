@@ -35,8 +35,8 @@ test("scheduled retention uses stored time, cascades children and preserves uplo
     env.DB.prepare(`INSERT INTO bundle_uploaders (player_account_id, first_bundle_at_ms)
       VALUES ('retained-uploader', ?1)`).bind(CUTOFF - 1),
     env.DB.prepare(`INSERT INTO ghost_battle_summaries (
-      uploader_account_id, battle_id, bundle_id, opponent_account_id, recorded_at_ms, day, hour, result, player_display_name
-    ) SELECT 'retained-uploader', run_id, bundle_id, 'retained-uploader', stored_at_ms, 1, 1, 'win', 'Uploader'
+      uploader_account_id, battle_id, bundle_id, opponent_account_id, recorded_at_ms, day, hour, result, winner_combatant_id, player_display_name
+    ) SELECT 'retained-uploader', run_id, bundle_id, 'retained-uploader', stored_at_ms, 1, 1, 'win', 'Player', 'Uploader'
       FROM bundles`),
   ]);
 

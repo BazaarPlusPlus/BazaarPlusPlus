@@ -33,8 +33,8 @@ internal sealed class BundleBattleProjectionV6
     public string? EncounterId { get; set; }
     public string CombatKind { get; set; } = string.Empty;
     public string Result { get; set; } = string.Empty;
-    public string? WinnerCombatantId { get; set; }
-    public string? LoserCombatantId { get; set; }
+    public string WinnerCombatantId { get; set; } = string.Empty;
+    public string LoserCombatantId { get; set; } = string.Empty;
     public bool IsFinalBattle { get; set; }
     public BundleCombatantProjectionV6 Player { get; set; } = new();
     public BundleCombatantProjectionV6 Opponent { get; set; } = new();
