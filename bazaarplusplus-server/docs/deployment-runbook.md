@@ -21,7 +21,7 @@ npx wrangler d1 create bazaarplusplus-mod-api-v6-db --location apac
 npx wrangler r2 bucket create bazaarplusplus-bundle-v6 --location apac
 ```
 
-`wrangler.toml` ships `database_id = "00000000-0000-0000-0000-000000000000"`, which matches no database. Replace it with the UUID `d1 create` prints and commit that change before deploying; `migrations apply --remote` and `deploy` fail until then. Never point this file at the V5 database `bazaarplusplus-mod-api-v5-db`.
+`wrangler.toml` holds the `database_id` that `d1 create` printed; if the database is ever recreated, commit the new UUID before deploying. Never point this file at the V5 database `bazaarplusplus-mod-api-v5-db`.
 
 Set the bucket lifecycle:
 

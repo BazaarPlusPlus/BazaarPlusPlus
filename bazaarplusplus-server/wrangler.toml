@@ -27,8 +27,7 @@ custom_domain = true
 [[d1_databases]]
 binding = "DB"
 database_name = "bazaarplusplus-mod-api-v6-db"
-# Placeholder until `wrangler d1 create` returns the V6 UUID (docs/deployment-runbook.md, step 2).
-database_id = "00000000-0000-0000-0000-000000000000"
+database_id = "1ad61742-bfcc-4d0f-8207-adc89f115134"
 migrations_dir = "migrations-v6"
 
 [[r2_buckets]]
