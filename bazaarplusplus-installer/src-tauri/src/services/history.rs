@@ -47,6 +47,7 @@ pub enum StorageCleanupExecution {
 
 struct HistoryStorage {
     game_path: PathBuf,
+    data_root: PathBuf,
     combat_replay_videos_dir: PathBuf,
     database_path: PathBuf,
 }
@@ -128,7 +129,7 @@ impl History {
     fn run_screenshot_path(&self, run_id: &str) -> Result<PathBuf, SemanticProblem> {
         as_action_problem(REVEAL_SCREENSHOT, || {
             self.require_database_exists()?;
-            load_run_screenshot_path(&self.paths.database_path, &self.paths.game_path, run_id)?
+            load_run_screenshot_path(&self.paths.database_path, &self.paths.data_root, run_id)?
                 .ok_or_else(|| format!("No screenshot is available for run {run_id}."))
         })
     }
@@ -191,7 +192,7 @@ impl History {
                 StorageCleanupScope::Screenshots => {
                     let plan = cleanup::plan_screenshot_cleanup(
                         &self.paths.database_path,
-                        &self.paths.game_path,
+                        &self.paths.data_root,
                         cutoff.as_ref(),
                         today,
                     )?;
@@ -202,7 +203,7 @@ impl History {
                 StorageCleanupScope::RunData => {
                     let plan = cleanup::plan_run_data_cleanup(
                         &self.paths.database_path,
-                        &self.paths.game_path,
+                        &self.paths.data_root,
                         cutoff.as_ref(),
                     )?;
                     Ok(StorageCleanupPreview::RunData {
@@ -225,14 +226,14 @@ impl History {
             match scope {
                 StorageCleanupScope::Screenshots => cleanup::execute_screenshot_cleanup(
                     &self.paths.database_path,
-                    &self.paths.game_path,
+                    &self.paths.data_root,
                     cutoff.as_ref(),
                     today,
                 )
                 .map(|result| StorageCleanupExecution::Screenshots { result }),
                 StorageCleanupScope::RunData => cleanup::execute_run_data_cleanup(
                     &self.paths.database_path,
-                    &self.paths.game_path,
+                    &self.paths.data_root,
                     cutoff.as_ref(),
                 )
                 .map(|result| StorageCleanupExecution::RunData { result }),
@@ -319,6 +320,7 @@ pub fn execute_storage_cleanup(
 
 fn history_paths_for_game_path(game_path: PathBuf) -> HistoryStorage {
     HistoryStorage {
+        data_root: paths::bpp_data_dir(&game_path),
         combat_replay_videos_dir: paths::combat_replay_videos_dir(&game_path),
         database_path: paths::database_path(&game_path),
         game_path,

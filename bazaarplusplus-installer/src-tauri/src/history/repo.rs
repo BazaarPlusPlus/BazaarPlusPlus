@@ -87,12 +87,12 @@ pub fn get_history_run_detail(
 
 pub fn load_run_screenshot_path(
     database_path: &Path,
-    game_path: &Path,
+    data_root: &Path,
     run_id: &str,
 ) -> Result<Option<PathBuf>, String> {
     let conn = open_connection(database_path)?;
     let path = primary_screenshot(&conn, run_id)?
-        .and_then(|screenshot| resolve_screenshot_path(game_path, &screenshot.image_relative_path));
+        .and_then(|screenshot| resolve_screenshot_path(data_root, &screenshot.image_relative_path));
     Ok(path)
 }
 

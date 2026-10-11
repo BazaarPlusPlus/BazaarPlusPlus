@@ -140,7 +140,7 @@ impl ScreenshotCleanupPlan {
 
 pub fn plan_screenshot_cleanup(
     database_path: &Path,
-    game_path: &Path,
+    data_root: &Path,
     cutoff: Option<&CleanupCutoff>,
     today_local_date: NaiveDate,
 ) -> Result<ScreenshotCleanupPlan, String> {
@@ -150,7 +150,7 @@ pub fn plan_screenshot_cleanup(
 
     let conn = open_connection(database_path)?;
     let cutoff_utc = cutoff.map(|value| value.utc.as_str());
-    let screenshots_dir = crate::services::paths::screenshots_dir(game_path);
+    let screenshots_dir = crate::services::paths::screenshots_dir_in(data_root);
     let items = eligible_screenshots(&conn, cutoff_utc)?;
     let path_sets = screenshot_relative_path_sets(&conn, &items)?;
     let items = mark_screenshot_file_deletions(items, &path_sets.remaining);
@@ -185,20 +185,20 @@ pub struct ScreenshotCleanupResult {
 
 pub fn execute_screenshot_cleanup(
     database_path: &Path,
-    game_path: &Path,
+    data_root: &Path,
     cutoff: Option<&CleanupCutoff>,
     today_local_date: NaiveDate,
 ) -> Result<ScreenshotCleanupResult, String> {
-    let plan = plan_screenshot_cleanup(database_path, game_path, cutoff, today_local_date)?;
-    execute_screenshot_cleanup_plan(database_path, game_path, plan)
+    let plan = plan_screenshot_cleanup(database_path, data_root, cutoff, today_local_date)?;
+    execute_screenshot_cleanup_plan(database_path, data_root, plan)
 }
 
 fn execute_screenshot_cleanup_plan(
     database_path: &Path,
-    game_path: &Path,
+    data_root: &Path,
     plan: ScreenshotCleanupPlan,
 ) -> Result<ScreenshotCleanupResult, String> {
-    let screenshots_dir = crate::services::paths::screenshots_dir(game_path);
+    let screenshots_dir = crate::services::paths::screenshots_dir_in(data_root);
     let mut deleted_rows = 0i64;
     let mut deleted_files = 0i64;
     let mut freed_bytes = 0i64;
@@ -348,7 +348,7 @@ impl RunDataCleanupPlan {
 
 pub fn plan_run_data_cleanup(
     database_path: &Path,
-    game_path: &Path,
+    data_root: &Path,
     cutoff: Option<&CleanupCutoff>,
 ) -> Result<RunDataCleanupPlan, String> {
     if !database_path.exists() {
@@ -363,9 +363,9 @@ pub fn plan_run_data_cleanup(
         remaining_screenshot_relative_paths_after_run_cleanup(&conn, &run_ids)?;
     let remaining_video_paths = remaining_video_relative_paths_after_run_cleanup(&conn, &run_ids)?;
 
-    let screenshots_dir = crate::services::paths::screenshots_dir(game_path);
-    let videos_dir = crate::services::paths::combat_replay_videos_dir(game_path);
-    let replays_dir = crate::services::paths::combat_replays_dir(game_path);
+    let screenshots_dir = crate::services::paths::screenshots_dir_in(data_root);
+    let videos_dir = crate::services::paths::combat_replay_videos_dir_in(data_root);
+    let replays_dir = crate::services::paths::combat_replays_dir_in(data_root);
 
     let mut items = Vec::new();
     let mut screenshot_items_for_estimate = Vec::new();
@@ -429,21 +429,21 @@ pub struct RunDataCleanupResult {
 
 pub fn execute_run_data_cleanup(
     database_path: &Path,
-    game_path: &Path,
+    data_root: &Path,
     cutoff: Option<&CleanupCutoff>,
 ) -> Result<RunDataCleanupResult, String> {
-    let plan = plan_run_data_cleanup(database_path, game_path, cutoff)?;
-    execute_run_data_cleanup_plan(database_path, game_path, plan)
+    let plan = plan_run_data_cleanup(database_path, data_root, cutoff)?;
+    execute_run_data_cleanup_plan(database_path, data_root, plan)
 }
 
 fn execute_run_data_cleanup_plan(
     database_path: &Path,
-    game_path: &Path,
+    data_root: &Path,
     plan: RunDataCleanupPlan,
 ) -> Result<RunDataCleanupResult, String> {
-    let screenshots_dir = crate::services::paths::screenshots_dir(game_path);
-    let videos_dir = crate::services::paths::combat_replay_videos_dir(game_path);
-    let replays_dir = crate::services::paths::combat_replays_dir(game_path);
+    let screenshots_dir = crate::services::paths::screenshots_dir_in(data_root);
+    let videos_dir = crate::services::paths::combat_replay_videos_dir_in(data_root);
+    let replays_dir = crate::services::paths::combat_replays_dir_in(data_root);
     let mut deleted_runs = 0i64;
     let mut deleted_files = 0i64;
     let mut freed_bytes = 0i64;
@@ -1136,24 +1136,23 @@ mod tests {
     struct CleanupFixture {
         #[allow(dead_code)]
         temp_dir: TempDir,
-        game_path: PathBuf,
+        data_root: PathBuf,
         database_path: PathBuf,
         screenshots_dir: PathBuf,
     }
 
     fn create_fixture() -> CleanupFixture {
         let temp_dir = TempDir::new().unwrap();
-        let game_path = temp_dir.path().to_path_buf();
-        let data_dir = game_path.join(crate::config::BAZAAR_DATA_DIRECTORY);
-        let screenshots_dir = data_dir.join("Screenshots");
-        let database_path = data_dir.join("bazaarplusplus.db");
+        let data_root = temp_dir.path().join(crate::config::BAZAAR_DATA_DIRECTORY);
+        let screenshots_dir = data_root.join("Screenshots");
+        let database_path = data_root.join("bazaarplusplus.db");
         fs::create_dir_all(&screenshots_dir).unwrap();
         let conn = Connection::open(&database_path).unwrap();
         create_mod_schema(&conn);
         drop(conn);
         CleanupFixture {
             temp_dir,
-            game_path,
+            data_root,
             database_path,
             screenshots_dir,
         }
@@ -1395,7 +1394,7 @@ mod tests {
         let cutoff = cutoff("2026-07-01T00:00:00Z", (2026, 7, 1));
         let plan = plan_screenshot_cleanup(
             &fixture.database_path,
-            &fixture.game_path,
+            &fixture.data_root,
             Some(&cutoff),
             test_today(),
         )
@@ -1446,7 +1445,7 @@ mod tests {
 
         let plan = plan_screenshot_cleanup(
             &fixture.database_path,
-            &fixture.game_path,
+            &fixture.data_root,
             None,
             test_today(),
         )
@@ -1466,7 +1465,7 @@ mod tests {
 
         let result = super::execute_screenshot_cleanup_plan(
             &fixture.database_path,
-            &fixture.game_path,
+            &fixture.data_root,
             plan,
         )
         .unwrap();
@@ -1528,7 +1527,7 @@ mod tests {
 
         let plan = plan_screenshot_cleanup(
             &fixture.database_path,
-            &fixture.game_path,
+            &fixture.data_root,
             None,
             test_today(),
         )
@@ -1547,7 +1546,7 @@ mod tests {
 
         let result = super::execute_screenshot_cleanup_plan(
             &fixture.database_path,
-            &fixture.game_path,
+            &fixture.data_root,
             plan,
         )
         .unwrap();
@@ -1599,7 +1598,7 @@ mod tests {
 
         let plan = plan_screenshot_cleanup(
             &fixture.database_path,
-            &fixture.game_path,
+            &fixture.data_root,
             None,
             test_today(),
         )
@@ -1634,7 +1633,7 @@ mod tests {
 
         let plan = plan_screenshot_cleanup(
             &fixture.database_path,
-            &fixture.game_path,
+            &fixture.data_root,
             None,
             test_today(),
         )
@@ -1688,7 +1687,7 @@ mod tests {
         let cutoff = cutoff("2026-07-01T00:00:00Z", (2026, 7, 1));
         let plan = plan_screenshot_cleanup(
             &fixture.database_path,
-            &fixture.game_path,
+            &fixture.data_root,
             Some(&cutoff),
             test_today(),
         )
@@ -1725,7 +1724,7 @@ mod tests {
         let _future =
             write_screenshot_file(&fixture.screenshots_dir, "2026-07-04/ahead.png", b"ahead");
 
-        let plan = plan_screenshot_cleanup(&fixture.database_path, &fixture.game_path, None, today)
+        let plan = plan_screenshot_cleanup(&fixture.database_path, &fixture.data_root, None, today)
             .unwrap();
 
         assert!(plan.items.is_empty());
@@ -1757,7 +1756,7 @@ mod tests {
 
         let result = super::execute_screenshot_cleanup(
             &fixture.database_path,
-            &fixture.game_path,
+            &fixture.data_root,
             None, // preset "all"
             today,
         )
@@ -1790,7 +1789,7 @@ mod tests {
         let cutoff = cutoff("2026-07-01T00:00:00Z", (2026, 7, 1));
         let plan = plan_screenshot_cleanup(
             &fixture.database_path,
-            &fixture.game_path,
+            &fixture.data_root,
             Some(&cutoff),
             test_today(),
         )
@@ -1815,7 +1814,7 @@ mod tests {
         let cutoff = cutoff("2026-07-01T00:00:00Z", (2026, 7, 1));
         let plan = plan_screenshot_cleanup(
             &fixture.database_path,
-            &fixture.game_path,
+            &fixture.data_root,
             Some(&cutoff),
             test_today(),
         )
@@ -1827,12 +1826,10 @@ mod tests {
     #[test]
     fn plan_on_missing_database_is_empty() {
         let temp_dir = TempDir::new().unwrap();
-        let game_path = temp_dir.path().to_path_buf();
-        let database_path = game_path
-            .join(crate::config::BAZAAR_DATA_DIRECTORY)
-            .join("bazaarplusplus.db");
+        let data_root = temp_dir.path().join(crate::config::BAZAAR_DATA_DIRECTORY);
+        let database_path = data_root.join("bazaarplusplus.db");
 
-        let plan = plan_screenshot_cleanup(&database_path, &game_path, None, test_today()).unwrap();
+        let plan = plan_screenshot_cleanup(&database_path, &data_root, None, test_today()).unwrap();
 
         assert!(plan.items.is_empty());
         assert!(plan.orphan_files.is_empty());
@@ -1849,7 +1846,7 @@ mod tests {
         drop(Connection::open(&database_path).unwrap());
 
         let error =
-            plan_screenshot_cleanup(&database_path, &game_path, None, test_today()).unwrap_err();
+            plan_screenshot_cleanup(&database_path, &data_dir, None, test_today()).unwrap_err();
 
         assert!(error.contains("found=0"), "{error}");
         let supported = format!(
@@ -1914,7 +1911,7 @@ mod tests {
         drop(conn);
 
         let plan =
-            super::plan_run_data_cleanup(&fixture.database_path, &fixture.game_path, None).unwrap();
+            super::plan_run_data_cleanup(&fixture.database_path, &fixture.data_root, None).unwrap();
 
         let planned = plan
             .items
@@ -1950,7 +1947,7 @@ mod tests {
         drop(conn);
 
         let plan =
-            super::plan_run_data_cleanup(&fixture.database_path, &fixture.game_path, None).unwrap();
+            super::plan_run_data_cleanup(&fixture.database_path, &fixture.data_root, None).unwrap();
 
         assert!(plan.items.is_empty());
         assert_eq!(plan.skipped_pending_uploads, 0);
@@ -1959,8 +1956,8 @@ mod tests {
     #[test]
     fn stale_run_plan_preserves_all_reseal_inputs_when_run_becomes_protected() {
         let fixture = create_fixture();
-        let videos_dir = crate::services::paths::combat_replay_videos_dir(&fixture.game_path);
-        let replays_dir = crate::services::paths::combat_replays_dir(&fixture.game_path);
+        let videos_dir = crate::services::paths::combat_replay_videos_dir_in(&fixture.data_root);
+        let replays_dir = crate::services::paths::combat_replays_dir_in(&fixture.data_root);
         fs::create_dir_all(videos_dir.join("2026-06-10")).unwrap();
         fs::create_dir_all(&replays_dir).unwrap();
         let video_file = videos_dir.join("2026-06-10/run-race.mp4");
@@ -2009,7 +2006,7 @@ mod tests {
         drop(conn);
 
         let plan =
-            super::plan_run_data_cleanup(&fixture.database_path, &fixture.game_path, None).unwrap();
+            super::plan_run_data_cleanup(&fixture.database_path, &fixture.data_root, None).unwrap();
         assert_eq!(plan.items.len(), 1);
         assert_eq!(plan.items[0].run_id, "run-race");
 
@@ -2023,7 +2020,7 @@ mod tests {
         drop(conn);
 
         let result =
-            super::execute_run_data_cleanup_plan(&fixture.database_path, &fixture.game_path, plan)
+            super::execute_run_data_cleanup_plan(&fixture.database_path, &fixture.data_root, plan)
                 .unwrap();
 
         assert_eq!(result.deleted_runs, 0);
@@ -2052,7 +2049,7 @@ mod tests {
     #[test]
     fn stale_run_plan_preserves_shared_files_when_one_run_becomes_protected() {
         let fixture = create_fixture();
-        let videos_dir = crate::services::paths::combat_replay_videos_dir(&fixture.game_path);
+        let videos_dir = crate::services::paths::combat_replay_videos_dir_in(&fixture.data_root);
         fs::create_dir_all(videos_dir.join("2026-06-10")).unwrap();
         let shared_video = videos_dir.join("2026-06-10/shared.mp4");
         let shared_screenshot = write_screenshot_file(
@@ -2129,7 +2126,7 @@ mod tests {
         drop(conn);
 
         let plan =
-            super::plan_run_data_cleanup(&fixture.database_path, &fixture.game_path, None).unwrap();
+            super::plan_run_data_cleanup(&fixture.database_path, &fixture.data_root, None).unwrap();
         assert_eq!(plan.items.len(), 2);
         assert!(plan
             .items
@@ -2150,7 +2147,7 @@ mod tests {
         drop(conn);
 
         let result =
-            super::execute_run_data_cleanup_plan(&fixture.database_path, &fixture.game_path, plan)
+            super::execute_run_data_cleanup_plan(&fixture.database_path, &fixture.data_root, plan)
                 .unwrap();
 
         assert_eq!(result.deleted_runs, 1);
@@ -2197,7 +2194,7 @@ mod tests {
         drop(conn);
 
         let plan =
-            super::plan_run_data_cleanup(&fixture.database_path, &fixture.game_path, None).unwrap();
+            super::plan_run_data_cleanup(&fixture.database_path, &fixture.data_root, None).unwrap();
         assert_eq!(plan.items.len(), 1);
         assert_eq!(plan.items[0].run_id, "run-sealing");
         assert_eq!(plan.skipped_pending_uploads, 0);
@@ -2243,7 +2240,7 @@ mod tests {
         write_screenshot_file(&fixture.screenshots_dir, "2026-06-10/shared.png", b"shared");
 
         let plan =
-            super::plan_run_data_cleanup(&fixture.database_path, &fixture.game_path, None).unwrap();
+            super::plan_run_data_cleanup(&fixture.database_path, &fixture.data_root, None).unwrap();
 
         assert_eq!(plan.items.len(), 1);
         assert_eq!(plan.items[0].run_id, "run-clean");
@@ -2260,7 +2257,7 @@ mod tests {
     #[test]
     fn run_cleanup_preserves_shared_video_file_referenced_by_skipped_run() {
         let fixture = create_fixture();
-        let videos_dir = crate::services::paths::combat_replay_videos_dir(&fixture.game_path);
+        let videos_dir = crate::services::paths::combat_replay_videos_dir_in(&fixture.data_root);
         fs::create_dir_all(videos_dir.join("2026-06-10")).unwrap();
         let shared_video = videos_dir.join("2026-06-10/shared.mp4");
         fs::write(&shared_video, b"shared-video").unwrap();
@@ -2323,7 +2320,7 @@ mod tests {
         drop(conn);
 
         let plan =
-            super::plan_run_data_cleanup(&fixture.database_path, &fixture.game_path, None).unwrap();
+            super::plan_run_data_cleanup(&fixture.database_path, &fixture.data_root, None).unwrap();
 
         assert_eq!(plan.items.len(), 1);
         assert_eq!(plan.items[0].run_id, "run-clean");
@@ -2335,7 +2332,7 @@ mod tests {
         );
 
         let result =
-            super::execute_run_data_cleanup(&fixture.database_path, &fixture.game_path, None)
+            super::execute_run_data_cleanup(&fixture.database_path, &fixture.data_root, None)
                 .unwrap();
 
         assert_eq!(result.deleted_runs, 1);
@@ -2415,8 +2412,8 @@ mod tests {
         );
         drop(conn);
 
-        let videos_dir = crate::services::paths::combat_replay_videos_dir(&fixture.game_path);
-        let replays_dir = crate::services::paths::combat_replays_dir(&fixture.game_path);
+        let videos_dir = crate::services::paths::combat_replay_videos_dir_in(&fixture.data_root);
+        let replays_dir = crate::services::paths::combat_replays_dir_in(&fixture.data_root);
         fs::create_dir_all(videos_dir.join("2026-06-10")).unwrap();
         fs::create_dir_all(&replays_dir).unwrap();
         fs::write(videos_dir.join("2026-06-10/video.mp4"), b"video").unwrap();
@@ -2428,7 +2425,7 @@ mod tests {
         write_screenshot_file(&fixture.screenshots_dir, "2026-06-10/shot.png", b"shot");
 
         let plan =
-            super::plan_run_data_cleanup(&fixture.database_path, &fixture.game_path, None).unwrap();
+            super::plan_run_data_cleanup(&fixture.database_path, &fixture.data_root, None).unwrap();
 
         assert_eq!(plan.items.len(), 1);
         assert_eq!(
@@ -2441,9 +2438,184 @@ mod tests {
     }
 
     #[test]
+    fn run_plan_resolves_per_run_files_symmetrically_against_another_data_root() {
+        let fixture = create_fixture();
+        let other_temp_dir = TempDir::new().unwrap();
+        let other_root = other_temp_dir
+            .path()
+            .join(crate::config::BAZAAR_DATA_DIRECTORY);
+
+        let conn = Connection::open(&fixture.database_path).unwrap();
+        // A seal-eligible Ranked run with no Bundle yet is protected.
+        for (run_id, game_mode, ended_at) in [
+            ("run-a", "Normal", "2026-06-10T10:00:00Z"),
+            ("run-b", "Normal", "2026-06-10T10:01:00Z"),
+            ("run-protected", "Ranked", "2026-06-10T10:02:00Z"),
+        ] {
+            insert_run(&conn, run_id, "completed", 1, game_mode, ended_at);
+        }
+        for (battle_id, run_id) in [
+            ("battle-a", "run-a"),
+            ("battle-b", "run-b"),
+            ("battle-protected", "run-protected"),
+        ] {
+            insert_battle(
+                &conn,
+                battle_id,
+                "LOCAL",
+                Some(run_id),
+                "2026-06-10T09:00:00Z",
+                Some("ready"),
+            );
+        }
+        // run-a and run-b share one screenshot file; run-a shares its video
+        // with the protected run, so that video file must survive.
+        insert_video(
+            &conn,
+            "video-a",
+            "battle-a",
+            "2026-06-10/shared.mp4",
+            "2026-06-10T09:05:00Z",
+        );
+        insert_video(
+            &conn,
+            "video-protected",
+            "battle-protected",
+            "2026-06-10/shared.mp4",
+            "2026-06-10T09:06:00Z",
+        );
+        insert_video(
+            &conn,
+            "video-b",
+            "battle-b",
+            "2026-06-10/b.mp4",
+            "2026-06-10T09:07:00Z",
+        );
+        insert_screenshot(
+            &conn,
+            "shot-a",
+            Some("run-a"),
+            0,
+            "2026-06-10/shared.png",
+            "2026-06-10T10:00:00Z",
+        );
+        insert_screenshot(
+            &conn,
+            "shot-b",
+            Some("run-b"),
+            0,
+            "2026-06-10/shared.png",
+            "2026-06-10T10:01:00Z",
+        );
+        drop(conn);
+
+        let write_files = |data_root: &Path| -> Vec<PathBuf> {
+            let videos_dir = crate::services::paths::combat_replay_videos_dir_in(data_root);
+            let replays_dir = crate::services::paths::combat_replays_dir_in(data_root);
+            let screenshots_dir = crate::services::paths::screenshots_dir_in(data_root);
+            fs::create_dir_all(videos_dir.join("2026-06-10")).unwrap();
+            fs::create_dir_all(&replays_dir).unwrap();
+            let files = vec![
+                (
+                    videos_dir.join("2026-06-10/shared.mp4"),
+                    &b"shared-video"[..],
+                ),
+                (videos_dir.join("2026-06-10/b.mp4"), &b"b-video"[..]),
+                (
+                    replays_dir.join("battle-a.payload.mpack.gz"),
+                    &b"payload-a"[..],
+                ),
+                (
+                    replays_dir.join("battle-b.payload.mpack.gz"),
+                    &b"payload-b"[..],
+                ),
+                (
+                    write_screenshot_file(&screenshots_dir, "2026-06-10/shared.png", b"shot"),
+                    &b"shot"[..],
+                ),
+            ];
+            for (path, bytes) in &files {
+                fs::write(path, bytes).unwrap();
+            }
+            files.into_iter().map(|(path, _)| path).collect()
+        };
+        let current_files = write_files(&fixture.data_root);
+        let other_files = write_files(&other_root);
+
+        type Projection = Vec<(
+            String,
+            Vec<String>,
+            Vec<(String, String, bool)>,
+            Vec<(String, String, bool)>,
+        )>;
+        let project = |plan: &super::RunDataCleanupPlan| -> Projection {
+            plan.items
+                .iter()
+                .map(|item| {
+                    (
+                        item.run_id.clone(),
+                        item.battle_ids.clone(),
+                        item.videos
+                            .iter()
+                            .map(|video| {
+                                (
+                                    video.video_id.clone(),
+                                    video.relative_path.clone(),
+                                    video.delete_video_file,
+                                )
+                            })
+                            .collect(),
+                        item.screenshots
+                            .iter()
+                            .map(|shot| {
+                                (
+                                    shot.screenshot_id.clone(),
+                                    shot.image_relative_path.clone(),
+                                    shot.delete_image_file,
+                                )
+                            })
+                            .collect(),
+                    )
+                })
+                .collect()
+        };
+
+        let current_plan =
+            super::plan_run_data_cleanup(&fixture.database_path, &fixture.data_root, None).unwrap();
+        let other_plan =
+            super::plan_run_data_cleanup(&fixture.database_path, &other_root, None).unwrap();
+
+        assert_eq!(project(&other_plan), project(&current_plan));
+        assert_eq!(
+            other_plan.skipped_pending_uploads,
+            current_plan.skipped_pending_uploads
+        );
+        // b.mp4 + both payloads + the shared screenshot counted once; the
+        // video shared with the protected run is not counted.
+        assert_eq!(current_plan.estimated_bytes, 7 + 9 + 9 + 4);
+        assert_eq!(other_plan.estimated_bytes, current_plan.estimated_bytes);
+
+        let result =
+            super::execute_run_data_cleanup_plan(&fixture.database_path, &other_root, other_plan)
+                .unwrap();
+
+        assert_eq!(result.deleted_runs, 2);
+        assert_eq!(result.deleted_files, 4);
+        assert_eq!(result.freed_bytes, 7 + 9 + 9 + 4);
+        // Only the other root's run-owned files went; the shared video stays,
+        // and the current root is untouched.
+        let [other_shared_video, other_rest @ ..] = other_files.as_slice() else {
+            unreachable!();
+        };
+        assert!(other_shared_video.exists());
+        assert!(other_rest.iter().all(|path| !path.exists()));
+        assert!(current_files.iter().all(|path| path.exists()));
+    }
+
+    #[test]
     fn execute_run_cleanup_cascades_rows_deletes_files_and_spares_ghosts() {
         let fixture = create_fixture();
-        let data_dir = fixture.game_path.join(crate::config::BAZAAR_DATA_DIRECTORY);
+        let data_dir = fixture.data_root.clone();
         let videos_dir = data_dir.join("CombatReplayVideos");
         let replays_dir = data_dir.join("CombatReplays");
         fs::create_dir_all(videos_dir.join("2026-06-10")).unwrap();
@@ -2540,7 +2712,7 @@ mod tests {
         drop(conn);
 
         let result =
-            super::execute_run_data_cleanup(&fixture.database_path, &fixture.game_path, None)
+            super::execute_run_data_cleanup(&fixture.database_path, &fixture.data_root, None)
                 .unwrap();
 
         assert_eq!(result.deleted_runs, 1);
@@ -2659,7 +2831,7 @@ mod tests {
         );
         drop(conn);
 
-        let error = super::execute_run_data_cleanup(&database_path, &game_path, None).unwrap_err();
+        let error = super::execute_run_data_cleanup(&database_path, &data_dir, None).unwrap_err();
 
         assert!(
             error.contains("battles.run_id") && error.contains("ON DELETE CASCADE"),
@@ -2735,7 +2907,7 @@ mod tests {
 
         let result = super::execute_screenshot_cleanup(
             &fixture.database_path,
-            &fixture.game_path,
+            &fixture.data_root,
             None, // preset "all"
             test_today(),
         )
@@ -2804,7 +2976,7 @@ mod tests {
 
         let plan = plan_screenshot_cleanup(
             &fixture.database_path,
-            &fixture.game_path,
+            &fixture.data_root,
             None,
             test_today(),
         )
@@ -2816,7 +2988,7 @@ mod tests {
 
         let result = super::execute_screenshot_cleanup(
             &fixture.database_path,
-            &fixture.game_path,
+            &fixture.data_root,
             None, // preset "all"
             test_today(),
         )
@@ -2879,7 +3051,7 @@ mod tests {
 
         let plan = plan_screenshot_cleanup(
             &fixture.database_path,
-            &fixture.game_path,
+            &fixture.data_root,
             None,
             test_today(),
         )
@@ -2890,7 +3062,7 @@ mod tests {
 
         let result = super::execute_screenshot_cleanup(
             &fixture.database_path,
-            &fixture.game_path,
+            &fixture.data_root,
             None, // preset "all"
             test_today(),
         )
@@ -2925,7 +3097,7 @@ mod tests {
 
         let plan = plan_screenshot_cleanup(
             &fixture.database_path,
-            &fixture.game_path,
+            &fixture.data_root,
             None,
             test_today(),
         )
@@ -2936,7 +3108,7 @@ mod tests {
 
         let result = super::execute_screenshot_cleanup(
             &fixture.database_path,
-            &fixture.game_path,
+            &fixture.data_root,
             None, // preset "all"
             test_today(),
         )

@@ -18,15 +18,25 @@ pub fn database_path(game_path: &Path) -> PathBuf {
 }
 
 pub fn screenshots_dir(game_path: &Path) -> PathBuf {
-    bpp_data_dir(game_path).join(SCREENSHOTS_DIRECTORY)
+    screenshots_dir_in(&bpp_data_dir(game_path))
 }
 
 pub fn combat_replay_videos_dir(game_path: &Path) -> PathBuf {
-    bpp_data_dir(game_path).join(COMBAT_REPLAY_VIDEOS_DIRECTORY)
+    combat_replay_videos_dir_in(&bpp_data_dir(game_path))
 }
 
-pub fn combat_replays_dir(game_path: &Path) -> PathBuf {
-    bpp_data_dir(game_path).join(COMBAT_REPLAYS_DIRECTORY)
+/// The `*_dir_in` variants resolve against an explicit BPP data root (a
+/// `BazaarPlusPlusV5/` directory), which need not be the current game's.
+pub fn screenshots_dir_in(data_root: &Path) -> PathBuf {
+    data_root.join(SCREENSHOTS_DIRECTORY)
+}
+
+pub fn combat_replay_videos_dir_in(data_root: &Path) -> PathBuf {
+    data_root.join(COMBAT_REPLAY_VIDEOS_DIRECTORY)
+}
+
+pub fn combat_replays_dir_in(data_root: &Path) -> PathBuf {
+    data_root.join(COMBAT_REPLAYS_DIRECTORY)
 }
 
 pub fn overlay_cache_dir() -> PathBuf {
