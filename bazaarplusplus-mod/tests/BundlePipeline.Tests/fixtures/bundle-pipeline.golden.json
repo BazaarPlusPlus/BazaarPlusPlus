@@ -791,7 +791,7 @@
       "step": "transient",
       "method": "POST",
       "route": "/bundles",
-      "content_type": "application/x-bpp-bundle-v5",
+      "content_type": "application/x-bpp-bundle-v6",
       "body": "<bundle:run-only>",
       "length": "<normalized>",
       "response_status": 503
@@ -800,7 +800,7 @@
       "step": "transient",
       "method": "POST",
       "route": "/bundles",
-      "content_type": "application/x-bpp-bundle-v5",
+      "content_type": "application/x-bpp-bundle-v6",
       "body": "<bundle:screenshot>",
       "length": "<normalized>",
       "response_status": 503
@@ -809,7 +809,7 @@
       "step": "transient",
       "method": "POST",
       "route": "/bundles",
-      "content_type": "application/x-bpp-bundle-v5",
+      "content_type": "application/x-bpp-bundle-v6",
       "body": "<bundle:screenshot-deadline>",
       "length": "<normalized>",
       "response_status": 503
@@ -818,7 +818,7 @@
       "step": "commit-before-delete",
       "method": "POST",
       "route": "/bundles",
-      "content_type": "application/x-bpp-bundle-v5",
+      "content_type": "application/x-bpp-bundle-v6",
       "body": "<bundle:replay-free>",
       "length": "<normalized>",
       "response_status": 201
@@ -827,7 +827,7 @@
       "step": "commit-before-delete",
       "method": "POST",
       "route": "/bundles",
-      "content_type": "application/x-bpp-bundle-v5",
+      "content_type": "application/x-bpp-bundle-v6",
       "body": "<bundle:replay-held>",
       "length": "<normalized>",
       "response_status": 201
@@ -836,7 +836,7 @@
       "step": "commit-before-delete",
       "method": "POST",
       "route": "/bundles",
-      "content_type": "application/x-bpp-bundle-v5",
+      "content_type": "application/x-bpp-bundle-v6",
       "body": "<bundle:corrupt-replay>",
       "length": "<normalized>",
       "response_status": 201
@@ -845,7 +845,7 @@
       "step": "drain",
       "method": "POST",
       "route": "/bundles",
-      "content_type": "application/x-bpp-bundle-v5",
+      "content_type": "application/x-bpp-bundle-v6",
       "body": "<bundle:run-only>",
       "length": "<normalized>",
       "response_status": 201
@@ -854,7 +854,7 @@
       "step": "drain",
       "method": "POST",
       "route": "/bundles",
-      "content_type": "application/x-bpp-bundle-v5",
+      "content_type": "application/x-bpp-bundle-v6",
       "body": "<bundle:screenshot>",
       "length": "<normalized>",
       "response_status": 201
@@ -863,7 +863,7 @@
       "step": "drain",
       "method": "POST",
       "route": "/bundles",
-      "content_type": "application/x-bpp-bundle-v5",
+      "content_type": "application/x-bpp-bundle-v6",
       "body": "<bundle:screenshot-deadline>",
       "length": "<normalized>",
       "response_status": 201
