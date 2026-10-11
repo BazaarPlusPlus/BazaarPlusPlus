@@ -163,7 +163,7 @@ internal sealed class CombatReplayVideoMetadataStore : SqliteStoreBase, IReplayV
 
         var observationsJson = Newtonsoft.Json.JsonConvert.SerializeObject(
             normalized.Select(observation =>
-                new object[]
+                new object?[]
                 {
                     observation.VideoId,
                     ToStorage(observation.FileState),
