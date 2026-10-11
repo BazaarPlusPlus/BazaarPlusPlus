@@ -2,7 +2,7 @@
 
 Base URL: `https://mod-api-v6.bazaarplusplus.com`
 
-Mod 6.0 and later use this Worker. The V5 Worker at `https://mod-api-v5.bazaarplusplus.com` keeps serving 5.7.0 with the same routes and the frozen [Bundle V5](../contracts/v5/bundle-v5.md) format until it is retired ([deployment runbook](deployment-runbook.md#8-v5-worker-retirement)).
+Mod 6.0 and later use this Worker. The V5 Worker at `https://mod-api-v5.bazaarplusplus.com` keeps serving 5.7.0 with the same routes and the frozen [Bundle V5](../contracts/v5/bundle-v5.md) format ([deployment runbook](deployment-runbook.md#8-the-v5-worker)).
 
 The Worker exposes exactly these routes:
 

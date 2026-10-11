@@ -1,6 +1,6 @@
 # BazaarPlusPlus Server V6 deployment runbook
 
-The V6 deployment is new and shares nothing with V5: Worker `bazaarplusplus-mod-api-v6` at `mod-api-v6.bazaarplusplus.com`, D1 `bazaarplusplus-mod-api-v6-db` built from `migrations-v6/`, and R2 bucket `bazaarplusplus-bundle-v6`. Mod 6.0 and later upload to it (`ModApiUploadDefaults.ApiBaseUrl`). The V5 Worker `bazaarplusplus-mod-api-v5` at `mod-api-v5.bazaarplusplus.com` keeps serving 5.7.0 until section 8 retires it; nothing here touches its Worker, D1, bucket, or secrets.
+The V6 deployment is new and shares nothing with V5: Worker `bazaarplusplus-mod-api-v6` at `mod-api-v6.bazaarplusplus.com`, D1 `bazaarplusplus-mod-api-v6-db` built from `migrations-v6/`, and R2 bucket `bazaarplusplus-bundle-v6`. Mod 6.0 and later upload to it (`ModApiUploadDefaults.ApiBaseUrl`). The V5 Worker `bazaarplusplus-mod-api-v5` at `mod-api-v5.bazaarplusplus.com` keeps serving 5.7.0 (section 8); nothing here touches its Worker, D1, bucket, or secrets.
 
 These commands create or mutate Cloudflare resources. Run them only with production deployment authorization, from `bazaarplusplus-server/`, using an authenticated Wrangler profile for the account in `wrangler.toml` (`R2_ACCOUNT_ID`). Sections 1–5 are the first deployment, in order.
 
@@ -191,17 +191,6 @@ delete duration and API latency. Keep each delete transaction small. To pause pr
 deploy `crons = []` in the managed Wrangler configuration; already deleted metadata
 requires recovery from an available D1 backup rather than a Worker rollback.
 
-## 8. V5 Worker retirement
+## 8. The V5 Worker
 
-The V5 Worker stays up, unchanged, while 5.7.0 players still upload. Its code is no longer on `master`: a V5 hotfix is built from the 5.7.0 tag, whose `wrangler.toml` targets the V5 resources. Never deploy `master` to `bazaarplusplus-mod-api-v5`.
-
-Retire it when all of these hold:
-
-1. 6.0.0 has been promoted on both platforms for at least 30 days, so the installer and the mod update check have offered it to every active 5.x player.
-2. V5 `POST /bundles` traffic (invocation logs on `bazaarplusplus-mod-api-v5`) has stayed near zero for 14 consecutive days.
-3. BazaarDB claims only from V6, and the V5 `aged_pending` probe (section 6.2 against `bazaarplusplus-mod-api-v5-db`) returns `0`.
-4. The analyzer collects from V6 and needs no V5 window: wait until 8 days after the last V5 upload, when the V5 bucket's lifecycle has expired it.
-
-Then, with production authorization, delete in this order: the V5 Workers Observability alerts, the `mod-api-v5.bazaarplusplus.com` custom domain, the `bazaarplusplus-mod-api-v5` Worker, the V5 R2 S3 credential, the `bazaarplusplus-bundle-v5` bucket (empty after its lifecycle), and the `bazaarplusplus-mod-api-v5-db` database (export it first with `wrangler d1 export` if the history is worth keeping). From then on a 5.7.0 mod's uploads and Ghost queries fail.
-
-Finally, one pull request removes the V5 code that served only that Worker: `bazaarplusplus-server/migrations/`, `bazaarplusplus-server/contracts/v5/`, the frozen Run segment contract `bazaarplusplus-mod/docs/contracts/run-payload-v5.md` with its golden, the analyzer's V5 read path, and the V5 rows in root `AGENTS.md` and `.github/scripts/checks-scope.mjs`. The same pull request drops the V5 notes from this runbook and `docs/api-reference.md`.
+The V5 Worker's code is no longer on `master`: a V5 hotfix is built from the 5.7.0 tag, whose `wrangler.toml` targets the V5 resources. Never deploy `master` to `bazaarplusplus-mod-api-v5`. Retiring V5 is outside this runbook.
