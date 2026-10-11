@@ -36,7 +36,7 @@ import {
 
 const usage = `Product release commands (run from any directory):
   node release.mjs sync                         Project VERSION into toolchain files
-  node release.mjs check                        Check product source projections, the Snapshot Lock, release configuration and V5 import removal
+  node release.mjs check                        Check product source projections, mod/installer Data Root and schema agreement, the Snapshot Lock, release configuration and V5 import removal
   node release.mjs prepare --platform macos      Build and validate one platform Payload
   node release.mjs build --platform macos        Build and sign the native installer
   node release.mjs upload --platform macos       Upload immutable platform artifacts
@@ -252,7 +252,7 @@ export async function main(
   });
   if (command === 'check') {
     log(
-      `Product ${version}: version, inventory, badges, Snapshot Lock and release configuration aligned`
+      `Product ${version}: version, inventory, badges, Data Root, history schema, Snapshot Lock and release configuration aligned`
     );
     return;
   }

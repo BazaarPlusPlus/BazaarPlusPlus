@@ -106,9 +106,9 @@ const zh = {
   modNeedsReinstall: '需要重新安装',
   installDone: '安装完成',
   resetDataConfirmTitle: '删除本地数据',
-  resetDataTarget: '目标：{path} 内的 BazaarPlusPlusV5 文件夹',
+  resetDataTarget: '目标：{path} 内的 BazaarPlusPlusV6 文件夹',
   resetDataConfirmBody:
-    '这会删除 The Bazaar 游戏目录中 BazaarPlusPlusV5 下的本地数据库、截图和战斗回放视频。这包括尚未上传的对局数据。',
+    '这会删除 The Bazaar 游戏目录中 BazaarPlusPlusV6 下的本地数据库、截图和战斗回放视频。这包括尚未上传的对局数据。',
   resetDataConfirmKeepsInstall:
     '不会卸载 The Bazaar，也不会卸载 BazaarPlusPlus 插件。',
   resetDataConfirmGameClosed: '请先退出 The Bazaar，避免数据文件仍被占用。',
@@ -546,9 +546,9 @@ const en: Record<MessageKey, string> = {
   modNeedsReinstall: 'Reinstall required',
   installDone: 'Install complete',
   resetDataConfirmTitle: 'Delete Local Data',
-  resetDataTarget: 'Target: the BazaarPlusPlusV5 folder inside {path}',
+  resetDataTarget: 'Target: the BazaarPlusPlusV6 folder inside {path}',
   resetDataConfirmBody:
-    'This deletes the local database, screenshots, and combat replay videos under BazaarPlusPlusV5 in The Bazaar install directory. This includes battle data that has not been uploaded yet.',
+    'This deletes the local database, screenshots, and combat replay videos under BazaarPlusPlusV6 in The Bazaar install directory. This includes battle data that has not been uploaded yet.',
   resetDataConfirmKeepsInstall:
     'This does not uninstall The Bazaar or the BazaarPlusPlus plugin.',
   resetDataConfirmGameClosed:

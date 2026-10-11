@@ -70,7 +70,7 @@ describe('confirmed operation controller', () => {
 
   it.each([
     ['cleanup', { kind: 'cleanup', target: 'run_data:before_this_month' }],
-    ['reset', { kind: 'reset-data', target: '/game/BazaarPlusPlusV5' }],
+    ['reset', { kind: 'reset-data', target: '/game/BazaarPlusPlusV6' }],
     ['delete', { kind: 'delete-video', target: 'battle-2/video-3' }]
   ])(
     '%s feature uses the shared success/failure lifecycle',

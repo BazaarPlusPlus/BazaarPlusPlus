@@ -41,7 +41,7 @@ automatically or given by `BPP_GAMEDATA_DB`) and the replay store holding the li
 
 ```bash
 dotnet run --project tests/CombatImpact.Corpus/CombatImpact.Corpus.csproj -p:BppDeployToGame=false \
-  -- prepare tests/CombatImpact.Corpus/corpus "<BazaarPlusPlusV5>/CombatReplays" \
+  -- prepare tests/CombatImpact.Corpus/corpus "<BazaarPlusPlusV6>/CombatReplays" \
   $(ls tests/CombatImpact.Corpus/corpus | sed -n 's/\.payload\.mpack\.gz$//p' | grep -v '^ghost-')
 ```
 

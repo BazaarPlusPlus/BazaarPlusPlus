@@ -4,7 +4,7 @@ namespace BazaarPlusPlus.Storage.Paths;
 public static class PathConstants
 {
     public const string RunLogDatabaseFileName = "bazaarplusplus.db";
-    public const string DataRootDirectoryName = "BazaarPlusPlusV5";
+    public const string DataRootDirectoryName = "BazaarPlusPlusV6";
     private const string CombatReplayDirectoryName = "CombatReplays";
     private const string ScreenshotsDirectoryName = "Screenshots";
     private const string BundleOutboxDirectoryName = "BundleOutbox";

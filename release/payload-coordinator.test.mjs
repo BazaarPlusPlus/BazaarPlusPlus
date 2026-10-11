@@ -85,7 +85,11 @@ function fixture() {
   writeLock({ workspaceRoot }, lockEntry(managedPath));
   write(
     path.join(rootDir, 'src-tauri/history-database-compatibility.json'),
-    JSON.stringify({ formatVersion: 1, supportedUserVersions: [2] })
+    JSON.stringify({
+      formatVersion: 1,
+      dataRootDirectoryName: 'BazaarPlusPlusV6',
+      supportedUserVersions: [2]
+    })
   );
   write(
     path.join(rootDir, 'scripts/release/native-recorder-input.lock.json'),
@@ -122,6 +126,7 @@ function stage(rootDir, platform, contents) {
     path.join(source, 'BepInEx/plugins/BazaarPlusPlus.history-database.json'),
     JSON.stringify({
       formatVersion: 1,
+      dataRootDirectoryName: 'BazaarPlusPlusV6',
       historyDatabaseUserVersion: 2
     })
   );

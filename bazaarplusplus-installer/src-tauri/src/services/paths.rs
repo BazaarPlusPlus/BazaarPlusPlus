@@ -25,8 +25,9 @@ pub fn combat_replay_videos_dir(game_path: &Path) -> PathBuf {
     combat_replay_videos_dir_in(&bpp_data_dir(game_path))
 }
 
-/// The `*_dir_in` variants resolve against an explicit BPP data root (a
-/// `BazaarPlusPlusV5/` directory), which need not be the current game's.
+/// The `*_dir_in` variants resolve against an explicit Data Root, which need
+/// not be the current game's: a Legacy Root such as `BazaarPlusPlusV5/` is
+/// laid out the same way.
 pub fn screenshots_dir_in(data_root: &Path) -> PathBuf {
     data_root.join(SCREENSHOTS_DIRECTORY)
 }
