@@ -4,6 +4,7 @@ using BazaarPlusPlus.Core.Events;
 using BazaarPlusPlus.Core.GameState;
 using BazaarPlusPlus.Core.Runtime;
 using BazaarPlusPlus.Game.BilingualItemNames;
+using BazaarPlusPlus.Game.CombatStatusBar;
 using BazaarPlusPlus.Game.CosmeticNames;
 using BazaarPlusPlus.Game.EventPreview;
 using BazaarPlusPlus.Game.HistoryPanel;
@@ -464,6 +465,7 @@ public class SettingsDockRegistryTests
             registry.Register(ChineseLocaleModeSettingsDockEntry.Create(new InMemoryBppEventBus()));
             registry.Register(BilingualItemNamesSettingsDockEntry.Create());
             registry.Register(CosmeticNamesSettingsDockEntry.Create());
+            registry.Register(CombatStatusBarSettingsDockEntry.Create());
             registry.Register(new EndOfRunScreenshotSettingsDockEntry());
             registry.Register(new HistoryPanelSettingsDockEntry());
             registry.Register(ItemEnchantPreviewSettingsDockEntry.Create());
@@ -478,7 +480,7 @@ public class SettingsDockRegistryTests
                 .OrderBy(entry => entry.Order)
                 .ToArray();
 
-            Assert.Equal(Enumerable.Range(0, 17), presented.Select(entry => entry.Order));
+            Assert.Equal(Enumerable.Range(0, 18), presented.Select(entry => entry.Order));
             Assert.Equal(
                 new[]
                 {
@@ -490,6 +492,7 @@ public class SettingsDockRegistryTests
                     "EndOfRunScreenshot",
                     "BazaarDbUpload",
                     "CosmeticNames",
+                    "CombatStatusBar",
                     "EnchantPreview",
                     "UpgradePreviewActivation",
                     "LegendaryPositionDisplay",
@@ -513,6 +516,7 @@ public class SettingsDockRegistryTests
                     ("BilingualItemNames", "EventPreview"),
                     ("QuestPreview", "EndOfRunScreenshot"),
                     ("BazaarDbUpload", "CosmeticNames"),
+                    ("CombatStatusBar", null),
                 },
                 groups.Select(group =>
                     (
@@ -524,11 +528,11 @@ public class SettingsDockRegistryTests
                 )
             );
             Assert.All(
-                presented.Take(8),
+                presented.Take(9),
                 entry => Assert.Equal(BppSettingsControlKind.Toggle, entry.Definition.ControlKind)
             );
             Assert.All(
-                presented.Skip(8).Take(8),
+                presented.Skip(9).Take(8),
                 entry => Assert.Equal(BppSettingsControlKind.Choice, entry.Definition.ControlKind)
             );
             Assert.Equal(BppSettingsControlKind.Action, presented[^1].Definition.ControlKind);
@@ -1076,6 +1080,14 @@ public class SettingsDockRegistryTests
 
     [Theory]
     [InlineData(
+        "CombatStatusBar",
+        BppSettingsDockOrder.CombatStatusBar,
+        "Combat Status",
+        "战斗状态",
+        "ON>OFF>ON",
+        "true>false>true"
+    )]
+    [InlineData(
         "NameOverride",
         BppSettingsDockOrder.NameOverride,
         "Anonymous Mode",
@@ -1267,6 +1279,7 @@ public class SettingsDockRegistryTests
     private static ISettingsDockEntry CreateCyclingEntry(string key) =>
         key switch
         {
+            "CombatStatusBar" => CombatStatusBarSettingsDockEntry.Create(),
             "NameOverride" => NameOverrideSettingsDockEntry.Create(() => { }),
             "LegendaryPositionDisplay" => LegendaryPositionSettingsDockEntry.Create(() => { }),
             "EnchantPreview" => ItemEnchantPreviewSettingsDockEntry.Create(),

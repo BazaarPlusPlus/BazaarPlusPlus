@@ -117,10 +117,10 @@ public sealed class CombatStatusBarStateTests : IDisposable
     public void ShouldRenderForState_RequiresInGameRun()
     {
         BazaarPlusPlus.Core.Runtime.TestServices.Instance.RunContext.IsInGameRun = false;
-        Assert.False(CombatStatusBar.ShouldRenderForState());
+        Assert.False(CombatStatusBar.ShouldRenderForState(enabled: true));
 
         BazaarPlusPlus.Core.Runtime.TestServices.Instance.RunContext.IsInGameRun = true;
-        Assert.True(CombatStatusBar.ShouldRenderForState());
+        Assert.True(CombatStatusBar.ShouldRenderForState(enabled: true));
     }
 
     [Fact]
@@ -134,7 +134,45 @@ public sealed class CombatStatusBarStateTests : IDisposable
         // ...but the live probe reports ReplayState as in-game-run.
         services.GameStateProbe.Result = true;
 
-        Assert.True(CombatStatusBar.ShouldRenderForState());
+        Assert.True(CombatStatusBar.ShouldRenderForState(enabled: true));
+    }
+
+    [Theory]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    public void DisabledStatusBarStaysHiddenInLiveRunsAndReplays(bool inRun, bool inReplay)
+    {
+        var services = BazaarPlusPlus.Core.Runtime.TestServices.Instance;
+        services.RunContext.IsInGameRun = inRun;
+        services.GameStateProbe.Result = inReplay;
+
+        Assert.False(CombatStatusBar.ShouldRenderForState(enabled: false));
+        Assert.True(CombatStatusBar.ShouldRenderForState(enabled: true));
+    }
+
+    [Fact]
+    public void HidingPausedControlsResumesPlaybackWithoutResettingPreferredSpeed()
+    {
+        var game = new GameServiceManager();
+        Singleton<GameServiceManager>.Instance = game;
+        try
+        {
+            CombatStatusBar.BeginCombatPlayback();
+            CombatStatusBar.SetCombatSpeed(0.67f);
+            CombatStatusBar.SetCombatPaused(true);
+
+            CombatStatusBar.OnVisibilitySettingChanged(false);
+
+            Assert.False(game.GamePaused);
+            Assert.False(CombatStatusBar.IsCombatPaused);
+            Assert.True(CombatStatusBar.IsCombatPlaybackActive);
+            Assert.Equal(0.67f, CombatStatusBar.CombatSpeedMultiplier);
+        }
+        finally
+        {
+            CombatStatusBar.EndCombatPlayback();
+            Singleton<GameServiceManager>.Instance = null;
+        }
     }
 
     [Fact]

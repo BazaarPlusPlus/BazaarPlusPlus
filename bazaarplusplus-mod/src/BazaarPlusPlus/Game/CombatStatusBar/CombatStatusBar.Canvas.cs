@@ -59,8 +59,10 @@ internal sealed partial class CombatStatusBar
         );
         _canvasObject.transform.SetParent(transform, false);
         var canvas = _canvasObject.GetComponent<Canvas>();
-        canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-        canvas.sortingOrder = 10;
+        // Keep the existing screen-space layout, but render with the native portrait UI.
+        // An overlay canvas bypasses the game's camera layers and transition covers.
+        canvas.renderMode = RenderMode.ScreenSpaceCamera;
+        canvas.enabled = false;
         var scaler = _canvasObject.GetComponent<CanvasScaler>();
         scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
         scaler.referenceResolution = new Vector2(1920f, 1080f);
@@ -240,10 +242,35 @@ internal sealed partial class CombatStatusBar
         if (
             _canvasObject == null
             || _barRoot == null
-            || !_portraitBounds.TryRead(out var frame, out var bottom, out var viewport)
+            || !_portraitBounds.TryRead(
+                out var frame,
+                out var bottom,
+                out var viewport,
+                out var nativeCanvas,
+                out var background
+            )
+            || nativeCanvas == null
+            || background == null
         )
             return false;
+        var camera = nativeCanvas.worldCamera ?? Camera.main;
+        if (camera == null || !camera.isActiveAndEnabled)
+            return false;
+        var depth = camera.WorldToScreenPoint(background.bounds.center).z;
+        if (!float.IsFinite(depth) || depth <= camera.nearClipPlane || depth >= camera.farClipPlane)
+            return false;
         var canvas = _canvasObject.GetComponent<Canvas>();
+        canvas.worldCamera = camera;
+        canvas.planeDistance = depth;
+        canvas.sortingLayerID = background.sortingLayerID;
+        canvas.sortingOrder = background.sortingOrder;
+        var layer = background.gameObject.layer;
+        if (_canvasObject.layer != layer)
+        {
+            _canvasObject.layer = layer;
+            Helpers.UpdateLayerRecursive(_canvasObject, layer);
+        }
+        canvas.enabled = true;
         var scale = canvas.scaleFactor;
         if (
             !CombatStatusBarLayout.TryPlace(
@@ -261,12 +288,16 @@ internal sealed partial class CombatStatusBar
             return false;
 
         var canvasRect = (RectTransform)_canvasObject.transform;
-        RectTransformUtility.ScreenPointToLocalPointInRectangle(
-            canvasRect,
-            new Vector2(frame.center.x, viewport.yMin),
-            null,
-            out var position
-        );
+        canvasRect.ForceUpdateRectTransforms();
+        if (
+            !RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                canvasRect,
+                new Vector2(frame.center.x, viewport.yMin),
+                camera,
+                out var position
+            )
+        )
+            return false;
         _barRoot.anchoredPosition = position - canvasRect.rect.min;
         _barRoot.sizeDelta = new Vector2(frame.width / scale, height / scale);
         var contentScale = Mathf.Min(
@@ -285,6 +316,8 @@ internal sealed partial class CombatStatusBar
     private void SetUiVisible(bool visible)
     {
         // Keep the CanvasScaler active while hidden so resize/re-entry uses the current scale.
+        if (_canvasObject != null)
+            _canvasObject.GetComponent<Canvas>().enabled = visible;
         if (_barRoot != null && _barRoot.gameObject.activeSelf != visible)
             _barRoot.gameObject.SetActive(visible);
     }
