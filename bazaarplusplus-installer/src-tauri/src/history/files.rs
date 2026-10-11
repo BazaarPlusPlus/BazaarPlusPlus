@@ -1,7 +1,10 @@
 use std::path::{Path, PathBuf};
 
+/// Deletes the video file a row names. Like cleanup, it resolves through
+/// [`resolve_cleanup_file_path`], so a row holding an absolute path deletes no
+/// file outside the video directory.
 pub fn remove_video_file(root_dir: &Path, relative_path: &str) -> Result<(), String> {
-    let Some(path) = resolve_data_file_path(root_dir, relative_path) else {
+    let Some(path) = resolve_cleanup_file_path(root_dir, relative_path) else {
         return Ok(());
     };
     match std::fs::remove_file(&path) {
@@ -65,7 +68,25 @@ pub fn resolve_screenshot_path(data_root: &Path, raw_path: &str) -> Option<PathB
 
 #[cfg(test)]
 mod tests {
-    use super::resolve_cleanup_file_path;
+    use super::{remove_video_file, resolve_cleanup_file_path};
+
+    #[test]
+    fn video_removal_never_deletes_outside_the_video_directory() {
+        let temp = tempfile::tempdir().unwrap();
+        let video_dir = temp.path().join("videos");
+        std::fs::create_dir_all(video_dir.join("2026-05-20")).unwrap();
+        let inside = video_dir.join("2026-05-20/a.mp4");
+        let outside = temp.path().join("outside.mp4");
+        std::fs::write(&inside, b"inside").unwrap();
+        std::fs::write(&outside, b"outside").unwrap();
+
+        remove_video_file(&video_dir, &outside.to_string_lossy()).unwrap();
+        remove_video_file(&video_dir, "../outside.mp4").unwrap();
+        assert!(outside.is_file());
+
+        remove_video_file(&video_dir, "2026-05-20/a.mp4").unwrap();
+        assert!(!inside.exists());
+    }
 
     #[test]
     fn cleanup_path_rejects_absolute_paths() {

@@ -29,8 +29,10 @@ from bppanalyzer.operational_evidence import (
     RunSummary,
 )
 from bppanalyzer.publication import (
+    PRODUCTS,
     AnalysisWindow,
     BuiltSnapshot,
+    ConsumerProduct,
     LatestPublisher,
     SnapshotBuilder,
     select_analysis_window,
@@ -186,8 +188,7 @@ class PipelineDriver:
                     report_error=report_error,
                     checkpoint=checkpoint,
                 )
-                run_report = progress.report.value
-                if run_report["heroes"]["published"] and run_report["builds"]["published"]:
+                if progress.report.all_published():
                     pruned = store.prune(retain_days=self.fact_retention_days)
                     progress.report.record_retention(pruned)
                     report(
@@ -273,27 +274,24 @@ class PipelineDriver:
                 max(time.monotonic() - fact_stats_started, 0.0), 6
             )
         publisher = LatestPublisher(self.object_store) if self.object_store is not None else None
-        for product in ("heroes", "builds"):
+        for consumer in PRODUCTS:
+            product = consumer.name
             product_started: float | None = None
             try:
                 checkpoint("build", None, step=product)
                 report(f"{product} snapshot build started")
                 product_started = time.monotonic()
-                built = (
-                    builder.build_heroes(window)
-                    if product == "heroes"
-                    else builder.build_builds(window)
-                )
+                built = consumer.build(builder, window)
                 progress.product_timings[f"{product}_build_seconds"] = round(
                     max(time.monotonic() - product_started, 0.0), 6
                 )
                 lock.assert_owned()
                 save_started = time.monotonic()
-                _write_local_snapshot(self.data_root, built, lock.assert_owned)
+                _write_local_snapshot(self.data_root, consumer, built, lock.assert_owned)
                 progress.product_timings[f"{product}_local_save_seconds"] = round(
                     max(time.monotonic() - save_started, 0.0), 6
                 )
-                result.record_product(built.stats)
+                result.record_product(consumer, built.stats)
                 report(f"{product} snapshot build done")
                 if publish and publisher is not None:
                     checkpoint("publish", None, step=product)
@@ -302,7 +300,7 @@ class PipelineDriver:
                     progress.product_timings[f"{product}_publish_seconds"] = round(
                         max(time.monotonic() - publish_started, 0.0), 6
                     )
-                    result.mark_published(product)
+                    result.mark_published(consumer)
                     report(f"{product} snapshot publication done: replaced={str(replaced).lower()}")
                 elif not publish:
                     report(f"{product} snapshot publication skipped: --no-publish")
@@ -499,10 +497,13 @@ def _reset_source_performance(source: Source) -> None:
 
 
 def _write_local_snapshot(
-    root: Path, snapshot: BuiltSnapshot, ownership_check: Callable[[], None]
+    root: Path,
+    product: ConsumerProduct,
+    snapshot: BuiltSnapshot,
+    ownership_check: Callable[[], None],
 ) -> None:
     atomic_replace(
-        root / "snapshots" / snapshot.product / "latest.json",
+        root / product.local_relpath,
         snapshot.content,
         ownership_check=ownership_check,
     )

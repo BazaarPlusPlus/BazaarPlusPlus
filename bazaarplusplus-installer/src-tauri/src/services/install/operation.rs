@@ -6,6 +6,7 @@ use super::plan::{plan_install, InstallEffect};
 use super::{build_install_state_raw, install_action_problem, InstallState};
 use crate::problem::SemanticProblem;
 use crate::services::{
+    action_error::ActionError,
     bepinex::{self, install_bepinex},
     detect::{detect_for_install, InstallEnvironmentSnapshot},
     startup::InstallerContextState,
@@ -22,7 +23,7 @@ pub(crate) async fn install(
     request: InstallRequest,
 ) -> Result<InstallState, SemanticProblem> {
     let task_app = app.clone();
-    tauri::async_runtime::spawn_blocking(move || {
+    tauri::async_runtime::spawn_blocking(move || -> Result<_, ActionError> {
         let installer_state = task_app.state::<InstallerContextState>();
         let before = detect_for_install(
             task_app.clone(),
@@ -35,10 +36,10 @@ pub(crate) async fn install(
             && (steam_path.trim().is_empty()
                 || before.steam_launch_options == SteamLaunchOptionsState::Unavailable)
         {
-            return Err(
+            return Err(ActionError::Failed(
                 "Steam localconfig.vdf is unavailable; start Steam once, close it, and retry."
                     .to_string(),
-            );
+            ));
         }
         let mut effects = ProductionInstallEffects {
             resource_dir: task_app
@@ -58,11 +59,11 @@ pub(crate) async fn install(
     .map_err(|error| {
         install_action_problem("install", format!("failed to run install task: {error}"))
     })?
-    .map_err(|diagnostic| install_action_problem("install", diagnostic))
+    .map_err(|error| install_action_problem("install", error))
 }
 
 trait InstallEffects {
-    fn execute(&mut self, effect: InstallEffect) -> Result<(), String>;
+    fn execute(&mut self, effect: InstallEffect) -> Result<(), ActionError>;
 }
 
 struct ProductionInstallEffects {
@@ -72,25 +73,25 @@ struct ProductionInstallEffects {
 }
 
 impl InstallEffects for ProductionInstallEffects {
-    fn execute(&mut self, effect: InstallEffect) -> Result<(), String> {
+    fn execute(&mut self, effect: InstallEffect) -> Result<(), ActionError> {
         let steam = Path::new(&self.steam_path);
         let game = Path::new(&self.game_path);
         match effect {
             InstallEffect::EnsureGameStopped => crate::services::game_process::ensure_game_stopped(
                 game,
                 crate::services::game_process::GameStoppedOperation::Install,
-            )
-            .map_err(String::from),
-            InstallEffect::CloseSteam => prepare_steam_for_config_update(steam),
-            InstallEffect::InstallBepInEx => install_bepinex(&self.resource_dir, game),
+            )?,
+            InstallEffect::CloseSteam => prepare_steam_for_config_update(steam)?,
+            InstallEffect::InstallBepInEx => install_bepinex(&self.resource_dir, game)?,
             InstallEffect::InstallTrampoline => {
-                bepinex::install_trampoline(&self.resource_dir, game)
+                bepinex::install_trampoline(&self.resource_dir, game)?
             }
-            InstallEffect::ClearLaunchOptions => clear_launch_options_for_steam(steam),
+            InstallEffect::ClearLaunchOptions => clear_launch_options_for_steam(steam)?,
             InstallEffect::RemoveObsoleteMacosArtifacts => {
-                bepinex::remove_obsolete_macos_artifacts(game)
+                bepinex::remove_obsolete_macos_artifacts(game)?
             }
         }
+        Ok(())
     }
 }
 
@@ -98,11 +99,11 @@ fn execute_and_refresh<T>(
     facts: &InstallEnvironmentSnapshot,
     effects: &mut impl InstallEffects,
     refresh: impl FnOnce() -> Result<T, String>,
-) -> Result<T, String> {
+) -> Result<T, ActionError> {
     for effect in plan_install(facts) {
         effects.execute(effect)?;
     }
-    refresh()
+    Ok(refresh()?)
 }
 
 #[cfg(test)]
@@ -116,10 +117,10 @@ mod tests {
     }
 
     impl InstallEffects for Recorder {
-        fn execute(&mut self, effect: InstallEffect) -> Result<(), String> {
+        fn execute(&mut self, effect: InstallEffect) -> Result<(), ActionError> {
             self.effects.push(effect);
             if self.fail_on == Some(effect) {
-                return Err("effect failed".to_string());
+                return Err("effect failed".to_string().into());
             }
             Ok(())
         }
@@ -157,7 +158,7 @@ mod tests {
         })
         .unwrap_err();
 
-        assert_eq!(error, "effect failed");
+        assert_eq!(error, ActionError::Failed("effect failed".to_string()));
         assert!(!refreshed);
         assert_eq!(
             recorder.effects.last(),
@@ -185,7 +186,7 @@ mod fresh_install_acceptance {
     // intercepted so a regression cannot close the developer's Steam session.
     struct KeepSteamRunning(ProductionInstallEffects);
     impl InstallEffects for KeepSteamRunning {
-        fn execute(&mut self, effect: InstallEffect) -> Result<(), String> {
+        fn execute(&mut self, effect: InstallEffect) -> Result<(), ActionError> {
             assert_ne!(
                 effect,
                 InstallEffect::CloseSteam,

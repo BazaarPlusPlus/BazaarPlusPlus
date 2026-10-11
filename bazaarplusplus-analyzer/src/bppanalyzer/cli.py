@@ -11,7 +11,12 @@ from bppanalyzer.fact_store import FactStore, FactStoreError, parse_source_day
 from bppanalyzer.locking import LockHeld, LockOwnershipLost
 from bppanalyzer.object_store import ObjectStoreError, R2ObjectStore
 from bppanalyzer.operational_evidence import read_status
-from bppanalyzer.publication import ContractViolation, PublicationError, validate_snapshot
+from bppanalyzer.publication import (
+    PRODUCTS,
+    ContractViolation,
+    PublicationError,
+    validate_snapshot,
+)
 
 
 @click.group()
@@ -129,14 +134,14 @@ def verify_command(day: str | None, deep: bool) -> None:
 
 def _validate_local_snapshots(data_root) -> int:
     count = 0
-    for product in ("heroes", "builds"):
-        path = data_root / "snapshots" / product / "latest.json"
+    for product in PRODUCTS:
+        path = data_root / product.local_relpath
         if not path.is_file():
             continue
         value = json.loads(path.read_bytes())
         if not isinstance(value, dict):
-            raise ContractViolation(f"Local {product} snapshot root must be an object")
-        validate_snapshot(product, value)
+            raise ContractViolation(f"Local {product.name} snapshot root must be an object")
+        validate_snapshot(product.name, value)
         count += 1
     return count
 

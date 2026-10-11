@@ -2,24 +2,23 @@ import { toHex } from "../bundle/hex";
 import { type OpenedBundle, openBundle } from "../bundle/open";
 import { BUNDLE_CONTENT_TYPE, BUNDLE_VERSION } from "../bundle/prefix";
 import type { Env } from "../env";
-import { HttpError } from "../errors";
+import { apiError, HttpError } from "../errors";
 import { MAX_BUNDLE_BYTES } from "../limits";
 import { logError, logEvent } from "../observability";
 import {
   type BundleReceipt,
   type CommitOutcome,
   commitBundle,
+  conflictError,
   inspectExistingBundle,
 } from "./bundle-commit";
 
 function parseContentDigest(value: string | null): string {
   const match = /^sha-256=:([A-Za-z0-9+/]{43}=):$/.exec(value ?? "");
   if (match === null) {
-    throw new HttpError(
-      400,
+    throw apiError(
       "invalid_content_digest",
       "Content-Digest must contain exactly one sha-256 value",
-      false,
     );
   }
   try {
@@ -27,23 +26,23 @@ function parseContentDigest(value: string | null): string {
     if (binary.length !== 32) throw new Error("wrong digest length");
     return toHex(Uint8Array.from(binary, (character) => character.charCodeAt(0)));
   } catch {
-    throw new HttpError(400, "invalid_content_digest", "Content-Digest is invalid", false);
+    throw apiError("invalid_content_digest", "Content-Digest is invalid");
   }
 }
 
 function parseContentLength(value: string | null): number {
   if (value === null) {
-    throw new HttpError(411, "content_length_required", "Content-Length is required", false);
+    throw apiError("content_length_required", "Content-Length is required");
   }
   if (!/^[1-9][0-9]*$/.test(value)) {
-    throw new HttpError(400, "invalid_content_length", "Content-Length is invalid", false);
+    throw apiError("invalid_content_length", "Content-Length is invalid");
   }
   const length = Number(value);
   if (!Number.isSafeInteger(length)) {
-    throw new HttpError(400, "invalid_content_length", "Content-Length is invalid", false);
+    throw apiError("invalid_content_length", "Content-Length is invalid");
   }
   if (length >= MAX_BUNDLE_BYTES + 1) {
-    throw new HttpError(413, "bundle_too_large", "Bundle reaches the 8 MiB limit", false);
+    throw apiError("bundle_too_large", "Bundle reaches the 8 MiB limit");
   }
   return length;
 }
@@ -56,30 +55,20 @@ async function validateExistingObject(
 ): Promise<number> {
   const object = await env.BUNDLE_BUCKET.get(key);
   if (object === null) {
-    throw new HttpError(
-      503,
-      "storage_unavailable",
-      "Conditional R2 conflict object disappeared",
-      true,
-    );
+    throw apiError("storage_unavailable", "Conditional R2 conflict object disappeared");
   }
   try {
     const opened = await openBundle(object.body, object.size, null);
     await opened.body.pipeTo(new WritableStream<Uint8Array>());
     const digest = await opened.digest;
     if (opened.descriptor.bundleId !== incomingBundleId || digest !== incomingDigest) {
-      throw new HttpError(
-        409,
-        "bundle_id_conflict",
-        "Bundle ID already has different bytes",
-        false,
-      );
+      throw conflictError("bundle_id_conflict");
     }
     return object.uploaded.getTime();
   } catch (error) {
     if (error instanceof HttpError && error.code === "bundle_id_conflict") throw error;
     logError("bundle.orphan.invalid", { object_key: key, reason: "existing_object_invalid" });
-    throw new HttpError(503, "storage_unavailable", "Existing Bundle object is invalid", true);
+    throw apiError("storage_unavailable", "Existing Bundle object is invalid");
   }
 }
 
@@ -116,7 +105,7 @@ async function putConditionally(
       }
       throw pumpError;
     }
-    throw new HttpError(503, "storage_unavailable", "R2 Bundle write failed", true);
+    throw apiError("storage_unavailable", "R2 Bundle write failed");
   }
 
   if (object === null) {
@@ -138,14 +127,8 @@ async function putConditionally(
   } catch (error) {
     await env.BUNDLE_BUCKET.delete(descriptor.objectKey).catch(() => undefined);
     if (error instanceof HttpError) throw error;
-    throw new HttpError(503, "storage_unavailable", "R2 Bundle streaming failed", true);
+    throw apiError("storage_unavailable", "R2 Bundle streaming failed");
   }
-}
-
-function conflictError(reason: Extract<CommitOutcome, { kind: "conflict" }>["reason"]): HttpError {
-  return reason === "bundle_id_conflict"
-    ? new HttpError(409, reason, "Bundle ID already has different bytes", false)
-    : new HttpError(409, reason, "Run already belongs to another Bundle", false);
 }
 
 export async function ingestBundle(
@@ -154,17 +137,12 @@ export async function ingestBundle(
   requestId: string,
 ): Promise<{ status: 200 | 201; receipt: BundleReceipt }> {
   if (request.headers.get("Content-Type") !== BUNDLE_CONTENT_TYPE) {
-    throw new HttpError(
-      415,
-      "unsupported_content_type",
-      "Bundle content type is unsupported",
-      false,
-    );
+    throw apiError("unsupported_content_type", "Bundle content type is unsupported");
   }
   const contentLength = parseContentLength(request.headers.get("Content-Length"));
   const digest = parseContentDigest(request.headers.get("Content-Digest"));
   if (request.body === null) {
-    throw new HttpError(400, "invalid_content_length", "Bundle body is missing", false);
+    throw apiError("invalid_content_length", "Bundle body is missing");
   }
   const opened = await openBundle(request.body, contentLength, digest);
   const { descriptor } = opened;
@@ -173,7 +151,7 @@ export async function ingestBundle(
     existing = await inspectExistingBundle(env.DB, descriptor, digest);
   } catch (error) {
     await opened.body.cancel(error).catch(() => undefined);
-    throw new HttpError(503, "storage_unavailable", "Bundle index is unavailable", true);
+    throw apiError("storage_unavailable", "Bundle index is unavailable");
   }
   if (existing?.kind === "duplicate") {
     await opened.body.cancel("duplicate Bundle").catch(() => undefined);
@@ -221,13 +199,5 @@ export async function ingestBundle(
     has_screenshot: descriptor.screenshot !== null,
     outcome: "stored",
   });
-  return {
-    status: 201,
-    receipt: {
-      bundle_id: descriptor.bundleId,
-      run_id: descriptor.runId,
-      outcome: "stored",
-      bazaardb_delivery: descriptor.screenshot === null ? "not_applicable" : "created",
-    },
-  };
+  return { status: 201, receipt: outcome.receipt };
 }

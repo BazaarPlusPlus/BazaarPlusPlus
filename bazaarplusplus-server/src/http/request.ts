@@ -1,4 +1,4 @@
-import { HttpError } from "../errors";
+import { apiError } from "../errors";
 
 export function oneQueryValue(
   params: URLSearchParams,
@@ -7,8 +7,10 @@ export function oneQueryValue(
 ): string | null {
   const values = params.getAll(name);
   if (values.length > 1 || (required && values.length === 0)) {
-    throw new HttpError(400, "invalid_query", `${name} must appear exactly once`, false, {
-      field: name,
+    throw apiError("invalid_query", `${name} must appear exactly once`, {
+      details: {
+        field: name,
+      },
     });
   }
   return values[0] ?? null;

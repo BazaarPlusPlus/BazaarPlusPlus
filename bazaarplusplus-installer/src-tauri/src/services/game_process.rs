@@ -57,6 +57,7 @@ pub(crate) enum GameStoppedOperation {
 }
 
 impl GameStoppedOperation {
+    #[cfg(test)]
     const ALL: [Self; 5] = [
         Self::Install,
         Self::Reset,
@@ -75,8 +76,8 @@ impl GameStoppedOperation {
         }
     }
 
-    /// The serialized problem code, used to carry a refusal through the
-    /// `String` error channels of install effects and resets.
+    /// The serialized problem code, which a refusal's diagnostic text starts
+    /// with.
     fn token(self) -> &'static str {
         match self {
             Self::Install => "install_blocked_by_game",
@@ -104,22 +105,6 @@ impl GameRunningRefusal {
             None => problem,
         }
     }
-
-    /// Recovers a refusal that crossed a `String` error channel.
-    pub(crate) fn from_diagnostic(diagnostic: &str) -> Option<Self> {
-        GameStoppedOperation::ALL.into_iter().find_map(|operation| {
-            let rest = diagnostic.strip_prefix(operation.token())?;
-            let inspection_error = if rest.is_empty() {
-                None
-            } else {
-                Some(rest.strip_prefix(": ")?.to_string())
-            };
-            Some(Self {
-                operation,
-                inspection_error,
-            })
-        })
-    }
 }
 
 impl std::fmt::Display for GameRunningRefusal {
@@ -129,12 +114,6 @@ impl std::fmt::Display for GameRunningRefusal {
             write!(f, ": {error}")?;
         }
         Ok(())
-    }
-}
-
-impl From<GameRunningRefusal> for String {
-    fn from(refusal: GameRunningRefusal) -> Self {
-        refusal.to_string()
     }
 }
 
@@ -296,8 +275,8 @@ mod tests {
             let problem = refusal.into_problem();
             assert_eq!(problem.code, code);
             assert_eq!(problem.diagnostic, None);
-            // The string token is the serialized code, so a refusal carried as a
-            // diagnostic and the frontend's code name never drift apart.
+            // The diagnostic token is the serialized code, so refusal text and
+            // the frontend's code name never drift apart.
             assert_eq!(
                 serde_json::to_value(code).unwrap(),
                 serde_json::json!(operation.token())
@@ -327,29 +306,5 @@ mod tests {
                 Ok(())
             );
         }
-    }
-
-    #[test]
-    fn refusals_round_trip_through_string_error_channels() {
-        for operation in GameStoppedOperation::ALL {
-            for inspection_error in [None, Some("cannot run ps: denied".to_string())] {
-                let refusal = GameRunningRefusal {
-                    operation,
-                    inspection_error,
-                };
-                assert_eq!(
-                    GameRunningRefusal::from_diagnostic(&String::from(refusal.clone())),
-                    Some(refusal)
-                );
-            }
-        }
-        assert_eq!(
-            GameRunningRefusal::from_diagnostic("permission denied"),
-            None
-        );
-        assert_eq!(
-            GameRunningRefusal::from_diagnostic("reset_blocked_by_gamex"),
-            None
-        );
     }
 }

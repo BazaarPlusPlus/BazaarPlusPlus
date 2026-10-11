@@ -1,7 +1,7 @@
 import { toHex } from "../bundle/hex";
 import { validIdentifier } from "../bundle/manifest";
 import type { Env } from "../env";
-import { HttpError } from "../errors";
+import { apiError } from "../errors";
 import { oneQueryValue } from "../http/request";
 import { GHOST_DEFAULT_LIMIT, GHOST_LOOKBACK_MS, GHOST_MAX_LIMIT } from "../limits";
 import { logEvent } from "../observability";
@@ -71,48 +71,51 @@ export async function discoverGhostBattles(
   try {
     rateLimit = await env.GHOST_BATTLE_RATE_LIMITER.limit({ key: rateLimitKey });
   } catch {
-    throw new HttpError(503, "storage_unavailable", "Ghost rate limiter is unavailable", true);
+    throw apiError("storage_unavailable", "Ghost rate limiter is unavailable");
   }
   if (!rateLimit.success) {
     logEvent("ghost.discovery", { request_id: requestId, limited: true });
-    throw new HttpError(
-      429,
-      "rate_limited",
-      "Ghost Battle request rate exceeded",
-      true,
-      undefined,
-      { "Retry-After": "60" },
-    );
+    throw apiError("rate_limited", "Ghost Battle request rate exceeded", {
+      headers: { "Retry-After": "60" },
+    });
   }
 
   const url = new URL(request.url);
   const allowed = new Set(["player_account_id", "limit"]);
   for (const key of url.searchParams.keys()) {
     if (!allowed.has(key)) {
-      throw new HttpError(400, "invalid_query", `Unknown query parameter: ${key}`, false, {
-        field: key,
+      throw apiError("invalid_query", `Unknown query parameter: ${key}`, {
+        details: {
+          field: key,
+        },
       });
     }
   }
   const accountId = oneQueryValue(url.searchParams, "player_account_id", true);
   if (accountId === null || !validIdentifier(accountId)) {
-    throw new HttpError(400, "invalid_query", "player_account_id is invalid", false, {
-      field: "player_account_id",
+    throw apiError("invalid_query", "player_account_id is invalid", {
+      details: {
+        field: "player_account_id",
+      },
     });
   }
   const limitValue = oneQueryValue(url.searchParams, "limit", false);
   let limit = GHOST_DEFAULT_LIMIT;
   if (limitValue !== null) {
     if (!/^[1-9][0-9]*$/.test(limitValue)) {
-      throw new HttpError(400, "invalid_query", "limit must be an integer", false, {
-        field: "limit",
+      throw apiError("invalid_query", "limit must be an integer", {
+        details: {
+          field: "limit",
+        },
       });
     }
     limit = Number(limitValue);
   }
   if (!Number.isSafeInteger(limit) || limit < 1 || limit > GHOST_MAX_LIMIT) {
-    throw new HttpError(400, "invalid_query", "limit must be between 1 and 200", false, {
-      field: "limit",
+    throw apiError("invalid_query", "limit must be between 1 and 200", {
+      details: {
+        field: "limit",
+      },
     });
   }
 
@@ -141,7 +144,7 @@ export async function discoverGhostBattles(
       .all<GhostRow>();
     rows = result.results;
   } catch {
-    throw new HttpError(503, "storage_unavailable", "Ghost Battle query failed", true);
+    throw apiError("storage_unavailable", "Ghost Battle query failed");
   }
 
   const downloads = await signDownloadPage(

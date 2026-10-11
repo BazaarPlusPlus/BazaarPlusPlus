@@ -7,16 +7,23 @@ import resource
 import shutil
 import sys
 from collections.abc import Callable
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, fields
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
-from typing import Any, TypedDict
+from typing import Any, TypedDict, cast
 
 from bppanalyzer.bundle_source import SourcePerformance
 from bppanalyzer.durable import atomic_replace, aware_utc, canonical_json, utc_timestamp
 from bppanalyzer.fact_store import FactPruneReport, FactStore, parse_source_day
 from bppanalyzer.hour_intake import is_hour_settled
-from bppanalyzer.publication import AnalysisWindow, BuildStats, FactStats, HeroStats
+from bppanalyzer.publication import (
+    PRODUCTS,
+    AnalysisWindow,
+    BuildStats,
+    ConsumerProduct,
+    FactStats,
+    HeroStats,
+)
 
 
 class WindowReport(TypedDict):
@@ -82,7 +89,7 @@ class RunReport:
 
     @classmethod
     def empty(cls) -> RunReport:
-        value: RunReportValue = {
+        value = {
             "window": None,
             "downloads": {
                 "expected_bundles": 0,
@@ -104,16 +111,12 @@ class RunReport:
                 "included_runs": 0,
                 "included_battles": 0,
             },
-            "heroes": {
-                "participating_runs": 0,
-                "participating_matchup_battles": 0,
-                "published": False,
-            },
-            "builds": {
-                "eligible_layout_runs": 0,
-                "candidate_builds": 0,
-                "published_builds": 0,
-                "published": False,
+            **{
+                product.name: {
+                    **{stat.name: 0 for stat in fields(product.stats_type)},
+                    "published": False,
+                }
+                for product in PRODUCTS
             },
             "retention": {
                 "source_days_pruned": 0,
@@ -122,7 +125,7 @@ class RunReport:
                 "bytes_pruned": 0,
             },
         }
-        return cls(value)
+        return cls(cast(RunReportValue, value))
 
     def select_window(self, window: AnalysisWindow | None) -> None:
         self.value["window"] = (
@@ -167,26 +170,21 @@ class RunReport:
             download_latency_ms_p95=download_latency_ms_p95,
         )
 
-    def record_product(self, stats: HeroStats | BuildStats) -> None:
-        if isinstance(stats, HeroStats):
-            self.value["heroes"].update(
-                participating_runs=stats.participating_runs,
-                participating_matchup_battles=stats.participating_matchup_battles,
-            )
-        else:
-            self.value["builds"].update(
-                eligible_layout_runs=stats.eligible_layout_runs,
-                candidate_builds=stats.candidate_builds,
-                published_builds=stats.published_builds,
-            )
+    def record_product(self, product: ConsumerProduct, stats: HeroStats | BuildStats) -> None:
+        if not isinstance(stats, product.stats_type):
+            raise ValueError(f"Stats do not belong to consumer product: {product.name}")
+        self._product_report(product).update(asdict(stats))
 
-    def mark_published(self, product: str) -> None:
-        if product == "heroes":
-            self.value["heroes"]["published"] = True
-        elif product == "builds":
-            self.value["builds"]["published"] = True
-        else:
-            raise ValueError(f"Unknown consumer product: {product}")
+    def mark_published(self, product: ConsumerProduct) -> None:
+        self._product_report(product)["published"] = True
+
+    def all_published(self) -> bool:
+        return all(self._product_report(product)["published"] for product in PRODUCTS)
+
+    def _product_report(self, product: ConsumerProduct) -> dict[str, object]:
+        if product not in PRODUCTS:
+            raise ValueError(f"Unknown consumer product: {product.name}")
+        return cast(dict[str, dict[str, object]], self.value)[product.name]
 
     def record_retention(self, report: FactPruneReport) -> None:
         self.value["retention"] = {
@@ -519,7 +517,8 @@ def _build_status(
             ],
         },
         "publication": {
-            product: _local_snapshot_status(root, product) for product in ("heroes", "builds")
+            product.name: _local_snapshot_status(root / product.local_relpath)
+            for product in PRODUCTS
         },
         "last_run": last_run.to_dict() if last_run is not None else None,
         "current_run": None,
@@ -528,8 +527,7 @@ def _build_status(
     }
 
 
-def _local_snapshot_status(root: Path, product: str) -> dict[str, object]:
-    path = root / "snapshots" / product / "latest.json"
+def _local_snapshot_status(path: Path) -> dict[str, object]:
     try:
         payload = json.loads(path.read_bytes())
         window_end = payload["window"]["end"]
