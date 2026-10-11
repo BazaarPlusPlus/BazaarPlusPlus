@@ -379,6 +379,7 @@ dependencies = [
  "image",
  "include_dir",
  "keyvalues-parser",
+ "libc",
  "rusqlite",
  "serde",
  "serde_json",
