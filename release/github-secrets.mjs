@@ -11,7 +11,8 @@ export const SCOPES = Object.freeze([
   'repository-secret',
   'repository-variable',
   'release-secret',
-  'release-variable'
+  'release-variable',
+  'analyzer-secret'
 ]);
 export const RELEASE_STAGES = Object.freeze(['prepare', 'release']);
 export const RELEASE_PLATFORMS = Object.freeze(['macos', 'windows']);

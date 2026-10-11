@@ -84,14 +84,16 @@ export const sections = {
   },
   cloudflare: {
     profile: 'release',
-    keys: [...cloudflareKeys, 'BPP_GAME_LIBS_TOKEN'],
+    keys: [...cloudflareKeys, 'BPP_GAME_LIBS_TOKEN', 'BPP_ANALYZER_R2_TOKEN'],
     inject: cloudflareKeys,
-    optional: ['BPP_GAME_LIBS_TOKEN'],
+    optional: ['BPP_GAME_LIBS_TOKEN', 'BPP_ANALYZER_R2_TOKEN'],
     required: { release: cloudflareKeys },
     notes: [
       '# CLOUDFLARE_API_TOKEN is the operator token: R2 read and write on bppinstaller,',
       '# bazaarplusplus-game-libs and both metrics buckets, plus what Wrangler needs.',
-      '# BPP_GAME_LIBS_TOKEN is the read-only token checks.yml uses; only secrets push reads it.'
+      '# BPP_GAME_LIBS_TOKEN is the read-only token checks.yml uses; only secrets push reads it.',
+      '# BPP_ANALYZER_R2_TOKEN is the analyzer.yml token: R2 read and write on bazaarplusplus-metrics-v6',
+      '# and bazaarplusplus-analyzer-state-v6 only; only secrets push reads it.'
     ]
   }
 };
