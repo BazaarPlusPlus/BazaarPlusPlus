@@ -30,8 +30,9 @@ pub(crate) fn repair_deployed_game(game_path: &Path, stub: &Path) -> Result<(), 
     }
 }
 
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
+use crate::services::action_error::ActionError;
 use crate::services::data_maintenance::DataMaintenanceLock;
 use crate::services::game_process::{
     ensure_game_stopped_with, GameProcessProbe, GameStoppedOperation, SystemGameProcessProbe,
@@ -40,17 +41,11 @@ use crate::stream::runtime::StreamRuntime;
 
 use super::{debug_error, debug_log};
 
-/// Stable error-code prefixes returned when a reset partially fails.
-/// `install_action_problem` turns them into `InstallPartialFailure` with the
-/// undeleted paths.
-pub(crate) const RESET_BPP_DATA_ERR_PARTIAL_FAILURE: &str = "bpp_data_reset_partial_failure";
-pub(crate) const RESET_BEPINEX_ERR_PARTIAL_FAILURE: &str = "bepinex_reset_partial_failure";
-
 pub async fn reset_bpp_data(
     maintenance: &DataMaintenanceLock,
     stream_runtime: &StreamRuntime,
     game_path: String,
-) -> Result<bool, String> {
+) -> Result<bool, ActionError> {
     reset_bpp_data_with(
         maintenance,
         stream_runtime,
@@ -67,7 +62,7 @@ pub(crate) async fn reset_bpp_data_with(
     stream_runtime: &StreamRuntime,
     game_path: String,
     probe: impl GameProcessProbe + Send + 'static,
-) -> Result<bool, String> {
+) -> Result<bool, ActionError> {
     maintenance
         .run_blocking_with_overlay_stopped(stream_runtime, move || {
             reset_bpp_data_blocking_with(Path::new(&game_path), &probe)
@@ -78,7 +73,7 @@ pub(crate) async fn reset_bpp_data_with(
 fn reset_bpp_data_blocking_with(
     game_path: &Path,
     probe: &impl GameProcessProbe,
-) -> Result<bool, String> {
+) -> Result<bool, ActionError> {
     payload::ensure_valid_game_path(game_path)?;
     ensure_game_stopped_with(probe, game_path, GameStoppedOperation::Reset)?;
 
@@ -86,7 +81,7 @@ fn reset_bpp_data_blocking_with(
     let had_resettable_data = data_dir.exists();
     let report = payload::cleanup_bpp_data_directory(game_path);
     if !report.is_empty() {
-        return Err(format_partial_failure(&report.failed));
+        return Err(ActionError::PartialFailure(report.failed));
     }
 
     debug_log!(
@@ -94,30 +89,6 @@ fn reset_bpp_data_blocking_with(
         game_path.display()
     );
     Ok(had_resettable_data)
-}
-
-fn format_partial_failure(paths: &[PathBuf]) -> String {
-    format!(
-        "{RESET_BPP_DATA_ERR_PARTIAL_FAILURE}:{}",
-        join_failure_paths(paths)
-    )
-}
-
-fn format_bepinex_partial_failure(paths: &[PathBuf]) -> String {
-    format!(
-        "{RESET_BEPINEX_ERR_PARTIAL_FAILURE}:{}",
-        join_failure_paths(paths)
-    )
-}
-
-fn join_failure_paths(paths: &[PathBuf]) -> String {
-    // Use a delimiter that won't collide with Windows drive letters or POSIX
-    // separators. The frontend splits on `\u{1f}` to recover the list.
-    paths
-        .iter()
-        .map(|path| path.display().to_string())
-        .collect::<Vec<_>>()
-        .join("\u{1f}")
 }
 
 /// Blunt "wipe the whole BepInEx folder" repair. Deletes only `<game>/BepInEx`
@@ -129,7 +100,7 @@ fn join_failure_paths(paths: &[PathBuf]) -> String {
 pub async fn reset_bepinex_folder(
     maintenance: &DataMaintenanceLock,
     game_path: String,
-) -> Result<bool, String> {
+) -> Result<bool, ActionError> {
     reset_bepinex_folder_with(maintenance, game_path, SystemGameProcessProbe).await
 }
 
@@ -137,7 +108,7 @@ pub(crate) async fn reset_bepinex_folder_with(
     maintenance: &DataMaintenanceLock,
     game_path: String,
     probe: impl GameProcessProbe + Send + 'static,
-) -> Result<bool, String> {
+) -> Result<bool, ActionError> {
     maintenance
         .run_blocking(move || reset_bepinex_folder_blocking_with(Path::new(&game_path), &probe))
         .await?
@@ -146,14 +117,14 @@ pub(crate) async fn reset_bepinex_folder_with(
 fn reset_bepinex_folder_blocking_with(
     game_path: &Path,
     probe: &impl GameProcessProbe,
-) -> Result<bool, String> {
+) -> Result<bool, ActionError> {
     payload::ensure_valid_game_path(game_path)?;
     ensure_game_stopped_with(probe, game_path, GameStoppedOperation::BepinexReset)?;
 
     let had_bepinex = game_path.join("BepInEx").exists();
     let report = payload::reset_bepinex_directory(game_path);
     if !report.is_empty() {
-        return Err(format_bepinex_partial_failure(&report.failed));
+        return Err(ActionError::PartialFailure(report.failed));
     }
 
     debug_log!("Reset BepInEx folder at {}", game_path.display());
@@ -276,7 +247,6 @@ pub fn uninstall_bpp(
 mod tests {
     use super::*;
     use crate::problem::SemanticProblemCode;
-    use crate::services::install::install_action_problem;
 
     fn stopped(_: &Path) -> Result<bool, String> {
         Ok(false)
@@ -409,11 +379,11 @@ mod tests {
                 reset_bepinex_folder_blocking_with(tmp.path(), &refusing).unwrap_err();
 
             assert_eq!(
-                install_action_problem("reset_bpp_data", reset).code,
+                reset.into_problem("reset_bpp_data").code,
                 SemanticProblemCode::ResetBlockedByGame
             );
             assert_eq!(
-                install_action_problem("reset_bepinex", bepinex_reset).code,
+                bepinex_reset.into_problem("reset_bepinex").code,
                 SemanticProblemCode::BepinexResetBlockedByGame
             );
             assert!(data_dir.join("history.db").is_file());
@@ -443,27 +413,14 @@ mod tests {
             .unwrap_err();
 
         assert_eq!(
-            install_action_problem("reset_bpp_data", reset).code,
+            reset.into_problem("reset_bpp_data").code,
             SemanticProblemCode::ResetBlockedByGame
         );
         assert_eq!(
-            install_action_problem("reset_bepinex", bepinex_reset).code,
+            bepinex_reset.into_problem("reset_bepinex").code,
             SemanticProblemCode::BepinexResetBlockedByGame
         );
         assert!(data_dir.is_dir());
         assert!(tmp.path().join("BepInEx").is_dir());
-    }
-
-    #[test]
-    fn test_format_partial_failure_uses_unit_separator() {
-        let game_path = Path::new("C:/Games/The Bazaar");
-        let formatted = format_partial_failure(&[
-            crate::services::paths::database_path(game_path),
-            crate::services::paths::bpp_data_dir(game_path).join("Identity/observation.json"),
-        ]);
-
-        assert!(formatted.starts_with(RESET_BPP_DATA_ERR_PARTIAL_FAILURE));
-        assert!(formatted.contains('\u{1f}'));
-        assert!(formatted.ends_with("observation.json"));
     }
 }

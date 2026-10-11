@@ -10,6 +10,10 @@
 
 use std::path::Path;
 
+use crate::services::action_error::ActionError;
+#[cfg(target_os = "macos")]
+use crate::services::game_process::{ensure_game_stopped, GameStoppedOperation};
+
 #[cfg(target_os = "macos")]
 use std::path::PathBuf;
 
@@ -346,11 +350,6 @@ mod imp {
                     .to_string(),
             );
         }
-        crate::services::game_process::ensure_game_stopped(
-            game_path,
-            crate::services::game_process::GameStoppedOperation::Install,
-        )?;
-
         let layout = bundle_paths(game_path)?;
 
         // Step 2: identify the real Unity binary and preserve exactly it as
@@ -500,13 +499,18 @@ pub(super) fn with_finalized_bundle(
     }
 }
 
+/// Refuses while the game runs: rewriting the bundle under a live process
+/// would leave it unsigned.
 #[cfg(target_os = "macos")]
-pub(crate) fn install_trampoline(resource_dir: &Path, game_path: &Path) -> Result<(), String> {
-    imp::install_trampoline(resource_dir, game_path)
+pub(crate) fn install_trampoline(resource_dir: &Path, game_path: &Path) -> Result<(), ActionError> {
+    ensure_game_stopped(game_path, GameStoppedOperation::Install)?;
+    Ok(imp::install_trampoline(resource_dir, game_path)?)
 }
 
 #[cfg(target_os = "macos")]
 pub(super) fn repair_with_stub(game_path: &Path, stub: &Path) -> Result<(), String> {
+    ensure_game_stopped(game_path, GameStoppedOperation::Install)
+        .map_err(|refusal| refusal.to_string())?;
     imp::install_with_stub(game_path, stub)
 }
 
@@ -694,7 +698,10 @@ pub(crate) fn is_current_trampoline(_app: &AppHandle, _game_path: &Path) -> Resu
 }
 
 #[cfg(not(target_os = "macos"))]
-pub(crate) fn install_trampoline(_resource_dir: &Path, _game_path: &Path) -> Result<(), String> {
+pub(crate) fn install_trampoline(
+    _resource_dir: &Path,
+    _game_path: &Path,
+) -> Result<(), ActionError> {
     Ok(())
 }
 

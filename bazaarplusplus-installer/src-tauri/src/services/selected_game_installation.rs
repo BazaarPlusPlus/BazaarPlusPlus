@@ -7,7 +7,6 @@ use crate::services::game_path::{
     fallback_game_candidates, fs_probe, resolve_game_path_core, GamePathAcceptance, GamePathInputs,
     GamePathProbe, GamePathResolution,
 };
-use crate::services::path::normalize_requested_game_path;
 use crate::services::startup::InstallerContextState;
 use tauri::Manager;
 
@@ -112,6 +111,14 @@ impl SelectedGameInstallationState {
             probe,
         )
     }
+}
+
+fn normalize_requested_game_path(game_path: Option<String>) -> Option<PathBuf> {
+    game_path
+        .as_deref()
+        .map(str::trim)
+        .filter(|path| !path.is_empty())
+        .map(PathBuf::from)
 }
 
 #[cfg(test)]

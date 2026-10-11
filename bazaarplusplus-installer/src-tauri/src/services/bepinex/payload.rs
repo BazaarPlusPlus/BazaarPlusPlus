@@ -3,8 +3,6 @@ use std::path::{Path, PathBuf};
 use std::thread;
 use std::time::Duration;
 
-use crate::config::BAZAAR_DATA_DIRECTORY;
-
 pub(super) const BPP_CONFIG_RELATIVE_PATH: &str = "BepInEx/config/BazaarPlusPlus.cfg";
 
 #[derive(serde::Deserialize)]
@@ -460,7 +458,7 @@ pub(super) fn restore_preserved_file(
 }
 
 pub(super) fn cleanup_bpp_data_directory(game_path: &Path) -> RemovalReport {
-    remove_dir_with_retry(&game_path.join(BAZAAR_DATA_DIRECTORY))
+    remove_dir_with_retry(&crate::services::paths::bpp_data_dir(game_path))
 }
 
 /// Blunt whole-folder wipe of `<game>/BepInEx` — deletes BazaarPlusPlus AND any

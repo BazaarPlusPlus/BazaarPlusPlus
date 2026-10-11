@@ -16,16 +16,13 @@ use std::path::Path;
 
 use crate::services::game_path::GamePathAcceptance;
 use crate::services::{
-    bepinex::{
-        reset_bepinex_folder, reset_bpp_data, uninstall_bpp, RESET_BEPINEX_ERR_PARTIAL_FAILURE,
-        RESET_BPP_DATA_ERR_PARTIAL_FAILURE,
-    },
+    action_error::ActionError,
+    bepinex::{reset_bepinex_folder, reset_bpp_data, uninstall_bpp},
     data_maintenance::DataMaintenanceLock,
     detect::detect_for_install,
-    game_process::GameRunningRefusal,
     legacy_data::{
         delete_legacy_root, installer_settings_directory, legacy_data_state,
-        DeleteLegacyRootResult, LegacyDataState, LEGACY_ROOT_ERR_PARTIAL_FAILURE,
+        DeleteLegacyRootResult, LegacyDataState,
     },
     selected_game_installation::SelectedGameInstallationState,
     startup::InstallerContextState,
@@ -239,34 +236,11 @@ fn install_detection_problem(diagnostic: String) -> SemanticProblem {
         .with_diagnostic(diagnostic)
 }
 
-pub(crate) fn install_action_problem(operation: &str, diagnostic: String) -> SemanticProblem {
-    if let Some(refusal) = GameRunningRefusal::from_diagnostic(&diagnostic) {
-        return refusal.into_problem().with_param("operation", operation);
-    }
-
-    for prefix in [
-        RESET_BPP_DATA_ERR_PARTIAL_FAILURE,
-        RESET_BEPINEX_ERR_PARTIAL_FAILURE,
-        LEGACY_ROOT_ERR_PARTIAL_FAILURE,
-    ] {
-        if let Some(paths) = diagnostic
-            .strip_prefix(prefix)
-            .and_then(|remainder| remainder.strip_prefix(':'))
-        {
-            let count = paths
-                .split('\u{1f}')
-                .filter(|path| !path.trim().is_empty())
-                .count();
-            return SemanticProblem::new(SemanticProblemCode::InstallPartialFailure)
-                .with_param("operation", operation)
-                .with_param("count", count.to_string())
-                .with_param("paths", paths);
-        }
-    }
-
-    SemanticProblem::new(SemanticProblemCode::InstallActionFailed)
-        .with_param("operation", operation)
-        .with_diagnostic(diagnostic)
+pub(crate) fn install_action_problem(
+    operation: &str,
+    error: impl Into<ActionError>,
+) -> SemanticProblem {
+    error.into().into_problem(operation)
 }
 
 fn has_resettable_bpp_data(game_path: Option<&str>) -> bool {
@@ -315,12 +289,8 @@ fn open_url(url: &str) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::{
-        has_bepinex_directory, has_resettable_bpp_data, install_action_problem, install_warnings,
-        InstallWarningCode,
+        has_bepinex_directory, has_resettable_bpp_data, install_warnings, InstallWarningCode,
     };
-    use crate::problem::SemanticProblemCode;
-    use crate::services::bepinex::RESET_BPP_DATA_ERR_PARTIAL_FAILURE;
-    use crate::services::game_process::{GameRunningRefusal, GameStoppedOperation};
 
     #[test]
     fn test_has_resettable_bpp_data_detects_existing_data_directory() {
@@ -409,39 +379,5 @@ mod tests {
         );
 
         assert!(warnings.is_empty());
-    }
-
-    #[test]
-    fn install_failures_classify_known_reset_conditions_and_generic_actions() {
-        let blocked = install_action_problem(
-            "install",
-            GameRunningRefusal {
-                operation: GameStoppedOperation::Install,
-                inspection_error: None,
-            }
-            .into(),
-        );
-        assert_eq!(blocked.code, SemanticProblemCode::InstallBlockedByGame);
-        assert_eq!(
-            blocked.params.get("operation").map(String::as_str),
-            Some("install")
-        );
-        assert_eq!(blocked.diagnostic, None);
-
-        let partial = install_action_problem(
-            "reset_bpp_data",
-            format!("{RESET_BPP_DATA_ERR_PARTIAL_FAILURE}:/tmp/a\u{1f}/tmp/b"),
-        );
-        assert_eq!(partial.code, SemanticProblemCode::InstallPartialFailure);
-        assert_eq!(partial.params.get("count").map(String::as_str), Some("2"));
-        assert_eq!(
-            partial.params.get("paths").map(String::as_str),
-            Some("/tmp/a\u{1f}/tmp/b")
-        );
-        assert_eq!(partial.diagnostic, None);
-
-        let generic = install_action_problem("install", "permission denied".to_string());
-        assert_eq!(generic.code, SemanticProblemCode::InstallActionFailed);
-        assert_eq!(generic.diagnostic.as_deref(), Some("permission denied"));
     }
 }

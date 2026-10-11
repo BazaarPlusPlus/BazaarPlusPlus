@@ -280,7 +280,7 @@ fn seed_history(fixture: &Fixture) {
 }
 
 fn history(fixture: &Fixture) -> History {
-    History::from_resolved_game_path_for_page_with(Some(fixture.game.clone()), || false).unwrap()
+    History::at_with(Some(fixture.game.clone()), || false).unwrap()
 }
 
 #[test]

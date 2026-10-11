@@ -10,16 +10,16 @@ use std::path::{Path, PathBuf};
 use serde::Serialize;
 
 use crate::config::BAZAAR_DATA_DIRECTORY;
+use crate::services::action_error::ActionError;
 use crate::services::bepinex::{ensure_valid_game_path, remove_dir_with_retry};
 use crate::services::data_maintenance::DataMaintenanceLock;
 use crate::services::game_process::{
     ensure_game_stopped_with, GameProcessProbe, GameStoppedOperation, SystemGameProcessProbe,
 };
 
-/// Stable error-code prefixes for a refused or partially failed Legacy Root
-/// deletion; `install_action_problem` turns them into semantic problems.
-pub(crate) const LEGACY_ROOT_ERR_UNKNOWN: &str = "legacy_root_unknown";
-pub(crate) const LEGACY_ROOT_ERR_PARTIAL_FAILURE: &str = "legacy_root_delete_partial_failure";
+/// Diagnostic prefix for a name that is not a Legacy Root this installer may
+/// delete.
+const LEGACY_ROOT_ERR_UNKNOWN: &str = "legacy_root_unknown";
 
 /// The mod's Payload file that names the Data Root it writes. Mods before 6.0
 /// ship it without `dataRootDirectoryName`.
@@ -260,7 +260,7 @@ pub(crate) async fn delete_legacy_root(
     maintenance: &DataMaintenanceLock,
     game_path: String,
     name: String,
-) -> Result<DeleteLegacyRootResult, String> {
+) -> Result<DeleteLegacyRootResult, ActionError> {
     let installer_settings_dir = installer_settings_directory();
     maintenance
         .run_blocking(move || {
@@ -279,7 +279,7 @@ pub(crate) fn delete_legacy_root_blocking_with(
     name: &str,
     installer_settings_dir: &Path,
     probe: &impl GameProcessProbe,
-) -> Result<DeleteLegacyRootResult, String> {
+) -> Result<DeleteLegacyRootResult, ActionError> {
     let root = LegacyRoot::from_directory_name(name)
         .ok_or_else(|| format!("{LEGACY_ROOT_ERR_UNKNOWN}:{name}"))?;
     ensure_valid_game_path(game_path)?;
@@ -287,22 +287,14 @@ pub(crate) fn delete_legacy_root_blocking_with(
 
     let path = root.path_in(game_path);
     if same_directory(&path, installer_settings_dir) {
-        return Err(format!("{LEGACY_ROOT_ERR_UNKNOWN}:{name}"));
+        return Err(format!("{LEGACY_ROOT_ERR_UNKNOWN}:{name}").into());
     }
     let removed = is_real_directory(&path);
     if removed {
         // The same removal Reset uses for the current Data Root.
         let report = remove_dir_with_retry(&path);
         if !report.is_empty() {
-            return Err(format!(
-                "{LEGACY_ROOT_ERR_PARTIAL_FAILURE}:{}",
-                report
-                    .failed
-                    .iter()
-                    .map(|failed| failed.display().to_string())
-                    .collect::<Vec<_>>()
-                    .join("\u{1f}")
-            ));
+            return Err(ActionError::PartialFailure(report.failed));
         }
     }
     Ok(DeleteLegacyRootResult {
@@ -315,7 +307,6 @@ pub(crate) fn delete_legacy_root_blocking_with(
 mod tests {
     use super::*;
     use crate::problem::SemanticProblemCode;
-    use crate::services::install::install_action_problem;
 
     fn stopped(_: &Path) -> Result<bool, String> {
         Ok(false)
@@ -428,7 +419,7 @@ mod tests {
         )
         .unwrap_err();
         assert_eq!(
-            install_action_problem("delete_legacy_root", refused).code,
+            refused.into_problem("delete_legacy_root").code,
             SemanticProblemCode::InstallActionFailed
         );
         assert!(settings.join("stream-overlay-crop.json").is_file());
@@ -578,7 +569,7 @@ mod tests {
             let refused =
                 delete_legacy_root_blocking_with(game.path(), name, &no_settings_dir(), &stopped)
                     .unwrap_err();
-            let problem = install_action_problem("delete_legacy_root", refused);
+            let problem = refused.into_problem("delete_legacy_root");
             assert_eq!(problem.code, SemanticProblemCode::InstallActionFailed);
             assert_eq!(
                 problem.params.get("operation").map(String::as_str),
@@ -630,7 +621,7 @@ mod tests {
             .unwrap_err();
 
             assert_eq!(
-                install_action_problem("delete_legacy_root", refused).code,
+                refused.into_problem("delete_legacy_root").code,
                 SemanticProblemCode::LegacyDeleteBlockedByGame
             );
             assert!(game
@@ -665,7 +656,7 @@ mod tests {
             .unwrap_err();
 
         assert_eq!(
-            install_action_problem("delete_legacy_root", refused).code,
+            refused.into_problem("delete_legacy_root").code,
             SemanticProblemCode::LegacyDeleteBlockedByGame
         );
         assert!(game.path().join("BazaarPlusPlusV5").is_dir());
