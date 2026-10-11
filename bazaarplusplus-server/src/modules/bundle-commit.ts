@@ -95,7 +95,6 @@ function buildStatements(
   digest: string,
   times: CommitTimes,
 ): NamedStatement[] {
-  const screenshot = descriptor.screenshot;
   const battles = JSON.stringify(descriptor.battles);
   return [
     {
@@ -104,10 +103,8 @@ function buildStatements(
         .prepare(
           `INSERT INTO bundles (
             bundle_id, run_id, uploader_account_id, object_key, bundle_sha256,
-            bundle_version, manifest_bytes, object_bytes, client_created_at_ms,
-            stored_at_ms, available_at_ms, run_format_version, run_bytes, run_sha256,
-            has_screenshot, screenshot_content_type, screenshot_bytes, screenshot_sha256
-          ) VALUES (?1, ?2, ?3, ?4, ?5, 6, ?6, ?7, ?8, ?9, ?10, 6, ?11, ?12, ?13, ?14, ?15, ?16)`,
+            object_bytes, client_created_at_ms, stored_at_ms, available_at_ms, has_screenshot
+          ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)`,
         )
         .bind(
           descriptor.bundleId,
@@ -115,17 +112,11 @@ function buildStatements(
           descriptor.uploaderAccountId,
           descriptor.objectKey,
           digest,
-          descriptor.manifestBytes,
           descriptor.objectBytes,
           descriptor.createdAtMs,
           times.storedAtMs,
           times.availableAtMs,
-          descriptor.run.length,
-          descriptor.run.sha256,
-          screenshot === null ? 0 : 1,
-          screenshot?.contentType ?? null,
-          screenshot?.length ?? null,
-          screenshot?.sha256 ?? null,
+          descriptor.screenshot === null ? 0 : 1,
         ),
     },
     {
@@ -175,10 +166,10 @@ function buildStatements(
       name: "insert_uploader",
       statement: db
         .prepare(
-          `INSERT INTO bundle_uploaders (player_account_id, first_bundle_at_ms)
-           VALUES (?1, ?2) ON CONFLICT(player_account_id) DO NOTHING`,
+          `INSERT INTO bundle_uploaders (player_account_id)
+           VALUES (?1) ON CONFLICT(player_account_id) DO NOTHING`,
         )
-        .bind(descriptor.uploaderAccountId, times.availableAtMs),
+        .bind(descriptor.uploaderAccountId),
     },
   ];
 }

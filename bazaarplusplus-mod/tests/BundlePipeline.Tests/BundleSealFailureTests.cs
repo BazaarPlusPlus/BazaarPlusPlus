@@ -413,7 +413,12 @@ internal static class BundleSealFailureTests
                         OpponentAccountId = "account-opponent",
                         OpponentHero = "Pygmalien",
                     },
-                    Outcome = new PvpBattleOutcome { Result = "Win" },
+                    Outcome = new PvpBattleOutcome
+                    {
+                        Result = "Win",
+                        WinnerCombatantId = "Player",
+                        LoserCombatantId = "Opponent",
+                    },
                     Snapshots = new PvpBattleSnapshots
                     {
                         PlayerHand = Empty(),

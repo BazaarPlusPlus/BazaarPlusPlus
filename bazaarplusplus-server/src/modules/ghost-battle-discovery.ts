@@ -15,7 +15,7 @@ interface GhostBattleSummary {
   day: number;
   hour: number;
   result: string;
-  winner_combatant_id: string | null;
+  winner_combatant_id: string;
   player: {
     account_id: string;
     display_name: string;
@@ -45,7 +45,7 @@ interface GhostRow {
   day: number;
   hour: number;
   result: string;
-  winner_combatant_id: string | null;
+  winner_combatant_id: string;
   player_display_name: string;
   player_hero_name: string | null;
   opponent_hero_name: string | null;

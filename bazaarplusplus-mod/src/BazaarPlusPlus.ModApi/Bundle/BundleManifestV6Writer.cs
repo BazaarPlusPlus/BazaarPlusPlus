@@ -69,8 +69,8 @@ internal static class BundleManifestV6Writer
         WriteNullable(writer, "encounter_id", battle.EncounterId);
         Write(writer, "combat_kind", battle.CombatKind);
         Write(writer, "result", battle.Result);
-        WriteNullable(writer, "winner_combatant_id", battle.WinnerCombatantId);
-        WriteNullable(writer, "loser_combatant_id", battle.LoserCombatantId);
+        Write(writer, "winner_combatant_id", battle.WinnerCombatantId);
+        Write(writer, "loser_combatant_id", battle.LoserCombatantId);
         Write(writer, "is_final_battle", battle.IsFinalBattle);
         writer.WritePropertyName("player");
         WriteCombatant(writer, battle.Player);

@@ -19,8 +19,8 @@
               "encounter_id": null,
               "combat_kind": "PVPCombat",
               "result": "win",
-              "winner_combatant_id": null,
-              "loser_combatant_id": null,
+              "winner_combatant_id": "Player",
+              "loser_combatant_id": "Opponent",
               "is_final_battle": true,
               "player": {
                 "account_id": "account-001",
@@ -206,8 +206,8 @@
   },
   "run_payloads": {
     "run-only": {
-      "messagepack_bytes": 483,
-      "sha256": "704e5d6b76dab837d448a8a1937364bf6035f96476b89261496773ea6b89ba4a"
+      "messagepack_bytes": 497,
+      "sha256": "7d7c5b517cda5a9ddcff6c882e248360fb4074c0ba176eed8cce8968e936cafc"
     },
     "screenshot": {
       "messagepack_bytes": 105,
@@ -226,8 +226,8 @@
       "sha256": "fa101f21ad07469ca63218741b413412d5624d1dbcbbf3b072af98270aaeaa41"
     },
     "corrupt-replay": {
-      "messagepack_bytes": 404,
-      "sha256": "106b428ee21b694c683553f319631f4598e441c231906331509421b1b6c6c8ad"
+      "messagepack_bytes": 418,
+      "sha256": "7459d1cd88fc671c01790e641bdb16fdcdd38468f57a9fb45cb27a47e3734ded"
     }
   },
   "run_screenshots": {

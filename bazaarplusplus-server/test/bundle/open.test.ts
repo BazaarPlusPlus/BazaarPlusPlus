@@ -6,7 +6,7 @@ import runOnlyBase64 from "../../contracts/v6/fixtures/run-only.bundle.b64?raw";
 import manifest from "../../contracts/v6/fixtures/run-only.manifest.json";
 import segmentMismatchBase64 from "../../contracts/v6/fixtures/segment-digest-mismatch.bundle.b64?raw";
 import { openBundle } from "../../src/bundle/open";
-import { decodeBase64, stream } from "../fixtures/bundle";
+import { decodeBase64, makeBundleFixture, sealBundle, stream } from "../fixtures/bundle";
 
 async function rejection(promise: Promise<unknown>): Promise<unknown> {
   return promise.then(
@@ -143,6 +143,34 @@ describe("openBundle", () => {
     await expect(opened.body.pipeTo(new WritableStream<Uint8Array>())).resolves.toBeUndefined();
     await expect(opened.digest).resolves.toBe(golden.sha256);
   });
+
+  test.each(["winner_combatant_id", "loser_combatant_id"])(
+    "rejects a Battle whose %s is null or missing",
+    async (field) => {
+      const { manifest } = await makeBundleFixture();
+      const run = new Uint8Array([0x1f, 0x8b, 0x08, 0, 5, 4, 3, 2, 1]);
+      const projection = (manifest.run as { projection: { battles: Record<string, unknown>[] } })
+        .projection;
+      for (const mutate of [
+        (battle: Record<string, unknown>) => {
+          battle[field] = null;
+        },
+        (battle: Record<string, unknown>) => {
+          delete battle[field];
+        },
+      ]) {
+        const battle = structuredClone(projection.battles[0]);
+        mutate(battle);
+        projection.battles = [battle];
+        const { body } = await sealBundle(manifest, run);
+        await expect(openBundle(stream(body), body.byteLength, null)).rejects.toMatchObject({
+          status: 422,
+          code: "invalid_bundle",
+          details: { reason: "manifest_schema_invalid" },
+        });
+      }
+    },
+  );
 
   test("maps an expected whole-Bundle digest mismatch without changing its text", async () => {
     const bytes = decodeBase64(runOnlyBase64);

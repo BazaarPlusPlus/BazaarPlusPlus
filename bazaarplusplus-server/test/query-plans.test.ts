@@ -99,11 +99,11 @@ test("keyset, BazaarDB, and Ghost reads stay bounded with a large live backlog",
   await env.DB.prepare(`
     INSERT INTO ghost_battle_summaries (
       uploader_account_id, battle_id, bundle_id, opponent_account_id,
-      recorded_at_ms, is_final_battle, day, hour, result, player_display_name
+      recorded_at_ms, is_final_battle, day, hour, result, winner_combatant_id, player_display_name
     )
     SELECT 'backlog-uploader', 'battle-' || bundle_id, bundle_id,
       CASE WHEN bundle_id < '01J9' || printf('%022d', 20) THEN 'plan-opponent' ELSE 'bystander' END,
-      available_at_ms, 0, 1, 1, 'win', 'Uploader'
+      available_at_ms, 0, 1, 1, 'win', 'Player', 'Uploader'
     FROM bundles WHERE uploader_account_id = 'backlog-uploader'
   `).run();
   const ghosts = await worker.fetch(

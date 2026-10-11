@@ -16,11 +16,9 @@ describe("GET /ghost-battles", () => {
     await env.DB.prepare(
       `INSERT INTO bundles (
         bundle_id, run_id, uploader_account_id, object_key, bundle_sha256,
-        bundle_version, manifest_bytes, object_bytes, client_created_at_ms,
-        stored_at_ms, available_at_ms, run_format_version, run_bytes, run_sha256,
-        has_screenshot
+        object_bytes, client_created_at_ms, stored_at_ms, available_at_ms, has_screenshot
       ) VALUES (?1, 'ghost-injected-run', 'ghost-injected-uploader', ?2, ?3,
-                6, 10, 100, ?4, ?4, ?4, 6, 10, ?3, 0)`,
+                100, ?4, ?4, ?4, 0)`,
     )
       .bind(bundleId, objectKey, "d".repeat(64), clock.ms)
       .run();
@@ -29,8 +27,8 @@ describe("GET /ghost-battles", () => {
         env.DB.prepare(
           `INSERT INTO ghost_battle_summaries (
             uploader_account_id, battle_id, bundle_id, opponent_account_id,
-            recorded_at_ms, is_final_battle, day, hour, result, player_display_name
-          ) VALUES ('ghost-injected-uploader', ?1, ?2, ?3, ?4, 0, 1, 1, 'win', 'Uploader')`,
+            recorded_at_ms, is_final_battle, day, hour, result, winner_combatant_id, player_display_name
+          ) VALUES ('ghost-injected-uploader', ?1, ?2, ?3, ?4, 0, 1, 1, 'win', 'Player', 'Uploader')`,
         ).bind(`ghost-injected-${index}`, bundleId, account, clock.ms - index),
       ),
     );
@@ -229,11 +227,9 @@ describe("GET /ghost-battles", () => {
     await env.DB.prepare(
       `INSERT INTO bundles (
         bundle_id, run_id, uploader_account_id, object_key, bundle_sha256,
-        bundle_version, manifest_bytes, object_bytes, client_created_at_ms,
-        stored_at_ms, available_at_ms, run_format_version, run_bytes, run_sha256,
-        has_screenshot
+        object_bytes, client_created_at_ms, stored_at_ms, available_at_ms, has_screenshot
       ) VALUES (?1, 'ghost-cap-run', 'ghost-cap-uploader', ?2, ?3,
-                6, 10, 100, ?4, ?4, ?4, 6, 10, ?3, 0)`,
+                100, ?4, ?4, ?4, 0)`,
     )
       .bind(bundleId, `bundles/2026-08-02/${bundleId}.bundle`, "c".repeat(64), now)
       .run();
@@ -241,8 +237,8 @@ describe("GET /ghost-battles", () => {
       env.DB.prepare(
         `INSERT INTO ghost_battle_summaries (
           uploader_account_id, battle_id, bundle_id, opponent_account_id,
-          recorded_at_ms, is_final_battle, day, hour, result, player_display_name
-        ) VALUES ('ghost-cap-uploader', ?1, ?2, ?3, ?4, 0, 1, 1, 'win', ?5)`,
+          recorded_at_ms, is_final_battle, day, hour, result, winner_combatant_id, player_display_name
+        ) VALUES ('ghost-cap-uploader', ?1, ?2, ?3, ?4, 0, 1, 1, 'win', 'Player', ?5)`,
       ).bind(
         `ghost-cap-${String(index).padStart(3, "0")}`,
         bundleId,
@@ -383,19 +379,17 @@ describe("GET /ghost-battles", () => {
     await env.DB.prepare(
       `INSERT INTO bundles (
         bundle_id, run_id, uploader_account_id, object_key, bundle_sha256,
-        bundle_version, manifest_bytes, object_bytes, client_created_at_ms,
-        stored_at_ms, available_at_ms, run_format_version, run_bytes, run_sha256,
-        has_screenshot
+        object_bytes, client_created_at_ms, stored_at_ms, available_at_ms, has_screenshot
       ) VALUES (?1, 'ghost-signing-failure-run', 'ghost-signing-failure-uploader', ?2, ?3,
-                6, 10, 100, ?4, ?4, ?4, 6, 10, ?3, 0)`,
+                100, ?4, ?4, ?4, 0)`,
     )
       .bind(bundleId, objectKey, "e".repeat(64), Date.now())
       .run();
     await env.DB.prepare(
       `INSERT INTO ghost_battle_summaries (
         uploader_account_id, battle_id, bundle_id, opponent_account_id,
-        recorded_at_ms, is_final_battle, day, hour, result, player_display_name
-      ) VALUES ('ghost-signing-failure-uploader', 'ghost-signing-failure-battle', ?1, ?2, ?3, 0, 1, 1, 'win', 'Uploader')`,
+        recorded_at_ms, is_final_battle, day, hour, result, winner_combatant_id, player_display_name
+      ) VALUES ('ghost-signing-failure-uploader', 'ghost-signing-failure-battle', ?1, ?2, ?3, 0, 1, 1, 'win', 'Player', 'Uploader')`,
     )
       .bind(bundleId, account, Date.now())
       .run();

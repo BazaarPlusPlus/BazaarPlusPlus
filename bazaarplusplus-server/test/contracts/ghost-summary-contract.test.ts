@@ -37,7 +37,7 @@ async function uploadAndDiscover(
 test("the discovery response exactly matches the Mod-compatible nested summary contract", async () => {
   const row = responseContract.battles[0];
   vi.spyOn(Date, "now").mockReturnValue(row.recorded_at_ms + 1000);
-  await env.DB.prepare("INSERT INTO bundle_uploaders VALUES (?1, 1)")
+  await env.DB.prepare("INSERT INTO bundle_uploaders VALUES (?1)")
     .bind(row.opponent.account_id)
     .run();
   const body = await uploadAndDiscover(
@@ -66,7 +66,6 @@ test("nullable summary values and a zero challenger rating survive ordinary-colu
       createdAtMs: Date.now(),
     },
     (battle) => {
-      battle.winner_combatant_id = null;
       battle.player.hero_name = null;
       battle.opponent.hero_name = null;
       battle.player.rank = null;
@@ -77,7 +76,6 @@ test("nullable summary values and a zero challenger rating survive ordinary-colu
   expect(body).toMatchObject({
     battles: [
       {
-        winner_combatant_id: null,
         player: { hero_name: null, rank: null, rating: 0 },
         opponent: { hero_name: null },
       },

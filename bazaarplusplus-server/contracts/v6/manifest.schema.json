@@ -59,8 +59,8 @@
         "encounter_id": { "$ref": "#/$defs/nullableString" },
         "combat_kind": { "$ref": "#/$defs/identifier" },
         "result": { "$ref": "#/$defs/identifier" },
-        "winner_combatant_id": { "$ref": "#/$defs/nullableString" },
-        "loser_combatant_id": { "$ref": "#/$defs/nullableString" },
+        "winner_combatant_id": { "$ref": "#/$defs/identifier" },
+        "loser_combatant_id": { "$ref": "#/$defs/identifier" },
         "is_final_battle": { "type": "boolean" },
         "player": { "$ref": "#/$defs/combatant" },
         "opponent": { "$ref": "#/$defs/combatant" }

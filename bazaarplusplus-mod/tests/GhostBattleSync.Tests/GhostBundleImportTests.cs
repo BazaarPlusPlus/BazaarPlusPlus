@@ -95,6 +95,8 @@ internal static class GhostBundleImportTests
                         RecordedAtMs = 1_790_380_800_000,
                         CombatKind = "pvp",
                         Result = "unknown",
+                        WinnerCombatantId = "Player",
+                        LoserCombatantId = "Opponent",
                         Player = new BundleCombatantProjectionV6
                         {
                             AccountId = "account-uploader",

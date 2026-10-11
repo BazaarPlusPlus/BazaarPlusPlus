@@ -9,8 +9,8 @@ export interface ValidatedBattleProjection {
   encounter_id: string | null;
   combat_kind: string;
   result: string;
-  winner_combatant_id: string | null;
-  loser_combatant_id: string | null;
+  winner_combatant_id: string;
+  loser_combatant_id: string;
   is_final_battle: boolean;
   player: CombatantProjection;
   opponent: CombatantProjection;
@@ -41,7 +41,6 @@ export interface ValidatedBundleDescriptor {
     offset: number;
     length: number;
     sha256: string;
-    contentType: "image/jpeg" | "image/webp";
   };
   battles: ValidatedBattleProjection[];
 }

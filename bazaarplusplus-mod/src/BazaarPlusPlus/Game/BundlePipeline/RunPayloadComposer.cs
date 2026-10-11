@@ -294,7 +294,9 @@ internal sealed class RunPayloadComposer
         && battle.Facts.Day is >= 0
         && battle.Facts.Hour is >= 0
         && NormalizeIdentifier(battle.Participants.Player.AccountId) == playerAccountId
-        && NormalizeIdentifier(battle.Participants.Opponent.AccountId) != null;
+        && NormalizeIdentifier(battle.Participants.Opponent.AccountId) != null
+        && NormalizeIdentifier(battle.Facts.WinnerCombatantId) != null
+        && NormalizeIdentifier(battle.Facts.LoserCombatantId) != null;
 
     private static BundleBattleProjectionV6 MapProjection(
         RunBattleV6 battle,
@@ -309,8 +311,8 @@ internal sealed class RunPayloadComposer
             EncounterId = Limit(battle.Facts.EncounterId),
             CombatKind = NormalizeIdentifier(battle.Facts.CombatKind) ?? "pvp",
             Result = NormalizeIdentifier(battle.Facts.Result) ?? "unknown",
-            WinnerCombatantId = Limit(battle.Facts.WinnerCombatantId),
-            LoserCombatantId = Limit(battle.Facts.LoserCombatantId),
+            WinnerCombatantId = NormalizeIdentifier(battle.Facts.WinnerCombatantId)!,
+            LoserCombatantId = NormalizeIdentifier(battle.Facts.LoserCombatantId)!,
             IsFinalBattle = battle.Facts.IsFinalBattle,
             Player = MapCombatant(battle.Participants.Player, playerAccountId),
             Opponent = MapCombatant(

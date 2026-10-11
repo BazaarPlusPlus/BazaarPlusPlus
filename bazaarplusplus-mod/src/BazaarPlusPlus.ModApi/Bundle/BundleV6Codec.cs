@@ -439,11 +439,11 @@ internal static class BundleV6Codec
                 "battle.combat_kind"
             ),
             Result = ReadIdentifier(RequireProperty(source, "result"), "battle.result"),
-            WinnerCombatantId = ReadNullableString(
+            WinnerCombatantId = ReadIdentifier(
                 RequireProperty(source, "winner_combatant_id"),
                 "battle.winner_combatant_id"
             ),
-            LoserCombatantId = ReadNullableString(
+            LoserCombatantId = ReadIdentifier(
                 RequireProperty(source, "loser_combatant_id"),
                 "battle.loser_combatant_id"
             ),
@@ -509,8 +509,8 @@ internal static class BundleV6Codec
             ValidateNullableString(battle.EncounterId, "battle.encounter_id");
             ValidateIdentifier(battle.CombatKind, "battle.combat_kind");
             ValidateIdentifier(battle.Result, "battle.result");
-            ValidateNullableString(battle.WinnerCombatantId, "battle.winner_combatant_id");
-            ValidateNullableString(battle.LoserCombatantId, "battle.loser_combatant_id");
+            ValidateIdentifier(battle.WinnerCombatantId, "battle.winner_combatant_id");
+            ValidateIdentifier(battle.LoserCombatantId, "battle.loser_combatant_id");
             ValidateCombatant(battle.Player, "battle.player");
             ValidateCombatant(battle.Opponent, "battle.opponent");
             if (!string.Equals(battle.Player.AccountId, uploader, StringComparison.Ordinal))

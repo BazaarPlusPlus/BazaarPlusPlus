@@ -15,11 +15,8 @@ async function insertBundle(
   await env.DB.prepare(
     `INSERT INTO bundles (
       bundle_id, run_id, uploader_account_id, object_key, bundle_sha256,
-      bundle_version, manifest_bytes, object_bytes, client_created_at_ms,
-      stored_at_ms, available_at_ms, run_format_version, run_bytes, run_sha256,
-      has_screenshot, screenshot_content_type, screenshot_bytes, screenshot_sha256
-    ) VALUES (?1, ?2, 'collection-uploader', ?3, ?4, 6, 10, 100, ?5, ?5, ?6, 6, 10, ?4,
-      ?7, ?8, ?9, ?10)`,
+      object_bytes, client_created_at_ms, stored_at_ms, available_at_ms, has_screenshot
+    ) VALUES (?1, ?2, 'collection-uploader', ?3, ?4, 100, ?5, ?5, ?6, ?7)`,
   )
     .bind(
       bundleId,
@@ -29,9 +26,6 @@ async function insertBundle(
       availableAtMs - 1_000,
       availableAtMs,
       hasScreenshot ? 1 : 0,
-      hasScreenshot ? "image/jpeg" : null,
-      hasScreenshot ? 10 : null,
-      hasScreenshot ? "b".repeat(64) : null,
     )
     .run();
 }

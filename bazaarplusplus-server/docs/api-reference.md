@@ -171,7 +171,7 @@ Manifest shape:
 }
 ```
 
-The `screenshot` key is absent for a Run-only Bundle. Every optional combatant scalar is present as either its value or `null`. `bundle_id` is a canonical uppercase ULID, and other identities use 1–128 characters from letters, digits, `.`, `_`, `:`, and `-`, beginning with a letter or digit. Unknown manifest fields are ignored. Every time is a Unix millisecond integer, in the manifest and in the [Run segment](../../bazaarplusplus-mod/docs/contracts/run-payload-v6.md).
+The `screenshot` key is absent for a Run-only Bundle. Every optional combatant scalar is present as either its value or `null`. Each Battle's `winner_combatant_id` and `loser_combatant_id` are required identities, never `null`. `bundle_id` is a canonical uppercase ULID, and other identities use 1–128 characters from letters, digits, `.`, `_`, `:`, and `-`, beginning with a letter or digit. Unknown manifest fields are ignored. Every time is a Unix millisecond integer, in the manifest and in the [Run segment](../../bazaarplusplus-mod/docs/contracts/run-payload-v6.md).
 
 Limits:
 
@@ -327,7 +327,7 @@ Response `200`:
 }
 ```
 
-Rows sort by `recorded_at_ms DESC, battle_id DESC`. The response is reconstructed from fifteen ordinary summary columns. `player` is the uploader/challenger and `opponent` is the queried local player; both remain nested objects. `day`, `hour`, and both account IDs are required by Mod import. `winner_combatant_id` remains available for result filtering, and `player.rank` / `player.rating` preserve Mod 5.1/5.2 display behavior. Nullable fields are emitted as JSON null.
+Rows sort by `recorded_at_ms DESC, battle_id DESC`. The response is reconstructed from fifteen ordinary summary columns. `player` is the uploader/challenger and `opponent` is the queried local player; both remain nested objects. `day`, `hour`, and both account IDs are required by Mod import. `winner_combatant_id` is never `null` and remains available for result filtering, and `player.rank` / `player.rating` preserve Mod 5.1/5.2 display behavior. Nullable fields are emitted as JSON null.
 
 At ingest, a projection is inserted only when its opponent is the uploader or the opponent already exists in `bundle_uploaders`. The uploader is added only as the final write of a successful Bundle D1 batch. Filtered history is never backfilled. Cross-Bundle duplicate `(uploader_account_id, battle_id)` rows keep the first projection.
 
