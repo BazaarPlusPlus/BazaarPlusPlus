@@ -1,4 +1,5 @@
 pub mod bepinex;
+pub(crate) mod data_maintenance;
 pub mod detect;
 pub(crate) mod file_manifest;
 pub mod game_path;

@@ -10,6 +10,7 @@ use crate::history::{
     load_battle_video_path, load_run_id_for_battle, load_run_screenshot_path, HistoryReadError,
 };
 use crate::problem::{SemanticProblem, SemanticProblemCode};
+use crate::services::data_maintenance::DataMaintenanceLock;
 use crate::services::game_path::GamePathAcceptance;
 use crate::services::paths;
 use crate::services::selected_game_installation::SelectedGameInstallationState;
@@ -309,13 +310,41 @@ pub fn preview_storage_cleanup(
         .preview_cleanup(scope, preset)
 }
 
-pub fn execute_storage_cleanup(
+pub async fn execute_storage_cleanup(
     app: &tauri::AppHandle,
     scope: StorageCleanupScope,
     preset: StorageCleanupPreset,
 ) -> Result<StorageCleanupExecution, SemanticProblem> {
-    History::from_resolved_game_path_for_page(History::resolved_game_path(app))?
-        .execute_cleanup(scope, preset)
+    let maintenance = app.state::<DataMaintenanceLock>().inner().clone();
+    let app = app.clone();
+    execute_storage_cleanup_with(
+        &maintenance,
+        move || History::resolved_game_path(&app),
+        scope,
+        preset,
+    )
+    .await
+}
+
+/// Cleanup holds the data maintenance lock and resolves the installation only
+/// once it holds it, so it never acts on a data root a Reset is deleting.
+pub(crate) async fn execute_storage_cleanup_with(
+    maintenance: &DataMaintenanceLock,
+    resolve_game_path: impl FnOnce() -> Option<PathBuf> + Send + 'static,
+    scope: StorageCleanupScope,
+    preset: StorageCleanupPreset,
+) -> Result<StorageCleanupExecution, SemanticProblem> {
+    maintenance
+        .run_blocking(move || {
+            History::from_resolved_game_path_for_page(resolve_game_path())?
+                .execute_cleanup(scope, preset)
+        })
+        .await
+        .map_err(|diagnostic| {
+            SemanticProblem::new(SemanticProblemCode::HistoryActionFailed)
+                .with_param("operation", "execute_storage_cleanup")
+                .with_diagnostic(diagnostic)
+        })?
 }
 
 fn history_paths_for_game_path(game_path: PathBuf) -> HistoryStorage {

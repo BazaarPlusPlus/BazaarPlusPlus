@@ -117,7 +117,8 @@ const zh = {
   resetDataRunning: '正在删除目标本地数据…',
   resetDataDone: '本地数据已删除',
   resetDataNothingToDelete: '未找到可删除的本地数据',
-  resetDataBlockedByGame: 'The Bazaar 仍在运行。请先退出游戏，再删除本地数据。',
+  resetDataBlockedByGame:
+    'The Bazaar 仍在运行，或无法确认游戏已退出。请先退出游戏，再删除本地数据。',
   resetDataPartialFailure:
     '有 {count} 个本地数据项目未能删除。请关闭游戏和直播来源后重试。',
   resetDataFailureDetails: '查看未删除项目',
@@ -140,7 +141,7 @@ const zh = {
   resetBepinexDone: 'BepInEx 文件夹已删除',
   resetBepinexNothingToDelete: '未找到 BepInEx 文件夹',
   resetBepinexBlockedByGame:
-    'The Bazaar 仍在运行。请先退出游戏，再删除 BepInEx 文件夹。',
+    'The Bazaar 仍在运行，或无法确认游戏已退出。请先退出游戏，再删除 BepInEx 文件夹。',
   resetBepinexPartialFailure: '有 {count} 个项目未能删除。请关闭游戏后重试。',
   operationCannotBeCancelled: '操作已开始，完成前无法取消或关闭此窗口。',
   uninstallConfirmTitle: '卸载 BazaarPlusPlus',
@@ -162,6 +163,12 @@ const zh = {
     '检测到不属于当前 macOS 安装方式的文件，需要清理。',
   installWarningUnexpected:
     '检测到未知的安装警告，请重新检测；若持续出现，请查看诊断信息。',
+  installBlockedByGame:
+    'The Bazaar 仍在运行，或无法确认游戏已退出。请先退出游戏，再安装 BazaarPlusPlus。',
+  importBlockedByGame:
+    'The Bazaar 仍在运行，或无法确认游戏已退出。请先退出游戏，再导入 V5 历史记录。',
+  legacyDeleteBlockedByGame:
+    'The Bazaar 仍在运行，或无法确认游戏已退出。请先退出游戏，再删除旧数据文件夹。',
   installProblemDetectionFailed: '检测安装状态失败，请重试。',
   installProblemChooseDirectoryFailed: '无法打开游戏目录选择器，请重试。',
   installProblemInstallFailed:
@@ -552,7 +559,7 @@ const en: Record<MessageKey, string> = {
   resetDataDone: 'Local data deleted',
   resetDataNothingToDelete: 'No local data found to delete',
   resetDataBlockedByGame:
-    'The Bazaar is still running. Quit the game before deleting local data.',
+    'The Bazaar is still running, or the installer could not confirm that it has closed. Quit the game before deleting local data.',
   resetDataPartialFailure:
     '{count} local data {count|item|items} could not be deleted. Close the game and stream sources, then try again.',
   resetDataFailureDetails: 'Show undeleted items',
@@ -576,7 +583,7 @@ const en: Record<MessageKey, string> = {
   resetBepinexDone: 'BepInEx folder deleted',
   resetBepinexNothingToDelete: 'No BepInEx folder found',
   resetBepinexBlockedByGame:
-    'The Bazaar is still running. Quit the game before deleting the BepInEx folder.',
+    'The Bazaar is still running, or the installer could not confirm that it has closed. Quit the game before deleting the BepInEx folder.',
   resetBepinexPartialFailure:
     '{count} {count|item|items} could not be deleted. Close the game, then try again.',
   operationCannotBeCancelled:
@@ -602,6 +609,12 @@ const en: Record<MessageKey, string> = {
     'Files outside the current macOS installation layout were found and need cleanup.',
   installWarningUnexpected:
     'An unknown installation warning was detected. Re-detect; if it persists, check the diagnostics.',
+  installBlockedByGame:
+    'The Bazaar is still running, or the installer could not confirm that it has closed. Quit the game before installing BazaarPlusPlus.',
+  importBlockedByGame:
+    'The Bazaar is still running, or the installer could not confirm that it has closed. Quit the game before importing V5 history.',
+  legacyDeleteBlockedByGame:
+    'The Bazaar is still running, or the installer could not confirm that it has closed. Quit the game before deleting the legacy data folder.',
   installProblemDetectionFailed:
     'Installation state could not be detected. Please retry.',
   installProblemChooseDirectoryFailed:

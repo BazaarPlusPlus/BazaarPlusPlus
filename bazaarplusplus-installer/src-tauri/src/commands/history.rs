@@ -59,12 +59,12 @@ pub fn preview_storage_cleanup(
     history::preview_storage_cleanup(&app, scope, preset)
 }
 
-#[tauri::command(async)]
+#[tauri::command]
 #[specta::specta]
-pub fn execute_storage_cleanup(
+pub async fn execute_storage_cleanup(
     app: tauri::AppHandle,
     scope: StorageCleanupScope,
     preset: StorageCleanupPreset,
 ) -> Result<StorageCleanupExecution, SemanticProblem> {
-    history::execute_storage_cleanup(&app, scope, preset)
+    history::execute_storage_cleanup(&app, scope, preset).await
 }

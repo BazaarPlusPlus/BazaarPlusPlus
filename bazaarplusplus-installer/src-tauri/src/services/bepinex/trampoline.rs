@@ -346,7 +346,10 @@ mod imp {
                     .to_string(),
             );
         }
-        crate::services::game_process::ensure_bazaar_stopped(game_path)?;
+        crate::services::game_process::ensure_game_stopped(
+            game_path,
+            crate::services::game_process::GameStoppedOperation::Install,
+        )?;
 
         let layout = bundle_paths(game_path)?;
 

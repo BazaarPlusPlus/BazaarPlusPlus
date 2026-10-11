@@ -31,12 +31,11 @@ const problems = [
   createUiProblem('install_action_failed', {
     params: { operation: 'launch' }
   }),
-  createUiProblem('install_game_running', {
-    params: { operation: 'reset_bpp_data' }
-  }),
-  createUiProblem('install_game_running', {
-    params: { operation: 'reset_bepinex' }
-  }),
+  createUiProblem('install_blocked_by_game'),
+  createUiProblem('reset_blocked_by_game'),
+  createUiProblem('bepinex_reset_blocked_by_game'),
+  createUiProblem('import_blocked_by_game'),
+  createUiProblem('legacy_delete_blocked_by_game'),
   createUiProblem('install_partial_failure', {
     params: { operation: 'reset_bpp_data', count: '2' }
   }),
