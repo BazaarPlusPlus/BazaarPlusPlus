@@ -1,6 +1,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { WORKSPACE_ROOT, readProductVersion } from './product.mjs';
+import {
+  WORKSPACE_ROOT,
+  compareProductVersions,
+  readProductVersion
+} from './product.mjs';
 import { UPDATER_ENDPOINTS } from './downloads.ts';
 import {
   collectVersionSnapshot,
@@ -41,6 +45,20 @@ export function synchronizeProductProjections(workspaceRoot = WORKSPACE_ROOT) {
   return version;
 }
 
+// Installer ADR 0008: the one-time V5 import ships only before 6.2.0.
+const V5_IMPORT_MODULE = 'bazaarplusplus-installer/src-tauri/src/v5_import';
+const V5_IMPORT_REMOVED_IN = '6.2.0';
+
+function assertV5ImportRemoved(workspaceRoot, version) {
+  if (
+    compareProductVersions(version, V5_IMPORT_REMOVED_IN) >= 0 &&
+    fs.existsSync(path.join(workspaceRoot, V5_IMPORT_MODULE))
+  )
+    throw new Error(
+      `${V5_IMPORT_MODULE}/ must be deleted before ${V5_IMPORT_REMOVED_IN} (VERSION is ${version}); see https://github.com/BazaarPlusPlus/BazaarPlusPlus/issues/264 and bazaarplusplus-installer/docs/adr/0008-legacy-data-roots-and-v5-import.md`
+    );
+}
+
 // `warn` receives the Snapshot Lock's empty and stale entries: they are work
 // not yet done, never a failure; a malformed lock throws like any other drift.
 export function checkProductProjections(
@@ -49,6 +67,7 @@ export function checkProductProjections(
 ) {
   const rootDir = path.join(workspaceRoot, 'bazaarplusplus-installer');
   const version = readProductVersion(workspaceRoot);
+  assertV5ImportRemoved(workspaceRoot, version);
   assertVersionsAreAligned(collectVersionSnapshot(rootDir));
   synchronizePayloadProjection(workspaceRoot, { check: true });
   assertPlatformCoherence(rootDir);

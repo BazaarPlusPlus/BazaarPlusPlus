@@ -125,6 +125,8 @@ export const SHARED_INPUTS = [
     'src-tauri/tauri.macos.conf.json',
     'src-tauri/tauri.windows.conf.json'
   ].map((file) => [`bazaarplusplus-installer/${file}`, ['release']]),
+  // checkProductProjections refuses 6.2.0 while this module exists.
+  ['bazaarplusplus-installer/src-tauri/src/v5_import/', ['release']],
   ['bazaarplusplus-installer/src-tauri/icons/source/', ['macos-icon']],
   [
     'bazaarplusplus-installer/scripts/release/compile-macos-icon.mjs',

@@ -36,7 +36,7 @@ import {
 
 const usage = `Product release commands (run from any directory):
   node release.mjs sync                         Project VERSION into toolchain files
-  node release.mjs check                        Check product source projections, the Snapshot Lock and release configuration
+  node release.mjs check                        Check product source projections, the Snapshot Lock, release configuration and V5 import removal
   node release.mjs prepare --platform macos      Build and validate one platform Payload
   node release.mjs build --platform macos        Build and sign the native installer
   node release.mjs upload --platform macos       Upload immutable platform artifacts
