@@ -1,0 +1,28 @@
+{
+  "game_path": "<GAME>",
+  "roots": [
+    {
+      "name": "BazaarPlusPlus",
+      "size_bytes": 12,
+      "file_count": 1,
+      "hard_linked_file_count": 0,
+      "unreadable_entry_count": 0
+    },
+    {
+      "name": "BazaarPlusPlusV4",
+      "size_bytes": 34,
+      "file_count": 1,
+      "hard_linked_file_count": 0,
+      "unreadable_entry_count": 0
+    },
+    {
+      "name": "BazaarPlusPlusV5",
+      "size_bytes": 63,
+      "file_count": 2,
+      "hard_linked_file_count": 0,
+      "unreadable_entry_count": 0
+    }
+  ],
+  "installed_mod_data_root": "current",
+  "v5_import_eligible": true
+}

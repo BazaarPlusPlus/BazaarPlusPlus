@@ -5,6 +5,7 @@ import type {
   AppBootstrap,
   HistoryRunList,
   InstallState,
+  LegacyDataState,
   RunDataCleanupPreview,
   RunDataCleanupResult,
   ScreenshotCleanupPreview,
@@ -36,6 +37,13 @@ export const emptyInstallState: InstallState = {
   has_resettable_data: false,
   has_bepinex_files: false,
   warnings: [{ code: 'game_missing', params: {} }]
+};
+
+export const emptyLegacyDataState: LegacyDataState = {
+  game_path: null,
+  roots: [],
+  installed_mod_data_root: 'reinstall_required',
+  v5_import_eligible: false
 };
 
 export const idleStreamStatus: StreamServiceStatus = {

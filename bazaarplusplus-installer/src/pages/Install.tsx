@@ -6,6 +6,9 @@ import { useAppBootstrap } from '../features/about/AppBootstrapProvider';
 import { InstallActionsPanel } from '../features/install/InstallActionsPanel';
 import { InstallConfirmModal } from '../features/install/InstallConfirmModal';
 import { InstallStatusPanel } from '../features/install/InstallStatusPanel';
+import { LegacyDataPanel } from '../features/install/LegacyDataPanel';
+import { LegacyRootDeleteConfirmModal } from '../features/install/LegacyRootDeleteConfirmModal';
+import { useLegacyData } from '../features/install/useLegacyData';
 import { ResetBepinexConfirmModal } from '../features/install/ResetBepinexConfirmModal';
 import { ResetDataConfirmModal } from '../features/install/ResetDataConfirmModal';
 import { UninstallConfirmModal } from '../features/install/UninstallConfirmModal';
@@ -29,6 +32,16 @@ export default function Install() {
   const [resetDataAcknowledged, setResetDataAcknowledged] = useState(false);
   const [resetBepinexAcknowledged, setResetBepinexAcknowledged] =
     useState(false);
+  const [legacyDeleteAcknowledged, setLegacyDeleteAcknowledged] =
+    useState(false);
+  const legacy = useLegacyData(
+    snapshot.phase === 'ready' ? snapshot.data : null
+  );
+  const legacyConfirmation = legacy.snapshot.confirmation;
+  const legacyConfirmationRunning = legacyConfirmation?.phase === 'running';
+  const legacyConfirmationProblem =
+    legacyConfirmation?.phase === 'failed' ? legacyConfirmation.problem : null;
+  const legacyTargetName = legacyConfirmation?.target.name ?? null;
   const appVersion =
     app.resource.data?.app_version ?? app.bootstrap.app_version;
   const confirmation = snapshot.confirmation;
@@ -46,6 +59,23 @@ export default function Install() {
     setResetDataAcknowledged(false);
     setResetBepinexAcknowledged(false);
   }, [confirmationKind, confirmationOpen]);
+
+  useEffect(() => {
+    setLegacyDeleteAcknowledged(false);
+  }, [legacyTargetName]);
+
+  useEffect(() => {
+    const notice = legacy.snapshot.notice;
+    if (!notice) return;
+    showToast({
+      id: `install:legacy-notice:${notice.id}`,
+      tone: 'success',
+      message: notice.removed
+        ? t('legacyDeleteDone', { name: notice.name })
+        : t('legacyDeleteNothingToDelete', { name: notice.name })
+    });
+    legacy.workflow.acknowledgeNotice(notice.id);
+  }, [legacy.snapshot.notice, legacy.workflow, showToast, t]);
 
   useEffect(() => {
     if (!snapshot.notice) return;
@@ -100,6 +130,12 @@ export default function Install() {
             snapshot={snapshot}
             intents={intents}
             appVersion={appVersion}
+          />
+          <LegacyDataPanel
+            snapshot={legacy.snapshot}
+            workflow={legacy.workflow}
+            modInstalled={snapshot.data.mod_state.installed}
+            gamePath={snapshot.data.selected_game_path}
           />
           <InstallActionsPanel snapshot={snapshot} intents={intents} />
         </>
@@ -169,6 +205,31 @@ export default function Install() {
             problem={confirmationFailed}
             onClose={() => intents.dismissConfirmation()}
             onConfirm={() => void intents.confirm()}
+          />
+        )}
+      </ModalSource>
+
+      <ModalSource
+        id="route:install-legacy-delete"
+        open={legacyConfirmation !== null}
+        priority={legacyConfirmationRunning ? 'critical' : 'confirmation'}
+        dismissalPolicy={legacyConfirmationRunning ? 'blocked' : 'dismissible'}
+      >
+        {legacyConfirmation && (
+          <LegacyRootDeleteConfirmModal
+            busy={legacyConfirmationRunning}
+            acknowledged={legacyDeleteAcknowledged}
+            targetPath={legacyConfirmation.target.gamePath}
+            name={legacyConfirmation.target.name}
+            problem={legacyConfirmationProblem}
+            failurePaths={
+              legacyConfirmationProblem
+                ? installFailurePaths(legacyConfirmationProblem)
+                : []
+            }
+            onAcknowledgedChange={setLegacyDeleteAcknowledged}
+            onClose={() => legacy.workflow.dismissDelete()}
+            onConfirm={() => void legacy.workflow.confirmDelete()}
           />
         )}
       </ModalSource>

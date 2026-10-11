@@ -11,6 +11,12 @@ export const commands = {
 	installMod: (gamePath: string) => __TAURI_INVOKE<InstallState>("install_mod", { gamePath }),
 	resetBppData: (gamePath: string) => __TAURI_INVOKE<ResetBppDataResult>("reset_bpp_data", { gamePath }),
 	resetBepinex: (gamePath: string) => __TAURI_INVOKE<ResetBepinexResult>("reset_bepinex", { gamePath }),
+	getLegacyDataState: (gamePath: string | null) => __TAURI_INVOKE<LegacyDataState>("get_legacy_data_state", { gamePath }),
+	/**
+	 *  Deletes one Legacy Root the user confirmed. `name` must be one of the
+	 *  directory names `get_legacy_data_state` lists.
+	 */
+	deleteLegacyRoot: (gamePath: string, name: string) => __TAURI_INVOKE<DeleteLegacyRootResult>("delete_legacy_root", { gamePath, name }),
 	uninstallMod: (gamePath: string) => __TAURI_INVOKE<InstallState>("uninstall_mod", { gamePath }),
 	launchGame: () => __TAURI_INVOKE<null>("launch_game"),
 	/**
@@ -74,6 +80,12 @@ export type AppLinks = {
 	xiaohongshu: string,
 	kofi: string,
 	supporter_list: string,
+};
+
+export type DeleteLegacyRootResult = {
+	/**  False when the root was already gone: nothing was deleted. */
+	removed: boolean,
+	state: LegacyDataState,
 };
 
 export type GameDirectorySelection = {
@@ -190,6 +202,50 @@ export type InstallWarning = {
 };
 
 export type InstallWarningCode = "game_missing" | "steam_config_unavailable" | "launch_options_not_empty" | "trampoline_not_ready" | "obsolete_macos_artifacts";
+
+/**  Which Data Root the installed mod writes, from its Payload contract file. */
+export type InstalledModDataRoot = 
+/**  The contract names `BAZAAR_DATA_DIRECTORY`. */
+"current" | 
+/**
+ *  The contract is missing, unreadable, has no `dataRootDirectoryName`, or
+ *  names another directory: the installed mod predates the current Data
+ *  Root and must be reinstalled.
+ */
+"reinstall_required";
+
+/**
+ *  One Legacy Root present in the selected game directory, measured without
+ *  following symbolic links. A file with more than one hard link is counted in
+ *  `size_bytes` and in `hard_linked_file_count`: deleting the root frees its
+ *  blocks only when no other link remains, so the size is an upper bound on
+ *  what deletion reclaims.
+ */
+export type LegacyDataRoot = {
+	name: LegacyRoot,
+	size_bytes: number,
+	file_count: number,
+	hard_linked_file_count: number,
+	/**
+	 *  Entries whose metadata or contents could not be read; their size is
+	 *  missing from `size_bytes`.
+	 */
+	unreadable_entry_count: number,
+};
+
+export type LegacyDataState = {
+	game_path: string | null,
+	roots: LegacyDataRoot[],
+	installed_mod_data_root: InstalledModDataRoot,
+	/**  The one-time V5 import may run (`v5_import::is_v5_import_eligible`). */
+	v5_import_eligible: boolean,
+};
+
+/**
+ *  One Legacy Root. [`LegacyRoot::ALL`] is the only list of them in the
+ *  installer; it never contains the current Data Root.
+ */
+export type LegacyRoot = "BazaarPlusPlus" | "BazaarPlusPlusV4" | "BazaarPlusPlusV5";
 
 export type ResetBepinexResult = {
 	state: InstallState,

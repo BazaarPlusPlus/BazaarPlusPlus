@@ -1,6 +1,6 @@
-//! IPC JSON goldens: the DTOs `get_install_state`, `list_history_runs`,
-//! `get_history_run_detail` and `preview_storage_cleanup` return to the
-//! frontend, produced by the service layer each command wraps from a fixture
+//! IPC JSON goldens: the DTOs `get_install_state`, `get_legacy_data_state`,
+//! `delete_legacy_root`, `list_history_runs`, `get_history_run_detail` and
+//! `preview_storage_cleanup` return to the frontend, produced by the service layer each command wraps from a fixture
 //! game directory and database. The commands themselves are not driven through
 //! the IPC bridge: through IPC, `get_install_state` and history path resolution
 //! read the host's Steam installation and bundled resources (see #154), so the
@@ -17,6 +17,7 @@ use crate::history::test_schema::create_mod_schema;
 use crate::services::detect::InstallEnvironmentSnapshot;
 use crate::services::history::{History, StorageCleanupPreset, StorageCleanupScope};
 use crate::services::install::install_state_from_snapshot;
+use crate::services::legacy_data;
 use crate::services::paths;
 use crate::services::vdf::SteamLaunchOptionsState;
 use crate::stream::history_thumbnails::HistoryThumbnails;
@@ -113,6 +114,73 @@ fn get_install_state() {
             &fixture,
             Some("1.2.2"),
         ))),
+    );
+}
+
+/// Every Legacy Root with a few bytes, the current Data Root, and a 6.x mod
+/// contract, as an upgraded 5.x user's game directory looks before importing.
+fn seed_legacy_roots(fixture: &Fixture) {
+    let game = &fixture.game;
+    #[cfg(target_os = "macos")]
+    std::fs::create_dir_all(game.join("TheBazaar.app")).unwrap();
+    #[cfg(target_os = "windows")]
+    write(&game.join("TheBazaar.exe"), b"exe");
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    write(&game.join("TheBazaar"), b"exe");
+    write(&game.join("BazaarPlusPlus/bazaarplusplus.db"), &[0; 12]);
+    write(&game.join("BazaarPlusPlusV4/bazaarplusplus.db"), &[0; 34]);
+    write(&game.join("BazaarPlusPlusV5/bazaarplusplus.db"), &[0; 56]);
+    write(&game.join("BazaarPlusPlusV5/Screenshots/run.png"), &[0; 7]);
+    write(&paths::database_path(game), b"current");
+    write(
+        &game.join("BepInEx/plugins/BazaarPlusPlus.history-database.json"),
+        format!(
+            r#"{{ "formatVersion": 1, "dataRootDirectoryName": "{}", "historyDatabaseUserVersion": 1 }}"#,
+            crate::config::BAZAAR_DATA_DIRECTORY
+        )
+        .as_bytes(),
+    );
+}
+
+const NO_INSTALLER_SETTINGS: &str = "/nonexistent-installer-settings";
+
+#[test]
+fn get_legacy_data_state() {
+    let fixture = Fixture::new();
+    assert_golden(
+        "ipc/get_legacy_data_state.none.json",
+        &fixture.json(&legacy_data::legacy_data_state(
+            &fixture.game,
+            Path::new(NO_INSTALLER_SETTINGS),
+        )),
+    );
+
+    seed_legacy_roots(&fixture);
+    assert_golden(
+        "ipc/get_legacy_data_state.legacy-roots.json",
+        &fixture.json(&legacy_data::legacy_data_state(
+            &fixture.game,
+            Path::new(NO_INSTALLER_SETTINGS),
+        )),
+    );
+}
+
+#[test]
+fn delete_legacy_root() {
+    let fixture = Fixture::new();
+    seed_legacy_roots(&fixture);
+    let stopped = |_: &Path| Ok(false);
+    assert_golden(
+        "ipc/delete_legacy_root.removed.json",
+        &fixture.json(
+            &legacy_data::delete_legacy_root_blocking_with(
+                &fixture.game,
+                "BazaarPlusPlusV5",
+                Path::new(NO_INSTALLER_SETTINGS),
+                &stopped,
+            )
+            .unwrap(),
+        ),
     );
 }
 

@@ -12,6 +12,7 @@ import type {
   HistoryRunList,
   HistoryRunRow,
   InstallState,
+  LegacyDataState,
   SemanticProblem,
   StreamServiceStatus
 } from '../../types/backend';
@@ -56,6 +57,37 @@ export const installed: InstallState = {
   },
   has_resettable_data: true,
   has_bepinex_files: true
+};
+
+/** An upgraded 5.x user who has not reinstalled yet: three Legacy Roots, one
+ * sharing files by hard link, and a mod that still writes an old root. */
+export const legacyRootsNeedingReinstall: LegacyDataState = {
+  game_path: '/Games/The Bazaar',
+  roots: [
+    {
+      name: 'BazaarPlusPlus',
+      size_bytes: 524_288,
+      file_count: 3,
+      hard_linked_file_count: 0,
+      unreadable_entry_count: 0
+    },
+    {
+      name: 'BazaarPlusPlusV4',
+      size_bytes: 12_582_912,
+      file_count: 40,
+      hard_linked_file_count: 0,
+      unreadable_entry_count: 0
+    },
+    {
+      name: 'BazaarPlusPlusV5',
+      size_bytes: 1_610_612_736,
+      file_count: 1200,
+      hard_linked_file_count: 12,
+      unreadable_entry_count: 1
+    }
+  ],
+  installed_mod_data_root: 'reinstall_required',
+  v5_import_eligible: false
 };
 
 export const installDetectionFailed: SemanticProblem = {

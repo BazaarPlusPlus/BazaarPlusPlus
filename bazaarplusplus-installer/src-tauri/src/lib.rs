@@ -12,6 +12,7 @@ mod problem;
 mod services;
 mod stream;
 mod tray;
+mod v5_import;
 
 // The unit-test harness links the same Tauri dialog code as the application,
 // but tauri-build only attaches its Common Controls v6 resource to binaries.
