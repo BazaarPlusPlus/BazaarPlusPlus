@@ -1,5 +1,4 @@
 #nullable enable
-using System.Globalization;
 using BazaarPlusPlus.Storage;
 using BazaarPlusPlus.Storage.BundleQueue;
 using BazaarPlusPlus.Storage.RunLog;
@@ -21,7 +20,7 @@ internal sealed class PvpBattleSqliteStore : SqliteStoreBase, IPvpBattleCatalog
         SELECT
             b.battle_id,
             b.run_id,
-            b.recorded_at_utc,
+            b.recorded_at_ms,
             b.day,
             b.hour,
             b.encounter_id,
@@ -86,9 +85,8 @@ internal sealed class PvpBattleSqliteStore : SqliteStoreBase, IPvpBattleCatalog
                 battle_id,
                 source,
                 run_id,
-                has_local_payload,
                 local_payload_state,
-                recorded_at_utc,
+                recorded_at_ms,
                 day,
                 hour,
                 encounter_id,
@@ -118,9 +116,8 @@ internal sealed class PvpBattleSqliteStore : SqliteStoreBase, IPvpBattleCatalog
                 $battleId,
                 'LOCAL',
                 $runId,
-                1,
                 'ready',
-                $recordedAtUtc,
+                $recordedAtMs,
                 $day,
                 $hour,
                 $encounterId,
@@ -150,7 +147,7 @@ internal sealed class PvpBattleSqliteStore : SqliteStoreBase, IPvpBattleCatalog
             ON CONFLICT(battle_id) DO UPDATE SET
                 source = 'LOCAL',
                 run_id = excluded.run_id,
-                recorded_at_utc = excluded.recorded_at_utc,
+                recorded_at_ms = excluded.recorded_at_ms,
                 day = excluded.day,
                 hour = excluded.hour,
                 encounter_id = excluded.encounter_id,
@@ -176,13 +173,15 @@ internal sealed class PvpBattleSqliteStore : SqliteStoreBase, IPvpBattleCatalog
                 result = excluded.result,
                 winner_combatant_id = excluded.winner_combatant_id,
                 loser_combatant_id = excluded.loser_combatant_id,
-                has_local_payload = 1,
                 local_payload_state = 'ready',
-                local_payload_maintenance_at_utc = NULL;
+                local_payload_maintenance_at_ms = NULL;
             """;
         command.Parameters.AddWithValue("$battleId", manifest.BattleId);
         command.Parameters.AddWithValue("$runId", (object?)persistedRunId ?? DBNull.Value);
-        command.Parameters.AddWithValue("$recordedAtUtc", manifest.RecordedAtUtc.ToString("o"));
+        command.Parameters.AddWithValue(
+            "$recordedAtMs",
+            manifest.RecordedAtUtc.ToUnixTimeMilliseconds()
+        );
         AddNullableInt32(command, "$day", manifest.Day);
         AddNullableInt32(command, "$hour", manifest.Hour);
         command.Parameters.AddWithValue(
@@ -353,10 +352,10 @@ internal sealed class PvpBattleSqliteStore : SqliteStoreBase, IPvpBattleCatalog
         using var connection = OpenMaintenanceConnection();
         using var command = CreateCommand(connection);
         command.CommandText = $"""
-            SELECT battle_id, recorded_at_utc, has_local_payload, local_payload_state
+            SELECT battle_id, recorded_at_ms, local_payload_state
             FROM {RunLogSchema.BattlesTableName}
             WHERE source = 'LOCAL'
-            ORDER BY recorded_at_utc DESC, battle_id DESC;
+            ORDER BY recorded_at_ms DESC, battle_id DESC;
             """;
         using var reader = command.ExecuteReader();
         ObserveMaintenanceCommand();
@@ -366,9 +365,8 @@ internal sealed class PvpBattleSqliteStore : SqliteStoreBase, IPvpBattleCatalog
             records.Add(
                 new ReplayPayloadMaintenanceRecord(
                     reader.GetString(0),
-                    DateTimeOffset.Parse(reader.GetString(1), CultureInfo.InvariantCulture),
-                    reader.GetInt32(2) == 1,
-                    ParsePayloadState(reader.GetString(3))
+                    DateTimeOffset.FromUnixTimeMilliseconds(reader.GetInt64(1)),
+                    ParsePayloadState(reader.GetString(2))
                 )
             );
         }
@@ -418,7 +416,7 @@ internal sealed class PvpBattleSqliteStore : SqliteStoreBase, IPvpBattleCatalog
                   WHERE eligible_run.run_id = b.run_id
                     AND {BundleQueueStore.SealEligibleRunCondition("eligible_run")}
               )
-            ORDER BY b.recorded_at_utc DESC, b.battle_id DESC;
+            ORDER BY b.recorded_at_ms DESC, b.battle_id DESC;
             """;
         select.Parameters.AddWithValue("$battleIdsJson", proposedIdsJson);
         var scheduled = new List<string>();
@@ -434,9 +432,8 @@ internal sealed class PvpBattleSqliteStore : SqliteStoreBase, IPvpBattleCatalog
             using var update = CreateCommand(connection, transaction);
             update.CommandText = $"""
                 UPDATE {RunLogSchema.BattlesTableName}
-                SET has_local_payload = 0,
-                    local_payload_state = 'delete_pending',
-                    local_payload_maintenance_at_utc = $now
+                SET local_payload_state = 'delete_pending',
+                    local_payload_maintenance_at_ms = $now
                 WHERE source = 'LOCAL'
                   AND local_payload_state = 'ready'
                   AND battle_id IN (SELECT value FROM json_each($scheduledIdsJson));
@@ -445,7 +442,7 @@ internal sealed class PvpBattleSqliteStore : SqliteStoreBase, IPvpBattleCatalog
                 "$scheduledIdsJson",
                 JsonConvert.SerializeObject(scheduled)
             );
-            update.Parameters.AddWithValue("$now", now.ToString("o"));
+            update.Parameters.AddWithValue("$now", now.ToUnixTimeMilliseconds());
             update.ExecuteNonQuery();
             ObserveMaintenanceCommand();
         }
@@ -473,7 +470,7 @@ internal sealed class PvpBattleSqliteStore : SqliteStoreBase, IPvpBattleCatalog
         using var command = CreateCommand(connection);
         command.CommandText =
             SelectBattleManifestSql
-            + "\nWHERE b.source = 'LOCAL'\nORDER BY b.recorded_at_utc DESC, b.battle_id DESC\nLIMIT $limit;";
+            + "\nWHERE b.source = 'LOCAL'\nORDER BY b.recorded_at_ms DESC, b.battle_id DESC\nLIMIT $limit;";
         command.Parameters.AddWithValue("$limit", limit);
 
         using var reader = command.ExecuteReader();
@@ -495,7 +492,7 @@ internal sealed class PvpBattleSqliteStore : SqliteStoreBase, IPvpBattleCatalog
         using var command = CreateCommand(connection);
         command.CommandText =
             SelectBattleManifestSql
-            + "\nWHERE b.source = 'LOCAL'\n  AND b.run_id = $runId\nORDER BY b.recorded_at_utc ASC, b.battle_id ASC;";
+            + "\nWHERE b.source = 'LOCAL'\n  AND b.run_id = $runId\nORDER BY b.recorded_at_ms ASC, b.battle_id ASC;";
         command.Parameters.AddWithValue("$runId", runId);
 
         using var reader = command.ExecuteReader();
@@ -521,16 +518,15 @@ internal sealed class PvpBattleSqliteStore : SqliteStoreBase, IPvpBattleCatalog
         using var command = CreateCommand(connection);
         command.CommandText = $"""
             UPDATE {RunLogSchema.BattlesTableName}
-            SET has_local_payload = 0,
-                local_payload_state = $targetState,
-                local_payload_maintenance_at_utc = $now
+            SET local_payload_state = $targetState,
+                local_payload_maintenance_at_ms = $now
             WHERE source = 'LOCAL'
               AND local_payload_state = $expectedState
               AND battle_id IN (SELECT value FROM json_each($battleIdsJson));
             """;
         command.Parameters.AddWithValue("$targetState", targetState);
         command.Parameters.AddWithValue("$expectedState", expectedState);
-        command.Parameters.AddWithValue("$now", now.ToString("o"));
+        command.Parameters.AddWithValue("$now", now.ToUnixTimeMilliseconds());
         command.Parameters.AddWithValue("$battleIdsJson", JsonConvert.SerializeObject(normalized));
         command.ExecuteNonQuery();
         ObserveMaintenanceCommand();
@@ -586,9 +582,8 @@ internal sealed class PvpBattleSqliteStore : SqliteStoreBase, IPvpBattleCatalog
         {
             BattleId = reader.GetString(reader.GetOrdinal("battle_id")),
             RunId = GetNullableString(reader, "run_id"),
-            RecordedAtUtc = DateTimeOffset.Parse(
-                reader.GetString(reader.GetOrdinal("recorded_at_utc")),
-                CultureInfo.InvariantCulture
+            RecordedAtUtc = DateTimeOffset.FromUnixTimeMilliseconds(
+                reader.GetInt64(reader.GetOrdinal("recorded_at_ms"))
             ),
             Day = GetNullableInt32(reader, "day"),
             Hour = GetNullableInt32(reader, "hour"),

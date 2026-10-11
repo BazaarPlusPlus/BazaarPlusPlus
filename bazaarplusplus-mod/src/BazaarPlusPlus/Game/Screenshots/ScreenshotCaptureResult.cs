@@ -14,8 +14,6 @@ internal sealed class ScreenshotCaptureResult
 
     public string? HeroName { get; set; }
 
-    public string? BattleId { get; set; }
-
     public RunScreenshotCaptureSource CaptureSource { get; set; }
 
     public string RelativePath { get; set; } = string.Empty;

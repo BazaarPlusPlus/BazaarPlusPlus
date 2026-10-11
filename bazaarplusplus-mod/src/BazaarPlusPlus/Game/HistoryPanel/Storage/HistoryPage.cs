@@ -1,7 +1,8 @@
 #nullable enable
 namespace BazaarPlusPlus.Game.HistoryPanel.Storage;
 
-internal readonly record struct HistoryCursor(string Time, string Id);
+// Time is the list's sort time in Unix milliseconds.
+internal readonly record struct HistoryCursor(long Time, string Id);
 
 internal sealed record HistoryPageRequest(
     HistoryCursor? Cursor = null,

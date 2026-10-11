@@ -60,11 +60,11 @@ internal static class ReplayVideoMetadataLifecycleTests
                     connection,
                     """
                     INSERT INTO battles (
-                        battle_id, source, recorded_at_utc, combat_kind,
-                        has_local_payload, local_payload_state
+                        battle_id, source, recorded_at_ms, combat_kind,
+                        local_payload_state
                     ) VALUES (
-                        'attached-battle', 'LOCAL', '2026-08-01T00:00:00Z', 'PVPCombat',
-                        0, 'missing'
+                        'attached-battle', 'LOCAL', 1785542400000, 'PVPCombat',
+                        'missing'
                     );
                     """
                 );

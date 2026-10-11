@@ -62,11 +62,11 @@ internal static class ReplayAvailabilityCodecTests
         command.CommandText = """
             INSERT INTO battles (
                 battle_id, source, remote_battle_id, uploader_account_id, local_player_account_id,
-                bundle_id, download_url, download_url_expires_at_ms, recorded_at_utc,
+                bundle_id, download_url, download_url_expires_at_ms, recorded_at_ms,
                 ghost_replay_state, combat_kind
             ) VALUES (
                 $battleId, 'GHOST', $battleId, 'uploader', 'account-local',
-                'bundle', 'https://r2.example/bundle', 0, '2026-09-01T00:00:00Z',
+                'bundle', 'https://r2.example/bundle', 0, 1788220800000,
                 $state, 'PVPCombat'
             );
             """;

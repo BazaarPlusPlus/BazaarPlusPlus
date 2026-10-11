@@ -29,8 +29,8 @@ internal static class HistoryPaginationTests
                 DROP INDEX idx_battles_history_ghost;
                 CREATE INDEX idx_battles_history_ghost ON battles(local_player_account_id)
                     WHERE source = 'GHOST' AND day >= 10;
-                INSERT INTO battles (battle_id,source,remote_battle_id,uploader_account_id,local_player_account_id,recorded_at_utc,day,combat_kind)
-                VALUES ('drifted','GHOST','drifted','uploader','account','2026-01-01T00:00:00Z',2,'PVPCombat');
+                INSERT INTO battles (battle_id,source,remote_battle_id,uploader_account_id,local_player_account_id,recorded_at_ms,day,combat_kind)
+                VALUES ('drifted','GHOST','drifted','uploader','account',1767225600000,2,'PVPCombat');
                 """
             );
         }
@@ -48,7 +48,7 @@ internal static class HistoryPaginationTests
         using var db = new SqliteConnection($"Data Source={path}");
         db.Open();
         var query = HistoryPageQuery.Ghosts("account", GhostBattleFilter.All, false);
-        var total = Plan(db, query, query.CountSql, new("2026-01-01T00:00:00Z", "drifted"));
+        var total = Plan(db, query, query.CountSql, new(1767225600000, "drifted"));
         Check(
             total.Contains(
                 "SEARCH battles USING INDEX idx_battles_history_ghost (",
@@ -69,13 +69,13 @@ internal static class HistoryPaginationTests
             db,
             $$"""
             WITH RECURSIVE n(x) AS (VALUES(0) UNION ALL SELECT x+1 FROM n WHERE x+1 < {{count}})
-            INSERT INTO runs (run_id,hero,game_mode,status,started_at_utc,last_seen_at_utc)
-            SELECT printf('r%05d',x), CASE WHEN x%97=0 THEN char(9)||'HeRo8'||char(160) ELSE 'Vanessa' END,
-                'Ranked','completed',strftime('%Y-%m-%dT%H:%M:%SZ','2026-01-01',printf('+%d seconds',x/3)),
-                strftime('%Y-%m-%dT%H:%M:%SZ','2026-01-01',printf('+%d seconds',x/3)) FROM n;
+            INSERT INTO runs (run_id,hero,game_mode,status,started_at_ms,last_seen_at_ms)
+            SELECT printf('r%05d',x), CASE WHEN x%97=0 THEN char(9)||'tHeDrAgOnS'||char(160) ELSE 'Vanessa' END,
+                'Ranked','completed',1767225600000+(x/3)*1000,
+                1767225600000+(x/3)*1000 FROM n;
             WITH RECURSIVE n(x) AS (VALUES(0) UNION ALL SELECT x+1 FROM n WHERE x+1 < 10)
-            INSERT INTO battles (battle_id,run_id,source,recorded_at_utc,local_payload_state,combat_kind)
-            SELECT run_id||'-'||x,run_id,'LOCAL',last_seen_at_utc,'missing','PVPCombat' FROM runs,n;
+            INSERT INTO battles (battle_id,run_id,source,recorded_at_ms,local_payload_state,combat_kind)
+            SELECT run_id||'-'||x,run_id,'LOCAL',last_seen_at_ms,'missing','PVPCombat' FROM runs,n;
             INSERT INTO battle_snapshots (battle_id,player_hand_json,player_skills_json,opponent_hand_json,opponent_skills_json)
             SELECT battle_id,'{"Items":[],"Status":"CapturedEmpty","Source":"Unknown"}',
                 '{"Items":[],"Status":"CapturedEmpty","Source":"Unknown"}',
@@ -133,16 +133,13 @@ internal static class HistoryPaginationTests
         );
         var anchor = repository.ListRuns(new(AnchorId: expected[count / 2]));
         CheckCounts(anchor, count, count / 2 + 1);
-        CheckCounts(repository.ListRuns(new(new("0000", ""))), count, 0);
+        CheckCounts(repository.ListRuns(new(new(0, ""))), count, 0);
         CheckCounts(repository.ListRuns(new(AnchorId: "missing")), count, 1);
         Check(
             anchor.Rows[0].RunId == expected[count / 2],
             "ID anchor must survive deep selection."
         );
-        Execute(
-            db,
-            "UPDATE runs SET last_seen_at_utc='2026-09-01T00:00:00Z' WHERE run_id='r00000';"
-        );
+        Execute(db, "UPDATE runs SET last_seen_at_ms=1788220800000 WHERE run_id='r00000';");
         var preserved = repository.ListRuns(new(pages[^1].First, Inclusive: true));
         Check(
             preserved.Rows[0].RunId == pages[^1].Rows[0].RunId,
@@ -175,7 +172,7 @@ internal static class HistoryPaginationTests
             db,
             runs,
             runs.RowsSql("run_id", newer: false, bounded: true, inclusive: false),
-            new("2026-01-01T00:00:01Z", "r00004")
+            new(1767225601000, "r00004")
         );
         Check(
             plan.Contains("SEARCH runs", StringComparison.Ordinal)
@@ -202,10 +199,10 @@ internal static class HistoryPaginationTests
             db,
             """
             WITH RECURSIVE n(x) AS (VALUES(0) UNION ALL SELECT x+1 FROM n WHERE x+1 < 367)
-            INSERT INTO battles (battle_id,source,remote_battle_id,uploader_account_id,local_player_account_id,bundle_id,recorded_at_utc,day,winner_combatant_id,result,ghost_replay_state,combat_kind)
+            INSERT INTO battles (battle_id,source,remote_battle_id,uploader_account_id,local_player_account_id,bundle_id,recorded_at_ms,day,winner_combatant_id,result,ghost_replay_state,combat_kind)
             SELECT printf('g%04d',x),'GHOST',printf('remote%04d',x),'uploader',CASE WHEN x%2=0 THEN 'account-a' ELSE 'account-b' END,'bundle',
-                '2026-09-01T00:00:00Z',CASE WHEN x%7=0 THEN 12 ELSE 2 END,
-                CASE WHEN x%3=0 THEN ' OpPoNeNt ' ELSE ' PLAYER ' END,'won',
+                1788220800000,CASE WHEN x%7=0 THEN 12 ELSE 2 END,
+                CASE WHEN x%3=0 THEN 'OpPoNeNt' ELSE 'PLAYER' END,'win',
                 CASE WHEN x%5=0 THEN 'local_ready' ELSE 'remote_available' END,'PVPCombat' FROM n;
             """
         );
@@ -254,7 +251,7 @@ internal static class HistoryPaginationTests
             repository.ListGhostBattles("", GhostBattleFilter.All, false, new()).Rows.Count == 0,
             "Signed out must not expose any account's Ghost records."
         );
-        Execute(db, "UPDATE battles SET deleted_at_utc='old' WHERE battle_id='g0002';");
+        Execute(db, "UPDATE battles SET deleted_at_ms=1 WHERE battle_id='g0002';");
         CheckCounts(
             repository.ListGhostBattles("account-a", GhostBattleFilter.All, false, new()),
             183,
@@ -275,7 +272,7 @@ internal static class HistoryPaginationTests
                 && retained.Rows.All(b => b.Replay == ReplayAvailability.Saved),
             "Downloaded facts must survive the discovery retention window."
         );
-        Execute(db, "UPDATE battles SET deleted_at_utc='old' WHERE battle_id='g0000';");
+        Execute(db, "UPDATE battles SET deleted_at_ms=1 WHERE battle_id='g0000';");
         var hidden = repository.ListHiddenGhosts("account-a", null).Rows.Single();
         Execute(db, "UPDATE battles SET bundle_id='changed' WHERE battle_id='g0000';");
         Check(
@@ -297,18 +294,18 @@ internal static class HistoryPaginationTests
         Execute(
             db,
             """
-            INSERT INTO runs (run_id,hero,game_mode,status,started_at_utc,last_seen_at_utc)
-            VALUES ('legacy','Hero8','Ranked','completed','2026-01-01T00:00:00Z','2026-01-01T00:00:00Z'),
-                ('canonical','TheDragons','Ranked','completed','2026-01-01T00:00:00Z','2026-01-01T00:00:00Z'),
-                ('other','Vanessa','Ranked','completed','2026-01-01T00:00:00Z','2026-01-01T00:00:00Z');
+            INSERT INTO runs (run_id,hero,game_mode,status,started_at_ms,last_seen_at_ms)
+            VALUES ('spaced',char(9)||'tHeDrAgOnS'||char(160),'Ranked','completed',1767225600000,1767225600000),
+                ('canonical','TheDragons','Ranked','completed',1767225600000,1767225600000),
+                ('other','Vanessa','Ranked','completed',1767225600000,1767225600000);
             WITH days(day) AS (VALUES(NULL),(9),(10),(12)),
                 outcomes(name,winner,result) AS (
-                    VALUES('win',NULL,' Lost '),('loss',NULL,' WoN '),
-                        ('winner-win',' OpPoNeNt ','won'),('winner-loss',' PLAYER ','loss'),
+                    VALUES('win',NULL,'LoSs'),('loss',NULL,'WiN'),
+                        ('winner-win','OpPoNeNt','win'),('winner-loss','PLAYER','loss'),
                         ('unknown',NULL,'unknown')
                 )
-            INSERT INTO battles (battle_id,source,remote_battle_id,uploader_account_id,local_player_account_id,recorded_at_utc,day,winner_combatant_id,result,combat_kind)
-            SELECT coalesce(day,'null')||'-'||name,'GHOST',coalesce(day,'null')||'-'||name,'uploader','account','2026-01-01T00:00:00Z',
+            INSERT INTO battles (battle_id,source,remote_battle_id,uploader_account_id,local_player_account_id,recorded_at_ms,day,winner_combatant_id,result,combat_kind)
+            SELECT coalesce(day,'null')||'-'||name,'GHOST',coalesce(day,'null')||'-'||name,'uploader','account',1767225600000,
                 day,winner,result,'PVPCombat' FROM days,outcomes;
             """
         );
@@ -324,10 +321,10 @@ internal static class HistoryPaginationTests
             CheckCounts(page, 2, 1);
             var rows = page.Rows;
             Check(
-                rows.Select(r => r.RunId).OrderBy(id => id).SequenceEqual(["canonical", "legacy"])
+                rows.Select(r => r.RunId).OrderBy(id => id).SequenceEqual(["canonical", "spaced"])
                     && rows.Single(r => r.RunId == "canonical").Hero == "TheDragons"
-                    && rows.Single(r => r.RunId == "legacy").Hero == "Hero8",
-                "Either hero alias must select both stored forms without rewriting their values."
+                    && rows.Single(r => r.RunId == "spaced").Hero == "\ttHeDrAgOnS\u00a0",
+                "Either hero alias must select case and whitespace variants without rewriting their values."
             );
         }
         Check(
@@ -398,7 +395,7 @@ internal static class HistoryPaginationTests
     // Plans come from the SQL the repository itself renders, bound as the repository binds it.
     private static void CheckRunCountPlans(SqliteConnection db)
     {
-        HistoryCursor at = new("2026-01-01T00:00:01Z", "r00004");
+        HistoryCursor at = new(1767225601000, "r00004");
         var total = Plan(db, HistoryPageQuery.Runs(null), HistoryPageQuery.Runs(null).CountSql, at);
         Check(
             total.Contains("USING COVERING INDEX", StringComparison.Ordinal),
@@ -496,7 +493,7 @@ internal static class HistoryPaginationTests
                 outcome ? GhostBattleFilter.IWon : GhostBattleFilter.All,
                 day
             );
-            HistoryCursor at = new("2026-09-01T00:00:00Z", "g0040");
+            HistoryCursor at = new(1788220800000, "g0040");
             var anchor = Plan(db, query, query.AnchorSql, at);
             Check(
                 anchor.Contains("(battle_id=?)", StringComparison.Ordinal),

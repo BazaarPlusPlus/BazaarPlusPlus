@@ -25,7 +25,6 @@ internal static class ReplayPayloadMaintenanceServiceTests
             .Select(index => new ReplayPayloadMaintenanceRecord(
                 $"retention-{index:D3}",
                 now.AddDays(-31).AddMinutes(-index),
-                HasLocalPayload: true,
                 ReplayPayloadState.Ready
             ))
             .ToList();
@@ -70,11 +69,11 @@ internal static class ReplayPayloadMaintenanceServiceTests
                         SELECT value + 1 FROM sequence WHERE value < 9999
                     )
                     INSERT INTO battles (
-                        battle_id, source, recorded_at_utc, combat_kind,
-                        has_local_payload, local_payload_state
+                        battle_id, source, recorded_at_ms, combat_kind,
+                        local_payload_state
                     )
                     SELECT printf('sqlite-%05d', value), 'LOCAL',
-                           '2025-01-01T00:00:00Z', 'PVPCombat', 1, 'ready'
+                           1735689600000, 'PVPCombat', 'ready'
                     FROM sequence;
                     """;
                 command.ExecuteNonQuery();
@@ -163,7 +162,6 @@ internal static class ReplayPayloadMaintenanceServiceTests
             .Select(index => new ReplayPayloadMaintenanceRecord(
                 $"battle-{index:D5}",
                 now.AddDays(-31).AddMinutes(-index),
-                HasLocalPayload: true,
                 ReplayPayloadState.Ready
             ))
             .ToList();
@@ -208,7 +206,6 @@ internal static class ReplayPayloadMaintenanceServiceTests
             .Select(index => new ReplayPayloadMaintenanceRecord(
                 $"retry-{index:D3}",
                 now.AddDays(-31).AddMinutes(-index),
-                HasLocalPayload: true,
                 ReplayPayloadState.Ready
             ))
             .ToList();
@@ -275,12 +272,7 @@ internal static class ReplayPayloadMaintenanceServiceTests
                 .ToList();
             Replace(
                 scheduled,
-                record =>
-                    record with
-                    {
-                        HasLocalPayload = false,
-                        PayloadState = ReplayPayloadState.DeletePending,
-                    }
+                record => record with { PayloadState = ReplayPayloadState.DeletePending }
             );
             return scheduled;
         }
@@ -299,15 +291,7 @@ internal static class ReplayPayloadMaintenanceServiceTests
             DateTimeOffset now
         )
         {
-            Replace(
-                battleIds,
-                record =>
-                    record with
-                    {
-                        HasLocalPayload = false,
-                        PayloadState = ReplayPayloadState.Missing,
-                    }
-            );
+            Replace(battleIds, record => record with { PayloadState = ReplayPayloadState.Missing });
         }
 
         private void Replace(

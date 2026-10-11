@@ -551,10 +551,10 @@ mod tests {
             .execute_batch(
                 "insert into run_screenshots (
                     screenshot_id, capture_source, image_relative_path, hero_name,
-                    captured_at_local, captured_at_utc, victories_at_capture, day
+                    captured_utc_offset_minutes, captured_at_ms, victories_at_capture, day
                 ) values (
                     'shot-1', 'end_of_run_auto', 'shot.png', 'Vanessa',
-                    '2026-09-01T00:00:00Z', '2026-09-01T00:00:00Z', 10, 10
+                    0, 1788220800000, 10, 10
                 );
                 begin exclusive;",
             )

@@ -3,7 +3,11 @@ namespace BazaarPlusPlus.Storage.RunLog;
 
 public sealed class RunLogEvent
 {
-    public int SchemaVersion { get; set; } = RunLogSchema.LocalDatabaseSchemaVersion;
+    // The payload_json shape, copied verbatim into the Bundle run segment; independent of the
+    // database user_version.
+    public const int PayloadSchemaVersion = 3;
+
+    public int SchemaVersion { get; set; } = PayloadSchemaVersion;
 
     public string RunId { get; set; } = string.Empty;
 

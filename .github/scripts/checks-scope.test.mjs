@@ -130,7 +130,7 @@ test('shared inputs select owners and every contract consumer', () => {
       ['mod', 'installer', 'release']
     ],
     [
-      'bazaarplusplus-mod/tests/RunLoggingPipeline.Tests/fixtures/history-database-v3.schema.sql',
+      'bazaarplusplus-mod/src/BazaarPlusPlus.Storage/history-database-v6.schema.sql',
       ['mod', 'installer', 'release']
     ],
     [

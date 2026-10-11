@@ -69,14 +69,13 @@ static async Task DiscoveryImportsServerGhostSummaryContract()
         connection.Open();
         using var command = connection.CreateCommand();
         command.CommandText =
-            "SELECT remote_battle_id, bundle_id, recorded_at_utc, uploader_account_id, local_player_account_id, player_account_id, player_hero, player_rank, player_rating, opponent_account_id, opponent_hero FROM battles WHERE source = 'GHOST';";
+            "SELECT remote_battle_id, bundle_id, recorded_at_ms, uploader_account_id, local_player_account_id, player_account_id, player_hero, player_rank, player_rating, opponent_account_id, opponent_hero FROM battles WHERE source = 'GHOST';";
         using var row = command.ExecuteReader();
         Assert(row.Read(), "Discovery must import the contract battle.");
         Assert(row.GetString(0) == battle.GetProperty("battle_id").GetString(), "battle_id");
         Assert(row.GetString(1) == battle.GetProperty("bundle_id").GetString(), "bundle_id");
         Assert(
-            DateTimeOffset.Parse(row.GetString(2)).ToUnixTimeMilliseconds()
-                == battle.GetProperty("recorded_at_ms").GetInt64(),
+            row.GetInt64(2) == battle.GetProperty("recorded_at_ms").GetInt64(),
             "recorded_at_ms"
         );
         Assert(

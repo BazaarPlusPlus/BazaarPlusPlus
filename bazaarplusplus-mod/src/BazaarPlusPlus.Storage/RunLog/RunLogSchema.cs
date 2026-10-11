@@ -1,6 +1,5 @@
 #nullable enable
 using System.Globalization;
-using BazaarPlusPlus.Storage.BundleQueue;
 using Microsoft.Data.Sqlite;
 
 namespace BazaarPlusPlus.Storage.RunLog;
@@ -8,14 +7,9 @@ namespace BazaarPlusPlus.Storage.RunLog;
 public static class RunLogSchema
 {
     // `PRAGMA user_version`: the column shape the installer reads. Bump it only with a column change
-    // and a migration; a one-time data repair does not bump it (ADR-0011).
-    public const int LocalDatabaseSchemaVersion = 3;
-
-    private const int FirstSchemaVersion = 1;
-
-    // Added the local payload and replay video lifecycle columns. Version 3 kept this shape and only
-    // ran BundleQueueStore.RecoverLegacyJsonFailures, which still keys on leaving this version.
-    private const int LifecycleColumnsSchemaVersion = 2;
+    // and a migration; a one-time data repair does not bump it (ADR-0011). V6 starts at 1 in its own
+    // Data Root; a V5 database is imported, never opened here.
+    public const int LocalDatabaseSchemaVersion = 1;
 
     private static readonly object InitializationGate = new();
 
@@ -30,35 +24,31 @@ public static class RunLogSchema
     public const string CaptureSourceEndOfRunAuto = "end_of_run_auto";
 
     // Stable SQL expressions shared by history queries and their expression indexes.
-    public const string HistoryRunTime = "COALESCE(ended_at_utc,last_seen_at_utc,started_at_utc)";
+    public const string HistoryRunTime = "COALESCE(ended_at_ms,last_seen_at_ms,started_at_ms)";
     public const string HistoryWhitespace =
         " \t\n\v\f\r\u0085\u00a0\u1680\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200a\u2028\u2029\u202f\u205f\u3000";
-    public const string HistoryHeroKey =
-        "CASE lower(trim(hero,'"
-        + HistoryWhitespace
-        + "')) WHEN 'hero8' THEN 'thedragons' ELSE lower(trim(hero,'"
-        + HistoryWhitespace
-        + "')) END";
-    public const string HistoryRecorderOutcome =
-        "CASE lower(trim(winner_combatant_id,'"
-        + HistoryWhitespace
-        + "')) WHEN 'player' THEN 1 WHEN 'opponent' THEN -1 ELSE CASE lower(trim(result,'"
-        + HistoryWhitespace
-        + "')) WHEN 'win' THEN 1 WHEN 'won' THEN 1 WHEN 'loss' THEN -1 WHEN 'lost' THEN -1 ELSE 0 END END";
+    public const string HistoryHeroKey = "lower(trim(hero,'" + HistoryWhitespace + "'))";
 
+    // Writers store 'player'/'opponent' and 'win'/'loss' verbatim; a Ghost Battle value the server
+    // did not normalize reads as undecided.
+    public const string HistoryRecorderOutcome =
+        "CASE lower(winner_combatant_id) WHEN 'player' THEN 1 WHEN 'opponent' THEN -1 "
+        + "ELSE CASE lower(result) WHEN 'win' THEN 1 WHEN 'loss' THEN -1 ELSE 0 END END";
+
+    // Every *_at_ms column holds Unix epoch milliseconds (UTC). bundle_outbox.run_id,
+    // run_screenshots.run_id and combat_replay_videos.battle_id have no foreign key on purpose:
+    // outbox rows outlive their Run, and screenshots and videos survive a deleted Run or battle.
     public static string BootstrapSql =>
         $"""
             PRAGMA foreign_keys = ON;
 
             CREATE TABLE IF NOT EXISTS {RunsTableName} (
                 run_id TEXT PRIMARY KEY,
-                started_at_utc TEXT NOT NULL,
-                last_seen_at_utc TEXT NOT NULL,
+                started_at_ms INTEGER NOT NULL,
+                last_seen_at_ms INTEGER NOT NULL,
                 status TEXT NOT NULL,
-                completed INTEGER NOT NULL DEFAULT 0,
                 hero TEXT NOT NULL,
                 game_mode TEXT NOT NULL,
-                seed INTEGER NULL,
                 player_rank TEXT NULL,
                 player_rating INTEGER NULL,
                 day INTEGER NULL,
@@ -69,7 +59,7 @@ public static class RunLogSchema
                 income INTEGER NULL,
                 gold INTEGER NULL,
                 last_seq INTEGER NOT NULL DEFAULT 0,
-                ended_at_utc TEXT NULL,
+                ended_at_ms INTEGER NULL,
                 final_day INTEGER NULL,
                 final_hour INTEGER NULL,
                 victories INTEGER NULL,
@@ -81,13 +71,16 @@ public static class RunLogSchema
                 build_channel TEXT NULL,
                 player_account_id TEXT NULL,
                 bundle_screenshot_requested INTEGER NOT NULL DEFAULT 0,
-                mod_version TEXT NULL
+                mod_version TEXT NULL,
+                upload_policy TEXT NOT NULL DEFAULT 'bundle',
+                CHECK (status IN ('active', 'completed', 'abandoned')),
+                CHECK (upload_policy IN ('bundle', 'history_only'))
             );
 
             CREATE TABLE IF NOT EXISTS {RunEventsTableName} (
                 run_id TEXT NOT NULL,
                 seq INTEGER NOT NULL,
-                ts_utc TEXT NOT NULL,
+                ts_at_ms INTEGER NOT NULL,
                 kind TEXT NOT NULL,
                 payload_json TEXT NOT NULL,
                 PRIMARY KEY (run_id, seq),
@@ -101,7 +94,7 @@ public static class RunLogSchema
                 source TEXT NOT NULL,
                 run_id TEXT NULL,
                 local_player_account_id TEXT NULL,
-                recorded_at_utc TEXT NOT NULL,
+                recorded_at_ms INTEGER NOT NULL,
                 day INTEGER NULL,
                 hour INTEGER NULL,
                 encounter_id TEXT NULL,
@@ -132,15 +125,14 @@ public static class RunLogSchema
                 winner_combatant_id TEXT NULL,
                 loser_combatant_id TEXT NULL,
                 is_final_battle INTEGER NOT NULL DEFAULT 0,
-                has_local_payload INTEGER NOT NULL DEFAULT 0,
                 bundle_id TEXT NULL,
                 download_url TEXT NULL,
                 download_url_expires_at_ms INTEGER NULL,
                 ghost_replay_state TEXT NULL,
                 ghost_replay_unavailable_reason TEXT NULL,
-                deleted_at_utc TEXT NULL,
+                deleted_at_ms INTEGER NULL,
                 local_payload_state TEXT NULL,
-                local_payload_maintenance_at_utc TEXT NULL,
+                local_payload_maintenance_at_ms INTEGER NULL,
                 FOREIGN KEY (run_id) REFERENCES {RunsTableName}(run_id) ON DELETE CASCADE,
                 CHECK (
                     (source = 'LOCAL' AND remote_battle_id IS NULL AND uploader_account_id IS NULL)
@@ -153,12 +145,8 @@ public static class RunLogSchema
                     )
                 ),
                 CHECK (
-                    (source = 'LOCAL' AND local_payload_state IS NOT NULL AND (
-                        (local_payload_state = 'ready' AND has_local_payload = 1)
-                        OR
-                        (local_payload_state IN ('delete_pending', 'evicted', 'missing')
-                         AND has_local_payload = 0)
-                    ))
+                    (source = 'LOCAL' AND local_payload_state IS NOT NULL
+                     AND local_payload_state IN ('ready', 'delete_pending', 'evicted', 'missing'))
                     OR
                     (source <> 'LOCAL' AND local_payload_state IS NULL)
                 )
@@ -177,18 +165,16 @@ public static class RunLogSchema
                 screenshot_id TEXT PRIMARY KEY,
                 run_id TEXT NULL,
                 hero_name TEXT NULL,
-                battle_id TEXT NULL,
                 capture_source TEXT NOT NULL,
                 is_primary INTEGER NOT NULL DEFAULT 0,
                 image_relative_path TEXT NOT NULL,
-                captured_at_local TEXT NOT NULL,
-                captured_at_utc TEXT NOT NULL,
+                captured_at_ms INTEGER NOT NULL,
+                captured_utc_offset_minutes INTEGER NOT NULL,
                 day INTEGER NULL,
                 player_rank TEXT NULL,
                 player_rating INTEGER NULL,
                 player_position INTEGER NULL,
-                victories_at_capture INTEGER NULL,
-                build_channel TEXT NULL
+                victories_at_capture INTEGER NULL
             );
 
             CREATE TABLE IF NOT EXISTS {CombatReplayVideosTableName} (
@@ -202,8 +188,8 @@ public static class RunLogSchema
                 codec TEXT NOT NULL,
                 crf INTEGER NULL,
                 preset TEXT NULL,
-                started_at_utc TEXT NOT NULL,
-                ended_at_utc TEXT NULL,
+                started_at_ms INTEGER NOT NULL,
+                ended_at_ms INTEGER NULL,
                 duration_ms INTEGER NULL,
                 captured_frames INTEGER NOT NULL DEFAULT 0,
                 dropped_frames INTEGER NOT NULL DEFAULT 0,
@@ -212,11 +198,12 @@ public static class RunLogSchema
                 error TEXT NULL,
                 attachment_state TEXT NOT NULL DEFAULT 'attached',
                 file_state TEXT NOT NULL DEFAULT 'pending',
-                detached_at_utc TEXT NULL,
-                missing_at_utc TEXT NULL,
-                last_reconciled_at_utc TEXT NULL,
+                detached_at_ms INTEGER NULL,
+                missing_at_ms INTEGER NULL,
+                last_reconciled_at_ms INTEGER NULL,
+                CHECK (status IN ('RECORDING', 'COMPLETED', 'FAILED')),
                 CHECK (attachment_state IN ('attached', 'detached')),
-                CHECK (file_state IN ('pending', 'present', 'missing', 'deleted'))
+                CHECK (file_state IN ('pending', 'present', 'missing'))
             );
 
             CREATE TABLE IF NOT EXISTS {BundleSealJobsTableName} (
@@ -225,11 +212,11 @@ public static class RunLogSchema
                 player_account_id TEXT NULL,
                 screenshot_requested INTEGER NOT NULL,
                 screenshot_state TEXT NOT NULL DEFAULT 'waiting',
-                input_deadline_at_utc TEXT NOT NULL,
+                input_deadline_at_ms INTEGER NOT NULL,
                 bundle_id TEXT NULL UNIQUE,
                 created_at_ms INTEGER NULL,
                 attempts INTEGER NOT NULL DEFAULT 0,
-                last_attempt_at_utc TEXT NULL,
+                last_attempt_at_ms INTEGER NULL,
                 last_error_code TEXT NULL,
                 last_error_detail TEXT NULL,
                 FOREIGN KEY (run_id) REFERENCES {RunsTableName}(run_id) ON DELETE CASCADE,
@@ -245,100 +232,63 @@ public static class RunLogSchema
                 content_digest TEXT NOT NULL,
                 total_bytes INTEGER NOT NULL,
                 has_screenshot INTEGER NOT NULL,
-                sealed_at_utc TEXT NOT NULL,
+                sealed_at_ms INTEGER NOT NULL,
                 status TEXT NOT NULL DEFAULT 'pending',
                 attempts INTEGER NOT NULL DEFAULT 0,
-                last_attempt_at_utc TEXT NULL,
-                next_attempt_at_utc TEXT NULL,
-                failed_at_utc TEXT NULL,
+                last_attempt_at_ms INTEGER NULL,
+                next_attempt_at_ms INTEGER NULL,
+                failed_at_ms INTEGER NULL,
                 last_error_code TEXT NULL,
                 last_error_detail TEXT NULL,
                 server_request_id TEXT NULL,
                 server_outcome TEXT NULL,
-                uploaded_at_utc TEXT NULL,
+                uploaded_at_ms INTEGER NULL,
                 CHECK (status IN ('pending', 'uploaded', 'permanent_failure'))
             );
 
             CREATE INDEX IF NOT EXISTS idx_runs_history_recent ON runs({HistoryRunTime} DESC, run_id DESC);
             CREATE INDEX IF NOT EXISTS idx_runs_history_hero ON runs({HistoryHeroKey}, {HistoryRunTime} DESC, run_id DESC);
-            CREATE INDEX IF NOT EXISTS idx_battles_history_local ON battles(run_id, recorded_at_utc DESC, battle_id DESC) WHERE source = 'LOCAL';
-            CREATE INDEX IF NOT EXISTS idx_battles_history_ghost ON battles(local_player_account_id, recorded_at_utc DESC, battle_id DESC) WHERE source = 'GHOST' AND deleted_at_utc IS NULL;
-            CREATE INDEX IF NOT EXISTS idx_battles_history_ghost_outcome ON battles(local_player_account_id, {HistoryRecorderOutcome}, recorded_at_utc DESC, battle_id DESC) WHERE source = 'GHOST' AND deleted_at_utc IS NULL;
-            CREATE INDEX IF NOT EXISTS idx_battles_history_ghost_day ON battles(local_player_account_id, recorded_at_utc DESC, battle_id DESC) WHERE source = 'GHOST' AND deleted_at_utc IS NULL AND day >= 10;
-            CREATE INDEX IF NOT EXISTS idx_battles_history_ghost_day_outcome ON battles(local_player_account_id, {HistoryRecorderOutcome}, recorded_at_utc DESC, battle_id DESC) WHERE source = 'GHOST' AND deleted_at_utc IS NULL AND day >= 10;
+            CREATE INDEX IF NOT EXISTS idx_battles_history_local ON battles(run_id, recorded_at_ms DESC, battle_id DESC) WHERE source = 'LOCAL';
+            CREATE INDEX IF NOT EXISTS idx_battles_history_ghost ON battles(local_player_account_id, recorded_at_ms DESC, battle_id DESC) WHERE source = 'GHOST' AND deleted_at_ms IS NULL;
+            CREATE INDEX IF NOT EXISTS idx_battles_history_ghost_outcome ON battles(local_player_account_id, {HistoryRecorderOutcome}, recorded_at_ms DESC, battle_id DESC) WHERE source = 'GHOST' AND deleted_at_ms IS NULL;
+            CREATE INDEX IF NOT EXISTS idx_battles_history_ghost_day ON battles(local_player_account_id, recorded_at_ms DESC, battle_id DESC) WHERE source = 'GHOST' AND deleted_at_ms IS NULL AND day >= 10;
+            CREATE INDEX IF NOT EXISTS idx_battles_history_ghost_day_outcome ON battles(local_player_account_id, {HistoryRecorderOutcome}, recorded_at_ms DESC, battle_id DESC) WHERE source = 'GHOST' AND deleted_at_ms IS NULL AND day >= 10;
 
-            CREATE INDEX IF NOT EXISTS idx_{RunEventsTableName}_ts_utc
-                ON {RunEventsTableName}(ts_utc);
-            DROP INDEX IF EXISTS idx_{RunsTableName}_status_last_seen;
-            CREATE INDEX IF NOT EXISTS idx_{RunsTableName}_completed_last_seen
-                ON {RunsTableName}(completed, last_seen_at_utc DESC);
-            CREATE INDEX IF NOT EXISTS idx_{RunsTableName}_started_at_utc
-                ON {RunsTableName}(started_at_utc DESC);
+            CREATE INDEX IF NOT EXISTS idx_{RunsTableName}_status_last_seen
+                ON {RunsTableName}(status, last_seen_at_ms DESC);
             CREATE INDEX IF NOT EXISTS idx_{BattlesTableName}_run_id_recorded
-                ON {BattlesTableName}(run_id, recorded_at_utc DESC);
+                ON {BattlesTableName}(run_id, recorded_at_ms DESC);
             CREATE INDEX IF NOT EXISTS idx_{BattlesTableName}_source_recorded
-                ON {BattlesTableName}(source, recorded_at_utc DESC);
+                ON {BattlesTableName}(source, recorded_at_ms DESC);
             CREATE INDEX IF NOT EXISTS idx_{BattlesTableName}_local_player_recent
-                ON {BattlesTableName}(local_player_account_id, recorded_at_utc DESC);
+                ON {BattlesTableName}(local_player_account_id, recorded_at_ms DESC);
             CREATE UNIQUE INDEX IF NOT EXISTS idx_battles_ghost_identity
                 ON {BattlesTableName}(uploader_account_id, remote_battle_id)
                 WHERE source = 'GHOST';
             CREATE INDEX IF NOT EXISTS idx_battles_ghost_discovery
-                ON {BattlesTableName}(local_player_account_id, source, recorded_at_utc DESC);
-            CREATE INDEX IF NOT EXISTS idx_{RunScreenshotsTableName}_run_id_captured_at_utc
-                ON {RunScreenshotsTableName}(run_id, captured_at_utc DESC);
+                ON {BattlesTableName}(local_player_account_id, source, recorded_at_ms DESC);
+            CREATE INDEX IF NOT EXISTS idx_{RunScreenshotsTableName}_run_id_captured
+                ON {RunScreenshotsTableName}(run_id, captured_at_ms DESC);
             CREATE INDEX IF NOT EXISTS idx_run_screenshots_source_captured
-                ON {RunScreenshotsTableName}(capture_source, captured_at_utc ASC, screenshot_id ASC);
+                ON {RunScreenshotsTableName}(capture_source, captured_at_ms ASC, screenshot_id ASC);
             CREATE UNIQUE INDEX IF NOT EXISTS idx_run_screenshots_primary_run
                 ON {RunScreenshotsTableName}(run_id)
                 WHERE is_primary = 1 AND run_id IS NOT NULL;
             CREATE INDEX IF NOT EXISTS idx_{CombatReplayVideosTableName}_battle
-                ON {CombatReplayVideosTableName}(battle_id, started_at_utc DESC);
+                ON {CombatReplayVideosTableName}(battle_id, started_at_ms DESC);
             CREATE INDEX IF NOT EXISTS idx_combat_replay_videos_attachment
                 ON {CombatReplayVideosTableName}(
-                    attachment_state, started_at_utc DESC, video_id
+                    attachment_state, started_at_ms DESC, video_id
                 );
             CREATE INDEX IF NOT EXISTS idx_bundle_seal_jobs_state
-                ON {BundleSealJobsTableName}(state, input_deadline_at_utc, run_id);
+                ON {BundleSealJobsTableName}(state, input_deadline_at_ms, run_id);
             CREATE UNIQUE INDEX IF NOT EXISTS idx_bundle_outbox_active_run
                 ON {BundleOutboxTableName}(run_id)
                 WHERE status = 'pending';
             CREATE INDEX IF NOT EXISTS idx_bundle_outbox_due
-                ON {BundleOutboxTableName}(status, next_attempt_at_utc, attempts, sealed_at_utc);
+                ON {BundleOutboxTableName}(status, next_attempt_at_ms, attempts, sealed_at_ms);
             CREATE INDEX IF NOT EXISTS idx_bundle_outbox_run
                 ON {BundleOutboxTableName}(run_id, status);
-
-            CREATE TRIGGER IF NOT EXISTS trg_battles_local_payload_insert
-            BEFORE INSERT ON {BattlesTableName}
-            WHEN NOT (
-                (NEW.source = 'LOCAL' AND NEW.local_payload_state IS NOT NULL AND (
-                    (NEW.local_payload_state = 'ready' AND NEW.has_local_payload = 1)
-                    OR
-                    (NEW.local_payload_state IN ('delete_pending', 'evicted', 'missing')
-                     AND NEW.has_local_payload = 0)
-                ))
-                OR
-                (NEW.source <> 'LOCAL' AND NEW.local_payload_state IS NULL)
-            )
-            BEGIN
-                SELECT RAISE(ABORT, 'invalid local payload lifecycle state');
-            END;
-
-            CREATE TRIGGER IF NOT EXISTS trg_battles_local_payload_update
-            BEFORE UPDATE OF source, has_local_payload, local_payload_state ON {BattlesTableName}
-            WHEN NOT (
-                (NEW.source = 'LOCAL' AND NEW.local_payload_state IS NOT NULL AND (
-                    (NEW.local_payload_state = 'ready' AND NEW.has_local_payload = 1)
-                    OR
-                    (NEW.local_payload_state IN ('delete_pending', 'evicted', 'missing')
-                     AND NEW.has_local_payload = 0)
-                ))
-                OR
-                (NEW.source <> 'LOCAL' AND NEW.local_payload_state IS NULL)
-            )
-            BEGIN
-                SELECT RAISE(ABORT, 'invalid local payload lifecycle state');
-            END;
 
             PRAGMA user_version = {LocalDatabaseSchemaVersion};
             """;
@@ -358,29 +308,11 @@ public static class RunLogSchema
                 );
             }
 
-            if (currentVersion == FirstSchemaVersion)
-            {
-                UpgradeToLifecycleColumns(connection);
-                currentVersion = ReadUserVersion(connection);
-            }
-
-            if (
-                currentVersion != 0
-                && currentVersion != LifecycleColumnsSchemaVersion
-                && currentVersion != LocalDatabaseSchemaVersion
-            )
-            {
-                throw new InvalidOperationException(
-                    $"Run log schema version {currentVersion} cannot be initialized as version {LocalDatabaseSchemaVersion}."
-                );
-            }
-
             using var transaction = connection.BeginTransaction(deferred: false);
-            // Re-read under the write lock: another process may already have repaired this DB.
+            // Re-read under the write lock: another process may have initialized this DB meanwhile.
             var versionInsideTransaction = ReadUserVersion(connection, transaction);
             if (
                 versionInsideTransaction != 0
-                && versionInsideTransaction != LifecycleColumnsSchemaVersion
                 && versionInsideTransaction != LocalDatabaseSchemaVersion
             )
                 throw new InvalidOperationException(
@@ -388,10 +320,6 @@ public static class RunLogSchema
                 );
             DropDriftedIndexes(connection, transaction);
             Execute(connection, transaction, BootstrapSql);
-            ValidateLifecycleColumns(connection, transaction);
-            if (versionInsideTransaction == LifecycleColumnsSchemaVersion)
-                BundleQueueStore.RecoverLegacyJsonFailures(connection, transaction);
-            BundleQueueStore.NormalizeSealJobDeadlines(connection, transaction);
             transaction.Commit();
         }
     }
@@ -448,100 +376,6 @@ public static class RunLogSchema
         return definitions;
     }
 
-    private static void UpgradeToLifecycleColumns(SqliteConnection connection)
-    {
-        using var transaction = connection.BeginTransaction(deferred: false);
-        var versionInsideTransaction = ReadUserVersion(connection, transaction);
-        if (versionInsideTransaction is LifecycleColumnsSchemaVersion or LocalDatabaseSchemaVersion)
-        {
-            transaction.Commit();
-            return;
-        }
-        if (versionInsideTransaction != FirstSchemaVersion)
-        {
-            throw new InvalidOperationException(
-                $"Run log schema changed from version {FirstSchemaVersion} to {versionInsideTransaction} during initialization."
-            );
-        }
-
-        Execute(
-            connection,
-            transaction,
-            $"""
-            ALTER TABLE {BattlesTableName} ADD COLUMN local_payload_state TEXT NULL;
-            ALTER TABLE {BattlesTableName} ADD COLUMN local_payload_maintenance_at_utc TEXT NULL;
-            UPDATE {BattlesTableName}
-            SET local_payload_state = CASE
-                WHEN source = 'LOCAL' AND has_local_payload = 1 THEN 'ready'
-                WHEN source = 'LOCAL' THEN 'missing'
-                ELSE NULL
-            END;
-
-            ALTER TABLE {CombatReplayVideosTableName}
-                ADD COLUMN attachment_state TEXT NOT NULL DEFAULT 'attached';
-            ALTER TABLE {CombatReplayVideosTableName}
-                ADD COLUMN file_state TEXT NOT NULL DEFAULT 'pending';
-            ALTER TABLE {CombatReplayVideosTableName} ADD COLUMN detached_at_utc TEXT NULL;
-            ALTER TABLE {CombatReplayVideosTableName} ADD COLUMN missing_at_utc TEXT NULL;
-            ALTER TABLE {CombatReplayVideosTableName} ADD COLUMN last_reconciled_at_utc TEXT NULL;
-            UPDATE {CombatReplayVideosTableName}
-            SET attachment_state = CASE
-                    WHEN EXISTS (
-                        SELECT 1 FROM {BattlesTableName} AS b
-                        WHERE b.battle_id = {CombatReplayVideosTableName}.battle_id
-                    ) THEN 'attached'
-                    ELSE 'detached'
-                END,
-                detached_at_utc = CASE
-                    WHEN EXISTS (
-                        SELECT 1 FROM {BattlesTableName} AS b
-                        WHERE b.battle_id = {CombatReplayVideosTableName}.battle_id
-                    ) THEN NULL
-                    ELSE strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-                END,
-                file_state = 'pending';
-
-            CREATE INDEX IF NOT EXISTS idx_combat_replay_videos_attachment
-                ON {CombatReplayVideosTableName}(
-                    attachment_state, started_at_utc DESC, video_id
-                );
-            CREATE TRIGGER IF NOT EXISTS trg_battles_local_payload_insert
-            BEFORE INSERT ON {BattlesTableName}
-            WHEN NOT (
-                (NEW.source = 'LOCAL' AND NEW.local_payload_state IS NOT NULL AND (
-                    (NEW.local_payload_state = 'ready' AND NEW.has_local_payload = 1)
-                    OR
-                    (NEW.local_payload_state IN ('delete_pending', 'evicted', 'missing')
-                     AND NEW.has_local_payload = 0)
-                ))
-                OR
-                (NEW.source <> 'LOCAL' AND NEW.local_payload_state IS NULL)
-            )
-            BEGIN
-                SELECT RAISE(ABORT, 'invalid local payload lifecycle state');
-            END;
-            CREATE TRIGGER IF NOT EXISTS trg_battles_local_payload_update
-            BEFORE UPDATE OF source, has_local_payload, local_payload_state ON {BattlesTableName}
-            WHEN NOT (
-                (NEW.source = 'LOCAL' AND NEW.local_payload_state IS NOT NULL AND (
-                    (NEW.local_payload_state = 'ready' AND NEW.has_local_payload = 1)
-                    OR
-                    (NEW.local_payload_state IN ('delete_pending', 'evicted', 'missing')
-                     AND NEW.has_local_payload = 0)
-                ))
-                OR
-                (NEW.source <> 'LOCAL' AND NEW.local_payload_state IS NULL)
-            )
-            BEGIN
-                SELECT RAISE(ABORT, 'invalid local payload lifecycle state');
-            END;
-            PRAGMA user_version = {LifecycleColumnsSchemaVersion};
-            """
-        );
-        ValidateLifecycleColumns(connection, transaction);
-        transaction.Commit();
-    }
-
     private static int ReadUserVersion(
         SqliteConnection connection,
         SqliteTransaction? transaction = null
@@ -551,52 +385,6 @@ public static class RunLogSchema
         command.Transaction = transaction;
         command.CommandText = "PRAGMA user_version;";
         return Convert.ToInt32(command.ExecuteScalar(), CultureInfo.InvariantCulture);
-    }
-
-    private static void ValidateLifecycleColumns(
-        SqliteConnection connection,
-        SqliteTransaction transaction
-    )
-    {
-        RequireColumn(connection, transaction, BattlesTableName, "local_payload_state");
-        RequireColumn(
-            connection,
-            transaction,
-            BattlesTableName,
-            "local_payload_maintenance_at_utc"
-        );
-        RequireColumn(connection, transaction, CombatReplayVideosTableName, "attachment_state");
-        RequireColumn(connection, transaction, CombatReplayVideosTableName, "file_state");
-        RequireColumn(connection, transaction, CombatReplayVideosTableName, "detached_at_utc");
-        RequireColumn(connection, transaction, CombatReplayVideosTableName, "missing_at_utc");
-        RequireColumn(
-            connection,
-            transaction,
-            CombatReplayVideosTableName,
-            "last_reconciled_at_utc"
-        );
-    }
-
-    private static void RequireColumn(
-        SqliteConnection connection,
-        SqliteTransaction transaction,
-        string tableName,
-        string columnName
-    )
-    {
-        using var command = connection.CreateCommand();
-        command.Transaction = transaction;
-        command.CommandText = $"PRAGMA table_info({tableName});";
-        using var reader = command.ExecuteReader();
-        while (reader.Read())
-        {
-            if (string.Equals(reader.GetString(1), columnName, StringComparison.Ordinal))
-                return;
-        }
-
-        throw new InvalidOperationException(
-            $"Run log schema is missing required column {tableName}.{columnName}."
-        );
     }
 
     private static void Execute(

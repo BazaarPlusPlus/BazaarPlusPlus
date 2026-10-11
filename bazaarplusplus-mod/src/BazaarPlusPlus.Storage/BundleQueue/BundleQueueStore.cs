@@ -1,5 +1,4 @@
 #nullable enable
-using System.Globalization;
 using BazaarPlusPlus.Storage.RunLog;
 using BazaarPlusPlus.Storage.Sqlite;
 using Microsoft.Data.Sqlite;
@@ -10,48 +9,6 @@ public sealed class BundleQueueStore : SqliteStoreBase
 {
     public BundleQueueStore(string databasePath)
         : base(databasePath) { }
-
-    // Called only by the 2 -> 3 migration, in the same transaction as user_version.
-    // A future runtime mismatch must not resurrect terminal jobs on every startup.
-    internal static void RecoverLegacyJsonFailures(
-        SqliteConnection connection,
-        SqliteTransaction transaction
-    ) =>
-        Execute(
-            connection,
-            transaction,
-            $"""
-            UPDATE {RunLogSchema.BundleSealJobsTableName}
-            SET state = 'waiting', last_error_code = NULL, last_error_detail = NULL
-            WHERE state = 'terminal_failure'
-              AND last_error_code = 'bundle_build_failed'
-              AND last_error_detail LIKE 'Method not found%Newtonsoft.Json.Linq.JToken%'
-              AND NOT EXISTS (
-                  SELECT 1 FROM {RunLogSchema.BundleOutboxTableName} AS o
-                  WHERE o.run_id = {RunLogSchema.BundleSealJobsTableName}.run_id
-                    AND o.status IN ('pending', 'uploaded')
-              );
-            """
-        );
-
-    // input_deadline_at_utc holds only SQLite datetime() text because ListWaitingRunIds and
-    // idx_bundle_seal_jobs_state order it as a string. Rewrites the ISO "o" deadlines that
-    // FailOutboxAndScheduleReseal used to write. Idempotent, so every open runs it without
-    // a ledger (ADR-0011); a value datetime() cannot parse is left as it is.
-    internal static void NormalizeSealJobDeadlines(
-        SqliteConnection connection,
-        SqliteTransaction transaction
-    ) =>
-        Execute(
-            connection,
-            transaction,
-            $"""
-            UPDATE {RunLogSchema.BundleSealJobsTableName}
-            SET input_deadline_at_utc = datetime(input_deadline_at_utc)
-            WHERE input_deadline_at_utc LIKE '____-__-__T%'
-              AND datetime(input_deadline_at_utc) IS NOT NULL;
-            """
-        );
 
     public void ResetInterruptedSeals()
     {
@@ -74,8 +31,7 @@ public sealed class BundleQueueStore : SqliteStoreBase
     public static string SealEligibleRunCondition(string runAlias) =>
         $"""
             (
-                {runAlias}.completed = 1
-                AND {runAlias}.status = 'completed'
+                {runAlias}.status = 'completed'
                 AND lower({runAlias}.game_mode) = 'ranked'
                 AND lower(COALESCE({runAlias}.build_channel, 'unknown')) <> 'ptr'
                 AND NOT EXISTS (
@@ -96,17 +52,17 @@ public sealed class BundleQueueStore : SqliteStoreBase
         command.CommandText = $"""
             INSERT OR IGNORE INTO {RunLogSchema.BundleSealJobsTableName} (
                 run_id, state, player_account_id, screenshot_requested, screenshot_state,
-                input_deadline_at_utc
+                input_deadline_at_ms
             )
             SELECT r.run_id, 'waiting', r.player_account_id, r.bundle_screenshot_requested,
                    CASE WHEN r.bundle_screenshot_requested = 1 THEN 'waiting' ELSE 'not_requested' END,
-                   datetime(COALESCE(r.ended_at_utc, r.last_seen_at_utc), $deadlineModifier)
+                   COALESCE(r.ended_at_ms, r.last_seen_at_ms) + $windowMs
             FROM {RunLogSchema.RunsTableName} AS r
             WHERE {SealEligibleRunCondition("r")};
             """;
         command.Parameters.AddWithValue(
-            "$deadlineModifier",
-            $"+{inputConvergenceWindow.TotalMinutes.ToString(CultureInfo.InvariantCulture)} minutes"
+            "$windowMs",
+            (long)inputConvergenceWindow.TotalMilliseconds
         );
         command.ExecuteNonQuery();
     }
@@ -116,7 +72,7 @@ public sealed class BundleQueueStore : SqliteStoreBase
         using var connection = OpenConnection();
         using var command = CreateCommand(connection);
         command.CommandText =
-            $"SELECT run_id FROM {RunLogSchema.BundleSealJobsTableName} WHERE state = 'waiting' ORDER BY input_deadline_at_utc, run_id;";
+            $"SELECT run_id FROM {RunLogSchema.BundleSealJobsTableName} WHERE state = 'waiting' ORDER BY input_deadline_at_ms, run_id;";
         using var reader = command.ExecuteReader();
         var ids = new List<string>();
         while (reader.Read())
@@ -198,11 +154,11 @@ public sealed class BundleQueueStore : SqliteStoreBase
         if (state == BundleSealJobState.Sealing)
             throw new ArgumentOutOfRangeException(nameof(state));
         Execute(
-            $"UPDATE {RunLogSchema.BundleSealJobsTableName} SET state = $state, attempts = $attempts, last_attempt_at_utc = $attemptedAt, last_error_code = $code, last_error_detail = $detail WHERE run_id = $runId;",
+            $"UPDATE {RunLogSchema.BundleSealJobsTableName} SET state = $state, attempts = $attempts, last_attempt_at_ms = $attemptedAt, last_error_code = $code, last_error_detail = $detail WHERE run_id = $runId;",
             ("$runId", runId),
             ("$state", ToStorage(state)),
             ("$attempts", attempts),
-            ("$attemptedAt", attemptedAt.ToString("o")),
+            ("$attemptedAt", attemptedAt.ToUnixTimeMilliseconds()),
             ("$code", code),
             ("$detail", detail)
         );
@@ -256,11 +212,11 @@ public sealed class BundleQueueStore : SqliteStoreBase
             SELECT bundle_id, run_id, file_name, content_sha256_hex, content_digest, total_bytes
             FROM {RunLogSchema.BundleOutboxTableName}
             WHERE status = 'pending'
-              AND (next_attempt_at_utc IS NULL OR next_attempt_at_utc <= $now)
-            ORDER BY attempts ASC, sealed_at_utc ASC
+              AND (next_attempt_at_ms IS NULL OR next_attempt_at_ms <= $now)
+            ORDER BY attempts ASC, sealed_at_ms ASC
             LIMIT $maximumCount;
             """;
-        command.Parameters.AddWithValue("$now", now.ToString("o"));
+        command.Parameters.AddWithValue("$now", now.ToUnixTimeMilliseconds());
         command.Parameters.AddWithValue("$maximumCount", maximumCount);
         using var reader = command.ExecuteReader();
         var rows = new List<BundleOutboxRecord>();
@@ -279,12 +235,12 @@ public sealed class BundleQueueStore : SqliteStoreBase
         using var command = CreateCommand(connection);
         command.CommandText = $"""
             UPDATE {RunLogSchema.BundleOutboxTableName}
-            SET status = $status, attempts = attempts + 1, last_attempt_at_utc = $now,
-                failed_at_utc = CASE WHEN $uploaded = 1 THEN NULL ELSE $now END,
+            SET status = $status, attempts = attempts + 1, last_attempt_at_ms = $now,
+                failed_at_ms = CASE WHEN $uploaded = 1 THEN NULL ELSE $now END,
                 last_error_code = CASE WHEN $uploaded = 1 THEN NULL ELSE $code END,
                 last_error_detail = CASE WHEN $uploaded = 1 THEN NULL ELSE $detail END,
                 server_request_id = $requestId, server_outcome = $outcome,
-                uploaded_at_utc = CASE WHEN $uploaded = 1 THEN $now ELSE NULL END
+                uploaded_at_ms = CASE WHEN $uploaded = 1 THEN $now ELSE NULL END
             WHERE bundle_id = $bundleId AND status = 'pending';
             """;
         command.Parameters.AddWithValue("$bundleId", bundleId);
@@ -293,7 +249,7 @@ public sealed class BundleQueueStore : SqliteStoreBase
             outcome.Uploaded ? "uploaded" : "permanent_failure"
         );
         command.Parameters.AddWithValue("$uploaded", outcome.Uploaded ? 1 : 0);
-        command.Parameters.AddWithValue("$now", now.ToString("o"));
+        command.Parameters.AddWithValue("$now", now.ToUnixTimeMilliseconds());
         command.Parameters.AddWithValue("$code", outcome.Code);
         AddNullableString(command, "$detail", outcome.Detail);
         AddNullableString(command, "$requestId", outcome.RequestId);
@@ -309,10 +265,10 @@ public sealed class BundleQueueStore : SqliteStoreBase
         DateTimeOffset nextAttempt
     ) =>
         Execute(
-            $"UPDATE {RunLogSchema.BundleOutboxTableName} SET attempts = attempts + 1, last_attempt_at_utc = $now, next_attempt_at_utc = $next, last_error_code = $code, last_error_detail = $detail WHERE bundle_id = $bundleId AND status = 'pending';",
+            $"UPDATE {RunLogSchema.BundleOutboxTableName} SET attempts = attempts + 1, last_attempt_at_ms = $now, next_attempt_at_ms = $next, last_error_code = $code, last_error_detail = $detail WHERE bundle_id = $bundleId AND status = 'pending';",
             ("$bundleId", bundleId),
-            ("$now", now.ToString("o")),
-            ("$next", nextAttempt.ToString("o")),
+            ("$now", now.ToUnixTimeMilliseconds()),
+            ("$next", nextAttempt.ToUnixTimeMilliseconds()),
             ("$code", code),
             ("$detail", detail)
         );
@@ -328,13 +284,13 @@ public sealed class BundleQueueStore : SqliteStoreBase
         using var transaction = connection.BeginTransaction(deferred: false);
         using var invalidate = CreateCommand(connection, transaction);
         invalidate.CommandText =
-            $"UPDATE {RunLogSchema.BundleOutboxTableName} SET status = 'permanent_failure', failed_at_utc = $now, last_error_code = $reason WHERE bundle_id = $bundleId AND run_id = $runId AND status = 'pending';";
+            $"UPDATE {RunLogSchema.BundleOutboxTableName} SET status = 'permanent_failure', failed_at_ms = $now, last_error_code = $reason WHERE bundle_id = $bundleId AND run_id = $runId AND status = 'pending';";
         AddParameters(
             invalidate,
             [
                 ("$bundleId", bundleId),
                 ("$runId", runId),
-                ("$now", now.ToString("o")),
+                ("$now", now.ToUnixTimeMilliseconds()),
                 ("$reason", reason),
             ]
         );
@@ -347,36 +303,36 @@ public sealed class BundleQueueStore : SqliteStoreBase
             $"""
             INSERT OR IGNORE INTO {RunLogSchema.BundleSealJobsTableName} (
                 run_id, state, player_account_id, screenshot_requested, screenshot_state,
-                input_deadline_at_utc
+                input_deadline_at_ms
             )
             SELECT run_id, 'waiting', player_account_id, bundle_screenshot_requested,
                    CASE WHEN bundle_screenshot_requested = 1 THEN 'waiting' ELSE 'not_requested' END,
-                   datetime($now)
+                   $now
             FROM {RunLogSchema.RunsTableName} WHERE run_id = $runId;
             """,
             ("$runId", runId),
-            ("$now", now.ToString("o"))
+            ("$now", now.ToUnixTimeMilliseconds())
         );
         transaction.Commit();
     }
 
     public void ExpirePending(DateTimeOffset cutoff, DateTimeOffset now) =>
         Execute(
-            $"UPDATE {RunLogSchema.BundleOutboxTableName} SET status = 'permanent_failure', failed_at_utc = $now, last_error_code = 'local_retention_expired' WHERE status = 'pending' AND sealed_at_utc < $cutoff;",
-            ("$now", now.ToString("o")),
-            ("$cutoff", cutoff.ToString("o"))
+            $"UPDATE {RunLogSchema.BundleOutboxTableName} SET status = 'permanent_failure', failed_at_ms = $now, last_error_code = 'local_retention_expired' WHERE status = 'pending' AND sealed_at_ms < $cutoff;",
+            ("$now", now.ToUnixTimeMilliseconds()),
+            ("$cutoff", cutoff.ToUnixTimeMilliseconds())
         );
 
     public IReadOnlyList<string> ListRetentionFileNames(DateTimeOffset permanentFailureCutoff) =>
         ListFileNames(
-            $"SELECT file_name FROM {RunLogSchema.BundleOutboxTableName} WHERE status = 'uploaded' OR (status = 'permanent_failure' AND failed_at_utc < $cutoff) ORDER BY COALESCE(failed_at_utc, uploaded_at_utc, sealed_at_utc);",
-            ("$cutoff", permanentFailureCutoff.ToString("o"))
+            $"SELECT file_name FROM {RunLogSchema.BundleOutboxTableName} WHERE status = 'uploaded' OR (status = 'permanent_failure' AND failed_at_ms < $cutoff) ORDER BY COALESCE(failed_at_ms, uploaded_at_ms, sealed_at_ms);",
+            ("$cutoff", permanentFailureCutoff.ToUnixTimeMilliseconds())
         );
 
     public IReadOnlyList<string> ListReclaimFileNames(DateTimeOffset pendingCutoff) =>
         ListFileNames(
-            $"SELECT file_name FROM {RunLogSchema.BundleOutboxTableName} WHERE status = 'permanent_failure' OR (status = 'pending' AND sealed_at_utc < $pendingCutoff) ORDER BY sealed_at_utc ASC;",
-            ("$pendingCutoff", pendingCutoff.ToString("o"))
+            $"SELECT file_name FROM {RunLogSchema.BundleOutboxTableName} WHERE status = 'permanent_failure' OR (status = 'pending' AND sealed_at_ms < $pendingCutoff) ORDER BY sealed_at_ms ASC;",
+            ("$pendingCutoff", pendingCutoff.ToUnixTimeMilliseconds())
         );
 
     private static BundleSealJobRecord? ReadJob(
@@ -387,7 +343,7 @@ public sealed class BundleQueueStore : SqliteStoreBase
     {
         using var command = CreateCommand(connection, transaction);
         command.CommandText =
-            $"SELECT run_id, state, player_account_id, screenshot_requested, screenshot_state, input_deadline_at_utc, bundle_id, created_at_ms, attempts, last_attempt_at_utc, last_error_code FROM {RunLogSchema.BundleSealJobsTableName} WHERE run_id = $runId LIMIT 1;";
+            $"SELECT run_id, state, player_account_id, screenshot_requested, screenshot_state, input_deadline_at_ms, bundle_id, created_at_ms, attempts, last_attempt_at_ms, last_error_code FROM {RunLogSchema.BundleSealJobsTableName} WHERE run_id = $runId LIMIT 1;";
         command.Parameters.AddWithValue("$runId", runId);
         using var reader = command.ExecuteReader();
         if (!reader.Read())
@@ -398,11 +354,11 @@ public sealed class BundleQueueStore : SqliteStoreBase
             reader.IsDBNull(2) ? null : reader.GetString(2),
             reader.GetInt32(3) == 1,
             ParseScreenshotState(reader.GetString(4)),
-            SqliteUtcInstant.Parse(reader.GetString(5)),
+            DateTimeOffset.FromUnixTimeMilliseconds(reader.GetInt64(5)),
             reader.IsDBNull(6) ? null : reader.GetString(6),
             reader.IsDBNull(7) ? null : reader.GetInt64(7),
             reader.GetInt32(8),
-            reader.IsDBNull(9) ? null : SqliteUtcInstant.Parse(reader.GetString(9)),
+            reader.IsDBNull(9) ? null : DateTimeOffset.FromUnixTimeMilliseconds(reader.GetInt64(9)),
             reader.IsDBNull(10) ? null : reader.GetString(10)
         );
     }
@@ -428,7 +384,7 @@ public sealed class BundleQueueStore : SqliteStoreBase
         command.CommandText = $"""
             INSERT OR IGNORE INTO {RunLogSchema.BundleOutboxTableName} (
                 bundle_id, run_id, file_name, content_sha256_hex, content_digest,
-                total_bytes, has_screenshot, sealed_at_utc, status, next_attempt_at_utc
+                total_bytes, has_screenshot, sealed_at_ms, status, next_attempt_at_ms
             ) VALUES (
                 $bundleId, $runId, $fileName, $sha256, $contentDigest,
                 $totalBytes, $hasScreenshot, $sealedAt, 'pending', $sealedAt
@@ -441,7 +397,7 @@ public sealed class BundleQueueStore : SqliteStoreBase
         command.Parameters.AddWithValue("$contentDigest", outbox.ContentDigest);
         command.Parameters.AddWithValue("$totalBytes", outbox.TotalBytes);
         command.Parameters.AddWithValue("$hasScreenshot", outbox.HasScreenshot ? 1 : 0);
-        command.Parameters.AddWithValue("$sealedAt", sealedAt.ToString("o"));
+        command.Parameters.AddWithValue("$sealedAt", sealedAt.ToUnixTimeMilliseconds());
         command.ExecuteNonQuery();
     }
 

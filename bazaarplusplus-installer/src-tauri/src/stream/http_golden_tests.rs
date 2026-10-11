@@ -38,17 +38,17 @@ fn seed(game: &std::path::Path) {
         "
         insert into run_screenshots (
             screenshot_id, run_id, hero_name, capture_source, is_primary, image_relative_path,
-            captured_at_utc, captured_at_local, day, victories_at_capture, player_rank,
+            captured_at_ms, captured_utc_offset_minutes, day, victories_at_capture, player_rank,
             player_rating
         ) values
             ('shot-1', 'run-1', 'Vanessa', 'end_of_run_auto', 1, '2026-01-01/run-a.png',
-             '2026-01-01T09:40:00Z', '2026-01-01T17:40:00+08:00', 14, 10, 'Gold', 1520),
+             1767260400000, 480, 14, 10, 'Gold', 1520),
             ('shot-2', 'run-2', 'Hero8', 'end_of_run_auto', 1, '2026-01-01/run-b.png',
-             '2026-01-01T09:30:00Z', '2026-01-01T17:30:00+08:00', null, 7, null, null),
+             1767259800000, 480, null, 7, null, null),
             ('shot-3', 'run-3', 'Mak', 'end_of_run_auto', 1, '2026-01-01/missing.png',
-             '2026-01-01T09:20:00Z', '2026-01-01T17:20:00+08:00', 3, null, null, null),
+             1767259200000, 480, 3, null, null, null),
             ('shot-4', 'run-4', null, 'end_of_run_auto', 1, '2026-01-01/run-a.png',
-             '2026-01-01T09:10:00Z', '2026-01-01T17:10:00+08:00', null, null, null, null);
+             1767258600000, 480, null, null, null, null);
         ",
     )
     .unwrap();

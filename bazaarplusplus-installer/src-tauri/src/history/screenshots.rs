@@ -1,8 +1,9 @@
 use std::{collections::HashMap, path::Path};
 
-use chrono::{DateTime, SecondsFormat, Utc};
+use chrono::DateTime;
 use rusqlite::{params_from_iter, Connection, OptionalExtension};
 
+use crate::history::instant::{local_text, utc_text};
 use crate::history::queries::{open_connection, sql_placeholders, table_exists};
 
 pub struct ScreenshotRef {
@@ -67,7 +68,7 @@ pub fn primary_screenshot_ids(
         select run_id, screenshot_id
         from run_screenshots
         where run_id in ({placeholders}) and capture_source = 'end_of_run_auto'
-        order by run_id asc, captured_at_utc desc, screenshot_id desc
+        order by run_id asc, captured_at_ms desc, screenshot_id desc
         "
     );
     let mut stmt = conn.prepare(&fallback_sql).map_err(|err| err.to_string())?;
@@ -120,7 +121,7 @@ pub fn primary_screenshot(
         select screenshot_id, image_relative_path
         from run_screenshots
         where run_id = ?1 and capture_source = 'end_of_run_auto'
-        order by captured_at_utc desc, screenshot_id desc
+        order by captured_at_ms desc, screenshot_id desc
         limit 1
         ",
         [run_id],
@@ -150,7 +151,7 @@ pub fn load_latest_overlay_snapshot(
     }
 
     let offset_value = i64::try_from(offset).map_err(|err| err.to_string())?;
-    let from_utc = from.map(normalize_overlay_from_utc);
+    let from_ms = from.map(overlay_from_ms);
     let mut stmt = if from.is_some() {
         conn.prepare(
             "
@@ -158,17 +159,17 @@ select
   rs.screenshot_id,
   coalesce(nullif(trim(rs.hero_name), ''), 'Unknown') as hero,
   'End of run' as game_mode,
-  coalesce(nullif(trim(rs.captured_at_local), ''), rs.captured_at_utc) as captured_at,
+  rs.captured_utc_offset_minutes,
   rs.image_relative_path as image_path,
   rs.victories_at_capture as wins,
   rs.day as battle_count,
   nullif(trim(rs.player_rank), '') as player_rank,
   rs.player_rating as player_rating,
-  rs.captured_at_utc
+  rs.captured_at_ms
 from run_screenshots rs
 where rs.capture_source = 'end_of_run_auto'
-  and rs.captured_at_utc >= ?1
-order by rs.captured_at_utc desc, rs.screenshot_id desc
+  and rs.captured_at_ms >= ?1
+order by rs.captured_at_ms desc, rs.screenshot_id desc
 limit 1 offset ?2
 ",
         )
@@ -179,23 +180,23 @@ select
   rs.screenshot_id,
   coalesce(nullif(trim(rs.hero_name), ''), 'Unknown') as hero,
   'End of run' as game_mode,
-  coalesce(nullif(trim(rs.captured_at_local), ''), rs.captured_at_utc) as captured_at,
+  rs.captured_utc_offset_minutes,
   rs.image_relative_path as image_path,
   rs.victories_at_capture as wins,
   rs.day as battle_count,
   nullif(trim(rs.player_rank), '') as player_rank,
   rs.player_rating as player_rating,
-  rs.captured_at_utc
+  rs.captured_at_ms
 from run_screenshots rs
 where rs.capture_source = 'end_of_run_auto'
-order by rs.captured_at_utc desc, rs.screenshot_id desc
+order by rs.captured_at_ms desc, rs.screenshot_id desc
 limit 1 offset ?1
 ",
         )
     }
     .map_err(|err| err.to_string())?;
-    let mut rows = if let Some(from_utc) = from_utc {
-        stmt.query((from_utc, offset_value))
+    let mut rows = if let Some(from_ms) = from_ms {
+        stmt.query((from_ms, offset_value))
             .map_err(|err| err.to_string())?
     } else {
         stmt.query([offset_value]).map_err(|err| err.to_string())?
@@ -221,15 +222,15 @@ pub fn load_overlay_snapshot_count(
     }
 
     let count: i64 = if let Some(from) = from {
-        let from_utc = normalize_overlay_from_utc(from);
+        let from_ms = overlay_from_ms(from);
         conn.query_row(
             "
 select count(*)
 from run_screenshots rs
 where rs.capture_source = 'end_of_run_auto'
-  and rs.captured_at_utc >= ?1
+  and rs.captured_at_ms >= ?1
 ",
-            [from_utc],
+            [from_ms],
             |row| row.get(0),
         )
         .map_err(|err| err.to_string())?
@@ -268,7 +269,7 @@ pub fn load_overlay_snapshot_list(
         return Ok(Vec::new());
     }
     let limit_value = i64::try_from(effective_limit).map_err(|err| err.to_string())?;
-    let from_utc = from.map(normalize_overlay_from_utc);
+    let from_ms = from.map(overlay_from_ms);
 
     let mut records = Vec::new();
     let mut stmt = if from.is_some() {
@@ -278,17 +279,17 @@ select
   rs.screenshot_id,
   coalesce(nullif(trim(rs.hero_name), ''), 'Unknown') as hero,
   'End of run' as game_mode,
-  coalesce(nullif(trim(rs.captured_at_local), ''), rs.captured_at_utc) as captured_at,
+  rs.captured_utc_offset_minutes,
   rs.image_relative_path as image_path,
   rs.victories_at_capture as wins,
   rs.day as battle_count,
   nullif(trim(rs.player_rank), '') as player_rank,
   rs.player_rating as player_rating,
-  rs.captured_at_utc
+  rs.captured_at_ms
 from run_screenshots rs
 where rs.capture_source = 'end_of_run_auto'
-  and rs.captured_at_utc >= ?1
-order by rs.captured_at_utc desc, rs.screenshot_id desc
+  and rs.captured_at_ms >= ?1
+order by rs.captured_at_ms desc, rs.screenshot_id desc
 limit ?2
 ",
         )
@@ -299,23 +300,23 @@ select
   rs.screenshot_id,
   coalesce(nullif(trim(rs.hero_name), ''), 'Unknown') as hero,
   'End of run' as game_mode,
-  coalesce(nullif(trim(rs.captured_at_local), ''), rs.captured_at_utc) as captured_at,
+  rs.captured_utc_offset_minutes,
   rs.image_relative_path as image_path,
   rs.victories_at_capture as wins,
   rs.day as battle_count,
   nullif(trim(rs.player_rank), '') as player_rank,
   rs.player_rating as player_rating,
-  rs.captured_at_utc
+  rs.captured_at_ms
 from run_screenshots rs
 where rs.capture_source = 'end_of_run_auto'
-order by rs.captured_at_utc desc, rs.screenshot_id desc
+order by rs.captured_at_ms desc, rs.screenshot_id desc
 limit ?1
 ",
         )
     }
     .map_err(|err| err.to_string())?;
-    let mut rows = if let Some(from_utc) = from_utc {
-        stmt.query((from_utc, limit_value))
+    let mut rows = if let Some(from_ms) = from_ms {
+        stmt.query((from_ms, limit_value))
             .map_err(|err| err.to_string())?
     } else {
         stmt.query([limit_value]).map_err(|err| err.to_string())?
@@ -347,13 +348,13 @@ select
   rs.screenshot_id,
   coalesce(nullif(trim(rs.hero_name), ''), 'Unknown') as hero,
   'End of run' as game_mode,
-  coalesce(nullif(trim(rs.captured_at_local), ''), rs.captured_at_utc) as captured_at,
+  rs.captured_utc_offset_minutes,
   rs.image_relative_path as image_path,
   rs.victories_at_capture as wins,
   rs.day as battle_count,
   nullif(trim(rs.player_rank), '') as player_rank,
   rs.player_rating as player_rating,
-  rs.captured_at_utc
+  rs.captured_at_ms
 from run_screenshots rs
 where rs.capture_source = 'end_of_run_auto'
   and rs.screenshot_id = ?1
@@ -395,35 +396,37 @@ pub fn load_screenshot_image_path(
 }
 
 fn map_overlay_snapshot_row(row: &rusqlite::Row<'_>) -> Result<OverlaySnapshotRow, String> {
+    let captured_at_ms: i64 = row.get(9).map_err(|err| err.to_string())?;
+    let utc_offset_minutes: i64 = row.get(3).map_err(|err| err.to_string())?;
+    let unrepresentable =
+        || format!("captured_at_ms {captured_at_ms} is not a representable instant");
     Ok(OverlaySnapshotRow {
         id: row.get(0).map_err(|err| err.to_string())?,
         hero: row.get(1).map_err(|err| err.to_string())?,
         game_mode: row.get(2).map_err(|err| err.to_string())?,
-        captured_at: row.get(3).map_err(|err| err.to_string())?,
+        captured_at: local_text(captured_at_ms, utc_offset_minutes).ok_or_else(unrepresentable)?,
         image_path: row.get(4).map_err(|err| err.to_string())?,
         wins: row.get(5).map_err(|err| err.to_string())?,
         battle_count: row.get(6).map_err(|err| err.to_string())?,
         rank: row.get(7).map_err(|err| err.to_string())?,
         rating: row.get(8).map_err(|err| err.to_string())?,
-        captured_at_utc: row.get(9).map_err(|err| err.to_string())?,
+        captured_at_utc: utc_text(captured_at_ms).ok_or_else(unrepresentable)?,
     })
 }
 
-fn normalize_overlay_from_utc(value: &str) -> String {
+/// The overlay's `from` bound as a stored instant. A value that is not RFC 3339
+/// matches no record rather than every record.
+fn overlay_from_ms(value: &str) -> i64 {
     DateTime::parse_from_rfc3339(value.trim())
-        .map(|parsed| {
-            parsed
-                .with_timezone(&Utc)
-                .to_rfc3339_opts(SecondsFormat::Secs, false)
-        })
-        .unwrap_or_else(|_| value.trim().to_string())
+        .map(|parsed| parsed.timestamp_millis())
+        .unwrap_or(i64::MAX)
 }
 
 #[cfg(test)]
 mod tests {
     use super::{
         load_latest_overlay_snapshot, load_overlay_snapshot_by_id, load_overlay_snapshot_count,
-        load_overlay_snapshot_list, load_screenshot_image_path, normalize_overlay_from_utc,
+        load_overlay_snapshot_list, load_screenshot_image_path, overlay_from_ms,
     };
     use crate::history::test_schema::create_mod_schema;
 
@@ -444,11 +447,11 @@ mod tests {
         create_mod_schema(&conn);
         conn.execute(
             "insert into run_screenshots (
-                screenshot_id, run_id, capture_source, image_relative_path, captured_at_local,
-                captured_at_utc, day, player_rank, player_rating, player_position, victories_at_capture, hero_name
+                screenshot_id, run_id, capture_source, image_relative_path, captured_utc_offset_minutes,
+                captured_at_ms, day, player_rank, player_rating, player_position, victories_at_capture, hero_name
              ) values (
                 'snap-1', 'run-1', 'end_of_run_auto', '2026-04-10\\shot-1.png',
-                '2026-04-11T04:30:05+08:00', '2026-04-10T20:30:05+00:00',
+                480, 1775853005000,
                 14, 'Diamond', 1942, 1, 10, 'Mak'
              )",
             [],
@@ -475,10 +478,10 @@ mod tests {
         create_mod_schema(&conn);
         conn.execute(
             "insert into run_screenshots (
-                screenshot_id, run_id, capture_source, image_relative_path, captured_at_local, captured_at_utc
+                screenshot_id, run_id, capture_source, image_relative_path, captured_utc_offset_minutes, captured_at_ms
              ) values
-             ('snap-1', 'run-1', 'pvp_battle_start', 'battle-1.png', '2026-04-10T20:30:05+00:00', '2026-04-10T20:30:05+00:00'),
-             ('snap-2', 'run-2', 'end_of_run_auto', 'final-2.png', '2026-04-10T21:30:05+00:00', '2026-04-10T21:30:05+00:00')",
+             ('snap-1', 'run-1', 'pvp_battle_start', 'battle-1.png', 0, 1775853005000),
+             ('snap-2', 'run-2', 'end_of_run_auto', 'final-2.png', 0, 1775856605000)",
             [],
         )
         .unwrap();
@@ -505,11 +508,11 @@ mod tests {
         create_mod_schema(&conn);
         conn.execute(
             "insert into run_screenshots (
-                screenshot_id, run_id, capture_source, image_relative_path, captured_at_local, captured_at_utc, hero_name
+                screenshot_id, run_id, capture_source, image_relative_path, captured_utc_offset_minutes, captured_at_ms, hero_name
              ) values
-             ('snap-1', 'run-1', 'end_of_run_auto', 'final-1.png', '2026-04-10T20:30:05+00:00', '2026-04-10T20:30:05+00:00', 'Mak'),
-             ('snap-2', 'run-2', 'end_of_run_auto', 'final-2.png', '2026-04-10T21:30:05+00:00', '2026-04-10T21:30:05+00:00', 'Pygmalien'),
-             ('snap-3', 'run-3', 'end_of_run_auto', 'final-3.png', '2026-04-10T22:30:05+00:00', '2026-04-10T22:30:05+00:00', 'Vanessa')",
+             ('snap-1', 'run-1', 'end_of_run_auto', 'final-1.png', 0, 1775853005000, 'Mak'),
+             ('snap-2', 'run-2', 'end_of_run_auto', 'final-2.png', 0, 1775856605000, 'Pygmalien'),
+             ('snap-3', 'run-3', 'end_of_run_auto', 'final-3.png', 0, 1775860205000, 'Vanessa')",
             [],
         )
         .unwrap();
@@ -540,10 +543,10 @@ mod tests {
         create_mod_schema(&conn);
         conn.execute(
             "insert into run_screenshots (
-                screenshot_id, run_id, capture_source, image_relative_path, captured_at_local, captured_at_utc, hero_name
+                screenshot_id, run_id, capture_source, image_relative_path, captured_utc_offset_minutes, captured_at_ms, hero_name
              ) values
-             ('snap-before', 'run-1', 'end_of_run_auto', 'before.png', '2026-04-10T19:30:05+00:00', '2026-04-10T19:30:05+00:00', 'Mak'),
-             ('snap-after', 'run-2', 'end_of_run_auto', 'after.png', '2026-04-10T21:30:05+00:00', '2026-04-10T21:30:05+00:00', 'Pygmalien')",
+             ('snap-before', 'run-1', 'end_of_run_auto', 'before.png', 0, 1775849405000, 'Mak'),
+             ('snap-after', 'run-2', 'end_of_run_auto', 'after.png', 0, 1775856605000, 'Pygmalien')",
             [],
         )
         .unwrap();
@@ -563,10 +566,10 @@ mod tests {
         create_mod_schema(&conn);
         conn.execute(
             "insert into run_screenshots (
-                screenshot_id, run_id, capture_source, image_relative_path, captured_at_local, captured_at_utc, hero_name
+                screenshot_id, run_id, capture_source, image_relative_path, captured_utc_offset_minutes, captured_at_ms, hero_name
              ) values
-             ('snap-before', 'run-1', 'end_of_run_auto', 'before.png', '2026-04-10T19:30:05+00:00', '2026-04-10T19:30:05+00:00', 'Mak'),
-             ('snap-after', 'run-2', 'end_of_run_auto', 'after.png', '2026-04-10T21:30:05+00:00', '2026-04-10T21:30:05+00:00', 'Pygmalien')",
+             ('snap-before', 'run-1', 'end_of_run_auto', 'before.png', 0, 1775849405000, 'Mak'),
+             ('snap-after', 'run-2', 'end_of_run_auto', 'after.png', 0, 1775856605000, 'Pygmalien')",
             [],
         )
         .unwrap();
@@ -578,9 +581,10 @@ mod tests {
 
         assert_eq!(latest.id, "snap-after");
         assert_eq!(
-            normalize_overlay_from_utc("2026-04-11T04:00:00+08:00"),
-            "2026-04-10T20:00:00+00:00"
+            overlay_from_ms("2026-04-11T04:00:00+08:00"),
+            1_775_851_200_000
         );
+        assert_eq!(overlay_from_ms("not a time"), i64::MAX);
     }
 
     #[test]
@@ -590,12 +594,12 @@ mod tests {
         create_mod_schema(&conn);
         conn.execute(
             "insert into run_screenshots (
-                screenshot_id, run_id, capture_source, image_relative_path, captured_at_local, captured_at_utc
+                screenshot_id, run_id, capture_source, image_relative_path, captured_utc_offset_minutes, captured_at_ms
              ) values
-             ('snap-before', 'run-1', 'end_of_run_auto', 'before.png', '2026-04-10T19:30:05+00:00', '2026-04-10T19:30:05+00:00'),
-             ('snap-after-1', 'run-2', 'end_of_run_auto', 'after-1.png', '2026-04-10T21:30:05+00:00', '2026-04-10T21:30:05+00:00'),
-             ('snap-after-2', 'run-3', 'end_of_run_auto', 'after-2.png', '2026-04-10T22:30:05+00:00', '2026-04-10T22:30:05+00:00'),
-             ('snap-mid', 'run-4', 'pvp_battle_start', 'mid.png', '2026-04-10T23:30:05+00:00', '2026-04-10T23:30:05+00:00')",
+             ('snap-before', 'run-1', 'end_of_run_auto', 'before.png', 0, 1775849405000),
+             ('snap-after-1', 'run-2', 'end_of_run_auto', 'after-1.png', 0, 1775856605000),
+             ('snap-after-2', 'run-3', 'end_of_run_auto', 'after-2.png', 0, 1775860205000),
+             ('snap-mid', 'run-4', 'pvp_battle_start', 'mid.png', 0, 1775863805000)",
             [],
         )
         .unwrap();
@@ -613,8 +617,8 @@ mod tests {
         create_mod_schema(&conn);
         conn.execute(
             "insert into run_screenshots (
-                screenshot_id, run_id, capture_source, image_relative_path, captured_at_local, captured_at_utc, hero_name
-             ) values ('snap-1', 'run-1', 'end_of_run_auto', 'match-1.png', '2026-04-10T20:30:05+00:00', '2026-04-10T20:30:05+00:00', 'Mak')",
+                screenshot_id, run_id, capture_source, image_relative_path, captured_utc_offset_minutes, captured_at_ms, hero_name
+             ) values ('snap-1', 'run-1', 'end_of_run_auto', 'match-1.png', 0, 1775853005000, 'Mak')",
             [],
         )
         .unwrap();
@@ -634,9 +638,9 @@ mod tests {
         conn.execute(
             "insert into run_screenshots (
                 screenshot_id, run_id, capture_source, is_primary, image_relative_path,
-                captured_at_local, captured_at_utc
+                captured_utc_offset_minutes, captured_at_ms
              ) values ('manual-1', 'run-1', 'manual', 1, 'manual-1.png',
-                '2026-04-10T20:30:05+00:00', '2026-04-10T20:30:05+00:00')",
+                0, 1775853005000)",
             [],
         )
         .unwrap();
@@ -663,9 +667,9 @@ mod tests {
         create_mod_schema(&conn);
         conn.execute(
             "insert into run_screenshots (
-                screenshot_id, run_id, capture_source, image_relative_path, captured_at_local, captured_at_utc
+                screenshot_id, run_id, capture_source, image_relative_path, captured_utc_offset_minutes, captured_at_ms
              ) values (
-                'snap-1', null, 'end_of_run_auto', 'anon.png', '2026-04-10T20:30:05+00:00', '2026-04-10T20:30:05+00:00'
+                'snap-1', null, 'end_of_run_auto', 'anon.png', 0, 1775853005000
              )",
             [],
         )
@@ -686,12 +690,12 @@ mod tests {
         create_mod_schema(&conn);
         conn.execute(
             "insert into run_screenshots (
-                screenshot_id, run_id, capture_source, image_relative_path, captured_at_local,
-                captured_at_utc, victories_at_capture, hero_name
+                screenshot_id, run_id, capture_source, image_relative_path, captured_utc_offset_minutes,
+                captured_at_ms, victories_at_capture, hero_name
              ) values
-             ('snap-1', 'run-1', 'end_of_run_auto', 'first.png', '2026-04-10T20:30:05+00:00', '2026-04-10T20:30:05+00:00', 7, 'Mak'),
-             ('snap-2', 'run-2', 'end_of_run_auto', 'second.png', '2026-04-10T21:30:05+00:00', '2026-04-10T21:30:05+00:00', 10, 'Pygmalien'),
-             ('snap-3', 'run-3', 'end_of_run_auto', 'third.png', '2026-04-10T22:30:05+00:00', '2026-04-10T22:30:05+00:00', 4, 'Vanessa')",
+             ('snap-1', 'run-1', 'end_of_run_auto', 'first.png', 0, 1775853005000, 7, 'Mak'),
+             ('snap-2', 'run-2', 'end_of_run_auto', 'second.png', 0, 1775856605000, 10, 'Pygmalien'),
+             ('snap-3', 'run-3', 'end_of_run_auto', 'third.png', 0, 1775860205000, 4, 'Vanessa')",
             [],
         )
         .unwrap();
@@ -710,12 +714,12 @@ mod tests {
         create_mod_schema(&conn);
         conn.execute(
             "insert into run_screenshots (
-                screenshot_id, run_id, capture_source, image_relative_path, captured_at_local,
-                captured_at_utc, hero_name
+                screenshot_id, run_id, capture_source, image_relative_path, captured_utc_offset_minutes,
+                captured_at_ms, hero_name
              ) values
-             ('snap-1', 'run-1', 'end_of_run_auto', 'first.png', '2026-04-10T20:30:05+00:00', '2026-04-10T20:30:05+00:00', 'Mak'),
-             ('snap-2', 'run-2', 'end_of_run_auto', 'second.png', '2026-04-10T21:30:05+00:00', '2026-04-10T21:30:05+00:00', 'Pygmalien'),
-             ('snap-3', 'run-3', 'end_of_run_auto', 'third.png', '2026-04-10T22:30:05+00:00', '2026-04-10T22:30:05+00:00', 'Vanessa')",
+             ('snap-1', 'run-1', 'end_of_run_auto', 'first.png', 0, 1775853005000, 'Mak'),
+             ('snap-2', 'run-2', 'end_of_run_auto', 'second.png', 0, 1775856605000, 'Pygmalien'),
+             ('snap-3', 'run-3', 'end_of_run_auto', 'third.png', 0, 1775860205000, 'Vanessa')",
             [],
         )
         .unwrap();

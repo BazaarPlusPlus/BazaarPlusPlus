@@ -12,7 +12,6 @@ internal enum ReplayPayloadState
 internal readonly record struct ReplayPayloadMaintenanceRecord(
     string BattleId,
     DateTimeOffset RecordedAtUtc,
-    bool HasLocalPayload,
     ReplayPayloadState PayloadState
 );
 

@@ -9,12 +9,11 @@ public sealed class RunScreenshotRecord
 
     public string? HeroName { get; set; }
 
-    public string? BattleId { get; set; }
-
     public bool IsPrimary { get; set; }
 
     public string ImageRelativePath { get; set; } = string.Empty;
 
+    // The capture instant in the player's local offset; only its offset is stored.
     public DateTimeOffset CapturedAtLocal { get; set; }
 
     public DateTimeOffset CapturedAtUtc { get; set; }
@@ -28,10 +27,6 @@ public sealed class RunScreenshotRecord
     public int? PlayerPosition { get; set; }
 
     public int? VictoriesAtCapture { get; set; }
-
-    // Game build channel the screenshot was captured on ("Online" / "Ptr" / "Unknown");
-    // rows tagged "Ptr" are permanently excluded from server uploads.
-    public string? BuildChannel { get; set; }
 }
 
 public sealed class RunScreenshotArtifact

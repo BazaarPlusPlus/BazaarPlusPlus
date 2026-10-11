@@ -70,10 +70,19 @@ internal static class HistoryPanelFormatter
         return
             page.First.HasValue
             && page.Last.HasValue
-            && DateTimeOffset.TryParse(page.First.Value.Time, out var start)
-            && DateTimeOffset.TryParse(page.Last.Value.Time, out var end)
+            && TryFromUnixMilliseconds(page.First.Value.Time, out var start)
+            && TryFromUnixMilliseconds(page.Last.Value.Time, out var end)
             ? $"{counts}\n{FormatTimestamp(start)} → {FormatTimestamp(end)}"
             : counts;
+    }
+
+    private static bool TryFromUnixMilliseconds(long milliseconds, out DateTimeOffset value)
+    {
+        var valid =
+            milliseconds >= DateTimeOffset.MinValue.ToUnixTimeMilliseconds()
+            && milliseconds <= DateTimeOffset.MaxValue.ToUnixTimeMilliseconds();
+        value = valid ? DateTimeOffset.FromUnixTimeMilliseconds(milliseconds) : default;
+        return valid;
     }
 
     public static string ShortenRunId(string runId)

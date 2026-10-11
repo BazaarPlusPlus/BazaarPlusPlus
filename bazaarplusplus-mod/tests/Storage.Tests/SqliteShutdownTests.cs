@@ -31,7 +31,6 @@ internal static class SqliteShutdownTests
                     GameMode = "Ranked",
                     Day = 1,
                     Hour = 1,
-                    Seed = 7,
                 }
             );
 

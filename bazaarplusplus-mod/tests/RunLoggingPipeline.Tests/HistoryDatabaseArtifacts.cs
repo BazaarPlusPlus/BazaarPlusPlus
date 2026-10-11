@@ -10,26 +10,27 @@ using BazaarPlusPlus.TestSupport;
 using Microsoft.Data.Sqlite;
 
 /// <summary>
-/// The Run Logging anchor's two artifacts, both shared fixtures of the local history database
-/// contract (<c>RunLogSchema.LocalDatabaseSchemaVersion</c>):
+/// The Run Logging anchor's two artifacts, both goldens of the local history database contract
+/// (<c>RunLogSchema.LocalDatabaseSchemaVersion</c>):
 /// <list type="bullet">
-/// <item><c>fixtures/history-database-v3.schema.sql</c>: <c>PRAGMA user_version=N;</c>, then every
+/// <item><c>src/BazaarPlusPlus.Storage/history-database-v6.schema.sql</c>, the shared schema file
+/// the installer loads: <c>PRAGMA user_version=N;</c>, then every
 /// <c>sqlite_master</c> statement ordered by type (table, index, trigger, view) and name, each ending
 /// in <c>;</c> and LF. Loadable with <c>sqlite3</c> and rusqlite <c>execute_batch</c>.</item>
-/// <item><c>fixtures/history-database-v3.rows.json</c>: every column of <c>runs</c>,
+/// <item><c>fixtures/history-database-v6.rows.json</c>: every column of <c>runs</c>,
 /// <c>run_events</c>, and <c>battles</c> after each scenario step, rows in primary-key order.</item>
 /// </list>
 /// The only normalization is the collision suffix: <c>RunLogRunIdentity.CreateCollisionId</c> draws
 /// a GUID, so each <c>:bpp:&lt;32 hex&gt;</c> becomes <c>:bpp:#1</c>, <c>:bpp:#2</c>... in first-seen
 /// order, everywhere it appears. Times are raw: the module clock is fixed, so a changed time means
 /// a write picked up a second clock. Actual output lands in <c>artifacts/run-logging-pipeline/</c>.
-/// Regenerate with <c>BPP_UPDATE_GOLDENS=1</c> and review <c>git diff tests/RunLoggingPipeline.Tests/fixtures/</c>.
+/// Regenerate with <c>BPP_UPDATE_GOLDENS=1</c> and review <c>git diff</c> of both files.
 /// </summary>
 internal sealed partial class HistoryDatabaseArtifacts
 {
-    private const string FixtureDirectory = "tests/RunLoggingPipeline.Tests/fixtures/";
-    private const string SchemaFile = "history-database-v3.schema.sql";
-    private const string RowsFile = "history-database-v3.rows.json";
+    private const string SchemaFile = "src/BazaarPlusPlus.Storage/history-database-v6.schema.sql";
+    private const string RowsFile =
+        "tests/RunLoggingPipeline.Tests/fixtures/history-database-v6.rows.json";
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -115,8 +116,12 @@ internal sealed partial class HistoryDatabaseArtifacts
             Compare(RowsFile, actual);
             return;
         }
-        File.WriteAllText(Path.Combine(_directory, RowsFile), actual, new UTF8Encoding(false));
-        var golden = JsonNode.Parse(TestInputs.Fixture(FixtureDirectory + RowsFile))!;
+        File.WriteAllText(
+            Path.Combine(_directory, Path.GetFileName(RowsFile)),
+            actual,
+            new UTF8Encoding(false)
+        );
+        var golden = JsonNode.Parse(TestInputs.Fixture(RowsFile))!;
         var reached = new JsonArray(
             golden["steps"]!
                 .AsArray()
@@ -127,10 +132,8 @@ internal sealed partial class HistoryDatabaseArtifacts
         var expected = StepsJson(reached);
         if (string.Equals(expected, actual, StringComparison.Ordinal))
             return;
-        Console.Error.WriteLine(
-            $"Steps 1-{_steps.Count} differ from {FixtureDirectory}{RowsFile}:"
-        );
-        Console.Error.WriteLine(UnifiedDiff.Render(expected, actual, FixtureDirectory + RowsFile));
+        Console.Error.WriteLine($"Steps 1-{_steps.Count} differ from {RowsFile}:");
+        Console.Error.WriteLine(UnifiedDiff.Render(expected, actual, RowsFile));
         Failed = true;
     }
 
@@ -152,32 +155,31 @@ internal sealed partial class HistoryDatabaseArtifacts
     private void Compare(string file, string actual)
     {
         actual = actual.Replace("\r\n", "\n");
-        File.WriteAllText(Path.Combine(_directory, file), actual, new UTF8Encoding(false));
-        var goldenPath = Path.Combine(TestInputs.RepoRoot, FixtureDirectory + file);
+        var artifact = Path.GetFileName(file);
+        File.WriteAllText(Path.Combine(_directory, artifact), actual, new UTF8Encoding(false));
+        var goldenPath = Path.Combine(TestInputs.RepoRoot, file);
         if (Environment.GetEnvironmentVariable("BPP_UPDATE_GOLDENS") == "1")
         {
             Directory.CreateDirectory(Path.GetDirectoryName(goldenPath)!);
             File.WriteAllText(goldenPath, actual, new UTF8Encoding(false));
-            Console.WriteLine($"Rewrote {FixtureDirectory}{file}; review it with git diff.");
+            Console.WriteLine($"Rewrote {file}; review it with git diff.");
             return;
         }
         if (!File.Exists(goldenPath))
         {
-            Console.Error.WriteLine(
-                $"{FixtureDirectory}{file} is missing; create it with BPP_UPDATE_GOLDENS=1."
-            );
+            Console.Error.WriteLine($"{file} is missing; create it with BPP_UPDATE_GOLDENS=1.");
             Failed = true;
             return;
         }
-        var expected = TestInputs.Fixture(FixtureDirectory + file).Replace("\r\n", "\n");
+        var expected = TestInputs.Fixture(file).Replace("\r\n", "\n");
         if (string.Equals(expected, actual, StringComparison.Ordinal))
             return;
         Console.Error.WriteLine(
-            $"Run logging output differs from {FixtureDirectory}{file}; actual output is "
-                + $"artifacts/run-logging-pipeline/{file}. Regenerate with BPP_UPDATE_GOLDENS=1 "
+            $"Run logging output differs from {file}; actual output is "
+                + $"artifacts/run-logging-pipeline/{artifact}. Regenerate with BPP_UPDATE_GOLDENS=1 "
                 + "only if the change is intended."
         );
-        Console.Error.WriteLine(UnifiedDiff.Render(expected, actual, FixtureDirectory + file));
+        Console.Error.WriteLine(UnifiedDiff.Render(expected, actual, file));
         Failed = true;
     }
 

@@ -185,15 +185,10 @@ static void AssertRecentRunProjection(string databasePath)
     using var connection = new SqliteConnection($"Data Source={databasePath}");
     connection.Open();
 
-    InsertRun(connection, "run-oldest", started: "2026-01-01T00:00:00Z", ended: null);
-    InsertRun(connection, "run-middle", started: "2026-01-02T00:00:00Z", ended: null);
+    InsertRun(connection, "run-oldest", started: 1767225600000L, ended: null);
+    InsertRun(connection, "run-middle", started: 1767312000000L, ended: null);
     // Ends last despite starting first, so a wrong ordering key surfaces here.
-    InsertRun(
-        connection,
-        "run-newest",
-        started: "2026-01-01T12:00:00Z",
-        ended: "2026-01-03T00:00:00Z"
-    );
+    InsertRun(connection, "run-newest", started: 1767268800000L, ended: 1767398400000L);
 
     // Two countable battles.
     InsertLocalBattle(connection, "b-ok-1", "run-newest");
@@ -252,13 +247,13 @@ static void AssertRecentRunProjection(string databasePath)
     );
 }
 
-static void InsertRun(SqliteConnection connection, string runId, string started, string? ended)
+static void InsertRun(SqliteConnection connection, string runId, long started, long? ended)
 {
     using var command = connection.CreateCommand();
     command.CommandText = """
         INSERT INTO runs (
-            run_id, started_at_utc, last_seen_at_utc, status, hero, game_mode, ended_at_utc
-        ) VALUES ($runId, $started, $started, 'ended', 'Vanessa', 'Ranked', $ended);
+            run_id, started_at_ms, last_seen_at_ms, status, hero, game_mode, ended_at_ms
+        ) VALUES ($runId, $started, $started, 'completed', 'Vanessa', 'Ranked', $ended);
         """;
     command.Parameters.AddWithValue("$runId", runId);
     command.Parameters.AddWithValue("$started", started);
@@ -271,12 +266,12 @@ static void InsertLocalBattle(SqliteConnection connection, string battleId, stri
     using var command = connection.CreateCommand();
     command.CommandText = """
         INSERT INTO battles (
-            battle_id, source, run_id, recorded_at_utc, combat_kind,
-            has_local_payload, local_payload_state
+            battle_id, source, run_id, recorded_at_ms, combat_kind,
+            local_payload_state
         )
         VALUES (
-            $battleId, 'LOCAL', $runId, '2026-01-02T00:00:00Z', 'PVPCombat',
-            0, 'missing'
+            $battleId, 'LOCAL', $runId, 1767312000000, 'PVPCombat',
+            'missing'
         );
         """;
     command.Parameters.AddWithValue("$battleId", battleId);
@@ -289,8 +284,8 @@ static void InsertGhostBattle(SqliteConnection connection, string battleId)
     using var command = connection.CreateCommand();
     command.CommandText = """
         INSERT INTO battles (
-            battle_id, source, remote_battle_id, uploader_account_id, recorded_at_utc, combat_kind
-        ) VALUES ($battleId, 'GHOST', 'remote-1', 'account-uploader', '2026-01-02T00:00:00Z', 'PVPCombat');
+            battle_id, source, remote_battle_id, uploader_account_id, recorded_at_ms, combat_kind
+        ) VALUES ($battleId, 'GHOST', 'remote-1', 'account-uploader', 1767312000000, 'PVPCombat');
         """;
     command.Parameters.AddWithValue("$battleId", battleId);
     command.ExecuteNonQuery();
@@ -327,7 +322,7 @@ static void InsertPendingOutbox(string databasePath, string runId)
     command.CommandText = """
         INSERT INTO bundle_outbox (
             bundle_id, run_id, file_name, content_sha256_hex, content_digest,
-            total_bytes, has_screenshot, sealed_at_utc, status
+            total_bytes, has_screenshot, sealed_at_ms, status
         ) VALUES (
             '01K1ABCDEF0123456789ABCDEF', $runId, 'bundle.bundle', $sha, $digest,
             399, 0, $sealed, 'pending'
@@ -339,7 +334,7 @@ static void InsertPendingOutbox(string databasePath, string runId)
         "$digest",
         "sha-256=:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=:"
     );
-    command.Parameters.AddWithValue("$sealed", DateTimeOffset.UtcNow.ToString("o"));
+    command.Parameters.AddWithValue("$sealed", DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
     command.ExecuteNonQuery();
 }
 
@@ -350,20 +345,20 @@ static void InsertRunDeleteArtifacts(string databasePath, string runId)
     using var command = connection.CreateCommand();
     command.CommandText = """
         INSERT INTO battles (
-            battle_id, source, run_id, recorded_at_utc, combat_kind,
-            has_local_payload, local_payload_state
+            battle_id, source, run_id, recorded_at_ms, combat_kind,
+            local_payload_state
         ) VALUES (
-            'delete-battle', 'LOCAL', $runId, '2026-08-23T00:00:00Z', 'PVPCombat',
-            1, 'ready'
+            'delete-battle', 'LOCAL', $runId, 1787443200000, 'PVPCombat',
+            'ready'
         );
         INSERT INTO combat_replay_videos (
             video_id, battle_id, source, video_relative_path,
-            width, height, fps, codec, started_at_utc, ended_at_utc,
+            width, height, fps, codec, started_at_ms, ended_at_ms,
             captured_frames, dropped_frames, status, file_size_bytes,
             attachment_state, file_state
         ) VALUES (
             'kept-video', 'delete-battle', 'LocalSaved', '2026/kept-video.mp4',
-            1920, 1080, 30, 'libx264', '2026-08-23T00:00:00Z', '2026-08-23T00:01:00Z',
+            1920, 1080, 30, 'libx264', 1787443200000, 1787443260000,
             1800, 0, 'COMPLETED', 12345,
             'attached', 'present'
         );

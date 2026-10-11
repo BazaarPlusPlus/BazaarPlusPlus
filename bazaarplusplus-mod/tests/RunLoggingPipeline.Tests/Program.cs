@@ -310,8 +310,8 @@ static void StartFailureDisposesTheOwnedStore(string dataRoot)
     var h = new Harness(dataRoot);
     _ = new RunLogStore(h.Paths);
     h.Execute(
-        "INSERT INTO runs (run_id, started_at_utc, last_seen_at_utc, status, hero, game_mode) "
-            + "VALUES ('unreadable-run', 'not-a-time', 'not-a-time', 'active', 'Vanessa', 'Ranked');"
+        "INSERT INTO runs (run_id, started_at_ms, last_seen_at_ms, status, hero, game_mode) "
+            + "VALUES ('unreadable-run', 9223372036854775807, 9223372036854775807, 'active', 'Vanessa', 'Ranked');"
     );
     var bus = new InMemoryBppEventBus();
     var module = h.CreateModule(bus);
@@ -320,7 +320,7 @@ static void StartFailureDisposesTheOwnedStore(string dataRoot)
     {
         module.Start();
     }
-    catch (FormatException)
+    catch (ArgumentOutOfRangeException)
     {
         failed = true;
     }

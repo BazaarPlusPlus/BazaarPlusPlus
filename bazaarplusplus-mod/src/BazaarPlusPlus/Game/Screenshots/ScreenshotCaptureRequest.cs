@@ -11,7 +11,5 @@ internal sealed class ScreenshotCaptureRequest
 
     public string? HeroName { get; set; }
 
-    public string? BattleId { get; set; }
-
     public RunScreenshotCaptureSource CaptureSource { get; set; }
 }

@@ -19,8 +19,6 @@ public sealed class RunLogCreateRequest
 
     public int? Hour { get; set; }
 
-    public int? Seed { get; set; }
-
     public string Status { get; set; } = "active";
 
     // Game build channel the run was recorded on ("Online" / "Ptr" / "Unknown");
