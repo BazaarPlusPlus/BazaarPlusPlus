@@ -138,7 +138,8 @@ impl PlacementBackend for SystemBackend {
 
     fn copy(&self, source: &Path, partial: &Path) -> io::Result<()> {
         fs::copy(source, partial)?;
-        fs::File::open(partial)?.sync_all()
+        // Windows flushes only through a handle opened for writing.
+        fs::OpenOptions::new().write(true).open(partial)?.sync_all()
     }
 }
 
