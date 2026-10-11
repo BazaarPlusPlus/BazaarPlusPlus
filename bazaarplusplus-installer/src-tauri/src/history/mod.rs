@@ -1,14 +1,13 @@
 pub(crate) mod cleanup;
 mod dto;
-mod files;
+pub(crate) mod files;
 pub(crate) mod hero;
 pub(crate) mod instant;
 pub(crate) mod mapper;
+pub(crate) mod mod_schema;
 mod queries;
 mod repo;
 pub(crate) mod screenshots;
-#[cfg(test)]
-pub(crate) mod test_schema;
 
 pub(crate) use dto::{HistoryRunDetail, HistoryRunList};
 pub(crate) use queries::HistoryReadError;

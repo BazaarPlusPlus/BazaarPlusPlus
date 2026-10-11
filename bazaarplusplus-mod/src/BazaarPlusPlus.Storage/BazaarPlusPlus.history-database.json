@@ -1,5 +1,7 @@
 {
   "formatVersion": 1,
   "dataRootDirectoryName": "BazaarPlusPlusV6",
-  "historyDatabaseUserVersion": 1
+  "historyDatabaseUserVersion": 1,
+  "replayPayloadRetainedNewestCount": 200,
+  "replayPayloadRetainedAgeDays": 30
 }

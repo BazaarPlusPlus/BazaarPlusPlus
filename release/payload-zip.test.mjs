@@ -69,7 +69,9 @@ function writeStagedHistoryDatabaseContract(
     `${JSON.stringify({
       formatVersion: 1,
       dataRootDirectoryName,
-      historyDatabaseUserVersion: userVersion
+      historyDatabaseUserVersion: userVersion,
+      replayPayloadRetainedNewestCount: 200,
+      replayPayloadRetainedAgeDays: 30
     })}\n`
   );
 }

@@ -84,7 +84,7 @@ impl OverlayRecordRepository {
 #[cfg(test)]
 mod tests {
     use super::OverlayRecordRepository;
-    use crate::history::test_schema::create_mod_schema;
+    use crate::history::mod_schema::create_mod_schema;
     use crate::services::paths;
 
     #[test]

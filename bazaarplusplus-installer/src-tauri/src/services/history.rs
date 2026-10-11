@@ -461,7 +461,7 @@ mod tests {
         StorageCleanupExecution, StorageCleanupPreset, StorageCleanupPreview, StorageCleanupScope,
         HISTORY_UNAVAILABLE,
     };
-    use crate::history::test_schema::create_mod_schema;
+    use crate::history::mod_schema::create_mod_schema;
     use crate::problem::SemanticProblemCode;
     use crate::services::paths;
     use std::path::Path;

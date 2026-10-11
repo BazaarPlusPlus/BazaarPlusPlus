@@ -8,9 +8,6 @@
 //! only when its size and sha256 match the source. Free space for every copy is
 //! checked before the first write.
 
-// The Payload migration is its first caller; until it lands only tests use it.
-#![cfg_attr(not(test), allow(dead_code))]
-
 use std::collections::{BTreeMap, HashSet};
 use std::fmt;
 use std::fs;
@@ -249,6 +246,7 @@ impl<B: PlacementBackend> Placer<B> {
     }
 
     /// Every file and directory this placer created, in creation order.
+    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn created_paths(&self) -> impl Iterator<Item = &Path> {
         self.created.iter().map(|created| match created {
             Created::File(path) | Created::Directory(path) => path.as_path(),

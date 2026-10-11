@@ -39,7 +39,7 @@ The installer launches The Bazaar through `launch_game_via_steam` in `src-tauri/
 
 `compile_macos_trampoline_stub` in `src-tauri/build.rs` builds the bundled arm64 stub with the deployment target defined by `MACOS_TRAMPOLINE_DEPLOYMENT_TARGET` in `src-tauri/build_support.rs`. Release validation inspects that target before packaging. The rationale for the sole-bootstrap and empty-LaunchOptions choices lives in [ADR-0002](adr/0002-macos-launch-trampoline.md).
 
-## Headless Developer Repair
+## Headless Developer Commands
 
 `run_headless` in `src-tauri/src/lib.rs` dispatches CLI arguments before the
 Tauri shell starts. `just installer::cli --help` documents the arguments;
@@ -58,6 +58,17 @@ replace the Payload with bundled release files.
 sorted relative path and SHA-256 records to the CLI and acceptance tests.
 Symlink records contain their targets without following them. Manifest output
 belongs outside the game directory so it cannot include itself.
+
+The import command runs the one-time V5 import (ADR-0008) through `import_v5`
+in `src-tauri/src/v5_import/run.rs`, the same entry the app will call, so it
+holds the data maintenance lock and refuses while the game runs. It is the
+only headless command that runs on every platform. A Windows release build
+has no console, so the result goes only to the required `--manifest` file:
+the outcome, the current Data Root's path and SHA-256 records without the
+database file, and every database row. `--now` pins the clock the replay
+retention window is measured from, which makes the file reproducible;
+`src-tauri/tests/v5_import_cli.rs` compares it with
+`src-tauri/tests/goldens/v5-import/`.
 
 ## Reset Local Data
 

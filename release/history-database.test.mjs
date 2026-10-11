@@ -17,7 +17,7 @@ afterEach(() => {
 });
 
 // A Data Root passed as undefined is left out of the written JSON.
-function fixture({ userVersion, supported, ...dataRoots }) {
+function fixture({ userVersion, supported, retention, ...dataRoots }) {
   const { modDataRoot, installerDataRoot } = {
     modDataRoot: 'BazaarPlusPlusV6',
     installerDataRoot: 'BazaarPlusPlusV6',
@@ -32,7 +32,11 @@ function fixture({ userVersion, supported, ...dataRoots }) {
     JSON.stringify({
       formatVersion: 1,
       dataRootDirectoryName: modDataRoot,
-      historyDatabaseUserVersion: userVersion
+      historyDatabaseUserVersion: userVersion,
+      ...(retention ?? {
+        replayPayloadRetainedNewestCount: 200,
+        replayPayloadRetainedAgeDays: 30
+      })
     })
   );
   fs.writeFileSync(
@@ -91,6 +95,28 @@ test('rejects an invalid mod contract', () => {
   expect(() =>
     assertHistoryDatabaseCompatibility(
       fixture({ userVersion: 0, supported: [1] })
+    )
+  ).toThrow(/Invalid BazaarPlusPlus history database contract/);
+});
+
+test.each([
+  [{ replayPayloadRetainedAgeDays: 30 }, 'missing newest count'],
+  [{ replayPayloadRetainedNewestCount: 200 }, 'missing age'],
+  [
+    { replayPayloadRetainedNewestCount: 0, replayPayloadRetainedAgeDays: 30 },
+    'zero newest count'
+  ],
+  [
+    {
+      replayPayloadRetainedNewestCount: 200,
+      replayPayloadRetainedAgeDays: 1.5
+    },
+    'fractional age'
+  ]
+])('rejects a mod contract with invalid replay retention (%s)', (retention) => {
+  expect(() =>
+    assertHistoryDatabaseCompatibility(
+      fixture({ userVersion: 1, supported: [1], retention })
     )
   ).toThrow(/Invalid BazaarPlusPlus history database contract/);
 });

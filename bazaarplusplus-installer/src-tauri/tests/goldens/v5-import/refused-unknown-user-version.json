@@ -1,0 +1,10 @@
+{
+  "dataRootFiles": null,
+  "database": null,
+  "error": {
+    "code": "v5_schema_unsupported",
+    "message": "unsupported V5 database user_version 7"
+  },
+  "marker": false,
+  "status": "failed"
+}
