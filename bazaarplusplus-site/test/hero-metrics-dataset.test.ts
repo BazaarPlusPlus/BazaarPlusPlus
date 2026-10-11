@@ -114,14 +114,14 @@ describe('loadHeroMetricsDataset', () => {
     }
   );
 
-  test('loads and decodes only analyzer-v5/heroes/latest.json', async () => {
+  test('loads and decodes only the V6 heroes/latest.json', async () => {
     const fetchStub = stubSnapshot();
 
     const dataset = await loadHeroMetricsDataset(new AbortController().signal);
 
     expect(fetchStub).toHaveBeenCalledTimes(1);
     expect(fetchStub).toHaveBeenCalledWith(
-      'https://bpp-metrics.bazaarplusplus.com/analyzer-v5/heroes/latest.json',
+      'https://bpp-metrics-v6.bazaarplusplus.com/heroes/latest.json',
       { signal: expect.any(AbortSignal) }
     );
     expect(dataset).toMatchObject({

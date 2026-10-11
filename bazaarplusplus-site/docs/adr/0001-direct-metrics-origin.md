@@ -4,7 +4,7 @@ Status: Accepted
 
 ## Context
 
-Hero Metrics Dataset 的数据托管在 `https://bpp-metrics.bazaarplusplus.com`（R2）。此前本地有两条不同的取数路径：
+Hero Metrics Dataset 的数据托管在一个公开的 R2 origin，地址只写在 `src/features/heroes/hero-metrics-dataset.ts` 的 `DEFAULT_METRICS_BASE_URL`（V6 起是 analyzer 的 V6 metrics 桶，见 `bazaarplusplus-analyzer/docs/architecture.md` 的 Publication target）。此前本地有两条不同的取数路径：
 
 - `dev` 不设 `VITE_METRICS_BASE`，走 `DEFAULT_METRICS_BASE_URL`，直连远端 origin。
 - `preview` 设 `VITE_METRICS_BASE=/metrics/`，走 `vite.config.ts` 中的 `remoteMetricsPlugin` 同源代理。
@@ -17,7 +17,7 @@ Hero Metrics Dataset 的数据托管在 `https://bpp-metrics.bazaarplusplus.com`
 
 删除 `remoteMetricsPlugin`，dev、preview、生产统一直连远端 R2 origin。`preview` 脚本不再注入 `VITE_METRICS_BASE`。origin 只写在代码默认值里。
 
-前提是 origin 已正确下发 CORS。实测确认：带 `Origin: http://localhost:3000` 与 `Origin: https://bazaarplusplus.com` 的 GET 均回显对应 `access-control-allow-origin` 并带 `vary: Origin`，`OPTIONS` 预检返回 204 且 `access-control-allow-methods: GET`。
+前提是 origin 已正确下发 CORS（桶上的规则见 `bazaarplusplus-analyzer/docs/architecture.md` 的 Publication target）。V5 origin 上实测确认：带 `Origin: http://localhost:3000` 与 `Origin: https://bazaarplusplus.com` 的 GET 均回显对应 `access-control-allow-origin` 并带 `vary: Origin`，`OPTIONS` 预检返回 204 且 `access-control-allow-methods: GET`。换 origin 时，新 origin 要先通过同样的检查再部署生产站点。
 
 ## Consequences
 

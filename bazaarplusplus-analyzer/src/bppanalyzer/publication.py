@@ -20,8 +20,8 @@ from bppanalyzer.object_store import ObjectStore
 ANALYSIS_DAYS = 7
 CORE_BUILD_LIMIT_PER_HERO = 500
 WILSON_Z = 1.96
-HEROES_KEY = "analyzer-v5/heroes/latest.json"
-BUILDS_KEY = "analyzer-v5/builds/latest.json"
+HEROES_KEY = "heroes/latest.json"
+BUILDS_KEY = "builds/latest.json"
 LATEST_CACHE_CONTROL = "public,max-age=60,must-revalidate"
 JSON_CONTENT_TYPE = "application/json"
 

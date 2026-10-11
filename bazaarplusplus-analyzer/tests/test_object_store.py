@@ -131,10 +131,10 @@ def test_r2_adapter_derives_its_pair_once_and_uses_exact_json_metadata(monkeypat
     assert created[0]["aws_secret_access_key"] == hashlib.sha256(token.encode()).hexdigest()
     assert created[0]["endpoint_url"] == f"https://{ACCOUNT}.r2.cloudflarestorage.com"
 
-    stat = store.stat("analyzer-v5/heroes/latest.json")
-    observed = store.get("analyzer-v5/heroes/latest.json")
+    stat = store.stat("heroes/latest.json")
+    observed = store.get("heroes/latest.json")
     store.put(
-        "analyzer-v5/builds/latest.json",
+        "builds/latest.json",
         client.body,
         cache_control="public,max-age=60,must-revalidate",
         content_type="application/json",

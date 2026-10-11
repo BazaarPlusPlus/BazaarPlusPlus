@@ -3,7 +3,7 @@
     <VoiceLinesRemoteUrl Condition="'$(VoiceLinesRemoteUrl)' == ''"
       >https://bazaarline-installer.bazaarplusplus.com/data/voice-lines.json</VoiceLinesRemoteUrl>
     <TenWinBuildsRemoteUrl Condition="'$(TenWinBuildsRemoteUrl)' == ''"
-      >https://bpp-metrics.bazaarplusplus.com/analyzer-v5/builds/latest.json</TenWinBuildsRemoteUrl>
+      >https://bpp-metrics-v6.bazaarplusplus.com/builds/latest.json</TenWinBuildsRemoteUrl>
     <RemoteEmbeddedDataDirectory Condition="'$(RemoteEmbeddedDataDirectory)' == ''"
       >$(MSBuildThisFileDirectory)obj/remote-data</RemoteEmbeddedDataDirectory>
     <TenWinBuildsEmbeddedSeed>$(MSBuildThisFileDirectory)Data/BuildRecommendations/builds.json</TenWinBuildsEmbeddedSeed>

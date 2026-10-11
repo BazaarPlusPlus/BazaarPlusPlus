@@ -103,8 +103,9 @@ files or creates data stores.
 setup also migrates the earlier layout in place: [release] BPP_R2_ACCOUNT_ID and
 [analyzer] BPP_METRICS_R2_ACCOUNT_ID become [cloudflare] CLOUDFLARE_ACCOUNT_ID,
 [analyzer] BPP_BUNDLE_SYNC_TOKEN joins [server] BUNDLE_SYNC_TOKEN (differing values
-are refused), and the derived R2 key pairs stay as commented lines in [cloudflare]
-until you delete them; nothing is dropped silently.
+are refused), [analyzer] BPP_V5_API_BASE_URL becomes BPP_API_BASE_URL, and the
+derived R2 key pairs stay as commented lines in [cloudflare] until you delete
+them; nothing is dropped silently.
 
 secrets check lists, by name only, what each GitHub scope holds and what config.ini
 and keys/ hold, following release/github-secrets.json; secrets push copies every
@@ -112,8 +113,9 @@ item with a local value through gh (values over stdin, never printed). --dependa
 also sets the mod lane token for Dependabot; --prune deletes the retired names the
 table lists. Tokens are created in the Cloudflare dashboard (My Profile > API Tokens
 or Account > Manage API tokens): the operator token with Object Read & Write on
-bppinstaller, bazaarplusplus-game-libs and the metrics bucket plus Workers Scripts
-Edit; the read-only token with Object Read on bazaarplusplus-game-libs only.
+bppinstaller, bazaarplusplus-game-libs and both metrics buckets (V5 and
+bazaarplusplus-metrics-v6) plus Workers Scripts Edit; the read-only token with
+Object Read on bazaarplusplus-game-libs only.
 
 setup installs each Node project's locked dependencies, the analyzer environment,
 the mod's local .NET tools and Git hooks. Install language/platform tools first.

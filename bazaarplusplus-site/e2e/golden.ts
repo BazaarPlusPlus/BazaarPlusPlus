@@ -8,7 +8,7 @@ import { RELEASE_BASE_URL, platformManifestPath } from '../../release/downloads'
 
 export const siteRoot = resolve(import.meta.dirname, '..');
 
-export const METRICS_URL = 'https://bpp-metrics.bazaarplusplus.com/analyzer-v5/heroes/latest.json';
+export const METRICS_URL = 'https://bpp-metrics-v6.bazaarplusplus.com/heroes/latest.json';
 export const SUPPORTERS_URL = 'https://bpp-static.bazaarplusplus.com/supporter-list.json';
 export const WINDOWS_MANIFEST_URL = `${RELEASE_BASE_URL}/${platformManifestPath('windows-x86_64')}`;
 export const MAC_MANIFEST_URL = `${RELEASE_BASE_URL}/${platformManifestPath('darwin-aarch64')}`;

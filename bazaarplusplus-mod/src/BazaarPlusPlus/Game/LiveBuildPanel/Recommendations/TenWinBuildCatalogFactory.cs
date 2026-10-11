@@ -10,8 +10,7 @@ internal static class TenWinBuildCatalogFactory
 {
     internal const string EmbeddedResourceName =
         "BazaarPlusPlus.Data.BuildRecommendations.builds.json";
-    private const string RemoteUrl =
-        "https://bpp-metrics.bazaarplusplus.com/analyzer-v5/builds/latest.json";
+    private const string RemoteUrl = "https://bpp-metrics-v6.bazaarplusplus.com/builds/latest.json";
     private const string CacheFileName = "builds.json";
     private static readonly TimeSpan CacheDuration = TimeSpan.FromHours(20);
     private static readonly HttpClient HttpClient = BppHttpClientFactory.Create(
