@@ -9,4 +9,6 @@ export interface Env {
   R2_PRESIGN_SECRET_ACCESS_KEY: string;
   BUNDLE_SYNC_TOKEN: string;
   BAZAARDB_DELIVERY_TOKEN: string;
+  /** Optional; until it is set the analyzer dispatch Cron Trigger is a no-op. */
+  GITHUB_ANALYZER_DISPATCH_TOKEN?: string;
 }

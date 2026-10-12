@@ -40,7 +40,7 @@ rerun the full server checks and tests.
 
 ## Production
 
-`src/env.ts` is the sole binding declaration. `wrangler.toml` provisions the D1 database, the R2 bucket, and the Ghost rate limiter. The R2 presign key pair and the two service tokens are set out of band (`.dev.vars` locally, `wrangler secret put` in production). The two service tokens are distinct 32-byte random values encoded as 43-character unpadded base64url strings, and the R2 S3 credential grants Object Read only on the V6 bucket.
+`src/env.ts` is the sole binding declaration. `wrangler.toml` provisions the D1 database, the R2 bucket, and the Ghost rate limiter. The R2 presign key pair and the two service tokens are set out of band (`.dev.vars` locally, `wrangler secret put` in production). The optional `GITHUB_ANALYZER_DISPATCH_TOKEN` is a fine-grained GitHub token for this repository with Actions read and write only; until it is set, the hourly analyzer dispatch logs a skip and does nothing. The two service tokens are distinct 32-byte random values encoded as 43-character unpadded base64url strings, and the R2 S3 credential grants Object Read only on the V6 bucket.
 
 Provisioning, migration, lifecycle, deploy, and smoke-test commands are in [docs/deployment-runbook.md](docs/deployment-runbook.md) and require explicit Cloudflare deployment authorization. The V6 D1 is built from `migrations-v6/`; once production has applied a file it is frozen, and schema changes ship as new files.
 

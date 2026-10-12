@@ -70,7 +70,7 @@ npx wrangler secret put BAZAARDB_DELIVERY_TOKEN
 
 Until they are set, signing and protected routes fail closed (`500 internal_error` or `503 storage_unavailable`). No released mod points at V6 before 6.0.0, so this window has no player traffic.
 
-Verify the custom domain resolves only to `bazaarplusplus-mod-api-v6` and that the Worker has the `*/15 * * * *` Cron Trigger from `wrangler.toml`. The trigger runs D1 retention only. Allow up to 15 minutes for trigger configuration to propagate.
+Verify the custom domain resolves only to `bazaarplusplus-mod-api-v6` and that the Worker has both Cron Triggers from `wrangler.toml`. `*/15 * * * *` runs D1 retention; `23 * * * *` runs the analyzer dispatch (section 8). Allow up to 15 minutes for trigger configuration to propagate.
 
 Then hand the V6 base URL and tokens to their consumers: the analyzer's repository `.env` (`BPP_API_BASE_URL` and `BPP_BUNDLE_SYNC_TOKEN`), and BazaarDB, which reads `GET /bazaardb/bundles` with the V6 delivery token ([API reference](api-reference.md#get-bazaardbbundles)), with notice before 6.0.0 ships.
 
@@ -118,6 +118,7 @@ Suggested starting thresholds; tune against real traffic.
 | D1 cleanup failure | `event = "d1.retention.failed"` | ≥ 1 in 15 min |
 | D1 cleanup backlog | `event = "d1.retention" AND has_more = true` | Four consecutive runs |
 | D1 cleanup stopped | No successful `d1.retention` event / failed Cron invocations | No success for 45 min |
+| Analyzer dispatch failure | `event = "analyzer.dispatch.failed"` | ≥ 3 in 3 h |
 
 Classified 4xx responses are intentionally not logged; they are client errors and
 would drown the signal.
@@ -179,3 +180,27 @@ Increase the schedule frequency or per-invocation batch count only after measuri
 delete duration and API latency. Keep each delete transaction small. To pause pruning,
 deploy `crons = []` in the managed Wrangler configuration; already deleted metadata
 requires recovery from an available D1 backup rather than a Worker rollback.
+
+## 8. Analyzer dispatch
+
+GitHub drops most `schedule` events for `.github/workflows/analyzer.yml`, so the
+`23 * * * *` Cron Trigger starts the analyzer instead: it calls GitHub's
+`workflow_dispatch` API for that workflow on `master` with `publish` enabled. It
+runs once per hour because only that cron string selects it; the `*/15` trigger
+never dispatches. The workflow's concurrency group queues at most one run behind
+a running one, and its own sparse `schedule` stays as a fallback.
+
+The token is a fine-grained GitHub personal access token with access to
+`BazaarPlusPlus/BazaarPlusPlus` only and the repository permission Actions: Read
+and write (Metadata: Read is added automatically). Set it like the other secrets:
+
+```sh
+npx wrangler secret put GITHUB_ANALYZER_DISPATCH_TOKEN
+```
+
+Without it each dispatch logs `analyzer.dispatch.skipped`. A GitHub error or
+timeout logs `analyzer.dispatch.failed` with the HTTP status and does not fail
+the invocation; the analyzer backfills missed hours on its next run. A `401`
+means the token expired or was revoked: create a new one and put it again.
+Success logs `analyzer.dispatch` with status `204`, and the run appears in the
+repository's Actions tab as a `workflow_dispatch` event.

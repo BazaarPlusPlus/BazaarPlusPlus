@@ -8,9 +8,13 @@ name: Analyzer
 # (release/github-secrets.json); see
 # bazaarplusplus-analyzer/docs/architecture.md, Production runs.
 
+# The V6 Bundle Server Worker dispatches this workflow at :23 every hour
+# (bazaarplusplus-server/src/modules/analyzer-dispatch.ts) because GitHub drops
+# most scheduled events. This schedule is only a fallback for when the Worker
+# cannot reach GitHub; it sits at :53 so it never queues behind a dispatch.
 on:
   schedule:
-    - cron: '23 * * * *'
+    - cron: '53 */6 * * *'
   workflow_dispatch:
     inputs:
       publish:
@@ -22,6 +26,8 @@ permissions:
   contents: read
 
 # The R2 state bucket has one writer; a run never cancels another mid-sync.
+# A run still going when the next dispatch arrives leaves one pending run, and
+# later triggers replace that pending run rather than stacking up.
 concurrency:
   group: analyzer-v6
   cancel-in-progress: false
