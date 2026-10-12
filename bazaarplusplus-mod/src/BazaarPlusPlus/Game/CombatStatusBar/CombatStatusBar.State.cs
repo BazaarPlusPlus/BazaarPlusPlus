@@ -72,9 +72,16 @@ internal sealed partial class CombatStatusBar
         return requestedSpeed <= 1f + 0.0001f;
     }
 
-    internal static bool ShouldRenderForState()
+    internal static void OnVisibilitySettingChanged(bool enabled)
     {
-        if (_services == null)
+        // A hidden pause button must not leave a combat paused by the status bar.
+        if (!enabled && IsCombatPaused)
+            SetCombatPaused(false);
+    }
+
+    internal static bool ShouldRenderForState(bool enabled)
+    {
+        if (!enabled || _services == null)
             return false;
 
         // Fast path: during a live run the cached flag is already true, so the per-frame probe

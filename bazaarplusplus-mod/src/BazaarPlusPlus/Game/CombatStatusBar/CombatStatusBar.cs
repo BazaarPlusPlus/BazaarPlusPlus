@@ -65,7 +65,8 @@ internal sealed partial class CombatStatusBar : MonoBehaviour
     private bool ShouldDraw()
     {
         EnsureConfigStateInitialized();
-        return _screenshotSuppressionCount == 0 && ShouldRenderForState();
+        return _screenshotSuppressionCount == 0
+            && ShouldRenderForState(_services?.Config.EnableCombatStatusBarConfig.Value == true);
     }
 
     internal static IDisposable? BeginScreenshotSuppression()

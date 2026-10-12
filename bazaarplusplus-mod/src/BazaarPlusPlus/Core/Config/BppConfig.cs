@@ -34,6 +34,8 @@ internal sealed class BppConfig
 
     public ConfigEntry<float> VoiceSubtitlesChineseFontScaleConfig { get; }
 
+    public ConfigEntry<bool> EnableCombatStatusBarConfig { get; }
+
     public ConfigEntry<float> CombatStatusBarSpeedMultiplierConfig { get; }
 
     public ConfigEntry<bool> EndOfRunScreenshotEnabledConfig { get; }
@@ -138,6 +140,12 @@ internal sealed class BppConfig
                 "Font scale for the Chinese subtitle line.",
                 new AcceptableValueRange<float>(1.0f, 2.5f)
             )
+        );
+        EnableCombatStatusBarConfig = config.Bind(
+            "CombatStatusBar",
+            "Enabled",
+            true,
+            "Whether to show the combat status bar with elapsed time, speed controls, and pause controls."
         );
         CombatStatusBarSpeedMultiplierConfig = config.Bind(
             "CombatStatusBar",

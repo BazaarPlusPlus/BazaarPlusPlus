@@ -1,4 +1,5 @@
 using BazaarPlusPlus.Core.Config;
+using BazaarPlusPlus.Game.CombatStatusBar;
 using BepInEx.Configuration;
 using Xunit;
 
@@ -6,6 +7,35 @@ namespace BazaarPlusPlus.Tests.SettingsDockRegistry;
 
 public class BppConfigTests
 {
+    [Fact]
+    public void CombatStatusBarToggle_persists_visibility_without_resetting_speed()
+    {
+        var configPath = Path.Combine(
+            Path.GetTempPath(),
+            $"bpp-combat-status-{Guid.NewGuid():N}.cfg"
+        );
+        try
+        {
+            var file = new ConfigFile(configPath, saveOnInit: false);
+            var config = new BppConfig(file);
+            var toggle = CombatStatusBarSettingsDockEntry.Create().Build(config);
+            Assert.True(toggle.ReadToggle!());
+
+            config.CombatStatusBarSpeedMultiplierConfig.Value = 0.67f;
+            toggle.WriteToggle!(false);
+            file.Save();
+
+            var reloaded = new BppConfig(new ConfigFile(configPath, saveOnInit: false));
+            Assert.False(CombatStatusBarSettingsDockEntry.Create().Build(reloaded).ReadToggle!());
+            Assert.Equal(0.67f, reloaded.CombatStatusBarSpeedMultiplierConfig.Value);
+        }
+        finally
+        {
+            if (File.Exists(configPath))
+                File.Delete(configPath);
+        }
+    }
+
     [Fact]
     public void QuestPreviewConfig_defaults_off_with_its_only_key()
     {
