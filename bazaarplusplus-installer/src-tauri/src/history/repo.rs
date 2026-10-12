@@ -156,14 +156,14 @@ mod tests {
             insert into runs (
                 run_id, started_at_ms, last_seen_at_ms, status,
                 hero, game_mode, ended_at_ms, final_day, victories, losses,
-                final_player_rank, final_player_rating
+                final_player_rank, final_player_rating, final_player_rating_delta
             ) values
                 ('run-win', 1779271200000, 1779274800000, 'completed',
-                 'Vanessa', 'Ranked', 1779274800000, 10, 10, 2, 'Diamond II', 1450),
+                 'Vanessa', 'Ranked', 1779274800000, 10, 10, 2, 'Diamond II', 1450, 24),
                 ('run-loss', 1779184800000, 1779187200000, 'completed',
-                 'Dooley', 'Ranked', 1779187200000, 6, 4, 3, 'Gold I', 1100),
+                 'Dooley', 'Ranked', 1779187200000, 6, 4, 3, 'Gold I', 1100, -18),
                 ('run-live', 1779357600000, 1779358800000, 'active',
-                 'Mak', 'Normal', null, null, null, null, null, null);
+                 'Mak', 'Normal', null, null, null, null, null, null, null);
 
             insert into run_screenshots (
                 screenshot_id, run_id, hero_name, capture_source, is_primary,

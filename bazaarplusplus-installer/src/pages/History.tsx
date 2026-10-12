@@ -18,7 +18,9 @@ import {
   formatGameMode,
   formatHero,
   formatRank,
-  formatRunResultLabel
+  formatRatingDelta,
+  formatRunResultLabel,
+  ratingDeltaTrend
 } from '../features/history/format';
 import { HistoryOverview } from '../features/history/HistoryOverview';
 import {
@@ -196,6 +198,11 @@ function RunRow({
 }) {
   const { locale, t } = useI18n();
   const result = formatRunResultLabel(run);
+  // A change without a rating to anchor it is not shown.
+  const ratingDelta =
+    run.final_player_rating === null
+      ? null
+      : formatRatingDelta(run.final_player_rating_delta);
   const detailPath = `/history/${encodeURIComponent(run.run_id)}`;
   const fallbackLabel = t(
     !run.screenshot_id
@@ -246,10 +253,18 @@ function RunRow({
           </span>
           <span
             className="bpp-history-run-metric"
-            title={`${t('runStatRank')} ${run.final_player_rank ? formatRank(run.final_player_rank, t) : '—'} · ${t('runStatRating')} ${run.final_player_rating ?? '—'}`}
+            title={`${t('runStatRank')} ${run.final_player_rank ? formatRank(run.final_player_rank, t) : '—'} · ${t('runStatRating')} ${run.final_player_rating ?? '—'}${ratingDelta ? ` (${ratingDelta})` : ''}`}
           >
             <strong className="bpp-history-run-metric-value">
               {run.final_player_rating ?? '—'}
+              {ratingDelta && run.final_player_rating_delta !== null ? (
+                <span
+                  className="bpp-history-rating-delta"
+                  data-trend={ratingDeltaTrend(run.final_player_rating_delta)}
+                >
+                  {ratingDelta}
+                </span>
+              ) : null}
             </strong>
             <span className="bpp-history-run-metric-label">
               {run.final_player_rank

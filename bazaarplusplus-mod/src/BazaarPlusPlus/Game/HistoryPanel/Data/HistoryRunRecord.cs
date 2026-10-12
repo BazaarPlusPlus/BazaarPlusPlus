@@ -19,6 +19,7 @@ internal sealed class HistoryRunRecord
         int? gold,
         string? playerRank,
         int? playerRating,
+        int? playerRatingDelta,
         int? victories,
         int? losses,
         string rawStatus
@@ -39,6 +40,7 @@ internal sealed class HistoryRunRecord
         Gold = gold;
         PlayerRank = playerRank;
         PlayerRating = playerRating;
+        PlayerRatingDelta = playerRatingDelta;
         Victories = victories;
         Losses = losses;
         RawStatus = rawStatus;
@@ -70,9 +72,14 @@ internal sealed class HistoryRunRecord
 
     public int? Gold { get; }
 
+    // The rank and rating the Run ended on, or the ones it started on while it has no final
+    // values (an active or abandoned Run).
     public string? PlayerRank { get; }
 
     public int? PlayerRating { get; }
+
+    // The Run's rating change; null when either end of it is unknown.
+    public int? PlayerRatingDelta { get; }
 
     public int? Victories { get; }
 

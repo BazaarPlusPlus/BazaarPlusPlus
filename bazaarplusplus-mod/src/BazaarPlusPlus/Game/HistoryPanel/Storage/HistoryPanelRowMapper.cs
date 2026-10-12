@@ -33,8 +33,11 @@ internal static class HistoryPanelRowMapper
             GetNullableInt32(reader, "final_level"),
             GetNullableInt32(reader, "final_income"),
             GetNullableInt32(reader, "final_gold"),
-            GetNullableString(reader, "player_rank"),
-            GetNullableInt32(reader, "player_rating"),
+            GetNullableString(reader, "final_player_rank")
+                ?? GetNullableString(reader, "player_rank"),
+            GetNullableInt32(reader, "final_player_rating")
+                ?? GetNullableInt32(reader, "player_rating"),
+            GetNullableInt32(reader, "final_player_rating_delta"),
             GetNullableInt32(reader, "victories"),
             GetNullableInt32(reader, "losses"),
             rawStatus

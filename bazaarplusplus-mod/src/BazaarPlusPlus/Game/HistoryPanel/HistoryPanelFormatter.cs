@@ -40,6 +40,22 @@ internal static class HistoryPanelFormatter
         return $"{head} · {HistoryPanelText.DurationMinutes(Math.Max(0, (int)span.TotalMinutes))}";
     }
 
+    // "1520 +16": the Run's rating change rides on its rating, tinted like battle outcomes.
+    // An unknown change shows the rating alone rather than a misleading +0.
+    public static string RatingWithDelta(int rating, int? delta)
+    {
+        var text = rating.ToString(CultureInfo.CurrentCulture);
+        if (delta is not { } change)
+            return text;
+        var signed = change.ToString("+0;-0;±0", CultureInfo.InvariantCulture);
+        return change switch
+        {
+            > 0 => $"{text} <color=#9ECC8A>{signed}</color>",
+            < 0 => $"{text} <color=#E5664F>{signed}</color>",
+            _ => $"{text} {signed}",
+        };
+    }
+
     public static string GhostListText(HistoryBattleRecord battle) =>
         $"{battle.OpponentName ?? HistoryPanelText.UnknownOpponent()}\n{GhostDayLine(battle)}\n{FormatTimestamp(battle.RecordedAtUtc)}";
 

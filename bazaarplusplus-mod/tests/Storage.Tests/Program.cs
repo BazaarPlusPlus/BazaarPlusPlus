@@ -3,6 +3,7 @@
 SqliteShutdownTests.Run();
 RunLogCheckpointTests.Run();
 RunLogHistoryOnlyResumeTests.Run();
+RunLogRatingDeltaTests.Run();
 RunLogSchemaInitializationTests.Run();
 RunLogSchemaIndexTests.Run();
 RunLogSchemaColumnShapeTests.Run();

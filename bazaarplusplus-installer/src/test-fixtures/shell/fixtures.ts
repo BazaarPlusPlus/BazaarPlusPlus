@@ -128,6 +128,7 @@ function run(index: number): HistoryRunRow {
     final_day: won ? 12 : 8,
     final_player_rank: index % 2 === 0 ? 'Gold' : null,
     final_player_rating: index % 2 === 0 ? 1500 + index : null,
+    final_player_rating_delta: index % 2 === 0 ? 12 - index : null,
     screenshot_id: null,
     thumbnail_url: null
   };
@@ -161,6 +162,7 @@ export const runDetail: HistoryRunDetail = {
     final_day: 12,
     final_player_rank: 'Gold',
     final_player_rating: 1520,
+    final_player_rating_delta: 16,
     screenshot_id: null,
     player_name: 'Fixture Player'
   },

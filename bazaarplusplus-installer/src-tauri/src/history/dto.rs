@@ -26,6 +26,8 @@ pub struct HistoryRunRow {
     pub final_day: Option<i64>,
     pub final_player_rank: Option<String>,
     pub final_player_rating: Option<i64>,
+    /// The Run's rating change; `None` when the starting rating was not captured.
+    pub final_player_rating_delta: Option<i64>,
     pub screenshot_id: Option<String>,
     /// The absolute URL of the run's History Thumbnail.
     pub thumbnail_url: Option<String>,
@@ -51,6 +53,8 @@ pub struct HistoryRunDetailRow {
     pub final_day: Option<i64>,
     pub final_player_rank: Option<String>,
     pub final_player_rating: Option<i64>,
+    /// The Run's rating change; `None` when the starting rating was not captured.
+    pub final_player_rating_delta: Option<i64>,
     pub screenshot_id: Option<String>,
     pub player_name: Option<String>,
 }

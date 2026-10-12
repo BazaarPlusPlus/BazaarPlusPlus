@@ -43,6 +43,7 @@ const runs = Array.from({ length: 235 }, (_, index) => ({
   final_day: 10,
   final_player_rank: null,
   final_player_rating: null,
+  final_player_rating_delta: null,
   screenshot_id: null,
   thumbnail_url: null
 }));

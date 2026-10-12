@@ -52,6 +52,7 @@ pub struct RunRow {
     pub final_day: Option<i64>,
     pub final_player_rank: Option<String>,
     pub final_player_rating: Option<i64>,
+    pub final_player_rating_delta: Option<i64>,
 }
 
 pub struct VideoRef {
@@ -239,7 +240,8 @@ pub fn list_run_rows(conn: &Connection, limit: i64, offset: i64) -> Result<Vec<R
             "
             select
               run_id, hero, game_mode, started_at_ms, ended_at_ms,
-              status, victories, losses, final_day, final_player_rank, final_player_rating
+              status, victories, losses, final_day, final_player_rank, final_player_rating,
+              final_player_rating_delta
             from runs
             order by coalesce(ended_at_ms, last_seen_at_ms, started_at_ms) desc, run_id desc
             limit ?1 offset ?2
@@ -258,7 +260,8 @@ pub fn load_run_row(conn: &Connection, run_id: &str) -> Result<Option<RunRow>, S
         "
         select
           run_id, hero, game_mode, started_at_ms, ended_at_ms,
-          status, victories, losses, final_day, final_player_rank, final_player_rating
+          status, victories, losses, final_day, final_player_rank, final_player_rating,
+          final_player_rating_delta
         from runs
         where run_id = ?1
         ",
@@ -282,6 +285,7 @@ fn map_run_row_from_statement(row: &rusqlite::Row<'_>) -> rusqlite::Result<RunRo
         final_day: row.get(8)?,
         final_player_rank: row.get(9)?,
         final_player_rating: row.get(10)?,
+        final_player_rating_delta: row.get(11)?,
     })
 }
 

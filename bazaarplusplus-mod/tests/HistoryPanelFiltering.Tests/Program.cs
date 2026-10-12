@@ -34,6 +34,7 @@ TestPageReplacementUpdatesSelection();
 TestCoordinatorRunSelectionUsesFilteredSpace();
 TestReplayReturnPreservesSelectionAndFilters();
 TestGhostListTextMarksOnlyTheFinalBattle();
+TestRunRatingShowsItsChangeOnlyWhenKnown();
 TestAccountArrivalSyncsOnlyTheOpenGhostSection();
 TestAccountLinkActionHandsAccountChangeToTheObserver();
 TestFailedSyncMarksTheEmptyGhostListIncomplete();
@@ -701,6 +702,7 @@ object CreateRun(string runId, string hero)
             10,
             "Bronze",
             100,
+            null,
             1,
             0,
             "finished"
@@ -726,6 +728,23 @@ void TestGhostListTextMarksOnlyTheFinalBattle()
         ongoing.Split('\n')[1] == "D12",
         $"An ordinary Ghost must keep the bare day line; got {ongoing}."
     );
+}
+
+void TestRunRatingShowsItsChangeOnlyWhenKnown()
+{
+    var formatterType = RequireType("BazaarPlusPlus.Game.HistoryPanel.HistoryPanelFormatter");
+    string Rating(int rating, int? delta) =>
+        (string)InvokeStatic(formatterType, "RatingWithDelta", rating, delta)!;
+    Assert(Rating(1520, null) == "1520", "An unknown change must show the rating alone.");
+    Assert(
+        Rating(1520, 16) == "1520 <color=#9ECC8A>+16</color>",
+        $"A gain must read as +N; got {Rating(1520, 16)}."
+    );
+    Assert(
+        Rating(1520, -12) == "1520 <color=#E5664F>-12</color>",
+        $"A loss must read as -N; got {Rating(1520, -12)}."
+    );
+    Assert(Rating(1520, 0) == "1520 ±0", "A known zero change must read as ±0, not vanish.");
 }
 
 object CreateBattle(string battleId, int? day, string result, bool isFinalBattle = false)
