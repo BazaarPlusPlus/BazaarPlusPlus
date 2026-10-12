@@ -2,7 +2,6 @@
 using BazaarPlusPlus.Game.HistoryPanel.Data;
 using BazaarPlusPlus.Game.PvpBattles;
 using BazaarPlusPlus.Storage.RunLog;
-using Microsoft.Data.Sqlite;
 using Newtonsoft.Json;
 
 namespace BazaarPlusPlus.Game.HistoryPanel.Storage;
