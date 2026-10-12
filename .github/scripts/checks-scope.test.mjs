@@ -98,7 +98,7 @@ test('shared inputs select owners and every contract consumer', () => {
     ],
     ['bazaarplusplus-server/docs/api-reference.md', ['server', 'mod']],
     [
-      'bazaarplusplus-analyzer/contracts/v5/hero-aliases.json',
+      'bazaarplusplus-analyzer/contracts/v6/hero-aliases.json',
       ['analyzer', 'mod', 'site', 'installer']
     ],
     [

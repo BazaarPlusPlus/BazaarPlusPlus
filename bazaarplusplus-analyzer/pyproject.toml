@@ -1,7 +1,7 @@
 [project]
 name = "bazaarplusplus-analyzer"
 version = "0.3.0"
-description = "Single-process analyzer publishing two Analyzer V5 consumer snapshots"
+description = "Single-process analyzer publishing two Analyzer consumer snapshots"
 requires-python = "==3.14.*"
 dependencies = [
     "boto3==1.43.108",

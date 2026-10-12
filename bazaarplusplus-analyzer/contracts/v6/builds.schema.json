@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "Analyzer V5 builds/latest.json",
+  "title": "Analyzer builds/latest.json",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema_version", "kind", "generated_at", "window", "cards", "enchantments", "schemas", "heroes"],

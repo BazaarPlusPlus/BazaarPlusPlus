@@ -43,7 +43,7 @@
       "degraded_replay_count": 0,
       "degraded_event_count": 0,
       "degraded_screenshot": false,
-      "projection_code_version": "v5-consumer-contract-1"
+      "projection_code_version": "v6-consumer-contract-1"
     }
   ],
   "battles": [

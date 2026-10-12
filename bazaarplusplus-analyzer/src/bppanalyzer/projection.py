@@ -21,7 +21,7 @@ from bppanalyzer.accepted_runs import (
 )
 from bppanalyzer.bundle_source import Bundle, RawHourIndex
 
-PROJECTION_VERSION = "v5-consumer-contract-1"
+PROJECTION_VERSION = "v6-consumer-contract-1"
 MAX_DECOMPRESSED_RUN_BYTES = 64 * 1024 * 1024
 ROW_BATCH_SIZE = 50_000
 

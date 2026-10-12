@@ -7,7 +7,7 @@ namespace BazaarPlusPlus.ModApi.Http;
 internal enum ModApiEnvelopeShape
 {
     None,
-    NestedV5,
+    Nested,
     LegacyTopLevel,
 }
 
@@ -177,7 +177,7 @@ internal sealed class ModApiResponse
             if (root["error"] is JObject nested)
             {
                 return new ModApiErrorEnvelope(
-                    ModApiEnvelopeShape.NestedV5,
+                    ModApiEnvelopeShape.Nested,
                     ReadString(nested, "code"),
                     ReadMessage(nested),
                     nested["retryable"]?.Value<bool?>(),

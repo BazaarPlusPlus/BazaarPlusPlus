@@ -27,7 +27,7 @@ SERVER_FIXTURES = REPO_ROOT / "bazaarplusplus-server/contracts/v6/fixtures"
 MOD_RUN_FIXTURE = (
     REPO_ROOT / "bazaarplusplus-mod/tests/BundleV6Codec.Tests/fixtures/run-payload-v6.fixture.b64"
 )
-CONTRACT_FIXTURES = REPO_ROOT / "bazaarplusplus-analyzer/contracts/v5/fixtures"
+CONTRACT_FIXTURES = REPO_ROOT / "bazaarplusplus-analyzer/contracts/v6/fixtures"
 TEST_FIXTURES = Path(__file__).parent / "fixtures"
 PROJECTION_GOLDENS = TEST_FIXTURES / "projection"
 

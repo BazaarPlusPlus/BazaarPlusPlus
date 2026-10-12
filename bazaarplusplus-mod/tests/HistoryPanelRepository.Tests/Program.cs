@@ -7,7 +7,7 @@ using BazaarPlusPlus.Storage.Paths;
 using BazaarPlusPlus.Storage.RunLog;
 using Microsoft.Data.Sqlite;
 
-var root = Path.Combine(Path.GetTempPath(), $"bpp-history-v5-{Guid.NewGuid():N}");
+var root = Path.Combine(Path.GetTempPath(), $"bpp-history-{Guid.NewGuid():N}");
 Directory.CreateDirectory(root);
 try
 {
@@ -32,7 +32,7 @@ try
     var repository = new HistoryPanelRepository(databasePath);
     Assert(
         repository.ListRuns(new(Limit: 10)).Rows.Single().RunId == "run-delete",
-        "Fresh V5 run must be visible."
+        "Fresh run must be visible."
     );
     var deleteResult = repository.DeleteRun("run-delete");
     Assert(
@@ -147,7 +147,7 @@ try
     ReplayVideoMetadataLifecycleTests.Run();
     ReplayVideoArtifactMaintenanceTests.Run();
 
-    Console.WriteLine("History panel V5 repository tests passed.");
+    Console.WriteLine("History panel repository tests passed.");
 }
 finally
 {

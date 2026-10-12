@@ -36,7 +36,7 @@ public sealed class TheDragonsHeroIdentityTests
 
     public static TheoryData<string, string> AnalyzerHeroAliases()
     {
-        // The analyzer owns the alias mapping in contracts/v5/hero-aliases.json.
+        // The analyzer owns the alias mapping in contracts/v6/hero-aliases.json.
         using var stream =
             Assembly
                 .GetExecutingAssembly()

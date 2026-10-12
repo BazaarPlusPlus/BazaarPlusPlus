@@ -21,7 +21,7 @@ mod tests {
     /// The analyzer owns the legacy-to-canonical mapping; the installer keeps its
     /// own matching rule (ASCII case-insensitive, trimmed).
     const HERO_ALIASES: &str =
-        include_str!("../../../../bazaarplusplus-analyzer/contracts/v5/hero-aliases.json");
+        include_str!("../../../../bazaarplusplus-analyzer/contracts/v6/hero-aliases.json");
 
     #[test]
     fn hero_aliases_canonicalize_and_display() {

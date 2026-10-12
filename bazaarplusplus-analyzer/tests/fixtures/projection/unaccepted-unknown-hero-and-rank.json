@@ -15,7 +15,7 @@
       "discarded_unknown_hero": true,
       "discarded_unknown_final_rank": true,
       "first_seen_at": "2026-08-10T14:00:00Z",
-      "decoder_code_version": "v5-consumer-contract-1",
+      "decoder_code_version": "v6-consumer-contract-1",
       "diagnostic_json": "{\"final_rank\":\"Mythic\",\"hero\":\"UnknownHero\",\"reason\":\"unaccepted_run\"}"
     }
   ]

@@ -26,7 +26,7 @@ UnknownProjectionAndCountsStayUnknown();
 HistoryGhostRecoveryTests.Run();
 GhostDownloadSelectionTests.Run();
 
-Console.WriteLine("Ghost battle V5 sync tests passed.");
+Console.WriteLine("Ghost battle sync tests passed.");
 
 // The discovery response is the server-owned contract file itself, carried through discovery,
 // import, and the local battles row; the row must keep the recorder perspective.
@@ -623,7 +623,7 @@ internal sealed class GhostFixture : IDisposable
 
     public GhostFixture(Func<HttpRequestMessage, HttpResponseMessage> respond)
     {
-        Root = Path.Combine(Path.GetTempPath(), $"bpp-ghost-v5-{Guid.NewGuid():N}");
+        Root = Path.Combine(Path.GetTempPath(), $"bpp-ghost-{Guid.NewGuid():N}");
         Directory.CreateDirectory(Root);
         Repository = new HistoryPanelRepository(Path.Combine(Root, "runs.sqlite3"));
         Handler = new RecordingHandler(respond);

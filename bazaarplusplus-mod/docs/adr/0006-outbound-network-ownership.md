@@ -12,7 +12,7 @@ Bundle composition and Ghost import once carried different replayability rules, 
 
 [`RunBundleV6Contract`](../../src/BazaarPlusPlus.ModApi/Bundle/RunBundleV6Contract.cs) is the shared Run Bundle reader/writer. It verifies the container, payload, Run and player identities, and the exact replayability predicate. `BundleV6Codec` remains an opaque container codec.
 
-[`ModApiResponse`](../../src/BazaarPlusPlus.ModApi/Http/ModApiResponse.cs) is the single bounded JSON-response reader. It owns V5 and legacy envelope recognition, request-ID precedence, `Retry-After`, and the closed user-facing code. Endpoint clients explicitly allow-list remote codes that change product behavior and keep their own disposition, cooldown, expiry, and presentation mappings. Raw bodies and exceptions remain diagnostics rather than user text.
+[`ModApiResponse`](../../src/BazaarPlusPlus.ModApi/Http/ModApiResponse.cs) is the single bounded JSON-response reader. It owns nested and legacy envelope recognition, request-ID precedence, `Retry-After`, and the closed user-facing code. Endpoint clients explicitly allow-list remote codes that change product behavior and keep their own disposition, cooldown, expiry, and presentation mappings. Raw bodies and exceptions remain diagnostics rather than user text.
 
 `MessagePackGzipFraming` owns bounded gzip framing and failure classification. `RunPayloadV6Codec` owns payload limits, untrusted-data options, version checks, and Run payload error codes. The local replay codec retains its compatibility and user-text behavior.
 

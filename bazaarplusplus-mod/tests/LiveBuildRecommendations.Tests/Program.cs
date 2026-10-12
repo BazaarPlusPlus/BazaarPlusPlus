@@ -11,7 +11,7 @@ using Json.Schema;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
-// Behavior tests for the analyzer-v5 ten-win build corpus consumed by LiveBuildPanel.
+// Behavior tests for the analyzer ten-win build corpus consumed by LiveBuildPanel.
 // The payload is the compact string-table + schema-driven array-row format published at
 // builds/latest.json on the V6 metrics origin. Every assertion drives the public
 // BuildRecommendationRepository.FindRecommendations surface (parse + recall + scoring +
@@ -23,7 +23,7 @@ TenWinBuildTests.Run();
 
 internal static class TenWinBuildTests
 {
-    // The analyzer-produced golden (contracts/v5/fixtures/builds.latest.json).
+    // The analyzer-produced golden (contracts/v6/fixtures/builds.latest.json).
     private const string ContractResourceName = "LiveBuildRecommendations.Tests.builds.latest.json";
     private const string ContractHeroName = "Dooley";
     private const string GuidA = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
@@ -35,7 +35,7 @@ internal static class TenWinBuildTests
     {
         RegisterAssemblyResolution();
 
-        TestParserAcceptsAnalyzerV5Contract();
+        TestParserAcceptsAnalyzerContract();
         TestParserEnforcesTopLevelAndExactSchemas();
         TestParserEnforcesWindowContract();
         TestParserRejectsIllegalIndexesAndSemanticMismatches();
@@ -67,7 +67,7 @@ internal static class TenWinBuildTests
 
     // ---- Tests ------------------------------------------------------------
 
-    private static void TestParserAcceptsAnalyzerV5Contract()
+    private static void TestParserAcceptsAnalyzerContract()
     {
         using var schemaStream =
             Assembly
@@ -307,7 +307,7 @@ internal static class TenWinBuildTests
 
         Assert(
             cachePath == Path.Combine(dataRootPath, "builds.json"),
-            "Ten-win build cache should live under the V5 data root."
+            "Ten-win build cache should live under the data root."
         );
     }
 
@@ -940,7 +940,7 @@ internal static class TenWinBuildTests
             .GetExecutingAssembly()
             .GetManifestResourceStream(ContractResourceName);
         if (stream == null)
-            throw new InvalidOperationException("The analyzer-v5 contract fixture is missing.");
+            throw new InvalidOperationException("The analyzer contract fixture is missing.");
         using var reader = new StreamReader(stream);
         return reader.ReadToEnd();
     }

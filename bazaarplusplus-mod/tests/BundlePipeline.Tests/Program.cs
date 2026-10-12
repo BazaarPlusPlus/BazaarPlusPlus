@@ -30,7 +30,7 @@ using SixLabors.ImageSharp.PixelFormats;
 // BundleSealCoordinator -> BundleQueueStore outbox -> BundleUploadFeed.Session -> ModApiSession.
 // Every sealed Bundle lands in artifacts/bundle-pipeline/ and the normalized summary must match
 // fixtures/bundle-pipeline.golden.json (PipelineArtifacts owns the format and regeneration).
-var root = Path.Combine(Path.GetTempPath(), "bpp-v5-pipeline-" + Guid.NewGuid().ToString("N"));
+var root = Path.Combine(Path.GetTempPath(), "bpp-pipeline-" + Guid.NewGuid().ToString("N"));
 Directory.CreateDirectory(root);
 try
 {

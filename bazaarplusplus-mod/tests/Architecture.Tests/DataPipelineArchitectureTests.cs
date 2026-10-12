@@ -6,16 +6,16 @@ using static Architecture.Tests.ArchitectureRules;
 
 namespace Architecture.Tests;
 
-public sealed class V5DataPipelineArchitectureTests
+public sealed class DataPipelineArchitectureTests
 {
     private const string ModApi = CompiledArtifacts.ModApiAssembly;
     private const string Clients = "BazaarPlusPlus.ModApi.Clients";
 
     [Fact]
-    public void ModApi_has_only_v5_bundle_routes_and_no_multipart_wire()
+    public void ModApi_has_only_bundle_routes_and_no_multipart_wire()
     {
         Holds(
-            "The mod API speaks only the v5 bundle routes over MessagePack, never multipart.",
+            "The mod API speaks only the Bundle routes over MessagePack, never multipart.",
             build =>
             {
                 var modApi = build.Assembly(ModApi).Types;

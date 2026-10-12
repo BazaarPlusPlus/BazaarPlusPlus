@@ -10,7 +10,7 @@ using BazaarPlusPlus.Infrastructure.RemoteEmbeddedCatalog;
 namespace BazaarPlusPlus.Game.LiveBuildPanel.Recommendations;
 
 /// <summary>
-/// Consumes the analyzer-v5 ten-win build catalog, answers recommendation queries against the live
+/// Consumes the analyzer ten-win build catalog, answers recommendation queries against the live
 /// state, and projects matched builds onto renderable item boards. The corpus is a static package —
 /// recommendation queries read the catalog snapshot and never hit the server.
 /// </summary>

@@ -22,7 +22,7 @@ internal static class ModApiResponseTests
             "{\"error\":{\"code\":\"bundle_id_conflict\",\"message\":\"private\",\"retryable\":false,\"request_id\":\"body-nested\"}}"
         );
         var nested = await ModApiResponse.ReadAsync(nestedMessage, ModApiBodyReadPolicy.Json);
-        Assert(nested.Error.Shape == ModApiEnvelopeShape.NestedV5, "nested V5 shape");
+        Assert(nested.Error.Shape == ModApiEnvelopeShape.Nested, "nested shape");
         Assert(nested.Error.Code == "bundle_id_conflict", "nested protocol code");
         Assert(nested.UserCode == "http_409", "nested response uses closed user code");
         Assert(nested.RequestId == "body-nested", "nested request ID fallback");

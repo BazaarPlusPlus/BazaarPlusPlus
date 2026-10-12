@@ -2,7 +2,7 @@
 
 ``just analyzer::golden`` rewrites the three goldens; ``just analyzer::test`` only
 compares. The snapshot goldens are shared consumer fixtures under
-``contracts/v5/fixtures/``; the run report is run evidence and stays in
+``contracts/v6/fixtures/``; the run report is run evidence and stays in
 ``tests/fixtures/``.
 """
 

@@ -21,7 +21,7 @@ from bppanalyzer.publication import (
 
 @click.group()
 def main() -> None:
-    """bpp — Analyzer V5 pipeline."""
+    """bpp — Analyzer pipeline."""
 
 
 @main.command("run")

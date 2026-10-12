@@ -22,7 +22,7 @@ LEGEND_RANK = "Legendary"
 
 def _load_hero_aliases() -> dict[str, str]:
     """Read the analyzer-owned alias table shared with the mod and installer."""
-    path = Path(__file__).resolve().parents[2] / "contracts" / "v5" / "hero-aliases.json"
+    path = Path(__file__).resolve().parents[2] / "contracts" / "v6" / "hero-aliases.json"
     return dict(json.loads(path.read_bytes())["aliases"])
 
 
