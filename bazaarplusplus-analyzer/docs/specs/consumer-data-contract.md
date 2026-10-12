@@ -1,6 +1,6 @@
 # Consumer data semantics
 
-The strict schemas in `../../contracts/v5/` own JSON field names, types,
+The strict schemas in `../../contracts/v6/` own JSON field names, types,
 required fields, enums, and scalar bounds. This document owns population,
 calculation, ordering, and cross-field semantics. Domain terms are defined in
 `../../CONTEXT.md`.
@@ -17,7 +17,7 @@ Each key holds a mutable current snapshot for one independent consumer.
 ## Shared population and window
 
 Hero ids are normalized through the alias table in
-[`hero-aliases.json`](../../contracts/v5/hero-aliases.json). A Run becomes an
+[`hero-aliases.json`](../../contracts/v6/hero-aliases.json). A Run becomes an
 Accepted Run only when its normalized hero and final rank are canonical. The
 canonical ranks are `Bronze`, `Silver`, `Gold`, `Diamond`, `Master`, `Masters`,
 and `Legendary`. Rejecting a Run also rejects its Battles and card snapshots.

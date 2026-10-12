@@ -99,7 +99,7 @@ def test_heroes_schema_requires_days_length_to_equal_window_days(
     assert window is not None
     payload = json.loads(_builder(root, store).build_heroes(window).content)
     payload["window"]["days"] = 6
-    schema = json.loads(Path("contracts/v5/heroes.schema.json").read_bytes())
+    schema = json.loads(Path("contracts/v6/heroes.schema.json").read_bytes())
 
     assert list(Draft202012Validator(schema).iter_errors(payload))
 

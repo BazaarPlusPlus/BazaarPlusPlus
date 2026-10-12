@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "Analyzer V5 heroes/latest.json",
+  "title": "Analyzer heroes/latest.json",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema_version", "kind", "generated_at", "window", "days"],

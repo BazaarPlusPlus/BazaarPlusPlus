@@ -93,7 +93,7 @@ describe('loadHeroMetricsDataset', () => {
     async (dayCount) => {
       const schema = JSON.parse(
         readFileSync(
-          new URL('../../bazaarplusplus-analyzer/contracts/v5/heroes.schema.json', import.meta.url),
+          new URL('../../bazaarplusplus-analyzer/contracts/v6/heroes.schema.json', import.meta.url),
           'utf8'
         )
       );

@@ -5,7 +5,7 @@ Date: 2026-10-11
 
 ## Context
 
-V5 delivered Screenshot-bearing Bundles to BazaarDB through a claim/lease/settle queue: per-Bundle delivery rows, immutable attempt receipts, retry backoff, and claim-time convergence of expired and exhausted work ([ADR 0001](0001-v5-deepening-seams.md), Delivery convergence). The V6 D1 is new and empty, so V6 can choose its delivery model without migrating queue state.
+V5 delivered Screenshot-bearing Bundles to BazaarDB through a claim/lease/settle queue: per-Bundle delivery rows, immutable attempt receipts, retry backoff, and claim-time convergence of expired and exhausted work ([ADR 0001](0001-deep-module-seams.md), Delivery convergence). The V6 D1 is new and empty, so V6 can choose its delivery model without migrating queue state.
 
 ## Decision
 

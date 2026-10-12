@@ -23,11 +23,11 @@
 
   <ItemGroup>
     <EmbeddedResource
-      Include="../../../bazaarplusplus-analyzer/contracts/v5/fixtures/builds.latest.json"
+      Include="../../../bazaarplusplus-analyzer/contracts/v6/fixtures/builds.latest.json"
       LogicalName="LiveBuildRecommendations.Tests.builds.latest.json"
     />
     <EmbeddedResource
-      Include="../../../bazaarplusplus-analyzer/contracts/v5/builds.schema.json"
+      Include="../../../bazaarplusplus-analyzer/contracts/v6/builds.schema.json"
       LogicalName="LiveBuildRecommendations.Tests.builds.schema.json"
     />
   </ItemGroup>

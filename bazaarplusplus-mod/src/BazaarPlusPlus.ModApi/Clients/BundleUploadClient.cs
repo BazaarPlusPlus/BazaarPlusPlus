@@ -104,7 +104,7 @@ internal sealed class BundleUploadClient
 
         var envelope = response.Error;
         var code = response.UserCode;
-        var trustedConflict = envelope.Shape == ModApiEnvelopeShape.NestedV5;
+        var trustedConflict = envelope.Shape == ModApiEnvelopeShape.Nested;
         if (statusCode == 409 && trustedConflict && envelope.Code == "run_already_bundled")
             return BundleUploadResponse.Equivalent("run_already_bundled", response.RequestId);
         if (statusCode == 409 && trustedConflict && envelope.Code == "bundle_id_conflict")

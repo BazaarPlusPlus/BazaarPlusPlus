@@ -46,7 +46,7 @@ internal static class BundleUploadFeed
                     BppPluginVersion.Current,
                     "BundleUpload",
                     TimeSpan.FromSeconds(ModApiUploadDefaults.RequestTimeoutSeconds)
-                ) ?? throw new InvalidOperationException("V5 mod API route is invalid.");
+                ) ?? throw new InvalidOperationException("Mod API route is invalid.");
             _retryIntervalSeconds = cadence.RetryIntervalSeconds;
         }
 

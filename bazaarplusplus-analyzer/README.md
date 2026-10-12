@@ -34,7 +34,7 @@ operator interface.
 - Domain terms and boundaries: `CONTEXT.md`
 - Pipeline recovery and publication invariants: `docs/architecture.md`
 - Consumer calculations and cross-field semantics: `docs/specs/consumer-data-contract.md`
-- JSON wire shapes: `contracts/v5/*.schema.json`
+- JSON wire shapes: `contracts/v6/*.schema.json`
 - Measured operational limits: `docs/measurements.md`
 
 ## Quality gate

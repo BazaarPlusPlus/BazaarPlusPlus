@@ -1,11 +1,11 @@
-# ADR 0001: V5 deep module seams
+# ADR 0001: Deep module seams
 
 Status: Accepted
 Date: 2026-08-02
 
 ## Context
 
-The V5 Worker must preserve a fixed public wire contract while keeping protocol handling, Bundle validation, persistence decisions, and delivery state transitions independently testable. It is a standalone backend: V4 handlers, storage layouts, bindings, and wire behavior are not architectural inputs unless the V5 contract explicitly requires them.
+The Worker must preserve a fixed public wire contract while keeping protocol handling, Bundle validation, persistence decisions, and delivery state transitions independently testable. It is a standalone backend: earlier Workers' handlers, storage layouts, bindings, and wire behavior are not architectural inputs.
 
 The architecture therefore uses a small number of explicit seams rather than controller, service, and repository forwarding layers.
 

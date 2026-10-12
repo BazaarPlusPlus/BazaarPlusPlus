@@ -36,7 +36,7 @@
 
   <ItemGroup>
     <EmbeddedResource
-      Include="../../../bazaarplusplus-analyzer/contracts/v5/hero-aliases.json"
+      Include="../../../bazaarplusplus-analyzer/contracts/v6/hero-aliases.json"
       LogicalName="HeroIdentity.Tests.hero-aliases.json"
     />
   </ItemGroup>

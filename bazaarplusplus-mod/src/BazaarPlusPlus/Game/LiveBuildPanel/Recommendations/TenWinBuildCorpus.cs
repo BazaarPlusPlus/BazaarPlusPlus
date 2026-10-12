@@ -7,7 +7,7 @@ using Newtonsoft.Json.Linq;
 namespace BazaarPlusPlus.Game.LiveBuildPanel.Recommendations;
 
 /// <summary>
-/// Parsed, in-memory view of the analyzer-v5 ten-win build corpus
+/// Parsed, in-memory view of the analyzer ten-win build corpus
 /// (<c>builds/latest.json</c> on the V6 metrics origin).
 ///
 /// The payload is a compact, schema-driven format: top-level string tables (<c>cards</c>,

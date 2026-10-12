@@ -19,7 +19,7 @@ export function readJson(path: string): unknown {
 
 const HERO_FIXTURES = {
   // The analyzer owns this golden; it is the exact snapshot the pipeline publishes.
-  latest: '../bazaarplusplus-analyzer/contracts/v5/fixtures/heroes.latest.json',
+  latest: '../bazaarplusplus-analyzer/contracts/v6/fixtures/heroes.latest.json',
   threeDay: 'e2e/fixtures/heroes-3day.json',
   // Carries a non-canonical hero and one invalid day, so it is not schema-valid on purpose.
   failedDay: 'e2e/fixtures/heroes-failed-day.json',
@@ -29,7 +29,7 @@ const HERO_FIXTURES = {
 export type HeroFixture = keyof typeof HERO_FIXTURES;
 
 const validateHeroSnapshot = new Ajv2020({ allErrors: true, strictTypes: false }).compile(
-  readJson('../bazaarplusplus-analyzer/contracts/v5/heroes.schema.json') as object
+  readJson('../bazaarplusplus-analyzer/contracts/v6/heroes.schema.json') as object
 );
 
 /** Validates against the analyzer-owned schema; returns the Ajv errors, or null when valid. */

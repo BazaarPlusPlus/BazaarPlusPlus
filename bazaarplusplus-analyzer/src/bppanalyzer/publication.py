@@ -1,4 +1,4 @@
-"""Build and atomically replace the two Analyzer V5 consumer snapshots."""
+"""Build and atomically replace the two Analyzer consumer snapshots."""
 
 import hashlib
 import json
@@ -702,7 +702,7 @@ def _sql_list(values: Iterable[str]) -> str:
 
 
 def _contracts_dir() -> Path:
-    return Path(__file__).resolve().parents[2] / "contracts" / "v5"
+    return Path(__file__).resolve().parents[2] / "contracts" / "v6"
 
 
 def _required_row(value: tuple[Any, ...] | None, label: str) -> tuple[Any, ...]:
