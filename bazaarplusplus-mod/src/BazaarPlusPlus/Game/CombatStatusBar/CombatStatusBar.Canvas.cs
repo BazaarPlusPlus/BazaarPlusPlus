@@ -4,6 +4,7 @@ using BazaarPlusPlus.GameInterop.Fonts;
 using BazaarPlusPlus.GameInterop.HeroPortraits;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
+using TheBazaar;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -59,8 +60,8 @@ internal sealed partial class CombatStatusBar
         );
         _canvasObject.transform.SetParent(transform, false);
         var canvas = _canvasObject.GetComponent<Canvas>();
-        // Keep the existing screen-space layout, but render with the native portrait UI.
-        // An overlay canvas bypasses the game's camera layers and transition covers.
+        // Keep the screen-space layout while participating in the native transition rendering.
+        // An overlay canvas would bypass the game's camera layers and transition covers.
         canvas.renderMode = RenderMode.ScreenSpaceCamera;
         canvas.enabled = false;
         var scaler = _canvasObject.GetComponent<CanvasScaler>();
@@ -242,29 +243,28 @@ internal sealed partial class CombatStatusBar
         if (
             _canvasObject == null
             || _barRoot == null
-            || !_portraitBounds.TryRead(
-                out var frame,
-                out var bottom,
-                out var viewport,
-                out var nativeCanvas,
-                out var background
-            )
-            || nativeCanvas == null
-            || background == null
+            || !_portraitBounds.TryRead(out var frame, out var bottom, out var viewport)
         )
             return false;
-        var camera = nativeCanvas.worldCamera ?? Camera.main;
+
+        var transition = Singleton<SearchOpponentTransition>.Instance;
+        var nativeCanvas = transition != null ? transition.GetComponent<Canvas>() : null;
+        if (nativeCanvas == null || nativeCanvas.renderMode != RenderMode.ScreenSpaceCamera)
+            return false;
+        var camera = nativeCanvas.worldCamera;
         if (camera == null || !camera.isActiveAndEnabled)
             return false;
-        var depth = camera.WorldToScreenPoint(background.bounds.center).z;
+        var depth = nativeCanvas.planeDistance;
         if (!float.IsFinite(depth) || depth <= camera.nearClipPlane || depth >= camera.farClipPlane)
             return false;
         var canvas = _canvasObject.GetComponent<Canvas>();
         canvas.worldCamera = camera;
         canvas.planeDistance = depth;
-        canvas.sortingLayerID = background.sortingLayerID;
-        canvas.sortingOrder = background.sortingOrder;
-        var layer = background.gameObject.layer;
+        canvas.sortingLayerID = nativeCanvas.sortingLayerID;
+        // AboveBoard clears the scene depth before drawing native foreground UI.
+        // Its transition backgrounds start at order 0 (new day) and 14 (PvP).
+        canvas.sortingOrder = -1;
+        var layer = ObjectLayers.aboveBoardLayer;
         if (_canvasObject.layer != layer)
         {
             _canvasObject.layer = layer;
