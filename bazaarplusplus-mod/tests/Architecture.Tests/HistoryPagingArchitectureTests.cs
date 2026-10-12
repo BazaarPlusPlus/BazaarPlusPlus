@@ -16,6 +16,7 @@ public sealed class HistoryPagingArchitectureTests
         "ListBattles",
         "ListGhostBattles",
         "ListHiddenGhosts",
+        "ListFavorites",
         "ReadCursorPage",
         "ReadCountedPage",
         "InPageRead",

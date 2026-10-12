@@ -10,7 +10,8 @@ internal sealed partial class HistoryPanelCoordinator
 {
     private sealed record ArchivePage(
         HistoryCountedPage<HistoryRunRecord>? Runs,
-        HistoryCountedPage<HistoryBattleRecord>? Ghosts
+        HistoryCountedPage<HistoryBattleRecord>? Ghosts,
+        HistoryCountedPage<HistoryFavoriteRecord>? Favorites = null
     );
 
     private sealed record MaintenanceResult(int Expired, int Restored);
@@ -22,15 +23,21 @@ internal sealed partial class HistoryPanelCoordinator
     private readonly LatestHistoryRead<MaintenanceResult> _maintenanceReads = new();
 
     private HistoryBattleRecord? ActiveBattle() =>
-        _state.SectionMode == HistorySectionMode.Ghost
-            ? _state.GetSelectedGhostBattle(_state.GhostBattles)
-            : _state.GetSelectedBattle();
+        _state.SectionMode switch
+        {
+            HistorySectionMode.Ghost => _state.GetSelectedGhostBattle(_state.GhostBattles),
+            HistorySectionMode.Favorites => _state.GetSelectedFavorite()?.Battle,
+            _ => _state.GetSelectedBattle(),
+        };
 
     public void PageArchive(int direction)
     {
-        var ghost = _state.SectionMode == HistorySectionMode.Ghost;
-        var first = ghost ? _state.GhostPage.First : _state.RunPage.First;
-        var last = ghost ? _state.GhostPage.Last : _state.RunPage.Last;
+        var (first, last) = _state.SectionMode switch
+        {
+            HistorySectionMode.Ghost => (_state.GhostPage.First, _state.GhostPage.Last),
+            HistorySectionMode.Favorites => (_state.FavoritePage.First, _state.FavoritePage.Last),
+            _ => (_state.RunPage.First, _state.RunPage.Last),
+        };
         LoadArchive(
             direction == 0 ? new() : new(direction < 0 ? first : last, Newer: direction < 0),
             false
@@ -59,10 +66,13 @@ internal sealed partial class HistoryPanelCoordinator
         var session = _session.Version;
         var selectedRun = preserveSelection ? GetSelectedRun()?.RunId : null;
         var selectedBattle = preserveSelection ? ActiveBattle()?.BattleId : null;
-        var oldIndex =
-            section == HistorySectionMode.Ghost
-                ? _state.SelectedGhostBattleIndex
-                : _state.SelectedRunIndex;
+        var oldIndex = section switch
+        {
+            HistorySectionMode.Ghost => _state.SelectedGhostBattleIndex,
+            HistorySectionMode.Favorites => _state.SelectedFavoriteIndex,
+            _ => _state.SelectedRunIndex,
+        };
+        var favorites = _favorites;
         ClearDetail();
         _battleReads.Clear();
         _archiveReads.Submit(
@@ -80,6 +90,25 @@ internal sealed partial class HistoryPanelCoordinator
                             page = anchored;
                     }
                     return new ArchivePage(page, null);
+                }
+                if (section == HistorySectionMode.Favorites)
+                {
+                    if (favorites == null)
+                        return new ArchivePage(
+                            null,
+                            null,
+                            HistoryCountedPage<HistoryFavoriteRecord>.Empty()
+                        );
+                    var page = favorites.LoadPage(request);
+                    if (page.Rows.Count == 0 && request.Cursor.HasValue)
+                        page = favorites.LoadPage(new(request.Cursor, Newer: true));
+                    if (selectedBattle != null && !page.Rows.Any(r => r.BattleId == selectedBattle))
+                    {
+                        var anchored = favorites.LoadPage(new(AnchorId: selectedBattle));
+                        if (anchored.Rows.Any(r => r.BattleId == selectedBattle))
+                            page = anchored;
+                    }
+                    return new ArchivePage(null, null, page);
                 }
                 var ghosts = _dataService.LoadGhosts(account, filter, day, request);
                 if (ghosts.Rows.Count == 0 && request.Cursor.HasValue)
@@ -133,6 +162,19 @@ internal sealed partial class HistoryPanelCoordinator
                                 runs.Rows.Count
                             );
                     LoadBattlesForSelectedRun(preserveBattleId: selectedBattle);
+                }
+                else if (result?.Favorites is { } favoritePage)
+                {
+                    _state.FavoritePage = favoritePage;
+                    var index = favoritePage.FindIndex(r => r.BattleId == selectedBattle);
+                    _state.SelectedFavoriteIndex =
+                        index >= 0
+                            ? index
+                            : ClampIndex(
+                                preserveSelection && request.AnchorId == null ? oldIndex : 0,
+                                favoritePage.Rows.Count
+                            );
+                    LoadSelectedDetail();
                 }
                 else if (result?.Ghosts is { } ghosts)
                 {
@@ -233,8 +275,15 @@ internal sealed partial class HistoryPanelCoordinator
         _state.DetailLoading = true;
         _state.DetailBattleId = battle.BattleId;
         _requestPreviewRefresh();
+        var favorites = _favorites;
+        var fromFavorite = _state.SectionMode == HistorySectionMode.Favorites;
+        if (!fromFavorite)
+            CheckFavorite(battle.BattleId);
         _detailReads.Submit(
-            () => _dataService.LoadDetail(battle, account),
+            () =>
+                fromFavorite
+                    ? favorites?.LoadSnapshots(battle.BattleId)
+                    : _dataService.LoadDetail(battle, account),
             (snapshots, error) =>
             {
                 if (

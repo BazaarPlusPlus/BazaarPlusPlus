@@ -39,6 +39,8 @@ internal static class HistoryPanelDecisions
 
     private static string ListMessage(HistoryArchiveFacts facts)
     {
+        if (facts.Section == HistorySectionMode.Favorites)
+            return FavoritesListMessage(facts);
         if (facts.Section != HistorySectionMode.Ghost)
             return string.Empty;
         if (!facts.AccountKnown)
@@ -58,6 +60,13 @@ internal static class HistoryPanelDecisions
             : HistoryPanelText.NoSavedGhostBattles();
     }
 
+    // Favorites are not account-scoped, so no account precedence: rows → read → empty.
+    private static string FavoritesListMessage(HistoryArchiveFacts facts) =>
+        facts.RowCount > 0 ? string.Empty
+        : facts.PageLoading ? HistoryPanelText.LoadingPreview()
+        : facts.PageLoadFailed ? HistoryPanelText.FavoritesReadFailed()
+        : HistoryPanelText.NoFavorites();
+
     // Null leaves each native board's own ready/empty/partial/failure message intact.
     private static string? PreviewOverride(HistoryArchiveFacts facts, string list)
     {
@@ -66,8 +75,15 @@ internal static class HistoryPanelDecisions
             if (!facts.AccountKnown || facts.RowCount == 0)
                 return list;
         }
+        if (facts.Section == HistorySectionMode.Favorites && facts.RowCount == 0)
+            return list;
         if (facts.Detail == HistoryDetailPhase.Loading)
             return HistoryPanelText.LoadingPreview();
+        if (facts.Section == HistorySectionMode.Favorites)
+            return facts.DetailFailed ? HistoryPanelText.PreviewRendererInitFailed()
+                : facts.Detail == HistoryDetailPhase.Missing
+                    ? HistoryPanelText.FavoriteBoardsUnavailable()
+                : null;
         if (
             facts.Section != HistorySectionMode.Ghost
             || facts.SelectedGhostReplay is not { } replay
@@ -131,7 +147,7 @@ internal static class HistoryPanelDecisions
         out string reason
     )
     {
-        if (sectionMode == HistorySectionMode.Ghost)
+        if (sectionMode != HistorySectionMode.Runs)
         {
             reason = HistoryPanelText.GhostDeleteUnavailable();
             return false;

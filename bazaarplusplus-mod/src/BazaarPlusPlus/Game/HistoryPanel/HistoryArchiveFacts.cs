@@ -68,8 +68,14 @@ internal sealed record HistoryArchiveFacts(
             state.PageLoadFailed,
             state.GhostSync,
             state.GhostBattleFilter != GhostBattleFilter.All || state.GhostDayMin10,
-            ghost ? state.GhostBattles.Count : state.Runs.Count,
-            selected is { Source: HistoryBattleSource.Ghost }
+            state.SectionMode switch
+            {
+                HistorySectionMode.Ghost => state.GhostBattles.Count,
+                HistorySectionMode.Favorites => state.Favorites.Count,
+                _ => state.Runs.Count,
+            },
+            // A Ghost-origin favorite replays from its own copy, not from the Ghost row.
+            ghost && selected is { Source: HistoryBattleSource.Ghost }
                 ? new HistorySelectedGhostReplay(
                     selected.Replay,
                     ownsReplayAction && state.ReplayActionInProgress,

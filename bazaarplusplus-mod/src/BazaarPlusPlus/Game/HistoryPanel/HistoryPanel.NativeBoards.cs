@@ -39,7 +39,7 @@ internal sealed partial class HistoryPanel
             NativeMonsterBoardItemMapper.Map(player, "history-item"),
             NativeHistorySkills(playerSkills)
         );
-        if (_uiView.ShowsBothBoards)
+        if (ShowsBothBoards)
         {
             _nativeOpponentBoard ??= CreateNativeHistoryBoard(true);
             if (_opponentBounds.width > 1)

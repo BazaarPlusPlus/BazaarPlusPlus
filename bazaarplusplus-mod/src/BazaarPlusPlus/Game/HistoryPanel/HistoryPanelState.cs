@@ -9,6 +9,7 @@ internal enum HistorySectionMode
 {
     Runs,
     Ghost,
+    Favorites,
 }
 
 // TrySyncGhostBattlesAsync alone writes Running, Failed, and Completed; each session boundary
@@ -37,12 +38,16 @@ internal sealed class HistoryPanelState
 
     public IReadOnlyList<HistoryBattleRecord> GhostBattles => GhostPage.Rows;
 
+    public IReadOnlyList<HistoryFavoriteRecord> Favorites => FavoritePage.Rows;
+
     public HistoryCountedPage<HistoryRunRecord> RunPage { get; set; } =
         HistoryCountedPage<HistoryRunRecord>.Empty();
     public HistoryCursorPage<HistoryBattleRecord> BattlePage { get; set; } =
         HistoryCursorPage<HistoryBattleRecord>.Empty;
     public HistoryCountedPage<HistoryBattleRecord> GhostPage { get; set; } =
         HistoryCountedPage<HistoryBattleRecord>.Empty();
+    public HistoryCountedPage<HistoryFavoriteRecord> FavoritePage { get; set; } =
+        HistoryCountedPage<HistoryFavoriteRecord>.Empty();
     public PvpBattleSnapshots? DetailSnapshots { get; set; }
     public string? DetailBattleId { get; set; }
     public bool DetailLoading { get; set; }
@@ -56,6 +61,13 @@ internal sealed class HistoryPanelState
 
     public int SelectedGhostBattleIndex { get; set; }
 
+    public int SelectedFavoriteIndex { get; set; }
+
+    // Whether the battle the detail read last checked (Runs or Ghost) is already a favorite.
+    public string? FavoriteCheckBattleId { get; set; }
+    public bool FavoriteCheckIsFavorite { get; set; }
+    public bool FavoriteActionInProgress { get; set; }
+
     public GhostBattleFilter GhostBattleFilter { get; set; } = GhostBattleFilter.All;
 
     public string? SelectedRunHero { get; set; }
@@ -66,6 +78,8 @@ internal sealed class HistoryPanelState
 
     public StatusSeverity StatusSeverity { get; set; }
 
+    // Keyed by run id in Runs and by battle id in Favorites, where the delete button removes the
+    // favorite; every section change and archive load clears it.
     public DeleteConfirmation DeleteRunConfirmation { get; set; }
 
     public bool DeleteRunConfirmationStatusActive { get; set; }
@@ -102,6 +116,9 @@ internal sealed class HistoryPanelState
         SafeIndex(filteredRuns, SelectedRunIndex);
 
     public HistoryBattleRecord? GetSelectedBattle() => SafeIndex(Battles, SelectedBattleIndex);
+
+    public HistoryFavoriteRecord? GetSelectedFavorite() =>
+        SafeIndex(Favorites, SelectedFavoriteIndex);
 
     public HistoryBattleRecord? GetSelectedGhostBattle(
         IReadOnlyList<HistoryBattleRecord> filteredGhostBattles

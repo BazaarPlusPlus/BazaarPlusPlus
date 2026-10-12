@@ -1,6 +1,7 @@
 #nullable enable
 using BazaarPlusPlus.Game.HistoryPanel.AccountLink;
 using BazaarPlusPlus.Game.HistoryPanel.Data;
+using BazaarPlusPlus.Game.HistoryPanel.Favorites;
 using BazaarPlusPlus.Game.HistoryPanel.Storage;
 using BazaarPlusPlus.GameInterop;
 using BazaarPlusPlus.ModApi.Clients;
@@ -14,6 +15,7 @@ internal sealed partial class HistoryPanelCoordinator : IDisposable
     private readonly IRunContext _runContext;
     private readonly HistoryPanelDataService _dataService;
     private readonly HistoryPanelReplayService _replayService;
+    private readonly HistoryFavoriteService? _favorites;
     private readonly ModApiSession? _modApiSession;
     private readonly BazaarDbLinkClient? _linkClient;
     private readonly BazaarDbAccountLinkStore _accountLinkStore;
@@ -36,6 +38,7 @@ internal sealed partial class HistoryPanelCoordinator : IDisposable
         _runContext = dependencies.RunContext;
         _dataService = dependencies.DataService;
         _replayService = dependencies.ReplayService;
+        _favorites = dependencies.Favorites;
         _modApiSession = dependencies.ModApiSession;
         _linkClient = dependencies.AccountLinkClient;
         _accountLinkStore = dependencies.AccountLinkStore;
@@ -54,6 +57,7 @@ internal sealed partial class HistoryPanelCoordinator : IDisposable
         _battleReads.Clear();
         _detailReads.Clear();
         _maintenanceReads.Clear();
+        _favoriteReads.Clear();
         _session.Dispose();
     }
 
@@ -74,14 +78,18 @@ internal sealed partial class HistoryPanelCoordinator : IDisposable
         _state.ReplayActionInProgress = false;
         _state.ReplayActionBattleId = null;
         _state.ReplayFailureMessage = null;
+        _state.FavoriteActionInProgress = false;
         if (resumeSelection)
         {
             ClearTransientStatus();
             LoadArchive(
                 new(
-                    _state.SectionMode == HistorySectionMode.Ghost
-                        ? _state.GhostPage.First
-                        : _state.RunPage.First,
+                    _state.SectionMode switch
+                    {
+                        HistorySectionMode.Ghost => _state.GhostPage.First,
+                        HistorySectionMode.Favorites => _state.FavoritePage.First,
+                        _ => _state.RunPage.First,
+                    },
                     Inclusive: true
                 ),
                 true
@@ -103,6 +111,7 @@ internal sealed partial class HistoryPanelCoordinator : IDisposable
         _battleReads.Clear();
         _detailReads.Clear();
         _maintenanceReads.Clear();
+        _favoriteReads.Clear();
         _session.End();
     }
 
@@ -125,6 +134,8 @@ internal sealed partial class HistoryPanelCoordinator : IDisposable
 
         if (_state.SectionMode == HistorySectionMode.Ghost && _dataService.CanSyncGhostBattles)
             _ = TrySyncGhostBattlesAsync();
+        if (_state.SectionMode == HistorySectionMode.Favorites)
+            SweepFavoriteCopies();
     }
 
     private void RefreshData() => LoadArchive(new(), preserveSelection: true);
@@ -183,11 +194,20 @@ internal sealed partial class HistoryPanelCoordinator : IDisposable
 
     public void SelectBattle(int index)
     {
-        var rows =
-            _state.SectionMode == HistorySectionMode.Ghost ? _state.GhostBattles : _state.Battles;
-        if (index < 0 || index >= rows.Count)
+        var count = _state.SectionMode switch
+        {
+            HistorySectionMode.Ghost => _state.GhostBattles.Count,
+            HistorySectionMode.Favorites => _state.Favorites.Count,
+            _ => _state.Battles.Count,
+        };
+        if (index < 0 || index >= count)
             return;
-        if (_state.SectionMode == HistorySectionMode.Ghost)
+        if (_state.SectionMode == HistorySectionMode.Favorites)
+        {
+            _state.SelectedFavoriteIndex = index;
+            ClearDeleteRunConfirmation();
+        }
+        else if (_state.SectionMode == HistorySectionMode.Ghost)
             _state.SelectedGhostBattleIndex = index;
         else
             _state.SelectedBattleIndex = index;
@@ -200,6 +220,8 @@ internal sealed partial class HistoryPanelCoordinator : IDisposable
         out string reason
     )
     {
+        if (_state.SectionMode == HistorySectionMode.Favorites)
+            return CanReplaySelectedFavorite(out reason);
         return _replayService.CanReplayBattle(activeSelectedBattle, out reason);
     }
 
@@ -208,6 +230,9 @@ internal sealed partial class HistoryPanelCoordinator : IDisposable
         out string reason
     )
     {
+        if (_state.SectionMode == HistorySectionMode.Favorites)
+            return CanReplaySelectedFavorite(out reason)
+                && _replayService.CanRecordLoadedReplay(out reason);
         return _replayService.CanRecordReplay(activeSelectedBattle, out reason);
     }
 
@@ -257,11 +282,19 @@ internal sealed partial class HistoryPanelCoordinator : IDisposable
         // surface the reason and refuse rather than silently starting a no-video replay.
         if (recordVideo)
         {
-            var canRecord = _replayService.CanRecordReplay(
-                battle,
-                out var recordUnavailableReason,
-                out var recordingReasonCode
-            );
+            string recordUnavailableReason;
+            HistoryPanelReplayReasonCode recordingReasonCode;
+            var canRecord =
+                _state.SectionMode == HistorySectionMode.Favorites
+                    ? _replayService.CanRecordLoadedReplay(
+                        out recordUnavailableReason,
+                        out recordingReasonCode
+                    )
+                    : _replayService.CanRecordReplay(
+                        battle,
+                        out recordUnavailableReason,
+                        out recordingReasonCode
+                    );
             LogReplayPreflight(
                 logRequestId,
                 battle.BattleId,
@@ -289,8 +322,14 @@ internal sealed partial class HistoryPanelCoordinator : IDisposable
         _state.ReplayFailureMessage = null;
         var sessionVersion = _session.Version;
         var replayAccount = _state.CachedAccountId;
+        var favorite =
+            _state.SectionMode == HistorySectionMode.Favorites
+                ? _state.GetSelectedFavorite()
+                : null;
         SetStatusMessage(
-            battle.Source == HistoryBattleSource.Ghost && battle.Replay != ReplayAvailability.Saved
+            favorite == null
+            && battle.Source == HistoryBattleSource.Ghost
+            && battle.Replay != ReplayAvailability.Saved
                 ? HistoryPanelText.DownloadingGhostReplay()
                 : HistoryPanelText.StartingReplay(),
             StatusSeverity.Pending
@@ -300,16 +339,21 @@ internal sealed partial class HistoryPanelCoordinator : IDisposable
         {
             _requestPreviewRefresh();
             _requestUiRefresh();
-            replayResult = await _replayService.ReplayBattleAsync(
-                battle,
-                recordVideo,
-                _session.Token,
-                () =>
-                    _session.IsCurrent(sessionVersion)
-                    && ActiveBattle()?.BattleId == battle.BattleId
-                    && replayAccount
-                        == NormalizeAccountId(BppClientCacheBridge.TryGetProfileAccountId())
-            );
+            Func<bool> canCommit = () =>
+                _session.IsCurrent(sessionVersion)
+                && ActiveBattle()?.BattleId == battle.BattleId
+                && replayAccount
+                    == NormalizeAccountId(BppClientCacheBridge.TryGetProfileAccountId());
+            // A favorite replays from its own copy, which belongs to no account.
+            replayResult =
+                favorite != null && _favorites != null
+                    ? await _favorites.ReplayAsync(favorite, recordVideo, _session.Token, canCommit)
+                    : await _replayService.ReplayBattleAsync(
+                        battle,
+                        recordVideo,
+                        _session.Token,
+                        canCommit
+                    );
         }
         catch (OperationCanceledException ex)
         {
@@ -467,7 +511,9 @@ internal sealed partial class HistoryPanelCoordinator : IDisposable
 
     public string GetReplayActionLabel(HistoryBattleRecord? battle)
     {
-        return _replayService.GetReplayActionLabel(battle);
+        return _state.SectionMode == HistorySectionMode.Favorites
+            ? HistoryPanelText.Replay()
+            : _replayService.GetReplayActionLabel(battle);
     }
 
     public async Task TryCheckServerHealthAsync()

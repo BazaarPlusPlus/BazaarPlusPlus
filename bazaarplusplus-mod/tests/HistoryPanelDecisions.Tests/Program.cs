@@ -70,6 +70,15 @@ void TestCanDeleteRunDecisionArms()
         expectedReason: "Ghost battles cannot be deleted from this panel yet."
     );
     AssertCanDelete(
+        sectionMode: "Favorites",
+        selectedRun: CreateRun("run-1", "finished"),
+        isInGameRun: false,
+        currentServerRunId: null,
+        isRepositoryAvailable: true,
+        expectedAllowed: false,
+        expectedReason: "Ghost battles cannot be deleted from this panel yet."
+    );
+    AssertCanDelete(
         sectionMode: "Runs",
         selectedRun: null,
         isInGameRun: false,

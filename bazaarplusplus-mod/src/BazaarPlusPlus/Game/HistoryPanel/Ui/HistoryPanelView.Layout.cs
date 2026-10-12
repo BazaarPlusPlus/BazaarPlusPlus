@@ -10,7 +10,7 @@ namespace BazaarPlusPlus.Game.HistoryPanel.Ui;
 
 internal sealed partial class HistoryPanelView
 {
-    // Hidden in Ghost mode, where the same archive rows carry battles.
+    // Hidden in Ghost and Favorites, where the same archive rows carry battles.
     private sealed class RunFields
     {
         internal TextMeshProUGUI Name = null!;
@@ -77,6 +77,7 @@ internal sealed partial class HistoryPanelView
         _pageLabel = null!;
     private Button _runsTab = null!,
         _ghostTab = null!,
+        _favoritesTab = null!,
         _older = null!,
         _newer = null!,
         _latest = null!,
@@ -87,7 +88,9 @@ internal sealed partial class HistoryPanelView
     private readonly Dictionary<GhostBattleFilter, Button> _outcomes = new();
     private GameObject _heroFilters = null!,
         _ghostFilters = null!;
-    private HistorySectionMode? _boundSection;
+
+    // The section and board count the archive rows and board rects were last laid out for.
+    private (HistorySectionMode Section, bool BothBoards)? _boundLayout;
     private RectTransform _opponentTitle = null!,
         _playerTitle = null!;
     private TextMeshProUGUI _opponentOwner = null!,
@@ -106,18 +109,27 @@ internal sealed partial class HistoryPanelView
             "",
             .04f,
             .105f,
-            .095f,
+            .068f,
             .038f,
             () => _section(HistorySectionMode.Runs)
         );
         _ghostTab = Button(
             _layout,
             "",
-            .14f,
+            .112f,
             .105f,
-            .095f,
+            .068f,
             .038f,
             () => _section(HistorySectionMode.Ghost)
+        );
+        _favoritesTab = Button(
+            _layout,
+            "",
+            .184f,
+            .105f,
+            .068f,
+            .038f,
+            () => _section(HistorySectionMode.Favorites)
         );
         _heroFilters = CreateRect("HeroFilters", _layout, .255f, .105f, .695f, .038f).gameObject;
         var heroes = HistoryPanelHeroPresentation.RunFilterHeroIds;
@@ -349,10 +361,10 @@ internal sealed partial class HistoryPanelView
                 1,
                 () =>
                 {
-                    if (!ShowsBothBoards)
-                        _selectBattle(index);
-                    else
+                    if (_model?.SectionMode == HistorySectionMode.Runs)
                         _selectRun(index);
+                    else
+                        _selectBattle(index);
                 },
                 size: 14
             );
@@ -545,7 +557,7 @@ internal sealed partial class HistoryPanelView
         return text;
     }
 
-    // Archive rows carry runs in one section and battles in the other. Runs get the
+    // Archive rows carry runs in Runs and battles in Ghost and Favorites. Runs get the
     // laid-out fields; battles keep the single wrapped label, and the shared badges move
     // to the slots that suit whichever is showing.
     private void ApplyArchiveRowMode(bool runs)
@@ -694,19 +706,26 @@ internal sealed partial class HistoryPanelView
     {
         if (_layout == null || _model is not { } m)
             return;
-        var runs = ShowsBothBoards;
-        if (_boundSection != m.SectionMode)
+        var runs = m.SectionMode == HistorySectionMode.Runs;
+        var ghost = m.SectionMode == HistorySectionMode.Ghost;
+        var both = m.ShowsBothBoards;
+        if (_boundLayout != (m.SectionMode, both))
         {
-            _boundSection = m.SectionMode;
+            // Selecting a favorite of the other origin changes only the board count.
+            if (_boundLayout?.Section != m.SectionMode)
+            {
+                _archiveList.ResetScroll = true;
+                ApplyArchiveRowMode(runs);
+            }
+            _boundLayout = (m.SectionMode, both);
             _layoutFrames = 2;
-            _archiveList.ResetScroll = true;
-            ApplyArchiveRowMode(runs);
-            // Ghost drops the upper board, so the surviving title follows the board up.
+            // One board (Ghost, a Ghost-origin favorite) drops the upper one, so the surviving
+            // title follows the board up.
             Anchor(
                 _playerTitle,
                 HistoryPanelLayout.Anchors(
                     HistoryPanelLayout.DetailLeft,
-                    runs ? HistoryPanelLayout.PlayerTitleTop : HistoryPanelLayout.GhostTitleTop,
+                    both ? HistoryPanelLayout.PlayerTitleTop : HistoryPanelLayout.GhostTitleTop,
                     HistoryPanelLayout.DetailWidth,
                     HistoryPanelLayout.BoardTitleHeight
                 )
@@ -717,9 +736,9 @@ internal sealed partial class HistoryPanelView
                 _preview!,
                 HistoryPanelLayout.Anchors(
                     HistoryPanelLayout.DetailLeft,
-                    runs ? HistoryPanelLayout.PlayerBoardTop : HistoryPanelLayout.GhostBoardTop,
+                    both ? HistoryPanelLayout.PlayerBoardTop : HistoryPanelLayout.GhostBoardTop,
                     HistoryPanelLayout.DetailWidth,
-                    runs
+                    both
                         ? HistoryPanelLayout.PlayerBoardHeight
                         : HistoryPanelLayout.GhostBoardHeight
                 )
@@ -727,9 +746,15 @@ internal sealed partial class HistoryPanelView
         }
         _title.text = m.Title;
         SetButton(_runsTab, HistoryPanelText.RunsTab(), runs);
-        SetButton(_ghostTab, HistoryPanelText.GhostTab(), !runs);
+        SetButton(_ghostTab, HistoryPanelText.GhostTab(), ghost);
+        _favoritesTab.gameObject.SetActive(m.FavoritesTabVisible);
+        SetButton(
+            _favoritesTab,
+            HistoryPanelText.FavoritesTab(),
+            m.SectionMode == HistorySectionMode.Favorites
+        );
         _heroFilters.SetActive(runs);
-        _ghostFilters.SetActive(!runs);
+        _ghostFilters.SetActive(ghost);
         foreach (var pair in _heroes)
             SetButton(
                 pair.Value,
@@ -746,11 +771,11 @@ internal sealed partial class HistoryPanelView
             );
         SetButton(_dayFilter, HistoryPanelText.FilterDayMin10(), m.GhostDayMin10);
         _dayStrip.Scroll.gameObject.SetActive(runs);
-        _opponentPreview!.gameObject.SetActive(runs);
-        _opponentTitle.gameObject.SetActive(runs);
+        _opponentPreview!.gameObject.SetActive(both);
+        _opponentTitle.gameObject.SetActive(both);
         _opponentOwner.text = HistoryPanelText.BoardOpponent();
-        // Runs shows your board below the opponent's; Ghost shows only the challenger's.
-        _playerOwner.text = runs ? HistoryPanelText.BoardYou() : HistoryPanelText.BoardChallenger();
+        // Two boards show yours below the opponent's; one board is the challenger's.
+        _playerOwner.text = both ? HistoryPanelText.BoardYou() : HistoryPanelText.BoardChallenger();
         _battleNewer.gameObject.SetActive(runs);
         _battleOlder.gameObject.SetActive(runs);
         _newer.interactable = m.HasNewer && !m.PageLoading;
@@ -778,7 +803,10 @@ internal sealed partial class HistoryPanelView
             BindRows(
                 _archiveList,
                 m.VisibleBattles.Select(b => b.BattleId).ToArray(),
-                i => HistoryPanelFormatter.GhostListText(m.VisibleBattles[i]),
+                i =>
+                    ghost
+                        ? HistoryPanelFormatter.GhostListText(m.VisibleBattles[i])
+                        : m.FavoriteRowLabels[i],
                 i => m.VisibleBattles[i].OpponentHero,
                 i => BattleBadge(m.VisibleBattles[i]),
                 i => m.VisibleBattles[i].OpponentRank,

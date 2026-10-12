@@ -1646,12 +1646,54 @@ internal sealed class CombatReplayRuntime : MonoBehaviour
         }
     }
 
+    // Reads a saved local battle's manifest and payload under the payload gate, so replay
+    // maintenance cannot evict the payload mid-read. Busy while maintenance, persistence or a
+    // playback holds the gate; the caller retries later rather than treating it as missing.
+    internal SavedBattleLoadOutcome TryLoadSavedBattle(
+        string battleId,
+        out PvpBattleManifest? manifest,
+        out PvpReplayPayload? payload
+    )
+    {
+        manifest = null;
+        payload = null;
+        var persistence = _persistence;
+        var controller = _controller;
+        if (persistence == null || controller == null)
+            return SavedBattleLoadOutcome.Unavailable;
+        using var lease = persistence.TryAcquirePlaybackPayloadLease();
+        if (lease == null)
+            return SavedBattleLoadOutcome.Busy;
+        if (!controller.HasSavedReplay(battleId))
+            return SavedBattleLoadOutcome.Missing;
+        manifest = controller.LoadBattle(battleId);
+        payload = manifest == null ? null : controller.LoadPayload(manifest);
+        return payload == null ? SavedBattleLoadOutcome.Missing : SavedBattleLoadOutcome.Loaded;
+    }
+
     public bool ReplayImportedBattle(
         PvpBattleManifest manifest,
         PvpReplayPayload payload,
         bool recordVideo
+    ) =>
+        ReplayLoadedBattle(
+            manifest,
+            payload,
+            recordVideo,
+            CombatReplayPlaybackSource.ImportedGhost
+        );
+
+    // Plays a manifest and payload the caller already holds; source names where they came from.
+    // Player is the recorder in both a local manifest and a Ghost payload's manifest.
+    public bool ReplayLoadedBattle(
+        PvpBattleManifest manifest,
+        PvpReplayPayload payload,
+        bool recordVideo,
+        CombatReplayPlaybackSource source
     )
     {
+        if (source == CombatReplayPlaybackSource.CurrentNative)
+            throw new ArgumentOutOfRangeException(nameof(source), source, null);
         if (manifest == null)
             throw new ArgumentNullException(nameof(manifest));
         if (payload == null)
@@ -1659,11 +1701,7 @@ internal sealed class CombatReplayRuntime : MonoBehaviour
 
         if (!CanReplaySavedCombats(out _))
         {
-            LogRequestRejected(
-                CombatReplayPlaybackSource.ImportedGhost,
-                ResolveGeneralReplayRejectionReason(),
-                manifest.BattleId
-            );
+            LogRequestRejected(source, ResolveGeneralReplayRejectionReason(), manifest.BattleId);
             return false;
         }
 
@@ -1671,18 +1709,14 @@ internal sealed class CombatReplayRuntime : MonoBehaviour
         if (loader == null)
         {
             LogRequestRejected(
-                CombatReplayPlaybackSource.ImportedGhost,
+                source,
                 ReplayRequestRejectionReasonCode.LoaderUnavailable,
                 manifest.BattleId
             );
             return false;
         }
 
-        var operation = new ReplayPlaybackLogOperation(
-            manifest.BattleId,
-            CombatReplayPlaybackSource.ImportedGhost,
-            recordVideo
-        );
+        var operation = new ReplayPlaybackLogOperation(manifest.BattleId, source, recordVideo);
         ResetManagedRecordingUi();
         _completedPlaybackOperationAwaitingExit = null;
         _activePlaybackOperation = operation;
@@ -1705,14 +1739,7 @@ internal sealed class CombatReplayRuntime : MonoBehaviour
 
         PlaybackUiState.InitializedBoardUiControllers.Clear();
         _savedReplay.OnStartBegun();
-        _ = StartReplayAsync(
-            manifest,
-            sequence,
-            manifest.BattleId,
-            CombatReplayPlaybackSource.ImportedGhost,
-            recordVideo,
-            operation
-        );
+        _ = StartReplayAsync(manifest, sequence, manifest.BattleId, source, recordVideo, operation);
         return true;
     }
 

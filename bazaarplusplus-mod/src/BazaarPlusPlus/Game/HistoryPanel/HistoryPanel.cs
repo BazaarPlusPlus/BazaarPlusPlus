@@ -38,7 +38,23 @@ internal sealed partial class HistoryPanel : MonoBehaviour
         _state.GetSelectedGhostBattle(FilteredGhostBattles);
 
     private HistoryBattleRecord? ActiveSelectedBattle =>
-        _state.SectionMode == HistorySectionMode.Ghost ? SelectedGhostBattle : SelectedBattle;
+        _state.SectionMode switch
+        {
+            HistorySectionMode.Ghost => SelectedGhostBattle,
+            HistorySectionMode.Favorites => _state.GetSelectedFavorite()?.Battle,
+            _ => SelectedBattle,
+        };
+
+    // Runs shows the opponent's board above yours; a Local-origin favorite keeps that layout.
+    // Ghost, and a Ghost-origin favorite, show only the challenger's board.
+    private bool ShowsBothBoards =>
+        _state.SectionMode switch
+        {
+            HistorySectionMode.Runs => true,
+            HistorySectionMode.Favorites => _state.GetSelectedFavorite()?.Battle.Source
+                == HistoryBattleSource.Local,
+            _ => false,
+        };
 
     private IReadOnlyList<HistoryBattleRecord> FilteredGhostBattles => GetFilteredGhostBattles();
 

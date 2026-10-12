@@ -1,5 +1,6 @@
 #nullable enable
 using BazaarPlusPlus.Game.HistoryPanel.AccountLink;
+using BazaarPlusPlus.Game.HistoryPanel.Favorites;
 using BazaarPlusPlus.Game.HistoryPanel.Storage;
 using BazaarPlusPlus.GameInterop;
 using BazaarPlusPlus.ModApi.Clients;
@@ -38,4 +39,7 @@ internal sealed class HistoryPanelDependencies
     public Func<AccountLinkGate>? AccountLinkGate { get; }
 
     public BazaarDbAccountLinkStore AccountLinkStore { get; init; } = new();
+
+    // Null without a history database: the Favorites tab and the favorite action stay hidden.
+    public HistoryFavoriteService? Favorites { get; init; }
 }

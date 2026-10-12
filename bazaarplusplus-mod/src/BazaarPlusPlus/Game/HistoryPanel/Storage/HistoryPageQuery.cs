@@ -90,6 +90,10 @@ internal sealed class HistoryPageQuery
             ("$account", account)
         );
 
+    // Favorites belong to this machine's History, not to the signed-in account: no account filter.
+    internal static HistoryPageQuery Favorites() =>
+        new(RunLogSchema.FavoriteBattlesTableName, "battle_id", "favorited_at_ms", "1=1", null);
+
     // ID anchors should still seek the primary key, not scan a history index for an ID.
     internal string AnchorSql =>
         $"SELECT {Time}, {Id} FROM {_table} WHERE {_where} AND {Id} = $anchor;";

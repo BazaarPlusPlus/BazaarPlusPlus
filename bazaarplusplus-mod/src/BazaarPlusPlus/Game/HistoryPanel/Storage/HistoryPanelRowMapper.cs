@@ -44,7 +44,47 @@ internal static class HistoryPanelRowMapper
         );
     }
 
-    public static HistoryBattleRecord ReadLocalBattle(SqliteDataReader reader, string battleId)
+    public static HistoryBattleRecord ReadLocalBattle(SqliteDataReader reader, string battleId) =>
+        ReadLocalBattle(
+            reader,
+            battleId,
+            ReplayAvailabilityCodec.FromLocalPayload(
+                GetNullableString(reader, "local_payload_state")
+            )
+        );
+
+    public static HistoryBattleRecord ReadGhostBattle(SqliteDataReader reader) =>
+        ReadGhostBattle(
+            reader,
+            ReplayAvailabilityCodec.Parse(GetNullableString(reader, "ghost_replay_state"))
+        );
+
+    // A favorite row keeps the battles display columns under their names, so it reads through the
+    // same projection as its origin; only replay availability comes from the favorite's own copy.
+    public static HistoryFavoriteRecord ReadFavorite(SqliteDataReader reader)
+    {
+        var battleId = reader.GetString(reader.GetOrdinal("battle_id"));
+        var replay = ReplayAvailabilityCodec.FromFavoritePayload(
+            reader.GetString(reader.GetOrdinal("favorite_payload_state"))
+        );
+        var battle =
+            reader.GetString(reader.GetOrdinal("source")) == "GHOST"
+                ? ReadGhostBattle(reader, replay)
+                : ReadLocalBattle(reader, battleId, replay);
+        return new HistoryFavoriteRecord(
+            battle,
+            DateTimeOffset.FromUnixTimeMilliseconds(
+                reader.GetInt64(reader.GetOrdinal("favorited_at_ms"))
+            ),
+            reader.GetString(reader.GetOrdinal("note"))
+        );
+    }
+
+    private static HistoryBattleRecord ReadLocalBattle(
+        SqliteDataReader reader,
+        string battleId,
+        ReplayAvailability replay
+    )
     {
         return new HistoryBattleRecord(
             battleId,
@@ -76,13 +116,14 @@ internal static class HistoryPanelRowMapper
             default,
             isFinalBattle: false,
             source: HistoryBattleSource.Local,
-            ReplayAvailabilityCodec.FromLocalPayload(
-                GetNullableString(reader, "local_payload_state")
-            )
+            replay
         );
     }
 
-    public static HistoryBattleRecord ReadGhostBattle(SqliteDataReader reader)
+    private static HistoryBattleRecord ReadGhostBattle(
+        SqliteDataReader reader,
+        ReplayAvailability replay
+    )
     {
         var battleId = SafeGetNullableString(reader, "battle_id") ?? "unknown";
         return GhostBattleLocalProjector.CreateHistoryBattleRecord(
@@ -113,7 +154,7 @@ internal static class HistoryPanelRowMapper
             GetNullableString(reader, "loser_combatant_id"),
             ReadGhostSnapshotCounts(reader),
             isFinalBattle: GetNullableInt32(reader, "is_final_battle") == 1,
-            ReplayAvailabilityCodec.Parse(GetNullableString(reader, "ghost_replay_state"))
+            replay
         );
     }
 

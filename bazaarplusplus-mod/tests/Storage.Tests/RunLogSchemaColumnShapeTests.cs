@@ -9,12 +9,13 @@ using Microsoft.Data.Sqlite;
 internal static class RunLogSchemaColumnShapeTests
 {
     // One fingerprint per shipped LocalDatabaseSchemaVersion of the V6 database, which starts at 1.
+    // Version 1 was last reshaped before 6.0.0 shipped (favorite_battles); from then on it is frozen.
     private static readonly IReadOnlyDictionary<int, string> ShippedColumnShapes = new Dictionary<
         int,
         string
     >
     {
-        [1] = "52e3ceb9a57f5c79",
+        [1] = "6b01d7570e831f1f",
     };
 
     internal static void Run()

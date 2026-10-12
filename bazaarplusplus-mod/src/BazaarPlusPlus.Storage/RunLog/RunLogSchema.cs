@@ -11,6 +11,9 @@ public static class RunLogSchema
     // Data Root; a V5 database is imported, never opened here.
     public const int LocalDatabaseSchemaVersion = 1;
 
+    // A favorite note is plain text the player types in History; the table CHECK enforces it.
+    public const int FavoriteNoteMaxLength = 500;
+
     private static readonly object InitializationGate = new();
 
     public const string RunsTableName = "runs";
@@ -21,6 +24,10 @@ public static class RunLogSchema
     public const string CombatReplayVideosTableName = "combat_replay_videos";
     public const string BundleSealJobsTableName = "bundle_seal_jobs";
     public const string BundleOutboxTableName = "bundle_outbox";
+
+    // A favorite is a snapshot, not a link: no foreign key, so deleting the Run or expiring the
+    // Ghost row keeps it. Its display columns keep their battles names and meanings.
+    public const string FavoriteBattlesTableName = "favorite_battles";
     public const string CaptureSourceEndOfRunAuto = "end_of_run_auto";
 
     // Stable SQL expressions shared by history queries and their expression indexes.
@@ -246,6 +253,55 @@ public static class RunLogSchema
                 CHECK (status IN ('pending', 'uploaded', 'permanent_failure'))
             );
 
+            CREATE TABLE IF NOT EXISTS {FavoriteBattlesTableName} (
+                battle_id TEXT PRIMARY KEY,
+                source TEXT NOT NULL,
+                favorited_at_ms INTEGER NOT NULL,
+                note TEXT NOT NULL DEFAULT '',
+                note_updated_at_ms INTEGER NULL,
+                favorite_payload_state TEXT NOT NULL,
+                run_id TEXT NULL,
+                local_player_account_id TEXT NULL,
+                uploader_account_id TEXT NULL,
+                remote_battle_id TEXT NULL,
+                recorded_at_ms INTEGER NOT NULL,
+                day INTEGER NULL,
+                hour INTEGER NULL,
+                encounter_id TEXT NULL,
+                combat_kind TEXT NOT NULL,
+                player_name TEXT NULL,
+                player_account_id TEXT NULL,
+                player_hero TEXT NULL,
+                player_rank TEXT NULL,
+                player_rating INTEGER NULL,
+                player_level INTEGER NULL,
+                player_prestige INTEGER NULL,
+                player_victories INTEGER NULL,
+                player_hand_item_count INTEGER NULL,
+                player_skill_count INTEGER NULL,
+                opponent_name TEXT NULL,
+                opponent_account_id TEXT NULL,
+                opponent_hero TEXT NULL,
+                opponent_rank TEXT NULL,
+                opponent_rating INTEGER NULL,
+                opponent_level INTEGER NULL,
+                opponent_prestige INTEGER NULL,
+                opponent_victories INTEGER NULL,
+                opponent_hand_item_count INTEGER NULL,
+                opponent_skill_count INTEGER NULL,
+                result TEXT NULL,
+                winner_combatant_id TEXT NULL,
+                loser_combatant_id TEXT NULL,
+                is_final_battle INTEGER NOT NULL DEFAULT 0,
+                player_hand_json TEXT NULL,
+                player_skills_json TEXT NULL,
+                opponent_hand_json TEXT NULL,
+                opponent_skills_json TEXT NULL,
+                CHECK (source IN ('LOCAL', 'GHOST')),
+                CHECK (favorite_payload_state IN ('ready', 'missing')),
+                CHECK (length(note) <= {FavoriteNoteMaxLength})
+            );
+
             CREATE INDEX IF NOT EXISTS idx_runs_history_recent ON runs({HistoryRunTime} DESC, run_id DESC);
             CREATE INDEX IF NOT EXISTS idx_runs_history_hero ON runs({HistoryHeroKey}, {HistoryRunTime} DESC, run_id DESC);
             CREATE INDEX IF NOT EXISTS idx_battles_history_local ON battles(run_id, recorded_at_ms DESC, battle_id DESC) WHERE source = 'LOCAL';
@@ -289,6 +345,8 @@ public static class RunLogSchema
                 ON {BundleOutboxTableName}(status, next_attempt_at_ms, attempts, sealed_at_ms);
             CREATE INDEX IF NOT EXISTS idx_bundle_outbox_run
                 ON {BundleOutboxTableName}(run_id, status);
+            CREATE INDEX IF NOT EXISTS idx_favorite_battles_recent
+                ON {FavoriteBattlesTableName}(favorited_at_ms DESC, battle_id DESC);
 
             PRAGMA user_version = {LocalDatabaseSchemaVersion};
             """;

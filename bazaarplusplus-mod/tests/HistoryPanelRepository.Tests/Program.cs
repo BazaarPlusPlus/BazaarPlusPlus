@@ -138,6 +138,7 @@ try
 
     AssertRecentRunProjection(databasePath);
     HistoryPaginationTests.Run(root);
+    HistoryFavoritesTests.Run(root);
     ReplayAvailabilityCodecTests.Run(root);
     HistoryReadSchedulingTests.Run();
     ReplayMaintenanceStorageTests.Run();

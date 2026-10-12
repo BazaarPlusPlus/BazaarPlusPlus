@@ -41,7 +41,7 @@ _Avoid_: remote battle, opponent battle
 ## Combat replay
 
 **Replay Payload**:
-The local serialized combat input used to replay a recorded PvP battle. It is a recoverable cache governed by the `newest 200 ∪ last 30 days` retention policy; the battle fact remains after eviction, but History no longer offers Replay.
+The local serialized combat input used to replay a recorded PvP battle. It is a recoverable cache governed by `ReplayPayloadRetentionPolicy`; the battle fact remains after eviction, but only a favorite's own copy still offers Replay.
 
 **Replay Availability**:
 Whether History can replay a battle: Remote (a Ghost Battle not yet downloaded), Saved (a local Replay Payload exists), Expired, or Unavailable. Local battles are only Saved or Unavailable. `ReplayAvailabilityCodec` alone maps it to stored columns.

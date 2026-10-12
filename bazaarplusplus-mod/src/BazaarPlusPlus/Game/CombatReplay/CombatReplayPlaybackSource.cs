@@ -7,4 +7,5 @@ internal enum CombatReplayPlaybackSource
     LocalSaved,
     ImportedGhost,
     CurrentNative,
+    Favorite,
 }
