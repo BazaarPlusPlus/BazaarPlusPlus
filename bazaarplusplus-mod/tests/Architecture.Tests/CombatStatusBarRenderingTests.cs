@@ -5,7 +5,7 @@ namespace Architecture.Tests;
 public sealed class CombatStatusBarRenderingTests
 {
     [Fact]
-    public void Controls_use_the_native_render_camera_and_portrait_sorting()
+    public void Controls_render_above_the_scene_without_using_portrait_depth_or_sorting()
     {
         foreach (var build in CompiledArtifacts.Builds)
         {
@@ -16,11 +16,17 @@ public sealed class CombatStatusBarRenderingTests
             );
             Assert.Contains(
                 controls.Instructions,
-                instruction => instruction.Targets("UnityEngine.Renderer", "get_sortingLayerID")
+                instruction => instruction.Targets("TheBazaar.ObjectLayers", "get_aboveBoardLayer")
             );
             Assert.Contains(
                 controls.Instructions,
-                instruction => instruction.Targets("UnityEngine.Renderer", "get_sortingOrder")
+                instruction => instruction.Targets("UnityEngine.Canvas", "get_planeDistance")
+            );
+            Assert.DoesNotContain(
+                controls.Instructions,
+                instruction =>
+                    instruction.Targets("UnityEngine.Renderer", "get_sortingOrder")
+                    || instruction.Targets("UnityEngine.Renderer", "get_bounds")
             );
         }
     }

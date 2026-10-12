@@ -12,19 +12,11 @@ internal sealed class NativePlayerPortraitBounds
     private readonly List<MeshFilter> _frameMeshes = new();
     private Transform? _frameRoot;
 
-    internal bool TryRead(
-        out Rect frame,
-        out float bottom,
-        out Rect viewport,
-        out Canvas? nativeCanvas,
-        out MeshRenderer? background
-    )
+    internal bool TryRead(out Rect frame, out float bottom, out Rect viewport)
     {
         frame = default;
         bottom = 0f;
         viewport = default;
-        nativeCanvas = null;
-        background = null;
         var board = Singleton<BoardManager>.Instance;
         var camera = Camera.main;
         if (
@@ -95,8 +87,6 @@ internal sealed class NativePlayerPortraitBounds
         var canvas = bar.GetComponentInParent<Canvas>();
         if (canvas == null)
             return false;
-        nativeCanvas = canvas.rootCanvas;
-        background = portrait.backgroundRenderer;
         var uiCamera =
             canvas.rootCanvas.renderMode == RenderMode.ScreenSpaceOverlay
                 ? null
