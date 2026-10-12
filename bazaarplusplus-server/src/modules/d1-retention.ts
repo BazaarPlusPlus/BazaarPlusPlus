@@ -1,4 +1,3 @@
-import type { Env } from "../env";
 import { D1_RETENTION_BATCH_SIZE, D1_RETENTION_MAX_BATCHES, D1_RETENTION_MS } from "../limits";
 import { logError, logEvent } from "../observability";
 
@@ -54,8 +53,4 @@ export async function pruneExpiredBundles(
     has_more: hasMore,
   });
   return { deleted, hasMore };
-}
-
-export async function scheduled(controller: ScheduledController, env: Env): Promise<void> {
-  await pruneExpiredBundles(env.DB, controller.scheduledTime);
 }
