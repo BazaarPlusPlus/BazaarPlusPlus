@@ -134,6 +134,8 @@ export type HistoryRunDetailRow = {
 	final_day: number | null,
 	final_player_rank: string | null,
 	final_player_rating: number | null,
+	/**  The Run's rating change; `None` when the starting rating was not captured. */
+	final_player_rating_delta: number | null,
 	screenshot_id: string | null,
 	player_name: string | null,
 };
@@ -155,6 +157,8 @@ export type HistoryRunRow = {
 	final_day: number | null,
 	final_player_rank: string | null,
 	final_player_rating: number | null,
+	/**  The Run's rating change; `None` when the starting rating was not captured. */
+	final_player_rating_delta: number | null,
 	screenshot_id: string | null,
 	/**  The absolute URL of the run's History Thumbnail. */
 	thumbnail_url: string | null,

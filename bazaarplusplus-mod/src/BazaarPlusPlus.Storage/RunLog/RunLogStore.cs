@@ -342,9 +342,10 @@ public sealed class RunLogStore : SqliteStoreBase, IRunLogStore
             """;
         command.Parameters.AddWithValue("$runId", runId);
 
+        // Without a starting rating the change is unknown, not zero: History renders NULL as "—".
         var initialPlayerRating = command.ExecuteScalar();
         if (initialPlayerRating == null || initialPlayerRating is DBNull)
-            return 0;
+            return null;
 
         return finalPlayerRating.Value
             - Convert.ToInt32(initialPlayerRating, CultureInfo.InvariantCulture);

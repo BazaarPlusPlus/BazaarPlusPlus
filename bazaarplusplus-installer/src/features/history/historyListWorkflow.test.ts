@@ -47,6 +47,7 @@ function pageData(page = 1, total = 101): HistoryRunList {
         final_day: 1,
         final_player_rank: null,
         final_player_rating: null,
+        final_player_rating_delta: null,
         screenshot_id: null,
         thumbnail_url: null
       })

@@ -6,6 +6,7 @@ import {
   formatDuration,
   formatHero,
   formatRank,
+  formatRatingDelta,
   formatRunResultLabel
 } from './format';
 
@@ -43,6 +44,17 @@ describe('History hero and rank labels', () => {
   ])('presents rank %s in each locale', (rank, zh, en) => {
     expect(formatRank(rank, zhT)).toBe(zh);
     expect(formatRank(rank, enT)).toBe(en);
+  });
+});
+
+describe('History rating change', () => {
+  it.each([
+    [16, '+16'],
+    [-18, '-18'],
+    [0, '±0'],
+    [null, null]
+  ])('formats %s', (delta, expected) => {
+    expect(formatRatingDelta(delta)).toBe(expected);
   });
 });
 

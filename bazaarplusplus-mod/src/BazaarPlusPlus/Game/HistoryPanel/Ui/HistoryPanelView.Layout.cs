@@ -1,5 +1,4 @@
 #nullable enable
-using System.Globalization;
 using BazaarPlusPlus.Game.HistoryPanel.Data;
 using BazaarPlusPlus.GameInterop.Heroes;
 using BazaarPlusPlus.GameInterop.HeroPortraits;
@@ -592,6 +591,7 @@ internal sealed partial class HistoryPanelView
         Func<int, Sprite?> badge,
         Func<int, string?> rank,
         Func<int, int?> rating,
+        Func<int, int?> ratingDelta,
         int selected,
         Func<int, HistoryRunRowFields>? runFields = null
     )
@@ -633,7 +633,8 @@ internal sealed partial class HistoryPanelView
                 row.Rating,
                 row.UnknownRank,
                 rank(i),
-                rating(i)
+                rating(i),
+                ratingDelta(i)
             );
             Anchor(
                 row.RankBadge.rectTransform,
@@ -769,6 +770,7 @@ internal sealed partial class HistoryPanelView
                 i => RunBadge(m.Runs[i]),
                 i => m.Runs[i].PlayerRank,
                 i => m.Runs[i].PlayerRating,
+                i => m.Runs[i].PlayerRatingDelta,
                 m.SelectedRunIndex,
                 i => HistoryPanelFormatter.RunRowFields(m.Runs[i])
             );
@@ -781,6 +783,7 @@ internal sealed partial class HistoryPanelView
                 i => BattleBadge(m.VisibleBattles[i]),
                 i => m.VisibleBattles[i].OpponentRank,
                 i => m.VisibleBattles[i].OpponentRating,
+                _ => null,
                 m.SelectedBattleIndex
             );
         if (runs)
@@ -818,7 +821,8 @@ internal sealed partial class HistoryPanelView
         TextMeshProUGUI ratingLabel,
         TextMeshProUGUI unknown,
         string? rank,
-        int? rating
+        int? rating,
+        int? ratingDelta = null
     )
     {
         badge.sprite = _rankBadges.Get(rank);
@@ -828,7 +832,7 @@ internal sealed partial class HistoryPanelView
             string.Equals(rank?.Trim(), "Legendary", StringComparison.OrdinalIgnoreCase)
             && rating.HasValue;
         ratingLabel.text = hasRating
-            ? rating.GetValueOrDefault().ToString(CultureInfo.CurrentCulture)
+            ? HistoryPanelFormatter.RatingWithDelta(rating.GetValueOrDefault(), ratingDelta)
             : string.Empty;
         return hasRating;
     }

@@ -32,6 +32,7 @@ const detail: HistoryRunDetail = {
     final_day: 12,
     final_player_rank: 'Gold',
     final_player_rating: 1234,
+    final_player_rating_delta: null,
     screenshot_id: 'shot-1',
     player_name: 'Player'
   },

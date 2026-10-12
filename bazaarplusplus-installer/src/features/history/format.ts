@@ -49,6 +49,19 @@ export function formatRank(rank: string, t: Translate): string {
   return key && match ? `${t(key)}${match[2].trimEnd()}` : rank;
 }
 
+// A Run's rating change as a signed number; null when the change is unknown, so the
+// caller shows nothing instead of a misleading +0.
+export function formatRatingDelta(delta: number | null): string | null {
+  if (delta === null) return null;
+  if (delta > 0) return `+${delta}`;
+  if (delta < 0) return `${delta}`;
+  return '±0';
+}
+
+export function ratingDeltaTrend(delta: number): 'up' | 'down' | 'flat' {
+  return delta > 0 ? 'up' : delta < 0 ? 'down' : 'flat';
+}
+
 const dateTimeFormatters: Record<Locale, Intl.DateTimeFormat> = {
   zh: new Intl.DateTimeFormat('zh-CN', {
     month: '2-digit',

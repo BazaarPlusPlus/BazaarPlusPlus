@@ -25,6 +25,7 @@ import {
   formatGameMode,
   formatHero,
   formatRank,
+  formatRatingDelta,
   formatRunResultLabel,
   formatRunStatusKey,
   toneColorClass
@@ -212,7 +213,12 @@ export default function RunDetail() {
                 value={
                   detail.run.final_player_rating === null
                     ? '-'
-                    : String(detail.run.final_player_rating)
+                    : [
+                        String(detail.run.final_player_rating),
+                        formatRatingDelta(detail.run.final_player_rating_delta)
+                      ]
+                        .filter(Boolean)
+                        .join(' ')
                 }
               />
             </div>

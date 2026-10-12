@@ -1516,6 +1516,19 @@ html[data-bpp-platform='windows'] .bpp-header {
 .bpp-history-run-wins {
   color: var(--accent);
 }
+.bpp-history-rating-delta {
+  margin-inline-start: 0.3em;
+  font-size: 0.55em;
+  font-weight: 600;
+  letter-spacing: 0;
+  color: var(--text-2);
+}
+.bpp-history-rating-delta[data-trend='up'] {
+  color: var(--success);
+}
+.bpp-history-rating-delta[data-trend='down'] {
+  color: var(--danger);
+}
 .bpp-history-run-metric-label,
 .bpp-history-run-days,
 .bpp-history-run-footer {

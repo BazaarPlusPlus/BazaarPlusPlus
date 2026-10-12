@@ -36,6 +36,7 @@ function detail(runId = 'run-1'): HistoryRunDetail {
       final_day: 10,
       final_player_rank: null,
       final_player_rating: null,
+      final_player_rating_delta: null,
       screenshot_id: 's1',
       player_name: null
     },

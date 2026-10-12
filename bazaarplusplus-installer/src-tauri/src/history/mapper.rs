@@ -63,6 +63,7 @@ pub fn map_run_to_list_row(
         final_day: row.final_day,
         final_player_rank: row.final_player_rank,
         final_player_rating: row.final_player_rating,
+        final_player_rating_delta: row.final_player_rating_delta,
         screenshot_id,
         thumbnail_url,
     }
@@ -87,6 +88,7 @@ pub fn map_run_to_detail_row(
         final_day: row.final_day,
         final_player_rank: row.final_player_rank,
         final_player_rating: row.final_player_rating,
+        final_player_rating_delta: row.final_player_rating_delta,
         screenshot_id,
         player_name,
     }
@@ -156,6 +158,7 @@ mod tests {
             final_day: Some(12),
             final_player_rank: Some("Diamond".to_string()),
             final_player_rating: Some(1500),
+            final_player_rating_delta: Some(16),
         }
     }
 

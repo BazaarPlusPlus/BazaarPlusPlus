@@ -245,6 +245,34 @@ static void AssertRecentRunProjection(string databasePath)
         limited.Select(run => run.RunId).SequenceEqual(["run-newest", "run-middle"]),
         "The limit must keep the most recent runs, not an arbitrary pair."
     );
+
+    using (var command = connection.CreateCommand())
+    {
+        command.CommandText = """
+            UPDATE runs SET player_rank = 'Diamond 1', player_rating = 1490,
+                final_player_rank = 'Legendary', final_player_rating = 1506,
+                final_player_rating_delta = 16
+            WHERE run_id = 'run-newest';
+            UPDATE runs SET player_rank = 'Gold 2', player_rating = 1300
+            WHERE run_id = 'run-middle';
+            """;
+        command.ExecuteNonQuery();
+    }
+    var ranked = repository.ListRuns(new(Limit: 10)).Rows;
+    var finished = ranked.Single(run => run.RunId == "run-newest");
+    Assert(
+        finished.PlayerRank == "Legendary"
+            && finished.PlayerRating == 1506
+            && finished.PlayerRatingDelta == 16,
+        "A finished run must show the rank, rating and change it ended on."
+    );
+    var unfinished = ranked.Single(run => run.RunId == "run-middle");
+    Assert(
+        unfinished.PlayerRank == "Gold 2"
+            && unfinished.PlayerRating == 1300
+            && unfinished.PlayerRatingDelta == null,
+        "A run without final values must fall back to its starting rank and rating."
+    );
 }
 
 static void InsertRun(SqliteConnection connection, string runId, long started, long? ended)

@@ -236,14 +236,15 @@ fn seed_history(fixture: &Fixture) {
         "
         insert into runs (
             run_id, started_at_ms, last_seen_at_ms, status, hero, game_mode,
-            ended_at_ms, final_day, victories, losses, final_player_rank, final_player_rating
+            ended_at_ms, final_day, victories, losses, final_player_rank, final_player_rating,
+            final_player_rating_delta
         ) values
             ('run-1', 1767258000000, 1767260520000, 'completed',
-             'Vanessa', 'Ranked', 1767260520000, 12, 10, 2, 'Gold', 1520),
+             'Vanessa', 'Ranked', 1767260520000, 12, 10, 2, 'Gold', 1520, 16),
             ('run-2', 1767344400000, 1767346200000, 'completed',
-             'Hero8', 'Normal', 1767346200000, 8, 4, 5, null, null),
+             'Hero8', 'Normal', 1767346200000, 8, 4, 5, null, null, null),
             ('run-3', 1767430800000, 1767431400000, 'active',
-             'Mak', 'Ranked', null, 3, 2, 1, null, null);
+             'Mak', 'Ranked', null, 3, 2, 1, null, null, null);
         insert into battles (
             battle_id, source, run_id, recorded_at_ms, combat_kind, day, hour, player_name,
             opponent_hero, opponent_name, opponent_rank, opponent_rating, result, local_payload_state
