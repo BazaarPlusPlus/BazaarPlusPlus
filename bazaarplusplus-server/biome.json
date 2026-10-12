@@ -8,7 +8,7 @@
   },
   "files": {
     "ignoreUnknown": true,
-    "includes": ["**", "!contracts", "!package-lock.json", "!migrations", "!test/goldens"]
+    "includes": ["**", "!contracts", "!package-lock.json", "!test/goldens"]
   },
   "formatter": {
     "enabled": true,

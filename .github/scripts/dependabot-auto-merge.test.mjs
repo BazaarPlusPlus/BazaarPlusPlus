@@ -129,7 +129,7 @@ test('external npm, Cargo and uv dependency files are eligible; no cross-project
     'bazaarplusplus-mod/Directory.Packages.props',
     'bazaarplusplus-installer/src-tauri/tauri.conf.json',
     'bazaarplusplus-installer/src-tauri/build.rs',
-    'bazaarplusplus-server/contracts/v5/bundle.proto',
+    'bazaarplusplus-server/contracts/v6/bundle.proto',
     '.github/workflows/checks.yml',
     'bazaarplusplus-site/src/main.tsx'
   ]) {

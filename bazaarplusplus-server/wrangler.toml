@@ -36,7 +36,7 @@ bucket_name = "bazaarplusplus-bundle-v6"
 
 [[ratelimits]]
 name = "GHOST_BATTLE_RATE_LIMITER"
-# The V5 Worker uses 1001 in the same account; a distinct ID keeps the two limiters separate.
+# Unique in the account; 1001 is already taken there.
 namespace_id = "1002"
 
 [ratelimits.simple]

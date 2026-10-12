@@ -122,16 +122,14 @@ def payload(
     player_hand: Sequence[Card] | None = None,
     player_hand_status: str = "Complete",
     final_battles: int = 1,
-    version: int = 5,
 ) -> bytes:
-    """Encode one Run payload; ``final_battles`` Battles are all flagged final.
+    """Encode one V6 Run payload; ``final_battles`` Battles are all flagged final.
 
-    Version 6 carries the same instants as Unix milliseconds instead of text.
+    The instants are given as UTC text and encoded as Unix milliseconds.
     """
-    if version == 6:
-        started_at, battle_at, ended_at = (  # type: ignore[assignment]
-            _unix_ms(value) for value in (started_at, battle_at, ended_at)
-        )
+    started_at, battle_at, ended_at = (  # type: ignore[assignment]
+        _unix_ms(value) for value in (started_at, battle_at, ended_at)
+    )
     player = [account_id, "Alice", hero, final_rank, 1100, 10, 2, 10, 8, 12, 1, 1]
     opponent = ["account-2", "Bob", "Pygmalien", "Gold", 1050, 10, 2, 8, 8, 12, 1, 1]
     cards = _default_cards(cards_per_set)
@@ -168,7 +166,7 @@ def payload(
         for battle_id in battle_ids(final_battles)
     ]
     root = [
-        version,
+        6,
         run_id,
         account_id,
         [
@@ -234,16 +232,15 @@ def bundle_bytes(
     created_at_ms: int | None = None,
     run_id: str = "run-1",
     account_id: str = "account-1",
-    version: int = 5,
 ) -> bytes:
     """Wrap a Run payload whose identities match ``run_id`` and ``account_id``."""
-    content = run_payload or payload(version=version)
+    content = run_payload or payload()
     manifest = {
-        "bundle_version": version,
+        "bundle_version": 6,
         "bundle_id": bundle_id,
         "created_at_ms": created_at_ms or int(SOURCE_HOUR.timestamp() * 1_000),
         "run": {
-            "run_format_version": version,
+            "run_format_version": 6,
             "run_id": run_id,
             "player_account_id": account_id,
             "projection": {"run": {}, "battles": [{"battle_id": "battle-1"}]},
@@ -251,7 +248,7 @@ def bundle_bytes(
                 "offset": 0,
                 "length": len(content),
                 "sha256": hashlib.sha256(content).hexdigest(),
-                "content_type": f"application/x-bpp-run-v{version}",
+                "content_type": "application/x-bpp-run-v6",
             },
         },
     }

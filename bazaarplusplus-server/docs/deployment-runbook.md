@@ -1,6 +1,6 @@
 # BazaarPlusPlus Server V6 deployment runbook
 
-The V6 deployment is new and shares nothing with V5: Worker `bazaarplusplus-mod-api-v6` at `mod-api-v6.bazaarplusplus.com`, D1 `bazaarplusplus-mod-api-v6-db` built from `migrations-v6/`, and R2 bucket `bazaarplusplus-bundle-v6`. Mod 6.0 and later upload to it (`ModApiUploadDefaults.ApiBaseUrl`). The V5 Worker `bazaarplusplus-mod-api-v5` at `mod-api-v5.bazaarplusplus.com` keeps serving 5.7.0 (section 8); nothing here touches its Worker, D1, bucket, or secrets.
+The deployment is Worker `bazaarplusplus-mod-api-v6` at `mod-api-v6.bazaarplusplus.com`, D1 `bazaarplusplus-mod-api-v6-db` built from `migrations-v6/`, and R2 bucket `bazaarplusplus-bundle-v6`. Mod 6.0 and later upload to it (`ModApiUploadDefaults.ApiBaseUrl`).
 
 These commands create or mutate Cloudflare resources. Run them only with production deployment authorization, from `bazaarplusplus-server/`, using an authenticated Wrangler profile for the account in `wrangler.toml` (`R2_ACCOUNT_ID`). Sections 1–5 are the first deployment, in order.
 
@@ -21,7 +21,7 @@ npx wrangler d1 create bazaarplusplus-mod-api-v6-db --location apac
 npx wrangler r2 bucket create bazaarplusplus-bundle-v6 --location apac
 ```
 
-`wrangler.toml` holds the `database_id` that `d1 create` printed; if the database is ever recreated, commit the new UUID before deploying. Never point this file at the V5 database `bazaarplusplus-mod-api-v5-db`.
+`wrangler.toml` holds the `database_id` that `d1 create` printed; if the database is ever recreated, commit the new UUID before deploying. Never point this file at any other database.
 
 Set the bucket lifecycle:
 
@@ -32,13 +32,13 @@ npx wrangler r2 bucket lifecycle list bazaarplusplus-bundle-v6
 
 The listing must show the `bundles/` prefix expiring after 8 days. The Worker never deletes R2 objects; this rule is the only R2 retention.
 
-Create an R2 S3 API credential scoped to `bazaarplusplus-bundle-v6` with Object Read permission only. Do not grant write, delete, or access to another bucket, and do not reuse the V5 credential, which is scoped to the V5 bucket.
+Create an R2 S3 API credential scoped to `bazaarplusplus-bundle-v6` with Object Read permission only. Do not grant write, delete, or access to another bucket, and do not reuse a credential scoped to another bucket.
 
 ## 3. Configure rate limiting and secrets
 
-`[[ratelimits]].namespace_id` must be a positive integer unique in the account. V6 uses `1002`; the V5 Worker uses `1001`, and sharing it would merge the two Workers' Ghost counters. Keep the threshold at 60 calls per 60 seconds.
+`[[ratelimits]].namespace_id` must be a positive integer unique in the account. V6 uses `1002`; `1001` is already taken in the account, and sharing an ID would merge two Workers' Ghost counters. Keep the threshold at 60 calls per 60 seconds.
 
-Generate two independent service tokens for V6. They must differ from each other and from the V5 tokens:
+Generate two independent service tokens for V6. They must differ from each other and from every other token:
 
 ```sh
 openssl rand -base64 32 | tr '+/' '-_' | tr -d '='
@@ -55,7 +55,7 @@ npx wrangler d1 migrations list bazaarplusplus-mod-api-v6-db --remote
 npx wrangler deploy
 ```
 
-The list must show `0001_v6_baseline.sql` applied and nothing pending. From here `migrations-v6/0001_v6_baseline.sql` is frozen; every schema change is a new numbered file, and a recorded migration is never reapplied. `migrations/` is the V5 lineage and is never applied to this database.
+The list must show `0001_v6_baseline.sql` applied and nothing pending. From here `migrations-v6/0001_v6_baseline.sql` is frozen; every schema change is a new numbered file, and a recorded migration is never reapplied.
 
 `wrangler deploy` attaches the custom domain from `[[routes]]` (`custom_domain = true`). The `bazaarplusplus.com` zone must be on this account and `mod-api-v6` must have no existing DNS record; otherwise the deploy fails and names the conflict.
 
@@ -81,7 +81,7 @@ Run this before 6.0.0 is promoted. Use a generated Bundle from the checked-in V6
 1. `GET /health` returns `200`, a request ID, and a safe-integer server time.
 2. Upload a Run-only Bundle with `POST /bundles`; expect `201 stored` and `not_applicable`.
 3. Repeat identical bytes; expect `200 duplicate`.
-4. Upload a V5 Bundle; expect it to be rejected without storage.
+4. Upload a Bundle with another Bundle version; expect it to be rejected without storage.
 5. Upload a Screenshot-bearing Bundle; expect `201 stored` and `created`.
 6. After the 60-second settle lag, list both with the Bundle Sync token. Confirm keyset ordering, `X-Amz-Expires=604800`, and the `bazaarplusplus-bundle-v6` host.
 7. Download one URL twice with `GET`; both responses must equal the uploaded bytes.
@@ -94,9 +94,8 @@ Run this before 6.0.0 is promoted. Use a generated Bundle from the checked-in V6
 
 ### Known consequences of a new deployment
 
-- **Empty Ghost pool.** Ghost discovery reads only this D1, which starts empty, and `bundle_uploaders` is not seeded from V5. 6.0 players see few Ghost Battles until about five days of 6.0 uploads accumulate, and 5.7.0 and 6.0 players never see each other's Ghosts.
+- **Empty Ghost pool.** Ghost discovery reads only this D1, which starts empty, and `bundle_uploaders` starts empty. 6.0 players see few Ghost Battles until about five days of 6.0 uploads accumulate.
 - **BazaarDB moves.** BazaarDB must page `GET /bazaardb/bundles` on `mod-api-v6.bazaarplusplus.com` with the V6 delivery token, keep its own cursor, and decode Bundle V6. Screenshot-bearing Bundles from 6.0 players are delivered only through V6.
-- **Split collection.** Until V5 retires, 5.7.0 uploads land in V5 and 6.0 uploads in V6; a consumer that reads one base URL sees only that population.
 
 ## 6. Post-deploy checks
 
@@ -105,7 +104,7 @@ Run this before 6.0.0 is promoted. Use a generated Bundle from the checked-in V6
 The Worker emits one structured JSON line per alertable condition, so each alert is a
 Workers Observability query on the `bazaarplusplus-mod-api-v6` Worker (dashboard:
 Compute → Workers → Observability → create a query, then attach an alert with a
-notification destination). Recreate the V5 alerts for V6; V5's stay until it retires.
+notification destination).
 Suggested starting thresholds; tune against real traffic.
 
 | Alert | Query filter | Suggested threshold |
@@ -180,7 +179,3 @@ Increase the schedule frequency or per-invocation batch count only after measuri
 delete duration and API latency. Keep each delete transaction small. To pause pruning,
 deploy `crons = []` in the managed Wrangler configuration; already deleted metadata
 requires recovery from an available D1 backup rather than a Worker rollback.
-
-## 8. The V5 Worker
-
-The V5 Worker's code is no longer on `master`: a V5 hotfix is built from the 5.7.0 tag, whose `wrangler.toml` targets the V5 resources. Never deploy `master` to `bazaarplusplus-mod-api-v5`. Retiring V5 is outside this runbook.

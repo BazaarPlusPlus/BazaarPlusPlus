@@ -21,7 +21,6 @@ A contract change lands in one pull request together with every consumer it brea
 |---|---|---|
 | Bundle V6 binary and manifest | `bazaarplusplus-server/contracts/v6/`, shared goldens in `fixtures/` beneath it | mod writes and reads Ghost Bundles, server ingests, analyzer reads |
 | Run segment inside a Bundle V6 | `bazaarplusplus-mod/docs/contracts/run-payload-v6.md`, shared golden `bazaarplusplus-mod/tests/BundleV6Codec.Tests/fixtures/run-payload-v6.fixture.b64` | server stores it opaque, analyzer decodes it |
-| Bundle V5 and its Run segment (frozen while the V5 Worker serves 5.7.0) | `bazaarplusplus-server/contracts/v5/` and `bazaarplusplus-mod/docs/contracts/run-payload-v5.md`, goldens beneath each | analyzer reads |
 | Mod API HTTP routes | `bazaarplusplus-server/docs/api-reference.md` | mod |
 | Hero and build snapshots | `bazaarplusplus-analyzer/contracts/v5/`, shared goldens in `fixtures/` beneath it and the hero alias table `hero-aliases.json`, plus `bazaarplusplus-analyzer/docs/specs/consumer-data-contract.md` | site Hero Analysis, mod build recommendations, installer History (hero aliases) |
 | Seal eligibility | `BundleQueueStore.SealEligibleRunCondition` in `bazaarplusplus-mod/src/BazaarPlusPlus.Storage/`, shared cases `bazaarplusplus-mod/tests/BundleQueueSqliteStore.Tests/fixtures/bundle-seal-eligibility.json` | mod replay maintenance, installer History cleanup (`PROTECTED_RUN_PREDICATE`) |
