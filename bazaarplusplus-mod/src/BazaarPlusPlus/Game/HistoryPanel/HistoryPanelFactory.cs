@@ -1,5 +1,6 @@
 #nullable enable
 using BazaarPlusPlus.Game.CombatReplay;
+using BazaarPlusPlus.Game.HistoryPanel.Favorites;
 using BazaarPlusPlus.Game.HistoryPanel.Ghost;
 using BazaarPlusPlus.Game.HistoryPanel.Storage;
 using BazaarPlusPlus.GameInterop;
@@ -57,7 +58,18 @@ internal static class HistoryPanelFactory
             modApiSession,
             accountLinkClient,
             accountLinkGate
-        );
+        )
+        {
+            Favorites =
+                repository == null
+                    ? null
+                    : new HistoryFavoriteService(
+                        repository,
+                        replayService,
+                        combatReplayRuntimeAccessor,
+                        replayDirectoryPath
+                    ),
+        };
     }
 
     private static GhostBattleSyncService? CreateGhostSyncService(

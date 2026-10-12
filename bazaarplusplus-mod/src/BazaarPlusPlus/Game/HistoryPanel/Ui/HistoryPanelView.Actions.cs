@@ -52,6 +52,7 @@ internal sealed partial class HistoryPanelView
         _deleteButton = Button(_layout!, "", .04f, .90f, .16f, .044f, _delete);
         _recordButton = Button(_layout!, "", .58f, .90f, .13f, .055f, _record);
         _replayButton = Button(_layout!, "", .72f, .90f, .23f, .055f, _replay, true, 23);
+        CreateFavoriteControls();
         var shade = CreateRect("HistoryMoreDialog", _layout!, 0, 0, 1, 1);
         var canvas = shade.gameObject.AddComponent<Canvas>();
         canvas.overrideSorting = true;
@@ -180,7 +181,7 @@ internal sealed partial class HistoryPanelView
             _accountInput?.DeactivateInputField();
             ReleaseInputFocus();
         }
-        _deleteButton.gameObject.SetActive(ShowsBothBoards);
+        _deleteButton.gameObject.SetActive(m.DeleteButtonVisible);
         SetButton(
             _deleteButton,
             m.DeleteButtonText,
@@ -192,6 +193,7 @@ internal sealed partial class HistoryPanelView
             enabled: m.RecordAndReplayButtonEnabled && !m.PageLoading
         );
         SetButton(_replayButton, m.ReplayButtonText, true, m.ReplayButtonEnabled && !m.PageLoading);
+        RefreshFavoriteControls();
         _databaseLabel.text = m.DatabaseChipText;
         _databaseLabel.color = StatusColor(m.DatabaseChipSeverity);
         SetButton(_healthButton, m.ServerHealthButtonText, enabled: m.ServerHealthButtonEnabled);

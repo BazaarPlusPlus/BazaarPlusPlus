@@ -59,6 +59,18 @@ internal static class HistoryPanelFormatter
     public static string GhostListText(HistoryBattleRecord battle) =>
         $"{battle.OpponentName ?? HistoryPanelText.UnknownOpponent()}\n{GhostDayLine(battle)}\n{FormatTimestamp(battle.RecordedAtUtc)}";
 
+    // Opponent and day as a Ghost row reads, then the note's first line or the favorite time.
+    public static string FavoriteListText(HistoryFavoriteRecord favorite)
+    {
+        var note = favorite.Note.Split('\n')[0].Trim();
+        return $"{favorite.Battle.OpponentName ?? HistoryPanelText.UnknownOpponent()}\n{GhostDayLine(favorite.Battle)}\n"
+            + (
+                note.Length > 0
+                    ? note
+                    : HistoryPanelText.FavoritedOn(FormatTimestamp(favorite.FavoritedAtUtc))
+            );
+    }
+
     private static string GhostDayLine(HistoryBattleRecord battle) =>
         battle.IsFinalBattle
             ? $"{HistoryPanelText.DayBadge(battle.Day)} · {HistoryPanelText.FinalBattle()}"

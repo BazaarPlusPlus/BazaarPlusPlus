@@ -39,6 +39,19 @@ internal static class GhostMessageTests
         RowCount = 1,
     };
 
+    private static readonly HistoryArchiveFacts Favorites = Ghost with
+    {
+        Section = HistorySectionMode.Favorites,
+        AccountKnown = false,
+        GhostSync = GhostSyncPhase.Failed,
+    };
+
+    private static readonly HistoryArchiveFacts FavoriteRow = Favorites with
+    {
+        RowCount = 1,
+        Detail = HistoryDetailPhase.Loaded,
+    };
+
     private static HistorySelectedGhostReplay Replay(
         ReplayAvailability availability,
         bool inProgress = false,
@@ -350,6 +363,61 @@ internal static class GhostMessageTests
         new(
             "Ready boards show no message.",
             Runs with
+            {
+                PlayerBoard = Board(NativeMonsterBoardStatus.Ready),
+                OpponentBoard = Board(NativeMonsterBoardStatus.Ready),
+            },
+            None,
+            None
+        ),
+        // Favorites: not account-scoped, never Ghost sync guidance. rows → read → empty.
+        new(
+            "An empty Favorites list explains how to add one, without an account.",
+            Favorites,
+            HistoryPanelText.NoFavorites,
+            HistoryPanelText.NoFavorites
+        ),
+        new(
+            "A pending Favorites page shows loading in its list and label.",
+            Favorites with
+            {
+                PageLoading = true,
+                PageLoadFailed = true,
+            },
+            HistoryPanelText.LoadingPreview,
+            HistoryPanelText.LoadingPreview,
+            HistoryPageLabelMode.Loading
+        ),
+        new(
+            "A failed Favorites read says so.",
+            Favorites with
+            {
+                PageLoadFailed = true,
+            },
+            HistoryPanelText.FavoritesReadFailed,
+            HistoryPanelText.FavoritesReadFailed
+        ),
+        new(
+            "A favorite without saved boards says so on its board.",
+            FavoriteRow with
+            {
+                Detail = HistoryDetailPhase.Missing,
+            },
+            None,
+            HistoryPanelText.FavoriteBoardsUnavailable
+        ),
+        new(
+            "A pending favorite detail read shows loading.",
+            FavoriteRow with
+            {
+                Detail = HistoryDetailPhase.Loading,
+            },
+            None,
+            HistoryPanelText.LoadingPreview
+        ),
+        new(
+            "A favorite's ready boards show no message.",
+            FavoriteRow with
             {
                 PlayerBoard = Board(NativeMonsterBoardStatus.Ready),
                 OpponentBoard = Board(NativeMonsterBoardStatus.Ready),

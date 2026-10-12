@@ -137,6 +137,54 @@ CREATE TABLE combat_replay_videos (
     CHECK (attachment_state IN ('attached', 'detached')),
     CHECK (file_state IN ('pending', 'present', 'missing'))
 );
+CREATE TABLE favorite_battles (
+    battle_id TEXT PRIMARY KEY,
+    source TEXT NOT NULL,
+    favorited_at_ms INTEGER NOT NULL,
+    note TEXT NOT NULL DEFAULT '',
+    note_updated_at_ms INTEGER NULL,
+    favorite_payload_state TEXT NOT NULL,
+    run_id TEXT NULL,
+    local_player_account_id TEXT NULL,
+    uploader_account_id TEXT NULL,
+    remote_battle_id TEXT NULL,
+    recorded_at_ms INTEGER NOT NULL,
+    day INTEGER NULL,
+    hour INTEGER NULL,
+    encounter_id TEXT NULL,
+    combat_kind TEXT NOT NULL,
+    player_name TEXT NULL,
+    player_account_id TEXT NULL,
+    player_hero TEXT NULL,
+    player_rank TEXT NULL,
+    player_rating INTEGER NULL,
+    player_level INTEGER NULL,
+    player_prestige INTEGER NULL,
+    player_victories INTEGER NULL,
+    player_hand_item_count INTEGER NULL,
+    player_skill_count INTEGER NULL,
+    opponent_name TEXT NULL,
+    opponent_account_id TEXT NULL,
+    opponent_hero TEXT NULL,
+    opponent_rank TEXT NULL,
+    opponent_rating INTEGER NULL,
+    opponent_level INTEGER NULL,
+    opponent_prestige INTEGER NULL,
+    opponent_victories INTEGER NULL,
+    opponent_hand_item_count INTEGER NULL,
+    opponent_skill_count INTEGER NULL,
+    result TEXT NULL,
+    winner_combatant_id TEXT NULL,
+    loser_combatant_id TEXT NULL,
+    is_final_battle INTEGER NOT NULL DEFAULT 0,
+    player_hand_json TEXT NULL,
+    player_skills_json TEXT NULL,
+    opponent_hand_json TEXT NULL,
+    opponent_skills_json TEXT NULL,
+    CHECK (source IN ('LOCAL', 'GHOST')),
+    CHECK (favorite_payload_state IN ('ready', 'missing')),
+    CHECK (length(note) <= 500)
+);
 CREATE TABLE run_events (
     run_id TEXT NOT NULL,
     seq INTEGER NOT NULL,
@@ -226,6 +274,8 @@ CREATE INDEX idx_combat_replay_videos_attachment
     );
 CREATE INDEX idx_combat_replay_videos_battle
     ON combat_replay_videos(battle_id, started_at_ms DESC);
+CREATE INDEX idx_favorite_battles_recent
+    ON favorite_battles(favorited_at_ms DESC, battle_id DESC);
 CREATE UNIQUE INDEX idx_run_screenshots_primary_run
     ON run_screenshots(run_id)
     WHERE is_primary = 1 AND run_id IS NOT NULL;

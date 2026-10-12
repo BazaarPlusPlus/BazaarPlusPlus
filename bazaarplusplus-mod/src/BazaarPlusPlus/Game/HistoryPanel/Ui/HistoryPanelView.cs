@@ -74,7 +74,7 @@ internal sealed partial class HistoryPanelView : IDisposable
     private Action<int>? _pageBattles;
     public event Action<Rect>? PreviewContainerBoundsChanged;
     public event Action<Rect>? OpponentBoundsChanged;
-    internal bool ShowsBothBoards => _model?.SectionMode == HistorySectionMode.Runs;
+    internal bool ShowsBothBoards => _model?.ShowsBothBoards == true;
 
     internal void SetOpponentStatus(string message)
     {
@@ -164,6 +164,7 @@ internal sealed partial class HistoryPanelView : IDisposable
             _accountInput?.DeactivateInputField();
             _moreVisible = false;
             _moreRoot?.SetActive(false);
+            CloseNoteDialog();
         }
         else
         {
@@ -172,7 +173,9 @@ internal sealed partial class HistoryPanelView : IDisposable
         }
     }
 
-    public bool IsTextInputFocused() => _accountInput != null && _accountInput.isFocused;
+    public bool IsTextInputFocused() =>
+        (_accountInput != null && _accountInput.isFocused)
+        || (_noteInput != null && _noteInput.isFocused);
 
     public void Refresh(HistoryPanelViewModel model)
     {

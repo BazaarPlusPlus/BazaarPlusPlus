@@ -37,6 +37,7 @@ internal sealed partial class HistoryPanel
                 direction => _coordinator?.PageArchive(direction),
                 direction => _coordinator?.PageBattles(direction)
             );
+            _uiView.SetFavoriteActions(TryFavoriteSelectedBattle, SaveFavoriteNote);
             _uiView.PreviewContainerBoundsChanged += OnPreviewContainerBoundsChanged;
             _uiView.OpponentBoundsChanged += bounds =>
             {
@@ -97,10 +98,15 @@ internal sealed partial class HistoryPanel
         var canDeleteSelectedRun = CanDeleteSelectedRun(out _);
         var filteredRuns = FilteredRuns;
         var visibleRuns = filteredRuns.ToList();
-        var visibleBattles =
-            _state.SectionMode == HistorySectionMode.Ghost
-                ? FilteredGhostBattles.ToList()
-                : _state.Battles.ToList();
+        var section = _state.SectionMode;
+        var visibleBattles = section switch
+        {
+            HistorySectionMode.Ghost => FilteredGhostBattles.ToList(),
+            HistorySectionMode.Favorites => _state.Favorites.Select(f => f.Battle).ToList(),
+            _ => _state.Battles.ToList(),
+        };
+        var selectedFavorite =
+            section == HistorySectionMode.Favorites ? _state.GetSelectedFavorite() : null;
 
         var selectedBattle = ActiveSelectedBattle;
         var selectedRun = SelectedRun;
@@ -134,28 +140,54 @@ internal sealed partial class HistoryPanel
 
         var statusSeverity = _state.StatusSeverity;
         var archiveStatus = ArchiveStatus();
+        var favoriteButton = FavoriteButton(selectedBattle, selectedFavorite);
+        var deleteButtonText = buttons.DeleteButtonText;
+        var deleteButtonEnabled = buttons.DeleteButtonEnabled;
+        if (section == HistorySectionMode.Favorites)
+        {
+            deleteButtonText =
+                selectedFavorite != null
+                && _coordinator?.IsRemoveFavoriteConfirmationActive(selectedFavorite.BattleId, now)
+                    == true
+                    ? HistoryPanelText.RemoveFavoriteConfirm()
+                    : HistoryPanelText.RemoveFavorite();
+            deleteButtonEnabled = selectedFavorite != null && !_state.FavoriteActionInProgress;
+        }
 
         return new HistoryPanelViewModel
         {
             PageLoading = _state.PageLoading,
             ArchiveEmptyMessage = archiveStatus.ListMessage,
-            HasNewer =
-                _state.SectionMode == HistorySectionMode.Ghost
-                    ? _state.GhostPage.HasNewer
-                    : _state.RunPage.HasNewer,
-            HasOlder =
-                _state.SectionMode == HistorySectionMode.Ghost
-                    ? _state.GhostPage.HasOlder
-                    : _state.RunPage.HasOlder,
+            HasNewer = section switch
+            {
+                HistorySectionMode.Ghost => _state.GhostPage.HasNewer,
+                HistorySectionMode.Favorites => _state.FavoritePage.HasNewer,
+                _ => _state.RunPage.HasNewer,
+            },
+            HasOlder = section switch
+            {
+                HistorySectionMode.Ghost => _state.GhostPage.HasOlder,
+                HistorySectionMode.Favorites => _state.FavoritePage.HasOlder,
+                _ => _state.RunPage.HasOlder,
+            },
             BattleHasNewer = _state.BattlePage.HasNewer,
             BattleHasOlder = _state.BattlePage.HasOlder,
             PageLabel = archiveStatus.PageLabel switch
             {
                 HistoryPageLabelMode.Loading => HistoryPanelText.LoadingPreview(),
                 HistoryPageLabelMode.Hidden => string.Empty,
-                _ => _state.SectionMode == HistorySectionMode.Ghost
-                    ? HistoryPanelFormatter.PageRange(_state.GhostPage, ghost: true)
-                    : HistoryPanelFormatter.PageRange(_state.RunPage),
+                _ => section switch
+                {
+                    HistorySectionMode.Ghost => HistoryPanelFormatter.PageRange(
+                        _state.GhostPage,
+                        ghost: true
+                    ),
+                    HistorySectionMode.Favorites => HistoryPanelFormatter.PageRange(
+                        _state.FavoritePage,
+                        ghost: true
+                    ),
+                    _ => HistoryPanelFormatter.PageRange(_state.RunPage),
+                },
             },
             AccountId = _state.CachedAccountId,
             Title = HistoryPanelText.Title(),
@@ -190,17 +222,56 @@ internal sealed partial class HistoryPanel
             Runs = visibleRuns,
             VisibleBattles = visibleBattles,
             SelectedRunIndex = _state.SelectedRunIndex,
-            SelectedBattleIndex =
-                _state.SectionMode == HistorySectionMode.Ghost
-                    ? _state.SelectedGhostBattleIndex
-                    : _state.SelectedBattleIndex,
+            SelectedBattleIndex = section switch
+            {
+                HistorySectionMode.Ghost => _state.SelectedGhostBattleIndex,
+                HistorySectionMode.Favorites => _state.SelectedFavoriteIndex,
+                _ => _state.SelectedBattleIndex,
+            },
+            FavoriteRowLabels = _state
+                .Favorites.Select(HistoryPanelFormatter.FavoriteListText)
+                .ToList(),
+            ShowsBothBoards = ShowsBothBoards,
+            FavoritesTabVisible = _coordinator?.FavoritesAvailable == true,
+            FavoriteButtonVisible = favoriteButton.Visible,
+            FavoriteButtonText = favoriteButton.Text,
+            FavoriteButtonEnabled = favoriteButton.Enabled,
+            SelectedFavoriteBattleId = selectedFavorite?.BattleId,
+            SelectedFavoriteNote = selectedFavorite?.Note ?? string.Empty,
             ReplayButtonText = buttons.ReplayButtonText,
             ReplayButtonEnabled = buttons.ReplayButtonEnabled,
             RecordAndReplayButtonText = buttons.RecordAndReplayButtonText,
             RecordAndReplayButtonEnabled = buttons.RecordAndReplayButtonEnabled,
-            DeleteButtonText = buttons.DeleteButtonText,
-            DeleteButtonEnabled = buttons.DeleteButtonEnabled,
+            DeleteButtonVisible = section != HistorySectionMode.Ghost,
+            DeleteButtonText = deleteButtonText,
+            DeleteButtonEnabled = deleteButtonEnabled,
         };
+    }
+
+    // Runs and Ghost favorite the selected battle (or jump to it once it is one); Favorites edits
+    // the selected favorite's note.
+    private (bool Visible, string Text, bool Enabled) FavoriteButton(
+        HistoryBattleRecord? selectedBattle,
+        HistoryFavoriteRecord? selectedFavorite
+    )
+    {
+        if (_coordinator?.FavoritesAvailable != true)
+            return (false, string.Empty, false);
+        if (_state.SectionMode == HistorySectionMode.Favorites)
+            return (
+                true,
+                HistoryPanelText.EditFavoriteNote(),
+                selectedFavorite != null && !_state.FavoriteActionInProgress
+            );
+        if (_state.FavoriteActionInProgress)
+            return (true, HistoryPanelText.SavingFavorite(), false);
+        return (
+            true,
+            _coordinator.IsSelectedBattleFavorite(selectedBattle)
+                ? HistoryPanelText.FavoritedBattle()
+                : HistoryPanelText.FavoriteBattle(),
+            selectedBattle != null
+        );
     }
 }
 
@@ -289,7 +360,26 @@ internal sealed class HistoryPanelViewModel
 
     public bool RecordAndReplayButtonEnabled { get; set; }
 
+    public bool DeleteButtonVisible { get; set; }
+
     public string DeleteButtonText { get; set; } = string.Empty;
 
     public bool DeleteButtonEnabled { get; set; }
+
+    // Favorites rows reuse VisibleBattles for portraits and badges; their text comes from here.
+    public List<string> FavoriteRowLabels { get; set; } = new();
+
+    public bool ShowsBothBoards { get; set; }
+
+    public bool FavoritesTabVisible { get; set; }
+
+    public bool FavoriteButtonVisible { get; set; }
+
+    public string FavoriteButtonText { get; set; } = string.Empty;
+
+    public bool FavoriteButtonEnabled { get; set; }
+
+    public string? SelectedFavoriteBattleId { get; set; }
+
+    public string SelectedFavoriteNote { get; set; } = string.Empty;
 }
