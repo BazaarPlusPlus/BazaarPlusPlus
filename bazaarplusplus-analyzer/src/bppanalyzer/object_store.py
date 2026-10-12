@@ -102,7 +102,9 @@ def derive_s3_credentials(
 @dataclass(frozen=True, slots=True)
 class ObjectStat:
     key: str
-    sha256: str
+    # None for an object another tool wrote without the sha256 metadata
+    # R2ObjectStore.put records; it never matches a snapshot, so it is replaced.
+    sha256: str | None
     bytes: int
     cache_control: str
     content_type: str
@@ -237,8 +239,8 @@ def _r2_stat(key: str, response: dict, *, body: bytes | None = None) -> ObjectSt
         if size != len(body) or (digest is not None and digest != actual):
             raise ObjectStoreError(f"R2 object metadata differs from bytes: {key}")
         digest = actual
-    if not isinstance(digest, str) or len(digest) != 64:
-        raise ObjectStoreError(f"R2 object sha256 metadata is missing: {key}")
+    if digest is not None and (not isinstance(digest, str) or len(digest) != 64):
+        raise ObjectStoreError(f"R2 object sha256 metadata is malformed: {key}")
     if modified.tzinfo is None:
         modified = modified.replace(tzinfo=UTC)
     return ObjectStat(key, digest, size, cache_control, content_type, modified.astimezone(UTC))
