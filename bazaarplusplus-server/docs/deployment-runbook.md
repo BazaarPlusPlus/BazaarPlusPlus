@@ -118,10 +118,29 @@ Suggested starting thresholds; tune against real traffic.
 | D1 cleanup failure | `event = "d1.retention.failed"` | ≥ 1 in 15 min |
 | D1 cleanup backlog | `event = "d1.retention" AND has_more = true` | Four consecutive runs |
 | D1 cleanup stopped | No successful `d1.retention` event / failed Cron invocations | No success for 45 min |
-| Analyzer dispatch failure | `event = "analyzer.dispatch.failed"` | ≥ 3 in 3 h |
+| Analyzer dispatch failure | `event = "analyzer.dispatch.failed"` (configured as `message LIKE '%analyzer.dispatch.failed%'`, see below) | ≥ 3 in 3 h |
 
 Classified 4xx responses are intentionally not logged; they are client errors and
 would drown the signal.
+
+The Analyzer dispatch failure alert is configured as a Cloudflare custom alert
+(Notifications → Create an alert → Custom alert), named `Analyzer dispatch failure`,
+using the Threshold method with email delivery. The custom alert query builder for the
+Workers Logs dataset filters only on fixed columns, so it cannot match the `event`
+field directly. The alert instead matches the whole JSON log line in the `message`
+column, which the Worker's `writeLog` in `src/observability.ts` emits:
+
+```sql
+SELECT count() AS "value"
+FROM "logs"."workersLogs"
+WHERE "scriptName" = 'bazaarplusplus-mod-api-v6'
+  AND "message" LIKE '%analyzer.dispatch.failed%'
+```
+
+The dashboard also adds an `accountTag` predicate. The rule fires at `>= 3` with a
+custom `3h` evaluation window and repeats at most once per hour while it stays
+active. Renaming the event breaks this alert silently, so update the `LIKE` pattern
+in the same change.
 
 ### 6.2 D1 state checks (external prober)
 
