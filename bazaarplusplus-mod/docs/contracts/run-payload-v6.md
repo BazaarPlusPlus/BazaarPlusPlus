@@ -15,17 +15,55 @@ and the compressed-segment SHA-256 are handled before this payload is decompress
 - `RunId` and `PlayerAccountId` must equal the enclosing Bundle manifest before any Battle replay is
   consumed.
 
-## Changes from V5
+## Root object
 
-V5 is frozen in [run-payload-v5.md](run-payload-v5.md). V6 keeps every key and type except:
+| Key | Property | Type | Meaning |
+|---:|---|---|---|
+| 0 | `PayloadFormatVersion` | int | Always `6` |
+| 1 | `RunId` | string | Stable local Run identity |
+| 2 | `PlayerAccountId` | string | Frozen Run player identity |
+| 3 | `Run` | `RunFactsV6` | Final Run facts |
+| 4 | `Events` | `RunEventV6[]` | Run events ordered by sequence |
+| 5 | `Battles` | `RunBattleV6[]` | Battle facts and optional replay inputs |
+| 6 | `ReplayableBattleIds` | string[] | Battles retaining snapshots and all replay phases |
+| 7 | `Degradation` | `PayloadDegradationV6` | Deterministic size/input degradation record |
 
-- Every time is a Unix millisecond integer (MessagePack int): `RunFactsV6` keys `3` and `4`
-  (`StartedAtMs`, nullable `EndedAtMs`), `RunEventV6` key `1` (`TimestampMs`), and
-  `BattleFactsV6` key `0` (`RecordedAtMs`). V5 carried round-trip ISO-8601 text there.
-- `RunEventV6.PayloadJson` no longer repeats `run_id`, `seq`, `ts`, or `kind`: the Run root and
-  the event's keys `0..2` own them, and every consumer reads them from there. The JSON keeps the
-  remaining fields of the stored event in stored order, including `schema_version`
-  (`RunLogEvent.PayloadSchemaVersion`); `RunPayloadComposer.EventPayloadBody` does the stripping.
+Every time is a Unix millisecond integer (MessagePack int): `RunFactsV6` keys `3` and `4`
+(`StartedAtMs`, nullable `EndedAtMs`), `RunEventV6` key `1` (`TimestampMs`), and `BattleFactsV6`
+key `0` (`RecordedAtMs`).
+
+## Nested objects
+
+`RunFactsV6` records hero, mode, seed, start/end time, terminal status, day/hour, wins/losses,
+starting and final rank/rating, rating delta, final economy/build values, build channel, and mod
+version. Its keys are `0..21` in property declaration order.
+
+`RunEventV6` uses keys `0..3` for sequence, timestamp, kind, and the structured event JSON.
+`PayloadJson` does not repeat `run_id`, `seq`, `ts`, or `kind`: the Run root and the event's keys
+`0..2` own them, and every consumer reads them from there. The JSON keeps the remaining fields of
+the stored event in stored order, including `schema_version` (`RunLogEvent.PayloadSchemaVersion`);
+`RunPayloadComposer.EventPayloadBody` does the stripping. The Bundle pipeline does not reinterpret it.
+
+`RunBattleV6` uses keys `0..4` for Battle ID, `BattleFactsV6`, `BattleParticipantsV6`, nullable
+`BattleCardSnapshotsV6`, and nullable `BattleReplayV6`. A Battle is replayable only when both
+nullable fields exist, Spawn, Combat, and Despawn replay byte arrays are non-empty, and snapshots
+contain exactly one non-`Missing` set for each of `player_hand`, `player_skills`, `opponent_hand`,
+and `opponent_skills`, with no duplicate or extra set. `RunBundleV6Contract` owns this predicate on
+both composition and ghost-import paths.
+
+`BattleParticipantV6` carries account/display/hero/rank/rating/level/prestige/victories plus
+payload-only income, gold, hand-item count, and skill count. Manifest projection normalization is a
+separate operation and does not copy nullable payload values blindly.
+
+`BattleCardSnapshotsV6` contains the four captured card sets. `BattleCardV6` preserves stable
+template and instance identity, type/size/location, display metadata, tags, and integer attributes.
+
+`BattleReplayV6` uses keys `0..3` for replay version and the native Spawn, Combat, and Despawn
+MessagePack byte sequences.
+
+`PayloadDegradationV6` uses keys `0..3` for categories, replay-omitted Battle IDs, omitted event
+count, and whether a requested Screenshot was omitted. It describes the final immutable payload;
+it is not a retry state.
 
 ## Golden
 

@@ -48,4 +48,4 @@ Cross-cutting single-file directories were flattened to `src/limits.ts`, `src/pr
 
 ## Historical plans
 
-The pre-implementation planning documents that lived under `docs/plans/` were process artifacts; their durable decisions are captured by this ADR, current source, `docs/api-reference.md`, and `contracts/v5/`. They were removed from the tree and remain available in git history.
+The pre-implementation planning documents that lived under `docs/plans/` were process artifacts; their durable decisions are captured by this ADR, current source, `docs/api-reference.md`, and `contracts/v6/`. They were removed from the tree and remain available in git history.

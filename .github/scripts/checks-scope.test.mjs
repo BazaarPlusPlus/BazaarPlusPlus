@@ -89,7 +89,7 @@ test('root documents, each project and global inputs select their complete gates
 test('shared inputs select owners and every contract consumer', () => {
   for (const [file, consumers] of [
     [
-      'bazaarplusplus-server/contracts/v5/fixtures/run-only.bundle.b64',
+      'bazaarplusplus-server/contracts/v6/fixtures/run-only.bundle.b64',
       ['server', 'mod', 'analyzer']
     ],
     [
@@ -107,10 +107,6 @@ test('shared inputs select owners and every contract consumer', () => {
     ],
     [
       'bazaarplusplus-mod/docs/contracts/run-payload-v6.md',
-      ['mod', 'server', 'analyzer']
-    ],
-    [
-      'bazaarplusplus-mod/docs/contracts/fixtures/run-payload-v5.fixture.b64',
       ['mod', 'server', 'analyzer']
     ],
     [

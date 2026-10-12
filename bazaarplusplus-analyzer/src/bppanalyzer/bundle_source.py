@@ -18,9 +18,8 @@ import httpx
 
 from bppanalyzer.durable import canonical_json
 
-# Bundle version by prefix magic. V6 is what the V6 Worker serves; V5 stays readable while the
-# V5 Worker serves 5.7.0 players. The versions differ only in their Run segment (projection.py).
-BUNDLE_VERSIONS = {b"BPPBNDL5": 5, b"BPPBNDL6": 6}
+# Bundle version by prefix magic; the V6 Worker serves only Bundle V6.
+BUNDLE_VERSIONS = {b"BPPBNDL6": 6}
 MAX_BUNDLE_BYTES = 8_388_607
 MAX_MANIFEST_BYTES = 2_097_152
 MAX_RUN_BYTES = 2_097_151
@@ -575,7 +574,7 @@ def admit_bundle(ref: BundleRef, content: bytes) -> Bundle:
 
 
 def validate_bundle(content: bytes, *, expected_bundle_id: str) -> Mapping[str, Any]:
-    """Validate a Bundle V5 or V6 envelope and every declared segment digest."""
+    """Validate a Bundle V6 envelope and every declared segment digest."""
     if len(content) > MAX_BUNDLE_BYTES:
         raise SourceContractError("bundle_too_large", "Bundle exceeds its byte limit")
     version = BUNDLE_VERSIONS.get(content[:8]) if len(content) >= 16 else None

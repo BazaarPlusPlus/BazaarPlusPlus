@@ -23,16 +23,10 @@ from bppanalyzer.fact_store import FactStore
 from tests.bundle_fixtures import Card, bundle_bytes, envelope, payload
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-# V5 inputs are the frozen contracts the V5 Worker still serves; V6 is the current writer.
-SERVER_FIXTURES = {
-    version: REPO_ROOT / f"bazaarplusplus-server/contracts/v{version}/fixtures"
-    for version in (5, 6)
-}
-MOD_RUN_FIXTURES = {
-    5: REPO_ROOT / "bazaarplusplus-mod/docs/contracts/fixtures/run-payload-v5.fixture.b64",
-    6: REPO_ROOT
-    / "bazaarplusplus-mod/tests/BundleV6Codec.Tests/fixtures/run-payload-v6.fixture.b64",
-}
+SERVER_FIXTURES = REPO_ROOT / "bazaarplusplus-server/contracts/v6/fixtures"
+MOD_RUN_FIXTURE = (
+    REPO_ROOT / "bazaarplusplus-mod/tests/BundleV6Codec.Tests/fixtures/run-payload-v6.fixture.b64"
+)
 CONTRACT_FIXTURES = REPO_ROOT / "bazaarplusplus-analyzer/contracts/v5/fixtures"
 TEST_FIXTURES = Path(__file__).parent / "fixtures"
 PROJECTION_GOLDENS = TEST_FIXTURES / "projection"
@@ -89,33 +83,31 @@ class ServedBundle:
     content: bytes
 
 
-def server_run_only_bundle(available_at_ms: int, *, version: int = 5) -> ServedBundle:
+def server_run_only_bundle(available_at_ms: int) -> ServedBundle:
     """The server's run-only golden; its Run segment never decodes."""
-    fixtures = SERVER_FIXTURES[version]
+    fixtures = SERVER_FIXTURES
     manifest = json.loads((fixtures / "run-only.manifest.json").read_text())
     content = read_base64(fixtures / "run-only.bundle.b64")
     return ServedBundle(manifest["bundle_id"], available_at_ms, content)
 
 
-def mod_run_payload_bundle(
-    available_at_ms: int, *, created_at_ms: int, version: int = 5
-) -> ServedBundle:
+def mod_run_payload_bundle(available_at_ms: int, *, created_at_ms: int) -> ServedBundle:
     """Envelope the mod-encoded Run golden; the C# writer owns the Run bytes."""
-    run_content = read_base64(MOD_RUN_FIXTURES[version])
+    run_content = read_base64(MOD_RUN_FIXTURE)
     manifest: dict[str, object] = {
         "bundle_id": MOD_BUNDLE_ID,
-        "bundle_version": version,
+        "bundle_version": 6,
         "created_at_ms": created_at_ms,
         "run": {
             "run_id": "payload-run",
             "player_account_id": "golden-account",
-            "run_format_version": version,
+            "run_format_version": 6,
             "projection": {"run": {}, "battles": []},
             "payload": {
                 "offset": 0,
                 "length": len(run_content),
                 "sha256": hashlib.sha256(run_content).hexdigest(),
-                "content_type": f"application/x-bpp-run-v{version}",
+                "content_type": "application/x-bpp-run-v6",
             },
         },
     }
@@ -129,18 +121,16 @@ def _synthetic(
     available_at_ms: int,
     *,
     created_at_ms: int | None = None,
-    version: int = 5,
     **run: object,
 ) -> ServedBundle:
     run_id = str(run.setdefault("run_id", f"run-{bundle_id}"))
     account_id = str(run.setdefault("account_id", f"account-{bundle_id}"))
     content = bundle_bytes(
         bundle_id,
-        run_payload=payload(**run, version=version),  # type: ignore[arg-type]
+        run_payload=payload(**run),  # type: ignore[arg-type]
         created_at_ms=created_at_ms,
         run_id=run_id,
         account_id=account_id,
-        version=version,
     )
     return ServedBundle(bundle_id, available_at_ms, content)
 
@@ -194,12 +184,11 @@ _PROJECTION_RUNS: dict[str, dict[str, object]] = {
 }
 
 
-def projection_case(name: str, *, version: int = 5) -> ServedBundle:
+def projection_case(name: str) -> ServedBundle:
     number = list(_PROJECTION_RUNS).index(name)
     return _synthetic(
         f"projection-{name}",
         _ms(_PROJECTION_HOUR) + (number + 1) * 1_000,
-        version=version,
         **dict(_PROJECTION_RUNS[name]),
     )
 

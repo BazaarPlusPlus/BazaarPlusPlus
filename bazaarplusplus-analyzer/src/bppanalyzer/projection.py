@@ -1,4 +1,4 @@
-"""Streaming projection from verified Bundle V5 and V6 objects to five Arrow tables."""
+"""Streaming projection from verified Bundle V6 objects to five Arrow tables."""
 
 import gzip
 import hashlib
@@ -830,22 +830,19 @@ def decode_run_payload(content: bytes) -> tuple[Any, ...]:
     except (ValueError, TypeError, struct.error) as error:
         raise RunPayloadError("run_payload_decode_failed", "Run MessagePack is invalid") from error
     version = _integer(root[0], "payload.version")
-    if version == 6:
-        return _v6_times_as_text(root)
-    if version != 5:
+    if version != 6:
         raise RunPayloadError("payload_version_unsupported", "Run version is unsupported")
-    return root
+    return _v6_times_as_text(root)
 
 
 _UNIX_EPOCH = datetime(1970, 1, 1, tzinfo=UTC)
 
 
 def _v6_times_as_text(root: tuple[Any, ...]) -> tuple[Any, ...]:
-    """Return a V6 root whose time slots hold the UTC text the V5 slots held.
+    """Return a V6 root whose time slots hold UTC text.
 
-    V6 carries Run start/end and Battle record times as Unix milliseconds. The fact
-    columns stay text (``*_at_utc``) so V5 and V6 hours share one schema; only the
-    precision of the text differs.
+    V6 carries Run start/end and Battle record times as Unix milliseconds; the fact
+    columns store them as millisecond-precision text (``*_at_utc``).
     """
     try:
         run = _with_slot(root[3], 22, "run", 3, _ms_text)
@@ -882,7 +879,7 @@ def _ms_text(value: object) -> str:
 
 
 class _MessagePack:
-    """Small strict decoder for the scalar/array/map subset used by RunPayload V5 and V6."""
+    """Small strict decoder for the scalar/array/map subset used by RunPayload V6."""
 
     def __init__(self, content: bytes) -> None:
         self._content = content

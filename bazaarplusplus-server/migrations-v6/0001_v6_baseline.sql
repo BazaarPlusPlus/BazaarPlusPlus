@@ -1,7 +1,5 @@
--- V6 D1 baseline: the schema ../migrations/0001-0006 leave, with Bundle and Run
--- format version 6 and without the BazaarDB claim/settle tables (V6 delivers
--- through the GET /bazaardb/bundles cursor feed). It creates a new D1;
--- ../migrations/ stays with the V5 D1 until the V5 Worker is retired.
+-- V6 D1 baseline: Bundle and Run format version 6; BazaarDB reads the
+-- GET /bazaardb/bundles cursor feed, so the D1 keeps no delivery state.
 PRAGMA foreign_keys = ON;
 
 CREATE TABLE bundles (

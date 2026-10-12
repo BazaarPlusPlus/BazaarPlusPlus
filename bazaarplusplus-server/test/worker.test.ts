@@ -17,7 +17,7 @@ function collection(query: string, bindings: Cloudflare.Env = env): Promise<Resp
   );
 }
 
-test("GET /health reports V5 liveness without dependency access", async () => {
+test("GET /health reports liveness without dependency access", async () => {
   const response = await worker.fetch(new Request(`${ORIGIN}/health`), {} as Cloudflare.Env);
 
   expect(response.status).toBe(200);

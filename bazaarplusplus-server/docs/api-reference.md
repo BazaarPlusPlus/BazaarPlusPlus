@@ -2,7 +2,7 @@
 
 Base URL: `https://mod-api-v6.bazaarplusplus.com`
 
-Mod 6.0 and later use this Worker. The V5 Worker at `https://mod-api-v5.bazaarplusplus.com` keeps serving 5.7.0 with the same routes and the frozen [Bundle V5](../contracts/v5/bundle-v5.md) format ([deployment runbook](deployment-runbook.md#8-the-v5-worker)).
+Mod 6.0 and later use this Worker.
 
 The Worker exposes exactly these routes:
 
@@ -184,7 +184,7 @@ Limits:
 | Run projection | 524,288 UTF-8 bytes |
 | Battle projections | 30, with unique IDs inside the Bundle |
 
-The machine-readable contract is in [`../contracts/v6/manifest.schema.json`](../contracts/v6/manifest.schema.json), with prefix details and golden vectors under [`../contracts/v6`](../contracts/v6). This Worker rejects V5 Bundles.
+The machine-readable contract is in [`../contracts/v6/manifest.schema.json`](../contracts/v6/manifest.schema.json), with prefix details and golden vectors under [`../contracts/v6`](../contracts/v6). This Worker rejects every other Bundle version.
 
 ## `GET /health`
 

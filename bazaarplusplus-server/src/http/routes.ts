@@ -3,7 +3,7 @@ import { ingestBundle } from "../modules/bundle-ingest";
 import { discoverGhostBattles } from "../modules/ghost-battle-discovery";
 import type { RouteDefinition } from "./route-shell";
 
-export const V5_ROUTES = [
+export const ROUTES = [
   {
     path: "/health",
     method: "GET",

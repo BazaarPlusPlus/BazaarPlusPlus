@@ -8,7 +8,7 @@ A Bundle is the immutable unit of upload, storage, and delivery — exactly one 
 - **Streaming, not buffering.** Ingest buffers only the fixed prefix and the bounded manifest; Run and Screenshot bytes stream through incremental digest validation into a single conditional R2 PUT and are never decompressed.
 - **No download proxy.** Every consumer downloads the same complete Bundle directly from R2 through a seven-day presigned `GET` URL, inside an 8-day R2 lifecycle window.
 
-The public surface is five routes: liveness, public streaming ingest, token-protected analyzer sync, rate-limited Ghost discovery, and the token-protected BazaarDB Feed ([ADR 0004](docs/adr/0004-bazaardb-cursor-feed.md)). The wire contract is [docs/api-reference.md](docs/api-reference.md); the binary Bundle format and its golden vectors are [contracts/v6](contracts/v6) (V6 only; [contracts/v5](contracts/v5) is frozen); the domain language is [CONTEXT.md](CONTEXT.md).
+The public surface is five routes: liveness, public streaming ingest, token-protected analyzer sync, rate-limited Ghost discovery, and the token-protected BazaarDB Feed ([ADR 0004](docs/adr/0004-bazaardb-cursor-feed.md)). The wire contract is [docs/api-reference.md](docs/api-reference.md); the binary Bundle format and its golden vectors are [contracts/v6](contracts/v6); the domain language is [CONTEXT.md](CONTEXT.md).
 
 ## Architecture
 
@@ -42,7 +42,7 @@ rerun the full server checks and tests.
 
 `src/env.ts` is the sole binding declaration. `wrangler.toml` provisions the D1 database, the R2 bucket, and the Ghost rate limiter. The R2 presign key pair and the two service tokens are set out of band (`.dev.vars` locally, `wrangler secret put` in production). The two service tokens are distinct 32-byte random values encoded as 43-character unpadded base64url strings, and the R2 S3 credential grants Object Read only on the V6 bucket.
 
-Provisioning, migration, lifecycle, deploy, and smoke-test commands are in [docs/deployment-runbook.md](docs/deployment-runbook.md) and require explicit Cloudflare deployment authorization. The V6 D1 is built from `migrations-v6/`; once production has applied a file it is frozen, and schema changes ship as new files. The V5 Worker keeps running, deployed from the 5.7.0 tag, until the runbook's retirement conditions are met; `migrations/` stays until then.
+Provisioning, migration, lifecycle, deploy, and smoke-test commands are in [docs/deployment-runbook.md](docs/deployment-runbook.md) and require explicit Cloudflare deployment authorization. The V6 D1 is built from `migrations-v6/`; once production has applied a file it is frozen, and schema changes ship as new files.
 
 ## License
 

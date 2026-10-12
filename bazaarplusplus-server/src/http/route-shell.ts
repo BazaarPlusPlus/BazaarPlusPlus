@@ -3,7 +3,7 @@ import { apiError, HttpError } from "../errors";
 import { logError } from "../observability";
 import { authenticateServiceToken, type ServiceScope } from "./auth";
 import { jsonError, jsonResponse } from "./json";
-import { V5_ROUTES } from "./routes";
+import { ROUTES } from "./routes";
 
 export interface HandlerContext {
   readonly request: Request;
@@ -92,7 +92,7 @@ function corsHeaders(enabled: boolean, initial?: HeadersInit): Headers {
   return headers;
 }
 
-const paths = indexRoutes(V5_ROUTES);
+const paths = indexRoutes(ROUTES);
 
 export async function fetch(request: Request, env: Env): Promise<Response> {
   const requestId = request.headers.get("CF-Ray") ?? crypto.randomUUID();
