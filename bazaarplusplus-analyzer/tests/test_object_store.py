@@ -199,9 +199,30 @@ def test_r2_adapter_maps_not_found_errors_and_rejects_bad_metadata(monkeypatch) 
     with pytest.raises(ObjectStoreError, match="stat failed"):
         store.stat("failed.json")
     client.failure = None
+    client.metadata["Metadata"] = {"sha256": "short"}
+    with pytest.raises(ObjectStoreError, match="sha256 metadata is malformed"):
+        store.stat("bad.json")
+    client.metadata["Metadata"] = {"sha256": hashlib.sha256(client.body).hexdigest()}
     client.metadata.pop("ContentType")
     with pytest.raises(ObjectStoreError, match="metadata is incomplete"):
         store.stat("bad.json")
+
+
+def test_r2_adapter_reads_objects_written_without_sha256_metadata(monkeypatch) -> None:
+    # A snapshot seeded with wrangler carries no sha256 metadata; stat reports
+    # no digest so LatestPublisher replaces it, and get hashes the bytes.
+    client = _FakeR2Client(datetime(2026, 10, 11, tzinfo=UTC))
+    client.metadata["Metadata"] = {}
+    monkeypatch.setattr(object_store_module.boto3, "client", lambda *_args, **_kwargs: client)
+    with _Verify(_verified()).client() as http:
+        store = R2ObjectStore(
+            account_id=ACCOUNT, bucket="bucket", api_token=_token(), http_client=http
+        )
+    stat = store.stat("builds/latest.json")
+    assert stat is not None and stat.sha256 is None
+    stored = store.get("builds/latest.json")
+    assert stored is not None
+    assert stored.stat.sha256 == hashlib.sha256(client.body).hexdigest()
 
 
 def test_r2_configuration_is_validated_before_any_request(monkeypatch) -> None:
