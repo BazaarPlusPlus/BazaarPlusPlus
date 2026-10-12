@@ -33,10 +33,8 @@ internal static class HistoryFavoritesTests
                     opponent_skills_json
                 ) VALUES (
                     'fav-local',
-                    '{"Items":[{"TemplateId":"local-card"}],"Status":"CapturedEmpty","Source":"Unknown"}',
-                    '{"Items":[],"Status":"CapturedEmpty","Source":"Unknown"}',
-                    '{"Items":[],"Status":"CapturedEmpty","Source":"Unknown"}',
-                    '{"Items":[],"Status":"CapturedEmpty","Source":"Unknown"}'
+                    '{"items":[{"template_id":"local-card"}]}',
+                    '{"items":[]}', '{"items":[]}', '{"items":[]}'
                 );
                 INSERT INTO battles (
                     battle_id, source, remote_battle_id, uploader_account_id,
