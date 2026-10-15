@@ -111,6 +111,18 @@ once. Collection and publication update the same report; a later failure,
 including retention failure, preserves completed publication and analysis
 facts. The driver retains pipeline ordering and lock-ownership decisions.
 
+`SourceHourIntake` in `src/bppanalyzer/hour_intake.py` owns one Source Hour's
+index and ingest stages, cumulative admission counts, timings, and terminal
+result. Its synchronous progress observations reach Operational Evidence during streaming, before the next
+Bundle is projected; the driver does not reconstruct these facts from callbacks
+or Run-level counter differences. Successful admission counts describe downloads,
+not durable commits. A failure observation only updates in-memory evidence, so a
+lost lock cannot trigger another status or log write. `FactStore` in
+`src/bppanalyzer/fact_store.py` retains atomic commit and write-time ownership
+checks; the driver retains Source Day scheduling, abandonment, and sealing. Recoverable source failures return a terminal result
+for the driver to schedule; observer failures propagate as Run failures, even
+when their exception type happens to match a recoverable source error.
+
 Run evidence aggregates collection and processing performance at Run scope:
 listing pages and retries, download attempts, retries, bytes and latency
 percentiles, plus bounded stage timings for projection, Parquet persistence,

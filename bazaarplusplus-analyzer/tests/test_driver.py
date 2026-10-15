@@ -11,6 +11,7 @@ from bppanalyzer.bundle_source import (
     HourExpired,
     RawHourIndex,
     RetryableSourceError,
+    admit_bundle,
     raw_commit_sha256,
 )
 from bppanalyzer.driver import PipelineDriver
@@ -566,3 +567,127 @@ def test_runtime_limit_first_reached_during_terminal_logging_requires_current_ow
         assert [
             json.loads(line) for line in (tmp_path / "runs.jsonl").read_text().splitlines()
         ] == [summary]
+
+
+@pytest.mark.parametrize("outcome", ["complete", "retryable", "fenced", "retryable_then_complete"])
+def test_hour_intake_keeps_live_checkpoints_and_terminal_counts(
+    tmp_path: Path, outcome: str
+) -> None:
+    observed: list[dict] = []
+    before_fence: dict[Path, bytes] = {}
+
+    def capture() -> None:
+        current = read_status(tmp_path)["current_run"]
+        assert current is not None
+        observed.append(current)
+        assert current["phase"] == "heal"
+
+    class LiveSource:
+        def hour_index(self, source_hour: datetime) -> RawHourIndex:
+            capture()
+            assert observed[-1]["step"] == "index"
+            timestamp = int(source_hour.timestamp() * 1_000)
+            refs = tuple(
+                BundleRef(
+                    bundle_id=f"bundle-{number}",
+                    available_at_ms=timestamp + number,
+                    download_url=f"https://download.invalid/bundle-{number}",
+                    download_expires_at_ms=timestamp + 60_000,
+                )
+                for number in range(2)
+            )
+            return RawHourIndex(source_hour, refs, raw_commit_sha256(refs), 1)
+
+        def stream(self, index: RawHourIndex):
+            capture()
+            assert observed[-1]["bundles"] == {"done": 0, "total": 2}
+            for number, ref in enumerate(index.items):
+                yield admit_bundle(ref, bundle_bytes(ref.bundle_id))
+                capture()
+                assert observed[-1]["step"] == "ingest"
+                assert observed[-1]["bundles"] == {"done": number + 1, "total": 2}
+                assert (
+                    index.source_hour.strftime("%Y-%m-%dT%H")
+                    not in FactStore(tmp_path).committed_hours()
+                )
+                if number == 0 and index.source_hour.hour == 0:
+                    if outcome in {"retryable", "retryable_then_complete"}:
+                        raise RetryableSourceError("fixture_download", "fixture download failed")
+                    if outcome == "fenced":
+                        for path in [tmp_path / "status.json", *(tmp_path / "logs").glob("*.log")]:
+                            before_fence[path] = path.read_bytes()
+                        (tmp_path / ".lock/heartbeat").write_text(
+                            json.dumps({"run_id": "replacement"})
+                        )
+
+    def report(message: str) -> None:
+        if message.startswith("healed "):
+            capture()
+            assert observed[-1]["step"] == "complete"
+            assert observed[-1]["hours_done"] == 1
+
+    now = datetime(2026, 8, 7, 2 if outcome == "retryable_then_complete" else 1, 1, tzinfo=UTC)
+    driver = _driver(tmp_path, source=LiveSource(), clock=lambda: now)
+    if outcome == "fenced":
+        with pytest.raises(LockOwnershipLost):
+            driver.run(heal_days=1, progress_callback=report)
+        assert before_fence
+        assert all(path.read_bytes() == content for path, content in before_fence.items())
+        assert FactStore(tmp_path).committed_hours() == ()
+        assert not (tmp_path / "runs.jsonl").exists()
+        return
+
+    summary = driver.run(heal_days=1, progress_callback=report)
+    downloads = summary.report["downloads"]
+    expected, succeeded, failed, hours = {
+        "complete": (2, 2, 0, 1),
+        "retryable": (2, 1, 1, 0),
+        "retryable_then_complete": (4, 3, 1, 1),
+    }[outcome]
+    assert downloads["expected_bundles"] == expected
+    assert downloads["succeeded_bundles"] == succeeded
+    assert downloads["failed_bundles"] == failed
+    assert downloads["listing_pages"] == (2 if outcome == "retryable_then_complete" else 1)
+    assert summary.hours_ingested == hours
+    assert len(summary.failures) == failed
+    assert len(FactStore(tmp_path).committed_hours()) == hours
+    assert read_status(tmp_path)["current_run"] is None
+    assert read_status(tmp_path)["last_run"]["report"] == summary.report
+
+
+@pytest.mark.parametrize("message_prefix", ["hour indexed:", "hour ingest progress:", "healed "])
+@pytest.mark.parametrize("error_type", [HourExpired, RetryableSourceError])
+def test_observer_failure_is_fatal_even_when_its_type_matches_a_source_error(
+    tmp_path: Path, message_prefix: str, error_type
+) -> None:
+    error = error_type("fixture_observer", "fixture progress observer failed")
+
+    class OneBundleSource(InvalidBundleSource):
+        def stream(self, index: RawHourIndex):
+            for ref in index.items:
+                yield admit_bundle(ref, bundle_bytes(ref.bundle_id))
+
+    def report(message: str) -> None:
+        if message.startswith(message_prefix):
+            raise error
+
+    with pytest.raises(error_type) as raised:
+        _driver(
+            tmp_path,
+            source=OneBundleSource(),
+            clock=lambda: datetime(2026, 8, 7, 1, 1, tzinfo=UTC),
+        ).run(heal_days=1, progress_callback=report)
+
+    assert raised.value is error
+    summary = read_status(tmp_path)["last_run"]
+    assert summary["outcome"] == "error"
+    assert summary["failures"] == [{"scope": "run", "reason": "fixture_observer"}]
+    assert summary["days_abandoned"] == 0
+    assert summary["report"]["downloads"]["expected_bundles"] == 1
+    assert summary["report"]["downloads"]["succeeded_bundles"] == (
+        0 if message_prefix == "hour indexed:" else 1
+    )
+    assert summary["report"]["downloads"]["failed_bundles"] == 0
+    committed = message_prefix == "healed "
+    assert summary["hours_ingested"] == int(committed)
+    assert FactStore(tmp_path).has_hour("2026-08-07T00") is committed

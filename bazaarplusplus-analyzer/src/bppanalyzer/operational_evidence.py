@@ -15,7 +15,7 @@ from typing import Any, TypedDict, cast
 from bppanalyzer.bundle_source import SourcePerformance
 from bppanalyzer.durable import atomic_replace, aware_utc, canonical_json, utc_timestamp
 from bppanalyzer.fact_store import FactPruneReport, FactStore, parse_source_day
-from bppanalyzer.hour_intake import is_hour_settled
+from bppanalyzer.hour_intake import HourIntakeProgress, is_hour_settled
 from bppanalyzer.publication import (
     PRODUCTS,
     AnalysisWindow,
@@ -250,6 +250,70 @@ class RunEvidence:
         if self.failures:
             return "partial"
         return "ok" if self.changed else "noop"
+
+    def observe_intake(
+        self,
+        update: HourIntakeProgress,
+        *,
+        report: Callable[[str], None],
+        checkpoint: Callable[..., None],
+    ) -> None:
+        """Translate intake facts into live evidence and aggregate each terminal once."""
+        if update.error is not None or update.commit is not None:
+            self.expected_bundles += update.expected_bundles or 0
+            self.succeeded_bundles += update.succeeded_bundles
+            self.failed_bundles += update.failed_bundles
+            self.listing_pages += update.listing_pages
+            self.source_index_seconds += update.source_index_seconds
+            self.source_ingest_seconds += update.source_ingest_seconds
+        if update.error is not None:
+            # This may be a lost lock or a runtime limit. Only record in memory;
+            # the driver owns whether any further durable evidence is permitted.
+            return
+        hour = update.source_hour
+        if (commit := update.commit) is not None:
+            self.batch_generation_seconds += commit.batch_generation_seconds
+            self.parquet_write_seconds += commit.parquet_write_seconds
+            self.fact_finalize_seconds += commit.fact_finalize_seconds
+            self.hours_ingested += 1
+            self.changed = True
+            checkpoint(
+                "heal",
+                hour,
+                step="complete",
+                bundles_done=commit.bundle_count,
+                bundles_total=update.expected_bundles,
+            )
+            reused = " reused" if commit.reused else ""
+            report(
+                f"healed {hour} bundles={commit.bundle_count} "
+                f"rows={sum(commit.row_counts.values())} "
+                f"bytes={sum(commit.file_bytes.values()) / (1024 * 1024):.1f}MiB "
+                f"elapsed={max(round(update.elapsed_seconds), 0)}s"
+                f"{reused} [{self.hours_ingested}/{self.hours_planned}]"
+            )
+        elif update.step == "index":
+            checkpoint("heal", hour, step="index")
+        else:
+            if update.succeeded_bundles == 0:
+                report(
+                    f"hour indexed: source_hour={hour} bundles={update.expected_bundles} "
+                    f"pages={update.listing_pages} "
+                    f"elapsed={max(round(update.source_index_seconds), 0)}s"
+                )
+            else:
+                report(
+                    f"hour ingest progress: source_hour={hour} "
+                    f"bundles={update.succeeded_bundles}/{update.expected_bundles} "
+                    f"elapsed={max(round(update.source_ingest_seconds), 0)}s"
+                )
+            checkpoint(
+                "heal",
+                hour,
+                step="ingest",
+                bundles_done=update.succeeded_bundles,
+                bundles_total=update.expected_bundles,
+            )
 
     def prepare_completion(
         self,
