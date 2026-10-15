@@ -67,6 +67,8 @@ class DirectoryLock:
                 self._path.mkdir()
             except FileExistsError:
                 age = self._heartbeat_age()
+                if age is None:
+                    continue
                 if age <= self._stale_after:
                     raise LockHeld("Another bpp run holds the lock") from None
                 try:
@@ -78,7 +80,12 @@ class DirectoryLock:
                 try:
                     # Another stale contender may have completed between our
                     # first observation and winning the takeover guard.
-                    if self._heartbeat_age() <= self._stale_after:
+                    age = self._heartbeat_age()
+                    if age is None:
+                        # A missing claim cannot be taken over: another process
+                        # may create a fresh directory before the rename below.
+                        continue
+                    if age <= self._stale_after:
                         raise LockHeld("Another bpp run holds the lock")
                     self.stale_run_id = self._read_run_id(self._heartbeat)
                     try:
@@ -197,14 +204,14 @@ class DirectoryLock:
         self._lost.set()
         self._stop.set()
 
-    def _heartbeat_age(self) -> float:
+    def _heartbeat_age(self) -> float | None:
         try:
             modified = self._heartbeat.stat().st_mtime
         except FileNotFoundError:
             try:
                 modified = self._path.stat().st_mtime
             except FileNotFoundError:
-                return float("inf")
+                return None
         return max(0.0, time.time() - modified)
 
     def _recover_takeover_guard(self, path: Path) -> None:
