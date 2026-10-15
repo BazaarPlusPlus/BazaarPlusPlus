@@ -11,6 +11,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="../Shared/LocalizationTestBootstrap.cs" Link="LocalizationTestBootstrap.cs" />
     <Compile
       Include="../BundleQueueSqliteStore.Tests/BundleSealEligibilityCases.cs"
       Link="BundleSealEligibilityCases.cs"

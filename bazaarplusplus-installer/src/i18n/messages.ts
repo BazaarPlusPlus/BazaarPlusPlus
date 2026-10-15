@@ -432,9 +432,9 @@ const zh = {
   storageCleanupConfirmTitle: '确认清理',
   storageCleanupTarget: '目标：{scope} · 范围：{preset}',
   storageCleanupScreenshotsConfirmBody:
-    '将删除 {count} 张结算截图（约 {size}），删除后无法恢复。',
+    '清理完成前请保持游戏关闭。将删除 {count} 张结算截图（约 {size}），删除后无法恢复。',
   storageCleanupRunDataConfirmBody:
-    '将删除 {runs} 局对局记录，包括 {battles} 场战斗、{videos} 个回放视频及相关截图（约 {size}），删除后无法恢复。',
+    '清理完成前请保持游戏关闭。将删除 {runs} 局对局记录，包括 {battles} 场战斗、{videos} 个回放视频及相关截图（约 {size}），删除后无法恢复。',
   storageCleanupSkippedPending: '另有 {count} 项尚未完成上传，将自动跳过。',
   storageCleanupNothingToClean: '没有符合条件的可清理数据。',
   storageCleanupConfirmAction: '确认清理',
@@ -444,7 +444,7 @@ const zh = {
     '未找到可清理的本地战绩数据库，请先在安装页选择正确的游戏目录。',
   storageCleanupProblemPreviewFailed: '无法预览清理范围，请重试。',
   storageCleanupProblemExecuteFailed:
-    '清理未完成，目标和范围已保留；请查看诊断后重试或安全关闭。',
+    '清理未完成，目标和范围已保留；请确认游戏已关闭，并查看诊断后重试或安全关闭。',
   storageCleanupProblemUnexpected: '清理存储时发生意外错误，请重试。',
   storageCleanupScreenshotsDone: '已删除 {files} 个文件，释放约 {size}。',
   storageCleanupRunDataDone:
@@ -974,9 +974,9 @@ const en: Record<MessageKey, string> = {
   storageCleanupConfirmTitle: 'Confirm Cleanup',
   storageCleanupTarget: 'Target: {scope} · Range: {preset}',
   storageCleanupScreenshotsConfirmBody:
-    'This will permanently delete {count} end-of-run {count|screenshot|screenshots} (about {size}). This cannot be undone.',
+    'Keep The Bazaar closed until cleanup finishes. This will permanently delete {count} end-of-run {count|screenshot|screenshots} (about {size}). This cannot be undone.',
   storageCleanupRunDataConfirmBody:
-    'This will permanently delete {runs} {runs|run|runs}, including {battles} {battles|battle|battles}, {videos} replay {videos|video|videos} and related screenshots (about {size}). This cannot be undone.',
+    'Keep The Bazaar closed until cleanup finishes. This will permanently delete {runs} {runs|run|runs}, including {battles} {battles|battle|battles}, {videos} replay {videos|video|videos} and related screenshots (about {size}). This cannot be undone.',
   storageCleanupSkippedPending:
     '{count} {count|item is|items are} still pending upload and will be skipped.',
   storageCleanupNothingToClean: 'Nothing matches the selected range.',
@@ -988,7 +988,7 @@ const en: Record<MessageKey, string> = {
   storageCleanupProblemPreviewFailed:
     'The cleanup range could not be previewed. Please retry.',
   storageCleanupProblemExecuteFailed:
-    'Cleanup did not finish. The target and range are preserved; review diagnostics, then retry or close safely.',
+    'Cleanup did not finish. The target and range are preserved; make sure The Bazaar is closed and review diagnostics, then retry or close safely.',
   storageCleanupProblemUnexpected:
     'Something unexpected happened while cleaning storage. Please retry.',
   storageCleanupScreenshotsDone:
