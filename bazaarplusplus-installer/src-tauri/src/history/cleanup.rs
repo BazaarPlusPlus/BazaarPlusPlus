@@ -4,8 +4,9 @@ use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
 
-use crate::history::files::resolve_cleanup_file_path;
+use crate::history::files::{resolve_cleanup_file_path, resolve_data_file_path};
 use crate::history::queries::{open_cleanup_connection, open_connection};
+use crate::services::game_process::{GameProcessProbe, SystemGameProcessProbe};
 
 /// Wire strings are a stable contract with the frontend preset buttons.
 #[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize, specta::Type)]
@@ -97,6 +98,7 @@ pub(crate) const PROTECTED_RUN_PREDICATE: &str = "
 pub struct ScreenshotCleanupItem {
     pub screenshot_id: String,
     pub image_relative_path: String,
+    /// Preview estimate only; execution resolves surviving references under the lock.
     delete_image_file: bool,
 }
 
@@ -200,59 +202,31 @@ fn execute_screenshot_cleanup_plan(
     let mut deleted_rows = 0i64;
     let mut deleted_files = 0i64;
     let mut freed_bytes = 0i64;
-    let mut deleted_screenshot_paths = HashSet::new();
-    let mut deleted_items = Vec::new();
-    let mut surviving_screenshot_paths = HashSet::new();
-
-    if !plan.items.is_empty() {
-        let mut conn = open_cleanup_connection(database_path)?;
+    if !plan.items.is_empty() || !plan.orphan_files.is_empty() {
+        let mut session = CleanupSession::open(database_path, data_root, &SystemGameProcessProbe)?;
+        let mut candidates = Vec::new();
         for chunk in plan.items.chunks(CLEANUP_CHUNK_SIZE) {
-            let transaction = conn.transaction().map_err(|err| err.to_string())?;
+            let transaction = session.conn.transaction().map_err(|err| err.to_string())?;
             for item in chunk {
                 if delete_screenshot_if_unprotected(&transaction, &item.screenshot_id)? == 1 {
-                    deleted_items.push(item);
-                } else {
-                    let normalized = normalize_relative_path(&item.image_relative_path);
-                    if !normalized.is_empty() {
-                        surviving_screenshot_paths.insert(normalized);
-                    }
+                    deleted_rows += 1;
+                    candidates.push(item.image_relative_path.clone());
                 }
             }
             transaction.commit().map_err(|err| err.to_string())?;
         }
-
-        deleted_rows = deleted_items.len() as i64;
-        for item in deleted_items {
-            if !item.delete_image_file {
-                continue;
-            }
-            let normalized = normalize_relative_path(&item.image_relative_path);
-            if surviving_screenshot_paths.contains(&normalized)
-                || !deleted_screenshot_paths.insert(normalized)
-            {
-                continue;
-            }
-            if let Some(path) =
-                resolve_cleanup_file_path(&screenshots_dir, &item.image_relative_path)
-            {
-                let bytes = file_size(&path);
-                if remove_file_if_exists(&path)? {
-                    deleted_files += 1;
-                    freed_bytes += bytes;
-                }
-            }
-        }
+        candidates.extend(plan.orphan_files.iter().filter_map(|path| {
+            path.strip_prefix(&screenshots_dir)
+                .ok()
+                .map(|relative| relative.to_string_lossy().into_owned())
+        }));
+        (deleted_files, freed_bytes) = session.delete_unreferenced_files(
+            &screenshots_dir,
+            "select image_relative_path from run_screenshots",
+            candidates,
+        )?;
+        remove_empty_dated_directories(&screenshots_dir);
     }
-
-    for path in &plan.orphan_files {
-        let bytes = file_size(path);
-        if remove_file_if_exists(path)? {
-            deleted_files += 1;
-            freed_bytes += bytes;
-        }
-    }
-
-    remove_empty_dated_directories(&screenshots_dir);
 
     Ok(ScreenshotCleanupResult {
         deleted_rows,
@@ -260,6 +234,87 @@ fn execute_screenshot_cleanup_plan(
         freed_bytes,
         skipped_pending_uploads: plan.skipped_pending_uploads,
     })
+}
+
+/// Owns exclusion until the last unlink, including the gaps between row commits.
+/// `BEGIN EXCLUSIVE` alone is insufficient in WAL mode; EXCLUSIVE locking mode
+/// keeps the connection's file lock after COMMIT. Closing the connection releases it.
+struct CleanupSession {
+    conn: Connection,
+}
+
+impl CleanupSession {
+    fn open(
+        database_path: &Path,
+        data_root: &Path,
+        game: &impl GameProcessProbe,
+    ) -> Result<Self, String> {
+        let conn = open_cleanup_connection(database_path)?;
+        conn.execute_batch("PRAGMA locking_mode = EXCLUSIVE; BEGIN EXCLUSIVE; COMMIT;")
+            .map_err(|err| format!("Cannot exclusively lock history for cleanup: {err}"))?;
+
+        // The mod can write a file before its row, so excluding SQL writers alone
+        // cannot exclude an in-flight capture. Probe AFTER acquiring the lock:
+        // a later game startup must initialize its stores in a write transaction
+        // before any screenshot/replay/video writer can start. The required mod
+        // startup ordering and its source owners are in docs/history-storage.md.
+        let game_path = data_root
+            .parent()
+            .ok_or("History Data Root has no game directory.")?;
+        match game.is_running(game_path) {
+            Ok(false) => Ok(Self { conn }),
+            Ok(true) => Err("Close The Bazaar before cleaning up history.".to_string()),
+            Err(err) => Err(format!(
+                "Cannot confirm The Bazaar is closed for history cleanup: {err}"
+            )),
+        }
+    }
+
+    /// The plan nominates candidates, never permission to unlink. Compare resolved
+    /// paths, retain every surviving reference, and deduplicate candidates while
+    /// the session still excludes writers.
+    /// Call only after the row transactions commit: an unlink failure must not
+    /// roll back deleted rows into references to already removed files.
+    fn delete_unreferenced_files(
+        &self,
+        root: &Path,
+        reference_query: &str,
+        candidates: Vec<String>,
+    ) -> Result<(i64, i64), String> {
+        if candidates.is_empty() {
+            return Ok((0, 0));
+        }
+        let mut statement = self
+            .conn
+            .prepare(reference_query)
+            .map_err(|err| err.to_string())?;
+        let rows = statement
+            .query_map([], |row| row.get::<_, String>(0))
+            .map_err(|err| err.to_string())?;
+        let mut referenced = HashSet::new();
+        for row in rows {
+            if let Some(path) = resolve_data_file_path(root, &row.map_err(|err| err.to_string())?) {
+                referenced.insert(path);
+            }
+        }
+        let mut visited = HashSet::new();
+        let mut deleted_files = 0;
+        let mut freed_bytes = 0;
+        for candidate in candidates {
+            let Some(path) = resolve_cleanup_file_path(root, &candidate) else {
+                continue;
+            };
+            if referenced.contains(&path) || !visited.insert(path.clone()) {
+                continue;
+            }
+            let bytes = file_size(&path);
+            if remove_file_if_exists(&path)? {
+                deleted_files += 1;
+                freed_bytes += bytes;
+            }
+        }
+        Ok((deleted_files, freed_bytes))
+    }
 }
 
 /// Built once from `PROTECTED_RUN_PREDICATE` — the per-row delete loop must not
@@ -295,6 +350,7 @@ fn delete_screenshot_if_unprotected(
 pub struct RunDataVideoCleanupItem {
     pub video_id: String,
     pub relative_path: String,
+    /// Preview estimate only; execution resolves surviving references under the lock.
     delete_video_file: bool,
 }
 
@@ -413,8 +469,8 @@ pub fn plan_run_data_cleanup(
 }
 
 /// Runs are heavier than screenshots (multiple tables + cascade per row),
-/// so chunks are smaller to keep each write transaction short while the game
-/// may also be writing to the WAL database.
+/// so each transaction commits fewer rows. The cleanup session retains its
+/// exclusive connection lock across these commits and the subsequent unlinks.
 const RUN_CLEANUP_CHUNK_SIZE: usize = 25;
 
 #[derive(Clone, Debug, PartialEq, serde::Serialize, specta::Type)]
@@ -445,46 +501,19 @@ fn execute_run_data_cleanup_plan(
     let mut deleted_runs = 0i64;
     let mut deleted_files = 0i64;
     let mut freed_bytes = 0i64;
-    let mut deleted_video_paths = HashSet::new();
-    let mut deleted_replay_payloads = HashSet::new();
-    let mut deleted_screenshot_paths = HashSet::new();
-    let mut deleted_items = Vec::new();
-    let mut surviving_video_paths = HashSet::new();
-    let mut surviving_screenshot_paths = HashSet::new();
-
     if !plan.items.is_empty() {
-        let mut conn = open_cleanup_connection(database_path)?;
-        validate_run_cleanup_cascade_fks(&conn)?;
+        let mut session = CleanupSession::open(database_path, data_root, &SystemGameProcessProbe)?;
+        validate_run_cleanup_cascade_fks(&session.conn)?;
+        let mut deleted_items = Vec::new();
         for chunk in plan.items.chunks(RUN_CLEANUP_CHUNK_SIZE) {
-            let transaction = conn.transaction().map_err(|err| err.to_string())?;
+            let transaction = session.conn.transaction().map_err(|err| err.to_string())?;
             for item in chunk {
                 if delete_run_if_unprotected(&transaction, &item.run_id)? == 0 {
-                    for video in &item.videos {
-                        let normalized = normalize_relative_path(&video.relative_path);
-                        if !normalized.is_empty() {
-                            surviving_video_paths.insert(normalized);
-                        }
-                    }
-                    for screenshot in &item.screenshots {
-                        let normalized = normalize_relative_path(&screenshot.image_relative_path);
-                        if !normalized.is_empty() {
-                            surviving_screenshot_paths.insert(normalized);
-                        }
-                    }
                     continue;
                 }
 
-                // These tables do not cascade from runs in the mod schema. Their
-                // identifiers were captured by the plan before the guarded runs
-                // delete cascaded through battles.
-                for video in &item.videos {
-                    transaction
-                        .execute(
-                            "delete from combat_replay_videos where video_id = ?1",
-                            [&video.video_id],
-                        )
-                        .map_err(|err| err.to_string())?;
-                }
+                // Screenshots do not cascade from runs. Their writer only inserts
+                // rows, so their direct Run attachment cannot change after planning.
                 for screenshot in &item.screenshots {
                     transaction
                         .execute(
@@ -499,69 +528,73 @@ fn execute_run_data_cleanup_plan(
         }
 
         deleted_runs = deleted_items.len() as i64;
-        for item in deleted_items {
-            for video in &item.videos {
-                if !video.delete_video_file {
-                    continue;
-                }
-                let normalized = normalize_relative_path(&video.relative_path);
-                if normalized.is_empty()
-                    || surviving_video_paths.contains(&normalized)
-                    || !deleted_video_paths.insert(normalized)
-                {
-                    continue;
-                }
-                let Some(path) = resolve_cleanup_file_path(&videos_dir, &video.relative_path)
-                else {
-                    continue;
-                };
-                let bytes = file_size(&path);
-                if remove_file_if_exists(&path)? {
-                    deleted_files += 1;
-                    freed_bytes += bytes;
-                }
-            }
-
-            for battle_id in &item.battle_ids {
-                let Some(path) = replay_payload_path(&replays_dir, battle_id) else {
-                    continue;
-                };
-                if !deleted_replay_payloads.insert(battle_id.trim().to_string()) {
-                    continue;
-                }
-                let bytes = file_size(&path);
-                if remove_file_if_exists(&path)? {
-                    deleted_files += 1;
-                    freed_bytes += bytes;
+        // Video ownership follows a battle whose Run attachment can change.
+        // Wait for ALL Run deletions, including later chunks, before checking it:
+        // a video moved to another deleted Run must not be mistaken for a survivor.
+        // Include candidates from guarded-delete misses too: their battle may
+        // have moved to a Run that was deleted, leaving no current owner.
+        for chunk in plan.items.chunks(RUN_CLEANUP_CHUNK_SIZE) {
+            let transaction = session.conn.transaction().map_err(|err| err.to_string())?;
+            for item in chunk {
+                for video in &item.videos {
+                    transaction
+                        .execute(
+                            "delete from combat_replay_videos
+                             where video_id = ?1
+                               and not exists (
+                                   select 1 from battles b
+                                   join runs r on r.run_id = b.run_id
+                                   where b.battle_id = combat_replay_videos.battle_id
+                               )",
+                            [&video.video_id],
+                        )
+                        .map_err(|err| err.to_string())?;
                 }
             }
-
-            for screenshot in &item.screenshots {
-                if !screenshot.delete_image_file {
-                    continue;
-                }
-                let normalized = normalize_relative_path(&screenshot.image_relative_path);
-                if normalized.is_empty()
-                    || surviving_screenshot_paths.contains(&normalized)
-                    || !deleted_screenshot_paths.insert(normalized)
-                {
-                    continue;
-                }
-                let Some(path) =
-                    resolve_cleanup_file_path(&screenshots_dir, &screenshot.image_relative_path)
-                else {
-                    continue;
-                };
-                let bytes = file_size(&path);
-                if remove_file_if_exists(&path)? {
-                    deleted_files += 1;
-                    freed_bytes += bytes;
-                }
-            }
+            transaction.commit().map_err(|err| err.to_string())?;
         }
-    }
 
-    remove_empty_dated_directories(&screenshots_dir);
+        for (root, references, candidates) in [
+            (
+                &videos_dir,
+                "select video_relative_path from combat_replay_videos",
+                plan.items
+                    .iter()
+                    .flat_map(|item| item.videos.iter().map(|video| video.relative_path.clone()))
+                    .collect::<Vec<_>>(),
+            ),
+            (
+                &replays_dir,
+                "select battle_id || '.payload.mpack.gz' from battles",
+                deleted_items
+                    .iter()
+                    .flat_map(|item| &item.battle_ids)
+                    .filter_map(|battle_id| replay_payload_path(&replays_dir, battle_id))
+                    .filter_map(|path| {
+                        path.file_name()
+                            .map(|name| name.to_string_lossy().into_owned())
+                    })
+                    .collect(),
+            ),
+            (
+                &screenshots_dir,
+                "select image_relative_path from run_screenshots",
+                deleted_items
+                    .iter()
+                    .flat_map(|item| {
+                        item.screenshots
+                            .iter()
+                            .map(|shot| shot.image_relative_path.clone())
+                    })
+                    .collect(),
+            ),
+        ] {
+            let (files, bytes) = session.delete_unreferenced_files(root, references, candidates)?;
+            deleted_files += files;
+            freed_bytes += bytes;
+        }
+        remove_empty_dated_directories(&screenshots_dir);
+    }
 
     Ok(RunDataCleanupResult {
         deleted_runs,
@@ -942,10 +975,9 @@ fn scan_orphan_screenshot_files(
     // no row; sweeping today's folder would classify that in-flight file (or its
     // transient `.tmp` sibling) as an orphan and delete it, leaving the mod to
     // insert a row pointing at a missing file. A bounded preset's cutoff is
-    // always <= today, so `min` keeps its existing, stricter protection. (Known
-    // residual: a capture straddling local midnight can land in yesterday's
-    // folder; that sub-second window is left open by design rather than
-    // injecting a clock for an mtime grace check.)
+    // always <= today, so `min` keeps its existing, stricter protection. Execution
+    // also excludes the game and rechecks references under CleanupSession's lock,
+    // including late publication of a capture spanning local midnight.
     let protect_from = cutoff_local_date.map_or(today_local_date, |cutoff_date| {
         cutoff_date.min(today_local_date)
     });
@@ -1307,6 +1339,437 @@ mod tests {
             ],
         )
         .unwrap();
+    }
+
+    #[test]
+    fn cleanup_session_excludes_writers_across_commits_and_unlinks() {
+        for journal in ["DELETE", "WAL"] {
+            let fixture = create_fixture();
+            let setup = Connection::open(&fixture.database_path).unwrap();
+            setup
+                .execute_batch(&format!("pragma journal_mode = {journal};"))
+                .unwrap();
+            let relative = "2026-06-01/capture.png";
+            let image = write_screenshot_file(&fixture.screenshots_dir, relative, b"old");
+            insert_screenshot(&setup, "old", None, 0, relative, "2026-06-01T00:00:00Z");
+            drop(setup);
+
+            let writer = Connection::open(&fixture.database_path).unwrap();
+            writer.busy_timeout(std::time::Duration::ZERO).unwrap();
+            let assert_writer_blocked = || {
+                let error = writer
+                    .execute_batch("BEGIN IMMEDIATE; COMMIT;")
+                    .unwrap_err();
+                assert_eq!(
+                    error.sqlite_error_code(),
+                    Some(rusqlite::ErrorCode::DatabaseBusy)
+                );
+            };
+            let probe = |_: &Path| {
+                // The probe must run after exclusion is acquired. A game starting
+                // after this snapshot must initialize its store before writing files.
+                assert_writer_blocked();
+                Ok(false)
+            };
+            let mut session =
+                super::CleanupSession::open(&fixture.database_path, &fixture.data_root, &probe)
+                    .unwrap();
+            let transaction = session.conn.transaction().unwrap();
+            assert_eq!(
+                super::delete_screenshot_if_unprotected(&transaction, "old").unwrap(),
+                1
+            );
+            transaction.commit().unwrap();
+            assert_writer_blocked();
+            assert_eq!(
+                session
+                    .delete_unreferenced_files(
+                        &fixture.screenshots_dir,
+                        "select image_relative_path from run_screenshots",
+                        vec![relative.to_string()],
+                    )
+                    .unwrap(),
+                (1, 3)
+            );
+            assert!(!image.exists());
+            assert_writer_blocked();
+            drop(session);
+
+            // Mirrors the mandatory startup write transaction, then file-before-row
+            // publication: a new game can now initialize and reuse the old path safely.
+            writer.execute_batch("BEGIN IMMEDIATE; COMMIT;").unwrap();
+            write_screenshot_file(&fixture.screenshots_dir, relative, b"new");
+            insert_screenshot(&writer, "new", None, 0, relative, "2026-06-01T00:00:00Z");
+            assert_eq!(fs::read(image).unwrap(), b"new");
+        }
+    }
+
+    #[test]
+    fn cleanup_session_refuses_a_running_or_uninspectable_game_and_releases_lock() {
+        for state in [Ok(true), Err("process inspection failed".to_string())] {
+            let fixture = create_fixture();
+            let image =
+                write_screenshot_file(&fixture.screenshots_dir, "2026-06-01/shot.png", b"keep");
+            let probe = |path: &Path| {
+                assert_eq!(path, fixture.data_root.parent().unwrap());
+                state.clone()
+            };
+            assert!(super::CleanupSession::open(
+                &fixture.database_path,
+                &fixture.data_root,
+                &probe
+            )
+            .is_err());
+            assert_eq!(fs::read(image).unwrap(), b"keep");
+            let writer = Connection::open(&fixture.database_path).unwrap();
+            writer.busy_timeout(std::time::Duration::ZERO).unwrap();
+            writer.execute_batch("BEGIN IMMEDIATE; COMMIT;").unwrap();
+        }
+    }
+
+    #[test]
+    fn file_deletion_failure_keeps_row_deletions_committed_and_releases_lock() {
+        let fixture = create_fixture();
+        let conn = Connection::open(&fixture.database_path).unwrap();
+        let first =
+            write_screenshot_file(&fixture.screenshots_dir, "2026-06-01/first.png", b"first");
+        let failure = fixture.screenshots_dir.join("2026-06-01/failure.png");
+        fs::create_dir(&failure).unwrap();
+        insert_screenshot(
+            &conn,
+            "a",
+            None,
+            0,
+            "2026-06-01/first.png",
+            "2026-06-01T00:00:00Z",
+        );
+        insert_screenshot(
+            &conn,
+            "b",
+            None,
+            0,
+            "2026-06-01/failure.png",
+            "2026-06-01T00:00:00Z",
+        );
+        drop(conn);
+        assert!(super::execute_screenshot_cleanup(
+            &fixture.database_path,
+            &fixture.data_root,
+            None,
+            test_today(),
+        )
+        .unwrap_err()
+        .contains("failed to remove"));
+        assert!(!first.exists());
+        assert!(failure.is_dir());
+        let conn = Connection::open(&fixture.database_path).unwrap();
+        conn.busy_timeout(std::time::Duration::ZERO).unwrap();
+        conn.execute_batch("BEGIN IMMEDIATE; COMMIT;").unwrap();
+        assert_eq!(
+            conn.query_row("select count(*) from run_screenshots", [], |row| row
+                .get::<_, i64>(0))
+                .unwrap(),
+            0
+        );
+    }
+
+    #[test]
+    fn stale_run_plan_preserves_video_metadata_and_files_after_battle_reassignment() {
+        let fixture = create_fixture();
+        let conn = Connection::open(&fixture.database_path).unwrap();
+        conn.execute_batch("pragma journal_mode = WAL;").unwrap();
+        insert_run(&conn, "old", "completed", "Normal", "2026-06-01T00:00:00Z");
+        insert_run(&conn, "active", "active", "Normal", "2026-07-15T00:00:00Z");
+        insert_battle(
+            &conn,
+            "battle",
+            "LOCAL",
+            Some("old"),
+            "2026-06-01T00:00:00Z",
+            Some("ready"),
+        );
+        let replays = crate::services::paths::combat_replays_dir_in(&fixture.data_root);
+        fs::create_dir_all(&replays).unwrap();
+        let payload = super::replay_payload_path(&replays, "battle").unwrap();
+        fs::write(&payload, b"payload").unwrap();
+        let videos = crate::services::paths::combat_replay_videos_dir_in(&fixture.data_root);
+        let video = write_screenshot_file(&videos, "shared.mp4", b"video");
+        insert_video(&conn, "old", "battle", "shared.mp4", "2026-06-01T00:00:00Z");
+        let plan =
+            super::plan_run_data_cleanup(&fixture.database_path, &fixture.data_root, None).unwrap();
+
+        // The battle writer updates run_id on conflict (see docs/history-storage.md).
+        // There is no second video row to hide loss of the original metadata.
+        conn.execute(
+            "update battles set run_id = 'active' where battle_id = 'battle'",
+            [],
+        )
+        .unwrap();
+        drop(conn);
+        let result =
+            super::execute_run_data_cleanup_plan(&fixture.database_path, &fixture.data_root, plan)
+                .unwrap();
+        assert_eq!(result.deleted_runs, 1);
+        let conn = Connection::open(&fixture.database_path).unwrap();
+        assert_eq!(
+            conn.query_row(
+                "select count(*) from combat_replay_videos where video_id = 'old' and battle_id = 'battle'",
+                [],
+                |row| row.get::<_, i64>(0),
+            ).unwrap(),
+            1,
+            "the surviving Run must retain its original video metadata",
+        );
+        assert_eq!(result.deleted_files, 0);
+        assert_eq!(fs::read(payload).unwrap(), b"payload");
+        assert_eq!(fs::read(video).unwrap(), b"video");
+    }
+
+    #[test]
+    fn stale_run_plan_cleans_video_metadata_by_surviving_run_ownership() {
+        for destination in [
+            "earlier",
+            "later",
+            "later_chunk",
+            "protected",
+            "source_protected",
+            "detached",
+            "missing_battle",
+        ] {
+            let fixture = create_fixture();
+            let conn = Connection::open(&fixture.database_path).unwrap();
+            conn.execute_batch("pragma journal_mode = WAL;").unwrap();
+            insert_run(&conn, "old", "completed", "Normal", "2026-06-02T00:00:00Z");
+            let has_target = !matches!(destination, "detached" | "missing_battle");
+            if has_target {
+                let ended_at = if destination == "earlier" {
+                    "2026-06-01T00:00:00Z"
+                } else {
+                    "2026-06-04T00:00:00Z"
+                };
+                insert_run(&conn, "target", "completed", "Normal", ended_at);
+            }
+            let filler_runs = if destination == "later_chunk" {
+                super::RUN_CLEANUP_CHUNK_SIZE
+            } else {
+                0
+            };
+            for index in 0..filler_runs {
+                insert_run(
+                    &conn,
+                    &format!("filler-{index}"),
+                    "completed",
+                    "Normal",
+                    "2026-06-03T00:00:00Z",
+                );
+            }
+            insert_battle(
+                &conn,
+                "battle",
+                "LOCAL",
+                Some("old"),
+                "2026-06-02T00:00:00Z",
+                Some("ready"),
+            );
+            let videos = crate::services::paths::combat_replay_videos_dir_in(&fixture.data_root);
+            let video = write_screenshot_file(&videos, "original.mp4", b"video");
+            insert_video(
+                &conn,
+                "original",
+                "battle",
+                "original.mp4",
+                "2026-06-02T00:00:00Z",
+            );
+            let screenshot =
+                write_screenshot_file(&fixture.screenshots_dir, "2026-06-02/original.png", b"shot");
+            insert_screenshot(
+                &conn,
+                "original",
+                Some("old"),
+                0,
+                "2026-06-02/original.png",
+                "2026-06-02T00:00:00Z",
+            );
+            let plan =
+                super::plan_run_data_cleanup(&fixture.database_path, &fixture.data_root, None)
+                    .unwrap();
+
+            match destination {
+                "missing_battle" => conn
+                    .execute("delete from battles where battle_id = 'battle'", [])
+                    .unwrap(),
+                "detached" => conn
+                    .execute(
+                        "update battles set run_id = null where battle_id = 'battle'",
+                        [],
+                    )
+                    .unwrap(),
+                _ => conn
+                    .execute(
+                        "update battles set run_id = 'target' where battle_id = 'battle'",
+                        [],
+                    )
+                    .unwrap(),
+            };
+            let keep_video = destination == "protected";
+            let keep_screenshot = destination == "source_protected";
+            if keep_video || keep_screenshot {
+                conn.execute(
+                    "update runs set game_mode = 'Ranked' where run_id = ?1",
+                    [if keep_video { "target" } else { "old" }],
+                )
+                .unwrap();
+            }
+            drop(conn);
+            let result = super::execute_run_data_cleanup_plan(
+                &fixture.database_path,
+                &fixture.data_root,
+                plan,
+            )
+            .unwrap();
+            assert_eq!(
+                result.deleted_runs,
+                i64::from(!keep_screenshot)
+                    + i64::from(has_target && !keep_video)
+                    + filler_runs as i64,
+                "{destination}"
+            );
+            assert_eq!(
+                result.deleted_files,
+                i64::from(!keep_video) + i64::from(!keep_screenshot),
+                "{destination}"
+            );
+            assert_eq!(video.exists(), keep_video, "{destination}");
+            assert_eq!(screenshot.exists(), keep_screenshot, "{destination}");
+            let conn = Connection::open(&fixture.database_path).unwrap();
+            assert_eq!(
+                conn.query_row(
+                    "select count(*) from combat_replay_videos where video_id = 'original'",
+                    [],
+                    |row| row.get::<_, i64>(0)
+                )
+                .unwrap(),
+                i64::from(keep_video),
+                "{destination}"
+            );
+            assert_eq!(
+                conn.query_row("select count(*) from run_screenshots", [], |row| row
+                    .get::<_, i64>(0))
+                    .unwrap(),
+                i64::from(keep_screenshot),
+                "{destination}"
+            );
+        }
+    }
+
+    #[test]
+    fn stale_screenshot_plan_preserves_a_late_published_orphan() {
+        let fixture = create_fixture();
+        let writer = Connection::open(&fixture.database_path).unwrap();
+        writer.execute_batch("pragma journal_mode = WAL;").unwrap();
+        // Capture writes the PNG before publishing its row. A capture spanning
+        // midnight uses yesterday's folder (see docs/history-storage.md).
+        let relative = "2026-07-14/2026-07-14_23-59-59-999_final_run-late.png";
+        let image = write_screenshot_file(&fixture.screenshots_dir, relative, b"late capture");
+        let plan = plan_screenshot_cleanup(
+            &fixture.database_path,
+            &fixture.data_root,
+            None,
+            test_today(),
+        )
+        .unwrap();
+        assert_eq!(plan.orphan_files, vec![image.clone()]);
+
+        insert_screenshot(
+            &writer,
+            "late",
+            None,
+            0,
+            relative,
+            "2026-07-14T23:59:59.999Z",
+        );
+        drop(writer);
+        let result = super::execute_screenshot_cleanup_plan(
+            &fixture.database_path,
+            &fixture.data_root,
+            plan,
+        )
+        .unwrap();
+
+        assert_eq!(result.deleted_files, 0);
+        assert_eq!(fs::read(image).unwrap(), b"late capture");
+    }
+
+    #[test]
+    fn stale_cleanup_plans_preserve_a_new_shared_screenshot_reference() {
+        for run_cleanup in [false, true] {
+            let fixture = create_fixture();
+            let writer = Connection::open(&fixture.database_path).unwrap();
+            writer.execute_batch("pragma journal_mode = WAL;").unwrap();
+            insert_run(
+                &writer,
+                "old",
+                "completed",
+                "Normal",
+                "2026-06-01T00:00:00Z",
+            );
+            let relative = "2026-06-01/shared.png";
+            let image = write_screenshot_file(&fixture.screenshots_dir, relative, b"shared");
+            insert_screenshot(
+                &writer,
+                "old",
+                Some("old"),
+                0,
+                relative,
+                "2026-06-01T00:00:00Z",
+            );
+
+            let screenshot_plan = (!run_cleanup).then(|| {
+                plan_screenshot_cleanup(
+                    &fixture.database_path,
+                    &fixture.data_root,
+                    None,
+                    test_today(),
+                )
+                .unwrap()
+            });
+            let run_plan = run_cleanup.then(|| {
+                super::plan_run_data_cleanup(&fixture.database_path, &fixture.data_root, None)
+                    .unwrap()
+            });
+            insert_screenshot(&writer, "new", None, 0, relative, "2026-06-01T00:00:00Z");
+            drop(writer);
+
+            let deleted_files = if let Some(plan) = screenshot_plan {
+                let result = super::execute_screenshot_cleanup_plan(
+                    &fixture.database_path,
+                    &fixture.data_root,
+                    plan,
+                )
+                .unwrap();
+                assert_eq!(result.deleted_rows, 1);
+                result.deleted_files
+            } else {
+                let result = super::execute_run_data_cleanup_plan(
+                    &fixture.database_path,
+                    &fixture.data_root,
+                    run_plan.unwrap(),
+                )
+                .unwrap();
+                assert_eq!(result.deleted_runs, 1);
+                result.deleted_files
+            };
+            assert_eq!(deleted_files, 0, "run_cleanup={run_cleanup}");
+            assert_eq!(fs::read(image).unwrap(), b"shared");
+            let conn = Connection::open(&fixture.database_path).unwrap();
+            assert_eq!(
+                conn.query_row("select screenshot_id from run_screenshots", [], |row| {
+                    row.get::<_, String>(0)
+                })
+                .unwrap(),
+                "new"
+            );
+        }
     }
 
     #[test]
