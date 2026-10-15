@@ -2696,7 +2696,7 @@ internal static class CombatImpactProjector
         out ImpactTransitionClaim transition
     )
     {
-        transition = action switch
+        ImpactTransitionClaim? resolved = action switch
         {
             EActionCommandType.PlayerTempoApply or EActionCommandType.PlayerTempoRemove => new(
                 ImpactTransitionDomain.PlayerAttribute,
@@ -2751,29 +2751,10 @@ internal static class CombatImpactProjector
                 ImpactTransitionDomain.CardAttribute,
                 (int)ECardAttributeType.Ammo
             ),
-            _ => default,
+            _ => null,
         };
-        return action
-            is EActionCommandType.PlayerTempoApply
-                or EActionCommandType.PlayerTempoRemove
-                or EActionCommandType.PlayerDamage
-                or EActionCommandType.PlayerHeal
-                or EActionCommandType.PlayerShieldApply
-                or EActionCommandType.PlayerShieldRemove
-                or EActionCommandType.PlayerBurnApply
-                or EActionCommandType.PlayerBurnRemove
-                or EActionCommandType.PlayerPoisonApply
-                or EActionCommandType.PlayerPoisonRemove
-                or EActionCommandType.PlayerRegenApply
-                or EActionCommandType.PlayerRegenRemove
-                or EActionCommandType.PlayerRageApply
-                or EActionCommandType.PlayerRageRemove
-                or EActionCommandType.PlayerMaxHealthIncrease
-                or EActionCommandType.PlayerMaxHealthDecrease
-                or EActionCommandType.CardHaste
-                or EActionCommandType.CardSlow
-                or EActionCommandType.CardFreeze
-                or EActionCommandType.CardReload;
+        transition = resolved.GetValueOrDefault();
+        return resolved.HasValue;
     }
 
     internal static bool HasExplicitDisplayClassification(EActionCommandType action) =>
@@ -2781,7 +2762,7 @@ internal static class CombatImpactProjector
 
     internal static bool TryResolveKind(EActionCommandType action, out CombatImpactKind kind)
     {
-        kind = action switch
+        CombatImpactKind? resolved = action switch
         {
             EActionCommandType.PlayerTempoApply or EActionCommandType.PlayerTempoRemove =>
                 CombatImpactKind.AttributeChange,
@@ -2817,43 +2798,10 @@ internal static class CombatImpactProjector
             or EActionCommandType.PlayerRageRemove => CombatImpactKind.AttributeChange,
             EActionCommandType.CardDisable or EActionCommandType.CardDestroy =>
                 CombatImpactKind.Destroy,
-            _ => default,
+            _ => null,
         };
-        return action
-            is EActionCommandType.PlayerTempoApply
-                or EActionCommandType.PlayerTempoRemove
-                or EActionCommandType.PlayerDamage
-                or EActionCommandType.PlayerBurnApply
-                or EActionCommandType.PlayerPoisonApply
-                or EActionCommandType.PlayerHeal
-                or EActionCommandType.PlayerShieldApply
-                or EActionCommandType.CardCharge
-                or EActionCommandType.CardHaste
-                or EActionCommandType.CardSlow
-                or EActionCommandType.CardFreeze
-                or EActionCommandType.FlyingStart
-                or EActionCommandType.FlyingStop
-                or EActionCommandType.CardReload
-                or EActionCommandType.CardForceUse
-                or EActionCommandType.CardEnchant
-                or EActionCommandType.CardEnchantRemove
-                or EActionCommandType.CardTransform
-                or EActionCommandType.CardTransformDestroyed
-                or EActionCommandType.CardUpgrade
-                or EActionCommandType.CardRepair
-                or EActionCommandType.CardModifyAttribute
-                or EActionCommandType.PlayerModifyAttribute
-                or EActionCommandType.PlayerMaxHealthIncrease
-                or EActionCommandType.PlayerMaxHealthDecrease
-                or EActionCommandType.PlayerRegenApply
-                or EActionCommandType.PlayerRageApply
-                or EActionCommandType.PlayerBurnRemove
-                or EActionCommandType.PlayerPoisonRemove
-                or EActionCommandType.PlayerRegenRemove
-                or EActionCommandType.PlayerShieldRemove
-                or EActionCommandType.PlayerRageRemove
-                or EActionCommandType.CardDisable
-                or EActionCommandType.CardDestroy;
+        kind = resolved.GetValueOrDefault();
+        return resolved.HasValue;
     }
 
     private static bool IsExplicitlyIgnoredAction(EActionCommandType action) =>

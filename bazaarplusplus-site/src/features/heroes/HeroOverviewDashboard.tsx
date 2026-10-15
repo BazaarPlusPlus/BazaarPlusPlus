@@ -45,22 +45,8 @@ export default function HeroOverviewDashboard({
   const coverageCopy = heroCopy.coverage;
   const noValueLabel = copy.common.noValueLabel;
 
-  const [selectedWindow, setSelectedWindow] = useState<MetricWindow>(requestedScope.window);
-  const [selectedSegment, setSelectedSegment] = useState<HeroMetricsSegment>(
-    requestedScope.segment
-  );
+  const { window: selectedWindow, segment: selectedSegment } = requestedScope;
   const [focusedHero, setFocusedHero] = useState<string | null>(null);
-  const [syncedScope, setSyncedScope] = useState(requestedScope);
-
-  // Adopt a new requested scope during render instead of in an effect.
-  if (
-    syncedScope.window !== requestedScope.window ||
-    syncedScope.segment !== requestedScope.segment
-  ) {
-    setSyncedScope(requestedScope);
-    setSelectedWindow(requestedScope.window);
-    setSelectedSegment(requestedScope.segment);
-  }
 
   const analysis = useMemo(
     () => analyzeHeroes(dataset, { window: selectedWindow, segment: selectedSegment }, focusedHero),
@@ -73,12 +59,10 @@ export default function HeroOverviewDashboard({
   }
 
   const selectSegment = (segment: HeroMetricsSegment) => {
-    setSelectedSegment(segment);
     onScopeChange({ window: selectedWindow, segment });
   };
 
   const selectWindow = (window: MetricWindow) => {
-    setSelectedWindow(window);
     onScopeChange({ window, segment: selectedSegment });
   };
 

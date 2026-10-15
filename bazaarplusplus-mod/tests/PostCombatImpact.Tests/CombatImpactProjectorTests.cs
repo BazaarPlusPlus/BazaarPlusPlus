@@ -683,6 +683,24 @@ public sealed partial class CombatImpactProjectorTests
     }
 
     [Fact]
+    public void Direct_damage_is_a_successful_mapping_despite_its_zero_kind_value()
+    {
+        Assert.True(
+            CombatImpactProjector.TryResolveKind(EActionCommandType.PlayerDamage, out var kind)
+        );
+        Assert.Equal(CombatImpactKind.DirectDamage, kind);
+    }
+
+    [Theory]
+    [InlineData(EActionCommandType.None)]
+    [InlineData((EActionCommandType)int.MaxValue)]
+    public void Unmapped_actions_return_false_and_the_default_kind(EActionCommandType action)
+    {
+        Assert.False(CombatImpactProjector.TryResolveKind(action, out var kind));
+        Assert.Equal(default, kind);
+    }
+
+    [Fact]
     public void Every_native_action_has_an_explicit_display_or_ignore_classification()
     {
         Assert.All(
