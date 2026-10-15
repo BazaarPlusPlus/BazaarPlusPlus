@@ -5,6 +5,7 @@ import time
 import uuid
 from collections.abc import Callable
 from datetime import UTC, date, datetime
+from functools import partial
 from pathlib import Path
 
 from bppanalyzer.bundle_source import (
@@ -37,8 +38,6 @@ from bppanalyzer.publication import (
     SnapshotBuilder,
     select_analysis_window,
 )
-
-BUNDLE_PROGRESS_EVERY = 250
 
 
 class PipelineDriver:
@@ -332,6 +331,7 @@ class PipelineDriver:
         heal_started = time.monotonic()
         progress.heal_started_monotonic = heal_started
         intake = SourceHourIntake(self.source, store)
+        observe_intake = partial(progress.observe_intake, report=report, checkpoint=checkpoint)
         days = healing_days(now, heal_days, source_epoch=self.source_epoch)
         planned_by_day: dict[date, tuple[datetime, ...]] = {}
         for day in days:
@@ -349,112 +349,24 @@ class PipelineDriver:
                 lock.assert_owned()
                 hours_started += 1
                 hour_key = hour.strftime("%Y-%m-%dT%H")
-                expected_before = progress.expected_bundles
-                succeeded_before = progress.succeeded_bundles
-                failed_before = progress.failed_bundles
-                try:
-                    hour_started = time.monotonic()
-                    report(
-                        f"hour started: source_hour={hour_key} "
-                        f"[{hours_started}/{progress.hours_planned}]"
-                    )
-                    checkpoint("heal", hour_key, step="index")
-                    index_started = time.monotonic()
-                    indexed_total = 0
-                    ingest_started = index_started
-                    index_completed = False
-
-                    def indexed(bundle_count: int, pages: int) -> None:
-                        nonlocal indexed_total, ingest_started, index_completed
-                        indexed_total = bundle_count
-                        index_completed = True
-                        progress.expected_bundles += bundle_count
-                        progress.listing_pages += pages
-                        progress.source_index_seconds += time.monotonic() - index_started
-                        report(
-                            f"hour indexed: source_hour={hour_key} bundles={bundle_count} "
-                            f"pages={pages} "
-                            f"elapsed={_format_elapsed(time.monotonic() - index_started)}"
-                        )
-                        checkpoint(
-                            "heal",
-                            hour_key,
-                            step="ingest",
-                            bundles_done=0,
-                            bundles_total=bundle_count,
-                        )
-                        ingest_started = time.monotonic()
-
-                    def admitted(completed: int, total: int) -> None:
-                        progress.succeeded_bundles += 1
-                        if (
-                            completed == 1
-                            or completed == total
-                            or completed % BUNDLE_PROGRESS_EVERY == 0
-                        ):
-                            report(
-                                f"hour ingest progress: source_hour={hour_key} "
-                                f"bundles={completed}/{total} "
-                                f"elapsed={_format_elapsed(time.monotonic() - ingest_started)}"
-                            )
-                            checkpoint(
-                                "heal",
-                                hour_key,
-                                step="ingest",
-                                bundles_done=completed,
-                                bundles_total=total,
-                            )
-
-                    commit = intake.commit(hour, on_indexed=indexed, on_bundle=admitted)
-                    progress.source_ingest_seconds += time.monotonic() - ingest_started
-                    progress.batch_generation_seconds += commit.batch_generation_seconds
-                    progress.parquet_write_seconds += commit.parquet_write_seconds
-                    progress.fact_finalize_seconds += commit.fact_finalize_seconds
-                    progress.hours_ingested += 1
-                    progress.changed = True
-                    checkpoint(
-                        "heal",
-                        commit.source_hour,
-                        step="complete",
-                        bundles_done=commit.bundle_count,
-                        bundles_total=indexed_total,
-                    )
-                    reused = " reused" if commit.reused else ""
-                    report(
-                        f"healed {commit.source_hour} bundles={commit.bundle_count} "
-                        f"rows={sum(commit.row_counts.values())} "
-                        f"bytes={_format_bytes(sum(commit.file_bytes.values()))} "
-                        f"elapsed={_format_elapsed(time.monotonic() - hour_started)}"
-                        f"{reused} [{progress.hours_ingested}/{progress.hours_planned}]"
-                    )
-                except HourExpired as error:
-                    if not index_completed:
-                        progress.source_index_seconds += time.monotonic() - index_started
-                    else:
-                        progress.source_ingest_seconds += time.monotonic() - ingest_started
+                report(
+                    f"hour started: source_hour={hour_key} "
+                    f"[{hours_started}/{progress.hours_planned}]"
+                )
+                result = intake.commit(hour, on_progress=observe_intake)
+                if isinstance(error := result.error, HourExpired):
                     expired_reason = error.reason
                     report_error(f"source hour expired: {hour_key} ({error.reason})")
                     break
-                except RetryableSourceError as error:
-                    if not index_completed:
-                        progress.source_index_seconds += time.monotonic() - index_started
-                    else:
-                        progress.source_ingest_seconds += time.monotonic() - ingest_started
-                    expected = progress.expected_bundles - expected_before
-                    succeeded = progress.succeeded_bundles - succeeded_before
-                    failed = progress.failed_bundles - failed_before
-                    progress.failed_bundles += max(expected - succeeded - failed, 0)
+                if isinstance(error, RetryableSourceError):
                     progress.failures.append(
                         {
                             "scope": "source_hour",
                             "source_hour": hour_key,
-                            "reason": str(getattr(error, "reason", type(error).__name__)),
+                            "reason": error.reason,
                         }
                     )
-                    report_error(
-                        f"source hour failed: {hour_key} "
-                        f"({getattr(error, 'reason', type(error).__name__)})"
-                    )
+                    report_error(f"source hour failed: {hour_key} ({error.reason})")
             if expired_reason is not None:
                 remaining = store.missing_hours(day)
                 store.abandon_day(day, remaining, expired_reason)
@@ -514,10 +426,6 @@ def _error_reason(error: BaseException) -> str:
     if isinstance(reason, str) and reason:
         return reason
     return str(error) or type(error).__name__
-
-
-def _format_bytes(value: int) -> str:
-    return f"{value / (1024 * 1024):.1f}MiB"
 
 
 def _format_elapsed(value: float) -> str:
