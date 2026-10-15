@@ -281,6 +281,38 @@ test.describe('Hero Analysis dashboard', () => {
     await expect(page.getByTestId('matchup-list')).toContainText('Stelle');
   });
 
+  test('back and forward restore both scope controls while keeping hero focus', async ({
+    page,
+  }) => {
+    await openHeroes(page, '/heroes?lang=en&w=3d&s=legend', 'threeDay');
+    await rankingTable(page).getByRole('button', { name: 'Vanessa' }).click();
+
+    await page.locator('header [role="group"]').getByRole('link', { name: '中' }).click();
+    await page.getByRole('button', { name: '非传奇', exact: true }).click();
+    await page.getByRole('button', { name: '1D' }).click();
+    await expect(page).toHaveURL(/\/heroes\?s=non_legend$/);
+
+    await page.goBack();
+    await expect(page).toHaveURL(/\/heroes\?lang=en&w=3d&s=legend$/);
+    await expect(page.getByRole('button', { name: '3D' })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByRole('button', { name: 'Legend', exact: true })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+    await expect(page.getByTestId('selected-matchup-hero')).toContainText('Vanessa');
+
+    await page.goForward();
+    await expect(page).toHaveURL(/\/heroes\?s=non_legend$/);
+    await expect(page.getByRole('button', { name: '1D' })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByRole('button', { name: '非传奇', exact: true })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+    await expect(
+      page.getByTestId('selected-matchup-hero').locator('[data-hero-badge="Vanessa"]')
+    ).toBeVisible();
+  });
+
   test('a three-day snapshot fills 7D with its real days instead of inventing four', async ({
     page,
   }) => {
