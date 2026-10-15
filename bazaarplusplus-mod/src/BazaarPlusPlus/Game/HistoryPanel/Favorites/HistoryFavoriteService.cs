@@ -26,6 +26,16 @@ internal readonly record struct FavoriteAddResult(FavoriteAddOutcome Outcome, st
                 or FavoriteAddOutcome.AlreadyFavorite;
 }
 
+// Only the game-dependent operations cross this seam. SQLite, replay copies and their
+// lifecycle remain owned by HistoryFavoriteService.
+internal delegate SavedBattleLoadOutcome LoadFavoriteLocalReplay(
+    string battleId,
+    out PvpBattleManifest? manifest,
+    out PvpReplayPayload? payload
+);
+
+internal delegate bool CanReplayFavorite(out string reason);
+
 // Owns History's Favorites: the favorite_battles rows and each favorite's replay copy under
 // FavoriteBattles/. A copy is written and verified before its row is inserted, and one gate
 // serializes saves with the orphan sweep so the sweep never deletes a copy whose row is pending.
@@ -35,22 +45,40 @@ internal sealed class HistoryFavoriteService
     private static readonly TimeSpan OrphanGrace = TimeSpan.FromHours(1);
 
     private readonly HistoryPanelRepository _repository;
-    private readonly HistoryPanelReplayService _replayService;
-    private readonly Func<CombatReplayRuntime?> _runtimeAccessor;
+    private readonly LoadFavoriteLocalReplay _loadLocalReplay;
+    private readonly Func<
+        HistoryBattleRecord,
+        string,
+        CancellationToken,
+        Task<GhostReplayLoad>
+    > _loadGhostReplay;
+    private readonly CanReplayFavorite _canReplay;
+    private readonly Func<
+        PvpBattleManifest,
+        PvpReplayPayload,
+        bool,
+        CombatReplayPlaybackSource,
+        bool
+    > _replay;
     private readonly FavoriteBattlePayloadStore? _store;
     private readonly SemaphoreSlim _gate = new(1, 1);
 
     public HistoryFavoriteService(
         HistoryPanelRepository repository,
-        HistoryPanelReplayService replayService,
-        Func<CombatReplayRuntime?> runtimeAccessor,
-        string replayDirectoryPath
+        string replayDirectoryPath,
+        LoadFavoriteLocalReplay loadLocalReplay,
+        Func<HistoryBattleRecord, string, CancellationToken, Task<GhostReplayLoad>> loadGhostReplay,
+        CanReplayFavorite canReplay,
+        Func<PvpBattleManifest, PvpReplayPayload, bool, CombatReplayPlaybackSource, bool> replay
     )
     {
         _repository = repository ?? throw new ArgumentNullException(nameof(repository));
-        _replayService = replayService ?? throw new ArgumentNullException(nameof(replayService));
-        _runtimeAccessor =
-            runtimeAccessor ?? throw new ArgumentNullException(nameof(runtimeAccessor));
+        _loadLocalReplay =
+            loadLocalReplay ?? throw new ArgumentNullException(nameof(loadLocalReplay));
+        _loadGhostReplay =
+            loadGhostReplay ?? throw new ArgumentNullException(nameof(loadGhostReplay));
+        _canReplay = canReplay ?? throw new ArgumentNullException(nameof(canReplay));
+        _replay = replay ?? throw new ArgumentNullException(nameof(replay));
         if (!string.IsNullOrWhiteSpace(replayDirectoryPath))
             _store = new FavoriteBattlePayloadStore(
                 FavoriteBattlePayloadStore.ResolveDirectory(replayDirectoryPath)
@@ -108,11 +136,7 @@ internal sealed class HistoryFavoriteService
         PvpBattleSnapshots? snapshots = null;
         if (battle.Source == HistoryBattleSource.Ghost)
         {
-            var loaded = await _replayService.LoadGhostReplayAsync(
-                battle,
-                account,
-                cancellationToken
-            );
+            var loaded = await _loadGhostReplay(battle, account, cancellationToken);
             if (loaded.Payload != null)
             {
                 snapshots = loaded.Payload.BattleManifest.Snapshots;
@@ -126,11 +150,7 @@ internal sealed class HistoryFavoriteService
         }
         else if (battle.Replay == ReplayAvailability.Saved)
         {
-            PvpBattleManifest? manifest = null;
-            PvpReplayPayload? payload = null;
-            var outcome =
-                _runtimeAccessor()?.TryLoadSavedBattle(battle.BattleId, out manifest, out payload)
-                ?? SavedBattleLoadOutcome.Unavailable;
+            var outcome = _loadLocalReplay(battle.BattleId, out var manifest, out var payload);
             if (outcome == SavedBattleLoadOutcome.Busy)
                 return new(FavoriteAddOutcome.Busy);
             if (outcome == SavedBattleLoadOutcome.Loaded)
@@ -162,6 +182,10 @@ internal sealed class HistoryFavoriteService
         var copySaved = false;
         try
         {
+            // Loading happens outside the gate. Another save may have committed meanwhile;
+            // recheck under the gate before replacing or rolling back any replay copy.
+            if (_repository.IsFavorite(battleId))
+                return new(FavoriteAddOutcome.AlreadyFavorite);
             copySaved = copy != null && _store != null && TryWriteVerifiedCopy(copy);
             if (_repository.AddFavorite(battleId, copySaved, snapshots, DateTimeOffset.UtcNow))
                 return new(
@@ -214,13 +238,7 @@ internal sealed class HistoryFavoriteService
             reason = HistoryPanelText.FavoriteReplayUnavailable();
             return false;
         }
-        var runtime = _runtimeAccessor();
-        if (runtime == null)
-        {
-            reason = HistoryPanelText.CombatReplayRuntimeUnavailable();
-            return false;
-        }
-        return runtime.CanReplaySavedCombats(out reason);
+        return _canReplay(out reason);
     }
 
     public async Task<HistoryPanelReplayAttemptResult> ReplayAsync(
@@ -255,10 +273,8 @@ internal sealed class HistoryFavoriteService
                 "History selection is no longer active.",
                 cancellationToken
             );
-        var runtime = _runtimeAccessor();
         if (
-            runtime == null
-            || !runtime.ReplayLoadedBattle(
+            !_replay(
                 loaded.Payload!.BattleManifest,
                 loaded.Payload.ReplayPayload,
                 recordVideo,

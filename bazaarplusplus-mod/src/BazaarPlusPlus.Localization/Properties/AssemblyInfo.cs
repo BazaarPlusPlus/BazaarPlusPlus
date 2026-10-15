@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 [assembly: InternalsVisibleTo("Supporters.Tests")]
 [assembly: InternalsVisibleTo("GhostBattleSync.Tests")]
 [assembly: InternalsVisibleTo("HistoryPanelDecisions.Tests")]
+[assembly: InternalsVisibleTo("HistoryPanelRepository.Tests")]
 [assembly: InternalsVisibleTo("HistoryPanelFiltering.Tests")]
 [assembly: InternalsVisibleTo("LiveBuildRecommendations.Tests")]
 [assembly: InternalsVisibleTo("PostCombatImpact.Tests")]
