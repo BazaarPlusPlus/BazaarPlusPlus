@@ -55,9 +55,9 @@ both composition and ghost-import paths.
 payload-only income, gold, hand-item count, and skill count. The counts (keys `10` and `11`) are the
 number of `Item`-type cards in that side's `*_hand` set and of `Skill`-type cards in its `*_skills`
 set, and are `null` when that set is `Missing`. `RunPayloadComposer` counts them before the size
-budget runs, so they remain when trimming drops a Battle's snapshots. Bundles sealed by mod 6.0.0
-carry `null` for both. Manifest projection normalization is a separate operation and does not copy
-nullable payload values blindly.
+budget runs, so they remain when trimming drops a Battle's snapshots. Bundles sealed before the
+composer wrote them carry `null` for both. Manifest projection normalization is a separate operation
+and does not copy nullable payload values blindly.
 
 `BattleCardSnapshotsV6` contains the four captured card sets. `BattleCardV6` preserves stable
 template and instance identity, type/size/location, display metadata, tags, and integer attributes.
