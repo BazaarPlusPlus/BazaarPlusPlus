@@ -51,7 +51,6 @@ export const idleStreamStatus: StreamServiceStatus = {
   running: false,
   host: '127.0.0.1',
   port: null,
-  base_url: null,
   overlay_url: null,
   settings_url: null,
   last_error: null,

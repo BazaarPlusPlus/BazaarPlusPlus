@@ -107,7 +107,6 @@ internal sealed class BppComposition : IDisposable
 
         _config = new BppConfig(configFile);
         _paths.Initialize();
-        _runContext.Reset();
 
         _services = new BppRuntimeServices(
             _eventBus,
@@ -122,7 +121,7 @@ internal sealed class BppComposition : IDisposable
 
         _runLifecycle = new RunLifecycleModule(_eventBus, _gameStateProbe, _runContext);
         _combatReplayModule = new CombatReplayModule(_eventBus);
-        _combatStatusBarModule = new CombatStatusBarModule(_eventBus, _runContext);
+        _combatStatusBarModule = new CombatStatusBarModule(_eventBus);
         _postCombatImpactModule = new PostCombatImpactModule(_eventBus, _staticCardMapProvider);
         _voiceSubtitlesModule = new VoiceSubtitlesModule(_paths.RequireDataRoot());
         _voiceSubtitlesInteropModule = new VoiceSubtitlesInteropModule();

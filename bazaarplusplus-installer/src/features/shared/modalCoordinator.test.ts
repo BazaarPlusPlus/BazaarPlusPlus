@@ -7,11 +7,7 @@ import {
 } from './modalCoordinator';
 
 function request(id: string, priority: ModalPriority): ModalRequest {
-  return {
-    id,
-    priority,
-    dismissalPolicy: priority === 'critical' ? 'blocked' : 'dismissible'
-  };
+  return { id, priority };
 }
 
 describe('modal coordinator', () => {
@@ -57,20 +53,16 @@ describe('modal coordinator', () => {
     expect(coordinator.getSnapshot().queued).toEqual([]);
   });
 
-  it('retains an active confirmation when it adopts critical blocked semantics', () => {
+  it('retains an active confirmation when it adopts critical priority', () => {
     const coordinator = createModalCoordinator();
     coordinator.register(request('reset', 'confirmation'));
     coordinator.register(request('other-confirmation', 'confirmation'));
 
-    coordinator.update('reset', {
-      priority: 'critical',
-      dismissalPolicy: 'blocked'
-    });
+    coordinator.update('reset', { priority: 'critical' });
 
     expect(coordinator.getSnapshot().active).toMatchObject({
       id: 'reset',
-      priority: 'critical',
-      dismissalPolicy: 'blocked'
+      priority: 'critical'
     });
     expect(coordinator.getSnapshot().queued.map(({ id }) => id)).toEqual([
       'other-confirmation'

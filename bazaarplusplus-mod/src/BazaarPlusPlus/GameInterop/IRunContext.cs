@@ -10,8 +10,4 @@ internal interface IRunContext
     string? CurrentServerRunId { get; set; }
 
     RunExitKind LastRunExitKind { get; set; }
-
-    RunVictoryOutcome LastVictoryOutcome { get; set; }
-
-    string LastMessageId { get; set; }
 }

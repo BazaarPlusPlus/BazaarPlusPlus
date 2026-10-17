@@ -275,7 +275,6 @@ impl StreamRuntime {
         let mut inner = self.inner.lock().expect("stream runtime poisoned");
         inner.status.running = false;
         inner.status.port = None;
-        inner.status.base_url = None;
         inner.status.overlay_url = None;
         inner.status.settings_url = None;
         inner.status.started_at = None;
@@ -429,7 +428,6 @@ pub(super) mod test_support {
                     status: StreamServiceStatus {
                         running: true,
                         port: Some(17654),
-                        base_url: Some("http://127.0.0.1:17654".to_string()),
                         overlay_url: Some("http://127.0.0.1:17654/overlay".to_string()),
                         settings_url: Some("http://127.0.0.1:17654/settings".to_string()),
                         started_at: Some(started_at.clone()),

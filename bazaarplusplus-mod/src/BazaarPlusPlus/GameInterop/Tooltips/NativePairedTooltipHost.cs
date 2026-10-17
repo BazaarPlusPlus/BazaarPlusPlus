@@ -525,17 +525,6 @@ internal sealed class NativePairedTooltipSession
     /// </remarks>
     internal IDisposable BeginMaskedLayout() => new MaskedLayoutScope(this);
 
-    /// <summary>Rebuilds the native auxiliary layout and re-applies its height.</summary>
-    internal void RebuildLayout()
-    {
-        var auxiliary = _activeAuxiliary;
-        if (auxiliary == null)
-            return;
-
-        ForceRebuildLayout(auxiliary);
-        ApplyNativeHeight(auxiliary);
-    }
-
     // ── Visibility ─────────────────────────────────────────────────────────────────────────
 
     internal void Reveal()
@@ -759,17 +748,9 @@ internal sealed class NativePairedTooltipSession
         return true;
     }
 
-    private void RestorePreparedNativeHost(
-        bool restoreContentVisibility = true,
-        AuxiliaryTooltipController? expectedController = null
-    )
+    private void RestorePreparedNativeHost(bool restoreContentVisibility = true)
     {
         if (_preparedNativeHost == null)
-            return;
-        if (
-            expectedController != null
-            && !ReferenceEquals(_preparedNativeHost.Controller, expectedController)
-        )
             return;
 
         _preparedNativeHost.Restore(restoreContentVisibility);

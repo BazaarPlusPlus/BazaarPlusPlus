@@ -464,25 +464,6 @@ internal sealed class PvpBattleSqliteStore : SqliteStoreBase, IPvpBattleCatalog
         UpdatePayloadState(battleIds, expectedState: "ready", targetState: "missing", now);
     }
 
-    public IReadOnlyList<PvpBattleManifest> ListRecentBattles(int limit)
-    {
-        using var connection = OpenConnection();
-        using var command = CreateCommand(connection);
-        command.CommandText =
-            SelectBattleManifestSql
-            + "\nWHERE b.source = 'LOCAL'\nORDER BY b.recorded_at_ms DESC, b.battle_id DESC\nLIMIT $limit;";
-        command.Parameters.AddWithValue("$limit", limit);
-
-        using var reader = command.ExecuteReader();
-        var manifests = new List<PvpBattleManifest>();
-        while (reader.Read())
-        {
-            manifests.Add(ReadManifest(reader));
-        }
-
-        return manifests;
-    }
-
     public IReadOnlyList<PvpBattleManifest> ListByRunId(string runId)
     {
         if (string.IsNullOrWhiteSpace(runId))

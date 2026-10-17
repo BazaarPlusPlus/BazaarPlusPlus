@@ -10,8 +10,6 @@ internal interface IReplayVideoEncoder : IDisposable
 {
     bool WriterFailed { get; }
 
-    ReplayVideoEncoderFailureReasonCode FailureReasonCode { get; }
-
     void SignalEndOfStream();
 
     ReplayVideoEncoderCompletionOutcome WaitForCompletion(TimeSpan timeout);

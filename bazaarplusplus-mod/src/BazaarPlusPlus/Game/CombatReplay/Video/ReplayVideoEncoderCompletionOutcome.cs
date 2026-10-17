@@ -4,12 +4,6 @@ namespace BazaarPlusPlus.Game.CombatReplay.Video;
 internal enum ReplayVideoEncoderFailureReasonCode
 {
     None,
-    WriterTimeout,
-    ProcessTimeout,
-    NonZeroExit,
-    StdinUnavailable,
-    StdinWriteFailed,
-    StdinCloseFailed,
     WriterCrashed,
 }
 
@@ -36,7 +30,6 @@ internal enum ReplayVideoLogStage
 {
     CaptureStarted,
     CaptureFinalized,
-    Readback,
     RenderTextureRelease,
     MuxCallback,
     MuxDrain,

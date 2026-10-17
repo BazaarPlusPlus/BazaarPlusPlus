@@ -17,7 +17,7 @@ describe('browser-preview command adapter', () => {
     expect(await commandClient.setStreamWindow(3)).toBe(idleStreamStatus);
     expect(await commandClient.getOverlaySettings()).toBe(defaultCropSettings);
     expect(await commandClient.resetOverlayCrop()).toBe(defaultCropSettings);
-    expect(await commandClient.listHistoryRuns(null, null)).toBe(
+    expect(await commandClient.listHistoryRuns(50, 0)).toBe(
       emptyHistoryRunList
     );
     expect(
@@ -105,7 +105,7 @@ describe('browser-preview command adapter', () => {
     expect(await commandClient.setAppLocale('en')).toBeNull();
     expect(await commandClient.launchGame()).toBeNull();
     expect(await commandClient.revealRunScreenshot('r')).toBeNull();
-    expect(await commandClient.revealBattleVideo('b', null)).toBeNull();
+    expect(await commandClient.revealBattleVideo('b', 'v')).toBeNull();
   });
 
   it('keeps preview bootstrap and install gates wired to real defaults', () => {

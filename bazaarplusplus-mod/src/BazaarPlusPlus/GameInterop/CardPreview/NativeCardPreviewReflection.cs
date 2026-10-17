@@ -38,9 +38,6 @@ internal static class NativeCardPreviewReflection
     public static readonly MethodInfo? ResizeMethod =
         CardPreviewBaseType != null ? AccessTools.Method(CardPreviewBaseType, "Resize") : null;
 
-    public static readonly PropertyInfo? SizeProperty =
-        CardPreviewBaseType != null ? AccessTools.Property(CardPreviewBaseType, "Size") : null;
-
     private static readonly FieldInfo? TooltipDataField =
         CardPreviewBaseType != null ? AccessTools.Field(CardPreviewBaseType, "_tooltipData") : null;
 

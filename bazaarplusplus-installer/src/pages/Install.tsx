@@ -47,8 +47,7 @@ export default function Install() {
   const legacyConfirmationProblem =
     legacyConfirmation?.phase === 'failed' ? legacyConfirmation.problem : null;
   const legacyTargetName = legacyConfirmation?.target.name ?? null;
-  const appVersion =
-    app.resource.data?.app_version ?? app.bootstrap.app_version;
+  const appVersion = app.bootstrap.app_version;
   const confirmation = snapshot.confirmation;
   const confirmationKind = confirmation?.target.kind ?? null;
   const confirmationOpen = confirmation !== null;

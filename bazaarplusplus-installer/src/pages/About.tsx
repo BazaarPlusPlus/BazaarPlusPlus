@@ -47,12 +47,11 @@ function AboutView({
   onRetry: () => void;
 }) {
   const { t } = useI18n();
-  const bootstrap = resource.data;
 
   return (
     <PageShell title={t('aboutTitle')}>
       <AboutBootstrapFeedback resource={resource} onRetry={onRetry} />
-      {bootstrap ? <AboutBootstrapContent bootstrap={bootstrap} /> : null}
+      <AboutBootstrapContent bootstrap={resource.data} />
     </PageShell>
   );
 }
@@ -176,28 +175,11 @@ function AboutBootstrapFeedback({
 
   if (resource.phase === 'initial-loading') {
     return (
-      <ProblemBanner
-        tone="warning"
-        message={t(
-          resource.data ? 'aboutLoadingBootstrap' : 'aboutLoadingBootstrapOnly'
-        )}
-      />
+      <ProblemBanner tone="warning" message={t('aboutLoadingBootstrap')} />
     );
   }
 
   const retry = resource.problem ? onRetry : undefined;
-
-  if (resource.phase === 'blocking-failure') {
-    return (
-      <ProblemBanner
-        message={t('aboutBlockingFailure')}
-        problem={resource.problem}
-        onRetry={retry}
-        retryBusy={resource.retrying}
-        retryBusyLabel={t('aboutRetrying')}
-      />
-    );
-  }
 
   return (
     <ProblemBanner

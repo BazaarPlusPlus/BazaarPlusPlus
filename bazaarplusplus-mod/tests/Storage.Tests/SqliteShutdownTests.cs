@@ -83,5 +83,4 @@ internal sealed class TempDirPathProvider : IPathProvider
     public TempDirPathProvider(string dataRoot) => DataRootDirectoryPath = dataRoot;
 
     public string? DataRootDirectoryPath { get; }
-    public string? PluginsDirectoryPath => null;
 }

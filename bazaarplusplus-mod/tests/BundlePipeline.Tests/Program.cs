@@ -804,7 +804,6 @@ internal sealed class CaptureHandler(Queue<HttpResponseMessage> responses) : Htt
 internal sealed class TestPaths(string root) : IPathProvider
 {
     public string? DataRootDirectoryPath => root;
-    public string? PluginsDirectoryPath => root;
 }
 
 internal sealed class TestServices(IPathProvider paths) : IBppServices

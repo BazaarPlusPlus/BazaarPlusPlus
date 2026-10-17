@@ -209,7 +209,6 @@ export const streamRunning: StreamServiceStatus = {
   ...idleStreamStatus,
   running: true,
   port: 17654,
-  base_url: 'http://127.0.0.1:17654',
   overlay_url: 'http://127.0.0.1:17654/overlay',
   settings_url: 'http://127.0.0.1:17654/settings',
   started_at: '2026-09-12T10:00:00Z',

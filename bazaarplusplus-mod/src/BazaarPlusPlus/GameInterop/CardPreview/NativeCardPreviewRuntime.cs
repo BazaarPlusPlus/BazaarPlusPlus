@@ -2,41 +2,12 @@
 using System.Reflection;
 using System.Runtime.ExceptionServices;
 using BazaarGameShared.Domain.Cards;
-using BazaarGameShared.Domain.Core.Types;
 using UnityEngine;
 
 namespace BazaarPlusPlus.GameInterop.CardPreview;
 
 internal static class NativeCardPreviewRuntime
 {
-    public static ECardSize ResolveCardSize(Component card)
-    {
-        var sizeProperty = NativeCardPreviewReflection.SizeProperty;
-        if (sizeProperty == null)
-            return ECardSize.Small;
-
-        try
-        {
-            var raw = sizeProperty.GetValue(card);
-            if (raw is int intValue)
-            {
-                return intValue switch
-                {
-                    1 => ECardSize.Small,
-                    2 => ECardSize.Medium,
-                    3 => ECardSize.Large,
-                    _ => ECardSize.Small,
-                };
-            }
-        }
-        catch
-        {
-            // fall through
-        }
-
-        return ECardSize.Small;
-    }
-
     public static NativeCardPreviewFailure? Resize(Component card, Guid? templateId)
     {
         var method = NativeCardPreviewReflection.ResizeMethod;

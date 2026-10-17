@@ -415,5 +415,4 @@ static void Assert(bool condition, string message)
 file sealed class TestPaths(string dataRoot) : IPathProvider
 {
     public string? DataRootDirectoryPath { get; } = dataRoot;
-    public string? PluginsDirectoryPath => null;
 }

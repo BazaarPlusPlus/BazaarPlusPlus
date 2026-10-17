@@ -11,7 +11,6 @@ export interface ModalFocusTarget {
 export interface ModalRequest {
   id: string;
   priority: ModalPriority;
-  dismissalPolicy: ModalDismissalPolicy;
   restoreFocusTo?: () => ModalFocusTarget | null;
 }
 

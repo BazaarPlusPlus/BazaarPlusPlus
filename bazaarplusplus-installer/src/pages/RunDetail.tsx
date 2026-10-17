@@ -428,12 +428,14 @@ function BattleRow({
                 size="icon-sm"
                 disabled={videoAvailability.disabled}
                 busy={videoAvailability.running}
-                onClick={() =>
-                  void page.revealVideo(
-                    battle.battle_id,
-                    battle.video?.video_id
-                  )
-                }
+                onClick={() => {
+                  if (battle.video) {
+                    void page.revealVideo(
+                      battle.battle_id,
+                      battle.video.video_id
+                    );
+                  }
+                }}
                 title={t('openVideoLocation')}
                 aria-label={actionLabel(t('openVideoLocation'))}
                 icon={<FolderOpen />}

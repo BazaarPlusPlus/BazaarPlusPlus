@@ -1,6 +1,5 @@
 #nullable enable
 using BazaarPlusPlus.Core.GameState;
-using BazaarPlusPlus.Storage.RunScreenshot;
 
 namespace BazaarPlusPlus.Game.Screenshots;
 
@@ -13,8 +12,6 @@ internal sealed class ScreenshotCaptureResult
     public string? RunId { get; set; }
 
     public string? HeroName { get; set; }
-
-    public RunScreenshotCaptureSource CaptureSource { get; set; }
 
     public string RelativePath { get; set; } = string.Empty;
 

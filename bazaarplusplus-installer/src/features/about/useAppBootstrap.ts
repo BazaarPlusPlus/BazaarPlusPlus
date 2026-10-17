@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react';
-import type { AppBootstrap } from '../../types/backend';
 import { commandClient } from '../../api/commandClient';
 import { fallbackBootstrap } from '../../api/previewDefaults';
 import { hasTauriRuntime } from '../../api/runtime';
@@ -38,12 +37,8 @@ export function useAppBootstrapState() {
     };
   }, [machine]);
 
-  // The production controller always has the packaged fallback. The resource
-  // union still models no-data failure for callers with a different bootstrap
-  // source and keeps that case testable without weakening shell link types.
-  const bootstrap: AppBootstrap = resource.data ?? fallbackBootstrap;
   return {
-    bootstrap,
+    bootstrap: resource.data,
     resource,
     retry: () => void machine.retry()
   };

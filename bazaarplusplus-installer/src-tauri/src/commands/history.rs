@@ -8,8 +8,8 @@ use crate::services::history::{
 #[specta::specta]
 pub fn list_history_runs(
     app: tauri::AppHandle,
-    limit: Option<usize>,
-    offset: Option<usize>,
+    limit: usize,
+    offset: usize,
 ) -> Result<HistoryRunList, SemanticProblem> {
     history::list_runs(&app, limit, offset)
 }
@@ -34,9 +34,9 @@ pub fn reveal_run_screenshot(app: tauri::AppHandle, run_id: String) -> Result<()
 pub fn reveal_battle_video(
     app: tauri::AppHandle,
     battle_id: String,
-    video_id: Option<String>,
+    video_id: String,
 ) -> Result<(), SemanticProblem> {
-    history::reveal_battle_video(&app, &battle_id, video_id.as_deref())
+    history::reveal_battle_video(&app, &battle_id, &video_id)
 }
 
 #[tauri::command(async)]

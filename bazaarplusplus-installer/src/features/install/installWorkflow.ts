@@ -61,15 +61,10 @@ export type InstallNotice = {
 };
 
 export type InstallActionAvailability = {
-  refresh: boolean;
   chooseDirectory: boolean;
-  requestInstall: boolean;
   requestResetData: boolean;
   requestResetBepinex: boolean;
   requestUninstall: boolean;
-  launch: boolean;
-  confirm: boolean;
-  dismissConfirmation: boolean;
 };
 
 export type InstallPageSnapshot =
@@ -559,23 +554,15 @@ class DefaultInstallWorkflow implements InstallWorkflow {
     const operation = this.state.operation;
     const busy = operation !== null;
     const confirmationActive = confirmation !== null;
-    const confirmationRunning = confirmation?.phase === 'running';
-    const confirmationFailed = confirmation?.phase === 'failed';
-    const confirmationConfirming = confirmation?.phase === 'confirming';
     const refreshing =
       this.state.resource.kind === 'ready' &&
       this.state.resource.refresh.phase === 'refreshing';
 
     const baseActions: InstallActionAvailability = {
-      refresh: false,
       chooseDirectory: false,
-      requestInstall: false,
       requestResetData: false,
       requestResetBepinex: false,
-      requestUninstall: false,
-      launch: false,
-      confirm: false,
-      dismissConfirmation: false
+      requestUninstall: false
     };
 
     if (this.state.resource.kind === 'initial-loading') {
@@ -603,10 +590,7 @@ class DefaultInstallWorkflow implements InstallWorkflow {
         operation,
         confirmation,
         primaryAction: null,
-        actions: {
-          ...baseActions,
-          refresh: !busy && !confirmationActive
-        },
+        actions: baseActions,
         actionProblem: this.state.actionProblem,
         reconciliationProblem: this.state.reconciliationProblem,
         notice: this.state.notice
@@ -629,14 +613,7 @@ class DefaultInstallWorkflow implements InstallWorkflow {
       confirmation,
       primaryAction,
       actions: {
-        refresh: !busy && !confirmationActive && !refreshing,
         chooseDirectory: !busy && !confirmationActive && !refreshing,
-        requestInstall:
-          !busy &&
-          !confirmationActive &&
-          !refreshing &&
-          !!ready.data.selected_game_path &&
-          (ready.data.actions.can_install || ready.data.actions.can_reinstall),
         requestResetData:
           !busy &&
           !confirmationActive &&
@@ -651,17 +628,7 @@ class DefaultInstallWorkflow implements InstallWorkflow {
           !busy &&
           !confirmationActive &&
           !refreshing &&
-          ready.data.actions.can_uninstall,
-        launch:
-          !busy &&
-          !confirmationActive &&
-          !refreshing &&
-          ready.data.actions.can_launch,
-        confirm:
-          confirmationActive &&
-          !busy &&
-          (confirmationConfirming || confirmationFailed),
-        dismissConfirmation: confirmationActive && !confirmationRunning && !busy
+          ready.data.actions.can_uninstall
       },
       actionProblem: this.state.actionProblem,
       reconciliationProblem: this.state.reconciliationProblem,

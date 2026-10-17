@@ -1,7 +1,7 @@
 #nullable enable
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
-using BazaarPlusPlus.Storage.RunScreenshot;
+using BazaarPlusPlus.Storage.RunLog;
 
 namespace BazaarPlusPlus.Game.Screenshots;
 
@@ -374,7 +374,6 @@ internal sealed class EndOfRunCaptureWorkflowCore<TScreen>
             ScreenshotId = operation.ScreenshotId,
             RunId = operation.RunId,
             HeroName = context.HeroName,
-            CaptureSource = RunScreenshotCaptureSource.EndOfRunAuto,
         };
 
         try
@@ -952,7 +951,7 @@ internal sealed class EndOfRunCaptureWorkflowCore<TScreen>
             {
                 ("screenshot_id", operation.ScreenshotId, BppLogCorrelationPolicy.Short),
                 ("run_id", operation.RunId, BppLogCorrelationPolicy.Short),
-                ("capture_source", RunScreenshotCaptureSource.EndOfRunAuto),
+                ("capture_source", RunLogSchema.CaptureSourceEndOfRunAuto),
                 ("reason_code", reason),
                 ("artifact_status", artifactStatus),
                 ("attempt_count", operation.AttemptCount),

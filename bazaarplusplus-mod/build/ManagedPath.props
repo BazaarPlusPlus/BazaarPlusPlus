@@ -8,9 +8,6 @@
          or the local Steam install when the game version in its globalgamemanagers equals the
          entry's. The sha256 half of the check is `just mod::fetch` and `just mod::check`;
       3. nothing: BppValidateManagedPath fails the build naming both game versions.
-    Transitional rule (issue #136, decision 2): while this platform's online entry is null, the
-    entry of the channel mounted in Steam satisfies an online build when its game version matches.
-    Delete the two _BppTransitional groups once the online entries are captured.
     Steam path probing otherwise feeds only GamePath (deploy) and BppSteamManagedPath (snapshot).
   -->
   <PropertyGroup>

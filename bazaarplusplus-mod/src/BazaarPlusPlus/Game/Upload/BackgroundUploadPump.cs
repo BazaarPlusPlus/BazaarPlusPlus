@@ -67,9 +67,6 @@ internal sealed class BackgroundUploadPump : MonoBehaviour
         )
             return;
 
-        if (!_session.IsEnabled)
-            return;
-
         if (Interlocked.Exchange(ref _armRequested, 0) == 1)
             _startupGate.ArmImmediateAttempt(Time.unscaledTime);
 

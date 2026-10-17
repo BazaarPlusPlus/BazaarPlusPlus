@@ -15,7 +15,6 @@ VideoEncoderProfileTests.Run();
 VideoBackendPolicyTests.Run();
 VideoBufferPlanTests.Run();
 CopyTimingTests.Run();
-EncoderDrainTests.Run();
 OutputFileNameTests.Run();
 ZeroDurationMuxGuardTests.Run();
 AudioTapPlanTests.Run();
@@ -645,65 +644,6 @@ file static class CopyTimingTests
 }
 
 // ---------------------------------------------------------------------------
-// 8) Encoder cleanup: concurrent Dispose calls execute cleanup once.
-// ---------------------------------------------------------------------------
-file static class EncoderDrainTests
-{
-    private static readonly Type DrainType = TestReflection.RequireType(
-        "BazaarPlusPlus.Game.CombatReplay.Video.ReplayVideoEncoderDrain"
-    );
-    private static readonly Type EncoderReasonType = TestReflection.RequireType(
-        "BazaarPlusPlus.Game.CombatReplay.Video.ReplayVideoEncoderFailureReasonCode"
-    );
-    private static readonly Type RecordingReasonType = TestReflection.RequireType(
-        "BazaarPlusPlus.Game.CombatReplay.Video.ReplayVideoRecordingReasonCode"
-    );
-
-    public static void Run()
-    {
-        var mapReason =
-            DrainType.GetMethod(
-                "MapReason",
-                BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic,
-                binder: null,
-                types: new[] { EncoderReasonType },
-                modifiers: null
-            )
-            ?? throw new InvalidOperationException("ReplayVideoEncoderDrain.MapReason not found.");
-        var expected = new Dictionary<string, string>(StringComparer.Ordinal)
-        {
-            ["None"] = "EncoderWriterFailed",
-            ["WriterTimeout"] = "EncoderTimeout",
-            ["ProcessTimeout"] = "EncoderTimeout",
-            ["NonZeroExit"] = "EncoderNonZeroExit",
-            ["StdinUnavailable"] = "EncoderWriterFailed",
-            ["StdinWriteFailed"] = "EncoderWriterFailed",
-            ["StdinCloseFailed"] = "EncoderWriterFailed",
-            ["WriterCrashed"] = "EncoderWriterFailed",
-        };
-
-        foreach (var pair in expected)
-        {
-            var actual = mapReason.Invoke(null, new[] { Enum.Parse(EncoderReasonType, pair.Key) });
-            TestReflection.Assert(
-                Equals(actual, Enum.Parse(RecordingReasonType, pair.Value)),
-                $"Encoder reason {pair.Key} must map to {pair.Value}."
-            );
-        }
-    }
-
-    private static void SetProperty(Type type, object instance, string name, object value)
-    {
-        var property =
-            type.GetProperty(
-                name,
-                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic
-            ) ?? throw new InvalidOperationException($"Property not found: {type.FullName}.{name}");
-        property.SetValue(instance, value);
-    }
-}
-
-// ---------------------------------------------------------------------------
 // 10) Replay output names include the recording identity, so overlapping drains
 //     for the same battle and wall-clock second cannot share either artifact.
 // ---------------------------------------------------------------------------
@@ -1013,8 +953,6 @@ file static class RecordingOperationContractTests
             {
                 ("BeginException", "", "Failed", "Unavailable", LogLevel.Error),
                 ("EncoderWriterFailed", "", "Full", "Complete", LogLevel.Error),
-                ("EncoderTimeout", "", "Full", "Complete", LogLevel.Error),
-                ("EncoderNonZeroExit", "", "Full", "Complete", LogLevel.Error),
                 ("Aborted", "", "Failed", "Unavailable", LogLevel.Error),
                 ("Superseded", "superseded.mp4", "Silent", "Complete", LogLevel.Warning),
                 ("AudioUnavailable", "silent.mp4", "Silent", "Complete", LogLevel.Warning),

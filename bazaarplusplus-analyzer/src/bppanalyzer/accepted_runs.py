@@ -33,7 +33,6 @@ _HERO_ALIASES = _load_hero_aliases()
 class RunAdmission:
     hero: str
     final_rank: str | None
-    segment: str | None
     unknown_hero: bool
     unknown_final_rank: bool
 
@@ -49,13 +48,9 @@ def admit_run(hero: str, final_rank: str | None) -> RunAdmission:
     normalized_rank = normalize_rank(final_rank)
     unknown_hero = normalized_hero not in CANONICAL_HEROES
     unknown_final_rank = normalized_rank not in CANONICAL_RANKS
-    segment = None
-    if not unknown_hero and not unknown_final_rank:
-        segment = "legend" if normalized_rank == LEGEND_RANK else "non_legend"
     return RunAdmission(
         normalized_hero,
         normalized_rank,
-        segment,
         unknown_hero,
         unknown_final_rank,
     )

@@ -391,40 +391,19 @@ pub fn load_battle_rows(conn: &Connection, run_id: &str) -> Result<Vec<HistoryBa
 pub fn load_battle_video_ref(
     conn: &Connection,
     battle_id: &str,
-    video_id: Option<&str>,
+    video_id: &str,
 ) -> Result<Option<VideoRef>, String> {
     if !table_exists(conn, "combat_replay_videos")? {
         return Ok(None);
-    }
-
-    if let Some(video_id) = video_id {
-        return conn
-            .query_row(
-                "
-                select video_relative_path
-                from combat_replay_videos
-                where battle_id = ?1 and video_id = ?2 and status = 'COMPLETED'
-                ",
-                params![battle_id, video_id],
-                |row| {
-                    Ok(VideoRef {
-                        relative_path: row.get(0)?,
-                    })
-                },
-            )
-            .optional()
-            .map_err(|err| err.to_string());
     }
 
     conn.query_row(
         "
         select video_relative_path
         from combat_replay_videos
-        where battle_id = ?1 and status = 'COMPLETED'
-        order by started_at_ms desc, video_id desc
-        limit 1
+        where battle_id = ?1 and video_id = ?2 and status = 'COMPLETED'
         ",
-        [battle_id],
+        params![battle_id, video_id],
         |row| {
             Ok(VideoRef {
                 relative_path: row.get(0)?,

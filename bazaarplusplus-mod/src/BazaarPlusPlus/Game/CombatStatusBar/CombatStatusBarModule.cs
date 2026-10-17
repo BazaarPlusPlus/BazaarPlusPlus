@@ -1,9 +1,6 @@
 #nullable enable
-using BazaarGameShared.Domain.Core.Types;
 using BazaarPlusPlus.Core.Events;
-using BazaarPlusPlus.Core.RunContext;
 using BazaarPlusPlus.Core.Runtime;
-using BazaarPlusPlus.GameInterop;
 using BazaarPlusPlus.GameInterop.Events;
 
 namespace BazaarPlusPlus.Game.CombatStatusBar;
@@ -11,14 +8,13 @@ namespace BazaarPlusPlus.Game.CombatStatusBar;
 internal sealed class CombatStatusBarModule : IBppFeature
 {
     private readonly IBppEventBus _eventBus;
-    private readonly IRunContext _runContext;
+    private string _lastMessageId = string.Empty;
     private IDisposable? _combatSimSubscription;
     private IDisposable? _combatFrameSubscription;
 
-    public CombatStatusBarModule(IBppEventBus eventBus, IRunContext runContext)
+    public CombatStatusBarModule(IBppEventBus eventBus)
     {
         _eventBus = eventBus;
-        _runContext = runContext;
     }
 
     public void Start()
@@ -38,14 +34,11 @@ internal sealed class CombatStatusBarModule : IBppFeature
     private void OnCombatSimObserved(CombatSimObserved observed)
     {
         var message = observed.Message;
-        if (_runContext.LastMessageId == message.MessageId)
+        if (_lastMessageId == message.MessageId)
             return;
 
-        _runContext.LastMessageId = message.MessageId;
+        _lastMessageId = message.MessageId;
         CombatStatusBar.SetCombatFrameTotal(message.Data?.Frames?.Count ?? 0);
-        var winner = message.Data?.Winner;
-        _runContext.LastVictoryOutcome =
-            winner == ECombatantId.Player ? RunVictoryOutcome.Win : RunVictoryOutcome.Lose;
     }
 
     private static void OnCombatFrameAdvanced(CombatFrameAdvanced _)
