@@ -207,7 +207,7 @@
   "run_payloads": {
     "run-only": {
       "messagepack_bytes": 497,
-      "sha256": "7d7c5b517cda5a9ddcff6c882e248360fb4074c0ba176eed8cce8968e936cafc"
+      "sha256": "28148cd95e121166be8b31b0ecf9a486be6abd462d574252d4a6c0c920f48db0"
     },
     "screenshot": {
       "messagepack_bytes": 105,
@@ -227,7 +227,7 @@
     },
     "corrupt-replay": {
       "messagepack_bytes": 418,
-      "sha256": "7459d1cd88fc671c01790e641bdb16fdcdd38468f57a9fb45cb27a47e3734ded"
+      "sha256": "a3d0ff6dc6921b44b0225c2f5f778f394e4ee9898b4036c8aeb5b3687f47054d"
     }
   },
   "run_screenshots": {

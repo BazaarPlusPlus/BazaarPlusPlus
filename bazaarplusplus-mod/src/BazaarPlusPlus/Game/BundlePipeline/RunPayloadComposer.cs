@@ -1,5 +1,6 @@
 #nullable enable
 using System.Text.RegularExpressions;
+using BazaarGameShared.Domain.Core.Types;
 using BazaarPlusPlus.Game.CombatReplay;
 using BazaarPlusPlus.Game.PvpBattles;
 using BazaarPlusPlus.Game.PvpBattles.Persistence;
@@ -209,8 +210,8 @@ internal sealed class RunPayloadComposer
             },
             Participants = new BattleParticipantsV6
             {
-                Player = MapParticipant(manifest.Participants, player: true),
-                Opponent = MapParticipant(manifest.Participants, player: false),
+                Player = MapParticipant(manifest.Participants, manifest.Snapshots, player: true),
+                Opponent = MapParticipant(manifest.Participants, manifest.Snapshots, player: false),
             },
             Snapshots = new BattleCardSnapshotsV6
             {
@@ -228,6 +229,7 @@ internal sealed class RunPayloadComposer
 
     private static BattleParticipantV6 MapParticipant(
         PvpBattleParticipants participants,
+        PvpBattleSnapshots snapshots,
         bool player
     ) =>
         new()
@@ -246,7 +248,22 @@ internal sealed class RunPayloadComposer
             ),
             Income = NonNegative(player ? participants.PlayerIncome : null),
             Gold = NonNegative(player ? participants.PlayerGold : null),
+            HandItemCount = CountCards(
+                player ? snapshots.PlayerHand : snapshots.OpponentHand,
+                ECardType.Item
+            ),
+            SkillCount = CountCards(
+                player ? snapshots.PlayerSkills : snapshots.OpponentSkills,
+                ECardType.Skill
+            ),
         };
+
+    // Counted from the captured set so they survive ApplySizeBudget dropping the card sets; a
+    // Missing set was never captured, so its count is unknown rather than zero.
+    private static int? CountCards(PvpBattleCardSetCapture source, ECardType type) =>
+        source.Status == PvpBattleCaptureStatus.Missing
+            ? null
+            : source.Items.Count(card => card.Type == type);
 
     private static BattleCardSetV6 MapCardSet(string label, PvpBattleCardSetCapture source) =>
         new()
