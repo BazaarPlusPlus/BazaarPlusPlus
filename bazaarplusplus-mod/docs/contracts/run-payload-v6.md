@@ -52,8 +52,12 @@ and `opponent_skills`, with no duplicate or extra set. `RunBundleV6Contract` own
 both composition and ghost-import paths.
 
 `BattleParticipantV6` carries account/display/hero/rank/rating/level/prestige/victories plus
-payload-only income, gold, hand-item count, and skill count. Manifest projection normalization is a
-separate operation and does not copy nullable payload values blindly.
+payload-only income, gold, hand-item count, and skill count. The counts (keys `10` and `11`) are the
+number of `Item`-type cards in that side's `*_hand` set and of `Skill`-type cards in its `*_skills`
+set, and are `null` when that set is `Missing`. `RunPayloadComposer` counts them before the size
+budget runs, so they remain when trimming drops a Battle's snapshots. Bundles sealed by mod 6.0.0
+carry `null` for both. Manifest projection normalization is a separate operation and does not copy
+nullable payload values blindly.
 
 `BattleCardSnapshotsV6` contains the four captured card sets. `BattleCardV6` preserves stable
 template and instance identity, type/size/location, display metadata, tags, and integer attributes.
@@ -75,47 +79,3 @@ Run, Battle, card, and quality rows against its
 [expected projection](../../../bazaarplusplus-analyzer/tests/fixtures/run-payload-v6.projection.json).
 Bundle envelope goldens are owned by the [server contract fixtures](../../../bazaarplusplus-server/contracts/v6/fixtures/);
 the mod test project links those files directly.
-
-## Root object
-
-| Key | Property | Type | Meaning |
-|---:|---|---|---|
-| 0 | `PayloadFormatVersion` | int | Always `6` |
-| 1 | `RunId` | string | Stable local Run identity |
-| 2 | `PlayerAccountId` | string | Frozen Run player identity |
-| 3 | `Run` | `RunFactsV6` | Final Run facts |
-| 4 | `Events` | `RunEventV6[]` | Run events ordered by sequence |
-| 5 | `Battles` | `RunBattleV6[]` | Battle facts and optional replay inputs |
-| 6 | `ReplayableBattleIds` | string[] | Battles retaining snapshots and all replay phases |
-| 7 | `Degradation` | `PayloadDegradationV6` | Deterministic size/input degradation record |
-
-## Nested objects
-
-`RunFactsV6` records hero, mode, seed, start/end time (Unix ms), terminal status, day/hour, wins/losses,
-starting and final rank/rating, rating delta, final economy/build values, build channel, and mod
-version. Its keys are `0..21` in property declaration order.
-
-`RunEventV6` uses keys `0..3` for sequence, Unix-ms timestamp, kind, and the event's structured
-JSON without the envelope keys above. The JSON is text and the Bundle pipeline does not otherwise
-reinterpret it.
-
-`RunBattleV6` uses keys `0..4` for Battle ID, `BattleFactsV6` (key `0` is the Unix-ms recorded
-time), `BattleParticipantsV6`, nullable `BattleCardSnapshotsV6`, and nullable `BattleReplayV6`. A Battle is replayable only when both
-nullable fields exist, Spawn, Combat, and Despawn replay byte arrays are non-empty, and snapshots
-contain exactly one non-`Missing` set for each of `player_hand`, `player_skills`, `opponent_hand`,
-and `opponent_skills`, with no duplicate or extra set. `RunBundleV6Contract` owns this predicate on
-both composition and ghost-import paths.
-
-`BattleParticipantV6` carries account/display/hero/rank/rating/level/prestige/victories plus
-payload-only income, gold, hand-item count, and skill count. Manifest projection normalization is a
-separate operation and does not copy nullable payload values blindly.
-
-`BattleCardSnapshotsV6` contains the four captured card sets. `BattleCardV6` preserves stable
-template and instance identity, type/size/location, display metadata, tags, and integer attributes.
-
-`BattleReplayV6` uses keys `0..3` for replay version and the native Spawn, Combat, and Despawn
-MessagePack byte sequences.
-
-`PayloadDegradationV6` uses keys `0..3` for categories, replay-omitted Battle IDs, omitted event
-count, and whether a requested Screenshot was omitted. It describes the final immutable payload;
-it is not a retry state.
