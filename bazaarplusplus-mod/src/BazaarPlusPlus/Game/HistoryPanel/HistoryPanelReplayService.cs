@@ -18,7 +18,6 @@ internal sealed class HistoryPanelReplayService
     public HistoryPanelReplayService(
         Func<CombatReplayRuntime?> runtimeAccessor,
         string replayDirectoryPath,
-        string pluginsDirectoryPath,
         string videoDirectoryPath,
         GhostBattleSyncService? ghostSyncService = null
     )
@@ -28,8 +27,6 @@ internal sealed class HistoryPanelReplayService
         // Paths are startup-stable strings (no Func wrappers). Null coalesces to empty so
         // downstream IsNullOrWhiteSpace checks stay fail-open without ArgumentNullException.
         _replayDirectoryPath = replayDirectoryPath ?? string.Empty;
-        // Positional ctor arity is pinned by scenario capsules; the path itself is no longer read.
-        _ = pluginsDirectoryPath;
         _videoDirectoryPath = videoDirectoryPath ?? string.Empty;
         _ghostSyncService = ghostSyncService;
     }

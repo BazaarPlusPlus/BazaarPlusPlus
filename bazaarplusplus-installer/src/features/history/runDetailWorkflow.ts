@@ -207,8 +207,7 @@ export function createRunDetailWorkflow(
           )
         ).ok;
       },
-      revealVideo: async (battleId: string, videoId?: string) => {
-        if (!videoId) return false;
+      revealVideo: async (battleId: string, videoId: string) => {
         return (
           await runAction({ kind: 'reveal', battleId }, () =>
             commands.revealBattleVideo(battleId, videoId)

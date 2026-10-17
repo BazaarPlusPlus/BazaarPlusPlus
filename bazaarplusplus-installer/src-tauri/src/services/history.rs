@@ -131,7 +131,7 @@ impl History {
     fn battle_video_path(
         &self,
         battle_id: &str,
-        video_id: Option<&str>,
+        video_id: &str,
     ) -> Result<PathBuf, SemanticProblem> {
         as_action_problem(REVEAL_VIDEO, || {
             self.require_database_exists()?;
@@ -250,14 +250,10 @@ impl History {
 
 pub fn list_runs(
     app: &tauri::AppHandle,
-    limit: Option<usize>,
-    offset: Option<usize>,
+    limit: usize,
+    offset: usize,
 ) -> Result<HistoryRunList, SemanticProblem> {
-    History::selected(app)?.list_runs_for_page(
-        limit.unwrap_or(50),
-        offset.unwrap_or(0),
-        &app.state::<HistoryThumbnails>(),
-    )
+    History::selected(app)?.list_runs_for_page(limit, offset, &app.state::<HistoryThumbnails>())
 }
 
 pub fn get_run_detail(
@@ -275,7 +271,7 @@ pub fn reveal_run_screenshot(app: &tauri::AppHandle, run_id: &str) -> Result<(),
 pub fn reveal_battle_video(
     app: &tauri::AppHandle,
     battle_id: &str,
-    video_id: Option<&str>,
+    video_id: &str,
 ) -> Result<(), SemanticProblem> {
     let path = History::selected(app)?.battle_video_path(battle_id, video_id)?;
     as_action_problem(REVEAL_VIDEO, || reveal_in_file_browser(&path))
@@ -581,7 +577,9 @@ mod tests {
             ),
             (
                 "reveal_video",
-                history.battle_video_path("battle-1", None).unwrap_err(),
+                history
+                    .battle_video_path("battle-1", "video-1")
+                    .unwrap_err(),
             ),
             (
                 "delete_video",
@@ -718,9 +716,7 @@ mod tests {
             screenshot_path
         );
         assert_eq!(
-            history
-                .battle_video_path("battle-1", Some("video-1"))
-                .unwrap(),
+            history.battle_video_path("battle-1", "video-1").unwrap(),
             video_path
         );
 

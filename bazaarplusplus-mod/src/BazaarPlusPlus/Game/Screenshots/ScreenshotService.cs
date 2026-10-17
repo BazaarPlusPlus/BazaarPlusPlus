@@ -50,7 +50,6 @@ internal sealed class ScreenshotService
             ScreenshotId = request.ScreenshotId,
             RunId = request.RunId,
             HeroName = request.HeroName,
-            CaptureSource = request.CaptureSource,
             RelativePath = relativePath,
             FilePath = filePath,
             CapturedAtLocal = capturedAtLocal,

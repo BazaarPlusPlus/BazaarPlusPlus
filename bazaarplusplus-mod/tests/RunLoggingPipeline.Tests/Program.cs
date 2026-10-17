@@ -537,7 +537,6 @@ internal sealed class Harness
 internal sealed class TestPaths(string root) : IPathProvider
 {
     public string? DataRootDirectoryPath => root;
-    public string? PluginsDirectoryPath => root;
 }
 
 internal sealed class TestRunContext : IRunContext
@@ -545,8 +544,6 @@ internal sealed class TestRunContext : IRunContext
     public bool IsInGameRun { get; set; }
     public string? CurrentServerRunId { get; set; }
     public RunExitKind LastRunExitKind { get; set; }
-    public RunVictoryOutcome LastVictoryOutcome { get; set; }
-    public string LastMessageId { get; set; } = string.Empty;
 }
 
 internal sealed class TestSnapshotProbe : IRunSnapshotProbe

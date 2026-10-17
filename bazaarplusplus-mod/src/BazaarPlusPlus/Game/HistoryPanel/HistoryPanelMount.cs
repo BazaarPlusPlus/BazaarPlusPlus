@@ -66,7 +66,6 @@ internal sealed class HistoryPanelMount : IBppMountable
                 PathConstants.RunLogDatabase(services.Paths.RequireDataRoot()),
                 PathConstants.CombatReplays(services.Paths.RequireDataRoot()),
                 PathConstants.CombatReplayVideos(services.Paths.RequireDataRoot()),
-                services.Paths.PluginsDirectoryPath ?? string.Empty,
                 _accountLinkClient(),
                 () =>
                     HistoryPanelDecisions.ResolveAccountLinkGate(

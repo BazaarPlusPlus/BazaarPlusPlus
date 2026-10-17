@@ -42,9 +42,7 @@ describe('About bootstrap resource state', () => {
 
     expect(machine.getSnapshot()).toMatchObject({
       phase: 'initial-loading',
-      data: fallback,
-      source: 'packaged-fallback',
-      unavailableFields: ['bundled_bpp_version']
+      data: fallback
     });
 
     await machine.start();
@@ -52,8 +50,6 @@ describe('About bootstrap resource state', () => {
     expect(machine.getSnapshot()).toEqual({
       phase: 'authoritative',
       data: native,
-      source: 'native',
-      unavailableFields: [],
       problem: null,
       retrying: false
     });
@@ -71,8 +67,6 @@ describe('About bootstrap resource state', () => {
     expect(machine.getSnapshot()).toMatchObject({
       phase: 'fallback',
       data: fallback,
-      source: 'packaged-fallback',
-      unavailableFields: ['bundled_bpp_version'],
       retrying: false,
       problem: {
         code: 'about_bootstrap_failed',
@@ -102,8 +96,7 @@ describe('About bootstrap resource state', () => {
 
     expect(machine.getSnapshot()).toMatchObject({
       phase: 'authoritative',
-      data: native,
-      source: 'native'
+      data: native
     });
   });
 
@@ -129,26 +122,6 @@ describe('About bootstrap resource state', () => {
     });
   });
 
-  it('uses a blocking failure only when no usable fallback exists', async () => {
-    const machine = createAppBootstrapMachine({
-      fallback: null,
-      load: vi.fn().mockRejectedValue(new Error('no bootstrap data'))
-    });
-
-    expect(machine.getSnapshot()).toMatchObject({
-      phase: 'initial-loading',
-      data: null
-    });
-    await machine.start();
-
-    expect(machine.getSnapshot()).toMatchObject({
-      phase: 'blocking-failure',
-      data: null,
-      problem: { code: 'about_bootstrap_failed' },
-      retrying: false
-    });
-  });
-
   it('marks Browser Preview results as fallback without inventing a failure', async () => {
     const fallback = bootstrap('4.5.0', null);
     const machine = createAppBootstrapMachine({
@@ -161,7 +134,6 @@ describe('About bootstrap resource state', () => {
     expect(machine.getSnapshot()).toMatchObject({
       phase: 'fallback',
       data: fallback,
-      source: 'packaged-fallback',
       problem: null
     });
   });

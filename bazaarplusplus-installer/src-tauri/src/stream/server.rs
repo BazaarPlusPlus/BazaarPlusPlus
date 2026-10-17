@@ -57,7 +57,6 @@ impl StreamServerAdapter for ProductionServer {
                     running: true,
                     host: HOST.to_string(),
                     port: Some(PREFERRED_PORT),
-                    base_url: Some(urls.base_url),
                     overlay_url: Some(urls.overlay_url),
                     settings_url: Some(urls.settings_url),
                     last_error: None,
@@ -88,7 +87,6 @@ fn stream_db_status(game_path: Option<&PathBuf>) -> StreamDbStatus {
 }
 
 struct ServiceUrls {
-    base_url: String,
     overlay_url: String,
     settings_url: String,
 }
@@ -100,11 +98,10 @@ pub(super) fn origin() -> String {
 }
 
 fn service_urls() -> ServiceUrls {
-    let base_url = origin();
+    let origin = origin();
     ServiceUrls {
-        overlay_url: format!("{base_url}/overlay"),
-        settings_url: format!("{base_url}/settings"),
-        base_url,
+        overlay_url: format!("{origin}/overlay"),
+        settings_url: format!("{origin}/settings"),
     }
 }
 
@@ -142,7 +139,6 @@ mod tests {
         let urls = service_urls();
 
         assert_eq!(origin(), "http://127.0.0.1:17654");
-        assert_eq!(urls.base_url, "http://127.0.0.1:17654");
         assert_eq!(urls.overlay_url, "http://127.0.0.1:17654/overlay");
         assert_eq!(urls.settings_url, "http://127.0.0.1:17654/settings");
     }

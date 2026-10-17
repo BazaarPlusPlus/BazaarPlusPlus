@@ -8,7 +8,6 @@ namespace BazaarPlusPlus.GameInterop.CardPreview;
 
 internal interface INativeCardPreviewHost
 {
-    NativeCardMeasureResult Measure(NativeCardPreviewSubject subject);
     INativeCardPreviewScope OpenScope(INativeCardPreviewOwner owner);
     NativeTooltipRefreshResult RefreshHoveredTooltip(NativeTooltipRefreshRequest request);
 }
@@ -74,19 +73,6 @@ internal sealed class NativeCardPreviewOwnerContext
     internal NativeCardPreviewSubject Subject { get; }
     internal CardTooltipData? TooltipData { get; }
 }
-
-internal enum NativeCardMeasureStatus
-{
-    Measured,
-    Unavailable,
-    Failed,
-}
-
-internal readonly record struct NativeCardMeasureResult(
-    NativeCardMeasureStatus Status,
-    int Span,
-    NativeCardPreviewFailure? Failure
-);
 
 internal enum NativeCardAcquireStatus
 {

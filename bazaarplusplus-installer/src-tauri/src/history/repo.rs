@@ -100,7 +100,7 @@ pub fn load_battle_video_path(
     database_path: &Path,
     video_dir: &Path,
     battle_id: &str,
-    video_id: Option<&str>,
+    video_id: &str,
 ) -> Result<Option<PathBuf>, String> {
     let conn = open_connection(database_path)?;
     let row = load_battle_video_ref(&conn, battle_id, video_id)?;
@@ -122,7 +122,7 @@ pub fn delete_battle_video(
     video_id: &str,
 ) -> Result<bool, String> {
     let mut conn = open_write_connection(database_path)?;
-    let Some(video) = load_battle_video_ref(&conn, battle_id, Some(video_id))? else {
+    let Some(video) = load_battle_video_ref(&conn, battle_id, video_id)? else {
         return Ok(false);
     };
     remove_video_file(video_dir, &video.relative_path)?;

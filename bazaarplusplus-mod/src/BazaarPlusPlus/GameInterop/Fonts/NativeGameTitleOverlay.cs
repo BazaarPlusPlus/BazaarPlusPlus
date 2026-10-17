@@ -104,24 +104,6 @@ internal sealed class NativeGameTitleOverlay : IDisposable
         int sortingOrder,
         float fontSizePoints,
         Color color,
-        out NativeGameTitleOverlay? overlay
-    ) =>
-        TryCreate(
-            rootName,
-            parent,
-            sortingOrder,
-            fontSizePoints,
-            color,
-            NativeGameTypography.OwnedTextRole.Heading,
-            out overlay
-        );
-
-    internal static bool TryCreate(
-        string rootName,
-        Transform parent,
-        int sortingOrder,
-        float fontSizePoints,
-        Color color,
         NativeGameTypography.OwnedTextRole role,
         out NativeGameTitleOverlay? overlay
     )

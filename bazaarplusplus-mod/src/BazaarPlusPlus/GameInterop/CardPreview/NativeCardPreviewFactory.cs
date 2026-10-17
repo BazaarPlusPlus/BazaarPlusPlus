@@ -3,7 +3,6 @@ using BazaarGameShared.Domain.Cards;
 using BazaarGameShared.Domain.Cards.Item;
 using BazaarGameShared.Domain.Cards.Skill;
 using BazaarGameShared.Domain.Core.Types;
-using BazaarPlusPlus.GameInterop.Cards;
 using BazaarPlusPlus.GameInterop.StaticCards;
 using UnityEngine;
 
@@ -71,26 +70,6 @@ internal sealed class NativeCardPreviewFactory
 
     internal NativeCardPreviewFactory(NativeCardPreviewPool pool) =>
         _pool = pool ?? throw new ArgumentNullException(nameof(pool));
-
-    internal NativeCardMeasureResult Measure(NativeCardPreviewSubject? subject)
-    {
-        if (!TryResolveTemplate(subject, out var template, out var failure))
-        {
-            return new NativeCardMeasureResult(
-                failure == null
-                    ? NativeCardMeasureStatus.Unavailable
-                    : NativeCardMeasureStatus.Failed,
-                1,
-                failure
-            );
-        }
-
-        return new NativeCardMeasureResult(
-            NativeCardMeasureStatus.Measured,
-            CardSizeSpan.Resolve(template.Size),
-            null
-        );
-    }
 
     internal async Task<NativeCardPreviewCoreAcquireOutcome> AcquireAsync(
         NativeCardPreviewSubject? subject,

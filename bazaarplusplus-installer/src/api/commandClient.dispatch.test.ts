@@ -30,9 +30,7 @@ describe('native command adapter', () => {
     invokeMock.mockRejectedValueOnce('raw backend failure');
     const { commandClient } = await import('./commandClient');
 
-    await expect(
-      commandClient.listHistoryRuns(null, null)
-    ).rejects.toMatchObject({
+    await expect(commandClient.listHistoryRuns(50, 0)).rejects.toMatchObject({
       message: 'raw backend failure'
     });
   });

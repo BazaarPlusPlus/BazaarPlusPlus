@@ -44,11 +44,6 @@ internal sealed class GhostBattlePayloadStore
         _store.Save(payload.BattleId, payload);
     }
 
-    public GhostBattlePayload? Load(string battleId)
-    {
-        return _store.Load(battleId);
-    }
-
     internal FileBackedPayloadLoadResult<GhostBattlePayload> LoadDetailed(string battleId)
     {
         return _store.LoadDetailed(battleId);

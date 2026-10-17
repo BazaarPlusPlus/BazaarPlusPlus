@@ -23,7 +23,6 @@ function runningStatus(
     ...idleStreamStatus,
     running: true,
     port: 17654,
-    base_url: 'http://127.0.0.1:17654',
     overlay_url: 'http://127.0.0.1:17654/overlay',
     settings_url: 'http://127.0.0.1:17654/settings',
     db: { found: true },

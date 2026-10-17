@@ -68,8 +68,6 @@ const app: AppBootstrapController = {
   resource: {
     phase: 'authoritative',
     data: bootstrap,
-    source: 'native',
-    unavailableFields: [],
     problem: null,
     retrying: false
   },

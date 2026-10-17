@@ -24,7 +24,6 @@ const zh = {
   htmlLang: 'zh-CN',
 
   // Header / brand
-  kicker: '因热爱而生',
   // Label shown on the language button for the CURRENT locale; clicking it
   // switches to the other language, so the zh copy invites English.
   languageToggle: 'Switch to English',
@@ -516,14 +515,12 @@ const zh = {
   aboutAcknowledgements: '数据与灵感',
   aboutLicenses: '开源许可',
   aboutVerifiedBadge: 'Fable 5 认证',
-  aboutLoadingBootstrapOnly: '正在获取本机应用信息。',
   aboutLoadingBootstrap: '正在获取本机应用信息，暂时显示随应用打包的备用数据。',
   aboutFallbackPreview: '当前为浏览器预览，显示随应用打包的备用数据。',
   aboutProblemBootstrapFailed:
     '无法获取本机应用信息。已保留可用的备用数据，请重试。',
   aboutUnavailableValue: '不可用',
   aboutRetrying: '正在重试',
-  aboutBlockingFailure: '无法获取应用信息，且没有可用的备用数据。请重试。',
 
   // Refined dashboard copy
   installOverviewHealthyShort: '所有组件运行正常',
@@ -554,7 +551,6 @@ export type MessageKey = keyof typeof zh;
 const en: Record<MessageKey, string> = {
   htmlLang: 'en',
 
-  kicker: 'Born of Passion',
   languageToggle: '切换中文',
   headerCheckUpdate: 'Check Updates',
   headerCheckingUpdate: 'Checking',
@@ -1070,7 +1066,6 @@ const en: Record<MessageKey, string> = {
   aboutAcknowledgements: 'Data & Inspiration',
   aboutLicenses: 'Licenses',
   aboutVerifiedBadge: 'Fable 5 Verified',
-  aboutLoadingBootstrapOnly: 'Loading native app information.',
   aboutLoadingBootstrap:
     'Loading native app information. Packaged fallback data is shown for now.',
   aboutFallbackPreview:
@@ -1079,8 +1074,6 @@ const en: Record<MessageKey, string> = {
     'Native app information could not be loaded. Usable fallback data remains available; please retry.',
   aboutUnavailableValue: 'Unavailable',
   aboutRetrying: 'Retrying',
-  aboutBlockingFailure:
-    'App information could not be loaded and no usable fallback data is available. Please retry.',
 
   installOverviewHealthyShort: 'All components are running normally',
   installOverviewUpdateDescription:

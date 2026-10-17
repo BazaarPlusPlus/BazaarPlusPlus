@@ -9,7 +9,5 @@ internal interface IPvpBattleCatalog : IReplayPayloadMaintenanceCatalog
 
     PvpBattleManifest? TryLoad(string battleId);
 
-    IReadOnlyList<PvpBattleManifest> ListRecentBattles(int limit);
-
     IReadOnlyList<PvpBattleManifest> ListByRunId(string runId);
 }

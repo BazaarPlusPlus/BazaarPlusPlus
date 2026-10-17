@@ -1,7 +1,6 @@
 #nullable enable
 using BazaarPlusPlus.Core.GameState;
 using BazaarPlusPlus.Game.Screenshots;
-using BazaarPlusPlus.Storage.RunScreenshot;
 
 EndOfRunCaptureWorkflowBehaviorTests.Run();
 EndOfRunCleanFramePreparationTests.Run();
@@ -169,7 +168,6 @@ static void VerifyArtifactMapping()
         ScreenshotId = "shot-42",
         RunId = "run-42",
         HeroName = null,
-        CaptureSource = RunScreenshotCaptureSource.EndOfRunAuto,
         RelativePath = "2026-07-11/final.png",
         CapturedAtLocal = capturedAtLocal,
         CapturedAtUtc = capturedAtLocal.ToUniversalTime(),

@@ -58,7 +58,7 @@ internal sealed class ReplayVideoEncoderDrain
                 stderrTail = outcome.StderrTail;
                 if (!outcome.Succeeded)
                 {
-                    failureReasonCode ??= MapReason(outcome.ReasonCode);
+                    failureReasonCode ??= ReplayVideoRecordingReasonCode.EncoderWriterFailed;
                     failureException ??= outcome.Exception;
                 }
             }
@@ -163,17 +163,4 @@ internal sealed class ReplayVideoEncoderDrain
                 ]
         );
     }
-
-    internal static ReplayVideoRecordingReasonCode MapReason(
-        ReplayVideoEncoderFailureReasonCode reasonCode
-    ) =>
-        reasonCode switch
-        {
-            ReplayVideoEncoderFailureReasonCode.NonZeroExit =>
-                ReplayVideoRecordingReasonCode.EncoderNonZeroExit,
-            ReplayVideoEncoderFailureReasonCode.WriterTimeout
-            or ReplayVideoEncoderFailureReasonCode.ProcessTimeout =>
-                ReplayVideoRecordingReasonCode.EncoderTimeout,
-            _ => ReplayVideoRecordingReasonCode.EncoderWriterFailed,
-        };
 }

@@ -10,17 +10,4 @@ internal sealed class RunContextStore : IRunContext
     public string? CurrentServerRunId { get; set; }
 
     public RunExitKind LastRunExitKind { get; set; } = RunExitKind.Completed;
-
-    public RunVictoryOutcome LastVictoryOutcome { get; set; }
-
-    public string LastMessageId { get; set; } = string.Empty;
-
-    public void Reset()
-    {
-        IsInGameRun = false;
-        CurrentServerRunId = null;
-        LastRunExitKind = RunExitKind.Completed;
-        LastVictoryOutcome = default;
-        LastMessageId = string.Empty;
-    }
 }

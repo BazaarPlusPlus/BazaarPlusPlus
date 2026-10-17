@@ -10,29 +10,10 @@ internal sealed partial class NativeCardPreviewHost : INativeCardPreviewHost
 {
     private readonly INativeTooltipDataFactory _tooltipDataFactory;
     private readonly NativeCardPreviewHoverState<Scope, NativeCardPreviewResource> _hover = new();
-    private readonly NativeCardPreviewFactory _measureFactory = new(
-        new NativeCardPreviewPool(maxPoolSizePerKind: 1)
-    );
 
     internal NativeCardPreviewHost(INativeTooltipDataFactory tooltipDataFactory) =>
         _tooltipDataFactory =
             tooltipDataFactory ?? throw new ArgumentNullException(nameof(tooltipDataFactory));
-
-    public NativeCardMeasureResult Measure(NativeCardPreviewSubject subject)
-    {
-        try
-        {
-            return _measureFactory.Measure(subject);
-        }
-        catch (Exception ex)
-        {
-            return new NativeCardMeasureResult(
-                NativeCardMeasureStatus.Failed,
-                1,
-                UnexpectedFailure(subject?.TemplateId, ex)
-            );
-        }
-    }
 
     public INativeCardPreviewScope OpenScope(INativeCardPreviewOwner owner) =>
         new Scope(this, owner ?? throw new ArgumentNullException(nameof(owner)));

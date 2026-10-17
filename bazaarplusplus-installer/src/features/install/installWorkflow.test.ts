@@ -120,8 +120,6 @@ describe('install workflow loading and refresh', () => {
       phase: 'blocking-failure',
       problem: { diagnostic: 'detect failed' }
     });
-    expect(workflow.getSnapshot().actions.refresh).toBe(true);
-
     expect(await workflow.intents.refresh()).toBe(true);
     expect(workflow.getSnapshot()).toMatchObject({
       phase: 'ready',
@@ -244,8 +242,8 @@ describe('install workflow confirmation lifecycle', () => {
         gamePath: '/Applications/The Bazaar'
       }
     });
-    expect(workflow.getSnapshot().actions.refresh).toBe(false);
     expect(workflow.getSnapshot().actions.chooseDirectory).toBe(false);
+    expect(await workflow.intents.refresh()).toBe(false);
 
     const running = deferred<InstallState>();
     installMod.mockImplementationOnce(() => running.promise);
@@ -590,7 +588,7 @@ describe('install workflow notices, lifecycle, and availability', () => {
         disabled: false,
         running: false
       });
-      expect(snapshot.actions.refresh).toBe(true);
+      expect(snapshot.actions.chooseDirectory).toBe(true);
     }
   );
 });

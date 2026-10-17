@@ -24,6 +24,6 @@
     "noEmit": true,
     "jsx": "react-jsx",
     "jsxImportSource": "react",
-    "types": ["vite/client", "vitest/globals", "node"]
+    "types": ["vite/client", "node"]
   }
 }

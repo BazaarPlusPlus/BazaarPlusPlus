@@ -90,16 +90,6 @@ class BundleRef:
     download_url: str
     download_expires_at_ms: int
 
-    def __post_init__(self) -> None:
-        if not self.bundle_id or not self.download_url:
-            raise ValueError("Bundle reference identity and URL are required")
-        for name, value in (
-            ("available_at_ms", self.available_at_ms),
-            ("download_expires_at_ms", self.download_expires_at_ms),
-        ):
-            if not isinstance(value, int) or isinstance(value, bool) or value < 0:
-                raise ValueError(f"Bundle reference {name} is invalid")
-
     @property
     def cursor(self) -> tuple[int, str]:
         return self.available_at_ms, self.bundle_id
@@ -114,7 +104,6 @@ class RawHourIndex:
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "source_hour", parse_source_hour(self.source_hour))
-        _validate_index(self)
 
 
 @dataclass(frozen=True, slots=True)
@@ -702,20 +691,6 @@ def _percentile(values: tuple[float, ...], quantile: float) -> float | None:
     ordered = sorted(values)
     index = math.ceil(quantile * len(ordered)) - 1
     return round(ordered[max(index, 0)], 3)
-
-
-def _validate_index(index: RawHourIndex) -> None:
-    if not isinstance(index.pages, int) or isinstance(index.pages, bool) or index.pages < 1:
-        raise SourceContractError("raw_index_invalid", "Raw Hour page count is invalid")
-    if any(not isinstance(item, BundleRef) for item in index.items):
-        raise SourceContractError("raw_index_invalid", "Raw Hour index item is invalid")
-    if tuple(sorted(index.items, key=lambda item: item.cursor)) != index.items:
-        raise SourceContractError("raw_index_invalid", "Raw Hour index is not ordered")
-    if len({item.bundle_id for item in index.items}) != len(index.items):
-        raise SourceContractError("raw_index_invalid", "Raw Hour index is not deduplicated")
-    expected = raw_commit_sha256(index.items)
-    if expected != index.raw_commit_sha256:
-        raise SourceContractError("raw_index_invalid", "Raw Hour index digest differs")
 
 
 def _stable_ref(item: BundleRef) -> tuple[object, ...]:

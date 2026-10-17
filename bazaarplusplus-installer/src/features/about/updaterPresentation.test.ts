@@ -126,18 +126,10 @@ describe('updater UI contract', () => {
 
   it('queues system update decisions behind an active confirmation', () => {
     const coordinator = createModalCoordinator();
-    coordinator.register({
-      id: 'route:reset',
-      priority: 'confirmation',
-      dismissalPolicy: 'dismissible'
-    });
+    coordinator.register({ id: 'route:reset', priority: 'confirmation' });
     const modal = getUpdaterUiContract(available).modal;
     if (!modal) throw new Error('available must have a modal contract');
-    coordinator.register({
-      id: 'shell:update',
-      priority: modal.priority,
-      dismissalPolicy: modal.dismissalPolicy
-    });
+    coordinator.register({ id: 'shell:update', priority: modal.priority });
 
     expect(coordinator.getSnapshot().active?.id).toBe('route:reset');
     expect(coordinator.getSnapshot().queued[0]?.id).toBe('shell:update');

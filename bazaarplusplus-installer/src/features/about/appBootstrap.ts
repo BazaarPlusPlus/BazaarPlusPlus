@@ -9,53 +9,28 @@ export type AppBootstrapLoadResult = {
   data: AppBootstrap;
 };
 
-export type AppBootstrapUnavailableField = 'bundled_bpp_version';
-
-type AppBootstrapAvailability = {
-  unavailableFields: readonly AppBootstrapUnavailableField[];
-};
-
 export type AppBootstrapSnapshot =
-  | (AppBootstrapAvailability & {
-      phase: 'initial-loading';
-      data: AppBootstrap;
-      source: 'packaged-fallback';
-      problem: null;
-      retrying: false;
-    })
   | {
       phase: 'initial-loading';
-      data: null;
-      source: null;
-      unavailableFields: readonly [];
+      data: AppBootstrap;
       problem: null;
       retrying: false;
     }
-  | (AppBootstrapAvailability & {
+  | {
       phase: 'authoritative';
       data: AppBootstrap;
-      source: 'native';
       problem: null;
       retrying: false;
-    })
-  | (AppBootstrapAvailability & {
+    }
+  | {
       phase: 'fallback';
       data: AppBootstrap;
-      source: 'packaged-fallback';
       problem: AboutBootstrapProblem | null;
-      retrying: boolean;
-    })
-  | {
-      phase: 'blocking-failure';
-      data: null;
-      source: null;
-      unavailableFields: readonly [];
-      problem: AboutBootstrapProblem;
       retrying: boolean;
     };
 
 export type AppBootstrapImpl = {
-  fallback: AppBootstrap | null;
+  fallback: AppBootstrap;
   load: () => Promise<AppBootstrapLoadResult>;
 };
 
@@ -66,25 +41,14 @@ export type AppBootstrapMachine = {
 };
 
 export function createInitialAppBootstrapSnapshot(
-  fallback: AppBootstrap | null
+  fallback: AppBootstrap
 ): AppBootstrapSnapshot {
-  return fallback
-    ? {
-        phase: 'initial-loading',
-        data: fallback,
-        source: 'packaged-fallback',
-        unavailableFields: unavailableFields(fallback),
-        problem: null,
-        retrying: false
-      }
-    : {
-        phase: 'initial-loading',
-        data: null,
-        source: null,
-        unavailableFields: [],
-        problem: null,
-        retrying: false
-      };
+  return {
+    phase: 'initial-loading',
+    data: fallback,
+    problem: null,
+    retrying: false
+  };
 }
 
 export function createAppBootstrapMachine(
@@ -100,53 +64,24 @@ export function createAppBootstrapMachine(
   };
 
   const complete = (result: AppBootstrapLoadResult) => {
-    if (result.source === 'native') {
-      publish({
-        phase: 'authoritative',
-        data: result.data,
-        source: 'native',
-        unavailableFields: unavailableFields(result.data),
-        problem: null,
-        retrying: false
-      });
-      return;
-    }
-
     publish({
-      phase: 'fallback',
+      phase: result.source === 'native' ? 'authoritative' : 'fallback',
       data: result.data,
-      source: 'packaged-fallback',
-      unavailableFields: unavailableFields(result.data),
       problem: null,
       retrying: false
     });
   };
 
-  const fail = (error: unknown, usableData: AppBootstrap | null) => {
-    const problem = aboutBootstrapProblemFromError(error);
-    if (usableData) {
-      publish({
-        phase: 'fallback',
-        data: usableData,
-        source: 'packaged-fallback',
-        unavailableFields: unavailableFields(usableData),
-        problem,
-        retrying: false
-      });
-      return;
-    }
-
+  const fail = (error: unknown, usableData: AppBootstrap) => {
     publish({
-      phase: 'blocking-failure',
-      data: null,
-      source: null,
-      unavailableFields: [],
-      problem,
+      phase: 'fallback',
+      data: usableData,
+      problem: aboutBootstrapProblemFromError(error),
       retrying: false
     });
   };
 
-  const request = async (usableData: AppBootstrap | null) => {
+  const request = async (usableData: AppBootstrap) => {
     if (requestInFlight) return;
     requestInFlight = true;
     try {
@@ -164,10 +99,7 @@ export function createAppBootstrapMachine(
   };
 
   const retry = () => {
-    if (
-      requestInFlight ||
-      (snapshot.phase !== 'fallback' && snapshot.phase !== 'blocking-failure')
-    ) {
+    if (requestInFlight || snapshot.phase !== 'fallback') {
       return Promise.resolve();
     }
     const usableData = snapshot.data;
@@ -176,11 +108,4 @@ export function createAppBootstrapMachine(
   };
 
   return { getSnapshot: () => snapshot, start, retry };
-}
-
-function unavailableFields(
-  data: AppBootstrap | null
-): readonly AppBootstrapUnavailableField[] {
-  if (!data) return [];
-  return data.bundled_bpp_version == null ? ['bundled_bpp_version'] : [];
 }

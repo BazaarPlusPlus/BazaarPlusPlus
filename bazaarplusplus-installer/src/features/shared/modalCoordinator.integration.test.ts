@@ -6,30 +6,25 @@ describe('shell and routed modal integration', () => {
     const coordinator = createModalCoordinator();
     coordinator.register({
       id: 'route:delete-video',
-      priority: 'confirmation',
-      dismissalPolicy: 'dismissible'
+      priority: 'confirmation'
     });
     coordinator.register({
       id: 'shell:update',
-      priority: 'system',
-      dismissalPolicy: 'dismissible'
+      priority: 'system'
     });
     coordinator.register({
       id: 'shell:payment',
-      priority: 'informational',
-      dismissalPolicy: 'dismissible'
+      priority: 'informational'
     });
 
     expect(coordinator.getSnapshot().active?.id).toBe('route:delete-video');
 
     coordinator.update('route:delete-video', {
-      priority: 'critical',
-      dismissalPolicy: 'blocked'
+      priority: 'critical'
     });
     expect(coordinator.getSnapshot().active).toMatchObject({
       id: 'route:delete-video',
-      priority: 'critical',
-      dismissalPolicy: 'blocked'
+      priority: 'critical'
     });
 
     coordinator.unregister('route:delete-video');

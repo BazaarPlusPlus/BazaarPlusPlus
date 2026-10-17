@@ -104,18 +104,17 @@ export function ModalSource({
     return coordinator.register({
       id,
       priority,
-      dismissalPolicy,
       restoreFocusTo: () => restoreFocusRef?.current ?? activeElement
     });
-    // Policy changes go through the update effect below; re-registering would
+    // Priority changes go through the update effect below; re-registering would
     // reorder the modal stack and lose the focus-restore target.
     // oxlint-disable-next-line react-hooks/exhaustive-deps
   }, [coordinator, id, open, restoreFocusRef]);
 
   useLayoutEffect(() => {
     if (!open) return;
-    coordinator.update(id, { priority, dismissalPolicy });
-  }, [coordinator, dismissalPolicy, id, open, priority]);
+    coordinator.update(id, { priority });
+  }, [coordinator, id, open, priority]);
 
   if (!open || snapshot.active?.id !== id) return null;
   return (

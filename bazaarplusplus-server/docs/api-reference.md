@@ -327,13 +327,13 @@ Response `200`:
 }
 ```
 
-Rows sort by `recorded_at_ms DESC, battle_id DESC`. The response is reconstructed from fifteen ordinary summary columns. `player` is the uploader/challenger and `opponent` is the queried local player; both remain nested objects. `day`, `hour`, and both account IDs are required by Mod import. `winner_combatant_id` is never `null` and remains available for result filtering, and `player.rank` / `player.rating` preserve Mod 5.1/5.2 display behavior. Nullable fields are emitted as JSON null.
+Rows sort by `recorded_at_ms DESC, battle_id DESC`. The response is reconstructed from fifteen ordinary summary columns. `player` is the uploader/challenger and `opponent` is the queried local player; both remain nested objects. `day`, `hour`, and both account IDs are required by Mod import. `winner_combatant_id` is never `null` and remains available for result filtering, and the Mod stores `player.rank` / `player.rating` on imported Ghost battles. Nullable fields are emitted as JSON null.
 
 At ingest, a projection is inserted only when its opponent is the uploader or the opponent already exists in `bundle_uploaders`. The uploader is added only as the final write of a successful Bundle D1 batch. Filtered history is never backfilled. Cross-Bundle duplicate `(uploader_account_id, battle_id)` rows keep the first projection.
 
 Route errors: `400 invalid_query`, `429 rate_limited`, and `503 storage_unavailable`. An unknown account returns `200 {"battles":[]}`.
 
-The discovery summary omits both sides’ `hero_id`, `level`, `prestige`, and `victories`; `opponent.display_name`, `opponent.rank`, and `opponent.rating`; and `encounter_id`, `combat_kind`, and `loser_combatant_id`. The upload manifest contract and complete R2 Bundle/Run remain unchanged. Download capabilities are signed at query time using the parent Bundle object key. Mod 5.1.0, 5.2.0, and the audited 5.3.0 source accept this summary without a coordinated Mod release.
+The discovery summary omits both sides’ `hero_id`, `level`, `prestige`, and `victories`; `opponent.display_name`, `opponent.rank`, and `opponent.rating`; and `encounter_id`, `combat_kind`, and `loser_combatant_id`. The upload manifest contract and complete R2 Bundle/Run remain unchanged. Download capabilities are signed at query time using the parent Bundle object key.
 
 ## `GET /bazaardb/bundles`
 

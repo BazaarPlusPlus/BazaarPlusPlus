@@ -66,8 +66,6 @@ internal static class BundleUploadFeed
             _files = files ?? throw new ArgumentNullException(nameof(files));
         }
 
-        public bool IsEnabled => true;
-
         public async Task<UploadAttemptResult> RunAttemptAsync(CancellationToken cancellationToken)
         {
             Cleanup();

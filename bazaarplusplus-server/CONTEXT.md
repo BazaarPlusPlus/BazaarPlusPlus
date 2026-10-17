@@ -24,4 +24,4 @@ All consumers download the same complete Bundle directly from a seven-day R2 pre
 
 Avoid the V4 and abandoned names: Boundle, Pack, Run artifact, Run Bundle, Snapshot, and Screenshot upload.
 
-Ghost discovery stores fifteen columns in `ghost_battle_summaries`. It reconstructs the uploader/challenger `player` and queried-local-player `opponent` objects, retaining rank/rating for Mod 5.1/5.2. The complete upload manifest and R2 Bundle remain unchanged. The staged migration from JSON is recorded in [ADR 0003](docs/adr/0003-ghost-summary-columns.md).
+Ghost discovery stores fifteen columns in `ghost_battle_summaries`. It reconstructs the uploader/challenger `player` and queried-local-player `opponent` objects, retaining the challenger rank/rating the Mod stores on imported Ghost battles. The complete upload manifest and R2 Bundle remain unchanged. The column decision is recorded in [ADR 0003](docs/adr/0003-ghost-summary-columns.md).
