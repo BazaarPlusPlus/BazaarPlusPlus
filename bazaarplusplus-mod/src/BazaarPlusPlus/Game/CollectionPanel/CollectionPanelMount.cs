@@ -20,16 +20,19 @@ internal sealed class CollectionPanelMount : IBppMountable
     private readonly BppStaticCardMapProvider _cardMapProvider;
     private readonly INativeCardPreviewHost _nativeCardPreviewHost;
     private readonly IGameDataDayTierResolver _dayTierResolver;
+    private readonly CollectionInspectionModule _inspection;
     private IDisposable? _localeChangedSubscription;
 
     public CollectionPanelMount(
         Func<OverlayPanelHost?> overlayHost,
         BppStaticCardMapProvider cardMapProvider,
         INativeCardPreviewHost nativeCardPreviewHost,
-        IGameDataDayTierResolver dayTierResolver
+        IGameDataDayTierResolver dayTierResolver,
+        CollectionInspectionModule inspection
     )
     {
         _overlayHost = overlayHost;
+        _inspection = inspection;
         _cardMapProvider =
             cardMapProvider ?? throw new ArgumentNullException(nameof(cardMapProvider));
         _nativeCardPreviewHost =
@@ -73,7 +76,13 @@ internal sealed class CollectionPanelMount : IBppMountable
         }
 
         var panel = host.AddComponent<CollectionPanel>();
-        panel.Initialize(services, _cardMapProvider, _nativeCardPreviewHost, _dayTierResolver);
+        panel.Initialize(
+            services,
+            _cardMapProvider,
+            _nativeCardPreviewHost,
+            _dayTierResolver,
+            _inspection
+        );
         panel.AttachToOverlayHost(overlayHost);
 
         _localeChangedSubscription = services.EventBus.Subscribe<ChineseLocaleModeChanged>(_ =>

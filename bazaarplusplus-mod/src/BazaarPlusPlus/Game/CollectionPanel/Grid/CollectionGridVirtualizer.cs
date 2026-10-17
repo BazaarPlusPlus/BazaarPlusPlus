@@ -58,6 +58,8 @@ internal sealed class CollectionGridVirtualizer
     private float _lastScrollY = float.NaN;
     private int _hoverPollIndex = -1;
     private bool _hoverDispatched;
+    private INativeCardPreviewSession? _inspectionSource;
+    private bool _inspectionBlocked;
     private FirstWindowBindDiagnostics? _firstWindowDiagnostics;
 
     public CollectionGridVirtualizer(
@@ -246,6 +248,8 @@ internal sealed class CollectionGridVirtualizer
     // cursor remains within the same cell.
     public void PollHover(Vector2 mousePixels, Rect viewportBoundsPx)
     {
+        if (_inspectionBlocked)
+            return;
         if (_visible.Count == 0 || _layout.ShelfCount == 0 || _unit <= 0f)
         {
             DispatchHoverOut();
@@ -350,6 +354,45 @@ internal sealed class CollectionGridVirtualizer
 
         card = null!;
         return false;
+    }
+
+    internal Rect HoveredScreenRect()
+    {
+        if (!_realized.TryGetValue(_hoverPollIndex, out var cell))
+            return default;
+        var corners = new Vector3[4];
+        cell.CachedRect.GetWorldCorners(corners);
+        return new Rect(
+            corners[0].x,
+            Screen.height - corners[1].y,
+            corners[2].x - corners[0].x,
+            corners[1].y - corners[0].y
+        );
+    }
+
+    internal void SetInspectionBlocked(bool blocked)
+    {
+        if (_inspectionBlocked == blocked)
+            return;
+        _inspectionBlocked = blocked;
+        if (blocked)
+        {
+            if (_realized.TryGetValue(_hoverPollIndex, out var source))
+                _inspectionSource = source.Session;
+            DispatchHoverOut();
+            foreach (var cell in _realized.Values)
+                cell.HoverScale.ResetImmediate();
+            _inspectionSource?.Hide();
+        }
+        else
+        {
+            if (
+                _inspectionSource != null
+                && _realized.Values.Any(cell => ReferenceEquals(cell.Session, _inspectionSource))
+            )
+                _inspectionSource.Show();
+            _inspectionSource = null;
+        }
     }
 
     private void DispatchHoverOut()

@@ -102,7 +102,7 @@ internal static class NativeCardCellFitter
         return visualBounds;
     }
 
-    private static void PrepareGridRect(RectTransform rect)
+    public static void PrepareGridRect(RectTransform rect)
     {
         rect.anchorMin = new Vector2(0f, 1f);
         rect.anchorMax = new Vector2(0f, 1f);

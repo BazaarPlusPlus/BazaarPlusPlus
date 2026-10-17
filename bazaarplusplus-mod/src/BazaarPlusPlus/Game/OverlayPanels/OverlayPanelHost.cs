@@ -32,12 +32,16 @@ internal sealed class OverlayPanelHost : MonoBehaviour
     private void Update()
     {
         var keyboard = Keyboard.current;
+        var modal = _core.OpenPanelId == null ? null : FindRegistration(_core.OpenPanelId);
+        var modalActive = modal?.IsModalInputActive?.Invoke() == true;
+        var escapePressed = keyboard?.escapeKey.wasPressedThisFrame == true;
         var snapshot = new OverlayFrameSnapshot
         {
             SceneToken = GetSceneToken(SceneManager.GetActiveScene()),
             IsInCombat = ReadIsInCombat(),
-            EscapePressed = keyboard?.escapeKey.wasPressedThisFrame == true,
-            HotkeyPressedPanelId = ResolvePressedHotkeyPanelId(keyboard),
+            EscapePressed = escapePressed,
+            IsModalInputActive = modalActive,
+            HotkeyPressedPanelId = modalActive ? null : ResolvePressedHotkeyPanelId(keyboard),
         };
 
         ExecuteDirectives(_core.Evaluate(snapshot));
@@ -98,6 +102,9 @@ internal sealed class OverlayPanelHost : MonoBehaviour
                             break;
                         case OverlayDirectiveKind.Open:
                             registration.OnOpen();
+                            break;
+                        case OverlayDirectiveKind.DismissModal:
+                            registration.DismissModal?.Invoke();
                             break;
                     }
                 }

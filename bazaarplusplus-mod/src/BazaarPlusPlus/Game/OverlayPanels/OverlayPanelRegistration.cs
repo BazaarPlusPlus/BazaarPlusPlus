@@ -35,6 +35,8 @@ internal sealed class OverlayPanelRegistration
     // Return false to swallow the whole hotkey toggle for this frame (open AND close), e.g.
     // while a text input inside the panel has focus.
     public Func<bool>? HotkeyGuard { get; init; }
+    public Func<bool>? IsModalInputActive { get; init; }
+    public Action? DismissModal { get; init; }
 
     // Unconditional scene-change side effects (dispose Unity runtime, re-arm prewarm, ...).
     // Runs on every scene change regardless of visibility, after any policy-driven close.

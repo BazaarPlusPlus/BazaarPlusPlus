@@ -14,6 +14,11 @@
 
   <ItemGroup>
     <Compile Include="../AsyncLoadCache.Tests/*.cs" />
+    <Compile Include="../../src/BazaarPlusPlus/Game/CollectionPanel/CollectionInspectionState.cs" />
+    <Compile Include="../../src/BazaarPlusPlus/Game/CollectionPanel/CollectionInspectionLayout.cs" />
+    <Compile Include="../../src/BazaarPlusPlus/Game/CollectionPanel/CollectionInspectionClick.cs" />
+    <Compile Include="../../src/BazaarPlusPlus/GameInterop/Tooltips/NativeInspectionSizing.cs" />
+    <Compile Include="../../src/BazaarPlusPlus/GameInterop/Tooltips/InspectionBackgroundPress.cs" />
     <Compile Include="../../src/BazaarPlusPlus/GameInterop/MonsterBoardPreview/NativeMonsterBoardLayout.cs" />
     <Compile Include="../../src/BazaarPlusPlus/Game/LiveBuildPanel/Ui/LiveBuildPanelLayout.cs" />
     <Compile Include="../../src/BazaarPlusPlus/Game/HistoryPanel/Ui/HistoryPanelLayout.cs" />

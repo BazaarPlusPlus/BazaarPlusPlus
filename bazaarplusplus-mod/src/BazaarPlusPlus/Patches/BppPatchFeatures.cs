@@ -1,4 +1,5 @@
 #nullable enable
+using BazaarPlusPlus.Game.CollectionPanel;
 using BazaarPlusPlus.Game.EventPreview;
 using BazaarPlusPlus.Game.HistoryPanel;
 using BazaarPlusPlus.Game.PostCombatImpact;
@@ -24,6 +25,7 @@ internal sealed class BppPatchFeatures
     }
 
     internal HistoryPanelMenuEntry HistoryMenu { get; } = new();
+    internal CollectionInspectionModule CollectionInspection { get; } = new();
 
     internal EncounterPreviewModule EncounterPreview { get; }
     internal IEndOfRunCaptureWorkflow EndOfRunCaptureWorkflow { get; }

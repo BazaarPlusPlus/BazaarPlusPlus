@@ -16,6 +16,7 @@ internal enum OverlayDirectiveKind
     Close,
     NotifySceneChanged,
     Open,
+    DismissModal,
 }
 
 internal enum OverlayCloseReason
@@ -58,6 +59,7 @@ internal readonly struct OverlayFrameSnapshot
     public bool IsInCombat { get; init; }
     public bool EscapePressed { get; init; }
     public string? HotkeyPressedPanelId { get; init; }
+    public bool IsModalInputActive { get; init; }
 }
 
 internal enum OverlayRequestOutcome
@@ -122,6 +124,19 @@ internal sealed class OverlayLifecycleCore
 
         if (_openPanelId != null && frame.IsInCombat)
             ClosePanel(ref directives, OverlayCloseReason.Combat);
+
+        if (frame.IsModalInputActive)
+        {
+            if (_openPanelId != null && frame.EscapePressed)
+                (directives ??= []).Add(
+                    new OverlayDirective
+                    {
+                        Kind = OverlayDirectiveKind.DismissModal,
+                        PanelId = _openPanelId,
+                    }
+                );
+            return (IReadOnlyList<OverlayDirective>?)directives ?? Array.Empty<OverlayDirective>();
+        }
 
         if (frame.HotkeyPressedPanelId is { } hotkeyPanelId && FindPanel(hotkeyPanelId) != null)
         {

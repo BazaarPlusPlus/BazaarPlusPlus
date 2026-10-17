@@ -44,6 +44,8 @@ internal sealed class CollectionPanel : MonoBehaviour
 
     private BppConfig _config = null!;
     private INativeCardPreviewHost _nativeCardPreviewHost = null!;
+    private CollectionInspectionModule _inspection = null!;
+    private readonly CollectionInspectionClick _inspectionClick = new();
     private IGameDataDayTierResolver _dayTierResolver = null!;
     private CollectionPanelView? _view;
     private CollectionGridOverlay? _overlay;
@@ -75,7 +77,8 @@ internal sealed class CollectionPanel : MonoBehaviour
         IBppServices services,
         BppStaticCardMapProvider cardMapProvider,
         INativeCardPreviewHost nativeCardPreviewHost,
-        IGameDataDayTierResolver dayTierResolver
+        IGameDataDayTierResolver dayTierResolver,
+        CollectionInspectionModule inspection
     )
     {
         if (_initialized)
@@ -95,6 +98,12 @@ internal sealed class CollectionPanel : MonoBehaviour
         _config = services.Config;
         _stagingItemIdCopyEnabled = CollectionStagingTools.IsEnabled(services.GameBuild.RawVersion);
         _nativeCardPreviewHost = nativeCardPreviewHost;
+        _inspection = inspection;
+        _inspection.Attach(
+            nativeCardPreviewHost,
+            SetInspectionBlocked,
+            () => _virtualizer?.HoveredScreenRect() ?? default
+        );
         _dayTierResolver = dayTierResolver;
         _catalog = new CollectionCatalog(cardMapProvider);
         _viewState = new CollectionViewState(
@@ -121,11 +130,21 @@ internal sealed class CollectionPanel : MonoBehaviour
             {
                 OnSceneChanged = DisposeUnityRuntime,
                 HotkeyGuard = () => !IsVisible || !IsTextInputFocused(),
+                IsModalInputActive = () => _inspection.BlocksInput,
+                DismissModal = () => _inspection.Close(),
             }
         );
     }
 
     private bool IsTextInputFocused() => _view?.IsTextInputFocused() == true;
+
+    private void SetInspectionBlocked(bool blocked)
+    {
+        _view?.SetInspectionBlocked(blocked);
+        _virtualizer?.SetInspectionBlocked(blocked);
+        if (blocked)
+            DetachImeKeyboard();
+    }
 
     internal static void NotifyLocaleChanged()
     {
@@ -365,6 +384,7 @@ internal sealed class CollectionPanel : MonoBehaviour
     {
         if (!_isVisible)
             return;
+        _inspection.Close();
         _viewState.ResetSearchForLifecycle();
         // Cancel a deferred focus requested by the expanded presentation before the fading view
         // remains alive for another frame.
@@ -401,6 +421,7 @@ internal sealed class CollectionPanel : MonoBehaviour
     // (fade-out completion, catalog warmup, deferred native cleanup).
     private void Tick(float dt, bool isVisible)
     {
+        _inspection.Tick(dt);
         // Warm the shared card map and catalog while the panel is closed. Card-map acquisition
         // runs on the provider's worker task; catalog projection stays on the main thread but is
         // capped to a small closed-state budget. An open panel raises the budget and consumes the
@@ -425,6 +446,7 @@ internal sealed class CollectionPanel : MonoBehaviour
 
         if (!_isVisible)
         {
+            _inspectionClick.Reset();
             // Close() already hides the native card layer synchronously. Keep this as an
             // idempotent cleanup fallback once the remaining UITK fade-out has settled.
             if (_view != null && !_view.IsFadingOrVisible)
@@ -432,6 +454,12 @@ internal sealed class CollectionPanel : MonoBehaviour
                 _overlay?.SetVisible(false);
                 _virtualizer?.Dispose();
             }
+            return;
+        }
+
+        if (_inspection.BlocksInput)
+        {
+            _inspectionClick.Reset();
             return;
         }
 
@@ -474,9 +502,34 @@ internal sealed class CollectionPanel : MonoBehaviour
                 var pos = mouse.position.ReadValue();
                 _virtualizer.PollHover(pos, _viewportBoundsPx);
                 TryCopyHoveredCardId();
+                TryOpenHoveredInspection(mouse, pos);
             }
+            else
+                _inspectionClick.Reset();
         }
         _virtualizer?.TickHoverScale(dt);
+    }
+
+    private void TryOpenHoveredInspection(Mouse mouse, Vector2 position)
+    {
+        if (!Application.isFocused)
+        {
+            _inspectionClick.Reset();
+            return;
+        }
+        Guid? id =
+            _virtualizer != null && _virtualizer.TryGetHoveredCard(out var card) ? card.Id : null;
+        if (
+            _inspectionClick.Sample(
+                mouse.leftButton.wasPressedThisFrame,
+                mouse.leftButton.wasReleasedThisFrame,
+                id,
+                position.x,
+                position.y,
+                _scrollY
+            ) && id.HasValue
+        )
+            _inspection.OpenHovered(id.Value);
     }
 
     private void TryCopyHoveredCardId()
@@ -510,6 +563,7 @@ internal sealed class CollectionPanel : MonoBehaviour
 
     private void OnDestroy()
     {
+        _inspection?.Detach();
         DetachImeKeyboard();
         if (ReferenceEquals(_instance, this))
             _instance = null;
@@ -550,6 +604,7 @@ internal sealed class CollectionPanel : MonoBehaviour
 
     private void DisposeUnityRuntime()
     {
+        _inspection?.Close();
         _viewState.ResetSearchForLifecycle();
         CancelPanelLoad();
         var virtualizer = _virtualizer;

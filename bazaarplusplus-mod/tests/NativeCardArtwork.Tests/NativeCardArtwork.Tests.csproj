@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <ProjectRoot>$(MSBuildThisFileDirectory)../../</ProjectRoot>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../src/BazaarPlusPlus/GameInterop/CardPreview/NativeCardPreviewArtworkMeasurement.cs" />
+    <Compile Include="../../src/BazaarPlusPlus/Game/CollectionPanel/CollectionInspectionLayout.cs" />
+    <Compile Include="../../src/BazaarPlusPlus/Game/CollectionPanel/Grid/CollectionCardFitMath.cs" />
+    <Compile Include="../../src/BazaarPlusPlus/Game/CollectionPanel/Grid/CollectionGridCell.cs" />
+  </ItemGroup>
+</Project>

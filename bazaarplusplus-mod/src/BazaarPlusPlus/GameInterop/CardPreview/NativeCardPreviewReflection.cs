@@ -47,7 +47,11 @@ internal static class NativeCardPreviewReflection
     private static readonly FieldInfo? CardImageField =
         CardPreviewBaseType != null ? AccessTools.Field(CardPreviewBaseType, "_cardImage") : null;
 
-    public static bool TryGetArtworkRect(RectTransform preview, out RectTransform artwork)
+    public static bool TryGetArtworkRect(
+        RectTransform preview,
+        out RectTransform artwork,
+        bool requireVisible = true
+    )
     {
         artwork = null!;
         if (preview == null || CardPreviewBaseType == null || CardImageField == null)
@@ -60,7 +64,7 @@ internal static class NativeCardPreviewReflection
                 return false;
 
             artwork = image.rectTransform;
-            return artwork != null && artwork.gameObject.activeInHierarchy;
+            return artwork != null && (!requireVisible || artwork.gameObject.activeInHierarchy);
         }
         catch
         {
