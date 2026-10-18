@@ -8,7 +8,8 @@ internal static class NativePreviewPresentationTransaction
         bool revealSupplementalVisualsOnSuccess,
         Func<NativePreviewActionResult> applyNative,
         Action revealSupplementalVisuals,
-        Action concealSupplementalVisuals
+        Action concealSupplementalVisuals,
+        bool concealSupplementalVisualsAfterShow = false
     )
     {
         if (applyNative == null)
@@ -35,6 +36,10 @@ internal static class NativePreviewPresentationTransaction
         // cannot expose a half-created preview.
         concealSupplementalVisuals();
         var result = applyNative();
+        // CardPreviewItem.Show reactivates its gem group. Artwork-only item previews
+        // must conceal it again; skills can share these roots with their artwork.
+        if (concealSupplementalVisualsAfterShow)
+            concealSupplementalVisuals();
         if (
             revealSupplementalVisualsOnSuccess
             && result.Status == NativePreviewActionStatus.Applied
