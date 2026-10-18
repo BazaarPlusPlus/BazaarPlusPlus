@@ -1,5 +1,6 @@
 #nullable enable
 using System.Runtime.ExceptionServices;
+using BazaarGameShared.Domain.Core.Types;
 using BazaarPlusPlus.GameInterop.Tooltips;
 using HarmonyLib;
 using TheBazaar.UI.Tooltips;
@@ -346,7 +347,9 @@ internal sealed partial class NativeCardPreviewHost : INativeCardPreviewHost
                     revealSupplementalVisualsOnSuccess,
                     ApplyNative,
                     resource.Presentation.RevealSupplementalVisuals,
-                    resource.Presentation.ConcealSupplementalVisuals
+                    resource.Presentation.ConcealSupplementalVisuals,
+                    concealSupplementalVisualsAfterShow: !revealSupplementalVisualsOnSuccess
+                        && resource.Kind.Type == ECardType.Item
                 );
                 if (result.Failure != null)
                     SafeReport(resource.Owner, result.Failure);
