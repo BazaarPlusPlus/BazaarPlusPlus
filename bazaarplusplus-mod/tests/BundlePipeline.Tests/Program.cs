@@ -2,6 +2,7 @@ using System.Net;
 using System.Text;
 using System.Text.Json.Nodes;
 using BazaarGameShared;
+using BazaarGameShared.Domain.Core.Types;
 using BazaarGameShared.Infra.Messages;
 using BazaarGameShared.Infra.Messages.GameSimEvents;
 using BazaarPlusPlus.Core.Config;
@@ -246,7 +247,13 @@ static void CompleteRun(RunLogStore store, string runId, int minute) =>
         }
     );
 
-static void SaveBattle(string database, string battleId, string runId, int minute) =>
+static void SaveBattle(
+    string database,
+    string battleId,
+    string runId,
+    int minute,
+    PvpBattleSnapshots? snapshots = null
+) =>
     new PvpBattleSqliteStore(database).Save(
         new PvpBattleManifest
         {
@@ -271,13 +278,15 @@ static void SaveBattle(string database, string battleId, string runId, int minut
                 WinnerCombatantId = "Player",
                 LoserCombatantId = "Opponent",
             },
-            Snapshots = new PvpBattleSnapshots
-            {
-                PlayerHand = CapturedEmpty(),
-                PlayerSkills = CapturedEmpty(),
-                OpponentHand = CapturedEmpty(),
-                OpponentSkills = CapturedEmpty(),
-            },
+            Snapshots =
+                snapshots
+                ?? new PvpBattleSnapshots
+                {
+                    PlayerHand = CapturedEmpty(),
+                    PlayerSkills = CapturedEmpty(),
+                    OpponentHand = CapturedEmpty(),
+                    OpponentSkills = CapturedEmpty(),
+                },
         }
     );
 
@@ -432,9 +441,26 @@ static void ExpectSqliteConstraint(Action action, string message)
 static PvpBattleCardSetCapture CapturedEmpty() =>
     new() { Status = PvpBattleCaptureStatus.CapturedEmpty };
 
+static PvpBattleCardSetCapture Captured(params ECardType[] types) =>
+    new()
+    {
+        Status = PvpBattleCaptureStatus.Captured,
+        Items = types
+            .Select(
+                (type, index) =>
+                    new PvpBattleCardSnapshot
+                    {
+                        InstanceId = $"card-{index}",
+                        TemplateId = Guid.Empty.ToString(),
+                        Type = type,
+                    }
+            )
+            .ToList(),
+    };
+
 // The database stores Unix-millisecond instants and no seed; the composer copies those integers
 // into the V6 Run segment unchanged, emits a null seed, and strips the envelope keys from
-// payload_json.
+// payload_json. Participant card counts come from the captured sets.
 static async Task VerifyRunSegmentProjectionAsync(string root)
 {
     Directory.CreateDirectory(root);
@@ -442,6 +468,22 @@ static async Task VerifyRunSegmentProjectionAsync(string root)
     var store = new RunLogStore(paths);
     using var coordinator = new BundleSealCoordinator(new TestServices(paths));
     CreateRun(store, "run-segment", minute: 0, screenshotRequested: false);
+    SaveBattle(
+        PathConstants.RunLogDatabase(root),
+        "battle-segment",
+        "run-segment",
+        minute: 0,
+        new PvpBattleSnapshots
+        {
+            PlayerHand = Captured(ECardType.Item, ECardType.SocketEffect, ECardType.Item),
+            PlayerSkills = Captured(ECardType.Skill),
+            OpponentHand = CapturedEmpty(),
+            OpponentSkills = new PvpBattleCardSetCapture
+            {
+                Status = PvpBattleCaptureStatus.Missing,
+            },
+        }
+    );
     store.AppendEvent(
         "run-segment",
         new RunLogEvent
@@ -453,8 +495,11 @@ static async Task VerifyRunSegmentProjectionAsync(string root)
         }
     );
     CompleteRun(store, "run-segment", minute: 0);
-    await coordinator.ReconcileAsync(CancellationToken.None);
     var database = PathConstants.RunLogDatabase(root);
+    // The Missing set leaves the Battle unreplayable, which holds the Run until its deadline.
+    await coordinator.ReconcileAsync(CancellationToken.None);
+    ExpireDeadline(database, "run-segment");
+    await coordinator.ReconcileAsync(CancellationToken.None);
     using var connection = new SqliteConnection($"Data Source={database}");
     connection.Open();
     var file = Scalar(
@@ -484,6 +529,14 @@ static async Task VerifyRunSegmentProjectionAsync(string root)
             && !body.ContainsKey("ts")
             && !body.ContainsKey("kind"),
         "Event payload_json keeps schema_version 3 and drops the keys the envelope owns."
+    );
+    var participants = payload.Battles.Single().Participants;
+    Assert(
+        participants.Player.HandItemCount == 2
+            && participants.Player.SkillCount == 1
+            && participants.Opponent.HandItemCount == 0
+            && participants.Opponent.SkillCount == null,
+        "Participant counts are the set's Item or Skill cards, 0 when captured empty, null when Missing."
     );
 }
 
