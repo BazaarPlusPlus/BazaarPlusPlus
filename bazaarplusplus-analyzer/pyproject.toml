@@ -9,7 +9,7 @@ dependencies = [
     "duckdb==1.5.6",
     "httpx==0.28.1",
     "jsonschema==4.26.0",
-    "pyarrow==25.0.1",
+    "pyarrow==26.0.0",
     "python-dotenv==1.2.4",
 ]
 
