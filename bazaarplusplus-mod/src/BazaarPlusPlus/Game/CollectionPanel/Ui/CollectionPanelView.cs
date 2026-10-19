@@ -89,6 +89,7 @@ internal sealed partial class CollectionPanelView : IDisposable
     private int _loadingFrameIndex;
     private int _stagingIdCopyFeedbackGeneration;
     private bool _searchFocused;
+    private bool _inspectionBlocked;
     private float _searchFocusPulseElapsed;
 
     private readonly Dictionary<EHero, Button> _heroChips = new();
@@ -226,6 +227,20 @@ internal sealed partial class CollectionPanelView : IDisposable
             _titleOverlay?.SetVisible(true);
             _titleOverlay?.SetAlpha(_opacity);
         }
+    }
+
+    public void SetInspectionBlocked(bool blocked)
+    {
+        if (_inspectionBlocked == blocked)
+            return;
+        _inspectionBlocked = blocked;
+        if (blocked)
+        {
+            _root?.focusController?.focusedElement?.Blur();
+            _controlsDragScroller?.CancelDrag();
+            _gridDragScroller?.CancelDrag();
+        }
+        _root?.SetEnabled(!blocked);
     }
 
     public float CurrentOpacity => _opacity;

@@ -29,13 +29,17 @@ internal sealed class ScrollViewDragScroller : IDisposable
 
     public void Dispose()
     {
-        if (_pointerId != PointerId.invalidPointerId && _content.HasPointerCapture(_pointerId))
-            _content.ReleasePointer(_pointerId);
-
+        CancelDrag();
         _content.UnregisterCallback<PointerDownEvent>(OnPointerDown, TrickleDown.TrickleDown);
         _content.UnregisterCallback<PointerMoveEvent>(OnPointerMove, TrickleDown.TrickleDown);
         _content.UnregisterCallback<PointerUpEvent>(OnPointerUp, TrickleDown.TrickleDown);
         _content.UnregisterCallback<PointerCaptureOutEvent>(OnPointerCaptureOut);
+    }
+
+    public void CancelDrag()
+    {
+        if (_pointerId != PointerId.invalidPointerId && _content.HasPointerCapture(_pointerId))
+            _content.ReleasePointer(_pointerId);
         ResetDrag();
     }
 

@@ -223,7 +223,8 @@ internal sealed class BppComposition : IDisposable
                 () => overlayPanelHostMount.Host,
                 _staticCardMapProvider,
                 _nativeCardPreviewHost,
-                _dayTierResolver
+                _dayTierResolver,
+                _patchFeatures.CollectionInspection
             )
         );
         _mountables.Register(

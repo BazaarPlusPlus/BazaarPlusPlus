@@ -13,6 +13,7 @@ TestOpeningSecondPanelClosesFirstBeforeOpening();
 TestHotkeyOpenSuppressedInCombat();
 TestCombatAutoClosesOpenPanel();
 TestEscapeClosesOpenPanelOnly();
+TestModalConsumesEscapeAndHotkeysBeforeThePanel();
 TestSceneChangeAlwaysPolicyClosesPanel();
 TestSceneChangeOnlyWhenInCombatPolicyKeepsPanelOpen();
 TestSceneChangeNotifiesEveryRegistrantAfterClose();
@@ -66,6 +67,53 @@ static void TestFirstFrameAdoptsSceneTokenSilently()
     var directives = core.Evaluate(Frame(sceneToken: SceneB));
     Assert(directives.Count == 0, "The first evaluated frame must not emit scene directives.");
     Assert(core.OpenPanelId == null, "No panel is open initially.");
+}
+
+static void TestModalConsumesEscapeAndHotkeysBeforeThePanel()
+{
+    var core = NewCoreWithPanels();
+    Prime(core);
+    OpenViaHotkey(core, "Collection");
+    var dismiss = core.Evaluate(
+        new OverlayFrameSnapshot
+        {
+            SceneToken = SceneA,
+            IsModalInputActive = true,
+            EscapePressed = true,
+            HotkeyPressedPanelId = "History",
+        }
+    );
+    AssertDirective(dismiss, 0, OverlayDirectiveKind.DismissModal, "Collection");
+    Assert(
+        dismiss.Count == 1 && core.OpenPanelId == "Collection",
+        "Escape dismisses only the modal."
+    );
+    var ignoredHotkey = core.Evaluate(
+        new OverlayFrameSnapshot
+        {
+            SceneToken = SceneA,
+            IsModalInputActive = true,
+            HotkeyPressedPanelId = "History",
+        }
+    );
+    Assert(
+        ignoredHotkey.Count == 0 && core.OpenPanelId == "Collection",
+        "Modal blocks panel hotkeys."
+    );
+    var escape = core.Evaluate(Frame(escapePressed: true));
+    AssertDirective(escape, 0, OverlayDirectiveKind.Close, "Collection");
+
+    OpenViaHotkey(core, "Collection");
+    var combat = core.Evaluate(
+        new OverlayFrameSnapshot
+        {
+            SceneToken = SceneA,
+            IsModalInputActive = true,
+            IsInCombat = true,
+        }
+    );
+    AssertDirective(combat, 0, OverlayDirectiveKind.Close, "Collection");
+    Assert(core.OpenPanelId == null, "Modal cannot prevent mandatory combat cleanup.");
 }
 
 static void TestHotkeyOpensAndClosesSamePanel()
