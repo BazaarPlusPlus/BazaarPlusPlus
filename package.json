@@ -11,7 +11,7 @@
     "test": "vitest run --config release/vitest.config.mjs"
   },
   "devDependencies": {
-    "lefthook": "^2.1.16",
+    "lefthook": "^2.2.1",
     "prettier": "^3.9.10",
     "vitest": "^5.0.3"
   }
