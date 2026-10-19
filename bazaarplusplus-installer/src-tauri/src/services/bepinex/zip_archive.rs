@@ -19,7 +19,11 @@ pub(crate) fn read_bundled_bpp_version(app: &tauri::AppHandle) -> Result<Option<
 
     for index in 0..archive.len() {
         let mut file = archive.by_index(index).map_err(|err| err.to_string())?;
-        if file.name().ends_with("BazaarPlusPlus.version") {
+        let is_version_file = file
+            .name()
+            .map_err(|err| err.to_string())?
+            .ends_with("BazaarPlusPlus.version");
+        if is_version_file {
             let mut version = String::new();
             file.read_to_string(&mut version)
                 .map_err(|err| err.to_string())?;
@@ -47,7 +51,10 @@ pub(super) fn extract_zip(zip_bytes: &[u8], dest_dir: &Path) -> Result<ExtractRe
     for index in 0..archive.len() {
         let mut file = archive.by_index(index).map_err(|err| err.to_string())?;
         let Some(relative_path) = file.enclosed_name().map(|path| path.to_path_buf()) else {
-            return Err(format!("Zip entry has unsafe path: {}", file.name()));
+            return Err(format!(
+                "Zip entry has unsafe path: {}",
+                String::from_utf8_lossy(file.name_raw())
+            ));
         };
         let output_path = dest_dir.join(relative_path);
 
@@ -85,11 +92,14 @@ pub(super) fn zip_entry_paths(
 ) -> Result<std::collections::HashSet<String>, String> {
     let reader = Cursor::new(zip_bytes);
     let archive = zip::ZipArchive::new(reader).map_err(|err| err.to_string())?;
-    Ok(archive
+    archive
         .file_names()
-        .filter(|name| !name.ends_with('/'))
-        .map(|name| name.replace('\\', "/"))
-        .collect())
+        .filter_map(|name| match name {
+            Ok(name) if name.ends_with('/') => None,
+            Ok(name) => Some(Ok(name.replace('\\', "/"))),
+            Err(err) => Some(Err(err.to_string())),
+        })
+        .collect()
 }
 
 /// A shared dll another mod ships at the same version must not be rewritten
