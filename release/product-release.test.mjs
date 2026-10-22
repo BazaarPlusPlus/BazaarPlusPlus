@@ -955,7 +955,7 @@ test('an Android release refuses rollback and changed facts at a published versi
   );
 });
 
-test('an Android fragment names its APK by game, loader and interop, and the Mods it carries', () => {
+test('an Android fragment names its APK by game, loader and non-managed payload digest, and the Mods it carries', () => {
   const facts = {
     version: '3.1.2',
     gitCommit: 'a'.repeat(40),
@@ -982,7 +982,7 @@ test('an Android fragment names its APK by game, loader and interop, and the Mod
   // A pure Mods update points at the APK an earlier version baked.
   const fragment = buildAndroidFragment(facts);
   expect(fragment.apk.url).toBe(
-    `${baseUrl}/android/apk/BazaarPlusPlus_1.0.12825_lemon-v0.7.4-android.4_0123abcd.apk`
+    `${baseUrl}/android/apk/BazaarPlusPlus_1.0.12825_lemon-v0.7.4-android.4_dddddddd.apk`
   );
   expect(fragment.managedPayload.url).toBe(
     `${baseUrl}/3.1.2/${ANDROID}/managed/BazaarPlusPlus_3.1.2_${ANDROID}-managed.zip`
@@ -1005,7 +1005,7 @@ test('an Android fragment names its APK by game, loader and interop, and the Mod
       '3.1.2',
       ANDROID
     )
-  ).toThrow(/does not name its game, loader and interop/);
+  ).toThrow(/does not name its game, loader and non-managed payload digest/);
   expect(() =>
     validatePlatformFragment({ ...fragment, kind: 'tauri' }, '3.1.2', ANDROID)
   ).toThrow(/Invalid android-aarch64 platform fragment/);

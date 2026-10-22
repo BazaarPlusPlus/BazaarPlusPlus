@@ -50,7 +50,8 @@ jobs:
     name: Release ${{ matrix.platform }}
     # Icon Composer sources require the Xcode toolchain on the newer macOS image.
     runs-on: ${{ matrix.platform == 'macos' && 'macos-26' || matrix.platform == 'android' && 'ubuntu-latest' || 'windows-latest' }}
-    timeout-minutes: 180
+    # The Android job injects and streams a 2.8 GB APK; desktop keeps its limit.
+    timeout-minutes: ${{ matrix.platform == 'android' && 180 || 120 }}
     environment: release
     strategy:
       fail-fast: false

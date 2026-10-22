@@ -2,7 +2,13 @@ import fs from 'node:fs';
 import crypto from 'node:crypto';
 import path from 'node:path';
 import { compareProductVersions, readProductVersion } from './product.mjs';
-import { putImmutable, putImmutableFile, putReplaceable } from './r2-store.mjs';
+import {
+  RELEASE_BUCKET,
+  RELEASE_PREFIX,
+  putImmutable,
+  putImmutableFile,
+  putReplaceable
+} from './r2-store.mjs';
 import {
   RELEASE_MANIFEST_PATH,
   assertMirrorUrl,
@@ -35,6 +41,7 @@ import {
   validateArtifactManifest
 } from './artifact-manifest.mjs';
 import {
+  androidApkFacts,
   androidApkRecordKey,
   publishedAndroidApk,
   readAndroidArtifacts
@@ -235,19 +242,26 @@ export async function uploadPlatform({
   return fragment;
 }
 
-// The facts a published Android Release APK carries in its sidecar.
-const ANDROID_APK_FACTS = Object.freeze([
-  'size',
-  'sha256',
-  'versionCode',
-  'signerSha256',
-  'builtForProductVersion'
-]);
+// The signer of every Android Release APK is the one BPP release key, which
+// never rotates (ADR 0009): Android refuses to install an APK over one signed
+// by another certificate. The promoted APK names that signer; only the first
+// APK, before any promotion, sets it.
+async function assertAndroidSigner(store, platform, signerSha256) {
+  const promoted = (await readPlatformManifest(store, platform))?.downloads[
+    platform
+  ].apk.signerSha256;
+  if (promoted && promoted !== signerSha256)
+    throw new Error(
+      `The Android Release APK is signed by ${signerSha256}, not the release key ${promoted} the promoted APK carries; installed users could not update over it (docs/adr/0009-android-release-key.md)`
+    );
+}
 
 // Uploads the Android build of VERSION: the Android Release APK under its own
 // identity unless that identity is already published (a mod-only release then
 // points at the published APK), the Managed Payload zip and its signature,
-// and last the fragment naming both. Large files stream from disk.
+// and last the fragment naming both. Large files stream from disk. An APK
+// whose upload stopped before its sidecar is completed when this build holds
+// the same bytes.
 export async function uploadAndroidPlatform({
   workspaceRoot,
   baseUrl,
@@ -267,39 +281,38 @@ export async function uploadAndroidPlatform({
   if (checkout.dirty)
     throw new Error('Current checkout is dirty; refusing upload');
   const apkKey = manifest.apk.key;
-  const identity = {
-    gameVersion: manifest.game.gameVersion,
-    loader: manifest.loader,
-    interopSha256: manifest.interopSha256
-  };
-  const published = await publishedAndroidApk(store, identity);
+  const { nonManagedPayloadDigest } = manifest;
+  const published = await publishedAndroidApk(store, {
+    key: apkKey,
+    nonManagedPayloadDigest
+  });
   let apk;
-  if (published) {
+  if (published?.record) {
     if (files.apk)
       log(
-        `${apkKey} is already published (built for ${published.builtForProductVersion}); the APK built here is not uploaded`
+        `${apkKey} is already published (built for ${published.record.builtForProductVersion}); the APK built here is not uploaded`
       );
-    apk = published;
+    apk = androidApkFacts(published.record);
   } else if (!files.apk) {
     throw new Error(
       `${apkKey} was published when the Android build ran but is missing now; build again with --rebuild-apk`
     );
   } else {
-    apk = Object.fromEntries(
-      ANDROID_APK_FACTS.map((name) => [name, manifest.apk[name]])
-    );
+    apk = androidApkFacts(manifest.apk);
+    if (published) {
+      const { object } = published;
+      if (object.size !== apk.size || object.sha256 !== apk.sha256)
+        throw new Error(
+          `${apkKey} is on R2 without its sidecar ${androidApkRecordKey(apkKey)}, and it is not the APK built here (${object.sha256}, not ${apk.sha256}); delete ${RELEASE_BUCKET}/${RELEASE_PREFIX}/${apkKey} from R2, then upload again`
+        );
+      log(`${apkKey} is on R2 without its sidecar; completing that upload`);
+    }
   }
   const fragment = buildAndroidFragment({
     version,
     gitCommit: manifest.gitCommit,
     baseUrl,
-    apk: {
-      size: apk.size,
-      sha256: apk.sha256,
-      versionCode: apk.versionCode,
-      signerSha256: apk.signerSha256,
-      builtForProductVersion: apk.builtForProductVersion
-    },
+    apk,
     managedPayload: {
       size: manifest.managedPayload.size,
       sha256: manifest.managedPayload.sha256,
@@ -309,7 +322,7 @@ export async function uploadAndroidPlatform({
     // release as a Managed Payload; one built here needs the new APK.
     selfUpdatable: apk.builtForProductVersion !== version,
     historyDatabaseUserVersion: manifest.historyDatabaseUserVersion,
-    nonManagedPayloadDigest: manifest.nonManagedPayloadDigest,
+    nonManagedPayloadDigest,
     game: manifest.game,
     loader: manifest.loader,
     interopSha256: manifest.interopSha256
@@ -317,7 +330,8 @@ export async function uploadAndroidPlatform({
   if (objectKey(fragment.apk.url, baseUrl) !== apkKey)
     throw new Error(`Android build names ${apkKey}, not ${fragment.apk.url}`);
   await assertSameCommitAcrossPlatforms(store, version, fragment);
-  if (!published) {
+  if (!published?.record) {
+    await assertAndroidSigner(store, fragment.platform, apk.signerSha256);
     log(`Uploading ${apkKey} (${apk.size} bytes)`);
     await putImmutableFile(store, apkKey, files.apk, {
       sha256: apk.sha256,
@@ -327,7 +341,7 @@ export async function uploadAndroidPlatform({
     await putImmutable(
       store,
       androidApkRecordKey(apkKey),
-      jsonBytes(apk),
+      jsonBytes({ ...apk, nonManagedPayloadDigest }),
       'application/json'
     );
   }
@@ -567,6 +581,8 @@ export async function promotePlatform({
   const fragment = await readFragment(store, version, key);
   await assertArtifactsStored(store, fragment, baseUrl);
   await assertSameCommitAcrossPlatforms(store, version, fragment);
+  if (definition.kind === 'android')
+    await assertAndroidSigner(store, key, fragment.apk.signerSha256);
   const existing = await readPlatformManifest(store, key);
   const mirrors =
     definition.kind === 'tauri'

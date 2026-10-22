@@ -140,7 +140,7 @@ test('the shared Android fixture is a Platform Release Manifest outside latest.j
     game: androidFixture.downloads[ANDROID].game,
     mainlandUrl: null
   });
-  // The APK is named by game, loader and interop, not by the product version.
+  // The APK is named by game, loader and non-managed payload digest, not by the product version.
   expect(download.apk.url.startsWith(`${RELEASE_BASE_URL}/`)).toBe(true);
   expect(download.apk.url.slice(RELEASE_BASE_URL.length)).toMatch(
     /^\/android\/apk\/BazaarPlusPlus_\d+\.\d+\.\d+_lemon-[^/]+_[a-f0-9]{8}\.apk$/
