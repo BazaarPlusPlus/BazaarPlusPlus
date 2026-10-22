@@ -4,6 +4,7 @@
 
 - `InstallState` in `src-tauri/src/services/install/types.rs` is the native/frontend contract for selected paths, game and mod readiness, warnings, resettable data, and action gates.
 - `install_state_from_snapshot` in `src-tauri/src/services/install/mod.rs` derives the contract from one `InstallEnvironmentSnapshot`; `detect_for_install` in `src-tauri/src/services/detect/mod.rs` refreshes platform bootstrap facts on every detection.
+- `plan_install` in `src-tauri/src/services/install/plan.rs` decides readiness: the payload is current when BepInEx is installed and the installed `BazaarPlusPlus.version` is not older than the bundled one (`installed_version_is_current` in `src-tauri/src/services/bepinex/managed_payload.rs`). A mod that self-updated past the bundled release is therefore ready ([ADR-0009](adr/0009-repair-keeps-self-updated-managed-payload.md)).
 - `DefaultInstallWorkflow` in `src/features/install/installWorkflow.ts` owns stale-response rejection, single-flight operations, fixed confirmation targets, retry, and the one primary action. An installed but non-ready state routes to Repair.
 - Warnings and failures cross the boundary as stable codes and parameters. `presentInstallWarning`, `presentInstallProblem`, and `presentInstallNotice` in `src/features/install/installProblems.ts` own localized presentation.
 
@@ -11,7 +12,8 @@
 
 - `plan_install` in `src-tauri/src/services/install/plan.rs` computes effects; `execute_and_refresh` in `src-tauri/src/services/install/operation.rs` stops on the first failed effect and returns a freshly detected final state.
 - `prepare_install_target` in `src-tauri/src/services/bepinex/payload.rs` removes only BPP-owned files absent from the incoming payload and preserves BPP configuration. `extract_zip` in `src-tauri/src/services/bepinex/zip_archive.rs` skips byte-identical files and replaces differing files.
-- `BPP_PRIVATE_RELATIVE_PATHS` and `BPP_BUNDLED_DEPENDENCY_RELATIVE_PATHS` in `src-tauri/src/services/bepinex/payload.rs` define payload ownership.
+- `install_bepinex` in `src-tauri/src/services/bepinex/mod.rs` asks `choose_managed_payload_source` in `src-tauri/src/services/bepinex/managed_payload.rs` whether to keep the installed Managed Payload. It keeps it when the installed Managed Payload Manifest is newer than the bundled one and has the same platform, history database schema and `nonManagedPayloadDigest`, and every file it lists matches its recorded size and SHA-256. The bundled zip then writes only the files its own manifest does not list, never the manifest itself, and the kept files count as incoming. In every other case the whole bundled zip is written. Install never touches the Data Root, so a payload the mod staged under `Updates/` is left for the Updater.
+- The BepInEx entries of the Payload Inventory (workspace `../release/payload.json`, read by `inventory` in `src-tauri/src/services/bepinex/payload.rs`) define payload ownership. The Updater (`BepInEx/patchers/BazaarPlusPlus.Updater.dll`) is a private entry like the mod's own DLLs, so it never counts as a third-party patcher.
 - `uninstall_bpp` in `src-tauri/src/services/bepinex/mod.rs` always removes private BPP files. It removes shared BepInEx and platform bootstrap state only when no third-party plugin or patcher remains. Uninstall preserves the BPP data root.
 
 On macOS, `plan_install` keeps Steam running when detected launch options are empty; only non-empty launch options add Steam shutdown and cleanup. `ensure_game_stopped` checks the selected game process before install effects and again before trampoline replacement.
@@ -101,12 +103,12 @@ After a successful import, `createLegacyDataWorkflow` opens the ordinary Legacy 
 `just installer::acceptance` runs two ignored macOS tests. It requires `BPP_ACCEPTANCE_RESOURCE_DIR`, a packaged resource directory (`BepInExSource/BepInEx.zip` and `Trampoline/bpp_launcher`), and `BPP_TEST_GAME_ROOT`, an installed game.
 
 - `fresh_install_writes_payload_and_signed_trampoline_without_quitting_steam` in `src-tauri/src/services/install/operation.rs` creates a disposable macOS bundle and Steam config, then executes the production filesystem effects. It checks every payload file byte for byte and checks that the Steam config is unchanged. A shutdown effect fails the test before it can reach Steam.
-- `copied_steam_bundle_repair_acceptance` in `src-tauri/src/services/bepinex/trampoline.rs` clones `TheBazaar.app` and Doorstop from the game root, repairs through the service and CLI repeatedly, verifies the manifest and preservation of developer DLLs and user data, then uninstalls the trampoline. The source is never modified.
+- `copied_steam_bundle_repair_acceptance` in `src-tauri/src/services/bepinex/trampoline.rs` clones `TheBazaar.app` and Doorstop from the game root. It installs a Managed Payload one patch release past the bundled one, with a different mod DLL, and runs `install_bepinex` over it. It then repairs the trampoline through the service and CLI repeatedly, verifies the manifest, the self-updated mod DLL and the user data, and uninstalls the trampoline. The source is never modified.
 
 Each test compares a committed golden:
 
 - `src-tauri/tests/goldens/acceptance/installed-tree.json` holds the installed path set.
-- `repaired-tree.json` holds the Payload Inventory paths present after repair.
+- `repaired-tree.json` holds the Payload Inventory paths present after repair, and whether the self-updated payload still counts as current.
 
 Both goldens also record whether the trampoline UUID matches the bundled one and whether `codesign --verify --deep --strict` passed. Signatures change on every signing, and the copied game differs between machines, so file hashes stay out of the goldens. Each run instead writes its full `(path, sha256)` list to `src-tauri/target/acceptance/`, where two runs over the same inputs can be diffed. `BPP_UPDATE_GOLDENS=1` rewrites the goldens.
 
