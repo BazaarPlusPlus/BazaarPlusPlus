@@ -1,4 +1,7 @@
 import crypto from 'node:crypto';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { once } from 'node:events';
 import { createServer } from 'node:http';
 import { gzipSync } from 'node:zlib';
@@ -297,4 +300,60 @@ test('a missing pair, missing ETag and oversized reads fail closed', async () =>
   await expect(store.get('large', { maxBytes: 2 })).rejects.toThrow(
     /expected size/
   );
+});
+
+// Streamed transfers for multi-gigabyte inputs (the official Android APK):
+// the body is a file stream whose precomputed sha256 is the signed payload
+// hash, so R2 rejects bytes that differ; a write only creates; a missing
+// object reads as null.
+test('putFile streams a file under its sha256 and getFile streams an object to disk', async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'bpp-r2-file-'));
+  try {
+    const file = path.join(root, 'TheBazaar.apk');
+    const bytes = Buffer.alloc(200000, 7);
+    fs.writeFileSync(file, bytes);
+    const received = [];
+    const fetchImpl = vi.fn(async (url, request) => {
+      if (request.method === 'PUT') {
+        const chunks = [];
+        for await (const chunk of request.body) chunks.push(Buffer.from(chunk));
+        received.push({
+          headers: request.headers,
+          body: Buffer.concat(chunks)
+        });
+        return new Response('', { status: received.length === 1 ? 200 : 412 });
+      }
+      return url.endsWith('/missing.apk')
+        ? new Response('', { status: 404 })
+        : new Response(bytes, { status: 200, headers: { etag: '"e"' } });
+    });
+    const store = createR2Store({ ...credentials, fetchImpl });
+    const digest = sha256(bytes);
+    expect(
+      await store.putFile('game-libs/apk/a.apk', file, { sha256: digest })
+    ).toBe(true);
+    expect(
+      await store.putFile('game-libs/apk/a.apk', file, { sha256: digest })
+    ).toBe(false);
+    const [first] = received;
+    expect(first.body.equals(bytes)).toBe(true);
+    expect(first.headers['content-length']).toBe(String(bytes.length));
+    expect(first.headers['x-amz-content-sha256']).toBe(digest);
+    expect(first.headers['x-amz-meta-sha256']).toBe(digest);
+    expect(first.headers['if-none-match']).toBe('*');
+    expect(fetchImpl.mock.calls[0][1].duplex).toBe('half');
+    await expect(
+      store.putFile('game-libs/apk/a.apk', file, { sha256: 'nope' })
+    ).rejects.toThrow(/needs the file sha256/);
+    const copy = path.join(root, 'copy.apk');
+    expect(await store.getFile('game-libs/apk/a.apk', copy)).toEqual({
+      size: bytes.length
+    });
+    expect(fs.readFileSync(copy).equals(bytes)).toBe(true);
+    expect(
+      await store.getFile('game-libs/apk/missing.apk', path.join(root, 'x'))
+    ).toBeNull();
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
 });

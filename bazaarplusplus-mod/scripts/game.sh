@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# Which Game Assembly Snapshot is in use: decompile, snapshot, publish, fetch, lock
-# check, release pin. Entry points: `just mod::decompile`, `mod::snapshot`,
-# `mod::publish`, `mod::fetch`, `mod::lock-check`, and release/payload.mjs
-# (`managed-path`). The lock itself is build/game-libs.lock.json (ADR 0004).
+# Which Game Assembly or Interop Snapshot is in use: decompile, snapshot, publish,
+# fetch, lock check, release pin. Entry points: `just mod::decompile`, `mod::snapshot`,
+# `mod::snapshot-android`, `mod::publish`, `mod::fetch`, `mod::lock-check`, and
+# release/payload.mjs (`managed-path`). The lock itself is build/game-libs.lock.json
+# (root ADR 0004 and ADR 0008).
 # shellcheck source=scripts/lib.sh
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
@@ -52,19 +53,32 @@ cmd_snapshot() {
     game_libs_cli snapshot --managed "$managed" --buildid "$buildid" --steam-branch "$branch"
 }
 
-# publish <macos|windows> <online|staging|ptr>: upload the captured snapshot of that
-# lock entry to the private store. Needs the release credentials (`just mod::publish`
-# loads them through the release profile).
+# snapshot-android <TheBazaar.apk> [options]: capture an official APK as the
+# android-online entry: its identity, the Interop assemblies generated from it (or
+# --interop <dir> generated elsewhere from the same APK), and the pinned Loader
+# Release, Patcher and Cpp2IL. The options name a new toolchain; without them the
+# current entry's toolchain is reused. `node ../release/game-libs.mjs --help` lists them.
+cmd_snapshot_android() {
+    [[ $# -ge 1 ]] || die "Usage: just mod::snapshot-android <TheBazaar.apk> [--interop <dir>] [--loader <zip> --loader-tag <tag>] [--patcher <tar.gz> --patcher-tag <tag>] [--cpp2il <file>] [--native-package <id>@<version>]"
+    local apk="$1"
+    shift
+    game_libs_cli snapshot-android --apk "$apk" "$@"
+}
+
+# publish <macos|windows|android> <channel>: upload the captured snapshot of that lock
+# entry, and for android every pinned input, to the private store. Needs the release
+# credentials (`just mod::publish` loads them through the release profile).
 cmd_publish() {
-    [[ $# -eq 2 ]] || die "Usage: just mod::publish <macos|windows> <online|staging|ptr>"
+    [[ $# -eq 2 ]] || die "Usage: just mod::publish <macos|windows> <online|staging|ptr>, or android online"
     game_libs_cli publish --platform "$1" --channel "$2"
 }
 
-# fetch <macos|windows> <online|staging|ptr>: make the lock entry's Managed dir
-# available locally and print it. Pulling from the private store needs the release
-# credentials: `just with-config release just mod::fetch <platform> <channel>`.
+# fetch <macos|windows|android> <channel>: make the lock entry's Managed dir (android:
+# interop dir and Loader Release) available locally and print it. Pulling from the
+# private store needs the release credentials:
+# `just with-config release just mod::fetch <platform> <channel>`.
 cmd_fetch() {
-    [[ $# -eq 2 ]] || die "Usage: just mod::fetch <macos|windows> <online|staging|ptr>"
+    [[ $# -eq 2 ]] || die "Usage: just mod::fetch <macos|windows> <online|staging|ptr>, or android online"
     lock_managed_path "$1" "$2"
 }
 

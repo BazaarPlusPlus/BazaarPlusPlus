@@ -11,3 +11,5 @@ mod 对游戏的全部构建期依赖是 `Managed/` 目录下的程序集，`Man
 否决的方案：按渠道各出一个 mod 二进制，installer 不感知渠道，三个分支共用一个安装目录，server 和 analyzer 也从不按渠道过滤，六个产物只会制造安装错配。只打包编译所需的二十个 DLL，Assembly-CSharp 的类型解析会牵连其余 Unity 模块，构建输入摘要也要求整个 Managed 目录，裁剪换来的体积收益不值得这份不确定性。把快照放进私有 git 仓库或 GitHub Packages，47 MB 的二进制每次更新都膨胀历史，R2 已有凭据和条件写入脚本。一开始就用 DepotDownloader 在 CI 里自动采集，Steam Guard 在无人值守环境下不可靠，采集留在挂了对应分支的机器上手工执行，自动化另起决定。
 
 代价是多一份锁文件要跟着游戏更新手工推进，过期的锁只会在 CI 告警而不会自动纠正，游戏一更新本机 Steam 就和锁不一致，贡献者在锁推进前无法构建；R2 多一个私有 bucket 和一组只读凭据进入 GitHub secrets；Windows 与 macOS 的 Managed 是否相同未知，在第一个 Windows 快照出现前锁文件保留六个键；蓝奏云镜像上传仍是手动步骤。
+
+2026-10-22 修订：[ADR 0008](0008-interop-snapshots-in-snapshot-lock.md) 给锁增加 `android-online` 键，渠道列表改为按平台给出（Android 只有 `online`），游戏版本串的模式放宽到没有架构段的 Android 版本串；该条目的快照是 Interop Snapshot 而不是 `Managed/` 目录，官方 APK 与生成它的工具链一并进私有存储。上文"六个键"及 `{platform: macos|windows}` 的描述只对桌面条目成立，本记录的其余决定不变。
