@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import zlib from 'node:zlib';
 import { execFileSync } from 'node:child_process';
 import { parseArgs } from 'node:util';
 import { readApk, sha256File } from './android-apk.mjs';
@@ -498,9 +499,17 @@ export function captureSnapshot({
   return { key, directory, manifest };
 }
 
+// macOS tar otherwise packs every extended attribute as an AppleDouble
+// `._<name>` member that GNU tar extracts as a real file, which changes the
+// directory digest on Linux. COPYFILE_DISABLE turns that off; GNU tar ignores
+// it.
 function tar(args, cwd) {
   try {
-    execFileSync('tar', args, { cwd, stdio: ['ignore', 'ignore', 'pipe'] });
+    execFileSync('tar', args, {
+      cwd,
+      stdio: ['ignore', 'ignore', 'pipe'],
+      env: { ...process.env, COPYFILE_DISABLE: '1' }
+    });
   } catch (error) {
     throw new Error(
       `tar ${args[0]} failed: ${String(error.stderr ?? error.message).trim()}`
@@ -811,6 +820,68 @@ export function interopDirectoryRecords(interopPath) {
 
 export function interopDirectoryDigest(interopPath) {
   return hash(JSON.stringify(interopDirectoryRecords(interopPath)));
+}
+
+// Every member name of a gzipped tar, as GNU tar extracts it: pax `path`
+// records and GNU long names resolved. tar -t on macOS hides AppleDouble
+// members, so this reads the headers itself.
+export function tarballEntries(file) {
+  const bytes = zlib.gunzipSync(fs.readFileSync(file));
+  const entries = [];
+  let offset = 0;
+  let longName = null;
+  let paxPath = null;
+  while (offset + 512 <= bytes.length) {
+    const header = bytes.subarray(offset, offset + 512);
+    offset += 512;
+    if (header.every((byte) => byte === 0)) break;
+    const field = (start, length) =>
+      header
+        .subarray(start, start + length)
+        .toString('utf8')
+        .replace(/\0.*$/s, '');
+    const size = parseInt(field(124, 12).trim() || '0', 8);
+    const type = String.fromCharCode(header[156] || 48);
+    const content = bytes.subarray(offset, offset + size);
+    offset += Math.ceil(size / 512) * 512;
+    if (type === 'L') {
+      longName = content.toString('utf8').replace(/\0.*$/s, '');
+      continue;
+    }
+    if (type === 'x') {
+      for (const record of content.toString('utf8').split('\n')) {
+        const match = /^\d+ path=(.*)$/.exec(record);
+        if (match) paxPath = match[1];
+      }
+      continue;
+    }
+    if (type === 'g') continue;
+    const prefix = field(345, 155);
+    const name =
+      paxPath ?? longName ?? (prefix ? `${prefix}/` : '') + field(0, 100);
+    longName = null;
+    paxPath = null;
+    entries.push(name);
+  }
+  return entries;
+}
+
+// An interop archive holds `interop/` and its files, nothing else; a member
+// GNU tar would extract beside them (an AppleDouble `._` file, a nested
+// directory) changes the digest on Linux.
+export function assertPortableInteropArchive(file, description = file) {
+  const offender = tarballEntries(file).find((name) => {
+    const parts = name.replace(/\/$/, '').split('/');
+    return !(
+      parts[0] === 'interop' &&
+      parts.length <= 2 &&
+      !(parts[1] ?? '').startsWith('._')
+    );
+  });
+  if (offender !== undefined)
+    throw new Error(
+      `${description} carries the member ${offender}, which GNU tar extracts beside the interop files; pack it with COPYFILE_DISABLE=1 tar`
+    );
 }
 
 // The generator records its own toolchain in interop-manifest.json.
@@ -1305,9 +1376,47 @@ export function lockedInteropEntry(workspaceRoot = WORKSPACE_ROOT) {
   return entry;
 }
 
+function packInteropArchive(snapshotDirectory, temp) {
+  const archive = path.join(temp, 'interop.tar.gz');
+  tar(
+    [
+      '-czf',
+      path.basename(archive),
+      '-C',
+      path.resolve(snapshotDirectory).split(path.sep).join('/'),
+      'interop'
+    ],
+    temp
+  );
+  assertPortableInteropArchive(archive, 'The packed interop archive');
+  return archive;
+}
+
+// Why a stored interop archive cannot serve a Linux fetch, else null.
+async function storedInteropArchiveFault(store, key, entry, temp) {
+  const archive = path.join(temp, 'stored.tar.gz');
+  const extracted = path.join(temp, 'stored');
+  if (!(await store.getFile(key, archive))) return 'the object vanished';
+  try {
+    assertPortableInteropArchive(archive, `Stored ${key}`);
+  } catch (error) {
+    return error.message;
+  }
+  fs.mkdirSync(extracted, { recursive: true });
+  tar(['-xzf', path.basename(archive), '-C', 'stored'], temp);
+  const interop = path.join(extracted, 'interop');
+  const digest = fs.existsSync(interop)
+    ? interopDirectoryDigest(interop)
+    : null;
+  return digest === entry.interopSha256
+    ? null
+    : `it hashes to ${digest}, not the ${entry.interopSha256} the lock entry ${INTEROP_KEY} records`;
+}
+
 // Uploads the interop collection and every pinned input the store lacks, each
 // under its content address, then the manifest under the entry identity. An
-// input already stored is never read locally.
+// input already stored is never read locally; the interop archive is read
+// back and verified, since its key is the directory digest, not its own.
 export async function publishInteropSnapshot({
   workspaceRoot = WORKSPACE_ROOT,
   modRoot = path.join(workspaceRoot, 'bazaarplusplus-mod'),
@@ -1333,26 +1442,36 @@ export async function publishInteropSnapshot({
     if (await store.putFile(key, file, { sha256 })) log(`Uploaded ${key}`);
     else log(`Another publisher stored ${key} first`);
   };
+  // The interop archive is keyed by the directory digest, not its own bytes,
+  // so an object under the right key can still extract to the wrong files.
   const interopKey = interopBlobKey(entry.interopSha256);
-  if (await store.head(interopKey)) log(`Already stored: ${interopKey}`);
-  else {
-    const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'bpp-interop-'));
-    try {
-      const archive = path.join(temp, 'interop.tar.gz');
-      tar(
-        [
-          '-czf',
-          path.basename(archive),
-          '-C',
-          path.resolve(snapshot.directory).split(path.sep).join('/'),
-          'interop'
-        ],
-        temp
-      );
-      await upload(interopKey, archive, await sha256File(archive));
-    } finally {
-      fs.rmSync(temp, { recursive: true, force: true });
+  const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'bpp-interop-'));
+  try {
+    const stored = await store.head(interopKey);
+    const fault = stored
+      ? await storedInteropArchiveFault(store, interopKey, entry, temp)
+      : null;
+    if (stored && !fault) log(`Already stored and verified: ${interopKey}`);
+    else {
+      const archive = packInteropArchive(snapshot.directory, temp);
+      const sha256 = await sha256File(archive);
+      if (!stored) await upload(interopKey, archive, sha256);
+      else {
+        log(`Replacing ${interopKey}: ${fault}`);
+        if (
+          !(await store.putFile(interopKey, archive, {
+            sha256,
+            ifMatch: stored.etag
+          }))
+        )
+          throw new Error(
+            `Another publisher replaced ${interopKey} first; run the publish again`
+          );
+        log(`Replaced ${interopKey}`);
+      }
     }
+  } finally {
+    fs.rmSync(temp, { recursive: true, force: true });
   }
   for (const kind of Object.keys(ANDROID_INPUTS)) {
     const sha256 = ANDROID_INPUTS[kind].sha256(entry);
@@ -1427,6 +1546,7 @@ export async function fetchInteropSnapshot({
         throw new Error(
           `The private store has no ${blobKey}; run 'just mod::publish android online' on the machine that captured it`
         );
+      assertPortableInteropArchive(archive, `Stored snapshot ${blobKey}`);
       tar(['-xzf', path.basename(archive)], staging);
       fs.rmSync(archive);
       const interop = path.join(staging, 'interop');

@@ -347,7 +347,10 @@ test('putFile streams a file under its sha256 and getFile streams an object to d
           headers: request.headers,
           body: Buffer.concat(chunks)
         });
-        return new Response('', { status: received.length === 1 ? 200 : 412 });
+        return new Response('', {
+          status:
+            received.length === 1 || request.headers['if-match'] ? 200 : 412
+        });
       }
       return url.endsWith('/missing.apk')
         ? new Response('', { status: 404 })
@@ -371,6 +374,23 @@ test('putFile streams a file under its sha256 and getFile streams an object to d
     await expect(
       store.putFile('game-libs/apk/a.apk', file, { sha256: 'nope' })
     ).rejects.toThrow(/needs the file sha256/);
+    // Replacing streams under if-match instead, never both preconditions.
+    expect(
+      await store.putFile('game-libs/apk/a.apk', file, {
+        sha256: digest,
+        ifMatch: '"e"'
+      })
+    ).toBe(true);
+    const replacement = received.at(-1);
+    expect(replacement.headers['if-match']).toBe('"e"');
+    expect(replacement.headers['if-none-match']).toBeUndefined();
+    await expect(
+      store.putFile('game-libs/apk/a.apk', file, {
+        sha256: digest,
+        ifMatch: '"e"',
+        ifNoneMatch: true
+      })
+    ).rejects.toThrow(/exactly one conditional precondition/);
     const copy = path.join(root, 'copy.apk');
     expect(await store.getFile('game-libs/apk/a.apk', copy)).toEqual({
       size: bytes.length

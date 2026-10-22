@@ -255,10 +255,17 @@ export function createR2Store({
     async putFile(
       key,
       file,
-      { sha256, ifNoneMatch = true, contentType = 'application/octet-stream' }
+      {
+        sha256,
+        ifMatch,
+        ifNoneMatch = !ifMatch,
+        contentType = 'application/octet-stream'
+      }
     ) {
-      if (!ifNoneMatch)
-        throw new Error('A streamed R2 write only creates new objects');
+      if (Boolean(ifMatch) === Boolean(ifNoneMatch))
+        throw new Error(
+          'Every R2 write requires exactly one conditional precondition'
+        );
       if (!/^[0-9a-f]{64}$/.test(sha256 ?? ''))
         throw new Error('A streamed R2 write needs the file sha256');
       const { size } = fs.statSync(file);
@@ -270,7 +277,7 @@ export function createR2Store({
           'content-length': String(size),
           'content-type': contentType,
           'x-amz-meta-sha256': sha256,
-          'if-none-match': '*'
+          ...(ifMatch ? { 'if-match': ifMatch } : { 'if-none-match': '*' })
         },
         { payloadHash: sha256, timeoutMs: FILE_TIMEOUT_MS }
       );
