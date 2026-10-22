@@ -109,8 +109,10 @@ public sealed class AndroidMod : MelonMod
         }
     }
 
-    // GameBuildInfoResolver on desktop corroborates the channel with this nested type; whether
-    // the interop proxy surfaces it to reflection is what a device run records here.
+    // GameBuildInfoResolver on desktop corroborates the channel with this nested type, which only
+    // the PTR fork of Config declares. The android-online Interop Snapshot has no ServerOption, so
+    // an Online build logs "missing", the Online answer; whether Il2CppInterop surfaces the type
+    // stays open until a PTR or staging Android build is captured.
     private static void LogBuildChannelProbe()
     {
         try
