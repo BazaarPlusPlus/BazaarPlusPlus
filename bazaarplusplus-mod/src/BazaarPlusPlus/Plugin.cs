@@ -57,7 +57,7 @@ public class Plugin : BaseUnityPlugin
             var settingsStore = new BepInExSettingsStore(CreatePluginConfigFile());
 
             phase = PluginInitializationPhase.Composition;
-            var gameBuild = GameBuildInfoResolver.Resolve();
+            var gameBuild = GameBuildProbe.Resolve();
             _composition = new DesktopComposition(settingsStore, gameBuild);
 
             var services = _composition.Services;

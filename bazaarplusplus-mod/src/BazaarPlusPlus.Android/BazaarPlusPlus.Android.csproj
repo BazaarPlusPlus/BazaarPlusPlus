@@ -9,6 +9,8 @@
     <RootNamespace>BazaarPlusPlus.Android</RootNamespace>
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
+    <!-- AndroidGameIds.Unboxed reads a boxed IL2CPP value in place. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <Version>$(BppVersion)</Version>
     <Deterministic>true</Deterministic>
     <!-- No deps.json: the loader supplies the game, interop, and loader assemblies, and BPP's own
@@ -55,11 +57,16 @@
   <!--
     Shared code comes from Core's net10.0 output (ADR-0012), never from linked desktop sources;
     Storage and ModApi arrive through it. They keep their serializer packages private
-    (ADR-0013 §2), so the host adds Newtonsoft.Json and MessagePack when it first loads code that
-    serializes: the record chain (#359), with the Android Payload (#357).
+    (ADR-0013 §2), so the host references the same pinned packages and copies every runtime
+    dependency beside itself: Payload.targets picks the MelonLoader/UserLibs files from there.
   -->
+  <PropertyGroup>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+  </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../BazaarPlusPlus.Core/BazaarPlusPlus.Core.csproj" />
+    <PackageReference Include="MessagePack" />
+    <PackageReference Include="Newtonsoft.Json" />
   </ItemGroup>
 
   <!-- The Updater ships in the Payload (MelonLoader/Plugins/) and is built for it, never

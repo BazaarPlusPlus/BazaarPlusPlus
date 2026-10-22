@@ -143,9 +143,7 @@ internal sealed class ReplayPersistenceOrchestrator : IDisposable
                 {
                     try
                     {
-                        _services.EventBus.Publish(
-                            new PvpBattleRecorded { Manifest = result.Manifest }
-                        );
+                        _services.EventBus.Publish(PvpBattleCatalog.Recorded(result.Manifest));
                     }
                     catch
                     {

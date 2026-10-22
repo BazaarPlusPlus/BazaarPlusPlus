@@ -396,7 +396,7 @@ internal static class BundleSealFailureTests
         }
 
         internal void AddBattle(string runId, string battleId) =>
-            new PvpBattleSqliteStore(_database).Save(
+            new PvpBattleCatalog(_database).Save(
                 new PvpBattleManifest
                 {
                     BattleId = battleId,

@@ -12,6 +12,9 @@ namespace BazaarPlusPlus.Android.Host;
 /// </summary>
 internal static class AndroidPaths
 {
+    /// <summary>A resolved Data Root as the Storage path port.</summary>
+    public static IPathProvider Provider(string dataRoot) => new FixedDataRoot(dataRoot);
+
     public static string DataRoot(string melonBaseDirectory)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(melonBaseDirectory);
@@ -22,5 +25,10 @@ internal static class AndroidPaths
                 nameof(melonBaseDirectory)
             );
         return Path.Combine(parent, PathConstants.DataRootDirectoryName);
+    }
+
+    private sealed class FixedDataRoot(string dataRoot) : IPathProvider
+    {
+        public string? DataRootDirectoryPath { get; } = dataRoot;
     }
 }

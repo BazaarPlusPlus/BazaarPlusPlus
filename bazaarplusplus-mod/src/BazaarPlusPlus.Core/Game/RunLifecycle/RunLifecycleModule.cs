@@ -5,36 +5,42 @@ using BazaarPlusPlus.Core.RunContext;
 using BazaarPlusPlus.Core.Runtime;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
-using TheBazaar;
 
 namespace BazaarPlusPlus.Game.RunLifecycle;
 
-internal sealed class RunLifecycleModule : IBppFeature
+/// <summary>
+/// Owns whether the player is in a run and which server run id is current: it follows the game's
+/// run lifecycle signals through the host's <see cref="IRunLifecycleSource"/> and the observed run
+/// initializations, keeps <see cref="IRunContext"/>, and publishes <see cref="RunLifecycleChanged"/>.
+/// </summary>
+public sealed class RunLifecycleModule : IBppFeature
 {
     private const int MaximumRecentRunIds = 256;
     private readonly IBppEventBus _eventBus;
     private readonly IGameStateProbe _gameStateProbe;
     private readonly IRunContext _runContext;
+    private readonly IRunLifecycleSource _source;
     private readonly HashSet<string> _loggedRunIds = new(StringComparer.Ordinal);
     private readonly Queue<string> _loggedRunIdOrder = new();
     private IDisposable? _runInitializedSubscription;
+    private IDisposable? _sourceSubscription;
 
     public RunLifecycleModule(
         IBppEventBus eventBus,
         IGameStateProbe gameStateProbe,
-        IRunContext runContext
+        IRunContext runContext,
+        IRunLifecycleSource source
     )
     {
-        _eventBus = eventBus;
-        _gameStateProbe = gameStateProbe;
-        _runContext = runContext;
+        _eventBus = eventBus ?? throw new ArgumentNullException(nameof(eventBus));
+        _gameStateProbe = gameStateProbe ?? throw new ArgumentNullException(nameof(gameStateProbe));
+        _runContext = runContext ?? throw new ArgumentNullException(nameof(runContext));
+        _source = source ?? throw new ArgumentNullException(nameof(source));
     }
 
     public void Start()
     {
-        Events.RunStarted.AddListener(OnRunStarted, null);
-        Events.RunEnded.AddListener(OnRunEnded, null);
-        Events.RunInterrupted.AddListener(OnRunInterrupted, null);
+        _sourceSubscription = _source.Subscribe(OnRunStarted, OnRunEnded, OnRunInterrupted);
         _runInitializedSubscription = _eventBus.Subscribe<RunInitializedObserved>(
             OnRunInitializedObserved
         );
@@ -42,9 +48,8 @@ internal sealed class RunLifecycleModule : IBppFeature
 
     public void Stop()
     {
-        Events.RunStarted.RemoveListener(OnRunStarted);
-        Events.RunEnded.RemoveListener(OnRunEnded);
-        Events.RunInterrupted.RemoveListener(OnRunInterrupted);
+        _sourceSubscription?.Dispose();
+        _sourceSubscription = null;
         _runInitializedSubscription?.Dispose();
         _runInitializedSubscription = null;
     }
@@ -121,10 +126,9 @@ internal sealed class RunLifecycleModule : IBppFeature
                 {
                     ("reason_code", ToLogReason(reason)),
                     ("is_in_game_run", _runContext.IsInGameRun),
-                    ("app_state", AppState.CurrentState?.GetType().Name ?? "null"),
-                    ("run_state", Data.CurrentState?.StateName.ToString() ?? "null"),
-                    ("has_active_run", Data.HasActiveRun),
                 }
+                    .Concat(_source.DescribeState())
+                    .ToArray()
         );
     }
 

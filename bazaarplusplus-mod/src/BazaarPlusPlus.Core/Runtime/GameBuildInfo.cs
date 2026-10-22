@@ -1,12 +1,7 @@
 #nullable enable
-#pragma warning disable CS0436
-using BazaarPlusPlus.Core.Runtime;
-using HarmonyLib;
-using UnityEngine;
+namespace BazaarPlusPlus.Core.Runtime;
 
-namespace BazaarPlusPlus.GameInterop;
-
-internal sealed class GameBuildInfo : IGameBuildInfo
+public sealed class GameBuildInfo : IGameBuildInfo
 {
     public GameBuildInfo(string rawVersion, GameBuildChannel channel, string? detectionWarning)
     {
@@ -23,7 +18,12 @@ internal sealed class GameBuildInfo : IGameBuildInfo
     public string? DetectionWarning { get; }
 }
 
-internal static class GameBuildInfoResolver
+/// <summary>
+/// Classifies a client from what its host read: the bundleVersion and whether
+/// <c>TheBazaar.Config.ServerOption</c> exists (null when the probe was unreadable). Each host
+/// reads both from its own runtime; the classification is the same on every host.
+/// </summary>
+public static class GameBuildInfoResolver
 {
     // Primary signal: the PTR build's bundleVersion embeds a "-ptr" token
     // (e.g. "1.0.11358-ptr-macos-arm64-947c079a"); the production build does not.
@@ -32,32 +32,7 @@ internal static class GameBuildInfoResolver
     // treated as Ptr: misclassifying PTR as Online silently pollutes the production
     // dataset, while misclassifying Online as Ptr only pauses uploads — which the
     // analyzers' staleness alarm surfaces quickly.
-    public static GameBuildInfo Resolve()
-    {
-        var rawVersion = string.Empty;
-        try
-        {
-            rawVersion = Application.version ?? string.Empty;
-        }
-        catch
-        {
-            // Fall through to Unknown below.
-        }
-
-        bool? hasServerOption = null;
-        try
-        {
-            hasServerOption = AccessTools.Inner(typeof(TheBazaar.Config), "ServerOption") != null;
-        }
-        catch
-        {
-            // The version signal decides alone when the probe is unreadable.
-        }
-
-        return Resolve(rawVersion, hasServerOption);
-    }
-
-    internal static GameBuildInfo Resolve(string rawVersion, bool? hasServerOption)
+    public static GameBuildInfo Resolve(string rawVersion, bool? hasServerOption)
     {
         // Staging lacks Config.ServerOption. Reuse the persisted Ptr isolation category
         // so its recorded runs stay excluded from uploads after switching back to Online.

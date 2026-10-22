@@ -1,6 +1,5 @@
 using BazaarPlusPlus.Core.Runtime;
 using BazaarPlusPlus.Game.Upload;
-using BazaarPlusPlus.GameInterop;
 using Xunit;
 
 namespace RuntimeIntegration.Tests;

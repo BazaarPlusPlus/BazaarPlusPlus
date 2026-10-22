@@ -1,5 +1,4 @@
 #nullable enable
-using BazaarPlusPlus.Storage;
 using BazaarPlusPlus.Storage.BundleQueue;
 using BazaarPlusPlus.Storage.RunLog;
 using BazaarPlusPlus.Storage.Sqlite;
@@ -8,15 +7,18 @@ using Newtonsoft.Json;
 
 namespace BazaarPlusPlus.Game.PvpBattles.Persistence;
 
-internal sealed class PvpBattleSqliteStore : SqliteStoreBase, IPvpBattleCatalog
+/// <summary>
+/// The only owner of the <c>battles</c> and <c>battle_snapshots</c> SQL: every host saves, attaches,
+/// and reads its local PvP battles here, and replay maintenance walks their payload states. Board
+/// captures pass through as the JSON documents the host wrote (<see cref="PvpBattleRecord"/>).
+/// </summary>
+public sealed class PvpBattleSqliteStore : SqliteStoreBase, IReplayPayloadMaintenanceCatalog
 {
-    private static readonly JsonSerializerSettings SerializerSettings =
-        SerializerSettingsFactory.CreateSerializerSettings(includeStringEnumConverter: true);
     private readonly Action<ReplayPayloadMaintenanceStorageEvent>? _maintenanceDiagnostics;
 
-    // Shared column list + battle/snapshot join used by every manifest read. Callers append only
-    // their WHERE/ORDER/LIMIT clauses. Column order is fixed because ReadManifest depends on it.
-    private static readonly string SelectBattleManifestSql = $"""
+    // Shared column list + battle/snapshot join used by every record read. Callers append only
+    // their WHERE/ORDER/LIMIT clauses. Column order is fixed because ReadRecord depends on it.
+    private static readonly string SelectBattleRecordSql = $"""
         SELECT
             b.battle_id,
             b.run_id,
@@ -57,28 +59,29 @@ internal sealed class PvpBattleSqliteStore : SqliteStoreBase, IPvpBattleCatalog
 
     public PvpBattleSqliteStore(
         string databasePath,
+        SqliteOpenOptions? options = null,
         Action<ReplayPayloadMaintenanceStorageEvent>? maintenanceDiagnostics = null
     )
-        : base(databasePath)
+        : base(databasePath, options)
     {
         _maintenanceDiagnostics = maintenanceDiagnostics;
     }
 
-    public void Save(PvpBattleManifest manifest)
+    public void Save(PvpBattleRecord record)
     {
-        if (manifest == null)
-            throw new ArgumentNullException(nameof(manifest));
-        if (string.IsNullOrWhiteSpace(manifest.BattleId))
-            throw new ArgumentException("Battle id is required.", nameof(manifest));
-        if (!string.Equals(manifest.CombatKind, "PVPCombat", StringComparison.Ordinal))
+        if (record == null)
+            throw new ArgumentNullException(nameof(record));
+        if (string.IsNullOrWhiteSpace(record.BattleId))
+            throw new ArgumentException("Battle id is required.", nameof(record));
+        if (!string.Equals(record.CombatKind, "PVPCombat", StringComparison.Ordinal))
             throw new ArgumentException(
-                "Only PVPCombat manifests can be saved to the PvP battle catalog.",
-                nameof(manifest)
+                "Only PVPCombat battles can be saved to the PvP battle catalog.",
+                nameof(record)
             );
 
         using var connection = OpenConnection();
         using var transaction = connection.BeginTransaction();
-        var persistedRunId = ResolvePersistedRunId(connection, transaction, manifest.RunId);
+        var persistedRunId = ResolvePersistedRunId(connection, transaction, record.RunId);
         using var command = CreateCommand(connection, transaction);
         command.CommandText = $"""
             INSERT INTO {RunLogSchema.BattlesTableName} (
@@ -176,76 +179,85 @@ internal sealed class PvpBattleSqliteStore : SqliteStoreBase, IPvpBattleCatalog
                 local_payload_state = 'ready',
                 local_payload_maintenance_at_ms = NULL;
             """;
-        command.Parameters.AddWithValue("$battleId", manifest.BattleId);
+        command.Parameters.AddWithValue("$battleId", record.BattleId);
         command.Parameters.AddWithValue("$runId", (object?)persistedRunId ?? DBNull.Value);
         command.Parameters.AddWithValue(
             "$recordedAtMs",
-            manifest.RecordedAtUtc.ToUnixTimeMilliseconds()
+            record.RecordedAtUtc.ToUnixTimeMilliseconds()
         );
-        AddNullableInt32(command, "$day", manifest.Day);
-        AddNullableInt32(command, "$hour", manifest.Hour);
+        AddNullableInt32(command, "$day", record.Day);
+        AddNullableInt32(command, "$hour", record.Hour);
         command.Parameters.AddWithValue(
             "$encounterId",
-            (object?)manifest.EncounterId ?? DBNull.Value
+            (object?)record.EncounterId ?? DBNull.Value
         );
         command.Parameters.AddWithValue(
             "$playerName",
-            (object?)manifest.Participants.PlayerName ?? DBNull.Value
+            (object?)record.Participants.PlayerName ?? DBNull.Value
         );
         command.Parameters.AddWithValue(
             "$playerAccountId",
-            (object?)manifest.Participants.PlayerAccountId ?? DBNull.Value
+            (object?)record.Participants.PlayerAccountId ?? DBNull.Value
         );
         command.Parameters.AddWithValue(
             "$playerHero",
-            (object?)manifest.Participants.PlayerHero ?? DBNull.Value
+            (object?)record.Participants.PlayerHero ?? DBNull.Value
         );
         command.Parameters.AddWithValue(
             "$playerRank",
-            (object?)manifest.Participants.PlayerRank ?? DBNull.Value
+            (object?)record.Participants.PlayerRank ?? DBNull.Value
         );
-        AddNullableInt32(command, "$playerRating", manifest.Participants.PlayerRating);
-        AddNullableInt32(command, "$playerLevel", manifest.Participants.PlayerLevel);
-        AddNullableInt32(command, "$playerPrestige", manifest.Participants.PlayerPrestige);
-        AddNullableInt32(command, "$playerIncome", manifest.Participants.PlayerIncome);
-        AddNullableInt32(command, "$playerGold", manifest.Participants.PlayerGold);
-        AddNullableInt32(command, "$playerVictories", manifest.Participants.PlayerVictories);
+        AddNullableInt32(command, "$playerRating", record.Participants.PlayerRating);
+        AddNullableInt32(command, "$playerLevel", record.Participants.PlayerLevel);
+        AddNullableInt32(command, "$playerPrestige", record.Participants.PlayerPrestige);
+        AddNullableInt32(command, "$playerIncome", record.Participants.PlayerIncome);
+        AddNullableInt32(command, "$playerGold", record.Participants.PlayerGold);
+        AddNullableInt32(command, "$playerVictories", record.Participants.PlayerVictories);
         command.Parameters.AddWithValue(
             "$opponentName",
-            (object?)manifest.Participants.OpponentName ?? DBNull.Value
+            (object?)record.Participants.OpponentName ?? DBNull.Value
         );
         command.Parameters.AddWithValue(
             "$opponentHero",
-            (object?)manifest.Participants.OpponentHero ?? DBNull.Value
+            (object?)record.Participants.OpponentHero ?? DBNull.Value
         );
         command.Parameters.AddWithValue(
             "$opponentRank",
-            (object?)manifest.Participants.OpponentRank ?? DBNull.Value
+            (object?)record.Participants.OpponentRank ?? DBNull.Value
         );
-        AddNullableInt32(command, "$opponentRating", manifest.Participants.OpponentRating);
-        AddNullableInt32(command, "$opponentLevel", manifest.Participants.OpponentLevel);
-        AddNullableInt32(command, "$opponentPrestige", manifest.Participants.OpponentPrestige);
-        AddNullableInt32(command, "$opponentVictories", manifest.Participants.OpponentVictories);
+        AddNullableInt32(command, "$opponentRating", record.Participants.OpponentRating);
+        AddNullableInt32(command, "$opponentLevel", record.Participants.OpponentLevel);
+        AddNullableInt32(command, "$opponentPrestige", record.Participants.OpponentPrestige);
+        AddNullableInt32(command, "$opponentVictories", record.Participants.OpponentVictories);
         command.Parameters.AddWithValue(
             "$opponentAccountId",
-            (object?)manifest.Participants.OpponentAccountId ?? DBNull.Value
+            (object?)record.Participants.OpponentAccountId ?? DBNull.Value
         );
-        command.Parameters.AddWithValue("$combatKind", manifest.CombatKind);
-        command.Parameters.AddWithValue(
-            "$result",
-            (object?)manifest.Outcome.Result ?? DBNull.Value
-        );
+        command.Parameters.AddWithValue("$combatKind", record.CombatKind);
+        command.Parameters.AddWithValue("$result", (object?)record.Outcome.Result ?? DBNull.Value);
         command.Parameters.AddWithValue(
             "$winnerCombatantId",
-            (object?)manifest.Outcome.WinnerCombatantId ?? DBNull.Value
+            (object?)record.Outcome.WinnerCombatantId ?? DBNull.Value
         );
         command.Parameters.AddWithValue(
             "$loserCombatantId",
-            (object?)manifest.Outcome.LoserCombatantId ?? DBNull.Value
+            (object?)record.Outcome.LoserCombatantId ?? DBNull.Value
         );
         command.ExecuteNonQuery();
 
+        var snapshots = record.Snapshots;
         using var snapshotCommand = CreateCommand(connection, transaction);
+        if (snapshots == null)
+        {
+            snapshotCommand.CommandText = $"""
+                DELETE FROM {RunLogSchema.BattleSnapshotsTableName} WHERE battle_id = $battleId;
+                """;
+            snapshotCommand.Parameters.AddWithValue("$battleId", record.BattleId);
+            snapshotCommand.ExecuteNonQuery();
+            transaction.Commit();
+            return;
+        }
+
         snapshotCommand.CommandText = $"""
             INSERT INTO {RunLogSchema.BattleSnapshotsTableName} (
                 battle_id,
@@ -266,23 +278,11 @@ internal sealed class PvpBattleSqliteStore : SqliteStoreBase, IPvpBattleCatalog
                 opponent_hand_json = excluded.opponent_hand_json,
                 opponent_skills_json = excluded.opponent_skills_json;
             """;
-        snapshotCommand.Parameters.AddWithValue("$battleId", manifest.BattleId);
-        snapshotCommand.Parameters.AddWithValue(
-            "$playerHandJson",
-            SerializeCapture(manifest.Snapshots.PlayerHand)
-        );
-        snapshotCommand.Parameters.AddWithValue(
-            "$playerSkillsJson",
-            SerializeCapture(manifest.Snapshots.PlayerSkills)
-        );
-        snapshotCommand.Parameters.AddWithValue(
-            "$opponentHandJson",
-            SerializeCapture(manifest.Snapshots.OpponentHand)
-        );
-        snapshotCommand.Parameters.AddWithValue(
-            "$opponentSkillsJson",
-            SerializeCapture(manifest.Snapshots.OpponentSkills)
-        );
+        snapshotCommand.Parameters.AddWithValue("$battleId", record.BattleId);
+        snapshotCommand.Parameters.AddWithValue("$playerHandJson", snapshots.PlayerHand);
+        snapshotCommand.Parameters.AddWithValue("$playerSkillsJson", snapshots.PlayerSkills);
+        snapshotCommand.Parameters.AddWithValue("$opponentHandJson", snapshots.OpponentHand);
+        snapshotCommand.Parameters.AddWithValue("$opponentSkillsJson", snapshots.OpponentSkills);
         snapshotCommand.ExecuteNonQuery();
         transaction.Commit();
     }
@@ -307,19 +307,19 @@ internal sealed class PvpBattleSqliteStore : SqliteStoreBase, IPvpBattleCatalog
         return command.ExecuteScalar() == null ? null : runId;
     }
 
-    public PvpBattleManifest? TryLoad(string battleId)
+    public PvpBattleRecord? TryLoad(string battleId)
     {
         using var connection = OpenConnection();
         using var command = CreateCommand(connection);
         command.CommandText =
-            SelectBattleManifestSql
+            SelectBattleRecordSql
             + "\nWHERE b.battle_id = $battleId\n  AND b.source = 'LOCAL'\nLIMIT 1;";
         command.Parameters.AddWithValue("$battleId", battleId);
         using var reader = command.ExecuteReader();
         if (!reader.Read())
             return null;
 
-        return ReadManifest(reader);
+        return ReadRecord(reader);
     }
 
     public void AttachToRun(string battleId, string runId)
@@ -464,24 +464,24 @@ internal sealed class PvpBattleSqliteStore : SqliteStoreBase, IPvpBattleCatalog
         UpdatePayloadState(battleIds, expectedState: "ready", targetState: "missing", now);
     }
 
-    public IReadOnlyList<PvpBattleManifest> ListByRunId(string runId)
+    public IReadOnlyList<PvpBattleRecord> ListByRunId(string runId)
     {
         if (string.IsNullOrWhiteSpace(runId))
-            return Array.Empty<PvpBattleManifest>();
+            return Array.Empty<PvpBattleRecord>();
 
         using var connection = OpenConnection();
         using var command = CreateCommand(connection);
         command.CommandText =
-            SelectBattleManifestSql
+            SelectBattleRecordSql
             + "\nWHERE b.source = 'LOCAL'\n  AND b.run_id = $runId\nORDER BY b.recorded_at_ms ASC, b.battle_id ASC;";
         command.Parameters.AddWithValue("$runId", runId);
 
         using var reader = command.ExecuteReader();
-        var manifests = new List<PvpBattleManifest>();
+        var records = new List<PvpBattleRecord>();
         while (reader.Read())
-            manifests.Add(ReadManifest(reader));
+            records.Add(ReadRecord(reader));
 
-        return manifests;
+        return records;
     }
 
     private void UpdatePayloadState(
@@ -546,20 +546,9 @@ internal sealed class PvpBattleSqliteStore : SqliteStoreBase, IPvpBattleCatalog
             _ => throw new InvalidOperationException($"Unknown replay payload state '{value}'."),
         };
 
-    private static string SerializeCapture(PvpBattleCardSetCapture capture)
+    private static PvpBattleRecord ReadRecord(SqliteDataReader reader)
     {
-        return JsonConvert.SerializeObject(capture, SerializerSettings);
-    }
-
-    private static PvpBattleCardSetCapture DeserializeCapture(string json)
-    {
-        return JsonConvert.DeserializeObject<PvpBattleCardSetCapture>(json, SerializerSettings)
-            ?? new PvpBattleCardSetCapture();
-    }
-
-    private static PvpBattleManifest ReadManifest(SqliteDataReader reader)
-    {
-        return new PvpBattleManifest
+        return new PvpBattleRecord
         {
             BattleId = reader.GetString(reader.GetOrdinal("battle_id")),
             RunId = GetNullableString(reader, "run_id"),
@@ -597,21 +586,15 @@ internal sealed class PvpBattleSqliteStore : SqliteStoreBase, IPvpBattleCatalog
                 WinnerCombatantId = GetNullableString(reader, "winner_combatant_id"),
                 LoserCombatantId = GetNullableString(reader, "loser_combatant_id"),
             },
-            Snapshots = new PvpBattleSnapshots
-            {
-                PlayerHand = DeserializeCapture(
-                    reader.GetString(reader.GetOrdinal("player_hand_json"))
-                ),
-                PlayerSkills = DeserializeCapture(
-                    reader.GetString(reader.GetOrdinal("player_skills_json"))
-                ),
-                OpponentHand = DeserializeCapture(
-                    reader.GetString(reader.GetOrdinal("opponent_hand_json"))
-                ),
-                OpponentSkills = DeserializeCapture(
-                    reader.GetString(reader.GetOrdinal("opponent_skills_json"))
-                ),
-            },
+            Snapshots = GetNullableString(reader, "player_hand_json") is { } playerHand
+                ? new PvpBattleSnapshotDocuments
+                {
+                    PlayerHand = playerHand,
+                    PlayerSkills = reader.GetString(reader.GetOrdinal("player_skills_json")),
+                    OpponentHand = reader.GetString(reader.GetOrdinal("opponent_hand_json")),
+                    OpponentSkills = reader.GetString(reader.GetOrdinal("opponent_skills_json")),
+                }
+                : null,
         };
     }
 }

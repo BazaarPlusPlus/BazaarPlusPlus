@@ -3,18 +3,18 @@ using BazaarPlusPlus.Core.Events;
 using BazaarPlusPlus.Core.GameState;
 using BazaarPlusPlus.Core.RunContext;
 using BazaarPlusPlus.Core.Runtime;
-using BazaarPlusPlus.Game.PvpBattles;
-using BazaarPlusPlus.Game.PvpBattles.Persistence;
-using BazaarPlusPlus.GameInterop;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
-using BazaarPlusPlus.Storage.Paths;
 using BazaarPlusPlus.Storage.RunLog;
-using BazaarPlusPlus.Storage.RunLog.Replication;
 
 namespace BazaarPlusPlus.Game.RunLogging;
 
-internal sealed class RunLoggingModule : IBppFeature
+/// <summary>
+/// Run Logging: turns run lifecycle, run initialization, recorded PvP battles, and replay drains
+/// into runs, run events, and battle-to-run links in the history database. Every host composes it
+/// the same way; the host supplies the store, the snapshot probe, and the battle link.
+/// </summary>
+public sealed class RunLoggingModule : IBppFeature
 {
     private static readonly TimeSpan ReplayPersistenceCompletionGracePeriod = TimeSpan.FromSeconds(
         2
@@ -27,7 +27,7 @@ internal sealed class RunLoggingModule : IBppFeature
     private readonly string _buildChannel;
     private readonly string? _databasePath;
     private readonly Func<IRunLogStore> _storeFactory;
-    private readonly IPvpBattleCatalog _battleCatalog;
+    private readonly Action<string, string> _attachBattleToRun;
     private readonly Func<bool> _hasPendingReplayPersistence;
     private readonly Func<DateTimeOffset> _utcNow;
     private readonly Func<TimeSpan, Action, IDisposable> _scheduleDeferredCompletion;
@@ -49,34 +49,17 @@ internal sealed class RunLoggingModule : IBppFeature
     private bool _started;
     private bool _stopped;
 
-    internal RunLoggingModule(
-        IBppServices services,
-        IPvpBattleCatalog battleCatalog,
-        Func<bool> hasPendingReplayPersistence
-    )
-        : this(
-            services?.EventBus ?? throw new ArgumentNullException(nameof(services)),
-            services.RunContext,
-            services.RunSnapshot,
-            services.GameBuild.Channel.ToString(),
-            () => CreateStore(services),
-            battleCatalog,
-            hasPendingReplayPersistence,
-            static () => DateTimeOffset.UtcNow,
-            PathConstants.RunLogDatabase(services.Paths.RequireDataRoot()),
-            scheduleDeferredCompletion: null,
-            playerAccountIdResolver: BppClientCacheBridge.TryGetProfileAccountId,
-            bundleScreenshotRequestedResolver: () => services.Config.BazaarDbUploadEnabled.Value,
-            modVersionResolver: () => BppPluginVersion.Current
-        ) { }
-
-    internal RunLoggingModule(
+    /// <summary>
+    /// Builds the module; nothing opens until <see cref="Start"/>. <c>attachBattleToRun</c> links a
+    /// saved battle (battle id) to a run (run id) in the host's battle store.
+    /// </summary>
+    public RunLoggingModule(
         IBppEventBus eventBus,
         IRunContext runContext,
         IRunSnapshotProbe snapshotProbe,
         string buildChannel,
         Func<IRunLogStore> storeFactory,
-        IPvpBattleCatalog battleCatalog,
+        Action<string, string> attachBattleToRun,
         Func<bool> hasPendingReplayPersistence,
         Func<DateTimeOffset> utcNow,
         string? databasePath = null,
@@ -92,7 +75,8 @@ internal sealed class RunLoggingModule : IBppFeature
         _buildChannel = buildChannel ?? string.Empty;
         _databasePath = databasePath;
         _storeFactory = storeFactory ?? throw new ArgumentNullException(nameof(storeFactory));
-        _battleCatalog = battleCatalog ?? throw new ArgumentNullException(nameof(battleCatalog));
+        _attachBattleToRun =
+            attachBattleToRun ?? throw new ArgumentNullException(nameof(attachBattleToRun));
         _hasPendingReplayPersistence =
             hasPendingReplayPersistence
             ?? throw new ArgumentNullException(nameof(hasPendingReplayPersistence));
@@ -219,12 +203,6 @@ internal sealed class RunLoggingModule : IBppFeature
         _runLifecycleSubscription = null;
     }
 
-    private static IRunLogStore CreateStore(IBppServices services)
-    {
-        var sqliteStore = new RunLogStore(services.Paths);
-        return new QueuedRunLogStore(sqliteStore, new RunLogStoreLoggerBridge());
-    }
-
     private static IDisposable ScheduleDeferredCompletionWithTimer(
         TimeSpan delay,
         Action callback
@@ -339,38 +317,30 @@ internal sealed class RunLoggingModule : IBppFeature
 
     private void OnPvpBattleRecordedUnderLock(PvpBattleRecorded recorded)
     {
-        PvpBattleManifest? manifest = null;
         try
         {
-            manifest = recorded.Manifest;
             var inRun = _runContext.IsInGameRun;
-            if (
-                manifest == null
-                || !string.Equals(manifest.CombatKind, "PVPCombat", StringComparison.Ordinal)
-            )
-            {
+            if (!string.Equals(recorded.CombatKind, "PVPCombat", StringComparison.Ordinal))
                 return;
-            }
 
-            var session = TryResolveReplayTargetSession(manifest, inRun);
+            var session = TryResolveReplayTargetSession(recorded, inRun);
             if (session == null)
                 return;
 
-            manifest.RunId = session.RunId;
-            if (!string.IsNullOrWhiteSpace(manifest.BattleId))
-                _battleCatalog.AttachToRun(manifest.BattleId, session.RunId);
+            if (!string.IsNullOrWhiteSpace(recorded.BattleId))
+                _attachBattleToRun(recorded.BattleId, session.RunId);
 
             var sessionManager = RequireSessionManager();
             sessionManager.AppendEvent(
                 new RunLogEvent
                 {
                     Kind = "pvp_combat_recorded",
-                    Day = manifest.Day,
-                    Hour = manifest.Hour,
-                    EncounterId = manifest.EncounterId,
-                    CombatKind = manifest.CombatKind,
-                    BattleId = manifest.BattleId,
-                    OpponentName = manifest.Participants.OpponentName,
+                    Day = recorded.Day,
+                    Hour = recorded.Hour,
+                    EncounterId = recorded.EncounterId,
+                    CombatKind = recorded.CombatKind,
+                    BattleId = recorded.BattleId,
+                    OpponentName = recorded.OpponentName,
                 }
             );
             sessionManager.SaveCheckpoint();
@@ -380,7 +350,7 @@ internal sealed class RunLoggingModule : IBppFeature
         }
         catch (Exception ex)
         {
-            EmitBattleCaptureFailure(manifest, RunLoggingReasonCode.BattleCaptureException, ex);
+            EmitBattleCaptureFailure(recorded, RunLoggingReasonCode.BattleCaptureException, ex);
         }
     }
 
@@ -528,7 +498,7 @@ internal sealed class RunLoggingModule : IBppFeature
         _snapshotProbe.TryGetRankSnapshot(out var rank) ? rank : null;
 
     private RunLogSessionState? TryResolveReplayTargetSession(
-        PvpBattleManifest manifest,
+        PvpBattleRecorded manifest,
         bool inRun
     )
     {
@@ -675,7 +645,7 @@ internal sealed class RunLoggingModule : IBppFeature
     }
 
     private void EmitBattleCaptureFailure(
-        PvpBattleManifest? manifest,
+        PvpBattleRecorded? manifest,
         RunLoggingReasonCode reasonCode,
         Exception? exception = null,
         string? fallbackRunId = null
