@@ -40,7 +40,12 @@ pub(super) struct ExtractReport {
     pub(super) skipped_identical: Vec<String>,
 }
 
-pub(super) fn extract_zip(zip_bytes: &[u8], dest_dir: &Path) -> Result<ExtractReport, String> {
+/// Extracts every file entry except the install-relative paths in `skip`.
+pub(super) fn extract_zip(
+    zip_bytes: &[u8],
+    dest_dir: &Path,
+    skip: &std::collections::HashSet<String>,
+) -> Result<ExtractReport, String> {
     let reader = Cursor::new(zip_bytes);
     let mut archive = zip::ZipArchive::new(reader).map_err(|err| err.to_string())?;
     let mut report = ExtractReport {
@@ -56,6 +61,9 @@ pub(super) fn extract_zip(zip_bytes: &[u8], dest_dir: &Path) -> Result<ExtractRe
                 String::from_utf8_lossy(file.name_raw())
             ));
         };
+        if !file.is_dir() && skip.contains(&relative_path.to_string_lossy().replace('\\', "/")) {
+            continue;
+        }
         let output_path = dest_dir.join(relative_path);
 
         if file.is_dir() {
@@ -102,6 +110,21 @@ pub(super) fn zip_entry_paths(
         .collect()
 }
 
+/// The bytes of one file entry, or `None` when the zip has no such entry.
+pub(super) fn zip_entry_bytes(zip_bytes: &[u8], name: &str) -> Result<Option<Vec<u8>>, String> {
+    let mut archive =
+        zip::ZipArchive::new(Cursor::new(zip_bytes)).map_err(|err| err.to_string())?;
+    let mut file = match archive.by_name(name) {
+        Ok(file) => file,
+        Err(zip::result::ZipError::FileNotFound) => return Ok(None),
+        Err(err) => return Err(err.to_string()),
+    };
+    let mut contents = Vec::new();
+    file.read_to_end(&mut contents)
+        .map_err(|err| err.to_string())?;
+    Ok(Some(contents))
+}
+
 /// A shared dll another mod ships at the same version must not be rewritten
 /// on every BPP install; the length gate keeps the multi-MB payload entries
 /// from being read unless they could actually match.
@@ -139,7 +162,7 @@ mod tests {
         let zip_bytes = make_test_zip();
         let tmp = tempfile::tempdir().unwrap();
 
-        let report = extract_zip(&zip_bytes, tmp.path()).unwrap();
+        let report = extract_zip(&zip_bytes, tmp.path(), &Default::default()).unwrap();
         assert!(!report.written.is_empty());
         assert!(report.skipped_identical.is_empty());
         assert!(tmp.path().join("BepInEx/core/BepInEx.Core.dll").exists());
@@ -153,7 +176,7 @@ mod tests {
         std::fs::create_dir_all(target.parent().unwrap()).unwrap();
         std::fs::write(&target, b"fake dll content").unwrap();
 
-        let report = extract_zip(&zip_bytes, tmp.path()).unwrap();
+        let report = extract_zip(&zip_bytes, tmp.path(), &Default::default()).unwrap();
 
         assert!(report.written.is_empty());
         assert_eq!(report.skipped_identical.len(), 1);
@@ -168,7 +191,7 @@ mod tests {
         std::fs::create_dir_all(target.parent().unwrap()).unwrap();
         std::fs::write(&target, b"other mod's different version").unwrap();
 
-        let report = extract_zip(&zip_bytes, tmp.path()).unwrap();
+        let report = extract_zip(&zip_bytes, tmp.path(), &Default::default()).unwrap();
 
         assert_eq!(report.written.len(), 1);
         assert!(report.skipped_identical.is_empty());

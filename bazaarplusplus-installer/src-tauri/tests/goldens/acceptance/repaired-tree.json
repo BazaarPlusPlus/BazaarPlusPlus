@@ -1,9 +1,29 @@
 {
   "bpp_paths": [
+    "BepInEx/core",
+    "BepInEx/patchers/BazaarPlusPlus.Updater.dll",
+    "BepInEx/plugins/.gitkeep",
+    "BepInEx/plugins/BazaarPlusPlus.Core.dll",
+    "BepInEx/plugins/BazaarPlusPlus.ModApi.dll",
+    "BepInEx/plugins/BazaarPlusPlus.Storage.dll",
     "BepInEx/plugins/BazaarPlusPlus.dll",
+    "BepInEx/plugins/BazaarPlusPlus.history-database.json",
+    "BepInEx/plugins/BazaarPlusPlus.managed-manifest.txt",
+    "BepInEx/plugins/BazaarPlusPlus.version",
+    "BepInEx/plugins/Microsoft.Data.Sqlite.dll",
+    "BepInEx/plugins/SQLitePCLRaw.batteries_v2.dll",
+    "BepInEx/plugins/SQLitePCLRaw.core.dll",
+    "BepInEx/plugins/SQLitePCLRaw.provider.e_sqlite3.dll",
+    "BepInEx/plugins/SixLabors.ImageSharp.dll",
+    "BepInEx/plugins/System.Buffers.dll",
+    "BepInEx/plugins/System.Numerics.Vectors.dll",
+    "BepInEx/plugins/System.Text.Encoding.CodePages.dll",
+    "BepInEx/plugins/libBppMacAudio.dylib",
+    "BepInEx/plugins/libe_sqlite3.dylib",
     "TheBazaar.app/Contents/Plugins/GfxPluginBppReplayVideoToolbox.bundle",
     "libdoorstop.dylib"
   ],
   "codesign_verified": true,
+  "self_updated_payload_current": true,
   "trampoline_uuid_matches_bundled": true
 }

@@ -1,6 +1,7 @@
 //! Private install planner: turns gathered facts into ordered effects.
 //! macOS has one bootstrap only: trampoline plus empty Steam launch options.
 
+use crate::services::bepinex::installed_version_is_current;
 use crate::services::detect::InstallEnvironmentSnapshot;
 use crate::services::vdf::SteamLaunchOptionsState;
 
@@ -28,11 +29,13 @@ fn plan_install_for_platform(
     env: &InstallEnvironmentSnapshot,
     requires_macos_bootstrap: bool,
 ) -> Vec<InstallEffect> {
+    // A self-updated Managed Payload is newer than the bundled one and still
+    // current (ADR-0009); only an older or missing one routes to Repair.
     let payload_current = env.bepinex_installed
         && env.bpp_version.as_ref().is_some_and(|installed| {
             env.bundled_bpp_version
                 .as_ref()
-                .is_none_or(|bundled| installed == bundled)
+                .is_none_or(|bundled| installed_version_is_current(installed, bundled))
         });
     let launch_options_empty = env.steam_launch_options == SteamLaunchOptionsState::Empty;
     let bootstrap_ready = !requires_macos_bootstrap
@@ -76,13 +79,15 @@ mod tests {
         use SteamLaunchOptionsState::*;
 
         for (installed, version, bundled, payload_current) in [
-            (false, None, Some("2"), false),
-            (false, Some("2"), Some("2"), false),
-            (true, None, Some("2"), false),
+            (false, None, Some("6.0.0.prod"), false),
+            (false, Some("6.0.0.prod"), Some("6.0.0.prod"), false),
+            (true, None, Some("6.0.0.prod"), false),
             (true, None, None, false),
-            (true, Some("1"), Some("2"), false),
-            (true, Some("2"), Some("2"), true),
-            (true, Some("2"), None, true),
+            (true, Some("5.9.0.prod"), Some("6.0.0.prod"), false),
+            (true, Some("6.0.0.prod"), Some("6.0.0.prod"), true),
+            (true, Some("6.1.0.prod"), Some("6.0.0.prod"), true),
+            (true, Some("not a version"), Some("6.0.0.prod"), false),
+            (true, Some("6.0.0.prod"), None, true),
         ] {
             for (trampoline, options, obsolete, bootstrap_ready) in [
                 (true, Empty, false, true),
