@@ -14,6 +14,7 @@ import {
   INTEROP_KEY,
   LOADER_MANAGED_DIRECTORY,
   androidInputKey,
+  assertPortableInteropArchive,
   captureInteropSnapshot,
   checkGameLibsLock,
   cliMain,
@@ -28,6 +29,7 @@ import {
   publishInteropSnapshot,
   readGameLibsLock,
   snapshotManifestKey,
+  tarballEntries,
   validateGameLibsLock
 } from './game-libs.mjs';
 import { buildZipBuffer } from './payload-zip.mjs';
@@ -37,8 +39,9 @@ import { WORKSPACE_ROOT } from './product.mjs';
 // whose versionName is not an android production build, a first capture that
 // names no toolchain, interop generated for another Unity version, a capture
 // on a host that cannot run the Patcher without --interop, a stored input
-// whose bytes differ from the lock, and a local interop directory that drifted
-// from its entry.
+// whose bytes differ from the lock, a local interop directory that drifted
+// from its entry, and a stored interop archive that a Linux fetch would
+// extract to other files than the lock records.
 
 const ANDROID_VERSION = '1.0.12825-production-android-d9601ded';
 const UNITY_VERSION = '6000.3.11f1';
@@ -240,7 +243,9 @@ function memoryStore() {
   return {
     objects,
     async head(key) {
-      return objects.has(key) ? { size: objects.get(key).length } : null;
+      return objects.has(key)
+        ? { size: objects.get(key).length, etag: `"${key}"` }
+        : null;
     },
     async get(key) {
       return objects.has(key)
@@ -253,10 +258,10 @@ function memoryStore() {
       objects.set(key, Buffer.from(bytes));
       return true;
     },
-    async putFile(key, file, { sha256 }) {
+    async putFile(key, file, { sha256, ifMatch }) {
       const bytes = fs.readFileSync(file);
       if (sha(bytes) !== sha256) throw new Error('payload hash mismatch');
-      if (objects.has(key)) return false;
+      if (ifMatch ? ifMatch !== `"${key}"` : objects.has(key)) return false;
       objects.set(key, bytes);
       return true;
     },
@@ -506,6 +511,9 @@ test('publish stores every pinned input by content; fetch restores interop and l
   expect(logs.filter((line) => line.startsWith('Already stored'))).toHaveLength(
     5
   );
+  expect(logs).toContain(
+    `Already stored and verified: ${interopBlobKey(entry.interopSha256)}`
+  );
 
   // A fresh clone: nothing under game-libs/ but the lock.
   fs.rmSync(path.join(ws.modRoot, 'game-libs'), { recursive: true });
@@ -552,6 +560,76 @@ test('publish stores every pinned input by content; fetch restores interop and l
       storeFactory: () => store
     })
   ).rejects.toThrow(/hashes to .*, not the .* the lock records/);
+});
+
+test('publish replaces a stored interop archive that would extract to other files on Linux; fetch refuses one', async () => {
+  const ws = workspace();
+  const root = tempRoot('bpp-interop-in-');
+  await firstCapture(ws, root);
+  const entry = ws.entry();
+  const key = interopBlobKey(entry.interopSha256);
+  // What macOS tar packs without COPYFILE_DISABLE: an AppleDouble sidecar
+  // per file, which macOS tar hides on listing and extraction but GNU tar
+  // extracts beside the proxies. A regular file by that name stands in.
+  const stale = tempRoot('bpp-interop-stale-');
+  const copy = path.join(stale, 'interop');
+  fs.cpSync(path.join(root, 'interop'), copy, { recursive: true });
+  write(path.join(copy, '._Assembly-CSharp.dll'), 'AppleDouble');
+  const archive = path.join(stale, 'interop.tar.gz');
+  execFileSync('tar', ['-czf', archive, '-C', stale, 'interop'], {
+    env: { ...process.env, COPYFILE_DISABLE: '1' }
+  });
+  expect(tarballEntries(archive)).toContain('interop/._Assembly-CSharp.dll');
+  expect(() => assertPortableInteropArchive(archive, 'Stale')).toThrow(
+    /Stale carries the member interop\/\._Assembly-CSharp\.dll/
+  );
+
+  const store = memoryStore();
+  store.objects.set(key, fs.readFileSync(archive));
+  const logs = [];
+  await publishInteropSnapshot({
+    workspaceRoot: ws.workspaceRoot,
+    modRoot: ws.modRoot,
+    store,
+    log: (line) => logs.push(line)
+  });
+  expect(logs.find((line) => line.startsWith(`Replacing ${key}: `))).toMatch(
+    /carries the member interop\/\._Assembly-CSharp\.dll/
+  );
+  expect(logs).toContain(`Replaced ${key}`);
+  const replaced = path.join(stale, 'replaced.tar.gz');
+  fs.writeFileSync(replaced, store.objects.get(key));
+  expect(tarballEntries(replaced).sort()).toEqual([
+    'interop/',
+    'interop/Assembly-CSharp.dll',
+    'interop/Il2CppBazaarGameShared.dll',
+    'interop/MethodAddressToToken.db',
+    'interop/interop-manifest.json'
+  ]);
+
+  // A second publish reads the archive back and keeps it.
+  logs.length = 0;
+  await publishInteropSnapshot({
+    workspaceRoot: ws.workspaceRoot,
+    modRoot: ws.modRoot,
+    store,
+    log: (line) => logs.push(line)
+  });
+  expect(logs).toContain(`Already stored and verified: ${key}`);
+  expect(fs.readFileSync(replaced).equals(store.objects.get(key))).toBe(true);
+
+  // A fetch never extracts such an archive, whatever the host's tar does.
+  store.objects.set(key, fs.readFileSync(archive));
+  fs.rmSync(path.join(ws.modRoot, 'game-libs'), { recursive: true });
+  await expect(
+    fetchInteropSnapshot({
+      workspaceRoot: ws.workspaceRoot,
+      modRoot: ws.modRoot,
+      storeFactory: () => store
+    })
+  ).rejects.toThrow(
+    /Stored snapshot .* carries the member interop\/\._Assembly-CSharp\.dll/
+  );
 });
 
 test('a recapture reuses the pinned toolchain from the store and generates interop with it', async () => {
