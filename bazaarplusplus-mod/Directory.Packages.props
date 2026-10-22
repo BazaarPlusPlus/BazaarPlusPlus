@@ -25,9 +25,11 @@
   <!--
     Game-supplied libraries have no central version (build/GameLibraries.props, ADR-0010), so a
     netstandard2.1 PackageReference fails restore with NU1010. Only the net10.0 target of a shared
-    project binds the package, pinned to the copy in the game's Managed directory (ADR-0012).
+    project binds the package, pinned to the copy in the game's Managed directory (ADR-0012,
+    ADR-0013).
   -->
   <ItemGroup Condition="'$(TargetFramework)' == 'net10.0'">
+    <PackageVersion Include="MessagePack" Version="3.1.4" />
     <PackageVersion Include="Newtonsoft.Json" Version="13.0.2" />
   </ItemGroup>
   <!--
@@ -43,5 +45,28 @@
     <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-j9gm-c75j-xc9q" />
     <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-jjfr-hcj7-qf5w" />
     <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-wmxv-xphr-5c9g" />
+  </ItemGroup>
+  <!--
+    MessagePack advisories fixed only in 3.1.7 and later. The net10.0 package stays pinned to the
+    game's Managed/MessagePack.dll 3.1.4, so both hosts decode the Run segment with the same
+    library (ADR-0013); the Mono host runs the game's 3.1.4 whatever the package says. ModApi
+    reads with MessagePackSecurity.UntrustedData through source-generated formatters only: no
+    Typeless, LZ4, union, ExpandoObject, JSON conversion, or ASP.NET formatter. Drop these when the
+    game ships a patched MessagePack and the pin follows it.
+  -->
+  <ItemGroup>
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-2f33-pr97-265q" />
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-2x83-8g95-xh59" />
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-382j-8mxh-c7x2" />
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-cj9g-3mj2-g8vv" />
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-cxmj-83gh-fp49" />
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-hv8m-jj95-wg3x" />
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-q2h6-ghwm-5qm8" />
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-qhmf-xw27-6rqr" />
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-qhrr-8q5h-9q3h" />
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-v72x-2h86-7f8m" />
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-vh6j-jc39-fggf" />
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-w567-gjr2-hm5j" />
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-wfr3-xj75-pfwh" />
   </ItemGroup>
 </Project>

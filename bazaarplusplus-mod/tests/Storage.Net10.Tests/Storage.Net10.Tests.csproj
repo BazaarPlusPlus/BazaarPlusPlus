@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- The CoreCLR host's configuration of Storage.Tests: the same sources against the net10.0
+       output, bound to the NuGet packages pinned to the game's versions instead of the game's
+       Managed copies (ADR-0013). -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile
+      Include="../Storage.Tests/**/*.cs"
+      Exclude="../Storage.Tests/obj/**;../Storage.Tests/bin/**"
+      Link="%(RecursiveDir)%(Filename)%(Extension)"
+    />
+  </ItemGroup>
+
+  <!-- The shared project keeps its package references private, so this host supplies them. -->
+  <ItemGroup>
+    <ProjectReference
+      Include="../../src/BazaarPlusPlus.Storage/BazaarPlusPlus.Storage.csproj"
+      SetTargetFramework="TargetFramework=net10.0"
+    />
+    <PackageReference Include="Newtonsoft.Json" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None
+      Include="../../src/BazaarPlusPlus.Storage/BazaarPlusPlus.history-database.json"
+      Link="BazaarPlusPlus.history-database.json"
+      CopyToOutputDirectory="PreserveNewest"
+    />
+  </ItemGroup>
+</Project>

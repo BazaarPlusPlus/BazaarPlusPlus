@@ -11,7 +11,7 @@ The mod is gaining a second host: an Android build loaded by MelonLoader on Core
 1. `BazaarPlusPlus.Core` is the shared core every host references: settings and host ports, the event bus and BPP-owned snapshots, probe interfaces, run context, `CoreComposition`, the `BppLog` pipeline, localization, and pure infrastructure. Its project references no Unity, loader, game, MelonLoader, or Il2CppInterop assembly. `CoreAssemblyBoundaryTests` checks both compiled targets.
 2. Hosts own their adapters and composition roots. The desktop host keeps `GameInterop/`, `Patches/`, the Unity mountables, and `DesktopComposition`, and binds the desktop ports into `CoreComposition`. Its assembly name stays `BazaarPlusPlus.dll`.
 3. A shared assembly exists only because it owns an external contract and carries that contract's dependency class. Storage owns the local database contract and SQLite. ModApi owns the wire contract and MessagePack/HTTP. Localization owned neither, so it merged into Core with its namespace unchanged. Dependencies run host → Core → {Storage, ModApi}.
-4. Core types are `public`. `InternalsVisibleTo` names only test projects, never a host assembly name. The desktop host does not publicize Core.
+4. Core types are `public`, and so is the ModApi surface a host or Core uses. `InternalsVisibleTo` names only test projects, never a host assembly name. The desktop host publicizes neither.
 5. Core targets `netstandard2.1` and `net10.0` from the same sources into same-named, same-version outputs. This narrows ADR-0010 to the Mono target. `netstandard2.1` keeps `BppReferenceGameLibraries` and binds the game's Newtonsoft.Json. `net10.0` references the NuGet package pinned to the game's version. Its central `PackageVersion` is conditioned on `net10.0`, so a `netstandard2.1` `PackageReference` still fails restore with NU1010. The reference is private to Core, so each host supplies its own runtime copy and a test that binds the game's copy keeps only that one. MessagePack stays out of Core.
 
 ## Guardrails
@@ -19,9 +19,10 @@ The mod is gaining a second host: an Android build loaded by MelonLoader on Core
 - Move a file into Core only when Core still compiles without it reaching a game or Unity type. Fully qualified names and `BazaarGameShared` DTOs count. Adding a project reference to make it compile is the wrong fix.
 - Do not add an `InternalsVisibleTo` for a host. Make the member `public`, or keep it in the host.
 - Test projects that reference Core do not also Compile-Include Core sources. A public Core type and its linked copy conflict (CS0436).
-- Not decided here: whether Storage and ModApi multi-target, and which features move into Core and when. Issue #367 tracks both.
+- Storage and ModApi multi-target the same way (ADR-0013). Not decided here: which features move into Core and when. Issue #367 tracks it.
 
 ## Evidence
 
-- Boundary and Newtonsoft binding: `tests/Architecture.Tests/CoreAssemblyBoundaryTests.cs`
+- Boundary: `tests/Architecture.Tests/CoreAssemblyBoundaryTests.cs`
+- Newtonsoft binding: `tests/Architecture.Tests/SharedLibraryBindingTests.cs`
 - Composition split: `CoreComposition` in `src/BazaarPlusPlus.Core/Runtime/CoreComposition.cs`, `DesktopComposition` in `src/BazaarPlusPlus/DesktopComposition.cs`

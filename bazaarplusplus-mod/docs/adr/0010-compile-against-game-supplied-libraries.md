@@ -18,7 +18,7 @@ The compiler is the compatibility check in every gate that already runs: `mod::c
 ## Guardrails
 
 - Add a library that the game loads for the mod to `BppGameLibraries`, never as a package.
-- The scope is the Mono target. A shared project's `net10.0` target binds the NuGet package pinned to the game's version, through a central `PackageVersion` conditioned on that target (ADR-0012).
+- The scope is the Mono target. A shared project's `net10.0` target binds the NuGet package pinned to the game's version, through a central `PackageVersion` conditioned on that target (ADR-0012, ADR-0013).
 - Not covered: reflection and runtime semantics, and any third-party Payload DLL built against a different Newtonsoft. None ships today.
 - Deferred: `UnityEngine.Modules` 2022.3.40 still stands in for the game's Unity 6 modules. Switching needs the `FindObjectsOfType` call sites migrated first.
 

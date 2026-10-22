@@ -8,7 +8,12 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="../../src/BazaarPlusPlus.ModApi/BazaarPlusPlus.ModApi.csproj" />
+    <!-- The Mono host's configuration: the netstandard2.1 output bound to the game's libraries.
+         ModApi.Net10.Tests runs the same sources against the net10.0 output (ADR-0013). -->
+    <ProjectReference
+      Include="../../src/BazaarPlusPlus.ModApi/BazaarPlusPlus.ModApi.csproj"
+      SetTargetFramework="TargetFramework=netstandard2.1"
+    />
     <EmbeddedResource
       Include="../../../bazaarplusplus-server/contracts/mod-api-errors.json"
       LogicalName="ModApi.Tests.mod-api-errors.json"

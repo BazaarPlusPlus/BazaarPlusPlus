@@ -1,17 +1,32 @@
 <Project Sdk="Microsoft.NET.Sdk">
+  <!-- Owns the local history database contract and carries SQLite (ADR-0012). Both targets
+       compile the same sources into same-named, same-version outputs (ADR-0013). -->
   <PropertyGroup>
     <AssemblyName>BazaarPlusPlus.Storage</AssemblyName>
     <RootNamespace>BazaarPlusPlus.Storage</RootNamespace>
-    <TargetFramework>netstandard2.1</TargetFramework>
+    <TargetFrameworks>netstandard2.1;net10.0</TargetFrameworks>
     <LangVersion>12</LangVersion>
     <Nullable>enable</Nullable>
     <Version>$(BppVersion)</Version>
     <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+  </PropertyGroup>
+
+  <!-- The Mono host binds the game's own Newtonsoft.Json (ADR-0010). -->
+  <PropertyGroup Condition="'$(TargetFramework)' == 'netstandard2.1'">
     <BppReferenceGameLibraries>true</BppReferenceGameLibraries>
   </PropertyGroup>
 
-  <ItemGroup>
+  <ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.1'">
     <PackageReference Include="NETStandard.Library" />
+  </ItemGroup>
+
+  <!-- The CoreCLR host binds the package pinned to the game's version. Private, so each host
+       supplies its own runtime copy (ADR-0013). -->
+  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0'">
+    <PackageReference Include="Newtonsoft.Json" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Microsoft.Data.Sqlite" />
     <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" />
     <PackageReference Include="SourceGear.sqlite3" />

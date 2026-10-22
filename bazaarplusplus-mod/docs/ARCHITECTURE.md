@@ -35,7 +35,7 @@ Four assemblies ship. Dependencies run host → Core → {Storage, ModApi}; a sh
 | `BazaarPlusPlus.ModApi.dll` | HTTP client, routes, DTOs, MessagePack/gzip helpers for the mod backend |
 | `BazaarPlusPlus.Storage.dll` | SQLite schema, repositories, path interfaces, local persistence models |
 
-No shared project references a game, Unity, or loader assembly, so the compiler keeps them host-free; `CoreAssemblyBoundaryTests` also checks both Core targets: `netstandard2.1` (desktop; game-supplied Newtonsoft.Json) and `net10.0` (CoreCLR hosts; the package pinned to the game's version, private to Core). Core types are `public`; `InternalsVisibleTo` names only tests.
+No shared project references a game, Unity, or loader assembly, so the compiler keeps them host-free; `CoreAssemblyBoundaryTests` checks both Core targets. Shared projects build `netstandard2.1` (desktop; the game's libraries) and `net10.0` (CoreCLR; packages pinned to the game's versions, ADR-0013). Core and ModApi expose `public` APIs; `InternalsVisibleTo` names only tests.
 
 | Core directory | Owns |
 |---|---|
