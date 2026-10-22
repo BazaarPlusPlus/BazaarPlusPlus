@@ -17,6 +17,7 @@ struct PayloadEntry {
     path: String,
     host: String,
     ownership: String,
+    producer: String,
     platforms: Option<Vec<String>>,
 }
 
@@ -75,6 +76,20 @@ fn owned_paths(ownership: &str) -> impl Iterator<Item = &'static str> + '_ {
         .iter()
         .filter(move |entry| entry.ownership == ownership)
         .map(|entry| entry.path.as_str())
+}
+
+/// Where the installed Managed Payload Manifest sits: the BepInEx host's one
+/// `managed-manifest` entry (`installedManifestPath` in
+/// `release/managed-payload.mjs`).
+pub(super) fn installed_managed_manifest_path() -> &'static str {
+    let mut entries = inventory()
+        .files
+        .iter()
+        .filter(|entry| entry.producer == "managed-manifest");
+    match (entries.next(), entries.next()) {
+        (Some(entry), None) => entry.path.as_str(),
+        _ => panic!("the Payload Inventory must name exactly one BepInEx managed-manifest entry"),
+    }
 }
 
 /// Backoff used between retries when a file/directory removal fails. The first

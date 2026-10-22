@@ -132,8 +132,8 @@ mod tests {
             game_path: None,
             game_path_valid: false,
             bepinex_installed: payload_current,
-            bpp_version: payload_current.then(|| "2".into()),
-            bundled_bpp_version: Some("2".into()),
+            bpp_version: payload_current.then(|| "6.0.0.prod".into()),
+            bundled_bpp_version: Some("6.0.0.prod".into()),
             steam_launch_options: if bootstrap_satisfied {
                 SteamLaunchOptionsState::Empty
             } else {
@@ -280,7 +280,7 @@ mod fresh_install_acceptance {
             game_path_valid: true,
             bepinex_installed: false,
             bpp_version: None,
-            bundled_bpp_version: Some("packaged".into()),
+            bundled_bpp_version: Some("6.0.0.prod".into()),
             steam_launch_options: options,
             trampoline_current: false,
             obsolete_macos_artifacts_present: false,

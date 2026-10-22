@@ -13,9 +13,9 @@ import { releasePlatform } from './release-platforms.mjs';
 // mod's self-update installs without the installer or a new APK. prepare
 // writes the Managed Payload Manifest into the staged Payload beside the mod,
 // so every install carries its own; build zips the manifest, its minisign
-// signature and the files it names, and signs the zip. The mod's
-// BazaarPlusPlus.ManagedPayload.ManagedPayloadManifest parses the manifest;
-// both sides change together.
+// signature and the files it names, and signs the zip. The manifest's readers
+// are the consumers in the root AGENTS.md Contracts table; a format change
+// lands with all of them.
 
 // Producers the self-update replaces.
 export const MANAGED_PRODUCERS = Object.freeze(['managed', 'history-contract']);

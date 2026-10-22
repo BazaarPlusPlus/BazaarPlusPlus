@@ -1,9 +1,11 @@
 #[cfg(target_os = "macos")]
 mod bundle_root;
+mod managed_payload;
 mod payload;
 mod trampoline;
 mod zip_archive;
 
+pub(crate) use managed_payload::installed_version_is_current;
 pub(crate) use payload::{ensure_valid_game_path, remove_dir_with_retry};
 pub(crate) use trampoline::{
     install_trampoline, is_current_trampoline, obsolete_macos_artifacts_present,
@@ -141,13 +143,36 @@ pub fn install_bepinex(resource_dir: &Path, game_path: &Path) -> Result<(), Stri
         debug_error!("Cannot read bundled BepInEx.zip: {err}");
         format!("Cannot read bundled BepInEx.zip: {err}")
     })?;
-    let incoming_relative_paths = zip_archive::zip_entry_paths(&zip_bytes)?;
+    let mut incoming_relative_paths = zip_archive::zip_entry_paths(&zip_bytes)?;
+
+    // Repair never writes an older Managed Payload over a newer one the mod's
+    // self-update installed (ADR-0009); the bundled zip still supplies every
+    // non-managed file.
+    let manifest_path = payload::installed_managed_manifest_path();
+    let bundled_manifest = zip_archive::zip_entry_bytes(&zip_bytes, manifest_path)?;
+    let skip = match managed_payload::choose_managed_payload_source(
+        game_path,
+        manifest_path,
+        bundled_manifest.as_deref(),
+    ) {
+        managed_payload::ManagedPayloadSource::Bundled => Default::default(),
+        managed_payload::ManagedPayloadSource::Installed {
+            version: _version,
+            skip,
+            keep,
+        } => {
+            debug_log!("Keeping the installed Managed Payload {_version}");
+            incoming_relative_paths.retain(|path| !skip.contains(path));
+            incoming_relative_paths.extend(keep);
+            skip
+        }
+    };
 
     let install_backup = payload::prepare_install_target(game_path, &incoming_relative_paths)?;
 
     let install_result = (|| -> Result<(), String> {
         debug_log!("Extracting BepInEx...");
-        let _report = zip_archive::extract_zip(&zip_bytes, game_path)?;
+        let _report = zip_archive::extract_zip(&zip_bytes, game_path, &skip)?;
         debug_log!(
             "Extracted {} files, skipped {} identical.",
             _report.written.len(),
@@ -422,5 +447,130 @@ mod tests {
         );
         assert!(data_dir.is_dir());
         assert!(tmp.path().join("BepInEx").is_dir());
+    }
+
+    /// A bundled resource directory whose zip carries `files` plus their
+    /// Managed Payload Manifest at version `version`.
+    fn bundled_resources(
+        version: &str,
+        managed: &[(&str, &[u8])],
+        other: &[(&str, &[u8])],
+    ) -> tempfile::TempDir {
+        use std::io::Write;
+        let manifest = managed_payload::tests::render(version, 1, &"e".repeat(64), managed);
+        let resources = tempfile::tempdir().unwrap();
+        let zip_path = resources
+            .path()
+            .join(zip_archive::bundled_zip_relative_path());
+        std::fs::create_dir_all(zip_path.parent().unwrap()).unwrap();
+        let mut zip = zip::ZipWriter::new(std::fs::File::create(zip_path).unwrap());
+        let options = zip::write::SimpleFileOptions::default();
+        for (path, bytes) in managed
+            .iter()
+            .chain(other)
+            .chain(&[(managed_payload::tests::MANIFEST_PATH, manifest.as_bytes())])
+        {
+            zip.start_file(*path, options).unwrap();
+            zip.write_all(bytes).unwrap();
+        }
+        zip.finish().unwrap();
+        resources
+    }
+
+    #[test]
+    fn install_keeps_a_newer_self_updated_managed_payload_and_writes_everything_else() {
+        const PLUGINS: &str = "BepInEx/plugins/";
+        let bundled_managed: &[(&str, &[u8])] = &[
+            ("BepInEx/plugins/BazaarPlusPlus.dll", b"bundled mod"),
+            (
+                "BepInEx/plugins/BazaarPlusPlus.Storage.dll",
+                b"bundled storage",
+            ),
+            ("BepInEx/plugins/BazaarPlusPlus.version", b"6.0.0.prod\n"),
+        ];
+        let non_managed: &[(&str, &[u8])] = &[
+            ("BepInEx/core/BepInEx.Preloader.dll", b"preloader"),
+            (
+                "BepInEx/patchers/BazaarPlusPlus.Updater.dll",
+                b"bundled updater",
+            ),
+        ];
+        let installed_managed: &[(&str, &[u8])] = &[
+            (
+                "BepInEx/plugins/BazaarPlusPlus.Core.dll",
+                b"self-updated core",
+            ),
+            ("BepInEx/plugins/BazaarPlusPlus.dll", b"self-updated mod"),
+            ("BepInEx/plugins/BazaarPlusPlus.version", b"6.1.0.prod\n"),
+        ];
+        let installed_manifest =
+            managed_payload::tests::render("6.1.0", 1, &"e".repeat(64), installed_managed);
+        let resources = bundled_resources("6.0.0", bundled_managed, non_managed);
+        let read = |root: &Path, path: &str| std::fs::read(root.join(path)).ok();
+
+        for corrupt in [false, true] {
+            let game = make_valid_game_dir();
+            for (path, bytes) in installed_managed {
+                let path = game.path().join(path);
+                std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+                std::fs::write(path, bytes).unwrap();
+            }
+            std::fs::write(
+                game.path().join(managed_payload::tests::MANIFEST_PATH),
+                &installed_manifest,
+            )
+            .unwrap();
+            std::fs::create_dir_all(game.path().join("BepInEx/patchers")).unwrap();
+            std::fs::write(
+                game.path()
+                    .join("BepInEx/patchers/BazaarPlusPlus.Updater.dll"),
+                b"stale updater",
+            )
+            .unwrap();
+            std::fs::create_dir_all(game.path().join("BepInEx/config")).unwrap();
+            std::fs::write(
+                game.path().join(payload::BPP_CONFIG_RELATIVE_PATH),
+                b"user config",
+            )
+            .unwrap();
+            if corrupt {
+                std::fs::write(
+                    game.path().join(format!("{PLUGINS}BazaarPlusPlus.dll")),
+                    b"torn",
+                )
+                .unwrap();
+            }
+
+            install_bepinex(resources.path(), game.path()).unwrap();
+
+            for (path, bytes) in non_managed {
+                assert_eq!(read(game.path(), path).as_deref(), Some(*bytes), "{path}");
+            }
+            assert_eq!(
+                read(game.path(), payload::BPP_CONFIG_RELATIVE_PATH).as_deref(),
+                Some(b"user config".as_slice())
+            );
+            let (expected_managed, absent) = if corrupt {
+                (bundled_managed, "BepInEx/plugins/BazaarPlusPlus.Core.dll")
+            } else {
+                (
+                    installed_managed,
+                    "BepInEx/plugins/BazaarPlusPlus.Storage.dll",
+                )
+            };
+            for (path, bytes) in expected_managed {
+                assert_eq!(read(game.path(), path).as_deref(), Some(*bytes), "{path}");
+            }
+            assert!(!game.path().join(absent).exists(), "{absent}");
+            let version = String::from_utf8(
+                read(game.path(), "BepInEx/plugins/BazaarPlusPlus.version").unwrap(),
+            )
+            .unwrap();
+            assert!(installed_version_is_current(&version, "6.0.0.prod"));
+            assert_eq!(
+                version.trim(),
+                if corrupt { "6.0.0.prod" } else { "6.1.0.prod" }
+            );
+        }
     }
 }

@@ -25,8 +25,9 @@ internal sealed class ManagedPayloadFile
 /// self-update compares against the running copy. The release coordinator writes it
 /// (release/managed-payload.mjs); the installed copy sits beside the mod as
 /// <see cref="ManagedPayloadHost.InstalledManifestPath"/>, the Managed Payload zip carries it
-/// with its signature at the root. A line format, so the dependency-free Updater parses it
-/// without a JSON library:
+/// with its signature at the root. Every reader, the installer's Repair among them, is a
+/// consumer in the root AGENTS.md Contracts table. A line format, so the dependency-free
+/// Updater parses it without a JSON library:
 /// <code>
 /// bpp-managed-payload-manifest 1
 /// version 6.1.0

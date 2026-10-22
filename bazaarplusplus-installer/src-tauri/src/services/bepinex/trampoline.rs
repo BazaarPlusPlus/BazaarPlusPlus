@@ -916,12 +916,62 @@ mod tests {
             game.path().join("libdoorstop.dylib"),
         )
         .unwrap();
-        std::fs::create_dir_all(game.path().join("BepInEx/plugins")).unwrap();
+        // This machine's mod has self-updated one release past the bundled
+        // one: the bundled Managed Payload with another mod DLL and version,
+        // recorded in the newer manifest the Updater installs.
+        let bundled_zip =
+            std::fs::read(resources.join(super::super::zip_archive::bundled_zip_relative_path()))
+                .unwrap();
+        let entry = |name: &str| {
+            super::super::zip_archive::zip_entry_bytes(&bundled_zip, name)
+                .unwrap()
+                .unwrap_or_else(|| panic!("the bundled zip lacks {name}"))
+        };
+        let manifest_path = super::super::payload::installed_managed_manifest_path();
+        let bundled_manifest = String::from_utf8(entry(manifest_path)).unwrap();
+        let version_path = "BepInEx/plugins/BazaarPlusPlus.version";
+        let bundled_version = String::from_utf8(entry(version_path)).unwrap();
+        let (self_updated_version, _) =
+            super::super::managed_payload::tests::self_updated(&bundled_manifest, &[]);
+        let version_file = format!("{self_updated_version}.prod\n");
+        let (_, self_updated_manifest) = super::super::managed_payload::tests::self_updated(
+            &bundled_manifest,
+            &[
+                ("BepInEx/plugins/BazaarPlusPlus.dll", b"developer-payload"),
+                (version_path, version_file.as_bytes()),
+            ],
+        );
+        for line in bundled_manifest
+            .lines()
+            .filter(|line| line.starts_with("file "))
+        {
+            let path = line.splitn(4, ' ').nth(3).unwrap();
+            let target = game.path().join(path);
+            std::fs::create_dir_all(target.parent().unwrap()).unwrap();
+            std::fs::write(target, entry(path)).unwrap();
+        }
         std::fs::write(
             game.path().join("BepInEx/plugins/BazaarPlusPlus.dll"),
             b"developer-payload",
         )
         .unwrap();
+        std::fs::write(game.path().join(version_path), &version_file).unwrap();
+        std::fs::write(game.path().join(manifest_path), &self_updated_manifest).unwrap();
+        // Repair's payload effect: it writes the bundled non-managed files and
+        // keeps the newer Managed Payload (installer ADR-0009).
+        super::super::install_bepinex(&resources, game.path()).unwrap();
+        assert_eq!(
+            std::fs::read(game.path().join("BepInEx/plugins/BazaarPlusPlus.dll")).unwrap(),
+            b"developer-payload"
+        );
+        assert_eq!(
+            std::fs::read_to_string(game.path().join(manifest_path)).unwrap(),
+            self_updated_manifest
+        );
+        assert_eq!(
+            std::fs::read_to_string(game.path().join(version_path)).unwrap(),
+            version_file
+        );
         std::fs::create_dir_all(game.path().join("BazaarPlusPlusV6")).unwrap();
         std::fs::write(
             game.path().join("BazaarPlusPlusV6/history-sentinel"),
@@ -935,6 +985,25 @@ mod tests {
             assert!(!app.join("TheBazaar_ARM64.app").exists());
             eprintln!("Copied Steam bundle repair {iteration}: strict signature and current stub verified");
         }
+        // Readiness as detection and the planner report it for the repaired
+        // copy. Steam launch options are pinned empty (the copy has no Steam
+        // config); every other fact is read from the copied game.
+        let readiness = crate::services::install::install_state_from_snapshot(
+            crate::services::detect::InstallEnvironmentSnapshot {
+                steam_path: None,
+                game_path: Some(game.path().to_string_lossy().into_owned()),
+                game_path_valid: crate::services::detect::is_valid_game_path(game.path()),
+                bepinex_installed: crate::services::detect::is_bepinex_installed(game.path()),
+                bpp_version: crate::services::detect::read_installed_bpp_version(game.path()),
+                bundled_bpp_version: Some(bundled_version.trim().to_owned()),
+                steam_launch_options: crate::services::vdf::SteamLaunchOptionsState::Empty,
+                trampoline_current: is_current_with_stub(game.path(), &stub).unwrap(),
+                obsolete_macos_artifacts_present: super::super::obsolete_macos_artifacts_present(
+                    game.path(),
+                ),
+            },
+        );
+        let payload_current = readiness.mod_state.ready;
 
         // The game's own files differ between machines and game versions, so
         // the committed golden holds only the Payload Inventory paths present
@@ -965,6 +1034,7 @@ mod tests {
         let layout = imp::bundle_paths(game.path()).unwrap();
         let tree = serde_json::json!({
             "bpp_paths": bpp_paths,
+            "self_updated_payload_current": payload_current,
             "trampoline_uuid_matches_bundled": trampoline_builds_match(&layout.exe_path, &stub).unwrap(),
             "codesign_verified": imp::verify_bundle(&app).is_ok(),
         });
