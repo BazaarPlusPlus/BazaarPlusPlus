@@ -38,9 +38,9 @@
   </ItemGroup>
 
   <!--
-    Pure sources linked until this host can reference BazaarPlusPlus.Core. Core references
-    Storage, which binds the desktop game assemblies (BppReferenceGameLibraries), so a Core
-    reference would need a Managed snapshot that this host and its CI lane do not have.
+    Pure sources linked until this host references BazaarPlusPlus.Core (the #352 follow-up).
+    Core's net10.0 graph binds no game assembly (ADR-0013); adding it means this host references
+    and ships the serializer packages Core, Storage, and ModApi keep private (ADR-0013 §2).
   -->
   <ItemGroup>
     <Compile

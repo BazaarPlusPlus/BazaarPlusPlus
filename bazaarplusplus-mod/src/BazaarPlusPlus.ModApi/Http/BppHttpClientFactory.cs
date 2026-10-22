@@ -3,16 +3,21 @@ using System.Net.Http.Headers;
 
 namespace BazaarPlusPlus.ModApi.Http;
 
-internal static class BppHttpClientFactory
+public static class BppHttpClientFactory
 {
     private const string ProductName = "BazaarPlusPlus";
 
     // Each consumer passes its own userAgentSuffix (BundleUpload, OnlineClient, ...). The backend
     // groups its metrics and rate limits by that suffix, so keep the suffixes owner-specific:
     // collapsing them into one shared token silently re-buckets server-side traffic.
+    //
+    // The host passes its release platform key (darwin-aarch64, windows-x86_64, android-aarch64),
+    // carried as a User-Agent comment so the server can tell the hosts' traffic apart without a
+    // Run segment change. Null leaves the comment out.
 
     public static HttpClient Create(
         string productVersion,
+        string? platformKey,
         string? userAgentSuffix = null,
         TimeSpan? timeout = null,
         HttpMessageHandler? handler = null
@@ -22,13 +27,14 @@ internal static class BppHttpClientFactory
         if (timeout.HasValue)
             client.Timeout = timeout.Value;
 
-        ApplyUserAgent(client, productVersion, userAgentSuffix);
+        ApplyUserAgent(client, productVersion, platformKey, userAgentSuffix);
         return client;
     }
 
     private static void ApplyUserAgent(
         HttpClient client,
         string productVersion,
+        string? platformKey,
         string? userAgentSuffix
     )
     {
@@ -36,6 +42,12 @@ internal static class BppHttpClientFactory
         client.DefaultRequestHeaders.UserAgent.Add(
             new ProductInfoHeaderValue(ProductName, version)
         );
+
+        var platform = SanitizeUserAgentToken(platformKey);
+        if (platform != null)
+            client.DefaultRequestHeaders.UserAgent.Add(
+                new ProductInfoHeaderValue("(" + platform + ")")
+            );
 
         var sanitizedSuffix = SanitizeUserAgentToken(userAgentSuffix);
         if (sanitizedSuffix != null)

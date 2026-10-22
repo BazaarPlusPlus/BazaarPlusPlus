@@ -3,7 +3,7 @@ using BazaarPlusPlus.ModApi.Http;
 
 namespace BazaarPlusPlus.ModApi.Clients;
 
-internal sealed class ModApiSession : IDisposable
+public sealed class ModApiSession : IDisposable
 {
     private readonly HttpClient _httpClient;
     private readonly BundleUploadClient _bundleUpload;
@@ -22,6 +22,7 @@ internal sealed class ModApiSession : IDisposable
     public static ModApiSession? TryCreate(
         string? apiBaseUrl,
         string productVersion,
+        string? platformKey,
         string userAgentSuffix,
         TimeSpan timeout,
         HttpMessageHandler? handler = null
@@ -32,6 +33,7 @@ internal sealed class ModApiSession : IDisposable
             return null;
         var httpClient = BppHttpClientFactory.Create(
             productVersion,
+            platformKey,
             userAgentSuffix,
             timeout,
             handler

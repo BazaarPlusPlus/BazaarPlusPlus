@@ -6,8 +6,8 @@ namespace BazaarPlusPlus.Storage.RunScreenshot;
 
 public sealed class RunScreenshotSqliteStore : SqliteStoreBase
 {
-    public RunScreenshotSqliteStore(string databasePath)
-        : base(databasePath) { }
+    public RunScreenshotSqliteStore(string databasePath, SqliteOpenOptions? options = null)
+        : base(databasePath, options) { }
 
     public void Save(RunScreenshotRecord record)
     {

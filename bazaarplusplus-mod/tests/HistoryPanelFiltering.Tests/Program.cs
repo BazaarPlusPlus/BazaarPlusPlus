@@ -579,6 +579,7 @@ void WithProfileCapsule(
         BazaarPlusPlus.ModApi.Clients.ModApiSession.TryCreate(
             "https://api.example",
             "test",
+            platformKey: null,
             "OnlineClient",
             TimeSpan.FromSeconds(5),
             holdSync ? new HoldingHandler() : new RefusingHandler()

@@ -1,5 +1,6 @@
 #nullable enable
 using System.Reflection;
+using BazaarPlusPlus.Host;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.RemoteEmbeddedCatalog;
 using BazaarPlusPlus.ModApi.Http;
@@ -16,6 +17,7 @@ internal static class SupporterCatalogFactory
     private static readonly TimeSpan CacheDuration = TimeSpan.FromHours(1);
     private static readonly HttpClient HttpClient = BppHttpClientFactory.Create(
         productVersion: BppPluginVersion.Current,
+        platformKey: DesktopPlatformKey.Current,
         userAgentSuffix: "BPPSupporterCatalog",
         timeout: TimeSpan.FromSeconds(10)
     );

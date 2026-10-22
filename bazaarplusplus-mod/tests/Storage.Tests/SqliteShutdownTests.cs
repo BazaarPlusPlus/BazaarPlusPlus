@@ -60,6 +60,64 @@ internal static class SqliteShutdownTests
             if (Directory.Exists(tempRoot))
                 Directory.Delete(tempRoot, recursive: true);
         }
+
+        RollbackJournalLeavesNoSidecar();
+    }
+
+    // A host that opens the database in DELETE mode commits straight into the main file, so a
+    // reader sees every run with no shutdown hand-over at all.
+    private static void RollbackJournalLeavesNoSidecar()
+    {
+        var tempRoot = Path.Combine(
+            Path.GetTempPath(),
+            "bpp-storage-tests",
+            Guid.NewGuid().ToString("N")
+        );
+        Directory.CreateDirectory(tempRoot);
+        var dbPath = PathConstants.RunLogDatabase(tempRoot);
+        var options = new SqliteOpenOptions(SqliteJournalMode.Delete);
+
+        try
+        {
+            var store = new RunLogStore(new TempDirPathProvider(tempRoot), options);
+            store.CreateRun(
+                new RunLogCreateRequest
+                {
+                    RunId = "run_20260301t110000z_test_ranked_003_deadbeef",
+                    StartedAtUtc = new DateTimeOffset(2026, 3, 1, 11, 0, 0, TimeSpan.Zero),
+                    Hero = "Test",
+                    GameMode = "Ranked",
+                    Day = 1,
+                    Hour = 1,
+                }
+            );
+
+            Assert(ReadJournalMode(dbPath) == "delete", "The store should open in DELETE mode.");
+            Assert(!File.Exists(dbPath + "-wal"), "DELETE mode should leave no WAL.");
+            Assert(ReadRunCount(dbPath) == 1, "A reader should see the run before shutdown.");
+
+            SqliteShutdown.ReleaseRunLogDatabase(dbPath, options);
+
+            Assert(!File.Exists(dbPath + "-wal"), "Shutdown should not create a WAL.");
+            Assert(ReadJournalMode(dbPath) == "delete", "Shutdown should keep DELETE mode.");
+
+            Console.WriteLine("SqliteShutdownTests (DELETE journal) passed.");
+        }
+        finally
+        {
+            SqliteConnection.ClearAllPools();
+            if (Directory.Exists(tempRoot))
+                Directory.Delete(tempRoot, recursive: true);
+        }
+    }
+
+    private static string? ReadJournalMode(string databasePath)
+    {
+        using var connection = new SqliteConnection($"Data Source={databasePath};Mode=ReadOnly");
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = "PRAGMA journal_mode;";
+        return command.ExecuteScalar() as string;
     }
 
     private static long ReadRunCount(string databasePath)

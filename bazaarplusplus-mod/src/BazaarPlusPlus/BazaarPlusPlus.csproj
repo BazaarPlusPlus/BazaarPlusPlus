@@ -182,8 +182,8 @@
   <PropertyGroup>
     <PublicizeAll>true</PublicizeAll>
   </PropertyGroup>
-  <!-- ModApi's types are internal; the plugin reaches them through InternalsVisibleTo. Core is a
-       library with a public surface (ADR-0012); publicizing it would hide that boundary. -->
+  <!-- Core and ModApi are libraries with a public surface and no InternalsVisibleTo for a host
+       (ADR-0012); publicizing them would hide that boundary. -->
   <ItemGroup>
     <DoNotPublicize Include="BazaarPlusPlus.ModApi" />
     <DoNotPublicize Include="BazaarPlusPlus.Core" />

@@ -45,6 +45,7 @@ internal static class BundleUploadFeed
                 ModApiSession.TryCreate(
                     ModApiUploadDefaults.ApiBaseUrl,
                     BppPluginVersion.Current,
+                    DesktopPlatformKey.Current,
                     "BundleUpload",
                     TimeSpan.FromSeconds(ModApiUploadDefaults.RequestTimeoutSeconds)
                 ) ?? throw new InvalidOperationException("Mod API route is invalid.");

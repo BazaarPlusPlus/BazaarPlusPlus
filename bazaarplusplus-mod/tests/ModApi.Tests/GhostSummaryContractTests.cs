@@ -35,6 +35,7 @@ internal static class GhostSummaryContractTests
             ModApiSession.TryCreate(
                 "https://api.example",
                 "1.0.0",
+                platformKey: null,
                 "GhostSummaryContract",
                 TimeSpan.FromSeconds(30),
                 new GoldenHandler(golden)

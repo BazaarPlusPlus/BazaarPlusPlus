@@ -17,7 +17,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="../../src/BazaarPlusPlus.Storage/BazaarPlusPlus.Storage.csproj" />
     <ProjectReference
       Include="../../src/BazaarPlusPlus/BazaarPlusPlus.csproj"
       ReferenceOutputAssembly="false"
@@ -46,20 +45,47 @@
     <AssemblyMetadata Include="BppManagedPath" Value="$(ManagedPath)" />
   </ItemGroup>
 
-  <!-- CoreAssemblyBoundaryTests reads both Core targets. The main project builds only
-       netstandard2.1; this reference builds net10.0 without referencing it. -->
+  <!-- SharedAssemblies reads both targets of every shared project as metadata. The main project
+       builds only netstandard2.1; these references build net10.0, so Storage and ModApi name it
+       over the tests' netstandard2.1 default (tests/Directory.Build.targets). -->
   <ItemGroup>
     <ProjectReference
       Include="../../src/BazaarPlusPlus.Core/BazaarPlusPlus.Core.csproj"
       ReferenceOutputAssembly="false"
     />
+    <ProjectReference
+      Include="../../src/BazaarPlusPlus.ModApi/BazaarPlusPlus.ModApi.csproj"
+      ReferenceOutputAssembly="false"
+      SetTargetFramework="TargetFramework=net10.0"
+    />
+    <ProjectReference
+      Include="../../src/BazaarPlusPlus.Storage/BazaarPlusPlus.Storage.csproj"
+      ReferenceOutputAssembly="false"
+      SetTargetFramework="TargetFramework=net10.0"
+    />
     <AssemblyMetadata
-      Include="BppCoreOutput.netstandard2.1"
+      Include="BppSharedOutput.BazaarPlusPlus.Core.netstandard2.1"
       Value="$(MSBuildThisFileDirectory)../../src/BazaarPlusPlus.Core/bin/$(Configuration)/netstandard2.1"
     />
     <AssemblyMetadata
-      Include="BppCoreOutput.net10.0"
+      Include="BppSharedOutput.BazaarPlusPlus.Core.net10.0"
       Value="$(MSBuildThisFileDirectory)../../src/BazaarPlusPlus.Core/bin/$(Configuration)/net10.0"
+    />
+    <AssemblyMetadata
+      Include="BppSharedOutput.BazaarPlusPlus.ModApi.netstandard2.1"
+      Value="$(MSBuildThisFileDirectory)../../src/BazaarPlusPlus.ModApi/bin/$(Configuration)/netstandard2.1"
+    />
+    <AssemblyMetadata
+      Include="BppSharedOutput.BazaarPlusPlus.ModApi.net10.0"
+      Value="$(MSBuildThisFileDirectory)../../src/BazaarPlusPlus.ModApi/bin/$(Configuration)/net10.0"
+    />
+    <AssemblyMetadata
+      Include="BppSharedOutput.BazaarPlusPlus.Storage.netstandard2.1"
+      Value="$(MSBuildThisFileDirectory)../../src/BazaarPlusPlus.Storage/bin/$(Configuration)/netstandard2.1"
+    />
+    <AssemblyMetadata
+      Include="BppSharedOutput.BazaarPlusPlus.Storage.net10.0"
+      Value="$(MSBuildThisFileDirectory)../../src/BazaarPlusPlus.Storage/bin/$(Configuration)/net10.0"
     />
   </ItemGroup>
   <Target

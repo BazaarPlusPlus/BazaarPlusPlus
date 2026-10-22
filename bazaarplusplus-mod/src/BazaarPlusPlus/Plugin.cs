@@ -257,6 +257,7 @@ public class Plugin : BaseUnityPlugin
         // stalling the link card for the HttpClient default of ~100s.
         var linkHttpClient = BppHttpClientFactory.Create(
             productVersion: BppPluginVersion.Current,
+            platformKey: DesktopPlatformKey.Current,
             userAgentSuffix: "BazaarDbLink",
             timeout: TimeSpan.FromSeconds(30)
         );
@@ -270,6 +271,7 @@ public class Plugin : BaseUnityPlugin
             ModApiSession.TryCreate(
                 ModApiUploadDefaults.ApiBaseUrl,
                 BppPluginVersion.Current,
+                DesktopPlatformKey.Current,
                 "OnlineClient",
                 TimeSpan.FromSeconds(ModApiUploadDefaults.RequestTimeoutSeconds)
             )

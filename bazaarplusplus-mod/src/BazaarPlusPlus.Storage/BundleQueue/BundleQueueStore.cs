@@ -7,8 +7,8 @@ namespace BazaarPlusPlus.Storage.BundleQueue;
 
 public sealed class BundleQueueStore : SqliteStoreBase
 {
-    public BundleQueueStore(string databasePath)
-        : base(databasePath) { }
+    public BundleQueueStore(string databasePath, SqliteOpenOptions? options = null)
+        : base(databasePath, options) { }
 
     public void ResetInterruptedSeals()
     {
