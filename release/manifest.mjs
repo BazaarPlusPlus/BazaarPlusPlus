@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import path from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
 import { assertProductVersion, compareProductVersions } from './product.mjs';
@@ -72,21 +73,51 @@ export function fragmentKey(version, platform) {
   return `${version}/${platform}/updater/platform-manifest.json`;
 }
 
+// What an installed Android Release APK carries besides the managed files and
+// the game: the Loader Release, the Interop Snapshot and the native libraries
+// the injection adds, as the Snapshot Lock's android-online entry pins them.
+// A fragment's `nonManagedPayloadDigest` is this digest of the APK it names;
+// with the game version it is that APK's identity (ADR 0010).
+export function androidNonManagedPayloadDigest({
+  loader,
+  interopSha256,
+  nativeLibs = {}
+}) {
+  const libs = Object.keys(nativeLibs)
+    .sort()
+    .map((name) => ({ name, sha256: nativeLibs[name].sha256 }));
+  return crypto
+    .createHash('sha256')
+    .update(
+      JSON.stringify({
+        loader: { tag: loader.tag, sha256: loader.sha256 },
+        interopSha256,
+        nativeLibs: libs
+      })
+    )
+    .digest('hex');
+}
+
 // The Android Release APK is named by what it is built from (game build,
-// loader tag, the first eight hex digits of the interop digest), never by the
-// product version: one APK serves every product version until the game, the
-// loader or the interop changes (ADR 0010). The key is immutable once used.
-export function androidApkKey({ gameVersion, loaderTag, interopSha256 }) {
+// loader tag, the first eight hex digits of its non-managed payload digest),
+// never by the product version: one APK serves every product version until
+// the game, the loader, the interop or a native library changes (ADR 0010).
+// The key is immutable once used.
+export function androidApkKey({
+  gameVersion,
+  loaderTag,
+  nonManagedPayloadDigest
+}) {
   const build = /^(\d+(?:\.\d+)+)-/.exec(gameVersion ?? '')?.[1];
   if (
     !build ||
     !/^[A-Za-z0-9._-]+$/.test(loaderTag ?? '') ||
-    !SHA256.test(interopSha256 ?? '')
+    !SHA256.test(nonManagedPayloadDigest ?? '')
   )
     throw new Error(
-      'An Android APK is identified by its game version, loader tag and interop sha256'
+      'An Android APK is identified by its game version, loader tag and non-managed payload digest'
     );
-  return `android/apk/BazaarPlusPlus_${build}_lemon-${loaderTag}_${interopSha256.slice(0, 8)}.apk`;
+  return `android/apk/BazaarPlusPlus_${build}_lemon-${loaderTag}_${nonManagedPayloadDigest.slice(0, 8)}.apk`;
 }
 
 // The Managed Payload zip of one product version on one platform.
@@ -219,7 +250,7 @@ export function buildAndroidFragment({
       url: `${origin}/${androidApkKey({
         gameVersion: game?.gameVersion,
         loaderTag: loader?.tag,
-        interopSha256
+        nonManagedPayloadDigest
       })}`,
       size: apk?.size,
       sha256: apk?.sha256,
@@ -305,11 +336,11 @@ function validateAndroidRelease(release, version, platform) {
   const apkKey = androidApkKey({
     gameVersion: game.gameVersion,
     loaderTag: loader.tag,
-    interopSha256: release.interopSha256
+    nonManagedPayloadDigest: release.nonManagedPayloadDigest
   });
   if (new URL(apk.url).pathname !== `${RELEASE_BASE_PATH}/${apkKey}`)
     throw new Error(
-      `${platform} APK URL does not name its game, loader and interop: ${apk.url}`
+      `${platform} APK URL does not name its game, loader and non-managed payload digest: ${apk.url}`
     );
   assertManagedPayload(managedPayload, version, platform);
   if (

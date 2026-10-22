@@ -15,7 +15,7 @@ export const SCOPES = Object.freeze([
   'analyzer-secret'
 ]);
 export const RELEASE_STAGES = Object.freeze(['prepare', 'release']);
-export const RELEASE_PLATFORMS = Object.freeze(['macos', 'windows']);
+export const RELEASE_PLATFORMS = Object.freeze(['macos', 'windows', 'android']);
 
 const NAME = /^[A-Z][A-Z0-9_]*$/;
 
@@ -42,7 +42,7 @@ function assertItem(item) {
       !RELEASE_PLATFORMS.includes(item.release.platform)
     )
       throw new Error(
-        `${item.name}: release.platform must be macos or windows`
+        `${item.name}: release.platform must be one of ${RELEASE_PLATFORMS.join(', ')}`
       );
   }
   if (typeof item.purpose !== 'string' || !item.purpose)
@@ -95,7 +95,9 @@ export function releaseWorkflowNames(table) {
 // of the platform for a release stage.
 export function requiredForRelease(table, platform, stage) {
   if (!RELEASE_PLATFORMS.includes(platform))
-    throw new Error(`platform must be macos or windows, got '${platform}'`);
+    throw new Error(
+      `platform must be one of ${RELEASE_PLATFORMS.join(', ')}, got '${platform}'`
+    );
   if (!RELEASE_STAGES.includes(stage))
     throw new Error(`stage must be prepare or release, got '${stage}'`);
   return table.items
@@ -110,7 +112,7 @@ export function requiredForRelease(table, platform, stage) {
 
 const usage = `GitHub secrets table (release/github-secrets.json):
   node release/github-secrets.mjs names                      names release.yml reads
-  node release/github-secrets.mjs required <macos|windows> <prepare|release>
+  node release/github-secrets.mjs required <macos|windows|android> <prepare|release>
   node release/github-secrets.mjs source NAME                where the value comes from
   node release/github-secrets.mjs secrets                    names release.yml reads as secrets
   node release/github-secrets.mjs variables                  names release.yml reads as variables`;

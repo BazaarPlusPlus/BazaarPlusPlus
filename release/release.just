@@ -15,17 +15,17 @@ test:
     npm test
 
 # Prepare one platform Payload; optional arguments are MSBuild properties.
-[arg('platform', pattern='macos|windows')]
+[arg('platform', pattern='macos|windows|android')]
 prepare platform *args:
     node release.mjs prepare --platform "$1" -- "${@:2}"
 
-# Prepare, verify, sign, and bundle on the native host; never upload.
-[arg('platform', pattern='macos|windows')]
+# Prepare, verify, sign, and bundle on the native host (android: inject and sign the APK on Linux x64, reading R2); never upload.
+[arg('platform', pattern='macos|windows|android')]
 build platform *args:
-    node scripts/workspace.mjs run signing -- node release.mjs build --platform "$1" -- "${@:2}"
+    {{ if platform == "android" { "node scripts/workspace.mjs run release --" } else { "" } }} node scripts/workspace.mjs run signing -- node release.mjs build --platform "$1" -- "${@:2}"
 
 # Upload immutable platform artifacts without advancing latest.
-[arg('platform', pattern='macos|windows')]
+[arg('platform', pattern='macos|windows|android')]
 upload platform:
     node scripts/workspace.mjs run release -- node release.mjs upload --platform "$1"
 

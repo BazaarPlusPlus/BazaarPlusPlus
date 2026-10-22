@@ -9,7 +9,9 @@ import { expect, test, vi } from 'vitest';
 import {
   CLOUDFLARE_API,
   createR2Store,
+  R2_SINGLE_PUT_LIMIT,
   credentialsFromApiToken,
+  putImmutableFile,
   putReplaceable,
   r2StoreFromApiToken,
   r2StoreFromEnvironment
@@ -377,6 +379,76 @@ test('putFile streams a file under its sha256 and getFile streams an object to d
     expect(
       await store.getFile('game-libs/apk/missing.apk', path.join(root, 'x'))
     ).toBeNull();
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+// A 2.8 GB transfer can fail outright or lose its response after R2 stored
+// the object. putImmutableFile settles each outcome with a HEAD, never a
+// download: the same size and sha256 is this upload, a different object fails
+// at once, and an absent one is retried until the attempts run out.
+test('putImmutableFile retries a failed stream and settles lost responses by HEAD', async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'bpp-r2-immutable-'));
+  try {
+    const file = path.join(root, 'BazaarPlusPlus.apk');
+    fs.writeFileSync(file, 'apk bytes');
+    const digest = sha256('apk bytes');
+    const fake = (outcomes, stored = null) => {
+      const object = { current: stored };
+      return {
+        object,
+        putFile: vi.fn(async () => {
+          const next = outcomes.shift();
+          if (next === 'store-then-fail') {
+            object.current = { size: 9, sha256: digest };
+            throw new Error('socket hang up');
+          }
+          if (next instanceof Error) throw next;
+          if (next) object.current = { size: 9, sha256: digest };
+          return next;
+        }),
+        head: vi.fn(async () => object.current)
+      };
+    };
+    const wait = vi.fn(async () => {});
+    const options = { sha256: digest, wait };
+
+    const flaky = fake([new Error('ECONNRESET'), true]);
+    expect(await putImmutableFile(flaky, 'k', file, options)).toBe('uploaded');
+    expect(flaky.putFile).toHaveBeenCalledTimes(2);
+    expect(wait).toHaveBeenCalledTimes(1);
+
+    const lost = fake(['store-then-fail']);
+    expect(await putImmutableFile(lost, 'k', file, options)).toBe('present');
+    expect(lost.putFile).toHaveBeenCalledTimes(1);
+
+    const same = fake([false], { size: 9, sha256: digest });
+    expect(await putImmutableFile(same, 'k', file, options)).toBe('present');
+
+    const other = fake([false], { size: 9, sha256: 'f'.repeat(64) });
+    await expect(putImmutableFile(other, 'k', file, options)).rejects.toThrow(
+      'Immutable release object differs: k'
+    );
+
+    const down = fake([
+      new Error('ETIMEDOUT 1'),
+      new Error('ETIMEDOUT 2'),
+      new Error('ETIMEDOUT 3')
+    ]);
+    await expect(putImmutableFile(down, 'k', file, options)).rejects.toThrow(
+      'ETIMEDOUT 3'
+    );
+    expect(down.putFile).toHaveBeenCalledTimes(3);
+
+    const huge = fake([true]);
+    await expect(
+      putImmutableFile(huge, 'k', file, {
+        ...options,
+        size: R2_SINGLE_PUT_LIMIT + 1
+      })
+    ).rejects.toThrow(/single PUT limit/);
+    expect(huge.putFile).not.toHaveBeenCalled();
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }

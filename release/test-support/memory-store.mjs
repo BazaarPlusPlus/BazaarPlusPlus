@@ -1,9 +1,11 @@
 import crypto from 'node:crypto';
+import fs from 'node:fs';
 
 // An in-memory stand-in for the R2 release store with the conditional-write
 // semantics `r2-store.mjs` provides: `ifNoneMatch` creates only, `ifMatch`
 // replaces only the expected ETag, and an unconditional write is a bug.
 // `beforePut` lets a test interleave a competing writer or a failure.
+// putFile and getFile are the streamed transfers, read whole here.
 export class MemoryStore {
   objects = new Map();
   writes = [];
@@ -37,5 +39,17 @@ export class MemoryStore {
     });
     this.writes.push(key);
     return true;
+  }
+  async putFile(key, file, { sha256, contentType } = {}) {
+    const bytes = fs.readFileSync(file);
+    if (crypto.createHash('sha256').update(bytes).digest('hex') !== sha256)
+      throw new Error(`streamed body does not hash to ${sha256}`);
+    return this.put(key, bytes, { ifNoneMatch: true, contentType });
+  }
+  async getFile(key, file) {
+    const object = this.objects.get(key);
+    if (!object) return null;
+    fs.writeFileSync(file, object.bytes);
+    return { size: object.bytes.length };
   }
 }

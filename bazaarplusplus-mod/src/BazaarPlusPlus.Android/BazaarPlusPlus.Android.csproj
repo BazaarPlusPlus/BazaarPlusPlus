@@ -19,6 +19,19 @@
 
   <Import Project="$(MSBuildThisFileDirectory)../../build/InteropPath.props" />
 
+  <!--
+    The Android Mod Payload (release/payload.json, host melonloader): Payload.targets collects the
+    MelonLoader entries; the Android `release.mjs prepare` stages them through
+    CopyToPayloadStaging below, which `release/android-release.mjs` then zips and bakes into the APK.
+  -->
+  <PropertyGroup>
+    <BppPayloadHost>melonloader</BppPayloadHost>
+    <HistoryDatabaseContractFile>$(MSBuildThisFileDirectory)../BazaarPlusPlus.Storage/BazaarPlusPlus.history-database.json</HistoryDatabaseContractFile>
+    <BuildProductionPackage Condition="'$(BuildProductionPackage)' == ''"
+      >false</BuildProductionPackage>
+  </PropertyGroup>
+  <Import Project="$(MSBuildThisFileDirectory)../../../release/generated/Payload.targets" />
+
   <ItemGroup>
     <Reference Include="$(LemonLoaderManagedPath)MelonLoader.dll" Private="false" />
     <Reference Include="$(LemonLoaderManagedPath)0Harmony.dll" Private="false" />
@@ -57,4 +70,47 @@
       Link="Shared/PathConstants.cs"
     />
   </ItemGroup>
+
+  <!-- Production builds write only into the release coordinator's isolated staging tree. -->
+  <Target
+    Name="ValidateAndroidProductionPayload"
+    BeforeTargets="CopyToPayloadStaging"
+    Condition="'$(Configuration)' == 'Release' and '$(BuildProductionPackage)' == 'true'"
+  >
+    <Error
+      Condition="'$(BppReleasePlatform)' != 'android'"
+      Text="BppReleasePlatform must be android for an Android production payload."
+    />
+    <Error
+      Condition="'$(BppPayloadStagingRoot)' == ''"
+      Text="Production payloads require isolated staging. Run node release.mjs prepare --platform android."
+    />
+  </Target>
+
+  <Target
+    Name="CopyToPayloadStaging"
+    AfterTargets="Build"
+    DependsOnTargets="CollectPayloadFiles"
+    Condition="'$(Configuration)' == 'Release' and '$(BuildProductionPackage)' == 'true'"
+  >
+    <WriteLinesToFile
+      File="$(TargetDir)BazaarPlusPlus.version"
+      Lines="$(Version).prod"
+      Overwrite="true"
+    />
+    <!-- Every MelonLoader entry the inventory requires; the missing ones are named here instead
+         of failing as an anonymous copy error. -->
+    <ItemGroup>
+      <_BppMissingPayloadFile Include="@(BppPayloadFile)" Condition="!Exists('%(Identity)')" />
+    </ItemGroup>
+    <Error
+      Condition="'@(_BppMissingPayloadFile)' != ''"
+      Text="The Android Payload Inventory names @(_BppMissingPayloadFile->'%(PayloadPath)', ', '), which this build did not produce in $(TargetDir)."
+    />
+    <CallTarget Targets="ValidatePayloadAssemblyVersions" />
+    <Copy
+      SourceFiles="@(BppPayloadFile)"
+      DestinationFiles="@(BppPayloadFile->'$(BppPayloadStagingRoot)/%(PayloadPath)')"
+    />
+  </Target>
 </Project>

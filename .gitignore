@@ -41,6 +41,8 @@ __pycache__/
 # Build and coverage output
 bin/
 obj/
+# The Android release outputs (release/android-release.mjs androidPaths)
+/target/
 dist/
 coverage/
 .coverage

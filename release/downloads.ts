@@ -62,8 +62,9 @@ export function decodeMainlandDownloadUrl(
 
 // The Android Release APK: the official game APK with the loader, interop and
 // the Mods of `builtForProductVersion` injected, signed by BPP. Its identity is
-// (game version, loader, interop), not the product version, so it lives under
-// `android/apk/` and several product versions may point at one APK.
+// (game version, loader, interop, native libraries), not the product version,
+// so it lives under `android/apk/` and several product versions may point at
+// one APK.
 export type AndroidApkDownload = {
   url: string;
   size: number;

@@ -54,7 +54,8 @@ just 只转发，不缓存或跳过任何发布检查。直接调用 `node relea
 | `CLOUDFLARE_ACCOUNT_ID` | 仓库变量 | `config.ini` `[cloudflare]` | 所有 R2 桶和 site Workers 的账号 |
 | `BPP_GAME_LIBS_TOKEN` | 仓库 secret（Dependabot 另注册一份） | `config.ini` `[cloudflare]`，仅读 `bazaarplusplus-game-libs` 的只读 token | `checks.yml` 的 mod lane |
 | `CLOUDFLARE_API_TOKEN` | 仓库 secret | `config.ini` `[cloudflare]`，操作员 token | `mod::fetch`、`release::upload`；也给 `analyzer.yml` 和 `deploy-site.yml` |
-| `TAURI_SIGNING_PRIVATE_KEY` | `release` 环境 secret | `keys/tauri-updater.key` 的内容 | updater 签名，两平台 |
+| `TAURI_SIGNING_PRIVATE_KEY` | `release` 环境 secret | `keys/tauri-updater.key` 的内容 | updater 签名，两平台；Android 的 Managed Payload zip 也用它（minisign） |
+| `ANDROID_KEYSTORE` / `ANDROID_KEYSTORE_PASSWORD` / `ANDROID_KEY_ALIAS` | `release` 环境 secret | `keys/android-release.p12`（推送时转 base64）与 `config.ini` `[signing]` 的同名两项 | Android Release APK 的签名密钥，永不轮换，见 [ADR 0009](adr/0009-android-release-key.md) |
 | `APPLE_SIGNING_IDENTITY` / `APPLE_API_ISSUER` / `APPLE_API_KEY` | `release` 环境变量 | `config.ini` `[signing]` | macOS 签名与公证 |
 | `APPLE_API_KEY_P8` | `release` 环境 secret | `keys/AuthKey_<APPLE_API_KEY>.p8` 的内容 | macOS 公证 |
 | `APPLE_CERTIFICATE` / `APPLE_CERTIFICATE_PASSWORD` | `release` 环境 secret | `keys/developer-id.p12`（从 Keychain Access 导出的 Developer ID Application 证书含私钥，推送时转 base64）与 `config.ini` `[signing] APPLE_CERTIFICATE_PASSWORD` | 导入 runner 的临时 keychain；`bundle.sh` 在 Tauri 打包前就要 codesign 内嵌资源，所以不能交给 Tauri 自己导入 |
@@ -125,7 +126,25 @@ Android 是第三个发布平台（平台键 `android-aarch64`），不进 `late
 just release::promote --platform android
 ```
 
-`promote --platform android` 校验 APK 与 Mods zip 在 R2 上存在且大小、sha256 与 fragment 一致，只写 `latest/android-aarch64.json`，从不推进 `latest.json`。Android 第一版没有大陆镜像：不读镜像记录，`--without-mainland-mirror`、`mirror` 和 `verify-mirror` 对 Android 拒绝执行。"一个版本号只对应一个提交"同样成立：桌面上传与提升会和同版本的 Android fragment 比对提交，Android 提升也会和桌面 fragment 比对；Android 可以跳过版本。`prepare`、`build`、`upload --platform android`（APK 注入、签名与流式上传）随 Android 发版 job 落地（[#358](https://github.com/BazaarPlusPlus/BazaarPlusPlus/issues/358)），在那之前这些命令拒绝 `android`。
+`promote --platform android` 校验 APK 与 Mods zip 在 R2 上存在且大小、sha256 与 fragment 一致，只写 `latest/android-aarch64.json`，从不推进 `latest.json`。Android 第一版没有大陆镜像：不读镜像记录，`--without-mainland-mirror`、`mirror` 和 `verify-mirror` 对 Android 拒绝执行。"一个版本号只对应一个提交"同样成立：桌面上传与提升会和同版本的 Android fragment 比对提交，Android 提升也会和桌面 fragment 比对；Android 可以跳过版本。
+
+### Android 发布顺序
+
+```bash
+just with-config release just mod::fetch android online
+just release::prepare android
+just release::build android
+just release::upload android
+just release::promote --platform android
+```
+
+1. 与桌面同一个提交（`VERSION` 相同）。`mod::fetch android online` 把锁条目 `android-online` 的 Interop Snapshot 与 Loader Release 取到 `bazaarplusplus-mod/game-libs/`。
+2. `prepare` 对照锁定的 interop 与 Loader Release 编译 Android 宿主，并核对宿主暂存的 Android Mod Payload 恰好是 Payload Inventory 里由 mod 构建产生的 `melonloader` 条目：清单要求而宿主没有产出的文件会被逐一点名。`-p:InteropPath=`、`-p:LemonLoaderPath=` 可以覆盖目录，但覆盖的仍必须是锁条目钉住的那一份。
+3. `build` 重做 `prepare`，把 Payload 打成确定性的 Managed Payload zip，用 Tauri updater 私钥签名；签名走 installer 锁定的 Tauri CLI，所以要先在 `bazaarplusplus-installer` 执行 `npm ci`。APK 的身份是游戏版本加上 `nonManagedPayloadDigest`（锁条目中 loader、interop 与 `nativeLibs` 的摘要，见 [ADR 0010](adr/0010-android-release-platform.md)）。这个身份已经在 R2 上时跳过注入，这次只是 mod 更新；否则注入、对齐并签名一个新 APK，步骤与工具要求见 `release/android-release.mjs` 的 `injectAndroidApk` 与 `resolveBuildTools`。注入只能在 Linux x64 上跑，因为 Patcher CLI 只有这一种发行包。原生库必须不压缩地放进 APK，系统才能就地映射。签名材料的来源见上面的 secret 表与 [ADR 0009](adr/0009-android-release-key.md)。`--rebuild-apk` 不管身份是否已发布都重新注入，供 `build_only` 验收使用。所有输出都在工作区根的 `target/android/`。
+4. `upload` 在同一台机器上用流式条件写上传。APK 身份尚未发布时，先传 APK，再在旁边写 sidecar；已发布时 fragment 直接指向线上那份。之后传 Managed Payload zip 与 `.sig`，最后写 fragment。如果上传停在 APK 与 sidecar 之间，用同一次构建再跑一遍 `upload` 会补写 sidecar；R2 上的对象不是这次构建的 APK 时，错误信息会给出要删除的对象。新 APK 的签名证书必须与已提升的 APK 相同，`promote` 也做同样的检查。APK 来自更早的产品版本时，`selfUpdatable` 为 true。
+5. `promote --platform android`。
+
+`.github/workflows/release.yml` 的 `platform: android` 在 `ubuntu-latest` 上跑第 1 到 4 步，标签推送只构建桌面两平台。输入 APK、中间产物和输出 APK 同时占约 9 GB，所以 job 先删掉用不到的预装工具链，结束后清理中间目录。`dry_run` 只跑到 `prepare`。`build_only` 带 `--rebuild-apk` 构建，把 APK 与 Managed Payload zip 留作 Actions 产物、不上传 R2，用于在干净的 AVD 上验收。
 
 ## 中国大陆镜像
 

@@ -754,7 +754,7 @@ export const ANDROID_INPUTS = Object.freeze({
 // against; build/InteropPath.props names the same directory.
 export const LOADER_MANAGED_DIRECTORY =
   'assets/LemonLoader/runtime/loader/net6';
-const LOADER_MARKER = '.bpp-loader-sha256';
+export const LOADER_MARKER = '.bpp-loader-sha256';
 // Local paths of the inputs a capture read, so publish can upload them without
 // copying a multi-gigabyte APK under game-libs/. Never uploaded.
 const SOURCES_FILE = 'sources.json';
@@ -915,18 +915,23 @@ export async function fetchAndroidInput({
   return file;
 }
 
-function verifiedLoader(modRoot, loader) {
-  const directory = loaderDirectory(modRoot, loader.tag);
+// Whether `directory` holds the Loader Release `loader` (a lock entry's tag and
+// sha256) as ensureLoader unpacked it: the managed loader assemblies and the
+// marker recording the zip's sha256.
+export function isLockedLoader(directory, loader) {
   const marker = path.join(directory, LOADER_MARKER);
-  if (
+  return (
     fs.existsSync(
       path.join(directory, LOADER_MANAGED_DIRECTORY, 'MelonLoader.dll')
     ) &&
     fs.existsSync(marker) &&
     fs.readFileSync(marker, 'utf8').trim() === loader.sha256
-  )
-    return directory;
-  return null;
+  );
+}
+
+function verifiedLoader(modRoot, loader) {
+  const directory = loaderDirectory(modRoot, loader.tag);
+  return isLockedLoader(directory, loader) ? directory : null;
 }
 
 // Unpacks the Loader Release zip whose sha256 the lock entry pins into
@@ -1291,7 +1296,7 @@ function verifiedInteropSnapshot(modRoot, entry) {
   return { directory, interop };
 }
 
-function lockedInteropEntry(workspaceRoot) {
+export function lockedInteropEntry(workspaceRoot = WORKSPACE_ROOT) {
   const entry = readGameLibsLock(workspaceRoot).entries[INTEROP_KEY];
   if (entry === null)
     throw new Error(

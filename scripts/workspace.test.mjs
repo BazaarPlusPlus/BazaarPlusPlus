@@ -120,7 +120,9 @@ test('import after setup fills config.ini, keeps data and Apple key meaning, pro
     APPLE_API_ISSUER: '',
     APPLE_API_KEY: 'TEST',
     APPLE_API_KEY_PATH: '',
-    APPLE_CERTIFICATE_PASSWORD: ''
+    APPLE_CERTIFICATE_PASSWORD: '',
+    ANDROID_KEYSTORE_PASSWORD: '',
+    ANDROID_KEY_ALIAS: ''
   });
   assert.equal(
     fs.readFileSync(path.join(f.home, 'keys/AuthKey_TEST.p8'), 'utf8'),
@@ -354,6 +356,8 @@ APPLE_API_ISSUER=issuer
 APPLE_API_KEY=K1
 APPLE_API_KEY_PATH=
 APPLE_CERTIFICATE_PASSWORD=
+ANDROID_KEYSTORE_PASSWORD=
+ANDROID_KEY_ALIAS=
 
 [cloudflare]
 CLOUDFLARE_API_TOKEN=
@@ -651,11 +655,12 @@ test('signing staging holds bundle.sh files only, never injects values, and is r
     'config.ini',
     ini({
       signing:
-        "APPLE_API_KEY=K1\nAPPLE_API_ISSUER=issuer\nAPPLE_API_KEY_PATH=keys/Other.p8\nAPPLE_CERTIFICATE_PASSWORD='p\\w'\n"
+        "APPLE_API_KEY=K1\nAPPLE_API_ISSUER=issuer\nAPPLE_API_KEY_PATH=keys/Other.p8\nAPPLE_CERTIFICATE_PASSWORD='p\\w'\nANDROID_KEYSTORE_PASSWORD=ks-pass\nANDROID_KEY_ALIAS=bpp\n"
     })
   );
   f.put(f.home, 'keys/tauri-updater.key', 'UPDATER');
   f.put(f.home, 'keys/developer-id.p12', 'CERT');
+  f.put(f.home, 'keys/android-release.p12', 'KEYSTORE');
   f.put(f.home, 'keys/notes.txt', 'NOT-KEY-MATERIAL');
   let directory;
   const env = withProfileEnvironment(
@@ -664,11 +669,18 @@ test('signing staging holds bundle.sh files only, never injects values, and is r
     (env) => {
       directory = env.BPP_SIGNING_SECRETS_DIR;
       assert.deepEqual(fs.readdirSync(directory).sort(), [
+        'android-key-alias',
+        'android-keystore-password',
+        'android-release.p12',
         'apple-api-issuer',
         'apple-api-key',
         'apple-api-key-path',
         'tauri-updater.key'
       ]);
+      assert.equal(
+        fs.readFileSync(path.join(directory, 'android-key-alias'), 'utf8'),
+        'bpp'
+      );
       assert.equal(
         fs.readFileSync(path.join(directory, 'apple-api-key-path'), 'utf8'),
         path.join(f.home, 'keys/Other.p8')
@@ -965,13 +977,16 @@ BPP_GAME_LIBS_TOKEN         repository secret             GitHub MISSING  local 
 CLOUDFLARE_API_TOKEN        repository secret             GitHub MISSING  local present (config.ini [cloudflare] CLOUDFLARE_API_TOKEN)
 BPP_BUNDLE_SYNC_TOKEN       analyzer environment secret   GitHub MISSING  local present (config.ini [server] BUNDLE_SYNC_TOKEN)
 TAURI_SIGNING_PRIVATE_KEY   release environment secret    GitHub MISSING  local present (contents of keys/tauri-updater.key)
+ANDROID_KEYSTORE            release environment secret    GitHub MISSING  local MISSING (base64 of keys/android-release.p12)
+ANDROID_KEYSTORE_PASSWORD   release environment secret    GitHub MISSING  local MISSING (config.ini [signing] ANDROID_KEYSTORE_PASSWORD)
+ANDROID_KEY_ALIAS           release environment secret    GitHub MISSING  local MISSING (config.ini [signing] ANDROID_KEY_ALIAS)
 APPLE_SIGNING_IDENTITY      release environment variable  GitHub MISSING  local present (config.ini [signing] APPLE_SIGNING_IDENTITY)
 APPLE_API_ISSUER            release environment variable  GitHub MISSING  local present (config.ini [signing] APPLE_API_ISSUER)
 APPLE_API_KEY               release environment variable  GitHub MISSING  local present (config.ini [signing] APPLE_API_KEY)
 APPLE_API_KEY_P8            release environment secret    GitHub MISSING  local present (contents of keys/AuthKey_<APPLE_API_KEY>.p8)
 APPLE_CERTIFICATE           release environment secret    GitHub MISSING  local MISSING (base64 of keys/developer-id.p12)
 APPLE_CERTIFICATE_PASSWORD  release environment secret    GitHub MISSING  local MISSING (config.ini [signing] APPLE_CERTIFICATE_PASSWORD)
-11 managed names: 11 missing on GitHub, 3 missing locally.
+14 managed names: 14 missing on GitHub, 6 missing locally.
 Stale on GitHub (secrets push --prune removes them): release environment secret CLOUDFLARE_API_TOKEN; site-preview environment variable CLOUDFLARE_ACCOUNT_ID; site-production environment variable CLOUDFLARE_ACCOUNT_ID; release environment secret BPP_R2_ACCOUNT_ID
 Dependabot secrets were not listed; pass --dependabot to include them.
 `
@@ -990,10 +1005,18 @@ Dependabot secrets were not listed; pass --dependabot to include them.
 
 test('secrets push copies each local value over stdin to its scope, skips absent ones and prunes only when asked', (t) => {
   const f = fixture(t);
-  f.put(f.home, 'config.ini', secretsConfig);
+  f.put(
+    f.home,
+    'config.ini',
+    secretsConfig.replace(
+      'APPLE_CERTIFICATE_PASSWORD=\n',
+      'APPLE_CERTIFICATE_PASSWORD=\nANDROID_KEYSTORE_PASSWORD=ks-pass\nANDROID_KEY_ALIAS=bpp\n'
+    )
+  );
   f.put(f.home, 'keys/tauri-updater.key', 'UPDATER-KEY\n');
   f.put(f.home, 'keys/AuthKey_K1.p8', 'P8-KEY');
   f.put(f.home, 'keys/developer-id.p12', Buffer.from([0x30, 0x82, 0x00, 0xff]));
+  f.put(f.home, 'keys/android-release.p12', Buffer.from([0x30, 0x82, 0x0a]));
   const gh = ghStub(f, {
     'variable:site-preview': ['CLOUDFLARE_ACCOUNT_ID'],
     'secret:release': ['TAURI_SIGNING_PRIVATE_KEY_PASSWORD']
@@ -1003,7 +1026,7 @@ test('secrets push copies each local value over stdin to its scope, skips absent
   assert.equal(result.status, 1, result.stdout + result.stderr);
   assert.doesNotMatch(
     result.stdout + result.stderr,
-    /operator-token|UPDATER-KEY|P8-KEY|MIIA|issuer-id/
+    /operator-token|UPDATER-KEY|P8-KEY|MIIA|issuer-id|ks-pass/
   );
   assert.match(
     result.stdout,
@@ -1027,7 +1050,7 @@ test('secrets push copies each local value over stdin to its scope, skips absent
   );
   assert.match(
     result.stdout,
-    /^Set 9 GitHub names; 2 without a local value\.$/m
+    /^Set 12 GitHub names; 2 without a local value\.$/m
   );
   const sets = gh.calls().filter(({ args }) => args[1] === 'set');
   const byName = Object.fromEntries(
@@ -1041,6 +1064,11 @@ test('secrets push copies each local value over stdin to its scope, skips absent
     'secret:CLOUDFLARE_API_TOKEN:': 'operator-token',
     'secret:BPP_BUNDLE_SYNC_TOKEN:--env analyzer': 'sync',
     'secret:TAURI_SIGNING_PRIVATE_KEY:--env release': 'UPDATER-KEY\n',
+    'secret:ANDROID_KEYSTORE:--env release': Buffer.from([
+      0x30, 0x82, 0x0a
+    ]).toString('base64'),
+    'secret:ANDROID_KEYSTORE_PASSWORD:--env release': 'ks-pass',
+    'secret:ANDROID_KEY_ALIAS:--env release': 'bpp',
     'variable:APPLE_SIGNING_IDENTITY:--env release':
       'Developer ID Application: X',
     'variable:APPLE_API_ISSUER:--env release': 'issuer-id',

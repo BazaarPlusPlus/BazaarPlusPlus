@@ -1,0 +1,17 @@
+# Android Release APK 用一把永不轮换的 BPP 发布密钥签名
+
+Android 不允许签名证书不同的覆盖安装：一个已安装的 APK 只能被同一证书签名的新 APK 升级。合作方不提供官方签名密钥，所以 BPP 必须用自己的密钥给每个 Android Release APK 签名（[ADR 0010](0010-android-release-platform.md)）。用户第一次从官方版换成 BPP 版时卸载一次是无法避免的；之后游戏每更新一次，BPP 重新注入的新 APK 都要能直接覆盖安装、不丢数据，这只在每个 APK 都用同一把密钥签名时成立。
+
+决定如下。BPP 只有一把 Android 发布密钥，是一个 PKCS12 keystore，与它的密码、别名一起，本地放在配置目录，GitHub 上放在 `release` 环境。secret 的名字、作用域和本地来源只由 `release/github-secrets.json` 记录，`just secrets-sync` 负责推送；runner 上由 `.github/scripts/release-secrets.sh stage android` 还原进 `BPP_SIGNING_SECRETS_DIR`，布局与本机 `node scripts/workspace.mjs run signing` 暂存的相同。`release::build android` 用 Android SDK build-tools 的 `apksigner` 以这把密钥签名，密码只经文件传给 `apksigner`，不出现在命令行或日志里。签名证书的 SHA-256 摘要记进 fragment 的 `apk.signerSha256`；签名证书与已提升 APK 不同的新 APK，`upload` 与 `promote` 都拒绝发布，所以误签在用户装上之前就会被拦下。
+
+这把密钥**永不轮换**。换密钥等于让每个已安装的用户卸载重装，并且在设备上丢掉登录态与本地数据；没有任何一种迁移可以避开它（APK 签名方案 v3 的密钥轮换要用旧密钥签发轮换证明，旧密钥丢失时做不到，泄露后持有旧密钥的人同样能签发）。因此：
+
+- 密钥的离线备份是发版的前置条件。首次发布 Android 之前，keystore 与密码必须各自存有至少一份脱离这台开发机和 GitHub 的离线副本，并确认能用 `keytool -list` 从副本打开；没有这份备份，不执行 `release::upload android`：`build_only` 构建的 APK 只用于验收，一旦有用户装上发布的 APK，这把密钥就不能再换。
+- 生成密钥时就按永久使用来定参数：RSA 4096 或 EC P-256，证书有效期不少于 30 年（Android 文档建议 25 年以上）。
+- 不为它建立第二把"备用"密钥或按渠道分钥：每多一把，就多一种用户无法覆盖安装的路径。
+
+签名与分发全部由 BPP 承担：密钥丢失时所有 Android 用户只能卸载重装，泄露时任何人都能签出可以覆盖 BPP 版的 APK。前者靠离线备份防住，后者靠密钥只存在于配置目录、`release` 环境与发版 job 的临时目录里（`release.yml` 在 job 结束时删除暂存目录），不进仓库、不进 Actions 产物。
+
+否决的方案：每个游戏版本或每年换一把新密钥，所有已安装用户都要卸载；用 Google Play App Signing 托管密钥，BPP 的 APK 不经 Play 分发；把密钥只放在 GitHub secret 里而不留本地副本，GitHub 的 secret 不能读回，等于没有备份；在设备上签名，见 ADR 0010 否决的设备端注入。
+
+代价：这把密钥是 Android 用户群的单点。备份与保密完全靠流程，没有技术手段能在丢失后补救；第一次从官方版切换必须卸载，下载页必须把它写成第一步。

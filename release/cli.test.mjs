@@ -72,6 +72,7 @@ test.each(['prepare', 'build'])(
       platform: 'windows',
       msbuildArgs: [managed],
       latest: false,
+      rebuildApk: false,
       allowUnverifiedMirror: false,
       withoutMainlandMirror: false
     });
@@ -157,9 +158,13 @@ test.each([
   ['promote', '--latest'],
   ['promote', '--platform', 'linux'],
   ['promote', '--platform', 'android', '--without-mainland-mirror'],
-  ['prepare', '--platform', 'android'],
-  ['build', '--platform', 'android'],
-  ['upload', '--platform', 'android'],
+  ['prepare', '--platform', 'android', '--', managed],
+  ['build', '--platform', 'android', '--', '-p:InteropPath=a;Version=1'],
+  ['prepare', '--platform', 'macos', '--', '-p:InteropPath=/interop/'],
+  ['build', '--platform', 'macos', '--rebuild-apk'],
+  ['prepare', '--platform', 'android', '--rebuild-apk'],
+  ['upload', '--platform', 'android', '--rebuild-apk'],
+  ['upload', '--platform', 'android', '--', '-p:InteropPath=/interop/'],
   ['mirror', '--platform', 'android', '--url', 'https://mirror.example/apk'],
   ['verify-mirror', '--platform', 'android'],
   ['promote', '--platform'],
@@ -182,6 +187,40 @@ test.each([
     expect(effect).not.toHaveBeenCalled();
   }
 );
+
+test('android prepare and build take the Interop Snapshot overrides and build takes --rebuild-apk', () => {
+  const interop = '-p:InteropPath=/game-libs/android-online/interop/';
+  const loader = '-p:LemonLoaderPath=/game-libs/loader-v0.7.4-android.4/';
+  expect(
+    parseReleaseArgs(['prepare', '--platform', 'android', '--', interop])
+  ).toMatchObject({
+    command: 'prepare',
+    platform: 'android',
+    msbuildArgs: [interop],
+    rebuildApk: false
+  });
+  expect(
+    parseReleaseArgs([
+      'build',
+      '--platform',
+      'android',
+      '--rebuild-apk',
+      '--',
+      interop,
+      loader
+    ])
+  ).toMatchObject({
+    command: 'build',
+    platform: 'android',
+    msbuildArgs: [interop, loader],
+    rebuildApk: true
+  });
+  expect(parseReleaseArgs(['upload', '--platform', 'android'])).toMatchObject({
+    command: 'upload',
+    platform: 'android',
+    msbuildArgs: []
+  });
+});
 
 test.each([[], ['--help'], ['-h']])(
   'help %j needs no product files or credentials',

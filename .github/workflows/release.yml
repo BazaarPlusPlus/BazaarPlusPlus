@@ -3,6 +3,10 @@ name: Release
 # One Product Release build per platform on hosted runners: release::prepare,
 # release::build and release::upload, in one job so build and upload share a
 # host and the Payload lock (docs/release.md, docs/adr/0004-pinned-game-assembly-snapshots.md).
+# Android runs on ubuntu-latest: it injects the official APK from the private
+# store with the pinned LemonLoader Patcher (Linux x64), signs it with the
+# Android release keystore (docs/adr/0009-android-release-key.md) and streams
+# the APK and the Managed Payload zip to R2 (ADR 0010).
 # promote is not here: the Mainland Mirror is uploaded to Lanzou by hand and
 # recorded with mirror-all before promote, so promote stays a local command.
 # Signing secrets and variables live in the `release` GitHub Environment; the
@@ -23,12 +27,12 @@ on:
         type: boolean
         default: false
       platform:
-        description: Platform to build
+        description: Platform to build; both is the desktop pair, android ships on the game's APK cadence
         type: choice
-        options: [both, macos, windows]
+        options: [both, macos, windows, android]
         default: both
       build_only:
-        description: Build signed installers as Actions artifacts without uploading immutable release artifacts to R2
+        description: Build signed installers (android; a freshly injected APK) as Actions artifacts without uploading immutable release artifacts to R2
         type: boolean
         default: false
   push:
@@ -45,13 +49,14 @@ jobs:
   platform:
     name: Release ${{ matrix.platform }}
     # Icon Composer sources require the Xcode toolchain on the newer macOS image.
-    runs-on: ${{ matrix.platform == 'macos' && 'macos-26' || 'windows-latest' }}
-    timeout-minutes: 120
+    runs-on: ${{ matrix.platform == 'macos' && 'macos-26' || matrix.platform == 'android' && 'ubuntu-latest' || 'windows-latest' }}
+    # The Android job injects and streams a 2.8 GB APK; desktop keeps its limit.
+    timeout-minutes: ${{ matrix.platform == 'android' && 180 || 120 }}
     environment: release
     strategy:
       fail-fast: false
       matrix:
-        platform: ${{ fromJSON(inputs.platform == 'macos' && '["macos"]' || inputs.platform == 'windows' && '["windows"]' || '["macos","windows"]') }}
+        platform: ${{ fromJSON(inputs.platform == 'macos' && '["macos"]' || inputs.platform == 'windows' && '["windows"]' || inputs.platform == 'android' && '["android"]' || '["macos","windows"]') }}
     defaults:
       run:
         shell: bash
@@ -76,6 +81,9 @@ jobs:
           APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          ANDROID_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
         run: bash .github/scripts/release-secrets.sh check "$PLATFORM" "$STAGE"
       # A version names one commit (ADR 0001); the run builds the ref it was
       # dispatched from or the tagged commit, so the ask must match that ref.
@@ -107,16 +115,26 @@ jobs:
         with:
           just-version: 1.58.0
       - name: Install the repository Rust toolchain and components
+        if: matrix.platform != 'android'
         working-directory: bazaarplusplus-installer
         run: |
           rustc --version
           rustup show active-toolchain
       - run: npm install --global "$(node --print "require('./package.json').packageManager")"
+      # The Managed Payload zip is signed with the installer's pinned Tauri CLI,
+      # and the input, intermediate and output APKs need about 9 GB at once
+      # (docs/release.md); free the toolchains this job does not use.
+      - if: matrix.platform == 'android'
+        name: Install the Tauri CLI and free runner disk for the APK
+        run: |
+          npm ci --prefix bazaarplusplus-installer
+          sudo rm -rf /opt/ghc /usr/local/.ghcup /usr/local/share/boost /usr/share/swift /opt/hostedtoolcache/CodeQL
+          df -h "$GITHUB_WORKSPACE"
       - run: just release::check
       # The product compiles against this platform's online Snapshot Lock entry;
       # a null entry fails here, naming the snapshot to capture. The operator
       # token reads the private store for this step only.
-      - name: Fetch the online Game Assembly Snapshot
+      - name: Fetch the online Game Assembly Snapshot (android, the Interop Snapshot)
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
@@ -157,6 +175,9 @@ jobs:
           APPLE_API_ISSUER: ${{ vars.APPLE_API_ISSUER }}
           APPLE_API_KEY: ${{ vars.APPLE_API_KEY }}
           APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+          ANDROID_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
         run: |
           bash .github/scripts/release-secrets.sh stage "$PLATFORM" "$RUNNER_TEMP/signing-secrets"
           echo "BPP_SIGNING_SECRETS_DIR=$RUNNER_TEMP/signing-secrets" >> "$GITHUB_ENV"
@@ -187,9 +208,27 @@ jobs:
             exit 1
           fi
           echo "BPP_RELEASE_KEYCHAIN=$keychain" >> "$GITHUB_ENV"
-      - if: env.STAGE == 'release'
+      - if: env.STAGE == 'release' && matrix.platform != 'android'
         name: Build and sign the installer
         run: just release::build "$PLATFORM"
+      # Android build reads the release store (is this APK identity published?)
+      # and the private snapshot store (the official APK, Loader Release and
+      # Patcher). build_only always injects, so the run keeps an APK to install.
+      - if: env.STAGE == 'release' && matrix.platform == 'android'
+        name: Build the Managed Payload zip and the Android Release APK
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          BUILD_ONLY: ${{ inputs.build_only == true }}
+        run: |
+          if [[ "$BUILD_ONLY" == true ]]; then
+            node release.mjs build --platform android --rebuild-apk
+          else
+            just release::build android
+          fi
+          # The official APK copy is no longer needed; upload streams the outputs.
+          rm -rf bazaarplusplus-mod/game-libs/inputs
+          df -h "$GITHUB_WORKSPACE"
       - if: env.STAGE == 'release' && inputs.build_only != true
         name: Upload the immutable platform artifacts
         env:
@@ -200,7 +239,7 @@ jobs:
           grep -E '^Uploaded ' "$RUNNER_TEMP/upload.log" >> "$GITHUB_STEP_SUMMARY" || true
       # The installer and its artifact manifest, for inspection; R2 holds the
       # copy promote reads.
-      - if: env.STAGE == 'release'
+      - if: env.STAGE == 'release' && matrix.platform != 'android'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: installer-${{ matrix.platform }}
@@ -211,6 +250,23 @@ jobs:
             bazaarplusplus-installer/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/*.tar.gz*
           if-no-files-found: error
           retention-days: 14
+      # The build receipt and Managed Payload zip always; the APK only for
+      # build_only, to install on a clean AVD (an uploaded APK is on R2).
+      - if: env.STAGE == 'release' && matrix.platform == 'android'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: android-release
+          path: |
+            target/android/android-aarch64.json
+            target/android/*.zip
+            target/android/*.zip.sig
+            ${{ inputs.build_only == true && 'target/android/*.apk' || '' }}
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+      - if: always() && matrix.platform == 'android'
+        name: Remove the Android intermediates
+        run: rm -rf target/android bazaarplusplus-mod/game-libs/inputs
       - if: always()
         name: Remove the staged secrets and the temporary keychain
         run: |
