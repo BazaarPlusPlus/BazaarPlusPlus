@@ -321,6 +321,7 @@ fn remove_bpp_files(game_path: &Path, remove_bundled_dependencies: bool) -> Resu
 
     remove_empty_dir_if_exists(&game_path.join("BepInEx/config"))?;
     remove_empty_dir_if_exists(&game_path.join("BepInEx/plugins"))?;
+    remove_empty_dir_if_exists(&game_path.join("BepInEx/patchers"))?;
     remove_empty_dir_if_exists(&game_path.join("BepInEx"))?;
 
     Ok(())
@@ -369,13 +370,15 @@ pub(super) fn has_third_party_plugins(game_path: &Path) -> bool {
 }
 
 /// A patcher-only mod leaves nothing in `BepInEx/plugins`: its whole footprint
-/// lives under `BepInEx/patchers`, which BPP never ships. Any file there means
-/// a third-party mod still depends on the shared BepInEx bootstrap.
+/// lives under `BepInEx/patchers`. BPP's only file there is its own Updater
+/// (the Payload Inventory's `BepInEx/patchers/BazaarPlusPlus.Updater.dll`); any
+/// other file means a third-party mod still depends on the shared BepInEx
+/// bootstrap.
 pub(super) fn has_third_party_patchers(game_path: &Path) -> bool {
-    dir_contains_any_file(&game_path.join("BepInEx/patchers"))
+    dir_contains_unowned_file(game_path, &game_path.join("BepInEx/patchers"))
 }
 
-fn dir_contains_any_file(dir: &Path) -> bool {
+fn dir_contains_unowned_file(game_path: &Path, dir: &Path) -> bool {
     let Ok(entries) = std::fs::read_dir(dir) else {
         return false;
     };
@@ -383,10 +386,13 @@ fn dir_contains_any_file(dir: &Path) -> bool {
     entries.filter_map(Result::ok).any(|entry| {
         let path = entry.path();
         if path.is_dir() {
-            dir_contains_any_file(&path)
-        } else {
-            true
+            return dir_contains_unowned_file(game_path, &path);
         }
+        let Ok(relative) = path.strip_prefix(game_path) else {
+            return true;
+        };
+        let relative = relative.to_string_lossy().replace('\\', "/");
+        !owned_paths("private").any(|owned| owned.eq_ignore_ascii_case(&relative))
     })
 }
 
@@ -844,6 +850,19 @@ mod tests {
         )
         .unwrap();
         assert!(super::has_third_party_patchers(tmp.path()));
+    }
+
+    #[test]
+    fn bpp_updater_patcher_is_not_a_third_party_patcher_and_uninstall_removes_it() {
+        let tmp = tempfile::tempdir().unwrap();
+        let patchers = tmp.path().join("BepInEx/patchers");
+        std::fs::create_dir_all(&patchers).unwrap();
+        std::fs::write(patchers.join("BazaarPlusPlus.Updater.dll"), b"dll").unwrap();
+        assert!(!super::has_third_party_patchers(tmp.path()));
+
+        super::uninstall_payload(tmp.path()).unwrap();
+        assert!(!patchers.exists());
+        assert!(!tmp.path().join("BepInEx").exists());
     }
 
     #[test]
