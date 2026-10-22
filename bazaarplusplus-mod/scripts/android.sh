@@ -79,8 +79,9 @@ cmd_deploy() {
     device shell "rm -f '$MELON_BASE/UserLibs/'BazaarPlusPlus.*.dll"
     while IFS=$'\t' read -r source payload_path; do
         [[ -f "$source" ]] || die "Payload file $source is missing; run 'just mod::android-build' first."
-        device shell mkdir -p "$(dirname "$GAME_FILES/$payload_path")"
-        device push "$source" "$GAME_FILES/$payload_path"
+        # adb reads stdin; without </dev/null it would swallow the rest of the file list.
+        device shell mkdir -p "$(dirname "$GAME_FILES/$payload_path")" </dev/null
+        device push "$source" "$GAME_FILES/$payload_path" </dev/null
     done <<<"$files"
     ok "Deployed the MelonLoader Payload to $DEVICE_SERIAL; it loads on the next launch."
 }
