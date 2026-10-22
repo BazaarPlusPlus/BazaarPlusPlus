@@ -48,11 +48,12 @@
   </ItemGroup>
   <!--
     MessagePack advisories fixed only in 3.1.7 and later. The net10.0 package stays pinned to the
-    game's Managed/MessagePack.dll 3.1.4, so both hosts decode the Run segment with the same
-    library (ADR-0013); the Mono host runs the game's 3.1.4 whatever the package says. ModApi
-    reads with MessagePackSecurity.UntrustedData through source-generated formatters only: no
-    Typeless, LZ4, union, ExpandoObject, JSON conversion, or ASP.NET formatter. Drop these when the
-    game ships a patched MessagePack and the pin follows it.
+    game's Managed/MessagePack.dll 3.1.4 (the same file), so both hosts decode the Run segment with
+    one library (ADR-0013). The Android host ships this package, so the trust boundary carries the
+    argument: both codecs use the contractless resolver, RunPayloadV6Codec decodes server bytes
+    with MessagePackSecurity.UntrustedData and a size cap, and the public MessagePackGzipCodec runs
+    at default security on payload files BPP wrote under its Data Root. No Typeless, LZ4, or
+    ExpandoObject. Drop these when the game ships a patched MessagePack and the pin follows it.
   -->
   <ItemGroup>
     <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-2f33-pr97-265q" />
