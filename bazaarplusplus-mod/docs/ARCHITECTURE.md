@@ -43,7 +43,7 @@ No shared project references a game, Unity, or loader assembly, so the compiler 
 | `Logging/` | the `BppLog` facade and pipeline, the `IBppLogSink` port, operational health tracking |
 | `Localization/` | localization resolution, language and Chinese-mode helpers |
 | `Infrastructure/` | Release Manifest client, remote embedded catalogs, atomic and file-backed writes, async load cache, plugin version |
-| `Game/` | host-free feature parts, in each feature's namespace; a part that reads a game type stays in the host behind a Core interface |
+| `Game/` | host-free feature parts in each feature's namespace; parts reading game types stay in the host, behind a Core port if Core calls them |
 
 Core namespaces: `BazaarPlusPlus.Core.*`, `.Infrastructure`, `.Localization`, `.Game.*`.
 
@@ -53,7 +53,7 @@ Inside the desktop host assembly:
 |---|---|
 | `Host/` | BepInEx implementations of host ports (settings store, log sink, Data Root path provider) and the Unity mountables |
 | `GameInterop/` | adapters over game, Unity, or publicized runtime surfaces |
-| `Game/` | feature workflows, UI, user-facing policy, filtering, upload orchestration, storage use |
+| `Game/` | feature workflows, UI, user-facing policy, filtering, the upload pump, storage use |
 | `Patches/` | Harmony patches, reaching services through `BppPatchHost` rather than constructor injection |
 | `Infrastructure/` | UI tokens, stable text helpers, UI suppression |
 

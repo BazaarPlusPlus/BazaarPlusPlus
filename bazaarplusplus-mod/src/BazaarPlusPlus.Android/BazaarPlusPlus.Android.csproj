@@ -11,7 +11,8 @@
     <Nullable>enable</Nullable>
     <Version>$(BppVersion)</Version>
     <Deterministic>true</Deterministic>
-    <!-- The loader supplies every referenced assembly at runtime; no deps.json. -->
+    <!-- No deps.json: the loader supplies the game, interop, and loader assemblies, and BPP's own
+         ships beside the host per the Payload Inventory (release/payload.json). -->
     <GenerateDependencyFile>false</GenerateDependencyFile>
     <!-- Game assemblies come from InteropPath, so the desktop ManagedPath check does not apply. -->
     <BppRequiresManagedPath>false</BppRequiresManagedPath>

@@ -1,12 +1,12 @@
 # Android Host
 
-`BazaarPlusPlus.Android` (`net10.0`) is the Android Host (root `CONTEXT.md`, Host). It is not in the Payload yet. It is a MelonMod (`src/BazaarPlusPlus.Android/Host/AndroidMod.cs`) compiled against the Interop Snapshot and the Loader Release (`build/InteropPath.props`), never against `Managed/`.
+`BazaarPlusPlus.Android` (`net10.0`) is the Android Host (root `CONTEXT.md`, Host). It is a MelonMod (`src/BazaarPlusPlus.Android/Host/AndroidMod.cs`) compiled against the Interop Snapshot and the Loader Release (`build/InteropPath.props`), never against `Managed/`.
 
 ## Shape
 
 - `Host/` owns the loader entry, the `BppLog` exit over MelonLogger (`MelonLogSink`, scope `Android`), the settings store over `MelonLoader/UserData/BazaarPlusPlus.cfg` (`IniSettingsStore`) and the Data Root (`AndroidPaths`): `BazaarPlusPlusV6` beside the MelonLoader base directory. Nothing writes there yet.
 - `Patches/` install per class under the `[Android] PatchMode` setting (`enabled`, `observe`, `disabled`). A class that fails to install degrades only itself.
-- Shared code comes from Core's `net10.0` output, with Storage and ModApi through it; the host links no Core or desktop source. `just mod::android-deploy` pushes those three assemblies into `MelonLoader/UserLibs/`. The record chain is not wired yet.
+- Shared code comes from Core's `net10.0` output, with Storage and ModApi through it; the host links no Core or desktop source. `just mod::android-deploy` pushes the build to the `melonloader` paths of the Payload Inventory (root `CONTEXT.md`), read through the generated `Payload.targets`: BPP's assemblies into `MelonLoader/Mods/`, third-party ones into `MelonLoader/UserLibs/`. The record chain is not wired yet.
 
 ## Build and test
 
