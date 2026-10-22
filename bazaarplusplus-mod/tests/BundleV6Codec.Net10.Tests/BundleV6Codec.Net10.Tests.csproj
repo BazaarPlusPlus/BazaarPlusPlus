@@ -7,6 +7,9 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <!-- Binds the pinned NuGet packages, never the game's Managed copies, so it also builds on a
+         Linux runner that holds no Game Assembly Snapshot (just mod::test-core). -->
+    <BppRequiresManagedPath>false</BppRequiresManagedPath>
   </PropertyGroup>
 
   <ItemGroup>
