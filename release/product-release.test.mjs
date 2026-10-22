@@ -3,9 +3,13 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, expect, test, vi } from 'vitest';
 import {
+  buildAndroidFragment,
   buildPlatformFragment,
   buildLatestManifest,
-  buildPlatformManifest
+  buildPlatformManifest,
+  fragmentKey,
+  managedPayloadKey,
+  validatePlatformFragment
 } from './manifest.mjs';
 import {
   uploadPlatform,
@@ -17,6 +21,7 @@ import {
 import { putImmutable } from './r2-store.mjs';
 import { createArtifactManifest } from './artifact-manifest.mjs';
 import { MemoryStore } from './test-support/memory-store.mjs';
+import { uploadAndroid } from './test-support/android-fixture.mjs';
 import {
   artifactPaths,
   writeArtifacts
@@ -824,4 +829,242 @@ test('the writer reproduces every shared platform fixture', () => {
       })
     ).toEqual(expected);
   }
+});
+
+// Android (ADR 0007): its own Platform Release Manifest, outside latest.json,
+// without a mainland mirror, under the same one-commit-per-version rule.
+const ANDROID = 'android-aarch64';
+const promoteAndroid = (data, store, extra = {}) =>
+  promotePlatform({
+    version: data.version,
+    platform: 'android',
+    baseUrl,
+    store,
+    ...extra
+  });
+
+test('Android promotion checks both artifacts and publishes only its own manifest', async () => {
+  const data = fixture();
+  const store = new MemoryStore();
+  const { fragment, apkKey } = await uploadAndroid(store, {
+    version: data.version,
+    gitCommit: data.commits.a,
+    baseUrl
+  });
+  for (const key of [apkKey, managedPayloadKey(data.version, ANDROID)]) {
+    const object = store.objects.get(key);
+    store.objects.delete(key);
+    await expect(promoteAndroid(data, store)).rejects.toThrow(
+      `Release artifact is missing or differs: ${key}`
+    );
+    store.objects.set(key, object);
+  }
+  const before = new Set(store.objects.keys());
+  const now = new Date('2026-09-21T00:00:00.000Z');
+  const result = await promoteAndroid(data, store, { now });
+  expect(result).toEqual({
+    platform: buildPlatformManifest({ version: data.version, fragment, now }),
+    latest: null,
+    advanced: false
+  });
+  expect([...store.objects.keys()].filter((key) => !before.has(key))).toEqual([
+    `latest/${ANDROID}.json`
+  ]);
+  // No mirror record is read, and none can be waived.
+  expect(store.writes.some((key) => key.includes('mirror'))).toBe(false);
+  await expect(
+    promoteAndroid(data, store, { withoutMainlandMirror: true })
+  ).rejects.toThrow(/no mainland mirror/);
+  // Repeating the promotion leaves the manifest unchanged.
+  const published = store.objects.get(`latest/${ANDROID}.json`).bytes;
+  await promoteAndroid(data, store);
+  expect(store.objects.get(`latest/${ANDROID}.json`).bytes).toEqual(published);
+});
+
+test('Android promotion never moves latest.json, even after a lockstep release', async () => {
+  const data = fixture();
+  const store = new MemoryStore();
+  await stage(data, store);
+  await promote(data, store);
+  const latest = store.objects.get('latest.json').bytes;
+  const next = { ...data, version: '3.1.2' };
+  await uploadAndroid(store, {
+    version: next.version,
+    gitCommit: data.commits.a,
+    baseUrl
+  });
+  const result = await promoteAndroid(next, store);
+  expect(result.latest).toBeNull();
+  expect(store.objects.get('latest.json').bytes).toEqual(latest);
+  expect(
+    JSON.parse(store.objects.get(`latest/${ANDROID}.json`).bytes).version
+  ).toBe('3.1.2');
+});
+
+test('an Android fragment pins the version to one commit for every platform', async () => {
+  const data = fixture();
+  const store = new MemoryStore();
+  await uploadAndroid(store, {
+    version: data.version,
+    gitCommit: 'b'.repeat(40),
+    baseUrl
+  });
+  await expect(upload(data, store, 'windows')).rejects.toThrow(
+    `was uploaded from commit ${'b'.repeat(40)} on ${ANDROID}`
+  );
+  expect(store.writes.some((key) => key.includes('windows'))).toBe(false);
+
+  const other = new MemoryStore();
+  await upload(data, other, 'windows');
+  await uploadAndroid(other, {
+    version: data.version,
+    gitCommit: 'b'.repeat(40),
+    baseUrl
+  });
+  await expect(promoteAndroid(data, other)).rejects.toThrow(
+    `was uploaded from commit ${data.commits.a} on windows-x86_64`
+  );
+  expect(await other.get(`latest/${ANDROID}.json`)).toBeNull();
+});
+
+test('an Android release refuses rollback and changed facts at a published version', async () => {
+  const data = fixture('3.1.2');
+  const store = new MemoryStore();
+  // Both versions point at the one APK that carries the 3.1.1 Mods.
+  await uploadAndroid(store, {
+    version: '3.1.2',
+    gitCommit: data.commits.a,
+    baseUrl,
+    apkVersion: '3.1.1'
+  });
+  await promoteAndroid(data, store);
+  await uploadAndroid(store, {
+    version: '3.1.1',
+    gitCommit: data.commits.a,
+    baseUrl
+  });
+  await expect(
+    promoteAndroid({ ...data, version: '3.1.1' }, store)
+  ).rejects.toThrow(/rollback from 3.1.2 to 3.1.1/);
+  const key = fragmentKey('3.1.2', ANDROID);
+  const fragment = JSON.parse(store.objects.get(key).bytes);
+  fragment.selfUpdatable = false;
+  store.objects.get(key).bytes = Buffer.from(JSON.stringify(fragment));
+  await expect(promoteAndroid(data, store)).rejects.toThrow(
+    /Published 3.1.2 android-aarch64 downloads differs/
+  );
+});
+
+test('an Android fragment names its APK by game, loader and interop, and the Mods it carries', () => {
+  const facts = {
+    version: '3.1.2',
+    gitCommit: 'a'.repeat(40),
+    baseUrl,
+    apk: {
+      size: 1,
+      sha256: 'b'.repeat(64),
+      versionCode: 12825,
+      signerSha256: 'c'.repeat(64),
+      builtForProductVersion: '3.1.1'
+    },
+    managedPayload: { size: 1, sha256: 'b'.repeat(64), signature: 'sig' },
+    selfUpdatable: true,
+    historyDatabaseUserVersion: 1,
+    nonManagedPayloadDigest: 'd'.repeat(64),
+    game: {
+      gameVersion: '1.0.12825-production-android-d9601ded',
+      versionCode: 12825,
+      officialApkSha256: 'e'.repeat(64)
+    },
+    loader: { tag: 'v0.7.4-android.4', sha256: 'f'.repeat(64) },
+    interopSha256: `0123abcd${'0'.repeat(56)}`
+  };
+  // A pure Mods update points at the APK an earlier version baked.
+  const fragment = buildAndroidFragment(facts);
+  expect(fragment.apk.url).toBe(
+    `${baseUrl}/android/apk/BazaarPlusPlus_1.0.12825_lemon-v0.7.4-android.4_0123abcd.apk`
+  );
+  expect(fragment.managedPayload.url).toBe(
+    `${baseUrl}/3.1.2/${ANDROID}/managed/BazaarPlusPlus_3.1.2_${ANDROID}-managed.zip`
+  );
+  expect(() =>
+    buildAndroidFragment({
+      ...facts,
+      apk: { ...facts.apk, builtForProductVersion: '3.1.3' }
+    })
+  ).toThrow(/Invalid android-aarch64 APK/);
+  expect(() =>
+    validatePlatformFragment(
+      {
+        ...fragment,
+        apk: {
+          ...fragment.apk,
+          url: `${baseUrl}/3.1.2/${ANDROID}/apk/BazaarPlusPlus.apk`
+        }
+      },
+      '3.1.2',
+      ANDROID
+    )
+  ).toThrow(/does not name its game, loader and interop/);
+  expect(() =>
+    validatePlatformFragment({ ...fragment, kind: 'tauri' }, '3.1.2', ANDROID)
+  ).toThrow(/Invalid android-aarch64 platform fragment/);
+  expect(() =>
+    buildAndroidFragment({ ...facts, selfUpdatable: undefined })
+  ).toThrow(/Invalid android-aarch64 release facts/);
+});
+
+test('a desktop fragment may carry a Managed Payload and selfUpdatable', () => {
+  const fragment = buildPlatformFragment({
+    manifest: {
+      appVersion: '3.1.1',
+      buildPlatform: 'windows',
+      releasePlatformKey: 'windows-x86_64',
+      gitCommit: 'a'.repeat(40),
+      dirty: false,
+      installer: { path: 'setup.exe', size: 1, sha256: 'b'.repeat(64) },
+      updater: { path: 'setup.exe', size: 1, sha256: 'b'.repeat(64) },
+      signature: {
+        path: 'setup.exe.sig',
+        size: 1,
+        sha256: 'b'.repeat(64),
+        content: 'sig'
+      }
+    },
+    baseUrl
+  });
+  expect(fragment).not.toHaveProperty('managedPayload');
+  const managedPayload = {
+    url: `${baseUrl}/${managedPayloadKey('3.1.1', 'windows-x86_64')}`,
+    size: 1,
+    sha256: 'b'.repeat(64),
+    signature: 'sig'
+  };
+  expect(
+    validatePlatformFragment(
+      { ...fragment, managedPayload, selfUpdatable: true },
+      '3.1.1',
+      'windows-x86_64'
+    )
+  ).toBeTruthy();
+  expect(() =>
+    validatePlatformFragment(
+      {
+        ...fragment,
+        managedPayload: {
+          ...managedPayload,
+          url: `${baseUrl}/3.1.0/windows-x86_64/managed/x.zip`
+        }
+      },
+      '3.1.1',
+      'windows-x86_64'
+    )
+  ).toThrow(/outside its release/);
+  expect(() =>
+    validatePlatformFragment(
+      { ...fragment, selfUpdatable: 'yes' },
+      '3.1.1',
+      'windows-x86_64'
+    )
+  ).toThrow(/Invalid windows-x86_64 platform fragment/);
 });

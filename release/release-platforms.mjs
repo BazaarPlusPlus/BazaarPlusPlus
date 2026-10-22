@@ -9,14 +9,21 @@ import { platformInventory } from './payload-inventory.mjs';
 // {{target}}-{{arch}} lookup keys inside every manifest, and the file name of
 // each Platform Release Manifest (`platformManifestPath` and
 // `UPDATER_ENDPOINTS` in downloads.ts) that shipped installers, the site and
-// the mod request. NEVER rename a key; only append. `rustTarget` is
-// scalar-or-null by design. A future platform requiring multiple Rust triples
-// needs a schema migration, not a comma hack.
+// the mod request. NEVER rename a key; only append. `kind` says how the
+// platform ships: `tauri` platforms ship a Tauri installer and updater package
+// and carry the Tauri fields below; the `android` platform ships an injected
+// APK and a Managed Payload zip and has none of them (ADR 0007).
+// `payloadHost` names the mod loader whose Payload Inventory entries the
+// platform installs. `rustTarget` is scalar-or-null by design. A future
+// platform requiring multiple Rust triples needs a schema migration, not a
+// comma hack.
 export const RELEASE_PLATFORMS = Object.freeze([
   Object.freeze({
     key: DOWNLOAD_PLATFORM_KEYS.windows,
+    kind: 'tauri',
     buildPlatform: 'windows',
     nodePlatform: 'win32',
+    payloadHost: 'bepinex',
     rustTarget: null,
     bundleRoot: 'src-tauri/target/release/bundle',
     installerDir: 'src-tauri/target/release/bundle/nsis',
@@ -29,8 +36,10 @@ export const RELEASE_PLATFORMS = Object.freeze([
   }),
   Object.freeze({
     key: DOWNLOAD_PLATFORM_KEYS.mac,
+    kind: 'tauri',
     buildPlatform: 'macos',
     nodePlatform: 'darwin',
+    payloadHost: 'bepinex',
     rustTarget: 'aarch64-apple-darwin',
     bundleRoot: 'src-tauri/target/aarch64-apple-darwin/release/bundle',
     installerDir: 'src-tauri/target/aarch64-apple-darwin/release/bundle/dmg',
@@ -40,12 +49,30 @@ export const RELEASE_PLATFORMS = Object.freeze([
     bundleTargets: 'app,dmg',
     tauriConfig: 'src-tauri/tauri.macos.conf.json',
     resourceZip: 'src-tauri/resources/BepInExSource/macos/BepInEx.zip'
+  }),
+  // Not bound to a host operating system: any machine with .NET 10 and the
+  // Android build-tools builds it.
+  Object.freeze({
+    key: DOWNLOAD_PLATFORM_KEYS.android,
+    kind: 'android',
+    buildPlatform: 'android',
+    nodePlatform: null,
+    payloadHost: 'melonloader'
   })
 ]);
 
 export const RELEASE_PLATFORM_KEYS = Object.freeze(
   RELEASE_PLATFORMS.map((platform) => platform.key)
 );
+
+// The platforms the Release Manifest (`latest.json`) waits for: it advances
+// only when every one of them names the same release. Android ships on the
+// game's APK cadence and stays outside, so it never holds back a desktop
+// release (ADR 0007).
+export const LOCKSTEP_PLATFORM_KEYS = Object.freeze([
+  DOWNLOAD_PLATFORM_KEYS.windows,
+  DOWNLOAD_PLATFORM_KEYS.mac
+]);
 
 // The one lookup of a release platform by its build platform name.
 export function releasePlatform(buildPlatform) {
@@ -57,24 +84,44 @@ export function releasePlatform(buildPlatform) {
   return platform;
 }
 
-// Accepts a build platform or a Node `process.platform` name; null when the
-// host has no release platform.
+export function releasePlatformByKey(key) {
+  const platform = RELEASE_PLATFORMS.find((candidate) => candidate.key === key);
+  if (!platform) throw new Error(`Unknown release platform: ${key}`);
+  return platform;
+}
+
+// A platform that ships a Tauri installer; the Tauri build facts exist only
+// on these.
+export function tauriPlatform(buildPlatform) {
+  const platform = releasePlatform(buildPlatform);
+  if (platform.kind !== 'tauri')
+    throw new Error(`${buildPlatform} does not ship a Tauri installer`);
+  return platform;
+}
+
+// The Tauri platform a build platform, a Node `process.platform` name or a
+// TAURI_ENV_PLATFORM value names; null when the host builds no installer.
 export function resolveBuildPlatform(platformEnv) {
   return (
     RELEASE_PLATFORMS.find(
       (platform) =>
-        platform.buildPlatform === platformEnv ||
-        platform.nodePlatform === platformEnv
+        platform.kind === 'tauri' &&
+        (platform.buildPlatform === platformEnv ||
+          platform.nodePlatform === platformEnv)
     )?.buildPlatform ?? null
   );
 }
 
+// The Tauri installer build targets.
 export function defaultTargetBuildPlatforms() {
-  return RELEASE_PLATFORMS.map((platform) => platform.buildPlatform).sort();
+  return RELEASE_PLATFORMS.filter((platform) => platform.kind === 'tauri')
+    .map((platform) => platform.buildPlatform)
+    .sort();
 }
 
 export function assertPlatformCoherence(rootDir) {
   for (const platform of RELEASE_PLATFORMS) {
+    if (platform.kind !== 'tauri') continue;
     const overlayPath = path.join(rootDir, platform.tauriConfig);
     const overlay = JSON.parse(fs.readFileSync(overlayPath, 'utf8'));
     const overlayTargets = overlay.bundle?.targets;
@@ -132,7 +179,7 @@ function printLines(values) {
 export function cliMain(args) {
   const [verb, buildPlatform] = args;
   try {
-    const platform = releasePlatform(buildPlatform);
+    const platform = tauriPlatform(buildPlatform);
     switch (verb) {
       case 'rust-targets':
         printLines([platform.rustTarget]);

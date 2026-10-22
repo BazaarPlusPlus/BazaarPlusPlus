@@ -2,7 +2,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { runGit } from '../scripts/git-command.mjs';
-import { releasePlatform } from './release-platforms.mjs';
+import { tauriPlatform } from './release-platforms.mjs';
 
 const releasePaths = [
   '.',
@@ -182,7 +182,7 @@ export function createArtifactManifest({
   gitState = gitStateForRoot(rootDir),
   builtAt = new Date()
 }) {
-  const definition = releasePlatform(platform);
+  const definition = tauriPlatform(platform);
   const discovered = discoverArtifacts(rootDir, definition);
   assertFileNameContainsVersion(discovered.installer, version);
   const signatureContent = fs.readFileSync(discovered.signature, 'utf8').trim();
@@ -261,7 +261,7 @@ export function validateArtifactManifest({
     throw new Error(`Missing artifact manifest: ${manifestPath}`);
   }
   const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
-  const definition = releasePlatform(platform);
+  const definition = tauriPlatform(platform);
   if (manifest.schemaVersion !== 2)
     throw new Error('Unsupported artifact manifest schema');
   if (

@@ -30,7 +30,9 @@ import { fetchMirrorPage, verifyMainlandMirrors } from './release/mirror.mjs';
 import { assertMirrorUrl } from './release/manifest.mjs';
 import { r2StoreFromEnvironment } from './release/r2-store.mjs';
 import {
+  RELEASE_PLATFORMS,
   defaultTargetBuildPlatforms,
+  releasePlatform,
   resolveBuildPlatform
 } from './release/release-platforms.mjs';
 
@@ -47,9 +49,12 @@ const usage = `Product release commands (run from any directory):
   node release.mjs verify-mirror [--platform macos]
                                                 Re-check the recorded mainland mirrors of VERSION
   node release.mjs verify-mirror --latest       Re-check the mainland mirrors of the published platform manifests
-  node release.mjs promote                      Publish every platform at VERSION and advance latest.json
+  node release.mjs promote                      Publish Windows and macOS at VERSION and advance latest.json
   node release.mjs promote --platform macos     Publish one platform's manifest; latest.json advances once
-                                                every platform is at the same version
+                                                Windows and macOS are at the same version
+  node release.mjs promote --platform android   Publish the Android Platform Release Manifest after checking
+                                                the uploaded APK and Managed Payload zip; Android records no
+                                                mainland mirror and never moves latest.json
 
 Use windows on the Windows build host. Prepare/build accept -- -p:ManagedPath=<path>.
 mirror refuses a share page that does not serve the uploaded installer unless
@@ -121,13 +126,23 @@ export function parseReleaseArgs(args) {
   )
     throw new Error('MSBuild properties must follow --');
   const platform = values.platform;
-  const buildPlatforms = defaultTargetBuildPlatforms();
+  // Android uploads arrive with its release job (#358) and it has no mainland
+  // mirror yet, so of the platform commands only promote accepts it.
+  const tauriPlatforms = defaultTargetBuildPlatforms();
+  const promotePlatforms = RELEASE_PLATFORMS.map(
+    ({ buildPlatform }) => buildPlatform
+  );
+  const mustBe = (platforms) =>
+    `--platform must be ${platforms.slice(0, -1).join(', ')} or ${platforms.at(-1)}`;
   if (['prepare', 'build', 'upload', 'mirror'].includes(command)) {
-    if (!buildPlatforms.includes(platform))
-      throw new Error('--platform must be macos or windows');
-  } else if (['promote', 'verify-mirror'].includes(command)) {
-    if (platform !== undefined && !buildPlatforms.includes(platform))
-      throw new Error('--platform must be macos or windows');
+    if (!tauriPlatforms.includes(platform))
+      throw new Error(mustBe(tauriPlatforms));
+  } else if (command === 'verify-mirror') {
+    if (platform !== undefined && !tauriPlatforms.includes(platform))
+      throw new Error(mustBe(tauriPlatforms));
+  } else if (command === 'promote') {
+    if (platform !== undefined && !promotePlatforms.includes(platform))
+      throw new Error(mustBe(promotePlatforms));
   } else if (platform !== undefined) {
     throw new Error(`${command} is a product-wide operation`);
   }
@@ -162,6 +177,12 @@ export function parseReleaseArgs(args) {
     );
   if (values['without-mainland-mirror'] && command !== 'promote')
     throw new Error('--without-mainland-mirror is only valid for promote');
+  if (
+    values['without-mainland-mirror'] &&
+    platform !== undefined &&
+    releasePlatform(platform).kind !== 'tauri'
+  )
+    throw new Error(`${platform} has no mainland mirror to waive`);
   assertReleaseBuildArgs(positionals);
   if (command === 'assert-build-owner' && rest.length)
     throw new Error('assert-build-owner takes no arguments');
@@ -324,10 +345,12 @@ export async function main(
     });
     log(
       result.advanced
-        ? `Published ${platform} ${version}; every platform is at ${version}, latest.json advanced`
-        : result.latest
-          ? `Published ${platform} ${version}; latest.json already names ${result.latest.version}`
-          : `Published ${platform} ${version}; latest.json stays at the last lockstep release`
+        ? `Published ${platform} ${version}; every lockstep platform is at ${version}, latest.json advanced`
+        : releasePlatform(platform).kind !== 'tauri'
+          ? `Published ${platform} ${version}; latest.json follows Windows and macOS only`
+          : result.latest
+            ? `Published ${platform} ${version}; latest.json already names ${result.latest.version}`
+            : `Published ${platform} ${version}; latest.json stays at the last lockstep release`
     );
   } else {
     await promoteRelease({

@@ -2,9 +2,9 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { WORKSPACE_ROOT } from './product.mjs';
-// release-platforms.mjs imports this module, so the platform list is read
+// release-platforms.mjs imports this module, so the platform table is read
 // when a function runs, never while the module graph is still initializing.
-import { defaultTargetBuildPlatforms } from './release-platforms.mjs';
+import { RELEASE_PLATFORMS } from './release-platforms.mjs';
 const producers = new Set([
   'managed',
   'history-contract',
@@ -13,34 +13,78 @@ const producers = new Set([
   'native',
   'bootstrap',
   'runtime',
-  'retired'
+  'retired',
+  'apk-injection'
 ]);
 const ownerships = new Set(['private', 'dependency', 'bootstrap']);
-const rootFiles = new Set([
-  'winhttp.dll',
-  'doorstop_config.ini',
-  'libdoorstop.dylib'
-]);
-const bootstrapPaths = new Set([
-  'BepInEx/core',
-  'BepInEx/cache',
-  'BepInEx/config/BepInEx.cfg',
-  'BepInEx/LogOutput.log',
-  'BepInEx/plugins/.gitkeep',
-  ...rootFiles
-]);
 
-function allowedOwnership(entry) {
-  if (entry.ownership === 'bootstrap') return bootstrapPaths.has(entry.path);
-  if (/^BepInEx\/plugins\/[^/]+$/.test(entry.path)) return true;
-  if (entry.ownership !== 'private') return false;
-  return (
-    entry.path === 'BepInEx/config/BazaarPlusPlus.cfg' ||
-    /^TheBazaar\.app\/Contents\/Plugins\/GfxPluginBpp[^/]+\.bundle$/.test(
-      entry.path
-    ) ||
-    /^TheBazaar_Data\/Plugins\/x86_64\/GfxPluginBpp[^/]+\.dll$/.test(entry.path)
-  );
+// Each mod loader host has its own install roots. A BepInEx path is relative
+// to the game directory. A MelonLoader path is relative to the Android app's
+// external files directory (`Android/data/<package>/files/`), except the
+// `apk-injection` entries, which are paths inside the Android Release APK:
+// the APK injection step produces them, never the mod build (ADR 0007).
+const hostRoots = {
+  bepinex: (() => {
+    const rootFiles = new Set([
+      'winhttp.dll',
+      'doorstop_config.ini',
+      'libdoorstop.dylib'
+    ]);
+    const bootstrapPaths = new Set([
+      'BepInEx/core',
+      'BepInEx/cache',
+      'BepInEx/config/BepInEx.cfg',
+      'BepInEx/LogOutput.log',
+      'BepInEx/plugins/.gitkeep',
+      ...rootFiles
+    ]);
+    return {
+      rootFiles,
+      allowedOwnership(entry) {
+        if (entry.producer === 'apk-injection') return false;
+        if (entry.ownership === 'bootstrap')
+          return bootstrapPaths.has(entry.path);
+        if (/^BepInEx\/plugins\/[^/]+$/.test(entry.path)) return true;
+        if (entry.ownership !== 'private') return false;
+        return (
+          entry.path === 'BepInEx/config/BazaarPlusPlus.cfg' ||
+          /^TheBazaar\.app\/Contents\/Plugins\/GfxPluginBpp[^/]+\.bundle$/.test(
+            entry.path
+          ) ||
+          /^TheBazaar_Data\/Plugins\/x86_64\/GfxPluginBpp[^/]+\.dll$/.test(
+            entry.path
+          )
+        );
+      }
+    };
+  })(),
+  melonloader: (() => {
+    const bootstrapPaths = new Set([
+      'MelonLoader/Latest.log',
+      'lib/arm64-v8a/libmain.so',
+      'assets/LemonLoader'
+    ]);
+    return {
+      rootFiles: new Set(),
+      allowedOwnership(entry) {
+        const insideApk = /^(lib|assets)\//.test(entry.path);
+        if (insideApk !== (entry.producer === 'apk-injection')) return false;
+        if (entry.ownership === 'bootstrap')
+          return bootstrapPaths.has(entry.path);
+        if (/^MelonLoader\/(Mods|UserLibs)\/[^/]+$/.test(entry.path))
+          return true;
+        if (entry.ownership === 'dependency')
+          return /^lib\/arm64-v8a\/[^/]+\.so$/.test(entry.path);
+        return entry.path === 'MelonLoader/UserData/BazaarPlusPlus.cfg';
+      }
+    };
+  })()
+};
+
+function hostPlatforms(host) {
+  return RELEASE_PLATFORMS.filter(
+    (platform) => platform.payloadHost === host
+  ).map((platform) => platform.buildPlatform);
 }
 
 export function assertRelativePayloadPath(value) {
@@ -59,7 +103,7 @@ export function assertRelativePayloadPath(value) {
 
 export function validateInventory(inventory) {
   if (
-    inventory?.schemaVersion !== 1 ||
+    inventory?.schemaVersion !== 2 ||
     !Array.isArray(inventory.files) ||
     !inventory.files.length
   )
@@ -67,8 +111,12 @@ export function validateInventory(inventory) {
   const seen = [];
   for (const entry of inventory.files) {
     const relativePath = assertRelativePayloadPath(entry.path);
+    const host = Object.hasOwn(hostRoots, entry.host)
+      ? hostRoots[entry.host]
+      : null;
     if (
-      (!relativePath.includes('/') && !rootFiles.has(relativePath)) ||
+      !host ||
+      (!relativePath.includes('/') && !host.rootFiles.has(relativePath)) ||
       !ownerships.has(entry.ownership) ||
       !producers.has(entry.producer) ||
       ![undefined, 'file', 'directory'].includes(entry.kind)
@@ -81,7 +129,7 @@ export function validateInventory(inventory) {
       (!Array.isArray(entry.platforms) ||
         !entry.platforms.length ||
         entry.platforms.some(
-          (platform) => !defaultTargetBuildPlatforms().includes(platform)
+          (platform) => !hostPlatforms(entry.host).includes(platform)
         ))
     )
       throw new Error(`Invalid payload platforms: ${relativePath}`);
@@ -95,7 +143,7 @@ export function validateInventory(inventory) {
           `Overlapping payload paths: ${previous.path}, ${relativePath}`
         );
     }
-    if (!allowedOwnership(entry))
+    if (!host.allowedOwnership(entry))
       throw new Error(
         `Payload ownership is outside the approved install roots: ${relativePath}`
       );
@@ -112,11 +160,17 @@ export function readInventory(workspaceRoot = WORKSPACE_ROOT) {
   );
 }
 
+// The entries one release platform installs: its host's entries, narrowed
+// by `platforms` where an entry names them.
 export function platformInventory(platform, inventory = readInventory()) {
-  if (!defaultTargetBuildPlatforms().includes(platform))
-    throw new Error(`Unsupported payload platform: ${platform}`);
+  const definition = RELEASE_PLATFORMS.find(
+    (candidate) => candidate.buildPlatform === platform
+  );
+  if (!definition) throw new Error(`Unsupported payload platform: ${platform}`);
   return inventory.files.filter(
-    (entry) => !entry.platforms || entry.platforms.includes(platform)
+    (entry) =>
+      entry.host === definition.payloadHost &&
+      (!entry.platforms || entry.platforms.includes(platform))
   );
 }
 
@@ -171,29 +225,54 @@ export function renderManagedPayloadTargets(workspaceRoot = WORKSPACE_ROOT) {
     .update(fs.readFileSync(path.join(workspaceRoot, 'release/payload.json')))
     .digest('hex')
     .toUpperCase();
-  const entries = inventory.files.filter((entry) =>
-    ['managed', 'history-contract', 'sqlite-macos', 'sqlite-windows'].includes(
-      entry.producer
-    )
-  );
-  const items = entries
-    .map((entry) => {
-      const source =
-        entry.producer === 'managed'
-          ? `$(TargetDir)${path.posix.basename(entry.path)}`
-          : entry.producer === 'history-contract'
-            ? '$(HistoryDatabaseContractFile)'
-            : entry.producer === 'sqlite-macos'
-              ? '$(FixedMacSqliteNativeFile)'
-              : '$(FixedWindowsSqliteNativeFile)';
-      const conditions = [];
-      if (entry.optional) conditions.push(`Exists('${source}')`);
-      if (entry.platforms)
-        conditions.push(`'$(BppPayloadPlatform)' == '${entry.platforms[0]}'`);
-      return `      <BppPayloadFile Include="${xml(source)}"${conditions.length ? ` Condition="${xml(conditions.join(' and '))}"` : ''}><PayloadPath>${entry.path}</PayloadPath><ProductAssembly>${entry.assembly === true}</ProductAssembly></BppPayloadFile>`;
+  const item = (entry) => {
+    const source =
+      entry.producer === 'managed'
+        ? `$(TargetDir)${path.posix.basename(entry.path)}`
+        : entry.producer === 'history-contract'
+          ? '$(HistoryDatabaseContractFile)'
+          : entry.producer === 'sqlite-macos'
+            ? '$(FixedMacSqliteNativeFile)'
+            : '$(FixedWindowsSqliteNativeFile)';
+    const conditions = [];
+    if (entry.optional) conditions.push(`Exists('${source}')`);
+    if (entry.platforms)
+      conditions.push(`'$(BppPayloadPlatform)' == '${entry.platforms[0]}'`);
+    return `      <BppPayloadFile Include="${xml(source)}"${conditions.length ? ` Condition="${xml(conditions.join(' and '))}"` : ''}><PayloadPath>${entry.path}</PayloadPath><ProductAssembly>${entry.assembly === true}</ProductAssembly></BppPayloadFile>`;
+  };
+  // One item group per host; a project selects its host with BppPayloadHost,
+  // which defaults to the BepInEx host the desktop plugin builds for.
+  const hosts = [
+    ...new Set(RELEASE_PLATFORMS.map((platform) => platform.payloadHost))
+  ];
+  const groups = hosts
+    .map((host) => {
+      const items = inventory.files
+        .filter(
+          (entry) =>
+            entry.host === host &&
+            [
+              'managed',
+              'history-contract',
+              'sqlite-macos',
+              'sqlite-windows'
+            ].includes(entry.producer)
+        )
+        .map(item)
+        .join('\n');
+      return `    <ItemGroup Condition="'$(BppPayloadHost)' == '${host}'">\n${items}\n    </ItemGroup>`;
     })
     .join('\n');
-  return `<Project>\n  <!-- Generated from release/payload.json by node release.mjs sync. -->\n  <Target Name="ValidatePayloadInventoryProjection" BeforeTargets="PrepareForBuild;CollectPayloadFiles">\n    <GetFileHash Files="$(MSBuildThisFileDirectory)../payload.json" Algorithm="SHA256"><Output TaskParameter="Items" ItemName="_PayloadInventoryHash" /></GetFileHash>\n    <Error Condition="'%(_PayloadInventoryHash.FileHash)' != '${digest}'" Text="Payload Inventory projection is stale. Run node release.mjs sync." />\n  </Target>\n  <Target Name="CollectPayloadFiles" DependsOnTargets="ValidatePayloadInventoryProjection">\n    <PropertyGroup>\n      <BppPayloadPlatform Condition="'$(BppReleasePlatform)' != ''">$(BppReleasePlatform)</BppPayloadPlatform>\n      <BppPayloadPlatform Condition="'$(BppPayloadPlatform)' == '' and '$(IsMacHost)' == 'true'">macos</BppPayloadPlatform>\n      <BppPayloadPlatform Condition="'$(BppPayloadPlatform)' == '' and '$(IsWindowsHost)' == 'true'">windows</BppPayloadPlatform>\n    </PropertyGroup>\n    <ItemGroup>\n${items}\n    </ItemGroup>\n  </Target>\n  <Target Name="ValidatePayloadAssemblyVersions" DependsOnTargets="CollectPayloadFiles">\n    <ItemGroup><_ProductAssembly Include="@(BppPayloadFile)" Condition="'%(BppPayloadFile.ProductAssembly)' == 'true'" /></ItemGroup>\n    <GetAssemblyIdentity AssemblyFiles="@(_ProductAssembly)"><Output TaskParameter="Assemblies" ItemName="_ProductAssemblyIdentity" /></GetAssemblyIdentity>\n    <Error Condition="'%(_ProductAssemblyIdentity.Version)' != '$(BppVersion).0'" Text="Payload assembly %(_ProductAssemblyIdentity.Identity) has version %(_ProductAssemblyIdentity.Version); expected $(BppVersion).0." />\n  </Target>\n</Project>\n`;
+  // A host with a single platform needs no host-OS default.
+  const singlePlatformDefaults = hosts
+    .map((host) => [host, hostPlatforms(host)])
+    .filter(([, platforms]) => platforms.length === 1)
+    .map(
+      ([host, [platform]]) =>
+        `      <BppPayloadPlatform Condition="'$(BppPayloadPlatform)' == '' and '$(BppPayloadHost)' == '${host}'">${platform}</BppPayloadPlatform>\n`
+    )
+    .join('');
+  return `<Project>\n  <!-- Generated from release/payload.json by node release.mjs sync. -->\n  <Target Name="ValidatePayloadInventoryProjection" BeforeTargets="PrepareForBuild;CollectPayloadFiles">\n    <GetFileHash Files="$(MSBuildThisFileDirectory)../payload.json" Algorithm="SHA256"><Output TaskParameter="Items" ItemName="_PayloadInventoryHash" /></GetFileHash>\n    <Error Condition="'%(_PayloadInventoryHash.FileHash)' != '${digest}'" Text="Payload Inventory projection is stale. Run node release.mjs sync." />\n  </Target>\n  <Target Name="CollectPayloadFiles" DependsOnTargets="ValidatePayloadInventoryProjection">\n    <PropertyGroup>\n      <BppPayloadHost Condition="'$(BppPayloadHost)' == ''">bepinex</BppPayloadHost>\n      <BppPayloadPlatform Condition="'$(BppReleasePlatform)' != ''">$(BppReleasePlatform)</BppPayloadPlatform>\n${singlePlatformDefaults}      <BppPayloadPlatform Condition="'$(BppPayloadPlatform)' == '' and '$(IsMacHost)' == 'true'">macos</BppPayloadPlatform>\n      <BppPayloadPlatform Condition="'$(BppPayloadPlatform)' == '' and '$(IsWindowsHost)' == 'true'">windows</BppPayloadPlatform>\n    </PropertyGroup>\n${groups}\n  </Target>\n  <Target Name="ValidatePayloadAssemblyVersions" DependsOnTargets="CollectPayloadFiles">\n    <ItemGroup><_ProductAssembly Include="@(BppPayloadFile)" Condition="'%(BppPayloadFile.ProductAssembly)' == 'true'" /></ItemGroup>\n    <GetAssemblyIdentity AssemblyFiles="@(_ProductAssembly)"><Output TaskParameter="Assemblies" ItemName="_ProductAssemblyIdentity" /></GetAssemblyIdentity>\n    <Error Condition="'%(_ProductAssemblyIdentity.Version)' != '$(BppVersion).0'" Text="Payload assembly %(_ProductAssemblyIdentity.Identity) has version %(_ProductAssemblyIdentity.Version); expected $(BppVersion).0." />\n  </Target>\n</Project>\n`;
 }
 
 export function synchronizePayloadProjection(

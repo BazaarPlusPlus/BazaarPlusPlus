@@ -2,8 +2,10 @@ import path from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
 import { assertProductVersion, compareProductVersions } from './product.mjs';
 import {
+  LOCKSTEP_PLATFORM_KEYS,
   RELEASE_PLATFORMS,
-  RELEASE_PLATFORM_KEYS
+  RELEASE_PLATFORM_KEYS,
+  releasePlatformByKey
 } from './release-platforms.mjs';
 import {
   RELEASE_BASE_URL,
@@ -15,6 +17,9 @@ export { RELEASE_MANIFEST_PATH, platformManifestPath };
 
 // Artifact paths sit below the release origin's path (/installer).
 const RELEASE_BASE_PATH = new URL(RELEASE_BASE_URL).pathname.replace(/\/$/, '');
+
+const SHA256 = /^[a-f0-9]{64}$/;
+const GIT_COMMIT = /^[a-f0-9]{40,64}$/;
 
 function assertRecord(record, description) {
   if (
@@ -67,6 +72,41 @@ export function fragmentKey(version, platform) {
   return `${version}/${platform}/updater/platform-manifest.json`;
 }
 
+// The Android Release APK is named by what it is built from (game build,
+// loader tag, the first eight hex digits of the interop digest), never by the
+// product version: one APK serves every product version until the game, the
+// loader or the interop changes (ADR 0007). The key is immutable once used.
+export function androidApkKey({ gameVersion, loaderTag, interopSha256 }) {
+  const build = /^(\d+(?:\.\d+)+)-/.exec(gameVersion ?? '')?.[1];
+  if (
+    !build ||
+    !/^[A-Za-z0-9._-]+$/.test(loaderTag ?? '') ||
+    !SHA256.test(interopSha256 ?? '')
+  )
+    throw new Error(
+      'An Android APK is identified by its game version, loader tag and interop sha256'
+    );
+  return `android/apk/BazaarPlusPlus_${build}_lemon-${loaderTag}_${interopSha256.slice(0, 8)}.apk`;
+}
+
+// The Managed Payload zip of one product version on one platform.
+export function managedPayloadKey(version, platform) {
+  return `${version}/${platform}/managed/BazaarPlusPlus_${version}_${platform}-managed.zip`;
+}
+
+function assertReleaseOrigin(baseUrl) {
+  const base = new URL(baseUrl);
+  if (
+    base.protocol !== 'https:' ||
+    base.username ||
+    base.password ||
+    base.search ||
+    base.hash
+  )
+    throw new Error('Unsafe release origin');
+  return baseUrl.replace(/\/$/, '');
+}
+
 export function buildMirrorRecord({
   version,
   platform,
@@ -116,23 +156,16 @@ export function buildPlatformFragment({ manifest, baseUrl }) {
   );
   if (
     !definition ||
+    definition.kind !== 'tauri' ||
     manifest.dirty ||
-    !/^[a-f0-9]{40,64}$/.test(manifest.gitCommit ?? '')
+    !GIT_COMMIT.test(manifest.gitCommit ?? '')
   )
     throw new Error(
       'Platform fragment requires a clean, identified product build'
     );
-  const base = new URL(baseUrl);
-  if (
-    base.protocol !== 'https:' ||
-    base.username ||
-    base.password ||
-    base.search ||
-    base.hash
-  )
-    throw new Error('Unsafe release origin');
+  const origin = assertReleaseOrigin(baseUrl);
   const record = (artifact, category) => ({
-    url: `${baseUrl.replace(/\/$/, '')}/${version}/${definition.key}/${category}/${encodeURIComponent(path.basename(artifact.path))}`,
+    url: `${origin}/${version}/${definition.key}/${category}/${encodeURIComponent(path.basename(artifact.path))}`,
     size: artifact.size,
     sha256: artifact.sha256
   });
@@ -152,12 +185,182 @@ export function buildPlatformFragment({ manifest, baseUrl }) {
   return fragment;
 }
 
+// The fragment `upload --platform android` writes beside the Android release:
+// the APK, the Managed Payload zip, and the facts the mod's self-update
+// compares against the copy it runs. The caller supplies the facts; the object
+// keys follow from them.
+export function buildAndroidFragment({
+  version,
+  gitCommit,
+  baseUrl,
+  apk,
+  managedPayload,
+  selfUpdatable,
+  historyDatabaseUserVersion,
+  nonManagedPayloadDigest,
+  game,
+  loader,
+  interopSha256
+}) {
+  assertProductVersion(version);
+  if (!GIT_COMMIT.test(gitCommit ?? ''))
+    throw new Error('Android fragment requires an identified product build');
+  const origin = assertReleaseOrigin(baseUrl);
+  const platform = RELEASE_PLATFORMS.find(
+    (definition) => definition.kind === 'android'
+  ).key;
+  const fragment = {
+    schemaVersion: 2,
+    kind: 'android',
+    version,
+    platform,
+    gitCommit,
+    apk: {
+      url: `${origin}/${androidApkKey({
+        gameVersion: game?.gameVersion,
+        loaderTag: loader?.tag,
+        interopSha256
+      })}`,
+      size: apk?.size,
+      sha256: apk?.sha256,
+      versionCode: apk?.versionCode,
+      signerSha256: apk?.signerSha256,
+      builtForProductVersion: apk?.builtForProductVersion
+    },
+    managedPayload: {
+      url: `${origin}/${managedPayloadKey(version, platform)}`,
+      size: managedPayload?.size,
+      sha256: managedPayload?.sha256,
+      signature: managedPayload?.signature?.trim()
+    },
+    selfUpdatable,
+    historyDatabaseUserVersion,
+    nonManagedPayloadDigest,
+    game: {
+      gameVersion: game?.gameVersion,
+      versionCode: game?.versionCode,
+      officialApkSha256: game?.officialApkSha256
+    },
+    loader: { tag: loader?.tag, sha256: loader?.sha256 },
+    interopSha256
+  };
+  return validatePlatformFragment(fragment, version, platform);
+}
+
+// What an Android Platform Release Manifest publishes from its fragment, in
+// this order.
+const ANDROID_RELEASE_FIELDS = Object.freeze([
+  'apk',
+  'managedPayload',
+  'selfUpdatable',
+  'historyDatabaseUserVersion',
+  'nonManagedPayloadDigest',
+  'game',
+  'loader',
+  'interopSha256'
+]);
+
+function positiveInteger(value) {
+  return Number.isSafeInteger(value) && value > 0;
+}
+
+function assertManagedPayload(record, version, platform) {
+  assertRecord(record, `${platform} Managed Payload`);
+  if (typeof record.signature !== 'string' || !record.signature.trim())
+    throw new Error(`Missing Managed Payload signature: ${platform}`);
+  if (
+    !new URL(record.url).pathname.startsWith(
+      `${RELEASE_BASE_PATH}/${version}/${platform}/managed/`
+    )
+  )
+    throw new Error(`Artifact URL is outside its release: ${record.url}`);
+}
+
+// The release facts an Android fragment and its Platform Release Manifest
+// share, at product version `version`.
+function validateAndroidRelease(release, version, platform) {
+  const { apk, managedPayload, game, loader } = release;
+  if (
+    typeof game?.gameVersion !== 'string' ||
+    !positiveInteger(game.versionCode) ||
+    !SHA256.test(game.officialApkSha256 ?? '') ||
+    typeof loader?.tag !== 'string' ||
+    !SHA256.test(loader.sha256 ?? '') ||
+    !SHA256.test(release.interopSha256 ?? '') ||
+    typeof release.selfUpdatable !== 'boolean' ||
+    !positiveInteger(release.historyDatabaseUserVersion) ||
+    !SHA256.test(release.nonManagedPayloadDigest ?? '')
+  )
+    throw new Error(`Invalid ${platform} release facts for ${version}`);
+  assertRecord(apk, `${platform} APK`);
+  if (
+    !positiveInteger(apk.versionCode) ||
+    !SHA256.test(apk.signerSha256 ?? '') ||
+    compareProductVersions(
+      assertProductVersion(apk.builtForProductVersion),
+      version
+    ) > 0
+  )
+    throw new Error(`Invalid ${platform} APK for ${version}`);
+  const apkKey = androidApkKey({
+    gameVersion: game.gameVersion,
+    loaderTag: loader.tag,
+    interopSha256: release.interopSha256
+  });
+  if (new URL(apk.url).pathname !== `${RELEASE_BASE_PATH}/${apkKey}`)
+    throw new Error(
+      `${platform} APK URL does not name its game, loader and interop: ${apk.url}`
+    );
+  assertManagedPayload(managedPayload, version, platform);
+  if (
+    new URL(managedPayload.url).pathname !==
+    `${RELEASE_BASE_PATH}/${managedPayloadKey(version, platform)}`
+  )
+    throw new Error(`Unexpected Managed Payload URL: ${managedPayload.url}`);
+}
+
+function validateAndroidFragment(fragment, version, platform) {
+  if (
+    fragment?.schemaVersion !== 2 ||
+    fragment.kind !== 'android' ||
+    fragment.version !== version ||
+    fragment.platform !== platform ||
+    !GIT_COMMIT.test(fragment.gitCommit ?? '')
+  )
+    throw new Error(`Invalid ${platform} platform fragment for ${version}`);
+  validateAndroidRelease(fragment, version, platform);
+  return fragment;
+}
+
+// Every remote object a fragment names; promotion checks each is in place.
+export function fragmentArtifacts(fragment) {
+  return releasePlatformByKey(fragment.platform).kind === 'android'
+    ? [fragment.apk, fragment.managedPayload]
+    : [
+        fragment.installer,
+        fragment.updater,
+        fragment.signatureFile,
+        ...(fragment.managedPayload ? [fragment.managedPayload] : [])
+      ];
+}
+
 export function validatePlatformFragment(fragment, version, platform) {
+  if (releasePlatformByKey(platform).kind === 'android')
+    return validateAndroidFragment(fragment, version, platform);
   if (
     fragment?.schemaVersion !== 1 ||
     fragment.version !== version ||
     fragment.platform !== platform ||
-    !/^[a-f0-9]{40,64}$/.test(fragment.gitCommit ?? '')
+    !GIT_COMMIT.test(fragment.gitCommit ?? '')
+  )
+    throw new Error(`Invalid ${platform} platform fragment for ${version}`);
+  // The desktop Managed Payload for self-update: its schema is defined, no
+  // build produces it yet.
+  if (fragment.managedPayload !== undefined)
+    assertManagedPayload(fragment.managedPayload, version, platform);
+  if (
+    fragment.selfUpdatable !== undefined &&
+    typeof fragment.selfUpdatable !== 'boolean'
   )
     throw new Error(`Invalid ${platform} platform fragment for ${version}`);
   assertRecord(fragment.installer, 'installer');
@@ -191,11 +394,33 @@ function assertSafeHttps(value, description) {
   return value;
 }
 
-export function validatePlatformManifest(manifest, platform) {
+// An Android Platform Release Manifest: the shared top-level shape without
+// the Tauri `platforms` key; `downloads[platform]` holds the release facts.
+function validateAndroidPlatformManifest(manifest, platform) {
   if (
     !manifest ||
     typeof manifest !== 'object' ||
-    !/^[a-f0-9]{40,64}$/.test(manifest.gitCommit ?? '') ||
+    !GIT_COMMIT.test(manifest.gitCommit ?? '') ||
+    typeof manifest.notes !== 'string' ||
+    typeof manifest.pub_date !== 'string' ||
+    manifest.platforms !== undefined ||
+    !isDeepStrictEqual(Object.keys(manifest.downloads ?? {}), [platform])
+  )
+    throw new Error(`Invalid ${platform} platform manifest`);
+  assertProductVersion(manifest.version);
+  const { mainlandUrl, ...release } = manifest.downloads[platform];
+  validateAndroidRelease(release, manifest.version, platform);
+  if (mainlandUrl !== undefined) assertMirrorUrl(mainlandUrl);
+  return manifest;
+}
+
+export function validatePlatformManifest(manifest, platform) {
+  if (releasePlatformByKey(platform).kind === 'android')
+    return validateAndroidPlatformManifest(manifest, platform);
+  if (
+    !manifest ||
+    typeof manifest !== 'object' ||
+    !GIT_COMMIT.test(manifest.gitCommit ?? '') ||
     typeof manifest.notes !== 'string' ||
     typeof manifest.pub_date !== 'string' ||
     !isDeepStrictEqual(Object.keys(manifest.platforms ?? {}), [platform]) ||
@@ -239,6 +464,14 @@ export function buildPlatformManifest({
       );
   }
   const reuse = existing?.version === version;
+  if (releasePlatformByKey(platform).kind === 'android')
+    return buildAndroidPlatformManifest({
+      version,
+      fragment,
+      mirror,
+      existing: reuse ? existing : null,
+      now
+    });
   // Once published, the manifest's own mirror address is authoritative; a
   // record can only confirm it, never replace it.
   const publishedMirror = reuse
@@ -281,10 +514,49 @@ export function buildPlatformManifest({
   return manifest;
 }
 
-// The Release Manifest: the newest release every declared platform promoted
-// at the same version and commit. Clients that predate the per-platform
-// endpoint, and installers whose platform manifest fails to load, read only
-// this file, so it never runs ahead of any platform (ADR 0003).
+// Android has no Mainland Mirror yet (ADR 0007): promotion records none, and
+// an address already published for this version would be kept. `existing` is
+// the published manifest of this same version, or null.
+function buildAndroidPlatformManifest({
+  version,
+  fragment,
+  mirror,
+  existing,
+  now
+}) {
+  const platform = fragment.platform;
+  if (mirror) throw new Error(`${platform} does not record a mainland mirror`);
+  const release = Object.fromEntries(
+    ANDROID_RELEASE_FIELDS.map((field) => [field, fragment[field]])
+  );
+  const publishedMirror = existing?.downloads[platform].mainlandUrl;
+  const manifest = {
+    version,
+    gitCommit: fragment.gitCommit,
+    notes: existing ? existing.notes : `Release ${version}`,
+    pub_date: existing ? existing.pub_date : now.toISOString(),
+    downloads: {
+      [platform]:
+        publishedMirror === undefined
+          ? release
+          : { ...release, mainlandUrl: publishedMirror }
+    }
+  };
+  if (existing) {
+    for (const field of ['gitCommit', 'downloads']) {
+      if (!isDeepStrictEqual(existing[field], manifest[field]))
+        throw new Error(
+          `Published ${version} ${platform} ${field} differs; publish a new product version`
+        );
+    }
+  }
+  return manifest;
+}
+
+// The Release Manifest: the newest release every Lockstep Platform promoted
+// at the same version and commit. Installers whose platform manifest fails to
+// load read only this file, so it never runs ahead of any Lockstep Platform
+// (ADR 0003). Android is not one (ADR 0007).
 export function mergeReleaseManifest({ platformManifests, existingLatest }) {
   const byPlatform = new Map(
     (platformManifests ?? []).map((manifest) => [
@@ -292,11 +564,11 @@ export function mergeReleaseManifest({ platformManifests, existingLatest }) {
       manifest
     ])
   );
-  const ordered = RELEASE_PLATFORM_KEYS.map((key) => {
+  const ordered = LOCKSTEP_PLATFORM_KEYS.map((key) => {
     const manifest = byPlatform.get(key);
     if (!manifest)
       throw new Error(
-        `Release requires every declared platform; missing ${key}`
+        `Release requires every lockstep platform; missing ${key}`
       );
     return validatePlatformManifest(manifest, key);
   });
@@ -342,7 +614,8 @@ export function mergeReleaseManifest({ platformManifests, existingLatest }) {
   return latest;
 }
 
-// Lockstep convenience: every platform's fragment at one version and commit.
+// Lockstep convenience: every Lockstep Platform's fragment at one version and
+// commit.
 export function buildLatestManifest({
   version,
   fragments,
@@ -353,9 +626,9 @@ export function buildLatestManifest({
   assertProductVersion(version);
   if (
     !Array.isArray(fragments) ||
-    fragments.length !== RELEASE_PLATFORMS.length
+    fragments.length !== LOCKSTEP_PLATFORM_KEYS.length
   )
-    throw new Error(`Release ${version} requires every declared platform`);
+    throw new Error(`Release ${version} requires every lockstep platform`);
   const platformManifests = fragments.map((fragment) =>
     buildPlatformManifest({
       version,

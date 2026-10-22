@@ -38,6 +38,7 @@ static async Task TestSharedPlatformReleaseManifests()
         {
             (ReleaseManifestEndpoints.WindowsPlatformKey, "3.1.2"),
             (ReleaseManifestEndpoints.MacPlatformKey, "3.1.1"),
+            (ReleaseManifestEndpoints.AndroidPlatformKey, "3.1.2"),
         }
     )
     {
@@ -77,6 +78,13 @@ static void TestEndpointFollowsThePlatform()
         "https://cdn.bazaarplusplus.com/installer/latest/darwin-aarch64.json",
         ReleaseManifestEndpoints.ForPlatformKey(ReleaseManifestEndpoints.MacPlatformKey).ToString(),
         "macOS should read its own Platform Release Manifest."
+    );
+    Equal(
+        "https://cdn.bazaarplusplus.com/installer/latest/android-aarch64.json",
+        ReleaseManifestEndpoints
+            .ForPlatformKey(ReleaseManifestEndpoints.AndroidPlatformKey)
+            .ToString(),
+        "Android should read its own Platform Release Manifest."
     );
     Equal(
         "https://cdn.bazaarplusplus.com/installer/latest.json",

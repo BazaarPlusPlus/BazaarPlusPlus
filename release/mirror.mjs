@@ -9,7 +9,7 @@ import {
 } from './manifest.mjs';
 import { assertProductVersion } from './product.mjs';
 import {
-  RELEASE_PLATFORM_KEYS,
+  LOCKSTEP_PLATFORM_KEYS,
   releasePlatform
 } from './release-platforms.mjs';
 
@@ -160,8 +160,14 @@ async function fetchJson(url, fetchImpl, description, { missing } = {}) {
   }
 }
 
+// Only Lockstep Platforms record a mainland mirror; Android has none yet
+// (ADR 0007).
 function platformKeysFor(platform) {
-  return platform ? [releasePlatform(platform).key] : RELEASE_PLATFORM_KEYS;
+  if (!platform) return LOCKSTEP_PLATFORM_KEYS;
+  const { key } = releasePlatform(platform);
+  if (!LOCKSTEP_PLATFORM_KEYS.includes(key))
+    throw new Error(`${platform} has no mainland mirror`);
+  return [key];
 }
 
 // Read-only check against the public release origin; needs no credentials.

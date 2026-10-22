@@ -7,14 +7,28 @@ import {
   RELEASE_BASE_URL
 } from './product.mjs';
 import {
-  RELEASE_PLATFORMS,
-  RELEASE_PLATFORM_KEYS
+  LOCKSTEP_PLATFORM_KEYS,
+  RELEASE_PLATFORMS
 } from './release-platforms.mjs';
-import { DOWNLOAD_PLATFORM_KEYS, platformManifestPath } from './downloads.ts';
+import {
+  DOWNLOAD_PLATFORM_KEYS,
+  decodeAndroidDownload,
+  platformManifestPath
+} from './downloads.ts';
 import { validatePlatformManifest } from './manifest.mjs';
 
 const fixture = JSON.parse(
   fs.readFileSync(new URL('./fixtures/latest.json', import.meta.url), 'utf8')
+);
+const LOCKSTEP_PLATFORMS = RELEASE_PLATFORMS.filter(({ key }) =>
+  LOCKSTEP_PLATFORM_KEYS.includes(key)
+);
+const ANDROID = DOWNLOAD_PLATFORM_KEYS.android;
+const androidFixture = JSON.parse(
+  fs.readFileSync(
+    new URL(`./fixtures/${platformManifestPath(ANDROID)}`, import.meta.url),
+    'utf8'
+  )
 );
 
 test('shared fixture supplies the static Tauri updater release metadata', () => {
@@ -26,11 +40,11 @@ test('shared fixture supplies the static Tauri updater release metadata', () => 
   );
   expect(new Date(fixture.pub_date).toISOString()).toBe(fixture.pub_date);
   expect(Object.keys(fixture.platforms).sort()).toEqual(
-    [...RELEASE_PLATFORM_KEYS].sort()
+    [...LOCKSTEP_PLATFORM_KEYS].sort()
   );
 });
 
-test.each(RELEASE_PLATFORMS)(
+test.each(LOCKSTEP_PLATFORMS)(
   'shared platform fixture for $key is a one-platform Tauri manifest with its own version',
   ({ key }) => {
     const platformFixture = JSON.parse(
@@ -54,7 +68,7 @@ test.each(RELEASE_PLATFORMS)(
 
 test('the shared platform fixtures let one platform run ahead of the lockstep fixture', () => {
   const versions = Object.fromEntries(
-    RELEASE_PLATFORM_KEYS.map((key) => [
+    LOCKSTEP_PLATFORM_KEYS.map((key) => [
       key,
       JSON.parse(
         fs.readFileSync(
@@ -70,7 +84,7 @@ test('the shared platform fixtures let one platform run ahead of the lockstep fi
   );
 });
 
-test.each(RELEASE_PLATFORMS)(
+test.each(LOCKSTEP_PLATFORMS)(
   'shared fixture publishes the installer and its mainland mirror for $key',
   ({ key }) => {
     const download = fixture.downloads[key];
@@ -79,7 +93,7 @@ test.each(RELEASE_PLATFORMS)(
   }
 );
 
-test.each(RELEASE_PLATFORMS)(
+test.each(LOCKSTEP_PLATFORMS)(
   'shared fixture supplies the updater URL and signature for $key',
   ({ key }) => {
     const platform = fixture.platforms[key];
@@ -107,4 +121,29 @@ test('the mod restates the release origin, platform keys and manifest path exact
   expect(source).toContain(`"${DOWNLOAD_PLATFORM_KEYS.mac}"`);
   expect(source).toContain(platformManifestPath('{platformKey}'));
   expect(source).toContain('latest.json');
+});
+
+test('the shared Android fixture is a Platform Release Manifest outside latest.json', () => {
+  expect(validatePlatformManifest(androidFixture, ANDROID)).toBe(
+    androidFixture
+  );
+  expect(androidFixture.platforms).toBeUndefined();
+  expect(Object.keys(fixture.downloads)).not.toContain(ANDROID);
+  expect(new Date(androidFixture.pub_date).toISOString()).toBe(
+    androidFixture.pub_date
+  );
+  const download = decodeAndroidDownload(androidFixture);
+  expect(download).toEqual({
+    version: androidFixture.version,
+    apk: androidFixture.downloads[ANDROID].apk,
+    managedPayload: androidFixture.downloads[ANDROID].managedPayload,
+    game: androidFixture.downloads[ANDROID].game,
+    mainlandUrl: null
+  });
+  // The APK is named by game, loader and interop, not by the product version.
+  expect(download.apk.url.startsWith(`${RELEASE_BASE_URL}/`)).toBe(true);
+  expect(download.apk.url.slice(RELEASE_BASE_URL.length)).toMatch(
+    /^\/android\/apk\/BazaarPlusPlus_\d+\.\d+\.\d+_lemon-[^/]+_[a-f0-9]{8}\.apk$/
+  );
+  expect(download.apk.url).not.toContain(androidFixture.version);
 });

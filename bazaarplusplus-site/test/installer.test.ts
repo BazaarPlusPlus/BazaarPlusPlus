@@ -1,12 +1,18 @@
 import { afterEach, describe, expect, test, vi } from 'vitest';
+import androidFixture from '../../release/fixtures/latest/android-aarch64.json';
 import macFixture from '../../release/fixtures/latest/darwin-aarch64.json';
 import windowsFixture from '../../release/fixtures/latest/windows-x86_64.json';
 
 import { LEGACY_RELEASE_BASE_URL, RELEASE_BASE_URL } from '../../release/downloads';
-import { GITHUB_RELEASE_URL, loadLatestInstaller } from '../src/features/download/installer';
+import {
+  GITHUB_RELEASE_URL,
+  loadAndroidRelease,
+  loadLatestInstaller,
+} from '../src/features/download/installer';
 
 const WINDOWS_PATH = 'latest/windows-x86_64.json';
 const MAC_PATH = 'latest/darwin-aarch64.json';
+const ANDROID_PATH = 'latest/android-aarch64.json';
 
 type Manifests = Record<string, unknown>;
 
@@ -177,5 +183,63 @@ describe('latest installer interface', () => {
         signal: controller.signal,
       });
     }
+  });
+});
+
+describe('Android release interface', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  test('reads the APK, the game it carries and the Managed Payload from its own manifest', async () => {
+    const fetchStub = stubManifests({
+      [ANDROID_PATH]: structuredClone(androidFixture),
+    });
+    const controller = new AbortController();
+    const release = await loadAndroidRelease(controller.signal);
+    const record = androidFixture.downloads['android-aarch64'];
+    expect(release).toEqual({
+      version: androidFixture.version,
+      apk: record.apk,
+      managedPayload: record.managedPayload,
+      game: record.game,
+      mainlandUrl: null,
+    });
+    expect(fetchStub).toHaveBeenCalledTimes(1);
+    expect(fetchStub).toHaveBeenCalledWith(`${RELEASE_BASE_URL}/${ANDROID_PATH}`, {
+      headers: { Accept: 'application/json' },
+      signal: controller.signal,
+    });
+  });
+
+  test('the desktop installer load never requests the Android manifest', async () => {
+    const fetchStub = stubManifests({
+      [ANDROID_PATH]: structuredClone(androidFixture),
+    });
+    await expect(loadLatestInstaller(new AbortController().signal)).rejects.toThrow(/404/);
+    expect(fetchStub).not.toHaveBeenCalledWith(
+      `${RELEASE_BASE_URL}/${ANDROID_PATH}`,
+      expect.anything()
+    );
+  });
+
+  test.each([
+    ['a missing manifest', {}],
+    ['a desktop manifest', { [ANDROID_PATH]: structuredClone(macFixture) }],
+    [
+      'an APK outside the release origin',
+      {
+        [ANDROID_PATH]: (() => {
+          const manifest = structuredClone(androidFixture);
+          manifest.downloads['android-aarch64'].apk.url = 'https://untrusted.example/a.apk';
+          return manifest;
+        })(),
+      },
+    ],
+  ])('%s fails the Android release', async (_, manifests) => {
+    stubManifests(manifests);
+    await expect(loadAndroidRelease(new AbortController().signal)).rejects.toThrow(
+      /latest\/android-aarch64\.json/
+    );
   });
 });
