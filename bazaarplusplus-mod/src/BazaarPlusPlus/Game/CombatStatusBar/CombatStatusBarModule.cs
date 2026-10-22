@@ -7,7 +7,9 @@ namespace BazaarPlusPlus.Game.CombatStatusBar;
 internal sealed class CombatStatusBarModule : IBppFeature
 {
     private readonly IBppEventBus _eventBus;
-    private string _lastMessageId = string.Empty;
+
+    // Null, not empty: the snapshot maps a null message id to "", which must still count as new.
+    private string? _lastMessageId;
     private IDisposable? _combatSimSubscription;
     private IDisposable? _combatFrameSubscription;
 
