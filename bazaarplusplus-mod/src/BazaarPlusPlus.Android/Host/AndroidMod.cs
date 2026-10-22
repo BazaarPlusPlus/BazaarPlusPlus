@@ -33,7 +33,8 @@ public sealed class AndroidMod : MelonMod
     {
         BppLog.Install(new MelonLogSink(LoggerInstance));
         var version = Info.Version;
-        var mode = ReadPatchMode();
+        var settings = OpenSettings();
+        var mode = ReadPatchMode(settings);
         BppLog.InfoEvent(
             new BppLogEvent(BppLogFeatureScope.Android, "android.plugin.loaded"),
             ("version", version),
@@ -43,13 +44,14 @@ public sealed class AndroidMod : MelonMod
         );
         LogPathProbe();
         var serverOption = LogBuildChannelProbe();
-        _composition = StartRecordChain(serverOption);
+        _composition = StartRecordChain(serverOption, settings);
         AndroidPatchHost.Install(HarmonyInstance, mode, version, _composition);
         _nextSummaryAt = Environment.TickCount64 + SummaryIntervalMs;
     }
 
     public override void OnUpdate()
     {
+        _composition?.Tick(Time.unscaledTime);
         if (Environment.TickCount64 < _nextSummaryAt)
             return;
         _nextSummaryAt = Environment.TickCount64 + SummaryIntervalMs;
@@ -70,12 +72,18 @@ public sealed class AndroidMod : MelonMod
         composition?.Stop();
     }
 
-    // The record chain writes the Data Root's history database. A failure here leaves the hooks
-    // counting with no chain behind them; it never stops the melon.
-    private static AndroidComposition? StartRecordChain(bool? hasServerOption)
+    // The record chain writes the Data Root's history database, then seals and uploads its runs.
+    // A failure here, an unreadable settings file included, leaves the hooks counting with no
+    // chain behind them; it never stops the melon.
+    private static AndroidComposition? StartRecordChain(
+        bool? hasServerOption,
+        IniSettingsStore? settings
+    )
     {
         try
         {
+            if (settings == null)
+                throw new InvalidOperationException("The settings file could not be read.");
             // The Payload's version file is Mods/BazaarPlusPlus.version, named after the product.
             var location = Assembly.GetExecutingAssembly().Location;
             if (!string.IsNullOrEmpty(location))
@@ -87,8 +95,8 @@ public sealed class AndroidMod : MelonMod
                 hasServerOption
             );
             var dataRoot = AndroidPaths.DataRoot(MelonEnvironment.MelonBaseDirectory);
-            var composition = new AndroidComposition(dataRoot, gameBuild);
-            composition.Start();
+            var composition = new AndroidComposition(dataRoot, gameBuild, settings);
+            composition.Start(Time.unscaledTime);
             BppLog.InfoEvent(
                 new BppLogEvent(BppLogFeatureScope.Android, "android.record_chain.started"),
                 ("data_root", dataRoot),
@@ -116,21 +124,12 @@ public sealed class AndroidMod : MelonMod
             ("name", sceneName)
         );
 
-    private static AndroidPatchMode ReadPatchMode()
+    private static IniSettingsStore? OpenSettings()
     {
         var path = Path.Combine(MelonEnvironment.UserDataDirectory, SettingsFileName);
         try
         {
-            return IniSettingsStore
-                .Open(path)
-                .Bind(
-                    "Android",
-                    "PatchMode",
-                    AndroidPatchMode.Enabled,
-                    "Enabled installs every hook; Observe installs them but changes nothing; "
-                        + "Disabled installs none. Read at startup."
-                )
-                .Value;
+            return IniSettingsStore.Open(path);
         }
         catch (Exception exception)
         {
@@ -138,6 +137,30 @@ public sealed class AndroidMod : MelonMod
                 new BppLogEvent(BppLogFeatureScope.Android, "android.settings.load_failed"),
                 exception,
                 ("path", path)
+            );
+            return null;
+        }
+    }
+
+    private static AndroidPatchMode ReadPatchMode(IniSettingsStore? settings)
+    {
+        try
+        {
+            return settings
+                    ?.Bind(
+                        "Android",
+                        "PatchMode",
+                        AndroidPatchMode.Enabled,
+                        "Enabled installs every hook; Observe installs them but changes nothing; "
+                            + "Disabled installs none. Read at startup."
+                    )
+                    .Value ?? AndroidPatchMode.Enabled;
+        }
+        catch (Exception exception)
+        {
+            BppLog.ErrorEvent(
+                new BppLogEvent(BppLogFeatureScope.Android, "android.settings.load_failed"),
+                exception
             );
             return AndroidPatchMode.Enabled;
         }
