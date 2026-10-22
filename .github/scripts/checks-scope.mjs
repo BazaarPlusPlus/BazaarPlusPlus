@@ -118,6 +118,9 @@ export const SHARED_INPUTS = [
     'bazaarplusplus-installer/src-tauri/history-database-compatibility.json',
     ['mod', 'release']
   ],
+  // Release signing public key (AGENTS.md): Updater.Tests pins
+  // ReleaseSigningKey.PublicKeyLine to plugins.updater.pubkey.
+  ['bazaarplusplus-installer/src-tauri/tauri.conf.json', ['mod']],
   ...[
     'package.json',
     'package-lock.json',
