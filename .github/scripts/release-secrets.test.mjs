@@ -11,6 +11,7 @@ const workflow = path.join(scriptsDir, '..', 'workflows', 'release.yml');
 const table = path.join(scriptsDir, '..', '..', 'release', 'github-secrets.mjs');
 
 // Distinct values so a leak is attributable to one name.
+const keystoreBytes = Buffer.from([0x30, 0x82, 0x0a, 0x00, 0xff, 0x10, 0x42]);
 const values = {
   CLOUDFLARE_ACCOUNT_ID: 'value-account-id',
   CLOUDFLARE_API_TOKEN: 'value-operator-token',
@@ -20,7 +21,10 @@ const values = {
   APPLE_API_KEY: 'KEYID1234',
   APPLE_API_KEY_P8: '-----BEGIN PRIVATE KEY-----\nvalue-p8\n',
   APPLE_CERTIFICATE: 'value-certificate',
-  APPLE_CERTIFICATE_PASSWORD: 'value-certificate-password'
+  APPLE_CERTIFICATE_PASSWORD: 'value-certificate-password',
+  ANDROID_KEYSTORE: keystoreBytes.toString('base64'),
+  ANDROID_KEYSTORE_PASSWORD: 'value-android-keystore-password',
+  ANDROID_KEY_ALIAS: 'value-android-alias'
 };
 
 function run(args, secrets = values) {
@@ -60,7 +64,7 @@ test('release.yml reads exactly the names the table lists, each at its scope', (
 });
 
 test('check passes when every name of the stage is present', () => {
-  for (const platform of ['macos', 'windows']) {
+  for (const platform of ['macos', 'windows', 'android']) {
     for (const stage of ['prepare', 'release']) {
       const result = run(['check', platform, stage]);
       assert.equal(result.status, 0, result.stdout + result.stderr);
@@ -91,16 +95,17 @@ test('a dry run needs only the operator token and the account id', () => {
     CLOUDFLARE_ACCOUNT_ID: values.CLOUDFLARE_ACCOUNT_ID,
     CLOUDFLARE_API_TOKEN: values.CLOUDFLARE_API_TOKEN
   };
-  for (const platform of ['macos', 'windows']) {
+  for (const platform of ['macos', 'windows', 'android']) {
     assert.equal(run(['check', platform, 'prepare'], secrets).status, 0);
     assert.equal(run(['check', platform, 'release'], secrets).status, 1);
   }
 });
 
-test('windows needs no Apple material', () => {
+test('windows needs no Apple material and no Android keystore', () => {
   const secrets = { ...values };
   for (const name of Object.keys(values))
-    if (name.startsWith('APPLE_')) secrets[name] = '';
+    if (name.startsWith('APPLE_') || name.startsWith('ANDROID_'))
+      secrets[name] = '';
   assert.equal(run(['check', 'windows', 'release'], secrets).status, 0);
   const macos = run(['check', 'macos', 'release'], secrets);
   assert.equal(macos.status, 1);
@@ -148,6 +153,54 @@ test('stage writes the files bundle.sh reads from BPP_SIGNING_SECRETS_DIR; the u
   result = run(['stage', 'windows', windows]);
   assert.equal(result.status, 0, result.stdout + result.stderr);
   assert.deepEqual(fs.readdirSync(windows), ['tauri-updater.key']);
+});
+
+test('android needs the updater key and the release keystore, never Apple material', () => {
+  const secrets = { ...values };
+  for (const name of Object.keys(values))
+    if (name.startsWith('APPLE_')) secrets[name] = '';
+  assert.equal(run(['check', 'android', 'release'], secrets).status, 0);
+  const missing = run(['check', 'android', 'release'], {
+    ...secrets,
+    ANDROID_KEYSTORE: '',
+    TAURI_SIGNING_PRIVATE_KEY: ''
+  });
+  assert.equal(missing.status, 1);
+  assert.match(
+    missing.stdout,
+    /::error title=Missing secret::ANDROID_KEYSTORE is not set for this run; its value is: base64 of keys\/android-release\.p12/
+  );
+  assert.match(missing.stderr, /2 required secret\(s\) missing/);
+});
+
+test('stage writes the Android keystore decoded, its password and alias beside the updater key', (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'bpp-release-secrets-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const android = path.join(root, 'android');
+  const result = run(['stage', 'android', android]);
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  assertNoValueLeak(result);
+  assert.deepEqual(fs.readdirSync(android).sort(), [
+    'android-key-alias',
+    'android-keystore-password',
+    'android-release.p12',
+    'tauri-updater.key'
+  ]);
+  assert.deepEqual(
+    fs.readFileSync(path.join(android, 'android-release.p12')),
+    keystoreBytes
+  );
+  assert.equal(
+    fs.readFileSync(path.join(android, 'android-keystore-password'), 'utf8'),
+    values.ANDROID_KEYSTORE_PASSWORD
+  );
+  assert.equal(
+    fs.readFileSync(path.join(android, 'android-key-alias'), 'utf8'),
+    values.ANDROID_KEY_ALIAS
+  );
+  if (process.platform !== 'win32')
+    for (const file of fs.readdirSync(android))
+      assert.equal(fs.statSync(path.join(android, file)).mode & 0o777, 0o600);
 });
 
 test('stage refuses to write a partial directory', (t) => {

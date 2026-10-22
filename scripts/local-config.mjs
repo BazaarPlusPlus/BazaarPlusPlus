@@ -58,21 +58,31 @@ export const sections = {
       'APPLE_API_ISSUER',
       'APPLE_API_KEY',
       'APPLE_API_KEY_PATH',
-      'APPLE_CERTIFICATE_PASSWORD'
+      'APPLE_CERTIFICATE_PASSWORD',
+      'ANDROID_KEYSTORE_PASSWORD',
+      'ANDROID_KEY_ALIAS'
     ],
-    // bundle.sh reads each key from this file in BPP_SIGNING_SECRETS_DIR.
+    // bundle.sh, and release/android-release.mjs for the android-* files,
+    // read each key from this file in BPP_SIGNING_SECRETS_DIR.
     // APPLE_CERTIFICATE_PASSWORD is not staged: local builds sign from the
     // Keychain; it only reaches GitHub with keys/developer-id.p12.
     stage: {
       'apple-signing-identity': 'APPLE_SIGNING_IDENTITY',
       'apple-api-issuer': 'APPLE_API_ISSUER',
       'apple-api-key': 'APPLE_API_KEY',
-      'apple-api-key-path': 'APPLE_API_KEY_PATH'
+      'apple-api-key-path': 'APPLE_API_KEY_PATH',
+      'android-keystore-password': 'ANDROID_KEYSTORE_PASSWORD',
+      'android-key-alias': 'ANDROID_KEY_ALIAS'
     },
-    optional: ['APPLE_API_KEY_PATH'],
+    optional: [
+      'APPLE_API_KEY_PATH',
+      'ANDROID_KEYSTORE_PASSWORD',
+      'ANDROID_KEY_ALIAS'
+    ],
     notes: [
-      '# Key files live in keys/: tauri-updater.key, AuthKey_<APPLE_API_KEY>.p8 and',
-      '# developer-id.p12 (the Developer ID certificate export APPLE_CERTIFICATE_PASSWORD opens).',
+      '# Key files live in keys/: tauri-updater.key, AuthKey_<APPLE_API_KEY>.p8,',
+      '# developer-id.p12 (the Developer ID certificate export APPLE_CERTIFICATE_PASSWORD opens)',
+      '# and android-release.p12 (the Android release keystore ANDROID_KEYSTORE_PASSWORD opens).',
       '# APPLE_API_KEY_PATH is optional; a relative path resolves against this directory.'
     ]
   },
@@ -112,6 +122,7 @@ export function sectionKeys(spec) {
 const keyMaterial = (name) =>
   name === 'tauri-updater.key' ||
   name === 'tauri-updater.key.pub' ||
+  name === 'android-release.p12' ||
   /^AuthKey_[A-Za-z0-9]+\.p8$/.test(name);
 const legacyFiles = [
   'analyzer.env',

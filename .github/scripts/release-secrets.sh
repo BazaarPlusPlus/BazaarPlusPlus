@@ -9,10 +9,11 @@
 # Values are never printed; release-secrets.test.mjs beside this file is the
 # executable specification.
 #
-#   release-secrets.sh check <macos|windows> <prepare|release>
+#   release-secrets.sh check <macos|windows|android> <prepare|release>
 #       Exit 1 with one ::error per missing name, naming its local source.
-#   release-secrets.sh stage <macos|windows> <directory>
-#       Write the files bundle.sh reads from BPP_SIGNING_SECRETS_DIR.
+#   release-secrets.sh stage <macos|windows|android> <directory>
+#       Write the files bundle.sh (desktop) or release/android-release.mjs
+#       (android) reads from BPP_SIGNING_SECRETS_DIR.
 #   release-secrets.sh names
 #       List every name release.yml reads (for the test).
 set -euo pipefail
@@ -26,9 +27,9 @@ table() {
 
 assert_platform() {
     case "$1" in
-        macos | windows) ;;
+        macos | windows | android) ;;
         *)
-            echo "release-secrets.sh: platform must be macos or windows, got '$1'" >&2
+            echo "release-secrets.sh: platform must be macos, windows or android, got '$1'" >&2
             exit 2
             ;;
     esac
@@ -74,13 +75,18 @@ write_secret_file() {
 
 # The names stage writes as files, in the layout load_updater_signing_env and
 # load_macos_developer_id_env in bundle.sh read; APPLE_API_KEY_PATH is inferred
-# from AuthKey_<APPLE_API_KEY>.p8. TAURI_SIGNING_PRIVATE_KEY_PASSWORD is not in
-# the table (the updater key has no password) but is still staged when set.
+# from AuthKey_<APPLE_API_KEY>.p8. Android signs the Managed Payload zip with
+# the same updater key and the APK with the Android release keystore, in the
+# layout androidSigningKey in release/android-release.mjs reads.
+# TAURI_SIGNING_PRIVATE_KEY_PASSWORD is not in the table (the updater key has
+# no password) but is still staged when set.
 staged_names() {
     local platform="$1"
     local names="TAURI_SIGNING_PRIVATE_KEY"
     if [[ "$platform" == macos ]]; then
         names+=" APPLE_SIGNING_IDENTITY APPLE_API_ISSUER APPLE_API_KEY APPLE_API_KEY_P8"
+    elif [[ "$platform" == android ]]; then
+        names+=" ANDROID_KEYSTORE ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS"
     fi
     echo "$names"
 }
@@ -113,11 +119,24 @@ cmd_stage() {
         write_secret_file "$directory" apple-api-key APPLE_API_KEY
         write_secret_file "$directory" "AuthKey_${APPLE_API_KEY}.p8" APPLE_API_KEY_P8
     fi
+    if [[ "$platform" == android ]]; then
+        # The keystore travels as base64 (a GitHub secret is text).
+        (
+            umask 077
+            printf '%s' "$ANDROID_KEYSTORE" | base64 --decode >"$directory/android-release.p12"
+        ) || {
+            rm -rf "$directory"
+            echo "::error title=Invalid secret::ANDROID_KEYSTORE is not base64; its value is: $(table source ANDROID_KEYSTORE)"
+            exit 1
+        }
+        write_secret_file "$directory" android-keystore-password ANDROID_KEYSTORE_PASSWORD
+        write_secret_file "$directory" android-key-alias ANDROID_KEY_ALIAS
+    fi
     echo "Staged $platform signing secrets into $directory"
 }
 
 usage() {
-    echo "Usage: release-secrets.sh check <macos|windows> <prepare|release> | stage <macos|windows> <directory> | names" >&2
+    echo "Usage: release-secrets.sh check <macos|windows|android> <prepare|release> | stage <macos|windows|android> <directory> | names" >&2
     exit 2
 }
 

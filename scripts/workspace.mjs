@@ -73,7 +73,7 @@ Configuration: BPP_CONFIG_HOME or ~/.config/bazaarplusplus (outside checkouts).
   config.ini     every value, one section per purpose:
 ${sectionHelp()}
   keys/          tauri-updater.key, tauri-updater.key.pub, AuthKey_<APPLE_API_KEY>.p8,
-                 developer-id.p12
+                 developer-id.p12, android-release.p12
 A relative APPLE_API_KEY_PATH resolves against the configuration directory.
 Any other file in the directory is yours; tooling neither reads nor writes it.
 
