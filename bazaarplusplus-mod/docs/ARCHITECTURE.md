@@ -10,7 +10,7 @@ Terms used here are defined in [../CONTEXT.md](../CONTEXT.md). Why a boundary is
 
 Composition is manual; there is no DI container. `CoreComposition` owns the host-independent half: event bus, settings, run context, `IBppServices`, and feature start/stop through `BppFeatureRegistry` (`src/BazaarPlusPlus.Core/Runtime/CoreComposition.cs`). `DesktopComposition` binds the BepInEx path provider, Mono probes, and resolved `IGameBuildInfo` into it, then wires feature modules, Unity components through `BppMountableRegistry`, and in-game settings rows through `SettingsDockEntryRegistry` (`src/BazaarPlusPlus/DesktopComposition.cs`). Simple components mount through `ComponentMount<T>`; a bespoke mount exists only where a feature owns additional dependencies or object lifecycles, and `CombatReplayRuntime` is the bootstrap exception because other modules need it before mountables run.
 
-Three ordering facts in this file are load-bearing, because each one fails silently when reordered:
+Three ordering facts are load-bearing, because each one fails silently when reordered:
 
 - **Patches apply per class** via `CreateClassProcessor(type).Patch()`, never `PatchAll()`. One broken game target (a game update, a PTR branch) then degrades only its own feature instead of aborting the whole plugin.
 - **Teardown unmounts Unity components, disposes the composition (stopping pure features in reverse registration order), and only then destroys `CombatReplayRuntime`.** That lets Run Logging settle a deferred completion while replay persistence state is still readable.
@@ -87,7 +87,7 @@ Operational logging is written at the call site: `BppLog.*Event(new BppLogEvent(
 
 ## Data And File Locations
 
-Runtime data that BazaarPlusPlus owns is rooted at `<GameRoot>/BazaarPlusPlusV6/`. `BepInExPathProvider` exposes that single root, and storage and feature modules derive the SQLite database, bundle outbox, replay, ghost payload, screenshot, video, voice, LiveBuild, supporter, Encounter Preview, and self-update `Updates/` paths from it. No runtime cache uses the process temporary directory.
+Runtime data that BazaarPlusPlus owns is rooted at `<GameRoot>/BazaarPlusPlusV6/`. `BepInExPathProvider` exposes that single root, and storage and feature modules derive their paths from it. No runtime cache uses the process temporary directory.
 
 The V6 database starts a new schema at `user_version` 1 with no migration path: `EnsureInitialized` creates an empty database or opens one already at 1 and refuses any other version, including a V5 database. Every instant is a Unix-millisecond `*_at_ms` integer; `RunPayloadComposer` copies them unchanged into the V6 Run segment. Beyond run facts, events, battles, snapshots, screenshots, and replay-video metadata it holds `bundle_seal_jobs` and a non-FK `bundle_outbox`; ghost rows carry remote bundle identity, presigned URL and expiry, and replay state. V4 sync cursors, dirty/checkpoint upload state, and independent screenshot upload state do not exist (`src/BazaarPlusPlus.Storage/RunLog/RunLogSchema.cs`).
 
