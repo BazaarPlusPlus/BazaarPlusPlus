@@ -89,11 +89,13 @@ master push 用同一套分类规则，因此 Installer 原生或其共享输入
 
 `.github/workflows/mod-android-smoke.yml` 在自托管的 Apple Silicon runner `macmini-bazaarplusplus` 上启动一台预先准备好的 AVD，跑 `just mod::android-smoke <mode>`，每晚一次（schedule 只在默认分支触发），也可以手动触发；分支上的改动用 `gh workflow run mod-android-smoke.yml --ref <分支> -f mode=<mode>` 验证。托管 runner 跑不了：macOS arm64 托管 runner 没有嵌套虚拟化，x86 runner 跑不了只有 arm64 的游戏。仓库是公开的，这个 lane 永远不接 `pull_request`。
 
-断言分三级，前一级不能代替后一级：注入成功（`android.plugin.loaded` 的 sha256 等于这次构建的宿主 DLL）、hook 命中（`VersionLabelPatch` 已安装，且最后一次 `android.hooks.summary` 的 `version_label_hits` 从启动时的 0 涨上来）、功能生效（版本标签写入了 `VERSION` 的版本）。证据目录 `bazaarplusplus-mod/artifacts/android/smoke-<mode>/`（logcat、截图、`Latest.log`、拉回的历史数据库与各表行数、`smoke.md` 逐级结论）作为 Actions artifact 上传；下载后用 `just mod::android-verify <目录>` 可以重算结论（路径按 `bazaarplusplus-mod/` 解析，最好传绝对路径）。主菜单不产生记录，数据库行数只作证据，不参与断言。`mode=disabled` 不安装任何 patch，必须在 hook 命中级失败，用来证明断言不是空过。
+断言分三级（注入成功、hook 命中、功能生效），定义在 `scripts/android.sh` 的 `cmd_verify`。三级分开，是因为前一级通过不说明后一级：DLL 加载了，patch 未必装上，patch 命中了标签未必写对。证据目录作为 Actions artifact 上传；下载后用 `just mod::android-verify <目录>` 重算结论（路径按 `bazaarplusplus-mod/` 解析，最好传绝对路径），版本取自证据里的 `version.txt`，不受之后 `VERSION` 变动影响。版本标签在主菜单加载前就写入，所以三级不依赖主菜单；`android-smoke` 另外要求主菜单在超时内出现，登录过期卡在登录页的运行因此仍然失败。主菜单不产生记录，数据库行数只作证据。`mode=disabled` 不安装任何 patch，必须在 hook 命中级失败，用来证明断言不是空过；`observe` 只计数不写标签，必然在功能生效级失败，所以 workflow 不提供它。
 
-runner 用户下的前置，只能人工准备一次，缺任何一项时 workflow 在第一步失败并把缺项写进 artifact 的 `preflight.txt`：
+证据包含整机 logcat 和已登录测试账号的截图，仓库公开，artifact 任何登录 GitHub 的人都能下载。第一份真实 artifact 出来后，先检查里面有没有账号或 token，再让夜间运行继续。
 
-- Android SDK 在 `~/Library/Android/sdk`（或 `ANDROID_HOME`），含 platform-tools、emulator 和 arm64-v8a 系统镜像；本地验证用的是 `system-images;android-35;google_apis_playstore;arm64-v8a`。`just` 与 `sqlite3` 在 PATH 上。
+runner 用户下的前置，只能人工准备一次，缺任何一项时 workflow 在 checkout 之后的前置检查失败，并把缺项写进 artifact 的 `preflight.txt`：
+
+- Android SDK 在 `~/Library/Android/sdk`（或 `ANDROID_HOME`），含 platform-tools、emulator 和 arm64-v8a 系统镜像；本地验证用的是 `system-images;android-35;google_apis_playstore;arm64-v8a`。`sqlite3` 在 PATH 上；`just` 由 workflow 按 `checks.yml` 的同一版本安装。
 - 一台 AVD，名字是 workflow `env.AVD`。在里面装 BPP 签名的注入 APK（`release.yml` 的 `platform: android` 加 `build_only` 产出的 APK artifact），用测试账号登录一次，退到主菜单后保存 quickboot 快照。lane 以 `-no-snapshot-save` 启动，每次都从这份登录状态开始；登录过期或换 APK 后要重新登录并重存快照。
 - runner 以登录用户会话里的 LaunchAgent 运行：模拟器用 `-gpu host`，需要图形会话。
 - 一台机器同一时间只跑一个模拟器：workflow 的 concurrency 让本 lane 串行，启动前已有模拟器在线时 preflight 失败，不去抢设备。

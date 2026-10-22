@@ -150,13 +150,16 @@ cmd_capture() {
     mkdir -p "$out"
     device logcat -d -v threadtime >"$out/logcat.txt"
     device exec-out screencap -p >"$out/screen.png"
-    device pull "$DEVICE_LOG" "$out/Latest.log" >/dev/null
+    # Without a Latest.log, MelonLoader never loaded; the capture still holds logcat and the screen.
+    device pull "$DEVICE_LOG" "$out/Latest.log" >/dev/null || err "No $DEVICE_LOG on $DEVICE_SERIAL."
     ok "Captured $run into $out"
 }
 
 # smoke <enabled|observe|disabled>: the device smoke. It builds, deploys, sets the mode, relaunches,
 # waits for the main menu, captures into artifacts/android/smoke-<mode>/ with the built DLL's
-# sha256 and the history database, then verifies. A disabled run is expected to fail at "hook hit".
+# sha256, the VERSION it was built from, and the history database, then verifies. Every failure
+# after launch still captures, so verify always writes smoke.md. A disabled run is expected to
+# fail at "Hook hit", an observe run at "Feature" (it counts the label call without writing).
 cmd_smoke() {
     local mode="${1:-}"
     case "$mode" in
@@ -173,11 +176,17 @@ cmd_smoke() {
     # The old log would satisfy the main-menu wait before the new process has written a line.
     device shell rm -f "$DEVICE_LOG"
     cmd_launch
-    wait_for_main_menu
+    local menu=reached
+    wait_for_main_menu || menu=missed
     cmd_capture "$run"
     built_dll_sha256 >"$out/dll.sha256"
+    tr -d '[:space:]' <"$MOD_ROOT/../VERSION" >"$out/version.txt"
     pull_database "$out"
     cmd_verify "$out"
+    # The label is written before the menu loads, so the three levels can pass on a run stuck at
+    # sign-in; that run still fails here.
+    [[ "$menu" == reached ]] ||
+        die "The main menu was not reached in ${SMOKE_TIMEOUT_SECONDS}s; see $out/screen.png"
 }
 
 # The sha256 of the Android host DLL that deploy pushed to MelonLoader/Mods/.
@@ -189,8 +198,7 @@ built_dll_sha256() {
 }
 
 # Waits until the main menu has loaded and one hooks summary has followed it, so the counters cover
-# the menu. Scene loads log in every patch mode; on timeout the capture goes ahead and verify says
-# which level the run reached.
+# the menu. Scene loads log in every patch mode. Returns 1 on timeout.
 wait_for_main_menu() {
     local deadline=$(($(date +%s) + SMOKE_TIMEOUT_SECONDS)) log summaries menu_summaries=""
     while (($(date +%s) < deadline)); do
@@ -206,11 +214,16 @@ wait_for_main_menu() {
         sleep 5
     done
     err "No main menu and following hooks summary within ${SMOKE_TIMEOUT_SECONDS}s; capturing anyway."
+    return 1
 }
 
 # Pulls the history database the record chain logged it opened, and lists each table's row count.
 pull_database() {
     local out="$1" path table
+    if [[ ! -f "$out/Latest.log" ]]; then
+        echo "No Latest.log; no database path to pull." >"$out/database.txt"
+        return 0
+    fi
     path="$(sed -n 's/.*event=android.record_chain.started .*database_path=\([^ ]*\).*/\1/p' "$out/Latest.log" | head -n 1)"
     if [[ -z "$path" ]]; then
         echo "The record chain did not start; no database to pull." >"$out/database.txt"
@@ -236,13 +249,18 @@ pull_database() {
 
 # verify <dir>: assert the three levels on a smoke capture and write <dir>/smoke.md. Injection: the
 # loaded plugin's sha256 equals the built DLL's. Hook hit: VersionLabelPatch installed and its count,
-# zero at launch, risen in the last hooks summary. Feature: the version label written with this
-# VERSION. Database row counts are evidence only: the main menu records nothing.
+# above zero in the last hooks summary. Feature: the version label written with the captured
+# version.txt (the checkout's VERSION for a capture without one). Database row counts are evidence
+# only: the main menu records nothing.
 cmd_verify() {
     local dir="${1:-}"
     [[ -d "$dir" ]] || die "Usage: just mod::android-verify <capture dir>"
     local log="$dir/Latest.log" version built="" loaded sha installed first_hits last_hits label
-    version="$(tr -d '[:space:]' <"$MOD_ROOT/../VERSION")"
+    if [[ -f "$dir/version.txt" ]]; then
+        version="$(tr -d '[:space:]' <"$dir/version.txt")"
+    else
+        version="$(tr -d '[:space:]' <"$MOD_ROOT/../VERSION")"
+    fi
     [[ -f "$dir/dll.sha256" ]] && built="$(tr -d '[:space:]' <"$dir/dll.sha256")"
     [[ -f "$log" ]] || log=/dev/null
 

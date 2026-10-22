@@ -12,7 +12,7 @@ on:
       mode:
         description: Patch mode; disabled must fail at "Hook hit"
         type: choice
-        options: [enabled, observe, disabled]
+        options: [enabled, disabled]
         default: enabled
 
 permissions:
@@ -47,7 +47,6 @@ jobs:
           missing=()
           [[ -x "$sdk/platform-tools/adb" ]] || missing+=("adb at $sdk/platform-tools/adb")
           [[ -x "$sdk/emulator/emulator" ]] || missing+=("emulator at $sdk/emulator/emulator")
-          command -v just >/dev/null || missing+=("just on PATH")
           command -v sqlite3 >/dev/null || missing+=("sqlite3 on PATH")
           # grep without -q: an early exit would SIGPIPE the producer under pipefail.
           if ! [[ -x "$sdk/emulator/emulator" ]] || ! "$sdk/emulator/emulator" -list-avds | grep -x "$AVD" >/dev/null; then
@@ -63,7 +62,7 @@ jobs:
             for item in "${missing[@]}"; do echo "missing: $item"; done
           } | tee "$EVIDENCE/preflight.txt"
           if ((${#missing[@]} > 0)); then
-            echo "::error::Runner prerequisites missing: $(IFS=';'; echo "${missing[*]}"). See docs/development.md, section "Android 冒烟"."
+            echo "::error::Runner prerequisites missing: $(IFS=';'; echo "${missing[*]}"). See docs/development.md, section 'Android 冒烟'."
             exit 1
           fi
           echo "ANDROID_HOME=$sdk" >>"$GITHUB_ENV"
@@ -75,6 +74,9 @@ jobs:
       - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           global-json-file: bazaarplusplus-mod/global.json
+      - uses: taiki-e/install-action@a4d3f3f761dcd95cce1b72cb61cb6d1963438177 # v2.87.30
+        with:
+          tool: just@1.58.0
 
       - name: Fetch the Interop Snapshot and Loader Release
         env:
