@@ -9,6 +9,7 @@
   <ItemGroup>
     <PackageReference Include="JsonSchema.Net" />
     <ProjectReference Include="../../src/BazaarPlusPlus/BazaarPlusPlus.csproj" />
+    <Compile Include="../Shared/DesktopTargetPin.cs" Link="DesktopTargetPin.cs" />
     <Reference Include="BazaarGameShared">
       <HintPath>$(ManagedPath)/BazaarGameShared.dll</HintPath>
     </Reference>

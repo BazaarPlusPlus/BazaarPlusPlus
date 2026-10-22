@@ -8,5 +8,6 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../../src/BazaarPlusPlus/BazaarPlusPlus.csproj" />
+    <Compile Include="../Shared/DesktopTargetPin.cs" Link="DesktopTargetPin.cs" />
   </ItemGroup>
 </Project>

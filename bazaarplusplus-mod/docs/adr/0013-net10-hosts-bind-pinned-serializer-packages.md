@@ -17,7 +17,7 @@ ADR-0012 §5 made Core multi-target and narrowed ADR-0010 to the Mono target for
 ## Guardrails
 
 - Move the `net10.0` pin only together with the game's `Managed/` copy. `SharedLibraryBindingTests` fails when either target or the restored package names another version.
-- A test that needs the `net10.0` output of Core, Storage, or ModApi names it with `SetTargetFramework="TargetFramework=net10.0"`, as the `*.Net10.Tests` projects and `Architecture.Tests` do. Without the default in `tests/Directory.Build.targets`, a `net10.0` test silently resolves the `net10.0` output and loses the game-file coverage.
+- A test that needs the `net10.0` output of Core, Storage, or ModApi names it with `SetTargetFramework="TargetFramework=net10.0"`, as the `*.Net10.Tests` projects and `Architecture.Tests` do. Without the default in `tests/Directory.Build.targets`, a `net10.0` test silently resolves the `net10.0` output and loses the game-file coverage. `BundlePipeline.Tests` and `RunLoggingPipeline.Tests` fail when the Core, Storage, or ModApi they load is not the `netstandard2.1` output (`tests/Shared/DesktopTargetPin.cs`).
 - Hand `MessagePackGzipCodec` only bytes BPP wrote itself. Anything from the network goes through a codec with `MessagePackSecurity.UntrustedData`.
 - Not decided here: a `net10.0` sibling for the history-database and Bundle pipeline goldens. Core's `net10.0` output of that logic runs in no golden until the Android host wires the record chain.
 - Not decided here: how the Android host produces a Replay Payload, since `PvpReplayPayloadFactory` serializes the game's own `INetMessage` objects (issue #367 §2.4).

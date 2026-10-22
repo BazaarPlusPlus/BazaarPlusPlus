@@ -32,6 +32,12 @@ using SixLabors.ImageSharp.PixelFormats;
 // BundleSealCoordinator -> BundleQueueStore outbox -> BundleUploadFeed.Session -> ModApiSession.
 // Every sealed Bundle lands in artifacts/bundle-pipeline/ and the normalized summary must match
 // fixtures/bundle-pipeline.golden.json (PipelineArtifacts owns the format and regeneration).
+if (DesktopTargetPin.Mismatch() is { } mismatch)
+{
+    Console.Error.WriteLine(mismatch);
+    return 1;
+}
+
 var root = Path.Combine(Path.GetTempPath(), "bpp-pipeline-" + Guid.NewGuid().ToString("N"));
 Directory.CreateDirectory(root);
 try
