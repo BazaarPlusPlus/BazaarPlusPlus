@@ -329,6 +329,7 @@ test('the product lock spans prepare, packaging and artifact recording', () => {
   buildProduct({
     ...options,
     captureIdentity: () => ({ commit: 'a', dirty: false }),
+    sign: () => 'signature',
     bundle: ({ token }) => {
       expect(() => assertBuildOwner(data.rootDir, token)).not.toThrow();
       expect(() => assertBuildOwner(data.rootDir, 'foreign')).toThrow();

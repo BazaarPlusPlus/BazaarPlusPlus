@@ -50,6 +50,14 @@ const COMMIT = 'c'.repeat(40);
 const SIGNER = 'a'.repeat(64);
 const SIGNATURE = 'untrusted comment: signature from tauri secret key\nRUQ=';
 const sha = (bytes) => crypto.createHash('sha256').update(bytes).digest('hex');
+// The stand-in host build's Updater plugin, part of the APK identity.
+const UPDATER_SHA256 = sha(
+  'bytes of MelonLoader/Plugins/BazaarPlusPlus.Updater.dll'
+);
+
+// Each pipeline test runs the fake Patcher, zip and unzip as processes; on a
+// loaded machine that exceeds the 5 s default.
+vi.setConfig({ testTimeout: 30_000 });
 
 const roots = [];
 afterEach(() => {
@@ -252,10 +260,12 @@ const version = (workspaceRoot) =>
   fs.readFileSync(path.join(workspaceRoot, 'VERSION'), 'utf8').trim();
 
 // What the Android host's CopyToPayloadStaging target writes: every
-// mod-built MelonLoader entry of the inventory, minus `omit`.
+// MSBuild-produced MelonLoader entry of the inventory (the Managed Payload and
+// the Updater plugin), minus `omit`.
 function stageHostBuild(workspaceRoot, payloadRoot, omit = []) {
   for (const entry of platformInventory('android')) {
-    if (!['managed', 'history-contract'].includes(entry.producer)) continue;
+    if (!['managed', 'history-contract', 'updater'].includes(entry.producer))
+      continue;
     if (omit.includes(entry.path)) continue;
     const bytes = entry.path.endsWith('.version')
       ? `${version(workspaceRoot)}.prod\n`
@@ -281,7 +291,11 @@ test('prepare stages exactly the mod-built MelonLoader entries and seals them', 
   const f = fixture();
   const record = await prepareAndroidPayload(f.options);
   const expected = platformInventory('android')
-    .filter((entry) => ['managed', 'history-contract'].includes(entry.producer))
+    .filter((entry) =>
+      ['managed', 'history-contract', 'updater', 'managed-manifest'].includes(
+        entry.producer
+      )
+    )
     .map((entry) => entry.path)
     .sort((a, b) => a.localeCompare(b));
   expect(record.output.map((file) => file.path)).toEqual(expected);
@@ -374,7 +388,7 @@ test('a new APK identity is injected, aligned and signed, then streamed with its
     releaseStore: () => store
   });
   const paths = androidPaths(f.workspaceRoot);
-  const apkKey = androidApkKeyForEntry(f.entry);
+  const apkKey = androidApkKeyForEntry(f.entry, UPDATER_SHA256);
   expect(f.calls().filter(Boolean)).toEqual(['inject']);
   expect(manifest).toMatchObject({
     platform: KEY,
@@ -389,7 +403,10 @@ test('a new APK identity is injected, aligned and signed, then streamed with its
       builtForProductVersion: version(f.workspaceRoot)
     },
     managedPayload: { signature: SIGNATURE },
-    nonManagedPayloadDigest: androidNonManagedPayloadDigest(f.entry),
+    nonManagedPayloadDigest: androidNonManagedPayloadDigest({
+      ...f.entry,
+      updaterSha256: UPDATER_SHA256
+    }),
     interopSha256: f.entry.interopSha256
   });
   const apk = path.join(paths.root, manifest.apk.path);
@@ -414,8 +431,21 @@ test('a new APK identity is injected, aligned and signed, then streamed with its
   const zipEntries = apkEntries(
     path.join(paths.root, manifest.managedPayload.path)
   );
-  expect(zipEntries.every((name) => name.startsWith('MelonLoader/'))).toBe(
-    true
+  // The Managed Payload: the signed manifest and the Mods and UserLibs it
+  // names; the Updater plugin ships only inside the APK.
+  expect(zipEntries).toEqual(
+    expect.arrayContaining(['manifest.txt', 'manifest.txt.minisig'])
+  );
+  expect(
+    zipEntries
+      .filter((name) => !name.startsWith('manifest.txt'))
+      .every((name) => /^files\/MelonLoader\/(Mods|UserLibs)\//.test(name))
+  ).toBe(true);
+  expect(entries).toContain(
+    'assets/LemonLoader/deployment/Plugins/BazaarPlusPlus.Updater.dll'
+  );
+  expect(entries).toContain(
+    'assets/LemonLoader/deployment/Mods/BazaarPlusPlus.managed-manifest.txt'
   );
 
   const log = vi.fn();
@@ -439,7 +469,10 @@ test('a new APK identity is injected, aligned and signed, then streamed with its
     versionCode: f.entry.versionCode,
     signerSha256: SIGNER,
     builtForProductVersion: current,
-    nonManagedPayloadDigest: androidNonManagedPayloadDigest(f.entry)
+    nonManagedPayloadDigest: androidNonManagedPayloadDigest({
+      ...f.entry,
+      updaterSha256: UPDATER_SHA256
+    })
   });
   expect(
     store.objects.get(`${managedPayloadKey(current, KEY)}.sig`).bytes.toString()
@@ -482,7 +515,7 @@ test('a mod-only release reuses the published APK and uploads only the Managed P
   const [major, minor, patch] = first.split('.').map(Number);
   const next = `${major}.${minor}.${patch + 1}`;
   write(path.join(f.workspaceRoot, 'VERSION'), `${next}\n`);
-  const apkKey = androidApkKeyForEntry(f.entry);
+  const apkKey = androidApkKeyForEntry(f.entry, UPDATER_SHA256);
 
   const manifest = await buildAndroidRelease({
     ...f.options,
@@ -579,11 +612,11 @@ test('a native library change alone is a new APK identity, so the fragment never
     });
   await buildAndroidRelease({ ...f.options, releaseStore: () => store });
   const first = await upload();
-  const firstKey = androidApkKeyForEntry(f.entry);
+  const firstKey = androidApkKeyForEntry(f.entry, UPDATER_SHA256);
 
   nextVersion(f.workspaceRoot);
   const entry = f.upgradeNativeLib('sqlite elf 3.53.5');
-  const secondKey = androidApkKeyForEntry(entry);
+  const secondKey = androidApkKeyForEntry(entry, UPDATER_SHA256);
   expect(secondKey).not.toBe(firstKey);
   const manifest = await buildAndroidRelease({
     ...f.options,
@@ -594,7 +627,7 @@ test('a native library change alone is a new APK identity, so the fragment never
   const fragment = await upload();
   expect(fragment.apk.url).toBe(`${RELEASE_BASE_URL}/${secondKey}`);
   expect(fragment.nonManagedPayloadDigest).toBe(
-    androidNonManagedPayloadDigest(entry)
+    androidNonManagedPayloadDigest({ ...entry, updaterSha256: UPDATER_SHA256 })
   );
   expect(fragment.nonManagedPayloadDigest).not.toBe(
     first.nonManagedPayloadDigest

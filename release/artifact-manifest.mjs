@@ -175,10 +175,13 @@ export function artifactManifestPath(rootDir, platform) {
   );
 }
 
+// `managedPayload` is the signed Managed Payload zip build wrote (mod
+// ADR-0014): its file, its signature, and the facts its manifest records.
 export function createArtifactManifest({
   rootDir,
   platform,
   version,
+  managedPayload,
   gitState = gitStateForRoot(rootDir),
   builtAt = new Date()
 }) {
@@ -188,8 +191,17 @@ export function createArtifactManifest({
   const signatureContent = fs.readFileSync(discovered.signature, 'utf8').trim();
   if (!signatureContent) throw new Error('Updater signature is empty');
 
+  if (
+    !managedPayload?.signature?.trim() ||
+    !Number.isSafeInteger(managedPayload.historyDatabaseUserVersion) ||
+    !/^[a-f0-9]{64}$/.test(managedPayload.nonManagedPayloadDigest ?? '')
+  )
+    throw new Error('The build wrote no signed Managed Payload');
+  const managedFile = path.resolve(managedPayload.path);
+  assertFileNameContainsVersion(managedFile, version);
+
   const manifest = {
-    schemaVersion: 2,
+    schemaVersion: 3,
     appVersion: version,
     buildPlatform: platform,
     releasePlatformKey: definition.key,
@@ -210,6 +222,12 @@ export function createArtifactManifest({
       ...artifactRecord(rootDir, discovered.signature),
       content: signatureContent
     },
+    managedPayload: {
+      ...artifactRecord(rootDir, managedFile),
+      signature: managedPayload.signature.trim()
+    },
+    historyDatabaseUserVersion: managedPayload.historyDatabaseUserVersion,
+    nonManagedPayloadDigest: managedPayload.nonManagedPayloadDigest,
     builtAt: builtAt.toISOString()
   };
   const manifestPath = artifactManifestPath(rootDir, platform);
@@ -262,7 +280,7 @@ export function validateArtifactManifest({
   }
   const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
   const definition = tauriPlatform(platform);
-  if (manifest.schemaVersion !== 2)
+  if (manifest.schemaVersion !== 3)
     throw new Error('Unsupported artifact manifest schema');
   if (
     manifest.appVersion !== version ||
@@ -306,5 +324,11 @@ export function validateArtifactManifest({
     throw new Error('Signature content does not match artifact manifest');
   }
   assertFileNameContainsVersion(installer, version);
-  return { manifest, installer, updater, signature };
+  const managedPayload = validateRecord(
+    rootDir,
+    'Managed Payload',
+    manifest.managedPayload
+  );
+  assertFileNameContainsVersion(managedPayload, version);
+  return { manifest, installer, updater, signature, managedPayload };
 }

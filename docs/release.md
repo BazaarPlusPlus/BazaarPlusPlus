@@ -54,7 +54,7 @@ just 只转发，不缓存或跳过任何发布检查。直接调用 `node relea
 | `CLOUDFLARE_ACCOUNT_ID` | 仓库变量 | `config.ini` `[cloudflare]` | 所有 R2 桶和 site Workers 的账号 |
 | `BPP_GAME_LIBS_TOKEN` | 仓库 secret（Dependabot 另注册一份） | `config.ini` `[cloudflare]`，仅读 `bazaarplusplus-game-libs` 的只读 token | `checks.yml` 的 mod lane |
 | `CLOUDFLARE_API_TOKEN` | 仓库 secret | `config.ini` `[cloudflare]`，操作员 token | `mod::fetch`、`release::upload`；也给 `analyzer.yml` 和 `deploy-site.yml` |
-| `TAURI_SIGNING_PRIVATE_KEY` | `release` 环境 secret | `keys/tauri-updater.key` 的内容 | updater 签名，两平台；Android 的 Managed Payload zip 也用它（minisign） |
+| `TAURI_SIGNING_PRIVATE_KEY` | `release` 环境 secret | `keys/tauri-updater.key` 的内容 | updater 签名，两平台；三个平台的 Managed Payload zip 及其清单也用它（minisign） |
 | `ANDROID_KEYSTORE` / `ANDROID_KEYSTORE_PASSWORD` / `ANDROID_KEY_ALIAS` | `release` 环境 secret | `keys/android-release.p12`（推送时转 base64）与 `config.ini` `[signing]` 的同名两项 | Android Release APK 的签名密钥，永不轮换，见 [ADR 0009](adr/0009-android-release-key.md) |
 | `APPLE_SIGNING_IDENTITY` / `APPLE_API_ISSUER` / `APPLE_API_KEY` | `release` 环境变量 | `config.ini` `[signing]` | macOS 签名与公证 |
 | `APPLE_API_KEY_P8` | `release` 环境 secret | `keys/AuthKey_<APPLE_API_KEY>.p8` 的内容 | macOS 公证 |
@@ -77,6 +77,14 @@ just 只转发，不缓存或跳过任何发布检查。直接调用 `node relea
 - 目录归属包含其子树，文件归属只覆盖该文件。用户数据目录、BundleOutbox 和第三方插件不属于 Payload Inventory。
 
 新增或删除 Payload 文件后修改清单并执行 `sync`。源码校验会拒绝生成投影漂移、越界路径和所有权重叠。产品程序集还必须通过实际 assembly metadata 的版本校验，不能只依赖版本文本文件。
+
+## Managed Payload 与 mod 自更新
+
+生产者 `managed` 与 `history-contract` 的条目组成 Managed Payload，mod 自己更新它；其余条目（加载器、native、`bootstrap`、`sqlite-*` 和生产者 `updater` 的 Updater）只由 installer 或新 APK 更新，它们的 sha256 汇成 fragment 的 `nonManagedPayloadDigest`。决策记录见 [mod ADR 0014](../bazaarplusplus-mod/docs/adr/0014-managed-payload-self-update.md)。
+
+- `prepare` 把 Managed Payload Manifest 写进 Payload（生产者 `managed-manifest`，安装后位于 mod 旁边）；`build` 把清单、清单签名和 `files/` 下的文件打成确定性 zip 并签名，三个平台都放在 `<版本>/<平台键>/managed/`。格式与写法见 `release/managed-payload.mjs`，共享样例 `release/fixtures/managed-payload/manifest.txt`。
+- fragment 记录 `managedPayload`、`historyDatabaseUserVersion` 与 `nonManagedPayloadDigest`。`selfUpdatable` 只给下载页用：桌面在 `upload` 时与已提升的平台清单比较这两项，Android 看 APK 是否复用。mod 只与正在运行的副本比较。
+- Updater 以固定版本 1.0.0 确定性构建，源码不变则文件不变；改动它就改变 `nonManagedPayloadDigest`，所有用户都要走 installer 或新 APK。
 
 ## 本地准备与恢复
 
@@ -140,7 +148,7 @@ just release::promote --platform android
 
 1. 与桌面同一个提交（`VERSION` 相同）。`mod::fetch android online` 把锁条目 `android-online` 的 Interop Snapshot 与 Loader Release 取到 `bazaarplusplus-mod/game-libs/`。
 2. `prepare` 对照锁定的 interop 与 Loader Release 编译 Android 宿主，并核对宿主暂存的 Android Mod Payload 恰好是 Payload Inventory 里由 mod 构建产生的 `melonloader` 条目：清单要求而宿主没有产出的文件会被逐一点名。`-p:InteropPath=`、`-p:LemonLoaderPath=` 可以覆盖目录，但覆盖的仍必须是锁条目钉住的那一份。
-3. `build` 重做 `prepare`，把 Payload 打成确定性的 Managed Payload zip，用 Tauri updater 私钥签名；签名走 installer 锁定的 Tauri CLI，所以要先在 `bazaarplusplus-installer` 执行 `npm ci`。APK 的身份是游戏版本加上 `nonManagedPayloadDigest`（锁条目中 loader、interop 与 `nativeLibs` 的摘要，见 [ADR 0010](adr/0010-android-release-platform.md)）。这个身份已经在 R2 上时跳过注入，这次只是 mod 更新；否则注入、对齐并签名一个新 APK，步骤与工具要求见 `release/android-release.mjs` 的 `injectAndroidApk` 与 `resolveBuildTools`。注入只能在 Linux x64 上跑，因为 Patcher CLI 只有这一种发行包。原生库必须不压缩地放进 APK，系统才能就地映射。签名材料的来源见上面的 secret 表与 [ADR 0009](adr/0009-android-release-key.md)。`--rebuild-apk` 不管身份是否已发布都重新注入，供 `build_only` 验收使用。所有输出都在工作区根的 `target/android/`。
+3. `build` 重做 `prepare`，把 Payload 打成确定性的 Managed Payload zip，用 Tauri updater 私钥签名；签名走 installer 锁定的 Tauri CLI，所以要先在 `bazaarplusplus-installer` 执行 `npm ci`。APK 的身份是游戏版本加上 `nonManagedPayloadDigest`（锁条目中 loader、interop 与 `nativeLibs` 的摘要，加上 Updater 的 sha256，见 [ADR 0010](adr/0010-android-release-platform.md)）。这个身份已经在 R2 上时跳过注入，这次只是 mod 更新；否则注入、对齐并签名一个新 APK，步骤与工具要求见 `release/android-release.mjs` 的 `injectAndroidApk` 与 `resolveBuildTools`。注入只能在 Linux x64 上跑，因为 Patcher CLI 只有这一种发行包。原生库必须不压缩地放进 APK，系统才能就地映射。签名材料的来源见上面的 secret 表与 [ADR 0009](adr/0009-android-release-key.md)。`--rebuild-apk` 不管身份是否已发布都重新注入，供 `build_only` 验收使用。所有输出都在工作区根的 `target/android/`。
 4. `upload` 在同一台机器上用流式条件写上传。APK 身份尚未发布时，先传 APK，再在旁边写 sidecar；已发布时 fragment 直接指向线上那份。之后传 Managed Payload zip 与 `.sig`，最后写 fragment。如果上传停在 APK 与 sidecar 之间，用同一次构建再跑一遍 `upload` 会补写 sidecar；R2 上的对象不是这次构建的 APK 时，错误信息会给出要删除的对象。新 APK 的签名证书必须与已提升的 APK 相同，`promote` 也做同样的检查。APK 来自更早的产品版本时，`selfUpdatable` 为 true。
 5. `promote --platform android`。
 

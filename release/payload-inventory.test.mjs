@@ -303,9 +303,15 @@ test('every published product assembly is declared in the shared inventory', () 
     .map((entry) => entry.name)
     .filter((name) => !UNSHIPPED_PROJECTS.has(name))
     .sort();
+  // The Updater ships beside the host assemblies with its own version, so it
+  // is declared by its producer, not as a product assembly.
+  const updaters = readInventory()
+    .files.filter((entry) => entry.producer === 'updater')
+    .map((entry) => path.posix.basename(entry.path, '.dll'));
   const declared = new Set([
     ...assemblies('bepinex'),
-    ...assemblies('melonloader')
+    ...assemblies('melonloader'),
+    ...updaters
   ]);
   expect(projects.filter((project) => !declared.has(project))).toEqual([]);
   expect(

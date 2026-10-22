@@ -8,6 +8,8 @@ import { RELEASE_PLATFORMS } from './release-platforms.mjs';
 const producers = new Set([
   'managed',
   'history-contract',
+  'managed-manifest',
+  'updater',
   'sqlite-macos',
   'sqlite-windows',
   'native',
@@ -48,6 +50,7 @@ const hostRoots = {
         if (entry.ownership !== 'private') return false;
         return (
           entry.path === 'BepInEx/config/BazaarPlusPlus.cfg' ||
+          /^BepInEx\/patchers\/[^/]+$/.test(entry.path) ||
           /^TheBazaar\.app\/Contents\/Plugins\/GfxPluginBpp[^/]+\.bundle$/.test(
             entry.path
           ) ||
@@ -75,7 +78,10 @@ const hostRoots = {
           return true;
         if (entry.ownership === 'dependency')
           return /^lib\/arm64-v8a\/[^/]+\.so$/.test(entry.path);
-        return entry.path === 'MelonLoader/UserData/BazaarPlusPlus.cfg';
+        return (
+          entry.path === 'MelonLoader/UserData/BazaarPlusPlus.cfg' ||
+          /^MelonLoader\/Plugins\/[^/]+$/.test(entry.path)
+        );
       }
     };
   })()
@@ -231,9 +237,11 @@ export function renderManagedPayloadTargets(workspaceRoot = WORKSPACE_ROOT) {
         ? `$(TargetDir)${path.posix.basename(entry.path)}`
         : entry.producer === 'history-contract'
           ? '$(HistoryDatabaseContractFile)'
-          : entry.producer === 'sqlite-macos'
-            ? '$(FixedMacSqliteNativeFile)'
-            : '$(FixedWindowsSqliteNativeFile)';
+          : entry.producer === 'updater'
+            ? '$(BppUpdaterFile)'
+            : entry.producer === 'sqlite-macos'
+              ? '$(FixedMacSqliteNativeFile)'
+              : '$(FixedWindowsSqliteNativeFile)';
     const conditions = [];
     if (entry.optional) conditions.push(`Exists('${source}')`);
     if (entry.platforms)
@@ -254,6 +262,7 @@ export function renderManagedPayloadTargets(workspaceRoot = WORKSPACE_ROOT) {
             [
               'managed',
               'history-contract',
+              'updater',
               'sqlite-macos',
               'sqlite-windows'
             ].includes(entry.producer)

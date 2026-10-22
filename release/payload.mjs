@@ -4,7 +4,10 @@ import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { readProductVersion } from './product.mjs';
-import { defaultTargetBuildPlatforms } from './release-platforms.mjs';
+import {
+  defaultTargetBuildPlatforms,
+  releasePlatform
+} from './release-platforms.mjs';
 import {
   platformInventory,
   payloadEntry,
@@ -27,6 +30,13 @@ import {
   releaseSourceIdentity
 } from './artifact-manifest.mjs';
 import { lockEntryForManaged, managedDirectoryRecords } from './game-libs.mjs';
+import {
+  desktopNonManagedPayloadDigest,
+  signWithUpdaterKey,
+  writeManagedPayloadManifest,
+  writeManagedPayloadZip
+} from './managed-payload.mjs';
+import { managedPayloadKey } from './manifest.mjs';
 
 function hash(bytes) {
   return crypto.createHash('sha256').update(bytes).digest('hex');
@@ -494,6 +504,17 @@ function preparePayloadUnlocked({
     )
       throw new Error('Release inputs changed while building the Payload');
     verifyNative({ rootDir: stagedInstaller, platforms: [platform] });
+    // Every install carries the manifest of its own Managed Payload; it is
+    // written once every non-managed file it digests is staged.
+    writeManagedPayloadManifest({
+      sourceDir: staged.source,
+      platform,
+      version: productVersion,
+      nonManagedPayloadDigest: desktopNonManagedPayloadDigest(
+        staged.source,
+        platform
+      )
+    });
     preparePayloadZip({ rootDir: stagedInstaller, platform, productVersion });
     const archivePlaceholder = path.join(
       payloadPaths(rootDir, platform).archive,
@@ -544,6 +565,38 @@ export function preparePayload(options) {
   );
 }
 
+// The signed Managed Payload zip of the sealed Payload source, beside the
+// release artifacts (mod ADR-0014).
+function writeDesktopManagedPayload({
+  rootDir,
+  workspaceRoot,
+  platform,
+  version,
+  sign
+}) {
+  const outputPath = path.join(
+    rootDir,
+    'src-tauri/target/release-artifacts/managed',
+    releasePlatform(platform).key,
+    path.posix.basename(
+      managedPayloadKey(version, releasePlatform(platform).key)
+    )
+  );
+  fs.rmSync(path.dirname(outputPath), { recursive: true, force: true });
+  const zip = writeManagedPayloadZip({
+    sourceDir: payloadPaths(rootDir, platform).source,
+    platform,
+    outputPath,
+    sign: ({ file }) => sign({ workspaceRoot, file })
+  });
+  return {
+    path: zip.path,
+    signature: sign({ workspaceRoot, file: zip.path }),
+    historyDatabaseUserVersion: zip.manifest.historyDatabaseUserVersion,
+    nonManagedPayloadDigest: zip.manifest.nonManagedPayloadDigest
+  };
+}
+
 export function buildProduct(options) {
   const rootDir =
     options.rootDir ??
@@ -551,7 +604,8 @@ export function buildProduct(options) {
   const {
     bundle,
     captureIdentity = releaseSourceIdentity,
-    writeArtifact = createArtifactManifest
+    writeArtifact = createArtifactManifest,
+    sign = signWithUpdaterKey
   } = options;
   return withPayloadLock(rootDir, 'build', (token) => {
     const startingCommit = captureIdentity(rootDir).commit;
@@ -572,10 +626,19 @@ export function buildProduct(options) {
       throw new Error(
         'Product source or Git identity changed during packaging; no artifact manifest was written'
       );
+    const version = readProductVersion(options.workspaceRoot);
+    const managed = writeDesktopManagedPayload({
+      rootDir,
+      workspaceRoot: options.workspaceRoot,
+      platform: options.platform,
+      version,
+      sign
+    });
     return writeArtifact({
       rootDir,
       platform: options.platform,
-      version: readProductVersion(options.workspaceRoot),
+      version,
+      managedPayload: managed,
       gitState: identity
     });
   });

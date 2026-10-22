@@ -14,7 +14,7 @@ The files the mod loader host loads: on desktop, what the installer carries and 
 The shared facts about Payload files (`release/payload.json`): current files, their host (`bepinex` or `melonloader`) and platform scope, ownership, producer, and retired files. Each release platform installs only its own host's entries. User data and third-party plugins are outside it.
 
 **Platform Release Manifest**:
-One platform's newest promoted release (`latest/<platformKey>.json`). A desktop one carries its version, updater package, actual installer download URL, and recorded Mainland Mirror address; the Android one carries the Android Release APK, the Android Mod Payload zip, and the game they were built for. Platforms may be at different versions.
+One platform's newest promoted release (`latest/<platformKey>.json`). A desktop one carries its version, updater package, actual installer download URL, and recorded Mainland Mirror address; the Android one carries the Android Release APK and the game it was built for. Each carries its Managed Payload with the history database schema and the `nonManagedPayloadDigest` it needs. Platforms may be at different versions.
 
 **Lockstep Platform** (lockstep 平台):
 A platform the Release Manifest waits for: Windows and macOS (`LOCKSTEP_PLATFORM_KEYS` in `release/release-platforms.mjs`). Android is a release platform but not a Lockstep Platform, so its game-driven cadence never holds back a desktop release.
@@ -26,14 +26,21 @@ The newest Product Release that every Lockstep Platform promoted at the same ver
 Publishing one platform's Platform Release Manifest once its artifacts are in place and, on desktop, its Mainland Mirror is recorded or explicitly waived; the Release Manifest advances when every Lockstep Platform names the same release. Repeating the promotion of the same release leaves the existing artifacts unchanged.
 
 **Android Release APK** (Android 发布 APK):
-The official game APK with the Loader Release, the Interop Snapshot and an Android Mod Payload injected, signed with BPP's Android release key (`docs/adr/0009-android-release-key.md`): what an Android user installs. Its identity is the game version, the loader, the interop and the injected native libraries, not the product version: it is stored once under `installer/android/apk/` in the public bucket and named by the game build and the fragment's `nonManagedPayloadDigest` over the other three, `builtForProductVersion` records which Mods it carries, and later product versions point at the same APK until any of the four changes. `docs/adr/0010-android-release-platform.md` records why BPP may distribute it.
+The official game APK with the Loader Release, the Interop Snapshot and an Android Mod Payload injected, signed with BPP's Android release key (`docs/adr/0009-android-release-key.md`): what an Android user installs. Its identity is the game version, the loader, the interop, the injected native libraries and the Updater, not the product version: it is stored once under `installer/android/apk/` in the public bucket and named by the game build and the fragment's `nonManagedPayloadDigest` over the other four, `builtForProductVersion` records which Mods it carries, and later product versions point at the same APK until any of the five changes. `docs/adr/0010-android-release-platform.md` records why BPP may distribute it.
 _Avoid_: patched APK, Android installer
 
 **Managed Payload** (托管 Payload):
-One platform's `managed` and `history-contract` Payload entries for one product version, published as a zip signed with the Tauri updater key at `<version>/<platformKey>/managed/` and recorded as `managedPayload` in that platform's fragment: what the mod's self-update installs. Android publishes it from the start; desktop fragments define the field but no build produces it yet.
+One platform's `managed` and `history-contract` Payload entries for one product version, published as a zip signed with the Tauri updater key at `<version>/<platformKey>/managed/` and recorded as `managedPayload` in that platform's fragment: what the mod's self-update installs. A copy takes it only when its history database schema and `nonManagedPayloadDigest` (every other Payload file, the Updater included) match the release; otherwise the installer or a new APK updates it.
+
+**Managed Payload Manifest** (托管 Payload 清单):
+The signed line-format list of one Managed Payload's files with their sha256 and size, its version, platform, history database schema and `nonManagedPayloadDigest` (`release/managed-payload.mjs`). It travels in the zip as `manifest.txt` and is installed beside the mod as `BazaarPlusPlus.managed-manifest.txt`, the record of what the running copy is.
+
+**Updater** (更新器):
+`BazaarPlusPlus.Updater.dll`, the BPP component that runs at the loader stage before the mod (a BepInEx preloader patcher on desktop, a MelonLoader plugin on Android) and swaps a staged Managed Payload into place. It is not part of the Managed Payload; the installer or the APK ships it. Not the installer's Tauri updater.
+_Avoid_: patcher, self-updater
 
 **Android Mod Payload** (Android Mods 包):
-The Payload files the Android host loads from `MelonLoader/Mods/` and `MelonLoader/UserLibs/`: baked into the Android Release APK for the first start, and published for every product version as Android's Managed Payload.
+The Payload files the Android host loads from `MelonLoader/Mods/` and `MelonLoader/UserLibs/`: baked into the Android Release APK for the first start, beside the Updater in `MelonLoader/Plugins/`, and published for every product version as Android's Managed Payload.
 _Avoid_: Mods zip
 
 **Mainland Mirror**:

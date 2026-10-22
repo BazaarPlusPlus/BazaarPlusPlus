@@ -27,6 +27,12 @@ export function artifactPaths(rootDir, platform, version) {
     installer,
     updater,
     signature: `${updater}.sig`,
+    managedPayload: path.join(
+      rootDir,
+      'src-tauri/target/release-artifacts/managed',
+      definition.key,
+      `BazaarPlusPlus_${version}_${definition.key}-managed.zip`
+    ),
     payloadBuild: path.join(
       rootDir,
       'src-tauri/resources/BepInExSource',
@@ -36,8 +42,16 @@ export function artifactPaths(rootDir, platform, version) {
   };
 }
 
+// The self-update facts every shared fixture records for a desktop build.
+export const MANAGED_PAYLOAD_FACTS = Object.freeze({
+  historyDatabaseUserVersion: 1,
+  nonManagedPayloadDigest: 'e'.repeat(64)
+});
+
 // Replaces the platform's bundle with literal bytes, plus the sealed Payload
-// receipt createArtifactManifest records. `signature` is written verbatim.
+// receipt and the signed Managed Payload createArtifactManifest records.
+// `signature` is written verbatim. The result's `managed` is the
+// createArtifactManifest `managedPayload` argument.
 export function writeArtifacts(
   rootDir,
   platform,
@@ -45,13 +59,25 @@ export function writeArtifacts(
     version,
     installer = 'installer bytes',
     updater = 'updater bytes',
-    signature = 'public-signature\n'
+    signature = 'public-signature\n',
+    managedPayload = `${platform} managed payload`,
+    managedSignature = `${platform}-managed-signature`
   }
 ) {
   const paths = artifactPaths(rootDir, platform, version);
   fs.rmSync(paths.bundleRoot, { recursive: true, force: true });
-  for (const file of [paths.installer, paths.signature, paths.payloadBuild])
+  fs.rmSync(path.dirname(paths.managedPayload), {
+    recursive: true,
+    force: true
+  });
+  for (const file of [
+    paths.installer,
+    paths.signature,
+    paths.payloadBuild,
+    paths.managedPayload
+  ])
     fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(paths.managedPayload, managedPayload);
   fs.writeFileSync(paths.installer, installer);
   if (paths.updater !== paths.installer) {
     fs.mkdirSync(path.dirname(paths.updater), { recursive: true });
@@ -66,7 +92,15 @@ export function writeArtifacts(
       platform
     })
   );
-  return { rootDir, ...paths };
+  return {
+    rootDir,
+    ...paths,
+    managed: {
+      path: paths.managedPayload,
+      signature: managedSignature,
+      ...MANAGED_PAYLOAD_FACTS
+    }
+  };
 }
 
 export function artifactFixture(platform, options = {}) {

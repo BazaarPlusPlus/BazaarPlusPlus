@@ -18,13 +18,31 @@
       "url": "https://cdn.bazaarplusplus.com/installer/3.1.1/windows-x86_64/installer/BazaarPlusPlus_3.1.1_x64-setup.exe",
       "size": 24,
       "sha256": "df72af111f1dae904cf02abbf2ed75b816454cdba98b139ad68cbf1f342c2f6d",
-      "mainlandUrl": "https://cauyxy.lanzout.com/bppwin311"
+      "mainlandUrl": "https://cauyxy.lanzout.com/bppwin311",
+      "managedPayload": {
+        "url": "https://cdn.bazaarplusplus.com/installer/3.1.1/windows-x86_64/managed/BazaarPlusPlus_3.1.1_windows-x86_64-managed.zip",
+        "size": 30,
+        "sha256": "2efab1e83c85248ce7268e7dfa3dd6127e3356ca9b568445b08bdbf973a5ad28",
+        "signature": "windows-managed-signature-3.1.1"
+      },
+      "selfUpdatable": false,
+      "historyDatabaseUserVersion": 1,
+      "nonManagedPayloadDigest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
     },
     "darwin-aarch64": {
       "url": "https://cdn.bazaarplusplus.com/installer/3.1.1/darwin-aarch64/installer/BazaarPlusPlus_3.1.1_aarch64.dmg",
       "size": 22,
       "sha256": "48b0957b4627aa54f76104f8b5a9060cf128e8f848bb8a4a76460217b2a7464e",
-      "mainlandUrl": "https://cauyxy.lanzout.com/bppmac311"
+      "mainlandUrl": "https://cauyxy.lanzout.com/bppmac311",
+      "managedPayload": {
+        "url": "https://cdn.bazaarplusplus.com/installer/3.1.1/darwin-aarch64/managed/BazaarPlusPlus_3.1.1_darwin-aarch64-managed.zip",
+        "size": 28,
+        "sha256": "2c874508e3df15d169e16dabafb124cd1eba196495de3c42c8663775733a7798",
+        "signature": "macos-managed-signature-3.1.1"
+      },
+      "selfUpdatable": false,
+      "historyDatabaseUserVersion": 1,
+      "nonManagedPayloadDigest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
     }
   }
 }
