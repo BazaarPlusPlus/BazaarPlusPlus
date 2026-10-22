@@ -1,5 +1,6 @@
 #nullable enable
 using BazaarGameShared.Domain.Core.Types;
+using BazaarPlusPlus.Core.GameState;
 using TheBazaar.Utilities;
 
 namespace BazaarPlusPlus.GameInterop.Heroes;
@@ -10,19 +11,14 @@ namespace BazaarPlusPlus.GameInterop.Heroes;
 /// </summary>
 internal static class TheDragonsHeroIdentity
 {
-    internal const string CanonicalId = "TheDragons";
+    internal const string CanonicalId = TheDragonsHeroId.CanonicalId;
     internal const string FallbackDisplayName = "The Dragons";
-    private const string LegacyId = "Hero8";
+    private const string LegacyId = TheDragonsHeroId.LegacyId;
     private static readonly DisplayNameResolver NativeDisplayNames = new(
         LocalizableShared.GetLocalizedHero
     );
 
-    internal static bool IsAlias(string? heroId) =>
-        !string.IsNullOrWhiteSpace(heroId)
-        && (
-            string.Equals(heroId.Trim(), LegacyId, StringComparison.OrdinalIgnoreCase)
-            || string.Equals(heroId.Trim(), CanonicalId, StringComparison.OrdinalIgnoreCase)
-        );
+    internal static bool IsAlias(string? heroId) => TheDragonsHeroId.IsAlias(heroId);
 
     internal static bool IsTheDragons(EHero hero) => IsAlias(hero.ToString());
 

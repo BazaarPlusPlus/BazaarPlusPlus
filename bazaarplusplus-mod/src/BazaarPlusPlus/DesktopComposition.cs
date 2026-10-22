@@ -124,9 +124,12 @@ internal sealed class DesktopComposition : IDisposable
         _postCombatImpactModule = new PostCombatImpactModule(_staticCardMapProvider);
         _voiceSubtitlesModule = new VoiceSubtitlesModule(_services.Paths.RequireDataRoot());
         _voiceSubtitlesInteropModule = new VoiceSubtitlesInteropModule();
+        var dataRoot = _services.Paths.RequireDataRoot();
         _supporterCatalogModule = new SupporterCatalogModule(
             () => _services.Config.UseFixedSupporterListConfig.Value,
-            _services.Paths.RequireDataRoot()
+            observer => SupporterCatalogFactory.Create(dataRoot, observer),
+            () => DateTime.UtcNow,
+            SupporterCatalogFactory.BuildCacheFilePath(dataRoot)
         );
         _nativeCardPreviewHost = new NativeCardPreviewHost(new NativeTooltipDataFactoryAdapter());
         _buildRecommendationCatalog = TenWinBuildCatalogFactory.Create(
@@ -157,7 +160,7 @@ internal sealed class DesktopComposition : IDisposable
             PvpBattleCatalog,
             () => _combatReplayModule.Runtime?.HasPendingPersistence == true
         );
-        _bundleSealCoordinator = new BundleSealCoordinator(_services);
+        _bundleSealCoordinator = DesktopBundleSealCoordinator.Create(_services);
 
         _core.Register(_runLifecycle);
         _core.Register(_combatReplayModule);

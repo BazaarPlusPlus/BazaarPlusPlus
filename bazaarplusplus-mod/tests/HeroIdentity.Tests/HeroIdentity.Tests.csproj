@@ -21,6 +21,10 @@
       Link="TheDragonsHeroIdentity.cs"
     />
     <Compile
+      Include="../../src/BazaarPlusPlus.Core/GameState/TheDragonsHeroId.cs"
+      Link="TheDragonsHeroId.cs"
+    />
+    <Compile
       Include="../../src/BazaarPlusPlus/GameInterop/Heroes/HeroVisual.cs"
       Link="HeroVisual.cs"
     />

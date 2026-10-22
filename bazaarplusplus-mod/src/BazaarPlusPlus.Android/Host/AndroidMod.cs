@@ -1,6 +1,8 @@
 using System.Reflection;
 using System.Security.Cryptography;
 using BazaarPlusPlus.Android.Patches;
+using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 using HarmonyLib;
 using MelonLoader;
 using MelonLoader.Utils;
@@ -14,8 +16,9 @@ namespace BazaarPlusPlus.Android.Host;
 
 /// <summary>
 /// The Android host entry: LemonLoader loads this MelonMod from <c>MelonLoader/Mods/</c>. Startup
-/// installs the log exit, reads the settings file, logs what a device run must establish (the
-/// loaded DLL, the Data Root candidates, the build-channel probe), then applies the patches.
+/// installs the BppLog pipeline over MelonLogger, reads the settings file, logs what a device run
+/// must establish (the loaded DLL, the Data Root candidates, the build-channel probe), then
+/// applies the patches.
 /// </summary>
 public sealed class AndroidMod : MelonMod
 {
@@ -25,11 +28,11 @@ public sealed class AndroidMod : MelonMod
 
     public override void OnInitializeMelon()
     {
-        AndroidLog.Install(LoggerInstance);
+        BppLog.Install(new MelonLogSink(LoggerInstance));
         var version = Info.Version;
         var mode = ReadPatchMode();
-        AndroidLog.Info(
-            "plugin.loaded",
+        BppLog.InfoEvent(
+            new BppLogEvent(BppLogFeatureScope.Android, "android.plugin.loaded"),
             ("version", version),
             ("mode", mode),
             ("sha256", AssemblySha256()),
@@ -46,11 +49,18 @@ public sealed class AndroidMod : MelonMod
         if (Environment.TickCount64 < _nextSummaryAt)
             return;
         _nextSummaryAt = Environment.TickCount64 + SummaryIntervalMs;
-        AndroidLog.Info("hooks.summary", AndroidPatchHost.Summary());
+        BppLog.InfoEvent(
+            new BppLogEvent(BppLogFeatureScope.Android, "android.hooks.summary"),
+            AndroidPatchHost.Summary()
+        );
     }
 
     public override void OnSceneWasLoaded(int buildIndex, string sceneName) =>
-        AndroidLog.Info("scene.loaded", ("index", buildIndex), ("name", sceneName));
+        BppLog.InfoEvent(
+            new BppLogEvent(BppLogFeatureScope.Android, "android.scene.loaded"),
+            ("index", buildIndex),
+            ("name", sceneName)
+        );
 
     private static AndroidPatchMode ReadPatchMode()
     {
@@ -70,7 +80,11 @@ public sealed class AndroidMod : MelonMod
         }
         catch (Exception exception)
         {
-            AndroidLog.Error("settings.load_failed", exception, ("path", path));
+            BppLog.ErrorEvent(
+                new BppLogEvent(BppLogFeatureScope.Android, "android.settings.load_failed"),
+                exception,
+                ("path", path)
+            );
             return AndroidPatchMode.Enabled;
         }
     }
@@ -96,8 +110,8 @@ public sealed class AndroidMod : MelonMod
         try
         {
             var melonBase = MelonEnvironment.MelonBaseDirectory;
-            AndroidLog.Info(
-                "paths.probe",
+            BppLog.InfoEvent(
+                new BppLogEvent(BppLogFeatureScope.Android, "android.paths.probe"),
                 ("melon_base", melonBase),
                 ("data_root", AndroidPaths.DataRoot(melonBase)),
                 ("persistent_data_path", Application.persistentDataPath)
@@ -105,7 +119,10 @@ public sealed class AndroidMod : MelonMod
         }
         catch (Exception exception)
         {
-            AndroidLog.Error("paths.probe_failed", exception);
+            BppLog.ErrorEvent(
+                new BppLogEvent(BppLogFeatureScope.Android, "android.paths.probe_failed"),
+                exception
+            );
         }
     }
 
@@ -118,15 +135,18 @@ public sealed class AndroidMod : MelonMod
         try
         {
             var serverOption = AccessTools.Inner(typeof(Il2CppTheBazaar.Config), "ServerOption");
-            AndroidLog.Info(
-                "build_channel.probe",
+            BppLog.InfoEvent(
+                new BppLogEvent(BppLogFeatureScope.Android, "android.build_channel.probe"),
                 ("game_version", Application.version),
                 ("server_option", serverOption != null ? "found" : "missing")
             );
         }
         catch (Exception exception)
         {
-            AndroidLog.Error("build_channel.probe_failed", exception);
+            BppLog.ErrorEvent(
+                new BppLogEvent(BppLogFeatureScope.Android, "android.build_channel.probe_failed"),
+                exception
+            );
         }
     }
 }

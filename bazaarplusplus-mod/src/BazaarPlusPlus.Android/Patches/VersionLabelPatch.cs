@@ -1,5 +1,6 @@
-using BazaarPlusPlus.Android.Host;
 using BazaarPlusPlus.Game.Lobby;
+using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 using HarmonyLib;
 using Il2CppTheBazaar;
 using UnityEngine;
@@ -26,7 +27,11 @@ internal static class VersionLabelPatch
             if (label == null)
             {
                 if (hits <= LoggedHits)
-                    AndroidLog.Warn("version_label.hit", ("hits", hits), ("label", null));
+                    BppLog.WarnEvent(
+                        new BppLogEvent(BppLogFeatureScope.Android, "android.version_label.hit"),
+                        ("hits", hits),
+                        ("label", null)
+                    );
                 return;
             }
 
@@ -38,8 +43,8 @@ internal static class VersionLabelPatch
                     AndroidPatchHost.PluginVersion
                 );
             if (hits <= LoggedHits)
-                AndroidLog.Info(
-                    "version_label.hit",
+                BppLog.InfoEvent(
+                    new BppLogEvent(BppLogFeatureScope.Android, "android.version_label.hit"),
                     ("hits", hits),
                     ("write", write),
                     ("before", before),

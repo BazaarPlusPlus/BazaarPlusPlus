@@ -37,13 +37,5 @@
       Include="../../src/BazaarPlusPlus/Game/CombatReplay/CombatReplayPayloadStore.cs"
       Link="CombatReplayPayloadStore.cs"
     />
-    <Compile
-      Include="../../src/BazaarPlusPlus/Game/PvpBattles/PvpReplayPayload.cs"
-      Link="PvpReplayPayload.cs"
-    />
-    <Compile
-      Include="../../src/BazaarPlusPlus/Game/PvpBattles/PvpReplayPayloadCodec.cs"
-      Link="PvpReplayPayloadCodec.cs"
-    />
   </ItemGroup>
 </Project>

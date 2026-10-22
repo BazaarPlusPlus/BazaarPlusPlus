@@ -9,38 +9,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile
-      Include="../../src/BazaarPlusPlus/Game/Supporters/BPPSupporterAttributionText.cs"
-      Link="BPPSupporterAttributionText.cs"
-    />
-    <Compile
-      Include="../../src/BazaarPlusPlus/Game/Supporters/BPPSupporterLinks.cs"
-      Link="BPPSupporterLinks.cs"
-    />
-    <Compile
-      Include="../../src/BazaarPlusPlus/Game/Supporters/BPPSupporterEntry.cs"
-      Link="BPPSupporterEntry.cs"
-    />
-    <Compile
-      Include="../../src/BazaarPlusPlus/Game/Supporters/BPPSupporterSample.cs"
-      Link="BPPSupporterSample.cs"
-    />
-    <Compile
-      Include="../../src/BazaarPlusPlus/Game/Supporters/BPPSupporterSampler.cs"
-      Link="BPPSupporterSampler.cs"
-    />
-    <Compile
-      Include="../../src/BazaarPlusPlus/Game/Supporters/BPPSupporterFixedList.cs"
-      Link="BPPSupporterFixedList.cs"
-    />
-    <Compile
-      Include="../../src/BazaarPlusPlus/Game/Supporters/BPPSupporterListSourcePolicy.cs"
-      Link="BPPSupporterListSourcePolicy.cs"
-    />
-    <Compile
-      Include="../../src/BazaarPlusPlus/Game/Supporters/SupporterCatalogDocument.cs"
-      Link="SupporterCatalogDocument.cs"
-    />
     <Compile Include="Program.cs" />
     <Compile Include="../Shared/LocalizationTestBootstrap.cs" Link="LocalizationTestBootstrap.cs" />
     <None

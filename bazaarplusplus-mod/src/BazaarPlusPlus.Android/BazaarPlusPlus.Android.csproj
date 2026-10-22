@@ -11,7 +11,7 @@
     <Nullable>enable</Nullable>
     <Version>$(BppVersion)</Version>
     <Deterministic>true</Deterministic>
-    <!-- The loader supplies every referenced assembly at runtime; the build output is one DLL. -->
+    <!-- The loader supplies every referenced assembly at runtime; no deps.json. -->
     <GenerateDependencyFile>false</GenerateDependencyFile>
     <!-- Game assemblies come from InteropPath, so the desktop ManagedPath check does not apply. -->
     <BppRequiresManagedPath>false</BppRequiresManagedPath>
@@ -51,24 +51,13 @@
   </ItemGroup>
 
   <!--
-    Pure sources linked until this host references BazaarPlusPlus.Core (the #352 follow-up).
-    Core's net10.0 graph binds no game assembly (ADR-0013); adding it means this host references
-    and ships the serializer packages Core, Storage, and ModApi keep private (ADR-0013 §2).
+    Shared code comes from Core's net10.0 output (ADR-0012), never from linked desktop sources;
+    Storage and ModApi arrive through it. They keep their serializer packages private
+    (ADR-0013 §2), so the host adds Newtonsoft.Json and MessagePack when it first loads code that
+    serializes: the record chain (#359), with the Android Payload (#357).
   -->
   <ItemGroup>
-    <Compile
-      Include="../BazaarPlusPlus.Core/Config/IBppSettingsStore.cs"
-      Link="Shared/IBppSettingsStore.cs"
-    />
-    <Compile Include="../BazaarPlusPlus.Core/Config/ISetting.cs" Link="Shared/ISetting.cs" />
-    <Compile
-      Include="../BazaarPlusPlus/Game/Lobby/MainMenuVersionLabelFormatter.cs"
-      Link="Shared/MainMenuVersionLabelFormatter.cs"
-    />
-    <Compile
-      Include="../BazaarPlusPlus.Storage/Paths/PathConstants.cs"
-      Link="Shared/PathConstants.cs"
-    />
+    <ProjectReference Include="../BazaarPlusPlus.Core/BazaarPlusPlus.Core.csproj" />
   </ItemGroup>
 
   <!-- Production builds write only into the release coordinator's isolated staging tree. -->

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # The Android host's device loop. Entry points: `just mod::android-*`.
 # It drives one device or emulator that already runs the LemonLoader-injected game: it builds,
-# pushes the host into MelonLoader/Mods/, switches the patch mode, relaunches the game, and
+# pushes the host into MelonLoader/Mods/ and its shared assemblies into UserLibs/, switches the patch mode, relaunches the game, and
 # captures evidence. It never installs, uninstalls, or clears the game's data, so the device's
 # signed-in account survives every command.
 # shellcheck source=scripts/lib.sh
@@ -9,7 +9,10 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
 ANDROID_PROJECT=src/BazaarPlusPlus.Android/BazaarPlusPlus.Android.csproj
 ANDROID_CONFIGURATION=Release
-ANDROID_DLL="src/BazaarPlusPlus.Android/bin/$ANDROID_CONFIGURATION/net10.0/BazaarPlusPlus.Android.dll"
+ANDROID_OUTPUT="src/BazaarPlusPlus.Android/bin/$ANDROID_CONFIGURATION/net10.0"
+ANDROID_DLL="$ANDROID_OUTPUT/BazaarPlusPlus.Android.dll"
+# The shared assemblies the host references; MelonLoader resolves them from UserLibs/.
+ANDROID_SHARED_DLLS=(BazaarPlusPlus.Core.dll BazaarPlusPlus.Storage.dll BazaarPlusPlus.ModApi.dll)
 GAME_PACKAGE=com.tempogames.thebazaar
 GAME_ACTIVITY="$GAME_PACKAGE/com.unity3d.player.UnityPlayerActivity"
 # MelonEnvironment.MelonBaseDirectory on the device; the Data Root is its sibling.
@@ -44,13 +47,19 @@ cmd_build() {
     dotnet build "$ANDROID_PROJECT" -c "$ANDROID_CONFIGURATION" ${PROPS[@]+"${PROPS[@]}"}
 }
 
-# deploy: push the built host into the game's MelonLoader/Mods/.
+# deploy: push the built host into the game's MelonLoader/Mods/ and the shared assemblies it
+# references into MelonLoader/UserLibs/.
 cmd_deploy() {
     [[ $# -eq 0 ]] || die "Usage: just mod::android-deploy"
     [[ -f "$ANDROID_DLL" ]] || die "No build at $ANDROID_DLL; run 'just mod::android-build' first."
     require_device
     device shell test -d "$MELON_BASE/Mods" ||
         die "$MELON_BASE/Mods is missing on '$DEVICE_SERIAL'; install the LemonLoader-injected game first."
+    device shell mkdir -p "$MELON_BASE/UserLibs"
+    local shared
+    for shared in "${ANDROID_SHARED_DLLS[@]}"; do
+        device push "$ANDROID_OUTPUT/$shared" "$MELON_BASE/UserLibs/$shared"
+    done
     device push "$ANDROID_DLL" "$MELON_BASE/Mods/BazaarPlusPlus.Android.dll"
     ok "Deployed $ANDROID_DLL to $DEVICE_SERIAL; it loads on the next launch."
 }
