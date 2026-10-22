@@ -1,7 +1,10 @@
 #nullable enable
+using System.Diagnostics;
 using System.Reflection;
 using System.Reflection.Metadata;
 using System.Reflection.PortableExecutable;
+using System.Text.Json;
+using BazaarPlusPlus.TestSupport;
 using Xunit;
 
 namespace Architecture.Tests;
@@ -68,6 +71,32 @@ public sealed class CoreAssemblyBoundaryTests
             Assert.True(newtonsoft != null, $"{tfm}: Core no longer references Newtonsoft.Json.");
             Assert.Equal(gameVersion, newtonsoft!.Version);
         }
+    }
+
+    /// <summary>
+    /// Every Newtonsoft.Json 13.x carries assembly version 13.0.0.0, so the binding check above
+    /// cannot see net10.0 package drift; the restored package must match the game's file version.
+    /// </summary>
+    [Fact]
+    public void Core_net10_restores_the_game_file_version_of_Newtonsoft_Json()
+    {
+        var gameFile = FileVersionInfo.GetVersionInfo(
+            Path.Combine(CompiledArtifacts.Metadata("BppManagedPath"), "Newtonsoft.Json.dll")
+        );
+        var gameVersion =
+            $"{gameFile.FileMajorPart}.{gameFile.FileMinorPart}.{gameFile.FileBuildPart}";
+
+        using var lockFile = JsonDocument.Parse(
+            TestInputs.Fixture("src/BazaarPlusPlus.Core/packages.lock.json")
+        );
+        var restored = lockFile
+            .RootElement.GetProperty("dependencies")
+            .GetProperty("net10.0")
+            .GetProperty("Newtonsoft.Json")
+            .GetProperty("resolved")
+            .GetString();
+
+        Assert.Equal(gameVersion, restored);
     }
 
     private static IReadOnlyList<AssemblyName> ReferencedAssemblies(string targetFramework)

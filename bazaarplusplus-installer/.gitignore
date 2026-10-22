@@ -19,6 +19,7 @@ vite.config.ts.timestamp-*
 BepInEx.zip
 BazaarPlusPlus.dll
 BazaarPlusPlus.version
+BazaarPlusPlus.Core.dll
 BazaarPlusPlus.ModApi.dll
 BazaarPlusPlus.Storage.dll
 BazaarPlusPlus.Localization.dll
