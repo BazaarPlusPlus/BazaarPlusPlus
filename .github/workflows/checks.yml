@@ -95,9 +95,9 @@ jobs:
       - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           global-json-file: bazaarplusplus-mod/global.json
-      - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4
+      - uses: taiki-e/install-action@a4d3f3f761dcd95cce1b72cb61cb6d1963438177 # v2.87.30
         with:
-          just-version: 1.58.0
+          tool: just@1.58.0
       - run: npm install --global "$(node --print "require('./package.json').packageManager")"
       - run: npm ci
       - run: just commands-check release::check release::test
@@ -122,9 +122,9 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
           cache-dependency-path: bazaarplusplus-${{ env.PROJECT }}/package-lock.json
-      - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4
+      - uses: taiki-e/install-action@a4d3f3f761dcd95cce1b72cb61cb6d1963438177 # v2.87.30
         with:
-          just-version: 1.58.0
+          tool: just@1.58.0
       - run: npm install --global "$(node --print "require('./package.json').packageManager")"
       - run: npm ci
         working-directory: bazaarplusplus-${{ env.PROJECT }}
@@ -281,9 +281,9 @@ jobs:
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           working-directory: bazaarplusplus-analyzer
-      - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4
+      - uses: taiki-e/install-action@a4d3f3f761dcd95cce1b72cb61cb6d1963438177 # v2.87.30
         with:
-          just-version: 1.58.0
+          tool: just@1.58.0
       - run: uv sync --locked
         working-directory: bazaarplusplus-analyzer
       - run: just analyzer::check analyzer::test
@@ -320,9 +320,9 @@ jobs:
           global-json-file: bazaarplusplus-mod/global.json
           cache: true
           cache-dependency-path: bazaarplusplus-mod/**/packages.lock.json
-      - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4
+      - uses: taiki-e/install-action@a4d3f3f761dcd95cce1b72cb61cb6d1963438177 # v2.87.30
         with:
-          just-version: 1.58.0
+          tool: just@1.58.0
       # A null online entry fails here, naming the snapshot to capture.
       - name: Fetch the online snapshot
         run: just mod::fetch "$BPP_CI_PLATFORM" online
@@ -380,9 +380,9 @@ jobs:
       - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           global-json-file: bazaarplusplus-mod/global.json
-      - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4
+      - uses: taiki-e/install-action@a4d3f3f761dcd95cce1b72cb61cb6d1963438177 # v2.87.30
         with:
-          just-version: 1.58.0
+          tool: just@1.58.0
       # A null android-online entry fails here, naming the snapshot to capture.
       - name: Fetch the Interop Snapshot and Loader Release
         run: just mod::fetch android online
