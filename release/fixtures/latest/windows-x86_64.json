@@ -14,7 +14,16 @@
       "url": "https://cdn.bazaarplusplus.com/installer/3.1.2/windows-x86_64/installer/BazaarPlusPlus_3.1.2_x64-setup.exe",
       "size": 24,
       "sha256": "c547026204ce7b2e217a8458d53dc0195ba7a3e5999cfd1763aed8746d1ffb4f",
-      "mainlandUrl": "https://cauyxy.lanzout.com/bppwin312"
+      "mainlandUrl": "https://cauyxy.lanzout.com/bppwin312",
+      "managedPayload": {
+        "url": "https://cdn.bazaarplusplus.com/installer/3.1.2/windows-x86_64/managed/BazaarPlusPlus_3.1.2_windows-x86_64-managed.zip",
+        "size": 30,
+        "sha256": "d7f5f86d9baab96b23985a8e1b45daf19454f899937758678d4ea55ce1ca7b6c",
+        "signature": "windows-managed-signature-3.1.2"
+      },
+      "selfUpdatable": true,
+      "historyDatabaseUserVersion": 1,
+      "nonManagedPayloadDigest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
     }
   }
 }

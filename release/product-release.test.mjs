@@ -91,7 +91,7 @@ async function upload(data, store, platform, commit = 'a') {
   runFixtureGit(['checkout', '-q', '--detach', data.commits[commit]], {
     cwd: data.workspaceRoot
   });
-  writeArtifacts(data.rootDir, platform, {
+  const { managed } = writeArtifacts(data.rootDir, platform, {
     version: data.version,
     installer: `${platform} installer`,
     updater: 'macos updater',
@@ -100,7 +100,8 @@ async function upload(data, store, platform, commit = 'a') {
   createArtifactManifest({
     rootDir: data.rootDir,
     platform,
-    version: data.version
+    version: data.version,
+    managedPayload: managed
   });
   return uploadPlatform({
     workspaceRoot: data.workspaceRoot,
@@ -336,10 +337,20 @@ test('platform fragments preserve source identity and actual artifact names', ()
         ...record,
         path: 'actual-updater.tgz.sig',
         content: 'signature\n'
-      }
-    }
+      },
+      managedPayload: { ...record, signature: 'managed-signature\n' },
+      historyDatabaseUserVersion: 1,
+      nonManagedPayloadDigest: 'e'.repeat(64)
+    },
+    selfUpdatable: false
   });
   expect(fragment.gitCommit).toBe('a'.repeat(40));
+  expect(fragment.managedPayload).toEqual({
+    url: `${baseUrl}/${managedPayloadKey('3.1.1', 'darwin-aarch64')}`,
+    size: 4,
+    sha256: 'b'.repeat(64),
+    signature: 'managed-signature'
+  });
   expect(fragment.installer.url).toContain('/installer/renamed.dmg');
   expect(fragment.updater.signature).toBe('signature');
 });
@@ -597,13 +608,15 @@ test('manifest writer and website share the same complete release fixture', () =
     )
   );
   const fragments = Object.keys(expected.platforms).map((platform) => {
-    const { mainlandUrl, ...installer } = expected.downloads[platform];
+    const { mainlandUrl, ...release } = expected.downloads[platform];
+    const { installer, selfUpdate } = splitDesktopRelease(release);
     return {
       schemaVersion: 1,
       version: expected.version,
       platform,
       gitCommit: expected.gitCommit,
       installer,
+      ...selfUpdate,
       updater: {
         ...expected.platforms[platform],
         size: 100,
@@ -655,6 +668,26 @@ test('manifest writer and website share the same complete release fixture', () =
     })
   ).toThrow(/recorded for other\.exe/);
 });
+
+// A desktop `downloads[platform]` record is the installer plus the
+// self-update facts its fragment carries beside it.
+function splitDesktopRelease({
+  managedPayload,
+  selfUpdatable,
+  historyDatabaseUserVersion,
+  nonManagedPayloadDigest,
+  ...installer
+}) {
+  return {
+    installer,
+    selfUpdate: {
+      managedPayload,
+      selfUpdatable,
+      historyDatabaseUserVersion,
+      nonManagedPayloadDigest
+    }
+  };
+}
 
 const promoteOne = (data, store, platform, extra = {}) =>
   promotePlatform({
@@ -792,13 +825,15 @@ test('the writer reproduces every shared platform fixture', () => {
         'utf8'
       )
     );
-    const { mainlandUrl, ...installer } = expected.downloads[key];
+    const { mainlandUrl, ...release } = expected.downloads[key];
+    const { installer, selfUpdate } = splitDesktopRelease(release);
     const fragment = {
       schemaVersion: 1,
       version: expected.version,
       platform: key,
       gitCommit: expected.gitCommit,
       installer,
+      ...selfUpdate,
       updater: {
         ...expected.platforms[key],
         size: 100,
@@ -1014,7 +1049,8 @@ test('an Android fragment names its APK by game, loader and non-managed payload 
   ).toThrow(/Invalid android-aarch64 release facts/);
 });
 
-test('a desktop fragment may carry a Managed Payload and selfUpdatable', () => {
+test('a desktop fragment carries its signed Managed Payload and the self-update facts', () => {
+  const record = { size: 1, sha256: 'b'.repeat(64) };
   const fragment = buildPlatformFragment({
     manifest: {
       appVersion: '3.1.1',
@@ -1022,49 +1058,49 @@ test('a desktop fragment may carry a Managed Payload and selfUpdatable', () => {
       releasePlatformKey: 'windows-x86_64',
       gitCommit: 'a'.repeat(40),
       dirty: false,
-      installer: { path: 'setup.exe', size: 1, sha256: 'b'.repeat(64) },
-      updater: { path: 'setup.exe', size: 1, sha256: 'b'.repeat(64) },
-      signature: {
-        path: 'setup.exe.sig',
-        size: 1,
-        sha256: 'b'.repeat(64),
-        content: 'sig'
-      }
+      installer: { path: 'setup.exe', ...record },
+      updater: { path: 'setup.exe', ...record },
+      signature: { path: 'setup.exe.sig', ...record, content: 'sig' },
+      managedPayload: { path: 'managed.zip', ...record, signature: 'msig' },
+      historyDatabaseUserVersion: 2,
+      nonManagedPayloadDigest: 'e'.repeat(64)
     },
-    baseUrl
+    baseUrl,
+    selfUpdatable: true
   });
-  expect(fragment).not.toHaveProperty('managedPayload');
-  const managedPayload = {
-    url: `${baseUrl}/${managedPayloadKey('3.1.1', 'windows-x86_64')}`,
-    size: 1,
-    sha256: 'b'.repeat(64),
-    signature: 'sig'
-  };
+  expect(fragment).toMatchObject({
+    managedPayload: {
+      url: `${baseUrl}/${managedPayloadKey('3.1.1', 'windows-x86_64')}`,
+      signature: 'msig'
+    },
+    selfUpdatable: true,
+    historyDatabaseUserVersion: 2,
+    nonManagedPayloadDigest: 'e'.repeat(64)
+  });
+  const invalid = (change) => () =>
+    validatePlatformFragment(
+      { ...fragment, ...change },
+      '3.1.1',
+      'windows-x86_64'
+    );
   expect(
-    validatePlatformFragment(
-      { ...fragment, managedPayload, selfUpdatable: true },
-      '3.1.1',
-      'windows-x86_64'
-    )
-  ).toBeTruthy();
-  expect(() =>
-    validatePlatformFragment(
-      {
-        ...fragment,
-        managedPayload: {
-          ...managedPayload,
-          url: `${baseUrl}/3.1.0/windows-x86_64/managed/x.zip`
-        }
-      },
-      '3.1.1',
-      'windows-x86_64'
-    )
+    invalid({
+      managedPayload: {
+        ...fragment.managedPayload,
+        url: `${baseUrl}/3.1.0/windows-x86_64/managed/x.zip`
+      }
+    })
   ).toThrow(/outside its release/);
-  expect(() =>
-    validatePlatformFragment(
-      { ...fragment, selfUpdatable: 'yes' },
-      '3.1.1',
-      'windows-x86_64'
-    )
-  ).toThrow(/Invalid windows-x86_64 platform fragment/);
+  expect(invalid({ managedPayload: undefined })).toThrow(
+    /Invalid windows-x86_64 Managed Payload release artifact/
+  );
+  expect(invalid({ selfUpdatable: 'yes' })).toThrow(
+    /Invalid windows-x86_64 self-update facts/
+  );
+  expect(invalid({ historyDatabaseUserVersion: 0 })).toThrow(
+    /Invalid windows-x86_64 self-update facts/
+  );
+  expect(invalid({ nonManagedPayloadDigest: 'native' })).toThrow(
+    /Invalid windows-x86_64 self-update facts/
+  );
 });

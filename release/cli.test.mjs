@@ -361,7 +361,14 @@ function publicOrigin(version) {
       gitCommit: 'a'.repeat(40),
       installer: record('installer', fileName),
       updater: { ...record('updater', fileName), signature: 'signature' },
-      signatureFile: record('updater', `${fileName}.sig`)
+      signatureFile: record('updater', `${fileName}.sig`),
+      managedPayload: {
+        ...record('managed', `BazaarPlusPlus_${version}_${key}-managed.zip`),
+        signature: 'managed-signature'
+      },
+      selfUpdatable: false,
+      historyDatabaseUserVersion: 1,
+      nonManagedPayloadDigest: 'e'.repeat(64)
     });
     const mirror = `https://mirror.example/${key}-${version}`;
     files.set(`${base}/mirror/mainland.json`, {
@@ -532,8 +539,18 @@ test('publish pipeline reproduces the shared fixtures', async () => {
     return commitFixture(workspaceRoot, `Release ${version}`);
   };
   const build = (platform, version, artifact) => {
-    writeArtifacts(rootDir, platform, { version, ...artifact });
-    createArtifactManifest({ rootDir, platform, version });
+    const { managed } = writeArtifacts(rootDir, platform, {
+      version,
+      managedPayload: `${platform} managed payload ${version}\n`,
+      managedSignature: `${platform}-managed-signature-${version}`,
+      ...artifact
+    });
+    createArtifactManifest({
+      rootDir,
+      platform,
+      version,
+      managedPayload: managed
+    });
   };
 
   runFixtureGit(['init', '-q'], { cwd: workspaceRoot });

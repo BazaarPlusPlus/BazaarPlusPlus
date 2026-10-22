@@ -29,5 +29,9 @@
       Include="BppAndroidHostAssembly"
       Value="$(MSBuildThisFileDirectory)../../src/BazaarPlusPlus.Android/bin/$(Configuration)/net10.0/BazaarPlusPlus.Android.dll"
     />
+    <AssemblyMetadata
+      Include="BppUpdaterAssembly"
+      Value="$(MSBuildThisFileDirectory)../../src/BazaarPlusPlus.Updater/bin/$(Configuration)/net10.0/BazaarPlusPlus.Updater.dll"
+    />
   </ItemGroup>
 </Project>

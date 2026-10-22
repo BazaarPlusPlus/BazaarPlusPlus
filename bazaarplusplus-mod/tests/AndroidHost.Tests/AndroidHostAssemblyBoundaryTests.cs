@@ -71,6 +71,29 @@ public sealed class AndroidHostAssemblyBoundaryTests
         );
     }
 
+    [Fact]
+    public void Android_updater_references_only_melonloader_and_the_bcl()
+    {
+        // ADR-0014: the Updater runs before the Mods it replaces load, and a changed Updater
+        // reaches users only through a new APK.
+        using var reader = Open("BppUpdaterAssembly");
+        var metadata = reader.GetMetadataReader();
+        var foreign = metadata
+            .AssemblyReferences.Select(handle =>
+                metadata.GetString(metadata.GetAssemblyReference(handle).Name)
+            )
+            .Where(name =>
+                name != "MelonLoader" && !name.StartsWith("System.", StringComparison.Ordinal)
+            )
+            .ToArray();
+
+        Assert.True(
+            foreign.Length == 0,
+            "The Android Updater references more than its loader and the BCL: "
+                + string.Join(", ", foreign)
+        );
+    }
+
     private static IReadOnlyList<string> ReferencedAssemblyNames()
     {
         using var reader = OpenHost();
@@ -82,13 +105,15 @@ public sealed class AndroidHostAssemblyBoundaryTests
             .ToArray();
     }
 
-    private static PEReader OpenHost()
+    private static PEReader OpenHost() => Open("BppAndroidHostAssembly");
+
+    private static PEReader Open(string key)
     {
         var path = typeof(AndroidHostAssemblyBoundaryTests)
             .Assembly.GetCustomAttributes<AssemblyMetadataAttribute>()
-            .Single(attribute => attribute.Key == "BppAndroidHostAssembly")
+            .Single(attribute => attribute.Key == key)
             .Value;
-        Assert.True(File.Exists(path), $"The Android host was not built at '{path}'.");
+        Assert.True(File.Exists(path), $"'{key}' was not built at '{path}'.");
         return new PEReader(File.OpenRead(path!));
     }
 }

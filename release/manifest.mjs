@@ -75,14 +75,19 @@ export function fragmentKey(version, platform) {
 
 // What an installed Android Release APK carries besides the managed files and
 // the game: the Loader Release, the Interop Snapshot and the native libraries
-// the injection adds, as the Snapshot Lock's android-online entry pins them.
-// A fragment's `nonManagedPayloadDigest` is this digest of the APK it names;
-// with the game version it is that APK's identity (ADR 0010).
+// the injection adds, as the Snapshot Lock's android-online entry pins them,
+// and the Updater plugin baked into its deployment. A fragment's
+// `nonManagedPayloadDigest` is this digest of the APK it names; with the game
+// version it is that APK's identity (ADR 0010), and a running copy that
+// records another digest cannot take the release as a Managed Payload.
 export function androidNonManagedPayloadDigest({
   loader,
   interopSha256,
-  nativeLibs = {}
+  nativeLibs = {},
+  updaterSha256
 }) {
+  if (!SHA256.test(updaterSha256 ?? ''))
+    throw new Error('An Android APK identity needs its Updater plugin digest');
   const libs = Object.keys(nativeLibs)
     .sort()
     .map((name) => ({ name, sha256: nativeLibs[name].sha256 }));
@@ -92,7 +97,8 @@ export function androidNonManagedPayloadDigest({
       JSON.stringify({
         loader: { tag: loader.tag, sha256: loader.sha256 },
         interopSha256,
-        nativeLibs: libs
+        nativeLibs: libs,
+        updaterSha256
       })
     )
     .digest('hex');
@@ -178,7 +184,35 @@ export function validateMirrorRecord(record, version, platform, fileName) {
   return record;
 }
 
-export function buildPlatformFragment({ manifest, baseUrl }) {
+// The self-update facts a desktop fragment and its Platform Release Manifest
+// carry beside the installer, in this order (mod ADR-0014): the Managed
+// Payload zip, the publisher's hint whether the previous release's installs
+// can take it, and the two facts the mod compares against its running copy.
+const DESKTOP_SELF_UPDATE_FIELDS = Object.freeze([
+  'managedPayload',
+  'selfUpdatable',
+  'historyDatabaseUserVersion',
+  'nonManagedPayloadDigest'
+]);
+
+function assertSelfUpdateFacts(release, version, platform) {
+  if (
+    typeof release.selfUpdatable !== 'boolean' ||
+    !positiveInteger(release.historyDatabaseUserVersion) ||
+    !SHA256.test(release.nonManagedPayloadDigest ?? '')
+  )
+    throw new Error(`Invalid ${platform} self-update facts for ${version}`);
+  assertManagedPayload(release.managedPayload, version, platform);
+  if (
+    new URL(release.managedPayload.url).pathname !==
+    `${RELEASE_BASE_PATH}/${managedPayloadKey(version, platform)}`
+  )
+    throw new Error(
+      `Unexpected Managed Payload URL: ${release.managedPayload.url}`
+    );
+}
+
+export function buildPlatformFragment({ manifest, baseUrl, selfUpdatable }) {
   const version = assertProductVersion(manifest.appVersion);
   const definition = RELEASE_PLATFORMS.find(
     (platform) =>
@@ -210,7 +244,16 @@ export function buildPlatformFragment({ manifest, baseUrl }) {
       ...record(manifest.updater, 'updater'),
       signature: manifest.signature.content.trim()
     },
-    signatureFile: record(manifest.signature, 'updater')
+    signatureFile: record(manifest.signature, 'updater'),
+    managedPayload: {
+      url: `${origin}/${managedPayloadKey(version, definition.key)}`,
+      size: manifest.managedPayload?.size,
+      sha256: manifest.managedPayload?.sha256,
+      signature: manifest.managedPayload?.signature?.trim()
+    },
+    selfUpdatable,
+    historyDatabaseUserVersion: manifest.historyDatabaseUserVersion,
+    nonManagedPayloadDigest: manifest.nonManagedPayloadDigest
   };
   validatePlatformFragment(fragment, version, definition.key);
   return fragment;
@@ -371,7 +414,7 @@ export function fragmentArtifacts(fragment) {
         fragment.installer,
         fragment.updater,
         fragment.signatureFile,
-        ...(fragment.managedPayload ? [fragment.managedPayload] : [])
+        fragment.managedPayload
       ];
 }
 
@@ -385,15 +428,7 @@ export function validatePlatformFragment(fragment, version, platform) {
     !GIT_COMMIT.test(fragment.gitCommit ?? '')
   )
     throw new Error(`Invalid ${platform} platform fragment for ${version}`);
-  // The desktop Managed Payload for self-update: its schema is defined, no
-  // build produces it yet.
-  if (fragment.managedPayload !== undefined)
-    assertManagedPayload(fragment.managedPayload, version, platform);
-  if (
-    fragment.selfUpdatable !== undefined &&
-    typeof fragment.selfUpdatable !== 'boolean'
-  )
-    throw new Error(`Invalid ${platform} platform fragment for ${version}`);
+  assertSelfUpdateFacts(fragment, version, platform);
   assertRecord(fragment.installer, 'installer');
   assertRecord(fragment.updater, 'updater');
   assertRecord(fragment.signatureFile, 'signature');
@@ -467,8 +502,11 @@ export function validatePlatformManifest(manifest, platform) {
   )
     throw new Error(`Invalid ${platform} platform manifest updater entry`);
   assertSafeHttps(updater.url, `${platform} updater`);
-  const { mainlandUrl, ...installer } = manifest.downloads[platform];
+  const { mainlandUrl, ...release } = manifest.downloads[platform];
+  const installer = { ...release };
+  for (const field of DESKTOP_SELF_UPDATE_FIELDS) delete installer[field];
   assertRecord(installer, `${platform} installer`);
+  assertSelfUpdateFacts(release, manifest.version, platform);
   if (mainlandUrl !== undefined) assertMirrorUrl(mainlandUrl);
   return manifest;
 }
@@ -528,10 +566,13 @@ export function buildPlatformManifest({
       }
     },
     downloads: {
-      [platform]:
-        mainlandUrl === undefined
-          ? fragment.installer
-          : { ...fragment.installer, mainlandUrl }
+      [platform]: {
+        ...fragment.installer,
+        ...(mainlandUrl === undefined ? {} : { mainlandUrl }),
+        ...Object.fromEntries(
+          DESKTOP_SELF_UPDATE_FIELDS.map((field) => [field, fragment[field]])
+        )
+      }
     }
   };
   if (reuse) {

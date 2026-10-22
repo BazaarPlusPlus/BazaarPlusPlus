@@ -2,7 +2,7 @@
   <!-- Generated from release/payload.json by node release.mjs sync. -->
   <Target Name="ValidatePayloadInventoryProjection" BeforeTargets="PrepareForBuild;CollectPayloadFiles">
     <GetFileHash Files="$(MSBuildThisFileDirectory)../payload.json" Algorithm="SHA256"><Output TaskParameter="Items" ItemName="_PayloadInventoryHash" /></GetFileHash>
-    <Error Condition="'%(_PayloadInventoryHash.FileHash)' != 'A2B32DF43C3FDD7ECD5BF648E5DBA5FC550EEF0B041619AE4717BE8A1620412D'" Text="Payload Inventory projection is stale. Run node release.mjs sync." />
+    <Error Condition="'%(_PayloadInventoryHash.FileHash)' != '06735A361B1542CBDDBB29DF38B509091ECE94583E4A140D0575E377A3F1C70B'" Text="Payload Inventory projection is stale. Run node release.mjs sync." />
   </Target>
   <Target Name="CollectPayloadFiles" DependsOnTargets="ValidatePayloadInventoryProjection">
     <PropertyGroup>
@@ -19,6 +19,7 @@
       <BppPayloadFile Include="$(TargetDir)BazaarPlusPlus.Storage.dll"><PayloadPath>BepInEx/plugins/BazaarPlusPlus.Storage.dll</PayloadPath><ProductAssembly>true</ProductAssembly></BppPayloadFile>
       <BppPayloadFile Include="$(TargetDir)BazaarPlusPlus.version"><PayloadPath>BepInEx/plugins/BazaarPlusPlus.version</PayloadPath><ProductAssembly>false</ProductAssembly></BppPayloadFile>
       <BppPayloadFile Include="$(HistoryDatabaseContractFile)"><PayloadPath>BepInEx/plugins/BazaarPlusPlus.history-database.json</PayloadPath><ProductAssembly>false</ProductAssembly></BppPayloadFile>
+      <BppPayloadFile Include="$(BppUpdaterFile)"><PayloadPath>BepInEx/patchers/BazaarPlusPlus.Updater.dll</PayloadPath><ProductAssembly>false</ProductAssembly></BppPayloadFile>
       <BppPayloadFile Include="$(TargetDir)Microsoft.Data.Sqlite.dll"><PayloadPath>BepInEx/plugins/Microsoft.Data.Sqlite.dll</PayloadPath><ProductAssembly>false</ProductAssembly></BppPayloadFile>
       <BppPayloadFile Include="$(TargetDir)SQLitePCLRaw.batteries_v2.dll"><PayloadPath>BepInEx/plugins/SQLitePCLRaw.batteries_v2.dll</PayloadPath><ProductAssembly>false</ProductAssembly></BppPayloadFile>
       <BppPayloadFile Include="$(TargetDir)SQLitePCLRaw.core.dll"><PayloadPath>BepInEx/plugins/SQLitePCLRaw.core.dll</PayloadPath><ProductAssembly>false</ProductAssembly></BppPayloadFile>
@@ -38,6 +39,7 @@
       <BppPayloadFile Include="$(TargetDir)BazaarPlusPlus.Storage.dll"><PayloadPath>MelonLoader/Mods/BazaarPlusPlus.Storage.dll</PayloadPath><ProductAssembly>true</ProductAssembly></BppPayloadFile>
       <BppPayloadFile Include="$(TargetDir)BazaarPlusPlus.version"><PayloadPath>MelonLoader/Mods/BazaarPlusPlus.version</PayloadPath><ProductAssembly>false</ProductAssembly></BppPayloadFile>
       <BppPayloadFile Include="$(HistoryDatabaseContractFile)"><PayloadPath>MelonLoader/Mods/BazaarPlusPlus.history-database.json</PayloadPath><ProductAssembly>false</ProductAssembly></BppPayloadFile>
+      <BppPayloadFile Include="$(BppUpdaterFile)"><PayloadPath>MelonLoader/Plugins/BazaarPlusPlus.Updater.dll</PayloadPath><ProductAssembly>false</ProductAssembly></BppPayloadFile>
       <BppPayloadFile Include="$(TargetDir)Microsoft.Data.Sqlite.dll"><PayloadPath>MelonLoader/UserLibs/Microsoft.Data.Sqlite.dll</PayloadPath><ProductAssembly>false</ProductAssembly></BppPayloadFile>
       <BppPayloadFile Include="$(TargetDir)SQLitePCLRaw.batteries_v2.dll"><PayloadPath>MelonLoader/UserLibs/SQLitePCLRaw.batteries_v2.dll</PayloadPath><ProductAssembly>false</ProductAssembly></BppPayloadFile>
       <BppPayloadFile Include="$(TargetDir)SQLitePCLRaw.core.dll"><PayloadPath>MelonLoader/UserLibs/SQLitePCLRaw.core.dll</PayloadPath><ProductAssembly>false</ProductAssembly></BppPayloadFile>

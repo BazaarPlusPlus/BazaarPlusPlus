@@ -1,0 +1,7 @@
+bpp-managed-payload-manifest 1
+version 6.1.0
+platform darwin-aarch64
+history-database-user-version 1
+non-managed-payload-digest eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+file 0d45f5fd462b8c70bffb10021ac1bcff3f58f29b1faf7568595095427d42812c 4 BepInEx/plugins/BazaarPlusPlus.Core.dll
+file 0343b13708cd52d33ecbb1043b5ae145e73a532bdccf7de6925db5cce6054fd3 3 BepInEx/plugins/BazaarPlusPlus.dll

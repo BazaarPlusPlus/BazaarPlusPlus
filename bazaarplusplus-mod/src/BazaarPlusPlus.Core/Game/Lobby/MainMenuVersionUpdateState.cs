@@ -4,20 +4,20 @@ namespace BazaarPlusPlus.Game.Lobby;
 
 public readonly struct MainMenuVersionUpdateSnapshot
 {
-    public MainMenuVersionUpdateSnapshot(bool updateAvailable, int revision)
+    public MainMenuVersionUpdateSnapshot(MainMenuUpdateStatus status, int revision)
     {
-        UpdateAvailable = updateAvailable;
+        Status = status;
         Revision = revision;
     }
 
-    public bool UpdateAvailable { get; }
+    public MainMenuUpdateStatus Status { get; }
     public int Revision { get; }
 }
 
 public static class MainMenuVersionUpdateState
 {
     private static readonly object SyncRoot = new();
-    private static bool _updateAvailable;
+    private static MainMenuUpdateStatus _status;
     private static int _revision;
 
     public static MainMenuVersionUpdateSnapshot Current
@@ -25,20 +25,18 @@ public static class MainMenuVersionUpdateState
         get
         {
             lock (SyncRoot)
-                return new MainMenuVersionUpdateSnapshot(_updateAvailable, _revision);
+                return new MainMenuVersionUpdateSnapshot(_status, _revision);
         }
     }
 
-    public static void Reset() => SetUpdateAvailable(false);
-
-    public static void SetUpdateAvailable(bool updateAvailable)
+    public static void SetStatus(MainMenuUpdateStatus status)
     {
         lock (SyncRoot)
         {
-            if (_updateAvailable == updateAvailable)
+            if (_status == status)
                 return;
 
-            _updateAvailable = updateAvailable;
+            _status = status;
             _revision++;
         }
     }

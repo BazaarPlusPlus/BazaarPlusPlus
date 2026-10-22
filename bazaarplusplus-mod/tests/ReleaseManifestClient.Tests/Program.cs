@@ -7,6 +7,7 @@ using BazaarPlusPlus.TestSupport;
 await TestSharedReleaseManifest();
 await TestSharedPlatformReleaseManifests();
 TestEndpointFollowsThePlatform();
+await TestIncompleteManagedPayloadIsAbsent();
 await TestSuccessfulManifestIsTrimmed();
 await TestHttpStatusIsClosedFailure();
 await TestMissingAndMalformedManifestsAreClosedFailures();
@@ -46,11 +47,40 @@ static async Task TestSharedPlatformReleaseManifests()
             Path.Combine(AppContext.BaseDirectory, "fixtures", "latest", $"{platformKey}.json")
         );
         using var fixture = JsonDocument.Parse(body);
-        var result = await Fetch(_ => Response(HttpStatusCode.OK, body));
+        var result = await Fetch(_ => Response(HttpStatusCode.OK, body), platformKey: platformKey);
 
         True(
             result.Succeeded,
             $"The shared {platformKey} Platform Release Manifest should succeed."
+        );
+        var release = fixture.RootElement.GetProperty("downloads").GetProperty(platformKey);
+        var payload = release.GetProperty("managedPayload");
+        True(
+            result.ManagedPayload != null,
+            $"The {platformKey} manifest should yield its Managed Payload."
+        );
+        Equal(expectedVersion, result.ManagedPayload!.Version, "The payload is that version's.");
+        Equal(
+            payload.GetProperty("url").GetString(),
+            result.ManagedPayload.Url.ToString(),
+            "The payload URL is the writer's."
+        );
+        Equal(payload.GetProperty("size").GetInt64(), result.ManagedPayload.Size, "Size.");
+        Equal(payload.GetProperty("sha256").GetString(), result.ManagedPayload.Sha256, "SHA-256.");
+        Equal(
+            payload.GetProperty("signature").GetString(),
+            result.ManagedPayload.Signature,
+            "Signature."
+        );
+        Equal(
+            release.GetProperty("historyDatabaseUserVersion").GetInt32(),
+            result.ManagedPayload.HistoryDatabaseUserVersion,
+            "History database schema."
+        );
+        Equal(
+            release.GetProperty("nonManagedPayloadDigest").GetString(),
+            result.ManagedPayload.NonManagedPayloadDigest,
+            "Non-managed payload digest."
         );
         Equal(
             expectedVersion,
@@ -96,6 +126,25 @@ static void TestEndpointFollowsThePlatform()
         ReleaseManifestEndpoints.ForPlatformKey("linux-x86_64").ToString(),
         "An undeclared platform key should fall back to the lockstep Release Manifest."
     );
+}
+
+static async Task TestIncompleteManagedPayloadIsAbsent()
+{
+    const string body = """
+        {"version":"3.4.5","downloads":{"darwin-aarch64":{"managedPayload":{"url":"https://cdn.example/a.zip","size":3,"sha256":"aa","signature":"s"},"historyDatabaseUserVersion":1}}}
+        """;
+    var result = await Fetch(
+        _ => Response(HttpStatusCode.OK, body),
+        platformKey: ReleaseManifestEndpoints.MacPlatformKey
+    );
+
+    True(result.Succeeded, "The version is still published.");
+    True(
+        result.ManagedPayload == null,
+        "A record without its non-managed payload digest is no Managed Payload."
+    );
+    var unasked = await Fetch(_ => Response(HttpStatusCode.OK, body));
+    True(unasked.ManagedPayload == null, "Without a platform key only the version is read.");
 }
 
 static async Task TestSuccessfulManifestIsTrimmed()
@@ -208,11 +257,16 @@ static async Task TestLifecycleRejectsOutOfOrderGenerationsAndDisposesOwners()
 
 static async Task<ReleaseManifestFetchResult> Fetch(
     Func<HttpRequestMessage, HttpResponseMessage> send,
-    CancellationToken cancellationToken = default
+    CancellationToken cancellationToken = default,
+    string? platformKey = null
 )
 {
     using var http = new HttpClient(new Handler(send));
-    var client = new ReleaseManifestClient(http, new Uri("https://example.test/latest.json"));
+    var client = new ReleaseManifestClient(
+        http,
+        new Uri("https://example.test/latest.json"),
+        platformKey
+    );
     return await client.FetchAsync(cancellationToken);
 }
 

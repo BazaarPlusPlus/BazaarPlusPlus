@@ -140,6 +140,20 @@ test('the page probe identifies itself as a desktop browser and reports transpor
   });
 });
 
+// The self-update facts every desktop fragment and Platform Release Manifest
+// carries (manifest.mjs); the mirror check reads none of them.
+const selfUpdate = (version, platform) => ({
+  managedPayload: {
+    url: `${baseUrl}/${version}/${platform}/managed/BazaarPlusPlus_${version}_${platform}-managed.zip`,
+    size: 100,
+    sha256: 'b'.repeat(64),
+    signature: 'managed-sig'
+  },
+  selfUpdatable: false,
+  historyDatabaseUserVersion: 1,
+  nonManagedPayloadDigest: 'e'.repeat(64)
+});
+
 function fragment(version, platform) {
   const installer =
     platform === 'windows-x86_64'
@@ -156,7 +170,8 @@ function fragment(version, platform) {
       ...record(`${baseUrl}/${version}/${platform}/updater/pkg`),
       signature: 'sig'
     },
-    signatureFile: record(`${baseUrl}/${version}/${platform}/updater/pkg.sig`)
+    signatureFile: record(`${baseUrl}/${version}/${platform}/updater/pkg.sig`),
+    ...selfUpdate(version, platform)
   };
 }
 
@@ -311,7 +326,8 @@ function platformManifest(version, platform, mainlandUrl) {
         url: installer,
         size: 100,
         sha256: 'b'.repeat(64),
-        ...(mainlandUrl ? { mainlandUrl } : {})
+        ...(mainlandUrl ? { mainlandUrl } : {}),
+        ...selfUpdate(version, platform)
       }
     }
   };

@@ -28,6 +28,7 @@
   <PropertyGroup>
     <BppPayloadHost>melonloader</BppPayloadHost>
     <HistoryDatabaseContractFile>$(MSBuildThisFileDirectory)../BazaarPlusPlus.Storage/BazaarPlusPlus.history-database.json</HistoryDatabaseContractFile>
+    <BppUpdaterFile>$(MSBuildThisFileDirectory)../BazaarPlusPlus.Updater/bin/$(Configuration)/net10.0/BazaarPlusPlus.Updater.dll</BppUpdaterFile>
     <BuildProductionPackage Condition="'$(BuildProductionPackage)' == ''"
       >false</BuildProductionPackage>
   </PropertyGroup>
@@ -59,6 +60,16 @@
   -->
   <ItemGroup>
     <ProjectReference Include="../BazaarPlusPlus.Core/BazaarPlusPlus.Core.csproj" />
+  </ItemGroup>
+
+  <!-- The Updater ships in the Payload (MelonLoader/Plugins/) and is built for it, never
+       referenced: it runs before the Mods load and may not depend on them (ADR-0014). -->
+  <ItemGroup>
+    <ProjectReference
+      Include="../BazaarPlusPlus.Updater/BazaarPlusPlus.Updater.csproj"
+      ReferenceOutputAssembly="false"
+      SetTargetFramework="TargetFramework=net10.0"
+    />
   </ItemGroup>
 
   <!-- Production builds write only into the release coordinator's isolated staging tree. -->

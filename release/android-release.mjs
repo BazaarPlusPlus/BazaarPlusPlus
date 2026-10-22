@@ -10,7 +10,14 @@ import {
   requiredPayloadPaths,
   synchronizePayloadProjection
 } from './payload-inventory.mjs';
-import { listPayloadFiles, writeDeterministicZip } from './payload-zip.mjs';
+import { listPayloadFiles } from './payload-zip.mjs';
+import {
+  MANAGED_PRODUCERS,
+  readStagedManagedPayload,
+  signWithUpdaterKey,
+  writeManagedPayloadManifest,
+  writeManagedPayloadZip
+} from './managed-payload.mjs';
 import {
   assertReleaseBuildArgs,
   acquirePayloadLock,
@@ -28,7 +35,6 @@ import {
 } from './game-libs.mjs';
 import { sha256File } from './android-apk.mjs';
 import { releaseSourceIdentity } from './artifact-manifest.mjs';
-import { readHistoryDatabaseContract } from './history-database.mjs';
 import {
   androidApkKey,
   androidNonManagedPayloadDigest,
@@ -57,9 +63,16 @@ const ANDROID_ARTIFACT_SCHEMA_VERSION = 1;
 // The Android host project, relative to bazaarplusplus-mod/.
 const ANDROID_HOST_PROJECT =
   'src/BazaarPlusPlus.Android/BazaarPlusPlus.Android.csproj';
-// Inventory producers the mod build stages; everything else on Android is
-// produced by the APK injection or at runtime.
-const MOD_PRODUCERS = new Set(['managed', 'history-contract']);
+// Inventory producers the mod build stages: the Managed Payload, the Updater
+// plugin, and the Managed Payload Manifest prepare writes beside them;
+// everything else on Android is produced by the APK injection or at runtime.
+const MOD_PRODUCERS = new Set([
+  ...MANAGED_PRODUCERS,
+  'updater',
+  'managed-manifest'
+]);
+// What MSBuild produces; prepare writes the manifest after it.
+const BUILD_PRODUCERS = new Set([...MANAGED_PRODUCERS, 'updater']);
 // The Patcher's `inject --deployment` takes a MelonLoader mirror; the Payload
 // stages it under this root.
 const DEPLOYMENT_ROOT = 'MelonLoader';
@@ -105,12 +118,15 @@ export const ANDROID_APK_FACTS = Object.freeze([
 export const androidApkFacts = (record) =>
   Object.fromEntries(ANDROID_APK_FACTS.map((name) => [name, record[name]]));
 
-// The APK identity of a Snapshot Lock android-online entry (ADR 0010).
-export function androidApkIdentity(entry) {
+// The APK identity of a Snapshot Lock android-online entry and the Updater
+// plugin the APK carries (ADR 0010): the Updater ships only inside the APK, so
+// a changed Updater is a new APK.
+export function androidApkIdentity(entry, updaterSha256) {
   const nonManagedPayloadDigest = androidNonManagedPayloadDigest({
     loader: entry.loader,
     interopSha256: entry.interopSha256,
-    nativeLibs: entry.nativeLibs ?? {}
+    nativeLibs: entry.nativeLibs ?? {},
+    updaterSha256
   });
   return {
     key: androidApkKey({
@@ -122,7 +138,19 @@ export function androidApkIdentity(entry) {
   };
 }
 
-export const androidApkKeyForEntry = (entry) => androidApkIdentity(entry).key;
+export const androidApkKeyForEntry = (entry, updaterSha256) =>
+  androidApkIdentity(entry, updaterSha256).key;
+
+// The SHA-256 of the Updater plugin in a staged Android Payload.
+export function stagedUpdaterSha256(payloadRoot) {
+  const entry = platformInventory(PLATFORM).find(
+    (candidate) => candidate.producer === 'updater'
+  );
+  return crypto
+    .createHash('sha256')
+    .update(fs.readFileSync(path.join(payloadRoot, ...entry.path.split('/'))))
+    .digest('hex');
+}
 
 function lockEntryRecord(entry) {
   return {
@@ -190,14 +218,20 @@ function payloadOutput(payloadRoot) {
 
 // The staged Android Mod Payload holds every required mod-built file of the
 // Android inventory and nothing the inventory does not give to the mod build.
-function validateAndroidPayload(payloadRoot, productVersion) {
+// `producers` narrows the check to what the host build alone produces,
+// before prepare writes the Managed Payload Manifest.
+function validateAndroidPayload(
+  payloadRoot,
+  productVersion,
+  producers = MOD_PRODUCERS
+) {
   const entries = platformInventory(PLATFORM);
   const files = fs.existsSync(payloadRoot)
     ? listPayloadFiles(payloadRoot, { platform: PLATFORM })
     : [];
   for (const { path: name } of files) {
     const entry = payloadEntry(name, entries);
-    if (!entry || !MOD_PRODUCERS.has(entry.producer))
+    if (!entry || !producers.has(entry.producer))
       throw new Error(
         `Android Mod Payload holds ${name}, which release/payload.json does not give to the mod build`
       );
@@ -205,7 +239,7 @@ function validateAndroidPayload(payloadRoot, productVersion) {
   const staged = new Set(files.map((file) => file.path));
   const modBuilt = new Set(
     entries
-      .filter((entry) => MOD_PRODUCERS.has(entry.producer))
+      .filter((entry) => producers.has(entry.producer))
       .map((entry) => entry.path)
   );
   const missing = requiredPayloadPaths(PLATFORM).filter(
@@ -284,6 +318,16 @@ async function prepareUnlocked({
     });
     if (androidInputs({ workspaceRoot, interopPath }).digest !== inputs.digest)
       throw new Error('Release inputs changed while building the Payload');
+    validateAndroidPayload(payloadRoot, productVersion, BUILD_PRODUCERS);
+    writeManagedPayloadManifest({
+      sourceDir: payloadRoot,
+      platform: PLATFORM,
+      version: productVersion,
+      nonManagedPayloadDigest: androidApkIdentity(
+        entry,
+        stagedUpdaterSha256(payloadRoot)
+      ).nonManagedPayloadDigest
+    });
     validateAndroidPayload(payloadRoot, productVersion);
     const record = {
       schemaVersion: ANDROID_BUILD_RECORD_SCHEMA_VERSION,
@@ -381,45 +425,6 @@ function run(command, args, { cwd, env, quiet = false } = {}) {
       `${path.basename(command)} ${args[0] ?? ''} failed: ${String(error.stderr || error.message).trim()}`
     );
   }
-}
-
-// Signs a file with the Tauri updater key (minisign) through the installer's
-// pinned @tauri-apps/cli, as the Tauri updater packages are signed; returns
-// the signature text the fragment carries. Reads the key from
-// BPP_SIGNING_SECRETS_DIR/tauri-updater.key, else TAURI_SIGNING_PRIVATE_KEY.
-export function signWithUpdaterKey({ workspaceRoot, file, env = process.env }) {
-  const tauri = path.join(
-    installerRoot(workspaceRoot),
-    'node_modules',
-    '.bin',
-    process.platform === 'win32' ? 'tauri.cmd' : 'tauri'
-  );
-  if (!fs.existsSync(tauri))
-    throw new Error(
-      `Signing the Managed Payload zip needs the installer's Tauri CLI; run npm ci in bazaarplusplus-installer (missing ${tauri})`
-    );
-  const secrets = env.BPP_SIGNING_SECRETS_DIR;
-  const keyFile = secrets ? path.join(secrets, 'tauri-updater.key') : '';
-  const passwordFile = secrets
-    ? path.join(secrets, 'tauri-updater.password')
-    : '';
-  const signing = { ...env };
-  delete signing.TAURI_SIGNING_PRIVATE_KEY_PATH;
-  if (keyFile && fs.existsSync(keyFile)) {
-    delete signing.TAURI_SIGNING_PRIVATE_KEY;
-    signing.TAURI_SIGNING_PRIVATE_KEY_PATH = keyFile;
-  } else if (!env.TAURI_SIGNING_PRIVATE_KEY)
-    throw new Error(
-      'Signing the Managed Payload zip needs the Tauri updater key: BPP_SIGNING_SECRETS_DIR/tauri-updater.key or TAURI_SIGNING_PRIVATE_KEY'
-    );
-  if (passwordFile && fs.existsSync(passwordFile))
-    signing.TAURI_SIGNING_PRIVATE_KEY_PASSWORD = fs
-      .readFileSync(passwordFile, 'utf8')
-      .replace(/\n+$/, '');
-  signing.TAURI_SIGNING_PRIVATE_KEY_PASSWORD ??= '';
-  fs.rmSync(`${file}.sig`, { force: true });
-  run(tauri, ['signer', 'sign', file], { env: signing, quiet: true });
-  return fs.readFileSync(`${file}.sig`, 'utf8').trim();
 }
 
 // The BPP Android release keystore (ADR 0009) staged in BPP_SIGNING_SECRETS_DIR
@@ -755,15 +760,19 @@ async function buildUnlocked({
   for (const stale of fs.readdirSync(paths.root))
     if (/\.(?:apk|zip|sig)$/.test(stale))
       fs.rmSync(path.join(paths.root, stale), { force: true });
-  const zip = writeDeterministicZip({
+  const zip = writeManagedPayloadZip({
     sourceDir: paths.payload,
+    platform: PLATFORM,
     outputPath: zipPath,
-    platform: PLATFORM
+    sign: ({ file }) => sign({ workspaceRoot, file })
   });
   const signature = sign({ workspaceRoot, file: zipPath });
   log(`Signed ${path.basename(zipPath)}`);
 
-  const apkIdentity = androidApkIdentity(entry);
+  const apkIdentity = androidApkIdentity(
+    entry,
+    stagedUpdaterSha256(paths.payload)
+  );
   const apkKey = apkIdentity.key;
   const published = await publishedAndroidApk(releaseStore(), apkIdentity);
   let apk;
@@ -816,14 +825,14 @@ async function buildUnlocked({
     throw new Error(
       'Product source or Git identity changed during packaging; no artifact manifest was written'
     );
-  const contract = readHistoryDatabaseContract(
-    path.join(
-      paths.payload,
-      DEPLOYMENT_ROOT,
-      'Mods',
-      'BazaarPlusPlus.history-database.json'
-    )
+  const { manifest: managed } = readStagedManagedPayload(
+    paths.payload,
+    PLATFORM
   );
+  if (managed.nonManagedPayloadDigest !== apkIdentity.nonManagedPayloadDigest)
+    throw new Error(
+      'The Managed Payload Manifest names another non-managed payload than the APK; run node release.mjs prepare --platform android'
+    );
   const manifest = {
     schemaVersion: ANDROID_ARTIFACT_SCHEMA_VERSION,
     platform: key,
@@ -838,7 +847,7 @@ async function buildUnlocked({
       signature
     },
     apk: { key: apkKey, ...apk },
-    historyDatabaseUserVersion: contract.historyDatabaseUserVersion,
+    historyDatabaseUserVersion: managed.historyDatabaseUserVersion,
     nonManagedPayloadDigest: apkIdentity.nonManagedPayloadDigest,
     game: {
       gameVersion: entry.gameVersion,

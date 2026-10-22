@@ -4,8 +4,8 @@ set positional-arguments
 # Some VPN/tunnel configurations advertise an unusable IPv6 route; see scripts/lib.sh.
 export DOTNET_SYSTEM_NET_DISABLEIPV6 := env('DOTNET_SYSTEM_NET_DISABLEIPV6', '1')
 
-# The four published assemblies; each keeps a committed NuGet lock file.
-published_projects := "src/BazaarPlusPlus.Core/BazaarPlusPlus.Core.csproj src/BazaarPlusPlus.ModApi/BazaarPlusPlus.ModApi.csproj src/BazaarPlusPlus.Storage/BazaarPlusPlus.Storage.csproj src/BazaarPlusPlus/BazaarPlusPlus.csproj"
+# The published assemblies; each keeps a committed NuGet lock file.
+published_projects := "src/BazaarPlusPlus.Core/BazaarPlusPlus.Core.csproj src/BazaarPlusPlus.Updater/BazaarPlusPlus.Updater.csproj src/BazaarPlusPlus.ModApi/BazaarPlusPlus.ModApi.csproj src/BazaarPlusPlus.Storage/BazaarPlusPlus.Storage.csproj src/BazaarPlusPlus/BazaarPlusPlus.csproj"
 
 # Check formatting, compile without deploying, and validate the NuGet and snapshot lock files.
 check: fmt-check build locks-check lock-check

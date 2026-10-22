@@ -75,6 +75,7 @@
     <ProjectRoot>$(MSBuildThisFileDirectory)</ProjectRoot>
     <BPPInstallerSourcePath>$(ProjectRoot)/../../../bazaarplusplus-installer/src-tauri/resources</BPPInstallerSourcePath>
     <HistoryDatabaseContractFile>$(ProjectRoot)/../BazaarPlusPlus.Storage/BazaarPlusPlus.history-database.json</HistoryDatabaseContractFile>
+    <BppUpdaterFile>$(ProjectRoot)/../BazaarPlusPlus.Updater/bin/$(Configuration)/netstandard2.1/BazaarPlusPlus.Updater.dll</BppUpdaterFile>
     <HostArchitecture>$([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString().ToLowerInvariant())</HostArchitecture>
     <IsMacHost>$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::OSX)))</IsMacHost>
     <IsWindowsHost>$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Windows)))</IsWindowsHost>
@@ -123,6 +124,15 @@
     <ProjectReference Include="../BazaarPlusPlus.Core/BazaarPlusPlus.Core.csproj" />
     <ProjectReference Include="../BazaarPlusPlus.ModApi/BazaarPlusPlus.ModApi.csproj" />
     <ProjectReference Include="../BazaarPlusPlus.Storage/BazaarPlusPlus.Storage.csproj" />
+  </ItemGroup>
+  <!-- The Updater ships in the Payload (BepInEx/patchers/) and is built for it, never referenced:
+       it runs before this assembly loads and may not depend on it (ADR-0014). -->
+  <ItemGroup>
+    <ProjectReference
+      Include="../BazaarPlusPlus.Updater/BazaarPlusPlus.Updater.csproj"
+      ReferenceOutputAssembly="false"
+      SetTargetFramework="TargetFramework=netstandard2.1"
+    />
   </ItemGroup>
 
   <!-- Game assembly references -->

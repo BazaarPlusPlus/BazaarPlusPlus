@@ -21,6 +21,7 @@ test('successful build records exact artifacts, hashes, signature, and provenanc
   try {
     const { manifest, manifestPath } = createArtifactManifest({
       rootDir: fixture.rootDir,
+      managedPayload: fixture.managed,
       platform: 'windows',
       version: '9.9.9',
       gitState: cleanGit,
@@ -28,14 +29,21 @@ test('successful build records exact artifacts, hashes, signature, and provenanc
     });
 
     expect(manifest).toMatchObject({
-      schemaVersion: 2,
+      schemaVersion: 3,
       appVersion: '9.9.9',
       buildPlatform: 'windows',
       releasePlatformKey: 'windows-x86_64',
       gitCommit: cleanGit.commit,
       dirty: false,
       builtAt: '2026-07-18T12:00:00.000Z',
-      signature: { content: 'public-signature' }
+      signature: { content: 'public-signature' },
+      managedPayload: {
+        path: 'src-tauri/target/release-artifacts/managed/windows-x86_64/BazaarPlusPlus_9.9.9_windows-x86_64-managed.zip',
+        size: 'windows managed payload'.length,
+        signature: 'windows-managed-signature'
+      },
+      historyDatabaseUserVersion: 1,
+      nonManagedPayloadDigest: 'e'.repeat(64)
     });
     expect(manifest.installer.path).toMatch(/BazaarPlusPlus_9\.9\.9/);
     expect(manifest.updater.path).toBe(manifest.installer.path);
@@ -52,6 +60,7 @@ test('macOS manifest accepts Tauri updater names without an embedded version', (
   try {
     const { manifest, manifestPath } = createArtifactManifest({
       rootDir: fixture.rootDir,
+      managedPayload: fixture.managed,
       platform: 'macos',
       version: '9.9.9',
       gitState: cleanGit
@@ -78,6 +87,7 @@ test('manifest validation detects artifact tampering and missing files', () => {
   try {
     const { manifestPath } = createArtifactManifest({
       rootDir: fixture.rootDir,
+      managedPayload: fixture.managed,
       platform: 'windows',
       version: '9.9.9',
       gitState: cleanGit
@@ -103,6 +113,40 @@ test('manifest validation detects artifact tampering and missing files', () => {
         gitState: cleanGit
       })
     ).toThrow(/missing artifact/i);
+  } finally {
+    fs.rmSync(fixture.rootDir, { recursive: true, force: true });
+  }
+});
+
+test('a build without a signed Managed Payload records nothing, and a changed one fails validation', () => {
+  const fixture = windowsFixture();
+  try {
+    expect(() =>
+      createArtifactManifest({
+        rootDir: fixture.rootDir,
+        managedPayload: { ...fixture.managed, signature: ' ' },
+        platform: 'windows',
+        version: '9.9.9',
+        gitState: cleanGit
+      })
+    ).toThrow(/no signed Managed Payload/);
+    const { manifestPath } = createArtifactManifest({
+      rootDir: fixture.rootDir,
+      managedPayload: fixture.managed,
+      platform: 'windows',
+      version: '9.9.9',
+      gitState: cleanGit
+    });
+    fs.appendFileSync(fixture.managedPayload, 'tampered');
+    expect(() =>
+      validateArtifactManifest({
+        rootDir: fixture.rootDir,
+        manifestPath,
+        platform: 'windows',
+        version: '9.9.9',
+        gitState: cleanGit
+      })
+    ).toThrow(/Managed Payload size or SHA-256/);
   } finally {
     fs.rmSync(fixture.rootDir, { recursive: true, force: true });
   }
@@ -134,6 +178,7 @@ test('manifest generation refuses multiple updater candidates', () => {
     expect(() =>
       createArtifactManifest({
         rootDir: fixture.rootDir,
+        managedPayload: fixture.managed,
         platform: 'windows',
         version: '9.9.9',
         gitState: cleanGit
@@ -160,6 +205,7 @@ test.each([
   try {
     const { manifestPath } = createArtifactManifest({
       rootDir: fixture.rootDir,
+      managedPayload: fixture.managed,
       platform: 'windows',
       version: '9.9.9',
       gitState: cleanGit
@@ -182,6 +228,7 @@ test('manifest validation rejects a dirty build or dirty current checkout', () =
   try {
     const { manifestPath } = createArtifactManifest({
       rootDir: fixture.rootDir,
+      managedPayload: fixture.managed,
       platform: 'windows',
       version: '9.9.9',
       gitState: { ...cleanGit, dirty: true }
@@ -246,6 +293,7 @@ test('manifest generation refuses multiple candidate installers', () => {
     expect(() =>
       createArtifactManifest({
         rootDir: fixture.rootDir,
+        managedPayload: fixture.managed,
         platform: 'windows',
         version: '9.9.9',
         gitState: cleanGit

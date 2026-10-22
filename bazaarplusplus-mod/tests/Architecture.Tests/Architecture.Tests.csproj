@@ -43,6 +43,11 @@
       Value="$(BppScannedMainOutput)Release/netstandard2.1"
     />
     <AssemblyMetadata Include="BppManagedPath" Value="$(ManagedPath)" />
+    <!-- The main project builds the Updater's desktop target; AndroidHost.Tests scans net10.0. -->
+    <AssemblyMetadata
+      Include="BppUpdaterAssembly"
+      Value="$(MSBuildThisFileDirectory)../../src/BazaarPlusPlus.Updater/bin/$(Configuration)/netstandard2.1/BazaarPlusPlus.Updater.dll"
+    />
   </ItemGroup>
 
   <!-- SharedAssemblies reads both targets of every shared project as metadata. The main project

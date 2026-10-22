@@ -12,6 +12,7 @@ Runtime catalogs, the release manifest, and production build seeds are all remot
 | --- | --- |
 | Supporter runtime catalog | [`SupporterCatalogModule`](../../src/BazaarPlusPlus.Core/Game/Supporters/SupporterCatalogModule.cs) owns an `IRemoteEmbeddedCatalog<T>` session. Fixed-list mode creates no catalog; normal mode publishes a session-stable snapshot, retries a missing snapshot after five minutes, and rejects late publications after disposal. The static facade contains projection and fixed-list policy only. |
 | Release manifest | [`ReleaseManifestClient`](../../src/BazaarPlusPlus.Core/Infrastructure/ReleaseManifest/ReleaseManifestClient.cs) maps the installer manifest request into typed outcomes. [`ReleaseManifestCheckLifecycle`](../../src/BazaarPlusPlus.Core/Game/Lobby/ReleaseManifestCheckLifecycle.cs) owns request generation, cancellation, disposal, and the current-request publication gate. This request is separate from Mod API health and `ModApiSession`. |
+| Managed Payload staging | [`SelfUpdateStaging`](../../src/BazaarPlusPlus.Core/Infrastructure/SelfUpdate/SelfUpdateStaging.cs) keeps one staging run per version per process; [`ManagedPayloadStager`](../../src/BazaarPlusPlus.Core/Infrastructure/SelfUpdate/ManagedPayloadStager.cs) downloads, verifies, and renames it into place (ADR-0014). The run outlives the main-menu visit that started it, so `ReleaseManifestCheckLifecycle` does not gate it; it publishes only the process-wide `MainMenuVersionUpdateState`. |
 | Build seed fetch | [`RemoteEmbeddedDataFetcher`](../../build/RemoteEmbeddedDataFetcher/RemoteEmbeddedDataFetch.cs) stages one streamed download, checks transfer integrity, and cleans temporary files. `just mod::fetch-data` stages the complete seed set, runs feature-owned semantic parsers, then promotes the set transactionally with rollback. |
 
 ## Why
@@ -20,7 +21,7 @@ One shared lifecycle would make a long-lived cached catalog, a short-lived UI re
 
 ## Guardrails
 
-- Share HTTP primitives only where their contracts match; keep the three lifecycles independent.
-- Gate every asynchronous publication by the current owner generation and dispose the owner exactly once.
+- Share HTTP primitives only where their contracts match; keep the lifecycles independent.
+- Gate every asynchronous publication by the current owner generation and dispose the owner exactly once. Managed Payload staging is the one exception: it has no per-visit owner, and its status is true for whichever visit reads it.
 - Keep feature parsers as the semantic source of truth for seed data.
 - Promote a build seed set only after every member passes validation; a failure leaves the canonical set unchanged.

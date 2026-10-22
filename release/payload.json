@@ -48,6 +48,18 @@
       "producer": "history-contract"
     },
     {
+      "path": "BepInEx/plugins/BazaarPlusPlus.managed-manifest.txt",
+      "host": "bepinex",
+      "ownership": "private",
+      "producer": "managed-manifest"
+    },
+    {
+      "path": "BepInEx/patchers/BazaarPlusPlus.Updater.dll",
+      "host": "bepinex",
+      "ownership": "private",
+      "producer": "updater"
+    },
+    {
       "path": "BepInEx/plugins/Microsoft.Data.Sqlite.dll",
       "host": "bepinex",
       "ownership": "dependency",
@@ -285,6 +297,18 @@
       "host": "melonloader",
       "ownership": "private",
       "producer": "history-contract"
+    },
+    {
+      "path": "MelonLoader/Mods/BazaarPlusPlus.managed-manifest.txt",
+      "host": "melonloader",
+      "ownership": "private",
+      "producer": "managed-manifest"
+    },
+    {
+      "path": "MelonLoader/Plugins/BazaarPlusPlus.Updater.dll",
+      "host": "melonloader",
+      "ownership": "private",
+      "producer": "updater"
     },
     {
       "path": "MelonLoader/UserLibs/Microsoft.Data.Sqlite.dll",

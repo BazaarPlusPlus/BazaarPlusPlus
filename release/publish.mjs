@@ -194,6 +194,19 @@ function objectKey(url, baseUrl) {
   return decodeURIComponent(url.slice(base.length));
 }
 
+// The publisher's hint whether installs of the promoted release can take this
+// one as a Managed Payload: same history database schema and same non-managed
+// payload. The mod never reads it; it compares against its running copy.
+async function selfUpdatableFromPromoted(store, platform, facts) {
+  const promoted = (await readPlatformManifest(store, platform))?.downloads[
+    platform
+  ];
+  return (
+    promoted?.historyDatabaseUserVersion === facts.historyDatabaseUserVersion &&
+    promoted?.nonManagedPayloadDigest === facts.nonManagedPayloadDigest
+  );
+}
+
 export async function uploadPlatform({
   workspaceRoot,
   platform,
@@ -210,7 +223,12 @@ export async function uploadPlatform({
   });
   const fragment = buildPlatformFragment({
     manifest: validated.manifest,
-    baseUrl
+    baseUrl,
+    selfUpdatable: await selfUpdatableFromPromoted(
+      store,
+      validated.manifest.releasePlatformKey,
+      validated.manifest
+    )
   });
   // Freeze and verify every byte before the first remote write. A concurrent
   // local build must never poison an immutable key halfway through an upload.
@@ -218,7 +236,8 @@ export async function uploadPlatform({
   const uploads = [
     [validated.installer, fragment.installer],
     [validated.updater, fragment.updater],
-    [validated.signature, fragment.signatureFile]
+    [validated.signature, fragment.signatureFile],
+    [validated.managedPayload, fragment.managedPayload]
   ].map(([file, record]) => {
     if (!snapshots.has(file)) snapshots.set(file, fs.readFileSync(file));
     const bytes = snapshots.get(file);
@@ -233,6 +252,12 @@ export async function uploadPlatform({
   for (const { key, bytes } of uploads) {
     await putImmutable(store, key, bytes);
   }
+  await putImmutable(
+    store,
+    `${managedPayloadKey(version, fragment.platform)}.sig`,
+    Buffer.from(`${fragment.managedPayload.signature}\n`),
+    'text/plain'
+  );
   await putImmutable(
     store,
     fragmentKey(version, fragment.platform),
