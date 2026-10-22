@@ -1,14 +1,14 @@
 #nullable enable
 namespace BazaarPlusPlus.Game.HistoryPanel;
 
-internal readonly record struct ReplayPayloadCleanupResult(
+public readonly record struct ReplayPayloadCleanupResult(
     int FailedBattleCount,
     Exception? Exception
 );
 
-internal static class HistoryPanelReplayCleanup
+public static class HistoryPanelReplayCleanup
 {
-    internal static ReplayPayloadCleanupResult Execute(
+    public static ReplayPayloadCleanupResult Execute(
         IReadOnlyList<string> battleIds,
         Action<string> deleteLocalPayload,
         Action<string> deleteGhostPayload

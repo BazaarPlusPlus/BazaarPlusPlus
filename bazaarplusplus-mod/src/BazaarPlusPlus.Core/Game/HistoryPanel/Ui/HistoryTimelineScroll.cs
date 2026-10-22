@@ -1,12 +1,12 @@
 #nullable enable
 namespace BazaarPlusPlus.Game.HistoryPanel.Ui;
 
-internal sealed class HistoryTimelineScroll
+public sealed class HistoryTimelineScroll
 {
     private string? _selectedBattleId;
     private float? _offsetBeforeLoading;
 
-    internal float Bind(
+    public float Bind(
         string? selectedBattleId,
         int selectedSlot,
         int rowCount,
