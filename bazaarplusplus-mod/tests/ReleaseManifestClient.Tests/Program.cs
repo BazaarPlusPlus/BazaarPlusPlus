@@ -7,6 +7,8 @@ using BazaarPlusPlus.TestSupport;
 await TestSharedReleaseManifest();
 await TestSharedPlatformReleaseManifests();
 TestEndpointFollowsThePlatform();
+await TestAndroidApkIsReadOnlyWhenComplete();
+TestAndroidGameUpdateComparesVersionCodes();
 await TestIncompleteManagedPayloadIsAbsent();
 await TestSuccessfulManifestIsTrimmed();
 await TestHttpStatusIsClosedFailure();
@@ -93,6 +95,90 @@ static async Task TestSharedPlatformReleaseManifests()
             $"The mod should read the {platformKey} version from that platform's manifest."
         );
     }
+}
+
+static async Task TestAndroidApkIsReadOnlyWhenComplete()
+{
+    var body = TestInputs.Scratch(
+        Path.Combine(AppContext.BaseDirectory, "fixtures", "latest", "android-aarch64.json")
+    );
+    using var fixture = JsonDocument.Parse(body);
+    var release = fixture
+        .RootElement.GetProperty("downloads")
+        .GetProperty(ReleaseManifestEndpoints.AndroidPlatformKey);
+    var result = await Fetch(
+        _ => Response(HttpStatusCode.OK, body),
+        platformKey: ReleaseManifestEndpoints.AndroidPlatformKey
+    );
+
+    True(result.AndroidApk != null, "The Android manifest should yield its Release APK.");
+    Equal(
+        release.GetProperty("game").GetProperty("versionCode").GetInt32(),
+        result.AndroidApk!.GameVersionCode,
+        "The APK is identified by the game version code it was injected into."
+    );
+    Equal(
+        release.GetProperty("apk").GetProperty("url").GetString(),
+        result.AndroidApk.Url.ToString(),
+        "The APK URL is the writer's."
+    );
+
+    var desktop = await Fetch(
+        _ => Response(HttpStatusCode.OK, body),
+        platformKey: ReleaseManifestEndpoints.MacPlatformKey
+    );
+    True(desktop.AndroidApk == null, "Another platform's record names no APK.");
+
+    const string withoutGame = """
+        {"version":"3.4.5","downloads":{"android-aarch64":{"apk":{"url":"https://cdn.example/a.apk"}}}}
+        """;
+    var incomplete = await Fetch(
+        _ => Response(HttpStatusCode.OK, withoutGame),
+        platformKey: ReleaseManifestEndpoints.AndroidPlatformKey
+    );
+    True(incomplete.Succeeded, "The version is still published.");
+    True(incomplete.AndroidApk == null, "An APK without its game version code is no APK.");
+
+    const string plainHttp = """
+        {"version":"3.4.5","downloads":{"android-aarch64":{"apk":{"url":"http://cdn.example/a.apk"},"game":{"versionCode":13000}}}}
+        """;
+    var insecure = await Fetch(
+        _ => Response(HttpStatusCode.OK, plainHttp),
+        platformKey: ReleaseManifestEndpoints.AndroidPlatformKey
+    );
+    True(insecure.AndroidApk == null, "An APK link that is not HTTPS is never offered.");
+}
+
+static void TestAndroidGameUpdateComparesVersionCodes()
+{
+    var apk = new AndroidApkRelease(12900, new Uri("https://cdn.example/a.apk"));
+    Equal(
+        12825,
+        AndroidGameUpdate.ParseVersionCode("1.0.12825-production-android-d9601ded"),
+        "The version code is the third number of the game version."
+    );
+    Equal<int?>(null, AndroidGameUpdate.ParseVersionCode("unknown"), "No code in junk.");
+    Equal<int?>(null, AndroidGameUpdate.ParseVersionCode(""), "No code in an empty version.");
+    True(
+        AndroidGameUpdate.Newer("1.0.12825-production-android-d9601ded", apk) == apk,
+        "A newer published game is offered."
+    );
+    True(
+        AndroidGameUpdate.Newer("1.0.12900-production-android-0000000a", apk) == null,
+        "The same game is current."
+    );
+    True(
+        AndroidGameUpdate.Newer("1.0.13000-production-android-0000000a", apk) == null,
+        "An older published game is never offered."
+    );
+    True(
+        AndroidGameUpdate.Newer("garbled", apk) == null,
+        "An unreadable running version offers nothing."
+    );
+    True(
+        AndroidGameUpdate.Newer("1.0.12825-production-android-d9601ded", null) == null,
+        "No APK, no offer."
+    );
 }
 
 static void TestEndpointFollowsThePlatform()

@@ -16,8 +16,15 @@ public enum ReleaseManifestFailureKind
 }
 
 /// <summary>
+/// The Android Release APK a Platform Release Manifest names: the game version code it was
+/// injected into and where to download it.
+/// </summary>
+public sealed record AndroidApkRelease(int GameVersionCode, Uri Url);
+
+/// <summary>
 /// One read of a Release Manifest: the published product version and, from a Platform Release
-/// Manifest's <c>downloads[platform]</c>, that platform's Managed Payload when it is complete.
+/// Manifest's <c>downloads[platform]</c>, that platform's Managed Payload when it is complete and
+/// its Android Release APK when the platform has one.
 /// </summary>
 public readonly record struct ReleaseManifestFetchResult(
     string? Version,
@@ -29,10 +36,17 @@ public readonly record struct ReleaseManifestFetchResult(
 {
     public bool Succeeded => FailureKind == ReleaseManifestFailureKind.None;
 
+    public AndroidApkRelease? AndroidApk { get; init; }
+
     public static ReleaseManifestFetchResult Success(
         string version,
-        ManagedPayloadRelease? managedPayload = null
-    ) => new(version, managedPayload, ReleaseManifestFailureKind.None, null, null);
+        ManagedPayloadRelease? managedPayload = null,
+        AndroidApkRelease? androidApk = null
+    ) =>
+        new(version, managedPayload, ReleaseManifestFailureKind.None, null, null)
+        {
+            AndroidApk = androidApk,
+        };
 
     public static ReleaseManifestFetchResult Failure(
         ReleaseManifestFailureKind kind,
@@ -83,7 +97,8 @@ public sealed class ReleaseManifestClient
                 )
                 : ReleaseManifestFetchResult.Success(
                     version!.Trim(),
-                    ReadManagedPayload(document!, version!.Trim())
+                    ReadManagedPayload(document!, version!.Trim()),
+                    ReadAndroidApk(document!)
                 );
         }
         catch (OperationCanceledException ex) when (cancellationToken.IsCancellationRequested)
@@ -147,5 +162,26 @@ public sealed class ReleaseManifestClient
             historyVersion,
             digest!
         );
+    }
+
+    // An Android record names the game it was injected into (game.versionCode) and the APK to
+    // install for it (apk.url); release/manifest.mjs owns both. Anything incomplete is no APK.
+    private AndroidApkRelease? ReadAndroidApk(JObject document)
+    {
+        if (_platformKey == null || document["downloads"]?[_platformKey] is not JObject release)
+            return null;
+        if (release["apk"] is not JObject apk || release["game"] is not JObject game)
+            return null;
+        if (game["versionCode"]?.Type != JTokenType.Integer)
+            return null;
+        var versionCode = game.Value<int>("versionCode");
+        var url = apk.Value<string>("url");
+        if (
+            versionCode <= 0
+            || !Uri.TryCreate(url, UriKind.Absolute, out var uri)
+            || uri.Scheme != Uri.UriSchemeHttps
+        )
+            return null;
+        return new AndroidApkRelease(versionCode, uri);
     }
 }

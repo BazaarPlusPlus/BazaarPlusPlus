@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using BazaarPlusPlus.Android.GameInterop;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
 using HarmonyLib;
@@ -19,6 +20,8 @@ internal static class AndroidPatchHost
     private static long _versionLabelHits;
     private static long _combatSimHits;
     private static long _tooltipHits;
+    private static long _tooltipHiddenHits;
+    private static long _tooltipRenderHits;
     private static long _runInitializedHits;
     private static int _probeErrors;
 
@@ -72,6 +75,10 @@ internal static class AndroidPatchHost
 
     public static long CountTooltip() => Interlocked.Increment(ref _tooltipHits);
 
+    public static long CountTooltipHidden() => Interlocked.Increment(ref _tooltipHiddenHits);
+
+    public static long CountTooltipRender() => Interlocked.Increment(ref _tooltipRenderHits);
+
     public static long CountRunInitialized() => Interlocked.Increment(ref _runInitializedHits);
 
     public static long CountMessage(string nativeType) =>
@@ -93,6 +100,11 @@ internal static class AndroidPatchHost
             ("version_label_hits", Interlocked.Read(ref _versionLabelHits)),
             ("combat_sim_hits", Interlocked.Read(ref _combatSimHits)),
             ("tooltip_hits", Interlocked.Read(ref _tooltipHits)),
+            ("tooltip_render_hits", Interlocked.Read(ref _tooltipRenderHits)),
+            ("tooltip_hidden_hits", Interlocked.Read(ref _tooltipHiddenHits)),
+            ("upgrade_preview_entered", AndroidUpgradePreview.Entered),
+            ("upgrade_preview_exited", AndroidUpgradePreview.Exited),
+            ("enchant_preview_rendered", AndroidEnchantPreview.Rendered),
             ("run_initialized_hits", Interlocked.Read(ref _runInitializedHits)),
             .. Composition?.RunLifecycleSource.Summary() ?? [],
             ("pvp_battles_recorded", Composition?.BattleCapture.Recorded ?? 0),

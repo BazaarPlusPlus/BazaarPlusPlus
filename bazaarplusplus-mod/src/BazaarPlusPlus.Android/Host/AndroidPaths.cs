@@ -15,16 +15,21 @@ internal static class AndroidPaths
     /// <summary>A resolved Data Root as the Storage path port.</summary>
     public static IPathProvider Provider(string dataRoot) => new FixedDataRoot(dataRoot);
 
-    public static string DataRoot(string melonBaseDirectory)
+    public static string DataRoot(string melonBaseDirectory) =>
+        Path.Combine(InstallRoot(melonBaseDirectory), PathConstants.DataRootDirectoryName);
+
+    /// <summary>
+    /// The app's <c>files/</c> directory, which the MelonLoader Payload paths are relative to:
+    /// the install root of self-update's installed manifest.
+    /// </summary>
+    public static string InstallRoot(string melonBaseDirectory)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(melonBaseDirectory);
-        var parent =
-            Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(melonBaseDirectory))
+        return Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(melonBaseDirectory))
             ?? throw new ArgumentException(
                 $"MelonLoader base directory '{melonBaseDirectory}' has no parent.",
                 nameof(melonBaseDirectory)
             );
-        return Path.Combine(parent, PathConstants.DataRootDirectoryName);
     }
 
     private sealed class FixedDataRoot(string dataRoot) : IPathProvider
