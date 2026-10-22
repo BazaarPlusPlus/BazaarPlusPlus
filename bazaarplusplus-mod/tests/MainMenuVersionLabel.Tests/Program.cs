@@ -2,48 +2,38 @@
 using BazaarPlusPlus.Game.Lobby;
 
 Assert(
-    MainMenuVersionComparer.IsUpdateAvailable("3.2.9.preview", "3.3.0"),
-    "Older preview builds should report update available."
+    MainMenuVersionLabelFormatter.Build("1.0.0", "3.3.0.preview")
+        == " Version: 1.0.0 | BPP 3.3.0.preview ",
+    "Label should preserve the existing text when there is nothing to update."
 );
 Assert(
-    !MainMenuVersionComparer.IsUpdateAvailable("3.3.0.preview", "3.3.0"),
-    "Matching preview builds should not report update available."
+    MainMenuVersionLabelFormatter.Build("1.0.0", "3.2.9.prod", MainMenuUpdateStatus.Updating)
+        == " Version: 1.0.0 | BPP 3.2.9.prod | updating ",
+    "Label should say the Managed Payload is downloading."
 );
 Assert(
-    !MainMenuVersionComparer.IsUpdateAvailable("3.3.0.prod", "3.3.0"),
-    "Matching production builds should not report update available."
+    MainMenuVersionLabelFormatter.Build("1.0.0", "3.2.9.prod", MainMenuUpdateStatus.RestartToUpdate)
+        == " Version: 1.0.0 | BPP 3.2.9.prod | restart to update ",
+    "Label should say the next start swaps the staged version in."
 );
 Assert(
-    !MainMenuVersionComparer.IsUpdateAvailable("3.3.0.preveiw", "3.3.0"),
-    "Misspelled preview suffix should still be ignored by first-three-number parsing."
+    MainMenuVersionLabelFormatter.Build("1.0.0", "3.2.9.prod", MainMenuUpdateStatus.ManualUpdate)
+        == " Version: 1.0.0 | BPP 3.2.9.prod | update via installer ",
+    "The desktop manual update goes through the installer."
 );
 Assert(
-    !MainMenuVersionComparer.IsUpdateAvailable("3.3.0.t20260604.120000.dev", "3.3.0"),
-    "Local timestamped debug builds should compare by the first three version numbers."
+    MainMenuVersionLabelFormatter.Build(
+        "1.0.0",
+        "3.2.9.prod",
+        MainMenuUpdateStatus.ManualUpdate,
+        MainMenuVersionLabelFormatter.AndroidManualUpdateText
+    ) == " Version: 1.0.0 | BPP 3.2.9.prod | download the new APK ",
+    "The Android manual update is a new APK."
 );
 Assert(
-    !MainMenuVersionComparer.IsUpdateAvailable("4.0.0.preview", "3.3.0"),
-    "Newer local builds should not report update available."
-);
-Assert(
-    !MainMenuVersionComparer.IsUpdateAvailable("not-a-version", "3.3.0"),
-    "Invalid current versions should fail closed."
-);
-Assert(
-    !MainMenuVersionComparer.IsUpdateAvailable("3.2.9.preview", "not-a-version"),
-    "Invalid remote versions should fail closed."
-);
-
-var normalLabel = MainMenuVersionLabelFormatter.Build("1.0.0", "3.3.0.preview");
-Assert(
-    normalLabel == " Version: 1.0.0 | BPP 3.3.0.preview ",
-    "Label should preserve the existing text when no update is available."
-);
-
-var updateLabel = MainMenuVersionLabelFormatter.Build("1.0.0", "3.2.9.preview", true);
-Assert(
-    updateLabel == " Version: 1.0.0 | BPP 3.2.9.preview | update available ",
-    "Label should append the update notice when requested."
+    MainMenuVersionLabelFormatter.Build(" ", "", MainMenuUpdateStatus.Updating)
+        == " Version: unknown ",
+    "Without a plugin version the label shows only the game version."
 );
 
 Console.WriteLine("Main menu version label tests passed.");

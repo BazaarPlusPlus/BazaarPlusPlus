@@ -1,9 +1,13 @@
 #nullable enable
+using BazaarPlusPlus.Core.Runtime;
 using BazaarPlusPlus.Host;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
 using BazaarPlusPlus.Infrastructure.ReleaseManifest;
+using BazaarPlusPlus.Infrastructure.SelfUpdate;
 using BazaarPlusPlus.ModApi.Http;
+using BazaarPlusPlus.Storage.Paths;
+using BazaarPlusPlus.Storage.RunLog;
 using UnityEngine;
 
 namespace BazaarPlusPlus.Game.Lobby;
@@ -11,30 +15,61 @@ namespace BazaarPlusPlus.Game.Lobby;
 internal sealed class MainMenuVersionCheckController : MonoBehaviour
 {
     private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan DownloadTimeout = TimeSpan.FromMinutes(5);
 
     private readonly ReleaseManifestCheckLifecycle _lifecycle = new();
+    private MainMenuSelfUpdate? _selfUpdate;
     private Task? _checkTask;
     private int _observedRevision;
 
     private void Awake() { }
 
-    public void Initialize()
+    public void Initialize(IBppServices services)
     {
+        var platformKey = DesktopPlatformKey.Current;
+        _selfUpdate = new MainMenuSelfUpdate(
+            installRoot: BepInEx.Paths.GameRootPath,
+            dataRoot: services.Paths.RequireDataRoot(),
+            platformKey,
+            SelfUpdateHost.Desktop,
+            RunLogSchema.LocalDatabaseSchemaVersion,
+            () =>
+                BppHttpClientFactory.Create(
+                    productVersion: BppPluginVersion.Current,
+                    platformKey: platformKey,
+                    userAgentSuffix: "SelfUpdate",
+                    timeout: DownloadTimeout
+                )
+        );
         var httpClient = BppHttpClientFactory.Create(
             productVersion: BppPluginVersion.Current,
-            platformKey: DesktopPlatformKey.Current,
+            platformKey: platformKey,
             userAgentSuffix: "VersionCheck",
             timeout: RequestTimeout
         );
         var lease = _lifecycle.Begin(httpClient);
-        MainMenuVersionUpdateState.Reset();
         _observedRevision = MainMenuVersionUpdateState.Current.Revision;
         // A release promoted for one platform only must be seen only by that platform.
         var client = new ReleaseManifestClient(
             httpClient,
-            ReleaseManifestEndpoints.ForPlatformKey(DesktopPlatformKey.Current)
+            ReleaseManifestEndpoints.ForPlatformKey(platformKey),
+            platformKey
         );
-        _checkTask = _lifecycle.RunAsync(lease, client.FetchAsync, ApplyLatestManifestResult);
+        var selfUpdate = _selfUpdate;
+        _checkTask = _lifecycle.RunAsync(
+            lease,
+            async cancellationToken =>
+            {
+                var result = await client.FetchAsync(cancellationToken).ConfigureAwait(false);
+                return (
+                    Result: result,
+                    Evaluation: result.Succeeded
+                        ? selfUpdate.Evaluate(BppPluginVersion.Current, result)
+                        : null
+                );
+            },
+            ApplyCheck
+        );
     }
 
     private void Update()
@@ -74,30 +109,18 @@ internal sealed class MainMenuVersionCheckController : MonoBehaviour
         }
     }
 
-    private void ApplyLatestManifestResult(ReleaseManifestFetchResult result)
+    private void ApplyCheck(
+        (ReleaseManifestFetchResult Result, MainMenuSelfUpdateEvaluation? Evaluation) check
+    )
     {
-        if (!result.Succeeded)
+        if (check.Evaluation == null)
         {
-            if (result.FailureKind != ReleaseManifestFailureKind.Cancelled)
-                ReportDegraded(result);
+            if (check.Result.FailureKind != ReleaseManifestFailureKind.Cancelled)
+                ReportDegraded(check.Result);
             return;
         }
 
-        var latestVersion = result.Version!;
-        var updateAvailable = MainMenuVersionComparer.IsUpdateAvailable(
-            BppPluginVersion.Current,
-            latestVersion
-        );
-        MainMenuVersionUpdateState.SetUpdateAvailable(updateAvailable);
-        BppLog.DebugEvent(
-            new BppLogEvent(BppLogFeatureScope.Lobby, "lobby.version_check.completed"),
-            () =>
-                [
-                    ("current_version", BppPluginVersion.Current),
-                    ("latest_version", latestVersion),
-                    ("update_available", updateAvailable),
-                ]
-        );
+        _selfUpdate!.Apply(check.Evaluation);
     }
 
     private static void ReportDegraded(ReleaseManifestFetchResult result)

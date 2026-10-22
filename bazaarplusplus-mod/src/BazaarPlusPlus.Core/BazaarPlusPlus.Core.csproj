@@ -38,6 +38,16 @@
     <Compile Remove="Properties/IsExternalInitPolyfill.cs" />
   </ItemGroup>
 
+  <!-- Self-update staging runs the Updater's own verification (ADR-0014). The Updater may not
+       reference Core, and Core may not reference the Updater (its desktop copy is the patcher the
+       preloader already loaded), so the dependency-free files are compiled into both. -->
+  <ItemGroup>
+    <Compile
+      Include="../BazaarPlusPlus.Updater/Shared/*.cs"
+      Link="Infrastructure/SelfUpdate/Shared/%(Filename)%(Extension)"
+    />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="../BazaarPlusPlus.ModApi/BazaarPlusPlus.ModApi.csproj" />
     <ProjectReference Include="../BazaarPlusPlus.Storage/BazaarPlusPlus.Storage.csproj" />

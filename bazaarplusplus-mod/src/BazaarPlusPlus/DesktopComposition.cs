@@ -257,7 +257,9 @@ internal sealed class DesktopComposition : IDisposable
             )
         );
         _mountables.Register(
-            new ComponentMount<MainMenuVersionCheckController>((c, _) => c.Initialize())
+            new ComponentMount<MainMenuVersionCheckController>(
+                (c, services) => c.Initialize(services)
+            )
         );
         _mountables.Register(
             new HistoryPanelMount(

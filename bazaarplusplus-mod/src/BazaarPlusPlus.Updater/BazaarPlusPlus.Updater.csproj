@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    The Updater (ADR-0014): swaps a staged Managed Payload in before any BPP assembly loads.
+    netstandard2.1 is the Desktop Host's BepInEx preloader patcher (BepInEx/patchers/),
+    net10.0 the Android Host's MelonPlugin (MelonLoader/Plugins/). It references only the loader
+    and the base library: nothing it could replace, so nothing it swaps is ever loaded or locked.
+    Shared/ is dependency-free and Core compiles it too, for staging.
+  -->
+  <PropertyGroup>
+    <AssemblyName>BazaarPlusPlus.Updater</AssemblyName>
+    <RootNamespace>BazaarPlusPlus.Updater</RootNamespace>
+    <TargetFrameworks>netstandard2.1;net10.0</TargetFrameworks>
+    <LangVersion>12</LangVersion>
+    <Nullable>enable</Nullable>
+    <!-- Not the product VERSION: the Updater ships with the installer and the APK, and its bytes
+         enter the non-managed payload digest, so they change only when its source does. -->
+    <Version>1.0.0</Version>
+    <Deterministic>true</Deterministic>
+    <DebugType>none</DebugType>
+    <GenerateDependencyFile>false</GenerateDependencyFile>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+    <BppRequiresManagedPath>false</BppRequiresManagedPath>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.1'">
+    <PackageReference Include="NETStandard.Library" />
+    <!-- Compile-time only: BepInEx/core supplies BepInEx.dll and Mono.Cecil.dll at runtime. -->
+    <PackageReference Include="BepInEx.Core" PrivateAssets="all" ExcludeAssets="runtime" />
+    <Compile Remove="Hosts/MelonUpdaterPlugin.cs" />
+  </ItemGroup>
+
+  <!-- The Loader Release supplies MelonLoader.dll; the Interop Snapshot is not needed. -->
+  <Import
+    Project="$(MSBuildThisFileDirectory)../../build/InteropPath.props"
+    Condition="'$(TargetFramework)' == 'net10.0'"
+  />
+  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0'">
+    <Reference Include="$(LemonLoaderManagedPath)MelonLoader.dll" Private="false" />
+    <Compile Remove="Hosts/BepInExPatcher.cs" />
+  </ItemGroup>
+</Project>

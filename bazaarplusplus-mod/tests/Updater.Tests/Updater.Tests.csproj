@@ -1,0 +1,61 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- The Updater's host-independent code, compiled from source: it needs neither the Managed
+       snapshot nor the Interop Snapshot, so `mod::test` and `mod::test-core` both run it. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <AssemblyName>Updater.Tests</AssemblyName>
+    <BppRequiresManagedPath>false</BppRequiresManagedPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile
+      Include="../../src/BazaarPlusPlus.Updater/Shared/*.cs"
+      Link="Updater/Shared/%(Filename)%(Extension)"
+    />
+    <Compile
+      Include="../../src/BazaarPlusPlus.Updater/ManagedPayloadSwap.cs"
+      Link="Updater/ManagedPayloadSwap.cs"
+    />
+    <Compile
+      Include="../../src/BazaarPlusPlus.Updater/UpdaterLog.cs"
+      Link="Updater/UpdaterLog.cs"
+    />
+    <Compile
+      Include="../../src/BazaarPlusPlus.Updater/UpdaterRun.cs"
+      Link="Updater/UpdaterRun.cs"
+    />
+    <!-- The values the Updater duplicates because it may not reference their owners. -->
+    <Compile
+      Include="../../src/BazaarPlusPlus.Storage/Paths/PathConstants.cs"
+      Link="Pinned/PathConstants.cs"
+    />
+    <Compile
+      Include="../../src/BazaarPlusPlus.Core/Infrastructure/ReleaseManifest/ReleaseManifestEndpoints.cs"
+      Link="Pinned/ReleaseManifestEndpoints.cs"
+    />
+    <!-- The writer's golden (release/managed-payload.test.mjs): what the release renders, the
+         Updater must read the same way. -->
+    <Content
+      Include="../../../release/fixtures/managed-payload/manifest.txt"
+      Link="fixtures/managed-payload-manifest.txt"
+      CopyToOutputDirectory="PreserveNewest"
+    />
+    <Content
+      Include="../../../bazaarplusplus-installer/src-tauri/tauri.conf.json"
+      Link="fixtures/tauri.conf.json"
+      CopyToOutputDirectory="PreserveNewest"
+    />
+  </ItemGroup>
+</Project>

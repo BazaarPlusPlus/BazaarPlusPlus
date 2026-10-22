@@ -18,7 +18,7 @@ internal static class MainMenuVersionLabelUpdater
         var text = MainMenuVersionLabelFormatter.Build(
             Application.version,
             BppPluginVersion.Current,
-            MainMenuVersionUpdateState.Current.UpdateAvailable
+            MainMenuVersionUpdateState.Current.Status
         );
         versionLabel.text = text;
     }

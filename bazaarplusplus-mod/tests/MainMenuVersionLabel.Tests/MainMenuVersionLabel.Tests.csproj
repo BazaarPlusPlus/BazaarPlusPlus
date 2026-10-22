@@ -9,10 +9,6 @@
 
   <ItemGroup>
     <Compile
-      Include="../../src/BazaarPlusPlus.Core/Game/Lobby/MainMenuVersionComparer.cs"
-      Link="MainMenuVersionComparer.cs"
-    />
-    <Compile
       Include="../../src/BazaarPlusPlus.Core/Game/Lobby/MainMenuVersionLabelFormatter.cs"
       Link="MainMenuVersionLabelFormatter.cs"
     />
