@@ -1,7 +1,7 @@
 #nullable enable
 namespace BazaarPlusPlus.Game.HistoryPanel.Data;
 
-internal sealed class HistoryRunRecord
+public sealed class HistoryRunRecord
 {
     public HistoryRunRecord(
         string runId,

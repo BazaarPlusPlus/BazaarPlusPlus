@@ -6,7 +6,7 @@ using BazaarPlusPlus.Localization;
 
 namespace BazaarPlusPlus.Game.HistoryPanel;
 
-internal enum RunOutcomeTier
+public enum RunOutcomeTier
 {
     Misfortune,
     Bronze,
@@ -15,18 +15,14 @@ internal enum RunOutcomeTier
     Diamond,
 }
 
-internal readonly record struct HistoryRunRowFields(string Name, string Meta, string Stamp);
+public readonly record struct HistoryRunRowFields(string Name, string Meta, string Stamp);
 
-internal static class HistoryPanelFormatter
+public static class HistoryPanelFormatter
 {
     // The status word is deliberately absent: RunBadge already encodes
     // completed/abandoned/active, and repeating it cost the row its strongest line.
-    public static HistoryRunRowFields RunRowFields(HistoryRunRecord run) =>
-        new(
-            HistoryPanelHeroPresentation.DisplayName(run.Hero),
-            Meta(run),
-            FormatTimestamp(run.EndedAtUtc ?? run.LastSeenAtUtc)
-        );
+    public static HistoryRunRowFields RunRowFields(HistoryRunRecord run, string heroName) =>
+        new(heroName, Meta(run), FormatTimestamp(run.EndedAtUtc ?? run.LastSeenAtUtc));
 
     // A finished run's duration is a real play session. An unfinished one has no EndedAtUtc,
     // so the same subtraction measures start-to-last-seen instead — "85:09" for a run left

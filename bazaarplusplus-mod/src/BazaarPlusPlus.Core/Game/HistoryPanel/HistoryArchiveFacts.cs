@@ -1,10 +1,10 @@
 #nullable enable
+using BazaarPlusPlus.Core.GameState;
 using BazaarPlusPlus.Game.HistoryPanel.Data;
-using BazaarPlusPlus.GameInterop.MonsterBoardPreview;
 
 namespace BazaarPlusPlus.Game.HistoryPanel;
 
-internal enum HistoryDetailPhase
+public enum HistoryDetailPhase
 {
     // DetailBattleId names another battle (or none): nothing is known about this one's snapshots.
     NotSelectedBattle,
@@ -15,7 +15,7 @@ internal enum HistoryDetailPhase
     Loaded,
 }
 
-internal enum HistoryPageLabelMode
+public enum HistoryPageLabelMode
 {
     Loading,
     Totals,
@@ -23,13 +23,10 @@ internal enum HistoryPageLabelMode
 }
 
 // Status is null until the board reports; the decision shows no message for it.
-internal readonly record struct HistoryBoardFacts(
-    NativeMonsterBoardStatus? Status,
-    int PartialCount
-);
+public readonly record struct HistoryBoardFacts(NativeMonsterBoardStatus? Status, int PartialCount);
 
 // The selected Ghost battle's replay; the progress and failure are this battle's own.
-internal readonly record struct HistorySelectedGhostReplay(
+public readonly record struct HistorySelectedGhostReplay(
     ReplayAvailability Availability,
     bool ActionInProgress,
     string? FailureMessage
@@ -37,7 +34,7 @@ internal readonly record struct HistorySelectedGhostReplay(
 
 // What HistoryPanelDecisions.ArchiveStatus reads. PageLoading/PageLoadFailed stay two bools
 // because LoadArchive, their only writer, sets them together; Loading wins when both are set.
-internal sealed record HistoryArchiveFacts(
+public sealed record HistoryArchiveFacts(
     HistorySectionMode Section,
     bool AccountKnown,
     bool PageLoading,
@@ -85,7 +82,7 @@ internal sealed record HistoryArchiveFacts(
             state.DetailLoading ? HistoryDetailPhase.Loading
                 : selected == null || state.DetailBattleId != selected.BattleId
                     ? HistoryDetailPhase.NotSelectedBattle
-                : state.DetailSnapshots == null ? HistoryDetailPhase.Missing
+                : !state.DetailLoaded ? HistoryDetailPhase.Missing
                 : HistoryDetailPhase.Loaded,
             state.DetailFailed,
             playerBoard,
@@ -94,7 +91,7 @@ internal sealed record HistoryArchiveFacts(
     }
 }
 
-internal readonly record struct HistoryArchiveStatus(
+public readonly record struct HistoryArchiveStatus(
     string ListMessage,
     string PlayerBoardMessage,
     string OpponentBoardMessage,

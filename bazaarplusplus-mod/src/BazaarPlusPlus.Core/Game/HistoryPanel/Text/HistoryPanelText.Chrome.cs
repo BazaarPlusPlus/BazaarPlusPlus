@@ -4,7 +4,7 @@ using BazaarPlusPlus.Localization;
 
 namespace BazaarPlusPlus.Game.HistoryPanel;
 
-internal static partial class HistoryPanelText
+public static partial class HistoryPanelText
 {
     private static readonly LocalizedTextSet TitleText = new(
         "Game History",
@@ -44,38 +44,38 @@ internal static partial class HistoryPanelText
 
     private static readonly LocalizedTextSet WorkingText = new("Working...", "处理中...");
 
-    internal static string Title() => Resolve(TitleText);
+    public static string Title() => Resolve(TitleText);
 
-    internal static string Subtitle() => Resolve(SubtitleText);
+    public static string Subtitle() => Resolve(SubtitleText);
 
-    internal static string RunsTab() => Resolve(RunsTabText);
+    public static string RunsTab() => Resolve(RunsTabText);
 
-    internal static string GhostTab() => Resolve(GhostTabText);
+    public static string GhostTab() => Resolve(GhostTabText);
 
-    internal static string Close() => Resolve(CloseText);
+    public static string Close() => Resolve(CloseText);
 
-    internal static string Replay() => Resolve(ReplayText);
+    public static string Replay() => Resolve(ReplayText);
 
-    internal static string RecordAndReplay() => Resolve(RecordAndReplayText);
+    public static string RecordAndReplay() => Resolve(RecordAndReplayText);
 
-    internal static string ReplayUnavailable() => Resolve(ReplayUnavailableText);
+    public static string ReplayUnavailable() => Resolve(ReplayUnavailableText);
 
-    internal static string ReplayDisabledInRun() => Resolve(ReplayDisabledInRunText);
+    public static string ReplayDisabledInRun() => Resolve(ReplayDisabledInRunText);
 
-    internal static string DownloadReplay() => Resolve(DownloadReplayText);
+    public static string DownloadReplay() => Resolve(DownloadReplayText);
 
-    internal static string Delete() => Resolve(DeleteText);
+    public static string Delete() => Resolve(DeleteText);
 
-    internal static string DeleteConfirm() => Resolve(DeleteConfirmText);
+    public static string DeleteConfirm() => Resolve(DeleteConfirmText);
 
-    internal static string Working() => Resolve(WorkingText);
+    public static string Working() => Resolve(WorkingText);
 
-    internal static string PageTotal(long total, bool ghost) =>
+    public static string PageTotal(long total, bool ghost) =>
         ghost
             ? FormatSimple($"{total} battles total", $"共 {total} 场")
             : FormatSimple($"{total} runs total", $"共 {total} 局");
 
-    internal static string PagePosition(long first, long last, long total, bool ghost) =>
+    public static string PagePosition(long first, long last, long total, bool ghost) =>
         ghost
             ? FormatSimple(
                 $"Battles {first}–{last} · {total} total",

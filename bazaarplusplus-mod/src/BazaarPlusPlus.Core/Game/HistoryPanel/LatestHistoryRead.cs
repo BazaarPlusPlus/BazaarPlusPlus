@@ -2,7 +2,7 @@
 namespace BazaarPlusPlus.Game.HistoryPanel;
 
 // One running read and one replaceable intent. Publication resumes on the caller's context.
-internal sealed class LatestHistoryRead<T>
+public sealed class LatestHistoryRead<T>
     where T : class
 {
     private sealed record Work(int Version, Func<T?> Read, Action<T?, Exception?> Publish);
@@ -11,13 +11,13 @@ internal sealed class LatestHistoryRead<T>
     private bool _running;
     private int _version;
 
-    internal void Clear()
+    public void Clear()
     {
         _version++;
         _next = null;
     }
 
-    internal void Submit(Func<T?> read, Action<T?, Exception?> publish)
+    public void Submit(Func<T?> read, Action<T?, Exception?> publish)
     {
         _next = new(++_version, read, publish);
         if (!_running)

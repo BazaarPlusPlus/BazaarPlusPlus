@@ -6,7 +6,7 @@ namespace BazaarPlusPlus.Game.HistoryPanel.Data;
 // Confirm/Pending/Neutral (derived from existing HistoryPanelState flags); Success/Failure are
 // reserved for the phase-2 increment that threads a severity arg through the relevant
 // success/failure SetStatusMessage call sites.
-internal enum StatusSeverity
+public enum StatusSeverity
 {
     Neutral,
     Pending,

@@ -1,11 +1,11 @@
 #nullable enable
+using BazaarPlusPlus.Core.GameState;
 using BazaarPlusPlus.Core.Runtime;
 using BazaarPlusPlus.Game.HistoryPanel.Data;
-using BazaarPlusPlus.GameInterop.MonsterBoardPreview;
 
 namespace BazaarPlusPlus.Game.HistoryPanel;
 
-internal readonly struct HistoryPanelDatabaseChip
+public readonly struct HistoryPanelDatabaseChip
 {
     public HistoryPanelDatabaseChip(string text, StatusSeverity severity)
     {
@@ -18,7 +18,7 @@ internal readonly struct HistoryPanelDatabaseChip
     public StatusSeverity Severity { get; }
 }
 
-internal static class HistoryPanelDecisions
+public static class HistoryPanelDecisions
 {
     // List precedence: account → rows → read → running sync → filters → failed sync → empty. A
     // failed sync sits after filters so a filter-emptied page still points at its filters.
@@ -209,7 +209,7 @@ internal static class HistoryPanelDecisions
     // Linking requires uploads and a non-PTR build; PTR wins over disabled uploads, and the
     // guidance card is always visible. Unknown is treated like Online by policy (see
     // IGameBuildInfo) so a channel detection failure can never disable linking on production.
-    internal static AccountLinkGate ResolveAccountLinkGate(
+    public static AccountLinkGate ResolveAccountLinkGate(
         bool uploadsEnabled,
         GameBuildChannel channel
     ) =>
@@ -217,7 +217,7 @@ internal static class HistoryPanelDecisions
         : uploadsEnabled ? AccountLinkGate.Available
         : AccountLinkGate.UploadsDisabled;
 
-    internal static HistoryAccountLinkCard ResolveAccountLinkCard(
+    public static HistoryAccountLinkCard ResolveAccountLinkCard(
         AccountLinkGate gate,
         bool hasAccount,
         bool linked,
@@ -257,14 +257,14 @@ internal static class HistoryPanelDecisions
 }
 
 // Whether this client may link a BazaarDB account; resolved from settings and build channel.
-internal enum AccountLinkGate
+public enum AccountLinkGate
 {
     Available,
     UploadsDisabled,
     PtrUnavailable,
 }
 
-internal readonly record struct HistoryAccountLinkCard(
+public readonly record struct HistoryAccountLinkCard(
     string StatusText,
     string PersistenceText,
     bool ActionVisible,

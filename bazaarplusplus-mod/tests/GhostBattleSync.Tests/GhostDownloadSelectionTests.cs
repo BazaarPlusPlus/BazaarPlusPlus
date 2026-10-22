@@ -123,7 +123,7 @@ internal static class GhostDownloadSelectionTests
             .PlayerBoardMessage;
         if (finalState == ReplayAvailability.Saved)
             Require(
-                state.DetailSnapshots != null && message.Length == 0,
+                coordinator.DetailSnapshots != null && message.Length == 0,
                 "A downloaded replay must show its native board, not the stale canceled-start message."
             );
         else

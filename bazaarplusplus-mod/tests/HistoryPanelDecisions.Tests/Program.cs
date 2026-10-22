@@ -1,7 +1,7 @@
 #nullable enable
 using System.Reflection;
 
-var modAssembly = Assembly.Load("BazaarPlusPlus");
+var coreAssembly = typeof(BazaarPlusPlus.Game.HistoryPanel.HistoryPanelDecisions).Assembly;
 var confirmationType = RequireType("BazaarPlusPlus.Game.HistoryPanel.DeleteConfirmation");
 var decisionsType = RequireType("BazaarPlusPlus.Game.HistoryPanel.HistoryPanelDecisions");
 var buttonModelType = RequireType("BazaarPlusPlus.Game.HistoryPanel.HistoryPanelButtonModel");
@@ -14,7 +14,7 @@ TestAccountLinkAvailabilityGate();
 TestDatabaseChipTextAndSeverity();
 TestButtonModelReplayRecordDeleteParity();
 GhostMessageTests.Run();
-AccountLinkCardTests.Run(modAssembly);
+AccountLinkCardTests.Run(coreAssembly);
 PageRangeTests.Run();
 
 Console.WriteLine("HistoryPanelDecisions checks passed.");
@@ -339,7 +339,7 @@ void AssertButtons(
 
 Type RequireType(string fullName)
 {
-    return modAssembly.GetType(fullName, throwOnError: true)!;
+    return coreAssembly.GetType(fullName, throwOnError: true)!;
 }
 
 object InvokeStatic(Type type, string methodName, params object?[] args)

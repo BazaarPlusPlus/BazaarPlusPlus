@@ -1,11 +1,10 @@
 #nullable enable
 using BazaarPlusPlus.Game.HistoryPanel.Data;
 using BazaarPlusPlus.Game.HistoryPanel.Storage;
-using BazaarPlusPlus.Game.PvpBattles;
 
 namespace BazaarPlusPlus.Game.HistoryPanel;
 
-internal enum HistorySectionMode
+public enum HistorySectionMode
 {
     Runs,
     Ghost,
@@ -15,7 +14,7 @@ internal enum HistorySectionMode
 // TrySyncGhostBattlesAsync alone writes Running, Failed, and Completed; each session boundary
 // (OnPanelHidden, ObserveAccount) writes NotStarted, because a sync its session cancelled returns
 // without touching state and would otherwise stay Running.
-internal enum GhostSyncPhase
+public enum GhostSyncPhase
 {
     NotStarted,
     Running,
@@ -23,14 +22,14 @@ internal enum GhostSyncPhase
     Completed,
 }
 
-internal enum GhostBattleFilter
+public enum GhostBattleFilter
 {
     All,
     IWon,
     ILost,
 }
 
-internal sealed class HistoryPanelState
+public sealed class HistoryPanelState
 {
     public IReadOnlyList<HistoryRunRecord> Runs => RunPage.Rows;
 
@@ -48,7 +47,9 @@ internal sealed class HistoryPanelState
         HistoryCountedPage<HistoryBattleRecord>.Empty();
     public HistoryCountedPage<HistoryFavoriteRecord> FavoritePage { get; set; } =
         HistoryCountedPage<HistoryFavoriteRecord>.Empty();
-    public PvpBattleSnapshots? DetailSnapshots { get; set; }
+
+    // The detail read for DetailBattleId returned snapshots; the host keeps the snapshots.
+    public bool DetailLoaded { get; set; }
     public string? DetailBattleId { get; set; }
     public bool DetailLoading { get; set; }
     public bool DetailFailed { get; set; }

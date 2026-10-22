@@ -1,7 +1,7 @@
 #nullable enable
 namespace BazaarPlusPlus.Game.HistoryPanel;
 
-internal readonly struct DeleteConfirmation
+public readonly struct DeleteConfirmation
 {
     public DeleteConfirmation(string? runId, float expiresAt)
     {

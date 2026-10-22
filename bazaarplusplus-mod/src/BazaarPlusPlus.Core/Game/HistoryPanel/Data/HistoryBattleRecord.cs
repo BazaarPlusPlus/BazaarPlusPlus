@@ -1,7 +1,7 @@
 #nullable enable
 namespace BazaarPlusPlus.Game.HistoryPanel.Data;
 
-internal sealed class HistoryBattleRecord
+public sealed class HistoryBattleRecord
 {
     public HistoryBattleRecord(
         string battleId,
@@ -129,7 +129,7 @@ internal sealed class HistoryBattleRecord
     public ReplayAvailability Replay { get; }
 }
 
-internal enum HistoryBattleSource
+public enum HistoryBattleSource
 {
     Local,
     Ghost,

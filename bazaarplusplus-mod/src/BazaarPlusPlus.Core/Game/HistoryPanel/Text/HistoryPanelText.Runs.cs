@@ -4,7 +4,7 @@ using BazaarPlusPlus.Localization;
 
 namespace BazaarPlusPlus.Game.HistoryPanel;
 
-internal static partial class HistoryPanelText
+public static partial class HistoryPanelText
 {
     private static readonly LocalizedTextSet FilterDayMin10Text = new("≥10d", "≥10天", "≥10天");
 
@@ -14,35 +14,35 @@ internal static partial class HistoryPanelText
 
     private static readonly LocalizedTextSet UnknownText = new("Unknown", "未知");
 
-    internal static string FilterDayMin10() => Resolve(FilterDayMin10Text);
+    public static string FilterDayMin10() => Resolve(FilterDayMin10Text);
 
-    internal static string Unranked() => Resolve(UnrankedText);
+    public static string Unranked() => Resolve(UnrankedText);
 
-    internal static string UnknownRun() => Resolve(UnknownRunText);
+    public static string UnknownRun() => Resolve(UnknownRunText);
 
-    internal static string Unknown() => Resolve(UnknownText);
+    public static string Unknown() => Resolve(UnknownText);
 
-    internal static string DurationMinutes(int minutes) =>
+    public static string DurationMinutes(int minutes) =>
         FormatSimple($"{minutes} min", $"{minutes} 分钟", $"{minutes} 分鐘");
 
-    internal static string DayBadge(int? day) =>
+    public static string DayBadge(int? day) =>
         FormatSimple(
             day.HasValue ? $"D{day.Value}" : "D?",
             day.HasValue ? $"{day.Value}天" : "?天",
             day.HasValue ? $"{day.Value}天" : "?天"
         );
 
-    internal static string SelectRunToDelete()
+    public static string SelectRunToDelete()
     {
         return FormatSimple("Select a run to delete.", "请选择要删除的对局。");
     }
 
-    internal static string ActiveRunDeleteUnavailable()
+    public static string ActiveRunDeleteUnavailable()
     {
         return FormatSimple("Active runs cannot be deleted.", "进行中的 run 不能删除。");
     }
 
-    internal static string CurrentGameplayRunDeleteUnavailable()
+    public static string CurrentGameplayRunDeleteUnavailable()
     {
         return FormatSimple(
             "The currently active gameplay run cannot be deleted.",
@@ -50,12 +50,12 @@ internal static partial class HistoryPanelText
         );
     }
 
-    internal static string RunLogRepositoryUnavailable()
+    public static string RunLogRepositoryUnavailable()
     {
         return FormatSimple("Run log repository is unavailable.", "Run log 仓库不可用。");
     }
 
-    internal static string DeleteRunConfirm(string shortRunId)
+    public static string DeleteRunConfirm(string shortRunId)
     {
         return FormatSimple(
             $"Press Delete again within 5s to remove {shortRunId}. Completed MP4 recordings will be kept.",
@@ -63,12 +63,12 @@ internal static partial class HistoryPanelText
         );
     }
 
-    internal static string RunDeleteFailed(string details)
+    public static string RunDeleteFailed(string details)
     {
         return FormatSimple($"Couldn't delete run: {details}", $"删除对局失败：{details}");
     }
 
-    internal static string DeletedRun(string shortRunId, int battleCount)
+    public static string DeletedRun(string shortRunId, int battleCount)
     {
         if (battleCount > 0)
         {

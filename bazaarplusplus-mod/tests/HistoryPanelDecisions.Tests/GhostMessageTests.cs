@@ -1,9 +1,8 @@
 #nullable enable
+using BazaarPlusPlus.Core.GameState;
 using BazaarPlusPlus.Game.HistoryPanel;
 using BazaarPlusPlus.Game.HistoryPanel.Data;
 using BazaarPlusPlus.Game.HistoryPanel.Storage;
-using BazaarPlusPlus.Game.PvpBattles;
-using BazaarPlusPlus.GameInterop.MonsterBoardPreview;
 using BazaarPlusPlus.Localization;
 
 // History archive status is a table: observed facts in, list/board/page-label copy out. Every
@@ -531,7 +530,7 @@ internal static class GhostMessageTests
             "This battle's replay action, failure, and missing snapshots are its own facts."
         );
 
-        state.DetailSnapshots = new PvpBattleSnapshots();
+        state.DetailLoaded = true;
         state.DetailFailed = true;
         state.CachedAccountId = " ";
         Equal(

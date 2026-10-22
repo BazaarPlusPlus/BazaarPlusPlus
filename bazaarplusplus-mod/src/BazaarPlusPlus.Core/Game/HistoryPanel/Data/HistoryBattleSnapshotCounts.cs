@@ -2,7 +2,7 @@
 
 namespace BazaarPlusPlus.Game.HistoryPanel.Data;
 
-internal readonly struct HistoryBattleSnapshotCounts
+public readonly struct HistoryBattleSnapshotCounts
 {
     public HistoryBattleSnapshotCounts(
         int playerHandItemCount,

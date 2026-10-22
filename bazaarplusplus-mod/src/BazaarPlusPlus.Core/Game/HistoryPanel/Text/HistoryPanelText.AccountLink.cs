@@ -6,9 +6,9 @@ using BazaarPlusPlus.Localization;
 
 namespace BazaarPlusPlus.Game.HistoryPanel;
 
-internal static partial class HistoryPanelText
+public static partial class HistoryPanelText
 {
-    internal static class AccountLink
+    public static class AccountLink
     {
         private static readonly LocalizedTextSet UploadsDisabledText = new(
             "Enable “{0}” in the settings dock to link.",
@@ -125,52 +125,52 @@ internal static partial class HistoryPanelText
             "無法連線 BazaarDB，請檢查網路"
         );
 
-        internal static string Title() => Resolve(TitleText);
+        public static string Title() => Resolve(TitleText);
 
-        internal static string UploadsDisabled() =>
+        public static string UploadsDisabled() =>
             string.Format(
                 CultureInfo.InvariantCulture,
                 Resolve(UploadsDisabledText),
                 BazaarDbBundleSettingsMenuLabel.Resolve(L.CurrentLanguageCode)
             );
 
-        internal static string PtrUnavailable() => Resolve(PtrUnavailableText);
+        public static string PtrUnavailable() => Resolve(PtrUnavailableText);
 
-        internal static string BindingPersists() => Resolve(BindingPersistsText);
+        public static string BindingPersists() => Resolve(BindingPersistsText);
 
-        internal static string Why() => Resolve(WhyText);
+        public static string Why() => Resolve(WhyText);
 
-        internal static string SignedOut() => Resolve(SignedOutText);
+        public static string SignedOut() => Resolve(SignedOutText);
 
-        internal static string Hint() => Resolve(HintText);
+        public static string Hint() => Resolve(HintText);
 
-        internal static string Button() => Resolve(ButtonText);
+        public static string Button() => Resolve(ButtonText);
 
-        internal static string AlreadyLinkedElsewhereButton() =>
+        public static string AlreadyLinkedElsewhereButton() =>
             Resolve(AlreadyLinkedElsewhereButtonText);
 
-        internal static string Linking() => Resolve(LinkingText);
+        public static string Linking() => Resolve(LinkingText);
 
-        internal static string Linked() => Resolve(LinkedText);
+        public static string Linked() => Resolve(LinkedText);
 
-        internal static string NotLinked() => Resolve(NotLinkedText);
+        public static string NotLinked() => Resolve(NotLinkedText);
 
-        internal static string Relink() => Resolve(RelinkText);
+        public static string Relink() => Resolve(RelinkText);
 
-        internal static string RowBind() => Resolve(RowBindText);
+        public static string RowBind() => Resolve(RowBindText);
 
-        internal static string Collapse() => Resolve(CollapseText);
+        public static string Collapse() => Resolve(CollapseText);
 
-        internal static string EmptyCode() => Resolve(EmptyCodeText);
+        public static string EmptyCode() => Resolve(EmptyCodeText);
 
-        internal static string AlreadyRunning() => Resolve(AlreadyRunningText);
+        public static string AlreadyRunning() => Resolve(AlreadyRunningText);
 
-        internal static string InvalidOrExpired() => Resolve(InvalidOrExpiredText);
+        public static string InvalidOrExpired() => Resolve(InvalidOrExpiredText);
 
-        internal static string AlreadyLinked() => Resolve(AlreadyLinkedText);
+        public static string AlreadyLinked() => Resolve(AlreadyLinkedText);
 
-        internal static string ServerBusy() => Resolve(ServerBusyText);
+        public static string ServerBusy() => Resolve(ServerBusyText);
 
-        internal static string Offline() => Resolve(OfflineText);
+        public static string Offline() => Resolve(OfflineText);
     }
 }

@@ -4,7 +4,7 @@ using BazaarPlusPlus.Localization;
 
 namespace BazaarPlusPlus.Game.HistoryPanel;
 
-internal static class HistoryPanelSettingsMenuLabel
+public static class HistoryPanelSettingsMenuLabel
 {
     private static readonly LocalizedTextSet LabelFormats = new(
         "Game History (Press {0} to open)",
@@ -15,7 +15,7 @@ internal static class HistoryPanelSettingsMenuLabel
         "Cronologia partite (premi {0} per aprire)"
     );
 
-    internal static string Resolve(string languageCode, string hotkeyDisplay)
+    public static string Resolve(string languageCode, string hotkeyDisplay)
     {
         return string.Format(
             CultureInfo.CurrentCulture,

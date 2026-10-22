@@ -1,12 +1,12 @@
 #nullable enable
 using BazaarGameShared.Domain.Core.Types;
+using BazaarPlusPlus.Core.GameState;
 using BazaarPlusPlus.Game.LiveBuildPanel.Data;
 using BazaarPlusPlus.Game.Supporters.Ui;
 using BazaarPlusPlus.GameInterop.AssetLoading;
 using BazaarPlusPlus.GameInterop.Fonts;
 using BazaarPlusPlus.GameInterop.HeroPortraits;
 using BazaarPlusPlus.GameInterop.ItemBoardPreview;
-using BazaarPlusPlus.GameInterop.MonsterBoardPreview;
 using BazaarPlusPlus.Infrastructure.UiTokens;
 using BazaarPlusPlus.Localization;
 using TheBazaar.AppFramework;

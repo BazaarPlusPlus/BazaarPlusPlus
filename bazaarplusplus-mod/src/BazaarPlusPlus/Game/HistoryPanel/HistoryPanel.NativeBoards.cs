@@ -28,7 +28,8 @@ internal sealed partial class HistoryPanel
         if (_hasPreviewContainerBounds)
             _nativePlayerBoard.SetBounds(_previewContainerBounds);
         var battle = ActiveSelectedBattle;
-        var snapshots = _state.DetailBattleId == battle?.BattleId ? _state.DetailSnapshots : null;
+        var snapshots =
+            _state.DetailBattleId == battle?.BattleId ? _coordinator?.DetailSnapshots : null;
         var player = HistoryBattlePreviewProjection.BuildPlayer(
             snapshots,
             $"player:{battle?.BattleId}"

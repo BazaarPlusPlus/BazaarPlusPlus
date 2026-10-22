@@ -3,16 +3,16 @@ using BazaarPlusPlus.Game.HistoryPanel.Data;
 
 namespace BazaarPlusPlus.Game.HistoryPanel;
 
-internal enum HistoryPanelGhostBattleOutcome
+public enum HistoryPanelGhostBattleOutcome
 {
     Unknown,
     Won,
     Lost,
 }
 
-internal static class HistoryPanelGhostBattleFilter
+public static class HistoryPanelGhostBattleFilter
 {
-    internal static HistoryPanelGhostBattleOutcome ResolveOutcome(HistoryBattleRecord battle)
+    public static HistoryPanelGhostBattleOutcome ResolveOutcome(HistoryBattleRecord battle)
     {
         if (
             string.Equals(

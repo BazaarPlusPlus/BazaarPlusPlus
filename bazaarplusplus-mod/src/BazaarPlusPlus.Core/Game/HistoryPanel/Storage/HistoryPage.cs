@@ -2,9 +2,9 @@
 namespace BazaarPlusPlus.Game.HistoryPanel.Storage;
 
 // Time is the list's sort time in Unix milliseconds.
-internal readonly record struct HistoryCursor(long Time, string Id);
+public readonly record struct HistoryCursor(long Time, string Id);
 
-internal sealed record HistoryPageRequest(
+public sealed record HistoryPageRequest(
     HistoryCursor? Cursor = null,
     bool Newer = false,
     bool Inclusive = false,
@@ -14,13 +14,13 @@ internal sealed record HistoryPageRequest(
 
 // Rows with the time/ID anchors and neighbour flags a pager needs. A page with rows always has
 // both anchors; an empty page has neither and no neighbours.
-internal class HistoryCursorPage<T>
+public class HistoryCursorPage<T>
 {
-    internal static HistoryCursorPage<T> Empty { get; } = new();
+    public static HistoryCursorPage<T> Empty { get; } = new();
 
     private protected HistoryCursorPage() => Rows = Array.Empty<T>();
 
-    internal HistoryCursorPage(
+    public HistoryCursorPage(
         IReadOnlyList<T> rows,
         HistoryCursor first,
         HistoryCursor last,
@@ -43,7 +43,7 @@ internal class HistoryCursorPage<T>
     public bool HasNewer { get; }
     public bool HasOlder { get; }
 
-    internal int FindIndex(Predicate<T> match)
+    public int FindIndex(Predicate<T> match)
     {
         for (var i = 0; i < Rows.Count; i++)
             if (match(Rows[i]))
@@ -55,7 +55,7 @@ internal class HistoryCursorPage<T>
 // A cursor page that also knows its one-based position and the filtered total. Neighbours follow
 // from those counts, so they cannot disagree with them. An empty page has position 0 and may
 // still carry a total: a cursor past either end finds no rows in a nonempty population.
-internal sealed class HistoryCountedPage<T> : HistoryCursorPage<T>
+public sealed class HistoryCountedPage<T> : HistoryCursorPage<T>
 {
     private HistoryCountedPage(long totalCount)
     {
@@ -64,7 +64,7 @@ internal sealed class HistoryCountedPage<T> : HistoryCursorPage<T>
         TotalCount = totalCount;
     }
 
-    internal HistoryCountedPage(
+    public HistoryCountedPage(
         IReadOnlyList<T> rows,
         HistoryCursor first,
         HistoryCursor last,
@@ -87,7 +87,7 @@ internal sealed class HistoryCountedPage<T> : HistoryCursorPage<T>
         TotalCount = totalCount;
     }
 
-    internal static new HistoryCountedPage<T> Empty(long totalCount = 0) => new(totalCount);
+    public static new HistoryCountedPage<T> Empty(long totalCount = 0) => new(totalCount);
 
     public long FirstPosition { get; }
     public long LastPosition => Rows.Count == 0 ? 0 : FirstPosition + Rows.Count - 1;

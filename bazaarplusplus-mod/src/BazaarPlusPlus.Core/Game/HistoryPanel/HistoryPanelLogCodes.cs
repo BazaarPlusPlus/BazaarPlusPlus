@@ -1,18 +1,18 @@
 #nullable enable
 namespace BazaarPlusPlus.Game.HistoryPanel;
 
-internal enum HistoryPanelMountDependency
+public enum HistoryPanelMountDependency
 {
     CombatReplayRuntime,
     OverlayPanelHost,
 }
 
-internal enum HistoryPanelMountReasonCode
+public enum HistoryPanelMountReasonCode
 {
     DependencyUnavailable,
 }
 
-internal enum HistoryPanelReplayReasonCode
+public enum HistoryPanelReplayReasonCode
 {
     Completed,
     RecordingAvailable,
@@ -33,14 +33,14 @@ internal enum HistoryPanelReplayReasonCode
     Canceled,
 }
 
-internal enum HistoryPanelRunDeleteReasonCode
+public enum HistoryPanelRunDeleteReasonCode
 {
     Completed,
     PrimaryDeleteFailed,
     ReplayPayloadCleanupFailed,
 }
 
-internal enum HistoryPanelServerHealthReasonCode
+public enum HistoryPanelServerHealthReasonCode
 {
     Completed,
     HttpFailure,
@@ -51,7 +51,7 @@ internal enum HistoryPanelServerHealthReasonCode
     Canceled,
 }
 
-internal enum HistoryPanelGhostSyncReasonCode
+public enum HistoryPanelGhostSyncReasonCode
 {
     Completed,
     SyncUnavailable,
@@ -62,25 +62,25 @@ internal enum HistoryPanelGhostSyncReasonCode
     Canceled,
 }
 
-internal enum HistoryPanelGhostIdentityReasonCode
+public enum HistoryPanelGhostIdentityReasonCode
 {
     ClientCacheReadFailed,
 }
 
-internal enum HistoryPanelPreviewReasonCode
+public enum HistoryPanelPreviewReasonCode
 {
     SocketEffectLookupFailed,
     StaticDataAccessFailed,
     StaticDataUnavailable,
 }
 
-internal enum HistoryPanelPreviewPayloadReasonCode
+public enum HistoryPanelPreviewPayloadReasonCode
 {
     PayloadInvalid,
     PayloadUnreadable,
 }
 
-internal enum HistoryPanelOpenReasonCode
+public enum HistoryPanelOpenReasonCode
 {
     InstanceUnavailable,
     OverlayHandleUnavailable,
@@ -89,9 +89,9 @@ internal enum HistoryPanelOpenReasonCode
     RequestException,
 }
 
-internal static class HistoryPanelServerHealthReasonClassifier
+public static class HistoryPanelServerHealthReasonClassifier
 {
-    internal static HistoryPanelServerHealthReasonCode Classify(string? error)
+    public static HistoryPanelServerHealthReasonCode Classify(string? error)
     {
         if (error?.StartsWith("http_", StringComparison.OrdinalIgnoreCase) == true)
             return HistoryPanelServerHealthReasonCode.HttpFailure;

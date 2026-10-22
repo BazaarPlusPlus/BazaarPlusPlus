@@ -8,6 +8,7 @@ using var uiContext = new TestUiContext();
 SynchronizationContext.SetSynchronizationContext(uiContext);
 
 var modAssembly = Assembly.Load("BazaarPlusPlus");
+var coreAssembly = Assembly.Load("BazaarPlusPlus.Core");
 var stateType = RequireType("BazaarPlusPlus.Game.HistoryPanel.HistoryPanelState");
 var runRecordType = RequireType("BazaarPlusPlus.Game.HistoryPanel.Data.HistoryRunRecord");
 var battleRecordType = RequireType("BazaarPlusPlus.Game.HistoryPanel.Data.HistoryBattleRecord");
@@ -19,6 +20,7 @@ var ghostFilterType = RequireType("BazaarPlusPlus.Game.HistoryPanel.GhostBattleF
 var heroPresentationType = RequireType(
     "BazaarPlusPlus.Game.HistoryPanel.HistoryPanelHeroPresentation"
 );
+var heroNamesType = RequireType("BazaarPlusPlus.Game.HistoryPanel.HistoryPanelHeroNames");
 var coordinatorType = RequireType("BazaarPlusPlus.Game.HistoryPanel.HistoryPanelCoordinator");
 var dependenciesType = RequireType("BazaarPlusPlus.Game.HistoryPanel.HistoryPanelDependencies");
 var dataServiceType = RequireType(
@@ -88,11 +90,11 @@ void TestRunHeroPresentationTreatsAliasesAsSelectedAndDisplaysCanonicalName()
         "Alias-selected state should be symmetric."
     );
     Assert(
-        (string)InvokeStatic(heroPresentationType, "DisplayName", "Hero8")! == "The Dragons",
+        (string)InvokeStatic(heroNamesType, "DisplayName", "Hero8")! == "The Dragons",
         "Legacy history should display the canonical native The Dragons name."
     );
     Assert(
-        (string)InvokeStatic(heroPresentationType, "DisplayName", "TheDragons")! == "The Dragons",
+        (string)InvokeStatic(heroNamesType, "DisplayName", "TheDragons")! == "The Dragons",
         "Canonical history should display the native The Dragons name."
     );
 }
@@ -804,7 +806,7 @@ void SetPage(object state, string propertyName, params object[] records)
     var property = stateType.GetProperty(propertyName)!;
     var pageType = property.PropertyType;
     var counted = pageType.GetGenericTypeDefinition().Name == "HistoryCountedPage`1";
-    const BindingFlags factory = BindingFlags.NonPublic | BindingFlags.Static;
+    const BindingFlags factory = BindingFlags.Public | BindingFlags.Static;
     if (records.Length == 0)
     {
         property.SetValue(
@@ -869,8 +871,10 @@ string? GetNullableString(object instance, string propertyName)
     return (string?)property.GetValue(instance);
 }
 
+// History's host-free half lives in Core; the coordinator and storage stay in the host.
 Type RequireType(string fullName) =>
     modAssembly.GetType(fullName)
+    ?? coreAssembly.GetType(fullName)
     ?? throw new InvalidOperationException($"{fullName} should exist.");
 
 object Construct(Type type, params object?[] args)

@@ -3,7 +3,7 @@ namespace BazaarPlusPlus.Game.HistoryPanel.Data;
 
 // A battle the player kept in History's Favorites. Battle carries the snapshot taken at favorite
 // time: Source is where it came from (Local or Ghost) and Replay is the favorite's own copy.
-internal sealed class HistoryFavoriteRecord
+public sealed class HistoryFavoriteRecord
 {
     public HistoryFavoriteRecord(
         HistoryBattleRecord battle,

@@ -4,7 +4,7 @@ using BazaarPlusPlus.Localization;
 
 namespace BazaarPlusPlus.Game.HistoryPanel;
 
-internal static partial class HistoryPanelText
+public static partial class HistoryPanelText
 {
     private static string Resolve(LocalizedTextSet set) => L.Resolve(set);
 

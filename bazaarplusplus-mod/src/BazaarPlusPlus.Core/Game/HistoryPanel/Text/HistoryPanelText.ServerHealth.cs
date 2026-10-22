@@ -4,7 +4,7 @@ using BazaarPlusPlus.Localization;
 
 namespace BazaarPlusPlus.Game.HistoryPanel;
 
-internal static partial class HistoryPanelText
+public static partial class HistoryPanelText
 {
     private static readonly LocalizedTextSet CheckServerHealthText = new(
         "Check Server",
@@ -44,25 +44,25 @@ internal static partial class HistoryPanelText
 
     private static readonly LocalizedTextSet DatabaseMissingText = new("Missing", "缺失");
 
-    internal static string CheckServerHealth() => Resolve(CheckServerHealthText);
+    public static string CheckServerHealth() => Resolve(CheckServerHealthText);
 
-    internal static string CheckingServerHealth() => Resolve(CheckingServerHealthText);
+    public static string CheckingServerHealth() => Resolve(CheckingServerHealthText);
 
-    internal static string CheckingServerConnectivity() => Resolve(CheckingServerConnectivityText);
+    public static string CheckingServerConnectivity() => Resolve(CheckingServerConnectivityText);
 
-    internal static string ServerHealthUnavailable() => Resolve(ServerHealthUnavailableText);
+    public static string ServerHealthUnavailable() => Resolve(ServerHealthUnavailableText);
 
-    internal static string ServerHealthAlreadyRunning() => Resolve(ServerHealthAlreadyRunningText);
+    public static string ServerHealthAlreadyRunning() => Resolve(ServerHealthAlreadyRunningText);
 
-    internal static string DatabaseUnavailable() => Resolve(DatabaseUnavailableText);
+    public static string DatabaseUnavailable() => Resolve(DatabaseUnavailableText);
 
-    internal static string DatabaseConnected() => Resolve(DatabaseConnectedText);
+    public static string DatabaseConnected() => Resolve(DatabaseConnectedText);
 
-    internal static string DatabaseMissing() => Resolve(DatabaseMissingText);
+    public static string DatabaseMissing() => Resolve(DatabaseMissingText);
 
-    internal static string DatabaseChip(string status) => $"{Resolve(DatabasePrefixText)} {status}";
+    public static string DatabaseChip(string status) => $"{Resolve(DatabasePrefixText)} {status}";
 
-    internal static string ServerHealthConnected(long roundTripMilliseconds)
+    public static string ServerHealthConnected(long roundTripMilliseconds)
     {
         return FormatSimple(
             $"Game and server connected in {roundTripMilliseconds} ms.",
@@ -71,7 +71,7 @@ internal static partial class HistoryPanelText
         );
     }
 
-    internal static string ServerHealthFailed(long roundTripMilliseconds, string details)
+    public static string ServerHealthFailed(long roundTripMilliseconds, string details)
     {
         return FormatSimple(
             $"Game-server check failed after {roundTripMilliseconds} ms: {details}",
@@ -80,12 +80,12 @@ internal static partial class HistoryPanelText
         );
     }
 
-    internal static string HistoryLoadFailed(string details)
+    public static string HistoryLoadFailed(string details)
     {
         return FormatSimple($"Couldn't load history: {details}", $"载入对局失败：{details}");
     }
 
-    internal static string PanelUnavailable()
+    public static string PanelUnavailable()
     {
         return FormatSimple("History panel is unavailable.", "历史面板不可用。");
     }

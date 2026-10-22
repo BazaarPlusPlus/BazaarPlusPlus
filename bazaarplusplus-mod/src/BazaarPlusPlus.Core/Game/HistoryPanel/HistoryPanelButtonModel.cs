@@ -2,7 +2,7 @@
 
 namespace BazaarPlusPlus.Game.HistoryPanel;
 
-internal readonly struct HistoryPanelButtonModel
+public readonly struct HistoryPanelButtonModel
 {
     public HistoryPanelButtonModel(
         string replayButtonText,
