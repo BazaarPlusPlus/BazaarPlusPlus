@@ -3,6 +3,7 @@ using BazaarPlusPlus.Game.BundlePipeline;
 using BazaarPlusPlus.Game.CombatReplay;
 using BazaarPlusPlus.Game.PvpBattles;
 using BazaarPlusPlus.Game.PvpBattles.Persistence;
+using BazaarPlusPlus.Host;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.ModApi.Bundle;
 using BazaarPlusPlus.Storage.BundleQueue;
@@ -367,7 +368,7 @@ internal static class BundleSealFailureTests
             Queue = new BundleQueueStore(_database);
             Services = new TestServices(paths);
             _logger.LogEvent += (_, args) => _output.Add(args.Data?.ToString() ?? string.Empty);
-            BppLog.Install(_logger);
+            BppLog.Install(new BepInExLogSink(_logger));
         }
 
         internal string Root { get; }

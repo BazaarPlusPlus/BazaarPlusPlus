@@ -12,12 +12,12 @@ internal sealed class GraphicsUpscalingController : MonoBehaviour
     private const float RefreshIntervalSeconds = 0.5f;
 
     private readonly UrpUpscalingAdapter _adapter = new();
-    private BppConfig? _config;
+    private BppSettings? _config;
     private UrpUpscalingState? _lastLoggedState;
     private float _nextRefreshAt;
     private bool _unavailableLogged;
 
-    internal void Initialize(BppConfig config)
+    internal void Initialize(BppSettings config)
     {
         _config = config ?? throw new ArgumentNullException(nameof(config));
         Refresh();
@@ -37,7 +37,7 @@ internal sealed class GraphicsUpscalingController : MonoBehaviour
         _nextRefreshAt = Time.unscaledTime + RefreshIntervalSeconds;
         var mode = _config?.GraphicsUpscalingModeConfig.Value ?? GraphicsUpscalingMode.Native;
         var sharpness =
-            _config?.GraphicsUpscalingSharpnessConfig.Value ?? BppConfig.DefaultFsrSharpness;
+            _config?.GraphicsUpscalingSharpnessConfig.Value ?? BppSettings.DefaultFsrSharpness;
         var profile = FsrUpscalingProfiles.Resolve(mode);
         var state = _adapter.Apply(profile.Enabled, profile.RenderScale, sharpness);
 

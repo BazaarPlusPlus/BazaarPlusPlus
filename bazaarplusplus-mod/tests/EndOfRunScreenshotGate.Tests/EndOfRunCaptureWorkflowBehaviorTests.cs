@@ -1,5 +1,6 @@
 #nullable enable
 using BazaarPlusPlus.Game.Screenshots;
+using BazaarPlusPlus.Host;
 using BazaarPlusPlus.Infrastructure;
 using BepInEx.Logging;
 
@@ -686,7 +687,7 @@ internal static class EndOfRunCaptureWorkflowBehaviorTests
         internal TestLogCapture()
         {
             _source.LogEvent += OnLogEvent;
-            BppLog.Install(_source);
+            BppLog.Install(new BepInExLogSink(_source));
         }
 
         internal IReadOnlyList<string> Events => _events;

@@ -2,6 +2,7 @@ using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
 using BazaarPlusPlus.Game.VoiceSubtitles;
+using BazaarPlusPlus.Host;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.RemoteEmbeddedCatalog;
 using BepInEx.Logging;
@@ -715,7 +716,8 @@ public sealed class VoiceSubtitlesTests
         {
             _source.LogEvent += OnLogEvent;
             var bppLogType = GetRequiredType("BazaarPlusPlus.Infrastructure.BppLog");
-            GetRequiredStaticMethod(bppLogType, "Install").Invoke(null, [_source]);
+            GetRequiredStaticMethod(bppLogType, "Install")
+                .Invoke(null, [new BepInExLogSink(_source)]);
         }
 
         internal IReadOnlyList<LogEventArgs> Events(string eventId) =>

@@ -1,7 +1,6 @@
 #nullable enable
 using BazaarPlusPlus.Core.Events;
 using BazaarPlusPlus.Core.Runtime;
-using BazaarPlusPlus.GameInterop.Events;
 
 namespace BazaarPlusPlus.Game.CombatStatusBar;
 
@@ -33,12 +32,12 @@ internal sealed class CombatStatusBarModule : IBppFeature
 
     private void OnCombatSimObserved(CombatSimObserved observed)
     {
-        var message = observed.Message;
-        if (_lastMessageId == message.MessageId)
+        var snapshot = observed.Snapshot;
+        if (_lastMessageId == snapshot.MessageId)
             return;
 
-        _lastMessageId = message.MessageId;
-        CombatStatusBar.SetCombatFrameTotal(message.Data?.Frames?.Count ?? 0);
+        _lastMessageId = snapshot.MessageId;
+        CombatStatusBar.SetCombatFrameTotal(snapshot.FrameCount);
     }
 
     private static void OnCombatFrameAdvanced(CombatFrameAdvanced _)

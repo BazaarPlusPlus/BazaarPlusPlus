@@ -52,15 +52,18 @@ public sealed class CoreLayeringTests
     public void Core_is_the_pure_dependency_floor()
     {
         Holds(
-            "Core must remain below Game, GameInterop, and game assemblies.",
+            "Core must remain below Game, GameInterop, game assemblies, and the BepInEx loader.",
             build =>
             {
                 _ = build.TypesIn(Game);
                 _ = build.TypesIn(GameInterop);
-                var gameAssemblies = new[]
+                // Settings, logging, and paths reach BepInEx only through the desktop host's
+                // port implementations under BazaarPlusPlus.Host.
+                var forbiddenAssemblies = new[]
                 {
                     RequireAssemblyPrefix(build, "BazaarGame"),
                     RequireAssemblyPrefix(build, "TheBazaar"),
+                    RequireAssemblyPrefix(build, "BepInEx"),
                 };
                 var interopOwners = new[]
                 {
@@ -68,7 +71,7 @@ public sealed class CoreLayeringTests
                     build.Type(Core + ".Runtime.BppRuntimeServices").FullName,
                 };
                 var core = build.TypesIn(Core);
-                return References(core, FromAssembly(gameAssemblies))
+                return References(core, FromAssembly(forbiddenAssemblies))
                     .Concat(References(core, InNamespace(Game)))
                     .Concat(
                         References(

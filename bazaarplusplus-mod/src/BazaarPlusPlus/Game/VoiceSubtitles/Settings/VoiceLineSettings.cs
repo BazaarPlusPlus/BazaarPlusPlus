@@ -6,10 +6,10 @@ using BazaarPlusPlus.Patches;
 namespace BazaarPlusPlus.Game.VoiceSubtitles.Settings;
 
 // Read-only snapshot of the voice-subtitle settings. Persistence lives in the shared
-// BazaarPlusPlus.cfg (BppConfig, section "VoiceSubtitles"); there is no separate config file.
+// BazaarPlusPlus.cfg (BppSettings, section "VoiceSubtitles"); there is no separate config file.
 // Runtime callers with no config injection (VoiceLineDisplay) read through BppPatchHost, the
-// same seam VoiceSubtitlesGate uses. UI writes go straight to the ConfigEntry from the dock
-// entries, which are handed the BppConfig instance.
+// same seam VoiceSubtitlesGate uses. UI writes go straight to the ISetting from the dock
+// entries, which are handed the BppSettings instance.
 internal sealed class VoiceLineSettings
 {
     private const float DefaultEnglishFontScale = 1f;

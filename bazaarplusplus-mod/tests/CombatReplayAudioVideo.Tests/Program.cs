@@ -1462,7 +1462,12 @@ file static class RecordingOperationContractTests
                     "Install",
                     BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic
                 ) ?? throw new InvalidOperationException("BppLog.Install not found.");
-            install.Invoke(null, new object[] { _source });
+            var sink =
+                Activator.CreateInstance(
+                    TestReflection.RequireType("BazaarPlusPlus.Host.BepInExLogSink"),
+                    _source
+                ) ?? throw new InvalidOperationException("BepInExLogSink not constructed.");
+            install.Invoke(null, new object[] { sink });
         }
 
         internal string Joined => string.Join("\n", _events.Select(evt => evt.Data?.ToString()));

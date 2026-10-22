@@ -7,10 +7,10 @@ namespace BazaarPlusPlus.Game.Tooltips;
 
 internal static class TooltipPreviewModePolicy
 {
-    private const PreviewVisibilityMode DefaultMode = BppConfig.DefaultEnchantPreviewMode;
+    private const PreviewVisibilityMode DefaultMode = BppSettings.DefaultEnchantPreviewMode;
 
     internal static TooltipPreviewMode Resolve(
-        BppConfig? config,
+        BppSettings? config,
         IEncounterStateProbe? encounterState
     )
     {
@@ -23,7 +23,7 @@ internal static class TooltipPreviewModePolicy
     }
 
     internal static TooltipPreviewMode Resolve(
-        BppConfig? config,
+        BppSettings? config,
         IEncounterStateProbe? encounterState,
         bool holdUpgrade,
         bool holdEnchant
@@ -36,7 +36,7 @@ internal static class TooltipPreviewModePolicy
     }
 
     internal static TooltipPreviewMode Resolve(
-        BppConfig? config,
+        BppSettings? config,
         ChoicePedestalSnapshot? choicePedestal
     )
     {
@@ -49,7 +49,7 @@ internal static class TooltipPreviewModePolicy
     }
 
     internal static TooltipPreviewMode Resolve(
-        BppConfig? config,
+        BppSettings? config,
         ChoicePedestalSnapshot? choicePedestal,
         bool holdUpgrade,
         bool holdEnchant
@@ -73,7 +73,7 @@ internal static class TooltipPreviewModePolicy
     }
 
     internal static IReadOnlyList<string>? ResolveEnchantRestriction(
-        BppConfig? config,
+        BppSettings? config,
         ChoicePedestalSnapshot? choicePedestal
     )
     {
@@ -84,7 +84,7 @@ internal static class TooltipPreviewModePolicy
             : null;
     }
 
-    internal static bool ShouldReadChoicePedestal(BppConfig? config)
+    internal static bool ShouldReadChoicePedestal(BppSettings? config)
     {
         return ShouldReadChoicePedestal(
             config,
@@ -94,7 +94,7 @@ internal static class TooltipPreviewModePolicy
     }
 
     internal static bool ShouldReadChoicePedestal(
-        BppConfig? config,
+        BppSettings? config,
         bool holdUpgrade,
         bool holdEnchant
     )

@@ -15,11 +15,11 @@ internal static class BPPSupporterCatalog
         new BPPSupporterEntry { Name = "Gold Sponsor A", Tier = 4 },
     };
 
-    private static BppConfig? _config;
+    private static BppSettings? _config;
     private static IReadOnlyList<BPPSupporterEntry>? _currentEntries;
     private static Action? _ensureWarm;
 
-    public static void Install(BppConfig config)
+    public static void Install(BppSettings config)
     {
         lock (SyncRoot)
             _config = config ?? throw new ArgumentNullException(nameof(config));

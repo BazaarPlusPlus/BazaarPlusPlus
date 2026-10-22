@@ -31,7 +31,7 @@ internal sealed class CosmeticNameOverlay : MonoBehaviour
         "{0} predefinito"
     );
 
-    private BppConfig? _config;
+    private BppSettings? _config;
     private BazaarSaleItem _data;
     private RectTransform? _thumbnailViewport;
     private GameObject? _overlay;
@@ -44,7 +44,7 @@ internal sealed class CosmeticNameOverlay : MonoBehaviour
     private float _nextAttempt;
 
     internal void Initialize(
-        BppConfig config,
+        BppSettings config,
         CosmeticItem item,
         BazaarSaleItem data,
         bool placeholder
