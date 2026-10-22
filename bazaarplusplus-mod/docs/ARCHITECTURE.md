@@ -44,7 +44,7 @@ No shared project references a game, Unity, or loader assembly, so the compiler 
 | `Localization/` | localization resolution, language and Chinese-mode helpers |
 | `Infrastructure/` | Release Manifest client, remote embedded catalogs, atomic and file-backed writes, async load cache, plugin version |
 
-Moved files kept their namespaces (`BazaarPlusPlus.Core.*`, `.Infrastructure`, `.Localization`).
+Core namespaces: `BazaarPlusPlus.Core.*`, `.Infrastructure`, `.Localization`.
 
 Inside the desktop host assembly:
 
@@ -58,15 +58,11 @@ Inside the desktop host assembly:
 
 The main project targets `netstandard2.1`, uses C# 12, and publicizes game assemblies, so `internal` game members are accessible. Remote seed data is declared in `RemoteEmbeddedData.targets` and delegates transport to `build/RemoteEmbeddedDataFetcher`; `BppVersion` in `Directory.Build.props` reads the workspace-root `VERSION`. The shared Payload Inventory generates the MSBuild copy items; production assembly versions are checked from compiled metadata. `just release::prepare <platform>` runs isolated preparation through the [product release coordinator](../../docs/release.md).
 
-### Hosts
-
-Each Host is one assembly that owns its loader entry, the implementations of host ports, and its own game adapters and patches. The desktop host is the main assembly above. `BazaarPlusPlus.Android` (`net10.0`) is the Android host, not yet in the Payload: a MelonMod (`src/BazaarPlusPlus.Android/Host/AndroidMod.cs`) compiled against the Interop Snapshot and Loader Release (`build/InteropPath.props`), never against `Managed/`. Its `Patches/` apply per class under the `[Android] PatchMode` setting (`enabled`, `observe`, `disabled`); pure sources are linked from the desktop tree until a shared Core exists. `tests/AndroidHost.Tests` fails if the compiled host references BepInEx or a desktop assembly and runs in `just mod::test-core`, the suites that need no Managed snapshot; `just mod::android-*` drives a device.
-
 Architecture tests ratchet dependency boundaries, shared ownership, and test/build safety contracts over compiled assemblies (`tests/Architecture.Tests/`, ADR-0009). Concrete composition behavior remains in `tests/CompositionRuntime.Tests/` and is compiled by `RuntimeIntegration.Tests`: feature start/stop is fault-isolated, while `BppMountableRegistry.MountAll` deliberately is not.
 
 ## Shared Seams
 
-Each of these is consumed by two or more features. Reaching around one to re-implement its behavior inside a feature is the failure this section exists to prevent.
+Each is consumed by two or more features. Re-implementing one's behavior inside a feature is the failure this section exists to prevent.
 
 | Seam | Owner | Consumers |
 |---|---|---|
@@ -89,7 +85,7 @@ Operational logging is written at the call site: `BppLog.*Event(new BppLogEvent(
 
 ## Data And File Locations
 
-Runtime data that BazaarPlusPlus owns is rooted at `<GameRoot>/BazaarPlusPlusV6/`. `BepInExPathProvider` exposes that single root, and storage and feature modules derive the SQLite database, bundle outbox, replay, ghost payload, screenshot, video, voice, LiveBuild, supporter, and Encounter Preview paths from it. No runtime cache uses the process temporary directory. The Android host's root is `BazaarPlusPlusV6` beside the MelonLoader base directory (`AndroidPaths`); nothing writes there yet.
+Runtime data that BazaarPlusPlus owns is rooted at `<GameRoot>/BazaarPlusPlusV6/`. `BepInExPathProvider` exposes that single root, and storage and feature modules derive the SQLite database, bundle outbox, replay, ghost payload, screenshot, video, voice, LiveBuild, supporter, and Encounter Preview paths from it. No runtime cache uses the process temporary directory.
 
 The V6 database starts a new schema at `user_version` 1 with no migration path: `EnsureInitialized` creates an empty database or opens one already at 1 and refuses any other version, including a V5 database. Every instant is a Unix-millisecond `*_at_ms` integer; `RunPayloadComposer` copies them unchanged into the V6 Run segment. Beyond run facts, events, battles, snapshots, screenshots, and replay-video metadata it holds `bundle_seal_jobs` and a non-FK `bundle_outbox`; ghost rows carry remote bundle identity, presigned URL and expiry, and replay state. V4 sync cursors, dirty/checkpoint upload state, and independent screenshot upload state do not exist (`src/BazaarPlusPlus.Storage/RunLog/RunLogSchema.cs`).
 
@@ -114,4 +110,5 @@ Each feature doc ends with the Gotchas that bite only that feature.
 | Desktop native build freshness, local promotion, and signing | [architecture/native-artifacts.md](architecture/native-artifacts.md) |
 | Hotkey bindings and settings dock rows | [architecture/input-and-settings.md](architecture/input-and-settings.md) |
 | Fonts, localization, voice subtitles, supporter attribution | [architecture/text.md](architecture/text.md) |
+| Android Host | [architecture/android-host.md](architecture/android-host.md) |
 | The V6 bundle wire format | [contracts/run-payload-v6.md](contracts/run-payload-v6.md) |

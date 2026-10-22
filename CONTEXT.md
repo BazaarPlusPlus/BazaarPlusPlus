@@ -25,12 +25,6 @@ Publishing one platform's Platform Release Manifest once its artifacts are in pl
 **Mainland Mirror**:
 A manually uploaded share page of one platform's installer for mainland-China networks. Its address is an explicit operator input, checked against the uploaded installer and recorded per platform before that platform's Release Promotion, then published in its Platform Release Manifest; consumers read it and never derive it. It is a manual download fallback, never a second release source or an updater endpoint.
 
-## Hosts
-
-**Host** (宿主):
-The loader and runtime one mod plugin assembly is built for. The Desktop Host is BepInEx on Mono (`BazaarPlusPlus`, `BepInEx/plugins/`); the Android Host is LemonLoader on CoreCLR over IL2CPP (`BazaarPlusPlus.Android`, `MelonLoader/Mods/`), compiled against an Interop Snapshot and a Loader Release. Each owns its loader entry, its implementations of the mod's host ports (settings, log exit, Data Root), its game adapters and its Harmony patches. A host is not a release platform: `macos` and `windows` share the Desktop Host.
-_Avoid_: loader, platform
-
 ## Game assemblies
 
 **Game Assembly Snapshot** (游戏程序集快照):
@@ -52,7 +46,7 @@ _Avoid_: game-libs manifest, Steam buildid pin
 ## Mod hosts
 
 **Host** (宿主):
-One loader and runtime combination the mod runs under, with the assembly and composition root that adapt the shared core to it: the Desktop Host (BepInEx on Mono, `BazaarPlusPlus.dll`, `DesktopComposition`) and the Android Host (LemonLoader on CoreCLR beside an IL2CPP game). Every host references `BazaarPlusPlus.Core`, which references no loader, engine, or game assembly; game adapters and Harmony patches stay per host. `bazaarplusplus-mod/docs/adr/0012-shared-core-and-per-host-adapters.md` records the split.
+One loader and runtime combination the mod runs under, with the assembly and composition root that adapt the shared core to it: the Desktop Host (BepInEx on Mono, `BazaarPlusPlus.dll` in `BepInEx/plugins/`, `DesktopComposition`) and the Android Host (LemonLoader on CoreCLR beside an IL2CPP game, `BazaarPlusPlus.Android.dll` in `MelonLoader/Mods/`, compiled against an Interop Snapshot and a Loader Release). Every host references `BazaarPlusPlus.Core`, which references no loader, engine, or game assembly; game adapters, Harmony patches and the host ports' implementations (settings, log exit, Data Root) stay per host. A host is not a release platform: `macos` and `windows` share the Desktop Host. `bazaarplusplus-mod/docs/adr/0012-shared-core-and-per-host-adapters.md` records the split.
 _Avoid_: platform (a release target such as `macos`), loader (one part of a host)
 
 ## Credentials

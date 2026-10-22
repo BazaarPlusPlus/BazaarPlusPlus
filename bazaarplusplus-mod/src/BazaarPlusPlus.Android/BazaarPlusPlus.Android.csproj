@@ -37,13 +37,17 @@
     </AssemblyAttribute>
   </ItemGroup>
 
-  <!-- Pure sources shared with the desktop host by link until BazaarPlusPlus.Core exists. -->
+  <!--
+    Pure sources linked until this host can reference BazaarPlusPlus.Core. Core references
+    Storage, which binds the desktop game assemblies (BppReferenceGameLibraries), so a Core
+    reference would need a Managed snapshot that this host and its CI lane do not have.
+  -->
   <ItemGroup>
     <Compile
-      Include="../BazaarPlusPlus/Core/Config/IBppSettingsStore.cs"
+      Include="../BazaarPlusPlus.Core/Config/IBppSettingsStore.cs"
       Link="Shared/IBppSettingsStore.cs"
     />
-    <Compile Include="../BazaarPlusPlus/Core/Config/ISetting.cs" Link="Shared/ISetting.cs" />
+    <Compile Include="../BazaarPlusPlus.Core/Config/ISetting.cs" Link="Shared/ISetting.cs" />
     <Compile
       Include="../BazaarPlusPlus/Game/Lobby/MainMenuVersionLabelFormatter.cs"
       Link="Shared/MainMenuVersionLabelFormatter.cs"

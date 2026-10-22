@@ -17,7 +17,7 @@ The mod: the BepInEx Desktop Host and the LemonLoader Android Host (root `CONTEX
 
 What `just --list mod` cannot tell you:
 
-- No desktop recipe builds the Android Host, yet `src/BazaarPlusPlus.Android/BazaarPlusPlus.Android.csproj` links desktop sources into it. Touching one of them needs `just mod::fetch android online`, `just mod::android-build` and `just mod::test-core`; on a fork PR nothing else compiles the host.
+- No desktop recipe builds the Android Host, yet `src/BazaarPlusPlus.Android/BazaarPlusPlus.Android.csproj` links Core and desktop sources into it. Touching one of them needs `just mod::fetch android online`, `just mod::android-build` and `just mod::test-core`; on a fork PR nothing else compiles the host (`docs/architecture/android-host.md`).
 - `just mod::locks-check` runs a locked restore so NuGet graph drift fails in the mod, not later in the installer build.
 - Doc edits are gated by `just mod::test`: `tests/Architecture.Tests/DocsHygieneTests.cs` enforces byte budgets on this file and `docs/MEMORY.md` and checks that links resolve; stay under a budget by merging entries, not appending.
 - A deletion is proved by deleting: `just mod::build` and `just mod::test` must both pass, because test projects compile fakes and source-shadow capsules that `build` never touches.
