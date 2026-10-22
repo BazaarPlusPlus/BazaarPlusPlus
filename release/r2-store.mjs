@@ -355,6 +355,53 @@ export async function putImmutable(store, key, bytes, contentType) {
   );
 }
 
+// R2 accepts at most 5 GiB in one PUT; an Android Release APK is about 2.8 GB.
+export const R2_SINGLE_PUT_LIMIT = 5 * 1024 ** 3;
+
+// Streams a local file to an immutable key. A large transfer can fail or lose
+// its response after R2 stored the object, so every outcome is settled by a
+// HEAD of the key, never by reading the object back: an object of the same
+// size and sha256 is this upload, a different one fails, and no object means
+// the transfer is retried.
+export async function putImmutableFile(
+  store,
+  key,
+  file,
+  {
+    sha256,
+    size = fs.statSync(file).size,
+    contentType,
+    attempts = 3,
+    wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+  }
+) {
+  if (size > R2_SINGLE_PUT_LIMIT)
+    throw new Error(
+      `${key} is ${size} bytes, above the ${R2_SINGLE_PUT_LIMIT}-byte single PUT limit`
+    );
+  let failure;
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    let created = false;
+    try {
+      created = await store.putFile(key, file, { sha256, contentType });
+    } catch (error) {
+      failure = error;
+    }
+    if (created) return 'uploaded';
+    const existing = await store.head(key);
+    if (existing) {
+      if (existing.size === size && existing.sha256 === sha256)
+        return 'present';
+      throw new Error(
+        `Immutable release object differs: ${key}; publish a new product version`
+      );
+    }
+    failure ??= new Error(`R2 did not store ${key}`);
+    if (attempt < attempts) await wait(attempt * 5000);
+  }
+  throw failure;
+}
+
 // A replaceable object converges on `bytes` through ETag compare-and-swap:
 // mirror records before their platform is promoted, snapshot manifests.
 export async function putReplaceable(
