@@ -50,7 +50,7 @@ jobs:
           command -v just >/dev/null || missing+=("just on PATH")
           command -v sqlite3 >/dev/null || missing+=("sqlite3 on PATH")
           # grep without -q: an early exit would SIGPIPE the producer under pipefail.
-          if [[ -x "$sdk/emulator/emulator" ]] && ! "$sdk/emulator/emulator" -list-avds | grep -x "$AVD" >/dev/null; then
+          if ! [[ -x "$sdk/emulator/emulator" ]] || ! "$sdk/emulator/emulator" -list-avds | grep -x "$AVD" >/dev/null; then
             missing+=("AVD $AVD")
           fi
           if [[ -x "$sdk/platform-tools/adb" ]] && "$sdk/platform-tools/adb" devices | grep '^emulator-' >/dev/null; then
@@ -63,7 +63,7 @@ jobs:
             for item in "${missing[@]}"; do echo "missing: $item"; done
           } | tee "$EVIDENCE/preflight.txt"
           if ((${#missing[@]} > 0)); then
-            echo "::error::Runner prerequisites missing: $(IFS=';'; echo "${missing[*]}"). See docs/development.md (Android smoke)."
+            echo "::error::Runner prerequisites missing: $(IFS=';'; echo "${missing[*]}"). See docs/development.md, section "Android 冒烟"."
             exit 1
           fi
           echo "ANDROID_HOME=$sdk" >>"$GITHUB_ENV"
