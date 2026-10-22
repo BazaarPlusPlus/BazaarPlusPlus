@@ -1,17 +1,18 @@
 <Project>
   <!--
-    Tests run Storage and ModApi as the desktop host ships them: the netstandard2.1 output bound
-    to the game's libraries (ADR-0013). A net10.0 test would otherwise resolve the net10.0 output,
-    directly or through BazaarPlusPlus.csproj, and run the installer-facing goldens on a binary no
-    host ships. Transitive references exist only after IncludeTransitiveProjectReferences, so this
-    is a target, not an evaluation-time Update. A reference that names its target keeps it: the
-    *.Net10.Tests projects and Architecture.Tests opt into net10.0 that way.
+    Tests run Core, Storage, and ModApi as the desktop host ships them: the netstandard2.1 output
+    bound to the game's libraries (ADR-0013). A net10.0 test would otherwise resolve the net10.0
+    output, directly or through BazaarPlusPlus.csproj, and run the installer-facing goldens on a
+    binary no desktop host ships. Transitive references exist only after
+    IncludeTransitiveProjectReferences, so this is a target, not an evaluation-time Update. A
+    reference that names its target keeps it: the *.Net10.Tests projects and Architecture.Tests
+    opt into net10.0 that way.
   -->
   <Target Name="BppPinSharedProjectsToMonoTarget" AfterTargets="IncludeTransitiveProjectReferences">
     <ItemGroup>
       <ProjectReference
         SetTargetFramework="TargetFramework=netstandard2.1"
-        Condition="('%(Filename)' == 'BazaarPlusPlus.Storage' or '%(Filename)' == 'BazaarPlusPlus.ModApi') and '%(ProjectReference.SetTargetFramework)' == ''"
+        Condition="('%(Filename)' == 'BazaarPlusPlus.Core' or '%(Filename)' == 'BazaarPlusPlus.Storage' or '%(Filename)' == 'BazaarPlusPlus.ModApi') and '%(ProjectReference.SetTargetFramework)' == ''"
       />
     </ItemGroup>
   </Target>

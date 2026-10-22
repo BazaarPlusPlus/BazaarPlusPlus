@@ -40,6 +40,12 @@ using Microsoft.Data.Sqlite;
 //    after the store is disposed.
 // The order "attach the battle, then append the event and checkpoint" is not provable from final
 // rows: the attach commits synchronously while the event and checkpoint go through the queue.
+if (DesktopTargetPin.Mismatch() is { } mismatch)
+{
+    Console.Error.WriteLine(mismatch);
+    return 1;
+}
+
 using var logSource = new ManualLogSource("run-logging-pipeline");
 var logs = new List<string>();
 logSource.LogEvent += (_, args) => logs.Add(args.Data?.ToString() ?? string.Empty);
