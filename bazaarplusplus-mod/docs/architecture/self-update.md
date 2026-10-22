@@ -6,7 +6,7 @@ The mod updates its own Managed Payload (root `CONTEXT.md`). Core downloads and 
 
 - **Check.** `MainMenuVersionCheckController` (desktop) reads its platform's Platform Release Manifest through `ReleaseManifestClient`. `MainMenuSelfUpdate` passes the result to `SelfUpdatePolicy` together with `RunningManagedPayload`, which is the version, `RunLogSchema.LocalDatabaseSchemaVersion`, and the installed manifest's digest. Each check logs `self_update.checked`.
 - **Stage.** `SelfUpdateStaging.Ensure` keeps one staging per version in flight and retries after a failure. `ManagedPayloadStager` downloads into `<Data Root>/Updates/.download-<version>-<guid>/`, verifies the zip and then the extracted files, and renames the directory to `Updates/<version>/`. It logs `self_update.staged` or `self_update.stage_failed` with a `reason_code`.
-- **Label.** `MainMenuVersionLabelFormatter` appends the state of the check: `updating`, `restart to update`, or `update via installer` (`download the new APK` on Android).
+- **Label.** `MainMenuVersionLabelFormatter` appends the `MainMenuUpdateStatus` the check last published; it owns the label text. The status is process-wide and carries over between main-menu visits.
 - **Swap.** `ManagedPayloadSwap` in `src/BazaarPlusPlus.Updater/` runs from `BepInExPatcher.Initialize` or `MelonUpdaterPlugin.OnPreInitialization`. It writes its journal and backups under `Updates/.swap/`. Its log lines read `[BPP][Updater] event=updater.*` and go to the loader's log, not through `BppLog`.
 
 ## Build and test
@@ -21,5 +21,5 @@ To check a swap by hand:
 
 ## Gotchas
 
-- A development build has no installed manifest. Core therefore never stages for it, and the Updater compares only versions.
+- A development build has no installed manifest. Core therefore never stages for it, and the Updater compares only versions. An installed manifest that exists but does not parse makes the Updater refuse every staged payload (`installed_manifest_invalid`).
 - On Android a swapped `MelonLoader/UserLibs/` file loads one launch late (ADR-0014).
