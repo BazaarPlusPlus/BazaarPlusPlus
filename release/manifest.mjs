@@ -5,9 +5,16 @@ import {
   RELEASE_PLATFORMS,
   RELEASE_PLATFORM_KEYS
 } from './release-platforms.mjs';
-import { RELEASE_MANIFEST_PATH, platformManifestPath } from './downloads.ts';
+import {
+  RELEASE_BASE_URL,
+  RELEASE_MANIFEST_PATH,
+  platformManifestPath
+} from './downloads.ts';
 
 export { RELEASE_MANIFEST_PATH, platformManifestPath };
+
+// Artifact paths sit below the release origin's path (/installer).
+const RELEASE_BASE_PATH = new URL(RELEASE_BASE_URL).pathname.replace(/\/$/, '');
 
 function assertRecord(record, description) {
   if (
@@ -167,7 +174,11 @@ export function validatePlatformFragment(fragment, version, platform) {
     [fragment.signatureFile, 'updater']
   ]) {
     const url = new URL(record.url);
-    if (!url.pathname.startsWith(`/${version}/${platform}/${category}/`))
+    if (
+      !url.pathname.startsWith(
+        `${RELEASE_BASE_PATH}/${version}/${platform}/${category}/`
+      )
+    )
       throw new Error(`Artifact URL is outside its release: ${record.url}`);
   }
   return fragment;

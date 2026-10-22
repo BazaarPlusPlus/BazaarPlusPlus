@@ -23,7 +23,7 @@ import {
 } from './test-support/artifact-fixture.mjs';
 import { runFixtureGit } from '../scripts/test-support/git-fixture.mjs';
 
-const baseUrl = 'https://bppinstaller.bazaarplusplus.com';
+const baseUrl = 'https://cdn.bazaarplusplus.com/installer';
 const roots = [];
 
 afterEach(() => {
@@ -199,7 +199,7 @@ test.each(['commit', 'missing', 'hash', 'share'])(
     await upload(data, store, 'windows');
     const mac = await upload(data, store, 'macos');
     const fragmentKey = `${data.version}/darwin-aarch64/updater/platform-manifest.json`;
-    const installerKey = new URL(mac.installer.url).pathname.slice(1);
+    const installerKey = mac.installer.url.slice(baseUrl.length + 1);
     if (failure === 'commit') {
       const object = store.objects.get(fragmentKey);
       const fragment = JSON.parse(object.bytes);
@@ -352,7 +352,7 @@ test('upload freezes all local files before any remote write', async () => {
     fs.writeFileSync(signature, 'replacement signature');
   };
   const fragment = await upload(data, store, 'macos');
-  const key = new URL(fragment.updater.url).pathname.slice(1);
+  const key = fragment.updater.url.slice(baseUrl.length + 1);
   expect((await store.get(key)).bytes.toString()).toBe('macos updater');
   expect((await store.get(`${key}.sig`)).bytes.toString()).toBe(
     'macos-signature'

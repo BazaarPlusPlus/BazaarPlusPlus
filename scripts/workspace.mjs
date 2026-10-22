@@ -113,9 +113,8 @@ item with a local value through gh (values over stdin, never printed). --dependa
 also sets the mod lane token for Dependabot; --prune deletes the retired names the
 table lists. Tokens are created in the Cloudflare dashboard (My Profile > API Tokens
 or Account > Manage API tokens): the operator token with Object Read & Write on
-bppinstaller, bazaarplusplus-game-libs and both metrics buckets (V5 and
-bazaarplusplus-metrics-v6) plus Workers Scripts Edit; the read-only token with
-Object Read on bazaarplusplus-game-libs only.
+every bucket plus Workers Scripts Edit; the read-only token with Object Read on
+bazaarplusplus-game-libs only.
 
 setup installs each Node project's locked dependencies, the analyzer environment,
 the mod's local .NET tools and Git hooks. Install language/platform tools first.

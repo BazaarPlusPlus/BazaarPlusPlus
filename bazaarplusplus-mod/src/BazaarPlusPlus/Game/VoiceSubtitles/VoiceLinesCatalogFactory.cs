@@ -12,7 +12,7 @@ internal static class VoiceLinesCatalogFactory
     internal const string EmbeddedResourceName =
         "BazaarPlusPlus.Data.VoiceSubtitles.voice-lines.json";
     private const string RemoteUrl =
-        "https://bazaarline-installer.bazaarplusplus.com/data/voice-lines.json";
+        "https://cdn.bazaarplusplus.com/mod-data/voice-lines/voice-lines.json";
     private const string CacheFileName = "voice-lines.json";
     private static readonly TimeSpan CacheDuration = TimeSpan.FromHours(20);
     private static readonly HttpClient HttpClient = BppHttpClientFactory.Create(

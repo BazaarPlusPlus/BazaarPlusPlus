@@ -5,7 +5,7 @@ required fields, enums, and scalar bounds. This document owns population,
 calculation, ordering, and cross-field semantics. Domain terms are defined in
 `../../CONTEXT.md`.
 
-The public object set is exactly, at `https://bpp-metrics-v6.bazaarplusplus.com`:
+The public object set is exactly, at `https://cdn.bazaarplusplus.com/metrics/v6`:
 
 ```text
 heroes/latest.json

@@ -45,3 +45,8 @@ verify-mirror *args:
 # Publish every platform at VERSION; with --platform, publish one platform's manifest.
 promote *args:
     node scripts/workspace.mjs run release -- node release.mjs promote "$@"
+
+# Upload mod runtime data (supporters or voice-lines) to mod-data/ in the public bucket.
+[arg('name', pattern='supporters|voice-lines')]
+mod-data name file:
+    node scripts/workspace.mjs run release -- node release/mod-data.mjs "$1" "$2"

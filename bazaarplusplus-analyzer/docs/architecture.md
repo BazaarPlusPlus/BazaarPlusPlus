@@ -49,10 +49,11 @@ current snapshots, status, run history, and logs.
 
 ## Publication target
 
-The consumer snapshots publish to the R2 bucket `BPP_METRICS_R2_BUCKET` names:
-`bazaarplusplus-metrics-v6`, served read-only at the custom domain
-`bpp-metrics-v6.bazaarplusplus.com`. Keys carry no version prefix; the bucket
-and domain name the version.
+The consumer snapshots publish to the R2 bucket `BPP_METRICS_R2_BUCKET` names,
+under the key prefix `BPP_METRICS_R2_PREFIX`: `metrics/v6/` in the public
+bucket `bazaarplusplus-public`, served read-only at
+`https://cdn.bazaarplusplus.com/metrics/v6`. The prefix names the version; a
+later contract publishes beside it, in the same bucket and domain.
 A production mod Payload embeds `builds/latest.json` fetched from this origin at
 build time (`TenWinBuildsRemoteUrl` in the mod's `RemoteEmbeddedData.targets`,
 which also sets its minimum size), so `release::prepare` fails until a first
@@ -72,8 +73,9 @@ Production runs are `.github/workflows/analyzer.yml` on a GitHub-hosted runner,
 plus manual dispatch with an optional `--no-publish`. Its hourly `schedule`
 is best-effort: GitHub drops many of those events, and the next run that fires
 ingests every settled hour since the last one. A runner starts
-empty, so the Data Root lives in the private R2 bucket
-`bazaarplusplus-analyzer-state-v6` and `.github/scripts/analyzer-state.sh`
+empty, so the Data Root lives under `analyzer-state/` in the private Bundle
+bucket `bazaarplusplus-bundle-v6` (whose 8-day lifecycle rule covers only
+`bundles/`) and `.github/scripts/analyzer-state.sh`
 mirrors it around each run:
 
 - The run starts only after a complete pull into an empty Data Root and a

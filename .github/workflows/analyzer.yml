@@ -1,8 +1,9 @@
 name: Analyzer
 
-# Production analyzer V6 runs. Each run restores the Data Root from the private
-# R2 state bucket, heals settled Source Hours, publishes both consumer
-# snapshots to the V6 metrics bucket and mirrors the Data Root back. Snapshots
+# Production analyzer V6 runs. Each run restores the Data Root from
+# analyzer-state/ in the private Bundle bucket, heals settled Source Hours,
+# publishes both consumer snapshots to metrics/v6/ in the public bucket
+# (https://cdn.bazaarplusplus.com/metrics/v6) and mirrors the Data Root back. Snapshots
 # still advance once per Complete Source Day; the hourly schedule keeps each
 # run's intake small. The Bundle Server token lives in the `analyzer` GitHub
 # Environment and the Cloudflare operator token is a repository secret
@@ -20,7 +21,7 @@ on:
   workflow_dispatch:
     inputs:
       publish:
-        description: Publish snapshots to the V6 metrics bucket
+        description: Publish snapshots to metrics/v6 in the public bucket
         type: boolean
         default: true
 
@@ -44,7 +45,9 @@ jobs:
     # mirror committed hours back before the six-hour job limit.
     timeout-minutes: 340
     env:
-      BPP_ANALYZER_STATE_BUCKET: bazaarplusplus-analyzer-state-v6
+      # The bucket's 8-day lifecycle rule covers only bundles/.
+      BPP_ANALYZER_STATE_BUCKET: bazaarplusplus-bundle-v6
+      BPP_ANALYZER_STATE_PREFIX: analyzer-state
       CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
     steps:
       - id: gate
@@ -95,7 +98,8 @@ jobs:
             echo "BPP_DATA_ROOT=$BPP_DATA_ROOT"
             echo "BPP_API_BASE_URL=https://mod-api-v6.bazaarplusplus.com"
             echo "BPP_BUNDLE_SYNC_TOKEN=$BPP_BUNDLE_SYNC_TOKEN"
-            echo "BPP_METRICS_R2_BUCKET=bazaarplusplus-metrics-v6"
+            echo "BPP_METRICS_R2_BUCKET=bazaarplusplus-public"
+            echo "BPP_METRICS_R2_PREFIX=metrics/v6"
             echo "CLOUDFLARE_ACCOUNT_ID=$CLOUDFLARE_ACCOUNT_ID"
             echo "CLOUDFLARE_API_TOKEN=$CLOUDFLARE_API_TOKEN"
             # The V6 Bundle Server went live on this Source Day.

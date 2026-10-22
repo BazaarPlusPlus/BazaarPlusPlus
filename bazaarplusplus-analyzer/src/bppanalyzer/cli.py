@@ -154,6 +154,7 @@ def _object_store(config):
         account_id=config.cloudflare_account_id,
         bucket=config.r2_bucket,
         api_token=config.cloudflare_api_token,
+        prefix=config.r2_prefix,
     )
 
 

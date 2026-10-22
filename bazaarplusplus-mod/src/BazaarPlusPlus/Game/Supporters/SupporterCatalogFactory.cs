@@ -10,7 +10,8 @@ internal static class SupporterCatalogFactory
 {
     internal const string EmbeddedResourceName =
         "BazaarPlusPlus.Game.Supporters.supporter-list.json";
-    private const string RemoteUrl = "https://bpp-static.bazaarplusplus.com/supporter-list.json";
+    private const string RemoteUrl =
+        "https://cdn.bazaarplusplus.com/mod-data/supporters/supporter-list.json";
     private const string CacheFileName = "supporter-list.json";
     private static readonly TimeSpan CacheDuration = TimeSpan.FromHours(1);
     private static readonly HttpClient HttpClient = BppHttpClientFactory.Create(

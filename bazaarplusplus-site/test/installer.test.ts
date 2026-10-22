@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test, vi } from 'vitest';
 import macFixture from '../../release/fixtures/latest/darwin-aarch64.json';
 import windowsFixture from '../../release/fixtures/latest/windows-x86_64.json';
 
-import { RELEASE_BASE_URL } from '../../release/downloads';
+import { LEGACY_RELEASE_BASE_URL, RELEASE_BASE_URL } from '../../release/downloads';
 import { GITHUB_RELEASE_URL, loadLatestInstaller } from '../src/features/download/installer';
 
 const WINDOWS_PATH = 'latest/windows-x86_64.json';
@@ -112,6 +112,17 @@ describe('latest installer interface', () => {
       },
     ],
     [
+      'a download outside the installer/ prefix of the release origin',
+      {
+        version: '3.1.2',
+        downloads: {
+          'windows-x86_64': {
+            url: 'https://cdn.bazaarplusplus.com/3.1.2/windows-x86_64/installer/setup.exe',
+          },
+        },
+      },
+    ],
+    [
       'a download from another version',
       {
         version: '3.1.2',
@@ -140,6 +151,15 @@ describe('latest installer interface', () => {
     const windows = manifests[WINDOWS_PATH] as typeof windowsFixture;
     windows.downloads['windows-x86_64'].url =
       `${RELEASE_BASE_URL}/3.1.2/windows-x86_64/installer/actual-build.exe`;
+    const installer = await load(manifests);
+    expect(installer.downloads.windows?.downloadUrl).toBe(windows.downloads['windows-x86_64'].url);
+  });
+
+  test('still accepts a download a pre-6.0.0 release recorded under the legacy origin', async () => {
+    const manifests = bothPlatforms();
+    const windows = manifests[WINDOWS_PATH] as typeof windowsFixture;
+    windows.downloads['windows-x86_64'].url =
+      `${LEGACY_RELEASE_BASE_URL}/3.1.2/windows-x86_64/installer/BazaarPlusPlus_3.1.2_x64-setup.exe`;
     const installer = await load(manifests);
     expect(installer.downloads.windows?.downloadUrl).toBe(windows.downloads['windows-x86_64'].url);
   });

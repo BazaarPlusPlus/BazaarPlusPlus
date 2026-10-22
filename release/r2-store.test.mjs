@@ -176,7 +176,7 @@ test('R2 writes are signed and always carry the conditional precondition', async
   });
   const [url, request] = fetchImpl.mock.calls[0];
   expect(url).toBe(
-    `https://${credentials.accountId}.r2.cloudflarestorage.com/bppinstaller/latest.json`
+    `https://${credentials.accountId}.r2.cloudflarestorage.com/bazaarplusplus-public/installer/latest.json`
   );
   expect(request.headers['if-match']).toBe('"previous-etag"');
   expect(request.headers['x-amz-date']).toBe('20260919T000000Z');
@@ -300,6 +300,30 @@ test('a missing pair, missing ETag and oversized reads fail closed', async () =>
   await expect(store.get('large', { maxBytes: 2 })).rejects.toThrow(
     /expected size/
   );
+});
+
+test('only the release bucket defaults to the installer/ prefix', async () => {
+  const fetchImpl = vi
+    .fn()
+    .mockResolvedValue(new Response(null, { status: 404 }));
+  await createR2Store({
+    ...credentials,
+    bucket: 'bazaarplusplus-game-libs',
+    fetchImpl
+  }).head('macos/online.zip');
+  await createR2Store({
+    ...credentials,
+    bucket: 'bazaarplusplus-public',
+    prefix: 'mod-data',
+    fetchImpl
+  }).head('supporters/supporter-list.json');
+  expect(fetchImpl.mock.calls.map(([url]) => new URL(url).pathname)).toEqual([
+    '/bazaarplusplus-game-libs/macos/online.zip',
+    '/bazaarplusplus-public/mod-data/supporters/supporter-list.json'
+  ]);
+  expect(() =>
+    createR2Store({ ...credentials, prefix: '../x', fetchImpl })
+  ).toThrow('Invalid R2 key prefix');
 });
 
 // Streamed transfers for multi-gigabyte inputs (the official Android APK):

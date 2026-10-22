@@ -146,6 +146,7 @@ class R2ObjectStore:
         account_id: str,
         bucket: str,
         api_token: str,
+        prefix: str = "",
         http_client: httpx.Client | None = None,
     ) -> None:
         if not all((account_id, bucket, api_token)):
@@ -156,10 +157,14 @@ class R2ObjectStore:
             )
         if _BUCKET.fullmatch(bucket) is None:
             raise ValueError("Invalid R2 bucket")
+        if prefix:
+            _safe_key(prefix)
         access_key_id, secret_access_key = derive_s3_credentials(
             api_token, account_id=account_id, client=http_client
         )
         self.bucket = bucket
+        # Keys stay relative to the prefix (metrics/v6 in the public bucket).
+        self._prefix = f"{prefix}/" if prefix else ""
         self._client = boto3.client(
             "s3",
             endpoint_url=f"https://{account_id.lower()}.r2.cloudflarestorage.com",
@@ -172,7 +177,7 @@ class R2ObjectStore:
     def stat(self, key: str) -> ObjectStat | None:
         _safe_key(key)
         try:
-            response = self._client.head_object(Bucket=self.bucket, Key=key)
+            response = self._client.head_object(Bucket=self.bucket, Key=self._prefix + key)
         except ClientError as error:
             if _is_not_found(error):
                 return None
@@ -184,7 +189,7 @@ class R2ObjectStore:
     def get(self, key: str) -> StoredObject | None:
         _safe_key(key)
         try:
-            response = self._client.get_object(Bucket=self.bucket, Key=key)
+            response = self._client.get_object(Bucket=self.bucket, Key=self._prefix + key)
             body = response["Body"].read()
         except ClientError as error:
             if _is_not_found(error):
@@ -208,7 +213,7 @@ class R2ObjectStore:
         try:
             self._client.put_object(
                 Bucket=self.bucket,
-                Key=key,
+                Key=self._prefix + key,
                 Body=body,
                 CacheControl=cache_control,
                 ContentType=content_type,
