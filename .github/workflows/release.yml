@@ -5,8 +5,9 @@ name: Release
 # host and the Payload lock (docs/release.md, docs/adr/0004-pinned-game-assembly-snapshots.md).
 # promote is not here: the Mainland Mirror is uploaded to Lanzou by hand and
 # recorded with mirror-all before promote, so promote stays a local command.
-# Secrets and variables live in the `release` GitHub Environment, except the
-# repository variable CLOUDFLARE_ACCOUNT_ID shared with every workflow;
+# Signing secrets and variables live in the `release` GitHub Environment; the
+# repository variable CLOUDFLARE_ACCOUNT_ID and the repository secret
+# CLOUDFLARE_API_TOKEN (the operator token) are shared with other workflows;
 # release/github-secrets.json names every one, its scope and its local source,
 # and .github/scripts/release-secrets.sh checks them from that table. The R2
 # S3 pair is derived from CLOUDFLARE_API_TOKEN (release/r2-store.mjs).

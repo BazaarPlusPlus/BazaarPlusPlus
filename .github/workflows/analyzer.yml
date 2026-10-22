@@ -4,17 +4,19 @@ name: Analyzer
 # R2 state bucket, heals settled Source Hours, publishes both consumer
 # snapshots to the V6 metrics bucket and mirrors the Data Root back. Snapshots
 # still advance once per Complete Source Day; the hourly schedule keeps each
-# run's intake small. Secrets live in the `analyzer` GitHub Environment
+# run's intake small. The Bundle Server token lives in the `analyzer` GitHub
+# Environment and the Cloudflare operator token is a repository secret
 # (release/github-secrets.json); see
 # bazaarplusplus-analyzer/docs/architecture.md, Production runs.
 
-# The V6 Bundle Server Worker dispatches this workflow at :23 every hour
-# (bazaarplusplus-server/src/modules/analyzer-dispatch.ts) because GitHub drops
-# most scheduled events. This schedule is only a fallback for when the Worker
-# cannot reach GitHub; it sits at :53 so it never queues behind a dispatch.
+# GitHub runs scheduled workflows on a best-effort basis and drops many of
+# these hourly events. A dropped hour is not lost: the next run that fires
+# ingests every settled Source Hour since the last one, so collection only
+# arrives in larger batches, and snapshots still advance once per Complete
+# Source Day.
 on:
   schedule:
-    - cron: '53 */6 * * *'
+    - cron: '23 * * * *'
   workflow_dispatch:
     inputs:
       publish:
@@ -26,7 +28,7 @@ permissions:
   contents: read
 
 # The R2 state bucket has one writer; a run never cancels another mid-sync.
-# A run still going when the next dispatch arrives leaves one pending run, and
+# A run still going when the next trigger arrives leaves one pending run, and
 # later triggers replace that pending run rather than stacking up.
 concurrency:
   group: analyzer-v6
@@ -49,11 +51,11 @@ jobs:
         name: Check analyzer secrets
         env:
           BPP_BUNDLE_SYNC_TOKEN: ${{ secrets.BPP_BUNDLE_SYNC_TOKEN }}
-          BPP_ANALYZER_R2_TOKEN: ${{ secrets.BPP_ANALYZER_R2_TOKEN }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           EVENT: ${{ github.event_name }}
         run: |
           missing=()
-          for name in BPP_BUNDLE_SYNC_TOKEN BPP_ANALYZER_R2_TOKEN CLOUDFLARE_ACCOUNT_ID; do
+          for name in BPP_BUNDLE_SYNC_TOKEN CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID; do
             [ -n "${!name}" ] || missing+=("$name")
           done
           if [ "${#missing[@]}" -eq 0 ]; then
@@ -85,7 +87,7 @@ jobs:
         working-directory: bazaarplusplus-analyzer
         env:
           BPP_BUNDLE_SYNC_TOKEN: ${{ secrets.BPP_BUNDLE_SYNC_TOKEN }}
-          BPP_ANALYZER_R2_TOKEN: ${{ secrets.BPP_ANALYZER_R2_TOKEN }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: |
           # bppanalyzer.config reads only this file, never the environment.
           umask 077
@@ -95,7 +97,7 @@ jobs:
             echo "BPP_BUNDLE_SYNC_TOKEN=$BPP_BUNDLE_SYNC_TOKEN"
             echo "BPP_METRICS_R2_BUCKET=bazaarplusplus-metrics-v6"
             echo "CLOUDFLARE_ACCOUNT_ID=$CLOUDFLARE_ACCOUNT_ID"
-            echo "CLOUDFLARE_API_TOKEN=$BPP_ANALYZER_R2_TOKEN"
+            echo "CLOUDFLARE_API_TOKEN=$CLOUDFLARE_API_TOKEN"
             # The V6 Bundle Server went live on this Source Day.
             echo "BPP_SOURCE_EPOCH=2026-10-11"
             echo "BPP_MAX_RUN_SECONDS=18000"
@@ -106,14 +108,14 @@ jobs:
         name: Derive the R2 S3 key pair
         working-directory: bazaarplusplus-analyzer
         env:
-          BPP_ANALYZER_R2_TOKEN: ${{ secrets.BPP_ANALYZER_R2_TOKEN }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: |
           uv run --locked --no-dev python - <<'PY'
           import os
           from bppanalyzer.object_store import derive_s3_credentials
 
           key_id, secret = derive_s3_credentials(
-              os.environ["BPP_ANALYZER_R2_TOKEN"], account_id=os.environ["CLOUDFLARE_ACCOUNT_ID"]
+              os.environ["CLOUDFLARE_API_TOKEN"], account_id=os.environ["CLOUDFLARE_ACCOUNT_ID"]
           )
           print(f"::add-mask::{key_id}")
           print(f"::add-mask::{secret}")

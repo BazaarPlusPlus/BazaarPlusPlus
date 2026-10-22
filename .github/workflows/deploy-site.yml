@@ -1,9 +1,8 @@
 name: Deploy site
 
 # Preview deploys follow master; production deploys only on dispatch and wait
-# for the site-production environment approval. The deploy token never leaves
-# the GitHub Environments, so the branch policy on both environments is master;
-# the account id is the repository variable every workflow shares
+# for the site-production environment approval. The account id and the
+# operator token are the repository variable and secret every workflow shares
 # (release/github-secrets.json).
 on:
   workflow_dispatch:
@@ -61,7 +60,7 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
-            echo "::error::CLOUDFLARE_API_TOKEN is not set on the site-$TARGET environment."
+            echo "::error::CLOUDFLARE_API_TOKEN is not set as a repository secret (just secrets-sync)."
             exit 1
           fi
           if [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
