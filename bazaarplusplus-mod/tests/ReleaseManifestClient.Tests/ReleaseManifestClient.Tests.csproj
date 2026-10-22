@@ -10,11 +10,11 @@
 
   <ItemGroup>
     <Compile
-      Include="../../src/BazaarPlusPlus/Infrastructure/ReleaseManifest/ReleaseManifestClient.cs"
+      Include="../../src/BazaarPlusPlus.Core/Infrastructure/ReleaseManifest/ReleaseManifestClient.cs"
       Link="ReleaseManifestClient.cs"
     />
     <Compile
-      Include="../../src/BazaarPlusPlus/Infrastructure/ReleaseManifest/ReleaseManifestEndpoints.cs"
+      Include="../../src/BazaarPlusPlus.Core/Infrastructure/ReleaseManifest/ReleaseManifestEndpoints.cs"
       Link="ReleaseManifestEndpoints.cs"
     />
     <Compile

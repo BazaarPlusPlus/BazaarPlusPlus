@@ -30,14 +30,14 @@ public sealed class EndOfRunCaptureArchitectureTests
     public void Composition_constructs_workflow_before_publishing_patch_features_and_mounting_driver()
     {
         Holds(
-            "BppComposition builds the workflow, then publishes patch features, then mounts the driver.",
+            "DesktopComposition builds the workflow, then publishes patch features, then mounts the driver.",
             build =>
             {
                 var workflow = build.Type(Screenshots + ".EndOfRunCaptureWorkflow").FullName;
                 var features = build.Type("BazaarPlusPlus.Patches.BppPatchFeatures").FullName;
-                var mount = build.Type("BazaarPlusPlus.Core.Runtime.ComponentMount`1").FullName;
+                var mount = build.Type("BazaarPlusPlus.Host.ComponentMount`1").FullName;
                 var driver = build.Type(Screenshots + ".EndOfRunCaptureDriver").FullName;
-                var composition = build.Type("BazaarPlusPlus.BppComposition");
+                var composition = build.Type("BazaarPlusPlus.DesktopComposition");
                 var constructor = composition
                     .MethodClosure(".ctor")
                     .Single(method =>

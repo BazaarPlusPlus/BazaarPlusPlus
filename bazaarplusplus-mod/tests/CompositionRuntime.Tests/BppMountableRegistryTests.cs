@@ -1,4 +1,5 @@
 using BazaarPlusPlus.Core.Runtime;
+using BazaarPlusPlus.Host;
 using UnityEngine;
 using Xunit;
 

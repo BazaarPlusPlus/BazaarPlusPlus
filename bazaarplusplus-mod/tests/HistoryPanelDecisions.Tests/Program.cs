@@ -6,7 +6,7 @@ var confirmationType = RequireType("BazaarPlusPlus.Game.HistoryPanel.DeleteConfi
 var decisionsType = RequireType("BazaarPlusPlus.Game.HistoryPanel.HistoryPanelDecisions");
 var buttonModelType = RequireType("BazaarPlusPlus.Game.HistoryPanel.HistoryPanelButtonModel");
 var runType = RequireType("BazaarPlusPlus.Game.HistoryPanel.Data.HistoryRunRecord");
-var gameBuildChannelType = RequireType("BazaarPlusPlus.Core.Runtime.GameBuildChannel");
+var gameBuildChannelType = typeof(BazaarPlusPlus.Core.Runtime.GameBuildChannel);
 
 TestDeleteConfirmationFiveSecondArm();
 TestCanDeleteRunDecisionArms();

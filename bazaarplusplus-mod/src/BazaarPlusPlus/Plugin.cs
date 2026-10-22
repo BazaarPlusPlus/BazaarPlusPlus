@@ -35,7 +35,7 @@ namespace BazaarPlusPlus;
 public class Plugin : BaseUnityPlugin
 {
     private readonly Harmony _harmony = new Harmony(MyPluginInfo.PLUGIN_GUID);
-    private BppComposition? _composition;
+    private DesktopComposition? _composition;
     private ModApiSession? _modApiSession;
     private BazaarDbLinkClient? _bazaarDbLinkClient;
     private bool _patchesApplied;
@@ -58,7 +58,7 @@ public class Plugin : BaseUnityPlugin
 
             phase = PluginInitializationPhase.Composition;
             var gameBuild = GameBuildInfoResolver.Resolve();
-            _composition = new BppComposition(settingsStore, gameBuild);
+            _composition = new DesktopComposition(settingsStore, gameBuild);
 
             var services = _composition.Services;
             var dataRoot = services.Paths.DataRootDirectoryPath;

@@ -12,6 +12,6 @@ A timeline needs explicit attribution for rerolls, interrupts, PVP combat, item 
 
 ## Guardrails
 
-- Keep reads split by cost and main-thread only; the implementation caches each result per frame ([interface](../../src/BazaarPlusPlus/Core/GameState/IEncounterStateProbe.cs), [implementation](../../src/BazaarPlusPlus/GameInterop/Encounter/EncounterStateProbe.cs)).
+- Keep reads split by cost and main-thread only; the implementation caches each result per frame ([interface](../../src/BazaarPlusPlus.Core/GameState/IEncounterStateProbe.cs), [implementation](../../src/BazaarPlusPlus/GameInterop/Encounter/EncounterStateProbe.cs)).
 - Consumers may share pure identity resolvers, but must not infer historical ordering from probe snapshots.
 - Reopen only for a concrete persisted or uploaded timeline consumer with explicit attribution and recovery semantics.

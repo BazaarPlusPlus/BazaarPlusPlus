@@ -24,7 +24,7 @@
       Link="HotkeyActivationState.cs"
     />
     <Compile
-      Include="..\..\src\BazaarPlusPlus\Core\Config\HotkeyActivationMode.cs"
+      Include="..\..\src\BazaarPlusPlus.Core\Config\HotkeyActivationMode.cs"
       Link="HotkeyActivationMode.cs"
     />
   </ItemGroup>

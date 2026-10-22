@@ -1,0 +1,299 @@
+#nullable enable
+using BazaarPlusPlus.Core.Config;
+using BazaarPlusPlus.Core.Runtime;
+using BazaarPlusPlus.Game.BilingualItemNames;
+using BazaarPlusPlus.Game.BundlePipeline;
+using BazaarPlusPlus.Game.CollectionPanel;
+using BazaarPlusPlus.Game.CombatReplay;
+using BazaarPlusPlus.Game.CombatReplay.Video;
+using BazaarPlusPlus.Game.CombatStatusBar;
+using BazaarPlusPlus.Game.CosmeticNames;
+using BazaarPlusPlus.Game.EventPreview;
+using BazaarPlusPlus.Game.GraphicsUpscaling;
+using BazaarPlusPlus.Game.HistoryPanel;
+using BazaarPlusPlus.Game.Input;
+using BazaarPlusPlus.Game.ItemEnchantPreview;
+using BazaarPlusPlus.Game.LegendaryPosition;
+using BazaarPlusPlus.Game.LiveBuildPanel;
+using BazaarPlusPlus.Game.LiveBuildPanel.Recommendations;
+using BazaarPlusPlus.Game.Lobby;
+using BazaarPlusPlus.Game.MusicNotes;
+using BazaarPlusPlus.Game.NameOverride;
+using BazaarPlusPlus.Game.OverlayPanels;
+using BazaarPlusPlus.Game.PostCombatImpact;
+using BazaarPlusPlus.Game.PvpBattles.Persistence;
+using BazaarPlusPlus.Game.QuestPreview;
+using BazaarPlusPlus.Game.RunLifecycle;
+using BazaarPlusPlus.Game.RunLogging;
+using BazaarPlusPlus.Game.Screenshots;
+using BazaarPlusPlus.Game.Settings;
+using BazaarPlusPlus.Game.Supporters;
+using BazaarPlusPlus.Game.Tooltips;
+using BazaarPlusPlus.Game.VoiceSubtitles;
+using BazaarPlusPlus.GameInterop;
+using BazaarPlusPlus.GameInterop.CardPreview;
+using BazaarPlusPlus.GameInterop.DayTiers;
+using BazaarPlusPlus.GameInterop.Encounter;
+using BazaarPlusPlus.GameInterop.RunSnapshot;
+using BazaarPlusPlus.GameInterop.StaticCards;
+using BazaarPlusPlus.GameInterop.Tooltips;
+using BazaarPlusPlus.GameInterop.VoiceSubtitles;
+using BazaarPlusPlus.Host;
+using BazaarPlusPlus.Infrastructure.RemoteEmbeddedCatalog;
+using BazaarPlusPlus.ModApi.Clients;
+using BazaarPlusPlus.Patches;
+using BazaarPlusPlus.Patches.PostCombatImpact;
+using BazaarPlusPlus.Patches.Tooltips;
+using BazaarPlusPlus.Storage.Paths;
+
+namespace BazaarPlusPlus;
+
+/// <summary>
+/// The desktop (BepInEx/Mono) composition root: binds the desktop ports and Mono probes into
+/// <see cref="CoreComposition"/>, then wires the feature modules, settings dock rows, and Unity
+/// mountables that still live in this host.
+/// </summary>
+internal sealed class DesktopComposition : IDisposable
+{
+    private readonly CoreComposition _core;
+    private readonly BppStaticCardMapProvider _staticCardMapProvider = new();
+    private readonly IGameDataDayTierResolver _dayTierResolver = new GameDataDayTierResolver(
+        new GameDataDayTierSource()
+    );
+    private readonly IBppServices _services;
+    private readonly BppMountableRegistry _mountables = new();
+    private readonly SettingsDockEntryRegistry _settingsDockRegistry = new();
+    private readonly RunLifecycleModule _runLifecycle;
+    private readonly CombatReplayModule _combatReplayModule;
+    private readonly CombatStatusBarModule _combatStatusBarModule;
+    private readonly PostCombatImpactModule _postCombatImpactModule;
+    private readonly RunLoggingModule _runLoggingModule;
+    private readonly BundleSealCoordinator _bundleSealCoordinator;
+    private readonly EncounterPreviewModule _encounterPreviewModule;
+    private readonly INativeCardPreviewHost _nativeCardPreviewHost;
+    private readonly EndOfRunCaptureWorkflow _endOfRunCaptureWorkflow;
+    private readonly BppPatchFeatures _patchFeatures;
+    private readonly VoiceSubtitlesModule _voiceSubtitlesModule;
+    private readonly VoiceSubtitlesInteropModule _voiceSubtitlesInteropModule;
+    private readonly SupporterCatalogModule _supporterCatalogModule;
+    private readonly IRemoteEmbeddedCatalog<TenWinBuildCorpus> _buildRecommendationCatalog;
+    private readonly BuildRecommendationRepository _buildRecommendationRepository;
+    private ModApiSession? _modApiSessionRef;
+    private BazaarDbLinkClient? _accountLinkClientRef;
+    private PvpBattleSqliteStore? _pvpBattleCatalog;
+
+    public IBppServices Services => _services;
+    public RunLifecycleModule RunLifecycle => _runLifecycle;
+
+    public IPvpBattleCatalog PvpBattleCatalog =>
+        _pvpBattleCatalog ??= new PvpBattleSqliteStore(
+            PathConstants.RunLogDatabase(_services.Paths.RequireDataRoot())
+        );
+
+    public BppMountableRegistry Mountables => _mountables;
+    public SettingsDockEntryRegistry SettingsDockRegistry => _settingsDockRegistry;
+    public BppPatchFeatures PatchFeatures => _patchFeatures;
+
+    public DesktopComposition(IBppSettingsStore settingsStore, IGameBuildInfo gameBuild)
+    {
+        if (settingsStore == null)
+            throw new ArgumentNullException(nameof(settingsStore));
+        if (gameBuild == null)
+            throw new ArgumentNullException(nameof(gameBuild));
+
+        var paths = new BepInExPathProvider();
+        paths.Initialize();
+        _core = new CoreComposition(
+            settingsStore,
+            paths,
+            new GameStateProbe(),
+            new EncounterStateProbe(),
+            new RunSnapshotProbe(),
+            gameBuild
+        );
+        _services = _core.Services;
+        var eventBus = _services.EventBus;
+
+        _runLifecycle = new RunLifecycleModule(
+            eventBus,
+            _services.GameStateProbe,
+            _services.RunContext
+        );
+        _combatReplayModule = new CombatReplayModule(eventBus);
+        _combatStatusBarModule = new CombatStatusBarModule(eventBus);
+        _postCombatImpactModule = new PostCombatImpactModule(_staticCardMapProvider);
+        _voiceSubtitlesModule = new VoiceSubtitlesModule(_services.Paths.RequireDataRoot());
+        _voiceSubtitlesInteropModule = new VoiceSubtitlesInteropModule();
+        _supporterCatalogModule = new SupporterCatalogModule(
+            () => _services.Config.UseFixedSupporterListConfig.Value,
+            _services.Paths.RequireDataRoot()
+        );
+        _nativeCardPreviewHost = new NativeCardPreviewHost(new NativeTooltipDataFactoryAdapter());
+        _buildRecommendationCatalog = TenWinBuildCatalogFactory.Create(
+            _services.Paths.RequireDataRoot()
+        );
+        _buildRecommendationRepository = new BuildRecommendationRepository(
+            _buildRecommendationCatalog
+        );
+        var encounterPreviewCachePath = System.IO.Path.Combine(
+            _services.Paths.RequireDataRoot(),
+            "EncounterPreview",
+            "preview-plans.json"
+        );
+        _encounterPreviewModule = new EncounterPreviewModule(
+            _services,
+            _staticCardMapProvider,
+            _dayTierResolver,
+            encounterPreviewCachePath
+        );
+        _endOfRunCaptureWorkflow = new EndOfRunCaptureWorkflow(_services);
+        _patchFeatures = new BppPatchFeatures(
+            _encounterPreviewModule,
+            _endOfRunCaptureWorkflow,
+            _postCombatImpactModule
+        );
+        _runLoggingModule = new RunLoggingModule(
+            _services,
+            PvpBattleCatalog,
+            () => _combatReplayModule.Runtime?.HasPendingPersistence == true
+        );
+        _bundleSealCoordinator = new BundleSealCoordinator(_services);
+
+        _core.Register(_runLifecycle);
+        _core.Register(_combatReplayModule);
+        _core.Register(_combatStatusBarModule);
+        _core.Register(_postCombatImpactModule);
+        _core.Register(_voiceSubtitlesInteropModule);
+        _core.Register(_voiceSubtitlesModule);
+        _core.Register(_supporterCatalogModule);
+        _core.Register(_runLoggingModule);
+        _core.Register(_bundleSealCoordinator);
+
+        _settingsDockRegistry.Register(BazaarDbBundleSettingsDockEntry.Create());
+        _settingsDockRegistry.Register(FixedSupporterListSettingsDockEntry.Create());
+        VoiceSubtitlesSettingsDockEntry.RegisterAll(_settingsDockRegistry);
+        _settingsDockRegistry.Register(ChineseLocaleModeSettingsDockEntry.Create(eventBus));
+        _settingsDockRegistry.Register(BilingualItemNamesSettingsDockEntry.Create());
+        _settingsDockRegistry.Register(CosmeticNamesSettingsDockEntry.Create());
+        _settingsDockRegistry.Register(CombatStatusBarSettingsDockEntry.Create());
+        _settingsDockRegistry.Register(new EndOfRunScreenshotSettingsDockEntry());
+        _settingsDockRegistry.Register(new HistoryPanelSettingsDockEntry());
+        _settingsDockRegistry.Register(ItemEnchantPreviewSettingsDockEntry.Create());
+        _settingsDockRegistry.Register(UpgradePreviewActivationSettingsDockEntry.Create());
+        _settingsDockRegistry.Register(EventPreviewSettingsDockEntry.Create());
+        _settingsDockRegistry.Register(
+            QuestPreviewSettingsDockEntry.Create(() =>
+            {
+                QuestRewardPreviewTooltipPatch.ClearPooledPresentation();
+                AggregateItemMissingTypesTooltipPatch.ClearPooledPresentation();
+            })
+        );
+        _settingsDockRegistry.Register(LegendaryPositionSettingsDockEntry.Create());
+        _settingsDockRegistry.Register(NameOverrideSettingsDockEntry.Create());
+        if (
+            UnityEngine.Application.platform
+            is UnityEngine.RuntimePlatform.OSXPlayer
+                or UnityEngine.RuntimePlatform.WindowsPlayer
+        )
+            GraphicsUpscalingSettingsDockEntry.RegisterAll(_settingsDockRegistry);
+
+        _mountables.Register(new UploadPumpMount());
+        if (
+            UnityEngine.Application.platform
+            is UnityEngine.RuntimePlatform.OSXPlayer
+                or UnityEngine.RuntimePlatform.WindowsPlayer
+        )
+        {
+            _mountables.Register(
+                new ComponentMount<GraphicsUpscalingController>(
+                    (controller, services) => controller.Initialize(services.Config)
+                )
+            );
+        }
+        _mountables.Register(
+            new ComponentMount<EventPreviewStaticDataObserver>(
+                (observer, _) => observer.Initialize(_encounterPreviewModule)
+            )
+        );
+        // The overlay host must mount before every Main Overlay Panel mount below: panels
+        // register their lifecycle with it through the accessor.
+        var overlayPanelHostMount = new OverlayPanelHostMount();
+        _mountables.Register(overlayPanelHostMount);
+        _mountables.Register(
+            new CollectionPanelMount(
+                () => overlayPanelHostMount.Host,
+                _staticCardMapProvider,
+                _nativeCardPreviewHost,
+                _dayTierResolver,
+                _patchFeatures.CollectionInspection
+            )
+        );
+        _mountables.Register(
+            new ComponentMount<CombatReplayVideoRecorder>((c, s) => c.Initialize(s))
+        );
+        _mountables.Register(new ComponentMount<CombatStatusBar>((c, s) => c.Initialize(s)));
+        _mountables.Register(new ComponentMount<NativeMusicNotePreviewController>());
+        // Plugin-lifetime, like _nativeCardPreviewHost: composition does not dispose GameInterop
+        // hosts, and the releasable unit is the session the view acquires from it.
+        var pairedTooltipHost = new NativePairedTooltipHost();
+        _mountables.Register(
+            new ComponentMount<PostCombatImpactController>(
+                (c, _) =>
+                    c.Initialize(
+                        _postCombatImpactModule,
+                        new NativePostCombatImpactTooltipView(
+                            _nativeCardPreviewHost,
+                            pairedTooltipHost
+                        )
+                    )
+            )
+        );
+        _mountables.Register(
+            new ComponentMount<EndOfRunCaptureDriver>(
+                (driver, services) => driver.Initialize(_endOfRunCaptureWorkflow, services)
+            )
+        );
+        _mountables.Register(
+            new ComponentMount<MainMenuVersionCheckController>((c, _) => c.Initialize())
+        );
+        _mountables.Register(
+            new HistoryPanelMount(
+                combatReplayRuntime: () => _combatReplayModule.Runtime,
+                modApiSession: () => _modApiSessionRef,
+                accountLinkClient: () => _accountLinkClientRef,
+                overlayHost: () => overlayPanelHostMount.Host
+            )
+        );
+        _mountables.Register(
+            new LiveBuildPanelMount(
+                () => overlayPanelHostMount.Host,
+                _buildRecommendationRepository
+            )
+        );
+        _mountables.Register(new ComponentMount<VoiceLineDisplayDispatcher>());
+        _mountables.Register(new ComponentMount<VersionLabelScanner>());
+        _mountables.Register(
+            new ComponentMount<TooltipModifierRefreshController>(
+                (c, s) => c.Initialize(s.Config, s.EncounterState, _nativeCardPreviewHost)
+            )
+        );
+    }
+
+    public void AttachCombatReplayRuntime(CombatReplayRuntime runtime) =>
+        _combatReplayModule.AttachRuntime(runtime);
+
+    public void AttachModApiSession(ModApiSession? session) => _modApiSessionRef = session;
+
+    public void AttachAccountLinkClient(BazaarDbLinkClient? client) =>
+        _accountLinkClientRef = client;
+
+    public void Start() => _core.Start();
+
+    public void Dispose()
+    {
+        _core.Stop();
+        _endOfRunCaptureWorkflow.Dispose();
+        _encounterPreviewModule.Dispose();
+        _buildRecommendationCatalog.Dispose();
+    }
+}

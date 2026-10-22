@@ -43,6 +43,12 @@ _Avoid_: MelonLoader install, loader runtime
 `bazaarplusplus-mod/build/game-libs.lock.json`: the committed binding of the mod source to one snapshot per platform and channel, keys that stay `null` until captured: a Game Assembly Snapshot for each of `macos` and `windows` × `online`, `staging`, `ptr`, and an Interop Snapshot with its Loader Release and official APK for `android-online` alone. After an explicit override, `ManagedPath` resolves only from it: the fetched snapshot, or the local Steam install whose game version and sha256 match the entry; `InteropPath` and `LemonLoaderPath` resolve only from the fetched `android-online` entry. Each platform's product compiles against its `online` entry; `staging` and `ptr` entries feed compatibility builds and tests. It changes only through a pull request; `release/game-libs.mjs` owns its schema and the mod recipes capture, publish, fetch, and check it.
 _Avoid_: game-libs manifest, Steam buildid pin
 
+## Mod hosts
+
+**Host** (宿主):
+One loader and runtime combination the mod runs under, with the assembly and composition root that adapt the shared core to it: the Desktop Host (BepInEx on Mono, `BazaarPlusPlus.dll`, `DesktopComposition`) and the Android Host (LemonLoader on CoreCLR beside an IL2CPP game). Every host references `BazaarPlusPlus.Core`, which references no loader, engine, or game assembly; game adapters and Harmony patches stay per host. `bazaarplusplus-mod/docs/adr/0012-shared-core-and-per-host-adapters.md` records the split.
+_Avoid_: platform (a release target such as `macos`), loader (one part of a host)
+
 ## Credentials
 
 **Operator Token** (操作员 token):

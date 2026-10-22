@@ -5,7 +5,7 @@ set positional-arguments
 export DOTNET_SYSTEM_NET_DISABLEIPV6 := env('DOTNET_SYSTEM_NET_DISABLEIPV6', '1')
 
 # The four published assemblies; each keeps a committed NuGet lock file.
-published_projects := "src/BazaarPlusPlus.Localization/BazaarPlusPlus.Localization.csproj src/BazaarPlusPlus.ModApi/BazaarPlusPlus.ModApi.csproj src/BazaarPlusPlus.Storage/BazaarPlusPlus.Storage.csproj src/BazaarPlusPlus/BazaarPlusPlus.csproj"
+published_projects := "src/BazaarPlusPlus.Core/BazaarPlusPlus.Core.csproj src/BazaarPlusPlus.ModApi/BazaarPlusPlus.ModApi.csproj src/BazaarPlusPlus.Storage/BazaarPlusPlus.Storage.csproj src/BazaarPlusPlus/BazaarPlusPlus.csproj"
 
 # Check formatting, compile without deploying, and validate the NuGet and snapshot lock files.
 check: fmt-check build locks-check lock-check

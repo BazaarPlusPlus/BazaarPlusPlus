@@ -208,25 +208,25 @@
       Include="..\..\src\BazaarPlusPlus\Game\Supporters\BPPSupporterSample.cs"
       Link="BPPSupporterSample.cs"
     />
-    <Compile Include="..\..\src\BazaarPlusPlus.Localization\L.cs" Link="L.cs" />
+    <Compile Include="..\..\src\BazaarPlusPlus.Core\Localization\L.cs" Link="L.cs" />
     <Compile
-      Include="..\..\src\BazaarPlusPlus.Localization\LocalizedTextSet.cs"
+      Include="..\..\src\BazaarPlusPlus.Core\Localization\LocalizedTextSet.cs"
       Link="LocalizedTextSet.cs"
     />
     <Compile
-      Include="..\..\src\BazaarPlusPlus.Localization\BppChineseLocaleMode.cs"
+      Include="..\..\src\BazaarPlusPlus.Core\Localization\BppChineseLocaleMode.cs"
       Link="BppChineseLocaleMode.cs"
     />
     <Compile
-      Include="..\..\src\BazaarPlusPlus.Localization\LanguageCodeMatcher.cs"
+      Include="..\..\src\BazaarPlusPlus.Core\Localization\LanguageCodeMatcher.cs"
       Link="LanguageCodeMatcher.cs"
     />
     <Compile
-      Include="..\..\src\BazaarPlusPlus.Localization\ChineseScriptConverter.cs"
+      Include="..\..\src\BazaarPlusPlus.Core\Localization\ChineseScriptConverter.cs"
       Link="ChineseScriptConverter.cs"
     />
     <Compile
-      Include="..\..\src\BazaarPlusPlus.Localization\OpenCcTraditionalCharacters.cs"
+      Include="..\..\src\BazaarPlusPlus.Core\Localization\OpenCcTraditionalCharacters.cs"
       Link="OpenCcTraditionalCharacters.cs"
     />
     <Compile

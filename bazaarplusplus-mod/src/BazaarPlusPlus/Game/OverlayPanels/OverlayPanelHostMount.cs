@@ -1,11 +1,12 @@
 #nullable enable
 
 using BazaarPlusPlus.Core.Runtime;
+using BazaarPlusPlus.Host;
 using UnityEngine;
 
 namespace BazaarPlusPlus.Game.OverlayPanels;
 
-// Mounted before the Main Overlay Panel mounts (BppComposition order); panel mounts reach the
+// Mounted before the Main Overlay Panel mounts (DesktopComposition order); panel mounts reach the
 // host through the Host property via a nullable accessor.
 internal sealed class OverlayPanelHostMount : IBppMountable
 {

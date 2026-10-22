@@ -23,6 +23,14 @@
     <PackageVersion Include="xunit.runner.visualstudio" Version="4.0.0" />
   </ItemGroup>
   <!--
+    Game-supplied libraries have no central version (build/GameLibraries.props, ADR-0010), so a
+    netstandard2.1 PackageReference fails restore with NU1010. Only the net10.0 target of a shared
+    project binds the package, pinned to the copy in the game's Managed directory (ADR-0012).
+  -->
+  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0'">
+    <PackageVersion Include="Newtonsoft.Json" Version="13.0.2" />
+  </ItemGroup>
+  <!--
     ImageSharp advisories published 2026-10-07 are patched only in 4.1.2 (net8.0);
     no netstandard2.1 build carries the fix. The mod encodes pixels it captured to PNG
     and re-encodes its own PNGs to JPEG; it never runs the TIFF codecs or

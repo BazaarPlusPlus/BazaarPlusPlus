@@ -120,9 +120,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="../BazaarPlusPlus.Core/BazaarPlusPlus.Core.csproj" />
     <ProjectReference Include="../BazaarPlusPlus.ModApi/BazaarPlusPlus.ModApi.csproj" />
     <ProjectReference Include="../BazaarPlusPlus.Storage/BazaarPlusPlus.Storage.csproj" />
-    <ProjectReference Include="../BazaarPlusPlus.Localization/BazaarPlusPlus.Localization.csproj" />
   </ItemGroup>
 
   <!-- Game assembly references -->
@@ -182,9 +182,11 @@
   <PropertyGroup>
     <PublicizeAll>true</PublicizeAll>
   </PropertyGroup>
-  <!-- ModApi's types are internal; the plugin reaches them through InternalsVisibleTo. -->
+  <!-- ModApi's types are internal; the plugin reaches them through InternalsVisibleTo. Core is a
+       library with a public surface (ADR-0012); publicizing it would hide that boundary. -->
   <ItemGroup>
     <DoNotPublicize Include="BazaarPlusPlus.ModApi" />
+    <DoNotPublicize Include="BazaarPlusPlus.Core" />
   </ItemGroup>
   <!-- Debug build -->
   <Target

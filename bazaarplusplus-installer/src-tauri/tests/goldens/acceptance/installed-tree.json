@@ -27,7 +27,7 @@
     "BepInEx/core/MonoMod.Utils.dll",
     "BepInEx/core/MonoMod.Utils.xml",
     "BepInEx/plugins/.gitkeep",
-    "BepInEx/plugins/BazaarPlusPlus.Localization.dll",
+    "BepInEx/plugins/BazaarPlusPlus.Core.dll",
     "BepInEx/plugins/BazaarPlusPlus.ModApi.dll",
     "BepInEx/plugins/BazaarPlusPlus.Storage.dll",
     "BepInEx/plugins/BazaarPlusPlus.dll",

@@ -2,7 +2,7 @@
   <!-- Generated from release/payload.json by node release.mjs sync. -->
   <Target Name="ValidatePayloadInventoryProjection" BeforeTargets="PrepareForBuild;CollectPayloadFiles">
     <GetFileHash Files="$(MSBuildThisFileDirectory)../payload.json" Algorithm="SHA256"><Output TaskParameter="Items" ItemName="_PayloadInventoryHash" /></GetFileHash>
-    <Error Condition="'%(_PayloadInventoryHash.FileHash)' != '7391738FF6068851163E2F1228AAF17E74CA6E4B348675D3AD4E6B9CC2626B2E'" Text="Payload Inventory projection is stale. Run node release.mjs sync." />
+    <Error Condition="'%(_PayloadInventoryHash.FileHash)' != '7BA0E67262F6914284DFA166F6DA7ED1FB58461CC6365F0128C942D2C949A1C1'" Text="Payload Inventory projection is stale. Run node release.mjs sync." />
   </Target>
   <Target Name="CollectPayloadFiles" DependsOnTargets="ValidatePayloadInventoryProjection">
     <PropertyGroup>
@@ -12,9 +12,9 @@
     </PropertyGroup>
     <ItemGroup>
       <BppPayloadFile Include="$(TargetDir)BazaarPlusPlus.dll"><PayloadPath>BepInEx/plugins/BazaarPlusPlus.dll</PayloadPath><ProductAssembly>true</ProductAssembly></BppPayloadFile>
+      <BppPayloadFile Include="$(TargetDir)BazaarPlusPlus.Core.dll"><PayloadPath>BepInEx/plugins/BazaarPlusPlus.Core.dll</PayloadPath><ProductAssembly>true</ProductAssembly></BppPayloadFile>
       <BppPayloadFile Include="$(TargetDir)BazaarPlusPlus.ModApi.dll"><PayloadPath>BepInEx/plugins/BazaarPlusPlus.ModApi.dll</PayloadPath><ProductAssembly>true</ProductAssembly></BppPayloadFile>
       <BppPayloadFile Include="$(TargetDir)BazaarPlusPlus.Storage.dll"><PayloadPath>BepInEx/plugins/BazaarPlusPlus.Storage.dll</PayloadPath><ProductAssembly>true</ProductAssembly></BppPayloadFile>
-      <BppPayloadFile Include="$(TargetDir)BazaarPlusPlus.Localization.dll"><PayloadPath>BepInEx/plugins/BazaarPlusPlus.Localization.dll</PayloadPath><ProductAssembly>true</ProductAssembly></BppPayloadFile>
       <BppPayloadFile Include="$(TargetDir)BazaarPlusPlus.version"><PayloadPath>BepInEx/plugins/BazaarPlusPlus.version</PayloadPath><ProductAssembly>false</ProductAssembly></BppPayloadFile>
       <BppPayloadFile Include="$(HistoryDatabaseContractFile)"><PayloadPath>BepInEx/plugins/BazaarPlusPlus.history-database.json</PayloadPath><ProductAssembly>false</ProductAssembly></BppPayloadFile>
       <BppPayloadFile Include="$(TargetDir)Microsoft.Data.Sqlite.dll"><PayloadPath>BepInEx/plugins/Microsoft.Data.Sqlite.dll</PayloadPath><ProductAssembly>false</ProductAssembly></BppPayloadFile>

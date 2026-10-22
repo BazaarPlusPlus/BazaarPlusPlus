@@ -9,8 +9,8 @@ Constraints and patterns every change keeps.
 - MessagePack-serialized DTOs in the Unity/Mono runtime must keep their whole serialized graph `public`.
 - Key entities by template GUID; package cards are `EHiddenTag.Package` via `PackageIdentity.IsPackage` — never display name or `ArtKey`. [`src/BazaarPlusPlus/GameInterop/Cards/PackageIdentity.cs`]
 - Bump `RunLogSchema.LocalDatabaseSchemaVersion` only for a column change; a data repair never bumps it, and there is no upload-payload version. Index and trigger DDL needs no bump; open rebuilds an index whose SQL drifted from `BootstrapSql`, but a retired index or changed trigger needs a `DROP`. [`src/BazaarPlusPlus.Storage/RunLog/RunLogSchema.cs` | ADR-0006 | ADR-0011]
-- Mod-authored user-facing strings use `LocalizedTextSet` (en + zh-Hans, optional zh-Hant + de/pt/ko/it; anything else falls back to English). [`src/BazaarPlusPlus.Localization/LocalizedTextSet.cs`]
-- A categorized degradation event names the category field in its call-site storm key, `storm: ["reason_code", ...]` — a shared key lets one category's failure suppress every later category during the storm window. A key naming a field with a correlation policy never suppresses. [`src/BazaarPlusPlus/Infrastructure/Logging/Core/BppLogPipeline.cs`]
+- Mod-authored user-facing strings use `LocalizedTextSet` (en + zh-Hans, optional zh-Hant + de/pt/ko/it; anything else falls back to English). [`src/BazaarPlusPlus.Core/Localization/LocalizedTextSet.cs`]
+- A categorized degradation event names the category field in its call-site storm key, `storm: ["reason_code", ...]` — a shared key lets one category's failure suppress every later category during the storm window. A key naming a field with a correlation policy never suppresses. [`src/BazaarPlusPlus.Core/Logging/BppLogPipeline.cs`]
 - Anchor mod file-write paths on `BepInEx.Paths.GameRootPath` or `<GameRoot>/BazaarPlusPlusV6/`, which BepInEx special-cases on macOS to the directory containing the `.app`. A path built from `Application.dataPath` writes unsealed files inside the `.app` bundle, breaking `codesign` re-signing and the trampoline repair — and therefore `just mod::build --deploy` after every game update. [`src/BazaarPlusPlus/Host/BepInExPathProvider.cs`]
 - Reuse the game's native UI components (`CardPreviewBase.SetUp` and the like) and existing prior art instead of hand-rolling a render or upload chain.
 - Keep Unity-adjacent logic free of Unity types and Compile-Include it into a test project, so the test needs no InternalsVisibleTo and no ManagedPath; a core that touches `BazaarGameShared` types still needs the game assemblies. [ADR-0005]
@@ -28,8 +28,9 @@ One line each, full record in [adr/](adr/). A line here exists to stop a settled
 - ADR-0007: Remote data separates runtime catalogs, the release manifest, and build-time seed fetch into three lifecycles.
 - ADR-0008: Combat Impact numbers are ledger entries with typed residuals; attribution is graph-driven, never card-GUID constants.
 - ADR-0009: Tests assert behavior or compiled artifacts, never source text; RS0030 bans file-to-text reads.
-- ADR-0010: Compile against the game-supplied libraries in `build/GameLibraries.props`: no NuGet package, publicizing, or shipped copy.
+- ADR-0010: Mono targets compile against the game-supplied libraries in `build/GameLibraries.props`: no NuGet package, publicizing, or shipped copy.
 - ADR-0011: The local `user_version` names the column shape the installer reads; data repairs never bump it.
+- ADR-0012: Shared code goes in `BazaarPlusPlus.Core` (public types, IVT only for tests, `netstandard2.1` + `net10.0`) under per-host adapters; a separate shared assembly exists only for the external contract and dependency class it carries.
 
 
 ## Gotchas

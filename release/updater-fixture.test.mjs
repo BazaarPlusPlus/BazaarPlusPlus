@@ -98,7 +98,7 @@ test('the mod restates the release origin, platform keys and manifest path exact
   const source = fs.readFileSync(
     path.join(
       WORKSPACE_ROOT,
-      'bazaarplusplus-mod/src/BazaarPlusPlus/Infrastructure/ReleaseManifest/ReleaseManifestEndpoints.cs'
+      'bazaarplusplus-mod/src/BazaarPlusPlus.Core/Infrastructure/ReleaseManifest/ReleaseManifestEndpoints.cs'
     ),
     'utf8'
   );
