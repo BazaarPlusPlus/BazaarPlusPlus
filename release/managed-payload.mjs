@@ -280,19 +280,9 @@ function installerRoot(workspaceRoot) {
 // the signature text the fragment carries. Reads the key from
 // BPP_SIGNING_SECRETS_DIR/tauri-updater.key, else TAURI_SIGNING_PRIVATE_KEY.
 export function signWithUpdaterKey({ workspaceRoot, file, env = process.env }) {
-  // The CLI's own entry script, run by this Node: a .cmd shim needs a shell on
-  // Windows.
-  const tauri = path.join(
-    installerRoot(workspaceRoot),
-    'node_modules',
-    '@tauri-apps',
-    'cli',
-    'tauri.js'
-  );
-  if (!fs.existsSync(tauri))
-    throw new Error(
-      `Signing the Managed Payload needs the installer's Tauri CLI; run npm ci in bazaarplusplus-installer (missing ${tauri})`
-    );
+  // The key is resolved before the CLI is looked up: a missing key is the
+  // operator's problem on every machine, a missing CLI only where the
+  // installer's dependencies are not installed.
   const secrets = env.BPP_SIGNING_SECRETS_DIR;
   const keyFile = secrets ? path.join(secrets, 'tauri-updater.key') : '';
   const passwordFile = secrets
@@ -306,6 +296,19 @@ export function signWithUpdaterKey({ workspaceRoot, file, env = process.env }) {
   } else if (!env.TAURI_SIGNING_PRIVATE_KEY)
     throw new Error(
       'Signing the Managed Payload needs the Tauri updater key: BPP_SIGNING_SECRETS_DIR/tauri-updater.key or TAURI_SIGNING_PRIVATE_KEY'
+    );
+  // The CLI's own entry script, run by this Node: a .cmd shim needs a shell on
+  // Windows.
+  const tauri = path.join(
+    installerRoot(workspaceRoot),
+    'node_modules',
+    '@tauri-apps',
+    'cli',
+    'tauri.js'
+  );
+  if (!fs.existsSync(tauri))
+    throw new Error(
+      `Signing the Managed Payload needs the installer's Tauri CLI; run npm ci in bazaarplusplus-installer (missing ${tauri})`
     );
   if (passwordFile && fs.existsSync(passwordFile))
     signing.TAURI_SIGNING_PRIVATE_KEY_PASSWORD = fs
