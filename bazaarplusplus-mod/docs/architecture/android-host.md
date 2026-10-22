@@ -11,7 +11,7 @@
 
 ## Build and test
 
-`tests/AndroidHost.Tests` fails if the compiled host references BepInEx or a desktop assembly, or defines a BPP type outside `BazaarPlusPlus.Android` (a linked source). It runs in `just mod::test-core`, the suites that need no Managed snapshot, and in the `mod-android` CI lane, with `tests/RunLoggingPipeline.Net10.Tests`: the Run Logging anchor on the `net10.0` binding this host ships, which must reproduce the desktop binding's history-database goldens byte for byte. `just mod::android-*` drives one device.
+`tests/AndroidHost.Tests` fails if the compiled host references BepInEx or a desktop assembly, or defines a BPP type outside `BazaarPlusPlus.Android` (a linked source). It runs in `just mod::test-core`, the suites that need no Managed snapshot, and in the `mod-android` CI lane, with `tests/RunLoggingPipeline.Net10.Tests`: the Run Logging anchor on the `net10.0` binding this host ships, which must reproduce the desktop binding's history-database goldens byte for byte. `just mod::android-*` drives one device; `just mod::android-smoke <mode>` asserts injection, hook hit, and feature on it, and the self-hosted `mod-android-smoke` lane runs it nightly ([development guide](../../../docs/development.md#android-冒烟)).
 
 ## Gotchas
 
