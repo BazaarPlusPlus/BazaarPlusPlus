@@ -6,7 +6,6 @@ import Button from '../../shared/components/Button';
 import { AlertIcon, DownloadIcon, ExternalLinkIcon } from '../../shared/components/icons';
 import InfoPageShell from '../../shared/components/InfoPageShell';
 import { SectionHeading } from '../../shared/components/PageLayout';
-import { formatFileSize } from '../../shared/lib/dashboard';
 import {
   GITHUB_RELEASE_URL,
   gameReleaseNumber,
@@ -16,6 +15,7 @@ import {
   type DownloadPlatform,
   type LatestInstaller,
 } from './installer';
+import { formatFileSize } from './file-size';
 import { androidIconDataUri, macIconDataUri, windowsIconDataUri } from './platform-icons';
 
 const DOWNLOAD_PLATFORMS: DownloadPlatform[] = ['windows', 'mac'];
@@ -228,7 +228,9 @@ export default function DownloadPage({ location }: { location: ResolvedSpaLocati
       </section>
 
       <section className="panel flex flex-col gap-3 p-6">
-        <h2 className="text-[15px] font-semibold text-text-1">{copy.noteTitle}</h2>
+        <h2 className="text-[15px] font-semibold text-text-1">
+          {android ? copy.desktopNoteTitle : copy.noteTitle}
+        </h2>
         <ul className="flex flex-col gap-2 text-sm text-text-2">
           {copy.noteParagraphs.map((paragraph, index) => (
             <li key={index} className="flex items-start gap-3">

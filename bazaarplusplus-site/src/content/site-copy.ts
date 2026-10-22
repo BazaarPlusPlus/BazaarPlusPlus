@@ -135,6 +135,8 @@ export type DownloadPageCopy = {
     steps: string[];
   };
   noteTitle: string;
+  /** The install notes' title once the Android card shows: the notes cover only Windows and macOS. */
+  desktopNoteTitle: string;
   noteParagraphs: string[];
 };
 
@@ -486,6 +488,7 @@ const zh: LocalizedSiteCopy = {
       ],
     },
     noteTitle: '安装提示',
+    desktopNoteTitle: 'Windows 与 macOS 安装提示',
     noteParagraphs: [
       '建议先退出游戏再安装。更新时建议先卸载旧版本，再安装新版本',
       '如果安装后未生效，或被安全软件拦截，可以参考故障排查说明，或重新安装游戏与 BazaarPlusPlus',
@@ -803,6 +806,7 @@ const en: LocalizedSiteCopy = {
       ],
     },
     noteTitle: 'Install notes',
+    desktopNoteTitle: 'Windows and macOS install notes',
     noteParagraphs: [
       'Quit the game before installing. To update, uninstall the previous build first, then run the new installer.',
       'If the install does not take effect or gets blocked by security software, check the troubleshooting notes or reinstall the game and BazaarPlusPlus.',

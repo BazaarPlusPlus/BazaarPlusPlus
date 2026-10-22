@@ -1,7 +1,7 @@
 {
   "support": {
     "scripts": {
-      "index.js": 98223
+      "index.js": 98049
     },
     "external": [
       "https://cdn.bazaarplusplus.com/mod-data/supporters/supporter-list.json"
@@ -13,7 +13,7 @@
   },
   "tutorial": {
     "scripts": {
-      "index.js": 98223
+      "index.js": 98049
     },
     "external": [],
     "icons": {
@@ -23,7 +23,7 @@
   },
   "download": {
     "scripts": {
-      "index.js": 98223
+      "index.js": 98049
     },
     "external": [
       "https://cdn.bazaarplusplus.com/installer/latest/android-aarch64.json",
@@ -37,8 +37,8 @@
   },
   "heroes": {
     "scripts": {
-      "index.js": 98223,
-      "route-pages.js": 8374
+      "index.js": 98049,
+      "route-pages.js": 8494
     },
     "external": [
       "https://cdn.bazaarplusplus.com/metrics/v6/heroes/latest.json"
@@ -50,7 +50,7 @@
   },
   "not-found": {
     "scripts": {
-      "index.js": 98223
+      "index.js": 98049
     },
     "external": [],
     "icons": {
