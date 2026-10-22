@@ -55,7 +55,13 @@ export function payloadPaths(rootDir, platform) {
   };
 }
 
-export function computePayloadInputs({ workspaceRoot, managedPath }) {
+// `gameRecords` replaces the Managed directory records for a host that does
+// not compile against Managed: the Android host's Interop Snapshot.
+export function computePayloadInputs({
+  workspaceRoot,
+  managedPath,
+  gameRecords
+}) {
   const records = [];
   const scan = (directory, prefix) => {
     for (const entry of fs
@@ -120,7 +126,7 @@ export function computePayloadInputs({ workspaceRoot, managedPath }) {
   });
   // Game references are inputs, not just a path or a Steam branch name. The
   // same records, hashed alone, are the Snapshot Lock entry's sha256.
-  records.push(...managedDirectoryRecords(managedPath));
+  records.push(...(gameRecords ?? managedDirectoryRecords(managedPath)));
   records.sort((a, b) => a.path.localeCompare(b.path));
   return { digest: hash(JSON.stringify(records)), files: records };
 }
@@ -212,7 +218,10 @@ export function assertBuildOwner(
   process.kill(lock.pid, 0);
 }
 
-function withPayloadLock(rootDir, kind, operation) {
+// One release operation per checkout at a time, desktop or Android. Returns
+// the lock token and the function that releases it; an asynchronous holder
+// (the Android release) releases it once its operation settles.
+export function acquirePayloadLock(rootDir, kind) {
   const lockPath = path.join(rootDir, 'src-tauri/target/payload.lock');
   const claimPath = `${lockPath}.claim`;
   fs.mkdirSync(path.dirname(lockPath), { recursive: true });
@@ -250,10 +259,15 @@ function withPayloadLock(rootDir, kind, operation) {
   } finally {
     fs.rmdirSync(claimPath);
   }
+  return { token, release: () => fs.unlinkSync(lockPath) };
+}
+
+function withPayloadLock(rootDir, kind, operation) {
+  const { token, release } = acquirePayloadLock(rootDir, kind);
   try {
     return operation(token);
   } finally {
-    fs.unlinkSync(lockPath);
+    release();
   }
 }
 
@@ -365,11 +379,16 @@ function copySeedPayload(sourceDir, destinationDir, platform) {
   walk(sourceDir);
 }
 
-export function assertReleaseBuildArgs(msbuildArgs) {
-  // Only the game reference directory is caller-selectable. Build graph,
-  // compiler, output and version overrides would invalidate source provenance.
+export function assertReleaseBuildArgs(msbuildArgs, platform) {
+  // Only the game reference directories are caller-selectable: Managed for a
+  // desktop host, the Interop Snapshot and Loader Release for Android (each
+  // still checked against the Snapshot Lock). Build graph, compiler, output and
+  // version overrides would invalidate source provenance.
+  const names =
+    platform === 'android' ? 'InteropPath|LemonLoaderPath' : 'ManagedPath';
+  const allowed = new RegExp(`^(?:-p:|--property:)(?:${names})=[^;\\r\\n]+$`);
   for (const arg of msbuildArgs) {
-    if (!/^(?:-p:|--property:)ManagedPath=[^;\r\n]+$/.test(arg))
+    if (!allowed.test(arg))
       throw new Error(`Unsupported release build override: ${arg}`);
   }
 }

@@ -2,10 +2,11 @@ import fs from 'node:fs';
 import crypto from 'node:crypto';
 import path from 'node:path';
 import { compareProductVersions, readProductVersion } from './product.mjs';
-import { putImmutable, putReplaceable } from './r2-store.mjs';
+import { putImmutable, putImmutableFile, putReplaceable } from './r2-store.mjs';
 import {
   RELEASE_MANIFEST_PATH,
   assertMirrorUrl,
+  buildAndroidFragment,
   buildLatestManifest,
   buildMirrorRecord,
   buildPlatformFragment,
@@ -13,6 +14,7 @@ import {
   fragmentArtifacts,
   fragmentKey,
   installerFileName,
+  managedPayloadKey,
   mergeReleaseManifest,
   mirrorRecordKey,
   platformManifestPath,
@@ -29,8 +31,14 @@ import {
 } from './release-platforms.mjs';
 import {
   artifactManifestPath,
+  gitStateForRoot,
   validateArtifactManifest
 } from './artifact-manifest.mjs';
+import {
+  androidApkRecordKey,
+  publishedAndroidApk,
+  readAndroidArtifacts
+} from './android-release.mjs';
 
 const jsonBytes = (value) => Buffer.from(`${JSON.stringify(value, null, 2)}\n`);
 function readJsonObject(object, description) {
@@ -218,6 +226,123 @@ export async function uploadPlatform({
   for (const { key, bytes } of uploads) {
     await putImmutable(store, key, bytes);
   }
+  await putImmutable(
+    store,
+    fragmentKey(version, fragment.platform),
+    jsonBytes(fragment),
+    'application/json'
+  );
+  return fragment;
+}
+
+// The facts a published Android Release APK carries in its sidecar.
+const ANDROID_APK_FACTS = Object.freeze([
+  'size',
+  'sha256',
+  'versionCode',
+  'signerSha256',
+  'builtForProductVersion'
+]);
+
+// Uploads the Android build of VERSION: the Android Release APK under its own
+// identity unless that identity is already published (a mod-only release then
+// points at the published APK), the Managed Payload zip and its signature,
+// and last the fragment naming both. Large files stream from disk.
+export async function uploadAndroidPlatform({
+  workspaceRoot,
+  baseUrl,
+  store,
+  gitState = gitStateForRoot,
+  log = () => {}
+}) {
+  const version = readProductVersion(workspaceRoot);
+  const { manifest, files } = await readAndroidArtifacts(workspaceRoot);
+  const checkout = gitState(
+    path.join(workspaceRoot, 'bazaarplusplus-installer')
+  );
+  if (manifest.gitCommit !== checkout.commit)
+    throw new Error(
+      `Android build commit mismatch: built ${manifest.gitCommit}, current ${checkout.commit}`
+    );
+  if (checkout.dirty)
+    throw new Error('Current checkout is dirty; refusing upload');
+  const apkKey = manifest.apk.key;
+  const identity = {
+    gameVersion: manifest.game.gameVersion,
+    loader: manifest.loader,
+    interopSha256: manifest.interopSha256
+  };
+  const published = await publishedAndroidApk(store, identity);
+  let apk;
+  if (published) {
+    if (files.apk)
+      log(
+        `${apkKey} is already published (built for ${published.builtForProductVersion}); the APK built here is not uploaded`
+      );
+    apk = published;
+  } else if (!files.apk) {
+    throw new Error(
+      `${apkKey} was published when the Android build ran but is missing now; build again with --rebuild-apk`
+    );
+  } else {
+    apk = Object.fromEntries(
+      ANDROID_APK_FACTS.map((name) => [name, manifest.apk[name]])
+    );
+  }
+  const fragment = buildAndroidFragment({
+    version,
+    gitCommit: manifest.gitCommit,
+    baseUrl,
+    apk: {
+      size: apk.size,
+      sha256: apk.sha256,
+      versionCode: apk.versionCode,
+      signerSha256: apk.signerSha256,
+      builtForProductVersion: apk.builtForProductVersion
+    },
+    managedPayload: {
+      size: manifest.managedPayload.size,
+      sha256: manifest.managedPayload.sha256,
+      signature: manifest.managedPayload.signature
+    },
+    // A client running an APK of an earlier product version can take this
+    // release as a Managed Payload; one built here needs the new APK.
+    selfUpdatable: apk.builtForProductVersion !== version,
+    historyDatabaseUserVersion: manifest.historyDatabaseUserVersion,
+    nonManagedPayloadDigest: manifest.nonManagedPayloadDigest,
+    game: manifest.game,
+    loader: manifest.loader,
+    interopSha256: manifest.interopSha256
+  });
+  if (objectKey(fragment.apk.url, baseUrl) !== apkKey)
+    throw new Error(`Android build names ${apkKey}, not ${fragment.apk.url}`);
+  await assertSameCommitAcrossPlatforms(store, version, fragment);
+  if (!published) {
+    log(`Uploading ${apkKey} (${apk.size} bytes)`);
+    await putImmutableFile(store, apkKey, files.apk, {
+      sha256: apk.sha256,
+      size: apk.size,
+      contentType: 'application/vnd.android.package-archive'
+    });
+    await putImmutable(
+      store,
+      androidApkRecordKey(apkKey),
+      jsonBytes(apk),
+      'application/json'
+    );
+  }
+  const zipKey = managedPayloadKey(version, fragment.platform);
+  await putImmutableFile(store, zipKey, files.managedPayload, {
+    sha256: manifest.managedPayload.sha256,
+    size: manifest.managedPayload.size,
+    contentType: 'application/zip'
+  });
+  await putImmutable(
+    store,
+    `${zipKey}.sig`,
+    Buffer.from(`${fragment.managedPayload.signature}\n`),
+    'text/plain'
+  );
   await putImmutable(
     store,
     fragmentKey(version, fragment.platform),

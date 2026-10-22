@@ -580,12 +580,16 @@ for (const command of ['prepare', 'build', 'upload']) {
     assert.deepEqual(f.calls(), []);
   });
 
-  for (const platform of ['macos', 'windows']) {
+  for (const platform of ['macos', 'windows', 'android']) {
     test(`release::${command} ${platform} does not imply other release stages`, (t) => {
       const f = fixture(t);
       succeeded(f.run([`release::${command}`, platform]));
       const args = releaseArgs(command, '--platform', platform);
       if (command !== 'upload') args.push('--');
+      // An Android build also reads R2, so it runs under the release profile
+      // around the signing one.
+      if (command === 'build' && platform === 'android')
+        args.unshift('scripts/workspace.mjs', 'run', 'release', '--', 'node');
       assert.deepEqual(f.calls(), [call(f.dir, null, 'node', ...args)]);
     });
   }

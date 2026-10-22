@@ -21,6 +21,7 @@ import {
 } from './release/payload.mjs';
 import {
   uploadPlatform,
+  uploadAndroidPlatform,
   recordMainlandMirror,
   recordMainlandMirrors,
   promotePlatform,
@@ -29,6 +30,12 @@ import {
 import { fetchMirrorPage, verifyMainlandMirrors } from './release/mirror.mjs';
 import { assertMirrorUrl } from './release/manifest.mjs';
 import { r2StoreFromEnvironment } from './release/r2-store.mjs';
+import { gameLibsStoreFromEnvironment } from './release/game-libs.mjs';
+import {
+  androidPaths,
+  buildAndroidRelease,
+  prepareAndroidPayload
+} from './release/android-release.mjs';
 import {
   RELEASE_PLATFORMS,
   defaultTargetBuildPlatforms,
@@ -42,6 +49,13 @@ const usage = `Product release commands (run from any directory):
   node release.mjs prepare --platform macos      Build and validate one platform Payload
   node release.mjs build --platform macos        Build and sign the native installer
   node release.mjs upload --platform macos       Upload immutable platform artifacts
+  node release.mjs prepare --platform android    Build the Android host and stage the Android Mod Payload
+  node release.mjs build --platform android [--rebuild-apk]
+                                                Zip and sign the Managed Payload; inject, align and sign
+                                                the Android Release APK unless its identity is published
+                                                (--rebuild-apk injects anyway, for build_only)
+  node release.mjs upload --platform android     Stream the APK (when new), the Managed Payload zip and
+                                                the fragment to R2
   node release.mjs mirror-all --windows-url <share-url> --macos-url <share-url>
                                                 Verify both uploaded platforms and record both mainland mirrors
   node release.mjs mirror --platform macos --url <share-url>
@@ -56,14 +70,18 @@ const usage = `Product release commands (run from any directory):
                                                 the uploaded APK and Managed Payload zip; Android records no
                                                 mainland mirror and never moves latest.json
 
-Use windows on the Windows build host. Prepare/build accept -- -p:ManagedPath=<path>.
+Use windows on the Windows build host. Prepare/build accept -- -p:ManagedPath=<path>;
+android accepts -- -p:InteropPath=<dir> -p:LemonLoaderPath=<dir> instead, and its
+build injects on Linux x64 only (the LemonLoader Patcher CLI).
 mirror refuses a share page that does not serve the uploaded installer unless
 --allow-unverified-mirror is passed; promote refuses a platform without a
 recorded mirror unless --without-mainland-mirror is passed. mirror-all requires
 both platforms uploaded at the same version and commit before recording either mirror.
-Only upload, mirror, mirror-all
-and promote access R2, and require CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID
-(the S3 pair is derived from the token). No command changes VERSION.
+Only upload, mirror, mirror-all,
+promote and build --platform android access R2, and require CLOUDFLARE_API_TOKEN and
+CLOUDFLARE_ACCOUNT_ID (the S3 pair is derived from the token); prepare --platform
+android reads the private snapshot store only when the Interop Snapshot is not
+under game-libs/. No command changes VERSION.
 `;
 
 export function parseReleaseArgs(args) {
@@ -98,6 +116,7 @@ export function parseReleaseArgs(args) {
       'windows-url': { type: 'string' },
       'macos-url': { type: 'string' },
       latest: { type: 'boolean' },
+      'rebuild-apk': { type: 'boolean' },
       'allow-unverified-mirror': { type: 'boolean' },
       'without-mainland-mirror': { type: 'boolean' }
     }
@@ -115,7 +134,7 @@ export function parseReleaseArgs(args) {
     (separator || positionals.length)
   )
     throw new Error(
-      `${command} takes no positional arguments; platforms are passed as --platform <macos|windows>`
+      `${command} takes no positional arguments; platforms are passed as --platform <macos|windows|android>`
     );
   if (
     tokens.some(
@@ -126,23 +145,26 @@ export function parseReleaseArgs(args) {
   )
     throw new Error('MSBuild properties must follow --');
   const platform = values.platform;
-  // Android uploads arrive with its release job (#358) and it has no mainland
-  // mirror yet, so of the platform commands only promote accepts it.
+  // Android has no mainland mirror yet (ADR 0010), so mirror and verify-mirror
+  // take only the Tauri platforms.
   const tauriPlatforms = defaultTargetBuildPlatforms();
-  const promotePlatforms = RELEASE_PLATFORMS.map(
+  const releasePlatforms = RELEASE_PLATFORMS.map(
     ({ buildPlatform }) => buildPlatform
   );
   const mustBe = (platforms) =>
     `--platform must be ${platforms.slice(0, -1).join(', ')} or ${platforms.at(-1)}`;
-  if (['prepare', 'build', 'upload', 'mirror'].includes(command)) {
+  if (['prepare', 'build', 'upload'].includes(command)) {
+    if (!releasePlatforms.includes(platform))
+      throw new Error(mustBe(releasePlatforms));
+  } else if (command === 'mirror') {
     if (!tauriPlatforms.includes(platform))
       throw new Error(mustBe(tauriPlatforms));
   } else if (command === 'verify-mirror') {
     if (platform !== undefined && !tauriPlatforms.includes(platform))
       throw new Error(mustBe(tauriPlatforms));
   } else if (command === 'promote') {
-    if (platform !== undefined && !promotePlatforms.includes(platform))
-      throw new Error(mustBe(promotePlatforms));
+    if (platform !== undefined && !releasePlatforms.includes(platform))
+      throw new Error(mustBe(releasePlatforms));
   } else if (platform !== undefined) {
     throw new Error(`${command} is a product-wide operation`);
   }
@@ -168,6 +190,8 @@ export function parseReleaseArgs(args) {
   }
   if (values.latest && command !== 'verify-mirror')
     throw new Error('--latest is only valid for verify-mirror');
+  if (values['rebuild-apk'] && !(command === 'build' && platform === 'android'))
+    throw new Error('--rebuild-apk is only valid for build --platform android');
   if (
     values['allow-unverified-mirror'] &&
     !['mirror', 'mirror-all'].includes(command)
@@ -183,7 +207,7 @@ export function parseReleaseArgs(args) {
     releasePlatform(platform).kind !== 'tauri'
   )
     throw new Error(`${platform} has no mainland mirror to waive`);
-  assertReleaseBuildArgs(positionals);
+  assertReleaseBuildArgs(positionals, platform);
   if (command === 'assert-build-owner' && rest.length)
     throw new Error('assert-build-owner takes no arguments');
   return {
@@ -193,6 +217,7 @@ export function parseReleaseArgs(args) {
     urls,
     msbuildArgs: positionals,
     latest: values.latest ?? false,
+    rebuildApk: values['rebuild-apk'] ?? false,
     allowUnverifiedMirror: values['allow-unverified-mirror'] ?? false,
     withoutMainlandMirror: values['without-mainland-mirror'] ?? false
   };
@@ -221,6 +246,7 @@ export async function main(
     workspaceRoot = WORKSPACE_ROOT,
     hostPlatform = process.platform,
     createStore = r2StoreFromEnvironment,
+    createGameLibsStore = gameLibsStoreFromEnvironment,
     probeMirror = fetchMirrorPage,
     log = console.log,
     now = new Date()
@@ -233,9 +259,11 @@ export async function main(
     urls,
     msbuildArgs,
     latest,
+    rebuildApk,
     allowUnverifiedMirror,
     withoutMainlandMirror
   } = parseReleaseArgs(args);
+  const android = platform === 'android';
   const rootDir = path.join(workspaceRoot, 'bazaarplusplus-installer');
   if (command === 'help') {
     log(usage);
@@ -247,7 +275,11 @@ export async function main(
     assertBuildOwner(rootDir);
     return;
   }
-  if (command === 'build' && platform !== resolveBuildPlatform(hostPlatform))
+  if (
+    command === 'build' &&
+    !android &&
+    platform !== resolveBuildPlatform(hostPlatform)
+  )
     throw new Error(`Build ${platform} on its native host`);
   if (command === 'sync') {
     const version = synchronizeProductProjections(workspaceRoot);
@@ -277,6 +309,33 @@ export async function main(
     );
     return;
   }
+  if (command === 'prepare' && android) {
+    const record = await prepareAndroidPayload({
+      workspaceRoot,
+      msbuildArgs,
+      gameLibsStore: createGameLibsStore,
+      log
+    });
+    log(
+      `Prepared android Payload for ${version} against lock entry ${record.lockEntry.key} (${record.lockEntry.gameVersion}, ${record.lockEntry.loader.tag})`
+    );
+    return;
+  }
+  if (command === 'build' && android) {
+    let releaseStore;
+    const manifest = await buildAndroidRelease({
+      workspaceRoot,
+      msbuildArgs,
+      rebuildApk,
+      releaseStore: () => (releaseStore ??= createStore()),
+      gameLibsStore: createGameLibsStore,
+      log
+    });
+    log(
+      `Built android ${version} against lock entry ${manifest.lockEntry.key} (${manifest.game.gameVersion}): ${manifest.apk.path ? `APK ${manifest.apk.path}` : `published APK ${manifest.apk.key}`}, Managed Payload ${manifest.managedPayload.path} in ${androidPaths(workspaceRoot).root}`
+    );
+    return;
+  }
   if (command === 'prepare') {
     const record = preparePayload({ workspaceRoot, platform, msbuildArgs });
     log(
@@ -301,7 +360,17 @@ export async function main(
     return;
   }
   const store = createStore();
-  if (command === 'upload') {
+  if (command === 'upload' && android) {
+    await uploadAndroidPlatform({
+      workspaceRoot,
+      baseUrl: RELEASE_BASE_URL,
+      store,
+      log
+    });
+    log(
+      `Uploaded android ${version}. Run promote --platform android to publish it.`
+    );
+  } else if (command === 'upload') {
     await uploadPlatform({
       workspaceRoot,
       platform,

@@ -1291,7 +1291,7 @@ function verifiedInteropSnapshot(modRoot, entry) {
   return { directory, interop };
 }
 
-function lockedInteropEntry(workspaceRoot) {
+export function lockedInteropEntry(workspaceRoot = WORKSPACE_ROOT) {
   const entry = readGameLibsLock(workspaceRoot).entries[INTEROP_KEY];
   if (entry === null)
     throw new Error(
