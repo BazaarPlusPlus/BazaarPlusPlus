@@ -4,7 +4,11 @@ using BazaarPlusPlus.Infrastructure;
 
 namespace BazaarPlusPlus.Game.CombatReplay;
 
-internal sealed class CombatReplayPayloadStore
+/// <summary>
+/// The local Replay Payload files under the Data Root's combat replay directory, one gzip
+/// MessagePack file per battle. Every host writes them, and the Bundle composer reads them.
+/// </summary>
+public sealed class CombatReplayPayloadStore
 {
     private const string FileSuffix = ".payload.mpack.gz";
     private readonly string _rootPath;
@@ -40,7 +44,7 @@ internal sealed class CombatReplayPayloadStore
         return _store.Load(battleId);
     }
 
-    internal FileBackedPayloadLoadResult<PvpReplayPayload> LoadDetailed(string battleId)
+    public FileBackedPayloadLoadResult<PvpReplayPayload> LoadDetailed(string battleId)
     {
         return _store.LoadDetailed(battleId);
     }

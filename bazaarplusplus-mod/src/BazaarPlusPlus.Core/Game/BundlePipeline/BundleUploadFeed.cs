@@ -8,6 +8,7 @@ using BazaarPlusPlus.ModApi;
 using BazaarPlusPlus.ModApi.Clients;
 using BazaarPlusPlus.Storage.BundleQueue;
 using BazaarPlusPlus.Storage.Paths;
+using BazaarPlusPlus.Storage.Sqlite;
 
 namespace BazaarPlusPlus.Game.BundlePipeline;
 
@@ -18,8 +19,9 @@ public static class BundleUploadFeed
     public static Session Activate(
         IBppServices services,
         UploadPumpCadence cadence,
-        string? platformKey
-    ) => new(services, cadence, platformKey);
+        string? platformKey,
+        SqliteOpenOptions? databaseOptions = null
+    ) => new(services, cadence, platformKey, databaseOptions);
 
     /// <summary>
     /// Feed-owned behavior for one pump lifetime: enablement, one attempt, feed-private arm
@@ -37,11 +39,16 @@ public static class BundleUploadFeed
         private readonly IBundleOutboxFiles _files;
         private readonly int _retryIntervalSeconds;
 
-        public Session(IBppServices services, UploadPumpCadence cadence, string? platformKey)
+        public Session(
+            IBppServices services,
+            UploadPumpCadence cadence,
+            string? platformKey,
+            SqliteOpenOptions? databaseOptions = null
+        )
         {
             _services = services;
             var root = services.Paths.RequireDataRoot();
-            _queueStore = new BundleQueueStore(PathConstants.RunLogDatabase(root));
+            _queueStore = new BundleQueueStore(PathConstants.RunLogDatabase(root), databaseOptions);
             _files = new SystemBundleOutboxFiles(PathConstants.BundleOutbox(root));
             _modApiSession =
                 ModApiSession.TryCreate(
