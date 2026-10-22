@@ -90,11 +90,6 @@ internal static class TheDragonsHeroIdentity
         return true;
     }
 
-    internal static bool AreEquivalent(string? left, string? right) =>
-        TryCanonicalize(left, out var leftCanonical)
-        && TryCanonicalize(right, out var rightCanonical)
-        && string.Equals(leftCanonical, rightCanonical, StringComparison.Ordinal);
-
     internal static string ResolveDisplayName(EHero hero) => NativeDisplayNames.Resolve(hero);
 
     internal static string ResolveDisplayName(EHero hero, Func<EHero, string?> getNativeName) =>

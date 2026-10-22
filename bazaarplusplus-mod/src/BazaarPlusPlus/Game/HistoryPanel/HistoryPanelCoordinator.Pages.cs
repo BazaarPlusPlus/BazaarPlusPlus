@@ -20,6 +20,9 @@ internal sealed partial class HistoryPanelCoordinator
     private readonly LatestHistoryRead<ArchivePage> _archiveReads = new();
     private readonly LatestHistoryRead<HistoryCursorPage<HistoryBattleRecord>> _battleReads = new();
     private readonly LatestHistoryRead<PvpBattleSnapshots> _detailReads = new();
+
+    // The snapshots of _state.DetailBattleId; _state.DetailLoaded says whether there are any.
+    internal PvpBattleSnapshots? DetailSnapshots { get; private set; }
     private readonly LatestHistoryRead<MaintenanceResult> _maintenanceReads = new();
 
     private HistoryBattleRecord? ActiveBattle() =>
@@ -257,7 +260,8 @@ internal sealed partial class HistoryPanelCoordinator
     private void ClearDetail()
     {
         _detailReads.Clear();
-        _state.DetailSnapshots = null;
+        DetailSnapshots = null;
+        _state.DetailLoaded = false;
         _state.DetailBattleId = null;
         _state.DetailFailed = false;
         _state.DetailLoading = false;
@@ -293,7 +297,8 @@ internal sealed partial class HistoryPanelCoordinator
                 )
                     return;
                 _state.DetailLoading = false;
-                _state.DetailSnapshots = snapshots;
+                DetailSnapshots = snapshots;
+                _state.DetailLoaded = snapshots != null;
                 _state.DetailFailed = error != null;
                 if (error != null)
                 {

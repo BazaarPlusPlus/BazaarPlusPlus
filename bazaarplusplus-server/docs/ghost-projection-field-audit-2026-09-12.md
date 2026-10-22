@@ -24,7 +24,7 @@
 2. [GhostBattleSyncService.cs](../../bazaarplusplus-mod/src/BazaarPlusPlus/Game/HistoryPanel/Ghost/GhostBattleSyncService.cs) 将摘要写入本地历史库。
 3. [HistoryPanelRowMapper.cs](../../bazaarplusplus-mod/src/BazaarPlusPlus/Game/HistoryPanel/Storage/HistoryPanelRowMapper.cs) 和 [GhostBattleLocalProjector.cs](../../bazaarplusplus-mod/src/BazaarPlusPlus/Game/HistoryPanel/Ghost/GhostBattleLocalProjector.cs) 将记录者视角转换为本地玩家的列表视角。
 4. [HistoryPanelView.cs](../../bazaarplusplus-mod/src/BazaarPlusPlus/Game/HistoryPanel/Ui/HistoryPanelView.cs) 显示英雄和战斗标题；[HistoryPanel.Ui.cs](../../bazaarplusplus-mod/src/BazaarPlusPlus/Game/HistoryPanel/HistoryPanel.Ui.cs) 使用挑战者名字、结果和时间。
-5. [HistoryPanelGhostBattleFilter.cs](../../bazaarplusplus-mod/src/BazaarPlusPlus/Game/HistoryPanel/HistoryPanelGhostBattleFilter.cs) 使用天数、胜者及结果；[HistoryPanelFormatter.cs](../../bazaarplusplus-mod/src/BazaarPlusPlus/Game/HistoryPanel/HistoryPanelFormatter.cs) 使用最终战斗标记和胜负判定显示挑战者出局提示。
+5. [HistoryPanelGhostBattleFilter.cs](../../bazaarplusplus-mod/src/BazaarPlusPlus.Core/Game/HistoryPanel/HistoryPanelGhostBattleFilter.cs) 使用天数、胜者及结果；[HistoryPanelFormatter.cs](../../bazaarplusplus-mod/src/BazaarPlusPlus.Core/Game/HistoryPanel/HistoryPanelFormatter.cs) 使用最终战斗标记和胜负判定显示挑战者出局提示。
 
 ## 建议保留的普通列
 

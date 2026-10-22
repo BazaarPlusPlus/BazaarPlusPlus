@@ -21,8 +21,8 @@
     <Compile Include="../../src/BazaarPlusPlus/GameInterop/Tooltips/InspectionBackgroundPress.cs" />
     <Compile Include="../../src/BazaarPlusPlus/GameInterop/MonsterBoardPreview/NativeMonsterBoardLayout.cs" />
     <Compile Include="../../src/BazaarPlusPlus/Game/LiveBuildPanel/Ui/LiveBuildPanelLayout.cs" />
-    <Compile Include="../../src/BazaarPlusPlus/Game/HistoryPanel/Ui/HistoryPanelLayout.cs" />
-    <Compile Include="../../src/BazaarPlusPlus/Game/HistoryPanel/Ui/HistoryTimelineScroll.cs" />
+    <Compile Include="../../src/BazaarPlusPlus.Core/Game/HistoryPanel/Ui/HistoryPanelLayout.cs" />
+    <Compile Include="../../src/BazaarPlusPlus.Core/Game/HistoryPanel/Ui/HistoryTimelineScroll.cs" />
     <Compile Include="../../src/BazaarPlusPlus/GameInterop/MonsterBoardPreview/NativeMonsterBoardTooltipGate.cs" />
     <Compile Include="../../src/BazaarPlusPlus/Game/MusicNotes/MusicNoteSocketInference.cs" />
     <Compile Include="../NativeCardPreviewHost.Tests/*.cs" />
@@ -49,7 +49,7 @@
     <Compile Include="../../src/BazaarPlusPlus/Game/CombatReplay/CurrentReplayRecordingStatusCode.cs" />
     <Compile Include="../../src/BazaarPlusPlus/GameInterop/CombatReplay/NativeReplayRestartGate.cs" />
     <Compile Include="../../src/BazaarPlusPlus/Game/CombatReplay/Bootstrap/ReplayPresentationTaskTracker.cs" />
-    <Compile Include="../../src/BazaarPlusPlus/Game/HistoryPanel/HistoryPanelReplayCleanup.cs" />
+    <Compile Include="../../src/BazaarPlusPlus.Core/Game/HistoryPanel/HistoryPanelReplayCleanup.cs" />
     <Compile Include="../../src/BazaarPlusPlus/Game/LiveBuildPanel/LiveBuildRefreshState.cs" />
     <Compile Include="../../src/BazaarPlusPlus.Core/Game/LiveBuildPanel/Recommendations/BuildRecommendationRefreshResult.cs" />
   </ItemGroup>

@@ -138,7 +138,7 @@ internal sealed partial class HistoryPanelView
             var hero = heroes[i];
             _heroes[hero] = Button(
                 _heroFilters.transform,
-                HistoryPanelHeroPresentation.DisplayName(hero),
+                HistoryPanelHeroNames.DisplayName(hero),
                 i / (float)heroes.Count,
                 0,
                 .97f / heroes.Count,
@@ -758,7 +758,7 @@ internal sealed partial class HistoryPanelView
         foreach (var pair in _heroes)
             SetButton(
                 pair.Value,
-                HistoryPanelHeroPresentation.DisplayName(pair.Key),
+                HistoryPanelHeroNames.DisplayName(pair.Key),
                 HistoryPanelHeroPresentation.IsSelected(m.SelectedRunHero, pair.Key)
             );
         foreach (var pair in _outcomes)
@@ -797,7 +797,11 @@ internal sealed partial class HistoryPanelView
                 i => m.Runs[i].PlayerRating,
                 i => m.Runs[i].PlayerRatingDelta,
                 m.SelectedRunIndex,
-                i => HistoryPanelFormatter.RunRowFields(m.Runs[i])
+                i =>
+                    HistoryPanelFormatter.RunRowFields(
+                        m.Runs[i],
+                        HistoryPanelHeroNames.DisplayName(m.Runs[i].Hero)
+                    )
             );
         else
             BindRows(

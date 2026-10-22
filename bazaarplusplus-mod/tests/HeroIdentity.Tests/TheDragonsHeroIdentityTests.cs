@@ -58,14 +58,6 @@ public sealed class TheDragonsHeroIdentityTests
     }
 
     [Fact]
-    public void Alias_equivalence_is_symmetric()
-    {
-        Assert.True(TheDragonsHeroIdentity.AreEquivalent("Hero8", "TheDragons"));
-        Assert.True(TheDragonsHeroIdentity.AreEquivalent("TheDragons", "Hero8"));
-        Assert.True(TheDragonsHeroIdentity.AreEquivalent(" hero8 ", " THEDRAGONS "));
-    }
-
-    [Fact]
     public void Persistence_identity_writes_canonical_hero_ids()
     {
         Assert.True(TheDragonsHeroIdentity.TryResolve("Hero8", out var dragons));
@@ -160,7 +152,6 @@ public sealed class TheDragonsHeroIdentityTests
         Assert.Equal(EHero.Vanessa, vanessa);
         Assert.True(TheDragonsHeroIdentity.TryCanonicalize(" Vanessa ", out var canonical));
         Assert.Equal("Vanessa", canonical);
-        Assert.True(TheDragonsHeroIdentity.AreEquivalent("Vanessa", " Vanessa "));
 
         Assert.False(TheDragonsHeroIdentity.TryResolve("vanessa", out _));
         Assert.False(TheDragonsHeroIdentity.TryResolve(null, out _));
@@ -168,7 +159,6 @@ public sealed class TheDragonsHeroIdentityTests
         Assert.False(TheDragonsHeroIdentity.TryResolve("UnknownHero", out _));
         Assert.False(TheDragonsHeroIdentity.TryResolve("The Dragons", out _));
         Assert.False(TheDragonsHeroIdentity.TryCanonicalize("UnknownHero", out _));
-        Assert.False(TheDragonsHeroIdentity.AreEquivalent("UnknownHero", "UnknownHero"));
     }
 
     [Fact]

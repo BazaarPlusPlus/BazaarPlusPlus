@@ -2,6 +2,7 @@
 using BazaarGameShared.Domain.Cards;
 using BazaarGameShared.Domain.Cards.Item;
 using BazaarGameShared.Domain.Cards.Skill;
+using BazaarPlusPlus.Core.GameState;
 using BazaarPlusPlus.GameInterop.AssetLoading;
 using BazaarPlusPlus.GameInterop.StaticCards;
 using DG.Tweening;
@@ -13,15 +14,6 @@ using UnityEngine;
 using UnityEngine.UI;
 
 namespace BazaarPlusPlus.GameInterop.MonsterBoardPreview;
-
-internal enum NativeMonsterBoardStatus
-{
-    Loading,
-    Ready,
-    Partial,
-    Empty,
-    Failed,
-}
 
 // Owns a clone of the native monster board, never the active tooltip's view.
 internal sealed partial class OwnedMonsterBoardPreview : IDisposable

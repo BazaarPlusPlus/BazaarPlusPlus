@@ -1,0 +1,92 @@
+#nullable enable
+
+using BazaarPlusPlus.Localization;
+
+namespace BazaarPlusPlus.Game.HistoryPanel;
+
+public static partial class HistoryPanelText
+{
+    private static readonly LocalizedTextSet CheckServerHealthText = new(
+        "Check Server",
+        "检测连通",
+        "檢測連通"
+    );
+
+    private static readonly LocalizedTextSet CheckingServerHealthText = new(
+        "Checking...",
+        "检测中...",
+        "檢測中..."
+    );
+
+    private static readonly LocalizedTextSet CheckingServerConnectivityText = new(
+        "Checking game-server connectivity...",
+        "正在检测游戏与服务器联通性...",
+        "正在檢測遊戲與伺服器連通性..."
+    );
+
+    private static readonly LocalizedTextSet ServerHealthUnavailableText = new(
+        "Connectivity check is unavailable right now.",
+        "连通性检测暂不可用。",
+        "連通性檢測暫不可用。"
+    );
+
+    private static readonly LocalizedTextSet ServerHealthAlreadyRunningText = new(
+        "Connectivity check is already in progress.",
+        "连通性检测进行中。",
+        "連通性檢測進行中。"
+    );
+
+    private static readonly LocalizedTextSet DatabasePrefixText = new("DB", "数据库", "資料庫");
+
+    private static readonly LocalizedTextSet DatabaseUnavailableText = new("Unavailable", "不可用");
+
+    private static readonly LocalizedTextSet DatabaseConnectedText = new("Connected", "已连接");
+
+    private static readonly LocalizedTextSet DatabaseMissingText = new("Missing", "缺失");
+
+    public static string CheckServerHealth() => Resolve(CheckServerHealthText);
+
+    public static string CheckingServerHealth() => Resolve(CheckingServerHealthText);
+
+    public static string CheckingServerConnectivity() => Resolve(CheckingServerConnectivityText);
+
+    public static string ServerHealthUnavailable() => Resolve(ServerHealthUnavailableText);
+
+    public static string ServerHealthAlreadyRunning() => Resolve(ServerHealthAlreadyRunningText);
+
+    public static string DatabaseUnavailable() => Resolve(DatabaseUnavailableText);
+
+    public static string DatabaseConnected() => Resolve(DatabaseConnectedText);
+
+    public static string DatabaseMissing() => Resolve(DatabaseMissingText);
+
+    public static string DatabaseChip(string status) => $"{Resolve(DatabasePrefixText)} {status}";
+
+    public static string ServerHealthConnected(long roundTripMilliseconds)
+    {
+        return FormatSimple(
+            $"Game and server connected in {roundTripMilliseconds} ms.",
+            $"游戏与服务器已联通，耗时 {roundTripMilliseconds} ms。",
+            $"遊戲與伺服器已連通，耗時 {roundTripMilliseconds} ms。"
+        );
+    }
+
+    public static string ServerHealthFailed(long roundTripMilliseconds, string details)
+    {
+        return FormatSimple(
+            $"Game-server check failed after {roundTripMilliseconds} ms: {details}",
+            $"游戏与服务器联通性检测失败，耗时 {roundTripMilliseconds} ms：{details}",
+            $"遊戲與伺服器連通性檢測失敗，耗時 {roundTripMilliseconds} ms：{details}"
+        );
+    }
+
+    public static string HistoryLoadFailed(string details)
+    {
+        return FormatSimple($"Couldn't load history: {details}", $"载入对局失败：{details}");
+    }
+
+    public static string PanelUnavailable()
+    {
+        return FormatSimple("History panel is unavailable.", "历史面板不可用。");
+    }
+}
