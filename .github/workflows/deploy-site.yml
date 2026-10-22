@@ -48,9 +48,9 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
           cache-dependency-path: bazaarplusplus-site/package-lock.json
-      - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4
+      - uses: taiki-e/install-action@a4d3f3f761dcd95cce1b72cb61cb6d1963438177 # v2.87.30
         with:
-          just-version: 1.58.0
+          tool: just@1.58.0
       - run: npm install --global "$(node --print "require('./package.json').packageManager")"
       - run: npm ci
         working-directory: bazaarplusplus-site
