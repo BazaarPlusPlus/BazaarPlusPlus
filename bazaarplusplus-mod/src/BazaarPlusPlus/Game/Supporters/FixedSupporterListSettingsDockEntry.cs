@@ -16,9 +16,9 @@ internal static class FixedSupporterListSettingsDockEntry
             WriteEnabled
         );
 
-    private static bool ReadEnabled(BppConfig config) => config.UseFixedSupporterListConfig.Value;
+    private static bool ReadEnabled(BppSettings config) => config.UseFixedSupporterListConfig.Value;
 
-    private static void WriteEnabled(BppConfig config, bool enabled)
+    private static void WriteEnabled(BppSettings config, bool enabled)
     {
         config.UseFixedSupporterListConfig.Value = enabled;
 

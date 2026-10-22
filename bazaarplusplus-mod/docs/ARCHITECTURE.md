@@ -41,7 +41,8 @@ Inside the main assembly:
 
 | Directory | Owns |
 |---|---|
-| `Core/` | pure mod abstractions: config, event bus, runtime service interfaces, run context, path contracts, the run-snapshot contract |
+| `Core/` | pure mod abstractions: settings and the settings-store port, event bus and BPP-owned event snapshots, runtime service interfaces, run context, path contracts, the run-snapshot contract; no BepInEx reference |
+| `Host/` | the desktop (BepInEx) implementations of host ports: settings store, log sink, Data Root path provider |
 | `GameInterop/` | adapters over game, Unity, or publicized runtime surfaces |
 | `Game/` | feature workflows, UI, user-facing policy, filtering, upload orchestration, storage use |
 | `Patches/` | Harmony patches, reaching services through `BppPatchHost` rather than constructor injection |

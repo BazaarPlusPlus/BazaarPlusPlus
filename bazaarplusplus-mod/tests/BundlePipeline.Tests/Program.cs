@@ -14,6 +14,7 @@ using BazaarPlusPlus.Game.CombatReplay;
 using BazaarPlusPlus.Game.PvpBattles;
 using BazaarPlusPlus.Game.PvpBattles.Persistence;
 using BazaarPlusPlus.GameInterop;
+using BazaarPlusPlus.Host;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.ModApi.Bundle;
 using BazaarPlusPlus.ModApi.Clients;
@@ -39,7 +40,7 @@ try
     var logLines = new List<string>();
     var logSource = new ManualLogSource("bundle-pipeline-privacy");
     logSource.LogEvent += (_, args) => logLines.Add(args.Data?.ToString() ?? string.Empty);
-    BppLog.Install(logSource);
+    BppLog.Install(new BepInExLogSink(logSource));
 
     var artifacts = new PipelineArtifacts();
     var dataRoot = Path.Combine(root, "pipeline");
@@ -862,7 +863,7 @@ internal sealed class TestPaths(string root) : IPathProvider
 internal sealed class TestServices(IPathProvider paths) : IBppServices
 {
     public IBppEventBus EventBus { get; } = new InMemoryBppEventBus();
-    public BppConfig Config => null!;
+    public BppSettings Config => null!;
     public IPathProvider Paths => paths;
     public IRunContext RunContext => null!;
     public IGameStateProbe GameStateProbe => null!;

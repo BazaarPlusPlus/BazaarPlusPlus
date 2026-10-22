@@ -15,7 +15,7 @@ internal static class UpgradeTooltipScheduler
         new HashSet<CardController>();
 
     private static bool IsUpgradePreviewActive(
-        BppConfig? config,
+        BppSettings? config,
         IEncounterStateProbe? encounterState
     )
     {
@@ -28,7 +28,7 @@ internal static class UpgradeTooltipScheduler
 
     internal static bool TryScheduleUpgradeTooltip(
         CardController controller,
-        BppConfig? config,
+        BppSettings? config,
         IEncounterStateProbe? encounterState,
         CardTooltipData? tooltipData = null
     )
@@ -72,7 +72,7 @@ internal static class UpgradeTooltipScheduler
         CardController controller,
         Card card,
         CardTooltipData tooltipData,
-        BppConfig? config,
+        BppSettings? config,
         IEncounterStateProbe? encounterState
     )
     {
@@ -126,7 +126,7 @@ internal static class UpgradeTooltipScheduler
         Card card,
         CardTooltipData tooltipData,
         CardTooltipController tooltipController,
-        BppConfig? config,
+        BppSettings? config,
         IEncounterStateProbe? encounterState
     )
     {

@@ -10,10 +10,10 @@ namespace BazaarPlusPlus.Game.Input;
 
 internal static class BppHotkeyService
 {
-    private static BppConfig? _config;
+    private static BppSettings? _config;
     private static readonly HotkeyActivationState UpgradePreviewActivation = new();
 
-    public static void Install(BppConfig config)
+    public static void Install(BppSettings config)
     {
         _config = config ?? throw new ArgumentNullException(nameof(config));
         ResetBindingPathCache();
@@ -38,7 +38,7 @@ internal static class BppHotkeyService
         CachedBindingPaths.Clear();
     }
 
-    private static BppConfig Config =>
+    private static BppSettings Config =>
         _config
         ?? throw new InvalidOperationException(
             "BppHotkeyService.Install must be called at startup."
@@ -382,9 +382,7 @@ internal static class BppHotkeyService
             entry.Value = bindingPath;
     }
 
-    private static BepInEx.Configuration.ConfigEntry<string>? GetConfigEntry(
-        BppHotkeyActionId actionId
-    )
+    private static ISetting<string>? GetConfigEntry(BppHotkeyActionId actionId)
     {
         return actionId switch
         {

@@ -83,20 +83,20 @@ internal static class GraphicsUpscalingSharpnessSettingsDockEntry
             BppSettingsDockOrder.GraphicsUpscalingSharpness,
             "GraphicsUpscalingSharpness",
             languageCode => Labels.Resolve(languageCode, L.CurrentMode),
-            new[] { 0.6f, 0.75f, BppConfig.DefaultFsrSharpness, 1f },
+            new[] { 0.6f, 0.75f, BppSettings.DefaultFsrSharpness, 1f },
             config => config.GraphicsUpscalingSharpnessConfig.Value,
             (config, sharpness) =>
             {
                 config.GraphicsUpscalingSharpnessConfig.Value = sharpness;
             },
-            sharpness => !Approximately(sharpness, BppConfig.DefaultFsrSharpness),
+            sharpness => !Approximately(sharpness, BppSettings.DefaultFsrSharpness),
             ResolveStatus
         );
 
     private static string ResolveStatus(float sharpness, string languageCode)
     {
         var percentage = $"{MathF.Round(sharpness * 100f)}%";
-        if (Approximately(sharpness, BppConfig.DefaultFsrSharpness))
+        if (Approximately(sharpness, BppSettings.DefaultFsrSharpness))
         {
             return new LocalizedTextSet(
                 $"RECOMMENDED · {percentage}",

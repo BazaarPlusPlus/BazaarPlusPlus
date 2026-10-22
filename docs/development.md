@@ -15,7 +15,7 @@ just doctor
 
 - 配置目录（默认 `~/.config/bazaarplusplus`）由同一台机器的所有 clone 共用，必须放在任何 checkout 之外。新机器要单独恢复这个私有目录，以及游戏、平台工具链和系统证书；Git clone 不带这些东西。
 - 只改 `config.ini`。server 的 `.dev.vars` 和 analyzer 的 `.env` 是它的受管理副本；改完配置运行 `just setup --skip-deps`，或者直接用会自动刷新副本的 `just server::dev`、`just analyzer::cli <command>`。直接跑 npm/uv 命令读到的是当前副本，不会刷新。
-- 凭据按信任域一套，不按 bucket 一套。四个域各一把 Cloudflare token：操作员 token（`[cloudflare] CLOUDFLARE_API_TOKEN`，R2 读写 `bppinstaller`、`bazaarplusplus-game-libs` 和两个 metrics 桶（V5 与 `bazaarplusplus-metrics-v6`），加 Wrangler 需要的权限）、CI 只读 token（仅读 `bazaarplusplus-game-libs`，`[cloudflare] BPP_GAME_LIBS_TOKEN`，GitHub 仓库 secret `BPP_GAME_LIBS_TOKEN`）、site 部署 token（只在两个 site 环境里）、analyzer token（只读写 `bazaarplusplus-metrics-v6` 和 `bazaarplusplus-analyzer-state-v6`，`[cloudflare] BPP_ANALYZER_R2_TOKEN`，GitHub `analyzer` 环境 secret，供 `analyzer.yml` 生产运行）。R2 的 S3 密钥对不单独保存：Access Key ID 是 token 的 id，Secret Access Key 是 token 值的 SHA-256，`release/r2-store.mjs` 与 analyzer 的 `object_store.py` 自己推导。账号 ID 不是 secret，本地唯一来源是 `[cloudflare] CLOUDFLARE_ACCOUNT_ID`。
+- Cloudflare 只有两把 token。操作员 token（`[cloudflare] CLOUDFLARE_API_TOKEN`，R2 读写所有桶，加 Wrangler 部署需要的权限）是唯一能写的凭据：本机发版、部署都用它，GitHub 上它是一个仓库级 secret，`release.yml`、`analyzer.yml` 和 `deploy-site.yml` 共用。CI 只读 token（仅读 `bazaarplusplus-game-libs`，`[cloudflare] BPP_GAME_LIBS_TOKEN`，GitHub 仓库 secret 和 Dependabot secret `BPP_GAME_LIBS_TOKEN`）单独存在，是因为 Dependabot PR 会在 CI 里执行依赖更新带进来的代码，那里只能拿到只读凭据。R2 的 S3 密钥对不单独保存：Access Key ID 是 token 的 id，Secret Access Key 是 token 值的 SHA-256，`release/r2-store.mjs` 与 analyzer 的 `object_store.py` 自己推导。账号 ID 不是 secret，本地唯一来源是 `[cloudflare] CLOUDFLARE_ACCOUNT_ID`。
 - GitHub secrets 和变量按 `release/github-secrets.json` 同步：`just secrets-check` 只列名字，`just secrets-sync` 把本地有值的项通过 `gh` 写上去（值走 stdin，不打印）；人工步骤只剩造 token 和导出证书，见[产品发布](release.md#github-actions-发版)。
 - `doctor` 只是清单：退出成功不代表远端权限、签名密码或服务可用。
 
@@ -34,6 +34,7 @@ just mod::fetch macos online      # Windows 用 windows
 - 显式 `-p:ManagedPath`（或 `config.ini` `[machine]` 的 `BPP_MANAGED_PATH`）绕过锁解析，但只是换一种取包方式，不是换一套程序集：`mod::check` 里的 `lock-check` 对它解析到的目录核对，版本串被某个锁条目记录而 sha256 不一致即失败，不被任何条目记录只告警；`release::prepare` 则直接拒绝不对应任何锁条目的目录。
 - 锁条目为空时 `mod::lock-check` 和 `release::check` 只告警；构建仍须解析所选渠道的锁条目，不会借用其他渠道的条目。
 - 锁只通过 PR 推进：在挂了对应 Steam 分支的机器上 `just mod::snapshot`，再 `just mod::publish <platform> <channel>` 上传私有存储，然后提交锁文件。游戏更新后本机 Steam 与锁不一致，锁推进前无法构建，这是接受的代价。
+- Android 只有 `android-online` 一个键，快照是 Interop Snapshot（[ADR 0008](adr/0008-interop-snapshots-in-snapshot-lock.md)）。`just with-config release just mod::fetch android online` 打印 interop 目录，并把 Loader Release 解到 `game-libs/loader-<tag>/`；Android 工程导入 `bazaarplusplus-mod/build/InteropPath.props` 取 `InteropPath` 与 `LemonLoaderPath`。推进时 `just mod::snapshot-android <TheBazaar.apk>` 沿用锁里的工具链，只在 Linux x64 上生成 interop；在其他主机上要传 `--interop <dir>`，用对同一 APK 生成好的目录。换工具链的选项见 `node release/game-libs.mjs --help`；Cpp2IL 用发布页的 Linux 二进制，并对照 GitHub 资产摘要核对。之后 `just mod::publish android online` 上传 interop、官方 APK 与工具链（APK 约 2.8 GB，一次流式上传），再提交锁文件。
 
 ## 环境与依赖
 

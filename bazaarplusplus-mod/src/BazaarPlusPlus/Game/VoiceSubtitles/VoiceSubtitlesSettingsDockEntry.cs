@@ -42,7 +42,7 @@ internal static class VoiceSubtitlesSettingsDockEntry
         registry.Register(VoiceSubtitlesChineseFontScaleSettingsDockEntry.Create());
     }
 
-    private static SubtitleMode ReadMode(BppConfig config)
+    private static SubtitleMode ReadMode(BppSettings config)
     {
         if (!config.EnableVoiceSubtitlesConfig.Value)
             return SubtitleMode.Off;
@@ -55,7 +55,7 @@ internal static class VoiceSubtitlesSettingsDockEntry
         };
     }
 
-    private static void WriteMode(BppConfig config, SubtitleMode mode)
+    private static void WriteMode(BppSettings config, SubtitleMode mode)
     {
         config.EnableVoiceSubtitlesConfig.Value = mode != SubtitleMode.Off;
 
@@ -115,7 +115,7 @@ internal static class VoiceSubtitlesPositionSettingsDockEntry
             {
                 config.VoiceSubtitlesPositionConfig.Value = position;
             },
-            position => position != BppConfig.DefaultVoiceSubtitlesPosition,
+            position => position != BppSettings.DefaultVoiceSubtitlesPosition,
             ResolveStatus
         );
 
@@ -177,8 +177,8 @@ internal static class VoiceSubtitlesFontScaleDockEntryFactory
         int order,
         string key,
         LocalizedTextSet label,
-        Func<BppConfig, float> read,
-        Action<BppConfig, float> write
+        Func<BppSettings, float> read,
+        Action<BppSettings, float> write
     ) =>
         new(
             order,

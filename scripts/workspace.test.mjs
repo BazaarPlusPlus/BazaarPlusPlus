@@ -359,7 +359,6 @@ APPLE_CERTIFICATE_PASSWORD=
 CLOUDFLARE_API_TOKEN=
 CLOUDFLARE_ACCOUNT_ID="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 BPP_GAME_LIBS_TOKEN=
-BPP_ANALYZER_R2_TOKEN=
 # Migrated by setup: the lines below are no longer read (R2 keys derive from CLOUDFLARE_API_TOKEN; the updater key has no password). Delete them once the token is set.
 # [release] BPP_R2_ACCESS_KEY_ID=release-key
 # [release] BPP_R2_SECRET_ACCESS_KEY=release-secret
@@ -963,9 +962,8 @@ test('secrets check names what GitHub and the local configuration hold, never a 
     result.stdout,
     `CLOUDFLARE_ACCOUNT_ID       repository variable           GitHub MISSING  local present (config.ini [cloudflare] CLOUDFLARE_ACCOUNT_ID)
 BPP_GAME_LIBS_TOKEN         repository secret             GitHub MISSING  local MISSING (config.ini [cloudflare] BPP_GAME_LIBS_TOKEN)
-CLOUDFLARE_API_TOKEN        release environment secret    GitHub present  local present (config.ini [cloudflare] CLOUDFLARE_API_TOKEN)
+CLOUDFLARE_API_TOKEN        repository secret             GitHub MISSING  local present (config.ini [cloudflare] CLOUDFLARE_API_TOKEN)
 BPP_BUNDLE_SYNC_TOKEN       analyzer environment secret   GitHub MISSING  local present (config.ini [server] BUNDLE_SYNC_TOKEN)
-BPP_ANALYZER_R2_TOKEN       analyzer environment secret   GitHub MISSING  local MISSING (config.ini [cloudflare] BPP_ANALYZER_R2_TOKEN)
 TAURI_SIGNING_PRIVATE_KEY   release environment secret    GitHub MISSING  local present (contents of keys/tauri-updater.key)
 APPLE_SIGNING_IDENTITY      release environment variable  GitHub MISSING  local present (config.ini [signing] APPLE_SIGNING_IDENTITY)
 APPLE_API_ISSUER            release environment variable  GitHub MISSING  local present (config.ini [signing] APPLE_API_ISSUER)
@@ -973,8 +971,8 @@ APPLE_API_KEY               release environment variable  GitHub MISSING  local 
 APPLE_API_KEY_P8            release environment secret    GitHub MISSING  local present (contents of keys/AuthKey_<APPLE_API_KEY>.p8)
 APPLE_CERTIFICATE           release environment secret    GitHub MISSING  local MISSING (base64 of keys/developer-id.p12)
 APPLE_CERTIFICATE_PASSWORD  release environment secret    GitHub MISSING  local MISSING (config.ini [signing] APPLE_CERTIFICATE_PASSWORD)
-12 managed names: 11 missing on GitHub, 4 missing locally.
-Stale on GitHub (secrets push --prune removes them): site-preview environment variable CLOUDFLARE_ACCOUNT_ID; site-production environment variable CLOUDFLARE_ACCOUNT_ID; release environment secret BPP_R2_ACCOUNT_ID
+11 managed names: 11 missing on GitHub, 3 missing locally.
+Stale on GitHub (secrets push --prune removes them): release environment secret CLOUDFLARE_API_TOKEN; site-preview environment variable CLOUDFLARE_ACCOUNT_ID; site-production environment variable CLOUDFLARE_ACCOUNT_ID; release environment secret BPP_R2_ACCOUNT_ID
 Dependabot secrets were not listed; pass --dependabot to include them.
 `
   );
@@ -1021,10 +1019,6 @@ test('secrets push copies each local value over stdin to its scope, skips absent
   );
   assert.match(
     result.stdout,
-    /^skipped analyzer environment secret BPP_ANALYZER_R2_TOKEN: no local value/m
-  );
-  assert.match(
-    result.stdout,
     /^skipped release environment secret APPLE_CERTIFICATE_PASSWORD: no local value/m
   );
   assert.match(
@@ -1033,7 +1027,7 @@ test('secrets push copies each local value over stdin to its scope, skips absent
   );
   assert.match(
     result.stdout,
-    /^Set 9 GitHub names; 3 without a local value\.$/m
+    /^Set 9 GitHub names; 2 without a local value\.$/m
   );
   const sets = gh.calls().filter(({ args }) => args[1] === 'set');
   const byName = Object.fromEntries(
@@ -1044,7 +1038,7 @@ test('secrets push copies each local value over stdin to its scope, skips absent
   );
   assert.deepEqual(byName, {
     'variable:CLOUDFLARE_ACCOUNT_ID:': 'cccccccccccccccccccccccccccccccc',
-    'secret:CLOUDFLARE_API_TOKEN:--env release': 'operator-token',
+    'secret:CLOUDFLARE_API_TOKEN:': 'operator-token',
     'secret:BPP_BUNDLE_SYNC_TOKEN:--env analyzer': 'sync',
     'secret:TAURI_SIGNING_PRIVATE_KEY:--env release': 'UPDATER-KEY\n',
     'variable:APPLE_SIGNING_IDENTITY:--env release':
