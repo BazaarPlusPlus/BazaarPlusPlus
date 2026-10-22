@@ -9,7 +9,7 @@ import {
   verifyMainlandMirrors
 } from './mirror.mjs';
 
-const baseUrl = 'https://bppinstaller.bazaarplusplus.com';
+const baseUrl = 'https://cdn.bazaarplusplus.com/installer';
 const windowsInstaller = (version) =>
   `${baseUrl}/${version}/windows-x86_64/installer/BazaarPlusPlus_${version}_x64-setup.exe`;
 const macInstaller = (version) =>

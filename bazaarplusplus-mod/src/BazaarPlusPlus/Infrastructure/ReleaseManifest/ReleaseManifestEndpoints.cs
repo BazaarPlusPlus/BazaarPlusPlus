@@ -12,11 +12,11 @@ internal static class ReleaseManifestEndpoints
     internal const string WindowsPlatformKey = "windows-x86_64";
     internal const string MacPlatformKey = "darwin-aarch64";
 
-    private const string ReleaseOrigin = "https://bppinstaller.bazaarplusplus.com";
+    private const string ReleaseBaseUrl = "https://cdn.bazaarplusplus.com/installer";
     private const string ReleaseManifestPath = "latest.json";
 
     internal static Uri ForPlatformKey(string? platformKey) =>
         platformKey is WindowsPlatformKey or MacPlatformKey
-            ? new Uri($"{ReleaseOrigin}/latest/{platformKey}.json")
-            : new Uri($"{ReleaseOrigin}/{ReleaseManifestPath}");
+            ? new Uri($"{ReleaseBaseUrl}/latest/{platformKey}.json")
+            : new Uri($"{ReleaseBaseUrl}/{ReleaseManifestPath}");
 }

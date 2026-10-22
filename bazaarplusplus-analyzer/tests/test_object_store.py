@@ -225,6 +225,37 @@ def test_r2_adapter_reads_objects_written_without_sha256_metadata(monkeypatch) -
     assert stored.stat.sha256 == hashlib.sha256(client.body).hexdigest()
 
 
+def test_r2_adapter_keeps_keys_relative_to_its_prefix(monkeypatch) -> None:
+    client = _FakeR2Client(datetime(2026, 10, 22, tzinfo=UTC))
+    monkeypatch.setattr(object_store_module.boto3, "client", lambda *_args, **_kwargs: client)
+    with _Verify(_verified()).client() as http:
+        store = R2ObjectStore(
+            account_id=ACCOUNT,
+            bucket="bazaarplusplus-public",
+            api_token=_token(),
+            prefix="metrics/v6",
+            http_client=http,
+        )
+    stat = store.stat("heroes/latest.json")
+    store.get("heroes/latest.json")
+    store.put("builds/latest.json", b"{}", cache_control="cache")
+
+    assert stat is not None and stat.key == "heroes/latest.json"
+    assert [request["Key"] for _name, request in client.requests] == [
+        "metrics/v6/heroes/latest.json",
+        "metrics/v6/heroes/latest.json",
+        "metrics/v6/builds/latest.json",
+    ]
+    with _Verify(_verified()).client() as http, pytest.raises(ValueError, match="invalid"):
+        R2ObjectStore(
+            account_id=ACCOUNT,
+            bucket="bucket",
+            api_token=_token(),
+            prefix="../escape",
+            http_client=http,
+        )
+
+
 def test_r2_configuration_is_validated_before_any_request(monkeypatch) -> None:
     monkeypatch.setattr(
         object_store_module.boto3,

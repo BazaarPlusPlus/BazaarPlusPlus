@@ -3,7 +3,7 @@ export type Supporter = {
   tier: number;
 };
 
-const SUPPORTER_LIST_URL = 'https://bpp-static.bazaarplusplus.com/supporter-list.json';
+const SUPPORTER_LIST_URL = 'https://cdn.bazaarplusplus.com/mod-data/supporters/supporter-list.json';
 
 function isSupporter(value: unknown): value is Supporter {
   if (typeof value !== 'object' || value === null) {

@@ -4,7 +4,7 @@
       "index.js": 96802
     },
     "external": [
-      "https://bpp-static.bazaarplusplus.com/supporter-list.json"
+      "https://cdn.bazaarplusplus.com/mod-data/supporters/supporter-list.json"
     ],
     "icons": {
       "bazaarplusplus-icon.webp": 7296,
@@ -26,8 +26,8 @@
       "index.js": 96802
     },
     "external": [
-      "https://bppinstaller.bazaarplusplus.com/latest/darwin-aarch64.json",
-      "https://bppinstaller.bazaarplusplus.com/latest/windows-x86_64.json"
+      "https://cdn.bazaarplusplus.com/installer/latest/darwin-aarch64.json",
+      "https://cdn.bazaarplusplus.com/installer/latest/windows-x86_64.json"
     ],
     "icons": {
       "bazaarplusplus-icon.webp": 7296,
@@ -40,7 +40,7 @@
       "route-pages.js": 8607
     },
     "external": [
-      "https://bpp-metrics-v6.bazaarplusplus.com/heroes/latest.json"
+      "https://cdn.bazaarplusplus.com/metrics/v6/heroes/latest.json"
     ],
     "icons": {
       "bazaarplusplus-icon.webp": 7296,

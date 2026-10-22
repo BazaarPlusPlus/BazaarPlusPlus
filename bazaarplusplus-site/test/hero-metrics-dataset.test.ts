@@ -121,7 +121,7 @@ describe('loadHeroMetricsDataset', () => {
 
     expect(fetchStub).toHaveBeenCalledTimes(1);
     expect(fetchStub).toHaveBeenCalledWith(
-      'https://bpp-metrics-v6.bazaarplusplus.com/heroes/latest.json',
+      'https://cdn.bazaarplusplus.com/metrics/v6/heroes/latest.json',
       { signal: expect.any(AbortSignal) }
     );
     expect(dataset).toMatchObject({

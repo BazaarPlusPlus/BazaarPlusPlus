@@ -5,13 +5,13 @@
   "pub_date": "2026-09-19T00:00:00.000Z",
   "platforms": {
     "darwin-aarch64": {
-      "url": "https://bppinstaller.bazaarplusplus.com/3.1.1/darwin-aarch64/updater/BazaarPlusPlus.app.tar.gz",
+      "url": "https://cdn.bazaarplusplus.com/installer/3.1.1/darwin-aarch64/updater/BazaarPlusPlus.app.tar.gz",
       "signature": "macos-signature"
     }
   },
   "downloads": {
     "darwin-aarch64": {
-      "url": "https://bppinstaller.bazaarplusplus.com/3.1.1/darwin-aarch64/installer/BazaarPlusPlus_3.1.1_aarch64.dmg",
+      "url": "https://cdn.bazaarplusplus.com/installer/3.1.1/darwin-aarch64/installer/BazaarPlusPlus_3.1.1_aarch64.dmg",
       "size": 22,
       "sha256": "48b0957b4627aa54f76104f8b5a9060cf128e8f848bb8a4a76460217b2a7464e",
       "mainlandUrl": "https://cauyxy.lanzout.com/bppmac311"

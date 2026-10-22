@@ -1,4 +1,5 @@
 import {
+  LEGACY_RELEASE_BASE_URL,
   RELEASE_BASE_URL,
   DOWNLOAD_PLATFORM_KEYS,
   decodeMainlandDownloadUrl,
@@ -49,13 +50,15 @@ function decodeDownloadUrl(
     record && typeof record === 'object' ? (record as { url?: unknown }).url : undefined;
   if (typeof value !== 'string') throw new Error(`${path} missing ${platformKey} download`);
   const url = new URL(value);
+  const release = `/${version}/${platformKey}/installer/`;
   if (
-    url.origin !== RELEASE_BASE_URL ||
     url.username ||
     url.password ||
     url.hash ||
     url.search ||
-    !url.pathname.startsWith(`/${version}/${platformKey}/installer/`)
+    ![RELEASE_BASE_URL, LEGACY_RELEASE_BASE_URL].some((base) =>
+      url.href.startsWith(`${base}${release}`)
+    )
   ) {
     throw new Error(`${path} has an invalid ${platformKey} download`);
   }

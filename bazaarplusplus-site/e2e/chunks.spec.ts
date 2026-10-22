@@ -125,7 +125,7 @@ test('the main bundle leaves Hero metrics ingestion to the lazy /heroes chunk', 
     );
     expect(files, `one ${prefix} chunk in dist/assets`).toHaveLength(1);
     return (
-      readFileSync(resolve(assets, files[0]), 'utf8').split('bpp-metrics-v6.bazaarplusplus.com')
+      readFileSync(resolve(assets, files[0]), 'utf8').split('cdn.bazaarplusplus.com/metrics/v6')
         .length - 1
     );
   };

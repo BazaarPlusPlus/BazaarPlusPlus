@@ -1,9 +1,9 @@
 <Project>
   <PropertyGroup>
     <VoiceLinesRemoteUrl Condition="'$(VoiceLinesRemoteUrl)' == ''"
-      >https://bazaarline-installer.bazaarplusplus.com/data/voice-lines.json</VoiceLinesRemoteUrl>
+      >https://cdn.bazaarplusplus.com/mod-data/voice-lines/voice-lines.json</VoiceLinesRemoteUrl>
     <TenWinBuildsRemoteUrl Condition="'$(TenWinBuildsRemoteUrl)' == ''"
-      >https://bpp-metrics-v6.bazaarplusplus.com/builds/latest.json</TenWinBuildsRemoteUrl>
+      >https://cdn.bazaarplusplus.com/metrics/v6/builds/latest.json</TenWinBuildsRemoteUrl>
     <RemoteEmbeddedDataDirectory Condition="'$(RemoteEmbeddedDataDirectory)' == ''"
       >$(MSBuildThisFileDirectory)obj/remote-data</RemoteEmbeddedDataDirectory>
     <TenWinBuildsEmbeddedSeed>$(MSBuildThisFileDirectory)Data/BuildRecommendations/builds.json</TenWinBuildsEmbeddedSeed>

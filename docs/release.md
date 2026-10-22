@@ -85,6 +85,8 @@ just 只转发，不缓存或跳过任何发布检查。直接调用 `node relea
 
 ## 远端发布
 
+发布产物放在公开桶 `bazaarplusplus-public` 的 `installer/` 前缀下，对外地址是 `https://cdn.bazaarplusplus.com/installer`（`RELEASE_BASE_URL`）。同一个桶还放 analyzer 的 `metrics/v6/` 和 `just release::mod-data` 上传的 `mod-data/`，见 [ADR 0007](adr/0007-one-public-bucket-and-domain.md)。6.0.0 之前推广的版本仍以 `bppinstaller.bazaarplusplus.com` 记录地址，这个域名作为别名改写到 `installer/`。
+
 上传使用 R2 S3 条件写，凭据是操作员 token 与账号 ID：
 
 - `CLOUDFLARE_API_TOKEN`

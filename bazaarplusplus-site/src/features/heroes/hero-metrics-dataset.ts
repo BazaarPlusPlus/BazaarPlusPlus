@@ -70,7 +70,7 @@ export class HeroMetricsHttpError extends Error {
   }
 }
 
-const DEFAULT_METRICS_BASE_URL = 'https://bpp-metrics-v6.bazaarplusplus.com';
+const DEFAULT_METRICS_BASE_URL = 'https://cdn.bazaarplusplus.com/metrics/v6';
 const HERO_METRICS_PATH = 'heroes/latest.json';
 const REQUEST_TIMEOUT_MS = 15_000;
 const STORED_SEGMENTS = new Set<string>(['legend', 'non_legend']);

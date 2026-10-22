@@ -8,8 +8,8 @@ heroes/latest.json
 builds/latest.json
 ```
 
-Both publish to the V6 metrics bucket, served at
-`https://bpp-metrics-v6.bazaarplusplus.com`; see
+Both publish to `metrics/v6/` in the public bucket, served at
+`https://cdn.bazaarplusplus.com/metrics/v6`; see
 [Publication target](docs/architecture.md#publication-target).
 
 ## Operate

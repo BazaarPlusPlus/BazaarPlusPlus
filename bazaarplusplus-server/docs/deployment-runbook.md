@@ -30,7 +30,7 @@ npx wrangler r2 bucket lifecycle add bazaarplusplus-bundle-v6 v6-bundle-retentio
 npx wrangler r2 bucket lifecycle list bazaarplusplus-bundle-v6
 ```
 
-The listing must show the `bundles/` prefix expiring after 8 days. The Worker never deletes R2 objects; this rule is the only R2 retention.
+The listing must show the `bundles/` prefix expiring after 8 days, and no rule without a prefix: the analyzer keeps its Data Root under `analyzer-state/` in the same bucket ([ADR 0007](../../docs/adr/0007-one-public-bucket-and-domain.md)). The Worker never deletes R2 objects; this rule is the only R2 retention.
 
 Create an R2 S3 API credential scoped to `bazaarplusplus-bundle-v6` with Object Read permission only. Do not grant write, delete, or access to another bucket, and do not reuse a credential scoped to another bucket.
 

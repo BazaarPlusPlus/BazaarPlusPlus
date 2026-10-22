@@ -225,7 +225,7 @@ internal static class TenWinBuildTests
 
     private static void TestRemoteUrlsUseMetricsV6Latest()
     {
-        const string expected = "https://bpp-metrics-v6.bazaarplusplus.com/builds/latest.json";
+        const string expected = "https://cdn.bazaarplusplus.com/metrics/v6/builds/latest.json";
         var runtimeUrl = (string?)
             typeof(TenWinBuildCatalogFactory)
                 .GetField("RemoteUrl", BindingFlags.NonPublic | BindingFlags.Static)

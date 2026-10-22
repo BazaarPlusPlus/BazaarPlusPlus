@@ -33,6 +33,7 @@ class Config:
     cloudflare_account_id: str | None = None
     cloudflare_api_token: str | None = field(default=None, repr=False)
     r2_bucket: str | None = None
+    r2_prefix: str = ""
 
 
 def repository_root() -> Path:
@@ -92,6 +93,7 @@ def load_config(
         cloudflare_account_id=cloudflare_account_id,
         cloudflare_api_token=cloudflare_api_token,
         r2_bucket=r2_bucket,
+        r2_prefix=(_optional(values.get("BPP_METRICS_R2_PREFIX")) or "").strip("/"),
     )
 
 

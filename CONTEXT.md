@@ -38,7 +38,7 @@ _Avoid_: game-libs manifest, Steam buildid pin
 ## Credentials
 
 **Operator Token** (操作员 token):
-The one Cloudflare API token a maintainer holds for every R2 bucket (`bppinstaller`, `bazaarplusplus-game-libs`, both metrics buckets) and for Wrangler: `config.ini` `[cloudflare] CLOUDFLARE_API_TOKEN` locally, the repository secret `CLOUDFLARE_API_TOKEN` on GitHub, shared by the release, analyzer and site workflows. The only other Cloudflare token is the read-only CI token (`BPP_GAME_LIBS_TOKEN`, the game-libs bucket only), kept apart because Dependabot PRs run updated dependency code in CI. R2's S3 pair is a view of a token, Access Key ID its id and Secret Access Key the SHA-256 of its value, so `release/r2-store.mjs` and the analyzer's `object_store.py` derive it and nothing stores it. `release/github-secrets.json` maps every GitHub name to its scope and local source.
+The one Cloudflare API token a maintainer holds for every R2 bucket (`bazaarplusplus-public`, `bazaarplusplus-bundle-v6`, `bazaarplusplus-game-libs`) and for Wrangler: `config.ini` `[cloudflare] CLOUDFLARE_API_TOKEN` locally, the repository secret `CLOUDFLARE_API_TOKEN` on GitHub, shared by the release, analyzer and site workflows. The only other Cloudflare token is the read-only CI token (`BPP_GAME_LIBS_TOKEN`, the game-libs bucket only), kept apart because Dependabot PRs run updated dependency code in CI. R2's S3 pair is a view of a token, Access Key ID its id and Secret Access Key the SHA-256 of its value, so `release/r2-store.mjs` and the analyzer's `object_store.py` derive it and nothing stores it. `release/github-secrets.json` maps every GitHub name to its scope and local source.
 _Avoid_: release R2 keys, per-bucket key pair
 
 ## Local data

@@ -81,12 +81,19 @@ export async function credentialsFromApiToken({
   return { accountId: account, accessKeyId: await pending, secretAccessKey };
 }
 
+// Release artifacts live under installer/ in the public bucket, served at
+// https://cdn.bazaarplusplus.com/installer (RELEASE_BASE_URL). Callers use keys
+// relative to the prefix; another bucket has no prefix unless one is given.
+export const RELEASE_BUCKET = 'bazaarplusplus-public';
+export const RELEASE_PREFIX = 'installer';
+
 export function createR2Store({
   accountId,
   accessKeyId,
   secretAccessKey,
   credentials,
-  bucket = 'bppinstaller',
+  bucket = RELEASE_BUCKET,
+  prefix = bucket === RELEASE_BUCKET ? RELEASE_PREFIX : '',
   fetchImpl = fetch,
   now = () => new Date()
 }) {
@@ -101,6 +108,8 @@ export function createR2Store({
   }
   if (!/^[a-z0-9][a-z0-9-]*[a-z0-9]$/.test(bucket))
     throw new Error('Invalid R2 bucket');
+  if (prefix && !/^[a-z0-9][a-z0-9-]*(\/[a-z0-9][a-z0-9-]*)*$/.test(prefix))
+    throw new Error('Invalid R2 key prefix');
   const host = `${account}.r2.cloudflarestorage.com`;
 
   async function request(method, key, body, extraHeaders = {}) {
@@ -109,7 +118,8 @@ export function createR2Store({
       key.split('/').some((part) => !part || part === '.' || part === '..')
     )
       throw new Error('Invalid R2 object key');
-    const uri = `/${encode(bucket)}/${key.split('/').map(encode).join('/')}`;
+    const stored = prefix ? `${prefix}/${key}` : key;
+    const uri = `/${encode(bucket)}/${stored.split('/').map(encode).join('/')}`;
     const { accessKeyId, secretAccessKey } = await credentials();
     const date = now()
       .toISOString()
@@ -235,6 +245,7 @@ export function r2StoreFromApiToken({
   token,
   accountId,
   bucket,
+  prefix,
   fetchImpl = fetch,
   now
 }) {
@@ -245,6 +256,7 @@ export function r2StoreFromApiToken({
     credentials: () =>
       credentialsFromApiToken({ token: value, accountId: account, fetchImpl }),
     ...(bucket === undefined ? {} : { bucket }),
+    ...(prefix === undefined ? {} : { prefix }),
     fetchImpl,
     ...(now === undefined ? {} : { now })
   });

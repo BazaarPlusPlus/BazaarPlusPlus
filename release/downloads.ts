@@ -1,5 +1,9 @@
 // Browser-safe Product Release facts shared by the website, installer and writer.
-export const RELEASE_BASE_URL = 'https://bppinstaller.bazaarplusplus.com';
+export const RELEASE_BASE_URL = 'https://cdn.bazaarplusplus.com/installer';
+
+// Releases promoted before 6.0.0 name artifacts under this origin. It stays an
+// alias of the public bucket, rewritten to installer/, until 5.x clients age out.
+export const LEGACY_RELEASE_BASE_URL = 'https://bppinstaller.bazaarplusplus.com';
 
 export const DOWNLOAD_PLATFORM_KEYS = Object.freeze({
   windows: 'windows-x86_64',

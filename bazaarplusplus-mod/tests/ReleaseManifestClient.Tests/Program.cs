@@ -67,24 +67,24 @@ static async Task TestSharedPlatformReleaseManifests()
 static void TestEndpointFollowsThePlatform()
 {
     Equal(
-        "https://bppinstaller.bazaarplusplus.com/latest/windows-x86_64.json",
+        "https://cdn.bazaarplusplus.com/installer/latest/windows-x86_64.json",
         ReleaseManifestEndpoints
             .ForPlatformKey(ReleaseManifestEndpoints.WindowsPlatformKey)
             .ToString(),
         "Windows should read its own Platform Release Manifest."
     );
     Equal(
-        "https://bppinstaller.bazaarplusplus.com/latest/darwin-aarch64.json",
+        "https://cdn.bazaarplusplus.com/installer/latest/darwin-aarch64.json",
         ReleaseManifestEndpoints.ForPlatformKey(ReleaseManifestEndpoints.MacPlatformKey).ToString(),
         "macOS should read its own Platform Release Manifest."
     );
     Equal(
-        "https://bppinstaller.bazaarplusplus.com/latest.json",
+        "https://cdn.bazaarplusplus.com/installer/latest.json",
         ReleaseManifestEndpoints.ForPlatformKey(null).ToString(),
         "An unknown platform should fall back to the lockstep Release Manifest."
     );
     Equal(
-        "https://bppinstaller.bazaarplusplus.com/latest.json",
+        "https://cdn.bazaarplusplus.com/installer/latest.json",
         ReleaseManifestEndpoints.ForPlatformKey("linux-x86_64").ToString(),
         "An undeclared platform key should fall back to the lockstep Release Manifest."
     );

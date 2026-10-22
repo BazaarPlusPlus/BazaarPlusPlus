@@ -21,6 +21,7 @@ def test_object_store_configuration_is_complete_and_credentials_are_repr_safe(
     _write_env(
         tmp_path,
         "BPP_METRICS_R2_BUCKET=fixture-bucket\n"
+        "BPP_METRICS_R2_PREFIX=/metrics/v6/\n"
         "CLOUDFLARE_ACCOUNT_ID=fixture-account\n"
         "CLOUDFLARE_API_TOKEN=fixture-token\n",
     )
@@ -29,6 +30,7 @@ def test_object_store_configuration_is_complete_and_credentials_are_repr_safe(
 
     assert config.data_root == tmp_path / "fixture-data"
     assert config.r2_bucket == "fixture-bucket"
+    assert config.r2_prefix == "metrics/v6"
     assert config.cloudflare_account_id == "fixture-account"
     assert config.cloudflare_api_token == "fixture-token"
     assert "fixture-token" not in repr(config)
