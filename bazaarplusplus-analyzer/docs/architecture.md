@@ -69,11 +69,9 @@ servers `http://localhost:3000`, `:4173`, `:5173`, `http://127.0.0.1:3000` and
 ## Production runs
 
 Production runs are `.github/workflows/analyzer.yml` on a GitHub-hosted runner,
-plus manual dispatch with an optional `--no-publish`. The V6 Bundle Server
-Worker starts the hourly run through `workflow_dispatch`, because GitHub's own
-`schedule` trigger drops most events under load; the workflow keeps a sparse
-`schedule` only as a fallback (`bazaarplusplus-server/docs/deployment-runbook.md`,
-Analyzer dispatch). A runner starts
+plus manual dispatch with an optional `--no-publish`. Its hourly `schedule`
+is best-effort: GitHub drops many of those events, and the next run that fires
+ingests every settled hour since the last one. A runner starts
 empty, so the Data Root lives in the private R2 bucket
 `bazaarplusplus-analyzer-state-v6` and `.github/scripts/analyzer-state.sh`
 mirrors it around each run:

@@ -4,9 +4,8 @@ compatibility_date = "2026-08-02"
 workers_dev = false
 
 [triggers]
-# */15 runs D1 retention; 23 * * * * starts the analyzer workflow
-# (src/modules/analyzer-dispatch.ts, ANALYZER_DISPATCH_CRON).
-crons = ["*/15 * * * *", "23 * * * *"]
+# */15 runs D1 retention.
+crons = ["*/15 * * * *"]
 
 [placement]
 region = "aws:ap-east-1"
