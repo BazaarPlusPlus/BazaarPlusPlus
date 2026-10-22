@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.RegularExpressions;
 using BazaarPlusPlus.Game.ItemEnchantPreview;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
@@ -25,8 +26,13 @@ namespace BazaarPlusPlus.Android.GameInterop;
 /// </summary>
 internal static class AndroidEnchantPreview
 {
-    private const int PrefixSizePercent = 60;
-    private const int EffectSizePercent = 55;
+    private const int PrefixSizePercent = 50;
+    private const int EffectSizePercent = 46;
+    private const string LineHeight = "60%";
+    private static readonly Regex NativeLineHeight = new(
+        "</?line-height[^>]*>",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant
+    );
     private const long LoggedRenders = 10;
     private static string? _pending;
     private static long _rendered;
@@ -111,24 +117,30 @@ internal static class AndroidEnchantPreview
             var enchantment = entry.Value;
             if (enchantment == null || (current.HasValue && current.Value == type))
                 continue;
-            var effect = Render(card, template, enchantment, run);
+            var effect = Render(card, template, itemTemplate, type, enchantment, run);
             if (string.IsNullOrWhiteSpace(effect))
                 continue;
             lines.Add(Line(type, effect!));
         }
-        return lines.Count == 0 ? null : string.Join("\n", lines);
+        // A short blank first line keeps the list off the block's top divider.
+        return lines.Count == 0 ? null : $"<size=40%> </size>\n{string.Join("\n", lines)}";
     }
 
-    // Hand and stash items, or an item on the opponent's board, as on desktop.
+    // The desktop's ItemEnchantPreviewEligibility: an item on a board or in a stash, or one no
+    // player owns yet, such as a shop's.
     private static bool IsEligibleSection(ItemCard item)
     {
         var section = AndroidGameIds.Unboxed(() => item.Section);
-        return section is EInventorySection.Hand or EInventorySection.Stash;
+        return section is EInventorySection.Hand or EInventorySection.Stash || item.Owner == null;
     }
 
+    // The game's lock-mode preview card: the item at its tier with this enchantment applied,
+    // which carries the enchantment's attributes and lets its ability tokens resolve.
     private static string? Render(
         Card card,
         ITCard template,
+        TCardItem itemTemplate,
+        EEnchantmentType type,
         Il2CppBazaarGameShared.Domain.Cards.Enchantments.TEnchantment enchantment,
         IRun? run
     )
@@ -138,16 +150,20 @@ internal static class AndroidEnchantPreview
             return null;
 
         var preview = Il2CppTheBazaar.CardExtensions.CreateCopy(card);
+        var previewItem = preview.TryCast<ItemCard>();
+        if (previewItem == null)
+            return null;
         var attributes = Il2CppTheBazaar.CardExtensions.BuildAttributeDictionaryForTier(
             card,
             template,
             card.Tier
         );
-        if (enchantment.Attributes != null)
-        {
-            foreach (var attribute in enchantment.Attributes)
-                attributes[attribute.Key] = attribute.Value;
-        }
+        Il2CppTheBazaar.CardExtensions.ApplyPreviewEnchantment(
+            itemTemplate,
+            previewItem,
+            attributes,
+            new Il2CppSystem.Nullable<EEnchantmentType>(type)
+        );
         preview.Attributes = attributes;
         var context = new TooltipContext(
             preview,
@@ -187,7 +203,13 @@ internal static class AndroidEnchantPreview
         {
             label = name;
         }
-        return $"<size={PrefixSizePercent}%><color=#{ItemEnchantPreviewPalette.ColorHex(name)}>{label}</color>: </size>"
-            + $"<size={EffectSizePercent}%>{effect}</size>";
+        // The game's rendered text sets its own line height for full-size text; the preview's
+        // smaller lines replace it so that the whole list fits a phone-sized tooltip.
+        var scaled = ItemEnchantPreviewText.ScaleInlineSizes(
+            NativeLineHeight.Replace(effect, ""),
+            EffectSizePercent / 100f
+        );
+        return $"<line-height={LineHeight}><size={PrefixSizePercent}%><color=#{ItemEnchantPreviewText.ColorHex(name)}>{label}</color>: </size>"
+            + $"<size={EffectSizePercent}%>{scaled}</size></line-height>";
     }
 }

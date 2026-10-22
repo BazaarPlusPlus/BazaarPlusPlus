@@ -48,12 +48,12 @@ internal static class CardTooltipPatch
 internal static class CardTooltipHidePatch
 {
     [HarmonyPostfix]
-    private static void Postfix()
+    private static void Postfix(TooltipParentComponent __instance)
     {
         AndroidPatchHost.CountTooltipHidden();
         try
         {
-            AndroidUpgradePreview.Release("tooltip_hidden");
+            AndroidUpgradePreview.OnTooltipHidden(__instance);
         }
         catch (Exception exception)
         {

@@ -1,5 +1,4 @@
 #nullable enable
-using System.Text.RegularExpressions;
 using BazaarGameShared.Domain.Core.Types;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
@@ -17,11 +16,6 @@ public static class ItemEnchantPreviewFormatting
     private const string EntryBreakLineHeight = "<line-height=2.1em>";
     private const string LineHeightEnd = "</line-height>";
     private static readonly string EntryBreak = BuildEntryBreak(EntryBreakLineHeight);
-
-    private static readonly Regex SizeTagRegex = new Regex(
-        "<size=(\\d+)%>",
-        RegexOptions.Compiled | RegexOptions.CultureInvariant
-    );
 
     public static TooltipSegment CreateSegment(
         EEnchantmentType enchantmentType,
@@ -58,23 +52,8 @@ public static class ItemEnchantPreviewFormatting
     private static string NormalizeEntryLineEndings(string text) =>
         text.Replace("\r\n", "\n").Replace('\r', '\n').Trim('\n');
 
-    internal static string ScaleInlineSizes(string text, float scale)
-    {
-        if (string.IsNullOrEmpty(text))
-            return text;
-
-        return SizeTagRegex.Replace(
-            text,
-            match =>
-            {
-                if (!int.TryParse(match.Groups[1].Value, out var size))
-                    return match.Value;
-
-                var scaledSize = Math.Max(1, (int)Math.Round(size * scale));
-                return $"<size={scaledSize}%>";
-            }
-        );
-    }
+    internal static string ScaleInlineSizes(string text, float scale) =>
+        ItemEnchantPreviewText.ScaleInlineSizes(text, scale);
 
     public static string GetEnchantmentLabel(EEnchantmentType enchantmentType)
     {
@@ -100,5 +79,5 @@ public static class ItemEnchantPreviewFormatting
     }
 
     public static string GetEnchantmentColorHex(EEnchantmentType enchantmentType) =>
-        ItemEnchantPreviewPalette.ColorHex(enchantmentType.ToString());
+        ItemEnchantPreviewText.ColorHex(enchantmentType.ToString());
 }

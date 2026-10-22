@@ -20,7 +20,7 @@ internal static class AndroidTouchText
     public static readonly LocalizedTextSet On = new("On", "开", "開");
     public static readonly LocalizedTextSet Off = new("Off", "关", "關");
     public static readonly LocalizedTextSet GameUpdated = new(
-        "The game has updated: download the new installer",
+        "The game has updated: download the new APK",
         "游戏已更新，请下载新版安装包",
         "遊戲已更新，請下載新版安裝包"
     );
@@ -35,7 +35,6 @@ internal static class AndroidTouchText
         "无法读取历史数据库",
         "無法讀取歷史資料庫"
     );
-    public static readonly LocalizedTextSet SelectRun = new("Select a run", "选择一局", "選擇一局");
     public static readonly LocalizedTextSet NoBattles = new(
         "No battles recorded in this run",
         "这一局没有记录的战斗",

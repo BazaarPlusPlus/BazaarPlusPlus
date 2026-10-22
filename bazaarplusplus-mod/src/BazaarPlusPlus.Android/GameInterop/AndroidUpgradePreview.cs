@@ -2,6 +2,7 @@ using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
 using Il2CppBazaarGameClient.Domain.Models.Cards;
 using Il2CppTheBazaar;
+using Il2CppTheBazaar.UI.Tooltips;
 
 namespace BazaarPlusPlus.Android.GameInterop;
 
@@ -51,6 +52,23 @@ internal static class AndroidUpgradePreview
                 ("controller", controller.GetInstanceID()),
                 ("count", count)
             );
+    }
+
+    /// <summary>
+    /// The game asked its card tooltip to hide. The request returns early while a card-to-card
+    /// transition runs or the tooltip is locked, and then the held card's tooltip is still up;
+    /// only a hide that cleared the tooltip's card releases the preview.
+    /// </summary>
+    public static void OnTooltipHidden(TooltipParentComponent? parent)
+    {
+        var held = _held;
+        if (held == null)
+            return;
+        var shown = parent?.CardTooltipController?.CurrentCard;
+        var heldCard = held.WasCollected ? null : held.CardData;
+        if (shown != null && heldCard != null && shown.Pointer == heldCard.Pointer)
+            return;
+        Release("tooltip_hidden");
     }
 
     /// <summary>The card tooltip closed, the switch turned off, or the scene changed.</summary>

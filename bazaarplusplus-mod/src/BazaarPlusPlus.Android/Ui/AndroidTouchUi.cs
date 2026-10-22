@@ -17,7 +17,7 @@ namespace BazaarPlusPlus.Android.Ui;
 
 /// <summary>
 /// The touch entry that replaces the desktop's hotkeys and settings dock: a small BPP button at
-/// the top of the screen opens one panel with two pages. Settings holds the switches of the
+/// the left edge of the screen opens one panel with two pages. Settings holds the switches of the
 /// features the Android host has (upgrade preview, enchant preview) and, when the game is behind
 /// the published APK, the link to it. History lists the Runs the record chain wrote and the
 /// battles of the selected one. The panel closes on every scene change.
@@ -114,9 +114,9 @@ internal sealed class AndroidTouchUi
         var launcher = AndroidUiKit.Fixed(
             "Launcher",
             root,
-            new(0.5f, 1f),
-            new(0f, -10f),
-            new(150f, 60f)
+            new(0f, 0.5f),
+            new(8f, 0f),
+            new(120f, 60f)
         );
         var (_, _, launcherLabel) = AndroidUiKit.Button(launcher, font, "BPP", 30f, () => Toggle());
         _launcher = launcher.gameObject;
