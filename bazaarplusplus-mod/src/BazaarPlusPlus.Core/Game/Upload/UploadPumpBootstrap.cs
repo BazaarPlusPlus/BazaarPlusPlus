@@ -3,11 +3,12 @@ using BazaarPlusPlus.Core.Runtime;
 using BazaarPlusPlus.Game.BundlePipeline;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
+using BazaarPlusPlus.Storage.Sqlite;
 
 namespace BazaarPlusPlus.Game.Upload;
 
 /// <summary>
-/// Pure activation policy shared by the Unity pump and unit tests. PTR stays a pump-side
+/// Pure activation policy shared by <see cref="UploadPump"/> and unit tests. PTR stays a pump-side
 /// precondition; feature enablement remains session behavior after activation.
 /// </summary>
 public static class UploadPumpBootstrap
@@ -17,7 +18,8 @@ public static class UploadPumpBootstrap
     public static BundleUploadFeed.Session? ActivateIfAllowed(
         IBppServices services,
         UploadPumpCadence cadence,
-        string? platformKey
+        string? platformKey,
+        SqliteOpenOptions databaseOptions
     )
     {
         if (services == null)
@@ -35,6 +37,6 @@ public static class UploadPumpBootstrap
             return null;
         }
 
-        return BundleUploadFeed.Activate(services, cadence, platformKey);
+        return BundleUploadFeed.Activate(services, cadence, platformKey, databaseOptions);
     }
 }

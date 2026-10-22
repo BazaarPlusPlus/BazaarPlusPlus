@@ -10,6 +10,7 @@ using BazaarPlusPlus.ModApi.Bundle;
 using BazaarPlusPlus.Storage.BundleQueue;
 using BazaarPlusPlus.Storage.Paths;
 using BazaarPlusPlus.Storage.RunScreenshot;
+using BazaarPlusPlus.Storage.Sqlite;
 
 namespace BazaarPlusPlus.Game.BundlePipeline;
 
@@ -42,19 +43,14 @@ public sealed class BundleSealCoordinator : IBppFeature, IDisposable
     private int _wakePending;
     private bool _started;
 
-    public BundleSealCoordinator(
-        IBppServices services,
-        IRunPayloadComposer composer,
-        IBundleScreenshotEncoder screenshotEncoder
-    )
-        : this(services, composer, screenshotEncoder, faultProbe: null) { }
-
-    // Tests inject failures at named seal stages; production passes null.
+    // Tests inject failures at named seal stages; production passes null. The database options
+    // are the host's, required so no store here can open the file in another journal mode.
     public BundleSealCoordinator(
         IBppServices services,
         IRunPayloadComposer composer,
         IBundleScreenshotEncoder screenshotEncoder,
-        Action<BundleSealStage, string>? faultProbe
+        Action<BundleSealStage, string>? faultProbe,
+        SqliteOpenOptions databaseOptions
     )
     {
         _services = services ?? throw new ArgumentNullException(nameof(services));
@@ -62,13 +58,15 @@ public sealed class BundleSealCoordinator : IBppFeature, IDisposable
         _screenshotEncoder =
             screenshotEncoder ?? throw new ArgumentNullException(nameof(screenshotEncoder));
         _faultProbe = faultProbe;
+        if (databaseOptions == null)
+            throw new ArgumentNullException(nameof(databaseOptions));
         _launchedAtUtc = DateTimeOffset.UtcNow;
         var dataRoot = services.Paths.RequireDataRoot();
         _databasePath = PathConstants.RunLogDatabase(dataRoot);
         _screenshotRoot = PathConstants.Screenshots(dataRoot);
         _outboxRoot = PathConstants.BundleOutbox(dataRoot);
-        _queueStore = new BundleQueueStore(_databasePath);
-        _screenshotStore = new RunScreenshotSqliteStore(_databasePath);
+        _queueStore = new BundleQueueStore(_databasePath, databaseOptions);
+        _screenshotStore = new RunScreenshotSqliteStore(_databasePath, databaseOptions);
     }
 
     public void Start()

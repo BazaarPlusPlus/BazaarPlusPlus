@@ -1,33 +1,47 @@
 #nullable enable
 using System.Text.RegularExpressions;
-using BazaarGameShared.Domain.Core.Types;
 using BazaarPlusPlus.Game.CombatReplay;
 using BazaarPlusPlus.Game.PvpBattles;
 using BazaarPlusPlus.Game.PvpBattles.Persistence;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.ModApi.Bundle;
 using BazaarPlusPlus.Storage.RunLog;
-using Microsoft.Data.Sqlite;
+using BazaarPlusPlus.Storage.Sqlite;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
 namespace BazaarPlusPlus.Game.BundlePipeline;
 
-internal sealed class RunPayloadComposer : IRunPayloadComposer
+/// <summary>
+/// Composes one run's Run segment and projections from the history database, the stored board
+/// captures (<see cref="PvpBattleCardSetDocument"/>), and the local Replay Payloads. Storage owns
+/// every SQL read (<see cref="RunLogBundleSource"/>, <see cref="PvpBattleSqliteStore"/>); the host
+/// supplies only the game-typed reads, through <see cref="IPvpBattleEvidenceBinding"/>.
+/// </summary>
+public sealed class RunPayloadComposer : IRunPayloadComposer
 {
+    private const string ItemCardType = "Item";
+    private const string SkillCardType = "Skill";
     private static readonly Regex Identifier = new(
         "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
         RegexOptions.CultureInvariant
     );
-    private readonly string _databasePath;
-    private readonly PvpBattleCatalog _battleCatalog;
+    private readonly RunLogBundleSource _runs;
+    private readonly PvpBattleSqliteStore _battles;
     private readonly CombatReplayPayloadStore _replayStore;
+    private readonly IPvpBattleEvidenceBinding _evidence;
 
-    internal RunPayloadComposer(string databasePath, string replayRoot)
+    public RunPayloadComposer(
+        string databasePath,
+        string replayRoot,
+        IPvpBattleEvidenceBinding evidence,
+        SqliteOpenOptions databaseOptions
+    )
     {
-        _databasePath = databasePath;
-        _battleCatalog = new PvpBattleCatalog(databasePath);
+        _runs = new RunLogBundleSource(databasePath, databaseOptions);
+        _battles = new PvpBattleSqliteStore(databasePath, databaseOptions);
         _replayStore = new CombatReplayPayloadStore(replayRoot);
+        _evidence = evidence ?? throw new ArgumentNullException(nameof(evidence));
     }
 
     public string ResolvePlayerAccountId(string runId, string? frozenAccountId)
@@ -35,7 +49,7 @@ internal sealed class RunPayloadComposer : IRunPayloadComposer
         var frozen = NormalizeIdentifier(frozenAccountId);
         if (frozen != null)
             return frozen;
-        var candidates = _battleCatalog
+        var candidates = _battles
             .ListByRunId(runId)
             .Select(battle => NormalizeIdentifier(battle.Participants.PlayerAccountId))
             .Where(value => value != null)
@@ -58,7 +72,7 @@ internal sealed class RunPayloadComposer : IRunPayloadComposer
             Run = ReadRunFacts(runId),
             Events = ReadEvents(runId),
         };
-        var manifests = _battleCatalog
+        var manifests = _battles
             .ListByRunId(runId)
             .OrderBy(battle => battle.RecordedAtUtc)
             .ThenBy(battle => battle.BattleId, StringComparer.Ordinal)
@@ -87,79 +101,52 @@ internal sealed class RunPayloadComposer : IRunPayloadComposer
 
     private RunFactsV6 ReadRunFacts(string runId)
     {
-        using var connection = Open();
-        using var command = connection.CreateCommand();
-        command.CommandText = $"""
-            SELECT hero, game_mode, started_at_ms, ended_at_ms, status,
-                   COALESCE(final_day, day), COALESCE(final_hour, hour), victories, losses,
-                   player_rank, player_rating, final_player_rank, final_player_rating,
-                   final_player_rating_delta, max_health, prestige, level, income, gold,
-                   build_channel, mod_version
-            FROM {RunLogSchema.RunsTableName}
-            WHERE run_id = $runId AND status <> 'active'
-            LIMIT 1;
-            """;
-        command.Parameters.AddWithValue("$runId", runId);
-        using var reader = command.ExecuteReader();
-        if (!reader.Read())
-            throw new BundleCompositionException("source_run_missing");
+        var run =
+            _runs.TryReadEndedRun(runId)
+            ?? throw new BundleCompositionException("source_run_missing");
         return new RunFactsV6
         {
-            Hero = reader.GetString(0),
-            GameMode = reader.GetString(1),
+            Hero = run.Hero,
+            GameMode = run.GameMode,
             Seed = null,
-            StartedAtMs = reader.GetInt64(2),
-            EndedAtMs = reader.IsDBNull(3) ? null : reader.GetInt64(3),
-            Status = reader.GetString(4),
-            Day = NonNegative(NullableInt(reader, 5)),
-            Hour = NonNegative(NullableInt(reader, 6)),
-            Victories = NonNegative(NullableInt(reader, 7)),
-            Losses = NonNegative(NullableInt(reader, 8)),
-            PlayerRank = Limit(NullableString(reader, 9)),
-            PlayerRating = NonNegative(NullableInt(reader, 10)),
-            FinalPlayerRank = Limit(NullableString(reader, 11)),
-            FinalPlayerRating = NonNegative(NullableInt(reader, 12)),
-            FinalPlayerRatingDelta = NullableInt(reader, 13),
-            MaxHealth = NonNegative(NullableInt(reader, 14)),
-            Prestige = NonNegative(NullableInt(reader, 15)),
-            Level = NonNegative(NullableInt(reader, 16)),
-            Income = NonNegative(NullableInt(reader, 17)),
-            Gold = NonNegative(NullableInt(reader, 18)),
-            BuildChannel = Limit(NullableString(reader, 19)),
-            ModVersion = Limit(NullableString(reader, 20)) ?? string.Empty,
+            StartedAtMs = run.StartedAtMs,
+            EndedAtMs = run.EndedAtMs,
+            Status = run.Status,
+            Day = NonNegative(run.Day),
+            Hour = NonNegative(run.Hour),
+            Victories = NonNegative(run.Victories),
+            Losses = NonNegative(run.Losses),
+            PlayerRank = Limit(run.PlayerRank),
+            PlayerRating = NonNegative(run.PlayerRating),
+            FinalPlayerRank = Limit(run.FinalPlayerRank),
+            FinalPlayerRating = NonNegative(run.FinalPlayerRating),
+            FinalPlayerRatingDelta = run.FinalPlayerRatingDelta,
+            MaxHealth = NonNegative(run.MaxHealth),
+            Prestige = NonNegative(run.Prestige),
+            Level = NonNegative(run.Level),
+            Income = NonNegative(run.Income),
+            Gold = NonNegative(run.Gold),
+            BuildChannel = Limit(run.BuildChannel),
+            ModVersion = Limit(run.ModVersion) ?? string.Empty,
         };
     }
 
-    private List<RunEventV6> ReadEvents(string runId)
-    {
-        using var connection = Open();
-        using var command = connection.CreateCommand();
-        command.CommandText = $"""
-            SELECT seq, ts_at_ms, kind, payload_json
-            FROM {RunLogSchema.RunEventsTableName}
-            WHERE run_id = $runId
-            ORDER BY seq ASC;
-            """;
-        command.Parameters.AddWithValue("$runId", runId);
-        using var reader = command.ExecuteReader();
-        var events = new List<RunEventV6>();
-        while (reader.Read())
-            events.Add(
-                new RunEventV6
-                {
-                    Seq = reader.GetInt64(0),
-                    TimestampMs = reader.GetInt64(1),
-                    Kind = reader.GetString(2),
-                    PayloadJson = EventPayloadBody(reader.GetString(3)),
-                }
-            );
-        return events;
-    }
+    private List<RunEventV6> ReadEvents(string runId) =>
+        _runs
+            .ReadEvents(runId)
+            .Select(stored => new RunEventV6
+            {
+                Seq = stored.Seq,
+                TimestampMs = stored.TimestampMs,
+                Kind = stored.Kind,
+                PayloadJson = EventPayloadBody(stored.PayloadJson),
+            })
+            .ToList();
 
     // A replay that exists but cannot be used is reported, not decided: the seal coordinator asks
     // BundleSealFailurePolicy whether it omits that replay or holds the whole Run.
     private RunBattleV6 MapBattle(
-        PvpBattleManifest manifest,
+        PvpBattleRecord manifest,
         string? finalBattleId,
         List<ReplayLoadFailure> replayFailures
     )
@@ -174,7 +161,7 @@ internal sealed class RunPayloadComposer : IRunPayloadComposer
         {
             try
             {
-                _ = new CombatReplayLoader().Load(loaded.Payload);
+                _evidence.VerifyReplay(loaded.Payload);
                 replay = new BattleReplayV6
                 {
                     Version = loaded.Payload.Version,
@@ -189,6 +176,10 @@ internal sealed class RunPayloadComposer : IRunPayloadComposer
             }
         }
 
+        var playerHand = ReadCardSet(manifest.Snapshots?.PlayerHand);
+        var playerSkills = ReadCardSet(manifest.Snapshots?.PlayerSkills);
+        var opponentHand = ReadCardSet(manifest.Snapshots?.OpponentHand);
+        var opponentSkills = ReadCardSet(manifest.Snapshots?.OpponentSkills);
         return new RunBattleV6
         {
             BattleId = manifest.BattleId,
@@ -210,26 +201,38 @@ internal sealed class RunPayloadComposer : IRunPayloadComposer
             },
             Participants = new BattleParticipantsV6
             {
-                Player = MapParticipant(manifest.Participants, manifest.Snapshots, player: true),
-                Opponent = MapParticipant(manifest.Participants, manifest.Snapshots, player: false),
+                Player = MapParticipant(manifest.Participants, playerHand, playerSkills, true),
+                Opponent = MapParticipant(
+                    manifest.Participants,
+                    opponentHand,
+                    opponentSkills,
+                    player: false
+                ),
             },
             Snapshots = new BattleCardSnapshotsV6
             {
                 CardSets =
                 [
-                    MapCardSet("player_hand", manifest.Snapshots.PlayerHand),
-                    MapCardSet("player_skills", manifest.Snapshots.PlayerSkills),
-                    MapCardSet("opponent_hand", manifest.Snapshots.OpponentHand),
-                    MapCardSet("opponent_skills", manifest.Snapshots.OpponentSkills),
+                    MapCardSet("player_hand", playerHand),
+                    MapCardSet("player_skills", playerSkills),
+                    MapCardSet("opponent_hand", opponentHand),
+                    MapCardSet("opponent_skills", opponentSkills),
                 ],
             },
             Replay = replay,
         };
     }
 
-    private static BattleParticipantV6 MapParticipant(
+    // A battle without a snapshot row has every set Missing, as a capture that never ran.
+    private static PvpBattleCardSetDocument ReadCardSet(string? document) =>
+        document == null
+            ? new PvpBattleCardSetDocument()
+            : PvpBattleCardSetDocument.Deserialize(document);
+
+    private BattleParticipantV6 MapParticipant(
         PvpBattleParticipants participants,
-        PvpBattleSnapshots snapshots,
+        PvpBattleCardSetDocument hand,
+        PvpBattleCardSetDocument skills,
         bool player
     ) =>
         new()
@@ -248,24 +251,23 @@ internal sealed class RunPayloadComposer : IRunPayloadComposer
             ),
             Income = NonNegative(player ? participants.PlayerIncome : null),
             Gold = NonNegative(player ? participants.PlayerGold : null),
-            HandItemCount = CountCards(
-                player ? snapshots.PlayerHand : snapshots.OpponentHand,
-                ECardType.Item
-            ),
-            SkillCount = CountCards(
-                player ? snapshots.PlayerSkills : snapshots.OpponentSkills,
-                ECardType.Skill
-            ),
+            HandItemCount = CountCards(hand, ItemCardType),
+            SkillCount = CountCards(skills, SkillCardType),
         };
 
     // Counted from the captured set so they survive ApplySizeBudget dropping the card sets; a
     // Missing set was never captured, so its count is unknown rather than zero.
-    private static int? CountCards(PvpBattleCardSetCapture source, ECardType type) =>
-        source.Status == PvpBattleCaptureStatus.Missing
-            ? null
-            : source.Items.Count(card => card.Type == type);
+    private int? CountCards(PvpBattleCardSetDocument source, string cardType)
+    {
+        if (source.Status == PvpBattleCaptureStatus.Missing)
+            return null;
+        var type = _evidence.CardEnumValue(PvpCardEnum.CardType, cardType);
+        return source.Items.Count(card =>
+            _evidence.CardEnumValue(PvpCardEnum.CardType, card.Type) == type
+        );
+    }
 
-    private static BattleCardSetV6 MapCardSet(string label, PvpBattleCardSetCapture source) =>
+    private BattleCardSetV6 MapCardSet(string label, PvpBattleCardSetDocument source) =>
         new()
         {
             Label = label,
@@ -274,15 +276,21 @@ internal sealed class RunPayloadComposer : IRunPayloadComposer
             Items = source.Items.Select(MapCard).ToList(),
         };
 
-    private static BattleCardV6 MapCard(PvpBattleCardSnapshot source) =>
+    private BattleCardV6 MapCard(PvpBattleCardDocument source) =>
         new()
         {
             InstanceId = source.InstanceId,
             TemplateId = source.TemplateId,
-            Type = (int)source.Type,
-            Size = (int)source.Size,
-            Section = source.Section.HasValue ? (int)source.Section.Value : null,
-            Socket = source.Socket.HasValue ? (int)source.Socket.Value : null,
+            Type = _evidence.CardEnumValue(PvpCardEnum.CardType, source.Type),
+            Size = _evidence.CardEnumValue(PvpCardEnum.CardSize, source.Size),
+            Section =
+                source.Section != null
+                    ? _evidence.CardEnumValue(PvpCardEnum.InventorySection, source.Section)
+                    : null,
+            Socket =
+                source.Socket != null
+                    ? _evidence.CardEnumValue(PvpCardEnum.ContainerSocket, source.Socket)
+                    : null,
             Name = Limit(source.Name),
             Tier = Limit(source.Tier),
             Enchant = Limit(source.Enchant),
@@ -426,16 +434,6 @@ internal sealed class RunPayloadComposer : IRunPayloadComposer
     private static int EncodedSize(RunPayloadV6 payload) =>
         RunPayloadV6Codec.Encode(payload).Length;
 
-    private SqliteConnection Open()
-    {
-        var connection = new SqliteConnection($"Data Source={_databasePath}");
-        connection.Open();
-        return connection;
-    }
-
-    private static int? NullableInt(SqliteDataReader reader, int ordinal) =>
-        reader.IsDBNull(ordinal) ? null : reader.GetInt32(ordinal);
-
     // The RunEventV6 envelope owns run_id, seq, ts, and kind; the stored payload_json repeats them
     // (ts as text), so the Run segment carries only the remaining fields, in stored order.
     private static readonly string[] EventEnvelopeKeys = ["run_id", "seq", "ts", "kind"];
@@ -452,9 +450,6 @@ internal sealed class RunPayloadComposer : IRunPayloadComposer
             body.Remove(key);
         return body.ToString(Formatting.None);
     }
-
-    private static string? NullableString(SqliteDataReader reader, int ordinal) =>
-        reader.IsDBNull(ordinal) ? null : reader.GetString(ordinal);
 
     private static int? NonNegative(int? value) => value is >= 0 ? value : null;
 

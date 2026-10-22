@@ -96,6 +96,7 @@ internal static class AndroidPatchHost
             ("run_initialized_hits", Interlocked.Read(ref _runInitializedHits)),
             .. Composition?.RunLifecycleSource.Summary() ?? [],
             ("pvp_battles_recorded", Composition?.BattleCapture.Recorded ?? 0),
+            ("replays_saved", Composition?.BattleCapture.ReplaysSaved ?? 0),
             (
                 "messages",
                 string.Join(

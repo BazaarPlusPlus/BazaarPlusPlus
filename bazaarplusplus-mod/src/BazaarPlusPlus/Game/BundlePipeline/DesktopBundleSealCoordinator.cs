@@ -1,12 +1,13 @@
 #nullable enable
 using BazaarPlusPlus.Core.Runtime;
 using BazaarPlusPlus.Storage.Paths;
+using BazaarPlusPlus.Storage.Sqlite;
 
 namespace BazaarPlusPlus.Game.BundlePipeline;
 
 /// <summary>
-/// Binds the desktop composer and screenshot encoder, which read game-typed PvP evidence and
-/// ImageSharp, into the shared <see cref="BundleSealCoordinator"/>.
+/// Binds the desktop's game-typed PvP evidence reads and ImageSharp screenshot encoder into the
+/// shared <see cref="BundleSealCoordinator"/>.
 /// </summary>
 internal static class DesktopBundleSealCoordinator
 {
@@ -23,10 +24,13 @@ internal static class DesktopBundleSealCoordinator
             services,
             new RunPayloadComposer(
                 PathConstants.RunLogDatabase(dataRoot),
-                PathConstants.CombatReplays(dataRoot)
+                PathConstants.CombatReplays(dataRoot),
+                DesktopPvpBattleEvidence.Instance,
+                SqliteOpenOptions.Default
             ),
             new BundleScreenshotEncoder(),
-            faultProbe
+            faultProbe,
+            SqliteOpenOptions.Default
         );
     }
 }

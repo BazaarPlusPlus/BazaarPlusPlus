@@ -1,12 +1,19 @@
 using BazaarPlusPlus.Android.GameInterop;
 using BazaarPlusPlus.Android.Host;
+using BazaarPlusPlus.Core.Config;
 using BazaarPlusPlus.Core.Events;
+using BazaarPlusPlus.Core.GameState;
 using BazaarPlusPlus.Core.RunContext;
 using BazaarPlusPlus.Core.Runtime;
+using BazaarPlusPlus.Game.BundlePipeline;
+using BazaarPlusPlus.Game.CombatReplay;
 using BazaarPlusPlus.Game.PvpBattles.Persistence;
 using BazaarPlusPlus.Game.RunLifecycle;
 using BazaarPlusPlus.Game.RunLogging;
+using BazaarPlusPlus.Game.Upload;
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.ReleaseManifest;
+using BazaarPlusPlus.ModApi.Bundle;
 using BazaarPlusPlus.Storage.Paths;
 using BazaarPlusPlus.Storage.RunLog;
 using BazaarPlusPlus.Storage.RunLog.Replication;
@@ -15,10 +22,11 @@ using BazaarPlusPlus.Storage.Sqlite;
 namespace BazaarPlusPlus.Android;
 
 /// <summary>
-/// The Android composition root: the record chain over the Android Data Root. It binds the IL2CPP
-/// probes and run lifecycle signals into Core's Run Lifecycle and Run Logging modules, and the
-/// PvP battle capture into Storage's battle store, all on one history database. Features start in
-/// registration order and stop in reverse.
+/// The Android composition root over Core's <see cref="CoreComposition"/> and the Android Data
+/// Root: the record chain (Run Lifecycle and Run Logging over the IL2CPP probes, the PvP battle
+/// capture with its board captures and Replay Payloads), Bundle sealing, and the upload pump, all
+/// on one history database. Features start in registration order and stop in reverse; the pump
+/// is ticked from the melon's update and disposed first.
 /// </summary>
 internal sealed class AndroidComposition
 {
@@ -28,38 +36,48 @@ internal sealed class AndroidComposition
     /// </summary>
     public static readonly SqliteOpenOptions DatabaseOptions = new(SqliteJournalMode.Delete);
 
-    private readonly BppFeatureRegistry _features = new();
+    private readonly CoreComposition _core;
+    private UploadPump? _uploads;
 
-    public AndroidComposition(string dataRoot, GameBuildInfo gameBuild)
+    public AndroidComposition(string dataRoot, GameBuildInfo gameBuild, IBppSettingsStore settings)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(dataRoot);
         ArgumentNullException.ThrowIfNull(gameBuild);
+        ArgumentNullException.ThrowIfNull(settings);
         var paths = AndroidPaths.Provider(dataRoot);
         DatabasePath = PathConstants.RunLogDatabase(dataRoot);
-        EventBus = new InMemoryBppEventBus();
-        RunContext = new RunContextStore();
         RunLifecycleSource = new AndroidRunLifecycleSource();
+        _core = new CoreComposition(
+            settings,
+            paths,
+            new AndroidGameStateProbe(),
+            NoEncounterState.Instance,
+            new AndroidRunSnapshotProbe(),
+            gameBuild
+        );
+        var services = _core.Services;
         var battles = new PvpBattleSqliteStore(DatabasePath, DatabaseOptions);
         BattleCapture = new AndroidPvpBattleCapture(
             battles,
-            EventBus,
-            () => RunContext.CurrentServerRunId,
+            new CombatReplayPayloadStore(PathConstants.CombatReplays(dataRoot)),
+            services.EventBus,
+            () => services.RunContext.CurrentServerRunId,
             static () => DateTimeOffset.UtcNow
         );
 
-        _features.Register(
+        _core.Register(
             new RunLifecycleModule(
-                EventBus,
-                new AndroidGameStateProbe(),
-                RunContext,
+                services.EventBus,
+                services.GameStateProbe,
+                services.RunContext,
                 RunLifecycleSource
             )
         );
-        _features.Register(
+        _core.Register(
             new RunLoggingModule(
-                EventBus,
-                RunContext,
-                new AndroidRunSnapshotProbe(),
+                services.EventBus,
+                services.RunContext,
+                services.RunSnapshot,
                 gameBuild.Channel.ToString(),
                 () =>
                     new QueuedRunLogStore(
@@ -67,29 +85,88 @@ internal sealed class AndroidComposition
                         new RunLogStoreLoggerBridge()
                     ),
                 battles.AttachToRun,
-                // No Replay Payload is persisted on Android yet (#360), so completion never waits.
+                // The capture saves each Replay Payload before announcing its battle.
                 static () => false,
                 static () => DateTimeOffset.UtcNow,
                 DatabasePath,
                 playerAccountIdResolver: AndroidClientCache.TryGetProfileAccountId,
-                // BazaarDB upload is not wired on Android yet (#360).
+                // The Android host takes no end-of-run screenshot, so its Bundles are Run-only.
                 bundleScreenshotRequestedResolver: static () => false,
                 modVersionResolver: static () => BppPluginVersion.Current
+            )
+        );
+        _core.Register(
+            new BundleSealCoordinator(
+                services,
+                new RunPayloadComposer(
+                    DatabasePath,
+                    PathConstants.CombatReplays(dataRoot),
+                    AndroidPvpBattleEvidence.Instance,
+                    DatabaseOptions
+                ),
+                NoScreenshots.Instance,
+                faultProbe: null,
+                DatabaseOptions
             )
         );
     }
 
     public string DatabasePath { get; }
 
-    public IBppEventBus EventBus { get; }
+    public IBppEventBus EventBus => _core.Services.EventBus;
 
-    public IRunContext RunContext { get; }
+    public IRunContext RunContext => _core.Services.RunContext;
 
     public AndroidRunLifecycleSource RunLifecycleSource { get; }
 
     public AndroidPvpBattleCapture BattleCapture { get; }
 
-    public void Start() => _features.Start();
+    public void Start(float nowSeconds)
+    {
+        _core.Start();
+        _uploads = UploadPump.Start(
+            _core.Services,
+            ReleaseManifestEndpoints.AndroidPlatformKey,
+            nowSeconds,
+            DatabaseOptions
+        );
+    }
 
-    public void Stop() => _features.Stop();
+    /// <summary>Main thread, every frame.</summary>
+    public void Tick(float nowSeconds) => _uploads?.Tick(nowSeconds);
+
+    public void Stop()
+    {
+        _uploads?.Dispose();
+        _uploads = null;
+        _core.Stop();
+    }
+
+    // Encounter Preview is not composed on Android; nothing here reads encounter ids.
+    private sealed class NoEncounterState : IEncounterStateProbe
+    {
+        public static NoEncounterState Instance { get; } = new();
+
+        public EncounterIdsProbeOutcome GetEncounterIdsOutcome() =>
+            EncounterIdsProbeOutcome.Failure(
+                new NotSupportedException("The Android host reads no encounter ids.")
+            );
+
+        public ChoicePedestalProbeOutcome GetChoicePedestalOutcome() =>
+            ChoicePedestalProbeOutcome.Failure(
+                EncounterProbeFailureReason.ChoiceResolutionException,
+                new NotSupportedException("The Android host reads no choice pedestals.")
+            );
+    }
+
+    private sealed class NoScreenshots : IBundleScreenshotEncoder
+    {
+        public static NoScreenshots Instance { get; } = new();
+
+        public Task<BundleScreenshotBuildInputV6?> EncodeAsync(
+            string absolutePath,
+            long capturedAtMs,
+            CancellationToken cancellationToken
+        ) => Task.FromResult<BundleScreenshotBuildInputV6?>(null);
+    }
 }

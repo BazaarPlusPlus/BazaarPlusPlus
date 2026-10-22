@@ -33,9 +33,5 @@
       Include="../../src/BazaarPlusPlus/GameInterop/CombatSimulation/*.cs"
       Link="CombatSimulation/%(Filename)%(Extension)"
     />
-    <Compile
-      Include="../../src/BazaarPlusPlus/Game/CombatReplay/CombatReplayPayloadStore.cs"
-      Link="CombatReplayPayloadStore.cs"
-    />
   </ItemGroup>
 </Project>
