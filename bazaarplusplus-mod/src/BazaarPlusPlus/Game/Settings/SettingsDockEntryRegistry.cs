@@ -15,7 +15,7 @@ internal sealed class SettingsDockEntryRegistry
     }
 
     public IReadOnlyList<(int Order, BppSettingsDockDefinition Definition)> MaterializeWithOrder(
-        BppConfig config
+        BppSettings config
     )
     {
         var result = new List<(int, BppSettingsDockDefinition)>(_entries.Count);

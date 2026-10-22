@@ -794,8 +794,8 @@ internal sealed class CombatReplayRuntime : MonoBehaviour
         deferredSimulation = Task.CompletedTask;
 
         // The coroutine invokes Simulate again after the presentation boundary. Permit exactly
-        // that message reference once so the Harmony prefix publishes CombatSimObserved once and
-        // then reaches the native method.
+        // that message reference once so the Harmony prefix publishes CombatSimObserved and hands
+        // the simulation to Post-Combat Impact once, then reaches the native method.
         if (ReferenceEquals(_permittedCurrentReplaySimulation, message))
         {
             _permittedCurrentReplaySimulation = null;

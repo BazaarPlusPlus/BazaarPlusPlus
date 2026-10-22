@@ -34,6 +34,7 @@ just mod::fetch macos online      # Windows 用 windows
 - 显式 `-p:ManagedPath`（或 `config.ini` `[machine]` 的 `BPP_MANAGED_PATH`）绕过锁解析，但只是换一种取包方式，不是换一套程序集：`mod::check` 里的 `lock-check` 对它解析到的目录核对，版本串被某个锁条目记录而 sha256 不一致即失败，不被任何条目记录只告警；`release::prepare` 则直接拒绝不对应任何锁条目的目录。
 - 锁条目为空时 `mod::lock-check` 和 `release::check` 只告警；构建仍须解析所选渠道的锁条目，不会借用其他渠道的条目。
 - 锁只通过 PR 推进：在挂了对应 Steam 分支的机器上 `just mod::snapshot`，再 `just mod::publish <platform> <channel>` 上传私有存储，然后提交锁文件。游戏更新后本机 Steam 与锁不一致，锁推进前无法构建，这是接受的代价。
+- Android 只有 `android-online` 一个键，快照是 Interop Snapshot（[ADR 0008](adr/0008-interop-snapshots-in-snapshot-lock.md)）。`just with-config release just mod::fetch android online` 打印 interop 目录，并把 Loader Release 解到 `game-libs/loader-<tag>/`；Android 工程导入 `bazaarplusplus-mod/build/InteropPath.props` 取 `InteropPath` 与 `LemonLoaderPath`。推进时 `just mod::snapshot-android <TheBazaar.apk>` 沿用锁里的工具链，只在 Linux x64 上生成 interop；在其他主机上要传 `--interop <dir>`，用对同一 APK 生成好的目录。换工具链的选项见 `node release/game-libs.mjs --help`；Cpp2IL 用发布页的 Linux 二进制，并对照 GitHub 资产摘要核对。之后 `just mod::publish android online` 上传 interop、官方 APK 与工具链（APK 约 2.8 GB，一次流式上传），再提交锁文件。
 
 ## 环境与依赖
 

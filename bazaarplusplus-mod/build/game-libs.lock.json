@@ -43,6 +43,35 @@
       "buildid": "25141468",
       "steamBranch": "public_test_realm",
       "capturedAt": "2026-10-06T02:57:52.955Z"
+    },
+    "android-online": {
+      "gameVersion": "1.0.12825-production-android-d9601ded",
+      "versionCode": 12825,
+      "apkSha256": "3af9bbd19d5792eb538edb970d5f36ce64762017c2a59d9e425f252568aa5c1c",
+      "il2cppSha256": "7468bb59490835353343244452b3ee505d35344ebbe7cc785d00d4e8836eae95",
+      "metadataSha256": "8da8011b16be208555ac4e25916093f1c2f3f99182cf38b96669758d200c24fe",
+      "unityVersion": "6000.3.11f1",
+      "interopSha256": "5777e4d7d4a39579edb3cceb0541a7a08f3bf02d0521f7405a0064189c365fb9",
+      "loader": {
+        "tag": "v0.7.4-android.4",
+        "sha256": "e098b943b4f83baf219e9ce330be2aa0bc7c69e019f4968ee362bfb7aaee8506",
+        "managedRuntimeVersion": "11.0.0"
+      },
+      "patcher": {
+        "tag": "v2.1.0",
+        "sha256": "7a7175bbc34aa31e0338deadc471ef924bfbc580f23711e6633d10716da97c3c"
+      },
+      "cpp2ilVersion": "2022.1.0-pre-release.21",
+      "cpp2ilSha256": "526998e593c52c029c5a6215c5c6c9f9d963706bfc409fc9ff80a95c4c500349",
+      "il2cppInteropVersion": "1.5.3.0",
+      "nativeLibs": {
+        "libe_sqlite3.so": {
+          "package": "SourceGear.sqlite3",
+          "version": "3.53.4",
+          "sha256": "52d49cc84918c112d5713a6de83269d33f03c4c7c3ed721fbd2c8c00adf4ca80"
+        }
+      },
+      "capturedAt": "2026-10-22T11:52:14.220Z"
     }
   }
 }

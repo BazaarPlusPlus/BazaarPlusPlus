@@ -1,10 +1,9 @@
 #nullable enable
 using BazaarPlusPlus.Localization;
-using BepInEx.Configuration;
 
 namespace BazaarPlusPlus.Core.Config;
 
-internal sealed class BppConfig
+internal sealed class BppSettings
 {
     internal const PreviewVisibilityMode DefaultEnchantPreviewMode = PreviewVisibilityMode.Always;
     internal const HotkeyActivationMode DefaultUpgradePreviewActivationMode =
@@ -12,59 +11,59 @@ internal sealed class BppConfig
     internal const SubtitlePosition DefaultVoiceSubtitlesPosition = SubtitlePosition.TopCenter;
     internal const float DefaultFsrSharpness = 0.92f;
 
-    public ConfigEntry<bool> EnableNameOverrideConfig { get; }
+    public ISetting<bool> EnableNameOverrideConfig { get; }
 
-    public ConfigEntry<PreviewVisibilityMode> EnchantPreviewModeConfig { get; }
+    public ISetting<PreviewVisibilityMode> EnchantPreviewModeConfig { get; }
 
-    public ConfigEntry<bool> EnableEventPreviewConfig { get; }
+    public ISetting<bool> EnableEventPreviewConfig { get; }
 
-    public ConfigEntry<bool> EnableQuestPreviewConfig { get; }
+    public ISetting<bool> EnableQuestPreviewConfig { get; }
 
-    public ConfigEntry<bool> EnableBilingualItemNamesConfig { get; }
+    public ISetting<bool> EnableBilingualItemNamesConfig { get; }
 
-    public ConfigEntry<bool> EnableCosmeticNamesConfig { get; }
+    public ISetting<bool> EnableCosmeticNamesConfig { get; }
 
-    public ConfigEntry<bool> EnableVoiceSubtitlesConfig { get; }
+    public ISetting<bool> EnableVoiceSubtitlesConfig { get; }
 
-    public ConfigEntry<SubtitlePosition> VoiceSubtitlesPositionConfig { get; }
+    public ISetting<SubtitlePosition> VoiceSubtitlesPositionConfig { get; }
 
-    public ConfigEntry<SubtitleLanguageMode> VoiceSubtitlesLanguageModeConfig { get; }
+    public ISetting<SubtitleLanguageMode> VoiceSubtitlesLanguageModeConfig { get; }
 
-    public ConfigEntry<float> VoiceSubtitlesEnglishFontScaleConfig { get; }
+    public ISetting<float> VoiceSubtitlesEnglishFontScaleConfig { get; }
 
-    public ConfigEntry<float> VoiceSubtitlesChineseFontScaleConfig { get; }
+    public ISetting<float> VoiceSubtitlesChineseFontScaleConfig { get; }
 
-    public ConfigEntry<bool> EnableCombatStatusBarConfig { get; }
+    public ISetting<bool> EnableCombatStatusBarConfig { get; }
 
-    public ConfigEntry<float> CombatStatusBarSpeedMultiplierConfig { get; }
+    public ISetting<float> CombatStatusBarSpeedMultiplierConfig { get; }
 
-    public ConfigEntry<bool> EndOfRunScreenshotEnabledConfig { get; }
+    public ISetting<bool> EndOfRunScreenshotEnabledConfig { get; }
 
-    public ConfigEntry<string> EnchantPreviewHotkeyPathConfig { get; }
+    public ISetting<string> EnchantPreviewHotkeyPathConfig { get; }
 
-    public ConfigEntry<string> UpgradePreviewHotkeyPathConfig { get; }
+    public ISetting<string> UpgradePreviewHotkeyPathConfig { get; }
 
-    public ConfigEntry<HotkeyActivationMode> UpgradePreviewActivationModeConfig { get; }
+    public ISetting<HotkeyActivationMode> UpgradePreviewActivationModeConfig { get; }
 
-    public ConfigEntry<string> ToggleCollectionPanelHotkeyPathConfig { get; }
+    public ISetting<string> ToggleCollectionPanelHotkeyPathConfig { get; }
 
-    public ConfigEntry<string> ToggleLiveBuildPanelHotkeyPathConfig { get; }
+    public ISetting<string> ToggleLiveBuildPanelHotkeyPathConfig { get; }
 
-    public ConfigEntry<string> ToggleHistoryPanelHotkeyPathConfig { get; }
+    public ISetting<string> ToggleHistoryPanelHotkeyPathConfig { get; }
 
-    public ConfigEntry<BppChineseLocaleMode> ChineseLocaleModeConfig { get; }
+    public ISetting<BppChineseLocaleMode> ChineseLocaleModeConfig { get; }
 
-    public ConfigEntry<LegendaryPositionDisplayMode> LegendaryPositionDisplayModeConfig { get; }
+    public ISetting<LegendaryPositionDisplayMode> LegendaryPositionDisplayModeConfig { get; }
 
-    public ConfigEntry<GraphicsUpscalingMode> GraphicsUpscalingModeConfig { get; }
+    public ISetting<GraphicsUpscalingMode> GraphicsUpscalingModeConfig { get; }
 
-    public ConfigEntry<float> GraphicsUpscalingSharpnessConfig { get; }
+    public ISetting<float> GraphicsUpscalingSharpnessConfig { get; }
 
-    public ConfigEntry<bool> BazaarDbUploadEnabled { get; }
+    public ISetting<bool> BazaarDbUploadEnabled { get; }
 
-    public ConfigEntry<bool> UseFixedSupporterListConfig { get; }
+    public ISetting<bool> UseFixedSupporterListConfig { get; }
 
-    public BppConfig(ConfigFile config)
+    public BppSettings(IBppSettingsStore config)
     {
         if (config == null)
             throw new ArgumentNullException(nameof(config));
@@ -127,19 +126,15 @@ internal sealed class BppConfig
             "VoiceSubtitles",
             "EnglishFontScale",
             1.0f,
-            new ConfigDescription(
-                "Font scale for the English subtitle line.",
-                new AcceptableValueRange<float>(1.0f, 2.5f)
-            )
+            "Font scale for the English subtitle line.",
+            new SettingRange<float>(1.0f, 2.5f)
         );
         VoiceSubtitlesChineseFontScaleConfig = config.Bind(
             "VoiceSubtitles",
             "ChineseFontScale",
             1.0f,
-            new ConfigDescription(
-                "Font scale for the Chinese subtitle line.",
-                new AcceptableValueRange<float>(1.0f, 2.5f)
-            )
+            "Font scale for the Chinese subtitle line.",
+            new SettingRange<float>(1.0f, 2.5f)
         );
         EnableCombatStatusBarConfig = config.Bind(
             "CombatStatusBar",
@@ -220,10 +215,8 @@ internal sealed class BppConfig
             "Graphics",
             "FsrSharpness",
             DefaultFsrSharpness,
-            new ConfigDescription(
-                "FSR 1 RCAS sharpening strength. 0 is softest and 1 is sharpest.",
-                new AcceptableValueRange<float>(0f, 1f)
-            )
+            "FSR 1 RCAS sharpening strength. 0 is softest and 1 is sharpest.",
+            new SettingRange<float>(0f, 1f)
         );
         // BazaarDB
         BazaarDbUploadEnabled = config.Bind(

@@ -8,7 +8,7 @@ internal static class BppSettingsDockCatalog
 {
     private static readonly List<BppSettingsDockDefinition> _definitions = new();
 
-    public static void Install(BppConfig config, SettingsDockEntryRegistry registry)
+    public static void Install(BppSettings config, SettingsDockEntryRegistry registry)
     {
         if (config == null)
             throw new ArgumentNullException(nameof(config));

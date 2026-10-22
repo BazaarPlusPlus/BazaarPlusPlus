@@ -110,7 +110,7 @@ function memoryStore() {
   };
 }
 
-test('the committed lock validates and names the six platform-channel keys', () => {
+test('the committed lock validates and names every platform-channel key', () => {
   const lock = readGameLibsLock(WORKSPACE_ROOT);
   expect(Object.keys(lock.entries)).toEqual([
     'macos-online',
@@ -118,7 +118,8 @@ test('the committed lock validates and names the six platform-channel keys', () 
     'macos-ptr',
     'windows-online',
     'windows-staging',
-    'windows-ptr'
+    'windows-ptr',
+    'android-online'
   ]);
   expect(lock.staleAfterDays).toBe(30);
 });
@@ -206,7 +207,7 @@ test('lock validation rejects every malformed shape it will meet', () => {
     [{ ...emptyLock(), extra: true }, /unknown top-level/],
     [
       { ...emptyLock(), entries: { 'macos-online': null } },
-      /exactly the six keys/
+      /exactly the keys macos-online, .*, android-online/
     ],
     [withEntry('macos-staging', { ...entry, note: 'x' }), /exactly the fields/],
     [withEntry('macos-online', entry), /is a macos-staging build/],
@@ -245,10 +246,13 @@ test('warnings name empty and stale entries without failing', () => {
     capturedAt: '2026-10-01T00:00:00.000Z'
   };
   const warnings = lockWarnings(lock, { now: NOW });
-  expect(warnings).toHaveLength(5);
+  expect(warnings).toHaveLength(6);
   expect(
     warnings.filter((w) => w.includes('no snapshot captured'))
   ).toHaveLength(4);
+  expect(warnings.find((w) => w.startsWith('android-online'))).toMatch(
+    /no Interop Snapshot captured; run 'just mod::snapshot-android <TheBazaar\.apk>'/
+  );
   expect(warnings.find((w) => w.startsWith('macos-staging'))).toMatch(
     /captured 63 days ago \(staleAfterDays 30\)/
   );
@@ -513,7 +517,7 @@ test('lock-check verifies the resolved Managed directory against the entry that 
     gameVersion: STAGING_VERSION,
     keys: ['macos-staging']
   });
-  expect(checked.warnings).toHaveLength(5);
+  expect(checked.warnings).toHaveLength(6);
   expect(
     checkGameLibsLock({
       workspaceRoot,

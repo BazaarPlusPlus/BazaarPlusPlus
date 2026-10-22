@@ -2,23 +2,22 @@
 #nullable enable
 using System.Diagnostics;
 using BazaarPlusPlus.Infrastructure.Logging;
-using BepInEx.Logging;
 
 namespace BazaarPlusPlus.Infrastructure;
 
 internal static class BppLog
 {
-    private static ManualLogSource? _logger;
+    private static IBppLogSink? _sink;
     private static readonly BppLogEmitter StructuredEmitter = new();
 
-    public static void Install(ManualLogSource logger)
+    public static void Install(IBppLogSink sink)
     {
-        if (logger == null)
+        if (sink == null)
             return;
 
         try
         {
-            Volatile.Write(ref _logger, logger);
+            Volatile.Write(ref _sink, sink);
             StructuredEmitter.Install(
                 new BppLogPipeline(WriteStructuredToLogger, () => DateTimeOffset.UtcNow)
             );
@@ -73,40 +72,10 @@ internal static class BppLog
 
     private static void WriteStructuredToLogger(BppLogSeverity severity, string message)
     {
-        var logger = Volatile.Read(ref _logger);
-        if (logger == null)
-            throw new InvalidOperationException("The BepInEx logger is not installed.");
+        var sink = Volatile.Read(ref _sink);
+        if (sink == null)
+            throw new InvalidOperationException("The log sink is not installed.");
 
-        var level = severity switch
-        {
-            BppLogSeverity.Debug => LogLevel.Debug,
-            BppLogSeverity.Info => LogLevel.Info,
-            BppLogSeverity.Warning => LogLevel.Warning,
-            BppLogSeverity.Error => LogLevel.Error,
-            _ => throw new ArgumentOutOfRangeException(nameof(severity)),
-        };
-        WriteToLoggerCore(logger, level, message);
-    }
-
-    private static void WriteToLoggerCore(ManualLogSource logger, LogLevel level, string message)
-    {
-        switch (level)
-        {
-            case LogLevel.Debug:
-                logger.LogDebug(message);
-                return;
-            case LogLevel.Info:
-                logger.LogInfo(message);
-                return;
-            case LogLevel.Warning:
-                logger.LogWarning(message);
-                return;
-            case LogLevel.Error:
-                logger.LogError(message);
-                return;
-            default:
-                logger.Log(level, message);
-                return;
-        }
+        sink.Write(severity, message);
     }
 }

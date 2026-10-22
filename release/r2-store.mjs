@@ -1,4 +1,7 @@
 import crypto from 'node:crypto';
+import fs from 'node:fs';
+import { Readable } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
 
 // Content and signing digests; also the R2 Secret Access Key, which Cloudflare
 // defines as the SHA-256 of the API token value (not password storage).
@@ -14,6 +17,10 @@ const encode = (value) =>
 
 export const CLOUDFLARE_API = 'https://api.cloudflare.com/client/v4';
 const ACCOUNT_ID = /^[a-f0-9]{32}$/i;
+const REQUEST_TIMEOUT_MS = 120000;
+// A file transfer streams its body; a 2.8 GB official APK needs far longer
+// than one buffered request.
+const FILE_TIMEOUT_MS = 6 * 60 * 60 * 1000;
 const TOKEN_ID = /^[a-f0-9]{32}$/;
 
 // R2's S3 credentials are a view of a Cloudflare API token: the Access Key ID
@@ -112,7 +119,13 @@ export function createR2Store({
     throw new Error('Invalid R2 key prefix');
   const host = `${account}.r2.cloudflarestorage.com`;
 
-  async function request(method, key, body, extraHeaders = {}) {
+  async function request(
+    method,
+    key,
+    body,
+    extraHeaders = {},
+    { payloadHash = digest(body ?? Buffer.alloc(0)), timeoutMs } = {}
+  ) {
     if (
       typeof key !== 'string' ||
       key.split('/').some((part) => !part || part === '.' || part === '..')
@@ -125,7 +138,6 @@ export function createR2Store({
       .toISOString()
       .replace(/[:-]|\.\d{3}/g, '');
     const day = date.slice(0, 8);
-    const payloadHash = digest(body ?? Buffer.alloc(0));
     const headers = {
       host,
       'x-amz-content-sha256': payloadHash,
@@ -164,8 +176,9 @@ export function createR2Store({
       // Keep transport negotiation outside the signed object headers.
       headers: { ...headers, 'accept-encoding': 'identity' },
       body,
+      ...(body instanceof ReadableStream ? { duplex: 'half' } : {}),
       redirect: 'error',
-      signal: AbortSignal.timeout(120000)
+      signal: AbortSignal.timeout(timeoutMs ?? REQUEST_TIMEOUT_MS)
     });
     if (![200, 201, 204, 404, 412].includes(response.status)) {
       await response.body?.cancel();
@@ -236,6 +249,58 @@ export function createR2Store({
       if (response.status === 404)
         throw new Error(`R2 PUT ${key} failed with HTTP 404`);
       return true;
+    },
+    // Streams a local file whose sha256 the caller already holds; R2 checks
+    // the body against it through the signed payload hash.
+    async putFile(
+      key,
+      file,
+      { sha256, ifNoneMatch = true, contentType = 'application/octet-stream' }
+    ) {
+      if (!ifNoneMatch)
+        throw new Error('A streamed R2 write only creates new objects');
+      if (!/^[0-9a-f]{64}$/.test(sha256 ?? ''))
+        throw new Error('A streamed R2 write needs the file sha256');
+      const { size } = fs.statSync(file);
+      const response = await request(
+        'PUT',
+        key,
+        Readable.toWeb(fs.createReadStream(file)),
+        {
+          'content-length': String(size),
+          'content-type': contentType,
+          'x-amz-meta-sha256': sha256,
+          'if-none-match': '*'
+        },
+        { payloadHash: sha256, timeoutMs: FILE_TIMEOUT_MS }
+      );
+      await response.body?.cancel();
+      if (response.status === 412) return false;
+      if (response.status === 404)
+        throw new Error(`R2 PUT ${key} failed with HTTP 404`);
+      return true;
+    },
+    // Streams an object into a file; null when it does not exist.
+    async getFile(key, file) {
+      const response = await request(
+        'GET',
+        key,
+        undefined,
+        {},
+        {
+          timeoutMs: FILE_TIMEOUT_MS
+        }
+      );
+      if (response.status !== 200) {
+        await response.body?.cancel();
+        if (response.status === 404) return null;
+        throw new Error(`R2 GET ${key} failed with HTTP ${response.status}`);
+      }
+      await pipeline(
+        Readable.fromWeb(response.body),
+        fs.createWriteStream(file)
+      );
+      return { size: fs.statSync(file).size };
     }
   };
 }

@@ -2,10 +2,8 @@
 using BazaarGameClient.Domain.Models.Cards;
 using BazaarGameShared.Domain.Cards;
 using BazaarGameShared.Infra.Messages.CombatSimEvents;
-using BazaarPlusPlus.Core.Events;
 using BazaarPlusPlus.Core.Runtime;
 using BazaarPlusPlus.Game.PostCombatImpact.Data;
-using BazaarPlusPlus.GameInterop.Events;
 using BazaarPlusPlus.GameInterop.StaticCards;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
@@ -18,15 +16,13 @@ namespace BazaarPlusPlus.Game.PostCombatImpact;
 
 internal sealed class PostCombatImpactModule : IBppFeature
 {
-    private readonly IBppEventBus _eventBus;
     private readonly BppStaticCardMapProvider _cardMapProvider;
     private readonly CombatImpactReportRegistry _reports = new();
-    private IDisposable? _subscription;
+    private bool _started;
     private PostCombatImpactController? _runtime;
 
-    internal PostCombatImpactModule(IBppEventBus eventBus, BppStaticCardMapProvider cardMapProvider)
+    internal PostCombatImpactModule(BppStaticCardMapProvider cardMapProvider)
     {
-        _eventBus = eventBus ?? throw new ArgumentNullException(nameof(eventBus));
         _cardMapProvider =
             cardMapProvider ?? throw new ArgumentNullException(nameof(cardMapProvider));
     }
@@ -125,21 +121,40 @@ internal sealed class PostCombatImpactModule : IBppFeature
 
     public void Start()
     {
-        _subscription = _eventBus.Subscribe<CombatSimObserved>(OnCombatSimObserved);
+        _started = true;
     }
 
     public void Stop()
     {
-        _subscription?.Dispose();
-        _subscription = null;
+        _started = false;
         _reports.Reset();
         _runtime?.HideDetails();
     }
 
-    private void OnCombatSimObserved(CombatSimObserved observed)
+    /// <summary>
+    /// Called by the combat-simulation patch on the game thread before the simulation plays. The
+    /// projection needs the whole simulation DTO, so this host feature takes it directly instead
+    /// of through the Core event bus, which carries only <c>CombatSimSnapshot</c>.
+    /// </summary>
+    internal void ObserveCombatSimulation(CombatSim? simulation)
+    {
+        if (!_started)
+            return;
+
+        try
+        {
+            BeginProjection(simulation);
+        }
+        catch (Exception ex)
+        {
+            // A Harmony prefix must never throw into the game's simulation call.
+            ReportProjectionException(ex);
+        }
+    }
+
+    private void BeginProjection(CombatSim? simulation)
     {
         var generation = _reports.BeginGeneration();
-        var simulation = observed.Message.Data;
         if (simulation == null)
             return;
 

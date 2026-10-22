@@ -1,4 +1,5 @@
 using BazaarPlusPlus.Game.VoiceSubtitles;
+using BazaarPlusPlus.Host;
 using BazaarPlusPlus.Infrastructure;
 using BepInEx.Logging;
 using Xunit;
@@ -119,7 +120,7 @@ public sealed class VoiceLineDisplayQueueTests
         internal LogCapture()
         {
             _source.LogEvent += OnLogEvent;
-            BppLog.Install(_source);
+            BppLog.Install(new BepInExLogSink(_source));
         }
 
         internal int Count(string text) =>

@@ -577,7 +577,7 @@ test('internal ownership dispatch requires a live build lock and does not run pr
 });
 
 // The Snapshot Lock gate of `check` (ADR 0004). Failure modes: a lock missing
-// one of the six keys fails; an entry with a malformed sha256 fails, and so
+// one of its keys fails; an entry with a malformed sha256 fails, and so
 // does every command that runs source alignment, before any store is created;
 // an empty entry warns; an entry captured more than staleAfterDays ago warns;
 // warnings leave the command on its success path.
@@ -601,7 +601,7 @@ test('check fails on a Snapshot Lock missing a key or holding a malformed sha256
     delete lock.entries['windows-ptr'];
   });
   await expect(main(['check'], missing)).rejects.toThrow(
-    /exactly the six keys/
+    /exactly the keys macos-online, .*, android-online/
   );
   const malformed = fixture();
   editLock(malformed, (lock) => {
@@ -638,9 +638,14 @@ test('check warns on empty and stale Snapshot Lock entries and still passes', as
   });
   const lines = options.log.mock.calls.map(([line]) => line);
   const warnings = lines.filter((line) => line.startsWith('WARNING: '));
-  expect(warnings).toHaveLength(5);
+  expect(warnings).toHaveLength(6);
   expect(warnings).toContainEqual(
     expect.stringMatching(/^WARNING: macos-online: no snapshot captured/)
+  );
+  expect(warnings).toContainEqual(
+    expect.stringMatching(
+      /^WARNING: android-online: no Interop Snapshot captured; run 'just mod::snapshot-android <TheBazaar\.apk>'/
+    )
   );
   expect(warnings).toContainEqual(
     expect.stringMatching(

@@ -7,14 +7,14 @@ namespace BazaarPlusPlus.Game.LegendaryPosition;
 
 internal static class LegendaryPositionDisplayFormatter
 {
-    private static BppConfig? _config;
+    private static BppSettings? _config;
 
-    public static void Install(BppConfig config) =>
+    public static void Install(BppSettings config) =>
         _config = config ?? throw new ArgumentNullException(nameof(config));
 
     public static void Reset() => _config = null;
 
-    private static BppConfig Config =>
+    private static BppSettings Config =>
         _config
         ?? throw new InvalidOperationException(
             "LegendaryPositionDisplayFormatter.Install must be called at startup."

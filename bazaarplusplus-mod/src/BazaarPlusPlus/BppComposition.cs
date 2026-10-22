@@ -1,7 +1,6 @@
 #nullable enable
 using BazaarPlusPlus.Core.Config;
 using BazaarPlusPlus.Core.Events;
-using BazaarPlusPlus.Core.Paths;
 using BazaarPlusPlus.Core.Runtime;
 using BazaarPlusPlus.Game.BilingualItemNames;
 using BazaarPlusPlus.Game.BundlePipeline;
@@ -40,20 +39,20 @@ using BazaarPlusPlus.GameInterop.RunSnapshot;
 using BazaarPlusPlus.GameInterop.StaticCards;
 using BazaarPlusPlus.GameInterop.Tooltips;
 using BazaarPlusPlus.GameInterop.VoiceSubtitles;
+using BazaarPlusPlus.Host;
 using BazaarPlusPlus.Infrastructure.RemoteEmbeddedCatalog;
 using BazaarPlusPlus.ModApi.Clients;
 using BazaarPlusPlus.Patches;
 using BazaarPlusPlus.Patches.PostCombatImpact;
 using BazaarPlusPlus.Patches.Tooltips;
 using BazaarPlusPlus.Storage.Paths;
-using BepInEx.Configuration;
 
 namespace BazaarPlusPlus;
 
 internal sealed class BppComposition : IDisposable
 {
     private readonly InMemoryBppEventBus _eventBus = new();
-    private readonly BppConfig _config;
+    private readonly BppSettings _config;
     private readonly BepInExPathProvider _paths = new();
     private readonly RunContextStore _runContext = new();
     private readonly GameStateProbe _gameStateProbe = new();
@@ -98,14 +97,14 @@ internal sealed class BppComposition : IDisposable
     public SettingsDockEntryRegistry SettingsDockRegistry => _settingsDockRegistry;
     public BppPatchFeatures PatchFeatures => _patchFeatures;
 
-    public BppComposition(ConfigFile configFile, IGameBuildInfo gameBuild)
+    public BppComposition(IBppSettingsStore settingsStore, IGameBuildInfo gameBuild)
     {
-        if (configFile == null)
-            throw new ArgumentNullException(nameof(configFile));
+        if (settingsStore == null)
+            throw new ArgumentNullException(nameof(settingsStore));
         if (gameBuild == null)
             throw new ArgumentNullException(nameof(gameBuild));
 
-        _config = new BppConfig(configFile);
+        _config = new BppSettings(settingsStore);
         _paths.Initialize();
 
         _services = new BppRuntimeServices(
@@ -122,7 +121,7 @@ internal sealed class BppComposition : IDisposable
         _runLifecycle = new RunLifecycleModule(_eventBus, _gameStateProbe, _runContext);
         _combatReplayModule = new CombatReplayModule(_eventBus);
         _combatStatusBarModule = new CombatStatusBarModule(_eventBus);
-        _postCombatImpactModule = new PostCombatImpactModule(_eventBus, _staticCardMapProvider);
+        _postCombatImpactModule = new PostCombatImpactModule(_staticCardMapProvider);
         _voiceSubtitlesModule = new VoiceSubtitlesModule(_paths.RequireDataRoot());
         _voiceSubtitlesInteropModule = new VoiceSubtitlesInteropModule();
         _supporterCatalogModule = new SupporterCatalogModule(

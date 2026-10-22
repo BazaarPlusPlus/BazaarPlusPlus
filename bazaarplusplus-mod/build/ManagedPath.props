@@ -20,7 +20,8 @@
       Condition="'$(BppSnapshotPlatform)' == '' and $([MSBuild]::IsOSPlatform('Windows'))"
       >windows</BppSnapshotPlatform>
     <BppSnapshotChannel Condition="'$(BppSnapshotChannel)' == ''">online</BppSnapshotChannel>
-    <BppGameVersionPattern>\d+\.\d+\.\d+(?:-[a-z0-9]+)*-(?:macos|windows)-[a-z0-9]+-[0-9a-f]+</BppGameVersionPattern>
+    <!-- release/game-libs.mjs GAME_VERSION_PATTERN; a release test keeps the two equal. -->
+    <BppGameVersionPattern>\d+\.\d+\.\d+(?:-[a-z0-9]+)*-(?:(?:macos|windows)-[a-z0-9]+|android)-[0-9a-f]+</BppGameVersionPattern>
   </PropertyGroup>
 
   <!-- Steam install discovery: the same candidate list as before, now only a source record. -->
