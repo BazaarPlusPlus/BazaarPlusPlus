@@ -274,6 +274,10 @@ test('MSBuild evaluates the same product version as the release coordinator', ()
   expect(version).toBe(readProductVersion());
 }, 30000);
 
+// The Android Host builds but is not shipped yet: the BepInEx-shaped inventory has
+// no root for it until the Payload Inventory gains per-host roots.
+const UNSHIPPED_PROJECTS = new Set(['BazaarPlusPlus.Android']);
+
 test('every published product assembly is declared in the shared inventory', () => {
   const assemblies = (host) =>
     readInventory()
@@ -297,6 +301,7 @@ test('every published product assembly is declared in the shared inventory', () 
         )
     )
     .map((entry) => entry.name)
+    .filter((name) => !UNSHIPPED_PROJECTS.has(name))
     .sort();
   const declared = new Set([
     ...assemblies('bepinex'),

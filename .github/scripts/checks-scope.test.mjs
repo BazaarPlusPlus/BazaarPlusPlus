@@ -30,7 +30,7 @@ const expand = (scopes) =>
       scope === 'installer'
         ? nativeInstaller
         : scope === 'mod'
-          ? ['mod-macos', 'mod-windows']
+          ? ['mod-macos', 'mod-windows', 'mod-android']
           : [scope]
     )
     .sort();
@@ -326,19 +326,22 @@ test('only known Installer frontend paths avoid both native platforms', () => {
 
 test('manual scopes select exactly the requested native platforms and their source gates', () => {
   for (const scope of ['full', 'installer', 'mod']) {
-    for (const platform of ['all', 'macos', 'windows']) {
+    for (const platform of ['all', 'macos', 'windows', 'android']) {
       const expected =
         scope === 'full'
           ? [...SCOPES]
           : scope === 'installer'
             ? [...nativeInstaller, 'macos-icon']
-            : ['mod-macos', 'mod-windows'];
+            : ['mod-macos', 'mod-windows', 'mod-android'];
+      const native = (lane) =>
+        lane === 'macos-icon'
+          ? 'macos'
+          : ['macos', 'windows', 'android'].find((name) =>
+              lane.endsWith(`-${name}`)
+            );
       const filtered = expected.filter(
         (lane) =>
-          platform === 'all' ||
-          !(platform === 'windows'
-            ? lane.endsWith('-macos') || lane === 'macos-icon'
-            : lane.endsWith('-windows'))
+          platform === 'all' || !native(lane) || native(lane) === platform
       );
       assert.deepEqual(
         selected(

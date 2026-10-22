@@ -60,7 +60,7 @@ _Avoid_: game-libs manifest, Steam buildid pin
 ## Mod hosts
 
 **Host** (宿主):
-One loader and runtime combination the mod runs under, with the assembly and composition root that adapt the shared core to it: the Desktop Host (BepInEx on Mono, `BazaarPlusPlus.dll`, `DesktopComposition`) and the Android Host (LemonLoader on CoreCLR beside an IL2CPP game). Every host references `BazaarPlusPlus.Core`, which references no loader, engine, or game assembly; game adapters and Harmony patches stay per host. `bazaarplusplus-mod/docs/adr/0012-shared-core-and-per-host-adapters.md` records the split.
+One loader and runtime combination the mod runs under, with the assembly and composition root that adapt the shared core to it: the Desktop Host (BepInEx on Mono, `BazaarPlusPlus.dll` in `BepInEx/plugins/`, `DesktopComposition`) and the Android Host (LemonLoader on CoreCLR beside an IL2CPP game, `BazaarPlusPlus.Android.dll` in `MelonLoader/Mods/`, compiled against an Interop Snapshot and a Loader Release). Every host references `BazaarPlusPlus.Core`, which references no loader, engine, or game assembly; game adapters, Harmony patches and the host ports' implementations (settings, log exit, Data Root) stay per host. A host is not a release platform: `macos` and `windows` share the Desktop Host. `bazaarplusplus-mod/docs/adr/0012-shared-core-and-per-host-adapters.md` records the split.
 _Avoid_: platform (a release target such as `macos`), loader (one part of a host)
 
 ## Credentials
@@ -72,7 +72,7 @@ _Avoid_: release R2 keys, per-bucket key pair
 ## Local data
 
 **Data Root** (数据根目录):
-The folder in the game directory where the mod keeps its local database, screenshots, and replays. The current name is `BazaarPlusPlusV6`; the mod's `PathConstants.DataRootDirectoryName` and the installer's `BAZAAR_DATA_DIRECTORY` must agree. Unrelated to the analyzer's `BPP_DATA_ROOT`.
+The folder in the game directory where the mod keeps its local database, screenshots, and replays; on the Android Host, the sibling of the MelonLoader base directory under the game's external `files/`. The current name is `BazaarPlusPlusV6`; the mod's `PathConstants.DataRootDirectoryName` and the installer's `BAZAAR_DATA_DIRECTORY` must agree. Unrelated to the analyzer's `BPP_DATA_ROOT`.
 
 **Legacy Root** (旧数据根目录):
 A Data Root an earlier major version wrote (`BazaarPlusPlus/`, `BazaarPlusPlusV4/`, `BazaarPlusPlusV5/`), owned by the user. The mod never reads it; the installer measures it, imports V5 once, and deletes one only on the user's confirmation. The installer's own `BazaarPlusPlusV4` settings folder is not one.

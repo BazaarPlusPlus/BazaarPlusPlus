@@ -5,7 +5,7 @@ import { execFileSync } from 'node:child_process';
 export const PROJECTS = ['site', 'server', 'analyzer', 'installer', 'mod'];
 const PROJECT_SCOPES = {
   installer: ['installer-frontend', 'installer-macos', 'installer-windows'],
-  mod: ['mod-macos', 'mod-windows']
+  mod: ['mod-macos', 'mod-windows', 'mod-android']
 };
 export const SCOPES = [
   'release',
@@ -41,7 +41,7 @@ export function manualSelection(inputs = {}) {
   const platform = inputs.platform ?? 'all';
   if (
     !['full', 'installer', 'mod'].includes(scope) ||
-    !['all', 'macos', 'windows'].includes(platform)
+    !['all', 'macos', 'windows', 'android'].includes(platform)
   ) {
     throw new Error(`Invalid manual selection: ${scope}/${platform}`);
   }
@@ -60,6 +60,7 @@ export function manualScope(inputs) {
         platform === 'all' ||
         (!lane.endsWith('-macos') &&
           !lane.endsWith('-windows') &&
+          !lane.endsWith('-android') &&
           lane !== 'macos-icon') ||
         lane.endsWith(`-${platform}`) ||
         (platform === 'macos' && lane === 'macos-icon');

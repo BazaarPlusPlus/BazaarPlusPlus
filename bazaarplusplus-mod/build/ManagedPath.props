@@ -80,11 +80,13 @@
   </PropertyGroup>
 
   <!-- A target, not an evaluation-time error: release tests evaluate projects without the game.
-       A project that builds without game assemblies passes -p:ManagedPath explicitly. -->
+       A project that builds without game assemblies passes -p:ManagedPath explicitly; the Android
+       host and its tests, which compile against the Interop Snapshot instead (InteropPath.props),
+       set BppRequiresManagedPath to false. -->
   <Target
     Name="BppValidateManagedPath"
     BeforeTargets="ResolveAssemblyReferences"
-    Condition="'$(ManagedPath)' == ''"
+    Condition="'$(ManagedPath)' == '' and '$(BppRequiresManagedPath)' != 'false'"
   >
     <Error Text="Game assemblies not resolved. Lock entry $(BppSnapshotPlatform)-$(BppSnapshotChannel) names game version '$(BppLockGameVersion)' (empty: not captured yet); the local Steam install is '$(BppSteamGameVersion)' (empty: not found). Run 'just mod::fetch $(BppSnapshotPlatform) $(BppSnapshotChannel)', switch The Bazaar's Steam branch to match the lock, wait for a lock update, or pass -p:ManagedPath=/absolute/path/to/Managed." />
   </Target>

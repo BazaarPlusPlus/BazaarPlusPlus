@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Runs in `just mod::test-core`, which needs the Interop Snapshot but no Managed/ snapshot. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <AssemblyName>AndroidHost.Tests</AssemblyName>
+    <BppRequiresManagedPath>false</BppRequiresManagedPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <!-- The host is scanned as a compiled artifact, never loaded: its references resolve only
+       inside the game process. -->
+  <ItemGroup>
+    <ProjectReference
+      Include="../../src/BazaarPlusPlus.Android/BazaarPlusPlus.Android.csproj"
+      ReferenceOutputAssembly="false"
+    />
+    <AssemblyMetadata
+      Include="BppAndroidHostAssembly"
+      Value="$(MSBuildThisFileDirectory)../../src/BazaarPlusPlus.Android/bin/$(Configuration)/net10.0/BazaarPlusPlus.Android.dll"
+    />
+  </ItemGroup>
+</Project>

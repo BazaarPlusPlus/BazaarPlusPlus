@@ -44,7 +44,7 @@ No shared project references a game, Unity, or loader assembly, so the compiler 
 | `Localization/` | localization resolution, language and Chinese-mode helpers |
 | `Infrastructure/` | Release Manifest client, remote embedded catalogs, atomic and file-backed writes, async load cache, plugin version |
 
-Moved files kept their namespaces (`BazaarPlusPlus.Core.*`, `.Infrastructure`, `.Localization`).
+Core namespaces: `BazaarPlusPlus.Core.*`, `.Infrastructure`, `.Localization`.
 
 Inside the desktop host assembly:
 
@@ -62,7 +62,7 @@ Architecture tests ratchet dependency boundaries, shared ownership, and test/bui
 
 ## Shared Seams
 
-Each of these is consumed by two or more features. Reaching around one to re-implement its behavior inside a feature is the failure this section exists to prevent.
+Each is consumed by two or more features. Re-implementing one's behavior inside a feature is the failure this section exists to prevent.
 
 | Seam | Owner | Consumers |
 |---|---|---|
@@ -110,4 +110,5 @@ Each feature doc ends with the Gotchas that bite only that feature.
 | Desktop native build freshness, local promotion, and signing | [architecture/native-artifacts.md](architecture/native-artifacts.md) |
 | Hotkey bindings and settings dock rows | [architecture/input-and-settings.md](architecture/input-and-settings.md) |
 | Fonts, localization, voice subtitles, supporter attribution | [architecture/text.md](architecture/text.md) |
+| Android Host | [architecture/android-host.md](architecture/android-host.md) |
 | The V6 bundle wire format | [contracts/run-payload-v6.md](contracts/run-payload-v6.md) |

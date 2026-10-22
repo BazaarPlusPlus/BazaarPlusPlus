@@ -1,0 +1,60 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    The Android Host (root CONTEXT.md; docs/ARCHITECTURE.md Hosts): a LemonLoader MelonMod on
+    CoreCLR that compiles against the Interop Snapshot and the Loader Release, never against
+    Managed/ and never publicized. net10.0 is the TFM of the Loader Release's own MelonLoader.dll.
+  -->
+  <PropertyGroup>
+    <AssemblyName>BazaarPlusPlus.Android</AssemblyName>
+    <RootNamespace>BazaarPlusPlus.Android</RootNamespace>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <Version>$(BppVersion)</Version>
+    <Deterministic>true</Deterministic>
+    <!-- The loader supplies every referenced assembly at runtime; the build output is one DLL. -->
+    <GenerateDependencyFile>false</GenerateDependencyFile>
+    <!-- Game assemblies come from InteropPath, so the desktop ManagedPath check does not apply. -->
+    <BppRequiresManagedPath>false</BppRequiresManagedPath>
+  </PropertyGroup>
+
+  <Import Project="$(MSBuildThisFileDirectory)../../build/InteropPath.props" />
+
+  <ItemGroup>
+    <Reference Include="$(LemonLoaderManagedPath)MelonLoader.dll" Private="false" />
+    <Reference Include="$(LemonLoaderManagedPath)0Harmony.dll" Private="false" />
+    <Reference Include="$(LemonLoaderManagedPath)Il2CppInterop.Runtime.dll" Private="false" />
+    <Reference Include="$(InteropPath)*.dll" Private="false" />
+  </ItemGroup>
+
+  <!-- The melon's identity, versioned from VERSION like every BPP assembly. -->
+  <ItemGroup>
+    <AssemblyAttribute Include="MelonLoader.MelonInfoAttribute">
+      <_Parameter1>typeof(BazaarPlusPlus.Android.Host.AndroidMod)</_Parameter1>
+      <_Parameter1_IsLiteral>true</_Parameter1_IsLiteral>
+      <_Parameter2>BazaarPlusPlus</_Parameter2>
+      <_Parameter3>$(BppVersion)</_Parameter3>
+      <_Parameter4>BazaarPlusPlus</_Parameter4>
+    </AssemblyAttribute>
+  </ItemGroup>
+
+  <!--
+    Pure sources linked until this host can reference BazaarPlusPlus.Core. Core references
+    Storage, which binds the desktop game assemblies (BppReferenceGameLibraries), so a Core
+    reference would need a Managed snapshot that this host and its CI lane do not have.
+  -->
+  <ItemGroup>
+    <Compile
+      Include="../BazaarPlusPlus.Core/Config/IBppSettingsStore.cs"
+      Link="Shared/IBppSettingsStore.cs"
+    />
+    <Compile Include="../BazaarPlusPlus.Core/Config/ISetting.cs" Link="Shared/ISetting.cs" />
+    <Compile
+      Include="../BazaarPlusPlus/Game/Lobby/MainMenuVersionLabelFormatter.cs"
+      Link="Shared/MainMenuVersionLabelFormatter.cs"
+    />
+    <Compile
+      Include="../BazaarPlusPlus.Storage/Paths/PathConstants.cs"
+      Link="Shared/PathConstants.cs"
+    />
+  </ItemGroup>
+</Project>

@@ -12,6 +12,7 @@ export const JOB_SCOPES = {
   'installer-timings': 'installer-frontend',
   'mod-macos': 'mod-macos',
   'mod-windows': 'mod-windows',
+  'mod-android': 'mod-android',
   'macos-icon': 'macos-icon'
 };
 
