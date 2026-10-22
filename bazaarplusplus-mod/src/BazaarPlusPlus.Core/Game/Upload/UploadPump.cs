@@ -39,7 +39,7 @@ public sealed class UploadPump : IDisposable
         IBppServices services,
         string? platformKey,
         float nowSeconds,
-        SqliteOpenOptions? databaseOptions = null
+        SqliteOpenOptions databaseOptions
     )
     {
         if (services == null)

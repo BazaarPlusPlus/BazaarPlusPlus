@@ -5,8 +5,8 @@ namespace Architecture.Tests;
 
 /// <summary>
 /// BazaarPlusPlus.Core is shared by every host (ADR-0012), so neither of its compiled targets
-/// may bind a host, loader, engine, or game assembly. Its one host-switched binding,
-/// Newtonsoft.Json, is checked with the other shared assemblies' in SharedLibraryBindingTests.
+/// may bind a host, loader, engine, or game assembly, nor SQLite, which Storage owns. Its one
+/// host-switched binding, Newtonsoft.Json, is checked with the other shared assemblies' in SharedLibraryBindingTests.
 /// </summary>
 public sealed class CoreAssemblyBoundaryTests
 {
@@ -23,6 +23,8 @@ public sealed class CoreAssemblyBoundaryTests
         "BazaarGame",
         "BazaarBattleService",
         "MessagePack",
+        "Microsoft.Data.Sqlite",
+        "SQLitePCLRaw",
     };
 
     [Fact]

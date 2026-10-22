@@ -1,6 +1,7 @@
 #nullable enable
 using BazaarPlusPlus.Core.Runtime;
 using BazaarPlusPlus.Host;
+using BazaarPlusPlus.Storage.Sqlite;
 using UnityEngine;
 
 namespace BazaarPlusPlus.Game.Upload;
@@ -12,7 +13,12 @@ internal sealed class BackgroundUploadPump : MonoBehaviour
 
     public void Initialize(IBppServices services)
     {
-        _pump = UploadPump.Start(services, DesktopPlatformKey.Current, Time.unscaledTime);
+        _pump = UploadPump.Start(
+            services,
+            DesktopPlatformKey.Current,
+            Time.unscaledTime,
+            SqliteOpenOptions.Default
+        );
     }
 
     private void Update() => _pump?.Tick(Time.unscaledTime);

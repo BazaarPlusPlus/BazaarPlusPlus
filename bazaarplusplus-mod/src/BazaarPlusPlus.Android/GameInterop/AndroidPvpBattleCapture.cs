@@ -257,9 +257,12 @@ internal sealed class AndroidPvpBattleCapture
         }
     }
 
+    // Both saves run on the main thread against the DELETE-mode database the seal and upload
+    // workers also use, so the recorded event carries how long they held the frame.
     private void Record(PvpBattleRecord record, PvpReplayPayload? replay)
     {
         record.RecordedAtUtc = _utcNow();
+        var saving = Stopwatch.StartNew();
         var replaySaved = SaveReplay(record, replay);
         try
         {
@@ -273,7 +276,8 @@ internal sealed class AndroidPvpBattleCapture
                 new BppLogEvent(BppLogFeatureScope.Android, "android.pvp_battle.save_failed"),
                 exception,
                 ("battle_id", record.BattleId, BppLogCorrelationPolicy.Short),
-                ("run_id", record.RunId, BppLogCorrelationPolicy.Short)
+                ("run_id", record.RunId, BppLogCorrelationPolicy.Short),
+                ("save_elapsed_ms", saving.ElapsedMilliseconds)
             );
             return;
         }
@@ -286,7 +290,8 @@ internal sealed class AndroidPvpBattleCapture
             ("day", record.Day),
             ("hour", record.Hour),
             ("result", record.Outcome.Result),
-            ("replay_saved", replaySaved)
+            ("replay_saved", replaySaved),
+            ("save_elapsed_ms", saving.ElapsedMilliseconds)
         );
         _eventBus.Publish(
             new PvpBattleRecorded

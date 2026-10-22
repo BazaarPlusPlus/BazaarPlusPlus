@@ -7,7 +7,6 @@ using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.ModApi.Bundle;
 using BazaarPlusPlus.Storage.RunLog;
 using BazaarPlusPlus.Storage.Sqlite;
-using Microsoft.Data.Sqlite;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
@@ -15,7 +14,8 @@ namespace BazaarPlusPlus.Game.BundlePipeline;
 
 /// <summary>
 /// Composes one run's Run segment and projections from the history database, the stored board
-/// captures (<see cref="PvpBattleCardSetDocument"/>), and the local Replay Payloads. The host
+/// captures (<see cref="PvpBattleCardSetDocument"/>), and the local Replay Payloads. Storage owns
+/// every SQL read (<see cref="RunLogBundleSource"/>, <see cref="PvpBattleSqliteStore"/>); the host
 /// supplies only the game-typed reads, through <see cref="IPvpBattleEvidenceBinding"/>.
 /// </summary>
 public sealed class RunPayloadComposer : IRunPayloadComposer
@@ -26,7 +26,7 @@ public sealed class RunPayloadComposer : IRunPayloadComposer
         "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
         RegexOptions.CultureInvariant
     );
-    private readonly string _databasePath;
+    private readonly RunLogBundleSource _runs;
     private readonly PvpBattleSqliteStore _battles;
     private readonly CombatReplayPayloadStore _replayStore;
     private readonly IPvpBattleEvidenceBinding _evidence;
@@ -35,10 +35,10 @@ public sealed class RunPayloadComposer : IRunPayloadComposer
         string databasePath,
         string replayRoot,
         IPvpBattleEvidenceBinding evidence,
-        SqliteOpenOptions? databaseOptions = null
+        SqliteOpenOptions databaseOptions
     )
     {
-        _databasePath = databasePath;
+        _runs = new RunLogBundleSource(databasePath, databaseOptions);
         _battles = new PvpBattleSqliteStore(databasePath, databaseOptions);
         _replayStore = new CombatReplayPayloadStore(replayRoot);
         _evidence = evidence ?? throw new ArgumentNullException(nameof(evidence));
@@ -101,74 +101,47 @@ public sealed class RunPayloadComposer : IRunPayloadComposer
 
     private RunFactsV6 ReadRunFacts(string runId)
     {
-        using var connection = Open();
-        using var command = connection.CreateCommand();
-        command.CommandText = $"""
-            SELECT hero, game_mode, started_at_ms, ended_at_ms, status,
-                   COALESCE(final_day, day), COALESCE(final_hour, hour), victories, losses,
-                   player_rank, player_rating, final_player_rank, final_player_rating,
-                   final_player_rating_delta, max_health, prestige, level, income, gold,
-                   build_channel, mod_version
-            FROM {RunLogSchema.RunsTableName}
-            WHERE run_id = $runId AND status <> 'active'
-            LIMIT 1;
-            """;
-        command.Parameters.AddWithValue("$runId", runId);
-        using var reader = command.ExecuteReader();
-        if (!reader.Read())
-            throw new BundleCompositionException("source_run_missing");
+        var run =
+            _runs.TryReadEndedRun(runId)
+            ?? throw new BundleCompositionException("source_run_missing");
         return new RunFactsV6
         {
-            Hero = reader.GetString(0),
-            GameMode = reader.GetString(1),
+            Hero = run.Hero,
+            GameMode = run.GameMode,
             Seed = null,
-            StartedAtMs = reader.GetInt64(2),
-            EndedAtMs = reader.IsDBNull(3) ? null : reader.GetInt64(3),
-            Status = reader.GetString(4),
-            Day = NonNegative(NullableInt(reader, 5)),
-            Hour = NonNegative(NullableInt(reader, 6)),
-            Victories = NonNegative(NullableInt(reader, 7)),
-            Losses = NonNegative(NullableInt(reader, 8)),
-            PlayerRank = Limit(NullableString(reader, 9)),
-            PlayerRating = NonNegative(NullableInt(reader, 10)),
-            FinalPlayerRank = Limit(NullableString(reader, 11)),
-            FinalPlayerRating = NonNegative(NullableInt(reader, 12)),
-            FinalPlayerRatingDelta = NullableInt(reader, 13),
-            MaxHealth = NonNegative(NullableInt(reader, 14)),
-            Prestige = NonNegative(NullableInt(reader, 15)),
-            Level = NonNegative(NullableInt(reader, 16)),
-            Income = NonNegative(NullableInt(reader, 17)),
-            Gold = NonNegative(NullableInt(reader, 18)),
-            BuildChannel = Limit(NullableString(reader, 19)),
-            ModVersion = Limit(NullableString(reader, 20)) ?? string.Empty,
+            StartedAtMs = run.StartedAtMs,
+            EndedAtMs = run.EndedAtMs,
+            Status = run.Status,
+            Day = NonNegative(run.Day),
+            Hour = NonNegative(run.Hour),
+            Victories = NonNegative(run.Victories),
+            Losses = NonNegative(run.Losses),
+            PlayerRank = Limit(run.PlayerRank),
+            PlayerRating = NonNegative(run.PlayerRating),
+            FinalPlayerRank = Limit(run.FinalPlayerRank),
+            FinalPlayerRating = NonNegative(run.FinalPlayerRating),
+            FinalPlayerRatingDelta = run.FinalPlayerRatingDelta,
+            MaxHealth = NonNegative(run.MaxHealth),
+            Prestige = NonNegative(run.Prestige),
+            Level = NonNegative(run.Level),
+            Income = NonNegative(run.Income),
+            Gold = NonNegative(run.Gold),
+            BuildChannel = Limit(run.BuildChannel),
+            ModVersion = Limit(run.ModVersion) ?? string.Empty,
         };
     }
 
-    private List<RunEventV6> ReadEvents(string runId)
-    {
-        using var connection = Open();
-        using var command = connection.CreateCommand();
-        command.CommandText = $"""
-            SELECT seq, ts_at_ms, kind, payload_json
-            FROM {RunLogSchema.RunEventsTableName}
-            WHERE run_id = $runId
-            ORDER BY seq ASC;
-            """;
-        command.Parameters.AddWithValue("$runId", runId);
-        using var reader = command.ExecuteReader();
-        var events = new List<RunEventV6>();
-        while (reader.Read())
-            events.Add(
-                new RunEventV6
-                {
-                    Seq = reader.GetInt64(0),
-                    TimestampMs = reader.GetInt64(1),
-                    Kind = reader.GetString(2),
-                    PayloadJson = EventPayloadBody(reader.GetString(3)),
-                }
-            );
-        return events;
-    }
+    private List<RunEventV6> ReadEvents(string runId) =>
+        _runs
+            .ReadEvents(runId)
+            .Select(stored => new RunEventV6
+            {
+                Seq = stored.Seq,
+                TimestampMs = stored.TimestampMs,
+                Kind = stored.Kind,
+                PayloadJson = EventPayloadBody(stored.PayloadJson),
+            })
+            .ToList();
 
     // A replay that exists but cannot be used is reported, not decided: the seal coordinator asks
     // BundleSealFailurePolicy whether it omits that replay or holds the whole Run.
@@ -461,16 +434,6 @@ public sealed class RunPayloadComposer : IRunPayloadComposer
     private static int EncodedSize(RunPayloadV6 payload) =>
         RunPayloadV6Codec.Encode(payload).Length;
 
-    private SqliteConnection Open()
-    {
-        var connection = new SqliteConnection($"Data Source={_databasePath}");
-        connection.Open();
-        return connection;
-    }
-
-    private static int? NullableInt(SqliteDataReader reader, int ordinal) =>
-        reader.IsDBNull(ordinal) ? null : reader.GetInt32(ordinal);
-
     // The RunEventV6 envelope owns run_id, seq, ts, and kind; the stored payload_json repeats them
     // (ts as text), so the Run segment carries only the remaining fields, in stored order.
     private static readonly string[] EventEnvelopeKeys = ["run_id", "seq", "ts", "kind"];
@@ -487,9 +450,6 @@ public sealed class RunPayloadComposer : IRunPayloadComposer
             body.Remove(key);
         return body.ToString(Formatting.None);
     }
-
-    private static string? NullableString(SqliteDataReader reader, int ordinal) =>
-        reader.IsDBNull(ordinal) ? null : reader.GetString(ordinal);
 
     private static int? NonNegative(int? value) => value is >= 0 ? value : null;
 

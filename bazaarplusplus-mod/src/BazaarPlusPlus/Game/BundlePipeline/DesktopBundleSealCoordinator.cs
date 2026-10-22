@@ -1,6 +1,7 @@
 #nullable enable
 using BazaarPlusPlus.Core.Runtime;
 using BazaarPlusPlus.Storage.Paths;
+using BazaarPlusPlus.Storage.Sqlite;
 
 namespace BazaarPlusPlus.Game.BundlePipeline;
 
@@ -24,10 +25,12 @@ internal static class DesktopBundleSealCoordinator
             new RunPayloadComposer(
                 PathConstants.RunLogDatabase(dataRoot),
                 PathConstants.CombatReplays(dataRoot),
-                DesktopPvpBattleEvidence.Instance
+                DesktopPvpBattleEvidence.Instance,
+                SqliteOpenOptions.Default
             ),
             new BundleScreenshotEncoder(),
-            faultProbe
+            faultProbe,
+            SqliteOpenOptions.Default
         );
     }
 }

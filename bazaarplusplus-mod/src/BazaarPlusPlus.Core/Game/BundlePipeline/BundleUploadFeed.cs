@@ -20,7 +20,7 @@ public static class BundleUploadFeed
         IBppServices services,
         UploadPumpCadence cadence,
         string? platformKey,
-        SqliteOpenOptions? databaseOptions = null
+        SqliteOpenOptions databaseOptions
     ) => new(services, cadence, platformKey, databaseOptions);
 
     /// <summary>
@@ -43,7 +43,7 @@ public static class BundleUploadFeed
             IBppServices services,
             UploadPumpCadence cadence,
             string? platformKey,
-            SqliteOpenOptions? databaseOptions = null
+            SqliteOpenOptions databaseOptions
         )
         {
             _services = services;

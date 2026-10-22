@@ -19,7 +19,7 @@ public static class UploadPumpBootstrap
         IBppServices services,
         UploadPumpCadence cadence,
         string? platformKey,
-        SqliteOpenOptions? databaseOptions = null
+        SqliteOpenOptions databaseOptions
     )
     {
         if (services == null)
