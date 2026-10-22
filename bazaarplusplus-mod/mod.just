@@ -53,15 +53,19 @@ decompile channel *dlls:
 snapshot:
     bash scripts/game.sh snapshot
 
-# Upload a captured snapshot to the private store; needs the release credentials.
+# Capture an official Android APK's Interop Snapshot under game-libs/ and record it in build/game-libs.lock.json.
+snapshot-android apk *args:
+    bash scripts/game.sh snapshot-android "$@"
+
+# Upload a captured snapshot (android: and its pinned inputs) to the private store; needs the release credentials.
 [arg('channel', pattern='online|staging|ptr')]
-[arg('platform', pattern='macos|windows')]
+[arg('platform', pattern='macos|windows|android')]
 publish platform channel:
     node ../scripts/workspace.mjs run release -- bash scripts/game.sh publish "$@"
 
-# Make one lock entry's Managed dir available (snapshot, matching Steam install, or private store) and print it.
+# Make one lock entry's Managed dir (android: interop dir and Loader Release) available and print it.
 [arg('channel', pattern='online|staging|ptr')]
-[arg('platform', pattern='macos|windows')]
+[arg('platform', pattern='macos|windows|android')]
 fetch platform channel:
     bash scripts/game.sh fetch "$@"
 

@@ -4,22 +4,39 @@ import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { parseArgs } from 'node:util';
+import { readApk, sha256File } from './android-apk.mjs';
 import { WORKSPACE_ROOT } from './product.mjs';
 import { putReplaceable, r2StoreFromEnvironment } from './r2-store.mjs';
 
-// Game Assembly Snapshots and the Snapshot Lock (root CONTEXT.md, ADR 0004).
-// This module owns the lock schema, the Managed-directory digest that the lock,
-// the snapshot manifest and the sealed build record all share, and the private
-// store layout. bazaarplusplus-mod/scripts/game.sh drives it through the CLI at
-// the bottom; build/ManagedPath.props reads the lock file directly.
+// Game Assembly Snapshots, Interop Snapshots and the Snapshot Lock (root
+// CONTEXT.md, ADR 0004 and ADR 0008). This module owns the lock schema, the
+// Managed- and interop-directory digests that the lock, the snapshot manifest
+// and the sealed build record share, and the private store layout.
+// bazaarplusplus-mod/scripts/game.sh drives it through the CLI at the bottom;
+// build/ManagedPath.props and build/InteropPath.props read the lock file
+// directly.
 
 export const GAME_LIBS_LOCK_PATH =
   'bazaarplusplus-mod/build/game-libs.lock.json';
 export const GAME_LIBS_BUCKET = 'bazaarplusplus-game-libs';
 export const LOCK_SCHEMA_VERSION = 1;
 export const SNAPSHOT_MANIFEST_SCHEMA_VERSION = 1;
-export const SNAPSHOT_PLATFORMS = Object.freeze(['macos', 'windows']);
+export const SNAPSHOT_PLATFORMS = Object.freeze([
+  'macos',
+  'windows',
+  'android'
+]);
 export const SNAPSHOT_CHANNELS = Object.freeze(['online', 'staging', 'ptr']);
+// Desktop platforms capture a Steam install's Managed directory on three
+// branches. Android has only the production APK, so its one key is online and
+// its snapshot is the Interop assemblies generated from that APK.
+export const PLATFORM_CHANNELS = Object.freeze({
+  macos: SNAPSHOT_CHANNELS,
+  windows: SNAPSHOT_CHANNELS,
+  android: Object.freeze(['online'])
+});
+export const MANAGED_PLATFORMS = Object.freeze(['macos', 'windows']);
+export const INTEROP_KEY = 'android-online';
 // Steam branch names are the source record of a capture, never its identity.
 export const STEAM_BRANCHES = Object.freeze({
   online: 'public',
@@ -33,11 +50,33 @@ const ENTRY_FIELDS = Object.freeze([
   'steamBranch',
   'capturedAt'
 ]);
+// An Interop Snapshot entry: the APK's identity and the pinned toolchain that
+// turned it into Interop assemblies. The official APK, the Loader Release, the
+// Patcher and the Cpp2IL Linux binary are stored by sha256 beside the interop
+// collection, so a release job can inject from the lock alone.
+const INTEROP_ENTRY_FIELDS = Object.freeze([
+  'gameVersion',
+  'versionCode',
+  'apkSha256',
+  'il2cppSha256',
+  'metadataSha256',
+  'unityVersion',
+  'interopSha256',
+  'loader',
+  'patcher',
+  'cpp2ilVersion',
+  'cpp2ilSha256',
+  'il2cppInteropVersion',
+  'nativeLibs',
+  'capturedAt'
+]);
 // Unity's Application.version as the game ships it: build number, optional
-// channel token, platform, architecture, game commit. It lives in
-// globalgamemanagers beside Managed, not in any Managed DLL.
-const GAME_VERSION_PATTERN =
-  /\d+\.\d+\.\d+(?:-[a-z0-9]+)*-(?:macos|windows)-[a-z0-9]+-[0-9a-f]+/g;
+// channel token, platform, then the architecture on desktop only, then the
+// game commit. Desktop reads it from globalgamemanagers beside Managed; Android
+// carries it as the APK versionName. build/ManagedPath.props mirrors this
+// pattern as BppGameVersionPattern.
+export const GAME_VERSION_PATTERN =
+  /\d+\.\d+\.\d+(?:-[a-z0-9]+)*-(?:macos|windows|android)(?:-[a-z0-9]+)*-[0-9a-f]+/g;
 
 const hash = (bytes) => crypto.createHash('sha256').update(bytes).digest('hex');
 const jsonBytes = (value) => Buffer.from(`${JSON.stringify(value, null, 2)}\n`);
@@ -45,30 +84,36 @@ const jsonBytes = (value) => Buffer.from(`${JSON.stringify(value, null, 2)}\n`);
 export function lockKey(platform, channel) {
   if (!SNAPSHOT_PLATFORMS.includes(platform))
     throw new Error(
-      `Unknown snapshot platform '${platform}'; expected ${SNAPSHOT_PLATFORMS.join(' or ')}`
+      `Unknown snapshot platform '${platform}'; expected ${SNAPSHOT_PLATFORMS.join(', ')}`
     );
-  if (!SNAPSHOT_CHANNELS.includes(channel))
+  if (!PLATFORM_CHANNELS[platform].includes(channel))
     throw new Error(
-      `Unknown snapshot channel '${channel}'; expected ${SNAPSHOT_CHANNELS.join(', ')}`
+      `Unknown ${platform} snapshot channel '${channel}'; expected ${PLATFORM_CHANNELS[platform].join(', ')}`
     );
   return `${platform}-${channel}`;
 }
 
 export function lockKeys() {
   return SNAPSHOT_PLATFORMS.flatMap((platform) =>
-    SNAPSHOT_CHANNELS.map((channel) => lockKey(platform, channel))
+    PLATFORM_CHANNELS[platform].map((channel) => lockKey(platform, channel))
   );
 }
+
+export const isInteropPlatform = (platform) =>
+  !MANAGED_PLATFORMS.includes(platform);
 
 export function parseGameVersion(gameVersion) {
   const pattern = new RegExp(`^${GAME_VERSION_PATTERN.source}$`);
   if (typeof gameVersion !== 'string' || !pattern.test(gameVersion))
     throw new Error(
-      `Invalid game version ${JSON.stringify(gameVersion)}; expected the Application.version string such as 1.0.12575-staging-macos-arm64-fecb8f8e`
+      `Invalid game version ${JSON.stringify(gameVersion)}; expected the Application.version string such as 1.0.12575-staging-macos-arm64-fecb8f8e or 1.0.12825-production-android-d9601ded`
     );
-  const platform = gameVersion.includes('-macos-') ? 'macos' : 'windows';
+  const platform = SNAPSHOT_PLATFORMS.find((name) =>
+    gameVersion.includes(`-${name}-`)
+  );
   // Mirrors GameBuildInfoResolver: a "-staging" or "-ptr" token names the
-  // channel; the production build carries neither.
+  // channel; the production build carries neither ("prod" on desktop,
+  // "production" on Android).
   const channel = gameVersion.includes('-staging-')
     ? 'staging'
     : gameVersion.includes('-ptr-')
@@ -124,25 +169,126 @@ export function managedDirectoryDigest(managedPath) {
   return hash(JSON.stringify(managedDirectoryRecords(managedPath)));
 }
 
+const isObject = (value) =>
+  value !== null && typeof value === 'object' && !Array.isArray(value);
+const isSha256 = (value) => /^[0-9a-f]{64}$/.test(value ?? '');
+
+function assertFields(label, value, fields) {
+  if (!isObject(value)) throw new Error(`${label} must be an object`);
+  const keys = Object.keys(value);
+  if (
+    keys.length !== fields.length ||
+    fields.some((field) => !keys.includes(field))
+  )
+    throw new Error(
+      `${label} must have exactly the fields ${fields.join(', ')}`
+    );
+}
+
+function assertSha256(key, label, value) {
+  if (!isSha256(value))
+    throw new Error(`Lock entry ${key} has an invalid ${label}`);
+}
+
+function assertToken(key, label, value) {
+  if (typeof value !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9._+-]*$/.test(value))
+    throw new Error(
+      `Lock entry ${key} ${label} must be a version or tag token, got ${JSON.stringify(value)}`
+    );
+}
+
+function assertCapturedAt(key, capturedAt) {
+  if (
+    typeof capturedAt !== 'string' ||
+    Number.isNaN(Date.parse(capturedAt)) ||
+    !/Z$/.test(capturedAt)
+  )
+    throw new Error(
+      `Lock entry ${key} capturedAt must be an ISO 8601 UTC instant`
+    );
+}
+
+function assertInteropEntry(key, entry) {
+  if (!Number.isInteger(entry.versionCode) || entry.versionCode <= 0)
+    throw new Error(
+      `Lock entry ${key} versionCode must be the APK's positive integer versionCode`
+    );
+  for (const field of [
+    'apkSha256',
+    'il2cppSha256',
+    'metadataSha256',
+    'interopSha256',
+    'cpp2ilSha256'
+  ])
+    assertSha256(key, field, entry[field]);
+  if (!/^\d+\.\d+\.\d+[abfp]\d+$/.test(entry.unityVersion ?? ''))
+    throw new Error(
+      `Lock entry ${key} unityVersion must be a Unity version such as 6000.3.11f1`
+    );
+  assertFields(`Lock entry ${key} loader`, entry.loader, [
+    'tag',
+    'sha256',
+    'managedRuntimeVersion'
+  ]);
+  assertToken(key, 'loader.tag', entry.loader.tag);
+  assertSha256(key, 'loader.sha256', entry.loader.sha256);
+  assertToken(
+    key,
+    'loader.managedRuntimeVersion',
+    entry.loader.managedRuntimeVersion
+  );
+  assertFields(`Lock entry ${key} patcher`, entry.patcher, ['tag', 'sha256']);
+  assertToken(key, 'patcher.tag', entry.patcher.tag);
+  assertSha256(key, 'patcher.sha256', entry.patcher.sha256);
+  assertToken(key, 'cpp2ilVersion', entry.cpp2ilVersion);
+  assertToken(key, 'il2cppInteropVersion', entry.il2cppInteropVersion);
+  if (!isObject(entry.nativeLibs))
+    throw new Error(`Lock entry ${key} nativeLibs must be an object`);
+  for (const [name, lib] of Object.entries(entry.nativeLibs)) {
+    if (!/^lib[A-Za-z0-9._+-]+\.so$/.test(name))
+      throw new Error(
+        `Lock entry ${key} nativeLibs key ${JSON.stringify(name)} must be a shared library file name`
+      );
+    assertFields(`Lock entry ${key} nativeLibs.${name}`, lib, [
+      'package',
+      'version',
+      'sha256'
+    ]);
+    assertToken(key, `nativeLibs.${name}.package`, lib.package);
+    assertToken(key, `nativeLibs.${name}.version`, lib.version);
+    assertSha256(key, `nativeLibs.${name}.sha256`, lib.sha256);
+  }
+  assertCapturedAt(key, entry.capturedAt);
+}
+
 function assertEntry(key, entry) {
   const [platform, channel] = key.split('-');
   if (entry === null) return;
-  if (typeof entry !== 'object' || Array.isArray(entry))
+  if (!isObject(entry))
     throw new Error(`Lock entry ${key} must be null or an object`);
-  const keys = Object.keys(entry);
+  assertFields(
+    `Lock entry ${key}`,
+    entry,
+    isInteropPlatform(platform) ? INTEROP_ENTRY_FIELDS : ENTRY_FIELDS
+  );
+  // build/InteropPath.props reads gameVersion and loader.tag by position.
   if (
-    keys.length !== ENTRY_FIELDS.length ||
-    ENTRY_FIELDS.some((field) => !keys.includes(field))
+    isInteropPlatform(platform) &&
+    Object.keys(entry).join() !== INTEROP_ENTRY_FIELDS.join()
   )
     throw new Error(
-      `Lock entry ${key} must have exactly the fields ${ENTRY_FIELDS.join(', ')}`
+      `Lock entry ${key} must list its fields in the order ${INTEROP_ENTRY_FIELDS.join(', ')}`
     );
   const parsed = parseGameVersion(entry.gameVersion);
   if (parsed.platform !== platform || parsed.channel !== channel)
     throw new Error(
       `Lock entry ${key} names game version ${entry.gameVersion}, which is a ${parsed.platform}-${parsed.channel} build`
     );
-  if (!/^[0-9a-f]{64}$/.test(entry.sha256))
+  if (isInteropPlatform(platform)) {
+    assertInteropEntry(key, entry);
+    return;
+  }
+  if (!isSha256(entry.sha256))
     throw new Error(`Lock entry ${key} has an invalid sha256`);
   if (typeof entry.buildid !== 'string' || !/^[1-9]\d*$/.test(entry.buildid))
     throw new Error(
@@ -152,14 +298,7 @@ function assertEntry(key, entry) {
     throw new Error(
       `Lock entry ${key} steamBranch must be ${STEAM_BRANCHES[channel]}, got ${JSON.stringify(entry.steamBranch)}`
     );
-  if (
-    typeof entry.capturedAt !== 'string' ||
-    Number.isNaN(Date.parse(entry.capturedAt)) ||
-    !/Z$/.test(entry.capturedAt)
-  )
-    throw new Error(
-      `Lock entry ${key} capturedAt must be an ISO 8601 UTC instant`
-    );
+  assertCapturedAt(key, entry.capturedAt);
 }
 
 export function validateGameLibsLock(lock) {
@@ -181,7 +320,7 @@ export function validateGameLibsLock(lock) {
     expected.some((key) => !keys.includes(key))
   )
     throw new Error(
-      `Snapshot lock must hold exactly the six keys ${expected.join(', ')}`
+      `Snapshot lock must hold exactly the keys ${expected.join(', ')}`
     );
   if (
     Object.keys(lock).some(
@@ -233,7 +372,9 @@ export function lockWarnings(lock, { now = new Date() } = {}) {
     const [platform, channel] = key.split('-');
     if (entry === null) {
       warnings.push(
-        `${key}: no snapshot captured; run 'just mod::snapshot' on a ${platform} machine with The Bazaar's ${STEAM_BRANCHES[channel]} branch mounted, then 'just mod::publish ${platform} ${channel}' and commit the lock`
+        isInteropPlatform(platform)
+          ? `${key}: no Interop Snapshot captured; run 'just mod::snapshot-android <TheBazaar.apk>', then 'just mod::publish ${platform} ${channel}' and commit the lock`
+          : `${key}: no snapshot captured; run 'just mod::snapshot' on a ${platform} machine with The Bazaar's ${STEAM_BRANCHES[channel]} branch mounted, then 'just mod::publish ${platform} ${channel}' and commit the lock`
       );
       continue;
     }
@@ -255,6 +396,14 @@ export function lockedEntries(lock) {
       const [platform, channel] = key.split('-');
       return { key, platform, channel, entry: lock.entries[key] };
     });
+}
+
+// The captured entries whose snapshot is a Managed directory: what desktop
+// builds, the sealed build record and the CompatCheck matrix compile against.
+export function managedEntries(lock) {
+  return lockedEntries(lock).filter(
+    ({ platform }) => !isInteropPlatform(platform)
+  );
 }
 
 export function snapshotDirectory(modRoot, platform, channel, gameVersion) {
@@ -583,6 +732,753 @@ export async function fetchSnapshot({
   };
 }
 
+// ---------------------------------------------------------------------------
+// Interop Snapshots (ADR 0008). The android-online entry pins an official APK
+// and the toolchain that turned it into Il2CppInterop assemblies. Locally the
+// snapshot lives at game-libs/android-online-<gameVersion>/interop/, the Loader
+// Release at game-libs/loader-<tag>/, and other inputs fetched by sha256 under
+// game-libs/inputs/. Each input is stored in the private bucket under its own
+// content address.
+
+export const ANDROID_INPUTS = Object.freeze({
+  apk: { extension: '.apk', sha256: (entry) => entry.apkSha256 },
+  loader: { extension: '.zip', sha256: (entry) => entry.loader.sha256 },
+  patcher: { extension: '.tar.gz', sha256: (entry) => entry.patcher.sha256 },
+  cpp2il: { extension: '', sha256: (entry) => entry.cpp2ilSha256 }
+});
+// Where the Loader Release keeps the managed assemblies a host compiles
+// against; build/InteropPath.props names the same directory.
+export const LOADER_MANAGED_DIRECTORY =
+  'assets/LemonLoader/runtime/loader/net6';
+const LOADER_MARKER = '.bpp-loader-sha256';
+// Local paths of the inputs a capture read, so publish can upload them without
+// copying a multi-gigabyte APK under game-libs/. Never uploaded.
+const SOURCES_FILE = 'sources.json';
+
+function inputKind(kind) {
+  if (!Object.hasOwn(ANDROID_INPUTS, kind))
+    throw new Error(
+      `Unknown Android input '${kind}'; expected ${Object.keys(ANDROID_INPUTS).join(', ')}`
+    );
+  return ANDROID_INPUTS[kind];
+}
+
+export function interopBlobKey(sha256) {
+  if (!isSha256(sha256)) throw new Error('Invalid interop sha256');
+  return `game-libs/interop/${sha256}.tar.gz`;
+}
+
+export function androidInputKey(kind, sha256) {
+  const { extension } = inputKind(kind);
+  if (!isSha256(sha256)) throw new Error(`Invalid ${kind} sha256`);
+  return `game-libs/${kind}/${sha256}${extension}`;
+}
+
+export function loaderDirectory(modRoot, tag) {
+  return path.join(modRoot, 'game-libs', `loader-${tag}`);
+}
+
+function androidInputFile(modRoot, kind, sha256) {
+  return path.join(
+    modRoot,
+    'game-libs',
+    'inputs',
+    `${kind}-${sha256}${inputKind(kind).extension}`
+  );
+}
+
+// Every top-level file of an interop directory, keyed interop/<name>: the
+// proxy assemblies plus the generator's databases and manifest, which the
+// injector packs beside them. Ordinal order, as for Managed.
+export function interopDirectoryRecords(interopPath) {
+  const records = [];
+  for (const entry of fs.readdirSync(interopPath, { withFileTypes: true })) {
+    if (entry.isFile())
+      records.push({
+        path: `interop/${entry.name}`,
+        sha256: hash(fs.readFileSync(path.join(interopPath, entry.name)))
+      });
+  }
+  if (!records.some((record) => record.path === 'interop/Assembly-CSharp.dll'))
+    throw new Error(`Interop path has no Assembly-CSharp.dll: ${interopPath}`);
+  records.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
+  return records;
+}
+
+export function interopDirectoryDigest(interopPath) {
+  return hash(JSON.stringify(interopDirectoryRecords(interopPath)));
+}
+
+// The generator records its own toolchain in interop-manifest.json.
+function readInteropManifest(interopPath) {
+  const file = path.join(interopPath, 'interop-manifest.json');
+  let manifest;
+  try {
+    manifest = JSON.parse(fs.readFileSync(file, 'utf8'));
+  } catch (error) {
+    throw new Error(
+      `Cannot read ${file}; an interop directory comes from the Patcher's generate-interop: ${error.message}`
+    );
+  }
+  const { unityVersion, tools = {} } = manifest;
+  if (!unityVersion || !tools.cpp2IlVersion || !tools.il2CppInteropVersion)
+    throw new Error(
+      `${file} names no unityVersion, tools.cpp2IlVersion or tools.il2CppInteropVersion`
+    );
+  return {
+    unityVersion,
+    cpp2ilVersion: tools.cpp2IlVersion,
+    il2cppInteropVersion: tools.il2CppInteropVersion
+  };
+}
+
+function readZipEntry(zip, entry) {
+  try {
+    return execFileSync('unzip', ['-p', zip, entry], {
+      stdio: ['ignore', 'pipe', 'pipe']
+    });
+  } catch (error) {
+    throw new Error(
+      `Cannot read ${entry} from ${zip}: ${String(error.stderr || error.message).trim()}`
+    );
+  }
+}
+
+function unzipInto(zip, into) {
+  fs.mkdirSync(into, { recursive: true });
+  try {
+    execFileSync('unzip', ['-q', '-o', zip, '-d', into], {
+      stdio: ['ignore', 'ignore', 'pipe']
+    });
+  } catch (error) {
+    throw new Error(
+      `unzip ${zip} failed: ${String(error.stderr || error.message).trim()}`
+    );
+  }
+}
+
+// The store an Android step needs, created on first use so a step that is
+// satisfied locally never needs credentials.
+function lazyStore(storeFactory, remedy) {
+  let store;
+  return () => {
+    if (store) return store;
+    try {
+      store = storeFactory();
+    } catch (error) {
+      throw new Error(`${remedy}: ${error.message}`);
+    }
+    return store;
+  };
+}
+
+const STORE_REMEDY =
+  'Fetch from the private store with the Cloudflare operator token (just with-config release just mod::fetch android online)';
+
+// Makes one pinned Android input available as a verified local file: the
+// game-libs/inputs/ cache, else the private store.
+export async function fetchAndroidInput({
+  modRoot,
+  kind,
+  sha256,
+  store,
+  log = () => {}
+}) {
+  const file = androidInputFile(modRoot, kind, sha256);
+  if (fs.existsSync(file)) {
+    if ((await sha256File(file)) === sha256) return file;
+    fs.rmSync(file, { force: true });
+  }
+  const key = androidInputKey(kind, sha256);
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  const partial = `${file}.fetch-${process.pid}`;
+  try {
+    log(`Fetching ${key} from the private store`);
+    const fetched = await store().getFile(key, partial);
+    if (!fetched)
+      throw new Error(
+        `The private store has no ${key}; run 'just mod::publish android online' on the machine that captured it`
+      );
+    const digest = await sha256File(partial);
+    if (digest !== sha256)
+      throw new Error(
+        `Stored ${key} hashes to ${digest}, not the ${sha256} the lock records`
+      );
+    fs.renameSync(partial, file);
+  } finally {
+    fs.rmSync(partial, { force: true });
+  }
+  return file;
+}
+
+function verifiedLoader(modRoot, loader) {
+  const directory = loaderDirectory(modRoot, loader.tag);
+  const marker = path.join(directory, LOADER_MARKER);
+  if (
+    fs.existsSync(
+      path.join(directory, LOADER_MANAGED_DIRECTORY, 'MelonLoader.dll')
+    ) &&
+    fs.existsSync(marker) &&
+    fs.readFileSync(marker, 'utf8').trim() === loader.sha256
+  )
+    return directory;
+  return null;
+}
+
+// Unpacks the Loader Release zip whose sha256 the lock entry pins into
+// game-libs/loader-<tag>/, recording that sha256 beside it.
+async function ensureLoader({ modRoot, entry, zip, store, log }) {
+  const existing = verifiedLoader(modRoot, entry.loader);
+  if (existing) return existing;
+  const archive =
+    zip ??
+    (await fetchAndroidInput({
+      modRoot,
+      kind: 'loader',
+      sha256: entry.loader.sha256,
+      store,
+      log
+    }));
+  const directory = loaderDirectory(modRoot, entry.loader.tag);
+  const staging = `${directory}.unpack-${process.pid}`;
+  fs.rmSync(staging, { recursive: true, force: true });
+  try {
+    unzipInto(archive, staging);
+    if (
+      !fs.existsSync(
+        path.join(staging, LOADER_MANAGED_DIRECTORY, 'MelonLoader.dll')
+      )
+    )
+      throw new Error(
+        `Loader Release ${entry.loader.tag} has no ${LOADER_MANAGED_DIRECTORY}/MelonLoader.dll`
+      );
+    fs.writeFileSync(
+      path.join(staging, LOADER_MARKER),
+      `${entry.loader.sha256}\n`
+    );
+    fs.rmSync(directory, { recursive: true, force: true });
+    fs.renameSync(staging, directory);
+  } finally {
+    fs.rmSync(staging, { recursive: true, force: true });
+  }
+  return directory;
+}
+
+// Runs the Patcher's generate-interop with the pinned Cpp2IL and the
+// Il2CppInterop CLI the Patcher release carries. The Patcher CLI is a Linux x64
+// binary; elsewhere a capture reuses an interop directory generated from the
+// same APK (--interop).
+export function generateInterop({
+  patcher,
+  cpp2il,
+  il2cpp,
+  metadata,
+  unityVersion,
+  output,
+  workDirectory
+}) {
+  if (process.platform !== 'linux' || process.arch !== 'x64')
+    throw new Error(
+      `Interop generation runs the LemonLoader Patcher's Linux x64 CLI, and this is ${process.platform}-${process.arch}; generate on Linux x64, or pass --interop <dir> with an interop directory generated from this APK`
+    );
+  const tools = path.join(workDirectory, 'patcher');
+  fs.mkdirSync(tools, { recursive: true });
+  tar(['-xzf', path.resolve(patcher), '-C', tools], workDirectory);
+  const cpp2ilBinary = path.join(workDirectory, 'Cpp2IL');
+  fs.copyFileSync(cpp2il, cpp2ilBinary);
+  fs.chmodSync(cpp2ilBinary, 0o755);
+  // Child output goes to stderr so the CLI's stdout keeps only its result.
+  execFileSync(
+    path.join(tools, 'LemonLoader.Patcher.CLI'),
+    [
+      'generate-interop',
+      '--game-assembly',
+      il2cpp,
+      '--metadata',
+      metadata,
+      '--unity-version',
+      unityVersion,
+      '--output',
+      output,
+      '--cpp2il',
+      cpp2ilBinary,
+      '--il2cppinterop-cli',
+      path.join(tools, 'Tools/Il2CppInterop/Il2CppInterop.CLI.dll')
+    ],
+    {
+      stdio: ['ignore', 2, 2],
+      env: { ...process.env, TMPDIR: workDirectory }
+    }
+  );
+}
+
+function defaultNugetRoot() {
+  return (
+    process.env.NUGET_PACKAGES || path.join(os.homedir(), '.nuget', 'packages')
+  );
+}
+
+// Native libraries a host ships beside the loader, pinned by NuGet package:
+// every runtimes/android-arm64/native/*.so of <id>@<version>.
+export function nativeLibsFromPackages(
+  packages,
+  nugetRoot = defaultNugetRoot()
+) {
+  const libs = {};
+  for (const spec of packages) {
+    const match = /^([A-Za-z0-9._-]+)@([A-Za-z0-9._+-]+)$/.exec(spec);
+    if (!match)
+      throw new Error(
+        `Native package ${JSON.stringify(spec)} must be <id>@<version>, such as SourceGear.sqlite3@3.53.4`
+      );
+    const [, id, version] = match;
+    const native = path.join(
+      nugetRoot,
+      id.toLowerCase(),
+      version,
+      'runtimes',
+      'android-arm64',
+      'native'
+    );
+    const files = fs.existsSync(native)
+      ? fs.readdirSync(native).filter((name) => name.endsWith('.so'))
+      : [];
+    if (files.length === 0)
+      throw new Error(
+        `${id} ${version} has no runtimes/android-arm64/native/*.so under ${nugetRoot}; restore a project that references it first`
+      );
+    for (const name of files.sort())
+      libs[name] = {
+        package: id,
+        version,
+        sha256: hash(fs.readFileSync(path.join(native, name)))
+      };
+  }
+  return libs;
+}
+
+// The toolchain of a capture: files given on the command line pin a new tag,
+// otherwise the current entry's pins are reused and fetched by sha256.
+async function captureToolchain({ modRoot, previous, options, store, log }) {
+  const pinned = async (kind) =>
+    fetchAndroidInput({
+      modRoot,
+      kind,
+      sha256: ANDROID_INPUTS[kind].sha256(previous),
+      store,
+      log
+    });
+  const need = (flag) => {
+    if (!previous)
+      throw new Error(
+        `The ${INTEROP_KEY} lock entry is empty, so the first capture names the toolchain: pass ${flag}`
+      );
+  };
+  let loader;
+  if (options.loader) {
+    if (!options.loaderTag)
+      throw new Error('--loader needs --loader-tag naming its release tag');
+    const release = JSON.parse(
+      readZipEntry(options.loader, 'lemonloader-release.json').toString('utf8')
+    );
+    loader = {
+      file: options.loader,
+      pin: {
+        tag: options.loaderTag,
+        sha256: await sha256File(options.loader),
+        managedRuntimeVersion: release.managedRuntimeVersion
+      }
+    };
+  } else {
+    need('--loader <LemonLoader-Android-arm64.zip> --loader-tag <tag>');
+    loader = { file: await pinned('loader'), pin: { ...previous.loader } };
+  }
+  let patcher;
+  if (options.patcher) {
+    if (!options.patcherTag)
+      throw new Error('--patcher needs --patcher-tag naming its release tag');
+    patcher = {
+      file: options.patcher,
+      pin: {
+        tag: options.patcherTag,
+        sha256: await sha256File(options.patcher)
+      }
+    };
+  } else {
+    need(
+      '--patcher <LemonLoader.Patcher.CLI-linux-x64.tar.gz> --patcher-tag <tag>'
+    );
+    patcher = { file: await pinned('patcher'), pin: { ...previous.patcher } };
+  }
+  let cpp2il;
+  if (options.cpp2il) {
+    cpp2il = {
+      file: options.cpp2il,
+      sha256: await sha256File(options.cpp2il)
+    };
+  } else {
+    need('--cpp2il <Cpp2IL-<version>-Linux>');
+    cpp2il = { file: await pinned('cpp2il'), sha256: previous.cpp2ilSha256 };
+  }
+  return { loader, patcher, cpp2il };
+}
+
+function copyInteropInto(source, directory, interopSha256) {
+  const interop = path.join(directory, 'interop');
+  if (fs.existsSync(interop)) {
+    const existing = interopDirectoryDigest(interop);
+    if (existing !== interopSha256)
+      throw new Error(
+        `Snapshot ${directory} already holds interop hashing to ${existing}, not the captured ${interopSha256}; delete the directory to recapture`
+      );
+    return;
+  }
+  const staging = `${directory}.capture-${process.pid}`;
+  fs.rmSync(staging, { recursive: true, force: true });
+  try {
+    fs.mkdirSync(staging, { recursive: true });
+    fs.cpSync(source, path.join(staging, 'interop'), { recursive: true });
+    if (interopDirectoryDigest(path.join(staging, 'interop')) !== interopSha256)
+      throw new Error('Interop directory changed while it was being copied');
+    fs.rmSync(directory, { recursive: true, force: true });
+    fs.renameSync(staging, directory);
+  } finally {
+    fs.rmSync(staging, { recursive: true, force: true });
+  }
+}
+
+// Captures an official APK as the android-online entry: reads its identity,
+// generates (or takes, with `interop`) the Interop assemblies, unpacks the
+// Loader Release, and records the entry. Publish uploads every input.
+export async function captureInteropSnapshot({
+  workspaceRoot = WORKSPACE_ROOT,
+  modRoot = path.join(workspaceRoot, 'bazaarplusplus-mod'),
+  apk,
+  interop = '',
+  loader = '',
+  loaderTag = '',
+  patcher = '',
+  patcherTag = '',
+  cpp2il = '',
+  nativePackages = [],
+  nugetRoot,
+  storeFactory = gameLibsStoreFromEnvironment,
+  generate = generateInterop,
+  now = new Date(),
+  log = () => {}
+}) {
+  if (!apk || !fs.existsSync(apk))
+    throw new Error(`No APK at ${JSON.stringify(apk)}`);
+  const previous = readGameLibsLock(workspaceRoot).entries[INTEROP_KEY];
+  const store = lazyStore(
+    storeFactory,
+    `${STORE_REMEDY}, or pass the toolchain files explicitly`
+  );
+  const work = fs.mkdtempSync(path.join(os.tmpdir(), 'bpp-interop-'));
+  try {
+    log(`Reading ${apk}`);
+    const facts = await readApk(apk, work);
+    const { platform, channel } = parseGameVersion(facts.versionName);
+    if (`${platform}-${channel}` !== INTEROP_KEY)
+      throw new Error(
+        `${apk} is ${facts.versionName}, a ${platform}-${channel} build, not an ${INTEROP_KEY} APK`
+      );
+    const tools = await captureToolchain({
+      modRoot,
+      previous,
+      options: { loader, loaderTag, patcher, patcherTag, cpp2il },
+      store,
+      log
+    });
+    let source = interop;
+    if (!source) {
+      source = path.join(work, 'interop');
+      log(`Generating interop for ${facts.versionName}`);
+      generate({
+        patcher: tools.patcher.file,
+        cpp2il: tools.cpp2il.file,
+        il2cpp: facts.il2cpp,
+        metadata: facts.metadata,
+        unityVersion: facts.unityVersion,
+        output: source,
+        workDirectory: work
+      });
+    }
+    const generated = readInteropManifest(source);
+    if (generated.unityVersion !== facts.unityVersion)
+      throw new Error(
+        `${source} was generated for Unity ${generated.unityVersion}, but ${apk} is Unity ${facts.unityVersion}`
+      );
+    const interopSha256 = interopDirectoryDigest(source);
+    const directory = snapshotDirectory(
+      modRoot,
+      platform,
+      channel,
+      facts.versionName
+    );
+    copyInteropInto(source, directory, interopSha256);
+    const entry = {
+      gameVersion: facts.versionName,
+      versionCode: facts.versionCode,
+      apkSha256: facts.apkSha256,
+      il2cppSha256: facts.il2cppSha256,
+      metadataSha256: facts.metadataSha256,
+      unityVersion: facts.unityVersion,
+      interopSha256,
+      loader: tools.loader.pin,
+      patcher: tools.patcher.pin,
+      cpp2ilVersion: generated.cpp2ilVersion,
+      cpp2ilSha256: tools.cpp2il.sha256,
+      il2cppInteropVersion: generated.il2cppInteropVersion,
+      nativeLibs: nativePackages.length
+        ? nativeLibsFromPackages(nativePackages, nugetRoot)
+        : (previous?.nativeLibs ?? {}),
+      capturedAt: now.toISOString()
+    };
+    const manifest = {
+      schemaVersion: SNAPSHOT_MANIFEST_SCHEMA_VERSION,
+      platform,
+      channel,
+      ...entry
+    };
+    // The lock is written last, so a failed step leaves it unchanged.
+    assertEntry(INTEROP_KEY, entry);
+    const loaderPath = await ensureLoader({
+      modRoot,
+      entry,
+      zip: tools.loader.file,
+      store,
+      log
+    });
+    fs.writeFileSync(
+      path.join(directory, 'manifest.json'),
+      jsonBytes(manifest)
+    );
+    fs.writeFileSync(
+      path.join(directory, SOURCES_FILE),
+      jsonBytes({
+        apk: path.resolve(apk),
+        loader: path.resolve(tools.loader.file),
+        patcher: path.resolve(tools.patcher.file),
+        cpp2il: path.resolve(tools.cpp2il.file)
+      })
+    );
+    writeGameLibsLockEntry(workspaceRoot, INTEROP_KEY, entry);
+    return { key: INTEROP_KEY, directory, loaderPath, manifest };
+  } finally {
+    fs.rmSync(work, { recursive: true, force: true });
+  }
+}
+
+function verifiedInteropSnapshot(modRoot, entry) {
+  const directory = snapshotDirectory(
+    modRoot,
+    'android',
+    'online',
+    entry.gameVersion
+  );
+  const interop = path.join(directory, 'interop');
+  if (!fs.existsSync(path.join(interop, 'Assembly-CSharp.dll'))) return null;
+  const digest = interopDirectoryDigest(interop);
+  if (digest !== entry.interopSha256)
+    throw new Error(
+      `Snapshot ${directory} hashes to ${digest}, but the lock entry records ${entry.interopSha256}; delete the directory and fetch again`
+    );
+  return { directory, interop };
+}
+
+function lockedInteropEntry(workspaceRoot) {
+  const entry = readGameLibsLock(workspaceRoot).entries[INTEROP_KEY];
+  if (entry === null)
+    throw new Error(
+      `Lock entry ${INTEROP_KEY} is empty; capture it with 'just mod::snapshot-android <TheBazaar.apk>', publish it with 'just mod::publish android online', and commit the lock`
+    );
+  return entry;
+}
+
+// Uploads the interop collection and every pinned input the store lacks, each
+// under its content address, then the manifest under the entry identity. An
+// input already stored is never read locally.
+export async function publishInteropSnapshot({
+  workspaceRoot = WORKSPACE_ROOT,
+  modRoot = path.join(workspaceRoot, 'bazaarplusplus-mod'),
+  store,
+  log = () => {}
+}) {
+  const entry = lockedInteropEntry(workspaceRoot);
+  const snapshot = verifiedInteropSnapshot(modRoot, entry);
+  if (!snapshot)
+    throw new Error(
+      `No Interop Snapshot under game-libs/ for ${INTEROP_KEY} ${entry.gameVersion}; run 'just mod::snapshot-android' on the machine that captured it`
+    );
+  const manifest = readSnapshotManifest(snapshot.directory);
+  if (!manifest || manifest.interopSha256 !== entry.interopSha256)
+    throw new Error(
+      `${snapshot.directory}/manifest.json is missing or does not match the lock entry; recapture the snapshot`
+    );
+  const sourcesFile = path.join(snapshot.directory, SOURCES_FILE);
+  const sources = fs.existsSync(sourcesFile)
+    ? JSON.parse(fs.readFileSync(sourcesFile, 'utf8'))
+    : {};
+  const upload = async (key, file, sha256) => {
+    if (await store.putFile(key, file, { sha256 })) log(`Uploaded ${key}`);
+    else log(`Another publisher stored ${key} first`);
+  };
+  const interopKey = interopBlobKey(entry.interopSha256);
+  if (await store.head(interopKey)) log(`Already stored: ${interopKey}`);
+  else {
+    const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'bpp-interop-'));
+    try {
+      const archive = path.join(temp, 'interop.tar.gz');
+      tar(
+        [
+          '-czf',
+          path.basename(archive),
+          '-C',
+          path.resolve(snapshot.directory).split(path.sep).join('/'),
+          'interop'
+        ],
+        temp
+      );
+      await upload(interopKey, archive, await sha256File(archive));
+    } finally {
+      fs.rmSync(temp, { recursive: true, force: true });
+    }
+  }
+  for (const kind of Object.keys(ANDROID_INPUTS)) {
+    const sha256 = ANDROID_INPUTS[kind].sha256(entry);
+    const key = androidInputKey(kind, sha256);
+    if (await store.head(key)) {
+      log(`Already stored: ${key}`);
+      continue;
+    }
+    const candidates = [
+      sources[kind],
+      androidInputFile(modRoot, kind, sha256)
+    ].filter((file) => file && fs.existsSync(file));
+    let file = null;
+    for (const candidate of candidates)
+      if ((await sha256File(candidate)) === sha256) {
+        file = candidate;
+        break;
+      }
+    if (!file)
+      throw new Error(
+        `No local ${kind} with sha256 ${sha256} to upload; recapture with 'just mod::snapshot-android' passing that file`
+      );
+    log(`Uploading ${key} from ${file}`);
+    await upload(key, file, sha256);
+  }
+  const manifestKey = snapshotManifestKey(
+    'android',
+    'online',
+    entry.gameVersion
+  );
+  await putReplaceable(
+    store,
+    manifestKey,
+    jsonBytes(manifest),
+    'application/json'
+  );
+  log(`Recorded ${manifestKey}`);
+  return { interopKey, manifestKey };
+}
+
+// Resolves the android-online entry to a local interop directory and Loader
+// Release: verified copies under game-libs/, else the private store.
+export async function fetchInteropSnapshot({
+  workspaceRoot = WORKSPACE_ROOT,
+  modRoot = path.join(workspaceRoot, 'bazaarplusplus-mod'),
+  storeFactory = gameLibsStoreFromEnvironment,
+  log = () => {}
+}) {
+  const entry = lockedInteropEntry(workspaceRoot);
+  const store = lazyStore(
+    storeFactory,
+    `Lock entry ${INTEROP_KEY} wants ${entry.gameVersion}, which is not under game-libs/. ${STORE_REMEDY}`
+  );
+  let snapshot = verifiedInteropSnapshot(modRoot, entry);
+  let source = 'snapshot';
+  if (!snapshot) {
+    source = 'store';
+    const directory = snapshotDirectory(
+      modRoot,
+      'android',
+      'online',
+      entry.gameVersion
+    );
+    const blobKey = interopBlobKey(entry.interopSha256);
+    const staging = `${directory}.fetch-${process.pid}`;
+    fs.rmSync(staging, { recursive: true, force: true });
+    fs.mkdirSync(staging, { recursive: true });
+    try {
+      log(`Fetching ${blobKey} from the private store`);
+      const archive = path.join(staging, 'interop.tar.gz');
+      if (!(await store().getFile(blobKey, archive)))
+        throw new Error(
+          `The private store has no ${blobKey}; run 'just mod::publish android online' on the machine that captured it`
+        );
+      tar(['-xzf', path.basename(archive)], staging);
+      fs.rmSync(archive);
+      const interop = path.join(staging, 'interop');
+      const digest = fs.existsSync(interop)
+        ? interopDirectoryDigest(interop)
+        : null;
+      if (digest !== entry.interopSha256)
+        throw new Error(
+          `Stored snapshot ${blobKey} hashes to ${digest}, not the ${entry.interopSha256} the lock entry ${INTEROP_KEY} records`
+        );
+      const remote = await store().get(
+        snapshotManifestKey('android', 'online', entry.gameVersion)
+      );
+      const manifest = remote
+        ? JSON.parse(remote.bytes.toString('utf8'))
+        : {
+            schemaVersion: SNAPSHOT_MANIFEST_SCHEMA_VERSION,
+            platform: 'android',
+            channel: 'online',
+            ...entry
+          };
+      fs.writeFileSync(
+        path.join(staging, 'manifest.json'),
+        jsonBytes(manifest)
+      );
+      fs.rmSync(directory, { recursive: true, force: true });
+      fs.renameSync(staging, directory);
+    } finally {
+      fs.rmSync(staging, { recursive: true, force: true });
+    }
+    snapshot = { directory, interop: path.join(directory, 'interop') };
+    log(`Fetched ${INTEROP_KEY} ${entry.gameVersion} into ${directory}`);
+  }
+  const loaderPath = await ensureLoader({ modRoot, entry, store, log });
+  return {
+    interopPath: snapshot.interop,
+    loaderPath,
+    source,
+    gameVersion: entry.gameVersion
+  };
+}
+
+// One pinned input of the android-online entry as a verified local file: the
+// APK a release job injects, the Patcher and Cpp2IL a recapture runs.
+export async function fetchLockedAndroidInput({
+  workspaceRoot = WORKSPACE_ROOT,
+  modRoot = path.join(workspaceRoot, 'bazaarplusplus-mod'),
+  kind,
+  storeFactory = gameLibsStoreFromEnvironment,
+  log = () => {}
+}) {
+  const entry = lockedInteropEntry(workspaceRoot);
+  return fetchAndroidInput({
+    modRoot,
+    kind,
+    sha256: inputKind(kind).sha256(entry),
+    store: lazyStore(storeFactory, STORE_REMEDY),
+    log
+  });
+}
+
 // The game version a Managed directory carries: its snapshot manifest, else the
 // globalgamemanagers beside it, else null (a bare copied directory).
 function managedGameVersion(managedPath) {
@@ -606,12 +1502,12 @@ export function lockEntryForManaged({
 }) {
   lockKey(platform, 'online');
   const digest = managedDirectoryDigest(managedPath);
-  const matching = lockedEntries(lock).filter(
+  const matching = managedEntries(lock).filter(
     ({ entry }) => entry.sha256 === digest
   );
   if (matching.length === 0) {
     const gameVersion = managedGameVersion(managedPath);
-    const locked = lockedEntries(lock)
+    const locked = managedEntries(lock)
       .map(({ key, entry }) => `${key} ${entry.gameVersion}`)
       .join(', ');
     throw new Error(
@@ -634,10 +1530,12 @@ export function lockEntryForManaged({
 }
 
 // The `just mod::check` gate: a malformed lock fails, empty or stale entries
-// warn, and a resolved Managed directory whose game version a lock entry names
-// must hash to that entry.
+// warn, a resolved Managed directory whose game version a lock entry names
+// must hash to that entry, and so must a local Interop Snapshot of the
+// android-online entry.
 export function checkGameLibsLock({
   workspaceRoot = WORKSPACE_ROOT,
+  modRoot = path.join(workspaceRoot, 'bazaarplusplus-mod'),
   managedPath = '',
   now = new Date()
 }) {
@@ -646,7 +1544,7 @@ export function checkGameLibsLock({
   let verified = null;
   if (managedPath) {
     const gameVersion = managedGameVersion(managedPath);
-    const matching = lockedEntries(lock).filter(
+    const matching = managedEntries(lock).filter(
       ({ entry }) => entry.gameVersion === gameVersion
     );
     if (gameVersion === null)
@@ -667,7 +1565,16 @@ export function checkGameLibsLock({
       verified = { gameVersion, keys: matching.map(({ key }) => key) };
     }
   }
-  return { lock, warnings, verified };
+  const interopEntry = lock.entries[INTEROP_KEY];
+  const interop = interopEntry
+    ? verifiedInteropSnapshot(modRoot, interopEntry)
+    : null;
+  return {
+    lock,
+    warnings,
+    verified,
+    interop: interop && { gameVersion: interopEntry.gameVersion }
+  };
 }
 
 function printLine(value) {
@@ -676,18 +1583,25 @@ function printLine(value) {
 
 const log = (message) => process.stderr.write(`${message}\n`);
 
-const usage = `Game Assembly Snapshot commands (driven by bazaarplusplus-mod/scripts/game.sh):
+const usage = `Game Assembly and Interop Snapshot commands (driven by bazaarplusplus-mod/scripts/game.sh):
   node release/game-libs.mjs game-version <managed-dir>
   node release/game-libs.mjs digest <managed-dir>
   node release/game-libs.mjs snapshot --managed <dir> --buildid <id> --steam-branch <branch>
-  node release/game-libs.mjs publish --platform <macos|windows> --channel <online|staging|ptr>
+  node release/game-libs.mjs snapshot-android --apk <TheBazaar.apk> [--interop <dir>]
+      [--loader <zip> --loader-tag <tag>] [--patcher <tar.gz> --patcher-tag <tag>]
+      [--cpp2il <file>] [--native-package <id>@<version> ...]
+  node release/game-libs.mjs publish --platform <macos|windows|android> --channel <online|staging|ptr>
   node release/game-libs.mjs fetch --platform <p> --channel <c> [--steam-managed <dir>] [--allow-unlocked]
+  node release/game-libs.mjs fetch-input --input <apk|loader|patcher|cpp2il>
   node release/game-libs.mjs lock-check [--managed <dir>]
   node release/game-libs.mjs entries
-publish always, and fetch when neither a local snapshot nor the mounted game
-satisfies the entry, use the private bucket ${GAME_LIBS_BUCKET} through
-CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID (the S3 pair is derived from
-the token).`;
+snapshot-android reuses the android-online entry's toolchain unless files are
+given, and generates interop with the Patcher's Linux x64 CLI unless --interop
+names a directory generated from the same APK. fetch android online prints the
+interop directory and unpacks the Loader Release beside it. publish always, and
+fetch or fetch-input when no verified local copy exists, use the private bucket
+${GAME_LIBS_BUCKET} through CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID (the
+S3 pair is derived from the token).`;
 
 export async function cliMain(argv, { workspaceRoot = WORKSPACE_ROOT } = {}) {
   const [verb, ...rest] = argv;
@@ -707,7 +1621,16 @@ export async function cliMain(argv, { workspaceRoot = WORKSPACE_ROOT } = {}) {
         platform: { type: 'string' },
         channel: { type: 'string' },
         'steam-managed': { type: 'string' },
-        'allow-unlocked': { type: 'boolean' }
+        'allow-unlocked': { type: 'boolean' },
+        apk: { type: 'string' },
+        interop: { type: 'string' },
+        loader: { type: 'string' },
+        'loader-tag': { type: 'string' },
+        patcher: { type: 'string' },
+        'patcher-tag': { type: 'string' },
+        cpp2il: { type: 'string' },
+        'native-package': { type: 'string', multiple: true },
+        input: { type: 'string' }
       }
     });
     const modRoot = path.join(workspaceRoot, 'bazaarplusplus-mod');
@@ -742,18 +1665,72 @@ export async function cliMain(argv, { workspaceRoot = WORKSPACE_ROOT } = {}) {
         printLine(result.directory);
         return 0;
       }
+      case 'snapshot-android': {
+        const result = await captureInteropSnapshot({
+          workspaceRoot,
+          modRoot,
+          apk: required('apk'),
+          interop: values.interop ?? '',
+          loader: values.loader ?? '',
+          loaderTag: values['loader-tag'] ?? '',
+          patcher: values.patcher ?? '',
+          patcherTag: values['patcher-tag'] ?? '',
+          cpp2il: values.cpp2il ?? '',
+          nativePackages: values['native-package'] ?? [],
+          log
+        });
+        log(
+          `Captured ${result.key} ${result.manifest.gameVersion} into ${result.directory} (loader ${result.loaderPath}) and recorded it in ${GAME_LIBS_LOCK_PATH}`
+        );
+        printLine(result.directory);
+        return 0;
+      }
       case 'publish': {
+        const platform = required('platform');
+        const channel = required('channel');
+        if (isInteropPlatform(platform)) {
+          lockKey(platform, channel);
+          await publishInteropSnapshot({
+            workspaceRoot,
+            modRoot,
+            store: gameLibsStoreFromEnvironment(),
+            log
+          });
+          return 0;
+        }
         await publishSnapshot({
           workspaceRoot,
           modRoot,
-          platform: required('platform'),
-          channel: required('channel'),
+          platform,
+          channel,
           store: gameLibsStoreFromEnvironment(),
           log
         });
         return 0;
       }
+      case 'fetch-input': {
+        printLine(
+          await fetchLockedAndroidInput({
+            workspaceRoot,
+            modRoot,
+            kind: required('input'),
+            log
+          })
+        );
+        return 0;
+      }
       case 'fetch': {
+        if (isInteropPlatform(required('platform'))) {
+          lockKey(values.platform, required('channel'));
+          const result = await fetchInteropSnapshot({
+            workspaceRoot,
+            modRoot,
+            log
+          });
+          log(`Loader Release ${result.loaderPath}`);
+          printLine(result.interopPath);
+          return 0;
+        }
         const result = await fetchSnapshot({
           workspaceRoot,
           modRoot,
@@ -776,10 +1753,14 @@ export async function cliMain(argv, { workspaceRoot = WORKSPACE_ROOT } = {}) {
           log(
             `Managed ${result.verified.gameVersion} matches lock ${result.verified.keys.join(', ')}`
           );
+        if (result.interop)
+          log(
+            `Interop ${result.interop.gameVersion} matches lock ${INTEROP_KEY}`
+          );
         return 0;
       }
       case 'entries': {
-        for (const { platform, channel } of lockedEntries(
+        for (const { platform, channel } of managedEntries(
           readGameLibsLock(workspaceRoot)
         ))
           printLine(`${platform} ${channel}`);

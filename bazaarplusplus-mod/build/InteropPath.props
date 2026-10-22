@@ -1,0 +1,49 @@
+<Project>
+  <!--
+    Android host build inputs (root docs/adr/0008-interop-snapshots-in-snapshot-lock.md, the
+    Interop Snapshot and Loader Release in the root CONTEXT.md). A project that compiles against
+    the Interop assemblies imports this file; Directory.Build.props does not, so desktop builds
+    never evaluate it. Each path resolves in this order and nowhere else:
+      1. an explicit -p:InteropPath or -p:LemonLoaderPath;
+      2. the android-online entry of game-libs.lock.json: InteropPath is
+         game-libs/android-online-<gameVersion>/interop/ and LemonLoaderPath is
+         game-libs/loader-<loader.tag>/, both put there by `just mod::fetch android online`,
+         which also checks their sha256 against the entry;
+      3. nothing: BppValidateInteropPath fails the build naming the entry to capture or fetch.
+    LemonLoaderManagedPath is where the Loader Release keeps MelonLoader.dll, 0Harmony.dll and
+    Il2CppInterop.Runtime.dll (release/game-libs.mjs LOADER_MANAGED_DIRECTORY).
+  -->
+  <PropertyGroup>
+    <BppGameLibsLock Condition="'$(BppGameLibsLock)' == ''"
+      >$(MSBuildThisFileDirectory)game-libs.lock.json</BppGameLibsLock>
+    <BppGameLibsRoot Condition="'$(BppGameLibsRoot)' == ''"
+      >$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', '..', 'game-libs'))</BppGameLibsRoot>
+  </PropertyGroup>
+
+  <!-- release/game-libs.mjs fixes the entry's field order: gameVersion before any nested object,
+       loader the first nested object. -->
+  <PropertyGroup Condition="Exists('$(BppGameLibsLock)')">
+    <_BppLockText>$([System.IO.File]::ReadAllText('$(BppGameLibsLock)'))</_BppLockText>
+    <BppInteropGameVersion>$([System.Text.RegularExpressions.Regex]::Match($(_BppLockText), '(?&lt;="android-online"\s*:\s*\{[^{}]*"gameVersion"\s*:\s*")[^"]+').Value)</BppInteropGameVersion>
+    <BppLoaderTag>$([System.Text.RegularExpressions.Regex]::Match($(_BppLockText), '(?&lt;="android-online"\s*:\s*\{[^{}]*"loader"\s*:\s*\{[^{}]*"tag"\s*:\s*")[^"]+').Value)</BppLoaderTag>
+    <_BppLockText />
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(InteropPath)' == '' and '$(BppInteropGameVersion)' != '' and Exists('$(BppGameLibsRoot)android-online-$(BppInteropGameVersion)/interop/Assembly-CSharp.dll')">
+    <InteropPath>$(BppGameLibsRoot)android-online-$(BppInteropGameVersion)/interop/</InteropPath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(LemonLoaderPath)' == '' and '$(BppLoaderTag)' != '' and Exists('$(BppGameLibsRoot)loader-$(BppLoaderTag)/assets/LemonLoader/runtime/loader/net6/MelonLoader.dll')">
+    <LemonLoaderPath>$(BppGameLibsRoot)loader-$(BppLoaderTag)/</LemonLoaderPath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(LemonLoaderPath)' != ''">
+    <LemonLoaderManagedPath>$([MSBuild]::EnsureTrailingSlash('$(LemonLoaderPath)'))assets/LemonLoader/runtime/loader/net6/</LemonLoaderManagedPath>
+  </PropertyGroup>
+
+  <!-- A target, not an evaluation-time error, as BppValidateManagedPath. -->
+  <Target
+    Name="BppValidateInteropPath"
+    BeforeTargets="ResolveAssemblyReferences"
+    Condition="'$(InteropPath)' == '' or '$(LemonLoaderPath)' == ''"
+  >
+    <Error Text="Interop assemblies not resolved. Lock entry android-online names game version '$(BppInteropGameVersion)' and Loader Release '$(BppLoaderTag)' (empty: not captured yet); InteropPath is '$(InteropPath)' and LemonLoaderPath is '$(LemonLoaderPath)'. Run 'just with-config release just mod::fetch android online', capture the entry with 'just mod::snapshot-android &lt;TheBazaar.apk&gt;', or pass -p:InteropPath=/absolute/path/to/interop/ and -p:LemonLoaderPath=/absolute/path/to/loader/." />
+  </Target>
+</Project>
