@@ -54,7 +54,8 @@ just 只转发，不缓存或跳过任何发布检查。直接调用 `node relea
 | `CLOUDFLARE_ACCOUNT_ID` | 仓库变量 | `config.ini` `[cloudflare]` | 所有 R2 桶和 site Workers 的账号 |
 | `BPP_GAME_LIBS_TOKEN` | 仓库 secret（Dependabot 另注册一份） | `config.ini` `[cloudflare]`，仅读 `bazaarplusplus-game-libs` 的只读 token | `checks.yml` 的 mod lane |
 | `CLOUDFLARE_API_TOKEN` | 仓库 secret | `config.ini` `[cloudflare]`，操作员 token | `mod::fetch`、`release::upload`；也给 `analyzer.yml` 和 `deploy-site.yml` |
-| `TAURI_SIGNING_PRIVATE_KEY` | `release` 环境 secret | `keys/tauri-updater.key` 的内容 | updater 签名，两平台 |
+| `TAURI_SIGNING_PRIVATE_KEY` | `release` 环境 secret | `keys/tauri-updater.key` 的内容 | updater 签名，两平台；Android 的 Managed Payload zip 也用它（minisign） |
+| `ANDROID_KEYSTORE` / `ANDROID_KEYSTORE_PASSWORD` / `ANDROID_KEY_ALIAS` | `release` 环境 secret | `keys/android-release.p12`（推送时转 base64）与 `config.ini` `[signing]` 的同名两项 | Android Release APK 的签名密钥，永不轮换，见 [ADR 0009](adr/0009-android-release-key.md) |
 | `APPLE_SIGNING_IDENTITY` / `APPLE_API_ISSUER` / `APPLE_API_KEY` | `release` 环境变量 | `config.ini` `[signing]` | macOS 签名与公证 |
 | `APPLE_API_KEY_P8` | `release` 环境 secret | `keys/AuthKey_<APPLE_API_KEY>.p8` 的内容 | macOS 公证 |
 | `APPLE_CERTIFICATE` / `APPLE_CERTIFICATE_PASSWORD` | `release` 环境 secret | `keys/developer-id.p12`（从 Keychain Access 导出的 Developer ID Application 证书含私钥，推送时转 base64）与 `config.ini` `[signing] APPLE_CERTIFICATE_PASSWORD` | 导入 runner 的临时 keychain；`bundle.sh` 在 Tauri 打包前就要 codesign 内嵌资源，所以不能交给 Tauri 自己导入 |
@@ -125,7 +126,27 @@ Android 是第三个发布平台（平台键 `android-aarch64`），不进 `late
 just release::promote --platform android
 ```
 
-`promote --platform android` 校验 APK 与 Mods zip 在 R2 上存在且大小、sha256 与 fragment 一致，只写 `latest/android-aarch64.json`，从不推进 `latest.json`。Android 第一版没有大陆镜像：不读镜像记录，`--without-mainland-mirror`、`mirror` 和 `verify-mirror` 对 Android 拒绝执行。"一个版本号只对应一个提交"同样成立：桌面上传与提升会和同版本的 Android fragment 比对提交，Android 提升也会和桌面 fragment 比对；Android 可以跳过版本。`prepare`、`build`、`upload --platform android`（APK 注入、签名与流式上传）随 Android 发版 job 落地（[#358](https://github.com/BazaarPlusPlus/BazaarPlusPlus/issues/358)），在那之前这些命令拒绝 `android`。
+`promote --platform android` 校验 APK 与 Mods zip 在 R2 上存在且大小、sha256 与 fragment 一致，只写 `latest/android-aarch64.json`，从不推进 `latest.json`。Android 第一版没有大陆镜像：不读镜像记录，`--without-mainland-mirror`、`mirror` 和 `verify-mirror` 对 Android 拒绝执行。"一个版本号只对应一个提交"同样成立：桌面上传与提升会和同版本的 Android fragment 比对提交，Android 提升也会和桌面 fragment 比对；Android 可以跳过版本。
+
+### Android 发布顺序
+
+```bash
+just with-config release just mod::fetch android online
+just release::prepare android
+just release::build android
+just release::upload android
+just release::promote --platform android
+```
+
+1. 与桌面同一个提交（`VERSION` 相同）。`mod::fetch android online` 把锁条目 `android-online` 的 Interop Snapshot 与 Loader Release 取到 `bazaarplusplus-mod/game-libs/`。
+2. `prepare` 对照这份 interop 编译 Android 宿主（`-p:InteropPath=`、`-p:LemonLoaderPath=` 可覆盖，但 interop 仍必须哈希到锁条目），由宿主工程的 `CopyToPayloadStaging` 按 Payload Inventory 的 `melonloader` 条目暂存 Android Mod Payload，`release/android-release.mjs` 核对它恰好是清单里 mod 构建产生的文件，再把输入摘要、锁条目与输出封存进 `target/android/payload-build.json`。清单要求而宿主没有产出的文件会被逐一点名，`prepare` 失败。
+3. `build` 先重做 `prepare`，把 Payload 打成确定性的 Managed Payload zip 并用 Tauri updater 私钥签名（安装器目录的 `@tauri-apps/cli`，所以要先在 `bazaarplusplus-installer` 执行 `npm ci`）。然后看锁条目对应的 APK 身份（游戏版本、loader、interop）是否已在 R2：已发布就跳过注入，这次只是 mod 更新；否则从私有桶取官方 APK、Loader Release 与 Patcher Linux 发行包，从 NuGet 取锁里 `nativeLibs` 钉住的 `libe_sqlite3.so`，依次执行 Patcher `inject`（loader、interop，以及作为 `deployment` 的 Payload）、把原生库以不压缩方式加进 `lib/arm64-v8a/`（Patcher 只往那里放 `libmain.so`）、`zipalign -P 16`、`apksigner sign`，最后用 `apksigner verify --print-certs` 读出签名证书摘要。注入只能在 Linux x64 上运行（Patcher CLI 只有这一种发行包），`zipalign`/`apksigner` 取自 `PATH` 或 `ANDROID_HOME/build-tools/<35 以上>`；签名材料从 `BPP_SIGNING_SECRETS_DIR` 的 `android-release.p12`、`android-keystore-password`、`android-key-alias` 读取，本机由 `[signing]` 与 `keys/android-release.p12` 暂存。`--rebuild-apk` 无论身份是否已发布都重新注入，供 `build_only` 验收使用。输出都在工作区根的 `target/android/`，构建凭据是其中的 `android-aarch64.json`。
+4. `upload` 在同一台机器上以流式条件写上传：APK 身份尚未发布时上传 APK（约 2.8 GB，单次 PUT 在 R2 的 5 GiB 上限内）并在旁边写 `.apk.json` 记录（大小、sha256、`versionCode`、签名证书摘要、`builtForProductVersion`），已发布就让 fragment 指向线上那份；然后上传 Managed Payload zip 与 `.sig`，最后写 fragment。大对象的传输失败或响应丢失由 `release/r2-store.mjs` 的 `putImmutableFile` 用 HEAD 判定并重试，不回读对象。`selfUpdatable` 在 APK 来自更早的产品版本时为 true。
+5. `promote --platform android`。
+
+`.github/workflows/release.yml` 的 `platform: android` 在 `ubuntu-latest` 上跑 1 到 4 步；标签推送只构建桌面两平台。输入 APK、中间产物与输出 APK 同时约 9 GB，job 先删掉用不到的预装工具链，`build` 每一步完成就删掉上一份中间 APK，结束后显式清理 `target/android` 与 `game-libs/inputs`。`dry_run` 只到 `prepare`；`build_only` 带 `--rebuild-apk` 构建，把 APK 与 Managed Payload zip 作为 Actions 产物保留而不上传 R2，用于装进干净的 AVD 验收。
+
+Android 宿主目前只链接少量共享源码，还不引用 `BazaarPlusPlus.Core`、Storage、ModApi 与它们的依赖（[#355](https://github.com/BazaarPlusPlus/BazaarPlusPlus/issues/355)、[#356](https://github.com/BazaarPlusPlus/BazaarPlusPlus/issues/356)），而 Payload Inventory 已经列出这些文件，所以在它们落地之前真实的 `prepare --platform android` 会点名这些文件并失败；发布链路本身由 `release/android-release.test.mjs` 用假的 Patcher、zipalign 与 apksigner 端到端验证。
 
 ## 中国大陆镜像
 
