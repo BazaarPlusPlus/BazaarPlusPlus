@@ -50,10 +50,13 @@ const ENTRY_FIELDS = Object.freeze([
   'steamBranch',
   'capturedAt'
 ]);
-// An Interop Snapshot entry: the APK's identity and the pinned toolchain that
-// turned it into Interop assemblies. The official APK, the Loader Release, the
-// Patcher and the Cpp2IL Linux binary are stored by sha256 beside the interop
-// collection, so a release job can inject from the lock alone.
+// An Interop Snapshot entry: the APK's identity, the Interop assemblies'
+// digest, and the pinned toolchain a Linux capture regenerates them with. An
+// entry captured with --interop records the digest of a directory generated
+// elsewhere (ADR 0008), so the toolchain pins are the regeneration inputs, not
+// proof of where interopSha256 came from. The official APK, the Loader
+// Release, the Patcher and the Cpp2IL Linux binary are stored by sha256 beside
+// the interop collection, so a release job can inject from the lock alone.
 const INTEROP_ENTRY_FIELDS = Object.freeze([
   'gameVersion',
   'versionCode',
@@ -71,12 +74,13 @@ const INTEROP_ENTRY_FIELDS = Object.freeze([
   'capturedAt'
 ]);
 // Unity's Application.version as the game ships it: build number, optional
-// channel token, platform, then the architecture on desktop only, then the
-// game commit. Desktop reads it from globalgamemanagers beside Managed; Android
-// carries it as the APK versionName. build/ManagedPath.props mirrors this
-// pattern as BppGameVersionPattern.
+// channel token, platform, then exactly one architecture token on desktop and
+// none on Android, then the game commit. Desktop reads it from
+// globalgamemanagers beside Managed; Android carries it as the APK
+// versionName. build/ManagedPath.props mirrors this pattern as
+// BppGameVersionPattern.
 export const GAME_VERSION_PATTERN =
-  /\d+\.\d+\.\d+(?:-[a-z0-9]+)*-(?:macos|windows|android)(?:-[a-z0-9]+)*-[0-9a-f]+/g;
+  /\d+\.\d+\.\d+(?:-[a-z0-9]+)*-(?:(?:macos|windows)-[a-z0-9]+|android)-[0-9a-f]+/g;
 
 const hash = (bytes) => crypto.createHash('sha256').update(bytes).digest('hex');
 const jsonBytes = (value) => Buffer.from(`${JSON.stringify(value, null, 2)}\n`);

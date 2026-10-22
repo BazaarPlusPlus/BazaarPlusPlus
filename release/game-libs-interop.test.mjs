@@ -12,6 +12,7 @@ import {
   GAME_LIBS_LOCK_PATH,
   GAME_VERSION_PATTERN,
   INTEROP_KEY,
+  LOADER_MANAGED_DIRECTORY,
   androidInputKey,
   captureInteropSnapshot,
   checkGameLibsLock,
@@ -306,17 +307,29 @@ test('android versions parse to android-online and match the MSBuild pattern', (
   expect(() => parseGameVersion('1.0.12825-production-ios-d9601ded')).toThrow(
     /Application.version/
   );
+  // Desktop keeps exactly one architecture token; Android has none.
+  expect(() => parseGameVersion('1.0.12651-prod-macos-d5cc730f')).toThrow(
+    /Application.version/
+  );
+  expect(() =>
+    parseGameVersion('1.0.12825-production-android-arm64-d9601ded')
+  ).toThrow(/Application.version/);
   expect(lockKeys().at(-1)).toBe('android-online');
   expect(() => lockKey('android', 'staging')).toThrow(
     /Unknown android snapshot channel 'staging'; expected online/
   );
   // build/ManagedPath.props mirrors the pattern; the two must stay equal.
-  const props = fs.readFileSync(
-    path.join(WORKSPACE_ROOT, 'bazaarplusplus-mod/build/ManagedPath.props'),
-    'utf8'
-  );
   expect(
-    /<BppGameVersionPattern>([^<]+)<\/BppGameVersionPattern>/.exec(props)[1]
+    execFileSync(
+      'dotnet',
+      [
+        'msbuild',
+        path.join(WORKSPACE_ROOT, 'bazaarplusplus-mod/build/ManagedPath.props'),
+        '-nologo',
+        '-getProperty:BppGameVersionPattern'
+      ],
+      { encoding: 'utf8' }
+    ).trim()
   ).toBe(GAME_VERSION_PATTERN.source);
 });
 
@@ -675,7 +688,7 @@ test('InteropPath.props resolves the fetched interop and loader directories from
   expect(evaluate()).toEqual({
     InteropPath: `${path.join(directory, 'interop')}/`,
     LemonLoaderPath: `${loaderPath}/`,
-    LemonLoaderManagedPath: `${loaderPath}/assets/LemonLoader/runtime/loader/net6/`,
+    LemonLoaderManagedPath: `${loaderPath}/${LOADER_MANAGED_DIRECTORY}/`,
     BppInteropGameVersion: ANDROID_VERSION
   });
 }, 60000);
