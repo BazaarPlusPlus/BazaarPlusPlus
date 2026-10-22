@@ -46,9 +46,9 @@ test.each(RELEASE_PLATFORMS)(
     expect(new Date(platformFixture.pub_date).toISOString()).toBe(
       platformFixture.pub_date
     );
-    expect(platformFixture.platforms[key].url).toMatch(
-      new RegExp(`^${RELEASE_BASE_URL}/`)
-    );
+    expect(
+      platformFixture.platforms[key].url.startsWith(`${RELEASE_BASE_URL}/`)
+    ).toBe(true);
   }
 );
 
@@ -74,7 +74,7 @@ test.each(RELEASE_PLATFORMS)(
   'shared fixture publishes the installer and its mainland mirror for $key',
   ({ key }) => {
     const download = fixture.downloads[key];
-    expect(download.url).toMatch(new RegExp(`^${RELEASE_BASE_URL}/`));
+    expect(download.url.startsWith(`${RELEASE_BASE_URL}/`)).toBe(true);
     expect(new URL(download.mainlandUrl).protocol).toBe('https:');
   }
 );
