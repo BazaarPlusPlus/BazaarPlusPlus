@@ -70,6 +70,7 @@ internal static class HealthClientTests
             ModApiSession.TryCreate(
                 "https://example.invalid",
                 "1.0.0",
+                platformKey: null,
                 "HealthClientTests",
                 TimeSpan.FromSeconds(30),
                 new StubHandler(responder)

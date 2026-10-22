@@ -94,7 +94,7 @@ internal sealed class ModApiHealthClient
     }
 }
 
-internal readonly struct ModApiHealthProbeResult
+public readonly struct ModApiHealthProbeResult
 {
     private ModApiHealthProbeResult(
         bool succeeded,

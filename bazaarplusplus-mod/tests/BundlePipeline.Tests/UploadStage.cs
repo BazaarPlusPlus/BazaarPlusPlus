@@ -94,6 +94,7 @@ internal static class UploadStage
             ModApiSession.TryCreate(
                 "https://example.test",
                 "test",
+                platformKey: null,
                 "BundleUpload",
                 TimeSpan.FromSeconds(30),
                 handler
@@ -280,6 +281,7 @@ internal static class UploadFeedBoundaries
             ModApiSession.TryCreate(
                 "https://example.test",
                 "test",
+                platformKey: null,
                 "CleanupTest",
                 TimeSpan.FromSeconds(5),
                 new NoRequestHandler()

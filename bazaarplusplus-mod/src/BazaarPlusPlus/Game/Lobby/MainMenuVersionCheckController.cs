@@ -1,4 +1,5 @@
 #nullable enable
+using BazaarPlusPlus.Host;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
 using BazaarPlusPlus.Infrastructure.ReleaseManifest;
@@ -21,26 +22,20 @@ internal sealed class MainMenuVersionCheckController : MonoBehaviour
     {
         var httpClient = BppHttpClientFactory.Create(
             productVersion: BppPluginVersion.Current,
+            platformKey: DesktopPlatformKey.Current,
             userAgentSuffix: "VersionCheck",
             timeout: RequestTimeout
         );
         var lease = _lifecycle.Begin(httpClient);
         MainMenuVersionUpdateState.Reset();
         _observedRevision = MainMenuVersionUpdateState.Current.Revision;
-        var client = new ReleaseManifestClient(httpClient, ResolveManifestEndpoint());
+        // A release promoted for one platform only must be seen only by that platform.
+        var client = new ReleaseManifestClient(
+            httpClient,
+            ReleaseManifestEndpoints.ForPlatformKey(DesktopPlatformKey.Current)
+        );
         _checkTask = _lifecycle.RunAsync(lease, client.FetchAsync, ApplyLatestManifestResult);
     }
-
-    // A release promoted for one platform only must be seen only by that platform.
-    private static Uri ResolveManifestEndpoint() =>
-        ReleaseManifestEndpoints.ForPlatformKey(
-            Application.platform switch
-            {
-                RuntimePlatform.WindowsPlayer => ReleaseManifestEndpoints.WindowsPlatformKey,
-                RuntimePlatform.OSXPlayer => ReleaseManifestEndpoints.MacPlatformKey,
-                _ => null,
-            }
-        );
 
     private void Update()
     {

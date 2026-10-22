@@ -749,6 +749,7 @@ static async Task VerifyUploadClientAsync()
         ModApiSession.TryCreate(
             "https://example.test",
             "test",
+            platformKey: null,
             "BundleUpload",
             TimeSpan.FromSeconds(120),
             handler

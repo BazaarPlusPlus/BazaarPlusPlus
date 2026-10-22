@@ -2,7 +2,7 @@
 
 namespace BazaarPlusPlus.ModApi;
 
-internal static class ModApiUploadDefaults
+public static class ModApiUploadDefaults
 {
     public const string ApiBaseUrl = "https://mod-api-v6.bazaarplusplus.com";
     public const int StartupDelaySeconds = 20;

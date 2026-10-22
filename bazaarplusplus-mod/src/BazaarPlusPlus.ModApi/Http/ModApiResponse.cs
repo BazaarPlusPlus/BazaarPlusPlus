@@ -4,14 +4,14 @@ using Newtonsoft.Json.Linq;
 
 namespace BazaarPlusPlus.ModApi.Http;
 
-internal enum ModApiEnvelopeShape
+public enum ModApiEnvelopeShape
 {
     None,
     Nested,
     LegacyTopLevel,
 }
 
-internal readonly struct ModApiErrorEnvelope
+public readonly struct ModApiErrorEnvelope
 {
     public ModApiErrorEnvelope(
         ModApiEnvelopeShape shape,
@@ -49,7 +49,7 @@ internal readonly struct ModApiBodyReadPolicy
     public static ModApiBodyReadPolicy Json { get; } = new(1024 * 1024, "response_too_large");
 }
 
-internal sealed class ModApiResponse
+public sealed class ModApiResponse
 {
     private ModApiResponse(
         int statusCode,
@@ -78,7 +78,7 @@ internal sealed class ModApiResponse
     public int? RetryAfterSeconds { get; }
     public string UserCode { get; }
 
-    public static async Task<ModApiResponse> ReadAsync(
+    internal static async Task<ModApiResponse> ReadAsync(
         HttpResponseMessage response,
         ModApiBodyReadPolicy bodyPolicy,
         CancellationToken cancellationToken = default
@@ -226,7 +226,7 @@ internal sealed class ModApiResponse
     }
 }
 
-internal sealed class ModApiFailure
+public sealed class ModApiFailure
 {
     public ModApiFailure(
         string userCode,

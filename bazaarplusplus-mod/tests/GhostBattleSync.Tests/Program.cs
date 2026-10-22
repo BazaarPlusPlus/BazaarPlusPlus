@@ -611,6 +611,7 @@ internal static class TestModApiSessionFactory
         ModApiSession.TryCreate(
             "https://api.example",
             "test",
+            platformKey: null,
             "OnlineClient",
             TimeSpan.FromSeconds(120),
             handler

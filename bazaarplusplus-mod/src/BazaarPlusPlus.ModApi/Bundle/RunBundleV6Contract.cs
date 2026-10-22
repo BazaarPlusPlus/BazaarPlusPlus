@@ -1,14 +1,14 @@
 #nullable enable
 namespace BazaarPlusPlus.ModApi.Bundle;
 
-internal enum RunBundleOpenFailureKind
+public enum RunBundleOpenFailureKind
 {
     ContainerInvalid,
     PayloadInvalid,
     RunIdentityMismatch,
 }
 
-internal sealed class RunBundleOpenResult
+public sealed class RunBundleOpenResult
 {
     private RunBundleOpenResult(
         OpenedRunBundleV6? value,
@@ -43,7 +43,7 @@ internal sealed class RunBundleOpenResult
     ) => new(null, failureKind, reason, exception);
 }
 
-internal sealed class OpenedRunBundleV6
+public sealed class OpenedRunBundleV6
 {
     internal OpenedRunBundleV6(OpenedBundleV6 bundle, RunPayloadV6 payload)
     {
@@ -84,7 +84,7 @@ internal sealed class OpenedRunBundleV6
     }
 }
 
-internal static class RunBundleV6Contract
+public static class RunBundleV6Contract
 {
     private static readonly string[] RequiredCardSetLabels =
     {

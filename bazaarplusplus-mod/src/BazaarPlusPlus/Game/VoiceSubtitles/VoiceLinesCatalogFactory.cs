@@ -1,5 +1,6 @@
 #nullable enable
 using System.Reflection;
+using BazaarPlusPlus.Host;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
 using BazaarPlusPlus.Infrastructure.RemoteEmbeddedCatalog;
@@ -17,6 +18,7 @@ internal static class VoiceLinesCatalogFactory
     private static readonly TimeSpan CacheDuration = TimeSpan.FromHours(20);
     private static readonly HttpClient HttpClient = BppHttpClientFactory.Create(
         productVersion: BppPluginVersion.Current,
+        platformKey: DesktopPlatformKey.Current,
         userAgentSuffix: "VoiceSubtitlesRepository",
         timeout: TimeSpan.FromSeconds(10)
     );

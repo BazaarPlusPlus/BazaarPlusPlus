@@ -12,6 +12,7 @@ internal static class SessionTests
                 ModApiSession.TryCreate(
                     "https://api.example/path?ignored=1",
                     "5.1 beta",
+                    "android-aarch64",
                     "Online Client",
                     TimeSpan.FromSeconds(37),
                     handler
@@ -25,16 +26,26 @@ internal static class SessionTests
                 "normalized route"
             );
             Assert(
-                handler.UserAgent == "BazaarPlusPlus/5.1-beta Online-Client/5.1-beta",
+                handler.UserAgent
+                    == "BazaarPlusPlus/5.1-beta (android-aarch64) Online-Client/5.1-beta",
                 "standard user agent"
             );
         }
         Assert(handler.Disposed, "session owns handler transport");
 
+        var unknownPlatform = new TrackingHandler();
+        using (var session = Create(unknownPlatform, "Online"))
+            await session.ProbeHealthAsync(CancellationToken.None);
+        Assert(
+            unknownPlatform.UserAgent == "BazaarPlusPlus/1.0.0 Online/1.0.0",
+            "a host without a platform key sends no platform comment"
+        );
+
         var unusedHandler = new TrackingHandler();
         var invalid = ModApiSession.TryCreate(
             "not-a-url",
             "1.0.0",
+            platformKey: null,
             "Test",
             TimeSpan.FromSeconds(1),
             unusedHandler
@@ -60,6 +71,7 @@ internal static class SessionTests
         ModApiSession.TryCreate(
             "https://api.example",
             "1.0.0",
+            platformKey: null,
             suffix,
             TimeSpan.FromSeconds(30),
             handler

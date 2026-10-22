@@ -4,7 +4,7 @@ using MessagePack.Resolvers;
 
 namespace BazaarPlusPlus.ModApi.Bundle;
 
-internal static class RunPayloadV6Codec
+public static class RunPayloadV6Codec
 {
     public const int MaxDecompressedBytes = 64 * 1024 * 1024;
 
