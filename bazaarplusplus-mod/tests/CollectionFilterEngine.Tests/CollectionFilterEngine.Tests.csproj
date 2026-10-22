@@ -112,6 +112,10 @@
       Link="TheDragonsHeroIdentity.cs"
     />
     <Compile
+      Include="..\..\src\BazaarPlusPlus.Core\GameState\TheDragonsHeroId.cs"
+      Link="TheDragonsHeroId.cs"
+    />
+    <Compile
       Include="..\..\src\BazaarPlusPlus\Game\CollectionPanel\Sources\CollectionSourceEnums.cs"
       Link="CollectionSourceEnums.cs"
     />

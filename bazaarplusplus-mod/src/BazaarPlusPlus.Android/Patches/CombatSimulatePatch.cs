@@ -1,4 +1,5 @@
-using BazaarPlusPlus.Android.Host;
+using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 using HarmonyLib;
 using Il2CppBazaarGameShared.Infra.Messages;
 using Il2CppTheBazaar;
@@ -24,7 +25,11 @@ internal static class CombatSimulatePatch
         var hits = AndroidPatchHost.CountCombatSim();
         try
         {
-            AndroidLog.Info("combat_sim.hit", ("hits", hits), ("message", __0 != null));
+            BppLog.InfoEvent(
+                new BppLogEvent(BppLogFeatureScope.Android, "android.combat_sim.hit"),
+                ("hits", hits),
+                ("message", __0 != null)
+            );
         }
         catch (Exception exception)
         {

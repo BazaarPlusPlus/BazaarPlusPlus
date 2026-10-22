@@ -26,7 +26,7 @@ test-core *args:
 android-build *args:
     bash scripts/android.sh build "$@"
 
-# Push the built Android host into MelonLoader/Mods on $BPP_ANDROID_SERIAL (default emulator-5556).
+# Push the Android build to its MelonLoader Payload paths on $BPP_ANDROID_SERIAL (default emulator-5556).
 android-deploy:
     bash scripts/android.sh deploy
 

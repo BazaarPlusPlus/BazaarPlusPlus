@@ -13,7 +13,7 @@ using Newtonsoft.Json.Linq;
 
 namespace BazaarPlusPlus.Game.BundlePipeline;
 
-internal sealed class RunPayloadComposer
+internal sealed class RunPayloadComposer : IRunPayloadComposer
 {
     private static readonly Regex Identifier = new(
         "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
@@ -30,7 +30,7 @@ internal sealed class RunPayloadComposer
         _replayStore = new CombatReplayPayloadStore(replayRoot);
     }
 
-    internal string ResolvePlayerAccountId(string runId, string? frozenAccountId)
+    public string ResolvePlayerAccountId(string runId, string? frozenAccountId)
     {
         var frozen = NormalizeIdentifier(frozenAccountId);
         if (frozen != null)
@@ -49,7 +49,7 @@ internal sealed class RunPayloadComposer
         };
     }
 
-    internal RunPayloadComposition Compose(string runId, string playerAccountId)
+    public RunPayloadComposition Compose(string runId, string playerAccountId)
     {
         var payload = new RunPayloadV6
         {
@@ -82,7 +82,7 @@ internal sealed class RunPayloadComposer
 
     // Encoding belongs to the payload-encode seal stage: a codec failure here is deterministic,
     // unlike a read failure while composing. The coordinator encodes the final payload itself.
-    internal void FitToBudget(RunPayloadComposition composition) =>
+    public void FitToBudget(RunPayloadComposition composition) =>
         ApplySizeBudget(composition.Payload, composition.Projections);
 
     private RunFactsV6 ReadRunFacts(string runId)
@@ -476,22 +476,4 @@ internal sealed class RunPayloadComposer
 
     private static string NormalizeResult(string? result) =>
         NormalizeIdentifier(result?.ToLowerInvariant()) ?? "unknown";
-}
-
-internal sealed record RunPayloadComposition(
-    RunPayloadV6 Payload,
-    List<BundleBattleProjectionV6> Projections,
-    IReadOnlyList<ReplayLoadFailure> ReplayFailures
-);
-
-// Unreadable: the file could not be read. Otherwise its bytes did not decode; Exception is null
-// when they were rejected without one (for example, not gzip).
-internal sealed record ReplayLoadFailure(string BattleId, bool Unreadable, Exception? Exception);
-
-internal sealed class BundleCompositionException : Exception
-{
-    internal BundleCompositionException(string code)
-        : base(code) => Code = code;
-
-    internal string Code { get; }
 }

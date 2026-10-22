@@ -53,14 +53,6 @@
       Link="Text/LiveBuildPanelText.Status.cs"
     />
     <Compile
-      Include="../../src/BazaarPlusPlus/Game/LiveBuildPanel/Data/TenWinCorpusSummary.cs"
-      Link="Data/TenWinCorpusSummary.cs"
-    />
-    <Compile
-      Include="../../src/BazaarPlusPlus/Game/Supporters/BPPSupporterSample.cs"
-      Link="Supporters/BPPSupporterSample.cs"
-    />
-    <Compile
       Include="../../src/BazaarPlusPlus/GameInterop/ItemBoardPreview/BppItemBoard.cs"
       Link="BppItemBoard.cs"
     />

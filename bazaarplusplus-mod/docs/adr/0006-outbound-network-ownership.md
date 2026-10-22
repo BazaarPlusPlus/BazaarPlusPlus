@@ -26,7 +26,7 @@ The API base URL is a constant; failing to construct the session fails plugin st
 
 [`BundleQueueStore`](../../src/BazaarPlusPlus.Storage/BundleQueue/BundleQueueStore.cs) alone owns `bundle_seal_jobs` and `bundle_outbox` SQL, row materialization, and their transactions. Allocation is idempotent; publication verifies allocation and atomically creates the outbox row before deleting the seal job; invalid artifacts fail and schedule reseal in one transaction.
 
-Storage owns neither Bundle files nor codecs, HTTP, upload, or retention policy. Game reaches files through [`IBundleOutboxFiles`](../../src/BazaarPlusPlus/Game/BundlePipeline/BundleOutboxFiles.cs), drives seal timing through [`BundleSealConvergence`](../../src/BazaarPlusPlus/Game/BundlePipeline/BundleSealConvergence.cs), commits an accepted upload before deletion, and retains artifacts for transient outcomes. Tests use the concrete Storage module against temporary SQLite databases; an interface is reserved for substitutable effects, not mirrored shapes.
+Storage owns neither Bundle files nor codecs, HTTP, upload, or retention policy. Game reaches files through [`IBundleOutboxFiles`](../../src/BazaarPlusPlus.Core/Game/BundlePipeline/BundleOutboxFiles.cs), drives seal timing through [`BundleSealConvergence`](../../src/BazaarPlusPlus.Core/Game/BundlePipeline/BundleSealConvergence.cs), commits an accepted upload before deletion, and retains artifacts for transient outcomes. Tests use the concrete Storage module against temporary SQLite databases; an interface is reserved for substitutable effects, not mirrored shapes.
 
 ## Guardrails
 

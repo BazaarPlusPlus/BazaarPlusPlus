@@ -18,7 +18,7 @@
       Link="ReleaseManifestEndpoints.cs"
     />
     <Compile
-      Include="../../src/BazaarPlusPlus/Game/Lobby/ReleaseManifestCheckLifecycle.cs"
+      Include="../../src/BazaarPlusPlus.Core/Game/Lobby/ReleaseManifestCheckLifecycle.cs"
       Link="ReleaseManifestCheckLifecycle.cs"
     />
     <Compile Include="Program.cs" />

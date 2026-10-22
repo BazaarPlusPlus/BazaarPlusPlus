@@ -6,13 +6,13 @@ using SixLabors.ImageSharp.Processing;
 
 namespace BazaarPlusPlus.Game.BundlePipeline;
 
-internal sealed class BundleScreenshotEncoder
+internal sealed class BundleScreenshotEncoder : IBundleScreenshotEncoder
 {
     private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(30);
     private static readonly int[] LongestEdges = [1920, 1600, 1280, 1024, 768];
     private static readonly int[] Qualities = [90, 82, 74, 66, 58, 50];
 
-    internal async Task<BundleScreenshotBuildInputV6?> EncodeAsync(
+    public async Task<BundleScreenshotBuildInputV6?> EncodeAsync(
         string absolutePath,
         long capturedAtMs,
         CancellationToken cancellationToken

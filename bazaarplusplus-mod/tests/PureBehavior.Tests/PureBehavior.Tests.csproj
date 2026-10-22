@@ -43,7 +43,7 @@
     <Compile Include="../../src/BazaarPlusPlus/GameInterop/CardPreview/NativeCardPreviewSlotFitMath.cs" />
 
     <Compile Include="../../src/BazaarPlusPlus/Game/CombatReplay/CombatReplayLogCodes.cs" />
-    <Compile Include="../../src/BazaarPlusPlus/Game/LiveBuildPanel/LiveBuildPanelLogCodes.cs" />
+    <Compile Include="../../src/BazaarPlusPlus.Core/Game/LiveBuildPanel/LiveBuildPanelLogCodes.cs" />
     <Compile Include="../../src/BazaarPlusPlus/Game/CombatReplay/SavedReplayLifecycle.cs" />
     <Compile Include="../../src/BazaarPlusPlus/Game/CombatReplay/ManagedReplayRecordingRestartCore.cs" />
     <Compile Include="../../src/BazaarPlusPlus/Game/CombatReplay/CurrentReplayRecordingStatusCode.cs" />
@@ -51,6 +51,6 @@
     <Compile Include="../../src/BazaarPlusPlus/Game/CombatReplay/Bootstrap/ReplayPresentationTaskTracker.cs" />
     <Compile Include="../../src/BazaarPlusPlus/Game/HistoryPanel/HistoryPanelReplayCleanup.cs" />
     <Compile Include="../../src/BazaarPlusPlus/Game/LiveBuildPanel/LiveBuildRefreshState.cs" />
-    <Compile Include="../../src/BazaarPlusPlus/Game/LiveBuildPanel/Recommendations/BuildRecommendationRefreshResult.cs" />
+    <Compile Include="../../src/BazaarPlusPlus.Core/Game/LiveBuildPanel/Recommendations/BuildRecommendationRefreshResult.cs" />
   </ItemGroup>
 </Project>

@@ -49,7 +49,7 @@ try
     var store = new RunLogStore(paths);
     var database = PathConstants.RunLogDatabase(dataRoot);
     var replays = new CombatReplayPayloadStore(PathConstants.CombatReplays(dataRoot));
-    using var coordinator = new BundleSealCoordinator(new TestServices(paths));
+    using var coordinator = DesktopBundleSealCoordinator.Create(new TestServices(paths));
 
     RoutingKeepsPveOutOfPersistence(database);
 
@@ -467,7 +467,7 @@ static async Task VerifyRunSegmentProjectionAsync(string root)
     Directory.CreateDirectory(root);
     var paths = new TestPaths(root);
     var store = new RunLogStore(paths);
-    using var coordinator = new BundleSealCoordinator(new TestServices(paths));
+    using var coordinator = DesktopBundleSealCoordinator.Create(new TestServices(paths));
     CreateRun(store, "run-segment", minute: 0, screenshotRequested: false);
     SaveBattle(
         PathConstants.RunLogDatabase(root),
@@ -547,7 +547,7 @@ static async Task VerifyRecoveryAsync(string root)
     var paths = new TestPaths(root);
     var store = new RunLogStore(paths);
     var database = PathConstants.RunLogDatabase(root);
-    using var coordinator = new BundleSealCoordinator(new TestServices(paths));
+    using var coordinator = DesktopBundleSealCoordinator.Create(new TestServices(paths));
     var outboxRoot = PathConstants.BundleOutbox(root);
     Directory.CreateDirectory(outboxRoot);
 

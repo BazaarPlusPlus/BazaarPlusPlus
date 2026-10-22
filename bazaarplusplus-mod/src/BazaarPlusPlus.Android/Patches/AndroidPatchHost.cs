@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
-using BazaarPlusPlus.Android.Host;
+using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 using HarmonyLib;
 
 namespace BazaarPlusPlus.Android.Patches;
@@ -38,15 +39,19 @@ internal static class AndroidPatchHost
             {
                 var targets = harmony.CreateClassProcessor(type).Patch();
                 if (targets is { Count: > 0 })
-                    AndroidLog.Info(
-                        "patch.installed",
+                    BppLog.InfoEvent(
+                        new BppLogEvent(BppLogFeatureScope.Android, "android.patch.installed"),
                         ("patch_type", type.FullName),
                         ("targets", string.Join(",", targets.Select(Describe)))
                     );
             }
             catch (Exception exception)
             {
-                AndroidLog.Error("patch.failed", exception, ("patch_type", type.FullName));
+                BppLog.ErrorEvent(
+                    new BppLogEvent(BppLogFeatureScope.Android, "android.patch.failed"),
+                    exception,
+                    ("patch_type", type.FullName)
+                );
             }
         }
     }
@@ -63,10 +68,14 @@ internal static class AndroidPatchHost
     public static void ReportProbeError(string probe, Exception exception)
     {
         if (Interlocked.Increment(ref _probeErrors) <= LoggedProbeErrors)
-            AndroidLog.Error("hook.failed", exception, ("probe", probe));
+            BppLog.ErrorEvent(
+                new BppLogEvent(BppLogFeatureScope.Android, "android.hook.failed"),
+                exception,
+                ("probe", probe)
+            );
     }
 
-    public static (string Name, object? Value)[] Summary() =>
+    public static BppLogField[] Summary() =>
         [
             ("mode", Mode),
             ("version_label_hits", Interlocked.Read(ref _versionLabelHits)),

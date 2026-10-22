@@ -2,6 +2,7 @@
 using BazaarPlusPlus.Core.Events;
 using BazaarPlusPlus.Core.Runtime;
 using BazaarPlusPlus.Game.BundlePipeline;
+using BazaarPlusPlus.Host;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
 using BazaarPlusPlus.ModApi;
@@ -36,7 +37,11 @@ internal sealed class BackgroundUploadPump : MonoBehaviour
             ModApiUploadDefaults.IntervalSeconds
         );
 
-        var session = UploadPumpBootstrap.ActivateIfAllowed(_services, cadence);
+        var session = UploadPumpBootstrap.ActivateIfAllowed(
+            _services,
+            cadence,
+            DesktopPlatformKey.Current
+        );
         if (session == null)
             return;
 

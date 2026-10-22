@@ -1,4 +1,5 @@
-using BazaarPlusPlus.Android.Host;
+using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 using HarmonyLib;
 
 namespace BazaarPlusPlus.Android.Patches;
@@ -17,6 +18,9 @@ internal static class CardTooltipPatch
     {
         var hits = AndroidPatchHost.CountTooltip();
         if (hits <= LoggedHits)
-            AndroidLog.Info("tooltip.hit", ("hits", hits));
+            BppLog.InfoEvent(
+                new BppLogEvent(BppLogFeatureScope.Android, "android.tooltip.hit"),
+                ("hits", hits)
+            );
     }
 }

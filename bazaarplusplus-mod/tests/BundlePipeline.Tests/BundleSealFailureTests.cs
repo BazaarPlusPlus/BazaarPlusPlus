@@ -46,7 +46,7 @@ internal static class BundleSealFailureTests
             }
         }
 
-        using (var first = new BundleSealCoordinator(fixture.Services, Broken))
+        using (var first = DesktopBundleSealCoordinator.Create(fixture.Services, Broken))
         {
             await first.ReconcileAsync(CancellationToken.None);
             var parked = fixture.Queue.ReadJob("env-run")!;
@@ -70,7 +70,7 @@ internal static class BundleSealFailureTests
         }
 
         await Task.Delay(10);
-        using (var second = new BundleSealCoordinator(fixture.Services, Broken))
+        using (var second = DesktopBundleSealCoordinator.Create(fixture.Services, Broken))
         {
             await second.ReconcileAsync(CancellationToken.None);
             Require(calls == 2, "The next launch retries a parked Run once.");
@@ -81,7 +81,7 @@ internal static class BundleSealFailureTests
         }
 
         await Task.Delay(10);
-        using var repaired = new BundleSealCoordinator(fixture.Services);
+        using var repaired = DesktopBundleSealCoordinator.Create(fixture.Services);
         await repaired.ReconcileAsync(CancellationToken.None);
         Require(
             fixture.OutboxCount("env-run") == 1 && fixture.Queue.ReadJob("env-run") == null,
@@ -95,7 +95,7 @@ internal static class BundleSealFailureTests
         fixture.AddCompletedRun("poison-run", endedMinutesAgo: 20);
         fixture.AddCompletedRun("healthy-run", endedMinutesAgo: 10);
         var calls = 0;
-        using var coordinator = new BundleSealCoordinator(
+        using var coordinator = DesktopBundleSealCoordinator.Create(
             fixture.Services,
             (stage, subject) =>
             {
@@ -133,12 +133,12 @@ internal static class BundleSealFailureTests
     {
         using var fixture = new Fixture(root);
         fixture.AddCompletedRun("pending-run", endedMinutesAgo: 10);
-        using (var sealer = new BundleSealCoordinator(fixture.Services))
+        using (var sealer = DesktopBundleSealCoordinator.Create(fixture.Services))
             await sealer.ReconcileAsync(CancellationToken.None);
         Require(fixture.OutboxCount("pending-run") == 1, "Fixture Run seals.");
 
         using (
-            var broken = new BundleSealCoordinator(
+            var broken = DesktopBundleSealCoordinator.Create(
                 fixture.Services,
                 (stage, _) =>
                 {
@@ -156,7 +156,7 @@ internal static class BundleSealFailureTests
         fixture.SingleLine("bundle_pipeline.seal.environment_blocked");
 
         using (
-            var corrupt = new BundleSealCoordinator(
+            var corrupt = DesktopBundleSealCoordinator.Create(
                 fixture.Services,
                 (stage, _) =>
                 {
@@ -214,7 +214,7 @@ internal static class BundleSealFailureTests
                 + truncated.Exception
         );
 
-        using var coordinator = new BundleSealCoordinator(fixture.Services);
+        using var coordinator = DesktopBundleSealCoordinator.Create(fixture.Services);
         await coordinator.ReconcileAsync(CancellationToken.None);
         var file = fixture.PendingFile("replay-run");
         var payload = RunPayloadV6Codec.Decode(
@@ -239,7 +239,7 @@ internal static class BundleSealFailureTests
         using var fixture = new Fixture(root);
         fixture.AddCompletedRun("maintained-run", endedMinutesAgo: 10);
         fixture.Queue.EnsureEligibleJobs(TimeSpan.FromMinutes(2));
-        using var coordinator = new BundleSealCoordinator(
+        using var coordinator = DesktopBundleSealCoordinator.Create(
             fixture.Services,
             (stage, _) =>
             {
@@ -289,7 +289,7 @@ internal static class BundleSealFailureTests
         File.SetLastWriteTimeUtc(orphan, DateTime.UtcNow.AddDays(-2));
 
         using (
-            var broken = new BundleSealCoordinator(
+            var broken = DesktopBundleSealCoordinator.Create(
                 fixture.Services,
                 (stage, _) =>
                 {
@@ -306,7 +306,7 @@ internal static class BundleSealFailureTests
         fixture.SingleLine("bundle_pipeline.seal.environment_blocked");
 
         using (
-            var corrupt = new BundleSealCoordinator(
+            var corrupt = DesktopBundleSealCoordinator.Create(
                 fixture.Services,
                 (stage, _) =>
                 {

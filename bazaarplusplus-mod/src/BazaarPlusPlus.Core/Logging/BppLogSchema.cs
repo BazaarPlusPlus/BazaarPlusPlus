@@ -45,6 +45,7 @@ public sealed class BppLogFeatureScope
     public static BppLogFeatureScope Supporters { get; } = new("Supporters", "supporters");
     public static BppLogFeatureScope GraphicsUpscaling { get; } =
         new("GraphicsUpscaling", "graphics_upscaling");
+    public static BppLogFeatureScope Android { get; } = new("Android", "android");
 
     private static readonly BppLogFeatureScope[] DeclaredScopes =
     [
@@ -75,6 +76,7 @@ public sealed class BppLogFeatureScope
         StaticCards,
         Supporters,
         GraphicsUpscaling,
+        Android,
     ];
 
     private BppLogFeatureScope(string prefixName, string eventIdPrefix)

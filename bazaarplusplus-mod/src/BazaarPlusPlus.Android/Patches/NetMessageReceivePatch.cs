@@ -1,4 +1,5 @@
-using BazaarPlusPlus.Android.Host;
+using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 using HarmonyLib;
 using Il2CppBazaarGameShared.Infra.Messages;
 using Il2CppTheBazaar;
@@ -24,8 +25,8 @@ internal static class NetMessageReceivePatch
             var nativeType = __0.Cast<Il2CppSystem.Object>().GetIl2CppType().FullName;
             var hits = AndroidPatchHost.CountMessage(nativeType);
             if (hits <= LoggedHitsPerType)
-                AndroidLog.Info(
-                    "net_message.hit",
+                BppLog.InfoEvent(
+                    new BppLogEvent(BppLogFeatureScope.Android, "android.net_message.hit"),
                     ("native_type", nativeType),
                     ("hits", hits),
                     ("combat_sim", __0.TryCast<NetMessageCombatSim>() != null)

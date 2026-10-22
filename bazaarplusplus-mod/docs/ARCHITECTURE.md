@@ -31,7 +31,7 @@ Four assemblies ship. Dependencies run host → Core → {Storage, ModApi}; a sh
 | Assembly | Contents |
 |---|---|
 | `BazaarPlusPlus.dll` | the desktop (BepInEx) host: Unity/game integration, feature modules, Harmony patches, embedded resources, `DesktopComposition` |
-| `BazaarPlusPlus.Core.dll` | the shared core every host references: settings and host ports, event bus, snapshots and probe interfaces, run context, `CoreComposition`, `BppLog`, localization, Release Manifest client, remote embedded catalogs |
+| `BazaarPlusPlus.Core.dll` | the shared core every host references (directories below) |
 | `BazaarPlusPlus.ModApi.dll` | HTTP client, routes, DTOs, MessagePack/gzip helpers for the mod backend |
 | `BazaarPlusPlus.Storage.dll` | SQLite schema, repositories, path interfaces, local persistence models |
 
@@ -40,11 +40,12 @@ No shared project references a game, Unity, or loader assembly, so the compiler 
 | Core directory | Owns |
 |---|---|
 | `Config/`, `Events/`, `GameState/`, `RunContext/`, `Runtime/` | settings port, event bus and BPP-owned snapshots, probe interfaces, run context, runtime services, `CoreComposition` |
-| `Logging/` | the `BppLog` facade and pipeline, the `IBppLogSink` port |
+| `Logging/` | the `BppLog` facade and pipeline, the `IBppLogSink` port, operational health tracking |
 | `Localization/` | localization resolution, language and Chinese-mode helpers |
 | `Infrastructure/` | Release Manifest client, remote embedded catalogs, atomic and file-backed writes, async load cache, plugin version |
+| `Game/` | host-free feature parts in each feature's namespace; parts reading game types stay in the host, behind a Core port if Core calls them |
 
-Core namespaces: `BazaarPlusPlus.Core.*`, `.Infrastructure`, `.Localization`.
+Core namespaces: `BazaarPlusPlus.Core.*`, `.Infrastructure`, `.Localization`, `.Game.*`.
 
 Inside the desktop host assembly:
 
@@ -52,9 +53,9 @@ Inside the desktop host assembly:
 |---|---|
 | `Host/` | BepInEx implementations of host ports (settings store, log sink, Data Root path provider) and the Unity mountables |
 | `GameInterop/` | adapters over game, Unity, or publicized runtime surfaces |
-| `Game/` | feature workflows, UI, user-facing policy, filtering, upload orchestration, storage use |
+| `Game/` | feature workflows, UI, user-facing policy, filtering, the upload pump, storage use |
 | `Patches/` | Harmony patches, reaching services through `BppPatchHost` rather than constructor injection |
-| `Infrastructure/` | UI tokens, stable text helpers, UI suppression, operational health tracking |
+| `Infrastructure/` | UI tokens, stable text helpers, UI suppression |
 
 The main project targets `netstandard2.1`, uses C# 12, and publicizes game assemblies, so `internal` game members are accessible. Remote seed data is declared in `RemoteEmbeddedData.targets` and delegates transport to `build/RemoteEmbeddedDataFetcher`; `BppVersion` in `Directory.Build.props` reads the workspace-root `VERSION`. The shared Payload Inventory generates the MSBuild copy items; production assembly versions are checked from compiled metadata. `just release::prepare <platform>` runs isolated preparation through the [product release coordinator](../../docs/release.md).
 

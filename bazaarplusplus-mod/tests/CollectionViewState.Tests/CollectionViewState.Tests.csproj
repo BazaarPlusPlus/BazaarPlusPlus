@@ -112,6 +112,10 @@
       Link="TheDragonsHeroIdentity.cs"
     />
     <Compile
+      Include="..\..\src\BazaarPlusPlus.Core\GameState\TheDragonsHeroId.cs"
+      Link="TheDragonsHeroId.cs"
+    />
+    <Compile
       Include="..\..\src\BazaarPlusPlus\Game\CollectionPanel\Sources\CollectionSourceEnums.cs"
       Link="CollectionSourceEnums.cs"
     />
@@ -205,7 +209,7 @@
       Link="CollectionPanelText.cs"
     />
     <Compile
-      Include="..\..\src\BazaarPlusPlus\Game\Supporters\BPPSupporterSample.cs"
+      Include="..\..\src\BazaarPlusPlus.Core\Game\Supporters\BPPSupporterSample.cs"
       Link="BPPSupporterSample.cs"
     />
     <Compile Include="..\..\src\BazaarPlusPlus.Core\Localization\L.cs" Link="L.cs" />

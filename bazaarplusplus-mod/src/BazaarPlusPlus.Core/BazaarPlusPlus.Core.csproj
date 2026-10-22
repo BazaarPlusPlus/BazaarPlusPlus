@@ -16,6 +16,12 @@
     <BppReferenceGameLibraries>true</BppReferenceGameLibraries>
   </PropertyGroup>
 
+  <!-- net10.0 binds no game assembly, so it builds where only the Interop Snapshot is fetched
+       (the Android host and the mod-android lane). -->
+  <PropertyGroup Condition="'$(TargetFramework)' == 'net10.0'">
+    <BppRequiresManagedPath>false</BppRequiresManagedPath>
+  </PropertyGroup>
+
   <ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.1'">
     <PackageReference Include="NETStandard.Library" />
   </ItemGroup>
@@ -33,6 +39,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="../BazaarPlusPlus.ModApi/BazaarPlusPlus.ModApi.csproj" />
     <ProjectReference Include="../BazaarPlusPlus.Storage/BazaarPlusPlus.Storage.csproj" />
   </ItemGroup>
 </Project>

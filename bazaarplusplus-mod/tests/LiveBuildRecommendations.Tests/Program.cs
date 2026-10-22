@@ -291,12 +291,13 @@ internal static class TenWinBuildTests
             "Legacy TryFindFinalRecommendation must be removed."
         );
 
-        var ratingTierType = repositoryType.Assembly.GetType(
-            "BazaarPlusPlus.Game.LiveBuildPanel.Recommendations.BuildRatingTier"
-        );
         Assert(
-            ratingTierType == null,
-            "BuildRatingTier must be deleted from the production assembly."
+            new[] { repositoryType.Assembly, typeof(TenWinBuildCorpus).Assembly }.All(assembly =>
+                assembly.GetType(
+                    "BazaarPlusPlus.Game.LiveBuildPanel.Recommendations.BuildRatingTier"
+                ) == null
+            ),
+            "BuildRatingTier must be deleted from the production assemblies."
         );
     }
 
@@ -460,7 +461,7 @@ internal static class TenWinBuildTests
                 );
 
                 // Put B on the board: build0 gains live-state weight and must outrank the higher-score build1.
-                var liveState = LiveState(repositoryType, board: [GuidB], stash: [], shop: []);
+                var liveState = LiveState(board: [GuidB], stash: [], shop: []);
                 var ranked = ScoresOf(
                     Find(repositoryType, repository, "Vanessa", [GuidA], liveState)
                 );
@@ -570,7 +571,7 @@ internal static class TenWinBuildTests
     private static void TestEmbeddedSeedResourceIsBundledAndParses()
     {
         var source = new AssemblyResourceCatalogSource(
-            typeof(TenWinBuildCorpus).Assembly,
+            typeof(TenWinBuildCatalogFactory).Assembly,
             TenWinBuildCatalogFactory.EmbeddedResourceName
         );
         var json = source.ReadAsync(CancellationToken.None).AsTask().GetAwaiter().GetResult();
@@ -1247,17 +1248,9 @@ internal static class TenWinBuildTests
         return (IEnumerable)method.Invoke(repository, [hero, ids, liveState])!;
     }
 
-    private static object LiveState(
-        Type repositoryType,
-        string[] board,
-        string[] stash,
-        string[] shop
-    )
+    private static object LiveState(string[] board, string[] stash, string[] shop)
     {
-        var liveStateType = repositoryType.Assembly.GetType(
-            "BazaarPlusPlus.Game.LiveBuildPanel.Recommendations.BuildLiveState"
-        )!;
-        var from = liveStateType.GetMethod("From")!;
+        var from = typeof(BuildLiveState).GetMethod("From")!;
         return from.Invoke(
             null,
             [

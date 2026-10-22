@@ -50,6 +50,12 @@
           "SQLitePCLRaw.core": "3.0.5"
         }
       },
+      "bazaarplusplus.modapi": {
+        "type": "Project",
+        "dependencies": {
+          "NETStandard.Library": "[2.0.3, )"
+        }
+      },
       "bazaarplusplus.storage": {
         "type": "Project",
         "dependencies": {
@@ -127,6 +133,9 @@
         "dependencies": {
           "SQLitePCLRaw.core": "3.0.5"
         }
+      },
+      "bazaarplusplus.modapi": {
+        "type": "Project"
       },
       "bazaarplusplus.storage": {
         "type": "Project",

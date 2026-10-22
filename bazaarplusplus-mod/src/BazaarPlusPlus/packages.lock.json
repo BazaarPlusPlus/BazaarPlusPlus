@@ -490,6 +490,7 @@
       "bazaarplusplus.core": {
         "type": "Project",
         "dependencies": {
+          "BazaarPlusPlus.ModApi": "[6.0.0, )",
           "BazaarPlusPlus.Storage": "[6.0.0, )",
           "NETStandard.Library": "[2.0.3, )"
         }
