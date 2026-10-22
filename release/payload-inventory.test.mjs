@@ -7,7 +7,6 @@ import {
   assertShippedPayloadPaths,
   platformInventory,
   readInventory,
-  renderManagedPayloadTargets,
   requiredPayloadPaths,
   validateInventory
 } from './payload-inventory.mjs';
@@ -194,18 +193,62 @@ test.each([
   expect(() => validateInventory(inventory)).toThrow();
 });
 
-test('the MSBuild projection collects one host at a time, BepInEx by default', () => {
-  const targets = renderManagedPayloadTargets();
-  expect(targets).toContain(
-    `<BppPayloadHost Condition="'$(BppPayloadHost)' == ''">bepinex</BppPayloadHost>`
-  );
-  for (const host of ['bepinex', 'melonloader'])
-    expect(targets).toContain(
-      `<ItemGroup Condition="'$(BppPayloadHost)' == '${host}'">`
-    );
-  expect(targets).not.toContain('libmain.so');
-  expect(targets).not.toContain('BazaarPlusPlus.cfg');
-});
+test.each([
+  ['the BepInEx host by default', [], 'macos'],
+  [
+    'the MelonLoader host for Android',
+    ['-p:BppPayloadHost=melonloader'],
+    'android'
+  ]
+])(
+  'MSBuild collects %s from the generated projection',
+  (_, properties, platform) => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'bpp-payload-host-'));
+    try {
+      const gate = path.join(root, 'Gate.proj');
+      fs.writeFileSync(
+        gate,
+        `<Project><PropertyGroup><TargetDir>${xml(root)}/</TargetDir><HistoryDatabaseContractFile>history.json</HistoryDatabaseContractFile><FixedMacSqliteNativeFile>mac.dylib</FixedMacSqliteNativeFile><FixedWindowsSqliteNativeFile>win.dll</FixedWindowsSqliteNativeFile><IsMacHost>true</IsMacHost></PropertyGroup><Import Project="${xml(path.join(WORKSPACE_ROOT, 'release/generated/Payload.targets'))}" /></Project>`
+      );
+      const evaluated = JSON.parse(
+        execFileSync(
+          'dotnet',
+          [
+            'msbuild',
+            gate,
+            '-t:CollectPayloadFiles',
+            '-getItem:BppPayloadFile',
+            '-getProperty:BppPayloadPlatform',
+            '-nologo',
+            ...properties
+          ],
+          { encoding: 'utf8', stdio: 'pipe' }
+        )
+      );
+      expect(evaluated.Properties.BppPayloadPlatform).toBe(platform);
+      const collected = evaluated.Items.BppPayloadFile.map(
+        (item) => item.PayloadPath
+      ).sort();
+      const expected = platformInventory(platform)
+        .filter(
+          (entry) =>
+            !entry.optional &&
+            [
+              'managed',
+              'history-contract',
+              'sqlite-macos',
+              'sqlite-windows'
+            ].includes(entry.producer)
+        )
+        .map((entry) => entry.path)
+        .sort();
+      expect(collected).toEqual(expected);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  },
+  30000
+);
 
 test('directory and descendant ownership cannot overlap', () => {
   const inventory = structuredClone(readInventory());

@@ -424,7 +424,7 @@ async function writeLockstepManifest(store, log) {
 // Promote one platform without waiting for the others. The lockstep Release
 // Manifest advances only once every Lockstep Platform names the same release
 // (ADR 0003). Android writes only its Platform Release Manifest and records
-// no mainland mirror (ADR 0007).
+// no mainland mirror (ADR 0010).
 export async function promotePlatform({
   version,
   platform,

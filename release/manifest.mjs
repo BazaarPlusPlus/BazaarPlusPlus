@@ -75,7 +75,7 @@ export function fragmentKey(version, platform) {
 // The Android Release APK is named by what it is built from (game build,
 // loader tag, the first eight hex digits of the interop digest), never by the
 // product version: one APK serves every product version until the game, the
-// loader or the interop changes (ADR 0007). The key is immutable once used.
+// loader or the interop changes (ADR 0010). The key is immutable once used.
 export function androidApkKey({ gameVersion, loaderTag, interopSha256 }) {
   const build = /^(\d+(?:\.\d+)+)-/.exec(gameVersion ?? '')?.[1];
   if (
@@ -514,7 +514,7 @@ export function buildPlatformManifest({
   return manifest;
 }
 
-// Android has no Mainland Mirror yet (ADR 0007): promotion records none, and
+// Android has no Mainland Mirror yet (ADR 0010): promotion records none, and
 // an address already published for this version would be kept. `existing` is
 // the published manifest of this same version, or null.
 function buildAndroidPlatformManifest({
@@ -556,7 +556,7 @@ function buildAndroidPlatformManifest({
 // The Release Manifest: the newest release every Lockstep Platform promoted
 // at the same version and commit. Installers whose platform manifest fails to
 // load read only this file, so it never runs ahead of any Lockstep Platform
-// (ADR 0003). Android is not one (ADR 0007).
+// (ADR 0003). Android is not one (ADR 0010).
 export function mergeReleaseManifest({ platformManifests, existingLatest }) {
   const byPlatform = new Map(
     (platformManifests ?? []).map((manifest) => [

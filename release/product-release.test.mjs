@@ -831,7 +831,7 @@ test('the writer reproduces every shared platform fixture', () => {
   }
 });
 
-// Android (ADR 0007): its own Platform Release Manifest, outside latest.json,
+// Android (ADR 0010): its own Platform Release Manifest, outside latest.json,
 // without a mainland mirror, under the same one-commit-per-version rule.
 const ANDROID = 'android-aarch64';
 const promoteAndroid = (data, store, extra = {}) =>

@@ -13,3 +13,5 @@ interop 摘要覆盖目录里每一个顶层文件，不只是 DLL：生成器�
 否决的方案：只存 interop、发版时从发行商 CDN 下载 APK，锁会在发行商覆盖文件后失配；把 interop 摘要限定为 DLL，注入所需的数据库文件就不受锁约束；为 Android 预留 `staging` 和 `ptr` 空键，它们没有任何采集来源，只会永远告警；在锁里只写 Cpp2IL 版本，桶里的二进制就无法按锁取回和核对。
 
 代价：游戏每发一个 Android 版本就要有人下载 APK、重新生成 interop、推进锁，Android 发版节奏被这件事卡住；私有桶每个游戏版本多约 2.8 GB；首次采集的 interop 是在 macOS 上用 Cpp2IL 的 OSX ARM64 版生成的，锁里钉的是同版本的 Linux 二进制，Linux 上的生成路径尚未端到端跑过。
+
+2026-10-22 注：[ADR 0010](0010-android-release-platform.md) 让 Payload Inventory 用 `apk-injection` 条目列出注入后 APK 内的路径（`lib/arm64-v8a/libmain.so`、`assets/LemonLoader/` 等），以定义 Android Release APK 的布局。快照锁里的构建输入（Loader Release、interop、官方 APK）本身仍不进 Payload Inventory，也仍只在私有存储。

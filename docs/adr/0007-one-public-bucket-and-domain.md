@@ -15,3 +15,5 @@
 否决的方案：沿用 `bppinstaller` 当公开桶，省一次复制，但桶名与内容不符，并且仍要改目录；game-libs 也并进私有数据桶，桶少一个，但只读 token 会读到玩家截图；按子域名区分内容，每类内容仍要一个域名和一条 DNS 记录。
 
 代价是迁移要复制全部历史安装包（保留 `sha256` 元数据），旧域名要维护改写规则直到 5.x 退出，而且 6.0.0 必须在迁移完成后再发布，否则会把旧地址写进新版本。
+
+2026-10-22 注：[ADR 0010](0010-android-release-platform.md) 在合作授权下把 Android Release APK（含游戏二进制）放进公开桶的 `installer/android/apk/`，这是"游戏本体文件不能进公开桶"的唯一例外。游戏程序集快照、interop、官方 APK 与 Loader Release 仍只在 `bazaarplusplus-game-libs`。Android 是 6.0.0 新增的平台，它的地址只在 `RELEASE_BASE_URL` 下，`LEGACY_RELEASE_BASE_URL` 不适用。

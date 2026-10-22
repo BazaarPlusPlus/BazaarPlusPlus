@@ -22,7 +22,7 @@ const ownerships = new Set(['private', 'dependency', 'bootstrap']);
 // to the game directory. A MelonLoader path is relative to the Android app's
 // external files directory (`Android/data/<package>/files/`), except the
 // `apk-injection` entries, which are paths inside the Android Release APK:
-// the APK injection step produces them, never the mod build (ADR 0007).
+// the APK injection step produces them, never the mod build (ADR 0010).
 const hostRoots = {
   bepinex: (() => {
     const rootFiles = new Set([

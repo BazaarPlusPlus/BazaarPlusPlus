@@ -26,7 +26,7 @@ The newest Product Release that every Lockstep Platform promoted at the same ver
 Publishing one platform's Platform Release Manifest once its artifacts are in place and, on desktop, its Mainland Mirror is recorded or explicitly waived; the Release Manifest advances when every Lockstep Platform names the same release. Repeating the promotion of the same release leaves the existing artifacts unchanged.
 
 **Android Release APK** (Android 发布 APK):
-The official game APK with the Loader Release, the Interop Snapshot and an Android Mod Payload injected, signed with BPP's Android release key: what an Android user installs. Its identity is the game version, the loader and the interop, not the product version: it is stored once under `android/apk/` and named by those three, `builtForProductVersion` records which Mods it carries, and later product versions point at the same APK until the game, loader or interop changes.
+The official game APK with the Loader Release, the Interop Snapshot and an Android Mod Payload injected, signed with BPP's Android release key: what an Android user installs. Its identity is the game version, the loader and the interop, not the product version: it is stored once under `installer/android/apk/` in the public bucket and named by those three, `builtForProductVersion` records which Mods it carries, and later product versions point at the same APK until the game, loader or interop changes. `docs/adr/0010-android-release-platform.md` records why BPP may distribute it.
 _Avoid_: patched APK, Android installer
 
 **Managed Payload** (托管 Payload):
