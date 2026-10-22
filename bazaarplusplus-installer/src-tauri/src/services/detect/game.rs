@@ -19,7 +19,7 @@ pub(crate) fn is_bepinex_installed(game_path: &Path) -> bool {
     return true;
 }
 
-pub(super) fn read_installed_bpp_version(game_path: &Path) -> Option<String> {
+pub(crate) fn read_installed_bpp_version(game_path: &Path) -> Option<String> {
     let version_path = game_path.join("BepInEx/plugins/BazaarPlusPlus.version");
     let version = std::fs::read_to_string(version_path).ok()?;
     let version = version.trim();

@@ -968,13 +968,10 @@ mod tests {
             std::fs::read_to_string(game.path().join(manifest_path)).unwrap(),
             self_updated_manifest
         );
-        let installed_version = std::fs::read_to_string(game.path().join(version_path)).unwrap();
-        assert_eq!(installed_version, version_file);
-        let payload_current = crate::services::detect::is_bepinex_installed(game.path())
-            && super::super::installed_version_is_current(
-                installed_version.trim(),
-                bundled_version.trim(),
-            );
+        assert_eq!(
+            std::fs::read_to_string(game.path().join(version_path)).unwrap(),
+            version_file
+        );
         std::fs::create_dir_all(game.path().join("BazaarPlusPlusV6")).unwrap();
         std::fs::write(
             game.path().join("BazaarPlusPlusV6/history-sentinel"),
@@ -988,6 +985,25 @@ mod tests {
             assert!(!app.join("TheBazaar_ARM64.app").exists());
             eprintln!("Copied Steam bundle repair {iteration}: strict signature and current stub verified");
         }
+        // Readiness as detection and the planner report it for the repaired
+        // copy. Steam launch options are pinned empty (the copy has no Steam
+        // config); every other fact is read from the copied game.
+        let readiness = crate::services::install::install_state_from_snapshot(
+            crate::services::detect::InstallEnvironmentSnapshot {
+                steam_path: None,
+                game_path: Some(game.path().to_string_lossy().into_owned()),
+                game_path_valid: crate::services::detect::is_valid_game_path(game.path()),
+                bepinex_installed: crate::services::detect::is_bepinex_installed(game.path()),
+                bpp_version: crate::services::detect::read_installed_bpp_version(game.path()),
+                bundled_bpp_version: Some(bundled_version.trim().to_owned()),
+                steam_launch_options: crate::services::vdf::SteamLaunchOptionsState::Empty,
+                trampoline_current: is_current_with_stub(game.path(), &stub).unwrap(),
+                obsolete_macos_artifacts_present: super::super::obsolete_macos_artifacts_present(
+                    game.path(),
+                ),
+            },
+        );
+        let payload_current = readiness.mod_state.ready;
 
         // The game's own files differ between machines and game versions, so
         // the committed golden holds only the Payload Inventory paths present

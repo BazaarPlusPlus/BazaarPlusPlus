@@ -39,14 +39,14 @@ impl ProductVersion {
 }
 
 /// Readiness: the installed copy is current when it is not older than the
-/// bundled one. A version neither side can order compares as text.
+/// bundled one. A version that does not parse is never current.
 pub(crate) fn installed_version_is_current(installed: &str, bundled: &str) -> bool {
     match (
         ProductVersion::parse(installed),
         ProductVersion::parse(bundled),
     ) {
         (Some(installed), Some(bundled)) => installed >= bundled,
-        _ => installed == bundled,
+        _ => false,
     }
 }
 
@@ -444,7 +444,8 @@ pub(super) mod tests {
             ("5.9.9.prod", "6.0.0.prod", false),
             ("garbage", "6.0.0.prod", false),
             ("6.01.0.prod", "6.0.0.prod", false),
-            ("packaged", "packaged", true),
+            ("packaged", "packaged", false),
+            ("6.0.0.prod", "packaged", false),
         ] {
             assert_eq!(
                 installed_version_is_current(installed, bundled),

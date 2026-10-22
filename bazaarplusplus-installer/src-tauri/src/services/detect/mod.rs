@@ -1,14 +1,13 @@
 mod game;
 mod steam;
 
-pub(crate) use game::{is_bepinex_installed, is_valid_game_path};
+pub(crate) use game::{is_bepinex_installed, is_valid_game_path, read_installed_bpp_version};
 pub(crate) use steam::detect_installation_paths;
 
 use crate::services::game_path::GamePathAcceptance;
 use crate::services::selected_game_installation::SelectedGameInstallationState;
 use crate::services::startup::InstallerContextState;
 use crate::services::vdf::SteamLaunchOptionsState;
-use game::read_installed_bpp_version;
 use tauri::{AppHandle, Manager, State};
 
 #[derive(Debug, Clone)]
