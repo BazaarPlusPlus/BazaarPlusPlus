@@ -101,6 +101,7 @@ test('internal and Dependabot Mod selections fail without credentials; forks hav
   f.event.pull_request.head.repo.full_name = 'fork/repo';
   f.needs['mod-macos'].result = 'skipped';
   f.needs['mod-windows'].result = 'skipped';
+  f.needs['mod-android'].result = 'skipped';
   const result = summarize(f);
   assert.equal(result.ok, true);
   assert.match(

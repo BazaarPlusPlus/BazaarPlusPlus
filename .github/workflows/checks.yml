@@ -14,7 +14,7 @@ on:
       platform:
         description: Native platforms to verify
         type: choice
-        options: [all, macos, windows]
+        options: [all, macos, windows, android]
         default: all
 
 permissions:
@@ -41,6 +41,7 @@ jobs:
       installer-windows: ${{ steps.scope.outputs.installer-windows }}
       mod-macos: ${{ steps.scope.outputs.mod-macos }}
       mod-windows: ${{ steps.scope.outputs.mod-windows }}
+      mod-android: ${{ steps.scope.outputs.mod-android }}
       macos-icon: ${{ steps.scope.outputs.macos-icon }}
       plan: ${{ steps.scope.outputs.plan }}
     steps:
@@ -352,6 +353,42 @@ jobs:
       CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
     steps: *mod-steps
 
+  # The Android host compiles against the Interop Snapshot, which the Linux runner can fetch;
+  # only suites that need no Managed snapshot run here (`just mod::test-core`).
+  mod-android:
+    name: Mod (android, ubuntu-latest)
+    needs: classify
+    if: needs.classify.outputs.mod-android == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.BPP_GAME_LIBS_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - name: Require private store credentials
+        run: |
+          if [[ -z "$CLOUDFLARE_API_TOKEN" || -z "$CLOUDFLARE_ACCOUNT_ID" ]]; then
+            echo '::error::BPP_GAME_LIBS_TOKEN or CLOUDFLARE_ACCOUNT_ID is missing; selected Mod checks cannot run.'
+            exit 1
+          fi
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: bazaarplusplus-mod/global.json
+      - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4
+        with:
+          just-version: 1.58.0
+      # A null android-online entry fails here, naming the snapshot to capture.
+      - name: Fetch the Interop Snapshot and Loader Release
+        run: just mod::fetch android online
+      - run: just mod::android-build
+      - run: just mod::test-core
+
   summary:
     name: ${{ github.event_name == 'workflow_dispatch' && format('Manual checks ({0}/{1})', inputs.scope, inputs.platform) || 'Checks summary' }}
     # A dispatch check on the same SHA must never satisfy PR protection.
@@ -368,6 +405,7 @@ jobs:
         installer-windows,
         mod-macos,
         mod-windows,
+        mod-android,
         macos-icon,
         installer-timings
       ]
