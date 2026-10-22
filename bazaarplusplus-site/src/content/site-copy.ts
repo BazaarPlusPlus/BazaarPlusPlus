@@ -124,6 +124,16 @@ export type DownloadPageCopy = {
     actionLabel: string;
     mainlandActionLabel: string;
   };
+  android: {
+    title: string;
+    arch: string;
+    /** `{gameVersion}` is replaced with the game's release number, such as 1.0.12825. */
+    apkName: string;
+    sha256Label: string;
+    actionLabel: string;
+    stepsTitle: string;
+    steps: string[];
+  };
   noteTitle: string;
   noteParagraphs: string[];
 };
@@ -462,6 +472,19 @@ const zh: LocalizedSiteCopy = {
       actionLabel: '下载 .dmg',
       mainlandActionLabel: 'macOS 大陆渠道',
     },
+    android: {
+      title: 'Android',
+      arch: 'arm64',
+      apkName: 'The Bazaar {gameVersion} + BazaarPlusPlus',
+      sha256Label: 'SHA-256',
+      actionLabel: '下载 .apk',
+      stepsTitle: '安装前必读',
+      steps: [
+        '先卸载官方版 The Bazaar：Android 不允许用签名不同的安装包覆盖安装。账号与进度保存在服务器上，卸载只会丢失登录状态，重新登录即可',
+        '打开下载好的 APK 安装；Android 询问时，允许浏览器或文件管理器安装应用',
+        '游戏更新后，回到这里下载新的 APK 直接覆盖安装，不需要再卸载',
+      ],
+    },
     noteTitle: '安装提示',
     noteParagraphs: [
       '建议先退出游戏再安装。更新时建议先卸载旧版本，再安装新版本',
@@ -765,6 +788,19 @@ const en: LocalizedSiteCopy = {
       arch: 'Apple Silicon · arm64',
       actionLabel: 'Download .dmg',
       mainlandActionLabel: 'macOS mainland mirror',
+    },
+    android: {
+      title: 'Android',
+      arch: 'arm64',
+      apkName: 'The Bazaar {gameVersion} + BazaarPlusPlus',
+      sha256Label: 'SHA-256',
+      actionLabel: 'Download .apk',
+      stepsTitle: 'Before you install',
+      steps: [
+        'Uninstall the official The Bazaar first: Android will not install over an app signed by someone else. Your account and progress stay on the server; you only need to sign in again.',
+        'Open the downloaded APK to install it, and let your browser or file manager install apps when Android asks.',
+        'When the game updates, download the new APK here and install it over this one; no uninstall needed.',
+      ],
     },
     noteTitle: 'Install notes',
     noteParagraphs: [

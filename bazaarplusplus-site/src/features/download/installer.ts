@@ -107,6 +107,11 @@ export async function loadAndroidRelease(signal: AbortSignal): Promise<AndroidDo
   return release;
 }
 
+/** The release number at the front of the game's `Application.version`: `1.0.12825-production-android-d9601ded` → `1.0.12825`. */
+export function gameReleaseNumber(gameVersion: string): string {
+  return /^\d+(?:\.\d+)+/.exec(gameVersion)?.[0] ?? gameVersion;
+}
+
 export async function loadLatestInstaller(signal: AbortSignal): Promise<LatestInstaller> {
   const platforms: DownloadPlatform[] = ['windows', 'mac'];
   const settled = await Promise.allSettled(
