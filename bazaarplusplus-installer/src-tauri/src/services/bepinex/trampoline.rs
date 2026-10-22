@@ -952,6 +952,7 @@ mod tests {
             .as_array()
             .unwrap()
             .iter()
+            .filter(|file| file["host"] == "bepinex")
             .filter(|file| {
                 file["platforms"]
                     .as_array()

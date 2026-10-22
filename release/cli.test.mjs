@@ -8,11 +8,12 @@ import {
   WORKSPACE_ROOT,
   readProductVersion
 } from './product.mjs';
-import { RELEASE_PLATFORM_KEYS } from './release-platforms.mjs';
+import { LOCKSTEP_PLATFORM_KEYS } from './release-platforms.mjs';
 import { GAME_LIBS_LOCK_PATH } from './game-libs.mjs';
 import { createArtifactManifest } from './artifact-manifest.mjs';
 import { MemoryStore } from './test-support/memory-store.mjs';
 import { writeArtifacts } from './test-support/artifact-fixture.mjs';
+import { uploadAndroid } from './test-support/android-fixture.mjs';
 import { runFixtureGit } from '../scripts/test-support/git-fixture.mjs';
 
 const roots = [];
@@ -155,6 +156,12 @@ test.each([
   ['upload', '--platform', 'macos', '--url', 'https://mirror.example/mac'],
   ['promote', '--latest'],
   ['promote', '--platform', 'linux'],
+  ['promote', '--platform', 'android', '--without-mainland-mirror'],
+  ['prepare', '--platform', 'android'],
+  ['build', '--platform', 'android'],
+  ['upload', '--platform', 'android'],
+  ['mirror', '--platform', 'android', '--url', 'https://mirror.example/apk'],
+  ['verify-mirror', '--platform', 'android'],
   ['promote', '--platform'],
   ['promote', '--allow-unverified-mirror'],
   ['promote', '--without-mainland-mirror', '--without-mainland-mirror'],
@@ -295,12 +302,12 @@ test('check catches stale Payload projection and platform overlays', async () =>
 });
 
 // Canned public release origin: an uploaded fragment and mirror record per
-// platform at `version`, the shared platform fixtures as the published
-// manifests, and a share page serving each recorded installer.
+// Lockstep Platform at `version`, the shared platform fixtures as the
+// published manifests, and a share page serving each recorded installer.
 function publicOrigin(version) {
   const files = new Map();
   const pages = new Map();
-  for (const key of RELEASE_PLATFORM_KEYS) {
+  for (const key of LOCKSTEP_PLATFORM_KEYS) {
     const base = `${RELEASE_BASE_URL}/${version}/${key}`;
     const fileName = `BazaarPlusPlus_${version}_${key}.bin`;
     const record = (category, name) => ({
@@ -431,14 +438,16 @@ test('sync changes only the version line of tauri.conf.json', async () => {
 });
 
 // Release E2E anchor: the real coordinator runs upload, mirror-all and
-// promote for a lockstep 3.1.1, then a single-platform 3.1.2, against an
-// in-memory R2 store, from a temporary git checkout of the release inputs.
-// The manifests it publishes must equal the shared fixtures byte for byte;
-// BPP_UPDATE_GOLDENS=1 rewrites them from this run instead.
+// promote for a lockstep 3.1.1, then a single-platform Windows 3.1.2, then an
+// Android 3.1.2 from the same commit, against an in-memory R2 store, from a
+// temporary git checkout of the release inputs. The manifests it publishes
+// must equal the shared fixtures byte for byte; BPP_UPDATE_GOLDENS=1 rewrites
+// them from this run instead.
 const goldenFiles = [
   'latest.json',
   'latest/darwin-aarch64.json',
-  'latest/windows-x86_64.json'
+  'latest/windows-x86_64.json',
+  'latest/android-aarch64.json'
 ];
 const anchorMirrors = {
   'https://cauyxy.lanzout.com/bppwin311': 'BazaarPlusPlus_3.1.1_x64-setup.exe',
@@ -533,6 +542,22 @@ test('publish pipeline reproduces the shared fixtures', async () => {
   await run(['promote', '--platform', 'windows'], {
     now: new Date('2026-09-20T00:00:00.000Z')
   });
+
+  // Android's release job uploads the APK, the Managed Payload zip and the
+  // fragment (#358); promotion checks both artifacts, records no mirror and
+  // leaves latest.json at the last lockstep release.
+  await uploadAndroid(store, {
+    version: '3.1.2',
+    gitCommit: aheadCommit,
+    baseUrl: RELEASE_BASE_URL
+  });
+  const latestBefore = (await store.get('latest.json')).bytes;
+  await run(['promote', '--platform', 'android'], {
+    now: new Date('2026-09-21T00:00:00.000Z')
+  });
+  expect((await store.get('latest.json')).bytes.equals(latestBefore)).toBe(
+    true
+  );
 
   // The temporary checkout's commits depend on every copied file; the
   // fixtures keep synthetic commits instead.

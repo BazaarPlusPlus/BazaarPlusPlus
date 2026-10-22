@@ -1,14 +1,14 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { releasePlatform } from '../release-platforms.mjs';
+import { tauriPlatform } from '../release-platforms.mjs';
 import { PAYLOAD_BUILD_RECORD_SCHEMA_VERSION } from '../artifact-manifest.mjs';
 
 // Where a native build leaves one platform's installer, updater and updater
 // signature under the installer project, laid out by RELEASE_PLATFORMS.
 // Windows ships its NSIS installer as the updater; macOS ships an app archive.
 export function artifactPaths(rootDir, platform, version) {
-  const definition = releasePlatform(platform);
+  const definition = tauriPlatform(platform);
   const bundleRoot = path.join(rootDir, definition.bundleRoot);
   const installerDir = path.join(rootDir, definition.installerDir);
   const installer = path.join(

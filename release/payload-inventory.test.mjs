@@ -5,7 +5,9 @@ import { execFileSync } from 'node:child_process';
 import { expect, test } from 'vitest';
 import {
   assertShippedPayloadPaths,
+  platformInventory,
   readInventory,
+  requiredPayloadPaths,
   validateInventory
 } from './payload-inventory.mjs';
 import { readProductVersion, WORKSPACE_ROOT } from './product.mjs';
@@ -38,6 +40,37 @@ test('inventory distinguishes shipped, runtime, retired, platform and directory 
   ).toThrow();
 });
 
+test('each platform installs only its own host entries', () => {
+  const hosts = (platform) =>
+    new Set(platformInventory(platform).map((entry) => entry.host));
+  expect(hosts('macos')).toEqual(new Set(['bepinex']));
+  expect(hosts('windows')).toEqual(new Set(['bepinex']));
+  expect(hosts('android')).toEqual(new Set(['melonloader']));
+  expect(() =>
+    assertShippedPayloadPaths(
+      [
+        'MelonLoader/Mods/BazaarPlusPlus.Android.dll',
+        'MelonLoader/UserLibs/MessagePack.dll',
+        'lib/arm64-v8a/libe_sqlite3.so',
+        'assets/LemonLoader/deployment/Mods/BazaarPlusPlus.Android.dll'
+      ],
+      'android'
+    )
+  ).not.toThrow();
+  for (const [file, platform] of [
+    ['BepInEx/plugins/BazaarPlusPlus.dll', 'android'],
+    ['MelonLoader/Mods/BazaarPlusPlus.Android.dll', 'macos'],
+    ['MelonLoader/UserData/BazaarPlusPlus.cfg', 'android'],
+    ['MelonLoader/Latest.log', 'android']
+  ])
+    expect(() => assertShippedPayloadPaths([file], platform)).toThrow(
+      /Undeclared or forbidden/
+    );
+  expect(requiredPayloadPaths('android')).toContain(
+    'MelonLoader/Mods/BazaarPlusPlus.history-database.json'
+  );
+});
+
 test.each([
   '/absolute',
   '../outside',
@@ -48,10 +81,11 @@ test.each([
 ])('inventory rejects unsafe ownership %s', (name) => {
   expect(() =>
     validateInventory({
-      schemaVersion: 1,
+      schemaVersion: 2,
       files: [
         {
           path: name,
+          host: 'bepinex',
           ownership: 'private',
           producer: 'managed',
           kind: 'directory'
@@ -71,17 +105,156 @@ test.each([
   (name) => {
     expect(() =>
       validateInventory({
-        schemaVersion: 1,
-        files: [{ path: name, ownership: 'private', producer: 'managed' }]
+        schemaVersion: 2,
+        files: [
+          {
+            path: name,
+            host: 'bepinex',
+            ownership: 'private',
+            producer: 'managed'
+          }
+        ]
       })
     ).toThrow(/approved install roots/);
   }
+);
+
+test.each([
+  [
+    'a BepInEx path on the MelonLoader host',
+    'melonloader',
+    'BepInEx/plugins/A.dll',
+    'private',
+    'managed'
+  ],
+  [
+    'a MelonLoader path on the BepInEx host',
+    'bepinex',
+    'MelonLoader/Mods/A.dll',
+    'private',
+    'managed'
+  ],
+  [
+    'an APK path the mod build claims',
+    'melonloader',
+    'lib/arm64-v8a/libe_sqlite3.so',
+    'dependency',
+    'managed'
+  ],
+  [
+    'an injected file outside the APK',
+    'melonloader',
+    'MelonLoader/Mods/A.dll',
+    'private',
+    'apk-injection'
+  ],
+  [
+    'injection on the BepInEx host',
+    'bepinex',
+    'BepInEx/plugins/A.dll',
+    'private',
+    'apk-injection'
+  ],
+  [
+    'a foreign MelonLoader user data file',
+    'melonloader',
+    'MelonLoader/UserData/Other.cfg',
+    'private',
+    'runtime'
+  ],
+  [
+    'an APK library BPP does not own outright',
+    'melonloader',
+    'lib/arm64-v8a/libil2cpp.so',
+    'private',
+    'apk-injection'
+  ]
+])(
+  '%s is outside the approved install roots',
+  (_, host, name, ownership, producer) => {
+    expect(() =>
+      validateInventory({
+        schemaVersion: 2,
+        files: [{ path: name, host, ownership, producer }]
+      })
+    ).toThrow(/approved install roots/);
+  }
+);
+
+test.each([
+  ['an unknown host', { host: 'mono' }],
+  ['a missing host', { host: undefined }],
+  ['a platform of another host', { platforms: ['android'] }],
+  ['the v1 schema', null]
+])('inventory rejects %s', (_, change) => {
+  const inventory = structuredClone(readInventory());
+  if (change) Object.assign(inventory.files[0], change);
+  else inventory.schemaVersion = 1;
+  expect(() => validateInventory(inventory)).toThrow();
+});
+
+test.each([
+  ['the BepInEx host by default', [], 'macos'],
+  [
+    'the MelonLoader host for Android',
+    ['-p:BppPayloadHost=melonloader'],
+    'android'
+  ]
+])(
+  'MSBuild collects %s from the generated projection',
+  (_, properties, platform) => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'bpp-payload-host-'));
+    try {
+      const gate = path.join(root, 'Gate.proj');
+      fs.writeFileSync(
+        gate,
+        `<Project><PropertyGroup><TargetDir>${xml(root)}/</TargetDir><HistoryDatabaseContractFile>history.json</HistoryDatabaseContractFile><FixedMacSqliteNativeFile>mac.dylib</FixedMacSqliteNativeFile><FixedWindowsSqliteNativeFile>win.dll</FixedWindowsSqliteNativeFile><IsMacHost>true</IsMacHost></PropertyGroup><Import Project="${xml(path.join(WORKSPACE_ROOT, 'release/generated/Payload.targets'))}" /></Project>`
+      );
+      const evaluated = JSON.parse(
+        execFileSync(
+          'dotnet',
+          [
+            'msbuild',
+            gate,
+            '-t:CollectPayloadFiles',
+            '-getItem:BppPayloadFile',
+            '-getProperty:BppPayloadPlatform',
+            '-nologo',
+            ...properties
+          ],
+          { encoding: 'utf8', stdio: 'pipe' }
+        )
+      );
+      expect(evaluated.Properties.BppPayloadPlatform).toBe(platform);
+      const collected = evaluated.Items.BppPayloadFile.map(
+        (item) => item.PayloadPath
+      ).sort();
+      const expected = platformInventory(platform)
+        .filter(
+          (entry) =>
+            !entry.optional &&
+            [
+              'managed',
+              'history-contract',
+              'sqlite-macos',
+              'sqlite-windows'
+            ].includes(entry.producer)
+        )
+        .map((entry) => entry.path)
+        .sort();
+      expect(collected).toEqual(expected);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  },
+  30000
 );
 
 test('directory and descendant ownership cannot overlap', () => {
   const inventory = structuredClone(readInventory());
   inventory.files.push({
     path: 'BepInEx/core/Foreign.dll',
+    host: 'bepinex',
     ownership: 'private',
     producer: 'managed'
   });
@@ -102,10 +275,11 @@ test('MSBuild evaluates the same product version as the release coordinator', ()
 }, 30000);
 
 test('every published product assembly is declared in the shared inventory', () => {
-  const assemblies = readInventory()
-    .files.filter((entry) => entry.assembly)
-    .map((entry) => path.posix.basename(entry.path, '.dll'))
-    .sort();
+  const assemblies = (host) =>
+    readInventory()
+      .files.filter((entry) => entry.assembly && entry.host === host)
+      .map((entry) => path.posix.basename(entry.path, '.dll'))
+      .sort();
   const projects = fs
     .readdirSync(path.join(WORKSPACE_ROOT, 'bazaarplusplus-mod/src'), {
       withFileTypes: true
@@ -124,7 +298,23 @@ test('every published product assembly is declared in the shared inventory', () 
     )
     .map((entry) => entry.name)
     .sort();
-  expect(assemblies).toEqual(projects);
+  const declared = new Set([
+    ...assemblies('bepinex'),
+    ...assemblies('melonloader')
+  ]);
+  expect(projects.filter((project) => !declared.has(project))).toEqual([]);
+  expect(
+    assemblies('bepinex').filter((name) => !projects.includes(name))
+  ).toEqual([]);
+  // The Android host and Core projects land with #352 and #354; until then
+  // the MelonLoader entries name the layout they will build into.
+  expect(
+    assemblies('melonloader').filter((name) => !projects.includes(name))
+  ).toEqual(
+    ['BazaarPlusPlus.Android', 'BazaarPlusPlus.Core'].filter(
+      (name) => !projects.includes(name)
+    )
+  );
 });
 
 const xml = (value) => value.replaceAll('&', '&amp;').replaceAll('"', '&quot;');

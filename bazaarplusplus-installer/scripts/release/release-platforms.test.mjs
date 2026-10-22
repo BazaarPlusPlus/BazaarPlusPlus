@@ -10,7 +10,12 @@ import {
 import { resolveBundleCleanupPath } from './before-bundle-cleanup.mjs';
 import { resolveTargetPlatforms } from '../checks/prebuild-check.mjs';
 
-test.each(RELEASE_PLATFORMS)(
+// The installer builds only the platforms that ship a Tauri installer.
+const TAURI_PLATFORMS = RELEASE_PLATFORMS.filter(
+  (platform) => platform.kind === 'tauri'
+);
+
+test.each(TAURI_PLATFORMS)(
   'bundle.sh facts for $buildPlatform come from the module',
   (p) => {
     const out = runShell(
@@ -34,7 +39,7 @@ test.each(RELEASE_PLATFORMS)(
   }
 );
 
-test.each(RELEASE_PLATFORMS)(
+test.each(TAURI_PLATFORMS)(
   'before-bundle-cleanup dir for $key matches the module',
   (p) => {
     const expected = path.join('/root', ...p.bundleCleanupDir.split('/'));
@@ -48,17 +53,23 @@ test('prebuild-check target platforms derive from the table', () => {
     defaultTargetBuildPlatforms()
   );
   expect(defaultTargetBuildPlatforms()).toEqual(['macos', 'windows']);
-  for (const p of RELEASE_PLATFORMS) {
+  for (const p of TAURI_PLATFORMS) {
     expect(resolveBuildPlatform(p.nodePlatform)).toBe(p.buildPlatform);
   }
 });
 
-test('rust-targets rejects an unsupported platform', () => {
-  const out = runShell(`
+test.each(['linux', 'android'])(
+  'rust-targets rejects %s, which has no Tauri installer',
+  (platform) => {
+    const out = runShell(
+      `
     source ./scripts/bundle.sh
     set +e
-    release_platforms_cli rust-targets linux 2>&1
+    release_platforms_cli rust-targets "$BPP_TEST_BUILD_PLATFORM" 2>&1
     printf 'exit:%s\\n' "$?"
-  `);
-  expect(out).toContain('exit:1');
-});
+  `,
+      { BPP_TEST_BUILD_PLATFORM: platform }
+    );
+    expect(out).toContain('exit:1');
+  }
+);

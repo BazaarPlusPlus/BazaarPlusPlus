@@ -67,8 +67,10 @@ just 只转发，不缓存或跳过任何发布检查。直接调用 `node relea
 
 ## Payload 的共同事实
 
-`release/payload.json` 定义安装路径、平台、生产者、必需文件和归属；生成的 `release/generated/Payload.targets`、Node ZIP 校验以及 Rust 安装清理共同消费它，文件列表只在这里维护。
+`release/payload.json` 定义安装路径、宿主、平台、生产者、必需文件和归属；生成的 `release/generated/Payload.targets`、Node ZIP 校验以及 Rust 安装清理共同消费它，文件列表只在这里维护。
 
+- 每个条目的 `host` 是 `bepinex`（桌面，路径相对游戏目录）或 `melonloader`（Android，路径相对应用的外部文件目录，根是 `MelonLoader/`）。平台按 `release/release-platforms.mjs` 的 `payloadHost` 只取自己宿主的条目，`platforms` 只能写同一宿主的平台。`Payload.targets` 按宿主出两组条目，工程用 `BppPayloadHost` 选择，缺省是 `bepinex`；installer 只读 `bepinex` 条目。
+- 生产者 `apk-injection` 的条目是 Android Release APK 内部的路径（`lib/arm64-v8a/`、`assets/LemonLoader/`），由 APK 注入步骤产生，不进 mod 构建和 `Payload.targets`；APK 内部路径也只能由它产生。
 - `private` 是 BPP 私有文件；`dependency` 可能与其他插件共享；`bootstrap` 是加载器设施。
 - `runtime` 只参与运行时清理规则，不进入安装包；`retired` 保留清理归属，但禁止重新打包。
 - 目录归属包含其子树，文件归属只覆盖该文件。用户数据目录、BundleOutbox 和第三方插件不属于 Payload Inventory。
@@ -100,13 +102,13 @@ S3 密钥对由 `release/r2-store.mjs` 从 token 推导（一次 `GET /user/toke
 
 `promote` 验证完整性，然后以 ETag compare-and-swap 写入各平台的 `latest/<平台键>.json` 和 `latest.json`。有其他发布者抢先写入时重新检查版本，不能用旧版本覆盖新版本。重复发布同版本只能确认已有事实，不能替换它们。回退产品行为需要发布一个更高版本号的修复版本。
 
-`release/downloads.ts` 是浏览器可消费的发布事实入口，统一官网与 installer 的发布 origin、平台键、两种 manifest 的路径、updater endpoint 列表，以及读取大陆镜像地址的 `decodeMainlandDownloadUrl`。共享样例有两组：`release/fixtures/latest.json` 是双平台的 Release Manifest，由发布 writer 测试、mod 更新检查和 Tauri updater 字段校验消费；`release/fixtures/latest/<平台键>.json` 是各平台的 Platform Release Manifest，两个平台版本不同，由官网测试、mod 测试和 writer 测试消费。这三份样例是发布流水线的产物：`release/cli.test.mjs` 的 `publish pipeline reproduces the shared fixtures` 在临时 git 仓库里用真实的 `main()` 跑完双平台 3.1.1 和单平台 3.1.2 的 upload、mirror 与 promote，再把内存 store 里的 manifest 与样例逐字节比对，其中提交哈希换成样例里的合成值。更新样例只有一个办法：`BPP_UPDATE_GOLDENS=1 npx vitest run --config release/vitest.config.mjs release/cli.test.mjs` 重新生成，并在同一个 PR 里跑 `just site::test mod::test`。
+`release/downloads.ts` 是浏览器可消费的发布事实入口，统一官网与 installer 的发布 origin、平台键、两种 manifest 的路径、updater endpoint 列表，读取大陆镜像地址的 `decodeMainlandDownloadUrl`，以及读取 Android 平台清单的 `decodeAndroidDownload`。共享样例有两组：`release/fixtures/latest.json` 是双平台的 Release Manifest，由发布 writer 测试、mod 更新检查和 Tauri updater 字段校验消费；`release/fixtures/latest/<平台键>.json` 是各平台的 Platform Release Manifest，三个平台版本不全相同，由官网测试、mod 测试和 writer 测试消费。这四份样例是发布流水线的产物：`release/cli.test.mjs` 的 `publish pipeline reproduces the shared fixtures` 在临时 git 仓库里用真实的 `main()` 跑完双平台 3.1.1、Windows 单平台 3.1.2 的 upload、mirror 与 promote，再把同一提交的 Android 3.1.2 产物与 fragment 放进内存 store 并执行 `promote --platform android`，最后把 manifest 与样例逐字节比对，其中提交哈希换成样例里的合成值。更新样例只有一个办法：`BPP_UPDATE_GOLDENS=1 npx vitest run --config release/vitest.config.mjs release/cli.test.mjs` 重新生成，并在同一个 PR 里跑 `just site::test mod::test`。
 
-每个平台的 Platform Release Manifest（`latest/<平台键>.json`）和双平台的 Release Manifest（`latest.json`）形状相同：保留 Tauri updater 的 `platforms` 字段，并在 `downloads` 中提供该平台真实的安装器地址和大陆镜像地址 `mainlandUrl`。官网不再猜测主下载文件名，也不再拼接镜像地址；部署新版官网前先发布新 manifest，否则官网会使用已有的 GitHub 下载入口。
+lockstep 平台（Windows 与 macOS）的 Platform Release Manifest（`latest/<平台键>.json`）和双平台的 Release Manifest（`latest.json`）形状相同：保留 Tauri updater 的 `platforms` 字段，并在 `downloads` 中提供该平台真实的安装器地址和大陆镜像地址 `mainlandUrl`。Android 的平台清单没有 `platforms` 字段，见 [Android 发布](#android-发布)。官网不再猜测主下载文件名，也不再拼接镜像地址；部署新版官网前先发布新 manifest，否则官网会使用已有的 GitHub 下载入口。
 
 ## 按平台发布
 
-两个平台各有一份 Platform Release Manifest，可以处于不同版本。installer 的 updater endpoint 按 `UPDATER_ENDPOINTS` 的顺序先读平台文件，Tauri 会把占位符替换成本平台的键；平台文件返回非 2xx、网络出错或内容无法解析时才回退到 `latest.json`，此时客户端会把落后的双平台版本当成最新，所以发布后用 `verify-mirror --latest` 确认平台文件可读。mod 的版本检查和官网也按平台读各自的文件，不回退。`latest.json` 只在两个平台版本和提交都相同时推进，它表示"两个平台都发布了的最新版本"。决策记录见 [ADR 0003](adr/0003-per-platform-release-promotion.md)。
+每个平台各有一份 Platform Release Manifest，可以处于不同版本。本节说的"两个平台"是 lockstep 平台 Windows 与 macOS；Android 见 [Android 发布](#android-发布)。installer 的 updater endpoint 按 `UPDATER_ENDPOINTS` 的顺序先读平台文件，Tauri 会把占位符替换成本平台的键；平台文件返回非 2xx、网络出错或内容无法解析时才回退到 `latest.json`，此时客户端会把落后的双平台版本当成最新，所以发布后用 `verify-mirror --latest` 确认平台文件可读。mod 的版本检查和官网也按平台读各自的文件，不回退。`latest.json` 只在两个平台版本和提交都相同时推进，它表示"两个平台都发布了的最新版本"。决策记录见 [ADR 0003](adr/0003-per-platform-release-promotion.md)。
 
 `promote --platform <platform>` 只写该平台的 manifest，写完后检查另一个平台：版本相同就顺带推进 `latest.json`，不同就保持不变并在日志里说明。规则：
 
@@ -114,6 +116,16 @@ S3 密钥对由 `release/r2-store.mjs` 从 token 推导（一次 `GET /user/toke
 - 每个平台的版本只前进，同版本重复执行只是确认，不能替换已发布的事实。
 - 切换前构建的客户端只读 `latest.json`，它们只能看到双平台都发布了的版本。它们仍有向前的路径，是因为第一个带新 endpoint 的版本 5.5.0 是双平台同步发布的，而 `latest.json` 的 rollback guard 让它不会回到 5.5.0 以下：旧客户端先升到 5.5.0 或更新的双平台版本，再按平台文件升到本平台的最新版本。所以 `promote --platform` 不再检查 `latest.json` 的版本（[ADR 0003](adr/0003-per-platform-release-promotion.md) 2026-10-03 修订）。
 - 镜像记录在该平台的 manifest 发布后冻结；`verify-mirror --latest` 逐平台复核各自的 manifest。
+
+## Android 发布
+
+Android 是第三个发布平台（平台键 `android-aarch64`），不进 `latest.json` 的 lockstep 集合，决策记录见 [ADR 0010](adr/0010-android-release-platform.md)。它发布两样东西：Android Release APK（约 2.8 GB，按游戏版本、loader 与 interop 命名，放在 `installer/android/apk/`，不在版本目录下）和每个产品版本的 Android Mod Payload zip（`<版本>/android-aarch64/managed/`）。fragment 与平台清单的字段由 `release/manifest.mjs` 的 `buildAndroidFragment` 定义；一次纯 mod 更新的 fragment 指向已有的 APK。
+
+```bash
+just release::promote --platform android
+```
+
+`promote --platform android` 校验 APK 与 Mods zip 在 R2 上存在且大小、sha256 与 fragment 一致，只写 `latest/android-aarch64.json`，从不推进 `latest.json`。Android 第一版没有大陆镜像：不读镜像记录，`--without-mainland-mirror`、`mirror` 和 `verify-mirror` 对 Android 拒绝执行。"一个版本号只对应一个提交"同样成立：桌面上传与提升会和同版本的 Android fragment 比对提交，Android 提升也会和桌面 fragment 比对；Android 可以跳过版本。`prepare`、`build`、`upload --platform android`（APK 注入、签名与流式上传）随 Android 发版 job 落地（[#358](https://github.com/BazaarPlusPlus/BazaarPlusPlus/issues/358)），在那之前这些命令拒绝 `android`。
 
 ## 中国大陆镜像
 

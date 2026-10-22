@@ -10,6 +10,7 @@ import {
   buildMirrorRecord,
   buildPlatformFragment,
   buildPlatformManifest,
+  fragmentArtifacts,
   fragmentKey,
   installerFileName,
   mergeReleaseManifest,
@@ -21,9 +22,10 @@ import {
 } from './manifest.mjs';
 import { assertMainlandMirrors, checkMainlandMirror } from './mirror.mjs';
 import {
-  RELEASE_PLATFORMS,
+  LOCKSTEP_PLATFORM_KEYS,
   RELEASE_PLATFORM_KEYS,
-  releasePlatform
+  releasePlatform,
+  releasePlatformByKey
 } from './release-platforms.mjs';
 import {
   artifactManifestPath,
@@ -73,8 +75,9 @@ async function readLatest(store) {
   );
 }
 
-// A product version names one commit on every platform, across time as well
-// as across hosts: a platform may ship a version later, but only that commit.
+// A product version names one commit on every platform, Android included,
+// across time as well as across hosts: a platform may ship a version later,
+// but only that commit.
 async function assertSameCommitAcrossPlatforms(store, version, fragment) {
   for (const platform of RELEASE_PLATFORM_KEYS) {
     if (platform === fragment.platform) continue;
@@ -90,11 +93,7 @@ async function assertSameCommitAcrossPlatforms(store, version, fragment) {
 }
 
 async function assertArtifactsStored(store, fragment, baseUrl) {
-  for (const record of [
-    fragment.installer,
-    fragment.updater,
-    fragment.signatureFile
-  ]) {
+  for (const record of fragmentArtifacts(fragment)) {
     const key = objectKey(record.url, baseUrl);
     const stored = await store.head(key);
     if (
@@ -249,7 +248,10 @@ export async function recordMainlandMirror({
   allowUnverified = false,
   log = () => {}
 }) {
-  const key = releasePlatform(platform).key;
+  const definition = releasePlatform(platform);
+  if (definition.kind !== 'tauri')
+    throw new Error(`${platform} has no mainland mirror`);
+  const key = definition.key;
   if (typeof probeMirror !== 'function')
     throw new Error('Recording a mainland mirror requires a page probe');
   assertMirrorUrl(url);
@@ -315,8 +317,8 @@ async function writeMirrorRecord(store, record) {
     );
 }
 
-// Preflight the complete release before recording either mirror. The two
-// conditional writes are retryable, not a transaction across R2 objects.
+// Preflight the complete lockstep release before recording either mirror. The
+// two conditional writes are retryable, not a transaction across R2 objects.
 export async function recordMainlandMirrors({
   version,
   urls,
@@ -328,10 +330,11 @@ export async function recordMainlandMirrors({
 }) {
   if (typeof probeMirror !== 'function')
     throw new Error('Recording mainland mirrors requires a page probe');
-  for (const { buildPlatform } of RELEASE_PLATFORMS)
+  const lockstep = LOCKSTEP_PLATFORM_KEYS.map(releasePlatformByKey);
+  for (const { buildPlatform } of lockstep)
     assertMirrorUrl(urls?.[buildPlatform]);
   const fragments = await Promise.all(
-    RELEASE_PLATFORM_KEYS.map((key) => readFragment(store, version, key))
+    lockstep.map(({ key }) => readFragment(store, version, key))
   );
   buildLatestManifest({ version, fragments, existingLatest: null });
   for (const fragment of fragments) {
@@ -344,7 +347,7 @@ export async function recordMainlandMirrors({
       await prepareMirrorRecord({
         version,
         fragment,
-        url: urls[RELEASE_PLATFORMS[index].buildPlatform],
+        url: urls[lockstep[index].buildPlatform],
         probeMirror,
         allowUnverified,
         log
@@ -378,11 +381,11 @@ async function writePlatformManifest(
   );
 }
 
-// Advance the Release Manifest when every platform manifest names the same
-// release; otherwise leave it at the last lockstep release.
+// Advance the Release Manifest when every Lockstep Platform manifest names the
+// same release; otherwise leave it at the last lockstep release.
 async function writeLockstepManifest(store, log) {
   const platformManifests = [];
-  for (const platform of RELEASE_PLATFORM_KEYS) {
+  for (const platform of LOCKSTEP_PLATFORM_KEYS) {
     const manifest = await readPlatformManifest(store, platform);
     if (!manifest) {
       log(
@@ -418,9 +421,10 @@ async function writeLockstepManifest(store, log) {
   return { latest, advanced };
 }
 
-// Promote one platform without waiting for the other. The lockstep Release
-// Manifest advances only once every platform names the same release; the
-// per-platform endpoint bootstrap finished at 5.5.0 (ADR 0003).
+// Promote one platform without waiting for the others. The lockstep Release
+// Manifest advances only once every Lockstep Platform names the same release
+// (ADR 0003). Android writes only its Platform Release Manifest and records
+// no mainland mirror (ADR 0010).
 export async function promotePlatform({
   version,
   platform,
@@ -430,16 +434,23 @@ export async function promotePlatform({
   log = () => {},
   now = new Date()
 }) {
-  const key = releasePlatform(platform).key;
+  const definition = releasePlatform(platform);
+  const key = definition.key;
+  const lockstep = LOCKSTEP_PLATFORM_KEYS.includes(key);
+  if (withoutMainlandMirror && definition.kind !== 'tauri')
+    throw new Error(`${platform} has no mainland mirror to waive`);
   const fragment = await readFragment(store, version, key);
   await assertArtifactsStored(store, fragment, baseUrl);
   await assertSameCommitAcrossPlatforms(store, version, fragment);
   const existing = await readPlatformManifest(store, key);
-  const mirrors = await readMirrors(store, version, [fragment], {
-    withoutMainlandMirror,
-    confirming: () => existing?.version === version,
-    log
-  });
+  const mirrors =
+    definition.kind === 'tauri'
+      ? await readMirrors(store, version, [fragment], {
+          withoutMainlandMirror,
+          confirming: () => existing?.version === version,
+          log
+        })
+      : {};
   // Validate against the current manifest before any remote write.
   buildPlatformManifest({
     version,
@@ -454,15 +465,16 @@ export async function promotePlatform({
     mirror: mirrors[key] ?? null,
     now
   });
-  const lockstep = await writeLockstepManifest(store, log);
+  if (!lockstep) return { platform: manifest, latest: null, advanced: false };
+  const latest = await writeLockstepManifest(store, log);
   return {
     platform: manifest,
-    latest: lockstep.latest,
-    advanced: lockstep.advanced
+    latest: latest.latest,
+    advanced: latest.advanced
   };
 }
 
-// Promote every platform at once: the ordinary lockstep release.
+// Promote every Lockstep Platform at once: the ordinary desktop release.
 export async function promoteRelease({
   version,
   baseUrl,
@@ -472,7 +484,7 @@ export async function promoteRelease({
   now = new Date()
 }) {
   const fragments = await Promise.all(
-    RELEASE_PLATFORM_KEYS.map((platform) =>
+    LOCKSTEP_PLATFORM_KEYS.map((platform) =>
       readFragment(store, version, platform)
     )
   );
@@ -482,7 +494,7 @@ export async function promoteRelease({
     await assertArtifactsStored(store, fragment, baseUrl);
   const existingLatest = await readLatest(store);
   const existingPlatforms = {};
-  for (const platform of RELEASE_PLATFORM_KEYS)
+  for (const platform of LOCKSTEP_PLATFORM_KEYS)
     existingPlatforms[platform] = await readPlatformManifest(store, platform);
   if (existingLatest?.version === version) {
     // Confirming a published release: the Release Manifest is authoritative

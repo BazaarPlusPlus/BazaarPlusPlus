@@ -37,5 +37,10 @@
       Link="fixtures/latest/darwin-aarch64.json"
       CopyToOutputDirectory="PreserveNewest"
     />
+    <Content
+      Include="../../../release/fixtures/latest/android-aarch64.json"
+      Link="fixtures/latest/android-aarch64.json"
+      CopyToOutputDirectory="PreserveNewest"
+    />
   </ItemGroup>
 </Project>

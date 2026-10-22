@@ -2,12 +2,16 @@ import {
   LEGACY_RELEASE_BASE_URL,
   RELEASE_BASE_URL,
   DOWNLOAD_PLATFORM_KEYS,
+  decodeAndroidDownload,
   decodeMainlandDownloadUrl,
   platformManifestPath,
-  type DownloadPlatform,
+  type AndroidDownload,
+  type DownloadPlatform as ReleasePlatform,
 } from '../../../../release/downloads';
 
-export type { DownloadPlatform } from '../../../../release/downloads';
+export type { AndroidDownload } from '../../../../release/downloads';
+/** The platforms that ship a desktop installer; Android ships an APK (`loadAndroidRelease`). */
+export type DownloadPlatform = Exclude<ReleasePlatform, 'android'>;
 export const GITHUB_RELEASE_URL =
   'https://github.com/BazaarPlusPlus/BazaarPlusPlus/releases/latest';
 
@@ -65,12 +69,7 @@ function decodeDownloadUrl(
   return value;
 }
 
-async function loadPlatformDownload(
-  platform: DownloadPlatform,
-  signal: AbortSignal
-): Promise<PlatformDownload> {
-  const platformKey = DOWNLOAD_PLATFORM_KEYS[platform];
-  const path = platformManifestPath(platformKey);
+async function fetchPlatformManifest(path: string, signal: AbortSignal): Promise<unknown> {
   const response = await fetch(`${RELEASE_BASE_URL}/${path}`, {
     headers: { Accept: 'application/json' },
     signal,
@@ -78,13 +77,34 @@ async function loadPlatformDownload(
   if (!response.ok) {
     throw new Error(`${path} responded with ${response.status}`);
   }
-  const payload: unknown = await response.json();
+  return response.json();
+}
+
+async function loadPlatformDownload(
+  platform: DownloadPlatform,
+  signal: AbortSignal
+): Promise<PlatformDownload> {
+  const platformKey = DOWNLOAD_PLATFORM_KEYS[platform];
+  const path = platformManifestPath(platformKey);
+  const payload = await fetchPlatformManifest(path, signal);
   const version = decodeVersion(payload, path);
   return {
     version,
     downloadUrl: decodeDownloadUrl(payload, path, platformKey, version),
     mainlandDownloadUrl: decodeMainlandDownloadUrl(payload, platformKey),
   };
+}
+
+/**
+ * Android's Platform Release Manifest: the APK to install, the game version it carries, and the
+ * Managed Payload of the product version. Android is not part of the lockstep `latest.json`.
+ */
+export async function loadAndroidRelease(signal: AbortSignal): Promise<AndroidDownload> {
+  const platformKey = DOWNLOAD_PLATFORM_KEYS.android;
+  const path = platformManifestPath(platformKey);
+  const release = decodeAndroidDownload(await fetchPlatformManifest(path, signal), platformKey);
+  if (!release) throw new Error(`${path} has an invalid ${platformKey} release`);
+  return release;
 }
 
 export async function loadLatestInstaller(signal: AbortSignal): Promise<LatestInstaller> {

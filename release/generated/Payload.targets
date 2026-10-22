@@ -2,15 +2,17 @@
   <!-- Generated from release/payload.json by node release.mjs sync. -->
   <Target Name="ValidatePayloadInventoryProjection" BeforeTargets="PrepareForBuild;CollectPayloadFiles">
     <GetFileHash Files="$(MSBuildThisFileDirectory)../payload.json" Algorithm="SHA256"><Output TaskParameter="Items" ItemName="_PayloadInventoryHash" /></GetFileHash>
-    <Error Condition="'%(_PayloadInventoryHash.FileHash)' != '7BA0E67262F6914284DFA166F6DA7ED1FB58461CC6365F0128C942D2C949A1C1'" Text="Payload Inventory projection is stale. Run node release.mjs sync." />
+    <Error Condition="'%(_PayloadInventoryHash.FileHash)' != 'A2B32DF43C3FDD7ECD5BF648E5DBA5FC550EEF0B041619AE4717BE8A1620412D'" Text="Payload Inventory projection is stale. Run node release.mjs sync." />
   </Target>
   <Target Name="CollectPayloadFiles" DependsOnTargets="ValidatePayloadInventoryProjection">
     <PropertyGroup>
+      <BppPayloadHost Condition="'$(BppPayloadHost)' == ''">bepinex</BppPayloadHost>
       <BppPayloadPlatform Condition="'$(BppReleasePlatform)' != ''">$(BppReleasePlatform)</BppPayloadPlatform>
+      <BppPayloadPlatform Condition="'$(BppPayloadPlatform)' == '' and '$(BppPayloadHost)' == 'melonloader'">android</BppPayloadPlatform>
       <BppPayloadPlatform Condition="'$(BppPayloadPlatform)' == '' and '$(IsMacHost)' == 'true'">macos</BppPayloadPlatform>
       <BppPayloadPlatform Condition="'$(BppPayloadPlatform)' == '' and '$(IsWindowsHost)' == 'true'">windows</BppPayloadPlatform>
     </PropertyGroup>
-    <ItemGroup>
+    <ItemGroup Condition="'$(BppPayloadHost)' == 'bepinex'">
       <BppPayloadFile Include="$(TargetDir)BazaarPlusPlus.dll"><PayloadPath>BepInEx/plugins/BazaarPlusPlus.dll</PayloadPath><ProductAssembly>true</ProductAssembly></BppPayloadFile>
       <BppPayloadFile Include="$(TargetDir)BazaarPlusPlus.Core.dll"><PayloadPath>BepInEx/plugins/BazaarPlusPlus.Core.dll</PayloadPath><ProductAssembly>true</ProductAssembly></BppPayloadFile>
       <BppPayloadFile Include="$(TargetDir)BazaarPlusPlus.ModApi.dll"><PayloadPath>BepInEx/plugins/BazaarPlusPlus.ModApi.dll</PayloadPath><ProductAssembly>true</ProductAssembly></BppPayloadFile>
@@ -28,6 +30,21 @@
       <BppPayloadFile Include="$(TargetDir)System.Text.Encoding.CodePages.dll" Condition="Exists('$(TargetDir)System.Text.Encoding.CodePages.dll')"><PayloadPath>BepInEx/plugins/System.Text.Encoding.CodePages.dll</PayloadPath><ProductAssembly>false</ProductAssembly></BppPayloadFile>
       <BppPayloadFile Include="$(FixedMacSqliteNativeFile)" Condition="'$(BppPayloadPlatform)' == 'macos'"><PayloadPath>BepInEx/plugins/libe_sqlite3.dylib</PayloadPath><ProductAssembly>false</ProductAssembly></BppPayloadFile>
       <BppPayloadFile Include="$(FixedWindowsSqliteNativeFile)" Condition="'$(BppPayloadPlatform)' == 'windows'"><PayloadPath>BepInEx/plugins/e_sqlite3.dll</PayloadPath><ProductAssembly>false</ProductAssembly></BppPayloadFile>
+    </ItemGroup>
+    <ItemGroup Condition="'$(BppPayloadHost)' == 'melonloader'">
+      <BppPayloadFile Include="$(TargetDir)BazaarPlusPlus.Android.dll"><PayloadPath>MelonLoader/Mods/BazaarPlusPlus.Android.dll</PayloadPath><ProductAssembly>true</ProductAssembly></BppPayloadFile>
+      <BppPayloadFile Include="$(TargetDir)BazaarPlusPlus.Core.dll"><PayloadPath>MelonLoader/Mods/BazaarPlusPlus.Core.dll</PayloadPath><ProductAssembly>true</ProductAssembly></BppPayloadFile>
+      <BppPayloadFile Include="$(TargetDir)BazaarPlusPlus.ModApi.dll"><PayloadPath>MelonLoader/Mods/BazaarPlusPlus.ModApi.dll</PayloadPath><ProductAssembly>true</ProductAssembly></BppPayloadFile>
+      <BppPayloadFile Include="$(TargetDir)BazaarPlusPlus.Storage.dll"><PayloadPath>MelonLoader/Mods/BazaarPlusPlus.Storage.dll</PayloadPath><ProductAssembly>true</ProductAssembly></BppPayloadFile>
+      <BppPayloadFile Include="$(TargetDir)BazaarPlusPlus.version"><PayloadPath>MelonLoader/Mods/BazaarPlusPlus.version</PayloadPath><ProductAssembly>false</ProductAssembly></BppPayloadFile>
+      <BppPayloadFile Include="$(HistoryDatabaseContractFile)"><PayloadPath>MelonLoader/Mods/BazaarPlusPlus.history-database.json</PayloadPath><ProductAssembly>false</ProductAssembly></BppPayloadFile>
+      <BppPayloadFile Include="$(TargetDir)Microsoft.Data.Sqlite.dll"><PayloadPath>MelonLoader/UserLibs/Microsoft.Data.Sqlite.dll</PayloadPath><ProductAssembly>false</ProductAssembly></BppPayloadFile>
+      <BppPayloadFile Include="$(TargetDir)SQLitePCLRaw.batteries_v2.dll"><PayloadPath>MelonLoader/UserLibs/SQLitePCLRaw.batteries_v2.dll</PayloadPath><ProductAssembly>false</ProductAssembly></BppPayloadFile>
+      <BppPayloadFile Include="$(TargetDir)SQLitePCLRaw.core.dll"><PayloadPath>MelonLoader/UserLibs/SQLitePCLRaw.core.dll</PayloadPath><ProductAssembly>false</ProductAssembly></BppPayloadFile>
+      <BppPayloadFile Include="$(TargetDir)SQLitePCLRaw.provider.e_sqlite3.dll"><PayloadPath>MelonLoader/UserLibs/SQLitePCLRaw.provider.e_sqlite3.dll</PayloadPath><ProductAssembly>false</ProductAssembly></BppPayloadFile>
+      <BppPayloadFile Include="$(TargetDir)MessagePack.dll"><PayloadPath>MelonLoader/UserLibs/MessagePack.dll</PayloadPath><ProductAssembly>false</ProductAssembly></BppPayloadFile>
+      <BppPayloadFile Include="$(TargetDir)MessagePack.Annotations.dll"><PayloadPath>MelonLoader/UserLibs/MessagePack.Annotations.dll</PayloadPath><ProductAssembly>false</ProductAssembly></BppPayloadFile>
+      <BppPayloadFile Include="$(TargetDir)Newtonsoft.Json.dll"><PayloadPath>MelonLoader/UserLibs/Newtonsoft.Json.dll</PayloadPath><ProductAssembly>false</ProductAssembly></BppPayloadFile>
     </ItemGroup>
   </Target>
   <Target Name="ValidatePayloadAssemblyVersions" DependsOnTargets="CollectPayloadFiles">

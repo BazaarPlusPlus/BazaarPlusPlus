@@ -15,19 +15,30 @@ struct PayloadInventory {
 #[derive(serde::Deserialize)]
 struct PayloadEntry {
     path: String,
+    host: String,
     ownership: String,
     platforms: Option<Vec<String>>,
 }
 
+/// The BepInEx host's entries of the compiled Payload Inventory: the files the installer owns in
+/// the game directory. The MelonLoader entries belong to the Android release and never reach it.
 fn inventory() -> &'static PayloadInventory {
     static INVENTORY: std::sync::OnceLock<PayloadInventory> = std::sync::OnceLock::new();
     INVENTORY.get_or_init(|| {
-        let inventory: PayloadInventory = serde_json::from_str(include_str!(concat!(
+        let mut inventory: PayloadInventory = serde_json::from_str(include_str!(concat!(
             env!("CARGO_MANIFEST_DIR"),
             "/../../release/payload.json"
         )))
         .expect("the compiled Payload Inventory must be valid JSON");
-        assert_eq!(inventory.schema_version, 1, "unsupported Payload Inventory");
+        assert_eq!(inventory.schema_version, 2, "unsupported Payload Inventory");
+        assert!(
+            inventory
+                .files
+                .iter()
+                .all(|entry| matches!(entry.host.as_str(), "bepinex" | "melonloader")),
+            "unknown Payload Inventory host"
+        );
+        inventory.files.retain(|entry| entry.host == "bepinex");
         for entry in &inventory.files {
             let known_root = entry.path.starts_with("BepInEx/")
                 || entry
@@ -833,6 +844,23 @@ mod tests {
         )
         .unwrap();
         assert!(super::has_third_party_patchers(tmp.path()));
+    }
+
+    #[test]
+    fn inventory_owns_only_bepinex_host_paths() {
+        assert!(!super::inventory().files.is_empty());
+        assert!(super::inventory()
+            .files
+            .iter()
+            .all(|entry| entry.host == "bepinex"));
+        for relative_path in super::payload_root_relative_paths() {
+            assert!(
+                !relative_path.starts_with("MelonLoader/")
+                    && !relative_path.starts_with("lib/")
+                    && !relative_path.starts_with("assets/"),
+                "{relative_path}"
+            );
+        }
     }
 
     #[test]

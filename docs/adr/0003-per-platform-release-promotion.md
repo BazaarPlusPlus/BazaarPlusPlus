@@ -9,3 +9,5 @@
 2026-10-03 修订：引导已于 5.5.0 完成（2026-10-03 核实线上 `latest.json`、`latest/darwin-aarch64.json`、`latest/windows-x86_64.json` 均为 5.5.0）。`PLATFORM_MANIFEST_SINCE` 门禁和 `promote` 从 `latest.json` 回填缺失平台文件的分支退役；rollback guard 使 `latest.json` 不可能回到 5.5.0 以下，本记录的其余决定不变。
 
 2026-10-04 注：[ADR 0004](0004-pinned-game-assembly-snapshots.md) 之后，开头"两个平台的构建各自需要专用主机"这一前提消失，两个平台在同一次托管 runner 工作流里构建；按平台提升、一个版本号只对应一个提交、`latest.json` 只在双平台齐备时推进的决定不变。
+
+2026-10-22 修订：Android 成为第三个发布平台（[ADR 0010](0010-android-release-platform.md)），但不进入 `latest.json` 的集合。`latest.json` 只在 lockstep 平台（Windows 与 macOS）版本和提交相同时推进；Android 只有自己的 Platform Release Manifest，可以跳过版本。一个版本号只对应一个提交的规则覆盖 Android。

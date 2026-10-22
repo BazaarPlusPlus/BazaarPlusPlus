@@ -1,115 +1,135 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "files": [
     {
       "path": "BepInEx/config/BazaarPlusPlus.cfg",
+      "host": "bepinex",
       "ownership": "private",
       "producer": "runtime"
     },
     {
       "path": "BepInEx/plugins/BazaarPlusPlus.dll",
+      "host": "bepinex",
       "ownership": "private",
       "producer": "managed",
       "assembly": true
     },
     {
       "path": "BepInEx/plugins/BazaarPlusPlus.Core.dll",
+      "host": "bepinex",
       "ownership": "private",
       "producer": "managed",
       "assembly": true
     },
     {
       "path": "BepInEx/plugins/BazaarPlusPlus.ModApi.dll",
+      "host": "bepinex",
       "ownership": "private",
       "producer": "managed",
       "assembly": true
     },
     {
       "path": "BepInEx/plugins/BazaarPlusPlus.Storage.dll",
+      "host": "bepinex",
       "ownership": "private",
       "producer": "managed",
       "assembly": true
     },
     {
       "path": "BepInEx/plugins/BazaarPlusPlus.version",
+      "host": "bepinex",
       "ownership": "private",
       "producer": "managed"
     },
     {
       "path": "BepInEx/plugins/BazaarPlusPlus.history-database.json",
+      "host": "bepinex",
       "ownership": "private",
       "producer": "history-contract"
     },
     {
       "path": "BepInEx/plugins/Microsoft.Data.Sqlite.dll",
+      "host": "bepinex",
       "ownership": "dependency",
       "producer": "managed"
     },
     {
       "path": "BepInEx/plugins/SQLitePCLRaw.batteries_v2.dll",
+      "host": "bepinex",
       "ownership": "dependency",
       "producer": "managed"
     },
     {
       "path": "BepInEx/plugins/SQLitePCLRaw.core.dll",
+      "host": "bepinex",
       "ownership": "dependency",
       "producer": "managed"
     },
     {
       "path": "BepInEx/plugins/SQLitePCLRaw.provider.e_sqlite3.dll",
+      "host": "bepinex",
       "ownership": "dependency",
       "producer": "managed"
     },
     {
       "path": "BepInEx/plugins/SixLabors.ImageSharp.dll",
+      "host": "bepinex",
       "ownership": "dependency",
       "producer": "managed",
       "optional": true
     },
     {
       "path": "BepInEx/plugins/System.Buffers.dll",
+      "host": "bepinex",
       "ownership": "dependency",
       "producer": "managed",
       "optional": true
     },
     {
       "path": "BepInEx/plugins/System.Memory.dll",
+      "host": "bepinex",
       "ownership": "dependency",
       "producer": "managed",
       "optional": true
     },
     {
       "path": "BepInEx/plugins/System.Numerics.Vectors.dll",
+      "host": "bepinex",
       "ownership": "dependency",
       "producer": "managed",
       "optional": true
     },
     {
       "path": "BepInEx/plugins/System.Text.Encoding.CodePages.dll",
+      "host": "bepinex",
       "ownership": "dependency",
       "producer": "managed",
       "optional": true
     },
     {
       "path": "BepInEx/plugins/libe_sqlite3.dylib",
+      "host": "bepinex",
       "ownership": "dependency",
       "producer": "sqlite-macos",
       "platforms": ["macos"]
     },
     {
       "path": "BepInEx/plugins/e_sqlite3.dll",
+      "host": "bepinex",
       "ownership": "dependency",
       "producer": "sqlite-windows",
       "platforms": ["windows"]
     },
     {
       "path": "BepInEx/plugins/libBppMacAudio.dylib",
+      "host": "bepinex",
       "ownership": "private",
       "producer": "native",
       "platforms": ["macos"]
     },
     {
       "path": "TheBazaar.app/Contents/Plugins/GfxPluginBppReplayVideoToolbox.bundle",
+      "host": "bepinex",
       "ownership": "private",
       "producer": "native",
       "kind": "directory",
@@ -122,12 +142,14 @@
     },
     {
       "path": "TheBazaar_Data/Plugins/x86_64/GfxPluginBppReplayMediaFoundation.dll",
+      "host": "bepinex",
       "ownership": "private",
       "producer": "native",
       "platforms": ["windows"]
     },
     {
       "path": "BepInEx/plugins/BppReplayRecorder.app",
+      "host": "bepinex",
       "ownership": "private",
       "producer": "retired",
       "kind": "directory",
@@ -135,28 +157,33 @@
     },
     {
       "path": "BepInEx/plugins/ffmpeg",
+      "host": "bepinex",
       "ownership": "dependency",
       "producer": "retired",
       "platforms": ["macos"]
     },
     {
       "path": "BepInEx/plugins/ffmpeg.exe",
+      "host": "bepinex",
       "ownership": "dependency",
       "producer": "retired",
       "platforms": ["windows"]
     },
     {
       "path": "BepInEx/plugins/ffmpeg-LICENSE.txt",
+      "host": "bepinex",
       "ownership": "dependency",
       "producer": "retired"
     },
     {
       "path": "BepInEx/plugins/BazaarPlusPlus.Localization.dll",
+      "host": "bepinex",
       "ownership": "private",
       "producer": "retired"
     },
     {
       "path": "BepInEx/core",
+      "host": "bepinex",
       "ownership": "bootstrap",
       "producer": "bootstrap",
       "kind": "directory",
@@ -168,43 +195,163 @@
     },
     {
       "path": "BepInEx/cache",
+      "host": "bepinex",
       "ownership": "bootstrap",
       "producer": "runtime",
       "kind": "directory"
     },
     {
       "path": "BepInEx/config/BepInEx.cfg",
+      "host": "bepinex",
       "ownership": "bootstrap",
       "producer": "runtime"
     },
     {
       "path": "BepInEx/LogOutput.log",
+      "host": "bepinex",
       "ownership": "bootstrap",
       "producer": "runtime"
     },
     {
       "path": "BepInEx/plugins/.gitkeep",
+      "host": "bepinex",
       "ownership": "bootstrap",
       "producer": "bootstrap",
       "optional": true
     },
     {
       "path": "winhttp.dll",
+      "host": "bepinex",
       "ownership": "bootstrap",
       "producer": "bootstrap",
       "platforms": ["windows"]
     },
     {
       "path": "doorstop_config.ini",
+      "host": "bepinex",
       "ownership": "bootstrap",
       "producer": "bootstrap",
       "platforms": ["windows"]
     },
     {
       "path": "libdoorstop.dylib",
+      "host": "bepinex",
       "ownership": "bootstrap",
       "producer": "bootstrap",
       "platforms": ["macos"]
+    },
+    {
+      "path": "MelonLoader/UserData/BazaarPlusPlus.cfg",
+      "host": "melonloader",
+      "ownership": "private",
+      "producer": "runtime"
+    },
+    {
+      "path": "MelonLoader/Mods/BazaarPlusPlus.Android.dll",
+      "host": "melonloader",
+      "ownership": "private",
+      "producer": "managed",
+      "assembly": true
+    },
+    {
+      "path": "MelonLoader/Mods/BazaarPlusPlus.Core.dll",
+      "host": "melonloader",
+      "ownership": "private",
+      "producer": "managed",
+      "assembly": true
+    },
+    {
+      "path": "MelonLoader/Mods/BazaarPlusPlus.ModApi.dll",
+      "host": "melonloader",
+      "ownership": "private",
+      "producer": "managed",
+      "assembly": true
+    },
+    {
+      "path": "MelonLoader/Mods/BazaarPlusPlus.Storage.dll",
+      "host": "melonloader",
+      "ownership": "private",
+      "producer": "managed",
+      "assembly": true
+    },
+    {
+      "path": "MelonLoader/Mods/BazaarPlusPlus.version",
+      "host": "melonloader",
+      "ownership": "private",
+      "producer": "managed"
+    },
+    {
+      "path": "MelonLoader/Mods/BazaarPlusPlus.history-database.json",
+      "host": "melonloader",
+      "ownership": "private",
+      "producer": "history-contract"
+    },
+    {
+      "path": "MelonLoader/UserLibs/Microsoft.Data.Sqlite.dll",
+      "host": "melonloader",
+      "ownership": "dependency",
+      "producer": "managed"
+    },
+    {
+      "path": "MelonLoader/UserLibs/SQLitePCLRaw.batteries_v2.dll",
+      "host": "melonloader",
+      "ownership": "dependency",
+      "producer": "managed"
+    },
+    {
+      "path": "MelonLoader/UserLibs/SQLitePCLRaw.core.dll",
+      "host": "melonloader",
+      "ownership": "dependency",
+      "producer": "managed"
+    },
+    {
+      "path": "MelonLoader/UserLibs/SQLitePCLRaw.provider.e_sqlite3.dll",
+      "host": "melonloader",
+      "ownership": "dependency",
+      "producer": "managed"
+    },
+    {
+      "path": "MelonLoader/UserLibs/MessagePack.dll",
+      "host": "melonloader",
+      "ownership": "dependency",
+      "producer": "managed"
+    },
+    {
+      "path": "MelonLoader/UserLibs/MessagePack.Annotations.dll",
+      "host": "melonloader",
+      "ownership": "dependency",
+      "producer": "managed"
+    },
+    {
+      "path": "MelonLoader/UserLibs/Newtonsoft.Json.dll",
+      "host": "melonloader",
+      "ownership": "dependency",
+      "producer": "managed"
+    },
+    {
+      "path": "lib/arm64-v8a/libe_sqlite3.so",
+      "host": "melonloader",
+      "ownership": "dependency",
+      "producer": "apk-injection"
+    },
+    {
+      "path": "lib/arm64-v8a/libmain.so",
+      "host": "melonloader",
+      "ownership": "bootstrap",
+      "producer": "apk-injection"
+    },
+    {
+      "path": "assets/LemonLoader",
+      "host": "melonloader",
+      "ownership": "bootstrap",
+      "producer": "apk-injection",
+      "kind": "directory"
+    },
+    {
+      "path": "MelonLoader/Latest.log",
+      "host": "melonloader",
+      "ownership": "bootstrap",
+      "producer": "runtime"
     }
   ]
 }
