@@ -1456,7 +1456,7 @@ file static class RecordingOperationContractTests
         internal StructuredLogCapture()
         {
             _source.LogEvent += OnLogEvent;
-            var bppLog = TestReflection.RequireType("BazaarPlusPlus.Infrastructure.BppLog");
+            var bppLog = typeof(BazaarPlusPlus.Infrastructure.BppLog);
             var install =
                 bppLog.GetMethod(
                     "Install",

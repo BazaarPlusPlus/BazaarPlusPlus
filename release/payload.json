@@ -13,6 +13,12 @@
       "assembly": true
     },
     {
+      "path": "BepInEx/plugins/BazaarPlusPlus.Core.dll",
+      "ownership": "private",
+      "producer": "managed",
+      "assembly": true
+    },
+    {
       "path": "BepInEx/plugins/BazaarPlusPlus.ModApi.dll",
       "ownership": "private",
       "producer": "managed",
@@ -20,12 +26,6 @@
     },
     {
       "path": "BepInEx/plugins/BazaarPlusPlus.Storage.dll",
-      "ownership": "private",
-      "producer": "managed",
-      "assembly": true
-    },
-    {
-      "path": "BepInEx/plugins/BazaarPlusPlus.Localization.dll",
       "ownership": "private",
       "producer": "managed",
       "assembly": true
@@ -148,6 +148,11 @@
     {
       "path": "BepInEx/plugins/ffmpeg-LICENSE.txt",
       "ownership": "dependency",
+      "producer": "retired"
+    },
+    {
+      "path": "BepInEx/plugins/BazaarPlusPlus.Localization.dll",
+      "ownership": "private",
       "producer": "retired"
     },
     {

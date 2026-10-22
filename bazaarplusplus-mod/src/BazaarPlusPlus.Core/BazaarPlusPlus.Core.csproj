@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- The shared core every host references (ADR-0012): no Unity, loader, or game assembly.
+       Both targets compile the same sources into same-named, same-version outputs. -->
+  <PropertyGroup>
+    <AssemblyName>BazaarPlusPlus.Core</AssemblyName>
+    <RootNamespace>BazaarPlusPlus.Core</RootNamespace>
+    <TargetFrameworks>netstandard2.1;net10.0</TargetFrameworks>
+    <LangVersion>12</LangVersion>
+    <Nullable>enable</Nullable>
+    <Version>$(BppVersion)</Version>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+  </PropertyGroup>
+
+  <!-- The Mono host binds the game's own Newtonsoft.Json (ADR-0010). -->
+  <PropertyGroup Condition="'$(TargetFramework)' == 'netstandard2.1'">
+    <BppReferenceGameLibraries>true</BppReferenceGameLibraries>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.1'">
+    <PackageReference Include="NETStandard.Library" />
+  </ItemGroup>
+
+  <!-- The CoreCLR host has no game copy to bind; the central version is pinned to the game's.
+       Private, so the package never flows to a consumer: each host binds its own copy, and a
+       net10.0 test that references the game's Newtonsoft.Json keeps only that one. -->
+  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0'">
+    <PackageReference Include="Newtonsoft.Json" PrivateAssets="all" />
+  </ItemGroup>
+
+  <!-- net10.0 declares IsExternalInit itself; a second copy fails the warning gate (CS0436). -->
+  <ItemGroup Condition="'$(TargetFramework)' != 'netstandard2.1'">
+    <Compile Remove="Properties/IsExternalInitPolyfill.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../BazaarPlusPlus.Storage/BazaarPlusPlus.Storage.csproj" />
+  </ItemGroup>
+</Project>

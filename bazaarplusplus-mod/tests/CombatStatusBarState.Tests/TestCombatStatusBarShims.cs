@@ -1,24 +1,12 @@
+using BazaarPlusPlus.Core.Config;
+using BazaarPlusPlus.Core.Events;
 using BazaarPlusPlus.Core.GameState;
+using BazaarPlusPlus.Core.RunContext;
 using BazaarPlusPlus.Core.Runtime;
+using BazaarPlusPlus.Storage.Paths;
 
 namespace BazaarPlusPlus.Core.Runtime
 {
-    internal interface IRunContext
-    {
-        bool IsInGameRun { get; set; }
-    }
-
-    internal interface IBppServices
-    {
-        IRunContext RunContext { get; }
-        IGameStateProbe GameStateProbe { get; }
-    }
-
-    internal sealed class TestRunContext : IRunContext
-    {
-        public bool IsInGameRun { get; set; }
-    }
-
     internal sealed class TestGameStateProbe : IGameStateProbe
     {
         public bool Result { get; set; }
@@ -26,15 +14,28 @@ namespace BazaarPlusPlus.Core.Runtime
         public bool ComputeIsInGameRun() => Result;
     }
 
+    /// <summary>The run-state slice the status bar reads; no other service is reachable.</summary>
     internal sealed class TestServices : IBppServices
     {
         public static TestServices Instance { get; } = new TestServices();
 
-        public IRunContext RunContext { get; } = new TestRunContext();
+        public IRunContext RunContext { get; } = new RunContextStore();
 
         public TestGameStateProbe GameStateProbe { get; } = new TestGameStateProbe();
 
         IGameStateProbe IBppServices.GameStateProbe => GameStateProbe;
+
+        public IBppEventBus EventBus => throw new NotSupportedException();
+
+        public BppSettings Config => throw new NotSupportedException();
+
+        public IPathProvider Paths => throw new NotSupportedException();
+
+        public IEncounterStateProbe EncounterState => throw new NotSupportedException();
+
+        public IRunSnapshotProbe RunSnapshot => throw new NotSupportedException();
+
+        public IGameBuildInfo GameBuild => throw new NotSupportedException();
     }
 }
 

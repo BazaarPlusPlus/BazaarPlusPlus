@@ -6,9 +6,9 @@ Terms used here are defined in [../CONTEXT.md](../CONTEXT.md). Why a boundary is
 
 ## Runtime Shape
 
-`Plugin.Awake()` resolves the game build channel via `GameBuildInfoResolver`, creates `BppComposition`, installs static facades such as `BppLog`, `BppPatchHost`, localization, settings dock entries, supporters, and hotkeys, applies Harmony patches per patch class, starts feature modules, builds the owner-scoped Mod API session and separate BazaarDB-link client, then mounts Unity components onto the plugin `GameObject` (`src/BazaarPlusPlus/Plugin.cs`).
+`Plugin.Awake()` resolves the game build channel via `GameBuildInfoResolver`, creates `DesktopComposition`, installs static facades such as `BppLog`, `BppPatchHost`, localization, settings dock entries, supporters, and hotkeys, applies Harmony patches per patch class, starts feature modules, builds the owner-scoped Mod API session and separate BazaarDB-link client, then mounts Unity components onto the plugin `GameObject` (`src/BazaarPlusPlus/Plugin.cs`).
 
-`BppComposition` is the manual composition root; there is no DI container. It receives the resolved `IGameBuildInfo` and wires feature modules through `BppFeatureRegistry`, Unity components through `BppMountableRegistry`, and in-game settings rows through `SettingsDockEntryRegistry` (`src/BazaarPlusPlus/BppComposition.cs`). Simple components mount through `ComponentMount<T>`; a bespoke mount exists only where a feature owns additional dependencies or object lifecycles, and `CombatReplayRuntime` is the bootstrap exception because other modules need it before mountables run.
+Composition is manual; there is no DI container. `CoreComposition` owns the host-independent half: event bus, settings, run context, `IBppServices`, and feature start/stop through `BppFeatureRegistry` (`src/BazaarPlusPlus.Core/Runtime/CoreComposition.cs`). `DesktopComposition` binds the BepInEx path provider, Mono probes, and resolved `IGameBuildInfo` into it, then wires feature modules, Unity components through `BppMountableRegistry`, and in-game settings rows through `SettingsDockEntryRegistry` (`src/BazaarPlusPlus/DesktopComposition.cs`). Simple components mount through `ComponentMount<T>`; a bespoke mount exists only where a feature owns additional dependencies or object lifecycles, and `CombatReplayRuntime` is the bootstrap exception because other modules need it before mountables run.
 
 Three ordering facts in this file are load-bearing, because each one fails silently when reordered:
 
@@ -26,27 +26,35 @@ Newer-only combat events and enum members stay behind runtime adapters in `GameI
 
 ## Assemblies And Boundaries
 
-Four assemblies ship.
+Four assemblies ship. Dependencies run host → Core → {Storage, ModApi}; a shared assembly exists only for a dependency class it carries (ADR-0012).
 
 | Assembly | Contents |
 |---|---|
-| `BazaarPlusPlus.dll` | the BepInEx plugin: Unity/game integration, feature modules, Harmony patches, embedded resources, composition root |
+| `BazaarPlusPlus.dll` | the desktop (BepInEx) host: Unity/game integration, feature modules, Harmony patches, embedded resources, `DesktopComposition` |
+| `BazaarPlusPlus.Core.dll` | the shared core every host references: settings and host ports, event bus, snapshots and probe interfaces, run context, `CoreComposition`, `BppLog`, localization, Release Manifest client, remote embedded catalogs |
 | `BazaarPlusPlus.ModApi.dll` | HTTP client, routes, DTOs, MessagePack/gzip helpers for the mod backend |
 | `BazaarPlusPlus.Storage.dll` | SQLite schema, repositories, path interfaces, local persistence models |
-| `BazaarPlusPlus.Localization.dll` | localization resolution engine, language and mode helpers |
 
-`ModApi`, `Storage`, and `Localization` keep **zero game, Unity, and BepInEx references**, an invariant enforced by architecture tests, not by the compiler.
+No shared project references a game, Unity, or loader assembly, so the compiler keeps them host-free; `CoreAssemblyBoundaryTests` also checks both Core targets: `netstandard2.1` (desktop; game-supplied Newtonsoft.Json) and `net10.0` (CoreCLR hosts; the package pinned to the game's version, private to Core). Core types are `public`; `InternalsVisibleTo` names only tests.
 
-Inside the main assembly:
+| Core directory | Owns |
+|---|---|
+| `Config/`, `Events/`, `GameState/`, `RunContext/`, `Runtime/` | settings port, event bus and BPP-owned snapshots, probe interfaces, run context, runtime services, `CoreComposition` |
+| `Logging/` | the `BppLog` facade and pipeline, the `IBppLogSink` port |
+| `Localization/` | localization resolution, language and Chinese-mode helpers |
+| `Infrastructure/` | Release Manifest client, remote embedded catalogs, atomic and file-backed writes, async load cache, plugin version |
+
+Moved files kept their namespaces (`BazaarPlusPlus.Core.*`, `.Infrastructure`, `.Localization`).
+
+Inside the desktop host assembly:
 
 | Directory | Owns |
 |---|---|
-| `Core/` | pure mod abstractions: settings and the settings-store port, event bus and BPP-owned event snapshots, runtime service interfaces, run context, path contracts, the run-snapshot contract; no BepInEx reference |
-| `Host/` | the desktop (BepInEx) implementations of host ports: settings store, log sink, Data Root path provider |
+| `Host/` | BepInEx implementations of host ports (settings store, log sink, Data Root path provider) and the Unity mountables |
 | `GameInterop/` | adapters over game, Unity, or publicized runtime surfaces |
 | `Game/` | feature workflows, UI, user-facing policy, filtering, upload orchestration, storage use |
 | `Patches/` | Harmony patches, reaching services through `BppPatchHost` rather than constructor injection |
-| `Infrastructure/` | cross-cutting logging, UI tokens, stable text helpers, generic seams |
+| `Infrastructure/` | UI tokens, stable text helpers, UI suppression, operational health tracking |
 
 The main project targets `netstandard2.1`, uses C# 12, and publicizes game assemblies, so `internal` game members are accessible. Remote seed data is declared in `RemoteEmbeddedData.targets` and delegates transport to `build/RemoteEmbeddedDataFetcher`; `BppVersion` in `Directory.Build.props` reads the workspace-root `VERSION`. The shared Payload Inventory generates the MSBuild copy items; production assembly versions are checked from compiled metadata. `just release::prepare <platform>` runs isolated preparation through the [product release coordinator](../../docs/release.md).
 
@@ -73,7 +81,7 @@ Each of these is consumed by two or more features. Reaching around one to re-imp
 
 `RemoteEmbeddedCatalog<T>` owns cache → embedded → remote loading with feature-supplied freshness: single-flight warm and refresh, per-caller cancellation over shared flights, typed outcomes, atomic cache writes, retry re-arming, monotonic publication, and generation-guarded disposal. A queued cold-start refresh takes ownership atomically when its refresh flight begins, so cancelling the originating warm flight before that handoff prevents the remote operation. Feature observers are serialized against disposal on a separate gate, so `TryGet` never waits for feature-side logging or index rebuilds.
 
-Operational logging is written at the call site: `BppLog.*Event(new BppLogEvent(scope, "dotted.snake.id", storm: [...]), ("name", value, policy)...)`, with the scope taken from the closed `BppLogFeatureScope` set and the id under that scope's prefix. Each line renders as `[BPP][<Scope>] event=<id> name=value ...` in call order; a field's `Short` or `Hash` policy shortens or hashes it at render time, and an attached exception renders as `exception_type=` plus the escaped `exception=` text. `BppLogPipeline` writes a warning once per storm key per window and summarizes the repeats; an error with a storm key merges on its correlation fields and exception type. Debug events compile out of Release (`src/BazaarPlusPlus/Infrastructure/Logging/Core/`).
+Operational logging is written at the call site: `BppLog.*Event(new BppLogEvent(scope, "dotted.snake.id", storm: [...]), ("name", value, policy)...)`, with the scope taken from the closed `BppLogFeatureScope` set and the id under that scope's prefix. Each line renders as `[BPP][<Scope>] event=<id> name=value ...` in call order; a field's `Short` or `Hash` policy shortens or hashes it at render time, and an attached exception renders as `exception_type=` plus the escaped `exception=` text. `BppLogPipeline` writes a warning once per storm key per window and summarizes the repeats; an error with a storm key merges on its correlation fields and exception type. Debug events compile out of Release (`src/BazaarPlusPlus.Core/Logging/`).
 
 ## Data And File Locations
 
@@ -83,7 +91,7 @@ The V6 database starts a new schema at `user_version` 1 with no migration path: 
 
 ## Event Flow
 
-An in-memory event bus decouples runtime coordination between feature modules registered at startup (`src/BazaarPlusPlus/BppComposition.cs` — the `Register` call order is the authoritative roster).
+An in-memory event bus decouples runtime coordination between feature modules registered at startup (`src/BazaarPlusPlus/DesktopComposition.cs` — the `Register` call order is the authoritative roster).
 
 `RunLoggingModule` is the feature-owned event intake. `Start` creates its replicated/queued store chain and session manager only after composition construction succeeds, subscribes once to run lifecycle, run initialization, PvP recording, and replay-drained events, then maps a matching `PVPCombat` manifest directly to persistence. Battles attach to the stable active or deferred run id before the event append and checkpoint. Interrupted runs stay resumable; normal completion owns an active, cancellable two-second replay-persistence deadline; `Stop` is a quiescence barrier that forces any deferred completion before unsubscribing and disposing the store. No Run Logging `MonoBehaviour` is mounted. Every time it writes comes from the module's one injected clock, which it hands to `RunLogRecordMapper` and `RunLogSessionManager`. `tests/RunLoggingPipeline.Tests` is its end-to-end anchor: it drives the real bus, queue, and SQLite stores from an empty database and fails unless the schema dump and per-step rows match `src/BazaarPlusPlus.Storage/history-database-v6.schema.sql` (the schema file the installer's tests load) and `tests/RunLoggingPipeline.Tests/fixtures/history-database-v6.rows.json` byte for byte. Regenerate them only with `BPP_UPDATE_GOLDENS=1` and review the diff (`HistoryDatabaseArtifacts`).
 

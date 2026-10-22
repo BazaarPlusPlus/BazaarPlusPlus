@@ -41,10 +41,6 @@
       Include="../../src/BazaarPlusPlus/Game/Supporters/SupporterCatalogDocument.cs"
       Link="SupporterCatalogDocument.cs"
     />
-    <Compile
-      Include="../../src/BazaarPlusPlus/Infrastructure/RemoteEmbeddedCatalog/RemoteEmbeddedCatalogContracts.cs"
-      Link="RemoteEmbeddedCatalogContracts.cs"
-    />
     <Compile Include="Program.cs" />
     <Compile Include="../Shared/LocalizationTestBootstrap.cs" Link="LocalizationTestBootstrap.cs" />
     <None
@@ -55,6 +51,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="../../src/BazaarPlusPlus.Localization/BazaarPlusPlus.Localization.csproj" />
+    <ProjectReference Include="../../src/BazaarPlusPlus.Core/BazaarPlusPlus.Core.csproj" />
   </ItemGroup>
 </Project>

@@ -120,9 +120,9 @@
       "bazaarplusplus": {
         "type": "Project",
         "dependencies": {
-          "BazaarPlusPlus.Localization": "[5.6.0, )",
-          "BazaarPlusPlus.ModApi": "[5.6.0, )",
-          "BazaarPlusPlus.Storage": "[5.6.0, )",
+          "BazaarPlusPlus.Core": "[6.0.0, )",
+          "BazaarPlusPlus.ModApi": "[6.0.0, )",
+          "BazaarPlusPlus.Storage": "[6.0.0, )",
           "BepInEx.Core": "[5.4.21, )",
           "BepInEx.PluginInfoProps": "[2.1.0, )",
           "Microsoft.Data.Sqlite": "[10.0.12, )",
@@ -133,10 +133,11 @@
           "UnityEngine.Modules": "[2022.3.40, )"
         }
       },
-      "bazaarplusplus.localization": {
+      "bazaarplusplus.core": {
         "type": "Project",
         "dependencies": {
-          "NETStandard.Library": "[2.0.3, )"
+          "BazaarPlusPlus.Storage": "[6.0.0, )",
+          "Newtonsoft.Json": "[13.0.2, )"
         }
       },
       "bazaarplusplus.modapi": {
@@ -189,6 +190,12 @@
         "dependencies": {
           "Microsoft.NETCore.Platforms": "1.1.0"
         }
+      },
+      "Newtonsoft.Json": {
+        "type": "CentralTransitive",
+        "requested": "[13.0.2, )",
+        "resolved": "13.0.2",
+        "contentHash": "R2pZ3B0UjeyHShm9vG+Tu0EBb2lC8b0dFzV9gVn50ofHXh9Smjk6kTn7A/FdAsC8B5cKib1OnGYOXxRBz5XQDg=="
       },
       "SixLabors.ImageSharp": {
         "type": "CentralTransitive",

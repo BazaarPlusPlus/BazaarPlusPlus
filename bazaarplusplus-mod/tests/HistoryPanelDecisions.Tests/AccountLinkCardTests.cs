@@ -10,7 +10,7 @@ internal static class AccountLinkCardTests
             "BazaarPlusPlus.Game.HistoryPanel.HistoryPanelDecisions",
             true
         )!;
-        var channelType = assembly.GetType("BazaarPlusPlus.Core.Runtime.GameBuildChannel", true)!;
+        var channelType = typeof(BazaarPlusPlus.Core.Runtime.GameBuildChannel);
         var flags = BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
         var resolve = decisions.GetMethod("ResolveAccountLinkCard", flags)!;
         var gate = decisions.GetMethod("ResolveAccountLinkGate", flags)!;

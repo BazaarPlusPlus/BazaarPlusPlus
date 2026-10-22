@@ -487,9 +487,10 @@
           "System.Runtime": "4.3.0"
         }
       },
-      "bazaarplusplus.localization": {
+      "bazaarplusplus.core": {
         "type": "Project",
         "dependencies": {
+          "BazaarPlusPlus.Storage": "[6.0.0, )",
           "NETStandard.Library": "[2.0.3, )"
         }
       },

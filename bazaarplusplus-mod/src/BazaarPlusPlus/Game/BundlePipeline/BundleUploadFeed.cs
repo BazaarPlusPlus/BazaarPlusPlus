@@ -2,6 +2,7 @@
 using System.Security.Cryptography;
 using BazaarPlusPlus.Core.Runtime;
 using BazaarPlusPlus.Game.Upload;
+using BazaarPlusPlus.Host;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
 using BazaarPlusPlus.ModApi;

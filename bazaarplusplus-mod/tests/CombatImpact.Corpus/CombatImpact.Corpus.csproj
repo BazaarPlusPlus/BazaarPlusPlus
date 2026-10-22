@@ -9,7 +9,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../../src/BazaarPlusPlus.ModApi/BazaarPlusPlus.ModApi.csproj" />
-    <ProjectReference Include="../../src/BazaarPlusPlus.Localization/BazaarPlusPlus.Localization.csproj" />
+    <ProjectReference Include="../../src/BazaarPlusPlus.Core/BazaarPlusPlus.Core.csproj" />
     <PackageReference Include="Microsoft.Data.Sqlite" />
     <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" />
     <Reference Include="BazaarGameShared">
@@ -44,14 +44,6 @@
     <Compile
       Include="../../src/BazaarPlusPlus/Game/PvpBattles/PvpReplayPayloadCodec.cs"
       Link="PvpReplayPayloadCodec.cs"
-    />
-    <Compile
-      Include="../../src/BazaarPlusPlus/Infrastructure/AtomicFileWriter.cs"
-      Link="AtomicFileWriter.cs"
-    />
-    <Compile
-      Include="../../src/BazaarPlusPlus/Infrastructure/FileBackedPayloadStore.cs"
-      Link="FileBackedPayloadStore.cs"
     />
   </ItemGroup>
 </Project>

@@ -17,12 +17,14 @@ namespace Architecture.Tests;
 internal static class CompiledArtifacts
 {
     internal const string MainAssembly = "BazaarPlusPlus";
+    internal const string CoreAssembly = "BazaarPlusPlus.Core";
     internal const string ModApiAssembly = "BazaarPlusPlus.ModApi";
     internal const string StorageAssembly = "BazaarPlusPlus.Storage";
 
     private static readonly string[] ScannedAssemblies =
     {
         MainAssembly,
+        CoreAssembly,
         ModApiAssembly,
         StorageAssembly,
     };
@@ -36,7 +38,7 @@ internal static class CompiledArtifacts
     /// <summary>Type definitions every rule target must resolve against.</summary>
     internal static ReferenceUniverse Universe => LazyUniverse.Value;
 
-    private static string Metadata(string key)
+    internal static string Metadata(string key)
     {
         var value = typeof(CompiledArtifacts)
             .Assembly.GetCustomAttributes<AssemblyMetadataAttribute>()

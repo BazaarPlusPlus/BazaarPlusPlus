@@ -715,7 +715,7 @@ public sealed class VoiceSubtitlesTests
         internal LogCapture()
         {
             _source.LogEvent += OnLogEvent;
-            var bppLogType = GetRequiredType("BazaarPlusPlus.Infrastructure.BppLog");
+            var bppLogType = typeof(BppLog);
             GetRequiredStaticMethod(bppLogType, "Install")
                 .Invoke(null, [new BepInExLogSink(_source)]);
         }

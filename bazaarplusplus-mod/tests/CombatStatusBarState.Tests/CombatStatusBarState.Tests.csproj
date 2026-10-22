@@ -16,7 +16,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\BazaarPlusPlus.Localization\BazaarPlusPlus.Localization.csproj" />
+    <ProjectReference Include="..\..\src\BazaarPlusPlus.Core\BazaarPlusPlus.Core.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -44,22 +44,5 @@
       Include="..\..\src\BazaarPlusPlus\Game\NameOverride\NameOverrideSettingsMenuLabel.cs"
       Link="NameOverrideSettingsMenuLabel.cs"
     />
-    <Compile
-      Include="..\..\src\BazaarPlusPlus\Core\GameState\IGameStateProbe.cs"
-      Link="IGameStateProbe.cs"
-    />
-    <Compile
-      Include="..\..\src\BazaarPlusPlus\Core\Events\IBppEventBus.cs"
-      Link="IBppEventBus.cs"
-    />
-    <Compile
-      Include="..\..\src\BazaarPlusPlus\Core\Events\InMemoryBppEventBus.cs"
-      Link="InMemoryBppEventBus.cs"
-    />
-    <Compile
-      Include="..\..\src\BazaarPlusPlus\Infrastructure\Logging\Core\BppLogSchema.cs"
-      Link="BppLogSchema.cs"
-    />
-    <Compile Include="..\..\src\BazaarPlusPlus\PluginLogCodes.cs" Link="PluginLogCodes.cs" />
   </ItemGroup>
 </Project>

@@ -60,27 +60,6 @@
       Include="../../src/BazaarPlusPlus/Game/Supporters/BPPSupporterSample.cs"
       Link="Supporters/BPPSupporterSample.cs"
     />
-    <Compile Include="../../src/BazaarPlusPlus.Localization/L.cs" Link="L.cs" />
-    <Compile
-      Include="../../src/BazaarPlusPlus.Localization/LocalizedTextSet.cs"
-      Link="LocalizedTextSet.cs"
-    />
-    <Compile
-      Include="../../src/BazaarPlusPlus.Localization/LanguageCodeMatcher.cs"
-      Link="LanguageCodeMatcher.cs"
-    />
-    <Compile
-      Include="../../src/BazaarPlusPlus.Localization/ChineseScriptConverter.cs"
-      Link="ChineseScriptConverter.cs"
-    />
-    <Compile
-      Include="../../src/BazaarPlusPlus.Localization/OpenCcTraditionalCharacters.cs"
-      Link="OpenCcTraditionalCharacters.cs"
-    />
-    <Compile
-      Include="../../src/BazaarPlusPlus.Localization/BppChineseLocaleMode.cs"
-      Link="BppChineseLocaleMode.cs"
-    />
     <Compile
       Include="../../src/BazaarPlusPlus/GameInterop/ItemBoardPreview/BppItemBoard.cs"
       Link="BppItemBoard.cs"
