@@ -34,17 +34,21 @@ using BazaarPlusPlus.GameInterop;
 using BazaarPlusPlus.GameInterop.CardPreview;
 using BazaarPlusPlus.GameInterop.DayTiers;
 using BazaarPlusPlus.GameInterop.Encounter;
+using BazaarPlusPlus.GameInterop.RunLifecycle;
 using BazaarPlusPlus.GameInterop.RunSnapshot;
 using BazaarPlusPlus.GameInterop.StaticCards;
 using BazaarPlusPlus.GameInterop.Tooltips;
 using BazaarPlusPlus.GameInterop.VoiceSubtitles;
 using BazaarPlusPlus.Host;
+using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.RemoteEmbeddedCatalog;
 using BazaarPlusPlus.ModApi.Clients;
 using BazaarPlusPlus.Patches;
 using BazaarPlusPlus.Patches.PostCombatImpact;
 using BazaarPlusPlus.Patches.Tooltips;
 using BazaarPlusPlus.Storage.Paths;
+using BazaarPlusPlus.Storage.RunLog;
+using BazaarPlusPlus.Storage.RunLog.Replication;
 
 namespace BazaarPlusPlus;
 
@@ -80,13 +84,13 @@ internal sealed class DesktopComposition : IDisposable
     private readonly BuildRecommendationRepository _buildRecommendationRepository;
     private ModApiSession? _modApiSessionRef;
     private BazaarDbLinkClient? _accountLinkClientRef;
-    private PvpBattleSqliteStore? _pvpBattleCatalog;
+    private PvpBattleCatalog? _pvpBattleCatalog;
 
     public IBppServices Services => _services;
     public RunLifecycleModule RunLifecycle => _runLifecycle;
 
     public IPvpBattleCatalog PvpBattleCatalog =>
-        _pvpBattleCatalog ??= new PvpBattleSqliteStore(
+        _pvpBattleCatalog ??= new PvpBattleCatalog(
             PathConstants.RunLogDatabase(_services.Paths.RequireDataRoot())
         );
 
@@ -117,7 +121,8 @@ internal sealed class DesktopComposition : IDisposable
         _runLifecycle = new RunLifecycleModule(
             eventBus,
             _services.GameStateProbe,
-            _services.RunContext
+            _services.RunContext,
+            new GameRunLifecycleSource()
         );
         _combatReplayModule = new CombatReplayModule(eventBus);
         _combatStatusBarModule = new CombatStatusBarModule(eventBus);
@@ -155,10 +160,24 @@ internal sealed class DesktopComposition : IDisposable
             _endOfRunCaptureWorkflow,
             _postCombatImpactModule
         );
+        var battleCatalog = PvpBattleCatalog;
         _runLoggingModule = new RunLoggingModule(
-            _services,
-            PvpBattleCatalog,
-            () => _combatReplayModule.Runtime?.HasPendingPersistence == true
+            eventBus,
+            _services.RunContext,
+            _services.RunSnapshot,
+            _services.GameBuild.Channel.ToString(),
+            () =>
+                new QueuedRunLogStore(
+                    new RunLogStore(_services.Paths),
+                    new RunLogStoreLoggerBridge()
+                ),
+            battleCatalog.AttachToRun,
+            () => _combatReplayModule.Runtime?.HasPendingPersistence == true,
+            static () => DateTimeOffset.UtcNow,
+            PathConstants.RunLogDatabase(_services.Paths.RequireDataRoot()),
+            playerAccountIdResolver: BppClientCacheBridge.TryGetProfileAccountId,
+            bundleScreenshotRequestedResolver: () => _services.Config.BazaarDbUploadEnabled.Value,
+            modVersionResolver: () => BppPluginVersion.Current
         );
         _bundleSealCoordinator = DesktopBundleSealCoordinator.Create(_services);
 

@@ -6,16 +6,19 @@ using BazaarPlusPlus.Core.RunContext;
 using BazaarPlusPlus.Game.PvpBattles;
 using BazaarPlusPlus.Game.PvpBattles.Persistence;
 using BazaarPlusPlus.Game.RunLogging;
-using BazaarPlusPlus.Host;
 using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 using BazaarPlusPlus.Storage.Paths;
 using BazaarPlusPlus.Storage.RunLog;
 using BazaarPlusPlus.Storage.RunLog.Replication;
-using BepInEx.Logging;
 using Microsoft.Data.Sqlite;
 
 // The Run Logging anchor: InMemoryBppEventBus -> RunLoggingModule -> QueuedRunLogStore ->
 // RunLogStore and PvpBattleSqliteStore -> one SQLite file, the rows the installer's History reads.
+// It references only Core and Storage, as every host composes them: this project binds the
+// netstandard2.1 outputs and the game's libraries (the desktop host), and
+// RunLoggingPipeline.Net10.Tests compiles the same sources against the net10.0 outputs and the
+// pinned NuGet packages (the Android host). Both must reproduce the same goldens.
 // Only IRunContext, IRunSnapshotProbe, the clock, and the deferred-completion timer are stand-ins;
 // they are the module's effect seams (ADR-0003). The database always starts empty: v1/v2 files
 // are unsupported and are never built here. HistoryDatabaseArtifacts owns the two goldens.
@@ -26,8 +29,8 @@ using Microsoft.Data.Sqlite;
 //    InMemoryBppEventBus.Subscribe cannot throw for a non-null handler, so it is not driven.
 // 2. Run created: a field of the create request maps to the wrong column, or a second
 //    RunInitializedObserved for the same run appends a second run_started.
-// 3. PvP recorded: a matching PvP manifest is not attached to the run (a replay captured before
-//    the run id was known keeps battles.run_id NULL), a mismatched or PvE manifest is written,
+// 3. PvP recorded: a matching PvP battle is not attached to the run (a replay captured before
+//    the run id was known keeps battles.run_id NULL), a mismatched or PvE battle is linked,
 //    or run_events.seq and runs.last_seq drift apart.
 // 4. Completion: a run completes while replay persistence is still pending, a stale deadline
 //    completes a run that resumed or was replaced, or a replacement inherits the old deadline.
@@ -40,16 +43,19 @@ using Microsoft.Data.Sqlite;
 //    after the store is disposed.
 // The order "attach the battle, then append the event and checkpoint" is not provable from final
 // rows: the attach commits synchronously while the event and checkpoint go through the queue.
-if (DesktopTargetPin.Mismatch() is { } mismatch)
+#if BPP_NET10_BINDING
+const string SharedTarget = SharedTargetPin.Net10;
+#else
+const string SharedTarget = SharedTargetPin.Desktop;
+#endif
+if (SharedTargetPin.Mismatch(SharedTarget) is { } mismatch)
 {
     Console.Error.WriteLine(mismatch);
     return 1;
 }
 
-using var logSource = new ManualLogSource("run-logging-pipeline");
 var logs = new List<string>();
-logSource.LogEvent += (_, args) => logs.Add(args.Data?.ToString() ?? string.Empty);
-BppLog.Install(new BepInExLogSink(logSource));
+BppLog.Install(new ListLogSink(logs));
 
 var root = Path.Combine(
     Path.GetTempPath(),
@@ -121,12 +127,9 @@ static void RunScenario(Harness h, HistoryDatabaseArtifacts artifacts, List<stri
     bus.Publish(
         new PvpBattleRecorded
         {
-            Manifest = new PvpBattleManifest
-            {
-                BattleId = "battle-pve",
-                RunId = "run-alpha",
-                CombatKind = "Combat",
-            },
+            BattleId = "battle-pve",
+            RunId = "run-alpha",
+            CombatKind = "Combat",
         }
     );
     h.Record(artifacts, 3, "pvp-recorded");
@@ -422,7 +425,7 @@ internal sealed class Harness
                 );
                 return LiveStore;
             },
-            Catalog,
+            Catalog.AttachToRun,
             () => PendingReplayPersistence,
             () => Clock.Now,
             Database,
@@ -474,10 +477,10 @@ internal sealed class Harness
         );
     }
 
-    /// <summary>As ReplayPersistenceOrchestrator does: save the battle, then announce it.</summary>
+    /// <summary>As a host's battle capture does: save the battle, then announce it.</summary>
     internal void RecordBattle(IBppEventBus bus, string battleId, string? runId, int day, int hour)
     {
-        var manifest = new PvpBattleManifest
+        var record = new PvpBattleRecord
         {
             BattleId = battleId,
             RunId = runId,
@@ -497,8 +500,19 @@ internal sealed class Harness
             },
             Outcome = new PvpBattleOutcome { Result = "Win" },
         };
-        Catalog.Save(manifest);
-        bus.Publish(new PvpBattleRecorded { Manifest = manifest });
+        Catalog.Save(record);
+        bus.Publish(
+            new PvpBattleRecorded
+            {
+                BattleId = record.BattleId,
+                RunId = record.RunId,
+                CombatKind = record.CombatKind,
+                Day = record.Day,
+                Hour = record.Hour,
+                EncounterId = record.EncounterId,
+                OpponentName = record.Participants.OpponentName,
+            }
+        );
     }
 
     internal void Record(HistoryDatabaseArtifacts artifacts, int number, string name)
@@ -538,6 +552,12 @@ internal sealed class Harness
     // queue first (DrainPendingWrites); one aimed at a run id with no row changes nothing else.
     private void Drain() =>
         LiveStore?.MarkRunAbandoned("drain-barrier-without-row", new RunLogAbandonment());
+}
+
+/// <summary>Collects every rendered BppLog line, the way a host's log exit receives it.</summary>
+internal sealed class ListLogSink(List<string> lines) : IBppLogSink
+{
+    public void Write(BppLogSeverity severity, string message) => lines.Add(message);
 }
 
 internal sealed class TestPaths(string root) : IPathProvider

@@ -32,7 +32,7 @@ using SixLabors.ImageSharp.PixelFormats;
 // BundleSealCoordinator -> BundleQueueStore outbox -> BundleUploadFeed.Session -> ModApiSession.
 // Every sealed Bundle lands in artifacts/bundle-pipeline/ and the normalized summary must match
 // fixtures/bundle-pipeline.golden.json (PipelineArtifacts owns the format and regeneration).
-if (DesktopTargetPin.Mismatch() is { } mismatch)
+if (SharedTargetPin.Mismatch(SharedTargetPin.Desktop) is { } mismatch)
 {
     Console.Error.WriteLine(mismatch);
     return 1;
@@ -261,7 +261,7 @@ static void SaveBattle(
     int minute,
     PvpBattleSnapshots? snapshots = null
 ) =>
-    new PvpBattleSqliteStore(database).Save(
+    new PvpBattleCatalog(database).Save(
         new PvpBattleManifest
         {
             BattleId = battleId,
@@ -356,7 +356,7 @@ static void RoutingKeepsPveOutOfPersistence(string database)
     );
     try
     {
-        new PvpBattleSqliteStore(database).Save(
+        new PvpBattleCatalog(database).Save(
             new PvpBattleManifest { BattleId = "pve", CombatKind = "Combat" }
         );
         throw new InvalidOperationException("The PvP store accepted a PvE manifest.");

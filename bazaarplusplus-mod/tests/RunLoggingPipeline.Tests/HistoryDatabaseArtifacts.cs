@@ -23,7 +23,8 @@ using Microsoft.Data.Sqlite;
 /// The only normalization is the collision suffix: <c>RunLogRunIdentity.CreateCollisionId</c> draws
 /// a GUID, so each <c>:bpp:&lt;32 hex&gt;</c> becomes <c>:bpp:#1</c>, <c>:bpp:#2</c>... in first-seen
 /// order, everywhere it appears. Times are raw: the module clock is fixed, so a changed time means
-/// a write picked up a second clock. Actual output lands in <c>artifacts/run-logging-pipeline/</c>.
+/// a write picked up a second clock. Actual output lands in
+/// <c>artifacts/run-logging-pipeline/&lt;test assembly&gt;/</c>, one directory per host binding.
 /// Regenerate with <c>BPP_UPDATE_GOLDENS=1</c> and review <c>git diff</c> of both files.
 /// </summary>
 internal sealed partial class HistoryDatabaseArtifacts
@@ -51,13 +52,21 @@ internal sealed partial class HistoryDatabaseArtifacts
 
     internal HistoryDatabaseArtifacts()
     {
-        _directory = Path.Combine(TestInputs.RepoRoot, "artifacts", "run-logging-pipeline");
+        _directory = Path.Combine(
+            TestInputs.RepoRoot,
+            "artifacts",
+            "run-logging-pipeline",
+            Binding
+        );
         if (Directory.Exists(_directory))
             Directory.Delete(_directory, recursive: true);
         Directory.CreateDirectory(_directory);
     }
 
     internal bool Failed { get; private set; }
+
+    /// <summary>The test assembly, which names the host binding the goldens ran against.</summary>
+    private static string Binding => typeof(HistoryDatabaseArtifacts).Assembly.GetName().Name!;
 
     /// <summary>
     /// Dumps the schema of a freshly initialized database and compares it with the golden at
@@ -176,7 +185,7 @@ internal sealed partial class HistoryDatabaseArtifacts
             return;
         Console.Error.WriteLine(
             $"Run logging output differs from {file}; actual output is "
-                + $"artifacts/run-logging-pipeline/{artifact}. Regenerate with BPP_UPDATE_GOLDENS=1 "
+                + $"artifacts/run-logging-pipeline/{Binding}/{artifact}. Regenerate with BPP_UPDATE_GOLDENS=1 "
                 + "only if the change is intended."
         );
         Console.Error.WriteLine(UnifiedDiff.Render(expected, actual, file));

@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- The CoreCLR host's configuration of RunLoggingPipeline.Tests: the same sources against the
+       net10.0 outputs of Core and Storage, bound to the NuGet packages pinned to the game's
+       versions, as the Android host ships them (ADR-0013). It reproduces the same goldens. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <BppRequiresManagedPath>false</BppRequiresManagedPath>
+    <DefineConstants>$(DefineConstants);BPP_NET10_BINDING</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile
+      Include="../RunLoggingPipeline.Tests/**/*.cs"
+      Exclude="../RunLoggingPipeline.Tests/obj/**;../RunLoggingPipeline.Tests/bin/**"
+      Link="%(RecursiveDir)%(Filename)%(Extension)"
+    />
+    <Compile Include="../Shared/SharedTargetPin.cs" Link="SharedTargetPin.cs" />
+  </ItemGroup>
+
+  <!-- The shared projects keep their package references private, so this host supplies them. -->
+  <ItemGroup>
+    <ProjectReference
+      Include="../../src/BazaarPlusPlus.Core/BazaarPlusPlus.Core.csproj"
+      SetTargetFramework="TargetFramework=net10.0"
+    />
+    <ProjectReference
+      Include="../../src/BazaarPlusPlus.Storage/BazaarPlusPlus.Storage.csproj"
+      SetTargetFramework="TargetFramework=net10.0"
+    />
+    <ProjectReference
+      Include="../../src/BazaarPlusPlus.ModApi/BazaarPlusPlus.ModApi.csproj"
+      SetTargetFramework="TargetFramework=net10.0"
+    />
+    <PackageReference Include="MessagePack" />
+    <PackageReference Include="Newtonsoft.Json" />
+  </ItemGroup>
+</Project>

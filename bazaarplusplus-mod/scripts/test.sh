@@ -29,11 +29,14 @@ cmd_test() {
 }
 
 # test-core [-p:Name=Value ...]: the suites that need no Managed/ snapshot, so they also run on
-# Linux. Today that is the Android host's boundary test, which needs the Interop Snapshot
-# (`just mod::fetch android online`) instead.
+# Linux: the Android host's boundary test, which needs the Interop Snapshot
+# (`just mod::fetch android online`) instead, and the Run Logging anchor on the net10.0 binding
+# the Android host ships.
 cmd_test_core() {
     collect_props "$@"
     dotnet test tests/BazaarPlusPlus.CoreTests.slnx "${TEST_PROPS[@]}" ${PROPS[@]+"${PROPS[@]}"}
+    dotnet run --project tests/RunLoggingPipeline.Net10.Tests/RunLoggingPipeline.Net10.Tests.csproj \
+        "${TEST_PROPS[@]}" ${PROPS[@]+"${PROPS[@]}"}
 }
 
 # test-corpus <replay-corpus-path> [report-path] [--benchmark]: opt-in Combat Impact acceptance.

@@ -20,13 +20,13 @@ internal sealed class RunPayloadComposer : IRunPayloadComposer
         RegexOptions.CultureInvariant
     );
     private readonly string _databasePath;
-    private readonly PvpBattleSqliteStore _battleCatalog;
+    private readonly PvpBattleCatalog _battleCatalog;
     private readonly CombatReplayPayloadStore _replayStore;
 
     internal RunPayloadComposer(string databasePath, string replayRoot)
     {
         _databasePath = databasePath;
-        _battleCatalog = new PvpBattleSqliteStore(databasePath);
+        _battleCatalog = new PvpBattleCatalog(databasePath);
         _replayStore = new CombatReplayPayloadStore(replayRoot);
     }
 
