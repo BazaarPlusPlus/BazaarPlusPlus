@@ -17,7 +17,7 @@ const moduleFiles = [
     .readFileSync(path.join(root, 'JUSTFILE'), 'utf8')
     .matchAll(/^mod \w+ '([^']+)'$/gm)
 ].map((match) => match[1]);
-const modScripts = ['build', 'test', 'game'];
+const modScripts = ['build', 'test', 'game', 'android'];
 const shellQuote = (value) => `'${value.replaceAll("'", "'\\''")}'`;
 const rootPrettier = (mode) => [
   'npm',
@@ -350,7 +350,9 @@ const managedPath =
 for (const [recipe, script, command] of [
   ['build', 'build', 'build'],
   ['test', 'test', 'test'],
-  ['fetch-data', 'build', 'fetch-data']
+  ['test-core', 'test', 'test-core'],
+  ['fetch-data', 'build', 'fetch-data'],
+  ['android-build', 'android', 'build']
 ]) {
   test(`mod::${recipe} preserves argument boundaries`, (t) => {
     const f = fixture(t);
@@ -417,6 +419,22 @@ test('mod snapshot recipes route to game.sh with validated platform and channel'
       'macos',
       'staging'
     )
+  ]);
+});
+
+test('mod Android device recipes route to android.sh with a validated mode', (t) => {
+  const f = fixture(t);
+  assert.notEqual(f.run(['mod::android-mode', 'on']).status, 0);
+  assert.deepEqual(f.calls(), []);
+  succeeded(f.run(['mod::android-deploy']));
+  succeeded(f.run(['mod::android-mode', 'observe']));
+  succeeded(f.run(['mod::android-launch']));
+  succeeded(f.run(['mod::android-capture', 'enabled-1']));
+  assert.deepEqual(f.calls(), [
+    call(f.dir, 'mod', 'mod-android', 'deploy'),
+    call(f.dir, 'mod', 'mod-android', 'mode', 'observe'),
+    call(f.dir, 'mod', 'mod-android', 'launch'),
+    call(f.dir, 'mod', 'mod-android', 'capture', 'enabled-1')
   ]);
 });
 

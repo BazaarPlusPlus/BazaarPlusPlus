@@ -88,12 +88,13 @@ steam_managed_path() {
 # lock_managed_path <platform> <channel> [--allow-unlocked]: the Managed dir that
 # satisfies the lock entry, printed on stdout: a verified game-libs/ snapshot, the
 # mounted Steam install when its game version and sha256 match, or a fetch from the
-# private store. The mounted install only counts for the host platform.
+# private store. The mounted install only counts for the host platform; android has
+# none, and its fetch also runs on Linux, where host_platform fails.
 lock_managed_path() {
     local platform="$1" channel="$2"
     shift 2
     local steam=()
-    if [[ "$platform" == "$(host_platform)" ]]; then
+    if [[ "$platform" != android && "$platform" == "$(host_platform)" ]]; then
         steam=(--steam-managed "$(steam_managed_path)")
     fi
     game_libs_cli fetch --platform "$platform" --channel "$channel" \

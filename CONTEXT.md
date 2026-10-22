@@ -25,6 +25,12 @@ Publishing one platform's Platform Release Manifest once its artifacts are in pl
 **Mainland Mirror**:
 A manually uploaded share page of one platform's installer for mainland-China networks. Its address is an explicit operator input, checked against the uploaded installer and recorded per platform before that platform's Release Promotion, then published in its Platform Release Manifest; consumers read it and never derive it. It is a manual download fallback, never a second release source or an updater endpoint.
 
+## Hosts
+
+**Host** (宿主):
+The loader and runtime one mod plugin assembly is built for. The Desktop Host is BepInEx on Mono (`BazaarPlusPlus`, `BepInEx/plugins/`); the Android Host is LemonLoader on CoreCLR over IL2CPP (`BazaarPlusPlus.Android`, `MelonLoader/Mods/`), compiled against an Interop Snapshot and a Loader Release. Each owns its loader entry, its implementations of the mod's host ports (settings, log exit, Data Root), its game adapters and its Harmony patches. A host is not a release platform: `macos` and `windows` share the Desktop Host.
+_Avoid_: loader, platform
+
 ## Game assemblies
 
 **Game Assembly Snapshot** (游戏程序集快照):
@@ -58,7 +64,7 @@ _Avoid_: release R2 keys, per-bucket key pair
 ## Local data
 
 **Data Root** (数据根目录):
-The folder in the game directory where the mod keeps its local database, screenshots, and replays. The current name is `BazaarPlusPlusV6`; the mod's `PathConstants.DataRootDirectoryName` and the installer's `BAZAAR_DATA_DIRECTORY` must agree. Unrelated to the analyzer's `BPP_DATA_ROOT`.
+The folder in the game directory where the mod keeps its local database, screenshots, and replays; on the Android Host, the sibling of the MelonLoader base directory under the game's external `files/`. The current name is `BazaarPlusPlusV6`; the mod's `PathConstants.DataRootDirectoryName` and the installer's `BAZAAR_DATA_DIRECTORY` must agree. Unrelated to the analyzer's `BPP_DATA_ROOT`.
 
 **Legacy Root** (旧数据根目录):
 A Data Root an earlier major version wrote (`BazaarPlusPlus/`, `BazaarPlusPlusV4/`, `BazaarPlusPlusV5/`), owned by the user. The mod never reads it; the installer measures it, imports V5 once, and deletes one only on the user's confirmation. The installer's own `BazaarPlusPlusV4` settings folder is not one.

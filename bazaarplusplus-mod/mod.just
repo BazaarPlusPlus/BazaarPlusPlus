@@ -18,6 +18,31 @@ build *args:
 test *args:
     bash scripts/test.sh test "$@"
 
+# Run the suites that need no Managed snapshot (Linux too; needs the android online fetch); [-p:Name=Value ...].
+test-core *args:
+    bash scripts/test.sh test-core "$@"
+
+# Compile the Android host against the fetched Interop Snapshot; [-p:Name=Value ...].
+android-build *args:
+    bash scripts/android.sh build "$@"
+
+# Push the built Android host into MelonLoader/Mods on $BPP_ANDROID_SERIAL (default emulator-5556).
+android-deploy:
+    bash scripts/android.sh deploy
+
+# Set the Android host's patch mode on the device; it applies on the next launch.
+[arg('mode', pattern='enabled|observe|disabled')]
+android-mode mode:
+    bash scripts/android.sh mode "$@"
+
+# Restart the game on the device with an empty logcat buffer.
+android-launch:
+    bash scripts/android.sh launch
+
+# Save logcat, a screenshot, and Latest.log under artifacts/android/<run>/.
+android-capture run:
+    bash scripts/android.sh capture "$@"
+
 # Run the opt-in Combat Impact acceptance: <absolute-corpus-path> [report-path] [--benchmark].
 test-corpus +args:
     bash scripts/test.sh test-corpus "$@"

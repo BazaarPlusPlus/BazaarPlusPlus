@@ -1,0 +1,5 @@
+<Solution>
+    <Folder Name="/tests/">
+        <Project Path="AndroidHost.Tests/AndroidHost.Tests.csproj" />
+    </Folder>
+</Solution>
