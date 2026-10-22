@@ -38,4 +38,29 @@ public sealed class UpdaterAssemblyBoundaryTests
                 + string.Join(", ", foreign)
         );
     }
+
+    // UpdaterRun.Version names the Updater to the loader and in its log; the csproj <Version>
+    // stamps the assembly. The built file must carry one value.
+    [Fact]
+    public void Desktop_updater_assembly_version_is_the_version_it_reports()
+    {
+        var path = CompiledArtifacts.Metadata("BppUpdaterAssembly");
+        Assert.True(File.Exists(path), $"The Updater was not built at '{path}'.");
+        using var pe = new PEReader(File.OpenRead(path));
+        var metadata = pe.GetMetadataReader();
+        var updaterRun = metadata
+            .TypeDefinitions.Select(metadata.GetTypeDefinition)
+            .Single(type =>
+                metadata.GetString(type.Namespace) == "BazaarPlusPlus.Updater"
+                && metadata.GetString(type.Name) == "UpdaterRun"
+            );
+        var field = updaterRun
+            .GetFields()
+            .Select(metadata.GetFieldDefinition)
+            .Single(definition => metadata.GetString(definition.Name) == "Version");
+        var blob = metadata.GetBlobReader(metadata.GetConstant(field.GetDefaultValue()).Value);
+        var reported = blob.ReadUTF16(blob.Length);
+
+        Assert.Equal(reported, metadata.GetAssemblyDefinition().Version.ToString(3));
+    }
 }

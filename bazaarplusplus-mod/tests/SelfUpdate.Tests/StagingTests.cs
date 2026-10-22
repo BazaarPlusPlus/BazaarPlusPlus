@@ -182,6 +182,20 @@ public sealed class StagingTests : IDisposable
     }
 
     [Fact]
+    public async Task A_body_without_a_length_is_read_no_further_than_the_published_size()
+    {
+        var zip = Zip(Version, TestSigner.Default, ("A.dll", "a-new"));
+        var body = new Tripwire(zip.Length * 1000L, tripAt: zip.Length + 81920L * 2);
+        var unsized = new HttpClient(new Handler(body));
+
+        Assert.Equal(
+            "size_mismatch",
+            (await Stager().StageAsync(unsized, Release(zip), default)).ReasonCode
+        );
+        Assert.Empty(Directory.GetFileSystemEntries(Updates));
+    }
+
+    [Fact]
     public async Task A_failed_download_leaves_nothing_staged()
     {
         var stager = Stager();
@@ -337,15 +351,65 @@ public sealed class StagingTests : IDisposable
 
     private string Read(string relative) => TestInputs.Scratch(InstallPath(relative));
 
+    // A body with no known length that fails the test once read past `tripAt` bytes.
+    private sealed class Tripwire : Stream
+    {
+        private readonly long _length;
+        private readonly long _tripAt;
+        private long _position;
+
+        public Tripwire(long length, long tripAt)
+        {
+            _length = length;
+            _tripAt = tripAt;
+        }
+
+        public override bool CanRead => true;
+        public override bool CanSeek => false;
+        public override bool CanWrite => false;
+        public override long Length => throw new NotSupportedException();
+        public override long Position
+        {
+            get => throw new NotSupportedException();
+            set => throw new NotSupportedException();
+        }
+
+        public override int Read(byte[] buffer, int offset, int count)
+        {
+            if (_position > _tripAt)
+                throw new InvalidOperationException($"Read {_position} bytes past the size.");
+            var read = (int)Math.Min(count, _length - _position);
+            Array.Clear(buffer, offset, read);
+            _position += read;
+            return read;
+        }
+
+        public override void Flush() { }
+
+        public override long Seek(long offset, SeekOrigin origin) =>
+            throw new NotSupportedException();
+
+        public override void SetLength(long value) => throw new NotSupportedException();
+
+        public override void Write(byte[] buffer, int offset, int count) =>
+            throw new NotSupportedException();
+    }
+
     private sealed class Handler : HttpMessageHandler
     {
-        private readonly byte[] _body;
+        private readonly Func<HttpContent> _body;
         private readonly HttpStatusCode _status;
 
         public Handler(byte[] body, HttpStatusCode status = HttpStatusCode.OK)
         {
-            _body = body;
+            _body = () => new ByteArrayContent(body);
             _status = status;
+        }
+
+        public Handler(Stream body)
+        {
+            _body = () => new StreamContent(body);
+            _status = HttpStatusCode.OK;
         }
 
         public int Requests { get; private set; }
@@ -356,9 +420,7 @@ public sealed class StagingTests : IDisposable
         )
         {
             Requests++;
-            return Task.FromResult(
-                new HttpResponseMessage(_status) { Content = new ByteArrayContent(_body) }
-            );
+            return Task.FromResult(new HttpResponseMessage(_status) { Content = _body() });
         }
     }
 }

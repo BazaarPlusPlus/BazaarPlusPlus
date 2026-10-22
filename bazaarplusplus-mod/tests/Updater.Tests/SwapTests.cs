@@ -165,6 +165,24 @@ public sealed class SwapTests : IDisposable
     }
 
     [Fact]
+    public void Rejects_any_payload_over_an_installed_manifest_that_does_not_parse()
+    {
+        WriteInstall(ManagedPayloadHost.BepInEx.InstalledManifestPath, "not a manifest\n");
+        WriteInstall(Plugins + "BazaarPlusPlus.version", "6.0.0\n");
+        WriteInstall(Plugins + "A.dll", "a-old");
+        Stage("6.0.1", ("A.dll", "a-new"));
+
+        Assert.Equal(SwapOutcome.Rejected, Run());
+
+        Assert.Equal("a-old", ReadInstall(Plugins + "A.dll"));
+        Assert.Contains(
+            _log,
+            line =>
+                line.Contains("reason_code=installed_manifest_invalid", StringComparison.Ordinal)
+        );
+    }
+
+    [Fact]
     public void A_failed_step_rolls_every_file_back()
     {
         Install("6.0.0", ("A.dll", "a-old"), ("B.dll", "b-old"));

@@ -29,8 +29,6 @@ public static class MainMenuVersionUpdateState
         }
     }
 
-    public static void Reset() => SetStatus(MainMenuUpdateStatus.None);
-
     public static void SetStatus(MainMenuUpdateStatus status)
     {
         lock (SyncRoot)

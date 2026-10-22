@@ -105,8 +105,9 @@ internal sealed class ManagedPayloadSwap
     }
 
     // Core's staging already refused these (SelfUpdatePolicy); the Updater holds the line again
-    // for anything staged by other means. A copy without an installed manifest (a development
-    // build) has nothing to compare.
+    // for anything staged by other means. A copy with no installed manifest file (a development
+    // build) has nothing to compare; one whose manifest file is unreadable cannot be checked, so
+    // nothing is applied over it.
     private static bool Compatible(
         ManagedPayloadManifest manifest,
         string directoryVersion,
@@ -116,6 +117,7 @@ internal sealed class ManagedPayloadSwap
     {
         failure =
             manifest.Version != directoryVersion ? "version_mismatch"
+            : installed.ManifestUnreadable ? "installed_manifest_invalid"
             : installed.Manifest == null ? string.Empty
             : manifest.HistoryDatabaseUserVersion != installed.Manifest.HistoryDatabaseUserVersion
                 ? "history_database_mismatch"
@@ -282,17 +284,19 @@ internal sealed class ManagedPayloadSwap
     private Installed ReadInstalled()
     {
         var manifestPath = Target(_host.InstalledManifestPath);
+        var manifestUnreadable = false;
         if (File.Exists(manifestPath))
         {
             try
             {
                 var manifest = ManagedPayloadManifest.Parse(File.ReadAllBytes(manifestPath));
                 ManagedPayloadVersion.TryParse(manifest.Version, out var version);
-                return new Installed(version, manifest.Version, manifest);
+                return new Installed(version, manifest.Version, manifest, false);
             }
             catch (FormatException)
             {
                 _log.Warn("updater.installed_manifest.invalid", ("path", manifestPath));
+                manifestUnreadable = true;
             }
         }
 
@@ -301,9 +305,9 @@ internal sealed class ManagedPayloadSwap
         {
             var text = File.ReadAllText(versionPath).Trim();
             if (ManagedPayloadVersion.TryParse(text, out var version))
-                return new Installed(version, text, null);
+                return new Installed(version, text, null, manifestUnreadable);
         }
-        return new Installed(new Version(0, 0, 0), "none", null);
+        return new Installed(new Version(0, 0, 0), "none", null, manifestUnreadable);
     }
 
     private void DeleteDirectory(string directory)
@@ -321,16 +325,25 @@ internal sealed class ManagedPayloadSwap
 
     private sealed class Installed
     {
-        public Installed(Version version, string label, ManagedPayloadManifest? manifest)
+        public Installed(
+            Version version,
+            string label,
+            ManagedPayloadManifest? manifest,
+            bool manifestUnreadable
+        )
         {
             Version = version;
             Label = label;
             Manifest = manifest;
+            ManifestUnreadable = manifestUnreadable;
         }
 
         public Version Version { get; }
         public string Label { get; }
         public ManagedPayloadManifest? Manifest { get; }
+
+        /// <summary>A manifest file exists but does not parse.</summary>
+        public bool ManifestUnreadable { get; }
     }
 
     /// <summary>Write-ahead journal: each step is on disk before it happens.</summary>

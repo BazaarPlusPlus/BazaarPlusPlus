@@ -103,10 +103,13 @@ public sealed class ManagedPayloadStager
         if (IsStaged(release.Version))
             return ManagedPayloadStageResult.Staged;
 
+        if (release.Size <= 0 || release.Size > int.MaxValue)
+            return ManagedPayloadStageResult.Failed("size_mismatch");
+
         Directory.CreateDirectory(_updatesDirectory);
         RemoveAbandonedDownloads();
 
-        byte[] zip;
+        byte[]? zip;
         using (
             var response = await httpClient
                 .GetAsync(release.Url, HttpCompletionOption.ResponseHeadersRead, cancellationToken)
@@ -117,11 +120,12 @@ public sealed class ManagedPayloadStager
                 return ManagedPayloadStageResult.Failed("http_failure_status");
             if (response.Content.Headers.ContentLength is long length && length != release.Size)
                 return ManagedPayloadStageResult.Failed("size_mismatch");
-            zip = await response.Content.ReadAsByteArrayAsync().ConfigureAwait(false);
+            zip = await ReadAtMostAsync(response.Content, release.Size, cancellationToken)
+                .ConfigureAwait(false);
         }
         cancellationToken.ThrowIfCancellationRequested();
 
-        if (zip.LongLength != release.Size)
+        if (zip == null || zip.LongLength != release.Size)
             return ManagedPayloadStageResult.Failed("size_mismatch");
         if (!string.Equals(Sha256Hex(zip), release.Sha256, StringComparison.Ordinal))
             return ManagedPayloadStageResult.Failed("sha256_mismatch");
@@ -219,6 +223,33 @@ public sealed class ManagedPayloadStager
             catch (IOException) { }
             catch (UnauthorizedAccessException) { }
         }
+    }
+
+    // The body in game memory never exceeds the published size, whether or not the server sends
+    // a Content-Length; null when it would.
+    private static async Task<byte[]?> ReadAtMostAsync(
+        HttpContent content,
+        long limit,
+        CancellationToken cancellationToken
+    )
+    {
+        using var stream = await content.ReadAsStreamAsync().ConfigureAwait(false);
+        using var buffer = new MemoryStream();
+        var chunk = new byte[81920];
+        int read;
+        while (
+            (
+                read = await stream
+                    .ReadAsync(chunk, 0, chunk.Length, cancellationToken)
+                    .ConfigureAwait(false)
+            ) > 0
+        )
+        {
+            if (buffer.Length + read > limit)
+                return null;
+            buffer.Write(chunk, 0, read);
+        }
+        return buffer.ToArray();
     }
 
     private static byte[] ReadEntry(ZipArchiveEntry entry)

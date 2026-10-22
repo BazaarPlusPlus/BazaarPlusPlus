@@ -33,9 +33,10 @@ internal sealed class MinisignPublicKey
 
 /// <summary>
 /// Verifies minisign signatures as the Tauri updater signer writes them: the signature box
-/// itself or, as Tauri stores it, the box base64 encoded once more. Both the signature over the
-/// data ("ED" prehashes it with BLAKE2b-512, legacy "Ed" signs it raw) and the global signature
-/// over the trusted comment must verify under the expected key id.
+/// itself or, as Tauri stores it, the box base64 encoded once more. Only the prehashed "ED"
+/// algorithm the Tauri signer writes is accepted: the signature over the data's BLAKE2b-512
+/// digest and the global signature over the trusted comment must both verify under the expected
+/// key id.
 /// </summary>
 internal static class Minisign
 {
@@ -51,12 +52,7 @@ internal static class Minisign
     {
         if (data == null)
             throw new ArgumentNullException(nameof(data));
-        return Verify(
-            publicKey,
-            signature,
-            prehashed => prehashed ? Blake2b.Hash512(data) : data,
-            out failure
-        );
+        return VerifyPrehashed(publicKey, Blake2b.Hash512(data), signature, out failure);
     }
 
     /// <summary>
@@ -71,21 +67,6 @@ internal static class Minisign
     {
         if (blake2b512 == null || blake2b512.Length != 64)
             throw new ArgumentException("A BLAKE2b-512 digest is 64 bytes.", nameof(blake2b512));
-        return Verify(
-            publicKey,
-            signature,
-            prehashed => prehashed ? blake2b512 : null,
-            out failure
-        );
-    }
-
-    private static bool Verify(
-        MinisignPublicKey publicKey,
-        string signature,
-        Func<bool, byte[]?> message,
-        out string failure
-    )
-    {
         if (publicKey == null)
             throw new ArgumentNullException(nameof(publicKey));
 
@@ -113,9 +94,7 @@ internal static class Minisign
             return false;
         }
 
-        var prehashed = signatureBytes[0] == (byte)'E' && signatureBytes[1] == (byte)'D';
-        var legacy = signatureBytes[0] == (byte)'E' && signatureBytes[1] == (byte)'d';
-        if (!prehashed && !legacy)
+        if (signatureBytes[0] != (byte)'E' || signatureBytes[1] != (byte)'D')
         {
             failure = "signature_algorithm_unsupported";
             return false;
@@ -131,13 +110,7 @@ internal static class Minisign
 
         var edSignature = new byte[64];
         Array.Copy(signatureBytes, 10, edSignature, 0, 64);
-        var signed = message(prehashed);
-        if (signed == null)
-        {
-            failure = "signature_algorithm_unsupported";
-            return false;
-        }
-        if (!Ed25519.Verify(publicKey.Key, signed, edSignature))
+        if (!Ed25519.Verify(publicKey.Key, blake2b512, edSignature))
         {
             failure = "signature_invalid";
             return false;

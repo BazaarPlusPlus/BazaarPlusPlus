@@ -133,6 +133,32 @@ public sealed class CryptoTests
         Assert.Equal("signature_key_id_mismatch", failure);
     }
 
+    // The Tauri signer writes only prehashed "ED" signatures; minisign's raw "Ed" form is refused
+    // even when it would verify.
+    [Fact]
+    public void A_signature_that_is_not_prehashed_is_refused()
+    {
+        var data = Encoding.ASCII.GetBytes("hello bpp\n");
+        var signer = TestSigner.Default;
+        var raw = signer.Sign(data);
+        var box =
+            "untrusted comment: raw signature\n"
+            + Convert.ToBase64String(
+                new byte[] { (byte)'E', (byte)'d' }
+                    .Concat(signer.KeyId)
+                    .Concat(raw)
+                    .ToArray()
+            )
+            + "\ntrusted comment: timestamp:0\n"
+            + Convert.ToBase64String(
+                signer.Sign(raw.Concat(Encoding.UTF8.GetBytes("timestamp:0")).ToArray())
+            )
+            + "\n";
+
+        Assert.False(Minisign.Verify(signer.MinisignKey, data, box, out var failure));
+        Assert.Equal("signature_algorithm_unsupported", failure);
+    }
+
     // The published 5.7.0 Windows updater signature (bppinstaller.bazaarplusplus.com/latest.json)
     // over BazaarPlusPlus_5.7.0_x64-setup.exe, whose BLAKE2b-512 Python's hashlib computed from the
     // published file (8872188 bytes, sha256 91c2386a…f25c).

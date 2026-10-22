@@ -14,7 +14,10 @@ internal static class UpdaterRun
     /// <summary>PathConstants.DataRootDirectoryName, which the Updater may not reference.</summary>
     public const string DataRootDirectoryName = "BazaarPlusPlusV6";
 
-    /// <summary>The Updater's own version; it ships only with the installer or the APK.</summary>
+    /// <summary>
+    /// The Updater's own version; it ships only with the installer or the APK. MelonInfo needs a
+    /// constant, so this repeats the csproj Version; a test pins the built assembly to it.
+    /// </summary>
     public const string Version = "1.0.0";
 
     // ReleaseManifestEndpoints' platform keys, which the Updater may not reference; a test pins
