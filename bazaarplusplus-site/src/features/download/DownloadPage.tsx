@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 
-import type { ResolvedSpaLocation } from '../../app/router';
+import type { Locale, ResolvedSpaLocation } from '../../app/router';
 import { getSiteCopy, type DownloadPageCopy } from '../../content/site-copy';
 import Button from '../../shared/components/Button';
 import { AlertIcon, DownloadIcon, ExternalLinkIcon } from '../../shared/components/icons';
@@ -8,11 +8,15 @@ import InfoPageShell from '../../shared/components/InfoPageShell';
 import { SectionHeading } from '../../shared/components/PageLayout';
 import {
   GITHUB_RELEASE_URL,
+  gameReleaseNumber,
+  loadAndroidRelease,
   loadLatestInstaller,
+  type AndroidDownload,
   type DownloadPlatform,
   type LatestInstaller,
 } from './installer';
-import { macIconDataUri, windowsIconDataUri } from './platform-icons';
+import { formatFileSize } from './file-size';
+import { androidIconDataUri, macIconDataUri, windowsIconDataUri } from './platform-icons';
 
 const DOWNLOAD_PLATFORMS: DownloadPlatform[] = ['windows', 'mac'];
 const PLATFORM_ICONS: Record<DownloadPlatform, string> = {
@@ -21,6 +25,20 @@ const PLATFORM_ICONS: Record<DownloadPlatform, string> = {
 };
 
 type DownloadStatus = 'loading' | 'error' | 'ready';
+
+function PlatformHeader({ icon, title, arch }: { icon: string; title: string; arch: string }) {
+  return (
+    <div className="flex items-center gap-4">
+      <span className="flex size-12 shrink-0 items-center justify-center rounded-panel border border-line bg-canvas">
+        <img src={icon} alt="" aria-hidden="true" className="size-7" />
+      </span>
+      <div className="min-w-0">
+        <SectionHeading>{title}</SectionHeading>
+        <p className="mt-1 text-[13px] text-text-3">{arch}</p>
+      </div>
+    </div>
+  );
+}
 
 function DownloadCard({
   platform,
@@ -40,15 +58,11 @@ function DownloadCard({
 
   return (
     <article className="panel flex flex-col gap-6 p-6">
-      <div className="flex items-center gap-4">
-        <span className="flex size-12 shrink-0 items-center justify-center rounded-panel border border-line bg-canvas">
-          <img src={PLATFORM_ICONS[platform]} alt="" aria-hidden="true" className="size-7" />
-        </span>
-        <div className="min-w-0">
-          <SectionHeading>{platformCopy.title}</SectionHeading>
-          <p className="mt-1 text-[13px] text-text-3">{platformCopy.arch}</p>
-        </div>
-      </div>
+      <PlatformHeader
+        icon={PLATFORM_ICONS[platform]}
+        title={platformCopy.title}
+        arch={platformCopy.arch}
+      />
 
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <span className="text-[13px] text-text-3">{copy.versionLabel}</span>
@@ -87,6 +101,78 @@ function DownloadCard({
   );
 }
 
+/** The Android Release APK and the steps to install it; rendered only once its manifest loads. */
+function AndroidCard({
+  copy,
+  locale,
+  release,
+}: {
+  copy: DownloadPageCopy;
+  locale: Locale;
+  release: AndroidDownload;
+}) {
+  const androidCopy = copy.android;
+  const apkName = androidCopy.apkName.replace(
+    '{gameVersion}',
+    gameReleaseNumber(release.game.gameVersion)
+  );
+
+  return (
+    <article className="panel grid gap-6 p-6 md:grid-cols-2 md:gap-8">
+      <div className="flex min-w-0 flex-col gap-6">
+        <PlatformHeader
+          icon={androidIconDataUri}
+          title={androidCopy.title}
+          arch={androidCopy.arch}
+        />
+
+        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          <span className="text-[13px] text-text-3">{copy.versionLabel}</span>
+          <span className="text-lg font-semibold text-accent tabular-nums">v{release.version}</span>
+        </div>
+
+        <div className="flex min-w-0 flex-col gap-1.5">
+          <p className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <span className="text-sm font-semibold text-text-1">{apkName}</span>
+            <span className="text-[13px] text-text-3 tabular-nums">
+              {formatFileSize(release.apk.size, locale)}
+            </span>
+          </p>
+          <p className="text-[12px] text-text-3">
+            {androidCopy.sha256Label}{' '}
+            <code className="font-(family-name:--font-mono) break-all text-text-2">
+              {release.apk.sha256}
+            </code>
+          </p>
+        </div>
+
+        <div className="mt-auto flex flex-wrap gap-2">
+          <Button variant="primary" href={release.apk.url} icon={<DownloadIcon />}>
+            {androidCopy.actionLabel}
+          </Button>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-3 border-t border-line pt-6 md:border-t-0 md:border-l md:pt-0 md:pl-8">
+        <h3 className="text-[15px] font-semibold text-text-1">{androidCopy.stepsTitle}</h3>
+        <ol className="flex flex-col gap-2.5 text-sm text-text-2">
+          {androidCopy.steps.map((step, index) => (
+            <li key={index} className="flex items-start gap-3">
+              <span
+                aria-hidden="true"
+                className="flex size-5 shrink-0 items-center justify-center rounded-full bg-hover text-[12px] font-semibold text-text-1 tabular-nums"
+              >
+                {index + 1}
+              </span>
+              <span>{step}</span>
+            </li>
+          ))}
+        </ol>
+      </div>
+    </article>
+  );
+}
+
 function FailureFallback({ copy }: { copy: DownloadPageCopy }) {
   return (
     <p className="flex items-start gap-2.5 rounded-panel border border-warning/30 bg-warning-subtle px-3 py-2.5 text-[13px] text-text-1">
@@ -116,6 +202,12 @@ export default function DownloadPage({ location }: { location: ResolvedSpaLocati
     queryFn: ({ signal }) => loadLatestInstaller(signal),
   });
   const status: DownloadStatus = isLoading ? 'loading' : isError ? 'error' : 'ready';
+  // Android is optional: until its manifest loads, and whenever it is missing or invalid, the
+  // page shows only the desktop downloads.
+  const { data: android } = useQuery({
+    queryKey: ['android-release'],
+    queryFn: ({ signal }) => loadAndroidRelease(signal),
+  });
 
   return (
     <InfoPageShell location={location} title={copy.title}>
@@ -132,10 +224,13 @@ export default function DownloadPage({ location }: { location: ResolvedSpaLocati
             />
           ))}
         </div>
+        {android ? <AndroidCard copy={copy} locale={locale} release={android} /> : null}
       </section>
 
       <section className="panel flex flex-col gap-3 p-6">
-        <h2 className="text-[15px] font-semibold text-text-1">{copy.noteTitle}</h2>
+        <h2 className="text-[15px] font-semibold text-text-1">
+          {android ? copy.desktopNoteTitle : copy.noteTitle}
+        </h2>
         <ul className="flex flex-col gap-2 text-sm text-text-2">
           {copy.noteParagraphs.map((paragraph, index) => (
             <li key={index} className="flex items-start gap-3">

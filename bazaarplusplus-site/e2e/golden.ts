@@ -13,6 +13,7 @@ export const SUPPORTERS_URL =
   'https://cdn.bazaarplusplus.com/mod-data/supporters/supporter-list.json';
 export const WINDOWS_MANIFEST_URL = `${RELEASE_BASE_URL}/${platformManifestPath('windows-x86_64')}`;
 export const MAC_MANIFEST_URL = `${RELEASE_BASE_URL}/${platformManifestPath('darwin-aarch64')}`;
+export const ANDROID_MANIFEST_URL = `${RELEASE_BASE_URL}/${platformManifestPath('android-aarch64')}`;
 
 export function readJson(path: string): unknown {
   return JSON.parse(readFileSync(resolve(siteRoot, path), 'utf8'));
@@ -54,6 +55,7 @@ export type GoldenSources = {
   supporters: SourceReply;
   windows: SourceReply;
   mac: SourceReply;
+  android: SourceReply;
 };
 
 export function goldenSources(overrides: Partial<GoldenSources> = {}): GoldenSources {
@@ -63,6 +65,7 @@ export function goldenSources(overrides: Partial<GoldenSources> = {}): GoldenSou
     // The workspace release fixtures are read in place, never copied.
     windows: { json: readJson('../release/fixtures/latest/windows-x86_64.json') },
     mac: { json: readJson('../release/fixtures/latest/darwin-aarch64.json') },
+    android: { json: readJson('../release/fixtures/latest/android-aarch64.json') },
     ...overrides,
   };
 }
@@ -88,7 +91,7 @@ export type GoldenRoutes = {
 };
 
 /**
- * Serves the three external sources from fixtures and aborts every other non-localhost request,
+ * Serves the external sources from fixtures and aborts every other non-localhost request,
  * so a source nobody intercepted fails the spec instead of reaching production.
  */
 export async function installGoldenRoutes(
@@ -97,13 +100,14 @@ export async function installGoldenRoutes(
 ): Promise<GoldenRoutes> {
   const state: GoldenRoutes = {
     unexpected: [],
-    hits: { metrics: 0, supporters: 0, windows: 0, mac: 0 },
+    hits: { metrics: 0, supporters: 0, windows: 0, mac: 0, android: 0 },
   };
   const byUrl: Record<string, keyof GoldenSources> = {
     [METRICS_URL]: 'metrics',
     [SUPPORTERS_URL]: 'supporters',
     [WINDOWS_MANIFEST_URL]: 'windows',
     [MAC_MANIFEST_URL]: 'mac',
+    [ANDROID_MANIFEST_URL]: 'android',
   };
 
   await page.route('**/*', async (route) => {

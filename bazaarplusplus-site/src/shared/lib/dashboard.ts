@@ -1,15 +1,12 @@
 import type { Locale } from '../../app/router';
 import type { MetricWindow } from '../../features/heroes/hero-analysis';
+import { getIntlLocale } from './intl-locale';
 
 export const WINDOW_LABELS: Record<MetricWindow, string> = {
   '1d': '1D',
   '3d': '3D',
   '7d': '7D',
 };
-
-function getIntlLocale(locale: Locale): string {
-  return locale === 'zh' ? 'zh-CN' : 'en-US';
-}
 
 export function formatPercent(value: number): string {
   return `${(value * 100).toFixed(1)}%`;

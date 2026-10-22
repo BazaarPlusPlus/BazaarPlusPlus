@@ -28,6 +28,22 @@
         }
       }
     },
+    "android": {
+      "version": "v3.1.2",
+      "apk": "The Bazaar 1.0.12825 + BazaarPlusPlus",
+      "size": "33 byte",
+      "sha256": "984288b806422b6f3f5882e4f69083148e63da7651384cd0691521aa493e7fb0",
+      "download": {
+        "href": "https://cdn.bazaarplusplus.com/installer/android/apk/BazaarPlusPlus_1.0.12825_lemon-v0.7.4-android.4_66666666.apk",
+        "disabled": false
+      },
+      "stepsTitle": "Before you install",
+      "steps": [
+        "Uninstall the official The Bazaar first: Android will not install over an app signed by someone else. Your account and progress stay on the server; you only need to sign in again.",
+        "Open the downloaded APK to install it, and let your browser or file manager install apps when Android asks.",
+        "When the game updates, download the new APK here and install it over this one; no uninstall needed."
+      ]
+    },
     "fallback": null
   },
   "mac manifest responds 503": {
@@ -58,6 +74,22 @@
           "target": "_blank"
         }
       }
+    },
+    "android": {
+      "version": "v3.1.2",
+      "apk": "The Bazaar 1.0.12825 + BazaarPlusPlus",
+      "size": "33 byte",
+      "sha256": "984288b806422b6f3f5882e4f69083148e63da7651384cd0691521aa493e7fb0",
+      "download": {
+        "href": "https://cdn.bazaarplusplus.com/installer/android/apk/BazaarPlusPlus_1.0.12825_lemon-v0.7.4-android.4_66666666.apk",
+        "disabled": false
+      },
+      "stepsTitle": "Before you install",
+      "steps": [
+        "Uninstall the official The Bazaar first: Android will not install over an app signed by someone else. Your account and progress stay on the server; you only need to sign in again.",
+        "Open the downloaded APK to install it, and let your browser or file manager install apps when Android asks.",
+        "When the game updates, download the new APK here and install it over this one; no uninstall needed."
+      ]
     },
     "fallback": null
   },
@@ -90,6 +122,22 @@
         }
       }
     },
+    "android": {
+      "version": "v3.1.2",
+      "apk": "The Bazaar 1.0.12825 + BazaarPlusPlus",
+      "size": "33 byte",
+      "sha256": "984288b806422b6f3f5882e4f69083148e63da7651384cd0691521aa493e7fb0",
+      "download": {
+        "href": "https://cdn.bazaarplusplus.com/installer/android/apk/BazaarPlusPlus_1.0.12825_lemon-v0.7.4-android.4_66666666.apk",
+        "disabled": false
+      },
+      "stepsTitle": "Before you install",
+      "steps": [
+        "Uninstall the official The Bazaar first: Android will not install over an app signed by someone else. Your account and progress stay on the server; you only need to sign in again.",
+        "Open the downloaded APK to install it, and let your browser or file manager install apps when Android asks.",
+        "When the game updates, download the new APK here and install it over this one; no uninstall needed."
+      ]
+    },
     "fallback": null
   },
   "both manifests fail": {
@@ -121,9 +169,136 @@
         }
       }
     },
+    "android": {
+      "version": "v3.1.2",
+      "apk": "The Bazaar 1.0.12825 + BazaarPlusPlus",
+      "size": "33 byte",
+      "sha256": "984288b806422b6f3f5882e4f69083148e63da7651384cd0691521aa493e7fb0",
+      "download": {
+        "href": "https://cdn.bazaarplusplus.com/installer/android/apk/BazaarPlusPlus_1.0.12825_lemon-v0.7.4-android.4_66666666.apk",
+        "disabled": false
+      },
+      "stepsTitle": "Before you install",
+      "steps": [
+        "Uninstall the official The Bazaar first: Android will not install over an app signed by someone else. Your account and progress stay on the server; you only need to sign in again.",
+        "Open the downloaded APK to install it, and let your browser or file manager install apps when Android asks.",
+        "When the game updates, download the new APK here and install it over this one; no uninstall needed."
+      ]
+    },
     "fallback": {
       "text": "Cannot reach the latest version right now · Try GitHub Release",
       "href": "https://github.com/BazaarPlusPlus/BazaarPlusPlus/releases/latest"
     }
+  },
+  "android manifest responds 404": {
+    "cards": {
+      "Windows": {
+        "version": "v3.1.2",
+        "primary": {
+          "href": "https://cdn.bazaarplusplus.com/installer/3.1.2/windows-x86_64/installer/BazaarPlusPlus_3.1.2_x64-setup.exe",
+          "disabled": false,
+          "target": null
+        },
+        "mirror": {
+          "href": "https://cauyxy.lanzout.com/bppwin312",
+          "disabled": false,
+          "target": "_blank"
+        }
+      },
+      "macOS": {
+        "version": "v3.1.1",
+        "primary": {
+          "href": "https://cdn.bazaarplusplus.com/installer/3.1.1/darwin-aarch64/installer/BazaarPlusPlus_3.1.1_aarch64.dmg",
+          "disabled": false,
+          "target": null
+        },
+        "mirror": {
+          "href": "https://cauyxy.lanzout.com/bppmac311",
+          "disabled": false,
+          "target": "_blank"
+        }
+      }
+    },
+    "android": null,
+    "fallback": null
+  },
+  "android apk is outside the release origin": {
+    "cards": {
+      "Windows": {
+        "version": "v3.1.2",
+        "primary": {
+          "href": "https://cdn.bazaarplusplus.com/installer/3.1.2/windows-x86_64/installer/BazaarPlusPlus_3.1.2_x64-setup.exe",
+          "disabled": false,
+          "target": null
+        },
+        "mirror": {
+          "href": "https://cauyxy.lanzout.com/bppwin312",
+          "disabled": false,
+          "target": "_blank"
+        }
+      },
+      "macOS": {
+        "version": "v3.1.1",
+        "primary": {
+          "href": "https://cdn.bazaarplusplus.com/installer/3.1.1/darwin-aarch64/installer/BazaarPlusPlus_3.1.1_aarch64.dmg",
+          "disabled": false,
+          "target": null
+        },
+        "mirror": {
+          "href": "https://cauyxy.lanzout.com/bppmac311",
+          "disabled": false,
+          "target": "_blank"
+        }
+      }
+    },
+    "android": null,
+    "fallback": null
+  },
+  "android apk has a real size": {
+    "cards": {
+      "Windows": {
+        "version": "v3.1.2",
+        "primary": {
+          "href": "https://cdn.bazaarplusplus.com/installer/3.1.2/windows-x86_64/installer/BazaarPlusPlus_3.1.2_x64-setup.exe",
+          "disabled": false,
+          "target": null
+        },
+        "mirror": {
+          "href": "https://cauyxy.lanzout.com/bppwin312",
+          "disabled": false,
+          "target": "_blank"
+        }
+      },
+      "macOS": {
+        "version": "v3.1.1",
+        "primary": {
+          "href": "https://cdn.bazaarplusplus.com/installer/3.1.1/darwin-aarch64/installer/BazaarPlusPlus_3.1.1_aarch64.dmg",
+          "disabled": false,
+          "target": null
+        },
+        "mirror": {
+          "href": "https://cauyxy.lanzout.com/bppmac311",
+          "disabled": false,
+          "target": "_blank"
+        }
+      }
+    },
+    "android": {
+      "version": "v3.1.2",
+      "apk": "The Bazaar 1.0.12825 + BazaarPlusPlus",
+      "size": "2.8 GB",
+      "sha256": "984288b806422b6f3f5882e4f69083148e63da7651384cd0691521aa493e7fb0",
+      "download": {
+        "href": "https://cdn.bazaarplusplus.com/installer/android/apk/BazaarPlusPlus_1.0.12825_lemon-v0.7.4-android.4_66666666.apk",
+        "disabled": false
+      },
+      "stepsTitle": "Before you install",
+      "steps": [
+        "Uninstall the official The Bazaar first: Android will not install over an app signed by someone else. Your account and progress stay on the server; you only need to sign in again.",
+        "Open the downloaded APK to install it, and let your browser or file manager install apps when Android asks.",
+        "When the game updates, download the new APK here and install it over this one; no uninstall needed."
+      ]
+    },
+    "fallback": null
   }
 }
