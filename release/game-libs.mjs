@@ -498,9 +498,15 @@ export function captureSnapshot({
   return { key, directory, manifest };
 }
 
+// COPYFILE_DISABLE keeps macOS tar from adding an AppleDouble `._<name>` entry
+// per file that carries extended attributes.
 function tar(args, cwd) {
   try {
-    execFileSync('tar', args, { cwd, stdio: ['ignore', 'ignore', 'pipe'] });
+    execFileSync('tar', args, {
+      cwd,
+      env: { ...process.env, COPYFILE_DISABLE: '1' },
+      stdio: ['ignore', 'ignore', 'pipe']
+    });
   } catch (error) {
     throw new Error(
       `tar ${args[0]} failed: ${String(error.stderr ?? error.message).trim()}`
@@ -1422,7 +1428,10 @@ export async function fetchInteropSnapshot({
         throw new Error(
           `The private store has no ${blobKey}; run 'just mod::publish android online' on the machine that captured it`
         );
-      tar(['-xzf', path.basename(archive)], staging);
+      // The stored android-online archive was published from macOS with AppleDouble
+      // entries. macOS tar folds them into extended attributes, but GNU tar writes them
+      // out as files, and those files would change the directory digest.
+      tar(['-xzf', path.basename(archive), '--exclude=._*'], staging);
       fs.rmSync(archive);
       const interop = path.join(staging, 'interop');
       const digest = fs.existsSync(interop)

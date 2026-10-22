@@ -554,6 +554,59 @@ test('publish stores every pinned input by content; fetch restores interop and l
   ).rejects.toThrow(/hashes to .*, not the .* the lock records/);
 });
 
+// macOS tar adds an AppleDouble `._<name>` entry per file with extended
+// attributes and folds those entries back into attributes on extraction. GNU
+// tar, which the Linux runners use, writes them out as files instead.
+const gnuTar = /GNU tar/.test(
+  execFileSync('tar', ['--version'], { encoding: 'utf8' })
+);
+
+test.runIf(gnuTar)(
+  'fetch leaves AppleDouble entries of a macOS-published archive out of the interop directory',
+  async () => {
+    const ws = workspace();
+    const root = tempRoot('bpp-interop-in-');
+    await firstCapture(ws, root);
+    const entry = ws.entry();
+    const store = memoryStore();
+    await publishInteropSnapshot({
+      workspaceRoot: ws.workspaceRoot,
+      modRoot: ws.modRoot,
+      store
+    });
+    const source = path.join(
+      ws.modRoot,
+      'game-libs',
+      `android-online-${ANDROID_VERSION}`
+    );
+    write(
+      path.join(source, 'interop', '._Assembly-CSharp.dll'),
+      Buffer.from('AppleDouble metadata')
+    );
+    execFileSync('tar', ['-czf', 'interop.tar.gz', 'interop'], {
+      cwd: source
+    });
+    store.objects.set(
+      interopBlobKey(entry.interopSha256),
+      fs.readFileSync(path.join(source, 'interop.tar.gz'))
+    );
+    fs.rmSync(path.join(ws.modRoot, 'game-libs'), { recursive: true });
+
+    const fetched = await fetchInteropSnapshot({
+      workspaceRoot: ws.workspaceRoot,
+      modRoot: ws.modRoot,
+      storeFactory: () => store
+    });
+    expect(fetched.source).toBe('store');
+    expect(fs.readdirSync(fetched.interopPath)).not.toContain(
+      '._Assembly-CSharp.dll'
+    );
+    expect(interopDirectoryDigest(fetched.interopPath)).toBe(
+      entry.interopSha256
+    );
+  }
+);
+
 test('a recapture reuses the pinned toolchain from the store and generates interop with it', async () => {
   const ws = workspace();
   const root = tempRoot('bpp-interop-in-');
