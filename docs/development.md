@@ -85,6 +85,20 @@ master push 用同一套分类规则，因此 Installer 原生或其共享输入
 
 组织策略禁止 Actions 审批时，符合条件的 PR 仍可登记 auto-merge，但保留人工 Approve；组织管理员放开该权限后才可自动审批。两种情况均不取消审批或 CI 要求。
 
+## Android 冒烟
+
+`.github/workflows/mod-android-smoke.yml` 在自托管的 Apple Silicon runner `macmini-bazaarplusplus` 上启动一台预先准备好的 AVD，跑 `just mod::android-smoke <mode>`，每晚一次（schedule 只在默认分支触发），也可以手动触发；分支上的改动用 `gh workflow run mod-android-smoke.yml --ref <分支> -f mode=<mode>` 验证。托管 runner 跑不了：macOS arm64 托管 runner 没有嵌套虚拟化，x86 runner 跑不了只有 arm64 的游戏。仓库是公开的，这个 lane 永远不接 `pull_request`。
+
+断言分三级，前一级不能代替后一级：注入成功（`android.plugin.loaded` 的 sha256 等于这次构建的宿主 DLL）、hook 命中（`VersionLabelPatch` 已安装，且最后一次 `android.hooks.summary` 的 `version_label_hits` 从启动时的 0 涨上来）、功能生效（版本标签写入了 `VERSION` 的版本）。证据目录 `bazaarplusplus-mod/artifacts/android/smoke-<mode>/`（logcat、截图、`Latest.log`、拉回的历史数据库与各表行数、`smoke.md` 逐级结论）作为 Actions artifact 上传；下载后用 `just mod::android-verify <目录>` 可以重算结论（路径按 `bazaarplusplus-mod/` 解析，最好传绝对路径）。主菜单不产生记录，数据库行数只作证据，不参与断言。`mode=disabled` 不安装任何 patch，必须在 hook 命中级失败，用来证明断言不是空过。
+
+runner 用户下的前置，只能人工准备一次，缺任何一项时 workflow 在第一步失败并把缺项写进 artifact 的 `preflight.txt`：
+
+- Android SDK 在 `~/Library/Android/sdk`（或 `ANDROID_HOME`），含 platform-tools、emulator 和 arm64-v8a 系统镜像；本地验证用的是 `system-images;android-35;google_apis_playstore;arm64-v8a`。`just` 与 `sqlite3` 在 PATH 上。
+- 一台 AVD，名字是 workflow `env.AVD`。在里面装 BPP 签名的注入 APK（`release.yml` 的 `platform: android` 加 `build_only` 产出的 APK artifact），用测试账号登录一次，退到主菜单后保存 quickboot 快照。lane 以 `-no-snapshot-save` 启动，每次都从这份登录状态开始；登录过期或换 APK 后要重新登录并重存快照。
+- runner 以登录用户会话里的 LaunchAgent 运行：模拟器用 `-gpu host`，需要图形会话。
+- 一台机器同一时间只跑一个模拟器：workflow 的 concurrency 让本 lane 串行，启动前已有模拟器在线时 preflight 失败，不去抢设备。
+- 拉取 Interop Snapshot 用仓库 secret `BPP_GAME_LIBS_TOKEN` 和变量 `CLOUDFLARE_ACCOUNT_ID`，与 `mod-android` lane 相同，不读 runner 本机的 `config.ini`。
+
 ## Git hooks
 
 根目录 `lefthook.yml` 是唯一的 hook 配置，按改动路径选择各项目的 recipe。先在根目录执行 `npm ci`，再执行 `just hooks-install`。它把仓库级 `core.hooksPath` 指向 git common dir 下的 `hooks`，让 linked worktree 共用同一套 hooks，并覆盖全局 hooks 路径。

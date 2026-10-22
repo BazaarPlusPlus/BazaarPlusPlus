@@ -1,0 +1,123 @@
+name: Mod Android smoke
+
+# Hosted runners cannot run the arm64-only game: macOS arm64 has no nested
+# virtualization and x86 cannot emulate it. This lane boots a provisioned AVD
+# on the self-hosted Apple Silicon runner; its prerequisites are in
+# docs/development.md. Never add pull_request: the repository is public.
+on:
+  schedule:
+    - cron: '37 18 * * *'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Patch mode; disabled must fail at "Hook hit"
+        type: choice
+        options: [enabled, observe, disabled]
+        default: enabled
+
+permissions:
+  contents: read
+
+# One emulator on the runner at a time.
+concurrency:
+  group: mod-android-smoke
+  cancel-in-progress: false
+
+jobs:
+  smoke:
+    name: Mod Android smoke (${{ inputs.mode || 'enabled' }})
+    runs-on: [self-hosted, macOS, ARM64, bazaarplusplus-macmini]
+    timeout-minutes: 45
+    env:
+      MODE: ${{ inputs.mode || 'enabled' }}
+      # The provisioned AVD: LemonLoader-injected game, test account signed in, snapshot saved.
+      AVD: bpp_android_smoke
+      # android.sh's default serial; the emulator takes it with -port 5556.
+      BPP_ANDROID_SERIAL: emulator-5556
+      EVIDENCE: bazaarplusplus-mod/artifacts/android
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Check runner prerequisites
+        run: |
+          mkdir -p "$EVIDENCE"
+          sdk="${ANDROID_HOME:-$HOME/Library/Android/sdk}"
+          missing=()
+          [[ -x "$sdk/platform-tools/adb" ]] || missing+=("adb at $sdk/platform-tools/adb")
+          [[ -x "$sdk/emulator/emulator" ]] || missing+=("emulator at $sdk/emulator/emulator")
+          command -v just >/dev/null || missing+=("just on PATH")
+          command -v sqlite3 >/dev/null || missing+=("sqlite3 on PATH")
+          # grep without -q: an early exit would SIGPIPE the producer under pipefail.
+          if [[ -x "$sdk/emulator/emulator" ]] && ! "$sdk/emulator/emulator" -list-avds | grep -x "$AVD" >/dev/null; then
+            missing+=("AVD $AVD")
+          fi
+          if [[ -x "$sdk/platform-tools/adb" ]] && "$sdk/platform-tools/adb" devices | grep '^emulator-' >/dev/null; then
+            missing+=("no emulator already online")
+          fi
+          {
+            echo "runner: $RUNNER_NAME ($(sw_vers -productVersion), $(uname -m))"
+            echo "sdk: $sdk"
+            echo "avd: $AVD"
+            for item in "${missing[@]}"; do echo "missing: $item"; done
+          } | tee "$EVIDENCE/preflight.txt"
+          if ((${#missing[@]} > 0)); then
+            echo "::error::Runner prerequisites missing: $(IFS=';'; echo "${missing[*]}"). See docs/development.md (Android smoke)."
+            exit 1
+          fi
+          echo "ANDROID_HOME=$sdk" >>"$GITHUB_ENV"
+          echo "ADB=$sdk/platform-tools/adb" >>"$GITHUB_ENV"
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: bazaarplusplus-mod/global.json
+
+      - name: Fetch the Interop Snapshot and Loader Release
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.BPP_GAME_LIBS_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+        run: just mod::fetch android online
+
+      # -no-snapshot-save keeps the provisioned sign-in: every run starts from it.
+      - name: Boot the AVD
+        run: |
+          nohup "$ANDROID_HOME/emulator/emulator" -avd "$AVD" -port 5556 -gpu host \
+            -no-audio -no-boot-anim -no-snapshot-save >"$EVIDENCE/emulator.log" 2>&1 &
+          for _ in $(seq 1 60); do
+            booted="$("$ADB" -s "$BPP_ANDROID_SERIAL" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || true)"
+            [[ "$booted" == 1 ]] && exit 0
+            sleep 5
+          done
+          echo "::error::$AVD did not finish booting in 5 minutes."
+          exit 1
+
+      - name: Smoke (${{ env.MODE }})
+        run: just mod::android-smoke "$MODE"
+
+      - name: Summarize
+        if: always()
+        run: |
+          if [[ -f "$EVIDENCE/smoke-$MODE/smoke.md" ]]; then
+            cat "$EVIDENCE/smoke-$MODE/smoke.md" >>"$GITHUB_STEP_SUMMARY"
+          elif [[ -f "$EVIDENCE/preflight.txt" ]]; then
+            { echo '```'; cat "$EVIDENCE/preflight.txt"; echo '```'; } >>"$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload the evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: mod-android-smoke-${{ env.MODE }}-${{ github.run_id }}
+          path: ${{ env.EVIDENCE }}
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Shut down the AVD
+        if: always()
+        run: |
+          [[ -n "${ADB:-}" ]] || exit 0
+          "$ADB" -s "$BPP_ANDROID_SERIAL" emu kill || true

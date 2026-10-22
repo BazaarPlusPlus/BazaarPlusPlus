@@ -43,6 +43,15 @@ android-launch:
 android-capture run:
     bash scripts/android.sh capture "$@"
 
+# Build, deploy, relaunch in a mode, capture into artifacts/android/smoke-<mode>/, and assert the three levels.
+[arg('mode', pattern='enabled|observe|disabled')]
+android-smoke mode:
+    bash scripts/android.sh smoke "$@"
+
+# Re-assert the three smoke levels on a capture directory, such as a downloaded CI artifact.
+android-verify dir:
+    bash scripts/android.sh verify "$@"
+
 # Run the opt-in Combat Impact acceptance: <absolute-corpus-path> [report-path] [--benchmark].
 test-corpus +args:
     bash scripts/test.sh test-corpus "$@"
