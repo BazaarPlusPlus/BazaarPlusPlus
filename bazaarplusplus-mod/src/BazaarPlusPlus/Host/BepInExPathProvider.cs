@@ -1,7 +1,7 @@
 #nullable enable
 using BazaarPlusPlus.Storage.Paths;
 
-namespace BazaarPlusPlus.Core.Paths;
+namespace BazaarPlusPlus.Host;
 
 internal sealed class BepInExPathProvider : IPathProvider
 {

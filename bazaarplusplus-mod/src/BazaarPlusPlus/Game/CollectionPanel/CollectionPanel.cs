@@ -42,7 +42,7 @@ internal sealed class CollectionPanel : MonoBehaviour
     private readonly CollectionGridPortAdapter _gridPort = new();
     private CollectionViewState _viewState = null!;
 
-    private BppConfig _config = null!;
+    private BppSettings _config = null!;
     private INativeCardPreviewHost _nativeCardPreviewHost = null!;
     private CollectionInspectionModule _inspection = null!;
     private readonly CollectionInspectionClick _inspectionClick = new();

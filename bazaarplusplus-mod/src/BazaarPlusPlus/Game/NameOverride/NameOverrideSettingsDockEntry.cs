@@ -22,9 +22,9 @@ internal static class NameOverrideSettingsDockEntry
             }
         );
 
-    private static bool ReadEnabled(BppConfig config) => config.EnableNameOverrideConfig.Value;
+    private static bool ReadEnabled(BppSettings config) => config.EnableNameOverrideConfig.Value;
 
-    private static void WriteEnabled(BppConfig config, bool enabled)
+    private static void WriteEnabled(BppSettings config, bool enabled)
     {
         config.EnableNameOverrideConfig.Value = enabled;
     }

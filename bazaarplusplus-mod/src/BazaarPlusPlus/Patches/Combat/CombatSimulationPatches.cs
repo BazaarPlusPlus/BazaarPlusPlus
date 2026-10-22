@@ -2,8 +2,8 @@
 #pragma warning disable CS0436
 using BazaarGameShared.Infra.Messages;
 using BazaarPlusPlus.Core.Events;
+using BazaarPlusPlus.Core.GameState;
 using BazaarPlusPlus.Game.CombatReplay;
-using BazaarPlusPlus.GameInterop.Events;
 using HarmonyLib;
 using TheBazaar;
 
@@ -34,7 +34,13 @@ internal class CombatSimPatch
             return false;
         }
 
-        BppPatchHost.Services.EventBus.Publish(new CombatSimObserved { Message = message });
+        // Copy what Core consumers read here, on the game thread, before the simulation runs.
+        BppPatchHost.Services.EventBus.Publish(
+            new CombatSimObserved(
+                new CombatSimSnapshot(message.MessageId, message.Data?.Frames?.Count ?? 0)
+            )
+        );
+        BppPatchHost.Features.PostCombatImpact.ObserveCombatSimulation(message.Data);
         return true;
     }
 }

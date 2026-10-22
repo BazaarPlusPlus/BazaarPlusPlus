@@ -13,6 +13,7 @@ using BazaarPlusPlus.GameInterop;
 using BazaarPlusPlus.GameInterop.Fonts;
 using BazaarPlusPlus.GameInterop.Localization;
 using BazaarPlusPlus.GameInterop.Tooltips;
+using BazaarPlusPlus.Host;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
 using BazaarPlusPlus.Localization;
@@ -46,18 +47,18 @@ public class Plugin : BaseUnityPlugin
 
     protected virtual void Awake()
     {
-        BppLog.Install(Logger);
+        BppLog.Install(new BepInExLogSink(Logger));
         NativeGameTypography.InitializeForCurrentThread();
         var phase = PluginInitializationPhase.PluginVersion;
         try
         {
             BppPluginVersion.Initialize(Info.Location);
 
-            var configFile = CreatePluginConfigFile();
+            var settingsStore = new BepInExSettingsStore(CreatePluginConfigFile());
 
             phase = PluginInitializationPhase.Composition;
             var gameBuild = GameBuildInfoResolver.Resolve();
-            _composition = new BppComposition(configFile, gameBuild);
+            _composition = new BppComposition(settingsStore, gameBuild);
 
             var services = _composition.Services;
             var dataRoot = services.Paths.DataRootDirectoryPath;

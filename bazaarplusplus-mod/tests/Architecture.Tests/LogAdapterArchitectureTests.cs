@@ -9,7 +9,7 @@ public sealed class LogAdapterArchitectureTests
     /// <summary>The only types allowed to write to BepInEx; field redaction happens before them.</summary>
     private static readonly string[] ApprovedBepInExAdapters =
     {
-        "BazaarPlusPlus.Infrastructure.BppLog",
+        "BazaarPlusPlus.Host.BepInExLogSink",
     };
 
     [Fact]

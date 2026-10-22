@@ -18,6 +18,7 @@ using BazaarPlusPlus.Game.Settings;
 using BazaarPlusPlus.Game.Supporters;
 using BazaarPlusPlus.Game.VoiceSubtitles;
 using BazaarPlusPlus.GameInterop;
+using BazaarPlusPlus.Host;
 using BazaarPlusPlus.Localization;
 using BazaarPlusPlus.Patches;
 using BazaarPlusPlus.Storage.Paths;
@@ -39,7 +40,7 @@ public class SettingsDockRegistryTests
             Key = key;
         }
 
-        public BppSettingsDockDefinition Build(BppConfig config)
+        public BppSettingsDockDefinition Build(BppSettings config)
         {
             BuildCount++;
             return new BppSettingsDockDefinition(
@@ -65,12 +66,12 @@ public class SettingsDockRegistryTests
 
     private sealed class ContractTestServices : IBppServices
     {
-        public ContractTestServices(BppConfig config)
+        public ContractTestServices(BppSettings config)
         {
             Config = config;
         }
 
-        public BppConfig Config { get; }
+        public BppSettings Config { get; }
         public IBppEventBus EventBus => null!;
         public IPathProvider Paths => null!;
         public IRunContext RunContext => null!;
@@ -124,7 +125,9 @@ public class SettingsDockRegistryTests
             resolveStatus: (current, _) => current.ToString(),
             onChanged: next => observed.Add(("changed", next))
         );
-        var definition = entry.Build(new BppConfig(UnsavedConfigFile()));
+        var definition = entry.Build(
+            new BppSettings(new BepInExSettingsStore(UnsavedConfigFile()))
+        );
 
         definition.SelectStandardChoice!(1);
 
@@ -136,7 +139,9 @@ public class SettingsDockRegistryTests
     {
         var value = 1;
         var entry = CreateIntegerCyclingEntry(() => value, next => value = next);
-        var definition = entry.Build(new BppConfig(UnsavedConfigFile()));
+        var definition = entry.Build(
+            new BppSettings(new BepInExSettingsStore(UnsavedConfigFile()))
+        );
 
         var state = definition.ResolveChoiceState!("en");
         Assert.Equal("1", state.Options[state.SelectedIndex]);
@@ -160,7 +165,9 @@ public class SettingsDockRegistryTests
             read: _ => enabled,
             write: (_, next) => enabled = next
         );
-        var definition = entry.Build(new BppConfig(UnsavedConfigFile()));
+        var definition = entry.Build(
+            new BppSettings(new BepInExSettingsStore(UnsavedConfigFile()))
+        );
 
         Assert.False(definition.IsActive());
         Assert.False(definition.ReadToggle!());
@@ -184,7 +191,7 @@ public class SettingsDockRegistryTests
                 read: _ => enabled,
                 write: (_, next) => enabled = next
             )
-            .Build(new BppConfig(UnsavedConfigFile()));
+            .Build(new BppSettings(new BepInExSettingsStore(UnsavedConfigFile())));
 
         Assert.Equal(BppSettingsControlKind.Toggle, definition.ControlKind);
         Assert.False(definition.ReadToggle!());
@@ -200,7 +207,7 @@ public class SettingsDockRegistryTests
     {
         var value = 1;
         var definition = CreateIntegerCyclingEntry(() => value, next => value = next)
-            .Build(new BppConfig(UnsavedConfigFile()));
+            .Build(new BppSettings(new BepInExSettingsStore(UnsavedConfigFile())));
 
         var state = definition.ResolveChoiceState!("en");
         definition.SelectStandardChoice!(1);
@@ -217,7 +224,7 @@ public class SettingsDockRegistryTests
     {
         var value = 99;
         var definition = CreateIntegerCyclingEntry(() => value, next => value = next)
-            .Build(new BppConfig(UnsavedConfigFile()));
+            .Build(new BppSettings(new BepInExSettingsStore(UnsavedConfigFile())));
 
         var state = definition.ResolveChoiceState!("en");
 
@@ -230,7 +237,9 @@ public class SettingsDockRegistryTests
     [Fact]
     public void Action_definitions_preserve_close_host_contract()
     {
-        var history = new HistoryPanelSettingsDockEntry().Build(new BppConfig(UnsavedConfigFile()));
+        var history = new HistoryPanelSettingsDockEntry().Build(
+            new BppSettings(new BepInExSettingsStore(UnsavedConfigFile()))
+        );
 
         Assert.Equal(BppSettingsControlKind.Action, history.ControlKind);
         Assert.True(history.CollapseAfterActivate);
@@ -244,7 +253,7 @@ public class SettingsDockRegistryTests
         {
             L.Install(() => "en", () => BppChineseLocaleMode.Mainland);
             var history = new HistoryPanelSettingsDockEntry(() => hotkeyDisplay).Build(
-                new BppConfig(UnsavedConfigFile())
+                new BppSettings(new BepInExSettingsStore(UnsavedConfigFile()))
             );
 
             Assert.Equal("Game History (Press F8 to open)", history.ResolveLabel("en"));
@@ -270,7 +279,9 @@ public class SettingsDockRegistryTests
         );
         try
         {
-            var config = new BppConfig(new ConfigFile(configPath, saveOnInit: false));
+            var config = new BppSettings(
+                new BepInExSettingsStore(new ConfigFile(configPath, saveOnInit: false))
+            );
             config.BazaarDbUploadEnabled!.Value = true;
             config.EndOfRunScreenshotEnabledConfig!.Value = false;
             var definition = new EndOfRunScreenshotSettingsDockEntry().Build(config);
@@ -307,7 +318,7 @@ public class SettingsDockRegistryTests
         var refreshCount = 0;
         var definition = NameOverrideSettingsDockEntry
             .Create(() => refreshCount++)
-            .Build(new BppConfig(UnsavedConfigFile()));
+            .Build(new BppSettings(new BepInExSettingsStore(UnsavedConfigFile())));
 
         definition.WriteToggle!(true);
         definition.WriteToggle(false);
@@ -320,7 +331,7 @@ public class SettingsDockRegistryTests
     {
         var definition = EventPreviewSettingsDockEntry
             .Create()
-            .Build(new BppConfig(UnsavedConfigFile()));
+            .Build(new BppSettings(new BepInExSettingsStore(UnsavedConfigFile())));
 
         Assert.True(definition.IsActive());
         Assert.True(definition.ReadToggle!());
@@ -336,7 +347,7 @@ public class SettingsDockRegistryTests
         try
         {
             var configFile = new ConfigFile(configPath, saveOnInit: false);
-            var config = new BppConfig(configFile);
+            var config = new BppSettings(new BepInExSettingsStore(configFile));
             var questDefinition = QuestPreviewSettingsDockEntry.Create(() => { }).Build(config);
             var eventDefinition = EventPreviewSettingsDockEntry.Create().Build(config);
 
@@ -347,7 +358,7 @@ public class SettingsDockRegistryTests
             configFile.Save();
 
             var reloadedFile = new ConfigFile(configPath, saveOnInit: false);
-            var reloaded = new BppConfig(reloadedFile);
+            var reloaded = new BppSettings(new BepInExSettingsStore(reloadedFile));
             Assert.True(reloaded.EnableQuestPreviewConfig!.Value);
             Assert.True(reloaded.EnableEventPreviewConfig!.Value);
 
@@ -362,7 +373,7 @@ public class SettingsDockRegistryTests
             reloadedFile.Save();
 
             var finalFile = new ConfigFile(configPath, saveOnInit: false);
-            var finalConfig = new BppConfig(finalFile);
+            var finalConfig = new BppSettings(new BepInExSettingsStore(finalFile));
             Assert.False(finalConfig.EnableQuestPreviewConfig!.Value);
             Assert.False(finalConfig.EnableEventPreviewConfig!.Value);
         }
@@ -379,7 +390,7 @@ public class SettingsDockRegistryTests
         var clearCount = 0;
         var definition = QuestPreviewSettingsDockEntry
             .Create(() => clearCount++)
-            .Build(new BppConfig(UnsavedConfigFile()));
+            .Build(new BppSettings(new BepInExSettingsStore(UnsavedConfigFile())));
 
         definition.WriteToggle!(true);
         Assert.Equal(0, clearCount);
@@ -409,7 +420,7 @@ public class SettingsDockRegistryTests
 
         var definition = QuestPreviewSettingsDockEntry
             .Create(() => { })
-            .Build(new BppConfig(UnsavedConfigFile()));
+            .Build(new BppSettings(new BepInExSettingsStore(UnsavedConfigFile())));
 
         Assert.Equal(expected, definition.ResolveLabel(languageCode));
     }
@@ -423,7 +434,9 @@ public class SettingsDockRegistryTests
         );
         try
         {
-            var config = new BppConfig(new ConfigFile(configPath, saveOnInit: false));
+            var config = new BppSettings(
+                new BepInExSettingsStore(new ConfigFile(configPath, saveOnInit: false))
+            );
             BppPatchHost.Install(
                 new ContractTestServices(config),
                 (BppPatchFeatures)RuntimeHelpers.GetUninitializedObject(typeof(BppPatchFeatures))
@@ -457,7 +470,9 @@ public class SettingsDockRegistryTests
         );
         try
         {
-            var config = new BppConfig(new ConfigFile(configPath, saveOnInit: false));
+            var config = new BppSettings(
+                new BepInExSettingsStore(new ConfigFile(configPath, saveOnInit: false))
+            );
             var registry = new SettingsDockEntryRegistry();
             registry.Register(BazaarDbBundleSettingsDockEntry.Create());
             registry.Register(FixedSupporterListSettingsDockEntry.Create());
@@ -596,7 +611,7 @@ public class SettingsDockRegistryTests
                 """
             );
             var configFile = new ConfigFile(configPath, saveOnInit: false);
-            var config = new BppConfig(configFile);
+            var config = new BppSettings(new BepInExSettingsStore(configFile));
 
             Assert.Equal(BppChineseLocaleMode.Taiwan, config.ChineseLocaleModeConfig!.Value);
         }
@@ -618,7 +633,7 @@ public class SettingsDockRegistryTests
         {
             L.Install(() => "en", () => BppChineseLocaleMode.Mainland);
             var configFile = new ConfigFile(configPath, saveOnInit: false);
-            var config = new BppConfig(configFile);
+            var config = new BppSettings(new BepInExSettingsStore(configFile));
             var eventBus = new InMemoryBppEventBus();
             var changedCount = 0;
             using var subscription = eventBus.Subscribe<ChineseLocaleModeChanged>(_ =>
@@ -670,7 +685,7 @@ public class SettingsDockRegistryTests
         {
             L.Install(() => "en", () => BppChineseLocaleMode.Mainland);
             var configFile = new ConfigFile(configPath, saveOnInit: false);
-            var config = new BppConfig(configFile);
+            var config = new BppSettings(new BepInExSettingsStore(configFile));
             config.EnchantPreviewModeConfig!.Value = (PreviewVisibilityMode)99;
             var definition = ItemEnchantPreviewSettingsDockEntry.Create().Build(config);
 
@@ -703,7 +718,7 @@ public class SettingsDockRegistryTests
         {
             L.Install(() => "en", () => BppChineseLocaleMode.Mainland);
             var configFile = new ConfigFile(configPath, saveOnInit: false);
-            var config = new BppConfig(configFile);
+            var config = new BppSettings(new BepInExSettingsStore(configFile));
             var entry = new EndOfRunScreenshotSettingsDockEntry();
 
             var definition = entry.Build(config);
@@ -742,7 +757,7 @@ public class SettingsDockRegistryTests
         {
             L.Install(() => "en", () => BppChineseLocaleMode.Mainland);
             var configFile = new ConfigFile(configPath, saveOnInit: false);
-            var config = new BppConfig(configFile);
+            var config = new BppSettings(new BepInExSettingsStore(configFile));
             config.EndOfRunScreenshotEnabledConfig!.Value = false;
 
             var screenshotDefinition = new EndOfRunScreenshotSettingsDockEntry().Build(config);
@@ -788,7 +803,7 @@ public class SettingsDockRegistryTests
         {
             L.Install(() => "en", () => BppChineseLocaleMode.Mainland);
             var configFile = new ConfigFile(configPath, saveOnInit: false);
-            var config = new BppConfig(configFile);
+            var config = new BppSettings(new BepInExSettingsStore(configFile));
             config.EndOfRunScreenshotEnabledConfig!.Value = true;
 
             if (dependencyKey == "BazaarDbUpload")
@@ -821,7 +836,7 @@ public class SettingsDockRegistryTests
         {
             L.Install(() => "en", () => BppChineseLocaleMode.Mainland);
             var configFile = new ConfigFile(configPath, saveOnInit: false);
-            var config = new BppConfig(configFile);
+            var config = new BppSettings(new BepInExSettingsStore(configFile));
             var entry = FixedSupporterListSettingsDockEntry.Create();
 
             var definition = entry.Build(config);
@@ -843,7 +858,7 @@ public class SettingsDockRegistryTests
             configFile.Save();
 
             var reloadedConfigFile = new ConfigFile(configPath, saveOnInit: false);
-            var reloadedConfig = new BppConfig(reloadedConfigFile);
+            var reloadedConfig = new BppSettings(new BepInExSettingsStore(reloadedConfigFile));
 
             Assert.True(reloadedConfig.UseFixedSupporterListConfig!.Value);
         }
@@ -865,7 +880,7 @@ public class SettingsDockRegistryTests
         {
             L.Install(() => "en", () => BppChineseLocaleMode.Mainland);
             var configFile = new ConfigFile(configPath, saveOnInit: false);
-            var config = new BppConfig(configFile);
+            var config = new BppSettings(new BepInExSettingsStore(configFile));
             var entry = VoiceSubtitlesSettingsDockEntry.Create();
 
             var definition = entry.Build(config);
@@ -934,7 +949,7 @@ public class SettingsDockRegistryTests
         {
             L.Install(() => "en", () => BppChineseLocaleMode.Mainland);
             var configFile = new ConfigFile(configPath, saveOnInit: false);
-            var config = new BppConfig(configFile);
+            var config = new BppSettings(new BepInExSettingsStore(configFile));
             var definition = VoiceSubtitlesPositionSettingsDockEntry.Create().Build(config);
 
             Assert.Equal(SubtitlePosition.TopCenter, config.VoiceSubtitlesPositionConfig!.Value);
@@ -969,7 +984,7 @@ public class SettingsDockRegistryTests
         {
             L.Install(() => "en", () => BppChineseLocaleMode.Mainland);
             var configFile = new ConfigFile(configPath, saveOnInit: false);
-            var config = new BppConfig(configFile);
+            var config = new BppSettings(new BepInExSettingsStore(configFile));
             var registry = new SettingsDockEntryRegistry();
 
             VoiceSubtitlesSettingsDockEntry.RegisterAll(registry);
@@ -1015,7 +1030,7 @@ public class SettingsDockRegistryTests
         {
             L.Install(() => "en", () => BppChineseLocaleMode.Mainland);
             var configFile = new ConfigFile(configPath, saveOnInit: false);
-            var config = new BppConfig(configFile);
+            var config = new BppSettings(new BepInExSettingsStore(configFile));
             var definition = VoiceSubtitlesChineseFontScaleSettingsDockEntry.Create().Build(config);
 
             Assert.Equal("Chinese Size", definition.ResolveLabel("en"));
@@ -1053,7 +1068,7 @@ public class SettingsDockRegistryTests
         try
         {
             var configFile = new ConfigFile(configPath, saveOnInit: false);
-            var config = new BppConfig(configFile);
+            var config = new BppSettings(new BepInExSettingsStore(configFile));
             config.VoiceSubtitlesEnglishFontScaleConfig!.Value = 1.3f;
             var definition = VoiceSubtitlesEnglishFontScaleSettingsDockEntry.Create().Build(config);
 
@@ -1216,7 +1231,7 @@ public class SettingsDockRegistryTests
         {
             L.Install(() => "en", () => BppChineseLocaleMode.Mainland);
             var configFile = new ConfigFile(configPath, saveOnInit: false);
-            var config = new BppConfig(configFile);
+            var config = new BppSettings(new BepInExSettingsStore(configFile));
 
             var entry = CreateCyclingEntry(key);
             var definition = entry.Build(config);
@@ -1315,7 +1330,10 @@ public class SettingsDockRegistryTests
 
         try
         {
-            BppSettingsDockCatalog.Install(new BppConfig(UnsavedConfigFile()), registry);
+            BppSettingsDockCatalog.Install(
+                new BppSettings(new BepInExSettingsStore(UnsavedConfigFile())),
+                registry
+            );
 
             Assert.Equal(
                 new[]

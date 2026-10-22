@@ -7,6 +7,7 @@ using BazaarPlusPlus.Game.PvpBattles;
 using BazaarPlusPlus.Game.PvpBattles.Persistence;
 using BazaarPlusPlus.Game.RunLogging;
 using BazaarPlusPlus.GameInterop;
+using BazaarPlusPlus.Host;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Storage.Paths;
 using BazaarPlusPlus.Storage.RunLog;
@@ -43,7 +44,7 @@ using Microsoft.Data.Sqlite;
 using var logSource = new ManualLogSource("run-logging-pipeline");
 var logs = new List<string>();
 logSource.LogEvent += (_, args) => logs.Add(args.Data?.ToString() ?? string.Empty);
-BppLog.Install(logSource);
+BppLog.Install(new BepInExLogSink(logSource));
 
 var root = Path.Combine(
     Path.GetTempPath(),
