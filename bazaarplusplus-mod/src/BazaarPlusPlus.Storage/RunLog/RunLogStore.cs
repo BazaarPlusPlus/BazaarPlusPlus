@@ -14,8 +14,8 @@ public sealed class RunLogStore : SqliteStoreBase, IRunLogStore
     private static readonly JsonSerializerSettings SerializerSettings =
         SerializerSettingsFactory.CreateSerializerSettings(includeStringEnumConverter: false);
 
-    public RunLogStore(IPathProvider paths)
-        : base(PathConstants.RunLogDatabase(paths.RequireDataRoot())) { }
+    public RunLogStore(IPathProvider paths, SqliteOpenOptions? options = null)
+        : base(PathConstants.RunLogDatabase(paths.RequireDataRoot()), options) { }
 
     public RunLogSessionState? TryResumeActiveRun()
     {

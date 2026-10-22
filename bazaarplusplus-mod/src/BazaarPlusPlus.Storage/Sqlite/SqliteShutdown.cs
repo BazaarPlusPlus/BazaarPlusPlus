@@ -15,12 +15,19 @@ namespace BazaarPlusPlus.Storage.Sqlite;
 /// survives the process holds committed data the main database file does not.
 /// A reader that inherits that state has to recover the WAL before it can see
 /// recent runs. Releasing the pool and truncating the WAL here leaves a
-/// self-contained database file behind instead.
+/// self-contained database file behind instead. Outside WAL mode there is no
+/// <c>-wal</c> to strand, so the release does nothing.
 /// </remarks>
 public static class SqliteShutdown
 {
-    public static void ReleaseRunLogDatabase(string? databasePath)
+    public static void ReleaseRunLogDatabase(
+        string? databasePath,
+        SqliteOpenOptions? options = null
+    )
     {
+        if ((options ?? SqliteOpenOptions.Default).JournalMode != SqliteJournalMode.Wal)
+            return;
+
         // Drop pooled handles first: a checkpoint cannot reclaim WAL frames that
         // idle pooled connections still hold read marks on.
         SqliteConnection.ClearAllPools();

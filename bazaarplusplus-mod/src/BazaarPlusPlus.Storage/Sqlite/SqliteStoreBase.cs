@@ -9,7 +9,7 @@ public abstract class SqliteStoreBase
     private readonly string _databasePath;
     private readonly string _connectionString;
 
-    protected SqliteStoreBase(string databasePath)
+    protected SqliteStoreBase(string databasePath, SqliteOpenOptions? options = null)
     {
         if (string.IsNullOrWhiteSpace(databasePath))
             throw new ArgumentException("Database path is required.", nameof(databasePath));
@@ -26,7 +26,7 @@ public abstract class SqliteStoreBase
             Directory.CreateDirectory(directory);
 
         using var connection = OpenConnection();
-        EnableWriteAheadLogging(connection);
+        ApplyJournalMode(connection, options ?? SqliteOpenOptions.Default);
         RunLogSchema.EnsureInitialized(connection);
     }
 
@@ -63,10 +63,12 @@ public abstract class SqliteStoreBase
         return command;
     }
 
-    protected static void EnableWriteAheadLogging(SqliteConnection connection)
+    // journal_mode persists in the database file, so the store that opens it first sets it for
+    // every later connection, including the installer's.
+    private static void ApplyJournalMode(SqliteConnection connection, SqliteOpenOptions options)
     {
         using var command = CreateCommand(connection);
-        command.CommandText = "PRAGMA journal_mode = WAL;";
+        command.CommandText = options.JournalModePragma;
         command.ExecuteNonQuery();
     }
 
