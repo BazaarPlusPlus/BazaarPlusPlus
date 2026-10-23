@@ -63,12 +63,14 @@ internal static class AndroidCardRental
     /// </summary>
     public static void ReleaseAll(string reason)
     {
+        var destroyedBefore = Core.Destroyed;
         var released = Core.ReleaseAll();
-        if (released == 0 && Core.Instantiated == Core.Destroyed + Core.Lost)
+        var destroyed = Core.Destroyed - destroyedBefore;
+        if (released == 0 && destroyed == 0)
             return;
         BppLog.InfoEvent(
             new BppLogEvent(BppLogFeatureScope.Android, "android.card_rental.released"),
-            [("reason", reason), ("leases", released), .. Summary()]
+            [("reason", reason), ("leases", released), ("destroyed_now", destroyed), .. Summary()]
         );
     }
 

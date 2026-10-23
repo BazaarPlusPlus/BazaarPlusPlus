@@ -1,11 +1,14 @@
 using System.Globalization;
 using System.Text;
+using BazaarPlusPlus.Android.Collection;
 using BazaarPlusPlus.Android.GameInterop;
+using BazaarPlusPlus.Android.GameInterop.CardRental;
 using BazaarPlusPlus.Android.History;
 using BazaarPlusPlus.Android.Host;
 using BazaarPlusPlus.Android.Lobby;
 using BazaarPlusPlus.Android.Patches;
 using BazaarPlusPlus.Core.Config;
+using BazaarPlusPlus.Game.CollectionPanel;
 using BazaarPlusPlus.Game.HistoryPanel;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
@@ -17,10 +20,11 @@ namespace BazaarPlusPlus.Android.Ui;
 
 /// <summary>
 /// The touch entry that replaces the desktop's hotkeys and settings dock: a small BPP button at
-/// the left edge of the screen opens one panel with two pages. Settings holds the switches of the
-/// features the Android host has (upgrade preview, enchant preview) and, when the game is behind
-/// the published APK, the link to it. History lists the Runs the record chain wrote and the
-/// battles of the selected one. The panel closes on every scene change.
+/// the left edge of the screen opens one panel with two pages and the Collection entry. Settings
+/// holds the switches of the features the Android host has (upgrade preview, enchant preview,
+/// Collection) and, when the game is behind the published APK, the link to it. History lists the
+/// Runs the record chain wrote and the battles of the selected one. Collection opens the full-screen
+/// <see cref="AndroidCollectionPanel"/> in place of the menu. Both close on every scene change.
 /// </summary>
 internal sealed class AndroidTouchUi
 {
@@ -42,6 +46,9 @@ internal sealed class AndroidTouchUi
     private GameObject? _settingsPage;
     private GameObject? _historyPage;
     private GameObject? _gameUpdateRow;
+    private GameObject? _collectionTab;
+    private TMP_FontAsset? _font;
+    private AndroidCollectionPanel? _collection;
     private TextMeshProUGUI? _launcherLabel;
     private TextMeshProUGUI? _titleText;
     private TextMeshProUGUI? _pageText;
@@ -102,13 +109,18 @@ internal sealed class AndroidTouchUi
     }
 
     /// <summary>A scene loaded: the panel never outlives the scene it was opened in.</summary>
-    public void OnSceneLoaded() => Close("scene_changed");
+    public void OnSceneLoaded()
+    {
+        Close("scene_changed");
+        _collection?.Close("scene_changed");
+    }
 
     private void Mount(TMP_FontAsset font)
     {
         _root = AndroidUiKit.CreateOverlayCanvas("BPP.TouchUi", SortingOrder);
         _root.AddComponent<AndroidTouchRoot>();
         AndroidTouchRoot.Frame = Frame;
+        _font = font;
         var root = _root.transform;
 
         var launcher = AndroidUiKit.Fixed(
@@ -198,6 +210,15 @@ internal sealed class AndroidTouchUi
             30f,
             () => Show(Page.History)
         );
+        var collectionTab = AndroidUiKit.Fixed(
+            "CollectionTab",
+            panel,
+            new(0f, 1f),
+            new(24f, -318f),
+            new(280f, 88f)
+        );
+        AndroidUiKit.Button(collectionTab, font, CollectionPanelText.Title(), 30f, OpenCollection);
+        _collectionTab = collectionTab.gameObject;
 
         var content = AndroidUiKit.Rect(
             "Content",
@@ -238,12 +259,19 @@ internal sealed class AndroidTouchUi
             () => SwitchText(AndroidTouchText.EnchantPreview, EnchantPreviewOn()),
             ToggleEnchantPreview
         );
+        AddSettingRow(
+            page,
+            font,
+            2,
+            () => SwitchText(AndroidTouchText.CollectionPanel, _android.CollectionPanel.Value),
+            ToggleCollectionPanel
+        );
 
         var update = AndroidUiKit.Fixed(
             "GameUpdate",
             page,
             new(0f, 1f),
-            new(0f, -2f * 104f - 24f),
+            new(0f, -3f * 104f - 24f),
             new(1100f, 96f)
         );
         var (_, background, _) = AndroidUiKit.Button(
@@ -374,6 +402,7 @@ internal sealed class AndroidTouchUi
                 _launcherLabel.text = _versionCheck?.GameUpdate != null ? "BPP !" : "BPP";
             ObserveRuns();
             ObserveBattles();
+            _collection?.Tick();
         }
         catch (Exception exception)
         {
@@ -395,6 +424,7 @@ internal sealed class AndroidTouchUi
             return;
         SetActive(_dim, true);
         SetActive(_panel, true);
+        SetActive(_collectionTab, _android.CollectionPanel.Value);
         Show(_page);
     }
 
@@ -433,6 +463,38 @@ internal sealed class AndroidTouchUi
         foreach (var (label, text) in _settingRows)
             label.text = text();
         SetActive(_gameUpdateRow, _versionCheck?.GameUpdate != null);
+        SetActive(_collectionTab, _android.CollectionPanel.Value);
+    }
+
+    private void OpenCollection()
+    {
+        if (!_android.CollectionPanel.Value || _root == null || _font == null)
+            return;
+        Close("collection");
+        try
+        {
+            _collection ??= new AndroidCollectionPanel(_root.transform, _font);
+            _collection.Open();
+        }
+        catch (Exception exception)
+        {
+            BppLog.ErrorEvent(
+                new BppLogEvent(BppLogFeatureScope.Android, "android.collection.open_failed"),
+                exception
+            );
+            _collection?.Close("open_failed");
+        }
+    }
+
+    private void ToggleCollectionPanel()
+    {
+        _android.CollectionPanel.Value = !_android.CollectionPanel.Value;
+        if (!_android.CollectionPanel.Value)
+        {
+            _collection?.Close("switched_off");
+            AndroidCardRental.ReleaseAll("switched_off");
+        }
+        LogSettingChanged("Android", "CollectionPanel", _android.CollectionPanel.Value);
     }
 
     private void ToggleUpgradePreview()

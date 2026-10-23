@@ -17,9 +17,10 @@ namespace BazaarPlusPlus.Android.GameInterop.CardRental;
 /// card instance at the subject's tier and enchantment, shown, resized, and destroyed with
 /// <c>Object.Destroy</c>. Native tasks are polled, never awaited.
 /// <para>
-/// A ready card's RectTransform is anchored to its parent's top-left corner with a centred pivot
-/// and keeps the prefab's own size: 484 high, with an item as wide as its aspect ratio makes it
-/// (252, 503 or 755) and a skill square. The renting panel positions and scales it.
+/// A ready card's RectTransform is centred on its parent's top-left corner and keeps the prefab's
+/// own size: 484 high, with an item as wide as its aspect ratio makes it (252, 503 or 755) and a
+/// skill square. The renting panel positions and scales the parent, so a card set up again in
+/// place, or reused from the pool, never shows anywhere else.
 /// </para>
 /// </summary>
 internal sealed class AndroidCardRentalBackend : ICardRentalBackend<CardPreviewBase, RectTransform>
@@ -109,10 +110,21 @@ internal sealed class AndroidCardRentalBackend : ICardRentalBackend<CardPreviewB
             return true;
         }
         root.transform.SetParent(PoolRoot(), false);
-        // A rented card is a picture: the panel above it takes the taps.
+        // A rented card is a picture: the panel above it takes the taps. The card's own canvas
+        // does not override sorting, so the renting canvas raycasts its graphics; the group
+        // turns them off there, and any raycaster inside the prefab is switched off too.
+        var group = Group(card);
+        group.blocksRaycasts = false;
+        group.interactable = false;
         foreach (var raycaster in root.GetComponentsInChildren<GraphicRaycaster>(true))
             raycaster.enabled = false;
         return true;
+    }
+
+    private static CanvasGroup Group(CardPreviewBase card)
+    {
+        var group = card.GetComponent<CanvasGroup>();
+        return group != null ? group : card.gameObject.AddComponent<CanvasGroup>();
     }
 
     public object BeginSetUp(CardPreviewBase card, CardRentalSubject subject, RectTransform parent)
@@ -120,6 +132,10 @@ internal sealed class AndroidCardRentalBackend : ICardRentalBackend<CardPreviewB
         var template =
             Template(subject.TemplateId) ?? throw new InvalidOperationException("template missing");
         var transform = card.transform;
+        // A card that moves to a new parent stays invisible until its setup has sized and
+        // placed it; a retarget in place keeps showing the previous tier meanwhile.
+        if (transform.parent == null || transform.parent.Pointer != parent.Pointer)
+            Group(card).alpha = 0f;
         transform.SetParent(parent, false);
         card._showTooltips = false;
         transform.localScale = Vector3.one;
@@ -147,6 +163,7 @@ internal sealed class AndroidCardRentalBackend : ICardRentalBackend<CardPreviewB
         card.Show(true);
         card.Resize();
         Place(card);
+        Group(card).alpha = 1f;
         return true;
     }
 
@@ -216,6 +233,7 @@ internal sealed class AndroidCardRentalBackend : ICardRentalBackend<CardPreviewB
             return;
         rect.anchorMin = rect.anchorMax = new Vector2(0f, 1f);
         rect.pivot = new Vector2(0.5f, 0.5f);
+        rect.anchoredPosition = Vector2.zero;
         var fitter = card.GetComponent<AspectRatioFitter>();
         if (fitter != null && fitter.aspectRatio > 0.01f)
         {
@@ -224,6 +242,9 @@ internal sealed class AndroidCardRentalBackend : ICardRentalBackend<CardPreviewB
                 PrefabHeight * fitter.aspectRatio
             );
             rect.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, PrefabHeight);
+            // Read for its ratio only: left on, it would fit the card to its parent, and a
+            // renting panel's parent is a zero-size slot.
+            fitter.enabled = false;
         }
     }
 
