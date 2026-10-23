@@ -77,19 +77,6 @@ internal sealed class AndroidComposition
         Battles = new PvpBattleCatalog(battles);
         Replays = replays;
         ReplayGate = replayGate;
-        // The base URL is a constant, so a null session is a build defect: the composition fails
-        // to start (android.record_chain.start_failed), as the desktop plugin does (ADR-0006).
-        _historySession =
-            ModApiSession.TryCreate(
-                ModApiUploadDefaults.ApiBaseUrl,
-                BppPluginVersion.Current,
-                ReleaseManifestEndpoints.AndroidPlatformKey,
-                "OnlineClient",
-                TimeSpan.FromSeconds(ModApiUploadDefaults.RequestTimeoutSeconds)
-            )
-            ?? throw new InvalidOperationException(
-                $"Mod API base URL '{ModApiUploadDefaults.ApiBaseUrl}' is not an absolute URL."
-            );
         // The capture saves each battle synchronously under the gate's persistence lease, so no
         // battle is ever queued between its file and its row: there is nothing to protect.
         _replayMaintenance = new ReplayPayloadMaintenanceService(
@@ -150,6 +137,20 @@ internal sealed class AndroidComposition
                 DatabaseOptions
             )
         );
+        // Last, so nothing after it can throw and leak it. The base URL is a constant, so a null
+        // session is a build defect: the composition fails to start
+        // (android.record_chain.start_failed), as the desktop plugin does (ADR-0006).
+        _historySession =
+            ModApiSession.TryCreate(
+                ModApiUploadDefaults.ApiBaseUrl,
+                BppPluginVersion.Current,
+                ReleaseManifestEndpoints.AndroidPlatformKey,
+                "OnlineClient",
+                TimeSpan.FromSeconds(ModApiUploadDefaults.RequestTimeoutSeconds)
+            )
+            ?? throw new InvalidOperationException(
+                $"Mod API base URL '{ModApiUploadDefaults.ApiBaseUrl}' is not an absolute URL."
+            );
     }
 
     public string DatabasePath { get; }

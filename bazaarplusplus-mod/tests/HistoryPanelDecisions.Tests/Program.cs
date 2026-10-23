@@ -16,6 +16,7 @@ TestButtonModelReplayRecordDeleteParity();
 GhostMessageTests.Run();
 AccountLinkCardTests.Run(coreAssembly);
 PageRangeTests.Run();
+ViewModelBuilderTests.Run();
 
 Console.WriteLine("HistoryPanelDecisions checks passed.");
 
