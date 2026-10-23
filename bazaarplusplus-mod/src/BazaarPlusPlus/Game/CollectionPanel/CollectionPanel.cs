@@ -110,7 +110,7 @@ internal sealed class CollectionPanel : MonoBehaviour
         _catalog = new CollectionCatalog(cardMapProvider);
         _viewState = new CollectionViewState(
             _gridPort,
-            new StaticCollectionSourceCatalog(),
+            StaticCollectionSourceCatalog.Instance,
             new CollectionDayTierSource(dayTierResolver),
             _heroPreferenceStore
         );
@@ -501,7 +501,7 @@ internal sealed class CollectionPanel : MonoBehaviour
         _virtualizer?.Tick();
         _virtualizer?.TickFades(dt);
 
-        if (CollectionGridConstants.UsePolledHover && _virtualizer != null)
+        if (CollectionGridHostConstants.UsePolledHover && _virtualizer != null)
         {
             var mouse = Mouse.current;
             if (mouse != null)

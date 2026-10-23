@@ -1,0 +1,42 @@
+10-23 23:37:54.690 [BPP][Android] event=android.plugin.loaded version=6.0.0 mode=enabled sha256=6e25f64db4dea197074957e3885baea0d586d1716ab4e9e2a5e34e083ad84db8 game_version=1.0.12825-production-android-d9601ded
+10-23 23:38:04.750 [BPP][Android] event=android.scene.loaded index=-1 name=AppStart
+10-23 23:38:31.127 [BPP][Android] event=android.scene.loaded index=-1 name=Initialization
+10-23 23:38:41.533 [BPP][Android] event=android.scene.loaded index=-1 name=MainMenuScene
+10-23 23:38:42.463 [BPP][Android] event=android.scene.loaded index=-1 name=DefaultLoadingScene
+10-23 23:38:58.878 [BPP][Android] event=android.ui.panel_opened page=settings
+10-23 23:39:09.970 [BPP][Android] event=android.ui.panel_closed reason=collection
+10-23 23:39:11.431 [BPP][Android] event=android.collection.opened cached=false in_run=false hero=null day=null
+10-23 23:40:14.230 [BPP][Android] event=android.collection.catalog_built templates=3375 accepted=1850 rejected=1525 unmapped=0 failed=0 map_ms=54756 project_ms=2078 frames=157 language=en-US
+10-23 23:40:26.308 [BPP][Android] event=android.collection.inspected type=item size=small tier=bronze enchantable=true
+10-23 23:40:58.308 [BPP][Android] event=android.collection.inspection_closed reason=close_button
+10-23 23:41:00.216 [BPP][Android] event=android.collection.inspected type=item size=small tier=bronze enchantable=true
+10-23 23:41:00.325 [BPP][Android] event=android.collection.inspection_retargeted tier=diamond enchantment=null
+10-23 23:41:10.484 [BPP][Android] event=android.collection.inspection_closed reason=close_button
+10-23 23:41:12.122 [BPP][Android] event=android.collection.inspected type=item size=small tier=bronze enchantable=true
+10-23 23:41:12.238 [BPP][Android] event=android.collection.inspection_retargeted tier=diamond enchantment=null
+10-23 23:41:12.272 [BPP][Android] event=android.collection.inspection_retargeted tier=gold enchantment=null
+10-23 23:41:24.569 [BPP][Android] event=android.collection.inspection_closed reason=close_button
+10-23 23:41:26.231 [BPP][Android] event=android.collection.inspected type=item size=small tier=bronze enchantable=true
+10-23 23:41:26.367 [BPP][Android] event=android.collection.inspection_retargeted tier=bronze enchantment=shiny
+10-23 23:41:42.912 [BPP][Android] event=android.collection.inspection_closed reason=close_button
+10-23 23:41:44.566 [BPP][Android] event=android.collection.inspected type=item size=small tier=bronze enchantable=true
+10-23 23:41:44.786 [BPP][Android] event=android.collection.inspection_retargeted tier=silver enchantment=null
+10-23 23:42:01.693 [BPP][Android] event=android.collection.inspection_closed reason=close_button
+10-23 23:42:04.680 [BPP][Android] event=android.collection.closed reason=close_button returned=40 rental_leases=0 rental_balanced=true
+10-23 23:42:06.653 [BPP][Android] event=android.ui.panel_opened page=settings
+10-23 23:42:08.753 [BPP][Android] event=android.card_rental.released reason=switched_off leases=0 destroyed_now=30 card_rented=45 card_returned=45 card_rent_failed=0 card_instantiated=41 card_pool_hits=4 card_destroyed=41 card_lost=0 card_leases=0 card_held=0 card_pooled=0 card_balanced=true
+10-23 23:42:08.755 [BPP][Android] event=android.settings.changed section=Android key=CollectionPanel value=false
+10-23 23:42:16.382 [BPP][Android] event=android.settings.changed section=Android key=CollectionPanel value=true
+10-23 23:42:22.502 [BPP][Android] event=android.ui.panel_closed reason=collection
+10-23 23:42:22.873 [BPP][Android] event=android.collection.opened cached=true in_run=false hero=null day=null
+10-23 23:42:24.651 [BPP][Android] event=android.collection.closed reason=close_button returned=40 rental_leases=0 rental_balanced=true
+10-23 23:42:41.779 [BPP][Android] event=android.scene.loaded index=-1 name=LoadingScene
+10-23 23:42:41.780 [BPP][Android] event=android.card_rental.released reason=scene_changed leases=0 destroyed_now=30 card_rented=85 card_returned=85 card_rent_failed=0 card_instantiated=81 card_pool_hits=4 card_destroyed=81 card_lost=0 card_leases=0 card_held=0 card_pooled=0 card_balanced=true
+10-23 23:42:45.401 [BPP][Android] event=android.scene.loaded index=-1 name=Gameplay
+10-23 23:43:46.191 [BPP][Android] event=android.ui.panel_opened page=settings
+10-23 23:43:49.025 [BPP][Android] event=android.ui.panel_closed reason=collection
+10-23 23:43:51.637 [BPP][Android] event=android.collection.opened cached=true in_run=true hero=vanessa day=5
+10-23 23:44:12.824 [BPP][Android] event=android.collection.inspected type=item size=small tier=bronze enchantable=true
+10-23 23:44:13.013 [BPP][Android] event=android.collection.inspection_retargeted tier=diamond enchantment=null
+10-23 23:44:21.570 [BPP][Android] event=android.collection.inspection_closed reason=close_button
+10-23 23:44:23.722 [BPP][Android] event=android.collection.closed reason=close_button returned=38 rental_leases=0 rental_balanced=true

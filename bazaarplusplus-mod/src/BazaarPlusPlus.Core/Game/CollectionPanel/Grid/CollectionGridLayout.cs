@@ -10,7 +10,7 @@ namespace BazaarPlusPlus.Game.CollectionPanel.Grid;
 // row can't fit the next card. The result is pure grid coordinates (col / shelf / span); the
 // per-viewport base unit is applied later by ContentRectFor. Pure + UnityEngine-free so it is
 // unit-tested in tests/CollectionGridLayout.Tests.
-internal sealed class CollectionGridLayout
+public sealed class CollectionGridLayout
 {
     private static readonly CollectionGridCell[] EmptyCells = Array.Empty<CollectionGridCell>();
     private static readonly CollectionGridShelf[] EmptyShelves = Array.Empty<CollectionGridShelf>();
@@ -130,6 +130,37 @@ internal sealed class CollectionGridLayout
     public float ShelfPitch(float unit, float gap) => ShelfHeightUnits * (unit + gap);
 
     public float ContentHeight(float unit, float gap) => TotalRowUnits * (unit + gap);
+
+    // The contiguous index span a viewport scrolled to scrollY shows, widened by RowOverscan
+    // shelves each way; (0, -1) for an empty layout. Shelves are a uniform pitch within a tab, so
+    // the first and last visible shelf are a division. Both ends clamp into [0, maxShelf]: the
+    // scroll offset can transiently overshoot the packed content (a frame during a viewport resize
+    // before the scroll view re-clamps), which would otherwise index past the last shelf.
+    public (int First, int Last) VisibleIndexRange(
+        float scrollY,
+        float viewportHeight,
+        float unit,
+        float gap,
+        float originY
+    )
+    {
+        if (_shelves.Length == 0)
+            return (0, -1);
+        var shelfPitch = ShelfPitch(unit, gap);
+        var maxShelf = _shelves.Length - 1;
+        var firstShelf = Math.Clamp(
+            (int)Math.Floor((scrollY - originY) / shelfPitch) - CollectionGridConstants.RowOverscan,
+            0,
+            maxShelf
+        );
+        var lastShelf = Math.Clamp(
+            (int)Math.Floor((scrollY + viewportHeight - originY) / shelfPitch)
+                + CollectionGridConstants.RowOverscan,
+            0,
+            maxShelf
+        );
+        return (_shelves[firstShelf].FirstIndex, _shelves[lastShelf].LastIndex);
+    }
 
     public CollectionGridRect ContentRectFor(
         int index,

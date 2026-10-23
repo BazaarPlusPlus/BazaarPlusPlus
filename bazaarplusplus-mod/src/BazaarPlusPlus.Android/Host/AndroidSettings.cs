@@ -24,9 +24,17 @@ internal sealed class AndroidSettings
             false,
             "Whether item tooltips show the next tier's values, the touch counterpart of holding Shift on desktop."
         );
+        CollectionPanel = store.Bind(
+            "Android",
+            "CollectionPanel",
+            true,
+            "Whether the touch menu offers the Collection panel, which shows the game's own cards."
+        );
     }
 
     public ISetting<bool> TouchMenu { get; }
+
+    public ISetting<bool> CollectionPanel { get; }
 
     public ISetting<bool> UpgradePreview { get; }
 }
