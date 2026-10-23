@@ -1,4 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
+  <!-- The Combat Impact producer reads BazaarGameShared types, so it stays in the desktop host
+       (ADR-0012); this lane replays payloads offline against the compiled host assembly through
+       InternalsVisibleTo, linking no host source. The ledger it projects into comes from Core. -->
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net10.0</TargetFramework>
@@ -8,30 +11,11 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="../../src/BazaarPlusPlus.ModApi/BazaarPlusPlus.ModApi.csproj" />
-    <ProjectReference Include="../../src/BazaarPlusPlus.Core/BazaarPlusPlus.Core.csproj" />
+    <ProjectReference Include="../../src/BazaarPlusPlus/BazaarPlusPlus.csproj" />
     <PackageReference Include="Microsoft.Data.Sqlite" />
     <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" />
     <Reference Include="BazaarGameShared">
       <HintPath>$(ManagedPath)/BazaarGameShared.dll</HintPath>
     </Reference>
-  </ItemGroup>
-
-  <ItemGroup>
-    <!-- The accounting engine and the runtime adapters it reads through, by directory rather than
-         by file, so splitting or adding a source file stays an ordinary refactor. -->
-    <Compile
-      Include="../../src/BazaarPlusPlus/Game/PostCombatImpact/Data/*.cs"
-      Link="Data/%(Filename)%(Extension)"
-    />
-    <!-- The engine files that bind Assembly-CSharp types. This lane replays payloads offline and
-         references only BazaarGameShared, so they stay out. -->
-    <Compile Remove="../../src/BazaarPlusPlus/Game/PostCombatImpact/Data/CombatImpactActiveAbilityReader.cs" />
-    <Compile Remove="../../src/BazaarPlusPlus/Game/PostCombatImpact/Data/CombatImpactEntitySnapshotReader.cs" />
-    <Compile Remove="../../src/BazaarPlusPlus/Game/PostCombatImpact/Data/CombatImpactEntityTags.cs" />
-    <Compile
-      Include="../../src/BazaarPlusPlus/GameInterop/CombatSimulation/*.cs"
-      Link="CombatSimulation/%(Filename)%(Extension)"
-    />
   </ItemGroup>
 </Project>

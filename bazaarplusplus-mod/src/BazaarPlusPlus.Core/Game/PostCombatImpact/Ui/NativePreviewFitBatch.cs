@@ -1,13 +1,13 @@
 #nullable enable
 namespace BazaarPlusPlus.Game.PostCombatImpact.Ui;
 
-internal sealed class NativePreviewFitBatch<T>
+public sealed class NativePreviewFitBatch<T>
 {
     private readonly List<T> _requests = [];
     private bool _flushScheduled;
     private int _generation;
 
-    internal bool Enqueue(int generation, T request)
+    public bool Enqueue(int generation, T request)
     {
         _requests.Add(request);
         if (_flushScheduled)
@@ -18,7 +18,7 @@ internal sealed class NativePreviewFitBatch<T>
         return true;
     }
 
-    internal bool TryTake(int generation, out T[] requests)
+    public bool TryTake(int generation, out T[] requests)
     {
         if (!_flushScheduled || generation != _generation)
         {
@@ -32,7 +32,7 @@ internal sealed class NativePreviewFitBatch<T>
         return true;
     }
 
-    internal void Reset()
+    public void Reset()
     {
         _requests.Clear();
         _flushScheduled = false;

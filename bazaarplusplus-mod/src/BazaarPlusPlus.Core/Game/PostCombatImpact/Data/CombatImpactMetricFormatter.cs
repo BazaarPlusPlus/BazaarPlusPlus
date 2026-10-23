@@ -4,12 +4,12 @@ using BazaarPlusPlus.Localization;
 
 namespace BazaarPlusPlus.Game.PostCombatImpact.Data;
 
-internal static class CombatImpactMetricFormatter
+public static class CombatImpactMetricFormatter
 {
     private const long Billion = 1_000_000_000;
     private const long Million = 1_000_000;
 
-    internal static string CausedSummary(CombatImpactSource source, bool chinese)
+    public static string CausedSummary(CombatImpactSource source, bool chinese)
     {
         var isSkill = string.Equals(
             source.Entity.TypeLabel,
@@ -24,7 +24,7 @@ internal static class CombatImpactMetricFormatter
             : $"{source.UseCount} use{(source.UseCount == 1 ? string.Empty : "s")}";
     }
 
-    internal static string TriggerSources(CombatImpactGroup group, bool chinese)
+    public static string TriggerSources(CombatImpactGroup group, bool chinese)
     {
         var sources = TriggerSourceValues(group);
         if (string.IsNullOrWhiteSpace(sources))
@@ -35,10 +35,10 @@ internal static class CombatImpactMetricFormatter
             : $"{TriggerSourceLabel(chinese)} {sources}";
     }
 
-    internal static string TriggerSourceLabel(bool chinese) =>
+    public static string TriggerSourceLabel(bool chinese) =>
         chinese ? L.ResolveChinese("触发来源：") : "Triggered by:";
 
-    internal static string TriggerSourceValues(CombatImpactGroup group)
+    public static string TriggerSourceValues(CombatImpactGroup group)
     {
         if (
             group.TriggerPresentationState
@@ -56,7 +56,7 @@ internal static class CombatImpactMetricFormatter
         );
     }
 
-    internal static string Group(
+    public static string Group(
         CombatImpactGroup group,
         bool chinese,
         string? criticalMarker = null,
@@ -95,7 +95,7 @@ internal static class CombatImpactMetricFormatter
         return string.Join(" · ", parts);
     }
 
-    internal static string PeriodicImpact(
+    public static string PeriodicImpact(
         CombatImpactGroup group,
         bool chinese,
         string? damageMarker = null,
@@ -134,7 +134,7 @@ internal static class CombatImpactMetricFormatter
         return string.Join(" · ", parts);
     }
 
-    internal static string Target(
+    public static string Target(
         CombatImpactGroup group,
         CombatImpactTarget target,
         bool chinese,
@@ -159,7 +159,7 @@ internal static class CombatImpactMetricFormatter
             : value;
     }
 
-    internal static string IncomingGroup(
+    public static string IncomingGroup(
         CombatImpactIncomingGroup group,
         bool chinese,
         string? criticalMarker = null,
@@ -214,7 +214,7 @@ internal static class CombatImpactMetricFormatter
         return chinese ? $"{baseCount}（{critical}）" : $"{baseCount} ({critical})";
     }
 
-    internal static string IncomingSource(
+    public static string IncomingSource(
         CombatImpactIncomingGroup group,
         CombatImpactIncomingSource source,
         bool chinese,
@@ -239,7 +239,7 @@ internal static class CombatImpactMetricFormatter
             : value;
     }
 
-    internal static string Value(int value, CombatImpactValueUnit unit, bool chinese = false)
+    public static string Value(int value, CombatImpactValueUnit unit, bool chinese = false)
     {
         return unit switch
         {

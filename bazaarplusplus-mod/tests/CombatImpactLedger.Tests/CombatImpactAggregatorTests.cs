@@ -1,7 +1,7 @@
 using BazaarPlusPlus.Game.PostCombatImpact.Data;
 using Xunit;
 
-namespace PostCombatImpact.Tests;
+namespace CombatImpactLedger.Tests;
 
 public sealed class CombatImpactAggregatorTests
 {
@@ -268,7 +268,9 @@ public sealed class CombatImpactAggregatorTests
     [Fact]
     public void Entity_rows_omit_unknown_sources_and_stay_stable_across_insertion_order()
     {
-        var forwardEntities = new Dictionary<string, CombatImpactEntity>(StringComparer.Ordinal)
+        var forwardEntities = new Dictionary<string, CombatImpactLedgerEntity>(
+            StringComparer.Ordinal
+        )
         {
             ["beta"] = Entity("beta", "Same", "Item", 0),
             ["target-b"] = Entity("target-b", "Same", "Item", 0),
@@ -576,7 +578,7 @@ public sealed class CombatImpactAggregatorTests
     [Fact]
     public void Incoming_groups_balance_missing_source_entities_explicitly()
     {
-        var entities = new Dictionary<string, CombatImpactEntity>(StringComparer.Ordinal)
+        var entities = new Dictionary<string, CombatImpactLedgerEntity>(StringComparer.Ordinal)
         {
             ["bread"] = Entity("bread", "Bread Knife", "Item", 0),
         };
@@ -759,7 +761,7 @@ public sealed class CombatImpactAggregatorTests
         IReadOnlyList<CombatImpactAuthoritativeMetric>? authoritative = null
     )
     {
-        var entities = new Dictionary<string, CombatImpactEntity>(StringComparer.Ordinal)
+        var entities = new Dictionary<string, CombatImpactLedgerEntity>(StringComparer.Ordinal)
         {
             ["fairies"] = Entity("fairies", "Fairies", "Skill", 0),
             ["bread"] = Entity("bread", "Bread Knife", "Item", 1),
@@ -788,7 +790,7 @@ public sealed class CombatImpactAggregatorTests
     }
 
     private static CombatImpactReport Aggregate(
-        IReadOnlyDictionary<string, CombatImpactEntity> entities,
+        IReadOnlyDictionary<string, CombatImpactLedgerEntity> entities,
         IReadOnlyList<CombatImpactEvent> events
     ) =>
         CombatImpactAggregator.Aggregate(
@@ -842,6 +844,10 @@ public sealed class CombatImpactAggregatorTests
             OccurrenceBasis = occurrenceBasis,
         };
 
-    private static CombatImpactEntity Entity(string id, string name, string type, int order) =>
-        new(id, name, type, null, order);
+    private static CombatImpactLedgerEntity Entity(
+        string id,
+        string name,
+        string type,
+        int order
+    ) => new(id, name, type, order);
 }

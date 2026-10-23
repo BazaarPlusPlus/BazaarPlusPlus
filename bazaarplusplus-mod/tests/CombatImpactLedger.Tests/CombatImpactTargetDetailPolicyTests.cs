@@ -2,7 +2,7 @@ using BazaarPlusPlus.Game.PostCombatImpact.Data;
 using BazaarPlusPlus.Game.PostCombatImpact.Ui;
 using Xunit;
 
-namespace PostCombatImpact.Tests;
+namespace CombatImpactLedger.Tests;
 
 public sealed class CombatImpactTargetDetailPolicyTests
 {

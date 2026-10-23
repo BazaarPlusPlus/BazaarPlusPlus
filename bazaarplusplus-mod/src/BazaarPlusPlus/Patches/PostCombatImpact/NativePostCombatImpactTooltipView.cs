@@ -1055,13 +1055,15 @@ internal sealed class NativePostCombatImpactTooltipView : IPostCombatImpactToolt
         TMP_Text textTemplate,
         RectTransform parent,
         string rowName,
-        CombatImpactEntity entity,
+        CombatImpactLedgerEntity entity,
         string metricText,
         int generation
     )
     {
         var row = CreateHorizontal(rowName, parent, 10f, preferredHeight: EntityPreviewHeight + 2f);
-        BuildEntityIcon(row, entity, EntityPreviewHeight, generation);
+        // CombatImpactProjector builds every ledger entity as the host record that carries the
+        // preview facts.
+        BuildEntityIcon(row, (CombatImpactEntity)entity, EntityPreviewHeight, generation);
         var name = CloneText(
             textTemplate,
             row,
