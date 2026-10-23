@@ -66,4 +66,14 @@
       Value="$(MSBuildThisFileDirectory)../../src/BazaarPlusPlus.Updater/bin/$(Configuration)/net10.0/BazaarPlusPlus.Updater.dll"
     />
   </ItemGroup>
+
+  <!-- AndroidHostLogEventIdTests reads the host through Architecture.Tests' IL index and applies
+       its event id rule, so both stay single-owner. -->
+  <ItemGroup>
+    <Compile
+      Include="../Architecture.Tests/CompiledArtifacts.cs"
+      Link="Linked/CompiledArtifacts.cs"
+    />
+    <Compile Include="../Architecture.Tests/LogEventIdRule.cs" Link="Linked/LogEventIdRule.cs" />
+  </ItemGroup>
 </Project>
