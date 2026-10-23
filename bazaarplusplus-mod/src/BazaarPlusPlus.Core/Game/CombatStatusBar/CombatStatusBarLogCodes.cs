@@ -2,7 +2,7 @@
 
 namespace BazaarPlusPlus.Game.CombatStatusBar;
 
-internal enum CombatSpeedLogCategory
+public enum CombatSpeedLogCategory
 {
     Half,
     TwoThirds,

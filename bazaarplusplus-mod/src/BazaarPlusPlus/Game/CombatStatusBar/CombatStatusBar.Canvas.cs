@@ -89,12 +89,12 @@ internal sealed partial class CombatStatusBar
             .gameObject.AddComponent<CombatPlaybackIcon>();
         _pauseIcon.raycastTarget = false;
         _pauseIcon.color = Ink;
-        _pauseButton.onClick.AddListener(() => ToggleCombatPause());
+        _pauseButton.onClick.AddListener(() => State.ToggleCombatPause());
 
         var speedButton = CreateControlButton("CycleSpeed", root, 0f, 0.24f);
         _speedValue = CreateText("Multiplier", speedButton.transform, 0f, 0f, 42f, 28f, 14);
         StretchRegion(_speedValue.rectTransform, 0f, 1f);
-        speedButton.onClick.AddListener(() => CycleCombatSpeed());
+        speedButton.onClick.AddListener(() => State.CycleCombatSpeed());
         BppLog.InfoEvent(
             new BppLogEvent(
                 BppLogFeatureScope.CombatStatusBar,
@@ -205,7 +205,7 @@ internal sealed partial class CombatStatusBar
         if (!visible)
             return;
 
-        var time = GetDisplayedTimeText();
+        var time = State.GetDisplayedTimeText();
         if (_timeValue != null && time != _renderedTimeText)
         {
             _timeValue.text = time;
@@ -213,26 +213,27 @@ internal sealed partial class CombatStatusBar
         }
         if (_timeValue != null)
             _timeValue.color = Color.Lerp(MutedInk, Ink, _visualBlend);
-        if (_renderedSpeed != CombatSpeedMultiplier)
+        if (_renderedSpeed != State.CombatSpeedMultiplier)
         {
-            _renderedSpeed = CombatSpeedMultiplier;
+            _renderedSpeed = State.CombatSpeedMultiplier;
             if (_speedValue != null)
                 _speedValue.text =
-                    CombatSpeedMultiplier.ToString("0.##", CultureInfo.InvariantCulture) + "x";
+                    State.CombatSpeedMultiplier.ToString("0.##", CultureInfo.InvariantCulture)
+                    + "x";
         }
-        var interactable = CanToggleCombatPause();
+        var interactable = State.CanToggleCombatPause();
         if (_pauseButton != null && _renderedInteractable != interactable)
         {
             _renderedInteractable = interactable;
             _pauseButton.interactable = interactable;
             _renderedPause = null;
         }
-        if (_pauseIcon != null && _renderedPause != IsCombatPaused)
+        if (_pauseIcon != null && _renderedPause != State.IsCombatPaused)
         {
-            _renderedPause = IsCombatPaused;
-            _pauseIcon.ShowPlay = IsCombatPaused;
+            _renderedPause = State.IsCombatPaused;
+            _pauseIcon.ShowPlay = State.IsCombatPaused;
             _pauseIcon.SetVerticesDirty();
-            _pauseIcon.color = IsCombatPaused ? new Color(1f, 0.78f, 0.35f) : Ink;
+            _pauseIcon.color = State.IsCombatPaused ? new Color(1f, 0.78f, 0.35f) : Ink;
             if (!interactable)
                 _pauseIcon.color *= new Color(1f, 1f, 1f, 0.4f);
         }

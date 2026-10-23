@@ -1,7 +1,7 @@
 #nullable enable
 namespace BazaarPlusPlus.Infrastructure;
 
-internal sealed class UiSuppressionScope : IDisposable
+public sealed class UiSuppressionScope : IDisposable
 {
     private readonly List<IDisposable> _leases;
     private bool _disposed;
@@ -11,7 +11,7 @@ internal sealed class UiSuppressionScope : IDisposable
         _leases = leases;
     }
 
-    internal static UiSuppressionScope Begin(params Func<IDisposable?>[] suppressionActions)
+    public static UiSuppressionScope Begin(params Func<IDisposable?>[] suppressionActions)
     {
         if (suppressionActions == null)
             throw new ArgumentNullException(nameof(suppressionActions));

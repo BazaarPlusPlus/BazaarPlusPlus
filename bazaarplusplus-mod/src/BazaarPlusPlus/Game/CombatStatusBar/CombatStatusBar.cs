@@ -7,6 +7,9 @@ namespace BazaarPlusPlus.Game.CombatStatusBar;
 
 internal sealed partial class CombatStatusBar : MonoBehaviour
 {
+    /// <summary>The playback state the bar, the speed patch, and the frame module share.</summary>
+    internal static CombatStatusBarState State { get; } = new(new GameServiceManagerPauseControl());
+
     private static CombatStatusBar? _current;
     private static IBppServices? _services;
     private float _visualBlend;
@@ -49,9 +52,9 @@ internal sealed partial class CombatStatusBar : MonoBehaviour
     {
         EnsureConfigStateInitialized();
 
-        _visualBlend = AdvanceVisualBlend(
+        _visualBlend = CombatStatusBarState.AdvanceVisualBlend(
             _visualBlend,
-            IsCombatPlaybackActive,
+            State.IsCombatPlaybackActive,
             Time.unscaledDeltaTime
         );
     }
@@ -62,11 +65,22 @@ internal sealed partial class CombatStatusBar : MonoBehaviour
         RefreshUi();
     }
 
+    private static void EnsureConfigStateInitialized()
+    {
+        if (_services != null)
+            State.BindSpeedSetting(_services.Config.CombatStatusBarSpeedMultiplierConfig);
+    }
+
     private bool ShouldDraw()
     {
         EnsureConfigStateInitialized();
         return _screenshotSuppressionCount == 0
-            && ShouldRenderForState(_services?.Config.EnableCombatStatusBarConfig.Value == true);
+            && _services != null
+            && CombatStatusBarState.ShouldRenderForState(
+                _services.Config.EnableCombatStatusBarConfig.Value,
+                _services.RunContext,
+                _services.GameStateProbe
+            );
     }
 
     internal static IDisposable? BeginScreenshotSuppression()
@@ -91,12 +105,31 @@ internal sealed partial class CombatStatusBar : MonoBehaviour
 
     private static void OnCombatStarted()
     {
-        BeginCombatPlayback();
+        State.BeginCombatPlayback();
     }
 
     private static void OnCombatEnded()
     {
-        EndCombatPlayback();
+        State.EndCombatPlayback();
+    }
+
+    private sealed class GameServiceManagerPauseControl : ICombatPauseControl
+    {
+        public bool IsAvailable => Singleton<GameServiceManager>.Instance != null;
+
+        public bool TrySetPaused(bool paused, out bool isPaused)
+        {
+            var gameServiceManager = Singleton<GameServiceManager>.Instance;
+            if (gameServiceManager == null)
+            {
+                isPaused = false;
+                return false;
+            }
+
+            gameServiceManager.PauseOrUnpauseGame(paused);
+            isPaused = gameServiceManager.GamePaused;
+            return true;
+        }
     }
 
     private sealed class ScreenshotSuppressionLease(CombatStatusBar owner) : IDisposable

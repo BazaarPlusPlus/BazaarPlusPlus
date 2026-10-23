@@ -3,7 +3,7 @@ using BazaarPlusPlus.Localization;
 
 namespace BazaarPlusPlus.Game.ItemEnchantPreview;
 
-internal static class EnchantPreviewSettingsMenuLabel
+public static class EnchantPreviewSettingsMenuLabel
 {
     private static readonly LocalizedTextSet Labels = new(
         "Enchant Preview",
@@ -14,7 +14,7 @@ internal static class EnchantPreviewSettingsMenuLabel
         "Anteprima Incantamento"
     );
 
-    internal static string Resolve(string languageCode)
+    public static string Resolve(string languageCode)
     {
         return Labels.Resolve(languageCode, L.CurrentMode);
     }

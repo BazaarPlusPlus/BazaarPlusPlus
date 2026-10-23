@@ -12,9 +12,9 @@ internal static class CombatSpeedPatch
     [HarmonyPrefix]
     private static void Prefix(ref float speed)
     {
-        if (!CombatStatusBar.ShouldOverrideCombatSpeed(speed))
+        if (!CombatStatusBar.State.ShouldOverrideCombatSpeed(speed))
             return;
 
-        speed = CombatStatusBar.CombatSpeedMultiplier;
+        speed = CombatStatusBar.State.CombatSpeedMultiplier;
     }
 }

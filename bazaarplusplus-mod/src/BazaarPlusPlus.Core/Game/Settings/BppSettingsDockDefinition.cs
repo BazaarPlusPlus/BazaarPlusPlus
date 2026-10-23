@@ -1,16 +1,16 @@
 #nullable enable
 namespace BazaarPlusPlus.Game.Settings;
 
-internal enum BppSettingsControlKind
+public enum BppSettingsControlKind
 {
     Toggle,
     Choice,
     Action,
 }
 
-internal sealed class BppSettingsChoiceState
+public sealed class BppSettingsChoiceState
 {
-    internal BppSettingsChoiceState(
+    public BppSettingsChoiceState(
         IReadOnlyList<string> options,
         int selectedIndex,
         bool hasSyntheticCurrentOption
@@ -21,16 +21,16 @@ internal sealed class BppSettingsChoiceState
         HasSyntheticCurrentOption = hasSyntheticCurrentOption;
     }
 
-    internal IReadOnlyList<string> Options { get; }
+    public IReadOnlyList<string> Options { get; }
 
-    internal int SelectedIndex { get; }
+    public int SelectedIndex { get; }
 
-    internal bool HasSyntheticCurrentOption { get; }
+    public bool HasSyntheticCurrentOption { get; }
 }
 
-internal sealed class BppSettingsDockDefinition
+public sealed class BppSettingsDockDefinition
 {
-    internal BppSettingsDockDefinition(
+    public BppSettingsDockDefinition(
         string key,
         Func<string, string> resolveLabel,
         Func<bool> isActive,
@@ -78,29 +78,29 @@ internal sealed class BppSettingsDockDefinition
         SelectStandardChoice = selectStandardChoice;
     }
 
-    internal string Key { get; }
+    public string Key { get; }
 
-    internal Func<string, string> ResolveLabel { get; }
+    public Func<string, string> ResolveLabel { get; }
 
-    internal Func<bool> IsActive { get; }
+    public Func<bool> IsActive { get; }
 
-    internal Action? Activate { get; }
+    public Action? Activate { get; }
 
-    internal bool CollapseAfterActivate { get; }
+    public bool CollapseAfterActivate { get; }
 
-    internal BppSettingsControlKind ControlKind { get; private set; }
+    public BppSettingsControlKind ControlKind { get; private set; }
 
-    internal Func<bool>? ReadToggle { get; }
+    public Func<bool>? ReadToggle { get; }
 
-    internal Action<bool>? WriteToggle { get; }
+    public Action<bool>? WriteToggle { get; }
 
-    internal Func<bool>? IsInteractable { get; }
+    public Func<bool>? IsInteractable { get; }
 
-    internal Func<string, BppSettingsChoiceState>? ResolveChoiceState { get; }
+    public Func<string, BppSettingsChoiceState>? ResolveChoiceState { get; }
 
-    internal Action<int>? SelectStandardChoice { get; }
+    public Action<int>? SelectStandardChoice { get; }
 
-    internal static BppSettingsDockDefinition Toggle(
+    public static BppSettingsDockDefinition Toggle(
         string key,
         Func<string, string> resolveLabel,
         Func<bool> read,
@@ -119,7 +119,7 @@ internal sealed class BppSettingsDockDefinition
             selectStandardChoice: null
         );
 
-    internal static BppSettingsDockDefinition Choice(
+    public static BppSettingsDockDefinition Choice(
         string key,
         Func<string, string> resolveLabel,
         Func<bool> isActive,

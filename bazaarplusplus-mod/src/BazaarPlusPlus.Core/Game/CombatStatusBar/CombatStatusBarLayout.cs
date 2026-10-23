@@ -1,10 +1,10 @@
 #nullable enable
 namespace BazaarPlusPlus.Game.CombatStatusBar;
 
-internal static class CombatStatusBarLayout
+public static class CombatStatusBarLayout
 {
     // Screen coordinates have their origin at the bottom-left.
-    internal static bool TryPlace(
+    public static bool TryPlace(
         float left,
         float right,
         float portraitBottom,
