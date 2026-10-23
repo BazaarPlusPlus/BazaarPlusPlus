@@ -24,7 +24,7 @@ How every BPP surface on the Android host fits a phone: the touch menu and its B
 
 ## Screens
 
-The tests and the device evidence cover a 20:9 phone (2400x1080 at 420 dpi, with and without a cutout), a 16:10 tablet (2560x1600, with and without the emulator's 91 px top inset), a 16:9 phone (1920x1080), and a device that reports no density. On the emulator `adb shell wm size 2560x1600` switches the screen without a reboot, and the surfaces re-lay out live; always `adb shell wm size reset` afterwards.
+The tests cover a 20:9 phone (2400x1080 at 420 dpi, with and without a cutout), a 16:10 tablet (2560x1600, with and without the emulator's 91 px top inset), a 16:9 phone (1920x1080), and a device that reports no density. The device evidence covers the first two. On the emulator `adb shell wm size 2560x1600` switches the screen without a reboot, and the surfaces re-lay out live; always `adb shell wm size reset` afterwards.
 
 ## Gotchas
 
