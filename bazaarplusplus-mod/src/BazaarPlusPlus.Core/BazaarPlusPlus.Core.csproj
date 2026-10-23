@@ -48,6 +48,11 @@
     />
   </ItemGroup>
 
+  <!-- The Collection source catalog every host filters with (EmbeddedCollectionSourceCatalog). -->
+  <ItemGroup>
+    <EmbeddedResource Include="Data/CollectionSources/collection-sources.json" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="../BazaarPlusPlus.ModApi/BazaarPlusPlus.ModApi.csproj" />
     <ProjectReference Include="../BazaarPlusPlus.Storage/BazaarPlusPlus.Storage.csproj" />

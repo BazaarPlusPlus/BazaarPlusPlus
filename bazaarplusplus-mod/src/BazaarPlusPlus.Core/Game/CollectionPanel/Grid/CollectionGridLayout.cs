@@ -10,7 +10,7 @@ namespace BazaarPlusPlus.Game.CollectionPanel.Grid;
 // row can't fit the next card. The result is pure grid coordinates (col / shelf / span); the
 // per-viewport base unit is applied later by ContentRectFor. Pure + UnityEngine-free so it is
 // unit-tested in tests/CollectionGridLayout.Tests.
-internal sealed class CollectionGridLayout
+public sealed class CollectionGridLayout
 {
     private static readonly CollectionGridCell[] EmptyCells = Array.Empty<CollectionGridCell>();
     private static readonly CollectionGridShelf[] EmptyShelves = Array.Empty<CollectionGridShelf>();

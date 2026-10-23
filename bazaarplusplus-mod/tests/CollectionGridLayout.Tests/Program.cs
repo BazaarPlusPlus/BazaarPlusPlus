@@ -1,4 +1,3 @@
-using BazaarGameShared.Domain.Core.Types;
 using BazaarPlusPlus.Core.Cards;
 using BazaarPlusPlus.Game.CollectionPanel;
 using BazaarPlusPlus.Game.CollectionPanel.Data;
@@ -24,19 +23,22 @@ AssertEqual(
 var mergedTierText = CollectionTierTooltipTextMerger.Merge(
     new[]
     {
-        new CollectionTierTooltipText(ETier.Silver, "减速 <color=#C58F63>1</color> 件物品 1 秒"),
-        new CollectionTierTooltipText(ETier.Gold, "减速 <color=#C58F63>2</color> 件物品 1 秒"),
-        new CollectionTierTooltipText(ETier.Diamond, "减速 <color=#C58F63>3</color> 件物品 1 秒"),
+        new CollectionTierTooltipText(CardTier.Silver, "减速 <color=#C58F63>1</color> 件物品 1 秒"),
+        new CollectionTierTooltipText(CardTier.Gold, "减速 <color=#C58F63>2</color> 件物品 1 秒"),
+        new CollectionTierTooltipText(
+            CardTier.Diamond,
+            "减速 <color=#C58F63>3</color> 件物品 1 秒"
+        ),
     }
 );
 
 var mergedCooldownText = CollectionTierTooltipTextMerger.MergeCooldown(
     new[]
     {
-        new CollectionTierTooltipText(ETier.Bronze, "10"),
-        new CollectionTierTooltipText(ETier.Silver, "8"),
-        new CollectionTierTooltipText(ETier.Gold, "7"),
-        new CollectionTierTooltipText(ETier.Diamond, "5"),
+        new CollectionTierTooltipText(CardTier.Bronze, "10"),
+        new CollectionTierTooltipText(CardTier.Silver, "8"),
+        new CollectionTierTooltipText(CardTier.Gold, "7"),
+        new CollectionTierTooltipText(CardTier.Diamond, "5"),
     }
 );
 AssertEqual(
@@ -54,9 +56,9 @@ AssertEqual(
     CollectionTierTooltipTextMerger.Merge(
         new[]
         {
-            new CollectionTierTooltipText(ETier.Silver, "冷却 4.0 秒"),
-            new CollectionTierTooltipText(ETier.Gold, "冷却 4.0 秒"),
-            new CollectionTierTooltipText(ETier.Diamond, "冷却 4.0 秒"),
+            new CollectionTierTooltipText(CardTier.Silver, "冷却 4.0 秒"),
+            new CollectionTierTooltipText(CardTier.Gold, "冷却 4.0 秒"),
+            new CollectionTierTooltipText(CardTier.Diamond, "冷却 4.0 秒"),
         }
     ),
     "Values shared by every available tier should render only once."

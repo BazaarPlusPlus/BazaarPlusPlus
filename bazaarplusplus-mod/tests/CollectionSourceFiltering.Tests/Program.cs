@@ -488,7 +488,7 @@ AssertThrows<InvalidOperationException>(
 );
 
 var currentCatalogJson = TestInputs.Fixture(
-    "src/BazaarPlusPlus/Data/CollectionSources/collection-sources.json"
+    "src/BazaarPlusPlus.Core/Data/CollectionSources/collection-sources.json"
 );
 var currentCatalog = BuildCatalog(currentCatalogJson);
 AssertEqual(

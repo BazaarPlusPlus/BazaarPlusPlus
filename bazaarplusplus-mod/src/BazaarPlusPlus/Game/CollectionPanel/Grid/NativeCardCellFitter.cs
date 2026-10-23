@@ -1,5 +1,4 @@
 #nullable enable
-using BazaarPlusPlus.GameInterop.ItemBoardPreview;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -38,7 +37,7 @@ internal static class NativeCardCellFitter
             cellRect,
             gap,
             CollectionGridConstants.CellContentInset,
-            ItemBoardSocketLayout.FrameHeightOverSocket
+            CollectionGridConstants.FrameHeightOverSocket
         );
         rect.localScale = new Vector3(scale * Mathf.Max(0.01f, horizontalScale), scale, 1f);
     }

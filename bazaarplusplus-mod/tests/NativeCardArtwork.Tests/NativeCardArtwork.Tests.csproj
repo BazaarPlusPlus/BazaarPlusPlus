@@ -6,10 +6,23 @@
     <Nullable>enable</Nullable>
     <ProjectRoot>$(MSBuildThisFileDirectory)../../</ProjectRoot>
   </PropertyGroup>
+  <!-- The grid cell and fit math are Core's (net10.0, so no Managed snapshot is bound). -->
+  <ItemGroup>
+    <ProjectReference
+      Include="../../src/BazaarPlusPlus.Core/BazaarPlusPlus.Core.csproj"
+      SetTargetFramework="TargetFramework=net10.0"
+    />
+    <ProjectReference
+      Include="../../src/BazaarPlusPlus.Storage/BazaarPlusPlus.Storage.csproj"
+      SetTargetFramework="TargetFramework=net10.0"
+    />
+    <ProjectReference
+      Include="../../src/BazaarPlusPlus.ModApi/BazaarPlusPlus.ModApi.csproj"
+      SetTargetFramework="TargetFramework=net10.0"
+    />
+  </ItemGroup>
   <ItemGroup>
     <Compile Include="../../src/BazaarPlusPlus/GameInterop/CardPreview/NativeCardPreviewArtworkMeasurement.cs" />
     <Compile Include="../../src/BazaarPlusPlus/Game/CollectionPanel/CollectionInspectionLayout.cs" />
-    <Compile Include="../../src/BazaarPlusPlus/Game/CollectionPanel/Grid/CollectionCardFitMath.cs" />
-    <Compile Include="../../src/BazaarPlusPlus/Game/CollectionPanel/Grid/CollectionGridCell.cs" />
   </ItemGroup>
 </Project>

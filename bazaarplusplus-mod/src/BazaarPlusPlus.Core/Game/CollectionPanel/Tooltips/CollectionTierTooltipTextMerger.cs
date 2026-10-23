@@ -1,23 +1,24 @@
 #nullable enable
 using System.Globalization;
 using System.Text;
-using BazaarGameShared.Domain.Core.Types;
+using BazaarPlusPlus.Core.Cards;
+using BazaarPlusPlus.Game.EventPreview;
 
 namespace BazaarPlusPlus.Game.CollectionPanel.Tooltips;
 
-internal readonly struct CollectionTierTooltipText
+public readonly struct CollectionTierTooltipText
 {
-    public CollectionTierTooltipText(ETier tier, string text)
+    public CollectionTierTooltipText(CardTier tier, string text)
     {
         Tier = tier;
         Text = text ?? string.Empty;
     }
 
-    public ETier Tier { get; }
+    public CardTier Tier { get; }
     public string Text { get; }
 }
 
-internal static class CollectionTierTooltipTextMerger
+public static class CollectionTierTooltipTextMerger
 {
     private const char PlaceholderStart = '\uE000';
     private const char PlaceholderEnd = '\uE001';
@@ -123,7 +124,7 @@ internal static class CollectionTierTooltipTextMerger
             if (index > 0)
                 output.Append(separator);
             output.Append("<color=#");
-            output.Append(TierColorHex(variants[index].Tier));
+            output.Append(EncounterPreviewText.TierColorHex(variants[index].Tier));
             output.Append('>');
             output.Append(parsed[index].Values[valueIndex]);
             output.Append("</color>");
@@ -192,17 +193,6 @@ internal static class CollectionTierTooltipTextMerger
             && index + 1 < text.Length
             && char.IsDigit(text[index + 1]);
     }
-
-    internal static string TierColorHex(ETier tier) =>
-        tier switch
-        {
-            ETier.Bronze => "B46241",
-            ETier.Silver => "C0C0C0",
-            ETier.Gold => "FFD700",
-            ETier.Diamond => "00FFFF",
-            ETier.Legendary => "FF4500",
-            _ => "FFFFFF",
-        };
 
     private readonly struct ParsedText
     {

@@ -2,7 +2,9 @@
 using System.Text;
 using BazaarGameShared.Domain.Cards.Interfaces;
 using BazaarGameShared.Domain.Core.Types;
+using BazaarPlusPlus.Core.Cards;
 using BazaarPlusPlus.Game.CollectionPanel.Tooltips;
+using BazaarPlusPlus.GameInterop.Cards;
 using TheBazaar;
 using TheBazaar.Tooltips;
 using TheBazaar.Utilities;
@@ -143,7 +145,7 @@ internal static class CollectionTierTooltipPreview
                 return false;
             result.Add(
                 new CollectionTierTooltipText(
-                    tier,
+                    TierFacet(tier),
                     value.Value.ToString(
                         numberFormat,
                         System.Globalization.CultureInfo.InvariantCulture
@@ -167,11 +169,17 @@ internal static class CollectionTierTooltipPreview
         {
             var lines = variants[tierIndex];
             if (lineIndex < lines.Count && !string.IsNullOrWhiteSpace(lines[lineIndex]))
-                lineVariants.Add(new CollectionTierTooltipText(tiers[tierIndex], lines[lineIndex]));
+                lineVariants.Add(
+                    new CollectionTierTooltipText(TierFacet(tiers[tierIndex]), lines[lineIndex])
+                );
         }
 
         return CollectionTierTooltipTextMerger.Merge(lineVariants);
     }
+
+    // The merger colors each variant by its tier facet; a tier without one reads as Bronze.
+    private static CardTier TierFacet(ETier tier) =>
+        DesktopCardFacets.Tier.TryToFacet(tier, out var facet) ? facet : CardTier.Bronze;
 
     private static CardTooltipData CreateTierTooltipData(CardTooltipData source, ETier tier)
     {

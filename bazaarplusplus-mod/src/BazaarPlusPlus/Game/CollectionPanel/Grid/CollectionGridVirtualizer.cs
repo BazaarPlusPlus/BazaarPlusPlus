@@ -239,7 +239,7 @@ internal sealed class CollectionGridVirtualizer
         _firstWindowDiagnostics = null;
     }
 
-    // Polled hover (CollectionGridConstants.UsePolledHover = true, the default). Called
+    // Polled hover (CollectionGridHostConstants.UsePolledHover = true, the default). Called
     // from CollectionPanel.Update with the mouse position and the viewport rect, both in
     // screen pixels (bottom-left origin). Maps the cursor into the realized cell under it
     // and dispatches OnHover/OnHoverOut accordingly.
@@ -520,7 +520,7 @@ internal sealed class CollectionGridVirtualizer
             hover = card.AddComponent<CollectionCardHoverRelay>();
         hover.Bind(session);
 
-        if (!CollectionGridConstants.UsePolledHover)
+        if (!CollectionGridHostConstants.UsePolledHover)
             EnsureHitTarget(card);
 
         var hoverScale = card.GetComponent<CollectionCardHoverScaleController>();

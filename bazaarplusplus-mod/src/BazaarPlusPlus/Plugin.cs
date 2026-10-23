@@ -214,7 +214,7 @@ public class Plugin : BaseUnityPlugin
             () => ChineseScriptConverter.NormalizeMode(config.ChineseLocaleModeConfig.Value)
         );
         var attributeUnitLocalizer = BppTooltipText.TryLocalizeKeyword;
-        CollectionLocalizationResolver.AttributeUnitLocalizer = attributeUnitLocalizer;
+        CollectionAbilityPlaceholders.AttributeUnitLocalizer = attributeUnitLocalizer;
         EventPreviewLocalization.AttributeUnitLocalizer = attributeUnitLocalizer;
         EventPreviewLocalization.TextLocalizer = EventPreviewGameText.Localize;
         BppSettingsDockCatalog.Install(services.Config, settingsDockRegistry);
@@ -238,7 +238,7 @@ public class Plugin : BaseUnityPlugin
     {
         LegendaryPositionDisplayFormatter.Reset();
         L.Reset();
-        CollectionLocalizationResolver.AttributeUnitLocalizer = null;
+        CollectionAbilityPlaceholders.AttributeUnitLocalizer = null;
         EventPreviewLocalization.AttributeUnitLocalizer = null;
         EventPreviewLocalization.TextLocalizer = null;
         BppSettingsDockCatalog.Reset();

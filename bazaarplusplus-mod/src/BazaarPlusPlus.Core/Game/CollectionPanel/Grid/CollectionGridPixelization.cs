@@ -3,7 +3,7 @@ namespace BazaarPlusPlus.Game.CollectionPanel.Grid;
 
 // Converts the active tab's fixed grid spec into overlay-pixel geometry. Kept Unity-free so the
 // preview width contract is testable without booting the game client.
-internal readonly struct CollectionGridPixelization
+public readonly struct CollectionGridPixelization
 {
     public CollectionGridPixelization(float unit, float originX, float originY, float gridWidth)
     {

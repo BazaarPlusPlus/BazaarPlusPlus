@@ -1,7 +1,7 @@
 #nullable enable
 namespace BazaarPlusPlus.Game.CollectionPanel.Grid;
 
-internal sealed class CollectionCardMaterialLru
+public sealed class CollectionCardMaterialLru
 {
     private readonly int _capacity;
     private readonly Dictionary<string, Entry> _entries = new(StringComparer.Ordinal);

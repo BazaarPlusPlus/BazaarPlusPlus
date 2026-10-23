@@ -4,7 +4,7 @@ namespace BazaarPlusPlus.Game.CollectionPanel.Grid;
 // Pure card-fit math for the Collection grid. UnityEngine-free so scale/position rules are
 // unit-tested in tests/CollectionGridLayout.Tests without booting the game client. Measurement
 // and RectTransform writes live in NativeCardCellFitter; this type only computes numbers.
-internal readonly struct CardVisualBounds
+public readonly struct CardVisualBounds
 {
     public CardVisualBounds(float width, float height, float centerX, float centerY)
     {
@@ -20,7 +20,7 @@ internal readonly struct CardVisualBounds
     public float CenterY { get; }
 }
 
-internal static class CollectionCardFitMath
+public static class CollectionCardFitMath
 {
     // Scale to the cell HEIGHT so every card in a shelf renders the same height. Clamp item
     // cards by body width, not frame width: Large frame art has native side flourishes that

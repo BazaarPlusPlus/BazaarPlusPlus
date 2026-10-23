@@ -198,7 +198,7 @@ internal sealed partial class CollectionPanelView
         controlsScroll.style.minHeight = 0f;
         controlsScroll.horizontalScrollerVisibility = ScrollerVisibility.Hidden;
         controlsScroll.verticalScrollerVisibility = ScrollerVisibility.Auto;
-        controlsScroll.mouseWheelScrollSize = CollectionGridConstants.MouseWheelScrollPoints;
+        controlsScroll.mouseWheelScrollSize = CollectionGridHostConstants.MouseWheelScrollPoints;
         controlsScroll.contentContainer.style.flexDirection = FlexDirection.Column;
         controlsScroll.contentContainer.style.minHeight = 0f;
         _controlsScrollView = controlsScroll;
@@ -1348,7 +1348,7 @@ internal sealed partial class CollectionPanelView
         _gridScrollView.style.minHeight = 0f;
         _gridScrollView.horizontalScrollerVisibility = ScrollerVisibility.Hidden;
         _gridScrollView.verticalScrollerVisibility = ScrollerVisibility.Auto;
-        _gridScrollView.mouseWheelScrollSize = CollectionGridConstants.MouseWheelScrollPoints;
+        _gridScrollView.mouseWheelScrollSize = CollectionGridHostConstants.MouseWheelScrollPoints;
         _gridScrollView.contentContainer.style.flexDirection = FlexDirection.Column;
         // Scroll offset is polled in CollectionPanel.Update via ReadScrollYPixels(): the
         // publicized UIElements Scroller exposes valueChanged ambiguously (field vs property),
