@@ -16,10 +16,10 @@ public enum ReleaseManifestFailureKind
 }
 
 /// <summary>
-/// The Android Release APK a Platform Release Manifest names: the game version code it was
-/// injected into and where to download it.
+/// The Android Release APK a Platform Release Manifest names: the game version it was injected
+/// into, as the game reports it in <c>Application.version</c>, and where to download it.
 /// </summary>
-public sealed record AndroidApkRelease(int GameVersionCode, Uri Url);
+public sealed record AndroidApkRelease(string GameVersion, Uri Url);
 
 /// <summary>
 /// One read of a Release Manifest: the published product version and, from a Platform Release
@@ -164,24 +164,25 @@ public sealed class ReleaseManifestClient
         );
     }
 
-    // An Android record names the game it was injected into (game.versionCode) and the APK to
-    // install for it (apk.url); release/manifest.mjs owns both. Anything incomplete is no APK.
+    // An Android record names the game it was injected into (game.gameVersion, the string the
+    // running game reports) and the APK to install for it (apk.url); release/manifest.mjs owns
+    // both. Anything incomplete is no APK.
     private AndroidApkRelease? ReadAndroidApk(JObject document)
     {
         if (_platformKey == null || document["downloads"]?[_platformKey] is not JObject release)
             return null;
         if (release["apk"] is not JObject apk || release["game"] is not JObject game)
             return null;
-        if (game["versionCode"]?.Type != JTokenType.Integer)
+        if (game["gameVersion"]?.Type != JTokenType.String)
             return null;
-        var versionCode = game.Value<int>("versionCode");
+        var gameVersion = game.Value<string>("gameVersion")!.Trim();
         var url = apk.Value<string>("url");
         if (
-            versionCode <= 0
+            gameVersion.Length == 0
             || !Uri.TryCreate(url, UriKind.Absolute, out var uri)
             || uri.Scheme != Uri.UriSchemeHttps
         )
             return null;
-        return new AndroidApkRelease(versionCode, uri);
+        return new AndroidApkRelease(gameVersion, uri);
     }
 }

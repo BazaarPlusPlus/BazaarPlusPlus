@@ -463,7 +463,7 @@ internal sealed class AndroidTouchUi
             return;
         BppLog.InfoEvent(
             new BppLogEvent(BppLogFeatureScope.Android, "android.ui.game_update_opened"),
-            ("version_code", apk.GameVersionCode)
+            ("game_version", apk.GameVersion)
         );
         Application.OpenURL(apk.Url.ToString());
     }

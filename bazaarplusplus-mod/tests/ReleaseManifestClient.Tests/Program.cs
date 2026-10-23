@@ -113,9 +113,9 @@ static async Task TestAndroidApkIsReadOnlyWhenComplete()
 
     True(result.AndroidApk != null, "The Android manifest should yield its Release APK.");
     Equal(
-        release.GetProperty("game").GetProperty("versionCode").GetInt32(),
-        result.AndroidApk!.GameVersionCode,
-        "The APK is identified by the game version code it was injected into."
+        release.GetProperty("game").GetProperty("gameVersion").GetString(),
+        result.AndroidApk!.GameVersion,
+        "The APK is identified by the game version it was injected into."
     );
     Equal(
         release.GetProperty("apk").GetProperty("url").GetString(),
@@ -137,10 +137,10 @@ static async Task TestAndroidApkIsReadOnlyWhenComplete()
         platformKey: ReleaseManifestEndpoints.AndroidPlatformKey
     );
     True(incomplete.Succeeded, "The version is still published.");
-    True(incomplete.AndroidApk == null, "An APK without its game version code is no APK.");
+    True(incomplete.AndroidApk == null, "An APK without its game version is no APK.");
 
     const string plainHttp = """
-        {"version":"3.4.5","downloads":{"android-aarch64":{"apk":{"url":"http://cdn.example/a.apk"},"game":{"versionCode":13000}}}}
+        {"version":"3.4.5","downloads":{"android-aarch64":{"apk":{"url":"http://cdn.example/a.apk"},"game":{"gameVersion":"1.0.13000-production-android-0000000a"}}}}
         """;
     var insecure = await Fetch(
         _ => Response(HttpStatusCode.OK, plainHttp),
@@ -151,7 +151,10 @@ static async Task TestAndroidApkIsReadOnlyWhenComplete()
 
 static void TestAndroidGameUpdateComparesVersionCodes()
 {
-    var apk = new AndroidApkRelease(12900, new Uri("https://cdn.example/a.apk"));
+    var apk = new AndroidApkRelease(
+        "1.0.12900-production-android-0000000b",
+        new Uri("https://cdn.example/a.apk")
+    );
     Equal(
         12825,
         AndroidGameUpdate.ParseVersionCode("1.0.12825-production-android-d9601ded"),
@@ -178,6 +181,13 @@ static void TestAndroidGameUpdateComparesVersionCodes()
     True(
         AndroidGameUpdate.Newer("1.0.12825-production-android-d9601ded", null) == null,
         "No APK, no offer."
+    );
+    True(
+        AndroidGameUpdate.Newer(
+            "1.0.12825-production-android-d9601ded",
+            new AndroidApkRelease("garbled", apk.Url)
+        ) == null,
+        "An unreadable published version offers nothing."
     );
 }
 

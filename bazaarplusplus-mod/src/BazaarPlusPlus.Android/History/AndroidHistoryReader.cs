@@ -1,5 +1,6 @@
 using System.Globalization;
 using BazaarPlusPlus.Game.HistoryPanel.Data;
+using BazaarPlusPlus.Storage.RunLog;
 using Microsoft.Data.Sqlite;
 
 namespace BazaarPlusPlus.Android.History;
@@ -26,10 +27,17 @@ internal sealed record AndroidHistoryPage(
 /// <summary>
 /// Read-only queries over the history database for the Android History panel: local Runs and
 /// the battles recorded in each. It opens its own read-only connection per read, so it never
-/// competes with the record chain's writer for the connection, only for the file lock.
+/// competes with the record chain's writer for the connection, only for the file lock. It applies
+/// the desktop panel's rules through the Storage pieces that own them: Runs order by
+/// <see cref="RunLogSchema.HistoryRunTime"/>, and an active Run the mod could not resume reads as
+/// abandoned (<see cref="RunLogStore.ResumableRunCondition"/>).
 /// </summary>
 internal sealed class AndroidHistoryReader
 {
+    private static readonly string RunStatusColumn =
+        $"CASE WHEN status = 'active' AND NOT {RunLogStore.ResumableRunCondition(RunLogSchema.RunsTableName)} "
+        + "THEN 'abandoned' ELSE status END AS run_status";
+
     private readonly string _connectionString;
 
     public AndroidHistoryReader(string databasePath)
@@ -59,13 +67,13 @@ internal sealed class AndroidHistoryReader
         using (var command = connection.CreateCommand())
         {
             command.Transaction = transaction;
-            command.CommandText = """
-                SELECT run_id, started_at_ms, last_seen_at_ms, ended_at_ms, status, hero, game_mode,
-                       day, hour, final_day, final_hour, max_health, prestige, level, income, gold,
-                       player_rank, player_rating, final_player_rank, final_player_rating,
-                       final_player_rating_delta, victories, losses
+            command.CommandText = $"""
+                SELECT run_id, started_at_ms, last_seen_at_ms, ended_at_ms, {RunStatusColumn},
+                       hero, game_mode, day, hour, final_day, final_hour, max_health, prestige,
+                       level, income, gold, player_rank, player_rating, final_player_rank,
+                       final_player_rating, final_player_rating_delta, victories, losses
                 FROM runs
-                ORDER BY started_at_ms DESC, run_id DESC
+                ORDER BY {RunLogSchema.HistoryRunTime} DESC, run_id DESC
                 LIMIT $limit OFFSET $offset
                 """;
             command.Parameters.AddWithValue("$limit", limit);
@@ -86,7 +94,7 @@ internal sealed class AndroidHistoryReader
             SELECT day, result, is_final_battle, opponent_name, opponent_hero, opponent_rank,
                    opponent_rating, recorded_at_ms
             FROM battles
-            WHERE run_id = $run AND source = 'LOCAL' AND deleted_at_ms IS NULL
+            WHERE run_id = $run AND source = 'LOCAL'
             ORDER BY recorded_at_ms DESC, battle_id DESC
             """;
         command.Parameters.AddWithValue("$run", runId);
@@ -127,8 +135,8 @@ internal sealed class AndroidHistoryReader
         }
     }
 
-    // The same projection as the desktop panel: a finished Run's final_* values, else the values
-    // it was last seen with.
+    // A finished Run's final_* values, else the values it was last seen with, as the desktop panel
+    // shows them.
     private static HistoryRunRecord ReadRun(SqliteDataReader reader)
     {
         var startedAt = DateTimeOffset.FromUnixTimeMilliseconds(
@@ -154,7 +162,7 @@ internal sealed class AndroidHistoryReader
             Int(reader, "final_player_rating_delta"),
             Int(reader, "victories"),
             Int(reader, "losses"),
-            reader.GetString(reader.GetOrdinal("status"))
+            reader.GetString(reader.GetOrdinal("run_status"))
         );
     }
 

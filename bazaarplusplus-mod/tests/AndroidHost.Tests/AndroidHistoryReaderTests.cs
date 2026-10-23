@@ -57,7 +57,7 @@ public sealed class AndroidHistoryReaderTests : IDisposable
     }
 
     [Fact]
-    public void Battles_list_the_runs_local_battles_newest_first_without_deleted_ones()
+    public void Battles_list_the_runs_local_battles_newest_first()
     {
         var database = CreateDatabase(
             """
@@ -66,15 +66,13 @@ public sealed class AndroidHistoryReaderTests : IDisposable
                    ('other', 1000, 2000, 'completed', 'Mak', 'ranked');
             INSERT INTO battles (battle_id, source, run_id, recorded_at_ms, day, combat_kind, result,
                                  is_final_battle, opponent_name, opponent_hero, opponent_rank,
-                                 opponent_rating, local_payload_state, deleted_at_ms)
+                                 opponent_rating, local_payload_state)
             VALUES ('b1', 'LOCAL', 'run', 100, 1, 'PVPCombat', 'loss', 0, 'Ann', 'Mak', 'Bronze',
-                    500, 'ready', NULL),
+                    500, 'ready'),
                    ('b2', 'LOCAL', 'run', 200, 2, 'PVPCombat', 'win', 1, 'Bob', 'Jules', NULL,
-                    NULL, 'ready', NULL),
-                   ('b3', 'LOCAL', 'run', 300, 3, 'PVPCombat', 'win', 0, 'Cy', 'Stelle', NULL,
-                    NULL, 'ready', 400),
+                    NULL, 'ready'),
                    ('b4', 'LOCAL', 'other', 400, 1, 'PVPCombat', 'win', 0, 'Di', 'Mak', NULL,
-                    NULL, 'ready', NULL);
+                    NULL, 'ready');
             """
         );
 
@@ -87,6 +85,26 @@ public sealed class AndroidHistoryReaderTests : IDisposable
         Assert.Equal("Bronze", battles[1].OpponentRank);
         Assert.Equal(500, battles[1].OpponentRating);
         Assert.Equal(DateTimeOffset.FromUnixTimeMilliseconds(100), battles[1].RecordedAtUtc);
+    }
+
+    [Fact]
+    public void Runs_order_by_their_history_time_and_an_unresumable_active_run_reads_abandoned()
+    {
+        var database = CreateDatabase(
+            """
+            INSERT INTO runs (run_id, started_at_ms, last_seen_at_ms, status, hero, game_mode,
+                              upload_policy, ended_at_ms)
+            VALUES ('long', 1000, 9000, 'completed', 'Vanessa', 'ranked', 'bundle', 9500),
+                   ('current', 5000, 6000, 'active', 'Mak', 'ranked', 'bundle', NULL),
+                   ('imported', 7000, 7000, 'active', 'Dooley', 'ranked', 'history_only', NULL);
+            """
+        );
+
+        var runs = new AndroidHistoryReader(database).ReadRuns(0, 10).Runs;
+
+        Assert.Equal(new[] { "long", "imported", "current" }, runs.Select(run => run.RunId));
+        Assert.Equal("abandoned", runs[1].RawStatus);
+        Assert.Equal("active", runs[2].RawStatus);
     }
 
     [Fact]

@@ -116,7 +116,7 @@ internal sealed class AndroidVersionCheck : IDisposable
         BppLog.InfoEvent(
             new BppLogEvent(BppLogFeatureScope.Lobby, "lobby.game_update.checked"),
             ("game_version", _gameVersion),
-            ("published_version_code", check.Result.AndroidApk?.GameVersionCode),
+            ("published_game_version", check.Result.AndroidApk?.GameVersion),
             ("decision", gameUpdate == null ? "current" : "download_apk")
         );
         _selfUpdate.Apply(check.Evaluation);

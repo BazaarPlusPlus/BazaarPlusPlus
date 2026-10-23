@@ -11,7 +11,7 @@ namespace BazaarPlusPlus.Game.Lobby;
 public static class AndroidGameUpdate
 {
     /// <summary>
-    /// The version code inside an Android <c>Application.version</c> such as
+    /// The build number inside an Android game version such as
     /// <c>1.0.12825-production-android-d9601ded</c>: the third dotted number, 12825.
     /// </summary>
     public static int? ParseVersionCode(string? gameVersion)
@@ -26,12 +26,16 @@ public static class AndroidGameUpdate
 
     /// <summary>
     /// The APK to offer when the published one was injected into a newer game than the running
-    /// one; null when the game is current, or when either version code is unknown.
+    /// one; null when the game is current, or when either build number is unknown. Both sides
+    /// are game version strings in the same format, so neither relies on the APK's versionCode.
     /// </summary>
     public static AndroidApkRelease? Newer(string? runningGameVersion, AndroidApkRelease? published)
     {
+        if (published == null)
+            return null;
         var running = ParseVersionCode(runningGameVersion);
-        return published != null && running.HasValue && published.GameVersionCode > running.Value
+        var offered = ParseVersionCode(published.GameVersion);
+        return running.HasValue && offered.HasValue && offered.Value > running.Value
             ? published
             : null;
     }
