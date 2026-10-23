@@ -6,36 +6,36 @@ using Newtonsoft.Json;
 
 namespace BazaarPlusPlus.Game.VoiceSubtitles;
 
-internal readonly record struct VoiceLinesValidationLine(
+public readonly record struct VoiceLinesValidationLine(
     string Stem,
     string English,
     string Chinese,
     float DurationSeconds
 );
 
-internal enum VoiceLinesValidationSkipReason
+public enum VoiceLinesValidationSkipReason
 {
     MissingStem,
     DuplicateStem,
     EmptyText,
 }
 
-internal readonly record struct VoiceLinesValidationSkippedRow(
+public readonly record struct VoiceLinesValidationSkippedRow(
     int RowNumber,
     VoiceLinesValidationSkipReason Reason,
     string? Stem
 );
 
-internal readonly record struct VoiceLinesValidationResult(
+public readonly record struct VoiceLinesValidationResult(
     VoiceLinesValidationLine[] Lines,
     VoiceLinesValidationSkippedRow[] SkippedRows
 );
 
-internal static class VoiceLinesValidationCore
+public static class VoiceLinesValidationCore
 {
-    internal const int SupportedSchemaVersion = 1;
+    public const int SupportedSchemaVersion = 1;
 
-    internal static VoiceLinesValidationResult Parse(string json, string source)
+    public static VoiceLinesValidationResult Parse(string json, string source)
     {
         var document =
             JsonConvert.DeserializeObject<VoiceLinesJsonDocument>(json)
@@ -127,7 +127,7 @@ internal static class VoiceLinesValidationCore
         return new VoiceLinesValidationResult(result, skippedRows.ToArray());
     }
 
-    internal static string ComputeContentHash(IReadOnlyList<VoiceLinesValidationLine> lines)
+    public static string ComputeContentHash(IReadOnlyList<VoiceLinesValidationLine> lines)
     {
         var canonical = new StringBuilder();
         for (var i = 0; i < lines.Count; i++)
