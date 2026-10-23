@@ -36,7 +36,7 @@ internal static class HistoryPaginationTests
         }
         var page = new HistoryPanelRepository(path).ListGhostBattles(
             "account",
-            GhostBattleFilter.All,
+            HistoryPanelDataService.RecorderOutcome(GhostBattleFilter.All),
             false,
             new()
         );
@@ -47,7 +47,11 @@ internal static class HistoryPaginationTests
         // A connection that cached the drifted schema keeps it; plan on one opened after the repair.
         using var db = new SqliteConnection($"Data Source={path}");
         db.Open();
-        var query = HistoryPageQuery.Ghosts("account", GhostBattleFilter.All, false);
+        var query = HistoryPageQuery.Ghosts(
+            "account",
+            HistoryPanelDataService.RecorderOutcome(GhostBattleFilter.All),
+            false
+        );
         var total = Plan(db, query, query.CountSql, new(1767225600000, "drifted"));
         Check(
             total.Contains(
@@ -118,14 +122,14 @@ internal static class HistoryPaginationTests
         }
         Check(!page.HasNewer, "The newest page must have no newer records.");
         var dragons = new List<string>();
-        page = repository.ListRuns(new(), "TheDragons");
+        page = repository.ListRuns(new(), HistoryPanelDataService.RunHeroKey("TheDragons"));
         while (true)
         {
             CheckCounts(page, (count + 96) / 97, dragons.Count + 1);
             dragons.AddRange(page.Rows.Select(r => r.RunId));
             if (!page.HasOlder)
                 break;
-            page = repository.ListRuns(new(page.Last), "Hero8");
+            page = repository.ListRuns(new(page.Last), HistoryPanelDataService.RunHeroKey("Hero8"));
         }
         Check(
             dragons.SequenceEqual(expected.Where(id => int.Parse(id[1..]) % 97 == 0)),
@@ -148,10 +152,15 @@ internal static class HistoryPaginationTests
         CheckCounts(preserved, count, pages[^1].FirstPosition + 1);
         var latest = repository.ListRuns(new());
         CheckCounts(latest, count, 1);
-        CheckCounts(repository.ListRuns(new(), "missing"), 0, 0);
+        CheckCounts(
+            repository.ListRuns(new(), HistoryPanelDataService.RunHeroKey("missing")),
+            0,
+            0
+        );
         Check(latest.Rows[0].RunId == "r00000", "Latest must reveal newer data.");
         Check(
-            repository.ListRuns(new(), "missing").Rows.Count == 0,
+            repository.ListRuns(new(), HistoryPanelDataService.RunHeroKey("missing")).Rows.Count
+                == 0,
             "Empty filters must produce an empty page."
         );
         var battlePage = repository.ListBattles(expected[0], new(Limit: 3));
@@ -208,7 +217,12 @@ internal static class HistoryPaginationTests
         );
         CheckGhostCountFilters(db, repository);
         var ids = new List<string>();
-        var page = repository.ListGhostBattles("account-a", GhostBattleFilter.All, false, new());
+        var page = repository.ListGhostBattles(
+            "account-a",
+            HistoryPanelDataService.RecorderOutcome(GhostBattleFilter.All),
+            false,
+            new()
+        );
         while (true)
         {
             ids.AddRange(page.Rows.Select(b => b.BattleId));
@@ -216,7 +230,7 @@ internal static class HistoryPaginationTests
                 break;
             page = repository.ListGhostBattles(
                 "account-a",
-                GhostBattleFilter.All,
+                HistoryPanelDataService.RecorderOutcome(GhostBattleFilter.All),
                 false,
                 new(page.Last)
             );
@@ -227,7 +241,7 @@ internal static class HistoryPaginationTests
         );
         var filtered = repository.ListGhostBattles(
             "account-a",
-            GhostBattleFilter.IWon,
+            HistoryPanelDataService.RecorderOutcome(GhostBattleFilter.IWon),
             true,
             new()
         );
@@ -248,12 +262,24 @@ internal static class HistoryPaginationTests
             "SQL filtering and local-perspective outcome display must agree."
         );
         Check(
-            repository.ListGhostBattles("", GhostBattleFilter.All, false, new()).Rows.Count == 0,
+            repository
+                .ListGhostBattles(
+                    "",
+                    HistoryPanelDataService.RecorderOutcome(GhostBattleFilter.All),
+                    false,
+                    new()
+                )
+                .Rows.Count == 0,
             "Signed out must not expose any account's Ghost records."
         );
         Execute(db, "UPDATE battles SET deleted_at_ms=1 WHERE battle_id='g0002';");
         CheckCounts(
-            repository.ListGhostBattles("account-a", GhostBattleFilter.All, false, new()),
+            repository.ListGhostBattles(
+                "account-a",
+                HistoryPanelDataService.RecorderOutcome(GhostBattleFilter.All),
+                false,
+                new()
+            ),
             183,
             1
         );
@@ -262,7 +288,7 @@ internal static class HistoryPaginationTests
         );
         var retained = repository.ListGhostBattles(
             "account-a",
-            GhostBattleFilter.All,
+            HistoryPanelDataService.RecorderOutcome(GhostBattleFilter.All),
             false,
             new()
         );
@@ -312,12 +338,13 @@ internal static class HistoryPaginationTests
         var repository = new HistoryPanelRepository(path);
         foreach (var hero in new string?[] { null, "", " " })
             Check(
-                repository.ListRuns(new(), hero).Rows.Count == 3,
+                repository.ListRuns(new(), HistoryPanelDataService.RunHeroKey(hero)).Rows.Count
+                    == 3,
                 "An empty hero selection must include every run."
             );
         foreach (var hero in new[] { "TheDragons", "Hero8", "tHeDrAgOnS" })
         {
-            var page = repository.ListRuns(new(), hero);
+            var page = repository.ListRuns(new(), HistoryPanelDataService.RunHeroKey(hero));
             CheckCounts(page, 2, 1);
             var rows = page.Rows;
             Check(
@@ -328,8 +355,12 @@ internal static class HistoryPaginationTests
             );
         }
         Check(
-            repository.ListRuns(new(), "vanessa").Rows.Single().RunId == "other"
-                && repository.ListRuns(new(), "Mak").Rows.Count == 0,
+            repository
+                .ListRuns(new(), HistoryPanelDataService.RunHeroKey("vanessa"))
+                .Rows.Single()
+                .RunId == "other"
+                && repository.ListRuns(new(), HistoryPanelDataService.RunHeroKey("Mak")).Rows.Count
+                    == 0,
             "Hero filtering must ignore case and exclude other heroes."
         );
         foreach (var dayMin10 in new[] { false, true })
@@ -347,7 +378,12 @@ internal static class HistoryPaginationTests
                 }
             )
             {
-                var page = repository.ListGhostBattles("account", filter, dayMin10, new());
+                var page = repository.ListGhostBattles(
+                    "account",
+                    HistoryPanelDataService.RecorderOutcome(filter),
+                    dayMin10,
+                    new()
+                );
                 var rows = page.Rows;
                 CheckCounts(page, days.Length * outcomes.Length, 1);
                 var expected = days.SelectMany(day =>
@@ -403,7 +439,9 @@ internal static class HistoryPaginationTests
         );
         foreach (var hero in new[] { false, true })
         {
-            var query = HistoryPageQuery.Runs(hero ? "TheDragons" : null);
+            var query = HistoryPageQuery.Runs(
+                HistoryPanelDataService.RunHeroKey(hero ? "TheDragons" : null)
+            );
             var newer = Plan(db, query, query.CountNewerSql, at);
             var index = hero ? "idx_runs_history_hero" : "idx_runs_history_recent";
             Check(
@@ -453,7 +491,12 @@ internal static class HistoryPaginationTests
                 .Select(x => $"g{x:0000}")
                 .ToArray();
             var visited = new List<string>();
-            var page = repository.ListGhostBattles(account, filter, dayMin10, new(Limit: 17));
+            var page = repository.ListGhostBattles(
+                account,
+                HistoryPanelDataService.RecorderOutcome(filter),
+                dayMin10,
+                new(Limit: 17)
+            );
             while (true)
             {
                 CheckCounts(page, expected.Length, page.Rows.Count == 0 ? 0 : visited.Count + 1);
@@ -462,7 +505,7 @@ internal static class HistoryPaginationTests
                     break;
                 page = repository.ListGhostBattles(
                     account,
-                    filter,
+                    HistoryPanelDataService.RecorderOutcome(filter),
                     dayMin10,
                     new(page.Last, Limit: 17)
                 );
@@ -475,7 +518,7 @@ internal static class HistoryPaginationTests
             {
                 var previous = repository.ListGhostBattles(
                     account,
-                    filter,
+                    HistoryPanelDataService.RecorderOutcome(filter),
                     dayMin10,
                     new(page.First, Newer: true, Limit: 17)
                 );
@@ -490,7 +533,9 @@ internal static class HistoryPaginationTests
                 "idx_battles_history_ghost" + (day ? "_day" : "") + (outcome ? "_outcome" : "");
             var query = HistoryPageQuery.Ghosts(
                 "account-a",
-                outcome ? GhostBattleFilter.IWon : GhostBattleFilter.All,
+                HistoryPanelDataService.RecorderOutcome(
+                    outcome ? GhostBattleFilter.IWon : GhostBattleFilter.All
+                ),
                 day
             );
             HistoryCursor at = new(1788220800000, "g0040");

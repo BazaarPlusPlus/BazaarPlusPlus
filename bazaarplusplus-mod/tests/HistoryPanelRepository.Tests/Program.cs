@@ -2,7 +2,6 @@
 using BazaarPlusPlus.Game.HistoryPanel;
 using BazaarPlusPlus.Game.HistoryPanel.Data;
 using BazaarPlusPlus.Game.HistoryPanel.Storage;
-using BazaarPlusPlus.ModApi.Models;
 using BazaarPlusPlus.Storage.Paths;
 using BazaarPlusPlus.Storage.RunLog;
 using Microsoft.Data.Sqlite;
@@ -64,7 +63,12 @@ try
     );
     repository.UpsertGhostBattles("account-local", [first]);
     var local = repository
-        .ListGhostBattles("account-local", GhostBattleFilter.All, false, new())
+        .ListGhostBattles(
+            "account-local",
+            HistoryPanelDataService.RecorderOutcome(GhostBattleFilter.All),
+            false,
+            new()
+        )
         .Rows.Single();
     Assert(!local.SnapshotCounts.Known, "Undownloaded Ghost counts must remain unknown.");
     Assert(
@@ -96,14 +100,24 @@ try
     final.IsFinalBattle = true;
     repository.UpsertGhostBattles("account-local", [final]);
     var finalRow = repository
-        .ListGhostBattles("account-local", GhostBattleFilter.All, false, new())
+        .ListGhostBattles(
+            "account-local",
+            HistoryPanelDataService.RecorderOutcome(GhostBattleFilter.All),
+            false,
+            new()
+        )
         .Rows.Single(row => row.BattleId != localId);
     Assert(finalRow.IsFinalBattle, "Ghost discovery must keep the final-battle fact.");
 
     repository.MarkGhostReplayUnavailable(localId, ReplayAvailability.Unavailable, "corrupt");
     Assert(
         repository
-            .ListGhostBattles("account-local", GhostBattleFilter.All, false, new())
+            .ListGhostBattles(
+                "account-local",
+                HistoryPanelDataService.RecorderOutcome(GhostBattleFilter.All),
+                false,
+                new()
+            )
             .Rows.Single(row => row.BattleId == localId)
             .Replay == ReplayAvailability.Unavailable,
         "Ghost rows must distinguish unavailable data from an undownloaded replay."
@@ -114,7 +128,12 @@ try
         "object_unavailable"
     );
     var expiredRow = repository
-        .ListGhostBattles("account-local", GhostBattleFilter.All, false, new())
+        .ListGhostBattles(
+            "account-local",
+            HistoryPanelDataService.RecorderOutcome(GhostBattleFilter.All),
+            false,
+            new()
+        )
         .Rows.Single(row => row.BattleId == localId);
     Assert(
         expiredRow.Replay == ReplayAvailability.Expired,
@@ -142,12 +161,7 @@ try
     await HistoryFavoriteWorkflowTests.RunAsync(root);
     ReplayAvailabilityCodecTests.Run(root);
     HistoryReadSchedulingTests.Run();
-    ReplayMaintenanceStorageTests.Run();
-    ReplayPayloadRetentionPolicyTests.Run();
-    ReplayPayloadOperationGateTests.Run();
-    ReplayPayloadMaintenanceServiceTests.Run();
-    ReplayVideoMetadataLifecycleTests.Run();
-    ReplayVideoArtifactMaintenanceTests.Run();
+    HistoryRunRowTests.Run(root);
 
     Console.WriteLine("History panel repository tests passed.");
 }
@@ -158,7 +172,7 @@ finally
         Directory.Delete(root, recursive: true);
 }
 
-static GhostBattleImportRecord Ghost(
+static GhostBattleImportRow Ghost(
     string battleId,
     string bundleId,
     string url,

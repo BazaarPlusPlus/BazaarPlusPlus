@@ -41,50 +41,10 @@ internal static class HistoryBattlePreviewProjection
         );
     }
 
-    public static HistoryBattleSnapshotCounts CountSnapshots(
-        PvpBattleCardSetCapture? playerHand,
-        PvpBattleCardSetCapture? playerSkills,
-        PvpBattleCardSetCapture? opponentHand,
-        PvpBattleCardSetCapture? opponentSkills
-    )
-    {
-        // Counts match what Build() would render so row-chip totals stay aligned with the
-        // preview board: drop snapshots with empty/unparseable TemplateId, type mismatch
-        // (e.g. SocketEffect appearing in an item capture), or missing static template.
-        var staticData = TryGetStaticGameData();
-        return new HistoryBattleSnapshotCounts(
-            CountRenderable(playerHand?.Items, isSkill: false, staticData),
-            CountRenderable(playerSkills?.Items, isSkill: true, staticData),
-            CountRenderable(opponentHand?.Items, isSkill: false, staticData),
-            CountRenderable(opponentSkills?.Items, isSkill: true, staticData)
-        );
-    }
-
-    private static int CountRenderable(
-        IList<PvpBattleCardSnapshot>? snapshots,
-        bool isSkill,
-        object? staticData
-    )
-    {
-        if (snapshots == null)
-            return 0;
-
-        var count = 0;
-        for (var i = 0; i < snapshots.Count; i++)
-        {
-            var snapshot = snapshots[i];
-            if (snapshot == null || string.IsNullOrWhiteSpace(snapshot.TemplateId))
-                continue;
-            if (isSkill ? snapshot.Type != ECardType.Skill : snapshot.Type != ECardType.Item)
-                continue;
-            if (!Guid.TryParse(snapshot.TemplateId, out var templateId))
-                continue;
-            if (!HasStaticCardTemplate(staticData, templateId))
-                continue;
-            count++;
-        }
-        return count;
-    }
+    // The static-data question History's snapshot counts ask (HistoryBattleSnapshotCounter), so
+    // a row's chip totals match what Build() renders.
+    public static bool HasCardTemplate(Guid templateId) =>
+        HasStaticCardTemplate(TryGetStaticGameData(), templateId);
 
     private static List<BppItemBoardCard> BuildItemBoardCards(
         IList<PvpBattleCardSnapshot>? itemSnapshots
@@ -102,8 +62,8 @@ internal static class HistoryBattlePreviewProjection
                 .Select((snapshot, index) => new { snapshot, index })
                 .OrderBy(entry => entry.snapshot?.Socket.HasValue == true ? 0 : 1)
                 .ThenBy(entry =>
-                    entry.snapshot?.Socket.HasValue == true
-                        ? (int)entry.snapshot.Socket!.Value
+                    entry.snapshot?.Socket is { } socket
+                        ? CardFacetOrder.SocketRank(socket)
                         : int.MaxValue
                 )
                 .ThenBy(entry => entry.index)
@@ -112,21 +72,18 @@ internal static class HistoryBattlePreviewProjection
         {
             if (snapshot == null || string.IsNullOrWhiteSpace(snapshot.TemplateId))
                 continue;
-            if (snapshot.Type != ECardType.Item)
+            if (snapshot.Type != CardType.Item)
                 continue;
             if (!Guid.TryParse(snapshot.TemplateId, out var templateId))
                 continue;
             if (!HasStaticCardTemplate(staticData, templateId))
                 continue;
 
+            // A card the game gave no size still renders as one socket (ADR-0017).
+            var size = snapshot.Size ?? CardSize.Small;
             var attributes = BuildAttributeDictionary(snapshot);
             ApplySocketEffectAttributes(snapshot, attributes, socketEffectsBySocket);
 
-            // A recorded size the facets cannot name (the collector's default 0) still renders as
-            // one socket, as it did on game types (ADR-0017).
-            var size = DesktopCardFacets.Size.TryToFacet(snapshot.Size, out var mappedSize)
-                ? mappedSize
-                : CardSize.Small;
             specs.Add(
                 new BppItemBoardCard
                 {
@@ -143,7 +100,9 @@ internal static class HistoryBattlePreviewProjection
                         && DesktopCardFacets.Enchantment.TryToFacet(enchantment, out var facet)
                             ? facet
                             : null,
-                    SourceSocketId = snapshot.Socket.HasValue ? (int)snapshot.Socket.Value : null,
+                    SourceSocketId = snapshot.Socket is { } socket
+                        ? CardFacetOrder.SocketRank(socket)
+                        : null,
                     Attributes = attributes.ToDictionary(
                         pair => pair.Key.ToString(),
                         pair => pair.Value
@@ -181,11 +140,11 @@ internal static class HistoryBattlePreviewProjection
     }
 
     private static IReadOnlyDictionary<
-        EContainerSocketId,
+        CardSocket,
         HashSet<ECardAttributeType>
     > BuildSocketEffectMap(IEnumerable<PvpBattleCardSnapshot>? snapshots)
     {
-        var result = new Dictionary<EContainerSocketId, HashSet<ECardAttributeType>>();
+        var result = new Dictionary<CardSocket, HashSet<ECardAttributeType>>();
         if (snapshots == null)
             return result;
 
@@ -193,7 +152,7 @@ internal static class HistoryBattlePreviewProjection
         {
             if (
                 snapshot == null
-                || snapshot.Type != ECardType.SocketEffect
+                || snapshot.Type != CardType.SocketEffect
                 || !snapshot.Socket.HasValue
                 || string.IsNullOrWhiteSpace(snapshot.TemplateId)
             )
@@ -218,7 +177,7 @@ internal static class HistoryBattlePreviewProjection
     private static void ApplySocketEffectAttributes(
         PvpBattleCardSnapshot snapshot,
         IDictionary<ECardAttributeType, int> attributes,
-        IReadOnlyDictionary<EContainerSocketId, HashSet<ECardAttributeType>>? socketEffectsBySocket
+        IReadOnlyDictionary<CardSocket, HashSet<ECardAttributeType>>? socketEffectsBySocket
     )
     {
         if (
@@ -243,23 +202,29 @@ internal static class HistoryBattlePreviewProjection
         }
     }
 
-    private static IEnumerable<EContainerSocketId> EnumerateOccupiedSockets(
-        EContainerSocketId startSocket,
-        ECardSize size
+    // The sockets a card covers from its left socket, in board order: one for a card the game
+    // gave no size, as a small card.
+    private static IEnumerable<CardSocket> EnumerateOccupiedSockets(
+        CardSocket startSocket,
+        CardSize? size
     )
     {
         var span = size switch
         {
-            ECardSize.Small => 1,
-            ECardSize.Medium => 2,
-            ECardSize.Large => 3,
+            CardSize.Medium => 2,
+            CardSize.Large => 3,
             _ => 1,
         };
-        var start = Math.Max(0, (int)startSocket);
-        var end = Math.Min(9, start + Math.Max(1, span) - 1);
-        for (var value = start; value <= end; value++)
-            yield return (EContainerSocketId)value;
+        var start = CardFacetOrder.SocketRank(startSocket);
+        return BoardSockets.Where(socket =>
+        {
+            var rank = CardFacetOrder.SocketRank(socket);
+            return rank >= start && rank < start + span;
+        });
     }
+
+    private static readonly CardSocket[] BoardSockets = (CardSocket[])
+        Enum.GetValues(typeof(CardSocket));
 
     private static ECardAttributeType? ResolveSocketEffectAttributeType(
         PvpBattleCardSnapshot snapshot

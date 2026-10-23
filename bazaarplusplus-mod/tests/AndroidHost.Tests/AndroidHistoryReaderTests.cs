@@ -5,6 +5,8 @@ using Xunit;
 
 namespace AndroidHost.Tests;
 
+// The reader's own query: its paging, total and order. How a Run row maps (final values, the
+// abandoned status) is Storage's, shared with the desktop and tested in HistoryPanelRepository.Tests.
 public sealed class AndroidHistoryReaderTests : IDisposable
 {
     private readonly string _directory = Path.Combine(
@@ -21,7 +23,7 @@ public sealed class AndroidHistoryReaderTests : IDisposable
     }
 
     [Fact]
-    public void Runs_page_newest_first_with_the_finished_values_and_the_total()
+    public void Runs_page_newest_first_with_the_total()
     {
         var database = CreateDatabase(
             """
@@ -44,16 +46,7 @@ public sealed class AndroidHistoryReaderTests : IDisposable
         Assert.Equal(3, first.Total);
         Assert.Equal(new[] { "new", "mid" }, first.Runs.Select(run => run.RunId));
         Assert.Equal(new[] { "old" }, second.Runs.Select(run => run.RunId));
-        var finished = second.Runs[0];
-        Assert.Equal(9, finished.FinalDay);
-        Assert.Equal("Diamond", finished.PlayerRank);
-        Assert.Equal(1000, finished.PlayerRating);
-        Assert.Equal(16, finished.PlayerRatingDelta);
-        Assert.Equal(DateTimeOffset.FromUnixTimeMilliseconds(3000), finished.EndedAtUtc);
-        var unfinished = first.Runs[1];
-        Assert.Equal(3, unfinished.FinalDay);
-        Assert.Null(unfinished.EndedAtUtc);
-        Assert.Equal(DateTimeOffset.FromUnixTimeMilliseconds(5000), unfinished.LastSeenAtUtc);
+        Assert.Equal(9, second.Runs[0].FinalDay);
     }
 
     [Fact]
@@ -88,7 +81,7 @@ public sealed class AndroidHistoryReaderTests : IDisposable
     }
 
     [Fact]
-    public void Runs_order_by_their_history_time_and_an_unresumable_active_run_reads_abandoned()
+    public void Runs_order_by_their_history_time()
     {
         var database = CreateDatabase(
             """
@@ -103,8 +96,6 @@ public sealed class AndroidHistoryReaderTests : IDisposable
         var runs = new AndroidHistoryReader(database).ReadRuns(0, 10).Runs;
 
         Assert.Equal(new[] { "long", "imported", "current" }, runs.Select(run => run.RunId));
-        Assert.Equal("abandoned", runs[1].RawStatus);
-        Assert.Equal("active", runs[2].RawStatus);
     }
 
     [Fact]

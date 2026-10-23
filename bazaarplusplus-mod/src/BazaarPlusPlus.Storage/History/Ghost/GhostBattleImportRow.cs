@@ -1,0 +1,68 @@
+#nullable enable
+namespace BazaarPlusPlus.Game.HistoryPanel.Storage;
+
+/// <summary>
+/// One discovered Ghost battle as <see cref="HistoryPanelRepository.UpsertGhostBattles"/> stores
+/// it in a <c>battles</c> row, in the recorder's perspective. Core maps the Mod API's discovery
+/// record onto it; Storage references no other BPP assembly.
+/// </summary>
+public sealed class GhostBattleImportRow
+{
+    public string BattleId { get; set; } = string.Empty;
+
+    public string BundleId { get; set; } = string.Empty;
+
+    public string DownloadUrl { get; set; } = string.Empty;
+
+    public DateTimeOffset DownloadExpiresAtUtc { get; set; }
+
+    public DateTimeOffset RecordedAtUtc { get; set; }
+
+    public int? Day { get; set; }
+
+    public int? Hour { get; set; }
+
+    public string? EncounterId { get; set; }
+
+    public string? PlayerName { get; set; }
+
+    public string? PlayerAccountId { get; set; }
+
+    public string? PlayerHero { get; set; }
+
+    public string? PlayerRank { get; set; }
+
+    public int? PlayerRating { get; set; }
+
+    public int? PlayerLevel { get; set; }
+
+    public int? PlayerPrestige { get; set; }
+
+    public int? PlayerVictories { get; set; }
+
+    public string? OpponentName { get; set; }
+
+    public string? OpponentHero { get; set; }
+
+    public string? OpponentRank { get; set; }
+
+    public int? OpponentRating { get; set; }
+
+    public int? OpponentLevel { get; set; }
+
+    public int? OpponentPrestige { get; set; }
+
+    public int? OpponentVictories { get; set; }
+
+    public string? OpponentAccountId { get; set; }
+
+    public string CombatKind { get; set; } = "PVPCombat";
+
+    public string? Result { get; set; }
+
+    public string? WinnerCombatantId { get; set; }
+
+    public string? LoserCombatantId { get; set; }
+
+    public bool IsFinalBattle { get; set; }
+}

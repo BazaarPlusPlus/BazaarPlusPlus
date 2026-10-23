@@ -5,7 +5,7 @@ using Microsoft.Data.Sqlite;
 
 // Reads the shared seal-eligibility fixture and seeds one case into a mod database.
 // formatVersion 2 made run.uploadPolicy required, so a reader that predates it fails here.
-// HistoryPanelRepository.Tests Compile-Includes this file to evaluate replay maintenance.
+// ReplayPayloadMaintenance.Tests Compile-Includes this file to evaluate replay maintenance.
 internal sealed record BundleSealEligibilityCase(
     string Name,
     JsonElement Run,

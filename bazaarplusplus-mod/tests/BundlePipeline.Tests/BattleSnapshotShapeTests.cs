@@ -1,9 +1,11 @@
 using System.Text;
-using BazaarGameShared.Domain.Core.Types;
+using BazaarPlusPlus.Core.Cards;
+using BazaarPlusPlus.Game.BundlePipeline;
 using BazaarPlusPlus.Game.PvpBattles;
 using BazaarPlusPlus.Game.PvpBattles.Persistence;
 using BazaarPlusPlus.Storage.Paths;
 using BazaarPlusPlus.Storage.RunLog;
+using BazaarPlusPlus.Storage.Sqlite;
 using BazaarPlusPlus.TestSupport;
 using Microsoft.Data.Sqlite;
 
@@ -61,13 +63,29 @@ internal static class BattleSnapshotShapeTests
             "A loaded capture saves back to the same JSON."
         );
 
-        UnnamedEnumValuesRoundTrip(catalog, database);
+        SizelessAndUnnamedCards(root, catalog, database);
     }
 
-    // A value the game has no member name for is stored as its number and read back as that value.
-    private static void UnnamedEnumValuesRoundTrip(PvpBattleCatalog catalog, string database)
+    // A card the game gave no size (its unnamed value 0) is stored with the "0" every host writes,
+    // reads back without a size, and reaches the Bundle as size 0. A stored type no facet names
+    // (a number another host wrote for a member the facets lack) drops the card from the facet
+    // view; the Bundle composer, which reads the stored JSON, still carries the game's value.
+    private static void SizelessAndUnnamedCards(
+        string root,
+        PvpBattleCatalog catalog,
+        string database
+    )
     {
-        var unnamed = new PvpBattleCardSetCapture
+        var store = new RunLogStore(new TestPaths(root));
+        store.CompleteRun(
+            "run-shape",
+            new RunLogCompletion
+            {
+                EndedAtUtc = PipelineInputs.Base.AddMinutes(5),
+                Status = "completed",
+            }
+        );
+        var sizeless = new PvpBattleCardSetCapture
         {
             Status = PvpBattleCaptureStatus.Captured,
             Source = PvpBattleCaptureSource.OpeningMessage,
@@ -75,41 +93,72 @@ internal static class BattleSnapshotShapeTests
             [
                 new PvpBattleCardSnapshot
                 {
-                    InstanceId = "card-unnamed",
-                    TemplateId = "template-unnamed",
-                    Type = (ECardType)99,
-                    Size = (ECardSize)7,
-                    Section = (EInventorySection)5,
-                    Socket = (EContainerSocketId)42,
+                    InstanceId = "skl_sizeless",
+                    TemplateId = "6a0c3f5e-0000-4000-8000-000000000004",
+                    Type = CardType.Skill,
+                    Size = null,
                 },
             ],
         };
         catalog.Save(
             Manifest(
-                "battle-unnamed",
+                "battle-sizeless",
                 new PvpBattleSnapshots
                 {
-                    PlayerHand = unnamed,
-                    PlayerSkills = Missing(),
+                    PlayerHand = Missing(),
+                    PlayerSkills = sizeless,
                     OpponentHand = Missing(),
                     OpponentSkills = Missing(),
                 }
             )
         );
-        var card = PvpBattleCardSetDocument
-            .Deserialize(ReadColumns(database, "battle-unnamed")[0])
-            .Items.Single();
+        var column = ReadColumns(database, "battle-sizeless")[1];
         Check.That(
-            card.Type == "99" && card.Size == "7" && card.Section == "5" && card.Socket == "42",
-            "An unnamed enum value is stored as its number."
+            column.Contains("\"size\":\"0\"", StringComparison.Ordinal),
+            "A card without a size is stored with size \"0\"."
         );
-        var loaded = catalog.TryLoad("battle-unnamed")!.Snapshots.PlayerHand.Items.Single();
+        var loaded = catalog.TryLoad("battle-sizeless")!.Snapshots.PlayerSkills.Items.Single();
+        Check.That(loaded.Size == null, "A stored size \"0\" reads back as no size.");
+
+        var composed = new RunPayloadComposer(
+            database,
+            Path.Combine(root, "replays"),
+            DesktopPvpBattleEvidence.Instance,
+            SqliteOpenOptions.Default
+        ).Compose("run-shape", "account-001");
+        var card = composed
+            .Payload.Battles.Single(battle => battle.BattleId == "battle-sizeless")
+            .Snapshots!.CardSets.Single(set => set.Label == "player_skills")
+            .Items.Single();
+        Check.That(card.Size == 0, "A card without a size reaches the Bundle as size 0.");
+
+        var unnamed = PvpBattleCardSetDocument.Serialize(
+            new PvpBattleCardSetDocument
+            {
+                Status = PvpBattleCaptureStatus.Captured,
+                Items =
+                [
+                    new PvpBattleCardDocument
+                    {
+                        InstanceId = "card-unnamed",
+                        Type = "99",
+                        Size = "Small",
+                    },
+                    new PvpBattleCardDocument
+                    {
+                        InstanceId = "card-named",
+                        Type = "Item",
+                        Size = "Small",
+                        Section = "5",
+                        Socket = "Socket_42",
+                    },
+                ],
+            }
+        );
+        var read = PvpBattleSnapshotsCodec.Deserialize(unnamed).Items.Single();
         Check.That(
-            loaded.Type == (ECardType)99
-                && loaded.Size == (ECardSize)7
-                && loaded.Section == (EInventorySection)5
-                && loaded.Socket == (EContainerSocketId)42,
-            "An unnamed enum value reads back as the same value."
+            read.InstanceId == "card-named" && read.Section == null && read.Socket == null,
+            "A type no facet names drops the card; a section or socket no facet names reads as none."
         );
     }
 
@@ -126,10 +175,10 @@ internal static class BattleSnapshotShapeTests
                     {
                         InstanceId = "itm_hand_0",
                         TemplateId = "6a0c3f5e-0000-4000-8000-000000000001",
-                        Type = ECardType.Item,
-                        Size = ECardSize.Medium,
-                        Section = EInventorySection.Hand,
-                        Socket = EContainerSocketId.Socket_3,
+                        Type = CardType.Item,
+                        Size = CardSize.Medium,
+                        Section = CardSection.Hand,
+                        Socket = CardSocket.Socket_3,
                         Name = "Pigomorph",
                         Tier = "Silver",
                         Enchant = "Golden",
@@ -144,10 +193,10 @@ internal static class BattleSnapshotShapeTests
                     {
                         InstanceId = "itm_hand_1",
                         TemplateId = "6a0c3f5e-0000-4000-8000-000000000002",
-                        Type = ECardType.SocketEffect,
-                        Size = ECardSize.Small,
-                        Section = EInventorySection.Hand,
-                        Socket = EContainerSocketId.Socket_0,
+                        Type = CardType.SocketEffect,
+                        Size = CardSize.Small,
+                        Section = CardSection.Hand,
+                        Socket = CardSocket.Socket_0,
                         Name = null,
                         Tier = "Bronze",
                         Enchant = string.Empty,
@@ -164,8 +213,8 @@ internal static class BattleSnapshotShapeTests
                     {
                         InstanceId = "skl_0",
                         TemplateId = "6a0c3f5e-0000-4000-8000-000000000003",
-                        Type = ECardType.Skill,
-                        Size = ECardSize.Medium,
+                        Type = CardType.Skill,
+                        Size = CardSize.Medium,
                         Section = null,
                         Socket = null,
                         Name = "Coup de Grâce \"终结\"",

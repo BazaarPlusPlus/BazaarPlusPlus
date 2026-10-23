@@ -4,14 +4,12 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <BppReferenceGameLibraries>true</BppReferenceGameLibraries>
   </PropertyGroup>
 
+  <!-- Ghost discovery, download and payload storage are Core services; the game-typed reads come
+       from a fake evidence binding (BundlePipeline.Tests covers the desktop's). -->
   <ItemGroup>
-    <ProjectReference Include="../../src/BazaarPlusPlus/BazaarPlusPlus.csproj" />
-    <Reference Include="BazaarGameShared">
-      <HintPath>$(ManagedPath)/BazaarGameShared.dll</HintPath>
-    </Reference>
+    <ProjectReference Include="../../src/BazaarPlusPlus.Core/BazaarPlusPlus.Core.csproj" />
   </ItemGroup>
 
   <ItemGroup>

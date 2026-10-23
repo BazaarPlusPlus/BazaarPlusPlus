@@ -1,5 +1,6 @@
 using System.Globalization;
 using BazaarPlusPlus.Game.HistoryPanel.Data;
+using BazaarPlusPlus.Game.HistoryPanel.Storage;
 using BazaarPlusPlus.Storage.RunLog;
 using Microsoft.Data.Sqlite;
 
@@ -27,17 +28,14 @@ internal sealed record AndroidHistoryPage(
 /// <summary>
 /// Read-only queries over the history database for the Android History panel: local Runs and
 /// the battles recorded in each. It opens its own read-only connection per read, so it never
-/// competes with the record chain's writer for the connection, only for the file lock. It applies
-/// the desktop panel's rules through the Storage pieces that own them: Runs order by
-/// <see cref="RunLogSchema.HistoryRunTime"/>, and an active Run the mod could not resume reads as
-/// abandoned (<see cref="RunLogStore.ResumableRunCondition"/>).
+/// competes with the record chain's writer for the connection, only for the file lock. A Run row
+/// reads through the desktop panel's own Storage owners: Runs order by
+/// <see cref="RunLogSchema.HistoryRunTime"/>, select <see cref="HistoryRunColumns.Select"/> (whose
+/// run status reads an active Run the mod could not resume as abandoned), and map through
+/// <see cref="HistoryPanelRowMapper.ReadRun"/>.
 /// </summary>
 internal sealed class AndroidHistoryReader
 {
-    private static readonly string RunStatusColumn =
-        $"CASE WHEN status = 'active' AND NOT {RunLogStore.ResumableRunCondition(RunLogSchema.RunsTableName)} "
-        + "THEN 'abandoned' ELSE status END AS run_status";
-
     private readonly string _connectionString;
 
     public AndroidHistoryReader(string databasePath)
@@ -68,10 +66,7 @@ internal sealed class AndroidHistoryReader
         {
             command.Transaction = transaction;
             command.CommandText = $"""
-                SELECT run_id, started_at_ms, last_seen_at_ms, ended_at_ms, {RunStatusColumn},
-                       hero, game_mode, day, hour, final_day, final_hour, max_health, prestige,
-                       level, income, gold, player_rank, player_rating, final_player_rank,
-                       final_player_rating, final_player_rating_delta, victories, losses
+                SELECT {HistoryRunColumns.Select}
                 FROM runs
                 ORDER BY {RunLogSchema.HistoryRunTime} DESC, run_id DESC
                 LIMIT $limit OFFSET $offset
@@ -80,7 +75,7 @@ internal sealed class AndroidHistoryReader
             command.Parameters.AddWithValue("$offset", offset);
             using var reader = command.ExecuteReader();
             while (reader.Read())
-                runs.Add(ReadRun(reader));
+                runs.Add(HistoryPanelRowMapper.ReadRun(reader));
         }
         transaction.Commit();
         return new AndroidHistoryPage(runs, offset, total);
@@ -104,13 +99,13 @@ internal sealed class AndroidHistoryReader
         {
             battles.Add(
                 new AndroidHistoryBattle(
-                    Int(reader, "day"),
-                    Text(reader, "result"),
-                    Int(reader, "is_final_battle") == 1,
-                    Text(reader, "opponent_name"),
-                    Text(reader, "opponent_hero"),
-                    Text(reader, "opponent_rank"),
-                    Int(reader, "opponent_rating"),
+                    HistoryPanelRowMapper.GetNullableInt32(reader, "day"),
+                    HistoryPanelRowMapper.GetNullableString(reader, "result"),
+                    HistoryPanelRowMapper.GetNullableInt32(reader, "is_final_battle") == 1,
+                    HistoryPanelRowMapper.GetNullableString(reader, "opponent_name"),
+                    HistoryPanelRowMapper.GetNullableString(reader, "opponent_hero"),
+                    HistoryPanelRowMapper.GetNullableString(reader, "opponent_rank"),
+                    HistoryPanelRowMapper.GetNullableInt32(reader, "opponent_rating"),
                     DateTimeOffset.FromUnixTimeMilliseconds(
                         reader.GetInt64(reader.GetOrdinal("recorded_at_ms"))
                     )
@@ -133,56 +128,5 @@ internal sealed class AndroidHistoryReader
             connection.Dispose();
             throw;
         }
-    }
-
-    // A finished Run's final_* values, else the values it was last seen with, as the desktop panel
-    // shows them.
-    private static HistoryRunRecord ReadRun(SqliteDataReader reader)
-    {
-        var startedAt = DateTimeOffset.FromUnixTimeMilliseconds(
-            reader.GetInt64(reader.GetOrdinal("started_at_ms"))
-        );
-        var endedAt = Time(reader, "ended_at_ms");
-        return new HistoryRunRecord(
-            reader.GetString(reader.GetOrdinal("run_id")),
-            reader.GetString(reader.GetOrdinal("hero")),
-            reader.GetString(reader.GetOrdinal("game_mode")),
-            startedAt,
-            endedAt,
-            endedAt ?? Time(reader, "last_seen_at_ms") ?? startedAt,
-            Int(reader, "final_day") ?? Int(reader, "day"),
-            Int(reader, "final_hour") ?? Int(reader, "hour"),
-            Int(reader, "max_health"),
-            Int(reader, "prestige"),
-            Int(reader, "level"),
-            Int(reader, "income"),
-            Int(reader, "gold"),
-            Text(reader, "final_player_rank") ?? Text(reader, "player_rank"),
-            Int(reader, "final_player_rating") ?? Int(reader, "player_rating"),
-            Int(reader, "final_player_rating_delta"),
-            Int(reader, "victories"),
-            Int(reader, "losses"),
-            reader.GetString(reader.GetOrdinal("run_status"))
-        );
-    }
-
-    private static int? Int(SqliteDataReader reader, string column)
-    {
-        var ordinal = reader.GetOrdinal(column);
-        return reader.IsDBNull(ordinal) ? null : reader.GetInt32(ordinal);
-    }
-
-    private static string? Text(SqliteDataReader reader, string column)
-    {
-        var ordinal = reader.GetOrdinal(column);
-        return reader.IsDBNull(ordinal) ? null : reader.GetString(ordinal);
-    }
-
-    private static DateTimeOffset? Time(SqliteDataReader reader, string column)
-    {
-        var ordinal = reader.GetOrdinal(column);
-        return reader.IsDBNull(ordinal)
-            ? null
-            : DateTimeOffset.FromUnixTimeMilliseconds(reader.GetInt64(ordinal));
     }
 }

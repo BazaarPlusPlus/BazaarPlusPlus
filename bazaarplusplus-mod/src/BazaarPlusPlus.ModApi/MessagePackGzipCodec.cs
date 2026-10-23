@@ -16,13 +16,24 @@ public static class MessagePackGzipCodec
             ContractlessStandardResolverAllowPrivate.Instance
         );
 
-    public static byte[] Serialize<T>(T payload)
+    // Every enum, nullable ones included, as its member name: a payload whose enums are BPP card
+    // facets must not persist their integers (mod ADR-0015). A file written with integers does
+    // not decode with these options.
+    private static readonly MessagePackSerializerOptions EnumNameOptions =
+        MessagePackSerializerOptions.Standard.WithResolver(
+            CompositeResolver.Create(
+                DynamicEnumAsStringResolver.Instance,
+                ContractlessStandardResolverAllowPrivate.Instance
+            )
+        );
+
+    public static byte[] Serialize<T>(T payload, bool enumsAsNames = false)
         where T : class
     {
         if (payload == null)
             throw new ArgumentNullException(nameof(payload));
 
-        return MessagePackGzipFraming.Encode(payload, Options);
+        return MessagePackGzipFraming.Encode(payload, enumsAsNames ? EnumNameOptions : Options);
     }
 
     // The decode exception stays available so callers can tell a runtime binding failure
@@ -32,7 +43,8 @@ public static class MessagePackGzipCodec
         out T? value,
         out string? error,
         out Exception? exception,
-        int? maxDecompressedBytes = null
+        int? maxDecompressedBytes = null,
+        bool enumsAsNames = false
     )
         where T : class
     {
@@ -48,7 +60,7 @@ public static class MessagePackGzipCodec
 
         var result = MessagePackGzipFraming.TryDecode<T>(
             payloadBytes,
-            Options,
+            enumsAsNames ? EnumNameOptions : Options,
             maxDecompressedBytes
         );
         if (result.Succeeded)

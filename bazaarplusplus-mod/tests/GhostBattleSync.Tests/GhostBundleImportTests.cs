@@ -1,13 +1,9 @@
 #nullable enable
 using System.Net;
-using BazaarGameShared.Infra.Messages;
-using BazaarGameShared.Infra.Messages.CombatSimEvents;
-using BazaarGameShared.Infra.Messages.GameSimEvents;
 using BazaarPlusPlus.Game.HistoryPanel;
 using BazaarPlusPlus.Game.HistoryPanel.Data;
-using BazaarPlusPlus.Game.PvpBattles;
+using BazaarPlusPlus.Game.HistoryPanel.Storage;
 using BazaarPlusPlus.ModApi.Bundle;
-using BazaarPlusPlus.ModApi.Models;
 
 internal static class GhostBundleImportTests
 {
@@ -16,21 +12,28 @@ internal static class GhostBundleImportTests
         await ImportAsync(legacyFailure: false, malformedReplay: false);
         await ImportAsync(legacyFailure: true, malformedReplay: false);
         await ImportAsync(legacyFailure: true, malformedReplay: true);
+        await ImportAsync(legacyFailure: false, malformedReplay: true, rejectedReplay: true);
     }
 
-    private static async Task ImportAsync(bool legacyFailure, bool malformedReplay)
+    // malformedReplay fails projecting the battle; rejectedReplay makes the replay's messages fail
+    // the host's verification instead. Either is a fresh import failure.
+    private static async Task ImportAsync(
+        bool legacyFailure,
+        bool malformedReplay,
+        bool rejectedReplay = false
+    )
     {
         const string battleId = "valid-battle";
         const string bundleId = "01J00000000000000000000903";
-        var replay = new PvpReplayPayloadFactory().Create(
-            battleId,
-            new PvpBattleSequenceWindow
-            {
-                SpawnMessage = new NetMessageGameSim(new GameSim()) { MessageId = "spawn" },
-                CombatMessage = new NetMessageCombatSim(new CombatSim()) { MessageId = "combat" },
-                DespawnMessage = new NetMessageGameSim(new GameSim()) { MessageId = "despawn" },
-            }
-        );
+        var replay = new
+        {
+            Version = 1,
+            SpawnMessageBytes = rejectedReplay
+                ? new byte[] { FakePvpBattleEvidence.RejectedReplayMarker, 1 }
+                : new byte[] { 1, 2, 3 },
+            CombatMessageBytes = new byte[] { 4, 5, 6 },
+            DespawnMessageBytes = new byte[] { 7, 8, 9 },
+        };
         var payload = new RunPayloadV6
         {
             RunId = "valid-run",
@@ -44,7 +47,8 @@ internal static class GhostBundleImportTests
                     Facts = new BattleFactsV6
                     {
                         // Beyond DateTimeOffset's range, so projecting the replay fails.
-                        RecordedAtMs = malformedReplay ? long.MaxValue : 1_790_380_800_000,
+                        RecordedAtMs =
+                            malformedReplay && !rejectedReplay ? long.MaxValue : 1_790_380_800_000,
                         CombatKind = "PVPCombat",
                     },
                     Participants = new BattleParticipantsV6
@@ -115,7 +119,7 @@ internal static class GhostBundleImportTests
         {
             Content = new ByteArrayContent(bundle.Bytes),
         });
-        var record = new GhostBattleImportRecord
+        var record = new GhostBattleImportRow
         {
             BattleId = battleId,
             BundleId = bundleId,
@@ -128,7 +132,12 @@ internal static class GhostBundleImportTests
         };
         fixture.Repository.UpsertGhostBattles("account-local", [record]);
         var localId = fixture
-            .Repository.ListGhostBattles("account-local", GhostBattleFilter.All, false, new())
+            .Repository.ListGhostBattles(
+                "account-local",
+                HistoryPanelDataService.RecorderOutcome(GhostBattleFilter.All),
+                false,
+                new()
+            )
             .Rows.Single()
             .BattleId;
         if (legacyFailure)
@@ -143,7 +152,7 @@ internal static class GhostBundleImportTests
                 fixture
                     .Repository.ListGhostBattles(
                         "account-local",
-                        GhostBattleFilter.All,
+                        HistoryPanelDataService.RecorderOutcome(GhostBattleFilter.All),
                         false,
                         new()
                     )
@@ -179,7 +188,7 @@ internal static class GhostBundleImportTests
                 || fixture
                     .Repository.ListGhostBattles(
                         "account-local",
-                        GhostBattleFilter.All,
+                        HistoryPanelDataService.RecorderOutcome(GhostBattleFilter.All),
                         false,
                         new()
                     )

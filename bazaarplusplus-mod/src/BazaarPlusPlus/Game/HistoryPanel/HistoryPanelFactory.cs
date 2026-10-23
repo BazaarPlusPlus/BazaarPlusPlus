@@ -1,14 +1,22 @@
 #nullable enable
 using BazaarPlusPlus.Core.RunContext;
+using BazaarPlusPlus.Game.BundlePipeline;
 using BazaarPlusPlus.Game.CombatReplay;
+using BazaarPlusPlus.Game.HistoryPanel.AccountLink;
+using BazaarPlusPlus.Game.HistoryPanel.Data;
 using BazaarPlusPlus.Game.HistoryPanel.Favorites;
 using BazaarPlusPlus.Game.HistoryPanel.Ghost;
 using BazaarPlusPlus.Game.HistoryPanel.Storage;
 using BazaarPlusPlus.Game.PvpBattles;
+using BazaarPlusPlus.GameInterop;
 using BazaarPlusPlus.ModApi.Clients;
+using UnityEngine;
 
 namespace BazaarPlusPlus.Game.HistoryPanel;
 
+// The desktop composition of History's Core coordinator: its ports are Unity's frame clock and
+// PlayerPrefs, the game's client-cache profile, the game-typed PvP evidence, and the game's
+// static card data.
 internal static class HistoryPanelFactory
 {
     public static HistoryPanelDependencies Create(
@@ -47,15 +55,28 @@ internal static class HistoryPanelFactory
             combatReplayRuntimeAccessor,
             replayDirectoryPath,
             videoDirectoryPath,
+            BppClientCacheBridge.TryGetProfileAccountId,
             ghostSyncService
         );
+        // Lambdas, not method groups: Unity is resolved only when the clock or a hint is read,
+        // so a test without Unity can still compose the panel.
         return new HistoryPanelDependencies(
             runContext,
             dataService,
             replayService,
             modApiSession,
             accountLinkClient,
-            accountLinkGate
+            accountLinkGate,
+            new BazaarDbAccountLinkStore(
+                key => PlayerPrefs.HasKey(key),
+                key =>
+                {
+                    PlayerPrefs.SetString(key, "1");
+                    PlayerPrefs.Save();
+                }
+            ),
+            () => Time.unscaledTime,
+            BppClientCacheBridge.TryGetProfileAccountId
         )
         {
             Favorites =
@@ -108,6 +129,12 @@ internal static class HistoryPanelFactory
         if (repository == null || modApiSession == null)
             return null;
 
-        return new GhostBattleSyncService(repository, modApiSession);
+        return new GhostBattleSyncService(
+            repository,
+            modApiSession,
+            BppClientCacheBridge.TryGetProfileAccountId,
+            DesktopPvpBattleEvidence.Instance,
+            HistoryBattlePreviewProjection.HasCardTemplate
+        );
     }
 }

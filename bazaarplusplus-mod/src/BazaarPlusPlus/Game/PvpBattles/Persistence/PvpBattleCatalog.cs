@@ -5,10 +5,10 @@ using BazaarPlusPlus.Storage.Sqlite;
 namespace BazaarPlusPlus.Game.PvpBattles.Persistence;
 
 /// <summary>
-/// The desktop's PvP battle catalog: maps manifests, whose board captures hold game card types,
-/// onto the records <see cref="PvpBattleSqliteStore"/> stores, each capture as the JSON of Core's
-/// <see cref="PvpBattleCardSetDocument"/> (<see cref="PvpBattleCardSetCapture.Serialize"/>).
-/// Storage owns the SQL.
+/// The desktop's PvP battle catalog: maps manifests onto the records
+/// <see cref="PvpBattleSqliteStore"/> stores, each board capture as the JSON of Core's
+/// <see cref="PvpBattleCardSetDocument"/> (<see cref="PvpBattleSnapshotsCodec"/>). Storage owns
+/// the SQL.
 /// </summary>
 internal sealed class PvpBattleCatalog : IPvpBattleCatalog
 {
@@ -42,13 +42,7 @@ internal sealed class PvpBattleCatalog : IPvpBattleCatalog
                 EncounterId = manifest.EncounterId,
                 Participants = manifest.Participants,
                 Outcome = manifest.Outcome,
-                Snapshots = new PvpBattleSnapshotDocuments
-                {
-                    PlayerHand = Serialize(manifest.Snapshots.PlayerHand),
-                    PlayerSkills = Serialize(manifest.Snapshots.PlayerSkills),
-                    OpponentHand = Serialize(manifest.Snapshots.OpponentHand),
-                    OpponentSkills = Serialize(manifest.Snapshots.OpponentSkills),
-                },
+                Snapshots = PvpBattleSnapshotsCodec.ToDocuments(manifest.Snapshots),
             }
         );
     }
@@ -105,19 +99,7 @@ internal sealed class PvpBattleCatalog : IPvpBattleCatalog
             Participants = record.Participants,
             Outcome = record.Outcome,
             Snapshots = record.Snapshots is { } snapshots
-                ? new PvpBattleSnapshots
-                {
-                    PlayerHand = Deserialize(snapshots.PlayerHand),
-                    PlayerSkills = Deserialize(snapshots.PlayerSkills),
-                    OpponentHand = Deserialize(snapshots.OpponentHand),
-                    OpponentSkills = Deserialize(snapshots.OpponentSkills),
-                }
+                ? PvpBattleSnapshotsCodec.FromDocuments(snapshots)
                 : new PvpBattleSnapshots(),
         };
-
-    private static string Serialize(PvpBattleCardSetCapture capture) =>
-        PvpBattleCardSetCapture.Serialize(capture);
-
-    private static PvpBattleCardSetCapture Deserialize(string json) =>
-        PvpBattleCardSetCapture.Deserialize(json);
 }

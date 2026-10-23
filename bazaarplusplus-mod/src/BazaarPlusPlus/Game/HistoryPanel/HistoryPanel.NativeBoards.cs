@@ -1,6 +1,7 @@
 #nullable enable
 using BazaarGameShared.Domain.Cards.Skill;
 using BazaarGameShared.Domain.Core.Types;
+using BazaarPlusPlus.Core.Cards;
 using BazaarPlusPlus.Game.HistoryPanel.Data;
 using BazaarPlusPlus.Game.PvpBattles;
 using BazaarPlusPlus.GameInterop.CardPreview;
@@ -125,7 +126,7 @@ internal sealed partial class HistoryPanel
         foreach (var snapshot in snapshots ?? Array.Empty<PvpBattleCardSnapshot>())
         {
             if (
-                snapshot.Type != ECardType.Skill
+                snapshot.Type != CardType.Skill
                 || !Guid.TryParse(snapshot.TemplateId, out var templateId)
             )
                 continue;

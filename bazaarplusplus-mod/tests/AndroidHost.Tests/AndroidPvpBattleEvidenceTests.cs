@@ -44,7 +44,20 @@ public sealed class AndroidPvpBattleEvidenceTests
         {
             Assert.Equal(value, Convert.ToInt32(Enum.Parse(interopEnum, name)));
             Assert.Equal(value, AndroidPvpBattleEvidence.Instance.CardEnumValue(kind, name));
+            Assert.True(
+                AndroidPvpBattleEvidence.Instance.TryCardEnumName(kind, value, out var read)
+            );
+            Assert.Equal(name, read);
         }
+    }
+
+    [Fact]
+    public void A_value_the_game_has_no_name_for_has_no_name()
+    {
+        Assert.False(
+            AndroidPvpBattleEvidence.Instance.TryCardEnumName(PvpCardEnum.CardSize, 0, out var name)
+        );
+        Assert.Equal(string.Empty, name);
     }
 
     [Fact]
