@@ -36,6 +36,7 @@ internal sealed class AndroidTouchUi
     private readonly AndroidSettings _android;
     private readonly AndroidVersionCheck? _versionCheck;
     private readonly Action? _openHistory;
+    private readonly Action<string>? _closeHistory;
     private readonly Func<bool> _historyVisible;
     private readonly BuildRecommendationRepository? _recommendations;
     private readonly List<(TextMeshProUGUI Label, Func<string> Text)> _settingRows = new();
@@ -47,6 +48,7 @@ internal sealed class AndroidTouchUi
     private GameObject? _gameUpdateRow;
     private GameObject? _collectionTab;
     private GameObject? _liveBuildTab;
+    private GameObject? _historyTab;
     private TMP_FontAsset? _font;
     private AndroidCollectionPanel? _collection;
     private AndroidLiveBuildPanel? _liveBuild;
@@ -59,6 +61,7 @@ internal sealed class AndroidTouchUi
         AndroidSettings android,
         AndroidVersionCheck? versionCheck,
         Action? openHistory,
+        Action<string>? closeHistory,
         Func<bool> historyVisible,
         BuildRecommendationRepository? recommendations
     )
@@ -67,6 +70,7 @@ internal sealed class AndroidTouchUi
         _android = android ?? throw new ArgumentNullException(nameof(android));
         _versionCheck = versionCheck;
         _openHistory = openHistory;
+        _closeHistory = closeHistory;
         _historyVisible = historyVisible ?? throw new ArgumentNullException(nameof(historyVisible));
         _recommendations = recommendations;
     }
@@ -215,6 +219,7 @@ internal sealed class AndroidTouchUi
             OpenHistory
         );
         historyButton.interactable = _openHistory != null;
+        _historyTab = historyTab.gameObject;
         var collectionTab = AndroidUiKit.Fixed(
             "CollectionTab",
             panel,
@@ -299,12 +304,19 @@ internal sealed class AndroidTouchUi
             () => SwitchText(AndroidTouchText.LiveBuildPanel, _android.LiveBuildPanel.Value),
             ToggleLiveBuildPanel
         );
+        AddSettingRow(
+            page,
+            font,
+            4,
+            () => SwitchText(AndroidTouchText.HistoryPanel, _android.HistoryPanel.Value),
+            ToggleHistoryPanel
+        );
 
         var update = AndroidUiKit.Fixed(
             "GameUpdate",
             page,
             new(0f, 1f),
-            new(0f, -4f * 104f - 24f),
+            new(0f, -5f * 104f - 24f),
             new(1100f, 96f)
         );
         var (_, background, _) = AndroidUiKit.Button(
@@ -387,6 +399,7 @@ internal sealed class AndroidTouchUi
         SetActive(_panel, true);
         SetActive(_collectionTab, _android.CollectionPanel.Value);
         SetActive(_liveBuildTab, LiveBuildOffered());
+        SetActive(_historyTab, _android.HistoryPanel.Value);
         ShowSettings();
     }
 
@@ -416,7 +429,7 @@ internal sealed class AndroidTouchUi
 
     private void OpenHistory()
     {
-        if (_openHistory == null)
+        if (_openHistory == null || !_android.HistoryPanel.Value)
             return;
         Close("history");
         _openHistory();
@@ -429,6 +442,7 @@ internal sealed class AndroidTouchUi
         SetActive(_gameUpdateRow, _versionCheck?.GameUpdate != null);
         SetActive(_collectionTab, _android.CollectionPanel.Value);
         SetActive(_liveBuildTab, LiveBuildOffered());
+        SetActive(_historyTab, _android.HistoryPanel.Value);
     }
 
     private void OpenCollection()
@@ -482,6 +496,17 @@ internal sealed class AndroidTouchUi
             AndroidCardRental.ReleaseAll("switched_off");
         }
         LogSettingChanged("Android", "LiveBuildPanel", _android.LiveBuildPanel.Value);
+    }
+
+    private void ToggleHistoryPanel()
+    {
+        _android.HistoryPanel.Value = !_android.HistoryPanel.Value;
+        if (!_android.HistoryPanel.Value)
+        {
+            _closeHistory?.Invoke("switched_off");
+            AndroidCardRental.ReleaseAll("switched_off");
+        }
+        LogSettingChanged("Android", "HistoryPanel", _android.HistoryPanel.Value);
     }
 
     private bool CloseCollectionForBack()

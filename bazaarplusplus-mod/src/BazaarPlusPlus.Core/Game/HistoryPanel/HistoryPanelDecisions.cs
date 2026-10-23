@@ -180,6 +180,13 @@ public static class HistoryPanelDecisions
             return false;
         }
 
+        // The repository refuses it again inside the delete's transaction.
+        if (selectedRun.IsSealProtected)
+        {
+            reason = HistoryPanelText.SealProtectedRunDeleteUnavailable();
+            return false;
+        }
+
         reason = string.Empty;
         return true;
     }

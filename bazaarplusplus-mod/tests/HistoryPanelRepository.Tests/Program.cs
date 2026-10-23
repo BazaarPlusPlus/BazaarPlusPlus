@@ -55,6 +55,46 @@ try
         "DeleteRun must retain successful MP4 metadata as a discoverable detached artifact."
     );
 
+    // A completed Ranked Run whose Bundle is still owed is refused inside the delete, and the
+    // row says so before any delete is tried; a pending outbox row ends the protection.
+    store.CreateRun(
+        new RunLogCreateRequest
+        {
+            RunId = "run-protected",
+            StartedAtUtc = DateTimeOffset.UtcNow,
+            Hero = "Vanessa",
+            GameMode = "Ranked",
+            PlayerAccountId = "account-local",
+            BundleScreenshotRequested = false,
+            ModVersion = "5.0.0",
+        }
+    );
+    ExecuteSql(
+        databasePath,
+        "UPDATE runs SET status='completed', ended_at_ms=last_seen_at_ms, build_channel='Online', upload_policy='bundle' WHERE run_id='run-protected';"
+    );
+    Assert(
+        repository.ListRuns(new(Limit: 10)).Rows.Single().IsSealProtected,
+        "A Seal-Eligible Run must read as protected."
+    );
+    var refused = repository.DeleteRun("run-protected");
+    Assert(
+        refused.SealProtected
+            && refused.BattleIds.Count == 0
+            && repository.ListRuns(new(Limit: 10)).Rows.Count == 1,
+        "DeleteRun must refuse a Run whose Bundle is still owed."
+    );
+    InsertPendingOutbox(databasePath, "run-protected", "01K1ABCDEF0123456789ABCDEG");
+    Assert(
+        !repository.ListRuns(new(Limit: 10)).Rows.Single().IsSealProtected,
+        "A pending outbox row ends the protection."
+    );
+    Assert(
+        !repository.DeleteRun("run-protected").SealProtected
+            && repository.ListRuns(new(Limit: 10)).Rows.Count == 0,
+        "An unprotected completed Run deletes."
+    );
+
     var first = Ghost(
         "battle-remote",
         "bundle-a",
@@ -358,7 +398,11 @@ static void InsertSnapshot(
     command.ExecuteNonQuery();
 }
 
-static void InsertPendingOutbox(string databasePath, string runId)
+static void InsertPendingOutbox(
+    string databasePath,
+    string runId,
+    string bundleId = "01K1ABCDEF0123456789ABCDEF"
+)
 {
     using var connection = new SqliteConnection($"Data Source={databasePath}");
     connection.Open();
@@ -368,11 +412,12 @@ static void InsertPendingOutbox(string databasePath, string runId)
             bundle_id, run_id, file_name, content_sha256_hex, content_digest,
             total_bytes, has_screenshot, sealed_at_ms, status
         ) VALUES (
-            '01K1ABCDEF0123456789ABCDEF', $runId, 'bundle.bundle', $sha, $digest,
+            $bundleId, $runId, $bundleId || '.bundle', $sha, $digest,
             399, 0, $sealed, 'pending'
         );
         """;
     command.Parameters.AddWithValue("$runId", runId);
+    command.Parameters.AddWithValue("$bundleId", bundleId);
     command.Parameters.AddWithValue("$sha", new string('a', 64));
     command.Parameters.AddWithValue(
         "$digest",
@@ -408,6 +453,15 @@ static void InsertRunDeleteArtifacts(string databasePath, string runId)
         );
         """;
     command.Parameters.AddWithValue("$runId", runId);
+    command.ExecuteNonQuery();
+}
+
+static void ExecuteSql(string databasePath, string sql)
+{
+    using var connection = new SqliteConnection($"Data Source={databasePath}");
+    connection.Open();
+    using var command = connection.CreateCommand();
+    command.CommandText = sql;
     command.ExecuteNonQuery();
 }
 

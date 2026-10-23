@@ -127,22 +127,6 @@ public readonly record struct HistoryPanelLayout(float ScreenWidth, float Screen
     public static readonly HistoryRect ReplayButton = new(.72f, .90f, .23f, .055f);
     public static readonly HistoryRect StatusLabel = new(.04f, .953f, .91f, .03f);
 
-    // The minimum height, in canvas units, the Android host gives a touch target. On a
-    // 2400x1080 phone a canvas unit is about 1.27 px, so this is about 61 px: the desktop
-    // layout has no room for a full 48 dp target without moving its rows.
-    public const float TouchTargetUnits = 48;
-
-    // A touch host's hit target: the rect grown downward to at least minUnits canvas units
-    // tall at this screen. The desktop passes 0 and gets the rect unchanged; the layout's
-    // pointer-sized rows and pagers stay as authored there.
-    public HistoryRect Touch(HistoryRect rect, float minUnits) =>
-        minUnits <= 0 || Height <= 0
-            ? rect
-            : rect with
-            {
-                Height = System.Math.Max(rect.Height, minUnits / Height),
-            };
-
     public float CanvasScale =>
         (float)
             System.Math.Sqrt(

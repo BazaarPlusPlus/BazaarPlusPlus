@@ -175,13 +175,16 @@ public sealed class HistoryPanelDataService
         }
     }
 
+    // False with sealProtected set when the repository refused a Run whose Bundle is still owed.
     public bool TryDeleteRun(
         string runId,
         out IReadOnlyList<string> battleIds,
+        out bool sealProtected,
         out Exception? error
     )
     {
         battleIds = Array.Empty<string>();
+        sealProtected = false;
         error = null;
 
         if (_repository == null)
@@ -195,8 +198,10 @@ public sealed class HistoryPanelDataService
 
         try
         {
-            battleIds = _repository.DeleteRun(runId).BattleIds;
-            return true;
+            var deleted = _repository.DeleteRun(runId);
+            battleIds = deleted.BattleIds;
+            sealProtected = deleted.SealProtected;
+            return !sealProtected;
         }
         catch (Exception ex)
         {

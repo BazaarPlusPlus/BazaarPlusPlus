@@ -65,6 +65,12 @@ internal static class HistoryRunRowTests
                 && finished.LastSeenAtUtc == finished.EndedAtUtc,
             "A finished Run reads its final values and ends where it was last seen."
         );
+        Check(
+            finished.IsSealProtected
+                && !runs["unfinished"].IsSealProtected
+                && !runs["imported"].IsSealProtected,
+            "Only the completed Ranked Run with its Bundle still owed reads as protected."
+        );
         var unfinished = runs["unfinished"];
         Check(
             unfinished.FinalDay == 3

@@ -1,6 +1,7 @@
 #nullable enable
 using BazaarPlusPlus.Game.HistoryPanel.Data;
 using BazaarPlusPlus.Game.PvpBattles.Persistence;
+using BazaarPlusPlus.Storage.BundleQueue;
 using BazaarPlusPlus.Storage.RunLog;
 using Microsoft.Data.Sqlite;
 
@@ -480,6 +481,9 @@ public sealed partial class HistoryPanelRepository
         command.ExecuteNonQuery();
     }
 
+    // A Run whose Bundle is still owed (BundleQueueStore.ProtectedRunCondition) is refused inside
+    // the delete's own write transaction, so a seal job created after the panel's check still
+    // protects it.
     public HistoryRunDeleteResult DeleteRun(string runId)
     {
         if (!DatabaseExists || string.IsNullOrWhiteSpace(runId))
@@ -487,6 +491,25 @@ public sealed partial class HistoryPanelRepository
 
         using var connection = OpenConnection();
         using var transaction = connection.BeginTransaction(deferred: false);
+        using (var protectedRun = connection.CreateCommand())
+        {
+            protectedRun.Transaction = transaction;
+            protectedRun.CommandTimeout = 2;
+            protectedRun.CommandText = $"""
+                SELECT EXISTS (
+                    SELECT 1 FROM {RunLogSchema.RunsTableName} AS r
+                    WHERE r.run_id = $runId AND {BundleQueueStore.ProtectedRunCondition("r")}
+                );
+                """;
+            protectedRun.Parameters.AddWithValue("$runId", runId);
+            if (
+                Convert.ToInt64(
+                    protectedRun.ExecuteScalar(),
+                    System.Globalization.CultureInfo.InvariantCulture
+                ) != 0
+            )
+                return new HistoryRunDeleteResult(Array.Empty<string>(), 0, SealProtected: true);
+        }
         var battleIds = new List<string>();
         using (var listBattles = connection.CreateCommand())
         {
@@ -569,9 +592,11 @@ public sealed partial class HistoryPanelRepository
     }
 }
 
+// SealProtected: the Run's Bundle is still owed, so nothing was deleted.
 public readonly record struct HistoryRunDeleteResult(
     IReadOnlyList<string> BattleIds,
-    int DetachedVideoCount
+    int DetachedVideoCount,
+    bool SealProtected = false
 );
 
 public sealed record GhostBundleReference(

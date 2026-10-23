@@ -1,5 +1,6 @@
 #nullable enable
 using BazaarPlusPlus.Game.HistoryPanel.Data;
+using BazaarPlusPlus.Storage.BundleQueue;
 using BazaarPlusPlus.Storage.RunLog;
 using Microsoft.Data.Sqlite;
 
@@ -23,7 +24,8 @@ public static class HistoryRunColumns
         + ", day, hour, final_day, final_hour, max_health AS final_max_health, "
         + "prestige AS final_prestige, level AS final_level, income AS final_income, gold AS final_gold, "
         + "victories, losses, ended_at_ms, "
-        + "final_player_rank, final_player_rating, final_player_rating_delta";
+        + "final_player_rank, final_player_rating, final_player_rating_delta, "
+        + $"CASE WHEN {BundleQueueStore.ProtectedRunCondition(RunLogSchema.RunsTableName)} THEN 1 ELSE 0 END AS seal_protected";
 }
 
 // Pure SQLite reader → typed record translation. No SQL, no UI, no formatting; just
@@ -63,7 +65,10 @@ public static class HistoryPanelRowMapper
             GetNullableInt32(reader, "victories"),
             GetNullableInt32(reader, "losses"),
             rawStatus
-        );
+        )
+        {
+            IsSealProtected = reader.GetInt64(reader.GetOrdinal("seal_protected")) != 0,
+        };
     }
 
     public static HistoryBattleRecord ReadLocalBattle(SqliteDataReader reader, string battleId) =>

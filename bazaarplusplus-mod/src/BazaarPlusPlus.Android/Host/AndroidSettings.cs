@@ -30,6 +30,12 @@ internal sealed class AndroidSettings
             true,
             "Whether the touch menu offers the Collection panel, which shows the game's own cards."
         );
+        HistoryPanel = store.Bind(
+            "Android",
+            "HistoryPanel",
+            true,
+            "Whether the touch menu offers the History panel: past runs, Ghost battles, favorites, and their native boards."
+        );
         LiveBuildPanel = store.Bind(
             "Android",
             "LiveBuildPanel",
@@ -41,6 +47,8 @@ internal sealed class AndroidSettings
     public ISetting<bool> TouchMenu { get; }
 
     public ISetting<bool> CollectionPanel { get; }
+
+    public ISetting<bool> HistoryPanel { get; }
 
     public ISetting<bool> LiveBuildPanel { get; }
 

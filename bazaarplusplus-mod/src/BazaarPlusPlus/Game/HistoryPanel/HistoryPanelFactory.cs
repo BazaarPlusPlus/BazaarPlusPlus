@@ -7,7 +7,6 @@ using BazaarPlusPlus.Game.HistoryPanel.Data;
 using BazaarPlusPlus.Game.HistoryPanel.Favorites;
 using BazaarPlusPlus.Game.HistoryPanel.Ghost;
 using BazaarPlusPlus.Game.HistoryPanel.Storage;
-using BazaarPlusPlus.Game.PvpBattles;
 using BazaarPlusPlus.GameInterop;
 using BazaarPlusPlus.ModApi.Clients;
 using UnityEngine;
@@ -82,41 +81,11 @@ internal static class HistoryPanelFactory
             Favorites =
                 repository == null
                     ? null
-                    : new HistoryFavoriteService(
+                    : HistoryFavoriteService.OverRuntime(
                         repository,
                         replayDirectoryPath,
-                        (
-                            string battleId,
-                            out PvpBattleManifest? manifest,
-                            out PvpReplayPayload? payload
-                        ) =>
-                        {
-                            manifest = null;
-                            payload = null;
-                            return combatReplayRuntimeAccessor()
-                                    ?.TryLoadSavedBattle(battleId, out manifest, out payload)
-                                ?? SavedBattleLoadOutcome.Unavailable;
-                        },
-                        replayService.LoadGhostReplayAsync,
-                        (out string reason) =>
-                        {
-                            var runtime = combatReplayRuntimeAccessor();
-                            if (runtime != null)
-                                return runtime.CanReplaySavedCombats(out reason);
-                            reason = HistoryPanelText.CombatReplayRuntimeUnavailable();
-                            return false;
-                        },
-                        (manifest, payload, recordVideo, source) =>
-                        {
-                            var runtime = combatReplayRuntimeAccessor();
-                            return runtime != null
-                                && runtime.ReplayLoadedBattle(
-                                    manifest,
-                                    payload,
-                                    recordVideo,
-                                    source
-                                );
-                        }
+                        combatReplayRuntimeAccessor,
+                        replayService
                     ),
         };
     }
