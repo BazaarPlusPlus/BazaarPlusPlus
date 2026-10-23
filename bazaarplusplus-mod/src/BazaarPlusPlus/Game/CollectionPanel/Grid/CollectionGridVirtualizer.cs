@@ -131,29 +131,14 @@ internal sealed class CollectionGridVirtualizer
             return;
         }
 
-        // Visible window is a contiguous shelf range. Shelves are a uniform pitch within a tab
-        // (Items 2 units, Skills 1 unit tall), so the first/last visible shelf is a division,
-        // and each shelf maps directly onto a contiguous visible-index span.
-        var shelfPitch = _layout.ShelfPitch(_unit, _gap);
-        // Clamp BOTH ends into [0, maxShelf] before indexing ShelfAt. _scrollY can transiently
-        // overshoot the packed content — a frame during a viewport resize before the ScrollView
-        // re-clamps its offset, or a DPI scroll-range mismatch — which would otherwise push
-        // firstShelf past the last shelf (or lastShelf below 0) and throw IndexOutOfRange.
-        var maxShelf = _layout.ShelfCount - 1;
-        var firstShelf = Mathf.Clamp(
-            Mathf.FloorToInt((_scrollY - _originY) / shelfPitch)
-                - CollectionGridConstants.RowOverscan,
-            0,
-            maxShelf
+        // Visible window is a contiguous shelf range (Core: CollectionGridLayout.VisibleIndexRange).
+        var (firstIdx, lastIdx) = _layout.VisibleIndexRange(
+            _scrollY,
+            _viewportHeight,
+            _unit,
+            _gap,
+            _originY
         );
-        var lastShelf = Mathf.Clamp(
-            Mathf.FloorToInt((_scrollY + _viewportHeight - _originY) / shelfPitch)
-                + CollectionGridConstants.RowOverscan,
-            0,
-            maxShelf
-        );
-        var firstIdx = _layout.ShelfAt(firstShelf).FirstIndex;
-        var lastIdx = _layout.ShelfAt(lastShelf).LastIndex;
         _firstWindowDiagnostics?.EnsureWindow(
             firstIdx,
             lastIdx,

@@ -190,6 +190,28 @@ AssertApprox(
 AssertApprox(220f, wrapLayout.ShelfPitch(100f, 10f), "Item shelf pitch is 2 * 110.");
 AssertApprox(110f, skillLayout.ShelfPitch(100f, 10f), "Skill shelf pitch is 1 * 110.");
 
+// --- Visible window: shelves in view plus RowOverscan each way, clamped to the shelf range ---
+AssertEqual(
+    (0, 13),
+    skillLayout.VisibleIndexRange(0f, 50f, 100f, 10f, 18f),
+    "Top of the grid shows shelf 0 plus one overscan shelf."
+);
+AssertEqual(
+    (7, 18),
+    skillLayout.VisibleIndexRange(240f, 100f, 100f, 10f, 18f),
+    "Scrolled to shelf 2 shows shelves 1-2; the overscan below clamps to the last shelf."
+);
+AssertEqual(
+    (14, 18),
+    skillLayout.VisibleIndexRange(5000f, 100f, 100f, 10f, 18f),
+    "An overshooting scroll clamps both ends to the last shelf."
+);
+AssertEqual(
+    (0, -1),
+    CollectionGridLayout.Empty.VisibleIndexRange(0f, 100f, 100f, 10f, 18f),
+    "An empty layout shows nothing."
+);
+
 // --- Pixelization keeps the grid envelope stable across Item / Skill tabs ---
 var wideViewport = 2600f;
 var itemPixels = CollectionGridPixelization.ForViewport(
