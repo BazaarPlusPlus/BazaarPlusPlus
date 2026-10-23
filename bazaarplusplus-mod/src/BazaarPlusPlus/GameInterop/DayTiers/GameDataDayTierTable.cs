@@ -1,5 +1,7 @@
 #nullable enable
 using BazaarGameShared.Domain.Core.Types;
+using BazaarPlusPlus.Core.Cards;
+using BazaarPlusPlus.GameInterop.Cards;
 
 namespace BazaarPlusPlus.GameInterop.DayTiers;
 
@@ -68,13 +70,7 @@ internal sealed class GameDataDayTierTable
 internal static class GameDataDayTierOrder
 {
     public static int Rank(ETier tier) =>
-        tier switch
-        {
-            ETier.Bronze => 0,
-            ETier.Silver => 1,
-            ETier.Gold => 2,
-            ETier.Diamond => 3,
-            ETier.Legendary => 4,
-            _ => 99,
-        };
+        DesktopCardFacets.Tier.TryToFacet(tier, out var facet)
+            ? CardFacetOrder.TierRank(facet)
+            : 99;
 }

@@ -10,7 +10,7 @@ Terms used here are defined in [../CONTEXT.md](../CONTEXT.md). Why a boundary is
 
 Composition is manual; there is no DI container. `CoreComposition` owns the host-independent half: event bus, settings, run context, `IBppServices`, and feature start/stop through `BppFeatureRegistry` (`src/BazaarPlusPlus.Core/Runtime/CoreComposition.cs`). `DesktopComposition` binds the BepInEx path provider, Mono probes, and resolved `IGameBuildInfo` into it, then wires feature modules, Unity components through `BppMountableRegistry`, and in-game settings rows through `SettingsDockEntryRegistry` (`src/BazaarPlusPlus/DesktopComposition.cs`). Simple components mount through `ComponentMount<T>`; a bespoke mount exists only where a feature owns additional dependencies or object lifecycles, and `CombatReplayRuntime` is the bootstrap exception because other modules need it before mountables run.
 
-Three ordering facts are load-bearing, because each one fails silently when reordered:
+Three ordering facts are load-bearing; each fails silently when reordered:
 
 - **Patches apply per class** via `CreateClassProcessor(type).Patch()`, never `PatchAll()`. One broken game target (a game update, a PTR branch) then degrades only its own feature instead of aborting the whole plugin.
 - **Teardown unmounts Unity components, disposes the composition (stopping pure features in reverse registration order), and only then destroys `CombatReplayRuntime`.** That lets Run Logging settle a deferred completion while replay persistence state is still readable.
@@ -40,11 +40,11 @@ No shared project references a game, Unity, or loader assembly, so the compiler 
 
 | Core directory | Owns |
 |---|---|
-| `Config/`, `Events/`, `GameState/`, `RunContext/`, `Runtime/` | settings port, event bus and BPP-owned snapshots, probe interfaces, run context, runtime services, `CoreComposition` |
+| `Cards/`, `Config/`, `Events/`, `GameState/`, `RunContext/`, `Runtime/` | card facets, settings port, event bus and BPP-owned snapshots, probe interfaces, run context, runtime services, `CoreComposition` |
 | `Logging/` | the `BppLog` facade and pipeline, the `IBppLogSink` port, operational health tracking |
 | `Localization/` | localization resolution, language and Chinese-mode helpers |
 | `Infrastructure/` | Release Manifest client, self-update staging, remote embedded catalogs, atomic and file-backed writes, async load cache, plugin version |
-| `Game/` | host-free feature parts in each feature's namespace; parts reading game types stay in the host, behind a Core port if Core calls them |
+| `Game/` | host-free feature parts in each feature's namespace; game-typed parts stay in the host, behind a Core port if Core calls them |
 
 Core namespaces: `BazaarPlusPlus.Core.*`, `.Infrastructure`, `.Localization`, `.Game.*`.
 

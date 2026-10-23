@@ -1,5 +1,5 @@
 #nullable enable
-using BazaarGameShared.Domain.Core.Types;
+using BazaarPlusPlus.Core.Cards;
 using BazaarPlusPlus.Game.CollectionPanel.Data;
 using BazaarPlusPlus.Game.CollectionPanel.Sources;
 
@@ -9,7 +9,7 @@ internal static class CollectionPanelOpenSelectionResolver
 {
     public static CollectionPanelSelectionState Resolve(
         bool isInGameRun,
-        EHero? currentHero,
+        CardHero? currentHero,
         Guid? currentEncounterTemplateId,
         IReadOnlyCollection<Guid>? choiceSelectionTemplateIds,
         IEnumerable<CollectionSourceEntry> entries,
@@ -39,10 +39,11 @@ internal static class CollectionPanelOpenSelectionResolver
             : new CollectionPanelSelectionState(hero, source.SourceKey, source.Kind);
     }
 
-    internal static bool IsConcreteHero(EHero? hero) => hero.HasValue && hero.Value != EHero.Common;
+    internal static bool IsConcreteHero(CardHero? hero) =>
+        hero.HasValue && hero.Value != CardHero.Common;
 
     public static IReadOnlyList<string> ResolveEncounteredMerchantSourceKeys(
-        EHero? currentHero,
+        CardHero? currentHero,
         IReadOnlyCollection<Guid>? choiceSelectionTemplateIds,
         IEnumerable<CollectionSourceEntry> entries
     )
@@ -95,7 +96,7 @@ internal static class CollectionPanelOpenSelectionResolver
     }
 
     private static CollectionSourceEntry? ResolveSource(
-        EHero hero,
+        CardHero hero,
         Guid? currentEncounterTemplateId,
         IReadOnlyCollection<Guid>? choiceSelectionTemplateIds,
         IEnumerable<CollectionSourceEntry> entries
@@ -125,7 +126,7 @@ internal static class CollectionPanelOpenSelectionResolver
     }
 
     private static CollectionSourceEntry? FindSource(
-        EHero hero,
+        CardHero hero,
         Guid templateId,
         IEnumerable<CollectionSourceEntry> entries,
         CollectionSourceKind? requiredKind = null

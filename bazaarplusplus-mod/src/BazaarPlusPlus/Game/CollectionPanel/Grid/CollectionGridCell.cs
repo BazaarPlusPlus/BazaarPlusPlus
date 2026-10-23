@@ -4,7 +4,7 @@ namespace BazaarPlusPlus.Game.CollectionPanel.Grid;
 
 // One card's placement on the fixed unit grid, viewport-independent. Col is the left unit
 // column [0, Columns); Shelf is the band index (each shelf is ShelfHeightUnits tall); WidthSpan
-// is the card's unit width (Skill = 1; Item = 1/2/3 by ECardSize). Pixel rects are derived from
+// is the card's unit width (Skill = 1; Item = 1/2/3 by CardSize). Pixel rects are derived from
 // these by CollectionGridLayout.ContentRectFor once the per-viewport base unit is known.
 internal readonly struct CollectionGridCell
 {

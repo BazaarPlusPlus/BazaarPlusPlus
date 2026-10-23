@@ -1,6 +1,8 @@
 #nullable enable
 using BazaarGameShared.Domain.Core.Types;
+using BazaarPlusPlus.Core.Cards;
 using BazaarPlusPlus.Game.CollectionPanel.Data;
+using BazaarPlusPlus.GameInterop.Cards;
 using BazaarPlusPlus.GameInterop.EncounterPortraits;
 using BazaarPlusPlus.GameInterop.Heroes;
 using BazaarPlusPlus.GameInterop.HeroPortraits;
@@ -25,7 +27,7 @@ internal sealed partial class CollectionPanelView
     private const string SourceChipPortraitName = "bpp-collection-source-chip-portrait";
     private const string SourceChipSelectionRingName = "bpp-collection-source-chip-selection-ring";
 
-    private void EnsureHeroChips(IReadOnlyList<EHero> heroes)
+    private void EnsureHeroChips(IReadOnlyList<CardHero> heroes)
     {
         if (_heroChipRow == null)
             return;
@@ -43,7 +45,7 @@ internal sealed partial class CollectionPanelView
         }
     }
 
-    private void EnsureTierChips(IReadOnlyList<ETier> tiers)
+    private void EnsureTierChips(IReadOnlyList<CardTier> tiers)
     {
         if (_tierChipRow == null)
             return;
@@ -83,7 +85,7 @@ internal sealed partial class CollectionPanelView
     private static float CurrentTierChipHorizontalPadding() =>
         CollectionPanelText.IsChineseLanguage() ? UiSpacing.Lg : UiSpacing.Sm;
 
-    private bool HeroChipsMatch(IReadOnlyList<EHero> heroes)
+    private bool HeroChipsMatch(IReadOnlyList<CardHero> heroes)
     {
         if (heroes.Count != _heroChips.Count)
             return false;
@@ -95,7 +97,7 @@ internal sealed partial class CollectionPanelView
         return true;
     }
 
-    private bool TierChipsMatch(IReadOnlyList<ETier> tiers)
+    private bool TierChipsMatch(IReadOnlyList<CardTier> tiers)
     {
         if (tiers.Count != _tierChips.Count)
             return false;
@@ -107,7 +109,7 @@ internal sealed partial class CollectionPanelView
         return true;
     }
 
-    private void EnsureSizeChips(IReadOnlyList<ECardSize> sizes)
+    private void EnsureSizeChips(IReadOnlyList<CardSize> sizes)
     {
         if (_sizeChipRow == null)
             return;
@@ -136,7 +138,7 @@ internal sealed partial class CollectionPanelView
         ApplySizeChipLayout(sizes);
     }
 
-    private void ApplySizeChipLayout(IReadOnlyList<ECardSize> sizes)
+    private void ApplySizeChipLayout(IReadOnlyList<CardSize> sizes)
     {
         if (_sizeChipRow == null)
             return;
@@ -183,7 +185,7 @@ internal sealed partial class CollectionPanelView
     private static float CurrentSizeChipHorizontalPadding() =>
         CollectionPanelText.IsChineseLanguage() ? UiSpacing.Md : UiSpacing.Xs;
 
-    private Button CreateSizeChipButton(ECardSize size, Action onClick)
+    private Button CreateSizeChipButton(CardSize size, Action onClick)
     {
         var chip = CreateChipButton(string.Empty, onClick, contentWidth: true);
         UiStyle.HorizontalPadding(chip.style, CurrentSizeChipHorizontalPadding());
@@ -214,12 +216,12 @@ internal sealed partial class CollectionPanelView
         return chip;
     }
 
-    private static VisualElement CreateSizeGlyph(ECardSize size)
+    private static VisualElement CreateSizeGlyph(CardSize size)
     {
         var (width, height) = size switch
         {
-            ECardSize.Small => (6f, 10f),
-            ECardSize.Large => (15f, 10f),
+            CardSize.Small => (6f, 10f),
+            CardSize.Large => (15f, 10f),
             _ => (10f, 10f),
         };
         var glyph = new VisualElement { pickingMode = PickingMode.Ignore };
@@ -232,7 +234,7 @@ internal sealed partial class CollectionPanelView
         return glyph;
     }
 
-    private bool SizeChipsMatch(IReadOnlyList<ECardSize> sizes)
+    private bool SizeChipsMatch(IReadOnlyList<CardSize> sizes)
     {
         if (sizes.Count != _sizeChips.Count)
             return false;
@@ -258,7 +260,7 @@ internal sealed partial class CollectionPanelView
         }
     }
 
-    private void EnsureTagChips(IReadOnlyList<ECardTag> tags)
+    private void EnsureTagChips(IReadOnlyList<CardTag> tags)
     {
         if (_tagChipRow == null)
             return;
@@ -312,7 +314,7 @@ internal sealed partial class CollectionPanelView
         return spacer;
     }
 
-    private bool TagChipsMatch(IReadOnlyList<ECardTag> visible)
+    private bool TagChipsMatch(IReadOnlyList<CardTag> visible)
     {
         if (visible.Count != _tagChipOrder.Count)
             return false;
@@ -574,7 +576,7 @@ internal sealed partial class CollectionPanelView
     }
 
     private static float TagIconSize(CollectionKeywordFacetOption option) =>
-        option.Keyword == EHiddenTag.Lifesteal
+        option.Keyword == CardHiddenTag.Lifesteal
             ? Sizes.CollectionLifestealTagIconSize
             : Sizes.TagChipIconSize;
 
@@ -621,14 +623,14 @@ internal sealed partial class CollectionPanelView
         icon.style.display = DisplayStyle.None;
     }
 
-    private static NativeTagDisplay ResolveTagDisplay(ECardTag tag)
+    private static NativeTagDisplay ResolveTagDisplay(CardTag tag)
     {
         var display = NativeTagTypography.Resolve(tag);
         ReportTagTypographyFailure();
         return display;
     }
 
-    private static NativeTagDisplay ResolveTagDisplay(EHiddenTag tag)
+    private static NativeTagDisplay ResolveTagDisplay(CardHiddenTag tag)
     {
         var display = NativeTagTypography.Resolve(tag);
         ReportTagTypographyFailure();
@@ -642,7 +644,7 @@ internal sealed partial class CollectionPanelView
 
         var display = option.Mechanic switch
         {
-            CollectionMechanic.Multicast => NativeTagTypography.Resolve(EHiddenTag.Multicast),
+            CollectionMechanic.Multicast => NativeTagTypography.Resolve(CardHiddenTag.Multicast),
             CollectionMechanic.Destroy => NativeTagTypography.Resolve("Destroy"),
             _ => NativeTagTypography.Resolve(option.Mechanic?.ToString() ?? string.Empty),
         };
@@ -688,9 +690,9 @@ internal sealed partial class CollectionPanelView
             );
     }
 
-    private Button CreateHeroChipButton(EHero hero, Action onClick)
+    private Button CreateHeroChipButton(CardHero hero, Action onClick)
     {
-        var labelText = CollectionPanelText.Hero(hero);
+        var labelText = CollectionPanelText.Hero(hero, DesktopCardFacets.TheDragonsDisplayName);
         var chip = CreateButton(
             string.Empty,
             onClick,
@@ -712,7 +714,7 @@ internal sealed partial class CollectionPanelView
         ResizeHeroChip(chip, icon, hero, CurrentHeroChipBox());
 
         _heroChipIcons[hero] = icon;
-        if (HeroPortraitSpriteProvider.IsRenderableHero(hero))
+        if (IsRenderableHero(hero))
             LoadHeroChipIcon(hero, icon);
         return chip;
     }
@@ -748,13 +750,13 @@ internal sealed partial class CollectionPanelView
         return chip;
     }
 
-    private static VisualElement CreateHeroChipIcon(EHero hero)
+    private static VisualElement CreateHeroChipIcon(CardHero hero)
     {
         var icon = new VisualElement { pickingMode = PickingMode.Ignore };
         StretchPortraitToParent(icon);
         var portrait = CreatePortraitLayer(HeroChipPortraitName);
 
-        if (HeroPortraitSpriteProvider.IsRenderableHero(hero))
+        if (IsRenderableHero(hero))
         {
             icon.Add(CreateHeroGradient(hero));
             icon.Add(portrait);
@@ -834,7 +836,7 @@ internal sealed partial class CollectionPanelView
     private float CurrentHeroChipBox() =>
         _appliedHeroChipBox > 0f ? _appliedHeroChipBox : Sizes.HeroChipButtonSize;
 
-    private static void ResizeHeroChip(Button chip, VisualElement icon, EHero hero, float box)
+    private static void ResizeHeroChip(Button chip, VisualElement icon, CardHero hero, float box)
     {
         chip.style.width = box;
         chip.style.minWidth = box;
@@ -843,7 +845,7 @@ internal sealed partial class CollectionPanelView
         chip.style.minHeight = box;
         chip.style.maxHeight = box;
         ResizeHeroIcon(icon);
-        if (HeroPortraitSpriteProvider.IsRenderableHero(hero))
+        if (IsRenderableHero(hero))
             ResizeHeroBadge(icon, box);
         else
             AddCommonHeroGlyph(icon, box);
@@ -940,7 +942,7 @@ internal sealed partial class CollectionPanelView
         parent.Add(dot);
     }
 
-    private static void AddHeroBadgeFallback(VisualElement icon, EHero hero, float iconSize)
+    private static void AddHeroBadgeFallback(VisualElement icon, CardHero hero, float iconSize)
     {
         var style = HeroVisual.Resolve(hero.ToString());
 
@@ -957,7 +959,7 @@ internal sealed partial class CollectionPanelView
         icon.Add(badge);
     }
 
-    private static VisualElement CreateHeroGradient(EHero hero)
+    private static VisualElement CreateHeroGradient(CardHero hero)
     {
         var gradient = new VisualElement
         {
@@ -1160,11 +1162,17 @@ internal sealed partial class CollectionPanelView
     private static int HeroBadgeFontSize(float iconSize) =>
         Mathf.Max(Sizes.FontTiny, Mathf.RoundToInt(iconSize * 0.25f));
 
-    private static void LoadHeroChipIcon(EHero hero, VisualElement icon)
+    private static bool IsRenderableHero(CardHero hero) =>
+        DesktopCardFacets.Hero.TryToSource(hero, out var gameHero)
+        && HeroPortraitSpriteProvider.IsRenderableHero(gameHero);
+
+    private static void LoadHeroChipIcon(CardHero hero, VisualElement icon)
     {
         icon.userData = hero;
+        if (!DesktopCardFacets.Hero.TryToSource(hero, out var gameHero))
+            return;
 
-        if (HeroPortraitSpriteProvider.TryGetCached(hero, out var cached))
+        if (HeroPortraitSpriteProvider.TryGetCached(gameHero, out var cached))
         {
             ReportHeroPortraitOutcome(hero, cached);
             ApplyHeroChipIcon(icon, cached?.Sprite);
@@ -1172,7 +1180,7 @@ internal sealed partial class CollectionPanelView
         }
 
         ApplyHeroChipIcon(icon, null);
-        _ = ApplyHeroChipIconWhenLoadedAsync(hero, icon);
+        _ = ApplyHeroChipIconWhenLoadedAsync(hero, gameHero, icon);
     }
 
     private static void LoadSourceChipIcon(
@@ -1195,11 +1203,12 @@ internal sealed partial class CollectionPanelView
     }
 
     private static async System.Threading.Tasks.Task ApplyHeroChipIconWhenLoadedAsync(
-        EHero hero,
+        CardHero hero,
+        EHero gameHero,
         VisualElement icon
     )
     {
-        var outcome = await HeroPortraitSpriteProvider.LoadDefaultPortraitAsync(hero);
+        var outcome = await HeroPortraitSpriteProvider.LoadDefaultPortraitAsync(gameHero);
         if (!Equals(icon.userData, hero))
             return;
         ReportHeroPortraitOutcome(hero, outcome);
@@ -1221,7 +1230,7 @@ internal sealed partial class CollectionPanelView
         ApplySourceChipIcon(icon, outcome?.Sprite);
     }
 
-    private static void ReportHeroPortraitOutcome(EHero hero, HeroPortraitLoadOutcome? outcome)
+    private static void ReportHeroPortraitOutcome(CardHero hero, HeroPortraitLoadOutcome? outcome)
     {
         // Repeats are bounded by the reason_code storm key, one line per reason per window.
         if (outcome == null || !outcome.IsDegraded)
@@ -1396,7 +1405,7 @@ internal sealed partial class CollectionPanelView
         );
     }
 
-    private static void RefreshTierChip(ETier tier, Button chip, bool selected)
+    private static void RefreshTierChip(CardTier tier, Button chip, bool selected)
     {
         var textColor = TierTextColor(tier);
         StyleCollectionGroupChip(
@@ -1494,14 +1503,14 @@ internal sealed partial class CollectionPanelView
         chip.style.marginBottom = 0f;
     }
 
-    private static Color TierTextColor(ETier tier) =>
+    private static Color TierTextColor(CardTier tier) =>
         tier switch
         {
-            ETier.Bronze => Colors.FromRgb(222, 150, 110, 1f),
-            ETier.Silver => Colors.FromRgb(192, 192, 192, 1f),
-            ETier.Gold => Colors.FromRgb(255, 215, 0, 1f),
-            ETier.Diamond => Colors.FromRgb(0, 255, 255, 1f),
-            ETier.Legendary => Colors.FromRgb(255, 69, 0, 1f),
+            CardTier.Bronze => Colors.FromRgb(222, 150, 110, 1f),
+            CardTier.Silver => Colors.FromRgb(192, 192, 192, 1f),
+            CardTier.Gold => Colors.FromRgb(255, 215, 0, 1f),
+            CardTier.Diamond => Colors.FromRgb(0, 255, 255, 1f),
+            CardTier.Legendary => Colors.FromRgb(255, 69, 0, 1f),
             _ => Colors.HistoryChipText,
         };
 
@@ -1629,7 +1638,7 @@ internal sealed partial class CollectionPanelView
         _dayToggleValue.style.flexShrink = 0f;
     }
 
-    private void RefreshHeroChip(EHero hero, Button chip, bool selected)
+    private void RefreshHeroChip(CardHero hero, Button chip, bool selected)
     {
         StyleHeroChip(chip);
         var ring = chip.Q<VisualElement>(HeroChipSelectionRingName);

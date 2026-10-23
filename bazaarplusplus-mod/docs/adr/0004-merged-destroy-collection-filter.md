@@ -21,7 +21,7 @@ Players search for the whole destruction mechanic, not only active `TActionCardD
 
 ## Guardrails
 
-- Project once at the catalog VM boundary through [`CollectionCardVm.From`](../../src/BazaarPlusPlus/Game/CollectionPanel/Data/CollectionCardVm.From.cs) and [`CollectionMechanicFacts.Project`](../../src/BazaarPlusPlus/Game/CollectionPanel/Data/CollectionMechanicFacts.cs). Filtering and refreshes consume the cached flag; architecture tests keep effect-graph types off those paths ([tests](../../tests/Architecture.Tests/CollectionMechanicArchitectureTests.cs)).
+- Project once at the catalog VM boundary through [`CollectionCardVmProjection.From`](../../src/BazaarPlusPlus/Game/CollectionPanel/Data/CollectionCardVmProjection.cs) and [`CollectionMechanicFacts.Project`](../../src/BazaarPlusPlus/Game/CollectionPanel/Data/CollectionMechanicFacts.cs). Filtering and refreshes consume the cached flag; architecture tests keep effect-graph types off those paths ([tests](../../tests/Architecture.Tests/CollectionMechanicArchitectureTests.cs)).
 - Traverse active actions and triggers once per card, with base attributes in the tier loop.
 - Keep `AbsorbDestroy` off `CollectionKeywordWhitelist.Ordered`; its hidden-tag mapping feeds only the Destroy mechanic.
 - Reclassifying `TTriggerOnCardRepaired` or splitting the cluster requires a new product decision.

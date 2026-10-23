@@ -9,6 +9,9 @@
     <BppRequiresManagedPath>false</BppRequiresManagedPath>
   </PropertyGroup>
 
+  <!-- InteropPath: the card facet vocabulary test reads the interop enums' metadata. -->
+  <Import Project="$(MSBuildThisFileDirectory)../../build/InteropPath.props" />
+
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="xunit" />
@@ -52,6 +55,7 @@
       Include="BppAndroidHostAssembly"
       Value="$(MSBuildThisFileDirectory)../../src/BazaarPlusPlus.Android/bin/$(Configuration)/net10.0/BazaarPlusPlus.Android.dll"
     />
+    <AssemblyMetadata Include="BppInteropPath" Value="$(InteropPath)" />
     <AssemblyMetadata
       Include="BppUpdaterAssembly"
       Value="$(MSBuildThisFileDirectory)../../src/BazaarPlusPlus.Updater/bin/$(Configuration)/net10.0/BazaarPlusPlus.Updater.dll"

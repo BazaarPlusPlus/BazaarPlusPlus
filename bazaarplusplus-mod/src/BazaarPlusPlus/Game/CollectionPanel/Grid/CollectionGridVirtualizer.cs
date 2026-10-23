@@ -1,6 +1,7 @@
 #nullable enable
 using System.Diagnostics;
 using BazaarGameShared.Domain.Core.Types;
+using BazaarPlusPlus.Core.Cards;
 using BazaarPlusPlus.Core.Runtime;
 using BazaarPlusPlus.Game.CollectionPanel.Data;
 using BazaarPlusPlus.GameInterop.CardPreview;
@@ -557,8 +558,15 @@ internal sealed class CollectionGridVirtualizer
         new()
         {
             TemplateId = vm.Id,
-            Tier = vm.StartingTier,
-            DisplaySpan = vm.Type == ECardType.Skill ? 1 : CardSizeSpan.Resolve(vm.Size),
+            // A projected card's facets came from this build's enums, so the lookup holds.
+            Tier = DesktopCardFacets.Tier.TryToSource(vm.StartingTier, out var tier)
+                ? tier
+                : ETier.Bronze,
+            DisplaySpan =
+                vm.Type != CardType.Skill
+                && DesktopCardFacets.Size.TryToSource(vm.Size, out var size)
+                    ? CardSizeSpan.Resolve(size)
+                    : 1,
             InstanceIdPrefix = "bpp-collection",
         };
 
@@ -854,7 +862,7 @@ internal sealed class CollectionGridVirtualizer
     )
     {
         var horizontalScale =
-            cell.Vm.Type == ECardType.Item ? CollectionGridConstants.ItemCardWidthScale : 1f;
+            cell.Vm.Type == CardType.Item ? CollectionGridConstants.ItemCardWidthScale : 1f;
         NativeCardCellFitter.ApplyScale(
             cell.CachedRect,
             cellRect,

@@ -1,10 +1,9 @@
 #nullable enable
-using BazaarGameShared.Domain.Core.Types;
+using BazaarPlusPlus.Core.Cards;
 using BazaarPlusPlus.Game.CollectionPanel;
 using BazaarPlusPlus.Game.CollectionPanel.Data;
 using BazaarPlusPlus.Game.CollectionPanel.Sources;
 using BazaarPlusPlus.Game.Supporters;
-using BazaarPlusPlus.GameInterop.DayTiers;
 using BazaarPlusPlus.Localization;
 
 // Ticket requirement: entry installs L before production text resolves. Uninstalled L throws
@@ -28,12 +27,12 @@ L.Install(() => "en", () => BppChineseLocaleMode.Mainland);
 var vanessaSource = Source(
     "merchant:vanessa-only",
     CollectionSourceKind.Merchant,
-    availableHeroes: new[] { EHero.Vanessa }
+    availableHeroes: new[] { CardHero.Vanessa }
 );
 var commonSource = Source(
     "merchant:common-all",
     CollectionSourceKind.Merchant,
-    availableHeroes: Array.Empty<EHero>()
+    availableHeroes: Array.Empty<CardHero>()
 );
 var catalog = new DictionarySourceCatalog(vanessaSource, commonSource);
 var grid = new FakeGridPort();
@@ -49,13 +48,13 @@ CollectionViewState CreateState() => new(grid, catalog, dayTiers, prefs);
     var state = CreateState();
     var cards = new[]
     {
-        Card("Vanessa Item", ETier.Bronze, heroes: new[] { EHero.Vanessa }),
-        Card("Dooley Item", ETier.Bronze, heroes: new[] { EHero.Dooley }),
+        Card("Vanessa Item", CardTier.Bronze, heroes: new[] { CardHero.Vanessa }),
+        Card("Dooley Item", CardTier.Bronze, heroes: new[] { CardHero.Dooley }),
     };
     state.AcceptCatalog(cards);
     // Select Vanessa first so the Vanessa-only source is visible, then pin that source.
     // (Selecting the source under EffectiveHero=Common is cleared by query normalization.)
-    state.ToggleHero(EHero.Vanessa);
+    state.ToggleHero(CardHero.Vanessa);
     prefs.Reset();
     state.ToggleSource(vanessaSource.SourceKey);
     AssertEqual(
@@ -65,12 +64,16 @@ CollectionViewState CreateState() => new(grid, catalog, dayTiers, prefs);
     );
 
     var publishesBefore = grid.PublishCount;
-    var outcome = state.ToggleHero(EHero.Dooley);
+    var outcome = state.ToggleHero(CardHero.Dooley);
     AssertTrue(outcome != null, "ToggleHero must produce a render outcome.");
     AssertTrue(outcome!.ResetScroll, "ToggleHero must request list scroll reset.");
     AssertTrue(outcome.ResetControlsScroll, "ToggleHero must request controls scroll reset.");
     AssertTrue(prefs.SaveCount == 1, "ToggleHero must Save the effective hero preference.");
-    AssertEqual(EHero.Dooley, prefs.LastSaved, "ToggleHero Save must receive the effective hero.");
+    AssertEqual(
+        CardHero.Dooley,
+        prefs.LastSaved,
+        "ToggleHero Save must receive the effective hero."
+    );
     AssertTrue(
         grid.PublishCount > publishesBefore,
         "ToggleHero must run the query (Publish) after filter mutation."
@@ -104,24 +107,24 @@ CollectionViewState CreateState() => new(grid, catalog, dayTiers, prefs);
     {
         Card(
             "Tagged",
-            ETier.Bronze,
-            tags: new[] { ECardTag.Weapon },
-            heroes: new[] { EHero.Vanessa }
+            CardTier.Bronze,
+            tags: new[] { CardTag.Weapon },
+            heroes: new[] { CardHero.Vanessa }
         ),
-        Card("Untagged", ETier.Bronze, heroes: new[] { EHero.Vanessa }),
+        Card("Untagged", CardTier.Bronze, heroes: new[] { CardHero.Vanessa }),
     };
     state.AcceptCatalog(cards);
-    state.ToggleTag(ECardTag.Weapon);
-    state.ToggleTag(ECardTag.Tool); // not present in catalog facets after acceptance
+    state.ToggleTag(CardTag.Weapon);
+    state.ToggleTag(CardTag.Tool); // not present in catalog facets after acceptance
     // Tool is not in facet availability → normalization should drop it on query.
-    var outcome = state.ToggleTier(ETier.Bronze);
+    var outcome = state.ToggleTier(CardTier.Bronze);
     AssertTrue(outcome != null, "ToggleTier must render.");
     AssertTrue(
-        outcome!.Model.SelectedTags.Contains(ECardTag.Weapon),
+        outcome!.Model.SelectedTags.Contains(CardTag.Weapon),
         "Normalization must retain available tags."
     );
     AssertFalse(
-        outcome.Model.SelectedTags.Contains(ECardTag.Tool),
+        outcome.Model.SelectedTags.Contains(CardTag.Tool),
         "Normalization must drop tags absent from facet availability."
     );
 }
@@ -132,7 +135,7 @@ CollectionViewState CreateState() => new(grid, catalog, dayTiers, prefs);
     prefs.Reset();
     var state = CreateState();
     state.AcceptCatalog(
-        new[] { Card("Item", ETier.Bronze, heroes: new[] { EHero.Vanessa, EHero.Dooley }) }
+        new[] { Card("Item", CardTier.Bronze, heroes: new[] { CardHero.Vanessa, CardHero.Dooley }) }
     );
     var first = state.Rebuild().Model.AvailableSources;
     var second = state.Rebuild().Model.AvailableSources;
@@ -141,7 +144,7 @@ CollectionViewState CreateState() => new(grid, catalog, dayTiers, prefs);
         "AvailableSources must reuse the cached projection for the same (kind, hero)."
     );
 
-    state.ToggleHero(EHero.Vanessa);
+    state.ToggleHero(CardHero.Vanessa);
     var afterHero = state.Rebuild().Model.AvailableSources;
     AssertFalse(
         ReferenceEquals(first, afterHero),
@@ -154,9 +157,11 @@ CollectionViewState CreateState() => new(grid, catalog, dayTiers, prefs);
     grid.Reset();
     prefs.Reset();
     var state = CreateState();
-    state.AcceptCatalog(new[] { Card("Sword", ETier.Bronze, heroes: new[] { EHero.Vanessa }) });
+    state.AcceptCatalog(
+        new[] { Card("Sword", CardTier.Bronze, heroes: new[] { CardHero.Vanessa }) }
+    );
     state.SetSearchQuery("sw");
-    state.ToggleTier(ETier.Silver);
+    state.ToggleTier(CardTier.Silver);
     AssertTrue(
         state.TickSearch(1f, isComposing: false) == null,
         "A confirmed filter change must cancel the pending search debounce."
@@ -168,7 +173,9 @@ CollectionViewState CreateState() => new(grid, catalog, dayTiers, prefs);
     grid.Reset();
     prefs.Reset();
     var state = CreateState();
-    state.AcceptCatalog(new[] { Card("Sword", ETier.Bronze, heroes: new[] { EHero.Vanessa }) });
+    state.AcceptCatalog(
+        new[] { Card("Sword", CardTier.Bronze, heroes: new[] { CardHero.Vanessa }) }
+    );
     state.SetSearchQuery("pending");
     var publishesBefore = grid.PublishCount;
 
@@ -194,7 +201,7 @@ CollectionViewState CreateState() => new(grid, catalog, dayTiers, prefs);
     // Remembered hero not in this catalog's available heroes → normalize to null without Save.
     state.ApplyOpenSelection(
         new CollectionPanelSelectionState(
-            EHero.Dooley,
+            CardHero.Dooley,
             vanessaSource.SourceKey,
             CollectionSourceKind.Merchant
         ),
@@ -223,7 +230,10 @@ CollectionViewState CreateState() => new(grid, catalog, dayTiers, prefs);
     // selecting Common-effective after ToggleHero then Accept with prune.
 
     prefs.Reset();
-    var acceptCards = new[] { Card("Only Vanessa", ETier.Bronze, heroes: new[] { EHero.Vanessa }) };
+    var acceptCards = new[]
+    {
+        Card("Only Vanessa", CardTier.Bronze, heroes: new[] { CardHero.Vanessa }),
+    };
     // Select Vanessa, then toggle source to Vanessa-only, then AcceptCatalog again with same
     // cards after selecting a source that becomes invisible when we normalize hero away.
     // Simpler path from design: AcceptCatalog with SelectedHero already set to something that
@@ -238,7 +248,7 @@ CollectionViewState CreateState() => new(grid, catalog, dayTiers, prefs);
     prefs.Reset();
     state.ApplyOpenSelection(
         new CollectionPanelSelectionState(
-            EHero.Vanessa,
+            CardHero.Vanessa,
             vanessaSource.SourceKey,
             CollectionSourceKind.Merchant
         ),
@@ -258,7 +268,7 @@ CollectionViewState CreateState() => new(grid, catalog, dayTiers, prefs);
     );
     AssertTrue(outcome.Model.AvailableTags != null, "AcceptCatalog must recompute facets.");
     AssertTrue(
-        outcome.Model.AvailableHeroes.Contains(EHero.Vanessa),
+        outcome.Model.AvailableHeroes.Contains(CardHero.Vanessa),
         "AcceptCatalog must expose available heroes from the accepted catalog."
     );
     AssertEqual(
@@ -296,7 +306,9 @@ CollectionViewState CreateState() => new(grid, catalog, dayTiers, prefs);
     grid.Reset();
     prefs.Reset();
     var state = CreateState();
-    state.AcceptCatalog(new[] { Card("Sword", ETier.Bronze, heroes: new[] { EHero.Vanessa }) });
+    state.AcceptCatalog(
+        new[] { Card("Sword", CardTier.Bronze, heroes: new[] { CardHero.Vanessa }) }
+    );
     state.SetSearchQuery("sw");
     AssertTrue(state.TickSearch(0.05f, isComposing: false) == null, "Debounce not elapsed yet.");
     var fired = state.TickSearch(0.20f, isComposing: false);
@@ -310,13 +322,13 @@ Console.WriteLine("CollectionViewState.Tests: all assertions passed.");
 
 static CollectionCardVm Card(
     string name,
-    ETier tier,
-    ECardType type = ECardType.Item,
-    ECardSize size = ECardSize.Medium,
+    CardTier tier,
+    CardType type = CardType.Item,
+    CardSize size = CardSize.Medium,
     bool isPackage = false,
-    IReadOnlyCollection<ECardTag>? tags = null,
-    IReadOnlyCollection<EHiddenTag>? hiddenTags = null,
-    IReadOnlyCollection<EHero>? heroes = null
+    IReadOnlyCollection<CardTag>? tags = null,
+    IReadOnlyCollection<CardHiddenTag>? hiddenTags = null,
+    IReadOnlyCollection<CardHero>? heroes = null
 ) =>
     new()
     {
@@ -324,11 +336,11 @@ static CollectionCardVm Card(
         Type = type,
         Size = size,
         StartingTier = tier,
-        Tags = tags ?? Array.Empty<ECardTag>(),
-        HiddenTags = hiddenTags ?? Array.Empty<EHiddenTag>(),
+        Tags = tags ?? Array.Empty<CardTag>(),
+        HiddenTags = hiddenTags ?? Array.Empty<CardHiddenTag>(),
         DisplayName = name,
         InternalName = name,
-        Heroes = heroes ?? new[] { EHero.Common },
+        Heroes = heroes ?? new[] { CardHero.Common },
         IsPackage = isPackage,
         SearchText = name,
     };
@@ -336,13 +348,13 @@ static CollectionCardVm Card(
 static CollectionSourceEntry Source(
     string sourceKey,
     CollectionSourceKind kind,
-    IReadOnlyList<EHero>? availableHeroes = null
+    IReadOnlyList<CardHero>? availableHeroes = null
 ) =>
     new(
         sourceKey,
         kind,
         sourceKey,
-        availableHeroes ?? Array.Empty<EHero>(),
+        availableHeroes ?? Array.Empty<CardHero>(),
         string.Empty,
         Guid.NewGuid(),
         Array.Empty<Guid>(),
@@ -356,14 +368,14 @@ static CollectionSourceEntry Source(
                     CollectionSourceHeroMode.AllHeroes,
                     null,
                     null,
-                    Array.Empty<ECardSize>(),
-                    Array.Empty<ECardTag>(),
-                    Array.Empty<ECardTag>(),
-                    Array.Empty<EHiddenTag>(),
+                    Array.Empty<CardSize>(),
+                    Array.Empty<CardTag>(),
+                    Array.Empty<CardTag>(),
+                    Array.Empty<CardHiddenTag>(),
                     false,
-                    Array.Empty<EEnchantmentType>(),
-                    Array.Empty<ECardTag>(),
-                    Array.Empty<EHiddenTag>()
+                    Array.Empty<CardEnchantment>(),
+                    Array.Empty<CardTag>(),
+                    Array.Empty<CardHiddenTag>()
                 )
             ),
         },
@@ -401,7 +413,7 @@ internal sealed class DictionarySourceCatalog : ICollectionSourceCatalog
     public bool TryGetBySourceKey(string sourceKey, out CollectionSourceEntry? entry) =>
         _entries.TryGetValue(sourceKey, out entry);
 
-    public IEnumerable<CollectionSourceEntry> For(CollectionSourceKind kind, EHero effectiveHero)
+    public IEnumerable<CollectionSourceEntry> For(CollectionSourceKind kind, CardHero effectiveHero)
     {
         foreach (var entry in _entries.Values)
         {
@@ -451,28 +463,20 @@ internal sealed class FakeGridPort : ICollectionGridPort
         !_hasPublished || Unavailable ? CollectionGridProjection.Empty : _last;
 }
 
-internal sealed class FakeDayTier : IGameDataDayTierResolver
+internal sealed class FakeDayTier : ICollectionDayTierSource
 {
     public int? Day { get; set; } = 1;
 
-    public GameDataDayTierResolution Resolve()
-    {
-        if (!Day.HasValue)
-            return GameDataDayTierResolution.Unavailable(GameDataDayTierStatus.NotApplicable, null);
-
-        var table =
-            GameDataDayTierTable.FromWeights(1f, 1f, 1f, 1f)
-            ?? throw new InvalidOperationException("Expected day-tier table.");
-        return GameDataDayTierResolution.Available(Day.Value, table);
-    }
-
-    public GameDataDayTierResolution Resolve(object expectedManager) => Resolve();
+    public CollectionDayTiers Resolve() =>
+        Day.HasValue
+            ? new CollectionDayTiers(Day, CardTier.Diamond)
+            : new CollectionDayTiers(null, null);
 }
 
 internal sealed class RecordingHeroPreferenceStore : ICollectionPanelHeroPreferenceStore
 {
     public int SaveCount { get; private set; }
-    public EHero? LastSaved { get; private set; }
+    public CardHero? LastSaved { get; private set; }
 
     public void Reset()
     {
@@ -482,7 +486,7 @@ internal sealed class RecordingHeroPreferenceStore : ICollectionPanelHeroPrefere
 
     public CollectionPanelHeroPreferenceLoadResult Load(
         CollectionCatalogReadiness catalogReadiness,
-        IReadOnlyCollection<EHero> availableHeroes
+        IReadOnlyCollection<CardHero> availableHeroes
     ) =>
         CollectionPanelHeroPreference.ResolveStored(
             hasStoredValue: false,
@@ -491,7 +495,7 @@ internal sealed class RecordingHeroPreferenceStore : ICollectionPanelHeroPrefere
             availableHeroes
         );
 
-    public void Save(EHero hero)
+    public void Save(CardHero hero)
     {
         SaveCount++;
         LastSaved = hero;

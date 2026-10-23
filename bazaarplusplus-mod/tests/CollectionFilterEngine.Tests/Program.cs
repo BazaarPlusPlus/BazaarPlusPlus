@@ -1,21 +1,7 @@
-using BazaarGameShared.Domain.Cards;
-using BazaarGameShared.Domain.Cards.Enchantments;
-using BazaarGameShared.Domain.Cards.Item;
-using BazaarGameShared.Domain.Cards.Quests;
-using BazaarGameShared.Domain.Cards.Skill;
-using BazaarGameShared.Domain.Core;
-using BazaarGameShared.Domain.Core.Types;
-using BazaarGameShared.Domain.Effect;
-using BazaarGameShared.Domain.Effect.Actions;
-using BazaarGameShared.Domain.Effect.AuraActions;
-using BazaarGameShared.Domain.Effect.Trigger;
-using BazaarGameShared.Domain.Tooltips;
-using BazaarPlusPlus.Game.CardTags;
+using BazaarPlusPlus.Core.Cards;
+using BazaarPlusPlus.Core.GameState;
 using BazaarPlusPlus.Game.CollectionPanel.Data;
 using BazaarPlusPlus.Game.CollectionPanel.Sources;
-using BazaarPlusPlus.GameInterop.DayTiers;
-using BazaarPlusPlus.GameInterop.Heroes;
-using BazaarPlusPlus.GameInterop.TagTypography;
 
 var searchRefreshGate = new CollectionSearchRefreshGate(0.16f);
 AssertFalse(
@@ -71,83 +57,83 @@ AssertEqual(
     "A new filter state should have no concrete hero selected."
 );
 AssertEqual(
-    EHero.Common,
+    CardHero.Common,
     heroState.EffectiveHero,
     "A filter state without a concrete selection should query in the Common hero context."
 );
-heroState.ToggleHero(EHero.Vanessa);
+heroState.ToggleHero(CardHero.Vanessa);
 AssertEqual(
-    EHero.Vanessa,
+    CardHero.Vanessa,
     heroState.SelectedHero,
     "Selecting a concrete hero should select that hero."
 );
-heroState.ToggleHero(EHero.Dooley);
+heroState.ToggleHero(CardHero.Dooley);
 AssertEqual(
-    EHero.Dooley,
+    CardHero.Dooley,
     heroState.SelectedHero,
     "Selecting a second concrete hero should replace the first."
 );
-var neutralToggleValue = heroState.ToggleHero(EHero.Dooley);
+var neutralToggleValue = heroState.ToggleHero(CardHero.Dooley);
 AssertEqual(
     null,
     heroState.SelectedHero,
     "Toggling the only selected hero should clear the hero selection."
 );
 AssertEqual(
-    EHero.Common,
+    CardHero.Common,
     neutralToggleValue,
     "A toggle should return the post-toggle effective hero for persistence."
 );
 AssertEqual(
-    EHero.Common,
+    CardHero.Common,
     heroState.EffectiveHero,
     "Clearing the selected hero should restore the Common query context."
 );
-heroState.ToggleHero(EHero.Dooley);
+heroState.ToggleHero(CardHero.Dooley);
 AssertEqual(
-    EHero.Dooley,
+    CardHero.Dooley,
     heroState.SelectedHero,
     "Selecting a concrete hero from neutral mode should remain single-select."
 );
 
 var allHeroesSameHeroState = new CollectionFilterState();
-allHeroesSameHeroState.ToggleHero(EHero.Vanessa);
+allHeroesSameHeroState.ToggleHero(CardHero.Vanessa);
 allHeroesSameHeroState.ToggleAllHeroes();
-allHeroesSameHeroState.ToggleHero(EHero.Vanessa);
+allHeroesSameHeroState.ToggleHero(CardHero.Vanessa);
 AssertEqual(
     false,
     allHeroesSameHeroState.AllHeroesSelected,
     "Selecting the residual hero from all-heroes should exit all-heroes."
 );
 AssertEqual(
-    EHero.Vanessa,
+    CardHero.Vanessa,
     allHeroesSameHeroState.SelectedHero,
     "Selecting the residual hero from all-heroes should preserve that hero as the scope."
 );
 AssertEqual(
-    EHero.Vanessa,
+    CardHero.Vanessa,
     allHeroesSameHeroState.EffectiveHero,
     "Selecting the residual hero from all-heroes should preserve that effective hero."
 );
 
 var allHeroesDifferentHeroState = new CollectionFilterState();
-allHeroesDifferentHeroState.ToggleHero(EHero.Vanessa);
+allHeroesDifferentHeroState.ToggleHero(CardHero.Vanessa);
 allHeroesDifferentHeroState.ToggleAllHeroes();
-allHeroesDifferentHeroState.ToggleHero(EHero.Dooley);
+allHeroesDifferentHeroState.ToggleHero(CardHero.Dooley);
 AssertEqual(
     false,
     allHeroesDifferentHeroState.AllHeroesSelected,
     "Selecting a different hero from all-heroes should exit all-heroes."
 );
 AssertEqual(
-    EHero.Dooley,
+    CardHero.Dooley,
     allHeroesDifferentHeroState.SelectedHero,
     "Selecting a different hero from all-heroes should use that hero as the scope."
 );
 
 var normalHeroToggleState = new CollectionFilterState();
-normalHeroToggleState.ToggleHero(EHero.Vanessa);
-normalHeroToggleState.ToggleHero(EHero.Vanessa);
+normalHeroToggleState.ToggleHero(CardHero.Vanessa);
+normalHeroToggleState.ToggleHero(CardHero.Vanessa);
 AssertEqual(
     null,
     normalHeroToggleState.SelectedHero,
@@ -156,7 +142,7 @@ AssertEqual(
 
 var defaultSelection = CollectionPanelSelectionState.Default;
 AssertEqual(
-    EHero.Vanessa,
+    CardHero.Vanessa,
     defaultSelection.SelectedHero,
     "Default panel selection should start on VAN/Vanessa."
 );
@@ -182,17 +168,17 @@ AssertEqual(
 );
 AssertEqual(
     "Dooley",
-    CollectionPanelHeroPreference.Serialize(EHero.Dooley),
+    CollectionPanelHeroPreference.Serialize(CardHero.Dooley),
     "CollectionPanel hero preference should serialize enum names."
 );
 AssertTrue(
     CollectionPanelHeroPreference.TryParse("Dooley", out var parsedDooley)
-        && parsedDooley == EHero.Dooley,
+        && parsedDooley == CardHero.Dooley,
     "CollectionPanel hero preference should parse a supported concrete hero."
 );
 AssertTrue(
     CollectionPanelHeroPreference.TryParse("Common", out var parsedCommon)
-        && parsedCommon == EHero.Common,
+        && parsedCommon == CardHero.Common,
     "CollectionPanel hero preference should preserve Common as the neutral effective hero."
 );
 AssertFalse(
@@ -239,27 +225,20 @@ AssertEqual(
     "A known hero in the accepted roster should resolve."
 );
 AssertEqual(
-    EHero.Dooley,
+    CardHero.Dooley,
     resolvedDooleyPreference.Hero,
     "Resolved preference state should retain its concrete hero."
 );
-AssertTrue(
-    TheDragonsHeroIdentity.TryResolve(TheDragonsHeroIdentity.CanonicalId, out var dragonsHero),
-    "The integrated identity adapter should resolve the canonical The Dragons preference."
-);
+var dragonsHero = CardHero.TheDragons;
 var dragonsCatalogCards = new[]
 {
-    Card("Dragons Item", ETier.Bronze, heroes: new[] { dragonsHero }),
-    Card("Dragons Skill", ETier.Bronze, type: ECardType.Skill, heroes: new[] { dragonsHero }),
+    Card("Dragons Item", CardTier.Bronze, heroes: new[] { dragonsHero }),
+    Card("Dragons Skill", CardTier.Bronze, type: CardType.Skill, heroes: new[] { dragonsHero }),
 };
 AssertValues(
     CollectionHeroSelectionRoster.ResolveAvailableHeroes(
         CollectionCatalogReadiness.Loading,
-        dragonsCatalogCards,
-        _ =>
-            throw new InvalidOperationException(
-                "Loading catalogs must not probe transitional hero identity."
-            )
+        dragonsCatalogCards
     ),
     CollectionHeroSelectionRoster.BaseConcreteHeroes,
     "A loading catalog should expose only the seven established concrete heroes."
@@ -267,7 +246,7 @@ AssertValues(
 AssertValues(
     CollectionHeroSelectionRoster.ResolveAvailableHeroes(
         CollectionCatalogReadiness.Accepted,
-        new[] { Card("Vanessa Item", ETier.Bronze, heroes: new[] { EHero.Vanessa }) }
+        new[] { Card("Vanessa Item", CardTier.Bronze, heroes: new[] { CardHero.Vanessa }) }
     ),
     CollectionHeroSelectionRoster.BaseConcreteHeroes,
     "An accepted catalog without The Dragons content should not expose an empty hero chip."
@@ -277,7 +256,12 @@ AssertValues(
         CollectionCatalogReadiness.Accepted,
         new[]
         {
-            Card("Dragons Package", ETier.Bronze, isPackage: true, heroes: new[] { dragonsHero }),
+            Card(
+                "Dragons Package",
+                CardTier.Bronze,
+                isPackage: true,
+                heroes: new[] { dragonsHero }
+            ),
         }
     ),
     CollectionHeroSelectionRoster.BaseConcreteHeroes,
@@ -291,13 +275,13 @@ AssertValues(
     acceptedDragonsRoster,
     new[]
     {
-        EHero.Vanessa,
-        EHero.Dooley,
-        EHero.Pygmalien,
-        EHero.Karnok,
-        EHero.Mak,
-        EHero.Stelle,
-        EHero.Jules,
+        CardHero.Vanessa,
+        CardHero.Dooley,
+        CardHero.Pygmalien,
+        CardHero.Karnok,
+        CardHero.Mak,
+        CardHero.Stelle,
+        CardHero.Jules,
         dragonsHero,
     },
     "An accepted catalog with The Dragons content should append exactly one concrete hero chip after the existing seven."
@@ -327,36 +311,6 @@ AssertEqual(
     loadingPreferencePolicyAfterAcceptedCatalog.Hero,
     "Loading preference policy should keep the saved runtime hero available for the next accepted catalog."
 );
-AssertValues(
-    CollectionHeroSelectionRoster.ResolveAvailableHeroes(
-        CollectionCatalogReadiness.Accepted,
-        dragonsCatalogCards,
-        name =>
-            string.Equals(name, TheDragonsHeroIdentity.CanonicalId, StringComparison.Ordinal)
-                ? dragonsHero
-                : null
-    ),
-    acceptedDragonsRoster,
-    "A future runtime exposing only the canonical enum name should retain The Dragons."
-);
-AssertValues(
-    CollectionHeroSelectionRoster.ResolveAvailableHeroes(
-        CollectionCatalogReadiness.Accepted,
-        dragonsCatalogCards,
-        name => string.Equals(name, "Hero8", StringComparison.Ordinal) ? dragonsHero : null
-    ),
-    acceptedDragonsRoster,
-    "A legacy runtime exposing only the transitional enum name should retain The Dragons."
-);
-AssertValues(
-    CollectionHeroSelectionRoster.ResolveAvailableHeroes(
-        CollectionCatalogReadiness.Accepted,
-        dragonsCatalogCards,
-        _ => null
-    ),
-    CollectionHeroSelectionRoster.BaseConcreteHeroes,
-    "A runtime that cannot resolve The Dragons should not expose an unusable hero chip."
-);
 var resolvedDragonsPreference = CollectionPanelHeroPreference.ResolveStored(
     hasStoredValue: true,
     raw: "Hero8",
@@ -369,7 +323,7 @@ AssertEqual(
     "An accepted catalog with The Dragons content should resolve a legacy saved preference."
 );
 AssertEqual(
-    TheDragonsHeroIdentity.CanonicalId,
+    TheDragonsHeroId.CanonicalId,
     resolvedDragonsPreference.CanonicalRaw,
     "A resolved legacy preference should migrate to the canonical The Dragons identity."
 );
@@ -377,8 +331,8 @@ var dragonsIdentityFilter = new CollectionFilterState();
 dragonsIdentityFilter.ToggleHero(dragonsHero);
 var misleadingCommonItem = Card(
     "The Dragons Decoy",
-    ETier.Bronze,
-    heroes: new[] { EHero.Common },
+    CardTier.Bronze,
+    heroes: new[] { CardHero.Common },
     artKey: "TheDragons/Hero8"
 );
 AssertSequence(
@@ -389,12 +343,12 @@ AssertSequence(
     new[] { dragonsCatalogCards[0].Id },
     "The Dragons item filtering should use enum identity rather than names or art keys."
 );
-dragonsIdentityFilter.ActiveType = ECardType.Skill;
+dragonsIdentityFilter.ActiveType = CardType.Skill;
 var misleadingCommonSkill = Card(
     "Hero8 Skill Decoy",
-    ETier.Bronze,
-    type: ECardType.Skill,
-    heroes: new[] { EHero.Common },
+    CardTier.Bronze,
+    type: CardType.Skill,
+    heroes: new[] { CardHero.Common },
     artKey: "TheDragons/Skill"
 );
 AssertSequence(
@@ -417,7 +371,7 @@ AssertEqual(
     "Catalog loading must not misclassify a known preference as unavailable."
 );
 AssertEqual(
-    TheDragonsHeroIdentity.CanonicalId,
+    TheDragonsHeroId.CanonicalId,
     loadingDragonsPreference.CanonicalRaw,
     "Known aliases should retain a canonical raw preference."
 );
@@ -484,7 +438,7 @@ var selectionState = new CollectionFilterState();
 selectionState.SelectedSourceKey = "trainer:old";
 selectionState.ApplySelection(defaultSelection);
 AssertEqual(
-    EHero.Vanessa,
+    CardHero.Vanessa,
     selectionState.SelectedHero,
     "Applying the default selection should select Vanessa in the filter state."
 );
@@ -494,7 +448,7 @@ AssertEqual(
     "Applying the default selection should select Jay Jay in the filter state."
 );
 var legacyCommonSelection = new CollectionPanelSelectionState(
-    EHero.Common,
+    CardHero.Common,
     CollectionPanelSelectionState.DefaultMerchantSourceKey,
     CollectionSourceKind.Merchant
 );
@@ -510,18 +464,18 @@ AssertEqual(
     "Applying a legacy Common selection should leave every concrete hero unselected."
 );
 AssertEqual(
-    EHero.Common,
+    CardHero.Common,
     selectionState.EffectiveHero,
     "Applying a legacy Common selection should retain Common as the effective query hero."
 );
 var runtimeSelection = new CollectionPanelSelectionState(
-    EHero.Dooley,
+    CardHero.Dooley,
     "merchant:jules:diamond:dooley+karnok+mak+pygmalien+stelle+vanessa",
     CollectionSourceKind.Merchant
 );
 selectionState.ApplySelection(runtimeSelection);
 AssertEqual(
-    EHero.Dooley,
+    CardHero.Dooley,
     selectionState.SelectedHero,
     "Runtime selection should replace the previous selected hero."
 );
@@ -531,14 +485,14 @@ AssertEqual(
     "Runtime selection should replace the previous selected merchant."
 );
 var trainerSelection = new CollectionPanelSelectionState(
-    EHero.Pygmalien,
+    CardHero.Pygmalien,
     "trainer:mr-tuskari:pygmalien",
     CollectionSourceKind.Trainer
 );
 selectionState.SelectedSourceKey = "merchant:stale";
 selectionState.ApplySelection(trainerSelection);
 AssertEqual(
-    ECardType.Skill,
+    CardType.Skill,
     selectionState.ActiveType,
     "Applying a trainer runtime selection should route the panel to the Skill tab."
 );
@@ -549,7 +503,7 @@ AssertEqual(
 );
 selectionState.ApplySelection(runtimeSelection);
 AssertEqual(
-    ECardType.Item,
+    CardType.Item,
     selectionState.ActiveType,
     "Applying a merchant runtime selection should route the panel back to the Item tab."
 );
@@ -580,11 +534,11 @@ AssertEqual(
     "Skill source selection should store the trainer source key."
 );
 AssertEqual(
-    ECardType.Skill,
+    CardType.Skill,
     sourceState.ActiveType,
     "Toggling a Skill source should set Skill active."
 );
-var topLevelModeState = new CollectionFilterState { ActiveType = ECardType.Skill };
+var topLevelModeState = new CollectionFilterState { ActiveType = CardType.Skill };
 AssertTrue(
     topLevelModeState.SelectTab(CollectionTabKind.Items),
     "Selecting Items from Skills should report a mode change."
@@ -594,7 +548,7 @@ AssertTrue(
     "Selecting Skills from Items should report a mode change."
 );
 AssertEqual(
-    ECardType.Skill,
+    CardType.Skill,
     topLevelModeState.ActiveType,
     "Selecting Skills should activate the Skill card type."
 );
@@ -603,7 +557,7 @@ AssertFalse(
     "Selecting the already active Skills tab should be a no-op."
 );
 
-sourceState.ActiveType = ECardType.Item;
+sourceState.ActiveType = CardType.Item;
 sourceState.SelectedSourceKey = "merchant:hidden";
 AssertTrue(
     sourceState.PruneSelectedSource(new[] { "merchant:visible" }),
@@ -614,7 +568,7 @@ AssertEqual(
     sourceState.SelectedSourceKey,
     "Pruning should clear invisible merchant source selection."
 );
-sourceState.ActiveType = ECardType.Skill;
+sourceState.ActiveType = CardType.Skill;
 sourceState.SelectedSourceKey = "trainer:visible";
 AssertFalse(
     sourceState.PruneSelectedSource(new[] { "trainer:visible" }),
@@ -626,15 +580,15 @@ AssertEqual(
     "Pruning should preserve visible trainer source selection."
 );
 
-var normal = Card("Normal", ETier.Bronze);
-var package = Card("Starter Package", ETier.Silver, isPackage: true);
+var normal = Card("Normal", CardTier.Bronze);
+var package = Card("Starter Package", CardTier.Silver, isPackage: true);
 var bronzePackage = Card(
     "Bronze Package",
-    ETier.Bronze,
+    CardTier.Bronze,
     isPackage: true,
-    heroes: new[] { EHero.Dooley },
-    tags: new[] { ECardTag.Tool },
-    hiddenTags: new[] { EHiddenTag.Package, EHiddenTag.Shield }
+    heroes: new[] { CardHero.Dooley },
+    tags: new[] { CardTag.Tool },
+    hiddenTags: new[] { CardHiddenTag.Package, CardHiddenTag.Shield }
 );
 
 var defaultPackageResult = CollectionFilterEngine.Apply(
@@ -644,21 +598,21 @@ var defaultPackageResult = CollectionFilterEngine.Apply(
 AssertSequence(defaultPackageResult, new[] { normal.Id }, "Packages are excluded by default.");
 
 var matchingPackageFilter = new CollectionFilterState();
-matchingPackageFilter.ToggleHero(EHero.Dooley);
-matchingPackageFilter.Tiers.Add(ETier.Bronze);
-matchingPackageFilter.Sizes.Add(ECardSize.Medium);
-matchingPackageFilter.Tags.Add(ECardTag.Tool);
-matchingPackageFilter.Keywords.Add(EHiddenTag.Shield);
+matchingPackageFilter.ToggleHero(CardHero.Dooley);
+matchingPackageFilter.Tiers.Add(CardTier.Bronze);
+matchingPackageFilter.Sizes.Add(CardSize.Medium);
+matchingPackageFilter.Tags.Add(CardTag.Tool);
+matchingPackageFilter.Keywords.Add(CardHiddenTag.Shield);
 AssertSequence(
     CollectionFilterEngine.Apply(new[] { bronzePackage, normal }, matchingPackageFilter),
     Array.Empty<Guid>(),
     "Package cards stay hidden from CollectionPanel even when their facets match."
 );
 
-var bronzeLarge = Card("A Bronze Large", ETier.Bronze, size: ECardSize.Large);
-var bronzeSmall = Card("B Bronze Small", ETier.Bronze, size: ECardSize.Small);
-var silverLarge = Card("C Silver Large", ETier.Silver, size: ECardSize.Large);
-var silverSmall = Card("D Silver Small", ETier.Silver, size: ECardSize.Small);
+var bronzeLarge = Card("A Bronze Large", CardTier.Bronze, size: CardSize.Large);
+var bronzeSmall = Card("B Bronze Small", CardTier.Bronze, size: CardSize.Small);
+var silverLarge = Card("C Silver Large", CardTier.Silver, size: CardSize.Large);
+var silverSmall = Card("D Silver Small", CardTier.Silver, size: CardSize.Small);
 var tierSizeResult = CollectionFilterEngine.Apply(
     new[] { silverSmall, bronzeLarge, silverLarge, bronzeSmall },
     new CollectionFilterState()
@@ -680,8 +634,8 @@ AssertSequence(
     "Size sort priority sorts by size first, then by tier within each size."
 );
 
-var offerPoolItem = Card("Offer Pool Item", ETier.Bronze);
-var offerPoolExcluded = Card("Offer Pool Excluded", ETier.Bronze);
+var offerPoolItem = Card("Offer Pool Item", CardTier.Bronze);
+var offerPoolExcluded = Card("Offer Pool Excluded", CardTier.Bronze);
 
 var offerPoolResult = CollectionFilterEngine.Apply(
     new[] { offerPoolExcluded, offerPoolItem, normal },
@@ -694,12 +648,12 @@ AssertSequence(
     "Resolved offer pool should AND with the normal visible card filters."
 );
 
-var vanessaBronze = Card("Vanessa Bronze", ETier.Bronze, heroes: new[] { EHero.Vanessa });
-var dooleyBronze = Card("Dooley Bronze", ETier.Bronze, heroes: new[] { EHero.Dooley });
-var vanessaSilver = Card("Vanessa Silver", ETier.Silver, heroes: new[] { EHero.Vanessa });
+var vanessaBronze = Card("Vanessa Bronze", CardTier.Bronze, heroes: new[] { CardHero.Vanessa });
+var dooleyBronze = Card("Dooley Bronze", CardTier.Bronze, heroes: new[] { CardHero.Dooley });
+var vanessaSilver = Card("Vanessa Silver", CardTier.Silver, heroes: new[] { CardHero.Vanessa });
 var sourceAndHeroFilter = new CollectionFilterState();
-sourceAndHeroFilter.ToggleHero(EHero.Vanessa);
-sourceAndHeroFilter.Tiers.Add(ETier.Bronze);
+sourceAndHeroFilter.ToggleHero(CardHero.Vanessa);
+sourceAndHeroFilter.Tiers.Add(CardTier.Bronze);
 var sourceAndHeroResult = CollectionFilterEngine.Apply(
     new[] { dooleyBronze, vanessaSilver, vanessaBronze },
     sourceAndHeroFilter,
@@ -715,7 +669,7 @@ AssertSequence(
 );
 
 var sourceOwnedHeroFilter = new CollectionFilterState();
-sourceOwnedHeroFilter.ToggleHero(EHero.Vanessa);
+sourceOwnedHeroFilter.ToggleHero(CardHero.Vanessa);
 var sourceOwnedHeroResult = CollectionFilterEngine.Apply(
     new[] { dooleyBronze, vanessaBronze },
     sourceOwnedHeroFilter,
@@ -733,18 +687,18 @@ AssertSequence(
 
 var weaponSkill = Card(
     "Weapon Skill",
-    ETier.Bronze,
-    type: ECardType.Skill,
-    tags: new[] { ECardTag.Weapon }
+    CardTier.Bronze,
+    type: CardType.Skill,
+    tags: new[] { CardTag.Weapon }
 );
 var potionSkill = Card(
     "Potion Skill",
-    ETier.Bronze,
-    type: ECardType.Skill,
-    tags: new[] { ECardTag.Potion }
+    CardTier.Bronze,
+    type: CardType.Skill,
+    tags: new[] { CardTag.Potion }
 );
-var skillTagFilter = new CollectionFilterState { ActiveType = ECardType.Skill };
-skillTagFilter.Tags.Add(ECardTag.Weapon);
+var skillTagFilter = new CollectionFilterState { ActiveType = CardType.Skill };
+skillTagFilter.Tags.Add(CardTag.Weapon);
 var skillTagResult = CollectionFilterEngine.Apply(
     new[] { potionSkill, weaponSkill, normal },
     skillTagFilter
@@ -756,30 +710,30 @@ AssertSequence(
 );
 var damageSkill = Card(
     "Damage Skill",
-    ETier.Bronze,
-    type: ECardType.Skill,
-    hiddenTags: new[] { EHiddenTag.Damage }
+    CardTier.Bronze,
+    type: CardType.Skill,
+    hiddenTags: new[] { CardHiddenTag.Damage }
 );
 var shieldSkill = Card(
     "Shield Skill",
-    ETier.Bronze,
-    type: ECardType.Skill,
-    hiddenTags: new[] { EHiddenTag.Shield }
+    CardTier.Bronze,
+    type: CardType.Skill,
+    hiddenTags: new[] { CardHiddenTag.Shield }
 );
 var damageShieldSkill = Card(
     "Damage Shield Skill",
-    ETier.Bronze,
-    type: ECardType.Skill,
-    hiddenTags: new[] { EHiddenTag.Damage, EHiddenTag.Shield }
+    CardTier.Bronze,
+    type: CardType.Skill,
+    hiddenTags: new[] { CardHiddenTag.Damage, CardHiddenTag.Shield }
 );
-var skillKeywordFilter = new CollectionFilterState { ActiveType = ECardType.Skill };
-skillKeywordFilter.Keywords.Add(EHiddenTag.Damage);
+var skillKeywordFilter = new CollectionFilterState { ActiveType = CardType.Skill };
+skillKeywordFilter.Keywords.Add(CardHiddenTag.Damage);
 AssertSequence(
     CollectionFilterEngine.Apply(new[] { shieldSkill, damageSkill, normal }, skillKeywordFilter),
     new[] { damageSkill.Id },
-    "Skill keyword filters narrow skills by EHiddenTag."
+    "Skill keyword filters narrow skills by CardHiddenTag."
 );
-skillKeywordFilter.Keywords.Add(EHiddenTag.Shield);
+skillKeywordFilter.Keywords.Add(CardHiddenTag.Shield);
 AssertSequence(
     CollectionFilterEngine.Apply(new[] { shieldSkill, damageSkill, normal }, skillKeywordFilter),
     new[] { damageSkill.Id, shieldSkill.Id },
@@ -787,11 +741,11 @@ AssertSequence(
 );
 var allSkillKeywordFilter = new CollectionFilterState
 {
-    ActiveType = ECardType.Skill,
+    ActiveType = CardType.Skill,
     KeywordMatchMode = CollectionFacetMatchMode.All,
 };
-allSkillKeywordFilter.Keywords.Add(EHiddenTag.Damage);
-allSkillKeywordFilter.Keywords.Add(EHiddenTag.Shield);
+allSkillKeywordFilter.Keywords.Add(CardHiddenTag.Damage);
+allSkillKeywordFilter.Keywords.Add(CardHiddenTag.Shield);
 AssertSequence(
     CollectionFilterEngine.Apply(
         new[] { shieldSkill, damageSkill, damageShieldSkill, normal },
@@ -801,30 +755,30 @@ AssertSequence(
     "All keyword mode requires every selected skill keyword on the same card."
 );
 
-var weaponItem = Card("Weapon Item", ETier.Bronze, tags: new[] { ECardTag.Weapon });
-var potionItem = Card("Potion Item", ETier.Bronze, tags: new[] { ECardTag.Potion });
-var toolItem = Card("Tool Item", ETier.Bronze, tags: new[] { ECardTag.Tool });
+var weaponItem = Card("Weapon Item", CardTier.Bronze, tags: new[] { CardTag.Weapon });
+var potionItem = Card("Potion Item", CardTier.Bronze, tags: new[] { CardTag.Potion });
+var toolItem = Card("Tool Item", CardTier.Bronze, tags: new[] { CardTag.Tool });
 var weaponPotionItem = Card(
     "Weapon Potion Item",
-    ETier.Bronze,
-    tags: new[] { ECardTag.Weapon, ECardTag.Potion }
+    CardTier.Bronze,
+    tags: new[] { CardTag.Weapon, CardTag.Potion }
 );
 var itemTagFilter = new CollectionFilterState();
-itemTagFilter.Tags.Add(ECardTag.Weapon);
+itemTagFilter.Tags.Add(CardTag.Weapon);
 AssertSequence(
     CollectionFilterEngine.Apply(new[] { potionItem, toolItem, weaponItem }, itemTagFilter),
     new[] { weaponItem.Id },
     "A single selected tag narrows items to cards carrying that tag."
 );
-itemTagFilter.Tags.Add(ECardTag.Potion);
+itemTagFilter.Tags.Add(CardTag.Potion);
 AssertSequence(
     CollectionFilterEngine.Apply(new[] { potionItem, toolItem, weaponItem }, itemTagFilter),
     new[] { potionItem.Id, weaponItem.Id },
     "Multiple selected tags OR together, matching the other facet rows."
 );
 var allItemTagFilter = new CollectionFilterState { TagMatchMode = CollectionFacetMatchMode.All };
-allItemTagFilter.Tags.Add(ECardTag.Weapon);
-allItemTagFilter.Tags.Add(ECardTag.Potion);
+allItemTagFilter.Tags.Add(CardTag.Weapon);
+allItemTagFilter.Tags.Add(CardTag.Potion);
 AssertSequence(
     CollectionFilterEngine.Apply(
         new[] { potionItem, toolItem, weaponItem, weaponPotionItem },
@@ -836,11 +790,11 @@ AssertSequence(
 
 var potionReferenceItem = Card(
     "Potion Reference Item",
-    ETier.Bronze,
-    hiddenTags: new[] { EHiddenTag.PotionReference }
+    CardTier.Bronze,
+    hiddenTags: new[] { CardHiddenTag.PotionReference }
 );
 var potionReferenceFilter = new CollectionFilterState();
-potionReferenceFilter.Keywords.Add(EHiddenTag.PotionReference);
+potionReferenceFilter.Keywords.Add(CardHiddenTag.PotionReference);
 AssertSequence(
     CollectionFilterEngine.Apply(new[] { potionItem, potionReferenceItem }, potionReferenceFilter),
     new[] { potionReferenceItem.Id },
@@ -848,7 +802,7 @@ AssertSequence(
 );
 
 var potionTagOnlyFilter = new CollectionFilterState();
-potionTagOnlyFilter.Tags.Add(ECardTag.Potion);
+potionTagOnlyFilter.Tags.Add(CardTag.Potion);
 AssertSequence(
     CollectionFilterEngine.Apply(new[] { potionItem, potionReferenceItem }, potionTagOnlyFilter),
     new[] { potionItem.Id },
@@ -857,51 +811,55 @@ AssertSequence(
 
 var damageItem = Card(
     "Damage Item",
-    ETier.Bronze,
-    tags: new[] { ECardTag.Weapon },
-    hiddenTags: new[] { EHiddenTag.Damage }
+    CardTier.Bronze,
+    tags: new[] { CardTag.Weapon },
+    hiddenTags: new[] { CardHiddenTag.Damage }
 );
 var shieldItem = Card(
     "Shield Item",
-    ETier.Bronze,
-    tags: new[] { ECardTag.Weapon },
-    hiddenTags: new[] { EHiddenTag.Shield }
+    CardTier.Bronze,
+    tags: new[] { CardTag.Weapon },
+    hiddenTags: new[] { CardHiddenTag.Shield }
 );
 var damageShieldItem = Card(
     "Damage Shield Item",
-    ETier.Bronze,
-    tags: new[] { ECardTag.Weapon },
-    hiddenTags: new[] { EHiddenTag.Damage, EHiddenTag.Shield }
+    CardTier.Bronze,
+    tags: new[] { CardTag.Weapon },
+    hiddenTags: new[] { CardHiddenTag.Damage, CardHiddenTag.Shield }
 );
 var damageToolItem = Card(
     "Damage Tool Item",
-    ETier.Bronze,
-    tags: new[] { ECardTag.Tool },
-    hiddenTags: new[] { EHiddenTag.Damage }
+    CardTier.Bronze,
+    tags: new[] { CardTag.Tool },
+    hiddenTags: new[] { CardHiddenTag.Damage }
 );
 var damageReferenceItem = Card(
     "Damage Reference Item",
-    ETier.Bronze,
-    hiddenTags: new[] { EHiddenTag.DamageReference }
+    CardTier.Bronze,
+    hiddenTags: new[] { CardHiddenTag.DamageReference }
 );
-var multicastItem = Card("Multicast Item", ETier.Bronze, mechanics: CollectionMechanic.Multicast);
+var multicastItem = Card(
+    "Multicast Item",
+    CardTier.Bronze,
+    mechanics: CollectionMechanic.Multicast
+);
 var damageMulticastItem = Card(
     "Damage Multicast Item",
-    ETier.Bronze,
-    hiddenTags: new[] { EHiddenTag.Damage },
+    CardTier.Bronze,
+    hiddenTags: new[] { CardHiddenTag.Damage },
     mechanics: CollectionMechanic.Multicast
 );
 var itemKeywordFilter = new CollectionFilterState();
-itemKeywordFilter.Keywords.Add(EHiddenTag.Damage);
+itemKeywordFilter.Keywords.Add(CardHiddenTag.Damage);
 AssertSequence(
     CollectionFilterEngine.Apply(
         new[] { shieldItem, damageToolItem, damageItem },
         itemKeywordFilter
     ),
     new[] { damageItem.Id, damageToolItem.Id },
-    "Item keyword filters narrow items by EHiddenTag."
+    "Item keyword filters narrow items by CardHiddenTag."
 );
-itemKeywordFilter.Keywords.Add(EHiddenTag.Shield);
+itemKeywordFilter.Keywords.Add(CardHiddenTag.Shield);
 AssertSequence(
     CollectionFilterEngine.Apply(
         new[] { shieldItem, damageToolItem, damageItem },
@@ -914,8 +872,8 @@ var allItemKeywordFilter = new CollectionFilterState
 {
     KeywordMatchMode = CollectionFacetMatchMode.All,
 };
-allItemKeywordFilter.Keywords.Add(EHiddenTag.Damage);
-allItemKeywordFilter.Keywords.Add(EHiddenTag.Shield);
+allItemKeywordFilter.Keywords.Add(CardHiddenTag.Damage);
+allItemKeywordFilter.Keywords.Add(CardHiddenTag.Shield);
 AssertSequence(
     CollectionFilterEngine.Apply(
         new[] { shieldItem, damageToolItem, damageItem, damageShieldItem },
@@ -935,7 +893,7 @@ AssertSequence(
     "Multicast filtering should match only cards carrying the cached Multicast mechanic."
 );
 var anyMulticastKeywordFilter = new CollectionFilterState();
-anyMulticastKeywordFilter.Keywords.Add(EHiddenTag.Damage);
+anyMulticastKeywordFilter.Keywords.Add(CardHiddenTag.Damage);
 anyMulticastKeywordFilter.Mechanics.Add(CollectionMechanic.Multicast);
 AssertSequence(
     CollectionFilterEngine.Apply(
@@ -949,7 +907,7 @@ var allMulticastKeywordFilter = new CollectionFilterState
 {
     KeywordMatchMode = CollectionFacetMatchMode.All,
 };
-allMulticastKeywordFilter.Keywords.Add(EHiddenTag.Damage);
+allMulticastKeywordFilter.Keywords.Add(CardHiddenTag.Damage);
 allMulticastKeywordFilter.Mechanics.Add(CollectionMechanic.Multicast);
 AssertSequence(
     CollectionFilterEngine.Apply(
@@ -960,8 +918,8 @@ AssertSequence(
     "All keyword mode should require Multicast and every other selected keyword on the same card."
 );
 var itemKeywordAndReferenceFilter = new CollectionFilterState();
-itemKeywordAndReferenceFilter.Keywords.Add(EHiddenTag.Damage);
-itemKeywordAndReferenceFilter.Keywords.Add(EHiddenTag.DamageReference);
+itemKeywordAndReferenceFilter.Keywords.Add(CardHiddenTag.Damage);
+itemKeywordAndReferenceFilter.Keywords.Add(CardHiddenTag.DamageReference);
 AssertSequence(
     CollectionFilterEngine.Apply(
         new[] { damageReferenceItem, shieldItem, damageItem },
@@ -972,15 +930,15 @@ AssertSequence(
 );
 var damageAndReferenceItem = Card(
     "Damage Reference Combo Item",
-    ETier.Bronze,
-    hiddenTags: new[] { EHiddenTag.Damage, EHiddenTag.DamageReference }
+    CardTier.Bronze,
+    hiddenTags: new[] { CardHiddenTag.Damage, CardHiddenTag.DamageReference }
 );
 var allItemKeywordAndReferenceFilter = new CollectionFilterState
 {
     KeywordMatchMode = CollectionFacetMatchMode.All,
 };
-allItemKeywordAndReferenceFilter.Keywords.Add(EHiddenTag.Damage);
-allItemKeywordAndReferenceFilter.Keywords.Add(EHiddenTag.DamageReference);
+allItemKeywordAndReferenceFilter.Keywords.Add(CardHiddenTag.Damage);
+allItemKeywordAndReferenceFilter.Keywords.Add(CardHiddenTag.DamageReference);
 AssertSequence(
     CollectionFilterEngine.Apply(
         new[] { damageReferenceItem, damageItem, damageAndReferenceItem },
@@ -990,8 +948,8 @@ AssertSequence(
     "All keyword mode also requires curated reference keywords on the same card."
 );
 var itemTagAndKeywordFilter = new CollectionFilterState();
-itemTagAndKeywordFilter.Tags.Add(ECardTag.Weapon);
-itemTagAndKeywordFilter.Keywords.Add(EHiddenTag.Damage);
+itemTagAndKeywordFilter.Tags.Add(CardTag.Weapon);
+itemTagAndKeywordFilter.Keywords.Add(CardHiddenTag.Damage);
 AssertSequence(
     CollectionFilterEngine.Apply(
         new[] { shieldItem, damageToolItem, damageItem },
@@ -1002,19 +960,19 @@ AssertSequence(
 );
 
 var instrumentTempoItem = InstrumentFacetCard();
-var instrumentTempoWrongHero = InstrumentFacetCard(hero: EHero.Dooley);
-var instrumentTempoWrongTier = InstrumentFacetCard(tier: ETier.Silver);
-var instrumentTempoWrongSize = InstrumentFacetCard(size: ECardSize.Large);
-var instrumentTempoWrongTag = InstrumentFacetCard(tag: ECardTag.Weapon);
-var instrumentTempoWrongKeyword = InstrumentFacetCard(keyword: EHiddenTag.TempoReference);
+var instrumentTempoWrongHero = InstrumentFacetCard(hero: CardHero.Dooley);
+var instrumentTempoWrongTier = InstrumentFacetCard(tier: CardTier.Silver);
+var instrumentTempoWrongSize = InstrumentFacetCard(size: CardSize.Large);
+var instrumentTempoWrongTag = InstrumentFacetCard(tag: CardTag.Weapon);
+var instrumentTempoWrongKeyword = InstrumentFacetCard(keyword: CardHiddenTag.TempoReference);
 var instrumentTempoWrongSearch = InstrumentFacetCard(name: "Orchestral Practice");
 var instrumentTempoNotOffered = InstrumentFacetCard(name: "Tempo Instrument Solo Encore");
 var instrumentTempoItemFilter = new CollectionFilterState { SearchQuery = "instrument solo" };
-instrumentTempoItemFilter.ToggleHero(EHero.Vanessa);
-instrumentTempoItemFilter.Tiers.Add(ETier.Bronze);
-instrumentTempoItemFilter.Sizes.Add(ECardSize.Medium);
-instrumentTempoItemFilter.Tags.Add(ECardTag.Instrument);
-instrumentTempoItemFilter.Keywords.Add(EHiddenTag.Tempo);
+instrumentTempoItemFilter.ToggleHero(CardHero.Vanessa);
+instrumentTempoItemFilter.Tiers.Add(CardTier.Bronze);
+instrumentTempoItemFilter.Sizes.Add(CardSize.Medium);
+instrumentTempoItemFilter.Tags.Add(CardTag.Instrument);
+instrumentTempoItemFilter.Keywords.Add(CardHiddenTag.Tempo);
 AssertSequence(
     CollectionFilterEngine.Apply(
         new[]
@@ -1049,34 +1007,34 @@ AssertSequence(
 
 var instrumentTempoReferenceSkill = InstrumentFacetCard(
     name: "Tempo Reference Instrument Skill",
-    type: ECardType.Skill,
-    keyword: EHiddenTag.TempoReference
+    type: CardType.Skill,
+    keyword: CardHiddenTag.TempoReference
 );
 var instrumentTempoReferenceWrongTagSkill = InstrumentFacetCard(
     name: "Tempo Reference Instrument Skill",
-    type: ECardType.Skill,
-    tag: ECardTag.Weapon,
-    keyword: EHiddenTag.TempoReference
+    type: CardType.Skill,
+    tag: CardTag.Weapon,
+    keyword: CardHiddenTag.TempoReference
 );
 var instrumentTempoReferenceWrongKeywordSkill = InstrumentFacetCard(
     name: "Tempo Reference Instrument Skill",
-    type: ECardType.Skill
+    type: CardType.Skill
 );
 var instrumentTempoReferenceWrongHeroSkill = InstrumentFacetCard(
     name: "Tempo Reference Instrument Skill",
-    type: ECardType.Skill,
-    keyword: EHiddenTag.TempoReference,
-    hero: EHero.Dooley
+    type: CardType.Skill,
+    keyword: CardHiddenTag.TempoReference,
+    hero: CardHero.Dooley
 );
 var instrumentTempoReferenceSkillFilter = new CollectionFilterState
 {
-    ActiveType = ECardType.Skill,
+    ActiveType = CardType.Skill,
     SearchQuery = "reference instrument",
 };
-instrumentTempoReferenceSkillFilter.ToggleHero(EHero.Vanessa);
-instrumentTempoReferenceSkillFilter.Tiers.Add(ETier.Bronze);
-instrumentTempoReferenceSkillFilter.Tags.Add(ECardTag.Instrument);
-instrumentTempoReferenceSkillFilter.Keywords.Add(EHiddenTag.TempoReference);
+instrumentTempoReferenceSkillFilter.ToggleHero(CardHero.Vanessa);
+instrumentTempoReferenceSkillFilter.Tiers.Add(CardTier.Bronze);
+instrumentTempoReferenceSkillFilter.Tags.Add(CardTag.Instrument);
+instrumentTempoReferenceSkillFilter.Keywords.Add(CardHiddenTag.TempoReference);
 AssertSequence(
     CollectionFilterEngine.Apply(
         new[]
@@ -1102,807 +1060,9 @@ AssertSequence(
     "Instrument and TempoReference skill filters should intersect with hero, tier, search, and source."
 );
 
-var derivedLifestealTemplate = new TCardItem
-{
-    Id = Guid.NewGuid(),
-    Type = ECardType.Item,
-    StartingTier = ETier.Bronze,
-    Size = ECardSize.Medium,
-    InternalName = "Derived Lifesteal Weapon",
-    ArtKey = "Assets/Cards/DerivedLifestealWeapon.png",
-    Heroes = new HashSet<EHero> { EHero.Common },
-    Tags = new HashSet<ECardTag> { ECardTag.Weapon },
-    HiddenTags = new HashSet<EHiddenTag>(),
-    Tiers = new Dictionary<ETier, TCardTier>
-    {
-        [ETier.Bronze] = new TCardTier
-        {
-            Attributes = new Dictionary<ECardAttributeType, int>
-            {
-                [ECardAttributeType.Lifesteal] = 100,
-            },
-        },
-    },
-};
-var derivedLifestealVm = CollectionCardVm.From(derivedLifestealTemplate);
-AssertTrue(
-    derivedLifestealVm.HiddenTags.Contains(EHiddenTag.Lifesteal),
-    "CollectionCardVm.From should derive Lifesteal from positive item attributes."
-);
-AssertFalse(
-    derivedLifestealTemplate.HiddenTags.Contains(EHiddenTag.Lifesteal),
-    "Derived Lifesteal projection should not mutate the source game template HiddenTags."
-);
-AssertValues(
-    CollectionFacetAvailability
-        .SnapshotFor(new[] { derivedLifestealVm })
-        .ItemKeywords.Select(tag => tag.ToString())
-        .ToArray(),
-    new[] { nameof(EHiddenTag.Lifesteal) },
-    "Available item keywords should include Lifesteal derived from item attributes."
-);
-var questTemplate = new TCardItem
-{
-    Id = Guid.NewGuid(),
-    Type = ECardType.Item,
-    StartingTier = ETier.Bronze,
-    Size = ECardSize.Medium,
-    InternalName = "Quest Item Without Quest HiddenTag",
-    ArtKey = "Assets/Cards/QuestItemWithoutQuestHiddenTag.png",
-    Heroes = new HashSet<EHero> { EHero.Common },
-    HiddenTags = new HashSet<EHiddenTag> { EHiddenTag.Charge },
-    Quests = new List<TQuestGroup> { new() { Entries = new List<TQuestEntry> { new() } } },
-};
-var questVm = CollectionCardVm.From(questTemplate);
-AssertTrue(
-    questVm.HiddenTags.Contains(EHiddenTag.Quest),
-    "CollectionCardVm.From should derive Quest from a non-empty item Quests graph."
-);
-AssertTrue(
-    questVm.HiddenTags.Contains(EHiddenTag.Charge),
-    "Quest projection should preserve the item's native hidden tags."
-);
-AssertFalse(
-    questTemplate.HiddenTags.Contains(EHiddenTag.Quest),
-    "Quest projection should not mutate the source game template HiddenTags."
-);
-var questFilter = new CollectionFilterState();
-questFilter.Keywords.Add(EHiddenTag.Quest);
-AssertSequence(
-    CollectionFilterEngine.Apply(new[] { questVm, derivedLifestealVm }, questFilter),
-    new[] { questVm.Id },
-    "Quest keyword filtering should include items whose Quests graph lacks a native Quest hidden tag."
-);
-var noLifestealTemplate = new TCardItem
-{
-    Id = Guid.NewGuid(),
-    Type = ECardType.Item,
-    StartingTier = ETier.Bronze,
-    Size = ECardSize.Medium,
-    InternalName = "No Lifesteal Weapon",
-    ArtKey = "Assets/Cards/NoLifestealWeapon.png",
-    Heroes = new HashSet<EHero> { EHero.Common },
-    Tags = new HashSet<ECardTag> { ECardTag.Weapon },
-    HiddenTags = new HashSet<EHiddenTag>(),
-    Tiers = new Dictionary<ETier, TCardTier>
-    {
-        [ETier.Bronze] = new TCardTier
-        {
-            Attributes = new Dictionary<ECardAttributeType, int>
-            {
-                [ECardAttributeType.Lifesteal] = 0,
-            },
-        },
-    },
-};
-var noLifestealVm = CollectionCardVm.From(noLifestealTemplate);
-var lifestealFilter = new CollectionFilterState();
-lifestealFilter.Keywords.Add(EHiddenTag.Lifesteal);
-AssertSequence(
-    CollectionFilterEngine.Apply(new[] { noLifestealVm, derivedLifestealVm }, lifestealFilter),
-    new[] { derivedLifestealVm.Id },
-    "Lifesteal keyword filtering should include derived Lifesteal VMs and exclude non-positive attributes."
-);
-var allLifestealFilter = new CollectionFilterState
-{
-    KeywordMatchMode = CollectionFacetMatchMode.All,
-};
-allLifestealFilter.Keywords.Add(EHiddenTag.Lifesteal);
-AssertSequence(
-    CollectionFilterEngine.Apply(new[] { noLifestealVm, derivedLifestealVm }, allLifestealFilter),
-    new[] { derivedLifestealVm.Id },
-    "All keyword mode should still match a VM with derived Lifesteal when Lifesteal is the only selected keyword."
-);
-var attributeOnlyMulticastTemplate = new TCardItem
-{
-    Id = Guid.NewGuid(),
-    Type = ECardType.Item,
-    StartingTier = ETier.Bronze,
-    Size = ECardSize.Medium,
-    InternalName = "Attribute Only Multicast Item",
-    ArtKey = "Assets/Cards/AttributeOnlyMulticastItem.png",
-    HiddenTags = new HashSet<EHiddenTag>(),
-    Tiers = new Dictionary<ETier, TCardTier>
-    {
-        [ETier.Bronze] = new TCardTier
-        {
-            Attributes = new Dictionary<ECardAttributeType, int>
-            {
-                [ECardAttributeType.Multicast] = 3,
-            },
-        },
-    },
-};
-var attributeOnlyMulticastVm = CollectionCardVm.From(attributeOnlyMulticastTemplate);
-AssertFalse(
-    attributeOnlyMulticastVm.HiddenTags.Contains(EHiddenTag.Multicast),
-    "Structured Multicast projection should not mutate the native hidden-keyword facts."
-);
-AssertTrue(
-    attributeOnlyMulticastVm.Mechanics.Has(CollectionMechanic.Multicast),
-    "A supported tier with base Multicast greater than one should project the Multicast mechanic."
-);
-
-var baseOneMulticastTemplate = MechanicItemTemplate(
-    new Dictionary<ETier, TCardTier>
-    {
-        [ETier.Bronze] = Tier(attributes: new() { [ECardAttributeType.Multicast] = 1 }),
-    }
-);
-AssertFalse(
-    CollectionCardVm.From(baseOneMulticastTemplate).Mechanics.Has(CollectionMechanic.Multicast),
-    "Base Multicast one without an active modifier should not project Multicast."
-);
-
-var crossTierMulticastTemplate = MechanicItemTemplate(
-    new Dictionary<ETier, TCardTier>
-    {
-        [ETier.Bronze] = Tier(attributes: new() { [ECardAttributeType.Multicast] = 1 }),
-        [ETier.Silver] = Tier(attributes: new() { [ECardAttributeType.Multicast] = 3 }),
-    }
-);
-AssertTrue(
-    CollectionCardVm.From(crossTierMulticastTemplate).Mechanics.Has(CollectionMechanic.Multicast),
-    "Multicast projection should inspect every supported tier and observe later-tier changes."
-);
-
-var activeAbilityMulticastTemplate = MechanicItemTemplate(
-    new Dictionary<ETier, TCardTier>
-    {
-        [ETier.Bronze] = Tier(abilityIds: new[] { "active-multicast" }),
-    },
-    abilities: new() { ["active-multicast"] = Ability(MulticastModifier()) }
-);
-AssertTrue(
-    CollectionCardVm
-        .From(activeAbilityMulticastTemplate)
-        .Mechanics.Has(CollectionMechanic.Multicast),
-    "An active base ability modifier should project Multicast."
-);
-
-var nestedAbilityMulticastTemplate = MechanicItemTemplate(
-    new Dictionary<ETier, TCardTier>
-    {
-        [ETier.Bronze] = Tier(abilityIds: new[] { "nested-multicast" }),
-    },
-    abilities: new()
-    {
-        ["nested-multicast"] = Ability(
-            new TActionAnd
-            {
-                Actions = new List<ITAction>
-                {
-                    new TActionAnd { Actions = new List<ITAction> { MulticastModifier() } },
-                },
-            }
-        ),
-    }
-);
-AssertTrue(
-    CollectionCardVm
-        .From(nestedAbilityMulticastTemplate)
-        .Mechanics.Has(CollectionMechanic.Multicast),
-    "A Multicast modifier nested in combined actions should project Multicast."
-);
-
-var activeAuraMulticastTemplate = MechanicItemTemplate(
-    new Dictionary<ETier, TCardTier>
-    {
-        [ETier.Bronze] = Tier(auraIds: new[] { "active-multicast-aura" }),
-    },
-    auras: new() { ["active-multicast-aura"] = Aura(MulticastAuraModifier()) }
-);
-AssertTrue(
-    CollectionCardVm.From(activeAuraMulticastTemplate).Mechanics.Has(CollectionMechanic.Multicast),
-    "An active base aura modifier should project Multicast."
-);
-
-var orphanMulticastTemplate = MechanicItemTemplate(
-    new Dictionary<ETier, TCardTier> { [ETier.Bronze] = Tier() },
-    abilities: new() { ["orphan-multicast"] = Ability(MulticastModifier()) },
-    auras: new() { ["orphan-multicast-aura"] = Aura(MulticastAuraModifier()) }
-);
-AssertFalse(
-    CollectionCardVm.From(orphanMulticastTemplate).Mechanics.Has(CollectionMechanic.Multicast),
-    "Unreferenced base abilities and auras should not project Multicast."
-);
-
-var enchantmentMulticastTemplate = MechanicItemTemplate(
-    new Dictionary<ETier, TCardTier> { [ETier.Bronze] = Tier() },
-    enchantments: new()
-    {
-        [EEnchantmentType.Shiny] = new TEnchantment
-        {
-            Attributes = new Dictionary<ECardAttributeType, int>
-            {
-                [ECardAttributeType.Multicast] = 2,
-            },
-            Abilities = new Dictionary<string, TCardAbility>
-            {
-                ["enchanted-multicast"] = Ability(MulticastModifier()),
-            },
-            Auras = new Dictionary<string, TCardAura>
-            {
-                ["enchanted-multicast-aura"] = Aura(MulticastAuraModifier()),
-            },
-        },
-    }
-);
-AssertFalse(
-    CollectionCardVm.From(enchantmentMulticastTemplate).Mechanics.Has(CollectionMechanic.Multicast),
-    "Enchantment attributes, abilities, and auras should not pollute base Multicast facts."
-);
-
-var nativeAndDerivedMulticastTemplate = MechanicItemTemplate(
-    new Dictionary<ETier, TCardTier>
-    {
-        [ETier.Bronze] = Tier(attributes: new() { [ECardAttributeType.Multicast] = 2 }),
-    },
-    hiddenTags: new() { EHiddenTag.Multicast }
-);
-var nativeAndDerivedMulticastVm = CollectionCardVm.From(nativeAndDerivedMulticastTemplate);
-var nativeOnlyMulticastVm = CollectionCardVm.From(
-    MechanicItemTemplate(
-        new Dictionary<ETier, TCardTier> { [ETier.Bronze] = Tier() },
-        hiddenTags: new() { EHiddenTag.Multicast }
-    )
-);
-AssertTrue(
-    nativeOnlyMulticastVm.Mechanics.Has(CollectionMechanic.Multicast),
-    "A native Multicast hidden tag should map into the same structured mechanic fact."
-);
-var duplicateMulticastAvailability = CollectionFacetAvailability.SnapshotFor(
-    new[] { nativeAndDerivedMulticastVm }
-);
-AssertFalse(
-    duplicateMulticastAvailability.ItemKeywords.Contains(EHiddenTag.Multicast),
-    "Native Multicast hidden tags should be normalized out of the native keyword availability."
-);
-AssertValues(
-    duplicateMulticastAvailability.ItemMechanics.ToArray(),
-    new[] { CollectionMechanic.Multicast },
-    "Native and derived Multicast facts should collapse into one available mechanic."
-);
-AssertEqual(
-    1,
-    duplicateMulticastAvailability
-        .KeywordOptionsFor(ECardType.Item)
-        .Count(option => option.Mechanic == CollectionMechanic.Multicast),
-    "Native and derived Multicast facts should render one Multicast chip."
-);
-
-var multicastSkillTemplate = new TCardSkill
-{
-    Id = Guid.NewGuid(),
-    Type = ECardType.Skill,
-    StartingTier = ETier.Bronze,
-    InternalName = "Multicast Skill",
-    HiddenTags = new HashSet<EHiddenTag>(),
-    Tiers = new Dictionary<ETier, TCardTier>
-    {
-        [ETier.Bronze] = Tier(abilityIds: new[] { "skill-multicast" }),
-    },
-    Abilities = new Dictionary<string, TCardAbility>
-    {
-        ["skill-multicast"] = Ability(MulticastModifier()),
-    },
-};
-var multicastSkillVm = CollectionCardVm.From(multicastSkillTemplate);
-var independentMulticastAvailability = CollectionFacetAvailability.SnapshotFor(
-    new[] { attributeOnlyMulticastVm, multicastSkillVm }
-);
-AssertTrue(
-    independentMulticastAvailability
-        .MechanicsFor(ECardType.Item)
-        .Contains(CollectionMechanic.Multicast),
-    "Item Multicast availability should be computed from item catalog facts."
-);
-AssertTrue(
-    independentMulticastAvailability
-        .MechanicsFor(ECardType.Skill)
-        .Contains(CollectionMechanic.Multicast),
-    "Skill Multicast availability should be computed independently from skill catalog facts."
-);
-
-var primaryMulticastOrder = CollectionFacetAvailability.SnapshotFor(
-    new[]
-    {
-        Card(
-            "Damage Multicast Related",
-            ETier.Bronze,
-            hiddenTags: new[] { EHiddenTag.Damage, EHiddenTag.DamageReference },
-            mechanics: CollectionMechanic.Multicast
-        ),
-    }
-);
-AssertValues(
-    primaryMulticastOrder
-        .KeywordOptionsFor(ECardType.Item)
-        .Select(option => option.ToString())
-        .ToArray(),
-    new[]
-    {
-        nameof(EHiddenTag.Damage),
-        nameof(CollectionMechanic.Multicast),
-        nameof(EHiddenTag.DamageReference),
-    },
-    "Multicast should sort in the primary keyword area before the Related subsection."
-);
-AssertFalse(
-    CollectionKeywordWhitelist.IsRelatedKeyword(EHiddenTag.Multicast),
-    "The legacy Multicast hidden tag should no longer be classified as Related."
-);
-
-var rootDestroyTemplate = MechanicItemTemplate(
-    new Dictionary<ETier, TCardTier>
-    {
-        [ETier.Bronze] = Tier(abilityIds: new[] { "root-destroy" }),
-    },
-    abilities: new() { ["root-destroy"] = Ability(new TActionCardDestroy()) }
-);
-var rootDestroyVm = CollectionCardVm.From(rootDestroyTemplate);
-AssertTrue(
-    rootDestroyVm.Mechanics.Has(CollectionMechanic.Destroy),
-    "A root TActionCardDestroy in an active base ability should project Destroy."
-);
-
-var nestedDestroyTemplate = MechanicItemTemplate(
-    new Dictionary<ETier, TCardTier>
-    {
-        [ETier.Bronze] = Tier(abilityIds: new[] { "nested-destroy" }),
-    },
-    abilities: new()
-    {
-        ["nested-destroy"] = Ability(
-            new TActionAnd
-            {
-                Actions = new List<ITAction>
-                {
-                    new TActionAnd { Actions = new List<ITAction> { new TActionCardDestroy() } },
-                },
-            }
-        ),
-    }
-);
-var nestedDestroyVm = CollectionCardVm.From(nestedDestroyTemplate);
-AssertTrue(
-    nestedDestroyVm.Mechanics.Has(CollectionMechanic.Destroy),
-    "A TActionCardDestroy nested in combined actions should project Destroy."
-);
-
-var orphanDestroyTemplate = MechanicItemTemplate(
-    new Dictionary<ETier, TCardTier> { [ETier.Bronze] = Tier() },
-    abilities: new() { ["orphan-destroy"] = Ability(new TActionCardDestroy()) }
-);
-AssertFalse(
-    CollectionCardVm.From(orphanDestroyTemplate).Mechanics.Has(CollectionMechanic.Destroy),
-    "An unreferenced base destroy ability should not project Destroy."
-);
-
-var enchantmentDestroyTemplate = MechanicItemTemplate(
-    new Dictionary<ETier, TCardTier> { [ETier.Bronze] = Tier() },
-    enchantments: new()
-    {
-        [EEnchantmentType.Shiny] = new TEnchantment
-        {
-            Abilities = new Dictionary<string, TCardAbility>
-            {
-                ["enchanted-destroy"] = Ability(new TActionCardDestroy()),
-            },
-        },
-    }
-);
-AssertFalse(
-    CollectionCardVm.From(enchantmentDestroyTemplate).Mechanics.Has(CollectionMechanic.Destroy),
-    "Enchantment-provided destroy abilities should not pollute base Destroy facts."
-);
-
-var transformDestroyedTemplate = MechanicItemTemplate(
-    new Dictionary<ETier, TCardTier>
-    {
-        [ETier.Bronze] = Tier(abilityIds: new[] { "transform-destroyed" }),
-    },
-    abilities: new()
-    {
-        ["transform-destroyed"] = Ability(
-            new TActionCardTransformDestroyed
-            {
-                Abilities = new Dictionary<string, TCardAbility>
-                {
-                    ["derived-destroy"] = Ability(new TActionCardDestroy()),
-                },
-            }
-        ),
-    }
-);
-AssertTrue(
-    CollectionCardVm.From(transformDestroyedTemplate).Mechanics.Has(CollectionMechanic.Destroy),
-    "TActionCardTransformDestroyed on an active base ability should project Destroy; nested spawn-template abilities remain unwalked."
-);
-
-// Destruction-reaction triggers (#156): each of the three destroy-cluster triggers matches
-// Destroy on its own, independent of the ability's action. Non-destroy actions below keep the
-// assertion focused on the trigger surface.
-var beforeDestroyedTriggerTemplate = MechanicItemTemplate(
-    new Dictionary<ETier, TCardTier>
-    {
-        [ETier.Bronze] = Tier(abilityIds: new[] { "before-destroyed" }),
-    },
-    abilities: new()
-    {
-        ["before-destroyed"] = Ability(
-            new TActionCardModifyAttribute { AttributeType = ECardAttributeType.DamageAmount },
-            new TTriggerOnBeforeCardDestroyed()
-        ),
-    }
-);
-AssertTrue(
-    CollectionCardVm.From(beforeDestroyedTriggerTemplate).Mechanics.Has(CollectionMechanic.Destroy),
-    "An active base ability triggered by TTriggerOnBeforeCardDestroyed should project Destroy."
-);
-
-var cardDestroyedTriggerTemplate = MechanicItemTemplate(
-    new Dictionary<ETier, TCardTier>
-    {
-        [ETier.Bronze] = Tier(abilityIds: new[] { "card-destroyed" }),
-    },
-    abilities: new()
-    {
-        ["card-destroyed"] = Ability(
-            new TActionCardModifyAttribute { AttributeType = ECardAttributeType.DamageAmount },
-            new TTriggerOnCardDestroyed()
-        ),
-    }
-);
-AssertTrue(
-    CollectionCardVm.From(cardDestroyedTriggerTemplate).Mechanics.Has(CollectionMechanic.Destroy),
-    "An active base ability triggered by TTriggerOnCardDestroyed should project Destroy."
-);
-
-var performedDestructionTriggerTemplate = MechanicItemTemplate(
-    new Dictionary<ETier, TCardTier>
-    {
-        [ETier.Bronze] = Tier(abilityIds: new[] { "performed-destruction" }),
-    },
-    abilities: new()
-    {
-        ["performed-destruction"] = Ability(
-            new TActionCardModifyAttribute { AttributeType = ECardAttributeType.DamageAmount },
-            new TTriggerOnCardPerformedDestruction()
-        ),
-    }
-);
-AssertTrue(
-    CollectionCardVm
-        .From(performedDestructionTriggerTemplate)
-        .Mechanics.Has(CollectionMechanic.Destroy),
-    "An active base ability triggered by TTriggerOnCardPerformedDestruction should project Destroy."
-);
-
-var orNestedDestructionTriggerTemplate = MechanicItemTemplate(
-    new Dictionary<ETier, TCardTier>
-    {
-        [ETier.Bronze] = Tier(abilityIds: new[] { "or-destroyed" }),
-    },
-    abilities: new()
-    {
-        ["or-destroyed"] = Ability(
-            new TActionCardModifyAttribute { AttributeType = ECardAttributeType.DamageAmount },
-            new TTriggerOr
-            {
-                Triggers = new List<TTriggerBase>
-                {
-                    new TTriggerOnCardFired(),
-                    new TTriggerOnCardDestroyed(),
-                },
-            }
-        ),
-    }
-);
-AssertTrue(
-    CollectionCardVm
-        .From(orNestedDestructionTriggerTemplate)
-        .Mechanics.Has(CollectionMechanic.Destroy),
-    "A destruction trigger nested inside TTriggerOr should project Destroy even when other branches are unrelated."
-);
-
-var orphanDestructionTriggerTemplate = MechanicItemTemplate(
-    new Dictionary<ETier, TCardTier> { [ETier.Bronze] = Tier() },
-    abilities: new()
-    {
-        ["orphan-destroyed"] = Ability(
-            new TActionCardModifyAttribute { AttributeType = ECardAttributeType.DamageAmount },
-            new TTriggerOnCardDestroyed()
-        ),
-    }
-);
-AssertFalse(
-    CollectionCardVm
-        .From(orphanDestructionTriggerTemplate)
-        .Mechanics.Has(CollectionMechanic.Destroy),
-    "An unreferenced base destruction-reaction ability should not project Destroy."
-);
-
-var enchantmentDestructionTriggerTemplate = MechanicItemTemplate(
-    new Dictionary<ETier, TCardTier> { [ETier.Bronze] = Tier() },
-    enchantments: new()
-    {
-        [EEnchantmentType.Shiny] = new TEnchantment
-        {
-            Abilities = new Dictionary<string, TCardAbility>
-            {
-                ["enchanted-destroyed"] = Ability(
-                    new TActionCardModifyAttribute
-                    {
-                        AttributeType = ECardAttributeType.DamageAmount,
-                    },
-                    new TTriggerOnCardDestroyed()
-                ),
-            },
-        },
-    }
-);
-AssertFalse(
-    CollectionCardVm
-        .From(enchantmentDestructionTriggerTemplate)
-        .Mechanics.Has(CollectionMechanic.Destroy),
-    "Enchantment-provided destruction-reaction abilities should not pollute base Destroy facts."
-);
-
-var repairedTriggerTemplate = MechanicItemTemplate(
-    new Dictionary<ETier, TCardTier> { [ETier.Bronze] = Tier(abilityIds: new[] { "on-repaired" }) },
-    abilities: new()
-    {
-        ["on-repaired"] = Ability(
-            new TActionCardModifyAttribute { AttributeType = ECardAttributeType.DamageAmount },
-            new TTriggerOnCardRepaired()
-        ),
-    }
-);
-AssertFalse(
-    CollectionCardVm.From(repairedTriggerTemplate).Mechanics.Has(CollectionMechanic.Destroy),
-    "TTriggerOnCardRepaired should not project Destroy; only destruction-reaction triggers are in this slice."
-);
-
-// Remaining destroy-cluster action / tag / attribute surfaces (#157).
-var rootRepairTemplate = MechanicItemTemplate(
-    new Dictionary<ETier, TCardTier> { [ETier.Bronze] = Tier(abilityIds: new[] { "root-repair" }) },
-    abilities: new() { ["root-repair"] = Ability(new TActionCardRepair()) }
-);
-AssertTrue(
-    CollectionCardVm.From(rootRepairTemplate).Mechanics.Has(CollectionMechanic.Destroy),
-    "A root TActionCardRepair in an active base ability should project Destroy."
-);
-
-var nestedRepairTemplate = MechanicItemTemplate(
-    new Dictionary<ETier, TCardTier>
-    {
-        [ETier.Bronze] = Tier(abilityIds: new[] { "nested-repair" }),
-    },
-    abilities: new()
-    {
-        ["nested-repair"] = Ability(
-            new TActionAnd
-            {
-                Actions = new List<ITAction>
-                {
-                    new TActionAnd { Actions = new List<ITAction> { new TActionCardRepair() } },
-                },
-            }
-        ),
-    }
-);
-AssertTrue(
-    CollectionCardVm.From(nestedRepairTemplate).Mechanics.Has(CollectionMechanic.Destroy),
-    "A TActionCardRepair nested in combined actions should project Destroy."
-);
-
-var absorbDestroyTemplate = MechanicItemTemplate(
-    new Dictionary<ETier, TCardTier> { [ETier.Bronze] = Tier() },
-    hiddenTags: new() { EHiddenTag.AbsorbDestroy }
-);
-AssertTrue(
-    CollectionCardVm.From(absorbDestroyTemplate).Mechanics.Has(CollectionMechanic.Destroy),
-    "The native AbsorbDestroy hidden tag should project Destroy."
-);
-AssertFalse(
-    CollectionKeywordWhitelist.Ordered.Contains(EHiddenTag.AbsorbDestroy),
-    "AbsorbDestroy must not appear as its own keyword chip; it surfaces only via Destroy."
-);
-
-var destroyImmunityTemplate = MechanicItemTemplate(
-    new Dictionary<ETier, TCardTier>
-    {
-        [ETier.Bronze] = Tier(attributes: new() { [ECardAttributeType.DestroyImmunity] = 1 }),
-    }
-);
-AssertTrue(
-    CollectionCardVm.From(destroyImmunityTemplate).Mechanics.Has(CollectionMechanic.Destroy),
-    "A positive base DestroyImmunity value at any supported tier should project Destroy."
-);
-
-var zeroDestroyImmunityTemplate = MechanicItemTemplate(
-    new Dictionary<ETier, TCardTier>
-    {
-        [ETier.Bronze] = Tier(attributes: new() { [ECardAttributeType.DestroyImmunity] = 0 }),
-    }
-);
-AssertFalse(
-    CollectionCardVm.From(zeroDestroyImmunityTemplate).Mechanics.Has(CollectionMechanic.Destroy),
-    "A zero base DestroyImmunity value should not project Destroy."
-);
-
-var enchantmentRepairTemplate = MechanicItemTemplate(
-    new Dictionary<ETier, TCardTier> { [ETier.Bronze] = Tier() },
-    enchantments: new()
-    {
-        [EEnchantmentType.Shiny] = new TEnchantment
-        {
-            Abilities = new Dictionary<string, TCardAbility>
-            {
-                ["enchanted-repair"] = Ability(new TActionCardRepair()),
-            },
-        },
-    }
-);
-AssertFalse(
-    CollectionCardVm.From(enchantmentRepairTemplate).Mechanics.Has(CollectionMechanic.Destroy),
-    "Enchantment-provided repair abilities should not pollute base Destroy facts."
-);
-
-var enchantmentReplaceDestroyedTemplate = MechanicItemTemplate(
-    new Dictionary<ETier, TCardTier> { [ETier.Bronze] = Tier() },
-    enchantments: new()
-    {
-        [EEnchantmentType.Shiny] = new TEnchantment
-        {
-            Abilities = new Dictionary<string, TCardAbility>
-            {
-                ["enchanted-transform-destroyed"] = Ability(new TActionCardTransformDestroyed()),
-            },
-        },
-    }
-);
-AssertFalse(
-    CollectionCardVm
-        .From(enchantmentReplaceDestroyedTemplate)
-        .Mechanics.Has(CollectionMechanic.Destroy),
-    "Enchantment-provided replace-destroyed abilities should not pollute base Destroy facts."
-);
-
-var radiantDestroyImmunityTemplate = MechanicItemTemplate(
-    new Dictionary<ETier, TCardTier> { [ETier.Bronze] = Tier() },
-    enchantments: new()
-    {
-        [EEnchantmentType.Radiant] = new TEnchantment
-        {
-            Attributes = new Dictionary<ECardAttributeType, int>
-            {
-                [ECardAttributeType.DestroyImmunity] = 1,
-            },
-        },
-    }
-);
-AssertFalse(
-    CollectionCardVm.From(radiantDestroyImmunityTemplate).Mechanics.Has(CollectionMechanic.Destroy),
-    "Radiant destroy immunity on an enchantment must not project base Destroy facts."
-);
-
-var tooltipOnlyDestroyTemplate = MechanicItemTemplate(
-    new Dictionary<ETier, TCardTier> { [ETier.Bronze] = Tier() }
-) with
-{
-    InternalName = "Destroy Tooltip Card",
-    InternalDescription = "Destroy another item when this tooltip is rendered.",
-};
-AssertFalse(
-    CollectionCardVm.From(tooltipOnlyDestroyTemplate).Mechanics.Has(CollectionMechanic.Destroy),
-    "Destroy-related name or description text alone should not project Destroy."
-);
-
-var destroySkillTemplate = new TCardSkill
-{
-    Id = Guid.NewGuid(),
-    Type = ECardType.Skill,
-    StartingTier = ETier.Bronze,
-    InternalName = "Destroy Skill",
-    HiddenTags = new HashSet<EHiddenTag>(),
-    Tiers = new Dictionary<ETier, TCardTier>
-    {
-        [ETier.Bronze] = Tier(abilityIds: new[] { "skill-destroy" }),
-    },
-    Abilities = new Dictionary<string, TCardAbility>
-    {
-        ["skill-destroy"] = Ability(new TActionCardDestroy()),
-    },
-};
-var destroySkillVm = CollectionCardVm.From(destroySkillTemplate);
-var itemDestroyAvailability = CollectionFacetAvailability.SnapshotFor(new[] { rootDestroyVm });
-AssertTrue(
-    itemDestroyAvailability.MechanicsFor(ECardType.Item).Contains(CollectionMechanic.Destroy),
-    "Item Destroy availability should be derived from item catalog facts."
-);
-AssertFalse(
-    itemDestroyAvailability.MechanicsFor(ECardType.Skill).Contains(CollectionMechanic.Destroy),
-    "Item Destroy facts should not leak into Skill availability."
-);
-var skillDestroyAvailability = CollectionFacetAvailability.SnapshotFor(new[] { destroySkillVm });
-AssertTrue(
-    skillDestroyAvailability.MechanicsFor(ECardType.Skill).Contains(CollectionMechanic.Destroy),
-    "Skill Destroy availability should be derived independently from skill catalog facts."
-);
-AssertFalse(
-    skillDestroyAvailability.MechanicsFor(ECardType.Item).Contains(CollectionMechanic.Destroy),
-    "Skill Destroy facts should not leak into Item availability."
-);
-
-// #158: related-only Destroy facts (no TActionCardDestroy) still make the chip available.
-// Item/Skill stay independent; packages never contribute.
-var relatedOnlyRepairVm = CollectionCardVm.From(rootRepairTemplate);
-var relatedOnlyItemAvailability = CollectionFacetAvailability.SnapshotFor(
-    new[] { relatedOnlyRepairVm }
-);
-AssertTrue(
-    relatedOnlyItemAvailability.MechanicsFor(ECardType.Item).Contains(CollectionMechanic.Destroy),
-    "A card that matches Destroy only through a related mechanism should make the Destroy chip available on its tab."
-);
-AssertFalse(
-    relatedOnlyItemAvailability.MechanicsFor(ECardType.Skill).Contains(CollectionMechanic.Destroy),
-    "Related-only Item Destroy facts should not leak into Skill availability."
-);
-
-var relatedOnlySkillTemplate = new TCardSkill
-{
-    Id = Guid.NewGuid(),
-    Type = ECardType.Skill,
-    StartingTier = ETier.Bronze,
-    InternalName = "Repair Skill",
-    HiddenTags = new HashSet<EHiddenTag>(),
-    Tiers = new Dictionary<ETier, TCardTier>
-    {
-        [ETier.Bronze] = Tier(abilityIds: new[] { "skill-repair" }),
-    },
-    Abilities = new Dictionary<string, TCardAbility>
-    {
-        ["skill-repair"] = Ability(new TActionCardRepair()),
-    },
-};
-var relatedOnlySkillVm = CollectionCardVm.From(relatedOnlySkillTemplate);
-var relatedOnlySkillAvailability = CollectionFacetAvailability.SnapshotFor(
-    new[] { relatedOnlySkillVm }
-);
-AssertTrue(
-    relatedOnlySkillAvailability.MechanicsFor(ECardType.Skill).Contains(CollectionMechanic.Destroy),
-    "Skill related-only Destroy availability should be derived independently from skill catalog facts."
-);
-AssertFalse(
-    relatedOnlySkillAvailability.MechanicsFor(ECardType.Item).Contains(CollectionMechanic.Destroy),
-    "Related-only Skill Destroy facts should not leak into Item availability."
-);
-
 var packageDestroyOnlyCard = Card(
     "Package Destroy Related",
-    ETier.Bronze,
+    CardTier.Bronze,
     isPackage: true,
     mechanics: CollectionMechanic.Destroy
 );
@@ -1910,27 +1070,27 @@ var packageDestroyAvailability = CollectionFacetAvailability.SnapshotFor(
     new[] { packageDestroyOnlyCard }
 );
 AssertFalse(
-    packageDestroyAvailability.MechanicsFor(ECardType.Item).Contains(CollectionMechanic.Destroy),
+    packageDestroyAvailability.MechanicsFor(CardType.Item).Contains(CollectionMechanic.Destroy),
     "Package cards must never contribute Destroy chip availability."
 );
 AssertFalse(
-    packageDestroyAvailability.MechanicsFor(ECardType.Skill).Contains(CollectionMechanic.Destroy),
+    packageDestroyAvailability.MechanicsFor(CardType.Skill).Contains(CollectionMechanic.Destroy),
     "Package cards must never contribute Destroy chip availability on either tab."
 );
 
 var multicastOnlyMechanicCard = Card(
     "Alpha Multicast",
-    ETier.Bronze,
+    CardTier.Bronze,
     mechanics: CollectionMechanic.Multicast
 );
 var destroyOnlyMechanicCard = Card(
     "Beta Destroy",
-    ETier.Bronze,
+    CardTier.Bronze,
     mechanics: CollectionMechanic.Destroy
 );
 var multicastDestroyCard = Card(
     "Gamma Multicast Destroy",
-    ETier.Bronze,
+    CardTier.Bronze,
     mechanics: CollectionMechanic.Multicast | CollectionMechanic.Destroy
 );
 var destroyMulticastAny = new CollectionFilterState();
@@ -1961,12 +1121,12 @@ AssertSequence(
 
 var damageDestroyCard = Card(
     "Damage Destroy",
-    ETier.Bronze,
-    hiddenTags: new[] { EHiddenTag.Damage },
+    CardTier.Bronze,
+    hiddenTags: new[] { CardHiddenTag.Damage },
     mechanics: CollectionMechanic.Destroy
 );
 var destroyDamageAny = new CollectionFilterState();
-destroyDamageAny.Keywords.Add(EHiddenTag.Damage);
+destroyDamageAny.Keywords.Add(CardHiddenTag.Damage);
 destroyDamageAny.Mechanics.Add(CollectionMechanic.Destroy);
 AssertSequence(
     CollectionFilterEngine.Apply(
@@ -1980,7 +1140,7 @@ var destroyDamageAll = new CollectionFilterState
 {
     KeywordMatchMode = CollectionFacetMatchMode.All,
 };
-destroyDamageAll.Keywords.Add(EHiddenTag.Damage);
+destroyDamageAll.Keywords.Add(CardHiddenTag.Damage);
 destroyDamageAll.Mechanics.Add(CollectionMechanic.Destroy);
 AssertSequence(
     CollectionFilterEngine.Apply(
@@ -1996,101 +1156,99 @@ var primaryDestroyOrder = CollectionFacetAvailability.SnapshotFor(
     {
         Card(
             "Damage Multicast Destroy Related",
-            ETier.Bronze,
-            hiddenTags: new[] { EHiddenTag.Damage, EHiddenTag.DamageReference },
+            CardTier.Bronze,
+            hiddenTags: new[] { CardHiddenTag.Damage, CardHiddenTag.DamageReference },
             mechanics: CollectionMechanic.Multicast | CollectionMechanic.Destroy
         ),
     }
 );
 AssertValues(
     primaryDestroyOrder
-        .KeywordOptionsFor(ECardType.Item)
+        .KeywordOptionsFor(CardType.Item)
         .Select(option => option.ToString())
         .ToArray(),
     new[]
     {
-        nameof(EHiddenTag.Damage),
+        nameof(CardHiddenTag.Damage),
         nameof(CollectionMechanic.Multicast),
         nameof(CollectionMechanic.Destroy),
-        nameof(EHiddenTag.DamageReference),
+        nameof(CardHiddenTag.DamageReference),
     },
     "Destroy should sort with Multicast in the primary area before Related."
 );
 var destroyOption = primaryDestroyOrder
-    .KeywordOptionsFor(ECardType.Item)
+    .KeywordOptionsFor(CardType.Item)
     .Single(option => option.Mechanic == CollectionMechanic.Destroy);
 AssertFalse(destroyOption.IsRelated, "Destroy should never render in the Related subsection.");
 AssertFalse(
-    primaryDestroyOrder.ItemKeywords.Contains(EHiddenTag.AbsorbDestroy),
+    primaryDestroyOrder.ItemKeywords.Contains(CardHiddenTag.AbsorbDestroy),
     "AbsorbDestroy should not create a broad Destroy Related option."
 );
 
 AssertEqual(
-    PlayerFacingCardTags.Ordered.Count,
-    PlayerFacingCardTags.Ordered.Distinct().Count(),
+    CardFacetOrder.PlayerFacingTags.Count,
+    CardFacetOrder.PlayerFacingTags.Distinct().Count(),
     "Tag whitelist entries must be distinct."
 );
 AssertValues(
-    PlayerFacingCardTags.Ordered.Select(tag => tag.ToString()).ToArray(),
+    CardFacetOrder.PlayerFacingTags.Select(tag => tag.ToString()).ToArray(),
     new[]
     {
-        nameof(ECardTag.Weapon),
-        nameof(ECardTag.Friend),
-        nameof(ECardTag.Aquatic),
-        nameof(ECardTag.Tool),
-        nameof(ECardTag.Vehicle),
-        nameof(ECardTag.Food),
-        nameof(ECardTag.Trap),
-        nameof(ECardTag.Toy),
-        nameof(ECardTag.Potion),
-        nameof(ECardTag.Reagent),
-        nameof(ECardTag.Relic),
-        nameof(ECardTag.Dragon),
-        nameof(ECardTag.Core),
-        nameof(ECardTag.Tech),
-        nameof(ECardTag.Dinosaur),
-        nameof(ECardTag.Apparel),
-        nameof(ECardTag.Merchant),
-        nameof(ECardTag.Property),
-        nameof(ECardTag.Loot),
-        nameof(ECardTag.Instrument),
-        nameof(ECardTag.Drone),
-        nameof(ECardTag.Ray),
+        nameof(CardTag.Weapon),
+        nameof(CardTag.Friend),
+        nameof(CardTag.Aquatic),
+        nameof(CardTag.Tool),
+        nameof(CardTag.Vehicle),
+        nameof(CardTag.Food),
+        nameof(CardTag.Trap),
+        nameof(CardTag.Toy),
+        nameof(CardTag.Potion),
+        nameof(CardTag.Reagent),
+        nameof(CardTag.Relic),
+        nameof(CardTag.Dragon),
+        nameof(CardTag.Core),
+        nameof(CardTag.Tech),
+        nameof(CardTag.Dinosaur),
+        nameof(CardTag.Apparel),
+        nameof(CardTag.Merchant),
+        nameof(CardTag.Property),
+        nameof(CardTag.Loot),
+        nameof(CardTag.Instrument),
+        nameof(CardTag.Drone),
+        nameof(CardTag.Ray),
     },
     "Tag whitelist should match the curated CollectionPanel tag order."
 );
 foreach (
     var mechanismTag in new[]
     {
-        ECardTag.Unsellable,
-        ECardTag.Unstashable,
-        ECardTag.Event,
-        ECardTag.Combat,
+        CardTag.Unsellable,
+        CardTag.Unstashable,
+        CardTag.Event,
+        CardTag.Combat,
     }
 )
     AssertFalse(
-        PlayerFacingCardTags.Ordered.Contains(mechanismTag),
+        CardFacetOrder.PlayerFacingTags.Contains(mechanismTag),
         $"Tag whitelist must exclude mechanism tag {mechanismTag}."
     );
 foreach (
     var playerFacingTag in new[]
     {
-        ECardTag.Apparel,
-        ECardTag.Merchant,
-        ECardTag.Loot,
-        ECardTag.Weapon,
-        ECardTag.Instrument,
+        CardTag.Apparel,
+        CardTag.Merchant,
+        CardTag.Loot,
+        CardTag.Weapon,
+        CardTag.Instrument,
     }
 )
     AssertTrue(
-        PlayerFacingCardTags.Ordered.Contains(playerFacingTag),
+        CardFacetOrder.PlayerFacingTags.Contains(playerFacingTag),
         $"Tag whitelist should include player-facing type/tag {playerFacingTag}."
     );
-foreach (
-    var unusedTypeTag in new[] { ECardTag.Ingredient, ECardTag.Key, ECardTag.Map, ECardTag.Sigil }
-)
+foreach (var unusedTypeTag in new[] { CardTag.Ingredient, CardTag.Key, CardTag.Map, CardTag.Sigil })
     AssertFalse(
-        PlayerFacingCardTags.Ordered.Contains(unusedTypeTag),
+        CardFacetOrder.PlayerFacingTags.Contains(unusedTypeTag),
         $"Tag whitelist should exclude non-BazaarDB type/tag {unusedTypeTag}."
     );
 
@@ -2103,51 +1261,58 @@ AssertValues(
     CollectionKeywordWhitelist.Ordered.Select(tag => tag.ToString()).ToArray(),
     new[]
     {
-        nameof(EHiddenTag.Quest),
-        nameof(EHiddenTag.Flying),
-        nameof(EHiddenTag.Haste),
-        nameof(EHiddenTag.Charge),
-        nameof(EHiddenTag.Cooldown),
-        nameof(EHiddenTag.Slow),
-        nameof(EHiddenTag.Freeze),
-        nameof(EHiddenTag.Damage),
-        nameof(EHiddenTag.Shield),
-        nameof(EHiddenTag.Heal),
-        nameof(EHiddenTag.Health),
-        nameof(EHiddenTag.Burn),
-        nameof(EHiddenTag.Poison),
-        nameof(EHiddenTag.Regen),
-        nameof(EHiddenTag.Crit),
-        nameof(EHiddenTag.Ammo),
-        nameof(EHiddenTag.Lifesteal),
-        nameof(EHiddenTag.Rage),
-        nameof(EHiddenTag.Gold),
-        nameof(EHiddenTag.Income),
-        nameof(EHiddenTag.Value),
-        nameof(EHiddenTag.Tempo),
-        nameof(EHiddenTag.QuestReference),
-        nameof(EHiddenTag.FlyingReference),
-        nameof(EHiddenTag.HasteReference),
-        nameof(EHiddenTag.CooldownReference),
-        nameof(EHiddenTag.SlowReference),
-        nameof(EHiddenTag.FreezeReference),
-        nameof(EHiddenTag.DamageReference),
-        nameof(EHiddenTag.ShieldReference),
-        nameof(EHiddenTag.HealReference),
-        nameof(EHiddenTag.HealthReference),
-        nameof(EHiddenTag.BurnReference),
-        nameof(EHiddenTag.PoisonReference),
-        nameof(EHiddenTag.RegenReference),
-        nameof(EHiddenTag.CritReference),
-        nameof(EHiddenTag.AmmoReference),
-        nameof(EHiddenTag.RageReference),
-        nameof(EHiddenTag.TempoReference),
-        nameof(EHiddenTag.EconomyReference),
-        nameof(EHiddenTag.PotionReference),
+        nameof(CardHiddenTag.Quest),
+        nameof(CardHiddenTag.Flying),
+        nameof(CardHiddenTag.Haste),
+        nameof(CardHiddenTag.Charge),
+        nameof(CardHiddenTag.Cooldown),
+        nameof(CardHiddenTag.Slow),
+        nameof(CardHiddenTag.Freeze),
+        nameof(CardHiddenTag.Damage),
+        nameof(CardHiddenTag.Shield),
+        nameof(CardHiddenTag.Heal),
+        nameof(CardHiddenTag.Health),
+        nameof(CardHiddenTag.Burn),
+        nameof(CardHiddenTag.Poison),
+        nameof(CardHiddenTag.Regen),
+        nameof(CardHiddenTag.Crit),
+        nameof(CardHiddenTag.Ammo),
+        nameof(CardHiddenTag.Lifesteal),
+        nameof(CardHiddenTag.Rage),
+        nameof(CardHiddenTag.Gold),
+        nameof(CardHiddenTag.Income),
+        nameof(CardHiddenTag.Value),
+        nameof(CardHiddenTag.Tempo),
+        nameof(CardHiddenTag.QuestReference),
+        nameof(CardHiddenTag.FlyingReference),
+        nameof(CardHiddenTag.HasteReference),
+        nameof(CardHiddenTag.CooldownReference),
+        nameof(CardHiddenTag.SlowReference),
+        nameof(CardHiddenTag.FreezeReference),
+        nameof(CardHiddenTag.DamageReference),
+        nameof(CardHiddenTag.ShieldReference),
+        nameof(CardHiddenTag.HealReference),
+        nameof(CardHiddenTag.HealthReference),
+        nameof(CardHiddenTag.BurnReference),
+        nameof(CardHiddenTag.PoisonReference),
+        nameof(CardHiddenTag.RegenReference),
+        nameof(CardHiddenTag.CritReference),
+        nameof(CardHiddenTag.AmmoReference),
+        nameof(CardHiddenTag.RageReference),
+        nameof(CardHiddenTag.TempoReference),
+        nameof(CardHiddenTag.EconomyReference),
+        nameof(CardHiddenTag.PotionReference),
     },
     "Keyword whitelist should match the curated CollectionPanel keyword list."
 );
-foreach (var nonKeyword in new[] { EHiddenTag.Merchant, EHiddenTag.Package, EHiddenTag.Unsellable })
+foreach (
+    var nonKeyword in new[]
+    {
+        CardHiddenTag.Merchant,
+        CardHiddenTag.Package,
+        CardHiddenTag.Unsellable,
+    }
+)
     AssertFalse(
         CollectionKeywordWhitelist.Ordered.Contains(nonKeyword),
         $"Keyword whitelist must exclude non-keyword tag {nonKeyword}."
@@ -2155,10 +1320,10 @@ foreach (var nonKeyword in new[] { EHiddenTag.Merchant, EHiddenTag.Package, EHid
 foreach (
     var referenceKeyword in new[]
     {
-        EHiddenTag.ChilledReference,
-        EHiddenTag.HeatedReference,
-        EHiddenTag.JoyReference,
-        EHiddenTag.TechReference,
+        CardHiddenTag.ChilledReference,
+        CardHiddenTag.HeatedReference,
+        CardHiddenTag.JoyReference,
+        CardHiddenTag.TechReference,
     }
 )
     AssertFalse(
@@ -2168,12 +1333,12 @@ foreach (
 foreach (
     var referenceKeyword in new[]
     {
-        EHiddenTag.DamageReference,
-        EHiddenTag.HealReference,
-        EHiddenTag.AmmoReference,
-        EHiddenTag.RageReference,
-        EHiddenTag.EconomyReference,
-        EHiddenTag.PotionReference,
+        CardHiddenTag.DamageReference,
+        CardHiddenTag.HealReference,
+        CardHiddenTag.AmmoReference,
+        CardHiddenTag.RageReference,
+        CardHiddenTag.EconomyReference,
+        CardHiddenTag.PotionReference,
     }
 )
     AssertTrue(
@@ -2182,86 +1347,86 @@ foreach (
     );
 
 AssertTrue(
-    CollectionKeywordWhitelist.IsReferenceKeyword(EHiddenTag.PotionReference),
+    CollectionKeywordWhitelist.IsReferenceKeyword(CardHiddenTag.PotionReference),
     "PotionReference should start the keyword reference subsection like other reference keywords."
 );
 AssertTrue(
-    CollectionKeywordWhitelist.IsReferenceKeyword(EHiddenTag.TempoReference),
+    CollectionKeywordWhitelist.IsReferenceKeyword(CardHiddenTag.TempoReference),
     "TempoReference should remain in the Related keyword subsection."
 );
 AssertFalse(
-    CollectionKeywordWhitelist.IsReferenceKeyword(EHiddenTag.Poison),
+    CollectionKeywordWhitelist.IsReferenceKeyword(CardHiddenTag.Poison),
     "Base gameplay keywords should not be classified as reference keywords."
 );
 AssertFalse(
-    CollectionKeywordWhitelist.IsRelatedKeyword(EHiddenTag.Multicast),
+    CollectionKeywordWhitelist.IsRelatedKeyword(CardHiddenTag.Multicast),
     "Multicast should remain outside the Related keyword subsection."
 );
 AssertTrue(
-    CollectionKeywordWhitelist.IsRelatedKeyword(EHiddenTag.PotionReference),
+    CollectionKeywordWhitelist.IsRelatedKeyword(CardHiddenTag.PotionReference),
     "Curated reference keywords should remain in the Related keyword subsection."
 );
 AssertFalse(
-    CollectionKeywordWhitelist.IsRelatedKeyword(EHiddenTag.Poison),
+    CollectionKeywordWhitelist.IsRelatedKeyword(CardHiddenTag.Poison),
     "Base gameplay keywords should remain outside the Related keyword subsection."
 );
 
 AssertTrue(
-    ReferenceTagBaseResolver.TryResolve(EHiddenTag.PotionReference, out var potionReferenceBase),
+    CardReferenceTags.TryResolveBase(CardHiddenTag.PotionReference, out var potionReferenceBase),
     "PotionReference should resolve to a base display tag."
 );
 AssertEqual(
-    (ECardTag?)ECardTag.Potion,
+    (CardTag?)CardTag.Potion,
     potionReferenceBase.CardTag,
     "PotionReference should render through the Potion card-tag display."
 );
 AssertEqual(
-    (EHiddenTag?)null,
+    (CardHiddenTag?)null,
     potionReferenceBase.HiddenTag,
-    "PotionReference should not claim a hidden-tag base because no EHiddenTag.Potion exists."
+    "PotionReference should not claim a hidden-tag base because no CardHiddenTag.Potion exists."
 );
 
 AssertTrue(
-    ReferenceTagBaseResolver.TryResolve(EHiddenTag.PoisonReference, out var poisonReferenceBase),
+    CardReferenceTags.TryResolveBase(CardHiddenTag.PoisonReference, out var poisonReferenceBase),
     "Existing hidden-tag references should still resolve."
 );
 AssertEqual(
-    (EHiddenTag?)EHiddenTag.Poison,
+    (CardHiddenTag?)CardHiddenTag.Poison,
     poisonReferenceBase.HiddenTag,
     "PoisonReference should keep its Poison hidden-tag display base."
 );
 AssertEqual(
-    (ECardTag?)null,
+    (CardTag?)null,
     poisonReferenceBase.CardTag,
     "PoisonReference should not claim a card-tag display base."
 );
 AssertTrue(
-    ReferenceTagBaseResolver.TryResolve(EHiddenTag.TempoReference, out var tempoReferenceBase),
+    CardReferenceTags.TryResolveBase(CardHiddenTag.TempoReference, out var tempoReferenceBase),
     "TempoReference should resolve to the existing Tempo display base."
 );
 AssertEqual(
-    (EHiddenTag?)EHiddenTag.Tempo,
+    (CardHiddenTag?)CardHiddenTag.Tempo,
     tempoReferenceBase.HiddenTag,
     "TempoReference should render with the Tempo hidden-tag typography."
 );
 AssertEqual(
-    (ECardTag?)null,
+    (CardTag?)null,
     tempoReferenceBase.CardTag,
     "TempoReference should not claim a card-tag display base."
 );
 
 AssertFalse(
-    ReferenceTagBaseResolver.TryResolve(EHiddenTag.Poison, out _),
+    CardReferenceTags.TryResolveBase(CardHiddenTag.Poison, out _),
     "Non-reference hidden tags should not resolve through the reference base resolver."
 );
 foreach (
     var bazaarDbKeyword in new[]
     {
-        EHiddenTag.Ammo,
-        EHiddenTag.Crit,
-        EHiddenTag.Health,
-        EHiddenTag.Quest,
-        EHiddenTag.Value,
+        CardHiddenTag.Ammo,
+        CardHiddenTag.Crit,
+        CardHiddenTag.Health,
+        CardHiddenTag.Quest,
+        CardHiddenTag.Value,
     }
 )
     AssertTrue(
@@ -2271,14 +1436,14 @@ foreach (
 foreach (
     var nonBazaarDbKeyword in new[]
     {
-        EHiddenTag.AbsorbDestroy,
-        EHiddenTag.AbsorbFreeze,
-        EHiddenTag.AbsorbSlow,
-        EHiddenTag.CanCrit,
-        EHiddenTag.Experience,
-        EHiddenTag.Level,
-        EHiddenTag.Reload,
-        EHiddenTag.Ticket,
+        CardHiddenTag.AbsorbDestroy,
+        CardHiddenTag.AbsorbFreeze,
+        CardHiddenTag.AbsorbSlow,
+        CardHiddenTag.CanCrit,
+        CardHiddenTag.Experience,
+        CardHiddenTag.Level,
+        CardHiddenTag.Reload,
+        CardHiddenTag.Ticket,
     }
 )
     AssertFalse(
@@ -2286,7 +1451,7 @@ foreach (
         $"Keyword whitelist should exclude non-BazaarDB keyword {nonBazaarDbKeyword}."
     );
 AssertFalse(
-    CollectionKeywordWhitelist.Ordered.Contains(EHiddenTag.Multicast),
+    CollectionKeywordWhitelist.Ordered.Contains(CardHiddenTag.Multicast),
     "The native keyword whitelist should not create a second Multicast option beside the structured mechanic."
 );
 
@@ -2294,89 +1459,89 @@ var availableFacetCards = new[]
 {
     Card(
         "Damage Weapon",
-        ETier.Bronze,
-        tags: new[] { ECardTag.Weapon, ECardTag.Instrument, ECardTag.Ingredient },
+        CardTier.Bronze,
+        tags: new[] { CardTag.Weapon, CardTag.Instrument, CardTag.Ingredient },
         hiddenTags: new[]
         {
-            EHiddenTag.Damage,
-            EHiddenTag.Tempo,
-            EHiddenTag.DamageReference,
-            EHiddenTag.CanCrit,
+            CardHiddenTag.Damage,
+            CardHiddenTag.Tempo,
+            CardHiddenTag.DamageReference,
+            CardHiddenTag.CanCrit,
         }
     ),
-    Card("Multicast Item", ETier.Bronze, mechanics: CollectionMechanic.Multicast),
+    Card("Multicast Item", CardTier.Bronze, mechanics: CollectionMechanic.Multicast),
     Card(
         "Package Shield",
-        ETier.Bronze,
+        CardTier.Bronze,
         isPackage: true,
-        tags: new[] { ECardTag.Tool },
-        hiddenTags: new[] { EHiddenTag.Package, EHiddenTag.Shield }
+        tags: new[] { CardTag.Tool },
+        hiddenTags: new[] { CardHiddenTag.Package, CardHiddenTag.Shield }
     ),
     Card(
         "Skill Quest",
-        ETier.Bronze,
-        type: ECardType.Skill,
-        hiddenTags: new[] { EHiddenTag.Quest }
+        CardTier.Bronze,
+        type: CardType.Skill,
+        hiddenTags: new[] { CardHiddenTag.Quest }
     ),
     Card(
         "Instrument Tempo Reference Skill",
-        ETier.Bronze,
-        type: ECardType.Skill,
-        tags: new[] { ECardTag.Instrument },
-        hiddenTags: new[] { EHiddenTag.TempoReference }
+        CardTier.Bronze,
+        type: CardType.Skill,
+        tags: new[] { CardTag.Instrument },
+        hiddenTags: new[] { CardHiddenTag.TempoReference }
     ),
-    Card("Potion Reference", ETier.Bronze, hiddenTags: new[] { EHiddenTag.PotionReference }),
+    Card("Potion Reference", CardTier.Bronze, hiddenTags: new[] { CardHiddenTag.PotionReference }),
 };
 var availableFacets = CollectionFacetAvailability.SnapshotFor(availableFacetCards);
 AssertValues(
     availableFacets.ItemTags.Select(tag => tag.ToString()).ToArray(),
-    new[] { nameof(ECardTag.Weapon), nameof(ECardTag.Instrument) },
+    new[] { nameof(CardTag.Weapon), nameof(CardTag.Instrument) },
     "Available item tags should include only non-package catalog tags that are player-facing."
 );
 AssertValues(
     availableFacets.SkillTags.Select(tag => tag.ToString()).ToArray(),
-    new[] { nameof(ECardTag.Instrument) },
+    new[] { nameof(CardTag.Instrument) },
     "Available skill tags should include player-facing tags carried by accepted skills."
 );
 AssertValues(
     availableFacets.ItemKeywords.Select(tag => tag.ToString()).ToArray(),
     new[]
     {
-        nameof(EHiddenTag.Damage),
-        nameof(EHiddenTag.Tempo),
-        nameof(EHiddenTag.DamageReference),
-        nameof(EHiddenTag.PotionReference),
+        nameof(CardHiddenTag.Damage),
+        nameof(CardHiddenTag.Tempo),
+        nameof(CardHiddenTag.DamageReference),
+        nameof(CardHiddenTag.PotionReference),
     },
     "Available item keywords should include non-package catalog keywords and curated references from the same facet."
 );
 AssertValues(
     availableFacets.SkillKeywords.Select(tag => tag.ToString()).ToArray(),
-    new[] { nameof(EHiddenTag.Quest), nameof(EHiddenTag.TempoReference) },
+    new[] { nameof(CardHiddenTag.Quest), nameof(CardHiddenTag.TempoReference) },
     "Available skill keywords should be computed independently from item keywords."
 );
 var legacyFacets = CollectionFacetAvailability.SnapshotFor(new[] { damageItem, damageSkill });
 AssertFalse(
-    legacyFacets.TagsFor(ECardType.Item).Contains(ECardTag.Instrument),
+    legacyFacets.TagsFor(CardType.Item).Contains(CardTag.Instrument),
     "Legacy item catalogs should omit Instrument when no accepted item carries it."
 );
 AssertFalse(
-    legacyFacets.TagsFor(ECardType.Skill).Contains(ECardTag.Instrument),
+    legacyFacets.TagsFor(CardType.Skill).Contains(CardTag.Instrument),
     "Legacy skill catalogs should omit Instrument when no accepted skill carries it."
 );
 AssertFalse(
-    legacyFacets.KeywordsFor(ECardType.Item).Contains(EHiddenTag.Tempo),
+    legacyFacets.KeywordsFor(CardType.Item).Contains(CardHiddenTag.Tempo),
     "Legacy item catalogs should omit Tempo when no accepted item carries it."
 );
 AssertFalse(
-    legacyFacets.KeywordsFor(ECardType.Skill).Contains(EHiddenTag.TempoReference),
+    legacyFacets.KeywordsFor(CardType.Skill).Contains(CardHiddenTag.TempoReference),
     "Legacy skill catalogs should omit TempoReference when no accepted skill carries it."
 );
 AssertFalse(
-    legacyFacets.MechanicsFor(ECardType.Item).Contains(CollectionMechanic.Multicast),
+    legacyFacets.MechanicsFor(CardType.Item).Contains(CollectionMechanic.Multicast),
     "Item mechanic availability should omit Multicast when the item catalog has no Multicast template."
 );
 AssertFalse(
-    availableFacets.MechanicsFor(ECardType.Skill).Contains(CollectionMechanic.Multicast),
+    availableFacets.MechanicsFor(CardType.Skill).Contains(CollectionMechanic.Multicast),
     "Skill mechanic availability should omit Multicast when only the item catalog contains it."
 );
 
@@ -2384,31 +1549,31 @@ var queryCatalogCards = new[]
 {
     Card(
         "Query Damage Weapon",
-        ETier.Bronze,
-        tags: new[] { ECardTag.Weapon },
-        hiddenTags: new[] { EHiddenTag.Damage },
-        heroes: new[] { EHero.Vanessa }
+        CardTier.Bronze,
+        tags: new[] { CardTag.Weapon },
+        hiddenTags: new[] { CardHiddenTag.Damage },
+        heroes: new[] { CardHero.Vanessa }
     ),
     Card(
         "Query Shield Tool",
-        ETier.Bronze,
-        tags: new[] { ECardTag.Tool },
-        hiddenTags: new[] { EHiddenTag.Shield },
-        heroes: new[] { EHero.Dooley }
+        CardTier.Bronze,
+        tags: new[] { CardTag.Tool },
+        hiddenTags: new[] { CardHiddenTag.Shield },
+        heroes: new[] { CardHero.Dooley }
     ),
 };
 var queryAvailability = new CollectionFacetAvailabilitySnapshot(
-    new[] { ECardTag.Weapon },
-    Array.Empty<ECardTag>(),
-    new[] { EHiddenTag.Damage },
-    Array.Empty<EHiddenTag>(),
+    new[] { CardTag.Weapon },
+    Array.Empty<CardTag>(),
+    new[] { CardHiddenTag.Damage },
+    Array.Empty<CardHiddenTag>(),
     Array.Empty<CollectionMechanic>(),
     Array.Empty<CollectionMechanic>()
 );
 var querySource = Source(
     "merchant:query:vanessa",
     CollectionSourceKind.Merchant,
-    availableHeroes: new[] { EHero.Vanessa }
+    availableHeroes: new[] { CardHero.Vanessa }
 );
 var queryCatalog = new DictionarySourceCatalog(querySource);
 var queryResolver = new FakeOfferPoolResolver(
@@ -2421,11 +1586,11 @@ var queryResolver = new FakeOfferPoolResolver(
     }
 );
 var queryFilter = new CollectionFilterState { SelectedSourceKey = querySource.SourceKey };
-queryFilter.ToggleHero(EHero.Vanessa);
-queryFilter.Tags.Add(ECardTag.Weapon);
-queryFilter.Tags.Add(ECardTag.Tool);
-queryFilter.Keywords.Add(EHiddenTag.Damage);
-queryFilter.Keywords.Add(EHiddenTag.Shield);
+queryFilter.ToggleHero(CardHero.Vanessa);
+queryFilter.Tags.Add(CardTag.Weapon);
+queryFilter.Tags.Add(CardTag.Tool);
+queryFilter.Keywords.Add(CardHiddenTag.Damage);
+queryFilter.Keywords.Add(CardHiddenTag.Shield);
 queryFilter.Mechanics.Add(CollectionMechanic.Multicast);
 var queryResult = CollectionQuery.Run(
     queryCatalogCards,
@@ -2445,12 +1610,12 @@ AssertFalse(
 );
 AssertValues(
     queryResult.Normalization.RetainedTags!.ToArray(),
-    new[] { ECardTag.Weapon },
+    new[] { CardTag.Weapon },
     "CollectionQuery should return retained item tags when unavailable selected tags are trimmed."
 );
 AssertValues(
     queryResult.Normalization.RetainedKeywords!.ToArray(),
-    new[] { EHiddenTag.Damage },
+    new[] { CardHiddenTag.Damage },
     "CollectionQuery should return retained keywords when unavailable selected keywords are trimmed."
 );
 AssertEqual(
@@ -2460,12 +1625,12 @@ AssertEqual(
 );
 AssertValues(
     queryFilter.Tags.ToArray(),
-    new[] { ECardTag.Weapon, ECardTag.Tool },
+    new[] { CardTag.Weapon, CardTag.Tool },
     "CollectionQuery should not mutate selected tags."
 );
 AssertValues(
     queryFilter.Keywords.ToArray(),
-    new[] { EHiddenTag.Damage, EHiddenTag.Shield },
+    new[] { CardHiddenTag.Damage, CardHiddenTag.Shield },
     "CollectionQuery should not mutate selected keywords."
 );
 AssertTrue(
@@ -2505,7 +1670,7 @@ CollectionQuery.Run(
     neutralSelectedHeroResolver
 );
 AssertEqual(
-    EHero.Common,
+    CardHero.Common,
     neutralSelectedHeroResolver.LastEffectiveHero,
     "A SelectedHero source should receive Common when no concrete hero chip is selected."
 );
@@ -2530,21 +1695,21 @@ var allHeroesTrainerCards = new[]
 {
     Card(
         "All Heroes Vanessa Skill",
-        ETier.Bronze,
-        type: ECardType.Skill,
-        heroes: new[] { EHero.Vanessa }
+        CardTier.Bronze,
+        type: CardType.Skill,
+        heroes: new[] { CardHero.Vanessa }
     ),
     Card(
         "All Heroes Dooley Skill",
-        ETier.Bronze,
-        type: ECardType.Skill,
-        heroes: new[] { EHero.Dooley }
+        CardTier.Bronze,
+        type: CardType.Skill,
+        heroes: new[] { CardHero.Dooley }
     ),
     Card(
         "All Heroes Common Skill",
-        ETier.Bronze,
-        type: ECardType.Skill,
-        heroes: new[] { EHero.Common }
+        CardTier.Bronze,
+        type: CardType.Skill,
+        heroes: new[] { CardHero.Common }
     ),
 };
 var allHeroesTrainerResolver = new FakeOfferPoolResolver(
@@ -2560,7 +1725,7 @@ var allHeroesTrainerResult = CollectionQuery.Run(
     allHeroesTrainerCards,
     new CollectionFilterState
     {
-        ActiveType = ECardType.Skill,
+        ActiveType = CardType.Skill,
         SelectedSourceKey = allHeroesTrainerSource.SourceKey,
     },
     CollectionFacetAvailability.SnapshotFor(allHeroesTrainerCards),
@@ -2593,7 +1758,7 @@ AssertEqual(
 
 var wrongKindFilter = new CollectionFilterState
 {
-    ActiveType = ECardType.Skill,
+    ActiveType = CardType.Skill,
     SelectedSourceKey = querySource.SourceKey,
 };
 var wrongKindResult = CollectionQuery.Run(
@@ -2614,7 +1779,7 @@ AssertEqual(
 );
 
 var heroMismatchFilter = new CollectionFilterState { SelectedSourceKey = querySource.SourceKey };
-heroMismatchFilter.ToggleHero(EHero.Dooley);
+heroMismatchFilter.ToggleHero(CardHero.Dooley);
 var heroMismatchResult = CollectionQuery.Run(
     queryCatalogCards,
     heroMismatchFilter,
@@ -2632,8 +1797,8 @@ AssertEqual(
     "CollectionQuery should not directly clear hero-mismatched source selections."
 );
 
-var tagGateOffFilter = new CollectionFilterState { ActiveType = ECardType.Skill };
-tagGateOffFilter.Tags.Add(ECardTag.Tool);
+var tagGateOffFilter = new CollectionFilterState { ActiveType = CardType.Skill };
+tagGateOffFilter.Tags.Add(CardTag.Tool);
 var tagGateOffResult = CollectionQuery.Run(
     queryCatalogCards,
     tagGateOffFilter,
@@ -2668,22 +1833,22 @@ AssertEqual(
 
 var searchOutsideActiveFilters = Card(
     "Lighter",
-    ETier.Gold,
-    size: ECardSize.Large,
-    tags: new[] { ECardTag.Tool },
-    hiddenTags: new[] { EHiddenTag.Burn },
-    heroes: new[] { EHero.Dooley }
+    CardTier.Gold,
+    size: CardSize.Large,
+    tags: new[] { CardTag.Tool },
+    hiddenTags: new[] { CardHiddenTag.Burn },
+    heroes: new[] { CardHero.Dooley }
 );
 var searchGlobalFilter = new CollectionFilterState
 {
     SelectedSourceKey = querySource.SourceKey,
     SearchQuery = "lighter",
 };
-searchGlobalFilter.ToggleHero(EHero.Vanessa);
-searchGlobalFilter.Tiers.Add(ETier.Bronze);
-searchGlobalFilter.Tags.Add(ECardTag.Weapon);
-searchGlobalFilter.Keywords.Add(EHiddenTag.Damage);
-searchGlobalFilter.Sizes.Add(ECardSize.Small);
+searchGlobalFilter.ToggleHero(CardHero.Vanessa);
+searchGlobalFilter.Tiers.Add(CardTier.Bronze);
+searchGlobalFilter.Tags.Add(CardTag.Weapon);
+searchGlobalFilter.Keywords.Add(CardHiddenTag.Damage);
+searchGlobalFilter.Sizes.Add(CardSize.Small);
 var searchGlobalResult = CollectionQuery.Run(
     new[] { queryCatalogCards[0], searchOutsideActiveFilters },
     searchGlobalFilter,
@@ -2702,9 +1867,9 @@ var searchWithinFilters = new CollectionFilterState
     SelectedSourceKey = querySource.SourceKey,
     SearchQuery = "damage",
 };
-searchWithinFilters.ToggleHero(EHero.Vanessa);
-searchWithinFilters.Tags.Add(ECardTag.Weapon);
-searchWithinFilters.Keywords.Add(EHiddenTag.Damage);
+searchWithinFilters.ToggleHero(CardHero.Vanessa);
+searchWithinFilters.Tags.Add(CardTag.Weapon);
+searchWithinFilters.Keywords.Add(CardHiddenTag.Damage);
 AssertSequence(
     CollectionQuery
         .Run(queryCatalogCards, searchWithinFilters, queryAvailability, queryCatalog, queryResolver)
@@ -2714,8 +1879,8 @@ AssertSequence(
 );
 
 var emptyTrimFilter = new CollectionFilterState();
-emptyTrimFilter.Tags.Add(ECardTag.Tool);
-emptyTrimFilter.Keywords.Add(EHiddenTag.Shield);
+emptyTrimFilter.Tags.Add(CardTag.Tool);
+emptyTrimFilter.Keywords.Add(CardHiddenTag.Shield);
 var emptyTrimResult = CollectionQuery.Run(
     queryCatalogCards,
     emptyTrimFilter,
@@ -2736,35 +1901,35 @@ AssertEqual(
 
 var vanessaExclusiveSkill = Card(
     "Vanessa Exclusive Skill",
-    ETier.Bronze,
-    type: ECardType.Skill,
-    heroes: new[] { EHero.Vanessa }
+    CardTier.Bronze,
+    type: CardType.Skill,
+    heroes: new[] { CardHero.Vanessa }
 );
 var sharedHeroSkill = Card(
     "Shared Hero Skill",
-    ETier.Bronze,
-    type: ECardType.Skill,
-    heroes: new[] { EHero.Vanessa, EHero.Dooley }
+    CardTier.Bronze,
+    type: CardType.Skill,
+    heroes: new[] { CardHero.Vanessa, CardHero.Dooley }
 );
 var commonSkill = Card(
     "Common Skill",
-    ETier.Bronze,
-    type: ECardType.Skill,
-    heroes: new[] { EHero.Common }
+    CardTier.Bronze,
+    type: CardType.Skill,
+    heroes: new[] { CardHero.Common }
 );
 var commonSharedSkill = Card(
     "Common Shared Skill",
-    ETier.Bronze,
-    type: ECardType.Skill,
-    heroes: new[] { EHero.Common, EHero.Vanessa }
+    CardTier.Bronze,
+    type: CardType.Skill,
+    heroes: new[] { CardHero.Common, CardHero.Vanessa }
 );
 var missingHeroSkill = Card(
     "Missing Hero Skill",
-    ETier.Bronze,
-    type: ECardType.Skill,
-    heroes: Array.Empty<EHero>()
+    CardTier.Bronze,
+    type: CardType.Skill,
+    heroes: Array.Empty<CardHero>()
 );
-var emptyHeroSkillFilter = new CollectionFilterState { ActiveType = ECardType.Skill };
+var emptyHeroSkillFilter = new CollectionFilterState { ActiveType = CardType.Skill };
 var emptyHeroSkillResult = CollectionFilterEngine.Apply(
     new[]
     {
@@ -2781,8 +1946,8 @@ AssertSequence(
     new[] { commonSkill.Id },
     "No selected hero should show only Common-exclusive skills."
 );
-var exclusiveSkillFilter = new CollectionFilterState { ActiveType = ECardType.Skill };
-exclusiveSkillFilter.ToggleHero(EHero.Vanessa);
+var exclusiveSkillFilter = new CollectionFilterState { ActiveType = CardType.Skill };
+exclusiveSkillFilter.ToggleHero(CardHero.Vanessa);
 var exclusiveSkillResult = CollectionFilterEngine.Apply(
     new[]
     {
@@ -2829,7 +1994,7 @@ AssertSequence(
     "Trainer/source pools AND with the widened skill hero scope, so shared skills surface in trainer pools too."
 );
 
-var commonSkillFilter = new CollectionFilterState { ActiveType = ECardType.Skill };
+var commonSkillFilter = new CollectionFilterState { ActiveType = CardType.Skill };
 var commonSkillResult = CollectionFilterEngine.Apply(
     new[]
     {
@@ -2848,267 +2013,46 @@ AssertSequence(
 );
 
 AssertTrue(
-    CollectionHeroScope.MatchesSkillHeroScope(new[] { EHero.Vanessa, EHero.Mak }, EHero.Vanessa),
+    CollectionHeroScope.MatchesSkillHeroScope(
+        new[] { CardHero.Vanessa, CardHero.Mak },
+        CardHero.Vanessa
+    ),
     "A {Vanessa, Mak} shared skill matches the Vanessa scope."
 );
 AssertFalse(
-    CollectionHeroScope.MatchesSkillHeroScope(new[] { EHero.Vanessa, EHero.Mak }, EHero.Dooley),
+    CollectionHeroScope.MatchesSkillHeroScope(
+        new[] { CardHero.Vanessa, CardHero.Mak },
+        CardHero.Dooley
+    ),
     "A {Vanessa, Mak} shared skill does not match an uninvolved hero."
 );
 AssertFalse(
-    CollectionHeroScope.MatchesSkillHeroScope(new[] { EHero.Common, EHero.Vanessa }, EHero.Vanessa),
+    CollectionHeroScope.MatchesSkillHeroScope(
+        new[] { CardHero.Common, CardHero.Vanessa },
+        CardHero.Vanessa
+    ),
     "Common-scoped multi-hero skills are not general-shared."
 );
 
-var debugTemplateClassification = CollectionCardClassifier.Classify(
-    ECardType.Item,
-    ESpawnEligibility.Always,
-    "Assets/Cards/Debug.png",
-    "[DEBUG] Item"
-);
-AssertFalse(
-    debugTemplateClassification.IsCatalogCard,
-    "Debug-marked templates do not enter the catalog even when they have art."
-);
-AssertEqual(
-    CollectionCardEligibilityReason.DebugTemplate,
-    debugTemplateClassification.EligibilityReason,
-    "Debug-marked templates should report a reasoned rejection."
-);
-var templateNameClassification = CollectionCardClassifier.Classify(
-    ECardType.Item,
-    ESpawnEligibility.Always,
-    "Assets/Cards/Template.png",
-    "[TEMPLATE] Item"
-);
-AssertFalse(
-    templateNameClassification.IsCatalogCard,
-    "Template-marked entries do not enter the catalog even when they have art."
-);
-AssertEqual(
-    CollectionCardEligibilityReason.TemplateInternalName,
-    templateNameClassification.EligibilityReason,
-    "Template-marked entries should report a reasoned rejection."
-);
-var acceptedSkillClassification = CollectionCardClassifier.Classify(
-    ECardType.Skill,
-    ESpawnEligibility.Always,
-    "Assets/Cards/Skill.png",
-    "Real Skill"
-);
-AssertTrue(
-    acceptedSkillClassification.IsCatalogCard,
-    "Normal Item/Skill cards with art are catalog cards."
-);
-AssertEqual(
-    CollectionCardEligibilityReason.Accepted,
-    acceptedSkillClassification.EligibilityReason,
-    "Accepted catalog cards should report the accepted reason."
-);
-var placeholderSkillClassification = CollectionCardClassifier.Classify(
-    ECardType.Skill,
-    ESpawnEligibility.Always,
-    "Icon_Skill_Placeholder.png",
-    "Aggressive Mutations"
-);
-AssertFalse(
-    placeholderSkillClassification.IsCatalogCard,
-    "Placeholder skill art is not a catalog-ready skill."
-);
-AssertEqual(
-    CollectionCardEligibilityReason.PlaceholderArtKey,
-    placeholderSkillClassification.EligibilityReason,
-    "Placeholder art should report a reasoned rejection."
-);
-var musicNoteSocketClassification = CollectionCardClassifier.Classify(
-    ECardType.SocketEffect,
-    ESpawnEligibility.Always,
-    "Assets/Cards/MusicNote.png",
-    "Music Note A"
-);
-AssertFalse(
-    musicNoteSocketClassification.IsCatalogCard,
-    "Music Note socket effects should remain outside the Item/Skill catalog."
-);
-AssertEqual(
-    CollectionCardEligibilityReason.UnsupportedType,
-    musicNoteSocketClassification.EligibilityReason,
-    "Music Note socket effects should remain excluded by their non-Item/Skill card type."
-);
-var musicNotePlaceholderClassification = CollectionCardClassifier.Classify(
-    ECardType.Item,
-    ESpawnEligibility.Always,
-    "Icon_Music_Note_Placeholder.png",
-    "Music Note Placeholder"
-);
-AssertFalse(
-    musicNotePlaceholderClassification.IsCatalogCard,
-    "Music Note placeholder art should not enter the catalog even if misclassified as an Item."
-);
-AssertEqual(
-    CollectionCardEligibilityReason.PlaceholderArtKey,
-    musicNotePlaceholderClassification.EligibilityReason,
-    "Music Note placeholder art should remain excluded by the placeholder-art rule."
-);
-AssertFalse(
-    CollectionCardClassifier
-        .Classify(ECardType.Skill, ESpawnEligibility.Always, "Placeholder", "[SKILL TEMPLATE]")
-        .IsCatalogCard,
-    "Skill template placeholders do not enter the catalog."
-);
-var materialArtClassification = CollectionCardClassifier.Classify(
-    ECardType.Item,
-    ESpawnEligibility.Always,
-    "Assets/Cards/LegacyItem.mat",
-    "Legacy Material Item"
-);
-AssertFalse(
-    materialArtClassification.IsCatalogCard,
-    "Legacy material art keys do not enter the catalog."
-);
-AssertEqual(
-    CollectionCardEligibilityReason.MaterialArtKey,
-    materialArtClassification.EligibilityReason,
-    "Material art keys should report a reasoned rejection."
-);
-AssertFalse(
-    CollectionCardClassifier
-        .Classify(
-            ECardType.Item,
-            ESpawnEligibility.Always,
-            "Assets/Cards/Template.png",
-            "[SMALL ITEM TEMPLATE]"
-        )
-        .IsCatalogCard,
-    "Bracketed item template names do not enter the catalog."
-);
-AssertEqual(
-    CollectionCardEligibilityReason.InvalidArtKey,
-    CollectionCardClassifier
-        .Classify(ECardType.Item, ESpawnEligibility.Always, "Invalid", "Real Item")
-        .EligibilityReason,
-    "The literal Invalid art key should report a reasoned rejection."
-);
-AssertEqual(
-    CollectionCardEligibilityReason.MissingArtKey,
-    CollectionCardClassifier
-        .Classify(ECardType.Item, ESpawnEligibility.Always, "", "Real Item")
-        .EligibilityReason,
-    "A missing art key should report a reasoned rejection."
-);
-AssertEqual(
-    CollectionCardEligibilityReason.UnsupportedType,
-    CollectionCardClassifier
-        .Classify((ECardType)999, ESpawnEligibility.Always, "Assets/Cards/Event.png", "Event")
-        .EligibilityReason,
-    "Unsupported card types should report a reasoned rejection."
-);
-var catalogEligibilityCases = new[]
-{
-    (
-        Name: "Item Always",
-        Template: CatalogTemplate(ECardType.Item, ESpawnEligibility.Always),
-        ExpectedCatalogCard: true,
-        ExpectedReason: CollectionCardEligibilityReason.Accepted
-    ),
-    (
-        Name: "Skill Always",
-        Template: CatalogTemplate(ECardType.Skill, ESpawnEligibility.Always),
-        ExpectedCatalogCard: true,
-        ExpectedReason: CollectionCardEligibilityReason.Accepted
-    ),
-    (
-        Name: "Item GuidOnly",
-        Template: CatalogTemplate(ECardType.Item, ESpawnEligibility.GuidOnly),
-        ExpectedCatalogCard: true,
-        ExpectedReason: CollectionCardEligibilityReason.Accepted
-    ),
-    (
-        Name: "Skill GuidOnly",
-        Template: CatalogTemplate(ECardType.Skill, ESpawnEligibility.GuidOnly),
-        ExpectedCatalogCard: true,
-        ExpectedReason: CollectionCardEligibilityReason.Accepted
-    ),
-    (
-        Name: "Item Never",
-        Template: CatalogTemplate(ECardType.Item, ESpawnEligibility.Never),
-        ExpectedCatalogCard: false,
-        ExpectedReason: CollectionCardEligibilityReason.NeverSpawnEligibility
-    ),
-    (
-        Name: "Skill Never",
-        Template: CatalogTemplate(ECardType.Skill, ESpawnEligibility.Never),
-        ExpectedCatalogCard: false,
-        ExpectedReason: CollectionCardEligibilityReason.NeverSpawnEligibility
-    ),
-};
-foreach (var testCase in catalogEligibilityCases)
-{
-    var classification = CollectionCardClassifier.Classify(testCase.Template);
-    AssertEqual(
-        testCase.ExpectedCatalogCard,
-        classification.IsCatalogCard,
-        $"{testCase.Name} should have the expected catalog eligibility."
-    );
-    AssertEqual(
-        testCase.ExpectedReason,
-        classification.EligibilityReason,
-        $"{testCase.Name} should report the expected catalog eligibility reason."
-    );
-}
-var hiddenTagPackageTemplate = new TCardItem
-{
-    Id = Guid.NewGuid(),
-    Type = ECardType.Item,
-    SpawningEligibility = ESpawnEligibility.GuidOnly,
-    ArtKey = "Assets/Cards/Bundle.png",
-    InternalName = "Vanessa Starter Bundle",
-    HiddenTags = new HashSet<EHiddenTag> { EHiddenTag.Package },
-};
-var hiddenTagPackageClassification = CollectionCardClassifier.Classify(hiddenTagPackageTemplate);
-AssertTrue(
-    hiddenTagPackageClassification.IsCatalogCard,
-    "GuidOnly package templates remain eligible for the catalog classifier."
-);
-AssertTrue(
-    hiddenTagPackageClassification.IsPackage,
-    "HiddenTag.Package marks package templates as hidden from CollectionPanel."
-);
-AssertSequence(
-    CollectionFilterEngine.Apply(
-        new[] { CollectionCardVm.From(hiddenTagPackageTemplate, hiddenTagPackageClassification) },
-        new CollectionFilterState()
-    ),
-    Array.Empty<Guid>(),
-    "GuidOnly package templates remain hidden by the existing package visibility rule."
-);
-var packageNameWithoutTagTemplate = new TCardItem
-{
-    Type = ECardType.Item,
-    ArtKey = "Assets/Cards/Package.png",
-    InternalName = "Vanessa Starter Package",
-};
-AssertFalse(
-    CollectionCardClassifier.Classify(packageNameWithoutTagTemplate).IsPackage,
-    "Package-like names no longer mark packages without HiddenTag.Package."
-);
-
 // --- Day filter: shared GameData MaximumTier gates StartingTier and ANDs with other dimensions. ---
-var dayBronze = Card("Day Bronze", ETier.Bronze);
-var daySilver = Card("Day Silver", ETier.Silver);
-var dayGold = Card("Day Gold", ETier.Gold);
-var dayDiamond = Card("Day Diamond", ETier.Diamond);
-var dayLegendary = Card("Day Legendary", ETier.Legendary);
+var dayBronze = Card("Day Bronze", CardTier.Bronze);
+var daySilver = Card("Day Silver", CardTier.Silver);
+var dayGold = Card("Day Gold", CardTier.Gold);
+var dayDiamond = Card("Day Diamond", CardTier.Diamond);
+var dayLegendary = Card("Day Legendary", CardTier.Legendary);
 var dayPool = new[] { dayBronze, daySilver, dayGold, dayDiamond, dayLegendary };
-var bronzeDayTable = GameDataDayTierTable.FromWeights(1f, 0f, 0f, 0f)!;
-var goldDayTable = GameDataDayTierTable.FromWeights(0.7f, 0.2f, 0.09f, 0f)!;
-var diamondDayTable = GameDataDayTierTable.FromWeights(0.89f, 0.1f, 0f, 0.01f)!;
+
+// The host derives the ceiling from GameData weights (GameDataDayTierTable.FromWeights, tested
+// with the desktop resolver); the filter sees only the resulting tier.
+var bronzeDayCeiling = CardTier.Bronze;
+var goldDayCeiling = CardTier.Gold;
+var diamondDayCeiling = CardTier.Diamond;
 
 AssertSequence(
     CollectionFilterEngine.Apply(
         dayPool,
         new CollectionFilterState(),
-        new CollectionFilterContext { DayTiers = bronzeDayTable }
+        new CollectionFilterContext { DayMaximumTier = bronzeDayCeiling }
     ),
     new[] { dayBronze.Id },
     "A Bronze GameData ceiling keeps only Bronze-start cards."
@@ -3117,16 +2061,16 @@ AssertSequence(
     CollectionFilterEngine.Apply(
         dayPool,
         new CollectionFilterState(),
-        new CollectionFilterContext { DayTiers = goldDayTable }
+        new CollectionFilterContext { DayMaximumTier = goldDayCeiling }
     ),
     new[] { dayBronze.Id, daySilver.Id, dayGold.Id },
-    "The highest positive GameData tier is the ceiling even when its probability is smaller."
+    "A Gold GameData ceiling keeps Bronze through Gold starts."
 );
 AssertSequence(
     CollectionFilterEngine.Apply(
         dayPool,
         new CollectionFilterState(),
-        new CollectionFilterContext { DayTiers = diamondDayTable }
+        new CollectionFilterContext { DayMaximumTier = diamondDayCeiling }
     ),
     new[] { dayBronze.Id, daySilver.Id, dayGold.Id, dayDiamond.Id, dayLegendary.Id },
     "A Diamond GameData ceiling preserves Legendary-to-Diamond compatibility."
@@ -3141,19 +2085,19 @@ AssertSequence(
     CollectionFilterEngine.Apply(
         dayPool,
         disabledDayFilter,
-        new CollectionFilterContext { DayTiers = bronzeDayTable }
+        new CollectionFilterContext { DayMaximumTier = bronzeDayCeiling }
     ),
     new[] { dayBronze.Id, daySilver.Id, dayGold.Id, dayDiamond.Id, dayLegendary.Id },
     "Turning the Day filter off skips a trustworthy GameData ceiling."
 );
 
 var dayAndTierFilter = new CollectionFilterState();
-dayAndTierFilter.Tiers.Add(ETier.Diamond);
+dayAndTierFilter.Tiers.Add(CardTier.Diamond);
 AssertSequence(
     CollectionFilterEngine.Apply(
         dayPool,
         dayAndTierFilter,
-        new CollectionFilterContext { DayTiers = goldDayTable }
+        new CollectionFilterContext { DayMaximumTier = goldDayCeiling }
     ),
     Array.Empty<Guid>(),
     "Manual Tier=Diamond ANDs with a Gold GameData ceiling to nothing."
@@ -3166,7 +2110,7 @@ AssertSequence(
         new CollectionFilterContext
         {
             OfferedCardIds = new[] { dayGold.Id, dayLegendary.Id },
-            DayTiers = diamondDayTable,
+            DayMaximumTier = diamondDayCeiling,
         }
     ),
     new[] { dayGold.Id, dayLegendary.Id },
@@ -3182,14 +2126,14 @@ AssertSequence(
         {
             OfferedCardIds = new[] { dayGold.Id, dayDiamond.Id },
             SuppressDayGate = true,
-            DayTiers = bronzeDayTable,
+            DayMaximumTier = bronzeDayCeiling,
         }
     ),
     new[] { dayGold.Id, dayDiamond.Id },
     "A fixed-tier source's pool is exempt from the day ceiling (Luxe on Day 1 still deals Diamond)."
 );
 var suppressedDayManualTier = new CollectionFilterState();
-suppressedDayManualTier.Tiers.Add(ETier.Gold);
+suppressedDayManualTier.Tiers.Add(CardTier.Gold);
 AssertSequence(
     CollectionFilterEngine.Apply(
         dayPool,
@@ -3198,7 +2142,7 @@ AssertSequence(
         {
             OfferedCardIds = new[] { dayGold.Id, dayDiamond.Id },
             SuppressDayGate = true,
-            DayTiers = bronzeDayTable,
+            DayMaximumTier = bronzeDayCeiling,
         }
     ),
     new[] { dayGold.Id },
@@ -3207,80 +2151,34 @@ AssertSequence(
 
 var searchDamageReference = Card(
     "Internal Synergy",
-    ETier.Bronze,
-    hiddenTags: new[] { EHiddenTag.BurnReference },
+    CardTier.Bronze,
+    hiddenTags: new[] { CardHiddenTag.BurnReference },
     description: "When you <color=#00ffff>Slow</color>, Charge this {ability.0} seconds.",
     internalName: "Internal_Synergy_Card",
     artKey: "anglerfish_art"
 );
 var searchShield = Card(
     "Bulwark",
-    ETier.Bronze,
-    hiddenTags: new[] { EHiddenTag.Shield },
+    CardTier.Bronze,
+    hiddenTags: new[] { CardHiddenTag.Shield },
     description: "Gain {ability.0} Shield."
 );
 var searchChinese = Card(
     "深水琵琶鱼",
-    ETier.Bronze,
+    CardTier.Bronze,
     description: "当你减速时，充能 {ability.0} 秒。"
 );
-var searchLighter = Card("Lighter", ETier.Bronze, description: "Burn an item.");
-var searchInitialism = Card("Molten Ball Blaster", ETier.Bronze);
+var searchLighter = Card("Lighter", CardTier.Bronze, description: "Burn an item.");
+var searchInitialism = Card("Molten Ball Blaster", CardTier.Bronze);
 var searchRepeatedLetters = Card(
     "Dreaded Damage Dealer",
-    ETier.Bronze,
+    CardTier.Bronze,
     internalName: "DreadedDamageDealer"
 );
 var searchLetterSoup = Card(
     "Lime",
-    ETier.Bronze,
+    CardTier.Bronze,
     description: "Iguana Gold Honey Teapot Echo Rabbit."
-);
-var tooltipOnlySearchVm = CollectionCardVm.From(
-    new TCardItem
-    {
-        Id = Guid.NewGuid(),
-        Type = ECardType.Item,
-        StartingTier = ETier.Bronze,
-        Size = ECardSize.Small,
-        InternalName = "Tooltip Search Probe",
-        ArtKey = "tooltip-search-probe",
-        Heroes = new HashSet<EHero> { EHero.Common },
-        Localization = new TCardLocalization
-        {
-            Title = new TLocalizableText { Text = "Tooltip Search Probe" },
-            Tooltips = new List<TTooltip>
-            {
-                new()
-                {
-                    Content = new TLocalizableText
-                    {
-                        Text = "Deal <color=#ff0000>Burn</color> to enemies {ability.0}.",
-                    },
-                },
-            },
-        },
-    }
-);
-var localizationHashSearchVm = CollectionCardVm.From(
-    new TCardItem
-    {
-        Id = Guid.NewGuid(),
-        Type = ECardType.Skill,
-        StartingTier = ETier.Bronze,
-        Size = ECardSize.Medium,
-        InternalName = "Hash Search Probe",
-        ArtKey = "hash-search-probe",
-        Heroes = new HashSet<EHero> { EHero.Common },
-        Localization = new TCardLocalization
-        {
-            Title = new TLocalizableText
-            {
-                Key = "69d1f37d94ddc3150f8dd44d12d53ced",
-                Text = "Gumball Machine",
-            },
-        },
-    }
 );
 AssertSequence(
     CollectionFilterEngine.Apply(
@@ -3289,14 +2187,6 @@ AssertSequence(
     ),
     new[] { searchDamageReference.Id },
     "Collection search should match normalized description text after stripping tooltip markup and ability placeholders."
-);
-AssertSequence(
-    CollectionFilterEngine.Apply(
-        new[] { tooltipOnlySearchVm },
-        new CollectionFilterState { SearchQuery = "burn enemies" }
-    ),
-    new[] { tooltipOnlySearchVm.Id },
-    "Collection search should match normalized tooltip text when a card has no description."
 );
 AssertSequence(
     CollectionFilterEngine.Apply(
@@ -3345,22 +2235,6 @@ AssertSequence(
     ),
     Array.Empty<Guid>(),
     "Repeated Latin letters should not jump across a long internal word."
-);
-AssertSequence(
-    CollectionFilterEngine.Apply(
-        new[] { localizationHashSearchVm },
-        new CollectionFilterState { ActiveType = ECardType.Skill, SearchQuery = "ddddddddd" }
-    ),
-    Array.Empty<Guid>(),
-    "Collection search should not expose opaque localization hashes as searchable content."
-);
-AssertSequence(
-    CollectionFilterEngine.Apply(
-        new[] { localizationHashSearchVm },
-        new CollectionFilterState { ActiveType = ECardType.Skill, SearchQuery = "gumball" }
-    ),
-    new[] { localizationHashSearchVm.Id },
-    "Removing localization hashes should preserve authored fallback text search."
 );
 AssertSequence(
     CollectionFilterEngine.Apply(
@@ -3418,7 +2292,7 @@ AssertSequence(
     Array.Empty<Guid>(),
     "Collection search should not treat Latin abbreviations as skipped-letter matches."
 );
-var prebuiltSearchText = Card("Surface", ETier.Bronze, searchText: "localized fallback corpus");
+var prebuiltSearchText = Card("Surface", CardTier.Bronze, searchText: "localized fallback corpus");
 AssertSequence(
     CollectionFilterEngine.Apply(
         new[] { prebuiltSearchText, searchShield },
@@ -3428,36 +2302,67 @@ AssertSequence(
     "Collection search should honor prebuilt card search text."
 );
 
+// --- Card facet name maps: each host adapter maps its game enum by member name (ADR-0015). ---
+var legacyHeroMap = new CardFacetNameMap<LegacyBuildHero, CardHero>(TheDragonsAliases());
+AssertTrue(
+    legacyHeroMap.TryToFacet(LegacyBuildHero.Hero8, out var legacyDragons)
+        && legacyDragons == CardHero.TheDragons,
+    "A legacy build's Hero8 should map to the canonical The Dragons facet."
+);
+AssertTrue(
+    legacyHeroMap.TryToSource(CardHero.TheDragons, out var legacySource)
+        && legacySource == LegacyBuildHero.Hero8,
+    "The Dragons should map back to the only name a legacy build defines."
+);
+var canonicalHeroMap = new CardFacetNameMap<CanonicalBuildHero, CardHero>(TheDragonsAliases());
+AssertTrue(
+    canonicalHeroMap.TryToSource(CardHero.TheDragons, out var canonicalSource)
+        && canonicalSource == CanonicalBuildHero.TheDragons,
+    "A canonical build should map The Dragons to its own member."
+);
+var transitionalHeroMap = new CardFacetNameMap<TransitionalBuildHero, CardHero>(
+    TheDragonsAliases()
+);
+AssertTrue(
+    transitionalHeroMap.TryToSource(CardHero.TheDragons, out var transitionalSource)
+        && transitionalSource == TransitionalBuildHero.TheDragons,
+    "A build defining both names should prefer the canonical member, whatever its order."
+);
+AssertValues(
+    transitionalHeroMap
+        .ToFacetSet(new[] { TransitionalBuildHero.Hero8, TransitionalBuildHero.TheDragons })
+        .ToArray(),
+    new[] { CardHero.TheDragons },
+    "Both names of one hero should collapse to one facet."
+);
+var heroWithoutAliases = new CardFacetNameMap<LegacyBuildHero, CardHero>();
+AssertFalse(
+    heroWithoutAliases.TryToFacet(LegacyBuildHero.Hero8, out _),
+    "A game member without a facet or alias maps to nothing."
+);
+AssertValues(
+    heroWithoutAliases.UnmappedSourceNames,
+    new[] { nameof(LegacyBuildHero.Hero8) },
+    "Unmapped game member names are reported for the vocabulary pin test."
+);
+AssertFalse(
+    canonicalHeroMap.TryToSource(CardHero.Mak, out _),
+    "A facet the game build lacks has no game value."
+);
+
 Console.WriteLine("CollectionFilterEngine checks passed.");
 
-static TCardBase CatalogTemplate(ECardType type, ESpawnEligibility spawningEligibility) =>
-    type switch
-    {
-        ECardType.Item => new TCardItem
-        {
-            Type = ECardType.Item,
-            SpawningEligibility = spawningEligibility,
-            ArtKey = "Assets/Cards/CatalogItem.png",
-            InternalName = "Catalog Item",
-        },
-        ECardType.Skill => new TCardSkill
-        {
-            Type = ECardType.Skill,
-            SpawningEligibility = spawningEligibility,
-            ArtKey = "Assets/Cards/CatalogSkill.png",
-            InternalName = "Catalog Skill",
-        },
-        _ => throw new ArgumentOutOfRangeException(nameof(type), type, null),
-    };
+static Dictionary<string, CardHero> TheDragonsAliases() =>
+    new(StringComparer.OrdinalIgnoreCase) { [TheDragonsHeroId.LegacyId] = CardHero.TheDragons };
 
 static CollectionCardVm InstrumentFacetCard(
     string name = "Tempo Instrument Solo",
-    ECardType type = ECardType.Item,
-    ETier tier = ETier.Bronze,
-    ECardSize size = ECardSize.Medium,
-    ECardTag tag = ECardTag.Instrument,
-    EHiddenTag keyword = EHiddenTag.Tempo,
-    EHero hero = EHero.Vanessa
+    CardType type = CardType.Item,
+    CardTier tier = CardTier.Bronze,
+    CardSize size = CardSize.Medium,
+    CardTag tag = CardTag.Instrument,
+    CardHiddenTag keyword = CardHiddenTag.Tempo,
+    CardHero hero = CardHero.Vanessa
 ) =>
     Card(
         name,
@@ -3471,17 +2376,17 @@ static CollectionCardVm InstrumentFacetCard(
 
 static CollectionCardVm Card(
     string name,
-    ETier tier,
-    ECardType type = ECardType.Item,
-    ECardSize size = ECardSize.Medium,
+    CardTier tier,
+    CardType type = CardType.Item,
+    CardSize size = CardSize.Medium,
     bool isPackage = false,
-    IReadOnlyCollection<ECardTag>? tags = null,
-    IReadOnlyCollection<EHiddenTag>? hiddenTags = null,
-    IReadOnlyCollection<EHero>? heroes = null,
+    IReadOnlyCollection<CardTag>? tags = null,
+    IReadOnlyCollection<CardHiddenTag>? hiddenTags = null,
+    IReadOnlyCollection<CardHero>? heroes = null,
     string? description = null,
     string? internalName = null,
     string? artKey = null,
-    IReadOnlyDictionary<EEnchantmentType, CollectionCardEnchantmentFacets>? enchantments = null,
+    IReadOnlyDictionary<CardEnchantment, CollectionCardEnchantmentFacets>? enchantments = null,
     string? searchText = null,
     CollectionMechanic mechanics = CollectionMechanic.None
 ) =>
@@ -3491,75 +2396,24 @@ static CollectionCardVm Card(
         Type = type,
         Size = size,
         StartingTier = tier,
-        Tags = tags ?? Array.Empty<ECardTag>(),
-        HiddenTags = hiddenTags ?? Array.Empty<EHiddenTag>(),
+        Tags = tags ?? Array.Empty<CardTag>(),
+        HiddenTags = hiddenTags ?? Array.Empty<CardHiddenTag>(),
         Mechanics = mechanics,
         DisplayName = name,
         Description = description ?? string.Empty,
         InternalName = internalName ?? name,
         ArtKey = artKey ?? string.Empty,
         IsPackage = isPackage,
-        Heroes = heroes ?? new[] { EHero.Common },
+        Heroes = heroes ?? new[] { CardHero.Common },
         Enchantments =
-            enchantments ?? new Dictionary<EEnchantmentType, CollectionCardEnchantmentFacets>(),
+            enchantments ?? new Dictionary<CardEnchantment, CollectionCardEnchantmentFacets>(),
         SearchText = searchText ?? string.Empty,
     };
-
-static TCardItem MechanicItemTemplate(
-    Dictionary<ETier, TCardTier> tiers,
-    Dictionary<string, TCardAbility>? abilities = null,
-    Dictionary<string, TCardAura>? auras = null,
-    Dictionary<EEnchantmentType, TEnchantment>? enchantments = null,
-    HashSet<EHiddenTag>? hiddenTags = null
-) =>
-    new()
-    {
-        Id = Guid.NewGuid(),
-        Type = ECardType.Item,
-        StartingTier = ETier.Bronze,
-        Size = ECardSize.Medium,
-        InternalName = "Multicast Projection Item",
-        ArtKey = "Assets/Cards/MulticastProjectionItem.png",
-        HiddenTags = hiddenTags ?? new HashSet<EHiddenTag>(),
-        Tiers = tiers,
-        Abilities = abilities ?? new Dictionary<string, TCardAbility>(),
-        Auras = auras ?? new Dictionary<string, TCardAura>(),
-        Enchantments = enchantments,
-    };
-
-static TCardTier Tier(
-    Dictionary<ECardAttributeType, int>? attributes = null,
-    IReadOnlyCollection<string>? abilityIds = null,
-    IReadOnlyCollection<string>? auraIds = null
-) =>
-    new()
-    {
-        Attributes = attributes ?? new Dictionary<ECardAttributeType, int>(),
-        AbilityIds = abilityIds == null ? new HashSet<string>() : new HashSet<string>(abilityIds),
-        AuraIds = auraIds == null ? new HashSet<string>() : new HashSet<string>(auraIds),
-    };
-
-static TCardAbility Ability(ITAction action, TTriggerBase? trigger = null) =>
-    new()
-    {
-        Id = Guid.NewGuid().ToString(),
-        Action = action,
-        Trigger = trigger ?? new TTriggerOnCardFired(),
-    };
-
-static TCardAura Aura(ITAuraAction action) =>
-    new() { Id = Guid.NewGuid().ToString(), Action = action };
-
-static TActionCardModifyAttribute MulticastModifier() =>
-    new() { AttributeType = ECardAttributeType.Multicast };
-
-static TAuraActionCardModifyAttribute MulticastAuraModifier() =>
-    new() { AttributeType = ECardAttributeType.Multicast };
 
 static CollectionSourceEntry Source(
     string sourceKey,
     CollectionSourceKind kind,
-    IReadOnlyList<EHero>? availableHeroes = null,
+    IReadOnlyList<CardHero>? availableHeroes = null,
     bool suppressDayGate = false,
     CollectionSourceHeroMode? heroMode = null
 ) =>
@@ -3567,7 +2421,7 @@ static CollectionSourceEntry Source(
         sourceKey,
         kind,
         sourceKey,
-        availableHeroes ?? Array.Empty<EHero>(),
+        availableHeroes ?? Array.Empty<CardHero>(),
         string.Empty,
         Guid.NewGuid(),
         Array.Empty<Guid>(),
@@ -3589,16 +2443,16 @@ static CollectionSourceOfferSegment FixedTierSegment() =>
             null,
             new CollectionSourceStartingTierRule(
                 CollectionSourceStartingTierMode.Exact,
-                ETier.Gold
+                CardTier.Gold
             ),
-            Array.Empty<ECardSize>(),
-            Array.Empty<ECardTag>(),
-            Array.Empty<ECardTag>(),
-            Array.Empty<EHiddenTag>(),
+            Array.Empty<CardSize>(),
+            Array.Empty<CardTag>(),
+            Array.Empty<CardTag>(),
+            Array.Empty<CardHiddenTag>(),
             false,
-            Array.Empty<EEnchantmentType>(),
-            Array.Empty<ECardTag>(),
-            Array.Empty<EHiddenTag>()
+            Array.Empty<CardEnchantment>(),
+            Array.Empty<CardTag>(),
+            Array.Empty<CardHiddenTag>()
         )
     );
 
@@ -3611,14 +2465,14 @@ static CollectionSourceOfferSegment HeroSegment(CollectionSourceHeroMode heroMod
             heroMode,
             null,
             null,
-            Array.Empty<ECardSize>(),
-            Array.Empty<ECardTag>(),
-            Array.Empty<ECardTag>(),
-            Array.Empty<EHiddenTag>(),
+            Array.Empty<CardSize>(),
+            Array.Empty<CardTag>(),
+            Array.Empty<CardTag>(),
+            Array.Empty<CardHiddenTag>(),
             false,
-            Array.Empty<EEnchantmentType>(),
-            Array.Empty<ECardTag>(),
-            Array.Empty<EHiddenTag>()
+            Array.Empty<CardEnchantment>(),
+            Array.Empty<CardTag>(),
+            Array.Empty<CardHiddenTag>()
         )
     );
 
@@ -3663,6 +2517,26 @@ static void AssertTrue(bool condition, string message)
 
 static void AssertFalse(bool condition, string message) => AssertTrue(!condition, message);
 
+internal enum LegacyBuildHero
+{
+    Common,
+    Vanessa,
+    Hero8,
+}
+
+internal enum CanonicalBuildHero
+{
+    Common,
+    TheDragons,
+}
+
+internal enum TransitionalBuildHero
+{
+    Common,
+    TheDragons,
+    Hero8,
+}
+
 internal sealed class DictionarySourceCatalog : ICollectionSourceCatalog
 {
     private readonly Dictionary<string, CollectionSourceEntry> _entries = new(
@@ -3678,7 +2552,7 @@ internal sealed class DictionarySourceCatalog : ICollectionSourceCatalog
     public bool TryGetBySourceKey(string sourceKey, out CollectionSourceEntry? entry) =>
         _entries.TryGetValue(sourceKey, out entry);
 
-    public IEnumerable<CollectionSourceEntry> For(CollectionSourceKind kind, EHero effectiveHero)
+    public IEnumerable<CollectionSourceEntry> For(CollectionSourceKind kind, CardHero effectiveHero)
     {
         foreach (var entry in _entries.Values)
         {
@@ -3704,11 +2578,11 @@ internal sealed class FakeOfferPoolResolver : ICollectionOfferPoolResolver
 
     public int ResolveCount { get; private set; }
 
-    public EHero? LastEffectiveHero { get; private set; }
+    public CardHero? LastEffectiveHero { get; private set; }
 
     public CollectionSourceOfferPoolResult GetOrResolve(
         CollectionSourceEntry source,
-        EHero effectiveHero,
+        CardHero effectiveHero,
         IReadOnlyList<CollectionCardVm> catalogCards
     )
     {

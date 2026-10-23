@@ -143,22 +143,28 @@ filesystem policy into Storage.
 The behavior object (`BundleUploadFeed.Session`) the Bundle feed returns from activation: one upload attempt, feed-private arm signals, and resource disposal. The background pump owns only the Unity cadence, the shutdown drain, and the shared gates (PTR channel precondition, run-lifecycle and `UploadArmRequested` arm signals); it never rewires feed internals.
 _Avoid_: per-feed upload controller
 
+## Cards
+
+**Card Facet**:
+A Core value for one card property (`CardHero`, `CardTier`, `CardSize`, `CardType`, `CardTag`, `CardHiddenTag`, `CardEnchantment`), named member for member after the game enum it replaces; each Host's adapter maps by name (ADR-0015).
+_Avoid_: game enums in Core
+
 ## Collection panel
 
 **Collection View State**:
-The single owner of the Collection Panel's presentable state (`CollectionViewState`) — filter selections, search, catalog acceptance, and the derived render model. Commands and lifecycle events go in; a complete render outcome comes out; the panel's Unity surface only forwards commands and applies outcomes. Nothing outside the module reads or writes the filter.
+The single owner of the Collection Panel's presentable state (`CollectionViewState`, Core): filter selections, search, catalog acceptance, and the derived render model. Commands go in, a complete render outcome comes out; nothing else reads or writes the filter.
 _Avoid_: ApplyFilters/RefreshView pairing
 
 ## Collection sources
 
 **Collection Source Catalog**:
-The versioned in-mod catalog that defines merchant and trainer source filters for the Collection Panel. It is built from `collection-sources.json`, validated against `CollectionSourceCatalog.ExpectedSchemaVersion`, and keyed by stable source keys plus source template ids.
+The versioned in-mod catalog that defines merchant and trainer source filters for the Collection Panel. Built from `collection-sources.json` and keyed by stable source keys plus source template ids.
 
 **Offer Pool**:
-The set of card templates a source can offer, expressed through structured rules (`CollectionSourceEntry.OfferSegments`) rather than runtime encounter fallback heuristics. Resolution keeps both the union of offered card ids and per-card source matches.
+The set of card templates a source can offer, expressed through structured rules (`CollectionSourceEntry.OfferSegments`) rather than runtime encounter fallback heuristics.
 
 **Collection Source Kind**:
-The source category used by CollectionPanel source chips: `Merchant` maps to Item sources, `Trainer` maps to Skill sources.
+The source chip category: `Merchant` sources offer Items, `Trainer` sources offer Skills.
 
 ## Day tiers
 

@@ -1,6 +1,7 @@
 #nullable enable
 using BazaarGameShared.Domain.Core.Types;
-using BazaarPlusPlus.Game.CardTags;
+using BazaarPlusPlus.Core.Cards;
+using BazaarPlusPlus.GameInterop.Cards;
 using BazaarPlusPlus.Localization;
 
 namespace BazaarPlusPlus.Game.Tooltips;
@@ -15,8 +16,13 @@ internal static class AggregateItemMissingTypesText
 
     // Aggregate item auras copy item types only; Merchant is a player-facing card
     // tag used by collection data but is not a type carried by item templates.
-    internal static readonly IReadOnlyList<ECardTag> ItemTypes = PlayerFacingCardTags
-        .Ordered.Where(tag => tag != ECardTag.Merchant)
+    internal static readonly IReadOnlyList<ECardTag> ItemTypes = CardFacetOrder
+        .PlayerFacingTags.Where(tag => tag != CardTag.Merchant)
+        .Select(tag =>
+            DesktopCardFacets.Tag.TryToSource(tag, out var gameTag) ? (ECardTag?)gameTag : null
+        )
+        .Where(tag => tag.HasValue)
+        .Select(tag => tag!.Value)
         .ToArray();
 
     internal static IReadOnlyList<ECardTag> FindMissing(IEnumerable<ECardTag> present)

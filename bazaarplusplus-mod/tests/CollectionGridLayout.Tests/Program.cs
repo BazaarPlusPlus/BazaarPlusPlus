@@ -1,4 +1,5 @@
 using BazaarGameShared.Domain.Core.Types;
+using BazaarPlusPlus.Core.Cards;
 using BazaarPlusPlus.Game.CollectionPanel;
 using BazaarPlusPlus.Game.CollectionPanel.Data;
 using BazaarPlusPlus.Game.CollectionPanel.Grid;
@@ -80,7 +81,7 @@ AssertEqual(0, retention[2], "Reordered retained cards should map by stable card
 AssertFalse(retention.ContainsKey(1), "Filtered-out cards should not be retained.");
 
 // --- Skill grid: SkillColumns-wide square array, ceil(count / SkillColumns) shelves ---
-var skills = Make(ECardType.Skill, 19, _ => ECardSize.Medium);
+var skills = Make(CardType.Skill, 19, _ => CardSize.Medium);
 var skillLayout = CollectionGridLayout.Build(skills, CollectionTabKind.Skills);
 
 AssertEqual(19, skillLayout.Count, "Skill layout keeps every card.");
@@ -98,7 +99,7 @@ AssertShelf(skillLayout.ShelfAt(0), 0, 6, "Skill shelf 0 covers indices 0..6.");
 AssertShelf(skillLayout.ShelfAt(2), 14, 18, "Skill shelf 2 covers the tail 14..18.");
 
 // --- Item grid: span-aware shelf packing (small 1, medium 2, large 3; all 2 units tall) ---
-var trio = new[] { Item(ECardSize.Small), Item(ECardSize.Small), Item(ECardSize.Medium) };
+var trio = new[] { Item(CardSize.Small), Item(CardSize.Small), Item(CardSize.Medium) };
 var trioLayout = CollectionGridLayout.Build(trio, CollectionTabKind.Items);
 
 AssertEqual(1, trioLayout.ShelfCount, "[S,S,M] fits one shelf (1+1+2 = 4 <= 10 units).");
@@ -111,11 +112,11 @@ AssertCell(trioLayout, 2, 2, 0, 2, "Medium item spans 2 units at col2.");
 // Wrap: four mediums take 8 of 10 columns, the large (3) can't fit the last 2 so it wraps.
 var wrap = new[]
 {
-    Item(ECardSize.Medium),
-    Item(ECardSize.Medium),
-    Item(ECardSize.Medium),
-    Item(ECardSize.Medium),
-    Item(ECardSize.Large),
+    Item(CardSize.Medium),
+    Item(CardSize.Medium),
+    Item(CardSize.Medium),
+    Item(CardSize.Medium),
+    Item(CardSize.Large),
 };
 var wrapLayout = CollectionGridLayout.Build(wrap, CollectionTabKind.Items);
 AssertEqual(2, wrapLayout.ShelfCount, "Large wraps onto a second shelf.");
@@ -126,14 +127,14 @@ AssertShelf(wrapLayout.ShelfAt(1), 4, 4, "Item shelf 1 holds the wrapped large."
 
 // Exact fit: three larges (3 * 3 = 9 <= 10) share a shelf; a fourth wraps.
 var twoLarge = CollectionGridLayout.Build(
-    new[] { Item(ECardSize.Large), Item(ECardSize.Large) },
+    new[] { Item(CardSize.Large), Item(CardSize.Large) },
     CollectionTabKind.Items
 );
 AssertEqual(1, twoLarge.ShelfCount, "Two larges share one shelf (6 <= 10).");
 AssertCell(twoLarge, 1, 3, 0, 3, "Second large sits at col3.");
 
 var threeLarge = CollectionGridLayout.Build(
-    new[] { Item(ECardSize.Large), Item(ECardSize.Large), Item(ECardSize.Large) },
+    new[] { Item(CardSize.Large), Item(CardSize.Large), Item(CardSize.Large) },
     CollectionTabKind.Items
 );
 AssertEqual(1, threeLarge.ShelfCount, "Three larges share one shelf (9 <= 10).");
@@ -142,10 +143,10 @@ AssertCell(threeLarge, 2, 6, 0, 3, "Third large sits at col6.");
 var fourLarge = CollectionGridLayout.Build(
     new[]
     {
-        Item(ECardSize.Large),
-        Item(ECardSize.Large),
-        Item(ECardSize.Large),
-        Item(ECardSize.Large),
+        Item(CardSize.Large),
+        Item(CardSize.Large),
+        Item(CardSize.Large),
+        Item(CardSize.Large),
     },
     CollectionTabKind.Items
 );
@@ -474,9 +475,9 @@ AssertEqual(null, nullAspect, "Stored null aspect must round-trip.");
 
 System.Console.WriteLine("CollectionGridLayout checks passed.");
 
-static CollectionCardVm Item(ECardSize size) => new() { Type = ECardType.Item, Size = size };
+static CollectionCardVm Item(CardSize size) => new() { Type = CardType.Item, Size = size };
 
-static CollectionCardVm[] Make(ECardType type, int count, System.Func<int, ECardSize> size)
+static CollectionCardVm[] Make(CardType type, int count, System.Func<int, CardSize> size)
 {
     var list = new CollectionCardVm[count];
     for (var i = 0; i < count; i++)

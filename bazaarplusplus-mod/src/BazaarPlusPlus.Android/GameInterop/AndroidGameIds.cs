@@ -1,4 +1,3 @@
-using BazaarPlusPlus.Core.GameState;
 using Il2CppBazaarGameShared.Domain.Core.Types;
 using Il2CppInterop.Runtime;
 
@@ -10,10 +9,11 @@ internal static class AndroidGameIds
     /// <summary>The canonical hero id that leaves the process (SQLite rows, uploads).</summary>
     public static string? Hero(EHero hero)
     {
+        // A hero facet's name is its canonical id; a hero BPP has no facet for keeps its name.
+        if (AndroidCardFacets.Hero.TryToFacet(hero, out var facet))
+            return facet.ToString();
         var name = hero.ToString();
-        if (string.IsNullOrWhiteSpace(name))
-            return null;
-        return TheDragonsHeroId.IsAlias(name) ? TheDragonsHeroId.CanonicalId : name;
+        return string.IsNullOrWhiteSpace(name) ? null : name;
     }
 
     public static int? Attribute(

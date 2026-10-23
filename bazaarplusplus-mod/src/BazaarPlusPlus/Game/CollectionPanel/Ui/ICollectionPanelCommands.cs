@@ -1,5 +1,5 @@
 #nullable enable
-using BazaarGameShared.Domain.Core.Types;
+using BazaarPlusPlus.Core.Cards;
 using BazaarPlusPlus.Game.CollectionPanel.Data;
 
 namespace BazaarPlusPlus.Game.CollectionPanel.Ui;
@@ -14,12 +14,12 @@ internal interface ICollectionPanelCommands
     void ToggleSearch();
     void SetActiveTab(CollectionTabKind tab);
     void ResetFilters();
-    void ToggleHero(EHero hero);
+    void ToggleHero(CardHero hero);
     void ToggleAllHeroes();
-    void ToggleTier(ETier tier);
+    void ToggleTier(CardTier tier);
     void ToggleRunDayFilter();
-    void ToggleSize(ECardSize size);
-    void ToggleTag(ECardTag tag);
+    void ToggleSize(CardSize size);
+    void ToggleTag(CardTag tag);
     void ToggleKeyword(CollectionKeywordFacetOption option);
     void SetKeywordMatchMode(CollectionFacetMatchMode mode);
     void SetTagMatchMode(CollectionFacetMatchMode mode);

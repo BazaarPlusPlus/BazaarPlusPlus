@@ -1,8 +1,9 @@
 #nullable enable
-using BazaarGameShared.Domain.Core.Types;
+using BazaarPlusPlus.Core.Cards;
 using BazaarPlusPlus.Game.CollectionPanel.Data;
 using BazaarPlusPlus.Game.CollectionPanel.Grid;
 using BazaarPlusPlus.Game.Supporters.Ui;
+using BazaarPlusPlus.GameInterop.Cards;
 using BazaarPlusPlus.GameInterop.Fonts;
 using BazaarPlusPlus.GameInterop.TagTypography;
 using BazaarPlusPlus.Infrastructure;
@@ -92,12 +93,12 @@ internal sealed partial class CollectionPanelView : IDisposable
     private bool _inspectionBlocked;
     private float _searchFocusPulseElapsed;
 
-    private readonly Dictionary<EHero, Button> _heroChips = new();
-    private readonly Dictionary<EHero, VisualElement> _heroChipIcons = new();
-    private readonly Dictionary<ETier, Button> _tierChips = new();
-    private readonly Dictionary<ECardSize, Button> _sizeChips = new();
-    private readonly Dictionary<ECardTag, Button> _tagChips = new();
-    private readonly List<ECardTag> _tagChipOrder = new();
+    private readonly Dictionary<CardHero, Button> _heroChips = new();
+    private readonly Dictionary<CardHero, VisualElement> _heroChipIcons = new();
+    private readonly Dictionary<CardTier, Button> _tierChips = new();
+    private readonly Dictionary<CardSize, Button> _sizeChips = new();
+    private readonly Dictionary<CardTag, Button> _tagChips = new();
+    private readonly List<CardTag> _tagChipOrder = new();
     private readonly Dictionary<CollectionKeywordFacetOption, Button> _keywordChips = new();
     private readonly List<CollectionKeywordFacetOption> _keywordChipOrder = new();
 
@@ -375,7 +376,10 @@ internal sealed partial class CollectionPanelView : IDisposable
         // their labels in the previous language (same P4 mechanism as RefreshChromeTexts).
         foreach (var pair in _heroChips)
         {
-            pair.Value.tooltip = CollectionPanelText.Hero(pair.Key);
+            pair.Value.tooltip = CollectionPanelText.Hero(
+                pair.Key,
+                DesktopCardFacets.TheDragonsDisplayName
+            );
             RefreshHeroChip(
                 pair.Key,
                 pair.Value,
@@ -559,7 +563,7 @@ internal sealed partial class CollectionPanelView : IDisposable
         }
     }
 
-    private void RefreshChromeTexts(ECardType activeType)
+    private void RefreshChromeTexts(CardType activeType)
     {
         if (_closeButton != null)
             _closeButton.tooltip = CollectionPanelText.Close();
