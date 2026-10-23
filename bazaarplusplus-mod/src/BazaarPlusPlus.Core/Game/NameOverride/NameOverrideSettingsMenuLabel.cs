@@ -3,7 +3,7 @@ using BazaarPlusPlus.Localization;
 
 namespace BazaarPlusPlus.Game.NameOverride;
 
-internal static class NameOverrideSettingsMenuLabel
+public static class NameOverrideSettingsMenuLabel
 {
     private static readonly LocalizedTextSet Labels = new(
         "Anonymous Mode",
@@ -14,7 +14,7 @@ internal static class NameOverrideSettingsMenuLabel
         "Modalita anonima"
     );
 
-    internal static string Resolve(string languageCode)
+    public static string Resolve(string languageCode)
     {
         return Labels.Resolve(languageCode, L.CurrentMode);
     }

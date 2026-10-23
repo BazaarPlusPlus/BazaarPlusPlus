@@ -39,11 +39,11 @@ internal sealed class CombatStatusBarModule : IBppFeature
             return;
 
         _lastMessageId = snapshot.MessageId;
-        CombatStatusBar.SetCombatFrameTotal(snapshot.FrameCount);
+        CombatStatusBar.State.SetCombatFrameTotal(snapshot.FrameCount);
     }
 
     private static void OnCombatFrameAdvanced(CombatFrameAdvanced _)
     {
-        CombatStatusBar.AdvanceCombatFrame();
+        CombatStatusBar.State.AdvanceCombatFrame();
     }
 }

@@ -1,4 +1,5 @@
 using System.Reflection;
+using BazaarPlusPlus.Core.RunContext;
 using BazaarPlusPlus.Game.CombatStatusBar;
 using BazaarPlusPlus.Game.ItemEnchantPreview;
 using BazaarPlusPlus.Game.NameOverride;
@@ -7,38 +8,26 @@ using Xunit;
 
 namespace BazaarPlusPlus.Tests;
 
-public sealed class CombatStatusBarStateTests : IDisposable
+public sealed class CombatStatusBarStateTests
 {
+    private readonly TestPauseControl _pause = new();
+    private readonly CombatStatusBarState _state;
+    private readonly RunContextStore _runContext = new();
+    private readonly TestGameStateProbe _probe = new();
+
     public CombatStatusBarStateTests()
     {
-        ReturnToIdle();
-    }
-
-    public void Dispose()
-    {
-        ReturnToIdle();
-        BazaarPlusPlus.Core.Runtime.TestServices.Instance.RunContext.IsInGameRun = false;
-        BazaarPlusPlus.Core.Runtime.TestServices.Instance.GameStateProbe.Result = false;
-    }
-
-    // The static state returns to idle through the production lifecycle: no frames, playback
-    // ended, normal speed. The never-played state before the first combat cannot be restored,
-    // so no test depends on it.
-    private static void ReturnToIdle()
-    {
-        CombatStatusBar.SetCombatFrameTotal(0);
-        CombatStatusBar.EndCombatPlayback();
-        CombatStatusBar.SetCombatSpeed(1f);
+        _state = new CombatStatusBarState(_pause);
     }
 
     [Fact]
     public void GetDisplayedTimeText_ReturnsLogicalCombatTimeDuringCombat()
     {
-        CombatStatusBar.BeginCombatPlayback();
+        _state.BeginCombatPlayback();
         for (var i = 0; i < 25; i++)
-            CombatStatusBar.AdvanceCombatFrame();
+            _state.AdvanceCombatFrame();
 
-        var result = CombatStatusBar.GetDisplayedTimeText();
+        var result = _state.GetDisplayedTimeText();
 
         Assert.Equal("0:01.20", result);
     }
@@ -46,21 +35,24 @@ public sealed class CombatStatusBarStateTests : IDisposable
     [Fact]
     public void GetDisplayedTimeText_ReturnsLastCombatTimeAfterCombatEnds()
     {
-        CombatStatusBar.BeginCombatPlayback();
+        _state.BeginCombatPlayback();
         for (var i = 0; i < 25; i++)
-            CombatStatusBar.AdvanceCombatFrame();
+            _state.AdvanceCombatFrame();
 
-        CombatStatusBar.EndCombatPlayback();
+        _state.EndCombatPlayback();
 
-        Assert.Equal("0:01.20", CombatStatusBar.GetDisplayedTimeText());
+        Assert.Equal("0:01.20", _state.GetDisplayedTimeText());
     }
 
     [Fact]
     public void FrameDisplayText_IsNotPartOfCombatStatusBarState()
     {
-        var frameTextMethod = typeof(CombatStatusBar).GetMethod(
+        var frameTextMethod = typeof(CombatStatusBarState).GetMethod(
             "GetDisplayedFrameText",
-            BindingFlags.NonPublic | BindingFlags.Static
+            BindingFlags.Public
+                | BindingFlags.NonPublic
+                | BindingFlags.Static
+                | BindingFlags.Instance
         );
 
         Assert.Null(frameTextMethod);
@@ -69,72 +61,68 @@ public sealed class CombatStatusBarStateTests : IDisposable
     [Fact]
     public void DisplayedTimeText_StillUsesLogicalFrameIndex()
     {
-        CombatStatusBar.BeginCombatPlayback();
+        _state.BeginCombatPlayback();
 
-        CombatStatusBar.AdvanceCombatFrame();
-        Assert.Equal("0:00.00", CombatStatusBar.GetDisplayedTimeText());
+        _state.AdvanceCombatFrame();
+        Assert.Equal("0:00.00", _state.GetDisplayedTimeText());
 
-        CombatStatusBar.AdvanceCombatFrame();
-        Assert.Equal("0:00.05", CombatStatusBar.GetDisplayedTimeText());
+        _state.AdvanceCombatFrame();
+        Assert.Equal("0:00.05", _state.GetDisplayedTimeText());
     }
 
     [Fact]
     public void CombatSpeed_PlaqueCyclesThroughEverySupportedStepAndWraps()
     {
-        Assert.Equal(0.5f, CombatStatusBar.CycleCombatSpeed(), 3);
-        Assert.Equal(0.67f, CombatStatusBar.CycleCombatSpeed(), 3);
-        Assert.Equal(1f, CombatStatusBar.CycleCombatSpeed(), 3);
-        Assert.Equal(0.5f, CombatStatusBar.CycleCombatSpeed(), 3);
+        Assert.Equal(0.5f, _state.CycleCombatSpeed(), 3);
+        Assert.Equal(0.67f, _state.CycleCombatSpeed(), 3);
+        Assert.Equal(1f, _state.CycleCombatSpeed(), 3);
+        Assert.Equal(0.5f, _state.CycleCombatSpeed(), 3);
     }
 
     [Fact]
     public void CombatSpeed_UsesRequestedDiscreteSteps()
     {
-        Assert.Equal(1f, CombatStatusBar.CombatSpeedMultiplier, 3);
-        Assert.Equal(1f, CombatStatusBar.NormalizeConfiguredDefaultSpeed(1f), 3);
-        Assert.Equal(1f, CombatStatusBar.NormalizeConfiguredDefaultSpeed(1.25f), 3);
+        Assert.Equal(1f, _state.CombatSpeedMultiplier, 3);
+        Assert.Equal(1f, CombatStatusBarState.NormalizeConfiguredDefaultSpeed(1f), 3);
+        Assert.Equal(1f, CombatStatusBarState.NormalizeConfiguredDefaultSpeed(1.25f), 3);
 
-        CombatStatusBar.SetCombatSpeed(0.67f);
-        Assert.Equal(0.67f, CombatStatusBar.CombatSpeedMultiplier, 3);
+        _state.SetCombatSpeed(0.67f);
+        Assert.Equal(0.67f, _state.CombatSpeedMultiplier, 3);
     }
 
     [Fact]
     public void CombatSpeed_OnlyOverridesDuringPlayback()
     {
-        Assert.False(CombatStatusBar.ShouldOverrideCombatSpeed(1f));
+        Assert.False(_state.ShouldOverrideCombatSpeed(1f));
 
-        CombatStatusBar.SetCombatSpeed(0.5f);
+        _state.SetCombatSpeed(0.5f);
 
-        CombatStatusBar.BeginCombatPlayback();
+        _state.BeginCombatPlayback();
 
-        Assert.True(CombatStatusBar.ShouldOverrideCombatSpeed(1f));
-        Assert.False(CombatStatusBar.ShouldOverrideCombatSpeed(1.2f));
-
-        CombatStatusBar.SetCombatSpeed(1f);
+        Assert.True(_state.ShouldOverrideCombatSpeed(1f));
+        Assert.False(_state.ShouldOverrideCombatSpeed(1.2f));
     }
 
     [Fact]
     public void ShouldRenderForState_RequiresInGameRun()
     {
-        BazaarPlusPlus.Core.Runtime.TestServices.Instance.RunContext.IsInGameRun = false;
-        Assert.False(CombatStatusBar.ShouldRenderForState(enabled: true));
+        _runContext.IsInGameRun = false;
+        Assert.False(CombatStatusBarState.ShouldRenderForState(true, _runContext, _probe));
 
-        BazaarPlusPlus.Core.Runtime.TestServices.Instance.RunContext.IsInGameRun = true;
-        Assert.True(CombatStatusBar.ShouldRenderForState(enabled: true));
+        _runContext.IsInGameRun = true;
+        Assert.True(CombatStatusBarState.ShouldRenderForState(true, _runContext, _probe));
     }
 
     [Fact]
     public void ShouldRenderForState_ShowsDuringReplay_WhenProbeReportsInGameRun()
     {
-        var services = BazaarPlusPlus.Core.Runtime.TestServices.Instance;
-
         // Replay's start guard forces the cached flag to false, and entering ReplayState never
         // fires RunStarted, so the cache stays false throughout playback...
-        services.RunContext.IsInGameRun = false;
+        _runContext.IsInGameRun = false;
         // ...but the live probe reports ReplayState as in-game-run.
-        services.GameStateProbe.Result = true;
+        _probe.Result = true;
 
-        Assert.True(CombatStatusBar.ShouldRenderForState(enabled: true));
+        Assert.True(CombatStatusBarState.ShouldRenderForState(true, _runContext, _probe));
     }
 
     [Theory]
@@ -142,37 +130,27 @@ public sealed class CombatStatusBarStateTests : IDisposable
     [InlineData(false, true)]
     public void DisabledStatusBarStaysHiddenInLiveRunsAndReplays(bool inRun, bool inReplay)
     {
-        var services = BazaarPlusPlus.Core.Runtime.TestServices.Instance;
-        services.RunContext.IsInGameRun = inRun;
-        services.GameStateProbe.Result = inReplay;
+        _runContext.IsInGameRun = inRun;
+        _probe.Result = inReplay;
 
-        Assert.False(CombatStatusBar.ShouldRenderForState(enabled: false));
-        Assert.True(CombatStatusBar.ShouldRenderForState(enabled: true));
+        Assert.False(CombatStatusBarState.ShouldRenderForState(false, _runContext, _probe));
+        Assert.True(CombatStatusBarState.ShouldRenderForState(true, _runContext, _probe));
     }
 
     [Fact]
     public void HidingPausedControlsResumesPlaybackWithoutResettingPreferredSpeed()
     {
-        var game = new GameServiceManager();
-        Singleton<GameServiceManager>.Instance = game;
-        try
-        {
-            CombatStatusBar.BeginCombatPlayback();
-            CombatStatusBar.SetCombatSpeed(0.67f);
-            CombatStatusBar.SetCombatPaused(true);
+        _pause.Paused = false;
+        _state.BeginCombatPlayback();
+        _state.SetCombatSpeed(0.67f);
+        _state.SetCombatPaused(true);
 
-            CombatStatusBar.OnVisibilitySettingChanged(false);
+        _state.OnVisibilitySettingChanged(false);
 
-            Assert.False(game.GamePaused);
-            Assert.False(CombatStatusBar.IsCombatPaused);
-            Assert.True(CombatStatusBar.IsCombatPlaybackActive);
-            Assert.Equal(0.67f, CombatStatusBar.CombatSpeedMultiplier);
-        }
-        finally
-        {
-            CombatStatusBar.EndCombatPlayback();
-            Singleton<GameServiceManager>.Instance = null;
-        }
+        Assert.False(_pause.Paused);
+        Assert.False(_state.IsCombatPaused);
+        Assert.True(_state.IsCombatPlaybackActive);
+        Assert.Equal(0.67f, _state.CombatSpeedMultiplier);
     }
 
     [Fact]
@@ -244,7 +222,7 @@ public sealed class CombatStatusBarStateTests : IDisposable
         float expected
     )
     {
-        var result = CombatStatusBar.AdvanceVisualBlend(current, active, deltaTime);
+        var result = CombatStatusBarState.AdvanceVisualBlend(current, active, deltaTime);
 
         Assert.Equal(expected, result, precision: 3);
     }

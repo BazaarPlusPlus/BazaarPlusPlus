@@ -15,6 +15,6 @@ internal static class CombatStatusBarSettingsDockEntry
             languageCode => Labels.Resolve(languageCode, L.CurrentMode),
             config => config.EnableCombatStatusBarConfig.Value,
             (config, enabled) => config.EnableCombatStatusBarConfig.Value = enabled,
-            onChanged: CombatStatusBar.OnVisibilitySettingChanged
+            onChanged: CombatStatusBar.State.OnVisibilitySettingChanged
         );
 }
