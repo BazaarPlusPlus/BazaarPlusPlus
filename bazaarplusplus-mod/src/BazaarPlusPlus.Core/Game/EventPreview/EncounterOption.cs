@@ -1,7 +1,7 @@
 #nullable enable
 namespace BazaarPlusPlus.Game.EventPreview;
 
-internal sealed class EncounterOption
+public sealed class EncounterOption
 {
     public EncounterOption(
         Guid templateId,

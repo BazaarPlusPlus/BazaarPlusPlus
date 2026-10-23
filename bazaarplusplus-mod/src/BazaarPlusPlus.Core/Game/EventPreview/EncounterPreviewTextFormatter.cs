@@ -1,7 +1,7 @@
 #nullable enable
 using System.Globalization;
-using BazaarGameShared.Domain.Core.Types;
-using BazaarPlusPlus.GameInterop.DayTiers;
+using BazaarPlusPlus.Core.Cards;
+using BazaarPlusPlus.Core.GameState;
 
 namespace BazaarPlusPlus.Game.EventPreview;
 
@@ -9,17 +9,17 @@ namespace BazaarPlusPlus.Game.EventPreview;
 // choice, accent-colored name plus the game's own result text (run through the
 // supplied colorizer for native keyword coloring). Card rewards whose pool tier is
 // day-driven get the current GameData tier distribution appended to the text.
-internal static class EncounterPreviewTextFormatter
+public static class EncounterPreviewTextFormatter
 {
     private const string AccentColor = "#FFD37E";
     private const string IneligibleColor = "#8F8268";
 
-    private static readonly ETier[] DealableTiers =
+    private static readonly CardTier[] DealableTiers =
     {
-        ETier.Bronze,
-        ETier.Silver,
-        ETier.Gold,
-        ETier.Diamond,
+        CardTier.Bronze,
+        CardTier.Silver,
+        CardTier.Gold,
+        CardTier.Diamond,
     };
 
     public static string Build(
@@ -83,7 +83,7 @@ internal static class EncounterPreviewTextFormatter
         return TooltipMarkup.Render(lines);
     }
 
-    public static string BuildQualityLine(GameDataDayTierTable? dayTiers, ETier? fixedTier)
+    public static string BuildQualityLine(GameDataDayTierTable? dayTiers, CardTier? fixedTier)
     {
         string? line = null;
         if (fixedTier.HasValue)
@@ -314,7 +314,7 @@ internal static class EncounterPreviewTextFormatter
         return string.Join(" · ", entries);
     }
 
-    private static string ColorizeTier(ETier tier, string text) =>
+    private static string ColorizeTier(CardTier tier, string text) =>
         $"<color=#{EncounterPreviewText.TierColorHex(tier)}>{text}</color>";
 
     private static bool HasExplicitTierDescriptor(string? text)
@@ -322,16 +322,16 @@ internal static class EncounterPreviewTextFormatter
         if (string.IsNullOrWhiteSpace(text))
             return false;
 
-        foreach (var tier in Enum.GetValues(typeof(ETier)))
+        foreach (var tier in Enum.GetValues(typeof(CardTier)))
         {
-            if (tier is ETier value && HasExplicitTierDescriptor(text, value))
+            if (tier is CardTier value && HasExplicitTierDescriptor(text, value))
                 return true;
         }
 
         return false;
     }
 
-    private static bool HasExplicitTierDescriptor(string text, ETier tier)
+    private static bool HasExplicitTierDescriptor(string text, CardTier tier)
     {
         var tierName = tier.ToString();
         if (HasEnglishTierDescriptor(text, tierName))

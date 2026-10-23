@@ -1,7 +1,7 @@
 #nullable enable
 namespace BazaarPlusPlus.Game.EventPreview;
 
-internal sealed class EncounterChoiceDetail
+public sealed class EncounterChoiceDetail
 {
     public EncounterChoiceDetail(
         Guid templateId,
@@ -44,7 +44,7 @@ internal sealed class EncounterChoiceDetail
 
 // A random pool presented as one choice line: a combat roll, an expandable entry
 // list (small pools), or a bare option count (large pools, where Entries is empty).
-internal sealed class EncounterChoicePool
+public sealed class EncounterChoicePool
 {
     public EncounterChoicePool(
         bool isCombat,

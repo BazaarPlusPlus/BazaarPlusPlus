@@ -3,7 +3,7 @@ namespace BazaarPlusPlus.Game.EventPreview;
 
 // Raw spawn-group data for a random-outcome event (outer SelectionMethod=Random,
 // Limit=1): the event rolls one group by weight instead of presenting choices.
-internal sealed class EncounterOutcomeGroupData
+public sealed class EncounterOutcomeGroupData
 {
     public EncounterOutcomeGroupData(
         uint weight,
@@ -37,7 +37,7 @@ internal sealed class EncounterOutcomeGroupData
 
 // A TSpawnFilterQuery pool inside an outcome group: the constraints summarized as a
 // reward filter (null when unparseable) plus the group's spawn quantity.
-internal sealed class EncounterOutcomeQueryPool
+public sealed class EncounterOutcomeQueryPool
 {
     public EncounterOutcomeQueryPool(EncounterRewardFilter? filter, int? quantity)
     {
@@ -52,7 +52,7 @@ internal sealed class EncounterOutcomeQueryPool
 
 // Resolved outcome entry for display: one rolled alternative with its normalized
 // percentage (null for prerequisite-unmet groups, which are outside the roll).
-internal sealed class EncounterOutcomeView
+public sealed class EncounterOutcomeView
 {
     public EncounterOutcomeView(
         int? percent,

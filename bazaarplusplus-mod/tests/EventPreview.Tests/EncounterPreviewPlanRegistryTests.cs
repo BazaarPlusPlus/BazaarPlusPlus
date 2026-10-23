@@ -1,7 +1,7 @@
-using BazaarGameShared.Domain.Core.Types;
+using BazaarPlusPlus.Core.Cards;
 using Xunit;
 
-namespace EncounterTooltip.Tests;
+namespace EventPreview.Tests;
 
 public sealed class EncounterPreviewPlanRegistryTests
 {
@@ -115,7 +115,7 @@ public sealed class EncounterPreviewPlanRegistryTests
         var template = new EncounterPreviewTemplatePlan(
             eventId,
             EncounterPreviewTemplateKind.Event,
-            Array.Empty<EHero>(),
+            Array.Empty<CardHero>(),
             "Event",
             new EncounterPreviewLocalizedText(string.Empty, "Event"),
             new EncounterPreviewLocalizedText(string.Empty, "Event"),
@@ -181,7 +181,7 @@ public sealed class EncounterPreviewPlanRegistryTests
         var eventTemplate = new EncounterPreviewTemplatePlan(
             eventId,
             EncounterPreviewTemplateKind.Event,
-            Array.Empty<EHero>(),
+            Array.Empty<CardHero>(),
             "Event",
             new EncounterPreviewLocalizedText(string.Empty, "Event"),
             new EncounterPreviewLocalizedText(string.Empty, "Event"),
@@ -191,7 +191,7 @@ public sealed class EncounterPreviewPlanRegistryTests
         var stepTemplate = new EncounterPreviewTemplatePlan(
             stepId,
             EncounterPreviewTemplateKind.EncounterStep,
-            Array.Empty<EHero>(),
+            Array.Empty<CardHero>(),
             "Step",
             new EncounterPreviewLocalizedText(string.Empty, "Step"),
             new EncounterPreviewLocalizedText(string.Empty, "Get an item"),

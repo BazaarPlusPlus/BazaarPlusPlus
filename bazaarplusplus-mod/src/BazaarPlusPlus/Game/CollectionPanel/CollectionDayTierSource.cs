@@ -1,7 +1,5 @@
 #nullable enable
-using BazaarPlusPlus.Core.Cards;
 using BazaarPlusPlus.Game.CollectionPanel.Data;
-using BazaarPlusPlus.GameInterop.Cards;
 using BazaarPlusPlus.GameInterop.DayTiers;
 
 namespace BazaarPlusPlus.Game.CollectionPanel;
@@ -16,11 +14,6 @@ internal sealed class CollectionDayTierSource(IGameDataDayTierResolver resolver)
     public CollectionDayTiers Resolve()
     {
         var resolution = _resolver.Resolve();
-        CardTier? maximumTier =
-            resolution.MaximumTier is { } tier
-            && DesktopCardFacets.Tier.TryToFacet(tier, out var facet)
-                ? facet
-                : null;
-        return new CollectionDayTiers(resolution.Day, maximumTier);
+        return new CollectionDayTiers(resolution.Day, resolution.MaximumTier);
     }
 }

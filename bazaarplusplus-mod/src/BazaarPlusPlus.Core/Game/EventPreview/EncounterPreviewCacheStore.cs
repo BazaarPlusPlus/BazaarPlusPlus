@@ -1,16 +1,16 @@
 #nullable enable
 using System.Globalization;
 using System.Text;
-using BazaarGameShared.Domain.Core.Types;
+using BazaarPlusPlus.Core.Cards;
 using BazaarPlusPlus.Infrastructure;
 using Newtonsoft.Json;
 
 namespace BazaarPlusPlus.Game.EventPreview;
 
-internal sealed class EncounterPreviewCacheStore
+public sealed class EncounterPreviewCacheStore
 {
-    public const int SchemaVersion = 5;
-    internal const int MaxCacheFileBytes = 32 * 1024 * 1024;
+    public const int SchemaVersion = 6;
+    public const int MaxCacheFileBytes = 32 * 1024 * 1024;
 
     private static readonly UTF8Encoding Utf8NoBom = new(
         encoderShouldEmitUTF8Identifier: false,
@@ -352,7 +352,7 @@ internal sealed class EncounterPreviewCacheStore
     private static LevelUpHeroConditionWire ToWire(LevelUpPreviewHeroCondition condition) =>
         new()
         {
-            Heroes = condition.Heroes.Select(hero => (int)hero).ToList(),
+            Heroes = condition.Heroes.Select(hero => hero.ToString()).ToList(),
             ComparisonOperator = condition.ComparisonOperator,
         };
 
@@ -361,7 +361,7 @@ internal sealed class EncounterPreviewCacheStore
         if (condition.Heroes == null)
             throw new FormatException("Level-up hero condition heroes are missing.");
         return new LevelUpPreviewHeroCondition(
-            condition.Heroes.Select(value => ReadEnum<EHero>(value, "hero")).ToArray(),
+            condition.Heroes.Select(value => ReadFacet<CardHero>(value, "hero")).ToArray(),
             Required(condition.ComparisonOperator, "hero comparison operator")
         );
     }
@@ -388,7 +388,7 @@ internal sealed class EncounterPreviewCacheStore
         {
             TemplateId = FormatGuid(plan.TemplateId),
             Kind = (int)plan.Kind,
-            Heroes = plan.Heroes.Select(hero => (int)hero).ToList(),
+            Heroes = plan.Heroes.Select(hero => hero.ToString()).ToList(),
             InternalName = plan.InternalName,
             Title = ToWire(plan.Title),
             Description = ToWire(plan.Description),
@@ -434,7 +434,7 @@ internal sealed class EncounterPreviewCacheStore
         return new EncounterPreviewTemplatePlan(
             ParseGuid(plan.TemplateId, "template id"),
             (EncounterPreviewTemplateKind)plan.Kind,
-            plan.Heroes.Select(value => ReadEnum<EHero>(value, "hero")).ToArray(),
+            plan.Heroes.Select(value => ReadFacet<CardHero>(value, "hero")).ToArray(),
             plan.InternalName,
             FromWire(plan.Title),
             FromWire(plan.Description),
@@ -579,16 +579,18 @@ internal sealed class EncounterPreviewCacheStore
             ? null
             : new RewardFilterWire
             {
-                CardType = (int)filter.CardType,
+                CardType = filter.CardType.ToString(),
                 Quantity = filter.Quantity,
                 FromAnyHero = filter.FromAnyHero,
-                Sizes = filter.Sizes.Select(value => (int)value).ToList(),
-                Tiers = filter.Tiers.Select(value => (int)value).ToList(),
-                Tags = filter.Tags.Select(value => (int)value).ToList(),
-                Keywords = filter.Keywords.Select(value => (int)value).ToList(),
+                Sizes = filter.Sizes.Select(value => value.ToString()).ToList(),
+                Tiers = filter.Tiers.Select(value => value.ToString()).ToList(),
+                Tags = filter.Tags.Select(value => value.ToString()).ToList(),
+                Keywords = filter.Keywords.Select(value => value.ToString()).ToList(),
                 FilterSummary = filter.FilterSummary,
-                ExcludedTags = filter.ExcludedTags.Select(value => (int)value).ToList(),
-                ExcludedKeywords = filter.ExcludedKeywords.Select(value => (int)value).ToList(),
+                ExcludedTags = filter.ExcludedTags.Select(value => value.ToString()).ToList(),
+                ExcludedKeywords = filter
+                    .ExcludedKeywords.Select(value => value.ToString())
+                    .ToList(),
                 UsesDayTierTable = filter.UsesDayTierTable,
                 UsesDayTierDistribution = filter.UsesDayTierDistribution,
             };
@@ -608,20 +610,22 @@ internal sealed class EncounterPreviewCacheStore
             throw new FormatException("Reward-filter collections are missing.");
 
         return new EncounterRewardFilter(
-            ReadEnum<ECardType>(filter.CardType, "card type"),
+            ReadFacet<CardType>(Required(filter.CardType, "card type"), "card type"),
             filter.Quantity,
             filter.FromAnyHero,
-            filter.Sizes.Select(value => ReadEnum<ECardSize>(value, "card size")).ToArray(),
-            filter.Tiers.Select(value => ReadEnum<ETier>(value, "tier")).ToArray(),
-            filter.Tags.Select(value => ReadEnum<ECardTag>(value, "card tag")).ToArray(),
-            filter.Keywords.Select(value => ReadEnum<EHiddenTag>(value, "hidden tag")).ToArray(),
+            filter.Sizes.Select(value => ReadFacet<CardSize>(value, "card size")).ToArray(),
+            filter.Tiers.Select(value => ReadFacet<CardTier>(value, "tier")).ToArray(),
+            filter.Tags.Select(value => ReadFacet<CardTag>(value, "card tag")).ToArray(),
+            filter
+                .Keywords.Select(value => ReadFacet<CardHiddenTag>(value, "hidden tag"))
+                .ToArray(),
             filter.FilterSummary ?? string.Empty,
             filter
-                .ExcludedTags.Select(value => ReadEnum<ECardTag>(value, "excluded card tag"))
+                .ExcludedTags.Select(value => ReadFacet<CardTag>(value, "excluded card tag"))
                 .ToArray(),
             filter
                 .ExcludedKeywords.Select(value =>
-                    ReadEnum<EHiddenTag>(value, "excluded hidden tag")
+                    ReadFacet<CardHiddenTag>(value, "excluded hidden tag")
                 )
                 .ToArray(),
             filter.UsesDayTierTable,
@@ -629,12 +633,13 @@ internal sealed class EncounterPreviewCacheStore
         );
     }
 
-    private static TEnum ReadEnum<TEnum>(int value, string label)
-        where TEnum : struct, Enum
+    // A facet persists as its member name, never its integer (ADR-0015).
+    private static TFacet ReadFacet<TFacet>(string value, string label)
+        where TFacet : struct, Enum
     {
-        if (!Enum.IsDefined(typeof(TEnum), value))
-            throw new FormatException($"Unknown {label} value '{value}'.");
-        return (TEnum)Enum.ToObject(typeof(TEnum), value);
+        if (!Enum.IsDefined(typeof(TFacet), value))
+            throw new FormatException($"Unknown {label} '{value}'.");
+        return (TFacet)Enum.Parse(typeof(TFacet), value);
     }
 
     private static string FormatGuid(Guid value) => value.ToString("D");
@@ -747,7 +752,7 @@ internal sealed class EncounterPreviewCacheStore
     private sealed class LevelUpHeroConditionWire
     {
         [JsonProperty("heroes", Order = 0)]
-        public List<int>? Heroes { get; set; }
+        public List<string>? Heroes { get; set; }
 
         [JsonProperty("comparisonOperator", Order = 1)]
         public string? ComparisonOperator { get; set; }
@@ -777,7 +782,7 @@ internal sealed class EncounterPreviewCacheStore
         public int Kind { get; set; }
 
         [JsonProperty("heroes", Order = 2)]
-        public List<int>? Heroes { get; set; }
+        public List<string>? Heroes { get; set; }
 
         [JsonProperty("internalName", Order = 3)]
         public string? InternalName { get; set; }
@@ -897,7 +902,7 @@ internal sealed class EncounterPreviewCacheStore
     private sealed class RewardFilterWire
     {
         [JsonProperty("cardType", Order = 0)]
-        public int CardType { get; set; }
+        public string? CardType { get; set; }
 
         [JsonProperty("quantity", Order = 1)]
         public int? Quantity { get; set; }
@@ -906,25 +911,25 @@ internal sealed class EncounterPreviewCacheStore
         public bool FromAnyHero { get; set; }
 
         [JsonProperty("sizes", Order = 3)]
-        public List<int>? Sizes { get; set; }
+        public List<string>? Sizes { get; set; }
 
         [JsonProperty("tiers", Order = 4)]
-        public List<int>? Tiers { get; set; }
+        public List<string>? Tiers { get; set; }
 
         [JsonProperty("tags", Order = 5)]
-        public List<int>? Tags { get; set; }
+        public List<string>? Tags { get; set; }
 
         [JsonProperty("keywords", Order = 6)]
-        public List<int>? Keywords { get; set; }
+        public List<string>? Keywords { get; set; }
 
         [JsonProperty("filterSummary", Order = 7)]
         public string? FilterSummary { get; set; }
 
         [JsonProperty("excludedTags", Order = 8)]
-        public List<int>? ExcludedTags { get; set; }
+        public List<string>? ExcludedTags { get; set; }
 
         [JsonProperty("excludedKeywords", Order = 9)]
-        public List<int>? ExcludedKeywords { get; set; }
+        public List<string>? ExcludedKeywords { get; set; }
 
         [JsonProperty("usesDayTierTable", Order = 10)]
         public bool UsesDayTierTable { get; set; }

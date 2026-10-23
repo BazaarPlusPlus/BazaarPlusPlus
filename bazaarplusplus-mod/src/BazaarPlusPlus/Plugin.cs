@@ -216,6 +216,7 @@ public class Plugin : BaseUnityPlugin
         var attributeUnitLocalizer = BppTooltipText.TryLocalizeKeyword;
         CollectionLocalizationResolver.AttributeUnitLocalizer = attributeUnitLocalizer;
         EventPreviewLocalization.AttributeUnitLocalizer = attributeUnitLocalizer;
+        EventPreviewLocalization.TextLocalizer = EventPreviewGameText.Localize;
         BppSettingsDockCatalog.Install(services.Config, settingsDockRegistry);
         BPPSupporterCatalog.Install(services.Config);
         BppHotkeyService.Install(services.Config);
@@ -239,6 +240,7 @@ public class Plugin : BaseUnityPlugin
         L.Reset();
         CollectionLocalizationResolver.AttributeUnitLocalizer = null;
         EventPreviewLocalization.AttributeUnitLocalizer = null;
+        EventPreviewLocalization.TextLocalizer = null;
         BppSettingsDockCatalog.Reset();
         NativeSettingsLogState.Reset();
         BPPSupporterCatalog.Reset();

@@ -1,10 +1,10 @@
 #nullable enable
 using System.Text.RegularExpressions;
-using BazaarGameShared.Domain.Core.Types;
+using BazaarPlusPlus.Core.Cards;
 
 namespace BazaarPlusPlus.Game.EventPreview;
 
-internal static class EncounterRewardParser
+public static class EncounterRewardParser
 {
     private static readonly (string Phrase, string EnumName)[] ItemTagTerms =
     {
@@ -61,19 +61,19 @@ internal static class EncounterRewardParser
 
         var lower = resultText!.ToLowerInvariant();
         var isSkillReward = ContainsWord(lower, "skill") || ContainsWord(lower, "skills");
-        var tags = ParseEnums<ECardTag>(lower, ItemTagTerms);
+        var tags = ParseEnums<CardTag>(lower, ItemTagTerms);
         var isItemReward =
             ContainsWord(lower, "item") || ContainsWord(lower, "items") || tags.Count > 0;
 
         if (!isSkillReward && !isItemReward)
             return null;
 
-        var cardType = isSkillReward ? ECardType.Skill : ECardType.Item;
-        var sizes = cardType == ECardType.Item ? ParseSizes(lower) : Array.Empty<ECardSize>();
+        var cardType = isSkillReward ? CardType.Skill : CardType.Item;
+        var sizes = cardType == CardType.Item ? ParseSizes(lower) : Array.Empty<CardSize>();
         var tiers = ParseTiers(lower);
-        var keywords = ParseEnums<EHiddenTag>(lower, KeywordTerms);
-        if (cardType == ECardType.Skill)
-            tags = Array.Empty<ECardTag>();
+        var keywords = ParseEnums<CardHiddenTag>(lower, KeywordTerms);
+        if (cardType == CardType.Skill)
+            tags = Array.Empty<CardTag>();
 
         var summary = BuildSummary(cardType, sizes, tiers, tags, keywords);
         return new EncounterRewardFilter(
@@ -88,7 +88,7 @@ internal static class EncounterRewardParser
         );
     }
 
-    private static int? ParseQuantity(string lower, ECardType cardType)
+    private static int? ParseQuantity(string lower, CardType cardType)
     {
         var match = Regex.Match(
             lower,
@@ -98,26 +98,26 @@ internal static class EncounterRewardParser
         if (match.Success && int.TryParse(match.Groups["count"].Value, out var count))
             return count;
 
-        return cardType == ECardType.Item || cardType == ECardType.Skill ? 1 : null;
+        return cardType == CardType.Item || cardType == CardType.Skill ? 1 : null;
     }
 
-    private static IReadOnlyList<ECardSize> ParseSizes(string lower)
+    private static IReadOnlyList<CardSize> ParseSizes(string lower)
     {
-        var result = new List<ECardSize>(3);
-        AddIfMentioned(lower, "small", ECardSize.Small, result);
-        AddIfMentioned(lower, "medium", ECardSize.Medium, result);
-        AddIfMentioned(lower, "large", ECardSize.Large, result);
+        var result = new List<CardSize>(3);
+        AddIfMentioned(lower, "small", CardSize.Small, result);
+        AddIfMentioned(lower, "medium", CardSize.Medium, result);
+        AddIfMentioned(lower, "large", CardSize.Large, result);
         return result;
     }
 
-    private static IReadOnlyList<ETier> ParseTiers(string lower)
+    private static IReadOnlyList<CardTier> ParseTiers(string lower)
     {
-        var result = new List<ETier>(5);
-        AddIfMentioned(lower, "bronze", ETier.Bronze, result);
-        AddIfMentioned(lower, "silver", ETier.Silver, result);
-        AddIfMentioned(lower, "gold", ETier.Gold, result);
-        AddIfMentioned(lower, "diamond", ETier.Diamond, result);
-        AddIfMentioned(lower, "legendary", ETier.Legendary, result);
+        var result = new List<CardTier>(5);
+        AddIfMentioned(lower, "bronze", CardTier.Bronze, result);
+        AddIfMentioned(lower, "silver", CardTier.Silver, result);
+        AddIfMentioned(lower, "gold", CardTier.Gold, result);
+        AddIfMentioned(lower, "diamond", CardTier.Diamond, result);
+        AddIfMentioned(lower, "legendary", CardTier.Legendary, result);
         return result;
     }
 
@@ -155,11 +155,11 @@ internal static class EncounterRewardParser
     }
 
     private static string BuildSummary(
-        ECardType cardType,
-        IReadOnlyList<ECardSize> sizes,
-        IReadOnlyList<ETier> tiers,
-        IReadOnlyList<ECardTag> tags,
-        IReadOnlyList<EHiddenTag> keywords
+        CardType cardType,
+        IReadOnlyList<CardSize> sizes,
+        IReadOnlyList<CardTier> tiers,
+        IReadOnlyList<CardTag> tags,
+        IReadOnlyList<CardHiddenTag> keywords
     )
     {
         var parts = new List<string>();
@@ -172,11 +172,11 @@ internal static class EncounterRewardParser
         foreach (var keyword in keywords)
             parts.Add(keyword.ToString());
 
-        if (cardType == ECardType.Skill)
+        if (cardType == CardType.Skill)
             parts.Add("skill");
 
         return parts.Count == 0
-            ? (cardType == ECardType.Skill ? "Skill" : "Item")
+            ? (cardType == CardType.Skill ? "Skill" : "Item")
             : string.Join(" ", parts);
     }
 

@@ -1,12 +1,9 @@
 #nullable enable
 using System.Text.RegularExpressions;
-using BazaarGameShared.Domain.Cards;
-using BazaarGameShared.Domain.Core;
-using BazaarPlusPlus.GameInterop.Cards;
 
 namespace BazaarPlusPlus.Game.EventPreview;
 
-internal delegate bool LiveAbilityValueResolver(
+public delegate bool LiveAbilityValueResolver(
     Guid templateId,
     string effectId,
     bool isAura,
@@ -14,14 +11,19 @@ internal delegate bool LiveAbilityValueResolver(
     out string? unit
 );
 
-internal static class EventPreviewLocalization
+public static class EventPreviewLocalization
 {
-    internal static Func<string, string?>? AttributeUnitLocalizer { get; set; }
+    public static Func<string, string?>? AttributeUnitLocalizer { get; set; }
 
-    internal static string? ResolveTitle(EncounterPreviewTemplatePlan template) =>
+    // Host port: the game's localization of a template's title or description key. Unset (in
+    // tests and before the host installs it) or failing, a text falls back to its English text,
+    // then its key.
+    public static Func<EncounterPreviewLocalizedText, string?>? TextLocalizer { get; set; }
+
+    public static string? ResolveTitle(EncounterPreviewTemplatePlan template) =>
         template == null ? null : PickText(template.Title);
 
-    internal static string? ResolveDescription(
+    public static string? ResolveDescription(
         EncounterPreviewTemplatePlan template,
         LiveAbilityValueResolver? resolveLiveValue = null
     )
@@ -35,67 +37,17 @@ internal static class EventPreviewLocalization
         );
     }
 
-    internal static IReadOnlyDictionary<string, EncounterPreviewAbilityValue> CaptureAbilityValues(
-        TCardBase template
-    )
-    {
-        var result = new Dictionary<string, EncounterPreviewAbilityValue>(StringComparer.Ordinal);
-        var abilities = template.Abilities;
-        if (abilities != null)
-        {
-            foreach (var abilityId in abilities.Keys)
-            {
-                AddAbilityValue(abilityId);
-                AddAbilityValue($"{abilityId}.mod");
-            }
-        }
-        var auras = template.Auras;
-        if (auras != null)
-        {
-            foreach (var auraId in auras.Keys)
-            {
-                AddAuraValue(auraId);
-                AddAuraValue($"{auraId}.mod");
-            }
-        }
-        return result;
-
-        void AddAbilityValue(string placeholder)
-        {
-            if (CardAbilityValueReader.TryRead(template, placeholder, out var value))
-                result[placeholder] = new EncounterPreviewAbilityValue(value.ValueText, value.Unit);
-        }
-
-        void AddAuraValue(string placeholder)
-        {
-            if (CardAbilityValueReader.TryReadAura(template, placeholder, out var value))
-            {
-                // Keep the existing plan/cache model; namespacing only aura keys avoids
-                // colliding with legacy unprefixed ability ids.
-                result[$"aura.{placeholder}"] = new EncounterPreviewAbilityValue(
-                    value.ValueText,
-                    value.Unit
-                );
-            }
-        }
-    }
-
     private static string? PickText(EncounterPreviewLocalizedText text)
     {
-        var localizable = new TLocalizableText
-        {
-            Key = text.Key ?? string.Empty,
-            Text = text.FallbackText ?? string.Empty,
-        };
         try
         {
-            var localized = TheBazaar.Tooltips.TooltipExtensions.GetLocalizedText(localizable);
+            var localized = TextLocalizer?.Invoke(text);
             if (!string.IsNullOrWhiteSpace(localized))
                 return localized;
         }
         catch (Exception)
         {
-            // Localization services are unavailable in tests and during early startup.
+            // The game's localization services are unavailable during early startup.
         }
 
         if (!string.IsNullOrWhiteSpace(text.FallbackText))

@@ -4,6 +4,7 @@ using BazaarGameShared.Domain.Cards;
 using BazaarGameShared.Domain.Core.Types;
 using BazaarGameShared.Domain.Game;
 using BazaarGameShared.Domain.Values;
+using BazaarPlusPlus.Core.Cards;
 using BazaarPlusPlus.Game.Tooltips;
 using BazaarPlusPlus.GameInterop.Cards;
 using BazaarPlusPlus.GameInterop.DayTiers;
@@ -30,7 +31,7 @@ internal interface IEncounterPreviewGameRuntime
         out string valueText,
         out string? unit
     );
-    EHero? ReadCurrentHero();
+    CardHero? ReadCurrentHero();
     EncounterInventory? ReadInventory();
     GameDataDayTierResolution ResolveDayTiers(object source);
     string ColorKeywords(string text);
@@ -99,13 +100,11 @@ internal sealed class EncounterPreviewGameRuntime(
         }
     }
 
-    public EHero? ReadCurrentHero()
+    public CardHero? ReadCurrentHero()
     {
-        var runHero = Data.Run?.Player?.Hero;
-        if (IsConcreteHero(runHero))
+        if (TryConcreteHero(Data.Run?.Player?.Hero, out var runHero))
             return runHero;
-        var selectedHero = Data.SelectedHero;
-        return IsConcreteHero(selectedHero) ? selectedHero : null;
+        return TryConcreteHero(Data.SelectedHero, out var selectedHero) ? selectedHero : null;
     }
 
     public EncounterInventory? ReadInventory()
@@ -142,7 +141,13 @@ internal sealed class EncounterPreviewGameRuntime(
 
     public string ColorKeywords(string text) => BppTooltipText.ColorKeywords(text);
 
-    private static bool IsConcreteHero(EHero? hero) => hero.HasValue && hero.Value != EHero.Common;
+    private static bool TryConcreteHero(EHero? hero, out CardHero facet)
+    {
+        facet = default;
+        return hero.HasValue
+            && DesktopCardFacets.Hero.TryToFacet(hero.Value, out facet)
+            && facet != CardHero.Common;
+    }
 
     private static void AddCards(List<EncounterInventoryCard> cards, IEnumerable? source)
     {

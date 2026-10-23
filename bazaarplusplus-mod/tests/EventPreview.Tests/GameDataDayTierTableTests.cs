@@ -1,13 +1,9 @@
-using BazaarGameShared.Domain.Cards.Encounter.Event;
-using BazaarGameShared.Domain.Core.Types;
-using BazaarGameShared.Domain.Runs;
-using BazaarGameShared.Domain.Spawning.SpawnBehaviors;
-using BazaarGameShared.Domain.Spawning.SpawningContexts;
-using BazaarPlusPlus.GameInterop.DayTiers;
+using BazaarPlusPlus.Core.Cards;
+using BazaarPlusPlus.Core.GameState;
 using BazaarPlusPlus.Localization;
 using Xunit;
 
-namespace EncounterTooltip.Tests;
+namespace EventPreview.Tests;
 
 public sealed class GameDataDayTierTableTests
 {
@@ -22,22 +18,22 @@ public sealed class GameDataDayTierTableTests
         var table = GameDataDayTierTable.FromWeights(0.89f, 0.1f, 0f, 0.01f);
 
         Assert.NotNull(table);
-        Assert.Equal(ETier.Diamond, table.MaximumTier);
+        Assert.Equal(CardTier.Diamond, table.MaximumTier);
         Assert.Collection(
             table.Entries,
             entry =>
             {
-                Assert.Equal(ETier.Bronze, entry.Tier);
+                Assert.Equal(CardTier.Bronze, entry.Tier);
                 Assert.Equal(89d, entry.Percent, 5);
             },
             entry =>
             {
-                Assert.Equal(ETier.Silver, entry.Tier);
+                Assert.Equal(CardTier.Silver, entry.Tier);
                 Assert.Equal(10d, entry.Percent, 5);
             },
             entry =>
             {
-                Assert.Equal(ETier.Diamond, entry.Tier);
+                Assert.Equal(CardTier.Diamond, entry.Tier);
                 Assert.Equal(1d, entry.Percent, 5);
             }
         );
@@ -54,7 +50,7 @@ public sealed class GameDataDayTierTableTests
         );
 
         Assert.NotNull(table);
-        Assert.Equal(ETier.Diamond, table.MaximumTier);
+        Assert.Equal(CardTier.Diamond, table.MaximumTier);
         Assert.Collection(
             table.Entries,
             entry => Assert.Equal(25d, entry.Percent, 5),
@@ -107,77 +103,9 @@ public sealed class GameDataDayTierTableTests
 
         Assert.NotNull(distribution);
         Assert.Single(distribution!.Entries);
-        Assert.Equal(ETier.Gold, distribution.Entries[0].Tier);
+        Assert.Equal(CardTier.Gold, distribution.Entries[0].Tier);
         Assert.Equal(100d, distribution.Entries[0].Percent);
         Assert.Null(GameDataDayTierTable.FromWeights(0f, -1f, float.NaN, 0f));
-    }
-
-    [Theory]
-    [InlineData(ETier.Bronze)] // Curio
-    [InlineData(ETier.Silver)] // Silvia
-    [InlineData(ETier.Gold)] // Goldie
-    [InlineData(ETier.Diamond)] // Luxe
-    public void Fixed_tier_merchants_do_not_use_the_daily_distribution(ETier tier)
-    {
-        var template = CreateMerchantTemplate(
-            new TSpawnBehaviorTier
-            {
-                Tiers = new HashSet<ETier> { tier },
-                IsNot = false,
-            },
-            new TSpawnBehaviorIgnoreTierTable { IgnoreTierTable = true }
-        );
-
-        var policy = EncounterMerchantTierResolver.Resolve(template);
-        var text = EncounterPreviewTextFormatter.BuildQualityLine(
-            GameDataDayTierTable.FromWeights(0.9f, 0.1f, 0f, 0f),
-            policy.FixedTier
-        );
-
-        Assert.Equal(tier, policy.FixedTier);
-        Assert.False(policy.UsesDayDistribution);
-        Assert.Contains($">{tier}</color>", text);
-        Assert.DoesNotContain("Item quality", text);
-        Assert.DoesNotContain("90%", text);
-    }
-
-    [Fact]
-    public void Curio_style_fixed_tier_does_not_require_ignore_tier_table_behavior()
-    {
-        var template = CreateMerchantTemplate(
-            new TSpawnBehaviorTier
-            {
-                Tiers = new HashSet<ETier> { ETier.Bronze },
-                IsNot = false,
-            }
-        );
-
-        var policy = EncounterMerchantTierResolver.Resolve(template);
-
-        Assert.Equal(ETier.Bronze, policy.FixedTier);
-        Assert.False(policy.UsesDayDistribution);
-    }
-
-    [Fact]
-    public void Downshift_merchants_still_show_the_raw_daily_weights()
-    {
-        var policy = EncounterMerchantTierResolver.Resolve(
-            CreateMerchantTemplate(new TSpawnBehaviorDownShiftTier())
-        );
-
-        Assert.Null(policy.FixedTier);
-        Assert.True(policy.UsesDayDistribution);
-    }
-
-    [Fact]
-    public void Ignore_tier_table_without_a_fixed_tier_suppresses_the_daily_line()
-    {
-        var policy = EncounterMerchantTierResolver.Resolve(
-            CreateMerchantTemplate(new TSpawnBehaviorIgnoreTierTable { IgnoreTierTable = true })
-        );
-
-        Assert.Null(policy.FixedTier);
-        Assert.False(policy.UsesDayDistribution);
     }
 
     [Theory]
@@ -255,24 +183,15 @@ public sealed class GameDataDayTierTableTests
         bool usesDayTierDistribution
     ) =>
         new(
-            ECardType.Item,
+            CardType.Item,
             quantity: 1,
             fromAnyHero: false,
-            Array.Empty<ECardSize>(),
-            new[] { ETier.Bronze, ETier.Silver, ETier.Gold, ETier.Diamond },
-            Array.Empty<ECardTag>(),
-            Array.Empty<EHiddenTag>(),
+            Array.Empty<CardSize>(),
+            new[] { CardTier.Bronze, CardTier.Silver, CardTier.Gold, CardTier.Diamond },
+            Array.Empty<CardTag>(),
+            Array.Empty<CardHiddenTag>(),
             "Item",
             usesDayTierTable: usesDayTierTable,
             usesDayTierDistribution: usesDayTierDistribution
         );
-
-    private static TCardEncounterEvent CreateMerchantTemplate(params ITSpawnBehavior[] behaviors) =>
-        new()
-        {
-            SelectionContext = new TSelectionContext
-            {
-                SpawnContext = new TSpawnContextQuery { Behaviors = behaviors.ToList() },
-            },
-        };
 }

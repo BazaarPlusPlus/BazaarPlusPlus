@@ -1,7 +1,7 @@
 using Xunit;
 using Disposition = BazaarPlusPlus.Game.EventPreview.EncounterEventDetailResolver.ChoicePresentation;
 
-namespace EncounterTooltip.Tests;
+namespace EventPreview.Tests;
 
 public class EncounterPresentationTests
 {

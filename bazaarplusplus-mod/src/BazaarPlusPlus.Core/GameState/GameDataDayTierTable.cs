@@ -1,17 +1,15 @@
 #nullable enable
-using BazaarGameShared.Domain.Core.Types;
 using BazaarPlusPlus.Core.Cards;
-using BazaarPlusPlus.GameInterop.Cards;
 
-namespace BazaarPlusPlus.GameInterop.DayTiers;
+namespace BazaarPlusPlus.Core.GameState;
 
-internal readonly record struct GameDataDayTierProbability(ETier Tier, double Percent);
+public readonly record struct GameDataDayTierProbability(CardTier Tier, double Percent);
 
-internal sealed class GameDataDayTierTable
+public sealed class GameDataDayTierTable
 {
     private GameDataDayTierTable(
         IReadOnlyList<GameDataDayTierProbability> entries,
-        ETier maximumTier
+        CardTier maximumTier
     )
     {
         Entries = entries;
@@ -20,7 +18,7 @@ internal sealed class GameDataDayTierTable
 
     public IReadOnlyList<GameDataDayTierProbability> Entries { get; }
 
-    public ETier MaximumTier { get; }
+    public CardTier MaximumTier { get; }
 
     public static GameDataDayTierTable? FromWeights(
         float bronze,
@@ -31,14 +29,14 @@ internal sealed class GameDataDayTierTable
     {
         var weights = new[]
         {
-            new TierWeight(ETier.Bronze, bronze),
-            new TierWeight(ETier.Silver, silver),
-            new TierWeight(ETier.Gold, gold),
-            new TierWeight(ETier.Diamond, diamond),
+            new TierWeight(CardTier.Bronze, bronze),
+            new TierWeight(CardTier.Silver, silver),
+            new TierWeight(CardTier.Gold, gold),
+            new TierWeight(CardTier.Diamond, diamond),
         };
 
         double total = 0;
-        ETier? maximumTier = null;
+        CardTier? maximumTier = null;
         foreach (var entry in weights)
         {
             if (!IsUsable(entry.Weight))
@@ -64,13 +62,5 @@ internal sealed class GameDataDayTierTable
     private static bool IsUsable(float weight) =>
         weight > 0 && !float.IsNaN(weight) && !float.IsInfinity(weight);
 
-    private readonly record struct TierWeight(ETier Tier, float Weight);
-}
-
-internal static class GameDataDayTierOrder
-{
-    public static int Rank(ETier tier) =>
-        DesktopCardFacets.Tier.TryToFacet(tier, out var facet)
-            ? CardFacetOrder.TierRank(facet)
-            : 99;
+    private readonly record struct TierWeight(CardTier Tier, float Weight);
 }

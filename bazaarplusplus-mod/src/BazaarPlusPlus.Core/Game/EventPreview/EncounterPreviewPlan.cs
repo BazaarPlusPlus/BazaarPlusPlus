@@ -1,15 +1,15 @@
 #nullable enable
 using System.Collections.ObjectModel;
-using BazaarGameShared.Domain.Core.Types;
+using BazaarPlusPlus.Core.Cards;
 
 namespace BazaarPlusPlus.Game.EventPreview;
 
-internal sealed class EncounterPreviewTemplatePlan
+public sealed class EncounterPreviewTemplatePlan
 {
     public EncounterPreviewTemplatePlan(
         Guid templateId,
         EncounterPreviewTemplateKind kind,
-        IReadOnlyCollection<EHero>? heroes,
+        IReadOnlyCollection<CardHero>? heroes,
         string? internalName,
         EncounterPreviewLocalizedText? title,
         EncounterPreviewLocalizedText? description,
@@ -31,7 +31,7 @@ internal sealed class EncounterPreviewTemplatePlan
 
     public EncounterPreviewTemplateKind Kind { get; }
 
-    public IReadOnlyList<EHero> Heroes { get; }
+    public IReadOnlyList<CardHero> Heroes { get; }
 
     public string InternalName { get; }
 
@@ -43,12 +43,12 @@ internal sealed class EncounterPreviewTemplatePlan
 
     public EncounterRewardFilter? RewardFilter { get; }
 
-    private static IReadOnlyList<EHero> CopyHeroes(IReadOnlyCollection<EHero>? heroes)
+    private static IReadOnlyList<CardHero> CopyHeroes(IReadOnlyCollection<CardHero>? heroes)
     {
         if (heroes == null || heroes.Count == 0)
-            return Array.Empty<EHero>();
+            return Array.Empty<CardHero>();
 
-        var result = new EHero[heroes.Count];
+        var result = new CardHero[heroes.Count];
         var index = 0;
         foreach (var hero in heroes)
             result[index++] = hero;
@@ -84,7 +84,7 @@ internal sealed class EncounterPreviewTemplatePlan
     }
 }
 
-internal sealed class EncounterPreviewEventPlan
+public sealed class EncounterPreviewEventPlan
 {
     public EncounterPreviewEventPlan(
         Guid templateId,
@@ -116,23 +116,23 @@ internal sealed class EncounterPreviewEventPlan
     public IReadOnlyList<EncounterChoiceGroupData> ChoiceGroups { get; }
 }
 
-internal sealed class LevelUpPreviewHeroCondition
+public sealed class LevelUpPreviewHeroCondition
 {
     public LevelUpPreviewHeroCondition(
-        IReadOnlyCollection<EHero>? heroes,
+        IReadOnlyCollection<CardHero>? heroes,
         string? comparisonOperator
     )
     {
-        Heroes = new List<EHero>(heroes ?? Array.Empty<EHero>()).AsReadOnly();
+        Heroes = new List<CardHero>(heroes ?? Array.Empty<CardHero>()).AsReadOnly();
         ComparisonOperator = comparisonOperator ?? string.Empty;
     }
 
-    public IReadOnlyList<EHero> Heroes { get; }
+    public IReadOnlyList<CardHero> Heroes { get; }
 
     public string ComparisonOperator { get; }
 }
 
-internal sealed class LevelUpPreviewGroup
+public sealed class LevelUpPreviewGroup
 {
     public LevelUpPreviewGroup(
         uint randomWeight,
@@ -158,7 +158,7 @@ internal sealed class LevelUpPreviewGroup
     public IReadOnlyList<LevelUpPreviewHeroCondition> HeroConditions { get; }
 }
 
-internal sealed class LevelUpPreviewPlan
+public sealed class LevelUpPreviewPlan
 {
     public LevelUpPreviewPlan(
         int level,
@@ -184,7 +184,7 @@ internal sealed class LevelUpPreviewPlan
     public IReadOnlyList<LevelUpPreviewGroup> Groups { get; }
 }
 
-internal sealed class EncounterPreviewSnapshot
+public sealed class EncounterPreviewSnapshot
 {
     private readonly Dictionary<Guid, EncounterPreviewEventPlan> _eventsById;
     private readonly Dictionary<int, LevelUpPreviewPlan> _levelUpsByLevel;
@@ -285,7 +285,7 @@ internal sealed class EncounterPreviewSnapshot
         _levelUpsByLevel.TryGetValue(level, out levelUpPlan!);
 }
 
-internal static class EncounterPreviewPlanCopies
+public static class EncounterPreviewPlanCopies
 {
     public static IReadOnlyList<EncounterOutcomeGroupData> CopyOutcomeGroups(
         IReadOnlyList<EncounterOutcomeGroupData>? groups

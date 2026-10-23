@@ -56,7 +56,7 @@ public class EncounterRequirementTests
         Assert.True(EncounterStructuredParser.TryParseEventOutcomeGroups(token, out var groups));
         var reward = Assert.Single(Assert.Single(groups).QueryPools).Filter;
         Assert.NotNull(reward);
-        Assert.Equal(new[] { BazaarGameShared.Domain.Core.Types.ETier.Gold }, reward.Tiers);
+        Assert.Equal(new[] { BazaarPlusPlus.Core.Cards.CardTier.Gold }, reward.Tiers);
         Assert.False(reward.UsesDayTierTable);
         Assert.False(reward.UsesDayTierDistribution);
     }

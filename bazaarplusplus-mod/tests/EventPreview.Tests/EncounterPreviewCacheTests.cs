@@ -1,9 +1,9 @@
-using BazaarGameShared.Domain.Core.Types;
+using BazaarPlusPlus.Core.Cards;
 using BazaarPlusPlus.TestSupport;
 using Newtonsoft.Json.Linq;
 using Xunit;
 
-namespace EncounterTooltip.Tests;
+namespace EventPreview.Tests;
 
 public sealed class EncounterPreviewCacheTests : IDisposable
 {
@@ -39,6 +39,59 @@ public sealed class EncounterPreviewCacheTests : IDisposable
         Assert.True(actual.TryGetLevelUp(2, out var levelUp));
         Assert.Equal(150, levelUp.HealthIncrease);
         Assert.Equal(3, actual.Coverage.UnsupportedLevelUpPartCount);
+    }
+
+    [Fact]
+    public void Card_facets_persist_by_member_name_and_an_integer_is_rejected()
+    {
+        var store = Store();
+        var identity = Identity(etag: "etag-a");
+        var filter = new EncounterRewardFilter(
+            CardType.Item,
+            quantity: 1,
+            fromAnyHero: false,
+            new[] { CardSize.Medium },
+            new[] { CardTier.Gold, CardTier.Diamond },
+            new[] { CardTag.Weapon },
+            new[] { CardHiddenTag.Burn },
+            "Medium Gold-Diamond Weapon Burn",
+            excludedTags: new[] { CardTag.Loot },
+            excludedKeywords: new[] { CardHiddenTag.Poison }
+        );
+        var template = new EncounterPreviewTemplatePlan(
+            StepId,
+            EncounterPreviewTemplateKind.EncounterStep,
+            new[] { CardHero.TheDragons },
+            "Test Step",
+            title: null,
+            description: null,
+            abilityValues: null,
+            filter
+        );
+        store.Save(identity, new EncounterPreviewSnapshot(events: null, new[] { template }));
+
+        var document = JObject.Parse(TestInputs.Scratch(store.CachePath));
+        var wire = Assert.Single(Assert.IsType<JArray>(document["templates"]));
+        Assert.Equal(new[] { "TheDragons" }, wire["heroes"]!.Values<string>());
+        var wireFilter = wire["rewardFilter"]!;
+        Assert.Equal("Item", (string?)wireFilter["cardType"]);
+        Assert.Equal(new[] { "Medium" }, wireFilter["sizes"]!.Values<string>());
+        Assert.Equal(new[] { "Gold", "Diamond" }, wireFilter["tiers"]!.Values<string>());
+        Assert.Equal(new[] { "Weapon" }, wireFilter["tags"]!.Values<string>());
+        Assert.Equal(new[] { "Burn" }, wireFilter["keywords"]!.Values<string>());
+        Assert.Equal(new[] { "Loot" }, wireFilter["excludedTags"]!.Values<string>());
+        Assert.Equal(new[] { "Poison" }, wireFilter["excludedKeywords"]!.Values<string>());
+
+        Assert.True(store.TryLoad(identity, out var loaded, out var missReason), missReason);
+        Assert.True(loaded!.TryGetTemplate(StepId, out var actual));
+        Assert.Equal(new[] { CardHero.TheDragons }, actual.Heroes);
+        Assert.Equal(filter.Tiers, actual.RewardFilter!.Tiers);
+        Assert.Equal(filter.ExcludedKeywords, actual.RewardFilter.ExcludedKeywords);
+
+        wireFilter["tiers"] = new JArray("2");
+        File.WriteAllText(store.CachePath, document.ToString());
+        Assert.False(store.TryLoad(identity, out _, out var integerReason));
+        Assert.Equal("invalid-json", integerReason);
     }
 
     [Fact]
@@ -121,7 +174,7 @@ public sealed class EncounterPreviewCacheTests : IDisposable
         var eventTemplate = new EncounterPreviewTemplatePlan(
             EventId,
             EncounterPreviewTemplateKind.Event,
-            Array.Empty<EHero>(),
+            Array.Empty<CardHero>(),
             "Test Event",
             new EncounterPreviewLocalizedText("event-title", "Test Event"),
             new EncounterPreviewLocalizedText("event-description", "Pick one"),
@@ -131,19 +184,19 @@ public sealed class EncounterPreviewCacheTests : IDisposable
         var stepTemplate = new EncounterPreviewTemplatePlan(
             StepId,
             EncounterPreviewTemplateKind.EncounterStep,
-            new[] { EHero.Jules },
+            new[] { CardHero.Jules },
             "Test Step",
             new EncounterPreviewLocalizedText("step-title", "Test Step"),
             new EncounterPreviewLocalizedText("step-description", "Take the reward"),
             new Dictionary<string, EncounterPreviewAbilityValue>(),
             rewardFilter: new EncounterRewardFilter(
-                ECardType.Item,
+                CardType.Item,
                 quantity: 1,
                 fromAnyHero: true,
-                Array.Empty<ECardSize>(),
-                Array.Empty<ETier>(),
-                Array.Empty<ECardTag>(),
-                Array.Empty<EHiddenTag>(),
+                Array.Empty<CardSize>(),
+                Array.Empty<CardTier>(),
+                Array.Empty<CardTag>(),
+                Array.Empty<CardHiddenTag>(),
                 "Item",
                 usesDayTierTable: false,
                 usesDayTierDistribution: true
@@ -183,7 +236,10 @@ public sealed class EncounterPreviewCacheTests : IDisposable
                             randomWeight: 0,
                             limit: 1,
                             new[] { StepId },
-                            new[] { new LevelUpPreviewHeroCondition(new[] { EHero.Jules }, "Any") }
+                            new[]
+                            {
+                                new LevelUpPreviewHeroCondition(new[] { CardHero.Jules }, "Any"),
+                            }
                         ),
                     }
                 ),

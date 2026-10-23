@@ -1,7 +1,7 @@
-using BazaarGameShared.Domain.Core.Types;
+using BazaarPlusPlus.Core.Cards;
 using Xunit;
 
-namespace EncounterTooltip.Tests;
+namespace EventPreview.Tests;
 
 public sealed class EncounterPreviewEvaluatorTests
 {
@@ -31,7 +31,7 @@ public sealed class EncounterPreviewEvaluatorTests
         var wrongHero = EncounterEventDetailResolver.TryResolve(
             plan,
             snapshot,
-            EHero.Vanessa,
+            CardHero.Vanessa,
             Inventory(RequiredItemId),
             currentDay: 3
         );
@@ -41,7 +41,7 @@ public sealed class EncounterPreviewEvaluatorTests
         var wrongDay = EncounterEventDetailResolver.TryResolve(
             plan,
             snapshot,
-            EHero.Jules,
+            CardHero.Jules,
             Inventory(RequiredItemId),
             currentDay: 2
         );
@@ -51,7 +51,7 @@ public sealed class EncounterPreviewEvaluatorTests
         var missingItem = EncounterEventDetailResolver.TryResolve(
             plan,
             snapshot,
-            EHero.Jules,
+            CardHero.Jules,
             Inventory(),
             currentDay: 3
         );
@@ -61,7 +61,7 @@ public sealed class EncounterPreviewEvaluatorTests
         var eligible = EncounterEventDetailResolver.TryResolve(
             plan,
             snapshot,
-            EHero.Jules,
+            CardHero.Jules,
             Inventory(RequiredItemId),
             currentDay: 3
         );
@@ -84,14 +84,14 @@ public sealed class EncounterPreviewEvaluatorTests
         var root = Template(
             EventId,
             EncounterPreviewTemplateKind.Event,
-            Array.Empty<EHero>(),
+            Array.Empty<CardHero>(),
             "Event",
             "Event result"
         );
         var rewardA = Template(
             StepId,
             EncounterPreviewTemplateKind.EncounterStep,
-            new[] { EHero.Common },
+            new[] { CardHero.Common },
             "A",
             "Gain A"
         );
@@ -99,7 +99,7 @@ public sealed class EncounterPreviewEvaluatorTests
         var rewardB = Template(
             rewardBId,
             EncounterPreviewTemplateKind.EncounterStep,
-            new[] { EHero.Common },
+            new[] { CardHero.Common },
             "B",
             "Gain B"
         );
@@ -135,7 +135,7 @@ public sealed class EncounterPreviewEvaluatorTests
         var withoutItem = EncounterEventDetailResolver.TryResolve(
             plan,
             snapshot,
-            EHero.Jules,
+            CardHero.Jules,
             Inventory(),
             currentDay: 1
         );
@@ -146,7 +146,7 @@ public sealed class EncounterPreviewEvaluatorTests
         var withItem = EncounterEventDetailResolver.TryResolve(
             plan,
             snapshot,
-            EHero.Jules,
+            CardHero.Jules,
             Inventory(RequiredItemId),
             currentDay: 1
         );
@@ -160,14 +160,14 @@ public sealed class EncounterPreviewEvaluatorTests
         var root = Template(
             EventId,
             EncounterPreviewTemplateKind.Event,
-            Array.Empty<EHero>(),
+            Array.Empty<CardHero>(),
             "Event",
             "Pick one"
         );
         var step = Template(
             StepId,
             EncounterPreviewTemplateKind.EncounterStep,
-            new[] { EHero.Jules },
+            new[] { CardHero.Jules },
             "Jules Step",
             "Take it"
         );
@@ -185,7 +185,7 @@ public sealed class EncounterPreviewEvaluatorTests
     private static EncounterPreviewTemplatePlan Template(
         Guid id,
         EncounterPreviewTemplateKind kind,
-        IReadOnlyList<EHero> heroes,
+        IReadOnlyList<CardHero> heroes,
         string title,
         string description
     ) =>

@@ -1,5 +1,5 @@
 #nullable enable
-using BazaarGameShared.Domain.Core.Types;
+using BazaarPlusPlus.Core.Cards;
 
 namespace BazaarPlusPlus.Game.EventPreview;
 
@@ -9,7 +9,7 @@ namespace BazaarPlusPlus.Game.EventPreview;
 // they collapse into one "One of: A / B" sentence instead of one line each; random
 // pools become a count summary. Board-conditional bonus groups (e.g. "Inspired by ..."
 // skills gated on specific board cards) are omitted.
-internal static class LevelUpPreviewTextFormatter
+public static class LevelUpPreviewTextFormatter
 {
     private const string AccentColor = "#FFD37E";
 
@@ -22,7 +22,7 @@ internal static class LevelUpPreviewTextFormatter
     public static string Build(
         LevelUpPreviewPlan? levelUp,
         Func<Guid, EncounterPreviewTemplatePlan?> resolveTemplate,
-        EHero? currentHero,
+        CardHero? currentHero,
         Func<string, string>? colorizeResult = null,
         int? currentLevel = null,
         LiveAbilityValueResolver? resolveLiveValue = null
@@ -140,7 +140,7 @@ internal static class LevelUpPreviewTextFormatter
         List<TooltipMarkup.ListItem> candidates,
         LevelUpPreviewGroup group,
         Func<Guid, EncounterPreviewTemplatePlan?> resolveTemplate,
-        EHero? currentHero,
+        CardHero? currentHero,
         Func<string, string> colorize,
         LiveAbilityValueResolver? resolveLiveValue
     )
@@ -169,7 +169,7 @@ internal static class LevelUpPreviewTextFormatter
         List<Guid> ids,
         int limit,
         Func<Guid, EncounterPreviewTemplatePlan?> resolveTemplate,
-        EHero? currentHero,
+        CardHero? currentHero,
         Func<string, string> colorize,
         LiveAbilityValueResolver? resolveLiveValue
     )
@@ -280,7 +280,7 @@ internal static class LevelUpPreviewTextFormatter
     // Only hero conditions are evaluated; groups gated on board state ("Inspired by"
     // bonus skills) are omitted, and unknown run conditions — including an unknown
     // current hero — keep the group visible rather than silently dropping rewards.
-    private static bool PassesPrerequisites(LevelUpPreviewGroup group, EHero? currentHero)
+    private static bool PassesPrerequisites(LevelUpPreviewGroup group, CardHero? currentHero)
     {
         foreach (var condition in group.HeroConditions)
             if (!PassesHeroCondition(condition, currentHero))
@@ -291,7 +291,7 @@ internal static class LevelUpPreviewTextFormatter
 
     private static bool PassesHeroCondition(
         LevelUpPreviewHeroCondition condition,
-        EHero? currentHero
+        CardHero? currentHero
     )
     {
         // Hero detection failed: keep hero-gated groups visible (consistent with

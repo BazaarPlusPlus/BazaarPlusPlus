@@ -1,6 +1,6 @@
 using Xunit;
 
-namespace EncounterTooltip.Tests;
+namespace EventPreview.Tests;
 
 public class EncounterOutcomeMergeTests
 {

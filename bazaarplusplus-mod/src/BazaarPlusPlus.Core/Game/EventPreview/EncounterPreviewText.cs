@@ -1,12 +1,12 @@
 #nullable enable
 using System.Globalization;
 using System.Text;
-using BazaarGameShared.Domain.Core.Types;
+using BazaarPlusPlus.Core.Cards;
 using BazaarPlusPlus.Localization;
 
 namespace BazaarPlusPlus.Game.EventPreview;
 
-internal static class EncounterPreviewText
+public static class EncounterPreviewText
 {
     private static readonly LocalizedTextSet TierDistributionSuffix = new(
         "({0})",
@@ -70,51 +70,51 @@ internal static class EncounterPreviewText
         "+ {0} 個攤位格子"
     );
 
-    internal static string EncounterTierDistributionSuffix(string distribution) =>
+    public static string EncounterTierDistributionSuffix(string distribution) =>
         string.Format(CultureInfo.CurrentCulture, Resolve(TierDistributionSuffix), distribution);
 
-    internal static string LevelUpMaxHealth(int amount) =>
+    public static string LevelUpMaxHealth(int amount) =>
         string.Format(CultureInfo.CurrentCulture, Resolve(MaxHealth), amount);
 
-    internal static string LevelUpRandomPool(int count, int optionCount) =>
+    public static string LevelUpRandomPool(int count, int optionCount) =>
         string.Format(CultureInfo.CurrentCulture, Resolve(RandomPool), count, optionCount);
 
-    internal static string LevelUpRandomPoolSingle(int optionCount) =>
+    public static string LevelUpRandomPoolSingle(int optionCount) =>
         string.Format(CultureInfo.CurrentCulture, Resolve(RandomPoolSingle), optionCount);
 
-    internal static string LevelUpOneOf() => Resolve(OneOf);
+    public static string LevelUpOneOf() => Resolve(OneOf);
 
-    internal static string OutcomesHeader() => Resolve(Outcomes);
+    public static string OutcomesHeader() => Resolve(Outcomes);
 
-    internal static string OutcomeCombatPool(int count) =>
+    public static string OutcomeCombatPool(int count) =>
         string.Format(CultureInfo.CurrentCulture, Resolve(CombatPool), count);
 
-    internal static string OutcomeRandomItem() => Resolve(RandomItem);
+    public static string OutcomeRandomItem() => Resolve(RandomItem);
 
-    internal static string OutcomeRandomSkill() => Resolve(RandomSkill);
+    public static string OutcomeRandomSkill() => Resolve(RandomSkill);
 
-    internal static string OutcomeRandomReward() => Resolve(RandomReward);
+    public static string OutcomeRandomReward() => Resolve(RandomReward);
 
-    internal static string OutcomeSubPool(int count) =>
+    public static string OutcomeSubPool(int count) =>
         string.Format(CultureInfo.CurrentCulture, Resolve(SubPool), count);
 
-    internal static string OutcomeGainSkill(string skillName) =>
+    public static string OutcomeGainSkill(string skillName) =>
         string.Format(CultureInfo.CurrentCulture, Resolve(GainSkill), skillName);
 
-    internal static string LevelUpBoardSlots(int count) =>
+    public static string LevelUpBoardSlots(int count) =>
         string.Format(CultureInfo.CurrentCulture, Resolve(BoardSlots), count);
 
-    internal static string JoinTooltipLabel(string label, string detail) =>
+    public static string JoinTooltipLabel(string label, string detail) =>
         LanguageCodeMatcher.IsChinese(L.CurrentLanguageCode)
             ? $"{label}：{detail}"
             : $"{label}: {detail}";
 
-    internal static string JoinColoredTooltipLabel(string label, string detail, string color) =>
+    public static string JoinColoredTooltipLabel(string label, string detail, string color) =>
         LanguageCodeMatcher.IsChinese(L.CurrentLanguageCode)
             ? $"<color={color}>{label}：</color>{detail}"
             : $"<color={color}>{label}:</color> {detail}";
 
-    internal static string NormalizeRewardSpacing(string text)
+    public static string NormalizeRewardSpacing(string text)
     {
         if (string.IsNullOrEmpty(text))
             return text;
@@ -129,7 +129,7 @@ internal static class EncounterPreviewText
         return builder.ToString();
     }
 
-    internal static string Tier(ETier tier)
+    public static string Tier(CardTier tier)
     {
         var (english, chineseMainland, chineseTraditional) = TierForms(tier);
         return chineseMainland.Length == 0
@@ -137,27 +137,27 @@ internal static class EncounterPreviewText
             : L.Resolve(new LocalizedTextSet(english, chineseMainland, chineseTraditional));
     }
 
-    internal static (string English, string ChineseMainland, string ChineseTraditional) TierForms(
-        ETier tier
+    public static (string English, string ChineseMainland, string ChineseTraditional) TierForms(
+        CardTier tier
     ) =>
         tier switch
         {
-            ETier.Bronze => ("Bronze", "青铜", "青銅"),
-            ETier.Silver => ("Silver", "白银", "白銀"),
-            ETier.Gold => ("Gold", "黄金", "黃金"),
-            ETier.Diamond => ("Diamond", "钻石", "鑽石"),
-            ETier.Legendary => ("Legendary", "传说", "傳說"),
+            CardTier.Bronze => ("Bronze", "青铜", "青銅"),
+            CardTier.Silver => ("Silver", "白银", "白銀"),
+            CardTier.Gold => ("Gold", "黄金", "黃金"),
+            CardTier.Diamond => ("Diamond", "钻石", "鑽石"),
+            CardTier.Legendary => ("Legendary", "传说", "傳說"),
             _ => (tier.ToString(), string.Empty, string.Empty),
         };
 
-    internal static string TierColorHex(ETier tier) =>
+    public static string TierColorHex(CardTier tier) =>
         tier switch
         {
-            ETier.Bronze => "B46241",
-            ETier.Silver => "C0C0C0",
-            ETier.Gold => "FFD700",
-            ETier.Diamond => "00FFFF",
-            ETier.Legendary => "FF4500",
+            CardTier.Bronze => "B46241",
+            CardTier.Silver => "C0C0C0",
+            CardTier.Gold => "FFD700",
+            CardTier.Diamond => "00FFFF",
+            CardTier.Legendary => "FF4500",
             _ => "FFFFFF",
         };
 

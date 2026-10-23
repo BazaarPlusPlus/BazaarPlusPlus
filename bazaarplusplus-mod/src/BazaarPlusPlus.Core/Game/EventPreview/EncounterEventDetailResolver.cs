@@ -1,14 +1,14 @@
 #nullable enable
-using BazaarGameShared.Domain.Core.Types;
+using BazaarPlusPlus.Core.Cards;
 
 namespace BazaarPlusPlus.Game.EventPreview;
 
-internal static class EncounterEventDetailResolver
+public static class EncounterEventDetailResolver
 {
     public static EncounterOption? TryResolve(
         EncounterPreviewEventPlan? eventPlan,
         EncounterPreviewSnapshot snapshot,
-        EHero? currentHero,
+        CardHero? currentHero,
         EncounterInventory? inventory = null,
         int? currentDay = null,
         LiveAbilityValueResolver? resolveLiveValue = null
@@ -64,7 +64,7 @@ internal static class EncounterEventDetailResolver
     private static IReadOnlyList<EncounterOutcomeView>? ResolveOutcomeGroups(
         EncounterPreviewEventPlan eventPlan,
         EncounterPreviewSnapshot snapshot,
-        EHero? currentHero,
+        CardHero? currentHero,
         EncounterInventory? inventory,
         int? currentDay,
         LiveAbilityValueResolver? resolveLiveValue
@@ -164,7 +164,7 @@ internal static class EncounterEventDetailResolver
     // multi-offer events) rather than picking one outcome. When such an event has no
     // real alternatives to explain — a single view, or nothing but nameless random
     // pools — the breakdown is stock composition noise, not outcome odds.
-    internal static bool ShouldSuppressOutcomeViews(
+    public static bool ShouldSuppressOutcomeViews(
         IReadOnlyList<EncounterOutcomeView> views,
         int spawnLimit
     )
@@ -189,8 +189,8 @@ internal static class EncounterEventDetailResolver
     {
         var baseText = pool.Filter?.CardType switch
         {
-            ECardType.Skill => EncounterPreviewText.OutcomeRandomSkill(),
-            ECardType.Item => EncounterPreviewText.OutcomeRandomItem(),
+            CardType.Skill => EncounterPreviewText.OutcomeRandomSkill(),
+            CardType.Item => EncounterPreviewText.OutcomeRandomItem(),
             _ => EncounterPreviewText.OutcomeRandomReward(),
         };
         var quantity = pool.Quantity ?? pool.Filter?.Quantity;
@@ -223,7 +223,7 @@ internal static class EncounterEventDetailResolver
         }
     }
 
-    internal readonly struct OutcomeGroupResolution
+    public readonly struct OutcomeGroupResolution
     {
         public OutcomeGroupResolution(
             uint weight,
@@ -249,7 +249,7 @@ internal static class EncounterEventDetailResolver
 
     // Same-shaped outcome groups are merged after current-locale text resolution so
     // locale changes never require rebuilding the static plan.
-    internal static List<EncounterOutcomeView> BuildOutcomeViews(
+    public static List<EncounterOutcomeView> BuildOutcomeViews(
         List<OutcomeGroupResolution> resolutions,
         uint totalWeight
     )
@@ -412,7 +412,7 @@ internal static class EncounterEventDetailResolver
     private static IReadOnlyList<EncounterChoiceDetail> ResolveChoiceDetails(
         EncounterPreviewEventPlan eventPlan,
         EncounterPreviewSnapshot snapshot,
-        EHero? currentHero,
+        CardHero? currentHero,
         EncounterInventory? inventory,
         int? currentDay,
         LiveAbilityValueResolver? resolveLiveValue
@@ -503,14 +503,14 @@ internal static class EncounterEventDetailResolver
         return presented;
     }
 
-    internal enum ChoicePresentation
+    public enum ChoicePresentation
     {
         Hidden = 0,
         Presented,
         Dimmed,
     }
 
-    internal static ChoicePresentation[] ResolvePresentation(
+    public static ChoicePresentation[] ResolvePresentation(
         IReadOnlyList<(string Title, bool MeetsPrerequisites)> candidates,
         int limit
     )
@@ -546,7 +546,7 @@ internal static class EncounterEventDetailResolver
     private static EncounterChoiceDetail? ResolveChoicePool(
         EncounterChoiceGroupData group,
         EncounterPreviewSnapshot snapshot,
-        EHero? currentHero,
+        CardHero? currentHero,
         EncounterInventory? inventory,
         string eventDescription,
         LiveAbilityValueResolver? resolveLiveValue
@@ -666,7 +666,10 @@ internal static class EncounterEventDetailResolver
         );
     }
 
-    private static string StripHeroConditionPrefix(string text, IReadOnlyCollection<EHero> heroes)
+    private static string StripHeroConditionPrefix(
+        string text,
+        IReadOnlyCollection<CardHero> heroes
+    )
     {
         if (string.IsNullOrEmpty(text) || !IsHeroRestricted(heroes))
             return text;
@@ -692,12 +695,12 @@ internal static class EncounterEventDetailResolver
         return remainder.Length == 0 ? text : remainder;
     }
 
-    private static bool IsHeroRestricted(IReadOnlyCollection<EHero> heroes)
+    private static bool IsHeroRestricted(IReadOnlyCollection<CardHero> heroes)
     {
         if (heroes.Count == 0)
             return false;
         foreach (var hero in heroes)
-            if (hero == EHero.Common)
+            if (hero == CardHero.Common)
                 return false;
         return true;
     }

@@ -1,21 +1,21 @@
 #nullable enable
-using BazaarGameShared.Domain.Core.Types;
+using BazaarPlusPlus.Core.Cards;
 
 namespace BazaarPlusPlus.Game.EventPreview;
 
-internal sealed class EncounterRewardFilter
+public sealed class EncounterRewardFilter
 {
     public EncounterRewardFilter(
-        ECardType cardType,
+        CardType cardType,
         int? quantity,
         bool fromAnyHero,
-        IReadOnlyList<ECardSize> sizes,
-        IReadOnlyList<ETier> tiers,
-        IReadOnlyList<ECardTag> tags,
-        IReadOnlyList<EHiddenTag> keywords,
+        IReadOnlyList<CardSize> sizes,
+        IReadOnlyList<CardTier> tiers,
+        IReadOnlyList<CardTag> tags,
+        IReadOnlyList<CardHiddenTag> keywords,
         string filterSummary,
-        IReadOnlyList<ECardTag>? excludedTags = null,
-        IReadOnlyList<EHiddenTag>? excludedKeywords = null,
+        IReadOnlyList<CardTag>? excludedTags = null,
+        IReadOnlyList<CardHiddenTag>? excludedKeywords = null,
         bool usesDayTierTable = true,
         bool? usesDayTierDistribution = null
     )
@@ -23,36 +23,36 @@ internal sealed class EncounterRewardFilter
         CardType = cardType;
         Quantity = quantity;
         FromAnyHero = fromAnyHero;
-        Sizes = sizes ?? Array.Empty<ECardSize>();
-        Tiers = tiers ?? Array.Empty<ETier>();
-        Tags = tags ?? Array.Empty<ECardTag>();
-        Keywords = keywords ?? Array.Empty<EHiddenTag>();
+        Sizes = sizes ?? Array.Empty<CardSize>();
+        Tiers = tiers ?? Array.Empty<CardTier>();
+        Tags = tags ?? Array.Empty<CardTag>();
+        Keywords = keywords ?? Array.Empty<CardHiddenTag>();
         FilterSummary = filterSummary ?? string.Empty;
-        ExcludedTags = excludedTags ?? Array.Empty<ECardTag>();
-        ExcludedKeywords = excludedKeywords ?? Array.Empty<EHiddenTag>();
+        ExcludedTags = excludedTags ?? Array.Empty<CardTag>();
+        ExcludedKeywords = excludedKeywords ?? Array.Empty<CardHiddenTag>();
         UsesDayTierTable = usesDayTierTable;
         UsesDayTierDistribution = usesDayTierDistribution ?? usesDayTierTable;
     }
 
-    public ECardType CardType { get; }
+    public CardType CardType { get; }
 
     public int? Quantity { get; }
 
     public bool FromAnyHero { get; }
 
-    public IReadOnlyList<ECardSize> Sizes { get; }
+    public IReadOnlyList<CardSize> Sizes { get; }
 
-    public IReadOnlyList<ETier> Tiers { get; }
+    public IReadOnlyList<CardTier> Tiers { get; }
 
-    public IReadOnlyList<ECardTag> Tags { get; }
+    public IReadOnlyList<CardTag> Tags { get; }
 
-    public IReadOnlyList<EHiddenTag> Keywords { get; }
+    public IReadOnlyList<CardHiddenTag> Keywords { get; }
 
     public string FilterSummary { get; }
 
-    public IReadOnlyList<ECardTag> ExcludedTags { get; }
+    public IReadOnlyList<CardTag> ExcludedTags { get; }
 
-    public IReadOnlyList<EHiddenTag> ExcludedKeywords { get; }
+    public IReadOnlyList<CardHiddenTag> ExcludedKeywords { get; }
 
     public bool UsesDayTierTable { get; }
 

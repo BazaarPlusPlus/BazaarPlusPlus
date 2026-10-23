@@ -1,9 +1,9 @@
-using BazaarGameShared.Domain.Core.Types;
-using BazaarPlusPlus.GameInterop.DayTiers;
+using BazaarPlusPlus.Core.Cards;
+using BazaarPlusPlus.Core.GameState;
 using BazaarPlusPlus.Localization;
 using Xunit;
 
-namespace EncounterTooltip.Tests;
+namespace EventPreview.Tests;
 
 public sealed class EncounterPreviewTextFormatterTests
 {
@@ -64,7 +64,7 @@ public sealed class EncounterPreviewTextFormatterTests
                 Guid.Parse("10000000-0000-0000-0000-000000000003"),
                 "Share It With a Friend",
                 "Get a Small Silver-tier Friend",
-                CreateRewardFilter(tiers: new[] { ETier.Silver }, summary: "Small Silver Friend")
+                CreateRewardFilter(tiers: new[] { CardTier.Silver }, summary: "Small Silver Friend")
             )
         );
 
@@ -92,13 +92,13 @@ public sealed class EncounterPreviewTextFormatterTests
                 Guid.Parse("10000000-0000-0000-0000-000000000005"),
                 "Open It",
                 "Get a Medium item",
-                CreateRewardFilter(tiers: Array.Empty<ETier>(), summary: "Medium Item")
+                CreateRewardFilter(tiers: Array.Empty<CardTier>(), summary: "Medium Item")
             ),
             new EncounterChoiceDetail(
                 Guid.Parse("10000000-0000-0000-0000-000000000006"),
                 "Hunt for Reagents",
                 "Get a Silver-tier Reagent",
-                CreateRewardFilter(tiers: new[] { ETier.Silver }, summary: "Silver Reagent")
+                CreateRewardFilter(tiers: new[] { CardTier.Silver }, summary: "Silver Reagent")
             ),
             new EncounterChoiceDetail(
                 Guid.Parse("10000000-0000-0000-0000-000000000007"),
@@ -141,7 +141,7 @@ public sealed class EncounterPreviewTextFormatterTests
                 Guid.Parse("10000000-0000-0000-0000-000000000005"),
                 "打开它",
                 "获得一件中型物品",
-                CreateRewardFilter(tiers: Array.Empty<ETier>(), summary: "Medium Item")
+                CreateRewardFilter(tiers: Array.Empty<CardTier>(), summary: "Medium Item")
             )
         );
 
@@ -162,7 +162,7 @@ public sealed class EncounterPreviewTextFormatterTests
                 Guid.Parse("10000000-0000-0000-0000-000000000005"),
                 "Have a Late Night Treat",
                 "Get 2 Diamond-tier Food",
-                CreateRewardFilter(tiers: Array.Empty<ETier>(), summary: "Food")
+                CreateRewardFilter(tiers: Array.Empty<CardTier>(), summary: "Food")
             )
         );
 
@@ -185,7 +185,7 @@ public sealed class EncounterPreviewTextFormatterTests
                 Guid.Parse("10000000-0000-0000-0000-000000000005"),
                 "深夜点心",
                 "获得2个钻石级食物",
-                CreateRewardFilter(tiers: Array.Empty<ETier>(), summary: "Food")
+                CreateRewardFilter(tiers: Array.Empty<CardTier>(), summary: "Food")
             )
         );
 
@@ -218,7 +218,7 @@ public sealed class EncounterPreviewTextFormatterTests
                 Guid.Parse("10000000-0000-0000-0000-000000000005"),
                 "深夜点心",
                 resultText,
-                CreateRewardFilter(tiers: Array.Empty<ETier>(), summary: "Food")
+                CreateRewardFilter(tiers: Array.Empty<CardTier>(), summary: "Food")
             )
         );
 
@@ -241,7 +241,7 @@ public sealed class EncounterPreviewTextFormatterTests
                 "Fight the Beast",
                 "Get a Rage item",
                 CreateRewardFilter(
-                    tiers: Array.Empty<ETier>(),
+                    tiers: Array.Empty<CardTier>(),
                     summary: "Rage Item",
                     usesDayTierTable: false
                 )
@@ -269,7 +269,13 @@ public sealed class EncounterPreviewTextFormatterTests
                 "Trade It for Something",
                 "Get a Medium item",
                 CreateRewardFilter(
-                    tiers: new[] { ETier.Bronze, ETier.Silver, ETier.Gold, ETier.Diamond },
+                    tiers: new[]
+                    {
+                        CardTier.Bronze,
+                        CardTier.Silver,
+                        CardTier.Gold,
+                        CardTier.Diamond,
+                    },
                     summary: "Medium Bronze-Diamond Item"
                 )
             )
@@ -403,21 +409,21 @@ public sealed class EncounterPreviewTextFormatterTests
     }
 
     private static EncounterRewardFilter CreateRewardFilter(
-        ETier[] tiers,
+        CardTier[] tiers,
         string summary,
         bool usesDayTierTable = true
     ) =>
         new(
-            ECardType.Item,
+            CardType.Item,
             quantity: 1,
             fromAnyHero: false,
-            Array.Empty<ECardSize>(),
+            Array.Empty<CardSize>(),
             tiers,
-            Array.Empty<ECardTag>(),
-            Array.Empty<EHiddenTag>(),
+            Array.Empty<CardTag>(),
+            Array.Empty<CardHiddenTag>(),
             summary,
-            Array.Empty<ECardTag>(),
-            Array.Empty<EHiddenTag>(),
+            Array.Empty<CardTag>(),
+            Array.Empty<CardHiddenTag>(),
             usesDayTierTable
         );
 

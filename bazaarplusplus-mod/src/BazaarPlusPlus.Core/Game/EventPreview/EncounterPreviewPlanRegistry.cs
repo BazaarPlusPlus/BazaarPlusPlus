@@ -1,7 +1,7 @@
 #nullable enable
 namespace BazaarPlusPlus.Game.EventPreview;
 
-internal sealed class EncounterPreviewPlanRegistry
+public sealed class EncounterPreviewPlanRegistry
 {
     private readonly object _gate = new();
     private object? _generationSource;
