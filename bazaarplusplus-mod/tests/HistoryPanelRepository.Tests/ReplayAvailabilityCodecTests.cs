@@ -40,7 +40,12 @@ internal static class ReplayAvailabilityCodecTests
 
         var repository = new HistoryPanelRepository(path);
         var rows = repository
-            .ListGhostBattles("account-local", GhostBattleFilter.All, false, new())
+            .ListGhostBattles(
+                "account-local",
+                HistoryPanelDataService.RecorderOutcome(GhostBattleFilter.All),
+                false,
+                new()
+            )
             .Rows.ToDictionary(row => row.BattleId);
         Check(rows.Count == expected.Count, "Every inserted Ghost row must be listed.");
         foreach (var (id, availability) in expected)

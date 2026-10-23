@@ -11,7 +11,6 @@ using BazaarPlusPlus.Game.HistoryPanel.Storage;
 using BazaarPlusPlus.Game.PvpBattles;
 using BazaarPlusPlus.ModApi.Bundle;
 using BazaarPlusPlus.ModApi.Clients;
-using BazaarPlusPlus.ModApi.Models;
 using Microsoft.Data.Sqlite;
 
 await GhostBundleImportTests.RunAsync();
@@ -25,6 +24,7 @@ LegacyPayloadNormalizesOnceAndIsIdempotent();
 UnknownProjectionAndCountsStayUnknown();
 HistoryGhostRecoveryTests.Run();
 GhostDownloadSelectionTests.Run();
+PayloadFacetNameTests.Run();
 
 Console.WriteLine("Ghost battle sync tests passed.");
 
@@ -228,7 +228,9 @@ static async Task ExpiredUrlRefreshesOnceAndBecomesTerminal()
     var localId = fixture
         .Repository.ListGhostBattles(
             "account-local",
-            BazaarPlusPlus.Game.HistoryPanel.GhostBattleFilter.All,
+            HistoryPanelDataService.RecorderOutcome(
+                BazaarPlusPlus.Game.HistoryPanel.GhostBattleFilter.All
+            ),
             false,
             new()
         )
@@ -287,7 +289,9 @@ static async Task CorruptBundleBecomesPermanentWithoutRepeatedDownload()
     var localId = fixture
         .Repository.ListGhostBattles(
             "account-local",
-            BazaarPlusPlus.Game.HistoryPanel.GhostBattleFilter.All,
+            HistoryPanelDataService.RecorderOutcome(
+                BazaarPlusPlus.Game.HistoryPanel.GhostBattleFilter.All
+            ),
             false,
             new()
         )
@@ -366,12 +370,21 @@ static void RecorderPerspectiveManifestKeepsSides()
     var manifest = GhostManifestProjection.BuildRecorderPerspectiveManifest(
         reference,
         "run-1",
-        battle
+        battle,
+        FakePvpBattleEvidence.Instance
     );
 
     Assert(
         manifest.Snapshots.PlayerHand.Items.Single().TemplateId == "A",
         "Recorder player_hand must remain on the manifest player side."
+    );
+    var placed = manifest.Snapshots.PlayerSkills.Items.Single();
+    Assert(
+        placed.Type == BazaarPlusPlus.Core.Cards.CardType.Item
+            && placed.Size == null
+            && placed.Section == null
+            && placed.Socket == null,
+        "A Bundle card of size 0 reads as a card without a size; a type no facet names drops."
     );
     Assert(
         manifest.Snapshots.OpponentHand.Items.Single().TemplateId == "B",
@@ -459,13 +472,23 @@ static void LegacyPayloadNormalizesOnceAndIsIdempotent()
     );
 }
 
+// Each set also carries a card whose type no facet names, which the manifest drops.
 static BattleCardSetV6 SnapshotSet(string label, string templateId) =>
     new()
     {
         Label = label,
         Status = "Captured",
         Source = "Runtime",
-        Items = [new BattleCardV6 { InstanceId = templateId, TemplateId = templateId }],
+        Items =
+        [
+            new BattleCardV6 { InstanceId = templateId, TemplateId = templateId },
+            new BattleCardV6
+            {
+                InstanceId = templateId + "-unnamed",
+                TemplateId = templateId,
+                Type = 99,
+            },
+        ],
     };
 
 static PvpBattleCardSetCapture Capture(string templateId) =>
@@ -491,7 +514,9 @@ static void UnknownProjectionAndCountsStayUnknown()
     var local = fixture
         .Repository.ListGhostBattles(
             "account-local",
-            BazaarPlusPlus.Game.HistoryPanel.GhostBattleFilter.All,
+            HistoryPanelDataService.RecorderOutcome(
+                BazaarPlusPlus.Game.HistoryPanel.GhostBattleFilter.All
+            ),
             false,
             new()
         )
@@ -502,7 +527,7 @@ static void UnknownProjectionAndCountsStayUnknown()
     );
 }
 
-static GhostBattleImportRecord CreateImport(
+static GhostBattleImportRow CreateImport(
     string battleId,
     string bundleId,
     string url,
@@ -629,7 +654,13 @@ internal sealed class GhostFixture : IDisposable
         Repository = new HistoryPanelRepository(Path.Combine(Root, "runs.sqlite3"));
         Handler = new RecordingHandler(respond);
         _session = TestModApiSessionFactory.Create(Handler);
-        Service = new GhostBattleSyncService(Repository, _session, () => "account-local");
+        Service = new GhostBattleSyncService(
+            Repository,
+            _session,
+            () => "account-local",
+            FakePvpBattleEvidence.Instance,
+            templateId => templateId != Guid.Empty
+        );
     }
 
     public string Root { get; }

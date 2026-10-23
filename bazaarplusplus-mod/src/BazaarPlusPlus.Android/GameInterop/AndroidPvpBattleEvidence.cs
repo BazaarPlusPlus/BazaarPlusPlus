@@ -25,6 +25,24 @@ internal sealed class AndroidPvpBattleEvidence : IPvpBattleEvidenceBinding
             _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null),
         };
 
+    public bool TryCardEnumName(PvpCardEnum kind, int value, out string name)
+    {
+        name =
+            kind switch
+            {
+                PvpCardEnum.CardType => Name<ECardType>(value),
+                PvpCardEnum.CardSize => Name<ECardSize>(value),
+                PvpCardEnum.InventorySection => Name<EInventorySection>(value),
+                PvpCardEnum.ContainerSocket => Name<EContainerSocketId>(value),
+                _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null),
+            } ?? string.Empty;
+        return name.Length > 0;
+    }
+
+    private static string? Name<TEnum>(int value)
+        where TEnum : struct, Enum =>
+        Enum.GetName(typeof(TEnum), Enum.ToObject(typeof(TEnum), value));
+
     public void VerifyReplay(PvpReplayPayload payload)
     {
         ArgumentNullException.ThrowIfNull(payload);

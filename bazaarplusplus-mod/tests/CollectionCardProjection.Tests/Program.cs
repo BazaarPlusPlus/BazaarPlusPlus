@@ -27,6 +27,8 @@ foreach (
         (nameof(ECardTag), DesktopCardFacets.Tag.UnmappedSourceNames),
         (nameof(EHiddenTag), DesktopCardFacets.HiddenTag.UnmappedSourceNames),
         (nameof(EEnchantmentType), DesktopCardFacets.Enchantment.UnmappedSourceNames),
+        (nameof(EInventorySection), DesktopCardFacets.Section.UnmappedSourceNames),
+        (nameof(EContainerSocketId), DesktopCardFacets.Socket.UnmappedSourceNames),
     }
 )
     AssertTrue(

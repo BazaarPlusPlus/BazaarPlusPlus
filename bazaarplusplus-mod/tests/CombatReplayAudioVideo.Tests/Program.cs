@@ -1601,8 +1601,10 @@ file static class TestReflection
             throw new InvalidOperationException(message);
     }
 
+    // The replay video types live in the host; the playback source enum in Core.
     public static Type RequireType(string fullName) =>
         Type.GetType($"{fullName}, BazaarPlusPlus")
+        ?? Type.GetType($"{fullName}, BazaarPlusPlus.Core")
         ?? throw new InvalidOperationException($"Type not found: {fullName}");
 
     public static object? GetProp(Type type, object instance, string name)

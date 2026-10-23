@@ -11,7 +11,6 @@ using System.Runtime.CompilerServices;
 [assembly: InternalsVisibleTo("BundlePipeline.Tests")]
 [assembly: InternalsVisibleTo("CombatReplayRecording.Tests")]
 [assembly: InternalsVisibleTo("PostCombatImpact.Tests")]
-[assembly: InternalsVisibleTo("GhostBattleSync.Tests")]
-[assembly: InternalsVisibleTo("HistoryPanelRepository.Tests")]
+[assembly: InternalsVisibleTo("ReplayPayloadMaintenance.Tests")]
 [assembly: InternalsVisibleTo("SupporterCatalogModule.Tests")]
 [assembly: InternalsVisibleTo("RuntimeIntegration.Tests")]

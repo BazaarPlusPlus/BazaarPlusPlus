@@ -1,14 +1,19 @@
 #nullable enable
 using System.Collections;
 using System.Reflection;
+using BazaarPlusPlus.Game.BundlePipeline;
+using BazaarPlusPlus.Game.HistoryPanel;
+using BazaarPlusPlus.Game.HistoryPanel.AccountLink;
+using BazaarPlusPlus.Game.HistoryPanel.Storage;
+using BazaarPlusPlus.Game.PvpBattles;
 using BazaarPlusPlus.Storage.RunLog;
 using Microsoft.Data.Sqlite;
 
 using var uiContext = new TestUiContext();
 SynchronizationContext.SetSynchronizationContext(uiContext);
 
-var modAssembly = Assembly.Load("BazaarPlusPlus");
 var coreAssembly = Assembly.Load("BazaarPlusPlus.Core");
+var storageAssembly = Assembly.Load("BazaarPlusPlus.Storage");
 var stateType = RequireType("BazaarPlusPlus.Game.HistoryPanel.HistoryPanelState");
 var runRecordType = RequireType("BazaarPlusPlus.Game.HistoryPanel.Data.HistoryRunRecord");
 var battleRecordType = RequireType("BazaarPlusPlus.Game.HistoryPanel.Data.HistoryBattleRecord");
@@ -20,7 +25,6 @@ var ghostFilterType = RequireType("BazaarPlusPlus.Game.HistoryPanel.GhostBattleF
 var heroPresentationType = RequireType(
     "BazaarPlusPlus.Game.HistoryPanel.HistoryPanelHeroPresentation"
 );
-var heroNamesType = RequireType("BazaarPlusPlus.Game.HistoryPanel.HistoryPanelHeroNames");
 var coordinatorType = RequireType("BazaarPlusPlus.Game.HistoryPanel.HistoryPanelCoordinator");
 var dependenciesType = RequireType("BazaarPlusPlus.Game.HistoryPanel.HistoryPanelDependencies");
 var dataServiceType = RequireType(
@@ -29,7 +33,7 @@ var dataServiceType = RequireType(
 var cursorType = RequireType("BazaarPlusPlus.Game.HistoryPanel.Storage.HistoryCursor");
 
 TestRunHeroRosterAddsOneCanonicalTheDragonsAfterTheExistingSeven();
-TestRunHeroPresentationTreatsAliasesAsSelectedAndDisplaysCanonicalName();
+TestRunHeroPresentationTreatsAliasesAsSelected();
 TestCoordinatorCanonicalizesAliasFilterState();
 TestStateSelectedRunUsesFilteredRunList();
 TestPageReplacementUpdatesSelection();
@@ -79,7 +83,7 @@ void TestRunHeroRosterAddsOneCanonicalTheDragonsAfterTheExistingSeven()
     );
 }
 
-void TestRunHeroPresentationTreatsAliasesAsSelectedAndDisplaysCanonicalName()
+void TestRunHeroPresentationTreatsAliasesAsSelected()
 {
     Assert(
         (bool)InvokeStatic(heroPresentationType, "IsSelected", "Hero8", "TheDragons")!,
@@ -89,14 +93,6 @@ void TestRunHeroPresentationTreatsAliasesAsSelectedAndDisplaysCanonicalName()
         (bool)InvokeStatic(heroPresentationType, "IsSelected", "TheDragons", "Hero8")!,
         "Alias-selected state should be symmetric."
     );
-    Assert(
-        (string)InvokeStatic(heroNamesType, "DisplayName", "Hero8")! == "The Dragons",
-        "Legacy history should display the canonical native The Dragons name."
-    );
-    Assert(
-        (string)InvokeStatic(heroNamesType, "DisplayName", "TheDragons")! == "The Dragons",
-        "Canonical history should display the native The Dragons name."
-    );
 }
 
 void TestCoordinatorCanonicalizesAliasFilterState()
@@ -105,7 +101,7 @@ void TestCoordinatorCanonicalizesAliasFilterState()
         Activator.CreateInstance(stateType)
         ?? throw new InvalidOperationException("HistoryPanelState should construct.");
     var dataService = Construct(dataServiceType, null, null);
-    var dependencies = Construct(dependenciesType, null, dataService, null, null, null, null);
+    var dependencies = Dependencies(dataService);
     var coordinator =
         Activator.CreateInstance(
             coordinatorType,
@@ -186,7 +182,7 @@ void TestCoordinatorRunSelectionUsesFilteredSpace()
     stateType.GetProperty("SelectedRunHero")!.SetValue(state, "Vanessa");
 
     var dataService = Construct(dataServiceType, null, null);
-    var dependencies = Construct(dependenciesType, null, dataService, null, null, null, null);
+    var dependencies = Dependencies(dataService);
     var coordinator =
         Activator.CreateInstance(
             coordinatorType,
@@ -246,7 +242,7 @@ void TestReplayReturnPreservesSelectionAndFilters()
         databasePath
     );
     var dataService = Construct(dataServiceType, repository, null);
-    var dependencies = Construct(dependenciesType, null, dataService, null, null, null, null);
+    var dependencies = Dependencies(dataService);
     var previewRequests = 0;
     using var coordinator = (IDisposable)
         Activator.CreateInstance(
@@ -258,20 +254,7 @@ void TestReplayReturnPreservesSelectionAndFilters()
             (Action<bool>)(_ => { })
         )!;
 
-    // This capsule has no Unity PlayerPrefs; exercise the panel as a signed-out client.
-    var bridge = RequireType("BazaarPlusPlus.GameInterop.BppClientCacheBridge");
-    var cacheType = bridge.GetField(
-        "_clientCacheType",
-        BindingFlags.NonPublic | BindingFlags.Static
-    )!;
-    var resolved = bridge.GetField(
-        "_clientCacheTypeResolved",
-        BindingFlags.NonPublic | BindingFlags.Static
-    )!;
-    var previousType = cacheType.GetValue(null);
-    var previousResolved = resolved.GetValue(null);
-    cacheType.SetValue(null, null);
-    resolved.SetValue(null, true);
+    // The dependencies' profile reads no account: exercise the panel as a signed-out client.
     try
     {
         Invoke(coordinatorType, coordinator, "OnPanelHidden");
@@ -336,8 +319,6 @@ void TestReplayReturnPreservesSelectionAndFilters()
     finally
     {
         DisposeAndDrainReads(coordinator);
-        cacheType.SetValue(null, previousType);
-        resolved.SetValue(null, previousResolved);
         db.Close();
         SqliteConnection.ClearAllPools();
         File.Delete(databasePath);
@@ -597,24 +578,18 @@ void WithProfileCapsule(
                 syncAttempts++;
                 return holdSync ? "sync-account" : null;
             }
-        )
+        ),
+        UnusedPvpBattleEvidence.Instance,
+        (Func<Guid, bool>)(_ => true)
     );
     var dataService = Construct(dataServiceType, repository, syncService);
-    var dependencies = Construct(dependenciesType, null, dataService, null, null, null, null);
-    // No Unity PlayerPrefs here: keep the BazaarDB link hints in memory.
+    // The profile account is the settable fake; the BazaarDB link hints stay in memory.
     var linkHints = new HashSet<string>();
-    dependenciesType
-        .GetProperty("AccountLinkStore")!
-        .SetValue(
-            dependencies,
-            Construct(
-                RequireType(
-                    "BazaarPlusPlus.Game.HistoryPanel.AccountLink.BazaarDbAccountLinkStore"
-                ),
-                (Func<string, bool>)linkHints.Contains,
-                (Action<string>)(key => linkHints.Add(key))
-            )
-        );
+    var dependencies = Dependencies(
+        dataService,
+        () => FakeClientCache.Profile.Value?.AccountId,
+        new BazaarDbAccountLinkStore(linkHints.Contains, key => linkHints.Add(key))
+    );
     var state = Activator.CreateInstance(stateType)!;
     stateType
         .GetProperty("SectionMode")!
@@ -632,20 +607,7 @@ void WithProfileCapsule(
             (Action<bool>)(_ => { })
         )!;
 
-    var bridge = RequireType("BazaarPlusPlus.GameInterop.BppClientCacheBridge");
-    var cacheType = bridge.GetField(
-        "_clientCacheType",
-        BindingFlags.NonPublic | BindingFlags.Static
-    )!;
-    var resolved = bridge.GetField(
-        "_clientCacheTypeResolved",
-        BindingFlags.NonPublic | BindingFlags.Static
-    )!;
-    var previousType = cacheType.GetValue(null);
-    var previousResolved = resolved.GetValue(null);
     FakeClientCache.SetAccountId(null);
-    cacheType.SetValue(null, typeof(FakeClientCache));
-    resolved.SetValue(null, true);
     try
     {
         body(state, coordinator, () => syncAttempts);
@@ -654,8 +616,6 @@ void WithProfileCapsule(
     {
         DisposeAndDrainReads(coordinator);
         api.Dispose();
-        cacheType.SetValue(null, previousType);
-        resolved.SetValue(null, previousResolved);
         SqliteConnection.ClearAllPools();
         File.Delete(databasePath);
     }
@@ -871,11 +831,30 @@ string? GetNullableString(object instance, string propertyName)
     return (string?)property.GetValue(instance);
 }
 
-// History's host-free half lives in Core; the coordinator and storage stay in the host.
+// History's services live in Core and its SQL, records and pages in Storage.
 Type RequireType(string fullName) =>
-    modAssembly.GetType(fullName)
-    ?? coreAssembly.GetType(fullName)
+    coreAssembly.GetType(fullName)
+    ?? storageAssembly.GetType(fullName)
     ?? throw new InvalidOperationException($"{fullName} should exist.");
+
+// The coordinator's dependencies with the host ports a test supplies: the profile account (none
+// by default), a clock, and in-memory BazaarDB link hints.
+object Dependencies(
+    object dataService,
+    Func<string?>? profileAccountId = null,
+    BazaarDbAccountLinkStore? accountLinkStore = null
+) =>
+    new HistoryPanelDependencies(
+        null!,
+        (HistoryPanelDataService)dataService,
+        null!,
+        null,
+        null,
+        null,
+        accountLinkStore ?? new BazaarDbAccountLinkStore(_ => false, _ => { }),
+        () => 0f,
+        profileAccountId ?? (() => null)
+    );
 
 object Construct(Type type, params object?[] args)
 {
@@ -892,7 +871,7 @@ void Assert(bool condition, string message)
         throw new InvalidOperationException(message);
 }
 
-// Stands in for TheBazaar.ClientCache: BppClientCacheBridge reads Profile.Value.AccountId.
+// Stands in for the game's client-cache profile the host's account port reads.
 internal static class FakeClientCache
 {
     public static FakeObservable Profile { get; } = new();
@@ -938,4 +917,19 @@ internal sealed class HoldingHandler : HttpMessageHandler
         });
         return pending.Task;
     }
+}
+
+// The Ghost sync service's game-typed reads; these tests never download a replay.
+internal sealed class UnusedPvpBattleEvidence : IPvpBattleEvidenceBinding
+{
+    public static UnusedPvpBattleEvidence Instance { get; } = new();
+
+    public int CardEnumValue(PvpCardEnum kind, string name) =>
+        throw new InvalidOperationException("History filtering tests read no card enums.");
+
+    public bool TryCardEnumName(PvpCardEnum kind, int value, out string name) =>
+        throw new InvalidOperationException("History filtering tests read no card enums.");
+
+    public void VerifyReplay(PvpReplayPayload payload) =>
+        throw new InvalidOperationException("History filtering tests verify no replay.");
 }

@@ -1,0 +1,118 @@
+#nullable enable
+using BazaarPlusPlus.Game.HistoryPanel.Data;
+
+namespace BazaarPlusPlus.Game.HistoryPanel;
+
+public static class GhostBattleLocalProjector
+{
+    public static HistoryBattleRecord CreateHistoryBattleRecord(
+        string battleId,
+        DateTimeOffset recordedAtUtc,
+        int? day,
+        int? hour,
+        string? encounterId,
+        string? rawPlayerName,
+        string? rawPlayerAccountId,
+        string? rawPlayerHero,
+        string? rawPlayerRank,
+        int? rawPlayerRating,
+        int? rawPlayerLevel,
+        int? rawPlayerPrestige,
+        int? rawPlayerVictories,
+        string? rawOpponentHero,
+        string? rawOpponentRank,
+        int? rawOpponentRating,
+        int? rawOpponentLevel,
+        int? rawOpponentPrestige,
+        int? rawOpponentVictories,
+        string? combatKind,
+        string? rawResult,
+        string? rawWinnerCombatantId,
+        string? rawLoserCombatantId,
+        HistoryBattleSnapshotCounts rawSnapshotCounts,
+        bool isFinalBattle,
+        ReplayAvailability replay
+    )
+    {
+        return new HistoryBattleRecord(
+            battleId,
+            string.Empty,
+            recordedAtUtc,
+            day,
+            hour,
+            encounterId,
+            rawOpponentHero,
+            rawOpponentRank,
+            rawOpponentRating,
+            rawOpponentLevel,
+            rawOpponentPrestige,
+            rawOpponentVictories,
+            rawPlayerName,
+            rawPlayerHero,
+            rawPlayerRank,
+            rawPlayerRating,
+            rawPlayerLevel,
+            rawPlayerPrestige,
+            rawPlayerVictories,
+            rawPlayerAccountId,
+            combatKind,
+            ProjectResultToLocal(rawResult),
+            ProjectCombatantIdToLocal(rawWinnerCombatantId),
+            ProjectCombatantIdToLocal(rawLoserCombatantId),
+            ProjectSnapshotCountsToLocal(rawSnapshotCounts),
+            isFinalBattle,
+            source: HistoryBattleSource.Ghost,
+            replay
+        );
+    }
+
+    private static HistoryBattleSnapshotCounts ProjectSnapshotCountsToLocal(
+        HistoryBattleSnapshotCounts rawCounts
+    )
+    {
+        return new HistoryBattleSnapshotCounts(
+            rawCounts.OpponentHandItemCount,
+            rawCounts.OpponentSkillCount,
+            rawCounts.PlayerHandItemCount,
+            rawCounts.PlayerSkillCount,
+            rawCounts.Known
+        );
+    }
+
+    public static string? ProjectResultToLocal(string? rawResult)
+    {
+        if (string.IsNullOrWhiteSpace(rawResult))
+            return rawResult;
+
+        var trimmed = rawResult.Trim();
+        if (string.Equals(trimmed, "unknown", StringComparison.OrdinalIgnoreCase))
+            return null;
+
+        if (
+            string.Equals(trimmed, "Win", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(trimmed, "Won", StringComparison.OrdinalIgnoreCase)
+        )
+            return "Lost";
+
+        if (
+            string.Equals(trimmed, "Loss", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(trimmed, "Lost", StringComparison.OrdinalIgnoreCase)
+        )
+            return "Won";
+
+        return trimmed;
+    }
+
+    public static string? ProjectCombatantIdToLocal(string? rawCombatantId)
+    {
+        if (string.IsNullOrWhiteSpace(rawCombatantId))
+            return rawCombatantId;
+
+        return rawCombatantId.Trim().ToLowerInvariant() switch
+        {
+            "player" => "Opponent",
+            "opponent" => "Player",
+            _ => rawCombatantId,
+        };
+    }
+}

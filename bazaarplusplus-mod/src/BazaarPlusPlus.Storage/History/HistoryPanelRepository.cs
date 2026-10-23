@@ -1,0 +1,583 @@
+#nullable enable
+using BazaarPlusPlus.Game.HistoryPanel.Data;
+using BazaarPlusPlus.Game.PvpBattles.Persistence;
+using BazaarPlusPlus.Storage.RunLog;
+using Microsoft.Data.Sqlite;
+
+namespace BazaarPlusPlus.Game.HistoryPanel.Storage;
+
+public sealed partial class HistoryPanelRepository
+{
+    private static readonly TimeSpan GhostRetentionWindow = TimeSpan.FromDays(5);
+
+    private readonly string _databasePath;
+
+    // Write paths may run on thread-pool continuations (ghost sync); the ensure
+    // work is idempotent, so a duplicate first-time run is harmless.
+    private volatile bool _schemaEnsured;
+
+    public HistoryPanelRepository(string databasePath)
+    {
+        if (string.IsNullOrWhiteSpace(databasePath))
+            throw new ArgumentException("Database path is required.", nameof(databasePath));
+
+        _databasePath = databasePath;
+    }
+
+    public bool DatabaseExists => File.Exists(_databasePath);
+
+    // heroKey is the canonical, lower-case hero key (HistoryPageQuery.Runs); null lists every Run.
+    public HistoryCountedPage<HistoryRunRecord> ListRuns(
+        HistoryPageRequest request,
+        string? heroKey = null
+    ) =>
+        ReadCountedPage(
+            HistoryPageQuery.Runs(heroKey),
+            HistoryRunColumns.Select,
+            request,
+            HistoryPanelRowMapper.ReadRun
+        );
+
+    public HistoryCursorPage<HistoryBattleRecord> ListBattles(
+        string runId,
+        HistoryPageRequest request
+    ) =>
+        ReadCursorPage(
+            HistoryPageQuery.LocalBattles(runId),
+            "*",
+            request,
+            reader =>
+                HistoryPanelRowMapper.ReadLocalBattle(
+                    reader,
+                    reader.GetString(reader.GetOrdinal("battle_id"))
+                )
+        );
+
+    public HistoryCountedPage<HistoryBattleRecord> ListGhostBattles(
+        string accountId,
+        int? recorderOutcome,
+        bool dayMin10,
+        HistoryPageRequest request
+    ) =>
+        string.IsNullOrWhiteSpace(accountId)
+            ? HistoryCountedPage<HistoryBattleRecord>.Empty()
+            : ReadCountedPage(
+                HistoryPageQuery.Ghosts(accountId, recorderOutcome, dayMin10),
+                "*",
+                request,
+                HistoryPanelRowMapper.ReadGhostBattle
+            );
+
+    // The battle's four board-capture documents, or null when it has no snapshot row.
+    public PvpBattleSnapshotDocuments? LoadSnapshots(string runId, string battleId)
+    {
+        if (!DatabaseExists)
+            return null;
+        using var connection = OpenConnection(ensureSchema: true);
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT s.* FROM battle_snapshots s JOIN battles b ON b.battle_id = s.battle_id
+            WHERE b.source = 'LOCAL' AND b.run_id = $run AND b.battle_id = $battle;
+            """;
+        command.Parameters.AddWithValue("$run", runId);
+        command.Parameters.AddWithValue("$battle", battleId);
+        using var reader = command.ExecuteReader();
+        if (!reader.Read())
+            return null;
+        return new PvpBattleSnapshotDocuments
+        {
+            PlayerHand = reader.GetString(reader.GetOrdinal("player_hand_json")),
+            PlayerSkills = reader.GetString(reader.GetOrdinal("player_skills_json")),
+            OpponentHand = reader.GetString(reader.GetOrdinal("opponent_hand_json")),
+            OpponentSkills = reader.GetString(reader.GetOrdinal("opponent_skills_json")),
+        };
+    }
+
+    public void UpsertGhostBattles(
+        string localPlayerAccountId,
+        IReadOnlyList<GhostBattleImportRow> battles
+    )
+    {
+        if (string.IsNullOrWhiteSpace(localPlayerAccountId))
+            throw new ArgumentException(
+                "Local player account id is required.",
+                nameof(localPlayerAccountId)
+            );
+
+        using var connection = OpenConnection(ensureSchema: true);
+        using var transaction = connection.BeginTransaction();
+
+        foreach (var battle in battles)
+        {
+            using var insertCommand = connection.CreateCommand();
+            insertCommand.Transaction = transaction;
+            insertCommand.CommandTimeout = 2;
+            insertCommand.CommandText = $"""
+                INSERT INTO {RunLogSchema.BattlesTableName} (
+                    battle_id,
+                    remote_battle_id,
+                    uploader_account_id,
+                    source,
+                    run_id,
+                    local_player_account_id,
+                    recorded_at_ms,
+                    day,
+                    hour,
+                    encounter_id,
+                    player_name,
+                    player_account_id,
+                    player_hero,
+                    player_rank,
+                    player_rating,
+                    player_level,
+                    player_prestige,
+                    player_victories,
+                    opponent_name,
+                    opponent_hero,
+                    opponent_rank,
+                    opponent_rating,
+                    opponent_level,
+                    opponent_prestige,
+                    opponent_victories,
+                    opponent_account_id,
+                    combat_kind,
+                    result,
+                    winner_combatant_id,
+                    loser_combatant_id,
+                    is_final_battle,
+                    bundle_id,
+                    download_url,
+                    download_url_expires_at_ms,
+                    ghost_replay_state
+                ) VALUES (
+                    $localBattleId,
+                    $remoteBattleId,
+                    $uploaderAccountId,
+                    'GHOST',
+                    NULL,
+                    $localPlayerAccountId,
+                    $recordedAtMs,
+                    $day,
+                    $hour,
+                    $encounterId,
+                    $playerName,
+                    $playerAccountId,
+                    $playerHero,
+                    $playerRank,
+                    $playerRating,
+                    $playerLevel,
+                    $playerPrestige,
+                    $playerVictories,
+                    $opponentName,
+                    $opponentHero,
+                    $opponentRank,
+                    $opponentRating,
+                    $opponentLevel,
+                    $opponentPrestige,
+                    $opponentVictories,
+                    $opponentAccountId,
+                    $combatKind,
+                    $result,
+                    $winnerCombatantId,
+                    $loserCombatantId,
+                    $isFinalBattle,
+                    $bundleId,
+                    $downloadUrl,
+                    $downloadUrlExpiresAtMs,
+                    'remote_available'
+                )
+                ON CONFLICT(battle_id) DO UPDATE SET
+                    source = 'GHOST',
+                    run_id = NULL,
+                    remote_battle_id = excluded.remote_battle_id,
+                    uploader_account_id = excluded.uploader_account_id,
+                    local_player_account_id = excluded.local_player_account_id,
+                    recorded_at_ms = excluded.recorded_at_ms,
+                    day = excluded.day,
+                    hour = excluded.hour,
+                    encounter_id = excluded.encounter_id,
+                    player_name = excluded.player_name,
+                    player_account_id = excluded.player_account_id,
+                    player_hero = excluded.player_hero,
+                    player_rank = excluded.player_rank,
+                    player_rating = excluded.player_rating,
+                    player_level = excluded.player_level,
+                    player_prestige = excluded.player_prestige,
+                    player_victories = excluded.player_victories,
+                    opponent_name = excluded.opponent_name,
+                    opponent_hero = excluded.opponent_hero,
+                    opponent_rank = excluded.opponent_rank,
+                    opponent_rating = excluded.opponent_rating,
+                    opponent_level = excluded.opponent_level,
+                    opponent_prestige = excluded.opponent_prestige,
+                    opponent_victories = excluded.opponent_victories,
+                    opponent_account_id = excluded.opponent_account_id,
+                    combat_kind = excluded.combat_kind,
+                    result = excluded.result,
+                    winner_combatant_id = excluded.winner_combatant_id,
+                    loser_combatant_id = excluded.loser_combatant_id,
+                    is_final_battle = excluded.is_final_battle,
+                    bundle_id = excluded.bundle_id,
+                    download_url = excluded.download_url,
+                    download_url_expires_at_ms = excluded.download_url_expires_at_ms,
+                    ghost_replay_state = CASE
+                        WHEN {RunLogSchema.BattlesTableName}.ghost_replay_state = 'local_ready'
+                            THEN 'local_ready'
+                        WHEN {RunLogSchema.BattlesTableName}.ghost_replay_state = 'unavailable_payload'
+                            AND COALESCE({RunLogSchema.BattlesTableName}.ghost_replay_unavailable_reason, '') <> 'ghost_bundle_invalid'
+                            THEN 'unavailable_payload'
+                        ELSE 'remote_available'
+                    END,
+                    ghost_replay_unavailable_reason = CASE
+                        WHEN {RunLogSchema.BattlesTableName}.ghost_replay_state = 'unavailable_payload'
+                            AND {RunLogSchema.BattlesTableName}.ghost_replay_unavailable_reason = 'ghost_bundle_invalid'
+                            THEN NULL
+                        ELSE {RunLogSchema.BattlesTableName}.ghost_replay_unavailable_reason
+                    END,
+                    deleted_at_ms = NULL;
+                """;
+            var localBattleId = BuildGhostLocalBattleId(
+                battle.PlayerAccountId ?? string.Empty,
+                battle.BattleId
+            );
+            insertCommand.Parameters.AddWithValue("$localBattleId", localBattleId);
+            insertCommand.Parameters.AddWithValue("$remoteBattleId", battle.BattleId);
+            insertCommand.Parameters.AddWithValue(
+                "$uploaderAccountId",
+                battle.PlayerAccountId ?? string.Empty
+            );
+            insertCommand.Parameters.AddWithValue("$localPlayerAccountId", localPlayerAccountId);
+            insertCommand.Parameters.AddWithValue(
+                "$recordedAtMs",
+                battle.RecordedAtUtc.ToUnixTimeMilliseconds()
+            );
+            insertCommand.Parameters.AddWithValue("$day", (object?)battle.Day ?? DBNull.Value);
+            insertCommand.Parameters.AddWithValue("$hour", (object?)battle.Hour ?? DBNull.Value);
+            insertCommand.Parameters.AddWithValue(
+                "$encounterId",
+                (object?)battle.EncounterId ?? DBNull.Value
+            );
+            insertCommand.Parameters.AddWithValue(
+                "$playerName",
+                (object?)battle.PlayerName ?? DBNull.Value
+            );
+            insertCommand.Parameters.AddWithValue(
+                "$playerAccountId",
+                (object?)battle.PlayerAccountId ?? DBNull.Value
+            );
+            insertCommand.Parameters.AddWithValue(
+                "$playerHero",
+                (object?)battle.PlayerHero ?? DBNull.Value
+            );
+            insertCommand.Parameters.AddWithValue(
+                "$playerRank",
+                (object?)battle.PlayerRank ?? DBNull.Value
+            );
+            insertCommand.Parameters.AddWithValue(
+                "$playerRating",
+                (object?)battle.PlayerRating ?? DBNull.Value
+            );
+            insertCommand.Parameters.AddWithValue(
+                "$playerLevel",
+                (object?)battle.PlayerLevel ?? DBNull.Value
+            );
+            insertCommand.Parameters.AddWithValue(
+                "$playerPrestige",
+                (object?)battle.PlayerPrestige ?? DBNull.Value
+            );
+            insertCommand.Parameters.AddWithValue(
+                "$playerVictories",
+                (object?)battle.PlayerVictories ?? DBNull.Value
+            );
+            insertCommand.Parameters.AddWithValue(
+                "$opponentName",
+                (object?)battle.OpponentName ?? DBNull.Value
+            );
+            insertCommand.Parameters.AddWithValue(
+                "$opponentHero",
+                (object?)battle.OpponentHero ?? DBNull.Value
+            );
+            insertCommand.Parameters.AddWithValue(
+                "$opponentRank",
+                (object?)battle.OpponentRank ?? DBNull.Value
+            );
+            insertCommand.Parameters.AddWithValue(
+                "$opponentRating",
+                (object?)battle.OpponentRating ?? DBNull.Value
+            );
+            insertCommand.Parameters.AddWithValue(
+                "$opponentLevel",
+                (object?)battle.OpponentLevel ?? DBNull.Value
+            );
+            insertCommand.Parameters.AddWithValue(
+                "$opponentPrestige",
+                (object?)battle.OpponentPrestige ?? DBNull.Value
+            );
+            insertCommand.Parameters.AddWithValue(
+                "$opponentVictories",
+                (object?)battle.OpponentVictories ?? DBNull.Value
+            );
+            insertCommand.Parameters.AddWithValue(
+                "$opponentAccountId",
+                (object?)battle.OpponentAccountId ?? DBNull.Value
+            );
+            insertCommand.Parameters.AddWithValue("$combatKind", battle.CombatKind);
+            insertCommand.Parameters.AddWithValue(
+                "$result",
+                (object?)battle.Result ?? DBNull.Value
+            );
+            insertCommand.Parameters.AddWithValue(
+                "$winnerCombatantId",
+                (object?)battle.WinnerCombatantId ?? DBNull.Value
+            );
+            insertCommand.Parameters.AddWithValue(
+                "$loserCombatantId",
+                (object?)battle.LoserCombatantId ?? DBNull.Value
+            );
+            insertCommand.Parameters.AddWithValue("$isFinalBattle", battle.IsFinalBattle ? 1 : 0);
+            insertCommand.Parameters.AddWithValue("$bundleId", battle.BundleId);
+            insertCommand.Parameters.AddWithValue("$downloadUrl", battle.DownloadUrl);
+            insertCommand.Parameters.AddWithValue(
+                "$downloadUrlExpiresAtMs",
+                battle.DownloadExpiresAtUtc.ToUnixTimeMilliseconds()
+            );
+            insertCommand.ExecuteNonQuery();
+        }
+
+        transaction.Commit();
+    }
+
+    // Returns the rows this call hid; rows hidden earlier are not counted again.
+    public int MarkOldUndownloadedGhostBattlesDeleted(DateTimeOffset nowUtc)
+    {
+        using var connection = OpenConnection(ensureSchema: true);
+        using var command = connection.CreateCommand();
+        command.CommandTimeout = 2;
+        command.CommandText = $"""
+            UPDATE {RunLogSchema.BattlesTableName}
+            SET deleted_at_ms = COALESCE(deleted_at_ms, $deletedAtMs),
+                ghost_replay_state = CASE
+                    WHEN ghost_replay_state = 'local_ready' THEN ghost_replay_state
+                    ELSE 'expired'
+                END
+            WHERE source = 'GHOST'
+              AND deleted_at_ms IS NULL
+              AND (ghost_replay_state IS NULL OR ghost_replay_state <> 'local_ready')
+              AND recorded_at_ms < $staleCutoffMs;
+            """;
+        command.Parameters.AddWithValue("$deletedAtMs", nowUtc.ToUnixTimeMilliseconds());
+        command.Parameters.AddWithValue(
+            "$staleCutoffMs",
+            nowUtc.Subtract(GhostRetentionWindow).ToUnixTimeMilliseconds()
+        );
+        return command.ExecuteNonQuery();
+    }
+
+    public void MarkGhostReplayDownloaded(string battleId) =>
+        MarkGhostReplayDownloaded(battleId, rawSnapshotCounts: null);
+
+    public void MarkGhostReplayDownloaded(
+        string battleId,
+        HistoryBattleSnapshotCounts? rawSnapshotCounts
+    )
+    {
+        if (string.IsNullOrWhiteSpace(battleId))
+            return;
+
+        using var connection = OpenConnection(ensureSchema: true);
+        using var command = connection.CreateCommand();
+        command.CommandTimeout = 2;
+        var hasCounts = rawSnapshotCounts?.HasAnyRecordedCard == true;
+        command.CommandText = hasCounts
+            ? $"""
+                UPDATE {RunLogSchema.BattlesTableName}
+                SET ghost_replay_state = 'local_ready',
+                    ghost_replay_unavailable_reason = NULL,
+                    player_hand_item_count = $playerHandItemCount,
+                    player_skill_count = $playerSkillCount,
+                    opponent_hand_item_count = $opponentHandItemCount,
+                    opponent_skill_count = $opponentSkillCount
+                WHERE source = 'GHOST'
+                  AND battle_id = $battleId;
+                """
+            : $"""
+                UPDATE {RunLogSchema.BattlesTableName}
+                SET ghost_replay_state = 'local_ready',
+                    ghost_replay_unavailable_reason = NULL
+                WHERE source = 'GHOST'
+                  AND battle_id = $battleId;
+                """;
+        command.Parameters.AddWithValue("$battleId", battleId);
+        if (hasCounts)
+        {
+            var counts = rawSnapshotCounts.GetValueOrDefault();
+            command.Parameters.AddWithValue("$playerHandItemCount", counts.PlayerHandItemCount);
+            command.Parameters.AddWithValue("$playerSkillCount", counts.PlayerSkillCount);
+            command.Parameters.AddWithValue("$opponentHandItemCount", counts.OpponentHandItemCount);
+            command.Parameters.AddWithValue("$opponentSkillCount", counts.OpponentSkillCount);
+        }
+        command.ExecuteNonQuery();
+    }
+
+    public GhostBundleReference? TryGetGhostBundleReference(string localBattleId)
+    {
+        if (string.IsNullOrWhiteSpace(localBattleId))
+            return null;
+
+        using var connection = OpenConnection(ensureSchema: true);
+        using var command = connection.CreateCommand();
+        command.CommandTimeout = 2;
+        command.CommandText = $"""
+            SELECT battle_id, remote_battle_id, uploader_account_id, bundle_id,
+                   download_url, download_url_expires_at_ms, ghost_replay_state,
+                   local_player_account_id
+            FROM {RunLogSchema.BattlesTableName}
+            WHERE source = 'GHOST' AND battle_id = $battleId
+            LIMIT 1;
+            """;
+        command.Parameters.AddWithValue("$battleId", localBattleId);
+        using var reader = command.ExecuteReader();
+        if (!reader.Read())
+            return null;
+        return new GhostBundleReference(
+            reader.GetString(0),
+            reader.GetString(1),
+            reader.GetString(2),
+            reader.GetString(3),
+            reader.GetString(4),
+            reader.GetInt64(5),
+            ReplayAvailabilityCodec.Parse(reader.IsDBNull(6) ? null : reader.GetString(6)),
+            reader.GetString(7)
+        );
+    }
+
+    public void MarkGhostReplayUnavailable(
+        string localBattleId,
+        ReplayAvailability availability,
+        string reason
+    )
+    {
+        if (string.IsNullOrWhiteSpace(localBattleId))
+            return;
+        // Saved is written only by MarkGhostReplayDownloaded, which also clears the reason.
+        if (availability is not (ReplayAvailability.Expired or ReplayAvailability.Unavailable))
+            throw new ArgumentOutOfRangeException(nameof(availability), availability, null);
+        using var connection = OpenConnection(ensureSchema: true);
+        using var command = connection.CreateCommand();
+        command.CommandTimeout = 2;
+        command.CommandText = $"""
+            UPDATE {RunLogSchema.BattlesTableName}
+            SET ghost_replay_state = $state,
+                ghost_replay_unavailable_reason = $reason
+            WHERE source = 'GHOST' AND battle_id = $battleId;
+            """;
+        command.Parameters.AddWithValue("$battleId", localBattleId);
+        command.Parameters.AddWithValue(
+            "$state",
+            ReplayAvailabilityCodec.ToStoredState(availability)
+        );
+        command.Parameters.AddWithValue("$reason", reason);
+        command.ExecuteNonQuery();
+    }
+
+    public HistoryRunDeleteResult DeleteRun(string runId)
+    {
+        if (!DatabaseExists || string.IsNullOrWhiteSpace(runId))
+            return new HistoryRunDeleteResult(Array.Empty<string>(), 0);
+
+        using var connection = OpenConnection();
+        using var transaction = connection.BeginTransaction(deferred: false);
+        var battleIds = new List<string>();
+        using (var listBattles = connection.CreateCommand())
+        {
+            listBattles.Transaction = transaction;
+            listBattles.CommandTimeout = 2;
+            listBattles.CommandText = $"""
+                SELECT battle_id
+                FROM {RunLogSchema.BattlesTableName}
+                WHERE run_id = $runId AND source = 'LOCAL'
+                ORDER BY recorded_at_ms DESC, battle_id DESC;
+                """;
+            listBattles.Parameters.AddWithValue("$runId", runId);
+            using var reader = listBattles.ExecuteReader();
+            while (reader.Read())
+                battleIds.Add(reader.GetString(0));
+        }
+
+        var detachedVideoCount = 0;
+        if (battleIds.Count > 0)
+        {
+            using var detachVideos = connection.CreateCommand();
+            detachVideos.Transaction = transaction;
+            detachVideos.CommandTimeout = 2;
+            detachVideos.CommandText = $"""
+                UPDATE {RunLogSchema.CombatReplayVideosTableName}
+                SET attachment_state = 'detached',
+                    detached_at_ms = COALESCE(detached_at_ms, $now)
+                WHERE attachment_state = 'attached'
+                  AND battle_id IN (SELECT value FROM json_each($battleIdsJson));
+                """;
+            detachVideos.Parameters.AddWithValue(
+                "$now",
+                DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+            );
+            detachVideos.Parameters.AddWithValue(
+                "$battleIdsJson",
+                Newtonsoft.Json.JsonConvert.SerializeObject(battleIds)
+            );
+            detachedVideoCount = detachVideos.ExecuteNonQuery();
+        }
+
+        using var deleteRun = connection.CreateCommand();
+        deleteRun.Transaction = transaction;
+        deleteRun.CommandTimeout = 2;
+        deleteRun.CommandText = $"DELETE FROM {RunLogSchema.RunsTableName} WHERE run_id = $runId;";
+        deleteRun.Parameters.AddWithValue("$runId", runId);
+        deleteRun.ExecuteNonQuery();
+        transaction.Commit();
+        return new HistoryRunDeleteResult(battleIds, detachedVideoCount);
+    }
+
+    private SqliteConnection OpenConnection(bool ensureSchema = false)
+    {
+        var connection = new SqliteConnection($"Data Source={_databasePath}");
+        connection.Open();
+
+        using var pragma = connection.CreateCommand();
+        pragma.CommandText = "PRAGMA foreign_keys = ON;";
+        pragma.ExecuteNonQuery();
+        if (ensureSchema && !_schemaEnsured)
+        {
+            RunLogSchema.EnsureInitialized(connection);
+            _schemaEnsured = true;
+        }
+        return connection;
+    }
+
+    private static string BuildGhostLocalBattleId(string uploaderAccountId, string remoteBattleId)
+    {
+        using var sha256 = System.Security.Cryptography.SHA256.Create();
+        var input = System.Text.Encoding.UTF8.GetBytes($"{uploaderAccountId}\n{remoteBattleId}");
+        return "gh_"
+            + BitConverter
+                .ToString(sha256.ComputeHash(input))
+                .Replace("-", string.Empty)
+                .ToLowerInvariant();
+    }
+}
+
+public readonly record struct HistoryRunDeleteResult(
+    IReadOnlyList<string> BattleIds,
+    int DetachedVideoCount
+);
+
+public sealed record GhostBundleReference(
+    string LocalBattleId,
+    string RemoteBattleId,
+    string UploaderAccountId,
+    string BundleId,
+    string DownloadUrl,
+    long DownloadExpiresAtMs,
+    ReplayAvailability ReplayState,
+    string LocalPlayerAccountId
+);

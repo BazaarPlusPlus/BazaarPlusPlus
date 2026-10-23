@@ -146,7 +146,7 @@ _Avoid_: per-feed upload controller
 ## Cards
 
 **Card Facet**:
-A Core value for one card property (`CardHero`, `CardTier`, `CardSize`, `CardType`, `CardTag`, `CardHiddenTag`, `CardEnchantment`), named member for member after the game enum it replaces; each Host's adapter maps by name (ADR-0015).
+A Core enum for one card property, such as `CardSize` or a captured card's `CardSocket`, named member for member after the game enum it replaces; each Host's adapter maps by name (ADR-0015 lists them).
 _Avoid_: game enums in Core
 
 ## Collection panel

@@ -486,7 +486,7 @@ internal static class HistoryFavoriteWorkflowTests
                 VALUES ('favorite-local', 'LOCAL', 'favorite-run', 1767225600000, 'PVPCombat', 'ready', 'Rival');
                 INSERT INTO battle_snapshots (battle_id, player_hand_json, player_skills_json,
                     opponent_hand_json, opponent_skills_json)
-                VALUES ('favorite-local', '{"items":[{"template_id":"local-card"}]}',
+                VALUES ('favorite-local', '{"items":[{"template_id":"local-card","type":"Item","size":"Small"}]}',
                     '{"items":[]}', '{"items":[]}', '{"items":[]}');
                 INSERT INTO battles (battle_id, source, remote_battle_id, uploader_account_id,
                     local_player_account_id, recorded_at_ms, combat_kind, ghost_replay_state)
@@ -497,7 +497,12 @@ internal static class HistoryFavoriteWorkflowTests
             Repository = new HistoryPanelRepository(_databasePath);
             _local = Repository.ListBattles(RunId, new()).Rows.Single();
             _ghost = Repository
-                .ListGhostBattles(Account, GhostBattleFilter.All, false, new())
+                .ListGhostBattles(
+                    Account,
+                    HistoryPanelDataService.RecorderOutcome(GhostBattleFilter.All),
+                    false,
+                    new()
+                )
                 .Rows.Single();
             var replayDirectory = Path.Combine(root, "CombatReplays");
             CopyDirectory = FavoriteBattlePayloadStore.ResolveDirectory(replayDirectory);

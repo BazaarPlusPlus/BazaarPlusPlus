@@ -1,0 +1,77 @@
+#nullable enable
+using BazaarPlusPlus.ModApi.Clients;
+
+namespace BazaarPlusPlus.Game.HistoryPanel;
+
+public static class HistoryPanelServerHealthFormatter
+{
+    public static HistoryPanelServerHealthDisplayState Idle()
+    {
+        return new HistoryPanelServerHealthDisplayState(
+            HistoryPanelText.CheckServerHealth(),
+            true,
+            null
+        );
+    }
+
+    public static HistoryPanelServerHealthDisplayState Checking()
+    {
+        return new HistoryPanelServerHealthDisplayState(
+            HistoryPanelText.CheckingServerHealth(),
+            false,
+            HistoryPanelText.CheckingServerConnectivity()
+        );
+    }
+
+    public static HistoryPanelServerHealthDisplayState FromProbeResult(
+        ModApiHealthProbeResult result
+    )
+    {
+        if (result.Succeeded)
+        {
+            return new HistoryPanelServerHealthDisplayState(
+                HistoryPanelText.CheckServerHealth(),
+                true,
+                HistoryPanelText.ServerHealthConnected(result.RoundTripMilliseconds)
+            );
+        }
+
+        var error = string.IsNullOrWhiteSpace(result.Error)
+            ? HistoryPanelText.Unknown()
+            : result.Error!;
+        return new HistoryPanelServerHealthDisplayState(
+            HistoryPanelText.CheckServerHealth(),
+            true,
+            HistoryPanelText.ServerHealthFailed(result.RoundTripMilliseconds, error)
+        );
+    }
+
+    public static HistoryPanelServerHealthDisplayState Unavailable()
+    {
+        return new HistoryPanelServerHealthDisplayState(
+            HistoryPanelText.CheckServerHealth(),
+            true,
+            HistoryPanelText.ServerHealthUnavailable()
+        );
+    }
+}
+
+public readonly struct HistoryPanelServerHealthDisplayState
+{
+    public HistoryPanelServerHealthDisplayState(
+        string buttonText,
+        bool buttonEnabled,
+        string? statusMessage
+    )
+    {
+        ButtonText = buttonText ?? throw new ArgumentNullException(nameof(buttonText));
+        ButtonEnabled = buttonEnabled;
+        StatusMessage = statusMessage;
+    }
+
+    public string ButtonText { get; }
+
+    public bool ButtonEnabled { get; }
+
+    public string? StatusMessage { get; }
+}

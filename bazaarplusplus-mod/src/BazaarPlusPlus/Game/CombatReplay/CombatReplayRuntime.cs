@@ -3,6 +3,7 @@ using System.Collections;
 using BazaarGameClient.Domain.Models.Cards;
 using BazaarGameShared.Domain.Core.Types;
 using BazaarGameShared.Infra.Messages;
+using BazaarPlusPlus.Core.Cards;
 using BazaarPlusPlus.Core.Runtime;
 using BazaarPlusPlus.Game.CombatReplay.Bootstrap;
 using BazaarPlusPlus.Game.CombatReplay.PlaybackUi;
@@ -1345,7 +1346,7 @@ internal sealed class CombatReplayRuntime : MonoBehaviour
 
     private static int? CapturedItemCount(PvpBattleCardSetCapture? capture) =>
         capture?.Status is PvpBattleCaptureStatus.Captured or PvpBattleCaptureStatus.CapturedEmpty
-            ? capture.Items.Count(card => card?.Type == ECardType.Item)
+            ? capture.Items.Count(card => card?.Type == CardType.Item)
             : null;
 
     private void BlockCurrentReplayRecapInput()

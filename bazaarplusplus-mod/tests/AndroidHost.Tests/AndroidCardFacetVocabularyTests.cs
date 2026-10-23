@@ -26,6 +26,8 @@ public sealed class AndroidCardFacetVocabularyTests
             { "ECardTag", typeof(CardTag), Array.Empty<string>() },
             { "EHiddenTag", typeof(CardHiddenTag), Array.Empty<string>() },
             { "EEnchantmentType", typeof(CardEnchantment), Array.Empty<string>() },
+            { "EInventorySection", typeof(CardSection), Array.Empty<string>() },
+            { "EContainerSocketId", typeof(CardSocket), Array.Empty<string>() },
         };
 
     [Theory]

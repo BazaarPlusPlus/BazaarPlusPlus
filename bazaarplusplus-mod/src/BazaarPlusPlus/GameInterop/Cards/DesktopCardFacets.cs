@@ -31,7 +31,42 @@ internal static class DesktopCardFacets
 
     public static readonly CardFacetNameMap<EEnchantmentType, CardEnchantment> Enchantment = new();
 
+    public static readonly CardFacetNameMap<EInventorySection, CardSection> Section = new();
+
+    public static readonly CardFacetNameMap<EContainerSocketId, CardSocket> Socket = new();
+
     public static bool IsHeroAvailable(CardHero hero) => Hero.TryToSource(hero, out _);
+
+    // A captured card's facets. A type the facets lack fails the capture, so the board degrades to
+    // Missing instead of carrying a wrong card; a size, section or socket they lack reads as none.
+    // The game's size 0, which names no member, is a card without a size.
+    public static CardType CapturedType(ECardType type) =>
+        Type.TryToFacet(type, out var facet)
+            ? facet
+            : throw new InvalidDataException($"ECardType '{type}' has no card facet.");
+
+    public static CardSize? CapturedSize(ECardSize? size) =>
+        size is { } value && Size.TryToFacet(value, out var facet) ? facet : null;
+
+    public static CardSection? CapturedSection(EInventorySection? section) =>
+        section is { } value && Section.TryToFacet(value, out var facet) ? facet : null;
+
+    public static CardSocket? CapturedSocket(EContainerSocketId? socket) =>
+        socket is { } value && Socket.TryToFacet(value, out var facet) ? facet : null;
+
+    // The game values a captured card's facets name. A card without a size gets the game's 0,
+    // which is what the game itself reported for it.
+    public static ECardType GameType(CardType type) =>
+        Type.TryToSource(type, out var source) ? source : default;
+
+    public static ECardSize GameSize(CardSize? size) =>
+        size is { } value && Size.TryToSource(value, out var source) ? source : default;
+
+    public static EInventorySection? GameSection(CardSection? section) =>
+        section is { } value && Section.TryToSource(value, out var source) ? source : null;
+
+    public static EContainerSocketId? GameSocket(CardSocket? socket) =>
+        socket is { } value && Socket.TryToSource(value, out var source) ? source : null;
 
     public static string TheDragonsDisplayName() =>
         Hero.TryToSource(CardHero.TheDragons, out var hero)
