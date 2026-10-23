@@ -14,7 +14,7 @@ namespace BazaarPlusPlus.Game.CollectionPanel.Grid;
 //
 // Mirrors item-board preview overlay scaffolding (sortingOrder, RectMask2D, ApplyTransform
 // math). A GraphicRaycaster is added only when the raycaster-hover dispatch path is
-// selected via CollectionGridConstants.UsePolledHover = false; under the default
+// selected via CollectionGridHostConstants.UsePolledHover = false; under the default
 // (polled hover) the overlay is purely visual and the lower UITK panel receives every
 // click / wheel uninterrupted.
 internal sealed class CollectionGridOverlay
@@ -66,7 +66,7 @@ internal sealed class CollectionGridOverlay
         _canvas = _root.GetComponent<Canvas>();
         _canvas.renderMode = RenderMode.ScreenSpaceOverlay;
         _canvas.overrideSorting = true;
-        _canvas.sortingOrder = CollectionGridConstants.OverlaySortingOrder;
+        _canvas.sortingOrder = CollectionGridHostConstants.OverlaySortingOrder;
         _canvas.pixelPerfect = false;
 
         // CanvasGroup at the overlay root lets the panel cross-fade the entire card layer
@@ -79,7 +79,7 @@ internal sealed class CollectionGridOverlay
         // the default (polled hover) the overlay is purely visual: the card prefab's
         // RawImage has raycastTarget=true, so a raycaster here would silently swallow
         // every wheel event landing on a card and freeze ScrollView scrolling.
-        if (!CollectionGridConstants.UsePolledHover)
+        if (!CollectionGridHostConstants.UsePolledHover)
             _root.AddComponent<GraphicRaycaster>();
 
         _rootRect = _root.GetComponent<RectTransform>();

@@ -1,6 +1,7 @@
 using System.Reflection;
 using System.Security.Cryptography;
 using BazaarPlusPlus.Android.GameInterop;
+using BazaarPlusPlus.Android.GameInterop.CardRental;
 using BazaarPlusPlus.Android.History;
 using BazaarPlusPlus.Android.Lobby;
 using BazaarPlusPlus.Android.Patches;
@@ -67,6 +68,7 @@ public sealed class AndroidMod : MelonMod
     {
         _composition?.Tick(Time.unscaledTime);
         _touchUi?.EnsureMounted();
+        AndroidCardRental.Tick();
         _versionCheck?.Tick();
         var revision = MainMenuVersionUpdateState.Current.Revision;
         if (revision != _labelRevision)
@@ -207,7 +209,10 @@ public sealed class AndroidMod : MelonMod
         try
         {
             AndroidUpgradePreview.Release("scene_changed");
+            // The panels let go of their leases first, then whatever is left is destroyed:
+            // no rented card outlives the scene it was rented in.
             _touchUi?.OnSceneLoaded();
+            AndroidCardRental.ReleaseAll("scene_changed");
             if (sceneName == MainMenuSceneName)
                 _versionCheck?.Begin();
         }

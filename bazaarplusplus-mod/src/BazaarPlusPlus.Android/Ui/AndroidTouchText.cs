@@ -17,6 +17,11 @@ internal static class AndroidTouchText
         "附魔预览",
         "附魔預覽"
     );
+    public static readonly LocalizedTextSet CollectionPanel = new(
+        "Collection panel",
+        "图鉴面板",
+        "圖鑑面板"
+    );
     public static readonly LocalizedTextSet On = new("On", "开", "開");
     public static readonly LocalizedTextSet Off = new("Off", "关", "關");
     public static readonly LocalizedTextSet GameUpdated = new(

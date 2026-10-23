@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using BazaarPlusPlus.Android.GameInterop;
+using BazaarPlusPlus.Android.GameInterop.CardRental;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
 using HarmonyLib;
@@ -108,6 +109,7 @@ internal static class AndroidPatchHost
             ("upgrade_values_returned", AndroidUpgradePreviewValues.Returned),
             ("upgrade_values_projected", AndroidUpgradePreviewValues.Projected),
             ("enchant_preview_rendered", AndroidEnchantPreview.Rendered),
+            .. AndroidCardRental.Summary(),
             ("run_initialized_hits", Interlocked.Read(ref _runInitializedHits)),
             .. Composition?.RunLifecycleSource.Summary() ?? [],
             ("pvp_battles_recorded", Composition?.BattleCapture.Recorded ?? 0),

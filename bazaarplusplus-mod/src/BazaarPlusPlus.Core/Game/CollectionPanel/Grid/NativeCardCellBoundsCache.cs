@@ -6,7 +6,7 @@ namespace BazaarPlusPlus.Game.CollectionPanel.Grid;
 //
 // Invalidation hooks (design): re-bind, scale dirty (viewport/base unit), art load complete.
 // Scroll-only reposition reads a warm cache and never remeasures.
-internal sealed class NativeCardCellBoundsCache
+public sealed class NativeCardCellBoundsCache
 {
     private bool _valid;
     private CardVisualBounds _bounds;

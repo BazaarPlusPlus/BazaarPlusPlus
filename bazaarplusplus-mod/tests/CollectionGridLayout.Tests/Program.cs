@@ -1,4 +1,3 @@
-using BazaarGameShared.Domain.Core.Types;
 using BazaarPlusPlus.Core.Cards;
 using BazaarPlusPlus.Game.CollectionPanel;
 using BazaarPlusPlus.Game.CollectionPanel.Data;
@@ -24,19 +23,22 @@ AssertEqual(
 var mergedTierText = CollectionTierTooltipTextMerger.Merge(
     new[]
     {
-        new CollectionTierTooltipText(ETier.Silver, "减速 <color=#C58F63>1</color> 件物品 1 秒"),
-        new CollectionTierTooltipText(ETier.Gold, "减速 <color=#C58F63>2</color> 件物品 1 秒"),
-        new CollectionTierTooltipText(ETier.Diamond, "减速 <color=#C58F63>3</color> 件物品 1 秒"),
+        new CollectionTierTooltipText(CardTier.Silver, "减速 <color=#C58F63>1</color> 件物品 1 秒"),
+        new CollectionTierTooltipText(CardTier.Gold, "减速 <color=#C58F63>2</color> 件物品 1 秒"),
+        new CollectionTierTooltipText(
+            CardTier.Diamond,
+            "减速 <color=#C58F63>3</color> 件物品 1 秒"
+        ),
     }
 );
 
 var mergedCooldownText = CollectionTierTooltipTextMerger.MergeCooldown(
     new[]
     {
-        new CollectionTierTooltipText(ETier.Bronze, "10"),
-        new CollectionTierTooltipText(ETier.Silver, "8"),
-        new CollectionTierTooltipText(ETier.Gold, "7"),
-        new CollectionTierTooltipText(ETier.Diamond, "5"),
+        new CollectionTierTooltipText(CardTier.Bronze, "10"),
+        new CollectionTierTooltipText(CardTier.Silver, "8"),
+        new CollectionTierTooltipText(CardTier.Gold, "7"),
+        new CollectionTierTooltipText(CardTier.Diamond, "5"),
     }
 );
 AssertEqual(
@@ -54,9 +56,9 @@ AssertEqual(
     CollectionTierTooltipTextMerger.Merge(
         new[]
         {
-            new CollectionTierTooltipText(ETier.Silver, "冷却 4.0 秒"),
-            new CollectionTierTooltipText(ETier.Gold, "冷却 4.0 秒"),
-            new CollectionTierTooltipText(ETier.Diamond, "冷却 4.0 秒"),
+            new CollectionTierTooltipText(CardTier.Silver, "冷却 4.0 秒"),
+            new CollectionTierTooltipText(CardTier.Gold, "冷却 4.0 秒"),
+            new CollectionTierTooltipText(CardTier.Diamond, "冷却 4.0 秒"),
         }
     ),
     "Values shared by every available tier should render only once."
@@ -187,6 +189,28 @@ AssertApprox(
 );
 AssertApprox(220f, wrapLayout.ShelfPitch(100f, 10f), "Item shelf pitch is 2 * 110.");
 AssertApprox(110f, skillLayout.ShelfPitch(100f, 10f), "Skill shelf pitch is 1 * 110.");
+
+// --- Visible window: shelves in view plus RowOverscan each way, clamped to the shelf range ---
+AssertEqual(
+    (0, 13),
+    skillLayout.VisibleIndexRange(0f, 50f, 100f, 10f, 18f),
+    "Top of the grid shows shelf 0 plus one overscan shelf."
+);
+AssertEqual(
+    (7, 18),
+    skillLayout.VisibleIndexRange(240f, 100f, 100f, 10f, 18f),
+    "Scrolled to shelf 2 shows shelves 1-2; the overscan below clamps to the last shelf."
+);
+AssertEqual(
+    (14, 18),
+    skillLayout.VisibleIndexRange(5000f, 100f, 100f, 10f, 18f),
+    "An overshooting scroll clamps both ends to the last shelf."
+);
+AssertEqual(
+    (0, -1),
+    CollectionGridLayout.Empty.VisibleIndexRange(0f, 100f, 100f, 10f, 18f),
+    "An empty layout shows nothing."
+);
 
 // --- Pixelization keeps the grid envelope stable across Item / Skill tabs ---
 var wideViewport = 2600f;

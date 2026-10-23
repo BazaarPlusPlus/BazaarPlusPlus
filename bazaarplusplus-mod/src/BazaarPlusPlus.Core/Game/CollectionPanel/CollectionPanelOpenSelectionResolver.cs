@@ -5,7 +5,7 @@ using BazaarPlusPlus.Game.CollectionPanel.Sources;
 
 namespace BazaarPlusPlus.Game.CollectionPanel;
 
-internal static class CollectionPanelOpenSelectionResolver
+public static class CollectionPanelOpenSelectionResolver
 {
     public static CollectionPanelSelectionState Resolve(
         bool isInGameRun,
@@ -39,7 +39,7 @@ internal static class CollectionPanelOpenSelectionResolver
             : new CollectionPanelSelectionState(hero, source.SourceKey, source.Kind);
     }
 
-    internal static bool IsConcreteHero(CardHero? hero) =>
+    public static bool IsConcreteHero(CardHero? hero) =>
         hero.HasValue && hero.Value != CardHero.Common;
 
     public static IReadOnlyList<string> ResolveEncounteredMerchantSourceKeys(

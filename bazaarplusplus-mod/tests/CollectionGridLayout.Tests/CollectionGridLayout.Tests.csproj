@@ -4,63 +4,24 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <BppRequiresManagedPath>false</BppRequiresManagedPath>
   </PropertyGroup>
 
-  <PropertyGroup>
-    <ProjectRoot>$(MSBuildThisFileDirectory)../../</ProjectRoot>
-  </PropertyGroup>
-
+  <!-- The grid geometry, fit math and tier-text merge are Core's, shared by both hosts. Named
+       explicitly so the test tree's netstandard2.1 pin leaves Core and its references on
+       net10.0, which `mod::test-core` runs without a Managed snapshot. -->
   <ItemGroup>
-    <ProjectReference Include="../../src/BazaarPlusPlus.Core/BazaarPlusPlus.Core.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Compile
-      Include="..\..\src\BazaarPlusPlus\Game\CollectionPanel\CollectionStagingTools.cs"
-      Link="CollectionStagingTools.cs"
+    <ProjectReference
+      Include="../../src/BazaarPlusPlus.Core/BazaarPlusPlus.Core.csproj"
+      SetTargetFramework="TargetFramework=net10.0"
     />
-    <Compile
-      Include="..\..\src\BazaarPlusPlus\Game\CollectionPanel\Grid\CollectionGridConstants.cs"
-      Link="CollectionGridConstants.cs"
+    <ProjectReference
+      Include="../../src/BazaarPlusPlus.Storage/BazaarPlusPlus.Storage.csproj"
+      SetTargetFramework="TargetFramework=net10.0"
     />
-    <Compile
-      Include="..\..\src\BazaarPlusPlus\Game\CollectionPanel\Grid\CollectionGridCell.cs"
-      Link="CollectionGridCell.cs"
+    <ProjectReference
+      Include="../../src/BazaarPlusPlus.ModApi/BazaarPlusPlus.ModApi.csproj"
+      SetTargetFramework="TargetFramework=net10.0"
     />
-    <Compile
-      Include="..\..\src\BazaarPlusPlus\Game\CollectionPanel\Grid\CollectionGridLayout.cs"
-      Link="CollectionGridLayout.cs"
-    />
-    <Compile
-      Include="..\..\src\BazaarPlusPlus\Game\CollectionPanel\Grid\CollectionGridPixelization.cs"
-      Link="CollectionGridPixelization.cs"
-    />
-    <Compile
-      Include="..\..\src\BazaarPlusPlus\Game\CollectionPanel\Grid\CollectionGridRetentionPlan.cs"
-      Link="CollectionGridRetentionPlan.cs"
-    />
-    <Compile
-      Include="..\..\src\BazaarPlusPlus\Game\CollectionPanel\Grid\CollectionCardFitMath.cs"
-      Link="CollectionCardFitMath.cs"
-    />
-    <Compile
-      Include="..\..\src\BazaarPlusPlus\Game\CollectionPanel\Grid\NativeCardCellBoundsCache.cs"
-      Link="NativeCardCellBoundsCache.cs"
-    />
-    <Compile
-      Include="..\..\src\BazaarPlusPlus\Game\CollectionPanel\Tooltips\CollectionTierTooltipTextMerger.cs"
-      Link="CollectionTierTooltipTextMerger.cs"
-    />
-    <Compile
-      Include="..\..\src\BazaarPlusPlus\Game\CollectionPanel\Grid\CollectionCardMaterialLru.cs"
-      Link="CollectionCardMaterialLru.cs"
-    />
-    <Compile
-      Include="..\..\src\BazaarPlusPlus\Infrastructure\UiTokens\BppOverlaySorting.cs"
-      Link="BppOverlaySorting.cs"
-    />
-    <Reference Include="BazaarGameShared">
-      <HintPath>$(ManagedPath)/BazaarGameShared.dll</HintPath>
-    </Reference>
   </ItemGroup>
 </Project>

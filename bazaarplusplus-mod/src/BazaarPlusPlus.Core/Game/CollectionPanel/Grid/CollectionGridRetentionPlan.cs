@@ -1,7 +1,7 @@
 #nullable enable
 namespace BazaarPlusPlus.Game.CollectionPanel.Grid;
 
-internal static class CollectionGridRetentionPlan
+public static class CollectionGridRetentionPlan
 {
     public static IReadOnlyDictionary<int, int> Build(
         IReadOnlyDictionary<int, Guid> realizedCardIdsByIndex,

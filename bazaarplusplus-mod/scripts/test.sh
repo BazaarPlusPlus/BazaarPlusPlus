@@ -43,7 +43,7 @@ cmd_test_core() {
     dotnet test tests/BazaarPlusPlus.CoreTests.slnx "${core_props[@]}" ${PROPS[@]+"${PROPS[@]}"}
     local project
     for project in BundleV6Codec.Net10.Tests RunLoggingPipeline.Net10.Tests \
-        CollectionFilterEngine.Tests CollectionViewState.Tests \
+        CollectionFilterEngine.Tests CollectionGridLayout.Tests CollectionViewState.Tests \
         GhostBattleSync.Tests HistoryPanelDecisions.Tests HistoryPanelFiltering.Tests \
         HistoryPanelRepository.Tests LiveBuildPanel.Tests LiveBuildRecommendationCore.Tests; do
         dotnet run --project "tests/$project/$project.csproj" \
