@@ -1,0 +1,50 @@
+# Queried from the history database pulled from emulator-5556 after two launches of this branch's build (bpp-launch*.log). The committed copies (bazaarplusplus.redacted.db) have player and opponent names and account ids removed.
+user_version 1 journal_mode delete
+
+## local_payload_state before (389-before/bazaarplusplus.db) and after the first launch's sweep
+### before
+battle_id|local_payload_state
+9bfaeace92cd4e1a964dac8f2dfbbe16|ready
+a2839998c3e44c8c9884ecea194b2bbb|ready
+2561aa7ae7b64fdbb1a7236c6fdacd88|ready
+8c55a0ab1b424f8e8ba2b8c8fd9a0f01|ready
+76f5389d991e4c619910047cd9e8622f|ready
+af6b22c22bca456aa5223236664e747c|ready
+20bcda72b0854075b8003e86c3694cba|ready
+a2b2589843ca454fbe5e8c79816e295a|ready
+27f5db5d72ff42639e72fa306fa94b58|ready
+d336fd6f2ffc40f69584c48427e0975a|ready
+### after
+battle_id|run_id|day|local_payload_state
+9bfaeace92cd4e1a964dac8f2dfbbe16|1d4b6708-3073-466f-a460-c6be61e7446a|1|missing
+a2839998c3e44c8c9884ecea194b2bbb|1d4b6708-3073-466f-a460-c6be61e7446a|2|missing
+2561aa7ae7b64fdbb1a7236c6fdacd88|1d4b6708-3073-466f-a460-c6be61e7446a|3|missing
+8c55a0ab1b424f8e8ba2b8c8fd9a0f01|1d4b6708-3073-466f-a460-c6be61e7446a|4|missing
+76f5389d991e4c619910047cd9e8622f|1d4b6708-3073-466f-a460-c6be61e7446a|5|missing
+af6b22c22bca456aa5223236664e747c|1d4b6708-3073-466f-a460-c6be61e7446a|6|missing
+20bcda72b0854075b8003e86c3694cba|1d4b6708-3073-466f-a460-c6be61e7446a|7|missing
+a2b2589843ca454fbe5e8c79816e295a|431b9a14-6e02-4d6e-b5c9-3a5de8fcc81a|1|missing
+27f5db5d72ff42639e72fa306fa94b58|431b9a14-6e02-4d6e-b5c9-3a5de8fcc81a|2|ready
+d336fd6f2ffc40f69584c48427e0975a|16faedcc-a66d-490b-9387-00be874a436b|1|ready
+c7ea010252e14afabe30254be5379600|2810a43b-61ec-40e2-ac5b-fb61fec076b1|1|ready
+7e987c9de9ad48ea85443b5d24f05735|2810a43b-61ec-40e2-ac5b-fb61fec076b1|2|ready
+c3909bd01e52457fa710f4cd8ee1c435|2810a43b-61ec-40e2-ac5b-fb61fec076b1|3|ready
+abdf85f158a64127bd5fbdb8466ad8e3|2810a43b-61ec-40e2-ac5b-fb61fec076b1|4|ready
+
+## The four battles this build recorded: board capture labels and the player's skills
+battle_id|day|skills_status|skills_source|skills_count|skill_type|skill_name|hand_status|hand_count|opp_skills_status
+c7ea010252e14afabe30254be5379600|1|Captured|OpeningMessage|1|Skill|Deadly Eye|Captured|6|CapturedEmpty
+7e987c9de9ad48ea85443b5d24f05735|2|Captured|OpeningMessage|1|Skill|Deadly Eye|Captured|7|Captured
+c3909bd01e52457fa710f4cd8ee1c435|3|Captured|OpeningMessage|1|Skill|Deadly Eye|Captured|7|Captured
+abdf85f158a64127bd5fbdb8466ad8e3|4|Captured|OpeningMessage|1|Skill|Deadly Eye|Captured|7|Captured
+
+## Table row counts
+battle_snapshots 6
+battles 14
+bundle_outbox 1
+bundle_seal_jobs 0
+combat_replay_videos 0
+favorite_battles 0
+run_events 32
+run_screenshots 0
+runs 4

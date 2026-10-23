@@ -3,19 +3,23 @@ using BazaarPlusPlus.Game.PvpBattles.Persistence;
 
 namespace BazaarPlusPlus.Game.CombatReplay;
 
-internal readonly record struct ReplayPayloadRetentionSelection(
+public readonly record struct ReplayPayloadRetentionSelection(
     IReadOnlyList<string> BattleIds,
     int EvaluatedCount
 );
 
-internal static class ReplayPayloadRetentionPolicy
+/// <summary>
+/// Which Replay Payloads every host keeps: the newest <see cref="RetainedNewestCount"/>, those
+/// recorded within <see cref="RetainedAge"/>, and any a caller protects; the rest are evicted.
+/// </summary>
+public static class ReplayPayloadRetentionPolicy
 {
     // BazaarPlusPlus.history-database.json restates both values for the installer's V5 import;
     // ReplayPayloadRetentionPolicyTests keeps them equal.
-    internal const int RetainedNewestCount = 200;
-    internal static readonly TimeSpan RetainedAge = TimeSpan.FromDays(30);
+    public const int RetainedNewestCount = 200;
+    public static readonly TimeSpan RetainedAge = TimeSpan.FromDays(30);
 
-    internal static ReplayPayloadRetentionSelection SelectEvictionCandidates(
+    public static ReplayPayloadRetentionSelection SelectEvictionCandidates(
         IReadOnlyCollection<ReplayPayloadMaintenanceRecord> inventory,
         ISet<string> protectedBattleIds,
         DateTimeOffset now

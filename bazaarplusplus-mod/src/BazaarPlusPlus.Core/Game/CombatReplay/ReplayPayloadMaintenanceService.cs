@@ -1,16 +1,24 @@
 #nullable enable
 using BazaarPlusPlus.Game.PvpBattles.Persistence;
+using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
 
 namespace BazaarPlusPlus.Game.CombatReplay;
 
-internal sealed class ReplayPayloadMaintenanceService
+/// <summary>
+/// One sweep of a host's Replay Payload files against the history database: deletes files no battle
+/// owns, finishes pending deletions, marks ready battles whose file is gone as missing, and evicts
+/// what <see cref="ReplayPayloadRetentionPolicy"/> does not keep. It holds the maintenance lease of
+/// <see cref="ReplayPayloadOperationGate"/> throughout, so a battle being saved is never swept.
+/// </summary>
+public sealed class ReplayPayloadMaintenanceService
 {
     private readonly IReplayPayloadMaintenanceCatalog _catalog;
     private readonly CombatReplayPayloadStore _files;
     private readonly ReplayPayloadOperationGate _operationGate;
     private readonly Func<IReadOnlyCollection<string>> _protectedBattleIds;
 
-    internal ReplayPayloadMaintenanceService(
+    public ReplayPayloadMaintenanceService(
         IReplayPayloadMaintenanceCatalog catalog,
         CombatReplayPayloadStore files,
         ReplayPayloadOperationGate operationGate,
@@ -24,7 +32,53 @@ internal sealed class ReplayPayloadMaintenanceService
             protectedBattleIds ?? throw new ArgumentNullException(nameof(protectedBattleIds));
     }
 
-    internal ReplayPayloadMaintenanceResult Run(
+    /// <summary>
+    /// Runs one sweep and logs its terminal: <c>combat_replay.maintenance.completed</c>, or
+    /// <c>combat_replay.maintenance.degraded</c> when a delete or the scan failed. Never throws;
+    /// a cancellation requested through <paramref name="cancellationToken"/> ends it silently.
+    /// </summary>
+    public void RunAndReport(DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var result = Run(now, cancellationToken);
+            if (result.FailedDeleteCount == 0)
+            {
+                BppLog.InfoEvent(
+                    new BppLogEvent(
+                        BppLogFeatureScope.CombatReplay,
+                        "combat_replay.maintenance.completed"
+                    ),
+                    MaintenanceFields(ReplayMaintenanceReasonCode.Completed, result)
+                );
+                return;
+            }
+
+            BppLog.WarnEvent(
+                new BppLogEvent(
+                    BppLogFeatureScope.CombatReplay,
+                    "combat_replay.maintenance.degraded",
+                    storm: ["reason_code"]
+                ),
+                MaintenanceFields(ReplayMaintenanceReasonCode.DeleteFailed, result)
+            );
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
+        catch (Exception ex)
+        {
+            BppLog.WarnEvent(
+                new BppLogEvent(
+                    BppLogFeatureScope.CombatReplay,
+                    "combat_replay.maintenance.degraded",
+                    storm: ["reason_code"]
+                ),
+                ex,
+                MaintenanceFields(ReplayMaintenanceReasonCode.ScanFailed, default)
+            );
+        }
+    }
+
+    public ReplayPayloadMaintenanceResult Run(
         DateTimeOffset now,
         CancellationToken cancellationToken
     )
@@ -141,6 +195,20 @@ internal sealed class ReplayPayloadMaintenanceService
         return deleted;
     }
 
+    private static BppLogField[] MaintenanceFields(
+        ReplayMaintenanceReasonCode reasonCode,
+        ReplayPayloadMaintenanceResult result
+    ) =>
+        [
+            ("reason_code", reasonCode),
+            ("evaluated_count", result.EvaluatedPayloadCount),
+            ("scheduled_count", result.ScheduledDeleteCount),
+            ("deleted_count", result.DeletedPayloadCount),
+            ("missing_count", result.MissingPayloadCount),
+            ("orphan_count", result.OrphanDeleteCount),
+            ("failed_count", result.FailedDeleteCount),
+        ];
+
     private bool TryDelete(string battleId)
     {
         try
@@ -155,7 +223,7 @@ internal sealed class ReplayPayloadMaintenanceService
     }
 }
 
-internal readonly record struct ReplayPayloadMaintenanceResult(
+public readonly record struct ReplayPayloadMaintenanceResult(
     int EvaluatedPayloadCount,
     int ScheduledDeleteCount,
     int DeletedPayloadCount,
@@ -164,3 +232,10 @@ internal readonly record struct ReplayPayloadMaintenanceResult(
     int FailedDeleteCount,
     int WorkUnits
 );
+
+public enum ReplayMaintenanceReasonCode
+{
+    Completed,
+    DeleteFailed,
+    ScanFailed,
+}

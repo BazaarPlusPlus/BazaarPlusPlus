@@ -17,23 +17,27 @@ namespace BazaarPlusPlus.Android.GameInterop;
 /// Records each PvP battle from the net messages, as the desktop's
 /// <c>CombatReplayCaptureService</c> frames one: a <c>PVPCombat</c> game sim opens it, the combat
 /// sim carries the outcome, and the next game sim closes it. The opening also takes the board
-/// captures (<see cref="AndroidPvpBattleSnapshots"/>), and each of the three messages is serialized
-/// as it arrives (<see cref="AndroidReplayMessages"/>). The closed battle's Replay Payload is saved
-/// to the combat replay directory, then the battle through <see cref="PvpBattleSqliteStore"/>, and
-/// it is announced as <see cref="PvpBattleRecorded"/>, which Run Logging links to the run. A
-/// payload that could not be taken leaves the battle saved with its replay state <c>missing</c>.
-/// Both saves are synchronous, so Run Logging never waits on replay persistence. Main thread only,
-/// called from the message intake.
+/// captures (<see cref="AndroidPvpBattleSnapshots"/>), which the combat sim and the close retry
+/// live, and each of the three messages is serialized as it arrives
+/// (<see cref="AndroidReplayMessages"/>). The closed battle's Replay Payload is saved to the combat
+/// replay directory, then the battle through <see cref="PvpBattleSqliteStore"/>, both under the
+/// persistence lease of <see cref="ReplayPayloadOperationGate"/> so the maintenance sweep never
+/// sees the file before its row, and it is announced as <see cref="PvpBattleRecorded"/>, which Run
+/// Logging links to the run. A payload that could not be taken leaves the battle saved with its
+/// replay state <c>missing</c>. Both saves are synchronous, so Run Logging never waits on replay
+/// persistence. Main thread only, called from the message intake.
 /// </summary>
 internal sealed class AndroidPvpBattleCapture
 {
     private const string PvpCombatKind = "PVPCombat";
     private readonly PvpBattleSqliteStore _store;
     private readonly CombatReplayPayloadStore _replays;
+    private readonly ReplayPayloadOperationGate _replayGate;
     private readonly IBppEventBus _eventBus;
     private readonly Func<string?> _currentRunId;
     private readonly Func<DateTimeOffset> _utcNow;
     private PvpBattleRecord? _opened;
+    private AndroidPvpBattleSnapshots? _snapshots;
     private PvpReplayPayload? _replay;
     private bool _combatSeen;
     private long _recorded;
@@ -42,6 +46,7 @@ internal sealed class AndroidPvpBattleCapture
     public AndroidPvpBattleCapture(
         PvpBattleSqliteStore store,
         CombatReplayPayloadStore replays,
+        ReplayPayloadOperationGate replayGate,
         IBppEventBus eventBus,
         Func<string?> currentRunId,
         Func<DateTimeOffset> utcNow
@@ -49,6 +54,7 @@ internal sealed class AndroidPvpBattleCapture
     {
         _store = store ?? throw new ArgumentNullException(nameof(store));
         _replays = replays ?? throw new ArgumentNullException(nameof(replays));
+        _replayGate = replayGate ?? throw new ArgumentNullException(nameof(replayGate));
         _eventBus = eventBus ?? throw new ArgumentNullException(nameof(eventBus));
         _currentRunId = currentRunId ?? throw new ArgumentNullException(nameof(currentRunId));
         _utcNow = utcNow ?? throw new ArgumentNullException(nameof(utcNow));
@@ -78,19 +84,25 @@ internal sealed class AndroidPvpBattleCapture
         if (_opened != null && _combatSeen && !opening)
         {
             var closed = _opened;
+            var snapshots = _snapshots!;
             var replay = _replay;
             _opened = null;
+            _snapshots = null;
             _replay = null;
             _combatSeen = false;
             if (replay != null)
                 replay.DespawnMessageBytes = Serialize(message, closed.BattleId, "despawn");
-            Record(closed, replay);
+            snapshots.RetryLive();
+            closed.Snapshots = snapshots.Documents();
+            Record(closed, snapshots, replay);
             return;
         }
 
         // An opening (re)starts the window; anything else before the combat sim abandons it,
         // as the desktop matcher does.
         _opened = opening ? Open(message) : null;
+        _snapshots =
+            _opened != null ? AndroidPvpBattleSnapshots.Open(message, _opened.BattleId) : null;
         _replay = _opened != null ? StartReplay(message, _opened.BattleId) : null;
         _combatSeen = false;
     }
@@ -102,12 +114,14 @@ internal sealed class AndroidPvpBattleCapture
         if (_combatSeen)
         {
             _opened = null;
+            _snapshots = null;
             _replay = null;
             _combatSeen = false;
             return;
         }
 
         _combatSeen = true;
+        _snapshots?.RetryLive();
         if (_replay != null)
             _replay.CombatMessageBytes = Serialize(message, _opened.BattleId, "combat");
         _opened.RunId ??= _currentRunId();
@@ -195,7 +209,6 @@ internal sealed class AndroidPvpBattleCapture
                 ("battle_id", record.BattleId, BppLogCorrelationPolicy.Short)
             );
         }
-        record.Snapshots = AndroidPvpBattleSnapshots.Capture(message, record.BattleId);
         return record;
     }
 
@@ -258,14 +271,24 @@ internal sealed class AndroidPvpBattleCapture
     }
 
     // Both saves run on the main thread against the DELETE-mode database the seal and upload
-    // workers also use, so the recorded event carries how long they held the frame.
-    private void Record(PvpBattleRecord record, PvpReplayPayload? replay)
+    // workers also use, so the recorded event carries how long they held the frame, the lease
+    // wait included, and how much of it the Replay Payload file took.
+    private void Record(
+        PvpBattleRecord record,
+        AndroidPvpBattleSnapshots snapshots,
+        PvpReplayPayload? replay
+    )
     {
         record.RecordedAtUtc = _utcNow();
         var saving = Stopwatch.StartNew();
-        var replaySaved = SaveReplay(record, replay);
+        bool replaySaved;
+        long replayElapsedMs;
         try
         {
+            using var lease = _replayGate.AcquirePersistence(CancellationToken.None);
+            var replaySaving = Stopwatch.StartNew();
+            replaySaved = SaveReplay(record, replay);
+            replayElapsedMs = replaySaving.ElapsedMilliseconds;
             _store.Save(record);
             if (!replaySaved)
                 _store.MarkReplayPayloadMissing([record.BattleId], record.RecordedAtUtc);
@@ -285,13 +308,17 @@ internal sealed class AndroidPvpBattleCapture
         Interlocked.Increment(ref _recorded);
         BppLog.InfoEvent(
             new BppLogEvent(BppLogFeatureScope.Android, "android.pvp_battle.recorded"),
-            ("battle_id", record.BattleId, BppLogCorrelationPolicy.Short),
-            ("run_id", record.RunId, BppLogCorrelationPolicy.Short),
-            ("day", record.Day),
-            ("hour", record.Hour),
-            ("result", record.Outcome.Result),
-            ("replay_saved", replaySaved),
-            ("save_elapsed_ms", saving.ElapsedMilliseconds)
+            [
+                ("battle_id", record.BattleId, BppLogCorrelationPolicy.Short),
+                ("run_id", record.RunId, BppLogCorrelationPolicy.Short),
+                ("day", record.Day),
+                ("hour", record.Hour),
+                ("result", record.Outcome.Result),
+                ("replay_saved", replaySaved),
+                ("save_elapsed_ms", saving.ElapsedMilliseconds),
+                ("replay_elapsed_ms", replayElapsedMs),
+                .. snapshots.LogFields(),
+            ]
         );
         _eventBus.Publish(
             new PvpBattleRecorded

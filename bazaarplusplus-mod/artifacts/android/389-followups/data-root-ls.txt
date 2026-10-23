@@ -1,0 +1,29 @@
+/storage/emulated/0/Android/data/com.tempogames.thebazaar/files:
+total 56
+drwxrws--- 7 u0_a207 ext_data_rw 4096 2026-10-23 00:43 .
+drwxrws--- 4 u0_a207 ext_data_rw 4096 2026-10-23 13:45 ..
+drwxrws--- 5 u0_a207 ext_data_rw 4096 2026-10-23 13:51 BazaarPlusPlusV6
+drwxrws--- 8 u0_a207 ext_data_rw 4096 2026-10-23 00:10 MelonLoader
+drwxr-s--- 3 u0_a207 ext_data_rw 4096 2026-10-22 17:17 Unity
+drwxr-s--- 4 u0_a207 ext_data_rw 4096 2026-10-22 17:17 il2cpp
+drwxrws--- 3 u0_a207 ext_data_rw 4096 2026-10-22 17:17 prod
+
+/storage/emulated/0/Android/data/com.tempogames.thebazaar/files/BazaarPlusPlusV6:
+total 308
+drwxrws--- 5 u0_a207 ext_data_rw   4096 2026-10-23 13:51 .
+drwxrws--- 7 u0_a207 ext_data_rw   4096 2026-10-23 00:43 ..
+drwxrws--- 2 u0_a207 ext_data_rw   4096 2026-10-23 05:05 BundleOutbox
+drwxrws--- 2 u0_a207 ext_data_rw   4096 2026-10-23 13:51 CombatReplays
+drwxrws--- 2 shell   ext_data_rw   4096 2026-10-23 01:28 Updates
+-rw-r----- 1 u0_a207 ext_data_rw 270336 2026-10-23 13:51 bazaarplusplus.db
+
+/storage/emulated/0/Android/data/com.tempogames.thebazaar/files/BazaarPlusPlusV6/CombatReplays:
+total 212
+drwxrws--- 2 u0_a207 ext_data_rw  4096 2026-10-23 13:51 .
+drwxrws--- 5 u0_a207 ext_data_rw  4096 2026-10-23 13:51 ..
+-rw-rw---- 1 u0_a207 ext_data_rw 18806 2026-10-23 04:00 27f5db5d72ff42639e72fa306fa94b58.payload.mpack.gz
+-rw-rw---- 1 u0_a207 ext_data_rw 31881 2026-10-23 13:35 7e987c9de9ad48ea85443b5d24f05735.payload.mpack.gz
+-rw-rw---- 1 u0_a207 ext_data_rw 26911 2026-10-23 13:51 abdf85f158a64127bd5fbdb8466ad8e3.payload.mpack.gz
+-rw-rw---- 1 u0_a207 ext_data_rw 42734 2026-10-23 13:41 c3909bd01e52457fa710f4cd8ee1c435.payload.mpack.gz
+-rw-rw---- 1 u0_a207 ext_data_rw 30058 2026-10-23 13:27 c7ea010252e14afabe30254be5379600.payload.mpack.gz
+-rw-rw---- 1 u0_a207 ext_data_rw 14582 2026-10-23 05:02 d336fd6f2ffc40f69584c48427e0975a.payload.mpack.gz

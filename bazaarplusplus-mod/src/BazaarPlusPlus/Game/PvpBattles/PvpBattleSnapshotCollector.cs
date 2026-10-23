@@ -71,10 +71,10 @@ internal sealed class PvpBattleSnapshotCollector
     public void CaptureLiveSnapshots(PvpBattleSequenceCandidate candidate)
     {
         if (
-            ShouldRefreshPlayerCapture(
+            PvpBattleCaptureRule.ShouldRetryLive(
                 candidate.PlayerHandCardsCapturedFromOpening,
                 candidate.PlayerHandCardsCapturedLive,
-                candidate.PlayerHandCards
+                candidate.PlayerHandCards.Count
             )
         )
         {
@@ -83,10 +83,10 @@ internal sealed class PvpBattleSnapshotCollector
         }
 
         if (
-            ShouldRefreshPlayerCapture(
+            PvpBattleCaptureRule.ShouldRetryLive(
                 candidate.PlayerSkillsCapturedFromOpening,
                 candidate.PlayerSkillsCapturedLive,
-                candidate.PlayerSkills
+                candidate.PlayerSkills.Count
             )
         )
         {
@@ -138,30 +138,22 @@ internal sealed class PvpBattleSnapshotCollector
             PlayerHand = CreateCardSetCapture(
                 candidate.PlayerHandCards,
                 candidate.PlayerHandCardsCapturedFromOpening,
-                candidate.PlayerHandCardsCapturedLive,
-                PvpBattleCaptureSource.OpeningMessage,
-                PvpBattleCaptureSource.LiveRetry
+                candidate.PlayerHandCardsCapturedLive
             ),
             PlayerSkills = CreateCardSetCapture(
                 candidate.PlayerSkills,
                 candidate.PlayerSkillsCapturedFromOpening,
-                candidate.PlayerSkillsCapturedLive,
-                PvpBattleCaptureSource.OpeningMessage,
-                PvpBattleCaptureSource.LiveRetry
+                candidate.PlayerSkillsCapturedLive
             ),
             OpponentHand = CreateCardSetCapture(
                 candidate.OpponentHandCards,
                 candidate.OpponentHandCardsCapturedFromOpening,
-                false,
-                PvpBattleCaptureSource.OpeningMessage,
-                PvpBattleCaptureSource.LiveRetry
+                capturedLive: false
             ),
             OpponentSkills = CreateCardSetCapture(
                 candidate.OpponentSkills,
                 candidate.OpponentSkillsCapturedFromOpening,
-                false,
-                PvpBattleCaptureSource.OpeningMessage,
-                PvpBattleCaptureSource.LiveRetry
+                capturedLive: false
             ),
         };
     }
@@ -169,56 +161,21 @@ internal sealed class PvpBattleSnapshotCollector
     private static PvpBattleCardSetCapture CreateCardSetCapture(
         IReadOnlyList<PvpBattleCardSnapshot> items,
         bool capturedFromOpening,
-        bool capturedLive,
-        PvpBattleCaptureSource openingSource,
-        PvpBattleCaptureSource liveSource
+        bool capturedLive
     )
     {
         var clonedItems = items.Select(item => item.Clone()).ToList();
-        if (capturedFromOpening)
-        {
-            return new PvpBattleCardSetCapture
-            {
-                Items = clonedItems,
-                Status =
-                    clonedItems.Count == 0
-                        ? PvpBattleCaptureStatus.CapturedEmpty
-                        : PvpBattleCaptureStatus.Captured,
-                Source = openingSource,
-            };
-        }
-
-        if (capturedLive)
-        {
-            return new PvpBattleCardSetCapture
-            {
-                Items = clonedItems,
-                Status =
-                    clonedItems.Count == 0
-                        ? PvpBattleCaptureStatus.CapturedEmpty
-                        : PvpBattleCaptureStatus.Captured,
-                Source = liveSource,
-            };
-        }
-
+        var (status, source) = PvpBattleCaptureRule.Label(
+            capturedFromOpening,
+            capturedLive,
+            clonedItems.Count
+        );
         return new PvpBattleCardSetCapture
         {
             Items = clonedItems,
-            Status = PvpBattleCaptureStatus.Missing,
-            Source = PvpBattleCaptureSource.Unknown,
+            Status = status,
+            Source = source,
         };
-    }
-
-    private static bool ShouldRefreshPlayerCapture(
-        bool capturedFromOpening,
-        bool capturedLive,
-        IReadOnlyCollection<PvpBattleCardSnapshot> snapshots
-    )
-    {
-        if (capturedLive)
-            return false;
-
-        return !capturedFromOpening || snapshots.Count == 0;
     }
 
     private static (bool Captured, List<PvpBattleCardSnapshot> Snapshots) CapturePlayerHandCards(

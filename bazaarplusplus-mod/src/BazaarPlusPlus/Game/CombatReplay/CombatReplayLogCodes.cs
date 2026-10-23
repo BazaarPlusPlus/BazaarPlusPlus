@@ -69,13 +69,6 @@ internal enum ReplayPersistenceReasonCode
     ShutdownAbandoned,
 }
 
-internal enum ReplayMaintenanceReasonCode
-{
-    Completed,
-    DeleteFailed,
-    ScanFailed,
-}
-
 internal enum ReplayWarmupStage
 {
     Presentation,
