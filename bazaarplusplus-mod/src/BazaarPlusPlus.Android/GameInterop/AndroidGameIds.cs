@@ -48,4 +48,11 @@ internal static class AndroidGameIds
         }
         return boxed == null ? null : *(T*)IL2CPP.il2cpp_object_unbox(boxed.Pointer);
     }
+
+    /// <summary>
+    /// <paramref name="value"/> stored as 0 or 1. A <c>bool</c> field read through an IL2CPP
+    /// struct proxy (a <c>ValueTuple</c>'s <c>Item2</c>) reads as true in C#, yet passed back into
+    /// a game method the game took it as false, where a literal <c>true</c> was taken as true.
+    /// </summary>
+    public static unsafe bool Canonical(bool value) => *(byte*)&value != 0;
 }

@@ -21,8 +21,8 @@ internal static class UpgradePreviewCooldownPatch
         )
             return;
 
-        var currentText = $"{currentSeconds:F1}";
-        var upgradedText = $"{upgradedSeconds:F1}";
+        var currentText = UpgradePreviewValueMath.CooldownText(currentSeconds);
+        var upgradedText = UpgradePreviewValueMath.CooldownText(upgradedSeconds);
         __instance.SetCooldown(
             currentText,
             canFuse: !string.Equals(currentText, upgradedText, StringComparison.Ordinal),

@@ -60,7 +60,7 @@ internal sealed class UpgradePreviewValueProjection
 
             if (source.Attributes.TryGetValue(attribute, out var currentValue))
             {
-                attributes[attribute] = ProjectAttributeValue(
+                attributes[attribute] = UpgradePreviewValueMath.ProjectAttribute(
                     currentValue,
                     currentBase,
                     nextBase.Value
@@ -140,33 +140,20 @@ internal sealed class UpgradePreviewValueProjection
         return true;
     }
 
-    internal bool TryResolveEffectiveCooldowns(out float currentSeconds, out float upgradedSeconds)
-    {
-        currentSeconds = default;
-        upgradedSeconds = default;
-        if (
-            !SourceCard.Attributes.TryGetValue(ECardAttributeType.CooldownMax, out var currentMs)
-            || !Card.Attributes.TryGetValue(ECardAttributeType.CooldownMax, out var upgradedMs)
-            || currentMs <= 0
-            || upgradedMs <= 0
-        )
-            return false;
-
-        // CooldownMax is already the effective runtime cooldown. Applying the separate
-        // PercentCooldownReduction attribute again would double-count conditional auras
-        // such as Kitchen Scale's "Cooldown is halved" effect.
-        currentSeconds = currentMs / 1000f;
-        upgradedSeconds = upgradedMs / 1000f;
-        return true;
-    }
-
-    private static int ProjectAttributeValue(int currentValue, int? currentBase, int nextBase)
-    {
-        if (!currentBase.HasValue)
-            return nextBase;
-
-        return nextBase + currentValue - currentBase.Value;
-    }
+    internal bool TryResolveEffectiveCooldowns(
+        out float currentSeconds,
+        out float upgradedSeconds
+    ) =>
+        UpgradePreviewValueMath.TryEffectiveCooldownSeconds(
+            SourceCard.Attributes.TryGetValue(ECardAttributeType.CooldownMax, out var currentMs)
+                ? currentMs
+                : null,
+            Card.Attributes.TryGetValue(ECardAttributeType.CooldownMax, out var upgradedMs)
+                ? upgradedMs
+                : null,
+            out currentSeconds,
+            out upgradedSeconds
+        );
 
     private static void ApplyRuntimeMultipliers(
         ItemCard source,
@@ -188,54 +175,38 @@ internal sealed class UpgradePreviewValueProjection
             if (!nextBase.HasValue)
                 continue;
 
-            var currentMultiplier = 1f;
-            var projectedMultiplier = 1f;
+            var multipliers = UpgradePreviewMultipliers.Identity;
             if (attribute == ECardAttributeType.CooldownMax)
             {
-                currentMultiplier *= ResolveCooldownMultiplier(source);
-                projectedMultiplier *= ResolveCooldownMultiplier(projected);
-            }
-
-            if (auraMultipliers.TryGetValue(attribute, out var multipliers))
-            {
-                currentMultiplier *= multipliers.Current;
-                projectedMultiplier *= multipliers.Projected;
-            }
-
-            if (
-                MathF.Abs(currentMultiplier - 1f) < 0.0001f
-                && MathF.Abs(projectedMultiplier - 1f) < 0.0001f
-            )
-                continue;
-
-            if (currentMultiplier <= 0f || projectedMultiplier < 0f)
-                continue;
-
-            var runtimeDelta = 0f;
-            if (
-                currentBase.HasValue
-                && source.Attributes.TryGetValue(attribute, out var currentValue)
-            )
-            {
-                runtimeDelta = currentValue / currentMultiplier - currentBase.Value;
-            }
-
-            projected.Attributes[attribute] = Math.Max(
-                0,
-                (int)
-                    Math.Round(
-                        (nextBase.Value + runtimeDelta) * projectedMultiplier,
-                        MidpointRounding.AwayFromZero
+                multipliers = multipliers.Times(
+                    new UpgradePreviewMultipliers(
+                        ResolveCooldownMultiplier(source),
+                        ResolveCooldownMultiplier(projected)
                     )
-            );
+                );
+            }
+
+            if (auraMultipliers.TryGetValue(attribute, out var auraMultiplier))
+                multipliers = multipliers.Times(auraMultiplier);
+
+            if (
+                UpgradePreviewValueMath.TryApplyMultipliers(
+                    currentBase.HasValue
+                    && source.Attributes.TryGetValue(attribute, out var currentValue)
+                        ? currentValue
+                        : null,
+                    currentBase,
+                    nextBase.Value,
+                    multipliers,
+                    out var projectedValue
+                )
+            )
+                projected.Attributes[attribute] = projectedValue;
         }
     }
 
-    private static float ResolveCooldownMultiplier(ItemCard card)
-    {
-        var reduction = card.Attributes.GetValueOrDefault(
-            ECardAttributeType.PercentCooldownReduction
+    private static float ResolveCooldownMultiplier(ItemCard card) =>
+        UpgradePreviewValueMath.CooldownMultiplier(
+            card.Attributes.GetValueOrDefault(ECardAttributeType.PercentCooldownReduction)
         );
-        return Math.Max(0, 100 - reduction) / 100f;
-    }
 }
