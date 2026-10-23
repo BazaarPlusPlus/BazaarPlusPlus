@@ -14,6 +14,7 @@ import {
   prepareAndroidPayload,
   resolveBuildTools,
   resolveNativeLib,
+  signerCertificateSha256,
   verifyAndroidPayload
 } from './android-release.mjs';
 import {
@@ -108,7 +109,9 @@ const FAKE_ZIPALIGN = `
 if [[ "$1" == -c ]]; then exit 0; fi
 cp "\${@: -2:1}" "\${@: -1}"`;
 
-const fakeApksigner = (signer) => `
+// build-tools 37 signs a minSdk 24+ APK with v3 only and labels the signer
+// "V3.0 Signer:"; older output and v1/v2 signing say "Signer #1".
+const fakeApksigner = (signer, label = 'V3.0 Signer:') => `
 case "$1" in
   sign)
     shift
@@ -123,8 +126,8 @@ case "$1" in
     done
     cp "$1" "$out" ;;
   verify)
-    echo "Signer #1 certificate DN: CN=BazaarPlusPlus"
-    echo "Signer #1 certificate SHA-256 digest: ${signer}" ;;
+    echo "${label} certificate DN: CN=BazaarPlusPlus"
+    echo "${label} certificate SHA-256 digest: ${signer}" ;;
 esac`;
 
 function fixture() {
@@ -726,7 +729,7 @@ test('upload and promote refuse an APK signed by another key than the promoted o
       ...f.options.buildTools(),
       apksigner: script(
         path.join(f.tools, 'bin', 'other-apksigner'),
-        fakeApksigner(otherSigner)
+        fakeApksigner(otherSigner, 'Signer #1')
       )
     })
   });
@@ -744,6 +747,29 @@ test('upload and promote refuse an APK signed by another key than the promoted o
   );
   expect(store.writes.length).toBe(writes);
   expect(store.objects.has(fragmentKey(next, KEY))).toBe(false);
+});
+
+test('the signer digest is the one certificate apksigner reports under either label', () => {
+  const a = 'a'.repeat(64);
+  const b = 'b'.repeat(64);
+  const line = (label, digest) =>
+    `${label} certificate SHA-256 digest: ${digest}`;
+  expect(signerCertificateSha256(line('Signer #1', a), 'x.apk')).toBe(a);
+  expect(
+    signerCertificateSha256(
+      [line('V3.0 Signer:', a), line('V3.1 Signer:', a)].join('\n'),
+      'x.apk'
+    )
+  ).toBe(a);
+  expect(() =>
+    signerCertificateSha256(
+      [line('V3.0 Signer:', a), line('V3.1 Signer:', b)].join('\n'),
+      'x.apk'
+    )
+  ).toThrow('x.apk carries 2 signer certificates');
+  expect(() => signerCertificateSha256('Verified', 'x.apk')).toThrow(
+    'apksigner verify printed no signer certificate digest for x.apk'
+  );
 });
 
 test('injection runs only where the Patcher CLI runs', () => {
