@@ -368,8 +368,6 @@ internal sealed class CardRentalCore<TCard, TParent>
         if (lease.SetUpOperation == null)
             return;
         var held = lease.Card!;
-        var retargetPending = lease.RetargetPending;
-        lease.RetargetPending = false;
         string? setUpFailure;
         bool setUpCompleted;
         try
@@ -386,8 +384,10 @@ internal sealed class CardRentalCore<TCard, TParent>
             setUpFailure = "setup_threw:" + exception.GetType().Name;
         }
         if (!setUpCompleted)
-            return;
+            return; // a retarget that arrived meanwhile stays pending until this setup ends
         lease.SetUpOperation = null;
+        var retargetPending = lease.RetargetPending;
+        lease.RetargetPending = false;
         if (lease.State == CardRentalLeaseState.Released)
         {
             _active.Remove(lease);

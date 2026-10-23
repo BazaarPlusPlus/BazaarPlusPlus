@@ -157,6 +157,37 @@ public sealed class CardRentalCoreTests
     }
 
     [Fact]
+    public void A_retarget_during_a_setup_spanning_several_frames_still_runs_when_it_ends()
+    {
+        var backend = new FakeBackend();
+        var rental = new CardRentalCore<FakeCard, string>(backend);
+        var lease = rental.Rent(new(Small, CardTier.Bronze), "grid", "test");
+        backend.CompleteAll();
+        rental.Tick(); // instantiated; the Bronze setup is now in flight
+
+        rental.Retarget(lease, new(Small, CardTier.Diamond));
+        rental.Tick(); // the Bronze setup is still running
+        rental.Tick();
+        Assert.Equal(CardRentalLeaseState.Pending, lease.State);
+        backend.CompleteAll();
+        rental.Tick(); // Bronze ends; the Diamond setup starts
+        Assert.Equal(CardRentalLeaseState.Pending, lease.State);
+        Assert.Equal(CardTier.Bronze, lease.Card!.SetUpTier);
+        rental.Tick(); // the Diamond setup is still running
+        Assert.Equal(CardRentalLeaseState.Pending, lease.State);
+        backend.CompleteAll();
+        rental.Tick();
+
+        Assert.Equal(CardRentalLeaseState.Ready, lease.State);
+        Assert.Equal(CardTier.Diamond, lease.Subject.Tier);
+        Assert.Equal(CardTier.Diamond, lease.Card!.SetUpTier);
+        Assert.Equal(1, lease.Revision);
+        Assert.Equal(1, backend.MaxConcurrentSetUpsPerCard);
+        Assert.Equal(0, backend.PendingSetUps);
+        Assert.True(rental.IsBalanced);
+    }
+
+    [Fact]
     public void A_retarget_to_another_kind_pools_the_old_card_and_rents_a_new_one()
     {
         var backend = new FakeBackend();
