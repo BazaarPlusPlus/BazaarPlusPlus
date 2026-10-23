@@ -43,42 +43,19 @@ internal static class CollectionCardClassifier
         string? internalName
     )
     {
-        if (type != ECardType.Item && type != ECardType.Skill)
-            return Rejected(CollectionCardEligibilityReason.UnsupportedType, internalName);
-        if (spawningEligibility == ESpawnEligibility.Never)
-            return Rejected(CollectionCardEligibilityReason.NeverSpawnEligibility, internalName);
-        if (string.IsNullOrEmpty(artKey))
-            return Rejected(CollectionCardEligibilityReason.MissingArtKey, internalName);
-        if (string.Equals(artKey, "Invalid", StringComparison.Ordinal))
-            return Rejected(CollectionCardEligibilityReason.InvalidArtKey, internalName);
-        if (artKey.IndexOf("Placeholder", StringComparison.OrdinalIgnoreCase) >= 0)
-            return Rejected(CollectionCardEligibilityReason.PlaceholderArtKey, internalName);
-        if (artKey.EndsWith(".mat", StringComparison.OrdinalIgnoreCase))
-            return Rejected(CollectionCardEligibilityReason.MaterialArtKey, internalName);
-        if (ContainsMarker(internalName, "[DEBUG]"))
-            return Rejected(CollectionCardEligibilityReason.DebugTemplate, internalName);
-        if (ContainsMarker(internalName, "TEMPLATE"))
-            return Rejected(CollectionCardEligibilityReason.TemplateInternalName, internalName);
-
+        var reason = CollectionCardEligibility.Classify(
+            type == ECardType.Item || type == ECardType.Skill,
+            spawningEligibility == ESpawnEligibility.Never,
+            artKey,
+            internalName
+        );
         return new CollectionCardClassification
         {
-            IsCatalogCard = true,
-            EligibilityReason = CollectionCardEligibilityReason.Accepted,
+            IsCatalogCard = reason == CollectionCardEligibilityReason.Accepted,
+            EligibilityReason = reason,
         };
     }
 
     public static bool IsPackage(TCardBase template) =>
         PackageIdentity.IsPackage(template.HiddenTags);
-
-    private static CollectionCardClassification Rejected(
-        CollectionCardEligibilityReason reason,
-        string? internalName
-    ) => new() { IsCatalogCard = false, EligibilityReason = reason };
-
-    private static bool ContainsMarker(string? value, string marker)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-            return false;
-        return value!.IndexOf(marker, StringComparison.OrdinalIgnoreCase) >= 0;
-    }
 }
