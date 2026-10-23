@@ -115,7 +115,9 @@ case "$1" in
     while [[ $# -gt 1 ]]; do
       case "$1" in
         --out) out="$2" ;;
-        --ks-pass) [[ "$2" == file:* && -s "\${2#file:}" ]] || exit 3 ;;
+        --ks-pass) [[ "$2" == file:* && -s "\${2#file:}" ]] || exit 3; ks_pass="$2" ;;
+        # apksigner reads a file named twice line by line; the one-line file has no second.
+        --key-pass) [[ "$2" != "$ks_pass" ]] || exit 4 ;;
       esac
       shift 2
     done

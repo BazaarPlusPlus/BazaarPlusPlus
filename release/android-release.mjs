@@ -657,9 +657,10 @@ export function injectAndroidApk({
     'PKCS12',
     '--ks-key-alias',
     signing.alias,
+    // No --key-pass: apksigner reads a file named twice line by line, so the
+    // key password would come from a second line that does not exist. The
+    // key's password is the keystore's (PKCS12), which apksigner tries first.
     '--ks-pass',
-    `file:${signing.passwordFile}`,
-    '--key-pass',
     `file:${signing.passwordFile}`,
     '--out',
     output,
