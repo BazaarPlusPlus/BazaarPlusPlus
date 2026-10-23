@@ -32,13 +32,16 @@ cmd_test() {
 # Linux: the Android host's boundary test, which needs the Interop Snapshot
 # (`just mod::fetch android online`) instead, and the two goldens on the net10.0 binding the
 # Android host ships: the Run segment (BundleV6Codec) and Run Logging's history database.
+# BppSnapshotPlatform=none names no lock entry, so a project that reaches a Mono target fails
+# here on every host the way it fails on the Linux lane, not only where no snapshot is fetched.
 cmd_test_core() {
     collect_props "$@"
-    dotnet test tests/BazaarPlusPlus.CoreTests.slnx "${TEST_PROPS[@]}" ${PROPS[@]+"${PROPS[@]}"}
+    local core_props=(-p:BppSnapshotPlatform=none "${TEST_PROPS[@]}")
+    dotnet test tests/BazaarPlusPlus.CoreTests.slnx "${core_props[@]}" ${PROPS[@]+"${PROPS[@]}"}
     local project
     for project in BundleV6Codec.Net10.Tests RunLoggingPipeline.Net10.Tests; do
         dotnet run --project "tests/$project/$project.csproj" \
-            "${TEST_PROPS[@]}" ${PROPS[@]+"${PROPS[@]}"}
+            "${core_props[@]}" ${PROPS[@]+"${PROPS[@]}"}
     done
 }
 

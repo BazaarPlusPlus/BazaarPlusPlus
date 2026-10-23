@@ -9,6 +9,8 @@
          entry's. The sha256 half of the check is `just mod::fetch` and `just mod::check`;
       3. nothing: BppValidateManagedPath fails the build naming both game versions.
     Steam path probing otherwise feeds only GamePath (deploy) and BppSteamManagedPath (snapshot).
+    -p:BppSnapshotPlatform=none names no lock entry on purpose: scripts/test.sh test-core passes
+    it so the Managed-free suites build the same on every host as on the Linux lane.
   -->
   <PropertyGroup>
     <BppGameLibsLock>$(MSBuildThisFileDirectory)game-libs.lock.json</BppGameLibsLock>

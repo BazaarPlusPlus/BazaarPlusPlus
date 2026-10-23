@@ -43,6 +43,7 @@ Run `just release::sync` after editing `VERSION` or `release/payload.json`; it r
 - Commit only when the user asks, after reviewing your own diff: done when you can name every file in the commit and why it is there. Revert formatter-only edits to files outside your change.
 - Commit messages and PR titles use Conventional Commits, `<type>(<scope>): <description>`. The scope is the project or feature area; root tooling uses `dev` or `release`.
 - End every PR body with a `Release Notes:` line, one blank line, then one bullet per user-visible change starting with Added, Fixed, or Improved. Use `- N/A` when nothing is user-visible.
+- A PR body names an issue only as `Closes #n` or `Refs #n`. GitHub closes the issue on any close, fix, or resolve word followed by `#n`, whatever the sentence around it says, so a partial PR writes `Refs #n` and lists the remaining items in an issue comment.
 - `master` is protected. The wrap-up flow is: commit on a branch, `gh pr create`, merge, delete merged branches.
 
 ## Changing code
