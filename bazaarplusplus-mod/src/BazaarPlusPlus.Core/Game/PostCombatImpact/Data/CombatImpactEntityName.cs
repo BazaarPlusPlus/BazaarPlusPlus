@@ -2,22 +2,22 @@ using BazaarPlusPlus.Localization;
 
 namespace BazaarPlusPlus.Game.PostCombatImpact.Data;
 
-internal static class CombatImpactEntityName
+public static class CombatImpactEntityName
 {
     private static readonly LocalizedTextSet PlayerText = new("You", "己方");
     private static readonly LocalizedTextSet OpponentText = new("Opponent", "对手");
     private static readonly LocalizedTextSet SkillText = new("Skill", "技能");
     private static readonly LocalizedTextSet ItemText = new("Item", "物品");
 
-    internal static string Player => L.Resolve(PlayerText);
+    public static string Player => L.Resolve(PlayerText);
 
-    internal static string Opponent => L.Resolve(OpponentText);
+    public static string Opponent => L.Resolve(OpponentText);
 
-    internal static string Skill => L.Resolve(SkillText);
+    public static string Skill => L.Resolve(SkillText);
 
-    internal static string Item => L.Resolve(ItemText);
+    public static string Item => L.Resolve(ItemText);
 
-    internal static string RemoveNativeEnchantmentPrefix(string nativeTooltipTitle)
+    public static string RemoveNativeEnchantmentPrefix(string nativeTooltipTitle)
     {
         if (string.IsNullOrWhiteSpace(nativeTooltipTitle))
             return string.Empty;

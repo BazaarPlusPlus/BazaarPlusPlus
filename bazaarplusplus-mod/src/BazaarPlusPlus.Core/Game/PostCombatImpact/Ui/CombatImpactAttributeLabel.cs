@@ -4,9 +4,9 @@ using BazaarPlusPlus.Localization;
 
 namespace BazaarPlusPlus.Game.PostCombatImpact.Ui;
 
-internal static class CombatImpactAttributeLabel
+public static class CombatImpactAttributeLabel
 {
-    internal static string Resolve(
+    public static string Resolve(
         string key,
         CombatImpactEventSurface surface,
         int? changeValue,

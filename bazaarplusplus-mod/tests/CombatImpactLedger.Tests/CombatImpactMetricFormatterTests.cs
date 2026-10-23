@@ -1,7 +1,7 @@
 using BazaarPlusPlus.Game.PostCombatImpact.Data;
 using Xunit;
 
-namespace PostCombatImpact.Tests;
+namespace CombatImpactLedger.Tests;
 
 public sealed class CombatImpactMetricFormatterTests
 {
@@ -10,7 +10,10 @@ public sealed class CombatImpactMetricFormatterTests
     private const string DamageIcon = "<sprite name=Damage>";
     private const string HealingIcon = "<sprite name=Healing>";
 
-    private static readonly CombatImpactEntity Target = new("target", "Target", "Item", null, 0);
+    // The producer stamps its attribution model; the formatter never reads it.
+    private const string PeriodicModelVersion = "periodic-impact-test";
+
+    private static readonly CombatImpactLedgerEntity Target = new("target", "Target", "Item", 0);
 
     [Theory]
     [InlineData(950, (int)CombatImpactValueUnit.Milliseconds, false, "0.95s")]
@@ -49,8 +52,8 @@ public sealed class CombatImpactMetricFormatterTests
     [Fact]
     public void Triggered_skill_hides_internal_batch_count_and_keeps_source_breakdown()
     {
-        var skill = new CombatImpactEntity("skill", "Wax and Wane", "Skill", null, 0);
-        var trigger = new CombatImpactEntity("trigger", "Soul of the\nDistrict", "Item", null, 1);
+        var skill = new CombatImpactLedgerEntity("skill", "Wax and Wane", "Skill", 0);
+        var trigger = new CombatImpactLedgerEntity("trigger", "Soul of the\nDistrict", "Item", 1);
         var group = new CombatImpactGroup(
             CombatImpactKind.Slow,
             "Slow",
@@ -94,7 +97,7 @@ public sealed class CombatImpactMetricFormatterTests
     [Fact]
     public void Trigger_sources_show_only_known_player_relevant_sources()
     {
-        var trigger = new CombatImpactEntity("trigger", "Trigger", "Item", null, 1);
+        var trigger = new CombatImpactLedgerEntity("trigger", "Trigger", "Item", 1);
         var group = Group(
             CombatImpactKind.Charge,
             count: 5,
@@ -129,8 +132,8 @@ public sealed class CombatImpactMetricFormatterTests
     [Fact]
     public void Trigger_sources_count_activation_batches_instead_of_target_fan_out()
     {
-        var dragRacer = new CombatImpactEntity("drag-racer", "Drag Racer", "Item", null, 1);
-        var tambourine = new CombatImpactEntity("tambourine", "Tambourine", "Item", null, 2);
+        var dragRacer = new CombatImpactLedgerEntity("drag-racer", "Drag Racer", "Item", 1);
+        var tambourine = new CombatImpactLedgerEntity("tambourine", "Tambourine", "Item", 2);
         var group = Group(
             CombatImpactKind.Charge,
             count: 16,
@@ -164,7 +167,7 @@ public sealed class CombatImpactMetricFormatterTests
     [Fact]
     public void Skill_summary_omits_ambiguous_card_stat_use_count_without_executed_provenance()
     {
-        var skill = new CombatImpactEntity("skill", "Quick Freeze", "Skill", null, 0);
+        var skill = new CombatImpactLedgerEntity("skill", "Quick Freeze", "Skill", 0);
         var source = new CombatImpactSource(skill, 17, 1, []);
 
         Assert.Empty(CombatImpactMetricFormatter.CausedSummary(source, chinese: false));
@@ -814,7 +817,7 @@ public sealed class CombatImpactMetricFormatterTests
                 149,
                 0,
                 CombatImpactPeriodicProof.Exact,
-                PeriodicEffectAttribution.ModelVersion
+                PeriodicModelVersion
             ),
         };
 
@@ -845,7 +848,7 @@ public sealed class CombatImpactMetricFormatterTests
                 149,
                 0,
                 CombatImpactPeriodicProof.Exact,
-                PeriodicEffectAttribution.ModelVersion
+                PeriodicModelVersion
             ),
         };
         var burn = regen with
@@ -856,7 +859,7 @@ public sealed class CombatImpactMetricFormatterTests
                 73,
                 21,
                 CombatImpactPeriodicProof.Exact,
-                PeriodicEffectAttribution.ModelVersion
+                PeriodicModelVersion
             ),
         };
 

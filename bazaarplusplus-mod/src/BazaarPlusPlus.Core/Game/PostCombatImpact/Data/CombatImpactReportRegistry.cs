@@ -2,15 +2,15 @@
 
 namespace BazaarPlusPlus.Game.PostCombatImpact.Data;
 
-internal sealed class CombatImpactReportRegistry
+public sealed class CombatImpactReportRegistry
 {
     private readonly object _gate = new();
     private long _generation;
     private CombatImpactReport _published = CombatImpactReport.Empty;
 
-    internal CombatImpactReport Latest => Volatile.Read(ref _published);
+    public CombatImpactReport Latest => Volatile.Read(ref _published);
 
-    internal long BeginGeneration()
+    public long BeginGeneration()
     {
         lock (_gate)
         {
@@ -20,7 +20,7 @@ internal sealed class CombatImpactReportRegistry
         }
     }
 
-    internal bool TryPublish(long generation, CombatImpactReport report)
+    public bool TryPublish(long generation, CombatImpactReport report)
     {
         if (report == null)
             throw new ArgumentNullException(nameof(report));
@@ -35,5 +35,5 @@ internal sealed class CombatImpactReportRegistry
         }
     }
 
-    internal void Reset() => _ = BeginGeneration();
+    public void Reset() => _ = BeginGeneration();
 }

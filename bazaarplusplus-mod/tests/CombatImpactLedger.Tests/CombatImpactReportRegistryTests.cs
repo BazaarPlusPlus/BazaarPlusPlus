@@ -2,7 +2,7 @@
 using BazaarPlusPlus.Game.PostCombatImpact.Data;
 using Xunit;
 
-namespace PostCombatImpact.Tests;
+namespace CombatImpactLedger.Tests;
 
 public sealed class CombatImpactReportRegistryTests
 {
@@ -40,7 +40,7 @@ public sealed class CombatImpactReportRegistryTests
 
     private static CombatImpactReport Report(string id) =>
         new(
-            [new CombatImpactSource(new CombatImpactEntity(id, id, "Item", null, 0), 0, 0, [])],
+            [new CombatImpactSource(new CombatImpactLedgerEntity(id, id, "Item", 0), 0, 0, [])],
             []
         );
 }

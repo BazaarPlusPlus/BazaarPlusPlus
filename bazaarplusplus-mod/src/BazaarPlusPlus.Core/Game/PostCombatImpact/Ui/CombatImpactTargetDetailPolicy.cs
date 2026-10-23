@@ -3,9 +3,9 @@ using BazaarPlusPlus.Game.PostCombatImpact.Data;
 
 namespace BazaarPlusPlus.Game.PostCombatImpact.Ui;
 
-internal static class CombatImpactTargetDetailPolicy
+public static class CombatImpactTargetDetailPolicy
 {
-    internal static bool ShouldRender(
+    public static bool ShouldRender(
         CombatImpactKind kind,
         string nativeAttributeKey,
         CombatImpactEventSurface surface

@@ -18,8 +18,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- The accounting engine and the runtime adapters it reads through, by directory rather than
-         by file, so splitting or adding a source file stays an ordinary refactor. -->
+    <!-- The Combat Impact producer and the runtime adapters it reads through, by directory rather
+         than by file, so splitting or adding a source file stays an ordinary refactor. The ledger
+         it projects into comes from Core. -->
     <Compile
       Include="../../src/BazaarPlusPlus/Game/PostCombatImpact/Data/*.cs"
       Link="Data/%(Filename)%(Extension)"
