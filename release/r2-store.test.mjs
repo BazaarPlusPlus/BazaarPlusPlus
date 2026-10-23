@@ -167,6 +167,61 @@ test('a rejected, malformed or inactive verification fails the request and is re
   }
 });
 
+test('a verification that fails in transport reports every cause, not the token', async () => {
+  const token = uniqueToken();
+  const refused = (address) =>
+    Object.assign(new Error(`connect ECONNREFUSED ${address}:443`), {
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address,
+      port: 443
+    });
+  const fetchImpl = vi.fn().mockRejectedValue(
+    new TypeError('fetch failed', {
+      cause: new AggregateError(
+        [refused('104.19.192.29'), refused('2606:4700::6813:c01d')],
+        ''
+      )
+    })
+  );
+  const store = r2StoreFromApiToken({
+    token,
+    accountId: credentials.accountId,
+    fetchImpl
+  });
+  const message = await store
+    .head('latest.json')
+    .catch((error) => error.message);
+  expect(message).toBe(
+    'Cloudflare token verification failed: TypeError: fetch failed <- AggregateError:  [' +
+      'Error: connect ECONNREFUSED 104.19.192.29:443 (code=ECONNREFUSED syscall=connect address=104.19.192.29 port=443); ' +
+      'Error: connect ECONNREFUSED 2606:4700::6813:c01d:443 (code=ECONNREFUSED syscall=connect address=2606:4700::6813:c01d port=443)]'
+  );
+  expect(message).not.toContain(token);
+});
+
+test('a verification error that quotes the authorization header is redacted', async () => {
+  const token = uniqueToken();
+  const fetchImpl = vi
+    .fn()
+    .mockRejectedValue(
+      new TypeError(
+        `Headers.append: "Bearer ${token}" is an invalid header value.`
+      )
+    );
+  const store = r2StoreFromApiToken({
+    token,
+    accountId: credentials.accountId,
+    fetchImpl
+  });
+  const message = await store
+    .head('latest.json')
+    .catch((error) => error.message);
+  expect(message).toBe(
+    'Cloudflare token verification failed: TypeError: Headers.append: "Bearer <token>" is an invalid header value.'
+  );
+});
+
 test('R2 writes are signed and always carry the conditional precondition', async () => {
   const fetchImpl = vi
     .fn()
