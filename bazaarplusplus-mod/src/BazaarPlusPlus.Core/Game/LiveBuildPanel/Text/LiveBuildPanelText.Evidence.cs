@@ -5,7 +5,7 @@ using BazaarPlusPlus.Localization;
 
 namespace BazaarPlusPlus.Game.LiveBuildPanel;
 
-internal static partial class LiveBuildPanelText
+public static partial class LiveBuildPanelText
 {
     private static readonly LocalizedTextSet MatchRateLabelText = new(
         "Ten-win rate",

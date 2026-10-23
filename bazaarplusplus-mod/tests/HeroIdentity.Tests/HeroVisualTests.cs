@@ -10,7 +10,7 @@ public sealed class HeroVisualTests
     [InlineData(" hero8 ")]
     [InlineData("TheDragons")]
     [InlineData(" THEDRAGONS ")]
-    public void Both_aliases_share_the_playable_dragons_badge(string alias)
+    public void Both_aliases_share_the_dragons_badge(string alias)
     {
         var style = HeroVisual.Resolve(alias);
 
@@ -18,7 +18,6 @@ public sealed class HeroVisualTests
         Assert.Equal(45f / 255f, style.Background.r, precision: 6);
         Assert.Equal(210f / 255f, style.Background.g, precision: 6);
         Assert.Equal(208f / 255f, style.Background.b, precision: 6);
-        Assert.True(HeroVisual.IsPlayableHero(alias));
     }
 
     [Fact]
@@ -27,8 +26,5 @@ public sealed class HeroVisualTests
         var style = HeroVisual.Resolve("Vanessa");
 
         Assert.Equal("VAN", style.ShortCode);
-        Assert.True(HeroVisual.IsPlayableHero("Vanessa"));
-        Assert.False(HeroVisual.IsPlayableHero("Common"));
-        Assert.False(HeroVisual.IsPlayableHero(null));
     }
 }

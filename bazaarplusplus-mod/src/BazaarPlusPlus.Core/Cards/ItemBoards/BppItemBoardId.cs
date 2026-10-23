@@ -1,8 +1,8 @@
 #nullable enable
 
-namespace BazaarPlusPlus.GameInterop.ItemBoardPreview;
+namespace BazaarPlusPlus.Core.Cards.ItemBoards;
 
-internal enum BppItemBoardId
+public enum BppItemBoardId
 {
     FinalBuild,
     Historical,

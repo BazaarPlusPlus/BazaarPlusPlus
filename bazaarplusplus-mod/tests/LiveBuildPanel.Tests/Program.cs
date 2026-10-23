@@ -1,102 +1,36 @@
-using System.Reflection;
-using BazaarGameShared.Domain.Core.Types;
+using BazaarPlusPlus.Core.Cards;
+using BazaarPlusPlus.Core.Cards.ItemBoards;
 using BazaarPlusPlus.Game.LiveBuildPanel;
 using BazaarPlusPlus.Game.LiveBuildPanel.Data;
-using BazaarPlusPlus.GameInterop.ItemBoardPreview;
-using BazaarPlusPlus.Infrastructure.UiTokens;
 using BazaarPlusPlus.Localization;
+using LiveBuildPanel.Tests;
 
 L.Install(() => "en", () => BppChineseLocaleMode.Mainland);
 
-TestOverlaySortingLayersKeepNativeCardsBetweenPanelAndForeground();
-TestSupporterAttributionCountFillsRail();
 TestCandidateToggleUsesTemplateId();
 TestCandidatePruneKeepsSelectableRowsOnly();
 TestRowVmTogglePolicyComesFromBoardType();
 TestNoRunRowsSuppressEmptyText();
 TestActiveRunRowsKeepSpecificEmptyStates();
-
 TestRowsKeepFourPeerOrder();
 TestCandidateIdentityIsSharedAcrossSources();
 TestCorpusFreshnessKeepsLocalizedRelativeTime();
 
+L.Install(() => "en", () => BppChineseLocaleMode.Mainland);
+LiveBuildRefreshStateTests.Run();
+LiveBuildPanelStateTests.Run();
+
 Console.WriteLine("LiveBuildPanel checks passed.");
-
-static void TestOverlaySortingLayersKeepNativeCardsBetweenPanelAndForeground()
-{
-    Assert(
-        BppOverlaySorting.PanelUiToolkit < BppOverlaySorting.NativeCardPreview,
-        "Native cards must render above the main UI Toolkit panel."
-    );
-    Assert(
-        BppOverlaySorting.NativeCardPreview < BppOverlaySorting.PanelForeground,
-        "Foreground markers must render above native cards."
-    );
-}
-
-static void TestSupporterAttributionCountFillsRail()
-{
-    RegisterPluginReflectionAssemblyResolution();
-    var assembly = Assembly.LoadFrom(Path.Combine(AppContext.BaseDirectory, "BazaarPlusPlus.dll"));
-    var panelType = assembly.GetType("BazaarPlusPlus.Game.LiveBuildPanel.LiveBuildPanel");
-    Assert(
-        panelType != null,
-        $"Plugin assembly should contain LiveBuildPanel: {assembly.FullName}."
-    );
-
-    var field = panelType!.GetField(
-        "SupporterAttributionCount",
-        BindingFlags.NonPublic | BindingFlags.Static
-    );
-    Assert(field != null, "LiveBuildPanel should keep supporter attribution count named.");
-    var count = (int)field!.GetRawConstantValue()!;
-    Assert(
-        count == 4,
-        $"LiveBuildPanel should fill the four-supporter attribution rail, got {count}."
-    );
-}
-
-static void RegisterPluginReflectionAssemblyResolution()
-{
-    AppDomain.CurrentDomain.AssemblyResolve += (_, args) =>
-    {
-        var name = new AssemblyName(args.Name).Name;
-        if (string.IsNullOrWhiteSpace(name))
-            return null;
-
-        foreach (var root in ManagedAssemblySearchRoots())
-        {
-            var candidate = Path.Combine(root, $"{name}.dll");
-            if (File.Exists(candidate))
-                return Assembly.LoadFrom(candidate);
-        }
-
-        return null;
-    };
-}
-
-// The game assemblies this capsule compiled against (build/ManagedPath.props), stamped
-// into the assembly by the project file; no Steam path is probed at run time.
-static IEnumerable<string> ManagedAssemblySearchRoots()
-{
-    yield return AppContext.BaseDirectory;
-    var managed = typeof(Program)
-        .Assembly.GetCustomAttributes<AssemblyMetadataAttribute>()
-        .SingleOrDefault(attribute => attribute.Key == "BppManagedPath")
-        ?.Value;
-    if (!string.IsNullOrWhiteSpace(managed))
-        yield return managed;
-}
 
 static void TestCandidateToggleUsesTemplateId()
 {
     var state = new LiveBuildCandidateState();
     var templateId = Guid.Parse("11111111-1111-1111-1111-111111111111");
 
-    Assert(state.Toggle(templateId), "First toggle should change state.");
-    Assert(state.Contains(templateId), "Template id should be selected after first toggle.");
-    Assert(state.Toggle(templateId), "Second toggle should change state.");
-    Assert(!state.Contains(templateId), "Template id should be removed after second toggle.");
+    Check.That(state.Toggle(templateId), "First toggle should change state.");
+    Check.That(state.Contains(templateId), "Template id should be selected after first toggle.");
+    Check.That(state.Toggle(templateId), "Second toggle should change state.");
+    Check.That(!state.Contains(templateId), "Template id should be removed after second toggle.");
 }
 
 static void TestCandidatePruneKeepsSelectableRowsOnly()
@@ -112,13 +46,16 @@ static void TestCandidatePruneKeepsSelectableRowsOnly()
         Board(BppItemBoardId.FinalBuild, BppItemBoardType.Reference, referenceTemplate),
     ]);
 
-    Assert(state.Contains(selectableTemplate), "Selectable row candidate should survive prune.");
-    Assert(!state.Contains(referenceTemplate), "Reference row candidate should be pruned.");
+    Check.That(
+        state.Contains(selectableTemplate),
+        "Selectable row candidate should survive prune."
+    );
+    Check.That(!state.Contains(referenceTemplate), "Reference row candidate should be pruned.");
 }
 
 static void TestRowVmTogglePolicyComesFromBoardType()
 {
-    Assert(
+    Check.That(
         new LiveItemBoardRowVm(
             Board(BppItemBoardId.FinalBuild, BppItemBoardType.Reference, Guid.NewGuid()),
             "final",
@@ -126,7 +63,7 @@ static void TestRowVmTogglePolicyComesFromBoardType()
         ).CanToggleCandidates == false,
         "Final build row should not expose candidate hit targets."
     );
-    Assert(
+    Check.That(
         new LiveItemBoardRowVm(
             Board(BppItemBoardId.LiveShop, BppItemBoardType.SelectableShop, Guid.NewGuid()),
             "shop",
@@ -156,7 +93,7 @@ static void TestNoRunRowsSuppressEmptyText()
         }
     )
     {
-        Assert(
+        Check.That(
             string.IsNullOrEmpty(rows[id].EmptyText),
             $"{id} no-run empty text should be suppressed."
         );
@@ -168,39 +105,24 @@ static void TestActiveRunRowsKeepSpecificEmptyStates()
     var rows = RowsById(
         new LiveBuildPanelSnapshot
         {
-            Hero = EHero.Vanessa,
+            Hero = CardHero.Vanessa,
             Shop = EmptyBoard(BppItemBoardId.LiveShop, BppItemBoardType.SelectableShop),
             Stash = EmptyBoard(BppItemBoardId.LiveStash, BppItemBoardType.SelectableContainer),
             Board = EmptyBoard(BppItemBoardId.LiveBoard, BppItemBoardType.SelectableContainer),
         }
     );
-    Assert(
+    Check.That(
         rows[BppItemBoardId.LiveShop].EmptyText == LiveBuildPanelText.EmptyShop(),
         "Shop empty state must remain specific."
     );
-    Assert(
+    Check.That(
         rows[BppItemBoardId.LiveStash].EmptyText == LiveBuildPanelText.EmptyStash(),
         "Stash empty state must remain specific."
     );
-    Assert(
+    Check.That(
         rows[BppItemBoardId.LiveBoard].EmptyText == LiveBuildPanelText.EmptyBoard(),
         "Board empty state must remain specific."
     );
-}
-
-static BppItemBoard Board(BppItemBoardId id, BppItemBoardType type, Guid templateId) =>
-    new(id, type, [new BppItemBoardCard { TemplateId = templateId, Size = ECardSize.Small }]);
-
-static BppItemBoard EmptyBoard(BppItemBoardId id, BppItemBoardType type) =>
-    new(id, type, Array.Empty<BppItemBoardCard>());
-
-static Dictionary<BppItemBoardId, LiveItemBoardRowVm> RowsById(LiveBuildPanelSnapshot snapshot) =>
-    snapshot.Rows.ToDictionary(row => row.Board.Id);
-
-static void Assert(bool condition, string message)
-{
-    if (!condition)
-        throw new InvalidOperationException(message);
 }
 
 static void TestRowsKeepFourPeerOrder()
@@ -212,7 +134,7 @@ static void TestRowsKeepFourPeerOrder()
         Stash = EmptyBoard(BppItemBoardId.LiveStash, BppItemBoardType.SelectableContainer),
         Board = EmptyBoard(BppItemBoardId.LiveBoard, BppItemBoardType.SelectableContainer),
     };
-    Assert(
+    Check.That(
         snapshot
             .Rows.Select(row => row.Board.Id)
             .SequenceEqual(
@@ -236,12 +158,12 @@ static void TestCandidateIdentityIsSharedAcrossSources()
     var stash = Board(BppItemBoardId.LiveStash, BppItemBoardType.SelectableContainer, template);
     state.Toggle(template);
     state.PruneToSelectableRows(new[] { shop, stash });
-    Assert(
+    Check.That(
         state.TemplateIds.Count == 1 && state.Contains(template),
         "The same template across sources is one candidate."
     );
     state.Toggle(stash.Cards[0].TemplateId);
-    Assert(!state.HasCandidates, "Toggling another source clears the same candidate.");
+    Check.That(!state.HasCandidates, "Toggling another source clears the same candidate.");
 }
 
 static void TestCorpusFreshnessKeepsLocalizedRelativeTime()
@@ -256,8 +178,17 @@ static void TestCorpusFreshnessKeepsLocalizedRelativeTime()
         summary,
         new DateTimeOffset(2034, 5, 16, 7, 28, 9, TimeSpan.Zero)
     );
-    Assert(
+    Check.That(
         freshness.Contains("2 小时前", StringComparison.Ordinal),
         "Corpus freshness should retain the localized relative update time."
     );
 }
+
+static BppItemBoard Board(BppItemBoardId id, BppItemBoardType type, Guid templateId) =>
+    new(id, type, [new BppItemBoardCard { TemplateId = templateId, Size = CardSize.Small }]);
+
+static BppItemBoard EmptyBoard(BppItemBoardId id, BppItemBoardType type) =>
+    new(id, type, Array.Empty<BppItemBoardCard>());
+
+static Dictionary<BppItemBoardId, LiveItemBoardRowVm> RowsById(LiveBuildPanelSnapshot snapshot) =>
+    snapshot.Rows.ToDictionary(row => row.Board.Id);

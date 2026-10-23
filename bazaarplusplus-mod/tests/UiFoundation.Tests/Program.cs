@@ -8,6 +8,7 @@ TestNativeGameFontSelection();
 TestBilingualItemNamePresentation();
 TestStablePanelTextCompactionKeepsStableSlots();
 TestCollectionSortWidthsKeepStableGroup();
+TestOverlaySortingLayersKeepNativeCardsBetweenPanelAndForeground();
 
 Console.WriteLine("UiFoundation checks passed.");
 
@@ -133,6 +134,18 @@ static void TestCollectionSortWidthsKeepStableGroup()
         Sizes.CollectionSortInactiveWidth >= Sizes.InfoChipMinWidth
             && Sizes.CollectionSortEnglishInactiveWidth >= Sizes.InfoChipMinWidth,
         "Inactive sort segments should not shrink below the compact chip floor."
+    );
+}
+
+static void TestOverlaySortingLayersKeepNativeCardsBetweenPanelAndForeground()
+{
+    Assert(
+        BppOverlaySorting.PanelUiToolkit < BppOverlaySorting.NativeCardPreview,
+        "Native cards must render above the main UI Toolkit panel."
+    );
+    Assert(
+        BppOverlaySorting.NativeCardPreview < BppOverlaySorting.PanelForeground,
+        "Foreground markers must render above native cards."
     );
 }
 
