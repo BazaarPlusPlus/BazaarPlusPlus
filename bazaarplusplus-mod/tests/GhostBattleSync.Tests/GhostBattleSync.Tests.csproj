@@ -4,12 +4,29 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <BppRequiresManagedPath>false</BppRequiresManagedPath>
   </PropertyGroup>
 
   <!-- Ghost discovery, download and payload storage are Core services; the game-typed reads come
-       from a fake evidence binding (BundlePipeline.Tests covers the desktop's). -->
+       from a fake evidence binding (BundlePipeline.Tests covers the desktop's). Named explicitly
+       so the test tree's netstandard2.1 pin leaves Core and its references on net10.0, which
+       `mod::test-core` runs without a Managed snapshot. The shared projects keep their package
+       references private, so this project supplies them. -->
   <ItemGroup>
-    <ProjectReference Include="../../src/BazaarPlusPlus.Core/BazaarPlusPlus.Core.csproj" />
+    <ProjectReference
+      Include="../../src/BazaarPlusPlus.Core/BazaarPlusPlus.Core.csproj"
+      SetTargetFramework="TargetFramework=net10.0"
+    />
+    <ProjectReference
+      Include="../../src/BazaarPlusPlus.Storage/BazaarPlusPlus.Storage.csproj"
+      SetTargetFramework="TargetFramework=net10.0"
+    />
+    <ProjectReference
+      Include="../../src/BazaarPlusPlus.ModApi/BazaarPlusPlus.ModApi.csproj"
+      SetTargetFramework="TargetFramework=net10.0"
+    />
+    <PackageReference Include="MessagePack" />
+    <PackageReference Include="Newtonsoft.Json" />
   </ItemGroup>
 
   <ItemGroup>
