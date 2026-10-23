@@ -3,6 +3,8 @@
 Device: AVD `bpp_api35` (emulator-5556), game `1.0.12825-production-android-d9601ded`, BPP `6.0.0.prod`.
 Account state: one Run (Vanessa, Normal, now day 6) with one recorded PvP battle (day 5, a loss against a Jules opponent).
 
+Base: every build here was the branch on `750e2b0`. Before merge the branch was rebased onto `fd5d5cc`, which brings the Android Collection panel (#422). That rebase hand-merged `Ui/AndroidTouchUi.cs` (the Collection tab, the Collection setting row and the History launcher side by side) and `Host/AndroidMod.cs` (History's scene handling before `AndroidCardRental.ReleaseAll`). The merged build passed the gates but was not run on the device.
+
 Screenshots are halved and cropped so no account name is in frame; the opponent's name in the History battle chip is blurred. Logs hold only `[BPP]` lines with every line naming an account, user, or player id removed (none matched). `bazaarplusplus.redacted.db` is the pulled history database with player and opponent names and account ids nulled, and `opponent_name` removed from the `pvp_combat_recorded` event.
 
 ## Builds and logs
