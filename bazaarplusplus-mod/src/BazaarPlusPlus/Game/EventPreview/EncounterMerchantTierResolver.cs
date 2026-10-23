@@ -4,18 +4,20 @@ using BazaarGameShared.Domain.Cards.Encounter.Event;
 using BazaarGameShared.Domain.Core.Types;
 using BazaarGameShared.Domain.Spawning.SpawnBehaviors;
 using BazaarGameShared.Domain.Spawning.SpawningContexts;
+using BazaarPlusPlus.Core.Cards;
+using BazaarPlusPlus.GameInterop.Cards;
 
 namespace BazaarPlusPlus.Game.EventPreview;
 
 internal readonly struct EncounterMerchantTierPolicy
 {
-    public EncounterMerchantTierPolicy(ETier? fixedTier, bool usesDayDistribution)
+    public EncounterMerchantTierPolicy(CardTier? fixedTier, bool usesDayDistribution)
     {
         FixedTier = fixedTier;
         UsesDayDistribution = usesDayDistribution;
     }
 
-    public ETier? FixedTier { get; }
+    public CardTier? FixedTier { get; }
 
     public bool UsesDayDistribution { get; }
 }
@@ -50,11 +52,16 @@ internal static class EncounterMerchantTierResolver
             }
         }
 
-        return fixedTier.HasValue
-            ? new EncounterMerchantTierPolicy(fixedTier, usesDayDistribution: false)
-            : new EncounterMerchantTierPolicy(
-                fixedTier: null,
-                usesDayDistribution: !ignoresDayTable
+        // A pinned tier with no facet (vocabulary drift the pin tests report) is still pinned:
+        // neither a fixed tier line nor the day distribution describes it.
+        if (fixedTier is { } pinned)
+            return new EncounterMerchantTierPolicy(
+                DesktopCardFacets.Tier.TryToFacet(pinned, out var facet) ? facet : null,
+                usesDayDistribution: false
             );
+        return new EncounterMerchantTierPolicy(
+            fixedTier: null,
+            usesDayDistribution: !ignoresDayTable
+        );
     }
 }

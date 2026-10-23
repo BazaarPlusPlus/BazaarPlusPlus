@@ -1,4 +1,5 @@
-using BazaarGameShared.Domain.Core.Types;
+using BazaarPlusPlus.Core.Cards;
+using BazaarPlusPlus.Core.GameState;
 using BazaarPlusPlus.GameInterop.DayTiers;
 using Xunit;
 
@@ -35,21 +36,24 @@ public sealed class GameDataDayTierResolverTests
         var available = resolver.Resolve();
         Assert.Equal(GameDataDayTierStatus.Available, available.Status);
         Assert.Equal(3, available.Day);
-        Assert.Equal(ETier.Silver, available.MaximumTier);
+        Assert.Equal(CardTier.Silver, available.MaximumTier);
         Assert.NotNull(available.Table);
     }
 
     [Fact]
     public void FromWeights_ceiling_is_the_highest_positive_tier()
     {
-        Assert.Equal(ETier.Bronze, GameDataDayTierTable.FromWeights(1f, 0f, 0f, 0f)!.MaximumTier);
+        Assert.Equal(
+            CardTier.Bronze,
+            GameDataDayTierTable.FromWeights(1f, 0f, 0f, 0f)!.MaximumTier
+        );
         // The highest positive tier is the ceiling even when its probability is smaller.
         Assert.Equal(
-            ETier.Gold,
+            CardTier.Gold,
             GameDataDayTierTable.FromWeights(0.7f, 0.2f, 0.09f, 0f)!.MaximumTier
         );
         Assert.Equal(
-            ETier.Diamond,
+            CardTier.Diamond,
             GameDataDayTierTable.FromWeights(0.89f, 0.1f, 0f, 0.01f)!.MaximumTier
         );
     }
@@ -135,11 +139,11 @@ public sealed class GameDataDayTierResolverTests
         };
         var resolver = new GameDataDayTierResolver(source);
 
-        Assert.Equal(ETier.Silver, resolver.Resolve().MaximumTier);
+        Assert.Equal(CardTier.Silver, resolver.Resolve().MaximumTier);
         source.Context = GameDataDayTierSourceContext.Available(secondManager, GameModeId, day: 5);
-        Assert.Equal(ETier.Diamond, resolver.Resolve().MaximumTier);
+        Assert.Equal(CardTier.Diamond, resolver.Resolve().MaximumTier);
         source.Context = GameDataDayTierSourceContext.Available(firstManager, GameModeId, day: 5);
-        Assert.Equal(ETier.Silver, resolver.Resolve().MaximumTier);
+        Assert.Equal(CardTier.Silver, resolver.Resolve().MaximumTier);
 
         Assert.Equal(3, source.ReadCount);
     }

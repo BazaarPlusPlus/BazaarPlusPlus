@@ -4,7 +4,8 @@ using System.Reflection;
 using BazaarGameShared.Domain.Core.Types;
 using BazaarGameShared.Domain.Spawning;
 using BazaarGameShared.Domain.Spawning.SpawnBehaviors;
-using BazaarPlusPlus.GameInterop.DayTiers;
+using BazaarPlusPlus.Core.Cards;
+using BazaarPlusPlus.GameInterop.Cards;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
@@ -1200,39 +1201,71 @@ internal static class EncounterStructuredParser
             }
         }
 
+        // The constraints hold the game's values, which arrive as names or, from runtime
+        // objects, as the game's integers; the filter carries their facets (ADR-0015).
         public EncounterRewardFilter? ToRewardFilter(int? quantity)
         {
-            var cardType = _cardType ?? InferCardType();
-            if (cardType == null)
+            var gameCardType = _cardType ?? InferCardType();
+            if (
+                gameCardType == null
+                || !DesktopCardFacets.Type.TryToFacet(gameCardType.Value, out var cardType)
+            )
                 return null;
 
-            var sizes = ApplyExclusions(_sizes, _excludedSizes, KnownSizes);
-            var tiers = ApplyExclusions(_tiers, _excludedTiers, KnownTiers);
-            IReadOnlyList<ECardTag> tags =
-                cardType == ECardType.Skill ? Array.Empty<ECardTag>() : _tags;
+            var sizes = ToFacets(
+                DesktopCardFacets.Size,
+                ApplyExclusions(_sizes, _excludedSizes, KnownSizes)
+            );
+            var tiers = ToFacets(
+                DesktopCardFacets.Tier,
+                ApplyExclusions(_tiers, _excludedTiers, KnownTiers)
+            );
+            IReadOnlyList<CardTag> tags =
+                cardType == CardType.Skill
+                    ? Array.Empty<CardTag>()
+                    : ToFacets(DesktopCardFacets.Tag, _tags);
+            var keywords = ToFacets(DesktopCardFacets.HiddenTag, _keywords);
+            var excludedTags = ToFacets(DesktopCardFacets.Tag, _excludedTags);
+            var excludedKeywords = ToFacets(DesktopCardFacets.HiddenTag, _excludedKeywords);
             var summary = BuildSummary(
-                cardType.Value,
+                cardType,
                 sizes,
                 tiers,
                 tags,
-                _keywords,
-                _excludedTags,
-                _excludedKeywords
+                keywords,
+                excludedTags,
+                excludedKeywords
             );
             return new EncounterRewardFilter(
-                cardType.Value,
+                cardType,
                 quantity,
                 fromAnyHero: false,
                 sizes,
                 tiers,
                 tags,
-                _keywords,
+                keywords,
                 summary,
-                _excludedTags,
-                _excludedKeywords,
+                excludedTags,
+                excludedKeywords,
                 _usesDayTierTable,
                 _usesDayTierDistribution
             );
+        }
+
+        private static IReadOnlyList<TFacet> ToFacets<TGame, TFacet>(
+            CardFacetNameMap<TGame, TFacet> map,
+            IReadOnlyList<TGame> values
+        )
+            where TGame : struct, Enum
+            where TFacet : struct, Enum
+        {
+            var result = new List<TFacet>(values.Count);
+            foreach (var value in values)
+            {
+                if (map.TryToFacet(value, out var facet) && !result.Contains(facet))
+                    result.Add(facet);
+            }
+            return result;
         }
 
         // An exclusion-only tier behavior (IsNot: "any tier except X") leaves the pool
@@ -1456,13 +1489,13 @@ internal static class EncounterStructuredParser
     }
 
     private static string BuildSummary(
-        ECardType cardType,
-        IReadOnlyList<ECardSize> sizes,
-        IReadOnlyList<ETier> tiers,
-        IReadOnlyList<ECardTag> tags,
-        IReadOnlyList<EHiddenTag> keywords,
-        IReadOnlyList<ECardTag> excludedTags,
-        IReadOnlyList<EHiddenTag> excludedKeywords
+        CardType cardType,
+        IReadOnlyList<CardSize> sizes,
+        IReadOnlyList<CardTier> tiers,
+        IReadOnlyList<CardTag> tags,
+        IReadOnlyList<CardHiddenTag> keywords,
+        IReadOnlyList<CardTag> excludedTags,
+        IReadOnlyList<CardHiddenTag> excludedKeywords
     )
     {
         var included = new List<string>();
@@ -1489,26 +1522,25 @@ internal static class EncounterStructuredParser
             : $"{string.Join(" ", included)}, not {string.Join("/", excluded)}";
     }
 
-    private static string CompactTierSummary(IReadOnlyList<ETier> tiers)
+    private static string CompactTierSummary(IReadOnlyList<CardTier> tiers)
     {
         if (tiers.Count == 0)
             return string.Empty;
         if (tiers.Count == 1)
             return tiers[0].ToString();
-        var ordered = new List<ETier>(tiers);
+        var ordered = new List<CardTier>(tiers);
         ordered.Sort(
-            (left, right) =>
-                GameDataDayTierOrder.Rank(left).CompareTo(GameDataDayTierOrder.Rank(right))
+            (left, right) => CardFacetOrder.TierRank(left).CompareTo(CardFacetOrder.TierRank(right))
         );
         if (IsContiguous(ordered))
             return $"{ordered[0]}-{ordered[^1]}";
         return string.Join("/", ordered);
     }
 
-    private static bool IsContiguous(IReadOnlyList<ETier> tiers)
+    private static bool IsContiguous(IReadOnlyList<CardTier> tiers)
     {
         for (var i = 1; i < tiers.Count; i++)
-            if (GameDataDayTierOrder.Rank(tiers[i]) != GameDataDayTierOrder.Rank(tiers[i - 1]) + 1)
+            if (CardFacetOrder.TierRank(tiers[i]) != CardFacetOrder.TierRank(tiers[i - 1]) + 1)
                 return false;
         return true;
     }

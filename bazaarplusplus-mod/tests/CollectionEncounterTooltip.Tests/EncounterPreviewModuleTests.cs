@@ -12,6 +12,8 @@ using BazaarGameShared.Domain.Spawning.SpawnGroups;
 using BazaarGameShared.Domain.Spawning.SpawningContexts;
 using BazaarGameShared.Domain.Values;
 using BazaarGameShared.Domain.Values.ReferenceValues;
+using BazaarPlusPlus.Core.Cards;
+using BazaarPlusPlus.Core.GameState;
 using BazaarPlusPlus.GameInterop.DayTiers;
 using BazaarPlusPlus.GameInterop.StaticCards;
 using BazaarPlusPlus.Localization;
@@ -41,7 +43,7 @@ public sealed class EncounterPreviewModuleTests : IDisposable
         var source = new object();
         var runtime = new FakeRuntime(source)
         {
-            CurrentHero = EHero.Jules,
+            CurrentHero = CardHero.Jules,
             Inventory = new EncounterInventory(Array.Empty<EncounterInventoryCard>()),
         };
         var registry = PublishedRegistry(source, Snapshot());
@@ -63,13 +65,13 @@ public sealed class EncounterPreviewModuleTests : IDisposable
         var source = new object();
         var runtime = new FakeRuntime(source)
         {
-            CurrentHero = EHero.Vanessa,
+            CurrentHero = CardHero.Vanessa,
             Inventory = new EncounterInventory(Array.Empty<EncounterInventoryCard>()),
         };
         using var module = Module(runtime, PublishedRegistry(source, Snapshot()));
 
         var unavailable = module.ResolveEvent(new EventPreviewQuery(EventId, "native"));
-        runtime.CurrentHero = EHero.Jules;
+        runtime.CurrentHero = CardHero.Jules;
         var available = module.ResolveEvent(new EventPreviewQuery(EventId, "native"));
 
         Assert.Equal(EventPreviewAvailability.Unsupported, unavailable.Availability);
@@ -83,7 +85,7 @@ public sealed class EncounterPreviewModuleTests : IDisposable
         var secondSource = new object();
         var runtime = new FakeRuntime(firstSource)
         {
-            CurrentHero = EHero.Jules,
+            CurrentHero = CardHero.Jules,
             Inventory = new EncounterInventory(Array.Empty<EncounterInventoryCard>()),
         };
         runtime.OnResolveDayTiers = () => runtime.Source = secondSource;
@@ -113,7 +115,7 @@ public sealed class EncounterPreviewModuleTests : IDisposable
         Assert.Same(source, runtime.LastDayTierSource);
         Assert.Contains("Bronze 99%", result.Content);
         Assert.Contains("Diamond 1%", result.Content);
-        Assert.Equal(ETier.Diamond, runtime.DayTierResolution.MaximumTier);
+        Assert.Equal(CardTier.Diamond, runtime.DayTierResolution.MaximumTier);
     }
 
     [Fact]
@@ -123,7 +125,7 @@ public sealed class EncounterPreviewModuleTests : IDisposable
         var newSource = new object();
         var runtime = new FakeRuntime(oldSource)
         {
-            CurrentHero = EHero.Jules,
+            CurrentHero = CardHero.Jules,
             Inventory = new EncounterInventory(Array.Empty<EncounterInventoryCard>()),
         };
         using var module = Module(runtime, PublishedRegistry(oldSource, Snapshot()));
@@ -147,7 +149,7 @@ public sealed class EncounterPreviewModuleTests : IDisposable
         var source = new object();
         var runtime = new FakeRuntime(source)
         {
-            CurrentHero = EHero.Jules,
+            CurrentHero = CardHero.Jules,
             Inventory = new EncounterInventory(Array.Empty<EncounterInventoryCard>()),
         };
         var registry = new EncounterPreviewPlanRegistry();
@@ -365,7 +367,7 @@ public sealed class EncounterPreviewModuleTests : IDisposable
         var source = new object();
         var runtime = new FakeRuntime(source)
         {
-            CurrentHero = EHero.Jules,
+            CurrentHero = CardHero.Jules,
             Inventory = new EncounterInventory(Array.Empty<EncounterInventoryCard>()),
             LiveValueResolver = (_, effectId, isAura) =>
                 effectId == "0" && !isAura ? (true, "6", null) : (false, string.Empty, null),
@@ -428,14 +430,14 @@ public sealed class EncounterPreviewModuleTests : IDisposable
         var root = Template(
             EventId,
             EncounterPreviewTemplateKind.Event,
-            Array.Empty<EHero>(),
+            Array.Empty<CardHero>(),
             "Event",
             "Pick one"
         );
         var step = Template(
             StepId,
             EncounterPreviewTemplateKind.EncounterStep,
-            new[] { EHero.Jules },
+            new[] { CardHero.Jules },
             "Jules Step",
             "Take it"
         );
@@ -469,13 +471,13 @@ public sealed class EncounterPreviewModuleTests : IDisposable
     private static EncounterPreviewSnapshot DayTierStepSnapshot()
     {
         var reward = new EncounterRewardFilter(
-            ECardType.Item,
+            CardType.Item,
             quantity: 1,
             fromAnyHero: false,
-            Array.Empty<ECardSize>(),
-            new[] { ETier.Bronze, ETier.Silver, ETier.Gold, ETier.Diamond },
-            Array.Empty<ECardTag>(),
-            Array.Empty<EHiddenTag>(),
+            Array.Empty<CardSize>(),
+            new[] { CardTier.Bronze, CardTier.Silver, CardTier.Gold, CardTier.Diamond },
+            Array.Empty<CardTag>(),
+            Array.Empty<CardHiddenTag>(),
             "Item",
             usesDayTierTable: true,
             usesDayTierDistribution: true
@@ -483,7 +485,7 @@ public sealed class EncounterPreviewModuleTests : IDisposable
         var step = new EncounterPreviewTemplatePlan(
             StepId,
             EncounterPreviewTemplateKind.EncounterStep,
-            Array.Empty<EHero>(),
+            Array.Empty<CardHero>(),
             "Day Tier Step",
             new EncounterPreviewLocalizedText(string.Empty, "Day Tier Step"),
             new EncounterPreviewLocalizedText(string.Empty, "Get an item"),
@@ -672,7 +674,7 @@ public sealed class EncounterPreviewModuleTests : IDisposable
     private static EncounterPreviewTemplatePlan Template(
         Guid id,
         EncounterPreviewTemplateKind kind,
-        IReadOnlyList<EHero> heroes,
+        IReadOnlyList<CardHero> heroes,
         string title,
         string description
     ) =>
@@ -692,7 +694,7 @@ public sealed class EncounterPreviewModuleTests : IDisposable
         private int _cardMapLoadCount;
 
         public object Source { get; set; } = source;
-        public EHero? CurrentHero { get; set; }
+        public CardHero? CurrentHero { get; set; }
         public Func<
             Guid,
             string,
@@ -747,7 +749,7 @@ public sealed class EncounterPreviewModuleTests : IDisposable
             return result.Success;
         }
 
-        public EHero? ReadCurrentHero() => CurrentHero;
+        public CardHero? ReadCurrentHero() => CurrentHero;
 
         public EncounterInventory? ReadInventory() => Inventory;
 

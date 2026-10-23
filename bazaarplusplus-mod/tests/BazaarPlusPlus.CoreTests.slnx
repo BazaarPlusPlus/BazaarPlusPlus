@@ -3,6 +3,7 @@
         <Project Path="AndroidHost.Tests/AndroidHost.Tests.csproj" />
         <Project Path="CombatImpactLedger.Tests/CombatImpactLedger.Tests.csproj" />
         <Project Path="CombatStatusBarState.Tests/CombatStatusBarState.Tests.csproj" />
+        <Project Path="EventPreview.Tests/EventPreview.Tests.csproj" />
         <Project Path="SelfUpdate.Tests/SelfUpdate.Tests.csproj" />
         <Project Path="Updater.Tests/Updater.Tests.csproj" />
     </Folder>
