@@ -3,7 +3,7 @@ using BazaarPlusPlus.Localization;
 
 namespace BazaarPlusPlus.Game.EventPreview;
 
-internal static class EventPreviewSettingsMenuLabel
+public static class EventPreviewSettingsMenuLabel
 {
     private static readonly LocalizedTextSet Labels = new(
         "Event Preview",
@@ -15,7 +15,7 @@ internal static class EventPreviewSettingsMenuLabel
         "Anteprima Eventi"
     );
 
-    internal static string Resolve(string languageCode)
+    public static string Resolve(string languageCode)
     {
         return Labels.Resolve(languageCode, L.CurrentMode);
     }

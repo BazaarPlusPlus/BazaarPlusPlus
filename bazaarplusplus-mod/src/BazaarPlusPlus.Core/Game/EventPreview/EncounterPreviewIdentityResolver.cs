@@ -4,7 +4,7 @@ using Newtonsoft.Json.Linq;
 
 namespace BazaarPlusPlus.Game.EventPreview;
 
-internal static class EncounterPreviewIdentityResolver
+public static class EncounterPreviewIdentityResolver
 {
     public static EncounterPreviewCacheIdentity Resolve(
         string manifestPath,

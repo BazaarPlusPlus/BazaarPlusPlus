@@ -4,42 +4,6 @@ using BazaarGameShared.Domain.Core.Types;
 
 namespace BazaarPlusPlus.Game.EventPreview;
 
-internal enum EncounterPreviewTemplateKind
-{
-    Other = 0,
-    Event = 1,
-    EncounterStep = 2,
-    CombatEncounter = 3,
-    Skill = 4,
-    Item = 5,
-}
-
-internal sealed class EncounterPreviewLocalizedText
-{
-    public EncounterPreviewLocalizedText(string? key, string? fallbackText)
-    {
-        Key = key;
-        FallbackText = fallbackText;
-    }
-
-    public string? Key { get; }
-
-    public string? FallbackText { get; }
-}
-
-internal sealed class EncounterPreviewAbilityValue
-{
-    public EncounterPreviewAbilityValue(string valueText, string? unit = null)
-    {
-        ValueText = valueText ?? string.Empty;
-        Unit = unit;
-    }
-
-    public string ValueText { get; }
-
-    public string? Unit { get; }
-}
-
 internal sealed class EncounterPreviewTemplatePlan
 {
     public EncounterPreviewTemplatePlan(
@@ -220,30 +184,6 @@ internal sealed class LevelUpPreviewPlan
     public IReadOnlyList<LevelUpPreviewGroup> Groups { get; }
 }
 
-internal sealed class EventPreviewCoverage
-{
-    public EventPreviewCoverage(
-        int eventFailureCount,
-        int levelUpFailureCount,
-        int unsupportedLevelUpPartCount,
-        int missingReferencedTemplateCount
-    )
-    {
-        EventFailureCount = Math.Max(0, eventFailureCount);
-        LevelUpFailureCount = Math.Max(0, levelUpFailureCount);
-        UnsupportedLevelUpPartCount = Math.Max(0, unsupportedLevelUpPartCount);
-        MissingReferencedTemplateCount = Math.Max(0, missingReferencedTemplateCount);
-    }
-
-    public int EventFailureCount { get; }
-
-    public int LevelUpFailureCount { get; }
-
-    public int UnsupportedLevelUpPartCount { get; }
-
-    public int MissingReferencedTemplateCount { get; }
-}
-
 internal sealed class EncounterPreviewSnapshot
 {
     private readonly Dictionary<Guid, EncounterPreviewEventPlan> _eventsById;
@@ -343,59 +283,6 @@ internal sealed class EncounterPreviewSnapshot
 
     public bool TryGetLevelUp(int level, out LevelUpPreviewPlan levelUpPlan) =>
         _levelUpsByLevel.TryGetValue(level, out levelUpPlan!);
-}
-
-internal sealed class EncounterPreviewCacheIdentity : IEquatable<EncounterPreviewCacheIdentity>
-{
-    public EncounterPreviewCacheIdentity(
-        string kind,
-        string resource,
-        string value,
-        string gameBuild,
-        string buildChannel
-    )
-    {
-        Kind = kind ?? string.Empty;
-        Resource = resource ?? string.Empty;
-        Value = value ?? string.Empty;
-        GameBuild = gameBuild ?? string.Empty;
-        BuildChannel = buildChannel ?? string.Empty;
-    }
-
-    public string Kind { get; }
-
-    public string Resource { get; }
-
-    public string Value { get; }
-
-    public string GameBuild { get; }
-
-    public string BuildChannel { get; }
-
-    public bool Equals(EncounterPreviewCacheIdentity? other) =>
-        other != null
-        && string.Equals(Kind, other.Kind, StringComparison.Ordinal)
-        && string.Equals(Resource, other.Resource, StringComparison.Ordinal)
-        && string.Equals(Value, other.Value, StringComparison.Ordinal)
-        && string.Equals(GameBuild, other.GameBuild, StringComparison.Ordinal)
-        && string.Equals(BuildChannel, other.BuildChannel, StringComparison.Ordinal);
-
-    public override bool Equals(object? obj) =>
-        obj is EncounterPreviewCacheIdentity other && Equals(other);
-
-    public override int GetHashCode()
-    {
-        unchecked
-        {
-            var hash = 17;
-            hash = hash * 31 + StringComparer.Ordinal.GetHashCode(Kind);
-            hash = hash * 31 + StringComparer.Ordinal.GetHashCode(Resource);
-            hash = hash * 31 + StringComparer.Ordinal.GetHashCode(Value);
-            hash = hash * 31 + StringComparer.Ordinal.GetHashCode(GameBuild);
-            hash = hash * 31 + StringComparer.Ordinal.GetHashCode(BuildChannel);
-            return hash;
-        }
-    }
 }
 
 internal static class EncounterPreviewPlanCopies

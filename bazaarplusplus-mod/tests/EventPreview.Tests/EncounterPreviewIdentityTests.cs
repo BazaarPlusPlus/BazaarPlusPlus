@@ -1,7 +1,7 @@
 using System.Security.Cryptography;
 using Xunit;
 
-namespace EncounterTooltip.Tests;
+namespace EventPreview.Tests;
 
 public sealed class EncounterPreviewIdentityTests : IDisposable
 {

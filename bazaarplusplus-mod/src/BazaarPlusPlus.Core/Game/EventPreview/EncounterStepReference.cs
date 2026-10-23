@@ -1,7 +1,7 @@
 #nullable enable
 namespace BazaarPlusPlus.Game.EventPreview;
 
-internal sealed class EncounterStepReference
+public sealed class EncounterStepReference
 {
     public EncounterStepReference(
         Guid templateId,
@@ -22,7 +22,7 @@ internal sealed class EncounterStepReference
 
 // One spawn group of a choice event: fixed always-offered steps, or — when the
 // group itself selects randomly — a pool the event rolls members from.
-internal sealed class EncounterChoiceGroupData
+public sealed class EncounterChoiceGroupData
 {
     public EncounterChoiceGroupData(
         bool isRandomPool,

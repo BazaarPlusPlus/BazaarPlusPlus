@@ -5,7 +5,7 @@ namespace BazaarPlusPlus.Game.EventPreview;
 
 // TMP has no CSS box model, so model prose semantics first and translate them here.
 // Callers describe paragraphs and lists; only this renderer owns vertical rhythm.
-internal static class TooltipMarkup
+public static class TooltipMarkup
 {
     private const string ProseLine = "<line-height=1.4em>";
     private const string ParagraphGap = "<line-height=1.9em>\n";
@@ -14,7 +14,7 @@ internal static class TooltipMarkup
     private const string NativeLineHeightOpen = "<line-height=1.6em>";
     private const string LineHeightClose = "</line-height>";
 
-    internal abstract class Block
+    public abstract class Block
     {
         protected Block(int fontSizePercent)
         {
@@ -24,7 +24,7 @@ internal static class TooltipMarkup
         public int FontSizePercent { get; }
     }
 
-    internal sealed class Paragraph : Block
+    public sealed class Paragraph : Block
     {
         public Paragraph(string content, int fontSizePercent = 100)
             : base(fontSizePercent)
@@ -35,7 +35,7 @@ internal static class TooltipMarkup
         public string Content { get; }
     }
 
-    internal sealed class ListBlock : Block
+    public sealed class ListBlock : Block
     {
         public ListBlock(string? header, IReadOnlyList<ListItem> items, int fontSizePercent = 100)
             : base(fontSizePercent)
@@ -49,7 +49,7 @@ internal static class TooltipMarkup
         public IReadOnlyList<ListItem> Items { get; }
     }
 
-    internal sealed class ListItem
+    public sealed class ListItem
     {
         public ListItem(
             string content,

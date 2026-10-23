@@ -2,14 +2,14 @@
 
 namespace BazaarPlusPlus.Game.EventPreview;
 
-internal enum EventPreviewPlanSource
+public enum EventPreviewPlanSource
 {
     Unknown,
     Cache,
     Rebuild,
 }
 
-internal enum EventPreviewPlanReasonCode
+public enum EventPreviewPlanReasonCode
 {
     None,
     SourceInfoUnavailable,

@@ -6,7 +6,7 @@ namespace BazaarPlusPlus.Game.EventPreview;
 // "Equal 0" (the outcome only rolls while you do NOT own the card — e.g. Farai's
 // Package results), so ownership can never be read as plain "must have";
 // choice steps also use count thresholds ("GreaterThanOrEqual 12").
-internal sealed class EncounterCardRequirement
+public sealed class EncounterCardRequirement
 {
     public EncounterCardRequirement(
         IReadOnlyList<Guid> ids,

@@ -3,7 +3,7 @@ namespace BazaarPlusPlus.Game.EventPreview;
 
 // One owned card in the inventory snapshot: template id plus the names of its tags
 // (ECardTag + EHiddenTag, compared by name).
-internal sealed class EncounterInventoryCard
+public sealed class EncounterInventoryCard
 {
     public EncounterInventoryCard(Guid templateId, IReadOnlyCollection<string> tagNames)
     {
@@ -20,7 +20,7 @@ internal sealed class EncounterInventoryCard
 // evaluate encounter ownership prerequisites. Kept per-card so count comparisons
 // ("Equal 0", "GreaterThanOrEqual 12") and per-card tag operators (Any/All/None)
 // evaluate exactly rather than over a deduplicated union.
-internal sealed class EncounterInventory
+public sealed class EncounterInventory
 {
     private readonly IReadOnlyList<EncounterInventoryCard> _cards;
 
