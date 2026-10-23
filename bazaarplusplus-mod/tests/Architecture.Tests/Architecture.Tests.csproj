@@ -23,6 +23,14 @@
     />
   </ItemGroup>
 
+  <!-- LogEventIdRule applies the renderer's own id rule to the compiled call sites. -->
+  <ItemGroup>
+    <Compile
+      Include="../../src/BazaarPlusPlus.Core/Logging/BppLogSchemaRules.cs"
+      Link="Linked/BppLogSchemaRules.cs"
+    />
+  </ItemGroup>
+
   <!-- CompiledArtifacts scans the main build in both configurations (ADR-0009): the project
        reference builds the current one, BuildScannedMainConfiguration builds the other. -->
   <PropertyGroup>
