@@ -1,6 +1,7 @@
 using System.Runtime.CompilerServices;
 
 [assembly: InternalsVisibleTo("CollectionEncounterTooltip.Tests")]
+[assembly: InternalsVisibleTo("CombatImpact.Corpus")]
 [assembly: InternalsVisibleTo("ItemEnchantPreview.Tests")]
 [assembly: InternalsVisibleTo("CollectionSourceFiltering.Tests")]
 [assembly: InternalsVisibleTo("LiveBuildRecommendations.Tests")]
@@ -9,6 +10,7 @@ using System.Runtime.CompilerServices;
 [assembly: InternalsVisibleTo("HistoryPanelFactory.Tests")]
 [assembly: InternalsVisibleTo("BundlePipeline.Tests")]
 [assembly: InternalsVisibleTo("CombatReplayRecording.Tests")]
+[assembly: InternalsVisibleTo("PostCombatImpact.Tests")]
 [assembly: InternalsVisibleTo("GhostBattleSync.Tests")]
 [assembly: InternalsVisibleTo("HistoryPanelRepository.Tests")]
 [assembly: InternalsVisibleTo("SupporterCatalogModule.Tests")]

@@ -2,9 +2,9 @@
 
 namespace BazaarPlusPlus.Game.PostCombatImpact.Data;
 
-internal static class CombatImpactAggregator
+public static class CombatImpactAggregator
 {
-    internal static CombatImpactReport Aggregate(CombatImpactProjectionInput input)
+    public static CombatImpactReport Aggregate(CombatImpactProjectionInput input)
     {
         var sourceIds = new HashSet<string>(
             input.Events.Select(item => item.SourceId),
@@ -110,7 +110,7 @@ internal static class CombatImpactAggregator
     }
 
     private static CombatImpactGroup BuildGroup(
-        IReadOnlyDictionary<string, CombatImpactEntity> entities,
+        IReadOnlyDictionary<string, CombatImpactLedgerEntity> entities,
         GroupKey key,
         IReadOnlyList<CombatImpactEvent> events,
         CombatImpactAuthoritativeMetric? authoritativeMetric
@@ -228,7 +228,7 @@ internal static class CombatImpactAggregator
     }
 
     private static CombatImpactIncomingGroup BuildIncomingGroup(
-        IReadOnlyDictionary<string, CombatImpactEntity> entities,
+        IReadOnlyDictionary<string, CombatImpactLedgerEntity> entities,
         GroupKey key,
         IReadOnlyList<CombatImpactEvent> events,
         IReadOnlyList<CombatImpactAttributeTransitionResidual> residuals
@@ -361,7 +361,7 @@ internal static class CombatImpactAggregator
     }
 
     private static CombatImpactIncomingSource? BuildIncomingSource(
-        IReadOnlyDictionary<string, CombatImpactEntity> entities,
+        IReadOnlyDictionary<string, CombatImpactLedgerEntity> entities,
         IReadOnlyList<CombatImpactEvent> events
     )
     {
@@ -385,7 +385,7 @@ internal static class CombatImpactAggregator
     }
 
     private static CombatImpactTarget? BuildTarget(
-        IReadOnlyDictionary<string, CombatImpactEntity> entities,
+        IReadOnlyDictionary<string, CombatImpactLedgerEntity> entities,
         IReadOnlyList<CombatImpactEvent> events
     )
     {
@@ -470,7 +470,7 @@ internal static class CombatImpactAggregator
             .Count();
 
     private static TriggerLedger BuildTriggerLedger(
-        IReadOnlyDictionary<string, CombatImpactEntity> entities,
+        IReadOnlyDictionary<string, CombatImpactLedgerEntity> entities,
         IReadOnlyList<CombatImpactEvent> events
     )
     {
@@ -691,7 +691,7 @@ internal static class CombatImpactAggregator
             : (int)total;
     }
 
-    internal static string NativeKey(CombatImpactKind kind) =>
+    public static string NativeKey(CombatImpactKind kind) =>
         kind switch
         {
             CombatImpactKind.DirectDamage => "DamageAmount",

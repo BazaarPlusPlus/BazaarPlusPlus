@@ -3,9 +3,9 @@ using BazaarPlusPlus.Game.PostCombatImpact.Data;
 
 namespace BazaarPlusPlus.Game.PostCombatImpact.Ui;
 
-internal static class CombatImpactEffectIconKey
+public static class CombatImpactEffectIconKey
 {
-    internal static string Resolve(CombatImpactKind kind, string nativeAttributeKey)
+    public static string Resolve(CombatImpactKind kind, string nativeAttributeKey)
     {
         if (kind == CombatImpactKind.Destroy)
             return "Destroy";
@@ -17,7 +17,7 @@ internal static class CombatImpactEffectIconKey
         return ResolveAttribute(baseAttributeKey, variant);
     }
 
-    internal static string ResolveAttribute(string key, string? variant) =>
+    public static string ResolveAttribute(string key, string? variant) =>
         key switch
         {
             "EnchantTargets" when !string.IsNullOrWhiteSpace(variant) => ResolveEnchantment(
@@ -78,7 +78,7 @@ internal static class CombatImpactEffectIconKey
             _ => "Enchant",
         };
 
-    internal static (string BaseKey, string? Variant) SplitAttributeKey(string key)
+    public static (string BaseKey, string? Variant) SplitAttributeKey(string key)
     {
         var separator = key.IndexOf(':');
         return separator < 0 ? (key, null) : (key[..separator], key[(separator + 1)..]);

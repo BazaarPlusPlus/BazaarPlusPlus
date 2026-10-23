@@ -7,7 +7,7 @@ using Xunit;
 // L.Install is process-global; tests that switch the Chinese locale mode must not overlap others.
 [assembly: CollectionBehavior(DisableTestParallelization = true)]
 
-namespace PostCombatImpact.Tests;
+namespace CombatImpactLedger.Tests;
 
 public sealed class CombatImpactChineseScriptTests
 {

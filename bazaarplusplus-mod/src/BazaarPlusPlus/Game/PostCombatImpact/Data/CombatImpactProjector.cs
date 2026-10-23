@@ -294,7 +294,11 @@ internal static class CombatImpactProjector
 
         var report = CombatImpactAggregator.Aggregate(
             new CombatImpactProjectionInput(
-                entities,
+                entities.ToDictionary(
+                    pair => pair.Key,
+                    pair => (CombatImpactLedgerEntity)pair.Value,
+                    StringComparer.Ordinal
+                ),
                 canonicalEvents,
                 canonicalUseCounts,
                 canonicalAuthoritative
@@ -542,7 +546,9 @@ internal static class CombatImpactProjector
                                         source.Entity.Id,
                                         kind.Value,
                                         group
-                                            .Targets.Select(target => target.Entity.CombatantId)
+                                            .Targets.Select(target =>
+                                                ((CombatImpactEntity)target.Entity).CombatantId
+                                            )
                                             .OfType<ECombatantId>()
                                             .ToHashSet(),
                                         lineage,

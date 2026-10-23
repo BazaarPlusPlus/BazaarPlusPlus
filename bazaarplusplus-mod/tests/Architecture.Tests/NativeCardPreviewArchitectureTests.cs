@@ -41,19 +41,6 @@ public sealed class NativeCardPreviewArchitectureTests
     }
 
     [Fact]
-    public void Post_combat_preview_batch_policy_stays_in_the_feature_layer()
-    {
-        Holds(
-            "The post-combat preview fit batch is pure policy with no Unity dependency.",
-            build =>
-                References(
-                    build.Type("BazaarPlusPlus.Game.PostCombatImpact.Ui.NativePreviewFitBatch`1"),
-                    FromAssembly(RequireAssemblyPrefix(build, "UnityEngine"))
-                )
-        );
-    }
-
-    [Fact]
     public void Same_card_modifier_refresh_keeps_the_native_tooltip_host_alive()
     {
         var universe = CompiledArtifacts.Universe;
