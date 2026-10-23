@@ -50,6 +50,17 @@ internal static class AndroidGameIds
     }
 
     /// <summary>
+    /// <paramref name="value"/> as the <c>T?</c> an IL2CPP setter or constructor takes. The
+    /// generated code unboxes that argument through <c>Il2CppObjectBaseToPtrNotNull</c>, so a
+    /// null proxy throws; an absent value is an empty proxy, whose zeroed box has no value.
+    /// </summary>
+    public static Il2CppSystem.Nullable<T> Optional<T>(T? value)
+        where T : struct =>
+        value is { } present
+            ? new Il2CppSystem.Nullable<T>(present)
+            : new Il2CppSystem.Nullable<T>();
+
+    /// <summary>
     /// <paramref name="value"/> stored as 0 or 1. A <c>bool</c> field read through an IL2CPP
     /// struct proxy (a <c>ValueTuple</c>'s <c>Item2</c>) reads as true in C#, yet passed back into
     /// a game method the game took it as false, where a literal <c>true</c> was taken as true.

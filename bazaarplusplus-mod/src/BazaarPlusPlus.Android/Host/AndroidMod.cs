@@ -1,13 +1,14 @@
 using System.Reflection;
 using System.Security.Cryptography;
+using BazaarPlusPlus.Android.CombatReplay;
 using BazaarPlusPlus.Android.GameInterop;
 using BazaarPlusPlus.Android.GameInterop.CardRental;
-using BazaarPlusPlus.Android.History;
 using BazaarPlusPlus.Android.Lobby;
 using BazaarPlusPlus.Android.Patches;
 using BazaarPlusPlus.Android.Ui;
 using BazaarPlusPlus.Core.Config;
 using BazaarPlusPlus.Core.Runtime;
+using BazaarPlusPlus.Game.CombatReplay;
 using BazaarPlusPlus.Game.Lobby;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
@@ -28,8 +29,11 @@ namespace BazaarPlusPlus.Android.Host;
 /// installs the BppLog pipeline over MelonLogger, reads the settings file, logs what a device run
 /// must establish (the loaded DLL, the Data Root candidates, the build-channel probe), starts the
 /// record chain on the Data Root, then applies the patches and, in the enabled mode, prepares the
-/// interaction features: the touch UI, the tooltip previews, and the main menu's release check.
-/// Quitting stops the chain, which settles a pending run completion and drains the queued writes.
+/// interaction features: the touch UI, History with its saved-replay runtime, the tooltip
+/// previews, and the main menu's release check. Every frame it first runs the main-thread pump
+/// (<see cref="AndroidMainThread"/>), where History's and the replay's continuations resume.
+/// Quitting tears History and the replay down before the chain stops, which settles a pending run
+/// completion and drains the queued writes.
 /// </summary>
 public sealed class AndroidMod : MelonMod
 {
@@ -40,10 +44,15 @@ public sealed class AndroidMod : MelonMod
     private AndroidComposition? _composition;
     private AndroidTouchUi? _touchUi;
     private AndroidVersionCheck? _versionCheck;
+    private AndroidCombatReplayRuntime? _replayRuntime;
+    private AndroidHistoryPanel? _historyPanel;
+    private readonly AndroidCardTemplateIndex _templates = new();
+    private bool _mainThreadBound;
     private int _labelRevision;
 
     public override void OnInitializeMelon()
     {
+        AndroidMainThread.Host.Capture();
         BppLog.Install(new MelonLogSink(LoggerInstance));
         var version = Info.Version;
         var settings = OpenSettings();
@@ -66,7 +75,11 @@ public sealed class AndroidMod : MelonMod
 
     public override void OnUpdate()
     {
+        BindMainThread();
+        AndroidMainThread.Host.Tick();
         _composition?.Tick(Time.unscaledTime);
+        _replayRuntime?.Tick();
+        _historyPanel?.Tick();
         _touchUi?.EnsureMounted();
         AndroidCardRental.Tick();
         _versionCheck?.Tick();
@@ -81,7 +94,38 @@ public sealed class AndroidMod : MelonMod
         _nextSummaryAt = Environment.TickCount64 + SummaryIntervalMs;
         BppLog.InfoEvent(
             new BppLogEvent(BppLogFeatureScope.Android, "android.hooks.summary"),
-            AndroidPatchHost.Summary()
+            [.. AndroidPatchHost.Summary(), .. InteractionSummary()]
+        );
+    }
+
+    // History's sessions and the replay's lease, which a device run checks return to zero.
+    private BppLogField[] InteractionSummary() =>
+        [
+            ("history_open_sessions", _historyPanel?.OpenSessions ?? 0),
+            ("history_opened", _historyPanel?.Opened ?? 0),
+            ("history_view_roots", _historyPanel?.ViewRoots ?? 0),
+            ("replay_starts", _replayRuntime?.Starts ?? 0),
+            ("replay_start_failures", _replayRuntime?.StartFailures ?? 0),
+            ("replay_exits", _replayRuntime?.ExitsHandled ?? 0),
+            ("replay_menu_returns", _replayRuntime?.MenuReturns ?? 0),
+            ("replay_session", _replayRuntime?.HasSavedReplaySession ?? false),
+            ("payload_leases_held", _replayRuntime?.PayloadLeasesHeld ?? 0),
+            ("main_thread_pending", AndroidMainThread.Host.PendingCallbacks),
+            ("main_thread_waits", AndroidMainThread.Host.PendingWaits),
+            ("main_thread_failures", AndroidMainThread.Host.CallbackFailures),
+        ];
+
+    // OnInitializeMelon bound the pump; the first frame confirms Unity's main thread is that one.
+    private void BindMainThread()
+    {
+        if (_mainThreadBound)
+            return;
+        _mainThreadBound = true;
+        var initializedOn = AndroidMainThread.Host.Capture();
+        BppLog.InfoEvent(
+            new BppLogEvent(BppLogFeatureScope.Android, "android.main_thread.bound"),
+            ("thread_id", Environment.CurrentManagedThreadId),
+            ("same_as_initialize", initializedOn == Environment.CurrentManagedThreadId)
         );
     }
 
@@ -93,6 +137,13 @@ public sealed class AndroidMod : MelonMod
     {
         _versionCheck?.Dispose();
         _versionCheck = null;
+        // History's coordinator cancels its session before the replay and the composition, and
+        // the composition disposes History's Mod API session last.
+        _historyPanel?.Dispose();
+        _historyPanel = null;
+        _replayRuntime?.Dispose();
+        _replayRuntime = null;
+        AndroidMainThread.Host.Stop();
         StopRecordChain();
     }
 
@@ -119,11 +170,13 @@ public sealed class AndroidMod : MelonMod
                 AndroidPaths.DataRoot(melonBase),
                 Application.version ?? ""
             );
+            StartHistory();
             _touchUi = new AndroidTouchUi(
                 shared,
                 android,
                 _versionCheck,
-                _composition == null ? null : new AndroidHistoryReader(_composition.DatabasePath)
+                _historyPanel == null ? null : () => _historyPanel?.Open("launcher"),
+                () => _historyPanel?.IsVisible == true
             );
         }
         catch (Exception exception)
@@ -132,6 +185,48 @@ public sealed class AndroidMod : MelonMod
                 new BppLogEvent(BppLogFeatureScope.Android, "android.interaction.start_failed"),
                 exception
             );
+        }
+    }
+
+    // History and its replay runtime need the record chain's database and payload gate; without
+    // the chain the launcher offers no History.
+    private void StartHistory()
+    {
+        var composition = _composition;
+        if (composition == null)
+            return;
+        try
+        {
+            var runtime = new AndroidCombatReplayRuntime(
+                composition.Services,
+                composition.RunLifecycle,
+                composition.ReplayGate,
+                new SavedReplayCatalog(composition.Battles, composition.Replays),
+                composition.DatabasePath
+            );
+            runtime.Start();
+            _replayRuntime = runtime;
+            _historyPanel = new AndroidHistoryPanel(
+                composition.CreateHistoryDependencies(() => _replayRuntime, _templates.Contains),
+                () => _replayRuntime,
+                _templates,
+                () => VersionLabelPatch.Font
+            );
+            BppLog.InfoEvent(
+                new BppLogEvent(BppLogFeatureScope.Android, "android.history.composed"),
+                ("ghost_sync", true)
+            );
+        }
+        catch (Exception exception)
+        {
+            BppLog.ErrorEvent(
+                new BppLogEvent(BppLogFeatureScope.Android, "android.history.start_failed"),
+                exception
+            );
+            _historyPanel?.Dispose();
+            _historyPanel = null;
+            _replayRuntime?.Dispose();
+            _replayRuntime = null;
         }
     }
 
@@ -212,6 +307,7 @@ public sealed class AndroidMod : MelonMod
             // The panels let go of their leases first, then whatever is left is destroyed:
             // no rented card outlives the scene it was rented in.
             _touchUi?.OnSceneLoaded();
+            _historyPanel?.OnSceneLoaded(sceneName);
             AndroidCardRental.ReleaseAll("scene_changed");
             if (sceneName == MainMenuSceneName)
                 _versionCheck?.Begin();

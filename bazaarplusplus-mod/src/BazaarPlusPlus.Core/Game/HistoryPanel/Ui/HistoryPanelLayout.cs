@@ -11,6 +11,14 @@ public readonly record struct HistoryAnchors(float MinX, float MinY, float MaxX,
         MinX < other.MaxX && other.MinX < MaxX && MinY < other.MaxY && other.MinY < MaxY;
 }
 
+// A rect as the view authors it: top-down, (X, Y) from the panel's top-left, normalized.
+public readonly record struct HistoryRect(float X, float Y, float Width, float Height)
+{
+    public float Bottom => Y + Height;
+
+    public HistoryAnchors Anchors => HistoryPanelLayout.Anchors(X, Y, Width, Height);
+}
+
 // The panel's geometry, free of Unity types so the test project can compile it directly.
 //
 // Two conventions meet here, and mixing them was the panel's long-standing trap: every
@@ -80,6 +88,60 @@ public readonly record struct HistoryPanelLayout(float ScreenWidth, float Screen
     public const float GhostTitleTop = .17f;
     public const float GhostBoardTop = .217f;
     public const float GhostBoardHeight = .632f;
+
+    // The panel chrome both hosts lay out, top-down. Header: title, the More and Close
+    // actions, the section tabs and the filter strip beside them.
+    public static readonly HistoryRect Title = new(.04f, .03f, .37f, .06f);
+    public static readonly HistoryRect MoreButton = new(.76f, .04f, .09f, .045f);
+    public static readonly HistoryRect CloseButton = new(.87f, .04f, .09f, .045f);
+    public static readonly HistoryRect RunsTab = new(.04f, .105f, .068f, .038f);
+    public static readonly HistoryRect GhostTab = new(.112f, .105f, .068f, .038f);
+    public static readonly HistoryRect FavoritesTab = new(.184f, .105f, .068f, .038f);
+    public static readonly HistoryRect FilterStrip = new(.255f, .105f, .695f, .038f);
+
+    // The archive column: its page label, list and pager; the timeline's two pagers.
+    public static readonly HistoryRect PageLabel = new(ArchiveLeft, .17f, ArchiveWidth, .043f);
+    public static readonly HistoryRect ArchiveList = new(ArchiveLeft, .225f, ArchiveWidth, .595f);
+    public static readonly HistoryRect ArchivePager = new(
+        ArchiveLeft,
+        PagerTop,
+        ArchiveWidth,
+        PagerHeight
+    );
+    public static readonly HistoryRect TimelineNewer = new(
+        TimelineLeft,
+        PagerTop,
+        TimelinePagerWidth,
+        PagerHeight
+    );
+    public static readonly HistoryRect TimelineOlder = new(
+        TimelinePagerRightLeft,
+        PagerTop,
+        TimelinePagerWidth,
+        PagerHeight
+    );
+
+    // Footer: the delete, record and replay actions, then the status line.
+    public static readonly HistoryRect DeleteButton = new(.04f, .90f, .16f, .044f);
+    public static readonly HistoryRect RecordButton = new(.58f, .90f, .13f, .055f);
+    public static readonly HistoryRect ReplayButton = new(.72f, .90f, .23f, .055f);
+    public static readonly HistoryRect StatusLabel = new(.04f, .953f, .91f, .03f);
+
+    // The minimum height, in canvas units, the Android host gives a touch target. On a
+    // 2400x1080 phone a canvas unit is about 1.27 px, so this is about 61 px: the desktop
+    // layout has no room for a full 48 dp target without moving its rows.
+    public const float TouchTargetUnits = 48;
+
+    // A touch host's hit target: the rect grown downward to at least minUnits canvas units
+    // tall at this screen. The desktop passes 0 and gets the rect unchanged; the layout's
+    // pointer-sized rows and pagers stay as authored there.
+    public HistoryRect Touch(HistoryRect rect, float minUnits) =>
+        minUnits <= 0 || Height <= 0
+            ? rect
+            : rect with
+            {
+                Height = System.Math.Max(rect.Height, minUnits / Height),
+            };
 
     public float CanvasScale =>
         (float)

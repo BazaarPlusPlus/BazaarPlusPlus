@@ -5,7 +5,7 @@ using BazaarPlusPlus.Infrastructure.Logging;
 
 namespace BazaarPlusPlus.Game.CombatReplay;
 
-internal interface IReplayPlaybackOutcomeSink
+public interface IReplayPlaybackOutcomeSink
 {
     string BattleId { get; }
     void ReportDegradation(ReplayPlaybackReasonCode reasonCode, Exception? exception = null);
@@ -17,7 +17,7 @@ internal interface IReplayPlaybackOutcomeSink
 /// separate: the runtime may publish the ended signal before menu navigation resolves, but this
 /// operation does not write its terminal event until all required cleanup is known.
 /// </summary>
-internal sealed class ReplayPlaybackLogOperation : IReplayPlaybackOutcomeSink
+public sealed class ReplayPlaybackLogOperation : IReplayPlaybackOutcomeSink
 {
     private readonly object _gate = new();
     private readonly Func<long> _monotonicMilliseconds;
@@ -30,7 +30,7 @@ internal sealed class ReplayPlaybackLogOperation : IReplayPlaybackOutcomeSink
     private ReplayPlaybackReasonCode _primaryReasonCode;
     private Exception? _primaryException;
 
-    internal ReplayPlaybackLogOperation(
+    public ReplayPlaybackLogOperation(
         string battleId,
         CombatReplayPlaybackSource source,
         bool recordVideo,
@@ -45,7 +45,7 @@ internal sealed class ReplayPlaybackLogOperation : IReplayPlaybackOutcomeSink
     }
 
     public string BattleId { get; }
-    internal bool RecordVideo
+    public bool RecordVideo
     {
         get
         {
@@ -54,7 +54,7 @@ internal sealed class ReplayPlaybackLogOperation : IReplayPlaybackOutcomeSink
         }
     }
 
-    internal bool TryPromoteToRecording()
+    public bool TryPromoteToRecording()
     {
         lock (_gate)
         {
@@ -86,7 +86,7 @@ internal sealed class ReplayPlaybackLogOperation : IReplayPlaybackOutcomeSink
     }
 
     /// <summary>Writes <c>combat_replay.playback.started</c> once, unless already terminal.</summary>
-    internal void MarkStarted()
+    public void MarkStarted()
     {
         bool recordVideo;
         lock (_gate)
@@ -110,7 +110,7 @@ internal sealed class ReplayPlaybackLogOperation : IReplayPlaybackOutcomeSink
     /// Writes the one terminal event: <c>failed</c> for a failure reason or failed rollback,
     /// <c>degraded</c> when degradations were reported, otherwise <c>succeeded</c>.
     /// </summary>
-    internal void Complete(
+    public void Complete(
         ReplayPlaybackEndReasonCode endReasonCode,
         ReplayRollbackStatus rollbackStatus,
         ReplayPlaybackReasonCode failureReasonCode,

@@ -16,29 +16,6 @@ internal static class ReplaySavedStateNormalizer
         NormalizeMessage(sequence?.DespawnMessage, manifest);
     }
 
-    internal static uint ResolvePositiveUInt(uint rawValue, int? manifestValue)
-    {
-        if (rawValue > 0)
-            return rawValue;
-
-        return manifestValue is > 0 ? unchecked((uint)manifestValue.Value) : rawValue;
-    }
-
-    internal static int ResolveLevel(int? rawValue, int? manifestValue)
-    {
-        if (rawValue is > 0)
-            return rawValue.Value;
-        if (manifestValue is > 0)
-            return manifestValue.Value;
-
-        return 1;
-    }
-
-    internal static int ResolveOpeningLevel(int? openingLevel, int currentLevel)
-    {
-        return openingLevel is > 0 ? openingLevel.Value : currentLevel;
-    }
-
     private static void NormalizeMessage(NetMessageGameSim? message, PvpBattleManifest? manifest)
     {
         var data = message?.Data;
@@ -46,8 +23,8 @@ internal static class ReplaySavedStateNormalizer
             return;
 
         data.Run ??= new SimUpdateRun();
-        data.Run.Day = ResolvePositiveUInt(data.Run.Day, manifest?.Day);
-        data.Run.Hour = ResolvePositiveUInt(data.Run.Hour, manifest?.Hour);
+        data.Run.Day = ReplaySavedStateRules.ResolvePositiveUInt(data.Run.Day, manifest?.Day);
+        data.Run.Hour = ReplaySavedStateRules.ResolvePositiveUInt(data.Run.Hour, manifest?.Hour);
 
         data.Player ??= new SimUpdatePlayer { CombatantId = ECombatantId.Player };
         NormalizeLevel(data.Player, manifest?.Participants?.PlayerLevel);
@@ -60,6 +37,9 @@ internal static class ReplaySavedStateNormalizer
     {
         player.Attributes ??= new Dictionary<EPlayerAttributeType, int>();
         player.Attributes.TryGetValue(EPlayerAttributeType.Level, out var rawLevel);
-        player.Attributes[EPlayerAttributeType.Level] = ResolveLevel(rawLevel, manifestLevel);
+        player.Attributes[EPlayerAttributeType.Level] = ReplaySavedStateRules.ResolveLevel(
+            rawLevel,
+            manifestLevel
+        );
     }
 }

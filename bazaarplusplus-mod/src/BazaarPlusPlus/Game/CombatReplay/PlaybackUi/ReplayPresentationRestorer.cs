@@ -3,7 +3,6 @@
 using BazaarGameClient.Domain.Models;
 using BazaarGameShared.Domain.Core.Types;
 using BazaarGameShared.Infra.Messages.GameSimEvents;
-using BazaarPlusPlus.Game.CombatReplay.Bootstrap;
 using BazaarPlusPlus.Game.PvpBattles;
 using TheBazaar;
 using TheBazaar.UI.Components;
@@ -34,14 +33,8 @@ internal static class ReplayPresentationRestorer
             return;
 
         var openingRun = sequence.SpawnMessage?.Data?.Run;
-        var day = ReplaySavedStateNormalizer.ResolvePositiveUInt(
-            openingRun?.Day ?? 0,
-            manifest.Day
-        );
-        var hour = ReplaySavedStateNormalizer.ResolvePositiveUInt(
-            openingRun?.Hour ?? 0,
-            manifest.Hour
-        );
+        var day = ReplaySavedStateRules.ResolvePositiveUInt(openingRun?.Day ?? 0, manifest.Day);
+        var hour = ReplaySavedStateRules.ResolvePositiveUInt(openingRun?.Hour ?? 0, manifest.Hour);
         run.Day = day;
         run.Hour = hour;
 
@@ -58,7 +51,7 @@ internal static class ReplayPresentationRestorer
         openingPlayer.Attributes.TryGetValue(EPlayerAttributeType.Level, out var openingLevel);
         livePlayer.Attributes.TryGetValue(EPlayerAttributeType.Level, out var currentLevel);
         livePlayer.Attributes[EPlayerAttributeType.Level] =
-            ReplaySavedStateNormalizer.ResolveOpeningLevel(openingLevel, currentLevel);
+            ReplaySavedStateRules.ResolveOpeningLevel(openingLevel, currentLevel);
     }
 
     private static void RefreshClock(IReplayPlaybackOutcomeSink outcome)

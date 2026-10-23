@@ -44,6 +44,25 @@ internal static class AndroidReplayMessages
     }
 
     /// <summary>
+    /// Decodes Replay Payload bytes back into the game's message with the game's own serializer,
+    /// the read the desktop's <c>CombatReplayLoader</c> makes. Main thread only.
+    /// </summary>
+    public static T Deserialize<T>(byte[] bytes, string part)
+        where T : Il2CppObjectBase
+    {
+        if (bytes == null || bytes.Length == 0)
+            throw new InvalidDataException($"Replay message '{part}' is empty.");
+        var stream = new Il2CppSystem.IO.MemoryStream(
+            new Il2CppInterop.Runtime.InteropTypes.Arrays.Il2CppStructArray<byte>(bytes)
+        );
+        return Il2CppMessagePack.MessagePackSerializer.Deserialize<T>(
+                stream.Cast<Il2CppSystem.IO.Stream>(),
+                MessagePackConfig.Options,
+                Il2CppSystem.Threading.CancellationToken.None
+            ) ?? throw new InvalidDataException($"Replay message '{part}' decoded to nothing.");
+    }
+
+    /// <summary>
     /// Whether <paramref name="bytes"/> hold exactly one well-formed MessagePack value. This is the
     /// check the Bundle composer runs off the main thread, where the IL2CPP serializer may not be
     /// called; the full decode already ran when the payload was captured.

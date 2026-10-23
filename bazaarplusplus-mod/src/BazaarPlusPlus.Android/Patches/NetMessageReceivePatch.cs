@@ -1,3 +1,4 @@
+using BazaarPlusPlus.Android.CombatReplay;
 using BazaarPlusPlus.Core.Events;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
@@ -46,7 +47,24 @@ internal static class NetMessageReceivePatch
             return;
         try
         {
-            var runInitialized = __0.TryCast<NetMessageRunInitialized>();
+            var replayActive = AndroidReplayGuard.IsActive;
+            var decision = AndroidReplayGuard.Decide(replayActive);
+            if (replayActive)
+            {
+                var seen = AndroidReplayGuard.CountIntakeMessage();
+                if (seen <= LoggedHitsPerType)
+                    BppLog.InfoEvent(
+                        new BppLogEvent(
+                            BppLogFeatureScope.Android,
+                            "android.replay_guard.message_seen"
+                        ),
+                        ("native_type", __0.Cast<Il2CppSystem.Object>().GetIl2CppType().FullName),
+                        ("seen", seen)
+                    );
+            }
+            var runInitialized = decision.PublishRunInitialized
+                ? __0.TryCast<NetMessageRunInitialized>()
+                : null;
             if (runInitialized != null)
             {
                 var hits = AndroidPatchHost.CountRunInitialized();
@@ -60,7 +78,10 @@ internal static class NetMessageReceivePatch
                 );
             }
 
-            composition.BattleCapture.Accept(__0);
+            if (decision.CaptureBattle)
+                composition.BattleCapture.Accept(__0);
+            else
+                AndroidReplayGuard.CountCaptureSkip();
         }
         catch (Exception exception)
         {

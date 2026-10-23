@@ -101,37 +101,32 @@ internal sealed partial class HistoryPanelView
         _layout = CreateRect("Layout", _root!.transform, 0, 0, 1, 1);
         _layout.gameObject.AddComponent<Image>().color = new Color(.055f, .038f, .026f, 1);
         Panel(_layout, .014f, .018f, .972f, .962f);
-        _title = Text(_layout, "", .04f, .03f, .37f, .06f, 34);
-        Button(_layout, HistoryPanelText.Close(), .87f, .04f, .09f, .045f, _close);
+        _title = Text(_layout, "", HistoryPanelLayout.Title, 34);
+        Button(_layout, HistoryPanelText.Close(), HistoryPanelLayout.CloseButton, _close);
         BuildSupporterHeader();
         _runsTab = Button(
             _layout,
             "",
-            .04f,
-            .105f,
-            .068f,
-            .038f,
+            HistoryPanelLayout.RunsTab,
             () => _section(HistorySectionMode.Runs)
         );
         _ghostTab = Button(
             _layout,
             "",
-            .112f,
-            .105f,
-            .068f,
-            .038f,
+            HistoryPanelLayout.GhostTab,
             () => _section(HistorySectionMode.Ghost)
         );
         _favoritesTab = Button(
             _layout,
             "",
-            .184f,
-            .105f,
-            .068f,
-            .038f,
+            HistoryPanelLayout.FavoritesTab,
             () => _section(HistorySectionMode.Favorites)
         );
-        _heroFilters = CreateRect("HeroFilters", _layout, .255f, .105f, .695f, .038f).gameObject;
+        _heroFilters = CreateRect(
+            "HeroFilters",
+            _layout,
+            HistoryPanelLayout.FilterStrip
+        ).gameObject;
         var heroes = HistoryPanelHeroPresentation.RunFilterHeroIds;
         for (var i = 0; i < heroes.Count; i++)
         {
@@ -147,7 +142,11 @@ internal sealed partial class HistoryPanelView
                 size: 14
             );
         }
-        _ghostFilters = CreateRect("GhostFilters", _layout, .255f, .105f, .695f, .038f).gameObject;
+        _ghostFilters = CreateRect(
+            "GhostFilters",
+            _layout,
+            HistoryPanelLayout.FilterStrip
+        ).gameObject;
         foreach (
             var filter in new[]
             {
@@ -186,10 +185,7 @@ internal sealed partial class HistoryPanelView
         );
         _archiveList = CreatePageList(
             "Archive",
-            HistoryPanelLayout.ArchiveLeft,
-            .225f,
-            HistoryPanelLayout.ArchiveWidth,
-            .595f,
+            HistoryPanelLayout.ArchiveList,
             HistoryPanelLayout.RunRowHeight
         );
         _archiveEmptyLabel = Text(
@@ -206,14 +202,7 @@ internal sealed partial class HistoryPanelView
         _archiveEmptyLabel.overflowMode = TextOverflowModes.Overflow;
         _archiveEmptyLabel.alignment = TextAlignmentOptions.TopLeft;
         _dayStrip = CreateDayStrip();
-        var archivePager = CreateRect(
-            "ArchivePager",
-            _layout,
-            HistoryPanelLayout.ArchiveLeft,
-            HistoryPanelLayout.PagerTop,
-            HistoryPanelLayout.ArchiveWidth,
-            HistoryPanelLayout.PagerHeight
-        );
+        var archivePager = CreateRect("ArchivePager", _layout, HistoryPanelLayout.ArchivePager);
         _newer = Button(
             archivePager,
             T("Newer", "较新"),
@@ -244,33 +233,18 @@ internal sealed partial class HistoryPanelView
             () => NavigateArchive(0),
             size: 14
         );
-        _pageLabel = Text(
-            _layout,
-            "",
-            HistoryPanelLayout.ArchiveLeft,
-            .17f,
-            HistoryPanelLayout.ArchiveWidth,
-            .043f,
-            12,
-            Muted
-        );
+        _pageLabel = Text(_layout, "", HistoryPanelLayout.PageLabel, 12, Muted);
         _pageLabel.textWrappingMode = TextWrappingModes.Normal;
         _battleNewer = Button(
             _layout,
             "↑",
-            HistoryPanelLayout.TimelineLeft,
-            HistoryPanelLayout.PagerTop,
-            HistoryPanelLayout.TimelinePagerWidth,
-            HistoryPanelLayout.PagerHeight,
+            HistoryPanelLayout.TimelineNewer,
             () => _pageBattles?.Invoke(-1)
         );
         _battleOlder = Button(
             _layout,
             "↓",
-            HistoryPanelLayout.TimelinePagerRightLeft,
-            HistoryPanelLayout.PagerTop,
-            HistoryPanelLayout.TimelinePagerWidth,
-            HistoryPanelLayout.PagerHeight,
+            HistoryPanelLayout.TimelineOlder,
             () => _pageBattles?.Invoke(1)
         );
         // Battle identity, rank and outcome live in the timeline; the title names the owner.
@@ -316,7 +290,7 @@ internal sealed partial class HistoryPanelView
             HistoryPanelLayout.BoardTitleHeight
         );
         _playerOwner = Text(_playerTitle, "", 0, 0, .3f, 1, 14, Muted);
-        _statusLabel = Text(_layout, "", .04f, .953f, .91f, .03f, 12, Muted);
+        _statusLabel = Text(_layout, "", HistoryPanelLayout.StatusLabel, 12, Muted);
         CreateActions();
     }
 
@@ -326,16 +300,9 @@ internal sealed partial class HistoryPanelView
         _pageArchive?.Invoke(direction);
     }
 
-    private PageList CreatePageList(
-        string name,
-        float x,
-        float y,
-        float width,
-        float height,
-        float rowHeight
-    )
+    private PageList CreatePageList(string name, HistoryRect bounds, float rowHeight)
     {
-        var viewport = CreateRect(name, _layout!, x, y, width, height);
+        var viewport = CreateRect(name, _layout!, bounds);
         viewport.gameObject.AddComponent<RectMask2D>();
         viewport.gameObject.AddComponent<Image>().color = Color.clear;
         var scroll = viewport.gameObject.AddComponent<ScrollRect>();
