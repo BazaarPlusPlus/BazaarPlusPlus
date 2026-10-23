@@ -1,3 +1,4 @@
+using System.Globalization;
 using BazaarPlusPlus.Game.PvpBattles;
 using BazaarPlusPlus.Game.PvpBattles.Persistence;
 using BazaarPlusPlus.Infrastructure;
@@ -55,7 +56,10 @@ internal sealed class AndroidPvpBattleSnapshots
             OpponentSkills = PvpBattleCardSetDocument.Serialize(_opponentSkills.Document()),
         };
 
-    /// <summary>Each set's label and card count, for the battle's recorded event.</summary>
+    /// <summary>
+    /// Each set's label and card count, then how many cards the opening read gave and whether a
+    /// live retry captured it, for the battle's recorded event.
+    /// </summary>
     public IEnumerable<BppLogField> LogFields() =>
         new[] { _playerHand, _playerSkills, _opponentHand, _opponentSkills }.Select(
             set => new BppLogField(set.Label, set.Summary())
@@ -67,6 +71,7 @@ internal sealed class AndroidPvpBattleSnapshots
         {
             set.Items = items;
             set.FromOpening = true;
+            set.OpeningCount = items.Count;
         }
     }
 
@@ -119,6 +124,8 @@ internal sealed class AndroidPvpBattleSnapshots
 
         public bool Live { get; set; }
 
+        public int? OpeningCount { get; set; }
+
         public PvpBattleCardSetDocument Document()
         {
             var (status, source) = PvpBattleCaptureRule.Label(FromOpening, Live, Items.Count);
@@ -133,7 +140,8 @@ internal sealed class AndroidPvpBattleSnapshots
         public string Summary()
         {
             var (status, source) = PvpBattleCaptureRule.Label(FromOpening, Live, Items.Count);
-            return $"{status}/{source}/{Items.Count}";
+            var opening = OpeningCount?.ToString(CultureInfo.InvariantCulture) ?? "failed";
+            return $"{status}/{source}/{Items.Count}/opening={opening}{(Live ? "/live" : "")}";
         }
     }
 

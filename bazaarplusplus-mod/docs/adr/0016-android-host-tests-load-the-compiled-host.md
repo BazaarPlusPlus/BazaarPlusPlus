@@ -11,7 +11,7 @@ The interop assemblies are managed: an interop enum is a plain CLR enum with the
 ## Decision
 
 1. `AndroidHost.Tests` references the host project with its output assembly and the host grants it `InternalsVisibleTo` (`src/BazaarPlusPlus.Android/Properties/AssemblyAttributes.cs`). Tests call the host's own types, never a linked copy of a host source.
-2. The test project imports `build/InteropPath.props` and references the Interop Snapshot and the Loader Release for compilation. It copies beside itself only `Il2CppBazaarGameShared.dll`, which holds the card enums, and `Il2CppInterop.Runtime.dll`, which the host's replay types name. A test that needs another interop assembly at run time adds that one file.
+2. The test project imports `build/InteropPath.props` and references the Interop Snapshot and the Loader Release for compilation. It copies beside itself only `Il2CppBazaarGameShared.dll`, which holds the card enums, and `Il2CppInterop.Runtime.dll`, which the host's replay types name, with their dependencies. A test that needs another interop assembly at run time adds that one file.
 3. A test runs only host code that never calls into the IL2CPP runtime: no interop object is constructed and no `Il2Cpp*` method is invoked. Code that does, such as `AndroidReplayMessages.Serialize` or the board captures, is verified on a device.
 4. The card enum values both hosts write are one table, `tests/Shared/fixtures/pvp-card-enums.json`. `AndroidHost.Tests` holds the interop enums and `AndroidPvpBattleEvidence` to it, and `BundlePipeline.Tests` holds the game's Mono enums and `DesktopPvpBattleEvidence` to it, so a game update that renumbers a card enum on one platform fails a test instead of shipping different numbers in the Run segment.
 
