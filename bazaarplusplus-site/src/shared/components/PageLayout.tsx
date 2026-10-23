@@ -26,7 +26,7 @@ export default function PageLayout({
 
   return (
     <div className="flex min-h-screen flex-col">
-      <SiteHeader location={location} width={width} />
+      <SiteHeader location={location} />
 
       <main
         aria-busy={busy || undefined}
@@ -55,10 +55,14 @@ export function PageHeading({ title, intro, actions }: PageHeadingProps) {
   return (
     <section className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
       <div className="flex max-w-3xl min-w-0 flex-col gap-3">
-        <h1 className="text-[24px] leading-[1.3] font-semibold tracking-[-0.01em] text-balance text-text-1">
+        <h1
+          className={`text-[24px] leading-[1.3] font-semibold tracking-[-0.01em] text-balance text-text-1 ${intro ? 'min-h-[2lh] sm:min-h-lh' : ''}`}
+        >
           {title}
         </h1>
-        {intro ? <p className="max-w-[62ch] text-[15px] text-text-2">{intro}</p> : null}
+        {intro ? (
+          <p className="min-h-[2lh] max-w-[62ch] text-[15px] text-text-2 sm:min-h-lh">{intro}</p>
+        ) : null}
       </div>
       {actions ? <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div> : null}
     </section>

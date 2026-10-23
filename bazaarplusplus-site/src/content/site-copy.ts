@@ -23,7 +23,6 @@ type ScopeCopy = {
 type CommonCopy = {
   brand: {
     name: string;
-    subtitle: string;
   };
   filters: string;
   primaryNavAriaLabel: string;
@@ -106,6 +105,7 @@ type StatsCopy = {
 
 export type DownloadPageCopy = {
   title: string;
+  intro: string;
   versionLabel: string;
   versionUnavailable: string;
   versionFailed: string;
@@ -220,7 +220,6 @@ const zh: LocalizedSiteCopy = {
   common: {
     brand: {
       name: 'BazaarPlusPlus',
-      subtitle: 'Bazaar Almanac',
     },
     filters: '筛选',
     primaryNavAriaLabel: '主导航',
@@ -266,7 +265,7 @@ const zh: LocalizedSiteCopy = {
     support: '支持',
   },
   pageTitles: {
-    heroes: '英雄统计',
+    heroes: '统计',
     tutorial: '教程',
     download: '下载',
     support: '支持',
@@ -321,8 +320,8 @@ const zh: LocalizedSiteCopy = {
     },
   },
   tutorial: {
-    title: 'BazaarPlusPlus 官方指南',
-    intro: '从下载安装到实战技巧，带你全面了解 BazaarPlusPlus 的各项核心功能，助你快速上手。',
+    title: '使用 BazaarPlusPlus',
+    intro: '了解插件功能、快捷键与安装方法。',
     primaryActionLabel: '立即下载',
     secondaryActionLabel: '赞助项目',
     featureHeading: '插件主要功能',
@@ -456,6 +455,7 @@ const zh: LocalizedSiteCopy = {
   },
   download: {
     title: '下载 BazaarPlusPlus',
+    intro: '获取 BazaarPlusPlus 最新版本。',
     versionLabel: '最新版本',
     versionUnavailable: '获取失败',
     versionFailed: '暂时无法获取最新版本',
@@ -528,7 +528,6 @@ const en: LocalizedSiteCopy = {
   common: {
     brand: {
       name: 'BazaarPlusPlus',
-      subtitle: 'Bazaar Almanac',
     },
     filters: 'Filters',
     primaryNavAriaLabel: 'Primary',
@@ -629,9 +628,8 @@ const en: LocalizedSiteCopy = {
     },
   },
   tutorial: {
-    title: 'BazaarPlusPlus official guide',
-    intro:
-      'From installation to in-game combat controls, master the core features of BazaarPlusPlus and elevate your gameplay.',
+    title: 'Use BazaarPlusPlus',
+    intro: 'Learn about features, shortcuts, and installation.',
     primaryActionLabel: 'Download now',
     secondaryActionLabel: 'Support the project',
     featureHeading: 'What the mod adds',
@@ -774,6 +772,7 @@ const en: LocalizedSiteCopy = {
   },
   download: {
     title: 'Download BazaarPlusPlus',
+    intro: 'Get the latest version of BazaarPlusPlus.',
     versionLabel: 'Current version',
     versionUnavailable: 'Unavailable',
     versionFailed: 'Cannot reach the latest version right now',

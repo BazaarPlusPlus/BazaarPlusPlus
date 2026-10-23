@@ -5,7 +5,7 @@ const MAX_WIDTH: Record<PageWidth, string> = {
   wide: 'max-w-[1440px]',
 };
 
-/** Content column shared by the header, page body, and footer so their edges line up. */
+/** Container widths for site chrome and page content. */
 export function pageContainerClassName(width: PageWidth): string {
   return `mx-auto w-full min-w-0 ${MAX_WIDTH[width]} px-4 sm:px-8`;
 }

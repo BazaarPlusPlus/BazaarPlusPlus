@@ -123,7 +123,7 @@
       "title": "教程 | BazaarPlusPlus",
       "lang": "zh-CN",
       "h1": [
-        "BazaarPlusPlus 官方指南"
+        "使用 BazaarPlusPlus"
       ],
       "currentNav": [
         "教程"
@@ -198,7 +198,7 @@
     "/heroes/": {
       "url": "/heroes/",
       "history": [],
-      "title": "英雄统计 | BazaarPlusPlus",
+      "title": "统计 | BazaarPlusPlus",
       "lang": "zh-CN",
       "h1": [
         "英雄统计"
@@ -621,7 +621,7 @@
           "href": "/heroes"
         }
       ],
-      "title": "英雄统计 | BazaarPlusPlus",
+      "title": "统计 | BazaarPlusPlus",
       "lang": "zh-CN",
       "h1": [
         "英雄统计"
@@ -665,7 +665,7 @@
           "href": "/heroes?keep=yes"
         }
       ],
-      "title": "英雄统计 | BazaarPlusPlus",
+      "title": "统计 | BazaarPlusPlus",
       "lang": "zh-CN",
       "h1": [
         "英雄统计"
@@ -704,7 +704,7 @@
     "/heroes?w=7d&keep=yes#trend": {
       "url": "/heroes?w=7d&keep=yes#trend",
       "history": [],
-      "title": "英雄统计 | BazaarPlusPlus",
+      "title": "统计 | BazaarPlusPlus",
       "lang": "zh-CN",
       "h1": [
         "英雄统计"
@@ -743,7 +743,7 @@
     "/heroes?campaign=two%20words&w=3d": {
       "url": "/heroes?campaign=two%20words&w=3d",
       "history": [],
-      "title": "英雄统计 | BazaarPlusPlus",
+      "title": "统计 | BazaarPlusPlus",
       "lang": "zh-CN",
       "h1": [
         "英雄统计"
@@ -787,7 +787,7 @@
       "title": "Tutorial | BazaarPlusPlus",
       "lang": "en",
       "h1": [
-        "BazaarPlusPlus official guide"
+        "Use BazaarPlusPlus"
       ],
       "currentNav": [
         "Tutorial"
@@ -875,7 +875,7 @@
       "title": "Tutorial | BazaarPlusPlus",
       "lang": "en",
       "h1": [
-        "BazaarPlusPlus official guide"
+        "Use BazaarPlusPlus"
       ],
       "currentNav": [
         "Tutorial"
@@ -923,7 +923,7 @@
       "title": "教程 | BazaarPlusPlus",
       "lang": "zh-CN",
       "h1": [
-        "BazaarPlusPlus 官方指南"
+        "使用 BazaarPlusPlus"
       ],
       "currentNav": [
         "教程"
