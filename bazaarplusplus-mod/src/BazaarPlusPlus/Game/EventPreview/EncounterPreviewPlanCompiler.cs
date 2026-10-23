@@ -8,6 +8,8 @@ using BazaarGameShared.Domain.Spawning;
 using BazaarGameShared.Domain.Spawning.SpawnFilters;
 using BazaarGameShared.Domain.Spawning.SpawningContexts;
 using BazaarGameShared.Domain.Values;
+using BazaarPlusPlus.Core.Cards;
+using BazaarPlusPlus.GameInterop.Cards;
 using Newtonsoft.Json.Linq;
 
 namespace BazaarPlusPlus.Game.EventPreview;
@@ -258,7 +260,7 @@ internal sealed class EncounterPreviewPlanCompiler
                                     }:
                                         heroConditions.Add(
                                             new LevelUpPreviewHeroCondition(
-                                                heroCondition.Heroes,
+                                                ToHeroFacets(heroCondition.Heroes),
                                                 heroCondition.Operator.ToString()
                                             )
                                         );
@@ -360,7 +362,7 @@ internal sealed class EncounterPreviewPlanCompiler
                 new EncounterPreviewTemplatePlan(
                     template.Id,
                     Classify(template.Type),
-                    template.Heroes?.OrderBy(hero => (int)hero).ToArray() ?? Array.Empty<EHero>(),
+                    ToHeroFacets(template.Heroes),
                     template.InternalName,
                     new EncounterPreviewLocalizedText(
                         localization?.Title?.Key,
@@ -370,7 +372,7 @@ internal sealed class EncounterPreviewPlanCompiler
                         localization?.Description?.Key,
                         localization?.Description?.Text
                     ),
-                    EventPreviewLocalization.CaptureAbilityValues(template),
+                    EventPreviewGameText.CaptureAbilityValues(template),
                     rewardFilter
                 )
             );
@@ -381,6 +383,21 @@ internal sealed class EncounterPreviewPlanCompiler
             failures.Add(template.Id);
             return false;
         }
+    }
+
+    // Game order, then by name onto the facet (ADR-0015): the legacy and current Dragons ids
+    // fold into one facet, and an unmapped hero drops out.
+    private static IReadOnlyList<CardHero> ToHeroFacets(IEnumerable<EHero>? heroes)
+    {
+        if (heroes == null)
+            return Array.Empty<CardHero>();
+        var result = new List<CardHero>();
+        foreach (var hero in heroes.OrderBy(hero => (int)hero))
+        {
+            if (DesktopCardFacets.Hero.TryToFacet(hero, out var facet) && !result.Contains(facet))
+                result.Add(facet);
+        }
+        return result;
     }
 
     private static EncounterPreviewTemplateKind Classify(ECardType type) =>

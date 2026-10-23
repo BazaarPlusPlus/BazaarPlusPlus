@@ -1,6 +1,6 @@
 using BazaarGameShared.Domain.Cards;
-using BazaarGameShared.Domain.Core.Types;
 using BazaarGameShared.Domain.Game;
+using BazaarPlusPlus.Core.Cards;
 using Xunit;
 
 namespace EncounterTooltip.Tests;
@@ -107,7 +107,7 @@ public sealed class EncounterPreviewPlanLoaderTests : IDisposable
                 new EncounterPreviewTemplatePlan(
                     id,
                     EncounterPreviewTemplateKind.Event,
-                    Array.Empty<EHero>(),
+                    Array.Empty<CardHero>(),
                     "Event",
                     new EncounterPreviewLocalizedText(string.Empty, "Event"),
                     new EncounterPreviewLocalizedText(string.Empty, "Event"),

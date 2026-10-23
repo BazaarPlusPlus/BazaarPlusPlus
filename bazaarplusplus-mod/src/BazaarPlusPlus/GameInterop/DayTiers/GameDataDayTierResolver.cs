@@ -1,5 +1,6 @@
 #nullable enable
-using BazaarGameShared.Domain.Core.Types;
+using BazaarPlusPlus.Core.Cards;
+using BazaarPlusPlus.Core.GameState;
 
 namespace BazaarPlusPlus.GameInterop.DayTiers;
 
@@ -61,7 +62,7 @@ internal sealed class GameDataDayTierResolution
 
     public GameDataDayTierTable? Table { get; }
 
-    public ETier? MaximumTier => Table?.MaximumTier;
+    public CardTier? MaximumTier => Table?.MaximumTier;
 
     internal static GameDataDayTierResolution Unavailable(GameDataDayTierStatus status, int? day) =>
         new(status, day, null);
