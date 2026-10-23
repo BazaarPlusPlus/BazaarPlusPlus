@@ -6,5 +6,6 @@
         <Project Path="EventPreview.Tests/EventPreview.Tests.csproj" />
         <Project Path="SelfUpdate.Tests/SelfUpdate.Tests.csproj" />
         <Project Path="Updater.Tests/Updater.Tests.csproj" />
+        <Project Path="VoiceSubtitles.Tests/VoiceSubtitles.Tests.csproj" />
     </Folder>
 </Solution>

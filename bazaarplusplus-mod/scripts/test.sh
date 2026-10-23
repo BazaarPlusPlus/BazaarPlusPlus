@@ -29,9 +29,12 @@ cmd_test() {
 }
 
 # test-core [-p:Name=Value ...]: the suites that need no Managed/ snapshot, so they also run on
-# Linux: the Android host's boundary test, which needs the Interop Snapshot
-# (`just mod::fetch android online`) instead, and the two goldens on the net10.0 binding the
-# Android host ships: the Run segment (BundleV6Codec) and Run Logging's history database.
+# Linux: the xUnit suites in BazaarPlusPlus.CoreTests.slnx (among them the Android host's
+# boundary test, which needs the Interop Snapshot from `just mod::fetch android online`
+# instead), then the console capsules that run against Core's net10.0 output: the two goldens
+# on the binding the Android host ships, the Run segment (BundleV6Codec) and Run Logging's
+# history database, and the Core-only feature capsules. A capsule here also stays in
+# BppScenarioRunnerProjects, which `mod::test` runs.
 # BppSnapshotPlatform=none names no lock entry, so a project that reaches a Mono target fails
 # here on every host the way it fails on the Linux lane, not only where no snapshot is fetched.
 cmd_test_core() {
@@ -39,7 +42,10 @@ cmd_test_core() {
     local core_props=(-p:BppSnapshotPlatform=none "${TEST_PROPS[@]}")
     dotnet test tests/BazaarPlusPlus.CoreTests.slnx "${core_props[@]}" ${PROPS[@]+"${PROPS[@]}"}
     local project
-    for project in BundleV6Codec.Net10.Tests RunLoggingPipeline.Net10.Tests; do
+    for project in BundleV6Codec.Net10.Tests RunLoggingPipeline.Net10.Tests \
+        CollectionFilterEngine.Tests CollectionViewState.Tests \
+        GhostBattleSync.Tests HistoryPanelDecisions.Tests HistoryPanelFiltering.Tests \
+        HistoryPanelRepository.Tests LiveBuildPanel.Tests LiveBuildRecommendationCore.Tests; do
         dotnet run --project "tests/$project/$project.csproj" \
             "${core_props[@]}" ${PROPS[@]+"${PROPS[@]}"}
     done
