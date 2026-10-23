@@ -25,7 +25,7 @@ export default function HeroBadge({
     <span
       data-hero-badge={hero}
       title={hero}
-      className={`inline-flex h-[22px] min-w-0 items-center gap-1.5 rounded-full border px-2 text-xs font-semibold whitespace-nowrap text-text-1 transition-colors duration-(--t-fast) ${
+      className={`inline-flex h-6 min-w-0 items-center gap-1.5 rounded-full border px-2 text-sm font-medium whitespace-nowrap text-text-1 transition-colors duration-(--t-fast) ${
         selected ? 'border-accent-line bg-accent-subtle' : 'border-transparent bg-hover'
       }`}
     >

@@ -41,7 +41,7 @@ export function InstallConfirmModal({
       onConfirm={onConfirm}
       onClose={onClose}
     >
-      <ConfirmNote tone="neutral" icon={<BookOpen size={15} />}>
+      <ConfirmNote tone="neutral" icon={<BookOpen size={16} />}>
         <p className="text-fg-1">{t('tutorialKicker')}</p>
         <p>{t('installModalBody')}</p>
         <a
@@ -51,11 +51,11 @@ export function InstallConfirmModal({
           className="bpp-dialog-link"
         >
           {t('viewTutorial')}
-          <ExternalLink size={13} />
+          <ExternalLink size={14} />
         </a>
       </ConfirmNote>
 
-      <ConfirmNote tone="warning" icon={<TriangleAlert size={15} />}>
+      <ConfirmNote tone="warning" icon={<TriangleAlert size={16} />}>
         <p>
           {t(
             isWindowsPlatform()

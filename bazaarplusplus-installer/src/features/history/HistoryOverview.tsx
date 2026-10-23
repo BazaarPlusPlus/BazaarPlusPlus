@@ -222,7 +222,7 @@ export function HistoryOverview({
             </ConfirmTarget>
             <p className="text-fg-1">{pendingBody(cleanup.pending)}</p>
             {cleanup.pending.preview.skipped_pending_uploads > 0 && (
-              <ConfirmNote tone="warning" icon={<CloudUpload size={15} />}>
+              <ConfirmNote tone="warning" icon={<CloudUpload size={16} />}>
                 <p>
                   {t('storageCleanupSkippedPending', {
                     count: cleanup.pending.preview.skipped_pending_uploads

@@ -32,7 +32,8 @@ const rootPrettier = (mode) => [
   '.prettierrc.json',
   'release.mjs',
   'release/**/*.{mjs,ts,json}',
-  'scripts/**/*.mjs'
+  'scripts/**/*.mjs',
+  'design/**/*.mjs'
 ];
 
 function fixture(t) {
@@ -177,6 +178,9 @@ test('check delegates source-only gates in their project directories', (t) => {
   const calls = f.calls();
   assertProjectGates(f.dir, calls);
   assert.ok(hasCall(calls, call(f.dir, null, 'node', 'release.mjs', 'check')));
+  assert.ok(
+    hasCall(calls, call(f.dir, null, 'node', 'design/build.mjs', '--check'))
+  );
   assert.ok(hasCall(calls, call(f.dir, null, ...rootPrettier('--check'))));
 });
 
@@ -207,7 +211,7 @@ test('a failing project stops the aggregate and preserves its exit code', (t) =>
   assert.equal(result.status, 37, result.stdout + result.stderr);
   assert.deepEqual(
     f.calls().map(({ tool }) => tool),
-    ['npm', 'node', 'node', 'node', 'dotnet', 'dotnet', 'mod-build']
+    ['npm', 'node', 'node', 'node', 'node', 'dotnet', 'dotnet', 'mod-build']
   );
 });
 

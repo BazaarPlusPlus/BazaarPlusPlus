@@ -1,0 +1,157 @@
+{
+ "v": 3,
+ "layout": "files",
+ "createdOnFiles": {
+  "v": 1,
+  "at": "2026-10-23T10:45:39Z"
+ },
+ "title": "BazaarPlusPlus",
+ "namespace": "BazaarPlusPlus",
+ "libraries": [],
+ "sections": {},
+ "groups": [
+  "Logos",
+  "Icons"
+ ],
+ "assetGroups": {
+  "Logos": {
+   "name": "Logos",
+   "tile": "l",
+   "order": [
+    "bpp-mark.svg",
+    "bpp-mark-on-light.svg",
+    "bpp-mark-mono-white.svg",
+    "bazaarplusplus-icon.webp",
+    "favicon.webp",
+    "app-icon.png",
+    "tray-macos.svg"
+   ],
+   "files": {
+    "bpp-mark.svg": {
+     "name": "bpp-mark.svg",
+     "blob": "1b60c1f046730edf1396f5b2d5483dbf",
+     "size": 272,
+     "type": "image/svg+xml"
+    },
+    "bpp-mark-on-light.svg": {
+     "name": "bpp-mark-on-light.svg",
+     "blob": "8b2ae67fc55651f640e1db213e49ad6f",
+     "size": 272,
+     "type": "image/svg+xml"
+    },
+    "bpp-mark-mono-white.svg": {
+     "name": "bpp-mark-mono-white.svg",
+     "blob": "ff052198060de3445f50e26790a9359b",
+     "size": 272,
+     "type": "image/svg+xml"
+    },
+    "bazaarplusplus-icon.webp": {
+     "name": "bazaarplusplus-icon.webp",
+     "blob": "568ddc860c9e395035bf047e5b029b07",
+     "size": 7296,
+     "type": "image/webp"
+    },
+    "favicon.webp": {
+     "name": "favicon.webp",
+     "blob": "4f8b27c9af6bdaec5b41a3159c3d034c",
+     "size": 2812,
+     "type": "image/webp"
+    },
+    "app-icon.png": {
+     "name": "app-icon.png",
+     "blob": "26f47499e9ae473cef9adcbb7a132c86",
+     "size": 2462082,
+     "type": "image/png"
+    },
+    "tray-macos.svg": {
+     "name": "tray-macos.svg",
+     "blob": "5dcb0b8124e553dddd9690eeec8ef3cf",
+     "size": 81054,
+     "type": "image/svg+xml"
+    }
+   }
+  },
+  "Icons": {
+   "name": "Icons",
+   "tile": "xs",
+   "order": [
+    "download.svg",
+    "external-link.svg",
+    "arrow-right.svg",
+    "refresh.svg",
+    "close.svg",
+    "spinner.svg",
+    "alert.svg",
+    "inbox.svg",
+    "compass.svg"
+   ],
+   "files": {
+    "download.svg": {
+     "name": "download.svg",
+     "blob": "338542f82618c4084bdf4180b63063b2",
+     "size": 298,
+     "type": "image/svg+xml"
+    },
+    "external-link.svg": {
+     "name": "external-link.svg",
+     "blob": "a24365836ca1e8dbb96ffdf3cd3f32f9",
+     "size": 312,
+     "type": "image/svg+xml"
+    },
+    "arrow-right.svg": {
+     "name": "arrow-right.svg",
+     "blob": "0260e1d116f699f7dc2e879f9d41354c",
+     "size": 239,
+     "type": "image/svg+xml"
+    },
+    "refresh.svg": {
+     "name": "refresh.svg",
+     "blob": "bdc384e0c09897beeb34f22fb40406fc",
+     "size": 374,
+     "type": "image/svg+xml"
+    },
+    "close.svg": {
+     "name": "close.svg",
+     "blob": "9cfd9828cc7ed237e1fbc7052f3bd058",
+     "size": 238,
+     "type": "image/svg+xml"
+    },
+    "spinner.svg": {
+     "name": "spinner.svg",
+     "blob": "85998ee02a1b12b62ba1a8e28b531219",
+     "size": 226,
+     "type": "image/svg+xml"
+    },
+    "alert.svg": {
+     "name": "alert.svg",
+     "blob": "7d0e5c4a4d73d769e71712cd3600049a",
+     "size": 275,
+     "type": "image/svg+xml"
+    },
+    "inbox.svg": {
+     "name": "inbox.svg",
+     "blob": "5d055111736ac67e4571515981115c50",
+     "size": 348,
+     "type": "image/svg+xml"
+    },
+    "compass.svg": {
+     "name": "compass.svg",
+     "blob": "dd129ba4484aca84ef84b6364899aa8a",
+     "size": 320,
+     "type": "image/svg+xml"
+    }
+   }
+  }
+ },
+ "blobs": {},
+ "docs": {
+  "readme": "project/README.md",
+  "sections": []
+ },
+ "lastChange": {
+  "by": "Xinyu YANG",
+  "at": "2026-10-23T13:11:43Z",
+  "via": "Claude Code · BazaarPlusPlus/BazaarPlusPlus design/",
+  "note": "Published from the repository's design/ folder, now the source of truth; the installer and site use these tokens, styles, mark and copy rules."
+ }
+}

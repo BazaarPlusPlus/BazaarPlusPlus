@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 
-import { AlertIcon, CompassIcon, InboxIcon } from './icons';
+import { AlertIcon, CompassIcon, InboxIcon, SpinnerIcon } from './icons';
 
 type StatusKind = 'loading' | 'error' | 'empty' | 'not-found';
 
@@ -16,11 +16,12 @@ type StatusPanelProps = {
   actions?: ReactNode;
 };
 
-function StatusMark({ kind }: { kind: StatusKind }) {
+function StatusMark({ kind, progressLabel }: { kind: StatusKind; progressLabel?: string }) {
   if (kind === 'loading') {
+    // Busy is always the spinner (design/README.md, Motion); it carries the progressbar role.
     return (
-      <span aria-hidden="true" className="flex size-[22px] items-center justify-center">
-        <span className="size-2 rounded-full bg-accent motion-safe:animate-pulse" />
+      <span role="progressbar" aria-label={progressLabel} className="flex text-text-2">
+        <SpinnerIcon className="size-[22px]" />
       </span>
     );
   }
@@ -48,30 +49,21 @@ export default function StatusPanel({
   return (
     <section
       aria-live={kind === 'loading' || kind === 'error' ? 'polite' : undefined}
-      className={`flex flex-col items-center gap-2 px-6 text-center ${
-        framed ? 'panel py-14 sm:py-20' : 'py-12'
+      className={`flex flex-col items-center gap-2 px-4 py-10 text-center text-text-2 ${
+        framed ? 'panel' : ''
       }`}
     >
-      <StatusMark kind={kind} />
+      <StatusMark kind={kind} progressLabel={progressLabel} />
       <Heading
         className={`mt-1 font-semibold text-balance text-text-1 ${
-          headingLevel === 1 ? 'text-[22px] leading-tight' : 'text-base'
+          headingLevel === 1 ? 'text-[24px] leading-[1.3]' : 'text-lg leading-[1.4]'
         }`}
       >
         {title}
       </Heading>
-      {body ? <p className="max-w-md text-sm text-text-2">{body}</p> : null}
-      {kind === 'loading' ? (
-        <div
-          role="progressbar"
-          aria-label={progressLabel}
-          className="mt-4 h-1 w-full max-w-xs overflow-hidden rounded-full bg-hover"
-        >
-          <div className="h-full w-full bg-accent/50 motion-safe:animate-pulse" />
-        </div>
-      ) : null}
+      {body ? <p className="max-w-[44ch] text-[15px]">{body}</p> : null}
       {actions ? (
-        <div className="mt-3 flex flex-wrap items-center justify-center gap-2">{actions}</div>
+        <div className="mt-2 flex flex-wrap items-center justify-center gap-2">{actions}</div>
       ) : null}
     </section>
   );

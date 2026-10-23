@@ -208,7 +208,7 @@ function ToastItem({
         onClick={onDismiss}
         aria-label={closeLabel}
       >
-        <X size={15} />
+        <X size={16} />
       </button>
     </div>
   );

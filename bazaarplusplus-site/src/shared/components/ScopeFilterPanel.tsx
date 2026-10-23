@@ -22,7 +22,7 @@ export function SegmentedButton({
       type="button"
       aria-pressed={active}
       onClick={onClick}
-      className={`shrink-0 cursor-pointer rounded-[4px] px-2.5 py-1 text-xs font-medium whitespace-nowrap transition-colors duration-(--t-fast) focus-visible:outline-offset-0 ${
+      className={`shrink-0 cursor-pointer flex h-[30px] items-center rounded-inner px-3 text-sm font-medium whitespace-nowrap transition-colors duration-(--t-fast) focus-visible:outline-offset-0 ${
         active ? 'bg-selected text-text-1' : 'text-text-2 hover:text-text-1'
       }`}
     >

@@ -51,10 +51,10 @@ export function ResetDataConfirmModal({
       <ConfirmTarget>
         {t('resetDataTarget', { path: targetPath })}
       </ConfirmTarget>
-      <ConfirmNote tone="danger" icon={<Database size={15} />}>
+      <ConfirmNote tone="danger" icon={<Database size={16} />}>
         <p>{t('resetDataConfirmBody')}</p>
       </ConfirmNote>
-      <ConfirmNote tone="neutral" icon={<ShieldCheck size={15} />}>
+      <ConfirmNote tone="neutral" icon={<ShieldCheck size={16} />}>
         <p>{t('resetDataConfirmKeepsInstall')}</p>
         <p>{t('resetDataConfirmGameClosed')}</p>
       </ConfirmNote>

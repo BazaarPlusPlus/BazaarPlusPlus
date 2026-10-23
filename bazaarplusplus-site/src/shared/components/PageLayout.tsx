@@ -36,7 +36,7 @@ export default function PageLayout({
       </main>
 
       <footer className={container}>
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line py-6 text-xs text-text-3">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line py-6 text-sm text-text-3">
           <FooterCredit locale={location.locale} />
           {footerMeta}
         </div>
@@ -55,23 +55,20 @@ export function PageHeading({ title, intro, actions }: PageHeadingProps) {
   return (
     <section className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
       <div className="flex max-w-3xl min-w-0 flex-col gap-3">
-        <h1 className="text-[30px] leading-[1.15] font-bold tracking-[-0.025em] text-balance text-text-1 sm:text-[40px]">
+        <h1 className="text-[24px] leading-[1.3] font-semibold tracking-[-0.01em] text-balance text-text-1">
           {title}
         </h1>
-        {intro ? <p className="max-w-[62ch] text-base text-text-2">{intro}</p> : null}
+        {intro ? <p className="max-w-[62ch] text-[15px] text-text-2">{intro}</p> : null}
       </div>
       {actions ? <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div> : null}
     </section>
   );
 }
 
-/** Section title (h2, 22/650) used below the page heading. */
+/** Section title (h2, the design system's `title`: 18/600) used below the page heading. */
 export function SectionHeading({ id, children }: { id?: string; children: ReactNode }) {
   return (
-    <h2
-      id={id}
-      className="text-[22px] leading-tight font-[650] tracking-[-0.01em] text-balance text-text-1"
-    >
+    <h2 id={id} className="text-lg leading-[1.4] font-semibold text-balance text-text-1">
       {children}
     </h2>
   );

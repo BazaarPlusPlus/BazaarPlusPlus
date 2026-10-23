@@ -49,10 +49,7 @@ export function ShellSupportMenu({
             onClick={onOpenPayment}
           >
             <QrCode aria-hidden="true" />
-            <div className="min-w-0">
-              <span className="bpp-menu-title">{t('wechatPay')}</span>
-              <span className="bpp-menu-subtitle">{t('wechatPayOpen')}</span>
-            </div>
+            <span className="bpp-menu-title">{t('wechatPay')}</span>
           </button>
 
           <a
@@ -79,12 +76,7 @@ export function ShellSupportMenu({
             onClick={onCloseSupport}
           >
             <Users aria-hidden="true" />
-            <div className="min-w-0">
-              <span className="bpp-menu-title">{t('supporterList')}</span>
-              <span className="bpp-menu-subtitle">
-                {t('supporterListSubtitle')}
-              </span>
-            </div>
+            <span className="bpp-menu-title">{t('supporterList')}</span>
           </a>
         </div>
       )}

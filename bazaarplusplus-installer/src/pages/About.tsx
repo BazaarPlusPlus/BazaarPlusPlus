@@ -9,7 +9,7 @@ import { useI18n } from '../i18n/LocaleProvider';
 import type { MessageKey } from '../i18n/messages';
 import type { AppBootstrap, AppCredit } from '../types/backend';
 import fableVerifiedBadge from '../../static/about/fable-5-verified.webp';
-import brandLogo from '../../static/brand/bazaarplusplus-logo.webp';
+import brandMark from '../../static/brand/bpp-mark.svg';
 
 // Credits are split into ordered groups by their `group` field so contributors
 // stay separate from the external data/inspiration sources we acknowledge.
@@ -70,7 +70,7 @@ function AboutBootstrapContent({ bootstrap }: { bootstrap: AppBootstrap }) {
       <section className="bpp-panel">
         <div className="bpp-install-status-top">
           <img
-            src={brandLogo}
+            src={brandMark}
             alt=""
             className="bpp-install-status-logo"
             draggable={false}
@@ -138,7 +138,7 @@ function AboutBootstrapContent({ bootstrap }: { bootstrap: AppBootstrap }) {
       <details className="bpp-panel">
         <summary className="bpp-panel-summary">
           {t('aboutLicenses')}
-          <ChevronDown size={15} aria-hidden="true" />
+          <ChevronDown size={16} aria-hidden="true" />
         </summary>
         <ul className="bpp-credit-list">
           {bootstrap.licenses.map((license) => (
@@ -217,7 +217,7 @@ function ListItem({
           className="bpp-credit-name"
         >
           {name}
-          <ExternalLink size={11} aria-hidden="true" />
+          <ExternalLink size={14} aria-hidden="true" />
         </a>
       ) : (
         <span className="bpp-credit-name">{name}</span>

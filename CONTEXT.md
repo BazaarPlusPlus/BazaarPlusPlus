@@ -97,3 +97,9 @@ The immutable facts, battles, card state, and replay inputs of one completed gam
 
 **Ghost Battle**:
 A PvP battle in which a player's uploaded build fought inside another player's run. The server serves it as a query projection of Bundle manifests; the mod imports it into local history.
+
+## Design
+
+**Design System** (设计系统):
+The one source for what the installer and bazaarplusplus.com look and read like: design tokens, the shared `bpp-*` component styles, the brand mark, the brand book and the writing standard, kept in `design/` and published as a Design System artifact. The products consume it; they do not restate its values (`docs/design.md`).
+_Avoid_: style guide, theme

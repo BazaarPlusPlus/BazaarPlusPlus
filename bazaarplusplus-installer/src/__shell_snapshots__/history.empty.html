@@ -1,7 +1,7 @@
 <div class="bpp-app">
 <header class="bpp-header" data-tauri-drag-region="deep">
 <div class="bpp-brand">
-<img alt="" class="bpp-brand-logo" draggable="false" src="/static/brand/bazaarplusplus-logo.webp">
+<img alt="" class="bpp-brand-logo" draggable="false" src="data:image/svg+xml,%3csvg%20xmlns='http://www.w3.org/2000/svg'%20width='32'%20height='32'%20viewBox='0%200%2032%2032'%3e%3ctitle%3eBazaarPlusPlus%3c/title%3e%3cpath%20fill='%23edebe7'%20d='M16%203%20L31%2018%20L23.5%2018%20L16%2010.5%20L8.5%2018%20L1%2018%20Z'/%3e%3cpath%20fill='%23ee8e1f'%20d='M16%2013%20L23.75%2020.75%20L16%2028.5%20L8.25%2020.75%20Z'/%3e%3c/svg%3e">
 <h1 class="bpp-brand-title">BazaarPlusPlus</h1>
 <span class="bpp-brand-version">v«version»</span>
 </div>
@@ -212,22 +212,20 @@
 </div>
 </section>
 <div class="bpp-history-run-list">
-<div class="bpp-panel">
-<section class="bpp-empty-state">
-<div class="bpp-empty-state-icon" aria-hidden="true">
+<section class="bpp-status-panel bpp-panel">
+<span class="bpp-status-panel-mark" aria-hidden="true">
 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-rotate-ccw-clock lucide-history" aria-hidden="true">
 </svg>
-</div>
-<h3 class="bpp-empty-state-heading">暂无本地战绩</h3>
-<p class="bpp-empty-state-description">完成一局 The Bazaar 对局后，战绩会自动显示在这里。你也可以刷新，或前往安装页检查游戏目录。</p>
-<div class="bpp-empty-state-actions">
+</span>
+<h3 class="bpp-status-panel-title">暂无本地战绩</h3>
+<p class="bpp-status-panel-body">完成一局游戏后，战绩会出现在这里。</p>
+<div class="bpp-status-panel-actions">
 <button type="button" class="bpp-btn bpp-btn-secondary bpp-btn-sm">
 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-refresh-cw" aria-hidden="true">
 </svg>刷新战绩</button>
 <a class="bpp-btn bpp-btn-ghost bpp-btn-sm" href="/" data-discover="true">检查游戏目录</a>
 </div>
 </section>
-</div>
 </div>
 </div>
 </div>

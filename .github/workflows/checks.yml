@@ -100,7 +100,7 @@ jobs:
           tool: just@1.58.0
       - run: npm install --global "$(node --print "require('./package.json').packageManager")"
       - run: npm ci
-      - run: just commands-check release::check release::test
+      - run: just commands-check design::check release::check release::test
       - run: python3 -m unittest discover -s .github/scripts -p 'test_*.py'
       - run: node --test .github/scripts/*.test.mjs
 

@@ -8,8 +8,7 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button, buttonClassName } from '../components/ui/Button';
-import { EmptyState } from '../components/ui/EmptyState';
-import { LoadingPanel } from '../components/ui/LoadingPanel';
+import { StatusPanel } from '../components/ui/StatusPanel';
 import { PageShell } from '../components/ui/PageShell';
 import { ProblemBanner } from '../components/ui/ProblemBanner';
 import { StatusBanner } from '../components/ui/StatusBanner';
@@ -61,7 +60,7 @@ export default function History() {
       }
     >
       {page.state.phase === 'initial-loading' ? (
-        <LoadingPanel label={t('historyLoading')} />
+        <StatusPanel kind="loading" title={t('historyLoading')} />
       ) : page.state.phase === 'blocking-failure' ? (
         <HistoryProblemBanner
           problem={page.state.problem}
@@ -100,12 +99,13 @@ export default function History() {
 
           <div className="bpp-history-run-list">
             {page.state.phase === 'ready-empty' ? (
-              <div className="bpp-panel">
-                <EmptyState
-                  icon={<HistoryIcon size={24} />}
-                  heading={t('noLocalRuns')}
-                  description={t('historyEmptyDescription')}
-                  primaryAction={
+              <StatusPanel
+                kind="empty"
+                icon={<HistoryIcon />}
+                title={t('noLocalRuns')}
+                body={t('historyEmptyDescription')}
+                actions={
+                  <>
                     <Button
                       size="sm"
                       busy={page.busy}
@@ -114,8 +114,6 @@ export default function History() {
                     >
                       {t('historyEmptyRefresh')}
                     </Button>
-                  }
-                  secondaryAction={
                     <Link
                       to="/"
                       className={buttonClassName({
@@ -125,9 +123,9 @@ export default function History() {
                     >
                       {t('historyEmptyInstall')}
                     </Link>
-                  }
-                />
-              </div>
+                  </>
+                }
+              />
             ) : (
               page.state.data.runs.map((run: HistoryRunRow) => (
                 <RunRow
@@ -324,7 +322,7 @@ function RunThumbnail({
         />
       ) : (
         <span className="bpp-history-run-preview-empty">
-          <ImageIcon size={18} aria-hidden="true" />
+          <ImageIcon size={16} aria-hidden="true" />
           <span>{fallbackLabel}</span>
         </span>
       )}
