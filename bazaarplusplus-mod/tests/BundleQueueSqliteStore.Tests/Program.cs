@@ -334,6 +334,19 @@ static void TestSealEligibilityFixture()
         {
             foreach (var eligibilityCase in cases)
                 eligibilityCase.Seed(connection);
+            // History's delete refusal reads the same column (BundleQueueStore.ProtectedRunCondition).
+            foreach (var eligibilityCase in cases)
+            {
+                using var command = connection.CreateCommand();
+                command.CommandText =
+                    $"SELECT EXISTS (SELECT 1 FROM runs AS r WHERE r.run_id = $runId AND {BundleQueueStore.ProtectedRunCondition("r")});";
+                command.Parameters.AddWithValue("$runId", eligibilityCase.Name);
+                var isProtected = Convert.ToInt64(command.ExecuteScalar()) != 0;
+                Assert(
+                    isProtected == eligibilityCase.ProtectedFromCleanup,
+                    $"{eligibilityCase.Name}: expected protectedFromCleanup={eligibilityCase.ProtectedFromCleanup}, ProtectedRunCondition={isProtected}."
+                );
+            }
             var existingJobs = cases
                 .Where(eligibilityCase => store.ReadJob(eligibilityCase.Name) != null)
                 .Select(eligibilityCase => eligibilityCase.Name)

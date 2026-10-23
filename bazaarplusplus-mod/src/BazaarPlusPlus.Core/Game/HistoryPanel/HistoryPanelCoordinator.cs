@@ -470,8 +470,24 @@ public sealed partial class HistoryPanelCoordinator : IDisposable
 
         var logRequestId = NewLogRequestId();
 
-        if (!_dataService.TryDeleteRun(run.RunId, out var battleIds, out var error))
+        if (
+            !_dataService.TryDeleteRun(
+                run.RunId,
+                out var battleIds,
+                out var sealProtected,
+                out var error
+            )
+        )
         {
+            if (sealProtected)
+            {
+                SetStatusMessage(HistoryPanelText.SealProtectedRunDeleteUnavailable());
+                LogRunDeleteRefused(logRequestId, run.RunId);
+                LoadArchive(new(_state.RunPage.First, Inclusive: true), preserveSelection: true);
+                _requestUiRefresh();
+                return;
+            }
+
             SetStatusMessage(
                 HistoryPanelText.RunDeleteFailed(error?.Message ?? HistoryPanelText.Unknown()),
                 StatusSeverity.Failure

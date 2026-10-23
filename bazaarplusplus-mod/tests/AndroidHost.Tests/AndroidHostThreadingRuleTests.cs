@@ -99,6 +99,13 @@ public sealed class AndroidHostThreadingRuleTests
         [
             "BazaarPlusPlus.Android.Ui.AndroidHistoryPanel",
             "BazaarPlusPlus.Android.Ui.AndroidHistoryPanelView",
+            "BazaarPlusPlus.Android.Ui.AndroidHistoryUi",
+            "BazaarPlusPlus.Android.Ui.HistoryButton",
+            "BazaarPlusPlus.Android.Ui.AndroidHistoryBoard",
+            "BazaarPlusPlus.Android.Ui.AndroidHistoryInspection",
+            "BazaarPlusPlus.Android.Ui.AndroidHistorySkillsSheet",
+            "BazaarPlusPlus.Android.Ui.AndroidHistoryMoreDialog",
+            "BazaarPlusPlus.Android.Ui.AndroidHistoryNoteDialog",
         ];
         var history = Host
             .Value.Types.Where(type => historyTypes.Contains(type.FullName))

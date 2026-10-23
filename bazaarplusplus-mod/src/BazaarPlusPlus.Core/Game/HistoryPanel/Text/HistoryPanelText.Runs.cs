@@ -63,6 +63,15 @@ public static partial class HistoryPanelText
         );
     }
 
+    // A Seal-Eligible Run, or one whose seal job is still waiting (BundleQueueStore.ProtectedRunCondition).
+    public static string SealProtectedRunDeleteUnavailable()
+    {
+        return FormatSimple(
+            "This ranked run is waiting to upload to BazaarDB and cannot be deleted yet.",
+            "这局排位还在等待上传 BazaarDB，暂时不能删除。"
+        );
+    }
+
     public static string RunDeleteFailed(string details)
     {
         return FormatSimple($"Couldn't delete run: {details}", $"删除对局失败：{details}");

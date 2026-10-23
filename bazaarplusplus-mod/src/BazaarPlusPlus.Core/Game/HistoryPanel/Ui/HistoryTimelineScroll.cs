@@ -6,12 +6,14 @@ public sealed class HistoryTimelineScroll
     private string? _selectedBattleId;
     private float? _offsetBeforeLoading;
 
+    // step: one chip's pitch; the desktop's HistoryPanelLayout.DayChipHeight when omitted.
     public float Bind(
         string? selectedBattleId,
         int selectedSlot,
         int rowCount,
         float offset,
-        float viewportHeight
+        float viewportHeight,
+        float? step = null
     )
     {
         // Empty pages also occur between asynchronous loads. Keep the last position and
@@ -24,14 +26,14 @@ public sealed class HistoryTimelineScroll
 
         offset = _offsetBeforeLoading ?? offset;
         _offsetBeforeLoading = null;
-        var step = HistoryPanelLayout.DayChipHeight;
-        var max = System.Math.Max(0, rowCount * step - viewportHeight);
+        var pitch = step ?? HistoryPanelLayout.DayChipHeight;
+        var max = System.Math.Max(0, rowCount * pitch - viewportHeight);
         offset = System.Math.Clamp(offset, 0, max);
 
         if (selectedBattleId != _selectedBattleId && selectedSlot >= 0 && selectedSlot < rowCount)
         {
-            var top = selectedSlot * step;
-            var bottom = top + step - 5;
+            var top = selectedSlot * pitch;
+            var bottom = top + pitch - 5;
             // A clickable chip, even a partly clipped one, stays under the pointer.
             // Reveal a new selection only when it is entirely outside the viewport.
             if (bottom <= offset)

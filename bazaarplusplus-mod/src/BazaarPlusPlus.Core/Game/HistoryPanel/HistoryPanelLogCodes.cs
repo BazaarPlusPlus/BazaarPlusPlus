@@ -38,6 +38,7 @@ public enum HistoryPanelRunDeleteReasonCode
     Completed,
     PrimaryDeleteFailed,
     ReplayPayloadCleanupFailed,
+    SealProtected,
 }
 
 public enum HistoryPanelServerHealthReasonCode

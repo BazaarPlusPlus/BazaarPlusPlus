@@ -22,6 +22,11 @@ internal static class AndroidTouchText
         "图鉴面板",
         "圖鑑面板"
     );
+    public static readonly LocalizedTextSet HistoryPanel = new(
+        "History panel",
+        "历史记录面板",
+        "歷史紀錄面板"
+    );
     public static readonly LocalizedTextSet LiveBuildPanel = new(
         "Ten-Win Builds panel",
         "十胜阵容面板",
