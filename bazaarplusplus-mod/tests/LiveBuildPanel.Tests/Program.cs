@@ -19,6 +19,7 @@ TestCorpusFreshnessKeepsLocalizedRelativeTime();
 L.Install(() => "en", () => BppChineseLocaleMode.Mainland);
 LiveBuildRefreshStateTests.Run();
 LiveBuildPanelStateTests.Run();
+LiveBuildTouchLayoutTests.Run();
 
 Console.WriteLine("LiveBuildPanel checks passed.");
 

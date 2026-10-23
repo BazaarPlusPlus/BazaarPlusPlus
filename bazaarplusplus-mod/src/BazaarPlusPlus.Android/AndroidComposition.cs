@@ -1,6 +1,7 @@
 using BazaarPlusPlus.Android.CombatReplay;
 using BazaarPlusPlus.Android.GameInterop;
 using BazaarPlusPlus.Android.Host;
+using BazaarPlusPlus.Android.LiveBuild;
 using BazaarPlusPlus.Core.Config;
 using BazaarPlusPlus.Core.Events;
 using BazaarPlusPlus.Core.GameState;
@@ -12,12 +13,14 @@ using BazaarPlusPlus.Game.HistoryPanel;
 using BazaarPlusPlus.Game.HistoryPanel.AccountLink;
 using BazaarPlusPlus.Game.HistoryPanel.Ghost;
 using BazaarPlusPlus.Game.HistoryPanel.Storage;
+using BazaarPlusPlus.Game.LiveBuildPanel.Recommendations;
 using BazaarPlusPlus.Game.PvpBattles.Persistence;
 using BazaarPlusPlus.Game.RunLifecycle;
 using BazaarPlusPlus.Game.RunLogging;
 using BazaarPlusPlus.Game.Upload;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.ReleaseManifest;
+using BazaarPlusPlus.Infrastructure.RemoteEmbeddedCatalog;
 using BazaarPlusPlus.ModApi;
 using BazaarPlusPlus.ModApi.Bundle;
 using BazaarPlusPlus.ModApi.Clients;
@@ -37,7 +40,9 @@ namespace BazaarPlusPlus.Android;
 /// sweep runs once per start on a pool thread, as on the desktop. It also owns what History and
 /// the replay runtime share with the record chain: the battle store and catalog, the payload
 /// store and its operation gate, and History's own Mod API session (ADR-0006), which outlives the
-/// upload pump's per-activation sessions and is disposed last.
+/// upload pump's per-activation sessions and is disposed last. It owns the ten-win build catalog,
+/// a Remote Embedded Catalog, and the Live Build panel's recommendation repository over it, as the
+/// desktop composition does: the corpus warms at start and the catalog is disposed on stop.
 /// </summary>
 internal sealed class AndroidComposition
 {
@@ -50,6 +55,7 @@ internal sealed class AndroidComposition
     private readonly CoreComposition _core;
     private readonly ReplayPayloadMaintenanceService _replayMaintenance;
     private readonly ModApiSession _historySession;
+    private readonly IRemoteEmbeddedCatalog<TenWinBuildCorpus> _buildCatalog;
     private ReplayMaintenanceFlight? _replayMaintenanceFlight;
     private UploadPump? _uploads;
 
@@ -137,6 +143,11 @@ internal sealed class AndroidComposition
                 DatabaseOptions
             )
         );
+        _buildCatalog = AndroidTenWinBuildCatalog.Create(dataRoot);
+        BuildRecommendations = new BuildRecommendationRepository(
+            _buildCatalog,
+            AndroidCardTemplateSize.Resolve
+        );
         // Last, so nothing after it can throw and leak it. The base URL is a constant, so a null
         // session is a build defect: the composition fails to start
         // (android.record_chain.start_failed), as the desktop plugin does (ADR-0006).
@@ -176,6 +187,9 @@ internal sealed class AndroidComposition
 
     public ModApiSession HistorySession => _historySession;
 
+    /// <summary>The Live Build panel's corpus over the composition-owned build catalog.</summary>
+    public BuildRecommendationRepository BuildRecommendations { get; }
+
     public IBppEventBus EventBus => _core.Services.EventBus;
 
     public IRunContext RunContext => _core.Services.RunContext;
@@ -197,6 +211,10 @@ internal sealed class AndroidComposition
             nowSeconds,
             DatabaseOptions
         );
+        // Warm the corpus at start, as the desktop's panel does at mount: the first open of the
+        // Live Build panel then has recommendations to query, and a missing or stale cache
+        // queues the remote fetch in the background.
+        BuildRecommendations.BeginCorpusLoad();
     }
 
     /// <summary>Main thread, every frame.</summary>
@@ -209,6 +227,7 @@ internal sealed class AndroidComposition
         _replayMaintenanceFlight?.Dispose();
         _replayMaintenanceFlight = null;
         _core.Stop();
+        _buildCatalog.Dispose();
         _historySession.Dispose();
     }
 

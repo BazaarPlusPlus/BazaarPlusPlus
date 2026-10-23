@@ -22,6 +22,11 @@ internal static class AndroidTouchText
         "图鉴面板",
         "圖鑑面板"
     );
+    public static readonly LocalizedTextSet LiveBuildPanel = new(
+        "Ten-Win Builds panel",
+        "十胜阵容面板",
+        "十勝陣容面板"
+    );
     public static readonly LocalizedTextSet On = new("On", "开", "開");
     public static readonly LocalizedTextSet Off = new("Off", "关", "關");
     public static readonly LocalizedTextSet GameUpdated = new(

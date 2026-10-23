@@ -1,0 +1,31 @@
+using BazaarPlusPlus.Android.Ui;
+using HarmonyLib;
+using Il2CppTheBazaar;
+
+namespace BazaarPlusPlus.Android.Patches;
+
+/// <summary>
+/// The game's escape handling, where the Android back key arrives: <c>HandleEscape</c> closes the
+/// top popup or opens the escape menu, and <c>OnOpenSettings</c> is the menu input's own path to
+/// it. While a BPP panel is open, <see cref="AndroidBackKey"/> closes it instead and the game's
+/// handler is skipped for that press. Observe mode only counts.
+/// </summary>
+internal static class BackKeyPatches
+{
+    private static bool Consume(string source) =>
+        AndroidPatchHost.Mode == AndroidPatchMode.Enabled && AndroidBackKey.TryConsume(source);
+
+    [HarmonyPatch(typeof(PopupManager), nameof(PopupManager.HandleEscape))]
+    internal static class HandleEscapePatch
+    {
+        [HarmonyPrefix]
+        private static bool Prefix() => !Consume("handle_escape");
+    }
+
+    [HarmonyPatch(typeof(PopupManager), nameof(PopupManager.OnOpenSettings))]
+    internal static class OpenSettingsPatch
+    {
+        [HarmonyPrefix]
+        private static bool Prefix() => !Consume("open_settings");
+    }
+}
