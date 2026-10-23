@@ -53,8 +53,8 @@ internal static class HistoryPanelFactory
         );
         var replayService = new HistoryPanelReplayService(
             combatReplayRuntimeAccessor,
+            new DesktopReplayRecordingAvailability(videoDirectoryPath),
             replayDirectoryPath,
-            videoDirectoryPath,
             BppClientCacheBridge.TryGetProfileAccountId,
             ghostSyncService
         );

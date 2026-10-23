@@ -1,24 +1,28 @@
 #nullable enable
 using BazaarPlusPlus.Game.CombatReplay;
-using BazaarPlusPlus.Game.CombatReplay.Video;
 using BazaarPlusPlus.Game.HistoryPanel.Data;
 using BazaarPlusPlus.Game.HistoryPanel.Ghost;
 using BazaarPlusPlus.Infrastructure;
 
 namespace BazaarPlusPlus.Game.HistoryPanel;
 
-internal sealed class HistoryPanelReplayService : IHistoryPanelReplay
+/// <summary>
+/// History's replay over a host's saved-replay runtime and its recording availability: whether a
+/// battle can replay or record, the replay itself (a Ghost battle downloads first), and the
+/// cleanup of deleted runs' payloads. Both hosts compose it; only the two ports differ.
+/// </summary>
+public sealed class HistoryPanelReplayService : IHistoryPanelReplay
 {
-    private readonly Func<CombatReplayRuntime?> _runtimeAccessor;
+    private readonly Func<ISavedReplayRuntime?> _runtimeAccessor;
+    private readonly IReplayRecordingAvailability _recording;
     private readonly string _replayDirectoryPath;
-    private readonly string _videoDirectoryPath;
     private readonly GhostBattleSyncService? _ghostSyncService;
     private readonly Func<string?> _profileAccountId;
 
     public HistoryPanelReplayService(
-        Func<CombatReplayRuntime?> runtimeAccessor,
+        Func<ISavedReplayRuntime?> runtimeAccessor,
+        IReplayRecordingAvailability recording,
         string replayDirectoryPath,
-        string videoDirectoryPath,
         Func<string?> profileAccountId,
         GhostBattleSyncService? ghostSyncService = null
     )
@@ -27,29 +31,16 @@ internal sealed class HistoryPanelReplayService : IHistoryPanelReplay
             profileAccountId ?? throw new ArgumentNullException(nameof(profileAccountId));
         _runtimeAccessor =
             runtimeAccessor ?? throw new ArgumentNullException(nameof(runtimeAccessor));
+        _recording = recording ?? throw new ArgumentNullException(nameof(recording));
         // Paths are startup-stable strings (no Func wrappers). Null coalesces to empty so
         // downstream IsNullOrWhiteSpace checks stay fail-open without ArgumentNullException.
         _replayDirectoryPath = replayDirectoryPath ?? string.Empty;
-        _videoDirectoryPath = videoDirectoryPath ?? string.Empty;
         _ghostSyncService = ghostSyncService;
     }
 
-    // Capture Unity-owned dimensions/FPS and load the desktop native plugin on the UI thread.
-    public void PrewarmRecordingAvailability()
-    {
-        ReplayVideoCaptureSettingsCache.TryCaptureCurrent(out _);
-        var backend = ReplayVideoBackendPolicy.Current;
-        if (backend == ReplayVideoBackend.MacNative)
-        {
-            MacMetalVideoEncoder.TryGetAvailability(out _);
-            return;
-        }
-        if (backend == ReplayVideoBackend.WindowsNative)
-            WindowsMediaFoundationVideoEncoder.TryGetAvailability(out _);
-    }
+    public void PrewarmRecordingAvailability() => _recording.Prewarm();
 
-    // Recording is feasible only when the replay itself can run AND the shared recording gate
-    // passes (a native desktop encoder plus a video directory). The backend probe is warm here.
+    // Recording is feasible only when the replay itself can run AND the host can record.
     public bool CanRecordReplay(HistoryBattleRecord? battle, out string reason)
     {
         return CanRecordReplay(battle, out reason, out _);
@@ -67,17 +58,7 @@ internal sealed class HistoryPanelReplayService : IHistoryPanelReplay
             return false;
         }
 
-        var gate = CombatReplayRecordingGate.Evaluate(_videoDirectoryPath);
-        if (!gate.CanRecord)
-        {
-            reason = HistoryPanelText.RecordingUnavailable();
-            reasonCode = HistoryPanelReplayReasonCode.RecordingUnavailable;
-            return false;
-        }
-
-        reason = string.Empty;
-        reasonCode = HistoryPanelReplayReasonCode.RecordingAvailable;
-        return true;
+        return CanRecordLoadedReplay(out reason, out reasonCode);
     }
 
     public bool CanRecordLoadedReplay(out string reason) =>
@@ -88,7 +69,7 @@ internal sealed class HistoryPanelReplayService : IHistoryPanelReplay
         out HistoryPanelReplayReasonCode reasonCode
     )
     {
-        if (!CombatReplayRecordingGate.Evaluate(_videoDirectoryPath).CanRecord)
+        if (!_recording.CanRecord())
         {
             reason = HistoryPanelText.RecordingUnavailable();
             reasonCode = HistoryPanelReplayReasonCode.RecordingUnavailable;
@@ -212,10 +193,11 @@ internal sealed class HistoryPanelReplayService : IHistoryPanelReplay
 
         CheckCommit(cancellationToken, canCommit);
         if (
-            !runtime.ReplayImportedBattle(
+            !runtime.ReplayLoadedBattle(
                 loaded.Payload.BattleManifest,
                 loaded.Payload.ReplayPayload,
-                recordVideo
+                recordVideo,
+                CombatReplayPlaybackSource.ImportedGhost
             )
         )
             return HistoryPanelReplayAttemptResult.Failure(

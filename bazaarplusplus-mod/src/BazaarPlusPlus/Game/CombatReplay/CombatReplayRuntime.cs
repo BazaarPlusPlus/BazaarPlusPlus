@@ -23,7 +23,7 @@ using UnityEngine;
 
 namespace BazaarPlusPlus.Game.CombatReplay;
 
-internal sealed class CombatReplayRuntime : MonoBehaviour
+internal sealed class CombatReplayRuntime : MonoBehaviour, ISavedReplayRuntime
 {
     internal const float CurrentReplayTerminalHoldSeconds = 2f;
     internal const float CurrentReplayRecapStableHoldSeconds = 1f;
@@ -69,7 +69,7 @@ internal sealed class CombatReplayRuntime : MonoBehaviour
 
     public bool IsReplayStartInProgress => _savedReplay.IsReplayStartInProgress;
 
-    internal bool HasSavedReplaySession =>
+    public bool HasSavedReplaySession =>
         _activePlaybackOperation != null
         || _pendingMenuReturnOperation != null
         || IsReplayStartInProgress
@@ -1650,7 +1650,7 @@ internal sealed class CombatReplayRuntime : MonoBehaviour
     // Reads a saved local battle's manifest and payload under the payload gate, so replay
     // maintenance cannot evict the payload mid-read. Busy while maintenance, persistence or a
     // playback holds the gate; the caller retries later rather than treating it as missing.
-    internal SavedBattleLoadOutcome TryLoadSavedBattle(
+    public SavedBattleLoadOutcome TryLoadSavedBattle(
         string battleId,
         out PvpBattleManifest? manifest,
         out PvpReplayPayload? payload
@@ -1671,18 +1671,6 @@ internal sealed class CombatReplayRuntime : MonoBehaviour
         payload = manifest == null ? null : controller.LoadPayload(manifest);
         return payload == null ? SavedBattleLoadOutcome.Missing : SavedBattleLoadOutcome.Loaded;
     }
-
-    public bool ReplayImportedBattle(
-        PvpBattleManifest manifest,
-        PvpReplayPayload payload,
-        bool recordVideo
-    ) =>
-        ReplayLoadedBattle(
-            manifest,
-            payload,
-            recordVideo,
-            CombatReplayPlaybackSource.ImportedGhost
-        );
 
     // Plays a manifest and payload the caller already holds; source names where they came from.
     // Player is the recorder in both a local manifest and a Ghost payload's manifest.

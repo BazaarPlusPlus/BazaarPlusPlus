@@ -5,10 +5,11 @@ using TheBazaar;
 
 namespace BazaarPlusPlus.Game.CombatReplay;
 
+// The desktop's saved replay: Core's SavedReplayCatalog for the manifest and payload, and the
+// Mono loader for the game's messages.
 internal sealed class CombatReplayController
 {
-    private readonly IPvpBattleCatalog _battleCatalog;
-    private readonly CombatReplayPayloadStore _payloadStore;
+    private readonly SavedReplayCatalog _saved;
     private readonly CombatReplayLoader _loader;
 
     public CombatReplayController(
@@ -17,36 +18,16 @@ internal sealed class CombatReplayController
         CombatReplayLoader loader
     )
     {
-        _battleCatalog = battleCatalog ?? throw new ArgumentNullException(nameof(battleCatalog));
-        _payloadStore = payloadStore ?? throw new ArgumentNullException(nameof(payloadStore));
+        _saved = new SavedReplayCatalog(battleCatalog, payloadStore);
         _loader = loader ?? throw new ArgumentNullException(nameof(loader));
     }
 
-    public bool HasSavedReplay(string battleId)
-    {
-        if (string.IsNullOrWhiteSpace(battleId))
-            return false;
+    public bool HasSavedReplay(string battleId) => _saved.HasSavedReplay(battleId);
 
-        var manifest = _battleCatalog.TryLoad(battleId);
-        return manifest != null && _payloadStore.Exists(manifest.BattleId);
-    }
+    public PvpBattleManifest? LoadBattle(string battleId) => _saved.LoadBattle(battleId);
 
-    public PvpBattleManifest? LoadBattle(string battleId)
-    {
-        var manifest = _battleCatalog.TryLoad(battleId);
-        if (manifest == null || !_payloadStore.Exists(manifest.BattleId))
-            return null;
-
-        return manifest;
-    }
-
-    public PvpReplayPayload? LoadPayload(PvpBattleManifest manifest)
-    {
-        if (manifest == null)
-            throw new ArgumentNullException(nameof(manifest));
-
-        return _payloadStore.Load(manifest.BattleId);
-    }
+    public PvpReplayPayload? LoadPayload(PvpBattleManifest manifest) =>
+        _saved.LoadPayload(manifest);
 
     public CombatSequenceMessages LoadReplay(PvpReplayPayload payload)
     {

@@ -67,13 +67,11 @@ internal sealed partial class HistoryPanel
     }
 
     private HistoryArchiveStatus ArchiveStatus() =>
-        HistoryPanelDecisions.ArchiveStatus(
-            HistoryArchiveFacts.Observe(
-                _state,
-                ActiveSelectedBattle,
-                _nativePlayerStatus,
-                _nativeOpponentStatus
-            )
+        HistoryPanelViewModelBuilder.ArchiveStatus(
+            _state,
+            _coordinator,
+            _nativePlayerStatus,
+            _nativeOpponentStatus
         );
 
     // Render can reuse an unchanged board without a callback, so every refresh re-derives both

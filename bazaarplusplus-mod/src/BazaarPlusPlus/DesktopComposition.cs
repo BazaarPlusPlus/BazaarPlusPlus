@@ -49,6 +49,7 @@ using BazaarPlusPlus.Patches.Tooltips;
 using BazaarPlusPlus.Storage.Paths;
 using BazaarPlusPlus.Storage.RunLog;
 using BazaarPlusPlus.Storage.RunLog.Replication;
+using BazaarPlusPlus.Storage.Sqlite;
 
 namespace BazaarPlusPlus;
 
@@ -91,7 +92,10 @@ internal sealed class DesktopComposition : IDisposable
 
     public IPvpBattleCatalog PvpBattleCatalog =>
         _pvpBattleCatalog ??= new PvpBattleCatalog(
-            PathConstants.RunLogDatabase(_services.Paths.RequireDataRoot())
+            new PvpBattleSqliteStore(
+                PathConstants.RunLogDatabase(_services.Paths.RequireDataRoot()),
+                SqliteOpenOptions.Default
+            )
         );
 
     public BppMountableRegistry Mountables => _mountables;

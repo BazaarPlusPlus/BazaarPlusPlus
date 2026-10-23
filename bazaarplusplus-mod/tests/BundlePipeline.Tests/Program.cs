@@ -263,7 +263,7 @@ static void SaveBattle(
     int minute,
     PvpBattleSnapshots? snapshots = null
 ) =>
-    new PvpBattleCatalog(database).Save(
+    new PvpBattleCatalog(new PvpBattleSqliteStore(database)).Save(
         new PvpBattleManifest
         {
             BattleId = battleId,
@@ -358,7 +358,7 @@ static void RoutingKeepsPveOutOfPersistence(string database)
     );
     try
     {
-        new PvpBattleCatalog(database).Save(
+        new PvpBattleCatalog(new PvpBattleSqliteStore(database)).Save(
             new PvpBattleManifest { BattleId = "pve", CombatKind = "Combat" }
         );
         throw new InvalidOperationException("The PvP store accepted a PvE manifest.");

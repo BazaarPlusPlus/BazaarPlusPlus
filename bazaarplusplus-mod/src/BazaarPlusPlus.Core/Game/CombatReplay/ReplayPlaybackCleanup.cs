@@ -1,13 +1,13 @@
 #nullable enable
 namespace BazaarPlusPlus.Game.CombatReplay;
 
-internal readonly record struct ReplayPlaybackCleanupStep(string Stage, Action Execute);
+public readonly record struct ReplayPlaybackCleanupStep(string Stage, Action Execute);
 
-internal readonly record struct ReplayPlaybackPublishOutcome(bool Succeeded, Exception? Exception)
+public readonly record struct ReplayPlaybackPublishOutcome(bool Succeeded, Exception? Exception)
 {
-    internal static ReplayPlaybackPublishOutcome Success() => new(true, null);
+    public static ReplayPlaybackPublishOutcome Success() => new(true, null);
 
-    internal static ReplayPlaybackPublishOutcome Failure(Exception exception) =>
+    public static ReplayPlaybackPublishOutcome Failure(Exception exception) =>
         new(false, exception ?? throw new ArgumentNullException(nameof(exception)));
 }
 
@@ -15,9 +15,9 @@ internal readonly record struct ReplayPlaybackPublishOutcome(bool Succeeded, Exc
 /// Runtime-private cleanup runner. Each exit path keeps its own cleanup order (ADR-0003);
 /// this helper only isolates per-step failure observation so one bad cleanup cannot abort the rest.
 /// </summary>
-internal static class ReplayPlaybackCleanup
+public static class ReplayPlaybackCleanup
 {
-    internal static ReplayPlaybackPublishOutcome PublishThenCleanup(
+    public static ReplayPlaybackPublishOutcome PublishThenCleanup(
         Func<ReplayPlaybackPublishOutcome> publishEnded,
         Action<string, Exception>? observeCleanupFailure,
         params ReplayPlaybackCleanupStep[] cleanupSteps
@@ -40,7 +40,7 @@ internal static class ReplayPlaybackCleanup
         return ended;
     }
 
-    internal static void Run(
+    public static void Run(
         Action<string, Exception>? observeCleanupFailure,
         params ReplayPlaybackCleanupStep[] cleanupSteps
     )

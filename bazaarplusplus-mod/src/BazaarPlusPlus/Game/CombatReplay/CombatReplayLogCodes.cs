@@ -2,61 +2,7 @@
 
 namespace BazaarPlusPlus.Game.CombatReplay;
 
-internal enum ReplayPlaybackReasonCode
-{
-    None,
-    StartException,
-    StartingPublishFailed,
-    EndedPublishFailed,
-    MenuReturnFailed,
-    BootstrapRollbackFailed,
-    SocketResolutionFailed,
-    SocketCleanupFailed,
-    PlayerAttributesUnavailable,
-    PlayerSnapshotUnavailable,
-    OpponentSnapshotUnavailable,
-    PlayerSkillsUnavailable,
-    OpponentSkillsUnavailable,
-    OpponentIdentityUnavailable,
-    OpponentPortraitUnavailable,
-    PresentationWarmupFailed,
-    AudioWarmupFailed,
-    SoundtrackWarmupFailed,
-    CombatVfxWarmupFailed,
-    RecordingRestartPromotionFailed,
-    RecordingRestartPublishFailed,
-    RecordingRestartInvokeFailed,
-    RecordingRestartRejected,
-}
-
-internal enum ReplayPlaybackEndReasonCode
-{
-    StateExit,
-    SavedReplayExit,
-    StartFailed,
-    RuntimeDestroyed,
-}
-
-internal enum ReplayRollbackStatus
-{
-    NotRequired,
-    Succeeded,
-    Failed,
-}
-
-internal enum ReplayRequestRejectionReasonCode
-{
-    InvalidBattleId,
-    RuntimeUnavailable,
-    ReplayAlreadyStarting,
-    ActiveRun,
-    ReplayAlreadyActive,
-    PayloadUnavailable,
-    PayloadOperationBusy,
-    ManifestUnavailable,
-    LoaderUnavailable,
-}
-
+// The desktop-only codes; the playback codes both hosts log are Core's ReplayPlaybackCodes.
 internal enum ReplayCaptureReasonCode
 {
     CaptureOrEnqueueException,

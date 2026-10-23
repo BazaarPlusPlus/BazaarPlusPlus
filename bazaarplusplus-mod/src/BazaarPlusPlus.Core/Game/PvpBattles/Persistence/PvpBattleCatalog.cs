@@ -1,29 +1,22 @@
 #nullable enable
 using BazaarPlusPlus.Core.Events;
-using BazaarPlusPlus.Storage.Sqlite;
 
 namespace BazaarPlusPlus.Game.PvpBattles.Persistence;
 
 /// <summary>
-/// The desktop's PvP battle catalog: maps manifests onto the records
+/// The PvP battle catalog both hosts read and write: maps manifests onto the records
 /// <see cref="PvpBattleSqliteStore"/> stores, each board capture as the JSON of Core's
 /// <see cref="PvpBattleCardSetDocument"/> (<see cref="PvpBattleSnapshotsCodec"/>). Storage owns
-/// the SQL.
+/// the SQL. It wraps the host's own store, which carries the host's journal mode: a store opened
+/// without options would switch an Android database to WAL.
 /// </summary>
-internal sealed class PvpBattleCatalog : IPvpBattleCatalog
+public sealed class PvpBattleCatalog : IPvpBattleCatalog
 {
     private readonly PvpBattleSqliteStore _store;
 
-    public PvpBattleCatalog(
-        string databasePath,
-        Action<ReplayPayloadMaintenanceStorageEvent>? maintenanceDiagnostics = null
-    )
+    public PvpBattleCatalog(PvpBattleSqliteStore store)
     {
-        _store = new PvpBattleSqliteStore(
-            databasePath,
-            SqliteOpenOptions.Default,
-            maintenanceDiagnostics
-        );
+        _store = store ?? throw new ArgumentNullException(nameof(store));
     }
 
     public void Save(PvpBattleManifest manifest)

@@ -41,7 +41,7 @@ internal static class BattleSnapshotShapeTests
                 ModVersion = "6.0.0",
             }
         );
-        var catalog = new PvpBattleCatalog(database);
+        var catalog = new PvpBattleCatalog(new PvpBattleSqliteStore(database));
         catalog.Save(Manifest("battle-shape", Snapshots()));
 
         var written = ReadColumns(database, "battle-shape");

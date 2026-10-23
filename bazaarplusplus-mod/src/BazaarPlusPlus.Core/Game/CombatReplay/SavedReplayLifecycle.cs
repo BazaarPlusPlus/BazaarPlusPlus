@@ -13,7 +13,7 @@ namespace BazaarPlusPlus.Game.CombatReplay;
 /// Zero Unity / zero held delegates. All time is a caller-supplied <c>float now</c>
 /// (typically <c>Time.realtimeSinceStartup</c>).
 /// </remarks>
-internal sealed class SavedReplayLifecycle
+public sealed class SavedReplayLifecycle
 {
     /// <summary>
     /// Escape-hatch window after a bootstrapped exit is latched. ReturnToMainMenu awaits a
@@ -21,7 +21,7 @@ internal sealed class SavedReplayLifecycle
     /// forever. Past the window, a fresh native Exit() click is allowed through again — running
     /// the original Exit body is the lesser evil versus a permanently dead continue button.
     /// </summary>
-    internal const float ExitSuppressionWindowSeconds = 15f;
+    public const float ExitSuppressionWindowSeconds = 15f;
 
     private enum Progress
     {
@@ -42,15 +42,15 @@ internal sealed class SavedReplayLifecycle
     private bool _forceMenuReturnAfterBootstrappedExit;
     private PendingMenuReturn? _pendingMenuReturn;
 
-    internal bool IsSavedReplayPlaybackActive =>
+    public bool IsSavedReplayPlaybackActive =>
         _progress is Progress.StartInProgress or Progress.SavedPlaybackActive;
 
-    internal bool IsReplayStartInProgress =>
+    public bool IsReplayStartInProgress =>
         _progress is Progress.StartInProgress or Progress.StartFailureCleanup;
 
     // --- Start (staged commit; three distinct commit points prevent mid-start exit races) ---
 
-    internal void OnStartBegun()
+    public void OnStartBegun()
     {
         _progress = Progress.StartInProgress;
         _returnToMenuAfterReplay = false;
@@ -61,7 +61,7 @@ internal sealed class SavedReplayLifecycle
         _forceMenuReturnAfterBootstrappedExit = false;
     }
 
-    internal void OnBootstrapResolved(bool returnToMenuAfter)
+    public void OnBootstrapResolved(bool returnToMenuAfter)
     {
         _returnToMenuAfterReplay = returnToMenuAfter;
     }
@@ -70,7 +70,7 @@ internal sealed class SavedReplayLifecycle
     /// Injection succeeded and the mid-start interruption check passed. Commits
     /// <c>bootstrappedActive</c> from the already-resolved return-to-menu flag.
     /// </summary>
-    internal void OnInjectionCommitted()
+    public void OnInjectionCommitted()
     {
         _bootstrappedReplayActive = _returnToMenuAfterReplay;
     }
@@ -79,7 +79,7 @@ internal sealed class SavedReplayLifecycle
     /// Pure start-failure path (no ReplayState exit). Clears bootstrap flags and moves progress
     /// into <see cref="Progress.StartFailureCleanup"/> so the async finally can settle to Idle.
     /// </summary>
-    internal void OnStartFailed()
+    public void OnStartFailed()
     {
         _returnToMenuAfterReplay = false;
         _bootstrappedReplayActive = false;
@@ -88,7 +88,7 @@ internal sealed class SavedReplayLifecycle
         _exitOwnsTerminalByStart = false;
     }
 
-    internal SavedReplayStartTransition OnStartFinished()
+    public SavedReplayStartTransition OnStartFinished()
     {
         _startupInterruptionReason = ReplayPlaybackReasonCode.None;
         _startupInterruptionException = null;
@@ -106,7 +106,7 @@ internal sealed class SavedReplayLifecycle
         }
     }
 
-    internal SavedReplayStartupInterruption? TakeStartupInterruption()
+    public SavedReplayStartupInterruption? TakeStartupInterruption()
     {
         if (_startupInterruptionReason == ReplayPlaybackReasonCode.None)
             return null;
@@ -122,7 +122,7 @@ internal sealed class SavedReplayLifecycle
 
     // --- Two-phase state-exit decision (publish-before facts must not mix with publish-after) ---
 
-    internal SavedReplayExitOwnership BeginReplayStateExit(float now)
+    public SavedReplayExitOwnership BeginReplayStateExit(float now)
     {
         _ = now;
         var ownsTerminalByStart =
@@ -137,7 +137,7 @@ internal sealed class SavedReplayLifecycle
         return new SavedReplayExitOwnership(ownsTerminalByStart);
     }
 
-    internal SavedReplayStateExitDecision OnReplayStateExited(
+    public SavedReplayStateExitDecision OnReplayStateExited(
         float now,
         bool publishSucceeded,
         Exception? exception
@@ -207,12 +207,12 @@ internal sealed class SavedReplayLifecycle
     /// so a later <see cref="TickMenuReturn"/> cannot emit CompleteTimeout for an operation the
     /// runtime already terminated with <see cref="ReplayPlaybackReasonCode.MenuReturnFailed"/>.
     /// </summary>
-    internal void OnMenuReturnDispatchFailed()
+    public void OnMenuReturnDispatchFailed()
     {
         _pendingMenuReturn = null;
     }
 
-    internal SavedReplayMenuReturnDecision TickMenuReturn(float now, bool heroSelectLoaded)
+    public SavedReplayMenuReturnDecision TickMenuReturn(float now, bool heroSelectLoaded)
     {
         var pending = _pendingMenuReturn;
         if (pending == null)
@@ -240,16 +240,16 @@ internal sealed class SavedReplayLifecycle
 
     // --- Exit-suppression latch (single owner for bootstrapped-exit / native-exit) ---
 
-    internal bool IsExitSuppressed(float now) =>
+    public bool IsExitSuppressed(float now) =>
         _replayExitInProgress && now - _replayExitRequestedAt < ExitSuppressionWindowSeconds;
 
-    internal void NoteProgrammaticExitLatched(float now)
+    public void NoteProgrammaticExitLatched(float now)
     {
         _replayExitInProgress = true;
         _replayExitRequestedAt = now;
     }
 
-    internal SavedReplayExitRequestDecision RequestBootstrappedExit(float now, bool inReplayState)
+    public SavedReplayExitRequestDecision RequestBootstrappedExit(float now, bool inReplayState)
     {
         // A replay exit is already in flight (bootstrapped flags cleared, async menu-return has
         // not left ReplayState yet). Report Suppressed so the Exit() prefix patch suppresses the
@@ -274,13 +274,13 @@ internal sealed class SavedReplayLifecycle
     /// reliable signal on the bootstrapped exit path, where the state transition happens via
     /// RunManager.ReturnToMainMenu without a normal ReplayState exit event.
     /// </summary>
-    internal void ObserveReplayStateGone()
+    public void ObserveReplayStateGone()
     {
         _replayExitInProgress = false;
     }
 
     /// <summary>Drop a pending menu-return without completing it (runtime destroy path).</summary>
-    internal void ClearPendingMenuReturn()
+    public void ClearPendingMenuReturn()
     {
         _pendingMenuReturn = null;
     }
@@ -302,7 +302,7 @@ internal sealed class SavedReplayLifecycle
 
     private sealed class PendingMenuReturn
     {
-        internal PendingMenuReturn(
+        public PendingMenuReturn(
             ReplayPlaybackEndReasonCode endReasonCode,
             ReplayPlaybackReasonCode priorFailureReason,
             Exception? priorException,
@@ -315,28 +315,28 @@ internal sealed class SavedReplayLifecycle
             DeadlineRealtimeSeconds = deadlineRealtimeSeconds;
         }
 
-        internal ReplayPlaybackEndReasonCode EndReasonCode { get; }
-        internal ReplayPlaybackReasonCode PriorFailureReason { get; }
-        internal Exception? PriorException { get; }
-        internal float DeadlineRealtimeSeconds { get; }
+        public ReplayPlaybackEndReasonCode EndReasonCode { get; }
+        public ReplayPlaybackReasonCode PriorFailureReason { get; }
+        public Exception? PriorException { get; }
+        public float DeadlineRealtimeSeconds { get; }
     }
 }
 
-internal enum SavedReplayStartTransition
+public enum SavedReplayStartTransition
 {
     BecameActive,
     BecameIdle,
     Unchanged,
 }
 
-internal readonly record struct SavedReplayExitOwnership(bool OwnsTerminalByStart);
+public readonly record struct SavedReplayExitOwnership(bool OwnsTerminalByStart);
 
-internal readonly record struct SavedReplayStartupInterruption(
+public readonly record struct SavedReplayStartupInterruption(
     ReplayPlaybackReasonCode ReasonCode,
     Exception? Exception
 );
 
-internal enum SavedReplayStateExitKind
+public enum SavedReplayStateExitKind
 {
     /// <summary>No terminal action for the runtime (startup owns the terminal, or menu return already pending).</summary>
     Defer,
@@ -344,7 +344,7 @@ internal enum SavedReplayStateExitKind
     BeginMenuReturn,
 }
 
-internal readonly record struct SavedReplayStateExitDecision(
+public readonly record struct SavedReplayStateExitDecision(
     SavedReplayStateExitKind Kind,
     ReplayPlaybackReasonCode? LatchReason,
     Exception? LatchException,
@@ -353,7 +353,7 @@ internal readonly record struct SavedReplayStateExitDecision(
     Exception? Exception
 )
 {
-    internal static SavedReplayStateExitDecision Defer(
+    public static SavedReplayStateExitDecision Defer(
         ReplayPlaybackReasonCode latchReason,
         Exception? latchException
     ) =>
@@ -366,7 +366,7 @@ internal readonly record struct SavedReplayStateExitDecision(
             null
         );
 
-    internal static SavedReplayStateExitDecision Idle() =>
+    public static SavedReplayStateExitDecision Idle() =>
         new(
             SavedReplayStateExitKind.Defer,
             null,
@@ -376,7 +376,7 @@ internal readonly record struct SavedReplayStateExitDecision(
             null
         );
 
-    internal static SavedReplayStateExitDecision CompleteNow(
+    public static SavedReplayStateExitDecision CompleteNow(
         ReplayPlaybackEndReasonCode endReasonCode,
         ReplayPlaybackReasonCode failureReason,
         Exception? exception
@@ -390,7 +390,7 @@ internal readonly record struct SavedReplayStateExitDecision(
             exception
         );
 
-    internal static SavedReplayStateExitDecision BeginMenuReturn(
+    public static SavedReplayStateExitDecision BeginMenuReturn(
         ReplayPlaybackEndReasonCode endReasonCode,
         ReplayPlaybackReasonCode failureReason,
         Exception? exception
@@ -405,7 +405,7 @@ internal readonly record struct SavedReplayStateExitDecision(
         );
 }
 
-internal enum SavedReplayMenuReturnKind
+public enum SavedReplayMenuReturnKind
 {
     None,
     Wait,
@@ -413,14 +413,14 @@ internal enum SavedReplayMenuReturnKind
     CompleteTimeout,
 }
 
-internal readonly record struct SavedReplayMenuReturnDecision(
+public readonly record struct SavedReplayMenuReturnDecision(
     SavedReplayMenuReturnKind Kind,
     ReplayPlaybackEndReasonCode EndReasonCode,
     ReplayPlaybackReasonCode FailureReason,
     Exception? Exception
 )
 {
-    internal static SavedReplayMenuReturnDecision None() =>
+    public static SavedReplayMenuReturnDecision None() =>
         new(
             SavedReplayMenuReturnKind.None,
             ReplayPlaybackEndReasonCode.StateExit,
@@ -428,7 +428,7 @@ internal readonly record struct SavedReplayMenuReturnDecision(
             null
         );
 
-    internal static SavedReplayMenuReturnDecision Wait() =>
+    public static SavedReplayMenuReturnDecision Wait() =>
         new(
             SavedReplayMenuReturnKind.Wait,
             ReplayPlaybackEndReasonCode.StateExit,
@@ -436,13 +436,13 @@ internal readonly record struct SavedReplayMenuReturnDecision(
             null
         );
 
-    internal static SavedReplayMenuReturnDecision CompleteConfirmed(
+    public static SavedReplayMenuReturnDecision CompleteConfirmed(
         ReplayPlaybackEndReasonCode endReasonCode,
         ReplayPlaybackReasonCode failureReason,
         Exception? exception
     ) => new(SavedReplayMenuReturnKind.CompleteConfirmed, endReasonCode, failureReason, exception);
 
-    internal static SavedReplayMenuReturnDecision CompleteTimeout(
+    public static SavedReplayMenuReturnDecision CompleteTimeout(
         ReplayPlaybackEndReasonCode endReasonCode,
         Exception exception
     ) =>
@@ -454,7 +454,7 @@ internal readonly record struct SavedReplayMenuReturnDecision(
         );
 }
 
-internal enum SavedReplayExitRequestDecision
+public enum SavedReplayExitRequestDecision
 {
     Suppressed,
     NotActive,

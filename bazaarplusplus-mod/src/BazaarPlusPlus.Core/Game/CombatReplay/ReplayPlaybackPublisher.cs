@@ -4,7 +4,7 @@ using BazaarPlusPlus.Game.PvpBattles;
 
 namespace BazaarPlusPlus.Game.CombatReplay;
 
-internal sealed class ReplayPlaybackPublisher
+public sealed class ReplayPlaybackPublisher
 {
     private readonly IBppServices _services;
     private string? _activeBattleId;
@@ -22,9 +22,9 @@ internal sealed class ReplayPlaybackPublisher
     public string? ActiveSessionBattleId => _activeBattleId;
 
     /// <summary>Captured battle metadata for the active session, when available.</summary>
-    internal PvpBattleManifest? ActiveSessionManifest => _activeManifest;
+    public PvpBattleManifest? ActiveSessionManifest => _activeManifest;
 
-    internal bool TryPromoteActiveSessionToRecording(string battleId)
+    public bool TryPromoteActiveSessionToRecording(string battleId)
     {
         if (
             string.IsNullOrWhiteSpace(battleId)
