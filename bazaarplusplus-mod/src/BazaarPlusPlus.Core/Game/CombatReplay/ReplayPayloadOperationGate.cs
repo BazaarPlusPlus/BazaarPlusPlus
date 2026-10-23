@@ -1,18 +1,22 @@
 #nullable enable
 namespace BazaarPlusPlus.Game.CombatReplay;
 
-internal sealed class ReplayPayloadOperationGate : IDisposable
+/// <summary>
+/// One exclusive lease over a host's Replay Payload files: saving a battle, the maintenance sweep,
+/// and playback never overlap, so the sweep never sees a payload whose battle row is not saved yet.
+/// </summary>
+public sealed class ReplayPayloadOperationGate : IDisposable
 {
     private readonly SemaphoreSlim _exclusive = new(1, 1);
     private int _disposed;
 
-    internal IDisposable AcquirePersistence(CancellationToken cancellationToken) =>
+    public IDisposable AcquirePersistence(CancellationToken cancellationToken) =>
         Acquire(cancellationToken);
 
-    internal IDisposable AcquireMaintenance(CancellationToken cancellationToken) =>
+    public IDisposable AcquireMaintenance(CancellationToken cancellationToken) =>
         Acquire(cancellationToken);
 
-    internal IDisposable? TryAcquirePlayback()
+    public IDisposable? TryAcquirePlayback()
     {
         ThrowIfDisposed();
         return _exclusive.Wait(0) ? new Lease(_exclusive) : null;

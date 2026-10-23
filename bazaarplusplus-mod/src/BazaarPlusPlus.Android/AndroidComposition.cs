@@ -24,9 +24,10 @@ namespace BazaarPlusPlus.Android;
 /// <summary>
 /// The Android composition root over Core's <see cref="CoreComposition"/> and the Android Data
 /// Root: the record chain (Run Lifecycle and Run Logging over the IL2CPP probes, the PvP battle
-/// capture with its board captures and Replay Payloads), Bundle sealing, and the upload pump, all
-/// on one history database. Features start in registration order and stop in reverse; the pump
-/// is ticked from the melon's update and disposed first.
+/// capture with its board captures and Replay Payloads), Bundle sealing, the upload pump, and the
+/// Replay Payload maintenance sweep, all on one history database. Features start in registration
+/// order and stop in reverse; the pump is ticked from the melon's update and disposed first. The
+/// sweep runs once per start on a pool thread, as on the desktop.
 /// </summary>
 internal sealed class AndroidComposition
 {
@@ -37,6 +38,8 @@ internal sealed class AndroidComposition
     public static readonly SqliteOpenOptions DatabaseOptions = new(SqliteJournalMode.Delete);
 
     private readonly CoreComposition _core;
+    private readonly ReplayPayloadMaintenanceService _replayMaintenance;
+    private ReplayMaintenanceFlight? _replayMaintenanceFlight;
     private UploadPump? _uploads;
 
     public AndroidComposition(string dataRoot, GameBuildInfo gameBuild, IBppSettingsStore settings)
@@ -57,9 +60,20 @@ internal sealed class AndroidComposition
         );
         var services = _core.Services;
         var battles = new PvpBattleSqliteStore(DatabasePath, DatabaseOptions);
+        var replays = new CombatReplayPayloadStore(PathConstants.CombatReplays(dataRoot));
+        var replayGate = new ReplayPayloadOperationGate();
+        // The capture saves each battle synchronously under the gate's persistence lease, so no
+        // battle is ever queued between its file and its row: there is nothing to protect.
+        _replayMaintenance = new ReplayPayloadMaintenanceService(
+            battles,
+            replays,
+            replayGate,
+            static () => Array.Empty<string>()
+        );
         BattleCapture = new AndroidPvpBattleCapture(
             battles,
-            new CombatReplayPayloadStore(PathConstants.CombatReplays(dataRoot)),
+            replays,
+            replayGate,
             services.EventBus,
             () => services.RunContext.CurrentServerRunId,
             static () => DateTimeOffset.UtcNow
@@ -126,6 +140,10 @@ internal sealed class AndroidComposition
     public void Start(float nowSeconds)
     {
         _core.Start();
+        _replayMaintenanceFlight = new ReplayMaintenanceFlight();
+        _replayMaintenanceFlight.Start(token =>
+            _replayMaintenance.RunAndReport(DateTimeOffset.UtcNow, token)
+        );
         _uploads = UploadPump.Start(
             _core.Services,
             ReleaseManifestEndpoints.AndroidPlatformKey,
@@ -141,6 +159,8 @@ internal sealed class AndroidComposition
     {
         _uploads?.Dispose();
         _uploads = null;
+        _replayMaintenanceFlight?.Dispose();
+        _replayMaintenanceFlight = null;
         _core.Stop();
     }
 

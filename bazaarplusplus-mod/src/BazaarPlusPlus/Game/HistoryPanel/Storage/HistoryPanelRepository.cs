@@ -96,16 +96,16 @@ internal sealed partial class HistoryPanelRepository
             return null;
         return new PvpBattleSnapshots
         {
-            PlayerHand = DeserializeCapture(
+            PlayerHand = PvpBattleCardSetCapture.Deserialize(
                 reader.GetString(reader.GetOrdinal("player_hand_json"))
             ),
-            PlayerSkills = DeserializeCapture(
+            PlayerSkills = PvpBattleCardSetCapture.Deserialize(
                 reader.GetString(reader.GetOrdinal("player_skills_json"))
             ),
-            OpponentHand = DeserializeCapture(
+            OpponentHand = PvpBattleCardSetCapture.Deserialize(
                 reader.GetString(reader.GetOrdinal("opponent_hand_json"))
             ),
-            OpponentSkills = DeserializeCapture(
+            OpponentSkills = PvpBattleCardSetCapture.Deserialize(
                 reader.GetString(reader.GetOrdinal("opponent_skills_json"))
             ),
         };

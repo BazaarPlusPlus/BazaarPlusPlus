@@ -9,7 +9,8 @@
     <BppRequiresManagedPath>false</BppRequiresManagedPath>
   </PropertyGroup>
 
-  <!-- InteropPath: the card facet vocabulary test reads the interop enums' metadata. -->
+  <!-- InteropPath: the card facet vocabulary test reads the interop enums' metadata, and the
+       compiled host below references the Interop Snapshot. -->
   <Import Project="$(MSBuildThisFileDirectory)../../build/InteropPath.props" />
 
   <ItemGroup>
@@ -21,19 +22,15 @@
     </PackageReference>
   </ItemGroup>
 
-  <!-- The History reader touches no game type, so its source runs here against the real schema
-       through Core's net10.0 output (Storage and Microsoft.Data.Sqlite come with it). -->
+  <!-- Core's net10.0 output, as the host ships it; Storage and Microsoft.Data.Sqlite come with it.
+       Each is named explicitly so the test tree's netstandard2.1 pin leaves it alone: the Mono
+       targets need the Managed snapshot the mod-android lane does not fetch. The shared projects
+       keep their serializer packages private, so this project supplies them, as the host does. -->
   <ItemGroup>
-    <Compile
-      Include="../../src/BazaarPlusPlus.Android/History/AndroidHistoryReader.cs"
-      Link="AndroidHistoryReader.cs"
-    />
     <ProjectReference
       Include="../../src/BazaarPlusPlus.Core/BazaarPlusPlus.Core.csproj"
       SetTargetFramework="TargetFramework=net10.0"
     />
-    <!-- Named explicitly so the test tree's netstandard2.1 pin leaves Core's transitive references
-         alone; the Mono targets need the Managed snapshot the mod-android lane does not fetch. -->
     <ProjectReference
       Include="../../src/BazaarPlusPlus.Storage/BazaarPlusPlus.Storage.csproj"
       SetTargetFramework="TargetFramework=net10.0"
@@ -42,15 +39,23 @@
       Include="../../src/BazaarPlusPlus.ModApi/BazaarPlusPlus.ModApi.csproj"
       SetTargetFramework="TargetFramework=net10.0"
     />
+    <PackageReference Include="MessagePack" />
+    <PackageReference Include="Newtonsoft.Json" />
   </ItemGroup>
 
-  <!-- The host is scanned as a compiled artifact, never loaded: its references resolve only
-       inside the game process. -->
+  <!-- The compiled host is loaded and the code that never calls into IL2CPP runs here (ADR-0016).
+       Only the interop assembly that holds the card enums and Il2CppInterop.Runtime, which the
+       host's replay types name, are copied beside the tests; the rest is compile-time metadata. -->
   <ItemGroup>
-    <ProjectReference
-      Include="../../src/BazaarPlusPlus.Android/BazaarPlusPlus.Android.csproj"
-      ReferenceOutputAssembly="false"
+    <ProjectReference Include="../../src/BazaarPlusPlus.Android/BazaarPlusPlus.Android.csproj" />
+    <Reference
+      Include="$(InteropPath)*.dll"
+      Exclude="$(InteropPath)Il2CppBazaarGameShared.dll"
+      Private="false"
     />
+    <Reference Include="$(InteropPath)Il2CppBazaarGameShared.dll" Private="true" />
+    <Reference Include="$(LemonLoaderManagedPath)MelonLoader.dll" Private="false" />
+    <Reference Include="$(LemonLoaderManagedPath)Il2CppInterop.Runtime.dll" Private="true" />
     <AssemblyMetadata
       Include="BppAndroidHostAssembly"
       Value="$(MSBuildThisFileDirectory)../../src/BazaarPlusPlus.Android/bin/$(Configuration)/net10.0/BazaarPlusPlus.Android.dll"
