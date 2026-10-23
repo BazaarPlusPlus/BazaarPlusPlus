@@ -50,9 +50,12 @@ afterwards. The stats in those screenshots are made up.
 | Scene change | session 4 `scene.loaded name=MainMenuScene`, `card_rental.released reason=scene_changed ... card_rented=26 card_returned=26 card_lost=0 card_balanced=true` | Exit to Main Menu from the game's escape menu, then Resume |
 | Counters | session 4 last summary: `live_build_opened=1 live_build_closed=1 live_build_leases=0 back_key_presses=3 back_key_consumed=2 back_key_passed=1` | |
 
-Sessions 2 and 3 ran the build before the inspection showed the card's text; session 4 ran the
-final build (`plugin.loaded sha256=f1b808da…`). The change between them touches only the
-inspection's text and its panel's opacity.
+The sessions ran three builds, named by their `plugin.loaded sha256`: sessions 1 and 2 ran
+`e21771c6…`, session 3 ran `82a7558d…`, and session 4 ran the final build `f1b808da…`. So the
+setting on/off contrast, the refresh's main-thread handoff and the `switched_off` release were
+captured on a pre-final build. The changes after session 2 touch only the inspection's text and
+its panel's opacity. Session 3's lease balance rests on its close event (`rental_leases=0`); its
+last `hooks.summary` was logged before that close.
 
 ## Not exercised
 

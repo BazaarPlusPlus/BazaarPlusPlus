@@ -8,7 +8,7 @@ namespace BazaarPlusPlus.Android.Patches;
 /// The game's escape handling, where the Android back key arrives: <c>HandleEscape</c> closes the
 /// top popup or opens the escape menu, and <c>OnOpenSettings</c> is the menu input's own path to
 /// it. While a BPP panel is open, <see cref="AndroidBackKey"/> closes it instead and the game's
-/// handler is skipped for that press. Observe mode only counts.
+/// handler is skipped for that press. Outside Enabled mode every press goes to the game.
 /// </summary>
 internal static class BackKeyPatches
 {
