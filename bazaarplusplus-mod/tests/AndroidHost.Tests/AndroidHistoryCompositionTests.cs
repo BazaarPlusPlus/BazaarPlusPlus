@@ -1,0 +1,282 @@
+using System.Net;
+using System.Reflection;
+using System.Text;
+using BazaarPlusPlus.Android;
+using BazaarPlusPlus.Core.RunContext;
+using BazaarPlusPlus.Game.CombatReplay;
+using BazaarPlusPlus.Game.HistoryPanel;
+using BazaarPlusPlus.Game.HistoryPanel.AccountLink;
+using BazaarPlusPlus.Game.HistoryPanel.Data;
+using BazaarPlusPlus.Game.PvpBattles;
+using BazaarPlusPlus.Game.PvpBattles.Persistence;
+using BazaarPlusPlus.ModApi.Clients;
+using BazaarPlusPlus.Storage.Paths;
+using Microsoft.Data.Sqlite;
+using Xunit;
+
+namespace AndroidHost.Tests;
+
+/// <summary>
+/// History as <see cref="AndroidComposition"/> composes it, over a temporary history database in
+/// the host's DELETE journal mode: Ghost sync over a Mod API session served by a stub handler
+/// with the server's own Ghost summary contract, and the replay service over a stand-in runtime
+/// with the host's no-recording port.
+/// </summary>
+public sealed class AndroidHistoryCompositionTests : IDisposable
+{
+    private const string LocalAccount = "account-local";
+
+    private readonly string _dataRoot = Path.Combine(
+        Path.GetTempPath(),
+        "bpp-android-history-" + Guid.NewGuid().ToString("N")
+    );
+
+    public AndroidHistoryCompositionTests()
+    {
+        Directory.CreateDirectory(_dataRoot);
+        // The record chain opens the database first and sets its journal mode.
+        _ = new PvpBattleSqliteStore(DatabasePath, AndroidComposition.DatabaseOptions);
+    }
+
+    private string DatabasePath => PathConstants.RunLogDatabase(_dataRoot);
+
+    private string ReplayDirectory => PathConstants.CombatReplays(_dataRoot);
+
+    public void Dispose()
+    {
+        SqliteConnection.ClearAllPools();
+        Directory.Delete(_dataRoot, recursive: true);
+    }
+
+    [Fact]
+    public void Without_a_session_ghost_sync_is_unavailable_and_runs_still_read()
+    {
+        var dependencies = Compose(session: null, new StandInRuntime());
+
+        Assert.False(dependencies.DataService.CanSyncGhostBattles);
+        Assert.Empty(dependencies.DataService.LoadRuns(new(), hero: null).Rows);
+        Assert.Null(dependencies.Favorites);
+        Assert.Null(dependencies.AccountLinkClient);
+        Assert.Equal("delete", JournalMode());
+    }
+
+    [Fact]
+    public async Task Ghost_sync_imports_the_contract_battle_and_keeps_the_delete_journal()
+    {
+        using var session = Session(_ => Json(GhostSummaryContract()));
+        var dependencies = Compose(session, new StandInRuntime());
+        Assert.True(dependencies.DataService.CanSyncGhostBattles);
+
+        var synced = await dependencies.DataService.SyncGhostBattlesAsync(CancellationToken.None);
+
+        Assert.True(synced.Succeeded, synced.StatusMessage);
+        Assert.Equal(1, synced.ImportedCount);
+        Assert.Equal(1L, Scalar("SELECT COUNT(*) FROM battles WHERE source = 'GHOST';"));
+        Assert.Equal("delete", JournalMode());
+    }
+
+    [Fact]
+    public void The_host_records_no_video_with_the_desktops_reason_code()
+    {
+        var dependencies = Compose(session: null, new StandInRuntime());
+        var battle = Battle(HistoryBattleSource.Local, ReplayAvailability.Saved);
+
+        Assert.True(dependencies.ReplayService.CanReplayBattle(battle, out _));
+        Assert.False(dependencies.ReplayService.CanRecordReplay(battle, out _, out var code));
+        Assert.Equal(HistoryPanelReplayReasonCode.RecordingUnavailable, code);
+        Assert.False(dependencies.ReplayService.CanRecordLoadedReplay(out _));
+    }
+
+    [Fact]
+    public void A_remote_ghost_offers_its_download_and_needs_the_sync_service()
+    {
+        var dependencies = Compose(session: null, new StandInRuntime());
+        var ghost = Battle(HistoryBattleSource.Ghost, ReplayAvailability.Remote);
+
+        Assert.Equal(
+            HistoryPanelText.DownloadReplay(),
+            dependencies.ReplayService.GetReplayActionLabel(ghost)
+        );
+        Assert.Equal(
+            HistoryPanelText.Replay(),
+            dependencies.ReplayService.GetReplayActionLabel(
+                Battle(HistoryBattleSource.Local, ReplayAvailability.Saved)
+            )
+        );
+    }
+
+    [Fact]
+    public async Task A_local_replay_reaches_the_runtime_and_a_running_replay_blocks_another()
+    {
+        var runtime = new StandInRuntime();
+        var dependencies = Compose(session: null, runtime);
+        var battle = Battle(HistoryBattleSource.Local, ReplayAvailability.Saved);
+
+        var started = await dependencies.ReplayService.ReplayBattleAsync(
+            battle,
+            recordVideo: false,
+            CancellationToken.None
+        );
+        Assert.True(started.Succeeded);
+        Assert.Equal(new[] { battle.BattleId }, runtime.Replayed);
+
+        runtime.Busy = true;
+        Assert.False(dependencies.ReplayService.CanReplayBattle(battle, out var reason));
+        Assert.Equal(StandInRuntime.BusyReason, reason);
+    }
+
+    [Fact]
+    public void Replay_payload_cleanup_deletes_the_local_and_ghost_files_of_deleted_battles()
+    {
+        var dependencies = Compose(session: null, new StandInRuntime());
+        var payloads = new CombatReplayPayloadStore(ReplayDirectory);
+        payloads.Save(ReplayMessages.Payload("deleted"));
+        payloads.Save(ReplayMessages.Payload("kept"));
+
+        var result = dependencies.ReplayService.CleanupReplayPayloads(["deleted"]);
+
+        Assert.Equal(0, result.FailedBattleCount);
+        Assert.Null(result.Exception);
+        Assert.Equal(new[] { "kept" }, payloads.ListBattleIds());
+    }
+
+    private HistoryPanelDependencies Compose(ModApiSession? session, ISavedReplayRuntime runtime) =>
+        AndroidComposition.CreateHistoryDependencies(
+            new RunContextStore(),
+            DatabasePath,
+            ReplayDirectory,
+            session,
+            () => runtime,
+            static _ => true,
+            static () => LocalAccount,
+            static () => 0f,
+            new BazaarDbAccountLinkStore(static _ => false, static _ => { })
+        );
+
+    private static ModApiSession Session(Func<HttpRequestMessage, HttpResponseMessage> respond) =>
+        ModApiSession.TryCreate(
+            "https://api.example",
+            "test",
+            platformKey: null,
+            "OnlineClient",
+            TimeSpan.FromSeconds(30),
+            new StubHandler(respond)
+        ) ?? throw new InvalidOperationException("test Mod API session");
+
+    private static HttpResponseMessage Json(string body) =>
+        new(HttpStatusCode.OK)
+        {
+            Content = new StringContent(body, Encoding.UTF8, "application/json"),
+        };
+
+    private static string GhostSummaryContract()
+    {
+        using var stream =
+            Assembly
+                .GetExecutingAssembly()
+                .GetManifestResourceStream("AndroidHost.Tests.ghost-summary.response.json")
+            ?? throw new InvalidOperationException("The server Ghost summary contract is missing.");
+        using var reader = new StreamReader(stream, Encoding.UTF8);
+        return reader.ReadToEnd();
+    }
+
+    private string JournalMode() => (string)Scalar("PRAGMA journal_mode;")!;
+
+    private object? Scalar(string sql)
+    {
+        using var connection = new SqliteConnection($"Data Source={DatabasePath}");
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = sql;
+        return command.ExecuteScalar();
+    }
+
+    private static HistoryBattleRecord Battle(
+        HistoryBattleSource source,
+        ReplayAvailability replay
+    ) =>
+        new(
+            battleId: $"{source}-{replay}".ToLowerInvariant(),
+            runId: "run",
+            recordedAtUtc: DateTimeOffset.UnixEpoch,
+            day: 3,
+            hour: 2,
+            encounterId: null,
+            playerHero: "Vanessa",
+            playerRank: null,
+            playerRating: null,
+            playerLevel: null,
+            playerPrestige: null,
+            playerVictories: null,
+            opponentName: "Opponent",
+            opponentHero: "Dooley",
+            opponentRank: null,
+            opponentRating: null,
+            opponentLevel: null,
+            opponentPrestige: null,
+            opponentVictories: null,
+            opponentAccountId: "account-opponent",
+            combatKind: "PVPCombat",
+            result: "win",
+            winnerCombatantId: null,
+            loserCombatantId: null,
+            snapshotCounts: default,
+            isFinalBattle: false,
+            source: source,
+            replay: replay
+        );
+
+    private sealed class StubHandler(Func<HttpRequestMessage, HttpResponseMessage> respond)
+        : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken
+        ) => Task.FromResult(respond(request));
+    }
+
+    // The replay runtime History drives, without the game.
+    private sealed class StandInRuntime : ISavedReplayRuntime
+    {
+        public const string BusyReason = "A saved replay is already starting.";
+
+        public List<string> Replayed { get; } = new();
+
+        public bool Busy { get; set; }
+
+        public bool HasSavedReplaySession => Busy;
+
+        public bool CanReplaySavedCombats(out string reason)
+        {
+            reason = Busy ? BusyReason : string.Empty;
+            return !Busy;
+        }
+
+        public bool CanReplaySavedBattle(string battleId, out string reason) =>
+            CanReplaySavedCombats(out reason);
+
+        public bool ReplaySaved(string battleId, bool recordVideo)
+        {
+            Replayed.Add(battleId);
+            return true;
+        }
+
+        public bool ReplayLoadedBattle(
+            PvpBattleManifest manifest,
+            PvpReplayPayload payload,
+            bool recordVideo,
+            CombatReplayPlaybackSource source
+        ) => true;
+
+        public SavedBattleLoadOutcome TryLoadSavedBattle(
+            string battleId,
+            out PvpBattleManifest? manifest,
+            out PvpReplayPayload? payload
+        )
+        {
+            manifest = null;
+            payload = null;
+            return SavedBattleLoadOutcome.Missing;
+        }
+    }
+}

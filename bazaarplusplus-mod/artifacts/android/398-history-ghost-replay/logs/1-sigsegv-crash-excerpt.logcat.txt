@@ -1,0 +1,40 @@
+10-23 22:41:00.369 E/DOTNET  (12238): Fatal error.
+10-23 22:41:00.369 E/DOTNET  (12238): Got a SIGSEGV while executing native code. This usually indicates
+10-23 22:41:00.369 E/DOTNET  (12238): a fatal error in the runtime or one of the native libraries
+10-23 22:41:00.369 E/DOTNET  (12238): used by your application.
+10-23 22:41:00.370 E/DOTNET  (12238):    at Il2CppInterop.Runtime.IL2CPP.il2cpp_runtime_invoke(IntPtr, IntPtr, Void**, IntPtr ByRef)
+10-23 22:41:00.370 E/DOTNET  (12238):    at UnityEngine.RectTransform.GetWorldCorners(Il2CppInterop.Runtime.InteropTypes.Arrays.Il2CppStructArray`1<UnityEngine.Vector3>)
+10-23 22:41:00.370 E/DOTNET  (12238):    at BazaarPlusPlus.Android.Ui.AndroidHistoryPanelView.WorldBounds(UnityEngine.RectTransform)
+10-23 22:41:00.371 E/DOTNET  (12238):    at BazaarPlusPlus.Android.Ui.AndroidHistoryPanelView.Tick()
+10-23 22:41:00.371 E/DOTNET  (12238):    at BazaarPlusPlus.Android.Ui.AndroidHistoryPanel.Tick()
+10-23 22:41:00.371 E/DOTNET  (12238):    at BazaarPlusPlus.Android.Host.AndroidMod.OnUpdate()
+10-23 22:41:00.371 E/DOTNET  (12238):    at MelonLoader.MelonEventBase`1[[System.__Canon, System.Private.CoreLib, Version=11.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]].Invoke(System.Action`1<System.__Canon>)
+10-23 22:41:00.371 E/DOTNET  (12238):    at DynamicClass.Trampoline_VoidThisMelonLoader.Support.SM_ComponentUpdate(IntPtr, Il2CppInterop.Runtime.Runtime.Il2CppMethodInfo*)
+10-23 22:41:00.371 E/DOTNET  (12238):    at DynamicClass.Invoker_VoidThis(IntPtr, Il2CppInterop.Runtime.Runtime.Il2CppMethodInfo*, IntPtr, IntPtr*, IntPtr*)
+10-23 22:41:00.373 F/DOTNET_CRASH(12238): *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
+10-23 22:41:00.373 F/DOTNET_CRASH(12238): .NET Crash Report v1.0.0
+10-23 22:41:00.373 F/DOTNET_CRASH(12238): Build: 42.42.42.42424 @Commit: def004750b532f2e81d8b6ff91d19b4d5a3c1b79
+10-23 22:41:00.373 F/DOTNET_CRASH(12238): ABI: arm64
+10-23 22:41:00.373 F/DOTNET_CRASH(12238): Cmdline: com.tempogames.thebazaar
+10-23 22:41:00.373 F/DOTNET_CRASH(12238): pid: 12238
+10-23 22:41:00.373 F/DOTNET_CRASH(12238): signal 11 (SIGSEGV)
+10-23 22:41:00.373 F/DOTNET_CRASH(12238): 
+10-23 22:41:00.373 F/DOTNET_CRASH(12238): --- thread 0x2fdf (crashed) ---
+10-23 22:41:00.375 F/DOTNET_CRASH(12238):   #00 [0] Il2CppInterop.Runtime.IL2CPP.il2cpp_runtime_invoke + 0x0 (token=0x60000d2)
+10-23 22:41:00.375 F/DOTNET_CRASH(12238):   #01 [1] UnityEngine.RectTransform.GetWorldCorners + 0x1b (token=0x600275c)
+10-23 22:41:00.375 F/DOTNET_CRASH(12238):   #02 [2] BazaarPlusPlus.Android.Ui.AndroidHistoryPanelView.WorldBounds + 0xc (token=0x6000061)
+10-23 22:41:00.375 F/DOTNET_CRASH(12238):   #03 [2] BazaarPlusPlus.Android.Ui.AndroidHistoryPanelView.Tick + 0x71 (token=0x600005f)
+10-23 22:41:00.375 F/DOTNET_CRASH(12238):   #04 [2] BazaarPlusPlus.Android.Ui.AndroidHistoryPanel.Tick + 0x73 (token=0x6000047)
+10-23 22:41:00.375 F/DOTNET_CRASH(12238):   #05 [2] BazaarPlusPlus.Android.Host.AndroidMod.OnUpdate + 0x49 (token=0x600010c)
+10-23 22:41:00.375 F/DOTNET_CRASH(12238):   #06 [3] MelonLoader.MelonEventBase`1.Invoke + 0x71 (token=0x600023b)
+10-23 22:41:00.375 F/DOTNET_CRASH(12238):   #07 [4] Trampoline_VoidThisMelonLoader.Support.SM_ComponentUpdate + 0x0 (token=0x6000000)
+10-23 22:41:00.375 F/DOTNET_CRASH(12238):   #08 [4] Invoker_VoidThis + 0x0 (token=0x6000000)
+10-23 22:41:00.375 F/DOTNET_CRASH(12238): 
+10-23 22:41:00.375 F/DOTNET_CRASH(12238): --- thread 0x2ffb ---
+10-23 22:41:00.375 F/DOTNET_CRASH(12238):   (no managed frames)
+10-23 22:41:00.375 F/DOTNET_CRASH(12238): 
+10-23 22:41:00.375 F/DOTNET_CRASH(12238): --- thread 0x3002 ---
+10-23 22:41:00.375 F/DOTNET_CRASH(12238):   #00 [5] Sys.<LowLevelMonitor_TimedWait>g____PInvoke|75_0 + 0x0 (token=0x60000e0)
+10-23 22:41:00.376 F/DOTNET_CRASH(12238):   #01 [5] System.Threading.WaitHandle.WaitOne + 0xc (token=0x6003dc6)
+10-23 22:41:00.376 F/DOTNET_CRASH(12238):   #02 [5] GateThread.GateThreadStart + 0xad (token=0x6003e24)
+10-23 22:41:00.376 F/DOTNET_CRASH(12238):   #03 [5] System.Threading.Thread.StartCallback + 0x0 (token=0x6003977)

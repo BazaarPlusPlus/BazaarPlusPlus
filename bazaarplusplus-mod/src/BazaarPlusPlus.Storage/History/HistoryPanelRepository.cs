@@ -543,8 +543,11 @@ public sealed partial class HistoryPanelRepository
         var connection = new SqliteConnection($"Data Source={_databasePath}");
         connection.Open();
 
+        // busy_timeout waits natively for a writer's lock instead of failing at once: the
+        // Android database runs in DELETE mode, where a reader cannot overlap a write. No journal
+        // pragma: the repository leaves the host's journal mode as it found it.
         using var pragma = connection.CreateCommand();
-        pragma.CommandText = "PRAGMA foreign_keys = ON;";
+        pragma.CommandText = "PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 2000;";
         pragma.ExecuteNonQuery();
         if (ensureSchema && !_schemaEnsured)
         {

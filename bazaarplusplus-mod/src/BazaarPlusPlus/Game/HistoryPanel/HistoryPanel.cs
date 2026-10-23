@@ -30,35 +30,13 @@ internal sealed partial class HistoryPanel : MonoBehaviour
 
     public static bool IsVisible { get; private set; }
 
-    private HistoryRunRecord? SelectedRun => _state.GetSelectedRun(FilteredRuns);
-
-    private HistoryBattleRecord? SelectedBattle => _state.GetSelectedBattle();
-
-    private HistoryBattleRecord? SelectedGhostBattle =>
-        _state.GetSelectedGhostBattle(FilteredGhostBattles);
+    private HistoryRunRecord? SelectedRun =>
+        HistoryPanelViewModelBuilder.SelectedRun(_state, _coordinator);
 
     private HistoryBattleRecord? ActiveSelectedBattle =>
-        _state.SectionMode switch
-        {
-            HistorySectionMode.Ghost => SelectedGhostBattle,
-            HistorySectionMode.Favorites => _state.GetSelectedFavorite()?.Battle,
-            _ => SelectedBattle,
-        };
+        HistoryPanelViewModelBuilder.ActiveSelectedBattle(_state, _coordinator);
 
-    // Runs shows the opponent's board above yours; a Local-origin favorite keeps that layout.
-    // Ghost, and a Ghost-origin favorite, show only the challenger's board.
-    private bool ShowsBothBoards =>
-        _state.SectionMode switch
-        {
-            HistorySectionMode.Runs => true,
-            HistorySectionMode.Favorites => _state.GetSelectedFavorite()?.Battle.Source
-                == HistoryBattleSource.Local,
-            _ => false,
-        };
-
-    private IReadOnlyList<HistoryBattleRecord> FilteredGhostBattles => GetFilteredGhostBattles();
-
-    private IReadOnlyList<HistoryRunRecord> FilteredRuns => GetFilteredRuns();
+    private bool ShowsBothBoards => HistoryPanelViewModelBuilder.ShowsBothBoards(_state);
 
     private void Awake()
     {
@@ -268,15 +246,5 @@ internal sealed partial class HistoryPanel : MonoBehaviour
         DisposeNativeHistoryBoards();
         if (IsVisible)
             RefreshSelectedBattlePreview();
-    }
-
-    private IReadOnlyList<HistoryBattleRecord> GetFilteredGhostBattles()
-    {
-        return _coordinator?.GetFilteredGhostBattles() ?? Array.Empty<HistoryBattleRecord>();
-    }
-
-    private IReadOnlyList<HistoryRunRecord> GetFilteredRuns()
-    {
-        return _coordinator?.GetFilteredRuns() ?? Array.Empty<HistoryRunRecord>();
     }
 }

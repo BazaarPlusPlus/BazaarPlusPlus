@@ -43,15 +43,12 @@ internal sealed partial class HistoryPanelView
         Button(
             _layout!,
             T("More", "更多"),
-            .76f,
-            .04f,
-            .09f,
-            .045f,
+            HistoryPanelLayout.MoreButton,
             () => SetMoreVisible(!_moreVisible)
         );
-        _deleteButton = Button(_layout!, "", .04f, .90f, .16f, .044f, _delete);
-        _recordButton = Button(_layout!, "", .58f, .90f, .13f, .055f, _record);
-        _replayButton = Button(_layout!, "", .72f, .90f, .23f, .055f, _replay, true, 23);
+        _deleteButton = Button(_layout!, "", HistoryPanelLayout.DeleteButton, _delete);
+        _recordButton = Button(_layout!, "", HistoryPanelLayout.RecordButton, _record);
+        _replayButton = Button(_layout!, "", HistoryPanelLayout.ReplayButton, _replay, true, 23);
         CreateFavoriteControls();
         var shade = CreateRect("HistoryMoreDialog", _layout!, 0, 0, 1, 1);
         var canvas = shade.gameObject.AddComponent<Canvas>();

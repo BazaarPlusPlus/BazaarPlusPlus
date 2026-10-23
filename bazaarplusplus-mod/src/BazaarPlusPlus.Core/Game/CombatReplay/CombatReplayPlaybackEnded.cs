@@ -2,7 +2,7 @@
 
 namespace BazaarPlusPlus.Game.CombatReplay;
 
-internal sealed class CombatReplayPlaybackEnded
+public sealed class CombatReplayPlaybackEnded
 {
     public string BattleId { get; set; } = string.Empty;
 

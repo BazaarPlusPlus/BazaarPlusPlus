@@ -23,4 +23,5 @@ The interop assemblies are managed: an interop enum is a plain CLR enum with the
 ## Evidence
 
 - `tests/AndroidHost.Tests/AndroidPvpBattleEvidenceTests.cs`, `tests/AndroidHost.Tests/AndroidRunPayloadComposeTests.cs`, `tests/AndroidHost.Tests/AndroidReplayMaintenanceTests.cs`
+- History and replay on the host: `tests/AndroidHost.Tests/AndroidHistoryCompositionTests.cs`, `tests/AndroidHost.Tests/AndroidMainThreadTests.cs`, `tests/AndroidHost.Tests/AndroidReplayHostRuleTests.cs`, and the IL rules in `tests/AndroidHost.Tests/AndroidHostThreadingRuleTests.cs`
 - `tests/BundlePipeline.Tests/CardEnumTableTests.cs`

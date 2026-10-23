@@ -35,4 +35,17 @@ internal static class AndroidCardFacets
     public static readonly CardFacetNameMap<EContainerSocketId, CardSocket> Socket = new();
 
     public static bool IsHeroAvailable(CardHero hero) => Hero.TryToSource(hero, out _);
+
+    // The game values a replay restores a captured card with, as the desktop's DesktopCardFacets.
+    public static ECardType GameType(CardType type) =>
+        Type.TryToSource(type, out var source) ? source : default;
+
+    public static ECardSize GameSize(CardSize? size) =>
+        size is { } value && Size.TryToSource(value, out var source) ? source : default;
+
+    public static EInventorySection? GameSection(CardSection? section) =>
+        section is { } value && Section.TryToSource(value, out var source) ? source : null;
+
+    public static EContainerSocketId? GameSocket(CardSocket? socket) =>
+        socket is { } value && Socket.TryToSource(value, out var source) ? source : null;
 }

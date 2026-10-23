@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using BazaarPlusPlus.Android.CombatReplay;
 using BazaarPlusPlus.Android.GameInterop;
 using BazaarPlusPlus.Android.GameInterop.CardRental;
 using BazaarPlusPlus.Infrastructure;
@@ -114,6 +115,9 @@ internal static class AndroidPatchHost
             .. Composition?.RunLifecycleSource.Summary() ?? [],
             ("pvp_battles_recorded", Composition?.BattleCapture.Recorded ?? 0),
             ("replays_saved", Composition?.BattleCapture.ReplaysSaved ?? 0),
+            ("replay_guard_messages", AndroidReplayGuard.IntakeMessages),
+            ("replay_guard_capture_skips", AndroidReplayGuard.CaptureSkips),
+            .. AndroidReplayPatchCounters.Summary(),
             (
                 "messages",
                 string.Join(

@@ -22,8 +22,10 @@ public sealed class MacNativeReplayManagedArchitectureTests
                     .Concat(
                         Accesses(
                             build
-                                .Type("BazaarPlusPlus.Game.HistoryPanel.HistoryPanelReplayService")
-                                .MethodClosure("PrewarmRecordingAvailability"),
+                                .Type(
+                                    "BazaarPlusPlus.Game.HistoryPanel.DesktopReplayRecordingAvailability"
+                                )
+                                .MethodClosure("Prewarm"),
                             taskRun
                         )
                     )

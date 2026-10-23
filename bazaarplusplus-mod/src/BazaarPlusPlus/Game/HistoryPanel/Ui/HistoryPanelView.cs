@@ -385,6 +385,9 @@ internal sealed partial class HistoryPanelView : IDisposable
         return rect;
     }
 
+    private static RectTransform CreateRect(string name, Transform parent, HistoryRect rect) =>
+        CreateRect(name, parent, rect.X, rect.Y, rect.Width, rect.Height);
+
     // The single place top-down authoring becomes Unity's bottom-up anchors.
     private static void Anchor(RectTransform rect, HistoryAnchors anchors)
     {
@@ -437,6 +440,24 @@ internal sealed partial class HistoryPanelView : IDisposable
         _buttonSelection[button] = selected;
         return button;
     }
+
+    private Button Button(
+        Transform parent,
+        string label,
+        HistoryRect rect,
+        Action click,
+        bool selected = false,
+        int size = 17
+    ) => Button(parent, label, rect.X, rect.Y, rect.Width, rect.Height, click, selected, size);
+
+    private TextMeshProUGUI Text(
+        Transform parent,
+        string label,
+        HistoryRect rect,
+        int size,
+        Color? color = null,
+        bool center = false
+    ) => Text(parent, label, rect.X, rect.Y, rect.Width, rect.Height, size, color, center);
 
     private TextMeshProUGUI Text(
         Transform parent,

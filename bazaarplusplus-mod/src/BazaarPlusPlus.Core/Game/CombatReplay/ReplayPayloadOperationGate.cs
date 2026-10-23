@@ -22,6 +22,16 @@ public sealed class ReplayPayloadOperationGate : IDisposable
         return _exclusive.Wait(0) ? new Lease(_exclusive) : null;
     }
 
+    /// <summary>
+    /// The persistence lease for a caller that must not block, such as a game's main thread:
+    /// null when the gate stays held for <paramref name="timeout"/>.
+    /// </summary>
+    public IDisposable? TryAcquirePersistence(TimeSpan timeout)
+    {
+        ThrowIfDisposed();
+        return _exclusive.Wait(timeout) ? new Lease(_exclusive) : null;
+    }
+
     private IDisposable Acquire(CancellationToken cancellationToken)
     {
         ThrowIfDisposed();
