@@ -73,7 +73,7 @@ internal sealed class AndroidLiveBuildView
 
         // The list first, then the bands over its edges, then everything else.
         var scrollArea = AndroidTouchScreen.Child("List", root, layout.Scroll);
-        (_scroll, _content) = VerticalScroll(scrollArea);
+        (_scroll, _content) = AndroidUiKit.VerticalScroll(scrollArea);
         _content.sizeDelta = new Vector2(0f, layout.ScrollContentHeight);
         var listRows = new[]
         {
@@ -130,10 +130,9 @@ internal sealed class AndroidLiveBuildView
             TextAlignmentOptions.MidlineLeft
         ).text = LiveBuildPanelText.Title();
         var close = AndroidTouchScreen.Child("Close", root, layout.Close);
-        AndroidUiKit.Button(
+        AndroidUiKit.CloseButton(
             close,
             font,
-            "X",
             layout.TitleFont,
             () => AndroidUiActions.Run("live_build.close", () => commands.Close("close_button"))
         );
@@ -361,7 +360,7 @@ internal sealed class AndroidLiveBuildView
                     model.CanToggleCandidates,
                     snapshot.CandidateTemplateIds,
                     model.CanToggleCandidates
-                        ? LiveBuildPanelText.CandidateTag()
+                        ? LiveBuildPanelText.CandidateTouchTag()
                         : LiveBuildPanelText.MatchTag(),
                     _layout
                 );
@@ -512,40 +511,6 @@ internal sealed class AndroidLiveBuildView
         if (area.Height <= 0f)
             return;
         AndroidUiKit.Fill(AndroidTouchScreen.Child("ListEdge", root, area), color);
-    }
-
-    private static (ScrollRect Scroll, RectTransform Content) VerticalScroll(RectTransform area)
-    {
-        var viewport = AndroidUiKit.Rect(
-            "Viewport",
-            area,
-            Vector2.zero,
-            Vector2.one,
-            Vector2.zero,
-            Vector2.zero
-        );
-        // Transparent but raycast: a drag anywhere in the list scrolls it.
-        AndroidUiKit.Fill(viewport, new Color(0f, 0f, 0f, 0.001f));
-        viewport.gameObject.AddComponent<RectMask2D>();
-        var content = AndroidUiKit.Rect(
-            "Content",
-            viewport,
-            new(0f, 1f),
-            new(1f, 1f),
-            Vector2.zero,
-            Vector2.zero
-        );
-        content.pivot = new Vector2(0f, 1f);
-        var scroll = area.gameObject.AddComponent<ScrollRect>();
-        scroll.viewport = viewport;
-        scroll.content = content;
-        scroll.horizontal = false;
-        scroll.vertical = true;
-        scroll.movementType = ScrollRect.MovementType.Clamped;
-        scroll.inertia = true;
-        scroll.decelerationRate = 0.12f;
-        scroll.scrollSensitivity = 40f;
-        return (scroll, content);
     }
 
     private static Color StatusColor(LiveBuildRefreshSeverity severity) =>

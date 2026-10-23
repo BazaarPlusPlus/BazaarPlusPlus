@@ -43,23 +43,23 @@ public sealed class HistoryTouchLayout
     private HistoryTouchLayout(TouchMetrics metrics)
     {
         Metrics = metrics;
-        var margin = metrics.Dp(4f);
-        var padding = metrics.Dp(8f);
+        var chrome = TouchChrome.For(metrics);
+        var padding = chrome.Padding;
         var small = metrics.Dp(4f);
-        Gap = metrics.Dp(8f);
-        var target = metrics.MinTarget;
+        Gap = chrome.Gap;
+        var target = chrome.Target;
 
-        TitleFont = metrics.Sp(18f);
-        ButtonFont = metrics.Sp(14f);
-        RowTitleFont = metrics.Sp(14f);
-        BodyFont = metrics.Sp(12f);
+        TitleFont = chrome.TitleFont;
+        ButtonFont = chrome.ButtonFont;
+        RowTitleFont = chrome.ButtonFont;
+        BodyFont = chrome.BodyFont;
+        NameFont = chrome.NameFont;
 
-        Sheet = metrics.SafeArea.Inset(margin);
-        var body = Sheet.Inset(padding);
+        Sheet = chrome.Sheet;
+        var body = chrome.Body;
 
         // Header: tabs from the left, Close and More from the right, the filters between them.
-        var closeWidth = metrics.Target(64f);
-        Close = new TouchRect(body.Right - closeWidth, body.Top, closeWidth, target);
+        Close = chrome.Close;
         var moreWidth = metrics.Target(80f);
         More = new TouchRect(Close.Left - Gap - moreWidth, body.Top, moreWidth, target);
         var tabWidth = metrics.Target(104f);
@@ -163,48 +163,18 @@ public sealed class HistoryTouchLayout
         );
         LowerBoard = new TouchRect(Detail.Left, LowerBoardTitle.Bottom, CarpetWidth, CardHeight);
 
-        // The card inspection: the enlarged card on the left, its text on the right.
-        var inspect = Sheet.Inset(padding);
-        InspectCardArea = new TouchRect(
-            inspect.Left,
-            inspect.Top,
-            inspect.Width * 0.55f,
-            inspect.Height
-        );
-        InspectInfo = new TouchRect(
-            InspectCardArea.Right + padding,
-            inspect.Top,
-            Math.Max(0f, inspect.Right - InspectCardArea.Right - padding),
-            inspect.Height
-        );
-        InspectClose = new TouchRect(
-            InspectInfo.Right - closeWidth,
-            InspectInfo.Top,
-            closeWidth,
-            target
-        );
-        InspectName = new TouchRect(
-            InspectInfo.Left,
-            InspectInfo.Top,
-            Math.Max(0f, InspectClose.Left - Gap - InspectInfo.Left),
-            metrics.Dp(56f)
-        );
-        InspectDetail = new TouchRect(
-            InspectInfo.Left,
-            InspectName.Bottom + Gap,
-            InspectInfo.Width,
-            Math.Max(0f, InspectInfo.Bottom - InspectName.Bottom - Gap)
-        );
+        // The card inspection: the shared tap-to-inspect sheet.
+        _inspect = chrome.Inspect();
+        InspectCardArea = _inspect.CardArea;
+        InspectInfo = _inspect.Info;
+        InspectClose = _inspect.Close;
+        InspectName = _inspect.Name;
+        InspectDetail = _inspect.Detail;
 
         // The skills sheet: both players' skills, one row each, under its title row.
-        var skills = Sheet.Inset(padding);
-        SkillsClose = new TouchRect(skills.Right - closeWidth, skills.Top, closeWidth, target);
-        SkillsTitle = new TouchRect(
-            skills.Left,
-            skills.Top,
-            Math.Max(0f, SkillsClose.Left - Gap - skills.Left),
-            target
-        );
+        var skills = body;
+        SkillsClose = chrome.CloseAt(skills);
+        SkillsTitle = chrome.TitleBeside(skills, SkillsClose);
         SkillSide = Math.Max(
             1f,
             Math.Min(
@@ -233,18 +203,8 @@ public sealed class HistoryTouchLayout
             Sheet.Height
         );
         var dialogBody = Dialog.Inset(padding);
-        DialogClose = new TouchRect(
-            dialogBody.Right - closeWidth,
-            dialogBody.Top,
-            closeWidth,
-            target
-        );
-        DialogTitle = new TouchRect(
-            dialogBody.Left,
-            dialogBody.Top,
-            Math.Max(0f, DialogClose.Left - Gap - dialogBody.Left),
-            target
-        );
+        DialogClose = chrome.CloseAt(dialogBody);
+        DialogTitle = chrome.TitleBeside(dialogBody, DialogClose);
         MoreScroll = new TouchRect(
             dialogBody.Left,
             DialogClose.Bottom + Gap,
@@ -324,6 +284,7 @@ public sealed class HistoryTouchLayout
         );
     }
 
+    private readonly TouchInspectLayout _inspect;
     private readonly float _skillsLeft;
     private readonly float _skillsTop;
 
@@ -340,6 +301,9 @@ public sealed class HistoryTouchLayout
     public float RowTitleFont { get; }
 
     public float BodyFont { get; }
+
+    /// <summary>An inspected card's name.</summary>
+    public float NameFont { get; }
 
     /// <summary>The whole panel: the safe area less a margin.</summary>
     public TouchRect Sheet { get; }
@@ -568,10 +532,7 @@ public sealed class HistoryTouchLayout
     {
         var width = skill ? PrefabHeight : PrefabSocketWidth * Math.Clamp(span, 1, 3);
         var height = skill ? PrefabHeight : PrefabHeight * FrameHeightOverSocket;
-        return Math.Max(
-            0.01f,
-            Math.Min(InspectCardArea.Height * 0.9f / height, InspectCardArea.Width * 0.9f / width)
-        );
+        return _inspect.Scale(width, height);
     }
 
     private float SkillRowTop(int row) =>

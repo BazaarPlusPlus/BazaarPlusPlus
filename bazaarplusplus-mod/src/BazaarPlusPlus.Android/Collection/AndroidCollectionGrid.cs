@@ -73,6 +73,9 @@ internal sealed class AndroidCollectionGrid
         _scroll.scrollSensitivity = 40f;
     }
 
+    /// <summary>The grid's scroll view, for the panel's drag-scroll log.</summary>
+    public ScrollRect Scroll => _scroll;
+
     /// <summary>Cards held by the grid's cells, Pending or Ready.</summary>
     public int Leases => _realized.Count;
 

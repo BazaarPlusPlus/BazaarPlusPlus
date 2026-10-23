@@ -38,21 +38,21 @@ public sealed class LiveBuildTouchLayout
     private LiveBuildTouchLayout(TouchMetrics metrics)
     {
         Metrics = metrics;
-        var margin = metrics.Dp(8f);
-        var padding = metrics.Dp(12f);
-        Gap = metrics.Dp(8f);
-        var target = metrics.MinTarget;
+        var chrome = TouchChrome.For(metrics);
+        var padding = chrome.Padding;
+        Gap = chrome.Gap;
+        var target = chrome.Target;
 
-        TitleFont = metrics.Sp(18f);
-        RowTitleFont = metrics.Sp(14f);
-        ButtonFont = metrics.Sp(14f);
-        BodyFont = metrics.Sp(12f);
+        TitleFont = chrome.TitleFont;
+        RowTitleFont = chrome.ButtonFont;
+        ButtonFont = chrome.ButtonFont;
+        BodyFont = chrome.BodyFont;
         ValueFont = metrics.Sp(16f);
-        TagFont = metrics.Sp(12f);
-        NameFont = metrics.Sp(20f);
+        TagFont = chrome.BodyFont;
+        NameFont = chrome.NameFont;
 
-        Sheet = metrics.SafeArea.Inset(margin);
-        var body = Sheet.Inset(padding);
+        Sheet = chrome.Sheet;
+        var body = chrome.Body;
 
         RowTitleHeight = metrics.Dp(24f);
         PinnedTitleHeight = target;
@@ -117,14 +117,8 @@ public sealed class LiveBuildTouchLayout
         ScrollContentHeight = ScrollRowHeight * ScrollRowCount + Gap * (ScrollRowCount - 1);
 
         var side = Sidebar;
-        var closeWidth = metrics.Target(64f);
-        Close = new TouchRect(side.Right - closeWidth, side.Top, closeWidth, target);
-        Title = new TouchRect(
-            side.Left,
-            side.Top,
-            Math.Max(0f, Close.Left - Gap - side.Left),
-            target
-        );
+        Close = chrome.CloseAt(side);
+        Title = chrome.TitleBeside(side, Close);
         Refresh = new TouchRect(side.Left, Close.Bottom + Gap, side.Width, target);
         Corpus = new TouchRect(side.Left, Refresh.Bottom + Gap, side.Width, target);
         Hero = new TouchRect(side.Left, Corpus.Bottom + Gap, side.Width, metrics.Dp(28f));
@@ -143,34 +137,15 @@ public sealed class LiveBuildTouchLayout
             (Info.Height - Gap * (metricRows - 1)) / metricRows
         );
 
-        var inspect = Sheet.Inset(padding);
-        InspectCardArea = new TouchRect(
-            inspect.Left,
-            inspect.Top,
-            inspect.Width * 0.58f,
-            inspect.Height
-        );
-        var info = new TouchRect(
-            InspectCardArea.Right + padding,
-            inspect.Top,
-            inspect.Right - InspectCardArea.Right - padding,
-            inspect.Height
-        );
-        InspectInfo = info;
-        InspectClose = new TouchRect(info.Right - closeWidth, info.Top, closeWidth, target);
-        InspectName = new TouchRect(
-            info.Left,
-            info.Top,
-            Math.Max(0f, InspectClose.Left - Gap - info.Left),
-            metrics.Dp(64f)
-        );
-        InspectDetail = new TouchRect(
-            info.Left,
-            InspectName.Bottom + Gap,
-            info.Width,
-            Math.Max(0f, info.Bottom - InspectName.Bottom - Gap)
-        );
+        _inspect = chrome.Inspect();
+        InspectCardArea = _inspect.CardArea;
+        InspectInfo = _inspect.Info;
+        InspectClose = _inspect.Close;
+        InspectName = _inspect.Name;
+        InspectDetail = _inspect.Detail;
     }
+
+    private readonly TouchInspectLayout _inspect;
 
     public static LiveBuildTouchLayout For(TouchMetrics metrics) => new(metrics);
 
@@ -316,12 +291,9 @@ public sealed class LiveBuildTouchLayout
     public float InspectScale(int span)
     {
         var clampedSpan = Math.Clamp(span, 1, 3);
-        return Math.Max(
-            0.01f,
-            Math.Min(
-                InspectCardArea.Height * 0.9f / (PrefabHeight * FrameHeightOverSocket),
-                InspectCardArea.Width * 0.9f / (PrefabSocketWidth * clampedSpan)
-            )
+        return _inspect.Scale(
+            PrefabSocketWidth * clampedSpan,
+            PrefabHeight * FrameHeightOverSocket
         );
     }
 

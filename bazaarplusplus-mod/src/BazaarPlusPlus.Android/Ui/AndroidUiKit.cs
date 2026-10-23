@@ -101,6 +101,9 @@ internal static class AndroidUiKit
         return label;
     }
 
+    /// <summary>The horizontal padding between a button's edge and its label.</summary>
+    public const float ButtonLabelInset = 16f;
+
     /// <summary>A filled button with a centered label; <paramref name="onTap"/> runs on release.</summary>
     public static (Button Button, Image Background, TextMeshProUGUI Label) Button(
         RectTransform rect,
@@ -119,10 +122,62 @@ internal static class AndroidUiKit
             rect,
             Vector2.zero,
             Vector2.one,
-            new(16f, 4f),
-            new(-16f, -4f)
+            new(ButtonLabelInset, 4f),
+            new(-ButtonLabelInset, -4f)
         );
         var label = Text(labelRect, font, text, size, TextAlignmentOptions.Center, TextColor);
         return (button, background, label);
+    }
+
+    /// <summary>The close glyph every BPP sheet, dialog, and menu shows, History's included.</summary>
+    public const string CloseGlyph = "X";
+
+    /// <summary>
+    /// The close button every BPP surface shares: <see cref="CloseGlyph"/> at title size in the
+    /// rect its layout gives it (<c>TouchChrome.CloseAt</c>, one touch target tall).
+    /// </summary>
+    public static (Button Button, Image Background, TextMeshProUGUI Label) CloseButton(
+        RectTransform rect,
+        TMP_FontAsset font,
+        float titleFont,
+        Action onTap
+    ) => Button(rect, font, CloseGlyph, titleFont, onTap);
+
+    /// <summary>
+    /// A vertical drag-scrolled list filling <paramref name="area"/>, with inertia; its content
+    /// stretches across the viewport and hangs from its top, so rows are placed top-down.
+    /// </summary>
+    public static (ScrollRect Scroll, RectTransform Content) VerticalScroll(RectTransform area)
+    {
+        var viewport = Rect(
+            "Viewport",
+            area,
+            Vector2.zero,
+            Vector2.one,
+            Vector2.zero,
+            Vector2.zero
+        );
+        // Transparent but raycast: a drag anywhere in the list scrolls it.
+        Fill(viewport, new Color(0f, 0f, 0f, 0.001f));
+        viewport.gameObject.AddComponent<RectMask2D>();
+        var content = Rect(
+            "Content",
+            viewport,
+            new(0f, 1f),
+            new(1f, 1f),
+            Vector2.zero,
+            Vector2.zero
+        );
+        content.pivot = new Vector2(0f, 1f);
+        var scroll = area.gameObject.AddComponent<ScrollRect>();
+        scroll.viewport = viewport;
+        scroll.content = content;
+        scroll.horizontal = false;
+        scroll.vertical = true;
+        scroll.movementType = ScrollRect.MovementType.Clamped;
+        scroll.inertia = true;
+        scroll.decelerationRate = 0.12f;
+        scroll.scrollSensitivity = 40f;
+        return (scroll, content);
     }
 }

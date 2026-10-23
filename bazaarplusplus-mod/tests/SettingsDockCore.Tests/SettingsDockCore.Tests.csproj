@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <!-- The settings dock's shared rows, the pedestal rule behind [EnchantPreview] Mode, and the
-       touch launcher's layout, run against Core alone. Needs no game snapshot, so `mod::test`
+       touch layouts on their shared frame, run against Core alone. Needs no game snapshot, so `mod::test`
        and `mod::test-core` both run it. -->
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
