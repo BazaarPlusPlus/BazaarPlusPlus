@@ -176,15 +176,13 @@ internal sealed class AndroidReplayOpponent
             participants.OpponentName,
             null,
             null,
-            TryParseRank(participants.OpponentRank) is { } rank
-                ? new Il2CppSystem.Nullable<ERank>(rank)
-                : null!,
+            AndroidGameIds.Optional(TryParseRank(participants.OpponentRank)),
             participants.OpponentRating ?? 0,
-            null!,
-            null!,
-            null!,
-            participants.OpponentLevel is { } level ? new Il2CppSystem.Nullable<int>(level) : null!,
-            new Il2CppSystem.Nullable<EHero>(opponentHero),
+            AndroidGameIds.Optional<int>(null),
+            AndroidGameIds.Optional<uint>(null),
+            AndroidGameIds.Optional<int>(null),
+            AndroidGameIds.Optional(participants.OpponentLevel),
+            AndroidGameIds.Optional<EHero>(opponentHero),
             EmptyLoadout(manifest),
             null
         );
@@ -217,7 +215,7 @@ internal sealed class AndroidReplayOpponent
         new()
         {
             accountId = manifest.Participants.OpponentAccountId ?? string.Empty,
-            heroSkinIds = new Il2CppInterop.Runtime.InteropTypes.Arrays.Il2CppStringArray(0),
-            cardSkinIds = new Il2CppInterop.Runtime.InteropTypes.Arrays.Il2CppStringArray(0),
+            heroSkinIds = new Il2CppInterop.Runtime.InteropTypes.Arrays.Il2CppStringArray(0L),
+            cardSkinIds = new Il2CppInterop.Runtime.InteropTypes.Arrays.Il2CppStringArray(0L),
         };
 }

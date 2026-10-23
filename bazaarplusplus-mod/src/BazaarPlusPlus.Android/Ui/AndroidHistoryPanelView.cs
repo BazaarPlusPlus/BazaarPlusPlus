@@ -36,7 +36,7 @@ internal sealed partial class AndroidHistoryPanelView : IDisposable
     private readonly TMP_FontAsset _font;
     private readonly ViewActions _actions;
     private readonly Dictionary<IntPtr, bool> _selection = new();
-    private readonly Il2CppStructArray<Vector3> _corners = new(4);
+    private readonly Il2CppStructArray<Vector3> _corners = new(4L);
     private GameObject? _root;
     private RectTransform? _layout;
     private HistoryPanelLayout _geometry;

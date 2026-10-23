@@ -121,6 +121,28 @@ public sealed class AndroidReplayHostRuleTests : IDisposable
     }
 
     [Fact]
+    public void The_template_index_reads_the_ids_of_the_game_data_cards_table()
+    {
+        Directory.CreateDirectory(_dataRoot);
+        var path = Path.Combine(_dataRoot, "GameData.db");
+        var first = Guid.NewGuid();
+        var second = Guid.NewGuid();
+        using (var connection = new SqliteConnection($"Data Source={path};Pooling=False"))
+        {
+            connection.Open();
+            using var command = connection.CreateCommand();
+            command.CommandText =
+                "CREATE TABLE cards (Id TEXT NOT NULL PRIMARY KEY, Data BLOB NOT NULL) STRICT, WITHOUT ROWID;"
+                + $"INSERT INTO cards VALUES ('{first}', x'7b7d'), ('{second}', x'7b7d'), ('not-a-guid', x'7b7d');";
+            command.ExecuteNonQuery();
+        }
+
+        var ids = AndroidCardTemplateIndex.ReadTemplateIds(path);
+
+        Assert.Equal(new[] { first, second }.Order(), ids.Order());
+    }
+
+    [Fact]
     public async Task The_template_index_counts_every_template_until_frozen_then_only_known_ones()
     {
         var index = new AndroidCardTemplateIndex();

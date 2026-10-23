@@ -238,8 +238,10 @@ internal static class AndroidReplaySavedState
             ApplySnapshotFallback(card, snapshot);
             card.Size = AndroidCardFacets.GameSize(snapshot.Size);
             card.Owner = ownerProxy;
-            card.Section = Nullable(AndroidCardFacets.GameSection(snapshot.Section));
-            card.LeftSocketId = Nullable(AndroidCardFacets.GameSocket(snapshot.Socket));
+            card.Section = AndroidGameIds.Optional(AndroidCardFacets.GameSection(snapshot.Section));
+            card.LeftSocketId = AndroidGameIds.Optional(
+                AndroidCardFacets.GameSocket(snapshot.Socket)
+            );
             cards.Add(card);
         }
         return cards;
@@ -292,9 +294,4 @@ internal static class AndroidReplaySavedState
         )
             item.Enchantment = new Il2CppSystem.Nullable<EEnchantmentType>(enchantment);
     }
-
-    // A null game value is an absent Nullable; a present one is constructed, never read back
-    // through the getter (the boxed-Nullable gotcha in android-host.md).
-    private static Il2CppSystem.Nullable<T> Nullable<T>(T? value)
-        where T : struct => value is { } present ? new Il2CppSystem.Nullable<T>(present) : null!;
 }
