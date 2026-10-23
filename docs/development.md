@@ -87,19 +87,9 @@ master push 用同一套分类规则，因此 Installer 原生或其共享输入
 
 ## Android 冒烟
 
-`.github/workflows/mod-android-smoke.yml` 在自托管的 Apple Silicon runner `macmini-bazaarplusplus` 上启动一台预先准备好的 AVD，跑 `just mod::android-smoke <mode>`，每晚一次（schedule 只在默认分支触发），也可以手动触发；分支上的改动用 `gh workflow run mod-android-smoke.yml --ref <分支> -f mode=<mode>` 验证。托管 runner 跑不了：macOS arm64 托管 runner 没有嵌套虚拟化，x86 runner 跑不了只有 arm64 的游戏。仓库是公开的，这个 lane 永远不接 `pull_request`。
+Android 没有云端的设备 lane：托管 runner 跑不了 arm64 游戏的模拟器（macOS arm64 托管 runner 没有嵌套虚拟化，x86 runner 跑不了只有 arm64 的游戏），自托管一台常开、常登录的机器只为夜间冒烟不值。发版前的设备验证在开发机上做：一台跑着 LemonLoader 注入版游戏、已登录测试账号的设备或 AVD，`just mod::android-smoke enabled` 构建、推送、重启、抓取并断言；`just mod::android-smoke disabled` 不装任何 patch，必须在 hook 命中级失败，用来证明断言不是空过。同一时间只驱动一台设备。
 
-断言分三级（注入成功、hook 命中、功能生效），定义在 `scripts/android.sh` 的 `cmd_verify`。三级分开，是因为前一级通过不说明后一级：DLL 加载了，patch 未必装上，patch 命中了标签未必写对。证据目录作为 Actions artifact 上传；下载后用 `just mod::android-verify <目录>` 重算结论（路径按 `bazaarplusplus-mod/` 解析，最好传绝对路径），版本取自证据里的 `version.txt`，不受之后 `VERSION` 变动影响。版本标签在主菜单加载前就写入，所以三级不依赖主菜单；`android-smoke` 另外要求主菜单在超时内出现，登录过期卡在登录页的运行因此仍然失败。主菜单不产生记录，数据库行数只作证据。`mode=disabled` 不安装任何 patch，必须在 hook 命中级失败，用来证明断言不是空过；`observe` 只计数不写标签，必然在功能生效级失败，所以 workflow 不提供它。
-
-证据包含整机 logcat 和已登录测试账号的截图，仓库公开，artifact 任何登录 GitHub 的人都能下载。第一份真实 artifact 出来后，先检查里面有没有账号或 token，再让夜间运行继续。
-
-runner 用户下的前置，只能人工准备一次，缺任何一项时 workflow 在 checkout 之后的前置检查失败，并把缺项写进 artifact 的 `preflight.txt`：
-
-- Android SDK 在 `~/Library/Android/sdk`（或 `ANDROID_HOME`），含 platform-tools、emulator 和 arm64-v8a 系统镜像；本地验证用的是 `system-images;android-35;google_apis_playstore;arm64-v8a`。`sqlite3` 在 PATH 上；`just` 由 workflow 按 `checks.yml` 的同一版本安装。
-- 一台 AVD，名字是 workflow `env.AVD`。在里面装 BPP 签名的注入 APK（`release.yml` 的 `platform: android` 加 `build_only` 产出的 APK artifact），用测试账号登录一次，退到主菜单后保存 quickboot 快照。lane 以 `-no-snapshot-save` 启动，每次都从这份登录状态开始；登录过期或换 APK 后要重新登录并重存快照。
-- runner 以登录用户会话里的 LaunchAgent 运行：模拟器用 `-gpu host`，需要图形会话。
-- 一台机器同一时间只跑一个模拟器：workflow 的 concurrency 让本 lane 串行，启动前已有模拟器在线时 preflight 失败，不去抢设备。
-- 拉取 Interop Snapshot 用仓库 secret `BPP_GAME_LIBS_TOKEN` 和变量 `CLOUDFLARE_ACCOUNT_ID`，与 `mod-android` lane 相同，不读 runner 本机的 `config.ini`。
+断言分三级（注入成功、hook 命中、功能生效），定义在 `scripts/android.sh` 的 `cmd_verify`。三级分开，是因为前一级通过不说明后一级：DLL 加载了，patch 未必装上，patch 命中了标签未必写对。证据写进 `bazaarplusplus-mod/artifacts/android/smoke-<mode>/`（gitignored，含整机 logcat 和已登录账号的截图，不要提交，也不要原样贴进公开的 issue 或 PR）；`just mod::android-verify <目录>` 重算结论（路径按 `bazaarplusplus-mod/` 解析，最好传绝对路径），版本取自证据里的 `version.txt`，不受之后 `VERSION` 变动影响。版本标签在主菜单加载前就写入，所以三级不依赖主菜单；`android-smoke` 另外要求主菜单在超时内出现，登录过期卡在登录页的运行因此仍然失败。主菜单不产生记录，数据库行数只作证据。`observe` 只计数不写标签，必然在功能生效级失败。
 
 ## Git hooks
 
