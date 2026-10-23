@@ -61,7 +61,9 @@ jobs:
       run:
         shell: bash
     env:
-      PLATFORM: ${{ matrix.platform }}
+      # Not PLATFORM: MSBuild reads environment variables as properties, and Platform=android
+      # moves every project output to bin/android/, where the Android Payload never looks.
+      RELEASE_PLATFORM: ${{ matrix.platform }}
       # prepare: a dry run stops after release::prepare; release: build and upload too.
       STAGE: ${{ (github.event_name == 'workflow_dispatch' && inputs.dry_run == true) && 'prepare' || 'release' }}
       REQUESTED_VERSION: ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}
@@ -84,7 +86,7 @@ jobs:
           ANDROID_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE }}
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-        run: bash .github/scripts/release-secrets.sh check "$PLATFORM" "$STAGE"
+        run: bash .github/scripts/release-secrets.sh check "$RELEASE_PLATFORM" "$STAGE"
       # A version names one commit (ADR 0001); the run builds the ref it was
       # dispatched from or the tagged commit, so the ask must match that ref.
       - name: Require the requested version to equal VERSION
@@ -95,7 +97,7 @@ jobs:
             echo "::error title=Version mismatch::Requested $requested, but VERSION at $GITHUB_SHA is $version. Dispatch from the commit that sets VERSION, or tag v$version on it."
             exit 1
           fi
-          echo "Building $PLATFORM $version from $GITHUB_SHA"
+          echo "Building $RELEASE_PLATFORM $version from $GITHUB_SHA"
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .nvmrc
@@ -138,14 +140,14 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
-        run: just mod::fetch "$PLATFORM" online
+        run: just mod::fetch "$RELEASE_PLATFORM" online
       # prepare reuses the committed native recorder inputs when
       # release/native-recorder-input.mjs finds them fresh and rebuilds them on
       # this runner otherwise; a rebuild changes tracked files, which the next
       # step turns into a named failure instead of an unpublishable dirty build.
       - name: Prepare the Payload
         run: |
-          just release::prepare "$PLATFORM" | tee "$RUNNER_TEMP/prepare.log"
+          just release::prepare "$RELEASE_PLATFORM" | tee "$RUNNER_TEMP/prepare.log"
           grep -E '^Prepared ' "$RUNNER_TEMP/prepare.log" >> "$GITHUB_STEP_SUMMARY" || true
       - name: Require prepare to leave tracked files unchanged
         id: clean
@@ -154,7 +156,7 @@ jobs:
           if [[ -n "$changes" ]]; then
             printf '%s\n' "$changes"
             git diff --binary > "$RUNNER_TEMP/native-recorder-inputs.patch"
-            echo "::error title=Native recorder inputs rebuilt::release::prepare rebuilt the $PLATFORM native recorder inputs and changed the tracked files above. Apply the native-recorder-inputs-$PLATFORM artifact with 'git apply', or run 'just release::prepare $PLATFORM' locally, commit, and rerun."
+            echo "::error title=Native recorder inputs rebuilt::release::prepare rebuilt the $RELEASE_PLATFORM native recorder inputs and changed the tracked files above. Apply the native-recorder-inputs-$RELEASE_PLATFORM artifact with 'git apply', or run 'just release::prepare $RELEASE_PLATFORM' locally, commit, and rerun."
             exit 1
           fi
       - if: failure() && steps.clean.outcome == 'failure'
@@ -164,7 +166,7 @@ jobs:
           path: ${{ runner.temp }}/native-recorder-inputs.patch
           retention-days: 7
       - if: env.STAGE == 'prepare'
-        run: echo "Dry run stopped after release::prepare for $PLATFORM; nothing was signed or uploaded." >> "$GITHUB_STEP_SUMMARY"
+        run: echo "Dry run stopped after release::prepare for $RELEASE_PLATFORM; nothing was signed or uploaded." >> "$GITHUB_STEP_SUMMARY"
       # bundle.sh reads signing material as files from BPP_SIGNING_SECRETS_DIR,
       # the same layout `node scripts/workspace.mjs run signing` stages locally.
       - if: env.STAGE == 'release'
@@ -179,7 +181,7 @@ jobs:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
         run: |
-          bash .github/scripts/release-secrets.sh stage "$PLATFORM" "$RUNNER_TEMP/signing-secrets"
+          bash .github/scripts/release-secrets.sh stage "$RELEASE_PLATFORM" "$RUNNER_TEMP/signing-secrets"
           echo "BPP_SIGNING_SECRETS_DIR=$RUNNER_TEMP/signing-secrets" >> "$GITHUB_ENV"
       # bundle.sh codesigns nested resources before Tauri bundles, so the
       # Developer ID identity must already be in a keychain; Tauri then finds the
@@ -210,7 +212,7 @@ jobs:
           echo "BPP_RELEASE_KEYCHAIN=$keychain" >> "$GITHUB_ENV"
       - if: env.STAGE == 'release' && matrix.platform != 'android'
         name: Build and sign the installer
-        run: just release::build "$PLATFORM"
+        run: just release::build "$RELEASE_PLATFORM"
       # Android build reads the release store (is this APK identity published?)
       # and the private snapshot store (the official APK, Loader Release and
       # Patcher). build_only always injects, so the run keeps an APK to install.
@@ -235,7 +237,7 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
         run: |
-          just release::upload "$PLATFORM" | tee "$RUNNER_TEMP/upload.log"
+          just release::upload "$RELEASE_PLATFORM" | tee "$RUNNER_TEMP/upload.log"
           grep -E '^Uploaded ' "$RUNNER_TEMP/upload.log" >> "$GITHUB_STEP_SUMMARY" || true
       # The installer and its artifact manifest, for inspection; R2 holds the
       # copy promote reads.
