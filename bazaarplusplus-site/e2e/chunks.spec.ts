@@ -16,7 +16,6 @@ import { settle } from './page';
 // Public icon byte budgets. Raise one only with the reason in the pull request.
 const ICON_BUDGETS: Record<string, number> = {
   'bazaarplusplus-icon.webp': 10_000,
-  'bpp-mark.svg': 1_000,
   'favicon.webp': 5_000,
 };
 

@@ -6,7 +6,7 @@ import PageLayout, { PageHeading } from './PageLayout';
 type InfoPageShellProps = {
   location: ResolvedSpaLocation;
   title: string;
-  intro?: string;
+  intro: string;
   children: ReactNode;
 };
 

@@ -112,7 +112,7 @@ The full standard is the **Voice and writing** section: voice, glossary, capital
 ## Logos
 
 - The **brand mark** is a chevron over a gem: flat, two shapes on a 32-unit grid with 45° edges. The chevron is `text-1` and the gem is `accent`. It is the same silhouette as the app icon and the macOS menu-bar mark, flattened for UI sizes.
-  - `bpp-mark.svg` is for dark grounds. Use it at 20px beside "BazaarPlusPlus" in `body-strong` in the title bar, 28px in the site header, and larger on the Install status panel.
+  - `bpp-mark.svg` is for dark grounds. Use it at 20px beside "BazaarPlusPlus" in `body-strong` in the title bar and larger on the Install status panel. The site header uses its existing `public/bazaarplusplus-icon.webp` app icon beside the product name.
   - `bpp-mark-on-light.svg` swaps the chevron to `bg-selected` ink for light grounds such as documents and store pages.
   - `bpp-mark-mono-white.svg` is a single white ink for the menu bar and other one-colour places.
   - Give the mark clear space of at least a quarter of its width. Never add a radius, bevel, gradient, glow or outline, and never recolour the gem away from `accent`.
