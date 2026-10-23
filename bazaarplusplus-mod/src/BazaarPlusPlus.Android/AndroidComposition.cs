@@ -1,3 +1,4 @@
+using BazaarPlusPlus.Android.CombatReplay;
 using BazaarPlusPlus.Android.GameInterop;
 using BazaarPlusPlus.Android.Host;
 using BazaarPlusPlus.Core.Config;
@@ -7,13 +8,19 @@ using BazaarPlusPlus.Core.RunContext;
 using BazaarPlusPlus.Core.Runtime;
 using BazaarPlusPlus.Game.BundlePipeline;
 using BazaarPlusPlus.Game.CombatReplay;
+using BazaarPlusPlus.Game.HistoryPanel;
+using BazaarPlusPlus.Game.HistoryPanel.AccountLink;
+using BazaarPlusPlus.Game.HistoryPanel.Ghost;
+using BazaarPlusPlus.Game.HistoryPanel.Storage;
 using BazaarPlusPlus.Game.PvpBattles.Persistence;
 using BazaarPlusPlus.Game.RunLifecycle;
 using BazaarPlusPlus.Game.RunLogging;
 using BazaarPlusPlus.Game.Upload;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.ReleaseManifest;
+using BazaarPlusPlus.ModApi;
 using BazaarPlusPlus.ModApi.Bundle;
+using BazaarPlusPlus.ModApi.Clients;
 using BazaarPlusPlus.Storage.Paths;
 using BazaarPlusPlus.Storage.RunLog;
 using BazaarPlusPlus.Storage.RunLog.Replication;
@@ -27,7 +34,10 @@ namespace BazaarPlusPlus.Android;
 /// capture with its board captures and Replay Payloads), Bundle sealing, the upload pump, and the
 /// Replay Payload maintenance sweep, all on one history database. Features start in registration
 /// order and stop in reverse; the pump is ticked from the melon's update and disposed first. The
-/// sweep runs once per start on a pool thread, as on the desktop.
+/// sweep runs once per start on a pool thread, as on the desktop. It also owns what History and
+/// the replay runtime share with the record chain: the battle store and catalog, the payload
+/// store and its operation gate, and History's own Mod API session (ADR-0006), which outlives the
+/// upload pump's per-activation sessions and is disposed last.
 /// </summary>
 internal sealed class AndroidComposition
 {
@@ -39,6 +49,7 @@ internal sealed class AndroidComposition
 
     private readonly CoreComposition _core;
     private readonly ReplayPayloadMaintenanceService _replayMaintenance;
+    private readonly ModApiSession _historySession;
     private ReplayMaintenanceFlight? _replayMaintenanceFlight;
     private UploadPump? _uploads;
 
@@ -59,9 +70,26 @@ internal sealed class AndroidComposition
             gameBuild
         );
         var services = _core.Services;
+        CombatReplayDirectory = PathConstants.CombatReplays(dataRoot);
         var battles = new PvpBattleSqliteStore(DatabasePath, DatabaseOptions);
-        var replays = new CombatReplayPayloadStore(PathConstants.CombatReplays(dataRoot));
+        var replays = new CombatReplayPayloadStore(CombatReplayDirectory);
         var replayGate = new ReplayPayloadOperationGate();
+        Battles = new PvpBattleCatalog(battles);
+        Replays = replays;
+        ReplayGate = replayGate;
+        // The base URL is a constant, so a null session is a build defect: the composition fails
+        // to start (android.record_chain.start_failed), as the desktop plugin does (ADR-0006).
+        _historySession =
+            ModApiSession.TryCreate(
+                ModApiUploadDefaults.ApiBaseUrl,
+                BppPluginVersion.Current,
+                ReleaseManifestEndpoints.AndroidPlatformKey,
+                "OnlineClient",
+                TimeSpan.FromSeconds(ModApiUploadDefaults.RequestTimeoutSeconds)
+            )
+            ?? throw new InvalidOperationException(
+                $"Mod API base URL '{ModApiUploadDefaults.ApiBaseUrl}' is not an absolute URL."
+            );
         // The capture saves each battle synchronously under the gate's persistence lease, so no
         // battle is ever queued between its file and its row: there is nothing to protect.
         _replayMaintenance = new ReplayPayloadMaintenanceService(
@@ -79,14 +107,13 @@ internal sealed class AndroidComposition
             static () => DateTimeOffset.UtcNow
         );
 
-        _core.Register(
-            new RunLifecycleModule(
-                services.EventBus,
-                services.GameStateProbe,
-                services.RunContext,
-                RunLifecycleSource
-            )
+        RunLifecycle = new RunLifecycleModule(
+            services.EventBus,
+            services.GameStateProbe,
+            services.RunContext,
+            RunLifecycleSource
         );
+        _core.Register(RunLifecycle);
         _core.Register(
             new RunLoggingModule(
                 services.EventBus,
@@ -114,7 +141,7 @@ internal sealed class AndroidComposition
                 services,
                 new RunPayloadComposer(
                     DatabasePath,
-                    PathConstants.CombatReplays(dataRoot),
+                    CombatReplayDirectory,
                     AndroidPvpBattleEvidence.Instance,
                     DatabaseOptions
                 ),
@@ -127,7 +154,26 @@ internal sealed class AndroidComposition
 
     public string DatabasePath { get; }
 
+    public string CombatReplayDirectory { get; }
+
     public BppSettings Settings => _core.Services.Config;
+
+    public IBppServices Services => _core.Services;
+
+    public RunLifecycleModule RunLifecycle { get; }
+
+    /// <summary>The battle catalog over the composition's own DELETE-mode battle store.</summary>
+    public PvpBattleCatalog Battles { get; }
+
+    public CombatReplayPayloadStore Replays { get; }
+
+    /// <summary>
+    /// The one payload gate: the capture's persistence, the maintenance sweep, and replay
+    /// playback each take its lease.
+    /// </summary>
+    public ReplayPayloadOperationGate ReplayGate { get; }
+
+    public ModApiSession HistorySession => _historySession;
 
     public IBppEventBus EventBus => _core.Services.EventBus;
 
@@ -162,6 +208,83 @@ internal sealed class AndroidComposition
         _replayMaintenanceFlight?.Dispose();
         _replayMaintenanceFlight = null;
         _core.Stop();
+        _historySession.Dispose();
+    }
+
+    /// <summary>
+    /// History's dependencies over this composition: the repository on the history database,
+    /// Ghost sync over History's session, and the replay service over the runtime the accessor
+    /// returns. The panel only receives them; the composition stays their owner.
+    /// </summary>
+    public HistoryPanelDependencies CreateHistoryDependencies(
+        Func<ISavedReplayRuntime?> runtime,
+        Func<Guid, bool> hasCardTemplate
+    ) =>
+        CreateHistoryDependencies(
+            RunContext,
+            DatabasePath,
+            CombatReplayDirectory,
+            _historySession,
+            runtime,
+            hasCardTemplate,
+            AndroidHistoryPorts.ProfileAccountId,
+            AndroidHistoryPorts.UnscaledTime,
+            AndroidHistoryPorts.AccountLinkStore()
+        );
+
+    /// <summary>
+    /// The managed half of <see cref="CreateHistoryDependencies(Func{ISavedReplayRuntime?}, Func{Guid, bool})"/>:
+    /// every input is a path, a session, or a delegate, so a test composes History over a
+    /// temporary database without the game. A null session leaves Ghost sync unavailable. The
+    /// Android host has no BazaarDB link client yet and no Favorites service (#399): the
+    /// account-link form and the Favorites tab stay hidden.
+    /// </summary>
+    internal static HistoryPanelDependencies CreateHistoryDependencies(
+        IRunContext runContext,
+        string databasePath,
+        string combatReplayDirectory,
+        ModApiSession? session,
+        Func<ISavedReplayRuntime?> runtime,
+        Func<Guid, bool> hasCardTemplate,
+        Func<string?> profileAccountId,
+        Func<float> unscaledTime,
+        BazaarDbAccountLinkStore accountLinkStore
+    )
+    {
+        ArgumentNullException.ThrowIfNull(runContext);
+        ArgumentException.ThrowIfNullOrWhiteSpace(databasePath);
+        ArgumentNullException.ThrowIfNull(runtime);
+        ArgumentNullException.ThrowIfNull(hasCardTemplate);
+        var repository = new HistoryPanelRepository(databasePath);
+        var ghostSync =
+            session == null
+                ? null
+                : new GhostBattleSyncService(
+                    repository,
+                    session,
+                    profileAccountId,
+                    AndroidPvpBattleEvidence.Instance,
+                    hasCardTemplate
+                );
+        var data = new HistoryPanelDataService(repository, ghostSync, () => combatReplayDirectory);
+        var replay = new HistoryPanelReplayService(
+            runtime,
+            AndroidNoRecording.Instance,
+            combatReplayDirectory,
+            profileAccountId,
+            ghostSync
+        );
+        return new HistoryPanelDependencies(
+            runContext,
+            data,
+            replay,
+            session,
+            accountLinkClient: null,
+            accountLinkGate: null,
+            accountLinkStore,
+            unscaledTime,
+            profileAccountId
+        );
     }
 
     // Encounter Preview is not composed on Android; nothing here reads encounter ids.

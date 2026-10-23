@@ -69,6 +69,20 @@
     <PackageReference Include="Newtonsoft.Json" />
   </ItemGroup>
 
+  <!-- History's BPP badge atlases are the desktop's own artwork, linked rather than copied. -->
+  <ItemGroup>
+    <EmbeddedResource
+      Include="../BazaarPlusPlus/Resources/HistoryPanel/battle-result-badges.png"
+      Link="Resources/HistoryPanel/battle-result-badges.png"
+      LogicalName="BazaarPlusPlus.Android.Resources.HistoryPanel.battle-result-badges.png"
+    />
+    <EmbeddedResource
+      Include="../BazaarPlusPlus/Resources/HistoryPanel/run-state-badges.png"
+      Link="Resources/HistoryPanel/run-state-badges.png"
+      LogicalName="BazaarPlusPlus.Android.Resources.HistoryPanel.run-state-badges.png"
+    />
+  </ItemGroup>
+
   <!-- The Updater ships in the Payload (MelonLoader/Plugins/) and is built for it, never
        referenced: it runs before the Mods load and may not depend on them (ADR-0014). -->
   <ItemGroup>

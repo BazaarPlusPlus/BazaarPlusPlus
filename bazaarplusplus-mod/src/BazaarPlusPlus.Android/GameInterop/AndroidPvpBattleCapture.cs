@@ -30,6 +30,10 @@ namespace BazaarPlusPlus.Android.GameInterop;
 internal sealed class AndroidPvpBattleCapture
 {
     private const string PvpCombatKind = "PVPCombat";
+
+    // How long a capture waits for the payload gate on the main thread before it saves the
+    // battle without its payload.
+    internal static readonly TimeSpan LeaseWait = TimeSpan.FromMilliseconds(200);
     private readonly PvpBattleSqliteStore _store;
     private readonly CombatReplayPayloadStore _replays;
     private readonly ReplayPayloadOperationGate _replayGate;
@@ -281,17 +285,10 @@ internal sealed class AndroidPvpBattleCapture
     {
         record.RecordedAtUtc = _utcNow();
         var saving = Stopwatch.StartNew();
-        bool replaySaved;
-        long replayElapsedMs;
+        PersistOutcome persisted;
         try
         {
-            using var lease = _replayGate.AcquirePersistence(CancellationToken.None);
-            var replaySaving = Stopwatch.StartNew();
-            replaySaved = SaveReplay(record, replay);
-            replayElapsedMs = replaySaving.ElapsedMilliseconds;
-            _store.Save(record);
-            if (!replaySaved)
-                _store.MarkReplayPayloadMissing([record.BattleId], record.RecordedAtUtc);
+            persisted = Persist(_replayGate, _store, _replays, record, replay, LeaseWait);
         }
         catch (Exception exception)
         {
@@ -305,6 +302,19 @@ internal sealed class AndroidPvpBattleCapture
             return;
         }
 
+        if (persisted.ReplaySaved)
+            Interlocked.Increment(ref _replaysSaved);
+        if (!persisted.LeaseHeld)
+            BppLog.WarnEvent(
+                new BppLogEvent(
+                    BppLogFeatureScope.Android,
+                    "android.pvp_battle.lease_busy",
+                    storm: ["reason_code"]
+                ),
+                ("battle_id", record.BattleId, BppLogCorrelationPolicy.Short),
+                ("reason_code", "payload_gate_held"),
+                ("wait_ms", (long)LeaseWait.TotalMilliseconds)
+            );
         Interlocked.Increment(ref _recorded);
         BppLog.InfoEvent(
             new BppLogEvent(BppLogFeatureScope.Android, "android.pvp_battle.recorded"),
@@ -314,9 +324,9 @@ internal sealed class AndroidPvpBattleCapture
                 ("day", record.Day),
                 ("hour", record.Hour),
                 ("result", record.Outcome.Result),
-                ("replay_saved", replaySaved),
+                ("replay_saved", persisted.ReplaySaved),
                 ("save_elapsed_ms", saving.ElapsedMilliseconds),
-                ("replay_elapsed_ms", replayElapsedMs),
+                ("replay_elapsed_ms", persisted.ReplayElapsedMs),
                 .. snapshots.LogFields(),
             ]
         );
@@ -334,8 +344,38 @@ internal sealed class AndroidPvpBattleCapture
         );
     }
 
+    /// <summary>
+    /// Saves the Replay Payload, then the battle, under the persistence lease. The main thread
+    /// never blocks on the gate: the maintenance sweep or a replay's playback can hold it for
+    /// long, and this thread is the one that releases a playback lease. When the lease stays
+    /// held past <paramref name="leaseWait"/>, the battle is saved without its payload, its
+    /// replay state <c>missing</c>, so the sweep still never sees a file before its row.
+    /// </summary>
+    internal static PersistOutcome Persist(
+        ReplayPayloadOperationGate gate,
+        PvpBattleSqliteStore store,
+        CombatReplayPayloadStore replays,
+        PvpBattleRecord record,
+        PvpReplayPayload? replay,
+        TimeSpan leaseWait
+    )
+    {
+        using var lease = gate.TryAcquirePersistence(leaseWait);
+        var replaySaving = Stopwatch.StartNew();
+        var replaySaved = lease != null && SaveReplay(replays, record, replay);
+        var replayElapsedMs = replaySaving.ElapsedMilliseconds;
+        store.Save(record);
+        if (!replaySaved)
+            store.MarkReplayPayloadMissing([record.BattleId], record.RecordedAtUtc);
+        return new PersistOutcome(lease != null, replaySaved, replayElapsedMs);
+    }
+
     // Saved before the battle row, so a battle whose replay state reads ready has its file.
-    private bool SaveReplay(PvpBattleRecord record, PvpReplayPayload? replay)
+    private static bool SaveReplay(
+        CombatReplayPayloadStore replays,
+        PvpBattleRecord record,
+        PvpReplayPayload? replay
+    )
     {
         if (
             replay == null
@@ -346,8 +386,7 @@ internal sealed class AndroidPvpBattleCapture
             return false;
         try
         {
-            _replays.Save(replay);
-            Interlocked.Increment(ref _replaysSaved);
+            replays.Save(replay);
             return true;
         }
         catch (Exception exception)
@@ -360,6 +399,12 @@ internal sealed class AndroidPvpBattleCapture
             return false;
         }
     }
+
+    internal readonly record struct PersistOutcome(
+        bool LeaseHeld,
+        bool ReplaySaved,
+        long ReplayElapsedMs
+    );
 
     private static string? Text(string? value) => string.IsNullOrWhiteSpace(value) ? null : value;
 }
