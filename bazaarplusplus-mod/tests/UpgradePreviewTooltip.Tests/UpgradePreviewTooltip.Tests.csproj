@@ -7,6 +7,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="../../src/BazaarPlusPlus.Core/BazaarPlusPlus.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Compile
       Include="../../src/BazaarPlusPlus/Game/Tooltips/UpgradePreviewValueProjection.cs"
       Link="UpgradePreviewValueProjection.cs"
@@ -18,10 +22,6 @@
     <Compile
       Include="../../src/BazaarPlusPlus/Game/Tooltips/UpgradePreviewValueRegistry.cs"
       Link="UpgradePreviewValueRegistry.cs"
-    />
-    <Compile
-      Include="../../src/BazaarPlusPlus.Core/Game/Tooltips/UpgradePreviewValueMath.cs"
-      Link="UpgradePreviewValueMath.cs"
     />
     <Reference Include="BazaarGameClient">
       <HintPath>$(ManagedPath)/BazaarGameClient.dll</HintPath>
