@@ -1,5 +1,7 @@
 using System.Text;
 using System.Text.RegularExpressions;
+using BazaarPlusPlus.Core.Config;
+using BazaarPlusPlus.Core.GameState;
 using BazaarPlusPlus.Game.ItemEnchantPreview;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
@@ -22,7 +24,10 @@ namespace BazaarPlusPlus.Android.GameInterop;
 /// through the game's tooltip builder against a copy of the item carrying that enchantment's
 /// attributes, as the game's lock-mode enchantment option builds its preview card. The section
 /// is computed when the tooltip's contents render and consumed by the passive block of that same
-/// render, so nothing carries over to the next card.
+/// render, so nothing carries over to the next card. Core's <see cref="EnchantPreviewVisibility"/>
+/// decides when it shows under <c>[EnchantPreview] Mode</c>: always, never, or only while an
+/// enchant pedestal is offered (<see cref="AndroidChoicePedestals"/>), and then only for the
+/// enchantment(s) that pedestal applies.
 /// </summary>
 internal static class AndroidEnchantPreview
 {
@@ -36,22 +41,47 @@ internal static class AndroidEnchantPreview
     private const long LoggedRenders = 10;
     private static string? _pending;
     private static long _rendered;
+    private static long _pedestalHidden;
+    private static long _pedestalShown;
     private static int _failures;
 
-    /// <summary>Whether the section is wanted at all; null before the host binds it.</summary>
-    public static Func<bool>? IsEnabled { get; set; }
+    /// <summary>The <c>[EnchantPreview] Mode</c> setting; null before the host binds it.</summary>
+    public static Func<PreviewVisibilityMode>? Mode { get; set; }
 
     public static long Rendered => Interlocked.Read(ref _rendered);
+
+    /// <summary>Tooltips under <c>AutoOnPedestalChoice</c> with no enchant pedestal offered.</summary>
+    public static long PedestalHidden => Interlocked.Read(ref _pedestalHidden);
+
+    /// <summary>Tooltips under <c>AutoOnPedestalChoice</c> while an enchant pedestal is offered.</summary>
+    public static long PedestalShown => Interlocked.Read(ref _pedestalShown);
 
     /// <summary>The contents of a card tooltip start to render.</summary>
     public static void Prepare(CardTooltipData? tooltipData)
     {
         _pending = null;
-        if (tooltipData == null || IsEnabled?.Invoke() != true)
+        if (tooltipData == null || Mode == null)
             return;
         try
         {
-            _pending = Build(tooltipData);
+            var mode = Mode();
+            var readsPedestal = EnchantPreviewVisibility.ReadsPedestal(mode);
+            ChoicePedestalSnapshot? pedestal = null;
+            if (readsPedestal)
+            {
+                var outcome = AndroidChoicePedestals.Read();
+                if (outcome.IsSuccess)
+                    pedestal = outcome.Snapshot;
+            }
+            if (!EnchantPreviewVisibility.Shows(mode, pedestal))
+            {
+                if (readsPedestal)
+                    Interlocked.Increment(ref _pedestalHidden);
+                return;
+            }
+            if (readsPedestal)
+                Interlocked.Increment(ref _pedestalShown);
+            _pending = Build(tooltipData, EnchantPreviewVisibility.Restriction(mode, pedestal));
         }
         catch (Exception exception)
         {
@@ -89,7 +119,7 @@ internal static class AndroidEnchantPreview
     /// <summary>The render finished, whether or not the passive block consumed the section.</summary>
     public static void Clear() => _pending = null;
 
-    private static string? Build(CardTooltipData tooltipData)
+    private static string? Build(CardTooltipData tooltipData, IReadOnlyList<string>? restriction)
     {
         if (Data.IsInCombat || AppState.CurrentState?.TryCast<ReplayState>() != null)
             return null;
@@ -117,6 +147,8 @@ internal static class AndroidEnchantPreview
             var enchantment = entry.Value;
             if (enchantment == null || (current.HasValue && current.Value == type))
                 continue;
+            if (!Allowed(type, restriction))
+                continue;
             var effect = Render(card, template, itemTemplate, type, enchantment, run);
             if (string.IsNullOrWhiteSpace(effect))
                 continue;
@@ -124,6 +156,21 @@ internal static class AndroidEnchantPreview
         }
         // A short blank first line keeps the list off the block's top divider.
         return lines.Count == 0 ? null : $"<size=40%> </size>\n{string.Join("\n", lines)}";
+    }
+
+    // The desktop's ItemEnchantPreviewCandidateSelector: a pedestal that names its enchantment(s)
+    // keeps only those; an empty or absent restriction keeps every one.
+    private static bool Allowed(EEnchantmentType type, IReadOnlyList<string>? restriction)
+    {
+        if (restriction == null || restriction.Count == 0)
+            return true;
+        var name = type.ToString();
+        foreach (var allowed in restriction)
+        {
+            if (string.Equals(allowed, name, StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+        return false;
     }
 
     // The desktop's ItemEnchantPreviewEligibility: an item on a board or in a stash, or one no

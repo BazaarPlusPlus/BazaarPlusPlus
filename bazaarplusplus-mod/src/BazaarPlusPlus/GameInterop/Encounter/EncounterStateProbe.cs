@@ -50,21 +50,18 @@ internal sealed class EncounterStateProbe : IEncounterStateProbe
                 _choicePedestalOutcome = ChoicePedestalProbeOutcome.Success(
                     AppState.CurrentState is PedestalState
                     && idsOutcome.Snapshot.CurrentEncounterTemplateId.HasValue
-                        ? CreateChoicePedestalSnapshot(
-                            ChoiceScreenPedestalResolver.ResolveDetailedFromTemplateIds(
-                                new[] { idsOutcome.Snapshot.CurrentEncounterTemplateId.Value }
-                            )
+                        ? ChoiceScreenPedestalResolver.Resolve(
+                            new[] { idsOutcome.Snapshot.CurrentEncounterTemplateId.Value }
                         )
                         : ChoicePedestalSnapshot.Empty
                 );
             }
             else
             {
-                var choice = ChoiceScreenPedestalResolver.ResolveDetailedFromTemplateIds(
-                    idsOutcome.Snapshot.ChoiceSelectionTemplateIds
-                );
                 _choicePedestalOutcome = ChoicePedestalProbeOutcome.Success(
-                    CreateChoicePedestalSnapshot(choice)
+                    ChoiceScreenPedestalResolver.Resolve(
+                        idsOutcome.Snapshot.ChoiceSelectionTemplateIds
+                    )
                 );
             }
         }
@@ -172,16 +169,5 @@ internal sealed class EncounterStateProbe : IEncounterStateProbe
         if (string.IsNullOrWhiteSpace(id))
             return null;
         return Guid.TryParse(id, out var guid) ? guid : null;
-    }
-
-    private static ChoicePedestalSnapshot CreateChoicePedestalSnapshot(
-        ChoiceScreenPedestalResult choice
-    )
-    {
-        return new ChoicePedestalSnapshot
-        {
-            Kind = choice.Kind,
-            EnchantmentTypeNames = choice.EnchantmentTypeNames,
-        };
     }
 }

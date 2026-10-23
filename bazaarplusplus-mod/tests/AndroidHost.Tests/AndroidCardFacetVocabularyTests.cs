@@ -3,6 +3,7 @@ using System.Reflection;
 using System.Reflection.Metadata;
 using System.Reflection.PortableExecutable;
 using BazaarPlusPlus.Core.Cards;
+using BazaarPlusPlus.Core.GameState;
 using Xunit;
 
 namespace AndroidHost.Tests;
@@ -46,6 +47,22 @@ public sealed class AndroidCardFacetVocabularyTests
         Assert.True(
             unmapped.Length == 0,
             $"{TypesNamespace}.{gameEnum} defines {string.Join(", ", unmapped)} with no {facet.Name} member."
+        );
+    }
+
+    // The pedestal catalog names enchantments by member name too: the enchant preview compares them
+    // with the interop EEnchantmentType member names, so a name the enum lacks would never match.
+    [Fact]
+    public void Every_pedestal_enchantment_is_an_interop_enum_member()
+    {
+        var members = InteropEnumMembers("EEnchantmentType");
+        var unknown = PedestalEnchantCatalog
+            .EnchantmentTypeNames.Where(name => !members.Contains(name))
+            .ToArray();
+        Assert.NotEmpty(PedestalEnchantCatalog.EnchantmentTypeNames);
+        Assert.True(
+            unknown.Length == 0,
+            $"{TypesNamespace}.EEnchantmentType defines no {string.Join(", ", unknown)}."
         );
     }
 

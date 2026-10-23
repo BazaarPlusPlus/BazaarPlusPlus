@@ -204,7 +204,7 @@ internal sealed class DesktopComposition : IDisposable
         _settingsDockRegistry.Register(CosmeticNamesSettingsDockEntry.Create());
         _settingsDockRegistry.Register(CombatStatusBarSettingsDockEntry.Create());
         _settingsDockRegistry.Register(new EndOfRunScreenshotSettingsDockEntry());
-        _settingsDockRegistry.Register(new HistoryPanelSettingsDockEntry());
+        _settingsDockRegistry.Register(HistoryPanelHotkeyDockEntry.Create());
         _settingsDockRegistry.Register(ItemEnchantPreviewSettingsDockEntry.Create());
         _settingsDockRegistry.Register(UpgradePreviewActivationSettingsDockEntry.Create());
         _settingsDockRegistry.Register(EventPreviewSettingsDockEntry.Create());

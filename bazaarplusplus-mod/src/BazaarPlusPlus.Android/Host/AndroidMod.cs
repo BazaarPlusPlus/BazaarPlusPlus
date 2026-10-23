@@ -5,6 +5,7 @@ using BazaarPlusPlus.Android.GameInterop;
 using BazaarPlusPlus.Android.GameInterop.CardRental;
 using BazaarPlusPlus.Android.Lobby;
 using BazaarPlusPlus.Android.Patches;
+using BazaarPlusPlus.Android.Settings;
 using BazaarPlusPlus.Android.Ui;
 using BazaarPlusPlus.Core.Config;
 using BazaarPlusPlus.Core.Runtime;
@@ -81,6 +82,7 @@ public sealed class AndroidMod : MelonMod
         _replayRuntime?.Tick();
         _historyPanel?.Tick();
         _touchUi?.EnsureMounted();
+        AndroidNativeSettingsSection.Tick(Time.unscaledTime);
         AndroidCardRental.Tick();
         _versionCheck?.Tick();
         var revision = MainMenuVersionUpdateState.Current.Revision;
@@ -112,6 +114,7 @@ public sealed class AndroidMod : MelonMod
             ("main_thread_waits", AndroidMainThread.Host.PendingWaits),
             ("main_thread_failures", AndroidMainThread.Host.CallbackFailures),
             .. _touchUi?.Summary() ?? [],
+            .. AndroidNativeSettingsSection.Summary(),
         ];
 
     // OnInitializeMelon bound the pump; the first frame confirms Unity's main thread is that one.
@@ -161,8 +164,7 @@ public sealed class AndroidMod : MelonMod
                 () => ChineseScriptConverter.NormalizeMode(shared.ChineseLocaleModeConfig.Value)
             );
             AndroidUpgradePreview.IsEnabled = () => android.UpgradePreview.Value;
-            AndroidEnchantPreview.IsEnabled = () =>
-                shared.EnchantPreviewModeConfig.Value == PreviewVisibilityMode.Always;
+            AndroidEnchantPreview.Mode = () => shared.EnchantPreviewModeConfig.Value;
             var melonBase = MelonEnvironment.MelonBaseDirectory;
             _versionCheck = new AndroidVersionCheck(
                 AndroidPaths.InstallRoot(melonBase),
@@ -170,14 +172,28 @@ public sealed class AndroidMod : MelonMod
                 Application.version ?? ""
             );
             StartHistory();
-            _touchUi = new AndroidTouchUi(
-                shared,
+            var touchUi = new AndroidTouchUi(
                 android,
-                _versionCheck,
                 _historyPanel == null ? null : () => _historyPanel?.Open("launcher"),
-                reason => _historyPanel?.Close(reason),
                 () => _historyPanel?.IsVisible == true,
                 _composition?.BuildRecommendations
+            );
+            _touchUi = touchUi;
+            var versionCheck = _versionCheck;
+            AndroidSettingsDock.Install(
+                shared,
+                android,
+                new AndroidSettingsDockHooks(
+                    CloseCollection: touchUi.CloseCollection,
+                    CloseLiveBuild: touchUi.CloseLiveBuild,
+                    CloseHistory: reason => _historyPanel?.Close(reason),
+                    ReleaseUpgradePreview: AndroidUpgradePreview.Release,
+                    ReleaseRentedCards: AndroidCardRental.ReleaseAll,
+                    HistoryAvailable: () => _historyPanel != null,
+                    OpenHistory: () => _historyPanel?.Open("settings"),
+                    GameUpdateAvailable: () => versionCheck.GameUpdate != null,
+                    OpenGameUpdate: () => OpenGameUpdate(versionCheck)
+                )
             );
         }
         catch (Exception exception)
@@ -229,6 +245,18 @@ public sealed class AndroidMod : MelonMod
             _replayRuntime?.Dispose();
             _replayRuntime = null;
         }
+    }
+
+    private static void OpenGameUpdate(AndroidVersionCheck versionCheck)
+    {
+        var apk = versionCheck.GameUpdate;
+        if (apk == null)
+            return;
+        BppLog.InfoEvent(
+            new BppLogEvent(BppLogFeatureScope.Android, "android.ui.game_update_opened"),
+            ("game_version", apk.GameVersion)
+        );
+        Application.OpenURL(apk.Url.ToString());
     }
 
     private static string ReadGameLanguageCode()
