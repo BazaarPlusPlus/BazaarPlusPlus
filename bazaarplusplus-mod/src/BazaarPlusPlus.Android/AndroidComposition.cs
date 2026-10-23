@@ -11,6 +11,7 @@ using BazaarPlusPlus.Game.BundlePipeline;
 using BazaarPlusPlus.Game.CombatReplay;
 using BazaarPlusPlus.Game.HistoryPanel;
 using BazaarPlusPlus.Game.HistoryPanel.AccountLink;
+using BazaarPlusPlus.Game.HistoryPanel.Favorites;
 using BazaarPlusPlus.Game.HistoryPanel.Ghost;
 using BazaarPlusPlus.Game.HistoryPanel.Storage;
 using BazaarPlusPlus.Game.LiveBuildPanel.Recommendations;
@@ -24,6 +25,7 @@ using BazaarPlusPlus.Infrastructure.RemoteEmbeddedCatalog;
 using BazaarPlusPlus.ModApi;
 using BazaarPlusPlus.ModApi.Bundle;
 using BazaarPlusPlus.ModApi.Clients;
+using BazaarPlusPlus.ModApi.Http;
 using BazaarPlusPlus.Storage.Paths;
 using BazaarPlusPlus.Storage.RunLog;
 using BazaarPlusPlus.Storage.RunLog.Replication;
@@ -39,10 +41,11 @@ namespace BazaarPlusPlus.Android;
 /// order and stop in reverse; the pump is ticked from the melon's update and disposed first. The
 /// sweep runs once per start on a pool thread, as on the desktop. It also owns what History and
 /// the replay runtime share with the record chain: the battle store and catalog, the payload
-/// store and its operation gate, and History's own Mod API session (ADR-0006), which outlives the
-/// upload pump's per-activation sessions and is disposed last. It owns the ten-win build catalog,
-/// a Remote Embedded Catalog, and the Live Build panel's recommendation repository over it, as the
-/// desktop composition does: the corpus warms at start and the catalog is disposed on stop.
+/// store and its operation gate, History's BazaarDB link client, and History's own Mod API
+/// session (ADR-0006), which outlives the upload pump's per-activation sessions and is disposed
+/// last. It owns the ten-win build catalog, a Remote Embedded Catalog, and the Live Build panel's
+/// recommendation repository over it, as the desktop composition does: the corpus warms at start
+/// and the catalog is disposed on stop.
 /// </summary>
 internal sealed class AndroidComposition
 {
@@ -56,6 +59,7 @@ internal sealed class AndroidComposition
     private readonly ReplayPayloadMaintenanceService _replayMaintenance;
     private readonly ModApiSession _historySession;
     private readonly IRemoteEmbeddedCatalog<TenWinBuildCorpus> _buildCatalog;
+    private readonly BazaarDbLinkClient _accountLink;
     private ReplayMaintenanceFlight? _replayMaintenanceFlight;
     private UploadPump? _uploads;
 
@@ -148,20 +152,35 @@ internal sealed class AndroidComposition
             _buildCatalog,
             AndroidCardTemplateSize.Resolve
         );
+        // BazaarDB account linking posts to bazaardb.gg, not the Mod API, over its own bare
+        // client with the desktop's 30 s timeout.
+        _accountLink = new BazaarDbLinkClient(
+            BppHttpClientFactory.Create(
+                productVersion: BppPluginVersion.Current,
+                platformKey: ReleaseManifestEndpoints.AndroidPlatformKey,
+                userAgentSuffix: "BazaarDbLink",
+                timeout: TimeSpan.FromSeconds(30)
+            ),
+            new Uri(BazaarDbLinkClient.DefaultRedeemEndpoint)
+        );
         // Last, so nothing after it can throw and leak it. The base URL is a constant, so a null
         // session is a build defect: the composition fails to start
         // (android.record_chain.start_failed), as the desktop plugin does (ADR-0006).
-        _historySession =
-            ModApiSession.TryCreate(
-                ModApiUploadDefaults.ApiBaseUrl,
-                BppPluginVersion.Current,
-                ReleaseManifestEndpoints.AndroidPlatformKey,
-                "OnlineClient",
-                TimeSpan.FromSeconds(ModApiUploadDefaults.RequestTimeoutSeconds)
-            )
-            ?? throw new InvalidOperationException(
+        var historySession = ModApiSession.TryCreate(
+            ModApiUploadDefaults.ApiBaseUrl,
+            BppPluginVersion.Current,
+            ReleaseManifestEndpoints.AndroidPlatformKey,
+            "OnlineClient",
+            TimeSpan.FromSeconds(ModApiUploadDefaults.RequestTimeoutSeconds)
+        );
+        if (historySession == null)
+        {
+            _accountLink.Dispose();
+            throw new InvalidOperationException(
                 $"Mod API base URL '{ModApiUploadDefaults.ApiBaseUrl}' is not an absolute URL."
             );
+        }
+        _historySession = historySession;
     }
 
     public string DatabasePath { get; }
@@ -228,6 +247,7 @@ internal sealed class AndroidComposition
         _replayMaintenanceFlight = null;
         _core.Stop();
         _buildCatalog.Dispose();
+        _accountLink.Dispose();
         _historySession.Dispose();
     }
 
@@ -249,15 +269,21 @@ internal sealed class AndroidComposition
             hasCardTemplate,
             AndroidHistoryPorts.ProfileAccountId,
             AndroidHistoryPorts.UnscaledTime,
-            AndroidHistoryPorts.AccountLinkStore()
+            AndroidHistoryPorts.AccountLinkStore(),
+            _accountLink,
+            () =>
+                HistoryPanelDecisions.ResolveAccountLinkGate(
+                    Settings.BazaarDbUploadEnabled.Value,
+                    _core.Services.GameBuild.Channel
+                )
         );
 
     /// <summary>
     /// The managed half of <see cref="CreateHistoryDependencies(Func{ISavedReplayRuntime?}, Func{Guid, bool})"/>:
     /// every input is a path, a session, or a delegate, so a test composes History over a
-    /// temporary database without the game. A null session leaves Ghost sync unavailable. The
-    /// Android host has no BazaarDB link client yet and no Favorites service (#399): the
-    /// account-link form and the Favorites tab stay hidden.
+    /// temporary database without the game. A null session leaves Ghost sync unavailable, and a
+    /// null link client the account-link form. Favorites read and play through the runtime the
+    /// accessor returns, as on the desktop.
     /// </summary>
     internal static HistoryPanelDependencies CreateHistoryDependencies(
         IRunContext runContext,
@@ -268,7 +294,9 @@ internal sealed class AndroidComposition
         Func<Guid, bool> hasCardTemplate,
         Func<string?> profileAccountId,
         Func<float> unscaledTime,
-        BazaarDbAccountLinkStore accountLinkStore
+        BazaarDbAccountLinkStore accountLinkStore,
+        BazaarDbLinkClient? accountLinkClient,
+        Func<AccountLinkGate>? accountLinkGate
     )
     {
         ArgumentNullException.ThrowIfNull(runContext);
@@ -299,12 +327,20 @@ internal sealed class AndroidComposition
             data,
             replay,
             session,
-            accountLinkClient: null,
-            accountLinkGate: null,
+            accountLinkClient,
+            accountLinkGate,
             accountLinkStore,
             unscaledTime,
             profileAccountId
-        );
+        )
+        {
+            Favorites = HistoryFavoriteService.OverRuntime(
+                repository,
+                combatReplayDirectory,
+                runtime,
+                replay
+            ),
+        };
     }
 
     // Encounter Preview is not composed on Android; nothing here reads encounter ids.

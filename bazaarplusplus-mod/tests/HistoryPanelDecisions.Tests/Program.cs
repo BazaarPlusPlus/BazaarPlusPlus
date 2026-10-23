@@ -16,6 +16,8 @@ TestButtonModelReplayRecordDeleteParity();
 GhostMessageTests.Run();
 AccountLinkCardTests.Run(coreAssembly);
 PageRangeTests.Run();
+HistoryTouchLayoutTests.Run();
+HistoryBoardProjectionTests.Run();
 ViewModelBuilderTests.Run();
 
 Console.WriteLine("HistoryPanelDecisions checks passed.");
@@ -123,6 +125,17 @@ void TestCanDeleteRunDecisionArms()
         isRepositoryAvailable: true,
         expectedAllowed: true,
         expectedReason: string.Empty
+    );
+    var sealProtected = CreateRun("run-1", "completed");
+    runType.GetProperty("IsSealProtected")!.SetValue(sealProtected, true);
+    AssertCanDelete(
+        sectionMode: "Runs",
+        selectedRun: sealProtected,
+        isInGameRun: false,
+        currentServerRunId: null,
+        isRepositoryAvailable: true,
+        expectedAllowed: false,
+        expectedReason: "This ranked run is waiting to upload to BazaarDB and cannot be deleted yet."
     );
 }
 

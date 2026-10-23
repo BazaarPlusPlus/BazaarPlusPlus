@@ -86,4 +86,8 @@ public sealed class HistoryRunRecord
     public int? Losses { get; }
 
     public string RawStatus { get; }
+
+    // The Run's Bundle is still owed (BundleQueueStore.ProtectedRunCondition): History does not
+    // delete it.
+    public bool IsSealProtected { get; init; }
 }

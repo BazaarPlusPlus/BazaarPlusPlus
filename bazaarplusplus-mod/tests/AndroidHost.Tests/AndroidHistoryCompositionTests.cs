@@ -7,6 +7,7 @@ using BazaarPlusPlus.Game.CombatReplay;
 using BazaarPlusPlus.Game.HistoryPanel;
 using BazaarPlusPlus.Game.HistoryPanel.AccountLink;
 using BazaarPlusPlus.Game.HistoryPanel.Data;
+using BazaarPlusPlus.Game.HistoryPanel.Storage;
 using BazaarPlusPlus.Game.PvpBattles;
 using BazaarPlusPlus.Game.PvpBattles.Persistence;
 using BazaarPlusPlus.ModApi.Clients;
@@ -55,9 +56,28 @@ public sealed class AndroidHistoryCompositionTests : IDisposable
 
         Assert.False(dependencies.DataService.CanSyncGhostBattles);
         Assert.Empty(dependencies.DataService.LoadRuns(new(), hero: null).Rows);
-        Assert.Null(dependencies.Favorites);
         Assert.Null(dependencies.AccountLinkClient);
         Assert.Equal("delete", JournalMode());
+    }
+
+    [Fact]
+    public void Favorites_and_the_account_link_compose_as_on_the_desktop()
+    {
+        using var client = new BazaarDbLinkClient(
+            new HttpClient(),
+            new Uri(BazaarDbLinkClient.DefaultRedeemEndpoint)
+        );
+        var dependencies = Compose(
+            session: null,
+            new StandInRuntime(),
+            client,
+            static () => AccountLinkGate.Available
+        );
+
+        Assert.NotNull(dependencies.Favorites);
+        Assert.Empty(dependencies.Favorites!.LoadPage(new HistoryPageRequest()).Rows);
+        Assert.Same(client, dependencies.AccountLinkClient);
+        Assert.Equal(AccountLinkGate.Available, dependencies.AccountLinkGate!());
     }
 
     [Fact]
@@ -140,7 +160,12 @@ public sealed class AndroidHistoryCompositionTests : IDisposable
         Assert.Equal(new[] { "kept" }, payloads.ListBattleIds());
     }
 
-    private HistoryPanelDependencies Compose(ModApiSession? session, ISavedReplayRuntime runtime) =>
+    private HistoryPanelDependencies Compose(
+        ModApiSession? session,
+        ISavedReplayRuntime runtime,
+        BazaarDbLinkClient? accountLinkClient = null,
+        Func<AccountLinkGate>? accountLinkGate = null
+    ) =>
         AndroidComposition.CreateHistoryDependencies(
             new RunContextStore(),
             DatabasePath,
@@ -150,7 +175,9 @@ public sealed class AndroidHistoryCompositionTests : IDisposable
             static _ => true,
             static () => LocalAccount,
             static () => 0f,
-            new BazaarDbAccountLinkStore(static _ => false, static _ => { })
+            new BazaarDbAccountLinkStore(static _ => false, static _ => { }),
+            accountLinkClient,
+            accountLinkGate
         );
 
     private static ModApiSession Session(Func<HttpRequestMessage, HttpResponseMessage> respond) =>

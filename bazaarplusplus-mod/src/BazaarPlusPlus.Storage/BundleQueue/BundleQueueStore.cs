@@ -33,10 +33,7 @@ public sealed class BundleQueueStore : SqliteStoreBase
     public static string SealEligibleRunCondition(string runAlias) =>
         $"""
             (
-                {runAlias}.upload_policy = 'bundle'
-                AND {runAlias}.status = 'completed'
-                AND lower({runAlias}.game_mode) = 'ranked'
-                AND lower(COALESCE({runAlias}.build_channel, 'unknown')) <> 'ptr'
+                {SealableRunShape(runAlias)}
                 AND NOT EXISTS (
                     SELECT 1 FROM {RunLogSchema.BundleSealJobsTableName} AS {runAlias}_seal_job
                     WHERE {runAlias}_seal_job.run_id = {runAlias}.run_id
@@ -46,6 +43,45 @@ public sealed class BundleQueueStore : SqliteStoreBase
                     WHERE {runAlias}_outbox.run_id = {runAlias}.run_id
                 )
             )
+            """;
+
+    /// <summary>
+    /// A Run whose Bundle is still owed, as a SQL condition over the runs row aliased
+    /// <paramref name="runAlias"/>: a Seal-Eligible Run (<see cref="SealEligibleRunCondition"/>),
+    /// or a Run of the same shape whose seal job has not failed for good and that has no outbox
+    /// row pending or uploaded. It is the <c>protectedFromCleanup</c> column of the shared cases
+    /// in <c>tests/BundleQueueSqliteStore.Tests/fixtures/bundle-seal-eligibility.json</c>, the
+    /// rule installer History cleanup also applies; History refuses to delete such a Run, since
+    /// deleting it would lose the Bundle before it is sealed.
+    /// </summary>
+    public static string ProtectedRunCondition(string runAlias) =>
+        $"""
+            (
+                {SealEligibleRunCondition(runAlias)}
+                OR (
+                    {SealableRunShape(runAlias)}
+                    AND EXISTS (
+                        SELECT 1 FROM {RunLogSchema.BundleSealJobsTableName} AS {runAlias}_live_job
+                        WHERE {runAlias}_live_job.run_id = {runAlias}.run_id
+                          AND {runAlias}_live_job.state <> 'terminal_failure'
+                    )
+                    AND NOT EXISTS (
+                        SELECT 1 FROM {RunLogSchema.BundleOutboxTableName} AS {runAlias}_owed_outbox
+                        WHERE {runAlias}_owed_outbox.run_id = {runAlias}.run_id
+                          AND {runAlias}_owed_outbox.status IN ('pending', 'uploaded')
+                    )
+                )
+            )
+            """;
+
+    // Not a History-Only Run, completed, Ranked, not PTR: the Runs a Bundle is sealed for. The
+    // upload policy is checked first: imported history is never sealed.
+    private static string SealableRunShape(string runAlias) =>
+        $"""
+            {runAlias}.upload_policy = 'bundle'
+                AND {runAlias}.status = 'completed'
+                AND lower({runAlias}.game_mode) = 'ranked'
+                AND lower(COALESCE({runAlias}.build_channel, 'unknown')) <> 'ptr'
             """;
 
     public void EnsureEligibleJobs(TimeSpan inputConvergenceWindow)

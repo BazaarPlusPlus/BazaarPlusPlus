@@ -1,0 +1,579 @@
+#nullable enable
+using BazaarPlusPlus.Core.Ui;
+
+namespace BazaarPlusPlus.Game.HistoryPanel.Ui;
+
+/// <summary>
+/// The History panel's geometry on a landscape touch screen, in canvas units, top-down from the
+/// canvas's top-left corner: a full sheet inside the safe area. The header carries the section
+/// tabs, the drag-scrolled filter chips, More, and Close. Under it stand three columns: the
+/// archive (its list, page label, and pager), the run's battle rail with its two pagers, and the
+/// detail column with the native boards over the action row (delete, favorite, skills, replay).
+/// The status line runs along the bottom of the sheet. Every target is at least
+/// <see cref="TouchMetrics.MinTargetDp"/> and every text at least
+/// <see cref="TouchMetrics.MinBodySp"/>. The boards keep the game's card prefab proportions: ten
+/// sockets span the detail column, which takes <see cref="DetailSocketDp"/> per socket before the
+/// archive takes the rest, so a card's footprint stays a full touch target on a 20:9 phone. The
+/// skills sheet, the card inspection, the More dialog, and the favorite note dialog sit over the
+/// sheet. List rows, rail chips, filter chips, and dialog rows are given from their content's
+/// top-left corner. The desktop's <c>HistoryPanelLayout</c> is a separate layout and is not
+/// derived from this one.
+/// </summary>
+public sealed class HistoryTouchLayout
+{
+    public const int SocketCount = 10;
+
+    /// <summary>The most skills a skills sheet row shows.</summary>
+    public const int SkillsPerRow = 10;
+
+    /// <summary>A rented card prefab's height, as the Android card rental sets it up; a skill is square.</summary>
+    public const float PrefabHeight = 484f;
+
+    /// <summary>One socket of the prefab: a small item's width at <see cref="PrefabHeight"/>.</summary>
+    public const float PrefabSocketWidth = 252f;
+
+    /// <summary>The card frame stands this much taller than its socket.</summary>
+    public const float FrameHeightOverSocket = 1.037f;
+
+    /// <summary>The socket width the detail column is sized for before the archive takes the rest.</summary>
+    public const float DetailSocketDp = 52f;
+
+    public const int PagerButtonCount = 3;
+
+    private HistoryTouchLayout(TouchMetrics metrics)
+    {
+        Metrics = metrics;
+        var margin = metrics.Dp(4f);
+        var padding = metrics.Dp(8f);
+        var small = metrics.Dp(4f);
+        Gap = metrics.Dp(8f);
+        var target = metrics.MinTarget;
+
+        TitleFont = metrics.Sp(18f);
+        ButtonFont = metrics.Sp(14f);
+        RowTitleFont = metrics.Sp(14f);
+        BodyFont = metrics.Sp(12f);
+
+        Sheet = metrics.SafeArea.Inset(margin);
+        var body = Sheet.Inset(padding);
+
+        // Header: tabs from the left, Close and More from the right, the filters between them.
+        var closeWidth = metrics.Target(64f);
+        Close = new TouchRect(body.Right - closeWidth, body.Top, closeWidth, target);
+        var moreWidth = metrics.Target(80f);
+        More = new TouchRect(Close.Left - Gap - moreWidth, body.Top, moreWidth, target);
+        var tabWidth = metrics.Target(104f);
+        RunsTab = new TouchRect(body.Left, body.Top, tabWidth, target);
+        GhostTab = new TouchRect(RunsTab.Right + Gap, body.Top, tabWidth, target);
+        FavoritesTab = new TouchRect(GhostTab.Right + Gap, body.Top, tabWidth, target);
+        FilterStrip = new TouchRect(
+            FavoritesTab.Right + Gap,
+            body.Top,
+            Math.Max(0f, More.Left - Gap - FavoritesTab.Right - Gap),
+            target
+        );
+        HeroChipWidth = metrics.Target(96f);
+        OutcomeChipWidth = metrics.Target(80f);
+        DayChipWidth = metrics.Target(72f);
+        CloudNoteWidth = metrics.Dp(220f);
+
+        StatusHeight = metrics.Dp(18f);
+        Status = new TouchRect(body.Left, body.Bottom - StatusHeight, body.Width, StatusHeight);
+
+        var top = Close.Bottom + Gap;
+        var bottom = Status.Top - small;
+        var columnHeight = Math.Max(0f, bottom - top);
+        var railWidth = metrics.Target(76f);
+        var archiveWidth = Math.Clamp(
+            body.Width - railWidth - 2f * Gap - SocketCount * metrics.Dp(DetailSocketDp),
+            metrics.Dp(200f),
+            metrics.Dp(320f)
+        );
+        Archive = new TouchRect(body.Left, top, archiveWidth, columnHeight);
+        Rail = new TouchRect(Archive.Right + Gap, top, railWidth, columnHeight);
+        Detail = new TouchRect(
+            Rail.Right + Gap,
+            top,
+            Math.Max(0f, body.Right - Rail.Right - Gap),
+            columnHeight
+        );
+
+        // Archive: the list over the page label (two lines) over the pager.
+        ArchivePager = new TouchRect(Archive.Left, Archive.Bottom - target, archiveWidth, target);
+        PagerButtonWidth = (archiveWidth - Gap * (PagerButtonCount - 1)) / PagerButtonCount;
+        // Two lines of body text with TMP's line spacing; 32dp clipped the second into an ellipsis.
+        var pageLabelHeight = metrics.Dp(40f);
+        PageLabel = new TouchRect(
+            Archive.Left,
+            ArchivePager.Top - small - pageLabelHeight,
+            archiveWidth,
+            pageLabelHeight
+        );
+        ArchiveList = new TouchRect(
+            Archive.Left,
+            top,
+            archiveWidth,
+            Math.Max(0f, PageLabel.Top - small - top)
+        );
+        RunRowHeight = metrics.Dp(72f);
+        BattleRowHeight = metrics.Dp(64f);
+
+        // Rail: newer on top, older at the bottom, the battles between.
+        RailNewer = new TouchRect(Rail.Left, Rail.Top, railWidth, target);
+        RailOlder = new TouchRect(Rail.Left, Rail.Bottom - target, railWidth, target);
+        RailList = new TouchRect(
+            Rail.Left,
+            RailNewer.Bottom + small,
+            railWidth,
+            Math.Max(0f, RailOlder.Top - small - (RailNewer.Bottom + small))
+        );
+        ChipHeight = metrics.Dp(56f);
+
+        // Detail: the action row at the bottom, the boards above it.
+        Footer = new TouchRect(Detail.Left, Detail.Bottom - target, Detail.Width, target);
+        Delete = new TouchRect(Detail.Left, Footer.Top, metrics.Target(104f), target);
+        Favorite = new TouchRect(Delete.Right + Gap, Footer.Top, metrics.Target(120f), target);
+        Skills = new TouchRect(Favorite.Right + Gap, Footer.Top, metrics.Target(96f), target);
+        Replay = new TouchRect(
+            Skills.Right + Gap,
+            Footer.Top,
+            Math.Max(0f, Detail.Right - Skills.Right - Gap),
+            target
+        );
+
+        BoardTitleHeight = metrics.Dp(18f);
+        var boardGap = metrics.Dp(2f);
+        var boardsHeight = Math.Max(0f, Footer.Top - Gap - Detail.Top);
+        var heightScale =
+            (boardsHeight - 2f * BoardTitleHeight - boardGap)
+            / 2f
+            / (PrefabHeight * FrameHeightOverSocket);
+        var widthScale = Detail.Width / (PrefabSocketWidth * SocketCount);
+        CardScale = Math.Max(0.01f, Math.Min(widthScale, heightScale));
+        SocketWidth = PrefabSocketWidth * CardScale;
+        CardHeight = PrefabHeight * FrameHeightOverSocket * CardScale;
+        CarpetWidth = SocketWidth * SocketCount;
+        UpperBoardTitle = new TouchRect(Detail.Left, Detail.Top, Detail.Width, BoardTitleHeight);
+        UpperBoard = new TouchRect(Detail.Left, UpperBoardTitle.Bottom, CarpetWidth, CardHeight);
+        LowerBoardTitle = new TouchRect(
+            Detail.Left,
+            UpperBoard.Bottom + boardGap,
+            Detail.Width,
+            BoardTitleHeight
+        );
+        LowerBoard = new TouchRect(Detail.Left, LowerBoardTitle.Bottom, CarpetWidth, CardHeight);
+
+        // The card inspection: the enlarged card on the left, its text on the right.
+        var inspect = Sheet.Inset(padding);
+        InspectCardArea = new TouchRect(
+            inspect.Left,
+            inspect.Top,
+            inspect.Width * 0.55f,
+            inspect.Height
+        );
+        InspectInfo = new TouchRect(
+            InspectCardArea.Right + padding,
+            inspect.Top,
+            Math.Max(0f, inspect.Right - InspectCardArea.Right - padding),
+            inspect.Height
+        );
+        InspectClose = new TouchRect(
+            InspectInfo.Right - closeWidth,
+            InspectInfo.Top,
+            closeWidth,
+            target
+        );
+        InspectName = new TouchRect(
+            InspectInfo.Left,
+            InspectInfo.Top,
+            Math.Max(0f, InspectClose.Left - Gap - InspectInfo.Left),
+            metrics.Dp(56f)
+        );
+        InspectDetail = new TouchRect(
+            InspectInfo.Left,
+            InspectName.Bottom + Gap,
+            InspectInfo.Width,
+            Math.Max(0f, InspectInfo.Bottom - InspectName.Bottom - Gap)
+        );
+
+        // The skills sheet: both players' skills, one row each, under its title row.
+        var skills = Sheet.Inset(padding);
+        SkillsClose = new TouchRect(skills.Right - closeWidth, skills.Top, closeWidth, target);
+        SkillsTitle = new TouchRect(
+            skills.Left,
+            skills.Top,
+            Math.Max(0f, SkillsClose.Left - Gap - skills.Left),
+            target
+        );
+        SkillSide = Math.Max(
+            1f,
+            Math.Min(
+                metrics.Dp(96f),
+                Math.Min(
+                    (skills.Width - Gap * (SkillsPerRow - 1)) / SkillsPerRow,
+                    (skills.Bottom - SkillsClose.Bottom - Gap - 2f * (BoardTitleHeight + Gap)) / 2f
+                )
+            )
+        );
+        _skillsLeft = skills.Left;
+        _skillsTop = SkillsClose.Bottom + Gap;
+        SkillsHint = new TouchRect(
+            skills.Left,
+            SkillRowTop(2),
+            skills.Width,
+            Math.Max(0f, skills.Bottom - SkillRowTop(2))
+        );
+
+        // The More dialog and the note dialog: centred, the sheet's height, at most 600dp wide.
+        var dialogWidth = Math.Min(metrics.Dp(600f), Sheet.Width);
+        Dialog = new TouchRect(
+            Sheet.CenterX - dialogWidth / 2f,
+            Sheet.Top,
+            dialogWidth,
+            Sheet.Height
+        );
+        var dialogBody = Dialog.Inset(padding);
+        DialogClose = new TouchRect(
+            dialogBody.Right - closeWidth,
+            dialogBody.Top,
+            closeWidth,
+            target
+        );
+        DialogTitle = new TouchRect(
+            dialogBody.Left,
+            dialogBody.Top,
+            Math.Max(0f, DialogClose.Left - Gap - dialogBody.Left),
+            target
+        );
+        MoreScroll = new TouchRect(
+            dialogBody.Left,
+            DialogClose.Bottom + Gap,
+            dialogBody.Width,
+            Math.Max(0f, dialogBody.Bottom - DialogClose.Bottom - Gap)
+        );
+        var w = MoreScroll.Width;
+        var line2 = metrics.Dp(36f);
+        var healthWidth = Math.Min(metrics.Target(200f), w * 0.45f);
+        MoreHealth = new TouchRect(w - healthWidth, 0f, healthWidth, target);
+        MoreDatabase = new TouchRect(0f, 0f, Math.Max(0f, MoreHealth.Left - Gap), target);
+        MoreStatus = new TouchRect(0f, MoreHealth.Bottom + small, w, line2);
+        var toggleWidth = Math.Min(metrics.Target(128f), w * 0.4f);
+        AccountToggle = new TouchRect(
+            w - toggleWidth,
+            MoreStatus.Bottom + Gap,
+            toggleWidth,
+            target
+        );
+        AccountTitle = new TouchRect(
+            0f,
+            AccountToggle.Top,
+            Math.Max(0f, AccountToggle.Left - Gap),
+            target
+        );
+        AccountStatus = new TouchRect(0f, AccountToggle.Bottom + small, w, line2);
+        AccountPersistence = new TouchRect(0f, AccountStatus.Bottom + small, w, line2);
+        AccountFormTop = AccountPersistence.Bottom + Gap;
+        AccountWhy = new TouchRect(0f, AccountFormTop, w, metrics.Dp(72f));
+        var submitWidth = Math.Min(metrics.Target(140f), w * 0.4f);
+        AccountSubmit = new TouchRect(
+            w - submitWidth,
+            AccountWhy.Bottom + small,
+            submitWidth,
+            target
+        );
+        AccountInput = new TouchRect(
+            0f,
+            AccountSubmit.Top,
+            Math.Max(0f, AccountSubmit.Left - Gap),
+            target
+        );
+        AccountBanner = new TouchRect(0f, AccountSubmit.Bottom + small, w, line2);
+        var linkedWidth = Math.Min(metrics.Target(220f), w);
+        AccountLinked = new TouchRect(
+            w - linkedWidth,
+            AccountBanner.Bottom + small,
+            linkedWidth,
+            target
+        );
+        MoreContentHeight = AccountLinked.Bottom;
+
+        var buttonWidth = metrics.Target(112f);
+        NoteSave = new TouchRect(
+            dialogBody.Right - buttonWidth,
+            dialogBody.Bottom - target,
+            buttonWidth,
+            target
+        );
+        NoteCancel = new TouchRect(
+            NoteSave.Left - Gap - buttonWidth,
+            NoteSave.Top,
+            buttonWidth,
+            target
+        );
+        NoteCount = new TouchRect(
+            dialogBody.Left,
+            NoteSave.Top,
+            Math.Max(0f, NoteCancel.Left - Gap - dialogBody.Left),
+            target
+        );
+        NoteInput = new TouchRect(
+            dialogBody.Left,
+            DialogClose.Bottom + Gap,
+            dialogBody.Width,
+            Math.Max(0f, NoteSave.Top - Gap - DialogClose.Bottom - Gap)
+        );
+    }
+
+    private readonly float _skillsLeft;
+    private readonly float _skillsTop;
+
+    public static HistoryTouchLayout For(TouchMetrics metrics) => new(metrics);
+
+    public TouchMetrics Metrics { get; }
+
+    public float Gap { get; }
+
+    public float TitleFont { get; }
+
+    public float ButtonFont { get; }
+
+    public float RowTitleFont { get; }
+
+    public float BodyFont { get; }
+
+    /// <summary>The whole panel: the safe area less a margin.</summary>
+    public TouchRect Sheet { get; }
+
+    public TouchRect RunsTab { get; }
+
+    public TouchRect GhostTab { get; }
+
+    public TouchRect FavoritesTab { get; }
+
+    /// <summary>The filter chips' viewport; the chips scroll sideways inside it.</summary>
+    public TouchRect FilterStrip { get; }
+
+    public float HeroChipWidth { get; }
+
+    public float OutcomeChipWidth { get; }
+
+    public float DayChipWidth { get; }
+
+    public float CloudNoteWidth { get; }
+
+    public TouchRect More { get; }
+
+    public TouchRect Close { get; }
+
+    public float StatusHeight { get; }
+
+    public TouchRect Status { get; }
+
+    public TouchRect Archive { get; }
+
+    public TouchRect ArchiveList { get; }
+
+    public TouchRect PageLabel { get; }
+
+    public TouchRect ArchivePager { get; }
+
+    public float PagerButtonWidth { get; }
+
+    public float RunRowHeight { get; }
+
+    /// <summary>A Ghost or Favorites row.</summary>
+    public float BattleRowHeight { get; }
+
+    public TouchRect Rail { get; }
+
+    public TouchRect RailNewer { get; }
+
+    public TouchRect RailList { get; }
+
+    public TouchRect RailOlder { get; }
+
+    public float ChipHeight { get; }
+
+    public TouchRect Detail { get; }
+
+    public TouchRect Footer { get; }
+
+    public TouchRect Delete { get; }
+
+    public TouchRect Favorite { get; }
+
+    public TouchRect Skills { get; }
+
+    public TouchRect Replay { get; }
+
+    public float BoardTitleHeight { get; }
+
+    public float CardScale { get; }
+
+    public float SocketWidth { get; }
+
+    /// <summary>A rented card's framed height on the boards.</summary>
+    public float CardHeight { get; }
+
+    /// <summary>Ten sockets' width: no card reaches past it.</summary>
+    public float CarpetWidth { get; }
+
+    /// <summary>The opponent's board with two boards, the challenger's with one (Ghost).</summary>
+    public TouchRect UpperBoardTitle { get; }
+
+    public TouchRect UpperBoard { get; }
+
+    /// <summary>Your board, when the section shows two.</summary>
+    public TouchRect LowerBoardTitle { get; }
+
+    public TouchRect LowerBoard { get; }
+
+    public TouchRect InspectCardArea { get; }
+
+    public TouchRect InspectInfo { get; }
+
+    public TouchRect InspectName { get; }
+
+    public TouchRect InspectClose { get; }
+
+    public TouchRect InspectDetail { get; }
+
+    public TouchRect SkillsTitle { get; }
+
+    public TouchRect SkillsClose { get; }
+
+    /// <summary>A skill square's side on the skills sheet.</summary>
+    public float SkillSide { get; }
+
+    public TouchRect SkillsHint { get; }
+
+    /// <summary>The More dialog and the note dialog.</summary>
+    public TouchRect Dialog { get; }
+
+    public TouchRect DialogTitle { get; }
+
+    public TouchRect DialogClose { get; }
+
+    /// <summary>The More dialog's drag-scrolled viewport; its rows are from its content's top-left.</summary>
+    public TouchRect MoreScroll { get; }
+
+    public TouchRect MoreDatabase { get; }
+
+    public TouchRect MoreHealth { get; }
+
+    public TouchRect MoreStatus { get; }
+
+    public TouchRect AccountTitle { get; }
+
+    public TouchRect AccountToggle { get; }
+
+    public TouchRect AccountStatus { get; }
+
+    public TouchRect AccountPersistence { get; }
+
+    /// <summary>Where the account link form starts; the content ends here while it is hidden.</summary>
+    public float AccountFormTop { get; }
+
+    public TouchRect AccountWhy { get; }
+
+    public TouchRect AccountInput { get; }
+
+    public TouchRect AccountSubmit { get; }
+
+    public TouchRect AccountBanner { get; }
+
+    public TouchRect AccountLinked { get; }
+
+    /// <summary>The More dialog's content height with the account link form shown.</summary>
+    public float MoreContentHeight { get; }
+
+    public TouchRect NoteInput { get; }
+
+    public TouchRect NoteCount { get; }
+
+    public TouchRect NoteCancel { get; }
+
+    public TouchRect NoteSave { get; }
+
+    /// <summary>One archive pager button (newer, older, latest).</summary>
+    public TouchRect PagerButton(int index) =>
+        new(
+            ArchivePager.Left
+                + Math.Clamp(index, 0, PagerButtonCount - 1) * (PagerButtonWidth + Gap),
+            ArchivePager.Top,
+            PagerButtonWidth,
+            ArchivePager.Height
+        );
+
+    /// <summary>An archive row, from the list content's top-left corner.</summary>
+    public TouchRect ArchiveRow(int index, bool runs)
+    {
+        var height = runs ? RunRowHeight : BattleRowHeight;
+        return new TouchRect(0f, Math.Max(0, index) * height, ArchiveList.Width, height - Gap / 2f);
+    }
+
+    /// <summary>A battle chip on the rail, from the rail content's top-left corner.</summary>
+    public TouchRect RailChip(int index) =>
+        new(0f, Math.Max(0, index) * ChipHeight, RailList.Width, ChipHeight - Gap / 2f);
+
+    /// <summary>
+    /// Filter chips of the given widths laid side by side, from the strip content's left edge.
+    /// </summary>
+    public IReadOnlyList<TouchRect> FilterChips(IReadOnlyList<float> widths)
+    {
+        var chips = new TouchRect[widths.Count];
+        var left = 0f;
+        for (var index = 0; index < widths.Count; index++)
+        {
+            chips[index] = new TouchRect(left, 0f, widths[index], FilterStrip.Height);
+            left += widths[index] + Gap;
+        }
+        return chips;
+    }
+
+    /// <summary>
+    /// A card's footprint on a board, from the board's top-left corner: <paramref name="span"/>
+    /// sockets from <paramref name="socket"/>.
+    /// </summary>
+    public TouchRect CardRect(int socket, int span)
+    {
+        var clampedSpan = Math.Clamp(span, 1, SocketCount);
+        var clampedSocket = Math.Clamp(socket, 0, SocketCount - clampedSpan);
+        return new TouchRect(
+            SocketWidth * clampedSocket,
+            0f,
+            SocketWidth * clampedSpan,
+            CardHeight
+        );
+    }
+
+    /// <summary>A skills sheet row's title band, in canvas units; row 0 is the opponent's.</summary>
+    public TouchRect SkillRowTitle(int row) =>
+        new(_skillsLeft, SkillRowTop(row), SkillsHint.Width, BoardTitleHeight);
+
+    /// <summary>One skill square on the skills sheet, in canvas units.</summary>
+    public TouchRect SkillCell(int row, int index) =>
+        new(
+            _skillsLeft + Math.Clamp(index, 0, SkillsPerRow - 1) * (SkillSide + Gap),
+            SkillRowTop(row) + BoardTitleHeight,
+            SkillSide,
+            SkillSide
+        );
+
+    /// <summary>The prefab scale that fills a skill square.</summary>
+    public float SkillScale => SkillSide / PrefabHeight;
+
+    /// <summary>The enlarged card's scale on the inspection for a card <paramref name="span"/> sockets wide.</summary>
+    public float InspectScale(int span, bool skill)
+    {
+        var width = skill ? PrefabHeight : PrefabSocketWidth * Math.Clamp(span, 1, 3);
+        var height = skill ? PrefabHeight : PrefabHeight * FrameHeightOverSocket;
+        return Math.Max(
+            0.01f,
+            Math.Min(InspectCardArea.Height * 0.9f / height, InspectCardArea.Width * 0.9f / width)
+        );
+    }
+
+    private float SkillRowTop(int row) =>
+        _skillsTop + Math.Clamp(row, 0, 2) * (BoardTitleHeight + SkillSide + Gap);
+}

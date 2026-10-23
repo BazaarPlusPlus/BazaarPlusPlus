@@ -101,9 +101,7 @@ public sealed class AndroidMod : MelonMod
     // History's sessions and the replay's lease, which a device run checks return to zero.
     private BppLogField[] InteractionSummary() =>
         [
-            ("history_open_sessions", _historyPanel?.OpenSessions ?? 0),
-            ("history_opened", _historyPanel?.Opened ?? 0),
-            ("history_view_roots", _historyPanel?.ViewRoots ?? 0),
+            .. _historyPanel?.Summary() ?? [],
             ("replay_starts", _replayRuntime?.Starts ?? 0),
             ("replay_start_failures", _replayRuntime?.StartFailures ?? 0),
             ("replay_exits", _replayRuntime?.ExitsHandled ?? 0),
@@ -177,6 +175,7 @@ public sealed class AndroidMod : MelonMod
                 android,
                 _versionCheck,
                 _historyPanel == null ? null : () => _historyPanel?.Open("launcher"),
+                reason => _historyPanel?.Close(reason),
                 () => _historyPanel?.IsVisible == true,
                 _composition?.BuildRecommendations
             );

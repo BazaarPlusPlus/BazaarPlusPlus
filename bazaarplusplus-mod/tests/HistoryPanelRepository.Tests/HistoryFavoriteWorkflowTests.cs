@@ -478,10 +478,11 @@ internal static class HistoryFavoriteWorkflowTests
                 connection.Open();
                 RunLogSchema.EnsureInitialized(connection);
             }
+            // Unranked: a completed Ranked Run is Seal-protected, and DeleteRun would refuse it.
             Execute(
                 """
                 INSERT INTO runs (run_id, started_at_ms, last_seen_at_ms, status, hero, game_mode)
-                VALUES ('favorite-run', 1767225600000, 1767225600000, 'completed', 'Vanessa', 'Ranked');
+                VALUES ('favorite-run', 1767225600000, 1767225600000, 'completed', 'Vanessa', 'Unranked');
                 INSERT INTO battles (battle_id, source, run_id, recorded_at_ms, combat_kind, local_payload_state, opponent_name)
                 VALUES ('favorite-local', 'LOCAL', 'favorite-run', 1767225600000, 'PVPCombat', 'ready', 'Rival');
                 INSERT INTO battle_snapshots (battle_id, player_hand_json, player_skills_json,

@@ -85,6 +85,46 @@ public sealed class HistoryFavoriteService
             );
     }
 
+    /// <summary>
+    /// Favorites over a host's saved-replay runtime, read through <paramref name="runtime"/> on
+    /// every call since the runtime can come and go: a local favorite's replay loads from the
+    /// runtime's saved battle, a Ghost favorite's through <paramref name="replay"/>, and a copy
+    /// plays through the runtime. Both hosts compose it this way.
+    /// </summary>
+    public static HistoryFavoriteService OverRuntime(
+        HistoryPanelRepository repository,
+        string replayDirectoryPath,
+        Func<ISavedReplayRuntime?> runtime,
+        HistoryPanelReplayService replay
+    )
+    {
+        if (runtime == null)
+            throw new ArgumentNullException(nameof(runtime));
+        if (replay == null)
+            throw new ArgumentNullException(nameof(replay));
+        return new HistoryFavoriteService(
+            repository,
+            replayDirectoryPath,
+            (string battleId, out PvpBattleManifest? manifest, out PvpReplayPayload? payload) =>
+            {
+                manifest = null;
+                payload = null;
+                return runtime()?.TryLoadSavedBattle(battleId, out manifest, out payload)
+                    ?? SavedBattleLoadOutcome.Unavailable;
+            },
+            replay.LoadGhostReplayAsync,
+            (out string reason) =>
+            {
+                if (runtime() is { } current)
+                    return current.CanReplaySavedCombats(out reason);
+                reason = HistoryPanelText.CombatReplayRuntimeUnavailable();
+                return false;
+            },
+            (manifest, payload, recordVideo, source) =>
+                runtime()?.ReplayLoadedBattle(manifest, payload, recordVideo, source) == true
+        );
+    }
+
     public HistoryCountedPage<HistoryFavoriteRecord> LoadPage(HistoryPageRequest request) =>
         _repository.ListFavorites(request);
 

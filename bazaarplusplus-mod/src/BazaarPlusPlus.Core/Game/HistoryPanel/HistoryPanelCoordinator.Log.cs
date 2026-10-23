@@ -91,6 +91,18 @@ public sealed partial class HistoryPanelCoordinator
             )
         );
 
+    private static void LogRunDeleteRefused(string requestId, string runId) =>
+        BppLog.InfoEvent(
+            new BppLogEvent(BppLogFeatureScope.HistoryPanel, "history_panel.run_delete.refused"),
+            RunDeleteFields(
+                requestId,
+                runId,
+                battleCount: 0,
+                cleanupFailedCount: 0,
+                HistoryPanelRunDeleteReasonCode.SealProtected
+            )
+        );
+
     /// <summary>Writes <c>degraded</c> when any replay payload cleanup failed, else <c>succeeded</c>.</summary>
     private static void LogRunDeleteCompleted(
         string requestId,
