@@ -12,6 +12,7 @@
         <Project Path="RuntimeIntegration.Tests/RuntimeIntegration.Tests.csproj" />
         <Project Path="ScenarioRunner.Tests/ScenarioRunner.Tests.csproj" />
         <Project Path="SelfUpdate.Tests/SelfUpdate.Tests.csproj" />
+        <Project Path="SettingsDockCore.Tests/SettingsDockCore.Tests.csproj" />
         <Project Path="Updater.Tests/Updater.Tests.csproj" />
         <Project Path="VoiceSubtitles.Tests/VoiceSubtitles.Tests.csproj" />
     </Folder>

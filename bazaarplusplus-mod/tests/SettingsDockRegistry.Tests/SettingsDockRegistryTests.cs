@@ -237,9 +237,9 @@ public class SettingsDockRegistryTests
     [Fact]
     public void Action_definitions_preserve_close_host_contract()
     {
-        var history = new HistoryPanelSettingsDockEntry().Build(
-            new BppSettings(new BepInExSettingsStore(UnsavedConfigFile()))
-        );
+        var history = HistoryPanelHotkeyDockEntry
+            .Create()
+            .Build(new BppSettings(new BepInExSettingsStore(UnsavedConfigFile())));
 
         Assert.Equal(BppSettingsControlKind.Action, history.ControlKind);
         Assert.True(history.CollapseAfterActivate);
@@ -252,9 +252,9 @@ public class SettingsDockRegistryTests
         try
         {
             L.Install(() => "en", () => BppChineseLocaleMode.Mainland);
-            var history = new HistoryPanelSettingsDockEntry(() => hotkeyDisplay).Build(
-                new BppSettings(new BepInExSettingsStore(UnsavedConfigFile()))
-            );
+            var history = HistoryPanelHotkeyDockEntry
+                .Create(() => hotkeyDisplay)
+                .Build(new BppSettings(new BepInExSettingsStore(UnsavedConfigFile())));
 
             Assert.Equal("Game History (Press F8 to open)", history.ResolveLabel("en"));
             Assert.Equal("对局历史（按 F8 打开）", history.ResolveLabel("zh-CN"));
@@ -482,7 +482,7 @@ public class SettingsDockRegistryTests
             registry.Register(CosmeticNamesSettingsDockEntry.Create());
             registry.Register(CombatStatusBarSettingsDockEntry.Create());
             registry.Register(new EndOfRunScreenshotSettingsDockEntry());
-            registry.Register(new HistoryPanelSettingsDockEntry());
+            registry.Register(HistoryPanelHotkeyDockEntry.Create());
             registry.Register(ItemEnchantPreviewSettingsDockEntry.Create());
             registry.Register(UpgradePreviewActivationSettingsDockEntry.Create());
             registry.Register(EventPreviewSettingsDockEntry.Create());
@@ -1090,7 +1090,7 @@ public class SettingsDockRegistryTests
     [Fact]
     public void HistoryPanelDockEntry_uses_game_history_order()
     {
-        Assert.Equal(BppSettingsDockOrder.GameHistory, new HistoryPanelSettingsDockEntry().Order);
+        Assert.Equal(BppSettingsDockOrder.GameHistory, HistoryPanelHotkeyDockEntry.Create().Order);
     }
 
     [Theory]
@@ -1325,7 +1325,7 @@ public class SettingsDockRegistryTests
         registry.Register(FixedSupporterListSettingsDockEntry.Create());
         VoiceSubtitlesSettingsDockEntry.RegisterAll(registry);
         registry.Register(new EndOfRunScreenshotSettingsDockEntry());
-        registry.Register(new HistoryPanelSettingsDockEntry());
+        registry.Register(HistoryPanelHotkeyDockEntry.Create());
         registry.Register(ChineseLocaleModeSettingsDockEntry.Create(new InMemoryBppEventBus()));
 
         try

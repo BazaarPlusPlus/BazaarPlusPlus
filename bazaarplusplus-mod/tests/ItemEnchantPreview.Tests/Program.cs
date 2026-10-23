@@ -364,6 +364,14 @@ var key2 = ItemEnchantPreviewCache.CreateKey(changedSnapshot);
 
 Assert(key1 != key2, "Cache keys must change when preview-relevant attributes change.");
 
+// The pedestal catalog names enchantments by EEnchantmentType member name (ADR-0015); the desktop
+// restricts its preview by those names, so each must still be a member of the game's enum.
+foreach (var name in BazaarPlusPlus.Core.GameState.PedestalEnchantCatalog.EnchantmentTypeNames)
+    Assert(
+        Enum.TryParse<EEnchantmentType>(name, ignoreCase: false, out _),
+        $"The pedestal catalog's enchantment '{name}' must be an EEnchantmentType member."
+    );
+
 Console.WriteLine("ItemEnchantPreview checks passed.");
 
 static void Assert(bool condition, string message)

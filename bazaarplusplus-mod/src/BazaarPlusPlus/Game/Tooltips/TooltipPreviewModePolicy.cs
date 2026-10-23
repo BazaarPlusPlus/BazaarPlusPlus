@@ -2,6 +2,7 @@
 using BazaarPlusPlus.Core.Config;
 using BazaarPlusPlus.Core.GameState;
 using BazaarPlusPlus.Game.Input;
+using BazaarPlusPlus.Game.ItemEnchantPreview;
 
 namespace BazaarPlusPlus.Game.Tooltips;
 
@@ -61,13 +62,10 @@ internal static class TooltipPreviewModePolicy
         if (holdEnchant)
             return TooltipPreviewMode.Enchant;
 
-        var enchantMode = config?.EnchantPreviewModeConfig.Value ?? DefaultMode;
-        if (enchantMode == PreviewVisibilityMode.Always)
-            return TooltipPreviewMode.Enchant;
-        if (enchantMode != PreviewVisibilityMode.AutoOnPedestalChoice)
-            return TooltipPreviewMode.Normal;
-
-        return choicePedestal?.Kind == ChoiceScreenPedestalKind.Enchant
+        return EnchantPreviewVisibility.Shows(
+            config?.EnchantPreviewModeConfig.Value ?? DefaultMode,
+            choicePedestal
+        )
             ? TooltipPreviewMode.Enchant
             : TooltipPreviewMode.Normal;
     }
@@ -79,9 +77,10 @@ internal static class TooltipPreviewModePolicy
     {
         if (!ShouldReadChoicePedestal(config))
             return null;
-        return choicePedestal?.IsEnchantChoice == true
-            ? choicePedestal.Value.EnchantmentTypeNames
-            : null;
+        return EnchantPreviewVisibility.Restriction(
+            config?.EnchantPreviewModeConfig.Value ?? DefaultMode,
+            choicePedestal
+        );
     }
 
     internal static bool ShouldReadChoicePedestal(BppSettings? config)
@@ -101,7 +100,8 @@ internal static class TooltipPreviewModePolicy
     {
         if (holdUpgrade || holdEnchant)
             return false;
-        return (config?.EnchantPreviewModeConfig.Value ?? DefaultMode)
-            == PreviewVisibilityMode.AutoOnPedestalChoice;
+        return EnchantPreviewVisibility.ReadsPedestal(
+            config?.EnchantPreviewModeConfig.Value ?? DefaultMode
+        );
     }
 }

@@ -15,6 +15,19 @@ public static class HistoryPanelSettingsMenuLabel
         "Cronologia partite (premi {0} per aprire)"
     );
 
+    private static readonly LocalizedTextSet PlainLabels = new(
+        "Game History",
+        "对局历史",
+        "Spielverlauf",
+        "Histórico de partidas",
+        "게임 전적",
+        "Cronologia partite"
+    );
+
+    /// <summary>The label of a host that opens History without a hotkey.</summary>
+    public static string ResolvePlain(string languageCode) =>
+        PlainLabels.Resolve(languageCode, L.CurrentMode);
+
     public static string Resolve(string languageCode, string hotkeyDisplay)
     {
         return string.Format(

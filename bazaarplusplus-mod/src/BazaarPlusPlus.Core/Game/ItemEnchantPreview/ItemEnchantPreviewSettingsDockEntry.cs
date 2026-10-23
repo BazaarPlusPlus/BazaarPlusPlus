@@ -4,9 +4,12 @@ using BazaarPlusPlus.Game.Settings;
 
 namespace BazaarPlusPlus.Game.ItemEnchantPreview;
 
-internal static class ItemEnchantPreviewSettingsDockEntry
+public static class ItemEnchantPreviewSettingsDockEntry
 {
-    internal static CyclingSettingsDockEntry<PreviewVisibilityMode> Create() =>
+    /// <param name="onChanged">The host's reaction after a mode is written, such as logging it.</param>
+    public static CyclingSettingsDockEntry<PreviewVisibilityMode> Create(
+        Action<PreviewVisibilityMode>? onChanged = null
+    ) =>
         new(
             BppSettingsDockOrder.EnchantPreview,
             "EnchantPreview",
@@ -23,6 +26,7 @@ internal static class ItemEnchantPreviewSettingsDockEntry
                 config.EnchantPreviewModeConfig.Value = mode;
             },
             mode => mode != PreviewVisibilityMode.Off,
-            BppSettingsDockCatalog.ResolvePreviewVisibilityModeStatus
+            BppSettingsDockCatalog.ResolvePreviewVisibilityModeStatus,
+            onChanged
         );
 }

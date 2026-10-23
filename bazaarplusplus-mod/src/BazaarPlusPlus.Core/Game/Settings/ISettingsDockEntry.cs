@@ -8,7 +8,7 @@ namespace BazaarPlusPlus.Game.Settings;
 /// implementation; the registry collects them so BppSettingsDockCatalog does not
 /// need to import individual feature namespaces.
 /// </summary>
-internal interface ISettingsDockEntry
+public interface ISettingsDockEntry
 {
     /// <summary>Lower value = earlier in the settings dock. Mirrors the legacy
     /// hardcoded ordering in BppSettingsDockCatalog so config-row positions stay
