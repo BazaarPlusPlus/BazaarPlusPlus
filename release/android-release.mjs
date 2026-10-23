@@ -672,13 +672,7 @@ export function injectAndroidApk({
     '--print-certs',
     output
   ]);
-  const signer = /Signer #1 certificate SHA-256 digest: ([0-9a-f]{64})/.exec(
-    certificates
-  );
-  if (!signer)
-    throw new Error(
-      `apksigner verify printed no signer certificate digest for ${output}`
-    );
+  const signerSha256 = signerCertificateSha256(certificates, output);
   const entries = apkEntries(output);
   const expected = [
     APK_LOADER_ENTRY,
@@ -693,7 +687,31 @@ export function injectAndroidApk({
       `The injected APK lacks ${missing.join(', ')}; the Patcher or the native library step did not produce them`
     );
   fs.rmSync(work, { recursive: true, force: true });
-  return { signerSha256: signer[1] };
+  return { signerSha256 };
+}
+
+// The one signer certificate digest `apksigner verify --print-certs` reports.
+// It labels the signer by scheme: "Signer #1 certificate SHA-256 digest" when
+// v1 or v2 signed, "V3.0 Signer: certificate SHA-256 digest" for an APK signed
+// with v3 only (build-tools 37 when the minimum SDK is 24 or later). The release
+// key is one certificate, so every line must name the same digest.
+export function signerCertificateSha256(output, apk) {
+  const digests = new Set(
+    [
+      ...output.matchAll(
+        /^(?:V\d+(?:\.\d+)? )?Signer(?: #\d+)?:? certificate SHA-256 digest: ([0-9a-f]{64})$/gm
+      )
+    ].map((match) => match[1])
+  );
+  if (digests.size === 0)
+    throw new Error(
+      `apksigner verify printed no signer certificate digest for ${apk}`
+    );
+  if (digests.size > 1)
+    throw new Error(
+      `${apk} carries ${digests.size} signer certificates (${[...digests].join(', ')}), not the one release key`
+    );
+  return [...digests][0];
 }
 
 // The APK published under an identity: null when nothing is stored at its
