@@ -1,8 +1,8 @@
 #nullable enable
 
-namespace BazaarPlusPlus.GameInterop.ItemBoardPreview;
+namespace BazaarPlusPlus.Core.Cards.ItemBoards;
 
-internal sealed class BppItemBoard
+public sealed class BppItemBoard
 {
     public static readonly BppItemBoard Empty = new(
         BppItemBoardId.Historical,

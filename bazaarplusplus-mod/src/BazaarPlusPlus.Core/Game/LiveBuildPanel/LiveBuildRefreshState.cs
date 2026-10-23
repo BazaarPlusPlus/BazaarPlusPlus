@@ -3,14 +3,14 @@ using BazaarPlusPlus.Game.LiveBuildPanel.Recommendations;
 
 namespace BazaarPlusPlus.Game.LiveBuildPanel;
 
-internal enum LiveBuildRefreshRequest
+public enum LiveBuildRefreshRequest
 {
     Ignore,
     Download,
     NoChange,
 }
 
-internal enum LiveBuildRefreshEffect
+public enum LiveBuildRefreshEffect
 {
     None,
     Status,
@@ -18,7 +18,7 @@ internal enum LiveBuildRefreshEffect
 }
 
 /// <summary>Owns manual refresh decisions for one Live Build Panel lifetime.</summary>
-internal sealed class LiveBuildRefreshState
+public sealed class LiveBuildRefreshState
 {
     private enum Presence
     {
@@ -30,11 +30,11 @@ internal sealed class LiveBuildRefreshState
     private Presence _presence;
     private bool _hasSuccessfullyPulled;
 
-    internal bool IsVisible => _presence == Presence.Visible;
-    internal bool IsPending { get; private set; }
-    internal BuildRecommendationRefreshResult? Feedback { get; private set; }
+    public bool IsVisible => _presence == Presence.Visible;
+    public bool IsPending { get; private set; }
+    public BuildRecommendationRefreshResult? Feedback { get; private set; }
 
-    internal void SetVisible(bool visible)
+    public void SetVisible(bool visible)
     {
         if (_presence == Presence.Destroyed)
             return;
@@ -44,9 +44,9 @@ internal sealed class LiveBuildRefreshState
             Feedback = null;
     }
 
-    internal void Destroy() => _presence = Presence.Destroyed;
+    public void Destroy() => _presence = Presence.Destroyed;
 
-    internal LiveBuildRefreshRequest BeginRefresh()
+    public LiveBuildRefreshRequest BeginRefresh()
     {
         if (!IsVisible || IsPending)
             return LiveBuildRefreshRequest.Ignore;
@@ -58,7 +58,7 @@ internal sealed class LiveBuildRefreshState
             : LiveBuildRefreshRequest.Download;
     }
 
-    internal LiveBuildRefreshEffect CompleteRefresh(BuildRecommendationRefreshResult result)
+    public LiveBuildRefreshEffect CompleteRefresh(BuildRecommendationRefreshResult result)
     {
         IsPending = false;
         Feedback = result;

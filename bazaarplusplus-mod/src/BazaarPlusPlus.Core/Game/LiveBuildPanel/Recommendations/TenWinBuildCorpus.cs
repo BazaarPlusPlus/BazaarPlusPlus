@@ -17,9 +17,8 @@ namespace BazaarPlusPlus.Game.LiveBuildPanel.Recommendations;
 /// The wire format is whole-tree snake_case at <c>schema_version</c> 2.
 ///
 /// This type owns parsing, recall, and scoring, and touches no game type: The Dragons corpus keys
-/// canonicalize through <see cref="TheDragonsHeroId"/>. Projection of a matched build onto a
-/// renderable board lives in the desktop host's <c>BuildRecommendationRepository</c>, which
-/// couples to the game item-board types.
+/// canonicalize through <see cref="TheDragonsHeroId"/>. Projection of a matched build onto an
+/// item board lives in <see cref="BuildRecommendationRepository"/>.
 /// </summary>
 public sealed class TenWinBuildCorpus
 {

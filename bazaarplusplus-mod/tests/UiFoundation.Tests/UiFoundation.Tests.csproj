@@ -25,6 +25,10 @@
       Link="BilingualItemNamePresentation.cs"
     />
     <Compile Include="../../src/BazaarPlusPlus/Infrastructure/UiTokens/Sizes.cs" Link="Sizes.cs" />
+    <Compile
+      Include="../../src/BazaarPlusPlus/Infrastructure/UiTokens/BppOverlaySorting.cs"
+      Link="BppOverlaySorting.cs"
+    />
     <Compile Include="Program.cs" />
   </ItemGroup>
 

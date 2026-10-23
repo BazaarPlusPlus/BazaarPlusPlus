@@ -6,6 +6,8 @@ using BazaarGameClient.Domain.Models.Cards;
 using BazaarGameShared.Domain.Cards;
 using BazaarGameShared.Domain.Core;
 using BazaarGameShared.Domain.Core.Types;
+using BazaarPlusPlus.Core.Cards;
+using BazaarPlusPlus.Core.Cards.LiveCards;
 using BazaarPlusPlus.GameInterop.Cards;
 using TheBazaar;
 
@@ -25,7 +27,10 @@ internal sealed class LiveCardSnapshotReader
             var runState = Data.CurrentState as RunState;
             return new LiveCardSnapshotReadOutcome(
                 new LiveCardSnapshotSet(
-                    run.Player.Hero,
+                    // A hero with no facet reads as no run (ADR-0017).
+                    DesktopCardFacets.Hero.TryToFacet(run.Player.Hero, out var hero)
+                        ? hero
+                        : null,
                     ReadShopItems(runState),
                     ReadContainerItems(run.Player.Hand, LiveCardSnapshotSection.Board, issues),
                     ReadContainerItems(run.Player.Stash, LiveCardSnapshotSection.Stash, issues)
@@ -117,19 +122,29 @@ internal sealed class LiveCardSnapshotReader
         EContainerSocketId? socketId
     )
     {
+        // A tier or size the facets cannot name falls back the way item boards render it
+        // (ADR-0017); an enchantment without a facet reads as none.
         return new LiveCardSnapshot
         {
             InstanceId = card.InstanceId.Value ?? string.Empty,
             TemplateId = card.TemplateId,
             Order = order,
-            Tier = card.Tier,
-            Size = card.Size,
-            EnchantmentType = card.Enchantment,
-            SocketId = socketId,
+            Tier = DesktopCardFacets.Tier.TryToFacet(card.Tier, out var tier)
+                ? tier
+                : CardTier.Bronze,
+            Size = DesktopCardFacets.Size.TryToFacet(card.Size, out var size)
+                ? size
+                : CardSize.Small,
+            EnchantmentType =
+                card.Enchantment is { } enchantment
+                && DesktopCardFacets.Enchantment.TryToFacet(enchantment, out var facet)
+                    ? facet
+                    : null,
+            SocketId = socketId.HasValue ? (int)socketId.Value : null,
             Attributes =
                 card.Attributes != null
-                    ? new Dictionary<ECardAttributeType, int>(card.Attributes)
-                    : new Dictionary<ECardAttributeType, int>(),
+                    ? card.Attributes.ToDictionary(pair => pair.Key.ToString(), pair => pair.Value)
+                    : new Dictionary<string, int>(),
         };
     }
 

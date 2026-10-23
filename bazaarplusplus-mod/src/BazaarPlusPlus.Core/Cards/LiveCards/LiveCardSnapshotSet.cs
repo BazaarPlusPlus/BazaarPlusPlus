@@ -1,10 +1,9 @@
 #nullable enable
 
-using BazaarGameShared.Domain.Core.Types;
+namespace BazaarPlusPlus.Core.Cards.LiveCards;
 
-namespace BazaarPlusPlus.GameInterop.LiveCards;
-
-internal sealed class LiveCardSnapshotSet
+/// <summary>The live shop, board, and stash of the current run; a null hero means no run.</summary>
+public sealed class LiveCardSnapshotSet
 {
     public static readonly LiveCardSnapshotSet Empty = new(
         null,
@@ -14,7 +13,7 @@ internal sealed class LiveCardSnapshotSet
     );
 
     public LiveCardSnapshotSet(
-        EHero? hero,
+        CardHero? hero,
         IReadOnlyList<LiveCardSnapshot>? shopItems,
         IReadOnlyList<LiveCardSnapshot>? boardItems,
         IReadOnlyList<LiveCardSnapshot>? stashItems
@@ -26,7 +25,7 @@ internal sealed class LiveCardSnapshotSet
         StashItems = stashItems ?? Array.Empty<LiveCardSnapshot>();
     }
 
-    public EHero? Hero { get; }
+    public CardHero? Hero { get; }
 
     public IReadOnlyList<LiveCardSnapshot> ShopItems { get; }
 

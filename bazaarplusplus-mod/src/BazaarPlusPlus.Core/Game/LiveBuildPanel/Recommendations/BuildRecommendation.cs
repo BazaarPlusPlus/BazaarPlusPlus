@@ -1,9 +1,9 @@
 #nullable enable
-using BazaarPlusPlus.GameInterop.ItemBoardPreview;
+using BazaarPlusPlus.Core.Cards.ItemBoards;
 
 namespace BazaarPlusPlus.Game.LiveBuildPanel.Recommendations;
 
-internal sealed class BuildRecommendation
+public sealed class BuildRecommendation
 {
     /// <summary>How many of the selected candidate cards this build contains.</summary>
     public int MatchedCardCount { get; set; }

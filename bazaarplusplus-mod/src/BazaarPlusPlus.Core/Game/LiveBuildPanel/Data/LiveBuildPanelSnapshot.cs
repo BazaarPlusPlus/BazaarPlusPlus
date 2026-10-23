@@ -1,14 +1,14 @@
 #nullable enable
 
-using BazaarGameShared.Domain.Core.Types;
+using BazaarPlusPlus.Core.Cards;
+using BazaarPlusPlus.Core.Cards.ItemBoards;
 using BazaarPlusPlus.Game.Supporters;
-using BazaarPlusPlus.GameInterop.ItemBoardPreview;
 
 namespace BazaarPlusPlus.Game.LiveBuildPanel.Data;
 
-internal sealed class LiveBuildPanelSnapshot
+public sealed class LiveBuildPanelSnapshot
 {
-    public EHero? Hero { get; init; }
+    public CardHero? Hero { get; init; }
 
     public BppItemBoard FinalBuild { get; init; } = BppItemBoard.Empty;
 
