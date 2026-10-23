@@ -14,7 +14,7 @@ This Worker receives completed game-run Bundles and makes them discoverable by t
 
 ## Runtime boundaries
 
-The Worker exposes liveness, Bundle ingest, stateless Bundle collection, Ghost discovery, and the BazaarDB Feed. A scheduled handler prunes D1 Bundle metadata older than 15 days every 15 minutes in bounded batches. A second, hourly Cron Trigger starts the analyzer GitHub Actions workflow through `workflow_dispatch`; it touches no D1 or R2. Bundle upload retries recover matching R2-only objects.
+The Worker exposes liveness, Bundle ingest, stateless Bundle collection, Ghost discovery, and the BazaarDB Feed. A scheduled handler prunes D1 Bundle metadata older than 15 days every 15 minutes in bounded batches. The analyzer runs independently through GitHub Actions ([`analyzer.yml`](../.github/workflows/analyzer.yml)), triggered by `on.schedule` or manually through `on.workflow_dispatch`; the Worker's `scheduled` handler ([`src/scheduled.ts`](src/scheduled.ts)) only performs D1 retention. Bundle upload retries recover matching R2-only objects.
 
 Bundle ingest buffers only the fixed prefix and bounded manifest. Run and Screenshot bytes remain compressed/encoded and flow through incremental digest validation into one conditional R2 PUT. The D1 Bundle row, eligible Ghost projections, and uploader record commit in one batch.
 
