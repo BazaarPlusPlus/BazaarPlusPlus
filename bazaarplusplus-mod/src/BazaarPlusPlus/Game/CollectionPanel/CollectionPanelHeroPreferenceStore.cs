@@ -1,5 +1,5 @@
 #nullable enable
-using BazaarGameShared.Domain.Core.Types;
+using BazaarPlusPlus.Core.Cards;
 using BazaarPlusPlus.Game.CollectionPanel.Data;
 using BazaarPlusPlus.GameInterop;
 using BazaarPlusPlus.Infrastructure;
@@ -15,7 +15,7 @@ internal sealed class CollectionPanelHeroPreferenceStore : ICollectionPanelHeroP
 
     public CollectionPanelHeroPreferenceLoadResult Load(
         CollectionCatalogReadiness catalogReadiness,
-        IReadOnlyCollection<EHero> availableHeroes
+        IReadOnlyCollection<CardHero> availableHeroes
     )
     {
         var key = BuildScopedPrefsKey();
@@ -55,7 +55,7 @@ internal sealed class CollectionPanelHeroPreferenceStore : ICollectionPanelHeroP
         return result;
     }
 
-    public void Save(EHero hero)
+    public void Save(CardHero hero)
     {
         if (!CollectionPanelHeroPreference.IsSupportedHero(hero))
         {
@@ -94,7 +94,7 @@ internal sealed class CollectionPanelHeroPreferenceStore : ICollectionPanelHeroP
         return null;
     }
 
-    private void ReportPreferenceDegraded(CollectionPanelLogReasonCode reasonCode, EHero? hero)
+    private void ReportPreferenceDegraded(CollectionPanelLogReasonCode reasonCode, CardHero? hero)
     {
         if (!_reportedPreferenceReasons.Add(reasonCode))
             return;

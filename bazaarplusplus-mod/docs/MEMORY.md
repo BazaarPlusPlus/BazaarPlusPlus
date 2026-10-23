@@ -34,6 +34,7 @@ One line each, full record in [adr/](adr/). A line here exists to stop a settled
 - ADR-0012: Shared code goes in `BazaarPlusPlus.Core` (public types, IVT only for tests, `netstandard2.1` + `net10.0`) under per-host adapters; a separate shared assembly exists only for the external contract and dependency class it carries.
 - ADR-0013: Storage and ModApi also build `net10.0`, bound to NuGet Newtonsoft.Json/MessagePack pinned to the game's versions; the Run segment goldens must pass on both targets.
 - ADR-0014: Core only stages a signed Managed Payload; the dependency-free Updater swaps it in before the mod loads and is itself updated only by the installer or APK.
+- ADR-0015: Core speaks BPP card facets, never game card enums; each host maps by member name in one adapter, a facet's integer is never persisted, and pin tests name new game members.
 
 
 ## Gotchas

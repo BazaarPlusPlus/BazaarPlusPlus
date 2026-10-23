@@ -40,6 +40,21 @@ public sealed class GameDataDayTierResolverTests
     }
 
     [Fact]
+    public void FromWeights_ceiling_is_the_highest_positive_tier()
+    {
+        Assert.Equal(ETier.Bronze, GameDataDayTierTable.FromWeights(1f, 0f, 0f, 0f)!.MaximumTier);
+        // The highest positive tier is the ceiling even when its probability is smaller.
+        Assert.Equal(
+            ETier.Gold,
+            GameDataDayTierTable.FromWeights(0.7f, 0.2f, 0.09f, 0f)!.MaximumTier
+        );
+        Assert.Equal(
+            ETier.Diamond,
+            GameDataDayTierTable.FromWeights(0.89f, 0.1f, 0f, 0.01f)!.MaximumTier
+        );
+    }
+
+    [Fact]
     public void NotReady_is_retried_and_only_same_generation_successes_are_cached()
     {
         var manager = new object();

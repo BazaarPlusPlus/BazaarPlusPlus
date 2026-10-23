@@ -1,5 +1,5 @@
 #nullable enable
-using BazaarGameShared.Domain.Core.Types;
+using BazaarPlusPlus.Core.Cards;
 using BazaarPlusPlus.Game.CollectionPanel.Data;
 using BazaarPlusPlus.Game.CollectionPanel.Grid;
 using BazaarPlusPlus.Game.Supporters.Ui;
@@ -208,7 +208,7 @@ internal sealed partial class CollectionPanelView
         _controlsScrollShadow = CreateControlsScrollShadow();
         controlsViewport.Add(_controlsScrollShadow);
 
-        // Keyword filter (EHiddenTag gameplay keywords). This is the common secondary filter for
+        // Keyword filter (CardHiddenTag gameplay keywords). This is the common secondary filter for
         // Items and Skills, so keep it directly below Quality.
         _keywordFilterSection = CreateFilterSection(
             controlsScroll,
@@ -243,7 +243,7 @@ internal sealed partial class CollectionPanelView
         // Source filter (merchant portraits on Items, trainer portraits on Skills).
         _sourceFilterSection = CreateFilterSection(
             controlsScroll,
-            CollectionPanelText.SourceHeader(ECardType.Item),
+            CollectionPanelText.SourceHeader(CardType.Item),
             UiSpacing.Lg,
             out _sourceChipRow,
             out _sourceFilterLabel,

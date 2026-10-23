@@ -5,6 +5,7 @@ using BazaarGameShared.Domain.Core.Types;
 using BazaarGameShared.Domain.Effect.Actions;
 using BazaarGameShared.Domain.Effect.AuraActions;
 using BazaarGameShared.Domain.Effect.Trigger;
+using BazaarPlusPlus.GameInterop.Cards;
 
 namespace BazaarPlusPlus.Game.CollectionPanel.Data;
 
@@ -71,26 +72,16 @@ internal static class CollectionMechanicFacts
         return facts;
     }
 
-    public static bool TryFromHiddenTag(EHiddenTag hiddenTag, out CollectionMechanic mechanic)
-    {
-        // AbsorbDestroy is not on the keyword whitelist, so mapping it here only feeds the
-        // Destroy mechanic fact — it never surfaces as its own keyword chip.
-        mechanic = hiddenTag switch
-        {
-            EHiddenTag.Multicast => CollectionMechanic.Multicast,
-            EHiddenTag.AbsorbDestroy => CollectionMechanic.Destroy,
-            _ => CollectionMechanic.None,
-        };
-        return mechanic != CollectionMechanic.None;
-    }
-
     private static CollectionMechanic FromNativeHiddenTags(
         IReadOnlyCollection<EHiddenTag> hiddenTags
     )
     {
         var facts = CollectionMechanic.None;
         foreach (var hiddenTag in hiddenTags)
-            if (TryFromHiddenTag(hiddenTag, out var mechanic))
+            if (
+                DesktopCardFacets.HiddenTag.TryToFacet(hiddenTag, out var facet)
+                && CollectionMechanics.TryFromHiddenTag(facet, out var mechanic)
+            )
                 facts |= mechanic;
         return facts;
     }

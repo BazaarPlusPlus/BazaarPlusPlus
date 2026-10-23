@@ -57,7 +57,14 @@ internal sealed class CollectionCatalogBuildSession : IDisposable
                 continue;
             }
 
-            _cards.Add(CollectionCardVm.From(template, classification));
+            var card = CollectionCardVmProjection.From(template, classification);
+            if (card == null)
+            {
+                RejectedCount++;
+                continue;
+            }
+
+            _cards.Add(card);
             AcceptedCount++;
         }
 

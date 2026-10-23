@@ -1,0 +1,63 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- The desktop host's card projection (ADR-0015): game templates in, Core CollectionCardVm out.
+       The Core logic it feeds is tested Core-only in CollectionFilterEngine.Tests. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/BazaarPlusPlus.Core/BazaarPlusPlus.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile
+      Include="../../src/BazaarPlusPlus/Game/CollectionPanel/Data/CollectionCardVmProjection.cs"
+      Link="CollectionCardVmProjection.cs"
+    />
+    <Compile
+      Include="../../src/BazaarPlusPlus/Game/CollectionPanel/Data/CollectionDerivedKeywordFacts.cs"
+      Link="CollectionDerivedKeywordFacts.cs"
+    />
+    <Compile
+      Include="../../src/BazaarPlusPlus/Game/CollectionPanel/Data/CollectionMechanicFacts.cs"
+      Link="CollectionMechanicFacts.cs"
+    />
+    <Compile
+      Include="../../src/BazaarPlusPlus/Game/CollectionPanel/Data/CollectionLocalizationResolver.cs"
+      Link="CollectionLocalizationResolver.cs"
+    />
+    <Compile
+      Include="../../src/BazaarPlusPlus/Game/CollectionPanel/Data/CollectionCardClassifier.cs"
+      Link="CollectionCardClassifier.cs"
+    />
+    <Compile
+      Include="../../src/BazaarPlusPlus/Game/CollectionPanel/Data/CollectionCardClassification.cs"
+      Link="CollectionCardClassification.cs"
+    />
+    <Compile
+      Include="../../src/BazaarPlusPlus/GameInterop/Cards/DesktopCardFacets.cs"
+      Link="DesktopCardFacets.cs"
+    />
+    <Compile
+      Include="../../src/BazaarPlusPlus/GameInterop/Cards/PackageIdentity.cs"
+      Link="PackageIdentity.cs"
+    />
+    <Compile
+      Include="../../src/BazaarPlusPlus/GameInterop/Cards/CardAbilityValueReader.cs"
+      Link="CardAbilityValueReader.cs"
+    />
+    <Compile
+      Include="../../src/BazaarPlusPlus/GameInterop/Heroes/TheDragonsHeroIdentity.cs"
+      Link="TheDragonsHeroIdentity.cs"
+    />
+    <Reference Include="BazaarGameShared">
+      <HintPath>$(ManagedPath)/BazaarGameShared.dll</HintPath>
+    </Reference>
+    <Reference Include="TheBazaarRuntime">
+      <HintPath>$(ManagedPath)/TheBazaarRuntime.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+</Project>

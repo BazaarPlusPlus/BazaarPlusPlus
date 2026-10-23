@@ -1,8 +1,10 @@
 using System.Runtime.Loader;
-using BazaarGameShared.Domain.Core.Types;
+using BazaarPlusPlus.Core.Cards;
+using BazaarPlusPlus.Core.GameState;
 using BazaarPlusPlus.Game.CollectionPanel;
 using BazaarPlusPlus.Game.CollectionPanel.Data;
 using BazaarPlusPlus.Game.CollectionPanel.Sources;
+using BazaarPlusPlus.GameInterop.Cards;
 using BazaarPlusPlus.GameInterop.Heroes;
 using BazaarPlusPlus.GameInterop.HeroPortraits;
 using BazaarPlusPlus.TestSupport;
@@ -13,7 +15,7 @@ var globalMerchantId = Guid.Parse("33333333-3333-3333-3333-333333333333");
 var pygTrainerId = Guid.Parse("44444444-4444-4444-4444-444444444444");
 var collisionId = Guid.Parse("55555555-5555-5555-5555-555555555555");
 
-var entries = CollectionSourceCatalog.Build(
+var entries = BuildCatalog(
     $$"""
     {
       "schemaVersion": 4,
@@ -98,7 +100,7 @@ AssertEqual(
 var vanessaAila = entries.Single(entry =>
     entry.Kind == CollectionSourceKind.Merchant
     && string.Equals(entry.Name, "Aila", StringComparison.Ordinal)
-    && entry.AvailableHeroes.Contains(EHero.Vanessa)
+    && entry.AvailableHeroes.Contains(CardHero.Vanessa)
 );
 AssertEqual(
     "merchant:aila:vanessa",
@@ -127,12 +129,12 @@ AssertTrue(
 );
 
 AssertThrows<InvalidOperationException>(
-    () => CollectionSourceCatalog.Build("""{ "schemaVersion": 1, "entries": [] }"""),
+    () => BuildCatalog("""{ "schemaVersion": 1, "entries": [] }"""),
     "Schema v1 source catalogs should fail validation."
 );
 AssertThrows<InvalidOperationException>(
     () =>
-        CollectionSourceCatalog.Build(
+        BuildCatalog(
             $$"""
             {
               "schemaVersion": 4,
@@ -157,7 +159,7 @@ AssertThrows<InvalidOperationException>(
 );
 AssertThrows<InvalidOperationException>(
     () =>
-        CollectionSourceCatalog.Build(
+        BuildCatalog(
             $$"""
             {
               "schemaVersion": 4,
@@ -181,7 +183,7 @@ AssertThrows<InvalidOperationException>(
 );
 AssertThrows<InvalidOperationException>(
     () =>
-        CollectionSourceCatalog.Build(
+        BuildCatalog(
             $$"""
             {
               "schemaVersion": 4,
@@ -206,7 +208,7 @@ AssertThrows<InvalidOperationException>(
 );
 AssertThrows<InvalidOperationException>(
     () =>
-        CollectionSourceCatalog.Build(
+        BuildCatalog(
             $$"""
             {
               "schemaVersion": 4,
@@ -231,7 +233,7 @@ AssertThrows<InvalidOperationException>(
 );
 AssertThrows<InvalidOperationException>(
     () =>
-        CollectionSourceCatalog.Build(
+        BuildCatalog(
             $$"""
             {
               "schemaVersion": 4,
@@ -255,7 +257,7 @@ AssertThrows<InvalidOperationException>(
 );
 AssertThrows<InvalidOperationException>(
     () =>
-        CollectionSourceCatalog.Build(
+        BuildCatalog(
             $$"""
             {
               "schemaVersion": 4,
@@ -292,56 +294,27 @@ AssertThrows<InvalidOperationException>(
 
 AssertEqual(
     CollectionSourceHeroParseStatus.Invalid,
-    CollectionSourceHeroParser.Parse("NotARealHero").Status,
+    ParseHero("NotARealHero").Status,
     "Unknown hero names should remain invalid catalog data."
 );
 AssertEqual(
     CollectionSourceHeroParseStatus.KnownButUnavailable,
-    CollectionSourceHeroParser.Parse("TheDragons", _ => null).Status,
+    ParseHero("TheDragons", hero => hero != CardHero.TheDragons).Status,
     "The canonical Dragons id should remain known when the current game enum does not expose it."
 );
-AssertTrue(
-    TheDragonsHeroIdentity.TryResolve(
-        TheDragonsHeroIdentity.CanonicalId,
-        out var catalogDragonsHero
-    ),
-    "The current staging enum should expose one of The Dragons aliases."
-);
+var catalogDragonsHero = CardHero.TheDragons;
 AssertEqual(
     CollectionSourceHeroParseStatus.Resolved,
-    CollectionSourceHeroParser
-        .Parse(
-            "Hero8",
-            name =>
-                string.Equals(name, TheDragonsHeroIdentity.CanonicalId, StringComparison.Ordinal)
-                    ? catalogDragonsHero
-                    : null
-        )
-        .Status,
+    ParseHero("Hero8", _ => true).Status,
     "Legacy JSON should resolve when a future runtime exposes only the canonical enum name."
 );
 AssertEqual(
     CollectionSourceHeroParseStatus.Resolved,
-    CollectionSourceHeroParser
-        .Parse(
-            "TheDragons",
-            name =>
-                string.Equals(name, "Hero8", StringComparison.Ordinal) ? catalogDragonsHero : null
-        )
-        .Status,
+    ParseHero("TheDragons", _ => true).Status,
     "Canonical JSON should resolve when the current runtime exposes only the legacy enum name."
 );
-var legacyAliasSource = BuildDragonsAliasEntry(
-    "Hero8",
-    name =>
-        string.Equals(name, TheDragonsHeroIdentity.CanonicalId, StringComparison.Ordinal)
-            ? catalogDragonsHero
-            : null
-);
-var canonicalAliasSource = BuildDragonsAliasEntry(
-    "TheDragons",
-    name => string.Equals(name, "Hero8", StringComparison.Ordinal) ? catalogDragonsHero : null
-);
+var legacyAliasSource = BuildDragonsAliasEntry("Hero8", _ => true);
+var canonicalAliasSource = BuildDragonsAliasEntry("TheDragons", _ => true);
 AssertEqual(
     canonicalAliasSource.SourceKey,
     legacyAliasSource.SourceKey,
@@ -359,13 +332,13 @@ AssertEqual(
 );
 AssertTrue(
     canonicalAliasSource.OfferRuleFingerprint.Contains(
-        TheDragonsHeroIdentity.CanonicalId,
+        TheDragonsHeroId.CanonicalId,
         StringComparison.Ordinal
     ),
     "The Dragons rule fingerprints should store the canonical identity."
 );
 
-var unavailableHeroCatalog = CollectionSourceCatalog.Build(
+var unavailableHeroCatalog = BuildCatalog(
     $$"""
     {
       "schemaVersion": 4,
@@ -418,7 +391,7 @@ var unavailableHeroCatalog = CollectionSourceCatalog.Build(
       ]
     }
     """,
-    _ => null
+    hero => hero != CardHero.TheDragons
 );
 AssertValues(
     unavailableHeroCatalog.Select(entry => entry.Name).ToArray(),
@@ -427,7 +400,7 @@ AssertValues(
 );
 AssertValues(
     unavailableHeroCatalog.Single(entry => entry.Name == "Mixed").AvailableHeroes.ToArray(),
-    new[] { EHero.Vanessa },
+    new[] { CardHero.Vanessa },
     "Mixed allowlists should retain their resolved heroes."
 );
 AssertEqual(
@@ -437,7 +410,7 @@ AssertEqual(
 );
 AssertThrows<InvalidOperationException>(
     () =>
-        CollectionSourceCatalog.Build(
+        BuildCatalog(
             """
             {
               "schemaVersion": 4,
@@ -457,16 +430,26 @@ AssertThrows<InvalidOperationException>(
               ]
             }
             """,
-            _ => null
+            hero => hero != CardHero.TheDragons
         ),
     "Invalid hero configuration should fail the whole catalog instead of being skipped."
 );
 AssertThrows<InvalidOperationException>(
-    () => BuildHeroFieldCatalog(CollectionSourceHeroMode.AllHeroes, "TheDragons", _ => null),
+    () =>
+        BuildHeroFieldCatalog(
+            CollectionSourceHeroMode.AllHeroes,
+            "TheDragons",
+            hero => hero != CardHero.TheDragons
+        ),
     "Known-but-unavailable hero fields should skip only FixedHero entries, not relax other rule modes."
 );
 AssertThrows<InvalidOperationException>(
-    () => BuildHeroFieldCatalog(CollectionSourceHeroMode.FixedHero, "NotARealHero", _ => null),
+    () =>
+        BuildHeroFieldCatalog(
+            CollectionSourceHeroMode.FixedHero,
+            "NotARealHero",
+            hero => hero != CardHero.TheDragons
+        ),
     "Invalid FixedHero configuration should fail instead of being treated as unavailable."
 );
 AssertThrows<InvalidOperationException>(
@@ -507,7 +490,7 @@ AssertThrows<InvalidOperationException>(
 var currentCatalogJson = TestInputs.Fixture(
     "src/BazaarPlusPlus/Data/CollectionSources/collection-sources.json"
 );
-var currentCatalog = CollectionSourceCatalog.Build(currentCatalogJson);
+var currentCatalog = BuildCatalog(currentCatalogJson);
 AssertEqual(
     74,
     currentCatalog.Count,
@@ -544,8 +527,8 @@ AssertEqual(
 );
 AssertTrue(
     aimbot.AppliesToHero(catalogDragonsHero)
-        && aimbot.AppliesToHero(EHero.Common)
-        && aimbot.AppliesToHero(EHero.Pygmalien),
+        && aimbot.AppliesToHero(CardHero.Common)
+        && aimbot.AppliesToHero(CardHero.Pygmalien),
     "Aimbot should be available for every hero, including neutral and Pygmalien contexts."
 );
 var auditedDragonsSources = new[]
@@ -625,24 +608,24 @@ AssertEqual(
 );
 var dragonsOnlyItem = CatalogCard(
     Guid.Parse("eeee4444-0000-0000-0000-000000000001"),
-    ECardType.Item,
+    CardType.Item,
     [catalogDragonsHero]
 );
 var dragonsSharedItem = CatalogCard(
     Guid.Parse("eeee4444-0000-0000-0000-000000000002"),
-    ECardType.Item,
-    [catalogDragonsHero, EHero.Vanessa]
+    CardType.Item,
+    [catalogDragonsHero, CardHero.Vanessa]
 );
 var vanessaOnlyItem = CatalogCard(
     Guid.Parse("eeee4444-0000-0000-0000-000000000003"),
-    ECardType.Item,
-    [EHero.Vanessa]
+    CardType.Item,
+    [CardHero.Vanessa]
 );
 AssertSet(
     CollectionSourceOfferPoolResolver
         .Resolve(
             dragonsMerchant,
-            EHero.Vanessa,
+            CardHero.Vanessa,
             new[] { dragonsOnlyItem, dragonsSharedItem, vanessaOnlyItem }
         )
         .OfferedCardIds,
@@ -671,13 +654,13 @@ AssertEqual(
 AssertEqual(7, mamaBear.Order, "Mama Bear should follow the seven existing hero trainers.");
 var dragonsOnlySkill = CatalogCard(
     Guid.Parse("eeee5555-0000-0000-0000-000000000001"),
-    ECardType.Skill,
+    CardType.Skill,
     [catalogDragonsHero]
 );
 var dragonsSharedSkill = CatalogCard(
     Guid.Parse("eeee5555-0000-0000-0000-000000000002"),
-    ECardType.Skill,
-    [catalogDragonsHero, EHero.Vanessa]
+    CardType.Skill,
+    [catalogDragonsHero, CardHero.Vanessa]
 );
 AssertSet(
     CollectionSourceOfferPoolResolver
@@ -692,44 +675,44 @@ var theTester = currentCatalog.Single(entry =>
 );
 AssertValues(
     theTester.AvailableHeroes.ToArray(),
-    new[] { EHero.Dooley, EHero.Stelle, catalogDragonsHero },
+    new[] { CardHero.Dooley, CardHero.Stelle, catalogDragonsHero },
     "The Tester should be visible for Dooley, Stelle, and The Dragons."
 );
 var testerDooleyTech = CatalogCard(
     Guid.Parse("dddd1111-0000-0000-0000-000000000001"),
-    ECardType.Item,
-    [EHero.Dooley],
-    tags: [ECardTag.Tech]
+    CardType.Item,
+    [CardHero.Dooley],
+    tags: [CardTag.Tech]
 );
 var testerStelleTech = CatalogCard(
     Guid.Parse("dddd1111-0000-0000-0000-000000000002"),
-    ECardType.Item,
-    [EHero.Stelle],
-    tags: [ECardTag.Tech]
+    CardType.Item,
+    [CardHero.Stelle],
+    tags: [CardTag.Tech]
 );
 var testerVanessaTech = CatalogCard(
     Guid.Parse("dddd1111-0000-0000-0000-000000000003"),
-    ECardType.Item,
-    [EHero.Vanessa],
-    tags: [ECardTag.Tech]
+    CardType.Item,
+    [CardHero.Vanessa],
+    tags: [CardTag.Tech]
 );
 var testerCommonTech = CatalogCard(
     Guid.Parse("dddd1111-0000-0000-0000-000000000004"),
-    ECardType.Item,
-    [EHero.Common],
-    tags: [ECardTag.Tech]
+    CardType.Item,
+    [CardHero.Common],
+    tags: [CardTag.Tech]
 );
 var testerDooleyTool = CatalogCard(
     Guid.Parse("dddd1111-0000-0000-0000-000000000005"),
-    ECardType.Item,
-    [EHero.Dooley],
-    tags: [ECardTag.Tool]
+    CardType.Item,
+    [CardHero.Dooley],
+    tags: [CardTag.Tool]
 );
 AssertSet(
     CollectionSourceOfferPoolResolver
         .Resolve(
             theTester,
-            EHero.Dooley,
+            CardHero.Dooley,
             new[]
             {
                 testerDooleyTech,
@@ -747,7 +730,7 @@ AssertSet(
     CollectionSourceOfferPoolResolver
         .Resolve(
             theTester,
-            EHero.Stelle,
+            CardHero.Stelle,
             new[]
             {
                 testerDooleyTech,
@@ -777,27 +760,27 @@ AssertValues(
 );
 var pitchforkNeutralItem = CatalogCard(
     Guid.Parse("eeee1111-0000-0000-0000-000000000001"),
-    ECardType.Item,
-    [EHero.Common],
-    tags: [ECardTag.Tool]
+    CardType.Item,
+    [CardHero.Common],
+    tags: [CardTag.Tool]
 );
 var pitchforkNeutralLoot = CatalogCard(
     Guid.Parse("eeee1111-0000-0000-0000-000000000002"),
-    ECardType.Item,
-    [EHero.Common],
-    tags: [ECardTag.Loot]
+    CardType.Item,
+    [CardHero.Common],
+    tags: [CardTag.Loot]
 );
 var pitchforkHeroItem = CatalogCard(
     Guid.Parse("eeee1111-0000-0000-0000-000000000003"),
-    ECardType.Item,
-    [EHero.Vanessa],
-    tags: [ECardTag.Tool]
+    CardType.Item,
+    [CardHero.Vanessa],
+    tags: [CardTag.Tool]
 );
 AssertSet(
     CollectionSourceOfferPoolResolver
         .Resolve(
             privatePitchfork,
-            EHero.Vanessa,
+            CardHero.Vanessa,
             new[] { pitchforkNeutralItem, pitchforkNeutralLoot, pitchforkHeroItem }
         )
         .OfferedCardIds,
@@ -818,19 +801,19 @@ AssertValues(
     stickybeans.AvailableHeroes.ToArray(),
     new[]
     {
-        EHero.Vanessa,
-        EHero.Dooley,
-        EHero.Pygmalien,
-        EHero.Karnok,
-        EHero.Mak,
-        EHero.Stelle,
-        EHero.Jules,
+        CardHero.Vanessa,
+        CardHero.Dooley,
+        CardHero.Pygmalien,
+        CardHero.Karnok,
+        CardHero.Mak,
+        CardHero.Stelle,
+        CardHero.Jules,
         catalogDragonsHero,
     },
     "Stickybeans should be visible for all eight concrete heroes and hidden for Common."
 );
 AssertTrue(
-    stickybeans.AppliesToHero(catalogDragonsHero) && !stickybeans.IsVisibleForHero(EHero.Common),
+    stickybeans.AppliesToHero(catalogDragonsHero) && !stickybeans.IsVisibleForHero(CardHero.Common),
     "Stickybeans' Common card identity should not override its ExcludePlayerHero schedule semantics in the neutral rail."
 );
 AssertEqual(
@@ -840,34 +823,34 @@ AssertEqual(
 );
 var stickybeansCommon = CatalogCard(
     Guid.Parse("eeee2222-0000-0000-0000-000000000001"),
-    ECardType.Item,
-    [EHero.Common]
+    CardType.Item,
+    [CardHero.Common]
 );
 var stickybeansVanessa = CatalogCard(
     Guid.Parse("eeee2222-0000-0000-0000-000000000002"),
-    ECardType.Item,
-    [EHero.Vanessa]
+    CardType.Item,
+    [CardHero.Vanessa]
 );
 var stickybeansDooley = CatalogCard(
     Guid.Parse("eeee2222-0000-0000-0000-000000000003"),
-    ECardType.Item,
-    [EHero.Dooley]
+    CardType.Item,
+    [CardHero.Dooley]
 );
 var stickybeansSharedOther = CatalogCard(
     Guid.Parse("eeee2222-0000-0000-0000-000000000004"),
-    ECardType.Item,
-    [EHero.Dooley, EHero.Stelle]
+    CardType.Item,
+    [CardHero.Dooley, CardHero.Stelle]
 );
 var stickybeansSharedSelected = CatalogCard(
     Guid.Parse("eeee2222-0000-0000-0000-000000000005"),
-    ECardType.Item,
-    [EHero.Vanessa, EHero.Dooley]
+    CardType.Item,
+    [CardHero.Vanessa, CardHero.Dooley]
 );
 AssertSet(
     CollectionSourceOfferPoolResolver
         .Resolve(
             stickybeans,
-            EHero.Vanessa,
+            CardHero.Vanessa,
             new[]
             {
                 stickybeansCommon,
@@ -883,7 +866,7 @@ AssertSet(
 );
 var stickybeansDragons = CatalogCard(
     Guid.Parse("eeee2222-0000-0000-0000-000000000006"),
-    ECardType.Item,
+    CardType.Item,
     [catalogDragonsHero]
 );
 AssertSet(
@@ -899,15 +882,15 @@ AssertSet(
 );
 var aimbotDragonsCrit = CatalogCard(
     Guid.Parse("eeee3333-0000-0000-0000-000000000010"),
-    ECardType.Item,
+    CardType.Item,
     [catalogDragonsHero],
-    hiddenTags: [EHiddenTag.Crit]
+    hiddenTags: [CardHiddenTag.Crit]
 );
 var aimbotVanessaCrit = CatalogCard(
     Guid.Parse("eeee3333-0000-0000-0000-000000000011"),
-    ECardType.Item,
-    [EHero.Vanessa],
-    hiddenTags: [EHiddenTag.Crit]
+    CardType.Item,
+    [CardHero.Vanessa],
+    hiddenTags: [CardHiddenTag.Crit]
 );
 AssertSet(
     CollectionSourceOfferPoolResolver
@@ -927,18 +910,18 @@ AssertEqual(
 );
 var malafangNeutralBurn = CatalogCard(
     Guid.Parse("eeee3333-0000-0000-0000-000000000001"),
-    ECardType.Skill,
-    [EHero.Common],
-    hiddenTags: [EHiddenTag.Burn]
+    CardType.Skill,
+    [CardHero.Common],
+    hiddenTags: [CardHiddenTag.Burn]
 );
 var malafangDragonsBurn = CatalogCard(
     Guid.Parse("eeee3333-0000-0000-0000-000000000002"),
-    ECardType.Skill,
+    CardType.Skill,
     [catalogDragonsHero],
-    hiddenTags: [EHiddenTag.Burn]
+    hiddenTags: [CardHiddenTag.Burn]
 );
 AssertTrue(
-    malafang.AppliesToHero(catalogDragonsHero) && !malafang.IsVisibleForHero(EHero.Common),
+    malafang.AppliesToHero(catalogDragonsHero) && !malafang.IsVisibleForHero(CardHero.Common),
     "Malafang should be visible for The Dragons but hidden in the neutral rail."
 );
 AssertSet(
@@ -964,25 +947,25 @@ var eli = currentCatalog.Single(entry =>
 );
 var potionTaggedCard = CatalogCard(
     Guid.Parse("eeee1111-0000-0000-0000-000000000001"),
-    ECardType.Item,
-    [EHero.Mak],
-    tags: [ECardTag.Potion]
+    CardType.Item,
+    [CardHero.Mak],
+    tags: [CardTag.Potion]
 );
 var potionReferenceCard = CatalogCard(
     Guid.Parse("eeee1111-0000-0000-0000-000000000002"),
-    ECardType.Item,
-    [EHero.Mak],
-    hiddenTags: [EHiddenTag.PotionReference]
+    CardType.Item,
+    [CardHero.Mak],
+    hiddenTags: [CardHiddenTag.PotionReference]
 );
 var nonPotionCard = CatalogCard(
     Guid.Parse("eeee1111-0000-0000-0000-000000000003"),
-    ECardType.Item,
-    [EHero.Mak],
-    tags: [ECardTag.Tool]
+    CardType.Item,
+    [CardHero.Mak],
+    tags: [CardTag.Tool]
 );
 AssertSet(
     CollectionSourceOfferPoolResolver
-        .Resolve(eli, EHero.Mak, new[] { potionTaggedCard, potionReferenceCard, nonPotionCard })
+        .Resolve(eli, CardHero.Mak, new[] { potionTaggedCard, potionReferenceCard, nonPotionCard })
         .OfferedCardIds,
     new[] { potionTaggedCard.Id, potionReferenceCard.Id },
     "Eli should include both Potion-tagged cards and PotionReference cards."
@@ -1009,7 +992,7 @@ var vanessaMerchantRoster = CollectionSourceRoster.Build(
     CollectionSourceCatalog.VisibleEntries(
         currentCatalog,
         CollectionSourceKind.Merchant,
-        EHero.Vanessa
+        CardHero.Vanessa
     )
 );
 AssertNondecreasing(
@@ -1030,7 +1013,7 @@ var vanessaTrainerRoster = CollectionSourceRoster.Build(
     CollectionSourceCatalog.VisibleEntries(
         currentCatalog,
         CollectionSourceKind.Trainer,
-        EHero.Vanessa
+        CardHero.Vanessa
     )
 );
 AssertValues(
@@ -1044,7 +1027,7 @@ AssertEqual(
     "Trainer roster should not force row breaks because its first row self-aligns to six chips."
 );
 var neutralOtherHeroSources = CollectionSourceCatalog
-    .VisibleEntries(currentCatalog, CollectionSourceKind.Merchant, EHero.Common)
+    .VisibleEntries(currentCatalog, CollectionSourceKind.Merchant, CardHero.Common)
     .Where(entry => entry.Group == "other-hero")
     .ToArray();
 AssertEqual(
@@ -1068,7 +1051,7 @@ AssertValues(
 var vanessaOtherHeroSources = CollectionSourceRoster
     .Build(
         CollectionSourceCatalog
-            .VisibleEntries(currentCatalog, CollectionSourceKind.Merchant, EHero.Vanessa)
+            .VisibleEntries(currentCatalog, CollectionSourceKind.Merchant, CardHero.Vanessa)
             .Where(entry => entry.Group == "other-hero")
     )
     .Select(item => item.Entry.Name)
@@ -1102,20 +1085,20 @@ AssertValues(
 );
 AssertFalse(
     CollectionSourceCatalog
-        .VisibleEntries(currentCatalog, CollectionSourceKind.Trainer, EHero.Common)
+        .VisibleEntries(currentCatalog, CollectionSourceKind.Trainer, CardHero.Common)
         .Any(entry => entry.Name == "Malafang"),
     "The neutral trainer rail should hide Malafang because its schedule requires a concrete player hero."
 );
 AssertFalse(
     CollectionSourceCatalog
-        .VisibleEntries(currentCatalog, CollectionSourceKind.Trainer, EHero.Common)
+        .VisibleEntries(currentCatalog, CollectionSourceKind.Trainer, CardHero.Common)
         .Any(entry => entry.Name == "Mama Bear"),
     "The neutral trainer rail should hide Mama Bear."
 );
 
 var openOutsideRun = CollectionPanelOpenSelectionResolver.Resolve(
     isInGameRun: false,
-    currentHero: EHero.Dooley,
+    currentHero: CardHero.Dooley,
     currentEncounterTemplateId: vanessaAila.SourceTemplateIds[0],
     choiceSelectionTemplateIds: Array.Empty<Guid>(),
     entries
@@ -1124,13 +1107,13 @@ AssertValues(
     CollectionHeroSelectionRoster.BaseConcreteHeroes,
     new[]
     {
-        EHero.Vanessa,
-        EHero.Dooley,
-        EHero.Pygmalien,
-        EHero.Karnok,
-        EHero.Mak,
-        EHero.Stelle,
-        EHero.Jules,
+        CardHero.Vanessa,
+        CardHero.Dooley,
+        CardHero.Pygmalien,
+        CardHero.Karnok,
+        CardHero.Mak,
+        CardHero.Stelle,
+        CardHero.Jules,
     },
     "The neutral/Common context should not render a Common hero chip."
 );
@@ -1164,7 +1147,10 @@ AssertFalse(
     HeroPortraitSpriteProvider.TryGetCached(loadingDragonsHero, out _),
     "A pre-readiness native service failure should not poison the shared portrait cache."
 );
-var dragonsTooltip = CollectionPanelText.Hero(loadingDragonsHero);
+var dragonsTooltip = CollectionPanelText.Hero(
+    CardHero.TheDragons,
+    DesktopCardFacets.TheDragonsDisplayName
+);
 AssertFalse(
     dragonsTooltip.Contains("Hero8", StringComparison.OrdinalIgnoreCase),
     "The Collection hero tooltip should never expose the transitional enum placeholder."
@@ -1187,13 +1173,13 @@ var openWhileCatalogLoads = CollectionPanelOpenSelectionResolver.Resolve(
     )
 );
 AssertEqual(
-    loadingDragonsHero,
+    (CardHero?)CardHero.TheDragons,
     openWhileCatalogLoads.SelectedHero,
     "Opening while the catalog loads should preserve a known concrete preference until an accepted roster can normalize it."
 );
 var openOutsideRunWithRememberedHero = CollectionPanelOpenSelectionResolver.Resolve(
     isInGameRun: false,
-    currentHero: EHero.Dooley,
+    currentHero: CardHero.Dooley,
     currentEncounterTemplateId: vanessaAila.SourceTemplateIds[0],
     choiceSelectionTemplateIds: Array.Empty<Guid>(),
     entries,
@@ -1206,7 +1192,7 @@ var openOutsideRunWithRememberedHero = CollectionPanelOpenSelectionResolver.Reso
 );
 AssertEqual(
     new CollectionPanelSelectionState(
-        EHero.Mak,
+        CardHero.Mak,
         CollectionPanelSelectionState.DefaultMerchantSourceKey,
         CollectionSourceKind.Merchant
     ),
@@ -1216,7 +1202,7 @@ AssertEqual(
 
 var openOutsideRunWithRememberedCommon = CollectionPanelOpenSelectionResolver.Resolve(
     isInGameRun: false,
-    currentHero: EHero.Dooley,
+    currentHero: CardHero.Dooley,
     currentEncounterTemplateId: vanessaAila.SourceTemplateIds[0],
     choiceSelectionTemplateIds: Array.Empty<Guid>(),
     entries,
@@ -1279,18 +1265,18 @@ AssertEqual(
 var dooleyAila = entries.Single(entry =>
     entry.Kind == CollectionSourceKind.Merchant
     && string.Equals(entry.Name, "Aila", StringComparison.Ordinal)
-    && entry.AvailableHeroes.Contains(EHero.Dooley)
+    && entry.AvailableHeroes.Contains(CardHero.Dooley)
 );
 var openOnCurrentMerchant = CollectionPanelOpenSelectionResolver.Resolve(
     isInGameRun: true,
-    currentHero: EHero.Dooley,
+    currentHero: CardHero.Dooley,
     currentEncounterTemplateId: dooleyAila.SourceTemplateIds[0],
     choiceSelectionTemplateIds: Array.Empty<Guid>(),
     entries
 );
 AssertEqual(
     new CollectionPanelSelectionState(
-        EHero.Dooley,
+        CardHero.Dooley,
         dooleyAila.SourceKey,
         CollectionSourceKind.Merchant
     ),
@@ -1299,7 +1285,7 @@ AssertEqual(
 );
 var openInRunIgnoresRememberedHero = CollectionPanelOpenSelectionResolver.Resolve(
     isInGameRun: true,
-    currentHero: EHero.Dooley,
+    currentHero: CardHero.Dooley,
     currentEncounterTemplateId: dooleyAila.SourceTemplateIds[0],
     choiceSelectionTemplateIds: Array.Empty<Guid>(),
     entries,
@@ -1312,7 +1298,7 @@ var openInRunIgnoresRememberedHero = CollectionPanelOpenSelectionResolver.Resolv
 );
 AssertEqual(
     new CollectionPanelSelectionState(
-        EHero.Dooley,
+        CardHero.Dooley,
         dooleyAila.SourceKey,
         CollectionSourceKind.Merchant
     ),
@@ -1325,14 +1311,14 @@ var pygTrainer = entries.Single(entry =>
 );
 var openOnCurrentTrainer = CollectionPanelOpenSelectionResolver.Resolve(
     isInGameRun: true,
-    currentHero: EHero.Pygmalien,
+    currentHero: CardHero.Pygmalien,
     currentEncounterTemplateId: pygTrainer.SourceTemplateIds[0],
     choiceSelectionTemplateIds: Array.Empty<Guid>(),
     entries
 );
 AssertEqual(
     new CollectionPanelSelectionState(
-        EHero.Pygmalien,
+        CardHero.Pygmalien,
         pygTrainer.SourceKey,
         CollectionSourceKind.Trainer
     ),
@@ -1346,14 +1332,14 @@ var globalNufu = entries.First(entry =>
 );
 var openOnChoiceMerchant = CollectionPanelOpenSelectionResolver.Resolve(
     isInGameRun: true,
-    currentHero: EHero.Vanessa,
+    currentHero: CardHero.Vanessa,
     currentEncounterTemplateId: null,
     choiceSelectionTemplateIds: new[] { globalMerchantId, pygTrainerId },
     entries
 );
 AssertEqual(
     new CollectionPanelSelectionState(
-        EHero.Vanessa,
+        CardHero.Vanessa,
         globalNufu.SourceKey,
         CollectionSourceKind.Merchant
     ),
@@ -1362,14 +1348,14 @@ AssertEqual(
 );
 var openOnChoiceTrainer = CollectionPanelOpenSelectionResolver.Resolve(
     isInGameRun: true,
-    currentHero: EHero.Pygmalien,
+    currentHero: CardHero.Pygmalien,
     currentEncounterTemplateId: null,
     choiceSelectionTemplateIds: new[] { pygTrainerId, globalMerchantId },
     entries
 );
 AssertEqual(
     new CollectionPanelSelectionState(
-        EHero.Pygmalien,
+        CardHero.Pygmalien,
         pygTrainer.SourceKey,
         CollectionSourceKind.Trainer
     ),
@@ -1378,14 +1364,14 @@ AssertEqual(
 );
 var openWithoutMerchant = CollectionPanelOpenSelectionResolver.Resolve(
     isInGameRun: true,
-    currentHero: EHero.Vanessa,
+    currentHero: CardHero.Vanessa,
     currentEncounterTemplateId: pygTrainerId,
     choiceSelectionTemplateIds: Array.Empty<Guid>(),
     entries
 );
 AssertEqual(
     new CollectionPanelSelectionState(
-        EHero.Vanessa,
+        CardHero.Vanessa,
         CollectionPanelSelectionState.DefaultMerchantSourceKey,
         CollectionSourceKind.Merchant
     ),
@@ -1394,7 +1380,7 @@ AssertEqual(
 );
 var openWithoutConcreteHero = CollectionPanelOpenSelectionResolver.Resolve(
     isInGameRun: true,
-    currentHero: EHero.Common,
+    currentHero: CardHero.Common,
     currentEncounterTemplateId: dooleyAila.SourceTemplateIds[0],
     choiceSelectionTemplateIds: Array.Empty<Guid>(),
     entries
@@ -1405,7 +1391,7 @@ AssertEqual(
     "Opening during a run without a concrete hero should fall back to VAN + Jay Jay."
 );
 
-var commonCacheKey = CollectionSourceOfferPoolCacheKey.Build(vanessaAila, EHero.Common);
+var commonCacheKey = CollectionSourceOfferPoolCacheKey.Build(vanessaAila, CardHero.Common);
 AssertTrue(
     commonCacheKey.StartsWith(vanessaAila.SourceKey + "|", StringComparison.Ordinal),
     "Source offer cache key should include the stable source key."
@@ -1423,20 +1409,20 @@ AssertTrue(
     commonCacheKey.EndsWith("|Common", StringComparison.Ordinal),
     "Neutral source offer cache keys should use the effective Common hero."
 );
-var heroCacheKey = CollectionSourceOfferPoolCacheKey.Build(vanessaAila, EHero.Vanessa);
+var heroCacheKey = CollectionSourceOfferPoolCacheKey.Build(vanessaAila, CardHero.Vanessa);
 AssertFalse(
     string.Equals(heroCacheKey, commonCacheKey, StringComparison.Ordinal),
     "Source offer cache key should distinguish Common from concrete heroes."
 );
 AssertTrue(
     CollectionSourceOfferPoolCacheKey
-        .Build(vanessaAila, loadingDragonsHero)
+        .Build(vanessaAila, CardHero.TheDragons)
         .EndsWith("|TheDragons", StringComparison.Ordinal),
     "BPP-owned source cache keys should use the canonical The Dragons identity."
 );
 
 var visibleForVanessa = CollectionSourceCatalog
-    .VisibleEntries(entries, CollectionSourceKind.Merchant, EHero.Vanessa)
+    .VisibleEntries(entries, CollectionSourceKind.Merchant, CardHero.Vanessa)
     .Select(entry => entry.Name)
     .ToArray();
 AssertValues(
@@ -1445,7 +1431,7 @@ AssertValues(
     "Visible merchant sources should include selected hero sources plus global sources."
 );
 var visibleForCommon = CollectionSourceCatalog
-    .VisibleEntries(entries, CollectionSourceKind.Merchant, EHero.Common)
+    .VisibleEntries(entries, CollectionSourceKind.Merchant, CardHero.Common)
     .Select(entry => entry.Name)
     .ToArray();
 AssertValues(
@@ -1454,7 +1440,7 @@ AssertValues(
     "Common should behave like a selected hero and show only global merchant sources."
 );
 var visibleTrainers = CollectionSourceCatalog
-    .VisibleEntries(entries, CollectionSourceKind.Trainer, EHero.Vanessa)
+    .VisibleEntries(entries, CollectionSourceKind.Trainer, CardHero.Vanessa)
     .ToArray();
 AssertEqual(
     0,
@@ -1471,15 +1457,23 @@ var selectedHeroCards = new[]
 {
     CatalogCard(
         Guid.Parse("aaaaaaaa-0000-0000-0000-000000000001"),
-        ECardType.Item,
-        [EHero.Vanessa]
+        CardType.Item,
+        [CardHero.Vanessa]
     ),
-    CatalogCard(Guid.Parse("aaaaaaaa-0000-0000-0000-000000000002"), ECardType.Item, [EHero.Common]),
-    CatalogCard(Guid.Parse("aaaaaaaa-0000-0000-0000-000000000003"), ECardType.Item, [EHero.Dooley]),
+    CatalogCard(
+        Guid.Parse("aaaaaaaa-0000-0000-0000-000000000002"),
+        CardType.Item,
+        [CardHero.Common]
+    ),
+    CatalogCard(
+        Guid.Parse("aaaaaaaa-0000-0000-0000-000000000003"),
+        CardType.Item,
+        [CardHero.Dooley]
+    ),
 };
 var selectedHeroResult = CollectionSourceOfferPoolResolver.Resolve(
     selectedHeroRule,
-    EHero.Vanessa,
+    CardHero.Vanessa,
     selectedHeroCards
 );
 AssertEqual(
@@ -1494,7 +1488,7 @@ AssertSet(
 );
 var selectedCommonResult = CollectionSourceOfferPoolResolver.Resolve(
     selectedHeroRule,
-    EHero.Common,
+    CardHero.Common,
     selectedHeroCards
 );
 AssertSet(
@@ -1504,7 +1498,7 @@ AssertSet(
 );
 var selectedHeroDisabledResult = CollectionSourceOfferPoolResolver.Resolve(
     selectedHeroRule,
-    EHero.Common,
+    CardHero.Common,
     selectedHeroCards
 );
 AssertSet(
@@ -1521,28 +1515,28 @@ var selectedHeroTrainerCards = new[]
 {
     CatalogCard(
         Guid.Parse("aaaaaaaa-1000-0000-0000-000000000001"),
-        ECardType.Skill,
-        [EHero.Vanessa]
+        CardType.Skill,
+        [CardHero.Vanessa]
     ),
     CatalogCard(
         Guid.Parse("aaaaaaaa-1000-0000-0000-000000000002"),
-        ECardType.Skill,
-        [EHero.Vanessa, EHero.Dooley]
+        CardType.Skill,
+        [CardHero.Vanessa, CardHero.Dooley]
     ),
     CatalogCard(
         Guid.Parse("aaaaaaaa-1000-0000-0000-000000000003"),
-        ECardType.Skill,
-        [EHero.Common]
+        CardType.Skill,
+        [CardHero.Common]
     ),
     CatalogCard(
         Guid.Parse("aaaaaaaa-1000-0000-0000-000000000004"),
-        ECardType.Skill,
-        Array.Empty<EHero>()
+        CardType.Skill,
+        Array.Empty<CardHero>()
     ),
 };
 var selectedHeroTrainerPool = CollectionSourceOfferPoolResolver.Resolve(
     selectedHeroTrainerRule,
-    EHero.Vanessa,
+    CardHero.Vanessa,
     selectedHeroTrainerCards
 );
 AssertSet(
@@ -1552,7 +1546,7 @@ AssertSet(
 );
 var noneSelectedResult = CollectionSourceOfferPoolResolver.Resolve(
     source: null,
-    effectiveHero: EHero.Vanessa,
+    effectiveHero: CardHero.Vanessa,
     selectedHeroCards
 );
 AssertEqual(
@@ -1568,12 +1562,20 @@ var fixedHeroEntry = BuildSingleEntry(
 );
 var fixedHeroCards = new[]
 {
-    CatalogCard(Guid.Parse("bbbbbbbb-0000-0000-0000-000000000001"), ECardType.Item, [EHero.Jules]),
-    CatalogCard(Guid.Parse("bbbbbbbb-0000-0000-0000-000000000002"), ECardType.Item, [EHero.Dooley]),
+    CatalogCard(
+        Guid.Parse("bbbbbbbb-0000-0000-0000-000000000001"),
+        CardType.Item,
+        [CardHero.Jules]
+    ),
+    CatalogCard(
+        Guid.Parse("bbbbbbbb-0000-0000-0000-000000000002"),
+        CardType.Item,
+        [CardHero.Dooley]
+    ),
 };
 var fixedHeroResult = CollectionSourceOfferPoolResolver.Resolve(
     fixedHeroEntry,
-    EHero.Dooley,
+    CardHero.Dooley,
     fixedHeroCards
 );
 AssertSet(
@@ -1590,23 +1592,23 @@ var fixedHeroTrainerCards = new[]
 {
     CatalogCard(
         Guid.Parse("bbbbbbbb-1000-0000-0000-000000000001"),
-        ECardType.Skill,
-        [EHero.Vanessa]
+        CardType.Skill,
+        [CardHero.Vanessa]
     ),
     CatalogCard(
         Guid.Parse("bbbbbbbb-1000-0000-0000-000000000002"),
-        ECardType.Skill,
-        [EHero.Vanessa, EHero.Dooley]
+        CardType.Skill,
+        [CardHero.Vanessa, CardHero.Dooley]
     ),
     CatalogCard(
         Guid.Parse("bbbbbbbb-1000-0000-0000-000000000003"),
-        ECardType.Skill,
-        [EHero.Dooley]
+        CardType.Skill,
+        [CardHero.Dooley]
     ),
 };
 var fixedHeroTrainerResult = CollectionSourceOfferPoolResolver.Resolve(
     fixedHeroTrainerEntry,
-    EHero.Dooley,
+    CardHero.Dooley,
     fixedHeroTrainerCards
 );
 AssertSet(
@@ -1623,33 +1625,41 @@ var otherHeroesEntry = BuildSingleEntry(
 AssertEqual(
     0,
     CollectionSourceCatalog
-        .VisibleEntries(new[] { otherHeroesEntry }, CollectionSourceKind.Merchant, EHero.Common)
+        .VisibleEntries(new[] { otherHeroesEntry }, CollectionSourceKind.Merchant, CardHero.Common)
         .Count(),
     "OtherHeroes-only sources should be hidden in the neutral/Common context."
 );
 var otherHeroCards = new[]
 {
-    CatalogCard(Guid.Parse("eeeeeeee-0000-0000-0000-000000000001"), ECardType.Item, [EHero.Common]),
+    CatalogCard(
+        Guid.Parse("eeeeeeee-0000-0000-0000-000000000001"),
+        CardType.Item,
+        [CardHero.Common]
+    ),
     CatalogCard(
         Guid.Parse("eeeeeeee-0000-0000-0000-000000000002"),
-        ECardType.Item,
-        [EHero.Vanessa]
+        CardType.Item,
+        [CardHero.Vanessa]
     ),
-    CatalogCard(Guid.Parse("eeeeeeee-0000-0000-0000-000000000003"), ECardType.Item, [EHero.Dooley]),
+    CatalogCard(
+        Guid.Parse("eeeeeeee-0000-0000-0000-000000000003"),
+        CardType.Item,
+        [CardHero.Dooley]
+    ),
     CatalogCard(
         Guid.Parse("eeeeeeee-0000-0000-0000-000000000004"),
-        ECardType.Item,
-        [EHero.Dooley, EHero.Stelle]
+        CardType.Item,
+        [CardHero.Dooley, CardHero.Stelle]
     ),
     CatalogCard(
         Guid.Parse("eeeeeeee-0000-0000-0000-000000000005"),
-        ECardType.Item,
-        [EHero.Vanessa, EHero.Dooley]
+        CardType.Item,
+        [CardHero.Vanessa, CardHero.Dooley]
     ),
 };
 var otherHeroesForVanessa = CollectionSourceOfferPoolResolver.Resolve(
     otherHeroesEntry,
-    EHero.Vanessa,
+    CardHero.Vanessa,
     otherHeroCards
 );
 AssertSet(
@@ -1659,7 +1669,7 @@ AssertSet(
 );
 var otherHeroesWithoutSelectedHero = CollectionSourceOfferPoolResolver.Resolve(
     otherHeroesEntry,
-    EHero.Common,
+    CardHero.Common,
     otherHeroCards
 );
 AssertSet(
@@ -1677,21 +1687,25 @@ var allHeroCards = new[]
 {
     CatalogCard(
         Guid.Parse("cccccccc-0000-0000-0000-000000000001"),
-        ECardType.Item,
-        [EHero.Vanessa],
-        hiddenTags: [EHiddenTag.Crit]
+        CardType.Item,
+        [CardHero.Vanessa],
+        hiddenTags: [CardHiddenTag.Crit]
     ),
     CatalogCard(
         Guid.Parse("cccccccc-0000-0000-0000-000000000002"),
-        ECardType.Item,
-        [EHero.Dooley],
-        hiddenTags: [EHiddenTag.Crit]
+        CardType.Item,
+        [CardHero.Dooley],
+        hiddenTags: [CardHiddenTag.Crit]
     ),
-    CatalogCard(Guid.Parse("cccccccc-0000-0000-0000-000000000003"), ECardType.Item, [EHero.Dooley]),
+    CatalogCard(
+        Guid.Parse("cccccccc-0000-0000-0000-000000000003"),
+        CardType.Item,
+        [CardHero.Dooley]
+    ),
 };
 var allHeroResult = CollectionSourceOfferPoolResolver.Resolve(
     allHeroEntry,
-    EHero.Vanessa,
+    CardHero.Vanessa,
     allHeroCards
 );
 AssertSet(
@@ -1709,26 +1723,26 @@ var neutralCards = new[]
 {
     CatalogCard(
         Guid.Parse("dddddddd-0000-0000-0000-000000000001"),
-        ECardType.Item,
-        [EHero.Common],
-        tier: ETier.Bronze
+        CardType.Item,
+        [CardHero.Common],
+        tier: CardTier.Bronze
     ),
     CatalogCard(
         Guid.Parse("dddddddd-0000-0000-0000-000000000002"),
-        ECardType.Item,
-        [EHero.Common],
-        tier: ETier.Silver
+        CardType.Item,
+        [CardHero.Common],
+        tier: CardTier.Silver
     ),
     CatalogCard(
         Guid.Parse("dddddddd-0000-0000-0000-000000000003"),
-        ECardType.Item,
-        [EHero.Vanessa],
-        tier: ETier.Bronze
+        CardType.Item,
+        [CardHero.Vanessa],
+        tier: CardTier.Bronze
     ),
 };
 var neutralResult = CollectionSourceOfferPoolResolver.Resolve(
     neutralEntry,
-    EHero.Vanessa,
+    CardHero.Vanessa,
     neutralCards
 );
 AssertSet(
@@ -1749,17 +1763,17 @@ var neutralHeroEntry = BuildSingleEntry(
 );
 var neutralCommonCard = CatalogCard(
     Guid.Parse("d0000000-0000-0000-0000-000000000001"),
-    ECardType.Item,
-    [EHero.Common]
+    CardType.Item,
+    [CardHero.Common]
 );
 var neutralVanessaCard = CatalogCard(
     Guid.Parse("d0000000-0000-0000-0000-000000000002"),
-    ECardType.Item,
-    [EHero.Vanessa]
+    CardType.Item,
+    [CardHero.Vanessa]
 );
 var neutralHeroCards = new[] { neutralCommonCard, neutralVanessaCard };
 var neutralWithVanessa = CollectionSourceOfferPoolResolver
-    .Resolve(neutralHeroEntry, EHero.Vanessa, neutralHeroCards)
+    .Resolve(neutralHeroEntry, CardHero.Vanessa, neutralHeroCards)
     .OfferedCardIds;
 AssertSet(
     neutralWithVanessa,
@@ -1768,7 +1782,7 @@ AssertSet(
         + "(intentional divergence from the old description switch, which returned empty)."
 );
 var neutralWithNoHero = CollectionSourceOfferPoolResolver
-    .Resolve(neutralHeroEntry, EHero.Common, neutralHeroCards)
+    .Resolve(neutralHeroEntry, CardHero.Common, neutralHeroCards)
     .OfferedCardIds;
 AssertSet(
     neutralWithNoHero,
@@ -1776,7 +1790,7 @@ AssertSet(
     "NeutralOnly output must be invariant to the effective hero (Common vs Vanessa)."
 );
 var neutralWithOtherHero = CollectionSourceOfferPoolResolver
-    .Resolve(neutralHeroEntry, EHero.Dooley, neutralHeroCards)
+    .Resolve(neutralHeroEntry, CardHero.Dooley, neutralHeroCards)
     .OfferedCardIds;
 AssertSet(
     neutralWithOtherHero,
@@ -1793,20 +1807,20 @@ var exactTierCards = new[]
 {
     CatalogCard(
         Guid.Parse("eeeeeeee-0000-0000-0000-000000000001"),
-        ECardType.Item,
-        [EHero.Common],
-        tier: ETier.Silver
+        CardType.Item,
+        [CardHero.Common],
+        tier: CardTier.Silver
     ),
     CatalogCard(
         Guid.Parse("eeeeeeee-0000-0000-0000-000000000002"),
-        ECardType.Item,
-        [EHero.Common],
-        tier: ETier.Gold
+        CardType.Item,
+        [CardHero.Common],
+        tier: CardTier.Gold
     ),
 };
 AssertSet(
     CollectionSourceOfferPoolResolver
-        .Resolve(exactTierEntry, EHero.Vanessa, exactTierCards)
+        .Resolve(exactTierEntry, CardHero.Vanessa, exactTierCards)
         .OfferedCardIds,
     new[] { exactTierCards[1].Id },
     "Exact starting-tier rules should not behave like AtMost."
@@ -1830,35 +1844,35 @@ var complexCards = new[]
 {
     CatalogCard(
         Guid.Parse("ffffffff-0000-0000-0000-000000000001"),
-        ECardType.Item,
-        [EHero.Common],
-        tags: [ECardTag.Tool],
-        hiddenTags: [EHiddenTag.Burn],
-        size: ECardSize.Small,
+        CardType.Item,
+        [CardHero.Common],
+        tags: [CardTag.Tool],
+        hiddenTags: [CardHiddenTag.Burn],
+        size: CardSize.Small,
         isEnchantable: true
     ),
     CatalogCard(
         Guid.Parse("ffffffff-0000-0000-0000-000000000002"),
-        ECardType.Item,
-        [EHero.Common],
-        tags: [ECardTag.Tool, ECardTag.Weapon],
-        hiddenTags: [EHiddenTag.Burn],
-        size: ECardSize.Small,
+        CardType.Item,
+        [CardHero.Common],
+        tags: [CardTag.Tool, CardTag.Weapon],
+        hiddenTags: [CardHiddenTag.Burn],
+        size: CardSize.Small,
         isEnchantable: true
     ),
     CatalogCard(
         Guid.Parse("ffffffff-0000-0000-0000-000000000003"),
-        ECardType.Item,
-        [EHero.Common],
-        tags: [ECardTag.Tool],
-        hiddenTags: [EHiddenTag.Burn],
-        size: ECardSize.Medium,
+        CardType.Item,
+        [CardHero.Common],
+        tags: [CardTag.Tool],
+        hiddenTags: [CardHiddenTag.Burn],
+        size: CardSize.Medium,
         isEnchantable: true
     ),
 };
 AssertSet(
     CollectionSourceOfferPoolResolver
-        .Resolve(complexEntry, EHero.Vanessa, complexCards)
+        .Resolve(complexEntry, CardHero.Vanessa, complexCards)
         .OfferedCardIds,
     new[] { complexCards[0].Id },
     "Structured rules should AND size, tag include/exclude, hidden tag, and enchantable predicates."
@@ -1885,33 +1899,33 @@ var segmentedEntry = BuildEntryWithSegments(
 );
 var segmentedNormal = CatalogCard(
     Guid.Parse("11111111-aaaa-0000-0000-000000000001"),
-    ECardType.Item,
-    [EHero.Vanessa],
-    tags: [ECardTag.Tool]
+    CardType.Item,
+    [CardHero.Vanessa],
+    tags: [CardTag.Tool]
 );
 var segmentedEnchanted = CatalogCard(
     Guid.Parse("11111111-aaaa-0000-0000-000000000002"),
-    ECardType.Item,
-    [EHero.Vanessa],
-    enchantments: Enchantments(EEnchantmentType.Turbo)
+    CardType.Item,
+    [CardHero.Vanessa],
+    enchantments: Enchantments(CardEnchantment.Turbo)
 );
 var segmentedBoth = CatalogCard(
     Guid.Parse("11111111-aaaa-0000-0000-000000000003"),
-    ECardType.Item,
-    [EHero.Vanessa],
-    tags: [ECardTag.Tool],
-    enchantments: Enchantments(EEnchantmentType.Turbo)
+    CardType.Item,
+    [CardHero.Vanessa],
+    tags: [CardTag.Tool],
+    enchantments: Enchantments(CardEnchantment.Turbo)
 );
 var segmentedExcluded = CatalogCard(
     Guid.Parse("11111111-aaaa-0000-0000-000000000004"),
-    ECardType.Item,
-    [EHero.Dooley],
-    tags: [ECardTag.Tool],
-    enchantments: Enchantments(EEnchantmentType.Turbo)
+    CardType.Item,
+    [CardHero.Dooley],
+    tags: [CardTag.Tool],
+    enchantments: Enchantments(CardEnchantment.Turbo)
 );
 var segmentedResult = CollectionSourceOfferPoolResolver.Resolve(
     segmentedEntry,
-    EHero.Vanessa,
+    CardHero.Vanessa,
     new[] { segmentedNormal, segmentedEnchanted, segmentedBoth, segmentedExcluded }
 );
 AssertSet(
@@ -1925,7 +1939,7 @@ AssertEqual(
     "Normal-only matches should retain the normal segment attribution."
 );
 AssertEqual(
-    EEnchantmentType.Turbo,
+    CardEnchantment.Turbo,
     segmentedResult.OfferMatchesByCardId[segmentedEnchanted.Id][0].EnchantmentType,
     "Enchanted matches should retain the matched enchantment type."
 );
@@ -1942,13 +1956,13 @@ var hiddenGroupEntry = BuildSingleEntry(
 );
 var hiddenGroupCard = CatalogCard(
     Guid.Parse("11111111-bbbb-0000-0000-000000000001"),
-    ECardType.Item,
-    [EHero.Dooley],
-    hiddenTags: [EHiddenTag.CritReference]
+    CardType.Item,
+    [CardHero.Dooley],
+    hiddenTags: [CardHiddenTag.CritReference]
 );
 AssertSet(
     CollectionSourceOfferPoolResolver
-        .Resolve(hiddenGroupEntry, EHero.Vanessa, new[] { hiddenGroupCard })
+        .Resolve(hiddenGroupEntry, CardHero.Vanessa, new[] { hiddenGroupCard })
         .OfferedCardIds,
     new[] { hiddenGroupCard.Id },
     "hiddenTagGroupsAny should expand base/reference hidden tags during catalog parsing."
@@ -1974,29 +1988,29 @@ var enchantmentFacetEntry = BuildEntryWithSegments(
 );
 var enchantmentFacetMatch = CatalogCard(
     Guid.Parse("11111111-cccc-0000-0000-000000000001"),
-    ECardType.Item,
-    [EHero.Vanessa],
+    CardType.Item,
+    [CardHero.Vanessa],
     enchantments: EnchantmentWithFacets(
-        EEnchantmentType.Turbo,
-        new[] { ECardTag.Weapon },
-        new[] { EHiddenTag.Haste }
+        CardEnchantment.Turbo,
+        new[] { CardTag.Weapon },
+        new[] { CardHiddenTag.Haste }
     )
 );
 var enchantmentFacetMiss = CatalogCard(
     Guid.Parse("11111111-cccc-0000-0000-000000000002"),
-    ECardType.Item,
-    [EHero.Vanessa],
+    CardType.Item,
+    [CardHero.Vanessa],
     enchantments: EnchantmentWithFacets(
-        EEnchantmentType.Turbo,
-        new[] { ECardTag.Weapon },
-        new[] { EHiddenTag.Slow }
+        CardEnchantment.Turbo,
+        new[] { CardTag.Weapon },
+        new[] { CardHiddenTag.Slow }
     )
 );
 AssertSet(
     CollectionSourceOfferPoolResolver
         .Resolve(
             enchantmentFacetEntry,
-            EHero.Vanessa,
+            CardHero.Vanessa,
             new[] { enchantmentFacetMatch, enchantmentFacetMiss }
         )
         .OfferedCardIds,
@@ -2004,13 +2018,13 @@ AssertSet(
     "enchantmentTagsAny and enchantmentHiddenTagsAny should match the same TEnchantment facets."
 );
 
-var specialistEnchantments = new Dictionary<string, EEnchantmentType>
+var specialistEnchantments = new Dictionary<string, CardEnchantment>
 {
-    ["Knightshade"] = EEnchantmentType.Toxic,
-    ["Hef"] = EEnchantmentType.Fiery,
-    ["Chronos"] = EEnchantmentType.Turbo,
-    ["Freiya"] = EEnchantmentType.Icy,
-    ["Cobweb"] = EEnchantmentType.Heavy,
+    ["Knightshade"] = CardEnchantment.Toxic,
+    ["Hef"] = CardEnchantment.Fiery,
+    ["Chronos"] = CardEnchantment.Turbo,
+    ["Freiya"] = CardEnchantment.Icy,
+    ["Cobweb"] = CardEnchantment.Heavy,
 };
 foreach (var pair in specialistEnchantments)
 {
@@ -2034,13 +2048,13 @@ foreach (var pair in specialistEnchantments)
 
     var candidate = CatalogCard(
         GuidFromIndex(pair.Key, 99),
-        ECardType.Item,
-        [EHero.Vanessa],
+        CardType.Item,
+        [CardHero.Vanessa],
         enchantments: Enchantments(pair.Value)
     );
     var specialistResult = CollectionSourceOfferPoolResolver.Resolve(
         specialist,
-        EHero.Vanessa,
+        CardHero.Vanessa,
         new[] { candidate }
     );
     AssertSet(
@@ -2061,13 +2075,13 @@ foreach (var sourceEntry in currentCatalog)
     var match = MatchingCard(sourceEntry, selectedHero, GuidFromIndex(sourceEntry.SourceKey, 1));
     var nonMatch = MatchingCard(
         sourceEntry,
-        selectedHero ?? EHero.Common,
+        selectedHero ?? CardHero.Common,
         GuidFromIndex(sourceEntry.SourceKey, 2),
-        sourceEntry.Kind == CollectionSourceKind.Merchant ? ECardType.Skill : ECardType.Item
+        sourceEntry.Kind == CollectionSourceKind.Merchant ? CardType.Skill : CardType.Item
     );
     var probePool = CollectionSourceOfferPoolResolver.Resolve(
         sourceEntry,
-        selectedHero ?? EHero.Common,
+        selectedHero ?? CardHero.Common,
         new[] { match, nonMatch }
     );
     AssertEqual(
@@ -2102,12 +2116,11 @@ static CollectionSourceEntry BuildSingleEntry(
 
 static CollectionSourceEntry BuildDragonsAliasEntry(
     string heroAlias,
-    Func<string, EHero?> resolveExactHeroName
+    Func<CardHero, bool> isHeroAvailable
 )
 {
     const string sourceId = "77777777-0000-0000-0000-000000000006";
-    return CollectionSourceCatalog
-        .Build(
+    return BuildCatalog(
             $$"""
             {
               "schemaVersion": 4,
@@ -2127,19 +2140,29 @@ static CollectionSourceEntry BuildDragonsAliasEntry(
               ]
             }
             """,
-            resolveExactHeroName
+            isHeroAvailable
         )
         .Single();
 }
 
+static IReadOnlyList<CollectionSourceEntry> BuildCatalog(
+    string json,
+    Func<CardHero, bool>? isHeroAvailable = null
+) => CollectionSourceCatalog.Build(json, isHeroAvailable ?? DesktopCardFacets.IsHeroAvailable);
+
+static CollectionSourceHeroParseResult ParseHero(
+    string? value,
+    Func<CardHero, bool>? isAvailable = null
+) => CollectionSourceHeroParser.Parse(value, isAvailable ?? DesktopCardFacets.IsHeroAvailable);
+
 static IReadOnlyList<CollectionSourceEntry> BuildHeroFieldCatalog(
     CollectionSourceHeroMode heroMode,
     string hero,
-    Func<string, EHero?> resolveExactHeroName
+    Func<CardHero, bool> isHeroAvailable
 )
 {
     const string sourceId = "77777777-0000-0000-0000-000000000007";
-    return CollectionSourceCatalog.Build(
+    return BuildCatalog(
         $$"""
         {
           "schemaVersion": 4,
@@ -2159,7 +2182,7 @@ static IReadOnlyList<CollectionSourceEntry> BuildHeroFieldCatalog(
           ]
         }
         """,
-        resolveExactHeroName
+        isHeroAvailable
     );
 }
 
@@ -2169,7 +2192,7 @@ static IReadOnlyList<CollectionSourceEntry> BuildHeroValidationCatalog(
 )
 {
     const string sourceId = "77777777-0000-0000-0000-000000000008";
-    return CollectionSourceCatalog.Build(
+    return BuildCatalog(
         $$"""
         {
           "schemaVersion": 4,
@@ -2189,7 +2212,7 @@ static IReadOnlyList<CollectionSourceEntry> BuildHeroValidationCatalog(
           ]
         }
         """,
-        _ => null
+        hero => hero != CardHero.TheDragons
     );
 }
 
@@ -2200,8 +2223,7 @@ static CollectionSourceEntry BuildEntryWithSegments(
 )
 {
     var id = GuidFromIndex(name, 7);
-    return CollectionSourceCatalog
-        .Build(
+    return BuildCatalog(
             $$"""
             {
               "schemaVersion": 4,
@@ -2225,58 +2247,58 @@ static CollectionSourceEntry BuildEntryWithSegments(
         .Single();
 }
 
-static EHero? RepresentativeSelectedHero(CollectionSourceEntry entry)
+static CardHero? RepresentativeSelectedHero(CollectionSourceEntry entry)
 {
     if (PrimaryRule(entry).HeroMode != CollectionSourceHeroMode.SelectedHero)
-        return EHero.Vanessa;
+        return CardHero.Vanessa;
     if (entry.AvailableHeroes.Count > 0)
         return entry.AvailableHeroes[0];
-    return EHero.Vanessa;
+    return CardHero.Vanessa;
 }
 
 static CollectionCardVm MatchingCard(
     CollectionSourceEntry entry,
-    EHero? selectedHero,
+    CardHero? selectedHero,
     Guid id,
-    ECardType? cardType = null
+    CardType? cardType = null
 )
 {
     var rule = PrimaryRule(entry);
-    var tags = rule.TagsAny.Count > 0 ? new[] { rule.TagsAny[0] } : Array.Empty<ECardTag>();
-    if (rule.TagsNone.Contains(ECardTag.Tool) && tags.Length == 0)
-        tags = new[] { ECardTag.Food };
+    var tags = rule.TagsAny.Count > 0 ? new[] { rule.TagsAny[0] } : Array.Empty<CardTag>();
+    if (rule.TagsNone.Contains(CardTag.Tool) && tags.Length == 0)
+        tags = new[] { CardTag.Food };
     else if (tags.Length == 0)
-        tags = new[] { ECardTag.Tool };
+        tags = new[] { CardTag.Tool };
 
     return new CollectionCardVm
     {
         Id = id,
         Type =
             cardType
-            ?? (entry.Kind == CollectionSourceKind.Merchant ? ECardType.Item : ECardType.Skill),
-        Size = rule.SizesAny.Count > 0 ? rule.SizesAny[0] : ECardSize.Medium,
-        StartingTier = rule.StartingTier?.Tier ?? ETier.Bronze,
+            ?? (entry.Kind == CollectionSourceKind.Merchant ? CardType.Item : CardType.Skill),
+        Size = rule.SizesAny.Count > 0 ? rule.SizesAny[0] : CardSize.Medium,
+        StartingTier = rule.StartingTier?.Tier ?? CardTier.Bronze,
         Heroes = rule.HeroMode switch
         {
             CollectionSourceHeroMode.SelectedHero => selectedHero.HasValue
                 ? new[] { selectedHero.Value }
-                : new[] { EHero.Dooley },
+                : new[] { CardHero.Dooley },
             CollectionSourceHeroMode.FixedHero => new[] { rule.Hero!.Value },
-            CollectionSourceHeroMode.NeutralOnly => new[] { EHero.Common },
-            _ => new[] { EHero.Dooley },
+            CollectionSourceHeroMode.NeutralOnly => new[] { CardHero.Common },
+            _ => new[] { CardHero.Dooley },
         },
         Tags = tags,
         HiddenTags =
             rule.HiddenTagsAny.Count > 0
                 ? new[] { rule.HiddenTagsAny[0] }
-                : Array.Empty<EHiddenTag>(),
+                : Array.Empty<CardHiddenTag>(),
         DisplayName = id.ToString("N"),
         InternalName = id.ToString("N"),
         ArtKey = id.ToString("N"),
         IsEnchantable = rule.EnchantableOnly,
         Enchantments = rule.EnchantableOnly
-            ? Enchantments(EEnchantmentType.Toxic)
-            : new Dictionary<EEnchantmentType, CollectionCardEnchantmentFacets>(),
+            ? Enchantments(CardEnchantment.Toxic)
+            : new Dictionary<CardEnchantment, CollectionCardEnchantmentFacets>(),
     };
 }
 
@@ -2285,14 +2307,14 @@ static CollectionSourceOfferRule PrimaryRule(CollectionSourceEntry entry) =>
 
 static CollectionCardVm CatalogCard(
     Guid id,
-    ECardType type,
-    IEnumerable<EHero> heroes,
-    IEnumerable<ECardTag>? tags = null,
-    IEnumerable<EHiddenTag>? hiddenTags = null,
-    ECardSize size = ECardSize.Medium,
-    ETier tier = ETier.Bronze,
+    CardType type,
+    IEnumerable<CardHero> heroes,
+    IEnumerable<CardTag>? tags = null,
+    IEnumerable<CardHiddenTag>? hiddenTags = null,
+    CardSize size = CardSize.Medium,
+    CardTier tier = CardTier.Bronze,
     bool isEnchantable = false,
-    IReadOnlyDictionary<EEnchantmentType, CollectionCardEnchantmentFacets>? enchantments = null
+    IReadOnlyDictionary<CardEnchantment, CollectionCardEnchantmentFacets>? enchantments = null
 ) =>
     new()
     {
@@ -2301,8 +2323,8 @@ static CollectionCardVm CatalogCard(
         Size = size,
         StartingTier = tier,
         Heroes = heroes.ToArray(),
-        Tags = tags?.ToArray() ?? Array.Empty<ECardTag>(),
-        HiddenTags = hiddenTags?.ToArray() ?? Array.Empty<EHiddenTag>(),
+        Tags = tags?.ToArray() ?? Array.Empty<CardTag>(),
+        HiddenTags = hiddenTags?.ToArray() ?? Array.Empty<CardHiddenTag>(),
         DisplayName = id.ToString("N"),
         InternalName = id.ToString("N"),
         ArtKey = id.ToString("N"),
@@ -2311,31 +2333,31 @@ static CollectionCardVm CatalogCard(
             enchantments
             ?? (
                 isEnchantable
-                    ? Enchantments(EEnchantmentType.Toxic)
-                    : new Dictionary<EEnchantmentType, CollectionCardEnchantmentFacets>()
+                    ? Enchantments(CardEnchantment.Toxic)
+                    : new Dictionary<CardEnchantment, CollectionCardEnchantmentFacets>()
             ),
     };
 
-static IReadOnlyDictionary<EEnchantmentType, CollectionCardEnchantmentFacets> Enchantments(
-    params EEnchantmentType[] types
+static IReadOnlyDictionary<CardEnchantment, CollectionCardEnchantmentFacets> Enchantments(
+    params CardEnchantment[] types
 )
 {
-    var result = new Dictionary<EEnchantmentType, CollectionCardEnchantmentFacets>();
+    var result = new Dictionary<CardEnchantment, CollectionCardEnchantmentFacets>();
     foreach (var type in types)
         result[type] = new CollectionCardEnchantmentFacets(
             type,
-            Array.Empty<ECardTag>(),
-            Array.Empty<EHiddenTag>()
+            Array.Empty<CardTag>(),
+            Array.Empty<CardHiddenTag>()
         );
     return result;
 }
 
-static IReadOnlyDictionary<EEnchantmentType, CollectionCardEnchantmentFacets> EnchantmentWithFacets(
-    EEnchantmentType type,
-    IReadOnlyCollection<ECardTag> tags,
-    IReadOnlyCollection<EHiddenTag> hiddenTags
+static IReadOnlyDictionary<CardEnchantment, CollectionCardEnchantmentFacets> EnchantmentWithFacets(
+    CardEnchantment type,
+    IReadOnlyCollection<CardTag> tags,
+    IReadOnlyCollection<CardHiddenTag> hiddenTags
 ) =>
-    new Dictionary<EEnchantmentType, CollectionCardEnchantmentFacets>
+    new Dictionary<CardEnchantment, CollectionCardEnchantmentFacets>
     {
         [type] = new(type, tags, hiddenTags),
     };

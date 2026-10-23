@@ -1,5 +1,5 @@
 #nullable enable
-using BazaarGameShared.Domain.Core.Types;
+using BazaarPlusPlus.Core.Cards;
 using BazaarPlusPlus.Infrastructure.UiTokens;
 
 namespace BazaarPlusPlus.Game.CollectionPanel.Grid;
@@ -7,7 +7,7 @@ namespace BazaarPlusPlus.Game.CollectionPanel.Grid;
 // Fixed "display-case" grid spec. The catalog is laid out on a fixed per-tab column count
 // regardless of viewport width: screen width only changes the base unit size and horizontal
 // centering, never the column count. Items use ItemColumns unit columns (span 1/2/3 wide by
-// ECardSize, ItemRowSpan tall); Skills use fewer, larger SkillColumns square icons. See the
+// CardSize, ItemRowSpan tall); Skills use fewer, larger SkillColumns square icons. See the
 // design doc §17 for the redesign that superseded the old dynamic min/max column model.
 internal static class CollectionGridConstants
 {
@@ -84,19 +84,19 @@ internal static class CollectionGridConstants
     // Unit width an item card occupies on the item grid. Skills never call this (always 1).
     public const float ItemCardWidthScale = 0.96f;
 
-    public static int ItemWidthSpan(ECardSize size) =>
+    public static int ItemWidthSpan(CardSize size) =>
         size switch
         {
-            ECardSize.Large => ItemLargeSpan,
-            ECardSize.Medium => ItemMediumSpan,
+            CardSize.Large => ItemLargeSpan,
+            CardSize.Medium => ItemMediumSpan,
             _ => ItemSmallSpan,
         };
 
     // Cell height in row-units: Items are two units tall (uniform height, width varies by
     // size); Skills are a single square unit.
-    public static int RowSpanFor(ECardType type) =>
-        type == ECardType.Skill ? SkillRowSpan : ItemRowSpan;
+    public static int RowSpanFor(CardType type) =>
+        type == CardType.Skill ? SkillRowSpan : ItemRowSpan;
 
-    public static int ColumnsFor(ECardType type) =>
-        type == ECardType.Skill ? SkillColumns : ItemColumns;
+    public static int ColumnsFor(CardType type) =>
+        type == CardType.Skill ? SkillColumns : ItemColumns;
 }

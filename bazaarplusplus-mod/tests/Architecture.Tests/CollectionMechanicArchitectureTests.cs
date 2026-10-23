@@ -12,11 +12,13 @@ public sealed class CollectionMechanicArchitectureTests
     public void Collection_mechanic_projection_stays_at_the_catalog_VM_boundary()
     {
         Holds(
-            "Only CollectionCardVm projects mechanic facts; every other path reads the cached flag.",
+            "Only CollectionCardVmProjection projects mechanic facts; every other path reads the cached flag.",
             build =>
             {
                 var facts = build.Type(CollectionData + ".CollectionMechanicFacts").FullName;
-                var vm = build.Type(CollectionData + ".CollectionCardVm").FullName;
+                var projection = build
+                    .Type(CollectionData + ".CollectionCardVmProjection")
+                    .FullName;
                 var callers = build
                     .Types.SelectMany(type => type.Methods)
                     .Where(method =>
@@ -27,14 +29,16 @@ public sealed class CollectionMechanicArchitectureTests
                     .ToArray();
                 Assert.NotEmpty(callers);
                 return callers
-                    .Where(method => method.Owner.FullName != vm)
+                    .Where(method => method.Owner.FullName != projection)
                     .Select(method => $"{method} calls {facts}::Project");
             }
         );
     }
 
+    // The filter engine lives in Core, which references no game assembly at all
+    // (CoreAssemblyBoundaryTests); the host refresh path is checked here.
     [Fact]
-    public void Collection_filter_and_refresh_paths_do_not_walk_game_effect_graphs()
+    public void Collection_refresh_path_does_not_walk_game_effect_graphs()
     {
         var universe = CompiledArtifacts.Universe;
         var effectTypes = new[]
@@ -50,12 +54,11 @@ public sealed class CollectionMechanicArchitectureTests
             universe.RequireMember(tier, "get_AuraIds"),
         };
         Holds(
-            "Filtering and refresh consume the cached mechanic flag, never the effect graph.",
+            "Refresh consumes the cached mechanic flag, never the effect graph.",
             build =>
             {
                 var paths = new[]
                 {
-                    build.Type(CollectionData + ".CollectionFilterEngine"),
                     build.Type("BazaarPlusPlus.Game.CollectionPanel.CollectionPanel"),
                 };
                 return References(paths, Is(effectTypes))

@@ -1,6 +1,8 @@
 #nullable enable
 using System.Reflection;
 using BazaarGameShared.Domain.Core.Types;
+using BazaarPlusPlus.Core.Cards;
+using BazaarPlusPlus.GameInterop.Cards;
 using BazaarPlusPlus.Localization;
 using HarmonyLib;
 using TheBazaar;
@@ -77,6 +79,14 @@ internal static class NativeTagTypography
     public static bool IsNativeTypographyAvailable => Data.TooltipTypography != null;
 
     public static NativeTagDisplay Resolve(ECardTag tag) => Resolve(tag.ToString());
+
+    // A card facet's name is the game member's name (ADR-0015).
+    public static NativeTagDisplay Resolve(CardTag tag) => Resolve(tag.ToString());
+
+    public static NativeTagDisplay Resolve(CardHiddenTag tag) =>
+        DesktopCardFacets.HiddenTag.TryToSource(tag, out var gameTag)
+            ? Resolve(gameTag)
+            : Resolve(tag.ToString());
 
     public static NativeTagDisplay Resolve(EHiddenTag tag)
     {
@@ -278,14 +288,23 @@ internal static class NativeTagTypography
     )
     {
         referenceDisplay = default;
-        if (!ReferenceTagBaseResolver.TryResolve(tag, out var referenceBase))
+        if (
+            !DesktopCardFacets.HiddenTag.TryToFacet(tag, out var facet)
+            || !CardReferenceTags.TryResolveBase(facet, out var referenceBase)
+        )
             return false;
 
         NativeTagDisplay baseDisplay;
-        if (referenceBase.HiddenTag.HasValue)
-            baseDisplay = Resolve(referenceBase.HiddenTag.Value);
-        else if (referenceBase.CardTag.HasValue)
-            baseDisplay = Resolve(referenceBase.CardTag.Value);
+        if (
+            referenceBase.HiddenTag is { } baseHiddenTag
+            && DesktopCardFacets.HiddenTag.TryToSource(baseHiddenTag, out var gameHiddenTag)
+        )
+            baseDisplay = Resolve(gameHiddenTag);
+        else if (
+            referenceBase.CardTag is { } baseCardTag
+            && DesktopCardFacets.Tag.TryToSource(baseCardTag, out var gameCardTag)
+        )
+            baseDisplay = Resolve(gameCardTag);
         else
             return false;
 

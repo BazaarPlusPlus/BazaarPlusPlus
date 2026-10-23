@@ -1,6 +1,7 @@
 #nullable enable
 using System.Collections;
 using BazaarGameShared.Domain.Core.Types;
+using BazaarPlusPlus.Core.Cards;
 using BazaarPlusPlus.Core.Config;
 using BazaarPlusPlus.Core.GameState;
 using BazaarPlusPlus.Core.Runtime;
@@ -12,6 +13,7 @@ using BazaarPlusPlus.Game.Input;
 using BazaarPlusPlus.Game.OverlayPanels;
 using BazaarPlusPlus.Game.Supporters;
 using BazaarPlusPlus.GameInterop.CardPreview;
+using BazaarPlusPlus.GameInterop.Cards;
 using BazaarPlusPlus.GameInterop.DayTiers;
 using BazaarPlusPlus.GameInterop.StaticCards;
 using BazaarPlusPlus.GameInterop.TagTypography;
@@ -109,7 +111,7 @@ internal sealed class CollectionPanel : MonoBehaviour
         _viewState = new CollectionViewState(
             _gridPort,
             new StaticCollectionSourceCatalog(),
-            dayTierResolver,
+            new CollectionDayTierSource(dayTierResolver),
             _heroPreferenceStore
         );
     }
@@ -215,7 +217,7 @@ internal sealed class CollectionPanel : MonoBehaviour
         var hero = isInGameRun ? TryReadCurrentHero(failures) : null;
         var encounterIds = isInGameRun ? TryReadEncounterIds(failures) : EncounterIdsSnapshot.Empty;
         var currentRunDay = isInGameRun ? TryReadCurrentDay(failures) : null;
-        var sourceEntries = CollectionSourceCatalog.Entries;
+        var sourceEntries = StaticCollectionSourceCatalog.Entries;
         var selection = CollectionPanelOpenSelectionResolver.Resolve(
             isInGameRun,
             hero,
@@ -267,15 +269,20 @@ internal sealed class CollectionPanel : MonoBehaviour
         }
     }
 
-    private static EHero? TryReadCurrentHero(List<CollectionPanelSelectionProbeFailure> failures)
+    private static CardHero? ToFacet(EHero? hero) =>
+        hero.HasValue && DesktopCardFacets.Hero.TryToFacet(hero.Value, out var facet)
+            ? facet
+            : null;
+
+    private static CardHero? TryReadCurrentHero(List<CollectionPanelSelectionProbeFailure> failures)
     {
         try
         {
-            var runHero = TheBazaar.Data.Run?.Player?.Hero;
+            var runHero = ToFacet(TheBazaar.Data.Run?.Player?.Hero);
             if (CollectionPanelOpenSelectionResolver.IsConcreteHero(runHero))
                 return runHero;
 
-            var selectedHero = TheBazaar.Data.SelectedHero;
+            var selectedHero = ToFacet(TheBazaar.Data.SelectedHero);
             return CollectionPanelOpenSelectionResolver.IsConcreteHero(selectedHero)
                 ? selectedHero
                 : null;
@@ -432,7 +439,7 @@ internal sealed class CollectionPanel : MonoBehaviour
         );
         if (!_sourceCatalogWarmed)
         {
-            _ = CollectionSourceCatalog.Entries;
+            _ = StaticCollectionSourceCatalog.Entries;
             _sourceCatalogWarmed = true;
         }
 
@@ -737,19 +744,21 @@ internal sealed class CollectionPanel : MonoBehaviour
 
         public void ResetFilters() => panel.ApplyOutcome(panel._viewState.ResetFilters());
 
-        public void ToggleHero(EHero hero) => panel.ApplyOutcome(panel._viewState.ToggleHero(hero));
+        public void ToggleHero(CardHero hero) =>
+            panel.ApplyOutcome(panel._viewState.ToggleHero(hero));
 
         public void ToggleAllHeroes() => panel.ApplyOutcome(panel._viewState.ToggleAllHeroes());
 
-        public void ToggleTier(ETier tier) => panel.ApplyOutcome(panel._viewState.ToggleTier(tier));
+        public void ToggleTier(CardTier tier) =>
+            panel.ApplyOutcome(panel._viewState.ToggleTier(tier));
 
         public void ToggleRunDayFilter() =>
             panel.ApplyOutcome(panel._viewState.ToggleRunDayFilter());
 
-        public void ToggleSize(ECardSize size) =>
+        public void ToggleSize(CardSize size) =>
             panel.ApplyOutcome(panel._viewState.ToggleSize(size));
 
-        public void ToggleTag(ECardTag tag) => panel.ApplyOutcome(panel._viewState.ToggleTag(tag));
+        public void ToggleTag(CardTag tag) => panel.ApplyOutcome(panel._viewState.ToggleTag(tag));
 
         public void ToggleKeyword(CollectionKeywordFacetOption option) =>
             panel.ApplyOutcome(panel._viewState.ToggleKeyword(option));

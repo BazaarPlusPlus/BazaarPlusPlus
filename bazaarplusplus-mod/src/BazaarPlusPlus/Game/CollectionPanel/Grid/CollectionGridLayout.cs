@@ -1,5 +1,5 @@
 #nullable enable
-using BazaarGameShared.Domain.Core.Types;
+using BazaarPlusPlus.Core.Cards;
 using BazaarPlusPlus.Game.CollectionPanel.Data;
 
 namespace BazaarPlusPlus.Game.CollectionPanel.Grid;
@@ -63,7 +63,7 @@ internal sealed class CollectionGridLayout
                 CollectionGridConstants.ColumnsFor(activeType)
             );
 
-        return activeType == ECardType.Skill ? BuildSkill(visible) : BuildItem(visible);
+        return activeType == CardType.Skill ? BuildSkill(visible) : BuildItem(visible);
     }
 
     private static CollectionGridLayout BuildSkill(IReadOnlyList<CollectionCardVm> visible)
