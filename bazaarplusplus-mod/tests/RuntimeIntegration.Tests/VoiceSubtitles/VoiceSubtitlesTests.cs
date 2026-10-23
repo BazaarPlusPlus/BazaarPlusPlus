@@ -27,53 +27,6 @@ public sealed class VoiceSubtitlesTests
     }
 
     [Fact]
-    public void Embedded_seed_computed_content_hash_uses_sha256_format()
-    {
-        var documentType = GetRequiredType("BazaarPlusPlus.Game.VoiceSubtitles.VoiceLinesDocument");
-        var computeContentHash = GetRequiredStaticMethod(documentType, "ComputeContentHash");
-        var lines = LoadEmbeddedLines();
-
-        var contentHash = Assert.IsType<string>(computeContentHash.Invoke(null, [lines]));
-
-        Assert.StartsWith("sha256:", contentHash, StringComparison.Ordinal);
-        Assert.Equal(71, contentHash.Length);
-    }
-
-    [Fact]
-    public void Parser_rejects_count_mismatch()
-    {
-        var documentType = GetRequiredType("BazaarPlusPlus.Game.VoiceSubtitles.VoiceLinesDocument");
-        var parse = GetRequiredStaticMethod(documentType, "Parse");
-        var json = BuildVoiceLinesJson(
-            count: 2,
-            contentHash: ContentHashFor(("stem", "English", "中文", 1.25)),
-            ("stem", "English", "中文", 1.25)
-        );
-
-        var ex = Assert.Throws<TargetInvocationException>(() =>
-            parse.Invoke(null, [json, VoiceCatalogSource.Embedded])
-        );
-        Assert.Contains("count", ex.InnerException?.Message);
-    }
-
-    [Fact]
-    public void Parser_rejects_content_hash_mismatch()
-    {
-        var documentType = GetRequiredType("BazaarPlusPlus.Game.VoiceSubtitles.VoiceLinesDocument");
-        var parse = GetRequiredStaticMethod(documentType, "Parse");
-        var json = BuildVoiceLinesJson(
-            count: 1,
-            contentHash: "sha256:0000000000000000000000000000000000000000000000000000000000000000",
-            ("stem", "English", "中文", 1.25)
-        );
-
-        var ex = Assert.Throws<TargetInvocationException>(() =>
-            parse.Invoke(null, [json, VoiceCatalogSource.Embedded])
-        );
-        Assert.Contains("contentHash", ex.InnerException?.Message);
-    }
-
-    [Fact]
     public void Default_cache_path_uses_game_root_data_directory()
     {
         var dataRoot = Path.Combine(Path.GetTempPath(), $"bpp-data-root-{Guid.NewGuid():N}");
@@ -222,51 +175,6 @@ public sealed class VoiceSubtitlesTests
         Assert.Empty(capture.Events("voice_subtitles.catalog.recovered"));
         Assert.Single(capture.Events("voice_subtitles.catalog.ready"));
         VoiceLineCatalog.Reset();
-    }
-
-    [Fact]
-    public void Malformed_rows_emit_typed_debug_skips_without_operational_warnings()
-    {
-        var documentType = typeof(VoiceLinesDocument);
-        var parse = GetRequiredStaticMethod(documentType, "Parse");
-        var json = BuildVoiceLinesJson(
-            count: 1,
-            contentHash: ContentHashFor(("valid", "English", "中文", 1.25)),
-            ("", "missing", "缺失", 1),
-            ("valid", "English", "中文", 1.25),
-            ("valid", "duplicate", "重复", 1),
-            ("empty", "", "", 1)
-        );
-        using var capture = new LogCapture();
-
-        var lines = Assert.IsAssignableFrom<Array>(
-            parse.Invoke(null, [json, VoiceCatalogSource.Remote])
-        );
-
-        Assert.Single(lines);
-#if DEBUG
-        var skipped = capture.Events("voice_subtitles.catalog_row.skipped");
-        Assert.Equal(3, skipped.Count);
-        Assert.All(skipped, entry => Assert.Equal(LogLevel.Debug, entry.Level));
-        Assert.Contains(
-            skipped,
-            entry => entry.Data?.ToString()?.Contains("reason_code=missing_stem") == true
-        );
-        Assert.Contains(
-            skipped,
-            entry => entry.Data?.ToString()?.Contains("reason_code=duplicate_stem") == true
-        );
-        Assert.Contains(
-            skipped,
-            entry => entry.Data?.ToString()?.Contains("reason_code=empty_text") == true
-        );
-#else
-        Assert.Empty(capture.Events("voice_subtitles.catalog_row.skipped"));
-#endif
-        Assert.DoesNotContain(
-            capture.All,
-            entry => entry.Level is LogLevel.Warning or LogLevel.Error
-        );
     }
 
     [Fact]
@@ -485,7 +393,7 @@ public sealed class VoiceSubtitlesTests
 
     private static string? LoadEmbeddedJson() =>
         new AssemblyResourceCatalogSource(
-            typeof(VoiceLine).Assembly,
+            typeof(VoiceLinesCatalogFactory).Assembly,
             VoiceLinesCatalogFactory.EmbeddedResourceName
         )
             .ReadAsync(CancellationToken.None)
@@ -600,7 +508,7 @@ public sealed class VoiceSubtitlesTests
         params (string Stem, string English, string Chinese, float DurationSeconds)[] lines
     )
     {
-        var voiceLineType = GetRequiredType("BazaarPlusPlus.Game.VoiceSubtitles.VoiceLine");
+        var voiceLineType = typeof(VoiceLine);
         var voiceLineArray = Array.CreateInstance(voiceLineType, lines.Length);
         for (var i = 0; i < lines.Length; i++)
         {

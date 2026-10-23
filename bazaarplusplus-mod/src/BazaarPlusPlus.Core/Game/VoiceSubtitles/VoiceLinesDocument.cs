@@ -4,11 +4,11 @@ using BazaarPlusPlus.Infrastructure.Logging;
 
 namespace BazaarPlusPlus.Game.VoiceSubtitles;
 
-internal sealed class VoiceLinesDocument
+public sealed class VoiceLinesDocument
 {
-    internal const int SupportedSchemaVersion = VoiceLinesValidationCore.SupportedSchemaVersion;
+    public const int SupportedSchemaVersion = VoiceLinesValidationCore.SupportedSchemaVersion;
 
-    internal static VoiceLine[] Parse(string json, VoiceCatalogSource source)
+    public static VoiceLine[] Parse(string json, VoiceCatalogSource source)
     {
         var parsed = VoiceLinesValidationCore.Parse(json, source.ToString());
         foreach (var skippedRow in parsed.SkippedRows)
@@ -61,7 +61,7 @@ internal sealed class VoiceLinesDocument
         );
     }
 
-    internal static string ComputeContentHash(IReadOnlyList<VoiceLine> lines)
+    public static string ComputeContentHash(IReadOnlyList<VoiceLine> lines)
     {
         var validationLines = new VoiceLinesValidationLine[lines.Count];
         for (var i = 0; i < lines.Count; i++)

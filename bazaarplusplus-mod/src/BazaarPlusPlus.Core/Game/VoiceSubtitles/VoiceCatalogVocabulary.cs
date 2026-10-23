@@ -2,7 +2,7 @@
 
 namespace BazaarPlusPlus.Game.VoiceSubtitles;
 
-internal enum VoiceCatalogSource
+public enum VoiceCatalogSource
 {
     None,
     Cache,
@@ -10,12 +10,12 @@ internal enum VoiceCatalogSource
     Remote,
 }
 
-internal enum VoiceCatalogEndpoint
+public enum VoiceCatalogEndpoint
 {
     VoiceCatalog,
 }
 
-internal enum VoiceCatalogReasonCode
+public enum VoiceCatalogReasonCode
 {
     CacheMissing,
     CacheStale,
@@ -28,7 +28,7 @@ internal enum VoiceCatalogReasonCode
     WriteFailed,
 }
 
-internal enum VoiceCatalogRowSkipReason
+public enum VoiceCatalogRowSkipReason
 {
     MissingStem,
     DuplicateStem,

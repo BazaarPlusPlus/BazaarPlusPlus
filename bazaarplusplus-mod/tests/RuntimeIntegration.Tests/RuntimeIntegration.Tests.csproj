@@ -43,7 +43,6 @@
   <ItemGroup>
     <Compile Include="../CompositionRuntime.Tests/*.cs" />
     <Compile Include="../SettingsDockRegistry.Tests/*.cs" />
-    <Compile Include="../VoiceSubtitles.Tests/*.cs" />
     <Compile Include="../NativePairedTooltipHost.Tests/*.cs" />
   </ItemGroup>
 </Project>

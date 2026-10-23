@@ -2,7 +2,7 @@
 
 namespace BazaarPlusPlus.Game.VoiceSubtitles;
 
-internal readonly struct VoiceLine
+public readonly struct VoiceLine
 {
     public VoiceLine(string stem, string english, string chinese, float durationSeconds)
     {
