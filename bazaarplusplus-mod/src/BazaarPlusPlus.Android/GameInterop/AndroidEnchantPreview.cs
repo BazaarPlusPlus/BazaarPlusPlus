@@ -2,6 +2,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using BazaarPlusPlus.Core.Config;
 using BazaarPlusPlus.Core.GameState;
+using BazaarPlusPlus.Core.Ui;
 using BazaarPlusPlus.Game.ItemEnchantPreview;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
@@ -27,19 +28,24 @@ namespace BazaarPlusPlus.Android.GameInterop;
 /// render, so nothing carries over to the next card. Core's <see cref="EnchantPreviewVisibility"/>
 /// decides when it shows under <c>[EnchantPreview] Mode</c>: always, never, or only while an
 /// enchant pedestal is offered (<see cref="AndroidChoicePedestals"/>), and then only for the
-/// enchantment(s) that pedestal applies.
+/// enchantment(s) that pedestal applies. The lines are sized when the passive block takes them:
+/// the desktop's reduced size, raised until they read at <see cref="TouchMetrics.MinBodySp"/> on
+/// this screen (<see cref="TouchMetrics.ReadablePercent"/>, from the passive label's rendered
+/// font size).
 /// </summary>
 internal static class AndroidEnchantPreview
 {
     private const int PrefixSizePercent = 50;
     private const int EffectSizePercent = 46;
-    private const string LineHeight = "60%";
+
+    // The line height over the text size, as the desktop's 60% line height over its 46% text.
+    private const float LineHeightOverSize = 1.3f;
     private static readonly Regex NativeLineHeight = new(
         "</?line-height[^>]*>",
         RegexOptions.Compiled | RegexOptions.CultureInvariant
     );
     private const long LoggedRenders = 10;
-    private static string? _pending;
+    private static List<(string Name, string Label, string Effect)>? _pending;
     private static long _rendered;
     private static long _pedestalHidden;
     private static long _pedestalShown;
@@ -98,20 +104,36 @@ internal static class AndroidEnchantPreview
         }
     }
 
-    /// <summary>The passive block of the rendering tooltip: the section, consumed once.</summary>
-    public static string? TakePending()
+    /// <summary>
+    /// The passive block of the rendering tooltip: the section, consumed once, sized for a label
+    /// whose font renders <paramref name="fontPixels"/> screen pixels high (zero when unknown).
+    /// </summary>
+    public static string? TakePending(float fontPixels)
     {
-        var section = _pending;
+        var lines = _pending;
         _pending = null;
-        if (section != null)
+        if (lines == null)
+            return null;
+        var dpi = UnityEngine.Screen.dpi;
+        var effect = TouchMetrics.ReadablePercent(EffectSizePercent, fontPixels, dpi);
+        var prefix = Math.Max(PrefixSizePercent, effect);
+        // A short blank first line keeps the list off the block's top divider.
+        var section =
+            "<size=40%> </size>\n"
+            + string.Join("\n", lines.Select(line => Line(line, prefix, effect)));
+        var count = Interlocked.Increment(ref _rendered);
+        if (count <= LoggedRenders)
         {
-            var count = Interlocked.Increment(ref _rendered);
-            if (count <= LoggedRenders)
-                BppLog.InfoEvent(
-                    new BppLogEvent(BppLogFeatureScope.Android, "android.enchant_preview.rendered"),
-                    ("count", count),
-                    ("length", section.Length)
-                );
+            var pixelsPerSp = TouchMetrics.EffectiveDpi(dpi) / TouchMetrics.BaselineDpi;
+            BppLog.InfoEvent(
+                new BppLogEvent(BppLogFeatureScope.Android, "android.enchant_preview.rendered"),
+                ("count", count),
+                ("lines", lines.Count),
+                ("length", section.Length),
+                ("font_px", Math.Round(fontPixels, 1)),
+                ("effect_percent", effect),
+                ("effect_sp", Math.Round(fontPixels * effect / 100f / pixelsPerSp, 1))
+            );
         }
         return section;
     }
@@ -119,7 +141,10 @@ internal static class AndroidEnchantPreview
     /// <summary>The render finished, whether or not the passive block consumed the section.</summary>
     public static void Clear() => _pending = null;
 
-    private static string? Build(CardTooltipData tooltipData, IReadOnlyList<string>? restriction)
+    private static List<(string Name, string Label, string Effect)>? Build(
+        CardTooltipData tooltipData,
+        IReadOnlyList<string>? restriction
+    )
     {
         if (Data.IsInCombat || AppState.CurrentState?.TryCast<ReplayState>() != null)
             return null;
@@ -140,7 +165,7 @@ internal static class AndroidEnchantPreview
 
         var current = AndroidGameIds.Unboxed(() => item.Enchantment);
         var run = Data.Run?.TryCast<IRun>();
-        var lines = new List<string>();
+        var lines = new List<(string Name, string Label, string Effect)>();
         foreach (var entry in enchantments)
         {
             var type = entry.Key;
@@ -152,10 +177,9 @@ internal static class AndroidEnchantPreview
             var effect = Render(card, template, itemTemplate, type, enchantment, run);
             if (string.IsNullOrWhiteSpace(effect))
                 continue;
-            lines.Add(Line(type, effect!));
+            lines.Add((type.ToString(), Label(type), effect!));
         }
-        // A short blank first line keeps the list off the block's top divider.
-        return lines.Count == 0 ? null : $"<size=40%> </size>\n{string.Join("\n", lines)}";
+        return lines.Count == 0 ? null : lines;
     }
 
     // The desktop's ItemEnchantPreviewCandidateSelector: a pedestal that names its enchantment(s)
@@ -238,25 +262,33 @@ internal static class AndroidEnchantPreview
         return text.Length == 0 ? null : text.ToString();
     }
 
-    private static string Line(EEnchantmentType type, string effect)
+    private static string Label(EEnchantmentType type)
     {
         var name = type.ToString();
-        string label;
         try
         {
-            label = new LocalizableText(name).GetLocalizedText();
+            return new LocalizableText(name).GetLocalizedText();
         }
         catch
         {
-            label = name;
+            return name;
         }
+    }
+
+    private static string Line(
+        (string Name, string Label, string Effect) line,
+        int prefixPercent,
+        int effectPercent
+    )
+    {
         // The game's rendered text sets its own line height for full-size text; the preview's
         // smaller lines replace it so that the whole list fits a phone-sized tooltip.
         var scaled = ItemEnchantPreviewText.ScaleInlineSizes(
-            NativeLineHeight.Replace(effect, ""),
-            EffectSizePercent / 100f
+            NativeLineHeight.Replace(line.Effect, ""),
+            effectPercent / 100f
         );
-        return $"<line-height={LineHeight}><size={PrefixSizePercent}%><color=#{ItemEnchantPreviewText.ColorHex(name)}>{label}</color>: </size>"
-            + $"<size={EffectSizePercent}%>{scaled}</size></line-height>";
+        var lineHeight = (int)Math.Round(effectPercent * LineHeightOverSize);
+        return $"<line-height={lineHeight}%><size={prefixPercent}%><color=#{ItemEnchantPreviewText.ColorHex(line.Name)}>{line.Label}</color>: </size>"
+            + $"<size={effectPercent}%>{scaled}</size></line-height>";
     }
 }

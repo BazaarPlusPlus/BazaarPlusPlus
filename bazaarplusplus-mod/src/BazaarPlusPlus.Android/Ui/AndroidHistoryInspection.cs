@@ -59,7 +59,7 @@ internal sealed class AndroidHistoryInspection
             font,
             "Name",
             Local(layout.InspectName, origin, layout.Gap),
-            layout.TitleFont,
+            layout.NameFont,
             wrap: true
         );
         _description = AndroidHistoryUi.Label(
@@ -79,7 +79,7 @@ internal sealed class AndroidHistoryInspection
             Local(layout.InspectClose, origin, 0f),
             layout.TitleFont,
             () => Close("close_button"),
-            "X"
+            AndroidUiKit.CloseGlyph
         );
         _root.SetActive(false);
     }

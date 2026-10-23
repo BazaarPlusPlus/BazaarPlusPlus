@@ -95,7 +95,7 @@ internal sealed class AndroidLiveBuildInspection
         );
         _description.overflowMode = TextOverflowModes.Ellipsis;
         var close = AndroidTouchScreen.Child("Close", info, Local(layout.InspectClose, origin, 0f));
-        AndroidUiKit.Button(close, font, "X", layout.TitleFont, () => Close("close_button"));
+        AndroidUiKit.CloseButton(close, font, layout.TitleFont, () => Close("close_button"));
         _root.SetActive(false);
     }
 

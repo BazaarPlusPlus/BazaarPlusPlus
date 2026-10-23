@@ -82,6 +82,7 @@ internal sealed class AndroidTouchUi
             ("live_build_refreshes", _liveBuild?.Refreshes ?? 0),
             ("live_build_refreshes_completed", _liveBuild?.RefreshesCompleted ?? 0),
             ("live_build_relayouts", _liveBuild?.Relayouts ?? 0),
+            ("collection_relayouts", _collection?.Relayouts ?? 0),
             .. AndroidBackKey.Summary(),
         ];
 
@@ -155,7 +156,7 @@ internal sealed class AndroidTouchUi
 
         // Top-most first: an open full-screen panel, then this menu.
         AndroidBackKey.Register("live_build", () => _liveBuild?.HandleBack() == true);
-        AndroidBackKey.Register("collection", CloseCollectionForBack);
+        AndroidBackKey.Register("collection", () => _collection?.HandleBack() == true);
         AndroidBackKey.Register(
             "touch_menu",
             () =>
@@ -263,7 +264,7 @@ internal sealed class AndroidTouchUi
             AndroidUiKit.TextColor
         );
         var close = AndroidTouchScreen.Child("Close", menu, Relative(layout.Close, origin));
-        AndroidUiKit.Button(close, font, "X", layout.TitleFont, () => Close("close_button"));
+        AndroidUiKit.CloseButton(close, font, layout.TitleFont, () => Close("close_button"));
 
         _entries.Clear();
         if (entries.Count == 0)
@@ -367,14 +368,6 @@ internal sealed class AndroidTouchUi
             );
             _liveBuild?.Close("open_failed");
         }
-    }
-
-    private bool CloseCollectionForBack()
-    {
-        if (_collection?.IsOpen != true)
-            return false;
-        _collection.Close("back_key");
-        return true;
     }
 
     private static TouchRect Relative(TouchRect area, TouchRect origin) =>

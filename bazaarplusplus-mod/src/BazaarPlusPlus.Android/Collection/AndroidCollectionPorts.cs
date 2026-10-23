@@ -3,6 +3,7 @@ using BazaarPlusPlus.Core.Cards;
 using BazaarPlusPlus.Game.CollectionPanel;
 using BazaarPlusPlus.Game.CollectionPanel.Data;
 using BazaarPlusPlus.Game.CollectionPanel.Grid;
+using BazaarPlusPlus.Game.CollectionPanel.Ui;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
 using UnityEngine;
@@ -11,12 +12,15 @@ namespace BazaarPlusPlus.Android.Collection;
 
 /// <summary>
 /// The grid side of <see cref="CollectionViewState"/> on Android: it keeps the visible cards and
-/// their Core <see cref="CollectionGridLayout"/>, measured against the grid viewport's width, and
-/// reports the count and content height the view state renders.
+/// their Core <see cref="CollectionGridLayout"/>, packed into the column count the touch layout
+/// chooses for the grid viewport's width (<see cref="CollectionTouchLayout.GridColumns"/>), and
+/// reports the count and content height the view state renders. A new width that changes the
+/// column count re-packs the same cards.
 /// </summary>
 internal sealed class AndroidCollectionGridPort : ICollectionGridPort
 {
     private bool _published;
+    private float _viewportWidth;
 
     public IReadOnlyList<CollectionCardVm> Visible { get; private set; } =
         Array.Empty<CollectionCardVm>();
@@ -28,7 +32,23 @@ internal sealed class AndroidCollectionGridPort : ICollectionGridPort
     /// <summary>Bumped on every publish, so the grid knows to re-place its cards.</summary>
     public int Revision { get; private set; }
 
-    public float ViewportWidth { get; set; }
+    /// <summary>The touch layout the columns follow; set before the grid measures its viewport.</summary>
+    public CollectionTouchLayout? Touch { get; set; }
+
+    public float ViewportWidth
+    {
+        get => _viewportWidth;
+        set
+        {
+            _viewportWidth = value;
+            var columns = Columns(Tab);
+            if (columns != Layout.Columns)
+            {
+                Layout = CollectionGridLayout.Build(Visible, Tab, columns);
+                Revision++;
+            }
+        }
+    }
 
     public CollectionGridPixelization Pixels =>
         CollectionGridPixelization.ForViewport(ViewportWidth, Layout.Columns);
@@ -46,11 +66,15 @@ internal sealed class AndroidCollectionGridPort : ICollectionGridPort
     {
         Visible = cards ?? Array.Empty<CollectionCardVm>();
         Tab = activeTab;
-        Layout = CollectionGridLayout.Build(Visible, activeTab);
+        Layout = CollectionGridLayout.Build(Visible, activeTab, Columns(activeTab));
         Revision++;
         _published = true;
         return new CollectionGridProjection(Visible.Count, ContentHeight);
     }
+
+    private int Columns(CollectionTabKind tab) =>
+        Touch?.GridColumns(tab.CardType(), _viewportWidth)
+        ?? CollectionGridConstants.ColumnsFor(tab.CardType());
 
     public CollectionGridProjection Current =>
         _published

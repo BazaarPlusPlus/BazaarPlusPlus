@@ -57,7 +57,7 @@ internal sealed class AndroidHistorySkillsSheet
             Local(layout.SkillsClose, origin),
             layout.TitleFont,
             () => Close("close_button"),
-            "X"
+            AndroidUiKit.CloseGlyph
         );
         for (var row = 0; row < 2; row++)
         {
