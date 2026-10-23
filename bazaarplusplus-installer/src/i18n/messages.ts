@@ -55,10 +55,8 @@ const zh = {
 
   // Support menu + payment modal
   wechatPay: '微信支付',
-  wechatPayOpen: '打开收款码',
   kofiSubtitle: '请作者喝杯咖啡',
   supporterList: '支持者名单',
-  supporterListSubtitle: '查看名单',
   wechatPayTagline: '请 Bazaar++ 喝一杯',
   supportLine1: '有你支持，Bazaar++ 会冒出更多好东西',
   supportLine2: '如果愿意，欢迎在备注里留一个支持者 ID',
@@ -107,7 +105,7 @@ const zh = {
   resetDataConfirmTitle: '删除本地数据',
   resetDataTarget: '目标：{path} 内的 BazaarPlusPlusV6 文件夹',
   resetDataConfirmBody:
-    '这会删除 The Bazaar 游戏目录中 BazaarPlusPlusV6 下的本地数据库、截图和战斗回放视频。这包括尚未上传的对局数据。',
+    '这会删除 The Bazaar 游戏目录中 BazaarPlusPlusV6 下的本地数据库、截图和回放。这包括尚未上传的对局数据。',
   resetDataConfirmKeepsInstall:
     '不会卸载 The Bazaar，也不会卸载 BazaarPlusPlus 插件。',
   resetDataConfirmGameClosed: '请先退出 The Bazaar，避免数据文件仍被占用。',
@@ -145,8 +143,8 @@ const zh = {
   operationCannotBeCancelled: '操作已开始，完成前无法取消或关闭此窗口。',
   uninstallConfirmTitle: '卸载 BazaarPlusPlus',
   uninstallTarget: '目标：{path}',
-  uninstallConfirmBody: '将移除 BepInEx 与插件文件，保留本地数据与游戏本体。',
-  uninstallConfirmKeepsData: '本地数据库、截图与回放视频不会被删除。',
+  uninstallConfirmBody:
+    '将移除 BepInEx 与插件文件。本地数据（数据库、截图与回放）和游戏本体会保留。',
   uninstallConfirmAction: '卸载',
   uninstallRunning: '正在卸载…',
   uninstallDone: '卸载完成',
@@ -165,7 +163,7 @@ const zh = {
   installBlockedByGame:
     'The Bazaar 仍在运行，或无法确认游戏已退出。请先退出游戏，再安装 BazaarPlusPlus。',
   importBlockedByGame:
-    'The Bazaar 仍在运行，或无法确认游戏已退出。请先退出游戏，再导入 V5 历史记录。',
+    'The Bazaar 仍在运行，或无法确认游戏已退出。请先退出游戏，再导入 V5 战绩。',
   legacyDeleteBlockedByGame:
     'The Bazaar 仍在运行，或无法确认游戏已退出。请先退出游戏，再删除旧数据文件夹。',
   installProblemDetectionFailed: '检测安装状态失败，请重试。',
@@ -221,13 +219,13 @@ const zh = {
   legacyDeleteKeep: '保留',
 
   // V5 import
-  legacyImportHeading: '导入 V5 历史记录',
+  legacyImportHeading: '导入 V5 战绩',
   legacyImportHint:
     '把 BazaarPlusPlusV5 中的对局、截图和回放导入 BazaarPlusPlusV6，只需一次。导入的对局只显示在本地战绩中，不会上传；BazaarPlusPlusV5 保持不变。',
   legacyImportAction: '导入',
   legacyImportRunning:
-    '正在导入 V5 历史记录。请保持游戏关闭，完成前不要退出安装器。',
-  importFailedAlreadyImported: 'V5 历史记录已经导入过，无需再次导入。',
+    '正在导入 V5 战绩。请保持游戏关闭，完成前不要退出安装器。',
+  importFailedAlreadyImported: 'V5 战绩已经导入过，无需再次导入。',
   importFailedNotEligible:
     '现在无法导入。请确认已安装当前版本的 BazaarPlusPlus，且 BazaarPlusPlusV5 文件夹仍在游戏目录中。',
   importFailedModContract:
@@ -240,7 +238,7 @@ const zh = {
     '复制 V5 的截图或回放文件失败，导入已撤销。请关闭占用这些文件的程序后重试。',
   importFailedTarget: '写入 BazaarPlusPlusV6 失败，导入已撤销。请重试。',
   importFailedMarker:
-    '历史记录已导入，但未能在 BazaarPlusPlusV5 中写入导入标记。请重试以完成，已导入的对局不会重复。',
+    '战绩已导入，但未能在 BazaarPlusPlusV5 中写入导入标记。请重试以完成，已导入的对局不会重复。',
 
   // Install confirmation modal
   installModalTitle: '安装 BazaarPlusPlus',
@@ -296,8 +294,7 @@ const zh = {
   // History page
   historyLoading: '读取战绩中',
   noLocalRuns: '暂无本地战绩',
-  historyEmptyDescription:
-    '完成一局 The Bazaar 对局后，战绩会自动显示在这里。你也可以刷新，或前往安装页检查游戏目录。',
+  historyEmptyDescription: '完成一局游戏后，战绩会出现在这里。',
   historyEmptyRefresh: '刷新战绩',
   historyEmptyInstall: '检查游戏目录',
   viewDetail: '查看详情',
@@ -347,9 +344,9 @@ const zh = {
   historyProblemUnexpected: '加载本地战绩时发生意外错误。请重试。',
   historyOpenInstall: '前往安装页',
   historyUnavailableImport:
-    '还没有 BazaarPlusPlusV6 战绩数据库，但游戏目录中有 BazaarPlusPlusV5 的历史记录。可以在安装页导入它们。',
+    '还没有 BazaarPlusPlusV6 战绩数据库，但游戏目录中有 BazaarPlusPlusV5 的战绩。可以在安装页导入它们。',
   historyUnavailableReinstall:
-    '游戏目录中有 BazaarPlusPlusV5 的历史记录，但已安装的 BazaarPlusPlus 仍在写入旧文件夹。请在安装页重新安装，然后导入。',
+    '游戏目录中有 BazaarPlusPlusV5 的战绩，但已安装的 BazaarPlusPlus 仍在写入旧文件夹。请在安装页重新安装，然后导入。',
   historyOpenImport: '前往导入',
   historyPreviewFallback: '缩略图不可用；刷新页面可重试。',
   historyPreviewEmpty: '暂无截图',
@@ -414,7 +411,7 @@ const zh = {
   deleteVideoDuration: '视频时长',
   deleteVideoTechnicalDetails: '技术详情',
   battleVideoActionLabel: '{action}：第 {day} 天，对手 {opponent}',
-  deleteVideoConfirmBody: '这会永久删除该场战斗的回放视频文件，且无法恢复。',
+  deleteVideoConfirmBody: '这会永久删除该场战斗的回放文件，且无法恢复。',
   deleteVideoConfirmAction: '删除视频',
   deleteVideoRunning: '正在删除目标视频…',
 
@@ -433,7 +430,7 @@ const zh = {
   storageCleanupScreenshotsConfirmBody:
     '清理完成前请保持游戏关闭。将删除 {count} 张结算截图（约 {size}），删除后无法恢复。',
   storageCleanupRunDataConfirmBody:
-    '清理完成前请保持游戏关闭。将删除 {runs} 局对局记录，包括 {battles} 场战斗、{videos} 个回放视频及相关截图（约 {size}），删除后无法恢复。',
+    '清理完成前请保持游戏关闭。将删除 {runs} 局对局记录，包括 {battles} 场战斗、{videos} 个回放及相关截图（约 {size}），删除后无法恢复。',
   storageCleanupSkippedPending: '另有 {count} 项尚未完成上传，将自动跳过。',
   storageCleanupNothingToClean: '没有符合条件的可清理数据。',
   storageCleanupConfirmAction: '确认清理',
@@ -535,7 +532,7 @@ const zh = {
   stableBuild: '正式版',
   maintenanceToolsHeading: '高级操作',
   maintenanceToolsHint: '卸载插件、重置 BepInEx 或删除本地数据',
-  maintenanceResetDataDescription: '删除本地数据库、截图与回放视频',
+  maintenanceResetDataDescription: '删除本地数据库、截图与回放',
   maintenanceNoResettableDataDescription: '当前没有可删除的本地数据',
   maintenanceResetBepinexDescription: '重置插件环境',
   maintenanceUninstallDescription: '移除所有组件',
@@ -552,7 +549,7 @@ const en: Record<MessageKey, string> = {
   htmlLang: 'en',
 
   languageToggle: '切换中文',
-  headerCheckUpdate: 'Check Updates',
+  headerCheckUpdate: 'Check updates',
   headerCheckingUpdate: 'Checking',
   supportProject: 'Support',
   primaryNavigation: 'Primary navigation',
@@ -577,10 +574,8 @@ const en: Record<MessageKey, string> = {
   bilibiliCoreDevSubtitle: 'CoreDev',
 
   wechatPay: 'WeChat Pay',
-  wechatPayOpen: 'Open QR code',
   kofiSubtitle: 'Buy the author a coffee',
   supporterList: 'Supporters',
-  supporterListSubtitle: 'View the list',
   wechatPayTagline: 'Buy Bazaar++ a drink',
   supportLine1: 'With your support, Bazaar++ keeps growing new things',
   supportLine2: 'If you like, leave a supporter ID in the note',
@@ -608,30 +603,30 @@ const en: Record<MessageKey, string> = {
   gamePathEmpty: 'No game directory selected for The Bazaar',
   installDetecting: 'Detecting The Bazaar and BazaarPlusPlus',
   installRefreshing: 'Re-detecting installation state',
-  actionChooseDirectory: 'Choose Game Directory',
+  actionChooseDirectory: 'Choose game directory',
   actionInstall: 'Install',
   actionReinstall: 'Reinstall',
-  actionResetData: 'Delete Local Data',
-  actionNoResettableData: 'No Local Data',
-  actionResetBepinex: 'Delete BepInEx Folder',
+  actionResetData: 'Delete local data',
+  actionNoResettableData: 'No local data',
+  actionResetBepinex: 'Delete BepInEx folder',
   actionUninstall: 'Uninstall',
   actionDelete: 'Delete',
-  launchGame: 'Launch Game',
+  launchGame: 'Launch game',
   installed: 'Installed',
-  notInstalled: 'Not Installed',
+  notInstalled: 'Not installed',
   ready: 'Ready',
   modNeedsReinstall: 'Reinstall required',
   installDone: 'Install complete',
-  resetDataConfirmTitle: 'Delete Local Data',
+  resetDataConfirmTitle: 'Delete local data',
   resetDataTarget: 'Target: the BazaarPlusPlusV6 folder inside {path}',
   resetDataConfirmBody:
-    'This deletes the local database, screenshots, and combat replay videos under BazaarPlusPlusV6 in The Bazaar install directory. This includes battle data that has not been uploaded yet.',
+    'This deletes the local database, screenshots, and replays under BazaarPlusPlusV6 in The Bazaar install directory. This includes battle data that has not been uploaded yet.',
   resetDataConfirmKeepsInstall:
     'This does not uninstall The Bazaar or the BazaarPlusPlus plugin.',
   resetDataConfirmGameClosed:
     'Quit The Bazaar first so data files are not held open.',
   resetDataConfirmAcknowledge: 'I understand this local data will be deleted.',
-  resetDataConfirmAction: 'Delete Local Data',
+  resetDataConfirmAction: 'Delete local data',
   resetDataRunning: 'Deleting the target local data…',
   resetDataDone: 'Local data deleted',
   resetDataNothingToDelete: 'No local data found to delete',
@@ -640,10 +635,10 @@ const en: Record<MessageKey, string> = {
   resetDataPartialFailure:
     '{count} local data {count|item|items} could not be deleted. Close the game and stream sources, then try again.',
   resetDataFailureDetails: 'Show undeleted items',
-  resetDataFailureCopy: 'Copy Diagnostics',
+  resetDataFailureCopy: 'Copy diagnostics',
   resetDataFailureCopied: 'Copied',
   resetDataFailureCopyFailed: 'Copy failed. Select the text and copy manually.',
-  resetBepinexConfirmTitle: 'Delete BepInEx Folder',
+  resetBepinexConfirmTitle: 'Delete BepInEx folder',
   resetBepinexTarget: 'Target: the BepInEx folder inside {path}',
   resetBepinexConfirmBody:
     'This deletes the entire BepInEx folder in The Bazaar install directory.',
@@ -655,7 +650,7 @@ const en: Record<MessageKey, string> = {
     'Quit The Bazaar first so the files are not held open.',
   resetBepinexConfirmAcknowledge:
     'I understand the entire BepInEx folder (including other plugins) will be deleted.',
-  resetBepinexConfirmAction: 'Delete BepInEx Folder',
+  resetBepinexConfirmAction: 'Delete BepInEx folder',
   resetBepinexRunning: 'Deleting the target BepInEx folder…',
   resetBepinexDone: 'BepInEx folder deleted',
   resetBepinexNothingToDelete: 'No BepInEx folder found',
@@ -668,9 +663,7 @@ const en: Record<MessageKey, string> = {
   uninstallConfirmTitle: 'Uninstall BazaarPlusPlus',
   uninstallTarget: 'Target: {path}',
   uninstallConfirmBody:
-    'This removes BepInEx and plugin files while keeping local data and the base game.',
-  uninstallConfirmKeepsData:
-    'Local database, screenshots, and replay videos are not deleted.',
+    'This removes BepInEx and the plugin files. Local data (database, screenshots and replays) and the base game are kept.',
   uninstallConfirmAction: 'Uninstall',
   uninstallRunning: 'Uninstalling…',
   uninstallDone: 'Uninstall complete',
@@ -693,9 +686,9 @@ const en: Record<MessageKey, string> = {
   legacyDeleteBlockedByGame:
     'The Bazaar is still running, or the installer could not confirm that it has closed. Quit the game before deleting the legacy data folder.',
   installProblemDetectionFailed:
-    'Installation state could not be detected. Please retry.',
+    'Installation state could not be detected. Try again.',
   installProblemChooseDirectoryFailed:
-    'The game directory picker could not be opened. Please retry.',
+    'The game directory picker could not be opened. Try again.',
   installProblemInstallFailed:
     'Install or repair failed. Quit The Bazaar and Steam, check directory permissions, then retry.',
   installProblemResetDataFailed:
@@ -707,9 +700,9 @@ const en: Record<MessageKey, string> = {
   installProblemLaunchFailed:
     'The game could not be launched through Steam. Make sure Steam is running, then retry.',
   installProblemUnexpected:
-    'Something unexpected happened while handling installation state. Please retry.',
+    'Something unexpected happened while handling installation state. Try again.',
   installProblemLegacyDataFailed:
-    'Data folders from earlier versions could not be read. Please retry.',
+    'Data folders from earlier versions could not be read. Try again.',
   installProblemLegacyDeleteFailed:
     'The legacy data folder could not be deleted. Close apps using those files, then retry.',
 
@@ -724,7 +717,7 @@ const en: Record<MessageKey, string> = {
   legacyModReinstallRequired:
     'The installed BazaarPlusPlus still writes to an old data folder. Reinstall it so it uses BazaarPlusPlusV6.',
   legacyDeleteAction: 'Delete {name}',
-  legacyDeleteConfirmTitle: 'Delete Legacy Data Folder',
+  legacyDeleteConfirmTitle: 'Delete legacy data folder',
   legacyDeleteTarget: 'Target: the {name} folder inside {path}',
   legacyDeleteConfirmBody:
     'This permanently deletes everything in {name}, including databases, screenshots, and replays from earlier versions.',
@@ -734,7 +727,7 @@ const en: Record<MessageKey, string> = {
     'Current data (BazaarPlusPlusV6), the mod, and the game are not affected.',
   legacyDeleteConfirmAcknowledge:
     'I understand the {name} folder will be permanently deleted.',
-  legacyDeleteConfirmAction: 'Delete Folder',
+  legacyDeleteConfirmAction: 'Delete folder',
   legacyDeleteRunning: 'Deleting the legacy data folder…',
   legacyDeleteDone: '{name} deleted',
   legacyDeleteNothingToDelete: '{name} no longer exists',
@@ -748,7 +741,7 @@ const en: Record<MessageKey, string> = {
     '{count} {count|screenshot or video file was|screenshot or video files were} not in BazaarPlusPlusV5 and could not be imported.',
   legacyDeleteAfterImportOffer:
     'You can delete BazaarPlusPlusV5 now or keep it. If you keep it, it stays listed under Data from earlier versions, and you can delete it later.',
-  legacyDeleteKeep: 'Keep Folder',
+  legacyDeleteKeep: 'Keep folder',
 
   legacyImportHeading: 'Import V5 History',
   legacyImportHint:
@@ -769,7 +762,7 @@ const en: Record<MessageKey, string> = {
   importFailedFiles:
     'V5 screenshots or replays could not be copied, so the import was undone. Close apps using those files, then retry.',
   importFailedTarget:
-    'BazaarPlusPlusV6 could not be written, so the import was undone. Please retry.',
+    'BazaarPlusPlusV6 could not be written, so the import was undone. Try again.',
   importFailedMarker:
     'History was imported, but the import marker could not be written to BazaarPlusPlusV5. Retry to finish; imported runs are not duplicated.',
 
@@ -779,7 +772,7 @@ const en: Record<MessageKey, string> = {
     'After installation, launch the game from Steam to use the mod.',
   viewTutorial: 'View tutorial',
   installSteamNotice:
-    'Please close Steam before installing. If Steam is running, quit it manually before continuing.',
+    'Close Steam before installing. If Steam is running, quit it manually before continuing.',
   installSteamNoticeMacos: 'Close the game first. Continuing will quit Steam.',
   installCloseGameNotice: 'Close the game before continuing.',
   installAcknowledge:
@@ -791,7 +784,7 @@ const en: Record<MessageKey, string> = {
   updaterCurrent: 'Up to date',
   headerCheckFailed: 'Check failed',
   updateHeaderAvailable: 'Update available',
-  updateModalTitle: 'Update Available',
+  updateModalTitle: 'Update available',
   updateModalBody: 'BazaarPlusPlus {version} is available.',
   updateMainlandDownloadTitle: 'Mainland China download',
   updateMainlandDownloadHint:
@@ -809,12 +802,12 @@ const en: Record<MessageKey, string> = {
   updateReady: 'Update ready — restart to apply',
   updateReadyBody:
     'BazaarPlusPlus {version} is installed. Restart the app to use it.',
-  updateRestartNow: 'Restart Now',
+  updateRestartNow: 'Restart now',
   updateRestarting: 'Restarting…',
   updateError: 'Update failed',
   updateRestartFailedTitle: 'Automatic restart failed',
   updateRetry: 'Retry',
-  updateRetryRestart: 'Try Restart Again',
+  updateRetryRestart: 'Try restart again',
   updateDownloadProgressLabel: 'Update download progress',
   updateDownloadProgressUnknown: 'Downloaded {downloaded} MB',
   updateDownloadProgressKnown:
@@ -832,14 +825,13 @@ const en: Record<MessageKey, string> = {
 
   historyLoading: 'Loading runs',
   noLocalRuns: 'No local runs yet',
-  historyEmptyDescription:
-    'Completed The Bazaar runs appear here automatically. Refresh, or check the selected game directory on the Install page.',
+  historyEmptyDescription: 'Finish a run and it appears here.',
   historyEmptyRefresh: 'Refresh History',
-  historyEmptyInstall: 'Check Game Directory',
-  viewDetail: 'View Details',
+  historyEmptyInstall: 'Check game directory',
+  viewDetail: 'View details',
   historySummaryRuns: 'Runs',
   historySummaryVideos: 'Videos',
-  historySummaryWinRate: '10-Win Rate',
+  historySummaryWinRate: '10-win rate',
   historyOverviewLabel: 'History overview',
   historyPagination: 'History pages',
   historyPageRange: 'Runs {start}–{end} of {total}',
@@ -869,7 +861,7 @@ const en: Record<MessageKey, string> = {
     'Local History could not be read. Close apps that may be using the database, then retry.',
   historyProblemBlockedByGame:
     'The Bazaar is still running in the background and holding the History database. Closing the game window does not always end its process; end it to read History.',
-  historyEndGameProcess: 'End Game Process',
+  historyEndGameProcess: 'End game process',
   historyEndGameProcessDone: 'Game process ended. Reloading History.',
   historyEndGameProcessNotFound:
     'The game process had already exited. Reloading History.',
@@ -880,25 +872,25 @@ const en: Record<MessageKey, string> = {
   historyProblemUnsupportedSchema:
     'The History database schema is unsupported (found {found}, supported {supported}). Update the BazaarPlusPlus plugin or installer.',
   historyProblemUnexpected:
-    'Something unexpected happened while loading local History. Please retry.',
+    'Something unexpected happened while loading local History. Try again.',
   historyOpenInstall: 'Open Install',
   historyUnavailableImport:
     'There is no BazaarPlusPlusV6 History database yet, but the game directory holds BazaarPlusPlusV5 history. Import it on the Install page.',
   historyUnavailableReinstall:
     'The game directory holds BazaarPlusPlusV5 history, but the installed BazaarPlusPlus still writes to an old folder. Reinstall it on the Install page, then import.',
-  historyOpenImport: 'Open Import',
+  historyOpenImport: 'Open import',
   historyPreviewFallback: 'Thumbnail unavailable; refresh to retry.',
   historyPreviewEmpty: 'No screenshot',
   historyPreviewLoading: 'Loading screenshot…',
   historyProblemThumbnailsUnavailable:
     "Thumbnails can't load: the local image service couldn't start (its port may be in use). History still works.",
-  runResultMisfortune: 'MISFORTUNE JOURNEY',
-  runResultBronze: 'BRONZE VICTORY',
-  runResultSilver: 'SILVER VICTORY',
-  runResultGold: 'GOLD VICTORY',
-  runResultDiamond: 'DIAMOND VICTORY',
-  runResultAbandoned: 'ABANDONED',
-  runResultActive: 'ACTIVE',
+  runResultMisfortune: 'Misfortune journey',
+  runResultBronze: 'Bronze victory',
+  runResultSilver: 'Silver victory',
+  runResultGold: 'Gold victory',
+  runResultDiamond: 'Diamond victory',
+  runResultAbandoned: 'Abandoned',
+  runResultActive: 'Active',
   runMetricWins: 'Wins',
   runMetricDays: 'Days',
   runStatRank: 'Rank',
@@ -914,38 +906,38 @@ const en: Record<MessageKey, string> = {
   runDetailProblemReadFailed:
     'This run could not be read. Close apps that may be using the database, then retry.',
   runDetailProblemRevealScreenshotFailed:
-    'The screenshot location could not be opened. Please retry.',
+    'The screenshot location could not be opened. Try again.',
   runDetailProblemRevealVideoFailed:
-    'The video location could not be opened. Please retry.',
+    'The video location could not be opened. Try again.',
   runDetailProblemDeleteVideoFailed:
-    'The battle video could not be deleted. Please retry.',
+    'The battle video could not be deleted. Try again.',
   runDetailProblemUnexpected:
-    'Something unexpected happened while handling this run. Please retry.',
+    'Something unexpected happened while handling this run. Try again.',
   runDetailPlayer: 'Player',
   runStatusCompleted: 'Completed',
   runStatusAbandoned: 'Abandoned',
   runStatusActive: 'Active',
   openScreenshotLocation: 'Open screenshot location',
   statWinLoss: 'Wins / Losses',
-  statFinalDay: 'Final Day',
-  statFinalRank: 'Final Rank',
+  statFinalDay: 'Final day',
+  statFinalRank: 'Final rank',
   statFinalRating: 'Rating',
   noLocalBattles: 'No local battle records',
   noLocalBattlesDescription:
     'Battle records appear here automatically after a run finishes. You can also refresh to retry.',
   battleColDay: 'Day',
   battleColResult: 'Result',
-  battleColOpponentHero: 'Opponent Hero',
-  battleColOpponentPlayer: 'Opponent Player',
+  battleColOpponentHero: 'Opponent hero',
+  battleColOpponentPlayer: 'Opponent player',
   battleColRank: 'Rank',
   battleColRating: 'Rating',
   battleColVideo: 'Video',
-  battleResultWin: 'WIN',
-  battleResultLoss: 'LOSS',
-  battleResultNeutral: 'DRAW',
-  openVideoLocation: 'Open Video Location',
-  deleteVideo: 'Delete Video',
-  deleteVideoConfirmTitle: 'Delete Video',
+  battleResultWin: 'Win',
+  battleResultLoss: 'Loss',
+  battleResultNeutral: 'Draw',
+  openVideoLocation: 'Open video location',
+  deleteVideo: 'Delete video',
+  deleteVideoConfirmTitle: 'Delete video',
   deleteVideoTarget: 'Target: battle {battleId} · video {videoId}',
   deleteVideoRunDate: 'Run started',
   deleteVideoBattle: 'Battle',
@@ -954,8 +946,8 @@ const en: Record<MessageKey, string> = {
   deleteVideoTechnicalDetails: 'Technical details',
   battleVideoActionLabel: '{action}: day {day}, opponent {opponent}',
   deleteVideoConfirmBody:
-    'This permanently deletes the replay video file for this battle and cannot be undone.',
-  deleteVideoConfirmAction: 'Delete Video',
+    'This permanently deletes the replay file for this battle and cannot be undone.',
+  deleteVideoConfirmAction: 'Delete video',
   deleteVideoRunning: 'Deleting the target video…',
 
   storageCleanupTitle: 'Storage',
@@ -967,7 +959,7 @@ const en: Record<MessageKey, string> = {
   storageCleanupPresetAll: 'All',
   storageCleanupPresetOlderThan7Days: 'Older than 7 days',
   storageCleanupPresetBeforeThisMonth: 'Before this month',
-  storageCleanupConfirmTitle: 'Confirm Cleanup',
+  storageCleanupConfirmTitle: 'Confirm cleanup',
   storageCleanupTarget: 'Target: {scope} · Range: {preset}',
   storageCleanupScreenshotsConfirmBody:
     'Keep The Bazaar closed until cleanup finishes. This will permanently delete {count} end-of-run {count|screenshot|screenshots} (about {size}). This cannot be undone.',
@@ -976,54 +968,54 @@ const en: Record<MessageKey, string> = {
   storageCleanupSkippedPending:
     '{count} {count|item is|items are} still pending upload and will be skipped.',
   storageCleanupNothingToClean: 'Nothing matches the selected range.',
-  storageCleanupConfirmAction: 'Clean Up',
+  storageCleanupConfirmAction: 'Clean up',
   storageCleanupRunningScreenshots: 'Deleting end-of-run screenshots…',
   storageCleanupRunningRunData: 'Deleting run data…',
   storageCleanupProblemUnavailable:
     'No local History database is available to clean. Select the correct game directory on the Install page.',
   storageCleanupProblemPreviewFailed:
-    'The cleanup range could not be previewed. Please retry.',
+    'The cleanup range could not be previewed. Try again.',
   storageCleanupProblemExecuteFailed:
     'Cleanup did not finish. The target and range are preserved; make sure The Bazaar is closed and review diagnostics, then retry or close safely.',
   storageCleanupProblemUnexpected:
-    'Something unexpected happened while cleaning storage. Please retry.',
+    'Something unexpected happened while cleaning storage. Try again.',
   storageCleanupScreenshotsDone:
     'Deleted {files} {files|file|files}, freed about {size}.',
   storageCleanupRunDataDone:
     'Deleted {runs} {runs|run|runs} and {files} {files|file|files}, freed about {size}.',
-  noVideo: 'No Video',
+  noVideo: 'No video',
 
   streamDisplayModeLabel: 'Display style',
-  streamModeCurrent: 'Battle Count',
-  streamModeHero: 'Full Hero',
-  streamModeHeroHalf: 'Half Hero',
-  streamOpenOverlay: 'Preview Overlay',
-  streamStart: 'Start Service',
-  streamRestart: 'Restart Service',
+  streamModeCurrent: 'Battle count',
+  streamModeHero: 'Full hero',
+  streamModeHeroHalf: 'Half hero',
+  streamOpenOverlay: 'Preview overlay',
+  streamStart: 'Start service',
+  streamRestart: 'Restart service',
   streamObsPlaceholder:
     'The OBS Browser Source URL appears after the stream service starts',
-  streamWindowSection: 'Display Window',
+  streamWindowSection: 'Display window',
   streamWindowLatest: 'Showing the latest record',
   streamWindowOffset: 'Back {count} {count|record|records}',
   streamMoreHistory: 'More History',
   streamLessHistory: 'Less History',
-  streamOverlayConfig: 'Overlay Config',
+  streamOverlayConfig: 'Overlay config',
   streamCropCodeLabel: 'Crop code',
   streamCropCodePlaceholder: 'Enter crop code…',
-  streamApplyCrop: 'Apply Crop Code',
-  streamResetCrop: 'Reset Crop',
-  streamOpenSettings: 'Calibrate Overlay',
+  streamApplyCrop: 'Apply crop code',
+  streamResetCrop: 'Reset crop',
+  streamOpenSettings: 'Calibrate overlay',
   streamObsUrlLabel: 'OBS URL',
   streamInfoHost: 'Host',
   streamInfoPort: 'Port',
   streamInfoDb: 'DB',
   streamInfoWindow: 'Window',
-  streamStatusError: 'Stream Service Error',
-  streamStatusStarting: 'Stream Service Starting',
-  streamStatusRunning: 'Stream Service Running',
-  streamStatusIdle: 'Stream Service Stopped',
-  streamStatusStale: 'Stream Service Status May Be Stale',
-  streamStatusUnavailable: 'Stream Service Status Unavailable',
+  streamStatusError: 'Stream service error',
+  streamStatusStarting: 'Stream service starting',
+  streamStatusRunning: 'Stream service running',
+  streamStatusIdle: 'Stream service stopped',
+  streamStatusStale: 'Stream service status may be stale',
+  streamStatusUnavailable: 'Stream service status unavailable',
   streamStarting: 'Starting the local stream service',
   streamIdleDetail: 'The stream service is not running',
   streamStaleRunningDetail:
@@ -1033,8 +1025,8 @@ const en: Record<MessageKey, string> = {
   streamStatusUnavailableDetail:
     'No authoritative stream service status is available',
   streamPortDetail: 'Port {port}',
-  streamRetryStatus: 'Refresh Status',
-  streamRetryCrop: 'Reload Config',
+  streamRetryStatus: 'Refresh status',
+  streamRetryCrop: 'Reload config',
   streamCopied: 'OBS URL copied',
   streamCopyFailed: 'Copy failed. Select the text and copy manually.',
   streamCropSaved: 'Crop code saved',
@@ -1055,17 +1047,17 @@ const en: Record<MessageKey, string> = {
   streamProblemOpenSettingsFailed:
     'The overlay calibration page could not be opened. Retry.',
   streamProblemUnexpected:
-    'Something unexpected happened while handling Stream. Please retry.',
-  dbConnected: 'DB Connected',
-  dbMissing: 'DB Missing',
+    'Something unexpected happened while handling Stream. Try again.',
+  dbConnected: 'DB connected',
+  dbMissing: 'DB missing',
 
   aboutAppLabel: 'App',
   aboutBppLabel: 'Plugin',
   aboutCredits: 'Credits',
   aboutContributors: 'Contributors',
-  aboutAcknowledgements: 'Data & Inspiration',
+  aboutAcknowledgements: 'Data & inspiration',
   aboutLicenses: 'Licenses',
-  aboutVerifiedBadge: 'Fable 5 Verified',
+  aboutVerifiedBadge: 'Fable 5 verified',
   aboutLoadingBootstrap:
     'Loading native app information. Packaged fallback data is shown for now.',
   aboutFallbackPreview:
@@ -1080,17 +1072,17 @@ const en: Record<MessageKey, string> = {
     'Component versions differ; reinstall to finish updating',
   installOverviewNotInstalledDescription:
     'Choose the game directory to install the plugin',
-  installationDirectoryHeading: 'Game Directory',
-  copyPath: 'Copy Path',
+  installationDirectoryHeading: 'Game directory',
+  copyPath: 'Copy path',
   pathCopied: 'Copied',
-  selectDirectory: 'Choose Directory',
-  applicationVersionHeading: 'App Version',
+  selectDirectory: 'Choose directory',
+  applicationVersionHeading: 'App version',
   developmentBuild: 'Development',
   stableBuild: 'Stable',
   maintenanceToolsHeading: 'Advanced',
   maintenanceToolsHint: 'Uninstall, reset BepInEx, or delete local data',
   maintenanceResetDataDescription:
-    'Delete the local database, screenshots, and replay videos',
+    'Delete the local database, screenshots, and replays',
   maintenanceNoResettableDataDescription: 'No local data to delete right now',
   maintenanceResetBepinexDescription: 'Reset the plugin environment',
   maintenanceUninstallDescription: 'Remove all components',

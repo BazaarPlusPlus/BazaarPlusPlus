@@ -11,7 +11,7 @@ Read `CONTEXT.md` first; it maps each task to its topic document.
 - Documentation or these instructions: `npm run docs:check`.
 - React or TypeScript: `npm run check:ts`; regenerate bindings with `npm run generate:bindings:if-stale` first when Rust signatures changed. Before committing, `just installer::check-fast` runs what the pre-commit hook runs (format, lint, types, cargo fmt, docs).
 - `scripts/`: `npx vitest run <path>.test.mjs` for the colocated test (they are Vitest files, not `node --test`), otherwise run the touched script.
-- UI styling or tokens: read `../docs/design.md`; a token change also runs `just site::check` in the same change.
+- UI styling, tokens, shared `bpp-*` styles, the brand mark or UI copy: read `../docs/design.md`. Edit the owner in `../design/` (never the generated `src/styles/tokens.css`), run `just design::build`, and run `just site::check` in the same change.
 - Versioning, bundled resources, or Tauri config: `just release::check`, then `just installer::check` (its source prebuild step checks the product projections). Release packaging only: `npm run prebuild-check` also verifies the prepared Payload and fails until `just release::prepare <platform>` has run.
 - A platform bundle: `just release::build <platform>`. No other kind of task needs it.
 

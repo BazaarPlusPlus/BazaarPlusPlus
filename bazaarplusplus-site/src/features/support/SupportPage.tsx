@@ -45,7 +45,7 @@ function SupportersBody({ copy, isLoading, isError, ordered }: SupportersBodyPro
         {SUPPORTER_SKELETON_WIDTHS.map((width, index) => (
           <li
             key={index}
-            className={`h-8 ${width} rounded-full bg-hover motion-safe:animate-pulse`}
+            className={`h-9 ${width} rounded-full bg-hover motion-safe:animate-pulse`}
           />
         ))}
       </ul>
@@ -53,11 +53,11 @@ function SupportersBody({ copy, isLoading, isError, ordered }: SupportersBodyPro
   }
 
   if (isError) {
-    return <p className="text-sm text-text-2">{copy.errorNote}</p>;
+    return <p className="text-[15px] text-text-2">{copy.errorNote}</p>;
   }
 
   if (ordered.length === 0) {
-    return <p className="text-sm text-text-2">{copy.emptyNote}</p>;
+    return <p className="text-[15px] text-text-2">{copy.emptyNote}</p>;
   }
 
   return (
@@ -65,7 +65,7 @@ function SupportersBody({ copy, isLoading, isError, ordered }: SupportersBodyPro
       {ordered.map((supporter, index) => (
         <li
           key={`${supporter.name}:${index}`}
-          className={`inline-flex h-8 items-center rounded-full border px-3.5 text-sm ${tierClassName(supporter.tier)}`}
+          className={`inline-flex h-9 items-center rounded-full border px-3.5 text-[15px] ${tierClassName(supporter.tier)}`}
         >
           {supporter.name}
         </li>
@@ -91,7 +91,7 @@ function SupportOption({
         <SectionHeading>{title}</SectionHeading>
         <Badge>{regionLabel}</Badge>
       </div>
-      <p className="text-sm text-text-2">{description}</p>
+      <p className="text-[15px] text-text-2">{description}</p>
       <div className="mt-auto pt-2">{action}</div>
     </article>
   );
@@ -139,7 +139,7 @@ export default function SupportPage({ location }: SupportPageProps) {
       <section aria-labelledby={supportersHeadingId} className="flex flex-col gap-5">
         <header className="flex flex-col gap-2">
           <SectionHeading id={supportersHeadingId}>{copy.supporters.heading}</SectionHeading>
-          <p className="max-w-2xl text-sm text-text-2">{copy.supporters.intro}</p>
+          <p className="max-w-2xl text-[15px] text-text-2">{copy.supporters.intro}</p>
         </header>
 
         <SupportersBody
@@ -149,7 +149,7 @@ export default function SupportPage({ location }: SupportPageProps) {
           ordered={orderedSupporters}
         />
 
-        <p className="text-xs text-text-3">{copy.supporters.unnamedNote}</p>
+        <p className="text-sm text-text-3">{copy.supporters.unnamedNote}</p>
       </section>
 
       <DialogShell
@@ -161,7 +161,7 @@ export default function SupportPage({ location }: SupportPageProps) {
         <h2 id={wechatTitleId} className="pr-10 text-lg font-semibold text-text-1">
           {copy.wechat.modalTitle}
         </h2>
-        <p className="mt-0.5 text-[13px] text-text-3">{copy.wechat.modalSubtitle}</p>
+        <p className="mt-0.5 text-[15px] text-text-3">{copy.wechat.modalSubtitle}</p>
         <div className="mt-5 flex justify-center">
           <div
             className="flex size-56 items-center justify-center rounded-panel bg-white p-3"
@@ -170,7 +170,7 @@ export default function SupportPage({ location }: SupportPageProps) {
             role="img"
           />
         </div>
-        <p className="mt-5 text-sm text-text-2">{copy.wechat.modalHint}</p>
+        <p className="mt-5 text-[15px] text-text-2">{copy.wechat.modalHint}</p>
       </DialogShell>
     </InfoPageShell>
   );

@@ -1,4 +1,4 @@
-import { PackageMinus, ShieldCheck } from 'lucide-react';
+import { PackageMinus } from 'lucide-react';
 import {
   ConfirmDialog,
   ConfirmNote,
@@ -39,11 +39,8 @@ export function UninstallConfirmModal({
       <ConfirmTarget>
         {t('uninstallTarget', { path: targetPath })}
       </ConfirmTarget>
-      <ConfirmNote tone="danger" icon={<PackageMinus size={15} />}>
+      <ConfirmNote tone="danger" icon={<PackageMinus size={16} />}>
         <p>{t('uninstallConfirmBody')}</p>
-      </ConfirmNote>
-      <ConfirmNote tone="neutral" icon={<ShieldCheck size={15} />}>
-        <p>{t('uninstallConfirmKeepsData')}</p>
       </ConfirmNote>
       {problem && <InstallProblemBanner problem={problem} />}
     </ConfirmDialog>

@@ -98,7 +98,7 @@ export function ConfirmDialog({
           titleId={titleId}
           title={title}
           subtitle={subtitle}
-          icon={<Icon size={18} />}
+          icon={<Icon size={16} />}
           tone={tone === 'danger' ? 'danger' : 'accent'}
           onClose={requestDismiss}
           closeDisabled={!dismissAllowed}

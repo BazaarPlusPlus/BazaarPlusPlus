@@ -223,7 +223,7 @@ const zh: LocalizedSiteCopy = {
       subtitle: 'Bazaar Almanac',
     },
     filters: '筛选',
-    primaryNavAriaLabel: '主要导航',
+    primaryNavAriaLabel: '主导航',
     languageLabel: '语言',
     homeAriaLabel: 'BazaarPlusPlus 首页',
     lastSync: '最近同步',
@@ -239,7 +239,7 @@ const zh: LocalizedSiteCopy = {
     },
     error: {
       title: '数据暂时不可用',
-      body: '暂时无法读取英雄统计数据，请稍后重试。',
+      body: '暂时无法读取英雄统计数据。',
       retry: '重试',
     },
     notFound: {
@@ -325,7 +325,7 @@ const zh: LocalizedSiteCopy = {
     intro: '从下载安装到实战技巧，带你全面了解 BazaarPlusPlus 的各项核心功能，助你快速上手。',
     primaryActionLabel: '立即下载',
     secondaryActionLabel: '赞助项目',
-    featureHeading: '模组主要功能',
+    featureHeading: '插件主要功能',
     features: [
       {
         title: '图鉴',
@@ -405,7 +405,7 @@ const zh: LocalizedSiteCopy = {
           description: '安装完成后启动游戏一次，让 BazaarPlusPlus 完成初始化',
         },
         {
-          title: '确认模组生效',
+          title: '确认插件生效',
           description: '主菜单设置按钮上方会出现图鉴按钮；下方游戏版本信息会显示 BPP version',
         },
       ],
@@ -547,7 +547,7 @@ const en: LocalizedSiteCopy = {
     },
     error: {
       title: 'Stats are temporarily unavailable',
-      body: 'The hero stats could not be loaded. Try again in a moment.',
+      body: "The hero stats couldn't be loaded.",
       retry: 'Try again',
     },
     notFound: {
@@ -574,7 +574,7 @@ const en: LocalizedSiteCopy = {
     support: 'Support',
   },
   pageTitles: {
-    heroes: 'Hero Stats',
+    heroes: 'Hero stats',
     tutorial: 'Tutorial',
     download: 'Download',
     support: 'Support',
@@ -629,15 +629,15 @@ const en: LocalizedSiteCopy = {
     },
   },
   tutorial: {
-    title: 'BazaarPlusPlus Official Guide',
+    title: 'BazaarPlusPlus official guide',
     intro:
       'From installation to in-game combat controls, master the core features of BazaarPlusPlus and elevate your gameplay.',
-    primaryActionLabel: 'Download Now',
-    secondaryActionLabel: 'Support the Project',
+    primaryActionLabel: 'Download now',
+    secondaryActionLabel: 'Support the project',
     featureHeading: 'What the mod adds',
     features: [
       {
-        title: 'Card Collection',
+        title: 'Card collection',
         description:
           'Browse all items and skills in-game with powerful, multi-dimensional filters.',
         details: [
@@ -646,7 +646,7 @@ const en: LocalizedSiteCopy = {
         ],
       },
       {
-        title: 'BazaarDB Auto Upload',
+        title: 'BazaarDB auto upload',
         description:
           'Contribute to community data by automatically uploading your end-of-run boards and stats.',
         details: [
@@ -663,7 +663,7 @@ const en: LocalizedSiteCopy = {
         ],
       },
       {
-        title: 'Combat Controls',
+        title: 'Combat controls',
         description: 'Show combat time, pause state, and speed controls during fights.',
         details: [
           'Useful for reviewing combat pacing or controlling playback while recording.',
@@ -671,7 +671,7 @@ const en: LocalizedSiteCopy = {
         ],
       },
       {
-        title: 'Anonymous Mode',
+        title: 'Anonymous mode',
         description: 'Show the local player name as Anonymous.',
         details: [
           'Hide your local name in screenshots and recordings.',
@@ -679,7 +679,7 @@ const en: LocalizedSiteCopy = {
         ],
       },
       {
-        title: 'Legendary Rank Display',
+        title: 'Legendary rank display',
         description: 'Supports normal, privacy-friendly, high-power, and rank-plus-rating views.',
         details: [
           'Hide the rank, use a high-power display, or show rank and rating together.',
@@ -696,7 +696,7 @@ const en: LocalizedSiteCopy = {
         ],
       },
       {
-        title: 'Chinese Terminology',
+        title: 'Chinese terminology',
         description: 'Display BazaarPlusPlus Chinese UI with the regional terminology you prefer.',
         details: [
           'Supports Mainland, Taiwan, and Hong Kong terminology styles.',
@@ -705,7 +705,7 @@ const en: LocalizedSiteCopy = {
       },
     ],
     installation: {
-      heading: 'Installation Guide',
+      heading: 'Installation guide',
       steps: [
         {
           title: 'Download latest installer',
@@ -729,7 +729,7 @@ const en: LocalizedSiteCopy = {
       ],
     },
     quickStart: {
-      heading: 'Combat Hotkeys',
+      heading: 'Combat hotkeys',
       groups: [
         {
           title: 'Entry controls',
@@ -747,8 +747,8 @@ const en: LocalizedSiteCopy = {
             },
             {
               bindings: [{ key: 'Caps Lock', action: 'Open' }],
-              title: 'Ten-Win Build',
-              description: 'Compare current set with Ten-Win builds.',
+              title: 'Ten-win build',
+              description: 'Compare current set with ten-win builds.',
             },
           ],
         },

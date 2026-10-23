@@ -60,18 +60,18 @@ describe('History rating change', () => {
 
 describe('History run outcomes', () => {
   it.each([
-    [0, 3, 'misfortune', '惨淡旅程', 'MISFORTUNE JOURNEY'],
-    [3, 3, 'misfortune', '惨淡旅程', 'MISFORTUNE JOURNEY'],
-    [4, 3, 'bronze', '青铜胜利', 'BRONZE VICTORY'],
-    [6, 3, 'bronze', '青铜胜利', 'BRONZE VICTORY'],
-    [7, 3, 'silver', '白银胜利', 'SILVER VICTORY'],
-    [9, 3, 'silver', '白银胜利', 'SILVER VICTORY'],
-    [10, 1, 'gold', '黄金胜利', 'GOLD VICTORY'],
-    [10, 3, 'gold', '黄金胜利', 'GOLD VICTORY'],
-    [11, 0, 'gold', '黄金胜利', 'GOLD VICTORY'],
-    [10, 0, 'diamond', '钻石胜利', 'DIAMOND VICTORY'],
-    [10, null, 'diamond', '钻石胜利', 'DIAMOND VICTORY'],
-    [null, null, 'misfortune', '惨淡旅程', 'MISFORTUNE JOURNEY']
+    [0, 3, 'misfortune', '惨淡旅程', 'Misfortune journey'],
+    [3, 3, 'misfortune', '惨淡旅程', 'Misfortune journey'],
+    [4, 3, 'bronze', '青铜胜利', 'Bronze victory'],
+    [6, 3, 'bronze', '青铜胜利', 'Bronze victory'],
+    [7, 3, 'silver', '白银胜利', 'Silver victory'],
+    [9, 3, 'silver', '白银胜利', 'Silver victory'],
+    [10, 1, 'gold', '黄金胜利', 'Gold victory'],
+    [10, 3, 'gold', '黄金胜利', 'Gold victory'],
+    [11, 0, 'gold', '黄金胜利', 'Gold victory'],
+    [10, 0, 'diamond', '钻石胜利', 'Diamond victory'],
+    [10, null, 'diamond', '钻石胜利', 'Diamond victory'],
+    [null, null, 'misfortune', '惨淡旅程', 'Misfortune journey']
   ] as const)(
     'presents a completed %s-win, %s-loss run with its mod tier and localized label',
     (victories, losses, tier, zh, en) => {

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import { PageShell } from '../components/ui/PageShell';
-import { LoadingPanel } from '../components/ui/LoadingPanel';
+import { StatusPanel } from '../components/ui/StatusPanel';
 import { useAppBootstrap } from '../features/about/AppBootstrapProvider';
 import { InstallActionsPanel } from '../features/install/InstallActionsPanel';
 import { InstallConfirmModal } from '../features/install/InstallConfirmModal';
@@ -117,7 +117,7 @@ export default function Install() {
   return (
     <PageShell title={t('installTitle')}>
       {snapshot.phase === 'initial-loading' ? (
-        <LoadingPanel label={t('installDetecting')} className="h-64" />
+        <StatusPanel kind="loading" title={t('installDetecting')} />
       ) : snapshot.phase === 'blocking-failure' ? (
         <InstallProblemBanner
           problem={snapshot.problem}
@@ -136,7 +136,7 @@ export default function Install() {
           )}
           {snapshot.refresh.phase === 'refreshing' && (
             <p role="status" aria-live="polite" className="bpp-inline-status">
-              <Loader2 size={13} className="bpp-spin" aria-hidden="true" />
+              <Loader2 size={14} className="bpp-spin" aria-hidden="true" />
               {t('installRefreshing')}
             </p>
           )}

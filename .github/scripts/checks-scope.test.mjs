@@ -273,6 +273,22 @@ test('new cross-project reads cannot silently bypass consumers, including backsl
   );
 });
 
+test('design system inputs select the installer frontend, the site and the root gates', () => {
+  expectScopes(
+    [
+      'design/tokens.json',
+      'design/components/bundle.css',
+      'design/build.mjs',
+      'design/README.md'
+    ],
+    ['installer-frontend', 'site', 'release']
+  );
+  assert.deepEqual(
+    selected(classifyChanges(changed('design/design.just'))),
+    [...SCOPES].sort()
+  );
+});
+
 test('only known Installer frontend paths avoid both native platforms', () => {
   for (const file of [
     'src/App.tsx',

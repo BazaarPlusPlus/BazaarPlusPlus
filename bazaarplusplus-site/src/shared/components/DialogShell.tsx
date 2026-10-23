@@ -66,14 +66,15 @@ export default function DialogShell({
         aria-modal="true"
         aria-labelledby={labelledBy}
         tabIndex={-1}
-        className="relative w-full max-w-md animate-dialog-in rounded-dialog border border-line-strong bg-panel p-6 shadow-(--shadow-float) outline-none"
+        className="relative w-full max-w-[520px] animate-dialog-in rounded-dialog border border-line-strong bg-panel p-4 shadow-(--shadow-float) outline-none"
       >
         <Button
           variant="ghost"
-          size="icon"
+          size="icon-sm"
           aria-label={closeLabel}
           onClick={onClose}
-          className="absolute top-3 right-3"
+          // Optical edge: the 14px glyph sits on the card's 16px edge, centred on the title line.
+          className="absolute top-[13px] right-2"
           icon={<CloseIcon />}
         />
         {children}

@@ -159,7 +159,7 @@ export default function HeroTrendPanel({
                     <text
                       x={CHART_PADDING.left - 12}
                       y={y + 4}
-                      className="fill-text-3 font-sans text-[11px] tabular-nums"
+                      className="fill-text-3 font-sans text-sm tabular-nums"
                       textAnchor="end"
                     >
                       {formatPercent(tick)}
@@ -185,7 +185,7 @@ export default function HeroTrendPanel({
                     <text
                       x={x}
                       y={CHART_HEIGHT - 14}
-                      className={`font-sans text-[11px] tabular-nums ${
+                      className={`font-sans text-sm tabular-nums ${
                         isLast ? 'fill-text-1 font-semibold' : 'fill-text-3'
                       }`}
                       textAnchor="middle"
@@ -338,14 +338,14 @@ export default function HeroTrendPanel({
                   <text
                     x={tooltipX + 22}
                     y={tooltipY + 22}
-                    className="fill-text-1 font-sans text-xs font-semibold"
+                    className="fill-text-1 font-sans text-sm font-semibold"
                   >
                     {hoveredPoint.hero}
                   </text>
                   <text
                     x={tooltipX + 22}
                     y={tooltipY + 38}
-                    className="fill-text-3 font-sans text-[11px] tabular-nums"
+                    className="fill-text-3 font-sans text-sm tabular-nums"
                   >
                     {formatShortDate(hoveredPoint.day, locale)}
                   </text>
@@ -361,7 +361,7 @@ export default function HeroTrendPanel({
               ) : null}
             </svg>
           ) : (
-            <div className="flex h-full min-h-[220px] items-center justify-center text-sm text-text-2">
+            <div className="flex h-full min-h-[220px] items-center justify-center text-[15px] text-text-2">
               {heroCopy.snapshot.noData}
             </div>
           )}
@@ -369,7 +369,7 @@ export default function HeroTrendPanel({
       </div>
 
       {focusedSeries != null && focusedSeries.nullPointCount > 0 ? (
-        <p className="text-xs text-text-3">{heroCopy.coverage.noTrendValue}</p>
+        <p className="text-sm text-text-3">{heroCopy.coverage.noTrendValue}</p>
       ) : null}
 
       <div className="flex min-w-0 flex-wrap gap-1.5">

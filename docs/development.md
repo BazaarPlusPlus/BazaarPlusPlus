@@ -71,7 +71,7 @@ Mod 的自动更新只开放测试工具白名单。编译期依赖同样可能�
 
 云端检查由 `.github/scripts/checks-scope.mjs` 按改动选择项目；`.github/workflows/checks.yml` 消费分类结果，Installer 分别验证前端与原生，其余项目保留完整门禁。PR 比较 merge-base 到 head，master push 比较事件的 before 到 after；删除与重命名的旧、新路径都参与分类。项目外的构建输入、命令 recipe 和无法取得可靠 diff 的运行走全量；根文档的普通编辑只跑发布工具，删除或替换根文档则全量检查，防止项目文档留下失效链接。跨项目输入扩展到消费者；分类时扫描源码和配置中的跨项目路径，未登记依赖走全量，并由发布工具中的行为测试阻止规则漂移。路径清单由分类器维护。
 
-`Checks summary` 总是执行，逐个列出选择原因，并要求分类成功且所有选中 job 真正成功；未选中的显示“不受影响”，选中后失败、取消或意外跳过都会阻塞。Installer 的已知 UI、样式和文档输入只选择 Linux 前端门禁；原生、npm、scripts、生成绑定和不确定的输入同时选择前端及双平台原生门禁，共享契约也会扩展到原生消费者。前端只消费已提交绑定；原生必须重新生成后检查 diff，依据见 [Installer ADR 0004](../bazaarplusplus-installer/docs/adr/0004-tauri-specta-command-bindings.md)。手动入口按 workflow 中的 scope/platform 选项选择项目及原生平台，默认完整双平台；它写出 ref、SHA 和覆盖范围，始终产出 `Manual checks (<scope>/<platform>)`，包括 full/all，不能替代 PR 必需的汇总检查。手动与自动运行使用独立的 concurrency 分组，不同手动选项也互不取消。手动 Checks 仅做验证，正式包仍走 Release 流程。安全与依赖检查不参与范围裁剪。
+`Checks summary` 总是执行，逐个列出选择原因，并要求分类成功且所有选中 job 真正成功；未选中的显示“不受影响”，选中后失败、取消或意外跳过都会阻塞。Installer 的已知 UI、样式和文档输入只选择 Linux 前端门禁；`design/` 的改动选择 installer 前端、site 与根目录门禁，根目录门禁会运行 `just design::check`；原生、npm、scripts、生成绑定和不确定的输入同时选择前端及双平台原生门禁，共享契约也会扩展到原生消费者。前端只消费已提交绑定；原生必须重新生成后检查 diff，依据见 [Installer ADR 0004](../bazaarplusplus-installer/docs/adr/0004-tauri-specta-command-bindings.md)。手动入口按 workflow 中的 scope/platform 选项选择项目及原生平台，默认完整双平台；它写出 ref、SHA 和覆盖范围，始终产出 `Manual checks (<scope>/<platform>)`，包括 full/all，不能替代 PR 必需的汇总检查。手动与自动运行使用独立的 concurrency 分组，不同手动选项也互不取消。手动 Checks 仅做验证，正式包仍走 Release 流程。安全与依赖检查不参与范围裁剪。
 
 master push 用同一套分类规则，因此 Installer 原生或其共享输入变化仍执行双平台验证并保存 Rust 缓存；其他事件只恢复缓存。暂不加定时预热：每周运行不能保证避开七天未访问淘汰，仓库容量压力也可能先触发清理；仅恢复的 schedule 无法重建已丢失缓存。缺缓存时正常冷构建，需全量复核时使用手动入口。
 

@@ -1,5 +1,6 @@
-/* Tailwind bridge: utilities resolve to the installer's :root tokens, imported before this file
-   by global.css (bg-panel, text-text-2, border-line, bg-accent/10). See docs/design.md. */
+/* Tailwind bridge: utilities resolve to the :root tokens that design/tokens.json generates into the
+   installer's tokens.css, copied in before this file by global.css (bg-panel, text-text-2,
+   border-line, bg-accent/10). See docs/design.md. */
 @theme inline {
   --color-*: initial;
   --color-black: #000;
@@ -11,6 +12,7 @@
   --color-selected: var(--bg-selected);
   --color-line: var(--line);
   --color-line-strong: var(--line-strong);
+  --color-line-control: var(--line-control);
   --color-text-1: var(--text-1);
   --color-text-2: var(--text-2);
   --color-text-3: var(--text-3);
@@ -21,15 +23,20 @@
   --color-on-accent: var(--on-accent);
   --color-success: var(--success);
   --color-success-subtle: var(--success-subtle);
+  --color-success-line: var(--success-line);
   --color-warning: var(--warning);
   --color-warning-subtle: var(--warning-subtle);
+  --color-warning-line: var(--warning-line);
   --color-danger: var(--danger);
   --color-danger-subtle: var(--danger-subtle);
+  --color-danger-line: var(--danger-line);
   --color-danger-text: var(--danger-text);
 
+  --radius-inner: var(--r-inner);
   --radius-control: var(--r-control);
   --radius-panel: var(--r-panel);
   --radius-dialog: var(--r-dialog);
+  --radius-pill: var(--r-pill);
 
   --font-*: initial;
   --font-sans: var(--font-ui);

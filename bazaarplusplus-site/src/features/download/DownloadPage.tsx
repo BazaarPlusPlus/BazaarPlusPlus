@@ -34,7 +34,7 @@ function PlatformHeader({ icon, title, arch }: { icon: string; title: string; ar
       </span>
       <div className="min-w-0">
         <SectionHeading>{title}</SectionHeading>
-        <p className="mt-1 text-[13px] text-text-3">{arch}</p>
+        <p className="mt-1 text-[15px] text-text-3">{arch}</p>
       </div>
     </div>
   );
@@ -65,7 +65,7 @@ function DownloadCard({
       />
 
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <span className="text-[13px] text-text-3">{copy.versionLabel}</span>
+        <span className="text-[15px] text-text-3">{copy.versionLabel}</span>
         {status === 'loading' ? (
           <span className="inline-block h-5 w-20 self-center rounded-control bg-hover motion-safe:animate-pulse" />
         ) : download ? (
@@ -73,7 +73,7 @@ function DownloadCard({
             v{download.version}
           </span>
         ) : (
-          <span className="text-sm text-text-2">{copy.versionUnavailable}</span>
+          <span className="text-[15px] text-text-2">{copy.versionUnavailable}</span>
         )}
       </div>
 
@@ -127,18 +127,18 @@ function AndroidCard({
         />
 
         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-          <span className="text-[13px] text-text-3">{copy.versionLabel}</span>
+          <span className="text-[15px] text-text-3">{copy.versionLabel}</span>
           <span className="text-lg font-semibold text-accent tabular-nums">v{release.version}</span>
         </div>
 
         <div className="flex min-w-0 flex-col gap-1.5">
           <p className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-            <span className="text-sm font-semibold text-text-1">{apkName}</span>
-            <span className="text-[13px] text-text-3 tabular-nums">
+            <span className="text-[15px] font-semibold text-text-1">{apkName}</span>
+            <span className="text-[15px] text-text-3 tabular-nums">
               {formatFileSize(release.apk.size, locale)}
             </span>
           </p>
-          <p className="text-[12px] text-text-3">
+          <p className="text-sm text-text-3">
             {androidCopy.sha256Label}{' '}
             <code className="font-(family-name:--font-mono) break-all text-text-2">
               {release.apk.sha256}
@@ -155,12 +155,12 @@ function AndroidCard({
 
       <div className="flex flex-col gap-3 border-t border-line pt-6 md:border-t-0 md:border-l md:pt-0 md:pl-8">
         <h3 className="text-[15px] font-semibold text-text-1">{androidCopy.stepsTitle}</h3>
-        <ol className="flex flex-col gap-2.5 text-sm text-text-2">
+        <ol className="flex flex-col gap-2.5 text-[15px] text-text-2">
           {androidCopy.steps.map((step, index) => (
             <li key={index} className="flex items-start gap-3">
               <span
                 aria-hidden="true"
-                className="flex size-5 shrink-0 items-center justify-center rounded-full bg-hover text-[12px] font-semibold text-text-1 tabular-nums"
+                className="flex size-5 shrink-0 items-center justify-center rounded-full bg-hover text-sm font-semibold text-text-1 tabular-nums"
               >
                 {index + 1}
               </span>
@@ -175,7 +175,7 @@ function AndroidCard({
 
 function FailureFallback({ copy }: { copy: DownloadPageCopy }) {
   return (
-    <p className="flex items-start gap-2.5 rounded-panel border border-warning/30 bg-warning-subtle px-3 py-2.5 text-[13px] text-text-1">
+    <p className="flex items-start gap-2.5 rounded-panel border border-warning/30 bg-warning-subtle px-3 py-2.5 text-[15px] text-text-1">
       <AlertIcon className="mt-0.5 size-4 text-warning" />
       <span>
         {copy.versionFailed}
@@ -231,7 +231,7 @@ export default function DownloadPage({ location }: { location: ResolvedSpaLocati
         <h2 className="text-[15px] font-semibold text-text-1">
           {android ? copy.desktopNoteTitle : copy.noteTitle}
         </h2>
-        <ul className="flex flex-col gap-2 text-sm text-text-2">
+        <ul className="flex flex-col gap-2 text-[15px] text-text-2">
           {copy.noteParagraphs.map((paragraph, index) => (
             <li key={index} className="flex items-start gap-3">
               <span aria-hidden="true" className="mt-2.5 size-1 shrink-0 rounded-full bg-text-3" />

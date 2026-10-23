@@ -112,7 +112,7 @@ export default function HeroOverviewDashboard({
           <section className="grid min-w-0 gap-4">
             <div className="flex flex-col gap-1">
               <SectionHeading>{heroCopy.trend.title}</SectionHeading>
-              <p className="text-[13px] text-text-2">
+              <p className="text-[15px] text-text-2">
                 {WINDOW_LABELS['7d']} {heroCopy.trend.winrateTrend}
               </p>
             </div>
@@ -171,7 +171,7 @@ export default function HeroOverviewDashboard({
                     aria-label={scopeCopy.window}
                     className="flex min-w-0 flex-col gap-1.5"
                   >
-                    <p className="text-xs font-medium text-text-2">{scopeCopy.window}</p>
+                    <p className="text-sm font-medium text-text-2">{scopeCopy.window}</p>
                     <SegmentedControl>
                       {availableWindows.map((option) => (
                         <SegmentedButton
@@ -189,7 +189,7 @@ export default function HeroOverviewDashboard({
                     aria-label={scopeCopy.segment}
                     className="flex min-w-0 flex-col gap-1.5"
                   >
-                    <p className="text-xs font-medium text-text-2">{scopeCopy.segment}</p>
+                    <p className="text-sm font-medium text-text-2">{scopeCopy.segment}</p>
                     <SegmentedControl>
                       {availableSegments.map((option) => (
                         <SegmentedButton
@@ -207,7 +207,7 @@ export default function HeroOverviewDashboard({
             </div>
 
             {failedWindowDays.length > 0 && rankingHasRows ? (
-              <p className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-line px-5 py-2.5 text-[13px] text-text-2">
+              <p className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-line px-5 py-2.5 text-[15px] text-text-2">
                 <span aria-hidden="true" className="size-1.5 shrink-0 rounded-full bg-warning" />
                 {coverageCopy.someDaysUnavailable}{' '}
                 <span className="text-text-3 tabular-nums">
@@ -266,7 +266,7 @@ function MatchupList({
   noValueLabel: string;
 }) {
   if (rows.length === 0) {
-    return <p className="text-sm text-text-2">{matchupCopy.empty}</p>;
+    return <p className="text-[15px] text-text-2">{matchupCopy.empty}</p>;
   }
 
   return (
@@ -281,7 +281,7 @@ function MatchupList({
             <HeroBadge hero={row.opponentHero} />
             <span className="flex min-w-0 items-center gap-2.5">
               <span
-                className="w-12 shrink-0 text-right text-[13px] font-medium text-text-1 tabular-nums"
+                className="w-12 shrink-0 text-right text-[15px] font-medium text-text-1 tabular-nums"
                 aria-label={noValue ? noValueLabel : undefined}
               >
                 {row.isLowSample ? '—' : formatNullablePercent(row.winRate)}
@@ -300,7 +300,7 @@ function MatchupList({
                 </span>
               )}
             </span>
-            <span className="text-xs text-text-3 tabular-nums">
+            <span className="text-sm text-text-3 tabular-nums">
               {formatInteger(row.decided, locale)} {matchupCopy.sample}
             </span>
           </li>

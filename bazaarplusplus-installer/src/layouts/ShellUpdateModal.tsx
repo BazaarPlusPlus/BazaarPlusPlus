@@ -66,13 +66,13 @@ export function ShellUpdateModal({
             updater.phase === 'downloading' ||
             updater.phase === 'installing' ||
             updater.phase === 'restarting' ? (
-              <LoaderCircle size={18} className="bpp-spin" />
+              <LoaderCircle size={16} className="bpp-spin" />
             ) : updater.phase === 'ready-to-restart' ||
               (updater.phase === 'failed' &&
                 updater.problem.code === 'updater_restart_failed') ? (
-              <RefreshCw size={18} />
+              <RefreshCw size={16} />
             ) : (
-              <Download size={18} />
+              <Download size={16} />
             )
           }
         />
@@ -91,10 +91,10 @@ export function ShellUpdateModal({
               )}
               {updater.notes && (
                 <div className="flex flex-col gap-1.5">
-                  <p className="text-fg-3 text-xs font-semibold">
+                  <p className="text-fg-3 text-sm font-semibold">
                     {t('updateNotesLabel')}
                   </p>
-                  <p className="bpp-confirm-target max-h-44 overflow-y-auto whitespace-pre-wrap font-sans text-[13px] leading-6 text-fg-2">
+                  <p className="bpp-confirm-target max-h-44 overflow-y-auto whitespace-pre-wrap font-sans text-[15px] leading-6 text-fg-2">
                     {updater.notes}
                   </p>
                 </div>
@@ -184,7 +184,7 @@ function MainlandMirrorNote({
   };
 
   return (
-    <ConfirmNote tone="neutral" icon={<CloudDownload size={15} />}>
+    <ConfirmNote tone="neutral" icon={<CloudDownload size={16} />}>
       <p className="text-fg-1">{t('updateMainlandDownloadTitle')}</p>
       <p>{t(hintKey)}</p>
       <a
@@ -195,7 +195,7 @@ function MainlandMirrorNote({
         className="bpp-dialog-link"
       >
         {t('updateMainlandDownload')}
-        <ExternalLink size={12} aria-hidden="true" />
+        <ExternalLink size={14} aria-hidden="true" />
       </a>
     </ConfirmNote>
   );
@@ -247,7 +247,7 @@ export function UpdateDownloadProgress({
       <p
         role="status"
         aria-live="polite"
-        className="m-0 mt-3 text-xs tabular-nums text-fg-2"
+        className="m-0 mt-3 text-sm tabular-nums text-fg-2"
       >
         {status}
       </p>

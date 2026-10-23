@@ -19,7 +19,7 @@ import { useShellStreamServiceRunning } from '../features/stream/useShellStreamS
 import { useI18n } from '../i18n/LocaleProvider';
 import douyinPng from '../../static/support/douyin.png';
 import xiaohongshuSvg from '../../static/support/xiaohongshu.svg';
-import brandLogo from '../../static/brand/bazaarplusplus-logo.webp';
+import brandMark from '../../static/brand/bpp-mark.svg';
 
 type ShellHeaderProps = {
   app: AppBootstrapController;
@@ -57,7 +57,7 @@ function ShellBrand() {
   return (
     <div className="bpp-brand">
       <img
-        src={brandLogo}
+        src={brandMark}
         alt=""
         className="bpp-brand-logo"
         draggable={false}
@@ -272,9 +272,9 @@ function WindowsWindowControlsContent() {
         aria-label={maximizeLabel}
       >
         {isMaximized ? (
-          <Copy size={13} strokeWidth={1.6} aria-hidden="true" />
+          <Copy size={14} strokeWidth={1.6} aria-hidden="true" />
         ) : (
-          <Square size={13} strokeWidth={1.6} aria-hidden="true" />
+          <Square size={14} strokeWidth={1.6} aria-hidden="true" />
         )}
       </button>
       <button

@@ -1,0 +1,1348 @@
+/* BazaarPlusPlus component styles: the one owner of the shared bpp-* classes.
+   The installer imports this file after tokens.css, which `just design::build`
+   generates from design/tokens.json; every value here reads a token. The site-only
+   rules at the end (HeroBadge, StatusPanel framing) render the site components in
+   the design system's previews; the site itself styles them with Tailwind. */
+::selection {
+  background: var(--accent-line);
+  color: var(--text-1);
+}
+.mono {
+  font-family: var(--font-mono);
+  font-size: 0.94em;
+}
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+.selectable,
+.selectable *,
+.user-content * {
+  -webkit-user-select: text;
+  user-select: text;
+}
+.bpp-spin {
+  animation: bpp-spin 0.8s linear infinite;
+}
+@keyframes bpp-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ── Shell ─────────────────────────────────────────────────────────── */
+.bpp-app {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  flex-direction: column;
+  background: var(--bg-canvas);
+}
+.bpp-header {
+  position: relative;
+  z-index: 40;
+  display: flex;
+  flex: none;
+  height: 44px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 8px 0 16px;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg-sidebar);
+}
+/* macOS draws its traffic lights over the title bar (overlay style). */
+html[data-bpp-titlebar='overlay'] .bpp-header {
+  padding-left: 78px;
+}
+html[data-bpp-titlebar='overlay'][data-bpp-fullscreen] .bpp-header {
+  padding-left: 16px;
+}
+html[data-bpp-platform='windows'] .bpp-header {
+  padding-right: 0;
+}
+.bpp-brand {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+}
+.bpp-brand-logo {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+}
+.bpp-brand-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.bpp-brand-version {
+  color: var(--text-3);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+.bpp-header-actions {
+  display: flex;
+  height: 100%;
+  align-items: center;
+  gap: 4px;
+}
+.bpp-header-group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.bpp-header-actions-divider {
+  width: 1px;
+  height: 16px;
+  margin: 0 6px;
+  background: var(--line-strong);
+}
+.bpp-header-icon-control {
+  display: inline-flex;
+  width: 30px;
+  height: 30px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: var(--r-control);
+  color: var(--text-2);
+  background: transparent;
+  transition:
+    background var(--t-fast) var(--ease),
+    color var(--t-fast) var(--ease);
+}
+.bpp-header-icon-control:hover,
+.bpp-header-icon-control[aria-expanded='true'] {
+  color: var(--text-1);
+  background: var(--bg-hover);
+}
+.bpp-header-icon-control svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Header popovers and menus: the only floating layers in the shell. */
+.bpp-popover {
+  position: absolute;
+  z-index: 50;
+  top: calc(100% + 6px);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-panel);
+  background: var(--bg-selected);
+  box-shadow: var(--shadow-float);
+  color: var(--text-1);
+}
+.bpp-menu {
+  display: flex;
+  min-width: 256px;
+  flex-direction: column;
+  padding: 4px;
+  animation: bpp-float-in var(--t-base) var(--ease) both;
+}
+.bpp-menu.is-right {
+  right: 0;
+}
+/* Opens beside the rail, growing upward from its trigger. */
+.bpp-menu.is-beside {
+  top: auto;
+  bottom: 0;
+  left: calc(100% + 8px);
+}
+.bpp-menu.is-centered {
+  left: 50%;
+  translate: -50% 0;
+}
+.bpp-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: var(--r-control);
+  color: var(--text-1);
+  background: transparent;
+  text-align: left;
+  text-decoration: none;
+}
+.bpp-menu-item:hover,
+.bpp-menu-item:focus-visible {
+  background: var(--bg-hover);
+}
+.bpp-menu-item svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  color: var(--text-2);
+}
+.bpp-menu-title {
+  display: block;
+  font-size: 15px;
+  font-weight: 500;
+}
+.bpp-menu-subtitle {
+  display: block;
+  color: var(--text-2);
+  font-size: 14px;
+}
+.bpp-qr-popover {
+  left: 50%;
+  display: flex;
+  width: 232px;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  opacity: 0;
+  pointer-events: none;
+  translate: -50% -4px;
+  transition:
+    opacity var(--t-base) var(--ease),
+    translate var(--t-base) var(--ease);
+}
+.group:hover > .bpp-qr-popover,
+.group:focus-within > .bpp-qr-popover {
+  opacity: 1;
+  pointer-events: auto;
+  translate: -50% 0;
+}
+.bpp-qr-image {
+  width: 168px;
+  height: 168px;
+  padding: 8px;
+  border-radius: var(--r-panel);
+  background: #fff;
+}
+.bpp-qr-image.is-round {
+  border-radius: 50%;
+}
+.bpp-qr-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  text-align: center;
+}
+.bpp-qr-subtitle {
+  margin: 2px 0 0;
+  color: var(--text-2);
+  font-size: 14px;
+  text-align: center;
+}
+@keyframes bpp-float-in {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+}
+
+.bpp-window-controls {
+  display: flex;
+  height: 100%;
+  margin-left: 4px;
+}
+.bpp-window-control-button {
+  display: inline-flex;
+  width: 46px;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  color: var(--text-2);
+  background: transparent;
+  transition:
+    background var(--t-fast) var(--ease),
+    color var(--t-fast) var(--ease);
+}
+.bpp-window-control-button:hover {
+  color: var(--text-1);
+  background: var(--bg-hover);
+}
+.bpp-window-close-button:hover {
+  color: #fff;
+  background: var(--window-close);
+}
+
+.bpp-shell-body {
+  display: grid;
+  min-height: 0;
+  flex: 1;
+  grid-template-columns: 72px minmax(0, 1fr);
+}
+/* Icon rail: pages at the top, support and language at the foot. */
+.bpp-nav {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 0;
+  border-right: 1px solid var(--line);
+  background: var(--bg-sidebar);
+}
+.bpp-rail-item {
+  display: flex;
+  width: 60px;
+  height: 56px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border: 0;
+  border-radius: var(--r-panel);
+  color: var(--text-2);
+  background: transparent;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.2;
+  text-decoration: none;
+  transition:
+    background var(--t-fast) var(--ease),
+    color var(--t-fast) var(--ease);
+}
+.bpp-rail-item svg {
+  width: 22px;
+  height: 22px;
+  flex: none;
+}
+.bpp-rail-item:hover,
+.bpp-rail-item[aria-expanded='true'] {
+  color: var(--text-1);
+  background: var(--bg-hover);
+}
+.bpp-rail-item.is-active {
+  color: var(--text-1);
+  background: var(--bg-selected);
+}
+.bpp-rail-item.is-active svg {
+  color: var(--accent);
+}
+.bpp-rail-item:focus-visible {
+  outline-offset: -2px;
+}
+.bpp-nav-footer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  margin-top: auto;
+}
+.bpp-main {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  scrollbar-gutter: stable;
+}
+.bpp-main:focus {
+  outline: none;
+}
+.bpp-main-inner {
+  width: 100%;
+  max-width: 1080px;
+  min-height: 100%;
+  margin: 0 auto;
+  padding: 24px 24px 40px;
+}
+/* Route changes are instant; new content settles in without blocking input. */
+.bpp-route-page {
+  min-height: 100%;
+  animation: bpp-route-in var(--t-base) var(--ease) both;
+}
+@keyframes bpp-route-in {
+  from {
+    opacity: 0.55;
+  }
+}
+
+/* ── Page structure ────────────────────────────────────────────────── */
+.bpp-page {
+  display: flex;
+  min-height: 100%;
+  flex-direction: column;
+  gap: 16px;
+}
+.bpp-page-header {
+  display: flex;
+  min-height: 36px;
+  align-items: baseline;
+  gap: 12px;
+}
+.bpp-page-title {
+  margin: 0;
+  overflow: hidden;
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bpp-page-title:focus {
+  outline: none;
+}
+.bpp-page-meta {
+  color: var(--text-3);
+  font-size: 15px;
+}
+.bpp-page-actions {
+  display: flex;
+  flex: none;
+  align-self: center;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+.bpp-section-title {
+  margin: 4px 0 -8px;
+  color: var(--text-3);
+  font-size: 14px;
+  font-weight: 500;
+}
+.bpp-panel {
+  border: 1px solid var(--line);
+  border-radius: var(--r-panel);
+  background: var(--bg-panel);
+}
+.bpp-panel-pad {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+}
+.bpp-panel-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+.bpp-row {
+  display: flex;
+  min-width: 0;
+  min-height: 52px;
+  align-items: center;
+  gap: 16px;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--line);
+}
+.bpp-row:last-child {
+  border-bottom: 0;
+}
+.bpp-row-copy {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+}
+.bpp-row-title {
+  font-weight: 500;
+}
+.bpp-row-description {
+  color: var(--text-3);
+  font-size: 14px;
+}
+.bpp-kv {
+  display: grid;
+  grid-template-columns: 148px minmax(0, 1fr) auto;
+  align-items: center;
+}
+.bpp-kv > * {
+  display: flex;
+  min-width: 0;
+  min-height: 52px;
+  align-items: center;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--line);
+}
+.bpp-kv > :nth-last-child(-n + 3) {
+  border-bottom: 0;
+}
+.bpp-kv-key {
+  color: var(--text-3);
+  white-space: nowrap;
+}
+.bpp-kv-value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bpp-kv-value.is-empty {
+  color: var(--text-3);
+}
+.bpp-kv-actions {
+  gap: 4px;
+  justify-content: flex-end;
+}
+
+/* ── Buttons ───────────────────────────────────────────────────────── */
+.bpp-btn {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid transparent;
+  border-radius: var(--r-control);
+  font-weight: 500;
+  line-height: 1;
+  text-decoration: none;
+  white-space: nowrap;
+  transition:
+    background var(--t-fast) var(--ease),
+    border-color var(--t-fast) var(--ease),
+    color var(--t-fast) var(--ease);
+}
+.bpp-btn svg {
+  flex: none;
+}
+.bpp-btn-md {
+  height: 36px;
+  padding: 0 12px;
+  font-size: 15px;
+}
+.bpp-btn-md svg {
+  width: 16px;
+  height: 16px;
+}
+.bpp-btn-sm {
+  height: 30px;
+  padding: 0 8px;
+  font-size: 14px;
+}
+.bpp-btn-sm svg {
+  width: 14px;
+  height: 14px;
+}
+.bpp-btn-icon {
+  width: 36px;
+  height: 36px;
+}
+.bpp-btn-icon svg {
+  width: 16px;
+  height: 16px;
+}
+.bpp-btn-icon-sm {
+  width: 30px;
+  height: 30px;
+}
+.bpp-btn-icon-sm svg {
+  width: 14px;
+  height: 14px;
+}
+.bpp-btn-primary {
+  color: var(--on-accent);
+  background: var(--accent);
+  font-weight: 600;
+}
+.bpp-btn-primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+.bpp-btn-secondary {
+  border-color: var(--line-strong);
+  color: var(--text-1);
+  background: var(--bg-panel);
+}
+.bpp-btn-secondary:hover:not(:disabled) {
+  background: var(--bg-hover);
+}
+.bpp-btn-ghost {
+  color: var(--text-2);
+  background: transparent;
+}
+.bpp-btn-ghost:hover:not(:disabled) {
+  color: var(--text-1);
+  background: var(--bg-hover);
+}
+.bpp-btn-danger {
+  border-color: var(--danger-line);
+  color: var(--danger-text);
+  background: var(--danger-subtle);
+}
+.bpp-btn-danger:hover:not(:disabled) {
+  background: var(--danger-line);
+}
+.bpp-btn:disabled,
+.bpp-btn[aria-disabled='true'] {
+  opacity: 0.45;
+}
+.bpp-btn[data-busy] {
+  opacity: 0.8;
+}
+/* Both labels share one grid cell so the button keeps the wider width. */
+.bpp-busy-label {
+  display: inline-grid;
+}
+.bpp-busy-label > * {
+  grid-area: 1 / 1;
+  text-align: center;
+}
+.bpp-busy-label > [aria-hidden='true'] {
+  visibility: hidden;
+}
+
+/* Optical edges: an icon-only ghost button at the end of a row, header or toast pulls
+   out by its inset ((30 − 14) / 2 = 8px), so its glyph lines up with the edge text
+   and boxed controls share. */
+.bpp-page-header > .bpp-btn-icon-sm:first-child,
+.bpp-page-header > .bpp-btn-icon:first-child {
+  margin-left: -8px;
+  align-self: center;
+}
+.bpp-row > .bpp-btn-ghost.bpp-btn-icon-sm:last-child,
+.bpp-kv-actions > .bpp-btn-ghost.bpp-btn-icon-sm:last-child,
+.bpp-dialog-header > .bpp-btn-ghost.bpp-btn-icon-sm:last-child,
+.bpp-toast-close {
+  margin-right: -8px;
+}
+
+/* ── Badges ────────────────────────────────────────────────────────── */
+.bpp-badge {
+  display: inline-flex;
+  height: 24px;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px;
+  border-radius: var(--r-pill);
+  color: var(--text-2);
+  background: var(--bg-hover);
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.bpp-badge::before {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  content: '';
+}
+.bpp-badge.no-dot::before {
+  display: none;
+}
+.bpp-badge-ok {
+  color: var(--success);
+  background: var(--success-subtle);
+}
+.bpp-badge-warn {
+  color: var(--warning);
+  background: var(--warning-subtle);
+}
+.bpp-badge-bad {
+  color: var(--danger-text);
+  background: var(--danger-subtle);
+}
+.bpp-badge-busy,
+.bpp-badge-accent {
+  color: var(--accent);
+  background: var(--accent-subtle);
+}
+.bpp-badge-busy::before {
+  animation: bpp-pulse 1.2s ease-in-out infinite;
+}
+@keyframes bpp-pulse {
+  50% {
+    opacity: 0.3;
+  }
+}
+
+/* Run outcome tiers mirror the mod's HistoryPanelFormatter tiers. */
+.bpp-outcome {
+  --tier: var(--text-2);
+  display: inline-flex;
+  height: 24px;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px;
+  border-radius: var(--r-pill);
+  color: var(--tier);
+  background: color-mix(in srgb, var(--tier) 14%, transparent);
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.bpp-outcome[data-tier='misfortune'] {
+  --tier: var(--text-2);
+}
+.bpp-outcome[data-tier='bronze'] {
+  --tier: var(--tier-bronze);
+}
+.bpp-outcome[data-tier='silver'] {
+  --tier: var(--tier-silver);
+}
+.bpp-outcome[data-tier='gold'] {
+  --tier: var(--accent);
+}
+.bpp-outcome[data-tier='diamond'] {
+  --tier: var(--tier-diamond);
+}
+.bpp-outcome[data-state='active'] {
+  --tier: var(--success);
+}
+
+/* ── Banners ───────────────────────────────────────────────────────── */
+.bpp-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-panel);
+  background: var(--bg-panel);
+  font-size: 15px;
+}
+.bpp-banner.is-warning {
+  border-color: var(--warning-line);
+  background: var(--warning-subtle);
+}
+.bpp-banner.is-error {
+  border-color: var(--danger-line);
+  background: var(--danger-subtle);
+}
+.bpp-banner.is-success {
+  border-color: var(--success-line);
+  background: var(--success-subtle);
+}
+.bpp-banner-icon {
+  display: flex;
+  height: 30px;
+  align-items: center;
+  color: var(--text-2);
+}
+.is-warning > .bpp-banner-icon {
+  color: var(--warning);
+}
+.is-error > .bpp-banner-icon {
+  color: var(--danger);
+}
+.is-success > .bpp-banner-icon {
+  color: var(--success);
+}
+.bpp-banner-body {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 6px;
+  /* (control-sm 30px − one 24px line) / 2: the first line centres on the icon and actions. */
+  padding: 3px 0;
+}
+.bpp-banner-actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+}
+.bpp-banner-diagnostic summary {
+  color: var(--text-2);
+  font-size: 14px;
+}
+.bpp-banner-diagnostic pre {
+  margin: 6px 0 0;
+  padding: 8px 12px;
+  border-radius: var(--r-control);
+  color: var(--text-2);
+  background: var(--bg-canvas);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  white-space: pre-wrap;
+}
+
+/* ── Toasts (Popover API top layer, above modals) ──────────────────── */
+.bpp-toast-viewport {
+  position: fixed;
+  inset: unset;
+  top: 52px;
+  right: 16px;
+  margin: 0;
+  display: flex;
+  width: min(380px, calc(100vw - 32px));
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  border: 0;
+  padding: 0;
+  overflow: visible;
+  background: transparent;
+  color: inherit;
+  pointer-events: none;
+}
+.bpp-toast-viewport:popover-open {
+  display: flex;
+}
+.bpp-toast {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  min-width: 260px;
+  max-width: 380px;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-panel);
+  background: var(--bg-selected);
+  box-shadow: var(--shadow-float);
+  opacity: 0;
+  pointer-events: auto;
+  transform: translateY(-4px);
+  transition:
+    opacity var(--t-base) var(--ease),
+    transform var(--t-base) var(--ease);
+}
+.bpp-toast.is-present {
+  opacity: 1;
+  transform: none;
+}
+.bpp-toast.is-closing {
+  transition-duration: var(--t-fast);
+}
+.bpp-toast-icon {
+  display: flex;
+  height: 30px;
+  align-items: center;
+  color: var(--text-2);
+}
+.bpp-toast.is-success .bpp-toast-icon {
+  color: var(--success);
+}
+.bpp-toast.is-warning .bpp-toast-icon {
+  color: var(--warning);
+}
+.bpp-toast.is-error .bpp-toast-icon {
+  color: var(--danger);
+}
+.bpp-toast-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 3px 0;
+}
+.bpp-toast-message {
+  margin: 0;
+  font-size: 15px;
+}
+.bpp-toast-action {
+  padding: 0;
+  border: 0;
+  color: var(--accent);
+  background: none;
+  font-size: 14px;
+  font-weight: 600;
+}
+.bpp-toast-action:hover {
+  color: var(--accent-hover);
+}
+.bpp-toast-close {
+  display: inline-flex;
+  width: 30px;
+  height: 30px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: var(--r-control);
+  color: var(--text-2);
+  background: transparent;
+}
+.bpp-toast-close:hover {
+  color: var(--text-1);
+  background: var(--bg-hover);
+}
+
+/* ── Dialogs ───────────────────────────────────────────────────────── */
+/* Native modal via <dialog>: top-layer, Escape-to-close, focus trap and a
+   real backdrop from the platform. The dialog fills the viewport and centers
+   its card; ::backdrop dims without blur. */
+.bpp-dialog {
+  width: 100vw;
+  height: 100vh;
+  max-width: 100vw;
+  max-height: 100vh;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  overflow: visible;
+  align-items: center;
+  justify-content: center;
+}
+.bpp-dialog[open] {
+  display: flex;
+}
+.bpp-dialog:focus {
+  outline: none;
+}
+.bpp-dialog::backdrop {
+  background: var(--backdrop);
+}
+.bpp-dialog-card {
+  display: flex;
+  width: calc(100vw - 32px);
+  max-height: calc(100vh - 48px);
+  flex-direction: column;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-dialog);
+  background: var(--bg-panel);
+  box-shadow: var(--shadow-float);
+  animation: bpp-float-in var(--t-base) var(--ease) both;
+}
+.bpp-dialog-card.is-sm {
+  max-width: 440px;
+}
+.bpp-dialog-card.is-md {
+  max-width: 520px;
+}
+.bpp-dialog-card.is-lg {
+  max-width: 600px;
+}
+.bpp-dialog-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 16px 0;
+}
+.bpp-dialog-icon {
+  display: flex;
+  width: 36px;
+  height: 36px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--r-panel);
+  color: var(--text-2);
+  background: var(--bg-hover);
+}
+.bpp-dialog-icon.is-accent {
+  color: var(--accent);
+  background: var(--accent-subtle);
+}
+.bpp-dialog-icon.is-danger {
+  color: var(--danger);
+  background: var(--danger-subtle);
+}
+.bpp-dialog-heading {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+}
+.bpp-dialog-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+.bpp-dialog-subtitle {
+  margin: 0;
+  color: var(--text-2);
+  font-size: 14px;
+}
+.bpp-dialog-body {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  gap: 12px;
+  overflow: auto;
+  padding: 12px 16px 16px;
+  color: var(--text-2);
+}
+.bpp-dialog-body p {
+  margin: 0;
+}
+.bpp-dialog-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--line);
+}
+.bpp-confirm-blocked-status {
+  margin: 0 auto 0 0;
+  color: var(--text-3);
+  font-size: 14px;
+}
+.bpp-confirm-ack {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-1);
+}
+.bpp-confirm-ack input {
+  margin: 0;
+  accent-color: var(--accent);
+}
+.bpp-confirm-note {
+  display: flex;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-panel);
+  color: var(--text-1);
+  background: var(--bg-canvas);
+}
+.bpp-confirm-note.is-danger {
+  border-color: var(--danger-line);
+  background: var(--danger-subtle);
+}
+.bpp-confirm-note.is-warning {
+  border-color: var(--warning-line);
+  background: var(--warning-subtle);
+}
+.bpp-confirm-note-icon {
+  display: flex;
+  height: 24px;
+  align-items: center;
+  color: var(--text-2);
+}
+.bpp-confirm-note.is-danger .bpp-confirm-note-icon {
+  color: var(--danger);
+}
+.bpp-confirm-note.is-warning .bpp-confirm-note-icon {
+  color: var(--warning);
+}
+.bpp-confirm-note-body {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 6px;
+}
+.bpp-confirm-note-body p {
+  margin: 0;
+}
+.bpp-confirm-target {
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-control);
+  color: var(--text-2);
+  background: var(--bg-canvas);
+  font-family: var(--font-mono);
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+.bpp-dialog-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--accent);
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.bpp-dialog-link:hover {
+  color: var(--accent-hover);
+}
+.bpp-video-delete-summary {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 12px;
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: 15px;
+}
+.bpp-video-delete-summary dt {
+  color: var(--text-3);
+}
+.bpp-video-delete-summary dd {
+  margin: 0;
+  color: var(--text-1);
+}
+.bpp-video-delete-diagnostics {
+  margin-top: 8px;
+  font-family: var(--font-ui);
+}
+.bpp-video-delete-diagnostics summary {
+  color: var(--text-2);
+  font-size: 14px;
+}
+.bpp-video-delete-diagnostics p {
+  margin: 6px 0 0;
+  font-family: var(--font-mono);
+}
+.bpp-details {
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-panel);
+  color: var(--text-2);
+  background: var(--bg-canvas);
+  font-size: 14px;
+}
+.bpp-details summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  list-style: none;
+}
+.bpp-details summary::-webkit-details-marker {
+  display: none;
+}
+.bpp-details[open] .bpp-details-chevron {
+  rotate: 90deg;
+}
+.bpp-details-chevron {
+  transition: rotate var(--t-fast) var(--ease);
+}
+
+/* ── Form controls ─────────────────────────────────────────────────── */
+.bpp-input,
+.bpp-select {
+  height: 36px;
+  min-width: 0;
+  padding: 0 12px;
+  border: 1px solid var(--line-control);
+  border-radius: var(--r-control);
+  color: var(--text-1);
+  background: var(--bg-canvas);
+  font-size: 15px;
+  transition:
+    border-color var(--t-fast) var(--ease),
+    box-shadow var(--t-fast) var(--ease);
+}
+.bpp-input::placeholder {
+  color: var(--text-3);
+}
+.bpp-input:focus,
+.bpp-select:focus {
+  border-color: var(--accent);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-subtle);
+}
+.bpp-input:disabled,
+.bpp-select:disabled {
+  opacity: 0.45;
+}
+.bpp-input.is-readonly {
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  color: var(--text-2);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bpp-select {
+  appearance: none;
+  padding-right: 32px;
+}
+.bpp-select-wrap {
+  position: relative;
+  display: inline-flex;
+}
+.bpp-select-wrap > svg {
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  color: var(--text-3);
+  pointer-events: none;
+  translate: 0 -50%;
+}
+.bpp-field {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 6px;
+}
+.bpp-field-label {
+  color: var(--text-2);
+  font-size: 14px;
+  font-weight: 500;
+}
+.bpp-field-hint {
+  margin: 0;
+  color: var(--text-3);
+  font-size: 14px;
+}
+.bpp-field-row {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.bpp-segmented-control {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-control);
+  background: var(--bg-canvas);
+}
+.bpp-segmented-label {
+  position: relative;
+  display: inline-flex;
+}
+.bpp-segmented-input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.bpp-segmented-option {
+  display: flex;
+  height: 30px;
+  align-items: center;
+  padding: 0 12px;
+  border-radius: var(--r-inner);
+  color: var(--text-2);
+  font-size: 14px;
+  font-weight: 500;
+  transition:
+    background var(--t-fast) var(--ease),
+    color var(--t-fast) var(--ease);
+}
+.bpp-segmented-label:hover .bpp-segmented-option {
+  color: var(--text-1);
+}
+.bpp-segmented-input:checked + .bpp-segmented-option {
+  color: var(--text-1);
+  background: var(--bg-selected);
+}
+.bpp-segmented-input:focus-visible + .bpp-segmented-option {
+  outline: 2px solid var(--accent);
+}
+.bpp-segmented-input:disabled + .bpp-segmented-option {
+  opacity: 0.45;
+}
+
+/* ── Status panel: loading, empty, error and not-found, one layout ─────── */
+.bpp-status-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 40px 16px;
+  color: var(--text-2);
+  text-align: center;
+}
+.bpp-status-panel.is-compact {
+  flex-direction: row;
+  justify-content: center;
+  padding: 16px;
+}
+.bpp-status-panel-mark {
+  display: flex;
+  color: var(--text-3);
+}
+.bpp-status-panel-mark svg {
+  width: 22px;
+  height: 22px;
+}
+.bpp-status-panel-mark.is-loading {
+  color: var(--text-2);
+}
+.bpp-status-panel-mark.is-error {
+  color: var(--danger);
+}
+.bpp-status-panel.is-compact .bpp-status-panel-mark svg {
+  width: 16px;
+  height: 16px;
+}
+.bpp-status-panel-title {
+  margin: 4px 0 0;
+  color: var(--text-1);
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.4;
+  text-wrap: balance;
+}
+.bpp-status-panel-body {
+  max-width: 44ch;
+  margin: 0;
+}
+.bpp-status-panel-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+.bpp-inline-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: var(--text-3);
+  font-size: 14px;
+}
+
+/* Folded section: a summary row that opens a list of rows. */
+.bpp-disclosure-summary {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 16px;
+  list-style: none;
+}
+.bpp-disclosure-summary::-webkit-details-marker {
+  display: none;
+}
+.bpp-disclosure-summary > svg {
+  flex: none;
+  color: var(--text-3);
+  transition: rotate var(--t-fast) var(--ease);
+}
+.bpp-disclosure-summary:hover > svg {
+  color: var(--text-1);
+}
+.bpp-disclosure[open] > .bpp-disclosure-summary {
+  border-bottom: 1px solid var(--line);
+}
+.bpp-disclosure[open] > .bpp-disclosure-summary > svg {
+  rotate: 180deg;
+}
+
+
+/* ── Site (hand-written from bazaarplusplus-site/src/shared/components) ── */
+/* globals.css @utility panel */
+.panel {
+  min-width: 0;
+  background: var(--bg-panel);
+  border: 1px solid var(--line);
+  border-radius: var(--r-panel);
+}
+/* HeroBadge.tsx: hero dot + name + optional trailing value */
+.bpp-hero-badge {
+  display: inline-flex;
+  height: 24px;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px;
+  border: 1px solid transparent;
+  border-radius: var(--r-pill);
+  color: var(--text-1);
+  background: var(--bg-hover);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.33;
+  white-space: nowrap;
+  transition: background-color var(--t-fast), border-color var(--t-fast);
+}
+.bpp-hero-badge.is-selected {
+  border-color: var(--accent-line);
+  background: var(--accent-subtle);
+}
+.bpp-hero-badge-dot {
+  width: 6px;
+  height: 6px;
+  flex-shrink: 0;
+  border-radius: var(--r-pill);
+}
+.bpp-hero-badge-value {
+  color: var(--text-2);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.bpp-hero-badge.is-selected .bpp-hero-badge-value {
+  color: var(--accent);
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+  }
+}

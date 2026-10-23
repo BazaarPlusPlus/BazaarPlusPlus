@@ -10,6 +10,7 @@ BazaarPlusPlus monorepo. The mod and the installer ship as one Product Release; 
 | Hero and build snapshots computed from Bundles | `bazaarplusplus-analyzer/` |
 | bazaarplusplus.com, Hero Analysis, the download page | `bazaarplusplus-site/` |
 | Product version, Payload Inventory, release pipeline | root `VERSION`, `release.mjs`, `release/`; read `docs/release.md` |
+| Design tokens, shared `bpp-*` styles, brand mark, brand book and writing standard | `design/`; read `docs/design.md` |
 
 Cross-project terms (Product Release, Payload, Release Manifest, Bundle) are defined in `CONTEXT.md`.
 
@@ -28,6 +29,7 @@ A contract change lands in one pull request together with every consumer it brea
 | Local history database schema (`user_version`), Data Root name, and replay payload retention | `RunLogSchema.LocalDatabaseSchemaVersion`, `PathConstants.DataRootDirectoryName`, and `ReplayPayloadRetentionPolicy`, mirrored as `historyDatabaseUserVersion`, `dataRootDirectoryName`, and `replayPayloadRetained*` in `bazaarplusplus-mod/src/BazaarPlusPlus.Storage/BazaarPlusPlus.history-database.json`; `release::check` gates the pair (`release/history-database.mjs`): same Data Root on both sides, mod schema newest the installer supports; shared schema file `bazaarplusplus-mod/src/BazaarPlusPlus.Storage/history-database-v6.schema.sql` | installer History, Reset, cleanup, and overlay reads (`bazaarplusplus-installer/src-tauri/history-database-compatibility.json`, whose `dataRootDirectoryName` a test pins to `BAZAAR_DATA_DIRECTORY`); the V5 import reads the installed copy's retention |
 | Release Manifest and Platform Release Manifest | `release/manifest.mjs`, shared fixtures `release/fixtures/latest.json` and `release/fixtures/latest/` | site download page, installer updater, mod update check |
 | Managed Payload Manifest line format | `release/managed-payload.mjs`, shared golden `release/fixtures/managed-payload/manifest.txt` | mod Updater and Core staging (`bazaarplusplus-mod/src/BazaarPlusPlus.Updater/Shared/ManagedPayloadManifest.cs`), installer Repair (`bazaarplusplus-installer/src-tauri/src/services/bepinex/managed_payload.rs`) |
+| Design tokens and shared component styles | `design/tokens.json` and `design/components/bundle.css`; `just design::check` gates generated `tokens.css`, the brand-mark copies and the site hero colours | installer (generated `src/styles/tokens.css`, imports `bundle.css`), site (copies `tokens.css`, Tailwind `@theme` bridge, `src/shared/lib/heroes.ts`) |
 | Release signing public key | `plugins.updater.pubkey` in `bazaarplusplus-installer/src-tauri/tauri.conf.json` | mod self-update (`ReleaseSigningKey.PublicKeyLine` in `bazaarplusplus-mod/src/BazaarPlusPlus.Updater/Shared/`, pinned by `The_embedded_key_is_the_tauri_updater_public_key`) |
 
 Root `release/` owns Product Release modules and tests. Imports run one way: installer scripts may import release modules, never the reverse.
