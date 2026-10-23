@@ -2,10 +2,13 @@ using BazaarPlusPlus.Android.Collection;
 using BazaarPlusPlus.Android.GameInterop;
 using BazaarPlusPlus.Android.GameInterop.CardRental;
 using BazaarPlusPlus.Android.Host;
+using BazaarPlusPlus.Android.LiveBuild;
 using BazaarPlusPlus.Android.Lobby;
 using BazaarPlusPlus.Android.Patches;
 using BazaarPlusPlus.Core.Config;
 using BazaarPlusPlus.Game.CollectionPanel;
+using BazaarPlusPlus.Game.LiveBuildPanel;
+using BazaarPlusPlus.Game.LiveBuildPanel.Recommendations;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
 using BazaarPlusPlus.Localization;
@@ -21,7 +24,9 @@ namespace BazaarPlusPlus.Android.Ui;
 /// the published APK, the link to it. History closes this panel and opens
 /// <see cref="AndroidHistoryPanel"/>, the desktop's History panel ported; the launcher hides while
 /// History is open. Collection opens the full-screen <see cref="AndroidCollectionPanel"/> in place
-/// of the menu. Both close on every scene change.
+/// of the menu, and Ten-Win Builds the full-screen <see cref="AndroidLiveBuildPanel"/>, when the
+/// record chain composed its build catalog. All of them close on every scene change, and the back
+/// key closes the top-most of them first (<see cref="AndroidBackKey"/>).
 /// </summary>
 internal sealed class AndroidTouchUi
 {
@@ -32,6 +37,7 @@ internal sealed class AndroidTouchUi
     private readonly AndroidVersionCheck? _versionCheck;
     private readonly Action? _openHistory;
     private readonly Func<bool> _historyVisible;
+    private readonly BuildRecommendationRepository? _recommendations;
     private readonly List<(TextMeshProUGUI Label, Func<string> Text)> _settingRows = new();
 
     private GameObject? _root;
@@ -40,8 +46,10 @@ internal sealed class AndroidTouchUi
     private GameObject? _panel;
     private GameObject? _gameUpdateRow;
     private GameObject? _collectionTab;
+    private GameObject? _liveBuildTab;
     private TMP_FontAsset? _font;
     private AndroidCollectionPanel? _collection;
+    private AndroidLiveBuildPanel? _liveBuild;
     private TextMeshProUGUI? _launcherLabel;
     private TextMeshProUGUI? _titleText;
     private bool _mountFailed;
@@ -51,7 +59,8 @@ internal sealed class AndroidTouchUi
         AndroidSettings android,
         AndroidVersionCheck? versionCheck,
         Action? openHistory,
-        Func<bool> historyVisible
+        Func<bool> historyVisible,
+        BuildRecommendationRepository? recommendations
     )
     {
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
@@ -59,7 +68,20 @@ internal sealed class AndroidTouchUi
         _versionCheck = versionCheck;
         _openHistory = openHistory;
         _historyVisible = historyVisible ?? throw new ArgumentNullException(nameof(historyVisible));
+        _recommendations = recommendations;
     }
+
+    /// <summary>The Live Build panel's counters, which a device run checks return to balance.</summary>
+    public BppLogField[] Summary() =>
+        [
+            ("live_build_opened", _liveBuild?.Opened ?? 0),
+            ("live_build_closed", _liveBuild?.Closed ?? 0),
+            ("live_build_leases", _liveBuild?.Leases ?? 0),
+            ("live_build_refreshes", _liveBuild?.Refreshes ?? 0),
+            ("live_build_refreshes_completed", _liveBuild?.RefreshesCompleted ?? 0),
+            ("live_build_relayouts", _liveBuild?.Relayouts ?? 0),
+            .. AndroidBackKey.Summary(),
+        ];
 
     /// <summary>Main thread: mounts the UI once the game's font is available.</summary>
     public void EnsureMounted()
@@ -94,6 +116,7 @@ internal sealed class AndroidTouchUi
     {
         Close("scene_changed");
         _collection?.Close("scene_changed");
+        _liveBuild?.Close("scene_changed");
     }
 
     private void Mount(TMP_FontAsset font)
@@ -201,6 +224,15 @@ internal sealed class AndroidTouchUi
         );
         AndroidUiKit.Button(collectionTab, font, CollectionPanelText.Title(), 30f, OpenCollection);
         _collectionTab = collectionTab.gameObject;
+        var liveBuildTab = AndroidUiKit.Fixed(
+            "LiveBuildTab",
+            panel,
+            new(0f, 1f),
+            new(24f, -422f),
+            new(280f, 88f)
+        );
+        AndroidUiKit.Button(liveBuildTab, font, LiveBuildPanelText.Title(), 30f, OpenLiveBuild);
+        _liveBuildTab = liveBuildTab.gameObject;
 
         var content = AndroidUiKit.Rect(
             "Content",
@@ -211,6 +243,20 @@ internal sealed class AndroidTouchUi
             new(-24f, -110f)
         );
         MountSettings(content, font);
+
+        // Top-most first: an open full-screen panel, then this menu.
+        AndroidBackKey.Register("live_build", () => _liveBuild?.HandleBack() == true);
+        AndroidBackKey.Register("collection", CloseCollectionForBack);
+        AndroidBackKey.Register(
+            "touch_menu",
+            () =>
+            {
+                if (_panel == null || !_panel.activeSelf)
+                    return false;
+                Close("back_key");
+                return true;
+            }
+        );
 
         Close("mounted");
     }
@@ -246,12 +292,19 @@ internal sealed class AndroidTouchUi
             () => SwitchText(AndroidTouchText.CollectionPanel, _android.CollectionPanel.Value),
             ToggleCollectionPanel
         );
+        AddSettingRow(
+            page,
+            font,
+            3,
+            () => SwitchText(AndroidTouchText.LiveBuildPanel, _android.LiveBuildPanel.Value),
+            ToggleLiveBuildPanel
+        );
 
         var update = AndroidUiKit.Fixed(
             "GameUpdate",
             page,
             new(0f, 1f),
-            new(0f, -3f * 104f - 24f),
+            new(0f, -4f * 104f - 24f),
             new(1100f, 96f)
         );
         var (_, background, _) = AndroidUiKit.Button(
@@ -305,6 +358,12 @@ internal sealed class AndroidTouchUi
             if (_launcherLabel != null)
                 _launcherLabel.text = _versionCheck?.GameUpdate != null ? "BPP !" : "BPP";
             _collection?.Tick();
+            _liveBuild?.Tick();
+            // The back key also reaches the game's escape hook (BackKeyPatches); a press both
+            // see closes one panel.
+            var keyboard = UnityEngine.InputSystem.Keyboard.current;
+            if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame)
+                AndroidBackKey.TryConsume("keyboard");
         }
         catch (Exception exception)
         {
@@ -327,6 +386,7 @@ internal sealed class AndroidTouchUi
         SetActive(_dim, true);
         SetActive(_panel, true);
         SetActive(_collectionTab, _android.CollectionPanel.Value);
+        SetActive(_liveBuildTab, LiveBuildOffered());
         ShowSettings();
     }
 
@@ -368,6 +428,7 @@ internal sealed class AndroidTouchUi
             label.text = text();
         SetActive(_gameUpdateRow, _versionCheck?.GameUpdate != null);
         SetActive(_collectionTab, _android.CollectionPanel.Value);
+        SetActive(_liveBuildTab, LiveBuildOffered());
     }
 
     private void OpenCollection()
@@ -388,6 +449,47 @@ internal sealed class AndroidTouchUi
             );
             _collection?.Close("open_failed");
         }
+    }
+
+    private bool LiveBuildOffered() => _android.LiveBuildPanel.Value && _recommendations != null;
+
+    private void OpenLiveBuild()
+    {
+        if (!LiveBuildOffered() || _root == null || _font == null)
+            return;
+        Close("live_build");
+        try
+        {
+            _liveBuild ??= new AndroidLiveBuildPanel(_root.transform, _font, _recommendations!);
+            _liveBuild.Open("touch_menu");
+        }
+        catch (Exception exception)
+        {
+            BppLog.ErrorEvent(
+                new BppLogEvent(BppLogFeatureScope.Android, "android.live_build.open_failed"),
+                exception
+            );
+            _liveBuild?.Close("open_failed");
+        }
+    }
+
+    private void ToggleLiveBuildPanel()
+    {
+        _android.LiveBuildPanel.Value = !_android.LiveBuildPanel.Value;
+        if (!_android.LiveBuildPanel.Value)
+        {
+            _liveBuild?.Close("switched_off");
+            AndroidCardRental.ReleaseAll("switched_off");
+        }
+        LogSettingChanged("Android", "LiveBuildPanel", _android.LiveBuildPanel.Value);
+    }
+
+    private bool CloseCollectionForBack()
+    {
+        if (_collection?.IsOpen != true)
+            return false;
+        _collection.Close("back_key");
+        return true;
     }
 
     private void ToggleCollectionPanel()
