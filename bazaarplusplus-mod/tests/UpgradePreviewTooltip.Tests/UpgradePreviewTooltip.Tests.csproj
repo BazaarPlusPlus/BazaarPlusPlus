@@ -7,6 +7,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="../../src/BazaarPlusPlus.Core/BazaarPlusPlus.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Compile
       Include="../../src/BazaarPlusPlus/Game/Tooltips/UpgradePreviewValueProjection.cs"
       Link="UpgradePreviewValueProjection.cs"

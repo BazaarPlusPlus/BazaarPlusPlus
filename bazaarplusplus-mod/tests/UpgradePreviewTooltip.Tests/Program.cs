@@ -495,7 +495,7 @@ AssertFloatEqual(
     "Non-duration projected values should keep their raw units."
 );
 AssertTrue(
-    UpgradePreviewValueRegistry.HaveSameFormattedValue(3.01f, 3.02f),
+    UpgradePreviewValueMath.HaveSameFormattedValue(3.01f, 3.02f),
     "Values that render identically should not show a redundant upgrade arrow."
 );
 

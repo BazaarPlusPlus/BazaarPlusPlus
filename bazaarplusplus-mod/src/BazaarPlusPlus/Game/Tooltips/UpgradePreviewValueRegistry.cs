@@ -1,5 +1,4 @@
 #nullable enable
-using System.Globalization;
 using System.Runtime.CompilerServices;
 using BazaarGameClient.Domain.Tooltips;
 using BazaarGameShared.Domain.Core.Types;
@@ -78,23 +77,14 @@ internal static class UpgradePreviewValueRegistry
             && projection.TryResolveEffectiveCooldowns(out currentSeconds, out upgradedSeconds);
     }
 
-    internal static string Format(float value) =>
-        value.IsDecimal()
-            ? value.GetDecimalValueString()
-            : value.ToString(CultureInfo.CurrentCulture);
-
-    internal static bool HaveSameFormattedValue(float currentValue, float projectedValue) =>
-        string.Equals(Format(currentValue), Format(projectedValue), StringComparison.Ordinal);
-
     internal static float ConvertProjectedValueToRenderedUnits(
         ECardAttributeType attributeType,
         ECardAttributeType? styleAsAttribute,
         float projectedValue
     ) =>
-        (
+        UpgradePreviewValueMath.ToRenderedUnits(
+            projectedValue,
             styleAsAttribute?.RequiresConversionToSeconds()
-            ?? attributeType.RequiresConversionToSeconds()
-        )
-            ? TooltipExtensions.MillisecondsToSeconds(projectedValue)
-            : projectedValue;
+                ?? attributeType.RequiresConversionToSeconds()
+        );
 }

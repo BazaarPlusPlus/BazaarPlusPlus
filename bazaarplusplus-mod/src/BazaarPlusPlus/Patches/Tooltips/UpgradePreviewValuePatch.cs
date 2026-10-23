@@ -79,8 +79,8 @@ internal static class UpgradePreviewValuePatch
             nextValue
         );
 
-        var currentText = UpgradePreviewValueRegistry.Format(currentValue);
-        if (UpgradePreviewValueRegistry.HaveSameFormattedValue(currentValue, nextValue))
+        var currentText = UpgradePreviewValueMath.Format(currentValue);
+        if (UpgradePreviewValueMath.HaveSameFormattedValue(currentValue, nextValue))
         {
             __result = styleAsAttribute.HasValue
                 ? Data.TooltipTypography.GetAttributeStringWithIcon(
@@ -94,7 +94,7 @@ internal static class UpgradePreviewValuePatch
         __result = Data.TooltipTypography.GetFusionString(
             styleAsAttribute,
             currentText,
-            UpgradePreviewValueRegistry.Format(nextValue)
+            UpgradePreviewValueMath.Format(nextValue)
         );
     }
 }
