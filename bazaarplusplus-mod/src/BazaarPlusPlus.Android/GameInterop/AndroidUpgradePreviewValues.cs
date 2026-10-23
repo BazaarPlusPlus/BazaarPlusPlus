@@ -231,7 +231,7 @@ internal static class AndroidUpgradePreviewValues
             NullableOf(style),
             nativeComponent
         );
-        var nativeResult = (native?.Item1, native?.Item2 ?? false);
+        var nativeResult = (native?.Item1, AndroidGameIds.Canonical(native?.Item2 ?? false));
         if (projectedToken == null || !projection.TryResolve(projectedToken, out var next))
             return nativeResult;
 
@@ -249,7 +249,7 @@ internal static class AndroidUpgradePreviewValues
                     currentText,
                     true
                 );
-                result = (withIcon?.Item1, withIcon?.Item2 ?? false);
+                result = (withIcon?.Item1, AndroidGameIds.Canonical(withIcon?.Item2 ?? false));
             }
             else
             {
@@ -264,7 +264,7 @@ internal static class AndroidUpgradePreviewValues
                 UpgradePreviewValueMath.Format(next),
                 true
             );
-            result = (fused?.Item1, fused?.Item2 ?? false);
+            result = (fused?.Item1, AndroidGameIds.Canonical(fused?.Item2 ?? false));
         }
 
         if (string.Equals(result.Segment, nativeResult.Item1, StringComparison.Ordinal))
