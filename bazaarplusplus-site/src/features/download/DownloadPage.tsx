@@ -210,7 +210,7 @@ export default function DownloadPage({ location }: { location: ResolvedSpaLocati
   });
 
   return (
-    <InfoPageShell location={location} title={copy.title}>
+    <InfoPageShell location={location} title={copy.title} intro={copy.intro}>
       <section className="flex flex-col gap-4">
         {isError ? <FailureFallback copy={copy} /> : null}
         <div className="grid gap-4 md:grid-cols-2">

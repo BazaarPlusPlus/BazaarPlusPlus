@@ -20,16 +20,11 @@ const tokensCssPath = path.join(
   'styles',
   'tokens.css'
 );
-// The brand mark is copied into each product's static assets, which Vite
-// serves from inside the project.
+// The installer consumes the brand mark; the site header uses its existing app icon.
 const COPIES = [
   {
     from: path.join(designDir, 'assets', 'Logos', 'bpp-mark.svg'),
     to: 'bazaarplusplus-installer/static/brand/bpp-mark.svg'
-  },
-  {
-    from: path.join(designDir, 'assets', 'Logos', 'bpp-mark.svg'),
-    to: 'bazaarplusplus-site/public/bpp-mark.svg'
   }
 ];
 const heroesPath = path.join(

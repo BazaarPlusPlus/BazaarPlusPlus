@@ -1,30 +1,29 @@
 {
   "support": {
     "scripts": {
-      "index.js": 98659
+      "index.js": 98606
     },
     "external": [
       "https://cdn.bazaarplusplus.com/mod-data/supporters/supporter-list.json"
     ],
     "icons": {
-      "bpp-mark.svg": 261,
+      "bazaarplusplus-icon.webp": 7296,
       "favicon.webp": 2812
     }
   },
   "tutorial": {
     "scripts": {
-      "index.js": 98659
+      "index.js": 98606
     },
     "external": [],
     "icons": {
       "bazaarplusplus-icon.webp": 7296,
-      "bpp-mark.svg": 261,
       "favicon.webp": 2812
     }
   },
   "download": {
     "scripts": {
-      "index.js": 98659
+      "index.js": 98606
     },
     "external": [
       "https://cdn.bazaarplusplus.com/installer/latest/android-aarch64.json",
@@ -32,30 +31,30 @@
       "https://cdn.bazaarplusplus.com/installer/latest/windows-x86_64.json"
     ],
     "icons": {
-      "bpp-mark.svg": 261,
+      "bazaarplusplus-icon.webp": 7296,
       "favicon.webp": 2812
     }
   },
   "heroes": {
     "scripts": {
-      "index.js": 98659,
+      "index.js": 98606,
       "route-pages.js": 8510
     },
     "external": [
       "https://cdn.bazaarplusplus.com/metrics/v6/heroes/latest.json"
     ],
     "icons": {
-      "bpp-mark.svg": 261,
+      "bazaarplusplus-icon.webp": 7296,
       "favicon.webp": 2812
     }
   },
   "not-found": {
     "scripts": {
-      "index.js": 98659
+      "index.js": 98606
     },
     "external": [],
     "icons": {
-      "bpp-mark.svg": 261,
+      "bazaarplusplus-icon.webp": 7296,
       "favicon.webp": 2812
     }
   }

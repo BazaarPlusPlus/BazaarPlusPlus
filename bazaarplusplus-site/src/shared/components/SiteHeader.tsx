@@ -1,10 +1,9 @@
 import { getSiteCopy } from '../../content/site-copy';
 import type { Locale, ResolvedSpaLocation } from '../../app/router';
-import { pageContainerClassName, type PageWidth } from './page-container';
+import { pageContainerClassName } from './page-container';
 
 type SiteHeaderProps = {
   location: ResolvedSpaLocation;
-  width?: PageWidth;
 };
 
 const LOCALE_OPTIONS: Array<{ code: Locale; label: string }> = [
@@ -12,7 +11,7 @@ const LOCALE_OPTIONS: Array<{ code: Locale; label: string }> = [
   { code: 'zh', label: '中' },
 ];
 
-export default function SiteHeader({ location, width = 'info' }: SiteHeaderProps) {
+export default function SiteHeader({ location }: SiteHeaderProps) {
   const { locale } = location;
   const copy = getSiteCopy(locale);
   const commonCopy = copy.common;
@@ -23,7 +22,7 @@ export default function SiteHeader({ location, width = 'info' }: SiteHeaderProps
       className="sticky top-0 z-30 border-b border-line bg-sidebar"
     >
       <div
-        className={`${pageContainerClassName(width)} flex flex-wrap items-center gap-x-6 gap-y-2 py-2.5`}
+        className={`${pageContainerClassName('wide')} flex flex-wrap items-center gap-x-6 gap-y-2 py-2.5`}
       >
         <a
           href={location.navigation.homeHref}
@@ -31,7 +30,7 @@ export default function SiteHeader({ location, width = 'info' }: SiteHeaderProps
           className="order-1 flex w-fit items-center gap-2.5 rounded-control text-text-1 no-underline"
         >
           <img
-            src="/bpp-mark.svg"
+            src="/bazaarplusplus-icon.webp"
             alt=""
             width={28}
             height={28}
@@ -40,9 +39,6 @@ export default function SiteHeader({ location, width = 'info' }: SiteHeaderProps
             fetchPriority="high"
           />
           <span className="text-[15px] font-semibold">{commonCopy.brand.name}</span>
-          <span aria-hidden="true" className="hidden text-sm text-text-3 lg:inline">
-            {commonCopy.brand.subtitle}
-          </span>
         </a>
 
         <nav
