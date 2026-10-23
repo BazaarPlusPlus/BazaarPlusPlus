@@ -38,7 +38,11 @@ public sealed class RemoteEmbeddedCatalogArchitectureTests
             "Composition creates and disposes the build catalog; the panel only consumes it.",
             build =>
                 Accesses(
-                    build.Type("BazaarPlusPlus.Game.LiveBuildPanel.LiveBuildPanel"),
+                    new[]
+                    {
+                        build.Type("BazaarPlusPlus.Game.LiveBuildPanel.LiveBuildPanel"),
+                        build.Type("BazaarPlusPlus.Game.LiveBuildPanel.LiveBuildPanelState"),
+                    },
                     createCatalog,
                     newRepository
                 )

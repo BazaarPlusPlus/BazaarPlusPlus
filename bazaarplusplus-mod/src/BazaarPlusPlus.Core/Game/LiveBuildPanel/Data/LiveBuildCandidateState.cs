@@ -1,10 +1,10 @@
 #nullable enable
 
-using BazaarPlusPlus.GameInterop.ItemBoardPreview;
+using BazaarPlusPlus.Core.Cards.ItemBoards;
 
 namespace BazaarPlusPlus.Game.LiveBuildPanel.Data;
 
-internal sealed class LiveBuildCandidateState
+public sealed class LiveBuildCandidateState
 {
     private readonly HashSet<Guid> _templateIds = new();
 

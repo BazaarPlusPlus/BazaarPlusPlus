@@ -40,7 +40,7 @@ No shared project references a game, Unity, or loader assembly, so the compiler 
 
 | Core directory | Owns |
 |---|---|
-| `Cards/`, `Config/`, `Events/`, `GameState/`, `RunContext/`, `Runtime/` | card facets, settings port, event bus and BPP-owned snapshots, probe interfaces, run context, runtime services, `CoreComposition` |
+| `Cards/`, `Config/`, `Events/`, `GameState/`, `RunContext/`, `Runtime/` | card facets, item boards, live cards, settings port, event bus and BPP-owned snapshots, probe interfaces, run context, runtime services, `CoreComposition` |
 | `Logging/` | the `BppLog` facade and pipeline, the `IBppLogSink` port, operational health tracking |
 | `Localization/` | localization resolution, language and Chinese-mode helpers |
 | `Infrastructure/` | Release Manifest client, self-update staging, remote embedded catalogs, atomic and file-backed writes, async load cache, plugin version |
@@ -72,7 +72,7 @@ Each is consumed by two or more features. Re-implementing one's behavior inside 
 | Native asset loading compatibility | `GameInterop/AssetLoading/` | Card preview, portraits, replay warmers |
 | Native card preview | `GameInterop/CardPreview/` | Collection, combat recap |
 | Native tooltip suppression | `GameInterop/Tooltips/NativeTooltipSuppression` | replay recording, end-of-run capture |
-| Item board planning / native boards | `GameInterop/ItemBoardPreview/`, `GameInterop/MonsterBoardPreview/` | History, LiveBuild |
+| Item board planning / native boards | Core `Cards/ItemBoards/`; host `GameInterop/` | History, LiveBuild |
 | Day tier resolution | `GameInterop/DayTiers/` | Collection's Day gate, Encounter Preview |
 | Hero portraits | `GameInterop/HeroPortraits/` | History, LiveBuild, ghost rows |
 | Text rendering | `GameInterop/Fonts/NativeGameTypography` | every BPP surface |

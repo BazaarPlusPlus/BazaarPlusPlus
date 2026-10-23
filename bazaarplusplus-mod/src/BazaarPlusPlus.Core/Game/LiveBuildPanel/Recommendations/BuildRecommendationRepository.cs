@@ -1,10 +1,8 @@
 #nullable enable
 using System.Globalization;
-using BazaarGameShared.Domain.Core.Types;
+using BazaarPlusPlus.Core.Cards;
+using BazaarPlusPlus.Core.Cards.ItemBoards;
 using BazaarPlusPlus.Game.LiveBuildPanel.Data;
-using BazaarPlusPlus.GameInterop.Heroes;
-using BazaarPlusPlus.GameInterop.ItemBoardPreview;
-using BazaarPlusPlus.GameInterop.StaticCards;
 using BazaarPlusPlus.Infrastructure.RemoteEmbeddedCatalog;
 
 namespace BazaarPlusPlus.Game.LiveBuildPanel.Recommendations;
@@ -14,13 +12,25 @@ namespace BazaarPlusPlus.Game.LiveBuildPanel.Recommendations;
 /// state, and projects matched builds onto renderable item boards. The corpus is a static package —
 /// recommendation queries read the catalog snapshot and never hit the server.
 /// </summary>
-internal sealed class BuildRecommendationRepository
+public sealed class BuildRecommendationRepository
 {
-    private readonly IRemoteEmbeddedCatalog<TenWinBuildCorpus> _catalog;
+    private const int SocketCount = 10;
 
-    internal BuildRecommendationRepository(IRemoteEmbeddedCatalog<TenWinBuildCorpus> catalog)
+    private readonly IRemoteEmbeddedCatalog<TenWinBuildCorpus> _catalog;
+    private readonly Func<Guid, CardSize?> _templateSize;
+
+    /// <param name="catalog">The plugin-lifetime build catalog, owned by the composition root.</param>
+    /// <param name="templateSize">
+    /// The game's size for a template, used when a layout row carries no valid size; null when the
+    /// host cannot answer. A card it cannot size renders small.
+    /// </param>
+    public BuildRecommendationRepository(
+        IRemoteEmbeddedCatalog<TenWinBuildCorpus> catalog,
+        Func<Guid, CardSize?>? templateSize = null
+    )
     {
         _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
+        _templateSize = templateSize ?? (_ => null);
     }
 
     public IReadOnlyList<BuildRecommendation> FindRecommendations(
@@ -29,7 +39,7 @@ internal sealed class BuildRecommendationRepository
         BuildLiveState? liveState = null
     )
     {
-        if (!HeroVisual.IsPlayableHero(hero))
+        if (!LiveBuildPlayableHero.IsPlayable(hero))
             return Array.Empty<BuildRecommendation>();
 
         var corpus = EnsureCorpus();
@@ -67,7 +77,7 @@ internal sealed class BuildRecommendationRepository
         return results;
     }
 
-    private static BppItemBoard ProjectBoard(TenWinBuild build)
+    private BppItemBoard ProjectBoard(TenWinBuild build)
     {
         var cards = build
             .Layout.Where(item => item.TemplateId != Guid.Empty)
@@ -85,7 +95,7 @@ internal sealed class BuildRecommendationRepository
         );
     }
 
-    private static BppItemBoardCard ProjectCard(TenWinLayoutItem item)
+    private BppItemBoardCard ProjectCard(TenWinLayoutItem item)
     {
         var size = ResolveCardSize(item.TemplateId, item.Size);
         return new BppItemBoardCard
@@ -98,63 +108,60 @@ internal sealed class BuildRecommendationRepository
             Size = size,
             Span = BppItemBoardSpan.Resolve(size),
             SourceSocketId = item.Slot.HasValue
-                ? (EContainerSocketId?)Math.Clamp(item.Slot.Value, 0, 9)
+                ? Math.Clamp(item.Slot.Value, 0, SocketCount - 1)
                 : null,
             EnchantmentType = MapEnchant(item.EnchantName),
         };
     }
 
-    private static ECardSize ResolveCardSize(Guid templateId, int? size)
+    private CardSize ResolveCardSize(Guid templateId, int? size)
     {
         return size switch
         {
-            1 => ECardSize.Small,
-            2 => ECardSize.Medium,
-            3 => ECardSize.Large,
+            1 => CardSize.Small,
+            2 => CardSize.Medium,
+            3 => CardSize.Large,
             // Out-of-range/absent payload size: fall back to the game's authoritative card size.
-            _ => ResolveCardSizeFromStaticData(templateId),
+            _ => ResolveTemplateSize(templateId),
         };
     }
 
-    private static ECardSize ResolveCardSizeFromStaticData(Guid templateId)
+    private CardSize ResolveTemplateSize(Guid templateId)
     {
         try
         {
-            var staticData = BppStaticDataAccess.TryGetReadyManagerObject();
-            var template = BppStaticDataAccess.GetCardTemplate(staticData, templateId);
-            return template?.Size switch
-            {
-                ECardSize.Small => ECardSize.Small,
-                ECardSize.Medium => ECardSize.Medium,
-                ECardSize.Large => ECardSize.Large,
-                _ => ECardSize.Small,
-            };
+            return _templateSize(templateId) ?? CardSize.Small;
         }
         catch
         {
-            return ECardSize.Small;
+            return CardSize.Small;
         }
     }
 
-    private static ETier MapTier(int? tier)
-    {
-        // Layout tier is the analyzer's mod value 1..5 (Bronze..Legendary); ETier is 0..4.
-        var normalized = tier.GetValueOrDefault();
-        if (normalized > 0)
-            normalized--;
+    // Layout tier is the analyzer's value 1..5 (Bronze..Legendary); anything else clamps.
+    private static CardTier MapTier(int? tier) =>
+        tier.GetValueOrDefault() switch
+        {
+            <= 1 => CardTier.Bronze,
+            2 => CardTier.Silver,
+            3 => CardTier.Gold,
+            4 => CardTier.Diamond,
+            _ => CardTier.Legendary,
+        };
 
-        normalized = Math.Clamp(normalized, (int)ETier.Bronze, (int)ETier.Legendary);
-        return (ETier)normalized;
-    }
-
-    private static EEnchantmentType? MapEnchant(string? enchantName)
+    // The corpus names enchantments by member name. A numeric string never selects a facet: a
+    // facet's integer belongs to BPP (ADR-0015).
+    private static CardEnchantment? MapEnchant(string? enchantName)
     {
-        if (string.IsNullOrWhiteSpace(enchantName))
+        var name = enchantName?.Trim();
+        if (string.IsNullOrEmpty(name) || !char.IsLetter(name![0]))
             return null;
 
-        return Enum.TryParse<EEnchantmentType>(enchantName, true, out var type)
-            ? type
-            : (EEnchantmentType?)null;
+        return
+            Enum.TryParse<CardEnchantment>(name, ignoreCase: true, out var enchantment)
+            && Enum.IsDefined(typeof(CardEnchantment), enchantment)
+            ? enchantment
+            : null;
     }
 
     /// <summary>
@@ -188,7 +195,7 @@ internal sealed class BuildRecommendationRepository
         _ = _catalog.WarmAsync(CancellationToken.None).AsTask();
     }
 
-    internal async Task<BuildRecommendationRefreshResult> TryRefreshFinalBuildsFromRemoteAsync()
+    public async Task<BuildRecommendationRefreshResult> TryRefreshFinalBuildsFromRemoteAsync()
     {
         var result = await _catalog.RefreshAsync(CancellationToken.None).ConfigureAwait(false);
         if (result.Succeeded)

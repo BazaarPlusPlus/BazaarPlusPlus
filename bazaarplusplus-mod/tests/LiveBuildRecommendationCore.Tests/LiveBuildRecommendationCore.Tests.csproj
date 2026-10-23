@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- The ten-win corpus parser, recall, scoring, and board projection, run against Core alone
+       over the analyzer's contract fixtures. The embedded seed the desktop host bundles stays in
+       LiveBuildRecommendations.Tests, the seed gate. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <BppRequiresManagedPath>false</BppRequiresManagedPath>
+  </PropertyGroup>
+
+  <!-- Named explicitly so the test tree's netstandard2.1 pin leaves Core and its references on
+       net10.0. Core keeps its Newtonsoft.Json private, so the parser's copy comes from here. -->
+  <ItemGroup>
+    <ProjectReference
+      Include="../../src/BazaarPlusPlus.Core/BazaarPlusPlus.Core.csproj"
+      SetTargetFramework="TargetFramework=net10.0"
+    />
+    <ProjectReference
+      Include="../../src/BazaarPlusPlus.Storage/BazaarPlusPlus.Storage.csproj"
+      SetTargetFramework="TargetFramework=net10.0"
+    />
+    <ProjectReference
+      Include="../../src/BazaarPlusPlus.ModApi/BazaarPlusPlus.ModApi.csproj"
+      SetTargetFramework="TargetFramework=net10.0"
+    />
+    <PackageReference Include="Newtonsoft.Json" />
+    <PackageReference Include="JsonSchema.Net" />
+    <Compile Include="../Shared/LocalizationTestBootstrap.cs" Link="LocalizationTestBootstrap.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource
+      Include="../../../bazaarplusplus-analyzer/contracts/v6/fixtures/builds.latest.json"
+      LogicalName="LiveBuildRecommendationCore.Tests.builds.latest.json"
+    />
+    <EmbeddedResource
+      Include="../../../bazaarplusplus-analyzer/contracts/v6/builds.schema.json"
+      LogicalName="LiveBuildRecommendationCore.Tests.builds.schema.json"
+    />
+  </ItemGroup>
+</Project>

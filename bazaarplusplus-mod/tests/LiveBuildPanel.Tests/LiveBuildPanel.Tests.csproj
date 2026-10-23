@@ -1,112 +1,34 @@
 <Project Sdk="Microsoft.NET.Sdk">
+  <!-- The Live Build Panel state, rows, text, and manual refresh, run against Core alone: no host
+       source and no game snapshot. -->
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <BppRequiresManagedPath>false</BppRequiresManagedPath>
   </PropertyGroup>
 
+  <!-- Named explicitly so the test tree's netstandard2.1 pin leaves Core and its references on
+       net10.0. Core keeps its Newtonsoft.Json private, so the corpus parser's copy comes from
+       here. -->
   <ItemGroup>
-    <Compile
-      Include="../../src/BazaarPlusPlus/Game/LiveBuildPanel/Data/LiveBuildCandidateState.cs"
-      Link="LiveBuildCandidateState.cs"
+    <ProjectReference
+      Include="../../src/BazaarPlusPlus.Core/BazaarPlusPlus.Core.csproj"
+      SetTargetFramework="TargetFramework=net10.0"
     />
-    <Compile
-      Include="../../src/BazaarPlusPlus/Game/LiveBuildPanel/Data/LiveBuildPanelSnapshot.cs"
-      Link="LiveBuildPanelSnapshot.cs"
+    <ProjectReference
+      Include="../../src/BazaarPlusPlus.Storage/BazaarPlusPlus.Storage.csproj"
+      SetTargetFramework="TargetFramework=net10.0"
     />
-    <Compile
-      Include="../../src/BazaarPlusPlus/Game/LiveBuildPanel/Data/LiveBuildCorpusState.cs"
-      Link="LiveBuildCorpusState.cs"
+    <ProjectReference
+      Include="../../src/BazaarPlusPlus.ModApi/BazaarPlusPlus.ModApi.csproj"
+      SetTargetFramework="TargetFramework=net10.0"
     />
-    <Compile
-      Include="../../src/BazaarPlusPlus/Game/LiveBuildPanel/Data/LiveBuildMatchesState.cs"
-      Link="LiveBuildMatchesState.cs"
-    />
-    <Compile
-      Include="../../src/BazaarPlusPlus/Game/LiveBuildPanel/Data/LiveBuildRefreshSeverity.cs"
-      Link="LiveBuildRefreshSeverity.cs"
-    />
-    <Compile
-      Include="../../src/BazaarPlusPlus/Game/LiveBuildPanel/LiveBuildHeroPresentation.cs"
-      Link="LiveBuildHeroPresentation.cs"
-    />
-    <Compile
-      Include="../../src/BazaarPlusPlus/Game/LiveBuildPanel/Data/LiveItemBoardRowVm.cs"
-      Link="LiveItemBoardRowVm.cs"
-    />
-    <Compile
-      Include="../../src/BazaarPlusPlus/Game/LiveBuildPanel/Text/LiveBuildPanelText.Chrome.cs"
-      Link="Text/LiveBuildPanelText.Chrome.cs"
-    />
-    <Compile
-      Include="../../src/BazaarPlusPlus/Game/LiveBuildPanel/Text/LiveBuildPanelText.Evidence.cs"
-      Link="Text/LiveBuildPanelText.Evidence.cs"
-    />
-    <Compile
-      Include="../../src/BazaarPlusPlus/Game/LiveBuildPanel/Text/LiveBuildPanelText.Refresh.cs"
-      Link="Text/LiveBuildPanelText.Refresh.cs"
-    />
-    <Compile
-      Include="../../src/BazaarPlusPlus/Game/LiveBuildPanel/Text/LiveBuildPanelText.Status.cs"
-      Link="Text/LiveBuildPanelText.Status.cs"
-    />
-    <Compile
-      Include="../../src/BazaarPlusPlus/GameInterop/ItemBoardPreview/BppItemBoard.cs"
-      Link="BppItemBoard.cs"
-    />
-    <Compile
-      Include="../../src/BazaarPlusPlus/GameInterop/ItemBoardPreview/BppItemBoardCard.cs"
-      Link="BppItemBoardCard.cs"
-    />
-    <Compile
-      Include="../../src/BazaarPlusPlus/GameInterop/ItemBoardPreview/BppItemBoardId.cs"
-      Link="BppItemBoardId.cs"
-    />
-    <Compile
-      Include="../../src/BazaarPlusPlus/GameInterop/ItemBoardPreview/BppItemBoardSpan.cs"
-      Link="BppItemBoardSpan.cs"
-    />
-    <Compile
-      Include="../../src/BazaarPlusPlus/GameInterop/Cards/CardSizeSpan.cs"
-      Link="CardSizeSpan.cs"
-    />
-    <Compile
-      Include="../../src/BazaarPlusPlus/GameInterop/ItemBoardPreview/BppItemBoardType.cs"
-      Link="BppItemBoardType.cs"
-    />
-    <Compile
-      Include="../../src/BazaarPlusPlus/Infrastructure/UiTokens/BppOverlaySorting.cs"
-      Link="BppOverlaySorting.cs"
-    />
-    <Compile
-      Include="../../src/BazaarPlusPlus/Infrastructure/UiTokens/Colors.cs"
-      Link="Colors.cs"
-    />
-    <Compile
-      Include="../../src/BazaarPlusPlus/GameInterop/Heroes/HeroVisual.cs"
-      Link="HeroVisual.cs"
-    />
-    <Compile
-      Include="../../src/BazaarPlusPlus/GameInterop/Heroes/TheDragonsHeroIdentity.cs"
-      Link="TheDragonsHeroIdentity.cs"
-    />
-    <Compile Include="Program.cs" />
-  </ItemGroup>
-
-  <!-- Program.cs resolves game assemblies at run time from the same ManagedPath it compiled against. -->
-  <ItemGroup>
-    <AssemblyMetadata Include="BppManagedPath" Value="$(ManagedPath)" />
+    <PackageReference Include="Newtonsoft.Json" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="../../src/BazaarPlusPlus/BazaarPlusPlus.csproj" />
-    <Reference Include="BazaarGameShared">
-      <HintPath>$(ManagedPath)/BazaarGameShared.dll</HintPath>
-    </Reference>
-    <Reference Include="TheBazaarRuntime">
-      <HintPath>$(ManagedPath)/TheBazaarRuntime.dll</HintPath>
-    </Reference>
+    <Compile Include="../Shared/LocalizationTestBootstrap.cs" Link="LocalizationTestBootstrap.cs" />
   </ItemGroup>
 </Project>

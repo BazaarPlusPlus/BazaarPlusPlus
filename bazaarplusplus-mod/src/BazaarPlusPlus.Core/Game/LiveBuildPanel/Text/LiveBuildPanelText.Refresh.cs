@@ -1,12 +1,13 @@
 #nullable enable
 
 using System.Globalization;
+using BazaarPlusPlus.Core.GameState;
 using BazaarPlusPlus.Game.LiveBuildPanel.Data;
 using BazaarPlusPlus.Localization;
 
 namespace BazaarPlusPlus.Game.LiveBuildPanel;
 
-internal static partial class LiveBuildPanelText
+public static partial class LiveBuildPanelText
 {
     private static readonly LocalizedTextSet RefreshFinalBuildsText = new(
         "Update library",
@@ -110,18 +111,26 @@ internal static partial class LiveBuildPanelText
         );
     }
 
-    public static string CorpusSummaryTooltip(TenWinCorpusSummary summary)
+    // The Dragons' label is the game's own localized name, so the host supplies it; any other
+    // corpus key shows as stored.
+    public static string CorpusSummaryTooltip(
+        TenWinCorpusSummary summary,
+        Func<string> theDragonsDisplayName
+    )
     {
         var parts = CorpusSummaryParts(summary);
         parts.AddRange(
             summary
                 .HeroBuildCounts.Where(count => !string.IsNullOrWhiteSpace(count.Hero))
                 .Select(count =>
-                    $"{LiveBuildHeroPresentation.DisplayName(count.Hero)} {count.BuildCount}"
+                    $"{HeroDisplayName(count.Hero, theDragonsDisplayName)} {count.BuildCount}"
                 )
         );
         return string.Join(" · ", parts);
     }
+
+    private static string HeroDisplayName(string heroId, Func<string> theDragonsDisplayName) =>
+        TheDragonsHeroId.IsAlias(heroId) ? theDragonsDisplayName() : heroId;
 
     private static List<string> CorpusSummaryParts(TenWinCorpusSummary summary)
     {

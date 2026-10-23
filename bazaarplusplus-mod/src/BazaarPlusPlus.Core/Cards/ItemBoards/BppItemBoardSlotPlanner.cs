@@ -1,10 +1,8 @@
 #nullable enable
 
-using BazaarGameShared.Domain.Core.Types;
+namespace BazaarPlusPlus.Core.Cards.ItemBoards;
 
-namespace BazaarPlusPlus.GameInterop.ItemBoardPreview;
-
-internal static class BppItemBoardSlotPlanner
+public static class BppItemBoardSlotPlanner
 {
     private const int SocketCount = 10;
 
@@ -37,7 +35,7 @@ internal static class BppItemBoardSlotPlanner
             if (TryGetSocket(card.SourceSocketId, span, out var sourceSocket))
             {
                 planned.Add(card.WithDisplaySocket(sourceSocket));
-                cursor = Math.Max(cursor, (int)sourceSocket + span);
+                cursor = Math.Max(cursor, sourceSocket + span);
                 continue;
             }
 
@@ -47,7 +45,7 @@ internal static class BppItemBoardSlotPlanner
                     BuildWarning(
                         board,
                         card,
-                        $"source socket {(int)card.SourceSocketId.Value} cannot fit span={span}; using fallback"
+                        $"source socket {card.SourceSocketId.Value} cannot fit span={span}; using fallback"
                     )
                 );
             }
@@ -62,7 +60,7 @@ internal static class BppItemBoardSlotPlanner
                 continue;
             }
 
-            planned.Add(card.WithDisplaySocket((EContainerSocketId)fallbackSocket));
+            planned.Add(card.WithDisplaySocket(fallbackSocket));
             cursor = fallbackSocket + span;
         }
 
@@ -88,7 +86,7 @@ internal static class BppItemBoardSlotPlanner
                         board,
                         card,
                         card.SourceSocketId.HasValue
-                            ? $"source socket {(int)card.SourceSocketId.Value} cannot fit span={span}"
+                            ? $"source socket {card.SourceSocketId.Value} cannot fit span={span}"
                             : "missing source socket"
                     )
                 );
@@ -123,7 +121,7 @@ internal static class BppItemBoardSlotPlanner
                 break;
             }
 
-            planned.Add(card.WithDisplaySocket((EContainerSocketId)displaySocket));
+            planned.Add(card.WithDisplaySocket(displaySocket));
             cursor = displaySocket + span;
         }
 
@@ -139,18 +137,13 @@ internal static class BppItemBoardSlotPlanner
             .ThenBy(entry => entry.index)
             .Select(entry => entry.card);
 
-    private static bool TryGetSocket(
-        EContainerSocketId? socketId,
-        int span,
-        out EContainerSocketId socket
-    )
+    private static bool TryGetSocket(int? socketId, int span, out int socket)
     {
         socket = default;
         if (!socketId.HasValue)
             return false;
 
-        var index = (int)socketId.Value;
-        if (!CanFit(index, span))
+        if (!CanFit(socketId.Value, span))
             return false;
 
         socket = socketId.Value;

@@ -1,10 +1,10 @@
 #nullable enable
 
-using BazaarPlusPlus.GameInterop.ItemBoardPreview;
+using BazaarPlusPlus.Core.Cards.ItemBoards;
 
 namespace BazaarPlusPlus.Game.LiveBuildPanel.Data;
 
-internal sealed class LiveItemBoardRowVm
+public sealed class LiveItemBoardRowVm
 {
     public LiveItemBoardRowVm(BppItemBoard board, string title, string emptyText)
     {

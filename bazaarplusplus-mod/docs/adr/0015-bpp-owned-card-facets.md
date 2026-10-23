@@ -21,7 +21,7 @@ ADR-0012 moves into Core only what compiles without game types. Collection and m
 
 ## Relationship to ADR-0012
 
-This decision adds no new boundary. It supplies the BPP-owned snapshot types that ADR-0012's guardrail requires before game-enum-typed features can move. Collection is the first consumer. History, LiveBuild, and the Android Collection panel reuse the same facets and adapters.
+This decision adds no new boundary. It supplies the BPP-owned snapshot types that ADR-0012's guardrail requires before game-enum-typed features can move. Collection is the first consumer. History, LiveBuild, and the Android Collection panel reuse the same facets and adapters. ADR-0017 narrows this decision for item boards: sockets stay positional indexes, attributes stay game member names, and an unmapped tier or size renders instead of being left out.
 
 ## Evidence
 

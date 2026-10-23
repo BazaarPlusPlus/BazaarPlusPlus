@@ -1,13 +1,13 @@
 #nullable enable
 
+using BazaarPlusPlus.Core.Cards.ItemBoards;
 using BazaarPlusPlus.Game.Input;
-using BazaarPlusPlus.Game.LiveBuildPanel.Data;
 using BazaarPlusPlus.Game.LiveBuildPanel.Preview;
 using BazaarPlusPlus.Game.LiveBuildPanel.Recommendations;
 using BazaarPlusPlus.Game.LiveBuildPanel.Ui;
 using BazaarPlusPlus.Game.OverlayPanels;
 using BazaarPlusPlus.Game.Supporters;
-using BazaarPlusPlus.GameInterop.ItemBoardPreview;
+using BazaarPlusPlus.GameInterop.Cards;
 using BazaarPlusPlus.GameInterop.LiveCards;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
@@ -16,25 +16,22 @@ using UnityEngine.InputSystem;
 
 namespace BazaarPlusPlus.Game.LiveBuildPanel;
 
+/// <summary>
+/// The desktop shell around <see cref="LiveBuildPanelState"/>: overlay registration, the live
+/// read, the native view and boards, and the await that brings a refresh back to the main thread.
+/// </summary>
 internal sealed class LiveBuildPanel : MonoBehaviour
 {
     private const string OverlayPanelId = "LiveBuildPanel";
-    private const int SupporterAttributionCount = 4;
 
     private static LiveBuildPanel? _instance;
     private readonly LiveCardSnapshotReader _reader = new();
-    private BuildRecommendationRepository? _recommendations;
-    private readonly LiveBuildRefreshState _refresh = new();
-    private readonly LiveBuildCandidateState _candidateState = new();
+    private LiveBuildPanelState? _state;
     private LiveBuildPreviewRenderer? _previewRenderer;
     private LiveBuildPanelView? _view;
-    private LiveCardSnapshotSet _liveSnapshot = LiveCardSnapshotSet.Empty;
-    private IReadOnlyList<BuildRecommendation> _matches = Array.Empty<BuildRecommendation>();
-    private IReadOnlyList<BPPSupporterSample> _supporters = Array.Empty<BPPSupporterSample>();
     private IOverlayPanelHandle? _overlayHandle;
-    private int _recommendationIndex;
 
-    public static bool IsVisible => _instance?._refresh.IsVisible == true;
+    public static bool IsVisible => _instance?._state?.IsVisible == true;
 
     private void Awake()
     {
@@ -46,13 +43,16 @@ internal sealed class LiveBuildPanel : MonoBehaviour
         OverlayPanelHost overlayHost
     )
     {
-        if (_recommendations != null)
+        if (_state != null)
             return;
 
-        _recommendations =
-            recommendations ?? throw new ArgumentNullException(nameof(recommendations));
+        _state = new LiveBuildPanelState(
+            recommendations ?? throw new ArgumentNullException(nameof(recommendations)),
+            () => DateTimeOffset.UtcNow,
+            DesktopCardFacets.TheDragonsDisplayName
+        );
         AttachToOverlayHost(overlayHost);
-        _recommendations.BeginCorpusLoad();
+        _state.BeginCorpusLoad();
     }
 
     internal void AttachToOverlayHost(OverlayPanelHost overlayHost)
@@ -76,7 +76,7 @@ internal sealed class LiveBuildPanel : MonoBehaviour
         if (ReferenceEquals(_instance, this))
             _instance = null;
 
-        _refresh.Destroy();
+        _state?.Destroy();
         _overlayHandle?.Dispose();
         _overlayHandle = null;
         _previewRenderer?.Dispose();
@@ -101,15 +101,16 @@ internal sealed class LiveBuildPanel : MonoBehaviour
 
     private void Open()
     {
+        if (_state == null)
+            return;
+
         EnsureView();
-        _refresh.SetVisible(true);
-        _supporters = BPPSupporters.SampleMany(SupporterAttributionCount);
-        _candidateState.Clear();
-        _recommendationIndex = 0;
         var snapshotOutcome = _reader.Read();
-        _liveSnapshot = snapshotOutcome.Snapshot;
         ReportLiveSnapshotIssues(snapshotOutcome.Issues);
-        RefreshRecommendations();
+        _state.Open(
+            snapshotOutcome.Snapshot,
+            BPPSupporters.SampleMany(LiveBuildPanelState.SupporterAttributionCount)
+        );
         RefreshViewAndPreview();
         _view?.SetVisible(true);
     }
@@ -155,13 +156,9 @@ internal sealed class LiveBuildPanel : MonoBehaviour
 
     private void Close()
     {
-        if (!_refresh.IsVisible)
+        if (_state?.Close() != true)
             return;
 
-        _refresh.SetVisible(false);
-        _candidateState.Clear();
-        _matches = Array.Empty<BuildRecommendation>();
-        _recommendationIndex = 0;
         _previewRenderer?.Hide();
         _view?.SetVisible(false);
     }
@@ -197,103 +194,47 @@ internal sealed class LiveBuildPanel : MonoBehaviour
 
     private void OnCandidateToggleRequested(Guid templateId)
     {
-        if (!_refresh.IsVisible || templateId == Guid.Empty)
-            return;
-
-        _candidateState.Toggle(templateId);
-        _candidateState.PruneToSelectableRows(BuildSelectableBoards());
-        _recommendationIndex = 0;
-        RefreshRecommendations();
-        RefreshViewAndPreview();
+        if (_state?.ToggleCandidate(templateId) == true)
+            RefreshViewAndPreview();
     }
 
     private void PreviousRecommendation()
     {
-        if (_matches.Count <= 1)
-            return;
-
-        _recommendationIndex = WrapIndex(_recommendationIndex - 1, _matches.Count);
-        RefreshViewAndPreview();
+        if (_state?.Previous() == true)
+            RefreshViewAndPreview();
     }
 
     private void NextRecommendation()
     {
-        if (_matches.Count <= 1)
-            return;
-
-        _recommendationIndex = WrapIndex(_recommendationIndex + 1, _matches.Count);
-        RefreshViewAndPreview();
+        if (_state?.Next() == true)
+            RefreshViewAndPreview();
     }
 
     private void TryRefreshFinalBuilds()
     {
-        var request = _refresh.BeginRefresh();
+        if (_state == null)
+            return;
+
+        var request = _state.BeginRefresh();
         if (request == LiveBuildRefreshRequest.Ignore)
             return;
 
         RefreshStatusView();
-        _ = RefreshFinalBuildsAsync(request, Guid.NewGuid());
+        _ = RefreshFinalBuildsAsync(_state, request, Guid.NewGuid());
     }
 
-    private async Task RefreshFinalBuildsAsync(LiveBuildRefreshRequest request, Guid logRequestId)
+    // Awaited on Unity's synchronization context, so CompleteRefresh runs on the main thread as
+    // LiveBuildPanelState requires.
+    private async Task RefreshFinalBuildsAsync(
+        LiveBuildPanelState state,
+        LiveBuildRefreshRequest request,
+        Guid logRequestId
+    )
     {
-        BuildRecommendationRefreshResult result;
-        try
-        {
-            result =
-                request == LiveBuildRefreshRequest.NoChange
-                    ? BuildRecommendationRefreshResult.NoChange()
-                    : await _recommendations!.TryRefreshFinalBuildsFromRemoteAsync();
-        }
-        catch (Exception ex)
-        {
-            result = BuildRecommendationRefreshResult.Failure(
-                LiveBuildRefreshFailureReasonCode.RefreshException,
-                ex.Message,
-                ex
-            );
-        }
-
-        if (result.Succeeded)
-        {
-            BppLog.InfoEvent(
-                new BppLogEvent(
-                    BppLogFeatureScope.LiveBuildPanel,
-                    "live_build_panel.refresh.succeeded"
-                ),
-                ("request_id", logRequestId, BppLogCorrelationPolicy.Short),
-                (
-                    "result",
-                    result.Outcome == BuildRecommendationRefreshOutcome.NoChange
-                        ? LiveBuildRefreshResultCode.NoChange
-                        : LiveBuildRefreshResultCode.Updated
-                )
-            );
-        }
-        else
-        {
-            var failed = new BppLogEvent(
-                BppLogFeatureScope.LiveBuildPanel,
-                "live_build_panel.refresh.failed"
-            );
-            var fields = new BppLogField[]
-            {
-                ("request_id", logRequestId, BppLogCorrelationPolicy.Short),
-                (
-                    "reason_code",
-                    result.FailureReason ?? LiveBuildRefreshFailureReasonCode.RefreshException
-                ),
-            };
-            if (result.Exception == null)
-                BppLog.ErrorEvent(failed, fields);
-            else
-                BppLog.ErrorEvent(failed, result.Exception, fields);
-        }
-
-        switch (_refresh.CompleteRefresh(result))
+        var result = await state.FetchRefreshAsync(request);
+        switch (state.CompleteRefresh(result, logRequestId))
         {
             case LiveBuildRefreshEffect.Recommendations:
-                RefreshRecommendations();
                 RefreshViewAndPreview();
                 break;
             case LiveBuildRefreshEffect.Status:
@@ -306,269 +247,19 @@ internal sealed class LiveBuildPanel : MonoBehaviour
     // the boards did not change, so re-rendering card previews would be wasted work.
     private void RefreshStatusView()
     {
-        if (!_refresh.IsVisible)
+        if (_state?.IsVisible != true)
             return;
 
-        _view?.Refresh(BuildPanelSnapshot());
+        _view?.Refresh(_state.BuildSnapshot());
     }
-
-    private void RefreshRecommendations()
-    {
-        var hero = _liveSnapshot.Hero?.ToString();
-        _matches =
-            string.IsNullOrWhiteSpace(hero) || !_candidateState.HasCandidates
-                ? Array.Empty<BuildRecommendation>()
-                : _recommendations!.FindRecommendations(
-                    hero,
-                    _candidateState.TemplateIds,
-                    ResolveLiveState()
-                );
-        _recommendationIndex = Mathf.Clamp(
-            _recommendationIndex,
-            0,
-            Math.Max(0, _matches.Count - 1)
-        );
-    }
-
-    // Live board/stash/shop only rank matched builds (board weighs most); they never drive recall.
-    private BuildLiveState ResolveLiveState()
-    {
-        return BuildLiveState.From(
-            TemplateIdsOf(_liveSnapshot.BoardItems),
-            TemplateIdsOf(_liveSnapshot.StashItems),
-            TemplateIdsOf(_liveSnapshot.ShopItems)
-        );
-    }
-
-    private static IReadOnlyCollection<Guid> TemplateIdsOf(IReadOnlyList<LiveCardSnapshot> cards) =>
-        cards.Select(card => card.TemplateId).Where(id => id != Guid.Empty).Distinct().ToArray();
 
     private void RefreshViewAndPreview()
     {
-        if (!_refresh.IsVisible)
+        if (_state?.IsVisible != true)
             return;
 
-        var snapshot = BuildPanelSnapshot();
+        var snapshot = _state.BuildSnapshot();
         _view?.Refresh(snapshot);
         _previewRenderer?.Render(snapshot);
-    }
-
-    private LiveBuildPanelSnapshot BuildPanelSnapshot()
-    {
-        var shop = BuildBoard(
-            BppItemBoardId.LiveShop,
-            BppItemBoardType.SelectableShop,
-            _liveSnapshot.ShopItems
-        );
-        var board = BuildBoard(
-            BppItemBoardId.LiveBoard,
-            BppItemBoardType.SelectableContainer,
-            _liveSnapshot.BoardItems
-        );
-        var stash = BuildBoard(
-            BppItemBoardId.LiveStash,
-            BppItemBoardType.SelectableContainer,
-            _liveSnapshot.StashItems
-        );
-        var recommendation = _matches.Count > 0 ? _matches[_recommendationIndex] : null;
-        var nowUtc = DateTimeOffset.UtcNow;
-        var corpus = ResolveCorpusStatus();
-        var matches = ResolveMatches(recommendation);
-        var finalBuild =
-            recommendation?.Board
-            ?? new BppItemBoard(
-                BppItemBoardId.FinalBuild,
-                BppItemBoardType.Reference,
-                Array.Empty<BppItemBoardCard>(),
-                "final-build:none"
-            );
-
-        return new LiveBuildPanelSnapshot
-        {
-            Hero = _liveSnapshot.Hero,
-            FinalBuild = finalBuild,
-            Shop = shop,
-            Board = board,
-            Stash = stash,
-            CandidateTemplateIds = _candidateState.TemplateIds,
-            MatchesState = matches.State,
-            MatchesGuidance = matches.Guidance,
-            MatchTenWinRateBps = matches.Recommendation?.TenWinRateBps,
-            MatchTenWinRunCount = matches.Recommendation?.TenWinRunCount ?? 0,
-            MatchP75FinalDay = matches.Recommendation?.P75TenWinFinalDay,
-            MatchMatchedCardCount = matches.Recommendation?.MatchedCardCount ?? 0,
-            RecommendationIndex = _recommendationIndex,
-            RecommendationCount = _matches.Count,
-            FinalBuildRefreshButtonText = _refresh.IsPending
-                ? LiveBuildPanelText.Working()
-                : LiveBuildPanelText.RefreshFinalBuilds(),
-            FinalBuildRefreshButtonEnabled = !_refresh.IsPending,
-            CorpusState = corpus.State,
-            CorpusFreshnessText = corpus.Summary.HasValue
-                ? LiveBuildPanelText.CorpusFreshnessLine(corpus.Summary.Value, nowUtc)
-                : string.Empty,
-            CorpusFreshnessSeverity = ResolveFreshnessSeverity(corpus.Summary, nowUtc),
-            CorpusStatusText = corpus.Text,
-            CorpusStatusTooltip = corpus.Tooltip,
-            CorpusStatusSeverity = corpus.Severity,
-            Supporters = _supporters,
-        };
-    }
-
-    // The header prioritizes pending, failure, empty, then the corpus summary.
-    // Detailed timestamps and per-hero counts stay available in its hover details.
-    private (
-        LiveBuildCorpusState State,
-        TenWinCorpusSummary? Summary,
-        string Text,
-        string Tooltip,
-        LiveBuildRefreshSeverity Severity
-    ) ResolveCorpusStatus()
-    {
-        if (_refresh.IsPending)
-            return (
-                LiveBuildCorpusState.Pending,
-                null,
-                LiveBuildPanelText.RefreshingFinalBuilds(),
-                string.Empty,
-                LiveBuildRefreshSeverity.Pending
-            );
-
-        var summary = _recommendations?.GetCorpusSummary();
-        var tooltip = summary.HasValue
-            ? LiveBuildPanelText.CorpusSummaryTooltip(summary.Value)
-            : string.Empty;
-
-        if (_refresh.Feedback is { Succeeded: false } failure)
-            return (
-                LiveBuildCorpusState.Failure,
-                summary,
-                LiveBuildPanelText.FinalBuildRefreshFailed(
-                    string.IsNullOrWhiteSpace(failure.Error)
-                        ? LiveBuildPanelText.Unknown()
-                        : failure.Error!
-                ),
-                tooltip,
-                LiveBuildRefreshSeverity.Failure
-            );
-
-        if (!summary.HasValue)
-            return (
-                LiveBuildCorpusState.Empty,
-                null,
-                LiveBuildPanelText.CorpusEmpty(),
-                string.Empty,
-                LiveBuildRefreshSeverity.Neutral
-            );
-
-        return (
-            LiveBuildCorpusState.Summary,
-            summary,
-            string.Empty,
-            tooltip,
-            LiveBuildRefreshSeverity.Neutral
-        );
-    }
-
-    // Freshness tint for the corpus header: a just-pulled
-    // or <=24h corpus reads green (Success), <=7d blue (Pending), older/unknown warm (Failure).
-    private LiveBuildRefreshSeverity ResolveFreshnessSeverity(
-        TenWinCorpusSummary? summary,
-        DateTimeOffset nowUtc
-    )
-    {
-        if (_refresh.Feedback?.Succeeded == true)
-            return LiveBuildRefreshSeverity.Success;
-        if (summary?.WindowEndUtc is not { } windowEnd)
-            return LiveBuildRefreshSeverity.Failure;
-
-        var age = nowUtc - windowEnd;
-        if (age <= TimeSpan.FromHours(24))
-            return LiveBuildRefreshSeverity.Success;
-        if (age <= TimeSpan.FromDays(7))
-            return LiveBuildRefreshSeverity.Pending;
-        return LiveBuildRefreshSeverity.Failure;
-    }
-
-    private IEnumerable<BppItemBoard> BuildSelectableBoards()
-    {
-        yield return BuildBoard(
-            BppItemBoardId.LiveShop,
-            BppItemBoardType.SelectableShop,
-            _liveSnapshot.ShopItems
-        );
-        yield return BuildBoard(
-            BppItemBoardId.LiveBoard,
-            BppItemBoardType.SelectableContainer,
-            _liveSnapshot.BoardItems
-        );
-        yield return BuildBoard(
-            BppItemBoardId.LiveStash,
-            BppItemBoardType.SelectableContainer,
-            _liveSnapshot.StashItems
-        );
-    }
-
-    private static BppItemBoard BuildBoard(
-        BppItemBoardId id,
-        BppItemBoardType type,
-        IReadOnlyList<LiveCardSnapshot> cards
-    )
-    {
-        var boardCards = cards.Select(ToBoardCard).ToArray();
-        return BppItemBoardSlotPlanner.Plan(
-            new BppItemBoard(id, type, boardCards, BuildSignature(id, boardCards))
-        );
-    }
-
-    private static BppItemBoardCard ToBoardCard(LiveCardSnapshot card)
-    {
-        return new BppItemBoardCard
-        {
-            TemplateId = card.TemplateId,
-            InstanceId = card.InstanceId,
-            Order = card.Order,
-            Tier = card.Tier,
-            Size = card.Size,
-            Span = BppItemBoardSpan.Resolve(card.Size),
-            EnchantmentType = card.EnchantmentType,
-            SourceSocketId = card.SocketId,
-            Attributes = card.Attributes,
-        };
-    }
-
-    private (
-        LiveBuildMatchesState State,
-        string Guidance,
-        BuildRecommendation? Recommendation
-    ) ResolveMatches(BuildRecommendation? recommendation)
-    {
-        if (_liveSnapshot.Hero == null)
-            return (LiveBuildMatchesState.NoRun, LiveBuildPanelText.NoRun(), null);
-        if (!_candidateState.HasCandidates)
-            return (LiveBuildMatchesState.NoCandidates, LiveBuildPanelText.NoCandidates(), null);
-        if (recommendation == null)
-            return (
-                LiveBuildMatchesState.NoRecommendation,
-                LiveBuildPanelText.NoRecommendation(),
-                null
-            );
-
-        return (LiveBuildMatchesState.HasRecommendation, string.Empty, recommendation);
-    }
-
-    private static string BuildSignature(
-        BppItemBoardId id,
-        IReadOnlyList<BppItemBoardCard> cards
-    ) =>
-        $"{id}:{string.Join(",", cards.Select(card => $"{card.InstanceId}:{card.TemplateId}:{card.DisplaySocketId}:{card.Tier}:{card.EnchantmentType}"))}";
-
-    private static int WrapIndex(int index, int count)
-    {
-        if (count <= 0)
-            return 0;
-
-        var wrapped = index % count;
-        return wrapped < 0 ? wrapped + count : wrapped;
     }
 }

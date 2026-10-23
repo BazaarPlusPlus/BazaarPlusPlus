@@ -2,8 +2,10 @@
 using BazaarGameShared.Domain.Cards.Socket;
 using BazaarGameShared.Domain.Core.Types;
 using BazaarGameShared.Domain.Effect.AuraActions;
+using BazaarPlusPlus.Core.Cards;
+using BazaarPlusPlus.Core.Cards.ItemBoards;
 using BazaarPlusPlus.Game.PvpBattles;
-using BazaarPlusPlus.GameInterop.ItemBoardPreview;
+using BazaarPlusPlus.GameInterop.Cards;
 using BazaarPlusPlus.GameInterop.StaticCards;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
@@ -120,18 +122,32 @@ internal static class HistoryBattlePreviewProjection
             var attributes = BuildAttributeDictionary(snapshot);
             ApplySocketEffectAttributes(snapshot, attributes, socketEffectsBySocket);
 
+            // A recorded size the facets cannot name (the collector's default 0) still renders as
+            // one socket, as it did on game types (ADR-0017).
+            var size = DesktopCardFacets.Size.TryToFacet(snapshot.Size, out var mappedSize)
+                ? mappedSize
+                : CardSize.Small;
             specs.Add(
                 new BppItemBoardCard
                 {
                     TemplateId = templateId,
                     InstanceId = snapshot.InstanceId ?? string.Empty,
                     Order = specs.Count,
-                    Tier = ParseTier(snapshot.Tier),
-                    Size = snapshot.Size,
-                    Span = BppItemBoardSpan.Resolve(snapshot.Size),
-                    EnchantmentType = ParseEnchantmentType(snapshot.Enchant),
-                    SourceSocketId = snapshot.Socket,
-                    Attributes = attributes,
+                    Tier = DesktopCardFacets.Tier.TryToFacet(ParseTier(snapshot.Tier), out var tier)
+                        ? tier
+                        : CardTier.Bronze,
+                    Size = size,
+                    Span = BppItemBoardSpan.Resolve(size),
+                    EnchantmentType =
+                        ParseEnchantmentType(snapshot.Enchant) is { } enchantment
+                        && DesktopCardFacets.Enchantment.TryToFacet(enchantment, out var facet)
+                            ? facet
+                            : null,
+                    SourceSocketId = snapshot.Socket.HasValue ? (int)snapshot.Socket.Value : null,
+                    Attributes = attributes.ToDictionary(
+                        pair => pair.Key.ToString(),
+                        pair => pair.Value
+                    ),
                 }
             );
         }

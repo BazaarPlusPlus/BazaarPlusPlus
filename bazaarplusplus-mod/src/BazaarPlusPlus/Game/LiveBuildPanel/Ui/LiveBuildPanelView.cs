@@ -1,12 +1,13 @@
 #nullable enable
-using BazaarGameShared.Domain.Core.Types;
+using BazaarPlusPlus.Core.Cards;
+using BazaarPlusPlus.Core.Cards.ItemBoards;
 using BazaarPlusPlus.Core.GameState;
 using BazaarPlusPlus.Game.LiveBuildPanel.Data;
 using BazaarPlusPlus.Game.Supporters.Ui;
 using BazaarPlusPlus.GameInterop.AssetLoading;
+using BazaarPlusPlus.GameInterop.Cards;
 using BazaarPlusPlus.GameInterop.Fonts;
 using BazaarPlusPlus.GameInterop.HeroPortraits;
-using BazaarPlusPlus.GameInterop.ItemBoardPreview;
 using BazaarPlusPlus.Infrastructure.UiTokens;
 using BazaarPlusPlus.Localization;
 using TheBazaar.AppFramework;
@@ -85,7 +86,7 @@ internal sealed class LiveBuildPanelView : IDisposable
     private Button? _previousButton;
     private Button? _nextButton;
     private Image? _portrait;
-    private EHero? _portraitHero;
+    private CardHero? _portraitHero;
     private Task<HeroPortraitLoadOutcome?>? _portraitLoad;
     private Task<Sprite?[]>? _skinLoad;
     private Sprite?[]? _skin;
@@ -344,9 +345,11 @@ internal sealed class LiveBuildPanelView : IDisposable
         {
             _portraitHero = snapshot.Hero;
             _portrait!.color = Color.clear;
-            _portraitLoad = snapshot.Hero is { } hero
-                ? HeroPortraitSpriteProvider.LoadDefaultPortraitAsync(hero)
-                : null;
+            _portraitLoad =
+                snapshot.Hero is { } hero
+                && DesktopCardFacets.Hero.TryToSource(hero, out var source)
+                    ? HeroPortraitSpriteProvider.LoadDefaultPortraitAsync(source)
+                    : null;
         }
     }
 

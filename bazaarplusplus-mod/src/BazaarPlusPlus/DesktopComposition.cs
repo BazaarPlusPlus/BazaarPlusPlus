@@ -141,7 +141,8 @@ internal sealed class DesktopComposition : IDisposable
             _services.Paths.RequireDataRoot()
         );
         _buildRecommendationRepository = new BuildRecommendationRepository(
-            _buildRecommendationCatalog
+            _buildRecommendationCatalog,
+            StaticDataCardSizeSource.Resolve
         );
         var encounterPreviewCachePath = System.IO.Path.Combine(
             _services.Paths.RequireDataRoot(),

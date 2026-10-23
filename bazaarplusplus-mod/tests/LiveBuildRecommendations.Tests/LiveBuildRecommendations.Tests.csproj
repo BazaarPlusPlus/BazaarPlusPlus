@@ -1,4 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
+  <!-- The embedded-seed gate over the desktop host assembly. The Core logic it parses with is
+       tested Core-only in LiveBuildRecommendationCore.Tests. -->
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net10.0</TargetFramework>
@@ -11,26 +13,6 @@
   <PropertyGroup Condition="'$(RemoteEmbeddedDataPrepared)' == 'true'">
     <DefineConstants>$(DefineConstants);REMOTE_EMBEDDED_DATA_PREPARED</DefineConstants>
   </PropertyGroup>
-
-  <PropertyGroup>
-    <ProjectRoot>$(MSBuildThisFileDirectory)../../</ProjectRoot>
-  </PropertyGroup>
-
-  <ItemGroup>
-    <PackageReference Include="JsonSchema.Net" />
-    <Compile Include="../Shared/LocalizationTestBootstrap.cs" Link="LocalizationTestBootstrap.cs" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <EmbeddedResource
-      Include="../../../bazaarplusplus-analyzer/contracts/v6/fixtures/builds.latest.json"
-      LogicalName="LiveBuildRecommendations.Tests.builds.latest.json"
-    />
-    <EmbeddedResource
-      Include="../../../bazaarplusplus-analyzer/contracts/v6/builds.schema.json"
-      LogicalName="LiveBuildRecommendations.Tests.builds.schema.json"
-    />
-  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="../../src/BazaarPlusPlus/BazaarPlusPlus.csproj" />

@@ -1,5 +1,6 @@
 #nullable enable
 using BazaarGameShared.Domain.Cards.Item;
+using BazaarPlusPlus.Core.Cards.ItemBoards;
 using BazaarPlusPlus.GameInterop.ItemBoardPreview;
 
 namespace BazaarPlusPlus.GameInterop.MonsterBoardPreview;
