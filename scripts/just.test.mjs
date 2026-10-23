@@ -207,7 +207,7 @@ test('a failing project stops the aggregate and preserves its exit code', (t) =>
   assert.equal(result.status, 37, result.stdout + result.stderr);
   assert.deepEqual(
     f.calls().map(({ tool }) => tool),
-    ['npm', 'node', 'node', 'dotnet', 'dotnet', 'mod-build']
+    ['npm', 'node', 'node', 'node', 'dotnet', 'dotnet', 'mod-build']
   );
 });
 
