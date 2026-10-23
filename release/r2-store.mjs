@@ -26,8 +26,8 @@ const TOKEN_ID = /^[a-f0-9]{32}$/;
 // Node's fetch rejects with a bare "fetch failed" and keeps the reason (DNS,
 // reset, TLS, timeout) on err.cause, often nested and sometimes an
 // AggregateError. Flattens that chain into one line of messages and the
-// system-error fields; it never reads request options, so no header,
-// signature or token reaches the text.
+// system-error fields. It never reads request options; callers redact the
+// token or account id that an error message itself may quote.
 const TRANSPORT_FIELDS = [
   'code',
   'errno',
@@ -83,10 +83,11 @@ async function verifyToken(token, fetchImpl) {
       signal: AbortSignal.timeout(30000)
     });
   } catch (error) {
-    throw new Error(
-      `Cloudflare token verification failed: ${describeTransportError(error)}`,
-      { cause: error }
-    );
+    // undici's header validation quotes the raw header value in its message.
+    const reason = describeTransportError(error).replaceAll(token, '<token>');
+    throw new Error(`Cloudflare token verification failed: ${reason}`, {
+      cause: error
+    });
   }
   const body = await response.json().catch(() => null);
   const codes = (body?.errors ?? [])

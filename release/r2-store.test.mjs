@@ -200,6 +200,28 @@ test('a verification that fails in transport reports every cause, not the token'
   expect(message).not.toContain(token);
 });
 
+test('a verification error that quotes the authorization header is redacted', async () => {
+  const token = uniqueToken();
+  const fetchImpl = vi
+    .fn()
+    .mockRejectedValue(
+      new TypeError(
+        `Headers.append: "Bearer ${token}" is an invalid header value.`
+      )
+    );
+  const store = r2StoreFromApiToken({
+    token,
+    accountId: credentials.accountId,
+    fetchImpl
+  });
+  const message = await store
+    .head('latest.json')
+    .catch((error) => error.message);
+  expect(message).toBe(
+    'Cloudflare token verification failed: TypeError: Headers.append: "Bearer <token>" is an invalid header value.'
+  );
+});
+
 test('R2 writes are signed and always carry the conditional precondition', async () => {
   const fetchImpl = vi
     .fn()
