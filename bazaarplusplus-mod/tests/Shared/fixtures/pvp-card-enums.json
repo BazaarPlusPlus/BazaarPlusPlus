@@ -1,0 +1,34 @@
+{
+  "CardType": {
+    "Item": 0,
+    "Skill": 1,
+    "CombatEncounter": 2,
+    "EncounterStep": 3,
+    "EventEncounter": 4,
+    "PedestalEncounter": 5,
+    "PvpEncounter": 6,
+    "SocketEffect": 7,
+    "PlayerEffect": 8
+  },
+  "CardSize": {
+    "Small": 1,
+    "Medium": 2,
+    "Large": 3
+  },
+  "InventorySection": {
+    "Hand": 0,
+    "Stash": 1
+  },
+  "ContainerSocket": {
+    "Socket_0": 0,
+    "Socket_1": 1,
+    "Socket_2": 2,
+    "Socket_3": 3,
+    "Socket_4": 4,
+    "Socket_5": 5,
+    "Socket_6": 6,
+    "Socket_7": 7,
+    "Socket_8": 8,
+    "Socket_9": 9
+  }
+}

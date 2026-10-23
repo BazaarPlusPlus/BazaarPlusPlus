@@ -2,7 +2,6 @@
 using BazaarPlusPlus.Game.HistoryPanel.Data;
 using BazaarPlusPlus.Game.PvpBattles;
 using BazaarPlusPlus.Storage.RunLog;
-using Newtonsoft.Json;
 
 namespace BazaarPlusPlus.Game.HistoryPanel.Storage;
 
@@ -160,21 +159,21 @@ internal sealed partial class HistoryPanelRepository
             return null;
         return new PvpBattleSnapshots
         {
-            PlayerHand = DeserializeCapture(reader.GetString(0)),
+            PlayerHand = PvpBattleCardSetCapture.Deserialize(reader.GetString(0)),
             PlayerSkills = reader.IsDBNull(1)
                 ? new PvpBattleCardSetCapture()
-                : DeserializeCapture(reader.GetString(1)),
+                : PvpBattleCardSetCapture.Deserialize(reader.GetString(1)),
             OpponentHand = reader.IsDBNull(2)
                 ? new PvpBattleCardSetCapture()
-                : DeserializeCapture(reader.GetString(2)),
+                : PvpBattleCardSetCapture.Deserialize(reader.GetString(2)),
             OpponentSkills = reader.IsDBNull(3)
                 ? new PvpBattleCardSetCapture()
-                : DeserializeCapture(reader.GetString(3)),
+                : PvpBattleCardSetCapture.Deserialize(reader.GetString(3)),
         };
     }
 
     private static object SerializeCapture(PvpBattleCardSetCapture? capture) =>
-        capture == null ? DBNull.Value : JsonConvert.SerializeObject(capture, SerializerSettings);
+        capture == null ? DBNull.Value : PvpBattleCardSetCapture.Serialize(capture);
 
     private static string Qualified(string alias, string columns) =>
         string.Join(", ", columns.Split(',').Select(column => $"{alias}.{column.Trim()}"));

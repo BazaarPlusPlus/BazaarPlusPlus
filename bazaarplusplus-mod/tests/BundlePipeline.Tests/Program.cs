@@ -220,6 +220,8 @@ try
     await UploadFeedBoundaries.RunAsync(Path.Combine(root, "upload-boundaries"));
     await VerifyRecoveryAsync(Path.Combine(root, "recovery"));
     await VerifyRunSegmentProjectionAsync(Path.Combine(root, "run-segment"));
+    BattleSnapshotShapeTests.Run(Path.Combine(root, "battle-snapshots"));
+    CardEnumTableTests.Run();
     await VerifyUploadClientAsync();
 }
 finally

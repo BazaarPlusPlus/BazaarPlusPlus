@@ -1,3 +1,4 @@
+using System.Globalization;
 using BazaarPlusPlus.Game.PvpBattles;
 using BazaarPlusPlus.Game.PvpBattles.Persistence;
 using BazaarPlusPlus.Infrastructure;
@@ -11,42 +12,89 @@ using Il2CppTheBazaar;
 namespace BazaarPlusPlus.Android.GameInterop;
 
 /// <summary>
-/// The four board captures of a PvP battle, taken when its opening game sim arrives, in the
-/// <see cref="PvpBattleCardSetDocument"/> shape the desktop's <c>PvpBattleSnapshotCollector</c>
-/// stores: the player's hand and skills from the live game state, the opponent's from the opening
-/// message's spawn and skill events. The desktop's live retry of an empty player set is not taken.
-/// A set that throws is stored as Missing, and the other three still are. Main thread only.
+/// The four board captures of a PvP battle in the <see cref="PvpBattleCardSetDocument"/> shape the
+/// desktop's <c>PvpBattleSnapshotCollector</c> stores, read when its opening game sim arrives: the
+/// player's hand and skills from the live game state, the opponent's from the opening message's
+/// spawn and skill events. A player set whose opening read threw or came back empty is read again
+/// live (<see cref="RetryLive"/>), when the combat sim arrives and when the battle closes, and
+/// <see cref="PvpBattleCaptureRule"/> labels each set as the desktop does. A read that throws
+/// leaves that set Missing; the other three are still taken. Main thread only.
 /// </summary>
-internal static class AndroidPvpBattleSnapshots
+internal sealed class AndroidPvpBattleSnapshots
 {
-    public static PvpBattleSnapshotDocuments Capture(NetMessageGameSim opening, string battleId) =>
+    private readonly string _battleId;
+    private readonly CardSet _playerHand = new("player_hand");
+    private readonly CardSet _playerSkills = new("player_skills");
+    private readonly CardSet _opponentHand = new("opponent_hand");
+    private readonly CardSet _opponentSkills = new("opponent_skills");
+
+    private AndroidPvpBattleSnapshots(string battleId) => _battleId = battleId;
+
+    public static AndroidPvpBattleSnapshots Open(NetMessageGameSim opening, string battleId)
+    {
+        var snapshots = new AndroidPvpBattleSnapshots(battleId);
+        snapshots.ReadOpening(snapshots._playerHand, PlayerHand);
+        snapshots.ReadOpening(snapshots._playerSkills, PlayerSkills);
+        snapshots.ReadOpening(snapshots._opponentHand, () => OpponentHand(opening));
+        snapshots.ReadOpening(snapshots._opponentSkills, () => OpponentSkills(opening));
+        return snapshots;
+    }
+
+    /// <summary>Reads each player set again that <see cref="PvpBattleCaptureRule"/> retries.</summary>
+    public void RetryLive()
+    {
+        ReadLive(_playerHand, PlayerHand);
+        ReadLive(_playerSkills, PlayerSkills);
+    }
+
+    public PvpBattleSnapshotDocuments Documents() =>
         new()
         {
-            PlayerHand = Document("player_hand", battleId, () => PlayerHand()),
-            PlayerSkills = Document("player_skills", battleId, () => PlayerSkills()),
-            OpponentHand = Document("opponent_hand", battleId, () => OpponentHand(opening)),
-            OpponentSkills = Document("opponent_skills", battleId, () => OpponentSkills(opening)),
+            PlayerHand = PvpBattleCardSetDocument.Serialize(_playerHand.Document()),
+            PlayerSkills = PvpBattleCardSetDocument.Serialize(_playerSkills.Document()),
+            OpponentHand = PvpBattleCardSetDocument.Serialize(_opponentHand.Document()),
+            OpponentSkills = PvpBattleCardSetDocument.Serialize(_opponentSkills.Document()),
         };
 
-    private static string Document(
-        string label,
-        string battleId,
-        Func<List<PvpBattleCardDocument>> capture
+    /// <summary>
+    /// Each set's label and card count, then how many cards the opening read gave and whether a
+    /// live retry captured it, for the battle's recorded event.
+    /// </summary>
+    public IEnumerable<BppLogField> LogFields() =>
+        new[] { _playerHand, _playerSkills, _opponentHand, _opponentSkills }.Select(
+            set => new BppLogField(set.Label, set.Summary())
+        );
+
+    private void ReadOpening(CardSet set, Func<List<PvpBattleCardDocument>> read)
+    {
+        if (TryRead(set, "opening", read, out var items))
+        {
+            set.Items = items;
+            set.FromOpening = true;
+            set.OpeningCount = items.Count;
+        }
+    }
+
+    private void ReadLive(CardSet set, Func<List<PvpBattleCardDocument>> read)
+    {
+        if (!PvpBattleCaptureRule.ShouldRetryLive(set.FromOpening, set.Live, set.Items.Count))
+            return;
+        // A live read that throws leaves the set empty and not captured live, as on the desktop.
+        set.Live = TryRead(set, "live", read, out var items);
+        set.Items = items;
+    }
+
+    private bool TryRead(
+        CardSet set,
+        string stage,
+        Func<List<PvpBattleCardDocument>> read,
+        out List<PvpBattleCardDocument> items
     )
     {
-        PvpBattleCardSetDocument document;
         try
         {
-            var items = capture();
-            document = new PvpBattleCardSetDocument
-            {
-                Items = items,
-                Status =
-                    items.Count == 0
-                        ? PvpBattleCaptureStatus.CapturedEmpty
-                        : PvpBattleCaptureStatus.Captured,
-                Source = PvpBattleCaptureSource.OpeningMessage,
-            };
+            items = read();
+            return true;
         }
         catch (Exception exception)
         {
@@ -54,15 +102,47 @@ internal static class AndroidPvpBattleSnapshots
                 new BppLogEvent(
                     BppLogFeatureScope.Android,
                     "android.pvp_battle.snapshot_degraded",
-                    storm: ["set"]
+                    storm: ["set", "stage"]
                 ),
                 exception,
-                ("set", label),
-                ("battle_id", battleId, BppLogCorrelationPolicy.Short)
+                ("set", set.Label),
+                ("stage", stage),
+                ("battle_id", _battleId, BppLogCorrelationPolicy.Short)
             );
-            document = new PvpBattleCardSetDocument();
+            items = [];
+            return false;
         }
-        return PvpBattleCardSetDocument.Serialize(document);
+    }
+
+    private sealed class CardSet(string label)
+    {
+        public string Label { get; } = label;
+
+        public List<PvpBattleCardDocument> Items { get; set; } = [];
+
+        public bool FromOpening { get; set; }
+
+        public bool Live { get; set; }
+
+        public int? OpeningCount { get; set; }
+
+        public PvpBattleCardSetDocument Document()
+        {
+            var (status, source) = PvpBattleCaptureRule.Label(FromOpening, Live, Items.Count);
+            return new PvpBattleCardSetDocument
+            {
+                Items = Items,
+                Status = status,
+                Source = source,
+            };
+        }
+
+        public string Summary()
+        {
+            var (status, source) = PvpBattleCaptureRule.Label(FromOpening, Live, Items.Count);
+            var opening = OpeningCount?.ToString(CultureInfo.InvariantCulture) ?? "failed";
+            return $"{status}/{source}/{Items.Count}/opening={opening}{(Live ? "/live" : "")}";
+        }
     }
 
     // Data.GetCards<Card>(Player, Hand) without its Nullable<EInventorySection> argument: the

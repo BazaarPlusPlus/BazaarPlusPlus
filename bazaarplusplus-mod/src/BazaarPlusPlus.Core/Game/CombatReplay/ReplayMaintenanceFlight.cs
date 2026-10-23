@@ -1,7 +1,11 @@
 #nullable enable
 namespace BazaarPlusPlus.Game.CombatReplay;
 
-internal sealed class ReplayMaintenanceFlight : IDisposable
+/// <summary>
+/// At most one background maintenance task at a time, cancelled and waited on, boundedly, at
+/// dispose.
+/// </summary>
+public sealed class ReplayMaintenanceFlight : IDisposable
 {
     private static readonly TimeSpan ShutdownWait = TimeSpan.FromSeconds(1);
     private readonly object _gate = new();
@@ -9,7 +13,7 @@ internal sealed class ReplayMaintenanceFlight : IDisposable
     private Task? _flight;
     private bool _disposed;
 
-    internal Task Start(Func<CancellationToken, Task> run)
+    public Task Start(Func<CancellationToken, Task> run)
     {
         if (run == null)
             throw new ArgumentNullException(nameof(run));
@@ -37,7 +41,7 @@ internal sealed class ReplayMaintenanceFlight : IDisposable
         }
     }
 
-    internal Task Start(Action<CancellationToken> run)
+    public Task Start(Action<CancellationToken> run)
     {
         if (run == null)
             throw new ArgumentNullException(nameof(run));

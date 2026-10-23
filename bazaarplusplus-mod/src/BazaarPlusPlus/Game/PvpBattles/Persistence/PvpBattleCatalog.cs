@@ -1,21 +1,17 @@
 #nullable enable
 using BazaarPlusPlus.Core.Events;
-using BazaarPlusPlus.Storage;
 using BazaarPlusPlus.Storage.Sqlite;
-using Newtonsoft.Json;
 
 namespace BazaarPlusPlus.Game.PvpBattles.Persistence;
 
 /// <summary>
 /// The desktop's PvP battle catalog: maps manifests, whose board captures hold game card types,
-/// onto the records <see cref="PvpBattleSqliteStore"/> stores, serializing each capture with
-/// enum names. Storage owns the SQL; this owns the capture document shape.
+/// onto the records <see cref="PvpBattleSqliteStore"/> stores, each capture as the JSON of Core's
+/// <see cref="PvpBattleCardSetDocument"/> (<see cref="PvpBattleCardSetCapture.Serialize"/>).
+/// Storage owns the SQL.
 /// </summary>
 internal sealed class PvpBattleCatalog : IPvpBattleCatalog
 {
-    private static readonly JsonSerializerSettings SerializerSettings =
-        SerializerSettingsFactory.CreateSerializerSettings(includeStringEnumConverter: true);
-
     private readonly PvpBattleSqliteStore _store;
 
     public PvpBattleCatalog(
@@ -120,9 +116,8 @@ internal sealed class PvpBattleCatalog : IPvpBattleCatalog
         };
 
     private static string Serialize(PvpBattleCardSetCapture capture) =>
-        JsonConvert.SerializeObject(capture, SerializerSettings);
+        PvpBattleCardSetCapture.Serialize(capture);
 
     private static PvpBattleCardSetCapture Deserialize(string json) =>
-        JsonConvert.DeserializeObject<PvpBattleCardSetCapture>(json, SerializerSettings)
-        ?? new PvpBattleCardSetCapture();
+        PvpBattleCardSetCapture.Deserialize(json);
 }
