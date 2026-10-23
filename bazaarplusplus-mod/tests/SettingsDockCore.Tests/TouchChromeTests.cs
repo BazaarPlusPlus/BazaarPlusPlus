@@ -17,29 +17,15 @@ namespace SettingsDockCore.Tests;
 /// </summary>
 public sealed class TouchChromeTests
 {
-    public static TheoryData<string, float, float, float, float, float> Screens =>
-        TouchLauncherLayoutTests.Screens;
+    public static TheoryData<string> Screens => TouchLauncherLayoutTests.Screens;
 
-    private static TouchMetrics Metrics(
-        float width,
-        float height,
-        float dpi,
-        float safeLeft,
-        float safeWidth
-    ) => TouchMetrics.From(width, height, dpi, 1080f, safeLeft, 0f, safeWidth, 0f);
+    private static TouchMetrics Metrics(string name) => TouchLauncherLayoutTests.Metrics(name);
 
     [Theory]
     [MemberData(nameof(Screens))]
-    public void Every_surface_closes_from_the_same_button(
-        string name,
-        float width,
-        float height,
-        float dpi,
-        float safeLeft,
-        float safeWidth
-    )
+    public void Every_surface_closes_from_the_same_button(string name)
     {
-        var metrics = Metrics(width, height, dpi, safeLeft, safeWidth);
+        var metrics = Metrics(name);
         var chrome = TouchChrome.For(metrics);
         var history = HistoryTouchLayout.For(metrics);
         var liveBuild = LiveBuildTouchLayout.For(metrics);
@@ -75,17 +61,107 @@ public sealed class TouchChromeTests
     }
 
     [Theory]
-    [MemberData(nameof(Screens))]
-    public void Every_surface_reads_at_12sp_or_more(
-        string name,
-        float width,
-        float height,
-        float dpi,
-        float safeLeft,
-        float safeWidth
+    // The emulator's cutouts: 136 px on each side, at one canvas unit per pixel.
+    [InlineData("2400x1080@420", "2400x1080@420 cutouts", 136f, 0f, 136f)]
+    // The tablet's top inset: 91 px, at 1080/1600 canvas units per pixel.
+    [InlineData("2560x1600@420", "2560x1600@420 top inset", 0f, 61.425f, 0f)]
+    public void Every_surface_moves_with_the_safe_area_inset(
+        string fullName,
+        string insetName,
+        float left,
+        float top,
+        float right
     )
     {
-        var metrics = Metrics(width, height, dpi, safeLeft, safeWidth);
+        var full = Metrics(fullName);
+        var inset = Metrics(insetName);
+        var chrome = TouchChrome.For(inset);
+        var fullChrome = TouchChrome.For(full);
+        var safe = new TouchRect(
+            left,
+            top,
+            inset.CanvasWidth - left - right,
+            inset.CanvasHeight - top
+        );
+        Assert.Equal(safe.Left, inset.SafeArea.Left, 2);
+        Assert.Equal(safe.Top, inset.SafeArea.Top, 2);
+        Assert.Equal(safe.Right, inset.SafeArea.Right, 2);
+        Assert.Equal(safe.Bottom, inset.SafeArea.Bottom, 2);
+
+        // The sheet is the safe area less the margin, and each part keeps to its own corner.
+        var sheet = safe.Inset(chrome.Margin);
+        var history = HistoryTouchLayout.For(inset);
+        var liveBuild = LiveBuildTouchLayout.For(inset);
+        var collection = CollectionTouchLayout.For(inset);
+        var fullCollection = CollectionTouchLayout.For(full);
+        foreach (
+            var (surface, rect) in new[]
+            {
+                ("sheet", chrome.Sheet),
+                ("collection sheet", collection.Sheet),
+                ("history sheet", history.Sheet),
+                ("live build sheet", liveBuild.Sheet),
+            }
+        )
+            AssertNear(sheet, rect, $"{insetName}: {surface}");
+
+        var closes = new (string Surface, TouchRect Close, TouchRect Full)[]
+        {
+            ("chrome", chrome.Close, fullChrome.Close),
+            ("collection", collection.Close, fullCollection.Close),
+            ("history", history.Close, fullChrome.Close),
+            ("live build", liveBuild.Close, fullChrome.Close),
+            ("inspection", chrome.Inspect().Close, fullChrome.Inspect().Close),
+            ("collection inspection", collection.Inspect.Close, fullCollection.Inspect.Close),
+        };
+        foreach (var (surface, close, fullClose) in closes)
+        {
+            Assert.True(inset.SafeArea.Contains(close), $"{insetName}: {surface} close inside");
+            Assert.Equal(fullClose.Top + top, close.Top, 2);
+            Assert.Equal(fullClose.Right - right, close.Right, 2);
+        }
+        // Where the full screen puts its close, the inset would cover it.
+        Assert.False(inset.SafeArea.Contains(fullChrome.Close), $"{insetName}: inset is real");
+
+        var titles = new (string Surface, TouchRect Title, TouchRect Full)[]
+        {
+            ("chrome", chrome.Title, fullChrome.Title),
+            ("collection", collection.Title, fullCollection.Title),
+            ("inspection name", chrome.Inspect().Name, fullChrome.Inspect().Name),
+            ("inspection card", chrome.Inspect().CardArea, fullChrome.Inspect().CardArea),
+            (
+                "collection inspection card",
+                collection.Inspect.CardArea,
+                fullCollection.Inspect.CardArea
+            ),
+        };
+        foreach (var (surface, title, fullTitle) in titles)
+        {
+            Assert.True(inset.SafeArea.Contains(title), $"{insetName}: {surface} inside");
+            Assert.Equal(fullTitle.Top + top, title.Top, 2);
+        }
+        Assert.Equal(sheet.Left + chrome.Padding, chrome.Title.Left, 2);
+        Assert.Equal(sheet.Left + chrome.Padding, collection.Title.Left, 2);
+        Assert.Equal(sheet.Left + chrome.Padding, chrome.Inspect().CardArea.Left, 2);
+        Assert.Equal(sheet.Bottom - chrome.Padding, chrome.Inspect().Detail.Bottom, 2);
+    }
+
+    private static void AssertNear(TouchRect expected, TouchRect actual, string label)
+    {
+        Assert.True(
+            Math.Abs(expected.Left - actual.Left) < 0.01f
+                && Math.Abs(expected.Top - actual.Top) < 0.01f
+                && Math.Abs(expected.Right - actual.Right) < 0.01f
+                && Math.Abs(expected.Bottom - actual.Bottom) < 0.01f,
+            $"{label}: expected {expected}, got {actual}"
+        );
+    }
+
+    [Theory]
+    [MemberData(nameof(Screens))]
+    public void Every_surface_reads_at_12sp_or_more(string name)
+    {
+        var metrics = Metrics(name);
         var chrome = TouchChrome.For(metrics);
         var history = HistoryTouchLayout.For(metrics);
         var liveBuild = LiveBuildTouchLayout.For(metrics);
@@ -125,16 +201,9 @@ public sealed class TouchChromeTests
 
     [Theory]
     [MemberData(nameof(Screens))]
-    public void The_collection_panel_fits_the_safe_area_without_overlap(
-        string name,
-        float width,
-        float height,
-        float dpi,
-        float safeLeft,
-        float safeWidth
-    )
+    public void The_collection_panel_fits_the_safe_area_without_overlap(string name)
     {
-        var metrics = Metrics(width, height, dpi, safeLeft, safeWidth);
+        var metrics = Metrics(name);
         var layout = CollectionTouchLayout.For(metrics);
         var parts = new (string Part, TouchRect Rect)[]
         {
@@ -187,16 +256,9 @@ public sealed class TouchChromeTests
 
     [Theory]
     [MemberData(nameof(Screens))]
-    public void The_grid_columns_keep_a_card_readable(
-        string name,
-        float width,
-        float height,
-        float dpi,
-        float safeLeft,
-        float safeWidth
-    )
+    public void The_grid_columns_keep_a_card_readable(string name)
     {
-        var metrics = Metrics(width, height, dpi, safeLeft, safeWidth);
+        var metrics = Metrics(name);
         var layout = CollectionTouchLayout.For(metrics);
         var viewport = layout.Grid.Width;
         var available = viewport - 2f * CollectionGridConstants.GridOuterPadding;
@@ -226,7 +288,7 @@ public sealed class TouchChromeTests
     [Fact]
     public void The_grid_columns_follow_the_width()
     {
-        var metrics = Metrics(2400f, 1080f, 420f, 0f, 0f);
+        var metrics = Metrics("2400x1080@420");
         var layout = CollectionTouchLayout.For(metrics);
 
         Assert.Equal(CollectionGridConstants.ItemLargeSpan, layout.GridColumns(CardType.Item, 0f));
@@ -250,16 +312,9 @@ public sealed class TouchChromeTests
 
     [Theory]
     [MemberData(nameof(Screens))]
-    public void An_inspection_chip_shows_its_label_whole(
-        string name,
-        float width,
-        float height,
-        float dpi,
-        float safeLeft,
-        float safeWidth
-    )
+    public void An_inspection_chip_shows_its_label_whole(string name)
     {
-        var layout = CollectionTouchLayout.For(Metrics(width, height, dpi, safeLeft, safeWidth));
+        var layout = CollectionTouchLayout.For(Metrics(name));
         var detail = layout.InspectDetailWidth;
 
         Assert.Equal(CollectionTouchLayout.InspectChipColumns, layout.InspectChipColumnsFor(0f));
@@ -310,7 +365,7 @@ public sealed class TouchChromeTests
     [Fact]
     public void The_inspected_card_fits_its_area()
     {
-        var layout = CollectionTouchLayout.For(Metrics(2400f, 1080f, 420f, 0f, 0f));
+        var layout = CollectionTouchLayout.For(Metrics("2400x1080@420"));
         var area = layout.Inspect.CardArea;
 
         foreach (var (w, h) in new[] { (252f, 502f), (755f, 502f), (484f, 502f) })
