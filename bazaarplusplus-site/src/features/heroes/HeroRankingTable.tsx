@@ -303,7 +303,7 @@ export default function HeroRankingTable({
             <col key={column.key} style={{ width: column.width }} />
           ))}
         </colgroup>
-        <thead className="text-xs font-medium text-text-3">
+        <thead className="text-sm font-medium text-text-3">
           <tr>
             {RANKING_COLUMNS.map((column) => (
               <SortableHeader
@@ -321,7 +321,7 @@ export default function HeroRankingTable({
           {sortedRows.map((row) => (
             <tr
               key={row.hero}
-              className="group border-t border-line text-[13px] text-text-1 transition-colors duration-(--t-fast) hover:bg-hover"
+              className="group border-t border-line text-[15px] text-text-1 transition-colors duration-(--t-fast) hover:bg-hover"
             >
               {RANKING_COLUMNS.map((column) => (
                 <Fragment key={column.key}>{column.renderCell(row, context)}</Fragment>

@@ -48,11 +48,11 @@ export function ResetBepinexConfirmModal({
       <ConfirmTarget>
         {t('resetBepinexTarget', { path: targetPath })}
       </ConfirmTarget>
-      <ConfirmNote tone="danger" icon={<FolderX size={15} />}>
+      <ConfirmNote tone="danger" icon={<FolderX size={16} />}>
         <p>{t('resetBepinexConfirmBody')}</p>
         <p>{t('resetBepinexConfirmOtherMods')}</p>
       </ConfirmNote>
-      <ConfirmNote tone="neutral" icon={<ShieldCheck size={15} />}>
+      <ConfirmNote tone="neutral" icon={<ShieldCheck size={16} />}>
         <p>{t('resetBepinexConfirmReinstall')}</p>
         <p>{t('resetBepinexConfirmGameClosed')}</p>
       </ConfirmNote>

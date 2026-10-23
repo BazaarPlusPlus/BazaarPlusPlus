@@ -1,0 +1,50 @@
+<!-- @dsCard height=288 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>Cover</title>
+<style>
+  html, body { margin: 0; }
+  body { width: 960px; height: 288px; position: relative; overflow: hidden; background: var(--bg-canvas); font-family: var(--font-ui); -webkit-font-smoothing: antialiased; }
+  svg { position: absolute; left: 0; top: 0; }
+  .accent { fill: var(--accent); }
+  .accent-hover { fill: var(--accent-hover); }
+  .selected { fill: var(--bg-selected); }
+  .strong { fill: var(--line-strong); }
+  .ink { fill: var(--text-1); }
+  .cut { fill: var(--on-accent); }
+  .facet { fill: var(--accent); }
+  .tile { rx: var(--r-panel); }
+  .chip { rx: var(--r-control); }
+  .text { position: absolute; left: 24px; bottom: 24px; }
+  .name { margin: 0; color: var(--text-1); font-size: 64px; font-weight: 700; line-height: 0.95; letter-spacing: -0.01em; }
+  .tagline { margin: 12px 0 0; color: var(--text-2); font-size: 14px; line-height: 1.4; }
+</style>
+</head>
+<body>
+<svg width="960" height="288" viewBox="0 0 960 288" aria-hidden="true">
+  <!--
+    blocks: accent 432×112 (space-16 × 27, 7) · accent-hover 112×112 · bg-selected 208×112 · line-strong 64×112 · text-1 32×48 relief
+    arrangement: top band, one strip of unequal blocks at a space-16 gap, like the title bar and rows the UI is built from
+    pattern: literal motif — the brand mark's gem, a row of 45° diamonds cut from the accent slab in on-accent, echoed in accent on bg-selected
+    scales: gap and sides from space-16; tile corners r-panel (8px), relief chip r-control (6px); gems 32 across at a 40 pitch (space-8 gaps)
+  -->
+  <rect class="accent tile" x="24" y="24" width="432" height="112"/>
+  <rect class="accent-hover tile" x="472" y="24" width="112" height="112"/>
+  <rect class="selected tile" x="600" y="24" width="208" height="112"/>
+  <rect class="strong tile" x="824" y="24" width="64" height="112"/>
+  <rect class="ink chip" x="904" y="24" width="32" height="48"/>
+  <polygon class="cut" points="240,64 256,80 240,96 224,80"/>
+  <polygon class="cut" points="280,64 296,80 280,96 264,80"/>
+  <polygon class="cut" points="320,64 336,80 320,96 304,80"/>
+  <polygon class="cut" points="360,64 376,80 360,96 344,80"/>
+  <polygon class="cut" points="400,64 416,80 400,96 384,80"/>
+  <polygon class="facet" points="648,64 664,80 648,96 632,80"/>
+  <polygon class="facet" points="688,64 704,80 688,96 672,80"/>
+  <polygon class="facet" points="728,64 744,80 728,96 712,80"/>
+</svg>
+<div class="text">
+  <h1 class="name">BazaarPlusPlus</h1>
+  <p class="tagline">The installer and bazaarplusplus.com: warm near-black, 1px lines, one amber gem.</p>
+</div>
+</body>
+</html>

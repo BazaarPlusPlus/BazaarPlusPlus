@@ -31,7 +31,7 @@ export default function SiteHeader({ location, width = 'info' }: SiteHeaderProps
           className="order-1 flex w-fit items-center gap-2.5 rounded-control text-text-1 no-underline"
         >
           <img
-            src="/bazaarplusplus-icon.webp"
+            src="/bpp-mark.svg"
             alt=""
             width={28}
             height={28}
@@ -40,7 +40,7 @@ export default function SiteHeader({ location, width = 'info' }: SiteHeaderProps
             fetchPriority="high"
           />
           <span className="text-[15px] font-semibold">{commonCopy.brand.name}</span>
-          <span aria-hidden="true" className="hidden text-xs text-text-3 lg:inline">
+          <span aria-hidden="true" className="hidden text-sm text-text-3 lg:inline">
             {commonCopy.brand.subtitle}
           </span>
         </a>
@@ -60,7 +60,7 @@ export default function SiteHeader({ location, width = 'info' }: SiteHeaderProps
                 key={item.page}
                 href={item.href}
                 aria-current={active ? 'page' : undefined}
-                className={`inline-flex h-8 shrink-0 items-center rounded-control px-3 text-[13px] font-medium no-underline transition-colors duration-(--t-fast) ${
+                className={`inline-flex h-9 shrink-0 items-center rounded-control px-3 text-[15px] font-medium no-underline transition-colors duration-(--t-fast) ${
                   active
                     ? 'bg-selected text-text-1'
                     : 'text-text-2 hover:bg-hover hover:text-text-1'
@@ -75,7 +75,7 @@ export default function SiteHeader({ location, width = 'info' }: SiteHeaderProps
         <div
           role="group"
           aria-label={commonCopy.languageLabel}
-          className="order-2 ml-auto inline-flex items-center gap-0.5 rounded-control border border-line bg-canvas p-0.5 text-xs font-medium sm:order-3 sm:ml-0"
+          className="order-2 ml-auto inline-flex items-center gap-0.5 rounded-control border border-line bg-canvas p-0.5 text-sm font-medium sm:order-3 sm:ml-0"
         >
           {LOCALE_OPTIONS.map((option) => {
             const active = option.code === locale;
@@ -84,7 +84,7 @@ export default function SiteHeader({ location, width = 'info' }: SiteHeaderProps
                 <span
                   key={option.code}
                   aria-current="true"
-                  className="rounded-[4px] bg-selected px-2.5 py-1 text-text-1"
+                  className="flex h-[30px] items-center rounded-inner bg-selected px-3 text-text-1"
                 >
                   {option.label}
                 </span>
@@ -95,7 +95,7 @@ export default function SiteHeader({ location, width = 'info' }: SiteHeaderProps
                 key={option.code}
                 href={location.navigation.localeHrefs[option.code]}
                 hrefLang={option.code}
-                className="rounded-[4px] px-2.5 py-1 text-text-2 no-underline transition-colors duration-(--t-fast) hover:text-text-1"
+                className="flex h-[30px] items-center rounded-inner px-3 text-text-2 no-underline transition-colors duration-(--t-fast) hover:text-text-1"
               >
                 {option.label}
               </a>

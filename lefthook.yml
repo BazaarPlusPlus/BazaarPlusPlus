@@ -7,16 +7,20 @@ pre-commit:
       glob: &workspace_paths '{JUSTFILE,**/*.just,package*.json,.nvmrc,.prettierrc.json,lefthook.yml,VERSION,release.mjs,release/**,scripts/**}'
       run: just commands-check release::check
 
+    - name: design
+      glob: &design_paths 'design/**'
+      run: just design::check
+
     - name: mod
       glob: &mod_paths '{bazaarplusplus-mod/**,bazaarplusplus-server/contracts/**,bazaarplusplus-analyzer/contracts/**,release/**,VERSION,JUSTFILE}'
       run: just mod::check
 
     - name: installer
-      glob: &installer_paths '{bazaarplusplus-installer/**,release.mjs,release/**,VERSION,scripts/**,JUSTFILE}'
+      glob: &installer_paths '{bazaarplusplus-installer/**,design/**,release.mjs,release/**,VERSION,scripts/**,JUSTFILE}'
       run: just installer::check-fast
 
     - name: site
-      glob: &site_paths '{bazaarplusplus-site/**,bazaarplusplus-installer/src/styles/tokens.css,bazaarplusplus-analyzer/contracts/**,release/**,JUSTFILE}'
+      glob: &site_paths '{bazaarplusplus-site/**,design/**,bazaarplusplus-installer/src/styles/tokens.css,bazaarplusplus-analyzer/contracts/**,release/**,JUSTFILE}'
       run: just site::check
 
     - name: server
@@ -32,6 +36,10 @@ pre-push:
     - name: workspace
       glob: *workspace_paths
       run: just commands-check release::check release::test
+
+    - name: design
+      glob: *design_paths
+      run: just design::check
 
     - name: mod
       glob: *mod_paths

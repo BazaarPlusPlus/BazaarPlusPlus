@@ -270,6 +270,12 @@ export function classifyChanges(changes) {
           for (const consumer of consumers)
             select(consumer, `Shared input: ${file}`);
       }
+    } else if (file.startsWith('design/')) {
+      // The design system (AGENTS.md: Design tokens and shared component
+      // styles) feeds the installer frontend and the site; the release lane
+      // runs `just design::check` beside the other root gates.
+      for (const consumer of ['installer-frontend', 'site', 'release'])
+        select(consumer, `Design system: ${file}`);
     } else if (file.startsWith('docs/') || /^[^/]+\.md$/.test(file)) {
       // Project docs checks resolve links to root docs. Removing/moving their
       // targets needs those checks too; editing the target's prose does not.

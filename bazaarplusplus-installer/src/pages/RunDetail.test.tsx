@@ -143,7 +143,7 @@ describe('Run Detail workflow binding', () => {
       .mockRejectedValueOnce(new Error('disk busy'))
       .mockReturnValueOnce(deletion);
     await render();
-    await click('button[title="Delete Video"]');
+    await click('button[title="Delete video"]');
     expect(container.querySelector('dialog')?.textContent).toContain(
       'Pygmalien'
     );
@@ -170,7 +170,7 @@ describe('Run Detail workflow binding', () => {
     updated.battles[0].video = null;
     await act(async () => finish(updated));
     expect(container.querySelector('dialog')).toBeNull();
-    expect(container.querySelector('button[title="Delete Video"]')).toBeNull();
+    expect(container.querySelector('button[title="Delete video"]')).toBeNull();
     expect(commands.deleteBattleVideo).toHaveBeenLastCalledWith(
       'battle-1',
       'video-1'

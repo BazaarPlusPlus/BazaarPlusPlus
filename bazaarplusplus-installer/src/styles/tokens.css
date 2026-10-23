@@ -1,10 +1,9 @@
-/* BazaarPlusPlus design tokens: the owning copy. The site copies this file at
-   build time; ownership is described in docs/design.md. */
+/* BazaarPlusPlus design tokens, generated from design/tokens.json by
+   `just design::build`. Do not edit: change design/tokens.json and rebuild. */
 :root {
   color-scheme: dark;
 
-  /* Near-black neutrals with a slight warm bias toward the logo's amber gem.
-     Elevation is expressed by these fill steps plus 1px lines, not shadows. */
+  /* Color */
   --bg-canvas: #11100f;
   --bg-sidebar: #171615;
   --bg-panel: #1d1c1a;
@@ -12,42 +11,77 @@
   --bg-selected: #2c2a27;
   --line: #2a2826;
   --line-strong: #3a3733;
-
+  --line-control: #6c665f;
   --text-1: #edebe7;
   --text-2: #a5a19a;
-  /* Only on canvas, sidebar and panel fills; hover/selected rows use text-2. */
-  --text-3: #8a857e;
-
-  /* The logo gem. Primary action, selected icon, key numbers. */
+  --text-3: #95908a;
   --accent: #ee8e1f;
   --accent-hover: #f5a142;
-  --accent-subtle: rgba(238, 142, 31, 0.13);
-  --accent-line: rgba(238, 142, 31, 0.42);
+  --accent-subtle: rgba(238, 142, 31, 0.14);
+  --accent-line: rgba(238, 142, 31, 0.32);
   --on-accent: #1a1206;
-
-  /* Status only; never decoration. */
   --success: #45b26b;
   --success-subtle: rgba(69, 178, 107, 0.14);
+  --success-line: rgba(69, 178, 107, 0.32);
   --warning: #d9a33b;
   --warning-subtle: rgba(217, 163, 59, 0.14);
+  --warning-line: rgba(217, 163, 59, 0.32);
   --danger: #e5584e;
   --danger-subtle: rgba(229, 88, 78, 0.14);
+  --danger-line: rgba(229, 88, 78, 0.32);
   --danger-text: #ff8a80;
+  --tier-bronze: #ca9464;
+  --tier-silver: #bfc3ca;
+  --tier-diamond: #7cc6ee;
+  --hero-stelle: #ffeb18;
+  --hero-mak: #bee65b;
+  --hero-jules: #b434ec;
+  --hero-dooley: #e19a08;
+  --hero-karnok: #3b889c;
+  --hero-pygmalien: #2767c0;
+  --hero-vanessa: #c02121;
+  --hero-dragons: #2dd2d0;
+  --hero-unknown: var(--text-3);
+  --backdrop: rgba(0, 0, 0, 0.55);
+  --window-close: #c42b1c;
 
+  /* Spacing */
+  --space-2: 2px;
+  --space-4: 4px;
+  --space-6: 6px;
+  --space-8: 8px;
+  --space-12: 12px;
+  --space-16: 16px;
+  --space-24: 24px;
+
+  /* Radius */
+  --r-inner: 4px;
   --r-control: 6px;
   --r-panel: 8px;
   --r-dialog: 12px;
+  --r-pill: 999px;
 
-  /* Floating layers (dialog, menu, toast) only. */
+  /* Size */
+  --control-md: 36px;
+  --control-sm: 30px;
+  --badge-height: 24px;
+  --row-height: 52px;
+  --icon-sm: 14px;
+  --icon-md: 16px;
+  --icon-lg: 22px;
+  --titlebar-height: 44px;
+  --rail-width: 72px;
+  --content-max: 1080px;
+
+  /* Shadow */
   --shadow-float: 0 12px 32px rgba(0, 0, 0, 0.45);
 
+  /* Motion */
   --ease: cubic-bezier(0.2, 0, 0, 1);
   --t-fast: 100ms;
   --t-base: 160ms;
 
-  --font-ui:
-    -apple-system, BlinkMacSystemFont, 'Segoe UI Variable Text', 'Segoe UI',
-    'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei UI', 'Microsoft YaHei',
-    'Noto Sans SC', sans-serif;
+  /* Type */
+  --font-ui: -apple-system, BlinkMacSystemFont, 'Segoe UI Variable Text', 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei UI', 'Microsoft YaHei', 'Noto Sans SC', sans-serif;
   --font-mono: ui-monospace, 'SF Mono', 'Cascadia Mono', Consolas, monospace;
 }

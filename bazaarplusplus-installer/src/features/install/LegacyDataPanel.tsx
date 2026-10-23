@@ -88,7 +88,7 @@ export function LegacyDataPanel({
             <span className="bpp-row-description">{t('legacyImportHint')}</span>
             {importing && (
               <p role="status" aria-live="polite" className="bpp-inline-status">
-                <Loader2 size={13} className="bpp-spin" aria-hidden="true" />
+                <Loader2 size={14} className="bpp-spin" aria-hidden="true" />
                 {t('legacyImportRunning')}
               </p>
             )}

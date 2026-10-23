@@ -22,7 +22,7 @@ const HERO_MAPPING: Record<HeroName, { shortLabel: string; color: string }> = {
   TheDragons: { shortLabel: 'DRA', color: '#2dd2d0' },
 };
 
-const FALLBACK_HERO_COLOR = '#394961';
+const FALLBACK_HERO_COLOR = '#95908a';
 
 function isHeroName(value: string): value is HeroName {
   return (HEROES as readonly string[]).includes(value);

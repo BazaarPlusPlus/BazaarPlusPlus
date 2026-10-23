@@ -4,7 +4,7 @@ import { Button } from '../../components/ui/Button';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import { StatusBanner } from '../../components/ui/StatusBanner';
 import { useI18n } from '../../i18n/LocaleProvider';
-import brandLogo from '../../../static/brand/bazaarplusplus-logo.webp';
+import brandMark from '../../../static/brand/bpp-mark.svg';
 import { PrimaryInstallActionButton } from './PrimaryInstallActionButton';
 import { presentInstallWarning } from './installProblems';
 import type {
@@ -51,7 +51,7 @@ export function InstallStatusPanel({
       <section className="bpp-panel">
         <div className="bpp-install-status-top">
           <img
-            src={brandLogo}
+            src={brandMark}
             alt=""
             className="bpp-install-status-logo"
             draggable={false}

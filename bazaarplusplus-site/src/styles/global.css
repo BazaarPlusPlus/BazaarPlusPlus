@@ -19,7 +19,7 @@
   }
 
   ::selection {
-    background: color-mix(in srgb, var(--accent) 32%, transparent);
+    background: var(--accent-line);
     color: var(--text-1);
   }
 

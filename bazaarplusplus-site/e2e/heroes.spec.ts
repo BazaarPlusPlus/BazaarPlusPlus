@@ -138,10 +138,10 @@ test.describe('route states', () => {
       'en',
       '/heroes?lang=en',
       'Stats are temporarily unavailable',
-      'The hero stats could not be loaded. Try again in a moment.',
+      "The hero stats couldn't be loaded.",
       'Try again',
     ],
-    ['zh', '/heroes', '数据暂时不可用', '暂时无法读取英雄统计数据，请稍后重试。', '重试'],
+    ['zh', '/heroes', '数据暂时不可用', '暂时无法读取英雄统计数据。', '重试'],
   ] as const) {
     test(`a failing snapshot shows the error state in the page chrome and retries (${locale})`, async ({
       page,

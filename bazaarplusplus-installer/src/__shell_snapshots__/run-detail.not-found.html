@@ -1,7 +1,7 @@
 <div class="bpp-app">
 <header class="bpp-header" data-tauri-drag-region="deep">
 <div class="bpp-brand">
-<img alt="" class="bpp-brand-logo" draggable="false" src="/static/brand/bazaarplusplus-logo.webp">
+<img alt="" class="bpp-brand-logo" draggable="false" src="data:image/svg+xml,%3csvg%20xmlns='http://www.w3.org/2000/svg'%20width='32'%20height='32'%20viewBox='0%200%2032%2032'%3e%3ctitle%3eBazaarPlusPlus%3c/title%3e%3cpath%20fill='%23edebe7'%20d='M16%203%20L31%2018%20L23.5%2018%20L16%2010.5%20L8.5%2018%20L1%2018%20Z'/%3e%3cpath%20fill='%23ee8e1f'%20d='M16%2013%20L23.75%2020.75%20L16%2028.5%20L8.25%2020.75%20Z'/%3e%3c/svg%3e">
 <h1 class="bpp-brand-title">BazaarPlusPlus</h1>
 <span class="bpp-brand-version">v«version»</span>
 </div>
@@ -143,18 +143,16 @@
 </svg>刷新</button>
 </div>
 </div>
-<div role="status" class="bpp-panel">
-<section class="bpp-empty-state">
-<div class="bpp-empty-state-icon" aria-hidden="true">
-<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-file-question-mark lucide-file-question" aria-hidden="true">
+<section role="status" aria-live="polite" class="bpp-status-panel bpp-panel">
+<span class="bpp-status-panel-mark" aria-hidden="true">
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-file-question-mark lucide-file-question" aria-hidden="true">
 </svg>
-</div>
-<h3 class="bpp-empty-state-heading">没有找到这局战绩</h3>
-<div class="bpp-empty-state-actions">
+</span>
+<h3 class="bpp-status-panel-title">没有找到这局战绩</h3>
+<div class="bpp-status-panel-actions">
 <button type="button" class="bpp-btn bpp-btn-secondary bpp-btn-sm">重试</button>
 </div>
 </section>
-</div>
 </div>
 </div>
 </div>

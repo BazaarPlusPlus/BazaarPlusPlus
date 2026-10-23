@@ -58,7 +58,7 @@ export function LegacyRootDeleteConfirmModal({
       onClose={onClose}
     >
       {afterImport && (
-        <ConfirmNote tone="neutral" icon={<CircleCheck size={15} />}>
+        <ConfirmNote tone="neutral" icon={<CircleCheck size={16} />}>
           <p>
             {t('legacyDeleteAfterImport', {
               imported: afterImport.imported_run_count
@@ -84,11 +84,11 @@ export function LegacyRootDeleteConfirmModal({
       <ConfirmTarget>
         {t('legacyDeleteTarget', { path: targetPath, name })}
       </ConfirmTarget>
-      <ConfirmNote tone="danger" icon={<FolderX size={15} />}>
+      <ConfirmNote tone="danger" icon={<FolderX size={16} />}>
         <p>{t('legacyDeleteConfirmBody', { name })}</p>
         <p>{t('legacyDeleteConfirmSpace')}</p>
       </ConfirmNote>
-      <ConfirmNote tone="neutral" icon={<ShieldCheck size={15} />}>
+      <ConfirmNote tone="neutral" icon={<ShieldCheck size={16} />}>
         <p>{t('legacyDeleteConfirmKeepsCurrent')}</p>
         <p>{t('resetDataConfirmGameClosed')}</p>
       </ConfirmNote>

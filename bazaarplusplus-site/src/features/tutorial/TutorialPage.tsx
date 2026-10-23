@@ -23,14 +23,14 @@ function FeatureCard({
   return (
     <article className="panel flex flex-col gap-3 p-5 sm:p-6">
       <div className="flex items-start justify-between gap-4">
-        <h3 className="text-base leading-snug font-semibold text-text-1">{feature.title}</h3>
-        <span className="shrink-0 text-xs font-medium text-text-3 tabular-nums">
+        <h3 className="text-lg leading-snug font-semibold text-text-1">{feature.title}</h3>
+        <span className="shrink-0 text-sm font-medium text-text-3 tabular-nums">
           {formatStepNumber(index)}
         </span>
       </div>
-      <p className="text-sm whitespace-pre-line text-text-2">{feature.description}</p>
+      <p className="text-[15px] whitespace-pre-line text-text-2">{feature.description}</p>
       {feature.details.length > 0 ? (
-        <ul className="mt-auto flex flex-col gap-2 border-t border-line pt-3 text-sm text-text-2">
+        <ul className="mt-auto flex flex-col gap-2 border-t border-line pt-3 text-[15px] text-text-2">
           {feature.details.map((detail) => (
             <li key={detail} className="flex gap-3">
               <span aria-hidden="true" className="mt-2.5 size-1 shrink-0 rounded-full bg-text-3" />
@@ -56,13 +56,13 @@ function InstallationGuide({ copy }: { copy: TutorialPageCopy['installation'] })
           >
             <span
               aria-hidden="true"
-              className="flex size-6 items-center justify-center rounded-full border border-line-strong text-xs text-text-2 tabular-nums"
+              className="flex size-6 items-center justify-center rounded-full border border-line-strong text-sm text-text-2 tabular-nums"
             >
               {index + 1}
             </span>
             <span className="grid gap-1">
               <span className="font-semibold text-text-1">{step.title}</span>
-              <span className="text-sm text-text-2">{step.description}</span>
+              <span className="text-[15px] text-text-2">{step.description}</span>
             </span>
           </li>
         ))}
@@ -77,7 +77,7 @@ type HotkeyBinding = HotkeyItem['bindings'][number];
 
 function Keycap({ binding }: { binding: HotkeyBinding }) {
   return (
-    <kbd className="inline-flex h-7 max-w-full items-center justify-center rounded-control border border-line-strong bg-canvas px-2 font-sans text-xs font-semibold whitespace-nowrap text-text-1 tabular-nums">
+    <kbd className="inline-flex h-7 max-w-full items-center justify-center rounded-control border border-line-strong bg-canvas px-2 font-sans text-sm font-semibold whitespace-nowrap text-text-1 tabular-nums">
       {binding.key}
     </kbd>
   );
@@ -95,7 +95,7 @@ function HotkeyCard({ item }: { item: HotkeyItem }) {
           <>
             <Keycap binding={primaryBinding} />
             {primaryBinding.action ? (
-              <span className="min-w-0 text-xs font-medium text-text-2">
+              <span className="min-w-0 text-sm font-medium text-text-2">
                 {primaryBinding.action}
               </span>
             ) : null}
@@ -106,9 +106,11 @@ function HotkeyCard({ item }: { item: HotkeyItem }) {
       </div>
       <div className="grid min-w-0 gap-1">
         <h3 className="text-[15px] leading-snug font-semibold text-text-1">{item.title}</h3>
-        <p className="text-sm break-words whitespace-pre-line text-text-2">{item.description}</p>
+        <p className="text-[15px] break-words whitespace-pre-line text-text-2">
+          {item.description}
+        </p>
         {secondaryBindings.length > 0 ? (
-          <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs text-text-3">
+          <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm text-text-3">
             {secondaryBindings.map((binding, index) => (
               <span key={binding.key} className="inline-flex min-w-0 items-center gap-1.5">
                 {index > 0 ? <span aria-hidden="true">·</span> : null}
@@ -132,9 +134,9 @@ function QuickStart({ copy }: { copy: TutorialPageCopy['quickStart'] }) {
           <section key={group.title} className="grid min-w-0 content-start gap-4">
             <header className="grid gap-1">
               <h3 className="text-[15px] font-semibold text-text-1">{group.title}</h3>
-              <p className="text-sm text-text-2">{group.description}</p>
+              <p className="text-[15px] text-text-2">{group.description}</p>
               {group.note ? (
-                <p className="mt-2 w-fit max-w-full rounded-panel border border-line bg-sidebar px-3 py-2 text-xs break-words text-text-2">
+                <p className="mt-2 w-fit max-w-full rounded-panel border border-line bg-sidebar px-3 py-2 text-sm break-words text-text-2">
                   {group.note}
                 </p>
               ) : null}

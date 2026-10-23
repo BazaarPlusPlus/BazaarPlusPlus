@@ -16,6 +16,7 @@ import { settle } from './page';
 // Public icon byte budgets. Raise one only with the reason in the pull request.
 const ICON_BUDGETS: Record<string, number> = {
   'bazaarplusplus-icon.webp': 10_000,
+  'bpp-mark.svg': 1_000,
   'favicon.webp': 5_000,
 };
 
@@ -83,8 +84,9 @@ for (const [route, href] of Object.entries(ROUTES)) {
     entry.icons = Object.fromEntries(Object.entries(entry.icons).sort(byKey));
     report[route] = entry;
 
-    for (const [icon, budget] of Object.entries(ICON_BUDGETS)) {
-      expect(entry.icons[icon], `${icon} transfer bytes on ${href}`).toBeLessThanOrEqual(budget);
+    // Which icons a route loads is pinned by the committed report; each one stays within budget.
+    for (const [icon, bytes] of Object.entries(entry.icons)) {
+      expect(bytes, `${icon} transfer bytes on ${href}`).toBeLessThanOrEqual(ICON_BUDGETS[icon]);
     }
     if (route !== 'heroes') {
       expect(Object.keys(entry.scripts), `${href} must not load the /heroes chunk`).not.toContain(

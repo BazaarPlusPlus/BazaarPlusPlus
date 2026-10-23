@@ -11,8 +11,7 @@ import {
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button, buttonClassName } from '../components/ui/Button';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
-import { EmptyState } from '../components/ui/EmptyState';
-import { LoadingPanel } from '../components/ui/LoadingPanel';
+import { StatusPanel } from '../components/ui/StatusPanel';
 import { PageShell } from '../components/ui/PageShell';
 import { ProblemBanner } from '../components/ui/ProblemBanner';
 import type { HistoryBattleRow } from '../types/backend';
@@ -113,19 +112,18 @@ export default function RunDetail() {
       }
     >
       {page.state.phase === 'initial-loading' ? (
-        <LoadingPanel label={t('runDetailLoading')} className="h-64" />
+        <StatusPanel kind="loading" title={t('runDetailLoading')} />
       ) : page.state.phase === 'not-found' ? (
-        <div role="status" className="bpp-panel">
-          <EmptyState
-            icon={<FileQuestion size={22} />}
-            heading={t('runDetailNotFound')}
-            primaryAction={
-              <Button size="sm" onClick={() => void page.refresh()}>
-                {t('retry')}
-              </Button>
-            }
-          />
-        </div>
+        <StatusPanel
+          kind="not-found"
+          icon={<FileQuestion />}
+          title={t('runDetailNotFound')}
+          actions={
+            <Button size="sm" onClick={() => void page.refresh()}>
+              {t('retry')}
+            </Button>
+          }
+        />
       ) : page.state.phase === 'blocking-failure' ? (
         <RunDetailProblemBanner
           problem={page.state.problem}
@@ -142,7 +140,7 @@ export default function RunDetail() {
 
           {page.state.refresh.phase === 'refreshing' && (
             <p role="status" aria-live="polite" className="bpp-inline-status">
-              <Loader2 size={13} className="bpp-spin" aria-hidden="true" />
+              <Loader2 size={14} className="bpp-spin" aria-hidden="true" />
               {t('runDetailRefreshing')}
             </p>
           )}
@@ -253,11 +251,13 @@ export default function RunDetail() {
                   {detail.battles.length === 0 ? (
                     <tr>
                       <td colSpan={7}>
-                        <EmptyState
-                          icon={<Video size={24} />}
-                          heading={t('noLocalBattles')}
-                          description={t('noLocalBattlesDescription')}
-                          primaryAction={
+                        <StatusPanel
+                          kind="empty"
+                          framed={false}
+                          icon={<Video />}
+                          title={t('noLocalBattles')}
+                          body={t('noLocalBattlesDescription')}
+                          actions={
                             <Button
                               size="sm"
                               onClick={() => void page.refresh()}
@@ -419,7 +419,7 @@ function BattleRow({
         <td>
           {battle.video ? (
             <div className="flex items-center justify-end gap-2">
-              <span className="text-fg-3 tnum text-xs selectable">
+              <span className="text-fg-3 tnum text-sm selectable">
                 {formatDuration(battle.video.duration_ms, locale)} ·{' '}
                 {formatBytes(battle.video.file_size_bytes, locale)}
               </span>
