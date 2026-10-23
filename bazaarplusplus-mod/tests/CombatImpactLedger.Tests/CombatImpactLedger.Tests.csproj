@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <!-- The Combat Impact ledger (ADR-0008) and its tooltip copy, run against Core alone. Needs no
-       game snapshot, so `mod::test` and `mod::test-core` both run it. -->
+  <!-- The Combat Impact ledger (ADR-0008), its tooltip copy, and the native preview fit batch, run
+       against Core alone. Needs no game snapshot, so `mod::test` and `mod::test-core` both run it. -->
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
