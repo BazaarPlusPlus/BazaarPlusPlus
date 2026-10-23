@@ -101,6 +101,19 @@ cmd_mode() {
         disabled) mode=Disabled ;;
         *) die "Usage: just mod::android-mode <enabled|observe|disabled>" ;;
     esac
+    write_setting Android PatchMode "$mode"
+}
+
+# setting <section> <key> <value>: set one key of the device's settings file, keeping every other
+# line, so one feature can be switched for an enabled/disabled capture; the next launch reads it.
+cmd_setting() {
+    [[ $# -eq 3 && "$1" =~ ^[A-Za-z0-9_]+$ && "$2" =~ ^[A-Za-z0-9_]+$ && "$3" =~ ^[A-Za-z0-9_.-]+$ ]] ||
+        die "Usage: just mod::android-setting <section> <key> <value> (letters, digits, _ . -)"
+    write_setting "$1" "$2" "$3"
+}
+
+write_setting() {
+    local section="$1" key="$2" value="$3"
     require_device
     local work
     work="$(mktemp -d)"
@@ -111,25 +124,25 @@ cmd_mode() {
     else
         : >"$work/current.cfg"
     fi
-    awk -v mode="$mode" '
+    awk -v section="$section" -v key="$key" -v value="$value" '
         /^[[:space:]]*\[/ {
-            if (in_android && !done) { print "PatchMode = " mode; print ""; done = 1 }
-            in_android = ($0 ~ /^[[:space:]]*\[Android\][[:space:]]*$/)
+            if (in_section && !done) { print key " = " value; print ""; done = 1 }
+            in_section = ($0 ~ "^[[:space:]]*\\[" section "\\][[:space:]]*$")
         }
-        in_android && /^[[:space:]]*PatchMode[[:space:]]*=/ {
-            print "PatchMode = " mode; done = 1; next
+        in_section && $0 ~ "^[[:space:]]*" key "[[:space:]]*=" {
+            print key " = " value; done = 1; next
         }
         { print }
         END {
             if (!done) {
-                if (!in_android) { print ""; print "[Android]"; print "" }
-                print "PatchMode = " mode
+                if (!in_section) { print ""; print "[" section "]"; print "" }
+                print key " = " value
             }
         }
     ' "$work/current.cfg" >"$work/next.cfg"
     device shell mkdir -p "$(dirname "$SETTINGS_FILE")"
     device push "$work/next.cfg" "$SETTINGS_FILE" >/dev/null
-    ok "PatchMode = $mode on $DEVICE_SERIAL; relaunch to apply."
+    ok "[$section] $key = $value on $DEVICE_SERIAL; relaunch to apply."
 }
 
 # launch: restart the game with an empty logcat buffer, so a capture holds only this run.

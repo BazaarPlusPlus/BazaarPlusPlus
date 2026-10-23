@@ -1,9 +1,16 @@
 using System.Reflection;
 using System.Security.Cryptography;
+using BazaarPlusPlus.Android.GameInterop;
+using BazaarPlusPlus.Android.History;
+using BazaarPlusPlus.Android.Lobby;
 using BazaarPlusPlus.Android.Patches;
+using BazaarPlusPlus.Android.Ui;
+using BazaarPlusPlus.Core.Config;
 using BazaarPlusPlus.Core.Runtime;
+using BazaarPlusPlus.Game.Lobby;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
+using BazaarPlusPlus.Localization;
 using HarmonyLib;
 using MelonLoader;
 using MelonLoader.Utils;
@@ -19,15 +26,20 @@ namespace BazaarPlusPlus.Android.Host;
 /// The Android host entry: LemonLoader loads this MelonMod from <c>MelonLoader/Mods/</c>. Startup
 /// installs the BppLog pipeline over MelonLogger, reads the settings file, logs what a device run
 /// must establish (the loaded DLL, the Data Root candidates, the build-channel probe), starts the
-/// record chain on the Data Root, then applies the patches. Quitting stops the chain, which
-/// settles a pending run completion and drains the queued writes.
+/// record chain on the Data Root, then applies the patches and, in the enabled mode, prepares the
+/// interaction features: the touch UI, the tooltip previews, and the main menu's release check.
+/// Quitting stops the chain, which settles a pending run completion and drains the queued writes.
 /// </summary>
 public sealed class AndroidMod : MelonMod
 {
     private const string SettingsFileName = "BazaarPlusPlus.cfg";
+    private const string MainMenuSceneName = "MainMenuScene";
     private const long SummaryIntervalMs = 15_000;
     private long _nextSummaryAt;
     private AndroidComposition? _composition;
+    private AndroidTouchUi? _touchUi;
+    private AndroidVersionCheck? _versionCheck;
+    private int _labelRevision;
 
     public override void OnInitializeMelon()
     {
@@ -46,12 +58,22 @@ public sealed class AndroidMod : MelonMod
         var serverOption = LogBuildChannelProbe();
         _composition = StartRecordChain(serverOption, settings);
         AndroidPatchHost.Install(HarmonyInstance, mode, version, _composition);
+        if (mode == AndroidPatchMode.Enabled)
+            StartInteraction(settings);
         _nextSummaryAt = Environment.TickCount64 + SummaryIntervalMs;
     }
 
     public override void OnUpdate()
     {
         _composition?.Tick(Time.unscaledTime);
+        _touchUi?.EnsureMounted();
+        _versionCheck?.Tick();
+        var revision = MainMenuVersionUpdateState.Current.Revision;
+        if (revision != _labelRevision)
+        {
+            _labelRevision = revision;
+            VersionLabelPatch.RefreshCurrent();
+        }
         if (Environment.TickCount64 < _nextSummaryAt)
             return;
         _nextSummaryAt = Environment.TickCount64 + SummaryIntervalMs;
@@ -61,9 +83,67 @@ public sealed class AndroidMod : MelonMod
         );
     }
 
-    public override void OnApplicationQuit() => StopRecordChain();
+    public override void OnApplicationQuit() => Stop();
 
-    public override void OnDeinitializeMelon() => StopRecordChain();
+    public override void OnDeinitializeMelon() => Stop();
+
+    private void Stop()
+    {
+        _versionCheck?.Dispose();
+        _versionCheck = null;
+        StopRecordChain();
+    }
+
+    // The interaction features read the shared settings the record chain bound, or bind their
+    // own when the chain did not start. A failure here leaves the hooks and the chain running.
+    private void StartInteraction(IniSettingsStore? settings)
+    {
+        if (settings == null)
+            return;
+        try
+        {
+            var shared = _composition?.Settings ?? new BppSettings(settings);
+            var android = new AndroidSettings(settings);
+            L.Install(
+                ReadGameLanguageCode,
+                () => ChineseScriptConverter.NormalizeMode(shared.ChineseLocaleModeConfig.Value)
+            );
+            AndroidUpgradePreview.IsEnabled = () => android.UpgradePreview.Value;
+            AndroidEnchantPreview.IsEnabled = () =>
+                shared.EnchantPreviewModeConfig.Value == PreviewVisibilityMode.Always;
+            var melonBase = MelonEnvironment.MelonBaseDirectory;
+            _versionCheck = new AndroidVersionCheck(
+                AndroidPaths.InstallRoot(melonBase),
+                AndroidPaths.DataRoot(melonBase),
+                Application.version ?? ""
+            );
+            _touchUi = new AndroidTouchUi(
+                shared,
+                android,
+                _versionCheck,
+                _composition == null ? null : new AndroidHistoryReader(_composition.DatabasePath)
+            );
+        }
+        catch (Exception exception)
+        {
+            BppLog.ErrorEvent(
+                new BppLogEvent(BppLogFeatureScope.Android, "android.interaction.start_failed"),
+                exception
+            );
+        }
+    }
+
+    private static string ReadGameLanguageCode()
+    {
+        try
+        {
+            return Il2Cpp.PlayerPreferences.Data?.LanguageCode ?? string.Empty;
+        }
+        catch
+        {
+            return string.Empty;
+        }
+    }
 
     private void StopRecordChain()
     {
@@ -117,12 +197,25 @@ public sealed class AndroidMod : MelonMod
         }
     }
 
-    public override void OnSceneWasLoaded(int buildIndex, string sceneName) =>
+    public override void OnSceneWasLoaded(int buildIndex, string sceneName)
+    {
         BppLog.InfoEvent(
             new BppLogEvent(BppLogFeatureScope.Android, "android.scene.loaded"),
             ("index", buildIndex),
             ("name", sceneName)
         );
+        try
+        {
+            AndroidUpgradePreview.Release("scene_changed");
+            _touchUi?.OnSceneLoaded();
+            if (sceneName == MainMenuSceneName)
+                _versionCheck?.Begin();
+        }
+        catch (Exception exception)
+        {
+            AndroidPatchHost.ReportProbeError("scene_loaded", exception);
+        }
+    }
 
     private static IniSettingsStore? OpenSettings()
     {

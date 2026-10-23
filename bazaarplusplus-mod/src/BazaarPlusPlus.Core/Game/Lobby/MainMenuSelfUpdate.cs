@@ -66,7 +66,7 @@ public sealed class MainMenuSelfUpdate
             staged: _stager?.IsStaged(latestVersion) == true
         );
         BppLog.InfoEvent(
-            new BppLogEvent(BppLogFeatureScope.SelfUpdate, "self_update.checked"),
+            new BppLogEvent(BppLogFeatureScope.SelfUpdate, "self_update.release.checked"),
             ("current_version", runningVersion),
             ("latest_version", latestVersion),
             ("decision", decision),
@@ -125,7 +125,7 @@ public sealed class MainMenuSelfUpdate
         catch (Exception exception)
         {
             BppLog.WarnEvent(
-                new BppLogEvent(BppLogFeatureScope.SelfUpdate, "self_update.stage_failed"),
+                new BppLogEvent(BppLogFeatureScope.SelfUpdate, "self_update.payload.stage_failed"),
                 exception,
                 ("version", release.Version),
                 ("reason_code", "exception")
@@ -135,13 +135,13 @@ public sealed class MainMenuSelfUpdate
 
         if (result.Succeeded)
             BppLog.InfoEvent(
-                new BppLogEvent(BppLogFeatureScope.SelfUpdate, "self_update.staged"),
+                new BppLogEvent(BppLogFeatureScope.SelfUpdate, "self_update.payload.staged"),
                 ("version", release.Version),
                 ("size", release.Size)
             );
         else
             BppLog.WarnEvent(
-                new BppLogEvent(BppLogFeatureScope.SelfUpdate, "self_update.stage_failed"),
+                new BppLogEvent(BppLogFeatureScope.SelfUpdate, "self_update.payload.stage_failed"),
                 ("version", release.Version),
                 ("reason_code", result.ReasonCode)
             );

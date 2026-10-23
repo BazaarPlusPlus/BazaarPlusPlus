@@ -113,6 +113,8 @@ internal sealed class AndroidComposition
 
     public string DatabasePath { get; }
 
+    public BppSettings Settings => _core.Services.Config;
+
     public IBppEventBus EventBus => _core.Services.EventBus;
 
     public IRunContext RunContext => _core.Services.RunContext;
