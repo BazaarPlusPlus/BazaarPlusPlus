@@ -4,6 +4,7 @@ using BazaarGameShared.Domain.Core.Types;
 using BazaarGameShared.Infra.Messages;
 using BazaarGameShared.Infra.Messages.GameSimEvents;
 using BazaarPlusPlus.GameInterop;
+using BazaarPlusPlus.GameInterop.Cards;
 using BazaarPlusPlus.GameInterop.Heroes;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
@@ -245,10 +246,10 @@ internal sealed class PvpBattleSnapshotCollector
         {
             InstanceId = card.InstanceId.ToString(),
             TemplateId = card.TemplateId.ToString(),
-            Type = card.Type,
-            Size = card.Size,
-            Section = card.Section,
-            Socket = card.LeftSocketId,
+            Type = DesktopCardFacets.CapturedType(card.Type),
+            Size = DesktopCardFacets.CapturedSize(card.Size),
+            Section = DesktopCardFacets.CapturedSection(card.Section),
+            Socket = DesktopCardFacets.CapturedSocket(card.LeftSocketId),
             Name = card.Template?.InternalName,
             Tier = card.Tier.ToString(),
             Enchant = card.GetEnchantment().ToString(),
@@ -445,10 +446,16 @@ internal sealed class PvpBattleSnapshotCollector
             InstanceId = instanceId,
             TemplateId =
                 spawnedCard?.TemplateId ?? existingCard?.TemplateId.ToString() ?? string.Empty,
-            Type = spawnedCard?.Type ?? existingCard?.Type ?? fallbackType ?? default,
-            Size = cardUpdate?.Size ?? existingCard?.Size ?? default,
-            Section = cardUpdate?.Placement?.Section ?? existingCard?.Section,
-            Socket = cardUpdate?.Placement?.Socket ?? existingCard?.LeftSocketId,
+            Type = DesktopCardFacets.CapturedType(
+                spawnedCard?.Type ?? existingCard?.Type ?? fallbackType ?? ECardType.Item
+            ),
+            Size = DesktopCardFacets.CapturedSize(cardUpdate?.Size ?? existingCard?.Size),
+            Section = DesktopCardFacets.CapturedSection(
+                cardUpdate?.Placement?.Section ?? existingCard?.Section
+            ),
+            Socket = DesktopCardFacets.CapturedSocket(
+                cardUpdate?.Placement?.Socket ?? existingCard?.LeftSocketId
+            ),
             Name =
                 existingSkill?.Template?.Localization?.Title?.Text
                 ?? existingCard?.Template?.InternalName,

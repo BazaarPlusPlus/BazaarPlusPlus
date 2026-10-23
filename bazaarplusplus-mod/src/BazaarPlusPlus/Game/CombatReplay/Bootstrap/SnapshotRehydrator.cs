@@ -7,6 +7,7 @@ using BazaarGameShared.Domain.Players;
 using BazaarGameShared.Infra.Messages;
 using BazaarGameShared.Infra.Messages.GameSimEvents;
 using BazaarPlusPlus.Game.PvpBattles;
+using BazaarPlusPlus.GameInterop.Cards;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
 using TheBazaar;
@@ -128,16 +129,16 @@ internal static class SnapshotRehydrator
             var card = Data.GetOrCreateCard(
                 snapshot.InstanceId,
                 snapshot.TemplateId,
-                snapshot.Type
+                DesktopCardFacets.GameType(snapshot.Type)
             );
             if (spawnMessage.Data.Cards.TryGetValue(snapshot.InstanceId, out var simUpdate))
                 card.Update(simUpdate);
 
             ApplySnapshotFallback(card, snapshot);
-            card.Size = snapshot.Size;
+            card.Size = DesktopCardFacets.GameSize(snapshot.Size);
             card.Owner = owner;
-            card.Section = snapshot.Section;
-            card.LeftSocketId = snapshot.Socket;
+            card.Section = DesktopCardFacets.GameSection(snapshot.Section);
+            card.LeftSocketId = DesktopCardFacets.GameSocket(snapshot.Socket);
         }
     }
 
@@ -156,16 +157,16 @@ internal static class SnapshotRehydrator
             var card = Data.GetOrCreateCard(
                 snapshot.InstanceId,
                 snapshot.TemplateId,
-                snapshot.Type
+                DesktopCardFacets.GameType(snapshot.Type)
             );
             if (spawnMessage.Data.Cards.TryGetValue(snapshot.InstanceId, out var simUpdate))
                 card.Update(simUpdate);
 
             ApplySnapshotFallback(card, snapshot);
-            card.Size = snapshot.Size;
+            card.Size = DesktopCardFacets.GameSize(snapshot.Size);
             card.Owner = owner;
-            card.Section = snapshot.Section;
-            card.LeftSocketId = snapshot.Socket;
+            card.Section = DesktopCardFacets.GameSection(snapshot.Section);
+            card.LeftSocketId = DesktopCardFacets.GameSocket(snapshot.Socket);
 
             if (card is SkillCard skillCard)
                 skills.Add(skillCard);

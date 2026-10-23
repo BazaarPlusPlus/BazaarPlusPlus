@@ -27,14 +27,17 @@ public enum PvpCardEnum
 }
 
 /// <summary>
-/// The two reads of PvP evidence only the host can make, because they need the game's types:
-/// the numeric value of a card enum a capture stored by name, and whether a Replay Payload's
-/// message bytes decode as the game's messages.
+/// The reads of PvP evidence only the host can make, because they need the game's types: the
+/// numeric value of a card enum a capture stored by name and the name of one a Bundle carries by
+/// value, and whether a Replay Payload's message bytes decode as the game's messages.
 /// </summary>
 public interface IPvpBattleEvidenceBinding
 {
     /// <summary>The game's value of <paramref name="name"/>; throws for a name the game lacks.</summary>
     int CardEnumValue(PvpCardEnum kind, string name);
+
+    /// <summary>The game's member name of <paramref name="value"/>; false for a value it has no name for.</summary>
+    bool TryCardEnumName(PvpCardEnum kind, int value, out string name);
 
     /// <summary>Throws when a message does not decode with the game's serializer.</summary>
     void VerifyReplay(PvpReplayPayload payload);

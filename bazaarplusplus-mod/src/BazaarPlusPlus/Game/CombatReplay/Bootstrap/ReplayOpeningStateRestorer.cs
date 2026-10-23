@@ -4,6 +4,7 @@ using BazaarGameClient.Domain.Models.Cards;
 using BazaarGameShared.Domain.Core.Types;
 using BazaarGameShared.Infra.Messages;
 using BazaarGameShared.Infra.Messages.GameSimEvents;
+using BazaarPlusPlus.Core.Cards;
 using BazaarPlusPlus.Game.PvpBattles;
 using TheBazaar;
 
@@ -74,7 +75,7 @@ internal static class ReplayOpeningStateRestorer
         return EnumerateHandSnapshots(manifest)
             .Where(snapshot =>
                 snapshot != null
-                && snapshot.Type == ECardType.SocketEffect
+                && snapshot.Type == CardType.SocketEffect
                 && !string.IsNullOrWhiteSpace(snapshot.InstanceId)
             )
             .GroupBy(snapshot => snapshot.InstanceId, StringComparer.Ordinal)

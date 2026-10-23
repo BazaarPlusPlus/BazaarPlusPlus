@@ -72,8 +72,14 @@ internal static class HistoryGhostRecoveryTests
             "Expiry and recovery must be idempotent."
         );
         Check(
-            repository.ListGhostBattles("account-a", GhostBattleFilter.All, false, new()).Rows.Count
-                == 2,
+            repository
+                .ListGhostBattles(
+                    "account-a",
+                    HistoryPanelDataService.RecorderOutcome(GhostBattleFilter.All),
+                    false,
+                    new()
+                )
+                .Rows.Count == 2,
             "Recovered downloads must remain visible despite age."
         );
         Check(
@@ -119,7 +125,12 @@ internal static class HistoryGhostRecoveryTests
             );
         }
         var row = repository
-            .ListGhostBattles("account-a", GhostBattleFilter.All, false, new())
+            .ListGhostBattles(
+                "account-a",
+                HistoryPanelDataService.RecorderOutcome(GhostBattleFilter.All),
+                false,
+                new()
+            )
             .Rows.Single(value => value.BattleId == "recover000");
         try
         {

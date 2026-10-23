@@ -30,5 +30,9 @@ internal static class AndroidCardFacets
 
     public static readonly CardFacetNameMap<EEnchantmentType, CardEnchantment> Enchantment = new();
 
+    public static readonly CardFacetNameMap<EInventorySection, CardSection> Section = new();
+
+    public static readonly CardFacetNameMap<EContainerSocketId, CardSocket> Socket = new();
+
     public static bool IsHeroAvailable(CardHero hero) => Hero.TryToSource(hero, out _);
 }

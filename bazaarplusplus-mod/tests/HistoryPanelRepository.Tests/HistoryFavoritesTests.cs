@@ -33,7 +33,7 @@ internal static class HistoryFavoritesTests
                     opponent_skills_json
                 ) VALUES (
                     'fav-local',
-                    '{"items":[{"template_id":"local-card"}]}',
+                    '{"items":[{"template_id":"local-card","type":"Item","size":"Small"}]}',
                     '{"items":[]}', '{"items":[]}', '{"items":[]}'
                 );
                 INSERT INTO battles (
@@ -70,7 +70,12 @@ internal static class HistoryFavoritesTests
             },
         };
         Check(
-            repository.AddFavorite("fav-ghost", replayCopySaved: false, ghostSnapshots, later),
+            repository.AddFavorite(
+                "fav-ghost",
+                replayCopySaved: false,
+                PvpBattleSnapshotsCodec.ToDocuments(ghostSnapshots),
+                later
+            ),
             "A Ghost battle must become a favorite with the boards from its payload."
         );
 
@@ -96,12 +101,12 @@ internal static class HistoryFavoritesTests
             "A favorite saved without a copy must not offer a replay."
         );
         Check(
-            repository.LoadFavoriteSnapshots("fav-local")?.PlayerHand.Items.Single().TemplateId
+            Snapshots(repository, "fav-local")?.PlayerHand.Items.Single().TemplateId
                 == "local-card",
             "A local favorite must copy its boards from battle_snapshots."
         );
         Check(
-            repository.LoadFavoriteSnapshots("fav-ghost")?.PlayerHand.Items.Single().TemplateId
+            Snapshots(repository, "fav-ghost")?.PlayerHand.Items.Single().TemplateId
                 == "ghost-card",
             "A Ghost favorite must keep the boards it was given."
         );
@@ -155,6 +160,11 @@ internal static class HistoryFavoritesTests
             "Removing twice must report nothing removed."
         );
     }
+
+    private static PvpBattleSnapshots? Snapshots(HistoryPanelRepository repository, string id) =>
+        repository.LoadFavoriteSnapshots(id) is { } documents
+            ? PvpBattleSnapshotsCodec.FromDocuments(documents)
+            : null;
 
     private static bool Throws(Action action)
     {

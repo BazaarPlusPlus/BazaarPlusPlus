@@ -337,9 +337,14 @@ void AssertButtons(
     );
 }
 
+// History's decisions live in Core; its records and pages in Storage.
 Type RequireType(string fullName)
 {
-    return coreAssembly.GetType(fullName, throwOnError: true)!;
+    return coreAssembly.GetType(fullName)
+        ?? typeof(BazaarPlusPlus.Game.HistoryPanel.Data.HistoryRunRecord).Assembly.GetType(
+            fullName,
+            throwOnError: true
+        )!;
 }
 
 object InvokeStatic(Type type, string methodName, params object?[] args)

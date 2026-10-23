@@ -2,10 +2,11 @@
 using System.Collections.Concurrent;
 using System.Reflection;
 using BazaarPlusPlus.Game.HistoryPanel;
+using BazaarPlusPlus.Game.HistoryPanel.AccountLink;
 using BazaarPlusPlus.Game.HistoryPanel.Data;
 using BazaarPlusPlus.Game.HistoryPanel.Ghost;
+using BazaarPlusPlus.Game.HistoryPanel.Storage;
 using BazaarPlusPlus.Game.PvpBattles;
-using BazaarPlusPlus.ModApi.Models;
 
 internal static class GhostDownloadSelectionTests
 {
@@ -46,7 +47,7 @@ internal static class GhostDownloadSelectionTests
             SectionMode = HistorySectionMode.Ghost,
             GhostPage = repository.ListGhostBattles(
                 "account-local",
-                GhostBattleFilter.All,
+                HistoryPanelDataService.RecorderOutcome(GhostBattleFilter.All),
                 false,
                 new()
             ),
@@ -57,7 +58,17 @@ internal static class GhostDownloadSelectionTests
         var b = state.GhostBattles.Single(row => row.BattleId != a.BattleId);
         using var coordinator = new HistoryPanelCoordinator(
             state,
-            new(null!, new(repository, null, () => replays), null!, null, null, null),
+            new(
+                null!,
+                new(repository, null, () => replays),
+                null!,
+                null,
+                null,
+                null,
+                new BazaarDbAccountLinkStore(_ => false, _ => { }),
+                () => 0f,
+                () => null
+            ),
             () => { },
             () => { },
             _ => { }
@@ -138,7 +149,7 @@ internal static class GhostDownloadSelectionTests
             );
     }
 
-    private static GhostBattleImportRecord Import(string id) =>
+    private static GhostBattleImportRow Import(string id) =>
         new()
         {
             BattleId = id,

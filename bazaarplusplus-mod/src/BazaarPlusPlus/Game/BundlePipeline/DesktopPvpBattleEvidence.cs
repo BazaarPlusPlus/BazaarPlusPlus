@@ -24,8 +24,26 @@ internal sealed class DesktopPvpBattleEvidence : IPvpBattleEvidenceBinding
             _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null),
         };
 
+    public bool TryCardEnumName(PvpCardEnum kind, int value, out string name)
+    {
+        name =
+            kind switch
+            {
+                PvpCardEnum.CardType => Name<ECardType>(value),
+                PvpCardEnum.CardSize => Name<ECardSize>(value),
+                PvpCardEnum.InventorySection => Name<EInventorySection>(value),
+                PvpCardEnum.ContainerSocket => Name<EContainerSocketId>(value),
+                _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null),
+            } ?? string.Empty;
+        return name.Length > 0;
+    }
+
     public void VerifyReplay(PvpReplayPayload payload) =>
         _ = new CombatReplayLoader().Load(payload);
+
+    private static string? Name<TEnum>(int value)
+        where TEnum : struct, Enum =>
+        Enum.GetName(typeof(TEnum), Enum.ToObject(typeof(TEnum), value));
 
     // A capture stores an enum by name, or by number for a value the game had no name for.
     private static int Parse<TEnum>(string name)

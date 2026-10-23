@@ -27,6 +27,6 @@
       Exclude="..\..\src\BazaarPlusPlus.Core\Logging\BppLog.cs;..\..\src\BazaarPlusPlus.Core\Logging\IBppLogSink.cs"
       Link="Logging\%(Filename)%(Extension)"
     />
-    <Compile Include="../../src/BazaarPlusPlus/Game/HistoryPanel/AccountLink/AccountLinkLog.cs" />
+    <Compile Include="../../src/BazaarPlusPlus.Core/Game/HistoryPanel/AccountLink/AccountLinkLog.cs" />
   </ItemGroup>
 </Project>

@@ -2,9 +2,9 @@ using System.Net;
 using System.Text;
 using System.Text.Json.Nodes;
 using BazaarGameShared;
-using BazaarGameShared.Domain.Core.Types;
 using BazaarGameShared.Infra.Messages;
 using BazaarGameShared.Infra.Messages.GameSimEvents;
+using BazaarPlusPlus.Core.Cards;
 using BazaarPlusPlus.Core.Config;
 using BazaarPlusPlus.Core.Events;
 using BazaarPlusPlus.Core.GameState;
@@ -450,7 +450,7 @@ static void ExpectSqliteConstraint(Action action, string message)
 static PvpBattleCardSetCapture CapturedEmpty() =>
     new() { Status = PvpBattleCaptureStatus.CapturedEmpty };
 
-static PvpBattleCardSetCapture Captured(params ECardType[] types) =>
+static PvpBattleCardSetCapture Captured(params CardType[] types) =>
     new()
     {
         Status = PvpBattleCaptureStatus.Captured,
@@ -484,8 +484,8 @@ static async Task VerifyRunSegmentProjectionAsync(string root)
         minute: 0,
         new PvpBattleSnapshots
         {
-            PlayerHand = Captured(ECardType.Item, ECardType.SocketEffect, ECardType.Item),
-            PlayerSkills = Captured(ECardType.Skill),
+            PlayerHand = Captured(CardType.Item, CardType.SocketEffect, CardType.Item),
+            PlayerSkills = Captured(CardType.Skill),
             OpponentHand = CapturedEmpty(),
             OpponentSkills = new PvpBattleCardSetCapture
             {

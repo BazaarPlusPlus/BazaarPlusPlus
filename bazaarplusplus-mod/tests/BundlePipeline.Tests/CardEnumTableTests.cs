@@ -31,9 +31,20 @@ internal static class CardEnumTableTests
             $"{gameEnum.Name} members match {CardEnumFixture}."
         );
         foreach (var (name, value) in expected)
+        {
             Check.That(
                 DesktopPvpBattleEvidence.Instance.CardEnumValue(kind, name) == value,
                 $"{gameEnum.Name}.{name} is {value} on the desktop."
             );
+            Check.That(
+                DesktopPvpBattleEvidence.Instance.TryCardEnumName(kind, value, out var read)
+                    && read == name,
+                $"{gameEnum.Name} {value} is named {name} on the desktop."
+            );
+        }
+        Check.That(
+            !DesktopPvpBattleEvidence.Instance.TryCardEnumName(PvpCardEnum.CardSize, 0, out _),
+            "The game's size 0 has no name on the desktop."
+        );
     }
 }

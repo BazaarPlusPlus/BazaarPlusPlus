@@ -3,25 +3,28 @@ using BazaarPlusPlus.Game.CombatReplay;
 using BazaarPlusPlus.Game.CombatReplay.Video;
 using BazaarPlusPlus.Game.HistoryPanel.Data;
 using BazaarPlusPlus.Game.HistoryPanel.Ghost;
-using BazaarPlusPlus.GameInterop;
 using BazaarPlusPlus.Infrastructure;
 
 namespace BazaarPlusPlus.Game.HistoryPanel;
 
-internal sealed class HistoryPanelReplayService
+internal sealed class HistoryPanelReplayService : IHistoryPanelReplay
 {
     private readonly Func<CombatReplayRuntime?> _runtimeAccessor;
     private readonly string _replayDirectoryPath;
     private readonly string _videoDirectoryPath;
     private readonly GhostBattleSyncService? _ghostSyncService;
+    private readonly Func<string?> _profileAccountId;
 
     public HistoryPanelReplayService(
         Func<CombatReplayRuntime?> runtimeAccessor,
         string replayDirectoryPath,
         string videoDirectoryPath,
+        Func<string?> profileAccountId,
         GhostBattleSyncService? ghostSyncService = null
     )
     {
+        _profileAccountId =
+            profileAccountId ?? throw new ArgumentNullException(nameof(profileAccountId));
         _runtimeAccessor =
             runtimeAccessor ?? throw new ArgumentNullException(nameof(runtimeAccessor));
         // Paths are startup-stable strings (no Func wrappers). Null coalesces to empty so
@@ -52,7 +55,7 @@ internal sealed class HistoryPanelReplayService
         return CanRecordReplay(battle, out reason, out _);
     }
 
-    internal bool CanRecordReplay(
+    public bool CanRecordReplay(
         HistoryBattleRecord? battle,
         out string reason,
         out HistoryPanelReplayReasonCode reasonCode
@@ -77,12 +80,10 @@ internal sealed class HistoryPanelReplayService
         return true;
     }
 
-    // The recording half of CanRecordReplay, for a replay whose availability the caller checked
-    // (a favorite replays from its own copy, not from the battle's saved payload).
-    internal bool CanRecordLoadedReplay(out string reason) =>
+    public bool CanRecordLoadedReplay(out string reason) =>
         CanRecordLoadedReplay(out reason, out _);
 
-    internal bool CanRecordLoadedReplay(
+    public bool CanRecordLoadedReplay(
         out string reason,
         out HistoryPanelReplayReasonCode reasonCode
     )
@@ -203,7 +204,7 @@ internal sealed class HistoryPanelReplayService
 
         var loaded = await LoadGhostReplayAsync(
             battle,
-            BppClientCacheBridge.TryGetProfileAccountId()?.Trim() ?? string.Empty,
+            _profileAccountId()?.Trim() ?? string.Empty,
             cancellationToken
         );
         if (loaded.Payload == null)
@@ -231,7 +232,7 @@ internal sealed class HistoryPanelReplayService
 
     // Downloads the Ghost replay when needed and loads its manifest and payload, checked against
     // the account that owns the Ghost row. Payload is null exactly when Failure says why.
-    internal async Task<GhostReplayLoad> LoadGhostReplayAsync(
+    public async Task<GhostReplayLoad> LoadGhostReplayAsync(
         HistoryBattleRecord battle,
         string account,
         CancellationToken cancellationToken
@@ -388,47 +389,4 @@ internal sealed class HistoryPanelReplayService
             return new ReplayPayloadCleanupResult(battleIds.Count, ex);
         }
     }
-}
-
-internal readonly struct HistoryPanelReplayAttemptResult
-{
-    private HistoryPanelReplayAttemptResult(
-        bool succeeded,
-        string statusMessage,
-        HistoryPanelReplayReasonCode reasonCode,
-        Exception? exception
-    )
-    {
-        Succeeded = succeeded;
-        StatusMessage = statusMessage;
-        ReasonCode = reasonCode;
-        Exception = exception;
-    }
-
-    public bool Succeeded { get; }
-
-    public string StatusMessage { get; }
-    public HistoryPanelReplayReasonCode ReasonCode { get; }
-    public Exception? Exception { get; }
-
-    public static HistoryPanelReplayAttemptResult Success(string statusMessage) =>
-        new(true, statusMessage, HistoryPanelReplayReasonCode.Completed, null);
-
-    public static HistoryPanelReplayAttemptResult Failure(
-        string statusMessage,
-        HistoryPanelReplayReasonCode reasonCode,
-        Exception? exception = null
-    ) => new(false, statusMessage, reasonCode, exception);
-}
-
-internal readonly record struct GhostReplayLoad(
-    GhostBattlePayload? Payload,
-    HistoryPanelReplayAttemptResult Failure
-)
-{
-    internal static GhostReplayLoad Failed(
-        string message,
-        HistoryPanelReplayReasonCode reasonCode,
-        Exception? exception = null
-    ) => new(null, HistoryPanelReplayAttemptResult.Failure(message, reasonCode, exception));
 }

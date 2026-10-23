@@ -6,20 +6,12 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <!-- History's Storage SQL and Core services, which bring Storage and SQLite with them. -->
   <ItemGroup>
-    <ProjectReference Include="../../src/BazaarPlusPlus/BazaarPlusPlus.csproj" />
+    <ProjectReference Include="../../src/BazaarPlusPlus.Core/BazaarPlusPlus.Core.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <Compile Include="../Shared/LocalizationTestBootstrap.cs" Link="LocalizationTestBootstrap.cs" />
-    <Compile
-      Include="../BundleQueueSqliteStore.Tests/BundleSealEligibilityCases.cs"
-      Link="BundleSealEligibilityCases.cs"
-    />
-    <None
-      Include="../BundleQueueSqliteStore.Tests/fixtures/bundle-seal-eligibility.json"
-      Link="fixtures/bundle-seal-eligibility.json"
-      CopyToOutputDirectory="PreserveNewest"
-    />
   </ItemGroup>
 </Project>

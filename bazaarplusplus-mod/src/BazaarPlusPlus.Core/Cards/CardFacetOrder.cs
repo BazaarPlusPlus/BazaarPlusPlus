@@ -55,4 +55,21 @@ public static class CardFacetOrder
             CardSize.Large => 2,
             _ => 99,
         };
+
+    // Board order, left to right: Socket_0 first.
+    public static int SocketRank(CardSocket socket) =>
+        socket switch
+        {
+            CardSocket.Socket_0 => 0,
+            CardSocket.Socket_1 => 1,
+            CardSocket.Socket_2 => 2,
+            CardSocket.Socket_3 => 3,
+            CardSocket.Socket_4 => 4,
+            CardSocket.Socket_5 => 5,
+            CardSocket.Socket_6 => 6,
+            CardSocket.Socket_7 => 7,
+            CardSocket.Socket_8 => 8,
+            CardSocket.Socket_9 => 9,
+            _ => 99,
+        };
 }

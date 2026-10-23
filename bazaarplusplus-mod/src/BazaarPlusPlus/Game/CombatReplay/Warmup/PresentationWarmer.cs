@@ -1,8 +1,10 @@
 #nullable enable
 using System.Diagnostics;
 using BazaarGameShared.Domain.Core.Types;
+using BazaarPlusPlus.Core.Cards;
 using BazaarPlusPlus.Game.PvpBattles;
 using BazaarPlusPlus.GameInterop.AssetLoading;
+using BazaarPlusPlus.GameInterop.Cards;
 using TheBazaar;
 using TheBazaar.AppFramework;
 using UnityEngine;
@@ -94,8 +96,9 @@ internal static class PresentationWarmer
             if (!Guid.TryParse(snapshot.TemplateId, out var templateId))
                 continue;
 
-            var key = $"{templateId:N}:{snapshot.Size}";
-            preloadRequests.TryAdd(key, (templateId, snapshot.Size));
+            var size = DesktopCardFacets.GameSize(snapshot.Size);
+            var key = $"{templateId:N}:{size}";
+            preloadRequests.TryAdd(key, (templateId, size));
         }
 
         var cardSemaphore = new SemaphoreSlim(WarmupConstants.ReplayWarmupConcurrency);
@@ -201,7 +204,7 @@ internal static class PresentationWarmer
 
             foreach (var snapshot in capture.Items)
             {
-                if (snapshot?.Type == ECardType.Item)
+                if (snapshot?.Type == CardType.Item)
                     yield return snapshot;
             }
         }
